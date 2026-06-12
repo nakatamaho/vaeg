@@ -1,15 +1,15 @@
 
-�@HPC���� GX�֐��B
+　HPC向け GX関数。
 
-�@�EWINDOW_WIDTH,WINDOW_HEIGHT�Ŏw�肳�ꂽ�T�C�Y��Ԃ��܂��B
-�@�@���̎� ������傫����ʃT�C�Y�ł���� Window���[�h�ɂȂ�܂��B
-�@�@�ȉ��ł���� �t���X�N���[���ƂȂ�܂��B
+　・WINDOW_WIDTH,WINDOW_HEIGHTで指定されたサイズを返します。
+　　この時 これより大きい画面サイズであれば Windowモードになります。
+　　以下であれば フルスクリーンとなります。
 
-�@�E�t���X�N���[���̏ꍇ �Z���^�����O����܂��B
-�@�@���̈� �}�E�X�C�x���g���t�b�N���Ă��܂��B
+　・フルスクリーンの場合 センタリングされます。
+　　この為 マウスイベントをフックしています。
 
-�@�EWin32�Ŏg����̂� �f�o�O�ɂ��g���܂��B
+　・Win32で使えるので デバグにも使えます。
 
-�@�E�Ugx.dll�ɂ���悤�� ��ʂ̉�]�͍l���Ă��܂���B
-�@�@�A�v���P�[�V�������ŏ�������K�v������܂��B
+　・偽gx.dllにあるような 画面の回転は考えていません。
+　　アプリケーション側で処理する必要があります。
 

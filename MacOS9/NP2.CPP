@@ -125,7 +125,7 @@ static int flagload(const char *ext, BOOL force) {
 #endif
 
 
-// ---- ‚¨‚Ü‚¶‚È‚¢
+// ---- ãŠã¾ã˜ãªã„
 
 #if TARGET_CARBON
 #define	AEProc(fn)	NewAEEventHandlerUPP((AEEventHandlerProcPtr)(fn))

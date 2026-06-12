@@ -487,7 +487,7 @@ static void pc9861cmddipsw(HWND hWnd) {
 	p.y += rect2.top - rect1.top;
 	p.x /= 9;
 	p.y /= 9;
-	if ((p.y >= 1) && (p.y < 3)) {					// 1’i–Ú
+	if ((p.y >= 1) && (p.y < 3)) {					// 1æ®µç›®
 		if ((p.x >= 1) && (p.x < 7)) {				// S1
 			pc9861_s[0] ^= (1 << (p.x - 1));
 			pc9861setmode(hWnd, pc9861mode);
@@ -502,7 +502,7 @@ static void pc9861cmddipsw(HWND hWnd) {
 			pc9861setmode(hWnd, pc9861mode+1);
 		}
 	}
-	else if ((p.y >= 4) && (p.y < 6)) {				// 2’i–Ú
+	else if ((p.y >= 4) && (p.y < 6)) {				// 2æ®µç›®
 		if ((p.x >= 1) && (p.x < 7)) {				// J1
 			pc9861_j[0] ^= (1 << (p.x - 1));
 		}
@@ -513,7 +513,7 @@ static void pc9861cmddipsw(HWND hWnd) {
 			pc9861_j[2] = (1 << (p.x - 17));
 		}
 	}
-	else if ((p.y >= 7) && (p.y < 9)) {				// 3’i–Ú
+	else if ((p.y >= 7) && (p.y < 9)) {				// 3æ®µç›®
 		if ((p.x >= 1) && (p.x < 9)) {				// J4
 			bit = (1 << (p.x - 1));
 			if (pc9861_j[3] == bit) {

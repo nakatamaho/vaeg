@@ -984,7 +984,7 @@
 						>
 						<Tool
 							Name="VCCustomBuildTool"
-							Description="±¾ÝÌÞÙ’†... $(InputPath)"
+							Description="ï½±ï½¾ï¾ï¾Œï¾žï¾™ä¸­... $(InputPath)"
 							CommandLine="nasm -f win32 $(InputPath) -o $(IntDir)\$(InputName).obj&#x0D;&#x0A;"
 							Outputs="$(IntDir)\$(InputName).obj"
 						/>
@@ -994,7 +994,7 @@
 						>
 						<Tool
 							Name="VCCustomBuildTool"
-							Description="±¾ÝÌÞÙ’†... $(InputPath)"
+							Description="ï½±ï½¾ï¾ï¾Œï¾žï¾™ä¸­... $(InputPath)"
 							CommandLine="nasm -f win32 $(InputPath) -o $(IntDir)\$(InputName).obj&#x0D;&#x0A;"
 							Outputs="$(IntDir)\$(InputName).obj"
 						/>
@@ -1004,7 +1004,7 @@
 						>
 						<Tool
 							Name="VCCustomBuildTool"
-							Description="±¾ÝÌÞÙ’†... $(InputPath)"
+							Description="ï½±ï½¾ï¾ï¾Œï¾žï¾™ä¸­... $(InputPath)"
 							CommandLine="nasm -f win32 $(InputPath) -o $(IntDir)\$(InputName).obj&#x0D;&#x0A;"
 							Outputs="$(IntDir)\$(InputName).obj"
 						/>
@@ -1014,7 +1014,7 @@
 						>
 						<Tool
 							Name="VCCustomBuildTool"
-							Description="±¾ÝÌÞÙ’†... $(InputPath)"
+							Description="ï½±ï½¾ï¾ï¾Œï¾žï¾™ä¸­... $(InputPath)"
 							CommandLine="nasm -f win32 $(InputPath) -o $(IntDir)\$(InputName).obj&#x0D;&#x0A;"
 							Outputs="$(IntDir)\$(InputName).obj"
 						/>
@@ -1192,7 +1192,7 @@
 						>
 						<Tool
 							Name="VCCustomBuildTool"
-							Description="±¾ÝÌÞÙ’†... $(InputPath)"
+							Description="ï½±ï½¾ï¾ï¾Œï¾žï¾™ä¸­... $(InputPath)"
 							CommandLine="nasm -f win32 $(InputPath) -o $(IntDir)\$(InputName).obj&#x0D;&#x0A;"
 							Outputs="$(IntDir)\$(InputName).obj"
 						/>
@@ -1202,7 +1202,7 @@
 						>
 						<Tool
 							Name="VCCustomBuildTool"
-							Description="±¾ÝÌÞÙ’†... $(InputPath)"
+							Description="ï½±ï½¾ï¾ï¾Œï¾žï¾™ä¸­... $(InputPath)"
 							CommandLine="nasm -f win32 $(InputPath) -o $(IntDir)\$(InputName).obj&#x0D;&#x0A;"
 							Outputs="$(IntDir)\$(InputName).obj"
 						/>
@@ -1212,7 +1212,7 @@
 						>
 						<Tool
 							Name="VCCustomBuildTool"
-							Description="±¾ÝÌÞÙ’†... $(InputPath)"
+							Description="ï½±ï½¾ï¾ï¾Œï¾žï¾™ä¸­... $(InputPath)"
 							CommandLine="nasm -f win32 $(InputPath) -o $(IntDir)\$(InputName).obj&#x0D;&#x0A;"
 							Outputs="$(IntDir)\$(InputName).obj"
 						/>
@@ -1222,7 +1222,7 @@
 						>
 						<Tool
 							Name="VCCustomBuildTool"
-							Description="±¾ÝÌÞÙ’†... $(InputPath)"
+							Description="ï½±ï½¾ï¾ï¾Œï¾žï¾™ä¸­... $(InputPath)"
 							CommandLine="nasm -f win32 $(InputPath) -o $(IntDir)\$(InputName).obj&#x0D;&#x0A;"
 							Outputs="$(IntDir)\$(InputName).obj"
 						/>
@@ -1236,7 +1236,7 @@
 						>
 						<Tool
 							Name="VCCustomBuildTool"
-							Description="±¾ÝÌÞÙ’†... $(InputPath)"
+							Description="ï½±ï½¾ï¾ï¾Œï¾žï¾™ä¸­... $(InputPath)"
 							CommandLine="nasm -f win32 $(InputPath) -o $(IntDir)\$(InputName).obj&#x0D;&#x0A;"
 							Outputs="$(IntDir)\$(InputName).obj"
 						/>
@@ -1246,7 +1246,7 @@
 						>
 						<Tool
 							Name="VCCustomBuildTool"
-							Description="±¾ÝÌÞÙ’†... $(InputPath)"
+							Description="ï½±ï½¾ï¾ï¾Œï¾žï¾™ä¸­... $(InputPath)"
 							CommandLine="nasm -f win32 $(InputPath) -o $(IntDir)\$(InputName).obj&#x0D;&#x0A;"
 							Outputs="$(IntDir)\$(InputName).obj"
 						/>
@@ -1256,7 +1256,7 @@
 						>
 						<Tool
 							Name="VCCustomBuildTool"
-							Description="±¾ÝÌÞÙ’†... $(InputPath)"
+							Description="ï½±ï½¾ï¾ï¾Œï¾žï¾™ä¸­... $(InputPath)"
 							CommandLine="nasm -f win32 $(InputPath) -o $(IntDir)\$(InputName).obj&#x0D;&#x0A;"
 							Outputs="$(IntDir)\$(InputName).obj"
 						/>
@@ -1266,7 +1266,7 @@
 						>
 						<Tool
 							Name="VCCustomBuildTool"
-							Description="±¾ÝÌÞÙ’†... $(InputPath)"
+							Description="ï½±ï½¾ï¾ï¾Œï¾žï¾™ä¸­... $(InputPath)"
 							CommandLine="nasm -f win32 $(InputPath) -o $(IntDir)\$(InputName).obj&#x0D;&#x0A;"
 							Outputs="$(IntDir)\$(InputName).obj"
 						/>
@@ -1480,7 +1480,7 @@
 						>
 						<Tool
 							Name="VCCustomBuildTool"
-							Description="±¾ÝÌÞÙ’†... $(InputPath)"
+							Description="ï½±ï½¾ï¾ï¾Œï¾žï¾™ä¸­... $(InputPath)"
 							CommandLine="nasm -f win32 $(InputPath) -o $(IntDir)\$(InputName).obj&#x0D;&#x0A;"
 							Outputs="$(IntDir)\$(InputName).obj"
 						/>
@@ -1490,7 +1490,7 @@
 						>
 						<Tool
 							Name="VCCustomBuildTool"
-							Description="±¾ÝÌÞÙ’†... $(InputPath)"
+							Description="ï½±ï½¾ï¾ï¾Œï¾žï¾™ä¸­... $(InputPath)"
 							CommandLine="nasm -f win32 $(InputPath) -o $(IntDir)\$(InputName).obj&#x0D;&#x0A;"
 							Outputs="$(IntDir)\$(InputName).obj"
 						/>
@@ -1500,7 +1500,7 @@
 						>
 						<Tool
 							Name="VCCustomBuildTool"
-							Description="±¾ÝÌÞÙ’†... $(InputPath)"
+							Description="ï½±ï½¾ï¾ï¾Œï¾žï¾™ä¸­... $(InputPath)"
 							CommandLine="nasm -f win32 $(InputPath) -o $(IntDir)\$(InputName).obj&#x0D;&#x0A;"
 							Outputs="$(IntDir)\$(InputName).obj"
 						/>
@@ -1510,7 +1510,7 @@
 						>
 						<Tool
 							Name="VCCustomBuildTool"
-							Description="±¾ÝÌÞÙ’†... $(InputPath)"
+							Description="ï½±ï½¾ï¾ï¾Œï¾žï¾™ä¸­... $(InputPath)"
 							CommandLine="nasm -f win32 $(InputPath) -o $(IntDir)\$(InputName).obj&#x0D;&#x0A;"
 							Outputs="$(IntDir)\$(InputName).obj"
 						/>
@@ -2412,7 +2412,7 @@
 						>
 						<Tool
 							Name="VCCustomBuildTool"
-							Description="±¾ÝÌÞÙ’†... $(InputPath)"
+							Description="ï½±ï½¾ï¾ï¾Œï¾žï¾™ä¸­... $(InputPath)"
 							CommandLine="nasm -f win32 $(InputPath) -o $(IntDir)\$(InputName).obj -l $(IntDir)\$(InputName).cod&#x0D;&#x0A;"
 							Outputs="$(IntDir)\$(InputName).obj"
 						/>
@@ -2422,7 +2422,7 @@
 						>
 						<Tool
 							Name="VCCustomBuildTool"
-							Description="±¾ÝÌÞÙ’†... $(InputPath)"
+							Description="ï½±ï½¾ï¾ï¾Œï¾žï¾™ä¸­... $(InputPath)"
 							CommandLine="nasm -f win32 $(InputPath) -o $(IntDir)\$(InputName).obj&#x0D;&#x0A;"
 							Outputs="$(IntDir)\$(InputName).obj"
 						/>
@@ -2432,7 +2432,7 @@
 						>
 						<Tool
 							Name="VCCustomBuildTool"
-							Description="±¾ÝÌÞÙ’†... $(InputPath)"
+							Description="ï½±ï½¾ï¾ï¾Œï¾žï¾™ä¸­... $(InputPath)"
 							CommandLine="nasm -f win32 $(InputPath) -o $(IntDir)\$(InputName).obj -l $(IntDir)\$(InputName).cod&#x0D;&#x0A;"
 							Outputs="$(IntDir)\$(InputName).obj"
 						/>
@@ -2442,7 +2442,7 @@
 						>
 						<Tool
 							Name="VCCustomBuildTool"
-							Description="±¾ÝÌÞÙ’†... $(InputPath)"
+							Description="ï½±ï½¾ï¾ï¾Œï¾žï¾™ä¸­... $(InputPath)"
 							CommandLine="nasm -f win32 $(InputPath) -o $(IntDir)\$(InputName).obj&#x0D;&#x0A;"
 							Outputs="$(IntDir)\$(InputName).obj"
 						/>
@@ -4240,7 +4240,7 @@
 						>
 						<Tool
 							Name="VCCustomBuildTool"
-							Description="±¾ÝÌÞÙ’†... $(InputPath)"
+							Description="ï½±ï½¾ï¾ï¾Œï¾žï¾™ä¸­... $(InputPath)"
 							CommandLine="nasm -f win32 $(InputPath) -o $(IntDir)\$(InputName).obj&#x0D;&#x0A;"
 							Outputs="$(IntDir)\$(InputName).obj"
 						/>
@@ -4250,7 +4250,7 @@
 						>
 						<Tool
 							Name="VCCustomBuildTool"
-							Description="±¾ÝÌÞÙ’†... $(InputPath)"
+							Description="ï½±ï½¾ï¾ï¾Œï¾žï¾™ä¸­... $(InputPath)"
 							CommandLine="nasm -f win32 $(InputPath) -o $(IntDir)\$(InputName).obj&#x0D;&#x0A;"
 							Outputs="$(IntDir)\$(InputName).obj"
 						/>
@@ -4260,7 +4260,7 @@
 						>
 						<Tool
 							Name="VCCustomBuildTool"
-							Description="±¾ÝÌÞÙ’†... $(InputPath)"
+							Description="ï½±ï½¾ï¾ï¾Œï¾žï¾™ä¸­... $(InputPath)"
 							CommandLine="nasm -f win32 $(InputPath) -o $(IntDir)\$(InputName).obj&#x0D;&#x0A;"
 							Outputs="$(IntDir)\$(InputName).obj"
 						/>
@@ -4270,7 +4270,7 @@
 						>
 						<Tool
 							Name="VCCustomBuildTool"
-							Description="±¾ÝÌÞÙ’†... $(InputPath)"
+							Description="ï½±ï½¾ï¾ï¾Œï¾žï¾™ä¸­... $(InputPath)"
 							CommandLine="nasm -f win32 $(InputPath) -o $(IntDir)\$(InputName).obj&#x0D;&#x0A;"
 							Outputs="$(IntDir)\$(InputName).obj"
 						/>
@@ -4324,7 +4324,7 @@
 						>
 						<Tool
 							Name="VCCustomBuildTool"
-							Description="±¾ÝÌÞÙ’†... $(InputPath)"
+							Description="ï½±ï½¾ï¾ï¾Œï¾žï¾™ä¸­... $(InputPath)"
 							CommandLine="nasm -f win32 $(InputPath) -o $(IntDir)\$(InputName).obj&#x0D;&#x0A;"
 							Outputs="$(IntDir)\$(InputName).obj"
 						/>
@@ -4334,7 +4334,7 @@
 						>
 						<Tool
 							Name="VCCustomBuildTool"
-							Description="±¾ÝÌÞÙ’†... $(InputPath)"
+							Description="ï½±ï½¾ï¾ï¾Œï¾žï¾™ä¸­... $(InputPath)"
 							CommandLine="nasm -f win32 $(InputPath) -o $(IntDir)\$(InputName).obj&#x0D;&#x0A;"
 							Outputs="$(IntDir)\$(InputName).obj"
 						/>
@@ -4344,7 +4344,7 @@
 						>
 						<Tool
 							Name="VCCustomBuildTool"
-							Description="±¾ÝÌÞÙ’†... $(InputPath)"
+							Description="ï½±ï½¾ï¾ï¾Œï¾žï¾™ä¸­... $(InputPath)"
 							CommandLine="nasm -f win32 $(InputPath) -o $(IntDir)\$(InputName).obj&#x0D;&#x0A;"
 							Outputs="$(IntDir)\$(InputName).obj"
 						/>
@@ -4354,7 +4354,7 @@
 						>
 						<Tool
 							Name="VCCustomBuildTool"
-							Description="±¾ÝÌÞÙ’†... $(InputPath)"
+							Description="ï½±ï½¾ï¾ï¾Œï¾žï¾™ä¸­... $(InputPath)"
 							CommandLine="nasm -f win32 $(InputPath) -o $(IntDir)\$(InputName).obj&#x0D;&#x0A;"
 							Outputs="$(IntDir)\$(InputName).obj"
 						/>
@@ -8264,7 +8264,7 @@
 						>
 						<Tool
 							Name="VCCustomBuildTool"
-							Description="±¾ÝÌÞÙ’†... $(InputPath)"
+							Description="ï½±ï½¾ï¾ï¾Œï¾žï¾™ä¸­... $(InputPath)"
 							CommandLine="nasm -f win32 $(InputPath) -o $(IntDir)\$(InputName).obj&#x0D;&#x0A;"
 							Outputs="$(IntDir)\$(InputName).obj"
 						/>
@@ -8274,7 +8274,7 @@
 						>
 						<Tool
 							Name="VCCustomBuildTool"
-							Description="±¾ÝÌÞÙ’†... $(InputPath)"
+							Description="ï½±ï½¾ï¾ï¾Œï¾žï¾™ä¸­... $(InputPath)"
 							CommandLine="nasm -f win32 $(InputPath) -o $(IntDir)\$(InputName).obj&#x0D;&#x0A;"
 							Outputs="$(IntDir)\$(InputName).obj"
 						/>
@@ -8284,7 +8284,7 @@
 						>
 						<Tool
 							Name="VCCustomBuildTool"
-							Description="±¾ÝÌÞÙ’†... $(InputPath)"
+							Description="ï½±ï½¾ï¾ï¾Œï¾žï¾™ä¸­... $(InputPath)"
 							CommandLine="nasm -f win32 $(InputPath) -o $(IntDir)\$(InputName).obj&#x0D;&#x0A;"
 							Outputs="$(IntDir)\$(InputName).obj"
 						/>
@@ -8294,7 +8294,7 @@
 						>
 						<Tool
 							Name="VCCustomBuildTool"
-							Description="±¾ÝÌÞÙ’†... $(InputPath)"
+							Description="ï½±ï½¾ï¾ï¾Œï¾žï¾™ä¸­... $(InputPath)"
 							CommandLine="nasm -f win32 $(InputPath) -o $(IntDir)\$(InputName).obj&#x0D;&#x0A;"
 							Outputs="$(IntDir)\$(InputName).obj"
 						/>
@@ -9200,7 +9200,7 @@
 						>
 						<Tool
 							Name="VCCustomBuildTool"
-							Description="±¾ÝÌÞÙ’†... $(InputPath)"
+							Description="ï½±ï½¾ï¾ï¾Œï¾žï¾™ä¸­... $(InputPath)"
 							CommandLine="nasm -f win32 $(InputPath) -o $(IntDir)\$(InputName).obj&#x0D;&#x0A;"
 							Outputs="$(IntDir)\$(InputName).obj"
 						/>
@@ -9210,7 +9210,7 @@
 						>
 						<Tool
 							Name="VCCustomBuildTool"
-							Description="±¾ÝÌÞÙ’†... $(InputPath)"
+							Description="ï½±ï½¾ï¾ï¾Œï¾žï¾™ä¸­... $(InputPath)"
 							CommandLine="nasm -f win32 $(InputPath) -o $(IntDir)\$(InputName).obj&#x0D;&#x0A;"
 							Outputs="$(IntDir)\$(InputName).obj"
 						/>

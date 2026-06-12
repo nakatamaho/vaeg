@@ -1,225 +1,225 @@
 
-�@Neko Project II
+　Neko Project II
                                        NP2 developer team, 1999-2001,2003,2004
 
 
 
-�E�T�v
+・概要
 
-�@�@PC-9801VX21���x�[�X�Ƃ��āAPC-9801�V���[�Y�̎�v�ȋ@�\���\�t�g�E�F�A��
-�@�@�Č�����G�~�����[�^�ł��B
+　　PC-9801VX21をベースとして、PC-9801シリーズの主要な機能をソフトウェアで
+　　再現するエミュレータです。
 
-�@�@�˂��[�v���W�F�N�gII���Č�����̂� PC-9801�V���[�Y�̕W���I�ȃn�[�h�E�F�A��
-�@�@�ꕔ��BIOS��C�o�X�f�o�C�X�݂̂ł��B
-�@�@���̂��߁AMS-DOS���͓��삵�܂����AN88-BASIC��LIO����ROM���g�p������̂�
-�@�@�W���œ��삵�܂���B�����𓮍삳���邽�߂ɂ͎��@��� ROM���擾����K�v��
-�@�@����܂��B
-
-
-
-�E���������
-
-�@�@G3�ȏ�̃v���Z�b�T
-�@�@MacOS9/MacOSX (Carbon�ł�carbonlib1.00)
+　　ねこープロジェクトIIが再現するのは PC-9801シリーズの標準的なハードウェアと
+　　一部のBIOSとCバスデバイスのみです。
+　　このため、MS-DOS等は動作しますが、N88-BASICやLIO等のROMを使用するものは
+　　標準で動作しません。これらを動作させるためには実機より ROMを取得する必要が
+　　あります。
 
 
 
-�E�g�p���@
+・推奨動作環境
 
-�@�@�˂��[�v���W�F�N�gII���g���ɂ� �t���b�s�[�C���[�W���K�v�ł��B
-�@�@web�̏�����ɃC���[�W�����s�Ȃ��ĉ������B
-
-�@�@���̌� NP2 Classic �܂��� NP2 Carbon���N�����܂��B
-
-�@�@�t���b�s�[�x�[�X�̃\�t�g�E�F�A���N������ɂ́A���j���[��
-�@�@[FDD1 - Open], [FDD2 - Open]��I�����f�B�X�N�C���[�W��}���������
-�@�@���Z�b�g���Ă��������B
-
-�@�@�n�[�h�f�B�X�N���g�p����ɂ� [Emulate - Newdisk] ���A�n�[�h�f�B�X�N
-�@�@�C���[�W���쐬���Ă��� [HardDisk - SASI-1 - Open]���C���[�W�t�@�C����
-�@�@�I�������̂��A���Z�b�g���Ă��������B
-�@�@�n�[�h�f�B�X�N�C���[�W�̎g�p���͋L������܂��̂ŁA�C���[�W�t�@�C����
-�@�@�ύX���邵�Ȃ������ ���̑���͕K�v����܂���B
-
-�@�@CPU�� 80286(���A�����[�h�̂�)�ł��B
-�@�@�����\�z����ꍇ�A�v���e�N�g���[�h�������Ȃ����ɒ��ӂ��ĉ������B
-�@�@�܂� DIP SW3-8 OFF�� V30�ۂ�����������悤�ɂ��Ă��܂��B
-�@�@CPU�X�s�[�h�� Configure�ŕύX�o���܂��B
-
-�@�@���s���A�ݒ��ς���� np2.cfg�t�@�C�����쐬����܂��B
+　　G3以上のプロセッサ
+　　MacOS9/MacOSX (Carbon版はcarbonlib1.00)
 
 
 
-�E���j���[
+・使用方法
 
-�@�@Emulate
-�@�@�@Reset                     �n�[�h�E�F�A���Z�b�g���܂��B
-�@�@�@Configure                 �ݒ���J���܂��B
-�@�@�@NewDisk                   �u�����N�f�B�X�N�C���[�W���쐬���܂��B
-�@�@�@Font                      �t�H���g�t�@�C����I�����܂��B
+　　ねこープロジェクトIIを使うには フロッピーイメージが必要です。
+　　webの情報を基にイメージ化を行なって下さい。
 
-�@�@FDD1
-�@�@�@Open                      �h���C�u�P�̃f�B�X�N�C���[�W��I�����܂��B
-�@�@�@Eject                     �h���C�u�P�̃f�B�X�N�C���[�W����o���܂��B
+　　その後 NP2 Classic または NP2 Carbonを起動します。
 
-�@�@FDD2
-�@�@�@Open                      �h���C�u�Q�̃f�B�X�N�C���[�W��I�����܂��B
-�@�@�@Eject                     �h���C�u�Q�̃f�B�X�N�C���[�W����o���܂��B
+　　フロッピーベースのソフトウェアを起動するには、メニューの
+　　[FDD1 - Open], [FDD2 - Open]を選択しディスクイメージを挿入した後に
+　　リセットしてください。
 
-�@�@HardDisk
-�@�@�@SASI-1
-�@�@�@�@Open                    SASI-1�̃n�[�h�f�B�X�N�C���[�W��I�����܂��B
-�@�@�@�@Remove                  SASI-1�𖢐ݑ���Ԃɖ߂��܂��B
-�@�@�@SASI-2
-�@�@�@�@Open                    SASI-2�̃n�[�h�f�B�X�N�C���[�W��I�����܂��B
-�@�@�@�@Remove                  SASI-2�𖢐ݑ���Ԃɖ߂��܂��B
+　　ハードディスクを使用するには [Emulate - Newdisk] より、ハードディスク
+　　イメージを作成してから [HardDisk - SASI-1 - Open]よりイメージファイルを
+　　選択したのち、リセットしてください。
+　　ハードディスクイメージの使用情報は記憶されますので、イメージファイルを
+　　変更するしない限りは この操作は必要ありません。
 
-�@�@Screen
-�@�@�@Disp Vsync                �`��^�C�~���O (�`�F�b�N��Vsync��)
-�@�@�@Real Palettes             �p���b�g�X�V�^�C�~���O (�`�F�b�N�Ń��X�^����)
-�@�@�@No Wait                   �^�C�~���O�����܂���B
-�@�@�@Auto frame                �\���^�C�~���O�������I�Ɍ��肵�܂��B
-�@�@�@Full frame                �S�Ẵt���[����\�����܂��B
-�@�@�@1/2 frame                 �Q��ɂP�x�`�悵�܂��B
-�@�@�@1/3 frame                 �R��ɂP�x�`�悵�܂��B
-�@�@�@1/4 frame                 �S��ɂP�x�`�悵�܂��B
-�@�@�@Screen option             �X�N���[���ݒ���J���܂��B
+　　CPUは 80286(リアルモードのみ)です。
+　　環境を構築する場合、プロテクトモードを扱えない事に注意して下さい。
+　　また DIP SW3-8 OFFで V30ぽい動きをするようにしています。
+　　CPUスピードは Configureで変更出来ます。
 
-�@�@Device
-�@�@�@Keyboard
-�@�@�@�@Keyboard                �e���L�[���L�[�{�[�h�Ƃ��Ĉ����܂��B
-�@�@�@�@JoyKey-1                �e���L�[���W���C�X�e�B�b�N�P�Ɋ��蓖�Ă܂��B
-�@�@�@�@JoyKey-2                �e���L�[���W���C�X�e�B�b�N�Q�Ɋ��蓖�Ă܂��B
-�@�@�@�@MouseKey                �e���L�[���}�E�X�Ɋ��蓖�Ă܂��B
-�@�@�@�@mechanical SHIFT        �m�[�g�����J�j�J���V�t�g�ɂ��܂��B
-�@�@�@�@mechanical CTRL         �m�[�g�����J�j�J���R���g���[���ɂ��܂��B
-�@�@�@�@mechanical GRPH         �m�[�g�����J�j�J���O���t�L�[�ɂ��܂��B
-�@�@�@�@F11 = KANA              F11�L�[���J�i�L�[�ɃA�T�C�����܂��B
-�@�@�@�@F11 = Stop              F11�L�[��Stop�L�[�ɃA�T�C�����܂��B
-�@�@�@�@F11 = NFER              F11�L�[��NFER�L�[�ɃA�T�C�����܂��B
-�@�@�@�@F12 = Mouse             F12�L�[���}�E�X�ؑւ��ɃA�T�C�����܂��B(��)
-�@�@�@�@F12 = Copy              F12�L�[��Copy�L�[�ɃA�T�C�����܂��B
-�@�@�@�@F12 = XFER              F12�L�[��XFER�L�[�ɃA�T�C�����܂��B
-�@�@�@Sound
-�@�@�@�@Beep off                �r�[�v�𖳉��ɂ��܂��B
-�@�@�@�@Beep low                �r�[�v���ʂ����ɂ��܂��B
-�@�@�@�@Beep mid                �r�[�v���ʂ𒆂ɂ��܂��B
-�@�@�@�@Beep high               �r�[�v���ʂ��ɂ��܂��B
-�@�@�@�@Disable boards          FM�����{�[�h���g�p���܂���B
-�@�@�@�@PC-9801-14              �~���[�W�b�N�W�F�l���[�^�{�[�h���g�p���܂��B
-�@�@�@�@PC-9801-26K             PC-9801-26K�{�[�h���g�p���܂��B
-�@�@�@�@PC-9801-86              PC-9801-86�{�[�h���g�p���܂��B
-�@�@�@�@PC-9801-26K + 86        PC-9801-26K��86�{�[�h���g�p���܂��B
-�@�@�@�@PC-9801-86 + Chibi-oto  PC-9801-86�{�[�h�Ƃ��т��Ƃ��g�p���܂��B
-�@�@�@�@PC-9801-118             PC-9801-118�{�[�h���g�p���܂��B
-�@�@�@�@Speak board             �X�s�[�N�{�[�h���g�p���܂��B
-�@�@�@�@Spark board             �X�p�[�N�{�[�h���g�p���܂��B
-�@�@�@�@AMD-98                  AMD-98���g�p���܂��B
-�@�@�@�@JAST SOUND              JAST SOUND���g�p���܂��B
-�@�@�@�@Seek Sound              �f�B�X�N�V�[�N�^�C�~���O�����܂��B
-�@�@�@Memory
-�@�@�@�@640KB                   �����������C���������̂ݎg�p���܂��B
-�@�@�@�@1.6MB                   ���C���������Ɗg��������1MB���g�p���܂��B
-�@�@�@�@3.6MB                   ���C���������Ɗg��������3MB���g�p���܂��B
-�@�@�@�@7.6MB                   ���C���������Ɗg��������7MB���g�p���܂��B
-�@�@�@Mouse                     �}�E�X�����ؑւ��܂��B
-�@�@�@MIDI panic                MIDI���������܂��B
-
-�@�@Other
-�@�@�@BMP Save                  �G�~�����[�V�������̉�ʂ�BMP�`���ŕۑ����܂��B
-�@�@�@Calendar                  �J�����_�ݒ���J���܂��B
-�@�@�@Clock Disp                �N���b�N����\�����܂��B
-�@�@�@Frame Disp                �t���[������\�����܂��B
-
-
-�E�ݒ�_�C�A���O
-
-�@�@Configue
-�@�@�@CPU
-�@�@�@�@Base Clock              CPU�̃x�[�X�N���b�N���w�肵�܂��B
-�@�@�@�@Multiple                CPU�̃N���b�N�{�����w�肵�܂��B
-�@�@�@Architecture
-�@�@�@�@PC-9801VM               V30�ȑO��CPU�𓋍ڂ���NEC�d�l�ƂȂ�܂��B
-�@�@�@�@PC-9801VX               i286�ȍ~��CPU�𓋍ڂ���NEC�d�l�ƂȂ�܂��B
-�@�@�@�@PC-286                  EPSON�݊��@�d�l�ƂȂ�܂��B
-�@�@�@Sound
-�@�@�@�@Sampling Rate           �T�E���h�̏o�͎��g�����w�肵�܂��B
-�@�@�@�@Buffer                  �T�E���h�̃o�b�t�@�T�C�Y���w�肵�܂��B
-      Resume                    ���W���[���@�\���g�p���܂��B
-
-�@�@Screen option
-�@�@�@Video
-�@�@�@�@LCD                     PC-98�m�[�g�̉t�����[�h�ɂȂ�܂��B
-�@�@�@�@Reverse                 �t���\���𔽓]���܂��B
-�@�@�@�@Use skipline rev        �X�L�b�v���C����␳���܂��B
-�@�@�@�@Ratio                   �X�L�b�v���C���̖��邳���w�肵�܂��B
-�@�@�@Chip
-�@�@�@�@GDC                     GDC�`�b�v���w�肵�܂��B
-�@�@�@�@GRCG                    GRCG�`�b�v���w�肵�܂��B
-�@�@�@�@Enable 16color          �A�i���O16�F�J���[��L���ɂ��܂��B
-�@�@�@Timing
-�@�@�@�@T-RAM                   �e�L�X�gRAM�A�N�Z�X�E�F�C�g�l���w�肵�܂��B
-�@�@�@�@V-RAM                   ���B�f�IRAM�A�N�Z�X�E�F�C�g�l���w�肵�܂��B
-�@�@�@�@GRCG                    GRCG�g�p���̃A�N�Z�X�E�F�C�g�l���w�肵�܂��B
-�@�@�@�@RealPalettes Adjust     RealPalettes���̃^�C�~���O�𒲐����܂��B
-
-�@�@Calendar
-�@�@�@Real                      ��Ɍ����Ɠ��������ɂȂ�܂��B
-�@�@�@Virtual Calendar          ���z�J�����_�[���g�p���܂��B
-
-�@�@�� Classic�ł̂�
+　　実行し、設定を変えると np2.cfgファイルが作成されます。
 
 
 
-�E�f�B�X�N�C���[�W
+・メニュー
 
-�@�@�ȉ��ɃC���[�W�Ή����Ă��܂��B
-�@�@�@FDD  - D88�`��, XDF(�x�^�C���[�W)�`��
-�@�@�@SASI - THD�`��(T98), HDI�`��(Anex86)
-�@�@�@SCSI - HDD�`��(Virtual98)
+　　Emulate
+　　　Reset                     ハードウェアリセットします。
+　　　Configure                 設定を開きます。
+　　　NewDisk                   ブランクディスクイメージを作成します。
+　　　Font                      フォントファイルを選択します。
+
+　　FDD1
+　　　Open                      ドライブ１のディスクイメージを選択します。
+　　　Eject                     ドライブ１のディスクイメージを取出します。
+
+　　FDD2
+　　　Open                      ドライブ２のディスクイメージを選択します。
+　　　Eject                     ドライブ２のディスクイメージを取出します。
+
+　　HardDisk
+　　　SASI-1
+　　　　Open                    SASI-1のハードディスクイメージを選択します。
+　　　　Remove                  SASI-1を未設続状態に戻します。
+　　　SASI-2
+　　　　Open                    SASI-2のハードディスクイメージを選択します。
+　　　　Remove                  SASI-2を未設続状態に戻します。
+
+　　Screen
+　　　Disp Vsync                描画タイミング (チェックでVsync時)
+　　　Real Palettes             パレット更新タイミング (チェックでラスタごと)
+　　　No Wait                   タイミングを取りません。
+　　　Auto frame                表示タイミングを自動的に決定します。
+　　　Full frame                全てのフレームを表示します。
+　　　1/2 frame                 ２回に１度描画します。
+　　　1/3 frame                 ３回に１度描画します。
+　　　1/4 frame                 ４回に１度描画します。
+　　　Screen option             スクリーン設定を開きます。
+
+　　Device
+　　　Keyboard
+　　　　Keyboard                テンキーをキーボードとして扱います。
+　　　　JoyKey-1                テンキーをジョイスティック１に割り当てます。
+　　　　JoyKey-2                テンキーをジョイスティック２に割り当てます。
+　　　　MouseKey                テンキーをマウスに割り当てます。
+　　　　mechanical SHIFT        ノート風メカニカルシフトにします。
+　　　　mechanical CTRL         ノート風メカニカルコントロールにします。
+　　　　mechanical GRPH         ノート風メカニカルグラフキーにします。
+　　　　F11 = KANA              F11キーをカナキーにアサインします。
+　　　　F11 = Stop              F11キーをStopキーにアサインします。
+　　　　F11 = NFER              F11キーをNFERキーにアサインします。
+　　　　F12 = Mouse             F12キーをマウス切替えにアサインします。(※)
+　　　　F12 = Copy              F12キーをCopyキーにアサインします。
+　　　　F12 = XFER              F12キーをXFERキーにアサインします。
+　　　Sound
+　　　　Beep off                ビープを無音にします。
+　　　　Beep low                ビープ音量を小にします。
+　　　　Beep mid                ビープ音量を中にします。
+　　　　Beep high               ビープ音量を大にします。
+　　　　Disable boards          FM音源ボードを使用しません。
+　　　　PC-9801-14              ミュージックジェネレータボードを使用します。
+　　　　PC-9801-26K             PC-9801-26Kボードを使用します。
+　　　　PC-9801-86              PC-9801-86ボードを使用します。
+　　　　PC-9801-26K + 86        PC-9801-26Kと86ボードを使用します。
+　　　　PC-9801-86 + Chibi-oto  PC-9801-86ボードとちびおとを使用します。
+　　　　PC-9801-118             PC-9801-118ボードを使用します。
+　　　　Speak board             スピークボードを使用します。
+　　　　Spark board             スパークボードを使用します。
+　　　　AMD-98                  AMD-98を使用します。
+　　　　JAST SOUND              JAST SOUNDを使用します。
+　　　　Seek Sound              ディスクシークタイミングを取ります。
+　　　Memory
+　　　　640KB                   メモリをメインメモリのみ使用します。
+　　　　1.6MB                   メインメモリと拡張メモリ1MBを使用します。
+　　　　3.6MB                   メインメモリと拡張メモリ3MBを使用します。
+　　　　7.6MB                   メインメモリと拡張メモリ7MBを使用します。
+　　　Mouse                     マウス操作を切替えます。
+　　　MIDI panic                MIDIを消音します。
+
+　　Other
+　　　BMP Save                  エミュレーション中の画面をBMP形式で保存します。
+　　　Calendar                  カレンダ設定を開きます。
+　　　Clock Disp                クロック数を表示します。
+　　　Frame Disp                フレーム数を表示します。
+
+
+・設定ダイアログ
+
+　　Configue
+　　　CPU
+　　　　Base Clock              CPUのベースクロックを指定します。
+　　　　Multiple                CPUのクロック倍率を指定します。
+　　　Architecture
+　　　　PC-9801VM               V30以前のCPUを搭載したNEC仕様となります。
+　　　　PC-9801VX               i286以降のCPUを搭載したNEC仕様となります。
+　　　　PC-286                  EPSON互換機仕様となります。
+　　　Sound
+　　　　Sampling Rate           サウンドの出力周波数を指定します。
+　　　　Buffer                  サウンドのバッファサイズを指定します。
+      Resume                    レジューム機能を使用します。
+
+　　Screen option
+　　　Video
+　　　　LCD                     PC-98ノートの液晶モードになります。
+　　　　Reverse                 液晶表示を反転します。
+　　　　Use skipline rev        スキップラインを補正します。
+　　　　Ratio                   スキップラインの明るさを指定します。
+　　　Chip
+　　　　GDC                     GDCチップを指定します。
+　　　　GRCG                    GRCGチップを指定します。
+　　　　Enable 16color          アナログ16色カラーを有効にします。
+　　　Timing
+　　　　T-RAM                   テキストRAMアクセスウェイト値を指定します。
+　　　　V-RAM                   ヴィデオRAMアクセスウェイト値を指定します。
+　　　　GRCG                    GRCG使用時のアクセスウェイト値を指定します。
+　　　　RealPalettes Adjust     RealPalettes時のタイミングを調整します。
+
+　　Calendar
+　　　Real                      常に現実と同じ時刻になります。
+　　　Virtual Calendar          仮想カレンダーを使用します。
+
+　　※ Classic版のみ
 
 
 
-�E�L�[�ݒ�ɂ���
-�@�@bios.rom�Ƃ��Ɠ����t�H���_��(�@��ɂ���ĈقȂ�̂ł���ȏ������c)
-�@�@key.txt�Ƃ������O�Ńe�L�X�g�t�@�C�����쐬���āA�L�[�ݒ���L�����ĉ������B
+・ディスクイメージ
 
-�@�@����)
-�@�@�@[keyname] = [key1] (key2) (key3)
-�@�@�@[keyname] [TAB] [key1] (key2) (key3)
-�@�@�@userkey[1-2] = [key1] (key2) (key3) ... (key15)
-�@�@�@�@�t���L�[ 0�`9 A�`Z - ^ \ @ [ ] ; : , . / _
-�@�@�@�@         STOP COPY ESC TAB BS RET SPC XFER NFER
+　　以下にイメージ対応しています。
+　　　FDD  - D88形式, XDF(ベタイメージ)形式
+　　　SASI - THD形式(T98), HDI形式(Anex86)
+　　　SCSI - HDD形式(Virtual98)
+
+
+
+・キー設定について
+　　bios.romとかと同じフォルダに(機種によって異なるのでこんな書き方…)
+　　key.txtという名前でテキストファイルを作成して、キー設定を記入して下さい。
+
+　　書式)
+　　　[keyname] = [key1] (key2) (key3)
+　　　[keyname] [TAB] [key1] (key2) (key3)
+　　　userkey[1-2] = [key1] (key2) (key3) ... (key15)
+　　　　フルキー 0～9 A～Z - ^ \ @ [ ] ; : , . / _
+　　　　         STOP COPY ESC TAB BS RET SPC XFER NFER
                  INS DEL RLUP RLDN HMCL HELP
-�@�@�@�@�t�@���N F1�`F10 VF1�`VF5
-�@�@�@�@�e���L�[ [0]�`[9] [-] [/] [*] [+] [=] [,] [.]
-�@�@�@�@�V�t�g   SHIFT CAPS KANA GRPH CTRL
+　　　　ファンク F1～F10 VF1～VF5
+　　　　テンキー [0]～[9] [-] [/] [*] [+] [=] [,] [.]
+　　　　シフト   SHIFT CAPS KANA GRPH CTRL
 
-�@�@�@�ʏ�L�[��3�Auserkey��15�̓��������ݒ肪�\�ł��B
-�@�@�@[=] �L�[�� = �ŋ�؂��Ă��܂��̂� TAB�ŋ�؂邩 [EQU]�Ƃ��ĉ������B
+　　　通常キーは3個、userkeyは15個の同時押し設定が可能です。
+　　　[=] キーは = で区切られてしまうので TABで区切るか [EQU]として下さい。
 
-�@�@�@��:
+　　　例:
         ----------------------- key.txt
 
-�@�@�@�@W = UP                 (�_�C�A�����h�L�[���J�[�\���ɂ��Ă݂���c)
-�@�@�@�@S = LEFT
-�@�@�@�@D = RIGHT
-�@�@�@�@X = DOWN
-�@�@�@�@[7] = [4] [8]          (�e���L�[�΂ߓ��������ɂ��Ă݂���c)
-�@�@�@�@[9] = [6] [8]
-�@�@�@�@[1] = [4] [2]
-�@�@�@�@[3] = [6] [2]
-�@�@�@�@userkey1 = CTRL XFER   (CTRL+XFER FEP�؂�ւ�)
-�@�@�@�@userkey2 = D O A Z     (D+O+A+Z ��������)
+　　　　W = UP                 (ダイアモンドキーをカーソルにしてみたり…)
+　　　　S = LEFT
+　　　　D = RIGHT
+　　　　X = DOWN
+　　　　[7] = [4] [8]          (テンキー斜め同時押しにしてみたり…)
+　　　　[9] = [6] [8]
+　　　　[1] = [4] [2]
+　　　　[3] = [6] [2]
+　　　　userkey1 = CTRL XFER   (CTRL+XFER FEP切り替え)
+　　　　userkey2 = D O A Z     (D+O+A+Z 同時押し)
 
         -----------------------
 
 
 
-�@Windows�łƋ��ʓ_�������̂� Windows�Ńw���v���������������B
-�@�@http://www.yui.ne.jp/np2/help.html
+　Windows版と共通点が多いので Windows版ヘルプもご覧ください。
+　　http://www.yui.ne.jp/np2/help.html
 
 
 
-�@�@�@�@�@�@�@�@�@�@�@�@�@�@�@�@�@�@email: np2@yui.ne.jp
-�@�@�@�@�@�@�@�@�@�@�@�@�@�@�@�@�@�@webpage: http://www.yui.ne.jp/np2/
+　　　　　　　　　　　　　　　　　　email: np2@yui.ne.jp
+　　　　　　　　　　　　　　　　　　webpage: http://www.yui.ne.jp/np2/

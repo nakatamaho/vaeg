@@ -34,7 +34,7 @@ randdcd2		dcd		&269ec3
 
 AdjustAfterMultiply
 				and		r0, r0, #255
-				mov		r1, #205				; �͈͂�0-255�Ȃ̂Ő��x�Ⴕ
+				mov		r1, #205				; 範囲が0-255なので精度低し
 				mul		r1, r0, r1
 				mov		r1, r1, lsr #11
 				sub		r0, r0, r1, lsl #1

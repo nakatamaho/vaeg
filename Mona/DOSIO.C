@@ -12,7 +12,7 @@ void dosio_init(void) {
 void dosio_term(void) {
 }
 
-/* ƒtƒ@ƒCƒ‹‘€ì */
+/* ãƒ•ã‚¡ã‚¤ãƒ«æ“ä½œ */
 #if defined(TARGET_MONA)
 
 FILEH file_open(const char *path) {
@@ -210,7 +210,7 @@ short file_dircreate(const char *path) {
 #endif
 
 
-/* ƒJƒŒƒ“ƒgƒtƒ@ƒCƒ‹‘€ì */
+/* ã‚«ãƒ¬ãƒ³ãƒˆãƒ•ã‚¡ã‚¤ãƒ«æ“ä½œ */
 void file_setcd(const char *exepath) {
 
 	file_cpyname(curpath, exepath, sizeof(curpath));
@@ -411,9 +411,9 @@ void file_cutseparator(char *path) {
 	int		pos;
 
 	pos = strlen(path) - 1;
-	if ((pos > 0) &&							// 2•¶ŽšˆÈã‚Å[
-		(path[pos] == '/') &&					// ƒPƒc‚ª \ ‚Å[
-		((pos != 1) || (path[0] != '.'))) {		// './' ‚Å‚Í‚È‚©‚Á‚½‚ç
+	if ((pos > 0) &&							// 2æ–‡å­—ä»¥ä¸Šã§ãƒ¼
+		(path[pos] == '/') &&					// ã‚±ãƒ„ãŒ \ ã§ãƒ¼
+		((pos != 1) || (path[0] != '.'))) {		// './' ã§ã¯ãªã‹ã£ãŸã‚‰
 		path[pos] = '\0';
 	}
 }

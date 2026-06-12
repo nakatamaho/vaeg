@@ -86,7 +86,7 @@ static void mpucreate(HWND hWnd) {
 	SETLISTSTR(hWnd, IDC_MPUINT, mpuinterrupt);
 	setmpuintpara(hWnd, IDC_MPUINT, mpu);
 
-	// SS_OWNERDRAW‚É‚·‚é‚Æ IDE‚Å•s“s‡‚ªo‚é‚Ì‚Åc
+	// SS_OWNERDRAWã«ã™ã‚‹ã¨ IDEã§ä¸éƒ½åˆãŒå‡ºã‚‹ã®ã§â€¦
 	sub = GetDlgItem(hWnd, IDC_MPUDIP);
 	SetWindowLong(sub, GWL_STYLE, SS_OWNERDRAW +
 							(GetWindowLong(sub, GWL_STYLE) & (~SS_TYPEMASK)));

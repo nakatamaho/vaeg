@@ -1,5 +1,5 @@
 
-// ���Ƃ� GETSND�ɏ�芷���邩���c
+// あとで GETSNDに乗り換えるかも…
 
 #if defined(BYTESEX_BIG)
 #define	WAVE_SIG(a, b, c, d)	\

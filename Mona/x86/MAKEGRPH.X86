@@ -116,7 +116,7 @@ em_calc_maxline:movzx	edx, byte [GDC_S_CSRFORM]
 				cmp		byte [_gdc + gdc_t.clock], 0
 				js		short em_calc1_width
 				add		edx, edx
-em_calc1_width:	and		edx, 0000feh					; uPD72020Ç≈ämîFÅc
+em_calc1_width:	and		edx, 0000feh					; uPD72020„ÅßÁ¢∫Ë™ç‚Ä¶
 				mov		[esp+12], edx					; LINE_WIDTH
 
 				mov		ebx, [_dsync + dsync_t.grph_vbp]
@@ -242,7 +242,7 @@ em_deldirty_lp:	and		[ebx], eax
 				ret
 
 				align	16
-%else	; ---- MMXÇ»Ç¢ÇÊÅ`
+%else	; ---- MMX„Å™„ÅÑ„ÇàÔΩû
 
 non_mmx:		pushad
 				mov		edi, _np2_vram
@@ -273,7 +273,7 @@ calc_maxline:	push	eax
 				cmp		byte [_gdc + gdc_t.clock], 0
 				js		short calc1_width
 				add		eax, eax
-calc1_width:	and		eax, 0000feh					; uPD72020Ç≈ämîFÅc
+calc1_width:	and		eax, 0000feh					; uPD72020„ÅßÁ¢∫Ë™ç‚Ä¶
 				mov		[esp+12+4], eax					; LINE_WIDTH
 
 				mov		ebx, [_dsync + dsync_t.grph_vbp]

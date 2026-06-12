@@ -20,19 +20,19 @@ typedef struct {
 } HDRVPATH;
 
 
-// ˆê——æ“¾
+// ä¸€è¦§å–å¾—
 LISTARRAY hostdrvs_getpathlist(const OEMCHAR *realpath);
 
-// ƒzƒXƒg‘¤‚ÌƒtƒHƒ‹ƒ_‚ğ“¾‚é
+// ãƒ›ã‚¹ãƒˆå´ã®ãƒ•ã‚©ãƒ«ãƒ€ã‚’å¾—ã‚‹
 BOOL hostdrvs_getrealdir(OEMCHAR *path, int size, char *fcb, char *dospath);
 
-// ƒzƒXƒg‘¤‚Ìƒtƒ@ƒCƒ‹–¼‚ğ“¾‚é
+// ãƒ›ã‚¹ãƒˆå´ã®ãƒ•ã‚¡ã‚¤ãƒ«åã‚’å¾—ã‚‹
 BOOL hostdrvs_getrealpath(HDRVPATH *hdp, char *dospath);
 
-// ƒzƒXƒg‘¤‚Ìƒtƒ@ƒCƒ‹–¼‚ğì‚é
+// ãƒ›ã‚¹ãƒˆå´ã®ãƒ•ã‚¡ã‚¤ãƒ«åã‚’ä½œã‚‹
 BOOL hostdrvs_newrealpath(HDRVPATH *hdp, char *dospath);
 
-// ƒtƒ@ƒCƒ‹ƒnƒ“ƒhƒ‹ƒŠƒXƒg
+// ãƒ•ã‚¡ã‚¤ãƒ«ãƒãƒ³ãƒ‰ãƒ«ãƒªã‚¹ãƒˆ
 void hostdrvs_fhdlallclose(LISTARRAY fhdl);
 HDRVFILE hostdrvs_fhdlsea(LISTARRAY fhdl);
 

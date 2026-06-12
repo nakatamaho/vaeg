@@ -5,7 +5,7 @@
 ////////////////////////////////////////////////////////
 
 /*
-	PCIDEBUG.DLL export ŠÖ”
+	PCIDEBUG.DLL export é–¢æ•°
 */
 
 #ifndef _NTDDK_ 
@@ -16,13 +16,13 @@
 extern "C" {
 #endif
 
-/* ƒoƒX”Ô†,ƒfƒoƒCƒX”Ô†,ƒtƒ@ƒ“ƒNƒVƒ‡ƒ“”Ô† ‚©‚ç PCIƒfƒoƒCƒXƒAƒhƒŒƒX‚É•ÏŠ· */
+/* ãƒã‚¹ç•ªå·,ãƒ‡ãƒã‚¤ã‚¹ç•ªå·,ãƒ•ã‚¡ãƒ³ã‚¯ã‚·ãƒ§ãƒ³ç•ªå· ã‹ã‚‰ PCIãƒ‡ãƒã‚¤ã‚¹ã‚¢ãƒ‰ãƒ¬ã‚¹ã«å¤‰æ› */
 #define pciBusDevFunc(Bus,Dev,Func)		((Bus&0xff)<<8)|((Dev&0x1f)<<3)|(Func&7)
-/* PCIƒfƒoƒCƒXƒAƒhƒŒƒX ‚©‚ç ƒoƒX”Ô†Žæ“¾ */
+/* PCIãƒ‡ãƒã‚¤ã‚¹ã‚¢ãƒ‰ãƒ¬ã‚¹ ã‹ã‚‰ ãƒã‚¹ç•ªå·å–å¾— */
 #define pciGetBus(BXreg)		((BXreg>>8)&0xff)
-/* PCIƒfƒoƒCƒXƒAƒhƒŒƒX ‚©‚ç ƒfƒoƒCƒX”Ô†Žæ“¾ */
+/* PCIãƒ‡ãƒã‚¤ã‚¹ã‚¢ãƒ‰ãƒ¬ã‚¹ ã‹ã‚‰ ãƒ‡ãƒã‚¤ã‚¹ç•ªå·å–å¾— */
 #define pciGetDev(BXreg)		((BXreg>>3)&0x1f)
-/* PCIƒfƒoƒCƒXƒAƒhƒŒƒX ‚©‚ç ƒtƒ@ƒ“ƒNƒVƒ‡ƒ“”Ô†Žæ“¾ */
+/* PCIãƒ‡ãƒã‚¤ã‚¹ã‚¢ãƒ‰ãƒ¬ã‚¹ ã‹ã‚‰ ãƒ•ã‚¡ãƒ³ã‚¯ã‚·ãƒ§ãƒ³ç•ªå·å–å¾— */
 #define pciGetFunc(BXreg)		(BXreg&7)
 
 typedef enum _tag_DLLSTATUS {
@@ -125,7 +125,7 @@ int WINAPI _freeIRQ(ULONG levelold);
 
 ////////////////////////////////////////////////////////////
 //
-// DOS—pPCIƒfƒoƒbƒNƒ‰ƒCƒuƒ‰ƒŠ[‚ÆŒÝŠ·«‚ðŽ‚½‚¹‚é‚½‚ß‚Ìdefine
+// DOSç”¨PCIãƒ‡ãƒãƒƒã‚¯ãƒ©ã‚¤ãƒ–ãƒ©ãƒªãƒ¼ã¨äº’æ›æ€§ã‚’æŒãŸã›ã‚‹ãŸã‚ã®define
 //
 ////////////////////////////////////////////////////////////
 

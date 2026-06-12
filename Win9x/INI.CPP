@@ -485,7 +485,7 @@ static const INITBL iniitem[] = {
 	{"Use_VA91", INITYPE_BOOL,		&va91cfg.enabled,		0},
 #endif
 
-	// OSàÀë∂ÅH
+	// OS‰æùÂ≠òÔºü
 	{"keyboard", INIRO_KB,			&np2oscfg.KEYBOARD,		0},
 	{"F12_COPY", INITYPE_UINT8,		&np2oscfg.F12COPY,		0},
 #if defined(VAEG_EXT)

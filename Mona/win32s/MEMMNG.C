@@ -142,7 +142,7 @@ void *memmng_alloc(UINT size) {
 		fwd->lock = 0;
 		fwd->back = ptr->back;
 		fwd->next = ptr->next;
-		// ÉäÉìÉNèCê≥
+		// „É™„É≥„ÇØ‰øÆÊ≠£
 		p = ptr->back;
 		if (p) {
 			p->next = fwd;
@@ -169,7 +169,7 @@ void *memmng_alloc(UINT size) {
 			p->back = ptr->back;
 		}
 	}
-	// ÉäÉìÉNí«â¡
+	// „É™„É≥„ÇØËøΩÂä†
 	p = used;
 	used = ptr;
 	ptr->size = size;
@@ -225,7 +225,7 @@ void memmng_free(void *addr) {
 		}
 		ptr = ptr->next;
 	}
-	// ÉäÉìÉNèCê≥
+	// „É™„É≥„ÇØ‰øÆÊ≠£
 	back = cur->back;
 	next = cur->next;
 	if (back) {
@@ -237,7 +237,7 @@ void memmng_free(void *addr) {
 	if (next) {
 		next->back = back;
 	}
-	// ÉäÉìÉNí«â¡
+	// „É™„É≥„ÇØËøΩÂä†
 	back = unused;
 	next = NULL;
 	while(back) {
@@ -256,7 +256,7 @@ void memmng_free(void *addr) {
 		}
 	}
 	else {
-		next = back;					// àÍâÒñﬂÇÈ
+		next = back;					// ‰∏ÄÂõûÊàª„Çã
 		back = NULL;
 		cur->back = back;
 		cur->next = next;
@@ -267,7 +267,7 @@ void memmng_free(void *addr) {
 	}
 	check("free-1");
 
-	// Ç±ÇÒÇœÇ≠ÇµÇÂÇÒ
+	// „Åì„Çì„Å±„Åè„Åó„Çá„Çì
 	compaction(cur);
 	if (back) {
 		compaction(back);

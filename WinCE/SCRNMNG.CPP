@@ -59,7 +59,7 @@ typedef struct {
 } DRAWRECT;
 
 
-// ---- GX DLLÇ∆Ç©
+// ---- GX DLL„Å®„Åã
 
 #if !defined(WIN32_PLATFORM_PSPC) || !defined(SIZE_VGA)
 

@@ -182,14 +182,14 @@ static void MEMCALL emmc_wt(UINT32 address, REG8 value) {		// EMS
 	CPU_EMSPTR[(address >> 14) & 3][LOW14(address)] = (BYTE)value;
 }
 
-static void MEMCALL i286_wd(UINT32 address, REG8 value) {		// D000Å`DFFF
+static void MEMCALL i286_wd(UINT32 address, REG8 value) {		// D000ÔΩûDFFF
 
 	if (CPU_RAM_D000 & (1 << ((address >> 12) & 15))) {
 		mem[address] = (BYTE)value;
 	}
 }
 
-static void MEMCALL i286_wb(UINT32 address, REG8 value) {		// F800Å`FFFF
+static void MEMCALL i286_wb(UINT32 address, REG8 value) {		// F800ÔΩûFFFF
 
 	mem[address + 0x1c8000 - 0xe8000] = (BYTE)value;
 }

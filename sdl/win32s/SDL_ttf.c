@@ -20,7 +20,7 @@ typedef struct {
 	RECT	rect;
 } _TTFFNT, *TTFFNT;
 
-static const TCHAR deffontface[] = "‚l‚r ƒSƒVƒbƒN";
+static const TCHAR deffontface[] = "ï¼­ï¼³ ã‚´ã‚·ãƒƒã‚¯";
 
 
 int TTF_Init(void) {

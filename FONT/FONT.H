@@ -1,5 +1,5 @@
 
-#define	FONTMEMORYBIND				// 520KB‚­‚ç‚¢ƒƒ‚ƒŠíœ(‚§‚¡
+#define	FONTMEMORYBIND				// 520KBãã‚‰ã„ãƒ¡ãƒ¢ãƒªå‰Šé™¤(ã‰ãƒ
 
 
 #ifdef __cplusplus

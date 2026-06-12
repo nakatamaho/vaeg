@@ -23,29 +23,29 @@ static UINT8 key106[256] = {
 #endif
 			//	 FIN, KAN,    , ESC,XFER,NFER,    ,  MD		; 0x18
 				  NC,  NC,  NC,0x00,0x35,0x51,  NC,  NC,
-			//	 SPC,RLUP,RLDN, END,HOME,  Å©,  Å™,  Å®		; 0x20
+			//	 SPC,RLUP,RLDN, END,HOME,  ‚Üê,  ‚Üë,  ‚Üí		; 0x20
 				0x34,0x37,0x36,0x3f,0x3e,0x3b,0x3a,0x3c,
-			//	  Å´, SEL, PNT, EXE,COPY, INS, DEL, HLP		; 0x28
+			//	  ‚Üì, SEL, PNT, EXE,COPY, INS, DEL, HLP		; 0x28
 				0x3d,  NC,  NC,  NC,  NC,0x38,0x39,  NC,
-			//	  ÇO,  ÇP,  ÇQ,  ÇR,  ÇS,  ÇT,  ÇU,  ÇV		; 0x30
+			//	  Ôºê,  Ôºë,  Ôºí,  Ôºì,  Ôºî,  Ôºï,  Ôºñ,  Ôºó		; 0x30
 				0x0a,0x01,0x02,0x03,0x04,0x05,0x06,0x07,
-			//	  ÇW,  ÇX,    ,    ,    ,    ,    ,    		; 0x38
+			//	  Ôºò,  Ôºô,    ,    ,    ,    ,    ,    		; 0x38
 				0x08,0x09,  NC,  NC,  NC,  NC,  NC,  NC,
-			//	    ,  Ç`,  Ça,  Çb,  Çc,  Çd,  Çe,  Çf		; 0x40
+			//	    ,  Ôº°,  Ôº¢,  Ôº£,  Ôº§,  Ôº•,  Ôº¶,  Ôºß		; 0x40
 				  NC,0x1d,0x2d,0x2b,0x1f,0x12,0x20,0x21,
-			//	  Çg,  Çh,  Çi,  Çj,  Çk,  Çl,  Çm,  Çn		; 0x48
+			//	  Ôº®,  Ôº©,  Ôº™,  Ôº´,  Ôº¨,  Ôº≠,  ÔºÆ,  ÔºØ		; 0x48
 				0x22,0x17,0x23,0x24,0x25,0x2f,0x2e,0x18,
-			//	  Ço,  Çp,  Çq,  Çr,  Çs,  Çt,  Çu,  Çv		; 0x50
+			//	  Ôº∞,  Ôº±,  Ôº≤,  Ôº≥,  Ôº¥,  Ôºµ,  Ôº∂,  Ôº∑		; 0x50
 				0x19,0x10,0x13,0x1e,0x14,0x16,0x2c,0x11,
-			//	  Çw,  Çx,  Çy,LWIN,RWIN, APP,    ,    		; 0x58
+			//	  Ôº∏,  Ôºπ,  Ôº∫,LWIN,RWIN, APP,    ,    		; 0x58
 #if defined(SUPPORT_PC88VA)
 				0x2a,0x15,0x29,  NC,  NC,0x5a,  NC,  NC,
 #else
 				0x2a,0x15,0x29,  NC,  NC,  NC,  NC,  NC,
 #endif
-			//	<ÇO>,<ÇP>,<ÇQ>,<ÇR>,<ÇS>,<ÇT>,<ÇU>,<ÇV>		; 0x60
+			//	<Ôºê>,<Ôºë>,<Ôºí>,<Ôºì>,<Ôºî>,<Ôºï>,<Ôºñ>,<Ôºó>		; 0x60
 				0x4e,0x4a,0x4b,0x4c,0x46,0x47,0x48,0x42,
-			//	<ÇW>,<ÇX>,<Åñ>,<Å{>,<ÅC>,<Å|>,<ÅD>,<Å^>		; 0x68
+			//	<Ôºò>,<Ôºô>,<Ôºä>,<Ôºã>,<Ôºå>,<Ôºç>,<Ôºé>,<Ôºè>		; 0x68
 				0x43,0x44,0x45,0x49,0x4f,0x40,0x50,0x41,
 			//	 f.1, f.2, f.3, f.4, f.5, f.6, f.7, f.8		; 0x70
 				0x62,0x63,0x64,0x65,0x66,0x67,0x68,0x69,
@@ -55,7 +55,7 @@ static UINT8 key106[256] = {
 				  NC,  NC,  NC,  NC,  NC,  NC,  NC,  NC,
 			//	    ,    ,    ,    ,    ,    ,    ,    		; 0x88
 				  NC,  NC,  NC,  NC,  NC,  NC,  NC,  NC,
-			//	HELP, ALT,<ÅÅ>,    ,    ,    ,    ,    		; 0x90
+			//	HELP, ALT,<Ôºù>,    ,    ,    ,    ,    		; 0x90
 				  NC,0x73,0x4d,  NC,  NC,  NC,  NC,  NC,			// ver0.28
 			//	    ,    ,    ,    ,    ,    ,    ,    		; 0x98
 				  NC,  NC,  NC,  NC,  NC,  NC,  NC,  NC,
@@ -65,17 +65,17 @@ static UINT8 key106[256] = {
 				  NC,  NC,  NC,  NC,  NC,  NC,  NC,  NC,
 			//	    ,    ,    ,    ,    ,    ,    ,    		; 0xb0
 				  NC,  NC,  NC,  NC,  NC,  NC,  NC,  NC,
-			//	    ,    ,  ÅF,  ÅG,  ÅC,  Å|,  ÅD,  Å^		; 0xb8
+			//	    ,    ,  Ôºö,  Ôºõ,  Ôºå,  Ôºç,  Ôºé,  Ôºè		; 0xb8
 				  NC,  NC,0x27,0x26,0x30,0x0b,0x31,0x32,
-			//	  Åó,    ,    ,    ,    ,    ,    ,    		; 0xc0
+			//	  Ôº†,    ,    ,    ,    ,    ,    ,    		; 0xc0
 				0x1a,  NC,  NC,  NC,  NC,  NC,  NC,  NC,
 			//	    ,    ,    ,    ,    ,    ,    ,    		; 0xc8
 				  NC,  NC,  NC,  NC,  NC,  NC,  NC,  NC,
 			//	    ,    ,    ,    ,    ,    ,    ,    		; 0xd0
 				  NC,  NC,  NC,  NC,  NC,  NC,  NC,  NC,
-			//	    ,    ,    ,  Åm,  Åè,  Ån,  ÅO,  ÅQ		; 0xd8
+			//	    ,    ,    ,  Ôºª,  Ôø•,  ÔºΩ,  Ôºæ,  Ôºø		; 0xd8
 				  NC,  NC,  NC,0x1b,0x0d,0x28,0x0c,0x33,
-			//	    ,    ,  ÅQ,    ,    ,    ,    ,    		; 0xe0
+			//	    ,    ,  Ôºø,    ,    ,    ,    ,    		; 0xe0
 				  NC,  NC,0x33,  NC,  NC,  NC,  NC,  NC,
 			//	    ,    ,    ,    ,    ,    ,    ,    		; 0xe8
 				  NC,  NC,  NC,  NC,  NC,  NC,  NC,  NC,
@@ -89,14 +89,14 @@ static UINT8 key106[256] = {
 				  NC,  NC,  NC,  NC,  NC,  NC,  NC,  NC};
 
 /*
-lParam bit24Ç…ÇÊÇ¡ÇƒÉLÅ[ÉRÅ[ÉhÇïœâªÇ≥ÇπÇÈèÍçáÅAà»â∫ÇÃÉeÅ[ÉuÉãÇ≈bit24=0ÇÃ
-èÍçáÇÃÉLÅ[ÉRÅ[ÉhÇéwíËÇ∑ÇÈÅB
+lParam bit24„Å´„Çà„Å£„Å¶„Ç≠„Éº„Ç≥„Éº„Éâ„ÇíÂ§âÂåñ„Åï„Åõ„ÇãÂ†¥Âêà„ÄÅ‰ª•‰∏ã„ÅÆ„ÉÜ„Éº„Éñ„É´„Åßbit24=0„ÅÆ
+Â†¥Âêà„ÅÆ„Ç≠„Éº„Ç≥„Éº„Éâ„ÇíÊåáÂÆö„Åô„Çã„ÄÇ
 */
 #if defined(SUPPORT_PC88VA)
 /*
-  	ÉLÅ[ÉRÅ[Éhbit7
-		0.SHIFTìØéûâüÇµ
-		1.SHIFTìØéûâüÇµÇπÇ∏
+  	„Ç≠„Éº„Ç≥„Éº„Éâbit7
+		0.SHIFTÂêåÊôÇÊäº„Åó
+		1.SHIFTÂêåÊôÇÊäº„Åó„Åõ„Åö
 */
 #endif
 
@@ -117,25 +117,25 @@ static const UINT8 key106ext[256] = {
 #endif
 			//	 FIN, KAN,    , ESC,XFER,NFER,    ,  MD		; 0x18
 				  NC,  NC,  NC,  NC,  NC,  NC,  NC,  NC,
-			//	 SPC,RLUP,RLDN, END,HOME,  Å©,  Å™,  Å®		; 0x20
+			//	 SPC,RLUP,RLDN, END,HOME,  ‚Üê,  ‚Üë,  ‚Üí		; 0x20
 				  NC,0x44,0x4c,0x4a,0x42,0x46,0x43,0x48,
-			//	  Å´, SEL, PNT, EXE,COPY, INS, DEL, HLP		; 0x28
+			//	  ‚Üì, SEL, PNT, EXE,COPY, INS, DEL, HLP		; 0x28
 				0x4b,  NC,  NC,  NC,  NC,0x4e,0x50,  NC,
-			//	  ÇO,  ÇP,  ÇQ,  ÇR,  ÇS,  ÇT,  ÇU,  ÇV		; 0x30
+			//	  Ôºê,  Ôºë,  Ôºí,  Ôºì,  Ôºî,  Ôºï,  Ôºñ,  Ôºó		; 0x30
 				  NC,  NC,  NC,  NC,  NC,  NC,  NC,  NC,
-			//	  ÇW,  ÇX,    ,    ,    ,    ,    ,    		; 0x38
+			//	  Ôºò,  Ôºô,    ,    ,    ,    ,    ,    		; 0x38
 				  NC,  NC,  NC,  NC,  NC,  NC,  NC,  NC,
-			//	    ,  Ç`,  Ça,  Çb,  Çc,  Çd,  Çe,  Çf		; 0x40
+			//	    ,  Ôº°,  Ôº¢,  Ôº£,  Ôº§,  Ôº•,  Ôº¶,  Ôºß		; 0x40
 				  NC,  NC,  NC,  NC,  NC,  NC,  NC,  NC,
-			//	  Çg,  Çh,  Çi,  Çj,  Çk,  Çl,  Çm,  Çn		; 0x48
+			//	  Ôº®,  Ôº©,  Ôº™,  Ôº´,  Ôº¨,  Ôº≠,  ÔºÆ,  ÔºØ		; 0x48
 				  NC,  NC,  NC,  NC,  NC,  NC,  NC,  NC,
-			//	  Ço,  Çp,  Çq,  Çr,  Çs,  Çt,  Çu,  Çv		; 0x50
+			//	  Ôº∞,  Ôº±,  Ôº≤,  Ôº≥,  Ôº¥,  Ôºµ,  Ôº∂,  Ôº∑		; 0x50
 				  NC,  NC,  NC,  NC,  NC,  NC,  NC,  NC,
-			//	  Çw,  Çx,  Çy,LWIN,RWIN, APP,    ,    		; 0x58
+			//	  Ôº∏,  Ôºπ,  Ôº∫,LWIN,RWIN, APP,    ,    		; 0x58
 				  NC,  NC,  NC,  NC,  NC,  NC,  NC,  NC,
-			//	<ÇO>,<ÇP>,<ÇQ>,<ÇR>,<ÇS>,<ÇT>,<ÇU>,<ÇV>		; 0x60
+			//	<Ôºê>,<Ôºë>,<Ôºí>,<Ôºì>,<Ôºî>,<Ôºï>,<Ôºñ>,<Ôºó>		; 0x60
 				  NC,  NC,  NC,  NC,  NC,  NC,  NC,  NC,
-			//	<ÇW>,<ÇX>,<Åñ>,<Å{>,<ÅC>,<Å|>,<ÅD>,<Å^>		; 0x68
+			//	<Ôºò>,<Ôºô>,<Ôºä>,<Ôºã>,<Ôºå>,<Ôºç>,<Ôºé>,<Ôºè>		; 0x68
 				  NC,  NC,  NC,  NC,  NC,  NC,  NC,  NC,
 			//	 f.1, f.2, f.3, f.4, f.5, f.6, f.7, f.8		; 0x70
 				  NC,  NC,  NC,  NC,  NC,  NC,  NC,  NC,
@@ -145,7 +145,7 @@ static const UINT8 key106ext[256] = {
 				  NC,  NC,  NC,  NC,  NC,  NC,  NC,  NC,
 			//	    ,    ,    ,    ,    ,    ,    ,    		; 0x88
 				  NC,  NC,  NC,  NC,  NC,  NC,  NC,  NC,
-			//	HELP, ALT,<ÅÅ>,    ,    ,    ,    ,    		; 0x90
+			//	HELP, ALT,<Ôºù>,    ,    ,    ,    ,    		; 0x90
 				  NC,  NC,  NC,  NC,  NC,  NC,  NC,  NC,
 			//	    ,    ,    ,    ,    ,    ,    ,    		; 0x98
 				  NC,  NC,  NC,  NC,  NC,  NC,  NC,  NC,
@@ -155,17 +155,17 @@ static const UINT8 key106ext[256] = {
 				  NC,  NC,  NC,  NC,  NC,  NC,  NC,  NC,
 			//	    ,    ,    ,    ,    ,    ,    ,    		; 0xb0
 				  NC,  NC,  NC,  NC,  NC,  NC,  NC,  NC,
-			//	    ,    ,  ÅF,  ÅG,  ÅC,  Å|,  ÅD,  Å^		; 0xb8
+			//	    ,    ,  Ôºö,  Ôºõ,  Ôºå,  Ôºç,  Ôºé,  Ôºè		; 0xb8
 				  NC,  NC,  NC,  NC,  NC,  NC,  NC,  NC,
-			//	  Åó,    ,    ,    ,    ,    ,    ,    		; 0xc0
+			//	  Ôº†,    ,    ,    ,    ,    ,    ,    		; 0xc0
 				  NC,  NC,  NC,  NC,  NC,  NC,  NC,  NC,
 			//	    ,    ,    ,    ,    ,    ,    ,    		; 0xc8
 				  NC,  NC,  NC,  NC,  NC,  NC,  NC,  NC,
 			//	    ,    ,    ,    ,    ,    ,    ,    		; 0xd0
 				  NC,  NC,  NC,  NC,  NC,  NC,  NC,  NC,
-			//	    ,    ,    ,  Åm,  Åè,  Ån,  ÅO,    		; 0xd8
+			//	    ,    ,    ,  Ôºª,  Ôø•,  ÔºΩ,  Ôºæ,    		; 0xd8
 				  NC,  NC,  NC,  NC,  NC,  NC,  NC,  NC,
-			//	    ,    ,  ÅQ,    ,    ,    ,    ,    		; 0xe0
+			//	    ,    ,  Ôºø,    ,    ,    ,    ,    		; 0xe0
 				  NC,  NC,  NC,  NC,  NC,  NC,  NC,  NC,
 			//	    ,    ,    ,    ,    ,    ,    ,    		; 0xe8
 				  NC,  NC,  NC,  NC,  NC,  NC,  NC,  NC,
@@ -186,9 +186,9 @@ static const UINT8 f12keys[] = {
 
 
 #if defined(VAEG_EXT)
-static UINT8 knjdown = 0;	// äøéöÉLÅ[Ç™âüÇ≥ÇÍÇΩèÍçáÇ…îÒ0
-							// (ÉGÉ~ÉÖÉåÅ[ÉVÉáÉìÉ}ÉVÉìÇÃ)VSYNCÇ≤Ç∆Ç…ÉJÉEÉìÉgÉ_ÉEÉìÇµ
-							// 0Ç…Ç»Ç¡ÇΩÇÁÉLÅ[Çó£ÇµÇΩèÛë‘Ç…Ç∑ÇÈ
+static UINT8 knjdown = 0;	// Êº¢Â≠ó„Ç≠„Éº„ÅåÊäº„Åï„Çå„ÅüÂ†¥Âêà„Å´Èùû0
+							// („Ç®„Éü„É•„É¨„Éº„Ç∑„Éß„É≥„Éû„Ç∑„É≥„ÅÆ)VSYNC„Åî„Å®„Å´„Ç´„Ç¶„É≥„Éà„ÉÄ„Ç¶„É≥„Åó
+							// 0„Å´„Å™„Å£„Åü„Çâ„Ç≠„Éº„ÇíÈõ¢„Åó„ÅüÁä∂ÊÖã„Å´„Åô„Çã
 #endif
 
 
@@ -198,8 +198,8 @@ void winkbd_keydown(WPARAM wParam, LPARAM lParam) {
 
 #if defined(VAEG_EXT)
 	if (wParam == 0xf4) wParam = 0xf3;	
-		// äøéöÉLÅ[ÇÕâüÇ∑ÇΩÇ—Ç…åå›Ç…wParamÇÃílÇ™f3/f4Ç≈ì¸ÇÍë÷ÇÌÇÈ
-		// Ç±Ç±Ç≈ÇÕ0xf3Ç…ìùàÍÇ∑ÇÈ
+		// Êº¢Â≠ó„Ç≠„Éº„ÅØÊäº„Åô„Åü„Å≥„Å´‰∫§‰∫í„Å´wParam„ÅÆÂÄ§„Ååf3/f4„ÅßÂÖ•„ÇåÊõø„Çè„Çã
+		// „Åì„Åì„Åß„ÅØ0xf3„Å´Áµ±‰∏Ä„Åô„Çã
 	if (wParam == 0xf3) knjdown = 10;
 #endif
 
@@ -328,8 +328,8 @@ void winkbd_setaltr(UINT altrkey) {
 		key = altrkeys[altrkey];
 	}
 	else {
-		key = 0x73;	//NCÇ…Ç∑ÇÈÇ∆ÅAkey106extÇ™éQè∆Ç≥ÇÍÇ∏ÅAALT(L)Ç™îFéØÇ≥ÇÍÇ»Ç≠Ç»ÇÈ
-					//Ç±ÇÃÇΩÇﬂÅAÉfÉtÉHÉãÉgÇÕ0x73(GRPH)Ç∆Ç∑ÇÈ
+		key = 0x73;	//NC„Å´„Åô„Çã„Å®„ÄÅkey106ext„ÅåÂèÇÁÖß„Åï„Çå„Åö„ÄÅALT(L)„ÅåË™çË≠ò„Åï„Çå„Å™„Åè„Å™„Çã
+					//„Åì„ÅÆ„Åü„ÇÅ„ÄÅ„Éá„Éï„Ç©„É´„Éà„ÅØ0x73(GRPH)„Å®„Åô„Çã
 	}
 	key106[0x12] = key;
 }

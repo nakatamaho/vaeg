@@ -32,7 +32,7 @@ static void IOOUTCALL memctrlva_o153(UINT port, REG8 dat) {
 	TRACEOUT(("memctrlva: out %x %x %.4x:%.4x", port, dat, CPU_CS, CPU_IP));
 	memoryva.sysm_bank = dat & 0x0f;
 	if ((dat ^ gactrlva.gmsp) & 0x10) {
-		// ƒVƒ“ƒOƒ‹ƒvƒŒ[ƒ“Ìƒ}ƒ‹ƒ`ƒvƒŒ[ƒ“ Ø‚è‘Ö‚¦
+		// ã‚·ãƒ³ã‚°ãƒ«ãƒ—ãƒ¬ãƒ¼ãƒ³â‡”ãƒãƒ«ãƒãƒ—ãƒ¬ãƒ¼ãƒ³ åˆ‡ã‚Šæ›¿ãˆ
 		gactrlva_reset();
 		if (dat & 0x10) {
 			sgp_reset();
@@ -64,7 +64,7 @@ static REG8 IOINPCALL memctrlva_i153(UINT port) {
 }
 
 static REG8 IOINPCALL memctrlva_i156(UINT port) {
-	// ROMƒoƒ“ƒNƒXƒe[ƒ^ƒX
+	// ROMãƒãƒ³ã‚¯ã‚¹ãƒ†ãƒ¼ã‚¿ã‚¹
 	REG8 dat = 0xff;
 	dat = ~(~dat | ~va91_rombankstatus());
 	return dat;

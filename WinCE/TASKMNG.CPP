@@ -31,7 +31,7 @@ void taskmng_rol(void) {
 	}
 }
 
-#if 0	// ¨ const macro
+#if 0	// â†’ const macro
 BOOL taskmng_isavail(void) {
 
 	return(task_avail);
@@ -59,7 +59,7 @@ extern	HWND	hWndMain;
 	ShowWindow(hWndMain, SW_MINIMIZE);
 	Sleep(500);
 
-	// ‚Å •œ‹A‚³‚ê‚é‚Ü‚Å‘Ò‚ÂB
+	// ã§ å¾©å¸°ã•ã‚Œã‚‹ã¾ã§å¾…ã¤ã€‚
 	while(1) {
 		if (GetActiveWindow() == hWndMain) {
 			break;

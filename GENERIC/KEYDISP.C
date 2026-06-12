@@ -85,7 +85,7 @@ static void keyon(UINT ch, BYTE note) {
 	note &= 0x7f;
 	kdch = keydisp.ch + ch;
 	for (i=0; i<kdch->remain; i++) {
-		if (kdch->k[i] == note) {				// ƒqƒbƒg‚µ‚½
+		if (kdch->k[i] == note) {				// ãƒ’ãƒƒãƒˆã—ãŸ
 			for (; i<(kdch->remain-1); i++) {
 				kdch->k[i] = kdch->k[i+1];
 				kdch->r[i] = kdch->r[i+1];
@@ -112,7 +112,7 @@ static void keyoff(UINT ch, BYTE note) {
 	note &= 0x7f;
 	kdch = keydisp.ch + ch;
 	for (i=0; i<kdch->remain; i++) {
-		if (kdch->k[i] == note) {				// ƒqƒbƒg‚µ‚½
+		if (kdch->k[i] == note) {				// ãƒ’ãƒƒãƒˆã—ãŸ
 			kdch->r[i] = 0x80 | (KEYDISP_LEVEL - 2);
 			kdch->flag |= 1;
 			break;
@@ -550,7 +550,7 @@ void keydisp_setfmboard(UINT b) {
 		if (!(b & 0x04)) {
 			setfmhdl(3, 0);
 		}
-		else {								// ‚Q–‡h‚µ‚ÌƒŒƒWƒXƒ^ˆÚ“®
+		else {								// ï¼’æšåˆºã—ã®æ™‚ãƒ¬ã‚¸ã‚¹ã‚¿ç§»å‹•
 			setfmhdl(3, 0x200);
 		}
 		setpsghdl(1);

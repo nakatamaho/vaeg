@@ -11,7 +11,7 @@
 #include	"keydisp.h"
 
 
-// ROMEO‘Î‰ž”Å PC-9801-118
+// ROMEOå¯¾å¿œç‰ˆ PC-9801-118
 
 static void romeo_restore(BOOL opna) {
 

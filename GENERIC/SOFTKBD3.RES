@@ -1,5 +1,5 @@
 
-// デスクトップ用 308x94 (SUPPORT_SOFTKBD == 0 / PC-9801-119)
+// 繝�繧ｹ繧ｯ繝医ャ繝礼畑 308x94 (SUPPORT_SOFTKBD == 0 / PC-9801-119)
 
 static const BYTE np2kbd_bmp[3217] = {
 		0xbe,0x39,0x00,0x06,0x05,0x42,0x4d,0xbe,0x39,0x00,0x00,0x04,0x76,

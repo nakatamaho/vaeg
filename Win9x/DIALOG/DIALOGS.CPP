@@ -157,7 +157,7 @@ void dlgs_setlistuint32(HWND hWnd, WORD res, const UINT32 *item, UINT items) {
 }
 
 
-// ---- MIDIƒfƒoƒCƒX‚ÌƒŠƒXƒg
+// ---- MIDIãƒ‡ãƒã‚¤ã‚¹ã®ãƒªã‚¹ãƒˆ
 
 void dlgs_setlistmidiout(HWND hWnd, WORD res, const char *defname) {
 

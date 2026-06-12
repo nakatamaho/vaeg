@@ -1,6 +1,6 @@
 
 #if defined(__GNUC__)
-// D88ƒwƒbƒ_ (size: 2b0h bytes)
+// D88ãƒ˜ãƒƒãƒ€ (size: 2b0h bytes)
 typedef struct {
 	BYTE	fd_name[17];		// Disk Name
 	BYTE	reserved1[9]; 		// Reserved
@@ -10,7 +10,7 @@ typedef struct {
 	BYTE	trackp[164][4];		// Track_pointer
 } __attribute__ ((packed)) _D88HEAD, *D88HEAD;
 
-// D88ƒZƒNƒ^ (size: 16bytes)
+// D88ã‚»ã‚¯ã‚¿ (size: 16bytes)
 typedef struct {
 	BYTE	c;
 	BYTE	h;
@@ -27,7 +27,7 @@ typedef struct {
 } __attribute__ ((packed)) _D88SEC, *D88SEC, D88_SECTOR;
 #else
 #pragma pack(push, 1)
-// D88ƒwƒbƒ_ (size: 2b0h bytes)
+// D88ãƒ˜ãƒƒãƒ€ (size: 2b0h bytes)
 typedef struct {
 	BYTE	fd_name[17];		// Disk Name
 	BYTE	reserved1[9]; 		// Reserved
@@ -37,7 +37,7 @@ typedef struct {
 	BYTE	trackp[164][4];		// Track_pointer
 } _D88HEAD, *D88HEAD;
 
-// D88ƒZƒNƒ^ (size: 16bytes)
+// D88ã‚»ã‚¯ã‚¿ (size: 16bytes)
 typedef struct {
 	BYTE	c;
 	BYTE	h;

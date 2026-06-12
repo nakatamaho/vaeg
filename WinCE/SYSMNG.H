@@ -1,5 +1,5 @@
 
-// ‚Ç[‚Å‚à‚¢‚¢’Ê’mŒn
+// ã©ãƒ¼ã§ã‚‚ã„ã„é€šçŸ¥ç³»
 
 enum {
 	SYS_UPDATECFG		= 0x0001,
@@ -30,7 +30,7 @@ void sysmng_fddaccess(BYTE drv);
 void sysmng_hddaccess(BYTE drv);
 #else
 
-// ƒ}ƒNƒ(’P‚ÉŠÖ”ƒR[ƒ‹‚µ‚½‚­‚È‚¢‚¾‚¯)
+// ãƒã‚¯ãƒ­(å˜ã«é–¢æ•°ã‚³ãƒ¼ãƒ«ã—ãŸããªã„ã ã‘)
 #define	sysmng_initialize()	sys_updates = 0
 #define	sysmng_update(a)	sys_updates |= (a)
 #define	sysmng_cpureset()	sys_updates	&= (SYS_UPDATECFG | SYS_UPDATEOSCFG)

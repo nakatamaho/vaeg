@@ -54,7 +54,7 @@ REG8 lio_gcircle(GLIO lio) {
 	lio_updatedraw(lio);
 	MEML_READSTR(CPU_DS, CPU_BX, &dat, sizeof(dat));
 
-	// チェック
+	// 繝√ぉ繝�繧ｯ
 	if (dat.flag & 0x7f) {
 		TRACEOUT(("LIO GCIRCLE not support flags: %.2x", dat.flag));
 	}
@@ -72,7 +72,7 @@ REG8 lio_gcircle(GLIO lio) {
 		return(LIO_SUCCESS);
 	}
 
-	// 単純な円の描画
+	// 蜊倡ｴ斐↑蜀�縺ｮ謠冗判
 	d1 = 0;
 	d2 = ry;
 	d3 = 0 - ry;

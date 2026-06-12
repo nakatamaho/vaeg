@@ -11,7 +11,7 @@ typedef struct {
 
 #define		NC		0xff
 
-// 101ÉLÅ[É{Å[Éh
+// 101„Ç≠„Éº„Éú„Éº„Éâ
 static const SDLKCNV sdlcnv101[] = {
 			{SDLK_ESCAPE,		0x00},	{SDLK_1,			0x01},
 			{SDLK_2,			0x02},	{SDLK_3,			0x03},

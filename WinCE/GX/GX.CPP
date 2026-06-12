@@ -210,7 +210,7 @@ int GXOpenDisplay(HWND hWnd, DWORD dwFlags) {
 	gx_init();
 	gxhwnd = hWnd;
 
-	// bitmap�쐬�B
+	// bitmap作成。
 	ZeroMemory(&bi, sizeof(bi));
 	bi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
 	bi.bmiHeader.biWidth = gxdp.cxWidth;

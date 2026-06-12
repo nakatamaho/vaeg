@@ -20,7 +20,7 @@
 #define	VIEW_BUFFERSIZE	4096
 #define	VIEW_FGCOLOR	0x000000
 #define	VIEW_BGCOLOR	0xffffff
-#define	VIEW_TEXT		"‚l‚r ƒSƒVƒbƒN"
+#define	VIEW_TEXT		"ï¼­ï¼³ ã‚´ã‚·ãƒƒã‚¯"
 #define	VIEW_SIZE		12
 
 typedef struct {

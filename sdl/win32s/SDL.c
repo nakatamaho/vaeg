@@ -45,18 +45,18 @@ typedef struct {
 	SINT16	sdlcode;
 } SDLKEYTBL;
 
-#define	VK_SEMICOLON	0xBA		// ÅG (106 :)
-#define	VK_EQUALS		0xBB		// ÅÅ (106 /)
-#define	VK_COMMA		0xBC		// ÅC
-#define	VK_MINUS		0xBD		// Å|
-#define	VK_PERIOD		0xBE		// ÅD
-#define	VK_SLASH		0xBF		// Å^
-#define	VK_GRAVE		0xC0		// Åó
-#define	VK_LBRACKET		0xDB		// Åm
-#define	VK_BACKSLASH	0xDC		// Åè
-#define	VK_RBRACKET		0xDD		// Ån
-#define	VK_APOSTROPHE	0xDE		// ÅO
-#define	VK_BACKTICK		0xDF		// Åe (106 .)
+#define	VK_SEMICOLON	0xBA		// Ôºõ (106 :)
+#define	VK_EQUALS		0xBB		// Ôºù (106 /)
+#define	VK_COMMA		0xBC		// Ôºå
+#define	VK_MINUS		0xBD		// Ôºç
+#define	VK_PERIOD		0xBE		// Ôºé
+#define	VK_SLASH		0xBF		// Ôºè
+#define	VK_GRAVE		0xC0		// Ôº†
+#define	VK_LBRACKET		0xDB		// Ôºª
+#define	VK_BACKSLASH	0xDC		// Ôø•
+#define	VK_RBRACKET		0xDD		// ÔºΩ
+#define	VK_APOSTROPHE	0xDE		// Ôºæ
+#define	VK_BACKTICK		0xDF		// ‚Äò (106 .)
 
 static const SDLKEYTBL sdlkeytbl[] = {
 		{VK_BACK,		SDLK_BACKSPACE},	{VK_TAB,		SDLK_TAB},

@@ -6,35 +6,35 @@
 </HEAD><BODY>
 <UL>
 	<LI> <OBJECT type="text/sitemap">
-		<param name="Name" value="ƒfƒBƒXƒNƒCƒ[ƒW‚Ìì¬">
+		<param name="Name" value="ãƒ‡ã‚£ã‚¹ã‚¯ã‚¤ãƒ¡ãƒ¼ã‚¸ã®ä½œæˆ">
 		<param name="Local" value="how2use2.html">
 		</OBJECT>
 	<LI> <OBJECT type="text/sitemap">
-		<param name="Name" value="ƒn[ƒhƒfƒBƒXƒNƒCƒ[ƒW‚Ìì¬">
+		<param name="Name" value="ãƒãƒ¼ãƒ‰ãƒ‡ã‚£ã‚¹ã‚¯ã‚¤ãƒ¡ãƒ¼ã‚¸ã®ä½œæˆ">
 		<param name="Local" value="how2use3.html">
 		</OBJECT>
 	<LI> <OBJECT type="text/sitemap">
 		<param name="Name" value="BIOS.ROM">
-		<param name="Name" value="“±“ü•û–@ - ƒCƒ“ƒXƒg[ƒ‹">
+		<param name="Name" value="å°Žå…¥æ–¹æ³• - ã‚¤ãƒ³ã‚¹ãƒˆãƒ¼ãƒ«">
 		<param name="Local" value="how2use1.html">
 		</OBJECT>
 	<LI> <OBJECT type="text/sitemap">
 		<param name="Name" value="FONT.ROM">
-		<param name="Name" value="“±“ü•û–@ - ƒCƒ“ƒXƒg[ƒ‹">
+		<param name="Name" value="å°Žå…¥æ–¹æ³• - ã‚¤ãƒ³ã‚¹ãƒˆãƒ¼ãƒ«">
 		<param name="Local" value="how2use1.html">
 		</OBJECT>
 	<LI> <OBJECT type="text/sitemap">
 		<param name="Name" value="SOUND.ROM">
-		<param name="Name" value="“±“ü•û–@ - ƒCƒ“ƒXƒg[ƒ‹">
+		<param name="Name" value="å°Žå…¥æ–¹æ³• - ã‚¤ãƒ³ã‚¹ãƒˆãƒ¼ãƒ«">
 		<param name="Local" value="how2use1.html">
 		</OBJECT>
 	<LI> <OBJECT type="text/sitemap">
-		<param name="Name" value="ƒŠƒYƒ€‰¹Œ¹‰¹ºƒf[ƒ^">
-		<param name="Name" value="“±“ü•û–@ - ƒCƒ“ƒXƒg[ƒ‹">
+		<param name="Name" value="ãƒªã‚ºãƒ éŸ³æºéŸ³å£°ãƒ‡ãƒ¼ã‚¿">
+		<param name="Name" value="å°Žå…¥æ–¹æ³• - ã‚¤ãƒ³ã‚¹ãƒˆãƒ¼ãƒ«">
 		<param name="Local" value="how2use1.html">
 		</OBJECT>
 	<LI> <OBJECT type="text/sitemap">
-		<param name="Name" value="ƒAƒ“ƒCƒ“ƒXƒg[ƒ‹">
+		<param name="Name" value="ã‚¢ãƒ³ã‚¤ãƒ³ã‚¹ãƒˆãƒ¼ãƒ«">
 		<param name="Local" value="how2use5.html">
 		</OBJECT>
 	<LI> <OBJECT type="text/sitemap">
@@ -87,11 +87,11 @@
 		</OBJECT>
 	<UL>
 		<LI> <OBJECT type="text/sitemap">
-			<param name="Name" value="ƒƒjƒ…[">
+			<param name="Name" value="ãƒ¡ãƒ‹ãƒ¥ãƒ¼">
 			<param name="Local" value="emulate.html">
 			</OBJECT>
 		<LI> <OBJECT type="text/sitemap">
-			<param name="Name" value="Ý’èƒ_ƒCƒAƒƒO">
+			<param name="Name" value="è¨­å®šãƒ€ã‚¤ã‚¢ãƒ­ã‚°">
 			<param name="Local" value="cfgdlg.html">
 			</OBJECT>
 	</UL>
@@ -101,7 +101,7 @@
 		</OBJECT>
 	<UL>
 		<LI> <OBJECT type="text/sitemap">
-			<param name="Name" value="ƒƒjƒ…[">
+			<param name="Name" value="ãƒ¡ãƒ‹ãƒ¥ãƒ¼">
 			<param name="Local" value="emulate.html">
 			</OBJECT>
 		<LI> <OBJECT type="text/sitemap">
@@ -191,7 +191,7 @@
 		</OBJECT>
 	<UL>
 		<LI> <OBJECT type="text/sitemap">
-			<param name="Name" value="ƒƒjƒ…[">
+			<param name="Name" value="ãƒ¡ãƒ‹ãƒ¥ãƒ¼">
 			<param name="Local" value="screen.html">
 			</OBJECT>
 		<LI> <OBJECT type="text/sitemap">
@@ -245,15 +245,15 @@
 		</OBJECT>
 	<UL>
 		<LI> <OBJECT type="text/sitemap">
-			<param name="Name" value="ƒƒjƒ…[">
+			<param name="Name" value="ãƒ¡ãƒ‹ãƒ¥ãƒ¼">
 			<param name="Local" value="device.html">
 			</OBJECT>
 		<LI> <OBJECT type="text/sitemap">
-			<param name="Name" value="Ý’èƒ_ƒCƒAƒƒO">
+			<param name="Name" value="è¨­å®šãƒ€ã‚¤ã‚¢ãƒ­ã‚°">
 			<param name="Local" value="snd14.html">
 			</OBJECT>
 		<LI> <OBJECT type="text/sitemap">
-			<param name="Name" value="ƒ{[ƒhŠT—v">
+			<param name="Name" value="ãƒœãƒ¼ãƒ‰æ¦‚è¦">
 			<param name="Local" value="sndboard.html">
 			</OBJECT>
 	</UL>
@@ -263,15 +263,15 @@
 		</OBJECT>
 	<UL>
 		<LI> <OBJECT type="text/sitemap">
-			<param name="Name" value="ƒƒjƒ…[">
+			<param name="Name" value="ãƒ¡ãƒ‹ãƒ¥ãƒ¼">
 			<param name="Local" value="device.html">
 			</OBJECT>
 		<LI> <OBJECT type="text/sitemap">
-			<param name="Name" value="Ý’èƒ_ƒCƒAƒƒO">
+			<param name="Name" value="è¨­å®šãƒ€ã‚¤ã‚¢ãƒ­ã‚°">
 			<param name="Local" value="snd26k.html">
 			</OBJECT>
 		<LI> <OBJECT type="text/sitemap">
-			<param name="Name" value="ƒ{[ƒhŠT—v">
+			<param name="Name" value="ãƒœãƒ¼ãƒ‰æ¦‚è¦">
 			<param name="Local" value="sndboard.html">
 			</OBJECT>
 	</UL>
@@ -281,15 +281,15 @@
 		</OBJECT>
 	<UL>
 		<LI> <OBJECT type="text/sitemap">
-			<param name="Name" value="ƒƒjƒ…[">
+			<param name="Name" value="ãƒ¡ãƒ‹ãƒ¥ãƒ¼">
 			<param name="Local" value="device.html">
 			</OBJECT>
 		<LI> <OBJECT type="text/sitemap">
-			<param name="Name" value="Ý’èƒ_ƒCƒAƒƒO">
+			<param name="Name" value="è¨­å®šãƒ€ã‚¤ã‚¢ãƒ­ã‚°">
 			<param name="Local" value="snd86.html">
 			</OBJECT>
 		<LI> <OBJECT type="text/sitemap">
-			<param name="Name" value="ƒ{[ƒhŠT—v">
+			<param name="Name" value="ãƒœãƒ¼ãƒ‰æ¦‚è¦">
 			<param name="Local" value="sndboard.html">
 			</OBJECT>
 	</UL>
@@ -299,25 +299,25 @@
 		</OBJECT>
 	<UL>
 		<LI> <OBJECT type="text/sitemap">
-			<param name="Name" value="ƒƒjƒ…[">
+			<param name="Name" value="ãƒ¡ãƒ‹ãƒ¥ãƒ¼">
 			<param name="Local" value="device.html">
 			</OBJECT>
 		<LI> <OBJECT type="text/sitemap">
-			<param name="Name" value="ƒ{[ƒhŠT—v">
+			<param name="Name" value="ãƒœãƒ¼ãƒ‰æ¦‚è¦">
 			<param name="Local" value="sndboard.html">
 			</OBJECT>
 	</UL>
 	<LI> <OBJECT type="text/sitemap">
-		<param name="Name" value="‚¿‚Ñ‚¨‚Æ">
-		<param name="See Also" value="‚¿‚Ñ‚¨‚Æ">
+		<param name="Name" value="ã¡ã³ãŠã¨">
+		<param name="See Also" value="ã¡ã³ãŠã¨">
 		</OBJECT>
 	<UL>
 		<LI> <OBJECT type="text/sitemap">
-			<param name="Name" value="ƒƒjƒ…[">
+			<param name="Name" value="ãƒ¡ãƒ‹ãƒ¥ãƒ¼">
 			<param name="Local" value="device.html">
 			</OBJECT>
 		<LI> <OBJECT type="text/sitemap">
-			<param name="Name" value="ƒLƒbƒgŠT—v">
+			<param name="Name" value="ã‚­ãƒƒãƒˆæ¦‚è¦">
 			<param name="Local" value="sndboard.html">
 			</OBJECT>
 	</UL>
@@ -327,15 +327,15 @@
 		</OBJECT>
 	<UL>
 		<LI> <OBJECT type="text/sitemap">
-			<param name="Name" value="ƒƒjƒ…[">
+			<param name="Name" value="ãƒ¡ãƒ‹ãƒ¥ãƒ¼">
 			<param name="Local" value="device.html">
 			</OBJECT>
 		<LI> <OBJECT type="text/sitemap">
-			<param name="Name" value="Ý’èƒ_ƒCƒAƒƒO">
+			<param name="Name" value="è¨­å®šãƒ€ã‚¤ã‚¢ãƒ­ã‚°">
 			<param name="Local" value="sndspb.html">
 			</OBJECT>
 		<LI> <OBJECT type="text/sitemap">
-			<param name="Name" value="ƒ{[ƒhŠT—v">
+			<param name="Name" value="ãƒœãƒ¼ãƒ‰æ¦‚è¦">
 			<param name="Local" value="sndboard.html">
 			</OBJECT>
 	</UL>
@@ -345,15 +345,15 @@
 		</OBJECT>
 	<UL>
 		<LI> <OBJECT type="text/sitemap">
-			<param name="Name" value="ƒƒjƒ…[">
+			<param name="Name" value="ãƒ¡ãƒ‹ãƒ¥ãƒ¼">
 			<param name="Local" value="device.html">
 			</OBJECT>
 		<LI> <OBJECT type="text/sitemap">
-			<param name="Name" value="Ý’èƒ_ƒCƒAƒƒO">
+			<param name="Name" value="è¨­å®šãƒ€ã‚¤ã‚¢ãƒ­ã‚°">
 			<param name="Local" value="sndspb.html">
 			</OBJECT>
 		<LI> <OBJECT type="text/sitemap">
-			<param name="Name" value="ƒ{[ƒhŠT—v">
+			<param name="Name" value="ãƒœãƒ¼ãƒ‰æ¦‚è¦">
 			<param name="Local" value="sndboard.html">
 			</OBJECT>
 	</UL>
@@ -363,11 +363,11 @@
 		</OBJECT>
 	<UL>
 		<LI> <OBJECT type="text/sitemap">
-			<param name="Name" value="ƒƒjƒ…[">
+			<param name="Name" value="ãƒ¡ãƒ‹ãƒ¥ãƒ¼">
 			<param name="Local" value="device.html">
 			</OBJECT>
 		<LI> <OBJECT type="text/sitemap">
-			<param name="Name" value="ƒ{[ƒhŠT—v">
+			<param name="Name" value="ãƒœãƒ¼ãƒ‰æ¦‚è¦">
 			<param name="Local" value="sndboard.html">
 			</OBJECT>
 	</UL>
@@ -401,7 +401,7 @@
 		</OBJECT>
 	<UL>
 		<LI> <OBJECT type="text/sitemap">
-			<param name="Name" value="ƒƒjƒ…[">
+			<param name="Name" value="ãƒ¡ãƒ‹ãƒ¥ãƒ¼">
 			<param name="Local" value="device.html">
 			</OBJECT>
 		<LI> <OBJECT type="text/sitemap">
@@ -447,11 +447,11 @@
 		</OBJECT>
 	<UL>
 		<LI> <OBJECT type="text/sitemap">
-			<param name="Name" value="ƒƒjƒ…[">
+			<param name="Name" value="ãƒ¡ãƒ‹ãƒ¥ãƒ¼">
 			<param name="Local" value="other.html">
 			</OBJECT>
 		<LI> <OBJECT type="text/sitemap">
-			<param name="Name" value="Ý’èƒ_ƒCƒAƒƒO">
+			<param name="Name" value="è¨­å®šãƒ€ã‚¤ã‚¢ãƒ­ã‚°">
 			<param name="Local" value="calendar.html">
 			</OBJECT>
 	</UL>
@@ -509,26 +509,26 @@
 		</OBJECT>
 	<UL>
 		<LI> <OBJECT type="text/sitemap">
-			<param name="Name" value="Žg‚¢•û">
+			<param name="Name" value="ä½¿ã„æ–¹">
 			<param name="Local" value="toolwin.html">
 			</OBJECT>
 		<LI> <OBJECT type="text/sitemap">
-			<param name="Name" value="ƒXƒLƒ“">
+			<param name="Name" value="ã‚¹ã‚­ãƒ³">
 			<param name="Local" value="toolskin.html">
 			</OBJECT>
 	</UL>
 	<LI> <OBJECT type="text/sitemap">
-		<param name="Name" value="ƒVƒXƒeƒ€ƒZƒbƒgƒAƒbƒvƒƒjƒ…[">
-		<param name="Name" value="“±“ü•û–@ - ƒfƒBƒbƒvƒXƒCƒbƒ`“™">
+		<param name="Name" value="ã‚·ã‚¹ãƒ†ãƒ ã‚»ãƒƒãƒˆã‚¢ãƒƒãƒ—ãƒ¡ãƒ‹ãƒ¥ãƒ¼">
+		<param name="Name" value="å°Žå…¥æ–¹æ³• - ãƒ‡ã‚£ãƒƒãƒ—ã‚¹ã‚¤ãƒƒãƒç­‰">
 		<param name="Local" value="how2use8.html">
 		</OBJECT>
 	<LI> <OBJECT type="text/sitemap">
-		<param name="Name" value="ƒŠƒvƒŒƒC">
-		<param name="Name" value="ƒƒjƒ…[ - Replay">
+		<param name="Name" value="ãƒªãƒ—ãƒ¬ã‚¤">
+		<param name="Name" value="ãƒ¡ãƒ‹ãƒ¥ãƒ¼ - Replay">
 		<param name="Local" value="replay.html">
 		</OBJECT>
 	<LI> <OBJECT type="text/sitemap">
-		<param name="Name" value="ƒfƒBƒbƒvƒXƒCƒbƒ`">
+		<param name="Name" value="ãƒ‡ã‚£ãƒƒãƒ—ã‚¹ã‚¤ãƒƒãƒ">
 		<param name="Local" value="dipsw.html">
 		</OBJECT>
 	<LI> <OBJECT type="text/sitemap">
@@ -555,22 +555,22 @@
 		</OBJECT>
 	<LI> <OBJECT type="text/sitemap">
 		<param name="Name" value="GETROMVA">
-		<param name="Name" value="ƒc[ƒ‹">
+		<param name="Name" value="ãƒ„ãƒ¼ãƒ«">
 		<param name="Local" value="tools.html">
 		</OBJECT>
 	<LI> <OBJECT type="text/sitemap">
 		<param name="Name" value="XDISK2VA">
-		<param name="Name" value="ƒc[ƒ‹">
+		<param name="Name" value="ãƒ„ãƒ¼ãƒ«">
 		<param name="Local" value="tools.html">
 		</OBJECT>
 	<LI> <OBJECT type="text/sitemap">
 		<param name="Name" value="XDISK2">
-		<param name="Name" value="ƒc[ƒ‹">
+		<param name="Name" value="ãƒ„ãƒ¼ãƒ«">
 		<param name="Local" value="tools.html">
 		</OBJECT>
 	<LI> <OBJECT type="text/sitemap">
 		<param name="Name" value="GETBIOS">
-		<param name="Name" value="ƒc[ƒ‹">
+		<param name="Name" value="ãƒ„ãƒ¼ãƒ«">
 		<param name="Local" value="tools.html">
 		</OBJECT>
 	<LI> <OBJECT type="text/sitemap">
@@ -586,23 +586,23 @@
 		<param name="Local" value="tools.html">
 		</OBJECT>
 	<LI> <OBJECT type="text/sitemap">
-		<param name="Name" value="ƒfƒBƒXƒN ƒCƒ}[ƒWƒ…">
+		<param name="Name" value="ãƒ‡ã‚£ã‚¹ã‚¯ ã‚¤ãƒžãƒ¼ã‚¸ãƒ¥">
 		<param name="Local" value="tools.html">
 		</OBJECT>
 	<LI> <OBJECT type="text/sitemap">
-		<param name="Name" value="ƒo[ƒWƒ‡ƒ“ƒAƒbƒvƒ{[ƒh">
-		<param name="Name" value="“±“ü•û–@ - ƒCƒ“ƒXƒg[ƒ‹">
+		<param name="Name" value="ãƒãƒ¼ã‚¸ãƒ§ãƒ³ã‚¢ãƒƒãƒ—ãƒœãƒ¼ãƒ‰">
+		<param name="Name" value="å°Žå…¥æ–¹æ³• - ã‚¤ãƒ³ã‚¹ãƒˆãƒ¼ãƒ«">
 		<param name="Local" value="how2use1.html">
 		</OBJECT>
 	<UL>
 		<LI> <OBJECT type="text/sitemap">
-			<param name="Name" value="ROMƒCƒ[ƒW">
-			<param name="Name" value="“±“ü•û–@ - ƒCƒ“ƒXƒg[ƒ‹">
+			<param name="Name" value="ROMã‚¤ãƒ¡ãƒ¼ã‚¸">
+			<param name="Name" value="å°Žå…¥æ–¹æ³• - ã‚¤ãƒ³ã‚¹ãƒˆãƒ¼ãƒ«">
 			<param name="Local" value="how2use1.html">
 			</OBJECT>
 		<LI> <OBJECT type="text/sitemap">
-			<param name="Name" value="ƒƒjƒ…[">
-			<param name="Name" value="ƒƒjƒ…[ - Device">
+			<param name="Name" value="ãƒ¡ãƒ‹ãƒ¥ãƒ¼">
+			<param name="Name" value="ãƒ¡ãƒ‹ãƒ¥ãƒ¼ - Device">
 			<param name="Local" value="device.html">
 			</OBJECT>
 	</UL>

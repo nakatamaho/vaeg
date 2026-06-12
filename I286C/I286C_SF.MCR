@@ -1,4 +1,4 @@
-// wordÇÕÇ©Ç»ÇËÉmÅ[É`ÉFÉbÉN
+// word„ÅØ„Åã„Å™„Çä„Éé„Éº„ÉÅ„Çß„ÉÉ„ÇØ
 
 
 #define	BYTE_ROL1(d, s)	{											\
@@ -332,7 +332,7 @@
 			I286_FLAGL |= WORDSZPF(s);								\
 		}															\
 		(d) = (s);
-#else	// eVCÅ`
+#else	// eVCÔΩû
 #define	WORD_SARCL(d, s, c)											\
 		(c) &= 0x1f;												\
 		if (c) {													\

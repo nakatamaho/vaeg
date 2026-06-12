@@ -222,7 +222,7 @@ void soundmng_destroy(void) {
 			waveOutReset(w_ctrl.hwave);
 		}
 		else {
-		//	’N‚©ƒVƒOƒ}ƒŠ‚R‚Å‚Ìƒ}ƒgƒ‚‚ÈŠJ•ú•û–@‹³‚¦‚Ä‚­‚¾‚¿‚¢c
+		//	èª°ã‹ã‚·ã‚°ãƒãƒªï¼“ã§ã®ãƒãƒˆãƒ¢ãªé–‹æ”¾æ–¹æ³•æ•™ãˆã¦ãã ã¡ã„â€¦
 		//	waveOutReset(w_ctrl.hwave);
 			for (i=0; i<2; i++) {
 				waveOutUnprepareHeader(w_ctrl.hwave, w_ctrl.wh + i,
@@ -239,7 +239,7 @@ void soundmng_destroy(void) {
 		} while(--retry);
 		_MFREE(w_ctrl.buffer);
 #if defined(VERMOUTH_LIB)
-//		cmvermouth_unload();			// I—¹‚É unload
+//		cmvermouth_unload();			// çµ‚äº†æ™‚ã« unload
 #endif
 		waveopened = FALSE;
 	}
@@ -248,7 +248,7 @@ void soundmng_destroy(void) {
 
 // ----
 
-// WinCE”Å c vermouth‚Ìƒ[ƒh‚ÉŠÔŠ|‚©‚é‚Ì‚Å
+// WinCEç‰ˆ â€¦ vermouthã®ãƒ­ãƒ¼ãƒ‰ã«æ™‚é–“æ›ã‹ã‚‹ã®ã§
 void soundmng_initialize(void) {
 }
 

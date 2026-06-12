@@ -28,7 +28,7 @@ void i8255_reset(I8255CFG p) {
 	i8255_outctrl(p, 0x80);
 }
 
-// ---- CPU ‚Æ‚Ì I/F
+// ---- CPU ã¨ã® I/F
 
 void i8255_outporta(I8255CFG p, BYTE dat) {
 	I8255 s = p->s;
@@ -97,7 +97,7 @@ void i8255_outctrl(I8255CFG p, BYTE dat) {
 }
 
 
-// ---- ŠO•”‘•’u‚Æ‚Ì I/F
+// ---- å¤–éƒ¨è£…ç½®ã¨ã® I/F
 
 void i8255_businporta(I8255CFG p, BYTE dat) {
 	I8255 s = p->s;

@@ -1,26 +1,26 @@
 # Microsoft Developer Studio Project File - Name="np2" - Package Owner=<4>
 # Microsoft Developer Studio Generated Build File, Format Version 6.00
-# ** •ÒW‚µ‚È‚¢‚Å‚­‚¾‚³‚¢ **
+# ** ç·¨é›†ã—ãªã„ã§ãã ã•ã„ **
 
 # TARGTYPE "Win32 (x86) Application" 0x0101
 
 CFG=np2 - Win32 Trace
-!MESSAGE ‚±‚ê‚Í—LŒø‚ÈÒ²¸Ì§²Ù‚Å‚Í‚ ‚è‚Ü‚¹‚ñB ‚±‚ÌÌßÛ¼Şª¸Ä‚ğËŞÙÄŞ‚·‚é‚½‚ß‚É‚Í NMAKE ‚ğg—p‚µ‚Ä‚­‚¾‚³‚¢B
-!MESSAGE [Ò²¸Ì§²Ù‚Ì´¸½Îß°Ä] ºÏİÄŞ‚ğg—p‚µ‚ÄÀs‚µ‚Ä‚­‚¾‚³‚¢
+!MESSAGE ã“ã‚Œã¯æœ‰åŠ¹ãªï¾’ï½²ï½¸ï¾Œï½§ï½²ï¾™ã§ã¯ã‚ã‚Šã¾ã›ã‚“ã€‚ ã“ã®ï¾Œï¾Ÿï¾›ï½¼ï¾ï½ªï½¸ï¾„ã‚’ï¾‹ï¾ï¾™ï¾„ï¾ã™ã‚‹ãŸã‚ã«ã¯ NMAKE ã‚’ä½¿ç”¨ã—ã¦ãã ã•ã„ã€‚
+!MESSAGE [ï¾’ï½²ï½¸ï¾Œï½§ï½²ï¾™ã®ï½´ï½¸ï½½ï¾ï¾Ÿï½°ï¾„] ï½ºï¾ï¾ï¾„ï¾ã‚’ä½¿ç”¨ã—ã¦å®Ÿè¡Œã—ã¦ãã ã•ã„
 !MESSAGE 
 !MESSAGE NMAKE /f "np2.mak".
 !MESSAGE 
-!MESSAGE NMAKE ‚ÌÀs‚É\¬‚ğw’è‚Å‚«‚Ü‚·
-!MESSAGE ºÏİÄŞ ×²İã‚ÅÏ¸Û‚Ìİ’è‚ğ’è‹`‚µ‚Ü‚·B—á:
+!MESSAGE NMAKE ã®å®Ÿè¡Œæ™‚ã«æ§‹æˆã‚’æŒ‡å®šã§ãã¾ã™
+!MESSAGE ï½ºï¾ï¾ï¾„ï¾ ï¾—ï½²ï¾ä¸Šã§ï¾ï½¸ï¾›ã®è¨­å®šã‚’å®šç¾©ã—ã¾ã™ã€‚ä¾‹:
 !MESSAGE 
 !MESSAGE NMAKE /f "np2.mak" CFG="np2 - Win32 Trace"
 !MESSAGE 
-!MESSAGE ‘I‘ğ‰Â”\‚ÈËŞÙÄŞ Ó°ÄŞ:
+!MESSAGE é¸æŠå¯èƒ½ãªï¾‹ï¾ï¾™ï¾„ï¾ ï¾“ï½°ï¾„ï¾:
 !MESSAGE 
-!MESSAGE "np2 - Win32 Release" ("Win32 (x86) Application" —p)
-!MESSAGE "np2 - Win32 Trace" ("Win32 (x86) Application" —p)
-!MESSAGE "np2 - Win32 WaveRec" ("Win32 (x86) Application" —p)
-!MESSAGE "np2 - Win32 Debug" ("Win32 (x86) Application" —p)
+!MESSAGE "np2 - Win32 Release" ("Win32 (x86) Application" ç”¨)
+!MESSAGE "np2 - Win32 Trace" ("Win32 (x86) Application" ç”¨)
+!MESSAGE "np2 - Win32 WaveRec" ("Win32 (x86) Application" ç”¨)
+!MESSAGE "np2 - Win32 Debug" ("Win32 (x86) Application" ç”¨)
 !MESSAGE 
 
 # Begin Project
@@ -177,7 +177,7 @@ SOURCE=.\x86\PARTS.X86
 
 !IF  "$(CFG)" == "np2 - Win32 Release"
 
-# Begin Custom Build - ±¾İÌŞÙ’†... $(InputPath)
+# Begin Custom Build - ï½±ï½¾ï¾ï¾Œï¾ï¾™ä¸­... $(InputPath)
 IntDir=.\..\obj\rel
 InputPath=.\x86\PARTS.X86
 InputName=PARTS
@@ -189,7 +189,7 @@ InputName=PARTS
 
 !ELSEIF  "$(CFG)" == "np2 - Win32 Trace"
 
-# Begin Custom Build - ±¾İÌŞÙ’†... $(InputPath)
+# Begin Custom Build - ï½±ï½¾ï¾ï¾Œï¾ï¾™ä¸­... $(InputPath)
 IntDir=.\..\obj\trc
 InputPath=.\x86\PARTS.X86
 InputName=PARTS
@@ -201,7 +201,7 @@ InputName=PARTS
 
 !ELSEIF  "$(CFG)" == "np2 - Win32 WaveRec"
 
-# Begin Custom Build - ±¾İÌŞÙ’†... $(InputPath)
+# Begin Custom Build - ï½±ï½¾ï¾ï¾Œï¾ï¾™ä¸­... $(InputPath)
 IntDir=.\..\obj\wr
 InputPath=.\x86\PARTS.X86
 InputName=PARTS
@@ -213,7 +213,7 @@ InputName=PARTS
 
 !ELSEIF  "$(CFG)" == "np2 - Win32 Debug"
 
-# Begin Custom Build - ±¾İÌŞÙ’†... $(InputPath)
+# Begin Custom Build - ï½±ï½¾ï¾ï¾Œï¾ï¾™ä¸­... $(InputPath)
 IntDir=.\..\obj\dbg
 InputPath=.\x86\PARTS.X86
 InputName=PARTS
@@ -252,7 +252,7 @@ SOURCE=..\I286X\DMAP.X86
 
 !IF  "$(CFG)" == "np2 - Win32 Release"
 
-# Begin Custom Build - ±¾İÌŞÙ’†... $(InputPath)
+# Begin Custom Build - ï½±ï½¾ï¾ï¾Œï¾ï¾™ä¸­... $(InputPath)
 IntDir=.\..\obj\rel
 InputPath=..\I286X\DMAP.X86
 InputName=DMAP
@@ -264,7 +264,7 @@ InputName=DMAP
 
 !ELSEIF  "$(CFG)" == "np2 - Win32 Trace"
 
-# Begin Custom Build - ±¾İÌŞÙ’†... $(InputPath)
+# Begin Custom Build - ï½±ï½¾ï¾ï¾Œï¾ï¾™ä¸­... $(InputPath)
 IntDir=.\..\obj\trc
 InputPath=..\I286X\DMAP.X86
 InputName=DMAP
@@ -276,7 +276,7 @@ InputName=DMAP
 
 !ELSEIF  "$(CFG)" == "np2 - Win32 WaveRec"
 
-# Begin Custom Build - ±¾İÌŞÙ’†... $(InputPath)
+# Begin Custom Build - ï½±ï½¾ï¾ï¾Œï¾ï¾™ä¸­... $(InputPath)
 IntDir=.\..\obj\wr
 InputPath=..\I286X\DMAP.X86
 InputName=DMAP
@@ -288,7 +288,7 @@ InputName=DMAP
 
 !ELSEIF  "$(CFG)" == "np2 - Win32 Debug"
 
-# Begin Custom Build - ±¾İÌŞÙ’†... $(InputPath)
+# Begin Custom Build - ï½±ï½¾ï¾ï¾Œï¾ï¾™ä¸­... $(InputPath)
 IntDir=.\..\obj\dbg
 InputPath=..\I286X\DMAP.X86
 InputName=DMAP
@@ -307,7 +307,7 @@ SOURCE=..\I286X\EGCMEM.X86
 
 !IF  "$(CFG)" == "np2 - Win32 Release"
 
-# Begin Custom Build - ±¾İÌŞÙ’†... $(InputPath)
+# Begin Custom Build - ï½±ï½¾ï¾ï¾Œï¾ï¾™ä¸­... $(InputPath)
 IntDir=.\..\obj\rel
 InputPath=..\I286X\EGCMEM.X86
 InputName=EGCMEM
@@ -319,7 +319,7 @@ InputName=EGCMEM
 
 !ELSEIF  "$(CFG)" == "np2 - Win32 Trace"
 
-# Begin Custom Build - ±¾İÌŞÙ’†... $(InputPath)
+# Begin Custom Build - ï½±ï½¾ï¾ï¾Œï¾ï¾™ä¸­... $(InputPath)
 IntDir=.\..\obj\trc
 InputPath=..\I286X\EGCMEM.X86
 InputName=EGCMEM
@@ -331,7 +331,7 @@ InputName=EGCMEM
 
 !ELSEIF  "$(CFG)" == "np2 - Win32 WaveRec"
 
-# Begin Custom Build - ±¾İÌŞÙ’†... $(InputPath)
+# Begin Custom Build - ï½±ï½¾ï¾ï¾Œï¾ï¾™ä¸­... $(InputPath)
 IntDir=.\..\obj\wr
 InputPath=..\I286X\EGCMEM.X86
 InputName=EGCMEM
@@ -343,7 +343,7 @@ InputName=EGCMEM
 
 !ELSEIF  "$(CFG)" == "np2 - Win32 Debug"
 
-# Begin Custom Build - ±¾İÌŞÙ’†... $(InputPath)
+# Begin Custom Build - ï½±ï½¾ï¾ï¾Œï¾ï¾™ä¸­... $(InputPath)
 IntDir=.\..\obj\dbg
 InputPath=..\I286X\EGCMEM.X86
 InputName=EGCMEM
@@ -382,7 +382,7 @@ SOURCE=..\I286X\MEMORY.X86
 
 !IF  "$(CFG)" == "np2 - Win32 Release"
 
-# Begin Custom Build - ±¾İÌŞÙ’†... $(InputPath)
+# Begin Custom Build - ï½±ï½¾ï¾ï¾Œï¾ï¾™ä¸­... $(InputPath)
 IntDir=.\..\obj\rel
 InputPath=..\I286X\MEMORY.X86
 InputName=MEMORY
@@ -394,7 +394,7 @@ InputName=MEMORY
 
 !ELSEIF  "$(CFG)" == "np2 - Win32 Trace"
 
-# Begin Custom Build - ±¾İÌŞÙ’†... $(InputPath)
+# Begin Custom Build - ï½±ï½¾ï¾ï¾Œï¾ï¾™ä¸­... $(InputPath)
 IntDir=.\..\obj\trc
 InputPath=..\I286X\MEMORY.X86
 InputName=MEMORY
@@ -406,7 +406,7 @@ InputName=MEMORY
 
 !ELSEIF  "$(CFG)" == "np2 - Win32 WaveRec"
 
-# Begin Custom Build - ±¾İÌŞÙ’†... $(InputPath)
+# Begin Custom Build - ï½±ï½¾ï¾ï¾Œï¾ï¾™ä¸­... $(InputPath)
 IntDir=.\..\obj\wr
 InputPath=..\I286X\MEMORY.X86
 InputName=MEMORY
@@ -418,7 +418,7 @@ InputName=MEMORY
 
 !ELSEIF  "$(CFG)" == "np2 - Win32 Debug"
 
-# Begin Custom Build - ±¾İÌŞÙ’†... $(InputPath)
+# Begin Custom Build - ï½±ï½¾ï¾ï¾Œï¾ï¾™ä¸­... $(InputPath)
 IntDir=.\..\obj\dbg
 InputPath=..\I286X\MEMORY.X86
 InputName=MEMORY
@@ -573,7 +573,7 @@ SOURCE=.\x86\OPNGENG.X86
 
 !IF  "$(CFG)" == "np2 - Win32 Release"
 
-# Begin Custom Build - ±¾İÌŞÙ’†... $(InputPath)
+# Begin Custom Build - ï½±ï½¾ï¾ï¾Œï¾ï¾™ä¸­... $(InputPath)
 IntDir=.\..\obj\rel
 InputPath=.\x86\OPNGENG.X86
 InputName=OPNGENG
@@ -585,7 +585,7 @@ InputName=OPNGENG
 
 !ELSEIF  "$(CFG)" == "np2 - Win32 Trace"
 
-# Begin Custom Build - ±¾İÌŞÙ’†... $(InputPath)
+# Begin Custom Build - ï½±ï½¾ï¾ï¾Œï¾ï¾™ä¸­... $(InputPath)
 IntDir=.\..\obj\trc
 InputPath=.\x86\OPNGENG.X86
 InputName=OPNGENG
@@ -597,7 +597,7 @@ InputName=OPNGENG
 
 !ELSEIF  "$(CFG)" == "np2 - Win32 WaveRec"
 
-# Begin Custom Build - ±¾İÌŞÙ’†... $(InputPath)
+# Begin Custom Build - ï½±ï½¾ï¾ï¾Œï¾ï¾™ä¸­... $(InputPath)
 IntDir=.\..\obj\wr
 InputPath=.\x86\OPNGENG.X86
 InputName=OPNGENG
@@ -609,7 +609,7 @@ InputName=OPNGENG
 
 !ELSEIF  "$(CFG)" == "np2 - Win32 Debug"
 
-# Begin Custom Build - ±¾İÌŞÙ’†... $(InputPath)
+# Begin Custom Build - ï½±ï½¾ï¾ï¾Œï¾ï¾™ä¸­... $(InputPath)
 IntDir=.\..\obj\dbg
 InputPath=.\x86\OPNGENG.X86
 InputName=OPNGENG
@@ -912,7 +912,7 @@ SOURCE=.\x86\CPUTYPE.X86
 
 !IF  "$(CFG)" == "np2 - Win32 Release"
 
-# Begin Custom Build - ±¾İÌŞÙ’†... $(InputPath)
+# Begin Custom Build - ï½±ï½¾ï¾ï¾Œï¾ï¾™ä¸­... $(InputPath)
 IntDir=.\..\obj\rel
 InputPath=.\x86\CPUTYPE.X86
 InputName=CPUTYPE
@@ -924,7 +924,7 @@ InputName=CPUTYPE
 
 !ELSEIF  "$(CFG)" == "np2 - Win32 Trace"
 
-# Begin Custom Build - ±¾İÌŞÙ’†... $(InputPath)
+# Begin Custom Build - ï½±ï½¾ï¾ï¾Œï¾ï¾™ä¸­... $(InputPath)
 IntDir=.\..\obj\trc
 InputPath=.\x86\CPUTYPE.X86
 InputName=CPUTYPE
@@ -936,7 +936,7 @@ InputName=CPUTYPE
 
 !ELSEIF  "$(CFG)" == "np2 - Win32 WaveRec"
 
-# Begin Custom Build - ±¾İÌŞÙ’†... $(InputPath)
+# Begin Custom Build - ï½±ï½¾ï¾ï¾Œï¾ï¾™ä¸­... $(InputPath)
 IntDir=.\..\obj\wr
 InputPath=.\x86\CPUTYPE.X86
 InputName=CPUTYPE
@@ -948,7 +948,7 @@ InputName=CPUTYPE
 
 !ELSEIF  "$(CFG)" == "np2 - Win32 Debug"
 
-# Begin Custom Build - ±¾İÌŞÙ’†... $(InputPath)
+# Begin Custom Build - ï½±ï½¾ï¾ï¾Œï¾ï¾™ä¸­... $(InputPath)
 IntDir=.\..\obj\dbg
 InputPath=.\x86\CPUTYPE.X86
 InputName=CPUTYPE
@@ -971,7 +971,7 @@ SOURCE=.\DCLOCKD.X86
 
 !IF  "$(CFG)" == "np2 - Win32 Release"
 
-# Begin Custom Build - ±¾İÌŞÙ’†... $(InputPath)
+# Begin Custom Build - ï½±ï½¾ï¾ï¾Œï¾ï¾™ä¸­... $(InputPath)
 IntDir=.\..\obj\rel
 InputPath=.\DCLOCKD.X86
 InputName=DCLOCKD
@@ -983,7 +983,7 @@ InputName=DCLOCKD
 
 !ELSEIF  "$(CFG)" == "np2 - Win32 Trace"
 
-# Begin Custom Build - ±¾İÌŞÙ’†... $(InputPath)
+# Begin Custom Build - ï½±ï½¾ï¾ï¾Œï¾ï¾™ä¸­... $(InputPath)
 IntDir=.\..\obj\trc
 InputPath=.\DCLOCKD.X86
 InputName=DCLOCKD
@@ -995,7 +995,7 @@ InputName=DCLOCKD
 
 !ELSEIF  "$(CFG)" == "np2 - Win32 WaveRec"
 
-# Begin Custom Build - ±¾İÌŞÙ’†... $(InputPath)
+# Begin Custom Build - ï½±ï½¾ï¾ï¾Œï¾ï¾™ä¸­... $(InputPath)
 IntDir=.\..\obj\wr
 InputPath=.\DCLOCKD.X86
 InputName=DCLOCKD
@@ -1007,7 +1007,7 @@ InputName=DCLOCKD
 
 !ELSEIF  "$(CFG)" == "np2 - Win32 Debug"
 
-# Begin Custom Build - ±¾İÌŞÙ’†... $(InputPath)
+# Begin Custom Build - ï½±ï½¾ï¾ï¾Œï¾ï¾™ä¸­... $(InputPath)
 IntDir=.\..\obj\dbg
 InputPath=.\DCLOCKD.X86
 InputName=DCLOCKD
@@ -1310,7 +1310,7 @@ SOURCE=.\x86\MAKEGRPH.X86
 
 !IF  "$(CFG)" == "np2 - Win32 Release"
 
-# Begin Custom Build - ±¾İÌŞÙ’†... $(InputPath)
+# Begin Custom Build - ï½±ï½¾ï¾ï¾Œï¾ï¾™ä¸­... $(InputPath)
 IntDir=.\..\obj\rel
 InputPath=.\x86\MAKEGRPH.X86
 InputName=MAKEGRPH
@@ -1322,7 +1322,7 @@ InputName=MAKEGRPH
 
 !ELSEIF  "$(CFG)" == "np2 - Win32 Trace"
 
-# Begin Custom Build - ±¾İÌŞÙ’†... $(InputPath)
+# Begin Custom Build - ï½±ï½¾ï¾ï¾Œï¾ï¾™ä¸­... $(InputPath)
 IntDir=.\..\obj\trc
 InputPath=.\x86\MAKEGRPH.X86
 InputName=MAKEGRPH
@@ -1334,7 +1334,7 @@ InputName=MAKEGRPH
 
 !ELSEIF  "$(CFG)" == "np2 - Win32 WaveRec"
 
-# Begin Custom Build - ±¾İÌŞÙ’†... $(InputPath)
+# Begin Custom Build - ï½±ï½¾ï¾ï¾Œï¾ï¾™ä¸­... $(InputPath)
 IntDir=.\..\obj\wr
 InputPath=.\x86\MAKEGRPH.X86
 InputName=MAKEGRPH
@@ -1346,7 +1346,7 @@ InputName=MAKEGRPH
 
 !ELSEIF  "$(CFG)" == "np2 - Win32 Debug"
 
-# Begin Custom Build - ±¾İÌŞÙ’†... $(InputPath)
+# Begin Custom Build - ï½±ï½¾ï¾ï¾Œï¾ï¾™ä¸­... $(InputPath)
 IntDir=.\..\obj\dbg
 InputPath=.\x86\MAKEGRPH.X86
 InputName=MAKEGRPH
@@ -1465,7 +1465,7 @@ SOURCE=..\CPUXVA\MEMORYVA.X86
 
 !IF  "$(CFG)" == "np2 - Win32 Release"
 
-# Begin Custom Build - ±¾İÌŞÙ’†... $(InputPath)
+# Begin Custom Build - ï½±ï½¾ï¾ï¾Œï¾ï¾™ä¸­... $(InputPath)
 IntDir=.\..\obj\rel
 InputPath=..\CPUXVA\MEMORYVA.X86
 InputName=MEMORYVA
@@ -1481,7 +1481,7 @@ InputName=MEMORYVA
 
 !ELSEIF  "$(CFG)" == "np2 - Win32 Debug"
 
-# Begin Custom Build - ±¾İÌŞÙ’†... $(InputPath)
+# Begin Custom Build - ï½±ï½¾ï¾ï¾Œï¾ï¾™ä¸­... $(InputPath)
 IntDir=.\..\obj\dbg
 InputPath=..\CPUXVA\MEMORYVA.X86
 InputName=MEMORYVA

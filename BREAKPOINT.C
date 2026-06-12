@@ -112,7 +112,7 @@ static BOOL breakpoint_check(int type, UINT32 param1) {
 				if (bp->p.addr != param1) break;
 				if (!breakpoint_evalcond(cond)) break;
 				return TRUE;
-			case BREAKPOINT_INTERRUPT:	// int data Ç‹ÇΩÇÕ int3
+			case BREAKPOINT_INTERRUPT:	// int data „Åæ„Åü„ÅØ int3
 				if ((CPUPREFETCH(0) == 0xcd && CPUPREFETCH(1) == bp->p.intnum) ||
 					(CPUPREFETCH(0) == 0xcc && bp->p.intnum == 3)) {
 					if (breakpoint_evalcond(cond)) return TRUE;
@@ -285,7 +285,7 @@ static int parse_hex(const char **str, UINT32 *val) {
 		v += d - digits;
 	}
 	if (*str == pt) {
-		// 1ï∂éöÇ‡è¡îÔÇµÇƒÇ¢Ç»Ç¢
+		// 1ÊñáÂ≠ó„ÇÇÊ∂àË≤ª„Åó„Å¶„ÅÑ„Å™„ÅÑ
 		return 0;
 	}
 	*str = pt;
@@ -468,9 +468,9 @@ int breakpoint_parse(const char *str, BREAKPOINT *bp) {
 			BREAKCOND *cond;
 			if (parse_condition(&str, &cond)) {
 				if (parse_endofstr(&str)) {
-					// ê≥èÌ
+					// Ê≠£Â∏∏
 					bp->cond = cond;
-					// bp->type ÇÕ parse_actionÇ≈ê›íË
+					// bp->type „ÅØ parse_action„ÅßË®≠ÂÆö
 					return 1;
 				}
 			}
@@ -484,14 +484,14 @@ int breakpoint_parse(const char *str, BREAKPOINT *bp) {
 		BREAKCOND *cond;
 		if (parse_condition(&str, &cond)) {
 			if (parse_endofstr(&str)) {
-				// ê≥èÌ
+				// Ê≠£Â∏∏
 				bp->cond = cond;
 				bp->type = BREAKPOINT_STEP;
 				return 1;
 			}
 		}
 	}
-	// ÉGÉâÅ[
+	// „Ç®„É©„Éº
 	return 0;
 }
 

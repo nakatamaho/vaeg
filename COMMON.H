@@ -113,7 +113,7 @@ typedef union {
 
 
 enum {
-	FTYPE_NONE = 0,		// Ž©“®”»•Ê or PC
+	FTYPE_NONE = 0,		// è‡ªå‹•åˆ¤åˆ¥ or PC
 	FTYPE_SMIL,
 	FTYPE_TEXT,
 	FTYPE_BMP,

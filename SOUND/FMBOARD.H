@@ -43,7 +43,7 @@ typedef struct {
 
 #if defined(SUPPORT_PC88VA)
 typedef struct {
-	BYTE	sintm;			// bit7  0..Š„‚è‚İ‹–‰Â  1..Š„‚è‚İ‹Ö~
+	BYTE	sintm;			// bit7  0..å‰²ã‚Šè¾¼ã¿è¨±å¯  1..å‰²ã‚Šè¾¼ã¿ç¦æ­¢
 } _FMBOARDVA;
 #endif
 

@@ -117,7 +117,7 @@ static void renewalclientsize(void) {
 	width = min(scrnstat.width, ddraw.width);
 	height = min(scrnstat.height, ddraw.height);
 
-	// �`��͈́`
+	// 描画範囲～
 	if (ddraw.scrnmode & SCRNMODE_FULLSCREEN) {
 		ddraw.rect.right = width;
 		ddraw.rect.bottom = height;

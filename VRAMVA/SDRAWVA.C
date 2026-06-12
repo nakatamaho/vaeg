@@ -47,7 +47,7 @@ static void SCRNCALL sdrawva16(SDRAWVA sdraw, int maxy) {
 		q += sdraw->yalign;
 	} while(++y < maxy);
 
-	// �{���́Asrc���ۑ��ł��Ȃ��ƃ_��
+	// 本当は、srcも保存できないとダメ
 	sdraw->dst = q;
 	sdraw->y = y;
 }
@@ -92,7 +92,7 @@ static void SCRNCALL sdrawva24(SDRAWVA sdraw, int maxy) {
 		q += sdraw->yalign;
 	} while(++y < maxy);
 
-	// �{���́Asrc���ۑ��ł��Ȃ��ƃ_��
+	// 本当は、srcも保存できないとダメ
 	sdraw->dst = q;
 	sdraw->y = y;
 }
@@ -136,7 +136,7 @@ static void SCRNCALL sdrawva32(SDRAWVA sdraw, int maxy) {
 		q += sdraw->yalign;
 	} while(++y < maxy);
 
-	// �{���́Asrc���ۑ��ł��Ȃ��ƃ_��
+	// 本当は、srcも保存できないとダメ
 	sdraw->dst = q;
 	sdraw->y = y;
 }

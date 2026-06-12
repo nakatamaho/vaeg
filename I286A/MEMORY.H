@@ -4,7 +4,7 @@
 #endif
 
 
-// 000000-0fffff ƒƒCƒ“ƒƒ‚ƒŠ
+// 000000-0fffff ãƒ¡ã‚¤ãƒ³ãƒ¡ãƒ¢ãƒª
 // 100000-10ffef HMA
 // 110000-193fff FONT-ROM/RAM
 // 1a8000-1bffff VRAM1

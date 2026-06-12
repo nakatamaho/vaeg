@@ -37,7 +37,7 @@ GETSND getsnd_create(void *datptr, UINT datsize) {
 	}
 	ZeroMemory(ret + 1, size);
 
-	// ƒ[ƒN‚Æ‚©İ’èB
+	// ãƒ¯ãƒ¼ã‚¯ã¨ã‹è¨­å®šã€‚
 	snd.buffer = (BYTE *)(ret + 1);
 	snd.work = snd.buffer + blkwork;
 	*ret = snd;
