@@ -3,6 +3,32 @@
 #include	"dd2.h"
 
 
+typedef HRESULT (WINAPI *NP2DIRECTDRAWCREATE)(GUID FAR *, LPDIRECTDRAW FAR *, IUnknown FAR *);
+
+static HRESULT np2_directdrawcreate(GUID FAR *lpGuid,
+									LPDIRECTDRAW FAR *lplpDD,
+									IUnknown FAR *pUnkOuter) {
+
+	static HMODULE				hDdraw = NULL;
+	static NP2DIRECTDRAWCREATE	pDirectDrawCreate = NULL;
+
+	if (pDirectDrawCreate == NULL) {
+		if (hDdraw == NULL) {
+			hDdraw = LoadLibraryA("ddraw.dll");
+			if (hDdraw == NULL) {
+				return E_FAIL;
+			}
+		}
+		pDirectDrawCreate = (NP2DIRECTDRAWCREATE)GetProcAddress(hDdraw,
+													"DirectDrawCreate");
+		if (pDirectDrawCreate == NULL) {
+			return E_FAIL;
+		}
+	}
+	return pDirectDrawCreate(lpGuid, lplpDD, pUnkOuter);
+}
+
+
 typedef struct {
 	HWND					hwnd;
 	LPDIRECTDRAW			ddraw1;
@@ -34,7 +60,7 @@ DD2HDL dd2_create(HWND hwnd, int width, int height) {
 	}
 	ZeroMemory(dd2, sizeof(_DD2SURF));
 	dd2->hwnd = hwnd;
-	if (DirectDrawCreate(NULL, &dd2->ddraw1, NULL) != DD_OK) {
+	if (np2_directdrawcreate(NULL, &dd2->ddraw1, NULL) != DD_OK) {
 		goto dd2cre_err2;
 	}
 	dd2->ddraw1->QueryInterface(IID_IDirectDraw2, (void **)&dd2->ddraw);
@@ -211,4 +237,3 @@ UINT16 dd2_get16pal(DD2HDL dd2hdl, RGB32 pal) {
 		return(0);
 	}
 }
-

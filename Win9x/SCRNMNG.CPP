@@ -17,6 +17,32 @@
 #include	"palettes.h"
 
 
+typedef HRESULT (WINAPI *NP2DIRECTDRAWCREATE)(GUID FAR *, LPDIRECTDRAW FAR *, IUnknown FAR *);
+
+static HRESULT np2_directdrawcreate(GUID FAR *lpGuid,
+									LPDIRECTDRAW FAR *lplpDD,
+									IUnknown FAR *pUnkOuter) {
+
+	static HMODULE				hDdraw = NULL;
+	static NP2DIRECTDRAWCREATE	pDirectDrawCreate = NULL;
+
+	if (pDirectDrawCreate == NULL) {
+		if (hDdraw == NULL) {
+			hDdraw = LoadLibraryA("ddraw.dll");
+			if (hDdraw == NULL) {
+				return E_FAIL;
+			}
+		}
+		pDirectDrawCreate = (NP2DIRECTDRAWCREATE)GetProcAddress(hDdraw,
+													"DirectDrawCreate");
+		if (pDirectDrawCreate == NULL) {
+			return E_FAIL;
+		}
+	}
+	return pDirectDrawCreate(lpGuid, lplpDD, pUnkOuter);
+}
+
+
 extern WINLOCEX np2_winlocexallwin(HWND base);
 
 
@@ -380,7 +406,7 @@ BOOL scrnmng_create(BYTE scrnmode) {
 	SetWindowLong(hWndMain, GWL_STYLE, winstyle);
 	SetWindowLong(hWndMain, GWL_EXSTYLE, winstyleex);
 
-	if (DirectDrawCreate(NULL, &ddraw.ddraw1, NULL) != DD_OK) {
+	if (np2_directdrawcreate(NULL, &ddraw.ddraw1, NULL) != DD_OK) {
 		goto scre_err;
 	}
 	ddraw.ddraw1->QueryInterface(IID_IDirectDraw2, (void **)&ddraw2);

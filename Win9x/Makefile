@@ -2,7 +2,7 @@
 #   gcc version 3.2 20020927 (prerelease)
 
 
-AS		= nasmw
+AS		= nasm
 CC		= gcc
 RC		= windres
 RM		= rm -f
