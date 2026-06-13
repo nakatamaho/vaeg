@@ -146,7 +146,7 @@
 			<Tool
 				Name="VCCLCompilerTool"
 				Optimization="0"
-				AdditionalIncludeDirectories=".\,.\x86,.\dialog,.\debuguty,..\,..\common,..\i286x,..\io,..\cbus,..\bios,..\vram,..\sound,..\sound\vermouth,..\sound\getsnd,..\fdd,..\lio,..\font,..\generic,..\cpuxva,..\cpucva,../biosva,../iova"
+				AdditionalIncludeDirectories=".\,.\x86,.\dialog,.\debuguty,..\,..\common,..\i286x,..\io,..\cbus,..\bios,..\vram,..\sound,..\sound\vermouth,..\sound\getsnd,..\fdd,..\lio,..\font,..\generic,..\CPUXVA,..\CPUCVA,../BIOSVA,../IOVA"
 				PreprocessorDefinitions="_DEBUG;TRACE;WIN32;_WINDOWS;CPUDEBUG"
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
@@ -342,7 +342,7 @@
 				Name="VCCLCompilerTool"
 				Optimization="2"
 				InlineFunctionExpansion="1"
-				AdditionalIncludeDirectories=".\,.\x86,.\dialog,.\debuguty,..\,..\common,..\i286x,..\io,..\cbus,..\bios,..\vram,..\sound,..\sound\vermouth,..\sound\getsnd,..\fdd,..\lio,..\font,..\generic,..\cpuxva,..\cpucva,../biosva,../iova"
+				AdditionalIncludeDirectories=".\,.\x86,.\dialog,.\debuguty,..\,..\common,..\i286x,..\io,..\cbus,..\bios,..\vram,..\sound,..\sound\vermouth,..\sound\getsnd,..\fdd,..\lio,..\font,..\generic,..\CPUXVA,..\CPUCVA,../BIOSVA,../IOVA"
 				PreprocessorDefinitions="NDEBUG;WIN32;_WINDOWS"
 				StringPooling="true"
 				RuntimeLibrary="0"
@@ -414,7 +414,7 @@
 			Filter="cpp;c;cxx;rc;def;r;odl;idl;hpj;bat"
 			>
 			<File
-				RelativePath="..\BREAKPOINT.C"
+				RelativePath="..\breakpoint.c"
 				>
 				<FileConfiguration
 					Name="WaveRec|Win32"
@@ -454,7 +454,7 @@
 				</FileConfiguration>
 			</File>
 			<File
-				RelativePath="..\CALENDAR.C"
+				RelativePath="..\calendar.c"
 				>
 				<FileConfiguration
 					Name="WaveRec|Win32"
@@ -494,7 +494,7 @@
 				</FileConfiguration>
 			</File>
 			<File
-				RelativePath="..\DEBUGSUB.C"
+				RelativePath="..\debugsub.c"
 				>
 				<FileConfiguration
 					Name="WaveRec|Win32"
@@ -534,7 +534,7 @@
 				</FileConfiguration>
 			</File>
 			<File
-				RelativePath="..\KEYSTAT.C"
+				RelativePath="..\keystat.c"
 				>
 				<FileConfiguration
 					Name="WaveRec|Win32"
@@ -574,7 +574,7 @@
 				</FileConfiguration>
 			</File>
 			<File
-				RelativePath="..\NEVENT.C"
+				RelativePath="..\nevent.c"
 				>
 				<FileConfiguration
 					Name="WaveRec|Win32"
@@ -614,7 +614,7 @@
 				</FileConfiguration>
 			</File>
 			<File
-				RelativePath="..\OPRECORD.C"
+				RelativePath="..\oprecord.c"
 				>
 				<FileConfiguration
 					Name="WaveRec|Win32"
@@ -654,7 +654,7 @@
 				</FileConfiguration>
 			</File>
 			<File
-				RelativePath="..\PCCORE.C"
+				RelativePath="..\pccore.c"
 				>
 				<FileConfiguration
 					Name="WaveRec|Win32"
@@ -694,7 +694,7 @@
 				</FileConfiguration>
 			</File>
 			<File
-				RelativePath="..\STATSAVE.C"
+				RelativePath="..\statsave.c"
 				>
 				<FileConfiguration
 					Name="WaveRec|Win32"
@@ -734,7 +734,7 @@
 				</FileConfiguration>
 			</File>
 			<File
-				RelativePath="..\TIMING.C"
+				RelativePath="..\timing.c"
 				>
 				<FileConfiguration
 					Name="WaveRec|Win32"
@@ -777,7 +777,7 @@
 				Name="common"
 				>
 				<File
-					RelativePath="..\COMMON\_MEMORY.C"
+					RelativePath="..\common\_memory.c"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -817,7 +817,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="..\COMMON\BMPDATA.C"
+					RelativePath="..\common\bmpdata.c"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -857,7 +857,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="..\COMMON\LSTARRAY.C"
+					RelativePath="..\common\lstarray.c"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -897,7 +897,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="..\COMMON\MILSTR.C"
+					RelativePath="..\common\milstr.c"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -937,7 +937,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="..\COMMON\MIMPIDEF.C"
+					RelativePath="..\common\mimpidef.c"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -977,7 +977,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="x86\PARTS.X86"
+					RelativePath="x86\parts.x86"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -1021,7 +1021,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="..\COMMON\PROFILE.C"
+					RelativePath="..\common\profile.c"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -1061,7 +1061,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="..\COMMON\STRRES.C"
+					RelativePath="..\common\strres.c"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -1101,7 +1101,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="..\COMMON\TEXTFILE.C"
+					RelativePath="..\common\textfile.c"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -1141,7 +1141,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="..\COMMON\WAVEFILE.C"
+					RelativePath="..\common\wavefile.c"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -1185,7 +1185,7 @@
 				Name="cpu"
 				>
 				<File
-					RelativePath="..\I286X\DMAP.X86"
+					RelativePath="..\i286x\dmap.x86"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -1229,7 +1229,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="..\I286X\EGCMEM.X86"
+					RelativePath="..\i286x\egcmem.x86"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -1273,7 +1273,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="..\I286X\I286X.CPP"
+					RelativePath="..\i286x\i286x.cpp"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -1313,7 +1313,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="..\I286X\I286XADR.CPP"
+					RelativePath="..\i286x\i286xadr.cpp"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -1353,7 +1353,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="..\I286X\I286XCTS.CPP"
+					RelativePath="..\i286x\i286xcts.cpp"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -1393,7 +1393,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="..\I286X\I286XREP.CPP"
+					RelativePath="..\i286x\i286xrep.cpp"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -1433,7 +1433,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="..\I286X\I286XS.CPP"
+					RelativePath="..\i286x\i286xs.cpp"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -1473,7 +1473,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="..\I286X\MEMORY.X86"
+					RelativePath="..\i286x\memory.x86"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -1517,7 +1517,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="..\I286X\V30PATCH.CPP"
+					RelativePath="..\i286x\v30patch.cpp"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -1561,7 +1561,7 @@
 				Name="bios"
 				>
 				<File
-					RelativePath="..\BIOS\BIOS.C"
+					RelativePath="..\BIOS\bios.c"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -1601,7 +1601,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="..\BIOS\BIOS09.C"
+					RelativePath="..\BIOS\bios09.c"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -1641,7 +1641,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="..\BIOS\BIOS0C.C"
+					RelativePath="..\BIOS\bios0c.c"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -1681,7 +1681,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="..\BIOS\BIOS12.C"
+					RelativePath="..\BIOS\bios12.c"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -1721,7 +1721,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="..\BIOS\BIOS13.C"
+					RelativePath="..\BIOS\bios13.c"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -1761,7 +1761,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="..\BIOS\BIOS18.C"
+					RelativePath="..\BIOS\bios18.c"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -1801,7 +1801,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="..\BIOS\BIOS19.C"
+					RelativePath="..\BIOS\bios19.c"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -1841,7 +1841,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="..\BIOS\BIOS1A.C"
+					RelativePath="..\BIOS\bios1a.c"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -1881,7 +1881,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="..\BIOS\BIOS1B.C"
+					RelativePath="..\BIOS\bios1b.c"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -1921,7 +1921,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="..\BIOS\BIOS1C.C"
+					RelativePath="..\BIOS\bios1c.c"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -1961,7 +1961,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="..\BIOS\BIOS1F.C"
+					RelativePath="..\BIOS\bios1f.c"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -2001,7 +2001,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="..\BIOS\SXSIBIOS.C"
+					RelativePath="..\BIOS\sxsibios.c"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -2045,7 +2045,7 @@
 				Name="sound"
 				>
 				<File
-					RelativePath="..\SOUND\ADPCMC.C"
+					RelativePath="..\sound\adpcmc.c"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -2085,7 +2085,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="..\SOUND\ADPCMG.C"
+					RelativePath="..\sound\adpcmg.c"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -2125,7 +2125,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="..\SOUND\BEEPC.C"
+					RelativePath="..\sound\beepc.c"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -2165,7 +2165,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="..\SOUND\BEEPG.C"
+					RelativePath="..\sound\beepg.c"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -2205,7 +2205,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="..\SOUND\CS4231C.C"
+					RelativePath="..\sound\cs4231c.c"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -2245,7 +2245,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="..\SOUND\CS4231G.C"
+					RelativePath="..\sound\cs4231g.c"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -2285,7 +2285,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="..\SOUND\FMBOARD.C"
+					RelativePath="..\sound\fmboard.c"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -2325,7 +2325,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="..\SOUND\FMTIMER.C"
+					RelativePath="..\sound\fmtimer.c"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -2365,7 +2365,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="..\SOUND\OPNGENC.C"
+					RelativePath="..\sound\opngenc.c"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -2405,7 +2405,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="x86\OPNGENG.X86"
+					RelativePath="x86\opngeng.x86"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -2449,7 +2449,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="..\SOUND\PCM86C.C"
+					RelativePath="..\sound\pcm86c.c"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -2489,7 +2489,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="..\SOUND\PCM86G.C"
+					RelativePath="..\sound\pcm86g.c"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -2529,7 +2529,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="..\SOUND\PSGGENC.C"
+					RelativePath="..\sound\psggenc.c"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -2569,7 +2569,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="..\SOUND\PSGGENG.C"
+					RelativePath="..\sound\psggeng.c"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -2609,7 +2609,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="..\SOUND\RHYTHMC.C"
+					RelativePath="..\sound\rhythmc.c"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -2649,7 +2649,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="..\SOUND\S98.C"
+					RelativePath="..\sound\s98.c"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -2689,7 +2689,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="..\SOUND\SOUND.C"
+					RelativePath="..\sound\sound.c"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -2729,7 +2729,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="..\SOUND\SOUNDROM.C"
+					RelativePath="..\sound\soundrom.c"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -2769,7 +2769,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="..\SOUND\TMS3631C.C"
+					RelativePath="..\sound\tms3631c.c"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -2809,7 +2809,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="..\SOUND\TMS3631G.C"
+					RelativePath="..\sound\tms3631g.c"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -2852,7 +2852,7 @@
 					Name="vermouth"
 					>
 					<File
-						RelativePath="..\SOUND\VERMOUTH\MIDIMOD.C"
+						RelativePath="..\sound\vermouth\midimod.c"
 						>
 						<FileConfiguration
 							Name="WaveRec|Win32"
@@ -2892,7 +2892,7 @@
 						</FileConfiguration>
 					</File>
 					<File
-						RelativePath="..\SOUND\VERMOUTH\MIDINST.C"
+						RelativePath="..\sound\vermouth\midinst.c"
 						>
 						<FileConfiguration
 							Name="WaveRec|Win32"
@@ -2932,7 +2932,7 @@
 						</FileConfiguration>
 					</File>
 					<File
-						RelativePath="..\SOUND\VERMOUTH\MIDIOUT.C"
+						RelativePath="..\sound\vermouth\midiout.c"
 						>
 						<FileConfiguration
 							Name="WaveRec|Win32"
@@ -2972,7 +2972,7 @@
 						</FileConfiguration>
 					</File>
 					<File
-						RelativePath="..\SOUND\VERMOUTH\MIDTABLE.C"
+						RelativePath="..\sound\vermouth\midtable.c"
 						>
 						<FileConfiguration
 							Name="WaveRec|Win32"
@@ -3012,7 +3012,7 @@
 						</FileConfiguration>
 					</File>
 					<File
-						RelativePath="..\SOUND\VERMOUTH\MIDVOICE.C"
+						RelativePath="..\sound\vermouth\midvoice.c"
 						>
 						<FileConfiguration
 							Name="WaveRec|Win32"
@@ -3056,7 +3056,7 @@
 					Name="getsnd"
 					>
 					<File
-						RelativePath="..\SOUND\GETSND\GETSMIX.C"
+						RelativePath="..\sound\getsnd\getsmix.c"
 						>
 						<FileConfiguration
 							Name="WaveRec|Win32"
@@ -3096,7 +3096,7 @@
 						</FileConfiguration>
 					</File>
 					<File
-						RelativePath="..\SOUND\GETSND\GETSND.C"
+						RelativePath="..\sound\getsnd\getsnd.c"
 						>
 						<FileConfiguration
 							Name="WaveRec|Win32"
@@ -3136,7 +3136,7 @@
 						</FileConfiguration>
 					</File>
 					<File
-						RelativePath="..\SOUND\GETSND\GETWAVE.C"
+						RelativePath="..\sound\getsnd\getwave.c"
 						>
 						<FileConfiguration
 							Name="WaveRec|Win32"
@@ -3181,7 +3181,7 @@
 				Name="fdd"
 				>
 				<File
-					RelativePath="..\FDD\DISKDRV.C"
+					RelativePath="..\fdd\diskdrv.c"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -3221,7 +3221,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="..\FDD\FDD_D88.C"
+					RelativePath="..\fdd\fdd_d88.c"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -3261,7 +3261,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="..\FDD\FDD_MTR.C"
+					RelativePath="..\fdd\fdd_mtr.c"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -3301,7 +3301,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="..\FDD\FDD_XDF.C"
+					RelativePath="..\fdd\fdd_xdf.c"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -3341,7 +3341,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="..\FDD\FDDFILE.C"
+					RelativePath="..\fdd\fddfile.c"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -3381,7 +3381,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="..\FDD\NEWDISK.C"
+					RelativePath="..\fdd\newdisk.c"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -3421,7 +3421,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="..\FDD\SXSI.C"
+					RelativePath="..\fdd\sxsi.c"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -3465,7 +3465,7 @@
 				Name="lio"
 				>
 				<File
-					RelativePath="..\LIO\GCIRCLE.C"
+					RelativePath="..\lio\gcircle.c"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -3505,7 +3505,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="..\LIO\GLINE.C"
+					RelativePath="..\lio\gline.c"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -3545,7 +3545,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="..\LIO\GPSET.C"
+					RelativePath="..\lio\gpset.c"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -3585,7 +3585,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="..\LIO\GPUT1.C"
+					RelativePath="..\lio\gput1.c"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -3625,7 +3625,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="..\LIO\GSCREEN.C"
+					RelativePath="..\lio\gscreen.c"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -3665,7 +3665,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="..\LIO\LIO.C"
+					RelativePath="..\lio\lio.c"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -3709,7 +3709,7 @@
 				Name="font"
 				>
 				<File
-					RelativePath="..\FONT\FONT.C"
+					RelativePath="..\font\font.c"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -3749,7 +3749,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="..\FONT\FONTDATA.C"
+					RelativePath="..\font\fontdata.c"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -3789,7 +3789,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="..\FONT\FONTFM7.C"
+					RelativePath="..\font\fontfm7.c"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -3829,7 +3829,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="..\FONT\FONTMAKE.C"
+					RelativePath="..\font\fontmake.c"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -3869,7 +3869,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="..\FONT\FONTPC88.C"
+					RelativePath="..\font\fontpc88.c"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -3909,7 +3909,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="..\FONT\FONTPC98.C"
+					RelativePath="..\font\fontpc98.c"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -3949,7 +3949,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="..\FONT\FONTV98.C"
+					RelativePath="..\font\fontv98.c"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -3989,7 +3989,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="..\FONT\FONTX1.C"
+					RelativePath="..\font\fontx1.c"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -4029,7 +4029,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="..\FONT\FONTX68K.C"
+					RelativePath="..\font\fontx68k.c"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -4073,7 +4073,7 @@
 				Name="Win9x"
 				>
 				<File
-					RelativePath="CMMIDI.CPP"
+					RelativePath="cmmidi.cpp"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -4113,7 +4113,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="CMPARA.CPP"
+					RelativePath="cmpara.cpp"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -4153,7 +4153,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="CMSERIAL.CPP"
+					RelativePath="cmserial.cpp"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -4193,7 +4193,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="COMMNG.CPP"
+					RelativePath="commng.cpp"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -4233,91 +4233,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="x86\CPUTYPE.X86"
-					>
-					<FileConfiguration
-						Name="WaveRec|Win32"
-						>
-						<Tool
-							Name="VCCustomBuildTool"
-							Description="ｱｾﾝﾌﾞﾙ中... $(InputPath)"
-							CommandLine="nasm -f win32 $(InputPath) -o $(IntDir)\$(InputName).obj&#x0D;&#x0A;"
-							Outputs="$(IntDir)\$(InputName).obj"
-						/>
-					</FileConfiguration>
-					<FileConfiguration
-						Name="Debug|Win32"
-						>
-						<Tool
-							Name="VCCustomBuildTool"
-							Description="ｱｾﾝﾌﾞﾙ中... $(InputPath)"
-							CommandLine="nasm -f win32 $(InputPath) -o $(IntDir)\$(InputName).obj&#x0D;&#x0A;"
-							Outputs="$(IntDir)\$(InputName).obj"
-						/>
-					</FileConfiguration>
-					<FileConfiguration
-						Name="Trace|Win32"
-						>
-						<Tool
-							Name="VCCustomBuildTool"
-							Description="ｱｾﾝﾌﾞﾙ中... $(InputPath)"
-							CommandLine="nasm -f win32 $(InputPath) -o $(IntDir)\$(InputName).obj&#x0D;&#x0A;"
-							Outputs="$(IntDir)\$(InputName).obj"
-						/>
-					</FileConfiguration>
-					<FileConfiguration
-						Name="Release|Win32"
-						>
-						<Tool
-							Name="VCCustomBuildTool"
-							Description="ｱｾﾝﾌﾞﾙ中... $(InputPath)"
-							CommandLine="nasm -f win32 $(InputPath) -o $(IntDir)\$(InputName).obj&#x0D;&#x0A;"
-							Outputs="$(IntDir)\$(InputName).obj"
-						/>
-					</FileConfiguration>
-				</File>
-				<File
-					RelativePath="DCLOCK.CPP"
-					>
-					<FileConfiguration
-						Name="WaveRec|Win32"
-						>
-						<Tool
-							Name="VCCLCompilerTool"
-							AdditionalIncludeDirectories=""
-							PreprocessorDefinitions=""
-						/>
-					</FileConfiguration>
-					<FileConfiguration
-						Name="Debug|Win32"
-						>
-						<Tool
-							Name="VCCLCompilerTool"
-							AdditionalIncludeDirectories=""
-							PreprocessorDefinitions=""
-						/>
-					</FileConfiguration>
-					<FileConfiguration
-						Name="Trace|Win32"
-						>
-						<Tool
-							Name="VCCLCompilerTool"
-							AdditionalIncludeDirectories=""
-							PreprocessorDefinitions=""
-						/>
-					</FileConfiguration>
-					<FileConfiguration
-						Name="Release|Win32"
-						>
-						<Tool
-							Name="VCCLCompilerTool"
-							AdditionalIncludeDirectories=""
-							PreprocessorDefinitions=""
-						/>
-					</FileConfiguration>
-				</File>
-				<File
-					RelativePath="DCLOCKD.X86"
+					RelativePath="x86\cputype.x86"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -4361,7 +4277,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="DD2.CPP"
+					RelativePath="dclock.cpp"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -4401,7 +4317,51 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="DOSIO.CPP"
+					RelativePath="dclockd.x86"
+					>
+					<FileConfiguration
+						Name="WaveRec|Win32"
+						>
+						<Tool
+							Name="VCCustomBuildTool"
+							Description="ｱｾﾝﾌﾞﾙ中... $(InputPath)"
+							CommandLine="nasm -f win32 $(InputPath) -o $(IntDir)\$(InputName).obj&#x0D;&#x0A;"
+							Outputs="$(IntDir)\$(InputName).obj"
+						/>
+					</FileConfiguration>
+					<FileConfiguration
+						Name="Debug|Win32"
+						>
+						<Tool
+							Name="VCCustomBuildTool"
+							Description="ｱｾﾝﾌﾞﾙ中... $(InputPath)"
+							CommandLine="nasm -f win32 $(InputPath) -o $(IntDir)\$(InputName).obj&#x0D;&#x0A;"
+							Outputs="$(IntDir)\$(InputName).obj"
+						/>
+					</FileConfiguration>
+					<FileConfiguration
+						Name="Trace|Win32"
+						>
+						<Tool
+							Name="VCCustomBuildTool"
+							Description="ｱｾﾝﾌﾞﾙ中... $(InputPath)"
+							CommandLine="nasm -f win32 $(InputPath) -o $(IntDir)\$(InputName).obj&#x0D;&#x0A;"
+							Outputs="$(IntDir)\$(InputName).obj"
+						/>
+					</FileConfiguration>
+					<FileConfiguration
+						Name="Release|Win32"
+						>
+						<Tool
+							Name="VCCustomBuildTool"
+							Description="ｱｾﾝﾌﾞﾙ中... $(InputPath)"
+							CommandLine="nasm -f win32 $(InputPath) -o $(IntDir)\$(InputName).obj&#x0D;&#x0A;"
+							Outputs="$(IntDir)\$(InputName).obj"
+						/>
+					</FileConfiguration>
+				</File>
+				<File
+					RelativePath="dd2.cpp"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -4441,7 +4401,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="EXTROMIO.CPP"
+					RelativePath="dosio.cpp"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -4481,7 +4441,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="FONTMNG.CPP"
+					RelativePath="extromio.cpp"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -4521,7 +4481,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="INI.CPP"
+					RelativePath="fontmng.cpp"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -4561,7 +4521,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="JOYMNG.CPP"
+					RelativePath="ini.cpp"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -4601,7 +4561,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="JULIET.CPP"
+					RelativePath="joymng.cpp"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -4641,7 +4601,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="MENU.CPP"
+					RelativePath="juliet.cpp"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -4681,7 +4641,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="MOUSEMNG.CPP"
+					RelativePath="menu.cpp"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -4721,7 +4681,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="NP2.CPP"
+					RelativePath="mousemng.cpp"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -4761,7 +4721,47 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="NP2.RC"
+					RelativePath="np2.cpp"
+					>
+					<FileConfiguration
+						Name="WaveRec|Win32"
+						>
+						<Tool
+							Name="VCCLCompilerTool"
+							AdditionalIncludeDirectories=""
+							PreprocessorDefinitions=""
+						/>
+					</FileConfiguration>
+					<FileConfiguration
+						Name="Debug|Win32"
+						>
+						<Tool
+							Name="VCCLCompilerTool"
+							AdditionalIncludeDirectories=""
+							PreprocessorDefinitions=""
+						/>
+					</FileConfiguration>
+					<FileConfiguration
+						Name="Trace|Win32"
+						>
+						<Tool
+							Name="VCCLCompilerTool"
+							AdditionalIncludeDirectories=""
+							PreprocessorDefinitions=""
+						/>
+					</FileConfiguration>
+					<FileConfiguration
+						Name="Release|Win32"
+						>
+						<Tool
+							Name="VCCLCompilerTool"
+							AdditionalIncludeDirectories=""
+							PreprocessorDefinitions=""
+						/>
+					</FileConfiguration>
+				</File>
+				<File
+					RelativePath="np2.rc"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -4797,7 +4797,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="NP2ARG.CPP"
+					RelativePath="np2arg.cpp"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -4837,7 +4837,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="SCRNMNG.CPP"
+					RelativePath="scrnmng.cpp"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -4877,7 +4877,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="SOUNDMNG.CPP"
+					RelativePath="soundmng.cpp"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -4917,7 +4917,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="SSTP.CPP"
+					RelativePath="sstp.cpp"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -4957,7 +4957,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="SSTPMSG.CPP"
+					RelativePath="sstpmsg.cpp"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -4997,7 +4997,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="SUBWIND.CPP"
+					RelativePath="subwind.cpp"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -5037,7 +5037,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="SYSMNG.CPP"
+					RelativePath="sysmng.cpp"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -5077,7 +5077,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="TASKMNG.CPP"
+					RelativePath="taskmng.cpp"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -5117,7 +5117,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="TIMEMNG.CPP"
+					RelativePath="timemng.cpp"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -5157,7 +5157,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="TOOLWIN.CPP"
+					RelativePath="toolwin.cpp"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -5197,7 +5197,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="TRACE.CPP"
+					RelativePath="trace.cpp"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -5237,7 +5237,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="WINKBD.CPP"
+					RelativePath="winkbd.cpp"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -5277,7 +5277,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="WINLOC.CPP"
+					RelativePath="winloc.cpp"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -5320,7 +5320,7 @@
 					Name="dialog"
 					>
 					<File
-						RelativePath="DIALOG\D_ABOUT.CPP"
+						RelativePath="dialog\d_about.cpp"
 						>
 						<FileConfiguration
 							Name="WaveRec|Win32"
@@ -5360,7 +5360,7 @@
 						</FileConfiguration>
 					</File>
 					<File
-						RelativePath="DIALOG\D_BMP.CPP"
+						RelativePath="dialog\d_bmp.cpp"
 						>
 						<FileConfiguration
 							Name="WaveRec|Win32"
@@ -5400,7 +5400,7 @@
 						</FileConfiguration>
 					</File>
 					<File
-						RelativePath="DIALOG\D_BMS.CPP"
+						RelativePath="dialog\d_bms.cpp"
 						>
 						<FileConfiguration
 							Name="WaveRec|Win32"
@@ -5440,7 +5440,7 @@
 						</FileConfiguration>
 					</File>
 					<File
-						RelativePath="DIALOG\D_CLND.CPP"
+						RelativePath="dialog\d_clnd.cpp"
 						>
 						<FileConfiguration
 							Name="WaveRec|Win32"
@@ -5480,7 +5480,7 @@
 						</FileConfiguration>
 					</File>
 					<File
-						RelativePath="DIALOG\D_CONFIG.CPP"
+						RelativePath="dialog\d_config.cpp"
 						>
 						<FileConfiguration
 							Name="WaveRec|Win32"
@@ -5520,7 +5520,7 @@
 						</FileConfiguration>
 					</File>
 					<File
-						RelativePath="DIALOG\D_DISK.CPP"
+						RelativePath="dialog\d_disk.cpp"
 						>
 						<FileConfiguration
 							Name="WaveRec|Win32"
@@ -5560,7 +5560,7 @@
 						</FileConfiguration>
 					</File>
 					<File
-						RelativePath="DIALOG\D_MPU98.CPP"
+						RelativePath="dialog\d_mpu98.cpp"
 						>
 						<FileConfiguration
 							Name="WaveRec|Win32"
@@ -5600,7 +5600,7 @@
 						</FileConfiguration>
 					</File>
 					<File
-						RelativePath="DIALOG\D_OPRECORD.CPP"
+						RelativePath="dialog\d_oprecord.cpp"
 						>
 						<FileConfiguration
 							Name="WaveRec|Win32"
@@ -5640,7 +5640,7 @@
 						</FileConfiguration>
 					</File>
 					<File
-						RelativePath="DIALOG\D_SCREEN.CPP"
+						RelativePath="dialog\d_screen.cpp"
 						>
 						<FileConfiguration
 							Name="WaveRec|Win32"
@@ -5680,7 +5680,7 @@
 						</FileConfiguration>
 					</File>
 					<File
-						RelativePath="DIALOG\D_SERIAL.CPP"
+						RelativePath="dialog\d_serial.cpp"
 						>
 						<FileConfiguration
 							Name="WaveRec|Win32"
@@ -5720,7 +5720,7 @@
 						</FileConfiguration>
 					</File>
 					<File
-						RelativePath="DIALOG\D_SOUND.CPP"
+						RelativePath="dialog\d_sound.cpp"
 						>
 						<FileConfiguration
 							Name="WaveRec|Win32"
@@ -5760,7 +5760,7 @@
 						</FileConfiguration>
 					</File>
 					<File
-						RelativePath="DIALOG\DIALOGS.CPP"
+						RelativePath="dialog\dialogs.cpp"
 						>
 						<FileConfiguration
 							Name="WaveRec|Win32"
@@ -5800,7 +5800,7 @@
 						</FileConfiguration>
 					</File>
 					<File
-						RelativePath="DIALOG\NP2CLASS.CPP"
+						RelativePath="dialog\np2class.cpp"
 						>
 						<FileConfiguration
 							Name="WaveRec|Win32"
@@ -5844,7 +5844,7 @@
 					Name="debuguty"
 					>
 					<File
-						RelativePath="DEBUGUTY\DEBUGCTRL.CPP"
+						RelativePath="debuguty\debugctrl.cpp"
 						>
 						<FileConfiguration
 							Name="WaveRec|Win32"
@@ -5884,7 +5884,7 @@
 						</FileConfiguration>
 					</File>
 					<File
-						RelativePath="DEBUGUTY\VIEW1MB.CPP"
+						RelativePath="debuguty\view1mb.cpp"
 						>
 						<FileConfiguration
 							Name="WaveRec|Win32"
@@ -5924,7 +5924,7 @@
 						</FileConfiguration>
 					</File>
 					<File
-						RelativePath="DEBUGUTY\VIEWASM.CPP"
+						RelativePath="debuguty\viewasm.cpp"
 						>
 						<FileConfiguration
 							Name="WaveRec|Win32"
@@ -5964,7 +5964,7 @@
 						</FileConfiguration>
 					</File>
 					<File
-						RelativePath="DEBUGUTY\VIEWCMN.CPP"
+						RelativePath="debuguty\viewcmn.cpp"
 						>
 						<FileConfiguration
 							Name="WaveRec|Win32"
@@ -6004,7 +6004,7 @@
 						</FileConfiguration>
 					</File>
 					<File
-						RelativePath="DEBUGUTY\VIEWER.CPP"
+						RelativePath="debuguty\viewer.cpp"
 						>
 						<FileConfiguration
 							Name="WaveRec|Win32"
@@ -6044,7 +6044,7 @@
 						</FileConfiguration>
 					</File>
 					<File
-						RelativePath="DEBUGUTY\VIEWGACTRLVA.CPP"
+						RelativePath="debuguty\viewgactrlva.cpp"
 						>
 						<FileConfiguration
 							Name="WaveRec|Win32"
@@ -6084,7 +6084,7 @@
 						</FileConfiguration>
 					</File>
 					<File
-						RelativePath="DEBUGUTY\VIEWMEM.CPP"
+						RelativePath="debuguty\viewmem.cpp"
 						>
 						<FileConfiguration
 							Name="WaveRec|Win32"
@@ -6124,7 +6124,7 @@
 						</FileConfiguration>
 					</File>
 					<File
-						RelativePath="DEBUGUTY\VIEWMENU.CPP"
+						RelativePath="debuguty\viewmenu.cpp"
 						>
 						<FileConfiguration
 							Name="WaveRec|Win32"
@@ -6164,7 +6164,7 @@
 						</FileConfiguration>
 					</File>
 					<File
-						RelativePath="DEBUGUTY\VIEWREG.CPP"
+						RelativePath="debuguty\viewreg.cpp"
 						>
 						<FileConfiguration
 							Name="WaveRec|Win32"
@@ -6204,7 +6204,7 @@
 						</FileConfiguration>
 					</File>
 					<File
-						RelativePath="DEBUGUTY\VIEWSEG.CPP"
+						RelativePath="debuguty\viewseg.cpp"
 						>
 						<FileConfiguration
 							Name="WaveRec|Win32"
@@ -6244,7 +6244,7 @@
 						</FileConfiguration>
 					</File>
 					<File
-						RelativePath="DEBUGUTY\VIEWSND.CPP"
+						RelativePath="debuguty\viewsnd.cpp"
 						>
 						<FileConfiguration
 							Name="WaveRec|Win32"
@@ -6284,7 +6284,7 @@
 						</FileConfiguration>
 					</File>
 					<File
-						RelativePath="DEBUGUTY\VIEWSUBASM.CPP"
+						RelativePath="debuguty\viewsubasm.cpp"
 						>
 						<FileConfiguration
 							Name="WaveRec|Win32"
@@ -6324,7 +6324,7 @@
 						</FileConfiguration>
 					</File>
 					<File
-						RelativePath="DEBUGUTY\VIEWSUBMEM.CPP"
+						RelativePath="debuguty\viewsubmem.cpp"
 						>
 						<FileConfiguration
 							Name="WaveRec|Win32"
@@ -6364,7 +6364,7 @@
 						</FileConfiguration>
 					</File>
 					<File
-						RelativePath="DEBUGUTY\VIEWSUBREG.CPP"
+						RelativePath="debuguty\viewsubreg.cpp"
 						>
 						<FileConfiguration
 							Name="WaveRec|Win32"
@@ -6404,7 +6404,7 @@
 						</FileConfiguration>
 					</File>
 					<File
-						RelativePath="DEBUGUTY\VIEWVABANK.CPP"
+						RelativePath="debuguty\viewvabank.cpp"
 						>
 						<FileConfiguration
 							Name="WaveRec|Win32"
@@ -6444,7 +6444,7 @@
 						</FileConfiguration>
 					</File>
 					<File
-						RelativePath="DEBUGUTY\VIEWVIDEOVA.CPP"
+						RelativePath="debuguty\viewvideova.cpp"
 						>
 						<FileConfiguration
 							Name="WaveRec|Win32"
@@ -6489,7 +6489,7 @@
 				Name="IO"
 				>
 				<File
-					RelativePath="..\IO\ARTIC.C"
+					RelativePath="..\IO\artic.c"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -6529,7 +6529,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="..\IO\BMSIO.C"
+					RelativePath="..\IO\bmsio.c"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -6569,7 +6569,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="..\IO\CGROM.C"
+					RelativePath="..\IO\cgrom.c"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -6609,7 +6609,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="..\IO\CPUIO.C"
+					RelativePath="..\IO\cpuio.c"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -6649,7 +6649,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="..\IO\CRTC.C"
+					RelativePath="..\IO\crtc.c"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -6689,7 +6689,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="..\IO\DIPSW.C"
+					RelativePath="..\IO\dipsw.c"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -6729,7 +6729,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="..\IO\DMAC.C"
+					RelativePath="..\IO\dmac.c"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -6769,7 +6769,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="..\IO\EGC.C"
+					RelativePath="..\IO\egc.c"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -6809,7 +6809,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="..\IO\EMSIO.C"
+					RelativePath="..\IO\emsio.c"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -6849,7 +6849,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="..\IO\EPSONIO.C"
+					RelativePath="..\IO\epsonio.c"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -6889,7 +6889,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="..\IO\FDC.C"
+					RelativePath="..\IO\fdc.c"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -6929,7 +6929,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="..\IO\FDD320.C"
+					RelativePath="..\IO\fdd320.c"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -6969,7 +6969,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="..\IO\GDC.C"
+					RelativePath="..\IO\gdc.c"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -7009,7 +7009,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="..\IO\GDC_PSET.C"
+					RelativePath="..\IO\gdc_pset.c"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -7049,7 +7049,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="..\IO\GDC_SUB.C"
+					RelativePath="..\IO\gdc_sub.c"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -7089,7 +7089,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="..\IO\IOCORE.C"
+					RelativePath="..\IO\iocore.c"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -7129,7 +7129,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="..\IO\MOUSEIF.C"
+					RelativePath="..\IO\mouseif.c"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -7169,7 +7169,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="..\IO\NECIO.C"
+					RelativePath="..\IO\necio.c"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -7209,7 +7209,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="..\IO\NMIIO.C"
+					RelativePath="..\IO\nmiio.c"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -7249,7 +7249,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="..\IO\NP2SYSP.C"
+					RelativePath="..\IO\np2sysp.c"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -7289,7 +7289,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="..\IO\NP2VASUP.C"
+					RelativePath="..\IO\np2vasup.c"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -7329,7 +7329,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="..\IO\PIC.C"
+					RelativePath="..\IO\pic.c"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -7369,7 +7369,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="..\IO\PIT.C"
+					RelativePath="..\IO\pit.c"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -7409,7 +7409,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="..\IO\PRINTIF.C"
+					RelativePath="..\IO\printif.c"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -7449,7 +7449,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="..\IO\SERIAL.C"
+					RelativePath="..\IO\serial.c"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -7489,7 +7489,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="..\IO\SYSPORT.C"
+					RelativePath="..\IO\sysport.c"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -7529,7 +7529,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="..\IO\UPD4990.C"
+					RelativePath="..\IO\upd4990.c"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -7573,7 +7573,7 @@
 				Name="CBUS"
 				>
 				<File
-					RelativePath="..\CBUS\AMD98.C"
+					RelativePath="..\CBUS\amd98.c"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -7613,7 +7613,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="BOARD118.C"
+					RelativePath="board118.c"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -7653,7 +7653,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="..\CBUS\BOARD14.C"
+					RelativePath="..\CBUS\board14.c"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -7693,7 +7693,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="..\CBUS\BOARD26K.C"
+					RelativePath="..\CBUS\board26k.c"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -7733,7 +7733,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="..\CBUS\BOARD86.C"
+					RelativePath="..\CBUS\board86.c"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -7773,7 +7773,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="..\CBUS\BOARDSPB.C"
+					RelativePath="..\CBUS\boardspb.c"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -7813,7 +7813,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="..\CBUS\BOARDX2.C"
+					RelativePath="..\CBUS\boardx2.c"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -7853,7 +7853,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="..\CBUS\CBUSCORE.C"
+					RelativePath="..\CBUS\cbuscore.c"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -7893,7 +7893,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="..\CBUS\CS4231IO.C"
+					RelativePath="..\CBUS\cs4231io.c"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -7933,7 +7933,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="..\CBUS\IDEIO.C"
+					RelativePath="..\CBUS\ideio.c"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -7973,7 +7973,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="..\CBUS\MPU98II.C"
+					RelativePath="..\CBUS\mpu98ii.c"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -8013,7 +8013,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="..\CBUS\PC9861K.C"
+					RelativePath="..\CBUS\pc9861k.c"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -8053,7 +8053,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="..\CBUS\PCM86IO.C"
+					RelativePath="..\CBUS\pcm86io.c"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -8093,7 +8093,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="..\CBUS\SASIIO.C"
+					RelativePath="..\CBUS\sasiio.c"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -8133,7 +8133,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="..\CBUS\SCSICMD.C"
+					RelativePath="..\CBUS\scsicmd.c"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -8173,7 +8173,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="..\CBUS\SCSIIO.C"
+					RelativePath="..\CBUS\scsiio.c"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -8217,7 +8217,7 @@
 				Name="vram"
 				>
 				<File
-					RelativePath="..\VRAM\DISPSYNC.C"
+					RelativePath="..\VRAM\dispsync.c"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -8257,7 +8257,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="x86\MAKEGRPH.X86"
+					RelativePath="x86\makegrph.x86"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -8301,7 +8301,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="..\VRAM\MAKETEXT.C"
+					RelativePath="..\VRAM\maketext.c"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -8341,7 +8341,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="..\VRAM\MAKETGRP.C"
+					RelativePath="..\VRAM\maketgrp.c"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -8381,7 +8381,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="..\VRAM\PALETTES.C"
+					RelativePath="..\VRAM\palettes.c"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -8421,7 +8421,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="..\VRAM\SCRNDRAW.C"
+					RelativePath="..\VRAM\scrndraw.c"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -8461,7 +8461,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="..\VRAM\SCRNSAVE.C"
+					RelativePath="..\VRAM\scrnsave.c"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -8501,7 +8501,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="..\VRAM\SDRAW.C"
+					RelativePath="..\VRAM\sdraw.c"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -8541,7 +8541,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="..\VRAM\VRAM.C"
+					RelativePath="..\VRAM\vram.c"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -8585,7 +8585,7 @@
 				Name="generic"
 				>
 				<File
-					RelativePath="..\GENERIC\CMJASTS.C"
+					RelativePath="..\generic\cmjasts.c"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -8625,7 +8625,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="..\GENERIC\CMNDRAW.C"
+					RelativePath="..\generic\cmndraw.c"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -8665,7 +8665,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="..\GENERIC\DIPSWBMP.C"
+					RelativePath="..\generic\dipswbmp.c"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -8705,7 +8705,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="..\GENERIC\HOSTDRV.C"
+					RelativePath="..\generic\hostdrv.c"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -8745,7 +8745,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="..\GENERIC\HOSTDRVS.C"
+					RelativePath="..\generic\hostdrvs.c"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -8785,7 +8785,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="..\GENERIC\KEYDISP.C"
+					RelativePath="..\generic\keydisp.c"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -8825,7 +8825,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="..\GENERIC\NP2INFO.C"
+					RelativePath="..\generic\np2info.c"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -8865,7 +8865,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="..\GENERIC\SOFTKBD.C"
+					RelativePath="..\generic\softkbd.c"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -8905,7 +8905,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="..\GENERIC\UNASM.C"
+					RelativePath="..\generic\unasm.c"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -8949,7 +8949,7 @@
 				Name="vramva"
 				>
 				<File
-					RelativePath="..\VRAMVA\MAKEGRPHVA.C"
+					RelativePath="..\VRAMVA\makegrphva.c"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -8989,7 +8989,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="..\VRAMVA\MAKESPRVA.C"
+					RelativePath="..\VRAMVA\makesprva.c"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -9029,7 +9029,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="..\VRAMVA\MAKETEXTVA.C"
+					RelativePath="..\VRAMVA\maketextva.c"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -9069,7 +9069,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="..\VRAMVA\PALETTESVA.C"
+					RelativePath="..\VRAMVA\palettesva.c"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -9109,7 +9109,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="..\VRAMVA\SCRNDRAWVA.C"
+					RelativePath="..\VRAMVA\scrndrawva.c"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -9149,7 +9149,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="..\VRAMVA\SDRAWVA.C"
+					RelativePath="..\VRAMVA\sdrawva.c"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -9193,7 +9193,7 @@
 				Name="cpuxva"
 				>
 				<File
-					RelativePath="..\CPUXVA\MEMORYVA.X86"
+					RelativePath="..\CPUXVA\memoryva.x86"
 					>
 					<FileConfiguration
 						Name="Debug|Win32"
@@ -9221,7 +9221,7 @@
 				Name="biosva"
 				>
 				<File
-					RelativePath="..\BIOSVA\BIOSVA.C"
+					RelativePath="..\BIOSVA\biosva.c"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -9265,7 +9265,7 @@
 				Name="IOVA"
 				>
 				<File
-					RelativePath="..\IOVA\BKUPMEMVA.C"
+					RelativePath="..\IOVA\bkupmemva.c"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -9305,7 +9305,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="..\IOVA\BOARDSB2.C"
+					RelativePath="..\IOVA\boardsb2.c"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -9345,7 +9345,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="..\IOVA\CGROMVA.C"
+					RelativePath="..\IOVA\cgromva.c"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -9385,7 +9385,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="..\IOVA\FDSUBSYS.C"
+					RelativePath="..\IOVA\fdsubsys.c"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -9425,7 +9425,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="..\IOVA\GACTRLVA.C"
+					RelativePath="..\IOVA\gactrlva.c"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -9465,7 +9465,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="..\IOVA\I8255.C"
+					RelativePath="..\IOVA\i8255.c"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -9505,7 +9505,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="..\IOVA\IOCOREVA.C"
+					RelativePath="..\IOVA\iocoreva.c"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -9545,7 +9545,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="..\IOVA\MEMCTRLVA.C"
+					RelativePath="..\IOVA\memctrlva.c"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -9585,7 +9585,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="..\IOVA\MOUSEIFVA.C"
+					RelativePath="..\IOVA\mouseifva.c"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -9625,7 +9625,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="..\IOVA\SGP.C"
+					RelativePath="..\IOVA\sgp.c"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -9665,7 +9665,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="..\IOVA\SUBSYSTEM.CPP"
+					RelativePath="..\IOVA\subsystem.cpp"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -9705,7 +9705,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="..\IOVA\SUBSYSTEMIF.C"
+					RelativePath="..\IOVA\subsystemif.c"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -9745,7 +9745,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="..\IOVA\SUBSYSTEMMX.C"
+					RelativePath="..\IOVA\subsystemmx.c"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -9785,7 +9785,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="..\IOVA\SYSPORTVA.C"
+					RelativePath="..\IOVA\sysportva.c"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -9825,7 +9825,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="..\IOVA\TSP.C"
+					RelativePath="..\IOVA\tsp.c"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -9865,7 +9865,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="..\IOVA\UPD9002.C"
+					RelativePath="..\IOVA\upd9002.c"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -9905,7 +9905,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="..\IOVA\VA91.C"
+					RelativePath="..\IOVA\va91.c"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -9945,7 +9945,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="..\IOVA\VIDEOVA.C"
+					RelativePath="..\IOVA\videova.c"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -9989,7 +9989,7 @@
 				Name="cpucva"
 				>
 				<File
-					RelativePath="..\CPUCVA\GVRAMVA.C"
+					RelativePath="..\CPUCVA\GVRAMVA.c"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -10029,7 +10029,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="..\CPUCVA\Z80c.cpp"
+					RelativePath="..\CPUCVA\z80c.cpp"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -10069,7 +10069,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="..\CPUCVA\Z80diag.cpp"
+					RelativePath="..\CPUCVA\z80diag.cpp"
 					>
 					<FileConfiguration
 						Name="WaveRec|Win32"
@@ -10115,11 +10115,11 @@
 			Filter="h;hpp;hxx;hm;inl"
 			>
 			<File
-				RelativePath="..\BREAKPOINT.H"
+				RelativePath="..\breakpoint.h"
 				>
 			</File>
 			<File
-				RelativePath="..\IOVA\FDSUBSYS.H"
+				RelativePath="..\IOVA\fdsubsys.h"
 				>
 			</File>
 			<File
@@ -10127,47 +10127,47 @@
 				>
 			</File>
 			<File
-				RelativePath="..\VRAMVA\MAKESPRVA.H"
+				RelativePath="..\VRAMVA\makesprva.h"
 				>
 			</File>
 			<File
-				RelativePath="..\IO\NP2VASUP.H"
+				RelativePath="..\IO\np2vasup.h"
 				>
 			</File>
 			<File
-				RelativePath="..\VRAMVA\PALETTESVA.H"
+				RelativePath="..\VRAMVA\palettesva.h"
 				>
 			</File>
 			<File
-				RelativePath="..\VRAMVA\SCRNDRAWVA.H"
+				RelativePath="..\VRAMVA\scrndrawva.h"
 				>
 			</File>
 			<File
-				RelativePath="..\VRAMVA\SDRAWVA.H"
+				RelativePath="..\VRAMVA\sdrawva.h"
 				>
 			</File>
 			<File
-				RelativePath="..\IOVA\SGP.H"
+				RelativePath="..\IOVA\sgp.h"
 				>
 			</File>
 			<File
-				RelativePath="..\IOVA\SUBSYSTEM.H"
+				RelativePath="..\IOVA\subsystem.h"
 				>
 			</File>
 			<File
-				RelativePath="..\IOVA\TSP.H"
+				RelativePath="..\IOVA\tsp.h"
 				>
 			</File>
 			<File
-				RelativePath="..\IOVA\VIDEOVA.H"
+				RelativePath="..\IOVA\videova.h"
 				>
 			</File>
 			<File
-				RelativePath="DEBUGUTY\VIEWVIDEOVA.H"
+				RelativePath="debuguty\viewvideova.h"
 				>
 			</File>
 			<File
-				RelativePath="..\CPUCVA\Z80if.h"
+				RelativePath="..\CPUCVA\z80if.h"
 				>
 			</File>
 		</Filter>
@@ -10176,32 +10176,32 @@
 			Filter="ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe"
 			>
 			<File
-				RelativePath="ICONS\NEKOP2.BMP"
+				RelativePath="icons\nekop2.bmp"
 				>
 			</File>
 			<File
-				RelativePath="ICONS\Np2.ico"
+				RelativePath="icons\np2.ico"
 				>
 			</File>
 			<File
-				RelativePath="ICONS\NP2DEBUG.ICO"
+				RelativePath="icons\np2debug.ico"
 				>
 			</File>
 			<File
-				RelativePath="ICONS\NP2TOOL.BMP"
+				RelativePath="icons\np2tool.bmp"
 				>
 			</File>
 			<File
-				RelativePath="ICONS\NP2TOOL2.BMP"
+				RelativePath="icons\np2tool2.bmp"
 				>
 			</File>
 		</Filter>
 		<File
-			RelativePath="ICONS\Fddseek.wav"
+			RelativePath="icons\fddseek.wav"
 			>
 		</File>
 		<File
-			RelativePath="ICONS\Fddseek1.wav"
+			RelativePath="icons\fddseek1.wav"
 			>
 		</File>
 	</Files>

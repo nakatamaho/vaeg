@@ -44,16 +44,16 @@ cp932_ng: 49
 
 代表例:
 
-- `HLP/images/*.gif`
-- `HLP/images/toolwinva.png`
-- `HLP/vaeg.bmp`
-- `Win9x/ICONS/*.WAV`
-- `Win9x/ICONS/*.BMP`
-- `Win9x/ICONS/*.ICO`
-- `Win9xC/ICONS/*.BMP`
-- `Win9xC/ICONS/*.ICO`
-- `WinCE/W32/NP2.ICO`
-- `WinCE/WCE/NP2.ICO`
+- `help/images/*.gif`
+- `help/images/toolwinva.png`
+- `help/vaeg.bmp`
+- `Win9x/icons/*.WAV`
+- `Win9x/icons/*.BMP`
+- `Win9x/icons/*.ICO`
+- `Win9xC/icons/*.BMP`
+- `Win9xC/icons/*.ICO`
+- `WinCE/W32/np2.ico`
+- `WinCE/WCE/np2.ico`
 - `MacOS9/mkres.lzh`
 
 テキスト候補だけに絞ると以下。
@@ -79,13 +79,13 @@ text_cp932_ng: 3
 
 | 分類 | 件数 | 代表例 |
 |---|---:|---|
-| source-or-header | 270 | `BIOS/BIOS.C`, `COMMON/CODECNV.C`, `Win9x/SCRNMNG.CPP` |
-| html/help/assets | 95 | `HLP/about.html`, `HLP/common.css`, `HLP/images/*.gif` |
-| other-or-binary | 39 | `CPUXVA/MEMORYVA.X86`, `MacOS9/mkres.lzh`, `ROMIMAGE/*.ASM` |
+| source-or-header | 270 | `bios/bios.c`, `common/codecnv.c`, `Win9x/scrnmng.cpp` |
+| html/help/assets | 95 | `help/about.html`, `help/common.css`, `help/images/*.gif` |
+| other-or-binary | 39 | `CPUXVA/memoryva.x86`, `MacOS9/mkres.lzh`, `romimage/*.ASM` |
 | project-file | 19 | `Mona/mona.dsp`, `Win9x/np2.dsp`, `WinCE/*.vcp` |
-| text-doc | 13 | `README.TXT`, `README.md`, `Win9x/README.TXT` |
-| table-or-include-data | 11 | `KEYSTAT.TBL`, `GENERIC/*.RES`, `I286C/*.MCR` |
-| rc-resource | 4 | `Win9x/NP2.RC`, `Win9xC/np2.rc`, `WinCE/W32/NP2.RC`, `WinCE/WCE/NP2PPCV.RC` |
+| text-doc | 13 | `README.txt`, `README.md`, `Win9x/readme.txt` |
+| table-or-include-data | 11 | `keystat.tbl`, `generic/*.RES`, `i286c/*.MCR` |
+| rc-resource | 4 | `Win9x/np2.rc`, `Win9xC/np2.rc`, `WinCE/W32/np2.rc`, `WinCE/WCE/NP2PPCV.RC` |
 
 ## Source / Header の文字コード
 
@@ -104,15 +104,15 @@ Phase 1.1 で source/header を変換する場合、CP932 デコード不能な 
 
 初回変換時に特に注意する。
 
-- `Win9x/NP2.RC`
+- `Win9x/np2.rc`
 - `Win9xC/np2.rc`
-- `WinCE/W32/NP2.RC`
+- `WinCE/W32/np2.rc`
 - `WinCE/WCE/NP2PPCV.RC`
-- `KEYSTAT.TBL`
+- `keystat.tbl`
 - `Win9x/*.CPP` の dialog/menu/message 系
-- `HLP/*.html`
+- `help/*.html`
 
-`Win9x/NP2.RC` は `#pragma code_page(932)` を含むため、Phase 1.1 初回では変換対象から除外する。
+`Win9x/np2.rc` は `#pragma code_page(932)` を含むため、Phase 1.1 初回では変換対象から除外する。
 
 ## 大文字 Path
 
@@ -124,10 +124,10 @@ tracked path のうち大文字を含むもの:
 
 代表例:
 
-- `PCCORE.C`, `PCCORE.H`
-- `COMMON/`
-- `I286C/`
-- `I286X/`
+- `pccore.c`, `pccore.h`
+- `common/`
+- `i286c/`
+- `i286x/`
 - `CPUXVA/`
 - `CPUCVA/`
 - `IOVA/`
@@ -135,22 +135,22 @@ tracked path のうち大文字を含むもの:
 - `Win9x/`
 - `WinCE/`
 - `MacOS9/`
-- `ROMIMAGE/`
-- `NP2TOOL/`
+- `romimage/`
+- `np2tool/`
 
 Phase 1.3 では候補一覧と参照元を提示し、承認後に段階的に rename する。一括 rename は行わない。
 
-## makefile / Makefile
+## makefile / makefile
 
 確認結果:
 
-- `NP2TOOL/MAKEFILE.W32`
-- `ROMIMAGE/MAKEFILE.W32`
-- `Win9x/Makefile`
-- `sdl/Makefile.win`
-- `sdl/Makefile.zau`
+- `np2tool/makefile.w32`
+- `romimage/makefile.w32`
+- `Win9x/makefile`
+- `sdl/makefile.win`
+- `sdl/makefile.zau`
 
-Phase 1.3 では `MAKEFILE.W32` は `Makefile.w32` 形へ正規化候補とする。
+Phase 1.3 では `makefile.w32` は `makefile.w32` 形へ正規化候補とする。
 
 ## Visual Studio 系ファイル
 
@@ -208,8 +208,8 @@ Phase -1 で追加した未追跡 project:
 - `*.ASM`
 - `*.RC`
 - `*.INC`
-- `HLP/`
-- `ROMIMAGE/`
+- `help/`
+- `romimage/`
 - `MacOS9/`
 - `WinCE/`
 - `Mona/`

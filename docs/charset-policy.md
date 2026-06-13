@@ -25,6 +25,6 @@ Future SDL2 and cross-platform backends should use UTF-8 runtime strings.
 
 ## Boundaries
 
-Use `COMMON/CODECNV.C` and `COMMON/CODECNV.H` for explicit conversion between Shift_JIS and UTF-8 at platform boundaries.
+Use `common/codecnv.c` and `common/codecnv.h` for explicit conversion between Shift_JIS and UTF-8 at platform boundaries.
 
 Do not silently replace undecodable bytes. Stop and review any file that cannot be decoded exactly.

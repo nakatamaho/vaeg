@@ -12,15 +12,15 @@
 - VS2008 baseline 用に追加・変更したファイル:
   - `Win9x/np2.vcproj`
   - `Win9x/np2rc.h`
-  - `Win9x/NP2.RC`
-  - `Win9x/DD2.CPP`
-  - `Win9x/SCRNMNG.CPP`
-  - `I286X/MEMORY.X86`
-  - `I286X/EGCMEM.X86`
-  - `Win9x/x86/OPNGENG.X86`
-  - `Win9x/x86/MAKEGRPH.X86`
+  - `Win9x/np2.rc`
+  - `Win9x/dd2.cpp`
+  - `Win9x/scrnmng.cpp`
+  - `i286x/memory.x86`
+  - `i286x/egcmem.x86`
+  - `Win9x/x86/opngeng.x86`
+  - `Win9x/x86/makegrph.x86`
   - `Win9x/np2.dsp`
-  - `Win9x/Makefile`
+  - `Win9x/makefile`
 
 ## Windows 環境
 
@@ -43,11 +43,11 @@
 
 以下は既存挙動の変更を意図したものではなく、VC2008 build gate を再現するための最小修正。
 
-- `Win9x/NP2.RC`: `afxres.h` 依存を外し、`np2rc.h` を include。
+- `Win9x/np2.rc`: `afxres.h` 依存を外し、`np2rc.h` を include。
 - `Win9x/np2rc.h`: MFC resource header なしで resource compile するための最小 resource 定義。
-- `Win9x/DD2.CPP`, `Win9x/SCRNMNG.CPP`: `DirectDrawCreate` を link-time import せず、`LoadLibraryA("ddraw.dll")` と `GetProcAddress` で実行時解決。
-- `I286X/MEMORY.X86`, `I286X/EGCMEM.X86`, `Win9x/x86/OPNGENG.X86`, `Win9x/x86/MAKEGRPH.X86`: NASM / COFF で外部 alias が未解決シンボルとして残る箇所を `equ` から `%define` へ変更。
-- `Win9x/np2.dsp`, `Win9x/Makefile`: `nasmw` / 固定パスを使わず `nasm` を使う。
+- `Win9x/dd2.cpp`, `Win9x/scrnmng.cpp`: `DirectDrawCreate` を link-time import せず、`LoadLibraryA("ddraw.dll")` と `GetProcAddress` で実行時解決。
+- `i286x/memory.x86`, `i286x/egcmem.x86`, `Win9x/x86/opngeng.x86`, `Win9x/x86/makegrph.x86`: NASM / COFF で外部 alias が未解決シンボルとして残る箇所を `equ` から `%define` へ変更。
+- `Win9x/np2.dsp`, `Win9x/makefile`: `nasmw` / 固定パスを使わず `nasm` を使う。
 
 ## 実行した Build
 

@@ -117,55 +117,55 @@ LINK32=link.exe
 # PROP Default_Filter ""
 # Begin Source File
 
-SOURCE=..\COMMON\_MEMORY.C
+SOURCE=..\common\_memory.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\COMMON\BMPDATA.C
+SOURCE=..\common\bmpdata.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\COMMON\CODECNV.C
+SOURCE=..\common\codecnv.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\COMMON\LSTARRAY.C
+SOURCE=..\common\lstarray.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\COMMON\MILSTR.C
+SOURCE=..\common\milstr.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\COMMON\MIMPIDEF.C
+SOURCE=..\common\mimpidef.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\COMMON\PARTS.C
+SOURCE=..\common\parts.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\COMMON\PROFILE.C
+SOURCE=..\common\profile.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\COMMON\RECT.C
+SOURCE=..\common\rect.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\COMMON\RESIZE.C
+SOURCE=..\common\resize.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\COMMON\STRRES.C
+SOURCE=..\common\strres.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\COMMON\TEXTFILE.C
+SOURCE=..\common\textfile.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\COMMON\WAVEFILE.C
+SOURCE=..\common\wavefile.c
 # End Source File
 # End Group
 # Begin Group "cpu"
@@ -173,55 +173,55 @@ SOURCE=..\COMMON\WAVEFILE.C
 # PROP Default_Filter ""
 # Begin Source File
 
-SOURCE=..\I286C\DMAP.C
+SOURCE=..\i286c\dmap.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\I286C\EGCMEM.C
+SOURCE=..\i286c\egcmem.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\I286C\I286C.C
+SOURCE=..\i286c\i286c.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\I286C\I286C_0F.C
+SOURCE=..\i286c\i286c_0f.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\I286C\I286C_8X.C
+SOURCE=..\i286c\i286c_8x.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\I286C\I286C_EA.C
+SOURCE=..\i286c\i286c_ea.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\I286C\I286C_F6.C
+SOURCE=..\i286c\i286c_f6.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\I286C\I286C_FE.C
+SOURCE=..\i286c\i286c_fe.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\I286C\I286C_MN.C
+SOURCE=..\i286c\i286c_mn.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\I286C\I286C_RP.C
+SOURCE=..\i286c\i286c_rp.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\I286C\I286C_SF.C
+SOURCE=..\i286c\i286c_sf.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\I286C\MEMORY.C
+SOURCE=..\i286c\memory.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\I286C\V30PATCH.C
+SOURCE=..\i286c\v30patch.c
 # End Source File
 # End Group
 # Begin Group "io"
@@ -229,103 +229,103 @@ SOURCE=..\I286C\V30PATCH.C
 # PROP Default_Filter ""
 # Begin Source File
 
-SOURCE=..\IO\ARTIC.C
+SOURCE=..\IO\artic.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\IO\CGROM.C
+SOURCE=..\IO\cgrom.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\IO\CPUIO.C
+SOURCE=..\IO\cpuio.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\IO\CRTC.C
+SOURCE=..\IO\crtc.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\IO\DIPSW.C
+SOURCE=..\IO\dipsw.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\IO\DMAC.C
+SOURCE=..\IO\dmac.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\IO\EGC.C
+SOURCE=..\IO\egc.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\IO\EMSIO.C
+SOURCE=..\IO\emsio.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\IO\EPSONIO.C
+SOURCE=..\IO\epsonio.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\IO\FDC.C
+SOURCE=..\IO\fdc.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\IO\FDD320.C
+SOURCE=..\IO\fdd320.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\IO\GDC.C
+SOURCE=..\IO\gdc.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\IO\GDC_PSET.C
+SOURCE=..\IO\gdc_pset.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\IO\GDC_SUB.C
+SOURCE=..\IO\gdc_sub.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\IO\IOCORE.C
+SOURCE=..\IO\iocore.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\IO\MOUSEIF.C
+SOURCE=..\IO\mouseif.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\IO\NECIO.C
+SOURCE=..\IO\necio.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\IO\NMIIO.C
+SOURCE=..\IO\nmiio.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\IO\NP2SYSP.C
+SOURCE=..\IO\np2sysp.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\IO\PIC.C
+SOURCE=..\IO\pic.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\IO\PIT.C
+SOURCE=..\IO\pit.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\IO\PRINTIF.C
+SOURCE=..\IO\printif.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\IO\SERIAL.C
+SOURCE=..\IO\serial.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\IO\SYSPORT.C
+SOURCE=..\IO\sysport.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\IO\UPD4990.C
+SOURCE=..\IO\upd4990.c
 # End Source File
 # End Group
 # Begin Group "cbus"
@@ -333,63 +333,63 @@ SOURCE=..\IO\UPD4990.C
 # PROP Default_Filter ""
 # Begin Source File
 
-SOURCE=..\CBUS\AMD98.C
+SOURCE=..\CBUS\amd98.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\CBUS\BOARD118.C
+SOURCE=..\CBUS\board118.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\CBUS\BOARD14.C
+SOURCE=..\CBUS\board14.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\CBUS\BOARD26K.C
+SOURCE=..\CBUS\board26k.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\CBUS\BOARD86.C
+SOURCE=..\CBUS\board86.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\CBUS\BOARDSPB.C
+SOURCE=..\CBUS\boardspb.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\CBUS\BOARDX2.C
+SOURCE=..\CBUS\boardx2.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\CBUS\CBUSCORE.C
+SOURCE=..\CBUS\cbuscore.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\CBUS\CS4231IO.C
+SOURCE=..\CBUS\cs4231io.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\CBUS\MPU98II.C
+SOURCE=..\CBUS\mpu98ii.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\CBUS\PC9861K.C
+SOURCE=..\CBUS\pc9861k.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\CBUS\PCM86IO.C
+SOURCE=..\CBUS\pcm86io.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\CBUS\SASIIO.C
+SOURCE=..\CBUS\sasiio.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\CBUS\SCSICMD.C
+SOURCE=..\CBUS\scsicmd.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\CBUS\SCSIIO.C
+SOURCE=..\CBUS\scsiio.c
 # End Source File
 # End Group
 # Begin Group "bios"
@@ -397,51 +397,51 @@ SOURCE=..\CBUS\SCSIIO.C
 # PROP Default_Filter ""
 # Begin Source File
 
-SOURCE=..\BIOS\BIOS.C
+SOURCE=..\BIOS\bios.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\BIOS\BIOS09.C
+SOURCE=..\BIOS\bios09.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\BIOS\BIOS0C.C
+SOURCE=..\BIOS\bios0c.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\BIOS\BIOS12.C
+SOURCE=..\BIOS\bios12.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\BIOS\BIOS13.C
+SOURCE=..\BIOS\bios13.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\BIOS\BIOS18.C
+SOURCE=..\BIOS\bios18.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\BIOS\BIOS19.C
+SOURCE=..\BIOS\bios19.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\BIOS\BIOS1A.C
+SOURCE=..\BIOS\bios1a.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\BIOS\BIOS1B.C
+SOURCE=..\BIOS\bios1b.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\BIOS\BIOS1C.C
+SOURCE=..\BIOS\bios1c.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\BIOS\BIOS1F.C
+SOURCE=..\BIOS\bios1f.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\BIOS\SXSIBIOS.C
+SOURCE=..\BIOS\sxsibios.c
 # End Source File
 # End Group
 # Begin Group "vram"
@@ -449,43 +449,43 @@ SOURCE=..\BIOS\SXSIBIOS.C
 # PROP Default_Filter ""
 # Begin Source File
 
-SOURCE=..\VRAM\DISPSYNC.C
+SOURCE=..\VRAM\dispsync.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\VRAM\MAKEGRPH.C
+SOURCE=..\VRAM\makegrph.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\VRAM\MAKETEXT.C
+SOURCE=..\VRAM\maketext.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\VRAM\MAKETGRP.C
+SOURCE=..\VRAM\maketgrp.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\VRAM\PALETTES.C
+SOURCE=..\VRAM\palettes.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\VRAM\SCRNBMP.C
+SOURCE=..\VRAM\scrnbmp.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\VRAM\SCRNDRAW.C
+SOURCE=..\VRAM\scrndraw.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\VRAM\SDRAW.C
+SOURCE=..\VRAM\sdraw.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\VRAM\SDRAWQ16.C
+SOURCE=..\VRAM\sdrawq16.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\VRAM\VRAM.C
+SOURCE=..\VRAM\vram.c
 # End Source File
 # End Group
 # Begin Group "sound"
@@ -496,23 +496,23 @@ SOURCE=..\VRAM\VRAM.C
 # PROP Default_Filter ""
 # Begin Source File
 
-SOURCE=..\SOUND\VERMOUTH\MIDIMOD.C
+SOURCE=..\sound\vermouth\midimod.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\SOUND\VERMOUTH\MIDINST.C
+SOURCE=..\sound\vermouth\midinst.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\SOUND\VERMOUTH\MIDIOUT.C
+SOURCE=..\sound\vermouth\midiout.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\SOUND\VERMOUTH\MIDTABLE.C
+SOURCE=..\sound\vermouth\midtable.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\SOUND\VERMOUTH\MIDVOICE.C
+SOURCE=..\sound\vermouth\midvoice.c
 # End Source File
 # End Group
 # Begin Group "getsnd"
@@ -520,100 +520,100 @@ SOURCE=..\SOUND\VERMOUTH\MIDVOICE.C
 # PROP Default_Filter ""
 # Begin Source File
 
-SOURCE=..\SOUND\GETSND\GETSMIX.C
+SOURCE=..\sound\getsnd\getsmix.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\SOUND\GETSND\GETSND.C
+SOURCE=..\sound\getsnd\getsnd.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\SOUND\GETSND\GETWAVE.C
+SOURCE=..\sound\getsnd\getwave.c
 # End Source File
 # End Group
 # Begin Source File
 
-SOURCE=..\SOUND\ADPCMC.C
+SOURCE=..\sound\adpcmc.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\SOUND\ADPCMG.C
+SOURCE=..\sound\adpcmg.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\SOUND\BEEPC.C
+SOURCE=..\sound\beepc.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\SOUND\BEEPG.C
+SOURCE=..\sound\beepg.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\SOUND\CS4231C.C
+SOURCE=..\sound\cs4231c.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\SOUND\CS4231G.C
+SOURCE=..\sound\cs4231g.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\SOUND\FMBOARD.C
+SOURCE=..\sound\fmboard.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\SOUND\FMTIMER.C
+SOURCE=..\sound\fmtimer.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\SOUND\OPNGENC.C
+SOURCE=..\sound\opngenc.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\SOUND\OPNGENG.C
+SOURCE=..\sound\opngeng.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\SOUND\PCM86C.C
+SOURCE=..\sound\pcm86c.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\SOUND\PCM86G.C
+SOURCE=..\sound\pcm86g.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\SOUND\PSGGENC.C
+SOURCE=..\sound\psggenc.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\SOUND\PSGGENG.C
+SOURCE=..\sound\psggeng.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\SOUND\RHYTHMC.C
+SOURCE=..\sound\rhythmc.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\SOUND\S98.C
+SOURCE=..\sound\s98.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\SOUND\SNDCSEC.C
+SOURCE=..\sound\sndcsec.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\SOUND\SOUND.C
+SOURCE=..\sound\sound.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\SOUND\SOUNDROM.C
+SOURCE=..\sound\soundrom.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\SOUND\TMS3631C.C
+SOURCE=..\sound\tms3631c.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\SOUND\TMS3631G.C
+SOURCE=..\sound\tms3631g.c
 # End Source File
 # End Group
 # Begin Group "fdd"
@@ -621,31 +621,31 @@ SOURCE=..\SOUND\TMS3631G.C
 # PROP Default_Filter ""
 # Begin Source File
 
-SOURCE=..\FDD\DISKDRV.C
+SOURCE=..\fdd\diskdrv.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\FDD\FDD_D88.C
+SOURCE=..\fdd\fdd_d88.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\FDD\FDD_MTR.C
+SOURCE=..\fdd\fdd_mtr.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\FDD\FDD_XDF.C
+SOURCE=..\fdd\fdd_xdf.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\FDD\FDDFILE.C
+SOURCE=..\fdd\fddfile.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\FDD\NEWDISK.C
+SOURCE=..\fdd\newdisk.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\FDD\SXSI.C
+SOURCE=..\fdd\sxsi.c
 # End Source File
 # End Group
 # Begin Group "lio"
@@ -653,27 +653,27 @@ SOURCE=..\FDD\SXSI.C
 # PROP Default_Filter ""
 # Begin Source File
 
-SOURCE=..\LIO\GCIRCLE.C
+SOURCE=..\lio\gcircle.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\LIO\GLINE.C
+SOURCE=..\lio\gline.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\LIO\GPSET.C
+SOURCE=..\lio\gpset.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\LIO\GPUT1.C
+SOURCE=..\lio\gput1.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\LIO\GSCREEN.C
+SOURCE=..\lio\gscreen.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\LIO\LIO.C
+SOURCE=..\lio\lio.c
 # End Source File
 # End Group
 # Begin Group "font"
@@ -681,39 +681,39 @@ SOURCE=..\LIO\LIO.C
 # PROP Default_Filter ""
 # Begin Source File
 
-SOURCE=..\FONT\FONT.C
+SOURCE=..\font\font.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\FONT\FONTDATA.C
+SOURCE=..\font\fontdata.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\FONT\FONTFM7.C
+SOURCE=..\font\fontfm7.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\FONT\FONTMAKE.C
+SOURCE=..\font\fontmake.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\FONT\FONTPC88.C
+SOURCE=..\font\fontpc88.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\FONT\FONTPC98.C
+SOURCE=..\font\fontpc98.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\FONT\FONTV98.C
+SOURCE=..\font\fontv98.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\FONT\FONTX1.C
+SOURCE=..\font\fontx1.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\FONT\FONTX68K.C
+SOURCE=..\font\fontx68k.c
 # End Source File
 # End Group
 # Begin Group "sdl"
@@ -724,92 +724,92 @@ SOURCE=..\FONT\FONTX68K.C
 # PROP Default_Filter ""
 # Begin Source File
 
-SOURCE=.\win32s\SDL.c
+SOURCE=.\win32s\sdl.c
 # End Source File
 # Begin Source File
 
-SOURCE=.\win32s\SDL_ttf.c
+SOURCE=.\win32s\sdl_ttf.c
 # End Source File
 # Begin Source File
 
-SOURCE=.\win32s\SDLaudio.c
+SOURCE=.\win32s\sdlaudio.c
 # End Source File
 # Begin Source File
 
-SOURCE=.\win32s\SDLevent.c
+SOURCE=.\win32s\sdlevent.c
 # End Source File
 # Begin Source File
 
-SOURCE=.\win32s\SDLmpw.c
+SOURCE=.\win32s\sdlmpw.c
 # End Source File
 # Begin Source File
 
-SOURCE=.\win32s\SDLvideo.c
+SOURCE=.\win32s\sdlvideo.c
 # End Source File
 # End Group
 # Begin Source File
 
-SOURCE=.\COMMNG.C
+SOURCE=.\commng.c
 # End Source File
 # Begin Source File
 
-SOURCE=.\DOSIO.C
+SOURCE=.\dosio.c
 # End Source File
 # Begin Source File
 
-SOURCE=.\FONTMNG.C
+SOURCE=.\fontmng.c
 # End Source File
 # Begin Source File
 
-SOURCE=.\INI.C
+SOURCE=.\ini.c
 # End Source File
 # Begin Source File
 
-SOURCE=.\INPUTMNG.C
+SOURCE=.\inputmng.c
 # End Source File
 # Begin Source File
 
-SOURCE=.\JOYMNG.C
+SOURCE=.\joymng.c
 # End Source File
 # Begin Source File
 
-SOURCE=.\MOUSEMNG.C
+SOURCE=.\mousemng.c
 # End Source File
 # Begin Source File
 
-SOURCE=.\NP2.C
+SOURCE=.\np2.c
 # End Source File
 # Begin Source File
 
-SOURCE=.\SCRNMNG.C
+SOURCE=.\scrnmng.c
 # End Source File
 # Begin Source File
 
-SOURCE=.\SDLKBD.C
+SOURCE=.\sdlkbd.c
 # End Source File
 # Begin Source File
 
-SOURCE=.\SOUNDMNG.C
+SOURCE=.\soundmng.c
 # End Source File
 # Begin Source File
 
-SOURCE=.\SYSMENU.C
+SOURCE=.\sysmenu.c
 # End Source File
 # Begin Source File
 
-SOURCE=.\SYSMNG.C
+SOURCE=.\sysmng.c
 # End Source File
 # Begin Source File
 
-SOURCE=.\TASKMNG.C
+SOURCE=.\taskmng.c
 # End Source File
 # Begin Source File
 
-SOURCE=.\TIMEMNG.C
+SOURCE=.\timemng.c
 # End Source File
 # Begin Source File
 
-SOURCE=.\TRACE.C
+SOURCE=.\trace.c
 # End Source File
 # End Group
 # Begin Group "generic"
@@ -817,19 +817,19 @@ SOURCE=.\TRACE.C
 # PROP Default_Filter ""
 # Begin Source File
 
-SOURCE=..\GENERIC\CMJASTS.C
+SOURCE=..\generic\cmjasts.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\GENERIC\CMVER.C
+SOURCE=..\generic\cmver.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\GENERIC\HOSTDRV.C
+SOURCE=..\generic\hostdrv.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\GENERIC\HOSTDRVS.C
+SOURCE=..\generic\hostdrvs.c
 # End Source File
 # End Group
 # Begin Group "embed"
@@ -840,23 +840,23 @@ SOURCE=..\GENERIC\HOSTDRVS.C
 # PROP Default_Filter ""
 # Begin Source File
 
-SOURCE=..\EMBED\MENU\DLGABOUT.C
+SOURCE=..\embed\menu\dlgabout.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\EMBED\MENU\DLGCFG.C
+SOURCE=..\embed\menu\dlgcfg.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\EMBED\MENU\DLGSCR.C
+SOURCE=..\embed\menu\dlgscr.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\EMBED\MENU\FILESEL.C
+SOURCE=..\embed\menu\filesel.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\EMBED\MENU\MENUSTR.C
+SOURCE=..\embed\menu\menustr.c
 # End Source File
 # End Group
 # Begin Group "menubase"
@@ -864,69 +864,69 @@ SOURCE=..\EMBED\MENU\MENUSTR.C
 # PROP Default_Filter ""
 # Begin Source File
 
-SOURCE=..\EMBED\MENUBASE\MENUBASE.C
+SOURCE=..\embed\menubase\menubase.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\EMBED\MENUBASE\MENUDLG.C
+SOURCE=..\embed\menubase\menudlg.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\EMBED\MENUBASE\MENUICON.C
+SOURCE=..\embed\menubase\menuicon.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\EMBED\MENUBASE\MENUMBOX.C
+SOURCE=..\embed\menubase\menumbox.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\EMBED\MENUBASE\MENURES.C
+SOURCE=..\embed\menubase\menures.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\EMBED\MENUBASE\MENUSYS.C
+SOURCE=..\embed\menubase\menusys.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\EMBED\MENUBASE\MENUVRAM.C
-# End Source File
-# End Group
-# Begin Source File
-
-SOURCE=..\EMBED\VRAMHDL.C
-# End Source File
-# Begin Source File
-
-SOURCE=..\EMBED\VRAMMIX.C
+SOURCE=..\embed\menubase\menuvram.c
 # End Source File
 # End Group
 # Begin Source File
 
-SOURCE=..\CALENDAR.C
+SOURCE=..\embed\vramhdl.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\DEBUGSUB.C
+SOURCE=..\embed\vrammix.c
+# End Source File
+# End Group
+# Begin Source File
+
+SOURCE=..\calendar.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\KEYSTAT.C
+SOURCE=..\debugsub.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\NEVENT.C
+SOURCE=..\keystat.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\PCCORE.C
+SOURCE=..\nevent.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\STATSAVE.C
+SOURCE=..\pccore.c
 # End Source File
 # Begin Source File
 
-SOURCE=..\TIMING.C
+SOURCE=..\statsave.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\timing.c
 # End Source File
 # End Group
 # Begin Group "Header Files"

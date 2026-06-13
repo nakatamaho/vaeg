@@ -689,7 +689,7 @@ END
 // Bitmap
 //
 
-NP2BMP                  BITMAP  DISCARDABLE     "ICONS\\nekop2.bmp"
+NP2BMP                  BITMAP  DISCARDABLE     "icons\\nekop2.bmp"
 
 #ifndef _MAC
 /////////////////////////////////////////////////////////////////////////////
@@ -740,7 +740,7 @@ END
 
 // Icon with lowest ID value placed first to ensure application icon
 // remains consistent on all systems.
-IDI_ICON1               ICON    DISCARDABLE     "ICONS\\Np2.ico"
+IDI_ICON1               ICON    DISCARDABLE     "icons\\np2.ico"
 #endif    // 日本語 resources
 /////////////////////////////////////////////////////////////////////////////
 

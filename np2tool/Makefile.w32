@@ -1,0 +1,12 @@
+AS		= nasmw
+AOPT	= -f bin
+
+all: .\GETbios.cOM .\PWOFF.COM .\hostdrv.cOM
+
+.ASM{$(OBJ)}.COM:
+	$(AS) $(*B).ASM $(AOPT) -o $*.COM -l $*.LST
+
+GETbios.cOM	:
+PWOFF.COM	:
+hostdrv.cOM	:
+
