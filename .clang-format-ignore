@@ -1,0 +1,36 @@
+# Phase 1.7 initial exclusion list.
+# Keep assembler, resource, table, generated, and ROM/help assets out of automatic formatting.
+
+*.mcr
+*.MCR
+*.tbl
+*.TBL
+*.res
+*.RES
+*.str
+*.STR
+*.x86
+*.X86
+*.s
+*.S
+*.asm
+*.ASM
+*.rc
+*.RC
+*.inc
+*.INC
+
+romimage/**
+np2tool/**
+help/**
+
+# High-risk macro/generated/table-driven areas requiring manual review first.
+i286a/**
+i286c/**
+i286x/**
+CPUXVA/**
+CPUCVA/z80*
+generic/unasm*
+sound/getsnd/**
+statsave.c
+keystat.c
