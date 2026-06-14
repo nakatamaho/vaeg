@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Z80if.h: Z80 interfaces
  */
 

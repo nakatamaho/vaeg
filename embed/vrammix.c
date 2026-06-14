@@ -1,4 +1,4 @@
-#include	"compiler.h"
+﻿#include	"compiler.h"
 #include	"fontmng.h"
 #include	"vramhdl.h"
 #include	"vrammix.h"

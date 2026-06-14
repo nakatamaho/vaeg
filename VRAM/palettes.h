@@ -1,4 +1,4 @@
-// palette
+﻿// palette
 //	 00		text palette				(NP2PAL_TEXT: pal0s + text)
 //	+0A		skipline palette			(NP2PAL_SKIP: skiplines)
 //	+10		grph palette				(NP2PAL_GRPH: grph only)

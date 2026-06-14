@@ -1,4 +1,4 @@
-#include	"compiler.h"
+﻿#include	"compiler.h"
 #include	<ddraw.h>
 #ifndef __GNUC__
 #include	<winnls32.h>

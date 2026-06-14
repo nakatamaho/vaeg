@@ -1,4 +1,4 @@
-//
+﻿//
 //  PC-98 Sound logging
 //    for S98amp S98 Input plugin for Winamp Version 1.3.1+ by Mamiya
 //

@@ -1,4 +1,4 @@
-
+﻿
 #define		FILEH				HANDLE
 #define		FILEH_INVALID		(INVALID_HANDLE_VALUE)
 

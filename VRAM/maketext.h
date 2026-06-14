@@ -1,4 +1,4 @@
-
+﻿
 enum {
 	TEXTXMAX		= 80,
 	TEXTYMAX		= 400,

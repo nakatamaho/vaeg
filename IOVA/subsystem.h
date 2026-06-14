@@ -1,4 +1,4 @@
-/*
+﻿/*
  * SUBSYSTEM.H: PC-88VA FD Sub System
  */
 

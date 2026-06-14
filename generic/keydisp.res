@@ -1,4 +1,4 @@
-
+﻿
 static const BYTE keybrd1[] = {					// 鍵盤。
 				28, 14,
 				0xc4, 0x6c, 0x44, 0x60,

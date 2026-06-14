@@ -1,4 +1,4 @@
-#include	"compiler.h"
+﻿#include	"compiler.h"
 #include	<dsound.h>
 #include	"parts.h"
 #include	"wavefile.h"

@@ -1,4 +1,4 @@
-
+﻿
 // あとで GETSNDに乗り換えるかも…
 
 #if defined(BYTESEX_BIG)

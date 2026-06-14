@@ -1,4 +1,4 @@
-#include	"compiler.h"
+﻿#include	"compiler.h"
 #include	"wavefile.h"
 #include	"dosio.h"
 #include	"soundmng.h"

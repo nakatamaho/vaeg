@@ -1,4 +1,4 @@
-/*
+﻿/*
  *	BKMEMVA.C: PC-88VA Backup memory
  *	ToDo:
  *		ファイル読み書き失敗時のエラー通知

@@ -1,4 +1,4 @@
-#include	"compiler.h"
+﻿#include	"compiler.h"
 #include	<windowsx.h>
 #include	<io.h>
 #include	"strres.h"

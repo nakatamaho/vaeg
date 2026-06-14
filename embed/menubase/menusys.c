@@ -1,4 +1,4 @@
-#include	"compiler.h"
+﻿#include	"compiler.h"
 #include	"fontmng.h"
 #include	"inputmng.h"
 #include	"vramhdl.h"

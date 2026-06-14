@@ -1,4 +1,4 @@
-/*
+﻿/*
  * MAKESPRVA.C: PC-88VA Sprite
  */
 

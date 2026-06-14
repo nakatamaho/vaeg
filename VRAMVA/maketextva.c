@@ -1,4 +1,4 @@
-/*
+﻿/*
  * MAKETEXTVA.C: PC-88VA Text
  */
 /*

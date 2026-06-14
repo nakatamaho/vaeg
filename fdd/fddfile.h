@@ -1,4 +1,4 @@
-
+﻿
 #define	MAX_FDDFILE		4							// ver0.31
 
 #include	"d88head.h"

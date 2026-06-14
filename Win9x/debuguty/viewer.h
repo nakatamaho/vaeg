@@ -1,4 +1,4 @@
-#define	NP2VIEW_MAX	8
+﻿#define	NP2VIEW_MAX	8
 
 #define	EXT	1		// Shinra
 

@@ -1,4 +1,4 @@
-/*
+﻿/*
  * VIDEOVA.H: PC-88VA Video Control
  */
 

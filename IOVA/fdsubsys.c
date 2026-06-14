@@ -1,4 +1,4 @@
-/*
+﻿/*
  * FDSUBSYS.C: PC-88VA FD Sub System (mock-up type)
  */
 

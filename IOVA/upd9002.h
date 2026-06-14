@@ -1,4 +1,4 @@
-/*
+﻿/*
  * UPD9002.H: PC-88VA CPU port
  */
 

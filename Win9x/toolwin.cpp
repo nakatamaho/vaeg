@@ -1,4 +1,4 @@
-#include	"compiler.h"
+﻿#include	"compiler.h"
 #include	"commctrl.h"		// VAEG_EXT _TrackMouseEvent
 #include	"strres.h"
 #include	"resource.h"

@@ -1,4 +1,4 @@
-
+﻿
 // PC-9821 PCIブリッジ
 
 #if defined(SUPPORT_PC9821)

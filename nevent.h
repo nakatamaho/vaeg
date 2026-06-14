@@ -1,4 +1,4 @@
-
+﻿
 enum {
 #if defined(VAEG_FIX)
 #else

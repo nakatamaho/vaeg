@@ -1,4 +1,4 @@
-#include	"compiler.h"
+﻿#include	"compiler.h"
 #include	"unasm.h"
 #include	"unasmdef.tbl"
 #include	"unasmstr.tbl"

@@ -1,4 +1,4 @@
-
+﻿
 // デスクトップ用 308x94 (SUPPORT_SOFTKBD == 0 / PC-9801-119)
 
 static const BYTE np2kbd_bmp[3217] = {

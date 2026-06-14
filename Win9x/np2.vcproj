@@ -984,8 +984,8 @@
 						>
 						<Tool
 							Name="VCCustomBuildTool"
-							Description="ｱｾﾝﾌﾞﾙ中... $(InputPath)"
-							CommandLine="nasm -f win32 $(InputPath) -o $(IntDir)\$(InputName).obj&#x0D;&#x0A;"
+							Description="Assembling... $(InputPath)"
+							CommandLine="nasm -f win32 -w-label-orphan $(InputPath) -o $(IntDir)\$(InputName).obj&#x0D;&#x0A;"
 							Outputs="$(IntDir)\$(InputName).obj"
 						/>
 					</FileConfiguration>
@@ -994,8 +994,8 @@
 						>
 						<Tool
 							Name="VCCustomBuildTool"
-							Description="ｱｾﾝﾌﾞﾙ中... $(InputPath)"
-							CommandLine="nasm -f win32 $(InputPath) -o $(IntDir)\$(InputName).obj&#x0D;&#x0A;"
+							Description="Assembling... $(InputPath)"
+							CommandLine="nasm -f win32 -w-label-orphan $(InputPath) -o $(IntDir)\$(InputName).obj&#x0D;&#x0A;"
 							Outputs="$(IntDir)\$(InputName).obj"
 						/>
 					</FileConfiguration>
@@ -1004,8 +1004,8 @@
 						>
 						<Tool
 							Name="VCCustomBuildTool"
-							Description="ｱｾﾝﾌﾞﾙ中... $(InputPath)"
-							CommandLine="nasm -f win32 $(InputPath) -o $(IntDir)\$(InputName).obj&#x0D;&#x0A;"
+							Description="Assembling... $(InputPath)"
+							CommandLine="nasm -f win32 -w-label-orphan $(InputPath) -o $(IntDir)\$(InputName).obj&#x0D;&#x0A;"
 							Outputs="$(IntDir)\$(InputName).obj"
 						/>
 					</FileConfiguration>
@@ -1014,8 +1014,8 @@
 						>
 						<Tool
 							Name="VCCustomBuildTool"
-							Description="ｱｾﾝﾌﾞﾙ中... $(InputPath)"
-							CommandLine="nasm -f win32 $(InputPath) -o $(IntDir)\$(InputName).obj&#x0D;&#x0A;"
+							Description="Assembling... $(InputPath)"
+							CommandLine="nasm -f win32 -w-label-orphan $(InputPath) -o $(IntDir)\$(InputName).obj&#x0D;&#x0A;"
 							Outputs="$(IntDir)\$(InputName).obj"
 						/>
 					</FileConfiguration>
@@ -1192,8 +1192,8 @@
 						>
 						<Tool
 							Name="VCCustomBuildTool"
-							Description="ｱｾﾝﾌﾞﾙ中... $(InputPath)"
-							CommandLine="nasm -f win32 $(InputPath) -o $(IntDir)\$(InputName).obj&#x0D;&#x0A;"
+							Description="Assembling... $(InputPath)"
+							CommandLine="nasm -f win32 -w-label-orphan $(InputPath) -o $(IntDir)\$(InputName).obj&#x0D;&#x0A;"
 							Outputs="$(IntDir)\$(InputName).obj"
 						/>
 					</FileConfiguration>
@@ -1202,8 +1202,8 @@
 						>
 						<Tool
 							Name="VCCustomBuildTool"
-							Description="ｱｾﾝﾌﾞﾙ中... $(InputPath)"
-							CommandLine="nasm -f win32 $(InputPath) -o $(IntDir)\$(InputName).obj&#x0D;&#x0A;"
+							Description="Assembling... $(InputPath)"
+							CommandLine="nasm -f win32 -w-label-orphan $(InputPath) -o $(IntDir)\$(InputName).obj&#x0D;&#x0A;"
 							Outputs="$(IntDir)\$(InputName).obj"
 						/>
 					</FileConfiguration>
@@ -1212,8 +1212,8 @@
 						>
 						<Tool
 							Name="VCCustomBuildTool"
-							Description="ｱｾﾝﾌﾞﾙ中... $(InputPath)"
-							CommandLine="nasm -f win32 $(InputPath) -o $(IntDir)\$(InputName).obj&#x0D;&#x0A;"
+							Description="Assembling... $(InputPath)"
+							CommandLine="nasm -f win32 -w-label-orphan $(InputPath) -o $(IntDir)\$(InputName).obj&#x0D;&#x0A;"
 							Outputs="$(IntDir)\$(InputName).obj"
 						/>
 					</FileConfiguration>
@@ -1222,8 +1222,8 @@
 						>
 						<Tool
 							Name="VCCustomBuildTool"
-							Description="ｱｾﾝﾌﾞﾙ中... $(InputPath)"
-							CommandLine="nasm -f win32 $(InputPath) -o $(IntDir)\$(InputName).obj&#x0D;&#x0A;"
+							Description="Assembling... $(InputPath)"
+							CommandLine="nasm -f win32 -w-label-orphan $(InputPath) -o $(IntDir)\$(InputName).obj&#x0D;&#x0A;"
 							Outputs="$(IntDir)\$(InputName).obj"
 						/>
 					</FileConfiguration>
@@ -1236,8 +1236,8 @@
 						>
 						<Tool
 							Name="VCCustomBuildTool"
-							Description="ｱｾﾝﾌﾞﾙ中... $(InputPath)"
-							CommandLine="nasm -f win32 $(InputPath) -o $(IntDir)\$(InputName).obj&#x0D;&#x0A;"
+							Description="Assembling... $(InputPath)"
+							CommandLine="nasm -f win32 -w-label-orphan $(InputPath) -o $(IntDir)\$(InputName).obj&#x0D;&#x0A;"
 							Outputs="$(IntDir)\$(InputName).obj"
 						/>
 					</FileConfiguration>
@@ -1246,8 +1246,8 @@
 						>
 						<Tool
 							Name="VCCustomBuildTool"
-							Description="ｱｾﾝﾌﾞﾙ中... $(InputPath)"
-							CommandLine="nasm -f win32 $(InputPath) -o $(IntDir)\$(InputName).obj&#x0D;&#x0A;"
+							Description="Assembling... $(InputPath)"
+							CommandLine="nasm -f win32 -w-label-orphan $(InputPath) -o $(IntDir)\$(InputName).obj&#x0D;&#x0A;"
 							Outputs="$(IntDir)\$(InputName).obj"
 						/>
 					</FileConfiguration>
@@ -1256,8 +1256,8 @@
 						>
 						<Tool
 							Name="VCCustomBuildTool"
-							Description="ｱｾﾝﾌﾞﾙ中... $(InputPath)"
-							CommandLine="nasm -f win32 $(InputPath) -o $(IntDir)\$(InputName).obj&#x0D;&#x0A;"
+							Description="Assembling... $(InputPath)"
+							CommandLine="nasm -f win32 -w-label-orphan $(InputPath) -o $(IntDir)\$(InputName).obj&#x0D;&#x0A;"
 							Outputs="$(IntDir)\$(InputName).obj"
 						/>
 					</FileConfiguration>
@@ -1266,8 +1266,8 @@
 						>
 						<Tool
 							Name="VCCustomBuildTool"
-							Description="ｱｾﾝﾌﾞﾙ中... $(InputPath)"
-							CommandLine="nasm -f win32 $(InputPath) -o $(IntDir)\$(InputName).obj&#x0D;&#x0A;"
+							Description="Assembling... $(InputPath)"
+							CommandLine="nasm -f win32 -w-label-orphan $(InputPath) -o $(IntDir)\$(InputName).obj&#x0D;&#x0A;"
 							Outputs="$(IntDir)\$(InputName).obj"
 						/>
 					</FileConfiguration>
@@ -1480,8 +1480,8 @@
 						>
 						<Tool
 							Name="VCCustomBuildTool"
-							Description="ｱｾﾝﾌﾞﾙ中... $(InputPath)"
-							CommandLine="nasm -f win32 $(InputPath) -o $(IntDir)\$(InputName).obj&#x0D;&#x0A;"
+							Description="Assembling... $(InputPath)"
+							CommandLine="nasm -f win32 -w-label-orphan $(InputPath) -o $(IntDir)\$(InputName).obj&#x0D;&#x0A;"
 							Outputs="$(IntDir)\$(InputName).obj"
 						/>
 					</FileConfiguration>
@@ -1490,8 +1490,8 @@
 						>
 						<Tool
 							Name="VCCustomBuildTool"
-							Description="ｱｾﾝﾌﾞﾙ中... $(InputPath)"
-							CommandLine="nasm -f win32 $(InputPath) -o $(IntDir)\$(InputName).obj&#x0D;&#x0A;"
+							Description="Assembling... $(InputPath)"
+							CommandLine="nasm -f win32 -w-label-orphan $(InputPath) -o $(IntDir)\$(InputName).obj&#x0D;&#x0A;"
 							Outputs="$(IntDir)\$(InputName).obj"
 						/>
 					</FileConfiguration>
@@ -1500,8 +1500,8 @@
 						>
 						<Tool
 							Name="VCCustomBuildTool"
-							Description="ｱｾﾝﾌﾞﾙ中... $(InputPath)"
-							CommandLine="nasm -f win32 $(InputPath) -o $(IntDir)\$(InputName).obj&#x0D;&#x0A;"
+							Description="Assembling... $(InputPath)"
+							CommandLine="nasm -f win32 -w-label-orphan $(InputPath) -o $(IntDir)\$(InputName).obj&#x0D;&#x0A;"
 							Outputs="$(IntDir)\$(InputName).obj"
 						/>
 					</FileConfiguration>
@@ -1510,8 +1510,8 @@
 						>
 						<Tool
 							Name="VCCustomBuildTool"
-							Description="ｱｾﾝﾌﾞﾙ中... $(InputPath)"
-							CommandLine="nasm -f win32 $(InputPath) -o $(IntDir)\$(InputName).obj&#x0D;&#x0A;"
+							Description="Assembling... $(InputPath)"
+							CommandLine="nasm -f win32 -w-label-orphan $(InputPath) -o $(IntDir)\$(InputName).obj&#x0D;&#x0A;"
 							Outputs="$(IntDir)\$(InputName).obj"
 						/>
 					</FileConfiguration>
@@ -2412,8 +2412,8 @@
 						>
 						<Tool
 							Name="VCCustomBuildTool"
-							Description="ｱｾﾝﾌﾞﾙ中... $(InputPath)"
-							CommandLine="nasm -f win32 $(InputPath) -o $(IntDir)\$(InputName).obj -l $(IntDir)\$(InputName).cod&#x0D;&#x0A;"
+							Description="Assembling... $(InputPath)"
+							CommandLine="nasm -f win32 -w-label-orphan $(InputPath) -o $(IntDir)\$(InputName).obj -l $(IntDir)\$(InputName).cod&#x0D;&#x0A;"
 							Outputs="$(IntDir)\$(InputName).obj"
 						/>
 					</FileConfiguration>
@@ -2422,8 +2422,8 @@
 						>
 						<Tool
 							Name="VCCustomBuildTool"
-							Description="ｱｾﾝﾌﾞﾙ中... $(InputPath)"
-							CommandLine="nasm -f win32 $(InputPath) -o $(IntDir)\$(InputName).obj&#x0D;&#x0A;"
+							Description="Assembling... $(InputPath)"
+							CommandLine="nasm -f win32 -w-label-orphan $(InputPath) -o $(IntDir)\$(InputName).obj&#x0D;&#x0A;"
 							Outputs="$(IntDir)\$(InputName).obj"
 						/>
 					</FileConfiguration>
@@ -2432,8 +2432,8 @@
 						>
 						<Tool
 							Name="VCCustomBuildTool"
-							Description="ｱｾﾝﾌﾞﾙ中... $(InputPath)"
-							CommandLine="nasm -f win32 $(InputPath) -o $(IntDir)\$(InputName).obj -l $(IntDir)\$(InputName).cod&#x0D;&#x0A;"
+							Description="Assembling... $(InputPath)"
+							CommandLine="nasm -f win32 -w-label-orphan $(InputPath) -o $(IntDir)\$(InputName).obj -l $(IntDir)\$(InputName).cod&#x0D;&#x0A;"
 							Outputs="$(IntDir)\$(InputName).obj"
 						/>
 					</FileConfiguration>
@@ -2442,8 +2442,8 @@
 						>
 						<Tool
 							Name="VCCustomBuildTool"
-							Description="ｱｾﾝﾌﾞﾙ中... $(InputPath)"
-							CommandLine="nasm -f win32 $(InputPath) -o $(IntDir)\$(InputName).obj&#x0D;&#x0A;"
+							Description="Assembling... $(InputPath)"
+							CommandLine="nasm -f win32 -w-label-orphan $(InputPath) -o $(IntDir)\$(InputName).obj&#x0D;&#x0A;"
 							Outputs="$(IntDir)\$(InputName).obj"
 						/>
 					</FileConfiguration>
@@ -4240,8 +4240,8 @@
 						>
 						<Tool
 							Name="VCCustomBuildTool"
-							Description="ｱｾﾝﾌﾞﾙ中... $(InputPath)"
-							CommandLine="nasm -f win32 $(InputPath) -o $(IntDir)\$(InputName).obj&#x0D;&#x0A;"
+							Description="Assembling... $(InputPath)"
+							CommandLine="nasm -f win32 -w-label-orphan $(InputPath) -o $(IntDir)\$(InputName).obj&#x0D;&#x0A;"
 							Outputs="$(IntDir)\$(InputName).obj"
 						/>
 					</FileConfiguration>
@@ -4250,8 +4250,8 @@
 						>
 						<Tool
 							Name="VCCustomBuildTool"
-							Description="ｱｾﾝﾌﾞﾙ中... $(InputPath)"
-							CommandLine="nasm -f win32 $(InputPath) -o $(IntDir)\$(InputName).obj&#x0D;&#x0A;"
+							Description="Assembling... $(InputPath)"
+							CommandLine="nasm -f win32 -w-label-orphan $(InputPath) -o $(IntDir)\$(InputName).obj&#x0D;&#x0A;"
 							Outputs="$(IntDir)\$(InputName).obj"
 						/>
 					</FileConfiguration>
@@ -4260,8 +4260,8 @@
 						>
 						<Tool
 							Name="VCCustomBuildTool"
-							Description="ｱｾﾝﾌﾞﾙ中... $(InputPath)"
-							CommandLine="nasm -f win32 $(InputPath) -o $(IntDir)\$(InputName).obj&#x0D;&#x0A;"
+							Description="Assembling... $(InputPath)"
+							CommandLine="nasm -f win32 -w-label-orphan $(InputPath) -o $(IntDir)\$(InputName).obj&#x0D;&#x0A;"
 							Outputs="$(IntDir)\$(InputName).obj"
 						/>
 					</FileConfiguration>
@@ -4270,8 +4270,8 @@
 						>
 						<Tool
 							Name="VCCustomBuildTool"
-							Description="ｱｾﾝﾌﾞﾙ中... $(InputPath)"
-							CommandLine="nasm -f win32 $(InputPath) -o $(IntDir)\$(InputName).obj&#x0D;&#x0A;"
+							Description="Assembling... $(InputPath)"
+							CommandLine="nasm -f win32 -w-label-orphan $(InputPath) -o $(IntDir)\$(InputName).obj&#x0D;&#x0A;"
 							Outputs="$(IntDir)\$(InputName).obj"
 						/>
 					</FileConfiguration>
@@ -4324,8 +4324,8 @@
 						>
 						<Tool
 							Name="VCCustomBuildTool"
-							Description="ｱｾﾝﾌﾞﾙ中... $(InputPath)"
-							CommandLine="nasm -f win32 $(InputPath) -o $(IntDir)\$(InputName).obj&#x0D;&#x0A;"
+							Description="Assembling... $(InputPath)"
+							CommandLine="nasm -f win32 -w-label-orphan $(InputPath) -o $(IntDir)\$(InputName).obj&#x0D;&#x0A;"
 							Outputs="$(IntDir)\$(InputName).obj"
 						/>
 					</FileConfiguration>
@@ -4334,8 +4334,8 @@
 						>
 						<Tool
 							Name="VCCustomBuildTool"
-							Description="ｱｾﾝﾌﾞﾙ中... $(InputPath)"
-							CommandLine="nasm -f win32 $(InputPath) -o $(IntDir)\$(InputName).obj&#x0D;&#x0A;"
+							Description="Assembling... $(InputPath)"
+							CommandLine="nasm -f win32 -w-label-orphan $(InputPath) -o $(IntDir)\$(InputName).obj&#x0D;&#x0A;"
 							Outputs="$(IntDir)\$(InputName).obj"
 						/>
 					</FileConfiguration>
@@ -4344,8 +4344,8 @@
 						>
 						<Tool
 							Name="VCCustomBuildTool"
-							Description="ｱｾﾝﾌﾞﾙ中... $(InputPath)"
-							CommandLine="nasm -f win32 $(InputPath) -o $(IntDir)\$(InputName).obj&#x0D;&#x0A;"
+							Description="Assembling... $(InputPath)"
+							CommandLine="nasm -f win32 -w-label-orphan $(InputPath) -o $(IntDir)\$(InputName).obj&#x0D;&#x0A;"
 							Outputs="$(IntDir)\$(InputName).obj"
 						/>
 					</FileConfiguration>
@@ -4354,8 +4354,8 @@
 						>
 						<Tool
 							Name="VCCustomBuildTool"
-							Description="ｱｾﾝﾌﾞﾙ中... $(InputPath)"
-							CommandLine="nasm -f win32 $(InputPath) -o $(IntDir)\$(InputName).obj&#x0D;&#x0A;"
+							Description="Assembling... $(InputPath)"
+							CommandLine="nasm -f win32 -w-label-orphan $(InputPath) -o $(IntDir)\$(InputName).obj&#x0D;&#x0A;"
 							Outputs="$(IntDir)\$(InputName).obj"
 						/>
 					</FileConfiguration>
@@ -8264,8 +8264,8 @@
 						>
 						<Tool
 							Name="VCCustomBuildTool"
-							Description="ｱｾﾝﾌﾞﾙ中... $(InputPath)"
-							CommandLine="nasm -f win32 $(InputPath) -o $(IntDir)\$(InputName).obj&#x0D;&#x0A;"
+							Description="Assembling... $(InputPath)"
+							CommandLine="nasm -f win32 -w-label-orphan $(InputPath) -o $(IntDir)\$(InputName).obj&#x0D;&#x0A;"
 							Outputs="$(IntDir)\$(InputName).obj"
 						/>
 					</FileConfiguration>
@@ -8274,8 +8274,8 @@
 						>
 						<Tool
 							Name="VCCustomBuildTool"
-							Description="ｱｾﾝﾌﾞﾙ中... $(InputPath)"
-							CommandLine="nasm -f win32 $(InputPath) -o $(IntDir)\$(InputName).obj&#x0D;&#x0A;"
+							Description="Assembling... $(InputPath)"
+							CommandLine="nasm -f win32 -w-label-orphan $(InputPath) -o $(IntDir)\$(InputName).obj&#x0D;&#x0A;"
 							Outputs="$(IntDir)\$(InputName).obj"
 						/>
 					</FileConfiguration>
@@ -8284,8 +8284,8 @@
 						>
 						<Tool
 							Name="VCCustomBuildTool"
-							Description="ｱｾﾝﾌﾞﾙ中... $(InputPath)"
-							CommandLine="nasm -f win32 $(InputPath) -o $(IntDir)\$(InputName).obj&#x0D;&#x0A;"
+							Description="Assembling... $(InputPath)"
+							CommandLine="nasm -f win32 -w-label-orphan $(InputPath) -o $(IntDir)\$(InputName).obj&#x0D;&#x0A;"
 							Outputs="$(IntDir)\$(InputName).obj"
 						/>
 					</FileConfiguration>
@@ -8294,8 +8294,8 @@
 						>
 						<Tool
 							Name="VCCustomBuildTool"
-							Description="ｱｾﾝﾌﾞﾙ中... $(InputPath)"
-							CommandLine="nasm -f win32 $(InputPath) -o $(IntDir)\$(InputName).obj&#x0D;&#x0A;"
+							Description="Assembling... $(InputPath)"
+							CommandLine="nasm -f win32 -w-label-orphan $(InputPath) -o $(IntDir)\$(InputName).obj&#x0D;&#x0A;"
 							Outputs="$(IntDir)\$(InputName).obj"
 						/>
 					</FileConfiguration>
@@ -9200,8 +9200,8 @@
 						>
 						<Tool
 							Name="VCCustomBuildTool"
-							Description="ｱｾﾝﾌﾞﾙ中... $(InputPath)"
-							CommandLine="nasm -f win32 $(InputPath) -o $(IntDir)\$(InputName).obj&#x0D;&#x0A;"
+							Description="Assembling... $(InputPath)"
+							CommandLine="nasm -f win32 -w-label-orphan $(InputPath) -o $(IntDir)\$(InputName).obj&#x0D;&#x0A;"
 							Outputs="$(IntDir)\$(InputName).obj"
 						/>
 					</FileConfiguration>
@@ -9210,8 +9210,8 @@
 						>
 						<Tool
 							Name="VCCustomBuildTool"
-							Description="ｱｾﾝﾌﾞﾙ中... $(InputPath)"
-							CommandLine="nasm -f win32 $(InputPath) -o $(IntDir)\$(InputName).obj&#x0D;&#x0A;"
+							Description="Assembling... $(InputPath)"
+							CommandLine="nasm -f win32 -w-label-orphan $(InputPath) -o $(IntDir)\$(InputName).obj&#x0D;&#x0A;"
 							Outputs="$(IntDir)\$(InputName).obj"
 						/>
 					</FileConfiguration>

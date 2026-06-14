@@ -1,4 +1,4 @@
-
+﻿
 enum {
 	NORMAL2608	= 0,
 	EXTEND2608	= 1

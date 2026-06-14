@@ -1,4 +1,4 @@
-/*
+﻿/*
  * CGROMVA.C: PC-88VA Character generator
  *
  * ToDo:

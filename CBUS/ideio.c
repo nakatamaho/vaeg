@@ -1,4 +1,4 @@
-#include	"compiler.h"
+﻿#include	"compiler.h"
 
 // winでidentifyまでは取得に行くんだけどな…ってAnex86も同じか
 

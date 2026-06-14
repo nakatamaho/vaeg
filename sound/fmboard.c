@@ -1,4 +1,4 @@
-#include	"compiler.h"
+﻿#include	"compiler.h"
 #include	"joymng.h"
 #include	"soundmng.h"
 #include	"cpucore.h"

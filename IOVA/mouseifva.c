@@ -1,4 +1,4 @@
-/*
+﻿/*
  * MOUSEIFVA.C: PC-88VA Mouse interface
  */
 

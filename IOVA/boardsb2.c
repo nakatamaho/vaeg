@@ -1,4 +1,4 @@
-/*
+﻿/*
  *	BOARDSB2.C: PC-88VA Sound board 2
  */
 

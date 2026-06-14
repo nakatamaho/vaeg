@@ -1,4 +1,4 @@
-/*
+﻿/*
  * IOCORE.C: PC-88VA I/O
  */
 

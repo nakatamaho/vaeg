@@ -1,4 +1,4 @@
-#if defined(SUPPORT_PC88VA)
+﻿#if defined(SUPPORT_PC88VA)
 static const char np2toolclass[] = "VAEG-toolwin";
 static const char np2tooltitle[] = "VA-EG tool";
 #else

@@ -1,4 +1,4 @@
-#include	"compiler.h"
+﻿#include	"compiler.h"
 #include	"vramhdl.h"
 #include	"menubase.h"
 

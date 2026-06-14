@@ -1,4 +1,4 @@
-#include	"compiler.h"
+﻿#include	"compiler.h"
 #include	"mousemng.h"
 #include	"cpucore.h"
 #include	"pccore.h"

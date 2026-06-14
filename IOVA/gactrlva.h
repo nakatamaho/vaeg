@@ -1,4 +1,4 @@
-/*
+﻿/*
  * GACTRLVA.H: PC-88VA GVRAM access control
  *
  */

@@ -1,4 +1,4 @@
-
+﻿
 enum {
 	PCM86_LOGICALBUF	= 0x8000,
 	PCM86_BUFSIZE		= (1 << 16),

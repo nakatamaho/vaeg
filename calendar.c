@@ -1,4 +1,4 @@
-#include	"compiler.h"
+﻿#include	"compiler.h"
 #include	"parts.h"
 #include	"timemng.h"
 #include	"pccore.h"

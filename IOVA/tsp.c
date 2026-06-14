@@ -1,4 +1,4 @@
-/*
+﻿/*
  * TSP.C: PC-88VA Text Sprite Processor
  */
 

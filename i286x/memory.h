@@ -1,4 +1,4 @@
-
+﻿
 #ifndef MEMCALL
 #define	MEMCALL
 #endif

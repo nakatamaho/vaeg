@@ -1,4 +1,4 @@
-#if defined(VAEG_EXT)
+﻿#if defined(VAEG_EXT)
 
 typedef struct {
 	int		type;

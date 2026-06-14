@@ -1,4 +1,4 @@
-
+﻿
 typedef struct {
 	char	fcbname[11];
 	UINT8	exist;

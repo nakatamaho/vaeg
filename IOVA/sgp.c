@@ -1,4 +1,4 @@
-/*
+﻿/*
  * SGP.C: PC-88VA Super Graphic Processor
  */
 

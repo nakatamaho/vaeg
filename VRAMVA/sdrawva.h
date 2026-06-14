@@ -1,4 +1,4 @@
-#if defined(SUPPORT_PC88VA)
+﻿#if defined(SUPPORT_PC88VA)
 
 typedef struct {
 	BYTE	*dst;

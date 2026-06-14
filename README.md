@@ -17,6 +17,7 @@ http://www.pc88.gr.jp/vaeg/
 
 * ファイルの文字コード
     * 既存ファイルは CP932 から UTF-8 へ変換済み。
+    * Visual C++ 2008 が読む source-like file は UTF-8 判定のため BOM 付きとする。
     * legacy Windows backend の narrow string literal は実行時 Shift_JIS として扱うため、対応する build では execution charset を Shift_JIS にする。
 * ファイルの改行コード
     * 本来 CR+LF だが、CVS利用時代の設定ミスで既存ファイルは LF になってしまっており、そのままとする。変更してしまうとgit blameで履歴が追いにくくなるため。

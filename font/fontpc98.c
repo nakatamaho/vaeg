@@ -1,4 +1,4 @@
-#include	"compiler.h"
+﻿#include	"compiler.h"
 #include	"bmpdata.h"
 #include	"dosio.h"
 #include	"cpucore.h"

@@ -1,4 +1,4 @@
-
+﻿
 enum {
 	DLGMSG_CREATE	= 0,
 	DLGMSG_COMMAND,

@@ -1,4 +1,4 @@
-/*
+﻿/*
  *	GVAMVA.C: PC-88VA GVRAM
  */
 

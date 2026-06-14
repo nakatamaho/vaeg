@@ -1,4 +1,4 @@
-
+﻿
 #if defined(__GNUC__)
 // D88ヘッダ (size: 2b0h bytes)
 typedef struct {

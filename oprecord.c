@@ -1,4 +1,4 @@
-/*
+﻿/*
  * OPRECORD.C: User Operation Recorder / Player
  */
 

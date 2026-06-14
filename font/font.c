@@ -1,4 +1,4 @@
-#include	"compiler.h"
+﻿#include	"compiler.h"
 #include	"strres.h"
 #include	"dosio.h"
 #include	"cpucore.h"

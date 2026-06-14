@@ -1,4 +1,4 @@
-/*
+﻿/*
  * MEMCTRLVA.C: PC-88VA memory control/memory switch
  */
 

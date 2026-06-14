@@ -1,4 +1,4 @@
-// wordはかなりノーチェック
+﻿// wordはかなりノーチェック
 
 
 #define	BYTE_ROL1(d, s)	{											\

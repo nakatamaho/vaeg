@@ -1,4 +1,4 @@
-
+﻿
 
 // Win32 SYSTEMTIME ストラクチャ
 

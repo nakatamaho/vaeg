@@ -1,4 +1,4 @@
-#include	"compiler.h"
+﻿#include	"compiler.h"
 #include	"resource.h"
 #include	"strres.h"
 #include	"np2.h"

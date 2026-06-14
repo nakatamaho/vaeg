@@ -1,4 +1,4 @@
-#if !defined(_DOSIO_H_)
+﻿#if !defined(_DOSIO_H_)
 #define	_DOSIO_H_
 
 #define		FILEH				HANDLE

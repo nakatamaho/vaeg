@@ -1,4 +1,4 @@
-
+﻿
 #if defined(SUPPORT_SCSI)
 enum {
 	SASIHDD_MAX		= 2,

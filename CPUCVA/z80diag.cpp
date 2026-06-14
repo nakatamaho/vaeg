@@ -1,4 +1,4 @@
-/*
+﻿/*
  *	Z80diag.cpp: Z80 Disassembler 
  */
 

@@ -1,4 +1,4 @@
-#define	I286CLOCK(clock)												\
+﻿#define	I286CLOCK(clock)												\
 				__asm {	sub		I286_REMCLOCK, clock				}
 #if defined(SUPPORT_V30EXT)
 #define	I286CLOCK_X(idx, clock286, clockv30)							\

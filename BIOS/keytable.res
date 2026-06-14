@@ -1,4 +1,4 @@
-
+﻿
 static const BYTE keytable[8][0x60] = {
 	{	//												normal
 		//	 ESC,  １,  ２,  ３,  ４,  ５,  ６,  ７		; 00h

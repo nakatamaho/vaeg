@@ -1,4 +1,4 @@
-
+﻿
 #if defined(SUPPORT_PC9821)
 
 // ---- plasma display

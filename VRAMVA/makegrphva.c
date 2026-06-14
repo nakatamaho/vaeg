@@ -1,4 +1,4 @@
-/*
+﻿/*
  * MAKEGRPHVA.C: PC-88VA Graphics
  */
 

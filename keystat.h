@@ -1,4 +1,4 @@
-
+﻿
 #if 0
 enum {
 	NKEY_ESC			= 0x00,

@@ -1,4 +1,4 @@
-#include	"compiler.h"
+﻿#include	"compiler.h"
 #include	"pccore.h"
 #include	"iocore.h"
 #include	"sound.h"

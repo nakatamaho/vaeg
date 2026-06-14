@@ -1,4 +1,4 @@
-#include	"compiler.h"
+﻿#include	"compiler.h"
 #include	<commctrl.h>
 #include	"np2.h"
 #include	"scrnmng.h"

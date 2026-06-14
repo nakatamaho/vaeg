@@ -1,4 +1,4 @@
-
+﻿
 //#define	_WIN32_IE	0x0200
 #define _WIN32_IE	0x0300		// VAEG_EXT, for TrackMouseEvent
 

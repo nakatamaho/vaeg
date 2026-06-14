@@ -1,4 +1,4 @@
-
+﻿
 #define	FONTMEMORYBIND				// 520KBくらいメモリ削除(ぉぃ
 
 

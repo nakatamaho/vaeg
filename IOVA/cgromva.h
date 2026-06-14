@@ -1,4 +1,4 @@
-/*
+﻿/*
  * CGROMVA.H: PC-88VA Character generator
  *
  */

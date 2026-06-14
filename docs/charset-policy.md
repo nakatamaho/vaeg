@@ -4,6 +4,8 @@
 
 All text source files are stored as UTF-8.
 
+Source-like files consumed by Visual C++ 2008 use a UTF-8 BOM so that the compiler detects the source encoding correctly. Do not add a BOM to assembler inputs such as `.x86`, because those files are consumed by nasm.
+
 Line endings are preserved. Git automatic line-ending conversion is disabled by `.gitattributes`.
 
 ## Legacy Windows Backend
@@ -17,7 +19,7 @@ Required intent:
 - MSVC: UTF-8 source charset, Shift_JIS execution charset.
 - GCC / Clang: `-finput-charset=UTF-8 -fexec-charset=CP932`.
 
-Visual C++ 2008 does not support the modern `/source-charset` and `/execution-charset` options. The current VC2008 baseline is retained as a build gate, and resource/source charset behavior must be verified by Windows builds.
+Visual C++ 2008 does not support the modern `/source-charset` and `/execution-charset` options. UTF-8 detection therefore depends on BOM-marked source-like files. The current VC2008 baseline is retained as a build gate, and resource/source charset behavior must be verified by Windows builds.
 
 ## SDL2 / Cross-Platform Backend
 
