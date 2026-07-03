@@ -1,0 +1,774 @@
+<?xml version="1.0" encoding="Windows-1252"?>
+<VisualStudioProject
+	ProjectType="Visual C++"
+	Version="9.00"
+	Name="np2"
+	ProjectGUID="{C542EA75-D962-45DF-8F6C-2DD9B90BA14D}"
+	RootNamespace="np2"
+	Keyword="Win32Proj"
+	TargetFrameworkVersion="0"
+	>
+	<Platforms>
+		<Platform
+			Name="Win32"
+		/>
+	</Platforms>
+	<ToolFiles>
+	</ToolFiles>
+	<Configurations>
+		<Configuration Name="Release|Win32" OutputDirectory="..\bin" IntermediateDirectory="..\obj\rel" ConfigurationType="1" InheritedPropertySheets="$(VCInstallDir)VCProjectDefaults\UpgradeFromVC60.vsprops" UseOfMFC="0" ATLMinimizesCRunTimeLibraryUsage="false" CharacterSet="2" UseOfATL="0">
+			<Tool Name="VCPreBuildEventTool"/>
+			<Tool Name="VCCustomBuildTool"/>
+			<Tool Name="VCXMLDataGeneratorTool"/>
+			<Tool Name="VCWebServiceProxyGeneratorTool"/>
+			<Tool Name="VCMIDLTool" PreprocessorDefinitions="NDEBUG" MkTypLibCompatible="true" TargetEnvironment="1"/>
+			<Tool Name="VCCLCompilerTool" Optimization="2" AdditionalIncludeDirectories=".\\;.\x86;.\dialog;.\debuguty;..\\;..\common;..\i286x;..\io;..\cbus;..\bios;..\vram;..\sound;..\sound\vermouth;..\sound\getsnd;..\fdd;..\lio;..\font;..\generic;..\cpuxva;..\cpucva;../biosva;../iova" PreprocessorDefinitions="NDEBUG;WIN32;_WINDOWS;_MBCS" ExceptionHandling="1" RuntimeLibrary="0" UsePrecompiledHeader="0" AssemblerOutput="4" WarningLevel="3" DebugInformationFormat="0" CompileAs="0"/>
+			<Tool Name="VCManagedResourceCompilerTool"/>
+			<Tool Name="VCResourceCompilerTool" PreprocessorDefinitions="NDEBUG" Culture="1041"/>
+			<Tool Name="VCPreLinkEventTool"/>
+			<Tool Name="VCLinkerTool" AdditionalDependencies="kernel32.lib user32.lib gdi32.lib ddraw.lib dxguid.lib DSOUND.LIB winmm.lib comdlg32.lib comctl32.lib wsock32.lib shell32.lib" OutputFile="..\bin\vaeg.exe" LinkIncremental="1" GenerateDebugInformation="false" GenerateMapFile="true" SubSystem="2" TargetMachine="1"/>
+			<Tool Name="VCALinkTool"/>
+			<Tool Name="VCManifestTool"/>
+			<Tool Name="VCXDCMakeTool"/>
+			<Tool Name="VCBscMakeTool"/>
+			<Tool Name="VCFxCopTool"/>
+			<Tool Name="VCAppVerifierTool"/>
+			<Tool Name="VCPostBuildEventTool"/>
+		</Configuration>
+		<Configuration Name="Trace|Win32" OutputDirectory="..\bin" IntermediateDirectory="..\obj\trc" ConfigurationType="1" InheritedPropertySheets="$(VCInstallDir)VCProjectDefaults\UpgradeFromVC60.vsprops" UseOfMFC="0" ATLMinimizesCRunTimeLibraryUsage="false" CharacterSet="2" UseOfATL="0">
+			<Tool Name="VCPreBuildEventTool"/>
+			<Tool Name="VCCustomBuildTool"/>
+			<Tool Name="VCXMLDataGeneratorTool"/>
+			<Tool Name="VCWebServiceProxyGeneratorTool"/>
+			<Tool Name="VCMIDLTool" PreprocessorDefinitions="NDEBUG" MkTypLibCompatible="true" TargetEnvironment="1"/>
+			<Tool Name="VCCLCompilerTool" Optimization="2" AdditionalIncludeDirectories=".\\;.\x86;.\dialog;.\debuguty;..\\;..\common;..\i286x;..\io;..\cbus;..\bios;..\vram;..\sound;..\sound\vermouth;..\sound\getsnd;..\fdd;..\lio;..\font;..\generic" PreprocessorDefinitions="NDEBUG;WIN32;_WINDOWS;_MBCS;TRACE;MEMTRACE" ExceptionHandling="1" RuntimeLibrary="0" UsePrecompiledHeader="0" AssemblerOutput="4" WarningLevel="3" DebugInformationFormat="0" CompileAs="0"/>
+			<Tool Name="VCManagedResourceCompilerTool"/>
+			<Tool Name="VCResourceCompilerTool" PreprocessorDefinitions="NDEBUG" Culture="1041"/>
+			<Tool Name="VCPreLinkEventTool"/>
+			<Tool Name="VCLinkerTool" AdditionalDependencies="kernel32.lib user32.lib gdi32.lib ddraw.lib dxguid.lib DSOUND.LIB winmm.lib comdlg32.lib comctl32.lib wsock32.lib shell32.lib" OutputFile="..\bin\np2t.exe" LinkIncremental="1" GenerateDebugInformation="false" GenerateMapFile="true" SubSystem="2" TargetMachine="1"/>
+			<Tool Name="VCALinkTool"/>
+			<Tool Name="VCManifestTool"/>
+			<Tool Name="VCXDCMakeTool"/>
+			<Tool Name="VCBscMakeTool"/>
+			<Tool Name="VCFxCopTool"/>
+			<Tool Name="VCAppVerifierTool"/>
+			<Tool Name="VCPostBuildEventTool"/>
+		</Configuration>
+		<Configuration Name="WaveRec|Win32" OutputDirectory="..\bin" IntermediateDirectory="..\obj\wr" ConfigurationType="1" InheritedPropertySheets="$(VCInstallDir)VCProjectDefaults\UpgradeFromVC60.vsprops" UseOfMFC="0" ATLMinimizesCRunTimeLibraryUsage="false" CharacterSet="2" UseOfATL="0">
+			<Tool Name="VCPreBuildEventTool"/>
+			<Tool Name="VCCustomBuildTool"/>
+			<Tool Name="VCXMLDataGeneratorTool"/>
+			<Tool Name="VCWebServiceProxyGeneratorTool"/>
+			<Tool Name="VCMIDLTool" PreprocessorDefinitions="NDEBUG" MkTypLibCompatible="true" TargetEnvironment="1"/>
+			<Tool Name="VCCLCompilerTool" Optimization="2" AdditionalIncludeDirectories=".\\;.\x86;.\dialog;.\debuguty;..\\;..\common;..\i286x;..\io;..\cbus;..\bios;..\vram;..\sound;..\sound\vermouth;..\sound\getsnd;..\fdd;..\lio;..\font;..\generic" PreprocessorDefinitions="NDEBUG;WIN32;_WINDOWS;_MBCS;SUPPORT_WAVEREC" ExceptionHandling="1" RuntimeLibrary="0" UsePrecompiledHeader="0" AssemblerOutput="4" WarningLevel="3" DebugInformationFormat="0" CompileAs="0"/>
+			<Tool Name="VCManagedResourceCompilerTool"/>
+			<Tool Name="VCResourceCompilerTool" PreprocessorDefinitions="NDEBUG" Culture="1041"/>
+			<Tool Name="VCPreLinkEventTool"/>
+			<Tool Name="VCLinkerTool" AdditionalDependencies="kernel32.lib user32.lib gdi32.lib ddraw.lib dxguid.lib DSOUND.LIB winmm.lib comdlg32.lib comctl32.lib wsock32.lib shell32.lib" OutputFile="..\bin\np2wr.exe" LinkIncremental="1" GenerateDebugInformation="false" GenerateMapFile="true" SubSystem="2" TargetMachine="1"/>
+			<Tool Name="VCALinkTool"/>
+			<Tool Name="VCManifestTool"/>
+			<Tool Name="VCXDCMakeTool"/>
+			<Tool Name="VCBscMakeTool"/>
+			<Tool Name="VCFxCopTool"/>
+			<Tool Name="VCAppVerifierTool"/>
+			<Tool Name="VCPostBuildEventTool"/>
+		</Configuration>
+		<Configuration Name="Debug|Win32" OutputDirectory="..\bin" IntermediateDirectory="..\obj\dbg" ConfigurationType="1" InheritedPropertySheets="$(VCInstallDir)VCProjectDefaults\UpgradeFromVC60.vsprops" UseOfMFC="0" ATLMinimizesCRunTimeLibraryUsage="false" CharacterSet="2" UseOfATL="0">
+			<Tool Name="VCPreBuildEventTool"/>
+			<Tool Name="VCCustomBuildTool"/>
+			<Tool Name="VCXMLDataGeneratorTool"/>
+			<Tool Name="VCWebServiceProxyGeneratorTool"/>
+			<Tool Name="VCMIDLTool" PreprocessorDefinitions="_DEBUG" MkTypLibCompatible="true" TargetEnvironment="1"/>
+			<Tool Name="VCCLCompilerTool" Optimization="0" AdditionalIncludeDirectories=".\\;.\x86;.\dialog;.\debuguty;..\\;..\common;..\i286x;..\io;..\cbus;..\bios;..\vram;..\sound;..\sound\vermouth;..\sound\getsnd;..\fdd;..\lio;..\font;..\generic;..\cpuxva;..\cpucva;../biosva;../iova" PreprocessorDefinitions="_DEBUG;TRACE;WIN32;_WINDOWS;_MBCS;CPUDEBUG" MinimalRebuild="true" ExceptionHandling="1" BasicRuntimeChecks="3" RuntimeLibrary="1" UsePrecompiledHeader="0" BrowseInformation="1" WarningLevel="3" DebugInformationFormat="4" CompileAs="0"/>
+			<Tool Name="VCManagedResourceCompilerTool"/>
+			<Tool Name="VCResourceCompilerTool" PreprocessorDefinitions="_DEBUG" Culture="1041"/>
+			<Tool Name="VCPreLinkEventTool"/>
+			<Tool Name="VCLinkerTool" AdditionalDependencies="kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib ddraw.lib dxguid.lib DSOUND.LIB winmm.lib comdlg32.lib comctl32.lib wsock32.lib shell32.lib" OutputFile="..\bin\vaegd.exe" LinkIncremental="1" GenerateDebugInformation="true" GenerateMapFile="false" SubSystem="2" TargetMachine="1"/>
+			<Tool Name="VCALinkTool"/>
+			<Tool Name="VCManifestTool"/>
+			<Tool Name="VCXDCMakeTool"/>
+			<Tool Name="VCBscMakeTool"/>
+			<Tool Name="VCFxCopTool"/>
+			<Tool Name="VCAppVerifierTool"/>
+			<Tool Name="VCPostBuildEventTool"/>
+		</Configuration>
+	</Configurations>
+	<References>
+	</References>
+	<Files>
+		<Filter Name="Source Files" Filter="cpp;c;cxx;rc;def;r;odl;idl;hpj;bat">
+			<Filter Name="common">
+				<File RelativePath="..\COMMON\_MEMORY.C">
+				</File>
+				<File RelativePath="..\COMMON\BMPDATA.C">
+				</File>
+				<File RelativePath="..\COMMON\LSTARRAY.C">
+				</File>
+				<File RelativePath="..\COMMON\MILSTR.C">
+				</File>
+				<File RelativePath="..\COMMON\MIMPIDEF.C">
+				</File>
+				<File RelativePath=".\x86\PARTS.X86">
+					<FileConfiguration Name="Release|Win32">
+						<Tool Name="VCCustomBuildTool" Description="Assembling $(InputPath)" CommandLine="cd /d &quot;$(ProjectDir)&quot;&#x0D;&#x0A;nasm -f win32 &quot;$(InputPath)&quot; -o &quot;$(IntDir)\$(InputName).obj&quot;&#x0D;&#x0A;" Outputs="$(IntDir)\$(InputName).obj"/>
+					</FileConfiguration>
+					<FileConfiguration Name="Trace|Win32">
+						<Tool Name="VCCustomBuildTool" Description="Assembling $(InputPath)" CommandLine="cd /d &quot;$(ProjectDir)&quot;&#x0D;&#x0A;nasm -f win32 &quot;$(InputPath)&quot; -o &quot;$(IntDir)\$(InputName).obj&quot;&#x0D;&#x0A;" Outputs="$(IntDir)\$(InputName).obj"/>
+					</FileConfiguration>
+					<FileConfiguration Name="WaveRec|Win32">
+						<Tool Name="VCCustomBuildTool" Description="Assembling $(InputPath)" CommandLine="cd /d &quot;$(ProjectDir)&quot;&#x0D;&#x0A;nasm -f win32 &quot;$(InputPath)&quot; -o &quot;$(IntDir)\$(InputName).obj&quot;&#x0D;&#x0A;" Outputs="$(IntDir)\$(InputName).obj"/>
+					</FileConfiguration>
+					<FileConfiguration Name="Debug|Win32">
+						<Tool Name="VCCustomBuildTool" Description="Assembling $(InputPath)" CommandLine="cd /d &quot;$(ProjectDir)&quot;&#x0D;&#x0A;nasm -f win32 &quot;$(InputPath)&quot; -o &quot;$(IntDir)\$(InputName).obj&quot;&#x0D;&#x0A;" Outputs="$(IntDir)\$(InputName).obj"/>
+					</FileConfiguration>
+				</File>
+				<File RelativePath="..\COMMON\PROFILE.C">
+				</File>
+				<File RelativePath="..\COMMON\STRRES.C">
+				</File>
+				<File RelativePath="..\COMMON\TEXTFILE.C">
+				</File>
+				<File RelativePath="..\COMMON\WAVEFILE.C">
+				</File>
+			</Filter>
+			<Filter Name="cpu">
+				<File RelativePath="..\I286X\DMAP.X86">
+					<FileConfiguration Name="Release|Win32">
+						<Tool Name="VCCustomBuildTool" Description="Assembling $(InputPath)" CommandLine="cd /d &quot;$(ProjectDir)&quot;&#x0D;&#x0A;nasm -f win32 &quot;$(InputPath)&quot; -o &quot;$(IntDir)\$(InputName).obj&quot;&#x0D;&#x0A;" Outputs="$(IntDir)\$(InputName).obj"/>
+					</FileConfiguration>
+					<FileConfiguration Name="Trace|Win32">
+						<Tool Name="VCCustomBuildTool" Description="Assembling $(InputPath)" CommandLine="cd /d &quot;$(ProjectDir)&quot;&#x0D;&#x0A;nasm -f win32 &quot;$(InputPath)&quot; -o &quot;$(IntDir)\$(InputName).obj&quot;&#x0D;&#x0A;" Outputs="$(IntDir)\$(InputName).obj"/>
+					</FileConfiguration>
+					<FileConfiguration Name="WaveRec|Win32">
+						<Tool Name="VCCustomBuildTool" Description="Assembling $(InputPath)" CommandLine="cd /d &quot;$(ProjectDir)&quot;&#x0D;&#x0A;nasm -f win32 &quot;$(InputPath)&quot; -o &quot;$(IntDir)\$(InputName).obj&quot;&#x0D;&#x0A;" Outputs="$(IntDir)\$(InputName).obj"/>
+					</FileConfiguration>
+					<FileConfiguration Name="Debug|Win32">
+						<Tool Name="VCCustomBuildTool" Description="Assembling $(InputPath)" CommandLine="cd /d &quot;$(ProjectDir)&quot;&#x0D;&#x0A;nasm -f win32 &quot;$(InputPath)&quot; -o &quot;$(IntDir)\$(InputName).obj&quot;&#x0D;&#x0A;" Outputs="$(IntDir)\$(InputName).obj"/>
+					</FileConfiguration>
+				</File>
+				<File RelativePath="..\I286X\EGCMEM.X86">
+					<FileConfiguration Name="Release|Win32">
+						<Tool Name="VCCustomBuildTool" Description="Assembling $(InputPath)" CommandLine="cd /d &quot;$(ProjectDir)&quot;&#x0D;&#x0A;nasm -f win32 &quot;$(InputPath)&quot; -o &quot;$(IntDir)\$(InputName).obj&quot;&#x0D;&#x0A;" AdditionalDependencies=".\x86\NP2ASM.INC" Outputs="$(IntDir)\$(InputName).obj"/>
+					</FileConfiguration>
+					<FileConfiguration Name="Trace|Win32">
+						<Tool Name="VCCustomBuildTool" Description="Assembling $(InputPath)" CommandLine="cd /d &quot;$(ProjectDir)&quot;&#x0D;&#x0A;nasm -f win32 &quot;$(InputPath)&quot; -o &quot;$(IntDir)\$(InputName).obj&quot;&#x0D;&#x0A;" AdditionalDependencies=".\x86\NP2ASM.INC" Outputs="$(IntDir)\$(InputName).obj"/>
+					</FileConfiguration>
+					<FileConfiguration Name="WaveRec|Win32">
+						<Tool Name="VCCustomBuildTool" Description="Assembling $(InputPath)" CommandLine="cd /d &quot;$(ProjectDir)&quot;&#x0D;&#x0A;nasm -f win32 &quot;$(InputPath)&quot; -o &quot;$(IntDir)\$(InputName).obj&quot;&#x0D;&#x0A;" AdditionalDependencies=".\x86\NP2ASM.INC" Outputs="$(IntDir)\$(InputName).obj"/>
+					</FileConfiguration>
+					<FileConfiguration Name="Debug|Win32">
+						<Tool Name="VCCustomBuildTool" Description="Assembling $(InputPath)" CommandLine="cd /d &quot;$(ProjectDir)&quot;&#x0D;&#x0A;nasm -f win32 &quot;$(InputPath)&quot; -o &quot;$(IntDir)\$(InputName).obj&quot;&#x0D;&#x0A;" AdditionalDependencies=".\x86\NP2ASM.INC" Outputs="$(IntDir)\$(InputName).obj"/>
+					</FileConfiguration>
+				</File>
+				<File RelativePath="..\I286X\I286X.CPP">
+				</File>
+				<File RelativePath="..\I286X\I286XADR.CPP">
+				</File>
+				<File RelativePath="..\I286X\I286XCTS.CPP">
+				</File>
+				<File RelativePath="..\I286X\I286XREP.CPP">
+				</File>
+				<File RelativePath="..\I286X\I286XS.CPP">
+				</File>
+				<File RelativePath="..\I286X\MEMORY.X86">
+					<FileConfiguration Name="Release|Win32">
+						<Tool Name="VCCustomBuildTool" Description="Assembling $(InputPath)" CommandLine="cd /d &quot;$(ProjectDir)&quot;&#x0D;&#x0A;nasm -f win32 &quot;$(InputPath)&quot; -o &quot;$(IntDir)\$(InputName).obj&quot;&#x0D;&#x0A;" AdditionalDependencies=".\x86\NP2ASM.INC" Outputs="$(IntDir)\$(InputName).obj"/>
+					</FileConfiguration>
+					<FileConfiguration Name="Trace|Win32">
+						<Tool Name="VCCustomBuildTool" Description="Assembling $(InputPath)" CommandLine="cd /d &quot;$(ProjectDir)&quot;&#x0D;&#x0A;nasm -f win32 &quot;$(InputPath)&quot; -o &quot;$(IntDir)\$(InputName).obj&quot;&#x0D;&#x0A;" AdditionalDependencies=".\x86\NP2ASM.INC" Outputs="$(IntDir)\$(InputName).obj"/>
+					</FileConfiguration>
+					<FileConfiguration Name="WaveRec|Win32">
+						<Tool Name="VCCustomBuildTool" Description="Assembling $(InputPath)" CommandLine="cd /d &quot;$(ProjectDir)&quot;&#x0D;&#x0A;nasm -f win32 &quot;$(InputPath)&quot; -o &quot;$(IntDir)\$(InputName).obj&quot;&#x0D;&#x0A;" AdditionalDependencies=".\x86\NP2ASM.INC" Outputs="$(IntDir)\$(InputName).obj"/>
+					</FileConfiguration>
+					<FileConfiguration Name="Debug|Win32">
+						<Tool Name="VCCustomBuildTool" Description="Assembling $(InputPath)" CommandLine="cd /d &quot;$(ProjectDir)&quot;&#x0D;&#x0A;nasm -f win32 &quot;$(InputPath)&quot; -o &quot;$(IntDir)\$(InputName).obj&quot;&#x0D;&#x0A;" AdditionalDependencies=".\x86\NP2ASM.INC" Outputs="$(IntDir)\$(InputName).obj"/>
+					</FileConfiguration>
+				</File>
+				<File RelativePath="..\I286X\V30PATCH.CPP">
+				</File>
+			</Filter>
+			<Filter Name="bios">
+				<File RelativePath="..\BIOS\BIOS.C">
+				</File>
+				<File RelativePath="..\BIOS\BIOS09.C">
+				</File>
+				<File RelativePath="..\BIOS\BIOS0C.C">
+				</File>
+				<File RelativePath="..\BIOS\BIOS12.C">
+				</File>
+				<File RelativePath="..\BIOS\BIOS13.C">
+				</File>
+				<File RelativePath="..\BIOS\BIOS18.C">
+				</File>
+				<File RelativePath="..\BIOS\BIOS19.C">
+				</File>
+				<File RelativePath="..\BIOS\BIOS1A.C">
+				</File>
+				<File RelativePath="..\BIOS\BIOS1B.C">
+				</File>
+				<File RelativePath="..\BIOS\BIOS1C.C">
+				</File>
+				<File RelativePath="..\BIOS\BIOS1F.C">
+				</File>
+				<File RelativePath="..\BIOS\SXSIBIOS.C">
+				</File>
+			</Filter>
+			<Filter Name="sound">
+				<Filter Name="vermouth">
+					<File RelativePath="..\SOUND\VERMOUTH\MIDIMOD.C">
+					</File>
+					<File RelativePath="..\SOUND\VERMOUTH\MIDINST.C">
+					</File>
+					<File RelativePath="..\SOUND\VERMOUTH\MIDIOUT.C">
+					</File>
+					<File RelativePath="..\SOUND\VERMOUTH\MIDTABLE.C">
+					</File>
+					<File RelativePath="..\SOUND\VERMOUTH\MIDVOICE.C">
+					</File>
+				</Filter>
+				<Filter Name="getsnd">
+					<File RelativePath="..\SOUND\GETSND\GETSMIX.C">
+					</File>
+					<File RelativePath="..\SOUND\GETSND\GETSND.C">
+					</File>
+					<File RelativePath="..\SOUND\GETSND\GETWAVE.C">
+					</File>
+				</Filter>
+				<File RelativePath="..\SOUND\ADPCMC.C">
+				</File>
+				<File RelativePath="..\SOUND\ADPCMG.C">
+				</File>
+				<File RelativePath="..\SOUND\BEEPC.C">
+				</File>
+				<File RelativePath="..\SOUND\BEEPG.C">
+				</File>
+				<File RelativePath="..\SOUND\CS4231C.C">
+				</File>
+				<File RelativePath="..\SOUND\CS4231G.C">
+				</File>
+				<File RelativePath="..\SOUND\FMBOARD.C">
+				</File>
+				<File RelativePath="..\SOUND\FMTIMER.C">
+				</File>
+				<File RelativePath="..\SOUND\OPNGENC.C">
+				</File>
+				<File RelativePath=".\x86\OPNGENG.X86">
+					<FileConfiguration Name="Release|Win32">
+						<Tool Name="VCCustomBuildTool" Description="Assembling $(InputPath)" CommandLine="cd /d &quot;$(ProjectDir)&quot;&#x0D;&#x0A;nasm -f win32 &quot;$(InputPath)&quot; -o &quot;$(IntDir)\$(InputName).obj&quot;&#x0D;&#x0A;" Outputs="$(IntDir)\$(InputName).obj"/>
+					</FileConfiguration>
+					<FileConfiguration Name="Trace|Win32">
+						<Tool Name="VCCustomBuildTool" Description="Assembling $(InputPath)" CommandLine="cd /d &quot;$(ProjectDir)&quot;&#x0D;&#x0A;nasm -f win32 &quot;$(InputPath)&quot; -o &quot;$(IntDir)\$(InputName).obj&quot; -l &quot;$(IntDir)\$(InputName).cod&quot;&#x0D;&#x0A;" Outputs="$(IntDir)\$(InputName).obj"/>
+					</FileConfiguration>
+					<FileConfiguration Name="WaveRec|Win32">
+						<Tool Name="VCCustomBuildTool" Description="Assembling $(InputPath)" CommandLine="cd /d &quot;$(ProjectDir)&quot;&#x0D;&#x0A;nasm -f win32 &quot;$(InputPath)&quot; -o &quot;$(IntDir)\$(InputName).obj&quot; -l &quot;$(IntDir)\$(InputName).cod&quot;&#x0D;&#x0A;" Outputs="$(IntDir)\$(InputName).obj"/>
+					</FileConfiguration>
+					<FileConfiguration Name="Debug|Win32">
+						<Tool Name="VCCustomBuildTool" Description="Assembling $(InputPath)" CommandLine="cd /d &quot;$(ProjectDir)&quot;&#x0D;&#x0A;nasm -f win32 &quot;$(InputPath)&quot; -o &quot;$(IntDir)\$(InputName).obj&quot;&#x0D;&#x0A;" Outputs="$(IntDir)\$(InputName).obj"/>
+					</FileConfiguration>
+				</File>
+				<File RelativePath="..\SOUND\PCM86C.C">
+				</File>
+				<File RelativePath="..\SOUND\PCM86G.C">
+				</File>
+				<File RelativePath="..\SOUND\PSGGENC.C">
+				</File>
+				<File RelativePath="..\SOUND\PSGGENG.C">
+				</File>
+				<File RelativePath="..\SOUND\RHYTHMC.C">
+				</File>
+				<File RelativePath="..\SOUND\S98.C">
+				</File>
+				<File RelativePath="..\SOUND\SOUND.C">
+				</File>
+				<File RelativePath="..\SOUND\SOUNDROM.C">
+				</File>
+				<File RelativePath="..\SOUND\TMS3631C.C">
+				</File>
+				<File RelativePath="..\SOUND\TMS3631G.C">
+				</File>
+			</Filter>
+			<Filter Name="fdd">
+				<File RelativePath="..\FDD\DISKDRV.C">
+				</File>
+				<File RelativePath="..\FDD\FDD_D88.C">
+				</File>
+				<File RelativePath="..\FDD\FDD_MTR.C">
+				</File>
+				<File RelativePath="..\FDD\FDD_XDF.C">
+				</File>
+				<File RelativePath="..\FDD\FDDFILE.C">
+				</File>
+				<File RelativePath="..\FDD\NEWDISK.C">
+				</File>
+				<File RelativePath="..\FDD\SXSI.C">
+				</File>
+			</Filter>
+			<Filter Name="lio">
+				<File RelativePath="..\LIO\GCIRCLE.C">
+				</File>
+				<File RelativePath="..\LIO\GLINE.C">
+				</File>
+				<File RelativePath="..\LIO\GPSET.C">
+				</File>
+				<File RelativePath="..\LIO\GPUT1.C">
+				</File>
+				<File RelativePath="..\LIO\GSCREEN.C">
+				</File>
+				<File RelativePath="..\LIO\LIO.C">
+				</File>
+			</Filter>
+			<Filter Name="font">
+				<File RelativePath="..\FONT\FONT.C">
+				</File>
+				<File RelativePath="..\FONT\FONTDATA.C">
+				</File>
+				<File RelativePath="..\FONT\FONTFM7.C">
+				</File>
+				<File RelativePath="..\FONT\FONTMAKE.C">
+				</File>
+				<File RelativePath="..\FONT\FONTPC88.C">
+				</File>
+				<File RelativePath="..\FONT\FONTPC98.C">
+				</File>
+				<File RelativePath="..\FONT\FONTV98.C">
+				</File>
+				<File RelativePath="..\FONT\FONTX1.C">
+				</File>
+				<File RelativePath="..\FONT\FONTX68K.C">
+				</File>
+			</Filter>
+			<Filter Name="Win9x">
+				<Filter Name="dialog">
+					<File RelativePath=".\DIALOG\D_ABOUT.CPP">
+					</File>
+					<File RelativePath=".\DIALOG\D_BMP.CPP">
+					</File>
+					<File RelativePath=".\DIALOG\D_BMS.CPP">
+					</File>
+					<File RelativePath=".\DIALOG\D_CLND.CPP">
+					</File>
+					<File RelativePath=".\DIALOG\D_CONFIG.CPP">
+					</File>
+					<File RelativePath=".\DIALOG\D_DISK.CPP">
+					</File>
+					<File RelativePath=".\DIALOG\D_MPU98.CPP">
+					</File>
+					<File RelativePath=".\DIALOG\D_OPRECORD.CPP">
+					</File>
+					<File RelativePath=".\DIALOG\D_SCREEN.CPP">
+					</File>
+					<File RelativePath=".\DIALOG\D_SERIAL.CPP">
+					</File>
+					<File RelativePath=".\DIALOG\D_SOUND.CPP">
+					</File>
+					<File RelativePath=".\DIALOG\DIALOGS.CPP">
+					</File>
+					<File RelativePath=".\DIALOG\NP2CLASS.CPP">
+					</File>
+				</Filter>
+				<Filter Name="debuguty">
+					<File RelativePath=".\DEBUGUTY\DEBUGCTRL.CPP">
+					</File>
+					<File RelativePath=".\DEBUGUTY\VIEW1MB.CPP">
+					</File>
+					<File RelativePath=".\DEBUGUTY\VIEWASM.CPP">
+					</File>
+					<File RelativePath=".\DEBUGUTY\VIEWCMN.CPP">
+					</File>
+					<File RelativePath=".\DEBUGUTY\VIEWER.CPP">
+					</File>
+					<File RelativePath=".\DEBUGUTY\VIEWGACTRLVA.CPP">
+					</File>
+					<File RelativePath=".\DEBUGUTY\VIEWMEM.CPP">
+					</File>
+					<File RelativePath=".\DEBUGUTY\VIEWMENU.CPP">
+					</File>
+					<File RelativePath=".\DEBUGUTY\VIEWREG.CPP">
+					</File>
+					<File RelativePath=".\DEBUGUTY\VIEWSEG.CPP">
+					</File>
+					<File RelativePath=".\DEBUGUTY\VIEWSND.CPP">
+					</File>
+					<File RelativePath=".\DEBUGUTY\VIEWSUBASM.CPP">
+					</File>
+					<File RelativePath=".\DEBUGUTY\VIEWSUBMEM.CPP">
+					</File>
+					<File RelativePath=".\DEBUGUTY\VIEWSUBREG.CPP">
+					</File>
+					<File RelativePath=".\DEBUGUTY\VIEWVABANK.CPP">
+					</File>
+					<File RelativePath=".\DEBUGUTY\VIEWVIDEOVA.CPP">
+					</File>
+				</Filter>
+				<File RelativePath=".\CMMIDI.CPP">
+				</File>
+				<File RelativePath=".\CMPARA.CPP">
+				</File>
+				<File RelativePath=".\CMSERIAL.CPP">
+				</File>
+				<File RelativePath=".\COMMNG.CPP">
+				</File>
+				<File RelativePath=".\x86\CPUTYPE.X86">
+					<FileConfiguration Name="Release|Win32">
+						<Tool Name="VCCustomBuildTool" Description="Assembling $(InputPath)" CommandLine="cd /d &quot;$(ProjectDir)&quot;&#x0D;&#x0A;nasm -f win32 &quot;$(InputPath)&quot; -o &quot;$(IntDir)\$(InputName).obj&quot;&#x0D;&#x0A;" Outputs="$(IntDir)\$(InputName).obj"/>
+					</FileConfiguration>
+					<FileConfiguration Name="Trace|Win32">
+						<Tool Name="VCCustomBuildTool" Description="Assembling $(InputPath)" CommandLine="cd /d &quot;$(ProjectDir)&quot;&#x0D;&#x0A;nasm -f win32 &quot;$(InputPath)&quot; -o &quot;$(IntDir)\$(InputName).obj&quot;&#x0D;&#x0A;" Outputs="$(IntDir)\$(InputName).obj"/>
+					</FileConfiguration>
+					<FileConfiguration Name="WaveRec|Win32">
+						<Tool Name="VCCustomBuildTool" Description="Assembling $(InputPath)" CommandLine="cd /d &quot;$(ProjectDir)&quot;&#x0D;&#x0A;nasm -f win32 &quot;$(InputPath)&quot; -o &quot;$(IntDir)\$(InputName).obj&quot;&#x0D;&#x0A;" Outputs="$(IntDir)\$(InputName).obj"/>
+					</FileConfiguration>
+					<FileConfiguration Name="Debug|Win32">
+						<Tool Name="VCCustomBuildTool" Description="Assembling $(InputPath)" CommandLine="cd /d &quot;$(ProjectDir)&quot;&#x0D;&#x0A;nasm -f win32 &quot;$(InputPath)&quot; -o &quot;$(IntDir)\$(InputName).obj&quot;&#x0D;&#x0A;" Outputs="$(IntDir)\$(InputName).obj"/>
+					</FileConfiguration>
+				</File>
+				<File RelativePath=".\DCLOCK.CPP">
+				</File>
+				<File RelativePath=".\DCLOCKD.X86">
+					<FileConfiguration Name="Release|Win32">
+						<Tool Name="VCCustomBuildTool" Description="Assembling $(InputPath)" CommandLine="cd /d &quot;$(ProjectDir)&quot;&#x0D;&#x0A;nasm -f win32 &quot;$(InputPath)&quot; -o &quot;$(IntDir)\$(InputName).obj&quot;&#x0D;&#x0A;" Outputs="$(IntDir)\$(InputName).obj"/>
+					</FileConfiguration>
+					<FileConfiguration Name="Trace|Win32">
+						<Tool Name="VCCustomBuildTool" Description="Assembling $(InputPath)" CommandLine="cd /d &quot;$(ProjectDir)&quot;&#x0D;&#x0A;nasm -f win32 &quot;$(InputPath)&quot; -o &quot;$(IntDir)\$(InputName).obj&quot;&#x0D;&#x0A;" Outputs="$(IntDir)\$(InputName).obj"/>
+					</FileConfiguration>
+					<FileConfiguration Name="WaveRec|Win32">
+						<Tool Name="VCCustomBuildTool" Description="Assembling $(InputPath)" CommandLine="cd /d &quot;$(ProjectDir)&quot;&#x0D;&#x0A;nasm -f win32 &quot;$(InputPath)&quot; -o &quot;$(IntDir)\$(InputName).obj&quot;&#x0D;&#x0A;" Outputs="$(IntDir)\$(InputName).obj"/>
+					</FileConfiguration>
+					<FileConfiguration Name="Debug|Win32">
+						<Tool Name="VCCustomBuildTool" Description="Assembling $(InputPath)" CommandLine="cd /d &quot;$(ProjectDir)&quot;&#x0D;&#x0A;nasm -f win32 &quot;$(InputPath)&quot; -o &quot;$(IntDir)\$(InputName).obj&quot;&#x0D;&#x0A;" Outputs="$(IntDir)\$(InputName).obj"/>
+					</FileConfiguration>
+				</File>
+				<File RelativePath=".\DD2.CPP">
+				</File>
+				<File RelativePath=".\DOSIO.CPP">
+				</File>
+				<File RelativePath=".\EXTROMIO.CPP">
+				</File>
+				<File RelativePath=".\FONTMNG.CPP">
+				</File>
+				<File RelativePath=".\INI.CPP">
+				</File>
+				<File RelativePath=".\JOYMNG.CPP">
+				</File>
+				<File RelativePath=".\JULIET.CPP">
+				</File>
+				<File RelativePath=".\MENU.CPP">
+				</File>
+				<File RelativePath=".\MOUSEMNG.CPP">
+				</File>
+				<File RelativePath=".\NP2.CPP">
+				</File>
+				<File RelativePath=".\NP2.RC">
+				</File>
+				<File RelativePath=".\NP2ARG.CPP">
+				</File>
+				<File RelativePath=".\SCRNMNG.CPP">
+				</File>
+				<File RelativePath=".\SOUNDMNG.CPP">
+				</File>
+				<File RelativePath=".\SSTP.CPP">
+				</File>
+				<File RelativePath=".\SSTPMSG.CPP">
+				</File>
+				<File RelativePath=".\SUBWIND.CPP">
+				</File>
+				<File RelativePath=".\SYSMNG.CPP">
+				</File>
+				<File RelativePath=".\TASKMNG.CPP">
+				</File>
+				<File RelativePath=".\TIMEMNG.CPP">
+				</File>
+				<File RelativePath=".\TOOLWIN.CPP">
+				</File>
+				<File RelativePath=".\TRACE.CPP">
+				</File>
+				<File RelativePath=".\WINKBD.CPP">
+				</File>
+				<File RelativePath=".\WINLOC.CPP">
+				</File>
+			</Filter>
+			<Filter Name="IO">
+				<File RelativePath="..\IO\ARTIC.C">
+				</File>
+				<File RelativePath="..\IO\BMSIO.C">
+				</File>
+				<File RelativePath="..\IO\CGROM.C">
+				</File>
+				<File RelativePath="..\IO\CPUIO.C">
+				</File>
+				<File RelativePath="..\IO\CRTC.C">
+				</File>
+				<File RelativePath="..\IO\DIPSW.C">
+				</File>
+				<File RelativePath="..\IO\DMAC.C">
+				</File>
+				<File RelativePath="..\IO\EGC.C">
+				</File>
+				<File RelativePath="..\IO\EMSIO.C">
+				</File>
+				<File RelativePath="..\IO\EPSONIO.C">
+				</File>
+				<File RelativePath="..\IO\FDC.C">
+				</File>
+				<File RelativePath="..\IO\FDD320.C">
+				</File>
+				<File RelativePath="..\IO\GDC.C">
+				</File>
+				<File RelativePath="..\IO\GDC_PSET.C">
+				</File>
+				<File RelativePath="..\IO\GDC_SUB.C">
+				</File>
+				<File RelativePath="..\IO\IOCORE.C">
+				</File>
+				<File RelativePath="..\IO\MOUSEIF.C">
+				</File>
+				<File RelativePath="..\IO\NECIO.C">
+				</File>
+				<File RelativePath="..\IO\NMIIO.C">
+				</File>
+				<File RelativePath="..\IO\NP2SYSP.C">
+				</File>
+				<File RelativePath="..\IO\NP2VASUP.C">
+				</File>
+				<File RelativePath="..\IO\PIC.C">
+				</File>
+				<File RelativePath="..\IO\PIT.C">
+				</File>
+				<File RelativePath="..\IO\PRINTIF.C">
+				</File>
+				<File RelativePath="..\IO\SERIAL.C">
+				</File>
+				<File RelativePath="..\IO\SYSPORT.C">
+				</File>
+				<File RelativePath="..\IO\UPD4990.C">
+				</File>
+			</Filter>
+			<Filter Name="CBUS">
+				<File RelativePath="..\CBUS\AMD98.C">
+				</File>
+				<File RelativePath=".\BOARD118.C">
+				</File>
+				<File RelativePath="..\CBUS\BOARD14.C">
+				</File>
+				<File RelativePath="..\CBUS\BOARD26K.C">
+				</File>
+				<File RelativePath="..\CBUS\BOARD86.C">
+				</File>
+				<File RelativePath="..\CBUS\BOARDSPB.C">
+				</File>
+				<File RelativePath="..\CBUS\BOARDX2.C">
+				</File>
+				<File RelativePath="..\CBUS\CBUSCORE.C">
+				</File>
+				<File RelativePath="..\CBUS\CS4231IO.C">
+				</File>
+				<File RelativePath="..\CBUS\IDEIO.C">
+				</File>
+				<File RelativePath="..\CBUS\MPU98II.C">
+				</File>
+				<File RelativePath="..\CBUS\PC9861K.C">
+				</File>
+				<File RelativePath="..\CBUS\PCM86IO.C">
+				</File>
+				<File RelativePath="..\CBUS\SASIIO.C">
+				</File>
+				<File RelativePath="..\CBUS\SCSICMD.C">
+				</File>
+				<File RelativePath="..\CBUS\SCSIIO.C">
+				</File>
+			</Filter>
+			<Filter Name="vram">
+				<File RelativePath="..\VRAM\DISPSYNC.C">
+				</File>
+				<File RelativePath=".\x86\MAKEGRPH.X86">
+					<FileConfiguration Name="Release|Win32">
+						<Tool Name="VCCustomBuildTool" Description="Assembling $(InputPath)" CommandLine="cd /d &quot;$(ProjectDir)&quot;&#x0D;&#x0A;nasm -f win32 &quot;$(InputPath)&quot; -o &quot;$(IntDir)\$(InputName).obj&quot;&#x0D;&#x0A;" AdditionalDependencies=".\x86\NP2ASM.INC" Outputs="$(IntDir)\$(InputName).obj"/>
+					</FileConfiguration>
+					<FileConfiguration Name="Trace|Win32">
+						<Tool Name="VCCustomBuildTool" Description="Assembling $(InputPath)" CommandLine="cd /d &quot;$(ProjectDir)&quot;&#x0D;&#x0A;nasm -f win32 &quot;$(InputPath)&quot; -o &quot;$(IntDir)\$(InputName).obj&quot;&#x0D;&#x0A;" AdditionalDependencies=".\x86\NP2ASM.INC" Outputs="$(IntDir)\$(InputName).obj"/>
+					</FileConfiguration>
+					<FileConfiguration Name="WaveRec|Win32">
+						<Tool Name="VCCustomBuildTool" Description="Assembling $(InputPath)" CommandLine="cd /d &quot;$(ProjectDir)&quot;&#x0D;&#x0A;nasm -f win32 &quot;$(InputPath)&quot; -o &quot;$(IntDir)\$(InputName).obj&quot;&#x0D;&#x0A;" AdditionalDependencies=".\x86\NP2ASM.INC" Outputs="$(IntDir)\$(InputName).obj"/>
+					</FileConfiguration>
+					<FileConfiguration Name="Debug|Win32">
+						<Tool Name="VCCustomBuildTool" Description="Assembling $(InputPath)" CommandLine="cd /d &quot;$(ProjectDir)&quot;&#x0D;&#x0A;nasm -f win32 &quot;$(InputPath)&quot; -o &quot;$(IntDir)\$(InputName).obj&quot;&#x0D;&#x0A;" AdditionalDependencies=".\x86\NP2ASM.INC" Outputs="$(IntDir)\$(InputName).obj"/>
+					</FileConfiguration>
+				</File>
+				<File RelativePath="..\VRAM\MAKETEXT.C">
+				</File>
+				<File RelativePath="..\VRAM\MAKETGRP.C">
+				</File>
+				<File RelativePath="..\VRAM\PALETTES.C">
+				</File>
+				<File RelativePath="..\VRAM\SCRNDRAW.C">
+				</File>
+				<File RelativePath="..\VRAM\SCRNSAVE.C">
+				</File>
+				<File RelativePath="..\VRAM\SDRAW.C">
+				</File>
+				<File RelativePath="..\VRAM\VRAM.C">
+				</File>
+			</Filter>
+			<Filter Name="generic">
+				<File RelativePath="..\GENERIC\CMJASTS.C">
+				</File>
+				<File RelativePath="..\GENERIC\CMNDRAW.C">
+				</File>
+				<File RelativePath="..\GENERIC\DIPSWBMP.C">
+				</File>
+				<File RelativePath="..\GENERIC\HOSTDRV.C">
+				</File>
+				<File RelativePath="..\GENERIC\HOSTDRVS.C">
+				</File>
+				<File RelativePath="..\GENERIC\KEYDISP.C">
+				</File>
+				<File RelativePath="..\GENERIC\NP2INFO.C">
+				</File>
+				<File RelativePath="..\GENERIC\SOFTKBD.C">
+				</File>
+				<File RelativePath="..\GENERIC\UNASM.C">
+				</File>
+			</Filter>
+			<Filter Name="vramva">
+				<File RelativePath="..\VRAMVA\MAKEGRPHVA.C">
+				</File>
+				<File RelativePath="..\VRAMVA\MAKESPRVA.C">
+				</File>
+				<File RelativePath="..\VRAMVA\MAKETEXTVA.C">
+				</File>
+				<File RelativePath="..\VRAMVA\PALETTESVA.C">
+				</File>
+				<File RelativePath="..\VRAMVA\SCRNDRAWVA.C">
+				</File>
+				<File RelativePath="..\VRAMVA\SDRAWVA.C">
+				</File>
+			</Filter>
+			<Filter Name="cpuxva">
+				<File RelativePath="..\CPUXVA\MEMORYVA.X86">
+					<FileConfiguration Name="Release|Win32">
+						<Tool Name="VCCustomBuildTool" Description="Assembling $(InputPath)" CommandLine="cd /d &quot;$(ProjectDir)&quot;&#x0D;&#x0A;nasm -f win32 &quot;$(InputPath)&quot; -o &quot;$(IntDir)\$(InputName).obj&quot;&#x0D;&#x0A;" AdditionalDependencies=".\x86\NP2ASM.INC" Outputs="$(IntDir)\$(InputName).obj"/>
+					</FileConfiguration>
+					<FileConfiguration Name="Debug|Win32">
+						<Tool Name="VCCustomBuildTool" Description="Assembling $(InputPath)" CommandLine="cd /d &quot;$(ProjectDir)&quot;&#x0D;&#x0A;nasm -f win32 &quot;$(InputPath)&quot; -o &quot;$(IntDir)\$(InputName).obj&quot;&#x0D;&#x0A;" AdditionalDependencies=".\x86\NP2ASM.INC" Outputs="$(IntDir)\$(InputName).obj"/>
+					</FileConfiguration>
+				</File>
+			</Filter>
+			<Filter Name="biosva">
+				<File RelativePath="..\BIOSVA\BIOSVA.C">
+				</File>
+			</Filter>
+			<Filter Name="IOVA">
+				<File RelativePath="..\IOVA\BKUPMEMVA.C">
+				</File>
+				<File RelativePath="..\IOVA\BOARDSB2.C">
+				</File>
+				<File RelativePath="..\IOVA\CGROMVA.C">
+				</File>
+				<File RelativePath="..\IOVA\FDSUBSYS.C">
+				</File>
+				<File RelativePath="..\IOVA\GACTRLVA.C">
+				</File>
+				<File RelativePath="..\IOVA\I8255.C">
+				</File>
+				<File RelativePath="..\IOVA\IOCOREVA.C">
+				</File>
+				<File RelativePath="..\IOVA\MEMCTRLVA.C">
+				</File>
+				<File RelativePath="..\IOVA\MOUSEIFVA.C">
+				</File>
+				<File RelativePath="..\IOVA\SGP.C">
+				</File>
+				<File RelativePath="..\IOVA\SUBSYSTEM.CPP">
+				</File>
+				<File RelativePath="..\IOVA\SUBSYSTEMIF.C">
+				</File>
+				<File RelativePath="..\IOVA\SUBSYSTEMMX.C">
+				</File>
+				<File RelativePath="..\IOVA\SYSPORTVA.C">
+				</File>
+				<File RelativePath="..\IOVA\TSP.C">
+				</File>
+				<File RelativePath="..\IOVA\UPD9002.C">
+				</File>
+				<File RelativePath="..\IOVA\VA91.C">
+				</File>
+				<File RelativePath="..\IOVA\VIDEOVA.C">
+				</File>
+			</Filter>
+			<Filter Name="cpucva">
+				<File RelativePath="..\CPUCVA\GVRAMVA.C">
+				</File>
+				<File RelativePath="..\CPUCVA\Z80c.cpp">
+				</File>
+				<File RelativePath="..\CPUCVA\Z80diag.cpp">
+				</File>
+			</Filter>
+			<File RelativePath="..\BREAKPOINT.C">
+			</File>
+			<File RelativePath="..\CALENDAR.C">
+			</File>
+			<File RelativePath="..\DEBUGSUB.C">
+			</File>
+			<File RelativePath="..\KEYSTAT.C">
+			</File>
+			<File RelativePath="..\NEVENT.C">
+			</File>
+			<File RelativePath="..\OPRECORD.C">
+			</File>
+			<File RelativePath="..\PCCORE.C">
+			</File>
+			<File RelativePath="..\STATSAVE.C">
+			</File>
+			<File RelativePath="..\TIMING.C">
+			</File>
+		</Filter>
+		<Filter Name="Header Files" Filter="h;hpp;hxx;hm;inl">
+			<File RelativePath="..\BREAKPOINT.H">
+			</File>
+			<File RelativePath="..\IOVA\FDSUBSYS.H">
+			</File>
+			<File RelativePath="..\IOVA\GACCESS.H">
+			</File>
+			<File RelativePath="..\VRAMVA\MAKESPRVA.H">
+			</File>
+			<File RelativePath="..\IO\NP2VASUP.H">
+			</File>
+			<File RelativePath="..\VRAMVA\PALETTESVA.H">
+			</File>
+			<File RelativePath="..\VRAMVA\SCRNDRAWVA.H">
+			</File>
+			<File RelativePath="..\VRAMVA\SDRAWVA.H">
+			</File>
+			<File RelativePath="..\IOVA\SGP.H">
+			</File>
+			<File RelativePath="..\IOVA\SUBSYSTEM.H">
+			</File>
+			<File RelativePath="..\IOVA\TSP.H">
+			</File>
+			<File RelativePath="..\IOVA\VIDEOVA.H">
+			</File>
+			<File RelativePath=".\DEBUGUTY\VIEWVIDEOVA.H">
+			</File>
+			<File RelativePath="..\CPUCVA\Z80if.h">
+			</File>
+		</Filter>
+		<Filter Name="Resource Files" Filter="ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe">
+			<File RelativePath=".\ICONS\NEKOP2.BMP">
+			</File>
+			<File RelativePath=".\ICONS\Np2.ico">
+			</File>
+			<File RelativePath=".\ICONS\NP2DEBUG.ICO">
+			</File>
+			<File RelativePath=".\ICONS\NP2TOOL.BMP">
+			</File>
+			<File RelativePath=".\ICONS\NP2TOOL2.BMP">
+			</File>
+		</Filter>
+		<File RelativePath=".\ICONS\Fddseek.wav">
+		</File>
+		<File RelativePath=".\ICONS\Fddseek1.wav">
+		</File>
+	</Files>
+	<Globals>
+	</Globals>
+</VisualStudioProject>
