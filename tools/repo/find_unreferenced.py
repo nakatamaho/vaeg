@@ -24,7 +24,8 @@ SRC_EXT = {".c", ".h", ".cpp", ".hpp", ".cc", ".asm", ".x86", ".rc", ".tbl",
            ".inc"}
 PROJ_PAT = re.compile(r"(\.dsp|\.dsw|\.sln|\.vcproj|\.vcxproj)$|"
                       r"(^|/)CMakeLists\.txt$|(^|/)Makefile[^/]*$", re.I)
-INC_RE = re.compile(rb'^\s*[#%]\s*include\s+["<]([^">]+)[">]', re.M)
+INC_RE = re.compile(rb'''^\s*[#%]\s*include\s+["'<]([^"'>]+)["'>]''',
+                    re.M)
 # Path-looking tokens inside project/build files.
 REF_RE = re.compile(rb'[\w./\\-]+\.(?:c|h|cpp|hpp|cc|asm|x86|rc|tbl|inc)\b',
                     re.I)

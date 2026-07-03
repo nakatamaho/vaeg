@@ -23,7 +23,8 @@ ALLOW_PREFIXES = ("docs/", ".git")
 ALLOW_BASENAMES = {"README.md", "README.txt", "CMakeLists.txt", "SKILL.md",
                    "LICENSE", "LICENSE.txt", "Makefile"}
 SRC_EXT = {".c", ".h", ".cpp", ".hpp", ".cc", ".asm", ".x86", ".rc", ".tbl"}
-INC_RE = re.compile(rb'^\s*[#%]\s*include\s+["<]([^">]+)[">]', re.M)
+INC_RE = re.compile(rb'''^\s*[#%]\s*include\s+["'<]([^"'>]+)["'>]''',
+                    re.M)
 
 
 def tracked_files():

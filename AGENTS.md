@@ -10,9 +10,10 @@ NOT canonical: `Win9xC/np2c.dsp` is a plain NP2 (PC-9801) configuration
 using the C CPU core `I286C/` and referencing no VA subsystem. Treat it
 and other legacy backends (`WinCE/`, `MacOS9/`, `Mona/`) as frozen.
 
-The canonical project assembles four NASM files via custom build steps
-(`CPUXVA/MEMORYVA.X86`, `I286X/DMAP.X86`, `I286X/EGCMEM.X86`,
-`I286X/MEMORY.X86`) with a hardcoded `c:\bin\nasm\nasmw` path — see M1.
+The canonical project assembles NINE NASM files via custom build steps
+(`CPUXVA/MEMORYVA.X86`; `I286X/{DMAP,EGCMEM,MEMORY}.X86`;
+`Win9x/x86/{PARTS,OPNGENG,CPUTYPE,MAKEGRPH}.X86`; `Win9x/DCLOCKD.X86`)
+with a hardcoded `c:\bin\nasm\nasmw` path — see M1 and inventory.md.
 
 ## How work is organized
 
