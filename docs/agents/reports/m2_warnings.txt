@@ -8,6 +8,11 @@ A first user-side VS2017 attempt failed before compilation with MSB8036 because
 the project required Windows SDK 10.0. The M2 project now leaves the Windows SDK
 version unpinned so VS2017 can select an installed SDK.
 
+A second user-side VS2017 attempt failed before compilation with MSB8036 because
+VS2017 then selected Windows SDK 8.1, which is also not installed. The VS2017
+environment needs a Windows SDK component installed before the v141 build can
+reach compiler warnings.
+
 No warnings were fixed or suppressed in M2. Replace this status note with the
 full VS2017/v141 new-warning dump from the user-side G2 build before tagging
 baseline-v141.
