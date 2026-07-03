@@ -4,6 +4,10 @@ M2 v141 warning dump status
 No VS2017/v141 build was run in this Linux workspace because devenv, msbuild,
 and the v141 toolchain are unavailable here.
 
+A first user-side VS2017 attempt failed before compilation with MSB8036 because
+the project required Windows SDK 10.0. The M2 project now leaves the Windows SDK
+version unpinned so VS2017 can select an installed SDK.
+
 No warnings were fixed or suppressed in M2. Replace this status note with the
 full VS2017/v141 new-warning dump from the user-side G2 build before tagging
 baseline-v141.

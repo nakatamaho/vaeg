@@ -22,31 +22,31 @@ None.
 
 | File | Line | Reason |
 |---|---:|---|
-| `Win9x/np2.vcxproj` | 26 | Pins the Windows SDK selector to `10.0` for a VS2017/v141 project. |
-| `Win9x/np2.vcxproj` | 32 | Sets `PlatformToolset` to `v141` for `Release|Win32`. |
-| `Win9x/np2.vcxproj` | 38 | Sets `PlatformToolset` to `v141` for `Trace|Win32`. |
-| `Win9x/np2.vcxproj` | 44 | Sets `PlatformToolset` to `v141` for `WaveRec|Win32`. |
-| `Win9x/np2.vcxproj` | 50 | Sets `PlatformToolset` to `v141` for `Debug|Win32`. |
-| `Win9x/np2.vcxproj` | 33 | Sets the VS2017 character set to MultiByte for `Release|Win32`, matching M1 `_MBCS`. |
-| `Win9x/np2.vcxproj` | 39 | Sets the VS2017 character set to MultiByte for `Trace|Win32`, matching M1 `_MBCS`. |
-| `Win9x/np2.vcxproj` | 45 | Sets the VS2017 character set to MultiByte for `WaveRec|Win32`, matching M1 `_MBCS`. |
-| `Win9x/np2.vcxproj` | 51 | Sets the VS2017 character set to MultiByte for `Debug|Win32`, matching M1 `_MBCS`. |
-| `Win9x/np2.vcxproj` | 99 | Carries `_MBCS` into the `Release|Win32` preprocessor definitions. |
-| `Win9x/np2.vcxproj` | 128 | Carries `_MBCS` into the `Trace|Win32` preprocessor definitions. |
-| `Win9x/np2.vcxproj` | 157 | Carries `_MBCS` into the `WaveRec|Win32` preprocessor definitions. |
-| `Win9x/np2.vcxproj` | 186 | Carries `_MBCS` into the `Debug|Win32` preprocessor definitions. |
-| `Win9x/np2.vcxproj` | 106 | Adds `/source-charset:.932 /execution-charset:.932` for `Release|Win32`; also adds `/Zc:strictStrings-` as a legacy-code conformance relaxation. |
-| `Win9x/np2.vcxproj` | 135 | Adds `/source-charset:.932 /execution-charset:.932` for `Trace|Win32`; also adds `/Zc:strictStrings-` as a legacy-code conformance relaxation. |
-| `Win9x/np2.vcxproj` | 164 | Adds `/source-charset:.932 /execution-charset:.932` for `WaveRec|Win32`; also adds `/Zc:strictStrings-` as a legacy-code conformance relaxation. |
-| `Win9x/np2.vcxproj` | 194 | Adds `/source-charset:.932 /execution-charset:.932` for `Debug|Win32`; also adds `/Zc:strictStrings-` as a legacy-code conformance relaxation. |
-| `Win9x/np2.vcxproj` | 107 | Sets `ConformanceMode` to `false` for `Release|Win32`, enabling permissive mode for legacy sources. |
-| `Win9x/np2.vcxproj` | 136 | Sets `ConformanceMode` to `false` for `Trace|Win32`, enabling permissive mode for legacy sources. |
-| `Win9x/np2.vcxproj` | 165 | Sets `ConformanceMode` to `false` for `WaveRec|Win32`, enabling permissive mode for legacy sources. |
-| `Win9x/np2.vcxproj` | 195 | Sets `ConformanceMode` to `false` for `Debug|Win32`, enabling permissive mode for legacy sources. |
-| `Win9x/np2.vcxproj` | 121 | Translates the M1 non-incremental linker behavior for `Release|Win32` to the MSBuild `LinkIncremental=false` form. |
-| `Win9x/np2.vcxproj` | 150 | Translates the M1 non-incremental linker behavior for `Trace|Win32` to the MSBuild `LinkIncremental=false` form. |
-| `Win9x/np2.vcxproj` | 179 | Translates the M1 non-incremental linker behavior for `WaveRec|Win32` to the MSBuild `LinkIncremental=false` form. |
-| `Win9x/np2.vcxproj` | 209 | Translates the M1 non-incremental linker behavior for `Debug|Win32` to the MSBuild `LinkIncremental=false` form. |
+| `Win9x/np2.vcxproj` | 21 | Leaves `WindowsTargetPlatformVersion` unset in the Globals section so VS2017 can select an installed Windows SDK instead of requiring SDK `10.0`. |
+| `Win9x/np2.vcxproj` | 31 | Sets `PlatformToolset` to `v141` for `Release|Win32`. |
+| `Win9x/np2.vcxproj` | 37 | Sets `PlatformToolset` to `v141` for `Trace|Win32`. |
+| `Win9x/np2.vcxproj` | 43 | Sets `PlatformToolset` to `v141` for `WaveRec|Win32`. |
+| `Win9x/np2.vcxproj` | 49 | Sets `PlatformToolset` to `v141` for `Debug|Win32`. |
+| `Win9x/np2.vcxproj` | 32 | Sets the VS2017 character set to MultiByte for `Release|Win32`, matching M1 `_MBCS`. |
+| `Win9x/np2.vcxproj` | 38 | Sets the VS2017 character set to MultiByte for `Trace|Win32`, matching M1 `_MBCS`. |
+| `Win9x/np2.vcxproj` | 44 | Sets the VS2017 character set to MultiByte for `WaveRec|Win32`, matching M1 `_MBCS`. |
+| `Win9x/np2.vcxproj` | 50 | Sets the VS2017 character set to MultiByte for `Debug|Win32`, matching M1 `_MBCS`. |
+| `Win9x/np2.vcxproj` | 98 | Carries `_MBCS` into the `Release|Win32` preprocessor definitions. |
+| `Win9x/np2.vcxproj` | 127 | Carries `_MBCS` into the `Trace|Win32` preprocessor definitions. |
+| `Win9x/np2.vcxproj` | 156 | Carries `_MBCS` into the `WaveRec|Win32` preprocessor definitions. |
+| `Win9x/np2.vcxproj` | 185 | Carries `_MBCS` into the `Debug|Win32` preprocessor definitions. |
+| `Win9x/np2.vcxproj` | 105 | Adds `/source-charset:.932 /execution-charset:.932` for `Release|Win32`; also adds `/Zc:strictStrings-` as a legacy-code conformance relaxation. |
+| `Win9x/np2.vcxproj` | 134 | Adds `/source-charset:.932 /execution-charset:.932` for `Trace|Win32`; also adds `/Zc:strictStrings-` as a legacy-code conformance relaxation. |
+| `Win9x/np2.vcxproj` | 163 | Adds `/source-charset:.932 /execution-charset:.932` for `WaveRec|Win32`; also adds `/Zc:strictStrings-` as a legacy-code conformance relaxation. |
+| `Win9x/np2.vcxproj` | 193 | Adds `/source-charset:.932 /execution-charset:.932` for `Debug|Win32`; also adds `/Zc:strictStrings-` as a legacy-code conformance relaxation. |
+| `Win9x/np2.vcxproj` | 106 | Sets `ConformanceMode` to `false` for `Release|Win32`, enabling permissive mode for legacy sources. |
+| `Win9x/np2.vcxproj` | 135 | Sets `ConformanceMode` to `false` for `Trace|Win32`, enabling permissive mode for legacy sources. |
+| `Win9x/np2.vcxproj` | 164 | Sets `ConformanceMode` to `false` for `WaveRec|Win32`, enabling permissive mode for legacy sources. |
+| `Win9x/np2.vcxproj` | 194 | Sets `ConformanceMode` to `false` for `Debug|Win32`, enabling permissive mode for legacy sources. |
+| `Win9x/np2.vcxproj` | 120 | Translates the M1 non-incremental linker behavior for `Release|Win32` to the MSBuild `LinkIncremental=false` form. |
+| `Win9x/np2.vcxproj` | 149 | Translates the M1 non-incremental linker behavior for `Trace|Win32` to the MSBuild `LinkIncremental=false` form. |
+| `Win9x/np2.vcxproj` | 178 | Translates the M1 non-incremental linker behavior for `WaveRec|Win32` to the MSBuild `LinkIncremental=false` form. |
+| `Win9x/np2.vcxproj` | 208 | Translates the M1 non-incremental linker behavior for `Debug|Win32` to the MSBuild `LinkIncremental=false` form. |
 
 ## NASM Custom Builds
 
@@ -56,40 +56,40 @@ under `$(IntDir)`.
 
 | File | Line | Configuration | Reason |
 |---|---:|---|---|
-| `Win9x/np2.vcxproj` | 474 | `.\x86\PARTS.X86` `Release|Win32` | Carries over the M1 NASM object build step. |
-| `Win9x/np2.vcxproj` | 479 | `.\x86\PARTS.X86` `Trace|Win32` | Carries over the M1 NASM object build step. |
-| `Win9x/np2.vcxproj` | 484 | `.\x86\PARTS.X86` `WaveRec|Win32` | Carries over the M1 NASM object build step. |
-| `Win9x/np2.vcxproj` | 489 | `.\x86\PARTS.X86` `Debug|Win32` | Carries over the M1 NASM object build step. |
-| `Win9x/np2.vcxproj` | 496 | `..\I286X\DMAP.X86` `Release|Win32` | Carries over the M1 NASM object build step. |
-| `Win9x/np2.vcxproj` | 501 | `..\I286X\DMAP.X86` `Trace|Win32` | Carries over the M1 NASM object build step. |
-| `Win9x/np2.vcxproj` | 506 | `..\I286X\DMAP.X86` `WaveRec|Win32` | Carries over the M1 NASM object build step. |
-| `Win9x/np2.vcxproj` | 511 | `..\I286X\DMAP.X86` `Debug|Win32` | Carries over the M1 NASM object build step. |
-| `Win9x/np2.vcxproj` | 518 | `..\I286X\EGCMEM.X86` `Release|Win32` | Carries over the M1 NASM object build step and `NP2ASM.INC` dependency. |
-| `Win9x/np2.vcxproj` | 524 | `..\I286X\EGCMEM.X86` `Trace|Win32` | Carries over the M1 NASM object build step and `NP2ASM.INC` dependency. |
-| `Win9x/np2.vcxproj` | 530 | `..\I286X\EGCMEM.X86` `WaveRec|Win32` | Carries over the M1 NASM object build step and `NP2ASM.INC` dependency. |
-| `Win9x/np2.vcxproj` | 536 | `..\I286X\EGCMEM.X86` `Debug|Win32` | Carries over the M1 NASM object build step and `NP2ASM.INC` dependency. |
-| `Win9x/np2.vcxproj` | 544 | `..\I286X\MEMORY.X86` `Release|Win32` | Carries over the M1 NASM object build step and `NP2ASM.INC` dependency. |
-| `Win9x/np2.vcxproj` | 550 | `..\I286X\MEMORY.X86` `Trace|Win32` | Carries over the M1 NASM object build step and `NP2ASM.INC` dependency. |
-| `Win9x/np2.vcxproj` | 556 | `..\I286X\MEMORY.X86` `WaveRec|Win32` | Carries over the M1 NASM object build step and `NP2ASM.INC` dependency. |
-| `Win9x/np2.vcxproj` | 562 | `..\I286X\MEMORY.X86` `Debug|Win32` | Carries over the M1 NASM object build step and `NP2ASM.INC` dependency. |
-| `Win9x/np2.vcxproj` | 570 | `.\x86\OPNGENG.X86` `Release|Win32` | Carries over the M1 NASM object build step. |
-| `Win9x/np2.vcxproj` | 575 | `.\x86\OPNGENG.X86` `Trace|Win32` | Carries over the M1 NASM object build step with the `.cod` listing output. |
-| `Win9x/np2.vcxproj` | 580 | `.\x86\OPNGENG.X86` `WaveRec|Win32` | Carries over the M1 NASM object build step with the `.cod` listing output. |
-| `Win9x/np2.vcxproj` | 585 | `.\x86\OPNGENG.X86` `Debug|Win32` | Carries over the M1 NASM object build step. |
-| `Win9x/np2.vcxproj` | 592 | `.\x86\CPUTYPE.X86` `Release|Win32` | Carries over the M1 NASM object build step. |
-| `Win9x/np2.vcxproj` | 597 | `.\x86\CPUTYPE.X86` `Trace|Win32` | Carries over the M1 NASM object build step. |
-| `Win9x/np2.vcxproj` | 602 | `.\x86\CPUTYPE.X86` `WaveRec|Win32` | Carries over the M1 NASM object build step. |
-| `Win9x/np2.vcxproj` | 607 | `.\x86\CPUTYPE.X86` `Debug|Win32` | Carries over the M1 NASM object build step. |
-| `Win9x/np2.vcxproj` | 614 | `.\DCLOCKD.X86` `Release|Win32` | Carries over the M1 NASM object build step. |
-| `Win9x/np2.vcxproj` | 619 | `.\DCLOCKD.X86` `Trace|Win32` | Carries over the M1 NASM object build step. |
-| `Win9x/np2.vcxproj` | 624 | `.\DCLOCKD.X86` `WaveRec|Win32` | Carries over the M1 NASM object build step. |
-| `Win9x/np2.vcxproj` | 629 | `.\DCLOCKD.X86` `Debug|Win32` | Carries over the M1 NASM object build step. |
-| `Win9x/np2.vcxproj` | 636 | `.\x86\MAKEGRPH.X86` `Release|Win32` | Carries over the M1 NASM object build step and `NP2ASM.INC` dependency. |
-| `Win9x/np2.vcxproj` | 642 | `.\x86\MAKEGRPH.X86` `Trace|Win32` | Carries over the M1 NASM object build step and `NP2ASM.INC` dependency. |
-| `Win9x/np2.vcxproj` | 648 | `.\x86\MAKEGRPH.X86` `WaveRec|Win32` | Carries over the M1 NASM object build step and `NP2ASM.INC` dependency. |
-| `Win9x/np2.vcxproj` | 654 | `.\x86\MAKEGRPH.X86` `Debug|Win32` | Carries over the M1 NASM object build step and `NP2ASM.INC` dependency. |
-| `Win9x/np2.vcxproj` | 662 | `..\CPUXVA\MEMORYVA.X86` `Release|Win32` | Carries over the M1 NASM object build step and `NP2ASM.INC` dependency. |
-| `Win9x/np2.vcxproj` | 670 | `..\CPUXVA\MEMORYVA.X86` `Debug|Win32` | Carries over the M1 NASM object build step and `NP2ASM.INC` dependency. |
+| `Win9x/np2.vcxproj` | 473 | `.\x86\PARTS.X86` `Release|Win32` | Carries over the M1 NASM object build step. |
+| `Win9x/np2.vcxproj` | 478 | `.\x86\PARTS.X86` `Trace|Win32` | Carries over the M1 NASM object build step. |
+| `Win9x/np2.vcxproj` | 483 | `.\x86\PARTS.X86` `WaveRec|Win32` | Carries over the M1 NASM object build step. |
+| `Win9x/np2.vcxproj` | 488 | `.\x86\PARTS.X86` `Debug|Win32` | Carries over the M1 NASM object build step. |
+| `Win9x/np2.vcxproj` | 495 | `..\I286X\DMAP.X86` `Release|Win32` | Carries over the M1 NASM object build step. |
+| `Win9x/np2.vcxproj` | 500 | `..\I286X\DMAP.X86` `Trace|Win32` | Carries over the M1 NASM object build step. |
+| `Win9x/np2.vcxproj` | 505 | `..\I286X\DMAP.X86` `WaveRec|Win32` | Carries over the M1 NASM object build step. |
+| `Win9x/np2.vcxproj` | 510 | `..\I286X\DMAP.X86` `Debug|Win32` | Carries over the M1 NASM object build step. |
+| `Win9x/np2.vcxproj` | 517 | `..\I286X\EGCMEM.X86` `Release|Win32` | Carries over the M1 NASM object build step and `NP2ASM.INC` dependency. |
+| `Win9x/np2.vcxproj` | 523 | `..\I286X\EGCMEM.X86` `Trace|Win32` | Carries over the M1 NASM object build step and `NP2ASM.INC` dependency. |
+| `Win9x/np2.vcxproj` | 529 | `..\I286X\EGCMEM.X86` `WaveRec|Win32` | Carries over the M1 NASM object build step and `NP2ASM.INC` dependency. |
+| `Win9x/np2.vcxproj` | 535 | `..\I286X\EGCMEM.X86` `Debug|Win32` | Carries over the M1 NASM object build step and `NP2ASM.INC` dependency. |
+| `Win9x/np2.vcxproj` | 543 | `..\I286X\MEMORY.X86` `Release|Win32` | Carries over the M1 NASM object build step and `NP2ASM.INC` dependency. |
+| `Win9x/np2.vcxproj` | 549 | `..\I286X\MEMORY.X86` `Trace|Win32` | Carries over the M1 NASM object build step and `NP2ASM.INC` dependency. |
+| `Win9x/np2.vcxproj` | 555 | `..\I286X\MEMORY.X86` `WaveRec|Win32` | Carries over the M1 NASM object build step and `NP2ASM.INC` dependency. |
+| `Win9x/np2.vcxproj` | 561 | `..\I286X\MEMORY.X86` `Debug|Win32` | Carries over the M1 NASM object build step and `NP2ASM.INC` dependency. |
+| `Win9x/np2.vcxproj` | 569 | `.\x86\OPNGENG.X86` `Release|Win32` | Carries over the M1 NASM object build step. |
+| `Win9x/np2.vcxproj` | 574 | `.\x86\OPNGENG.X86` `Trace|Win32` | Carries over the M1 NASM object build step with the `.cod` listing output. |
+| `Win9x/np2.vcxproj` | 579 | `.\x86\OPNGENG.X86` `WaveRec|Win32` | Carries over the M1 NASM object build step with the `.cod` listing output. |
+| `Win9x/np2.vcxproj` | 584 | `.\x86\OPNGENG.X86` `Debug|Win32` | Carries over the M1 NASM object build step. |
+| `Win9x/np2.vcxproj` | 591 | `.\x86\CPUTYPE.X86` `Release|Win32` | Carries over the M1 NASM object build step. |
+| `Win9x/np2.vcxproj` | 596 | `.\x86\CPUTYPE.X86` `Trace|Win32` | Carries over the M1 NASM object build step. |
+| `Win9x/np2.vcxproj` | 601 | `.\x86\CPUTYPE.X86` `WaveRec|Win32` | Carries over the M1 NASM object build step. |
+| `Win9x/np2.vcxproj` | 606 | `.\x86\CPUTYPE.X86` `Debug|Win32` | Carries over the M1 NASM object build step. |
+| `Win9x/np2.vcxproj` | 613 | `.\DCLOCKD.X86` `Release|Win32` | Carries over the M1 NASM object build step. |
+| `Win9x/np2.vcxproj` | 618 | `.\DCLOCKD.X86` `Trace|Win32` | Carries over the M1 NASM object build step. |
+| `Win9x/np2.vcxproj` | 623 | `.\DCLOCKD.X86` `WaveRec|Win32` | Carries over the M1 NASM object build step. |
+| `Win9x/np2.vcxproj` | 628 | `.\DCLOCKD.X86` `Debug|Win32` | Carries over the M1 NASM object build step. |
+| `Win9x/np2.vcxproj` | 635 | `.\x86\MAKEGRPH.X86` `Release|Win32` | Carries over the M1 NASM object build step and `NP2ASM.INC` dependency. |
+| `Win9x/np2.vcxproj` | 641 | `.\x86\MAKEGRPH.X86` `Trace|Win32` | Carries over the M1 NASM object build step and `NP2ASM.INC` dependency. |
+| `Win9x/np2.vcxproj` | 647 | `.\x86\MAKEGRPH.X86` `WaveRec|Win32` | Carries over the M1 NASM object build step and `NP2ASM.INC` dependency. |
+| `Win9x/np2.vcxproj` | 653 | `.\x86\MAKEGRPH.X86` `Debug|Win32` | Carries over the M1 NASM object build step and `NP2ASM.INC` dependency. |
+| `Win9x/np2.vcxproj` | 661 | `..\CPUXVA\MEMORYVA.X86` `Release|Win32` | Carries over the M1 NASM object build step and `NP2ASM.INC` dependency. |
+| `Win9x/np2.vcxproj` | 669 | `..\CPUXVA\MEMORYVA.X86` `Debug|Win32` | Carries over the M1 NASM object build step and `NP2ASM.INC` dependency. |
 
 ## Verification Performed Here
 
@@ -101,6 +101,7 @@ Win9x/np2.vcxproj: 261 project items
 Win9x/np2.vcxproj: 9 CustomBuild inputs
 Win9x/np2.vcxproj: 34 per-configuration NASM Command elements
 Win9x/np2.vcxproj: PlatformToolset v141 in all 4 configurations
+Win9x/np2.vcxproj: WindowsTargetPlatformVersion is not pinned
 Win9x/np2.vcxproj: /source-charset:.932 and /execution-charset:.932 in all 4 configurations
 Win9x/np2.vcxproj: _MBCS in all 4 C/C++ configurations
 Win9x/np2.vcproj and Win9x/np2.sln: unchanged in M2
