@@ -17,8 +17,9 @@ Required assembler: NASM 2.00 or newer, installed as `nasm` on `PATH`. The old `
 
 | File | Line | Reason |
 |---|---:|---|
-| `Win9x/NP2.RC` | 10 | Replaced MFC-only `afxres.h` with Windows SDK `winres.h`; the VS2008 resource compiler environment reported RC1015 because `afxres.h` was unavailable, and the project does not otherwise use MFC. |
-| `Win9x/NP2.RC` | 816 | Updated the matching `TEXTINCLUDE` resource so future Resource Editor regeneration keeps the same non-MFC Windows SDK header. |
+| `Win9x/NP2.RC` | 10 | Replaced the MFC-only resource header path with the standard Windows SDK `windows.h`; the VS2008 resource compiler environment reported RC1015 for both `afxres.h` and `winres.h`, while the project does not otherwise use MFC. |
+| `Win9x/NP2.RC` | 11 | Added a local `IDC_STATIC` fallback because that dialog-control ID previously came from the MFC resource header. |
+| `Win9x/NP2.RC` | 819 | Updated the matching `TEXTINCLUDE` resource so future Resource Editor regeneration keeps the same non-MFC Windows SDK header and `IDC_STATIC` fallback. |
 
 ## Project Deviations
 
