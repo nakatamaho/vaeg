@@ -13,6 +13,8 @@ Build status: not run in this Linux workspace because VC9 tooling is unavailable
 
 Required assembler: NASM 2.00 or newer, installed as `nasm` on `PATH`. The old `c:\bin\nasm\nasmw` path is intentionally not required.
 
+Required legacy DirectX import libraries: `ddraw.lib`, `dxguid.lib`, and `DSOUND.LIB` must be available through `$(DXSDK_DIR)Lib\x86`, `$(DXSDK_DIR)Lib`, the Windows SDK lib path, or the VS2008 Platform SDK lib path. DirectX SDK June 2010 is a suitable provider for these libraries.
+
 ## Source Deviations
 
 | File | Line | Reason |
@@ -81,10 +83,10 @@ Required assembler: NASM 2.00 or newer, installed as `nasm` on `PATH`. The old `
 | `Win9x/np2.vcproj` | 44 | Explicitly pins VC9 runtime library (`/MT` for non-Debug, `/MTd` for Debug) because VS2008 does not retain VC6 single-threaded CRT defaults; this is a project-setting conversion deviation, not a source change. |
 | `Win9x/np2.vcproj` | 63 | Explicitly pins VC9 runtime library (`/MT` for non-Debug, `/MTd` for Debug) because VS2008 does not retain VC6 single-threaded CRT defaults; this is a project-setting conversion deviation, not a source change. |
 | `Win9x/np2.vcproj` | 82 | Explicitly pins VC9 runtime library (`/MT` for non-Debug, `/MTd` for Debug) because VS2008 does not retain VC6 single-threaded CRT defaults; this is a project-setting conversion deviation, not a source change. |
-| `Win9x/np2.vcproj` | 29 | Explicitly adds `$(WindowsSdkDir)Lib;$(VCInstallDir)PlatformSDK\Lib` to the `Release|Win32` linker library search path because the VS2008 build reached link and failed to locate the legacy DirectDraw import library `ddraw.lib`. |
-| `Win9x/np2.vcproj` | 48 | Explicitly adds `$(WindowsSdkDir)Lib;$(VCInstallDir)PlatformSDK\Lib` to the `Trace|Win32` linker library search path for the same legacy DirectDraw import-library lookup. |
-| `Win9x/np2.vcproj` | 67 | Explicitly adds `$(WindowsSdkDir)Lib;$(VCInstallDir)PlatformSDK\Lib` to the `WaveRec|Win32` linker library search path for the same legacy DirectDraw import-library lookup. |
-| `Win9x/np2.vcproj` | 86 | Explicitly adds `$(WindowsSdkDir)Lib;$(VCInstallDir)PlatformSDK\Lib` to the `Debug|Win32` linker library search path for the same legacy DirectDraw import-library lookup. |
+| `Win9x/np2.vcproj` | 29 | Explicitly adds `$(DXSDK_DIR)Lib\x86;$(DXSDK_DIR)Lib;$(WindowsSdkDir)Lib;$(VCInstallDir)PlatformSDK\Lib` to the `Release|Win32` linker library search path because the VS2008 build reached link and failed to locate the legacy DirectDraw import library `ddraw.lib`. |
+| `Win9x/np2.vcproj` | 48 | Explicitly adds `$(DXSDK_DIR)Lib\x86;$(DXSDK_DIR)Lib;$(WindowsSdkDir)Lib;$(VCInstallDir)PlatformSDK\Lib` to the `Trace|Win32` linker library search path for the same legacy DirectDraw import-library lookup. |
+| `Win9x/np2.vcproj` | 67 | Explicitly adds `$(DXSDK_DIR)Lib\x86;$(DXSDK_DIR)Lib;$(WindowsSdkDir)Lib;$(VCInstallDir)PlatformSDK\Lib` to the `WaveRec|Win32` linker library search path for the same legacy DirectDraw import-library lookup. |
+| `Win9x/np2.vcproj` | 86 | Explicitly adds `$(DXSDK_DIR)Lib\x86;$(DXSDK_DIR)Lib;$(WindowsSdkDir)Lib;$(VCInstallDir)PlatformSDK\Lib` to the `Debug|Win32` linker library search path for the same legacy DirectDraw import-library lookup. |
 
 ## Verification Performed Here
 
@@ -94,6 +96,6 @@ Win9x/np2.vcproj: CRLF only
 Win9x/np2.sln: CRLF only
 Win9x/np2.vcproj: 261 <File> entries
 Win9x/np2.vcproj: 34 per-configuration NASM command lines across 9 .X86 inputs
-Win9x/np2.vcproj: 4 linker tools with explicit VS2008/Windows SDK library search paths
+Win9x/np2.vcproj: 4 linker tools with explicit DirectX SDK and VS2008/Windows SDK library search paths
 Win9x/np2.vcproj: no c:\bin\nasm\nasmw references
 ```
