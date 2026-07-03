@@ -1,22 +1,25 @@
-M2 v141 warning dump status
-===========================
-
-No VS2017/v141 build was run in this Linux workspace because devenv, msbuild,
-and the v141 toolchain are unavailable here.
-
-A first user-side VS2017 attempt failed before compilation with MSB8036 because
-the project required Windows SDK 10.0. The M2 project now leaves the Windows SDK
-version unpinned so VS2017 can select an installed SDK.
-
-A second user-side VS2017 attempt failed before compilation with MSB8036 because
-VS2017 then selected Windows SDK 8.1, which is also not installed. The VS2017
-environment needs a Windows SDK component installed before the v141 build can
-reach compiler warnings.
-
-User-side PowerShell then confirmed Windows 10 SDK 10.0.19041.0 is installed.
-The M2 project now pins WindowsTargetPlatformVersion to 10.0.19041.0 so VS2017
-uses that SDK instead of falling back to the missing 8.1 SDK.
-
-No warnings were fixed or suppressed in M2. Replace this status note with the
-full VS2017/v141 new-warning dump from the user-side G2 build before tagging
-baseline-v141.
+c:\users\maho\vaeg\generic\hostdrv.c(478): warning C4996: 'strcpy': This function or variable may be unsafe. Consider using strcpy_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details. [C:\Users\maho\vaeg\Win9x\np2.vcxproj]
+c:\users\maho\vaeg\generic\hostdrv.c(479): warning C4996: 'strcpy': This function or variable may be unsafe. Consider using strcpy_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details. [C:\Users\maho\vaeg\Win9x\np2.vcxproj]
+c:\users\maho\vaeg\generic\hostdrv.c(491): warning C4996: 'strcpy': This function or variable may be unsafe. Consider using strcpy_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details. [C:\Users\maho\vaeg\Win9x\np2.vcxproj]
+c:\users\maho\vaeg\win9x\debuguty\debugctrl.cpp(234): warning C4101: 'idc': ローカル変数は 1 度も使われていません。 [C:\Users\maho\vaeg\Win9x\np2.vcxproj]
+c:\users\maho\vaeg\win9x\debuguty\debugctrl.cpp(232): warning C4101: 'hMenu': ローカル変数は 1 度も使われていません。 [C:\Users\maho\vaeg\Win9x\np2.vcxproj]
+c:\users\maho\vaeg\win9x\debuguty\debugctrl.cpp(233): warning C4101: 'r': ローカル変数は 1 度も使われていません。 [C:\Users\maho\vaeg\Win9x\np2.vcxproj]
+c:\users\maho\vaeg\win9x\debuguty\viewasm.cpp(32): warning C4101: 'opsize': ローカル変数は 1 度も使われていません。 [C:\Users\maho\vaeg\Win9x\np2.vcxproj]
+c:\users\maho\vaeg\win9x\debuguty\viewer.cpp(139): warning C4244: '=': 'LONG' から 'WORD' への変換です。データが失われる可能性があります。 [C:\Users\maho\vaeg\Win9x\np2.vcxproj]
+c:\users\maho\vaeg\win9x\sstpmsg.cpp(395): warning C4996: 'strcat': This function or variable may be unsafe. Consider using strcat_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details. [C:\Users\maho\vaeg\Win9x\np2.vcxproj]
+c:\users\maho\vaeg\win9x\sstpmsg.cpp(399): warning C4996: 'strcat': This function or variable may be unsafe. Consider using strcat_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details. [C:\Users\maho\vaeg\Win9x\np2.vcxproj]
+c:\users\maho\vaeg\win9x\sstpmsg.cpp(401): warning C4996: 'strcat': This function or variable may be unsafe. Consider using strcat_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details. [C:\Users\maho\vaeg\Win9x\np2.vcxproj]
+c:\users\maho\vaeg\win9x\sstpmsg.cpp(405): warning C4996: 'strcat': This function or variable may be unsafe. Consider using strcat_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details. [C:\Users\maho\vaeg\Win9x\np2.vcxproj]
+c:\users\maho\vaeg\win9x\sstpmsg.cpp(407): warning C4996: 'strcat': This function or variable may be unsafe. Consider using strcat_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details. [C:\Users\maho\vaeg\Win9x\np2.vcxproj]
+c:\users\maho\vaeg\win9x\sstpmsg.cpp(413): warning C4996: 'strcat': This function or variable may be unsafe. Consider using strcat_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details. [C:\Users\maho\vaeg\Win9x\np2.vcxproj]
+c:\users\maho\vaeg\win9x\sstpmsg.cpp(417): warning C4996: 'strcat': This function or variable may be unsafe. Consider using strcat_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details. [C:\Users\maho\vaeg\Win9x\np2.vcxproj]
+c:\users\maho\vaeg\win9x\sstpmsg.cpp(421): warning C4996: 'strcat': This function or variable may be unsafe. Consider using strcat_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details. [C:\Users\maho\vaeg\Win9x\np2.vcxproj]
+c:\users\maho\vaeg\win9x\sstpmsg.cpp(424): warning C4996: 'strcat': This function or variable may be unsafe. Consider using strcat_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details. [C:\Users\maho\vaeg\Win9x\np2.vcxproj]
+c:\users\maho\vaeg\win9x\sstpmsg.cpp(428): warning C4996: 'strcat': This function or variable may be unsafe. Consider using strcat_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details. [C:\Users\maho\vaeg\Win9x\np2.vcxproj]
+c:\users\maho\vaeg\win9x\sstpmsg.cpp(431): warning C4996: 'strcat': This function or variable may be unsafe. Consider using strcat_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details. [C:\Users\maho\vaeg\Win9x\np2.vcxproj]
+c:\users\maho\vaeg\win9x\sstpmsg.cpp(435): warning C4996: 'strcat': This function or variable may be unsafe. Consider using strcat_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details. [C:\Users\maho\vaeg\Win9x\np2.vcxproj]
+c:\users\maho\vaeg\win9x\sstpmsg.cpp(438): warning C4996: 'strcat': This function or variable may be unsafe. Consider using strcat_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details. [C:\Users\maho\vaeg\Win9x\np2.vcxproj]
+c:\users\maho\vaeg\win9x\sstpmsg.cpp(440): warning C4996: 'strcat': This function or variable may be unsafe. Consider using strcat_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details. [C:\Users\maho\vaeg\Win9x\np2.vcxproj]
+c:\users\maho\vaeg\win9x\sstpmsg.cpp(444): warning C4996: 'strcat': This function or variable may be unsafe. Consider using strcat_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details. [C:\Users\maho\vaeg\Win9x\np2.vcxproj]
+c:\users\maho\vaeg\cpucva\z80c.cpp(1954): warning C4996: 'strcpy': This function or variable may be unsafe. Consider using strcpy_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details. [C:\Users\maho\vaeg\Win9x\np2.vcxproj]
+c:\users\maho\vaeg\cpucva\z80c.cpp(1955): warning C4996: 'fopen': This function or variable may be unsafe. Consider using fopen_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details. [C:\Users\maho\vaeg\Win9x\np2.vcxproj]
