@@ -1,5 +1,28 @@
 #include	"compiler.h"
 #include	<ddraw.h>
+typedef HRESULT (WINAPI *DDRAWCREATEPROC)(GUID FAR *,
+												LPDIRECTDRAW FAR *, LPUNKNOWN);
+
+static HRESULT np2_DirectDrawCreate(GUID FAR *guid,
+												LPDIRECTDRAW FAR *ddraw, LPUNKNOWN outer) {
+
+	static HMODULE				module = NULL;
+	static DDRAWCREATEPROC	proc = NULL;
+
+	if (proc == NULL) {
+		module = LoadLibrary("ddraw.dll");
+		if (module == NULL) {
+			return(E_FAIL);
+		}
+		proc = (DDRAWCREATEPROC)GetProcAddress(module, "DirectDrawCreate");
+		if (proc == NULL) {
+			return(E_FAIL);
+		}
+	}
+	return(proc(guid, ddraw, outer));
+}
+
+
 #include	"dd2.h"
 
 
@@ -34,7 +57,7 @@ DD2HDL dd2_create(HWND hwnd, int width, int height) {
 	}
 	ZeroMemory(dd2, sizeof(_DD2SURF));
 	dd2->hwnd = hwnd;
-	if (DirectDrawCreate(NULL, &dd2->ddraw1, NULL) != DD_OK) {
+	if (np2_DirectDrawCreate(NULL, &dd2->ddraw1, NULL) != DD_OK) {
 		goto dd2cre_err2;
 	}
 	dd2->ddraw1->QueryInterface(IID_IDirectDraw2, (void **)&dd2->ddraw);
