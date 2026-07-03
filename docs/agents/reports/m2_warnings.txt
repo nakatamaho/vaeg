@@ -1,0 +1,9 @@
+M2 v141 warning dump status
+===========================
+
+No VS2017/v141 build was run in this Linux workspace because devenv, msbuild,
+and the v141 toolchain are unavailable here.
+
+No warnings were fixed or suppressed in M2. Replace this status note with the
+full VS2017/v141 new-warning dump from the user-side G2 build before tagging
+baseline-v141.

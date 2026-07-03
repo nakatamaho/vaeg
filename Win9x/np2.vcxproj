@@ -1,0 +1,681 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Release|Win32">
+      <Configuration>Release</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Trace|Win32">
+      <Configuration>Trace</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="WaveRec|Win32">
+      <Configuration>WaveRec</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Debug|Win32">
+      <Configuration>Debug</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <VCProjectVersion>15.0</VCProjectVersion>
+    <ProjectGuid>{C542EA75-D962-45DF-8F6C-2DD9B90BA14D}</ProjectGuid>
+    <Keyword>Win32Proj</Keyword>
+    <RootNamespace>np2</RootNamespace>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Release|Win32&#x27;" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v141</PlatformToolset>
+    <CharacterSet>MultiByte</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Trace|Win32&#x27;" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v141</PlatformToolset>
+    <CharacterSet>MultiByte</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;WaveRec|Win32&#x27;" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v141</PlatformToolset>
+    <CharacterSet>MultiByte</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Debug|Win32&#x27;" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v141</PlatformToolset>
+    <CharacterSet>MultiByte</CharacterSet>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Label="Shared">
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Release|Win32&#x27;">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Trace|Win32&#x27;">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;WaveRec|Win32&#x27;">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Debug|Win32&#x27;">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Release|Win32&#x27;">
+    <OutDir>..\bin\</OutDir>
+    <IntDir>..\obj\rel\</IntDir>
+    <TargetName>vaeg</TargetName>
+    <TargetExt>.exe</TargetExt>
+  </PropertyGroup>
+  <PropertyGroup Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Trace|Win32&#x27;">
+    <OutDir>..\bin\</OutDir>
+    <IntDir>..\obj\trc\</IntDir>
+    <TargetName>np2t</TargetName>
+    <TargetExt>.exe</TargetExt>
+  </PropertyGroup>
+  <PropertyGroup Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;WaveRec|Win32&#x27;">
+    <OutDir>..\bin\</OutDir>
+    <IntDir>..\obj\wr\</IntDir>
+    <TargetName>np2wr</TargetName>
+    <TargetExt>.exe</TargetExt>
+  </PropertyGroup>
+  <PropertyGroup Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Debug|Win32&#x27;">
+    <OutDir>..\bin\</OutDir>
+    <IntDir>..\obj\dbg\</IntDir>
+    <TargetName>vaegd</TargetName>
+    <TargetExt>.exe</TargetExt>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Release|Win32&#x27;">
+    <ClCompile>
+      <Optimization>MaxSpeed</Optimization>
+      <AdditionalIncludeDirectories>.\\;.\x86;.\dialog;.\debuguty;..\\;..\common;..\i286x;..\io;..\cbus;..\bios;..\vram;..\sound;..\sound\vermouth;..\sound\getsnd;..\fdd;..\lio;..\font;..\generic;..\cpuxva;..\cpucva;../biosva;../iova;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>NDEBUG;WIN32;_WINDOWS;_MBCS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <WarningLevel>Level3</WarningLevel>
+      <DebugInformationFormat>None</DebugInformationFormat>
+      <CompileAs>Default</CompileAs>
+      <AdditionalOptions>/source-charset:.932 /execution-charset:.932 /Zc:strictStrings- %(AdditionalOptions)</AdditionalOptions>
+      <ConformanceMode>false</ConformanceMode>
+    </ClCompile>
+    <ResourceCompile>
+      <PreprocessorDefinitions>NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <Culture>0x0411</Culture>
+    </ResourceCompile>
+    <Link>
+      <AdditionalDependencies>kernel32.lib;user32.lib;gdi32.lib;dxguid.lib;DSOUND.LIB;winmm.lib;comdlg32.lib;comctl32.lib;wsock32.lib;shell32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(DXSDK_DIR)Lib\x86;$(DXSDK_DIR)\Lib\x86;$(DXSDK_DIR)Lib;$(DXSDK_DIR)\Lib;$(WindowsSdkDir)Lib;$(VCInstallDir)PlatformSDK\Lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <OutputFile>$(OutDir)$(TargetName)$(TargetExt)</OutputFile>
+      <GenerateDebugInformation>false</GenerateDebugInformation>
+      <GenerateMapFile>true</GenerateMapFile>
+      <SubSystem>Windows</SubSystem>
+      <TargetMachine>MachineX86</TargetMachine>
+      <LinkIncremental>false</LinkIncremental>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Trace|Win32&#x27;">
+    <ClCompile>
+      <Optimization>MaxSpeed</Optimization>
+      <AdditionalIncludeDirectories>.\\;.\x86;.\dialog;.\debuguty;..\\;..\common;..\i286x;..\io;..\cbus;..\bios;..\vram;..\sound;..\sound\vermouth;..\sound\getsnd;..\fdd;..\lio;..\font;..\generic;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>NDEBUG;WIN32;_WINDOWS;_MBCS;TRACE;MEMTRACE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <WarningLevel>Level3</WarningLevel>
+      <DebugInformationFormat>None</DebugInformationFormat>
+      <CompileAs>Default</CompileAs>
+      <AdditionalOptions>/source-charset:.932 /execution-charset:.932 /Zc:strictStrings- %(AdditionalOptions)</AdditionalOptions>
+      <ConformanceMode>false</ConformanceMode>
+    </ClCompile>
+    <ResourceCompile>
+      <PreprocessorDefinitions>NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <Culture>0x0411</Culture>
+    </ResourceCompile>
+    <Link>
+      <AdditionalDependencies>kernel32.lib;user32.lib;gdi32.lib;dxguid.lib;DSOUND.LIB;winmm.lib;comdlg32.lib;comctl32.lib;wsock32.lib;shell32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(DXSDK_DIR)Lib\x86;$(DXSDK_DIR)\Lib\x86;$(DXSDK_DIR)Lib;$(DXSDK_DIR)\Lib;$(WindowsSdkDir)Lib;$(VCInstallDir)PlatformSDK\Lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <OutputFile>$(OutDir)$(TargetName)$(TargetExt)</OutputFile>
+      <GenerateDebugInformation>false</GenerateDebugInformation>
+      <GenerateMapFile>true</GenerateMapFile>
+      <SubSystem>Windows</SubSystem>
+      <TargetMachine>MachineX86</TargetMachine>
+      <LinkIncremental>false</LinkIncremental>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;WaveRec|Win32&#x27;">
+    <ClCompile>
+      <Optimization>MaxSpeed</Optimization>
+      <AdditionalIncludeDirectories>.\\;.\x86;.\dialog;.\debuguty;..\\;..\common;..\i286x;..\io;..\cbus;..\bios;..\vram;..\sound;..\sound\vermouth;..\sound\getsnd;..\fdd;..\lio;..\font;..\generic;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>NDEBUG;WIN32;_WINDOWS;_MBCS;SUPPORT_WAVEREC;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <WarningLevel>Level3</WarningLevel>
+      <DebugInformationFormat>None</DebugInformationFormat>
+      <CompileAs>Default</CompileAs>
+      <AdditionalOptions>/source-charset:.932 /execution-charset:.932 /Zc:strictStrings- %(AdditionalOptions)</AdditionalOptions>
+      <ConformanceMode>false</ConformanceMode>
+    </ClCompile>
+    <ResourceCompile>
+      <PreprocessorDefinitions>NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <Culture>0x0411</Culture>
+    </ResourceCompile>
+    <Link>
+      <AdditionalDependencies>kernel32.lib;user32.lib;gdi32.lib;dxguid.lib;DSOUND.LIB;winmm.lib;comdlg32.lib;comctl32.lib;wsock32.lib;shell32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(DXSDK_DIR)Lib\x86;$(DXSDK_DIR)\Lib\x86;$(DXSDK_DIR)Lib;$(DXSDK_DIR)\Lib;$(WindowsSdkDir)Lib;$(VCInstallDir)PlatformSDK\Lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <OutputFile>$(OutDir)$(TargetName)$(TargetExt)</OutputFile>
+      <GenerateDebugInformation>false</GenerateDebugInformation>
+      <GenerateMapFile>true</GenerateMapFile>
+      <SubSystem>Windows</SubSystem>
+      <TargetMachine>MachineX86</TargetMachine>
+      <LinkIncremental>false</LinkIncremental>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Debug|Win32&#x27;">
+    <ClCompile>
+      <Optimization>Disabled</Optimization>
+      <AdditionalIncludeDirectories>.\\;.\x86;.\dialog;.\debuguty;..\\;..\common;..\i286x;..\io;..\cbus;..\bios;..\vram;..\sound;..\sound\vermouth;..\sound\getsnd;..\fdd;..\lio;..\font;..\generic;..\cpuxva;..\cpucva;../biosva;../iova;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>_DEBUG;TRACE;WIN32;_WINDOWS;_MBCS;CPUDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <WarningLevel>Level3</WarningLevel>
+      <DebugInformationFormat>EditAndContinue</DebugInformationFormat>
+      <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
+      <CompileAs>Default</CompileAs>
+      <AdditionalOptions>/source-charset:.932 /execution-charset:.932 /Zc:strictStrings- %(AdditionalOptions)</AdditionalOptions>
+      <ConformanceMode>false</ConformanceMode>
+    </ClCompile>
+    <ResourceCompile>
+      <PreprocessorDefinitions>_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <Culture>0x0411</Culture>
+    </ResourceCompile>
+    <Link>
+      <AdditionalDependencies>kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;dxguid.lib;DSOUND.LIB;winmm.lib;comdlg32.lib;comctl32.lib;wsock32.lib;shell32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(DXSDK_DIR)Lib\x86;$(DXSDK_DIR)\Lib\x86;$(DXSDK_DIR)Lib;$(DXSDK_DIR)\Lib;$(WindowsSdkDir)Lib;$(VCInstallDir)PlatformSDK\Lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <OutputFile>$(OutDir)$(TargetName)$(TargetExt)</OutputFile>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <GenerateMapFile>false</GenerateMapFile>
+      <SubSystem>Windows</SubSystem>
+      <TargetMachine>MachineX86</TargetMachine>
+      <LinkIncremental>false</LinkIncremental>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClCompile Include="..\COMMON\_MEMORY.C" />
+    <ClCompile Include="..\COMMON\BMPDATA.C" />
+    <ClCompile Include="..\COMMON\LSTARRAY.C" />
+    <ClCompile Include="..\COMMON\MILSTR.C" />
+    <ClCompile Include="..\COMMON\MIMPIDEF.C" />
+    <ClCompile Include="..\COMMON\PROFILE.C" />
+    <ClCompile Include="..\COMMON\STRRES.C" />
+    <ClCompile Include="..\COMMON\TEXTFILE.C" />
+    <ClCompile Include="..\COMMON\WAVEFILE.C" />
+    <ClCompile Include="..\I286X\I286X.CPP" />
+    <ClCompile Include="..\I286X\I286XADR.CPP" />
+    <ClCompile Include="..\I286X\I286XCTS.CPP" />
+    <ClCompile Include="..\I286X\I286XREP.CPP" />
+    <ClCompile Include="..\I286X\I286XS.CPP" />
+    <ClCompile Include="..\I286X\V30PATCH.CPP" />
+    <ClCompile Include="..\BIOS\BIOS.C" />
+    <ClCompile Include="..\BIOS\BIOS09.C" />
+    <ClCompile Include="..\BIOS\BIOS0C.C" />
+    <ClCompile Include="..\BIOS\BIOS12.C" />
+    <ClCompile Include="..\BIOS\BIOS13.C" />
+    <ClCompile Include="..\BIOS\BIOS18.C" />
+    <ClCompile Include="..\BIOS\BIOS19.C" />
+    <ClCompile Include="..\BIOS\BIOS1A.C" />
+    <ClCompile Include="..\BIOS\BIOS1B.C" />
+    <ClCompile Include="..\BIOS\BIOS1C.C" />
+    <ClCompile Include="..\BIOS\BIOS1F.C" />
+    <ClCompile Include="..\BIOS\SXSIBIOS.C" />
+    <ClCompile Include="..\SOUND\VERMOUTH\MIDIMOD.C" />
+    <ClCompile Include="..\SOUND\VERMOUTH\MIDINST.C" />
+    <ClCompile Include="..\SOUND\VERMOUTH\MIDIOUT.C" />
+    <ClCompile Include="..\SOUND\VERMOUTH\MIDTABLE.C" />
+    <ClCompile Include="..\SOUND\VERMOUTH\MIDVOICE.C" />
+    <ClCompile Include="..\SOUND\GETSND\GETSMIX.C" />
+    <ClCompile Include="..\SOUND\GETSND\GETSND.C" />
+    <ClCompile Include="..\SOUND\GETSND\GETWAVE.C" />
+    <ClCompile Include="..\SOUND\ADPCMC.C" />
+    <ClCompile Include="..\SOUND\ADPCMG.C" />
+    <ClCompile Include="..\SOUND\BEEPC.C" />
+    <ClCompile Include="..\SOUND\BEEPG.C" />
+    <ClCompile Include="..\SOUND\CS4231C.C" />
+    <ClCompile Include="..\SOUND\CS4231G.C" />
+    <ClCompile Include="..\SOUND\FMBOARD.C" />
+    <ClCompile Include="..\SOUND\FMTIMER.C" />
+    <ClCompile Include="..\SOUND\OPNGENC.C" />
+    <ClCompile Include="..\SOUND\PCM86C.C" />
+    <ClCompile Include="..\SOUND\PCM86G.C" />
+    <ClCompile Include="..\SOUND\PSGGENC.C" />
+    <ClCompile Include="..\SOUND\PSGGENG.C" />
+    <ClCompile Include="..\SOUND\RHYTHMC.C" />
+    <ClCompile Include="..\SOUND\S98.C" />
+    <ClCompile Include="..\SOUND\SOUND.C" />
+    <ClCompile Include="..\SOUND\SOUNDROM.C" />
+    <ClCompile Include="..\SOUND\TMS3631C.C" />
+    <ClCompile Include="..\SOUND\TMS3631G.C" />
+    <ClCompile Include="..\FDD\DISKDRV.C" />
+    <ClCompile Include="..\FDD\FDD_D88.C" />
+    <ClCompile Include="..\FDD\FDD_MTR.C" />
+    <ClCompile Include="..\FDD\FDD_XDF.C" />
+    <ClCompile Include="..\FDD\FDDFILE.C" />
+    <ClCompile Include="..\FDD\NEWDISK.C" />
+    <ClCompile Include="..\FDD\SXSI.C" />
+    <ClCompile Include="..\LIO\GCIRCLE.C" />
+    <ClCompile Include="..\LIO\GLINE.C" />
+    <ClCompile Include="..\LIO\GPSET.C" />
+    <ClCompile Include="..\LIO\GPUT1.C" />
+    <ClCompile Include="..\LIO\GSCREEN.C" />
+    <ClCompile Include="..\LIO\LIO.C" />
+    <ClCompile Include="..\FONT\FONT.C" />
+    <ClCompile Include="..\FONT\FONTDATA.C" />
+    <ClCompile Include="..\FONT\FONTFM7.C" />
+    <ClCompile Include="..\FONT\FONTMAKE.C" />
+    <ClCompile Include="..\FONT\FONTPC88.C" />
+    <ClCompile Include="..\FONT\FONTPC98.C" />
+    <ClCompile Include="..\FONT\FONTV98.C" />
+    <ClCompile Include="..\FONT\FONTX1.C" />
+    <ClCompile Include="..\FONT\FONTX68K.C" />
+    <ClCompile Include=".\DIALOG\D_ABOUT.CPP" />
+    <ClCompile Include=".\DIALOG\D_BMP.CPP" />
+    <ClCompile Include=".\DIALOG\D_BMS.CPP" />
+    <ClCompile Include=".\DIALOG\D_CLND.CPP" />
+    <ClCompile Include=".\DIALOG\D_CONFIG.CPP" />
+    <ClCompile Include=".\DIALOG\D_DISK.CPP" />
+    <ClCompile Include=".\DIALOG\D_MPU98.CPP" />
+    <ClCompile Include=".\DIALOG\D_OPRECORD.CPP" />
+    <ClCompile Include=".\DIALOG\D_SCREEN.CPP" />
+    <ClCompile Include=".\DIALOG\D_SERIAL.CPP" />
+    <ClCompile Include=".\DIALOG\D_SOUND.CPP" />
+    <ClCompile Include=".\DIALOG\DIALOGS.CPP" />
+    <ClCompile Include=".\DIALOG\NP2CLASS.CPP" />
+    <ClCompile Include=".\DEBUGUTY\DEBUGCTRL.CPP" />
+    <ClCompile Include=".\DEBUGUTY\VIEW1MB.CPP" />
+    <ClCompile Include=".\DEBUGUTY\VIEWASM.CPP" />
+    <ClCompile Include=".\DEBUGUTY\VIEWCMN.CPP" />
+    <ClCompile Include=".\DEBUGUTY\VIEWER.CPP" />
+    <ClCompile Include=".\DEBUGUTY\VIEWGACTRLVA.CPP" />
+    <ClCompile Include=".\DEBUGUTY\VIEWMEM.CPP" />
+    <ClCompile Include=".\DEBUGUTY\VIEWMENU.CPP" />
+    <ClCompile Include=".\DEBUGUTY\VIEWREG.CPP" />
+    <ClCompile Include=".\DEBUGUTY\VIEWSEG.CPP" />
+    <ClCompile Include=".\DEBUGUTY\VIEWSND.CPP" />
+    <ClCompile Include=".\DEBUGUTY\VIEWSUBASM.CPP" />
+    <ClCompile Include=".\DEBUGUTY\VIEWSUBMEM.CPP" />
+    <ClCompile Include=".\DEBUGUTY\VIEWSUBREG.CPP" />
+    <ClCompile Include=".\DEBUGUTY\VIEWVABANK.CPP" />
+    <ClCompile Include=".\DEBUGUTY\VIEWVIDEOVA.CPP" />
+    <ClCompile Include=".\CMMIDI.CPP" />
+    <ClCompile Include=".\CMPARA.CPP" />
+    <ClCompile Include=".\CMSERIAL.CPP" />
+    <ClCompile Include=".\COMMNG.CPP" />
+    <ClCompile Include=".\DCLOCK.CPP" />
+    <ClCompile Include=".\DD2.CPP" />
+    <ClCompile Include=".\DOSIO.CPP" />
+    <ClCompile Include=".\EXTROMIO.CPP" />
+    <ClCompile Include=".\FONTMNG.CPP" />
+    <ClCompile Include=".\INI.CPP" />
+    <ClCompile Include=".\JOYMNG.CPP" />
+    <ClCompile Include=".\JULIET.CPP" />
+    <ClCompile Include=".\MENU.CPP" />
+    <ClCompile Include=".\MOUSEMNG.CPP" />
+    <ClCompile Include=".\NP2.CPP" />
+    <ClCompile Include=".\NP2ARG.CPP" />
+    <ClCompile Include=".\SCRNMNG.CPP" />
+    <ClCompile Include=".\SOUNDMNG.CPP" />
+    <ClCompile Include=".\SSTP.CPP" />
+    <ClCompile Include=".\SSTPMSG.CPP" />
+    <ClCompile Include=".\SUBWIND.CPP" />
+    <ClCompile Include=".\SYSMNG.CPP" />
+    <ClCompile Include=".\TASKMNG.CPP" />
+    <ClCompile Include=".\TIMEMNG.CPP" />
+    <ClCompile Include=".\TOOLWIN.CPP" />
+    <ClCompile Include=".\TRACE.CPP" />
+    <ClCompile Include=".\WINKBD.CPP" />
+    <ClCompile Include=".\WINLOC.CPP" />
+    <ClCompile Include="..\IO\ARTIC.C" />
+    <ClCompile Include="..\IO\BMSIO.C" />
+    <ClCompile Include="..\IO\CGROM.C" />
+    <ClCompile Include="..\IO\CPUIO.C" />
+    <ClCompile Include="..\IO\CRTC.C" />
+    <ClCompile Include="..\IO\DIPSW.C" />
+    <ClCompile Include="..\IO\DMAC.C" />
+    <ClCompile Include="..\IO\EGC.C" />
+    <ClCompile Include="..\IO\EMSIO.C" />
+    <ClCompile Include="..\IO\EPSONIO.C" />
+    <ClCompile Include="..\IO\FDC.C" />
+    <ClCompile Include="..\IO\FDD320.C" />
+    <ClCompile Include="..\IO\GDC.C" />
+    <ClCompile Include="..\IO\GDC_PSET.C" />
+    <ClCompile Include="..\IO\GDC_SUB.C" />
+    <ClCompile Include="..\IO\IOCORE.C" />
+    <ClCompile Include="..\IO\MOUSEIF.C" />
+    <ClCompile Include="..\IO\NECIO.C" />
+    <ClCompile Include="..\IO\NMIIO.C" />
+    <ClCompile Include="..\IO\NP2SYSP.C" />
+    <ClCompile Include="..\IO\NP2VASUP.C" />
+    <ClCompile Include="..\IO\PIC.C" />
+    <ClCompile Include="..\IO\PIT.C" />
+    <ClCompile Include="..\IO\PRINTIF.C" />
+    <ClCompile Include="..\IO\SERIAL.C" />
+    <ClCompile Include="..\IO\SYSPORT.C" />
+    <ClCompile Include="..\IO\UPD4990.C" />
+    <ClCompile Include="..\CBUS\AMD98.C" />
+    <ClCompile Include=".\BOARD118.C" />
+    <ClCompile Include="..\CBUS\BOARD14.C" />
+    <ClCompile Include="..\CBUS\BOARD26K.C" />
+    <ClCompile Include="..\CBUS\BOARD86.C" />
+    <ClCompile Include="..\CBUS\BOARDSPB.C" />
+    <ClCompile Include="..\CBUS\BOARDX2.C" />
+    <ClCompile Include="..\CBUS\CBUSCORE.C" />
+    <ClCompile Include="..\CBUS\CS4231IO.C" />
+    <ClCompile Include="..\CBUS\IDEIO.C" />
+    <ClCompile Include="..\CBUS\MPU98II.C" />
+    <ClCompile Include="..\CBUS\PC9861K.C" />
+    <ClCompile Include="..\CBUS\PCM86IO.C" />
+    <ClCompile Include="..\CBUS\SASIIO.C" />
+    <ClCompile Include="..\CBUS\SCSICMD.C" />
+    <ClCompile Include="..\CBUS\SCSIIO.C" />
+    <ClCompile Include="..\VRAM\DISPSYNC.C" />
+    <ClCompile Include="..\VRAM\MAKETEXT.C" />
+    <ClCompile Include="..\VRAM\MAKETGRP.C" />
+    <ClCompile Include="..\VRAM\PALETTES.C" />
+    <ClCompile Include="..\VRAM\SCRNDRAW.C" />
+    <ClCompile Include="..\VRAM\SCRNSAVE.C" />
+    <ClCompile Include="..\VRAM\SDRAW.C" />
+    <ClCompile Include="..\VRAM\VRAM.C" />
+    <ClCompile Include="..\GENERIC\CMJASTS.C" />
+    <ClCompile Include="..\GENERIC\CMNDRAW.C" />
+    <ClCompile Include="..\GENERIC\DIPSWBMP.C" />
+    <ClCompile Include="..\GENERIC\HOSTDRV.C" />
+    <ClCompile Include="..\GENERIC\HOSTDRVS.C" />
+    <ClCompile Include="..\GENERIC\KEYDISP.C" />
+    <ClCompile Include="..\GENERIC\NP2INFO.C" />
+    <ClCompile Include="..\GENERIC\SOFTKBD.C" />
+    <ClCompile Include="..\GENERIC\UNASM.C" />
+    <ClCompile Include="..\VRAMVA\MAKEGRPHVA.C" />
+    <ClCompile Include="..\VRAMVA\MAKESPRVA.C" />
+    <ClCompile Include="..\VRAMVA\MAKETEXTVA.C" />
+    <ClCompile Include="..\VRAMVA\PALETTESVA.C" />
+    <ClCompile Include="..\VRAMVA\SCRNDRAWVA.C" />
+    <ClCompile Include="..\VRAMVA\SDRAWVA.C" />
+    <ClCompile Include="..\BIOSVA\BIOSVA.C" />
+    <ClCompile Include="..\IOVA\BKUPMEMVA.C" />
+    <ClCompile Include="..\IOVA\BOARDSB2.C" />
+    <ClCompile Include="..\IOVA\CGROMVA.C" />
+    <ClCompile Include="..\IOVA\FDSUBSYS.C" />
+    <ClCompile Include="..\IOVA\GACTRLVA.C" />
+    <ClCompile Include="..\IOVA\I8255.C" />
+    <ClCompile Include="..\IOVA\IOCOREVA.C" />
+    <ClCompile Include="..\IOVA\MEMCTRLVA.C" />
+    <ClCompile Include="..\IOVA\MOUSEIFVA.C" />
+    <ClCompile Include="..\IOVA\SGP.C" />
+    <ClCompile Include="..\IOVA\SUBSYSTEM.CPP" />
+    <ClCompile Include="..\IOVA\SUBSYSTEMIF.C" />
+    <ClCompile Include="..\IOVA\SUBSYSTEMMX.C" />
+    <ClCompile Include="..\IOVA\SYSPORTVA.C" />
+    <ClCompile Include="..\IOVA\TSP.C" />
+    <ClCompile Include="..\IOVA\UPD9002.C" />
+    <ClCompile Include="..\IOVA\VA91.C" />
+    <ClCompile Include="..\IOVA\VIDEOVA.C" />
+    <ClCompile Include="..\CPUCVA\GVRAMVA.C" />
+    <ClCompile Include="..\CPUCVA\Z80c.cpp" />
+    <ClCompile Include="..\CPUCVA\Z80diag.cpp" />
+    <ClCompile Include="..\BREAKPOINT.C" />
+    <ClCompile Include="..\CALENDAR.C" />
+    <ClCompile Include="..\DEBUGSUB.C" />
+    <ClCompile Include="..\KEYSTAT.C" />
+    <ClCompile Include="..\NEVENT.C" />
+    <ClCompile Include="..\OPRECORD.C" />
+    <ClCompile Include="..\PCCORE.C" />
+    <ClCompile Include="..\STATSAVE.C" />
+    <ClCompile Include="..\TIMING.C" />
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include=".\NP2.RC" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\BREAKPOINT.H" />
+    <ClInclude Include="..\IOVA\FDSUBSYS.H" />
+    <ClInclude Include="..\IOVA\GACCESS.H" />
+    <ClInclude Include="..\VRAMVA\MAKESPRVA.H" />
+    <ClInclude Include="..\IO\NP2VASUP.H" />
+    <ClInclude Include="..\VRAMVA\PALETTESVA.H" />
+    <ClInclude Include="..\VRAMVA\SCRNDRAWVA.H" />
+    <ClInclude Include="..\VRAMVA\SDRAWVA.H" />
+    <ClInclude Include="..\IOVA\SGP.H" />
+    <ClInclude Include="..\IOVA\SUBSYSTEM.H" />
+    <ClInclude Include="..\IOVA\TSP.H" />
+    <ClInclude Include="..\IOVA\VIDEOVA.H" />
+    <ClInclude Include=".\DEBUGUTY\VIEWVIDEOVA.H" />
+    <ClInclude Include="..\CPUCVA\Z80if.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include=".\ICONS\NEKOP2.BMP" />
+    <None Include=".\ICONS\Np2.ico" />
+    <None Include=".\ICONS\NP2DEBUG.ICO" />
+    <None Include=".\ICONS\NP2TOOL.BMP" />
+    <None Include=".\ICONS\NP2TOOL2.BMP" />
+    <None Include=".\ICONS\Fddseek.wav" />
+    <None Include=".\ICONS\Fddseek1.wav" />
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include=".\x86\PARTS.X86">
+      <Command Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Release|Win32&#x27;">cd /d "$(ProjectDir)"
+nasm -f win32 "%(FullPath)" -o "$(IntDir)%(Filename).obj"
+</Command>
+      <Message Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Release|Win32&#x27;">Assembling %(FullPath)</Message>
+      <Outputs Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Release|Win32&#x27;">$(IntDir)%(Filename).obj;%(Outputs)</Outputs>
+      <Command Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Trace|Win32&#x27;">cd /d "$(ProjectDir)"
+nasm -f win32 "%(FullPath)" -o "$(IntDir)%(Filename).obj"
+</Command>
+      <Message Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Trace|Win32&#x27;">Assembling %(FullPath)</Message>
+      <Outputs Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Trace|Win32&#x27;">$(IntDir)%(Filename).obj;%(Outputs)</Outputs>
+      <Command Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;WaveRec|Win32&#x27;">cd /d "$(ProjectDir)"
+nasm -f win32 "%(FullPath)" -o "$(IntDir)%(Filename).obj"
+</Command>
+      <Message Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;WaveRec|Win32&#x27;">Assembling %(FullPath)</Message>
+      <Outputs Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;WaveRec|Win32&#x27;">$(IntDir)%(Filename).obj;%(Outputs)</Outputs>
+      <Command Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Debug|Win32&#x27;">cd /d "$(ProjectDir)"
+nasm -f win32 "%(FullPath)" -o "$(IntDir)%(Filename).obj"
+</Command>
+      <Message Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Debug|Win32&#x27;">Assembling %(FullPath)</Message>
+      <Outputs Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Debug|Win32&#x27;">$(IntDir)%(Filename).obj;%(Outputs)</Outputs>
+    </CustomBuild>
+    <CustomBuild Include="..\I286X\DMAP.X86">
+      <Command Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Release|Win32&#x27;">cd /d "$(ProjectDir)"
+nasm -f win32 "%(FullPath)" -o "$(IntDir)%(Filename).obj"
+</Command>
+      <Message Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Release|Win32&#x27;">Assembling %(FullPath)</Message>
+      <Outputs Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Release|Win32&#x27;">$(IntDir)%(Filename).obj;%(Outputs)</Outputs>
+      <Command Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Trace|Win32&#x27;">cd /d "$(ProjectDir)"
+nasm -f win32 "%(FullPath)" -o "$(IntDir)%(Filename).obj"
+</Command>
+      <Message Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Trace|Win32&#x27;">Assembling %(FullPath)</Message>
+      <Outputs Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Trace|Win32&#x27;">$(IntDir)%(Filename).obj;%(Outputs)</Outputs>
+      <Command Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;WaveRec|Win32&#x27;">cd /d "$(ProjectDir)"
+nasm -f win32 "%(FullPath)" -o "$(IntDir)%(Filename).obj"
+</Command>
+      <Message Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;WaveRec|Win32&#x27;">Assembling %(FullPath)</Message>
+      <Outputs Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;WaveRec|Win32&#x27;">$(IntDir)%(Filename).obj;%(Outputs)</Outputs>
+      <Command Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Debug|Win32&#x27;">cd /d "$(ProjectDir)"
+nasm -f win32 "%(FullPath)" -o "$(IntDir)%(Filename).obj"
+</Command>
+      <Message Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Debug|Win32&#x27;">Assembling %(FullPath)</Message>
+      <Outputs Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Debug|Win32&#x27;">$(IntDir)%(Filename).obj;%(Outputs)</Outputs>
+    </CustomBuild>
+    <CustomBuild Include="..\I286X\EGCMEM.X86">
+      <Command Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Release|Win32&#x27;">cd /d "$(ProjectDir)"
+nasm -f win32 "%(FullPath)" -o "$(IntDir)%(Filename).obj"
+</Command>
+      <Message Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Release|Win32&#x27;">Assembling %(FullPath)</Message>
+      <Outputs Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Release|Win32&#x27;">$(IntDir)%(Filename).obj;%(Outputs)</Outputs>
+      <AdditionalInputs Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Release|Win32&#x27;">.\x86\NP2ASM.INC;%(AdditionalInputs)</AdditionalInputs>
+      <Command Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Trace|Win32&#x27;">cd /d "$(ProjectDir)"
+nasm -f win32 "%(FullPath)" -o "$(IntDir)%(Filename).obj"
+</Command>
+      <Message Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Trace|Win32&#x27;">Assembling %(FullPath)</Message>
+      <Outputs Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Trace|Win32&#x27;">$(IntDir)%(Filename).obj;%(Outputs)</Outputs>
+      <AdditionalInputs Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Trace|Win32&#x27;">.\x86\NP2ASM.INC;%(AdditionalInputs)</AdditionalInputs>
+      <Command Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;WaveRec|Win32&#x27;">cd /d "$(ProjectDir)"
+nasm -f win32 "%(FullPath)" -o "$(IntDir)%(Filename).obj"
+</Command>
+      <Message Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;WaveRec|Win32&#x27;">Assembling %(FullPath)</Message>
+      <Outputs Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;WaveRec|Win32&#x27;">$(IntDir)%(Filename).obj;%(Outputs)</Outputs>
+      <AdditionalInputs Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;WaveRec|Win32&#x27;">.\x86\NP2ASM.INC;%(AdditionalInputs)</AdditionalInputs>
+      <Command Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Debug|Win32&#x27;">cd /d "$(ProjectDir)"
+nasm -f win32 "%(FullPath)" -o "$(IntDir)%(Filename).obj"
+</Command>
+      <Message Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Debug|Win32&#x27;">Assembling %(FullPath)</Message>
+      <Outputs Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Debug|Win32&#x27;">$(IntDir)%(Filename).obj;%(Outputs)</Outputs>
+      <AdditionalInputs Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Debug|Win32&#x27;">.\x86\NP2ASM.INC;%(AdditionalInputs)</AdditionalInputs>
+    </CustomBuild>
+    <CustomBuild Include="..\I286X\MEMORY.X86">
+      <Command Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Release|Win32&#x27;">cd /d "$(ProjectDir)"
+nasm -f win32 "%(FullPath)" -o "$(IntDir)%(Filename).obj"
+</Command>
+      <Message Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Release|Win32&#x27;">Assembling %(FullPath)</Message>
+      <Outputs Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Release|Win32&#x27;">$(IntDir)%(Filename).obj;%(Outputs)</Outputs>
+      <AdditionalInputs Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Release|Win32&#x27;">.\x86\NP2ASM.INC;%(AdditionalInputs)</AdditionalInputs>
+      <Command Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Trace|Win32&#x27;">cd /d "$(ProjectDir)"
+nasm -f win32 "%(FullPath)" -o "$(IntDir)%(Filename).obj"
+</Command>
+      <Message Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Trace|Win32&#x27;">Assembling %(FullPath)</Message>
+      <Outputs Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Trace|Win32&#x27;">$(IntDir)%(Filename).obj;%(Outputs)</Outputs>
+      <AdditionalInputs Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Trace|Win32&#x27;">.\x86\NP2ASM.INC;%(AdditionalInputs)</AdditionalInputs>
+      <Command Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;WaveRec|Win32&#x27;">cd /d "$(ProjectDir)"
+nasm -f win32 "%(FullPath)" -o "$(IntDir)%(Filename).obj"
+</Command>
+      <Message Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;WaveRec|Win32&#x27;">Assembling %(FullPath)</Message>
+      <Outputs Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;WaveRec|Win32&#x27;">$(IntDir)%(Filename).obj;%(Outputs)</Outputs>
+      <AdditionalInputs Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;WaveRec|Win32&#x27;">.\x86\NP2ASM.INC;%(AdditionalInputs)</AdditionalInputs>
+      <Command Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Debug|Win32&#x27;">cd /d "$(ProjectDir)"
+nasm -f win32 "%(FullPath)" -o "$(IntDir)%(Filename).obj"
+</Command>
+      <Message Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Debug|Win32&#x27;">Assembling %(FullPath)</Message>
+      <Outputs Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Debug|Win32&#x27;">$(IntDir)%(Filename).obj;%(Outputs)</Outputs>
+      <AdditionalInputs Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Debug|Win32&#x27;">.\x86\NP2ASM.INC;%(AdditionalInputs)</AdditionalInputs>
+    </CustomBuild>
+    <CustomBuild Include=".\x86\OPNGENG.X86">
+      <Command Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Release|Win32&#x27;">cd /d "$(ProjectDir)"
+nasm -f win32 "%(FullPath)" -o "$(IntDir)%(Filename).obj"
+</Command>
+      <Message Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Release|Win32&#x27;">Assembling %(FullPath)</Message>
+      <Outputs Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Release|Win32&#x27;">$(IntDir)%(Filename).obj;%(Outputs)</Outputs>
+      <Command Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Trace|Win32&#x27;">cd /d "$(ProjectDir)"
+nasm -f win32 "%(FullPath)" -o "$(IntDir)%(Filename).obj" -l "$(IntDir)%(Filename).cod"
+</Command>
+      <Message Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Trace|Win32&#x27;">Assembling %(FullPath)</Message>
+      <Outputs Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Trace|Win32&#x27;">$(IntDir)%(Filename).obj;%(Outputs)</Outputs>
+      <Command Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;WaveRec|Win32&#x27;">cd /d "$(ProjectDir)"
+nasm -f win32 "%(FullPath)" -o "$(IntDir)%(Filename).obj" -l "$(IntDir)%(Filename).cod"
+</Command>
+      <Message Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;WaveRec|Win32&#x27;">Assembling %(FullPath)</Message>
+      <Outputs Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;WaveRec|Win32&#x27;">$(IntDir)%(Filename).obj;%(Outputs)</Outputs>
+      <Command Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Debug|Win32&#x27;">cd /d "$(ProjectDir)"
+nasm -f win32 "%(FullPath)" -o "$(IntDir)%(Filename).obj"
+</Command>
+      <Message Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Debug|Win32&#x27;">Assembling %(FullPath)</Message>
+      <Outputs Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Debug|Win32&#x27;">$(IntDir)%(Filename).obj;%(Outputs)</Outputs>
+    </CustomBuild>
+    <CustomBuild Include=".\x86\CPUTYPE.X86">
+      <Command Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Release|Win32&#x27;">cd /d "$(ProjectDir)"
+nasm -f win32 "%(FullPath)" -o "$(IntDir)%(Filename).obj"
+</Command>
+      <Message Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Release|Win32&#x27;">Assembling %(FullPath)</Message>
+      <Outputs Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Release|Win32&#x27;">$(IntDir)%(Filename).obj;%(Outputs)</Outputs>
+      <Command Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Trace|Win32&#x27;">cd /d "$(ProjectDir)"
+nasm -f win32 "%(FullPath)" -o "$(IntDir)%(Filename).obj"
+</Command>
+      <Message Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Trace|Win32&#x27;">Assembling %(FullPath)</Message>
+      <Outputs Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Trace|Win32&#x27;">$(IntDir)%(Filename).obj;%(Outputs)</Outputs>
+      <Command Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;WaveRec|Win32&#x27;">cd /d "$(ProjectDir)"
+nasm -f win32 "%(FullPath)" -o "$(IntDir)%(Filename).obj"
+</Command>
+      <Message Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;WaveRec|Win32&#x27;">Assembling %(FullPath)</Message>
+      <Outputs Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;WaveRec|Win32&#x27;">$(IntDir)%(Filename).obj;%(Outputs)</Outputs>
+      <Command Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Debug|Win32&#x27;">cd /d "$(ProjectDir)"
+nasm -f win32 "%(FullPath)" -o "$(IntDir)%(Filename).obj"
+</Command>
+      <Message Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Debug|Win32&#x27;">Assembling %(FullPath)</Message>
+      <Outputs Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Debug|Win32&#x27;">$(IntDir)%(Filename).obj;%(Outputs)</Outputs>
+    </CustomBuild>
+    <CustomBuild Include=".\DCLOCKD.X86">
+      <Command Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Release|Win32&#x27;">cd /d "$(ProjectDir)"
+nasm -f win32 "%(FullPath)" -o "$(IntDir)%(Filename).obj"
+</Command>
+      <Message Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Release|Win32&#x27;">Assembling %(FullPath)</Message>
+      <Outputs Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Release|Win32&#x27;">$(IntDir)%(Filename).obj;%(Outputs)</Outputs>
+      <Command Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Trace|Win32&#x27;">cd /d "$(ProjectDir)"
+nasm -f win32 "%(FullPath)" -o "$(IntDir)%(Filename).obj"
+</Command>
+      <Message Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Trace|Win32&#x27;">Assembling %(FullPath)</Message>
+      <Outputs Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Trace|Win32&#x27;">$(IntDir)%(Filename).obj;%(Outputs)</Outputs>
+      <Command Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;WaveRec|Win32&#x27;">cd /d "$(ProjectDir)"
+nasm -f win32 "%(FullPath)" -o "$(IntDir)%(Filename).obj"
+</Command>
+      <Message Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;WaveRec|Win32&#x27;">Assembling %(FullPath)</Message>
+      <Outputs Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;WaveRec|Win32&#x27;">$(IntDir)%(Filename).obj;%(Outputs)</Outputs>
+      <Command Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Debug|Win32&#x27;">cd /d "$(ProjectDir)"
+nasm -f win32 "%(FullPath)" -o "$(IntDir)%(Filename).obj"
+</Command>
+      <Message Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Debug|Win32&#x27;">Assembling %(FullPath)</Message>
+      <Outputs Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Debug|Win32&#x27;">$(IntDir)%(Filename).obj;%(Outputs)</Outputs>
+    </CustomBuild>
+    <CustomBuild Include=".\x86\MAKEGRPH.X86">
+      <Command Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Release|Win32&#x27;">cd /d "$(ProjectDir)"
+nasm -f win32 "%(FullPath)" -o "$(IntDir)%(Filename).obj"
+</Command>
+      <Message Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Release|Win32&#x27;">Assembling %(FullPath)</Message>
+      <Outputs Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Release|Win32&#x27;">$(IntDir)%(Filename).obj;%(Outputs)</Outputs>
+      <AdditionalInputs Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Release|Win32&#x27;">.\x86\NP2ASM.INC;%(AdditionalInputs)</AdditionalInputs>
+      <Command Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Trace|Win32&#x27;">cd /d "$(ProjectDir)"
+nasm -f win32 "%(FullPath)" -o "$(IntDir)%(Filename).obj"
+</Command>
+      <Message Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Trace|Win32&#x27;">Assembling %(FullPath)</Message>
+      <Outputs Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Trace|Win32&#x27;">$(IntDir)%(Filename).obj;%(Outputs)</Outputs>
+      <AdditionalInputs Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Trace|Win32&#x27;">.\x86\NP2ASM.INC;%(AdditionalInputs)</AdditionalInputs>
+      <Command Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;WaveRec|Win32&#x27;">cd /d "$(ProjectDir)"
+nasm -f win32 "%(FullPath)" -o "$(IntDir)%(Filename).obj"
+</Command>
+      <Message Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;WaveRec|Win32&#x27;">Assembling %(FullPath)</Message>
+      <Outputs Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;WaveRec|Win32&#x27;">$(IntDir)%(Filename).obj;%(Outputs)</Outputs>
+      <AdditionalInputs Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;WaveRec|Win32&#x27;">.\x86\NP2ASM.INC;%(AdditionalInputs)</AdditionalInputs>
+      <Command Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Debug|Win32&#x27;">cd /d "$(ProjectDir)"
+nasm -f win32 "%(FullPath)" -o "$(IntDir)%(Filename).obj"
+</Command>
+      <Message Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Debug|Win32&#x27;">Assembling %(FullPath)</Message>
+      <Outputs Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Debug|Win32&#x27;">$(IntDir)%(Filename).obj;%(Outputs)</Outputs>
+      <AdditionalInputs Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Debug|Win32&#x27;">.\x86\NP2ASM.INC;%(AdditionalInputs)</AdditionalInputs>
+    </CustomBuild>
+    <CustomBuild Include="..\CPUXVA\MEMORYVA.X86">
+      <Command Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Release|Win32&#x27;">cd /d "$(ProjectDir)"
+nasm -f win32 "%(FullPath)" -o "$(IntDir)%(Filename).obj"
+</Command>
+      <Message Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Release|Win32&#x27;">Assembling %(FullPath)</Message>
+      <Outputs Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Release|Win32&#x27;">$(IntDir)%(Filename).obj;%(Outputs)</Outputs>
+      <AdditionalInputs Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Release|Win32&#x27;">.\x86\NP2ASM.INC;%(AdditionalInputs)</AdditionalInputs>
+      <ExcludedFromBuild Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Trace|Win32&#x27;">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;WaveRec|Win32&#x27;">true</ExcludedFromBuild>
+      <Command Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Debug|Win32&#x27;">cd /d "$(ProjectDir)"
+nasm -f win32 "%(FullPath)" -o "$(IntDir)%(Filename).obj"
+</Command>
+      <Message Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Debug|Win32&#x27;">Assembling %(FullPath)</Message>
+      <Outputs Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Debug|Win32&#x27;">$(IntDir)%(Filename).obj;%(Outputs)</Outputs>
+      <AdditionalInputs Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Debug|Win32&#x27;">.\x86\NP2ASM.INC;%(AdditionalInputs)</AdditionalInputs>
+    </CustomBuild>
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+</Project>
