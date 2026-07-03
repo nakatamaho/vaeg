@@ -15,7 +15,10 @@ Required assembler: NASM 2.00 or newer, installed as `nasm` on `PATH`. The old `
 
 ## Source Deviations
 
-None. No source files were modified.
+| File | Line | Reason |
+|---|---:|---|
+| `Win9x/NP2.RC` | 10 | Replaced MFC-only `afxres.h` with Windows SDK `winres.h`; the VS2008 resource compiler environment reported RC1015 because `afxres.h` was unavailable, and the project does not otherwise use MFC. |
+| `Win9x/NP2.RC` | 816 | Updated the matching `TEXTINCLUDE` resource so future Resource Editor regeneration keeps the same non-MFC Windows SDK header. |
 
 ## Project Deviations
 
