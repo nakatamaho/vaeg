@@ -111,9 +111,9 @@ section .text
 	extern	_sinshift
 	extern	_envshift
 
-ENVCURVE	equ		(_opncfg + opncfg_t.envcurve)
-SINTABLE	equ		(_opncfg + opncfg_t.sintable)
-ENVTABLE	equ		(_opncfg + opncfg_t.envtable)
+%define	ENVCURVE	(_opncfg + opncfg_t.envcurve)
+%define	SINTABLE	(_opncfg + opncfg_t.sintable)
+%define	ENVTABLE	(_opncfg + opncfg_t.envtable)
 
 
 	global	@opngen_getpcm@12

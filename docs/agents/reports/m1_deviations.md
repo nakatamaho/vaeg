@@ -26,6 +26,10 @@ Required legacy DirectX import libraries: `dxguid.lib` and `DSOUND.LIB` must be 
 | `Win9x/DD2.CPP` | 60 | Replaced the import-library call to `DirectDrawCreate` with the local loader; behavior still fails through the existing error path when DirectDraw is unavailable. |
 | `Win9x/SCRNMNG.CPP` | 3 | Added the same local `DirectDrawCreate` loader for the primary screen manager, for the same missing `ddraw.lib` reason. |
 | `Win9x/SCRNMNG.CPP` | 406 | Replaced the import-library call to `DirectDrawCreate` with the local loader; behavior still fails through the existing error path when DirectDraw is unavailable. |
+| `I286X/MEMORY.X86` | 40 | Converted external-symbol address aliases from `equ` to `%define` so modern NASM expands them before COFF relocation; this resolves unresolved aliases such as `_bmsio_nomem`, `VIDEOMEMORY`, and `_extmemmng_ptr` without changing the target addresses. |
+| `I286X/EGCMEM.X86` | 37 | Converted `VIDEOMEMORY` from an external-symbol `equ` alias to `%define` for the same NASM/COFF relocation reason. |
+| `Win9x/x86/OPNGENG.X86` | 114 | Converted `ENVCURVE`, `SINTABLE`, and `ENVTABLE` from external-symbol `equ` aliases to `%define` for the same NASM/COFF relocation reason. |
+| `Win9x/x86/MAKEGRPH.X86` | 18 | Converted the `GDC_S_*` address aliases from external-symbol `equ` aliases to `%define` for the same NASM/COFF relocation reason. |
 
 ## Project Deviations
 
@@ -102,5 +106,6 @@ Win9x/np2.vcproj: 261 <File> entries
 Win9x/np2.vcproj: 34 per-configuration NASM command lines across 9 .X86 inputs
 Win9x/np2.vcproj: 4 linker tools with explicit DirectX SDK and VS2008/Windows SDK library search paths
 Win9x/np2.vcproj: 0 ddraw.lib dependencies
+I286X/MEMORY.X86, I286X/EGCMEM.X86, Win9x/x86/OPNGENG.X86, Win9x/x86/MAKEGRPH.X86: external address aliases use NASM %define instead of relocatable equ aliases
 Win9x/np2.vcproj: no c:\bin\nasm\nasmw references
 ```
