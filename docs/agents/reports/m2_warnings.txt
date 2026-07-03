@@ -13,6 +13,10 @@ VS2017 then selected Windows SDK 8.1, which is also not installed. The VS2017
 environment needs a Windows SDK component installed before the v141 build can
 reach compiler warnings.
 
+User-side PowerShell then confirmed Windows 10 SDK 10.0.19041.0 is installed.
+The M2 project now pins WindowsTargetPlatformVersion to 10.0.19041.0 so VS2017
+uses that SDK instead of falling back to the missing 8.1 SDK.
+
 No warnings were fixed or suppressed in M2. Replace this status note with the
 full VS2017/v141 new-warning dump from the user-side G2 build before tagging
 baseline-v141.
