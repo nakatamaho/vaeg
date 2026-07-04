@@ -35,6 +35,7 @@ typedef struct {
 	SDL_Texture		*texture;
 	int				scale;
 	BOOL			aspect;
+	int				menu_height;
 } SCRNMNG;
 
 typedef struct {
@@ -74,7 +75,7 @@ BOOL scrnmng_create(int width, int height) {
 		fprintf(stderr, "Error: SDL_CreateRenderer: %s\n", SDL_GetError());
 		return(FAILURE);
 	}
-	SDL_RenderSetLogicalSize(scrnmng.renderer, width, height);
+	SDL_RenderSetLogicalSize(scrnmng.renderer, 0, 0);
 	scrnmng.texture = SDL_CreateTexture(scrnmng.renderer,
 							SDL_PIXELFORMAT_RGB565,
 							SDL_TEXTUREACCESS_STREAMING, width, height);
@@ -117,9 +118,29 @@ void *scrnmng_get_renderer(void) {
 	return(scrnmng.renderer);
 }
 
-void scrnmng_set_display(int scale, BOOL aspect) {
+static void scrnmng_update_window_size(void) {
 
-	int		display_height;
+	if (scrnmng.window) {
+		SDL_SetWindowSize(scrnmng.window,
+							scrnmng.width * scrnmng.scale,
+							scrnmng.menu_height +
+								(scrnmng.height * scrnmng.scale));
+	}
+}
+
+void scrnmng_set_menu_height(int height) {
+
+	if (height < 0) {
+		height = 0;
+	}
+	if (scrnmng.menu_height == height) {
+		return;
+	}
+	scrnmng.menu_height = height;
+	scrnmng_update_window_size();
+}
+
+void scrnmng_set_display(int scale, BOOL aspect) {
 
 	if (scale < 1) {
 		scale = 1;
@@ -129,15 +150,7 @@ void scrnmng_set_display(int scale, BOOL aspect) {
 	}
 	scrnmng.scale = scale;
 	scrnmng.aspect = aspect ? TRUE : FALSE;
-	display_height = scrnmng.aspect ? 480 : scrnmng.height;
-	if (scrnmng.window) {
-		SDL_SetWindowSize(scrnmng.window, scrnmng.width * scrnmng.scale,
-							display_height * scrnmng.scale);
-	}
-	if (scrnmng.renderer) {
-		SDL_RenderSetLogicalSize(scrnmng.renderer, scrnmng.width,
-									display_height);
-	}
+	scrnmng_update_window_size();
 }
 
 int scrnmng_get_display_scale(void) {
@@ -213,18 +226,14 @@ void scrnmng_present_begin(void) {
 		(scrnmng.texture == NULL)) {
 		return;
 	}
+	SDL_SetRenderDrawColor(scrnmng.renderer, 0, 0, 0, 255);
 	SDL_RenderClear(scrnmng.renderer);
-	if (scrnmng.aspect) {
-		SDL_Rect dst;
-		dst.x = 0;
-		dst.y = 0;
-		dst.w = scrnmng.width;
-		dst.h = 480;
-		SDL_RenderCopy(scrnmng.renderer, scrnmng.texture, NULL, &dst);
-	}
-	else {
-		SDL_RenderCopy(scrnmng.renderer, scrnmng.texture, NULL, NULL);
-	}
+	SDL_Rect dst;
+	dst.x = 0;
+	dst.y = scrnmng.menu_height;
+	dst.w = scrnmng.width * scrnmng.scale;
+	dst.h = scrnmng.height * scrnmng.scale;
+	SDL_RenderCopy(scrnmng.renderer, scrnmng.texture, NULL, &dst);
 }
 
 void scrnmng_present_end(void) {

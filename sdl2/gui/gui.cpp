@@ -30,6 +30,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <filesystem>
@@ -769,6 +770,8 @@ void gui_new_frame(void) {
 	ImGui_ImplSDLRenderer2_NewFrame();
 	ImGui_ImplSDL2_NewFrame();
 	ImGui::NewFrame();
+	scrnmng_set_menu_height(
+		static_cast<int>(std::ceil(ImGui::GetFrameHeight())));
 }
 
 void gui_draw(void) {
