@@ -419,6 +419,7 @@ static const INITBL iniitem[] = {
 	{"jast_snd", INITYPE_BOOL,		&np2oscfg.jastsnd,		0},		// ver0.73
 	{"GUI_scale", INITYPE_UINT8,		&np2oscfg.gui_scale,	0},
 	{"GUI_aspect", INITYPE_BOOL,		&np2oscfg.gui_aspect,	0},
+	{"GUI_fdddir", INITYPE_STR,		np2oscfg.gui_fdd_dir,	MAX_PATH},
 };
 
 #define	INIITEMS	(sizeof(iniitem) / sizeof(INITBL))

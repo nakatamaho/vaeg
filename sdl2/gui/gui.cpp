@@ -28,8 +28,11 @@
 #include "backends/imgui_impl_sdl2.h"
 #include "backends/imgui_impl_sdlrenderer2.h"
 
+#include <algorithm>
+#include <cctype>
 #include <cstdio>
 #include <cstdlib>
+#include <filesystem>
 #include <fstream>
 #include <string>
 #include <vector>
@@ -58,6 +61,13 @@ namespace {
 
 constexpr const char *kFontName = "NotoSansJP-Regular.ttf";
 constexpr int kStateSlots = 10;
+namespace fs = std::filesystem;
+
+struct BrowserEntry {
+	std::string name;
+	std::string path;
+	bool is_dir = false;
+};
 
 struct GuiState {
 	bool initialized = false;
@@ -65,6 +75,10 @@ struct GuiState {
 	std::string font_path;
 	int fdd_dialog_drive = -1;
 	char fdd_path[2][MAX_PATH] = {};
+	bool fdd_browser_open = false;
+	bool fdd_browser_refresh = false;
+	std::string fdd_browser_dir;
+	std::vector<BrowserEntry> fdd_entries;
 	std::string fdd_status;
 	std::string state_status;
 	UINT sound_sw_saved = 0;
@@ -131,6 +145,101 @@ static void menu_item_not_implemented(const char *label) {
 	ImGui::EndDisabled();
 }
 
+static std::string home_dir(void) {
+
+	const char *home;
+
+	home = std::getenv("HOME");
+	if ((home != nullptr) && (home[0] != '\0')) {
+		return home;
+	}
+	return ".";
+}
+
+static bool is_directory(const std::string &path) {
+
+	std::error_code ec;
+	return fs::is_directory(fs::u8path(path), ec);
+}
+
+static std::string absolute_path(const std::string &path) {
+
+	std::error_code ec;
+	fs::path abs = fs::absolute(fs::u8path(path), ec);
+	if (ec) {
+		return path;
+	}
+	return abs.u8string();
+}
+
+static std::string parent_dir(const std::string &path) {
+
+	std::error_code ec;
+	fs::path p = fs::absolute(fs::u8path(path), ec);
+	if (ec) {
+		p = fs::u8path(path);
+	}
+	p = p.parent_path();
+	if (p.empty()) {
+		return home_dir();
+	}
+	return p.u8string();
+}
+
+static void copy_path(char *dst, size_t dst_size, const std::string &src) {
+
+	milstr_ncpy(dst, src.c_str(), static_cast<int>(dst_size));
+}
+
+static bool browser_entry_less(const BrowserEntry &a, const BrowserEntry &b) {
+
+	if (a.is_dir != b.is_dir) {
+		return a.is_dir > b.is_dir;
+	}
+	return a.name < b.name;
+}
+
+static void refresh_fdd_browser(void) {
+
+	std::error_code ec;
+
+	g_gui.fdd_entries.clear();
+	if (!is_directory(g_gui.fdd_browser_dir)) {
+		g_gui.fdd_browser_dir = home_dir();
+	}
+	for (const auto &entry :
+		 fs::directory_iterator(fs::u8path(g_gui.fdd_browser_dir), ec)) {
+		BrowserEntry item;
+		std::error_code st_ec;
+
+		if (ec) {
+			break;
+		}
+		item.is_dir = entry.is_directory(st_ec);
+		if ((!item.is_dir) && (!entry.is_regular_file(st_ec))) {
+			continue;
+		}
+		item.name = entry.path().filename().u8string();
+		item.path = entry.path().u8string();
+		if (item.name.empty() || (item.name[0] == '.')) {
+			continue;
+		}
+		g_gui.fdd_entries.push_back(item);
+	}
+	std::sort(g_gui.fdd_entries.begin(), g_gui.fdd_entries.end(),
+			  browser_entry_less);
+	g_gui.fdd_browser_refresh = false;
+}
+
+static void persist_fdd_dir(const std::string &dir) {
+
+	if (!is_directory(dir)) {
+		return;
+	}
+	copy_path(np2oscfg.gui_fdd_dir, sizeof(np2oscfg.gui_fdd_dir), dir);
+	sysmng_update(SYS_UPDATEOSCFG);
+}
+
 static bool file_is_mountable(const char *path, std::string *error) {
 
 	short attr;
@@ -167,14 +276,26 @@ static void set_fdd_status(int drive, const char *action, const char *path) {
 static void open_fdd_dialog(int drive) {
 
 	const char *current;
+	std::string start_dir;
 
 	g_gui.fdd_dialog_drive = drive;
 	current = fdd_diskname(static_cast<REG8>(drive));
 	if ((current != nullptr) && (current[0] != '\0')) {
 		milstr_ncpy(g_gui.fdd_path[drive], current,
 					sizeof(g_gui.fdd_path[drive]));
+		start_dir = parent_dir(current);
 	}
-	ImGui::OpenPopup("Mount FDD image");
+	if (start_dir.empty() &&
+		(np2oscfg.gui_fdd_dir[0] != '\0') &&
+		is_directory(np2oscfg.gui_fdd_dir)) {
+		start_dir = np2oscfg.gui_fdd_dir;
+	}
+	if (start_dir.empty()) {
+		start_dir = home_dir();
+	}
+	g_gui.fdd_browser_dir = absolute_path(start_dir);
+	g_gui.fdd_browser_open = true;
+	g_gui.fdd_browser_refresh = true;
 }
 
 static void mount_fdd_from_dialog(void) {
@@ -196,8 +317,9 @@ static void mount_fdd_from_dialog(void) {
 		return;
 	}
 	diskdrv_setfdd(static_cast<REG8>(drive), path, 0);
+	persist_fdd_dir(parent_dir(path));
 	set_fdd_status(drive, "mounted", path);
-	ImGui::CloseCurrentPopup();
+	g_gui.fdd_browser_open = false;
 }
 
 static void eject_fdd(int drive) {
@@ -206,33 +328,71 @@ static void eject_fdd(int drive) {
 	set_fdd_status(drive, "ejected", nullptr);
 }
 
-static void draw_fdd_dialog(void) {
+static void draw_fdd_browser(void) {
 
 	int drive;
 
-	if (ImGui::BeginPopupModal("Mount FDD image", nullptr,
-							  ImGuiWindowFlags_AlwaysAutoResize)) {
-		drive = g_gui.fdd_dialog_drive;
-		if ((drive >= 0) && (drive < 2)) {
-			ImGui::Text("FDD%d image path", drive + 1);
-			ImGui::SetNextItemWidth(560.0f);
-			ImGui::InputText("##fdd-path", g_gui.fdd_path[drive],
-							 sizeof(g_gui.fdd_path[drive]));
-			if (ImGui::Button("Mount")) {
-				mount_fdd_from_dialog();
-			}
-			ImGui::SameLine();
-			if (ImGui::Button("Cancel")) {
-				g_gui.fdd_dialog_drive = -1;
-				ImGui::CloseCurrentPopup();
-			}
-			if (!g_gui.fdd_status.empty()) {
-				ImGui::Separator();
-				ImGui::TextWrapped("%s", g_gui.fdd_status.c_str());
+	if (!g_gui.fdd_browser_open) {
+		return;
+	}
+	drive = g_gui.fdd_dialog_drive;
+	if ((drive < 0) || (drive >= 2)) {
+		g_gui.fdd_browser_open = false;
+		return;
+	}
+	if (g_gui.fdd_browser_refresh) {
+		refresh_fdd_browser();
+	}
+	ImGui::SetNextWindowSize(ImVec2(620.0f, 420.0f),
+							 ImGuiCond_FirstUseEver);
+	if (ImGui::Begin("Mount FDD image", &g_gui.fdd_browser_open)) {
+		ImGui::Text("FDD%d directory", drive + 1);
+		ImGui::TextWrapped("%s", g_gui.fdd_browser_dir.c_str());
+		if (ImGui::Button("Home")) {
+			g_gui.fdd_browser_dir = home_dir();
+			g_gui.fdd_browser_refresh = true;
+		}
+		ImGui::SameLine();
+		if (ImGui::Button("Up")) {
+			g_gui.fdd_browser_dir = parent_dir(g_gui.fdd_browser_dir);
+			g_gui.fdd_browser_refresh = true;
+		}
+		ImGui::Separator();
+		if (ImGui::BeginChild("fdd-browser-list", ImVec2(0, 230.0f),
+							  ImGuiChildFlags_Borders)) {
+			for (const auto &entry : g_gui.fdd_entries) {
+				std::string label = entry.is_dir ? "[D] " : "    ";
+				label += entry.name;
+				if (ImGui::Selectable(label.c_str())) {
+					if (entry.is_dir) {
+						g_gui.fdd_browser_dir = entry.path;
+						g_gui.fdd_browser_refresh = true;
+					}
+					else {
+						copy_path(g_gui.fdd_path[drive],
+								  sizeof(g_gui.fdd_path[drive]),
+								  entry.path);
+					}
+				}
 			}
 		}
-		ImGui::EndPopup();
+		ImGui::EndChild();
+		ImGui::SetNextItemWidth(-1.0f);
+		ImGui::InputText("##fdd-path", g_gui.fdd_path[drive],
+						 sizeof(g_gui.fdd_path[drive]));
+		if (ImGui::Button("Mount")) {
+			mount_fdd_from_dialog();
+		}
+		ImGui::SameLine();
+		if (ImGui::Button("Cancel")) {
+			g_gui.fdd_browser_open = false;
+		}
+		if (!g_gui.fdd_status.empty()) {
+			ImGui::Separator();
+			ImGui::TextWrapped("%s", g_gui.fdd_status.c_str());
+		}
 	}
+	ImGui::End();
 }
 
 static void draw_emulate_menu(void) {
@@ -627,7 +787,7 @@ void gui_draw(void) {
 		draw_system_menu();
 		ImGui::EndMainMenuBar();
 	}
-	draw_fdd_dialog();
+	draw_fdd_browser();
 }
 
 void gui_render(void) {
