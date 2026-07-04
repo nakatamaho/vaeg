@@ -1,6 +1,7 @@
-# M3 Prune Triage List (Phase 1)
+# M3 Prune Triage List
 
-Scope: proposal only. No files were deleted in this session.
+Phase 1 scope: proposal only. No files were deleted in the Phase 1
+session.
 
 Candidate list regenerated with:
 
@@ -108,3 +109,62 @@ entirely?
 If the user approves pruning a whole root, Phase 2 should delete that build root
 first, re-run `find_unreferenced.py --report`, and include newly exposed files
 in the approved deletion list.
+
+## Phase 2 Execution Summary
+
+Commit 1 removed only the user-approved individual files and whole roots:
+
+- `DEBUGSUB386.C`
+- `VRAM/MAKEGREX.C`
+- `Win9x/PCIFUNC.H`
+- `Win9x/x86/OPNGENG2.X86`
+- `WinCE/`
+- `MacOS9/`
+- `Mona/`
+- `I286A/`
+- `Win9xC/`
+- `Win9x/Makefile`
+
+No surviving project/build file referenced an approved deleted path, so no
+project/build files were edited in the deletion commit.
+
+### Machine Checks
+
+| Check | Before Phase 2 | After deletion commit |
+|---|---:|---:|
+| `find_unreferenced.py --report` roots | 23 | 16 |
+| `find_unreferenced.py --report` sources | 839 | 635 |
+| `find_unreferenced.py --report` reached | 787 | 598 |
+| `find_unreferenced.py --report` unreferenced | 52 | 37 |
+| `check_encoding.py --report` ASCII | 628 | 442 |
+| `check_encoding.py --report` BINARY | 48 | 41 |
+| `check_encoding.py --report` CP932 | 403 | 336 |
+| `check_encoding.py --report` UNKNOWN | 1 | 0 |
+| `check_encoding.py --report` UTF8 | 10 | 10 |
+
+Canonical build/project reference check after the deletion commit:
+
+- `Win9x/np2.dsp`: no approved deleted-path references
+- `Win9x/np2.vcproj`: no approved deleted-path references
+- `Win9x/np2.vcxproj`: no approved deleted-path references
+
+## Phase 2b candidates
+
+These files were newly exposed by the approved Phase 2 deletion commit. They
+are not deleted in Phase 2; this section is a proposal for later approval.
+
+### DELETE
+
+| Path | Reason |
+|---|---|
+| `COMMON/UCSCNV.C` | Newly exposed after frozen-root deletion; no scanned root or external textual reference outside reports, only the paired header/self references. |
+| `COMMON/UCSCNV.H` | Paired header for `COMMON/UCSCNV.C`; no surviving build root or external textual reference outside reports. |
+| `Win9x/NP2RES.RC` | Orphan alternate Win9x resource script; no scanned build root or external textual reference outside reports. |
+
+### KEEP
+
+None.
+
+### UNSURE
+
+None.
