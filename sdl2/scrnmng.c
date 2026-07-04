@@ -53,6 +53,43 @@ static	SCRNMNG		scrnmng;
 static	SCRNSTAT	scrnstat;
 static	SCRNSURF	scrnsurf;
 
+static void scrnmng_get_guest_rect(SDL_Rect *dst) {
+
+	dst->x = 0;
+	dst->y = scrnmng.menu_height;
+	dst->w = scrnmng.width * scrnmng.scale;
+	dst->h = scrnmng.height * scrnmng.scale;
+}
+
+void scrnmng_log_geometry(const char *reason) {
+
+	int		window_w;
+	int		window_h;
+	int		renderer_w;
+	int		renderer_h;
+	SDL_Rect	dst;
+
+	if ((!scrnmng.window) || (!scrnmng.renderer)) {
+		return;
+	}
+	if (reason == NULL) {
+		reason = "unknown";
+	}
+	window_w = 0;
+	window_h = 0;
+	renderer_w = 0;
+	renderer_h = 0;
+	SDL_GetWindowSize(scrnmng.window, &window_w, &window_h);
+	SDL_GetRendererOutputSize(scrnmng.renderer, &renderer_w, &renderer_h);
+	scrnmng_get_guest_rect(&dst);
+	fprintf(stderr,
+			"SDL2 geometry [%s]: window=%dx%d renderer=%dx%d "
+			"guest=%d,%d %dx%d scale=%d menu=%d\n",
+			reason, window_w, window_h, renderer_w, renderer_h,
+			dst.x, dst.y, dst.w, dst.h,
+			scrnmng.scale, scrnmng.menu_height);
+}
+
 void scrnmng_initialize(void) {
 
 	ZeroMemory(&scrnmng, sizeof(scrnmng));
@@ -129,14 +166,27 @@ void *scrnmng_get_renderer(void) {
 	return(scrnmng.renderer);
 }
 
-static void scrnmng_update_window_size(void) {
+static BOOL scrnmng_update_window_size(void) {
 
 	if (scrnmng.window) {
-		SDL_SetWindowSize(scrnmng.window,
-							scrnmng.width * scrnmng.scale,
-							scrnmng.menu_height +
-								(scrnmng.height * scrnmng.scale));
+		int		current_w;
+		int		current_h;
+		int		target_w;
+		int		target_h;
+
+		current_w = 0;
+		current_h = 0;
+		target_w = scrnmng.width * scrnmng.scale;
+		target_h = scrnmng.menu_height +
+					(scrnmng.height * scrnmng.scale);
+		SDL_GetWindowSize(scrnmng.window, &current_w, &current_h);
+		if ((current_w == target_w) && (current_h == target_h)) {
+			return(FALSE);
+		}
+		SDL_SetWindowSize(scrnmng.window, target_w, target_h);
+		return(TRUE);
 	}
+	return(FALSE);
 }
 
 void scrnmng_set_menu_height(int height) {
@@ -149,6 +199,7 @@ void scrnmng_set_menu_height(int height) {
 	}
 	scrnmng.menu_height = height;
 	scrnmng_update_window_size();
+	scrnmng_log_geometry("menu-height");
 }
 
 void scrnmng_set_display(int scale, BOOL aspect) {
@@ -162,6 +213,7 @@ void scrnmng_set_display(int scale, BOOL aspect) {
 	scrnmng.scale = scale;
 	scrnmng.aspect = aspect ? TRUE : FALSE;
 	scrnmng_update_window_size();
+	scrnmng_log_geometry("scale-change");
 }
 
 int scrnmng_get_display_scale(void) {
@@ -190,13 +242,27 @@ RGB16 scrnmng_makepal16(RGB32 pal32) {
 
 void scrnmng_setwidth(int posx, int width) {
 
+	if (width < 1) {
+		width = 1;
+	}
+	if (scrnstat.width == width) {
+		return;
+	}
 	scrnstat.width = width;
+	scrnmng_log_geometry("mode-width");
 	(void)posx;
 }
 
 void scrnmng_setheight(int posy, int height) {
 
+	if (height < 1) {
+		height = 1;
+	}
+	if (scrnstat.height == height) {
+		return;
+	}
 	scrnstat.height = height;
+	scrnmng_log_geometry("mode-height");
 	(void)posy;
 }
 
@@ -244,10 +310,7 @@ void scrnmng_present_begin(void) {
 	SDL_SetRenderDrawColor(scrnmng.renderer, 0, 0, 0, 255);
 	SDL_RenderClear(scrnmng.renderer);
 	SDL_Rect dst;
-	dst.x = 0;
-	dst.y = scrnmng.menu_height;
-	dst.w = scrnmng.width * scrnmng.scale;
-	dst.h = scrnmng.height * scrnmng.scale;
+	scrnmng_get_guest_rect(&dst);
 	SDL_RenderCopy(scrnmng.renderer, scrnmng.texture, NULL, &dst);
 }
 
