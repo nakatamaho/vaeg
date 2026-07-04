@@ -45,6 +45,10 @@ extern "C" {
 
 extern	BYTE	mem[0x200000];
 
+#if defined(SUPPORT_PC88VA)
+extern	UINT8	memmode_va;
+#endif
+
 void MEMCALL i286_memorymap(UINT type);
 void MEMCALL i286_romareamap(UINT16 map);
 void MEMCALL i286_vram_dispatch(UINT operate);
@@ -96,4 +100,3 @@ void MEMCALL meml_write(UINT32 address, const void *dat, UINT leng);
 #ifdef __cplusplus
 }
 #endif
-
