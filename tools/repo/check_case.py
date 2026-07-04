@@ -19,8 +19,9 @@ import subprocess
 import sys
 
 ALLOW = {"AGENTS.md"}
-ALLOW_PREFIXES = ("docs/", ".git")
-ALLOW_BASENAMES = {"README.md", "README.txt", "CMakeLists.txt", "SKILL.md",
+ALLOW_PREFIXES = ("docs/", ".git", "external/")
+ALLOW_BASENAMES = {"README.md", "README.txt", "CMakeLists.txt",
+                   "CMakePresets.json", "SKILL.md", "NOTICE.md", "OFL.txt",
                    "LICENSE", "LICENSE.txt"}
 SRC_EXT = {".c", ".h", ".cpp", ".hpp", ".cc", ".asm", ".x86", ".rc", ".tbl"}
 INC_RE = re.compile(rb'''^\s*[#%]\s*include\s+["'<]([^"'>]+)["'>]''',

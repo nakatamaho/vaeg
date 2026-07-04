@@ -1,53 +1,71 @@
-# CONVENTIONS — repository state rules
+# CONVENTIONS — repo invariants and new-code rules (phase 2)
 
-The repository is migrating. The rule set depends on which milestones
-have merged. "Current" below means HEAD of main.
+## Invariants (achieved in phase 1; never regress)
 
-## State matrix
+| Property  | Rule | Checker |
+|-----------|------|---------|
+| Encoding  | UTF-8 without BOM everywhere except `hlp/` (CP932, permanent exemption) | `tools/repo/check_encoding.py` |
+| EOL       | LF; `.dsp/.dsw/.sln/.vcproj/.vcxproj` CRLF via `.gitattributes` | `tools/repo/check_eol.py` |
+| Names     | all tracked paths lowercase, except tool-mandated names and `external/` (allowlist in `check_case.py`) | `tools/repo/check_case.py` |
+| Binaries  | `romimage/`, ROMs, disk images, fonts, icons, wave data are untouchable | review |
 
-| Property        | Before M4/M5/M6 (transitional)        | Target (after M6) |
-|-----------------|----------------------------------------|-------------------|
-| Text encoding   | CP932, no BOM                          | UTF-8, **no BOM** |
-| EOL             | mixed (mostly LF; some CRLF)           | LF, except CRLF list below |
-| File names      | mixed case (IOVA/, *.C, ...)           | lowercase ASCII only |
-| Commit messages | UTF-8 + LF (unchanged)                 | UTF-8 + LF |
+Run the checkers before every push. A regression in any invariant is a
+defect regardless of what the diff was trying to do.
 
-## Permanent CRLF exceptions
+## New code (phase 2)
 
-`*.dsp *.dsw *.sln *.vcproj *.vcxproj *.vcxproj.filters *.bat`
-(VC6/VS project machinery and cmd scripts; some of these parsers
-require CRLF). Everything else is LF after M5.
+- Language: C (C99, no compiler extensions beyond what the tree already
+  uses) for anything the core links. C++17 only under `sdl2/`.
+- Every NEW file starts with this header (adapt comment style):
 
-## Permanent binary set (never renormalize, never re-encode)
+```
+/*
+ * Copyright (c) 2026 Nakata Maho
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE AUTHOR "AS IS" AND ANY EXPRESS OR
+ * IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+ * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+ * DISCLAIMED. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT,
+ * INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+ * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+ * STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING
+ * IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ * POSSIBILITY OF SUCH DAMAGE.
+ */
+```
 
-ROM/BIOS/font/disk images and media: `*.rom *.bin *.d88 *.ico *.cur
-*.bmp *.gif *.png *.wav`. Text sources under `romimage/` are not
-binary. `.gitattributes` (added in M5) is the single source of truth.
+  Files derived by porting an existing file (e.g. `memoryva.c` from
+  `memoryva.x86`) keep the original header FIRST, then add a
+  `ported to C by Nakata Maho, 2026` line. Never remove or reword an
+  existing author's copyright.
+- No new globals into the core from the frontend. Frontend talks to the
+  core through the existing seams (`sysmng`/`taskmng`/`soundmng`-style
+  interfaces), mirroring how `sdl/` and `win9x/` already do it.
+- Do not reformat existing code. No clang-format runs over legacy files.
+- CMake: explicit source lists, no `file(GLOB)`. Options are prefixed
+  `VAEG_` (`VAEG_ENABLE_TESTS`, `VAEG_WERROR` default OFF).
+- Third-party code is vendored under `external/<name>/` at a pinned
+  release; record name+version+URL+SHA in `docs/agents/DECISIONS/`.
 
-## Permanent CP932 text exception
+## Commits and PRs
 
-`hlp/**` remains CP932 after M6. HTML Help Workshop (`hhc.exe`) cannot
-compile UTF-8 help sources, and the HTML files declare
-`meta charset=Shift_JIS`, which matches the CP932 bytes on disk.
-
-## Naming (target, enforced from M4)
-
-- Tracked paths: `[a-z0-9._-]` only, directories included.
-- No two tracked paths may collide under case-folding
-  (`tools/repo/check_case.py` enforces both rules).
-- `#include` / NASM `%include` / .rc includes must match the on-disk
-  path byte-for-byte (case-sensitive filesystems are a supported
-  target via the SDL2 port).
-
-## Documented exemptions
-
-`AGENTS.md`, `README*`, and files under `docs/` may keep conventional
-uppercase names. The exemption list lives in
-`tools/repo/check_case.py` (`ALLOW`), nowhere else.
-
-## Encoding rules for agents writing NEW files
-
-- Before M6 merges: match the surrounding code — CP932 for anything
-  that the VS2008/VS2017-CP932 builds compile; UTF-8 for
-  `docs/agents/**` and `tools/repo/**` (never compiled).
-- After M6: UTF-8 without BOM everywhere.
+- One concern per commit; rename-only commits separate from fixups.
+- Subject: `M<n>: <english imperative>`, LF, UTF-8.
+- Mass mechanical commits get their hash appended to
+  `.git-blame-ignore-revs` in the same PR.
+- PR description contains: task file name, machine-check output, build
+  logs, and an explicit statement whether the LEGACY v141 build is
+  affected (yes/no/unknown — "unknown" only if the change cannot touch
+  it by construction).
+- Always push and report SHAs; work not on GitHub does not exist.
