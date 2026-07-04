@@ -81,8 +81,26 @@ warning-only fixes were made.
 
 | File | Reason |
 |---|---|
-| `io/pic.c` | `iocoreva.h` is VA-only; guarded include with `SUPPORT_PC88VA` for the non-VA PC-98 core build. |
-| `io/np2sysp.c` | Local command string `str_np2` conflicted with `strres.h` extern `str_np2` under modern C; renamed local static symbol only. |
-| `pccore.c` | `biosva.h` is VA-only; guarded include with `SUPPORT_PC88VA` for the non-VA PC-98 core build. |
-| `pccore.c` | Debug/breakpoint callbacks are only declared under `VAEG_EXT`; guarded their use for the non-debug C core build. |
-| `pccore.c` | Single-step loop called `i286x_step`/`v30x_step`; non-VA C core now calls `i286c_step`/`v30c_step`, while VA builds keep the x86 path. |
+| `io/pic.c:6` | `iocoreva.h` is VA-only and `iova/` is outside the M7 include path (`CMakeLists.txt:34`-`50`); guarded the include with `SUPPORT_PC88VA` for the plain PC-98 core build. |
+| `io/np2sysp.c:105` | Local command string `str_np2` conflicted with `common/strres.h:52` extern `str_np2` in the same translation unit; renamed the local static symbol only. |
+| `pccore.c:16` | `biosva.h` is VA-only and `biosva/` is outside the M7 include path (`CMakeLists.txt:34`-`50`); guarded the include with `SUPPORT_PC88VA` for the plain PC-98 core build. |
+| `pccore.c:941`, `pccore.c:965`, `pccore.c:995`, `pccore.c:1173` | Debug/breakpoint callbacks are only declared under `VAEG_EXT` (`pccore.h:165`-`169`, `breakpoint.h:1`-`97`); guarded their use for the portable CMake core build. |
+| `pccore.c:1223` | Single-step dispatch now uses `USE_I286C`, defined only by CMake for `vaeg_core` (`CMakeLists.txt:212`), so future VA-on-C builds can combine `SUPPORT_PC88VA` with `USE_I286C`; the legacy `#else` path still calls `i286x_step`/`v30x_step`. |
+
+## `VAEG_EXT` scope
+
+`VAEG_EXT` is defined by the frozen Win9x frontend in
+`win9x/compiler.h:126`. It is not defined by `sdl2/compiler.h` or by
+the M7 CMake build. In shared core files it exposes debugger and
+breakpoint extension hooks, including `DEBUGCALLBACK` in
+`pccore.h:165`-`169`, breakpoint declarations in `breakpoint.h:1`-`97`,
+and pccore calls at `pccore.c:941`, `pccore.c:965`, `pccore.c:995`, and
+`pccore.c:1173`.
+
+The extension is tied to the Win32 debugger/tool windows: for example,
+`win9x/debuguty/debugctrl.cpp:2` includes `<windowsx.h>`,
+`win9x/debuguty/debugctrl.cpp:50` stores an `HWND`, and
+`win9x/debuguty/debugctrl.cpp:230` declares a `LRESULT CALLBACK` window
+procedure. `win9x/np2.cpp:2232`-`2236` wires that frontend callback into
+`pccore_debugsetcallback`. M7 therefore leaves `VAEG_EXT` undefined and
+keeps the portable core build out of that Win32-only debugger path.
