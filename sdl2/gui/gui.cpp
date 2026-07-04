@@ -40,10 +40,12 @@
 #include "dosio.h"
 #include "fddfile.h"
 #include "pccore.h"
+#include "soundmng.h"
 
 namespace {
 
 constexpr const char *kFontName = "NotoSansJP-Regular.ttf";
+constexpr int kStateSlots = 10;
 
 struct GuiState {
 	bool initialized = false;
@@ -52,6 +54,7 @@ struct GuiState {
 	int fdd_dialog_drive = -1;
 	char fdd_path[2][MAX_PATH] = {};
 	std::string fdd_status;
+	std::string state_status;
 };
 
 GuiState g_gui;
@@ -330,8 +333,64 @@ static void draw_other_menu(void) {
 static void draw_state_menu(void) {
 
 	if (ImGui::BeginMenu("State / 状態")) {
-		menu_item_not_implemented("Save slot 0 (not implemented)");
-		menu_item_not_implemented("Load slot 0 (not implemented)");
+		if (ImGui::BeginMenu("Save")) {
+			for (int slot = 0; slot < kStateSlots; slot++) {
+				char label[32];
+				std::snprintf(label, sizeof(label), "Slot %d", slot);
+				if (ImGui::MenuItem(label)) {
+					char path[MAX_PATH];
+					std::snprintf(path, sizeof(path), "np2sdl.S%02d", slot);
+					soundmng_stop();
+					int ret = statsave_save(path);
+					if (ret != STATFLAG_SUCCESS) {
+						file_delete(path);
+						g_gui.state_status = "State save failed: ";
+						g_gui.state_status += path;
+					}
+					else {
+						g_gui.state_status = "State saved: ";
+						g_gui.state_status += path;
+					}
+					soundmng_play();
+				}
+			}
+			ImGui::EndMenu();
+		}
+		if (ImGui::BeginMenu("Load")) {
+			for (int slot = 0; slot < kStateSlots; slot++) {
+				char label[32];
+				std::snprintf(label, sizeof(label), "Slot %d", slot);
+				if (ImGui::MenuItem(label)) {
+					char path[MAX_PATH];
+					char error[1024];
+					std::snprintf(path, sizeof(path), "np2sdl.S%02d", slot);
+					error[0] = '\0';
+					int ret = statsave_check(path, error, sizeof(error));
+					if ((ret & ~STATFLAG_DISKCHG) != 0) {
+						g_gui.state_status = "State load failed: ";
+						g_gui.state_status += path;
+						if (error[0] != '\0') {
+							g_gui.state_status += " (";
+							g_gui.state_status += error;
+							g_gui.state_status += ")";
+						}
+					}
+					else {
+						statsave_load(path);
+						g_gui.state_status = "State loaded: ";
+						g_gui.state_status += path;
+						if ((ret & STATFLAG_DISKCHG) != 0) {
+							g_gui.state_status += " (disk warning ignored)";
+						}
+					}
+				}
+			}
+			ImGui::EndMenu();
+		}
+		if (!g_gui.state_status.empty()) {
+			ImGui::Separator();
+			ImGui::TextWrapped("%s", g_gui.state_status.c_str());
+		}
 		ImGui::EndMenu();
 	}
 }
