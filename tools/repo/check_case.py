@@ -22,7 +22,7 @@ ALLOW = {"AGENTS.md"}
 ALLOW_PREFIXES = ("docs/", ".git", "external/")
 ALLOW_BASENAMES = {"README.md", "README.txt", "CMakeLists.txt",
                    "CMakePresets.json", "SKILL.md", "NOTICE.md", "OFL.txt",
-                   "LICENSE", "LICENSE.txt"}
+                   "NotoSansJP-Regular.ttf", "LICENSE", "LICENSE.txt"}
 SRC_EXT = {".c", ".h", ".cpp", ".hpp", ".cc", ".asm", ".x86", ".rc", ".tbl"}
 INC_RE = re.compile(rb'''^\s*[#%]\s*include\s+["'<]([^"'>]+)["'>]''',
                     re.M)

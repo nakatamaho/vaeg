@@ -18,4 +18,5 @@
 *.bmp binary
 *.gif binary
 *.png binary
+*.ttf binary
 *.wav binary
