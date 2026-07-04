@@ -39,7 +39,7 @@ and locks the policy.
 *.bmp binary
 *.png binary
 *.wav binary
-ROMIMAGE/** binary
+romimage/** binary
 ```
 Adjust the binary list against the M0 census before committing; the
 census, not this template, is authoritative.
@@ -53,5 +53,6 @@ census, not this template, is authoritative.
 
 ## GATE G5 (human)
 Standard checklist on both binaries. **This is the last gate that
-includes VS2008.** After G5 passes, move/confirm tag
-`baseline-vs2008` on this commit.
+includes VS2008.** Pushed tags are immutable. After G5 passes, create a
+NEW tag `vs2008-final` on the G5 commit; baseline-vs2008 stays where it
+is.

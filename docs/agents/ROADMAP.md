@@ -42,8 +42,9 @@ for these reasons:
 | M5 | tasks/M5_eol_lf.md         | LF everywhere except CRLF exceptions; .gitattributes | **G5** |
 | M6 | tasks/M6_utf8.md           | UTF-8 (no BOM) sources; charset flags decided | **G6** |
 
-Tags: `baseline-vs2008` after G1 (moved forward to the last
-VS2008-buildable commit after G5), `baseline-v141` after G2.
+Tags: `baseline-vs2008` after G1. Pushed tags are immutable. After G5
+passes, create a NEW tag `vs2008-final` on the G5 commit;
+baseline-vs2008 stays where it is. `baseline-v141` after G2.
 
 ## Gate protocol (all gates)
 
