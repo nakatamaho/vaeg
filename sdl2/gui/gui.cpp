@@ -36,6 +36,9 @@
 
 #include "compiler.h"
 #include "gui/gui.h"
+#include "diskdrv.h"
+#include "dosio.h"
+#include "fddfile.h"
 
 namespace {
 
@@ -45,6 +48,9 @@ struct GuiState {
 	bool initialized = false;
 	SDL_Renderer *renderer = nullptr;
 	std::string font_path;
+	int fdd_dialog_drive = -1;
+	char fdd_path[2][MAX_PATH] = {};
+	std::string fdd_status;
 };
 
 GuiState g_gui;
@@ -108,6 +114,110 @@ static void menu_item_not_implemented(const char *label) {
 	ImGui::EndDisabled();
 }
 
+static bool file_is_mountable(const char *path, std::string *error) {
+
+	short attr;
+
+	if ((path == nullptr) || (path[0] == '\0')) {
+		*error = "FDD image path is empty.";
+		return false;
+	}
+	attr = file_attr(path);
+	if (attr == static_cast<short>(-1)) {
+		*error = "FDD image not found.";
+		return false;
+	}
+	if ((attr & FILEATTR_DIRECTORY) != 0) {
+		*error = "FDD image path is a directory.";
+		return false;
+	}
+	error->clear();
+	return true;
+}
+
+static void set_fdd_status(int drive, const char *action, const char *path) {
+
+	g_gui.fdd_status = "FDD";
+	g_gui.fdd_status += static_cast<char>('1' + drive);
+	g_gui.fdd_status += ' ';
+	g_gui.fdd_status += action;
+	if ((path != nullptr) && (path[0] != '\0')) {
+		g_gui.fdd_status += ": ";
+		g_gui.fdd_status += path;
+	}
+}
+
+static void open_fdd_dialog(int drive) {
+
+	const char *current;
+
+	g_gui.fdd_dialog_drive = drive;
+	current = fdd_diskname(static_cast<REG8>(drive));
+	if ((current != nullptr) && (current[0] != '\0')) {
+		milstr_ncpy(g_gui.fdd_path[drive], current,
+					sizeof(g_gui.fdd_path[drive]));
+	}
+	ImGui::OpenPopup("Mount FDD image");
+}
+
+static void mount_fdd_from_dialog(void) {
+
+	int drive;
+	const char *path;
+	std::string error;
+
+	drive = g_gui.fdd_dialog_drive;
+	if ((drive < 0) || (drive >= 2)) {
+		return;
+	}
+	path = g_gui.fdd_path[drive];
+	if (!file_is_mountable(path, &error)) {
+		g_gui.fdd_status = "FDD";
+		g_gui.fdd_status += static_cast<char>('1' + drive);
+		g_gui.fdd_status += " mount failed: ";
+		g_gui.fdd_status += error;
+		return;
+	}
+	diskdrv_setfdd(static_cast<REG8>(drive), path, 0);
+	set_fdd_status(drive, "mounted", path);
+	ImGui::CloseCurrentPopup();
+}
+
+static void eject_fdd(int drive) {
+
+	diskdrv_setfdd(static_cast<REG8>(drive), nullptr, 0);
+	set_fdd_status(drive, "ejected", nullptr);
+}
+
+static void draw_fdd_dialog(void) {
+
+	int drive;
+
+	if (ImGui::BeginPopupModal("Mount FDD image", nullptr,
+							  ImGuiWindowFlags_AlwaysAutoResize)) {
+		drive = g_gui.fdd_dialog_drive;
+		if ((drive >= 0) && (drive < 2)) {
+			ImGui::Text("FDD%d image path", drive + 1);
+			ImGui::SetNextItemWidth(560.0f);
+			ImGui::InputText("##fdd-path", g_gui.fdd_path[drive],
+							 sizeof(g_gui.fdd_path[drive]));
+			if (ImGui::Button("Mount")) {
+				mount_fdd_from_dialog();
+			}
+			ImGui::SameLine();
+			if (ImGui::Button("Cancel")) {
+				g_gui.fdd_dialog_drive = -1;
+				ImGui::CloseCurrentPopup();
+			}
+			if (!g_gui.fdd_status.empty()) {
+				ImGui::Separator();
+				ImGui::TextWrapped("%s", g_gui.fdd_status.c_str());
+			}
+		}
+		ImGui::EndPopup();
+	}
+}
+
 static void draw_emulate_menu(void) {
 
 	if (ImGui::BeginMenu("Emulate / エミュレート")) {
@@ -125,11 +235,19 @@ static void draw_emulate_menu(void) {
 static void draw_fdd_menu(void) {
 
 	if (ImGui::BeginMenu("FDD")) {
-		menu_item_not_implemented("FDD1 Open... (not implemented)");
-		menu_item_not_implemented("FDD1 Eject (not implemented)");
+		if (ImGui::MenuItem("FDD1 Open...")) {
+			open_fdd_dialog(0);
+		}
+		if (ImGui::MenuItem("FDD1 Eject")) {
+			eject_fdd(0);
+		}
 		ImGui::Separator();
-		menu_item_not_implemented("FDD2 Open... (not implemented)");
-		menu_item_not_implemented("FDD2 Eject (not implemented)");
+		if (ImGui::MenuItem("FDD2 Open...")) {
+			open_fdd_dialog(1);
+		}
+		if (ImGui::MenuItem("FDD2 Eject")) {
+			eject_fdd(1);
+		}
 		ImGui::Separator();
 		menu_item_not_implemented("FDD3 Open... (not implemented)");
 		menu_item_not_implemented("FDD3 Eject (not implemented)");
@@ -332,6 +450,7 @@ void gui_draw(void) {
 		draw_system_menu();
 		ImGui::EndMainMenuBar();
 	}
+	draw_fdd_dialog();
 }
 
 void gui_render(void) {

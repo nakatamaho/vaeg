@@ -55,7 +55,7 @@ disabled stubs.
 
 | Feature | Win32 origin | SDL2/ImGui target | Status | Notes |
 |---|---|---|---|---|
-| FDD image mount/unmount, drive 1 and 2 | Dynamic FDD menus in `win9x/menu.cpp:211`; handlers in `win9x/np2.cpp:756` | File browser plus eject command for FDD1/FDD2 | `stub-visible` | M8 already supports CLI mount; GUI mount still needed. Win32 also exposes FDD3/FDD4. |
+| FDD image mount/unmount, drive 1 and 2 | Dynamic FDD menus in `win9x/menu.cpp:211`; handlers in `win9x/np2.cpp:756` | File browser plus eject command for FDD1/FDD2 | `done` | M8 already supports CLI mount. Win32 also exposes FDD3/FDD4, left visible as later stubs. |
 | Reset | `&Emulate` / `IDM_RESET`; `win9x/np2.cpp:699` | Main menu command | `stub-visible` | Must mirror Win32 reset confirmation behavior if `np2oscfg.comfirm` is active. |
 | State save/load | Dynamic flag menu in `win9x/menu.cpp:250`; handler in `win9x/np2.cpp:1422` | Save/load slots | `stub-visible` | Slot count follows `SUPPORT_STATSAVE`. |
 | Display scale and aspect | Win32 window/fullscreen plus system screen multiple controls in `win9x/menu.cpp:107` | x1/x2/x3, aspect toggle | `stub-visible` | This is an SDL2-specific projection of the Win32 screen controls. |
