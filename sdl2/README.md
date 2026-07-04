@@ -28,6 +28,15 @@ This is the M8 Linux SDL2 frontend for the portable PC-98 scaffold. It
 links the CMake `vaeg_core` and `vaeg_common` targets and does not include
 VA, ImGui, menus, or platform code for Windows/macOS yet.
 
+## Font Manager Status
+
+`sdl2/fontmng.c` is a compatibility stub for the historical SDL1 embedded
+menu font API. The SDL1 implementation depends on SDL_ttf/FreeType for
+host menu text, but M8 explicitly ships without SDL_ttf and without the
+SDL1 menu system. Host GUI text is superseded by the M10 Dear ImGui font
+path; do not expand the M8 stub unless the SDL1 embedded menu is revived
+by a later decision.
+
 ## Build
 
 ```sh
