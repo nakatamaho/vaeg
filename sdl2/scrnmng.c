@@ -33,6 +33,8 @@ typedef struct {
 	SDL_Window		*window;
 	SDL_Renderer	*renderer;
 	SDL_Texture		*texture;
+	int				scale;
+	BOOL			aspect;
 } SCRNMNG;
 
 typedef struct {
@@ -49,6 +51,7 @@ static	SCRNSURF	scrnsurf;
 void scrnmng_initialize(void) {
 
 	ZeroMemory(&scrnmng, sizeof(scrnmng));
+	scrnmng.scale = 1;
 	scrnstat.width = 640;
 	scrnstat.height = 400;
 }
@@ -82,6 +85,7 @@ BOOL scrnmng_create(int width, int height) {
 	scrnmng.enable = TRUE;
 	scrnmng.width = width;
 	scrnmng.height = height;
+	scrnmng_set_display(scrnmng.scale, scrnmng.aspect);
 	return(SUCCESS);
 }
 
@@ -111,6 +115,39 @@ void *scrnmng_get_window(void) {
 void *scrnmng_get_renderer(void) {
 
 	return(scrnmng.renderer);
+}
+
+void scrnmng_set_display(int scale, BOOL aspect) {
+
+	int		display_height;
+
+	if (scale < 1) {
+		scale = 1;
+	}
+	else if (scale > 3) {
+		scale = 3;
+	}
+	scrnmng.scale = scale;
+	scrnmng.aspect = aspect ? TRUE : FALSE;
+	display_height = scrnmng.aspect ? 480 : scrnmng.height;
+	if (scrnmng.window) {
+		SDL_SetWindowSize(scrnmng.window, scrnmng.width * scrnmng.scale,
+							display_height * scrnmng.scale);
+	}
+	if (scrnmng.renderer) {
+		SDL_RenderSetLogicalSize(scrnmng.renderer, scrnmng.width,
+									display_height);
+	}
+}
+
+int scrnmng_get_display_scale(void) {
+
+	return(scrnmng.scale);
+}
+
+BOOL scrnmng_get_display_aspect(void) {
+
+	return(scrnmng.aspect);
 }
 
 RGB16 scrnmng_makepal16(RGB32 pal32) {
@@ -175,7 +212,17 @@ void scrnmng_present_begin(void) {
 		return;
 	}
 	SDL_RenderClear(scrnmng.renderer);
-	SDL_RenderCopy(scrnmng.renderer, scrnmng.texture, NULL, NULL);
+	if (scrnmng.aspect) {
+		SDL_Rect dst;
+		dst.x = 0;
+		dst.y = 0;
+		dst.w = scrnmng.width;
+		dst.h = 480;
+		SDL_RenderCopy(scrnmng.renderer, scrnmng.texture, NULL, &dst);
+	}
+	else {
+		SDL_RenderCopy(scrnmng.renderer, scrnmng.texture, NULL, NULL);
+	}
 }
 
 void scrnmng_present_end(void) {

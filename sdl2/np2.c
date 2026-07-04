@@ -43,7 +43,7 @@
 #include	"keystat.h"
 #include	"gui/gui.h"
 
-		NP2OSCFG	np2oscfg = {0, 0, 0, 0, 0};
+		NP2OSCFG	np2oscfg = {0, 0, 0, 0, 0, 1, 0};
 
 static const UINT smoke_frames = 60;
 
@@ -205,6 +205,7 @@ int main(int argc, char **argv) {
 	if (scrnmng_create(FULLSCREEN_WIDTH, FULLSCREEN_HEIGHT) != SUCCESS) {
 		goto np2main_err2;
 	}
+	scrnmng_set_display(np2oscfg.gui_scale, np2oscfg.gui_aspect);
 	if (gui_initialize(scrnmng_get_window(), scrnmng_get_renderer(),
 					   argv[0]) != SUCCESS) {
 		goto np2main_err3;

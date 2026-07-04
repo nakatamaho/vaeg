@@ -417,6 +417,8 @@ static const INITBL iniitem[] = {
 	{"F12_bind", INITYPE_UINT8,		&np2oscfg.F12KEY,		0},
 	{"e_resume", INITYPE_BOOL,		&np2oscfg.resume,		0},
 	{"jast_snd", INITYPE_BOOL,		&np2oscfg.jastsnd,		0},		// ver0.73
+	{"GUI_scale", INITYPE_UINT8,		&np2oscfg.gui_scale,	0},
+	{"GUI_aspect", INITYPE_BOOL,		&np2oscfg.gui_aspect,	0},
 };
 
 #define	INIITEMS	(sizeof(iniitem) / sizeof(INITBL))
@@ -428,6 +430,10 @@ void initload(void) {
 
 	getinipath(path, sizeof(path));
 	ini_read(path, ini_title, iniitem, INIITEMS);
+	if ((np2oscfg.gui_scale < 1) || (np2oscfg.gui_scale > 3)) {
+		np2oscfg.gui_scale = 1;
+	}
+	np2oscfg.gui_aspect = np2oscfg.gui_aspect ? 1 : 0;
 }
 
 void initsave(void) {

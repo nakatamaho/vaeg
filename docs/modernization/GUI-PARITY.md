@@ -58,7 +58,7 @@ disabled stubs.
 | FDD image mount/unmount, drive 1 and 2 | Dynamic FDD menus in `win9x/menu.cpp:211`; handlers in `win9x/np2.cpp:756` | File browser plus eject command for FDD1/FDD2 | `done` | M8 already supports CLI mount. Win32 also exposes FDD3/FDD4, left visible as later stubs. |
 | Reset | `&Emulate` / `IDM_RESET`; `win9x/np2.cpp:699` | Main menu command | `done` | SDL2 has no `np2oscfg.comfirm` prompt setting yet, so the command resets immediately. |
 | State save/load | Dynamic flag menu in `win9x/menu.cpp:250`; handler in `win9x/np2.cpp:1422` | Save/load slots | `done` | SDL2 exposes 10 slots matching Win32 `SUPPORT_STATSAVE`. |
-| Display scale and aspect | Win32 window/fullscreen plus system screen multiple controls in `win9x/menu.cpp:107` | x1/x2/x3, aspect toggle | `stub-visible` | This is an SDL2-specific projection of the Win32 screen controls. |
+| Display scale and aspect | Win32 window/fullscreen plus system screen multiple controls in `win9x/menu.cpp:107` | x1/x2/x3, aspect toggle | `done` | This is an SDL2-specific projection of the Win32 screen controls, persisted in the SDL2 ini. |
 | Sound on/off and volume | Sound board enable menu in `win9x/np2.rc:892`; mixer dialog `IDD_SNDMIX` | Sound enable plus master/board volume UI | `stub-visible` | Full board jumper pages are `later`. |
 | Key/joystick config, minimal | Keyboard menu in `win9x/np2.rc:872`; sound pad page in `IDD_SNDPAD1` | Keyboard/joystick mode and minimal mappings | `stub-visible` | Detailed F12, mechanical keys, and joystick rapid settings are `later` unless needed for G10. |
 | Exit | `&Emulate` / `IDM_EXIT`; `win9x/np2.cpp:752` | Main menu command | `stub-visible` | Should reuse the same shutdown path as SDL2 quit. |

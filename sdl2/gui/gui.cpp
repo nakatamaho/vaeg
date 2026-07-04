@@ -39,8 +39,11 @@
 #include "diskdrv.h"
 #include "dosio.h"
 #include "fddfile.h"
+#include "np2.h"
 #include "pccore.h"
+#include "scrnmng.h"
 #include "soundmng.h"
+#include "sysmng.h"
 
 namespace {
 
@@ -275,13 +278,36 @@ static void draw_harddisk_menu(void) {
 	}
 }
 
+static void set_display_scale(int scale) {
+
+	np2oscfg.gui_scale = static_cast<BYTE>(scale);
+	scrnmng_set_display(np2oscfg.gui_scale, np2oscfg.gui_aspect);
+	sysmng_update(SYS_UPDATEOSCFG);
+}
+
+static void set_display_aspect(bool aspect) {
+
+	np2oscfg.gui_aspect = aspect ? 1 : 0;
+	scrnmng_set_display(np2oscfg.gui_scale, np2oscfg.gui_aspect);
+	sysmng_update(SYS_UPDATEOSCFG);
+}
+
 static void draw_screen_menu(void) {
 
 	if (ImGui::BeginMenu("Screen / 画面")) {
-		menu_item_not_implemented("Scale x1 (not implemented)");
-		menu_item_not_implemented("Scale x2 (not implemented)");
-		menu_item_not_implemented("Scale x3 (not implemented)");
-		menu_item_not_implemented("Aspect correction (not implemented)");
+		if (ImGui::MenuItem("Scale x1", nullptr, np2oscfg.gui_scale == 1)) {
+			set_display_scale(1);
+		}
+		if (ImGui::MenuItem("Scale x2", nullptr, np2oscfg.gui_scale == 2)) {
+			set_display_scale(2);
+		}
+		if (ImGui::MenuItem("Scale x3", nullptr, np2oscfg.gui_scale == 3)) {
+			set_display_scale(3);
+		}
+		bool aspect = np2oscfg.gui_aspect != 0;
+		if (ImGui::MenuItem("Aspect correction", nullptr, aspect)) {
+			set_display_aspect(!aspect);
+		}
 		ImGui::Separator();
 		menu_item_not_implemented("FullScreen (not implemented)");
 		menu_item_not_implemented("Rotate left/right (not implemented)");
