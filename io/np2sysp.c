@@ -102,7 +102,7 @@ static void np2sysp_hwreset(const void *arg1, long arg2) {
 
 // ----
 
-static const char str_np2[] = "NP2";
+static const char str_np2cmd[] = "NP2";
 static const char str_ver[] = "ver";
 static const char str_poweroff[] = "poweroff";
 static const char str_credit[] = "credit";
@@ -133,7 +133,7 @@ static const char str_syspcredit[] = NP2SYSP_CREDIT;
 
 
 static const SYSPCMD np2spcmd[] = {
-			{str_np2,		np2sysp_outstr,		str_np2,		0},
+			{str_np2cmd,	np2sysp_outstr,		str_np2cmd,		0},
 			{str_ver,		np2sysp_outstr,		str_syspver,	0},
 
 // version:A

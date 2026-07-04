@@ -3,7 +3,9 @@
 #include	"pccore.h"
 #include	"iocore.h"
 
+#if defined(SUPPORT_PC88VA)
 #include	"iocoreva.h"
+#endif
 
 enum {
 	PIC_OCW2_L		= 0x07,

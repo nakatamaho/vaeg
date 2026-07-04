@@ -13,7 +13,9 @@
 #include	"mpu98ii.h"
 #include	"amd98.h"
 #include	"bios.h"
+#if defined(SUPPORT_PC88VA)
 #include	"biosva.h"
+#endif
 #include	"biosmem.h"
 #include	"vram.h"
 #include	"scrndraw.h"
@@ -990,9 +992,11 @@ void pccore_debugioin(BOOL word, UINT port) {
 #endif
 
 void pccore_debugmem(UINT32 op, UINT32 addr, UINT16 data) {
+#if defined(VAEG_EXT)
 	if (breakpoint_check_memwrite(addr)) {
 		stopexec = TRUE;
 	}
+#endif
 /*
 	int	x = 0;
 
@@ -1000,13 +1004,21 @@ void pccore_debugmem(UINT32 op, UINT32 addr, UINT16 data) {
 		x=op+addr+data;
 	}
 */
+	(void)op;
+	(void)addr;
+	(void)data;
 }
 
 void pccore_debugint(UINT32 no) {
+#if defined(SUPPORT_PC88VA)
 	if (no != 0x82 && !(no == 0x83 && CPU_AX==0x2e00) && no != 0x96) {
 		TRACEOUT(("cpu: int 0x%02x %04x:%04x rom0=%02x AX=%04x BX=%04x CX=%04x DX=%04x SI=%04x DI=%04x BP=%04x SP=%04x DS=%04x ES=%04x SS=%04x",
 		no, CPU_CS, CPU_IP,  memoryva.rom0_bank, CPU_AX, CPU_BX, CPU_CX, CPU_DX, CPU_SI, CPU_DI, CPU_BP, CPU_SP, CPU_DS, CPU_ES, CPU_SS));
 	}
+#else
+	TRACEOUT(("cpu: int 0x%02x %04x:%04x AX=%04x BX=%04x CX=%04x DX=%04x SI=%04x DI=%04x BP=%04x SP=%04x DS=%04x ES=%04x SS=%04x",
+	no, CPU_CS, CPU_IP, CPU_AX, CPU_BX, CPU_CX, CPU_DX, CPU_SI, CPU_DI, CPU_BP, CPU_SP, CPU_DS, CPU_ES, CPU_SS));
+#endif
 	/*
 	if (no == 0x8b && CPU_AH == 0x17) {
 		int i;
@@ -1158,6 +1170,7 @@ void pccore_exec(BOOL draw) {
 			trpos++;
 #endif
 //@@@@@@
+#if defined(VAEG_EXT)
 			if (!stopexec) {
 				if (singlestep) {
 					stopexec = TRUE;
@@ -1188,6 +1201,7 @@ void pccore_exec(BOOL draw) {
 					debugcallback.wait();
 				}
 			}
+#endif
 //@@@@@@
 
 #if defined(TRACE) && defined(IPTRACE)	// Shinra
@@ -1206,11 +1220,18 @@ void pccore_exec(BOOL draw) {
 
 			//TRACEOUT(("%.4x:%.4x", CPU_CS, CPU_IP));
 			if (!(CPU_TYPE & CPUTYPE_V30)) {		// added by Shinra
+#if defined(SUPPORT_PC88VA)
 				i286x_step();
-//				i286c_step();
+#else
+				i286c_step();
+#endif
 			}
 			else {
+#if defined(SUPPORT_PC88VA)
 				v30x_step();						// added by Shinra
+#else
+				v30c_step();
+#endif
 			}
 #if defined(SUPPORT_PC88VA)
 			if (pccore.model_va != PCMODEL_NOTVA) {
