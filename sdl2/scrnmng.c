@@ -44,6 +44,10 @@ typedef struct {
 } SCRNSTAT;
 
 static const char app_name[] = "88VA Eternal Grafx";
+enum {
+	SCRNMNG_CANVAS_WIDTH	= 640,
+	SCRNMNG_CANVAS_HEIGHT	= 400
+};
 
 static	SCRNMNG		scrnmng;
 static	SCRNSTAT	scrnstat;
@@ -59,12 +63,16 @@ void scrnmng_initialize(void) {
 
 BOOL scrnmng_create(int width, int height) {
 
+	(void)width;
+	(void)height;
 	if (SDL_InitSubSystem(SDL_INIT_VIDEO | SDL_INIT_TIMER) < 0) {
 		fprintf(stderr, "Error: SDL video init: %s\n", SDL_GetError());
 		return(FAILURE);
 	}
 	scrnmng.window = SDL_CreateWindow(app_name, SDL_WINDOWPOS_CENTERED,
-							SDL_WINDOWPOS_CENTERED, width, height, 0);
+							SDL_WINDOWPOS_CENTERED,
+							SCRNMNG_CANVAS_WIDTH,
+							SCRNMNG_CANVAS_HEIGHT, 0);
 	if (scrnmng.window == NULL) {
 		fprintf(stderr, "Error: SDL_CreateWindow: %s\n", SDL_GetError());
 		return(FAILURE);
@@ -78,15 +86,17 @@ BOOL scrnmng_create(int width, int height) {
 	SDL_RenderSetLogicalSize(scrnmng.renderer, 0, 0);
 	scrnmng.texture = SDL_CreateTexture(scrnmng.renderer,
 							SDL_PIXELFORMAT_RGB565,
-							SDL_TEXTUREACCESS_STREAMING, width, height);
+							SDL_TEXTUREACCESS_STREAMING,
+							SCRNMNG_CANVAS_WIDTH,
+							SCRNMNG_CANVAS_HEIGHT);
 	if (scrnmng.texture == NULL) {
 		fprintf(stderr, "Error: SDL_CreateTexture: %s\n", SDL_GetError());
 		return(FAILURE);
 	}
 	SDL_SetTextureScaleMode(scrnmng.texture, SDL_ScaleModeNearest);
 	scrnmng.enable = TRUE;
-	scrnmng.width = width;
-	scrnmng.height = height;
+	scrnmng.width = SCRNMNG_CANVAS_WIDTH;
+	scrnmng.height = SCRNMNG_CANVAS_HEIGHT;
 	scrnmng_set_display(scrnmng.scale, scrnmng.aspect);
 	return(SUCCESS);
 }
@@ -205,9 +215,13 @@ const SCRNSURF *scrnmng_surflock(void) {
 	scrnsurf.xalign = 2;
 	scrnsurf.yalign = pitch;
 	scrnsurf.bpp = 16;
-	scrnsurf.width = min(scrnstat.width, 640);
-	scrnsurf.height = min(scrnstat.height, 400);
+	scrnsurf.width = min(scrnstat.width, scrnmng.width);
+	scrnsurf.height = min(scrnstat.height, scrnmng.height);
 	scrnsurf.extend = 0;
+	if ((scrnsurf.width < scrnmng.width) ||
+		(scrnsurf.height < scrnmng.height)) {
+		ZeroMemory(pixels, pitch * scrnmng.height);
+	}
 	return(&scrnsurf);
 }
 
