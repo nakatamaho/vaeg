@@ -20,9 +20,13 @@ import sys
 
 ALLOW = {"AGENTS.md"}
 ALLOW_PREFIXES = ("docs/", ".git", "external/")
-ALLOW_BASENAMES = {"README.md", "README.txt", "CMakeLists.txt",
-                   "CMakePresets.json", "SKILL.md", "NOTICE.md", "OFL.txt",
-                   "NotoSansJP-Regular.ttf", "LICENSE", "LICENSE.txt"}
+# Tool-mandated basenames that cannot be made lowercase.
+ALLOW_TOOL_BASENAMES = {"README.md", "README.txt", "CMakeLists.txt",
+                        "CMakePresets.json", "SKILL.md", "NOTICE.md",
+                        "OFL.txt", "LICENSE", "LICENSE.txt"}
+# Maintainer-approved asset basenames kept in upstream/package spelling.
+ALLOW_ASSET_BASENAMES = {"NotoSansJP-Regular.ttf"}
+ALLOW_BASENAMES = ALLOW_TOOL_BASENAMES | ALLOW_ASSET_BASENAMES
 SRC_EXT = {".c", ".h", ".cpp", ".hpp", ".cc", ".asm", ".x86", ".rc", ".tbl"}
 INC_RE = re.compile(rb'''^\s*[#%]\s*include\s+["'<]([^"'>]+)["'>]''',
                     re.M)
