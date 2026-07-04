@@ -75,6 +75,8 @@ def main() -> int:
             p.rsplit("/", 1)[-1])
     exact = set(by_lower)  # keys are lowercase
     for p in files:
+        if exempt(p):
+            continue
         dot = p.rfind(".")
         if dot < 0 or p[dot:].lower() not in SRC_EXT:
             continue
