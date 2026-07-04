@@ -38,6 +38,7 @@
 #include	"pccore.h"
 #include	"scrndraw.h"
 #include	"s98.h"
+#include	"diskdrv.h"
 #include	"timing.h"
 #include	"keystat.h"
 
@@ -50,6 +51,7 @@ static void usage(const char *progname) {
 	printf("Usage: %s [options]\n", progname);
 	printf("\t--help   [-h]       : print this message\n");
 	printf("\t--smoke             : initialize SDL2, run a short core loop, exit\n");
+	printf("\timage1 [image2]     : mount FDD images in drive 1 and 2\n");
 }
 
 static void set_default_rompath(void) {
@@ -59,6 +61,32 @@ static void set_default_rompath(void) {
 	}
 	if ((file_attr("romimage") & FILEATTR_DIRECTORY) != 0) {
 		file_cpyname(np2cfg.biospath, "romimage", sizeof(np2cfg.biospath));
+	}
+}
+
+static BOOL check_fdd_image(const char *path) {
+
+	short	attr;
+
+	attr = file_attr(path);
+	if (attr == (short)-1) {
+		fprintf(stderr, "Error: FDD image not found: %s\n", path);
+		return(FAILURE);
+	}
+	if (attr & FILEATTR_DIRECTORY) {
+		fprintf(stderr, "Error: FDD image is a directory: %s\n", path);
+		return(FAILURE);
+	}
+	return(SUCCESS);
+}
+
+static void mount_fdd_images(char *disk[2]) {
+
+	if (disk[0]) {
+		diskdrv_setfdd(0, disk[0], 0);
+	}
+	if (disk[1]) {
+		diskdrv_setfdd(1, disk[1], 0);
 	}
 }
 
@@ -110,8 +138,13 @@ int main(int argc, char **argv) {
 	int		pos;
 	char	*p;
 	BOOL	smoke;
+	int		disks;
+	char	*disk[2];
 
 	smoke = FALSE;
+	disks = 0;
+	disk[0] = NULL;
+	disk[1] = NULL;
 	pos = 1;
 	while(pos < argc) {
 		p = argv[pos++];
@@ -122,9 +155,16 @@ int main(int argc, char **argv) {
 		else if (!milstr_cmp(p, "--smoke")) {
 			smoke = TRUE;
 		}
-		else {
+		else if (p[0] == '-') {
 			fprintf(stderr, "error command: %s\n", p);
 			return(FAILURE);
+		}
+		else {
+			if (disks >= 2) {
+				fprintf(stderr, "Error: too many FDD images: %s\n", p);
+				return(FAILURE);
+			}
+			disk[disks++] = p;
 		}
 	}
 
@@ -136,6 +176,13 @@ int main(int argc, char **argv) {
 
 	dosio_init();
 	file_setcd("./");
+	for (pos=0; pos<disks; pos++) {
+		if (check_fdd_image(disk[pos]) != SUCCESS) {
+			SDL_Quit();
+			dosio_term();
+			return(FAILURE);
+		}
+	}
 	initload();
 	set_default_rompath();
 	if (smoke) {
@@ -162,6 +209,7 @@ int main(int argc, char **argv) {
 
 	scrndraw_redraw();
 	pccore_reset();
+	mount_fdd_images(disk);
 	runloop(smoke);
 
 	pccore_cfgupdate();

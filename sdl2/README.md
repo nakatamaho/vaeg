@@ -46,8 +46,11 @@ SDL2 is discovered through `find_package(SDL2)` first, then pkg-config.
 ## Run
 
 ```sh
-./build/linux-debug/sdl2/vaeg
+./build/linux-debug/sdl2/vaeg [--smoke] [image1 [image2]]
 ```
+
+Positional arguments mount FDD images in drive 1 and 2. Missing image files
+are rejected with an error instead of silently starting without media.
 
 Headless smoke check:
 
