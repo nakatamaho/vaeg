@@ -3,12 +3,16 @@
 #include	"pccore.h"
 #include	"iocore.h"
 #include	"dmap.h"
+#if defined(SUPPORT_PC88VA)
+#include	"memoryva.h"
+#endif
 
 
 void dmap_i286(void) {
 
 	DMACH	ch;
 	REG8	bit;
+	REG8	dat;
 
 	if (dmac.working) {
 		ch = dmac.dmach;
@@ -29,11 +33,25 @@ void dmap_i286(void) {
 						break;
 
 					case 0x04:		// port->mem
-						i286_memorywrite(ch->adrs.d, ch->proc.inproc());
+						dat = ch->proc.inproc();
+#if defined(SUPPORT_PC88VA)
+						memoryva.dma_access = 0x80;
+#endif
+						i286_memorywrite(ch->adrs.d, dat);
+#if defined(SUPPORT_PC88VA)
+						memoryva.dma_access = 0x00;
+#endif
 						break;
 
 					default:
-						ch->proc.outproc(i286_memoryread(ch->adrs.d));
+#if defined(SUPPORT_PC88VA)
+						memoryva.dma_access = 0x80;
+#endif
+						dat = i286_memoryread(ch->adrs.d);
+#if defined(SUPPORT_PC88VA)
+						memoryva.dma_access = 0x00;
+#endif
+						ch->proc.outproc(dat);
 						break;
 				}
 				ch->adrs.d += ((ch->mode & 0x20)?-1:1);
@@ -82,4 +100,3 @@ void dmap_v30(void) {
 		} while(bit & 0x0f);
 	}
 }
-
