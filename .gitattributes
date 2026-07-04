@@ -1,0 +1,22 @@
+* text=auto eol=lf
+
+# VS/VC project machinery and cmd scripts stay CRLF
+*.dsp  text eol=crlf
+*.dsw  text eol=crlf
+*.sln  text eol=crlf
+*.vcproj  text eol=crlf
+*.vcxproj text eol=crlf
+*.vcxproj.filters text eol=crlf
+*.bat  text eol=crlf
+
+# Binary payloads - never renormalize, never diff as text
+*.rom binary
+*.bin binary
+*.d88 binary
+*.ico binary
+*.cur binary
+*.bmp binary
+*.gif binary
+*.png binary
+*.wav binary
+romimage/** binary
