@@ -1,78 +1,73 @@
-# ROADMAP — vaeg modernization, phase 1 (toolchain + repo hygiene)
+# ROADMAP — vaeg modernization
 
-Scope of this phase: make the legacy Win32 code build unmodified on
-VS2008, then on VS2017/v141, then normalize the repository
-(prune → rename → EOL → encoding). Functional refactoring, SDL2 work,
-and CMake unification are explicitly OUT of scope here.
+## Phase 1 (COMPLETE, tag `phase1-complete`)
 
-## Milestone order and why
+Toolchain + repo hygiene: VS2008 baseline (M1, tag `baseline-vs2008`,
+frozen at `vs2008-final`), VS2017/v141 (M2, tag `baseline-v141`),
+prune (M3), lowercase (M4), LF (M5), UTF-8 without BOM (M6, Option A
+charset flags). Task files `tasks/M0..M6` are historical record; do not
+re-run them.
 
-The user-facing requirements are: VS2008, VS2017/v141 as-is, UTF-8
-without BOM + /utf-8, lowercase file names, CRLF→LF, unreferenced-file
-removal. The repository transformations are ordered
+## Phase 2 — cross-platform (macOS / Linux / Windows-MinGW)
 
-    M3 prune  →  M4 lowercase rename  →  M5 EOL  →  M6 encoding
+Goal: SDL2 frontend + Dear ImGui GUI + CMake, C-only cores, sustainable
+tree. The v141 LEGACY build stays green as the behavioral reference
+until M13.
 
-for these reasons:
+Central technical fact driving the ordering: the VA subsystem currently
+requires x86 assembly (`i286x/` core + `cpuxva/memoryva.x86`, 1,256
+lines of NASM, included by 10+ files in `iova/` and `vramva/`). There is
+NO C implementation of the VA memory layer. The portable C path
+(`i286c/` + `sound/opngenc.c` + `cpucva/z80c.cpp`) covers everything
+EXCEPT memoryva. Therefore:
 
-1. Prune first: every later mechanical pass (rename, renormalize,
-   re-encode) then touches the minimum file set.
-2. Rename before any content change: rename-only commits keep
-   `git log --follow` and `git blame` usable across the subsequent
-   mass content commits.
-3. EOL before encoding: both are content-wide, but EOL normalization is
-   trivially verifiable byte-wise; doing it first means the encoding
-   diff (M6) contains only encoding changes.
-4. Encoding last, because it is the commit that kills the VS2008
-   baseline. UTF-8 **without BOM** cannot be declared to the VC9
-   compiler; it will parse the bytes as CP932 and garble every Japanese
-   literal and comment (with 0x5C-trailing-byte hazards). VS2008
-   support therefore ends, by design, at the end of M5. Tag
-   `baseline-vs2008` before merging M6.
+- M7/M8 bring up build system + SDL2 frontend on the plain PC-98 core
+  (zero assembly, exactly what `sdl/` proved possible on SDL1). This
+  de-risks the frontend independently of the core-porting risk.
+- M9 is the high-risk milestone: port memoryva to C and wire the VA
+  machine onto i286c. It gets its own gate and its own branch.
+- M10 (ImGui) depends only on M8 and may run in parallel with M9 on a
+  separate branch/session.
 
-## Milestones
+| ID  | Task file                  | Deliverable | Gate |
+|-----|----------------------------|-------------|------|
+| M7  | tasks/M7_cmake_core.md     | CMake skeleton; NP2 core libs compile with gcc+clang on Linux; portable `sdl2/compiler.h` | **G7** machine + review |
+| M8  | tasks/M8_sdl2_frontend.md  | `sdl2/` SDL2 frontend (video/audio/input/timer/main loop) runs the PC-98 core on Linux | **G8** human |
+| M9  | tasks/M9_va_portable.md    | `cpucva/memoryva.c`; VA machine builds and runs on i286c; V3 boot + VA demo on Linux | **G9** human (standard VA gate) |
+| M10 | tasks/M10_imgui.md         | Dear ImGui GUI: mount/reset/state/display/sound/exit; GUI-PARITY.md | **G10** human |
+| M11 | tasks/M11_mingw_macos.md   | MinGW + macOS builds via CMake presets; UTF-8 path boundary on Windows | **G11** human per OS |
+| M12 | tasks/M12_ci.md            | GitHub Actions 3-OS matrix; ROM-less tests; repo invariant checks | **G12** machine |
+| M13 | tasks/M13_retire_legacy.md | Retire `sdl/`; decide fate of `win9x/`, `i286x/`, `memoryva.x86`; docs | **G13** human sign-off |
 
-| ID | Task file | Deliverable | Gate |
-|----|-----------|-------------|------|
-| M0 | tasks/M0_inventory.md      | inventory report (no repo mutation) | review only |
-| M1 | tasks/M1_vs2008_baseline.md | VS2008 Win32 Release builds as-is | **G1** |
-| M2 | tasks/M2_vs2017_v141.md    | v141 build of unmodified code | **G2** |
-| M3 | tasks/M3_prune.md          | unreferenced files deleted (approved list) | **G3** |
-| M4 | tasks/M4_lowercase.md      | all tracked paths lowercase | **G4** |
-| M5 | tasks/M5_eol_lf.md         | LF everywhere except CRLF exceptions; .gitattributes | **G5** |
-| M6 | tasks/M6_utf8.md           | UTF-8 (no BOM) sources; charset flags decided | **G6** |
+Dependencies: M7 → M8 → {M9, M10 parallel} → M11 → M12 → M13.
+M9 must pass before M11 (all three OSes must ship the VA machine, not
+the PC-98 scaffold).
 
-Tags: `baseline-vs2008` after G1. Pushed tags are immutable. After G5
-passes, create a NEW tag `vs2008-final` on the G5 commit;
-baseline-vs2008 stays where it is. `baseline-v141` after G2.
+## Gate protocol
 
-## Gate protocol (all gates)
+Agent side (pasted into PR): build logs (cmake + the LEGACY v141 status
+statement), `tools/repo/` check output, and for M8+ a headless smoke run
+(`SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy ./build/sdl2/vaeg
+--smoke` or documented equivalent).
 
-Agent side (machine checks, pasted into PR):
-- build log of the milestone's required toolchain(s), zero errors
-- output of the `tools/repo/` checks named in the task file
+User side (manual, per `gates/GATE_CHECKLIST_PHASE2.md`): clean-checkout
+build, V3-mode boot, bundled VA demo, OS boot + simple operations
+(DIR, launch a program). G7/G12 are machine gates; G8 is the frontend
+gate on the PC-98 scaffold; G9 onward use the full VA checklist.
 
-User side (manual, per `docs/agents/gates/GATE_CHECKLIST.md`):
-1. Build locally from a clean checkout.
-2. Boot in V3 mode.
-3. Run the bundled VA demo.
-4. Boot an OS and perform simple operations (DIR, launch a program).
-
-A gate passes only when the user says so in the conversation/PR.
+A gate passes only when the user says so. Pushed tags are immutable.
+Tag `portable-pc98` after G8, `portable-va` after G9,
+`phase2-complete` after G13.
 
 ## Known decision points (do not resolve silently)
 
-- **/utf-8 vs /source-charset:utf-8 (M6).** `/utf-8` sets BOTH source
-  and execution charsets. With execution charset = UTF-8, Japanese
-  string literals passed to ANSI Win32 APIs (menus, MessageBoxA, file
-  dialogs) garble on CP932-ACP Windows unless the process opts into the
-  UTF-8 ACP via manifest (Win10 1903+). The conservative choice for the
-  legacy Win32 build is `/source-charset:utf-8` alone (execution stays
-  CP932); `/utf-8` is the right end state for the SDL2 target. M6
-  presents both; the user decides at the gate pre-check.
-- **.rc files (M6).** rc.exe ignores /utf-8. Options: convert to UTF-8
-  and prepend `#pragma code_page(65001)`, or exempt .rc from the
-  migration. Recorded in M6.
-- **Wave-dash mapping (M6).** Conversion must use codepage CP932 (not
-  SHIFT_JIS) in both directions and must round-trip byte-identically;
-  0x8160 ↔ U+FF5E. Enforced by the M6 round-trip check.
+- **memoryva porting strategy (M9).** Faithful transliteration of the
+  NASM into C versus re-derivation from `memoryva.h` + hardware docs.
+  Default is faithful transliteration (behavior reference exists in the
+  LEGACY build); re-derivation requires an ADR.
+- **ImGui rendering backend (M10).** SDL_Renderer backend vs OpenGL3.
+  Propose with trade-offs, record as ADR before implementing.
+- **Fate of `win9x/` (M13).** Keep as frozen reference vs delete after
+  ImGui parity. User decides at G13; nothing is deleted before that.
+- **Japanese font for ImGui (M10).** Must not read guest font ROM.
+  Bundled font vs system font lookup; ADR.
