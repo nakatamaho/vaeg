@@ -52,6 +52,19 @@ Result: clang build passed.
 
 Total clang warnings: 31.
 
+## Unity build and `str_np2`
+
+No CMake unity build mechanism is enabled. `CMakeLists.txt` and
+`CMakePresets.json` contain no `UNITY`, `CMAKE_UNITY_BUILD`, or unity
+property setting.
+
+The `io/np2sysp.c` local rename was not for unity builds. The file
+includes `strres.h` at `io/np2sysp.c:2`, and `common/strres.h:52`
+declares `extern const OEMCHAR str_np2[]`. Before M7, the same
+translation unit also declared `static const char str_np2[] = "NP2"` at
+`io/np2sysp.c:105`, which conflicts with the prior external declaration.
+M7 therefore renamed only the local command string to `str_np2cmd`.
+
 ## Compile-blocking source deviations
 
 These were required to compile the M7 plain PC-98 C core with gcc. No
