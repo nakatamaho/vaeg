@@ -2,7 +2,11 @@
 enum {
 #if defined(VAEG_FIX)
 #else
+#if defined(SUPPORT_PC88VA)
+	NEVENT_MAXEVENTS	= 48,
+#else
 	NEVENT_MAXEVENTS	= 32,
+#endif
 #endif
 	NEVENT_MAXCLOCK		= 0x400000,
 
@@ -34,9 +38,11 @@ enum {
 	NEVENT_86PCM		= 25,
 	NEVENT_SASIIO		= 26,
 	NEVENT_SCSIIO		= 27,
-#if defined(VAEG_EXT)
+#if defined(VAEG_EXT) || defined(SUPPORT_PC88VA)
 	NEVENT_FDCTIMER		= 28,
 	NEVENT_FDDMOTOR		= 29,
+#endif
+#if defined(VAEG_EXT)
 	NEVENT_FDCSTEPWAIT	= 30,
 #endif
 #if defined(VAEG_FIX)
@@ -117,4 +123,3 @@ void nevent_forceexit(void);
 #ifdef __cplusplus
 }
 #endif
-

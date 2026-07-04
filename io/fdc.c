@@ -26,7 +26,7 @@ enum {
 	FDC_DMACH2HD	= 2,
 	FDC_DMACH2DD	= 3,
 
-#if defined(VAEG_EXT)
+#if defined(VAEG_EXT) || defined(SUPPORT_PC88VA)
 	CLOCK80				= 7987200,		// 8MHz
 	CLOCK48				= 4792320,		// 4.8MHz
 
@@ -35,7 +35,9 @@ enum {
 	FDD_MOTOR_STOPPED	= 0,
 	FDD_MOTOR_STARTING	= 1,
 	FDD_MOTOR_STABLE	= 2,
+#endif
 
+#if defined(VAEG_EXT)
 	FDD_HEAD_UNLOADED	= 0,
 	FDD_HEAD_LOADING	= 1,
 	FDD_HEAD_STABLE		= 2,
@@ -1789,7 +1791,7 @@ static void stop_statewatch(void) {
 
 #endif
 
-#if defined(VAEG_EXT)
+#if defined(VAEG_EXT) || defined(SUPPORT_PC88VA)
 // --------------------------------------------------------------------------
 // FDC timer
 
@@ -2153,7 +2155,11 @@ void fdcsubsys_o_dskctl(BYTE dat) {
 }
 
 void fdcsubsys_o_tc(void) {
+#if defined(VAEG_FIX)
 	settc();
+#else
+	fdc.tc = 1;
+#endif
 }
 
 #endif
@@ -2248,4 +2254,3 @@ void fdc_bind(void) {
 	iocoreva_attachinp(0x01ba, fdcva_i1ba);
 #endif
 }
-

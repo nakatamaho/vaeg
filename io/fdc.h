@@ -125,8 +125,11 @@ typedef struct {
 	UINT8	reserved[128];
 #if defined(VAEG_EXT)
 	UINT32	clock;				// 動作周波数(Hz)
-
+#endif
+#if defined(VAEG_EXT) || defined(SUPPORT_PC88VA)
 	UINT8	motor[4];
+#endif
+#if defined(VAEG_EXT)
 	SINT32	headlastclock;
 	UINT8	head;				// ヘッドの状態
 	UINT8	headlastactive;		// 最後に使用した
@@ -168,9 +171,11 @@ extern "C" {
 #define	CTRL_FDMEDIA	fdc.ctrlfd
 
 void fdc_intwait(NEVENTITEM item);
-#if defined(VAEG_EXT)
+#if defined(VAEG_EXT) || defined(SUPPORT_PC88VA)
 void fdc_timer(NEVENTITEM item);
 void fdc_fddmotor(NEVENTITEM item);
+#endif
+#if defined(VAEG_EXT)
 void fdc_stepwait(NEVENTITEM item);
 #endif
 #if defined(VAEG_FIX)
@@ -201,4 +206,3 @@ void fdcsubsys_o_tc(void);
 #ifdef __cplusplus
 }
 #endif
-
