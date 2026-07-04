@@ -61,7 +61,7 @@ disabled stubs.
 | Display scale and aspect | Win32 window/fullscreen plus system screen multiple controls in `win9x/menu.cpp:107` | x1/x2/x3, aspect toggle | `done` | This is an SDL2-specific projection of the Win32 screen controls, persisted in the SDL2 ini. |
 | Sound on/off and volume | Sound board enable menu in `win9x/np2.rc:892`; mixer dialog `IDD_SNDMIX` | Sound enable plus master/board volume UI | `done` | M10 implements on/off plus a master slider for the five mixer volumes. Full board jumper pages are `later`. |
 | Key/joystick config, minimal | Keyboard menu in `win9x/np2.rc:872`; sound pad page in `IDD_SNDPAD1` | Keyboard/joystick mode and minimal mappings | `done` | M10 implements SDL key/joy mode and F12 binding. Mechanical keys and joystick rapid settings are `later`. |
-| Exit | `&Emulate` / `IDM_EXIT`; `win9x/np2.cpp:752` | Main menu command | `stub-visible` | Should reuse the same shutdown path as SDL2 quit. |
+| Exit | `&Emulate` / `IDM_EXIT`; `win9x/np2.cpp:752` | Main menu command | `done` | Reuses the same `taskmng_exit()` shutdown path as SDL2 quit and smoke exit. |
 
 ## Main Menu Inventory
 

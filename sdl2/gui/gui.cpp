@@ -52,6 +52,7 @@
 #include "sdlkbd.h"
 #include "soundmng.h"
 #include "sysmng.h"
+#include "taskmng.h"
 
 namespace {
 
@@ -246,7 +247,9 @@ static void draw_emulate_menu(void) {
 		menu_item_not_implemented("NewDisk... (not implemented)");
 		menu_item_not_implemented("Font... (not implemented)");
 		ImGui::Separator();
-		menu_item_not_implemented("Exit / 終了 (not implemented)");
+		if (ImGui::MenuItem("Exit / 終了")) {
+			taskmng_exit();
+		}
 		ImGui::EndMenu();
 	}
 }
