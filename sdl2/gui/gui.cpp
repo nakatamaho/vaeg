@@ -39,6 +39,7 @@
 #include "diskdrv.h"
 #include "dosio.h"
 #include "fddfile.h"
+#include "pccore.h"
 
 namespace {
 
@@ -221,7 +222,10 @@ static void draw_fdd_dialog(void) {
 static void draw_emulate_menu(void) {
 
 	if (ImGui::BeginMenu("Emulate / エミュレート")) {
-		menu_item_not_implemented("Reset / リセット (not implemented)");
+		if (ImGui::MenuItem("Reset / リセット")) {
+			pccore_cfgupdate();
+			pccore_reset();
+		}
 		ImGui::Separator();
 		menu_item_not_implemented("Configure... (not implemented)");
 		menu_item_not_implemented("NewDisk... (not implemented)");
