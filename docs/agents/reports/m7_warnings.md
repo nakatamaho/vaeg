@@ -2,12 +2,15 @@
 
 Build log sources:
 
+- `/tmp/m7_gcc_configure.log`
 - `/tmp/m7_gcc_build.log`
+- `/tmp/m7_clang_configure.log`
 - `/tmp/m7_clang_build.log`
 
-Command:
+GCC commands:
 
 ```text
+cmake --preset linux-debug
 cmake --build build/linux-debug --clean-first
 ```
 
@@ -29,11 +32,11 @@ Total gcc warnings: 28.
 
 ## Clang warning counts
 
-Commands:
+Clang commands:
 
 ```text
 CC=clang CXX=clang++ cmake -B build/clang -G Ninja -DCMAKE_BUILD_TYPE=Debug
-cmake --build build/clang
+cmake --build build/clang --clean-first
 ```
 
 Result: clang build passed.
@@ -51,6 +54,12 @@ Result: clang build passed.
 | sound/vermouth | `-Wunused-but-set-variable` | 1 |
 
 Total clang warnings: 31.
+
+## Warning flags
+
+`-Wall` is set for both CMake static library targets:
+`CMakeLists.txt:204` applies it to `vaeg_common`, and
+`CMakeLists.txt:213` applies it to `vaeg_core`.
 
 ## Unity build and `str_np2`
 
