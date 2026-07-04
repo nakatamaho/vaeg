@@ -103,6 +103,16 @@ void scrnmng_destroy(void) {
 	SDL_QuitSubSystem(SDL_INIT_VIDEO | SDL_INIT_TIMER);
 }
 
+void *scrnmng_get_window(void) {
+
+	return(scrnmng.window);
+}
+
+void *scrnmng_get_renderer(void) {
+
+	return(scrnmng.renderer);
+}
+
 RGB16 scrnmng_makepal16(RGB32 pal32) {
 
 	RGB16	ret;
@@ -156,8 +166,23 @@ void scrnmng_surfunlock(const SCRNSURF *surf) {
 		return;
 	}
 	SDL_UnlockTexture(scrnmng.texture);
+}
+
+void scrnmng_present_begin(void) {
+
+	if ((!scrnmng.enable) || (scrnmng.renderer == NULL) ||
+		(scrnmng.texture == NULL)) {
+		return;
+	}
 	SDL_RenderClear(scrnmng.renderer);
 	SDL_RenderCopy(scrnmng.renderer, scrnmng.texture, NULL, NULL);
+}
+
+void scrnmng_present_end(void) {
+
+	if ((!scrnmng.enable) || (scrnmng.renderer == NULL)) {
+		return;
+	}
 	SDL_RenderPresent(scrnmng.renderer);
 }
 

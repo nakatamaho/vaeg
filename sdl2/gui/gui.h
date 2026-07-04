@@ -22,70 +22,22 @@
  * IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-#include	"compiler.h"
-#include	"sdlapi.h"
-#include	"taskmng.h"
-#include	"sdlkbd.h"
-#include	"gui/gui.h"
+#ifndef VAEG_SDL2_GUI_GUI_H
+#define VAEG_SDL2_GUI_GUI_H
 
-	BOOL	task_avail;
+#ifdef __cplusplus
+extern "C" {
+#endif
 
-void taskmng_initialize(void) {
+BOOL gui_initialize(void *window, void *renderer, const char *argv0);
+void gui_shutdown(void);
+BOOL gui_process_event(const void *event);
+void gui_new_frame(void);
+void gui_draw(void);
+void gui_render(void);
 
-	task_avail = TRUE;
+#ifdef __cplusplus
 }
+#endif
 
-void taskmng_exit(void) {
-
-	task_avail = FALSE;
-}
-
-void taskmng_rol(void) {
-
-	SDL_Event	e;
-
-	while(task_avail && SDL_PollEvent(&e)) {
-		BOOL captured;
-
-		captured = gui_process_event(&e);
-		switch(e.type) {
-			case SDL_QUIT:
-				task_avail = FALSE;
-				break;
-
-			case SDL_KEYDOWN:
-				if ((!captured) && (!e.key.repeat)) {
-					sdlkbd_keydown((UINT)e.key.keysym.scancode);
-				}
-				break;
-
-			case SDL_KEYUP:
-				if (!captured) {
-					sdlkbd_keyup((UINT)e.key.keysym.scancode);
-				}
-				break;
-
-			default:
-				break;
-		}
-	}
-}
-
-BOOL taskmng_sleep(UINT32 tick) {
-
-	Uint64	base;
-	Uint64	freq;
-	Uint64	elapsed;
-
-	base = SDL_GetPerformanceCounter();
-	freq = SDL_GetPerformanceFrequency();
-	do {
-		taskmng_rol();
-		if (!task_avail) {
-			break;
-		}
-		SDL_Delay(1);
-		elapsed = ((SDL_GetPerformanceCounter() - base) * 1000) / freq;
-	} while(elapsed < tick);
-	return(task_avail);
-}
+#endif

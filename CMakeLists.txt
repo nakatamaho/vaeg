@@ -22,7 +22,7 @@
 # POSSIBILITY OF SUCH DAMAGE.
 cmake_minimum_required(VERSION 3.20)
 
-project(vaeg LANGUAGES C)
+project(vaeg LANGUAGES C CXX)
 
 find_package(SDL2 QUIET CONFIG)
 if(TARGET SDL2::SDL2)
@@ -39,6 +39,9 @@ option(VAEG_WERROR "Treat warnings as errors" OFF)
 set(CMAKE_C_STANDARD 99)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_C_EXTENSIONS OFF)
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
 
 set(VAEG_INCLUDE_DIRS
     "${CMAKE_CURRENT_SOURCE_DIR}/sdl2"
@@ -209,6 +212,12 @@ set(VAEG_CORE_SOURCES
     debugsub.c)
 
 set(VAEG_SDL2_SOURCES
+    external/imgui/imgui.cpp
+    external/imgui/imgui_draw.cpp
+    external/imgui/imgui_tables.cpp
+    external/imgui/imgui_widgets.cpp
+    external/imgui/backends/imgui_impl_sdl2.cpp
+    external/imgui/backends/imgui_impl_sdlrenderer2.cpp
     sdl2/np2.c
     sdl2/dosio.c
     sdl2/ini.c
@@ -223,7 +232,8 @@ set(VAEG_SDL2_SOURCES
     sdl2/mousemng.c
     sdl2/joymng.c
     sdl2/commng.c
-    sdl2/fontmng.c)
+    sdl2/fontmng.c
+    sdl2/gui/gui.cpp)
 
 add_library(vaeg_common STATIC ${VAEG_COMMON_SOURCES})
 target_include_directories(vaeg_common PUBLIC ${VAEG_INCLUDE_DIRS})
@@ -245,7 +255,10 @@ add_executable(vaeg_sdl2 ${VAEG_SDL2_SOURCES})
 set_target_properties(vaeg_sdl2 PROPERTIES
     OUTPUT_NAME vaeg
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/sdl2")
-target_include_directories(vaeg_sdl2 PRIVATE ${VAEG_INCLUDE_DIRS})
+target_include_directories(vaeg_sdl2 PRIVATE
+    ${VAEG_INCLUDE_DIRS}
+    "${CMAKE_CURRENT_SOURCE_DIR}/external/imgui"
+    "${CMAKE_CURRENT_SOURCE_DIR}/external/imgui/backends")
 target_link_libraries(vaeg_sdl2 PRIVATE vaeg_core vaeg_common vaeg_core
     ${VAEG_SDL2_LIBS})
 if(UNIX)
