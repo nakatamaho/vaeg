@@ -203,6 +203,8 @@ void scrnmng_surfunlock(const SCRNSURF *surf) {
 		return;
 	}
 	SDL_UnlockTexture(scrnmng.texture);
+	scrnmng_present_begin();
+	scrnmng_present_end();
 }
 
 void scrnmng_present_begin(void) {
