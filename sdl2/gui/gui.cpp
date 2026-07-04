@@ -40,7 +40,13 @@
 #include "dosio.h"
 #include "fddfile.h"
 #include "np2.h"
+#include "sound.h"
+#include "adpcm.h"
 #include "pccore.h"
+#include "opngen.h"
+#include "pcm86.h"
+#include "psggen.h"
+#include "rhythm.h"
 #include "scrnmng.h"
 #include "soundmng.h"
 #include "sysmng.h"
@@ -58,6 +64,7 @@ struct GuiState {
 	char fdd_path[2][MAX_PATH] = {};
 	std::string fdd_status;
 	std::string state_status;
+	UINT sound_sw_saved = 0;
 };
 
 GuiState g_gui;
@@ -328,8 +335,35 @@ static void draw_device_menu(void) {
 			ImGui::EndMenu();
 		}
 		if (ImGui::BeginMenu("Sound / 音")) {
-			menu_item_not_implemented("Sound on/off (not implemented)");
-			menu_item_not_implemented("Volume (not implemented)");
+			bool enabled = np2cfg.SOUND_SW != 0;
+			if (ImGui::MenuItem("Sound on/off", nullptr, enabled)) {
+				if (enabled) {
+					g_gui.sound_sw_saved = np2cfg.SOUND_SW;
+					np2cfg.SOUND_SW = 0;
+					soundmng_stop();
+				}
+				else {
+					np2cfg.SOUND_SW = g_gui.sound_sw_saved ?
+										g_gui.sound_sw_saved : 4;
+					soundmng_play();
+				}
+				soundrenewal = 1;
+				sysmng_update(SYS_UPDATECFG | SYS_UPDATESBOARD);
+			}
+			int volume = np2cfg.vol_fm;
+			if (ImGui::SliderInt("Master volume", &volume, 0, 128)) {
+				np2cfg.vol_fm = static_cast<UINT8>(volume);
+				np2cfg.vol_ssg = static_cast<UINT8>(volume);
+				np2cfg.vol_adpcm = static_cast<UINT8>(volume);
+				np2cfg.vol_pcm = static_cast<UINT8>(volume);
+				np2cfg.vol_rhythm = static_cast<UINT8>(volume);
+				opngen_setvol(np2cfg.vol_fm);
+				psggen_setvol(np2cfg.vol_ssg);
+				adpcm_setvol(np2cfg.vol_adpcm);
+				pcm86gen_setvol(np2cfg.vol_pcm);
+				rhythm_setvol(np2cfg.vol_rhythm);
+				sysmng_update(SYS_UPDATECFG);
+			}
 			ImGui::Separator();
 			menu_item_not_implemented("Board selection (not implemented)");
 			menu_item_not_implemented("Sound option... (not implemented)");
