@@ -121,6 +121,10 @@ typedef uint32_t DWORD;
 #define INLINE inline
 #endif
 
+#ifndef DMACCALL
+#define DMACCALL
+#endif
+
 #ifndef QWORD_CONST
 #define QWORD_CONST(v) UINT64_C(v)
 #endif
