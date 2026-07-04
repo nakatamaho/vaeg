@@ -24,11 +24,9 @@ POSSIBILITY OF SUCH DAMAGE.
 -->
 # GUI Parity Inventory
 
-M10 scope note: this file is the step 1 inventory only. No SDL2 ImGui
-implementation exists in this commit, so no item is marked `done` yet.
-The M10 gate items are marked `stub-visible`; the implementation commits
-must make them real while keeping unimplemented Win32 features visible as
-disabled stubs.
+M10 scope note: the gate items are implemented in the SDL2 ImGui frontend.
+Unimplemented Win32 features remain visible as disabled stubs with
+`(not implemented)`.
 
 ## Sources
 
@@ -47,7 +45,7 @@ disabled stubs.
 
 | Status | Meaning |
 |---|---|
-| `done` | Implemented in the SDL2 ImGui frontend. None yet in step 1. |
+| `done` | Implemented in the SDL2 ImGui frontend. |
 | `stub-visible` | In M10 gate scope; show it in the UI and disable or wire it during M10 implementation. |
 | `later` | Deliberately out of M10 scope. Keep visible as disabled where it appears in the Win32 menu. |
 
@@ -67,19 +65,19 @@ disabled stubs.
 
 | Win32 menu | Items | Status | Notes |
 |---|---|---|---|
-| Emulate | Reset; Configure; NewDisk; Font; Exit | Reset and Exit `stub-visible`; others `later` | Configure covers base clock, model, sampling rate, sound buffer, resize, MMX, confirm, resume. Font selection is not the ImGui Japanese font decision. |
-| FDD dynamic menu | FDD1-FDD4 Open/Eject | FDD1/FDD2 `stub-visible`; FDD3/FDD4 `later` | FDD1/FDD2 are required for G10. |
+| Emulate | Reset; Configure; NewDisk; Font; Exit | Reset and Exit `done`; others `later` | Configure covers base clock, model, sampling rate, sound buffer, resize, MMX, confirm, resume. Font selection is not the ImGui Japanese font decision. |
+| FDD dynamic menu | FDD1-FDD4 Open/Eject | FDD1/FDD2 `done`; FDD3/FDD4 `later` | FDD1/FDD2 are required for G10. |
 | HardDisk | SASI1/SASI2 Open/Remove | `later` | HDD mounting is not in the M10 must-have set. |
 | SCSI dynamic menu | SCSI0-SCSI3 Open/Remove | `later` | Added dynamically when SCSI support is compiled. |
-| Screen | Window; FullScreen; rotation; display vsync; real palettes; no wait; frame skip; screen option | Display scale/aspect `stub-visible`; rest `later` | Screen option dialog has LCD/skipline, GDC/GRCG/color, wait-state and real palette pages. |
-| Device / Keyboard | Keyboard/JoyKey modes; mechanical SHIFT/CTRL/GRPH; F12 mapping; Alt-right mapping | Minimal key/joy config `stub-visible`; rest `later` | Alt-right mapping is a VAEG extension. IME/text input work is out of M10 scope. |
-| Device / Sound | Beep level; disable boards; VA Sound Board 2; PC-9801 boards; JAST; seek sound | Sound on/off and volume `stub-visible`; rest `later` | Board selection and detailed option pages stay visible but disabled. |
+| Screen | Window; FullScreen; rotation; display vsync; real palettes; no wait; frame skip; screen option | Display scale/aspect `done`; rest `later` | Screen option dialog has LCD/skipline, GDC/GRCG/color, wait-state and real palette pages. |
+| Device / Keyboard | Keyboard/JoyKey modes; mechanical SHIFT/CTRL/GRPH; F12 mapping; Alt-right mapping | Minimal key/joy config `done`; rest `later` | Alt-right mapping is a VAEG extension. IME/text input work is out of M10 scope. |
+| Device / Sound | Beep level; disable boards; VA Sound Board 2; PC-9801 boards; JAST; seek sound | Sound on/off and volume `done`; rest `later` | Board selection and detailed option pages stay visible but disabled. |
 | Device / Memory | 640KB, 1.6MB, 3.6MB, 7.6MB | `later` | Win32 command handler also contains 11.6MB and 13.6MB cases. |
 | Device | IO Bank Memory; Mouse; Mouse Port; Version Up Board; Serial; MIDI; MIDI Panic; Sound option | `later` | Mouse capture itself is frontend input, but the Win32 device options are not M10 gate items. |
 | Other | BMP save; S98 logging; Calendar; shortcuts; clock/frame display; joy reverse/rapid; mouse rapid; SSTP; Help; About | `later` | Help uses the retired Windows help path. About can be added after core menu parity. |
-| State dynamic menu | Save slots and load slots | `stub-visible` | Required by M10 as state save/load. |
+| State dynamic menu | Save slots and load slots | `done` | Required by M10 as state save/load. |
 | Operation record dynamic menu | Stop; Play; Multi play; Record; Repeat; record/play slots | `later` | `SUPPORT_OPRECORD` feature, not M10 gate scope. |
-| System menu additions | Tool window; key display; soft keyboard; screen center; snap; background; background sound; memory dump; debugger utility; debug control; screen multiples | Screen multiple related controls `stub-visible`; rest `later` | Debugger UI is explicitly out of M10. |
+| System menu additions | Tool window; key display; soft keyboard; screen center; snap; background; background sound; memory dump; debugger utility; debug control; screen multiples | Screen multiple related controls `done`; rest `later` | Debugger UI is explicitly out of M10. |
 
 ## Dialog Inventory
 
@@ -87,13 +85,13 @@ disabled stubs.
 |---|---|---|---|
 | `IDD_CONFIG` | `win9x/dialog/d_config.cpp` | Base clock, multiplier, model, sampling rate, sound buffer, resize, MMX, confirm, resume | `later` |
 | `IDD_NEWDISK`, `IDD_NEWDISK2`, `IDD_NEWHDDDISK`, `IDD_NEWSASI` | `win9x/dialog/d_disk.cpp` | Create floppy/HDD image files | `later` |
-| FDD/HDD file selectors | `win9x/dialog/d_disk.cpp` | Open FDD, SASI/IDE, SCSI images | FDD1/FDD2 `stub-visible`; HDD/SCSI `later` |
+| FDD/HDD file selectors | `win9x/dialog/d_disk.cpp` | Open FDD, SASI/IDE, SCSI images | FDD1/FDD2 `done`; HDD/SCSI `later` |
 | `IDD_SCROPT1` | `win9x/dialog/d_screen.cpp` | LCD mode, skipline, skiplight | `later` |
 | `IDD_SCROPT2` | `win9x/dialog/d_screen.cpp` | GDC chip, GRCG/EGC, PC-9801-24 color | `later` |
 | `IDD_SCROPT3` | `win9x/dialog/d_screen.cpp` | Wait-state and real palette tuning | `later` |
 | `IDD_SERIAL1`, `IDD_PC9861A/B/C` | `win9x/dialog/d_serial.cpp` | Serial and PC-9861K options | `later` |
 | `IDD_MPUPC98` | `win9x/dialog/d_mpu98.cpp` | MPU-PC98 I/O, interrupt, MIDI in/out, MIMPI def | `later` |
-| `IDD_SNDMIX` | `win9x/dialog/d_sound.cpp` | FM/PSG/ADPCM/PCM/rhythm volumes | Volume `stub-visible`; detailed mixer `later` |
+| `IDD_SNDMIX` | `win9x/dialog/d_sound.cpp` | FM/PSG/ADPCM/PCM/rhythm volumes | Volume `done`; detailed mixer `later` |
 | `IDD_SND14`, `IDD_SND26`, `IDD_SND86`, `IDD_SNDSPB`, `IDD_SNDPAD1` | `win9x/dialog/d_sound.cpp` | Board-specific volume/jumper/joystick pad settings | `later` |
 | S98 and WAV file selectors | `win9x/dialog/d_sound.cpp` | Audio logging and WAV recording | `later` |
 | `IDD_BMS` | `win9x/dialog/d_bms.cpp` | IO bank memory enable, port, bank count | `later` |
