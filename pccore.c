@@ -1220,17 +1220,17 @@ void pccore_exec(BOOL draw) {
 
 			//TRACEOUT(("%.4x:%.4x", CPU_CS, CPU_IP));
 			if (!(CPU_TYPE & CPUTYPE_V30)) {		// added by Shinra
-#if defined(SUPPORT_PC88VA)
-				i286x_step();
-#else
+#if defined(USE_I286C)
 				i286c_step();
+#else
+				i286x_step();
 #endif
 			}
 			else {
-#if defined(SUPPORT_PC88VA)
-				v30x_step();						// added by Shinra
-#else
+#if defined(USE_I286C)
 				v30c_step();
+#else
+				v30x_step();						// added by Shinra
 #endif
 			}
 #if defined(SUPPORT_PC88VA)
