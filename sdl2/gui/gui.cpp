@@ -61,6 +61,7 @@
 namespace {
 
 constexpr const char *kFontName = "NotoSansJP-Regular.ttf";
+constexpr float kGuiFontSize = 16.0f;
 constexpr int kStateSlots = 10;
 namespace fs = std::filesystem;
 
@@ -702,7 +703,7 @@ BOOL gui_initialize(void *window, void *renderer, const char *argv0) {
 					 kFontName);
 		return FAILURE;
 	}
-	if (io.Fonts->AddFontFromFileTTF(g_gui.font_path.c_str(), 18.0f,
+	if (io.Fonts->AddFontFromFileTTF(g_gui.font_path.c_str(), kGuiFontSize,
 									 nullptr,
 									 io.Fonts->GetGlyphRangesJapanese()) ==
 		nullptr) {
