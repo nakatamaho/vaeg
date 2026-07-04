@@ -39,6 +39,11 @@ void timing_setcount(UINT value) {
 	timing.cnt = value;
 }
 
+void timing_hosttick(void) {
+
+	fddmtr_callback(GETTICK());
+}
+
 /*
 経過時間を画面表示サイクル数で返却する
 	この値はtiming_setcountでリセットできる。
@@ -64,4 +69,3 @@ UINT timing_getcount(void) {
 	}
 	return(timing.cnt);
 }
-

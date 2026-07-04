@@ -88,6 +88,15 @@ enum {
 
 	_FDDMTR		fddmtr;
 
+#if defined(SUPPORT_SWSEEKSND)
+void fddmtrsnd_stop(void) {
+
+	fddmtrsnd_play(0, FALSE);
+	fddmtrsnd_play(1, FALSE);
+	fddmtr.curevent = 0;
+}
+#endif
+
 static void fddmtr_event(void) {
 
 	switch(fddmtr.curevent) {
@@ -109,7 +118,7 @@ static void fddmtr_event(void) {
 void fddmtr_initialize(void) {
 
 #if defined(SUPPORT_SWSEEKSND)
-	fddmtrsnd_play(0, FALSE);
+	fddmtrsnd_stop();
 #else
 	soundmng_pcmstop(SOUND_PCMSEEK);
 #endif
@@ -186,4 +195,3 @@ void fddmtr_seek(REG8 drv, REG8 c, UINT size) {
 	}
 	(void)drv;
 }
-

@@ -111,6 +111,7 @@ static void wait_next_frame(Uint64 *next_tick) {
 			SDL_Delay(0);
 		}
 		taskmng_rol();
+		timing_hosttick();
 		now = SDL_GetPerformanceCounter();
 	}
 }

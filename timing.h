@@ -6,9 +6,9 @@ extern "C" {
 void timing_reset(void);
 void timing_setrate(UINT lines, UINT crthz);
 void timing_setcount(UINT value);
+void timing_hosttick(void);
 UINT timing_getcount(void);
 
 #ifdef __cplusplus
 }
 #endif
-

@@ -48,6 +48,7 @@
 #include "sound.h"
 #include "adpcm.h"
 #include "pccore.h"
+#include "fdd_mtr.h"
 #include "opngen.h"
 #include "pcm86.h"
 #include "psggen.h"
@@ -565,6 +566,14 @@ static void draw_device_menu(void) {
 				}
 				soundrenewal = 1;
 				sysmng_update(SYS_UPDATECFG | SYS_UPDATESBOARD);
+			}
+			bool motor = np2cfg.MOTOR != 0;
+			if (ImGui::MenuItem("Seek/motor sound", nullptr, motor)) {
+				np2cfg.MOTOR = motor ? 0 : 1;
+				if (np2cfg.MOTOR == 0) {
+					fddmtrsnd_stop();
+				}
+				sysmng_update(SYS_UPDATECFG);
 			}
 			int volume = np2cfg.vol_fm;
 			if (ImGui::SliderInt("Master volume", &volume, 0, 128)) {
