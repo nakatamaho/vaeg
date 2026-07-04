@@ -34,6 +34,11 @@
 
 #if defined(SUPPORT_PC88VA)
 
+void MEMCALL gvram_wt(UINT32 address, REG8 value);
+void MEMCALL gvramw_wt(UINT32 address, REG16 value);
+REG8 MEMCALL gvram_rd(UINT32 address);
+REG16 MEMCALL gvramw_rd(UINT32 address);
+
 enum {
 	CPUADDR_SYSM		= 0x0a0000,
 	CPUADDR_ROM0		= 0x0e0000,
