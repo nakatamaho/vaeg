@@ -40,6 +40,7 @@ static void MEMCALL mainw_wt(UINT32 address, REG16 value) {
 }
 
 static REG16 MEMCALL bmsw_rd(UINT32 address) {
+#if defined(SUPPORT_BMS)
 	address -= 0x080000L;
 	if (!bmsio.nomem) {
 		return *(REG16 *)(bmsiowork.bmsmem + (bmsio.bank << 17) + address);
@@ -47,13 +48,22 @@ static REG16 MEMCALL bmsw_rd(UINT32 address) {
 	else {
 		return 0xffff;
 	}
+#else
+	(void)address;
+	return 0xffff;
+#endif
 }
 
 static void MEMCALL bmsw_wt(UINT32 address, REG16 value) {
+#if defined(SUPPORT_BMS)
 	address -= 0x080000L;
 	if (!bmsio.nomem) {
 		*(REG16 *)(bmsiowork.bmsmem + (bmsio.bank << 17) + address) = value;
 	}
+#else
+	(void)address;
+	(void)value;
+#endif
 }
 
 static REG16 MEMCALL tvramw_rd(UINT32 address) {
