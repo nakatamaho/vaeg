@@ -1,0 +1,180 @@
+/*
+ * Copyright (c) 2026 Nakata Maho
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE AUTHOR "AS IS" AND ANY EXPRESS OR
+ * IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+ * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+ * DISCLAIMED. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT,
+ * INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+ * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+ * STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING
+ * IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ * POSSIBILITY OF SUCH DAMAGE.
+ */
+#include	"compiler.h"
+#include	<SDL.h>
+#include	"scrnmng.h"
+
+typedef struct {
+	BOOL			enable;
+	int				width;
+	int				height;
+	SDL_Window		*window;
+	SDL_Renderer	*renderer;
+	SDL_Texture		*texture;
+} SCRNMNG;
+
+typedef struct {
+	int		width;
+	int		height;
+} SCRNSTAT;
+
+static const char app_name[] = "88VA Eternal Grafx";
+
+static	SCRNMNG		scrnmng;
+static	SCRNSTAT	scrnstat;
+static	SCRNSURF	scrnsurf;
+
+void scrnmng_initialize(void) {
+
+	ZeroMemory(&scrnmng, sizeof(scrnmng));
+	scrnstat.width = 640;
+	scrnstat.height = 400;
+}
+
+BOOL scrnmng_create(int width, int height) {
+
+	if (SDL_InitSubSystem(SDL_INIT_VIDEO | SDL_INIT_TIMER) < 0) {
+		fprintf(stderr, "Error: SDL video init: %s\n", SDL_GetError());
+		return(FAILURE);
+	}
+	scrnmng.window = SDL_CreateWindow(app_name, SDL_WINDOWPOS_CENTERED,
+							SDL_WINDOWPOS_CENTERED, width, height, 0);
+	if (scrnmng.window == NULL) {
+		fprintf(stderr, "Error: SDL_CreateWindow: %s\n", SDL_GetError());
+		return(FAILURE);
+	}
+	scrnmng.renderer = SDL_CreateRenderer(scrnmng.window, -1,
+							SDL_RENDERER_SOFTWARE);
+	if (scrnmng.renderer == NULL) {
+		fprintf(stderr, "Error: SDL_CreateRenderer: %s\n", SDL_GetError());
+		return(FAILURE);
+	}
+	SDL_RenderSetLogicalSize(scrnmng.renderer, width, height);
+	scrnmng.texture = SDL_CreateTexture(scrnmng.renderer,
+							SDL_PIXELFORMAT_RGB565,
+							SDL_TEXTUREACCESS_STREAMING, width, height);
+	if (scrnmng.texture == NULL) {
+		fprintf(stderr, "Error: SDL_CreateTexture: %s\n", SDL_GetError());
+		return(FAILURE);
+	}
+	scrnmng.enable = TRUE;
+	scrnmng.width = width;
+	scrnmng.height = height;
+	return(SUCCESS);
+}
+
+void scrnmng_destroy(void) {
+
+	scrnmng.enable = FALSE;
+	if (scrnmng.texture) {
+		SDL_DestroyTexture(scrnmng.texture);
+		scrnmng.texture = NULL;
+	}
+	if (scrnmng.renderer) {
+		SDL_DestroyRenderer(scrnmng.renderer);
+		scrnmng.renderer = NULL;
+	}
+	if (scrnmng.window) {
+		SDL_DestroyWindow(scrnmng.window);
+		scrnmng.window = NULL;
+	}
+	SDL_QuitSubSystem(SDL_INIT_VIDEO | SDL_INIT_TIMER);
+}
+
+RGB16 scrnmng_makepal16(RGB32 pal32) {
+
+	RGB16	ret;
+
+	ret = (pal32.p.r & 0xf8) << 8;
+#if defined(SIZE_QVGA)
+	ret += (pal32.p.g & 0xfc) << (3 + 16);
+#else
+	ret += (pal32.p.g & 0xfc) << 3;
+#endif
+	ret += pal32.p.b >> 3;
+	return(ret);
+}
+
+void scrnmng_setwidth(int posx, int width) {
+
+	scrnstat.width = width;
+	(void)posx;
+}
+
+void scrnmng_setheight(int posy, int height) {
+
+	scrnstat.height = height;
+	(void)posy;
+}
+
+const SCRNSURF *scrnmng_surflock(void) {
+
+	void	*pixels;
+	int		pitch;
+
+	if ((!scrnmng.enable) || (scrnmng.texture == NULL)) {
+		return(NULL);
+	}
+	if (SDL_LockTexture(scrnmng.texture, NULL, &pixels, &pitch) != 0) {
+		return(NULL);
+	}
+	scrnsurf.ptr = (BYTE *)pixels;
+	scrnsurf.xalign = 2;
+	scrnsurf.yalign = pitch;
+	scrnsurf.bpp = 16;
+	scrnsurf.width = min(scrnstat.width, 640);
+	scrnsurf.height = min(scrnstat.height, 400);
+	scrnsurf.extend = 0;
+	return(&scrnsurf);
+}
+
+void scrnmng_surfunlock(const SCRNSURF *surf) {
+
+	if ((surf == NULL) || (scrnmng.texture == NULL)) {
+		return;
+	}
+	SDL_UnlockTexture(scrnmng.texture);
+	SDL_RenderClear(scrnmng.renderer);
+	SDL_RenderCopy(scrnmng.renderer, scrnmng.texture, NULL, NULL);
+	SDL_RenderPresent(scrnmng.renderer);
+}
+
+BOOL scrnmng_entermenu(SCRNMENU *smenu) {
+
+	if (smenu) {
+		smenu->width = scrnmng.width;
+		smenu->height = scrnmng.height;
+		smenu->bpp = 16;
+	}
+	return(FAILURE);
+}
+
+void scrnmng_leavemenu(void) {
+}
+
+void scrnmng_menudraw(const RECT_T *rct) {
+
+	(void)rct;
+}
