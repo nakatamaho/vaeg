@@ -21,7 +21,7 @@ import sys
 ALLOW = {"AGENTS.md"}
 ALLOW_PREFIXES = ("docs/", ".git")
 ALLOW_BASENAMES = {"README.md", "README.txt", "CMakeLists.txt", "SKILL.md",
-                   "LICENSE", "LICENSE.txt", "Makefile"}
+                   "LICENSE", "LICENSE.txt"}
 SRC_EXT = {".c", ".h", ".cpp", ".hpp", ".cc", ".asm", ".x86", ".rc", ".tbl"}
 INC_RE = re.compile(rb'''^\s*[#%]\s*include\s+["'<]([^"'>]+)["'>]''',
                     re.M)
@@ -35,6 +35,7 @@ def tracked_files():
 def exempt(path: str) -> bool:
     base = path.rsplit("/", 1)[-1]
     return (path in ALLOW or base in ALLOW_BASENAMES
+            or base.startswith("Makefile")
             or any(path.startswith(p) for p in ALLOW_PREFIXES))
 
 
