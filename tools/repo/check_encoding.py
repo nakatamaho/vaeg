@@ -5,6 +5,7 @@ Usage:
   python tools/repo/check_encoding.py --report          # census only
   python tools/repo/check_encoding.py --expect cp932    # fail on non-CP932 text
   python tools/repo/check_encoding.py --expect utf8     # fail on non-UTF-8 or BOM
+  python tools/repo/check_encoding.py --expect utf8 --exclude hlp/
 
 Classification per file: BINARY, ASCII, UTF8, UTF8-BOM, CP932, UNKNOWN.
 ASCII always satisfies both --expect modes. Exit 0 clean, 1 violations.
@@ -57,11 +58,20 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--report", action="store_true")
     ap.add_argument("--expect", choices=["cp932", "utf8"])
+    ap.add_argument(
+        "--exclude",
+        action="append",
+        default=[],
+        metavar="PREFIX",
+        help="skip paths with this prefix in --expect mode; repeatable",
+    )
     args = ap.parse_args()
 
     ok = {"cp932": {"ASCII", "CP932"}, "utf8": {"ASCII", "UTF8"}}
     violations = 0
     for path in tracked_files():
+        if args.expect and any(path.startswith(prefix) for prefix in args.exclude):
+            continue
         try:
             with open(path, "rb") as f:
                 data = f.read()

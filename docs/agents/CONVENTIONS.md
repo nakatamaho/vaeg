@@ -21,8 +21,14 @@ require CRLF). Everything else is LF after M5.
 ## Permanent binary set (never renormalize, never re-encode)
 
 ROM/BIOS/font/disk images and media: `*.rom *.bin *.d88 *.ico *.cur
-*.bmp *.png *.wav` and everything under `ROMIMAGE/`. `.gitattributes`
-(added in M5) is the single source of truth.
+*.bmp *.gif *.png *.wav`. Text sources under `romimage/` are not
+binary. `.gitattributes` (added in M5) is the single source of truth.
+
+## Permanent CP932 text exception
+
+`hlp/**` remains CP932 after M6. HTML Help Workshop (`hhc.exe`) cannot
+compile UTF-8 help sources, and the HTML files declare
+`meta charset=Shift_JIS`, which matches the CP932 bytes on disk.
 
 ## Naming (target, enforced from M4)
 
