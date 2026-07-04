@@ -23,7 +23,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 #include	"compiler.h"
-#include	<SDL.h>
+#include	"sdlapi.h"
 #include	"np2.h"
 #include	"sdlkbd.h"
 #include	"keystat.h"

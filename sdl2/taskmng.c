@@ -23,7 +23,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 #include	"compiler.h"
-#include	<SDL.h>
+#include	"sdlapi.h"
 #include	"taskmng.h"
 #include	"sdlkbd.h"
 

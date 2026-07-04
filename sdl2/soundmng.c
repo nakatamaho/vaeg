@@ -23,7 +23,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 #include	"compiler.h"
-#include	<SDL.h>
+#include	"sdlapi.h"
 #include	"parts.h"
 #include	"soundmng.h"
 #include	"sound.h"
