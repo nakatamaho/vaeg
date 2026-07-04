@@ -24,6 +24,15 @@ cmake_minimum_required(VERSION 3.20)
 
 project(vaeg LANGUAGES C)
 
+find_package(SDL2 QUIET CONFIG)
+if(TARGET SDL2::SDL2)
+    set(VAEG_SDL2_LIBS SDL2::SDL2)
+else()
+    find_package(PkgConfig REQUIRED)
+    pkg_check_modules(SDL2 REQUIRED IMPORTED_TARGET sdl2)
+    set(VAEG_SDL2_LIBS PkgConfig::SDL2)
+endif()
+
 option(VAEG_ENABLE_TESTS "Enable vaeg tests" OFF)
 option(VAEG_WERROR "Treat warnings as errors" OFF)
 
@@ -199,6 +208,23 @@ set(VAEG_CORE_SOURCES
     statsave.c
     debugsub.c)
 
+set(VAEG_SDL2_SOURCES
+    sdl2/np2.c
+    sdl2/dosio.c
+    sdl2/ini.c
+    sdl2/taskmng.c
+    sdl2/sysmng.c
+    sdl2/timemng.c
+    sdl2/trace.c
+    sdl2/scrnmng.c
+    sdl2/sdlkbd.c
+    sdl2/inputmng.c
+    sdl2/soundmng.c
+    sdl2/mousemng.c
+    sdl2/joymng.c
+    sdl2/commng.c
+    sdl2/fontmng.c)
+
 add_library(vaeg_common STATIC ${VAEG_COMMON_SOURCES})
 target_include_directories(vaeg_common PUBLIC ${VAEG_INCLUDE_DIRS})
 target_compile_options(vaeg_common PRIVATE -Wall -fsigned-char)
@@ -213,4 +239,15 @@ target_compile_definitions(vaeg_core PRIVATE USE_I286C)
 target_compile_options(vaeg_core PRIVATE -Wall -fsigned-char)
 if(VAEG_WERROR)
     target_compile_options(vaeg_core PRIVATE -Werror)
+endif()
+
+add_executable(vaeg_sdl2 ${VAEG_SDL2_SOURCES})
+set_target_properties(vaeg_sdl2 PROPERTIES
+    OUTPUT_NAME vaeg
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/sdl2")
+target_include_directories(vaeg_sdl2 PRIVATE ${VAEG_INCLUDE_DIRS})
+target_link_libraries(vaeg_sdl2 PRIVATE vaeg_core ${VAEG_SDL2_LIBS})
+target_compile_options(vaeg_sdl2 PRIVATE -Wall -fsigned-char)
+if(VAEG_WERROR)
+    target_compile_options(vaeg_sdl2 PRIVATE -Werror)
 endif()
