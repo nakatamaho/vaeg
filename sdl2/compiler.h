@@ -127,6 +127,8 @@ typedef uint8_t BYTE;
 #define SQWORD_CONST(v) INT64_C(v)
 #endif
 
+#define SIZE_VGA
+
 #if !defined(SIZE_VGA)
 #define RGB16 UINT32
 #define SIZE_QVGA
