@@ -44,6 +44,7 @@
 #define X11
 #define OSLANG_UTF8
 #define OSLINEBREAK_LF
+#define SDL_MAIN_HANDLED
 
 typedef int INT;
 typedef unsigned int UINT;
