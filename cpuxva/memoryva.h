@@ -39,8 +39,11 @@ extern	_MEMORYVA	memoryva;
 extern	BOOL	textmem_dirty;
 
 void MEMCALL i286_memorymap_va(void);
+void MEMCALL i286_memorywrite_va(UINT32 address, REG8 value);
+void MEMCALL i286_memorywrite_va_w(UINT32 address, REG16 value);
+REG8 MEMCALL i286_memoryread_va(UINT32 address);
+REG16 MEMCALL i286_memoryread_va_w(UINT32 address);
 
 #ifdef __cplusplus
 }
 #endif
-
