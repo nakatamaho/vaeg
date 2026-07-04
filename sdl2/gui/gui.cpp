@@ -39,6 +39,7 @@
 #include "diskdrv.h"
 #include "dosio.h"
 #include "fddfile.h"
+#include "keystat.h"
 #include "np2.h"
 #include "sound.h"
 #include "adpcm.h"
@@ -48,6 +49,7 @@
 #include "psggen.h"
 #include "rhythm.h"
 #include "scrnmng.h"
+#include "sdlkbd.h"
 #include "soundmng.h"
 #include "sysmng.h"
 
@@ -299,6 +301,20 @@ static void set_display_aspect(bool aspect) {
 	sysmng_update(SYS_UPDATEOSCFG);
 }
 
+static void set_key_mode(BYTE mode) {
+
+	np2cfg.KEY_MODE = mode;
+	keystat_resetjoykey();
+	sysmng_update(SYS_UPDATECFG);
+}
+
+static void set_f12_key(BYTE mode) {
+
+	np2oscfg.F12KEY = mode;
+	sdlkbd_resetf12();
+	sysmng_update(SYS_UPDATEOSCFG);
+}
+
 static void draw_screen_menu(void) {
 
 	if (ImGui::BeginMenu("Screen / 画面")) {
@@ -327,10 +343,45 @@ static void draw_device_menu(void) {
 
 	if (ImGui::BeginMenu("Device / デバイス")) {
 		if (ImGui::BeginMenu("Keyboard / キーボード")) {
-			menu_item_not_implemented("Keyboard (not implemented)");
-			menu_item_not_implemented("JoyKey-1 (not implemented)");
-			menu_item_not_implemented("JoyKey-2 (not implemented)");
-			menu_item_not_implemented("F12 binding (not implemented)");
+			if (ImGui::MenuItem("Keyboard", nullptr,
+								np2cfg.KEY_MODE == 0)) {
+				set_key_mode(0);
+			}
+			if (ImGui::MenuItem("JoyKey-1", nullptr,
+								np2cfg.KEY_MODE == 1)) {
+				set_key_mode(1);
+			}
+			if (ImGui::MenuItem("JoyKey-2", nullptr,
+								np2cfg.KEY_MODE == 2)) {
+				set_key_mode(2);
+			}
+			if (ImGui::MenuItem("Mouse key", nullptr,
+								np2cfg.KEY_MODE == 3)) {
+				set_key_mode(3);
+			}
+			if (ImGui::BeginMenu("F12 binding")) {
+				if (ImGui::MenuItem("Mouse", nullptr,
+									np2oscfg.F12KEY == 0)) {
+					set_f12_key(0);
+				}
+				if (ImGui::MenuItem("COPY", nullptr,
+									np2oscfg.F12KEY == 1)) {
+					set_f12_key(1);
+				}
+				if (ImGui::MenuItem("STOP", nullptr,
+									np2oscfg.F12KEY == 2)) {
+					set_f12_key(2);
+				}
+				if (ImGui::MenuItem("Tenkey =", nullptr,
+									np2oscfg.F12KEY == 3)) {
+					set_f12_key(3);
+				}
+				if (ImGui::MenuItem("Tenkey ,", nullptr,
+									np2oscfg.F12KEY == 4)) {
+					set_f12_key(4);
+				}
+				ImGui::EndMenu();
+			}
 			menu_item_not_implemented("Mechanical keys (not implemented)");
 			ImGui::EndMenu();
 		}
