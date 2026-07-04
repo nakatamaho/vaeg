@@ -63,6 +63,8 @@ typedef int BOOL;
 typedef char CHAR;
 typedef char TCHAR;
 typedef uint8_t BYTE;
+typedef uint16_t WORD;
+typedef uint32_t DWORD;
 
 #ifndef TRUE
 #define TRUE 1
