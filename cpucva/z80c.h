@@ -1,5 +1,5 @@
 /*
- *	Z80c.h: Z80
+ *	z80c.h: Z80
  */
 
 // Original:
@@ -7,16 +7,16 @@
 //	Z80 emulator in C++
 //	Copyright (C) cisc 1997, 1999.
 // ----------------------------------------------------------------------------
-//	#Id: Z80c.h,v 1.26 2001/02/21 11:57:16 cisc Exp #
+//	#Id: z80c.h,v 1.26 2001/02/21 11:57:16 cisc Exp #
 
 
 #ifndef Z80C_h
 #define Z80C_h
 
 #include "types.h"
-#include "Z80if.h"
-#include "Z80.h"
-#include "Z80diag.h"
+#include "z80if.h"
+#include "z80.h"
+#include "z80diag.h"
 
 
 #define Z80C_STATISTICS

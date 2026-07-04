@@ -9,21 +9,21 @@ compilation is impossible otherwise.
 M0 inventory reviewed; canonical project identified.
 
 ## Steps
-1. Convert `Win9x/np2.dsp` (VC6) once with VS2008 and COMMIT the
+1. Convert `win9x/np2.dsp` (VC6) once with VS2008 and COMMIT the
    resulting `.vcproj` + `.sln` (CRLF). Keep `np2.dsp`/`np2.dsw` in
    place — they become M3 prune candidates, not M1 deletions.
 2. **NASM custom build steps — NINE, not four.** The .dsp assembles,
    via custom build rules hardcoding `c:\bin\nasm\nasmw -f win32`:
-   `CPUXVA/MEMORYVA.X86`, `I286X/DMAP.X86`, `I286X/EGCMEM.X86`,
-   `I286X/MEMORY.X86`, `Win9x/x86/PARTS.X86`, `Win9x/x86/OPNGENG.X86`,
-   `Win9x/x86/CPUTYPE.X86`, `Win9x/x86/MAKEGRPH.X86`,
-   `Win9x/DCLOCKD.X86` (see inventory.md, Assembly section).
+   `cpuxva/memoryva.x86`, `i286x/dmap.x86`, `i286x/egcmem.x86`,
+   `i286x/memory.x86`, `win9x/x86/parts.x86`, `win9x/x86/opngeng.x86`,
+   `win9x/x86/cputype.x86`, `win9x/x86/makegrph.x86`,
+   `win9x/dclockd.x86` (see inventory.md, Assembly section).
    Verify the conversion preserved ALL NINE custom build steps
    (VC6→VS2008 conversion is known to drop or mangle these — check
    each one in the .vcproj). Replace the hardcoded path with plain
    `nasm -f win32` (NASM on PATH) and state the required NASM version
    in the report. This path fix is an expected, documented deviation.
-   Note: `MEMORYVA.X86`, `EGCMEM.X86`, `MEMORY.X86`, `MAKEGRPH.X86`
+   Note: `memoryva.x86`, `egcmem.x86`, `memory.x86`, `makegrph.x86`
    `%include 'x86/np2asm.inc'` — the assembler working directory must
    make that resolve (the .dsp rules run with `$(InputPath)`; keep the
    converted rules' working-directory semantics identical).

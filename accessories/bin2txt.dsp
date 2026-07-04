@@ -57,7 +57,7 @@ LINK32=link.exe
 # PROP Default_Filter ""
 # Begin Source File
 
-SOURCE=..\COMMON\MILSTR.C
+SOURCE=..\common\milstr.c
 # End Source File
 # End Group
 # Begin Group "win9x"
@@ -65,16 +65,16 @@ SOURCE=..\COMMON\MILSTR.C
 # PROP Default_Filter ""
 # Begin Source File
 
-SOURCE=..\Win9x\DOSIO.CPP
+SOURCE=..\win9x\dosio.cpp
 # End Source File
 # End Group
 # Begin Source File
 
-SOURCE=.\BIN2TXT.C
+SOURCE=.\bin2txt.c
 # End Source File
 # Begin Source File
 
-SOURCE=.\TEXTOUT.C
+SOURCE=.\textout.c
 # End Source File
 # End Group
 # Begin Group "Header Files"

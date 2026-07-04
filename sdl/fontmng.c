@@ -1,5 +1,5 @@
 #include	"compiler.h"
-#include	<SDL_ttf.h>
+#include	<sdl_ttf.h>
 #include	"fontmng.h"
 #include	"codecnv.h"
 

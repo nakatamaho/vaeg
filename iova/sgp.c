@@ -1,5 +1,5 @@
 /*
- * SGP.C: PC-88VA Super Graphic Processor
+ * sgp.c: PC-88VA Super Graphic Processor
  */
 
 #include	"compiler.h"

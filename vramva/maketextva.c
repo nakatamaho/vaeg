@@ -1,5 +1,5 @@
 /*
- * MAKETEXTVA.C: PC-88VA Text
+ * maketextva.c: PC-88VA Text
  */
 /*
 ToDo:

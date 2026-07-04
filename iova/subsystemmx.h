@@ -1,5 +1,5 @@
 /*
- * SUBSYSTEMMX.H: PC-88VA FD Sub System (multiplexer)
+ * subsystemmx.h: PC-88VA FD Sub System (multiplexer)
  *
  */
 

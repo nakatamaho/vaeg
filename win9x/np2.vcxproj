@@ -210,267 +210,267 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="..\COMMON\_MEMORY.C" />
-    <ClCompile Include="..\COMMON\BMPDATA.C" />
-    <ClCompile Include="..\COMMON\LSTARRAY.C" />
-    <ClCompile Include="..\COMMON\MILSTR.C" />
-    <ClCompile Include="..\COMMON\MIMPIDEF.C" />
-    <ClCompile Include="..\COMMON\PROFILE.C" />
-    <ClCompile Include="..\COMMON\STRRES.C" />
-    <ClCompile Include="..\COMMON\TEXTFILE.C" />
-    <ClCompile Include="..\COMMON\WAVEFILE.C" />
-    <ClCompile Include="..\I286X\I286X.CPP" />
-    <ClCompile Include="..\I286X\I286XADR.CPP" />
-    <ClCompile Include="..\I286X\I286XCTS.CPP" />
-    <ClCompile Include="..\I286X\I286XREP.CPP" />
-    <ClCompile Include="..\I286X\I286XS.CPP" />
-    <ClCompile Include="..\I286X\V30PATCH.CPP" />
-    <ClCompile Include="..\BIOS\BIOS.C" />
-    <ClCompile Include="..\BIOS\BIOS09.C" />
-    <ClCompile Include="..\BIOS\BIOS0C.C" />
-    <ClCompile Include="..\BIOS\BIOS12.C" />
-    <ClCompile Include="..\BIOS\BIOS13.C" />
-    <ClCompile Include="..\BIOS\BIOS18.C" />
-    <ClCompile Include="..\BIOS\BIOS19.C" />
-    <ClCompile Include="..\BIOS\BIOS1A.C" />
-    <ClCompile Include="..\BIOS\BIOS1B.C" />
-    <ClCompile Include="..\BIOS\BIOS1C.C" />
-    <ClCompile Include="..\BIOS\BIOS1F.C" />
-    <ClCompile Include="..\BIOS\SXSIBIOS.C" />
-    <ClCompile Include="..\SOUND\VERMOUTH\MIDIMOD.C" />
-    <ClCompile Include="..\SOUND\VERMOUTH\MIDINST.C" />
-    <ClCompile Include="..\SOUND\VERMOUTH\MIDIOUT.C" />
-    <ClCompile Include="..\SOUND\VERMOUTH\MIDTABLE.C" />
-    <ClCompile Include="..\SOUND\VERMOUTH\MIDVOICE.C" />
-    <ClCompile Include="..\SOUND\GETSND\GETSMIX.C" />
-    <ClCompile Include="..\SOUND\GETSND\GETSND.C" />
-    <ClCompile Include="..\SOUND\GETSND\GETWAVE.C" />
-    <ClCompile Include="..\SOUND\ADPCMC.C" />
-    <ClCompile Include="..\SOUND\ADPCMG.C" />
-    <ClCompile Include="..\SOUND\BEEPC.C" />
-    <ClCompile Include="..\SOUND\BEEPG.C" />
-    <ClCompile Include="..\SOUND\CS4231C.C" />
-    <ClCompile Include="..\SOUND\CS4231G.C" />
-    <ClCompile Include="..\SOUND\FMBOARD.C" />
-    <ClCompile Include="..\SOUND\FMTIMER.C" />
-    <ClCompile Include="..\SOUND\OPNGENC.C" />
-    <ClCompile Include="..\SOUND\PCM86C.C" />
-    <ClCompile Include="..\SOUND\PCM86G.C" />
-    <ClCompile Include="..\SOUND\PSGGENC.C" />
-    <ClCompile Include="..\SOUND\PSGGENG.C" />
-    <ClCompile Include="..\SOUND\RHYTHMC.C" />
-    <ClCompile Include="..\SOUND\S98.C" />
-    <ClCompile Include="..\SOUND\SOUND.C" />
-    <ClCompile Include="..\SOUND\SOUNDROM.C" />
-    <ClCompile Include="..\SOUND\TMS3631C.C" />
-    <ClCompile Include="..\SOUND\TMS3631G.C" />
-    <ClCompile Include="..\FDD\DISKDRV.C" />
-    <ClCompile Include="..\FDD\FDD_D88.C" />
-    <ClCompile Include="..\FDD\FDD_MTR.C" />
-    <ClCompile Include="..\FDD\FDD_XDF.C" />
-    <ClCompile Include="..\FDD\FDDFILE.C" />
-    <ClCompile Include="..\FDD\NEWDISK.C" />
-    <ClCompile Include="..\FDD\SXSI.C" />
-    <ClCompile Include="..\LIO\GCIRCLE.C" />
-    <ClCompile Include="..\LIO\GLINE.C" />
-    <ClCompile Include="..\LIO\GPSET.C" />
-    <ClCompile Include="..\LIO\GPUT1.C" />
-    <ClCompile Include="..\LIO\GSCREEN.C" />
-    <ClCompile Include="..\LIO\LIO.C" />
-    <ClCompile Include="..\FONT\FONT.C" />
-    <ClCompile Include="..\FONT\FONTDATA.C" />
-    <ClCompile Include="..\FONT\FONTFM7.C" />
-    <ClCompile Include="..\FONT\FONTMAKE.C" />
-    <ClCompile Include="..\FONT\FONTPC88.C" />
-    <ClCompile Include="..\FONT\FONTPC98.C" />
-    <ClCompile Include="..\FONT\FONTV98.C" />
-    <ClCompile Include="..\FONT\FONTX1.C" />
-    <ClCompile Include="..\FONT\FONTX68K.C" />
-    <ClCompile Include=".\DIALOG\D_ABOUT.CPP" />
-    <ClCompile Include=".\DIALOG\D_BMP.CPP" />
-    <ClCompile Include=".\DIALOG\D_BMS.CPP" />
-    <ClCompile Include=".\DIALOG\D_CLND.CPP" />
-    <ClCompile Include=".\DIALOG\D_CONFIG.CPP" />
-    <ClCompile Include=".\DIALOG\D_DISK.CPP" />
-    <ClCompile Include=".\DIALOG\D_MPU98.CPP" />
-    <ClCompile Include=".\DIALOG\D_OPRECORD.CPP" />
-    <ClCompile Include=".\DIALOG\D_SCREEN.CPP" />
-    <ClCompile Include=".\DIALOG\D_SERIAL.CPP" />
-    <ClCompile Include=".\DIALOG\D_SOUND.CPP" />
-    <ClCompile Include=".\DIALOG\DIALOGS.CPP" />
-    <ClCompile Include=".\DIALOG\NP2CLASS.CPP" />
-    <ClCompile Include=".\DEBUGUTY\DEBUGCTRL.CPP" />
-    <ClCompile Include=".\DEBUGUTY\VIEW1MB.CPP" />
-    <ClCompile Include=".\DEBUGUTY\VIEWASM.CPP" />
-    <ClCompile Include=".\DEBUGUTY\VIEWCMN.CPP" />
-    <ClCompile Include=".\DEBUGUTY\VIEWER.CPP" />
-    <ClCompile Include=".\DEBUGUTY\VIEWGACTRLVA.CPP" />
-    <ClCompile Include=".\DEBUGUTY\VIEWMEM.CPP" />
-    <ClCompile Include=".\DEBUGUTY\VIEWMENU.CPP" />
-    <ClCompile Include=".\DEBUGUTY\VIEWREG.CPP" />
-    <ClCompile Include=".\DEBUGUTY\VIEWSEG.CPP" />
-    <ClCompile Include=".\DEBUGUTY\VIEWSND.CPP" />
-    <ClCompile Include=".\DEBUGUTY\VIEWSUBASM.CPP" />
-    <ClCompile Include=".\DEBUGUTY\VIEWSUBMEM.CPP" />
-    <ClCompile Include=".\DEBUGUTY\VIEWSUBREG.CPP" />
-    <ClCompile Include=".\DEBUGUTY\VIEWVABANK.CPP" />
-    <ClCompile Include=".\DEBUGUTY\VIEWVIDEOVA.CPP" />
-    <ClCompile Include=".\CMMIDI.CPP" />
-    <ClCompile Include=".\CMPARA.CPP" />
-    <ClCompile Include=".\CMSERIAL.CPP" />
-    <ClCompile Include=".\COMMNG.CPP" />
-    <ClCompile Include=".\DCLOCK.CPP" />
-    <ClCompile Include=".\DD2.CPP" />
-    <ClCompile Include=".\DOSIO.CPP" />
-    <ClCompile Include=".\EXTROMIO.CPP" />
-    <ClCompile Include=".\FONTMNG.CPP" />
-    <ClCompile Include=".\INI.CPP" />
-    <ClCompile Include=".\JOYMNG.CPP" />
-    <ClCompile Include=".\JULIET.CPP" />
-    <ClCompile Include=".\MENU.CPP" />
-    <ClCompile Include=".\MOUSEMNG.CPP" />
-    <ClCompile Include=".\NP2.CPP" />
-    <ClCompile Include=".\NP2ARG.CPP" />
-    <ClCompile Include=".\SCRNMNG.CPP" />
-    <ClCompile Include=".\SOUNDMNG.CPP" />
-    <ClCompile Include=".\SSTP.CPP" />
-    <ClCompile Include=".\SSTPMSG.CPP" />
-    <ClCompile Include=".\SUBWIND.CPP" />
-    <ClCompile Include=".\SYSMNG.CPP" />
-    <ClCompile Include=".\TASKMNG.CPP" />
-    <ClCompile Include=".\TIMEMNG.CPP" />
-    <ClCompile Include=".\TOOLWIN.CPP" />
-    <ClCompile Include=".\TRACE.CPP" />
-    <ClCompile Include=".\WINKBD.CPP" />
-    <ClCompile Include=".\WINLOC.CPP" />
-    <ClCompile Include="..\IO\ARTIC.C" />
-    <ClCompile Include="..\IO\BMSIO.C" />
-    <ClCompile Include="..\IO\CGROM.C" />
-    <ClCompile Include="..\IO\CPUIO.C" />
-    <ClCompile Include="..\IO\CRTC.C" />
-    <ClCompile Include="..\IO\DIPSW.C" />
-    <ClCompile Include="..\IO\DMAC.C" />
-    <ClCompile Include="..\IO\EGC.C" />
-    <ClCompile Include="..\IO\EMSIO.C" />
-    <ClCompile Include="..\IO\EPSONIO.C" />
-    <ClCompile Include="..\IO\FDC.C" />
-    <ClCompile Include="..\IO\FDD320.C" />
-    <ClCompile Include="..\IO\GDC.C" />
-    <ClCompile Include="..\IO\GDC_PSET.C" />
-    <ClCompile Include="..\IO\GDC_SUB.C" />
-    <ClCompile Include="..\IO\IOCORE.C" />
-    <ClCompile Include="..\IO\MOUSEIF.C" />
-    <ClCompile Include="..\IO\NECIO.C" />
-    <ClCompile Include="..\IO\NMIIO.C" />
-    <ClCompile Include="..\IO\NP2SYSP.C" />
-    <ClCompile Include="..\IO\NP2VASUP.C" />
-    <ClCompile Include="..\IO\PIC.C" />
-    <ClCompile Include="..\IO\PIT.C" />
-    <ClCompile Include="..\IO\PRINTIF.C" />
-    <ClCompile Include="..\IO\SERIAL.C" />
-    <ClCompile Include="..\IO\SYSPORT.C" />
-    <ClCompile Include="..\IO\UPD4990.C" />
-    <ClCompile Include="..\CBUS\AMD98.C" />
-    <ClCompile Include=".\BOARD118.C" />
-    <ClCompile Include="..\CBUS\BOARD14.C" />
-    <ClCompile Include="..\CBUS\BOARD26K.C" />
-    <ClCompile Include="..\CBUS\BOARD86.C" />
-    <ClCompile Include="..\CBUS\BOARDSPB.C" />
-    <ClCompile Include="..\CBUS\BOARDX2.C" />
-    <ClCompile Include="..\CBUS\CBUSCORE.C" />
-    <ClCompile Include="..\CBUS\CS4231IO.C" />
-    <ClCompile Include="..\CBUS\IDEIO.C" />
-    <ClCompile Include="..\CBUS\MPU98II.C" />
-    <ClCompile Include="..\CBUS\PC9861K.C" />
-    <ClCompile Include="..\CBUS\PCM86IO.C" />
-    <ClCompile Include="..\CBUS\SASIIO.C" />
-    <ClCompile Include="..\CBUS\SCSICMD.C" />
-    <ClCompile Include="..\CBUS\SCSIIO.C" />
-    <ClCompile Include="..\VRAM\DISPSYNC.C" />
-    <ClCompile Include="..\VRAM\MAKETEXT.C" />
-    <ClCompile Include="..\VRAM\MAKETGRP.C" />
-    <ClCompile Include="..\VRAM\PALETTES.C" />
-    <ClCompile Include="..\VRAM\SCRNDRAW.C" />
-    <ClCompile Include="..\VRAM\SCRNSAVE.C" />
-    <ClCompile Include="..\VRAM\SDRAW.C" />
-    <ClCompile Include="..\VRAM\VRAM.C" />
-    <ClCompile Include="..\GENERIC\CMJASTS.C" />
-    <ClCompile Include="..\GENERIC\CMNDRAW.C" />
-    <ClCompile Include="..\GENERIC\DIPSWBMP.C" />
-    <ClCompile Include="..\GENERIC\HOSTDRV.C" />
-    <ClCompile Include="..\GENERIC\HOSTDRVS.C" />
-    <ClCompile Include="..\GENERIC\KEYDISP.C" />
-    <ClCompile Include="..\GENERIC\NP2INFO.C" />
-    <ClCompile Include="..\GENERIC\SOFTKBD.C" />
-    <ClCompile Include="..\GENERIC\UNASM.C" />
-    <ClCompile Include="..\VRAMVA\MAKEGRPHVA.C" />
-    <ClCompile Include="..\VRAMVA\MAKESPRVA.C" />
-    <ClCompile Include="..\VRAMVA\MAKETEXTVA.C" />
-    <ClCompile Include="..\VRAMVA\PALETTESVA.C" />
-    <ClCompile Include="..\VRAMVA\SCRNDRAWVA.C" />
-    <ClCompile Include="..\VRAMVA\SDRAWVA.C" />
-    <ClCompile Include="..\BIOSVA\BIOSVA.C" />
-    <ClCompile Include="..\IOVA\BKUPMEMVA.C" />
-    <ClCompile Include="..\IOVA\BOARDSB2.C" />
-    <ClCompile Include="..\IOVA\CGROMVA.C" />
-    <ClCompile Include="..\IOVA\FDSUBSYS.C" />
-    <ClCompile Include="..\IOVA\GACTRLVA.C" />
-    <ClCompile Include="..\IOVA\I8255.C" />
-    <ClCompile Include="..\IOVA\IOCOREVA.C" />
-    <ClCompile Include="..\IOVA\MEMCTRLVA.C" />
-    <ClCompile Include="..\IOVA\MOUSEIFVA.C" />
-    <ClCompile Include="..\IOVA\SGP.C" />
-    <ClCompile Include="..\IOVA\SUBSYSTEM.CPP" />
-    <ClCompile Include="..\IOVA\SUBSYSTEMIF.C" />
-    <ClCompile Include="..\IOVA\SUBSYSTEMMX.C" />
-    <ClCompile Include="..\IOVA\SYSPORTVA.C" />
-    <ClCompile Include="..\IOVA\TSP.C" />
-    <ClCompile Include="..\IOVA\UPD9002.C" />
-    <ClCompile Include="..\IOVA\VA91.C" />
-    <ClCompile Include="..\IOVA\VIDEOVA.C" />
-    <ClCompile Include="..\CPUCVA\GVRAMVA.C" />
-    <ClCompile Include="..\CPUCVA\Z80c.cpp" />
-    <ClCompile Include="..\CPUCVA\Z80diag.cpp" />
-    <ClCompile Include="..\BREAKPOINT.C" />
-    <ClCompile Include="..\CALENDAR.C" />
-    <ClCompile Include="..\DEBUGSUB.C" />
-    <ClCompile Include="..\KEYSTAT.C" />
-    <ClCompile Include="..\NEVENT.C" />
-    <ClCompile Include="..\OPRECORD.C" />
-    <ClCompile Include="..\PCCORE.C" />
-    <ClCompile Include="..\STATSAVE.C" />
-    <ClCompile Include="..\TIMING.C" />
+    <ClCompile Include="..\common\_memory.c" />
+    <ClCompile Include="..\common\bmpdata.c" />
+    <ClCompile Include="..\common\lstarray.c" />
+    <ClCompile Include="..\common\milstr.c" />
+    <ClCompile Include="..\common\mimpidef.c" />
+    <ClCompile Include="..\common\profile.c" />
+    <ClCompile Include="..\common\strres.c" />
+    <ClCompile Include="..\common\textfile.c" />
+    <ClCompile Include="..\common\wavefile.c" />
+    <ClCompile Include="..\i286x\i286x.cpp" />
+    <ClCompile Include="..\i286x\i286xadr.cpp" />
+    <ClCompile Include="..\i286x\i286xcts.cpp" />
+    <ClCompile Include="..\i286x\i286xrep.cpp" />
+    <ClCompile Include="..\i286x\i286xs.cpp" />
+    <ClCompile Include="..\i286x\v30patch.cpp" />
+    <ClCompile Include="..\bios\bios.c" />
+    <ClCompile Include="..\bios\bios09.c" />
+    <ClCompile Include="..\bios\bios0c.c" />
+    <ClCompile Include="..\bios\bios12.c" />
+    <ClCompile Include="..\bios\bios13.c" />
+    <ClCompile Include="..\bios\bios18.c" />
+    <ClCompile Include="..\bios\bios19.c" />
+    <ClCompile Include="..\bios\bios1a.c" />
+    <ClCompile Include="..\bios\bios1b.c" />
+    <ClCompile Include="..\bios\bios1c.c" />
+    <ClCompile Include="..\bios\bios1f.c" />
+    <ClCompile Include="..\bios\sxsibios.c" />
+    <ClCompile Include="..\sound\vermouth\midimod.c" />
+    <ClCompile Include="..\sound\vermouth\midinst.c" />
+    <ClCompile Include="..\sound\vermouth\midiout.c" />
+    <ClCompile Include="..\sound\vermouth\midtable.c" />
+    <ClCompile Include="..\sound\vermouth\midvoice.c" />
+    <ClCompile Include="..\sound\getsnd\getsmix.c" />
+    <ClCompile Include="..\sound\getsnd\getsnd.c" />
+    <ClCompile Include="..\sound\getsnd\getwave.c" />
+    <ClCompile Include="..\sound\adpcmc.c" />
+    <ClCompile Include="..\sound\adpcmg.c" />
+    <ClCompile Include="..\sound\beepc.c" />
+    <ClCompile Include="..\sound\beepg.c" />
+    <ClCompile Include="..\sound\cs4231c.c" />
+    <ClCompile Include="..\sound\cs4231g.c" />
+    <ClCompile Include="..\sound\fmboard.c" />
+    <ClCompile Include="..\sound\fmtimer.c" />
+    <ClCompile Include="..\sound\opngenc.c" />
+    <ClCompile Include="..\sound\pcm86c.c" />
+    <ClCompile Include="..\sound\pcm86g.c" />
+    <ClCompile Include="..\sound\psggenc.c" />
+    <ClCompile Include="..\sound\psggeng.c" />
+    <ClCompile Include="..\sound\rhythmc.c" />
+    <ClCompile Include="..\sound\s98.c" />
+    <ClCompile Include="..\sound\sound.c" />
+    <ClCompile Include="..\sound\soundrom.c" />
+    <ClCompile Include="..\sound\tms3631c.c" />
+    <ClCompile Include="..\sound\tms3631g.c" />
+    <ClCompile Include="..\fdd\diskdrv.c" />
+    <ClCompile Include="..\fdd\fdd_d88.c" />
+    <ClCompile Include="..\fdd\fdd_mtr.c" />
+    <ClCompile Include="..\fdd\fdd_xdf.c" />
+    <ClCompile Include="..\fdd\fddfile.c" />
+    <ClCompile Include="..\fdd\newdisk.c" />
+    <ClCompile Include="..\fdd\sxsi.c" />
+    <ClCompile Include="..\lio\gcircle.c" />
+    <ClCompile Include="..\lio\gline.c" />
+    <ClCompile Include="..\lio\gpset.c" />
+    <ClCompile Include="..\lio\gput1.c" />
+    <ClCompile Include="..\lio\gscreen.c" />
+    <ClCompile Include="..\lio\lio.c" />
+    <ClCompile Include="..\font\font.c" />
+    <ClCompile Include="..\font\fontdata.c" />
+    <ClCompile Include="..\font\fontfm7.c" />
+    <ClCompile Include="..\font\fontmake.c" />
+    <ClCompile Include="..\font\fontpc88.c" />
+    <ClCompile Include="..\font\fontpc98.c" />
+    <ClCompile Include="..\font\fontv98.c" />
+    <ClCompile Include="..\font\fontx1.c" />
+    <ClCompile Include="..\font\fontx68k.c" />
+    <ClCompile Include=".\dialog\d_about.cpp" />
+    <ClCompile Include=".\dialog\d_bmp.cpp" />
+    <ClCompile Include=".\dialog\d_bms.cpp" />
+    <ClCompile Include=".\dialog\d_clnd.cpp" />
+    <ClCompile Include=".\dialog\d_config.cpp" />
+    <ClCompile Include=".\dialog\d_disk.cpp" />
+    <ClCompile Include=".\dialog\d_mpu98.cpp" />
+    <ClCompile Include=".\dialog\d_oprecord.cpp" />
+    <ClCompile Include=".\dialog\d_screen.cpp" />
+    <ClCompile Include=".\dialog\d_serial.cpp" />
+    <ClCompile Include=".\dialog\d_sound.cpp" />
+    <ClCompile Include=".\dialog\dialogs.cpp" />
+    <ClCompile Include=".\dialog\np2class.cpp" />
+    <ClCompile Include=".\debuguty\debugctrl.cpp" />
+    <ClCompile Include=".\debuguty\view1mb.cpp" />
+    <ClCompile Include=".\debuguty\viewasm.cpp" />
+    <ClCompile Include=".\debuguty\viewcmn.cpp" />
+    <ClCompile Include=".\debuguty\viewer.cpp" />
+    <ClCompile Include=".\debuguty\viewgactrlva.cpp" />
+    <ClCompile Include=".\debuguty\viewmem.cpp" />
+    <ClCompile Include=".\debuguty\viewmenu.cpp" />
+    <ClCompile Include=".\debuguty\viewreg.cpp" />
+    <ClCompile Include=".\debuguty\viewseg.cpp" />
+    <ClCompile Include=".\debuguty\viewsnd.cpp" />
+    <ClCompile Include=".\debuguty\viewsubasm.cpp" />
+    <ClCompile Include=".\debuguty\viewsubmem.cpp" />
+    <ClCompile Include=".\debuguty\viewsubreg.cpp" />
+    <ClCompile Include=".\debuguty\viewvabank.cpp" />
+    <ClCompile Include=".\debuguty\viewvideova.cpp" />
+    <ClCompile Include=".\cmmidi.cpp" />
+    <ClCompile Include=".\cmpara.cpp" />
+    <ClCompile Include=".\cmserial.cpp" />
+    <ClCompile Include=".\commng.cpp" />
+    <ClCompile Include=".\dclock.cpp" />
+    <ClCompile Include=".\dd2.cpp" />
+    <ClCompile Include=".\dosio.cpp" />
+    <ClCompile Include=".\extromio.cpp" />
+    <ClCompile Include=".\fontmng.cpp" />
+    <ClCompile Include=".\ini.cpp" />
+    <ClCompile Include=".\joymng.cpp" />
+    <ClCompile Include=".\juliet.cpp" />
+    <ClCompile Include=".\menu.cpp" />
+    <ClCompile Include=".\mousemng.cpp" />
+    <ClCompile Include=".\np2.cpp" />
+    <ClCompile Include=".\np2arg.cpp" />
+    <ClCompile Include=".\scrnmng.cpp" />
+    <ClCompile Include=".\soundmng.cpp" />
+    <ClCompile Include=".\sstp.cpp" />
+    <ClCompile Include=".\sstpmsg.cpp" />
+    <ClCompile Include=".\subwind.cpp" />
+    <ClCompile Include=".\sysmng.cpp" />
+    <ClCompile Include=".\taskmng.cpp" />
+    <ClCompile Include=".\timemng.cpp" />
+    <ClCompile Include=".\toolwin.cpp" />
+    <ClCompile Include=".\trace.cpp" />
+    <ClCompile Include=".\winkbd.cpp" />
+    <ClCompile Include=".\winloc.cpp" />
+    <ClCompile Include="..\io\artic.c" />
+    <ClCompile Include="..\io\bmsio.c" />
+    <ClCompile Include="..\io\cgrom.c" />
+    <ClCompile Include="..\io\cpuio.c" />
+    <ClCompile Include="..\io\crtc.c" />
+    <ClCompile Include="..\io\dipsw.c" />
+    <ClCompile Include="..\io\dmac.c" />
+    <ClCompile Include="..\io\egc.c" />
+    <ClCompile Include="..\io\emsio.c" />
+    <ClCompile Include="..\io\epsonio.c" />
+    <ClCompile Include="..\io\fdc.c" />
+    <ClCompile Include="..\io\fdd320.c" />
+    <ClCompile Include="..\io\gdc.c" />
+    <ClCompile Include="..\io\gdc_pset.c" />
+    <ClCompile Include="..\io\gdc_sub.c" />
+    <ClCompile Include="..\io\iocore.c" />
+    <ClCompile Include="..\io\mouseif.c" />
+    <ClCompile Include="..\io\necio.c" />
+    <ClCompile Include="..\io\nmiio.c" />
+    <ClCompile Include="..\io\np2sysp.c" />
+    <ClCompile Include="..\io\np2vasup.c" />
+    <ClCompile Include="..\io\pic.c" />
+    <ClCompile Include="..\io\pit.c" />
+    <ClCompile Include="..\io\printif.c" />
+    <ClCompile Include="..\io\serial.c" />
+    <ClCompile Include="..\io\sysport.c" />
+    <ClCompile Include="..\io\upd4990.c" />
+    <ClCompile Include="..\cbus\amd98.c" />
+    <ClCompile Include=".\board118.c" />
+    <ClCompile Include="..\cbus\board14.c" />
+    <ClCompile Include="..\cbus\board26k.c" />
+    <ClCompile Include="..\cbus\board86.c" />
+    <ClCompile Include="..\cbus\boardspb.c" />
+    <ClCompile Include="..\cbus\boardx2.c" />
+    <ClCompile Include="..\cbus\cbuscore.c" />
+    <ClCompile Include="..\cbus\cs4231io.c" />
+    <ClCompile Include="..\cbus\ideio.c" />
+    <ClCompile Include="..\cbus\mpu98ii.c" />
+    <ClCompile Include="..\cbus\pc9861k.c" />
+    <ClCompile Include="..\cbus\pcm86io.c" />
+    <ClCompile Include="..\cbus\sasiio.c" />
+    <ClCompile Include="..\cbus\scsicmd.c" />
+    <ClCompile Include="..\cbus\scsiio.c" />
+    <ClCompile Include="..\vram\dispsync.c" />
+    <ClCompile Include="..\vram\maketext.c" />
+    <ClCompile Include="..\vram\maketgrp.c" />
+    <ClCompile Include="..\vram\palettes.c" />
+    <ClCompile Include="..\vram\scrndraw.c" />
+    <ClCompile Include="..\vram\scrnsave.c" />
+    <ClCompile Include="..\vram\sdraw.c" />
+    <ClCompile Include="..\vram\vram.c" />
+    <ClCompile Include="..\generic\cmjasts.c" />
+    <ClCompile Include="..\generic\cmndraw.c" />
+    <ClCompile Include="..\generic\dipswbmp.c" />
+    <ClCompile Include="..\generic\hostdrv.c" />
+    <ClCompile Include="..\generic\hostdrvs.c" />
+    <ClCompile Include="..\generic\keydisp.c" />
+    <ClCompile Include="..\generic\np2info.c" />
+    <ClCompile Include="..\generic\softkbd.c" />
+    <ClCompile Include="..\generic\unasm.c" />
+    <ClCompile Include="..\vramva\makegrphva.c" />
+    <ClCompile Include="..\vramva\makesprva.c" />
+    <ClCompile Include="..\vramva\maketextva.c" />
+    <ClCompile Include="..\vramva\palettesva.c" />
+    <ClCompile Include="..\vramva\scrndrawva.c" />
+    <ClCompile Include="..\vramva\sdrawva.c" />
+    <ClCompile Include="..\biosva\biosva.c" />
+    <ClCompile Include="..\iova\bkupmemva.c" />
+    <ClCompile Include="..\iova\boardsb2.c" />
+    <ClCompile Include="..\iova\cgromva.c" />
+    <ClCompile Include="..\iova\fdsubsys.c" />
+    <ClCompile Include="..\iova\gactrlva.c" />
+    <ClCompile Include="..\iova\i8255.c" />
+    <ClCompile Include="..\iova\iocoreva.c" />
+    <ClCompile Include="..\iova\memctrlva.c" />
+    <ClCompile Include="..\iova\mouseifva.c" />
+    <ClCompile Include="..\iova\sgp.c" />
+    <ClCompile Include="..\iova\subsystem.cpp" />
+    <ClCompile Include="..\iova\subsystemif.c" />
+    <ClCompile Include="..\iova\subsystemmx.c" />
+    <ClCompile Include="..\iova\sysportva.c" />
+    <ClCompile Include="..\iova\tsp.c" />
+    <ClCompile Include="..\iova\upd9002.c" />
+    <ClCompile Include="..\iova\va91.c" />
+    <ClCompile Include="..\iova\videova.c" />
+    <ClCompile Include="..\cpucva\gvramva.c" />
+    <ClCompile Include="..\cpucva\z80c.cpp" />
+    <ClCompile Include="..\cpucva\z80diag.cpp" />
+    <ClCompile Include="..\breakpoint.c" />
+    <ClCompile Include="..\calendar.c" />
+    <ClCompile Include="..\debugsub.c" />
+    <ClCompile Include="..\keystat.c" />
+    <ClCompile Include="..\nevent.c" />
+    <ClCompile Include="..\oprecord.c" />
+    <ClCompile Include="..\pccore.c" />
+    <ClCompile Include="..\statsave.c" />
+    <ClCompile Include="..\timing.c" />
   </ItemGroup>
   <ItemGroup>
-    <ResourceCompile Include=".\NP2.RC" />
+    <ResourceCompile Include=".\np2.rc" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\BREAKPOINT.H" />
-    <ClInclude Include="..\IOVA\FDSUBSYS.H" />
-    <ClInclude Include="..\IOVA\GACCESS.H" />
-    <ClInclude Include="..\VRAMVA\MAKESPRVA.H" />
-    <ClInclude Include="..\IO\NP2VASUP.H" />
-    <ClInclude Include="..\VRAMVA\PALETTESVA.H" />
-    <ClInclude Include="..\VRAMVA\SCRNDRAWVA.H" />
-    <ClInclude Include="..\VRAMVA\SDRAWVA.H" />
-    <ClInclude Include="..\IOVA\SGP.H" />
-    <ClInclude Include="..\IOVA\SUBSYSTEM.H" />
-    <ClInclude Include="..\IOVA\TSP.H" />
-    <ClInclude Include="..\IOVA\VIDEOVA.H" />
-    <ClInclude Include=".\DEBUGUTY\VIEWVIDEOVA.H" />
-    <ClInclude Include="..\CPUCVA\Z80if.h" />
+    <ClInclude Include="..\breakpoint.h" />
+    <ClInclude Include="..\iova\fdsubsys.h" />
+    <ClInclude Include="..\iova\gaccess.h" />
+    <ClInclude Include="..\vramva\makesprva.h" />
+    <ClInclude Include="..\io\np2vasup.h" />
+    <ClInclude Include="..\vramva\palettesva.h" />
+    <ClInclude Include="..\vramva\scrndrawva.h" />
+    <ClInclude Include="..\vramva\sdrawva.h" />
+    <ClInclude Include="..\iova\sgp.h" />
+    <ClInclude Include="..\iova\subsystem.h" />
+    <ClInclude Include="..\iova\tsp.h" />
+    <ClInclude Include="..\iova\videova.h" />
+    <ClInclude Include=".\debuguty\viewvideova.h" />
+    <ClInclude Include="..\cpucva\z80if.h" />
   </ItemGroup>
   <ItemGroup>
-    <None Include=".\ICONS\NEKOP2.BMP" />
-    <None Include=".\ICONS\Np2.ico" />
-    <None Include=".\ICONS\NP2DEBUG.ICO" />
-    <None Include=".\ICONS\NP2TOOL.BMP" />
-    <None Include=".\ICONS\NP2TOOL2.BMP" />
-    <None Include=".\ICONS\Fddseek.wav" />
-    <None Include=".\ICONS\Fddseek1.wav" />
+    <None Include=".\icons\nekop2.bmp" />
+    <None Include=".\icons\np2.ico" />
+    <None Include=".\icons\np2debug.ico" />
+    <None Include=".\icons\np2tool.bmp" />
+    <None Include=".\icons\np2tool2.bmp" />
+    <None Include=".\icons\fddseek.wav" />
+    <None Include=".\icons\fddseek1.wav" />
   </ItemGroup>
   <ItemGroup>
-    <CustomBuild Include=".\x86\PARTS.X86">
+    <CustomBuild Include=".\x86\parts.x86">
       <Command Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Release|Win32&#x27;">cd /d "$(ProjectDir)"
 nasm -f win32 "%(FullPath)" -o "$(IntDir)%(Filename).obj"
 </Command>
@@ -492,7 +492,7 @@ nasm -f win32 "%(FullPath)" -o "$(IntDir)%(Filename).obj"
       <Message Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Debug|Win32&#x27;">Assembling %(FullPath)</Message>
       <Outputs Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Debug|Win32&#x27;">$(IntDir)%(Filename).obj;%(Outputs)</Outputs>
     </CustomBuild>
-    <CustomBuild Include="..\I286X\DMAP.X86">
+    <CustomBuild Include="..\i286x\dmap.x86">
       <Command Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Release|Win32&#x27;">cd /d "$(ProjectDir)"
 nasm -f win32 "%(FullPath)" -o "$(IntDir)%(Filename).obj"
 </Command>
@@ -514,59 +514,59 @@ nasm -f win32 "%(FullPath)" -o "$(IntDir)%(Filename).obj"
       <Message Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Debug|Win32&#x27;">Assembling %(FullPath)</Message>
       <Outputs Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Debug|Win32&#x27;">$(IntDir)%(Filename).obj;%(Outputs)</Outputs>
     </CustomBuild>
-    <CustomBuild Include="..\I286X\EGCMEM.X86">
+    <CustomBuild Include="..\i286x\egcmem.x86">
       <Command Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Release|Win32&#x27;">cd /d "$(ProjectDir)"
 nasm -f win32 "%(FullPath)" -o "$(IntDir)%(Filename).obj"
 </Command>
       <Message Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Release|Win32&#x27;">Assembling %(FullPath)</Message>
       <Outputs Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Release|Win32&#x27;">$(IntDir)%(Filename).obj;%(Outputs)</Outputs>
-      <AdditionalInputs Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Release|Win32&#x27;">.\x86\NP2ASM.INC;%(AdditionalInputs)</AdditionalInputs>
+      <AdditionalInputs Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Release|Win32&#x27;">.\x86\np2asm.inc;%(AdditionalInputs)</AdditionalInputs>
       <Command Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Trace|Win32&#x27;">cd /d "$(ProjectDir)"
 nasm -f win32 "%(FullPath)" -o "$(IntDir)%(Filename).obj"
 </Command>
       <Message Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Trace|Win32&#x27;">Assembling %(FullPath)</Message>
       <Outputs Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Trace|Win32&#x27;">$(IntDir)%(Filename).obj;%(Outputs)</Outputs>
-      <AdditionalInputs Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Trace|Win32&#x27;">.\x86\NP2ASM.INC;%(AdditionalInputs)</AdditionalInputs>
+      <AdditionalInputs Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Trace|Win32&#x27;">.\x86\np2asm.inc;%(AdditionalInputs)</AdditionalInputs>
       <Command Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;WaveRec|Win32&#x27;">cd /d "$(ProjectDir)"
 nasm -f win32 "%(FullPath)" -o "$(IntDir)%(Filename).obj"
 </Command>
       <Message Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;WaveRec|Win32&#x27;">Assembling %(FullPath)</Message>
       <Outputs Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;WaveRec|Win32&#x27;">$(IntDir)%(Filename).obj;%(Outputs)</Outputs>
-      <AdditionalInputs Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;WaveRec|Win32&#x27;">.\x86\NP2ASM.INC;%(AdditionalInputs)</AdditionalInputs>
+      <AdditionalInputs Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;WaveRec|Win32&#x27;">.\x86\np2asm.inc;%(AdditionalInputs)</AdditionalInputs>
       <Command Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Debug|Win32&#x27;">cd /d "$(ProjectDir)"
 nasm -f win32 "%(FullPath)" -o "$(IntDir)%(Filename).obj"
 </Command>
       <Message Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Debug|Win32&#x27;">Assembling %(FullPath)</Message>
       <Outputs Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Debug|Win32&#x27;">$(IntDir)%(Filename).obj;%(Outputs)</Outputs>
-      <AdditionalInputs Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Debug|Win32&#x27;">.\x86\NP2ASM.INC;%(AdditionalInputs)</AdditionalInputs>
+      <AdditionalInputs Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Debug|Win32&#x27;">.\x86\np2asm.inc;%(AdditionalInputs)</AdditionalInputs>
     </CustomBuild>
-    <CustomBuild Include="..\I286X\MEMORY.X86">
+    <CustomBuild Include="..\i286x\memory.x86">
       <Command Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Release|Win32&#x27;">cd /d "$(ProjectDir)"
 nasm -f win32 "%(FullPath)" -o "$(IntDir)%(Filename).obj"
 </Command>
       <Message Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Release|Win32&#x27;">Assembling %(FullPath)</Message>
       <Outputs Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Release|Win32&#x27;">$(IntDir)%(Filename).obj;%(Outputs)</Outputs>
-      <AdditionalInputs Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Release|Win32&#x27;">.\x86\NP2ASM.INC;%(AdditionalInputs)</AdditionalInputs>
+      <AdditionalInputs Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Release|Win32&#x27;">.\x86\np2asm.inc;%(AdditionalInputs)</AdditionalInputs>
       <Command Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Trace|Win32&#x27;">cd /d "$(ProjectDir)"
 nasm -f win32 "%(FullPath)" -o "$(IntDir)%(Filename).obj"
 </Command>
       <Message Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Trace|Win32&#x27;">Assembling %(FullPath)</Message>
       <Outputs Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Trace|Win32&#x27;">$(IntDir)%(Filename).obj;%(Outputs)</Outputs>
-      <AdditionalInputs Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Trace|Win32&#x27;">.\x86\NP2ASM.INC;%(AdditionalInputs)</AdditionalInputs>
+      <AdditionalInputs Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Trace|Win32&#x27;">.\x86\np2asm.inc;%(AdditionalInputs)</AdditionalInputs>
       <Command Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;WaveRec|Win32&#x27;">cd /d "$(ProjectDir)"
 nasm -f win32 "%(FullPath)" -o "$(IntDir)%(Filename).obj"
 </Command>
       <Message Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;WaveRec|Win32&#x27;">Assembling %(FullPath)</Message>
       <Outputs Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;WaveRec|Win32&#x27;">$(IntDir)%(Filename).obj;%(Outputs)</Outputs>
-      <AdditionalInputs Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;WaveRec|Win32&#x27;">.\x86\NP2ASM.INC;%(AdditionalInputs)</AdditionalInputs>
+      <AdditionalInputs Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;WaveRec|Win32&#x27;">.\x86\np2asm.inc;%(AdditionalInputs)</AdditionalInputs>
       <Command Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Debug|Win32&#x27;">cd /d "$(ProjectDir)"
 nasm -f win32 "%(FullPath)" -o "$(IntDir)%(Filename).obj"
 </Command>
       <Message Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Debug|Win32&#x27;">Assembling %(FullPath)</Message>
       <Outputs Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Debug|Win32&#x27;">$(IntDir)%(Filename).obj;%(Outputs)</Outputs>
-      <AdditionalInputs Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Debug|Win32&#x27;">.\x86\NP2ASM.INC;%(AdditionalInputs)</AdditionalInputs>
+      <AdditionalInputs Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Debug|Win32&#x27;">.\x86\np2asm.inc;%(AdditionalInputs)</AdditionalInputs>
     </CustomBuild>
-    <CustomBuild Include=".\x86\OPNGENG.X86">
+    <CustomBuild Include=".\x86\opngeng.x86">
       <Command Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Release|Win32&#x27;">cd /d "$(ProjectDir)"
 nasm -f win32 "%(FullPath)" -o "$(IntDir)%(Filename).obj"
 </Command>
@@ -588,7 +588,7 @@ nasm -f win32 "%(FullPath)" -o "$(IntDir)%(Filename).obj"
       <Message Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Debug|Win32&#x27;">Assembling %(FullPath)</Message>
       <Outputs Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Debug|Win32&#x27;">$(IntDir)%(Filename).obj;%(Outputs)</Outputs>
     </CustomBuild>
-    <CustomBuild Include=".\x86\CPUTYPE.X86">
+    <CustomBuild Include=".\x86\cputype.x86">
       <Command Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Release|Win32&#x27;">cd /d "$(ProjectDir)"
 nasm -f win32 "%(FullPath)" -o "$(IntDir)%(Filename).obj"
 </Command>
@@ -610,7 +610,7 @@ nasm -f win32 "%(FullPath)" -o "$(IntDir)%(Filename).obj"
       <Message Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Debug|Win32&#x27;">Assembling %(FullPath)</Message>
       <Outputs Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Debug|Win32&#x27;">$(IntDir)%(Filename).obj;%(Outputs)</Outputs>
     </CustomBuild>
-    <CustomBuild Include=".\DCLOCKD.X86">
+    <CustomBuild Include=".\dclockd.x86">
       <Command Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Release|Win32&#x27;">cd /d "$(ProjectDir)"
 nasm -f win32 "%(FullPath)" -o "$(IntDir)%(Filename).obj"
 </Command>
@@ -632,39 +632,39 @@ nasm -f win32 "%(FullPath)" -o "$(IntDir)%(Filename).obj"
       <Message Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Debug|Win32&#x27;">Assembling %(FullPath)</Message>
       <Outputs Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Debug|Win32&#x27;">$(IntDir)%(Filename).obj;%(Outputs)</Outputs>
     </CustomBuild>
-    <CustomBuild Include=".\x86\MAKEGRPH.X86">
+    <CustomBuild Include=".\x86\makegrph.x86">
       <Command Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Release|Win32&#x27;">cd /d "$(ProjectDir)"
 nasm -f win32 "%(FullPath)" -o "$(IntDir)%(Filename).obj"
 </Command>
       <Message Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Release|Win32&#x27;">Assembling %(FullPath)</Message>
       <Outputs Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Release|Win32&#x27;">$(IntDir)%(Filename).obj;%(Outputs)</Outputs>
-      <AdditionalInputs Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Release|Win32&#x27;">.\x86\NP2ASM.INC;%(AdditionalInputs)</AdditionalInputs>
+      <AdditionalInputs Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Release|Win32&#x27;">.\x86\np2asm.inc;%(AdditionalInputs)</AdditionalInputs>
       <Command Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Trace|Win32&#x27;">cd /d "$(ProjectDir)"
 nasm -f win32 "%(FullPath)" -o "$(IntDir)%(Filename).obj"
 </Command>
       <Message Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Trace|Win32&#x27;">Assembling %(FullPath)</Message>
       <Outputs Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Trace|Win32&#x27;">$(IntDir)%(Filename).obj;%(Outputs)</Outputs>
-      <AdditionalInputs Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Trace|Win32&#x27;">.\x86\NP2ASM.INC;%(AdditionalInputs)</AdditionalInputs>
+      <AdditionalInputs Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Trace|Win32&#x27;">.\x86\np2asm.inc;%(AdditionalInputs)</AdditionalInputs>
       <Command Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;WaveRec|Win32&#x27;">cd /d "$(ProjectDir)"
 nasm -f win32 "%(FullPath)" -o "$(IntDir)%(Filename).obj"
 </Command>
       <Message Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;WaveRec|Win32&#x27;">Assembling %(FullPath)</Message>
       <Outputs Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;WaveRec|Win32&#x27;">$(IntDir)%(Filename).obj;%(Outputs)</Outputs>
-      <AdditionalInputs Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;WaveRec|Win32&#x27;">.\x86\NP2ASM.INC;%(AdditionalInputs)</AdditionalInputs>
+      <AdditionalInputs Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;WaveRec|Win32&#x27;">.\x86\np2asm.inc;%(AdditionalInputs)</AdditionalInputs>
       <Command Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Debug|Win32&#x27;">cd /d "$(ProjectDir)"
 nasm -f win32 "%(FullPath)" -o "$(IntDir)%(Filename).obj"
 </Command>
       <Message Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Debug|Win32&#x27;">Assembling %(FullPath)</Message>
       <Outputs Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Debug|Win32&#x27;">$(IntDir)%(Filename).obj;%(Outputs)</Outputs>
-      <AdditionalInputs Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Debug|Win32&#x27;">.\x86\NP2ASM.INC;%(AdditionalInputs)</AdditionalInputs>
+      <AdditionalInputs Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Debug|Win32&#x27;">.\x86\np2asm.inc;%(AdditionalInputs)</AdditionalInputs>
     </CustomBuild>
-    <CustomBuild Include="..\CPUXVA\MEMORYVA.X86">
+    <CustomBuild Include="..\cpuxva\memoryva.x86">
       <Command Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Release|Win32&#x27;">cd /d "$(ProjectDir)"
 nasm -f win32 "%(FullPath)" -o "$(IntDir)%(Filename).obj"
 </Command>
       <Message Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Release|Win32&#x27;">Assembling %(FullPath)</Message>
       <Outputs Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Release|Win32&#x27;">$(IntDir)%(Filename).obj;%(Outputs)</Outputs>
-      <AdditionalInputs Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Release|Win32&#x27;">.\x86\NP2ASM.INC;%(AdditionalInputs)</AdditionalInputs>
+      <AdditionalInputs Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Release|Win32&#x27;">.\x86\np2asm.inc;%(AdditionalInputs)</AdditionalInputs>
       <ExcludedFromBuild Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Trace|Win32&#x27;">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;WaveRec|Win32&#x27;">true</ExcludedFromBuild>
       <Command Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Debug|Win32&#x27;">cd /d "$(ProjectDir)"
@@ -672,7 +672,7 @@ nasm -f win32 "%(FullPath)" -o "$(IntDir)%(Filename).obj"
 </Command>
       <Message Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Debug|Win32&#x27;">Assembling %(FullPath)</Message>
       <Outputs Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Debug|Win32&#x27;">$(IntDir)%(Filename).obj;%(Outputs)</Outputs>
-      <AdditionalInputs Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Debug|Win32&#x27;">.\x86\NP2ASM.INC;%(AdditionalInputs)</AdditionalInputs>
+      <AdditionalInputs Condition="&#x27;$(Configuration)|$(Platform)&#x27;==&#x27;Debug|Win32&#x27;">.\x86\np2asm.inc;%(AdditionalInputs)</AdditionalInputs>
     </CustomBuild>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

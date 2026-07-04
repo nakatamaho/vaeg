@@ -1,5 +1,5 @@
 /*
- * CGROMVA.C: PC-88VA Character generator
+ * cgromva.c: PC-88VA Character generator
  *
  * ToDo:
  *   ハードウェア文字コードが不正の場合の動作を実機にあわせる。

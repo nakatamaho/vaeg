@@ -1,5 +1,5 @@
 /*
- * BMSIO.C: I-O Bank Memory
+ * bmsio.c: I-O Bank Memory
  *
  */
 

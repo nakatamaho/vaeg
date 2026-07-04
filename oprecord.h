@@ -1,5 +1,5 @@
 /*
- * OPRECORD.H: User Operation Recorder / Player
+ * oprecord.h: User Operation Recorder / Player
  */
 
 #if !defined(_OPRECORD_H_)

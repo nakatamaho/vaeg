@@ -1,5 +1,5 @@
 /*
- * NP2VASUP.C: PC-88VA support control
+ * np2vasup.c: PC-88VA support control
  */
 
 #include	"compiler.h"

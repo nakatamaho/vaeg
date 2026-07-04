@@ -1,5 +1,5 @@
 /*
- * IOCORE.C: PC-88VA I/O
+ * iocore.c: PC-88VA I/O
  */
 
 /*
@@ -163,7 +163,7 @@ icbld_err:
 }
 
 
-//IOCORE.Cを使用
+//iocore.cを使用
 //void iocore_cb(const IOCBFN *cbfn, UINT count)
 //void iocore_reset(void)
 

@@ -8,9 +8,9 @@ verified data, not assumptions. This task mutates NOTHING outside
 ## Steps
 1. **Project files.** List every `*.dsp *.dsw *.sln *.vcproj *.vcxproj
    CMakeLists.txt Makefile*` in the tree. The canonical Win32 project
-   is `Win9x/np2.dsp` (VC6, 261 sources: root core + IO, SOUND, IOVA,
-   CBUS, BIOS, VRAMVA, I286X, GENERIC, FONT, COMMON, VRAM, FDD, LIO,
-   CPUCVA, CPUXVA, BIOSVA) — verify this count and dump the full
+   is `win9x/np2.dsp` (VC6, 261 sources: root core + io, sound, iova,
+   cbus, bios, vramva, i286x, generic, font, common, vram, fdd, lio,
+   cpucva, cpuxva, biosva) — verify this count and dump the full
    source list into the report. Record the non-canonical build roots
    too: `Win9xC/np2c.dsp` (plain NP2, I286C C core, no VA subsystem),
    `sdl/Makefile*`, and any Makefiles in frozen backends; note for
@@ -26,11 +26,11 @@ verified data, not assumptions. This task mutates NOTHING outside
    roots. This produces the M3 deletion CANDIDATE list.
 4. **Assembly & generated code.** The canonical project assembles four
    NASM inputs via .dsp custom build steps with a hardcoded path
-   (`c:\bin\nasm\nasmw -f win32`): `CPUXVA/MEMORYVA.X86`,
-   `I286X/DMAP.X86`, `I286X/EGCMEM.X86`, `I286X/MEMORY.X86`.
+   (`c:\bin\nasm\nasmw -f win32`): `cpuxva/memoryva.x86`,
+   `i286x/dmap.x86`, `i286x/egcmem.x86`, `i286x/memory.x86`.
    No portable-C memoryva replacement exists in this tree yet — the
    .X86 files are live build dependencies. Enumerate any other asm
-   (`I286A/`, `Win9x/DCLOCKD.X86`, ...) and whether anything builds it.
+   (`I286A/`, `win9x/dclockd.x86`, ...) and whether anything builds it.
 5. Write everything to `docs/agents/reports/inventory.md` with the raw
    script outputs under `docs/agents/reports/raw/`.
 

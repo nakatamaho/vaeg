@@ -1,5 +1,5 @@
 /*
- * UPD9002.H: PC-88VA CPU port
+ * upd9002.h: PC-88VA CPU port
  */
 
 typedef struct {

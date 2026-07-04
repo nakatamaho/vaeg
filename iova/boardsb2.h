@@ -1,5 +1,5 @@
 /*
- *	BOARDSB2.H: PC-88VA Sound board 2
+ *	boardsb2.h: PC-88VA Sound board 2
  */
 
 typedef	struct {

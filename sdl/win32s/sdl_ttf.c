@@ -1,5 +1,5 @@
 #include	"compiler.h"
-#include	"SDL_ttf.h"
+#include	"sdl_ttf.h"
 
 
 #pragma pack(push, 1)

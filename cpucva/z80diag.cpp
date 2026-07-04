@@ -1,5 +1,5 @@
 /*
- *	Z80diag.cpp: Z80 Disassembler 
+ *	z80diag.cpp: Z80 Disassembler 
  */
 
 // Original:
@@ -10,8 +10,8 @@
 //	#Id: z80diag.cpp,v 1.6 2001/02/21 11:57:16 cisc Exp #
 
 
-#include "Z80diag.h"
-#include "Z80if.h"
+#include "z80diag.h"
+#include "z80if.h"
 
 
 // ---------------------------------------------------------------------------

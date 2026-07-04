@@ -1,9 +1,9 @@
 # AGENTS.md — vaeg (88VA Eternal Grafx)
 
 PC-88VA emulator derived from Neko Project II. The canonical build is
-`Win9x/np2.dsp` (VC6 format, with `np2.dsw`): it pulls the VA subsystem
-(`IOVA/`, `VRAMVA/`, `CPUCVA/`, `CPUXVA/`, `BIOSVA/`, `I286X/`) plus the
-shared NP2 core (root, `IO/`, `SOUND/`, `CBUS/`, `VRAM/`, ...). The SDL2
+`win9x/np2.dsp` (VC6 format, with `np2.dsw`): it pulls the VA subsystem
+(`iova/`, `vramva/`, `cpucva/`, `cpuxva/`, `biosva/`, `i286x/`) plus the
+shared NP2 core (root, `io/`, `sound/`, `cbus/`, `vram/`, ...). The SDL2
 port lives under `sdl/`.
 
 NOT canonical: `Win9xC/np2c.dsp` is a plain NP2 (PC-9801) configuration
@@ -11,8 +11,8 @@ using the C CPU core `I286C/` and referencing no VA subsystem. Treat it
 and other legacy backends (`WinCE/`, `MacOS9/`, `Mona/`) as frozen.
 
 The canonical project assembles NINE NASM files via custom build steps
-(`CPUXVA/MEMORYVA.X86`; `I286X/{DMAP,EGCMEM,MEMORY}.X86`;
-`Win9x/x86/{PARTS,OPNGENG,CPUTYPE,MAKEGRPH}.X86`; `Win9x/DCLOCKD.X86`)
+(`cpuxva/memoryva.x86`; `i286x/{dmap,egcmem,memory}.x86`;
+`win9x/x86/{parts,opngeng,cputype,makegrph}.x86`; `win9x/dclockd.x86`)
 with a hardcoded `c:\bin\nasm\nasmw` path — see M1 and inventory.md.
 
 ## How work is organized
@@ -44,7 +44,7 @@ diff is a defect, not a favor.
 - Never re-encode, re-wrap, or reformat lines you are not changing.
 - `.dsp` / `.dsw` / `.sln` / `.vcproj` / `.vcxproj` stay CRLF at all
   times (enforced by `.gitattributes` from M5 onward).
-- Never modify binary payloads: `ROMIMAGE/`, ROM/disk images, fonts,
+- Never modify binary payloads: `romimage/`, ROM/disk images, fonts,
   icons, cursors, wave data.
 - Deletions happen only from a list the user has explicitly approved
   (M3 protocol).
@@ -55,7 +55,7 @@ diff is a defect, not a favor.
 
 ## Build reference
 
-- VS2008 baseline: `Win9x/np2.dsp` converted once to `.vcproj`/`.sln`,
+- VS2008 baseline: `win9x/np2.dsp` converted once to `.vcproj`/`.sln`,
   Win32 / Release, NASM required. Alive from M1
   until the end of M5; permanently frozen at tag `baseline-vs2008`
   when M6 lands (UTF-8 without BOM is not representable to the VC9
@@ -70,4 +70,4 @@ diff is a defect, not a favor.
 ## Commit messages
 
 UTF-8, LF, English subject, `M<n>:` prefix. Example:
-`M4: rename IOVA/* to lowercase (rename-only)`.
+`M4: rename iova/* to lowercase (rename-only)`.

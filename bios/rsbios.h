@@ -1,4 +1,4 @@
-// BIOS0C.CPP, BIOS19.CPP
+// bios0c.cPP, bios19.cPP
 
 enum {
 	R_INT			= 0x00,

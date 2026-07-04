@@ -1,5 +1,5 @@
 /*
- * MAKESPRVA.C: PC-88VA Sprite
+ * makesprva.c: PC-88VA Sprite
  */
 
 #ifdef __cplusplus

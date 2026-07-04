@@ -1046,9 +1046,9 @@ END
 // Bitmap
 //
 
-NP2BMP                  BITMAP  DISCARDABLE     "ICONS\\NEKOP2.BMP"
-NP2TOOL                 BITMAP  DISCARDABLE     "ICONS\\NP2TOOL.BMP"
-NP2TOOL2                BITMAP  DISCARDABLE     "ICONS\\NP2TOOL2.BMP"
+NP2BMP                  BITMAP  DISCARDABLE     "ICONS\\nekop2.bmp"
+NP2TOOL                 BITMAP  DISCARDABLE     "ICONS\\np2tool.bmp"
+NP2TOOL2                BITMAP  DISCARDABLE     "ICONS\\np2tool2.bmp"
 
 #ifndef _MAC
 /////////////////////////////////////////////////////////////////////////////
@@ -1103,16 +1103,16 @@ END
 
 // Icon with lowest ID value placed first to ensure application icon
 // remains consistent on all systems.
-IDI_ICON1               ICON    DISCARDABLE     "ICONS\\NP2.ICO"
-IDI_ICON2               ICON    DISCARDABLE     "ICONS\\NP2DEBUG.ICO"
+IDI_ICON1               ICON    DISCARDABLE     "ICONS\\np2.ico"
+IDI_ICON2               ICON    DISCARDABLE     "ICONS\\np2debug.ico"
 
 /////////////////////////////////////////////////////////////////////////////
 //
 // EXTROM
 //
 
-SEEKWAV                 EXTROM  DISCARDABLE     "ICONS\\FDDSEEK.WAV"
-SEEK1WAV                EXTROM  DISCARDABLE     "ICONS\\FDDSEEK1.WAV"
+SEEKWAV                 EXTROM  DISCARDABLE     "ICONS\\fddseek.wav"
+SEEK1WAV                EXTROM  DISCARDABLE     "ICONS\\fddseek1.wav"
 
 /////////////////////////////////////////////////////////////////////////////
 //

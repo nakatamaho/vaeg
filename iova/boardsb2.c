@@ -1,5 +1,5 @@
 /*
- *	BOARDSB2.C: PC-88VA Sound board 2
+ *	boardsb2.c: PC-88VA Sound board 2
  */
 
 #include	"compiler.h"

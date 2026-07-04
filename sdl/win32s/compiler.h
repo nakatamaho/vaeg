@@ -1,7 +1,7 @@
 #include	<windows.h>
 #include	<stdio.h>
 #include	<stddef.h>
-#include	<SDL.h>
+#include	<sdl.h>
 
 #define	SLZAURUS
 #define	BYTESEX_LITTLE

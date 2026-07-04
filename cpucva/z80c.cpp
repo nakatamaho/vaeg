@@ -1,5 +1,5 @@
 /*
- *	Z80c.cpp: Z80
+ *	z80c.cpp: Z80
  */
 
 // Original:
@@ -7,11 +7,11 @@
 //	Z80 emulator in C++
 //	Copyright (C) cisc 1997, 1999.
 // ---------------------------------------------------------------------------
-//	#Id: Z80c.cpp,v 1.36 2001/02/21 11:57:16 cisc Exp #
+//	#Id: z80c.cpp,v 1.36 2001/02/21 11:57:16 cisc Exp #
 
 #include <stdio.h>
 #include <string.h>
-#include "Z80c.h"
+#include "z80c.h"
 
 //#define NO_UNOFFICIALFLAGS
 

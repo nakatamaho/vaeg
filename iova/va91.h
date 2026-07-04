@@ -1,5 +1,5 @@
 /*
- * VA91.C: PC-88VA-91 Version-up board
+ * va91.c: PC-88VA-91 Version-up board
  */
 
 

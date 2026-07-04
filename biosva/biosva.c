@@ -1,5 +1,5 @@
 /*
- *	BIOSVA.C: PC-88VA ROM control
+ *	biosva.c: PC-88VA ROM control
  *	ToDo:
  *		ファイル読み込み失敗時のエラー通知
  */

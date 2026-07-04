@@ -303,7 +303,7 @@ void fmboard_setintmask(BYTE mask) {
 			// マスク解除
 //			TRACEOUT(("fmboard: SINTM reset: fmtimer.status = %02x", fmtimer.status));
 			if (fmtimer.status & 0x03) {
-				// ToDo: ADPCM関連の割り込みに未対応。see FMTIMER.C fmport_a, fmport_b
+				// ToDo: ADPCM関連の割り込みに未対応。see fmtimer.c fmport_a, fmport_b
 //				TRACEOUT(("fmboard: set irq"));
 				pic_setirq(fmtimer.irq);
 				// CPU実行のループを抜けてpicの処理に移らせるため、CPU_REMCLOCK を 0にする

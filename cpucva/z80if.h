@@ -1,5 +1,5 @@
 /*
- * Z80if.h: Z80 interfaces
+ * z80if.h: Z80 interfaces
  */
 
 #if !defined(__Z80if_h__)

@@ -1,5 +1,5 @@
 /*
- * MEMCTRLVA.H: PC-88VA memory control
+ * memctrlva.h: PC-88VA memory control
  *
  */
 

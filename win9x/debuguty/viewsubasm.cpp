@@ -7,7 +7,7 @@
 #include	"viewmem.h"
 #include	"viewsubasm.h"
 
-#include	"cpucva/Z80.h"
+#include	"cpucva/z80.h"
 #include	"subsystem.h"
 
 #if defined(SUPPORT_PC88VA)

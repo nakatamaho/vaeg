@@ -67,7 +67,7 @@ void i286x_deinitialize(void) {
 }
 
 static void i286x_initreg(void) {
-									// V30ÇÕV30PATCH.CPPÇ…ï ìrópà”
+									// V30ÇÕv30patch.cppÇ…ï ìrópà”
 	I286_CS = 0xf000;
 	CS_BASE = 0xf0000;
 	I286_IP = 0xfff0;
@@ -3874,7 +3874,7 @@ I286 _into(void) {								// CE: into
 }
 
 I286 _iret(void) {								// CF: iret
-												//		V30ópÇÕV30PATCH.CPPÇ…ï ìrçÏê¨(Shinra)
+												//		V30ópÇÕv30patch.cppÇ…ï ìrçÏê¨(Shinra)
 		__asm {
 				I286CLOCK(31)
 				mov		edi, SS_BASE

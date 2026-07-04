@@ -1,5 +1,5 @@
 /*
- * BMSIO.H: I-O Bank Memory
+ * bmsio.h: I-O Bank Memory
  */
 
 // 構成設定
@@ -11,7 +11,7 @@ typedef struct {
 } _BMSIOCFG;
 
 // 動作時の構成と状態 (STATSAVEの対象)
-typedef struct {			// MEMORY.X86内の構造体に影響
+typedef struct {			// memory.x86内の構造体に影響
 							// 状態
 	UINT8	nomem;			// 現在選択されているバンクにメモリがある
 	UINT8	bank;			// 現在選択されているバンク
@@ -20,7 +20,7 @@ typedef struct {			// MEMORY.X86内の構造体に影響
 } _BMSIO, *BMSIO;
 
 // ワーク
-typedef struct {			// MEMORY.X86内の構造体に影響
+typedef struct {			// memory.x86内の構造体に影響
 	BYTE	*bmsmem;
 	UINT32	bmsmemsize;
 } _BMSIOWORK;

@@ -1,5 +1,5 @@
 /*
- * MAKEGRPHVA.C: PC-88VA Graphics
+ * makegrphva.c: PC-88VA Graphics
  */
 
 #include	"compiler.h"

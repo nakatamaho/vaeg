@@ -1,5 +1,5 @@
 /*
- * MOUSEIFVA.C: PC-88VA Mouse interface
+ * mouseifva.c: PC-88VA Mouse interface
  */
 
 #include	"compiler.h"

@@ -1,5 +1,5 @@
 /*
- * VIDEOVA.H: PC-88VA Video Control
+ * videova.h: PC-88VA Video Control
  */
 
 enum {

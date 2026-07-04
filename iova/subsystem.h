@@ -1,5 +1,5 @@
 /*
- * SUBSYSTEM.H: PC-88VA FD Sub System
+ * subsystem.h: PC-88VA FD Sub System
  */
 
 #include "i8255.h"

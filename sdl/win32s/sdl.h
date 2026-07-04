@@ -1,8 +1,8 @@
 
-#include	"SDLmpw.h"
-#include	"SDLevent.h"
-#include	"SDLvideo.h"
-#include	"SDLaudio.h"
+#include	"sdlmpw.h"
+#include	"sdlevent.h"
+#include	"sdlvideo.h"
+#include	"sdlaudio.h"
 
 enum {
 	SDL_INIT_TIMER			= 0x00000001,

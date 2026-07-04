@@ -1,5 +1,5 @@
 /*
- * GACTRLVA.C: PC-88VA GVRAM access control
+ * gactrlva.c: PC-88VA GVRAM access control
  */
 
 #include	"compiler.h"

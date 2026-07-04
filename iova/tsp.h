@@ -1,5 +1,5 @@
 /*
- * TSP.H: PC-88VA Text Sprite Processor
+ * tsp.h: PC-88VA Text Sprite Processor
  *
  */
 

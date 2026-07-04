@@ -1,5 +1,5 @@
 /*
- * MAKEGRPHVA.H: PC-88VA Graphics
+ * makegrphva.h: PC-88VA Graphics
  */
 
 #ifdef __cplusplus

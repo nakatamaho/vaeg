@@ -7,7 +7,7 @@
 #include	<unistd.h>
 #include	<assert.h>
 #include	<pthread.h>
-#include	<SDL.h>
+#include	<sdl.h>
 
 #define	SLZAURUS
 #define	OSLANG_EUC

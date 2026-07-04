@@ -1,5 +1,5 @@
 /*
- * FDSUBSYS.H: PC-88VA FD Sub System
+ * fdsubsys.h: PC-88VA FD Sub System
  */
 
 

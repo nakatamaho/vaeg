@@ -1,5 +1,5 @@
 /*
- * UPD9002.C: PC-88VA CPU port
+ * upd9002.c: PC-88VA CPU port
  */
 
 

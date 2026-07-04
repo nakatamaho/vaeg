@@ -1,5 +1,5 @@
 /*
- * SUBSYSTEM.CPP: PC-88VA FD Sub System
+ * subsystem.cpp: PC-88VA FD Sub System
  *
  */
 
@@ -7,8 +7,8 @@
 #include	"cpucore.h"
 #include	"pccore.h"
 
-#include	"cpucva/Z80if.h"
-#include	"cpucva/Z80c.h"
+#include	"cpucva/z80if.h"
+#include	"cpucva/z80c.h"
 #include	"i8255.h"
 #include	"subsystemif.h"
 #include	"fdc.h"

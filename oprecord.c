@@ -1,5 +1,5 @@
 /*
- * OPRECORD.C: User Operation Recorder / Player
+ * oprecord.c: User Operation Recorder / Player
  */
 
 #include	"compiler.h"

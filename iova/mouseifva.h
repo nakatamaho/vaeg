@@ -1,5 +1,5 @@
 /*
- * MOUSEIFVA.H: PC-88VA Mouse interface
+ * mouseifva.h: PC-88VA Mouse interface
  */
 
 typedef struct {

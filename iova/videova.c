@@ -1,5 +1,5 @@
 /*
- * VIDEOVA.C: PC-88VA Video Control
+ * videova.c: PC-88VA Video Control
  */
 
 #include	"compiler.h"

@@ -1,5 +1,5 @@
 /*
- * SGP.H: PC-88VA Super Graphic Processor
+ * sgp.h: PC-88VA Super Graphic Processor
  *
  */
 

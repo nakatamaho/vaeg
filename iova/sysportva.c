@@ -1,5 +1,5 @@
 /*
- * SYSPORTVA.C: PC-88VA System port/Calendar/Printer/Dip switch
+ * sysportva.c: PC-88VA System port/Calendar/Printer/Dip switch
  */
 
 

@@ -6,7 +6,7 @@
 #include	"cpucore.h"
 
 #if defined(SUPPORT_PC88VA)
-#include	"cpucva/Z80.h"
+#include	"cpucva/z80.h"
 #include	"subsystem.h"
 #endif
 

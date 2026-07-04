@@ -1,5 +1,5 @@
 /*
- * SUBSYSTEMIF.H: PC-88VA FD Sub System Interface
+ * subsystemif.h: PC-88VA FD Sub System Interface
  */
 
 

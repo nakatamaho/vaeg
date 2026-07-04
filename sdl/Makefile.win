@@ -137,8 +137,8 @@ NP2OBJ	=	$(OBJ)/strres.o		$(OBJ)/milstr.o		$(OBJ)/_memory.o	\
 			$(OBJ)/pccore.o		$(OBJ)/nevent.o		$(OBJ)/calendar.o	\
 			$(OBJ)/timing.o		$(OBJ)/keystat.o	$(OBJ)/statsave.o	\
 			$(OBJ)/debugsub.o											\
-			$(OBJ)/SDL.o		$(OBJ)/SDLmpw.o		$(OBJ)/SDLevent.o	\
-			$(OBJ)/SDLvideo.o	$(OBJ)/SDLaudio.o	$(OBJ)/SDL_ttf.o
+			$(OBJ)/sdl.o		$(OBJ)/sdlmpw.o		$(OBJ)/sdlevent.o	\
+			$(OBJ)/sdlvideo.o	$(OBJ)/sdlaudio.o	$(OBJ)/sdl_ttf.o
 
 
 NP2LIB	= -lwinmm -mwindows
@@ -1062,22 +1062,22 @@ $(OBJ)/debugsub.o	:	$(BASE)/debugsub.c $(HEADERS) $(CPUCORES) $(PCCORES) \
 
 # SDL simulate...
 
-$(OBJ)/SDL.o		:	$(TARGET2)/SDL.c $(COMMON)
+$(OBJ)/sdl.o		:	$(TARGET2)/sdl.c $(COMMON)
 	$(CC) $(COPT) -o $@ $<
 
-$(OBJ)/SDLmpw.o		:	$(TARGET2)/SDLmpw.c $(COMMON)
+$(OBJ)/sdlmpw.o		:	$(TARGET2)/sdlmpw.c $(COMMON)
 	$(CC) $(COPT) -o $@ $<
 
-$(OBJ)/SDLevent.o	:	$(TARGET2)/SDLevent.c $(COMMON)
+$(OBJ)/sdlevent.o	:	$(TARGET2)/sdlevent.c $(COMMON)
 	$(CC) $(COPT) -o $@ $<
 
-$(OBJ)/SDLvideo.o	:	$(TARGET2)/SDLvideo.c $(COMMON)
+$(OBJ)/sdlvideo.o	:	$(TARGET2)/sdlvideo.c $(COMMON)
 	$(CC) $(COPT) -o $@ $<
 
-$(OBJ)/SDLaudio.o	:	$(TARGET2)/SDLaudio.c $(COMMON)
+$(OBJ)/sdlaudio.o	:	$(TARGET2)/sdlaudio.c $(COMMON)
 	$(CC) $(COPT) -o $@ $<
 
-$(OBJ)/SDL_ttf.o	:	$(TARGET2)/SDL_ttf.c $(COMMON) $(TARGET2)/SDL_ttf.h
+$(OBJ)/sdl_ttf.o	:	$(TARGET2)/sdl_ttf.c $(COMMON) $(TARGET2)/sdl_ttf.h
 	$(CC) $(COPT) -o $@ $<
 
 

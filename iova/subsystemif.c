@@ -1,5 +1,5 @@
 /*
- * SUBSYSTEMIF.C: PC-88VA FD Sub System Interface
+ * subsystemif.c: PC-88VA FD Sub System Interface
  */
 
 #include	"compiler.h"

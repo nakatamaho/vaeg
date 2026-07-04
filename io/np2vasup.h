@@ -1,5 +1,5 @@
 /*
- * NP2VASUP.H: PC-88VA support control
+ * np2vasup.h: PC-88VA support control
  */
 
 #ifdef __cplusplus

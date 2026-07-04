@@ -1,5 +1,5 @@
 /*
- * VA91.C: PC-88VA-91 Software version-up board
+ * va91.c: PC-88VA-91 Software version-up board
  */
 
 #include	"compiler.h"

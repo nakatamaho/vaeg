@@ -1,5 +1,5 @@
 /*
- * TSP.C: PC-88VA Text Sprite Processor
+ * tsp.c: PC-88VA Text Sprite Processor
  */
 
 #include	"compiler.h"

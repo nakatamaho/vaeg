@@ -302,7 +302,7 @@ void bios_initialize(void) {
 #endif
 
 	// (Shinraメモ)
-	// ITF ROMが選択された場合、CPUアドレス+0x100000を参照するようにしている(MEMORY.X86)
+	// ITF ROMが選択された場合、CPUアドレス+0x100000を参照するようにしている(memory.x86)
 	// ITF ROM選択時のメモリ内容(ITF ROM領域(0xf8000-0xfffff)以外)をここで用意する
 	CopyMemory(mem + 0x1c0000, mem + ITF_ADRS, 0x08000);
 	CopyMemory(mem + 0x1e8000, mem + 0x0e8000, 0x10000);

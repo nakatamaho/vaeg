@@ -1,5 +1,5 @@
 /*
- * CGROMVA.H: PC-88VA Character generator
+ * cgromva.h: PC-88VA Character generator
  *
  */
 
