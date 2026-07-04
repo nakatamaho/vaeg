@@ -20,7 +20,7 @@
 
 static void pcm86mono16(SINT32 *pcm, UINT count) {
 
-	if (pcm86.div < PCM86_DIVENV) {					// ƒAƒbƒv‚³‚ñ‚Õ‚é
+	if (pcm86.div < PCM86_DIVENV) {					// ã‚¢ãƒƒãƒ—ã•ã‚“ã·ã‚‹
 		do {
 			SINT32 smp;
 			if (pcm86.divremain < 0) {
@@ -80,7 +80,7 @@ pm16_bufempty:
 
 static void pcm86stereo16(SINT32 *pcm, UINT count) {
 
-	if (pcm86.div < PCM86_DIVENV) {					// ƒAƒbƒv‚³‚ñ‚Õ‚é
+	if (pcm86.div < PCM86_DIVENV) {					// ã‚¢ãƒƒãƒ—ã•ã‚“ã·ã‚‹
 		do {
 			SINT32 smp;
 			if (pcm86.divremain < 0) {
@@ -156,7 +156,7 @@ ps16_bufempty:
 
 static void pcm86mono8(SINT32 *pcm, UINT count) {
 
-	if (pcm86.div < PCM86_DIVENV) {					// ƒAƒbƒv‚³‚ñ‚Õ‚é
+	if (pcm86.div < PCM86_DIVENV) {					// ã‚¢ãƒƒãƒ—ã•ã‚“ã·ã‚‹
 		do {
 			SINT32 smp;
 			if (pcm86.divremain < 0) {
@@ -216,7 +216,7 @@ pm8_bufempty:
 
 static void pcm86stereo8(SINT32 *pcm, UINT count) {
 
-	if (pcm86.div < PCM86_DIVENV) {					// ƒAƒbƒv‚³‚ñ‚Õ‚é
+	if (pcm86.div < PCM86_DIVENV) {					// ã‚¢ãƒƒãƒ—ã•ã‚“ã·ã‚‹
 		do {
 			SINT32 smp;
 			if (pcm86.divremain < 0) {

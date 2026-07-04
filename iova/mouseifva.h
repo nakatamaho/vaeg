@@ -8,7 +8,7 @@ typedef struct {
 } _MOUSEIFVA, *MOUSEIFVA;
 
 typedef struct {
-	UINT8	device;				// �}�E�X�|�[�g�ɐڑ�����Ă��鑕�u
+	UINT8	device;				// マウスポートに接続されている装置
 } _MOUSEIFVACFG, *MOUSEIFVACFG;
 
 enum {

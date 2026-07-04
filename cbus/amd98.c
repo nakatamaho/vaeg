@@ -8,7 +8,7 @@
 #include	"fmboard.h"
 
 
-// ‚È‚¢‚æ‚è‚ ‚Á‚½‚Ù[‚ª—Ç‚¢’ö“x‚ÌƒŠƒYƒ€c
+// ãªã„ã‚ˆã‚Šã‚ã£ãŸã»ãƒ¼ãŒè‰¯ã„ç¨‹åº¦ã®ãƒªã‚ºãƒ â€¦
 static struct {
 	PMIXHDR	hdr;
 	PMIXTRK	trk[4];
@@ -181,7 +181,7 @@ static void amd98_rhythm(UINT map) {
 
 static void setamd98event(UINT32 cnt, BOOL absolute) {
 
-	if (cnt > 8) {								// ª‹’‚È‚µ
+	if (cnt > 8) {								// æ ¹æ‹ ãªã—
 		cnt *= pccore.multiple;
 	}
 	else {
@@ -200,7 +200,7 @@ void amd98int(NEVENTITEM item) {
 	if (item->flag & NEVENT_SETEVENT) {
 		pitch = pit.ch + 4;
 		if ((pitch->ctrl & 0x0c) == 0x04) {
-			// ƒŒ[ƒgƒWƒFƒlƒŒ[ƒ^
+			// ãƒ¬ãƒ¼ãƒˆã‚¸ã‚§ãƒãƒ¬ãƒ¼ã‚¿
 			setamd98event(pitch->value, NEVENT_RELATIVE);
 		}
 	}

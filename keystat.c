@@ -311,13 +311,13 @@ void keystat_down(const UINT8 *key, REG8 keys, REG8 ref) {
 				((keycode == 0x73) && (np2cfg.XSHIFT & 4)))) {
 				keydata |= 0x80;
 			}
-			if (!(keydata & 0x80)) {			// ƒVƒtƒg
+			if (!(keydata & 0x80)) {			// ã‚·ãƒ•ãƒˆ
 				if (keystat.ref[keycode] == NKEYREF_NC) {
 					keystat.ref[keycode] = ref;
 					keyboard_send(keycode);
 				}
 			}
-			else {								// ƒVƒtƒgƒƒJƒjƒJƒ‹ˆ—
+			else {								// ã‚·ãƒ•ãƒˆãƒ¡ã‚«ãƒ‹ã‚«ãƒ«å‡¦ç†
 				if (keystat.ref[keycode] == NKEYREF_NC) {
 					keystat.ref[keycode] = ref;
 					data = keycode;
@@ -367,7 +367,7 @@ void keystat_up(const UINT8 *key, REG8 keys, REG8 ref) {
 				((keycode == 0x73) && (np2cfg.XSHIFT & 4)))) {
 				keydata |= 0x80;
 			}
-			if (!(keydata & 0x80)) {			// ƒVƒtƒg
+			if (!(keydata & 0x80)) {			// ã‚·ãƒ•ãƒˆ
 				if (keystat.ref[keycode] != NKEYREF_NC) {
 					keystat.ref[keycode] = NKEYREF_NC;
 					keyboard_send((REG8)(keycode + 0x80));
@@ -558,21 +558,21 @@ REG8 keystat_getmouse(SINT16 *x, SINT16 *y) {
 
 // ----
 
-// ƒL[ƒR[ƒh•ÏX
+// ã‚­ãƒ¼ã‚³ãƒ¼ãƒ‰å¤‰æ›´
 
 static REG8 cnvnewcode(REG8 oldcode) {
 
 	switch(oldcode) {
-		case 0x71:				// ’Êícaps
+		case 0x71:				// é€šå¸¸caps
 			return(0x81);
 
-		case 0x72:				// ’ÊíƒJƒi
+		case 0x72:				// é€šå¸¸ã‚«ãƒŠ
 			return(0x82);
 
-		case 0x79:				// ƒƒJƒjƒJƒ‹ƒƒbƒNcaps
+		case 0x79:				// ãƒ¡ã‚«ãƒ‹ã‚«ãƒ«ãƒ­ãƒƒã‚¯caps
 			return(0x71);
 
-		case 0x7a:				// ƒƒJƒjƒJƒ‹ƒƒbƒNcaps
+		case 0x7a:				// ãƒ¡ã‚«ãƒ‹ã‚«ãƒ«ãƒ­ãƒƒã‚¯caps
 			return(0x72);
 
 		case 0x76:

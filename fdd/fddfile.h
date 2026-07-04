@@ -68,7 +68,7 @@ extern "C" {
 extern	_FDDFILE	fddfile[MAX_FDDFILE];
 extern	BYTE		fddlasterror;
 
-// ‹N“®‚Éˆê‰ñ‚¾‚¯‰Šú‰»
+// èµ·å‹•æ™‚ã«ä¸€å›ã ã‘åˆæœŸåŒ–
 void fddfile_initialize(void);
 
 void fddfile_reset2dmode(void);

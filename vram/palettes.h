@@ -21,7 +21,7 @@ enum {
 	NP2PAL_GRPHEX	= (NP2PAL_TEXTEX3 + NP2PALS_TXT),
 	NP2PAL_EXTEND	= (NP2PAL_GRPHEX + 256),
 
-						// 8bit colorÇ≈ÇÕ TEXT3ÇÕégÇÌÇ»Ç¢î§
+						// 8bit color„Åß„ÅØ TEXT3„ÅØ‰Ωø„Çè„Å™„ÅÑÁ≠à
 	NP2PAL_TOTAL	= NP2PAL_TEXT3
 };
 

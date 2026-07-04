@@ -266,7 +266,7 @@ char *milsjis_chr(const char *str, int c) {
 
 // ---- EUC
 
-#if defined(SUPPORT_EUC)		// ‚ ‚ê ”¼ŠpƒJƒi–Y‚ê‚Ä‚é‚¼H
+#if defined(SUPPORT_EUC)		// ã‚ã‚Œ åŠè§’ã‚«ãƒŠå¿˜ã‚Œã¦ã‚‹ãï¼Ÿ
 int mileuc_charsize(const char *str) {
 
 	int		pos;

@@ -10,7 +10,7 @@ enum {
 	PCM86_RESCUE		= 20
 };
 
-#define	PCM86_EXTBUF		pcm86.rescue					// 救済延滞…
+#define	PCM86_EXTBUF		pcm86.rescue					// 謨第ｸ亥ｻｶ貊樞ｦ
 #define	PCM86_REALBUFSIZE	(PCM86_LOGICALBUF + PCM86_EXTBUF)
 
 #define RECALC_NOWCLKWAIT(cnt) {										\
@@ -31,10 +31,10 @@ typedef struct {
 	SINT32	smp_r;
 	SINT32	lastsmp_r;
 
-	UINT32	readpos;			// DSOUND再生位置
-	UINT32	wrtpos;				// 書込み位置
-	SINT32	realbuf;			// DSOUND用のデータ数
-	SINT32	virbuf;				// 86PCM(bufsize:0x8000)のデータ数
+	UINT32	readpos;			// DSOUND蜀咲函菴咲ｽｮ
+	UINT32	wrtpos;				// 譖ｸ霎ｼ縺ｿ菴咲ｽｮ
+	SINT32	realbuf;			// DSOUND逕ｨ縺ｮ繝�繝ｼ繧ｿ謨ｰ
+	SINT32	virbuf;				// 86PCM(bufsize:0x8000)縺ｮ繝�繝ｼ繧ｿ謨ｰ
 	SINT32	rescue;
 
 	SINT32	fifosize;

@@ -7,8 +7,8 @@
 #include	"fmboard.h"
 
 
-// ‚Ç‚¤‚à 8253C-2‚Í 4MHz/16‚ç‚·‚¢H
-// ‚Æ‚è‚ ‚¦‚¸ 1996800/8‚ð“ü—Í‚µ‚Ä‚Ý‚é... (ver0.71)
+// ã©ã†ã‚‚ 8253C-2ã¯ 4MHz/16ã‚‰ã™ã„ï¼Ÿ
+// ã¨ã‚Šã‚ãˆãš 1996800/8ã‚’å…¥åŠ›ã—ã¦ã¿ã‚‹... (ver0.71)
 
 
 // ---- 8253C-2
@@ -34,7 +34,7 @@ UINT board14_pitcount(void) {
 
 static void setmusicgenevent(UINT32 cnt, BOOL absolute) {
 
-	if (cnt > 4) {								// ª‹’‚È‚µ
+	if (cnt > 4) {								// æ ¹æ‹ ãªã—
 		cnt *= pccore.multiple;
 	}
 	else {
@@ -54,7 +54,7 @@ void musicgenint(NEVENTITEM item) {
 	if (item->flag & NEVENT_SETEVENT) {
 		pitch = pit.ch + 3;
 		if ((pitch->ctrl & 0x0c) == 0x04) {
-			// ƒŒ[ƒgƒWƒFƒlƒŒ[ƒ^
+			// ãƒ¬ãƒ¼ãƒˆã‚¸ã‚§ãƒãƒ¬ãƒ¼ã‚¿
 			setmusicgenevent(pitch->value, NEVENT_RELATIVE);
 		}
 	}

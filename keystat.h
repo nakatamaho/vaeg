@@ -208,7 +208,7 @@ REG8 keystat_getmouse(SINT16 *x, SINT16 *y);
 
 
 
-// ---- ”p~ŠÖ”
+// ---- å»ƒæ­¢é–¢æ•°
 
 void keystat_senddata(REG8 data);
 void keystat_forcerelease(REG8 data);

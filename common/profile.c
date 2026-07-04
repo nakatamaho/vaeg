@@ -146,7 +146,7 @@ const char *profile_getarg(const char *str, char *buf, UINT leng) {
 
 
 
-// ---- ‚Ü‚¾ƒeƒXƒg
+// ---- ã¾ã ãƒ†ã‚¹ãƒˆ
 
 typedef struct {
 	UINT	applen;

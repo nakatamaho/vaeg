@@ -5,8 +5,8 @@
 #include "i8255.h"
 
 typedef struct {
-	BYTE	romexist;		// ROM‚ğƒ[ƒh‚µ‚½
-	BYTE	intopcode;		// Š„‚è‚İƒIƒyƒR[ƒh
+	BYTE	romexist;		// ROMã‚’ãƒ­ãƒ¼ãƒ‰ã—ãŸ
+	BYTE	intopcode;		// å‰²ã‚Šè¾¼ã¿ã‚ªãƒšã‚³ãƒ¼ãƒ‰
 	_I8255	i8255;
 	BYTE	rom[0x2000];
 	BYTE	ram[0x4000];

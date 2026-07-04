@@ -1,23 +1,23 @@
 # Microsoft Developer Studio Project File - Name="bin2txt" - Package Owner=<4>
 # Microsoft Developer Studio Generated Build File, Format Version 6.00
-# ** �ҏW���Ȃ��ł������� **
+# ** 編集しないでください **
 
 # TARGTYPE "Win32 (x86) Console Application" 0x0103
 
 CFG=bin2txt - Win32 Release
-!MESSAGE ����͗L����Ҳ�̧�قł͂���܂���B ������ۼު�Ă�����ނ��邽�߂ɂ� NMAKE ���g�p���Ă��������B
-!MESSAGE [Ҳ�̧�ق̴���߰�] ����ނ��g�p���Ď��s���Ă�������
+!MESSAGE これは有効なﾒｲｸﾌｧｲﾙではありません。 このﾌﾟﾛｼﾞｪｸﾄをﾋﾞﾙﾄﾞするためには NMAKE を使用してください。
+!MESSAGE [ﾒｲｸﾌｧｲﾙのｴｸｽﾎﾟｰﾄ] ｺﾏﾝﾄﾞを使用して実行してください
 !MESSAGE 
 !MESSAGE NMAKE /f "bin2txt.mak".
 !MESSAGE 
-!MESSAGE NMAKE �̎��s���ɍ\�����w��ł��܂�
-!MESSAGE ����� ײݏ��ϸۂ̐ݒ���`���܂��B��:
+!MESSAGE NMAKE の実行時に構成を指定できます
+!MESSAGE ｺﾏﾝﾄﾞ ﾗｲﾝ上でﾏｸﾛの設定を定義します。例:
 !MESSAGE 
 !MESSAGE NMAKE /f "bin2txt.mak" CFG="bin2txt - Win32 Release"
 !MESSAGE 
-!MESSAGE �I���\������� Ӱ��:
+!MESSAGE 選択可能なﾋﾞﾙﾄﾞ ﾓｰﾄﾞ:
 !MESSAGE 
-!MESSAGE "bin2txt - Win32 Release" ("Win32 (x86) Console Application" �p)
+!MESSAGE "bin2txt - Win32 Release" ("Win32 (x86) Console Application" 用)
 !MESSAGE 
 
 # Begin Project

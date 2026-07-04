@@ -1,7 +1,7 @@
 /*
  *	biosva.c: PC-88VA ROM control
  *	ToDo:
- *		ファイル読み込み失敗時のエラー通知
+ *		繝輔ぃ繧､繝ｫ隱ｭ縺ｿ霎ｼ縺ｿ螟ｱ謨玲凾縺ｮ繧ｨ繝ｩ繝ｼ騾夂衍
  */
 
 #include	"compiler.h"

@@ -6,48 +6,48 @@
 #if !defined(RESOURCE_US) && (!defined(CHARSET_OEM) || defined(OSLANG_SJIS))
 const char mstr_fontcheck[] = " ";
 const char mstr_ok[] = "OK";
-			// ƒLƒƒƒ“ƒZƒ‹
+			// ã‚­ãƒ£ãƒ³ã‚»ãƒ«
 const char mstr_cancel[] = "\267\254\335\276\331";
-			// ’†~
+			// ä¸­æ­¢
 const char mstr_abort[] = "\222\206\216\176";
-			// Äs
+			// å†è©¦è¡Œ
 const char mstr_retry[] = "\215\304\216\216\215\163";
-			// –³‹
+			// ç„¡è¦–
 const char mstr_ignore[] = "\226\263\216\213";
-			// ‚Í‚¢
+			// ã¯ã„
 const char mstr_yes[] = "\202\315\202\242";
-			// ‚¢‚¢‚¦
+			// ã„ã„ãˆ
 const char mstr_no[] = "\202\242\202\242\202\246";
 #elif defined(OSLANG_EUC) && !defined(RESOURCE_US)
 const char mstr_fontcheck[] = " ";
 const char mstr_ok[] = "OK";
-			// ƒLƒƒƒ“ƒZƒ‹
+			// ã‚­ãƒ£ãƒ³ã‚»ãƒ«
 const char mstr_cancel[] = "\216\267\216\254\216\335\216\276\216\331";
-			// ’†~
+			// ä¸­æ­¢
 const char mstr_abort[] = "\303\346\273\337";
-			// Äs
+			// å†è©¦è¡Œ
 const char mstr_retry[] = "\272\306\273\356\271\324";
-			// –³‹
+			// ç„¡è¦–
 const char mstr_ignore[] = "\314\265\273\353";
-			// ‚Í‚¢
+			// ã¯ã„
 const char mstr_yes[] = "\244\317\244\244";
-			// ‚¢‚¢‚¦
+			// ã„ã„ãˆ
 const char mstr_no[] = "\244\244\244\244\244\250";
 #elif defined(OSLANG_UTF8) && !defined(RESOURCE_US)
 const char mstr_fontcheck[] = " ";
 const char mstr_ok[] = "OK";
-			// ƒLƒƒƒ“ƒZƒ‹
+			// ã‚­ãƒ£ãƒ³ã‚»ãƒ«
 const char mstr_cancel[] = "\357\275\267\357\275\254\357\276\235" \
 							"\357\275\276\357\276\231";
-			// ’†~
+			// ä¸­æ­¢
 const char mstr_abort[] = "\344\270\255\346\255\242";
-			// Äs
+			// å†è©¦è¡Œ
 const char mstr_retry[] = "\345\206\215\350\251\246\350\241\214";
-			// –³‹
+			// ç„¡è¦–
 const char mstr_ignore[] = "\347\204\241\350\246\226";
-			// ‚Í‚¢
+			// ã¯ã„
 const char mstr_yes[] = "\343\201\257\343\201\204";
-			// ‚¢‚¢‚¦
+			// ã„ã„ãˆ
 const char mstr_no[] = "\343\201\204\343\201\204\343\201\210";
 #else
 const char mstr_fontcheck[] = " ";

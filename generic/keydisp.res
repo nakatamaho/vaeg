@@ -1,5 +1,5 @@
 
-static const BYTE keybrd1[] = {					// Œ®”ÕB
+static const BYTE keybrd1[] = {					// éµç›¤ã€‚
 				28, 14,
 				0xc4, 0x6c, 0x44, 0x60,
 				0xc4, 0x6c, 0x44, 0x60,
@@ -16,7 +16,7 @@ static const BYTE keybrd1[] = {					// Œ®”ÕB
 				0xee, 0xee, 0xee, 0xe0,
 				0x00, 0x00, 0x00, 0x00};
 
-static const BYTE keybrd2[] = {					// Œ®”Õ G‚ÅØ‚ê‚éB
+static const BYTE keybrd2[] = {					// éµç›¤ Gã§åˆ‡ã‚Œã‚‹ã€‚
 				20, 14,
 				0xc4, 0x6c, 0x40,
 				0xc4, 0x6c, 0x40,

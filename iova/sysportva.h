@@ -15,7 +15,7 @@ typedef struct {
 } _SYSPORTVA, *SYSPORTVA;
 
 typedef struct {
-	BYTE	dipsw;			// bit0: CRTÉÇÅ[Éh 1..24KHz 0..15KHz
+	BYTE	dipsw;			// bit0: CRT„É¢„Éº„Éâ 1..24KHz 0..15KHz
 } _SYSPORTVACFG, *SUSPORTVACFG;
 
 #ifdef __cplusplus

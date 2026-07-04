@@ -125,7 +125,7 @@ const BYTE	*ptr;
 		ptr += cr->lr;
 		return(ptr[cr->line & 0x0f]);
 	}
-	else if (!(cr->line & 0x10)) {		// ”¼Šp
+	else if (!(cr->line & 0x10)) {		// åŠè§’
 		ptr += 0x80000;
 		ptr += cr->code << 4;
 		return(ptr[cr->line]);

@@ -9,7 +9,7 @@
 
 typedef void (*I8255_busout)(BYTE);
 
-// ó‘Ô
+// çŠ¶æ…‹
 typedef struct {
 	BYTE porta;
 	BYTE portb;
@@ -18,7 +18,7 @@ typedef struct {
 	BYTE portcinmask;
 } _I8255, *I8255;
 
-// \¬(Ú‘±)
+// æ§‹æˆ(æ¥ç¶š)
 typedef struct {
 	I8255	s;
 	I8255_busout	busoutporta;
