@@ -76,6 +76,7 @@ struct GuiState {
 	bool initialized = false;
 	SDL_Renderer *renderer = nullptr;
 	std::string font_path;
+	float menu_font_size = kGuiFontSize;
 	int fdd_dialog_drive = -1;
 	char fdd_path[2][MAX_PATH] = {};
 	bool fdd_browser_open = false;
@@ -146,6 +147,13 @@ static void menu_item_not_implemented(const char *label) {
 	ImGui::BeginDisabled();
 	ImGui::MenuItem(label);
 	ImGui::EndDisabled();
+}
+
+static int menu_bar_height(void) {
+
+	const ImGuiStyle &style = ImGui::GetStyle();
+	return static_cast<int>(
+		std::ceil(g_gui.menu_font_size + (style.FramePadding.y * 2.0f)));
 }
 
 static std::string home_dir(void) {
@@ -712,16 +720,17 @@ BOOL gui_initialize(void *window, void *renderer, const char *argv0) {
 					 kFontName);
 		return FAILURE;
 	}
-	if (io.Fonts->AddFontFromFileTTF(g_gui.font_path.c_str(), kGuiFontSize,
-									 nullptr,
-									 io.Fonts->GetGlyphRangesJapanese()) ==
-		nullptr) {
+	ImFont *font = io.Fonts->AddFontFromFileTTF(
+		g_gui.font_path.c_str(), kGuiFontSize, nullptr,
+		io.Fonts->GetGlyphRangesJapanese());
+	if (font == nullptr) {
 		std::fprintf(stderr, "Error: failed to load GUI font: %s\n",
 					 g_gui.font_path.c_str());
 		return FAILURE;
 	}
 
 	ImGui::StyleColorsDark();
+	scrnmng_set_menu_height(menu_bar_height());
 	if (!ImGui_ImplSDL2_InitForSDLRenderer(static_cast<SDL_Window *>(window),
 										   static_cast<SDL_Renderer *>(renderer))) {
 		return FAILURE;

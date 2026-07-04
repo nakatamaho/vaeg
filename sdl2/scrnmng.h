@@ -54,6 +54,7 @@ RGB16 scrnmng_makepal16(RGB32 pal32);
 
 void scrnmng_initialize(void);
 BOOL scrnmng_create(int width, int height);
+void scrnmng_show(void);
 void scrnmng_destroy(void);
 void *scrnmng_get_window(void);
 void *scrnmng_get_renderer(void);

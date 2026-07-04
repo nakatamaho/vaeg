@@ -211,6 +211,7 @@ int main(int argc, char **argv) {
 					   argv[0]) != SUCCESS) {
 		goto np2main_err3;
 	}
+	scrnmng_show();
 
 	soundmng_initialize();
 	commng_initialize();

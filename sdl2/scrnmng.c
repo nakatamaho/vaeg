@@ -33,6 +33,7 @@ typedef struct {
 	SDL_Window		*window;
 	SDL_Renderer	*renderer;
 	SDL_Texture		*texture;
+	BOOL			visible;
 	int				scale;
 	BOOL			aspect;
 	int				menu_height;
@@ -109,7 +110,8 @@ BOOL scrnmng_create(int width, int height) {
 	scrnmng.window = SDL_CreateWindow(app_name, SDL_WINDOWPOS_CENTERED,
 							SDL_WINDOWPOS_CENTERED,
 							SCRNMNG_CANVAS_WIDTH,
-							SCRNMNG_CANVAS_HEIGHT, 0);
+							SCRNMNG_CANVAS_HEIGHT,
+							SDL_WINDOW_HIDDEN);
 	if (scrnmng.window == NULL) {
 		fprintf(stderr, "Error: SDL_CreateWindow: %s\n", SDL_GetError());
 		return(FAILURE);
@@ -138,9 +140,19 @@ BOOL scrnmng_create(int width, int height) {
 	return(SUCCESS);
 }
 
+void scrnmng_show(void) {
+
+	if ((scrnmng.window) && (!scrnmng.visible)) {
+		SDL_ShowWindow(scrnmng.window);
+		scrnmng.visible = TRUE;
+		scrnmng_log_geometry("startup");
+	}
+}
+
 void scrnmng_destroy(void) {
 
 	scrnmng.enable = FALSE;
+	scrnmng.visible = FALSE;
 	if (scrnmng.texture) {
 		SDL_DestroyTexture(scrnmng.texture);
 		scrnmng.texture = NULL;
@@ -199,7 +211,9 @@ void scrnmng_set_menu_height(int height) {
 	}
 	scrnmng.menu_height = height;
 	scrnmng_update_window_size();
-	scrnmng_log_geometry("menu-height");
+	if (scrnmng.visible) {
+		scrnmng_log_geometry("menu-height");
+	}
 }
 
 void scrnmng_set_display(int scale, BOOL aspect) {
@@ -213,7 +227,9 @@ void scrnmng_set_display(int scale, BOOL aspect) {
 	scrnmng.scale = scale;
 	scrnmng.aspect = aspect ? TRUE : FALSE;
 	scrnmng_update_window_size();
-	scrnmng_log_geometry("scale-change");
+	if (scrnmng.visible) {
+		scrnmng_log_geometry("scale-change");
+	}
 }
 
 int scrnmng_get_display_scale(void) {
@@ -249,7 +265,9 @@ void scrnmng_setwidth(int posx, int width) {
 		return;
 	}
 	scrnstat.width = width;
-	scrnmng_log_geometry("mode-width");
+	if (scrnmng.visible) {
+		scrnmng_log_geometry("mode-width");
+	}
 	(void)posx;
 }
 
@@ -262,7 +280,9 @@ void scrnmng_setheight(int posy, int height) {
 		return;
 	}
 	scrnstat.height = height;
-	scrnmng_log_geometry("mode-height");
+	if (scrnmng.visible) {
+		scrnmng_log_geometry("mode-height");
+	}
 	(void)posy;
 }
 
