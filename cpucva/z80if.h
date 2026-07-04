@@ -8,10 +8,18 @@
 #include "types.h"
 
 #ifndef IFCALL
+#if defined(_MSC_VER)
 #define IFCALL __stdcall
+#else
+#define IFCALL
+#endif
 #endif
 #ifndef IOCALL
+#if defined(_MSC_VER)
 #define IOCALL __stdcall
+#else
+#define IOCALL
+#endif
 #endif
 
 
