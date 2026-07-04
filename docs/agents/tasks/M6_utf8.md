@@ -23,6 +23,9 @@ this file:
 
 Default recommendation: A now, B when the SDL2 backend becomes primary.
 
+Recorded decision for this run: **Option A**. The v141 build uses
+`/source-charset:utf-8 /execution-charset:.932`.
+
 ## Conversion rules
 - Codepage is **CP932** in both directions, never "SHIFT_JIS"
   (wave dash: 0x8160 ↔ U+FF5E must round-trip).
@@ -40,6 +43,9 @@ rc.exe ignores `/utf-8`. Either:
   of each, then verify every menu/dialog string at the gate; or
 - exempt `.rc` (keep CP932, `#pragma code_page(932)` made explicit) and
   list them in CONVENTIONS.md as a documented exception.
+
+Recorded decision for this run: convert `win9x/np2.rc` to UTF-8 and set
+`#pragma code_page(65001)`.
 
 ## Commit structure
 1. `M6: convert sources CP932 -> UTF-8 (no BOM, mechanical)` — content

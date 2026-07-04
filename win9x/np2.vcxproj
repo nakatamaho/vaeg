@@ -103,7 +103,7 @@
       <WarningLevel>Level3</WarningLevel>
       <DebugInformationFormat>None</DebugInformationFormat>
       <CompileAs>Default</CompileAs>
-      <AdditionalOptions>/source-charset:.932 /execution-charset:.932 /Zc:strictStrings- %(AdditionalOptions)</AdditionalOptions>
+      <AdditionalOptions>/source-charset:utf-8 /execution-charset:.932 /Zc:strictStrings- %(AdditionalOptions)</AdditionalOptions>
       <ConformanceMode>false</ConformanceMode>
     </ClCompile>
     <ResourceCompile>
@@ -132,7 +132,7 @@
       <WarningLevel>Level3</WarningLevel>
       <DebugInformationFormat>None</DebugInformationFormat>
       <CompileAs>Default</CompileAs>
-      <AdditionalOptions>/source-charset:.932 /execution-charset:.932 /Zc:strictStrings- %(AdditionalOptions)</AdditionalOptions>
+      <AdditionalOptions>/source-charset:utf-8 /execution-charset:.932 /Zc:strictStrings- %(AdditionalOptions)</AdditionalOptions>
       <ConformanceMode>false</ConformanceMode>
     </ClCompile>
     <ResourceCompile>
@@ -161,7 +161,7 @@
       <WarningLevel>Level3</WarningLevel>
       <DebugInformationFormat>None</DebugInformationFormat>
       <CompileAs>Default</CompileAs>
-      <AdditionalOptions>/source-charset:.932 /execution-charset:.932 /Zc:strictStrings- %(AdditionalOptions)</AdditionalOptions>
+      <AdditionalOptions>/source-charset:utf-8 /execution-charset:.932 /Zc:strictStrings- %(AdditionalOptions)</AdditionalOptions>
       <ConformanceMode>false</ConformanceMode>
     </ClCompile>
     <ResourceCompile>
@@ -191,7 +191,7 @@
       <DebugInformationFormat>EditAndContinue</DebugInformationFormat>
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
       <CompileAs>Default</CompileAs>
-      <AdditionalOptions>/source-charset:.932 /execution-charset:.932 /Zc:strictStrings- %(AdditionalOptions)</AdditionalOptions>
+      <AdditionalOptions>/source-charset:utf-8 /execution-charset:.932 /Zc:strictStrings- %(AdditionalOptions)</AdditionalOptions>
       <ConformanceMode>false</ConformanceMode>
     </ClCompile>
     <ResourceCompile>
