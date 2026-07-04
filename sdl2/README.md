@@ -24,9 +24,10 @@ POSSIBILITY OF SUCH DAMAGE.
 -->
 # SDL2 Frontend
 
-This is the M8 Linux SDL2 frontend for the portable PC-98 scaffold. It
-links the CMake `vaeg_core` and `vaeg_common` targets and does not include
-VA, ImGui, menus, or platform code for Windows/macOS yet.
+This is the SDL2 frontend for the portable PC-98 scaffold. It links the
+CMake `vaeg_core` and `vaeg_common` targets and includes the M10 Dear
+ImGui menu layer. VA and platform code for Windows/macOS are still later
+milestones.
 
 ## Build
 
@@ -78,3 +79,13 @@ The ini format is unchanged. The SDL2 frontend looks for `np2.cfg` in:
 3. `./np2.cfg` if neither environment location is available
 
 The directory is created on save when the XDG or home path is used.
+
+## Font Manager Stub
+
+Host GUI text is rendered by Dear ImGui using
+`assets/NotoSansJP-Regular.ttf`; it does not use `sdl2/fontmng.c`.
+The SDL2 `fontmng` stub remains linked because the shared core still
+builds `font/fontmake.c`, whose `makepc98bmp()` path references
+`fontmng_create()`, `fontmng_get()`, and `fontmng_destroy()`. Removing the
+stub leaves those symbols unresolved. The current SDL2 consumers are
+therefore `CMakeLists.txt` and the shared `font/fontmake.c` link path.
