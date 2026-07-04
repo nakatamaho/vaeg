@@ -64,7 +64,7 @@ typedef struct {
 
 typedef struct {
 	UINT8 hour;
-	UINT8 min;
+	UINT8 minute;
 	UINT8 second;
 } DOSTIME;
 

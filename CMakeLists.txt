@@ -246,7 +246,11 @@ set_target_properties(vaeg_sdl2 PROPERTIES
     OUTPUT_NAME vaeg
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/sdl2")
 target_include_directories(vaeg_sdl2 PRIVATE ${VAEG_INCLUDE_DIRS})
-target_link_libraries(vaeg_sdl2 PRIVATE vaeg_core ${VAEG_SDL2_LIBS})
+target_link_libraries(vaeg_sdl2 PRIVATE vaeg_core vaeg_common vaeg_core
+    ${VAEG_SDL2_LIBS})
+if(UNIX)
+    target_link_libraries(vaeg_sdl2 PRIVATE m)
+endif()
 target_compile_options(vaeg_sdl2 PRIVATE -Wall -fsigned-char)
 if(VAEG_WERROR)
     target_compile_options(vaeg_sdl2 PRIVATE -Werror)
