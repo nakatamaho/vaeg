@@ -83,6 +83,7 @@ BOOL scrnmng_create(int width, int height) {
 		fprintf(stderr, "Error: SDL_CreateTexture: %s\n", SDL_GetError());
 		return(FAILURE);
 	}
+	SDL_SetTextureScaleMode(scrnmng.texture, SDL_ScaleModeNearest);
 	scrnmng.enable = TRUE;
 	scrnmng.width = width;
 	scrnmng.height = height;
