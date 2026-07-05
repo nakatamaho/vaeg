@@ -192,6 +192,8 @@ void fdcsend_error7(void);
 void fdcsend_success7(void);
 
 void fdc_trace_enable(BOOL enable);
+void fdc_trace_text(const char *fmt, ...);
+void fdc_trace_iova_unhandled(UINT port);
 void fdc_trace_log(REG8 cmd, const char *name, UINT8 drive, UINT8 C, UINT8 H,
 				   UINT8 R, UINT8 N, UINT32 req_len, UINT8 st0, UINT8 st1,
 				   UINT8 st2, UINT32 xfer_len, UINT8 dma_ch,

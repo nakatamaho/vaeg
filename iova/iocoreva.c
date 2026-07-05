@@ -35,11 +35,27 @@ typedef struct {
 } _IOCORE, *IOCORE;
 
 static	_IOCORE		iocore;
+static	UINT8		iova_unhandled_out[0x2000];
 
 // ----
 
+static void trace_unhandled_out(UINT port) {
+
+	UINT	idx;
+	UINT	bit;
+
+	port &= 0xffff;
+	idx = port >> 3;
+	bit = 1 << (port & 7);
+	if (!(iova_unhandled_out[idx] & bit)) {
+		iova_unhandled_out[idx] |= (UINT8)bit;
+		fdc_trace_iova_unhandled(port);
+	}
+}
+
 static void IOOUTCALL defout8(UINT port, REG8 dat) {
 
+	trace_unhandled_out(port);
 	TRACEOUT(("defout8 - %x %x %.4x:%.4x", port, dat, CPU_CS, CPU_IP));
 }
 

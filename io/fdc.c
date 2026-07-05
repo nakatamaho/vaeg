@@ -4,6 +4,7 @@
 
 
 #include	"compiler.h"
+#include	<stdarg.h>
 #include	"cpucore.h"
 #include	"pccore.h"
 #include	"iocore.h"
@@ -112,6 +113,27 @@ static void stop_executionphase(void);
 void fdc_trace_enable(BOOL enable) {
 
 	fdctrace_stderr = enable;
+}
+
+void fdc_trace_text(const char *fmt, ...) {
+
+	va_list	ap;
+	char	buf[1024];
+
+	va_start(ap, fmt);
+	vsnprintf(buf, sizeof(buf), fmt, ap);
+	va_end(ap);
+	TRACEOUT(("%s", buf));
+	if (fdctrace_stderr) {
+		fprintf(stderr, "%s\n", buf);
+	}
+}
+
+void fdc_trace_iova_unhandled(UINT port) {
+
+	if (fdctrace_stderr) {
+		fprintf(stderr, "iova-unhandled port=%04x\n", port & 0xffff);
+	}
 }
 
 static const char *fdc_trace_cmdname(REG8 cmd) {
