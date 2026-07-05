@@ -33,6 +33,8 @@ typedef struct {
 	SDL_Window		*window;
 	SDL_Renderer	*renderer;
 	SDL_Texture		*texture;
+	BYTE			*shadow;
+	int				shadow_pitch;
 	BOOL			visible;
 	int				scale;
 	BOOL			aspect;
@@ -54,6 +56,29 @@ enum {
 static	SCRNMNG		scrnmng;
 static	SCRNSTAT	scrnstat;
 static	SCRNSURF	scrnsurf;
+
+static BOOL scrnmng_upload_shadow(void) {
+
+	if ((scrnmng.texture == NULL) || (scrnmng.shadow == NULL)) {
+		return(FAILURE);
+	}
+	if (SDL_UpdateTexture(scrnmng.texture, NULL, scrnmng.shadow,
+						  scrnmng.shadow_pitch) != 0) {
+		fprintf(stderr, "Error: SDL_UpdateTexture: %s\n", SDL_GetError());
+		return(FAILURE);
+	}
+	scrnmng.dirty = TRUE;
+	return(SUCCESS);
+}
+
+static void scrnmng_clear_shadow(void) {
+
+	if (scrnmng.shadow == NULL) {
+		return;
+	}
+	ZeroMemory(scrnmng.shadow, scrnmng.shadow_pitch * scrnmng.height);
+	(void)scrnmng_upload_shadow();
+}
 
 static void scrnmng_get_guest_rect(SDL_Rect *dst) {
 
@@ -94,8 +119,6 @@ void scrnmng_log_geometry(const char *reason) {
 
 BOOL scrnmng_texture_uniform(BOOL *uniform) {
 
-	void		*pixels;
-	int			pitch;
 	const BYTE	*base;
 	BYTE		first0;
 	BYTE		first1;
@@ -106,33 +129,26 @@ BOOL scrnmng_texture_uniform(BOOL *uniform) {
 		return(FAILURE);
 	}
 	*uniform = TRUE;
-	if ((!scrnmng.enable) || (scrnmng.texture == NULL)) {
+	if ((!scrnmng.enable) || (scrnmng.shadow == NULL)) {
 		return(FAILURE);
 	}
-	if (SDL_LockTexture(scrnmng.texture, NULL, &pixels, &pitch) != 0) {
-		fprintf(stderr, "Error: SDL_LockTexture smoke readback: %s\n",
-				SDL_GetError());
-		return(FAILURE);
-	}
-	base = (const BYTE *)pixels;
+	base = scrnmng.shadow;
 	first0 = base[0];
 	first1 = base[1];
 	for (y=0; y<scrnmng.height; y++) {
 		const BYTE	*row;
 
-		row = base + (y * pitch);
+		row = base + (y * scrnmng.shadow_pitch);
 		for (x=0; x<scrnmng.width; x++) {
 			const BYTE	*pixel;
 
 			pixel = row + (x * 2);
 			if ((pixel[0] != first0) || (pixel[1] != first1)) {
 				*uniform = FALSE;
-				SDL_UnlockTexture(scrnmng.texture);
 				return(SUCCESS);
 			}
 		}
 	}
-	SDL_UnlockTexture(scrnmng.texture);
 	return(SUCCESS);
 }
 
@@ -170,7 +186,7 @@ BOOL scrnmng_create(int width, int height) {
 	SDL_RenderSetLogicalSize(scrnmng.renderer, 0, 0);
 	scrnmng.texture = SDL_CreateTexture(scrnmng.renderer,
 							SDL_PIXELFORMAT_RGB565,
-							SDL_TEXTUREACCESS_STREAMING,
+							SDL_TEXTUREACCESS_STATIC,
 							SCRNMNG_CANVAS_WIDTH,
 							SCRNMNG_CANVAS_HEIGHT);
 	if (scrnmng.texture == NULL) {
@@ -178,9 +194,18 @@ BOOL scrnmng_create(int width, int height) {
 		return(FAILURE);
 	}
 	SDL_SetTextureScaleMode(scrnmng.texture, SDL_ScaleModeNearest);
-	scrnmng.enable = TRUE;
 	scrnmng.width = SCRNMNG_CANVAS_WIDTH;
 	scrnmng.height = SCRNMNG_CANVAS_HEIGHT;
+	scrnmng.shadow_pitch = (SCRNMNG_CANVAS_WIDTH + 1) * 2;
+	scrnmng.shadow = (BYTE *)calloc(SCRNMNG_CANVAS_HEIGHT,
+									scrnmng.shadow_pitch);
+	if (scrnmng.shadow == NULL) {
+		fprintf(stderr, "Error: shadow framebuffer allocation failed\n");
+		scrnmng_destroy();
+		return(FAILURE);
+	}
+	scrnmng_clear_shadow();
+	scrnmng.enable = TRUE;
 	scrnmng_set_display(scrnmng.scale, scrnmng.aspect);
 	return(SUCCESS);
 }
@@ -202,6 +227,11 @@ void scrnmng_destroy(void) {
 		SDL_DestroyTexture(scrnmng.texture);
 		scrnmng.texture = NULL;
 	}
+	if (scrnmng.shadow) {
+		free(scrnmng.shadow);
+		scrnmng.shadow = NULL;
+	}
+	scrnmng.shadow_pitch = 0;
 	if (scrnmng.renderer) {
 		SDL_DestroyRenderer(scrnmng.renderer);
 		scrnmng.renderer = NULL;
@@ -310,6 +340,7 @@ void scrnmng_setwidth(int posx, int width) {
 		return;
 	}
 	scrnstat.width = width;
+	scrnmng_clear_shadow();
 	if (scrnmng.visible) {
 		scrnmng_log_geometry("mode-width");
 	}
@@ -325,6 +356,7 @@ void scrnmng_setheight(int posy, int height) {
 		return;
 	}
 	scrnstat.height = height;
+	scrnmng_clear_shadow();
 	if (scrnmng.visible) {
 		scrnmng_log_geometry("mode-height");
 	}
@@ -333,26 +365,16 @@ void scrnmng_setheight(int posy, int height) {
 
 const SCRNSURF *scrnmng_surflock(void) {
 
-	void	*pixels;
-	int		pitch;
-
-	if ((!scrnmng.enable) || (scrnmng.texture == NULL)) {
+	if ((!scrnmng.enable) || (scrnmng.shadow == NULL)) {
 		return(NULL);
 	}
-	if (SDL_LockTexture(scrnmng.texture, NULL, &pixels, &pitch) != 0) {
-		return(NULL);
-	}
-	scrnsurf.ptr = (BYTE *)pixels;
+	scrnsurf.ptr = scrnmng.shadow;
 	scrnsurf.xalign = 2;
-	scrnsurf.yalign = pitch;
+	scrnsurf.yalign = scrnmng.shadow_pitch;
 	scrnsurf.bpp = 16;
 	scrnsurf.width = min(scrnstat.width, scrnmng.width);
 	scrnsurf.height = min(scrnstat.height, scrnmng.height);
 	scrnsurf.extend = 0;
-	if ((scrnsurf.width < scrnmng.width) ||
-		(scrnsurf.height < scrnmng.height)) {
-		ZeroMemory(pixels, pitch * scrnmng.height);
-	}
 	return(&scrnsurf);
 }
 
@@ -361,8 +383,7 @@ void scrnmng_surfunlock(const SCRNSURF *surf) {
 	if ((surf == NULL) || (scrnmng.texture == NULL)) {
 		return;
 	}
-	SDL_UnlockTexture(scrnmng.texture);
-	scrnmng.dirty = TRUE;
+	(void)scrnmng_upload_shadow();
 }
 
 void scrnmng_present_begin(void) {
