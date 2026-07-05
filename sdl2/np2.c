@@ -45,7 +45,7 @@
 
 		NP2OSCFG	np2oscfg = {0, 0, 0, 0, 0, 1, 0};
 
-static const UINT smoke_frames = 60;
+static const UINT smoke_timeout_frames = 600;
 
 static void usage(const char *progname) {
 
@@ -116,16 +116,21 @@ static void wait_next_frame(Uint64 *next_tick) {
 	}
 }
 
-static BOOL smoke_check_screen(UINT frames) {
+static BOOL smoke_check_screen(UINT frames, BOOL *done) {
 
 	BOOL	uniform;
 
+	*done = FALSE;
 	if (scrnmng_texture_uniform(&uniform) != SUCCESS) {
 		fprintf(stderr,
 				"Error: smoke screen detector could not read guest texture\n");
 		return(FAILURE);
 	}
-	if (uniform) {
+	if (!uniform) {
+		*done = TRUE;
+		return(SUCCESS);
+	}
+	if (frames >= smoke_timeout_frames) {
 		fprintf(stderr,
 				"Error: smoke screen detector: guest texture is uniform "
 				"after %u frames\n",
@@ -151,12 +156,15 @@ static BOOL runloop(BOOL smoke) {
 		gui_render();
 		scrnmng_present_end();
 		frames++;
-		if (smoke && (frames >= smoke_frames)) {
+		if (smoke) {
+			BOOL	done;
 			BOOL	ret;
 
-			ret = smoke_check_screen(frames);
-			taskmng_exit();
-			return(ret);
+			ret = smoke_check_screen(frames, &done);
+			if ((ret != SUCCESS) || done) {
+				taskmng_exit();
+				return(ret);
+			}
 		}
 		wait_next_frame(&next_tick);
 	}
