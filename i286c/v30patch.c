@@ -6,6 +6,7 @@
 #include	"iocore.h"
 #include	"bios.h"
 #include	"dmap.h"
+#include	"pic.h"
 #include	"i286c.mcr"
 
 
@@ -1036,7 +1037,113 @@ static const V30PATCH v30patch_repc[] = {
 			{0x3e, v30repc_segprefix_ds},	// 3E:	repc ds:
 			{0xae, v30repc_xscasb}};		// AE:	repc scasb
 
+I286FN v30_reserved_0x0f(void) {
+
+	I286_WORKCLOCK(2);
+}
+
+I286FN v30_iret(void) {					// CF: iret
+
+	UINT	flag;
+
+	REGPOP0(I286_IP)
+	REGPOP0(I286_CS)
+	REGPOP0(flag)
+	CS_BASE = I286_CS << 4;
+	flag = (flag & 0x0fff) | 0xf002;
+	I286_OV = flag & O_FLAG;
+	I286_FLAG = flag & (0xfff ^ O_FLAG);
+	I286_TRAP = ((flag & T_FLAG) != 0);
+	I286_WORKCLOCK(31);
+	if ((I286_TRAP) || ((flag & I_FLAG) && (PICEXISTINTR))) {
+		I286IRQCHECKTERM
+	}
+}
+
+static const I286OP v30ope0x0f_table[64] = {
+			v30_reserved_0x0f,				// 00:
+			v30_reserved_0x0f,				// 01:
+			v30_reserved_0x0f,				// 02:
+			v30_reserved_0x0f,				// 03:
+			v30_reserved_0x0f,				// 04:
+			v30_reserved_0x0f,				// 05:
+			v30_reserved_0x0f,				// 06:
+			v30_reserved_0x0f,				// 07:
+			v30_reserved_0x0f,				// 08:
+			v30_reserved_0x0f,				// 09:
+			v30_reserved_0x0f,				// 0A:
+			v30_reserved_0x0f,				// 0B:
+			v30_reserved_0x0f,				// 0C:
+			v30_reserved_0x0f,				// 0D:
+			v30_reserved_0x0f,				// 0E:
+			v30_reserved_0x0f,				// 0F:
+
+			v30_test1_ea8_cl,				// 10:
+			v30_test1_ea16_cl,				// 11:
+			v30_clr1_ea8_cl,				// 12:
+			v30_reserved_0x0f,				// 13:
+			v30_set1_ea8_cl,				// 14:
+			v30_reserved_0x0f,				// 15:
+			v30_reserved_0x0f,				// 16:
+			v30_reserved_0x0f,				// 17:
+			v30_test1_ea8_i3,				// 18:
+			v30_test1_ea16_i4,				// 19:
+			v30_clr1_ea8_i3,				// 1A:
+			v30_clr1_ea16_i4,				// 1B:
+			v30_set1_ea8_i3,				// 1C:
+			v30_set1_ea16_i4,				// 1D:
+			v30_reserved_0x0f,				// 1E:
+			v30_reserved_0x0f,				// 1F:
+
+			v30_add4s,					// 20:
+			v30_reserved_0x0f,				// 21:
+			v30_sub4s,					// 22:
+			v30_reserved_0x0f,				// 23:
+			v30_reserved_0x0f,				// 24:
+			v30_reserved_0x0f,				// 25:
+			v30_reserved_0x0f,				// 26:
+			v30_reserved_0x0f,				// 27:
+			v30_reserved_0x0f,				// 28:
+			v30_reserved_0x0f,				// 29:
+			v30_ror4_ea8,					// 2A:
+			v30_reserved_0x0f,				// 2B:
+			v30_reserved_0x0f,				// 2C:
+			v30_reserved_0x0f,				// 2D:
+			v30_reserved_0x0f,				// 2E:
+			v30_reserved_0x0f,				// 2F:
+
+			v30_reserved_0x0f,				// 30:
+			v30_reserved_0x0f,				// 31:
+			v30_reserved_0x0f,				// 32:
+			v30_reserved_0x0f,				// 33:
+			v30_reserved_0x0f,				// 34:
+			v30_reserved_0x0f,				// 35:
+			v30_reserved_0x0f,				// 36:
+			v30_reserved_0x0f,				// 37:
+			v30_reserved_0x0f,				// 38:
+			v30_reserved_0x0f,				// 39:
+			v30_reserved_0x0f,				// 3A:
+			v30_reserved_0x0f,				// 3B:
+			v30_reserved_0x0f,				// 3C:
+			v30_reserved_0x0f,				// 3D:
+			v30_reserved_0x0f,				// 3E:
+			v30_reserved_0x0f};				// 3F:
+
+I286FN v30_ope0x0f(void) {				// 0F:
+
+	UINT	op;
+
+	op = i286_memoryread(CS_BASE + I286_IP);
+	if (op & 0xc0) {
+		v30_reserved_0x0f();
+		return;
+	}
+	I286_IP++;
+	v30ope0x0f_table[op]();
+}
+
 static const V30PATCH v30patch_op[] = {
+			{0x0f, v30_ope0x0f},			// 0F:
 			{0x26, v30segprefix_es},		// 26:	es:
 			{0x2e, v30segprefix_cs},		// 2E:	cs:
 			{0x36, v30segprefix_ss},		// 36:	ss:
@@ -1044,7 +1151,7 @@ static const V30PATCH v30patch_op[] = {
 			{0x54, v30push_sp},				// 54:	push	sp
 			{0x5c, v30pop_sp},				// 5C:	pop		sp
 			{0x63, v30_reserved},			// 63:	reserved
-			{0x64, v30_reserved},			// 64:	reserved
+			{0x64, v30_reserved_0x0f},		// 64:	repnc
 			{0x65, v30_repc},				// 65:	repc
 			{0x66, v30_reserved},			// 66:	reserved
 			{0x67, v30_reserved},			// 67:	reserved
@@ -1053,6 +1160,7 @@ static const V30PATCH v30patch_op[] = {
 			{0x9d, v30_popf},				// 9D:	popf
 			{0xc0, v30shift_ea8_data8},		// C0:	shift	EA8, DATA8
 			{0xc1, v30shift_ea16_data8},	// C1:	shift	EA16, DATA8
+			{0xcf, v30_iret},				// CF:	iret
 			{0xd2, v30shift_ea8_cl},		// D2:	shift EA8, cl
 			{0xd3, v30shift_ea16_cl},		// D3:	shift EA16, cl
 			{0xd4, v30_aam},				// D4:	AAM
@@ -1151,6 +1259,7 @@ static const V30PATCH v30patch_repe[] = {
 			{0x9d, v30_popf},				// 9D:	popf
 			{0xc0, v30shift_ea8_data8},		// C0:	shift	EA8, DATA8
 			{0xc1, v30shift_ea16_data8},	// C1:	shift	EA16, DATA8
+			{0xcf, v30_iret},				// CF:	iret
 			{0xd2, v30shift_ea8_cl},		// D2:	shift EA8, cl
 			{0xd3, v30shift_ea16_cl},		// D3:	shift EA16, cl
 			{0xd4, v30_aam},				// D4:	AAM
@@ -1249,6 +1358,7 @@ static const V30PATCH v30patch_repne[] = {
 			{0x9d, v30_popf},				// 9D:	popf
 			{0xc0, v30shift_ea8_data8},		// C0:	shift	EA8, DATA8
 			{0xc1, v30shift_ea16_data8},	// C1:	shift	EA16, DATA8
+			{0xcf, v30_iret},				// CF:	iret
 			{0xd2, v30shift_ea8_cl},		// D2:	shift EA8, cl
 			{0xd3, v30shift_ea16_cl},		// D3:	shift EA16, cl
 			{0xd4, v30_aam},				// D4:	AAM
