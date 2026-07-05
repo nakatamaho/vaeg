@@ -116,7 +116,26 @@ static void wait_next_frame(Uint64 *next_tick) {
 	}
 }
 
-static void runloop(BOOL smoke) {
+static BOOL smoke_check_screen(UINT frames) {
+
+	BOOL	uniform;
+
+	if (scrnmng_texture_uniform(&uniform) != SUCCESS) {
+		fprintf(stderr,
+				"Error: smoke screen detector could not read guest texture\n");
+		return(FAILURE);
+	}
+	if (uniform) {
+		fprintf(stderr,
+				"Error: smoke screen detector: guest texture is uniform "
+				"after %u frames\n",
+				frames);
+		return(FAILURE);
+	}
+	return(SUCCESS);
+}
+
+static BOOL runloop(BOOL smoke) {
 
 	UINT	frames;
 	Uint64	next_tick;
@@ -133,11 +152,15 @@ static void runloop(BOOL smoke) {
 		scrnmng_present_end();
 		frames++;
 		if (smoke && (frames >= smoke_frames)) {
+			BOOL	ret;
+
+			ret = smoke_check_screen(frames);
 			taskmng_exit();
-			break;
+			return(ret);
 		}
 		wait_next_frame(&next_tick);
 	}
+	return(SUCCESS);
 }
 
 int main(int argc, char **argv) {
@@ -145,10 +168,12 @@ int main(int argc, char **argv) {
 	int		pos;
 	char	*p;
 	BOOL	smoke;
+	BOOL	run_ok;
 	int		disks;
 	char	*disk[2];
 
 	smoke = FALSE;
+	run_ok = SUCCESS;
 	disks = 0;
 	disk[0] = NULL;
 	disk[1] = NULL;
@@ -223,7 +248,7 @@ int main(int argc, char **argv) {
 	pccore_reset();
 	scrndraw_redraw();
 	mount_fdd_images(disk);
-	runloop(smoke);
+	run_ok = runloop(smoke);
 
 	pccore_cfgupdate();
 	if ((!smoke) && (sys_updates & (SYS_UPDATECFG | SYS_UPDATEOSCFG))) {
@@ -237,7 +262,7 @@ int main(int argc, char **argv) {
 	TRACETERM();
 	SDL_Quit();
 	dosio_term();
-	return(SUCCESS);
+	return(run_ok);
 
 np2main_err3:
 	gui_shutdown();

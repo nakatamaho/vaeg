@@ -91,6 +91,50 @@ void scrnmng_log_geometry(const char *reason) {
 			scrnmng.scale, scrnmng.menu_height);
 }
 
+BOOL scrnmng_texture_uniform(BOOL *uniform) {
+
+	void		*pixels;
+	int			pitch;
+	const BYTE	*base;
+	BYTE		first0;
+	BYTE		first1;
+	int			x;
+	int			y;
+
+	if (uniform == NULL) {
+		return(FAILURE);
+	}
+	*uniform = TRUE;
+	if ((!scrnmng.enable) || (scrnmng.texture == NULL)) {
+		return(FAILURE);
+	}
+	if (SDL_LockTexture(scrnmng.texture, NULL, &pixels, &pitch) != 0) {
+		fprintf(stderr, "Error: SDL_LockTexture smoke readback: %s\n",
+				SDL_GetError());
+		return(FAILURE);
+	}
+	base = (const BYTE *)pixels;
+	first0 = base[0];
+	first1 = base[1];
+	for (y=0; y<scrnmng.height; y++) {
+		const BYTE	*row;
+
+		row = base + (y * pitch);
+		for (x=0; x<scrnmng.width; x++) {
+			const BYTE	*pixel;
+
+			pixel = row + (x * 2);
+			if ((pixel[0] != first0) || (pixel[1] != first1)) {
+				*uniform = FALSE;
+				SDL_UnlockTexture(scrnmng.texture);
+				return(SUCCESS);
+			}
+		}
+	}
+	SDL_UnlockTexture(scrnmng.texture);
+	return(SUCCESS);
+}
+
 void scrnmng_initialize(void) {
 
 	ZeroMemory(&scrnmng, sizeof(scrnmng));
