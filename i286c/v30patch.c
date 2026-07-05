@@ -30,8 +30,10 @@ typedef struct {
 static	I286OP		v30op[256];
 static	I286OP		v30op_repne[256];
 static	I286OP		v30op_repe[256];
+static	I286OP		v30op_repc[256];
 static	I286OPF6	v30ope0xf6_table[8];
 static	I286OPF6	v30ope0xf7_table[8];
+static	UINT16		v30_repc_ipbak;
 
 
 static const UINT8 shiftbase16[256] =
@@ -911,6 +913,129 @@ I286FN v30_ror4_ea8(void) {				// 0F 2A: ror4 EA8
 	v30_ea8_write(op, madr, value);
 }
 
+I286FN v30_reserved_repc(void) {
+
+	I286_WORKCLOCK(2);
+	I286_IP = v30_repc_ipbak;
+}
+
+I286FN v30_repc(void) {					// 65: repc
+
+	I286_PREFIX++;
+	if (I286_PREFIX < MAX_PREFIX) {
+		UINT	op;
+
+		v30_repc_ipbak = (UINT16)(I286_IP - 1);
+		GET_PCBYTE(op);
+		v30op_repc[op]();
+		REMOVE_PREFIX
+		I286_PREFIX = 0;
+	}
+	else {
+		INT_NUM(6, I286_IP);
+	}
+}
+
+I286FN v30repc_segprefix_es(void) {
+
+	DS_FIX = ES_BASE;
+	SS_FIX = ES_BASE;
+	I286_PREFIX++;
+	if (I286_PREFIX < MAX_PREFIX) {
+		UINT	op;
+
+		GET_PCBYTE(op);
+		v30op_repc[op]();
+		REMOVE_PREFIX
+		I286_PREFIX = 0;
+	}
+	else {
+		INT_NUM(6, I286_IP);
+	}
+}
+
+I286FN v30repc_segprefix_cs(void) {
+
+	DS_FIX = CS_BASE;
+	SS_FIX = CS_BASE;
+	I286_PREFIX++;
+	if (I286_PREFIX < MAX_PREFIX) {
+		UINT	op;
+
+		GET_PCBYTE(op);
+		v30op_repc[op]();
+		REMOVE_PREFIX
+		I286_PREFIX = 0;
+	}
+	else {
+		INT_NUM(6, I286_IP);
+	}
+}
+
+I286FN v30repc_segprefix_ss(void) {
+
+	DS_FIX = SS_BASE;
+	SS_FIX = SS_BASE;
+	I286_PREFIX++;
+	if (I286_PREFIX < MAX_PREFIX) {
+		UINT	op;
+
+		GET_PCBYTE(op);
+		v30op_repc[op]();
+		REMOVE_PREFIX
+		I286_PREFIX = 0;
+	}
+	else {
+		INT_NUM(6, I286_IP);
+	}
+}
+
+I286FN v30repc_segprefix_ds(void) {
+
+	DS_FIX = DS_BASE;
+	SS_FIX = DS_BASE;
+	I286_PREFIX++;
+	if (I286_PREFIX < MAX_PREFIX) {
+		UINT	op;
+
+		GET_PCBYTE(op);
+		v30op_repc[op]();
+		REMOVE_PREFIX
+		I286_PREFIX = 0;
+	}
+	else {
+		INT_NUM(6, I286_IP);
+	}
+}
+
+I286FN v30repc_xscasb(void) {				// 65 AE: repc scasb
+
+	if (I286_CX) {
+		UINT16	di;
+
+		di = I286_DI;
+		do {
+			UINT	src;
+			UINT	res;
+
+			I286_WORKCLOCK(8);
+			src = i286_memoryread(ES_BASE + di);
+			SUBBYTE(res, I286_AL, src);
+			di = (UINT16)(di + STRING_DIR);
+			I286_CX--;
+		} while((I286_CX) && (I286_FLAGL & C_FLAG));
+		I286_DI = di;
+	}
+	I286_WORKCLOCK(5);
+}
+
+static const V30PATCH v30patch_repc[] = {
+			{0x26, v30repc_segprefix_es},	// 26:	repc es:
+			{0x2e, v30repc_segprefix_cs},	// 2E:	repc cs:
+			{0x36, v30repc_segprefix_ss},	// 36:	repc ss:
+			{0x3e, v30repc_segprefix_ds},	// 3E:	repc ds:
+			{0xae, v30repc_xscasb}};		// AE:	repc scasb
+
 static const V30PATCH v30patch_op[] = {
 			{0x26, v30segprefix_es},		// 26:	es:
 			{0x2e, v30segprefix_cs},		// 2E:	cs:
@@ -920,7 +1045,7 @@ static const V30PATCH v30patch_op[] = {
 			{0x5c, v30pop_sp},				// 5C:	pop		sp
 			{0x63, v30_reserved},			// 63:	reserved
 			{0x64, v30_reserved},			// 64:	reserved
-			{0x65, v30_reserved},			// 65:	reserved
+			{0x65, v30_repc},				// 65:	repc
 			{0x66, v30_reserved},			// 66:	reserved
 			{0x67, v30_reserved},			// 67:	reserved
 			{0x8e, v30mov_seg_ea},			// 8E:	mov		segrem, EA
@@ -1149,6 +1274,8 @@ static void v30patching(I286OP *op, const V30PATCH *patch, int cnt) {
 
 void v30cinit(void) {
 
+	UINT	i;
+
 	CopyMemory(v30op, i286op, sizeof(v30op));
 	V30PATCHING(v30op, v30patch_op);
 	CopyMemory(v30op_repne, i286op_repne, sizeof(v30op_repne));
@@ -1161,6 +1288,10 @@ void v30cinit(void) {
 	CopyMemory(v30ope0xf7_table, c_ope0xf7_table, sizeof(v30ope0xf7_table));
 	v30ope0xf7_table[6] = v30_div_ea16;
 	v30ope0xf7_table[7] = v30_idiv_ea16;
+	for (i=0; i<0x100; i++) {
+		v30op_repc[i] = v30_reserved_repc;
+	}
+	V30PATCHING(v30op_repc, v30patch_repc);
 }
 
 void v30c(void) {
