@@ -166,7 +166,6 @@ I286FN v30segprefix_ds(void) {				// 3e: ds:
 }
 
 I286FN v30push_sp(void) REGPUSH(I286_SP, 3)	// 54: push sp
-I286FN v30pop_sp(void) REGPOP(I286_SP, 5)	// 5C: pop sp
 
 I286FN v30mov_seg_ea(void) {				// 8E:	mov		segrem, EA
 
@@ -1149,7 +1148,6 @@ static const V30PATCH v30patch_op[] = {
 			{0x36, v30segprefix_ss},		// 36:	ss:
 			{0x3e, v30segprefix_ds},		// 3E:	ds:
 			{0x54, v30push_sp},				// 54:	push	sp
-			{0x5c, v30pop_sp},				// 5C:	pop		sp
 			{0x63, v30_reserved},			// 63:	reserved
 			{0x64, v30_reserved_0x0f},		// 64:	repnc
 			{0x65, v30_repc},				// 65:	repc
@@ -1248,7 +1246,6 @@ static const V30PATCH v30patch_repe[] = {
 			{0x36, v30repe_segprefix_ss},	// 36:	repe ss:
 			{0x3e, v30repe_segprefix_ds},	// 3E:	repe ds:
 			{0x54, v30push_sp},				// 54:	push	sp
-			{0x5c, v30pop_sp},				// 5C:	pop		sp
 			{0x63, v30_reserved},			// 63:	reserved
 			{0x64, v30_reserved},			// 64:	reserved
 			{0x65, v30_reserved},			// 65:	reserved
@@ -1347,7 +1344,6 @@ static const V30PATCH v30patch_repne[] = {
 			{0x36, v30repne_segprefix_ss},	// 36:	repne ss:
 			{0x3e, v30repne_segprefix_ds},	// 3E:	repne ds:
 			{0x54, v30push_sp},				// 54:	push	sp
-			{0x5c, v30pop_sp},				// 5C:	pop		sp
 			{0x63, v30_reserved},			// 63:	reserved
 			{0x64, v30_reserved},			// 64:	reserved
 			{0x65, v30_reserved},			// 65:	reserved
