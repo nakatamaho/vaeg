@@ -6,7 +6,6 @@
 #include	"iocore.h"
 #include	"bios.h"
 #include	"dmap.h"
-#include	"pic.h"
 #include	"i286c.mcr"
 
 
