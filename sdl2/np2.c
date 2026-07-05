@@ -55,55 +55,13 @@ static void usage(const char *progname) {
 	printf("\timage1 [image2]     : mount FDD images in drive 1 and 2\n");
 }
 
-static BOOL path_is_absolute(const char *path) {
-
-	if ((path == NULL) || (path[0] == '\0')) {
-		return(FAILURE);
-	}
-	if ((path[0] == '/') || (path[0] == '\\')) {
-		return(SUCCESS);
-	}
-	if (((path[0] >= 'A') && (path[0] <= 'Z')) ||
-		((path[0] >= 'a') && (path[0] <= 'z'))) {
-		if (path[1] == ':') {
-			return(SUCCESS);
-		}
-	}
-	return(FAILURE);
-}
-
-static void set_executable_current_dir(void) {
-
-	char	*base;
-
-	base = SDL_GetBasePath();
-	if (base != NULL) {
-		file_setcd(base);
-		SDL_free(base);
-	}
-	else {
-		file_setcd("./");
-	}
-}
-
 static void set_default_rompath(void) {
 
-	char	path[MAX_PATH];
-
 	if (np2cfg.biospath[0] != '\0') {
-		if (path_is_absolute(np2cfg.biospath) != SUCCESS) {
-			file_cpyname(path, file_getcd(np2cfg.biospath), sizeof(path));
-			file_cpyname(np2cfg.biospath, path, sizeof(np2cfg.biospath));
-		}
 		return;
 	}
-	if ((file_attr_c("romimage") & FILEATTR_DIRECTORY) != 0) {
-		file_cpyname(np2cfg.biospath, file_getcd("romimage"),
-					 sizeof(np2cfg.biospath));
-	}
-	else {
-		file_cpyname(np2cfg.biospath, file_getcd(""),
-					 sizeof(np2cfg.biospath));
+	if ((file_attr("romimage") & FILEATTR_DIRECTORY) != 0) {
+		file_cpyname(np2cfg.biospath, "romimage", sizeof(np2cfg.biospath));
 	}
 }
 
@@ -249,7 +207,7 @@ int main(int argc, char **argv) {
 	}
 
 	dosio_init();
-	set_executable_current_dir();
+	file_setcd("./");
 	for (pos=0; pos<disks; pos++) {
 		if (check_fdd_image(disk[pos]) != SUCCESS) {
 			SDL_Quit();

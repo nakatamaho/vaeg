@@ -65,13 +65,10 @@ frame loop, then exits with status 0 when initialization succeeds.
 ## ROM Placement
 
 At startup the frontend uses the existing NP2 configuration field
-`np2cfg.biospath`. Relative BIOS paths are resolved from the directory that
-contains the `vaeg` executable. If `np2cfg.biospath` is empty and a
-`romimage/` directory exists beside the executable, it uses that directory;
-otherwise it looks beside the executable itself. ROM and WAV file lookup is
-case-insensitive for the final `.rom` or `.wav` path component on
-case-sensitive filesystems. Without ROM files the frontend should still follow
-the core's defined no-ROM path and must not crash.
+`np2cfg.biospath`. If that field is empty and a repository-local
+`romimage/` directory exists, it uses `romimage/` as the BIOS path. Without
+ROM files the M8 frontend should still follow the core's defined no-ROM path
+and must not crash.
 
 ## Configuration
 
