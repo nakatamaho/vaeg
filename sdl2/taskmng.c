@@ -26,6 +26,7 @@
 #include	"sdlapi.h"
 #include	"taskmng.h"
 #include	"sdlkbd.h"
+#include	"gui/gui.h"
 
 	BOOL	task_avail;
 
@@ -44,19 +45,24 @@ void taskmng_rol(void) {
 	SDL_Event	e;
 
 	while(task_avail && SDL_PollEvent(&e)) {
+		BOOL captured;
+
+		captured = gui_process_event(&e);
 		switch(e.type) {
 			case SDL_QUIT:
 				task_avail = FALSE;
 				break;
 
 			case SDL_KEYDOWN:
-				if (!e.key.repeat) {
+				if ((!captured) && (!e.key.repeat)) {
 					sdlkbd_keydown((UINT)e.key.keysym.scancode);
 				}
 				break;
 
 			case SDL_KEYUP:
-				sdlkbd_keyup((UINT)e.key.keysym.scancode);
+				if (!captured) {
+					sdlkbd_keyup((UINT)e.key.keysym.scancode);
+				}
 				break;
 
 			default:

@@ -25,9 +25,17 @@
 #ifndef VAEG_SDL2_SDLKBD_H
 #define VAEG_SDL2_SDLKBD_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 void sdlkbd_initialize(void);
 void sdlkbd_keydown(UINT scancode);
 void sdlkbd_keyup(UINT scancode);
 void sdlkbd_resetf12(void);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

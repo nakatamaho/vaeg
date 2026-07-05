@@ -54,7 +54,17 @@ RGB16 scrnmng_makepal16(RGB32 pal32);
 
 void scrnmng_initialize(void);
 BOOL scrnmng_create(int width, int height);
+void scrnmng_show(void);
 void scrnmng_destroy(void);
+void *scrnmng_get_window(void);
+void *scrnmng_get_renderer(void);
+void scrnmng_set_menu_height(int height);
+void scrnmng_set_display(int scale, BOOL aspect);
+int scrnmng_get_display_scale(void);
+BOOL scrnmng_get_display_aspect(void);
+void scrnmng_log_geometry(const char *reason);
+void scrnmng_present_begin(void);
+void scrnmng_present_end(void);
 
 typedef struct {
 	int		width;

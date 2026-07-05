@@ -31,6 +31,9 @@ typedef struct {
 	BYTE	F12KEY;
 	BYTE	resume;
 	BYTE	jastsnd;
+	BYTE	gui_scale;
+	BYTE	gui_aspect;
+	char	gui_fdd_dir[MAX_PATH];
 } NP2OSCFG;
 
 #if defined(SIZE_QVGA)
@@ -45,6 +48,14 @@ enum {
 };
 #endif
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 extern	NP2OSCFG	np2oscfg;
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

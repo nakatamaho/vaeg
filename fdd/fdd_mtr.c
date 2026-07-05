@@ -21,18 +21,18 @@ static struct {
 void fddmtrsnd_initialize(UINT rate) {
 
 	ZeroMemory(&mtrsnd, sizeof(mtrsnd));
-	if (np2cfg.MOTORVOL) {
-		mtrsnd.enable = 1;
-		mtrsnd.snd.hdr.enable = 3;
-		pcmmix_regist(&mtrsnd.snd.trk[0].data,
-								(void *)fddseek, sizeof(fddseek), rate);
-		mtrsnd.snd.trk[0].flag = PMIXFLAG_L | PMIXFLAG_R | PMIXFLAG_LOOP;
-		mtrsnd.snd.trk[0].volume = (np2cfg.MOTORVOL << 12) / 100;
-		pcmmix_regist(&mtrsnd.snd.trk[1].data,
-								(void *)fddseek1, sizeof(fddseek1), rate);
-		mtrsnd.snd.trk[1].flag = PMIXFLAG_L | PMIXFLAG_R;
-		mtrsnd.snd.trk[1].volume = (np2cfg.MOTORVOL << 12) / 100;
+	if (rate == 0) {
+		return;
 	}
+	mtrsnd.enable = 1;
+	mtrsnd.snd.hdr.enable = 3;
+	pcmmix_regist(&mtrsnd.snd.trk[0].data,
+							(void *)fddseek, sizeof(fddseek), rate);
+	mtrsnd.snd.trk[0].flag = PMIXFLAG_L | PMIXFLAG_R | PMIXFLAG_LOOP;
+	pcmmix_regist(&mtrsnd.snd.trk[1].data,
+							(void *)fddseek1, sizeof(fddseek1), rate);
+	mtrsnd.snd.trk[1].flag = PMIXFLAG_L | PMIXFLAG_R;
+	fddmtrsnd_volume(np2cfg.MOTORVOL);
 }
 
 void fddmtrsnd_bind(void) {
@@ -54,6 +54,15 @@ void fddmtrsnd_deinitialize(void) {
 			_MFREE(ptr);
 		}
 	}
+}
+
+void fddmtrsnd_volume(UINT volume) {
+
+	SINT32	vol;
+
+	vol = (SINT32)((volume << 12) / 100);
+	mtrsnd.snd.trk[0].volume = vol;
+	mtrsnd.snd.trk[1].volume = vol;
 }
 
 static void fddmtrsnd_play(UINT num, BOOL play) {
@@ -88,6 +97,15 @@ enum {
 
 	_FDDMTR		fddmtr;
 
+#if defined(SUPPORT_SWSEEKSND)
+void fddmtrsnd_stop(void) {
+
+	fddmtrsnd_play(0, FALSE);
+	fddmtrsnd_play(1, FALSE);
+	fddmtr.curevent = 0;
+}
+#endif
+
 static void fddmtr_event(void) {
 
 	switch(fddmtr.curevent) {
@@ -109,7 +127,7 @@ static void fddmtr_event(void) {
 void fddmtr_initialize(void) {
 
 #if defined(SUPPORT_SWSEEKSND)
-	fddmtrsnd_play(0, FALSE);
+	fddmtrsnd_stop();
 #else
 	soundmng_pcmstop(SOUND_PCMSEEK);
 #endif
@@ -186,4 +204,3 @@ void fddmtr_seek(REG8 drv, REG8 c, UINT size) {
 	}
 	(void)drv;
 }
-

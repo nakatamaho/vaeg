@@ -41,8 +41,9 @@
 #include	"diskdrv.h"
 #include	"timing.h"
 #include	"keystat.h"
+#include	"gui/gui.h"
 
-		NP2OSCFG	np2oscfg = {0, 0, 0, 0, 0};
+		NP2OSCFG	np2oscfg = {0, 0, 0, 0, 0, 1, 0};
 
 static const UINT smoke_frames = 60;
 
@@ -110,6 +111,7 @@ static void wait_next_frame(Uint64 *next_tick) {
 			SDL_Delay(0);
 		}
 		taskmng_rol();
+		timing_hosttick();
 		now = SDL_GetPerformanceCounter();
 	}
 }
@@ -123,7 +125,12 @@ static void runloop(BOOL smoke) {
 	next_tick = SDL_GetPerformanceCounter();
 	while(taskmng_isavail()) {
 		taskmng_rol();
+		gui_new_frame();
 		pccore_exec(TRUE);
+		gui_draw();
+		scrnmng_present_begin();
+		gui_render();
+		scrnmng_present_end();
 		frames++;
 		if (smoke && (frames >= smoke_frames)) {
 			taskmng_exit();
@@ -199,6 +206,12 @@ int main(int argc, char **argv) {
 	if (scrnmng_create(FULLSCREEN_WIDTH, FULLSCREEN_HEIGHT) != SUCCESS) {
 		goto np2main_err2;
 	}
+	scrnmng_set_display(np2oscfg.gui_scale, np2oscfg.gui_aspect);
+	if (gui_initialize(scrnmng_get_window(), scrnmng_get_renderer(),
+					   argv[0]) != SUCCESS) {
+		goto np2main_err3;
+	}
+	scrnmng_show();
 
 	soundmng_initialize();
 	commng_initialize();
@@ -219,11 +232,16 @@ int main(int argc, char **argv) {
 	pccore_term();
 	S98_trash();
 	soundmng_deinitialize();
+	gui_shutdown();
 	scrnmng_destroy();
 	TRACETERM();
 	SDL_Quit();
 	dosio_term();
 	return(SUCCESS);
+
+np2main_err3:
+	gui_shutdown();
+	scrnmng_destroy();
 
 np2main_err2:
 	TRACETERM();

@@ -33,6 +33,10 @@ typedef struct {
 	SDL_Window		*window;
 	SDL_Renderer	*renderer;
 	SDL_Texture		*texture;
+	BOOL			visible;
+	int				scale;
+	BOOL			aspect;
+	int				menu_height;
 } SCRNMNG;
 
 typedef struct {
@@ -41,26 +45,73 @@ typedef struct {
 } SCRNSTAT;
 
 static const char app_name[] = "88VA Eternal Grafx";
+enum {
+	SCRNMNG_CANVAS_WIDTH	= 640,
+	SCRNMNG_CANVAS_HEIGHT	= 400
+};
 
 static	SCRNMNG		scrnmng;
 static	SCRNSTAT	scrnstat;
 static	SCRNSURF	scrnsurf;
 
+static void scrnmng_get_guest_rect(SDL_Rect *dst) {
+
+	dst->x = 0;
+	dst->y = scrnmng.menu_height;
+	dst->w = scrnmng.width * scrnmng.scale;
+	dst->h = scrnmng.height * scrnmng.scale;
+}
+
+void scrnmng_log_geometry(const char *reason) {
+
+	int		window_w;
+	int		window_h;
+	int		renderer_w;
+	int		renderer_h;
+	SDL_Rect	dst;
+
+	if ((!scrnmng.window) || (!scrnmng.renderer)) {
+		return;
+	}
+	if (reason == NULL) {
+		reason = "unknown";
+	}
+	window_w = 0;
+	window_h = 0;
+	renderer_w = 0;
+	renderer_h = 0;
+	SDL_GetWindowSize(scrnmng.window, &window_w, &window_h);
+	SDL_GetRendererOutputSize(scrnmng.renderer, &renderer_w, &renderer_h);
+	scrnmng_get_guest_rect(&dst);
+	fprintf(stderr,
+			"SDL2 geometry [%s]: window=%dx%d renderer=%dx%d "
+			"guest=%d,%d %dx%d scale=%d menu=%d\n",
+			reason, window_w, window_h, renderer_w, renderer_h,
+			dst.x, dst.y, dst.w, dst.h,
+			scrnmng.scale, scrnmng.menu_height);
+}
+
 void scrnmng_initialize(void) {
 
 	ZeroMemory(&scrnmng, sizeof(scrnmng));
+	scrnmng.scale = 1;
 	scrnstat.width = 640;
 	scrnstat.height = 400;
 }
 
 BOOL scrnmng_create(int width, int height) {
 
+	(void)width;
+	(void)height;
 	if (SDL_InitSubSystem(SDL_INIT_VIDEO | SDL_INIT_TIMER) < 0) {
 		fprintf(stderr, "Error: SDL video init: %s\n", SDL_GetError());
 		return(FAILURE);
 	}
 	scrnmng.window = SDL_CreateWindow(app_name, SDL_WINDOWPOS_CENTERED,
-							SDL_WINDOWPOS_CENTERED, width, height, 0);
+							SDL_WINDOWPOS_CENTERED,
+							SCRNMNG_CANVAS_WIDTH,
+							SCRNMNG_CANVAS_HEIGHT,
+							SDL_WINDOW_HIDDEN);
 	if (scrnmng.window == NULL) {
 		fprintf(stderr, "Error: SDL_CreateWindow: %s\n", SDL_GetError());
 		return(FAILURE);
@@ -71,23 +122,37 @@ BOOL scrnmng_create(int width, int height) {
 		fprintf(stderr, "Error: SDL_CreateRenderer: %s\n", SDL_GetError());
 		return(FAILURE);
 	}
-	SDL_RenderSetLogicalSize(scrnmng.renderer, width, height);
+	SDL_RenderSetLogicalSize(scrnmng.renderer, 0, 0);
 	scrnmng.texture = SDL_CreateTexture(scrnmng.renderer,
 							SDL_PIXELFORMAT_RGB565,
-							SDL_TEXTUREACCESS_STREAMING, width, height);
+							SDL_TEXTUREACCESS_STREAMING,
+							SCRNMNG_CANVAS_WIDTH,
+							SCRNMNG_CANVAS_HEIGHT);
 	if (scrnmng.texture == NULL) {
 		fprintf(stderr, "Error: SDL_CreateTexture: %s\n", SDL_GetError());
 		return(FAILURE);
 	}
+	SDL_SetTextureScaleMode(scrnmng.texture, SDL_ScaleModeNearest);
 	scrnmng.enable = TRUE;
-	scrnmng.width = width;
-	scrnmng.height = height;
+	scrnmng.width = SCRNMNG_CANVAS_WIDTH;
+	scrnmng.height = SCRNMNG_CANVAS_HEIGHT;
+	scrnmng_set_display(scrnmng.scale, scrnmng.aspect);
 	return(SUCCESS);
+}
+
+void scrnmng_show(void) {
+
+	if ((scrnmng.window) && (!scrnmng.visible)) {
+		SDL_ShowWindow(scrnmng.window);
+		scrnmng.visible = TRUE;
+		scrnmng_log_geometry("startup");
+	}
 }
 
 void scrnmng_destroy(void) {
 
 	scrnmng.enable = FALSE;
+	scrnmng.visible = FALSE;
 	if (scrnmng.texture) {
 		SDL_DestroyTexture(scrnmng.texture);
 		scrnmng.texture = NULL;
@@ -101,6 +166,80 @@ void scrnmng_destroy(void) {
 		scrnmng.window = NULL;
 	}
 	SDL_QuitSubSystem(SDL_INIT_VIDEO | SDL_INIT_TIMER);
+}
+
+void *scrnmng_get_window(void) {
+
+	return(scrnmng.window);
+}
+
+void *scrnmng_get_renderer(void) {
+
+	return(scrnmng.renderer);
+}
+
+static BOOL scrnmng_update_window_size(void) {
+
+	if (scrnmng.window) {
+		int		current_w;
+		int		current_h;
+		int		target_w;
+		int		target_h;
+
+		current_w = 0;
+		current_h = 0;
+		target_w = scrnmng.width * scrnmng.scale;
+		target_h = scrnmng.menu_height +
+					(scrnmng.height * scrnmng.scale);
+		SDL_GetWindowSize(scrnmng.window, &current_w, &current_h);
+		if ((current_w == target_w) && (current_h == target_h)) {
+			return(FALSE);
+		}
+		SDL_SetWindowSize(scrnmng.window, target_w, target_h);
+		return(TRUE);
+	}
+	return(FALSE);
+}
+
+void scrnmng_set_menu_height(int height) {
+
+	if (height < 0) {
+		height = 0;
+	}
+	if (scrnmng.menu_height == height) {
+		return;
+	}
+	scrnmng.menu_height = height;
+	scrnmng_update_window_size();
+	if (scrnmng.visible) {
+		scrnmng_log_geometry("menu-height");
+	}
+}
+
+void scrnmng_set_display(int scale, BOOL aspect) {
+
+	if (scale < 1) {
+		scale = 1;
+	}
+	else if (scale > 3) {
+		scale = 3;
+	}
+	scrnmng.scale = scale;
+	scrnmng.aspect = aspect ? TRUE : FALSE;
+	scrnmng_update_window_size();
+	if (scrnmng.visible) {
+		scrnmng_log_geometry("scale-change");
+	}
+}
+
+int scrnmng_get_display_scale(void) {
+
+	return(scrnmng.scale);
+}
+
+BOOL scrnmng_get_display_aspect(void) {
+
+	return(scrnmng.aspect);
 }
 
 RGB16 scrnmng_makepal16(RGB32 pal32) {
@@ -119,13 +258,31 @@ RGB16 scrnmng_makepal16(RGB32 pal32) {
 
 void scrnmng_setwidth(int posx, int width) {
 
+	if (width < 1) {
+		width = 1;
+	}
+	if (scrnstat.width == width) {
+		return;
+	}
 	scrnstat.width = width;
+	if (scrnmng.visible) {
+		scrnmng_log_geometry("mode-width");
+	}
 	(void)posx;
 }
 
 void scrnmng_setheight(int posy, int height) {
 
+	if (height < 1) {
+		height = 1;
+	}
+	if (scrnstat.height == height) {
+		return;
+	}
 	scrnstat.height = height;
+	if (scrnmng.visible) {
+		scrnmng_log_geometry("mode-height");
+	}
 	(void)posy;
 }
 
@@ -144,9 +301,13 @@ const SCRNSURF *scrnmng_surflock(void) {
 	scrnsurf.xalign = 2;
 	scrnsurf.yalign = pitch;
 	scrnsurf.bpp = 16;
-	scrnsurf.width = min(scrnstat.width, 640);
-	scrnsurf.height = min(scrnstat.height, 400);
+	scrnsurf.width = min(scrnstat.width, scrnmng.width);
+	scrnsurf.height = min(scrnstat.height, scrnmng.height);
 	scrnsurf.extend = 0;
+	if ((scrnsurf.width < scrnmng.width) ||
+		(scrnsurf.height < scrnmng.height)) {
+		ZeroMemory(pixels, pitch * scrnmng.height);
+	}
 	return(&scrnsurf);
 }
 
@@ -156,8 +317,28 @@ void scrnmng_surfunlock(const SCRNSURF *surf) {
 		return;
 	}
 	SDL_UnlockTexture(scrnmng.texture);
+	scrnmng_present_begin();
+	scrnmng_present_end();
+}
+
+void scrnmng_present_begin(void) {
+
+	if ((!scrnmng.enable) || (scrnmng.renderer == NULL) ||
+		(scrnmng.texture == NULL)) {
+		return;
+	}
+	SDL_SetRenderDrawColor(scrnmng.renderer, 0, 0, 0, 255);
 	SDL_RenderClear(scrnmng.renderer);
-	SDL_RenderCopy(scrnmng.renderer, scrnmng.texture, NULL, NULL);
+	SDL_Rect dst;
+	scrnmng_get_guest_rect(&dst);
+	SDL_RenderCopy(scrnmng.renderer, scrnmng.texture, NULL, &dst);
+}
+
+void scrnmng_present_end(void) {
+
+	if ((!scrnmng.enable) || (scrnmng.renderer == NULL)) {
+		return;
+	}
 	SDL_RenderPresent(scrnmng.renderer);
 }
 
