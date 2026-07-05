@@ -220,8 +220,8 @@ int main(int argc, char **argv) {
 	pccore_init();
 	S98_init();
 
-	scrndraw_redraw();
 	pccore_reset();
+	scrndraw_redraw();
 	mount_fdd_images(disk);
 	runloop(smoke);
 
