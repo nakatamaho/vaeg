@@ -21,18 +21,18 @@ static struct {
 void fddmtrsnd_initialize(UINT rate) {
 
 	ZeroMemory(&mtrsnd, sizeof(mtrsnd));
-	if (np2cfg.MOTORVOL) {
-		mtrsnd.enable = 1;
-		mtrsnd.snd.hdr.enable = 3;
-		pcmmix_regist(&mtrsnd.snd.trk[0].data,
-								(void *)fddseek, sizeof(fddseek), rate);
-		mtrsnd.snd.trk[0].flag = PMIXFLAG_L | PMIXFLAG_R | PMIXFLAG_LOOP;
-		mtrsnd.snd.trk[0].volume = (np2cfg.MOTORVOL << 12) / 100;
-		pcmmix_regist(&mtrsnd.snd.trk[1].data,
-								(void *)fddseek1, sizeof(fddseek1), rate);
-		mtrsnd.snd.trk[1].flag = PMIXFLAG_L | PMIXFLAG_R;
-		mtrsnd.snd.trk[1].volume = (np2cfg.MOTORVOL << 12) / 100;
+	if (rate == 0) {
+		return;
 	}
+	mtrsnd.enable = 1;
+	mtrsnd.snd.hdr.enable = 3;
+	pcmmix_regist(&mtrsnd.snd.trk[0].data,
+							(void *)fddseek, sizeof(fddseek), rate);
+	mtrsnd.snd.trk[0].flag = PMIXFLAG_L | PMIXFLAG_R | PMIXFLAG_LOOP;
+	pcmmix_regist(&mtrsnd.snd.trk[1].data,
+							(void *)fddseek1, sizeof(fddseek1), rate);
+	mtrsnd.snd.trk[1].flag = PMIXFLAG_L | PMIXFLAG_R;
+	fddmtrsnd_volume(np2cfg.MOTORVOL);
 }
 
 void fddmtrsnd_bind(void) {
@@ -54,6 +54,15 @@ void fddmtrsnd_deinitialize(void) {
 			_MFREE(ptr);
 		}
 	}
+}
+
+void fddmtrsnd_volume(UINT volume) {
+
+	SINT32	vol;
+
+	vol = (SINT32)((volume << 12) / 100);
+	mtrsnd.snd.trk[0].volume = vol;
+	mtrsnd.snd.trk[1].volume = vol;
 }
 
 static void fddmtrsnd_play(UINT num, BOOL play) {

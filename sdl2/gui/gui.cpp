@@ -47,6 +47,7 @@
 #include "np2.h"
 #include "sound.h"
 #include "adpcm.h"
+#include "beep.h"
 #include "pccore.h"
 #include "fdd_mtr.h"
 #include "opngen.h"
@@ -58,6 +59,7 @@
 #include "soundmng.h"
 #include "sysmng.h"
 #include "taskmng.h"
+#include "tms3631.h"
 
 extern "C" {
 extern _RHYTHM rhythm;
@@ -69,6 +71,7 @@ namespace {
 constexpr const char *kFontName = "NotoSansJP-Regular.ttf";
 constexpr float kGuiFontSize = 16.0f;
 constexpr int kStateSlots = 10;
+constexpr int kMasterVolumeMax = 128;
 namespace fs = std::filesystem;
 
 struct BrowserEntry {
@@ -152,6 +155,46 @@ static void menu_item_not_implemented(const char *label) {
 	ImGui::BeginDisabled();
 	ImGui::MenuItem(label);
 	ImGui::EndDisabled();
+}
+
+static UINT8 scale_master_volume(int volume, int max_value) {
+
+	volume = std::clamp(volume, 0, kMasterVolumeMax);
+	return static_cast<UINT8>((volume * max_value + kMasterVolumeMax / 2) /
+							  kMasterVolumeMax);
+}
+
+static void apply_master_volume(int volume) {
+
+	const UINT8 mixer_volume = scale_master_volume(volume, 128);
+	const UINT8 beep_volume = scale_master_volume(volume, 3);
+	const UINT8 snd14_volume = scale_master_volume(volume, 15);
+	const UINT8 motor_volume = scale_master_volume(volume, 100);
+
+	np2cfg.vol_fm = mixer_volume;
+	np2cfg.vol_ssg = mixer_volume;
+	np2cfg.vol_adpcm = mixer_volume;
+	np2cfg.vol_pcm = mixer_volume;
+	np2cfg.vol_rhythm = mixer_volume;
+	opngen_setvol(np2cfg.vol_fm);
+	psggen_setvol(np2cfg.vol_ssg);
+	rhythm_setvol(np2cfg.vol_rhythm);
+	rhythm_update(&rhythm);
+	adpcm_setvol(np2cfg.vol_adpcm);
+	adpcm_update(&adpcm);
+	pcm86gen_setvol(np2cfg.vol_pcm);
+	pcm86gen_update();
+
+	np2cfg.BEEP_VOL = beep_volume;
+	beep_setvol(np2cfg.BEEP_VOL);
+	for (BYTE &volume14 : np2cfg.vol14) {
+		volume14 = snd14_volume;
+	}
+	tms3631_setvol(np2cfg.vol14);
+
+	np2cfg.MOTORVOL = motor_volume;
+	fddmtrsnd_volume(np2cfg.MOTORVOL);
+	sysmng_update(SYS_UPDATECFG);
 }
 
 static int menu_bar_height(void) {
@@ -590,20 +633,7 @@ static void draw_device_menu(void) {
 			}
 			int volume = np2cfg.vol_fm;
 			if (ImGui::SliderInt("Master volume", &volume, 0, 128)) {
-				np2cfg.vol_fm = static_cast<UINT8>(volume);
-				np2cfg.vol_ssg = static_cast<UINT8>(volume);
-				np2cfg.vol_adpcm = static_cast<UINT8>(volume);
-				np2cfg.vol_pcm = static_cast<UINT8>(volume);
-				np2cfg.vol_rhythm = static_cast<UINT8>(volume);
-				opngen_setvol(np2cfg.vol_fm);
-				psggen_setvol(np2cfg.vol_ssg);
-				rhythm_setvol(np2cfg.vol_rhythm);
-				rhythm_update(&rhythm);
-				adpcm_setvol(np2cfg.vol_adpcm);
-				adpcm_update(&adpcm);
-				pcm86gen_setvol(np2cfg.vol_pcm);
-				pcm86gen_update();
-				sysmng_update(SYS_UPDATECFG);
+				apply_master_volume(volume);
 			}
 			ImGui::Separator();
 			menu_item_not_implemented("Board selection (not implemented)");

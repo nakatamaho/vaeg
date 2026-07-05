@@ -24,11 +24,13 @@ void fddmtr_seek(REG8 drv, REG8 c, UINT size);
 void fddmtrsnd_initialize(UINT rate);
 void fddmtrsnd_bind(void);
 void fddmtrsnd_deinitialize(void);
+void fddmtrsnd_volume(UINT volume);
 void fddmtrsnd_stop(void);
 #else
 #define	fddmtrsnd_initialize(r)
 #define	fddmtrsnd_bind()
 #define	fddmtrsnd_deinitialize()
+#define	fddmtrsnd_volume(v)
 #define	fddmtrsnd_stop()
 #endif
 
