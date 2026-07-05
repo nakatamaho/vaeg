@@ -288,9 +288,8 @@ target_compile_definitions(vaeg_core PUBLIC
     USE_I286C
     SUPPORT_PC88VA
     SUPPORT_BMS
-    SUPPORT_V30ORIGINAL)
-set_source_files_properties(i286c/i286c.c pccore.c
-    PROPERTIES COMPILE_DEFINITIONS VAEG_FIX)
+    SUPPORT_V30ORIGINAL
+    VAEG_FIX)
 target_compile_options(vaeg_core PRIVATE -Wall -fsigned-char)
 if(VAEG_WERROR)
     target_compile_options(vaeg_core PRIVATE -Werror)

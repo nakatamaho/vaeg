@@ -123,7 +123,7 @@ typedef struct {
 //	int		priampcnt;
 #endif
 	UINT8	reserved[128];
-#if defined(VAEG_EXT)
+#if defined(VAEG_FIX) || defined(VAEG_EXT)
 	UINT32	clock;				// 動作周波数(Hz)
 #endif
 #if defined(VAEG_EXT) || defined(SUPPORT_PC88VA)
