@@ -742,6 +742,159 @@ I286FN v30_set1_ea16_i4(void) {				// 0F 1D: set1 EA16, imm4
 	v30_ea16_write(op, madr, value);
 }
 
+static UINT8 v30_add8_flag(UINT8 dst, UINT8 src, UINT8 carry, UINT8 *result) {
+
+	UINT	res;
+
+	res = dst + src + (carry & C_FLAG);
+	*result = (UINT8)res;
+	return (UINT8)(((res ^ dst ^ src) & A_FLAG) | BYTESZPCF(res));
+}
+
+static UINT8 v30_sub8_flag(UINT8 dst, UINT8 src, UINT8 borrow, UINT8 *result) {
+
+	UINT	res;
+
+	res = dst - src - (borrow & C_FLAG);
+	*result = (UINT8)res;
+	return (UINT8)(((res ^ dst ^ src) & A_FLAG) | BYTESZPCF2(res));
+}
+
+static UINT8 v30_daa_local(UINT8 value, UINT8 flags, UINT8 *outflags) {
+
+	if ((flags & A_FLAG) || ((value & 0x0f) > 9)) {
+		flags |= A_FLAG;
+		if ((UINT)value + 6 > 0xff) {
+			flags |= C_FLAG;
+		}
+		value = (UINT8)(value + 6);
+	}
+	if ((flags & C_FLAG) || (value > 0x9f)) {
+		flags |= C_FLAG;
+		value = (UINT8)(value + 0x60);
+	}
+	flags &= A_FLAG | C_FLAG;
+	flags |= BYTESZPF(value);
+	*outflags = flags;
+	return value;
+}
+
+static UINT8 v30_das_local(UINT8 value, UINT8 flags, UINT8 *outflags) {
+
+	if ((flags & C_FLAG) || (value > 0x99)) {
+		flags |= C_FLAG;
+		value = (UINT8)(value - 0x60);
+	}
+	if ((flags & A_FLAG) || ((value & 0x0f) > 9)) {
+		flags |= A_FLAG;
+		if (value < 6) {
+			flags |= C_FLAG;
+		}
+		value = (UINT8)(value - 6);
+	}
+	flags &= A_FLAG | C_FLAG;
+	flags |= BYTESZPF(value);
+	*outflags = flags;
+	return value;
+}
+
+static UINT v30_addsub4s_extra_count(void) {
+
+	UINT8	count;
+
+	count = (UINT8)((I286_CL + 1) >> 1);
+	count = (UINT8)(count - 1);
+	return count & 0x7f;
+}
+
+static void v30_addsub4s_finish(UINT8 flags) {
+
+	if (flags & C_FLAG) {
+		I286_FLAGL = 0x93;
+	}
+	else if (flags & Z_FLAG) {
+		I286_FLAGL = 0x46;
+	}
+	else {
+		I286_FLAGL = 0x02;
+	}
+	I286_OV = 0;
+}
+
+I286FN v30_add4s(void) {					// 0F 20: add4s
+
+	UINT32	srcaddr;
+	UINT32	dstaddr;
+	UINT	count;
+	UINT8	src;
+	UINT8	dst;
+	UINT8	flags;
+	UINT8	mask;
+	UINT8	result;
+
+	I286_WORKCLOCK(26);
+	srcaddr = DS_FIX + I286_SI;
+	dstaddr = ES_BASE + I286_DI;
+
+	src = i286_memoryread(srcaddr);
+	dst = i286_memoryread(dstaddr);
+	flags = v30_add8_flag(dst, src, 0, &result);
+	result = v30_daa_local(result, flags, &flags);
+	i286_memorywrite(dstaddr, result);
+	mask = (UINT8)(flags | (UINT8)~Z_FLAG);
+
+	for (count = v30_addsub4s_extra_count(); count; count--) {
+		I286_WORKCLOCK(19);
+		srcaddr++;
+		dstaddr++;
+		src = i286_memoryread(srcaddr);
+		dst = i286_memoryread(dstaddr);
+		flags = v30_add8_flag(dst, src, flags, &result);
+		result = v30_daa_local(result, flags, &flags);
+		flags &= mask;
+		i286_memorywrite(dstaddr, result);
+		mask = (UINT8)(flags | (UINT8)~Z_FLAG);
+	}
+	v30_addsub4s_finish(flags);
+}
+
+I286FN v30_sub4s(void) {					// 0F 22: sub4s
+
+	UINT32	srcaddr;
+	UINT32	dstaddr;
+	UINT	count;
+	UINT8	src;
+	UINT8	dst;
+	UINT8	flags;
+	UINT8	mask;
+	UINT8	result;
+
+	I286_WORKCLOCK(26);
+	srcaddr = DS_FIX + I286_SI;
+	dstaddr = ES_BASE + I286_DI;
+
+	src = i286_memoryread(srcaddr);
+	dst = i286_memoryread(dstaddr);
+	flags = v30_sub8_flag(dst, src, 0, &result);
+	result = v30_das_local(result, flags, &flags);
+	i286_memorywrite(dstaddr, result);
+	mask = (UINT8)(flags | (UINT8)~Z_FLAG);
+
+	for (count = v30_addsub4s_extra_count(); count; count--) {
+		I286_WORKCLOCK(19);
+		srcaddr++;
+		dstaddr++;
+		src = i286_memoryread(srcaddr);
+		dst = i286_memoryread(dstaddr);
+		flags = v30_sub8_flag(dst, src, flags, &result);
+		result = v30_das_local(result, flags, &flags);
+		flags &= mask;
+		i286_memorywrite(dstaddr, result);
+		mask = (UINT8)(flags | (UINT8)~Z_FLAG);
+	}
+	v30_addsub4s_finish(flags);
+}
+
 static const V30PATCH v30patch_op[] = {
 			{0x26, v30segprefix_es},		// 26:	es:
 			{0x2e, v30segprefix_cs},		// 2E:	cs:
