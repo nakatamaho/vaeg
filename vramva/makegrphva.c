@@ -68,8 +68,8 @@ static	BYTE byte2pixel[256][8];			// マルチプレーン
 #define addr18(scrn, x) ( (x) & ((scrn)->addrmask) | ((scrn)->addrofs) )
 #define issingleplane() (videova.grmode & 0x0400)
 
-static void drawm4_pixels(SCREEN screen, UINT32 *addr, UINT16 *wrapcount,
-		WORD **b, UINT count, BOOL doublewidth) {
+static void drawm4_pixels(SCREEN screen, UINT32 addr, UINT16 wrapcount,
+		WORD *b, UINT count, BOOL doublewidth) {
 
 	UINT	xp;
 	UINT	i;
@@ -80,15 +80,15 @@ static void drawm4_pixels(SCREEN screen, UINT32 *addr, UINT16 *wrapcount,
 	WORD	pixel;
 
 	for (xp = 0; xp < count; xp++) {
-		if ((*wrapcount)-- == 0) {
-			*addr = screen->wrappedaddr;
+		if (wrapcount-- == 0) {
+			addr = screen->wrappedaddr;
 		}
 
-		d0 = grphmem[*addr + 0x00000];
-		d1 = grphmem[*addr + 0x10000];
-		d2 = grphmem[*addr + 0x20000];
-		d3 = grphmem[*addr + 0x30000];
-		*addr = addr18(screen, *addr + 1);
+		d0 = grphmem[addr + 0x00000];
+		d1 = grphmem[addr + 0x10000];
+		d2 = grphmem[addr + 0x20000];
+		d3 = grphmem[addr + 0x30000];
+		addr = addr18(screen, addr + 1);
 
 		for (i = 0; i < 8; i++) {
 			pixel = (WORD)(byte2pixel[d0][i] |
@@ -96,12 +96,12 @@ static void drawm4_pixels(SCREEN screen, UINT32 *addr, UINT16 *wrapcount,
 					(byte2pixel[d2][i] << 2) |
 					(byte2pixel[d3][i] << 3));
 			if (doublewidth) {
-				(*b)[0] = pixel;
-				(*b)[1] = pixel;
-				*b += 2;
+				b[0] = pixel;
+				b[1] = pixel;
+				b += 2;
 			}
 			else {
-				*(*b)++ = pixel;
+				*b++ = pixel;
 			}
 		}
 	}
@@ -655,7 +655,7 @@ static void drawraster_m4(SCREEN screen) {
 			wrapcount--;
 		}
 
-		drawm4_pixels(screen, &addr, &wrapcount, &b, 320/8, TRUE);
+		drawm4_pixels(screen, addr, wrapcount, b, 320/8, TRUE);
 
 	
 /*
@@ -722,7 +722,7 @@ static void drawraster_m4(SCREEN screen) {
 			wrapcount--;
 		}
 #if 1
-		drawm4_pixels(screen, &addr, &wrapcount, &b, 640/8, FALSE);
+		drawm4_pixels(screen, addr, wrapcount, b, 640/8, FALSE);
 #else
 		for (xp = 0; xp < 640/8; xp++) {
 			//wrapcount -= 1;
