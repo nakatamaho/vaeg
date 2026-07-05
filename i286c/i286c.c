@@ -165,10 +165,32 @@ static void i286c_initreg(void) {
 	I286_ADRSMASK = 0xfffff;
 }
 
+#if defined(VAEG_FIX)
+static void v30c_initreg(void) {
+
+	i286c_initreg();
+	I286_FLAG = 0xf002;
+}
+#endif
+
 void i286c_reset(void) {
 
+#if defined(VAEG_FIX)
+	UINT8	cputype;
+
+	cputype = CPU_TYPE;
+#endif
 	ZeroMemory(&i286core.s, sizeof(i286core.s));
-	i286c_initreg();
+#if defined(VAEG_FIX)
+	CPU_TYPE = cputype;
+	if (cputype == CPUTYPE_V30) {
+		v30c_initreg();
+	}
+	else
+#endif
+	{
+		i286c_initreg();
+	}
 }
 
 void i286c_shut(void) {
@@ -363,4 +385,3 @@ BYTE WORDSZPCF(UINT32 r) {
 	return(f1);
 }
 #endif
-
