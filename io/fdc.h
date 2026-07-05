@@ -191,6 +191,13 @@ REG8 DMACCALL fdc_dmafunc(REG8 func);
 void fdcsend_error7(void);
 void fdcsend_success7(void);
 
+void fdc_trace_enable(BOOL enable);
+void fdc_trace_log(REG8 cmd, const char *name, UINT8 drive, UINT8 C, UINT8 H,
+				   UINT8 R, UINT8 N, UINT32 req_len, UINT8 st0, UINT8 st1,
+				   UINT8 st2, UINT32 xfer_len, UINT8 dma_ch,
+				   UINT8 dma_access, UINT8 dma_sysm_bank, UINT8 sysm_bank,
+				   UINT32 dma_len, UINT32 dma_start, UINT32 dma_end);
+
 void fdc_reset(void);
 void fdc_bind(void);
 

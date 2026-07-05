@@ -39,6 +39,7 @@
 #include	"scrndraw.h"
 #include	"s98.h"
 #include	"diskdrv.h"
+#include	"fdc.h"
 #include	"timing.h"
 #include	"keystat.h"
 #include	"gui/gui.h"
@@ -52,6 +53,7 @@ static void usage(const char *progname) {
 	printf("Usage: %s [options]\n", progname);
 	printf("\t--help   [-h]       : print this message\n");
 	printf("\t--smoke             : initialize SDL2, run a short core loop, exit\n");
+	printf("\t--fdctrace          : print one FDC trace line per command to stderr\n");
 	printf("\timage1 [image2]     : mount FDD images in drive 1 and 2\n");
 }
 
@@ -176,11 +178,13 @@ int main(int argc, char **argv) {
 	int		pos;
 	char	*p;
 	BOOL	smoke;
+	BOOL	fdctrace;
 	BOOL	run_ok;
 	int		disks;
 	char	*disk[2];
 
 	smoke = FALSE;
+	fdctrace = FALSE;
 	run_ok = SUCCESS;
 	disks = 0;
 	disk[0] = NULL;
@@ -194,6 +198,9 @@ int main(int argc, char **argv) {
 		}
 		else if (!milstr_cmp(p, "--smoke")) {
 			smoke = TRUE;
+		}
+		else if (!milstr_cmp(p, "--fdctrace")) {
+			fdctrace = TRUE;
 		}
 		else if (p[0] == '-') {
 			fprintf(stderr, "error command: %s\n", p);
@@ -231,6 +238,7 @@ int main(int argc, char **argv) {
 	}
 
 	TRACEINIT();
+	fdc_trace_enable(fdctrace);
 	sdlkbd_initialize();
 	inputmng_init();
 	keystat_initialize();

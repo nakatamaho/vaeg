@@ -105,6 +105,23 @@ static BYTE *sendbuf;		// 送信データへのポインタ
 
 static BYTE	parambuf[8];		// パラメータ送受信バッファ
 
+typedef struct {
+	UINT8	drive;
+	UINT8	C;
+	UINT8	H;
+	UINT8	R;
+	UINT8	N;
+	UINT8	st0;
+	UINT8	st1;
+	UINT8	st2;
+	UINT32	req_len;
+	UINT32	xfer_len;
+	UINT32	range_start;
+	UINT32	range_end;
+} FDSUBTRACE;
+
+static FDSUBTRACE	fdsubtrace;
+
 
 static void subsys_outportb(REG8 dat) {
 	porta_main = dat;
@@ -385,7 +402,100 @@ static void config_fdc_by_disk_mode(int drv, int track) {
 
 static void set_command_status(BYTE status) {
 	subsysmem[WORK_COMMAND_STATUS] = status;
+	fdsubtrace.st0 = status;
 	TRACEOUT(("fdsubsys: command_status=0x%02x", status));
+}
+
+static const char *fdsubsys_trace_cmdname(BYTE command) {
+
+	switch(command) {
+		case CMD_INITIALIZE:
+			return("FDSubInitialize");
+		case CMD_WRITE_DATA:
+			return("FDSubWriteData");
+		case CMD_READ_DATA:
+			return("FDSubReadData");
+		case CMD_SEND_DATA:
+			return("FDSubSendData");
+		case CMD_SEND_RESULT_STATUS:
+			return("FDSubSendResultStatus");
+		case CMD_RECEIVE_MEMORY:
+			return("FDSubReceiveMemory");
+		case CMD_EXECUTE_COMMAND:
+			return("FDSubExecuteCommand");
+		case CMD_LOAD_DATA:
+			return("FDSubLoadData");
+		case CMD_SET_SURFACE_MODE:
+			return("FDSubSetSurfaceMode");
+		case CMD_SET_DISK_MODE:
+			return("FDSubSetDiskMode");
+		case CMD_SEND_DISK_MODE:
+			return("FDSubSendDiskMode");
+		case CMD_SET_BOUNDARY_MODE:
+			return("FDSubSetBoundaryMode");
+		case CMD_DRIVE_READY_CHECK:
+			return("FDSubDriveReadyCheck");
+		case CMD_SLEEP:
+			return("FDSubSleep");
+		case CMD_ACTIVE:
+			return("FDSubActive");
+		default:
+			return("FDSubUnknown");
+	}
+}
+
+static void fdsubsys_trace_begin(void) {
+
+	ZeroMemory(&fdsubtrace, sizeof(fdsubtrace));
+	fdsubtrace.drive = 0xff;
+	fdsubtrace.st0 = 0xff;
+	fdsubtrace.st1 = 0xff;
+	fdsubtrace.st2 = 0xff;
+	fdsubtrace.range_start = 0xffffffffUL;
+	fdsubtrace.range_end = 0xffffffffUL;
+}
+
+static void fdsubsys_trace_set_range(UINT32 start, UINT32 length) {
+
+	fdsubtrace.range_start = start;
+	if (length) {
+		fdsubtrace.range_end = start + length - 1;
+	}
+	else {
+		fdsubtrace.range_end = start;
+	}
+}
+
+static void fdsubsys_trace_set_chrn(int drv, int track, int sector) {
+
+	fdsubtrace.drive = (UINT8)drv;
+	fdsubtrace.C = (UINT8)(track >> 1);
+	fdsubtrace.H = (UINT8)(track & 1);
+	fdsubtrace.R = (UINT8)sector;
+	fdsubtrace.N = fdc.N;
+}
+
+static void fdsubsys_trace_emit(void) {
+
+	fdc_trace_log(cmd,
+			fdsubsys_trace_cmdname(cmd),
+			fdsubtrace.drive,
+			fdsubtrace.C,
+			fdsubtrace.H,
+			fdsubtrace.R,
+			fdsubtrace.N,
+			fdsubtrace.req_len,
+			fdsubtrace.st0,
+			fdsubtrace.st1,
+			fdsubtrace.st2,
+			fdsubtrace.xfer_len,
+			0xff,
+			memoryva.dma_access,
+			memoryva.dma_sysm_bank,
+			memoryva.sysm_bank,
+			0,
+			fdsubtrace.range_start,
+			fdsubtrace.range_end);
 }
 
 /*
@@ -419,6 +529,8 @@ static void subsys_exec_write_data(void) {
 		BYTE sector = parambuf[3];
 
 		TRACEOUT(("fdsubsys: write data (not implemented): sectorcnt=%d, drv=%d, track=%d, sector=%d",sectorcnt, drv, track, sector));
+		fdsubsys_trace_set_chrn(drv, track, sector);
+		fdsubtrace.req_len = 256UL * sectorcnt;
 
 		recvdatacnt = 256 * sectorcnt;
 		if (recvdatacnt) {
@@ -438,15 +550,19 @@ static void subsys_exec_write_data(void) {
 static void subsys_exec_read_data(void) {
 	int drv;
 	int sectorcnt;
+	int original_sectorcnt;
 	int track;
 	int sector;
 	int readbufaddr;
 	int sectorsize;
+	UINT32 totalbytes;
 
 	sectorcnt = parambuf[0];
+	original_sectorcnt = sectorcnt;
 	drv = parambuf[1];
 	track = parambuf[2];
 	sector = parambuf[3];
+	fdsubsys_trace_set_chrn(drv, track, sector);
 
 	TRACEOUT(("fdsubsys: read_data: drv=%d, sectorcnt=%d, track=%d, sector=%d", drv, sectorcnt, track, sector));
 
@@ -469,6 +585,11 @@ static void subsys_exec_read_data(void) {
 
 	fdc.us = drv;
 	config_fdc_by_disk_mode(drv, track);
+	fdsubsys_trace_set_chrn(drv, track, sector);
+	sectorsize = 128 << subsysmem[WORK_DM_N];
+	totalbytes = (UINT32)original_sectorcnt * sectorsize;
+	fdsubtrace.req_len = totalbytes;
+	fdsubsys_trace_set_range(WORK_DATA_BUF, totalbytes);
 
 	fdc.ncn = track >> 1;
 	fdc.hd = track & 1;
@@ -485,8 +606,8 @@ static void subsys_exec_read_data(void) {
 
 		if (fdd_read()) goto failed;
 
-		sectorsize = 128 << subsysmem[WORK_DM_N];
 		CopyMemory(&subsysmem[readbufaddr], fdc.buf, sectorsize);
+		fdsubtrace.xfer_len += sectorsize;
 
 		sectorcnt--;
 		sector++;
@@ -508,6 +629,9 @@ failed:
 static void subsys_exec_send_data(void) {
 	senddatacnt = (128 << subsysmem[WORK_DM_N]) * subsysmem[WORK_READ_SECTOR_COUNT];
 	sendbuf = &subsysmem[WORK_DATA_BUF];
+	fdsubtrace.req_len = senddatacnt;
+	fdsubtrace.xfer_len = senddatacnt;
+	fdsubsys_trace_set_range(WORK_DATA_BUF, (UINT32)senddatacnt);
 	TRACEOUT(("fdsubsys: send data: count=%d", senddatacnt));
 }
 
@@ -516,6 +640,7 @@ static void subsys_exec_send_data(void) {
 */
 static void subsys_exec_send_result_status(void) {
 	parambuf[0] = subsysmem[WORK_COMMAND_STATUS];
+	fdsubtrace.st0 = parambuf[0];
 
 	senddatacnt = 1;
 	sendbuf = parambuf;
@@ -533,6 +658,8 @@ static void subsys_exec_receive_memory(void) {
 		WORD addr = (parambuf[0] << 8) | parambuf[1];
 		recvdatacnt = (parambuf[2] << 8) | parambuf[3];
 		recvbuf = &subsysmem[addr];
+		fdsubtrace.req_len = recvdatacnt;
+		fdsubsys_trace_set_range(addr, (UINT32)recvdatacnt);
 		state = ST_RECV_DATA;
 		parambuf[5] = 1;		// データ本体の受信にとりかかったことを表すフラグ
 
@@ -568,6 +695,9 @@ static void subsys_exec_load_data(void) {
 	WORD addr = (parambuf[4] << 8) | parambuf[5];
 
 	TRACEOUT(("fdsubsys: load data (not implemented): sectorcount=%d, drv=%d, track=%d, sector=%d, address=0x%04x", sectorcnt, drv, track, sector, addr));
+	fdsubsys_trace_set_chrn(drv, track, sector);
+	fdsubtrace.req_len = 256UL * sectorcnt;
+	fdsubsys_trace_set_range(addr, fdsubtrace.req_len);
 }
 
 
@@ -587,6 +717,7 @@ static void subsys_exec_set_disk_mode(void) {
 
 	drv = parambuf[0];
 	mode = parambuf[1];
+	fdsubtrace.drive = (UINT8)drv;
 
 	TRACEOUT(("fdsubsys: set_disk_mode: drive=%d, mode=0x%02x", drv, mode));
 
@@ -603,6 +734,7 @@ static void subsys_exec_send_disk_mode(void) {
 	BYTE mode = 0xff;
 
 	drv = parambuf[0];
+	fdsubtrace.drive = (UINT8)drv;
 
 
 	if (drv < DRIVES) {
@@ -630,6 +762,7 @@ static void subsys_exec_drive_ready_check(void) {
 	REG8 drv;
 
 	drv = parambuf[0];
+	fdsubtrace.drive = drv;
 
 	if (fdd_diskready(drv)) {
 		parambuf[0] = 0x00;
@@ -670,6 +803,7 @@ static void subsys_exec_active(void) {
 		sendbuf
 */
 static void subsys_exec_cmd(void) {
+	fdsubsys_trace_begin();
 	state = ST_SEND_DATA;
 	senddatacnt = 0;
 
@@ -719,6 +853,9 @@ static void subsys_exec_cmd(void) {
 	case CMD_ACTIVE:
 		subsys_exec_active();
 		break;
+	}
+	if (state != ST_RECV_DATA) {
+		fdsubsys_trace_emit();
 	}
 }
 
