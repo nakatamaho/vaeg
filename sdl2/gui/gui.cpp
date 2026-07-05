@@ -59,6 +59,11 @@
 #include "sysmng.h"
 #include "taskmng.h"
 
+extern "C" {
+extern _RHYTHM rhythm;
+extern _ADPCM adpcm;
+}
+
 namespace {
 
 constexpr const char *kFontName = "NotoSansJP-Regular.ttf";
@@ -592,9 +597,12 @@ static void draw_device_menu(void) {
 				np2cfg.vol_rhythm = static_cast<UINT8>(volume);
 				opngen_setvol(np2cfg.vol_fm);
 				psggen_setvol(np2cfg.vol_ssg);
-				adpcm_setvol(np2cfg.vol_adpcm);
-				pcm86gen_setvol(np2cfg.vol_pcm);
 				rhythm_setvol(np2cfg.vol_rhythm);
+				rhythm_update(&rhythm);
+				adpcm_setvol(np2cfg.vol_adpcm);
+				adpcm_update(&adpcm);
+				pcm86gen_setvol(np2cfg.vol_pcm);
+				pcm86gen_update();
 				sysmng_update(SYS_UPDATECFG);
 			}
 			ImGui::Separator();
