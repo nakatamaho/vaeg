@@ -37,6 +37,7 @@ typedef struct {
 	int				scale;
 	BOOL			aspect;
 	int				menu_height;
+	BOOL			dirty;
 } SCRNMNG;
 
 typedef struct {
@@ -361,8 +362,7 @@ void scrnmng_surfunlock(const SCRNSURF *surf) {
 		return;
 	}
 	SDL_UnlockTexture(scrnmng.texture);
-	scrnmng_present_begin();
-	scrnmng_present_end();
+	scrnmng.dirty = TRUE;
 }
 
 void scrnmng_present_begin(void) {
@@ -376,6 +376,7 @@ void scrnmng_present_begin(void) {
 	SDL_Rect dst;
 	scrnmng_get_guest_rect(&dst);
 	SDL_RenderCopy(scrnmng.renderer, scrnmng.texture, NULL, &dst);
+	scrnmng.dirty = FALSE;
 }
 
 void scrnmng_present_end(void) {
