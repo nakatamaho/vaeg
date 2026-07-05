@@ -97,6 +97,7 @@ set(VAEG_CORE_SOURCES
     i286c/dmap.c
     io/iocore.c
     io/artic.c
+    io/bmsio.c
     io/cgrom.c
     io/cpuio.c
     io/crtc.c
@@ -283,7 +284,7 @@ endif()
 add_library(vaeg_core STATIC ${VAEG_CORE_SOURCES})
 target_include_directories(vaeg_core PUBLIC ${VAEG_INCLUDE_DIRS})
 target_link_libraries(vaeg_core PUBLIC vaeg_common)
-target_compile_definitions(vaeg_core PUBLIC USE_I286C SUPPORT_PC88VA)
+target_compile_definitions(vaeg_core PUBLIC USE_I286C SUPPORT_PC88VA SUPPORT_BMS)
 target_compile_options(vaeg_core PRIVATE -Wall -fsigned-char)
 if(VAEG_WERROR)
     target_compile_options(vaeg_core PRIVATE -Werror)
