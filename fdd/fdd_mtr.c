@@ -22,7 +22,10 @@ static void fddmtrsnd_load(PMIXDAT *dat, const char *fname,
 											void *fallback, UINT fallbacksize,
 											UINT rate) {
 
-	if (pcmmix_regfile(dat, fname, rate) != SUCCESS) {
+	char	path[MAX_PATH];
+
+	getbiospath(path, fname, sizeof(path));
+	if (pcmmix_regfile(dat, path, rate) != SUCCESS) {
 		pcmmix_regist(dat, fallback, fallbacksize, rate);
 	}
 }
