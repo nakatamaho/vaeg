@@ -88,6 +88,7 @@ static	TRACECFG	tracecfg;
 
 static const char	np2trace[] = "np2trace.ini";
 static const char	inititle[] = "TRACE";
+static const char	traceoutenv[] = "VAEG_TRACEOUT";
 static const INITBL	initbl[4] = {
 			{"posx",	INITYPE_SINT32,	&tracecfg.posx,		0},
 			{"posy",	INITYPE_SINT32,	&tracecfg.posy,		0},
@@ -469,6 +470,15 @@ void trace_init(void) {
 	tracewin.fh = FILEH_INVALID;
 	trfh_open("traces.txt");
 #endif
+	{
+		const char *traceout;
+
+		traceout = getenv(traceoutenv);
+		if ((traceout) && (traceout[0])) {
+			tracewin.en = 1;
+			trfh_open(traceout);
+		}
+	}
 
 #if defined(EXT)
 	tracewin.viewused = 0;
@@ -597,4 +607,3 @@ void trace_fmt2(const char *fmt, ...) {
 }
 
 #endif
-

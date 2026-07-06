@@ -80,6 +80,10 @@ The ini format is unchanged. The SDL2 frontend looks for `np2.cfg` in:
 
 The directory is created on save when the XDG or home path is used.
 
+For PC-88VA booting, set `SNDboard=200` in `np2.cfg`; a fresh config keeps
+the non-VA soundboard default, leaves the VA Sound Board II unbound, and can
+hang software that waits on the FM timer.
+
 ## Font Manager Stub
 
 Host GUI text is rendered by Dear ImGui using

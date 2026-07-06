@@ -4,6 +4,7 @@
 
 
 #include	"compiler.h"
+#include	<stdarg.h>
 #include	"cpucore.h"
 #include	"pccore.h"
 #include	"iocore.h"
@@ -19,6 +20,7 @@
 
 #if defined(SUPPORT_PC88VA)
 #include	"iocoreva.h"
+#include	"memoryva.h"
 #include	"subsystem.h"
 #endif
 
@@ -26,7 +28,7 @@ enum {
 	FDC_DMACH2HD	= 2,
 	FDC_DMACH2DD	= 3,
 
-#if defined(VAEG_EXT)
+#if defined(VAEG_EXT) || defined(SUPPORT_PC88VA)
 	CLOCK80				= 7987200,		// 8MHz
 	CLOCK48				= 4792320,		// 4.8MHz
 
@@ -35,7 +37,9 @@ enum {
 	FDD_MOTOR_STOPPED	= 0,
 	FDD_MOTOR_STARTING	= 1,
 	FDD_MOTOR_STABLE	= 2,
+#endif
 
+#if defined(VAEG_EXT)
 	FDD_HEAD_UNLOADED	= 0,
 	FDD_HEAD_LOADING	= 1,
 	FDD_HEAD_STABLE		= 2,
@@ -62,6 +66,36 @@ static const UINT8 FDCCMD_TABLE[32] = {
 #define FDC_FORCEREADY (1)
 #define	FDC_DELAYERROR7
 
+#define	FDCTRACE_FORMAT \
+	"fdctrace cmd=%02x/%s drive=%u C=%02x H=%02x R=%02x N=%02x " \
+	"mode=%02x/%s req=%lu st=%02x/%02x/%02x xfer=%lu dma_ch=%02x " \
+	"dma_access=%02x dma_sysm_bank=%02x sysm_bank=%02x " \
+	"dma_len=%lu dma_range=%05lx-%05lx"
+
+typedef struct {
+	BOOL	active;
+	BOOL	emitted;
+	UINT8	cmd;
+	UINT8	us;
+	UINT8	hd;
+	UINT8	C;
+	UINT8	H;
+	UINT8	R;
+	UINT8	N;
+	UINT32	req_len;
+	UINT32	xfer_len;
+	UINT8	dma_ch;
+	UINT8	dma_access;
+	UINT8	dma_sysm_bank;
+	UINT8	sysm_bank;
+	UINT32	dma_len;
+	UINT32	dma_start;
+	UINT32	dma_end;
+} FDCTRACE;
+
+static FDCTRACE	fdctrace;
+static BOOL		fdctrace_stderr;
+
 #if defined(VAEG_FIX) || defined(VAEG_EXT)
 #define getnow() 	(CPU_CLOCK + CPU_BASECLOCK - CPU_REMCLOCK)
 
@@ -75,6 +109,308 @@ static const UINT8 FDCCMD_TABLE[32] = {
 static void start_executionphase(void);
 static void stop_executionphase(void);
 #endif
+
+void fdc_trace_enable(BOOL enable) {
+
+	fdctrace_stderr = enable;
+}
+
+void fdc_trace_text(const char *fmt, ...) {
+
+	va_list	ap;
+	char	buf[2048];
+
+	va_start(ap, fmt);
+	vsnprintf(buf, sizeof(buf), fmt, ap);
+	va_end(ap);
+	TRACEOUT(("%s", buf));
+	if (fdctrace_stderr) {
+		fprintf(stderr, "%s\n", buf);
+	}
+}
+
+void fdc_trace_bytes(const char *prefix, const UINT8 *data, UINT length) {
+
+	char	buf[8192];
+	UINT	i;
+	int		pos;
+	int		written;
+
+	pos = snprintf(buf, sizeof(buf), "%s len=%u bytes=", prefix, length);
+	if (pos < 0) {
+		return;
+	}
+	for (i=0; i<length; i++) {
+		if (pos >= (int)sizeof(buf) - 8) {
+			(void)snprintf(buf + pos, sizeof(buf) - pos, " ...");
+			break;
+		}
+		written = snprintf(buf + pos, sizeof(buf) - pos,
+						   "%s%02x", i ? " " : "", data[i]);
+		if (written < 0) {
+			break;
+		}
+		pos += written;
+	}
+	TRACEOUT(("%s", buf));
+	if (fdctrace_stderr) {
+		fprintf(stderr, "%s\n", buf);
+	}
+}
+
+void fdc_trace_iova_unhandled(UINT port) {
+
+	if (fdctrace_stderr) {
+		fprintf(stderr, "iova-unhandled port=%04x\n", port & 0xffff);
+	}
+}
+
+static UINT8 fdc_trace_mode_value(void) {
+
+#if defined(SUPPORT_PC88VA)
+	return fdc.fddifmode;
+#else
+	return 1;
+#endif
+}
+
+static const char *fdc_trace_mode_name(void) {
+
+#if defined(SUPPORT_PC88VA)
+	return fdc.fddifmode ? "direct" : "intelligent";
+#else
+	return "direct";
+#endif
+}
+
+static const char *fdc_trace_cmdname(REG8 cmd) {
+
+	switch(cmd & 0x1f) {
+		case 0x02:
+			return("ReadDiagnostic");
+		case 0x03:
+			return("Specify");
+		case 0x04:
+			return("SenseDeviceStatus");
+		case 0x05:
+			return("WriteData");
+		case 0x06:
+			return("ReadData");
+		case 0x07:
+			return("Recalibrate");
+		case 0x08:
+			return("SenseInterruptStatus");
+		case 0x09:
+			return("WriteDeletedData");
+		case 0x0a:
+			return("ReadID");
+		case 0x0c:
+			return("ReadDeletedData");
+		case 0x0d:
+			return("WriteID");
+		case 0x0f:
+			return("Seek");
+		case 0x11:
+			return("ScanEqual");
+		case 0x19:
+			return("ScanLowOrEqual");
+		case 0x1d:
+			return("ScanHighOrEqual");
+		default:
+			return("Invalid");
+	}
+}
+
+static UINT32 fdc_trace_sector_length(void) {
+
+	if (fdc.N < 8) {
+		return(128UL << fdc.N);
+	}
+	return(128UL << 8);
+}
+
+static UINT32 fdc_trace_data_length(void) {
+
+	UINT32	sectors;
+
+	sectors = 1;
+	if (fdc.eot >= fdc.R) {
+		sectors = (UINT32)(fdc.eot - fdc.R + 1);
+	}
+	return(fdc_trace_sector_length() * sectors);
+}
+
+static void fdc_trace_update_fields(void) {
+
+	fdctrace.us = fdc.us;
+	fdctrace.hd = fdc.hd;
+	fdctrace.C = fdc.C;
+	fdctrace.H = fdc.H;
+	fdctrace.R = fdc.R;
+	fdctrace.N = fdc.N;
+}
+
+static void fdc_trace_set_request(UINT32 len) {
+
+	if (fdctrace.active) {
+		fdctrace.req_len = len;
+	}
+}
+
+static void fdc_trace_begin(REG8 cmd) {
+
+	ZeroMemory(&fdctrace, sizeof(fdctrace));
+	fdctrace.active = TRUE;
+	fdctrace.cmd = cmd;
+	fdctrace.dma_ch = 0xff;
+	fdctrace.dma_start = 0xffffffffUL;
+	fdctrace.dma_end = 0xffffffffUL;
+	fdc_trace_update_fields();
+}
+
+static void fdc_trace_dma_snapshot(UINT8 channel) {
+
+	DMACH	ch;
+	UINT32	length;
+	UINT32	start;
+	UINT32	end;
+
+	if (!fdctrace.active) {
+		return;
+	}
+	ch = dmac.dmach + channel;
+	length = ch->leng.w;
+	start = ch->adrs.d;
+	if (length) {
+		if (ch->mode & 0x20) {
+			end = start - (length - 1);
+		}
+		else {
+			end = start + (length - 1);
+		}
+	}
+	else {
+		end = start;
+	}
+	fdctrace.dma_ch = channel;
+	fdctrace.dma_len = length;
+	fdctrace.dma_start = start;
+	fdctrace.dma_end = end;
+#if defined(SUPPORT_PC88VA)
+	fdctrace.dma_access = memoryva.dma_access;
+	fdctrace.dma_sysm_bank = memoryva.dma_sysm_bank;
+	fdctrace.sysm_bank = memoryva.sysm_bank;
+#endif
+	if (!fdctrace.req_len) {
+		fdctrace.req_len = length;
+	}
+}
+
+static void fdc_trace_transfer_byte(void) {
+
+	if (fdctrace.active) {
+		fdctrace.xfer_len++;
+	}
+}
+
+void fdc_trace_log(REG8 cmd, const char *name, UINT8 drive, UINT8 C, UINT8 H,
+				   UINT8 R, UINT8 N, UINT32 req_len, UINT8 st0, UINT8 st1,
+				   UINT8 st2, UINT32 xfer_len, UINT8 dma_ch,
+				   UINT8 dma_access, UINT8 dma_sysm_bank, UINT8 sysm_bank,
+				   UINT32 dma_len, UINT32 dma_start, UINT32 dma_end) {
+
+	TRACEOUT((FDCTRACE_FORMAT,
+			cmd,
+			name,
+			drive,
+			C,
+			H,
+			R,
+			N,
+			fdc_trace_mode_value(),
+			fdc_trace_mode_name(),
+			(unsigned long)req_len,
+			st0,
+			st1,
+			st2,
+			(unsigned long)xfer_len,
+			dma_ch,
+			dma_access,
+			dma_sysm_bank,
+			sysm_bank,
+			(unsigned long)dma_len,
+			(unsigned long)(dma_start & 0xfffff),
+			(unsigned long)(dma_end & 0xfffff)));
+	if (fdctrace_stderr) {
+		fprintf(stderr,
+				FDCTRACE_FORMAT "\n",
+				cmd,
+				name,
+				drive,
+				C,
+				H,
+				R,
+				N,
+				fdc_trace_mode_value(),
+				fdc_trace_mode_name(),
+				(unsigned long)req_len,
+				st0,
+				st1,
+				st2,
+				(unsigned long)xfer_len,
+				dma_ch,
+				dma_access,
+				dma_sysm_bank,
+				sysm_bank,
+				(unsigned long)dma_len,
+				(unsigned long)(dma_start & 0xfffff),
+				(unsigned long)(dma_end & 0xfffff));
+	}
+}
+
+static void fdc_trace_output(UINT8 st0, UINT8 st1, UINT8 st2) {
+
+	if ((!fdctrace.active) || (fdctrace.emitted)) {
+		return;
+	}
+	fdc_trace_log(fdctrace.cmd,
+			fdc_trace_cmdname(fdctrace.cmd),
+			fdctrace.us,
+			fdctrace.C,
+			fdctrace.H,
+			fdctrace.R,
+			fdctrace.N,
+			fdctrace.req_len,
+			st0,
+			st1,
+			st2,
+			fdctrace.xfer_len,
+			fdctrace.dma_ch,
+			fdctrace.dma_access,
+			fdctrace.dma_sysm_bank,
+			fdctrace.sysm_bank,
+			fdctrace.dma_len,
+			fdctrace.dma_start,
+			fdctrace.dma_end);
+	fdctrace.emitted = TRUE;
+}
+
+static void fdc_trace_emit_result(UINT result_len) {
+
+	UINT8	st0;
+	UINT8	st1;
+	UINT8	st2;
+
+	st0 = (result_len >= 1) ? fdc.buf[0] : 0xff;
+	st1 = (result_len >= 2) ? fdc.buf[1] : 0xff;
+	st2 = (result_len >= 3) ? fdc.buf[2] : 0xff;
+	fdc_trace_output(st0, st1, st2);
+}
+
+static void fdc_trace_emit_status(UINT8 st0) {
+
+	fdc_trace_output(st0, 0xff, 0xff);
+}
 
 
 #if defined(VAEG_EXT)
@@ -331,6 +667,8 @@ static void succeed_seek(int us) {
 	fdc.stat[fdc.us] |= FDCRLT_SE;
 	fdd_seek();
 	fdc_interrupt();
+	fdc_trace_update_fields();
+	fdc_trace_emit_status((UINT8)fdc.stat[fdc.us]);
 }
 
 static void start_seek(int us, int ncn) {
@@ -535,9 +873,15 @@ static void fdc_dmaready(REG8 enable) {
 #endif
 	if (fdc.chgreg & 1) {
 		dmac.dmach[FDC_DMACH2HD].ready = enable;
+		if (enable) {
+			fdc_trace_dma_snapshot(FDC_DMACH2HD);
+		}
 	}
 	else {
 		dmac.dmach[FDC_DMACH2DD].ready = enable;
+		if (enable) {
+			fdc_trace_dma_snapshot(FDC_DMACH2DD);
+		}
 	}
 }
 
@@ -567,6 +911,7 @@ void fdcsend_error7(void) {
 	TRACEOUT(("fdc: error7"));
 	TRACEOUT(("fdc: ST0=0x%02x ST1=0x%02x ST2=0x%02x",fdc.buf[0],fdc.buf[1],fdc.buf[2]));
 	TRACEOUT(("fdc: C=0x%02x H=0x%02x R=0x%02x N=0x%02x",fdc.buf[3],fdc.buf[4],fdc.buf[5],fdc.buf[6]));
+	fdc_trace_emit_result(7);
 
 	fdc_dmaready(0);
 	dmac_check();
@@ -601,6 +946,7 @@ void fdcsend_success7(void) {
 	TRACEOUT(("fdc: success7"));
 	TRACEOUT(("fdc: ST0=0x%02x ST1=0x%02x ST2=0x%02x",fdc.buf[0],fdc.buf[1],fdc.buf[2]));
 	TRACEOUT(("fdc: C=0x%02x H=0x%02x R=0x%02x N=0x%02x",fdc.buf[3],fdc.buf[4],fdc.buf[5],fdc.buf[6]));
+	fdc_trace_emit_result(7);
 
 	fdc_dmaready(0);
 	dmac_check();
@@ -713,6 +1059,7 @@ static void FDC_Invalid(void) {							// cmd: xx
 	fdc.bufp = 0;
 	fdc.buf[0] = 0x80;
 	fdc.status = FDCSTAT_RQM | FDCSTAT_CB | FDCSTAT_DIO;
+	fdc_trace_emit_result(1);
 }
 
 #if 0
@@ -748,6 +1095,7 @@ static void FDC_Specify(void) {							// cmd: 03
 			fdc.hlt = fdc.cmds[1] >> 1;
 			fdc.nd = fdc.cmds[1] & 1;
 			fdc.stat[fdc.us] = (fdc.hd << 2) | fdc.us;
+			fdc_trace_emit_result(0);
 			break;
 	}
 	fdc.event = FDCEVENT_NEUTRAL;
@@ -759,6 +1107,7 @@ static void FDC_SenseDeviceStatus(void) {				// cmd: 04
 	switch(fdc.event) {
 		case FDCEVENT_CMDRECV:
 			get_hdus();
+			fdc_trace_update_fields();
 			fdc.buf[0] = (fdc.hd << 2) | fdc.us;
 			fdc.stat[fdc.us] = (fdc.hd << 2) | fdc.us;
 			if (fdc.equip & (1 << fdc.us)) {
@@ -804,6 +1153,7 @@ static void FDC_SenseDeviceStatus(void) {				// cmd: 04
 			fdc.bufcnt = 1;
 			fdc.bufp = 0;
 			fdc.status = FDCSTAT_RQM | FDCSTAT_CB | FDCSTAT_DIO;
+			fdc_trace_emit_result(1);
 			break;
 
 		default:
@@ -867,6 +1217,8 @@ static void FDC_WriteData(void) {						// cmd: 05
 			get_hdus();
 			get_chrn();
 			get_eotgsldtl();
+			fdc_trace_update_fields();
+			fdc_trace_set_request(fdc_trace_data_length());
 #if defined(VAEG_FIX)
 			fdc.stat[fdc.us] = (fdc.hd << 2) | fdc.us;
 			if (FDC_DriveCheck(TRUE)) {
@@ -1004,6 +1356,8 @@ static void FDC_ReadData(void) {						// cmd: 06
 			get_hdus();
 			get_chrn();
 			get_eotgsldtl();
+			fdc_trace_update_fields();
+			fdc_trace_set_request(fdc_trace_data_length());
 #if defined(VAEG_FIX)
 			fdc.stat[fdc.us] = (fdc.hd << 2) | fdc.us;
 			if (FDC_DriveCheck(FALSE)) {
@@ -1075,15 +1429,18 @@ static void FDC_Recalibrate(void) {						// cmd: 07
 		case FDCEVENT_CMDRECV:
 #if defined(VAEG_EXT)
 			get_hdus();
+			fdc_trace_update_fields();
 			if (!(fdc.equip & (1 << fdc.us))) {
 				fdc.stat[fdc.us] = (fdc.hd << 2) | fdc.us;
 				fdc.stat[fdc.us] |= FDCRLT_SE | FDCRLT_NR | FDCRLT_IC0;
 				fdc_interrupt();
+				fdc_trace_emit_status((UINT8)fdc.stat[fdc.us]);
 			}
 			else if (!fddfile[fdc.us].fname[0]) {
 				fdc.stat[fdc.us] = (fdc.hd << 2) | fdc.us;
 				fdc.stat[fdc.us] |= FDCRLT_SE | FDCRLT_NR;
 				fdc_interrupt();
+				fdc_trace_emit_status((UINT8)fdc.stat[fdc.us]);
 			}
 			else {
 				start_seek(fdc.us, 0);
@@ -1091,6 +1448,7 @@ static void FDC_Recalibrate(void) {						// cmd: 07
 			break;
 #else
 			get_hdus();
+			fdc_trace_update_fields();
 			fdc.ncn = 0;
 			fdc.stat[fdc.us] = (fdc.hd << 2) | fdc.us;
 			fdc.stat[fdc.us] |= FDCRLT_SE;
@@ -1104,6 +1462,7 @@ static void FDC_Recalibrate(void) {						// cmd: 07
 				fdd_seek();
 			}
 			fdc_interrupt();
+			fdc_trace_emit_status((UINT8)fdc.stat[fdc.us]);
 			break;
 #endif
 	}
@@ -1155,6 +1514,7 @@ static void FDC_SenceintStatus(void) {					// cmd: 08
 		fdc.bufcnt = 1;
 		TRACEOUT(("fdc: fdc stat - [%.2x]", fdc.buf[0]));
 	}
+	fdc_trace_emit_result((UINT)fdc.bufcnt);
 }
 
 static void FDC_ReadID(void) {							// cmd: 0a
@@ -1167,7 +1527,9 @@ static void FDC_ReadID(void) {							// cmd: 0a
 #endif
 			fdc.mf = fdc.cmd & 0x40;
 			get_hdus();
+			fdc_trace_update_fields();
 			if (fdd_readid() == SUCCESS) {
+				fdc_trace_update_fields();
 				fdcsend_success7();
 			}
 			else {
@@ -1189,6 +1551,8 @@ static void FDC_WriteID(void) {							// cmd: 0d
 			fdc.sc = fdc.cmds[2];
 			fdc.gpl = fdc.cmds[3];
 			fdc.d = fdc.cmds[4];
+			fdc_trace_update_fields();
+			fdc_trace_set_request((UINT32)fdc.sc * 4);
 			if (FDC_DriveCheck(TRUE)) {
 //				TRACE_("FDC_WriteID FDC_DriveCheck", 0);
 				if (fdd_formatinit()) {
@@ -1303,12 +1667,14 @@ static void FDC_Seek(void) {							// cmd: 0f
 		case FDCEVENT_CMDRECV:
 #if defined(VAEG_EXT)
 			get_hdus();
+			fdc_trace_update_fields();
 			if ((!(fdc.equip & (1 << fdc.us))) ||
 				(!fddfile[fdc.us].fname[0])) {
 				fdc.stat[fdc.us] = (fdc.hd << 2) | fdc.us;
 				fdc.stat[fdc.us] |= FDCRLT_SE;
 				fdc.stat[fdc.us] |= FDCRLT_NR | FDCRLT_IC0;
 				fdc_interrupt();
+				fdc_trace_emit_status((UINT8)fdc.stat[fdc.us]);
 			}
 			else {
 #if defined(SUPPORT_PC88VA)
@@ -1325,6 +1691,7 @@ static void FDC_Seek(void) {							// cmd: 0f
 			break;
 #else
 			get_hdus();
+			fdc_trace_update_fields();
 			fdc.ncn = fdc.cmds[1];
 			fdc.stat[fdc.us] = (fdc.hd << 2) | fdc.us;
 			fdc.stat[fdc.us] |= FDCRLT_SE;
@@ -1336,6 +1703,7 @@ static void FDC_Seek(void) {							// cmd: 0f
 				fdd_seek();
 			}
 			fdc_interrupt();
+			fdc_trace_emit_status((UINT8)fdc.stat[fdc.us]);
 			break;
 #endif
 	}
@@ -1642,6 +2010,7 @@ void DMACCALL fdc_datawrite(REG8 data) {
 				if (fdc.rqm) {
 					resetrqm();
 					fdc.buf[fdc.bufp++] = data;
+					fdc_trace_transfer_byte();
 					if (!(--fdc.bufcnt)) {
 						FDC_Ope[fdc.cmd & 0x1f]();
 					}
@@ -1650,6 +2019,7 @@ void DMACCALL fdc_datawrite(REG8 data) {
 #else
 //				TRACE_("write", fdc.bufp);
 				fdc.buf[fdc.bufp++] = data;
+				fdc_trace_transfer_byte();
 				if ((!(--fdc.bufcnt)) || (fdc.tc)) {
 					fdc.status &= ~FDCSTAT_RQM;
 					FDC_Ope[fdc.cmd & 0x1f]();
@@ -1667,6 +2037,7 @@ void DMACCALL fdc_datawrite(REG8 data) {
 				break;
 
 			default:
+				fdc_trace_begin(data);
 				fdc.cmd = data;
 				TRACEOUT(("fdc: cmd=0x%02x (bit4-bit0=0x%02x)", fdc.cmd, fdc.cmd & 0x1f));
 				get_mtmfsk();
@@ -1713,6 +2084,7 @@ REG8 DMACCALL fdc_dataread(void) {
 				if (fdc.rqm) {
 					resetrqm();
 					fdc.lastdata = fdc.buf[fdc.bufp++];
+					fdc_trace_transfer_byte();
 					fdc.bufcnt--;
 					if (!fdc.bufcnt) {
 						fdc.event = FDCEVENT_STARTBUFSEND2;
@@ -1732,6 +2104,7 @@ REG8 DMACCALL fdc_dataread(void) {
 			case FDCEVENT_BUFSEND2:
 				if (fdc.bufcnt) {
 					fdc.lastdata = fdc.buf[fdc.bufp++];
+					fdc_trace_transfer_byte();
 					fdc.bufcnt--;
 				}
 				if (fdc.tc) {
@@ -1789,7 +2162,7 @@ static void stop_statewatch(void) {
 
 #endif
 
-#if defined(VAEG_EXT)
+#if defined(VAEG_EXT) || defined(SUPPORT_PC88VA)
 // --------------------------------------------------------------------------
 // FDC timer
 
@@ -2096,6 +2469,9 @@ static void IOOUTCALL fdcva_o_mtrctl(UINT port, REG8 dat) {
 
 static void IOOUTCALL fdcva_o1b0(UINT port, REG8 dat) {
 	fdc.fddifmode = dat & 1;
+	fdc_trace_text("fddiftrace port=%03x val=%02x mode=%02x/%s",
+				   port, dat, fdc_trace_mode_value(),
+				   fdc_trace_mode_name());
 }
 
 static void IOOUTCALL fdcva_o1b2(UINT port, REG8 dat) {
@@ -2153,7 +2529,11 @@ void fdcsubsys_o_dskctl(BYTE dat) {
 }
 
 void fdcsubsys_o_tc(void) {
+#if defined(VAEG_FIX)
 	settc();
+#else
+	fdc.tc = 1;
+#endif
 }
 
 #endif
@@ -2170,6 +2550,7 @@ static const IOINP fdcibe[1] = {fdc_ibe};
 void fdc_reset(void) {
 
 	ZeroMemory(&fdc, sizeof(fdc));
+	ZeroMemory(&fdctrace, sizeof(fdctrace));
 	fdc.equip = np2cfg.fddequip;
 #if defined(SUPPORT_PC9821)
 	fdc.support144 = 1;
@@ -2217,6 +2598,8 @@ void fdc_reset(void) {
 		// VA
 		fdc.fddifmode = 0;	// Intelligent mode
 	}
+	fdc_trace_text("fddiftrace reset mode=%02x/%s",
+				   fdc_trace_mode_value(), fdc_trace_mode_name());
 #endif
 #if defined(VAEG_FIX)
 	fdc.rqminterval = pccore.realclock / 100000;	// 10μsec
@@ -2248,4 +2631,3 @@ void fdc_bind(void) {
 	iocoreva_attachinp(0x01ba, fdcva_i1ba);
 #endif
 }
-

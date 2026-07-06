@@ -39,19 +39,21 @@
 #include	"scrndraw.h"
 #include	"s98.h"
 #include	"diskdrv.h"
+#include	"fdc.h"
 #include	"timing.h"
 #include	"keystat.h"
 #include	"gui/gui.h"
 
 		NP2OSCFG	np2oscfg = {0, 0, 0, 0, 0, 1, 0};
 
-static const UINT smoke_frames = 60;
+static const UINT smoke_timeout_frames = 600;
 
 static void usage(const char *progname) {
 
 	printf("Usage: %s [options]\n", progname);
 	printf("\t--help   [-h]       : print this message\n");
 	printf("\t--smoke             : initialize SDL2, run a short core loop, exit\n");
+	printf("\t--fdctrace          : print one FDC trace line per command to stderr\n");
 	printf("\timage1 [image2]     : mount FDD images in drive 1 and 2\n");
 }
 
@@ -116,7 +118,31 @@ static void wait_next_frame(Uint64 *next_tick) {
 	}
 }
 
-static void runloop(BOOL smoke) {
+static BOOL smoke_check_screen(UINT frames, BOOL *done) {
+
+	BOOL	uniform;
+
+	*done = FALSE;
+	if (scrnmng_texture_uniform(&uniform) != SUCCESS) {
+		fprintf(stderr,
+				"Error: smoke screen detector could not read guest texture\n");
+		return(FAILURE);
+	}
+	if (!uniform) {
+		*done = TRUE;
+		return(SUCCESS);
+	}
+	if (frames >= smoke_timeout_frames) {
+		fprintf(stderr,
+				"Error: smoke screen detector: guest texture is uniform "
+				"after %u frames\n",
+				frames);
+		return(FAILURE);
+	}
+	return(SUCCESS);
+}
+
+static BOOL runloop(BOOL smoke) {
 
 	UINT	frames;
 	Uint64	next_tick;
@@ -132,12 +158,19 @@ static void runloop(BOOL smoke) {
 		gui_render();
 		scrnmng_present_end();
 		frames++;
-		if (smoke && (frames >= smoke_frames)) {
-			taskmng_exit();
-			break;
+		if (smoke) {
+			BOOL	done;
+			BOOL	ret;
+
+			ret = smoke_check_screen(frames, &done);
+			if ((ret != SUCCESS) || done) {
+				taskmng_exit();
+				return(ret);
+			}
 		}
 		wait_next_frame(&next_tick);
 	}
+	return(SUCCESS);
 }
 
 int main(int argc, char **argv) {
@@ -145,10 +178,14 @@ int main(int argc, char **argv) {
 	int		pos;
 	char	*p;
 	BOOL	smoke;
+	BOOL	fdctrace;
+	BOOL	run_ok;
 	int		disks;
 	char	*disk[2];
 
 	smoke = FALSE;
+	fdctrace = FALSE;
+	run_ok = SUCCESS;
 	disks = 0;
 	disk[0] = NULL;
 	disk[1] = NULL;
@@ -161,6 +198,9 @@ int main(int argc, char **argv) {
 		}
 		else if (!milstr_cmp(p, "--smoke")) {
 			smoke = TRUE;
+		}
+		else if (!milstr_cmp(p, "--fdctrace")) {
+			fdctrace = TRUE;
 		}
 		else if (p[0] == '-') {
 			fprintf(stderr, "error command: %s\n", p);
@@ -198,6 +238,7 @@ int main(int argc, char **argv) {
 	}
 
 	TRACEINIT();
+	fdc_trace_enable(fdctrace);
 	sdlkbd_initialize();
 	inputmng_init();
 	keystat_initialize();
@@ -220,10 +261,10 @@ int main(int argc, char **argv) {
 	pccore_init();
 	S98_init();
 
-	scrndraw_redraw();
 	pccore_reset();
+	scrndraw_redraw();
 	mount_fdd_images(disk);
-	runloop(smoke);
+	run_ok = runloop(smoke);
 
 	pccore_cfgupdate();
 	if ((!smoke) && (sys_updates & (SYS_UPDATECFG | SYS_UPDATEOSCFG))) {
@@ -237,7 +278,7 @@ int main(int argc, char **argv) {
 	TRACETERM();
 	SDL_Quit();
 	dosio_term();
-	return(SUCCESS);
+	return(run_ok);
 
 np2main_err3:
 	gui_shutdown();

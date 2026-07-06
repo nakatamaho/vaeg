@@ -54,6 +54,7 @@
 #include "pcm86.h"
 #include "psggen.h"
 #include "rhythm.h"
+#include "scrndraw.h"
 #include "scrnmng.h"
 #include "sdlkbd.h"
 #include "soundmng.h"
@@ -460,6 +461,7 @@ static void draw_emulate_menu(void) {
 		if (ImGui::MenuItem("Reset / リセット")) {
 			pccore_cfgupdate();
 			pccore_reset();
+			scrndraw_redraw();
 		}
 		ImGui::Separator();
 		menu_item_not_implemented("Configure... (not implemented)");
@@ -708,6 +710,7 @@ static void draw_state_menu(void) {
 					}
 					else {
 						statsave_load(path);
+						scrndraw_redraw();
 						g_gui.state_status = "State loaded: ";
 						g_gui.state_status += path;
 						if ((ret & STATFLAG_DISKCHG) != 0) {

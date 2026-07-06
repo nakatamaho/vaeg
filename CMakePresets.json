@@ -25,6 +25,19 @@
         "CMAKE_BUILD_TYPE": "Release",
         "VAEG_WERROR": "OFF"
       }
+    },
+    {
+      "name": "linux-asan",
+      "displayName": "Linux ASan/UBSan Debug",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/asan",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_C_FLAGS": "-fsanitize=address,undefined",
+        "CMAKE_CXX_FLAGS": "-fsanitize=address,undefined",
+        "CMAKE_EXE_LINKER_FLAGS": "-fsanitize=address,undefined",
+        "VAEG_WERROR": "OFF"
+      }
     }
   ],
   "buildPresets": [
@@ -35,6 +48,10 @@
     {
       "name": "linux-release",
       "configurePreset": "linux-release"
+    },
+    {
+      "name": "linux-asan",
+      "configurePreset": "linux-asan"
     }
   ]
 }

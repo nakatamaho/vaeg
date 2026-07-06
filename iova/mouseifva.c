@@ -115,7 +115,7 @@ void mouseva_indata(UINT8 *data, UINT8 *button) {
 		button	ボタンの格納先
 				ボタン: bit0=A, bit1=B  0で押下
 */
-static void joypad_indata(UINT8 *data, UINT8 *button) {
+void joypad_indata(UINT8 *data, UINT8 *button) {
 	static	REG8	rapids = 0;
 	static	SINT32	lastc = 0;
 	REG8	ret;

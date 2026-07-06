@@ -212,6 +212,7 @@ extern	int		treafter;
 
 //@@@@@
 void pccore_debugint(UINT32 no);
+void pccore_debugmem(UINT32 op, UINT32 addr, UINT16 data);
 //@@@@@
 
 #if defined(VAEG_EXT)
@@ -227,4 +228,3 @@ void pccore_debugioin(BOOL word, UINT port);
 #ifdef __cplusplus
 }
 #endif
-
