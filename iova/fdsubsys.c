@@ -123,6 +123,68 @@ typedef struct {
 static FDSUBTRACE	fdsubtrace;
 
 
+static void fdsubsys_trace_bytes(const char *dir, const UINT8 *data,
+								 UINT length) {
+
+	char	prefix[64];
+
+	(void)snprintf(prefix, sizeof(prefix), "fdsubtrace mode=%02x %s",
+				   fdc.fddifmode, dir);
+	fdc_trace_bytes(prefix, data, length);
+}
+
+static UINT fdsubsys_trace_param_len(BYTE command) {
+
+	switch (command) {
+	case CMD_INITIALIZE:
+	case CMD_SEND_DATA:
+	case CMD_SEND_RESULT_STATUS:
+	case CMD_SLEEP:
+		return 0;
+	case CMD_WRITE_DATA:
+	case CMD_READ_DATA:
+	case CMD_RECEIVE_MEMORY:
+		return 4;
+	case CMD_EXECUTE_COMMAND:
+	case CMD_SET_DISK_MODE:
+	case CMD_ACTIVE:
+		return 2;
+	case CMD_LOAD_DATA:
+		return 6;
+	case CMD_SET_SURFACE_MODE:
+	case CMD_SET_BOUNDARY_MODE:
+	case CMD_DRIVE_READY_CHECK:
+	case CMD_SEND_DISK_MODE:
+		return 1;
+	default:
+		return 0;
+	}
+}
+
+static void fdsubsys_trace_main_sequence(void) {
+
+	UINT	len;
+	UINT	i;
+	UINT8	bytes[9];
+
+	len = fdsubsys_trace_param_len(cmd);
+	bytes[0] = cmd;
+	for (i=0; i<len; i++) {
+		bytes[i + 1] = parambuf[i];
+	}
+	fdsubsys_trace_bytes("main2sub", bytes, len + 1);
+}
+
+static void fdsubsys_trace_response_sequence(void) {
+
+	if (senddatacnt > 0) {
+		fdsubsys_trace_bytes("sub2main", sendbuf, (UINT)senddatacnt);
+	}
+	else {
+		fdsubsys_trace_bytes("sub2main", NULL, 0);
+	}
+}
+
 static void subsys_outportb(REG8 dat) {
 	porta_main = dat;
 }
@@ -855,6 +917,7 @@ static void subsys_exec_cmd(void) {
 		break;
 	}
 	if (state != ST_RECV_DATA) {
+		fdsubsys_trace_response_sequence();
 		fdsubsys_trace_emit();
 	}
 }
@@ -876,6 +939,7 @@ static void subsys_exec(void) {
 		case ST_RECV_DATA:
 			result = subsys_receive_data();
 			if (result == GOAHEAD) {
+				fdsubsys_trace_main_sequence();
 				state = ST_EXEC_CMD;
 			}
 			break;
