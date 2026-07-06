@@ -18,29 +18,39 @@
 
 #define VABKUPMEM "vabkupmem.dat"
 
-void bkupmemva_load(void) {
-	char	path[MAX_PATH];
-	FILEH	fh;
-	BOOL	success;
+static BOOL bkupmemva_read(const char *path) {
 
-	getbiospath(path, VABKUPMEM, sizeof(path));
+	FILEH	fh;
+	BOOL	ret;
+
 	fh = file_open_rb(path);
 	if (fh != FILEH_INVALID) {
-		success = (file_read(fh, backupmem, 0x04000) == 0x04000);
+		ret = (file_read(fh, backupmem, 0x04000) == 0x04000);
 		file_close(fh);
+		return(ret);
 	}
+	return(FAILURE);
+}
 
+void bkupmemva_load(void) {
+	char	path[MAX_PATH];
+
+	file_getstatepath(path, sizeof(path), VABKUPMEM);
+	if (bkupmemva_read(path) == SUCCESS) {
+		return;
+	}
+	getbiospath(path, VABKUPMEM, sizeof(path));
+	(void)bkupmemva_read(path);
 }
 
 void bkupmemva_save(void) {
 	char	path[MAX_PATH];
 	FILEH	fh;
-	BOOL	success;
 
-	getbiospath(path, VABKUPMEM, sizeof(path));
+	file_getstatepath(path, sizeof(path), VABKUPMEM);
 	fh = file_create(path);
 	if (fh != FILEH_INVALID) {
-		success = (file_write(fh, backupmem, 0x04000) == 0x04000);
+		(void)file_write(fh, backupmem, 0x04000);
 		file_close(fh);
 	}
 
