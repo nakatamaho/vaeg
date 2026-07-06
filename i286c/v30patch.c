@@ -21,6 +21,11 @@
 
 #define REAL_V30FLAG	(UINT16)((I286_FLAG & 0x7ff) + \
 											(I286_OV?O_FLAG:0) + 0xf000)
+#if defined(SUPPORT_PC88VA)
+#define V30_DMAP()		dmap_i286()
+#else
+#define V30_DMAP()		dmap_v30()
+#endif
 
 typedef struct {
 	UINT	opnum;
@@ -1410,14 +1415,14 @@ void v30c(void) {
 			if (I286_TRAP) {
 				i286c_interrupt(1);
 			}
-			dmap_v30();
+			V30_DMAP();
 		} while(I286_REMCLOCK > 0);
 	}
 	else if (dmac.working) {
 		do {
 			GET_PCBYTE(opcode);
 			v30op[opcode]();
-			dmap_v30();
+			V30_DMAP();
 		} while(I286_REMCLOCK > 0);
 	}
 	else {
@@ -1442,5 +1447,5 @@ void v30c_step(void) {
 	if (I286_OV) {
 		I286_FLAG |= (O_FLAG);
 	}
-	dmap_v30();
+	V30_DMAP();
 }
