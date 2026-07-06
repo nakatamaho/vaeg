@@ -75,6 +75,16 @@ constexpr int kStateSlots = 10;
 constexpr int kMasterVolumeMax = 128;
 namespace fs = std::filesystem;
 
+static std::string state_slot_path(int slot) {
+
+	char	name[32];
+	char	path[MAX_PATH];
+
+	std::snprintf(name, sizeof(name), "np2sdl.S%02d", slot);
+	file_getstatepath(path, sizeof(path), name);
+	return std::string(path);
+}
+
 struct BrowserEntry {
 	std::string name;
 	std::string path;
@@ -671,12 +681,11 @@ static void draw_state_menu(void) {
 				char label[32];
 				std::snprintf(label, sizeof(label), "Slot %d", slot);
 				if (ImGui::MenuItem(label)) {
-					char path[MAX_PATH];
-					std::snprintf(path, sizeof(path), "np2sdl.S%02d", slot);
+					std::string path = state_slot_path(slot);
 					soundmng_stop();
-					int ret = statsave_save(path);
+					int ret = statsave_save(path.c_str());
 					if (ret != STATFLAG_SUCCESS) {
-						file_delete(path);
+						file_delete(path.c_str());
 						g_gui.state_status = "State save failed: ";
 						g_gui.state_status += path;
 					}
@@ -694,11 +703,11 @@ static void draw_state_menu(void) {
 				char label[32];
 				std::snprintf(label, sizeof(label), "Slot %d", slot);
 				if (ImGui::MenuItem(label)) {
-					char path[MAX_PATH];
+					std::string path = state_slot_path(slot);
 					char error[1024];
-					std::snprintf(path, sizeof(path), "np2sdl.S%02d", slot);
 					error[0] = '\0';
-					int ret = statsave_check(path, error, sizeof(error));
+					int ret = statsave_check(path.c_str(), error,
+											 sizeof(error));
 					if ((ret & ~STATFLAG_DISKCHG) != 0) {
 						g_gui.state_status = "State load failed: ";
 						g_gui.state_status += path;
@@ -709,7 +718,7 @@ static void draw_state_menu(void) {
 						}
 					}
 					else {
-						statsave_load(path);
+						statsave_load(path.c_str());
 						scrndraw_redraw();
 						g_gui.state_status = "State loaded: ";
 						g_gui.state_status += path;
