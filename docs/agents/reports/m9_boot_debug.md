@@ -31,6 +31,16 @@ when capturing boot traces.
 | `Use_VA91` | `false` | Disables VA91 extension path. |
 | `Use_BMS_`, `BMS_Port`, `BMS_Size` | `false`, `00ec`, `16` | Disables BMS extension memory for the comparison. |
 
+### Closed config item: VA sound board binding
+
+A fresh `np2.cfg` leaves `SNDboard` at the non-VA default. In that
+configuration neither the portable build nor the legacy reference binds the
+VA Sound Board II, so `boardsb2_bind()` does not run, ports `0044`/`0045`
+remain unhandled, and software that waits on the FM timer can hang. This is
+configuration parity, not an emulation difference. The canonical comparison
+config keeps `SNDboard=200`. Choosing a VA-specific default for fresh
+configs is a later ADR candidate and is not changed on the M9 branch.
+
 ## Trace hooks
 
 FDC operation lines include the current FDD interface mode in the common
