@@ -1,50 +1,142 @@
 # 88VA Eternal Grafx
 
-http://www.pc88.gr.jp/vaeg/
+88VA Eternal Grafx, or `vaeg`, is a maintained fork of the abandoned
+`project-vaeg` PC-88VA emulator lineage, itself derived from Neko Project
+II. This fork is the living tree: the old upstream should be treated as
+historical source material, not as the active project.
 
-## Portable phase-2 build
+The current goal is a portable PC-88VA emulator that builds and runs on
+modern Windows, Linux, and macOS systems while preserving the behavior of
+the legacy Visual Studio reference build.
 
-Portable Linux / Windows MinGW / macOS builds use CMake and SDL2. See
-`BUILD.md` for current build recipes, runtime state locations, and the
-PC-88VA `np2.cfg` prerequisites. The older repository notes below are
-historical and do not describe the phase-2 UTF-8/LF source policy.
+## Current Frontend
 
-## リポジトリの諸設定
+The active frontend is the SDL2 + Dear ImGui build under `sdl2/`. It
+targets:
 
-* ファイル
-    * 文字コード: CP932
-    * 改行
-        * 既存ファイル: LF
-        * 新規追加分: CR+LF
-* コミットメッセージ
-    * 文字コード: UTF-8
-    * 改行: LF
+- Windows via MSYS2 / MinGW-w64
+- Linux via CMake, Ninja, SDL2, gcc or clang
+- macOS via MacPorts SDL2 under `/opt/local`
 
-説明
+The executable is named `vaeg`.
 
-* ファイルの改行コード
-    * 本来 CR+LF だが、CVS利用時代の設定ミスで既存ファイルは LF になってしまっており、そのままとする。変更してしまうとgit blameで履歴が追いにくくなるため。
-* コミットメッセージの文字コード
-    * ファイルと合わせ CP932 としたほうが git の文字コード関連設定がシンプルになる。しかし、CP932 だと GitHub 上で化けてしまうことがある。
+```sh
+vaeg [--smoke] [--pacelog] [image1 [image2]]
+```
 
-### Git Bash (Windows) 設定例
+`image1` and `image2` are floppy disk images mounted in drives 1 and 2.
+`--smoke` runs a short headless initialization check. `--pacelog` prints
+emulation pacing counters for timing diagnosis.
 
-* 端末ウィンドウの文字コード: SJIS
-    * タイトルバー右クリック > Options > Text > Character set
-* shell
-    * `LANG=ja_JP.SJIS`
-* git
-    ```
-    git config core.autocrlf false
-    git config pager.log "iconv -f utf-8 -t cp932 | LESSCHARSET=dos less"
-    git config core.pager "LESSCHARSET=dos less"
-    ```
+## Quick Build
 
-説明
+Detailed build instructions live in [BUILD.md](BUILD.md). The short
+versions are:
 
-* pager として less が呼び出されたときに CP932 が表示できるよう LESSCHARSET を指定。
-* コミットメッセージは UTF-8 で出力されるため、git log のみ CP932 に変換。
-* コミットログの表示は、 `git config i18n.logOutputEncoding cp932` でも OK だが、git rebase 時に化ける問題があり、利用できない。
-* この設定でも次の場合は文字化けする。
-    * git show: 異なる文字コードが混在。コミットメッセージ(UTF-8)は化ける。ファイル(CP932)は正常。
+```sh
+# Linux
+cmake --preset linux-release
+cmake --build --preset linux-release
+```
 
+```sh
+# Windows, from an MSYS2 MINGW64 shell
+cmake --preset mingw-release
+cmake --build --preset mingw-release
+```
+
+```sh
+# macOS, with MacPorts SDL2
+sudo port install cmake ninja libsdl2 pkgconfig
+cmake --preset macos-release
+cmake --build --preset macos-release
+```
+
+Linux-to-Windows cross-link checks are also available:
+
+```sh
+cmake --preset mingw-cross
+cmake --build --preset mingw-cross
+```
+
+## Runtime Files
+
+Machine ROM images, guest font ROMs, optional mechanical sound WAV files,
+and operating system disks are not provided by this repository. Use
+legally obtained files from your own environment. The host GUI font used
+by Dear ImGui is bundled separately under `assets/`.
+
+The portable frontend stores writable state in the platform user state
+directory:
+
+- Linux: `$XDG_CONFIG_HOME/vaeg` or `$HOME/.config/vaeg`
+- Windows: `%APPDATA%\vaeg`
+- macOS: `~/Library/Application Support/vaeg`
+
+`np2.cfg`, `vabkupmem.dat`, and fixed GUI save-state slots live there.
+The legacy `win9x/` build remains exe-relative and is intentionally not
+changed.
+
+For PC-88VA booting, `np2.cfg` should select the VA machine, VA Sound
+Board II, and the VA clock domain:
+
+```ini
+pc_model=88VA1
+SNDboard=200
+clk_base=3993600
+clk_mult=2
+```
+
+`pc_model=88VA2` is also valid. Stale PC-98 defaults can halt at V2,
+leave the VA sound board unbound, or run in the wrong clock domain.
+
+## Text Encoding Policy
+
+This fork has moved the source tree to modern UTF-8 text.
+
+- Active source files and documentation are UTF-8 without BOM.
+- Line endings are LF, except legacy Visual Studio project files that must
+  stay CRLF.
+- The `hlp/` directory remains CP932 because Microsoft HTML Help Workshop
+  cannot compile the files as UTF-8.
+- Portable configuration files are UTF-8 only. Reading old CP932 legacy
+  `np2.ini` files is not part of the phase-2 portable frontend.
+- On Windows, the SDL2 frontend keeps paths as UTF-8 internally and
+  converts them at the filesystem boundary to UTF-16.
+
+This policy is about the repository and host frontend. It does not mean
+the emulated guest machine is UTF-8; the PC-88VA and PC-98 software
+environments keep their original character encodings and ROM behavior.
+
+The frozen Visual Studio reference build uses UTF-8 source input with a
+CP932 execution charset where that is required for legacy Win32 behavior.
+
+## Legacy Reference Build
+
+The original Win9x Visual Studio projects are still kept as a behavioral
+reference. They are not the portability target.
+
+- `win9x/np2_v141.sln` is the VS2017 v141 reference solution.
+- Older `.dsp`, `.dsw`, `.vcproj`, and `.sln` files remain in the tree for
+  comparison and migration history.
+- Do not refactor the legacy build when working on the portable frontend.
+
+The portable build uses the C CPU and VA cores, SDL2 for host I/O, and
+Dear ImGui for the host GUI. The legacy build remains useful until the
+modernized tree has fully replaced it.
+
+## Documentation Map
+
+- [BUILD.md](BUILD.md): current Windows, Linux, macOS build recipes.
+- [sdl2/README.md](sdl2/README.md): SDL2 frontend runtime behavior.
+- [docs/agents/ROADMAP.md](docs/agents/ROADMAP.md): modernization
+  milestones and gate history.
+- [docs/agents/CONVENTIONS.md](docs/agents/CONVENTIONS.md): repository
+  invariants for contributors and agents.
+
+## Status
+
+The project is actively modernizing an old emulator codebase. The SDL2
+frontend is the path forward for Windows, Linux, and macOS. The legacy
+reference exists to prevent behavior drift while the portable build
+continues to absorb PC-88VA-specific functionality.
