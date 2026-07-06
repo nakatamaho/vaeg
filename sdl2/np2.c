@@ -47,6 +47,7 @@
 		NP2OSCFG	np2oscfg = {0, 0, 0, 0, 0, 1, 0};
 
 static const UINT smoke_timeout_frames = 600;
+static const UINT max_catchup_frames = 15;
 
 static void usage(const char *progname) {
 
@@ -93,31 +94,6 @@ static void mount_fdd_images(char *disk[2]) {
 	}
 }
 
-static void wait_next_frame(Uint64 *next_tick) {
-
-	Uint64	now;
-	Uint64	freq;
-	Uint64	frame_ticks;
-
-	freq = SDL_GetPerformanceFrequency();
-	frame_ticks = freq / 60;
-	*next_tick += frame_ticks;
-	now = SDL_GetPerformanceCounter();
-	while(taskmng_isavail() && (now < *next_tick)) {
-		Uint64	remaining;
-		remaining = ((*next_tick - now) * 1000) / freq;
-		if (remaining > 1) {
-			SDL_Delay((Uint32)(remaining - 1));
-		}
-		else {
-			SDL_Delay(0);
-		}
-		taskmng_rol();
-		timing_hosttick();
-		now = SDL_GetPerformanceCounter();
-	}
-}
-
 static BOOL smoke_check_screen(UINT frames, BOOL *done) {
 
 	BOOL	uniform;
@@ -142,22 +118,64 @@ static BOOL smoke_check_screen(UINT frames, BOOL *done) {
 	return(SUCCESS);
 }
 
+static UINT pending_guest_frames(BOOL *first_frame, BOOL smoke) {
+
+	UINT	pending;
+
+	if (*first_frame) {
+		*first_frame = FALSE;
+		return(1);
+	}
+	if ((!smoke) && np2oscfg.NOWAIT) {
+		timing_setcount(0);
+		return(1);
+	}
+	pending = timing_getcount();
+	if (pending == 0) {
+		return(0);
+	}
+	if (pending > max_catchup_frames) {
+		pending = max_catchup_frames;
+		timing_reset();
+	}
+	else {
+		timing_setcount(0);
+	}
+	return(pending);
+}
+
+static void run_guest_frames(UINT pending) {
+
+	UINT	i;
+
+	for (i=0; (i<pending) && taskmng_isavail(); i++) {
+		pccore_exec((i + 1) == pending);
+	}
+}
+
 static BOOL runloop(BOOL smoke) {
 
 	UINT	frames;
-	Uint64	next_tick;
+	BOOL	first_frame;
 
 	frames = 0;
-	next_tick = SDL_GetPerformanceCounter();
+	first_frame = TRUE;
 	while(taskmng_isavail()) {
+		UINT	pending;
+
 		taskmng_rol();
+		pending = pending_guest_frames(&first_frame, smoke);
+		if (pending == 0) {
+			taskmng_sleep(1);
+			continue;
+		}
 		gui_new_frame();
-		pccore_exec(TRUE);
+		run_guest_frames(pending);
 		gui_draw();
 		scrnmng_present_begin();
 		gui_render();
 		scrnmng_present_end();
-		frames++;
+		frames += pending;
 		if (smoke) {
 			BOOL	done;
 			BOOL	ret;
@@ -168,7 +186,6 @@ static BOOL runloop(BOOL smoke) {
 				return(ret);
 			}
 		}
-		wait_next_frame(&next_tick);
 	}
 	return(SUCCESS);
 }
