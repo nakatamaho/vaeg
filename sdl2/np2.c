@@ -66,6 +66,10 @@ typedef struct {
 	UINT	max_pending;
 } PACELOG;
 
+static	UINT	framecnt;
+static	UINT	waitcnt;
+static	UINT	framemax = 1;
+
 static void usage(const char *progname) {
 
 	printf("Usage: %s [options]\n", progname);
@@ -303,85 +307,164 @@ static void pacelog_update(PACELOG *log, BOOL enabled, UINT executed,
 	}
 }
 
-static UINT pending_guest_frames(BOOL *first_frame, BOOL smoke,
-								 UINT *observed_pending) {
+static void framereset(UINT cnt) {
+
+	framecnt = 0;
+	(void)cnt;
+}
+
+static void service_host_idle(void) {
+
+	taskmng_rol();
+	timing_hosttick();
+	if (taskmng_isavail()) {
+		SDL_Delay(1);
+	}
+}
+
+static void processwait(UINT cnt, PACELOG *pacelog, BOOL pacelog_enabled) {
 
 	UINT	pending;
 
-	*observed_pending = 0;
-	if (*first_frame) {
-		*first_frame = FALSE;
-		*observed_pending = 1;
-		return(1);
-	}
-	if ((!smoke) && np2oscfg.NOWAIT) {
-		timing_setcount(0);
-		*observed_pending = 1;
-		return(1);
-	}
 	pending = timing_getcount();
-	*observed_pending = pending;
-	if (pending == 0) {
-		return(0);
-	}
-	if (pending > max_catchup_frames) {
-		pending = max_catchup_frames;
-		timing_reset();
+	pacelog_update(pacelog, pacelog_enabled, 0, 0, pending);
+	if (pending >= cnt) {
+		timing_setcount(0);
+		framereset(cnt);
 	}
 	else {
-		timing_setcount(0);
+		service_host_idle();
 	}
-	return(pending);
+	soundmng_sync();
 }
 
-static void run_guest_frames(UINT pending) {
+static void run_guest_frame(BOOL draw) {
 
-	UINT	i;
-
-	for (i=0; (i<pending) && taskmng_isavail(); i++) {
-		pccore_exec((i + 1) == pending);
+	if (draw) {
+		gui_new_frame();
 	}
+	pccore_exec(draw);
+	if (draw) {
+		gui_draw();
+		scrnmng_present_begin();
+		gui_render();
+		scrnmng_present_end();
+	}
+}
+
+static BOOL smoke_after_frame(BOOL smoke, UINT frames) {
+
+	BOOL	done;
+	BOOL	ret;
+
+	if (!smoke) {
+		return(SUCCESS);
+	}
+	ret = smoke_check_screen(frames, &done);
+	if ((ret != SUCCESS) || done) {
+		taskmng_exit();
+		return(ret);
+	}
+	return(SUCCESS);
 }
 
 static BOOL runloop(BOOL smoke, BOOL pacelog_enabled) {
 
 	UINT	frames;
-	BOOL	first_frame;
 	PACELOG	pacelog;
 
 	frames = 0;
-	first_frame = TRUE;
+	framecnt = 0;
+	waitcnt = 0;
+	framemax = 1;
 	pacelog_initialize(&pacelog);
 	while(taskmng_isavail()) {
-		UINT	pending;
-		UINT	observed_pending;
-
 		taskmng_rol();
 		timing_hosttick();
-		pending = pending_guest_frames(&first_frame, smoke, &observed_pending);
-		if (pending == 0) {
-			pacelog_update(&pacelog, pacelog_enabled, 0, 0,
-						   observed_pending);
-			taskmng_sleep(1);
-			continue;
-		}
-		gui_new_frame();
-		run_guest_frames(pending);
-		gui_draw();
-		scrnmng_present_begin();
-		gui_render();
-		scrnmng_present_end();
-		frames += pending;
-		pacelog_update(&pacelog, pacelog_enabled, pending, pending - 1,
-					   observed_pending);
-		if (smoke) {
-			BOOL	done;
-			BOOL	ret;
+		if (np2oscfg.NOWAIT) {
+			BOOL	draw;
 
-			ret = smoke_check_screen(frames, &done);
-			if ((ret != SUCCESS) || done) {
-				taskmng_exit();
-				return(ret);
+			draw = (framecnt == 0);
+			run_guest_frame(draw);
+			frames++;
+			pacelog_update(&pacelog, pacelog_enabled, 1, draw ? 0 : 1, 0);
+			if (smoke_after_frame(smoke, frames) != SUCCESS) {
+				return(FAILURE);
+			}
+			if (np2oscfg.DRAW_SKIP) {
+				framecnt++;
+				if (framecnt >= np2oscfg.DRAW_SKIP) {
+					processwait(0, &pacelog, pacelog_enabled);
+				}
+			}
+			else {
+				UINT	cnt;
+
+				framecnt = 1;
+				cnt = timing_getcount();
+				pacelog_update(&pacelog, pacelog_enabled, 0, 0, cnt);
+				if (cnt) {
+					processwait(0, &pacelog, pacelog_enabled);
+				}
+			}
+		}
+		else if (np2oscfg.DRAW_SKIP) {
+			if (framecnt < np2oscfg.DRAW_SKIP) {
+				BOOL	draw;
+
+				draw = (framecnt == 0);
+				run_guest_frame(draw);
+				frames++;
+				pacelog_update(&pacelog, pacelog_enabled, 1,
+							   draw ? 0 : 1, 0);
+				if (smoke_after_frame(smoke, frames) != SUCCESS) {
+					return(FAILURE);
+				}
+				framecnt++;
+			}
+			else {
+				processwait(np2oscfg.DRAW_SKIP, &pacelog,
+							pacelog_enabled);
+			}
+		}
+		else {
+			if (!waitcnt) {
+				BOOL	draw;
+				UINT	cnt;
+
+				draw = (framecnt == 0);
+				run_guest_frame(draw);
+				frames++;
+				pacelog_update(&pacelog, pacelog_enabled, 1,
+							   draw ? 0 : 1, 0);
+				if (smoke_after_frame(smoke, frames) != SUCCESS) {
+					return(FAILURE);
+				}
+				framecnt++;
+				cnt = timing_getcount();
+				pacelog_update(&pacelog, pacelog_enabled, 0, 0, cnt);
+				if (framecnt > cnt) {
+					waitcnt = framecnt;
+					if (framemax > 1) {
+						framemax--;
+					}
+				}
+				else if (framecnt >= framemax) {
+					if (framemax < 12) {
+						framemax++;
+					}
+					if (cnt >= max_catchup_frames) {
+						timing_reset();
+					}
+					else {
+						timing_setcount(cnt - framecnt);
+					}
+					framereset(0);
+				}
+			}
+			else {
+				processwait(waitcnt, &pacelog, pacelog_enabled);
+				waitcnt = framecnt;
 			}
 		}
 	}
