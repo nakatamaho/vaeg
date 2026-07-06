@@ -106,15 +106,15 @@ behavior.
   compatibility, and uPD8259-equivalent 13-level mode for V3 operation.
 - DMA: four-channel priority DMA unit; channel 2 is assigned to the FDD
   interface, with channels 0 and 3 exposed to the bus slots.
-- Timers: CPU internal timer/counter unit with D8253-compatible
+- Timers: CPU internal timer/counter unit with uPD8253-compatible
   behavior; the counters are used for the general timer, BEEP frequency,
   and RS-232C baud generation. The FDD interface also has a motor-control
   timer, and the sound controller has its own timers.
-- FDD controller: uPD765/D765-compatible FDC for the internal 5-inch
+- FDD controller: uPD765-compatible FDC for the internal 5-inch
   2HD/2D drives.
-- Serial controller: uPD8251/D8251-compatible USART for RS-232C.
+- Serial controller: uPD8251-compatible USART for RS-232C.
 - Calendar clock: uPD4990/uPD4990AC-compatible battery-backed clock.
-- Parallel/scanner/system ports: uPD8255/D8255-compatible parallel port
+- Parallel/scanner/system ports: uPD8255-compatible parallel port
   interface appears in the scanner and system-port descriptions.
 - Video system: SGP drawing processor, TSP/DPMC display composition,
   TVRAM, GVRAM, CGROM/CGRAM, 4096-color palette, sprite/text/graphics
