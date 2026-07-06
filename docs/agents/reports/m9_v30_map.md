@@ -49,12 +49,23 @@ main-side ports `0x0fc`, `0x0fd`, `0x0fe`, `0x0ff` are attached in
 `iova/subsystem.cpp:228-305`. That code is not the V2S-to-V3 native CPU
 mode transition.
 
-No BRKEM/RETEM-named handler exists in the tracked source. The only
-legacy source mention of a BREAKM-class V-series opcode is
+No BRKEM/BRKEM2/RETEM-named handler exists in the tracked source. The
+only legacy source mention of a BREAKM-class V-series opcode is
 `i286x/v30patch.cpp:1989-2003`: the `0F` dispatcher accepts only second
 bytes below `0x40` through `v30ope0x0f_xtable`; for second bytes
 `>= 0x40`, the comment says `FF(BREAKM)` is the only known opcode, and
 the handler deliberately falls into `v30_reserved_0x0f`.
+
+Maintainer correction for uPD9002/PC-88VA: VA does not use the
+V30-compatible `BRKEM` encoding `0F FF nn`. The VA-specific transition
+from V30 mode to uPD780/Z80 emulation mode is `BRKEM2`, encoded as
+`0F FE nn`, where `nn` is the interrupt vector number. The tracked
+legacy source does not implement this mode transition; it treats both
+`0F FE nn` and `0F FF nn` as reserved through the high-subopcode branch
+above. A faithful `BRKEM2` implementation is not just another V30
+arithmetic/string handler: it requires a main-CPU uPD780/Z80 emulation
+mode and a matching return path. It must not be wired to the separate
+FDD subsystem Z80.
 
 The current portable halt/fault site is therefore the missing V30 `0F`
 hook in `i286c/v30patch.c`. `v30cinit()` copies the base i286 table
@@ -74,8 +85,9 @@ the timing-control byte `upd9002.tcks` and calls `pit_ontckschanged()`
 
 | Family | Opcode(s) | Legacy handler and semantics | i286x source | i286c hook point |
 |--------|-----------|------------------------------|--------------|------------------|
-| 0F dispatch | `0F xx` | V30/uPD9002 second-byte dispatcher. Subopcodes `00`..`3F` go through `v30ope0x0f_xtable`; `>= 0x40` goes to reserved behavior, with source comment noting `FF(BREAKM)`. | `i286x/v30patch.cpp:1989-2003`, patched at `2011-2014` | Add `{0x0f, v30_ope0x0f}` to `v30patch_op` before `v30cinit()` copies tables. |
-| 0F reserved | `0F` table reserved slots, including `0F FF` path | Clock 2 and do not advance beyond the bytes already consumed by the dispatcher. This preserves the legacy debug-stop/reserved behavior. | `i286x/v30patch.cpp:1067-1074`, table at `1918-1985` | Add `v30_reserved_0x0f` and use it in a C `v30ope0x0f_table`. |
+| 0F dispatch | `0F xx` | V30/uPD9002 second-byte dispatcher. Subopcodes `00`..`3F` go through `v30ope0x0f_xtable`; `>= 0x40` goes to reserved behavior. The tracked legacy comment mentions `FF(BREAKM)`, but the PC-88VA/uPD9002 transition opcode is `FE(BRKEM2)`. | `i286x/v30patch.cpp:1989-2003`, patched at `2011-2014`; maintainer correction for uPD9002/VA BRKEM2 | Add `{0x0f, v30_ope0x0f}` to `v30patch_op` before `v30cinit()` copies tables. Preserve reserved behavior unless main-CPU uPD780/Z80 emulation is implemented. |
+| 0F reserved | `0F` table reserved slots, including current `0F FE` and `0F FF` paths | Clock 2 and do not advance beyond the bytes already consumed by the dispatcher. This preserves the legacy debug-stop/reserved behavior for unimplemented high subopcodes. | `i286x/v30patch.cpp:1067-1074`, table at `1918-1985` | Add `v30_reserved_0x0f` and use it in a C `v30ope0x0f_table`. |
+| uPD9002 BRKEM2 | `0F FE nn` | VA-specific break from V30 mode to uPD780/Z80 emulation mode; `nn` is the interrupt vector number. VA does not use V30-compatible `BRKEM` (`0F FF nn`) for this transition. Not implemented in the tracked legacy source. | No handler exists; `i286x/v30patch.cpp:1989-1997` currently sends all `0F >= 40` subopcodes to `v30_reserved_0x0f`. | Future implementation requires a main-CPU uPD780/Z80 mode plus the matching return-from-emulation path. Do not route this to the FDD subsystem Z80 (`iova/subsystem.cpp`). |
 | Bit test | `0F 10 /r`, `0F 11 /r` | `TEST1 r/m8,CL` and `TEST1 r/m16,CL`; bit index is `CL & 7` or `CL & 15`; update flags as the x86 `test` does, without modifying the operand. | `i286x/v30patch.cpp:1407-1510` | C handlers called by `v30ope0x0f_table[0x10]` and `[0x11]`; use `REG8_B20`, `REG16_B20`, `CALC_EA`, memory read helpers, and flag macros. |
 | Bit clear/set by CL | `0F 12 /r`, `0F 14 /r` | `CLR1 r/m8,CL` and `SET1 r/m8,CL`; bit index is `CL & 7`; no flags are changed in the legacy handler. | `i286x/v30patch.cpp:1513-1608` | C handlers called by `v30ope0x0f_table[0x12]` and `[0x14]`. |
 | Bit test by immediate | `0F 18 /r ib`, `0F 19 /r ib` | `TEST1 r/m8,imm3` and `TEST1 r/m16,imm4`; immediate low bits select the tested bit; update flags as `test`. | `i286x/v30patch.cpp:1610-1719` | C handlers called by `v30ope0x0f_table[0x18]` and `[0x19]`; consume the immediate byte after EA decode. |
@@ -97,6 +109,10 @@ the timing-control byte `upd9002.tcks` and calls `pit_ontckschanged()`
 - `ROL4` is likewise not implemented in the tracked legacy table;
   `0F 28` and `0F 29` are reserved (`i286x/v30patch.cpp:1961-1962`).
   `ROR4` at `0F 2A` is the only rotate-nibble handler present.
-- `0F FF`/BREAKM has no explicit C++ handler in legacy. The only
-  source-level behavior is the `v30_ope0x0f` high-subopcode branch to
+- `0F FE nn`/BRKEM2 is the PC-88VA/uPD9002 mode-transition opcode, but
+  it has no explicit C++ handler in legacy. The only source-level
+  behavior today is the `v30_ope0x0f` high-subopcode branch to
   `v30_reserved_0x0f` (`i286x/v30patch.cpp:1991-1997`).
+- `0F FF nn`/BRKEM is the V30-compatible 8080-emulation break encoding,
+  but the VA/uPD9002 path should not use it for the V30-to-uPD780/Z80
+  transition.
