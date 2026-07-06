@@ -74,10 +74,12 @@ cmake --preset mingw-cross
 cmake --build --preset mingw-cross
 ```
 
-The cross preset requires MinGW-w64 SDL2 development files for the target
-sysroot. MinGW ASan is not enabled in this tree; sanitizer availability
-depends on the MinGW runtime/package set, so G11 keeps sanitizer
-acceptance on Linux and macOS.
+The cross preset sets `VAEG_FETCH_SDL2=ON`, so CMake downloads and builds
+the pinned SDL2 release recorded in ADR-0006 for link checks. This does
+not solve runtime distribution: Windows release artifacts must still ship
+`SDL2.dll` next to `vaeg.exe`. MinGW ASan is not enabled in this tree;
+sanitizer availability depends on the MinGW runtime/package set, so G11
+keeps sanitizer acceptance on Linux and macOS.
 
 ## macOS (MacPorts)
 

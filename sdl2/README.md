@@ -43,6 +43,8 @@ build/linux-debug/sdl2/vaeg
 ```
 
 SDL2 is discovered through `find_package(SDL2)` first, then pkg-config.
+`VAEG_FETCH_SDL2=ON` is reserved for the MinGW cross preset and fetches
+the pinned SDL2 release recorded in ADR-0006.
 
 ## Run
 
