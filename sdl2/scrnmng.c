@@ -33,6 +33,7 @@ typedef struct {
 	SDL_Window		*window;
 	SDL_Renderer	*renderer;
 	SDL_Texture		*texture;
+	char			renderer_backend[64];
 	BYTE			*shadow;
 	int				shadow_pitch;
 	BOOL			visible;
@@ -69,6 +70,8 @@ static void scrnmng_log_renderer(void) {
 		return;
 	}
 	name = (info.name) ? info.name : "unknown";
+	snprintf(scrnmng.renderer_backend, sizeof(scrnmng.renderer_backend),
+			 "%s", name);
 	kind = (info.flags & SDL_RENDERER_ACCELERATED) ?
 					"accelerated" : "software";
 	SDL_Log("SDL renderer backend: %s (%s)", name, kind);
@@ -273,6 +276,14 @@ void *scrnmng_get_window(void) {
 void *scrnmng_get_renderer(void) {
 
 	return(scrnmng.renderer);
+}
+
+const char *scrnmng_get_renderer_backend(void) {
+
+	if (scrnmng.renderer_backend[0] == '\0') {
+		return("unknown");
+	}
+	return(scrnmng.renderer_backend);
 }
 
 static BOOL scrnmng_update_window_size(void) {

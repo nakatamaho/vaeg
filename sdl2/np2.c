@@ -49,12 +49,20 @@
 static const UINT smoke_timeout_frames = 600;
 static const UINT max_catchup_frames = 15;
 
+typedef struct {
+	UINT32	tick;
+	UINT	frames_executed;
+	UINT	frames_skipped;
+	UINT	max_pending;
+} PACELOG;
+
 static void usage(const char *progname) {
 
 	printf("Usage: %s [options]\n", progname);
 	printf("\t--help   [-h]       : print this message\n");
 	printf("\t--smoke             : initialize SDL2, run a short core loop, exit\n");
 	printf("\t--fdctrace          : print one FDC trace line per command to stderr\n");
+	printf("\t--pacelog           : print pacing counters once per second\n");
 	printf("\timage1 [image2]     : mount FDD images in drive 1 and 2\n");
 }
 
@@ -118,19 +126,57 @@ static BOOL smoke_check_screen(UINT frames, BOOL *done) {
 	return(SUCCESS);
 }
 
-static UINT pending_guest_frames(BOOL *first_frame, BOOL smoke) {
+static void pacelog_initialize(PACELOG *log) {
+
+	ZeroMemory(log, sizeof(*log));
+	log->tick = GETTICK();
+}
+
+static void pacelog_update(PACELOG *log, BOOL enabled, UINT executed,
+						   UINT skipped, UINT pending) {
+
+	UINT32	now;
+
+	if (!enabled) {
+		return;
+	}
+	log->frames_executed += executed;
+	log->frames_skipped += skipped;
+	if (log->max_pending < pending) {
+		log->max_pending = pending;
+	}
+	now = GETTICK();
+	if ((UINT32)(now - log->tick) >= 1000) {
+		fprintf(stderr,
+				"pacelog frames_executed=%u frames_skipped=%u "
+				"max_pending=%u renderer=%s\n",
+				log->frames_executed, log->frames_skipped,
+				log->max_pending, scrnmng_get_renderer_backend());
+		log->tick = now;
+		log->frames_executed = 0;
+		log->frames_skipped = 0;
+		log->max_pending = 0;
+	}
+}
+
+static UINT pending_guest_frames(BOOL *first_frame, BOOL smoke,
+								 UINT *observed_pending) {
 
 	UINT	pending;
 
+	*observed_pending = 0;
 	if (*first_frame) {
 		*first_frame = FALSE;
+		*observed_pending = 1;
 		return(1);
 	}
 	if ((!smoke) && np2oscfg.NOWAIT) {
 		timing_setcount(0);
+		*observed_pending = 1;
 		return(1);
 	}
 	pending = timing_getcount();
+	*observed_pending = pending;
 	if (pending == 0) {
 		return(0);
 	}
@@ -153,19 +199,25 @@ static void run_guest_frames(UINT pending) {
 	}
 }
 
-static BOOL runloop(BOOL smoke) {
+static BOOL runloop(BOOL smoke, BOOL pacelog_enabled) {
 
 	UINT	frames;
 	BOOL	first_frame;
+	PACELOG	pacelog;
 
 	frames = 0;
 	first_frame = TRUE;
+	pacelog_initialize(&pacelog);
 	while(taskmng_isavail()) {
 		UINT	pending;
+		UINT	observed_pending;
 
 		taskmng_rol();
-		pending = pending_guest_frames(&first_frame, smoke);
+		timing_hosttick();
+		pending = pending_guest_frames(&first_frame, smoke, &observed_pending);
 		if (pending == 0) {
+			pacelog_update(&pacelog, pacelog_enabled, 0, 0,
+						   observed_pending);
 			taskmng_sleep(1);
 			continue;
 		}
@@ -176,6 +228,8 @@ static BOOL runloop(BOOL smoke) {
 		gui_render();
 		scrnmng_present_end();
 		frames += pending;
+		pacelog_update(&pacelog, pacelog_enabled, pending, pending - 1,
+					   observed_pending);
 		if (smoke) {
 			BOOL	done;
 			BOOL	ret;
@@ -196,12 +250,14 @@ int main(int argc, char **argv) {
 	char	*p;
 	BOOL	smoke;
 	BOOL	fdctrace;
+	BOOL	pacelog;
 	BOOL	run_ok;
 	int		disks;
 	char	*disk[2];
 
 	smoke = FALSE;
 	fdctrace = FALSE;
+	pacelog = FALSE;
 	run_ok = SUCCESS;
 	disks = 0;
 	disk[0] = NULL;
@@ -218,6 +274,9 @@ int main(int argc, char **argv) {
 		}
 		else if (!milstr_cmp(p, "--fdctrace")) {
 			fdctrace = TRUE;
+		}
+		else if (!milstr_cmp(p, "--pacelog")) {
+			pacelog = TRUE;
 		}
 		else if (p[0] == '-') {
 			fprintf(stderr, "error command: %s\n", p);
@@ -281,7 +340,7 @@ int main(int argc, char **argv) {
 	pccore_reset();
 	scrndraw_redraw();
 	mount_fdd_images(disk);
-	run_ok = runloop(smoke);
+	run_ok = runloop(smoke, pacelog);
 
 	pccore_cfgupdate();
 	if ((!smoke) && (sys_updates & (SYS_UPDATECFG | SYS_UPDATEOSCFG))) {
