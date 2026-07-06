@@ -140,3 +140,40 @@ The project is actively modernizing an old emulator codebase. The SDL2
 frontend is the path forward for Windows, Linux, and macOS. The legacy
 reference exists to prevent behavior drift while the portable build
 continues to absorb PC-88VA-specific functionality.
+
+## License Status
+
+This is the current license map for the repository. It is a summary, not
+a replacement for the original notices, source headers, and license files.
+
+- Original emulator lineage: this fork is derived from project-vaeg and
+  Neko Project II. The historical `win9x/readme.txt` records that vaeg
+  follows the Neko Project II terms and that its source code is under a
+  modified BSD-style license.
+- Neko Project II attribution: `win9x/readme.txt` credits "Neko Project
+  II (c) NP2 developer team, 1999-2001,2003,2004".
+- Z80 emulation attribution: `win9x/readme.txt` records the PC-8801
+  emulator M88 source as the basis for Z80 emulation, credited as
+  "M88 - PC8801 Series Emulator, Copyright (C) by cisc 1998, 2002."
+- New phase-2 code and documentation by Nakata Maho are licensed under
+  the 2-clause BSD license. New files carry the full notice in their file
+  header; the required header template is in
+  `docs/agents/CONVENTIONS.md`.
+- Dear ImGui is vendored under `external/imgui/` and is licensed under
+  the MIT license. See `external/imgui/LICENSE.txt` and
+  `docs/agents/DECISIONS/ADR-0004-imgui-vendor.md`.
+- The bundled host GUI font `assets/NotoSansJP-Regular.ttf` is licensed
+  under the SIL Open Font License 1.1. See `assets/OFL.txt` and
+  `assets/NOTICE.md`.
+- SDL2 is normally provided by the operating system or package manager.
+  The optional MinGW cross-build FetchContent path uses SDL2 2.32.10,
+  which is zlib-licensed, as recorded in
+  `docs/agents/DECISIONS/ADR-0006-sdl2-acquisition.md`.
+- Machine ROM images, guest font ROMs, optional mechanical sound WAV
+  files, and operating system disks are not distributed by this
+  repository. They remain governed by their own rights and licenses.
+
+When changing existing files, keep their existing notices intact. When
+adding new files, use the 2-clause BSD header for Nakata Maho-authored
+phase-2 work unless the file is third-party code or an explicitly
+documented asset.
