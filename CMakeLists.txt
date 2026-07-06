@@ -35,6 +35,7 @@ endif()
 
 option(VAEG_ENABLE_TESTS "Enable vaeg tests" OFF)
 option(VAEG_WERROR "Treat warnings as errors" OFF)
+option(VAEG_WINDOWS_CONSOLE "Keep a console window for Windows SDL2 builds" OFF)
 
 set(CMAKE_C_STANDARD 99)
 set(CMAKE_C_STANDARD_REQUIRED ON)
@@ -303,7 +304,11 @@ if(VAEG_WERROR)
     target_compile_options(vaeg_va PRIVATE -Werror)
 endif()
 
-add_executable(vaeg_sdl2 ${VAEG_SDL2_SOURCES})
+set(VAEG_SDL2_EXE_OPTIONS)
+if(WIN32 AND NOT VAEG_WINDOWS_CONSOLE)
+    list(APPEND VAEG_SDL2_EXE_OPTIONS WIN32)
+endif()
+add_executable(vaeg_sdl2 ${VAEG_SDL2_EXE_OPTIONS} ${VAEG_SDL2_SOURCES})
 set_target_properties(vaeg_sdl2 PROPERTIES
     OUTPUT_NAME vaeg
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/sdl2")

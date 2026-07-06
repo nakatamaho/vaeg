@@ -38,6 +38,29 @@
         "CMAKE_EXE_LINKER_FLAGS": "-fsanitize=address,undefined",
         "VAEG_WERROR": "OFF"
       }
+    },
+    {
+      "name": "mingw-release",
+      "displayName": "Windows MinGW Release (MSYS2 native)",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/mingw-release",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "VAEG_WERROR": "OFF",
+        "VAEG_WINDOWS_CONSOLE": "OFF"
+      }
+    },
+    {
+      "name": "mingw-cross",
+      "displayName": "Windows MinGW-w64 Cross Release",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/mingw-cross",
+      "toolchainFile": "${sourceDir}/cmake/mingw-w64-x86_64.cmake",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "VAEG_WERROR": "OFF",
+        "VAEG_WINDOWS_CONSOLE": "OFF"
+      }
     }
   ],
   "buildPresets": [
@@ -52,6 +75,14 @@
     {
       "name": "linux-asan",
       "configurePreset": "linux-asan"
+    },
+    {
+      "name": "mingw-release",
+      "configurePreset": "mingw-release"
+    },
+    {
+      "name": "mingw-cross",
+      "configurePreset": "mingw-cross"
     }
   ]
 }
