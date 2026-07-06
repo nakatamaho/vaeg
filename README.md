@@ -90,6 +90,44 @@ clk_mult=2
 `pc_model=88VA2` is also valid. Stale PC-98 defaults can halt at V2,
 leave the VA sound board unbound, or run in the wrong clock domain.
 
+## PC-88VA Hardware Notes
+
+The list below summarizes the PC-88VA hardware described by the PC-88VA
+Technical Manual. The manual mainly describes the first PC-88VA; its
+Music BIOS and ADPCM BIOS sections also cover VA2/VA3 and Sound Board II
+behavior.
+
+- Main CPU: V30/Z80-instruction-compatible CPU at 8 MHz. The manual
+  describes V1/V2 compatibility timing relative to the older uPD780/Z80
+  software environment, but does not name a separate main CPU package.
+- Disk subsystem CPU: Z80-equivalent 4 MHz sub CPU with 8 KB ROM and
+  16 KB RAM for intelligent FDD operation.
+- Interrupt control: uPD8214-equivalent 8-level mode for V1/V2
+  compatibility, and uPD8259-equivalent 13-level mode for V3 operation.
+- DMA: four-channel priority DMA unit; channel 2 is assigned to the FDD
+  interface, with channels 0 and 3 exposed to the bus slots.
+- Timers: CPU internal timer/counter unit with D8253-compatible
+  behavior; the counters are used for the general timer, BEEP frequency,
+  and RS-232C baud generation. The FDD interface also has a motor-control
+  timer, and the sound controller has its own timers.
+- FDD controller: uPD765/D765-compatible FDC for the internal 5-inch
+  2HD/2D drives.
+- Serial controller: uPD8251/D8251-compatible USART for RS-232C.
+- Calendar clock: uPD4990/uPD4990AC-compatible battery-backed clock.
+- Parallel/scanner/system ports: uPD8255/D8255-compatible parallel port
+  interface appears in the scanner and system-port descriptions.
+- Video system: SGP drawing processor, TSP/DPMC display composition,
+  TVRAM, GVRAM, CGROM/CGRAM, 4096-color palette, sprite/text/graphics
+  priority composition, and an optional video-board digitize path.
+- Sound: the base sound controller is YM2203/OPN-class, providing three
+  SSG voices and three FM voices, alongside BEEP and port sound. VA2/VA3
+  and VA Sound Board II Music BIOS support YM2608/OPNA, adding six-FM
+  operation, rhythm functions, and extended channel control.
+- Other I/O: intelligent keyboard interface, Centronics-compatible
+  printer interface, mouse/joystick/tablet port, optional hard disk
+  interface, two general PC-98-compatible expansion slots, and one
+  dedicated video-board slot.
+
 ## Text Encoding Policy
 
 This fork has moved the source tree to modern UTF-8 text.
