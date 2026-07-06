@@ -21,7 +21,8 @@ import sys
 ALLOW = {"AGENTS.md"}
 ALLOW_PREFIXES = ("docs/", ".git", "external/")
 # Tool-mandated basenames that cannot be made lowercase.
-ALLOW_TOOL_BASENAMES = {"README.md", "README.txt", "CMakeLists.txt",
+ALLOW_TOOL_BASENAMES = {"README.md", "README.txt", "BUILD.md",
+                        "CMakeLists.txt",
                         "CMakePresets.json", "SKILL.md", "NOTICE.md",
                         "OFL.txt", "LICENSE", "LICENSE.txt"}
 # Maintainer-approved asset basenames kept in upstream/package spelling.
