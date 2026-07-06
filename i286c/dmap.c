@@ -19,6 +19,11 @@ void dmap_i286(void) {
 		bit = 1;
 		do {
 			if (dmac.working & bit) {
+#if defined(VAEG_FIX) || defined(VAEG_EXT)
+				if (ch->proc.extproc(DMAEXT_DRQ)) {
+					goto next_channel;
+				}
+#endif
 				// DMA working !
 				if (!ch->leng.w) {
 					dmac.stat |= bit;
@@ -56,6 +61,9 @@ void dmap_i286(void) {
 				}
 				ch->adrs.d += ((ch->mode & 0x20)?-1:1);
 			}
+#if defined(VAEG_FIX) || defined(VAEG_EXT)
+next_channel:
+#endif
 			ch++;
 			bit <<= 1;
 		} while(bit & 0x0f);
