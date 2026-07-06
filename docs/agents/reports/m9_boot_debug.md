@@ -1,5 +1,9 @@
 # M9 VA boot differential debug
 
+Status: closed. The boot blocker documented here was resolved on
+`topic/m9-va-portable`; remaining timing notes are carried as known
+frontend/platform issues, not M9 boot blockers.
+
 This report records the comparison setup for the PC-88VA FDC boot path.
 It is instrumentation only; no boot behavior is intentionally changed.
 
@@ -200,3 +204,14 @@ Let the run reach the same failure/success point, then close the emulator.
 Send the complete `m9_legacy_msdos211.log`; do not use a windowed
 DebugView copy, because it drops the power-on prefix and is hard to copy
 when the trace is busy.
+
+## Closed pacing note
+
+The maintainer measured the portable SDL2 build against the v141 reference
+over a 60 second span and found the average tempo within a sub-1% delta.
+The remaining symptom is short-term jitter: notes can stretch and then
+compress. This matches the observed WSLg pacing profile where host present
+stalls feed the catch-up path; one captured `--pacelog` second showed only
+37 executed frames with `max_pending=19`. This is registered as a known
+WSLg/frontend pacing issue. Normative measurement and any platform pacing
+change are deferred to G11 native Windows verification.

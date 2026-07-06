@@ -52,6 +52,7 @@ SDL2 is discovered through `find_package(SDL2)` first, then pkg-config.
 
 Positional arguments mount FDD images in drive 1 and 2. Missing image files
 are rejected with an error instead of silently starting without media.
+`--pacelog` prints pacing counters once per second for jitter diagnosis.
 
 Headless smoke check:
 
