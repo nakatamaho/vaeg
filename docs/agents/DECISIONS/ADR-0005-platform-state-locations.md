@@ -26,7 +26,7 @@ POSSIBILITY OF SUCH DAMAGE.
 
 Date: 2026-07-06
 
-Status: Proposed
+Status: Accepted
 
 ## Decision
 
@@ -41,3 +41,22 @@ uses `~/Library/Application Support/vaeg`. The legacy `win9x/` lineage
 remains exe-relative and unchanged. Exe-relative portable lookup is at
 most a compatibility fallback for explicit assets such as ROM/WAV files,
 not the primary location for writable user state.
+
+`vabkupmem.dat` is writable VA user state. The M9 code currently loads
+and saves it through `getbiospath()` in `iova/bkupmemva.c`, which points
+at the ROM directory and can silently fail for read-only ROM locations.
+M11 changes the primary location to the per-platform user state
+directory. Loading also falls back to `getbiospath()` for migration of
+existing setups; saving always writes the state directory copy.
+
+## Writable Biospath Audit
+
+- `iova/bkupmemva.c`: `vabkupmem.dat` is writable state and is moved as
+  described above.
+- Other portable `getbiospath()` users found in the audit are read-only
+  ROM, WAV, font, dictionary, or key-map assets:
+  `biosva/biosva.c`, `bios/bios.c`, `sound/soundrom.c`,
+  `sound/rhythmc.c`, `fdd/fdd_mtr.c`, `iova/va91.c`, and `keystat.c`.
+- Fixed GUI save-state slots (`state0.nps` through `state9.nps`) are
+  writable state but were not using `getbiospath()`; M11 stores them in
+  the same per-platform state directory.
