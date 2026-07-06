@@ -26,12 +26,18 @@ void fddmtrsnd_bind(void);
 void fddmtrsnd_deinitialize(void);
 void fddmtrsnd_volume(UINT volume);
 void fddmtrsnd_stop(void);
+void fddmtrsnd_seek(BOOL one_track, UINT duration_ms);
+void fddmtrsnd_headload(BOOL one_track);
+void fddmtrsnd_headunload(void);
 #else
 #define	fddmtrsnd_initialize(r)
 #define	fddmtrsnd_bind()
 #define	fddmtrsnd_deinitialize()
 #define	fddmtrsnd_volume(v)
 #define	fddmtrsnd_stop()
+#define	fddmtrsnd_seek(o, d)
+#define	fddmtrsnd_headload(o)
+#define	fddmtrsnd_headunload()
 #endif
 
 #ifdef __cplusplus
