@@ -147,9 +147,10 @@ This is the current license map for the repository. It is a summary, not
 a replacement for the original notices, source headers, and license files.
 
 - Original emulator lineage: this fork is derived from project-vaeg and
-  Neko Project II. The historical `win9x/readme.txt` records that vaeg
-  follows the Neko Project II terms and that its source code is under a
-  modified BSD-style license.
+  [Neko Project II (NP2)](http://www.retropc.net/yui/np2help.html).
+  The historical `win9x/readme.txt` records that vaeg follows the Neko
+  Project II terms: "Neko Project II に準じます。" It also records the source
+  license as: "ソースコードは 修正BSDライセンスとします。"
 - Neko Project II attribution: `win9x/readme.txt` credits "Neko Project
   II (c) NP2 developer team, 1999-2001,2003,2004".
 - Z80 emulation attribution: `win9x/readme.txt` records the PC-8801
