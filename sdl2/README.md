@@ -80,9 +80,16 @@ The ini format is unchanged. The SDL2 frontend looks for `np2.cfg` in:
 
 The directory is created on save when the XDG or home path is used.
 
-For PC-88VA booting, set `SNDboard=200` in `np2.cfg`; a fresh config keeps
-the non-VA soundboard default, leaves the VA Sound Board II unbound, and can
-hang software that waits on the FM timer.
+## Upgrading From An Older Config
+
+Older `np2.cfg` files can keep PC-98 defaults after switching to the
+portable VA build. For PC-88VA booting, check these keys:
+
+- `pc_model=88VA1` or `pc_model=88VA2`: non-VA models can halt at V2.
+- `SNDboard=200`: other values leave the VA Sound Board II unbound and can
+  cause a silent hang in software that waits on the FM timer.
+- `clk_base=3993600` and `clk_mult=2`: stale PC-98 clock settings put the
+  VA in the wrong timing domain.
 
 ## Font Manager Stub
 
