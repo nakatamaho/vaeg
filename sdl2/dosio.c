@@ -344,6 +344,67 @@ short file_dircreate(const char *path) {
 #endif
 }
 
+static void file_append_userdir(char *path, const char *name, int size) {
+
+	file_setseparator(path, size);
+	file_catname(path, name, size);
+	file_setseparator(path, size);
+	(void)file_dircreate(path);
+}
+
+void file_getuserdir(char *path, int size) {
+
+#if defined(WIN32)
+const char	*base;
+
+	base = getenv("APPDATA");
+	if ((base == NULL) || (base[0] == '\0')) {
+		file_cpyname(path, "./", size);
+		return;
+	}
+	file_cpyname(path, base, size);
+	file_append_userdir(path, "vaeg", size);
+#elif defined(__APPLE__)
+const char	*home;
+
+	home = getenv("HOME");
+	if ((home == NULL) || (home[0] == '\0')) {
+		file_cpyname(path, "./", size);
+		return;
+	}
+	file_cpyname(path, home, size);
+	file_append_userdir(path, "Library", size);
+	file_append_userdir(path, "Application Support", size);
+	file_append_userdir(path, "vaeg", size);
+#else
+const char	*base;
+const char	*home;
+
+	base = getenv("XDG_CONFIG_HOME");
+	if ((base == NULL) || (base[0] == '\0')) {
+		home = getenv("HOME");
+		if ((home == NULL) || (home[0] == '\0')) {
+			file_cpyname(path, "./", size);
+			return;
+		}
+		file_cpyname(path, home, size);
+		file_append_userdir(path, ".config", size);
+	}
+	else {
+		file_cpyname(path, base, size);
+		file_setseparator(path, size);
+		(void)file_dircreate(path);
+	}
+	file_append_userdir(path, "vaeg", size);
+#endif
+}
+
+void file_getstatepath(char *path, int size, const char *name) {
+
+	file_getuserdir(path, size);
+	file_catname(path, name, size);
+}
+
 
 /* カレントファイル操作 */
 void file_setcd(const char *exepath) {

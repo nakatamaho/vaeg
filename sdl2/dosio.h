@@ -104,6 +104,8 @@ FILEH file_open_rb_c(const char *path);
 FILEH file_create_c(const char *path);
 short file_delete_c(const char *path);
 short file_attr_c(const char *path);
+void file_getuserdir(char *path, int size);
+void file_getstatepath(char *path, int size, const char *name);
 
 FLISTH file_list1st(const char *dir, FLINFO *fli);
 BOOL file_listnext(FLISTH hdl, FLINFO *fli);
