@@ -310,36 +310,9 @@ const INITBL	*pterm;
 static const char ini_title[] = "NekoProjectII";
 static const char inifile[] = "np2.cfg";
 
-static void getconfigdir(char *path, int size) {
-
-const char	*base;
-const char	*home;
-
-	base = getenv("XDG_CONFIG_HOME");
-	if ((base == NULL) || (base[0] == '\0')) {
-		home = getenv("HOME");
-		if ((home == NULL) || (home[0] == '\0')) {
-			file_cpyname(path, "./", size);
-			return;
-		}
-		file_cpyname(path, home, size);
-		file_setseparator(path, size);
-		file_catname(path, ".config", size);
-	}
-	else {
-		file_cpyname(path, base, size);
-	}
-	file_setseparator(path, size);
-	(void)file_dircreate(path);
-	file_catname(path, "vaeg", size);
-	file_setseparator(path, size);
-	(void)file_dircreate(path);
-}
-
 static void getinipath(char *path, int size) {
 
-	getconfigdir(path, size);
-	file_catname(path, inifile, size);
+	file_getstatepath(path, size, inifile);
 }
 
 static const INITBL iniitem[] = {
