@@ -117,8 +117,57 @@ configuration and instrumentation.
 
 ## First divergence
 
-Pending legacy log. No causal hypothesis is recorded yet because the
-portable side alone cannot identify the first divergent operation.
+Legacy capture:
+`docs/agents/reports/m9_legacy_msdos211.log`
+
+The first mechanical mismatch in the shared trace stream is an early
+Intelligent-mode seek result:
+
+```text
+legacy:   docs/agents/reports/m9_legacy_msdos211.log:153
+          fdctrace cmd=08/SenseInterruptStatus ... st=20/14/ff
+portable: docs/agents/reports/m9_portable_msdos211.log:48
+          fdctrace cmd=08/SenseInterruptStatus ... st=20/0a/ff
+```
+
+That mismatch is not yet treated as the boot blocker because both runs
+recover and later return the same boot sector through the subsystem FIFO:
+legacy line 1825 and portable line 169 both begin with
+`eb 1c 90 38 38 56 41`.
+
+The first boot-critical divergence is after the guest writes `01b0h <- 01`
+and switches from Intelligent mode to direct DMA mode:
+
+```text
+legacy:   docs/agents/reports/m9_legacy_msdos211.log:1955
+portable: docs/agents/reports/m9_portable_msdos211.log:251
+```
+
+The next direct-mode `ReadData` operation has matching command, status,
+DMA channel, `sysm_bank`, and target range, but the portable build only
+services 35 bytes before the FDC operation completes:
+
+```text
+legacy:   docs/agents/reports/m9_legacy_msdos211.log:2335
+          fdctrace cmd=46/ReadData drive=0 C=00 H=00 R=02 N=03 \
+          mode=01/direct req=7168 st=00/00/00 xfer=1024 dma_ch=02 \
+          sysm_bank=01 dma_len=1023 dma_range=32000-323fe
+
+portable: docs/agents/reports/m9_portable_msdos211.log:379
+          fdctrace cmd=46/ReadData drive=0 C=00 H=00 R=02 N=03 \
+          mode=01/direct req=7168 st=00/00/00 xfer=35 dma_ch=02 \
+          sysm_bank=01 dma_len=1023 dma_range=32000-323fe
+```
+
+Causal hypothesis: the direct-mode FDC command is correct, and the DMAC is
+programmed to the same channel/range in both builds. The failure is that
+the portable CPU/DMAC loop does not consume a full 1024-byte sector before
+the FDC completes the command. This points at portable DMA service cadence
+or V30 DMA dispatch rather than disk geometry, side/track addressing, or
+`sysm_bank` selection. One concrete audit point is that the legacy V30
+loop calls `dmap_i286` (`i286x/v30patch.cpp:2418`), while the portable
+V30 loop currently calls `dmap_v30` (`i286c/v30patch.c:1420`). Do not fix
+this in the trace commit; verify it in the next implementation step.
 
 ## Legacy capture recipe
 
