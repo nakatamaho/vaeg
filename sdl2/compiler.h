@@ -38,21 +38,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/time.h>
 #include <time.h>
 #include <unistd.h>
 
 #if defined(_WIN32) && !defined(WIN32)
 #define WIN32
-#endif
-
-#if defined(WIN32)
-#ifdef __cplusplus
-extern "C" {
-#endif
-__declspec(dllimport) unsigned long __stdcall GetTickCount(void);
-#ifdef __cplusplus
-}
-#endif
 #endif
 
 #if !defined(WIN32)
@@ -174,16 +165,14 @@ typedef uint32_t DWORD;
 
 static INLINE UINT32 vaeg_gettick(void) {
 
-#if defined(WIN32)
-	return (UINT32)GetTickCount();
-#else
-	struct timespec ts;
+	struct timeval tv;
+	UINT64 msec;
 
-	if (clock_gettime(CLOCK_MONOTONIC, &ts) != 0) {
+	if (gettimeofday(&tv, NULL) != 0) {
 		return 0;
 	}
-	return (UINT32)((ts.tv_sec * 1000u) + (ts.tv_nsec / 1000000u));
-#endif
+	msec = ((UINT64)tv.tv_sec * 1000) + ((UINT64)tv.tv_usec / 1000);
+	return (UINT32)msec;
 }
 
 #define GETTICK() vaeg_gettick()
