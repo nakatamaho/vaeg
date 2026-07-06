@@ -42,6 +42,7 @@
 #include	"fdc.h"
 #include	"timing.h"
 #include	"keystat.h"
+#include	"bkupmemva.h"
 #include	"gui/gui.h"
 
 		NP2OSCFG	np2oscfg = {0, 0, 0, 0, 0, 1, 0};
@@ -611,6 +612,9 @@ int main(int argc, char **argv) {
 	sysmng_initialize();
 	taskmng_initialize();
 	pccore_init();
+#if defined(SUPPORT_PC88VA)
+	bkupmemva_load();
+#endif
 	S98_init();
 
 	pccore_reset();
@@ -622,6 +626,9 @@ int main(int argc, char **argv) {
 	if ((!smoke) && (sys_updates & (SYS_UPDATECFG | SYS_UPDATEOSCFG))) {
 		initsave();
 	}
+#if defined(SUPPORT_PC88VA)
+	bkupmemva_save();
+#endif
 	pccore_term();
 	S98_trash();
 	soundmng_deinitialize();

@@ -32,22 +32,35 @@ static BOOL bkupmemva_read(const char *path) {
 	return(FAILURE);
 }
 
+static void bkupmemva_statepath(char *path, int size) {
+
+#if defined(OSLANG_SJIS)
+	getbiospath(path, VABKUPMEM, size);
+#elif defined(OSLANG_UTF8)
+	file_getstatepath(path, size, VABKUPMEM);
+#else
+	getbiospath(path, VABKUPMEM, size);
+#endif
+}
+
 void bkupmemva_load(void) {
 	char	path[MAX_PATH];
 
-	file_getstatepath(path, sizeof(path), VABKUPMEM);
+	bkupmemva_statepath(path, sizeof(path));
 	if (bkupmemva_read(path) == SUCCESS) {
 		return;
 	}
+#if defined(OSLANG_UTF8) && !defined(OSLANG_SJIS)
 	getbiospath(path, VABKUPMEM, sizeof(path));
 	(void)bkupmemva_read(path);
+#endif
 }
 
 void bkupmemva_save(void) {
 	char	path[MAX_PATH];
 	FILEH	fh;
 
-	file_getstatepath(path, sizeof(path), VABKUPMEM);
+	bkupmemva_statepath(path, sizeof(path));
 	fh = file_create(path);
 	if (fh != FILEH_INVALID) {
 		(void)file_write(fh, backupmem, 0x04000);
