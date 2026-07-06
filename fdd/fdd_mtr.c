@@ -19,6 +19,8 @@ enum {
 
 static struct {
 	UINT	enable;
+	UINT	headloaded;
+	UINT	headoffevent;
 	struct {
 		PMIXHDR	hdr;
 		PMIXTRK	trk[FDDMTRSND_TRACKS];
@@ -119,6 +121,7 @@ static void fddmtrsnd_play(UINT num, BOOL play) {
 enum {
 	MOVE1TCK_MS		= 15,
 	MOVEMOTOR1_MS	= 25,
+	HEADUNLOAD_MS	= 2000,
 	DISK1ROL_MS		= 166
 };
 
@@ -134,6 +137,8 @@ void fddmtrsnd_stop(void) {
 	for (i=0; i<FDDMTRSND_TRACKS; i++) {
 		fddmtrsnd_play(i, FALSE);
 	}
+	mtrsnd.headloaded = FALSE;
+	mtrsnd.headoffevent = 0;
 	fddmtr.curevent = 0;
 }
 
@@ -157,6 +162,10 @@ void fddmtrsnd_seek(BOOL one_track, UINT duration_ms) {
 
 void fddmtrsnd_headload(BOOL one_track) {
 
+	if (mtrsnd.headloaded) {
+		mtrsnd.headoffevent = 0;
+		return;
+	}
 	fddmtrsnd_play(FDDMTRSND_HEADOFF, FALSE);
 	if (one_track) {
 		fddmtrsnd_play(FDDMTRSND_SEEK1, FALSE);
@@ -166,12 +175,15 @@ void fddmtrsnd_headload(BOOL one_track) {
 		fddmtrsnd_play(FDDMTRSND_HEADON, FALSE);
 		fddmtrsnd_play(FDDMTRSND_HEADON, TRUE);
 	}
+	mtrsnd.headloaded = TRUE;
+	mtrsnd.headoffevent = 0;
 }
 
 void fddmtrsnd_headunload(void) {
 
-	fddmtrsnd_play(FDDMTRSND_HEADOFF, FALSE);
-	fddmtrsnd_play(FDDMTRSND_HEADOFF, TRUE);
+	if (mtrsnd.headloaded) {
+		mtrsnd.headoffevent = GETTICK() + HEADUNLOAD_MS;
+	}
 }
 #endif
 
@@ -209,6 +221,15 @@ void fddmtr_callback(UINT time) {
 	if ((fddmtr.curevent) && (time >= fddmtr.nextevent)) {
 		fddmtr_event();
 	}
+#if defined(SUPPORT_SWSEEKSND)
+	if ((mtrsnd.headloaded) && (mtrsnd.headoffevent) &&
+		(time >= mtrsnd.headoffevent)) {
+		fddmtrsnd_play(FDDMTRSND_HEADOFF, FALSE);
+		fddmtrsnd_play(FDDMTRSND_HEADOFF, TRUE);
+		mtrsnd.headloaded = FALSE;
+		mtrsnd.headoffevent = 0;
+	}
+#endif
 }
 
 void fdbiosout(NEVENTITEM item) {
