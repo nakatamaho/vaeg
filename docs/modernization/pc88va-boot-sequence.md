@@ -176,12 +176,59 @@ touches the VA mode-switch and system-port state:
   V1/V2/V3 mode LEDs from bits 4..6 of that value and calls
   `sysmng_modeled()`.
 
+The ROM-side evidence for this neighborhood is stronger than the display
+string evidence. `VAROM1.ROM:0x12DC` writes a byte from `B000:1FC5` to
+port `01C6h` during the early setup block. Later ROM code explicitly uses
+port `01CFh` at `0x1459` and `0x2C70`; the `0x1459` routine also steps
+down to port `01CDh` and writes the full system-port latch. The emulator
+side then updates the visible mode LEDs from that latch.
+
+No plain ASCII `V2S` string has been found in `VAROM1.ROM`, so the visible
+`V2S` text is probably drawn through a ROM bitmap, font, or text routine
+rather than as a direct ASCII literal. That keeps the exact text-drawing
+site unresolved.
+
 Therefore the `V2S` display and the V1/V2/V3 lamp state are expected to be
 controlled by the ROM in this early V30-side setup or immediately after
 the handoff described below. They should not be attributed to the FDD
 subsystem Z80.
 
 ## BRKEM2 Handoff Candidate
+
+Before reaching the candidate handoff, the ROM installs interrupt vectors.
+The relevant routine starts at `VAROM1.ROM:0x13ED` and is called at
+`0x1364`. It first fills the interrupt-vector table with safe default
+handlers, then applies a small override table at `VAROM1.ROM:0x0F5E`.
+The important entries in that table are:
+
+```text
+7C -> F000:1944
+7D -> F000:1944
+7E -> F000:1920
+90 -> 1000:0000
+91 -> F000:24B0
+95 -> 1000:E000
+```
+
+The `7Ch` and `7Dh` vectors match the technical-manual I/O-trap vectors
+for IN and OUT traps. The `90h` vector is the important handoff clue:
+the ROM explicitly prepares vector `90h` before executing `BRKEM2 90h`.
+That makes `90h` look intentional, not an accidental immediate byte.
+
+There is one branch before the handoff. After installing vectors, the ROM
+tests port `000Dh` bit 2 through the helper at `0x13E6`:
+
+```asm
+1364: call 13edh       ; install vectors
+1367: call 13e6h       ; read port 000Dh, mask 04h
+136a: jz   13d2h       ; alternate path, no BRKEM2 in this block
+```
+
+The non-zero path enables I/O traps by calling `0x18E7`, which writes
+`03h` to `FFEFh`, then runs the memory/display setup immediately before
+the handoff. The zero path sets `[2F07h]=1`, writes `91h` to port `FFh`,
+runs the shared later initialization, and jumps back into the ROM instead
+of executing the `BRKEM2 90h` sequence in this block.
 
 Near `VAROM1.ROM:0x13A8`, the ROM prepares segment state and then emits
 the VA-specific mode-transition opcode:
@@ -201,10 +248,95 @@ technical-manual correction is that `0F FE nn` is `BRKEM2 nn`, the
 transition from V30 mode to uPD780/Z80-compatible mode. The `nn` byte here
 is `90h`.
 
+The static evidence is high that the bytes at `0x13B1` are intended as
+`BRKEM2 90h`: the surrounding stream is valid 16-bit V30 setup code, the
+bytes sit at an instruction boundary after `mov es,ax`, and `0F FE nn` is
+the VA-specific handoff encoding. The vector setup above strengthens this:
+the ROM has just installed vector `90h` as `1000:0000`, then executes
+`BRKEM2 90h`. What is not yet proven by this note is that every boot
+configuration reaches this exact instruction. The nearby `000Dh` branch
+means a CS:IP trace is still the right way to prove execution for a
+specific ROM/configuration pair.
+
 After the `BRKEM2` byte sequence, the following V30-side code disables the
 I/O trap by writing `00h` to `FFEFh`, then continues with more bank and
 control setup. That post-handoff path only makes sense after the
 uPD780/Z80-compatible handler returns control to the V30 side.
+
+The return model is therefore an inference from control flow and the
+uPD9002 mode-transition definition. The post-`BRKEM2` bytes disassemble as
+ordinary V30 code beginning at `0x13B4`:
+
+```asm
+13b4: cli
+13b5: call 18eeh    ; writes 00h to FFEFh, disabling I/O trap
+13bd: mov dx,0152h
+13c0: in ax,dx
+13c1: or ax,4000h
+13c4: out dx,ax
+13cd: jmp 1000h:c003h
+```
+
+That makes sense only if the compatibility-mode handler eventually returns
+to the V30 stream after the three-byte `BRKEM2 90h` instruction. The exact
+return instruction or ROM handler that performs this return has not yet
+been identified.
+
+The far jump at `0x13CD` is also important:
+
+```asm
+13cd: jmp 1000h:c003h
+```
+
+This target is physical address `0x1C003`, not `VAROM1.ROM` offset
+`0xC003`. It is therefore RAM-side code from the CPU's point of view. The
+static ROM search found the same byte pattern only once in `VAROM1.ROM`
+and found no direct `mov si,C000h` / `mov di,C000h` copy loop in this ROM
+region. The working hypothesis is that the `BRKEM2 90h` compatibility path
+or another RAM setup routine prepares the `1000:C003` code before the V30
+side jumps there. That is another reason the missing main-CPU uPD780/Z80
+mode matters: it may be responsible for preparing the next-stage RAM code.
+
+## Post-BRKEM2 V30 Resume
+
+The shared post-handoff initializer starts at `0x2210`; both the BRKEM2
+resume path and the alternate `0x13D2` path call it after setting
+`SS=3000h`.
+
+`0x2210` is a dispatcher:
+
+```asm
+2210: call 2220h
+2213: call 0e84h
+2216: call 2233h
+2219: call 240bh
+221c: call 2252h
+221f: ret
+```
+
+The subroutines perform these visible tasks:
+
+- `0x2220`: emits a 16-entry port table. The parsed table writes
+  `01CDh=B8h`, then initializes slave/master PIC ports
+  `0184h/0186h` and `0188h/018Ah`; it also writes `0158h=00h`.
+- `0x0E84`: installs 51 interrupt vectors from the table at
+  `0x0DD9`, including BIOS/service vectors `80h`, `81h`, `88h`,
+  `89h`, `8Ah`, `92h`, `B8h`, `B9h`, and others.
+- `0x2233`: clears low memory under segment `0040h` and initializes
+  several work bytes used by the later BIOS path.
+- `0x240B`: temporarily maps/opens the `B000:1FC0` backup-memory area,
+  checks ports `01E0h` and `01F0h`, updates flags/checksum bytes in the
+  backup area, then restores the ROM bank and backup write-protect state.
+- `0x2252`: runs the larger BIOS/device initialization sequence. It calls
+  many service routines through the early ROM jump table, sends TSP
+  commands through `0x18C8`, adjusts PIC masks, executes BIOS interrupts
+  such as `INT 80h`, `INT 81h`, `INT 89h`, and `INT B9h`, and finally
+  calls far ROM service `F000:9400`.
+
+The `0x2252` path is conditional on `[2F07h]`. The alternate branch at
+`0x13D2` sets `[2F07h]=1`; the BRKEM2 path leaves it clear. When clear,
+`0x2252` executes the broader interrupt/service initialization before the
+later `1000:C003` jump.
 
 Current emulator status:
 
@@ -229,12 +361,31 @@ The current working model is:
    uPD9002 control ports, I/O traps, PIT, PIC, and DMAC.
 6. The ROM updates mode-switch / system-port state near the same phase;
    this is the likely neighborhood for V2S display and mode-lamp setup.
-7. The ROM reaches `BRKEM2 90h` at offset 13B1h, which should enter the
-   main CPU uPD780/Z80-compatible mode.
-8. Returning from that compatibility path should resume the V30-side code
-   after the BRKEM2 instruction.
+7. The ROM installs vector `90h -> 1000:0000`, enables I/O traps, and
+   reaches `BRKEM2 90h` at offset 13B1h on the non-zero `000Dh & 04h`
+   path.
+8. Returning from that compatibility path resumes V30 code at `13B4h`,
+   disables I/O traps, updates bank/control state, and calls the shared
+   initializer at `2210h`.
+9. The shared initializer programs system/PIC ports, installs BIOS
+   interrupt vectors, updates low-memory and backup-memory state, runs
+   BIOS/device initialization, and returns.
+10. The BRKEM2 path then jumps to RAM at `1000:C003`; the producer of
+   that RAM code remains to be proven, with the BRKEM2 handler the leading
+   hypothesis.
 ```
 
 The unresolved emulator gap is step 7: the project currently emulates the
 FDD subsystem Z80, but not the main CPU uPD780/Z80-compatible mode entered
 by `BRKEM2`.
+
+## Confidence
+
+| Step | Confidence | Reason |
+| ---- | ---------- | ------ |
+| 1-5 | High | These are direct reset-vector, memory-map, ROM-byte, and I/O-port observations, and they line up with current source bindings. |
+| 6 | Medium | The ROM definitely updates the mode-switch/system-port neighborhood, and the emulator definitely derives LEDs from `sysportva.c`. The exact `V2S` drawing routine is still unidentified. |
+| 7 | High for opcode identity; medium-high for runtime execution | The ROM explicitly installs vector `90h -> 1000:0000` before executing `0F FE 90` at a valid instruction boundary. The remaining uncertainty is path coverage: the nearby `000Dh` branch can skip this block. |
+| 8 | Medium-high for the V30 resume block | The code immediately after `BRKEM2` is coherent V30 code: disable I/O trap, send TSP/control commands, set bank state, set `SS=3000h`, and call `2210h`. The exact return-from-uPD780/Z80 mechanism has not been located yet. |
+| 9 | Medium-high | `2210h` and its callees are statically visible and line up with emulator port bindings and interrupt-vector setup. Semantic labels for every BIOS service call are not complete. |
+| 10 | Medium | `1000:C003` is clearly a RAM target, not ROM1 offset `C003h`. The static ROM search did not find a direct copy loop in this region, so the BRKEM2/vector-90 path is the leading hypothesis for preparing it, but this still needs execution tracing. |
