@@ -16,6 +16,7 @@
 
 #if defined(VAEG_EXT)
 #include	"soundmng.h"
+#include	"fdd_mtr.h"
 #endif
 
 #if defined(SUPPORT_PC88VA)
@@ -672,12 +673,18 @@ static void succeed_seek(int us) {
 }
 
 static void start_seek(int us, int ncn) {
+	int move;
+
 	if (fdc.headpcn[us] == ncn) {
 		succeed_seek(us);
 	}
 	else {
 		fdc.headncn[us] = ncn;
 		if (np2cfg.MOTOR) {
+			move = ncn - fdc.headpcn[us];
+			if (move < 0) {
+				move = 0 - move;
+			}
 			if (fdc.head != FDD_HEAD_UNLOADED && 
 				(ncn == fdc.headpcn[us] + 1 || ncn + 1 == fdc.headpcn[us])) {
 				seek1sound = TRUE;
@@ -686,8 +693,12 @@ static void start_seek(int us, int ncn) {
 				seek1sound = FALSE;
 			}
 			// シーク音
+#if defined(SUPPORT_SWSEEKSND)
+			fddmtrsnd_seek(seek1sound, (UINT)(move * 15));
+#else
 			soundmng_pcmstop(SOUND_PCMSEEK);
 			soundmng_pcmplay(SOUND_PCMSEEK, TRUE);
+#endif
 		}
 		unload_head_forcedly();
 		fdc_stepwaitset();
