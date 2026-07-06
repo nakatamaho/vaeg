@@ -33,6 +33,7 @@ typedef struct {
 	SDL_Window		*window;
 	SDL_Renderer	*renderer;
 	SDL_Texture		*texture;
+	char			renderer_backend[64];
 	BYTE			*shadow;
 	int				shadow_pitch;
 	BOOL			visible;
@@ -56,6 +57,25 @@ enum {
 static	SCRNMNG		scrnmng;
 static	SCRNSTAT	scrnstat;
 static	SCRNSURF	scrnsurf;
+
+static void scrnmng_log_renderer(void) {
+
+	SDL_RendererInfo	info;
+	const char			*name;
+	const char			*kind;
+
+	if ((scrnmng.renderer == NULL) ||
+		(SDL_GetRendererInfo(scrnmng.renderer, &info) != 0)) {
+		SDL_Log("SDL renderer backend: unknown");
+		return;
+	}
+	name = (info.name) ? info.name : "unknown";
+	snprintf(scrnmng.renderer_backend, sizeof(scrnmng.renderer_backend),
+			 "%s", name);
+	kind = (info.flags & SDL_RENDERER_ACCELERATED) ?
+					"accelerated" : "software";
+	SDL_Log("SDL renderer backend: %s (%s)", name, kind);
+}
 
 static BOOL scrnmng_upload_shadow(void) {
 
@@ -178,11 +198,16 @@ BOOL scrnmng_create(int width, int height) {
 		return(FAILURE);
 	}
 	scrnmng.renderer = SDL_CreateRenderer(scrnmng.window, -1,
+							SDL_RENDERER_ACCELERATED);
+	if (scrnmng.renderer == NULL) {
+		scrnmng.renderer = SDL_CreateRenderer(scrnmng.window, -1,
 							SDL_RENDERER_SOFTWARE);
+	}
 	if (scrnmng.renderer == NULL) {
 		fprintf(stderr, "Error: SDL_CreateRenderer: %s\n", SDL_GetError());
 		return(FAILURE);
 	}
+	scrnmng_log_renderer();
 	SDL_RenderSetLogicalSize(scrnmng.renderer, 0, 0);
 	scrnmng.texture = SDL_CreateTexture(scrnmng.renderer,
 							SDL_PIXELFORMAT_RGB565,
@@ -251,6 +276,14 @@ void *scrnmng_get_window(void) {
 void *scrnmng_get_renderer(void) {
 
 	return(scrnmng.renderer);
+}
+
+const char *scrnmng_get_renderer_backend(void) {
+
+	if (scrnmng.renderer_backend[0] == '\0') {
+		return("unknown");
+	}
+	return(scrnmng.renderer_backend);
 }
 
 static BOOL scrnmng_update_window_size(void) {
