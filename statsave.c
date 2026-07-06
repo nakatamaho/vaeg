@@ -138,10 +138,12 @@ typedef struct {
 static BOOL proc2num(void *func, const PROCTBL *tbl, int size) {
 
 	int		i;
+	VAEG_INTPTR	*slot;
 
+	slot = (VAEG_INTPTR *)func;
 	for (i=0; i<size; i++) {
-		if (*(long *)func == (long)tbl->proc) {
-			*(long *)func = (long)tbl->id;
+		if (*slot == (VAEG_INTPTR)tbl->proc) {
+			*slot = (VAEG_INTPTR)tbl->id;
 			return(SUCCESS);
 		}
 		tbl++;
@@ -152,10 +154,12 @@ static BOOL proc2num(void *func, const PROCTBL *tbl, int size) {
 static BOOL num2proc(void *func, const PROCTBL *tbl, int size) {
 
 	int		i;
+	VAEG_INTPTR	*slot;
 
+	slot = (VAEG_INTPTR *)func;
 	for (i=0; i<size; i++) {
-		if (*(long *)func == (long)tbl->id) {
-			*(long *)func = (long)tbl->proc;
+		if (*slot == (VAEG_INTPTR)tbl->id) {
+			*slot = (VAEG_INTPTR)tbl->proc;
 			return(SUCCESS);
 		}
 		tbl++;
@@ -529,8 +533,8 @@ static int flagsave_egc(STFLAGH sfh, const SFENTRY *tbl) {
 	_EGC	egcbak;
 
 	egcbak = egc;
-	egcbak.inptr -= (long)egc.buf;
-	egcbak.outptr -= (long)egc.buf;
+	egcbak.inptr = (BYTE *)(VAEG_INTPTR)(egcbak.inptr - egc.buf);
+	egcbak.outptr = (BYTE *)(VAEG_INTPTR)(egcbak.outptr - egc.buf);
 	(void)tbl;
 	return(statflag_write(sfh, &egcbak, sizeof(egcbak)));
 }
@@ -540,8 +544,8 @@ static int flagload_egc(STFLAGH sfh, const SFENTRY *tbl) {
 	int		ret;
 
 	ret = statflag_read(sfh, &egc, sizeof(egc));
-	egc.inptr += (long)egc.buf;
-	egc.outptr += (long)egc.buf;
+	egc.inptr = egc.buf + (VAEG_INTPTR)egc.inptr;
+	egc.outptr = egc.buf + (VAEG_INTPTR)egc.outptr;
 	(void)tbl;
 	return(ret);
 }
@@ -1168,7 +1172,7 @@ static int flagsave_com(STFLAGH sfh, const SFENTRY *tbl) {
 	int		ret;
 	COMFLAG	flag;
 
-	device = (UINT)(long)tbl->arg1;
+	device = (UINT)(VAEG_INTPTR)tbl->arg1;
 	switch(device) {
 		case 0:
 			cm = cm_mpu98;
@@ -1218,7 +1222,7 @@ static int flagload_com(STFLAGH sfh, const SFENTRY *tbl) {
 		goto flcom_err2;
 	}
 
-	device = (UINT)(long)tbl->arg1;
+	device = (UINT)(VAEG_INTPTR)tbl->arg1;
 	switch(device) {
 		case 0:
 			commng_destroy(cm_mpu98);
@@ -1237,7 +1241,7 @@ static int flagload_com(STFLAGH sfh, const SFENTRY *tbl) {
 			break;
 	}
 	if (cm) {
-		cm->msg(cm, COMMSG_SETFLAG, (long)flag);
+		cm->msg(cm, COMMSG_SETFLAG, (VAEG_INTPTR)flag);
 	}
 
 flcom_err2:

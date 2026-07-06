@@ -35,7 +35,7 @@ struct _commng {
 	UINT	(*read)(COMMNG self, BYTE *data);
 	UINT	(*write)(COMMNG self, BYTE data);
 	BYTE	(*getstat)(COMMNG self);
-	long	(*msg)(COMMNG self, UINT msg, long param);
+	VAEG_INTPTR	(*msg)(COMMNG self, UINT msg, VAEG_INTPTR param);
 	void	(*release)(COMMNG self);
 };
 
@@ -88,4 +88,3 @@ void commng_initialize(void);
 #include	"cmserial.h"
 #include	"cmmidi.h"
 #include	"cmpara.h"
-

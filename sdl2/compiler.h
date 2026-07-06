@@ -65,6 +65,8 @@ typedef int32_t SINT32;
 typedef uint32_t UINT32;
 typedef int64_t SINT64;
 typedef uint64_t UINT64;
+typedef intptr_t VAEG_INTPTR;
+typedef uintptr_t VAEG_UINTPTR;
 
 typedef int BOOL;
 typedef char CHAR;
