@@ -28,6 +28,12 @@
 #if defined(WIN32)
 #include <stdlib.h>
 #include <wchar.h>
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
 #include <windows.h>
 
 static inline wchar_t *winutf_from_utf8(const char *src) {
