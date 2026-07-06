@@ -48,6 +48,16 @@
 
 static const UINT smoke_timeout_frames = 600;
 static const UINT max_catchup_frames = 15;
+static const char *smoke_required_roms[] = {
+	"FONT.ROM",
+	"VAFONT.ROM",
+	"VADIC.ROM",
+	"VAROM00.ROM",
+	"VAROM08.ROM",
+	"VAROM1.ROM",
+	"VASUBSYS.ROM",
+	NULL
+};
 
 typedef struct {
 	UINT32	tick;
@@ -74,6 +84,140 @@ static void set_default_rompath(void) {
 	if ((file_attr("romimage") & FILEATTR_DIRECTORY) != 0) {
 		file_cpyname(np2cfg.biospath, "romimage", sizeof(np2cfg.biospath));
 	}
+}
+
+static void smoke_configure_va(void) {
+
+#if defined(SUPPORT_PC88VA)
+	file_cpyname(np2cfg.model, str_VA2, sizeof(np2cfg.model));
+	np2cfg.baseclock = PCBASECLOCK40;
+	np2cfg.multiple = 2;
+	np2cfg.ITF_WORK = 1;
+	np2cfg.EXTMEM = 1;
+	np2cfg.SOUND_SW = 0x0200;
+#endif
+}
+
+static void make_rom_path(char *path, int size, const char *dir,
+													const char *name) {
+
+	if ((dir == NULL) || (dir[0] == '\0')) {
+		file_cpyname(path, name, size);
+		return;
+	}
+	file_cpyname(path, dir, size);
+	file_setseparator(path, size);
+	file_catname(path, name, size);
+}
+
+static BOOL smoke_romdir_complete(const char *dir, char *missing,
+														int missing_size) {
+
+	int		i;
+
+	if ((dir == NULL) || (dir[0] == '\0')) {
+		return(FAILURE);
+	}
+	for (i=0; smoke_required_roms[i] != NULL; i++) {
+		char	path[MAX_PATH];
+		short	attr;
+
+		make_rom_path(path, sizeof(path), dir, smoke_required_roms[i]);
+		attr = file_attr(path);
+		if ((attr == (short)-1) || (attr & FILEATTR_DIRECTORY)) {
+			file_cpyname(missing, path, missing_size);
+			return(FAILURE);
+		}
+	}
+	return(SUCCESS);
+}
+
+static BOOL smoke_try_romdir(const char *dir, char *missing,
+														int missing_size) {
+
+	if (smoke_romdir_complete(dir, missing, missing_size) != SUCCESS) {
+		return(FAILURE);
+	}
+	file_cpyname(np2cfg.biospath, dir, sizeof(np2cfg.biospath));
+	return(SUCCESS);
+}
+
+static BOOL smoke_try_romimage_under(const char *dir, char *missing,
+														int missing_size) {
+
+	char	path[MAX_PATH];
+
+	if ((dir == NULL) || (dir[0] == '\0')) {
+		return(FAILURE);
+	}
+	file_cpyname(path, dir, sizeof(path));
+	file_setseparator(path, sizeof(path));
+	file_catname(path, "romimage", sizeof(path));
+	return(smoke_try_romdir(path, missing, missing_size));
+}
+
+static BOOL smoke_try_disk_romdirs(char *disk[2], char *missing,
+														int missing_size) {
+
+	char	dir[MAX_PATH];
+
+	if (disk[0] == NULL) {
+		return(FAILURE);
+	}
+	file_cpyname(dir, disk[0], sizeof(dir));
+	file_cutname(dir);
+	if (dir[0] == '\0') {
+		file_cpyname(dir, ".", sizeof(dir));
+	}
+	if (smoke_try_romdir(dir, missing, missing_size) == SUCCESS) {
+		return(SUCCESS);
+	}
+	return(smoke_try_romimage_under(dir, missing, missing_size));
+}
+
+static BOOL smoke_try_basepath_romdirs(char *missing, int missing_size) {
+
+	char	*base;
+	BOOL	ret;
+
+	base = SDL_GetBasePath();
+	if (base == NULL) {
+		return(FAILURE);
+	}
+	ret = smoke_try_romdir(base, missing, missing_size);
+	if (ret != SUCCESS) {
+		ret = smoke_try_romimage_under(base, missing, missing_size);
+	}
+	SDL_free(base);
+	return(ret);
+}
+
+static BOOL smoke_resolve_rompath(char *disk[2]) {
+
+	char	missing[MAX_PATH];
+
+	missing[0] = '\0';
+	if (smoke_try_romdir(np2cfg.biospath, missing, sizeof(missing))
+															== SUCCESS) {
+		return(SUCCESS);
+	}
+	if (smoke_try_romdir(".", missing, sizeof(missing)) == SUCCESS) {
+		return(SUCCESS);
+	}
+	if (smoke_try_romdir("romimage", missing, sizeof(missing)) == SUCCESS) {
+		return(SUCCESS);
+	}
+	if (smoke_try_disk_romdirs(disk, missing, sizeof(missing)) == SUCCESS) {
+		return(SUCCESS);
+	}
+	if (smoke_try_basepath_romdirs(missing, sizeof(missing)) == SUCCESS) {
+		return(SUCCESS);
+	}
+	fprintf(stderr,
+			"Error: smoke ROM set incomplete: missing %s; set biospath "
+			"or run from a directory containing VA ROMs\n",
+			(missing[0] != '\0') ? missing : smoke_required_roms[0]);
+	return(FAILURE);
 }
 
 static BOOL check_fdd_image(const char *path) {
@@ -307,6 +451,14 @@ int main(int argc, char **argv) {
 		}
 	}
 	initload();
+	if (smoke) {
+		smoke_configure_va();
+		if (smoke_resolve_rompath(disk) != SUCCESS) {
+			SDL_Quit();
+			dosio_term();
+			return(FAILURE);
+		}
+	}
 	set_default_rompath();
 	if (smoke) {
 		np2oscfg.NOWAIT = 1;
