@@ -62,7 +62,7 @@ void sxsi_initialize(void) {
 
 	ZeroMemory(sxsi_dev, sizeof(sxsi_dev));
 	for (i=0; i<(sizeof(sxsi_dev)/sizeof(_SXSIDEV)); i++) {
-		sxsi_dev[i].fh = (long)FILEH_INVALID;
+		sxsi_dev[i].fh = FILEH_INVALID;
 	}
 }
 
@@ -200,7 +200,7 @@ const char	*ext;
 	sxsi->surfaces = (UINT8)surfaces;
 	sxsi->type = type;
 	sxsi->headersize = headersize;
-	sxsi->fh = (long)fh;
+	sxsi->fh = fh;
 	file_cpyname(sxsi->fname, file, sizeof(sxsi->fname));
 	if (type == (SXSITYPE_IDE | SXSITYPE_HDD)) {
 		sasihddcheck(sxsi);
@@ -244,9 +244,9 @@ void sxsi_flash(void) {
 	sxsi = sxsi_dev;
 	sxsiterm = sxsi + (sizeof(sxsi_dev)/sizeof(_SXSIDEV));
 	while(sxsi < sxsiterm) {
-		if ((FILEH)sxsi->fh != FILEH_INVALID) {
-			file_close((FILEH)sxsi->fh);
-			sxsi->fh = (long)FILEH_INVALID;
+		if (sxsi->fh != FILEH_INVALID) {
+			file_close(sxsi->fh);
+			sxsi->fh = FILEH_INVALID;
 		}
 		sxsi++;
 	}
@@ -260,11 +260,11 @@ void sxsi_trash(void) {
 	sxsi = sxsi_dev;
 	sxsiterm = sxsi + (sizeof(sxsi_dev)/sizeof(_SXSIDEV));
 	while(sxsi < sxsiterm) {
-		if ((FILEH)sxsi->fh != FILEH_INVALID) {
-			file_close((FILEH)sxsi->fh);
+		if (sxsi->fh != FILEH_INVALID) {
+			file_close(sxsi->fh);
 		}
 		ZeroMemory(sxsi, sizeof(_SXSIDEV));
-		sxsi->fh = (long)FILEH_INVALID;
+		sxsi->fh = FILEH_INVALID;
 		sxsi++;
 	}
 }
@@ -277,9 +277,9 @@ static SXSIDEV getdrive(REG8 drv) {
 	if ((ret == NULL) || (ret->fname[0] == '\0')) {
 		return(NULL);
 	}
-	if ((FILEH)ret->fh == FILEH_INVALID) {
-		ret->fh = (long)file_open(ret->fname);
-		if ((FILEH)ret->fh == FILEH_INVALID) {
+	if (ret->fh == FILEH_INVALID) {
+		ret->fh = file_open(ret->fname);
+		if (ret->fh == FILEH_INVALID) {
 			ret->fname[0] = '\0';
 			return(NULL);
 		}
@@ -354,14 +354,14 @@ const _SXSIDEV	*sxsi;
 		return(0x40);
 	}
 	pos = pos * sxsi->size + sxsi->headersize;
-	r = file_seek((FILEH)sxsi->fh, pos, FSEEK_SET);
+	r = file_seek(sxsi->fh, pos, FSEEK_SET);
 	if (pos != r) {
 		return(0xd0);
 	}
 	while(size) {
 		rsize = min(size, sxsi->size);
 		CPU_REMCLOCK -= rsize;
-		if (file_read((FILEH)sxsi->fh, buf, rsize) != rsize) {
+		if (file_read(sxsi->fh, buf, rsize) != rsize) {
 			return(0xd0);
 		}
 		buf += rsize;
@@ -384,14 +384,14 @@ const _SXSIDEV	*sxsi;
 		return(0x40);
 	}
 	pos = pos * sxsi->size + sxsi->headersize;
-	r = file_seek((FILEH)sxsi->fh, pos, FSEEK_SET);
+	r = file_seek(sxsi->fh, pos, FSEEK_SET);
 	if (pos != r) {
 		return(0xd0);
 	}
 	while(size) {
 		wsize = min(size, sxsi->size);
 		CPU_REMCLOCK -= wsize;
-		if (file_write((FILEH)sxsi->fh, buf, wsize) != wsize) {
+		if (file_write(sxsi->fh, buf, wsize) != wsize) {
 			return(0x70);
 		}
 		buf += wsize;
@@ -417,7 +417,7 @@ const _SXSIDEV	*sxsi;
 		return(0x40);
 	}
 	pos = pos * sxsi->size + sxsi->headersize;
-	r = file_seek((FILEH)sxsi->fh, pos, FSEEK_SET);
+	r = file_seek(sxsi->fh, pos, FSEEK_SET);
 	if (pos != r) {
 		return(0xd0);
 	}
@@ -428,11 +428,10 @@ const _SXSIDEV	*sxsi;
 			wsize = min(size, sizeof(work));
 			size -= wsize;
 			CPU_REMCLOCK -= wsize;
-			if (file_write((FILEH)sxsi->fh, work, wsize) != wsize) {
+			if (file_write(sxsi->fh, work, wsize) != wsize) {
 				return(0x70);
 			}
 		}
 	}
 	return(0x00);
 }
-

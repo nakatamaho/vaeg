@@ -18,7 +18,7 @@ static BOOL headwrite(WAVEWR hdl) {
 	rif.sig = WAVE_SIG('R', 'I', 'F', 'F');
 	STOREINTELDWORD(rif.size, filesize);
 	rif.fmt = WAVE_SIG('W', 'A', 'V', 'E');
-	if (file_write((FILEH)hdl->fh, &rif, sizeof(rif)) != sizeof(rif)) {
+	if (file_write(hdl->fh, &rif, sizeof(rif)) != sizeof(rif)) {
 		return(FAILURE);
 	}
 
@@ -26,7 +26,7 @@ static BOOL headwrite(WAVEWR hdl) {
 	rps = blk * hdl->rate;
 	hdr.sig = WAVE_SIG('f', 'm', 't', ' ');
 	STOREINTELDWORD(hdr.size, sizeof(inf));
-	if (file_write((FILEH)hdl->fh, &hdr, sizeof(hdr)) != sizeof(hdr)) {
+	if (file_write(hdl->fh, &hdr, sizeof(hdr)) != sizeof(hdr)) {
 		return(FAILURE);
 	}
 	STOREINTELWORD(inf.format, 1);
@@ -35,13 +35,13 @@ static BOOL headwrite(WAVEWR hdl) {
 	STOREINTELDWORD(inf.rps, rps);
 	STOREINTELWORD(inf.block, blk);
 	STOREINTELWORD(inf.bit, hdl->bits);
-	if (file_write((FILEH)hdl->fh, &inf, sizeof(inf)) != sizeof(inf)) {
+	if (file_write(hdl->fh, &inf, sizeof(inf)) != sizeof(inf)) {
 		return(FAILURE);
 	}
 
 	hdr.sig = WAVE_SIG('d', 'a', 't', 'a');
 	STOREINTELDWORD(hdr.size, hdl->size);
-	if (file_write((FILEH)hdl->fh, &hdr, sizeof(hdr)) != sizeof(hdr)) {
+	if (file_write(hdl->fh, &hdr, sizeof(hdr)) != sizeof(hdr)) {
 		return(FAILURE);
 	}
 	return(SUCCESS);
@@ -53,7 +53,7 @@ static void dataflash(WAVEWR hdl) {
 
 	size = hdl->ptr - hdl->buf;
 	if (size) {
-		hdl->size += file_write((FILEH)hdl->fh, hdl->buf, size);
+		hdl->size += file_write(hdl->fh, hdl->buf, size);
 	}
 	hdl->ptr = hdl->buf;
 	hdl->remain = sizeof(hdl->buf);
@@ -85,7 +85,7 @@ WAVEWR wavewr_open(const char *filename, UINT rate, UINT bits, UINT ch) {
 		goto wwope_err2;
 	}
 	ZeroMemory(ret, sizeof(_WAVEWR));
-	ret->fh = (long)fh;
+	ret->fh = fh;
 	ret->rate = rate;
 	ret->bits = bits;
 	ret->ch = ch;
@@ -133,10 +133,9 @@ void wavewr_close(WAVEWR hdl) {
 
 	if (hdl) {
 		dataflash(hdl);
-		file_seek((FILEH)hdl->fh, 0, FSEEK_SET);
+		file_seek(hdl->fh, 0, FSEEK_SET);
 		headwrite(hdl);
-		file_close((FILEH)hdl->fh);
+		file_close(hdl->fh);
 		_MFREE(hdl);
 	}
 }
-
