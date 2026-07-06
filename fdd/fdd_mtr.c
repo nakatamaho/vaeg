@@ -97,12 +97,32 @@ enum {
 
 	_FDDMTR		fddmtr;
 
+static void fddmtr_event(void);
+
 #if defined(SUPPORT_SWSEEKSND)
 void fddmtrsnd_stop(void) {
 
 	fddmtrsnd_play(0, FALSE);
 	fddmtrsnd_play(1, FALSE);
 	fddmtr.curevent = 0;
+}
+
+void fddmtrsnd_seek(BOOL one_track, UINT duration_ms) {
+
+	if (one_track) {
+		if (fddmtr.curevent < 80) {
+			fddmtr_event();
+			fddmtrsnd_play(1, TRUE);
+			fddmtr.curevent = 80;
+			fddmtr.nextevent = GETTICK() + MOVEMOTOR1_MS;
+		}
+	}
+	else if (fddmtr.curevent < 100) {
+		fddmtr_event();
+		fddmtrsnd_play(0, TRUE);
+		fddmtr.curevent = 100;
+		fddmtr.nextevent = GETTICK() + duration_ms;
+	}
 }
 #endif
 
