@@ -10,13 +10,16 @@
 #include	"iocore.h"
 #include	"fddfile.h"
 
+#if defined(SUPPORT_SWSEEKSND)
+#include	"fdd_mtr.h"
+#endif
+
 #if defined(VAEG_FIX)
 #include	"sysmng.h"
 #endif
 
 #if defined(VAEG_EXT)
 #include	"soundmng.h"
-#include	"fdd_mtr.h"
 #endif
 
 #if defined(SUPPORT_PC88VA)
@@ -412,6 +415,26 @@ static void fdc_trace_emit_status(UINT8 st0) {
 
 	fdc_trace_output(st0, 0xff, 0xff);
 }
+
+#if defined(SUPPORT_SWSEEKSND)
+static void fdc_play_seek_sound(int us, int ncn) {
+
+	int	move;
+
+	if (!np2cfg.MOTOR) {
+		return;
+	}
+	move = ncn - fdc.treg[us];
+	if (move < 0) {
+		move = 0 - move;
+	}
+	if (move) {
+		fddmtrsnd_seek(move == 1, (UINT)(move * 15));
+	}
+}
+#else
+#define fdc_play_seek_sound(u, n)
+#endif
 
 
 #if defined(VAEG_EXT)
@@ -1470,6 +1493,7 @@ static void FDC_Recalibrate(void) {						// cmd: 07
 				fdc.stat[fdc.us] |= FDCRLT_NR;
 			}
 			else {
+				fdc_play_seek_sound(fdc.us, fdc.ncn);
 				fdd_seek();
 			}
 			fdc_interrupt();
@@ -1711,6 +1735,7 @@ static void FDC_Seek(void) {							// cmd: 0f
 				fdc.stat[fdc.us] |= FDCRLT_NR | FDCRLT_IC0;
 			}
 			else {
+				fdc_play_seek_sound(fdc.us, fdc.ncn);
 				fdd_seek();
 			}
 			fdc_interrupt();
