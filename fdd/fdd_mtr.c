@@ -18,6 +18,15 @@ static struct {
 	}		snd;
 } mtrsnd;
 
+static void fddmtrsnd_load(PMIXDAT *dat, const char *fname,
+											void *fallback, UINT fallbacksize,
+											UINT rate) {
+
+	if (pcmmix_regfile(dat, fname, rate) != SUCCESS) {
+		pcmmix_regist(dat, fallback, fallbacksize, rate);
+	}
+}
+
 void fddmtrsnd_initialize(UINT rate) {
 
 	ZeroMemory(&mtrsnd, sizeof(mtrsnd));
@@ -26,11 +35,11 @@ void fddmtrsnd_initialize(UINT rate) {
 	}
 	mtrsnd.enable = 1;
 	mtrsnd.snd.hdr.enable = 3;
-	pcmmix_regist(&mtrsnd.snd.trk[0].data,
-							(void *)fddseek, sizeof(fddseek), rate);
+	fddmtrsnd_load(&mtrsnd.snd.trk[0].data,
+							"seek.wav", (void *)fddseek, sizeof(fddseek), rate);
 	mtrsnd.snd.trk[0].flag = PMIXFLAG_L | PMIXFLAG_R | PMIXFLAG_LOOP;
-	pcmmix_regist(&mtrsnd.snd.trk[1].data,
-							(void *)fddseek1, sizeof(fddseek1), rate);
+	fddmtrsnd_load(&mtrsnd.snd.trk[1].data,
+							"seek1.wav", (void *)fddseek1, sizeof(fddseek1), rate);
 	mtrsnd.snd.trk[1].flag = PMIXFLAG_L | PMIXFLAG_R;
 	fddmtrsnd_volume(np2cfg.MOTORVOL);
 }
