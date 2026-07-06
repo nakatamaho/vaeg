@@ -59,7 +59,8 @@
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
         "VAEG_WERROR": "OFF",
-        "VAEG_WINDOWS_CONSOLE": "OFF"
+        "VAEG_WINDOWS_CONSOLE": "OFF",
+        "VAEG_FETCH_SDL2": "ON"
       }
     },
     {

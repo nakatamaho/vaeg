@@ -45,7 +45,19 @@
 #define WIN32
 #endif
 
+#if defined(WIN32)
+#ifdef __cplusplus
+extern "C" {
+#endif
+__declspec(dllimport) unsigned long __stdcall GetTickCount(void);
+#ifdef __cplusplus
+}
+#endif
+#endif
+
+#if !defined(WIN32)
 #define X11
+#endif
 #define OSLANG_UTF8
 #define OSLINEBREAK_LF
 #define SDL_MAIN_HANDLED
@@ -162,12 +174,16 @@ typedef uint32_t DWORD;
 
 static INLINE UINT32 vaeg_gettick(void) {
 
+#if defined(WIN32)
+	return (UINT32)GetTickCount();
+#else
 	struct timespec ts;
 
 	if (clock_gettime(CLOCK_MONOTONIC, &ts) != 0) {
 		return 0;
 	}
 	return (UINT32)((ts.tv_sec * 1000u) + (ts.tv_nsec / 1000000u));
+#endif
 }
 
 #define GETTICK() vaeg_gettick()
