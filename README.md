@@ -2,6 +2,13 @@
 
 http://www.pc88.gr.jp/vaeg/
 
+## Portable phase-2 build
+
+Portable Linux / Windows MinGW / macOS builds use CMake and SDL2. See
+`BUILD.md` for current build recipes, runtime state locations, and the
+PC-88VA `np2.cfg` prerequisites. The older repository notes below are
+historical and do not describe the phase-2 UTF-8/LF source policy.
+
 ## リポジトリの諸設定
 
 * ファイル
@@ -40,5 +47,4 @@ http://www.pc88.gr.jp/vaeg/
 * コミットログの表示は、 `git config i18n.logOutputEncoding cp932` でも OK だが、git rebase 時に化ける問題があり、利用できない。
 * この設定でも次の場合は文字化けする。
     * git show: 異なる文字コードが混在。コミットメッセージ(UTF-8)は化ける。ファイル(CP932)は正常。
-
 
