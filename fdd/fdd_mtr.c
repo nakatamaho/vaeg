@@ -4,7 +4,6 @@
 #include	"fdd_mtr.h"
 #if defined(SUPPORT_SWSEEKSND)
 #include	"sound.h"
-#include	"fdd_mtr.res"
 #endif
 
 
@@ -26,9 +25,7 @@ static struct {
 	}		snd;
 } mtrsnd;
 
-static void fddmtrsnd_load(PMIXDAT *dat, const char *fname,
-											void *fallback, UINT fallbacksize,
-											UINT rate) {
+static void fddmtrsnd_load(PMIXDAT *dat, const char *fname, UINT rate) {
 
 	char	path[MAX_PATH];
 
@@ -36,12 +33,7 @@ static void fddmtrsnd_load(PMIXDAT *dat, const char *fname,
 	if (pcmmix_regfile(dat, path, rate) == SUCCESS) {
 		return;
 	}
-	if (pcmmix_regfile(dat, fname, rate) == SUCCESS) {
-		return;
-	}
-	if ((fallback != NULL) && (fallbacksize != 0)) {
-		pcmmix_regist(dat, fallback, fallbacksize, rate);
-	}
+	pcmmix_regfile(dat, fname, rate);
 }
 
 void fddmtrsnd_initialize(UINT rate) {
@@ -53,17 +45,17 @@ void fddmtrsnd_initialize(UINT rate) {
 	mtrsnd.enable = 1;
 	mtrsnd.snd.hdr.enable = (1 << FDDMTRSND_TRACKS) - 1;
 	fddmtrsnd_load(&mtrsnd.snd.trk[FDDMTRSND_SEEK].data,
-							"seek.wav", (void *)fddseek, sizeof(fddseek), rate);
+							"seek.wav", rate);
 	mtrsnd.snd.trk[FDDMTRSND_SEEK].flag =
 										PMIXFLAG_L | PMIXFLAG_R | PMIXFLAG_LOOP;
 	fddmtrsnd_load(&mtrsnd.snd.trk[FDDMTRSND_SEEK1].data,
-							"seek1.wav", (void *)fddseek1, sizeof(fddseek1), rate);
+							"seek1.wav", rate);
 	mtrsnd.snd.trk[FDDMTRSND_SEEK1].flag = PMIXFLAG_L | PMIXFLAG_R;
 	fddmtrsnd_load(&mtrsnd.snd.trk[FDDMTRSND_HEADON].data,
-							"headon.wav", NULL, 0, rate);
+							"headon.wav", rate);
 	mtrsnd.snd.trk[FDDMTRSND_HEADON].flag = PMIXFLAG_L | PMIXFLAG_R;
 	fddmtrsnd_load(&mtrsnd.snd.trk[FDDMTRSND_HEADOFF].data,
-							"headoff.wav", NULL, 0, rate);
+							"headoff.wav", rate);
 	mtrsnd.snd.trk[FDDMTRSND_HEADOFF].flag = PMIXFLAG_L | PMIXFLAG_R;
 	fddmtrsnd_volume(np2cfg.MOTORVOL);
 }
