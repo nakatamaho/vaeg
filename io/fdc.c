@@ -416,6 +416,25 @@ static void fdc_trace_emit_status(UINT8 st0) {
 	fdc_trace_output(st0, 0xff, 0xff);
 }
 
+#if defined(SUPPORT_SWSEEKSND) && !defined(VAEG_EXT)
+static void fdc_play_head_load_sound(BOOL one_track) {
+
+	if (np2cfg.MOTOR) {
+		fddmtrsnd_headload(one_track);
+	}
+}
+
+static void fdc_play_head_unload_sound(void) {
+
+	if (np2cfg.MOTOR) {
+		fddmtrsnd_headunload();
+	}
+}
+#else
+#define fdc_play_head_load_sound(o)
+#define fdc_play_head_unload_sound()
+#endif
+
 #if defined(SUPPORT_SWSEEKSND)
 static void fdc_play_seek_sound(int us, int ncn) {
 
@@ -430,6 +449,7 @@ static void fdc_play_seek_sound(int us, int ncn) {
 	}
 	if (move) {
 		fddmtrsnd_seek(move == 1, (UINT)(move * 15));
+		fdc_play_head_unload_sound();
 	}
 }
 #else
@@ -955,6 +975,7 @@ void fdcsend_error7(void) {
 #if defined(VAEG_EXT)
 	deactivate_head();
 #endif
+	fdc_play_head_unload_sound();
 }
 
 void fdcsend_success7(void) {
@@ -990,6 +1011,7 @@ void fdcsend_success7(void) {
 #if defined(VAEG_EXT)
 	deactivate_head();
 #endif
+	fdc_play_head_unload_sound();
 }
 
 // ----------------------------------------------------------------------
@@ -1216,6 +1238,7 @@ static BOOL writesector(void) {
 	if (!FDC_DriveCheck(TRUE)) {
 		return(FAILURE);
 	}
+	fdc_play_head_load_sound(FALSE);
 	if (fdd_write()) {
 		fdc.stat[fdc.us] = fdc.us | (fdc.hd << 2) | FDCRLT_IC0 | FDCRLT_ND;
 		fdcsend_error7();
@@ -1256,6 +1279,7 @@ static void FDC_WriteData(void) {						// cmd: 05
 #if defined(VAEG_FIX)
 			fdc.stat[fdc.us] = (fdc.hd << 2) | fdc.us;
 			if (FDC_DriveCheck(TRUE)) {
+				fdc_play_head_load_sound(FALSE);
 				start_executionphase();
 				fdc.event = FDCEVENT_FIRSTSTARTBUFRECV;
 				fdc.status = FDCSTAT_NDM | FDCSTAT_CB;
@@ -1273,6 +1297,7 @@ static void FDC_WriteData(void) {						// cmd: 05
 #else
 			fdc.stat[fdc.us] = (fdc.hd << 2) | fdc.us;
 			if (FDC_DriveCheck(TRUE)) {
+				fdc_play_head_load_sound(FALSE);
 #if defined(VAEG_EXT)
 				activate_head();
 #endif
@@ -1355,6 +1380,7 @@ static void readsector(void) {
 	if (!FDC_DriveCheck(FALSE)) {
 		return;
 	}
+	fdc_play_head_load_sound(FALSE);
 	if (fdd_read()) {
 		fdc.stat[fdc.us] = fdc.us | (fdc.hd << 2) | FDCRLT_IC0 | FDCRLT_ND;
 		fdcsend_error7();
@@ -1395,6 +1421,7 @@ static void FDC_ReadData(void) {						// cmd: 06
 #if defined(VAEG_FIX)
 			fdc.stat[fdc.us] = (fdc.hd << 2) | fdc.us;
 			if (FDC_DriveCheck(FALSE)) {
+				fdc_play_head_load_sound(FALSE);
 				start_executionphase();
 				fdc.event = FDCEVENT_FIRSTSTARTBUFSEND2;
 				fdc.status = FDCSTAT_NDM | FDCSTAT_CB;
@@ -1563,6 +1590,9 @@ static void FDC_ReadID(void) {							// cmd: 0a
 			fdc.mf = fdc.cmd & 0x40;
 			get_hdus();
 			fdc_trace_update_fields();
+			if ((fdc.equip & (1 << fdc.us)) && fddfile[fdc.us].fname[0]) {
+				fdc_play_head_load_sound(FALSE);
+			}
 			if (fdd_readid() == SUCCESS) {
 				fdc_trace_update_fields();
 				fdcsend_success7();
@@ -1595,6 +1625,7 @@ static void FDC_WriteID(void) {							// cmd: 0d
 					fdcsend_error7();
 					break;
 				}
+				fdc_play_head_load_sound(FALSE);
 #if defined(VAEG_FIX)
 
 				start_executionphase();
