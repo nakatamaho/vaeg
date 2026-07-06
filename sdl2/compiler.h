@@ -68,7 +68,11 @@ typedef char CHAR;
 typedef char TCHAR;
 typedef uint8_t BYTE;
 typedef uint16_t WORD;
+#if defined(WIN32)
+typedef unsigned long DWORD;
+#else
 typedef uint32_t DWORD;
+#endif
 
 #ifndef TRUE
 #define TRUE 1

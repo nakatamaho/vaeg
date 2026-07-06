@@ -41,6 +41,7 @@ static	char	curpath[MAX_PATH];
 static	char	*curfilep = curpath;
 
 
+#if !defined(WIN32)
 static int ascii_tolower(int c) {
 
 	if ((c >= 'A') && (c <= 'Z')) {
@@ -95,6 +96,7 @@ static BOOL path_is_rom_or_wav(const char *path) {
 	return(ascii_case_equal(ext, ".rom") ||
 		   ascii_case_equal(ext, ".wav"));
 }
+#endif
 
 static BOOL resolve_casefold_asset_path(const char *path, char *resolved,
 																int size) {
