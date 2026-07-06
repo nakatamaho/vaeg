@@ -41,6 +41,10 @@
 #include <time.h>
 #include <unistd.h>
 
+#if defined(_WIN32) && !defined(WIN32)
+#define WIN32
+#endif
+
 #define X11
 #define OSLANG_UTF8
 #define OSLINEBREAK_LF

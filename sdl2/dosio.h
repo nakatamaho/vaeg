@@ -25,6 +25,10 @@
 #ifndef VAEG_SDL2_DOSIO_H
 #define VAEG_SDL2_DOSIO_H
 
+#if defined(WIN32)
+#include <windows.h>
+#endif
+
 typedef FILE *FILEH;
 #define FILEH_INVALID NULL
 
