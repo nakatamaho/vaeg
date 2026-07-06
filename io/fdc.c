@@ -68,7 +68,7 @@ static const UINT8 FDCCMD_TABLE[32] = {
 
 #define	FDCTRACE_FORMAT \
 	"fdctrace cmd=%02x/%s drive=%u C=%02x H=%02x R=%02x N=%02x " \
-	"req=%lu st=%02x/%02x/%02x xfer=%lu dma_ch=%02x " \
+	"mode=%02x/%s req=%lu st=%02x/%02x/%02x xfer=%lu dma_ch=%02x " \
 	"dma_access=%02x dma_sysm_bank=%02x sysm_bank=%02x " \
 	"dma_len=%lu dma_range=%05lx-%05lx"
 
@@ -118,11 +118,40 @@ void fdc_trace_enable(BOOL enable) {
 void fdc_trace_text(const char *fmt, ...) {
 
 	va_list	ap;
-	char	buf[1024];
+	char	buf[2048];
 
 	va_start(ap, fmt);
 	vsnprintf(buf, sizeof(buf), fmt, ap);
 	va_end(ap);
+	TRACEOUT(("%s", buf));
+	if (fdctrace_stderr) {
+		fprintf(stderr, "%s\n", buf);
+	}
+}
+
+void fdc_trace_bytes(const char *prefix, const UINT8 *data, UINT length) {
+
+	char	buf[8192];
+	UINT	i;
+	int		pos;
+	int		written;
+
+	pos = snprintf(buf, sizeof(buf), "%s len=%u bytes=", prefix, length);
+	if (pos < 0) {
+		return;
+	}
+	for (i=0; i<length; i++) {
+		if (pos >= (int)sizeof(buf) - 8) {
+			(void)snprintf(buf + pos, sizeof(buf) - pos, " ...");
+			break;
+		}
+		written = snprintf(buf + pos, sizeof(buf) - pos,
+						   "%s%02x", i ? " " : "", data[i]);
+		if (written < 0) {
+			break;
+		}
+		pos += written;
+	}
 	TRACEOUT(("%s", buf));
 	if (fdctrace_stderr) {
 		fprintf(stderr, "%s\n", buf);
@@ -134,6 +163,24 @@ void fdc_trace_iova_unhandled(UINT port) {
 	if (fdctrace_stderr) {
 		fprintf(stderr, "iova-unhandled port=%04x\n", port & 0xffff);
 	}
+}
+
+static UINT8 fdc_trace_mode_value(void) {
+
+#if defined(SUPPORT_PC88VA)
+	return fdc.fddifmode;
+#else
+	return 1;
+#endif
+}
+
+static const char *fdc_trace_mode_name(void) {
+
+#if defined(SUPPORT_PC88VA)
+	return fdc.fddifmode ? "direct" : "intelligent";
+#else
+	return "direct";
+#endif
 }
 
 static const char *fdc_trace_cmdname(REG8 cmd) {
@@ -280,6 +327,8 @@ void fdc_trace_log(REG8 cmd, const char *name, UINT8 drive, UINT8 C, UINT8 H,
 			H,
 			R,
 			N,
+			fdc_trace_mode_value(),
+			fdc_trace_mode_name(),
 			(unsigned long)req_len,
 			st0,
 			st1,
@@ -302,6 +351,8 @@ void fdc_trace_log(REG8 cmd, const char *name, UINT8 drive, UINT8 C, UINT8 H,
 				H,
 				R,
 				N,
+				fdc_trace_mode_value(),
+				fdc_trace_mode_name(),
 				(unsigned long)req_len,
 				st0,
 				st1,
@@ -2418,6 +2469,9 @@ static void IOOUTCALL fdcva_o_mtrctl(UINT port, REG8 dat) {
 
 static void IOOUTCALL fdcva_o1b0(UINT port, REG8 dat) {
 	fdc.fddifmode = dat & 1;
+	fdc_trace_text("fddiftrace port=%03x val=%02x mode=%02x/%s",
+				   port, dat, fdc_trace_mode_value(),
+				   fdc_trace_mode_name());
 }
 
 static void IOOUTCALL fdcva_o1b2(UINT port, REG8 dat) {
@@ -2544,6 +2598,8 @@ void fdc_reset(void) {
 		// VA
 		fdc.fddifmode = 0;	// Intelligent mode
 	}
+	fdc_trace_text("fddiftrace reset mode=%02x/%s",
+				   fdc_trace_mode_value(), fdc_trace_mode_name());
 #endif
 #if defined(VAEG_FIX)
 	fdc.rqminterval = pccore.realclock / 100000;	// 10μsec
