@@ -31,6 +31,8 @@ static void IOOUTCALL va91_off3(UINT port, REG8 dat) {
 //	if (dat!=9 && dat!=0x0c && dat!=0x0d)
 //	TRACEOUT(("va91: out %x %x %.4x:%.4x", port, dat, CPU_CS, CPU_IP));
 	va91.sysm_bank = dat & 0x0f;
+	fdc_trace_text("banktrace port=%03x val=%02x va91_sysm_bank=%02x",
+				   port, dat, va91.sysm_bank);
 }
 
 static REG8 IOINPCALL va91_iff2(UINT port) {

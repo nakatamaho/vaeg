@@ -45,9 +45,9 @@ class Clock : public IClock
 class ClockCounter : public IClockCounter
 {
 public:
-	void IFCALL ClockCounter::past(sint32 clock);
-	sint32 IFCALL ClockCounter::GetRemainclock();
-	void IFCALL ClockCounter::SetRemainclock(sint32 clock);
+	void IFCALL past(sint32 clock);
+	sint32 IFCALL GetRemainclock();
+	void IFCALL SetRemainclock(sint32 clock);
 	void IFCALL SetMultiple(int multiple);
 private:
 	SINT32 remainclock;

@@ -31,6 +31,8 @@ static void IOOUTCALL memctrlva_o153(UINT port, REG8 dat) {
 	if ((dat & 0x0f) == 0x0f)
 	TRACEOUT(("memctrlva: out %x %x %.4x:%.4x", port, dat, CPU_CS, CPU_IP));
 	memoryva.sysm_bank = dat & 0x0f;
+	fdc_trace_text("banktrace port=%03x val=%02x sysm_bank=%02x",
+				   port, dat, memoryva.sysm_bank);
 	if ((dat ^ gactrlva.gmsp) & 0x10) {
 		// シングルプレーン⇔マルチプレーン 切り替え
 		gactrlva_reset();

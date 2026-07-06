@@ -68,6 +68,45 @@ static	BYTE byte2pixel[256][8];			// マルチプレーン
 #define addr18(scrn, x) ( (x) & ((scrn)->addrmask) | ((scrn)->addrofs) )
 #define issingleplane() (videova.grmode & 0x0400)
 
+static void drawm4_pixels(SCREEN screen, UINT32 addr, UINT16 wrapcount,
+		WORD *b, UINT count, BOOL doublewidth) {
+
+	UINT	xp;
+	UINT	i;
+	BYTE	d0;
+	BYTE	d1;
+	BYTE	d2;
+	BYTE	d3;
+	WORD	pixel;
+
+	for (xp = 0; xp < count; xp++) {
+		if (wrapcount-- == 0) {
+			addr = screen->wrappedaddr;
+		}
+
+		d0 = grphmem[addr + 0x00000];
+		d1 = grphmem[addr + 0x10000];
+		d2 = grphmem[addr + 0x20000];
+		d3 = grphmem[addr + 0x30000];
+		addr = addr18(screen, addr + 1);
+
+		for (i = 0; i < 8; i++) {
+			pixel = (WORD)(byte2pixel[d0][i] |
+					(byte2pixel[d1][i] << 1) |
+					(byte2pixel[d2][i] << 2) |
+					(byte2pixel[d3][i] << 3));
+			if (doublewidth) {
+				b[0] = pixel;
+				b[1] = pixel;
+				b += 2;
+			}
+			else {
+				*b++ = pixel;
+			}
+		}
+	}
+}
+
 static void selectframe(SCREEN screen, int no) {
 	FRAMEBUFFER	f;
 
@@ -574,10 +613,6 @@ static void drawraster_m4(SCREEN screen) {
 //	BYTE		fg;
 	UINT16		i;
 
-	UINT32		wrappedaddr;
-	UINT32		addrmask;
-	UINT32		addrofs;
-
 	addr = screen->lineaddr;
 	b = screen->rasterbuf;
 	ZeroMemory(b, sizeof(grph0_raster));
@@ -620,73 +655,7 @@ static void drawraster_m4(SCREEN screen) {
 			wrapcount--;
 		}
 
-		wrappedaddr = screen->wrappedaddr;
-		addrmask = screen->addrmask;
-		addrofs  = screen->addrofs;
-		__asm {
-			mov		ecx, 320/8
-			movzx	esi, wrapcount
-			mov		edi, addr
-
-loop3_0:	or		esi, esi
-			jnz		loop3_1
-
-			; if wrapcount == 0
-			mov		edi, wrappedaddr;
-loop3_1:
-			dec		esi
-
-			movzx	ebx, grphmem[edi + 0x30000]
-			mov		eax, dword ptr byte2pixel[ebx*8]
-			mov		edx, dword ptr byte2pixel[ebx*8+4]
-			shl		eax, 1
-			shl		edx, 1
-			movzx	ebx, grphmem[edi + 0x20000]
-			or		eax, dword ptr byte2pixel[ebx*8]
-			or		edx, dword ptr byte2pixel[ebx*8+4]
-			shl		eax, 1
-			shl		edx, 1
-			movzx	ebx, grphmem[edi + 0x10000]
-			or		eax, dword ptr byte2pixel[ebx*8]
-			or		edx, dword ptr byte2pixel[ebx*8+4]
-			shl		eax, 1
-			shl		edx, 1
-			movzx	ebx, grphmem[edi + 0x00000]
-			or		eax, dword ptr byte2pixel[ebx*8]
-			or		edx, dword ptr byte2pixel[ebx*8+4]
-
-			mov		ebx, b
-
-			mov		[ebx+0], al
-			mov		[ebx+2], al
-			mov		[ebx+4], ah
-			mov		[ebx+6], ah
-			shr		eax, 16
-			mov		[ebx+8], al
-			mov		[ebx+10], al
-			mov		[ebx+12], ah
-			mov		[ebx+14], ah
-			mov		[ebx+16], dl
-			mov		[ebx+18], dl
-			mov		[ebx+20], dh
-			mov		[ebx+22], dh
-			shr		edx, 16
-			mov		[ebx+24], dl
-			mov		[ebx+26], dl
-			mov		[ebx+28], dh
-			mov		[ebx+30], dh
-			add		ebx, 8*2*2
-
-			mov		b, ebx
-
-			;addr = addr18(screen, addr + 1);
-			inc		edi
-			and		edi, addrmask
-			or		edi, addrofs
-
-			dec		cx
-			jnz		loop3_0
-		}
+		drawm4_pixels(screen, addr, wrapcount, b, 320/8, TRUE);
 
 	
 /*
@@ -753,65 +722,7 @@ loop3_1:
 			wrapcount--;
 		}
 #if 1
-		wrappedaddr = screen->wrappedaddr;
-		addrmask = screen->addrmask;
-		addrofs  = screen->addrofs;
-		__asm {
-			mov		ecx, 640/8
-			movzx	esi, wrapcount
-			mov		edi, addr
-
-loop_0:		or		esi, esi
-			jnz		loop_1
-
-			; if wrapcount == 0
-			mov		edi, wrappedaddr;
-loop_1:
-			dec		esi
-
-			movzx	ebx, grphmem[edi + 0x30000]
-			mov		eax, dword ptr byte2pixel[ebx*8]
-			mov		edx, dword ptr byte2pixel[ebx*8+4]
-			shl		eax, 1
-			shl		edx, 1
-			movzx	ebx, grphmem[edi + 0x20000]
-			or		eax, dword ptr byte2pixel[ebx*8]
-			or		edx, dword ptr byte2pixel[ebx*8+4]
-			shl		eax, 1
-			shl		edx, 1
-			movzx	ebx, grphmem[edi + 0x10000]
-			or		eax, dword ptr byte2pixel[ebx*8]
-			or		edx, dword ptr byte2pixel[ebx*8+4]
-			shl		eax, 1
-			shl		edx, 1
-			movzx	ebx, grphmem[edi + 0x00000]
-			or		eax, dword ptr byte2pixel[ebx*8]
-			or		edx, dword ptr byte2pixel[ebx*8+4]
-
-			mov		ebx, b
-
-			mov		[ebx+0], al
-			mov		[ebx+2], ah
-			shr		eax, 16
-			mov		[ebx+4], al
-			mov		[ebx+6], ah
-			mov		[ebx+8], dl
-			mov		[ebx+10], dh
-			shr		edx, 16
-			mov		[ebx+12], dl
-			mov		[ebx+14], dh
-			add		ebx, 8*2
-
-			mov		b, ebx
-
-			;addr = addr18(screen, addr + 1);
-			inc		edi
-			and		edi, addrmask
-			or		edi, addrofs
-
-			dec		cx
-			jnz		loop_0
-		}
+		drawm4_pixels(screen, addr, wrapcount, b, 640/8, FALSE);
 #else
 		for (xp = 0; xp < 640/8; xp++) {
 			//wrapcount -= 1;

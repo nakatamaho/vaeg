@@ -52,13 +52,18 @@ set(VAEG_INCLUDE_DIRS
     "${CMAKE_CURRENT_SOURCE_DIR}/io"
     "${CMAKE_CURRENT_SOURCE_DIR}/cbus"
     "${CMAKE_CURRENT_SOURCE_DIR}/bios"
+    "${CMAKE_CURRENT_SOURCE_DIR}/biosva"
     "${CMAKE_CURRENT_SOURCE_DIR}/sound"
     "${CMAKE_CURRENT_SOURCE_DIR}/sound/vermouth"
     "${CMAKE_CURRENT_SOURCE_DIR}/sound/getsnd"
     "${CMAKE_CURRENT_SOURCE_DIR}/vram"
+    "${CMAKE_CURRENT_SOURCE_DIR}/vramva"
     "${CMAKE_CURRENT_SOURCE_DIR}/fdd"
     "${CMAKE_CURRENT_SOURCE_DIR}/lio"
     "${CMAKE_CURRENT_SOURCE_DIR}/font"
+    "${CMAKE_CURRENT_SOURCE_DIR}/cpucva"
+    "${CMAKE_CURRENT_SOURCE_DIR}/cpuxva"
+    "${CMAKE_CURRENT_SOURCE_DIR}/iova"
     "${CMAKE_CURRENT_SOURCE_DIR}/generic")
 
 set(VAEG_COMMON_SOURCES
@@ -92,6 +97,7 @@ set(VAEG_CORE_SOURCES
     i286c/dmap.c
     io/iocore.c
     io/artic.c
+    io/bmsio.c
     io/cgrom.c
     io/cpuio.c
     io/crtc.c
@@ -109,6 +115,7 @@ set(VAEG_CORE_SOURCES
     io/necio.c
     io/nmiio.c
     io/np2sysp.c
+    io/np2vasup.c
     io/pic.c
     io/pit.c
     io/printif.c
@@ -211,6 +218,37 @@ set(VAEG_CORE_SOURCES
     statsave.c
     debugsub.c)
 
+set(VAEG_VA_SOURCES
+    biosva/biosva.c
+    cpucva/gvramva.c
+    cpucva/memoryva.c
+    cpucva/z80c.cpp
+    cpucva/z80diag.cpp
+    iova/bkupmemva.c
+    iova/boardsb2.c
+    iova/cgromva.c
+    iova/fdsubsys.c
+    iova/gactrlva.c
+    iova/i8255.c
+    iova/iocoreva.c
+    iova/memctrlva.c
+    iova/mouseifva.c
+    iova/sgp.c
+    iova/subsystem.cpp
+    iova/subsystemif.c
+    iova/subsystemmx.c
+    iova/sysportva.c
+    iova/tsp.c
+    iova/upd9002.c
+    iova/va91.c
+    iova/videova.c
+    vramva/makegrphva.c
+    vramva/makesprva.c
+    vramva/maketextva.c
+    vramva/palettesva.c
+    vramva/scrndrawva.c
+    vramva/sdrawva.c)
+
 set(VAEG_SDL2_SOURCES
     external/imgui/imgui.cpp
     external/imgui/imgui_draw.cpp
@@ -237,6 +275,7 @@ set(VAEG_SDL2_SOURCES
 
 add_library(vaeg_common STATIC ${VAEG_COMMON_SOURCES})
 target_include_directories(vaeg_common PUBLIC ${VAEG_INCLUDE_DIRS})
+target_compile_definitions(vaeg_common PUBLIC SUPPORT_PC88VA)
 target_compile_options(vaeg_common PRIVATE -Wall -fsigned-char)
 if(VAEG_WERROR)
     target_compile_options(vaeg_common PRIVATE -Werror)
@@ -245,10 +284,23 @@ endif()
 add_library(vaeg_core STATIC ${VAEG_CORE_SOURCES})
 target_include_directories(vaeg_core PUBLIC ${VAEG_INCLUDE_DIRS})
 target_link_libraries(vaeg_core PUBLIC vaeg_common)
-target_compile_definitions(vaeg_core PRIVATE USE_I286C)
+target_compile_definitions(vaeg_core PUBLIC
+    USE_I286C
+    SUPPORT_PC88VA
+    SUPPORT_BMS
+    SUPPORT_V30ORIGINAL
+    VAEG_FIX)
 target_compile_options(vaeg_core PRIVATE -Wall -fsigned-char)
 if(VAEG_WERROR)
     target_compile_options(vaeg_core PRIVATE -Werror)
+endif()
+
+add_library(vaeg_va STATIC ${VAEG_VA_SOURCES})
+target_include_directories(vaeg_va PUBLIC ${VAEG_INCLUDE_DIRS})
+target_link_libraries(vaeg_va PUBLIC vaeg_core vaeg_common)
+target_compile_options(vaeg_va PRIVATE -Wall -fsigned-char)
+if(VAEG_WERROR)
+    target_compile_options(vaeg_va PRIVATE -Werror)
 endif()
 
 add_executable(vaeg_sdl2 ${VAEG_SDL2_SOURCES})
@@ -259,8 +311,8 @@ target_include_directories(vaeg_sdl2 PRIVATE
     ${VAEG_INCLUDE_DIRS}
     "${CMAKE_CURRENT_SOURCE_DIR}/external/imgui"
     "${CMAKE_CURRENT_SOURCE_DIR}/external/imgui/backends")
-target_link_libraries(vaeg_sdl2 PRIVATE vaeg_core vaeg_common vaeg_core
-    ${VAEG_SDL2_LIBS})
+target_link_libraries(vaeg_sdl2 PRIVATE vaeg_core vaeg_va vaeg_common
+    vaeg_core vaeg_va ${VAEG_SDL2_LIBS})
 if(UNIX)
     target_link_libraries(vaeg_sdl2 PRIVATE m)
 endif()

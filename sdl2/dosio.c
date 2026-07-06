@@ -40,6 +40,173 @@ static	char	curpath[MAX_PATH];
 static	char	*curfilep = curpath;
 
 
+static int ascii_tolower(int c) {
+
+	if ((c >= 'A') && (c <= 'Z')) {
+		return(c + ('a' - 'A'));
+	}
+	return(c);
+}
+
+static BOOL ascii_case_equal(const char *str1, const char *str2) {
+
+	while((*str1 != '\0') && (*str2 != '\0')) {
+		if (ascii_tolower((unsigned char)*str1) !=
+			ascii_tolower((unsigned char)*str2)) {
+			return(FAILURE);
+		}
+		str1++;
+		str2++;
+	}
+	return((*str1 == '\0') && (*str2 == '\0'));
+}
+
+static const char *path_namepart(const char *path) {
+
+	const char	*ret;
+
+	ret = path;
+	while(*path != '\0') {
+		if ((*path == '/') || (*path == '\\')) {
+			ret = path + 1;
+		}
+		path++;
+	}
+	return(ret);
+}
+
+static BOOL path_is_rom_or_wav(const char *path) {
+
+	const char	*name;
+	const char	*ext;
+
+	name = path_namepart(path);
+	ext = NULL;
+	while(*name != '\0') {
+		if (*name == '.') {
+			ext = name;
+		}
+		name++;
+	}
+	if (ext == NULL) {
+		return(FAILURE);
+	}
+	return(ascii_case_equal(ext, ".rom") ||
+		   ascii_case_equal(ext, ".wav"));
+}
+
+static BOOL resolve_casefold_asset_path(const char *path, char *resolved,
+																int size) {
+
+#if !defined(WIN32)
+	const char		*name;
+	size_t			dirlen;
+	size_t			namelen;
+	char			dir[MAX_PATH];
+	DIR				*dp;
+	struct dirent	*de;
+
+	if (path_is_rom_or_wav(path) != SUCCESS) {
+		return(FAILURE);
+	}
+	name = path_namepart(path);
+	dirlen = (size_t)(name - path);
+	if (dirlen >= sizeof(dir)) {
+		return(FAILURE);
+	}
+	if (dirlen != 0) {
+		memcpy(dir, path, dirlen);
+		dir[dirlen] = '\0';
+	}
+	else {
+		file_cpyname(dir, ".", sizeof(dir));
+	}
+	dp = opendir(dir);
+	if (dp == NULL) {
+		return(FAILURE);
+	}
+	while((de = readdir(dp)) != NULL) {
+		if (ascii_case_equal(de->d_name, name)) {
+			namelen = strlen(de->d_name);
+			if ((dirlen + namelen + 1) > (size_t)size) {
+				closedir(dp);
+				return(FAILURE);
+			}
+			if (dirlen != 0) {
+				memcpy(resolved, path, dirlen);
+				resolved[dirlen] = '\0';
+				file_cpyname(resolved + dirlen, de->d_name,
+							 size - (int)dirlen);
+			}
+			else {
+				file_cpyname(resolved, de->d_name, size);
+			}
+			closedir(dp);
+			return(SUCCESS);
+		}
+	}
+	closedir(dp);
+#else
+	(void)path;
+	(void)resolved;
+	(void)size;
+#endif
+	return(FAILURE);
+}
+
+static FILEH file_fopen_raw(const char *path, const char *mode) {
+
+#if defined(WIN32) && defined(OSLANG_EUC)
+	char	sjis[MAX_PATH];
+	codecnv_euc2sjis(sjis, sizeof(sjis), path, (UINT)-1);
+	return(fopen(sjis, mode));
+#else
+	return(fopen(path, mode));
+#endif
+}
+
+static FILEH file_fopen_asset(const char *path, const char *mode) {
+
+	FILEH	ret;
+	char	resolved[MAX_PATH];
+
+	ret = file_fopen_raw(path, mode);
+	if (ret != FILEH_INVALID) {
+		return(ret);
+	}
+	if (resolve_casefold_asset_path(path, resolved, sizeof(resolved))
+															== SUCCESS) {
+		ret = file_fopen_raw(resolved, mode);
+	}
+	return(ret);
+}
+
+static int file_stat_raw(const char *path, struct stat *sb) {
+
+#if defined(WIN32) && defined(OSLANG_EUC)
+	char	sjis[MAX_PATH];
+	codecnv_euc2sjis(sjis, sizeof(sjis), path, (UINT)-1);
+	return(stat(sjis, sb));
+#else
+	return(stat(path, sb));
+#endif
+}
+
+static int file_stat_asset(const char *path, struct stat *sb) {
+
+	char	resolved[MAX_PATH];
+
+	if (file_stat_raw(path, sb) == 0) {
+		return(0);
+	}
+	if (resolve_casefold_asset_path(path, resolved, sizeof(resolved))
+															== SUCCESS) {
+		return(file_stat_raw(resolved, sb));
+	}
+	return(-1);
+}
+
+
 void dosio_init(void) {
 }
 
@@ -49,24 +216,12 @@ void dosio_term(void) {
 /* ファイル操作 */
 FILEH file_open(const char *path) {
 
-#if defined(WIN32) && defined(OSLANG_EUC)
-	char	sjis[MAX_PATH];
-	codecnv_euc2sjis(sjis, sizeof(sjis), path, (UINT)-1);
-	return(fopen(sjis, "rb+"));
-#else
-	return(fopen(path, "rb+"));
-#endif
+	return(file_fopen_asset(path, "rb+"));
 }
 
 FILEH file_open_rb(const char *path) {
 
-#if defined(WIN32) && defined(OSLANG_EUC)
-	char	sjis[MAX_PATH];
-	codecnv_euc2sjis(sjis, sizeof(sjis), path, (UINT)-1);
-	return(fopen(sjis, "rb+"));
-#else
-	return(fopen(path, "rb+"));
-#endif
+	return(file_fopen_asset(path, "rb+"));
 }
 
 FILEH file_create(const char *path) {
@@ -117,7 +272,7 @@ short file_attr(const char *path) {
 struct stat	sb;
 	short	attr;
 
-	if (stat(path, &sb) == 0) {
+	if (file_stat_asset(path, &sb) == 0) {
 #if defined(WIN32)
 		if (sb.st_mode & _S_IFDIR) {
 			attr = FILEATTR_DIRECTORY;

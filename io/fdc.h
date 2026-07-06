@@ -123,10 +123,13 @@ typedef struct {
 //	int		priampcnt;
 #endif
 	UINT8	reserved[128];
-#if defined(VAEG_EXT)
+#if defined(VAEG_FIX) || defined(VAEG_EXT)
 	UINT32	clock;				// 動作周波数(Hz)
-
+#endif
+#if defined(VAEG_EXT) || defined(SUPPORT_PC88VA)
 	UINT8	motor[4];
+#endif
+#if defined(VAEG_EXT)
 	SINT32	headlastclock;
 	UINT8	head;				// ヘッドの状態
 	UINT8	headlastactive;		// 最後に使用した
@@ -168,9 +171,11 @@ extern "C" {
 #define	CTRL_FDMEDIA	fdc.ctrlfd
 
 void fdc_intwait(NEVENTITEM item);
-#if defined(VAEG_EXT)
+#if defined(VAEG_EXT) || defined(SUPPORT_PC88VA)
 void fdc_timer(NEVENTITEM item);
 void fdc_fddmotor(NEVENTITEM item);
+#endif
+#if defined(VAEG_EXT)
 void fdc_stepwait(NEVENTITEM item);
 #endif
 #if defined(VAEG_FIX)
@@ -185,6 +190,16 @@ REG8 DMACCALL fdc_dmafunc(REG8 func);
 
 void fdcsend_error7(void);
 void fdcsend_success7(void);
+
+void fdc_trace_enable(BOOL enable);
+void fdc_trace_text(const char *fmt, ...);
+void fdc_trace_bytes(const char *prefix, const UINT8 *data, UINT length);
+void fdc_trace_iova_unhandled(UINT port);
+void fdc_trace_log(REG8 cmd, const char *name, UINT8 drive, UINT8 C, UINT8 H,
+				   UINT8 R, UINT8 N, UINT32 req_len, UINT8 st0, UINT8 st1,
+				   UINT8 st2, UINT32 xfer_len, UINT8 dma_ch,
+				   UINT8 dma_access, UINT8 dma_sysm_bank, UINT8 sysm_bank,
+				   UINT32 dma_len, UINT32 dma_start, UINT32 dma_end);
 
 void fdc_reset(void);
 void fdc_bind(void);
@@ -201,4 +216,3 @@ void fdcsubsys_o_tc(void);
 #ifdef __cplusplus
 }
 #endif
-

@@ -63,6 +63,8 @@ typedef int BOOL;
 typedef char CHAR;
 typedef char TCHAR;
 typedef uint8_t BYTE;
+typedef uint16_t WORD;
+typedef uint32_t DWORD;
 
 #ifndef TRUE
 #define TRUE 1
@@ -117,6 +119,14 @@ typedef uint8_t BYTE;
 
 #ifndef INLINE
 #define INLINE inline
+#endif
+
+#ifndef DMACCALL
+#define DMACCALL
+#endif
+
+#ifndef MEMCALL
+#define MEMCALL
 #endif
 
 #ifndef QWORD_CONST

@@ -17,4 +17,3 @@ REG8 MEMCALL _gvram_rd(UINT32 address);
 #ifdef __cplusplus
 }
 #endif
-

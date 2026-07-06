@@ -8,7 +8,7 @@ enum {
 	DMAEXT_START		= 0,
 	DMAEXT_END			= 1,
 	DMAEXT_BREAK		= 2,
-#if defined(VAEG_EXT)
+#if defined(VAEG_FIX) || defined(VAEG_EXT)
 	DMAEXT_DRQ			= 3,
 #endif
 
@@ -130,4 +130,3 @@ void dmac_detach(REG8 device);
 #ifdef __cplusplus
 }
 #endif
-

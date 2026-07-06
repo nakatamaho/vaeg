@@ -63,6 +63,7 @@ void scrnmng_set_display(int scale, BOOL aspect);
 int scrnmng_get_display_scale(void);
 BOOL scrnmng_get_display_aspect(void);
 void scrnmng_log_geometry(const char *reason);
+BOOL scrnmng_texture_uniform(BOOL *uniform);
 void scrnmng_present_begin(void);
 void scrnmng_present_end(void);
 

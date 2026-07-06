@@ -125,6 +125,7 @@ static void IOOUTCALL dmac_o01(UINT port, REG8 dat) {
 	DMACH	dmach;
 	int		lh;
 
+	fdc_trace_text("dmatrace port=%03x val=%02x", port, dat);
 	dmach = dmac.dmach + ((port >> 2) & 3);
 	lh = dmac.lh;
 	dmac.lh = (UINT8)(lh ^ 1);
@@ -142,6 +143,7 @@ static void IOOUTCALL dmac_o03(UINT port, REG8 dat) {
 	DMACH	dmach;
 	int		lh;
 
+	fdc_trace_text("dmatrace port=%03x val=%02x", port, dat);
 	ch = (port >> 2) & 3;
 	dmach = dmac.dmach + ch;
 	lh = dmac.lh;
@@ -153,12 +155,14 @@ static void IOOUTCALL dmac_o03(UINT port, REG8 dat) {
 
 static void IOOUTCALL dmac_o13(UINT port, REG8 dat) {
 
+	fdc_trace_text("dmatrace port=%03x val=%02x", port, dat);
 	dmac.dmach[dat & 3].sreq = dat;
 	(void)port;
 }
 
 static void IOOUTCALL dmac_o15(UINT port, REG8 dat) {
 
+	fdc_trace_text("dmatrace port=%03x val=%02x", port, dat);
 	if (dat & 4) {
 		dmac.mask |= (1 << (dat & 3));
 	}
@@ -171,12 +175,14 @@ static void IOOUTCALL dmac_o15(UINT port, REG8 dat) {
 
 static void IOOUTCALL dmac_o17(UINT port, REG8 dat) {
 
+	fdc_trace_text("dmatrace port=%03x val=%02x", port, dat);
 	dmac.dmach[dat & 3].mode = dat;
 	(void)port;
 }
 
 static void IOOUTCALL dmac_o19(UINT port, REG8 dat) {
 
+	fdc_trace_text("dmatrace port=%03x val=%02x", port, dat);
 	dmac.lh = DMA16_LOW;
 	(void)port;
 	(void)dat;
@@ -184,6 +190,7 @@ static void IOOUTCALL dmac_o19(UINT port, REG8 dat) {
 
 static void IOOUTCALL dmac_o1b(UINT port, REG8 dat) {
 
+	fdc_trace_text("dmatrace port=%03x val=%02x", port, dat);
 	dmac.mask = 0x0f;
 	(void)port;
 	(void)dat;
@@ -191,6 +198,7 @@ static void IOOUTCALL dmac_o1b(UINT port, REG8 dat) {
 
 static void IOOUTCALL dmac_o1f(UINT port, REG8 dat) {
 
+	fdc_trace_text("dmatrace port=%03x val=%02x", port, dat);
 	dmac.mask = dat;
 	dmac_check();
 	(void)port;
@@ -200,6 +208,7 @@ static void IOOUTCALL dmac_o21(UINT port, REG8 dat) {
 
 	DMACH	dmach;
 
+	fdc_trace_text("dmatrace port=%03x val=%02x", port, dat);
 	dmach = dmac.dmach + (((port >> 1) + 1) & 3);
 #if defined(CPUCORE_IA32)
 	dmach->adrs.b[DMA32_HIGH + DMA16_LOW] = dat;
@@ -213,6 +222,7 @@ static void IOOUTCALL dmac_o29(UINT port, REG8 dat) {
 
 	DMACH	dmach;
 
+	fdc_trace_text("dmatrace port=%03x val=%02x", port, dat);
 	dmach = dmac.dmach + (dat & 3);
 	dmach->bound = dat;
 	(void)port;
@@ -253,6 +263,7 @@ static REG8 IOINPCALL dmac_i11(UINT port) {
 	bit0..reset
 */
 static void IOOUTCALL dmacva_o160(UINT port, REG8 dat) {
+	fdc_trace_text("dmatrace port=%03x val=%02x", port, dat);
 	TRACEOUT(("dmac: o160: 0x%02x", dat));
 	if (dat & 0x01) {
 		TRACEOUT(("dmac: reset"));
@@ -267,6 +278,7 @@ static void IOOUTCALL dmacva_o160(UINT port, REG8 dat) {
 	bit1-0..selch
 */
 static void IOOUTCALL dmacva_o161(UINT port, REG8 dat) {
+	fdc_trace_text("dmatrace port=%03x val=%02x", port, dat);
 	TRACEOUT(("dmac: o161: 0x%02x", dat));
 	dmac.selch = dat & 0x03;
 	dmac.base = dat & 0x04;
@@ -291,6 +303,7 @@ static REG8 IOINPCALL dmacva_i161(UINT port) {
 static void IOOUTCALL dmacva_o162(UINT port, REG8 dat) {
 	DMACH ch;
 
+	fdc_trace_text("dmatrace port=%03x val=%02x", port, dat);
 	TRACEOUT(("dmac: o162: 0x%02x", dat));
 
 	ch = &dmac.dmach[dmac.selch];
@@ -310,6 +323,7 @@ static void IOOUTCALL dmacva_o162(UINT port, REG8 dat) {
 static void IOOUTCALL dmacva_o163(UINT port, REG8 dat) {
 	DMACH ch;
 
+	fdc_trace_text("dmatrace port=%03x val=%02x", port, dat);
 	TRACEOUT(("dmac: o163: 0x%02x", dat));
 
 	ch = &dmac.dmach[dmac.selch];
@@ -372,6 +386,7 @@ static void IOOUTCALL dmacva_o164(UINT port, REG8 dat) {
 	int idx;
 	int intelidx;
 
+	fdc_trace_text("dmatrace port=%03x val=%02x", port, dat);
 	TRACEOUT(("dmac: o%03x: 0x%02x", port, dat));
 
 	intelidx = port - 0x164;
@@ -477,6 +492,7 @@ static void IOOUTCALL dmacva_o166(UINT port, REG8 dat) {
 */
 static void IOOUTCALL dmacva_o16a(UINT port, REG8 dat) {
 
+	fdc_trace_text("dmatrace port=%03x val=%02x", port, dat);
 	TRACEOUT(("dmac: o16a: 0x%02x", dat));
 	TRACEOUT(("dmac: set mode: ch=%d mode=0x%02x", dmac.selch, dat));
 	dmac.dmach[dmac.selch].mode = dat;
@@ -513,6 +529,7 @@ static REG8 IOINPCALL dmacva_i16b(UINT port) {
 マスクレジスタ
 */
 static void IOOUTCALL dmacva_o16f(UINT port, REG8 dat) {
+	fdc_trace_text("dmatrace port=%03x val=%02x", port, dat);
 	TRACEOUT(("dmac: o16f: 0x%02x", dat));
 	TRACEOUT(("dmac: set mask: mask=0x%02x", dat));
 	dmac.mask = dat;
@@ -628,6 +645,8 @@ void dmac_procset(void) {
 
 void dmac_attach(REG8 device, REG8 channel) {
 
+	fdc_trace_text("dmatrace attach device=%02x channel=%02x",
+				   device, channel);
 	dmac_detach(device);
 
 	if (dmac.devices < (sizeof(dmac.device) / sizeof(DMADEV))) {

@@ -26,3 +26,9 @@
 #include	"sysmng.h"
 
 	UINT	sys_updates;
+
+void sysmng_modeled(BYTE num, BYTE sw) {
+
+	(void)num;
+	(void)sw;
+}
