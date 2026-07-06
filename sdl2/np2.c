@@ -102,6 +102,46 @@ static void smoke_configure_va(void) {
 #endif
 }
 
+static BOOL config_selects_va(void) {
+
+#if defined(SUPPORT_PC88VA)
+	return((milstr_cmp(np2cfg.model, str_VA1) == 0) ||
+		   (milstr_cmp(np2cfg.model, str_VA2) == 0));
+#else
+	return(FALSE);
+#endif
+}
+
+static void warn_va_config_sanity(void) {
+
+#if defined(SUPPORT_PC88VA)
+	UINT32	va_threshold;
+
+	if (!config_selects_va()) {
+		return;
+	}
+	va_threshold = (PCBASECLOCK40 + PCBASECLOCK25) / 2;
+	if (np2cfg.baseclock < va_threshold) {
+		fprintf(stderr,
+				"WARNING: PC-88VA config expects clk_base=3993600 "
+				"(current=%u); stale configs can run in the wrong "
+				"clock domain.\n", np2cfg.baseclock);
+	}
+	if (np2cfg.multiple != 2) {
+		fprintf(stderr,
+				"WARNING: PC-88VA config expects clk_mult=2 "
+				"(current=%u); stale configs can run in the wrong "
+				"clock domain.\n", np2cfg.multiple);
+	}
+	if (np2cfg.SOUND_SW != 0x0200) {
+		fprintf(stderr,
+				"WARNING: PC-88VA config expects SNDboard=200 "
+				"(current=%03x); stale configs can leave the VA "
+				"Sound Board II unbound.\n", np2cfg.SOUND_SW);
+	}
+#endif
+}
+
 static void make_rom_path(char *path, int size, const char *dir,
 													const char *name) {
 
@@ -542,6 +582,7 @@ int main(int argc, char **argv) {
 			return(FAILURE);
 		}
 	}
+	warn_va_config_sanity();
 	set_default_rompath();
 	if (smoke) {
 		np2oscfg.NOWAIT = 1;
