@@ -7,9 +7,10 @@
 II. This fork is the living tree: the old upstream should be treated as
 historical source material, not as the active project.
 
-The current goal is a portable PC-88VA emulator that builds and runs on
-modern Windows, Linux, and macOS systems while preserving the behavior of
-the legacy Visual Studio reference build.
+The active product is a portable PC-88VA emulator that builds and runs
+on modern Windows, Linux, and macOS systems. A frozen Visual Studio
+reference tier is kept for behavior archaeology, but normal development
+targets the CMake/SDL2 tree.
 
 ## Current Frontend
 
@@ -78,6 +79,11 @@ directory:
 `np2.cfg`, `vabkupmem.dat`, and fixed GUI save-state slots live there.
 The legacy `win9x/` build remains exe-relative and is intentionally not
 changed.
+
+Save-state files are local runtime artifacts. They are not portable
+across architectures, compilers, or build families; do not move a state
+file between 32-bit and 64-bit builds, between legacy and portable
+builds, or between different host platforms and expect it to load.
 
 For PC-88VA booting, `np2.cfg` should select the VA machine, VA Sound
 Board II, and the VA clock domain:
@@ -148,22 +154,28 @@ This policy is about the repository and host frontend. It does not mean
 the emulated guest machine is UTF-8; the PC-88VA and PC-98 software
 environments keep their original character encodings and ROM behavior.
 
-The frozen Visual Studio reference build uses UTF-8 source input with a
+The frozen Visual Studio reference files use UTF-8 source input with a
 CP932 execution charset where that is required for legacy Win32 behavior.
 
-## Legacy Reference Build
+## Frozen Reference Tier
 
-The original Win9x Visual Studio projects are still kept as a behavioral
-reference. They are not the portability target.
+The original Win9x Visual Studio reference tier is still kept, but it is
+not the active product and it has no CI compile guarantee.
 
 - `win9x/np2_v141.sln` is the VS2017 v141 reference solution.
-- Older `.dsp`, `.dsw`, `.vcproj`, and `.sln` files remain in the tree for
-  comparison and migration history.
-- Do not refactor the legacy build when working on the portable frontend.
+- `win9x/` contains the frozen Win32 frontend, project files, resources,
+  and NASM helper files.
+- `i286x/` and `cpuxva/memoryva.x86` are the frozen assembly CPU and VA
+  memory references used by the v141 tree.
+- `hlp/` is the CP932 HTML Help payload paired with the frozen Win32
+  tree.
 
-The portable build uses the C CPU and VA cores, SDL2 for host I/O, and
-Dear ImGui for the host GUI. The legacy build remains useful until the
-modernized tree has fully replaced it.
+Do not refactor or improve the frozen tier during portable work. It was
+kept because same-tree v141 comparison was decisive during the G9 VA
+debugging chain: differential FDC traces and the legacy V30 DMA pump
+identified the portable defect. Future fixes should land in the active
+CMake/C/SDL2 tree unless a task explicitly says to update the reference
+tier.
 
 ## Documentation Map
 
@@ -176,10 +188,9 @@ modernized tree has fully replaced it.
 
 ## Status
 
-The project is actively modernizing an old emulator codebase. The SDL2
-frontend is the path forward for Windows, Linux, and macOS. The legacy
-reference exists to prevent behavior drift while the portable build
-continues to absorb PC-88VA-specific functionality.
+The phase-2 portable tree is the path forward for Windows, Linux, and
+macOS. The active build is CMake/C/SDL2/Dear ImGui. The frozen reference
+tier remains for historical comparison and behavior archaeology.
 
 ## License Status
 
