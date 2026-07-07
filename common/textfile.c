@@ -10,10 +10,10 @@ static BOOL getnextstrings(TEXTFILEH fh) {
 	if (!fh) {
 		return(FAILURE);
 	}
-	if (file_seek((FILEH)fh->fh, fh->fhpos, 0) != fh->fhpos) {
+	if (file_seek(fh->fh, fh->fhpos, 0) != fh->fhpos) {
 		return(FAILURE);
 	}
-	rsize = file_read((FILEH)fh->fh, fh + 1, fh->buffersize);
+	rsize = file_read(fh->fh, fh + 1, fh->buffersize);
 	if (rsize == (UINT)-1) {
 		return(FAILURE);
 	}
@@ -40,7 +40,7 @@ TEXTFILEH textfile_open(const char *filename, UINT buffersize) {
 		goto tfo_err2;
 	}
 	ZeroMemory(ret, sizeof(_TEXTFILE) + buffersize);
-	ret->fh = (long)fh;
+	ret->fh = fh;
 	ret->buffersize = buffersize;
 #if defined(OSLANG_UTF8)
 	getnextstrings(ret);
@@ -67,7 +67,7 @@ tfo_err1:
 void textfile_close(TEXTFILEH fh) {
 
 	if (fh) {
-		file_close((FILEH)fh->fh);
+		file_close(fh->fh);
 		_MFREE(fh);
 	}
 }
@@ -132,4 +132,3 @@ BOOL textfile_read(TEXTFILEH fh, char *buffer, UINT size) {
 	}
 	return(ret);
 }
-

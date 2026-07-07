@@ -24,17 +24,36 @@ cmake_minimum_required(VERSION 3.20)
 
 project(vaeg LANGUAGES C CXX)
 
-find_package(SDL2 QUIET CONFIG)
-if(TARGET SDL2::SDL2)
-    set(VAEG_SDL2_LIBS SDL2::SDL2)
-else()
-    find_package(PkgConfig REQUIRED)
-    pkg_check_modules(SDL2 REQUIRED IMPORTED_TARGET sdl2)
-    set(VAEG_SDL2_LIBS PkgConfig::SDL2)
-endif()
-
 option(VAEG_ENABLE_TESTS "Enable vaeg tests" OFF)
 option(VAEG_WERROR "Treat warnings as errors" OFF)
+option(VAEG_WINDOWS_CONSOLE "Keep a console window for Windows SDL2 builds" OFF)
+option(VAEG_FETCH_SDL2 "Fetch pinned SDL2 instead of using system SDL2" OFF)
+
+if(VAEG_FETCH_SDL2)
+    include(FetchContent)
+    set(BUILD_SHARED_LIBS ON CACHE BOOL "" FORCE)
+    set(SDL_SHARED ON CACHE BOOL "" FORCE)
+    set(SDL_STATIC OFF CACHE BOOL "" FORCE)
+    set(SDL_TEST OFF CACHE BOOL "" FORCE)
+    set(SDL_TESTS OFF CACHE BOOL "" FORCE)
+    set(SDL2_DISABLE_INSTALL ON CACHE BOOL "" FORCE)
+    set(SDL_INSTALL_TESTS OFF CACHE BOOL "" FORCE)
+    FetchContent_Declare(SDL2
+        URL "https://github.com/libsdl-org/SDL/releases/download/release-2.32.10/SDL2-2.32.10.tar.gz"
+        URL_HASH SHA256=5f5993c530f084535c65a6879e9b26ad441169b3e25d789d83287040a9ca5165
+        DOWNLOAD_EXTRACT_TIMESTAMP TRUE)
+    FetchContent_MakeAvailable(SDL2)
+    set(VAEG_SDL2_LIBS SDL2::SDL2)
+else()
+    find_package(SDL2 QUIET CONFIG)
+    if(TARGET SDL2::SDL2)
+        set(VAEG_SDL2_LIBS SDL2::SDL2)
+    else()
+        find_package(PkgConfig REQUIRED)
+        pkg_check_modules(SDL2 REQUIRED IMPORTED_TARGET sdl2)
+        set(VAEG_SDL2_LIBS PkgConfig::SDL2)
+    endif()
+endif()
 
 set(CMAKE_C_STANDARD 99)
 set(CMAKE_C_STANDARD_REQUIRED ON)
@@ -303,7 +322,11 @@ if(VAEG_WERROR)
     target_compile_options(vaeg_va PRIVATE -Werror)
 endif()
 
-add_executable(vaeg_sdl2 ${VAEG_SDL2_SOURCES})
+set(VAEG_SDL2_EXE_OPTIONS)
+if(WIN32 AND NOT VAEG_WINDOWS_CONSOLE)
+    list(APPEND VAEG_SDL2_EXE_OPTIONS WIN32)
+endif()
+add_executable(vaeg_sdl2 ${VAEG_SDL2_EXE_OPTIONS} ${VAEG_SDL2_SOURCES})
 set_target_properties(vaeg_sdl2 PROPERTIES
     OUTPUT_NAME vaeg
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/sdl2")

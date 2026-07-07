@@ -48,7 +48,7 @@ static BYTE ncgetstat(COMMNG self) {
 	return(0xf0);
 }
 
-static long ncmsg(COMMNG self, UINT msg, long param) {
+static VAEG_INTPTR ncmsg(COMMNG self, UINT msg, VAEG_INTPTR param) {
 
 	(void)self;
 	(void)msg;

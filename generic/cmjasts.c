@@ -61,7 +61,7 @@ static BYTE jsgetstat(COMMNG self) {
 	return(0);
 }
 
-static long jsmsg(COMMNG self, UINT msg, long param) {
+static VAEG_INTPTR jsmsg(COMMNG self, UINT msg, VAEG_INTPTR param) {
 
 	(void)self;
 	(void)msg;
@@ -145,4 +145,3 @@ COMMNG cmjasts_create(void) {
 cmjscre_err:
 	return(NULL);
 }
-

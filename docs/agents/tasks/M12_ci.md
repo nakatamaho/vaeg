@@ -21,6 +21,9 @@ Per-OS job:
    (VA machine, GUI frame included).
 4. ctest (see below).
 5. Upload the binary as a build artifact (no release automation).
+   Windows artifacts must include `SDL2.dll` next to `vaeg.exe`; the
+   M11 `VAEG_FETCH_SDL2` option is only a build/link acquisition path
+   and does not solve runtime distribution.
 
 One additional lint job (ubuntu):
 - tools/repo/check_encoding.py, check_eol.py, check_case.py — the

@@ -36,10 +36,18 @@ conversation/PR.
 - [ ] GUI-PARITY.md status column is honest (stubs visible, not hidden)
 
 ## G11 (M11, human, Windows + macOS)
+- [ ] Windows build follows `BUILD.md` from a clean checkout
+- [ ] macOS build follows `BUILD.md` with MacPorts SDL2 under `/opt/local`
+- [ ] `np2.cfg` has `pc_model=88VA1` or `88VA2`, `SNDboard=200`,
+      `clk_base=3993600`, and `clk_mult=2`
+- [ ] Stale-config startup warnings are visible if those VA settings are
+      deliberately wrong
 - [ ] Standard VA gate executed on real Windows (MinGW build)
 - [ ] Standard VA gate executed on real macOS
 - [ ] Non-ASCII (Japanese) path to a disk image mounts on Windows
 - [ ] GUI must-have walk on both
+- [ ] WSLg pacing jitter is not used as the Windows timing reference;
+      native Windows is the measurement platform
 
 ## G12 (M12, machine + review)
 - [ ] Green run URL, all three OSes, on the fork

@@ -24,10 +24,10 @@ POSSIBILITY OF SUCH DAMAGE.
 -->
 # SDL2 Frontend
 
-This is the SDL2 frontend for the portable PC-98 scaffold. It links the
-CMake `vaeg_core` and `vaeg_common` targets and includes the M10 Dear
-ImGui menu layer. VA and platform code for Windows/macOS are still later
-milestones.
+This is the SDL2 frontend for the portable PC-98 / PC-88VA build. It
+links the CMake `vaeg_core`, `vaeg_va`, and `vaeg_common` targets and
+includes the M10 Dear ImGui menu layer. See `../BUILD.md` for OS-level
+build recipes.
 
 ## Build
 
@@ -43,6 +43,8 @@ build/linux-debug/sdl2/vaeg
 ```
 
 SDL2 is discovered through `find_package(SDL2)` first, then pkg-config.
+`VAEG_FETCH_SDL2=ON` is reserved for the MinGW cross preset and fetches
+the pinned SDL2 release recorded in ADR-0006.
 
 ## Run
 
@@ -73,13 +75,19 @@ and must not crash.
 
 ## Configuration
 
-The ini format is unchanged. The SDL2 frontend looks for `np2.cfg` in:
+The ini format is unchanged. The SDL2 frontend looks for `np2.cfg` in
+the portable user state directory:
 
 1. `$XDG_CONFIG_HOME/vaeg/np2.cfg`
 2. `$HOME/.config/vaeg/np2.cfg`
-3. `./np2.cfg` if neither environment location is available
+3. `%APPDATA%\vaeg\np2.cfg` on Windows
+4. `~/Library/Application Support/vaeg/np2.cfg` on macOS
+5. `./np2.cfg` if no platform user directory is available
 
-The directory is created on save when the XDG or home path is used.
+The directory is created on save when an environment or home path is
+used. `vabkupmem.dat` and fixed GUI save-state slots use the same
+directory. `vabkupmem.dat` also loads once from the configured ROM path
+for migration; saves always go to the user state directory.
 
 ## Upgrading From An Older Config
 
@@ -91,6 +99,9 @@ portable VA build. For PC-88VA booting, check these keys:
   cause a silent hang in software that waits on the FM timer.
 - `clk_base=3993600` and `clk_mult=2`: stale PC-98 clock settings put the
   VA in the wrong timing domain.
+
+The frontend logs prominent warnings for stale VA sound-board or clock
+settings. It never rewrites the user's configuration silently.
 
 ## Font Manager Stub
 

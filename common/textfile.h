@@ -1,6 +1,6 @@
 
 typedef struct {
-	long	fh;
+	FILEH	fh;
 	long	fhpos;
 	UINT	buffersize;
 	UINT	flag;
@@ -20,4 +20,3 @@ void textfile_close(TEXTFILEH fh);
 #ifdef __cplusplus
 }
 #endif
-
