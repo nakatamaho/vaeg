@@ -30,6 +30,12 @@ covered here.
 
 ## Windows Native: MSYS2 MINGW64
 
+This is the supported Windows runtime configuration. Build and run the
+native Windows binary from an MSYS2 MINGW64 environment, then distribute
+`vaeg.exe` with `SDL2.dll` beside it. The executable statically links the
+MinGW gcc, libstdc++, and winpthread runtimes; SDL2 remains a bundled
+DLL.
+
 Open the MSYS2 MINGW64 shell, then install the build prerequisites:
 
 ```sh
@@ -77,9 +83,14 @@ cmake --preset mingw-cross
 cmake --build --preset mingw-cross
 ```
 
-The output is `build/mingw-cross/sdl2/vaeg.exe`. This preset is a link
-check, not a distribution recipe. Windows release artifacts in M12 must
-ship `SDL2.dll` next to `vaeg.exe`.
+The staged output is `build/mingw-cross/sdl2/vaeg.exe` with the
+FetchContent-built `SDL2.dll` beside it. This preset is a link-check
+tier, not the supported Windows runtime configuration. Running the
+cross-built executable against MSYS2's runtime DLLs is an unsupported
+hybrid and can produce misleading crash classes. Standalone viability of
+the cross-built pair is decided by maintainer testing. Windows release
+artifacts should be produced from the supported MSYS2 MINGW64 native
+configuration and must ship `SDL2.dll` next to `vaeg.exe`.
 
 ## GitHub Actions CI
 
