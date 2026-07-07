@@ -44,6 +44,7 @@
 #include	"keystat.h"
 #include	"bkupmemva.h"
 #include	"gui/gui.h"
+#include	"selftest.h"
 
 		NP2OSCFG	np2oscfg = {0, 0, 0, 0, 0, 1, 0};
 
@@ -76,6 +77,7 @@ static void usage(const char *progname) {
 	printf("Usage: %s [options]\n", progname);
 	printf("\t--help   [-h]       : print this message\n");
 	printf("\t--smoke             : initialize SDL2, run a short core loop, exit\n");
+	printf("\t--selftest          : run ROM-less unit tests and exit\n");
 	printf("\t--fdctrace          : print one FDC trace line per command to stderr\n");
 	printf("\t--pacelog           : print pacing counters once per second\n");
 	printf("\timage1 [image2]     : mount FDD images in drive 1 and 2\n");
@@ -244,23 +246,43 @@ static BOOL smoke_resolve_rompath(char *disk[2]) {
 	missing[0] = '\0';
 	if (smoke_try_romdir(np2cfg.biospath, missing, sizeof(missing))
 															== SUCCESS) {
+		fprintf(stderr,
+				"smoke: VA ROM set found at %s; "
+				"uniform-screen detector enabled\n",
+				np2cfg.biospath);
 		return(SUCCESS);
 	}
 	if (smoke_try_romdir(".", missing, sizeof(missing)) == SUCCESS) {
+		fprintf(stderr,
+				"smoke: VA ROM set found at %s; "
+				"uniform-screen detector enabled\n",
+				np2cfg.biospath);
 		return(SUCCESS);
 	}
 	if (smoke_try_romdir("romimage", missing, sizeof(missing)) == SUCCESS) {
+		fprintf(stderr,
+				"smoke: VA ROM set found at %s; "
+				"uniform-screen detector enabled\n",
+				np2cfg.biospath);
 		return(SUCCESS);
 	}
 	if (smoke_try_disk_romdirs(disk, missing, sizeof(missing)) == SUCCESS) {
+		fprintf(stderr,
+				"smoke: VA ROM set found at %s; "
+				"uniform-screen detector enabled\n",
+				np2cfg.biospath);
 		return(SUCCESS);
 	}
 	if (smoke_try_basepath_romdirs(missing, sizeof(missing)) == SUCCESS) {
+		fprintf(stderr,
+				"smoke: VA ROM set found at %s; "
+				"uniform-screen detector enabled\n",
+				np2cfg.biospath);
 		return(SUCCESS);
 	}
 	fprintf(stderr,
-			"Error: smoke ROM set incomplete: missing %s; set biospath "
-			"or run from a directory containing VA ROMs\n",
+			"smoke: ROM-less mode: missing %s; "
+			"uniform-screen detector disabled\n",
 			(missing[0] != '\0') ? missing : smoke_required_roms[0]);
 	return(FAILURE);
 }
@@ -393,12 +415,18 @@ static void run_guest_frame(BOOL draw) {
 	}
 }
 
-static BOOL smoke_after_frame(BOOL smoke, UINT frames) {
+static BOOL smoke_after_frame(BOOL smoke, UINT frames, BOOL detect_screen) {
 
 	BOOL	done;
 	BOOL	ret;
 
 	if (!smoke) {
+		return(SUCCESS);
+	}
+	if (!detect_screen) {
+		if (frames >= 1) {
+			taskmng_exit();
+		}
 		return(SUCCESS);
 	}
 	ret = smoke_check_screen(frames, &done);
@@ -409,7 +437,7 @@ static BOOL smoke_after_frame(BOOL smoke, UINT frames) {
 	return(SUCCESS);
 }
 
-static BOOL runloop(BOOL smoke, BOOL pacelog_enabled) {
+static BOOL runloop(BOOL smoke, BOOL pacelog_enabled, BOOL detect_screen) {
 
 	UINT	frames;
 	PACELOG	pacelog;
@@ -429,7 +457,7 @@ static BOOL runloop(BOOL smoke, BOOL pacelog_enabled) {
 			run_guest_frame(draw);
 			frames++;
 			pacelog_update(&pacelog, pacelog_enabled, 1, draw ? 0 : 1, 0);
-			if (smoke_after_frame(smoke, frames) != SUCCESS) {
+			if (smoke_after_frame(smoke, frames, detect_screen) != SUCCESS) {
 				return(FAILURE);
 			}
 			if (np2oscfg.DRAW_SKIP) {
@@ -458,7 +486,8 @@ static BOOL runloop(BOOL smoke, BOOL pacelog_enabled) {
 				frames++;
 				pacelog_update(&pacelog, pacelog_enabled, 1,
 							   draw ? 0 : 1, 0);
-				if (smoke_after_frame(smoke, frames) != SUCCESS) {
+				if (smoke_after_frame(smoke, frames, detect_screen)
+															!= SUCCESS) {
 					return(FAILURE);
 				}
 				framecnt++;
@@ -478,7 +507,8 @@ static BOOL runloop(BOOL smoke, BOOL pacelog_enabled) {
 				frames++;
 				pacelog_update(&pacelog, pacelog_enabled, 1,
 							   draw ? 0 : 1, 0);
-				if (smoke_after_frame(smoke, frames) != SUCCESS) {
+				if (smoke_after_frame(smoke, frames, detect_screen)
+															!= SUCCESS) {
 					return(FAILURE);
 				}
 				framecnt++;
@@ -517,15 +547,19 @@ int main(int argc, char **argv) {
 	int		pos;
 	char	*p;
 	BOOL	smoke;
+	BOOL	selftest;
 	BOOL	fdctrace;
 	BOOL	pacelog;
+	BOOL	smoke_detect_screen;
 	BOOL	run_ok;
 	int		disks;
 	char	*disk[2];
 
 	smoke = FALSE;
+	selftest = FALSE;
 	fdctrace = FALSE;
 	pacelog = FALSE;
+	smoke_detect_screen = FALSE;
 	run_ok = SUCCESS;
 	disks = 0;
 	disk[0] = NULL;
@@ -539,6 +573,9 @@ int main(int argc, char **argv) {
 		}
 		else if (!milstr_cmp(p, "--smoke")) {
 			smoke = TRUE;
+		}
+		else if (!milstr_cmp(p, "--selftest")) {
+			selftest = TRUE;
 		}
 		else if (!milstr_cmp(p, "--fdctrace")) {
 			fdctrace = TRUE;
@@ -567,6 +604,12 @@ int main(int argc, char **argv) {
 
 	dosio_init();
 	file_setcd("./");
+	if (selftest) {
+		run_ok = vaeg_selftest_run();
+		SDL_Quit();
+		dosio_term();
+		return(run_ok);
+	}
 	for (pos=0; pos<disks; pos++) {
 		if (check_fdd_image(disk[pos]) != SUCCESS) {
 			SDL_Quit();
@@ -577,11 +620,7 @@ int main(int argc, char **argv) {
 	initload();
 	if (smoke) {
 		smoke_configure_va();
-		if (smoke_resolve_rompath(disk) != SUCCESS) {
-			SDL_Quit();
-			dosio_term();
-			return(FAILURE);
-		}
+		smoke_detect_screen = (smoke_resolve_rompath(disk) == SUCCESS);
 	}
 	warn_va_config_sanity();
 	set_default_rompath();
@@ -620,7 +659,7 @@ int main(int argc, char **argv) {
 	pccore_reset();
 	scrndraw_redraw();
 	mount_fdd_images(disk);
-	run_ok = runloop(smoke, pacelog);
+	run_ok = runloop(smoke, pacelog, smoke_detect_screen);
 
 	pccore_cfgupdate();
 	if ((!smoke) && (sys_updates & (SYS_UPDATECFG | SYS_UPDATEOSCFG))) {
