@@ -33,6 +33,18 @@ PC-88VA `BRKEM2` instruction. This is not the FDD subsystem Z80. The FDD
 subsystem CPU is a separate device implemented through `cpucva/z80c.cpp`,
 `iova/subsystem.cpp`, and `VASUBSYS.ROM`.
 
+## Reference Materials
+
+This note uses these materials with different authority levels:
+
+| Source | Role in this note | Link |
+| ------ | ----------------- | ---- |
+| NEC V-series instruction manual, `U11301EJ5V0UMJ1` | Primary public reference for V20/V30-family `BRKEM`, `RETEM`, and `CALLN` behavior. It is an analogy source for `BRKEM2`, not a uPD9002-specific manual. | <https://datasheets.chipdb.org/NEC/V20-V30/U11301EJ5V0UMJ1.PDF> |
+| NEC V40HL/V50HL data sheet, `U13225EJ4V0DS00` | Public V40/V50-family analogy source for the on-chip peripheral model: V20/V30 software compatibility, uPD8080AF emulation, 1MB memory space, 64KB I/O space, and system-I/O allocation of DMA/ICU/TCU/SCU. uPD9002 is treated here as the PC-88VA V52-class CPU; this data sheet is only a public family analogy, not a uPD9002/V52 manual. | directory: <https://datasheets.chipdb.org/NEC/V40-V50/>; V40HL PDF: <https://datasheets.chipdb.org/NEC/V40-V50/NEC_uPD70208H.pdf>; V50HL PDF: <https://datasheets.chipdb.org/NEC/V40-V50/NEC_uPD70216H.pdf> |
+| PC-88VA technical notes under `docs/tekumani/` | Primary local notes for PC-88VA/uPD9002 differences: unsupported V30-mode instructions, `BRKEM2` opcode, internal-control ports, and I/O trap behavior. | local repository material |
+| MAME NEC V20/V30 core | Implementation comparison point for how a mature emulator models V30 `BRKEM`, 8080-mode dispatch, `RETEM`, `CALLN`, and prefetch flushing. MAME does not implement VA `BRKEM2` as a uPD9002-compatible-mode entry. | source directory: <https://github.com/mamedev/mame/tree/master/src/devices/cpu/nec>; `nec.cpp`: <https://github.com/mamedev/mame/blob/master/src/devices/cpu/nec/nec.cpp>; `necpriv.ipp`: <https://github.com/mamedev/mame/blob/master/src/devices/cpu/nec/necpriv.ipp>; `necinstr.hxx`: <https://github.com/mamedev/mame/blob/master/src/devices/cpu/nec/necinstr.hxx>; `nec80inst.hxx`: <https://github.com/mamedev/mame/blob/master/src/devices/cpu/nec/nec80inst.hxx> |
+| `VAROM1.ROM` disassembly observations | PC-88VA2 ROM-specific evidence for vector setup, `0F FE 90`, and the post-handoff V30 resume block. | maintainer-provided ROM, not distributed here |
+
 ## V30-Mode Instruction Set
 
 The uPD9002 V30-mode instruction set should be treated as NEC V30-like
@@ -53,6 +65,29 @@ uPD780/Z80-compatible mode, and that VA does not use V30-compatible
 This matters for disassembly. General x86 disassemblers may decode
 `0F FE ...` as an MMX-family instruction when they are not told about
 uPD9002. In PC-88VA/uPD9002 context, `0F FE nn` is `BRKEM2 nn`.
+
+## V52 Lineage And V40/V50 Peripheral Analogy
+
+For PC-88VA work, uPD9002 should be treated as the VA's V52-class CPU,
+not as a literal V50. The V40/V50 data-sheet directory still matters
+because it contains public V-series material for the same broad design
+family. The V40HL and V50HL PDFs are the combined `uPD70208H, 70216H`
+data sheet.
+
+That data sheet is not a uPD9002/V52 manual. Use it only as supporting
+evidence for the family-level model also described by the PC-88VA notes:
+V30-like native execution plus CPU-internal peripherals mapped into a
+system I/O area. Exact uPD9002/V52 register meanings remain VA-specific
+and must come from ROM traces, technical notes, or future hardware
+confirmation.
+
+| Data-sheet point | Why it matters here |
+| ---------------- | ------------------- |
+| V40HL/V50HL are V20/V30 software-compatible processors. | This supports treating uPD9002/V52 native mode as V30-like before applying VA-specific differences. |
+| The data sheet lists a uPD8080AF emulation function. | This makes the V30-family `BRKEM` analogy plausible, while still leaving `BRKEM2` as a VA/uPD9002-specific opcode. |
+| The devices include on-chip CG, WCU, REFU, TCU, SCU, ICU, and DMAU blocks. | This matches the kind of CPU-internal peripheral block that the PC-88VA notes describe for uPD9002. |
+| The devices expose a 1MB memory address space and 64KB I/O address space. | This matches the broad address-space assumptions used by the VA ROM setup code. |
+| The data sheet describes internal peripherals as mapped into a system I/O area. | This supports the interpretation that VA ROM writes to `FFF0h-FFFFh` are CPU-internal control setup, but the exact uPD9002/V52 register meanings remain VA-specific and partly inferred. |
 
 ## I/O Trap Semantics
 
@@ -182,6 +217,24 @@ return; V30 has `RETEM`, and temporary native calls from 8080 mode use the
 write-enable/write-disable style latch for the mode flag, and a prefetch
 flush on every mode-changing control transfer. Treating `BRKEM` as a
 plain interrupt or far call is insufficient.
+
+## MAME V30 Implementation Comparison
+
+MAME is useful because it already models the standard NEC V30-compatible
+emulation path. It should not be treated as a drop-in answer for PC-88VA,
+because VA uses `BRKEM2` (`0F FE nn`) rather than V30 `BRKEM`
+(`0F FF nn`) for the main-CPU uPD780/Z80-compatible transition.
+
+| Topic | MAME V30 behavior | PC-88VA/uPD9002 implication |
+| ----- | ----------------- | --------------------------- |
+| Instruction family | MAME documents V20/V30/V40/V50 as having dedicated emulation instructions: `BRKEM`, `RETEM`, and `CALLN`. | This supports using V30 `BRKEM` as the closest public analogy, but it does not prove the VA-specific `BRKEM2` return or latch rules. |
+| Native entry opcode | MAME dispatches `0F FF nn` to `BRKEM` and calls its common break-to-emulation helper. | VA technical notes say the PC-88VA transition is `0F FE nn`; `0F FF nn` is not the VA path. A vaeg implementation needs a new `BRKEM2` case, not only MAME-style `BRKEM`. |
+| Mode state | MAME keeps a native/emulation decode selector (`m_MF`) and a separate latch-like state (`m_em`) that affects whether restored flags can leave emulation mode. | vaeg should also keep compatible-mode state separate from normal V30 flags. A single boolean "currently Z80" flag would be too weak for correct return/interrupt behavior. |
+| Entry stack frame | MAME's `nec_brk()` clears the native-mode flag, pushes flags, `PS`, and the post-immediate `IP`, then loads the new `PS:IP` from `IVT[nn]`. | The working `BRKEM2 90h` model should save return `IP=13B4h` and load `PS:IP` from vector `90h = 1000:0000`, unless uPD9002-specific evidence proves otherwise. |
+| Decoder switch | MAME's execution loop chooses the native instruction table when the mode flag is set and the 8080 table when it is clear. | The main CPU needs its own compatible-mode decoder. Reusing the FDD subsystem Z80 instance would be architecturally wrong. |
+| Return from emulation | MAME implements `RETEM` in the 8080-mode table through an `ED FD` sequence that restores `IP`, `PS`, and flags and returns to native decode. `CALLN` is handled through `ED ED nn`. | These opcodes are strong candidates to compare against when searching the VA ROM path, but the exact uPD9002 compatible-mode return opcode remains unconfirmed. |
+| Prefetch and control transfer | MAME's control-transfer macro clears the prefetch state on `BRKEM`, `RETEM`, calls, jumps, and returns. | `BRKEM2` should flush any native prefetch state before fetching compatible-mode code, and should flush again when returning to V30 mode. |
+| Timing | MAME assigns a concrete cycle cost to V30 `BRKEM`, while its source comments still treat some V30 prefetch details as approximate. | For vaeg, functional correctness of the mode transition should be separated from future cycle-accuracy work. Timing must not be copied blindly from MAME for uPD9002. |
 
 Applying that as a working analogy, `BRKEM2 90h` is expected to be the
 uPD9002-specific sibling:
