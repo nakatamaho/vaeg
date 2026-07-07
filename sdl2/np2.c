@@ -44,6 +44,7 @@
 #include	"keystat.h"
 #include	"bkupmemva.h"
 #include	"gui/gui.h"
+#include	"selftest.h"
 
 		NP2OSCFG	np2oscfg = {0, 0, 0, 0, 0, 1, 0};
 
@@ -76,6 +77,7 @@ static void usage(const char *progname) {
 	printf("Usage: %s [options]\n", progname);
 	printf("\t--help   [-h]       : print this message\n");
 	printf("\t--smoke             : initialize SDL2, run a short core loop, exit\n");
+	printf("\t--selftest          : run ROM-less unit tests and exit\n");
 	printf("\t--fdctrace          : print one FDC trace line per command to stderr\n");
 	printf("\t--pacelog           : print pacing counters once per second\n");
 	printf("\timage1 [image2]     : mount FDD images in drive 1 and 2\n");
@@ -545,6 +547,7 @@ int main(int argc, char **argv) {
 	int		pos;
 	char	*p;
 	BOOL	smoke;
+	BOOL	selftest;
 	BOOL	fdctrace;
 	BOOL	pacelog;
 	BOOL	smoke_detect_screen;
@@ -553,6 +556,7 @@ int main(int argc, char **argv) {
 	char	*disk[2];
 
 	smoke = FALSE;
+	selftest = FALSE;
 	fdctrace = FALSE;
 	pacelog = FALSE;
 	smoke_detect_screen = FALSE;
@@ -569,6 +573,9 @@ int main(int argc, char **argv) {
 		}
 		else if (!milstr_cmp(p, "--smoke")) {
 			smoke = TRUE;
+		}
+		else if (!milstr_cmp(p, "--selftest")) {
+			selftest = TRUE;
 		}
 		else if (!milstr_cmp(p, "--fdctrace")) {
 			fdctrace = TRUE;
@@ -597,6 +604,12 @@ int main(int argc, char **argv) {
 
 	dosio_init();
 	file_setcd("./");
+	if (selftest) {
+		run_ok = vaeg_selftest_run();
+		SDL_Quit();
+		dosio_term();
+		return(run_ok);
+	}
 	for (pos=0; pos<disks; pos++) {
 		if (check_fdd_image(disk[pos]) != SUCCESS) {
 			SDL_Quit();
