@@ -80,7 +80,7 @@ static UINT pcm_dec(GETSND snd, void *dst) {
 		CopyMemory(dst, snd->datptr, size);
 		snd->datptr += size;
 		snd->datsize -= size;
-		size >>= (int)(long)snd->snd;
+		size >>= (int)(VAEG_INTPTR)snd->snd;
 	}
 	return(size);
 }
@@ -109,7 +109,7 @@ static UINT pcm_dec(GETSND snd, BYTE *dst) {
 		}
 		snd->datptr += size;
 		snd->datsize -= size;
-		size >>= (int)(long)snd->snd;
+		size >>= (int)(VAEG_INTPTR)snd->snd;
 	}
 	return(size);
 }
@@ -130,7 +130,7 @@ static BOOL pcm_open(GETSND snd) {
 	}
 	snd->blocksamples = 0x800;					// 適当に。
 	snd->blocksize *= snd->blocksamples;
-	snd->snd = (void *)(long)abits[align - 1];
+	snd->snd = (void *)(VAEG_INTPTR)abits[align - 1];
 	snd->dec = (GSDEC)pcm_dec;
 	return(SUCCESS);
 
@@ -573,4 +573,3 @@ BOOL getwave_open(GETSND snd, BYTE *ptr, UINT size) {
 gwopn_err:
 	return(FAILURE);
 }
-

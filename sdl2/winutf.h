@@ -22,63 +22,64 @@
  * IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-#ifndef VAEG_SDL2_COMMNG_H
-#define VAEG_SDL2_COMMNG_H
+#ifndef VAEG_SDL2_WINUTF_H
+#define VAEG_SDL2_WINUTF_H
 
-enum {
-	COMCREATE_SERIAL		= 0,
-	COMCREATE_PC9861K1,
-	COMCREATE_PC9861K2,
-	COMCREATE_PRINTER,
-	COMCREATE_MPU98II
-};
-
-enum {
-	COMCONNECT_OFF			= 0,
-	COMCONNECT_SERIAL,
-	COMCONNECT_MIDI,
-	COMCONNECT_PARALLEL
-};
-
-enum {
-	COMMSG_MIDIRESET		= 0,
-	COMMSG_SETFLAG,
-	COMMSG_GETFLAG,
-#if defined(VAEG_FIX)
-	COMMSG_SETRSFLAG,
+#if defined(WIN32)
+#include <stdlib.h>
+#include <wchar.h>
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
 #endif
-	COMMSG_USER
-};
-
-struct _commng;
-typedef struct _commng	_COMMNG;
-typedef struct _commng	*COMMNG;
-
-struct _commng {
-	UINT	connect;
-	UINT	(*read)(COMMNG self, BYTE *data);
-	UINT	(*write)(COMMNG self, BYTE data);
-	BYTE	(*getstat)(COMMNG self);
-	VAEG_INTPTR	(*msg)(COMMNG self, UINT msg, VAEG_INTPTR param);
-	void	(*release)(COMMNG self);
-};
-
-typedef struct {
-	UINT32	size;
-	UINT32	sig;
-	UINT32	ver;
-	UINT32	param;
-} _COMFLAG, *COMFLAG;
-
-#ifdef __cplusplus
-extern "C" {
+#ifndef NOMINMAX
+#define NOMINMAX
 #endif
+#include <windows.h>
 
-COMMNG commng_create(UINT device);
-void commng_destroy(COMMNG hdl);
-void commng_initialize(void);
+static inline wchar_t *winutf_from_utf8(const char *src) {
 
-#ifdef __cplusplus
+	int			len;
+	wchar_t		*dst;
+
+	if (src == NULL) {
+		return NULL;
+	}
+	len = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS,
+							  src, -1, NULL, 0);
+	if (len <= 0) {
+		return NULL;
+	}
+	dst = (wchar_t *)malloc(sizeof(wchar_t) * (size_t)len);
+	if (dst == NULL) {
+		return NULL;
+	}
+	if (MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS,
+							src, -1, dst, len) <= 0) {
+		free(dst);
+		return NULL;
+	}
+	return dst;
+}
+
+static inline int winutf_to_utf8(char *dst, int size, const wchar_t *src) {
+
+	int		ret;
+
+	if ((dst == NULL) || (size <= 0) || (src == NULL)) {
+		return -1;
+	}
+	ret = WideCharToMultiByte(CP_UTF8, WC_ERR_INVALID_CHARS, src, -1,
+							  dst, size, NULL, NULL);
+	if (ret <= 0) {
+		dst[0] = '\0';
+		return -1;
+	}
+	return 0;
+}
+
+static inline void winutf_free(wchar_t *ptr) {
+
+	free(ptr);
 }
 #endif
 

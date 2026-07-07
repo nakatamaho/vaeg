@@ -24,6 +24,8 @@ typedef	signed int			SINT32;
 typedef	unsigned int		UINT32;
 typedef signed __int64		SINT64;
 typedef unsigned __int64	UINT64;
+typedef LONG_PTR			VAEG_INTPTR;
+typedef ULONG_PTR			VAEG_UINTPTR;
 #define	INLINE				__inline
 #define	QWORD_CONST(v)		((UINT64)(v))
 #define	SQWORD_CONST(v)		((SINT64)(v))

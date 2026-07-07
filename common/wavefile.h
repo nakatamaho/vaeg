@@ -1,6 +1,8 @@
 
 // あとで GETSNDに乗り換えるかも…
 
+#include	"dosio.h"
+
 #if defined(BYTESEX_BIG)
 #define	WAVE_SIG(a, b, c, d)	\
 				(UINT32)((d) + ((c) << 8) + ((b) << 16) + ((a) << 24))
@@ -33,7 +35,7 @@ typedef struct {
 // ---- write
 
 typedef struct {
-	long		fh;
+	FILEH		fh;
 	UINT		rate;
 	UINT		bits;
 	UINT		ch;
@@ -56,4 +58,3 @@ void wavewr_close(WAVEWR hdl);
 #ifdef __cplusplus
 }
 #endif
-

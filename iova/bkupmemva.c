@@ -18,29 +18,52 @@
 
 #define VABKUPMEM "vabkupmem.dat"
 
-void bkupmemva_load(void) {
-	char	path[MAX_PATH];
-	FILEH	fh;
-	BOOL	success;
+static BOOL bkupmemva_read(const char *path) {
 
-	getbiospath(path, VABKUPMEM, sizeof(path));
+	FILEH	fh;
+	BOOL	ret;
+
 	fh = file_open_rb(path);
 	if (fh != FILEH_INVALID) {
-		success = (file_read(fh, backupmem, 0x04000) == 0x04000);
+		ret = (file_read(fh, backupmem, 0x04000) == 0x04000);
 		file_close(fh);
+		return(ret);
 	}
+	return(FAILURE);
+}
 
+static void bkupmemva_statepath(char *path, int size) {
+
+#if defined(OSLANG_SJIS)
+	getbiospath(path, VABKUPMEM, size);
+#elif defined(OSLANG_UTF8)
+	file_getstatepath(path, size, VABKUPMEM);
+#else
+	getbiospath(path, VABKUPMEM, size);
+#endif
+}
+
+void bkupmemva_load(void) {
+	char	path[MAX_PATH];
+
+	bkupmemva_statepath(path, sizeof(path));
+	if (bkupmemva_read(path) == SUCCESS) {
+		return;
+	}
+#if defined(OSLANG_UTF8) && !defined(OSLANG_SJIS)
+	getbiospath(path, VABKUPMEM, sizeof(path));
+	(void)bkupmemva_read(path);
+#endif
 }
 
 void bkupmemva_save(void) {
 	char	path[MAX_PATH];
 	FILEH	fh;
-	BOOL	success;
 
-	getbiospath(path, VABKUPMEM, sizeof(path));
+	bkupmemva_statepath(path, sizeof(path));
 	fh = file_create(path);
 	if (fh != FILEH_INVALID) {
-		success = (file_write(fh, backupmem, 0x04000) == 0x04000);
+		(void)file_write(fh, backupmem, 0x04000);
 		file_close(fh);
 	}
 

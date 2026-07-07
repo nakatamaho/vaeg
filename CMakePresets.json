@@ -38,6 +38,61 @@
         "CMAKE_EXE_LINKER_FLAGS": "-fsanitize=address,undefined",
         "VAEG_WERROR": "OFF"
       }
+    },
+    {
+      "name": "mingw-release",
+      "displayName": "Windows MinGW Release (MSYS2 native)",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/mingw-release",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "VAEG_WERROR": "OFF",
+        "VAEG_WINDOWS_CONSOLE": "OFF"
+      }
+    },
+    {
+      "name": "mingw-cross",
+      "displayName": "Windows MinGW-w64 Cross Release",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/mingw-cross",
+      "toolchainFile": "${sourceDir}/cmake/mingw-w64-x86_64.cmake",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "VAEG_WERROR": "OFF",
+        "VAEG_WINDOWS_CONSOLE": "OFF",
+        "VAEG_FETCH_SDL2": "ON"
+      }
+    },
+    {
+      "name": "macos-release",
+      "displayName": "macOS Release (MacPorts)",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/macos-release",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_PREFIX_PATH": "/opt/local",
+        "VAEG_WERROR": "OFF"
+      },
+      "environment": {
+        "PKG_CONFIG_PATH": "/opt/local/lib/pkgconfig:$penv{PKG_CONFIG_PATH}"
+      }
+    },
+    {
+      "name": "macos-asan",
+      "displayName": "macOS ASan/UBSan Debug (MacPorts)",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/macos-asan",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_PREFIX_PATH": "/opt/local",
+        "CMAKE_C_FLAGS": "-fsanitize=address,undefined",
+        "CMAKE_CXX_FLAGS": "-fsanitize=address,undefined",
+        "CMAKE_EXE_LINKER_FLAGS": "-fsanitize=address,undefined",
+        "VAEG_WERROR": "OFF"
+      },
+      "environment": {
+        "PKG_CONFIG_PATH": "/opt/local/lib/pkgconfig:$penv{PKG_CONFIG_PATH}"
+      }
     }
   ],
   "buildPresets": [
@@ -52,6 +107,22 @@
     {
       "name": "linux-asan",
       "configurePreset": "linux-asan"
+    },
+    {
+      "name": "mingw-release",
+      "configurePreset": "mingw-release"
+    },
+    {
+      "name": "mingw-cross",
+      "configurePreset": "mingw-cross"
+    },
+    {
+      "name": "macos-release",
+      "configurePreset": "macos-release"
+    },
+    {
+      "name": "macos-asan",
+      "configurePreset": "macos-asan"
     }
   ]
 }

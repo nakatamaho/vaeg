@@ -11,6 +11,8 @@ enum {
 };
 #endif
 
+#include	"dosio.h"
+
 enum {
 	SXSITYPE_NONE		= 0x0000,
 
@@ -86,7 +88,7 @@ typedef struct {
 	UINT8	surfaces;
 	UINT16	type;
 	UINT32	headersize;
-	long	fh;
+	FILEH	fh;
 	char	fname[MAX_PATH];
 } _SXSIDEV, *SXSIDEV;
 
@@ -120,4 +122,3 @@ REG8 sxsi_format(REG8 drv, long pos);
 #ifdef __cplusplus
 }
 #endif
-

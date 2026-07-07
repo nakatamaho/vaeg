@@ -38,10 +38,17 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/time.h>
 #include <time.h>
 #include <unistd.h>
 
+#if defined(_WIN32) && !defined(WIN32)
+#define WIN32
+#endif
+
+#if !defined(WIN32)
 #define X11
+#endif
 #define OSLANG_UTF8
 #define OSLINEBREAK_LF
 #define SDL_MAIN_HANDLED
@@ -58,13 +65,19 @@ typedef int32_t SINT32;
 typedef uint32_t UINT32;
 typedef int64_t SINT64;
 typedef uint64_t UINT64;
+typedef intptr_t VAEG_INTPTR;
+typedef uintptr_t VAEG_UINTPTR;
 
 typedef int BOOL;
 typedef char CHAR;
 typedef char TCHAR;
 typedef uint8_t BYTE;
 typedef uint16_t WORD;
+#if defined(WIN32)
+typedef unsigned long DWORD;
+#else
 typedef uint32_t DWORD;
+#endif
 
 #ifndef TRUE
 #define TRUE 1
@@ -154,12 +167,14 @@ typedef uint32_t DWORD;
 
 static INLINE UINT32 vaeg_gettick(void) {
 
-	struct timespec ts;
+	struct timeval tv;
+	UINT64 msec;
 
-	if (clock_gettime(CLOCK_MONOTONIC, &ts) != 0) {
+	if (gettimeofday(&tv, NULL) != 0) {
 		return 0;
 	}
-	return (UINT32)((ts.tv_sec * 1000u) + (ts.tv_nsec / 1000000u));
+	msec = ((UINT64)tv.tv_sec * 1000) + ((UINT64)tv.tv_usec / 1000);
+	return (UINT32)msec;
 }
 
 #define GETTICK() vaeg_gettick()

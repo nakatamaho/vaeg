@@ -25,6 +25,16 @@
 #ifndef VAEG_SDL2_DOSIO_H
 #define VAEG_SDL2_DOSIO_H
 
+#if defined(WIN32)
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>
+#endif
+
 typedef FILE *FILEH;
 #define FILEH_INVALID NULL
 
@@ -104,6 +114,8 @@ FILEH file_open_rb_c(const char *path);
 FILEH file_create_c(const char *path);
 short file_delete_c(const char *path);
 short file_attr_c(const char *path);
+void file_getuserdir(char *path, int size);
+void file_getstatepath(char *path, int size, const char *name);
 
 FLISTH file_list1st(const char *dir, FLINFO *fli);
 BOOL file_listnext(FLISTH hdl, FLINFO *fli);
