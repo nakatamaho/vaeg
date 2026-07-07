@@ -285,6 +285,7 @@ set(VAEG_SDL2_SOURCES
     sdl2/scrnmng.c
     sdl2/sdlkbd.c
     sdl2/inputmng.c
+    sdl2/selftest.c
     sdl2/soundmng.c
     sdl2/mousemng.c
     sdl2/joymng.c
@@ -342,4 +343,12 @@ endif()
 target_compile_options(vaeg_sdl2 PRIVATE -Wall -fsigned-char)
 if(VAEG_WERROR)
     target_compile_options(vaeg_sdl2 PRIVATE -Werror)
+endif()
+
+if(VAEG_ENABLE_TESTS)
+    enable_testing()
+    add_test(NAME vaeg_romless_tests COMMAND vaeg_sdl2 --selftest)
+    set_tests_properties(vaeg_romless_tests PROPERTIES
+        WORKING_DIRECTORY "$<TARGET_FILE_DIR:vaeg_sdl2>"
+        ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
 endif()
