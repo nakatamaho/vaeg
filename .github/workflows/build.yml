@@ -1,0 +1,165 @@
+# Copyright (c) 2026 Nakata Maho
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions
+# are met:
+# 1. Redistributions of source code must retain the above copyright
+#    notice, this list of conditions and the following disclaimer.
+# 2. Redistributions in binary form must reproduce the above copyright
+#    notice, this list of conditions and the following disclaimer in the
+#    documentation and/or other materials provided with the distribution.
+#
+# THIS SOFTWARE IS PROVIDED BY THE AUTHOR "AS IS" AND ANY EXPRESS OR
+# IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+# WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+# DISCLAIMED. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT,
+# INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+# (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+# SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+# HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+# STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING
+# IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+# POSSIBILITY OF SUCH DAMAGE.
+
+name: build
+
+on:
+  push:
+  pull_request:
+
+# CI intentionally has no ROMs or disk images. The smoke test therefore
+# runs reduced-scope when ROMs are absent: SDL init, core loop, one GUI
+# frame, and clean exit. Human gates remain the behavioral ROM/disk check.
+
+jobs:
+  lint:
+    name: repo invariants
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check encoding
+        run: python3 tools/repo/check_encoding.py --expect utf8 --exclude hlp/
+      - name: Check EOL
+        run: python3 tools/repo/check_eol.py --enforce
+      - name: Check path case
+        run: python3 tools/repo/check_case.py
+
+  linux:
+    name: ubuntu ${{ matrix.compiler }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - compiler: gcc
+            preset: linux-ci-gcc
+          - compiler: clang
+            preset: linux-ci-clang
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake ninja-build pkg-config libsdl2-dev gcc g++ clang
+      - name: Configure
+        run: cmake --preset ${{ matrix.preset }}
+      - name: Build
+        run: cmake --build --preset ${{ matrix.preset }}
+      - name: Smoke
+        run: SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy ./build/${{ matrix.preset }}/sdl2/vaeg --smoke
+      - name: Unit tests
+        run: ctest --test-dir build/${{ matrix.preset }} --output-on-failure
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: vaeg-linux-${{ matrix.compiler }}
+          path: build/${{ matrix.preset }}/sdl2/vaeg
+
+  linux-asan:
+    name: ubuntu asan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake ninja-build pkg-config libsdl2-dev gcc g++
+      - name: Configure
+        run: cmake --preset linux-ci-asan
+      - name: Build
+        run: cmake --build --preset linux-ci-asan
+      - name: Smoke
+        run: |
+          # UBSan reports for the documented backlog are expected output.
+          # Sanitizer failures still fail this step through the process exit.
+          SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy ASAN_OPTIONS=detect_leaks=0 \
+            ./build/linux-ci-asan/sdl2/vaeg --smoke
+      - name: Unit tests
+        run: |
+          SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy ASAN_OPTIONS=detect_leaks=0 \
+            ctest --test-dir build/linux-ci-asan --output-on-failure
+
+  windows:
+    name: windows msys2 mingw64
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: true
+          # MSYS2 package names can drift; keep this list explicit so failures
+          # identify dependency churn rather than hiding behind a meta package.
+          install: >-
+            git
+            mingw-w64-x86_64-cmake
+            mingw-w64-x86_64-ninja
+            mingw-w64-x86_64-gcc
+            mingw-w64-x86_64-SDL2
+            mingw-w64-x86_64-pkgconf
+      - name: Configure
+        run: cmake --preset mingw-ci
+      - name: Build
+        run: cmake --build --preset mingw-ci
+      - name: Smoke
+        run: SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy ./build/mingw-ci/sdl2/vaeg.exe --smoke
+      - name: Unit tests
+        run: ctest --test-dir build/mingw-ci --output-on-failure
+      - name: Stage artifact
+        run: |
+          mkdir -p build/mingw-ci/artifact
+          cp build/mingw-ci/sdl2/vaeg.exe build/mingw-ci/artifact/
+          cp /mingw64/bin/SDL2.dll build/mingw-ci/artifact/
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: vaeg-windows-mingw64
+          path: build/mingw-ci/artifact/
+
+  macos:
+    name: macos fetch-sdl2
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install build tools
+        run: brew install cmake ninja
+      - name: Configure
+        run: |
+          # Maintainer baseline is MacPorts, but MacPorts is impractical on
+          # hosted runners. CI uses VAEG_FETCH_SDL2=ON through macos-ci to
+          # exercise the pinned FetchContent acquisition path from ADR-0006.
+          cmake --preset macos-ci
+      - name: Build
+        run: cmake --build --preset macos-ci
+      - name: Smoke
+        run: SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy ./build/macos-ci/sdl2/vaeg --smoke
+      - name: Unit tests
+        run: ctest --test-dir build/macos-ci --output-on-failure
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: vaeg-macos
+          path: build/macos-ci/sdl2/vaeg

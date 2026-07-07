@@ -81,6 +81,37 @@ The output is `build/mingw-cross/sdl2/vaeg.exe`. This preset is a link
 check, not a distribution recipe. Windows release artifacts in M12 must
 ship `SDL2.dll` next to `vaeg.exe`.
 
+## GitHub Actions CI
+
+The M12 workflow is `.github/workflows/build.yml`. It covers:
+
+- Ubuntu with system SDL2 from `apt`, in separate gcc and clang jobs.
+- Ubuntu ASan/UBSan smoke. The known UBSan backlog messages documented in
+  `../agents/reports/ubsan_backlog.md` may appear, but sanitizer process
+  failures still fail the job.
+- Windows on `windows-latest` through MSYS2/MINGW64 with SDL2 from
+  `pacman`. Package names are pinned explicitly in the workflow because
+  MSYS2 package drift should fail visibly.
+- macOS on `macos-latest` with `VAEG_FETCH_SDL2=ON`. The maintainer
+  baseline remains MacPorts, but MacPorts is impractical on hosted
+  runners; this CI job deliberately exercises the pinned FetchContent path
+  from ADR-0006.
+
+CI has no ROMs or disk images by design. `--smoke` therefore runs in a
+reduced-scope ROM-less mode on hosted runners: SDL initialization, core
+loop, one GUI frame, and clean exit. If a complete VA ROM set is present,
+the same smoke command enables the uniform-screen detector and logs that
+mode. Behavioral ROM and disk validation remains a human gate.
+
+`VAEG_ENABLE_TESTS=ON` enables the ROM-less ctest suite. Current tests are
+the codecnv wave-dash round-trip, ini read/write round-trip, and statsave
+save/check/load on stable sections. M9 did not produce a memoryva fixture,
+so the memoryva fixture test is intentionally skipped.
+
+CI uploads build artifacts for all three operating systems. The Windows
+artifact stages `vaeg.exe` with `SDL2.dll` beside it, matching ADR-0006's
+runtime distribution note.
+
 ## VA Configuration Prerequisites
 
 Before running the G11 VA checklist, ensure the portable `np2.cfg`
