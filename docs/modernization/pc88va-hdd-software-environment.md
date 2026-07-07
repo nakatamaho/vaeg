@@ -54,6 +54,15 @@ PC88.gr.jp link used by the article for PCEPAT is:
 That PC88.gr.jp page is PCEPAT, not MSE. It lists `PCEPAT.COM` for V3
 mode PC-Engine environments.
 
+The bank-memory support package referenced by the MSE documentation is
+Vector's BMS Driver:
+
+- https://web.archive.org/web/20190326051933/https://www.vector.co.jp/download/file/dos/hardware/fh090419.html
+- https://web.archive.org/web/20190326051933/https://www.vector.co.jp/soft/dos/hardware/se090419.html
+
+Vector describes it as `BMS Driver 1.50 Rev 0.20`, a Bank Memory Driver
+for PC-98x1/88VA. The archived download is `bms15020.tgz`.
+
 ## Core Components
 
 The article's baseline `CONFIG.SYS` is:
@@ -89,6 +98,28 @@ Useful MSE-side tools in the archived package include:
 (`PCP108` plus its patch). The article treats it as another PC-Engine
 extension layer.
 
+## Bank Memory Manager
+
+`BMS Driver` is the Bank Memory Specification driver used by some VA
+software and by MSE's optional memory features. The archived Vector detail
+page describes it as a bank-memory manager for PC-98x1/88VA, with support
+for users of PCM8/WAV playback, AVE, the New JIS emulator, and RAM-disk
+style uses.
+
+The downloaded `bms15020.tgz` archive contains VA-side files including:
+
+- `bmsdrva.com`: VA executable/resident driver.
+- `bmsaddva.com`: VA non-device compatibility driver.
+- `bmsgsva.com` and `bmsgsva.asm`: VA sample program and source.
+- `bms15020.doc`, `bms15020.hed`, `bms15020.his`: documentation,
+  archive header, and history.
+- `bmsdrsys.wup`: WUP diff for the SYS driver forms.
+
+The MSE documentation says its Alias and bank-memory swap features depend
+on BMSDR. In practice, if an HDD image uses MSE `/A`, `/B`, or `/X`
+options, load or run the BMS driver before MSE. A minimal environment can
+omit BMS, but then those MSE features should not be enabled.
+
 ## Support Tools
 
 The recipe also needs DOS utilities, which run through MSE:
@@ -114,6 +145,8 @@ A:\
   CONFIG.SYS
   AUTOEXEC.BAT
   PCEPAT.SYS
+  BMSDRVA.COM
+  BMSADDVA.COM
   MSE352B.COM
   PCPLUS.SYS
   PCENGINE.COM
@@ -156,8 +189,8 @@ For vaeg, the practical workflow target is:
 
 1. Create or obtain a SASI-compatible HDD image.
 2. Boot a PC-88VA DOS environment and install system files to the HDD.
-3. Install PCEPAT, MSE 3.52b, PCPLUS, and the DOS utility set inside the
-   HDD image.
+3. Install PCEPAT, BMS Driver if MSE memory features are needed, MSE
+   3.52b, PCPLUS, and the DOS utility set inside the HDD image.
 4. Use the HDD image as the stable guest development environment.
 5. Prefer guest-side archive extraction and diff application when file
    timestamps matter.
