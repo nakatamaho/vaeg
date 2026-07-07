@@ -70,7 +70,7 @@ Unimplemented Win32 features remain visible as disabled stubs with
 | HardDisk | SASI1/SASI2 Open/Remove | `later` | HDD mounting is not in the M10 must-have set. |
 | SCSI dynamic menu | SCSI0-SCSI3 Open/Remove | `later` | Added dynamically when SCSI support is compiled. |
 | Screen | Window; FullScreen; rotation; display vsync; real palettes; no wait; frame skip; screen option | Display scale/aspect `done`; rest `later` | Screen option dialog has LCD/skipline, GDC/GRCG/color, wait-state and real palette pages. |
-| Device / Keyboard | Keyboard/JoyKey modes; mechanical SHIFT/CTRL/GRPH; F12 mapping; Alt-right mapping | Minimal key/joy config `done`; rest `later` | Alt-right mapping is a VAEG extension. IME/text input work is out of M10 scope. |
+| Device / Keyboard | Keyboard/JoyKey modes; mechanical SHIFT/CTRL/GRPH; F12 mapping; Alt-right mapping; host-layout mapping mode | Minimal key/joy config `done`; rest `later` | Alt-right mapping is a VAEG extension. US physical keyboard to JIS guest layout mapping is a G11-known gap and applies on all host platforms with US keyboards. IME/text input work is out of M10 scope. |
 | Device / Sound | Beep level; disable boards; VA Sound Board 2; PC-9801 boards; JAST; seek sound | Sound on/off and volume `done`; rest `later` | Board selection and detailed option pages stay visible but disabled. |
 | Device / Memory | 640KB, 1.6MB, 3.6MB, 7.6MB | `later` | Win32 command handler also contains 11.6MB and 13.6MB cases. |
 | Device | IO Bank Memory; Mouse; Mouse Port; Version Up Board; Serial; MIDI; MIDI Panic; Sound option | `later` | Mouse capture itself is frontend input, but the Win32 device options are not M10 gate items. |
@@ -104,6 +104,8 @@ Unimplemented Win32 features remain visible as disabled stubs with
 
 - Debugger UI, debug control, memory dump, and debug viewers are `later`.
 - IME text input is not part of M10.
+- Host physical keyboard layout mapping, including US-host to JIS-guest
+  symbol positions, is `later`.
 - Native platform file dialogs are not required; an ImGui file browser is
   acceptable for M10.
 - The ImGui Japanese font must come from the bundled font asset, never
