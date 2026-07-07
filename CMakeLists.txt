@@ -336,6 +336,10 @@ target_include_directories(vaeg_sdl2 PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}/external/imgui/backends")
 target_link_libraries(vaeg_sdl2 PRIVATE vaeg_core vaeg_va vaeg_common
     vaeg_core vaeg_va ${VAEG_SDL2_LIBS})
+if(MINGW)
+    target_link_options(vaeg_sdl2 PRIVATE -static-libgcc -static-libstdc++)
+    target_link_libraries(vaeg_sdl2 PRIVATE -Wl,-Bstatic winpthread -Wl,-Bdynamic)
+endif()
 if(UNIX)
     target_link_libraries(vaeg_sdl2 PRIVATE m)
 endif()
