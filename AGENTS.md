@@ -3,22 +3,22 @@
 PC-88VA emulator derived from Neko Project II. Upstream (project-vaeg)
 is abandoned; this fork is the living tree.
 
-Two build lineages exist:
+The active tree is the portable CMake build: C core, SDL2 frontend under
+`sdl2/`, Dear ImGui GUI, and macOS / Linux / Windows-MinGW support. It
+uses `i286c/` for the CPU, `cpucva/z80c.cpp` for the Z80 side,
+`sound/opngenc.c` for OPN generation (never define `OPNGENX86`), and
+`cpucva/memoryva.c` for the VA memory layer.
 
-- LEGACY (frozen reference): `win9x/np2.dsp` / VS2017 v141. Pulls the
-  VA subsystem (`iova/`, `vramva/`, `cpucva/`, `cpuxva/`, `biosva/`,
-  `i286x/`) plus the shared NP2 core (root, `io/`, `sound/`, `cbus/`,
-  `vram/`, ...). Depends on NINE NASM custom builds and x86 inline
-  conventions. It is the behavioral reference until M13 retires it.
-  Do not refactor it; do not "improve" it.
-- PORTABLE (active target): CMake + gcc/clang/MinGW, SDL2 frontend under
-  `sdl2/`, Dear ImGui GUI, macOS / Linux / Windows-MinGW. Built from
-  M7 onward. Uses the C cores only: `i286c/` (CPU), `cpucva/z80c.cpp`
-  (Z80 side), `sound/opngenc.c` (never define `OPNGENX86`), and the
-  C port of the VA memory layer created in M9 (`cpucva/memoryva.c`).
+A frozen reference tier remains for behavior archaeology only:
 
-`sdl/` is the historical SDL1 frontend (plain PC-98, no VA). It is
-porting source material for M8 and is retired in M13. Do not extend it.
+- `win9x/`: VS2017 v141 Win32 reference frontend and project files.
+- `i286x/`: x86 assembly CPU reference used by the v141 build.
+- `cpuxva/memoryva.x86`: original VA memory assembly reference.
+- `hlp/`: CP932 HTML Help payload paired with the frozen Win32 tree.
+
+Do not refactor or improve the frozen reference tier. Normal fixes land
+in the active CMake/C/SDL2 tree. The frozen tier is protected by tags and
+history, not by a current compile guarantee or CI job.
 
 ## How work is organized
 
@@ -54,8 +54,9 @@ Always push the branch and report the exact commit SHAs when done.
 - New files created in phase 2 carry a 2-clause BSD header
   `Copyright (c) 2026 Nakata Maho` (see CONVENTIONS.md §New code).
   Never alter copyright headers of existing files.
-- The LEGACY v141 build must keep compiling until M13 explicitly
-  retires it. If your change breaks it, say so in the PR; do not hide it.
+- Frozen reference files (`win9x/`, `i286x/`, `cpuxva/memoryva.x86`,
+  `hlp/`) are reference-only. Do not edit them unless a task explicitly
+  says to update the reference tier.
 - Core code (root, `io/`, `sound/`, `cbus/`, `vram/`, `*va/`, `i286c/`)
   stays C. C++17 is allowed only under `sdl2/` (frontend + GUI).
 - Vendored third-party code lives under `external/` with the exact
@@ -65,12 +66,13 @@ Always push the branch and report the exact commit SHAs when done.
 
 ## Build reference
 
-- LEGACY: VS2017 toolset v141, Win32/Release,
-  `/source-charset:utf-8` + execution charset CP932 (M6 Option A),
-  `.rc` in UTF-8 with `#pragma code_page(65001)`. NASM required.
-- PORTABLE: CMake >= 3.20. `cmake --preset linux-debug` etc. from M7.
-  SDL2 via find_package/pkg-config (never FetchContent). Dear ImGui
-  vendored under `external/imgui` from M10.
+- Active: CMake >= 3.20. `cmake --preset linux-debug` etc. SDL2 is
+  discovered via find_package/pkg-config by default, with the
+  ADR-0006-pinned FetchContent path only where a preset opts into it.
+  Dear ImGui is vendored under `external/imgui`.
+- Frozen reference: `win9x/np2_v141.sln` / VS2017 v141 / Win32 remains
+  available for behavior comparison, but it is no longer an active build
+  target with CI or compile-guarantee coverage.
 
 ## Commit messages
 
