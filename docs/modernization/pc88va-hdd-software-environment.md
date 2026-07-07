@@ -54,6 +54,9 @@ PC88.gr.jp link used by the article for PCEPAT is:
 That PC88.gr.jp page is PCEPAT, not MSE. It lists `PCEPAT.COM` for V3
 mode PC-Engine environments.
 
+The PCEPAT archive includes `PCEPAT.DOC`, which identifies the package as
+`PCEPAT for PC-Engine v1.05/1.1 Rev.50916`, copyright 1991-1992 mami.
+
 The bank-memory support package referenced by the MSE documentation is
 Vector's BMS Driver:
 
@@ -80,6 +83,16 @@ letter can differ if the HDD/FDD boot layout differs.
 
 `PCEPAT.SYS` is produced by running `PCEPAT.COM` inside PC-Engine. The
 article describes it as a PC-Engine bug-fix and function-extension layer.
+The PCEPAT documentation is more specific: it says to add
+`DEVICE=PCEPAT.SYS` to `CONFIG.SYS` and place it before the MSE driver.
+The example in that document uses:
+
+```dos
+FILES   = 20
+BUFFERS = 30
+DEVICE  = PCEPAT.SYS
+DEVICE  = MSE312.SYS
+```
 
 `MSE352B.COM` is the MS-DOS application emulator for PC-Engine. The
 archived MSE package provides 3.52a, and the 3.52b form is produced by
@@ -97,6 +110,56 @@ Useful MSE-side tools in the archived package include:
 `PCPLUS.SYS` is built from the PCPLUS archives referenced by the article
 (`PCP108` plus its patch). The article treats it as another PC-Engine
 extension layer.
+
+## PCEPAT PC-Engine Patch
+
+PCEPAT is a small resident patch for PC-Engine v1.05 and v1.1. Its
+documented resident sizes are:
+
+- PC-88VA, PC-Engine v1.05: `0B50h` bytes.
+- PC-88VA2/3, PC-Engine v1.1: `05E0h` bytes.
+- PC-88VA with PC-88VA-91, PC-Engine v1.1: `0580h` bytes.
+
+Its fixes fall into four practical groups.
+
+First, it improves PC-Engine command execution. On PC-88VA v1.05,
+child-process launches through `PCENGINE.COM` inherit the parent
+attribute mode instead of resetting it to zero. `PCENGINE /C` can execute
+internal and external commands; on PC-88VA2/3/-91 with PC-Engine v1.1, it
+also supports batch command execution.
+
+Second, it broadens executable compatibility. The documentation says it
+allows compressed EXE files, self-extracting archives, and Turbo Pascal
+v4-or-later EXE files to run under PC-Engine. The listed examples include
+PKLITE, LZEXE, PKZIP, PKPAK, LHARC, and LHA generated executables.
+
+Third, it patches PC-Engine command and DOS-service behavior. On
+PC-88VA v1.05 it extends the internal `CLS` and `BASIC` commands:
+
+```dos
+CLS 1
+CLS 2
+CLS 3
+BASIC /G
+BASIC <file name> /G
+```
+
+`CLS 1` clears text, `CLS 2` clears graphics, and `CLS 3` clears both.
+`BASIC /G` starts BASIC without clearing the graphics screen. PCEPAT also
+fixes file deletion, parts of the `FOR` batch command, environment owner
+path handling, and pieces of the directory/file creation APIs
+corresponding to DOS functions `39h`, `3Ch`, `5Ah`, and `5Bh`.
+
+Fourth, it fixes stability and register-preservation bugs. The
+documentation calls out an interrupt-safety fix for a stack-pointer update
+that could stall depending on interrupt timing; `SHELL`/`EXIT` cleanup
+fixes for user traps and work areas; a BASIC startup stall when
+`ADVGBIOS.SYS` is absent; MBIOS `INT 33h AH=00h` preserving `BX`, `CX`,
+and `DX`; and CMBIOS `INT 8Ah AH=08h` preserving `DX`.
+
+PCEPAT is therefore not just optional decoration. For an HDD-based
+PC-Engine/MSE environment, it should be treated as the first compatibility
+layer loaded before MSE.
 
 ## Bank Memory Manager
 
