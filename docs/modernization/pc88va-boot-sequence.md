@@ -137,10 +137,12 @@ FFE7=00 FFE6=6F FFE5=00 FFE4=60 FFE3=00 FFE2=5B FFE1=00 FFE0=50
 These values match the uPD9002/VA internal-control and I/O-trap area
 described by the technical-manual notes discussed during debugging:
 
-- By analogy with V50, `FFF0h-FFFFh` are expected to configure CPU pin
-  functions, wait control, the internal DMA controller, interrupt
-  controller, timer, and serial interface placement. The exact uPD9002
-  mapping is still partly inferred.
+- uPD9002 is treated as the PC-88VA V52-class CPU. By V-series analogy,
+  using public V40/V50 material only as supporting family evidence,
+  `FFF0h-FFFFh` are expected to configure CPU pin functions, wait
+  control, the internal DMA controller, interrupt controller, timer, and
+  serial interface placement. The exact uPD9002/V52 mapping is still
+  partly inferred.
 - The settings above are documented for VA2 use; VA1 was explicitly not
   investigated in the referenced notes.
 - `FFF0h` is the uPD9002 timing-control port in the current emulator
