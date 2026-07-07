@@ -97,3 +97,26 @@ clk_mult=2
 halt, an FM-timer wait with no sound board bound, or the wrong clock
 domain. See `../../sdl2/README.md` for the full state directory and stale
 config warning policy.
+
+## G11 Verification Notes
+
+G11 passed on the maintainer-verified native Windows and macOS builds.
+The macOS build used the SDL renderer backed by Metal. Retina output was
+not blurry at integer display scales, and writable state files were
+created under `~/Library/Application Support/vaeg` as required by
+ADR-0005.
+
+## Known Issues
+
+US physical host keyboards do not yet have a dedicated mapping mode for
+the JIS PC-88VA guest layout. On all host platforms with a US keyboard,
+the known symptoms are swapped `@` / `"` positions, no direct `:` key, and
+unreachable `-`, `^`, and yen-key positions. The numeric keypad path is
+not affected. A keyboard-layout mapping mode is tracked as a later GUI
+parity item.
+
+State-save (`statsave`) files are not portable across architectures or
+builds. This was established during the M11 LLP64 audit: runtime pointer
+and handle-size fixes are safe for process memory, but serialized emulator
+state should be treated as tied to the exact architecture/build family
+that wrote it.
