@@ -343,6 +343,12 @@ endif()
 if(UNIX)
     target_link_libraries(vaeg_sdl2 PRIVATE m)
 endif()
+if(WIN32 AND VAEG_FETCH_SDL2)
+    add_custom_command(TARGET vaeg_sdl2 POST_BUILD
+        COMMAND "${CMAKE_COMMAND}" -E copy_if_different
+            "$<TARGET_FILE:SDL2::SDL2>"
+            "$<TARGET_FILE_DIR:vaeg_sdl2>")
+endif()
 target_compile_options(vaeg_sdl2 PRIVATE -Wall -fsigned-char)
 if(VAEG_WERROR)
     target_compile_options(vaeg_sdl2 PRIVATE -Werror)
