@@ -119,6 +119,12 @@ emulator this updates `sysportva.modesw` in `iova/sysportva.c`, and ports
 
 ## uPD9002 and Trap Setup
 
+The uPD9002 V30-mode instruction set should be treated as NEC V30-like
+with a VA-specific exception list. The working technical notes say VA V30
+mode does not support `INS`, `EXT`, `OUTM`, or `INM`. They also state that
+VA adds `BRKEM2 nn` (`0F FE nn`) for entry into uPD780/Z80-compatible
+mode, and that VA does not use V30-compatible `BRKEM nn` (`0F FF nn`).
+
 At `0x12F0`, the ROM walks a table at `VAROM1.ROM:0x0F20` and emits
 groups of descending port writes. Parsed as `(count, start port, bytes)`,
 the table contains:
@@ -134,6 +140,12 @@ FFE7=00 FFE6=6F FFE5=00 FFE4=60 FFE3=00 FFE2=5B FFE1=00 FFE0=50
 These values match the uPD9002/VA internal-control and I/O-trap area
 described by the technical-manual notes discussed during debugging:
 
+- By analogy with V50, `FFF0h-FFFFh` are expected to configure CPU pin
+  functions, wait control, the internal DMA controller, interrupt
+  controller, timer, and serial interface placement. The exact uPD9002
+  mapping is still partly inferred.
+- The settings above are documented for VA2 use; VA1 was explicitly not
+  investigated in the referenced notes.
 - `FFF0h` is the uPD9002 timing-control port in the current emulator
   (`iova/upd9002.c`).
 - `FFE0h-FFE7h` are the two I/O-trap port-range registers.
@@ -164,6 +176,49 @@ The current emulator maps these ports as:
 
 So this block initializes timers, interrupt control, and DMA state.
 
+## I/O Trap Semantics
+
+The I/O-trap mechanism is a uPD9002/VA compatibility feature, not a normal
+PC-98 device. It raises a software-interrupt-style trap when selected
+`IN` or `OUT` instructions execute. The documented purpose is V1/V2
+compatibility: ports `50h-53h`, `60h-68h`, and `6Eh-6Fh` can be trapped
+and emulated. V3 mode normally leaves this disabled, but software can
+enable it through the control ports.
+
+The trap control registers are:
+
+```text
+FFE0h/FFE2h  trap block 1 start/end
+FFE4h/FFE6h  trap block 2 start/end
+FFEFh        trap control
+```
+
+The trap-control byte enables IN traps, OUT traps, and byte-vs-word-port
+matching. The range registers accept word accesses, but the high byte is
+effectively zero; word-port trapping still matches on the low byte. Trap
+handlers must therefore check the actual port and avoid accidentally
+handling nearby ports that matched only by low byte.
+
+The trap vectors are:
+
+```text
+7Ch  I/O trap for IN
+7Dh  I/O trap for OUT
+```
+
+On trap entry, FLAGS, CS, and IP are saved, but the saved CS:IP points at
+the trapping I/O instruction itself, not the next instruction. A correct
+handler must decode the trapped instruction length and adjust the saved
+return CS:IP before `IRET`; otherwise it will execute the same I/O
+instruction again and loop forever. Trap entry also runs with interrupts
+disabled. Handler code that performs I/O must disable trapping around its
+own I/O accesses to avoid nesting.
+
+The `FFE0h-FFFFh` control range itself must not be trapped. I/O traps are
+software-handled and can slow trapped I/O by orders of magnitude, so
+high-traffic ranges such as FDD or PC-Engine-heavy ports are especially
+sensitive.
+
 ## Mode LEDs and V2S Area
 
 The exact ROM routine that draws the visible `V2S` text has not been
@@ -192,6 +247,40 @@ Therefore the `V2S` display and the V1/V2/V3 lamp state are expected to be
 controlled by the ROM in this early V30-side setup or immediately after
 the handoff described below. They should not be attributed to the FDD
 subsystem Z80.
+
+## Model and Configuration Caveat
+
+The ROM observations above were made against a PC-88VA2 ROM image. Do not
+generalize every visible boot symptom to every VA model yet.
+
+Maintainer hardware memory adds one important distinction: on an original
+PC-88VA with no FDD inserted at power-on, the machine does not show the
+same `V2S`-style path. It falls back to V1/V2 behavior, controlled by DIP
+switch configuration. On PC-88VA2/3-class machines, the no-disk path is
+reported to stop at a prompt equivalent to "insert a system disk" instead.
+
+The setup UI is entered by holding the PC key during power-on or reset.
+That is a configuration path, not necessarily the same path as the normal
+FDD boot or the no-media fallback path.
+
+The current note should therefore be read as a VA2-centered ROM trace with
+known model-dependent behavior. Original PC-88VA ROM behavior may differ,
+and PC-88VA3 behavior is still unverified here.
+
+The ROM-visible model identification method reported for VA software is
+to read the word at `F000:FFFE`:
+
+```text
+FFFFh  original PC-88VA
+FFFEh  PC-88VA2 or PC-88VA3
+FFFDh  original PC-88VA with the PC-88VA-91 version-up board
+```
+
+This marker explains why software can branch between the original VA,
+VA2/VA3, and VA-91-upgraded environments without relying only on external
+DIP-switch state. It also reinforces the caveat above: the current
+disassembly notes are centered on a VA2 ROM, while original VA and VA-91
+paths can legitimately differ.
 
 ## BRKEM2 Handoff Candidate
 
@@ -246,7 +335,9 @@ General x86 disassemblers may decode `0F FE ...` as an MMX instruction
 when they are not told about uPD9002. In PC-88VA/uPD9002 context, the
 technical-manual correction is that `0F FE nn` is `BRKEM2 nn`, the
 transition from V30 mode to uPD780/Z80-compatible mode. The `nn` byte here
-is `90h`.
+is `90h`. The related V30-compatible `BRKEM nn` encoding is `0F FF nn`,
+but the VA notes state that PC-88VA uses `BRKEM2` instead of `BRKEM` for
+this transition.
 
 The static evidence is high that the bytes at `0x13B1` are intended as
 `BRKEM2 90h`: the surrounding stream is valid 16-bit V30 setup code, the
