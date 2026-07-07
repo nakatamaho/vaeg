@@ -258,6 +258,48 @@ configuration reaches this exact instruction. The nearby `000Dh` branch
 means a CS:IP trace is still the right way to prove execution for a
 specific ROM/configuration pair.
 
+The closest documented CPU-side analogue is the NEC V30 `BRKEM imm8`
+instruction (`0F FF imm8`). `BRKEM` is not a normal software interrupt:
+it switches the V30 from native mode into 8080 emulation mode. Its useful
+behavioral model is:
+
+```text
+BRKEM imm8:
+  save PSW
+  switch the mode latch to emulation mode
+  save PS
+  save PC after the immediate byte
+  load new PS:PC from IVT[imm8]
+  flush prefetch and fetch the next instruction as emulation-mode code
+```
+
+The saved return address is therefore the native instruction immediately
+after the three-byte `BRKEM`. Return from that mode is not a plain far
+return; V30 has `RETEM`, and temporary native calls from 8080 mode use the
+`CALLN`/`RETI` path. Correct emulation needs a mode latch, a
+write-enable/write-disable style latch for the mode flag, and a prefetch
+flush on every mode-changing control transfer. Treating `BRKEM` as a
+plain interrupt or far call is insufficient.
+
+Applying that as a working analogy, `BRKEM2 90h` is expected to be the
+uPD9002-specific sibling:
+
+```text
+BRKEM2 90h:
+  save native V30/uPD9002 state
+  switch to uPD780/Z80-compatible mode
+  save PC = 13B4h
+  load PS:PC from IVT[90h] = 1000:0000
+  flush prefetch and fetch the next instruction as compatible-mode code
+```
+
+This analogy is strong enough to guide emulator design, but it is not yet
+a complete uPD9002 specification. The exact compatible-mode return opcode,
+the exact mode-latch write-protection semantics, and the interrupt
+interaction still need VA/uPD9002-specific confirmation. The important
+engineering consequence is already clear: `BRKEM2` is a main-CPU mode
+transition and must not be routed to the separate FDD subsystem Z80.
+
 After the `BRKEM2` byte sequence, the following V30-side code disables the
 I/O trap by writing `00h` to `FFEFh`, then continues with more bank and
 control setup. That post-handoff path only makes sense after the
@@ -347,6 +389,11 @@ Current emulator status:
 - `docs/agents/reports/m9_v30_map.md` records this as an explicit future
   implementation item. The `BRKEM2` path must not be wired to the FDD
   subsystem Z80.
+- A future implementation should model `BRKEM2` like a mode-changing
+  control transfer, not like an ordinary software interrupt: save the
+  post-immediate native return address, switch the decoder, flush
+  prefetch, and keep the main-CPU compatible-mode state separate from the
+  FDD subsystem CPU state.
 
 ## Working Boot Sequence Summary
 
@@ -365,8 +412,9 @@ The current working model is:
    reaches `BRKEM2 90h` at offset 13B1h on the non-zero `000Dh & 04h`
    path.
 8. Returning from that compatibility path resumes V30 code at `13B4h`,
-   disables I/O traps, updates bank/control state, and calls the shared
-   initializer at `2210h`.
+   the instruction immediately after `BRKEM2`, then disables I/O traps,
+   updates bank/control state, and calls the shared initializer at
+   `2210h`.
 9. The shared initializer programs system/PIC ports, installs BIOS
    interrupt vectors, updates low-memory and backup-memory state, runs
    BIOS/device initialization, and returns.
@@ -385,7 +433,7 @@ by `BRKEM2`.
 | ---- | ---------- | ------ |
 | 1-5 | High | These are direct reset-vector, memory-map, ROM-byte, and I/O-port observations, and they line up with current source bindings. |
 | 6 | Medium | The ROM definitely updates the mode-switch/system-port neighborhood, and the emulator definitely derives LEDs from `sysportva.c`. The exact `V2S` drawing routine is still unidentified. |
-| 7 | High for opcode identity; medium-high for runtime execution | The ROM explicitly installs vector `90h -> 1000:0000` before executing `0F FE 90` at a valid instruction boundary. The remaining uncertainty is path coverage: the nearby `000Dh` branch can skip this block. |
-| 8 | Medium-high for the V30 resume block | The code immediately after `BRKEM2` is coherent V30 code: disable I/O trap, send TSP/control commands, set bank state, set `SS=3000h`, and call `2210h`. The exact return-from-uPD780/Z80 mechanism has not been located yet. |
+| 7 | High for opcode identity; medium-high for runtime execution | The ROM explicitly installs vector `90h -> 1000:0000` before executing `0F FE 90` at a valid instruction boundary. The V30 `BRKEM` analogy strongly supports interpreting this as a mode-changing control transfer that saves the post-immediate return address. The remaining uncertainty is path coverage: the nearby `000Dh` branch can skip this block. |
+| 8 | Medium-high for the V30 resume block | The code immediately after `BRKEM2` is coherent V30 code: disable I/O trap, send TSP/control commands, set bank state, set `SS=3000h`, and call `2210h`. By analogy with V30 `BRKEM`, `13B4h` is the expected saved return PC. The exact return-from-uPD780/Z80 opcode and latch mechanics have not been located yet. |
 | 9 | Medium-high | `2210h` and its callees are statically visible and line up with emulator port bindings and interrupt-vector setup. Semantic labels for every BIOS service call are not complete. |
 | 10 | Medium | `1000:C003` is clearly a RAM target, not ROM1 offset `C003h`. The static ROM search did not find a direct copy loop in this region, so the BRKEM2/vector-90 path is the leading hypothesis for preparing it, but this still needs execution tracing. |
