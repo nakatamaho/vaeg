@@ -130,6 +130,8 @@ jobs:
         run: ctest --test-dir build/mingw-ci --output-on-failure
       - name: Stage artifact
         run: |
+          # vaeg.exe statically links the MinGW gcc/libstdc++/winpthread
+          # runtimes; SDL2.dll is the only non-system DLL bundled here.
           mkdir -p build/mingw-ci/artifact
           cp build/mingw-ci/sdl2/vaeg.exe build/mingw-ci/artifact/
           cp /mingw64/bin/SDL2.dll build/mingw-ci/artifact/
