@@ -66,6 +66,9 @@ guest keyboard protocol or writing directly into guest text buffers.
   Guest kana mode is entered and left by the assigned KANA key: one press
   locks KANA, the next press unlocks it. Roman-Kana consumes A-Z
   scancodes only while that KANA lock mirror is active.
+- Yoon Roman-Kana syllables are emitted as verified physical kana
+  sequences: base kana plus small `ya/yu/yo` from `bios/keytable.res`,
+  never as direct character text.
 
 ## Consequences
 

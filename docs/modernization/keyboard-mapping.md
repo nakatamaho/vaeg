@@ -193,8 +193,12 @@ A-Z remains direct alphabetic guest input.
 The physical kana mapping is derived from `bios/keytable.res`: for
 example `ka` uses the VA `T` key in Kana mode, `shi` uses `D`, `nn` uses
 `Y`, voiced marks use `@`, semi-voiced marks use `[`, and small-tsu uses
-Shift+`Z`. Unsupported Roman input is flushed with a log message and no
-guest memory or text buffer writes.
+Shift+`Z`. Yoon syllables use the base kana plus small `ya/yu/yo`,
+which are Shift+`7`, Shift+`8`, and Shift+`9` in the same table.
+`vu` uses `u` plus the voiced mark, and `va/vi/ve/vo` append small
+`a/i/e/o`.
+Unsupported Roman input is flushed with a log message and no guest memory
+or text buffer writes.
 
 Implemented parser inputs:
 
@@ -203,6 +207,19 @@ Implemented parser inputs:
 `ra ri ru re ro`, `wa wo`, `nn`, `n'`, `ga gi gu ge go`,
 `za ji zu ze zo`, `da de do`, `ba bi bu be bo`, and
 `pa pi pu pe po`.
+
+Yoon inputs:
+
+`kya kyu kyo`, `sha shu sho` (`sya syu syo` aliases),
+`cha chu cho` (`cya cyu cyo` and `tya tyu tyo` aliases),
+`nya nyu nyo`, `hya hyu hyo`, `mya myu myo`, `rya ryu ryo`,
+`gya gyu gyo`, `ja ju jo` (`jya jyu jyo` and `zya zyu zyo` aliases),
+`bya byu byo`, and `pya pyu pyo`.
+
+Additional inputs: `va vi vu ve vo`.
+
+Small-kana aliases: `xya xyu xyo`, `lya lyu lyo`, `xa xi xu xe xo`,
+`la li lu le lo`, `xtsu ltsu`, and `xtu ltu`.
 
 Uppercase ASCII is accepted as lowercase. Doubled non-`n` consonants
 emit small-tsu when followed by a supported syllable.

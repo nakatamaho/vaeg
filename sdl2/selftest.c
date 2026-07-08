@@ -311,6 +311,33 @@ static int test_romankana(void) {
 	if (strcmp(buf.text, "ga,za,?,da,ba,?,pa,pa") != 0) {
 		return(fail("romankana", "voiced syllables failed"));
 	}
+
+	romankana_reset(&state);
+	ZeroMemory(&buf, sizeof(buf));
+	romankana_feed(&state, "nya nyu nyo kya sha syo chu tyo ryo gya ja pyo",
+				   tokenbuf_emit, &buf);
+	romankana_flush(&state, tokenbuf_emit, &buf);
+	if (strcmp(buf.text,
+			   "nya,?,nyu,?,nyo,?,kya,?,sha,?,sho,?,chu,?,cho,?,ryo,?,gya,?,ja,?,pyo") != 0) {
+		return(fail("romankana", "yoon syllables failed"));
+	}
+
+	romankana_reset(&state);
+	ZeroMemory(&buf, sizeof(buf));
+	romankana_feed(&state, "xya lyu xyo xa li xo xtu ltu",
+				   tokenbuf_emit, &buf);
+	romankana_flush(&state, tokenbuf_emit, &buf);
+	if (strcmp(buf.text, "xya,?,xyu,?,xyo,?,xa,?,xi,?,xo,?,xtsu,?,xtsu") != 0) {
+		return(fail("romankana", "small kana aliases failed"));
+	}
+
+	romankana_reset(&state);
+	ZeroMemory(&buf, sizeof(buf));
+	romankana_feed(&state, "va vi vu ve vo", tokenbuf_emit, &buf);
+	romankana_flush(&state, tokenbuf_emit, &buf);
+	if (strcmp(buf.text, "va,?,vi,?,vu,?,ve,?,vo") != 0) {
+		return(fail("romankana", "vu syllables failed"));
+	}
 	fprintf(stderr, "selftest: romankana ok\n");
 	return(SUCCESS);
 }
