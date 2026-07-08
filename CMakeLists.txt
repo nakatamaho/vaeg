@@ -64,7 +64,6 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 set(VAEG_INCLUDE_DIRS
     "${CMAKE_CURRENT_SOURCE_DIR}/sdl2"
-    "${CMAKE_CURRENT_SOURCE_DIR}/sdl"
     "${CMAKE_CURRENT_SOURCE_DIR}"
     "${CMAKE_CURRENT_SOURCE_DIR}/common"
     "${CMAKE_CURRENT_SOURCE_DIR}/i286c"
@@ -337,8 +336,18 @@ target_include_directories(vaeg_sdl2 PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}/external/imgui/backends")
 target_link_libraries(vaeg_sdl2 PRIVATE vaeg_core vaeg_va vaeg_common
     vaeg_core vaeg_va ${VAEG_SDL2_LIBS})
+if(MINGW)
+    target_link_options(vaeg_sdl2 PRIVATE -static -static-libgcc -static-libstdc++)
+    target_link_libraries(vaeg_sdl2 PRIVATE winpthread)
+endif()
 if(UNIX)
     target_link_libraries(vaeg_sdl2 PRIVATE m)
+endif()
+if(WIN32 AND VAEG_FETCH_SDL2)
+    add_custom_command(TARGET vaeg_sdl2 POST_BUILD
+        COMMAND "${CMAKE_COMMAND}" -E copy_if_different
+            "$<TARGET_FILE:SDL2::SDL2>"
+            "$<TARGET_FILE_DIR:vaeg_sdl2>")
 endif()
 target_compile_options(vaeg_sdl2 PRIVATE -Wall -fsigned-char)
 if(VAEG_WERROR)
