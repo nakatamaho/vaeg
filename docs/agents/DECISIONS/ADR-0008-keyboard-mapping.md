@@ -43,7 +43,10 @@ guest keyboard protocol or writing directly into guest text buffers.
 - Use SDL scancodes for guest input mapping. Do not use SDL key symbols
   as guest keys.
 - Store custom host bindings by SDL scancode name, not numeric scancode
-  values.
+  values. GUI-edited bindings are persisted in `keyboard.map` beside
+  `np2.cfg`, with `keyboard_custom_map=file:keyboard.map` as the INI
+  pointer, so long binding tables do not exceed the legacy INI reader's
+  practical line length.
 - Use QUASI88 only as semantic naming reference for PC-8801-style key
   roles. Do not copy QUASI88 numeric `KEY88_*` values.
 - Prove VA guest key codes from this repository, primarily
@@ -65,5 +68,7 @@ guest keyboard protocol or writing directly into guest text buffers.
   never reach the guest, including Roman-Kana helper output.
 - Missing host bindings are visible in `docs/modernization/keyboard-mapping.md`
   and in the ImGui binding table.
+- The loader accepts the initial inline M14 custom-map format for
+  migration, but new saves use the sidecar form.
 - Manual G14 testing must confirm physical JIS behavior, US fallback
   usability, Kana lock behavior, Roman-Kana output, and rebinding.

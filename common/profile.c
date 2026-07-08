@@ -4,6 +4,9 @@
 #include	"textfile.h"
 #include	"profile.h"
 
+enum {
+	PROFILE_ENUM_LINE_MAX = 0x4000
+};
 
 static void strdelspace(char **buf, int *size) {
 
@@ -67,7 +70,7 @@ BOOL profile_enum(const char *filename, void *arg,
 									const char *key, const char *data)) {
 	TEXTFILEH	fh;
 	BOOL		r;
-	char		buf[0x200];
+	char		buf[PROFILE_ENUM_LINE_MAX];
 	char		para[0x100];
 	char		*key;
 	char		*data;
@@ -688,4 +691,3 @@ const char	*set;
 	}
 	profile_close(pfh);
 }
-

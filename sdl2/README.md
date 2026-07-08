@@ -107,7 +107,9 @@ settings. It never rewrites the user's configuration silently.
 
 The SDL2 keyboard path is scancode based. The default host layout is
 `keyboard_host_layout=jis`; `us` is a fallback preset and `custom` stores
-GUI-edited bindings as SDL scancode names in `keyboard_custom_map`.
+GUI-edited bindings as SDL scancode names in the user-state sidecar
+`keyboard.map`. `keyboard_custom_map=file:keyboard.map` in `np2.cfg`
+points to that sidecar.
 
 Device / Keyboard in the ImGui menu exposes:
 

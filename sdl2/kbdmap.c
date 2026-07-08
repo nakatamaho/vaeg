@@ -24,7 +24,9 @@
  */
 #include	"compiler.h"
 #include	"sdlapi.h"
+#include	"dosio.h"
 #include	"np2.h"
+#include	"textfile.h"
 #include	"kbdinject.h"
 #include	"kbdmap.h"
 #include	"romankana.h"
@@ -207,6 +209,9 @@ static KBDMAP_STATUS bind_status[KBDROLE_COUNT];
 static ROMANKANA_STATE roman_state;
 static BOOL kana_mirror;
 
+static const char custom_map_file[] = "keyboard.map";
+static const char custom_map_file_prefix[] = "file:";
+
 static int str_equal(const char *a, const char *b) {
 
 	while((*a != '\0') && (*b != '\0')) {
@@ -331,36 +336,182 @@ static void rebuild_scancode_table(void) {
 	}
 }
 
-static void parse_custom_map(void) {
+static int entry_index_from_id_len(const char *id, size_t len) {
 
-	char	work[sizeof(np2oscfg.keyboard_custom_map)];
-	char	*token;
-	char	*next;
+	int	i;
 
-	milstr_ncpy(work, np2oscfg.keyboard_custom_map, sizeof(work));
-	token = work;
-	while(token[0] != '\0') {
-		char *eq;
-		next = strchr(token, ';');
-		if (next != NULL) {
-			*next++ = '\0';
+	for (i = 0; i < (int)NELEMENTS(entries); i++) {
+		if ((strlen(entries[i].id) == len) &&
+			(!memcmp(entries[i].id, id, len))) {
+			return i;
 		}
-		eq = strchr(token, '=');
-		if (eq != NULL) {
-			int index;
-			*eq++ = '\0';
-			index = entry_index_from_id(token);
-			if (index >= 0) {
-				SDL_Scancode scancode = SDL_GetScancodeFromName(eq);
-				bindings[index] = scancode;
-				bind_status[index] = (scancode == SDL_SCANCODE_UNKNOWN) ?
-					KBDMAP_STATUS_UNRESOLVED : entries[index].status;
+	}
+	return -1;
+}
+
+static SDL_Scancode scancode_from_name(const char *name) {
+
+	SDL_Scancode scancode;
+
+	scancode = SDL_GetScancodeFromName(name);
+	if (scancode != SDL_SCANCODE_UNKNOWN) {
+		return scancode;
+	}
+	if (!strcmp(name, "-")) {
+		return SDL_SCANCODE_MINUS;
+	}
+	if (!strcmp(name, "=")) {
+		return SDL_SCANCODE_EQUALS;
+	}
+	if (!strcmp(name, "\\")) {
+		return SDL_SCANCODE_BACKSLASH;
+	}
+	if (!strcmp(name, "[")) {
+		return SDL_SCANCODE_LEFTBRACKET;
+	}
+	if (!strcmp(name, "]")) {
+		return SDL_SCANCODE_RIGHTBRACKET;
+	}
+	if (!strcmp(name, ";")) {
+		return SDL_SCANCODE_SEMICOLON;
+	}
+	if (!strcmp(name, "'")) {
+		return SDL_SCANCODE_APOSTROPHE;
+	}
+	if (!strcmp(name, "#")) {
+		return SDL_SCANCODE_NONUSHASH;
+	}
+	if (!strcmp(name, "`")) {
+		return SDL_SCANCODE_GRAVE;
+	}
+	if (!strcmp(name, ",")) {
+		return SDL_SCANCODE_COMMA;
+	}
+	if (!strcmp(name, ".")) {
+		return SDL_SCANCODE_PERIOD;
+	}
+	if (!strcmp(name, "/")) {
+		return SDL_SCANCODE_SLASH;
+	}
+	return SDL_SCANCODE_UNKNOWN;
+}
+
+static void set_custom_binding(int index, const char *name) {
+
+	SDL_Scancode scancode;
+
+	if ((index < 0) || (name == NULL)) {
+		return;
+	}
+	scancode = scancode_from_name(name);
+	bindings[index] = scancode;
+	bind_status[index] = (scancode == SDL_SCANCODE_UNKNOWN) ?
+		KBDMAP_STATUS_UNRESOLVED : entries[index].status;
+}
+
+static const char *find_next_inline_entry(const char *p) {
+
+	const char	*semi;
+	int			i;
+
+	semi = p;
+	while((semi = strchr(semi, ';')) != NULL) {
+		const char *next = semi + 1;
+		for (i = 0; i < (int)NELEMENTS(entries); i++) {
+			size_t len = strlen(entries[i].id);
+			if ((!strncmp(next, entries[i].id, len)) &&
+				(next[len] == '=')) {
+				return semi;
 			}
 		}
-		if (next == NULL) {
+		semi++;
+	}
+	return NULL;
+}
+
+static void parse_inline_custom_map(const char *map) {
+
+	const char	*p;
+
+	p = map;
+	while((p != NULL) && (*p != '\0')) {
+		const char	*eq;
+		const char	*end;
+		char		name[128];
+		size_t		id_len;
+		size_t		name_len;
+		int			index;
+
+		while(*p == ';') {
+			p++;
+		}
+		eq = strchr(p, '=');
+		if (eq == NULL) {
 			break;
 		}
-		token = next;
+		id_len = (size_t)(eq - p);
+		index = entry_index_from_id_len(p, id_len);
+		end = find_next_inline_entry(eq + 1);
+		if (end == NULL) {
+			end = p + strlen(p);
+		}
+		name_len = (size_t)(end - (eq + 1));
+		if ((*end == '\0') &&
+			(name_len > 0) &&
+			(eq[1 + name_len - 1] == ';')) {
+			name_len--;
+		}
+		if (name_len >= sizeof(name)) {
+			name_len = sizeof(name) - 1;
+		}
+		memcpy(name, eq + 1, name_len);
+		name[name_len] = '\0';
+		set_custom_binding(index, name);
+		p = (*end == ';') ? end + 1 : end;
+	}
+}
+
+static void custom_map_path(char *path, int size) {
+
+	file_getstatepath(path, size, custom_map_file);
+}
+
+static void parse_sidecar_custom_map(const char *name) {
+
+	char		path[MAX_PATH];
+	char		line[256];
+	TEXTFILEH	fh;
+
+	(void)name;
+	custom_map_path(path, sizeof(path));
+	fh = textfile_open(path, 0x800);
+	if (fh == NULL) {
+		return;
+	}
+	while(textfile_read(fh, line, sizeof(line)) == SUCCESS) {
+		char	*eq;
+		int		index;
+
+		eq = strchr(line, '=');
+		if (eq == NULL) {
+			continue;
+		}
+		*eq++ = '\0';
+		index = entry_index_from_id(line);
+		set_custom_binding(index, eq);
+	}
+	textfile_close(fh);
+}
+
+static void parse_custom_map(void) {
+
+	if (!memcmp(np2oscfg.keyboard_custom_map, custom_map_file_prefix,
+				NELEMENTS(custom_map_file_prefix) - 1)) {
+		parse_sidecar_custom_map(np2oscfg.keyboard_custom_map +
+								 NELEMENTS(custom_map_file_prefix) - 1);
+	}
+	else {
+		parse_inline_custom_map(np2oscfg.keyboard_custom_map);
 	}
 }
 
@@ -384,10 +535,37 @@ static void append_text(char *dst, size_t size, const char *text) {
 	dst[len + add] = '\0';
 }
 
+static void write_custom_sidecar(void) {
+
+	char	path[MAX_PATH];
+	FILEH	fh;
+	int		i;
+
+	custom_map_path(path, sizeof(path));
+	fh = file_create(path);
+	if (fh == FILEH_INVALID) {
+		SDL_Log("Keyboard map: cannot write %s", path);
+		return;
+	}
+	for (i = 0; i < (int)NELEMENTS(entries); i++) {
+		const char *name = SDL_GetScancodeName(bindings[i]);
+		char line[256];
+		if ((bindings[i] == SDL_SCANCODE_UNKNOWN) ||
+			(name == NULL) || (name[0] == '\0')) {
+			continue;
+		}
+		SPRINTF(line, "%s=%s\n", entries[i].id, name);
+		file_write(fh, line, strlen(line));
+	}
+	file_close(fh);
+}
+
 static void write_custom_config(void) {
 
-	kbdmap_serialize_custom(np2oscfg.keyboard_custom_map,
-							sizeof(np2oscfg.keyboard_custom_map));
+	write_custom_sidecar();
+	set_config_string(np2oscfg.keyboard_custom_map,
+					  sizeof(np2oscfg.keyboard_custom_map),
+					  "file:keyboard.map");
 }
 
 static BYTE getf12key(void) {
@@ -726,12 +904,19 @@ void kbdmap_serialize_custom(char *dst, size_t size) {
 
 int kbdmap_selftest(void) {
 
+#define	KBDMAP_SELFTEST_FAIL(msg)	\
+	do {							\
+		fprintf(stderr, "selftest: keyboard-map detail: %s\n", msg); \
+		goto err;					\
+	} while(0)
+
 	char	saved_layout[sizeof(np2oscfg.keyboard_host_layout)];
 	char	saved_mode[sizeof(np2oscfg.keyboard_kana_input)];
 	char	saved_custom[sizeof(np2oscfg.keyboard_custom_map)];
 	BYTE	saved_auto;
 	char	serialized[sizeof(np2oscfg.keyboard_custom_map)];
 	int	kana_index;
+	int	semicolon_index;
 	int	i;
 
 	if (NELEMENTS(entries) != KBDROLE_COUNT) {
@@ -756,19 +941,31 @@ int kbdmap_selftest(void) {
 	np2oscfg.keyboard_auto_kana_lock = 0;
 	kbdmap_apply_config();
 	if (kbdmap_lookup(SDL_SCANCODE_A) != 0x1d) {
-		goto err;
+		KBDMAP_SELFTEST_FAIL("JIS A lookup");
 	}
 	if (kbdmap_lookup(SDL_SCANCODE_INTERNATIONAL3) != 0x0d) {
-		goto err;
+		KBDMAP_SELFTEST_FAIL("JIS yen lookup");
 	}
 	kana_index = entry_index_from_role(KBDROLE_KANA);
-	if (kana_index < 0) {
-		goto err;
+	semicolon_index = entry_index_from_role(KBDROLE_SEMICOLON);
+	if ((kana_index < 0) || (semicolon_index < 0)) {
+		KBDMAP_SELFTEST_FAIL("role lookup");
 	}
-	kbdmap_set_binding(kana_index, SDL_SCANCODE_RALT);
+	set_config_string(np2oscfg.keyboard_host_layout,
+					  sizeof(np2oscfg.keyboard_host_layout), "custom");
+	set_config_string(np2oscfg.keyboard_custom_map,
+					  sizeof(np2oscfg.keyboard_custom_map),
+					  "kana=Right Alt;semicolon=;;caret==;");
+	kbdmap_apply_config();
+	if (kbdmap_binding(kana_index) != SDL_SCANCODE_RALT) {
+		KBDMAP_SELFTEST_FAIL("inline Right Alt parse");
+	}
+	if (kbdmap_binding(semicolon_index) != SDL_SCANCODE_SEMICOLON) {
+		KBDMAP_SELFTEST_FAIL("inline semicolon parse");
+	}
 	kbdmap_serialize_custom(serialized, sizeof(serialized));
 	if (strstr(serialized, "kana=") == NULL) {
-		goto err;
+		KBDMAP_SELFTEST_FAIL("custom serialization");
 	}
 	set_config_string(np2oscfg.keyboard_host_layout,
 					  sizeof(np2oscfg.keyboard_host_layout), "custom");
@@ -777,7 +974,7 @@ int kbdmap_selftest(void) {
 					  "kana=Definitely Not A Scancode;");
 	kbdmap_apply_config();
 	if (kbdmap_binding_status(kana_index) != KBDMAP_STATUS_UNRESOLVED) {
-		goto err;
+		KBDMAP_SELFTEST_FAIL("unresolved scancode handling");
 	}
 
 	set_config_string(np2oscfg.keyboard_host_layout,
@@ -800,4 +997,6 @@ err:
 	np2oscfg.keyboard_auto_kana_lock = saved_auto;
 	kbdmap_apply_config();
 	return FAILURE;
+
+#undef KBDMAP_SELFTEST_FAIL
 }
