@@ -103,6 +103,29 @@ portable VA build. For PC-88VA booting, check these keys:
 The frontend logs prominent warnings for stale VA sound-board or clock
 settings. It never rewrites the user's configuration silently.
 
+## Keyboard Mapping
+
+The SDL2 keyboard path is scancode based. The default host layout is
+`keyboard_host_layout=jis`; `us` is a fallback preset and `custom` stores
+GUI-edited bindings as SDL scancode names in `keyboard_custom_map`.
+
+Device / Keyboard in the ImGui menu exposes:
+
+- Host layout: JIS, US, Custom
+- Kana input: Off, JIS Kana, Roman Kana
+- Auto Kana lock
+- Full key binding table with capture-next-key
+
+Roman Kana parses ASCII text input and emits the same guest keyboard
+make/break sequence as physical keys. It never injects Unicode, CP932,
+BIOS buffers, DOS buffers, RAM, or VRAM. When ImGui captures keyboard or
+text input, neither raw keys nor Roman Kana output reach the guest.
+
+The PC key has a proven VA guest code but no standard SDL physical
+scancode default, so it is shown as unassigned until rebound. See
+`docs/modernization/keyboard-mapping.md` for the full inventory and
+evidence table.
+
 ## Font Manager Stub
 
 Host GUI text is rendered by Dear ImGui using
