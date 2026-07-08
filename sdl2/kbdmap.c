@@ -202,6 +202,8 @@ static const BYTE f12keys[] = {
 	0x61, 0x60, 0x4d, 0x4f
 };
 
+#define	KANA_GUEST_CODE	0x72
+
 static BYTE scancode_key[SDL_NUM_SCANCODES];
 static int scancode_role[SDL_NUM_SCANCODES];
 static SDL_Scancode bindings[KBDROLE_COUNT];
@@ -620,9 +622,17 @@ static void roman_feed_char(char c) {
 
 static void ensure_kana_lock(void) {
 
-	if ((np2oscfg.keyboard_auto_kana_lock != 0) && (!kana_mirror)) {
-		kbdinject_press(0x72);
+	if (!kana_mirror) {
+		kbdinject_press(KANA_GUEST_CODE);
 		kana_mirror = TRUE;
+	}
+}
+
+static void set_kana_lock(BOOL locked) {
+
+	if ((locked && (!kana_mirror)) || ((!locked) && kana_mirror)) {
+		kbdinject_press(KANA_GUEST_CODE);
+		kana_mirror = locked ? TRUE : FALSE;
 	}
 }
 
@@ -786,6 +796,9 @@ void kbdmap_reset_frontend_state(void) {
 
 	kana_mirror = FALSE;
 	romankana_reset(&roman_state);
+	if (roman_mode()) {
+		set_kana_lock(TRUE);
+	}
 }
 
 void kbdmap_resetf12(void) {
@@ -863,10 +876,20 @@ void kbdmap_set_layout(const char *layout) {
 
 void kbdmap_set_kana_input(const char *mode) {
 
+	const char *old_mode;
+	const char *new_mode;
+
+	old_mode = normal_kana_input(np2oscfg.keyboard_kana_input);
+	new_mode = normal_kana_input(mode);
 	set_config_string(np2oscfg.keyboard_kana_input,
-					  sizeof(np2oscfg.keyboard_kana_input),
-					  normal_kana_input(mode));
+					  sizeof(np2oscfg.keyboard_kana_input), new_mode);
 	romankana_reset(&roman_state);
+	if (str_equal(new_mode, "roman")) {
+		set_kana_lock(TRUE);
+	}
+	else if (str_equal(old_mode, "roman")) {
+		set_kana_lock(FALSE);
+	}
 	update_text_input_state();
 }
 

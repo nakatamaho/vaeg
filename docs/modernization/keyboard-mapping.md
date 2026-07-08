@@ -44,8 +44,9 @@ The frozen Win32 tree is evidence only. It was not edited for M14.
 
 - `keyboard_host_layout`: `jis`, `us`, or `custom`.
 - `keyboard_kana_input`: `off`, `jis-kana`, or `roman`.
-- `keyboard_auto_kana_lock`: when enabled, Roman-Kana output first sends
-  the guest Kana make/break sequence if the frontend mirror is off.
+- `keyboard_auto_kana_lock`: accepted from old configs, but Roman-Kana
+  now controls KANA lock directly. Enabling Roman-Kana sends the guest
+  KANA toggle; disabling it sends KANA again.
 - `keyboard_custom_map`: `file:keyboard.map` for GUI-edited bindings.
   The sidecar file lives in the same user-state directory as `np2.cfg`
   and stores one `role=scancode-name` entry per line. SDL scancode names
@@ -184,7 +185,12 @@ Roman-Kana accepts only A-Z and apostrophe host scancodes. It converts
 Roman syllables into internal tokens, then emits guest key sequences. It
 never injects Unicode or Shift-JIS bytes into the guest. SDL_TEXTINPUT is
 ignored for guest Roman-Kana so host IME state and UTF-8 composition do
-not affect guest input.
+not affect guest input. While Roman-Kana is enabled, A-Z host scancodes
+are consumed by the helper instead of being sent as direct alphabetic
+guest keys; turn Roman-Kana off to type alphabetic guest input. The mode
+also manages guest KANA lock: ON toggles KANA on, OFF toggles it back
+off. The physical KANA key still behaves as a lock key outside the helper
+path.
 
 The physical kana mapping is derived from `bios/keytable.res`: for
 example `ka` uses the VA `T` key in Kana mode, `shi` uses `D`, `nn` uses
