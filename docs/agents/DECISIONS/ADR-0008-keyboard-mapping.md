@@ -58,9 +58,10 @@ guest keyboard protocol or writing directly into guest text buffers.
   US is a usability fallback for common modern keyboards.
 - Leave the VA PC key default unassigned: the guest code is proven, but
   SDL has no standard modern physical scancode for that role.
-- Roman-Kana parses host ASCII text into internal kana tokens and then
-  emits guest key sequences. It never injects Unicode, CP932, BIOS/DOS
-  buffers, RAM, or VRAM.
+- Roman-Kana parses A-Z and apostrophe host scancodes into internal kana
+  tokens and then emits guest key sequences. It ignores SDL_TEXTINPUT for
+  guest input so host IME state and UTF-8 composition cannot leak into the
+  guest. It never injects Unicode, CP932, BIOS/DOS buffers, RAM, or VRAM.
 
 ## Consequences
 
