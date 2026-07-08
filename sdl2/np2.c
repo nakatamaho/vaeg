@@ -657,6 +657,7 @@ int main(int argc, char **argv) {
 	S98_init();
 
 	pccore_reset();
+	sdlkbd_reset_state();
 	scrndraw_redraw();
 	mount_fdd_images(disk);
 	run_ok = runloop(smoke, pacelog, smoke_detect_screen);
