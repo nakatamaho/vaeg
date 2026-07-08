@@ -209,6 +209,7 @@ static int scancode_role[SDL_NUM_SCANCODES];
 static SDL_Scancode bindings[KBDROLE_COUNT];
 static KBDMAP_STATUS bind_status[KBDROLE_COUNT];
 static ROMANKANA_STATE roman_state;
+static BOOL roman_scancode_down[SDL_NUM_SCANCODES];
 static BOOL kana_mirror;
 
 static const char custom_map_file[] = "keyboard.map";
@@ -245,13 +246,10 @@ static const char *normal_layout(const char *layout) {
 
 static const char *normal_kana_input(const char *mode) {
 
-	if (str_equal(mode, "jis-kana")) {
-		return "jis-kana";
-	}
 	if (str_equal(mode, "roman")) {
 		return "roman";
 	}
-	return "off";
+	return "jis-kana";
 }
 
 static void update_text_input_state(void) {
@@ -620,25 +618,13 @@ static void roman_feed_char(char c) {
 	romankana_feed(&roman_state, text, roman_emit, NULL);
 }
 
-static void ensure_kana_lock(void) {
+static BOOL roman_active(void) {
 
-	if (!kana_mirror) {
-		kbdinject_press(KANA_GUEST_CODE);
-		kana_mirror = TRUE;
-	}
-}
-
-static void set_kana_lock(BOOL locked) {
-
-	if ((locked && (!kana_mirror)) || ((!locked) && kana_mirror)) {
-		kbdinject_press(KANA_GUEST_CODE);
-		kana_mirror = locked ? TRUE : FALSE;
-	}
+	return (roman_mode() && kana_mirror) ? TRUE : FALSE;
 }
 
 static void emit_kana_sequence(const KANASEQ *seq) {
 
-	ensure_kana_lock();
 	if (seq->shift) {
 		kbdinject_keydown(0x70);
 	}
@@ -701,6 +687,7 @@ void kbdmap_apply_config(void) {
 void kbdmap_initialize(void) {
 
 	romankana_reset(&roman_state);
+	ZeroMemory(roman_scancode_down, sizeof(roman_scancode_down));
 	kana_mirror = FALSE;
 	kbdmap_apply_config();
 }
@@ -734,15 +721,22 @@ BOOL kbdmap_keydown(UINT scancode) {
 	if ((role >= 0) && (entries[role].role == KBDROLE_KANA)) {
 		kbdinject_press(entries[role].guest_code);
 		kana_mirror = kana_mirror ? FALSE : TRUE;
+		romankana_reset(&roman_state);
 		return TRUE;
 	}
-	if (roman_mode()) {
+	if (roman_active()) {
 		roman_char = roman_char_from_scancode(scancode);
 		if (roman_char != '\0') {
 			roman_feed_char(roman_char);
+			if (scancode < SDL_NUM_SCANCODES) {
+				roman_scancode_down[scancode] = TRUE;
+			}
 			return TRUE;
 		}
 		if (is_roman_scancode(scancode)) {
+			if (scancode < SDL_NUM_SCANCODES) {
+				roman_scancode_down[scancode] = TRUE;
+			}
 			return TRUE;
 		}
 		romankana_flush(&roman_state, roman_emit, NULL);
@@ -772,7 +766,8 @@ BOOL kbdmap_keyup(UINT scancode) {
 	if ((role >= 0) && (entries[role].role == KBDROLE_KANA)) {
 		return TRUE;
 	}
-	if (roman_mode() && is_roman_scancode(scancode)) {
+	if ((scancode < SDL_NUM_SCANCODES) && roman_scancode_down[scancode]) {
+		roman_scancode_down[scancode] = FALSE;
 		return TRUE;
 	}
 	data = kbdmap_lookup(scancode);
@@ -786,7 +781,7 @@ BOOL kbdmap_keyup(UINT scancode) {
 BOOL kbdmap_textinput(const char *text) {
 
 	(void)text;
-	if (!roman_mode()) {
+	if (!roman_active()) {
 		return FALSE;
 	}
 	return TRUE;
@@ -796,9 +791,7 @@ void kbdmap_reset_frontend_state(void) {
 
 	kana_mirror = FALSE;
 	romankana_reset(&roman_state);
-	if (roman_mode()) {
-		set_kana_lock(TRUE);
-	}
+	ZeroMemory(roman_scancode_down, sizeof(roman_scancode_down));
 }
 
 void kbdmap_resetf12(void) {
@@ -876,26 +869,13 @@ void kbdmap_set_layout(const char *layout) {
 
 void kbdmap_set_kana_input(const char *mode) {
 
-	const char *old_mode;
 	const char *new_mode;
 
-	old_mode = normal_kana_input(np2oscfg.keyboard_kana_input);
 	new_mode = normal_kana_input(mode);
 	set_config_string(np2oscfg.keyboard_kana_input,
 					  sizeof(np2oscfg.keyboard_kana_input), new_mode);
 	romankana_reset(&roman_state);
-	if (str_equal(new_mode, "roman")) {
-		set_kana_lock(TRUE);
-	}
-	else if (str_equal(old_mode, "roman")) {
-		set_kana_lock(FALSE);
-	}
 	update_text_input_state();
-}
-
-void kbdmap_set_auto_kana_lock(BOOL enabled) {
-
-	np2oscfg.keyboard_auto_kana_lock = enabled ? 1 : 0;
 }
 
 void kbdmap_reset_to_jis(void) {
@@ -984,7 +964,7 @@ int kbdmap_selftest(void) {
 	set_config_string(np2oscfg.keyboard_host_layout,
 					  sizeof(np2oscfg.keyboard_host_layout), "jis");
 	set_config_string(np2oscfg.keyboard_kana_input,
-					  sizeof(np2oscfg.keyboard_kana_input), "off");
+					  sizeof(np2oscfg.keyboard_kana_input), "jis-kana");
 	np2oscfg.keyboard_custom_map[0] = '\0';
 	np2oscfg.keyboard_auto_kana_lock = 0;
 	kbdmap_apply_config();

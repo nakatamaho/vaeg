@@ -768,10 +768,6 @@ static void draw_device_menu(void) {
 				ImGui::EndMenu();
 			}
 			if (ImGui::BeginMenu("Kana input")) {
-				if (ImGui::MenuItem("Off", nullptr,
-									std::string(kbdmap_kana_input_name()) == "off")) {
-					set_kana_input("off");
-				}
 				if (ImGui::MenuItem("JIS Kana", nullptr,
 									std::string(kbdmap_kana_input_name()) == "jis-kana")) {
 					set_kana_input("jis-kana");

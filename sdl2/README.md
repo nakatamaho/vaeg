@@ -114,17 +114,18 @@ points to that sidecar.
 Device / Keyboard in the ImGui menu exposes:
 
 - Host layout: JIS, US, Custom
-- Kana input: Off, JIS Kana, Roman Kana
+- Kana input: JIS Kana, Roman Kana
 - Full key binding table with capture-next-key
 
 Roman Kana parses A-Z and apostrophe host scancodes and emits the same
 guest keyboard make/break sequence as physical keys. It never injects
 Unicode, CP932, BIOS buffers, DOS buffers, RAM, or VRAM. When ImGui
 captures keyboard or text input, neither raw keys nor Roman Kana output
-reach the guest. Turning Roman Kana on sends the guest KANA toggle so the
-helper enters kana mode; turning it off sends KANA again so normal
-alphabetic guest input works. While Roman Kana is on, A-Z host scancodes
-feed the helper and are not sent to the guest as direct alphabetic keys.
+reach the guest. The menu selects the kana input method only. Enter and
+leave guest kana mode with the assigned KANA key: one press locks KANA,
+the next press unlocks it. When the menu is set to Roman Kana and KANA is
+locked, A-Z host scancodes feed the helper and are not sent as direct
+alphabetic guest keys; when KANA is unlocked, A-Z is normal guest input.
 
 The PC key has a proven VA guest code but no standard SDL physical
 scancode default, so it is shown as unassigned until rebound. See
