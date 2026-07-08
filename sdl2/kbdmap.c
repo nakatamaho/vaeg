@@ -147,6 +147,18 @@ typedef struct {
 	BYTE		mark;
 } KANASEQ;
 
+typedef struct {
+	const char	*token;
+	const char	*base;
+	const char	*small_y;
+} KANACOMBOSEQ;
+
+typedef struct {
+	const char	*token;
+	const char	*first;
+	const char	*second;
+} KANAPAIRSEQ;
+
 enum {
 	KANASEQ_MARK_NONE = 0,
 	KANASEQ_MARK_DAKUTEN,
@@ -157,6 +169,9 @@ static const KANASEQ kana_sequences[] = {
 	{"a", 0x03, 0, KANASEQ_MARK_NONE}, {"i", 0x12, 0, KANASEQ_MARK_NONE},
 	{"u", 0x04, 0, KANASEQ_MARK_NONE}, {"e", 0x05, 0, KANASEQ_MARK_NONE},
 	{"o", 0x06, 0, KANASEQ_MARK_NONE},
+	{"xa", 0x03, 1, KANASEQ_MARK_NONE}, {"xi", 0x12, 1, KANASEQ_MARK_NONE},
+	{"xu", 0x04, 1, KANASEQ_MARK_NONE}, {"xe", 0x05, 1, KANASEQ_MARK_NONE},
+	{"xo", 0x06, 1, KANASEQ_MARK_NONE},
 	{"ka", 0x14, 0, KANASEQ_MARK_NONE}, {"ki", 0x21, 0, KANASEQ_MARK_NONE},
 	{"ku", 0x22, 0, KANASEQ_MARK_NONE}, {"ke", 0x27, 0, KANASEQ_MARK_NONE},
 	{"ko", 0x2d, 0, KANASEQ_MARK_NONE},
@@ -177,6 +192,8 @@ static const KANASEQ kana_sequences[] = {
 	{"mo", 0x2f, 0, KANASEQ_MARK_NONE},
 	{"ya", 0x07, 0, KANASEQ_MARK_NONE}, {"yu", 0x08, 0, KANASEQ_MARK_NONE},
 	{"yo", 0x09, 0, KANASEQ_MARK_NONE},
+	{"xya", 0x07, 1, KANASEQ_MARK_NONE}, {"xyu", 0x08, 1, KANASEQ_MARK_NONE},
+	{"xyo", 0x09, 1, KANASEQ_MARK_NONE},
 	{"ra", 0x18, 0, KANASEQ_MARK_NONE}, {"ri", 0x25, 0, KANASEQ_MARK_NONE},
 	{"ru", 0x31, 0, KANASEQ_MARK_NONE}, {"re", 0x26, 0, KANASEQ_MARK_NONE},
 	{"ro", 0x33, 0, KANASEQ_MARK_NONE},
@@ -195,7 +212,27 @@ static const KANASEQ kana_sequences[] = {
 	{"bo", 0x0b, 0, KANASEQ_MARK_DAKUTEN},
 	{"pa", 0x20, 0, KANASEQ_MARK_HANDAKUTEN}, {"pi", 0x2c, 0, KANASEQ_MARK_HANDAKUTEN},
 	{"pu", 0x02, 0, KANASEQ_MARK_HANDAKUTEN}, {"pe", 0x0c, 0, KANASEQ_MARK_HANDAKUTEN},
-	{"po", 0x0b, 0, KANASEQ_MARK_HANDAKUTEN}
+	{"po", 0x0b, 0, KANASEQ_MARK_HANDAKUTEN},
+	{"vu", 0x04, 0, KANASEQ_MARK_DAKUTEN}
+};
+
+static const KANACOMBOSEQ kana_combo_sequences[] = {
+	{"kya", "ki", "xya"}, {"kyu", "ki", "xyu"}, {"kyo", "ki", "xyo"},
+	{"sha", "shi", "xya"}, {"shu", "shi", "xyu"}, {"sho", "shi", "xyo"},
+	{"cha", "chi", "xya"}, {"chu", "chi", "xyu"}, {"cho", "chi", "xyo"},
+	{"nya", "ni", "xya"}, {"nyu", "ni", "xyu"}, {"nyo", "ni", "xyo"},
+	{"hya", "hi", "xya"}, {"hyu", "hi", "xyu"}, {"hyo", "hi", "xyo"},
+	{"mya", "mi", "xya"}, {"myu", "mi", "xyu"}, {"myo", "mi", "xyo"},
+	{"rya", "ri", "xya"}, {"ryu", "ri", "xyu"}, {"ryo", "ri", "xyo"},
+	{"gya", "gi", "xya"}, {"gyu", "gi", "xyu"}, {"gyo", "gi", "xyo"},
+	{"ja", "ji", "xya"}, {"ju", "ji", "xyu"}, {"jo", "ji", "xyo"},
+	{"bya", "bi", "xya"}, {"byu", "bi", "xyu"}, {"byo", "bi", "xyo"},
+	{"pya", "pi", "xya"}, {"pyu", "pi", "xyu"}, {"pyo", "pi", "xyo"}
+};
+
+static const KANAPAIRSEQ kana_pair_sequences[] = {
+	{"va", "vu", "xa"}, {"vi", "vu", "xi"},
+	{"ve", "vu", "xe"}, {"vo", "vu", "xo"}
 };
 
 static const BYTE f12keys[] = {
@@ -644,6 +681,30 @@ static void emit_kana_sequence(const KANASEQ *seq) {
 	}
 }
 
+static const KANASEQ *find_kana_sequence(const char *token) {
+
+	UINT	i;
+
+	for (i = 0; i < NELEMENTS(kana_sequences); i++) {
+		if (!strcmp(kana_sequences[i].token, token)) {
+			return kana_sequences + i;
+		}
+	}
+	return NULL;
+}
+
+static BOOL emit_kana_token(const char *token) {
+
+	const KANASEQ *seq;
+
+	seq = find_kana_sequence(token);
+	if (seq == NULL) {
+		return FALSE;
+	}
+	emit_kana_sequence(seq);
+	return TRUE;
+}
+
 static void roman_emit(const char *token, void *arg) {
 
 	UINT	i;
@@ -653,10 +714,25 @@ static void roman_emit(const char *token, void *arg) {
 		SDL_Log("Roman-Kana: unsupported input flushed");
 		return;
 	}
-	for (i = 0; i < NELEMENTS(kana_sequences); i++) {
-		if (!strcmp(kana_sequences[i].token, token)) {
-			emit_kana_sequence(kana_sequences + i);
-			return;
+	if (emit_kana_token(token)) {
+		return;
+	}
+	for (i = 0; i < NELEMENTS(kana_combo_sequences); i++) {
+		if (!strcmp(kana_combo_sequences[i].token, token)) {
+			if (emit_kana_token(kana_combo_sequences[i].base) &&
+				emit_kana_token(kana_combo_sequences[i].small_y)) {
+				return;
+			}
+			break;
+		}
+	}
+	for (i = 0; i < NELEMENTS(kana_pair_sequences); i++) {
+		if (!strcmp(kana_pair_sequences[i].token, token)) {
+			if (emit_kana_token(kana_pair_sequences[i].first) &&
+				emit_kana_token(kana_pair_sequences[i].second)) {
+				return;
+			}
+			break;
 		}
 	}
 	SDL_Log("Roman-Kana: token has no verified guest sequence: %s", token);
@@ -953,6 +1029,18 @@ int kbdmap_selftest(void) {
 	for (i = 0; i < (int)NELEMENTS(entries); i++) {
 		if (entries[i].role != (KBDMAP_ROLE)i) {
 			return FAILURE;
+		}
+	}
+	for (i = 0; i < (int)NELEMENTS(kana_combo_sequences); i++) {
+		if ((find_kana_sequence(kana_combo_sequences[i].base) == NULL) ||
+			(find_kana_sequence(kana_combo_sequences[i].small_y) == NULL)) {
+			KBDMAP_SELFTEST_FAIL("Roman-Kana yoon sequence table");
+		}
+	}
+	for (i = 0; i < (int)NELEMENTS(kana_pair_sequences); i++) {
+		if ((find_kana_sequence(kana_pair_sequences[i].first) == NULL) ||
+			(find_kana_sequence(kana_pair_sequences[i].second) == NULL)) {
+			KBDMAP_SELFTEST_FAIL("Roman-Kana pair sequence table");
 		}
 	}
 
