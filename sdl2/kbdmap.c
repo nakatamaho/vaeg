@@ -257,12 +257,7 @@ static void update_text_input_state(void) {
 	if (SDL_WasInit(SDL_INIT_VIDEO) == 0) {
 		return;
 	}
-	if (str_equal(normal_kana_input(np2oscfg.keyboard_kana_input), "roman")) {
-		SDL_StartTextInput();
-	}
-	else {
-		SDL_StopTextInput();
-	}
+	SDL_StopTextInput();
 }
 
 static int entry_index_from_role(KBDMAP_ROLE role) {
@@ -595,10 +590,32 @@ static BOOL is_roman_scancode(UINT scancode) {
 	}
 }
 
+static char roman_char_from_scancode(UINT scancode) {
+
+	if ((scancode >= SDL_SCANCODE_A) && (scancode <= SDL_SCANCODE_Z)) {
+		return (char)('a' + (scancode - SDL_SCANCODE_A));
+	}
+	if (scancode == SDL_SCANCODE_APOSTROPHE) {
+		return '\'';
+	}
+	return '\0';
+}
+
 static BOOL roman_mode(void) {
 
 	return str_equal(normal_kana_input(np2oscfg.keyboard_kana_input), "roman") ?
 		TRUE : FALSE;
+}
+
+static void roman_emit(const char *token, void *arg);
+
+static void roman_feed_char(char c) {
+
+	char	text[2];
+
+	text[0] = c;
+	text[1] = '\0';
+	romankana_feed(&roman_state, text, roman_emit, NULL);
 }
 
 static void ensure_kana_lock(void) {
@@ -693,6 +710,7 @@ BOOL kbdmap_keydown(UINT scancode) {
 
 	BYTE	data;
 	int	role;
+	char	roman_char;
 
 	if (scancode == SDL_SCANCODE_F12) {
 		data = getf12key();
@@ -708,9 +726,16 @@ BOOL kbdmap_keydown(UINT scancode) {
 		kana_mirror = kana_mirror ? FALSE : TRUE;
 		return TRUE;
 	}
-	if (roman_mode() && is_roman_scancode(scancode)) {
-		update_text_input_state();
-		return TRUE;
+	if (roman_mode()) {
+		roman_char = roman_char_from_scancode(scancode);
+		if (roman_char != '\0') {
+			roman_feed_char(roman_char);
+			return TRUE;
+		}
+		if (is_roman_scancode(scancode)) {
+			return TRUE;
+		}
+		romankana_flush(&roman_state, roman_emit, NULL);
 	}
 	data = kbdmap_lookup(scancode);
 	if (data != KBDMAP_NC) {
@@ -750,10 +775,10 @@ BOOL kbdmap_keyup(UINT scancode) {
 
 BOOL kbdmap_textinput(const char *text) {
 
+	(void)text;
 	if (!roman_mode()) {
 		return FALSE;
 	}
-	romankana_feed(&roman_state, text, roman_emit, NULL);
 	return TRUE;
 }
 
@@ -945,6 +970,11 @@ int kbdmap_selftest(void) {
 	}
 	if (kbdmap_lookup(SDL_SCANCODE_INTERNATIONAL3) != 0x0d) {
 		KBDMAP_SELFTEST_FAIL("JIS yen lookup");
+	}
+	if ((roman_char_from_scancode(SDL_SCANCODE_A) != 'a') ||
+		(roman_char_from_scancode(SDL_SCANCODE_Z) != 'z') ||
+		(roman_char_from_scancode(SDL_SCANCODE_APOSTROPHE) != '\'')) {
+		KBDMAP_SELFTEST_FAIL("Roman-Kana scancode conversion");
 	}
 	kana_index = entry_index_from_role(KBDROLE_KANA);
 	semicolon_index = entry_index_from_role(KBDROLE_SEMICOLON);

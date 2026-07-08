@@ -40,9 +40,9 @@ M14 adds a keyboard binding capture mode. While it waits for the next
 host scancode, the captured keydown and matching keyup are consumed by
 the GUI and never sent to the guest.
 
-Roman-Kana input uses SDL_TEXTINPUT only as a host-side ASCII parser.
-It emits guest keyboard make/break sequences through `sdl2/kbdinject.c`;
-it never injects Unicode text or guest memory bytes.
+Roman-Kana input parses A-Z and apostrophe host scancodes before guest
+routing. It emits guest keyboard make/break sequences through
+`sdl2/kbdinject.c`; it never injects Unicode text or guest memory bytes.
 
 ## Font Asset Lookup
 

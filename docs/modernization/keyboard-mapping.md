@@ -180,9 +180,11 @@ Status values:
 
 ## Roman-Kana Helper
 
-Roman-Kana accepts only ASCII text from SDL_TEXTINPUT. It converts Roman
-syllables into internal tokens, then emits guest key sequences. It never
-injects Unicode or Shift-JIS bytes into the guest.
+Roman-Kana accepts only A-Z and apostrophe host scancodes. It converts
+Roman syllables into internal tokens, then emits guest key sequences. It
+never injects Unicode or Shift-JIS bytes into the guest. SDL_TEXTINPUT is
+ignored for guest Roman-Kana so host IME state and UTF-8 composition do
+not affect guest input.
 
 The physical kana mapping is derived from `bios/keytable.res`: for
 example `ka` uses the VA `T` key in Kana mode, `shi` uses `D`, `nn` uses
