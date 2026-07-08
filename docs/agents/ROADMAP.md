@@ -29,8 +29,17 @@ tier split:
 The frozen reference tier is protected by immutable tags and source
 history, not by a current CI or compile guarantee.
 
+## Milestone table
+
 | ID  | Task file                  | Deliverable | Gate |
 |-----|----------------------------|-------------|------|
+| M0  | tasks/M0_inventory.md      | Inventory report (no repo mutation) | review only |
+| M1  | tasks/M1_vs2008_baseline.md | VS2008 Win32 Release builds as-is | **G1** human |
+| M2  | tasks/M2_vs2017_v141.md    | v141 build of unmodified code | **G2** human |
+| M3  | tasks/M3_prune.md          | Unreferenced files deleted from approved list | **G3** human |
+| M4  | tasks/M4_lowercase.md      | All tracked paths lowercase | **G4** human |
+| M5  | tasks/M5_eol_lf.md         | LF everywhere except declared CRLF exceptions; `.gitattributes` | **G5** human |
+| M6  | tasks/M6_utf8.md           | UTF-8 without BOM sources; charset flags decided | **G6** human |
 | M7  | tasks/M7_cmake_core.md     | CMake skeleton; NP2 core libs compile with gcc+clang on Linux; portable `sdl2/compiler.h` | **G7** machine + review |
 | M8  | tasks/M8_sdl2_frontend.md  | `sdl2/` SDL2 frontend (video/audio/input/timer/main loop) runs the PC-98 core on Linux | **G8** human |
 | M9  | tasks/M9_va_portable.md    | `cpucva/memoryva.c`; VA machine builds and runs on i286c; V3 boot + VA demo on Linux | **G9** human (standard VA gate) |
@@ -39,7 +48,7 @@ history, not by a current CI or compile guarantee.
 | M12 | tasks/M12_ci.md            | GitHub Actions 3-OS matrix; ROM-less tests; repo invariant checks | **G12** machine |
 | M13 | tasks/M13_retire_legacy.md | Delete retired `sdl/`; keep frozen `win9x/`, `i286x/`, `cpuxva/memoryva.x86`, `hlp/`; docs | **G13** human sign-off |
 
-Dependencies: M7 → M8 → {M9, M10 parallel} → M11 → M12 → M13.
+Phase 2 dependencies: M7 → M8 → {M9, M10 parallel} → M11 → M12 → M13.
 M9 must pass before M11 (all three OSes must ship the VA machine, not
 the PC-98 scaffold).
 
