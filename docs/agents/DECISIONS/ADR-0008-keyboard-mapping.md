@@ -1,0 +1,69 @@
+<!--
+Copyright (c) 2026 Nakata Maho
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions
+are met:
+1. Redistributions of source code must retain the above copyright
+   notice, this list of conditions and the following disclaimer.
+2. Redistributions in binary form must reproduce the above copyright
+   notice, this list of conditions and the following disclaimer in the
+   documentation and/or other materials provided with the distribution.
+
+THIS SOFTWARE IS PROVIDED BY THE AUTHOR "AS IS" AND ANY EXPRESS OR
+IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT,
+INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING
+IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+POSSIBILITY OF SUCH DAMAGE.
+-->
+# ADR-0008: SDL2 Keyboard Mapping Policy
+
+Date: 2026-07-08
+
+Status: Accepted
+
+## Context
+
+G11 exposed that the old SDL2 keyboard table was a partial 101-key map:
+common alphanumeric keys worked, but PC-88VA/PC-8801-specific keys such
+as Kana, Henkan, NFER/Kettei, RO/underscore, Zenkaku, and keypad Return
+were incomplete or unavailable on US host keyboards.
+
+M14 needs a complete, documented keyboard inventory without changing the
+guest keyboard protocol or writing directly into guest text buffers.
+
+## Decision
+
+- Use SDL scancodes for guest input mapping. Do not use SDL key symbols
+  as guest keys.
+- Store custom host bindings by SDL scancode name, not numeric scancode
+  values.
+- Use QUASI88 only as semantic naming reference for PC-8801-style key
+  roles. Do not copy QUASI88 numeric `KEY88_*` values.
+- Prove VA guest key codes from this repository, primarily
+  `keystat.h`, `win9x/winkbd.cpp`, and `io/serial.c`.
+- Route physical and synthetic input through `sdl2/kbdinject.c`, which
+  wraps the existing `keystat_senddata()` and `keystat_forcerelease()`
+  make/break path.
+- Provide JIS, US, and Custom host layouts. JIS is the fidelity preset;
+  US is a usability fallback for common modern keyboards.
+- Leave the VA PC key default unassigned: the guest code is proven, but
+  SDL has no standard modern physical scancode for that role.
+- Roman-Kana parses host ASCII text into internal kana tokens and then
+  emits guest key sequences. It never injects Unicode, CP932, BIOS/DOS
+  buffers, RAM, or VRAM.
+
+## Consequences
+
+- ImGui input capture remains the boundary: captured key or text events
+  never reach the guest, including Roman-Kana helper output.
+- Missing host bindings are visible in `docs/modernization/keyboard-mapping.md`
+  and in the ImGui binding table.
+- Manual G14 testing must confirm physical JIS behavior, US fallback
+  usability, Kana lock behavior, Roman-Kana output, and rebinding.
