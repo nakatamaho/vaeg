@@ -43,10 +43,9 @@ The frozen Win32 tree is evidence only. It was not edited for M14.
 ## Runtime Model
 
 - `keyboard_host_layout`: `jis`, `us`, or `custom`.
-- `keyboard_kana_input`: `off`, `jis-kana`, or `roman`.
+- `keyboard_kana_input`: `jis-kana` or `roman`.
 - `keyboard_auto_kana_lock`: accepted from old configs, but Roman-Kana
-  now controls KANA lock directly. Enabling Roman-Kana sends the guest
-  KANA toggle; disabling it sends KANA again.
+  ignores it. The assigned KANA key controls guest kana lock directly.
 - `keyboard_custom_map`: `file:keyboard.map` for GUI-edited bindings.
   The sidecar file lives in the same user-state directory as `np2.cfg`
   and stores one `role=scancode-name` entry per line. SDL scancode names
@@ -185,12 +184,11 @@ Roman-Kana accepts only A-Z and apostrophe host scancodes. It converts
 Roman syllables into internal tokens, then emits guest key sequences. It
 never injects Unicode or Shift-JIS bytes into the guest. SDL_TEXTINPUT is
 ignored for guest Roman-Kana so host IME state and UTF-8 composition do
-not affect guest input. While Roman-Kana is enabled, A-Z host scancodes
-are consumed by the helper instead of being sent as direct alphabetic
-guest keys; turn Roman-Kana off to type alphabetic guest input. The mode
-also manages guest KANA lock: ON toggles KANA on, OFF toggles it back
-off. The physical KANA key still behaves as a lock key outside the helper
-path.
+not affect guest input. The menu chooses only the kana input method.
+Guest kana mode is controlled by the assigned KANA key: one press locks
+KANA, and the next press unlocks it. Roman-Kana consumes A-Z host
+scancodes only when that KANA lock mirror is active; with KANA unlocked,
+A-Z remains direct alphabetic guest input.
 
 The physical kana mapping is derived from `bios/keytable.res`: for
 example `ka` uses the VA `T` key in Kana mode, `shi` uses `D`, `nn` uses

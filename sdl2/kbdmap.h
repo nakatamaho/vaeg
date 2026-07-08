@@ -181,7 +181,6 @@ const char *kbdmap_kana_input_name(void);
 
 void kbdmap_set_layout(const char *layout);
 void kbdmap_set_kana_input(const char *mode);
-void kbdmap_set_auto_kana_lock(BOOL enabled);
 void kbdmap_reset_to_jis(void);
 void kbdmap_reset_to_us(void);
 BOOL kbdmap_set_binding(int index, SDL_Scancode scancode);
