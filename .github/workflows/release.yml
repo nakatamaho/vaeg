@@ -1,0 +1,253 @@
+# Copyright (c) 2026 Nakata Maho
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions
+# are met:
+# 1. Redistributions of source code must retain the above copyright
+#    notice, this list of conditions and the following disclaimer.
+# 2. Redistributions in binary form must reproduce the above copyright
+#    notice, this list of conditions and the following disclaimer in the
+#    documentation and/or other materials provided with the distribution.
+#
+# THIS SOFTWARE IS PROVIDED BY THE AUTHOR "AS IS" AND ANY EXPRESS OR
+# IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+# WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+# DISCLAIMED. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT,
+# INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+# (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+# SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+# HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+# STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING
+# IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+# POSSIBILITY OF SUCH DAMAGE.
+
+name: release
+
+on:
+  push:
+    tags:
+      - 'rel-*'
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: 'Existing rel-* tag to package'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+env:
+  RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag_name || github.ref_name }}
+  RELEASE_NOTES: docs/agents/reports/release_260708_notes.md
+
+jobs:
+  linux:
+    name: linux gcc release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag_name || github.ref }}
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake ninja-build pkg-config libsdl2-dev gcc g++
+      - name: Configure
+        run: cmake --preset linux-ci-gcc
+      - name: Build
+        run: cmake --build --preset linux-ci-gcc
+      - name: Smoke
+        run: SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy ./build/linux-ci-gcc/sdl2/vaeg --smoke
+      - name: Unit tests
+        run: ctest --test-dir build/linux-ci-gcc --output-on-failure
+      - name: Package
+        run: |
+          set -euo pipefail
+          release_id="${RELEASE_TAG//-/}"
+          package="vaeg-${release_id}-linux-x86_64"
+          asset="${package}.tar.gz"
+          rm -rf dist-package "${asset}"
+          mkdir -p "dist-package/${package}/assets"
+          install -m 755 build/linux-ci-gcc/sdl2/vaeg "dist-package/${package}/vaeg"
+          install -m 644 assets/NotoSansJP-Regular.ttf "dist-package/${package}/assets/"
+          install -m 644 assets/OFL.txt "dist-package/${package}/assets/"
+          install -m 644 assets/NOTICE.md "dist-package/${package}/assets/"
+          install -m 644 dist/readme-dist.txt "dist-package/${package}/README-dist.txt"
+          tar -C dist-package -czf "${asset}" "${package}"
+          tar -tzf "${asset}"
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if gh release view "${RELEASE_TAG}" >/dev/null 2>&1; then
+            gh release edit "${RELEASE_TAG}" \
+              --title "88VA Eternal Grafx ${RELEASE_TAG}" \
+              --notes-file "${RELEASE_NOTES}"
+          else
+            gh release create "${RELEASE_TAG}" \
+              --verify-tag \
+              --title "88VA Eternal Grafx ${RELEASE_TAG}" \
+              --notes-file "${RELEASE_NOTES}"
+          fi
+      - name: Upload release asset
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          release_id="${RELEASE_TAG//-/}"
+          gh release upload "${RELEASE_TAG}" \
+            "vaeg-${release_id}-linux-x86_64.tar.gz" \
+            --clobber
+
+  windows:
+    name: windows mingw native static-runtime
+    runs-on: windows-latest
+    needs: linux
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag_name || github.ref }}
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: true
+          install: >-
+            git
+            mingw-w64-x86_64-cmake
+            mingw-w64-x86_64-ninja
+            mingw-w64-x86_64-gcc
+            mingw-w64-x86_64-SDL2
+            mingw-w64-x86_64-pkgconf
+      - name: Configure
+        run: cmake --preset mingw-ci
+      - name: Build
+        run: cmake --build --preset mingw-ci
+      - name: Smoke
+        run: SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy ./build/mingw-ci/sdl2/vaeg.exe --smoke
+      - name: Unit tests
+        run: ctest --test-dir build/mingw-ci --output-on-failure
+      - name: Verify Windows runtime imports
+        run: |
+          set -euo pipefail
+          objdump -p build/mingw-ci/sdl2/vaeg.exe |
+            awk '/DLL Name:/ {print $3}' | tee imports.txt
+          if grep -E 'libgcc_s_seh-1\.dll|libstdc\+\+-6\.dll|libwinpthread-1\.dll' imports.txt; then
+            echo "unexpected dynamic MinGW runtime import" >&2
+            exit 1
+          fi
+          bad=0
+          while IFS= read -r dll; do
+            lower="$(printf '%s' "${dll}" | tr '[:upper:]' '[:lower:]')"
+            case "${lower}" in
+              sdl2.dll|kernel32.dll|msvcrt.dll|user32.dll|gdi32.dll|advapi32.dll|shell32.dll|ole32.dll|oleaut32.dll|imm32.dll|version.dll|winmm.dll|setupapi.dll|uuid.dll|ws2_32.dll|bcrypt.dll|crypt32.dll|comdlg32.dll|comctl32.dll|shlwapi.dll|rpcrt4.dll|dwmapi.dll|hid.dll|cfgmgr32.dll|api-ms-win-*.dll|ext-ms-*.dll)
+                ;;
+              *)
+                echo "unexpected non-system DLL import: ${dll}" >&2
+                bad=1
+                ;;
+            esac
+          done < imports.txt
+          exit "${bad}"
+      - name: Stage package
+        run: |
+          set -euo pipefail
+          release_id="${RELEASE_TAG//-/}"
+          package="vaeg-${release_id}-win-x86_64"
+          rm -rf dist-package
+          mkdir -p "dist-package/${package}/assets"
+          cp build/mingw-ci/sdl2/vaeg.exe "dist-package/${package}/"
+          cp /mingw64/bin/SDL2.dll "dist-package/${package}/"
+          cp assets/NotoSansJP-Regular.ttf "dist-package/${package}/assets/"
+          cp assets/OFL.txt "dist-package/${package}/assets/"
+          cp assets/NOTICE.md "dist-package/${package}/assets/"
+          cp dist/readme-dist.txt "dist-package/${package}/README-dist.txt"
+          find "dist-package/${package}" -type f | sort
+      - name: Zip package
+        shell: pwsh
+        run: |
+          $releaseId = $env:RELEASE_TAG -replace '-', ''
+          $package = "vaeg-$releaseId-win-x86_64"
+          $asset = "$package.zip"
+          if (Test-Path $asset) {
+            Remove-Item $asset
+          }
+          Compress-Archive -Path "dist-package/$package" -DestinationPath $asset -Force
+      - name: Upload release asset
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $releaseId = $env:RELEASE_TAG -replace '-', ''
+          gh release upload $env:RELEASE_TAG "vaeg-$releaseId-win-x86_64.zip" --clobber
+
+  macos:
+    name: macos fetch-sdl2 release
+    runs-on: macos-14
+    needs: linux
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag_name || github.ref }}
+      - name: Install build tools
+        run: brew install cmake ninja
+      - name: Configure
+        run: cmake --preset macos-ci
+      - name: Build
+        run: cmake --build --preset macos-ci
+      - name: Smoke
+        run: SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy ./build/macos-ci/sdl2/vaeg --smoke
+      - name: Unit tests
+        run: ctest --test-dir build/macos-ci --output-on-failure
+      - name: Package
+        run: |
+          set -euo pipefail
+          file build/macos-ci/sdl2/vaeg | tee vaeg-file.txt
+          grep -q 'arm64' vaeg-file.txt
+          release_id="${RELEASE_TAG//-/}"
+          package="vaeg-${release_id}-macos-arm64"
+          asset="${package}.tar.gz"
+          rm -rf dist-package "${asset}"
+          mkdir -p "dist-package/${package}/assets"
+          install -m 755 build/macos-ci/sdl2/vaeg "dist-package/${package}/vaeg"
+          install -m 644 assets/NotoSansJP-Regular.ttf "dist-package/${package}/assets/"
+          install -m 644 assets/OFL.txt "dist-package/${package}/assets/"
+          install -m 644 assets/NOTICE.md "dist-package/${package}/assets/"
+          install -m 644 dist/readme-dist.txt "dist-package/${package}/README-dist.txt"
+
+          sdl_ref="$(otool -L build/macos-ci/sdl2/vaeg | awk '/libSDL2.*dylib/ {print $1; exit}')"
+          if [ -n "${sdl_ref}" ]; then
+            sdl_base="$(basename "${sdl_ref}")"
+            sdl_path=""
+            if [ -f "${sdl_ref}" ]; then
+              sdl_path="${sdl_ref}"
+            else
+              sdl_path="$(find build/macos-ci -name "${sdl_base}" -type f | head -n 1)"
+            fi
+            if [ -z "${sdl_path}" ]; then
+              echo "could not locate ${sdl_ref} for packaging" >&2
+              exit 1
+            fi
+            mkdir -p "dist-package/${package}/lib"
+            install -m 755 "${sdl_path}" "dist-package/${package}/lib/${sdl_base}"
+            install_name_tool -change "${sdl_ref}" "@executable_path/lib/${sdl_base}" \
+              "dist-package/${package}/vaeg"
+          fi
+
+          otool -L "dist-package/${package}/vaeg"
+          find "dist-package/${package}" -type f | sort
+          tar -C dist-package -czf "${asset}" "${package}"
+          tar -tzf "${asset}"
+      - name: Upload release asset
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          release_id="${RELEASE_TAG//-/}"
+          gh release upload "${RELEASE_TAG}" \
+            "vaeg-${release_id}-macos-arm64.tar.gz" \
+            --clobber
