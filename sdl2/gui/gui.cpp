@@ -571,12 +571,6 @@ static void set_kana_input(const char *mode) {
 	sysmng_update(SYS_UPDATEOSCFG);
 }
 
-static void set_auto_kana_lock(bool enabled) {
-
-	kbdmap_set_auto_kana_lock(enabled ? TRUE : FALSE);
-	sysmng_update(SYS_UPDATEOSCFG);
-}
-
 static const char *binding_name(SDL_Scancode scancode) {
 
 	const char *name;
@@ -787,10 +781,6 @@ static void draw_device_menu(void) {
 					set_kana_input("roman");
 				}
 				ImGui::EndMenu();
-			}
-			bool auto_kana = np2oscfg.keyboard_auto_kana_lock != 0;
-			if (ImGui::MenuItem("Auto Kana lock", nullptr, auto_kana)) {
-				set_auto_kana_lock(!auto_kana);
 			}
 			if (ImGui::MenuItem("Key bindings...")) {
 				g_gui.keyboard_config_open = true;

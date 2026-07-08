@@ -62,6 +62,9 @@ guest keyboard protocol or writing directly into guest text buffers.
   tokens and then emits guest key sequences. It ignores SDL_TEXTINPUT for
   guest input so host IME state and UTF-8 composition cannot leak into the
   guest. It never injects Unicode, CP932, BIOS/DOS buffers, RAM, or VRAM.
+  Roman-Kana mode owns the guest KANA lock: enabling the mode sends KANA,
+  disabling it sends KANA again, and A-Z scancodes remain helper input
+  until the mode is turned off.
 
 ## Consequences
 

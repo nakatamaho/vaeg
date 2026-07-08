@@ -43,6 +43,9 @@ the GUI and never sent to the guest.
 Roman-Kana input parses A-Z and apostrophe host scancodes before guest
 routing. It emits guest keyboard make/break sequences through
 `sdl2/kbdinject.c`; it never injects Unicode text or guest memory bytes.
+Roman-Kana mode owns the guest KANA toggle: enabling it locks KANA,
+disabling it unlocks KANA, and A-Z scancodes are consumed by the helper
+until the mode is turned off.
 
 ## Font Asset Lookup
 
