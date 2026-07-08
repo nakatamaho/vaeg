@@ -33,6 +33,8 @@ void sdlkbd_initialize(void);
 void sdlkbd_keydown(UINT scancode);
 void sdlkbd_keyup(UINT scancode);
 void sdlkbd_resetf12(void);
+void sdlkbd_textinput(const char *text);
+void sdlkbd_reset_state(void);
 
 #ifdef __cplusplus
 }

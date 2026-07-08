@@ -22,46 +22,24 @@
  * IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-#ifndef VAEG_SDL2_NP2_H
-#define VAEG_SDL2_NP2_H
-
-enum {
-	NP2OSCFG_KEYBOARD_NAME_SIZE = 16,
-	NP2OSCFG_KEYBOARD_CUSTOM_MAP_SIZE = 8192
-};
-
-typedef struct {
-	BYTE	NOWAIT;
-	BYTE	DRAW_SKIP;
-	BYTE	F12KEY;
-	BYTE	resume;
-	BYTE	jastsnd;
-	BYTE	gui_scale;
-	BYTE	gui_aspect;
-	char	gui_fdd_dir[MAX_PATH];
-	char	keyboard_host_layout[NP2OSCFG_KEYBOARD_NAME_SIZE];
-	char	keyboard_kana_input[NP2OSCFG_KEYBOARD_NAME_SIZE];
-	BYTE	keyboard_auto_kana_lock;
-	char	keyboard_custom_map[NP2OSCFG_KEYBOARD_CUSTOM_MAP_SIZE];
-} NP2OSCFG;
-
-#if defined(SIZE_QVGA)
-enum {
-	FULLSCREEN_WIDTH	= 320,
-	FULLSCREEN_HEIGHT	= 240
-};
-#else
-enum {
-	FULLSCREEN_WIDTH	= 640,
-	FULLSCREEN_HEIGHT	= 400
-};
-#endif
+#ifndef VAEG_SDL2_ROMANKANA_H
+#define VAEG_SDL2_ROMANKANA_H
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-extern	NP2OSCFG	np2oscfg;
+typedef struct {
+	char	buffer[8];
+	UINT	length;
+} ROMANKANA_STATE;
+
+typedef void (*ROMANKANA_EMIT)(const char *token, void *arg);
+
+void romankana_reset(ROMANKANA_STATE *state);
+int romankana_feed(ROMANKANA_STATE *state, const char *text,
+					ROMANKANA_EMIT emit, void *arg);
+int romankana_flush(ROMANKANA_STATE *state, ROMANKANA_EMIT emit, void *arg);
 
 #ifdef __cplusplus
 }

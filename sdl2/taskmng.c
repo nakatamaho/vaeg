@@ -65,6 +65,12 @@ void taskmng_rol(void) {
 				}
 				break;
 
+			case SDL_TEXTINPUT:
+				if (!captured) {
+					sdlkbd_textinput(e.text.text);
+				}
+				break;
+
 			default:
 				break;
 		}
