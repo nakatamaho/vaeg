@@ -46,8 +46,15 @@ The frozen Win32 tree is evidence only. It was not edited for M14.
 - `keyboard_kana_input`: `off`, `jis-kana`, or `roman`.
 - `keyboard_auto_kana_lock`: when enabled, Roman-Kana output first sends
   the guest Kana make/break sequence if the frontend mirror is off.
-- `keyboard_custom_map`: INI-compatible `role=scancode-name;` entries.
-  SDL scancode names are stored, never numeric host-dependent values.
+- `keyboard_custom_map`: `file:keyboard.map` for GUI-edited bindings.
+  The sidecar file lives in the same user-state directory as `np2.cfg`
+  and stores one `role=scancode-name` entry per line. SDL scancode names
+  are stored, never numeric host-dependent values.
+
+Early M14 builds wrote the whole custom map as a single INI value. The
+loader keeps compatibility with that inline form, including scancode
+names such as `;` and `=`, but new saves use the sidecar to avoid long
+INI lines and delimiter ambiguity.
 
 ImGui input capture remains authoritative. If ImGui wants keyboard or
 text input, neither raw scancodes nor Roman-Kana helper output reach the
