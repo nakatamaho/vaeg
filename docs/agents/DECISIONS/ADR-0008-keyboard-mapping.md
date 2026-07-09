@@ -61,6 +61,10 @@ guest keyboard protocol or writing directly into guest text buffers.
 - Bind the VA PC key to `ScrollLock` by default. The guest code is
   proven, and the key is required for VA2/3 setup entry on PC-held reset
   or power-on and for popup-helper chords such as PC+D.
+- Provide an explicit tenkeyless game overlay, off by default, that maps
+  `YUI/HJK/NM,.` to guest keypad `789/456/123/0`. It is independent of
+  JIS/US/Custom host layout and still emits normal guest keypad
+  make/break events.
 - Roman-Kana parses A-Z and apostrophe host scancodes into internal kana
   tokens and then emits guest key sequences. It ignores SDL_TEXTINPUT for
   guest input so host IME state and UTF-8 composition cannot leak into the

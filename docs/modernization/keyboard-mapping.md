@@ -46,6 +46,8 @@ The frozen Win32 tree is evidence only. It was not edited for M14.
 - `keyboard_kana_input`: `jis-kana` or `roman`.
 - `keyboard_auto_kana_lock`: accepted from old configs, but Roman-Kana
   ignores it. The assigned KANA key controls guest kana lock directly.
+- `keyboard_tenkey_overlay`: `0` or `1`; when enabled, a tenkeyless
+  game overlay maps `YUI/HJK/NM,.` to guest keypad digits.
 - `keyboard_custom_map`: `file:keyboard.map` for GUI-edited bindings.
   The sidecar file lives in the same user-state directory as `np2.cfg`
   and stores one `role=scancode-name` entry per line. SDL scancode names
@@ -125,6 +127,31 @@ Unresolved mappings remain visible in the inventory and GUI binding
 table. The VA `PC` key is bound to `ScrollLock` by default because VA2/3
 use PC-held reset or power-on for the BIOS setup path, and popup helpers
 use PC key chords such as PC+D.
+
+## Tenkeyless Game Overlay
+
+`keyboard_tenkey_overlay=1` is a game-oriented overlay independent of
+the JIS/US/Custom host layout. It is off by default. When enabled from
+Device / Keyboard / Tenkey overlay, the following host scancodes are sent
+as guest keypad make/break events:
+
+| Host scancode | Guest keypad role | Guest code |
+|---|---|---:|
+| Y | keypad 7 | 0x42 |
+| U | keypad 8 | 0x43 |
+| I | keypad 9 | 0x44 |
+| H | keypad 4 | 0x46 |
+| J | keypad 5 | 0x47 |
+| K | keypad 6 | 0x48 |
+| N | keypad 1 | 0x4a |
+| M | keypad 2 | 0x4b |
+| Comma | keypad 3 | 0x4c |
+| Period | keypad 0 | 0x4e |
+
+This overlay is intended for games on tenkeyless keyboards. It does not
+change the normal binding table and does not inject guest text. While it
+is enabled, these host keys are consumed before Roman-Kana or US keytop
+translation.
 
 ## Inventory
 

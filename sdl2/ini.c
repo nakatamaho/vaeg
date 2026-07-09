@@ -403,6 +403,8 @@ static const INITBL iniitem[] = {
 						sizeof(np2oscfg.keyboard_kana_input)},
 	{"keyboard_auto_kana_lock", INITYPE_BOOL,
 						&np2oscfg.keyboard_auto_kana_lock, 0},
+	{"keyboard_tenkey_overlay", INITYPE_BOOL,
+						&np2oscfg.keyboard_tenkey_overlay, 0},
 	{"keyboard_custom_map", INITYPE_STR, np2oscfg.keyboard_custom_map,
 						sizeof(np2oscfg.keyboard_custom_map)},
 };
@@ -422,6 +424,8 @@ void initload(void) {
 	np2oscfg.gui_aspect = np2oscfg.gui_aspect ? 1 : 0;
 	np2oscfg.keyboard_auto_kana_lock =
 		np2oscfg.keyboard_auto_kana_lock ? 1 : 0;
+	np2oscfg.keyboard_tenkey_overlay =
+		np2oscfg.keyboard_tenkey_overlay ? 1 : 0;
 }
 
 void initsave(void) {
