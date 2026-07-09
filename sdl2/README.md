@@ -132,10 +132,11 @@ guest keyboard make/break sequence as physical keys. It never injects
 Unicode, CP932, BIOS buffers, DOS buffers, RAM, or VRAM. When ImGui
 captures keyboard or text input, neither raw keys nor Roman Kana output
 reach the guest. The menu selects the kana input method only. Enter and
-leave guest kana mode with the assigned KANA key: one press locks KANA,
-the next press unlocks it. When the menu is set to Roman Kana and KANA is
-locked, A-Z host scancodes feed the helper and are not sent as direct
-alphabetic guest keys; when KANA is unlocked, A-Z is normal guest input.
+leave guest kana mode with the assigned KANA key, which defaults to
+`RightAlt`: one press locks KANA, the next press unlocks it. When the
+menu is set to Roman Kana and KANA is locked, A-Z host scancodes feed the
+helper and are not sent as direct alphabetic guest keys; when KANA is
+unlocked, A-Z is normal guest input.
 
 The PC key defaults to `ScrollLock`. VA2/3 use PC-held reset or power-on
 for the BIOS setup path, and some VA popup helpers use PC key chords such

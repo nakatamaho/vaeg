@@ -68,7 +68,10 @@ keyup are consumed by the GUI.
 `jis` is the JIS physical preset. It maps host SDL scancode positions to
 PC-88VA physical guest keys. This is the fidelity-first mode and is the
 better default for games or software that expects the original keyboard
-geometry.
+geometry. The preset accepts a small number of SDL backend aliases for
+keys whose reported scancode varies by host stack: `International3` is
+accepted as an additional Yen key, and `International2` is accepted as
+an additional KANA key.
 
 `us` is the US keytop preset. It is text-entry friendly for BASIC, DOS,
 monitors, filenames, and shells on commodity US keyboards. Printable
@@ -193,7 +196,7 @@ Status values:
 | 0 | KEY88_0 | 0 | 0x0a | 0 | 0 | implemented | same as 1 |
 | - | KEY88_MINUS | Minus | 0x0b | Minus | Minus | implemented | `keystat.h`, `sdl2/sdlkbd.c` |
 | ^ | KEY88_CARET | Equals | 0x0c | Equals | Equals | implemented | `keystat.h`, `sdl2/sdlkbd.c` |
-| Yen | KEY88_YEN | Backslash | 0x0d | International3 | Backslash | mapped-but-untested | `keystat.h`, `win9x/winkbd.cpp` |
+| Yen | KEY88_YEN | Backslash | 0x0d | NonUSHash, alias International3 | Backslash | mapped-but-untested | `keystat.h`, `win9x/winkbd.cpp` |
 | Backspace | KEY88_BS | Backspace | 0x0e | Backspace | Backspace | implemented | `keystat.h`, `win9x/winkbd.cpp`, `sdl2/sdlkbd.c` |
 | TAB | KEY88_TAB | Tab | 0x0f | Tab | Tab | implemented | `keystat.h`, `sdl2/sdlkbd.c` |
 | Q | KEY88_q | Q | 0x10 | Q | Q | implemented | `keystat.h`, `sdl2/sdlkbd.c` |
@@ -222,7 +225,7 @@ Status values:
 | L | KEY88_l | L | 0x25 | L | L | implemented | same as A |
 | ; | KEY88_SEMICOLON | none | 0x26 | Semicolon | Semicolon | mapped-but-untested | `keystat.h`, `win9x/winkbd.cpp` |
 | : | KEY88_COLON | none | 0x27 | Apostrophe | Apostrophe | mapped-but-untested | `keystat.h`, `win9x/winkbd.cpp` |
-| ] | KEY88_BRACKETRIGHT | none | 0x28 | NonUSHash | NonUSHash | mapped-but-untested | `keystat.h`, `win9x/winkbd.cpp` |
+| ] | KEY88_BRACKETRIGHT | none | 0x28 | Backslash | NonUSHash | mapped-but-untested | `keystat.h`, `win9x/winkbd.cpp` |
 | Shift left | KEY88_SHIFTL | LeftShift | 0x70 | LeftShift | LeftShift | implemented | `keystat.h`, `io/serial.c`, `sdl2/sdlkbd.c` |
 | Z | KEY88_z | Z | 0x29 | Z | Z | implemented | `keystat.h`, `sdl2/sdlkbd.c` |
 | X | KEY88_x | X | 0x2a | X | X | implemented | same as Z |
@@ -236,7 +239,7 @@ Status values:
 | / | KEY88_SLASH | Slash | 0x32 | Slash | Slash | implemented | `keystat.h`, `sdl2/sdlkbd.c` |
 | _ / RO | KEY88_UNDERSCORE | none | 0x33 | International1 | Grave | mapped-but-untested | `keystat.h`, `win9x/winkbd.cpp` |
 | Shift right | KEY88_SHIFTR | RightShift as 0x70 | 0x58 | RightShift | RightShift | mapped-but-untested | `io/serial.c` |
-| KANA | KEY88_KANA | none | 0x72 | International2 | RightAlt | mapped-but-untested | `keystat.h`, `win9x/winkbd.cpp` |
+| KANA | KEY88_KANA | none | 0x72 | RightAlt, alias International2 | RightAlt | mapped-but-untested | `keystat.h`, `win9x/winkbd.cpp` |
 | GRPH | KEY88_GRAPH | LeftAlt/RightAlt | 0x73 | LeftAlt | LeftAlt | implemented | `keystat.h`, `sdl2/sdlkbd.c` |
 | NFER/KETTEI | KEY88_KETTEI | none | 0x51 | International5 | F11 | mapped-but-untested | `keystat.h`, `win9x/winkbd.cpp`, `io/serial.c` |
 | SPACE | KEY88_SPACE | Space | 0x34 | Space | Space | implemented | `keystat.h`, `sdl2/sdlkbd.c` |
@@ -294,7 +297,8 @@ or text buffer writes.
 
 Implemented parser inputs:
 
-`a i u e o`, `ka ki ku ke ko`, `sa shi su se so`, `ta chi tsu te to`,
+`a i u e o`, `ka ki ku ke ko`, `sa shi si su se so`,
+`ta chi tsu tu te to`,
 `na ni nu ne no`, `ha hi fu he ho`, `ma mi mu me mo`, `ya yu yo`,
 `ra ri ru re ro`, `wa wo`, `nn`, `n'`, `ga gi gu ge go`,
 `za ji zu ze zo`, `da de do`, `ba bi bu be bo`, and

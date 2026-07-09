@@ -63,7 +63,7 @@ static const KBDMAP_ENTRY entries[] = {
 	E(KBDROLE_0, "0", "0", "KEY88_0", 0x0a, SDL_SCANCODE_0, SDL_SCANCODE_0, KBDMAP_STATUS_IMPLEMENTED, "sdl2/sdlkbd.c:44; keystat.h:15"),
 	E(KBDROLE_MINUS, "minus", "-", "KEY88_MINUS", 0x0b, SDL_SCANCODE_MINUS, SDL_SCANCODE_MINUS, KBDMAP_STATUS_IMPLEMENTED, "sdl2/sdlkbd.c:44; keystat.h:16"),
 	E(KBDROLE_CARET, "caret", "^", "KEY88_CARET", 0x0c, SDL_SCANCODE_EQUALS, SDL_SCANCODE_EQUALS, KBDMAP_STATUS_IMPLEMENTED, "sdl2/sdlkbd.c:45; keystat.h:17"),
-	E(KBDROLE_YEN, "yen", "Yen", "KEY88_YEN", 0x0d, SDL_SCANCODE_INTERNATIONAL3, SDL_SCANCODE_BACKSLASH, KBDMAP_STATUS_MAPPED_UNTESTED, "win9x/winkbd.cpp:76; keystat.h:18"),
+	E(KBDROLE_YEN, "yen", "Yen", "KEY88_YEN", 0x0d, SDL_SCANCODE_NONUSHASH, SDL_SCANCODE_BACKSLASH, KBDMAP_STATUS_MAPPED_UNTESTED, "win9x/winkbd.cpp:76-77; keystat.h:18"),
 	E(KBDROLE_BS, "backspace", "Backspace", "KEY88_BS", 0x0e, SDL_SCANCODE_BACKSPACE, SDL_SCANCODE_BACKSPACE, KBDMAP_STATUS_IMPLEMENTED, "sdl2/sdlkbd.c:46; win9x/winkbd.cpp:106; keystat.h:19"),
 	E(KBDROLE_TAB, "tab", "TAB", "KEY88_TAB", 0x0f, SDL_SCANCODE_TAB, SDL_SCANCODE_TAB, KBDMAP_STATUS_IMPLEMENTED, "sdl2/sdlkbd.c:46; keystat.h:20"),
 	E(KBDROLE_Q, "q", "Q", "KEY88_q", 0x10, SDL_SCANCODE_Q, SDL_SCANCODE_Q, KBDMAP_STATUS_IMPLEMENTED, "sdl2/sdlkbd.c:47; keystat.h:22"),
@@ -92,7 +92,7 @@ static const KBDMAP_ENTRY entries[] = {
 	E(KBDROLE_L, "l", "L", "KEY88_l", 0x25, SDL_SCANCODE_L, SDL_SCANCODE_L, KBDMAP_STATUS_IMPLEMENTED, "sdl2/sdlkbd.c:56; keystat.h:45"),
 	E(KBDROLE_SEMICOLON, "semicolon", ";", "KEY88_SEMICOLON", 0x26, SDL_SCANCODE_SEMICOLON, SDL_SCANCODE_SEMICOLON, KBDMAP_STATUS_MAPPED_UNTESTED, "win9x/winkbd.cpp:68; keystat.h:46"),
 	E(KBDROLE_COLON, "colon", ":", "KEY88_COLON", 0x27, SDL_SCANCODE_APOSTROPHE, SDL_SCANCODE_APOSTROPHE, KBDMAP_STATUS_MAPPED_UNTESTED, "win9x/winkbd.cpp:68; keystat.h:47"),
-	E(KBDROLE_BRACKETRIGHT, "bracketright", "]", "KEY88_BRACKETRIGHT", 0x28, SDL_SCANCODE_NONUSHASH, SDL_SCANCODE_NONUSHASH, KBDMAP_STATUS_MAPPED_UNTESTED, "win9x/winkbd.cpp:76; keystat.h:49"),
+	E(KBDROLE_BRACKETRIGHT, "bracketright", "]", "KEY88_BRACKETRIGHT", 0x28, SDL_SCANCODE_BACKSLASH, SDL_SCANCODE_NONUSHASH, KBDMAP_STATUS_MAPPED_UNTESTED, "win9x/winkbd.cpp:76-77; keystat.h:49"),
 	E(KBDROLE_SHIFTL, "shiftl", "Shift left", "KEY88_SHIFTL", 0x70, SDL_SCANCODE_LSHIFT, SDL_SCANCODE_LSHIFT, KBDMAP_STATUS_IMPLEMENTED, "sdl2/sdlkbd.c:81; io/serial.c:38; keystat.h:116"),
 	E(KBDROLE_Z, "z", "Z", "KEY88_z", 0x29, SDL_SCANCODE_Z, SDL_SCANCODE_Z, KBDMAP_STATUS_IMPLEMENTED, "sdl2/sdlkbd.c:57; keystat.h:50"),
 	E(KBDROLE_X, "x", "X", "KEY88_x", 0x2a, SDL_SCANCODE_X, SDL_SCANCODE_X, KBDMAP_STATUS_IMPLEMENTED, "sdl2/sdlkbd.c:57; keystat.h:51"),
@@ -106,7 +106,7 @@ static const KBDMAP_ENTRY entries[] = {
 	E(KBDROLE_SLASH, "slash", "/", "KEY88_SLASH", 0x32, SDL_SCANCODE_SLASH, SDL_SCANCODE_SLASH, KBDMAP_STATUS_IMPLEMENTED, "sdl2/sdlkbd.c:61; keystat.h:60"),
 	E(KBDROLE_UNDERSCORE, "underscore", "_/RO", "KEY88_UNDERSCORE", 0x33, SDL_SCANCODE_INTERNATIONAL1, SDL_SCANCODE_GRAVE, KBDMAP_STATUS_MAPPED_UNTESTED, "win9x/winkbd.cpp:76-79; keystat.h:61"),
 	E(KBDROLE_SHIFTR, "shiftr", "Shift right", "KEY88_SHIFTR", 0x58, SDL_SCANCODE_RSHIFT, SDL_SCANCODE_RSHIFT, KBDMAP_STATUS_MAPPED_UNTESTED, "io/serial.c:38 and :107-109"),
-	E(KBDROLE_KANA, "kana", "KANA", "KEY88_KANA", 0x72, SDL_SCANCODE_INTERNATIONAL2, SDL_SCANCODE_RALT, KBDMAP_STATUS_MAPPED_UNTESTED, "win9x/winkbd.cpp:82-87; keystat.h:118"),
+	E(KBDROLE_KANA, "kana", "KANA", "KEY88_KANA", 0x72, SDL_SCANCODE_RALT, SDL_SCANCODE_RALT, KBDMAP_STATUS_MAPPED_UNTESTED, "win9x/winkbd.cpp:82-87; keystat.h:118"),
 	E(KBDROLE_GRAPH, "graph", "GRPH", "KEY88_GRAPH", 0x73, SDL_SCANCODE_LALT, SDL_SCANCODE_LALT, KBDMAP_STATUS_IMPLEMENTED, "sdl2/sdlkbd.c:83; keystat.h:119"),
 	E(KBDROLE_KETTEI, "kettei", "NFER/KETTEI", "KEY88_KETTEI", 0x51, SDL_SCANCODE_INTERNATIONAL5, SDL_SCANCODE_F11, KBDMAP_STATUS_MAPPED_UNTESTED, "win9x/winkbd.cpp:24-25; io/serial.c:34; keystat.h:95"),
 	E(KBDROLE_SPACE, "space", "SPACE", "KEY88_SPACE", 0x34, SDL_SCANCODE_SPACE, SDL_SCANCODE_SPACE, KBDMAP_STATUS_IMPLEMENTED, "sdl2/sdlkbd.c:62; keystat.h:62"),
@@ -661,6 +661,28 @@ static void rebuild_scancode_table(void) {
 	}
 }
 
+static void set_scancode_alias(SDL_Scancode scancode, KBDMAP_ROLE role) {
+
+	int	index;
+
+	index = entry_index_from_role(role);
+	if ((index < 0) ||
+		(scancode <= SDL_SCANCODE_UNKNOWN) ||
+		(scancode >= SDL_NUM_SCANCODES) ||
+		(entries[index].guest_code == KBDMAP_NC) ||
+		(scancode_key[scancode] != KBDMAP_NC)) {
+		return;
+	}
+	scancode_key[scancode] = entries[index].guest_code;
+	scancode_role[scancode] = index;
+}
+
+static void apply_jis_aliases(void) {
+
+	set_scancode_alias(SDL_SCANCODE_INTERNATIONAL3, KBDROLE_YEN);
+	set_scancode_alias(SDL_SCANCODE_INTERNATIONAL2, KBDROLE_KANA);
+}
+
 static int entry_index_from_id_len(const char *id, size_t len) {
 
 	int	i;
@@ -1052,6 +1074,9 @@ void kbdmap_apply_config(void) {
 		parse_custom_map();
 	}
 	rebuild_scancode_table();
+	if (str_equal(layout, "jis")) {
+		apply_jis_aliases();
+	}
 	update_text_input_state();
 }
 
@@ -1541,7 +1566,8 @@ int kbdmap_selftest(void) {
 	if (kbdmap_lookup(SDL_SCANCODE_A) != 0x1d) {
 		KBDMAP_SELFTEST_FAIL("JIS A lookup");
 	}
-	if (kbdmap_lookup(SDL_SCANCODE_INTERNATIONAL3) != 0x0d) {
+	if ((kbdmap_lookup(SDL_SCANCODE_NONUSHASH) != 0x0d) ||
+		(kbdmap_lookup(SDL_SCANCODE_INTERNATIONAL3) != 0x0d)) {
 		KBDMAP_SELFTEST_FAIL("JIS yen lookup");
 	}
 	if ((roman_char_from_scancode(SDL_SCANCODE_A) != 'a') ||
@@ -1617,6 +1643,9 @@ int kbdmap_selftest(void) {
 	kbdmap_apply_config();
 	if ((kbdmap_lookup(SDL_SCANCODE_LEFTBRACKET) != 0x1a) ||
 		(kbdmap_lookup(SDL_SCANCODE_RIGHTBRACKET) != 0x1b) ||
+		(kbdmap_lookup(SDL_SCANCODE_BACKSLASH) != 0x28) ||
+		(kbdmap_lookup(SDL_SCANCODE_RALT) != 0x72) ||
+		(kbdmap_lookup(SDL_SCANCODE_INTERNATIONAL2) != 0x72) ||
 		(kbdmap_lookup(SDL_SCANCODE_EQUALS) != 0x0c)) {
 		KBDMAP_SELFTEST_FAIL("JIS physical punctuation lookup");
 	}
