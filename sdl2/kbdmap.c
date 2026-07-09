@@ -30,6 +30,7 @@
 #include	"kbdinject.h"
 #include	"kbdmap.h"
 #include	"romankana.h"
+#include	<stdlib.h>
 
 #define	E(role, id, label, semantic, code, jis, us, status, evidence) \
 	{role, id, label, semantic, code, jis, us, status, evidence}
@@ -159,6 +160,26 @@ typedef struct {
 	const char	*second;
 } KANAPAIRSEQ;
 
+typedef enum {
+	KBD_ACTION_GUEST_KEY = 0,
+	KBD_ACTION_GUEST_CHORD,
+	KBD_ACTION_PASS_THROUGH,
+	KBD_ACTION_UNRESOLVED
+} KBD_ACTION_TYPE;
+
+typedef struct {
+	KBD_ACTION_TYPE	type;
+	BYTE			key;
+	BYTE			modifier;
+	const char		*name;
+} KBD_ACTION;
+
+typedef struct {
+	SDL_Scancode	scancode;
+	BYTE			shift;
+	KBD_ACTION		action;
+} USKEYTOP_ENTRY;
+
 enum {
 	KANASEQ_MARK_NONE = 0,
 	KANASEQ_MARK_DAKUTEN,
@@ -235,11 +256,52 @@ static const KANAPAIRSEQ kana_pair_sequences[] = {
 	{"ve", "vu", "xe"}, {"vo", "vu", "xo"}
 };
 
+#define	KANA_GUEST_CODE	0x72
+#define	GUEST_SHIFTL_CODE	0x70
+#define	GUEST_SHIFTR_CODE	0x58
+
+#define	AKEY(key, name)	{KBD_ACTION_GUEST_KEY, key, 0, name}
+#define	ACHORD(mod, key, name)	{KBD_ACTION_GUEST_CHORD, key, mod, name}
+#define	APASS(key, name)	{KBD_ACTION_PASS_THROUGH, key, 0, name}
+
+static const USKEYTOP_ENTRY us_keytop_entries[] = {
+	{SDL_SCANCODE_2, 1, AKEY(0x1a, "@")},
+	{SDL_SCANCODE_6, 1, AKEY(0x0c, "^")},
+	{SDL_SCANCODE_7, 1, ACHORD(GUEST_SHIFTL_CODE, 0x06, "&")},
+	{SDL_SCANCODE_8, 1, ACHORD(GUEST_SHIFTL_CODE, 0x27, "*")},
+	{SDL_SCANCODE_9, 1, ACHORD(GUEST_SHIFTL_CODE, 0x08, "(")},
+	{SDL_SCANCODE_0, 1, ACHORD(GUEST_SHIFTL_CODE, 0x09, ")")},
+	{SDL_SCANCODE_MINUS, 0, APASS(0x0b, "-")},
+	{SDL_SCANCODE_MINUS, 1, ACHORD(GUEST_SHIFTL_CODE, 0x33, "_")},
+	{SDL_SCANCODE_EQUALS, 0, ACHORD(GUEST_SHIFTL_CODE, 0x0b, "=")},
+	{SDL_SCANCODE_EQUALS, 1, ACHORD(GUEST_SHIFTL_CODE, 0x26, "+")},
+	{SDL_SCANCODE_LEFTBRACKET, 0, AKEY(0x1b, "[")},
+	{SDL_SCANCODE_LEFTBRACKET, 1, ACHORD(GUEST_SHIFTL_CODE, 0x1b, "{")},
+	{SDL_SCANCODE_RIGHTBRACKET, 0, AKEY(0x28, "]")},
+	{SDL_SCANCODE_RIGHTBRACKET, 1, ACHORD(GUEST_SHIFTL_CODE, 0x28, "}")},
+	{SDL_SCANCODE_BACKSLASH, 0, AKEY(0x0d, "\\")},
+	{SDL_SCANCODE_BACKSLASH, 1, ACHORD(GUEST_SHIFTL_CODE, 0x0d, "|")},
+	{SDL_SCANCODE_SEMICOLON, 0, APASS(0x26, ";")},
+	{SDL_SCANCODE_SEMICOLON, 1, AKEY(0x27, ":")},
+	{SDL_SCANCODE_APOSTROPHE, 0, ACHORD(GUEST_SHIFTL_CODE, 0x07, "'")},
+	{SDL_SCANCODE_APOSTROPHE, 1, ACHORD(GUEST_SHIFTL_CODE, 0x02, "\"")},
+	{SDL_SCANCODE_GRAVE, 0, ACHORD(GUEST_SHIFTL_CODE, 0x0c, "`")},
+	{SDL_SCANCODE_GRAVE, 1, ACHORD(GUEST_SHIFTL_CODE, 0x1a, "~")},
+	{SDL_SCANCODE_COMMA, 0, APASS(0x30, ",")},
+	{SDL_SCANCODE_COMMA, 1, ACHORD(GUEST_SHIFTL_CODE, 0x30, "<")},
+	{SDL_SCANCODE_PERIOD, 0, APASS(0x31, ".")},
+	{SDL_SCANCODE_PERIOD, 1, ACHORD(GUEST_SHIFTL_CODE, 0x31, ">")},
+	{SDL_SCANCODE_SLASH, 0, APASS(0x32, "/")},
+	{SDL_SCANCODE_SLASH, 1, ACHORD(GUEST_SHIFTL_CODE, 0x32, "?")}
+};
+
+#undef AKEY
+#undef ACHORD
+#undef APASS
+
 static const BYTE f12keys[] = {
 	0x61, 0x60, 0x4d, 0x4f
 };
-
-#define	KANA_GUEST_CODE	0x72
 
 static BYTE scancode_key[SDL_NUM_SCANCODES];
 static int scancode_role[SDL_NUM_SCANCODES];
@@ -247,7 +309,11 @@ static SDL_Scancode bindings[KBDROLE_COUNT];
 static KBDMAP_STATUS bind_status[KBDROLE_COUNT];
 static ROMANKANA_STATE roman_state;
 static BOOL roman_scancode_down[SDL_NUM_SCANCODES];
+static BOOL us_action_down[SDL_NUM_SCANCODES];
+static BOOL guest_shift_down[2];
 static BOOL kana_mirror;
+static BOOL trace_init;
+static BOOL trace_enabled;
 
 static const char custom_map_file[] = "keyboard.map";
 static const char custom_map_file_prefix[] = "file:";
@@ -287,6 +353,174 @@ static const char *normal_kana_input(const char *mode) {
 		return "roman";
 	}
 	return "jis-kana";
+}
+
+static const char *action_type_name(KBD_ACTION_TYPE type) {
+
+	switch(type) {
+		case KBD_ACTION_GUEST_KEY:
+			return "guest-key";
+		case KBD_ACTION_GUEST_CHORD:
+			return "guest-chord";
+		case KBD_ACTION_PASS_THROUGH:
+			return "pass-through";
+		default:
+			return "unresolved";
+	}
+}
+
+static BOOL shift_mod(UINT16 mod) {
+
+	return (mod & KMOD_SHIFT) ? TRUE : FALSE;
+}
+
+static BOOL us_keytop_mode(void) {
+
+	return str_equal(normal_layout(np2oscfg.keyboard_host_layout), "us") ?
+		TRUE : FALSE;
+}
+
+static BOOL trace_on(void) {
+
+	const char *env;
+
+	if (!trace_init) {
+		trace_init = TRUE;
+		env = getenv("VAEG_KBD_TRACE");
+		trace_enabled = ((env != NULL) && (env[0] != '\0') &&
+						 (env[0] != '0')) ? TRUE : FALSE;
+	}
+	return trace_enabled;
+}
+
+static void describe_action(const KBD_ACTION *action, char *dst, int size) {
+
+	if (size <= 0) {
+		return;
+	}
+	if (action == NULL) {
+		milstr_ncpy(dst, "(none)", size);
+		return;
+	}
+	switch(action->type) {
+		case KBD_ACTION_GUEST_CHORD:
+			SPRINTF(dst, "%s mod=0x%02x key=0x%02x",
+					action->name, action->modifier, action->key);
+			break;
+
+		case KBD_ACTION_GUEST_KEY:
+		case KBD_ACTION_PASS_THROUGH:
+			SPRINTF(dst, "%s key=0x%02x", action->name, action->key);
+			break;
+
+		default:
+			milstr_ncpy(dst, "unresolved", size);
+			break;
+	}
+}
+
+static void trace_key_event(const char *phase, UINT scancode,
+							SDL_Keycode keycode, UINT16 mod,
+							BOOL captured, BOOL repeat,
+							const KBD_ACTION *action, BOOL consumed,
+							const char *sent) {
+
+	const char *scname;
+	const char *keyname;
+	char action_desc[96];
+
+	if (!trace_on()) {
+		return;
+	}
+	scname = SDL_GetScancodeName((SDL_Scancode)scancode);
+	keyname = SDL_GetKeyName(keycode);
+	describe_action(action, action_desc, sizeof(action_desc));
+	SDL_Log("kbdtrace phase=%s scancode=%s(%u) keycode=%s(%d) mod=0x%04x "
+			"layout=%s captured=%u repeat=%u action=%s target=%s "
+			"consumed=%u sent=%s",
+			phase,
+			(scname != NULL) ? scname : "", scancode,
+			(keyname != NULL) ? keyname : "", (int)keycode,
+			mod, normal_layout(np2oscfg.keyboard_host_layout),
+			captured ? 1 : 0,
+			repeat ? 1 : 0,
+			(action != NULL) ? action_type_name(action->type) : "none",
+			action_desc, consumed ? 1 : 0,
+			(sent != NULL) ? sent : "-");
+}
+
+static BOOL resolve_us_keytop_action(UINT scancode, UINT16 mod,
+									 KBD_ACTION *action) {
+
+	UINT	i;
+	BYTE	shift;
+
+	if (!us_keytop_mode()) {
+		return FALSE;
+	}
+	shift = shift_mod(mod);
+	for (i = 0; i < NELEMENTS(us_keytop_entries); i++) {
+		if ((us_keytop_entries[i].scancode == (SDL_Scancode)scancode) &&
+			(us_keytop_entries[i].shift == shift)) {
+			if (action != NULL) {
+				*action = us_keytop_entries[i].action;
+			}
+			return TRUE;
+		}
+	}
+	return FALSE;
+}
+
+static int guest_shift_index(BYTE guest_code) {
+
+	if (guest_code == GUEST_SHIFTL_CODE) {
+		return 0;
+	}
+	if (guest_code == GUEST_SHIFTR_CODE) {
+		return 1;
+	}
+	return -1;
+}
+
+static void release_mirrored_shifts(BOOL *saved) {
+
+	UINT	i;
+	static const BYTE keys[2] = {GUEST_SHIFTL_CODE, GUEST_SHIFTR_CODE};
+
+	for (i = 0; i < 2; i++) {
+		saved[i] = guest_shift_down[i];
+		if (saved[i]) {
+			kbdinject_keyup(keys[i]);
+		}
+	}
+}
+
+static void restore_mirrored_shifts(const BOOL *saved) {
+
+	UINT	i;
+	static const BYTE keys[2] = {GUEST_SHIFTL_CODE, GUEST_SHIFTR_CODE};
+
+	for (i = 0; i < 2; i++) {
+		if (saved[i]) {
+			kbdinject_keydown(keys[i]);
+		}
+	}
+}
+
+static void tap_action(const KBD_ACTION *action) {
+
+	BOOL saved[2];
+
+	release_mirrored_shifts(saved);
+	if (action->type == KBD_ACTION_GUEST_CHORD) {
+		kbdinject_keydown(action->modifier);
+		kbdinject_press(action->key);
+		kbdinject_keyup(action->modifier);
+	}
+	else if (action->type == KBD_ACTION_GUEST_KEY) {
+		kbdinject_press(action->key);
+	}
+	restore_mirrored_shifts(saved);
 }
 
 static void update_text_input_state(void) {
@@ -764,6 +998,8 @@ void kbdmap_initialize(void) {
 
 	romankana_reset(&roman_state);
 	ZeroMemory(roman_scancode_down, sizeof(roman_scancode_down));
+	ZeroMemory(us_action_down, sizeof(us_action_down));
+	ZeroMemory(guest_shift_down, sizeof(guest_shift_down));
 	kana_mirror = FALSE;
 	kbdmap_apply_config();
 }
@@ -779,18 +1015,28 @@ BYTE kbdmap_lookup(UINT scancode) {
 	return KBDMAP_NC;
 }
 
-BOOL kbdmap_keydown(UINT scancode) {
+BOOL kbdmap_keydown(UINT scancode, SDL_Keycode keycode, UINT16 mod) {
 
 	BYTE	data;
 	int	role;
+	int	shift_index;
 	char	roman_char;
+	KBD_ACTION action;
 
 	if (scancode == SDL_SCANCODE_F12) {
 		data = getf12key();
 		if (data != KBDMAP_NC) {
 			kbdinject_keydown(data);
+			action.type = KBD_ACTION_GUEST_KEY;
+			action.key = data;
+			action.modifier = 0;
+			action.name = "F12 binding";
+			trace_key_event("down", scancode, keycode, mod, FALSE, FALSE,
+							&action, TRUE, "keydown");
 			return TRUE;
 		}
+		trace_key_event("down", scancode, keycode, mod, FALSE, FALSE,
+						NULL, FALSE, NULL);
 		return FALSE;
 	}
 	role = (scancode < SDL_NUM_SCANCODES) ? scancode_role[scancode] : -1;
@@ -798,6 +1044,12 @@ BOOL kbdmap_keydown(UINT scancode) {
 		kbdinject_press(entries[role].guest_code);
 		kana_mirror = kana_mirror ? FALSE : TRUE;
 		romankana_reset(&roman_state);
+		action.type = KBD_ACTION_GUEST_KEY;
+		action.key = entries[role].guest_code;
+		action.modifier = 0;
+		action.name = entries[role].label;
+		trace_key_event("down", scancode, keycode, mod, FALSE, FALSE,
+						&action, TRUE, "press");
 		return TRUE;
 	}
 	if (roman_active()) {
@@ -807,50 +1059,136 @@ BOOL kbdmap_keydown(UINT scancode) {
 			if (scancode < SDL_NUM_SCANCODES) {
 				roman_scancode_down[scancode] = TRUE;
 			}
+			trace_key_event("down", scancode, keycode, mod, FALSE, FALSE,
+							NULL, TRUE, "roman-kana");
 			return TRUE;
 		}
 		if (is_roman_scancode(scancode)) {
 			if (scancode < SDL_NUM_SCANCODES) {
 				roman_scancode_down[scancode] = TRUE;
 			}
+			trace_key_event("down", scancode, keycode, mod, FALSE, FALSE,
+							NULL, TRUE, "roman-kana");
 			return TRUE;
 		}
 		romankana_flush(&roman_state, roman_emit, NULL);
 	}
+	if (resolve_us_keytop_action(scancode, mod, &action)) {
+		if (action.type == KBD_ACTION_PASS_THROUGH) {
+			kbdinject_keydown(action.key);
+			trace_key_event("down", scancode, keycode, mod, FALSE, FALSE,
+							&action, TRUE, "keydown");
+			return TRUE;
+		}
+		if ((action.type == KBD_ACTION_GUEST_KEY) ||
+			(action.type == KBD_ACTION_GUEST_CHORD)) {
+			tap_action(&action);
+			if (scancode < SDL_NUM_SCANCODES) {
+				us_action_down[scancode] = TRUE;
+			}
+			trace_key_event("down", scancode, keycode, mod, FALSE, FALSE,
+							&action, TRUE, "tap");
+			return TRUE;
+		}
+		trace_key_event("down", scancode, keycode, mod, FALSE, FALSE,
+						&action, TRUE, "unresolved");
+		return TRUE;
+	}
 	data = kbdmap_lookup(scancode);
 	if (data != KBDMAP_NC) {
 		kbdinject_keydown(data);
+		shift_index = guest_shift_index(data);
+		if (shift_index >= 0) {
+			guest_shift_down[shift_index] = TRUE;
+		}
+		action.type = KBD_ACTION_GUEST_KEY;
+		action.key = data;
+		action.modifier = 0;
+		action.name = (role >= 0) ? entries[role].label : "mapped";
+		trace_key_event("down", scancode, keycode, mod, FALSE, FALSE,
+						&action, TRUE, "keydown");
 		return TRUE;
 	}
+	trace_key_event("down", scancode, keycode, mod, FALSE, FALSE,
+					NULL, FALSE, NULL);
 	return FALSE;
 }
 
-BOOL kbdmap_keyup(UINT scancode) {
+BOOL kbdmap_keyup(UINT scancode, SDL_Keycode keycode, UINT16 mod) {
 
 	BYTE	data;
 	int	role;
+	int	shift_index;
+	KBD_ACTION action;
 
 	if (scancode == SDL_SCANCODE_F12) {
 		data = getf12key();
 		if (data != KBDMAP_NC) {
 			kbdinject_keyup(data);
+			action.type = KBD_ACTION_GUEST_KEY;
+			action.key = data;
+			action.modifier = 0;
+			action.name = "F12 binding";
+			trace_key_event("up", scancode, keycode, mod, FALSE, FALSE,
+							&action, TRUE, "keyup");
 			return TRUE;
 		}
+		trace_key_event("up", scancode, keycode, mod, FALSE, FALSE,
+						NULL, FALSE, NULL);
 		return FALSE;
 	}
 	role = (scancode < SDL_NUM_SCANCODES) ? scancode_role[scancode] : -1;
 	if ((role >= 0) && (entries[role].role == KBDROLE_KANA)) {
+		action.type = KBD_ACTION_GUEST_KEY;
+		action.key = entries[role].guest_code;
+		action.modifier = 0;
+		action.name = entries[role].label;
+		trace_key_event("up", scancode, keycode, mod, FALSE, FALSE,
+						&action, TRUE, "lock-key-up");
 		return TRUE;
 	}
 	if ((scancode < SDL_NUM_SCANCODES) && roman_scancode_down[scancode]) {
 		roman_scancode_down[scancode] = FALSE;
+		trace_key_event("up", scancode, keycode, mod, FALSE, FALSE,
+						NULL, TRUE, "roman-kana");
+		return TRUE;
+	}
+	if ((scancode < SDL_NUM_SCANCODES) && us_action_down[scancode]) {
+		us_action_down[scancode] = FALSE;
+		if (resolve_us_keytop_action(scancode, mod, &action)) {
+			trace_key_event("up", scancode, keycode, mod, FALSE, FALSE,
+							&action, TRUE, "tap-key-up");
+		}
+		else {
+			trace_key_event("up", scancode, keycode, mod, FALSE, FALSE,
+							NULL, TRUE, "tap-key-up");
+		}
+		return TRUE;
+	}
+	if (resolve_us_keytop_action(scancode, mod, &action) &&
+		(action.type == KBD_ACTION_PASS_THROUGH)) {
+		kbdinject_keyup(action.key);
+		trace_key_event("up", scancode, keycode, mod, FALSE, FALSE,
+						&action, TRUE, "keyup");
 		return TRUE;
 	}
 	data = kbdmap_lookup(scancode);
 	if (data != KBDMAP_NC) {
 		kbdinject_keyup(data);
+		shift_index = guest_shift_index(data);
+		if (shift_index >= 0) {
+			guest_shift_down[shift_index] = FALSE;
+		}
+		action.type = KBD_ACTION_GUEST_KEY;
+		action.key = data;
+		action.modifier = 0;
+		action.name = (role >= 0) ? entries[role].label : "mapped";
+		trace_key_event("up", scancode, keycode, mod, FALSE, FALSE,
+						&action, TRUE, "keyup");
 		return TRUE;
 	}
+	trace_key_event("up", scancode, keycode, mod, FALSE, FALSE,
+					NULL, FALSE, NULL);
 	return FALSE;
 }
 
@@ -868,6 +1206,8 @@ void kbdmap_reset_frontend_state(void) {
 	kana_mirror = FALSE;
 	romankana_reset(&roman_state);
 	ZeroMemory(roman_scancode_down, sizeof(roman_scancode_down));
+	ZeroMemory(us_action_down, sizeof(us_action_down));
+	ZeroMemory(guest_shift_down, sizeof(guest_shift_down));
 }
 
 void kbdmap_resetf12(void) {
@@ -877,6 +1217,14 @@ void kbdmap_resetf12(void) {
 	for (i = 0; i < NELEMENTS(f12keys); i++) {
 		kbdinject_forcerelease(f12keys[i]);
 	}
+}
+
+void kbdmap_trace_captured_key(UINT scancode, SDL_Keycode keycode,
+								UINT16 mod, BOOL down, BOOL repeat) {
+
+	trace_key_event(down ? "down" : "up", scancode, keycode, mod,
+					TRUE, repeat, NULL, TRUE,
+					repeat ? "repeat" : "captured");
 }
 
 int kbdmap_entry_count(void) {
@@ -1006,6 +1354,25 @@ void kbdmap_serialize_custom(char *dst, size_t size) {
 	}
 }
 
+static BOOL selftest_expect_us_action(UINT scancode, UINT16 mod,
+									  KBD_ACTION_TYPE type, BYTE key,
+									  BYTE modifier) {
+
+	KBD_ACTION action;
+
+	if (!resolve_us_keytop_action(scancode, mod, &action)) {
+		return FAILURE;
+	}
+	if ((action.type != type) || (action.key != key)) {
+		return FAILURE;
+	}
+	if ((type == KBD_ACTION_GUEST_CHORD) &&
+		(action.modifier != modifier)) {
+		return FAILURE;
+	}
+	return SUCCESS;
+}
+
 int kbdmap_selftest(void) {
 
 #define	KBDMAP_SELFTEST_FAIL(msg)	\
@@ -1066,6 +1433,59 @@ int kbdmap_selftest(void) {
 		(roman_char_from_scancode(SDL_SCANCODE_Z) != 'z') ||
 		(roman_char_from_scancode(SDL_SCANCODE_APOSTROPHE) != '\'')) {
 		KBDMAP_SELFTEST_FAIL("Roman-Kana scancode conversion");
+	}
+	if (resolve_us_keytop_action(SDL_SCANCODE_LEFTBRACKET, 0, NULL)) {
+		KBDMAP_SELFTEST_FAIL("JIS should not use US keytop actions");
+	}
+	set_config_string(np2oscfg.keyboard_host_layout,
+					  sizeof(np2oscfg.keyboard_host_layout), "us");
+	kbdmap_apply_config();
+	if (!str_equal(kbdmap_layout_name(), "us")) {
+		KBDMAP_SELFTEST_FAIL("US layout persistence");
+	}
+	if ((selftest_expect_us_action(SDL_SCANCODE_2, KMOD_SHIFT,
+								   KBD_ACTION_GUEST_KEY, 0x1a, 0) != SUCCESS) ||
+		(selftest_expect_us_action(SDL_SCANCODE_SEMICOLON, KMOD_SHIFT,
+								   KBD_ACTION_GUEST_KEY, 0x27, 0) != SUCCESS) ||
+		(selftest_expect_us_action(SDL_SCANCODE_EQUALS, 0,
+								   KBD_ACTION_GUEST_CHORD, 0x0b,
+								   GUEST_SHIFTL_CODE) != SUCCESS) ||
+		(selftest_expect_us_action(SDL_SCANCODE_MINUS, KMOD_SHIFT,
+								   KBD_ACTION_GUEST_CHORD, 0x33,
+								   GUEST_SHIFTL_CODE) != SUCCESS) ||
+		(selftest_expect_us_action(SDL_SCANCODE_APOSTROPHE, 0,
+								   KBD_ACTION_GUEST_CHORD, 0x07,
+								   GUEST_SHIFTL_CODE) != SUCCESS) ||
+		(selftest_expect_us_action(SDL_SCANCODE_APOSTROPHE, KMOD_SHIFT,
+								   KBD_ACTION_GUEST_CHORD, 0x02,
+								   GUEST_SHIFTL_CODE) != SUCCESS) ||
+		(selftest_expect_us_action(SDL_SCANCODE_LEFTBRACKET, 0,
+								   KBD_ACTION_GUEST_KEY, 0x1b, 0) != SUCCESS) ||
+		(selftest_expect_us_action(SDL_SCANCODE_RIGHTBRACKET, 0,
+								   KBD_ACTION_GUEST_KEY, 0x28, 0) != SUCCESS) ||
+		(selftest_expect_us_action(SDL_SCANCODE_BACKSLASH, 0,
+								   KBD_ACTION_GUEST_KEY, 0x0d, 0) != SUCCESS)) {
+		KBDMAP_SELFTEST_FAIL("US keytop problem mappings");
+	}
+	if ((selftest_expect_us_action(SDL_SCANCODE_COMMA, 0,
+								   KBD_ACTION_PASS_THROUGH, 0x30, 0) != SUCCESS) ||
+		(selftest_expect_us_action(SDL_SCANCODE_PERIOD, 0,
+								   KBD_ACTION_PASS_THROUGH, 0x31, 0) != SUCCESS) ||
+		(selftest_expect_us_action(SDL_SCANCODE_SLASH, 0,
+								   KBD_ACTION_PASS_THROUGH, 0x32, 0) != SUCCESS) ||
+		(selftest_expect_us_action(SDL_SCANCODE_MINUS, 0,
+								   KBD_ACTION_PASS_THROUGH, 0x0b, 0) != SUCCESS) ||
+		(selftest_expect_us_action(SDL_SCANCODE_SEMICOLON, 0,
+								   KBD_ACTION_PASS_THROUGH, 0x26, 0) != SUCCESS)) {
+		KBDMAP_SELFTEST_FAIL("US keytop pass-through regressions");
+	}
+	set_config_string(np2oscfg.keyboard_host_layout,
+					  sizeof(np2oscfg.keyboard_host_layout), "jis");
+	kbdmap_apply_config();
+	if ((kbdmap_lookup(SDL_SCANCODE_LEFTBRACKET) != 0x1a) ||
+		(kbdmap_lookup(SDL_SCANCODE_RIGHTBRACKET) != 0x1b) ||
+		(kbdmap_lookup(SDL_SCANCODE_EQUALS) != 0x0c)) {
+		KBDMAP_SELFTEST_FAIL("JIS physical punctuation lookup");
 	}
 	kana_index = entry_index_from_role(KBDROLE_KANA);
 	semicolon_index = entry_index_from_role(KBDROLE_SEMICOLON);

@@ -106,16 +106,23 @@ settings. It never rewrites the user's configuration silently.
 ## Keyboard Mapping
 
 The SDL2 keyboard path is scancode based. The default host layout is
-`keyboard_host_layout=jis`; `us` is a fallback preset and `custom` stores
-GUI-edited bindings as SDL scancode names in the user-state sidecar
-`keyboard.map`. `keyboard_custom_map=file:keyboard.map` in `np2.cfg`
-points to that sidecar.
+`keyboard_host_layout=jis`; `us` is a US-keytop preset for text entry,
+and `custom` stores GUI-edited bindings as SDL scancode names in the
+user-state sidecar `keyboard.map`.
+`keyboard_custom_map=file:keyboard.map` in `np2.cfg` points to that
+sidecar.
 
 Device / Keyboard in the ImGui menu exposes:
 
-- Host layout: JIS, US, Custom
+- Host layout: JIS physical, US keytop, Custom
 - Kana input: JIS Kana, Roman Kana
 - Full key binding table with capture-next-key
+
+JIS physical maps host scancode position to PC-88VA physical key
+position. US keytop maps printable US punctuation keytops/chords to
+guest keys or guest Shift chords that produce the intended ASCII symbol.
+No Unicode or text-buffer injection is used. Set `VAEG_KBD_TRACE=1` to
+log keyboard event routing and selected guest actions.
 
 Roman Kana parses A-Z and apostrophe host scancodes and emits the same
 guest keyboard make/break sequence as physical keys. It never injects

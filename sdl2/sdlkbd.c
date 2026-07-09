@@ -32,14 +32,24 @@ void sdlkbd_initialize(void) {
 	kbdmap_initialize();
 }
 
-void sdlkbd_keydown(UINT scancode) {
+void sdlkbd_keydown(UINT scancode, SDL_Keycode keycode, UINT16 mod,
+					BOOL captured, BOOL repeat) {
 
-	kbdmap_keydown(scancode);
+	if (captured || repeat) {
+		kbdmap_trace_captured_key(scancode, keycode, mod, TRUE, repeat);
+		return;
+	}
+	kbdmap_keydown(scancode, keycode, mod);
 }
 
-void sdlkbd_keyup(UINT scancode) {
+void sdlkbd_keyup(UINT scancode, SDL_Keycode keycode, UINT16 mod,
+				  BOOL captured) {
 
-	kbdmap_keyup(scancode);
+	if (captured) {
+		kbdmap_trace_captured_key(scancode, keycode, mod, FALSE, FALSE);
+		return;
+	}
+	kbdmap_keyup(scancode, keycode, mod);
 }
 
 void sdlkbd_resetf12(void) {
@@ -47,8 +57,11 @@ void sdlkbd_resetf12(void) {
 	kbdmap_resetf12();
 }
 
-void sdlkbd_textinput(const char *text) {
+void sdlkbd_textinput(const char *text, BOOL captured) {
 
+	if (captured) {
+		return;
+	}
 	kbdmap_textinput(text);
 }
 

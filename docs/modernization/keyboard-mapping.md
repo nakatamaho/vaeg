@@ -61,6 +61,70 @@ text input, neither raw scancodes nor Roman-Kana helper output reach the
 guest. During key-binding capture, the captured keydown and matching
 keyup are consumed by the GUI.
 
+## Host Layout Modes
+
+`jis` is the JIS physical preset. It maps host SDL scancode positions to
+PC-88VA physical guest keys. This is the fidelity-first mode and is the
+better default for games or software that expects the original keyboard
+geometry.
+
+`us` is the US keytop preset. It is text-entry friendly for BASIC, DOS,
+monitors, filenames, and shells on commodity US keyboards. Printable
+punctuation is resolved as host scancode plus host Shift state, then
+translated to a guest key or guest Shift chord that produces the intended
+ASCII symbol. The original host key event is consumed when a translation
+is used, and the generated make/break bytes still go through
+`keystat_senddata()` via `sdl2/kbdinject.c`. No Unicode, BIOS/DOS buffer,
+RAM, VRAM, or SDL_TEXTINPUT character injection is used.
+
+If host Shift is physically held for a translated US symbol, the frontend
+temporarily releases mirrored guest Shift, sends the selected guest
+key/chord, and restores mirrored guest Shift. This avoids cases such as
+US Shift+`2` becoming guest Shift+`2` instead of guest `@`.
+
+Set `VAEG_KBD_TRACE=1` to log SDL scancode/keycode, modifier state,
+layout, capture state, selected action type, target, consumption, and the
+make/break style used for each relevant keyboard event.
+
+### US Keytop Translations
+
+Evidence for guest key and chord results is the active VA key inventory
+below plus `bios/keytable.res`, whose normal and Shift tables prove the
+guest-side printable characters.
+
+Problem mappings fixed in US keytop mode:
+
+| US host input | Guest action | Guest result |
+|---|---|---|
+| Shift+`2` | guest `@` key `0x1a` | `@` |
+| Shift+`;` | guest `:` key `0x27` | `:` |
+| `=` | guest Shift + `-` key `0x0b` | `=` |
+| Shift+`-` | guest Shift + `_ / RO` key `0x33` | `_` |
+| `'` | guest Shift + `7` key `0x07` | `'` |
+| Shift+`'` | guest Shift + `2` key `0x02` | `"` |
+| `\` | guest Yen/backslash key `0x0d` | `\` |
+| `[` | guest `[` key `0x1b` | `[` |
+| `]` | guest `]` key `0x28` | `]` |
+
+Additional US shifted punctuation handled by the same table:
+
+`^`, `&`, `*`, `(`, `)`, `+`, `{`, `}`, `|`, `` ` ``, `~`, `<`,
+`>`, `?`
+
+Pass-through regression cases in US keytop mode:
+
+| US host input | Guest action |
+|---|---|
+| `,` | guest `,` key `0x30` |
+| `.` | guest `.` key `0x31` |
+| `/` | guest `/` key `0x32` |
+| `-` | guest `-` key `0x0b` |
+| `;` | guest `;` key `0x26` |
+
+Unresolved mappings remain visible in the inventory and GUI binding
+table. The VA `PC` key has a proven guest code but no standard SDL
+physical default, so it remains unassigned until rebound.
+
 ## Inventory
 
 Status values:
