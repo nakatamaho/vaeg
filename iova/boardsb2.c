@@ -13,7 +13,6 @@
 #include	"fmboard.h"
 #include	"s98.h"
 
-#if defined(SUPPORT_PC88VA)
 
 	_BOARDSB2	boardsb2;
 
@@ -238,8 +237,3 @@ void boardsb2_bind(void) {
 	iocoreva_attachout(0x19c, sb2_o19c);
 	iocoreva_attachout(0x19e, sb2_o19e);
 }
-
-
-
-
-#endif

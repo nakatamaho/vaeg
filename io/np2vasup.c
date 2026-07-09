@@ -8,7 +8,6 @@
 #include	"iocore.h"
 #include	"iocoreva.h"
 
-#if defined(SUPPORT_PC88VA)
 
 
 
@@ -44,5 +43,3 @@ void np2vasup_bind(void) {
 	iocoreva_attachout(0xffd0, np2vasup_offd0);
 	iocoreva_attachinp(0xffd0, np2vasup_iffd0);
 }
-
-#endif

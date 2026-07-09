@@ -12,9 +12,7 @@
 #include	"scsicmd.h"
 #include	"scsibios.res"
 
-#if defined(SUPPORT_PC88VA)
 #include	"iocoreva.h"
-#endif
 
 
 	_SCSIIO		scsiio;
@@ -516,14 +514,12 @@ void scsiio_bind(void) {
 		iocore_attachinp(0x0cc2, scsiio_icc2);
 		iocore_attachinp(0x0cc4, scsiio_icc4);
 		iocore_attachinp(0x0cc6, scsiio_icc6);
-#if defined(SUPPORT_PC88VA)
 		iocoreva_attachout(0x0cc0, scsiio_occ0);
 		iocoreva_attachout(0x0cc2, scsiio_occ2);
 		iocoreva_attachout(0x0cc4, scsiio_occ4);
 		iocoreva_attachinp(0x0cc0, scsiio_icc0);
 		iocoreva_attachinp(0x0cc2, scsiio_icc2);
 		iocoreva_attachinp(0x0cc4, scsiio_icc4);
-#endif
 	}
 }
 

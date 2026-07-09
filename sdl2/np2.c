@@ -101,29 +101,22 @@ static void set_default_rompath(void) {
 
 static void smoke_configure_va(void) {
 
-#if defined(SUPPORT_PC88VA)
 	file_cpyname(np2cfg.model, str_VA2, sizeof(np2cfg.model));
 	np2cfg.baseclock = PCBASECLOCK40;
 	np2cfg.multiple = 2;
 	np2cfg.ITF_WORK = 1;
 	np2cfg.EXTMEM = 1;
 	np2cfg.SOUND_SW = 0x0200;
-#endif
 }
 
 static BOOL config_selects_va(void) {
 
-#if defined(SUPPORT_PC88VA)
 	return((milstr_cmp(np2cfg.model, str_VA1) == 0) ||
 		   (milstr_cmp(np2cfg.model, str_VA2) == 0));
-#else
-	return(FALSE);
-#endif
 }
 
 static void warn_va_config_sanity(void) {
 
-#if defined(SUPPORT_PC88VA)
 	UINT32	va_threshold;
 
 	if (!config_selects_va()) {
@@ -148,7 +141,6 @@ static void warn_va_config_sanity(void) {
 				"(current=%03x); stale configs can leave the VA "
 				"Sound Board II unbound.\n", np2cfg.SOUND_SW);
 	}
-#endif
 }
 
 static void make_rom_path(char *path, int size, const char *dir,
@@ -657,9 +649,7 @@ int main(int argc, char **argv) {
 	sysmng_initialize();
 	taskmng_initialize();
 	pccore_init();
-#if defined(SUPPORT_PC88VA)
 	bkupmemva_load();
-#endif
 	S98_init();
 
 	pccore_reset();
@@ -672,9 +662,7 @@ int main(int argc, char **argv) {
 	if ((!smoke) && (sys_updates & (SYS_UPDATECFG | SYS_UPDATEOSCFG))) {
 		initsave();
 	}
-#if defined(SUPPORT_PC88VA)
 	bkupmemva_save();
-#endif
 	pccore_term();
 	S98_trash();
 	soundmng_deinitialize();

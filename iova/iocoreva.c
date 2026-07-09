@@ -13,7 +13,6 @@
 
 #include	"iocoreva.h"
 
-#if defined(SUPPORT_PC88VA)
 
 enum {
 //	IOFUNC_SYS	= 0x01,
@@ -248,6 +247,3 @@ REG16 IOINPCALL iocoreva_inp16(UINT port) {
 //	TRACEOUT(("iocoreva_inp16(%.4x) -> %.4x", port-1, ret));
 	return(ret);
 }
-
-
-#endif

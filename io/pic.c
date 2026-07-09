@@ -3,9 +3,7 @@
 #include	"pccore.h"
 #include	"iocore.h"
 
-#if defined(SUPPORT_PC88VA)
 #include	"iocoreva.h"
-#endif
 
 enum {
 	PIC_OCW2_L		= 0x07,
@@ -347,7 +345,6 @@ static REG8 IOINPCALL pic_i02(UINT port) {
 	return(picp->imr);
 }
 
-#if defined(SUPPORT_PC88VA)
 //slave
 static void IOOUTCALL picva_o184(UINT port, REG8 dat) {
 	pic_o00(0x08, dat);
@@ -375,7 +372,6 @@ static REG8 IOINPCALL picva_i188(UINT port) {
 static REG8 IOINPCALL picva_i18a(UINT port) {
 	return pic_i02(0x02);
 }
-#endif
 
 // ---- I/F
 
@@ -409,7 +405,6 @@ void pic_bind(void) {
 	iocore_attachsysinpex(0x0000, 0x0cf1, pici00, 4);
 #endif
 
-#if defined(SUPPORT_PC88VA)
 	// slave
 	iocoreva_attachout(0x184, picva_o184);
 	iocoreva_attachout(0x186, picva_o186);
@@ -420,6 +415,5 @@ void pic_bind(void) {
 	iocoreva_attachout(0x18a, picva_o18a);
 	iocoreva_attachinp(0x188, picva_i188);
 	iocoreva_attachinp(0x18a, picva_i18a);
-#endif
 }
 

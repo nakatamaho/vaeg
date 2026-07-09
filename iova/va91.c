@@ -11,7 +11,6 @@
 
 #include	"va91.h"
 
-#if defined(SUPPORT_PC88VA)
 
 #define VUROM00ROM "VUROM00.ROM"
 #define VUROM08ROM "VUROM08.ROM"
@@ -113,5 +112,3 @@ void va91_initialize(void) {
 		file_close(fh);
 	}
 }
-
-#endif

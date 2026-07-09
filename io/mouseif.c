@@ -51,11 +51,7 @@ void mouseif_sync(void) {
 #endif
 }
 
-#if defined(SUPPORT_PC88VA)
 void calc_mousexy(void) {
-#else
-static void calc_mousexy(void) {
-#endif
 
 #if defined(VAEG_EXT)
 	static UINT32	rapidlastc;

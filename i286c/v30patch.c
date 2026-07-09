@@ -21,11 +21,7 @@
 
 #define REAL_V30FLAG	(UINT16)((I286_FLAG & 0x7ff) + \
 											(I286_OV?O_FLAG:0) + 0xf000)
-#if defined(SUPPORT_PC88VA)
 #define V30_DMAP()		dmap_i286()
-#else
-#define V30_DMAP()		dmap_v30()
-#endif
 
 typedef struct {
 	UINT	opnum;

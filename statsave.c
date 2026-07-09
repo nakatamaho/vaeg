@@ -35,7 +35,6 @@
 
 #include	"bmsio.h"
 
-#if defined(SUPPORT_PC88VA)
 #include	"sysportva.h"
 #include	"memoryva.h"
 #include	"gvramva.h"
@@ -50,7 +49,6 @@
 #include	"boardsb2.h"
 #include	"va91.h"
 #include	"upd9002.h"
-#endif
 
 #if defined(MACOS)
 #define	CRCONST		str_cr
@@ -101,9 +99,7 @@ enum {
 #if defined(SUPPORT_BMS)
 	STATFLAG_BMS,
 #endif
-#if defined(SUPPORT_PC88VA)
 	STATFLAG_SUBCPU,
-#endif
 };
 
 typedef struct {
@@ -774,9 +770,7 @@ enum {
 	FLAG_ADPCM		= 0x0200,
 	FLAG_PCM86		= 0x0400,
 	FLAG_CS4231		= 0x0800,
-#if defined(SUPPORT_PC88VA)
 	FLAG_FMBOARDVA	= 0x8000,
-#endif
 };
 
 typedef struct {
@@ -833,12 +827,10 @@ static int flagsave_fm(STFLAGH sfh, const SFENTRY *tbl) {
 			saveflg = FLAG_PSG1 | FLAG_PSG2 | FLAG_PSG3;
 			break;
 
-#if defined(SUPPORT_PC88VA)
 		case 0x0200:
 			saveflg = FLAG_FM1A | FLAG_FM1B | FLAG_PSG1 | FLAG_RHYTHM |
 										FLAG_ADPCM | FLAG_FMBOARDVA;
 			break;
-#endif
 
 		default:
 			saveflg = 0;
@@ -877,11 +869,9 @@ static int flagsave_fm(STFLAGH sfh, const SFENTRY *tbl) {
 	if (saveflg & FLAG_CS4231) {
 		ret |= statflag_write(sfh, &cs4231, sizeof(cs4231));
 	}
-#if defined(SUPPORT_PC88VA)
 	if (saveflg & FLAG_FMBOARDVA) {
 		ret |= statflag_write(sfh, &fmboardva, sizeof(fmboardva));
 	}
-#endif
 	(void)tbl;
 	return(ret);
 }
@@ -938,12 +928,10 @@ static int flagload_fm(STFLAGH sfh, const SFENTRY *t) {
 			saveflg = FLAG_PSG1 | FLAG_PSG2 | FLAG_PSG3;
 			break;
 
-#if defined(SUPPORT_PC88VA)
 		case 0x0200:
 			saveflg = FLAG_FM1A | FLAG_FM1B | FLAG_PSG1 | FLAG_RHYTHM |
 										FLAG_ADPCM | FLAG_FMBOARDVA;
 			break;
-#endif
 
 		default:
 			saveflg = 0;
@@ -983,11 +971,9 @@ static int flagload_fm(STFLAGH sfh, const SFENTRY *t) {
 	if (saveflg & FLAG_CS4231) {
 		ret |= statflag_read(sfh, &cs4231, sizeof(cs4231));
 	}
-#if defined(SUPPORT_PC88VA)
 	if (saveflg & FLAG_FMBOARDVA) {
 		ret |= statflag_read(sfh, &fmboardva, sizeof(fmboardva));
 	}
-#endif
 
 	// 復元。 これ移動すること！
 	adpcm_update(&adpcm);
@@ -1283,7 +1269,6 @@ static int flagload_bms(STFLAGH sfh, const SFENTRY *tbl) {
 
 // ---- FD sub system CPU
 
-#if defined(SUPPORT_PC88VA)
 
 static int flagsave_subsystemcpu(STFLAGH sfh, const SFENTRY *tbl) {
 	UINT bufsize;
@@ -1317,7 +1302,6 @@ static int flagload_subsystemcpu(STFLAGH sfh, const SFENTRY *tbl) {
 	return(ret);
 }
 
-#endif
 
 // ----
 
@@ -1423,11 +1407,9 @@ const SFENTRY	*tblterm;
 				break;
 #endif
 
-#if defined(SUPPORT_PC88VA)
 			case STATFLAG_SUBCPU:
 				ret |= flagsave_subsystemcpu(&sffh->sfh, tbl);
 				break;
-#endif
 		}
 		tbl++;
 	}
@@ -1490,9 +1472,7 @@ const SFENTRY	*tblterm;
 #if defined(SUPPORT_BMS)
 				case STATFLAG_BMS:
 #endif
-#if defined(SUPPORT_PC88VA)
 				case STATFLAG_SUBCPU:
-#endif
 					ret |= flagcheck_veronly(&sffh->sfh, tbl);
 					break;
 
@@ -1636,11 +1616,9 @@ const SFENTRY	*tblterm;
 					break;
 #endif
 
-#if defined(SUPPORT_PC88VA)
 				case STATFLAG_SUBCPU:
 					ret |= flagload_subsystemcpu(&sffh->sfh, tbl);
 					break;
-#endif
 
 				default:
 					ret |= STATFLAG_WARNING;
@@ -1655,9 +1633,7 @@ const SFENTRY	*tblterm;
 
 	// I/O作り直し
 	i286_memorymap((pccore.model & PCMODEL_EPSON)?1:0);
-#if defined(SUPPORT_PC88VA)
 	i286_memorymap_va();
-#endif
 	iocore_build();
 	iocore_bind();
 	cbuscore_bind();

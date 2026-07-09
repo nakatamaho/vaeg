@@ -22,17 +22,14 @@
 #include	"soundmng.h"
 #endif
 
-#if defined(SUPPORT_PC88VA)
 #include	"iocoreva.h"
 #include	"memoryva.h"
 #include	"subsystem.h"
-#endif
 
 enum {
 	FDC_DMACH2HD	= 2,
 	FDC_DMACH2DD	= 3,
 
-#if defined(VAEG_EXT) || defined(SUPPORT_PC88VA)
 	CLOCK80				= 7987200,		// 8MHz
 	CLOCK48				= 4792320,		// 4.8MHz
 
@@ -41,7 +38,6 @@ enum {
 	FDD_MOTOR_STOPPED	= 0,
 	FDD_MOTOR_STARTING	= 1,
 	FDD_MOTOR_STABLE	= 2,
-#endif
 
 #if defined(VAEG_EXT)
 	FDD_HEAD_UNLOADED	= 0,
@@ -55,10 +51,8 @@ enum {
 	FDD_HEADREACH_REACHED     = 3,		// ヘッドがロードされており、目的のセクタに到達した
 #endif
 
-#if defined(SUPPORT_PC88VA)
 	FDD_48TPI			= 0,
 	FDD_96TPI			= 1,
-#endif
 
 };
 
@@ -171,20 +165,12 @@ void fdc_trace_iova_unhandled(UINT port) {
 
 static UINT8 fdc_trace_mode_value(void) {
 
-#if defined(SUPPORT_PC88VA)
 	return fdc.fddifmode;
-#else
-	return 1;
-#endif
 }
 
 static const char *fdc_trace_mode_name(void) {
 
-#if defined(SUPPORT_PC88VA)
 	return fdc.fddifmode ? "direct" : "intelligent";
-#else
-	return "direct";
-#endif
 }
 
 static const char *fdc_trace_cmdname(REG8 cmd) {
@@ -300,11 +286,9 @@ static void fdc_trace_dma_snapshot(UINT8 channel) {
 	fdctrace.dma_len = length;
 	fdctrace.dma_start = start;
 	fdctrace.dma_end = end;
-#if defined(SUPPORT_PC88VA)
 	fdctrace.dma_access = memoryva.dma_access;
 	fdctrace.dma_sysm_bank = memoryva.dma_sysm_bank;
 	fdctrace.sysm_bank = memoryva.sysm_bank;
-#endif
 	if (!fdctrace.req_len) {
 		fdctrace.req_len = length;
 	}
@@ -811,7 +795,6 @@ void fdc_stepwait(NEVENTITEM item) {
 static void fdc_dointerrupt(void) {
 		fdc.intreq = TRUE;
 		TRACEOUT(("fdc: send interrupt request"));
-#if defined(SUPPORT_PC88VA)
 		if (fdc.fddifmode) {
 			// DMA mode
 			if (fdc.chgreg & 1) {
@@ -825,14 +808,6 @@ static void fdc_dointerrupt(void) {
 			// Intelligent mode
 			subsystem_irq(TRUE);
 		}
-#else
-		if (fdc.chgreg & 1) {
-			pic_setirq(0x0b);
-		}
-		else {
-			pic_setirq(0x0a);
-		}
-#endif
 }
 #endif
 
@@ -844,7 +819,6 @@ void fdc_intwait(NEVENTITEM item) {
 #else
 		fdc.intreq = TRUE;
 		TRACEOUT(("fdc: send interrupt request"));
-#if defined(SUPPORT_PC88VA)
 		if (fdc.fddifmode) {
 			// DMA mode
 			if (fdc.chgreg & 1) {
@@ -858,14 +832,6 @@ void fdc_intwait(NEVENTITEM item) {
 			// Intelligent mode
 			subsystem_irq(TRUE);
 		}
-#else
-		if (fdc.chgreg & 1) {
-			pic_setirq(0x0b);
-		}
-		else {
-			pic_setirq(0x0a);
-		}
-#endif	/* defined(SUPPORT_PC88VA) */
 #endif	/* defined(VAEG_FIX) */
 	}
 }
@@ -919,12 +885,10 @@ REG8 DMACCALL fdc_dmafunc(REG8 func) {
 }
 
 static void fdc_dmaready(REG8 enable) {
-#if defined(SUPPORT_PC88VA)
 	if (!fdc.fddifmode) {
 		// Intelligent
 		return;
 	}
-#endif
 	if (fdc.chgreg & 1) {
 		dmac.dmach[FDC_DMACH2HD].ready = enable;
 		if (enable) {
@@ -1170,13 +1134,9 @@ static void FDC_SenseDeviceStatus(void) {				// cmd: 04
 #if defined(VAEG_EXT)
 				sysmng_fddaccess(fdc.us, CTRL_FDMEDIA[fdc.us] == DISKTYPE_2HD);
 #endif
-#if defined(SUPPORT_PC88VA)
 				if (pccore.model_va == PCMODEL_NOTVA) {
 					fdc.buf[0] |= 0x08;
 				}
-#else
-				fdc.buf[0] |= 0x08;
-#endif
 				if (!fdc.treg[fdc.us]) {
 					fdc.buf[0] |= 0x10;
 				}
@@ -1185,14 +1145,12 @@ static void FDC_SenseDeviceStatus(void) {				// cmd: 04
 					if (fdc.motor[fdc.us] == FDD_MOTOR_STABLE) {
 #endif
 					fdc.buf[0] |= 0x20;
-#if defined(SUPPORT_PC88VA)
 					if (pccore.model_va != PCMODEL_NOTVA) {
 						fdc.buf[0] |= 0x08;
 							/*
 								VAの場合、Ready=0ならTwo Side=0のようだ。
 							*/
 					}
-#endif
 #if defined(VAEG_EXT)
 					}
 #endif
@@ -1743,16 +1701,12 @@ static void FDC_Seek(void) {							// cmd: 0f
 				fdc_trace_emit_status((UINT8)fdc.stat[fdc.us]);
 			}
 			else {
-#if defined(SUPPORT_PC88VA)
 				if (fdc.trackdensity[fdc.us] == FDD_48TPI) {
 					start_seek(fdc.us, fdc.cmds[1] * 2);
 				}
 				else {
 					start_seek(fdc.us, fdc.cmds[1]);
 				}
-#else
-				start_seek(fdc.us, fdc.cmds[1]);
-#endif
 			}
 			break;
 #else
@@ -2229,7 +2183,6 @@ static void stop_statewatch(void) {
 
 #endif
 
-#if defined(VAEG_EXT) || defined(SUPPORT_PC88VA)
 // --------------------------------------------------------------------------
 // FDC timer
 
@@ -2257,7 +2210,6 @@ void fdc_fddmotor(NEVENTITEM item) {
 	}
 }
 
-#endif
 
 // ---- I/O
 
@@ -2288,7 +2240,6 @@ static void IOOUTCALL fdc_o94(UINT port, REG8 dat) {
 	fdc.ctrlreg = dat;
 }
 
-#if defined(SUPPORT_PC88VA)
 
 static void IOOUTCALL fdcva_o_fdc1(UINT port, REG8 dat) {
 
@@ -2318,7 +2269,6 @@ static void IOOUTCALL fdcva_o_dskmisc(UINT port, REG8 dat) {
 
 
 
-#endif
 
 
 static REG8 IOINPCALL fdc_i90(UINT port) {
@@ -2365,7 +2315,6 @@ static REG8 IOINPCALL fdc_i94(UINT port) {
 	}
 }
 
-#if defined(SUPPORT_PC88VA)
 
 static REG8 IOINPCALL fdcva_i_fdc0(UINT port) {
 #if defined(VAEG_EXT)
@@ -2404,13 +2353,11 @@ static REG8 IOINPCALL fdcva_i_dskmisc(UINT port) {
 	return ret;
 }
 
-#endif
 
 
 
 static void IOOUTCALL fdc_obe(UINT port, REG8 dat) {
 
-#if defined(SUPPORT_PC88VA)
 	int	i;
 
 	fdc.chgreg = dat;
@@ -2426,15 +2373,6 @@ static void IOOUTCALL fdc_obe(UINT port, REG8 dat) {
 		fdc.clock = CLOCK48;
 #endif
 	}
-#else
-	fdc.chgreg = dat;
-	if (fdc.chgreg & 2) {
-		CTRL_FDMEDIA = DISKTYPE_2HD;
-	}
-	else {
-		CTRL_FDMEDIA = DISKTYPE_2DD;
-	}
-#endif
 	(void)port;
 }
 
@@ -2444,7 +2382,6 @@ static REG8 IOINPCALL fdc_ibe(UINT port) {
 	return((fdc.chgreg & 3) | 8);
 }
 
-#if defined(SUPPORT_PC88VA)
 
 static void IOOUTCALL fdcva_o_dskctl(UINT port, REG8 dat) {
 /*
@@ -2486,7 +2423,6 @@ static void IOOUTCALL fdcva_o_dskctl(UINT port, REG8 dat) {
 	(void)port;
 }
 
-#endif
 
 static void IOOUTCALL fdc_o4be(UINT port, REG8 dat) {
 
@@ -2503,7 +2439,6 @@ static REG8 IOINPCALL fdc_i4be(UINT port) {
 	return(fdc.rpm[(fdc.reg144 >> 5) & 3] | 0xf0);
 }
 
-#if defined(SUPPORT_PC88VA)
 
 static void IOOUTCALL fdcva_o_mtrctl(UINT port, REG8 dat) {
 //	TRACEOUT(("fdcva: out %.2x %.2x [%.4x:%.4x]", port, dat, CPU_CS, CPU_IP));
@@ -2528,11 +2463,9 @@ static void IOOUTCALL fdcva_o_mtrctl(UINT port, REG8 dat) {
 		}
 	}
 }
-#endif
 
 // ---- for PC-88VA Main System
 
-#if defined(SUPPORT_PC88VA)
 
 static void IOOUTCALL fdcva_o1b0(UINT port, REG8 dat) {
 	fdc.fddifmode = dat & 1;
@@ -2569,11 +2502,9 @@ static REG8 IOINPCALL fdcva_i1ba(UINT port) {
 	return fdcva_i_fdc1(port);
 }
 
-#endif
 
 // ---- for FD Sub System
 
-#if defined(SUPPORT_PC88VA)
 
 BYTE fdcsubsys_i_fdc0(void) {
 	return fdcva_i_fdc0(0);
@@ -2603,7 +2534,6 @@ void fdcsubsys_o_tc(void) {
 #endif
 }
 
-#endif
 
 // ---- I/F
 
@@ -2627,7 +2557,6 @@ void fdc_reset(void) {
 	fdcstatusreset();
 	dmac_attach(DMADEV_2HD, FDC_DMACH2HD);
 	dmac_attach(DMADEV_2DD, FDC_DMACH2DD);
-#if defined(SUPPORT_PC88VA)
 	{
 		UINT8 trackdensity;
 		UINT8 ctrlfd;
@@ -2644,9 +2573,6 @@ void fdc_reset(void) {
 		CTRL_FDMEDIA[0] = CTRL_FDMEDIA[1] = CTRL_FDMEDIA[2] = CTRL_FDMEDIA[3] = ctrlfd;
 		fdc.trackdensity[0] = fdc.trackdensity[1] = fdc.trackdensity[2] = fdc.trackdensity[3] = trackdensity;
 	}
-#else
-	CTRL_FDMEDIA = DISKTYPE_2HD;
-#endif
 	fdc.chgreg = 3;
 #if defined(VAEG_EXT)
 	fdc.headlastactive = -1;
@@ -2656,7 +2582,6 @@ void fdc_reset(void) {
 	soundmng_pcmstop(SOUND_PCMSEEK);
 	seek1sound = FALSE;
 #endif
-#if defined(SUPPORT_PC88VA)
 	if (pccore.model_va == PCMODEL_NOTVA) {
 		// 98
 		fdc.fddifmode = 1;	// DMA mode
@@ -2667,7 +2592,6 @@ void fdc_reset(void) {
 	}
 	fdc_trace_text("fddiftrace reset mode=%02x/%s",
 				   fdc_trace_mode_value(), fdc_trace_mode_name());
-#endif
 #if defined(VAEG_FIX)
 	fdc.rqminterval = pccore.realclock / 100000;	// 10μsec
 #endif
@@ -2687,7 +2611,6 @@ void fdc_bind(void) {
 	iocore_attachsysoutex(0x00be, 0x0cff, fdcobe, 1);
 	iocore_attachsysinpex(0x00be, 0x0cff, fdcibe, 1);
 
-#if defined(SUPPORT_PC88VA)
 	iocoreva_attachout(0x01b0, fdcva_o1b0);
 	iocoreva_attachout(0x01b2, fdcva_o1b2);
 	iocoreva_attachout(0x01b4, fdcva_o1b4);
@@ -2696,5 +2619,4 @@ void fdc_bind(void) {
 	iocoreva_attachinp(0x01b8, fdcva_i1b8);
 	iocoreva_attachout(0x01ba, fdcva_o1ba);
 	iocoreva_attachinp(0x01ba, fdcva_i1ba);
-#endif
 }
