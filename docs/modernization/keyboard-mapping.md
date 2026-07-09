@@ -122,8 +122,9 @@ Pass-through regression cases in US keytop mode:
 | `;` | guest `;` key `0x26` |
 
 Unresolved mappings remain visible in the inventory and GUI binding
-table. The VA `PC` key has a proven guest code but no standard SDL
-physical default, so it remains unassigned until rebound.
+table. The VA `PC` key is bound to `ScrollLock` by default because VA2/3
+use PC-held reset or power-on for the BIOS setup path, and popup helpers
+use PC key chords such as PC+D.
 
 ## Inventory
 
@@ -213,7 +214,7 @@ Status values:
 | NFER/KETTEI | KEY88_KETTEI | none | 0x51 | International5 | F11 | mapped-but-untested | `keystat.h`, `win9x/winkbd.cpp`, `io/serial.c` |
 | SPACE | KEY88_SPACE | Space | 0x34 | Space | Space | implemented | `keystat.h`, `sdl2/sdlkbd.c` |
 | XFER/HENKAN | KEY88_HENKAN | none | 0x35 | International4 | Application | mapped-but-untested | `keystat.h`, `win9x/winkbd.cpp` |
-| PC | KEY88_PC | none | 0x5a | unassigned | unassigned | unresolved | `win9x/winkbd.cpp`, `io/serial.c` |
+| PC | KEY88_PC | none | 0x5a | ScrollLock | ScrollLock | mapped-but-untested | `win9x/winkbd.cpp`, `io/serial.c` |
 | ZENKAKU | KEY88_ZENKAKU | none | 0x5b | Lang5 | unassigned | mapped-but-untested | `win9x/winkbd.cpp`, `io/serial.c` |
 | INSERT | KEY88_INS | Insert | 0x38 | Insert | Insert | implemented | `keystat.h`, `sdl2/sdlkbd.c` |
 | DELETE | KEY88_DEL | Delete | 0x39 | Delete | Delete | implemented | `keystat.h`, `sdl2/sdlkbd.c` |

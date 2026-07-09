@@ -134,10 +134,10 @@ the next press unlocks it. When the menu is set to Roman Kana and KANA is
 locked, A-Z host scancodes feed the helper and are not sent as direct
 alphabetic guest keys; when KANA is unlocked, A-Z is normal guest input.
 
-The PC key has a proven VA guest code but no standard SDL physical
-scancode default, so it is shown as unassigned until rebound. See
-`docs/modernization/keyboard-mapping.md` for the full inventory and
-evidence table.
+The PC key defaults to `ScrollLock`. VA2/3 use PC-held reset or power-on
+for the BIOS setup path, and some VA popup helpers use PC key chords such
+as PC+D. See `docs/modernization/keyboard-mapping.md` for the full
+inventory and evidence table.
 
 ## Font Manager Stub
 

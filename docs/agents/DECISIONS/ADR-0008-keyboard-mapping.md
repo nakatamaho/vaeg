@@ -58,8 +58,9 @@ guest keyboard protocol or writing directly into guest text buffers.
   US is a keytop/text-entry preset for common modern keyboards. US
   printable punctuation may translate host Shift chords into proven guest
   keys or guest Shift chords; JIS physical mode remains position-based.
-- Leave the VA PC key default unassigned: the guest code is proven, but
-  SDL has no standard modern physical scancode for that role.
+- Bind the VA PC key to `ScrollLock` by default. The guest code is
+  proven, and the key is required for VA2/3 setup entry on PC-held reset
+  or power-on and for popup-helper chords such as PC+D.
 - Roman-Kana parses A-Z and apostrophe host scancodes into internal kana
   tokens and then emits guest key sequences. It ignores SDL_TEXTINPUT for
   guest input so host IME state and UTF-8 composition cannot leak into the
