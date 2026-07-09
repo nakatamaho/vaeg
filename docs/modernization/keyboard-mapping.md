@@ -196,7 +196,7 @@ Status values:
 | 0 | KEY88_0 | 0 | 0x0a | 0 | 0 | implemented | same as 1 |
 | - | KEY88_MINUS | Minus | 0x0b | Minus | Minus | implemented | `keystat.h`, `sdl2/sdlkbd.c` |
 | ^ | KEY88_CARET | Equals | 0x0c | Equals | Equals | implemented | `keystat.h`, `sdl2/sdlkbd.c` |
-| Yen | KEY88_YEN | Backslash | 0x0d | NonUSHash, alias International3 | Backslash | mapped-but-untested | `keystat.h`, `win9x/winkbd.cpp` |
+| Yen | KEY88_YEN | Backslash | 0x0d | International1, alias International3 | Backslash | mapped-but-untested | `keystat.h`, `win9x/winkbd.cpp` |
 | Backspace | KEY88_BS | Backspace | 0x0e | Backspace | Backspace | implemented | `keystat.h`, `win9x/winkbd.cpp`, `sdl2/sdlkbd.c` |
 | TAB | KEY88_TAB | Tab | 0x0f | Tab | Tab | implemented | `keystat.h`, `sdl2/sdlkbd.c` |
 | Q | KEY88_q | Q | 0x10 | Q | Q | implemented | `keystat.h`, `sdl2/sdlkbd.c` |
@@ -237,7 +237,7 @@ Status values:
 | , | KEY88_COMMA | Comma | 0x30 | Comma | Comma | implemented | `keystat.h`, `sdl2/sdlkbd.c` |
 | . | KEY88_PERIOD | Period | 0x31 | Period | Period | implemented | `keystat.h`, `sdl2/sdlkbd.c` |
 | / | KEY88_SLASH | Slash | 0x32 | Slash | Slash | implemented | `keystat.h`, `sdl2/sdlkbd.c` |
-| _ / RO | KEY88_UNDERSCORE | none | 0x33 | International1 | Grave | mapped-but-untested | `keystat.h`, `win9x/winkbd.cpp` |
+| _ / RO | KEY88_UNDERSCORE | none | 0x33 | NonUSHash | Grave | mapped-but-untested | `keystat.h`, `win9x/winkbd.cpp` |
 | Shift right | KEY88_SHIFTR | RightShift as 0x70 | 0x58 | RightShift | RightShift | mapped-but-untested | `io/serial.c` |
 | KANA | KEY88_KANA | none | 0x72 | RightAlt, alias International2 | RightAlt | mapped-but-untested | `keystat.h`, `win9x/winkbd.cpp` |
 | GRPH | KEY88_GRAPH | LeftAlt/RightAlt | 0x73 | LeftAlt | LeftAlt | implemented | `keystat.h`, `sdl2/sdlkbd.c` |
