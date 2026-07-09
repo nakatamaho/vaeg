@@ -753,11 +753,11 @@ static void draw_device_menu(void) {
 				ImGui::EndMenu();
 			}
 			if (ImGui::BeginMenu("Host layout")) {
-				if (ImGui::MenuItem("JIS", nullptr,
+				if (ImGui::MenuItem("JIS physical", nullptr,
 									std::string(kbdmap_layout_name()) == "jis")) {
 					set_keyboard_layout("jis");
 				}
-				if (ImGui::MenuItem("US", nullptr,
+				if (ImGui::MenuItem("US keytop", nullptr,
 									std::string(kbdmap_layout_name()) == "us")) {
 					set_keyboard_layout("us");
 				}

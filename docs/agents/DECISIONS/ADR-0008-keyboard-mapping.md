@@ -55,7 +55,9 @@ guest keyboard protocol or writing directly into guest text buffers.
   wraps the existing `keystat_senddata()` and `keystat_forcerelease()`
   make/break path.
 - Provide JIS, US, and Custom host layouts. JIS is the fidelity preset;
-  US is a usability fallback for common modern keyboards.
+  US is a keytop/text-entry preset for common modern keyboards. US
+  printable punctuation may translate host Shift chords into proven guest
+  keys or guest Shift chords; JIS physical mode remains position-based.
 - Leave the VA PC key default unassigned: the guest code is proven, but
   SDL has no standard modern physical scancode for that role.
 - Roman-Kana parses A-Z and apostrophe host scancodes into internal kana
@@ -69,6 +71,9 @@ guest keyboard protocol or writing directly into guest text buffers.
 - Yoon Roman-Kana syllables are emitted as verified physical kana
   sequences: base kana plus small `ya/yu/yo` from `bios/keytable.res`,
   never as direct character text.
+- `VAEG_KBD_TRACE=1` enables keyboard routing traces for host scancode,
+  keycode, modifiers, layout, ImGui capture state, selected action, and
+  consumed/sent status.
 
 ## Consequences
 
@@ -78,5 +83,5 @@ guest keyboard protocol or writing directly into guest text buffers.
   and in the ImGui binding table.
 - The loader accepts the initial inline M14 custom-map format for
   migration, but new saves use the sidecar form.
-- Manual G14 testing must confirm physical JIS behavior, US fallback
+- Manual G14 testing must confirm physical JIS behavior, US keytop
   usability, Kana lock behavior, Roman-Kana output, and rebinding.

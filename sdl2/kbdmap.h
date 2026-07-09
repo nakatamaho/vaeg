@@ -164,12 +164,14 @@ extern "C" {
 #endif
 
 void kbdmap_initialize(void);
-BOOL kbdmap_keydown(UINT scancode);
-BOOL kbdmap_keyup(UINT scancode);
+BOOL kbdmap_keydown(UINT scancode, SDL_Keycode keycode, UINT16 mod);
+BOOL kbdmap_keyup(UINT scancode, SDL_Keycode keycode, UINT16 mod);
 BOOL kbdmap_textinput(const char *text);
 BYTE kbdmap_lookup(UINT scancode);
 void kbdmap_reset_frontend_state(void);
 void kbdmap_resetf12(void);
+void kbdmap_trace_captured_key(UINT scancode, SDL_Keycode keycode,
+								UINT16 mod, BOOL down, BOOL repeat);
 
 int kbdmap_entry_count(void);
 const KBDMAP_ENTRY *kbdmap_entry(int index);
