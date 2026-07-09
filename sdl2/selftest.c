@@ -298,6 +298,14 @@ static int test_romankana(void) {
 
 	romankana_reset(&state);
 	ZeroMemory(&buf, sizeof(buf));
+	romankana_feed(&state, "shi si tsu tu", tokenbuf_emit, &buf);
+	romankana_flush(&state, tokenbuf_emit, &buf);
+	if (strcmp(buf.text, "shi,?,shi,?,tsu,?,tsu") != 0) {
+		return(fail("romankana", "shi/si and tsu/tu aliases failed"));
+	}
+
+	romankana_reset(&state);
+	ZeroMemory(&buf, sizeof(buf));
 	romankana_feed(&state, "nn n' nka kko", tokenbuf_emit, &buf);
 	romankana_flush(&state, tokenbuf_emit, &buf);
 	if (strcmp(buf.text, "nn,?,nn,?,nn,ka,?,xtsu,ko") != 0) {
