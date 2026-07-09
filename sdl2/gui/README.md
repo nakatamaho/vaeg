@@ -66,6 +66,15 @@ rebuilt for the guest. The configured SASI image path is retained across
 the GUI Reset command. SCSI/IDE mounting and THD/NHD/SCSI image creation
 remain later items.
 
+## Sound Menu
+
+Sound -> OPN backend selects `NP2` or `ymfm` and persists the choice as
+`opn_backend` in `np2.cfg`. Both engines mirror FM register writes, so changing
+the output selector uses the existing guest-reset flow to rebuild the selected
+synthesizer from a clean board state while retaining mounted FDD/SASI paths.
+The ymfm option currently replaces only YM2203/YM2608 FM operator synthesis;
+NP2 continues to own timer/IRQ, SSG, ADPCM, rhythm, and stream mixing.
+
 ## Font Asset Lookup
 
 The GUI loads `NotoSansJP-Regular.ttf` with

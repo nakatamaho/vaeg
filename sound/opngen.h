@@ -8,6 +8,11 @@ enum {
 	OPN_MONORAL		= 0x0000
 };
 
+enum {
+	OPN_BACKEND_NP2 = 0,
+	OPN_BACKEND_YMFM = 1
+};
+
 
 #if defined(OPNGENX86)
 
@@ -165,11 +170,18 @@ void opngen_initialize(UINT rate);
 void opngen_setvol(UINT vol);
 void opngen_setVR(REG8 channel, REG8 value);
 
+void opngen_setbackend(UINT backend);
+UINT opngen_getbackend(void);
+UINT opngen_parsebackend(const char *name);
+const char *opngen_backendname(UINT backend);
+
 void opngen_reset(void);
 void opngen_setcfg(REG8 maxch, UINT flag);
+void opngen_setcontrol(REG8 chbase, REG8 reg, REG8 value);
 void opngen_setextch(UINT chnum, REG8 data);
 void opngen_setreg(REG8 chbase, REG8 reg, REG8 value);
 void opngen_keyon(UINT chnum, REG8 value);
+void opngen_timerover(UINT timer);
 
 void SOUNDCALL opngen_getpcm(void *hdl, SINT32 *buf, UINT count);
 void SOUNDCALL opngen_getpcmvr(void *hdl, SINT32 *buf, UINT count);
