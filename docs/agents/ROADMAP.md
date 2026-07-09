@@ -50,9 +50,10 @@ history, not by a current CI or compile guarantee.
 | M14 | tasks/M14_keyboard_mapping.md | PC-88VA/PC-8801-style SDL2 keyboard mapping; JIS physical, US keytop, and custom presets; Kana/Roman-Kana input; tenkeyless overlay; GUI binding table | **G14 passed** |
 | M15 | tasks/M15_support_pc88va_constant_fold.md | Fold the always-enabled `SUPPORT_PC88VA` compile-time flag in the active tree while retaining runtime model selection | **G15 passed** |
 | M16 | tasks/M16_sasi_hdd_gui.md | Reactivate SASI in active CMake; expose SASI HDI creation and SASI-1/SASI-2 Open/Remove in the SDL2 ImGui HardDisk menu | **G16 passed** |
+| M17 | tasks/M17_opn_backend.md | Keep NP2 OPN/OPNA FM selectable; add BSD-3-Clause ymfm YM2203/YM2608 as the default backend with GUI/config selection | **G17 passed** |
 
 Phase 2 dependencies: M7 → M8 → {M9, M10 parallel} → M11 → M12 → M13.
-Post-phase dependency: M13 → M14 → M15 → M16.
+Post-phase dependency: M13 → M14 → M15 → M16 → M17.
 M9 must pass before M11 (all three OSes must ship the VA machine, not
 the PC-98 scaffold).
 
@@ -86,8 +87,8 @@ gate on the PC-98 scaffold; G9 onward use the full VA checklist.
 
 A gate passes only when the user says so. Pushed tags are immutable.
 Tag `portable-pc98` after G8, `portable-va` after G9,
-`phase2-complete` after G13. M14, M15, and M16 passed without separate
-tags.
+`phase2-complete` after G13. M14-M17 currently have no tag
+assignment.
 
 ## Resolved decision points
 
@@ -108,3 +109,7 @@ tags.
 - **PC-88VA active-tree invariant (M15).** The active CMake/SDL2 build
   always includes VA support, so `SUPPORT_PC88VA` is folded true. Runtime
   model checks, `VAEG_FIX`, and `VAEG_EXT` remain independent controls.
+- **Selectable OPN/OPNA synthesis (M17).** ADR-0009 keeps NP2 as a
+  compatibility option and selects the BSD-3-Clause ymfm YM2203/YM2608
+  implementation as the default FM-operator backend. NP2 retains timer/IRQ,
+  SSG, ADPCM, rhythm, board-I/O, and mixer ownership in this milestone.
