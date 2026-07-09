@@ -214,6 +214,10 @@ a replacement for the original notices, source headers, and license files.
 - Dear ImGui is vendored under `external/imgui/` and is licensed under
   the MIT license. See `external/imgui/LICENSE.txt` and
   `docs/agents/DECISIONS/ADR-0004-imgui-vendor.md`.
+- ymfm is vendored from MAME's `3rdparty/ymfm` subtree under
+  `external/ymfm/` and is licensed under the 3-clause BSD license. See
+  `external/ymfm/LICENSE` and
+  `docs/agents/DECISIONS/ADR-0009-opn-backend.md`.
 - The bundled host GUI font `assets/NotoSansJP-Regular.ttf` is licensed
   under the SIL Open Font License 1.1. See `assets/OFL.txt` and
   `assets/NOTICE.md`.
