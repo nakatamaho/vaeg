@@ -48,6 +48,24 @@ assigned KANA key controls guest kana mode: one press locks KANA, and the
 next press unlocks it. Roman-Kana consumes A-Z scancodes only while that
 KANA lock mirror is active.
 
+## Storage Menus
+
+FDD1/FDD2 Open and Eject act immediately through the existing floppy
+mount path. The GUI Reset command reapplies the mounted FDD paths after
+the core reset, so a mounted FDD stays inserted across reset.
+
+HardDisk -> New SASI image creates HDI images through the existing
+`newdisk_hdi()` helper. It supports the legacy 5/10/15/20/30/40 MB SASI
+geometry choices and refuses to overwrite an existing file.
+
+HardDisk -> SASI-1/SASI-2 Open updates `HDD1FILE` / `HDD2FILE` in
+`np2.cfg` through the existing `diskdrv_sethdd()` path. Remove clears the
+same key. Reset the guest after changing a SASI image; reset is the
+reliable point where `sxsi_open()`, `PCHDD_SASI`, and `sasiio_bind()` are
+rebuilt for the guest. The configured SASI image path is retained across
+the GUI Reset command. SCSI/IDE mounting and THD/NHD/SCSI image creation
+remain later items.
+
 ## Font Asset Lookup
 
 The GUI loads `NotoSansJP-Regular.ttf` with
