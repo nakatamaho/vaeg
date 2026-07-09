@@ -42,6 +42,7 @@ typedef struct {
 	char	keyboard_host_layout[NP2OSCFG_KEYBOARD_NAME_SIZE];
 	char	keyboard_kana_input[NP2OSCFG_KEYBOARD_NAME_SIZE];
 	BYTE	keyboard_auto_kana_lock;
+	BYTE	keyboard_tenkey_overlay;
 	char	keyboard_custom_map[NP2OSCFG_KEYBOARD_CUSTOM_MAP_SIZE];
 } NP2OSCFG;
 

@@ -571,6 +571,14 @@ static void set_kana_input(const char *mode) {
 	sysmng_update(SYS_UPDATEOSCFG);
 }
 
+static void set_tenkey_overlay(bool enabled) {
+
+	kbdmap_set_tenkey_overlay(enabled ? TRUE : FALSE);
+	g_gui.keyboard_status = enabled ?
+		"Tenkey overlay enabled." : "Tenkey overlay disabled.";
+	sysmng_update(SYS_UPDATEOSCFG);
+}
+
 static const char *binding_name(SDL_Scancode scancode) {
 
 	const char *name;
@@ -777,6 +785,13 @@ static void draw_device_menu(void) {
 					set_kana_input("roman");
 				}
 				ImGui::EndMenu();
+			}
+			{
+				bool tenkey_overlay = kbdmap_tenkey_overlay_enabled() ? true : false;
+				if (ImGui::MenuItem("Tenkey overlay (YUI/HJK/NM,.)",
+									nullptr, tenkey_overlay)) {
+					set_tenkey_overlay(!tenkey_overlay);
+				}
 			}
 			if (ImGui::MenuItem("Key bindings...")) {
 				g_gui.keyboard_config_open = true;

@@ -180,6 +180,12 @@ typedef struct {
 	KBD_ACTION		action;
 } USKEYTOP_ENTRY;
 
+typedef struct {
+	SDL_Scancode	scancode;
+	BYTE			guest_code;
+	const char		*name;
+} TENKEYOVERLAY_ENTRY;
+
 enum {
 	KANASEQ_MARK_NONE = 0,
 	KANASEQ_MARK_DAKUTEN,
@@ -295,6 +301,19 @@ static const USKEYTOP_ENTRY us_keytop_entries[] = {
 	{SDL_SCANCODE_SLASH, 1, ACHORD(GUEST_SHIFTL_CODE, 0x32, "?")}
 };
 
+static const TENKEYOVERLAY_ENTRY tenkey_overlay_entries[] = {
+	{SDL_SCANCODE_Y, 0x42, "tenkey overlay keypad 7"},
+	{SDL_SCANCODE_U, 0x43, "tenkey overlay keypad 8"},
+	{SDL_SCANCODE_I, 0x44, "tenkey overlay keypad 9"},
+	{SDL_SCANCODE_H, 0x46, "tenkey overlay keypad 4"},
+	{SDL_SCANCODE_J, 0x47, "tenkey overlay keypad 5"},
+	{SDL_SCANCODE_K, 0x48, "tenkey overlay keypad 6"},
+	{SDL_SCANCODE_N, 0x4a, "tenkey overlay keypad 1"},
+	{SDL_SCANCODE_M, 0x4b, "tenkey overlay keypad 2"},
+	{SDL_SCANCODE_COMMA, 0x4c, "tenkey overlay keypad 3"},
+	{SDL_SCANCODE_PERIOD, 0x4e, "tenkey overlay keypad 0"}
+};
+
 #undef AKEY
 #undef ACHORD
 #undef APASS
@@ -310,6 +329,7 @@ static KBDMAP_STATUS bind_status[KBDROLE_COUNT];
 static ROMANKANA_STATE roman_state;
 static BOOL roman_scancode_down[SDL_NUM_SCANCODES];
 static BOOL us_action_down[SDL_NUM_SCANCODES];
+static BOOL tenkey_overlay_down[SDL_NUM_SCANCODES];
 static BOOL guest_shift_down[2];
 static BOOL kana_mirror;
 static BOOL trace_init;
@@ -380,6 +400,11 @@ static BOOL us_keytop_mode(void) {
 		TRUE : FALSE;
 }
 
+static BOOL tenkey_overlay_mode(void) {
+
+	return np2oscfg.keyboard_tenkey_overlay ? TRUE : FALSE;
+}
+
 static BOOL trace_on(void) {
 
 	const char *env;
@@ -436,12 +461,13 @@ static void trace_key_event(const char *phase, UINT scancode,
 	keyname = SDL_GetKeyName(keycode);
 	describe_action(action, action_desc, sizeof(action_desc));
 	SDL_Log("kbdtrace phase=%s scancode=%s(%u) keycode=%s(%d) mod=0x%04x "
-			"layout=%s captured=%u repeat=%u action=%s target=%s "
+			"layout=%s tenkey=%u captured=%u repeat=%u action=%s target=%s "
 			"consumed=%u sent=%s",
 			phase,
 			(scname != NULL) ? scname : "", scancode,
 			(keyname != NULL) ? keyname : "", (int)keycode,
 			mod, normal_layout(np2oscfg.keyboard_host_layout),
+			tenkey_overlay_mode() ? 1 : 0,
 			captured ? 1 : 0,
 			repeat ? 1 : 0,
 			(action != NULL) ? action_type_name(action->type) : "none",
@@ -464,6 +490,24 @@ static BOOL resolve_us_keytop_action(UINT scancode, UINT16 mod,
 			(us_keytop_entries[i].shift == shift)) {
 			if (action != NULL) {
 				*action = us_keytop_entries[i].action;
+			}
+			return TRUE;
+		}
+	}
+	return FALSE;
+}
+
+static BOOL resolve_tenkey_overlay_action(UINT scancode, KBD_ACTION *action) {
+
+	UINT	i;
+
+	for (i = 0; i < NELEMENTS(tenkey_overlay_entries); i++) {
+		if (tenkey_overlay_entries[i].scancode == (SDL_Scancode)scancode) {
+			if (action != NULL) {
+				action->type = KBD_ACTION_GUEST_KEY;
+				action->key = tenkey_overlay_entries[i].guest_code;
+				action->modifier = 0;
+				action->name = tenkey_overlay_entries[i].name;
 			}
 			return TRUE;
 		}
@@ -521,6 +565,21 @@ static void tap_action(const KBD_ACTION *action) {
 		kbdinject_press(action->key);
 	}
 	restore_mirrored_shifts(saved);
+}
+
+static void release_tenkey_overlay_keys(void) {
+
+	UINT		scancode;
+	KBD_ACTION	action;
+
+	for (scancode = 0; scancode < SDL_NUM_SCANCODES; scancode++) {
+		if (tenkey_overlay_down[scancode]) {
+			if (resolve_tenkey_overlay_action(scancode, &action)) {
+				kbdinject_keyup(action.key);
+			}
+			tenkey_overlay_down[scancode] = FALSE;
+		}
+	}
 }
 
 static void update_text_input_state(void) {
@@ -985,6 +1044,8 @@ void kbdmap_apply_config(void) {
 					  sizeof(np2oscfg.keyboard_kana_input), kana_input);
 	np2oscfg.keyboard_auto_kana_lock =
 		np2oscfg.keyboard_auto_kana_lock ? 1 : 0;
+	np2oscfg.keyboard_tenkey_overlay =
+		np2oscfg.keyboard_tenkey_overlay ? 1 : 0;
 
 	set_layout_defaults(str_equal(layout, "custom") ? "jis" : layout);
 	if (str_equal(layout, "custom")) {
@@ -999,6 +1060,7 @@ void kbdmap_initialize(void) {
 	romankana_reset(&roman_state);
 	ZeroMemory(roman_scancode_down, sizeof(roman_scancode_down));
 	ZeroMemory(us_action_down, sizeof(us_action_down));
+	ZeroMemory(tenkey_overlay_down, sizeof(tenkey_overlay_down));
 	ZeroMemory(guest_shift_down, sizeof(guest_shift_down));
 	kana_mirror = FALSE;
 	kbdmap_apply_config();
@@ -1050,6 +1112,16 @@ BOOL kbdmap_keydown(UINT scancode, SDL_Keycode keycode, UINT16 mod) {
 		action.name = entries[role].label;
 		trace_key_event("down", scancode, keycode, mod, FALSE, FALSE,
 						&action, TRUE, "press");
+		return TRUE;
+	}
+	if (tenkey_overlay_mode() &&
+		resolve_tenkey_overlay_action(scancode, &action)) {
+		kbdinject_keydown(action.key);
+		if (scancode < SDL_NUM_SCANCODES) {
+			tenkey_overlay_down[scancode] = TRUE;
+		}
+		trace_key_event("down", scancode, keycode, mod, FALSE, FALSE,
+						&action, TRUE, "tenkey-down");
 		return TRUE;
 	}
 	if (roman_active()) {
@@ -1147,6 +1219,19 @@ BOOL kbdmap_keyup(UINT scancode, SDL_Keycode keycode, UINT16 mod) {
 						&action, TRUE, "lock-key-up");
 		return TRUE;
 	}
+	if ((scancode < SDL_NUM_SCANCODES) && tenkey_overlay_down[scancode]) {
+		tenkey_overlay_down[scancode] = FALSE;
+		if (resolve_tenkey_overlay_action(scancode, &action)) {
+			kbdinject_keyup(action.key);
+			trace_key_event("up", scancode, keycode, mod, FALSE, FALSE,
+							&action, TRUE, "tenkey-up");
+		}
+		else {
+			trace_key_event("up", scancode, keycode, mod, FALSE, FALSE,
+							NULL, TRUE, "tenkey-up");
+		}
+		return TRUE;
+	}
 	if ((scancode < SDL_NUM_SCANCODES) && roman_scancode_down[scancode]) {
 		roman_scancode_down[scancode] = FALSE;
 		trace_key_event("up", scancode, keycode, mod, FALSE, FALSE,
@@ -1207,6 +1292,7 @@ void kbdmap_reset_frontend_state(void) {
 	romankana_reset(&roman_state);
 	ZeroMemory(roman_scancode_down, sizeof(roman_scancode_down));
 	ZeroMemory(us_action_down, sizeof(us_action_down));
+	release_tenkey_overlay_keys();
 	ZeroMemory(guest_shift_down, sizeof(guest_shift_down));
 }
 
@@ -1283,6 +1369,11 @@ const char *kbdmap_kana_input_name(void) {
 	return normal_kana_input(np2oscfg.keyboard_kana_input);
 }
 
+BOOL kbdmap_tenkey_overlay_enabled(void) {
+
+	return tenkey_overlay_mode();
+}
+
 void kbdmap_set_layout(const char *layout) {
 
 	set_config_string(np2oscfg.keyboard_host_layout,
@@ -1300,6 +1391,14 @@ void kbdmap_set_kana_input(const char *mode) {
 					  sizeof(np2oscfg.keyboard_kana_input), new_mode);
 	romankana_reset(&roman_state);
 	update_text_input_state();
+}
+
+void kbdmap_set_tenkey_overlay(BOOL enabled) {
+
+	if (!enabled) {
+		release_tenkey_overlay_keys();
+	}
+	np2oscfg.keyboard_tenkey_overlay = enabled ? 1 : 0;
 }
 
 void kbdmap_reset_to_jis(void) {
@@ -1373,6 +1472,19 @@ static BOOL selftest_expect_us_action(UINT scancode, UINT16 mod,
 	return SUCCESS;
 }
 
+static BOOL selftest_expect_tenkey_overlay_action(UINT scancode, BYTE key) {
+
+	KBD_ACTION action;
+
+	if (!resolve_tenkey_overlay_action(scancode, &action)) {
+		return FAILURE;
+	}
+	if ((action.type != KBD_ACTION_GUEST_KEY) || (action.key != key)) {
+		return FAILURE;
+	}
+	return SUCCESS;
+}
+
 int kbdmap_selftest(void) {
 
 #define	KBDMAP_SELFTEST_FAIL(msg)	\
@@ -1388,6 +1500,7 @@ int kbdmap_selftest(void) {
 	char	serialized[sizeof(np2oscfg.keyboard_custom_map)];
 	int	kana_index;
 	int	semicolon_index;
+	BYTE	saved_tenkey_overlay;
 	int	i;
 
 	if (NELEMENTS(entries) != KBDROLE_COUNT) {
@@ -1415,6 +1528,7 @@ int kbdmap_selftest(void) {
 	milstr_ncpy(saved_mode, np2oscfg.keyboard_kana_input, sizeof(saved_mode));
 	milstr_ncpy(saved_custom, np2oscfg.keyboard_custom_map, sizeof(saved_custom));
 	saved_auto = np2oscfg.keyboard_auto_kana_lock;
+	saved_tenkey_overlay = np2oscfg.keyboard_tenkey_overlay;
 
 	set_config_string(np2oscfg.keyboard_host_layout,
 					  sizeof(np2oscfg.keyboard_host_layout), "jis");
@@ -1422,6 +1536,7 @@ int kbdmap_selftest(void) {
 					  sizeof(np2oscfg.keyboard_kana_input), "jis-kana");
 	np2oscfg.keyboard_custom_map[0] = '\0';
 	np2oscfg.keyboard_auto_kana_lock = 0;
+	np2oscfg.keyboard_tenkey_overlay = 0;
 	kbdmap_apply_config();
 	if (kbdmap_lookup(SDL_SCANCODE_A) != 0x1d) {
 		KBDMAP_SELFTEST_FAIL("JIS A lookup");
@@ -1479,6 +1594,24 @@ int kbdmap_selftest(void) {
 								   KBD_ACTION_PASS_THROUGH, 0x26, 0) != SUCCESS)) {
 		KBDMAP_SELFTEST_FAIL("US keytop pass-through regressions");
 	}
+	np2oscfg.keyboard_tenkey_overlay = 1;
+	kbdmap_apply_config();
+	if (!kbdmap_tenkey_overlay_enabled()) {
+		KBDMAP_SELFTEST_FAIL("tenkey overlay persistence");
+	}
+	if ((selftest_expect_tenkey_overlay_action(SDL_SCANCODE_Y, 0x42) != SUCCESS) ||
+		(selftest_expect_tenkey_overlay_action(SDL_SCANCODE_U, 0x43) != SUCCESS) ||
+		(selftest_expect_tenkey_overlay_action(SDL_SCANCODE_I, 0x44) != SUCCESS) ||
+		(selftest_expect_tenkey_overlay_action(SDL_SCANCODE_H, 0x46) != SUCCESS) ||
+		(selftest_expect_tenkey_overlay_action(SDL_SCANCODE_J, 0x47) != SUCCESS) ||
+		(selftest_expect_tenkey_overlay_action(SDL_SCANCODE_K, 0x48) != SUCCESS) ||
+		(selftest_expect_tenkey_overlay_action(SDL_SCANCODE_N, 0x4a) != SUCCESS) ||
+		(selftest_expect_tenkey_overlay_action(SDL_SCANCODE_M, 0x4b) != SUCCESS) ||
+		(selftest_expect_tenkey_overlay_action(SDL_SCANCODE_COMMA, 0x4c) != SUCCESS) ||
+		(selftest_expect_tenkey_overlay_action(SDL_SCANCODE_PERIOD, 0x4e) != SUCCESS)) {
+		KBDMAP_SELFTEST_FAIL("tenkey overlay mapping");
+	}
+	np2oscfg.keyboard_tenkey_overlay = 0;
 	set_config_string(np2oscfg.keyboard_host_layout,
 					  sizeof(np2oscfg.keyboard_host_layout), "jis");
 	kbdmap_apply_config();
@@ -1525,6 +1658,7 @@ int kbdmap_selftest(void) {
 	set_config_string(np2oscfg.keyboard_custom_map,
 					  sizeof(np2oscfg.keyboard_custom_map), saved_custom);
 	np2oscfg.keyboard_auto_kana_lock = saved_auto;
+	np2oscfg.keyboard_tenkey_overlay = saved_tenkey_overlay;
 	kbdmap_apply_config();
 	return SUCCESS;
 
@@ -1536,6 +1670,7 @@ err:
 	set_config_string(np2oscfg.keyboard_custom_map,
 					  sizeof(np2oscfg.keyboard_custom_map), saved_custom);
 	np2oscfg.keyboard_auto_kana_lock = saved_auto;
+	np2oscfg.keyboard_tenkey_overlay = saved_tenkey_overlay;
 	kbdmap_apply_config();
 	return FAILURE;
 

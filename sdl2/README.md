@@ -116,13 +116,16 @@ Device / Keyboard in the ImGui menu exposes:
 
 - Host layout: JIS physical, US keytop, Custom
 - Kana input: JIS Kana, Roman Kana
+- Tenkey overlay: maps YUI/HJK/NM,. to guest keypad 789/456/123/0
 - Full key binding table with capture-next-key
 
 JIS physical maps host scancode position to PC-88VA physical key
 position. US keytop maps printable US punctuation keytops/chords to
 guest keys or guest Shift chords that produce the intended ASCII symbol.
-No Unicode or text-buffer injection is used. Set `VAEG_KBD_TRACE=1` to
-log keyboard event routing and selected guest actions.
+The tenkey overlay is a game-oriented mode for tenkeyless keyboards and
+is independent of the host layout preset. No Unicode or text-buffer
+injection is used. Set `VAEG_KBD_TRACE=1` to log keyboard event routing
+and selected guest actions.
 
 Roman Kana parses A-Z and apostrophe host scancodes and emits the same
 guest keyboard make/break sequence as physical keys. It never injects

@@ -46,7 +46,7 @@
 #include	"gui/gui.h"
 #include	"selftest.h"
 
-		NP2OSCFG	np2oscfg = {0, 0, 0, 0, 0, 1, 0};
+		NP2OSCFG	np2oscfg = {0, 0, 0, 0, 0, 1, 0, "", "", "", 0, 0, ""};
 
 static const UINT smoke_timeout_frames = 600;
 static const UINT max_catchup_frames = 15;

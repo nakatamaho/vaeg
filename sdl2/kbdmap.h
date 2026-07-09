@@ -180,9 +180,11 @@ KBDMAP_STATUS kbdmap_binding_status(int index);
 const char *kbdmap_status_name(KBDMAP_STATUS status);
 const char *kbdmap_layout_name(void);
 const char *kbdmap_kana_input_name(void);
+BOOL kbdmap_tenkey_overlay_enabled(void);
 
 void kbdmap_set_layout(const char *layout);
 void kbdmap_set_kana_input(const char *mode);
+void kbdmap_set_tenkey_overlay(BOOL enabled);
 void kbdmap_reset_to_jis(void);
 void kbdmap_reset_to_us(void);
 BOOL kbdmap_set_binding(int index, SDL_Scancode scancode);
