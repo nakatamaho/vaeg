@@ -1,4 +1,3 @@
-#if defined(SUPPORT_PC88VA)
 
 typedef struct {
 	BYTE	*dst;
@@ -21,6 +20,4 @@ const SDRAWFNVA sdrawva_getproctbl(const SCRNSURF *surf);
 
 #ifdef __cplusplus
 }
-#endif
-
 #endif

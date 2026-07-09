@@ -5,15 +5,11 @@
 #include	"iocore.h"
 #include	"vram.h"
 #include	"font.h"
-#if defined(SUPPORT_PC88VA)
 #include	"memoryva.h"
-#endif
 
 
 	BYTE	mem[0x200000];
-#if defined(SUPPORT_PC88VA)
 	UINT8	memmode_va;
-#endif
 
 
 // ---- write byte
@@ -801,11 +797,9 @@ const VACCTBL	*vacc;
 
 REG8 MEMCALL i286_memoryread(UINT32 address) {
 
-#if defined(SUPPORT_PC88VA)
 	if (memmode_va) {
 		return(i286_memoryread_va(address));
 	}
-#endif
 	if (address < I286_MEMREADMAX) {
 		return(mem[address]);
 	}
@@ -829,11 +823,9 @@ REG16 MEMCALL i286_memoryread_w(UINT32 address) {
 
 	REG16	ret;
 
-#if defined(SUPPORT_PC88VA)
 	if (memmode_va) {
 		return(i286_memoryread_va_w(address));
 	}
-#endif
 	if (address < (I286_MEMREADMAX - 1)) {
 		return(LOADINTELWORD(mem + address));
 	}
@@ -872,12 +864,10 @@ REG16 MEMCALL i286_memoryread_w(UINT32 address) {
 
 void MEMCALL i286_memorywrite(UINT32 address, REG8 value) {
 
-#if defined(SUPPORT_PC88VA)
 	if (memmode_va) {
 		i286_memorywrite_va(address, value);
 		return;
 	}
-#endif
 	if (address < I286_MEMWRITEMAX) {
 		mem[address] = (BYTE)value;
 	}
@@ -896,12 +886,10 @@ void MEMCALL i286_memorywrite(UINT32 address, REG8 value) {
 
 void MEMCALL i286_memorywrite_w(UINT32 address, REG16 value) {
 
-#if defined(SUPPORT_PC88VA)
 	if (memmode_va) {
 		i286_memorywrite_va_w(address, value);
 		return;
 	}
-#endif
 	if (address < (I286_MEMWRITEMAX - 1)) {
 		STOREINTELWORD(mem + address, value);
 	}

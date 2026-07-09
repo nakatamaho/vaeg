@@ -13,7 +13,6 @@
 #include	"biosva.h"
 #include	"subsystem.h"
 
-#if defined(SUPPORT_PC88VA)
 
 #define VAFONTROM "VAFONT.ROM"
 #define VADICROM  "VADIC.ROM"
@@ -82,5 +81,3 @@ void biosva_initialize(void) {
 
 
 }
-
-#endif

@@ -55,7 +55,6 @@ typedef struct {
 		BYTE	b[2];
 		UINT16	w;
 	} leng;					// カウントレジスタ(現在値)
-#if defined(SUPPORT_PC88VA)
 	BYTE	dmy1;			// adrsorgを4バイト境界に置くためのダミー
 	BYTE	dmy2;
 	union {
@@ -63,12 +62,6 @@ typedef struct {
 		UINT16	xw[2];
 		UINT32	xd;
 	} adrsorg;				// アドレスレジスタ(ベース)
-#else
-	union {
-		BYTE	b[2];
-		UINT16	w;
-	} adrsorg;				// アドレスレジスタ(ベース)
-#endif
 	union {
 		BYTE	b[2];
 		UINT16	w;
@@ -99,11 +92,9 @@ typedef struct {
 	UINT	devices;
 	DMADEV	device[8];
 
-#if defined(SUPPORT_PC88VA)
 	UINT8	selch;			// レジスタの読み書き対象として選択されているチャンネル
 	BOOL	base;			// 0.カレント選択(リード時) カレント/ベース選択(ライト時)
 							// 1.ベース選択
-#endif
 
 } _DMAC, *DMAC;
 

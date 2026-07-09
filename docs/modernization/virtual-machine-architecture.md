@@ -96,8 +96,8 @@ guest reset:
 
 - CPU core initialization.
 - Palette and draw-table initialization.
-- PC-88VA text, sprite, graphics, and subsystem helpers when
-  `SUPPORT_PC88VA` is enabled.
+- PC-88VA text, sprite, graphics, and subsystem helpers. The active
+  CMake/SDL2 tree is always built with PC-88VA support.
 - FDD, SXSI, font, GDC, sound, serial, MIDI, PC-9861K, and I/O core
   construction.
 

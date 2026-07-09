@@ -74,7 +74,6 @@ void beep_reset(void) {
 	beep.mode = 1;
 }
 
-#if defined(SUPPORT_PC88VA)
 void beep_hzset(UINT16 cnt, UINT beepclock) {
 
 	double	hz;
@@ -89,22 +88,6 @@ void beep_hzset(UINT16 cnt, UINT beepclock) {
 		}
 	}
 }
-#else
-void beep_hzset(UINT16 cnt) {
-
-	double	hz;
-
-	sound_sync();
-	beep.hz = 0;
-	if ((cnt & 0xff80) && (beepcfg.rate)) {
-		hz = 65536.0 / 4.0 * pccore.baseclock / beepcfg.rate / cnt;
-		if (hz < 0x8000) {
-			beep.hz = (UINT16)hz;
-			return;
-		}
-	}
-}
-#endif
 
 void beep_modeset(void) {
 

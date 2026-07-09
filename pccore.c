@@ -13,9 +13,7 @@
 #include	"mpu98ii.h"
 #include	"amd98.h"
 #include	"bios.h"
-#if defined(SUPPORT_PC88VA)
 #include	"biosva.h"
-#endif
 #include	"biosmem.h"
 #include	"vram.h"
 #include	"scrndraw.h"
@@ -45,7 +43,6 @@
 
 #include	"bmsio.h"
 
-#if defined(SUPPORT_PC88VA)
 #include	"../vramva/maketextva.h"
 #include	"../vramva/makesprva.h"
 #include	"../vramva/makegrphva.h"
@@ -57,7 +54,6 @@
 #include	"videova.h"
 #include	"subsystemmx.h"
 #include	"va91.h"
-#endif
 
 const OEMCHAR np2version[] = OEMTEXT(NP2VER_CORE);
 
@@ -73,18 +69,10 @@ const OEMCHAR np2version[] = OEMTEXT(NP2VER_CORE);
 				0, 0, 0, 0,
 				{0x3e, 0x73, 0x7b}, 0,
 				0, 0, {1, 1, 6, 1, 8, 1},
-#if defined(SUPPORT_PC88VA)
 				OEMTEXT("88VA2"), PCBASECLOCK40, 2,
-#else
-				OEMTEXT("VX"), PCBASECLOCK25, PCBASEMULTIPLE,
-#endif
 				{0x48, 0x05, 0x04, 0x00, 0x01, 0x00, 0x00, 0x6e},
 				1, 1, 2, 1, 0x000000, 0xffffff,
-#if defined(SUPPORT_PC88VA)
 				22050, 500, 0x200, 0,
-#else
-				22050, 500, 4, 0,
-#endif
 				{0, 0, 0}, 0xd1, 0x7f, 0xd1, 0, 0, 1,
 				3, {0x0c, 0x0c, 0x08, 0x06, 0x03, 0x0c}, 64, 64, 64, 64, 64,
 				1, 0x82,
@@ -94,9 +82,7 @@ const OEMCHAR np2version[] = OEMTEXT(NP2VER_CORE);
 #else
 				3, 1, 80, 0, 0,
 #endif
-#if defined(SUPPORT_PC88VA)
 				0,
-#endif
 				{OEMTEXT(""), OEMTEXT("")},
 #if defined(SUPPORT_SCSI)
 				{OEMTEXT(""), OEMTEXT(""), OEMTEXT(""), OEMTEXT("")},
@@ -146,7 +132,6 @@ static void pccore_set(void) {
 	ZeroMemory(&pccore, sizeof(pccore));
 	model = PCMODEL_VX;
 
-#if defined(SUPPORT_PC88VA)
 	pccore.model_va = PCMODEL_NOTVA;
 	if (!milstr_cmp(np2cfg.model, str_VA1)) {
 		model = PCMODEL_VM;
@@ -157,7 +142,6 @@ static void pccore_set(void) {
 		pccore.model_va = PCMODEL_VA2;
 	}
 	else
-#endif
 
 	if (!milstr_cmp(np2cfg.model, str_VM)) {
 		model = PCMODEL_VM;
@@ -167,13 +151,11 @@ static void pccore_set(void) {
 	}
 	pccore.model = model;
 
-#if defined(SUPPORT_PC88VA)
 	if (np2cfg.baseclock >= ((PCBASECLOCK40 + PCBASECLOCK25) / 2)) {
 		pccore.baseclock = PCBASECLOCK40;			// 4.0MHz
 		pccore.cpumode = CPUMODE_BASE4MHZ;
 	}
 	else 
-#endif
 	if (np2cfg.baseclock >= ((PCBASECLOCK25 + PCBASECLOCK20) / 2)) {
 		pccore.baseclock = PCBASECLOCK25;			// 2.5MHz
 		pccore.cpumode = 0;
@@ -268,13 +250,11 @@ void pccore_init(void) {
 	pal_initlcdtable();
 	pal_makelcdpal();
 	pal_makeskiptable();
-#if defined(SUPPORT_PC88VA)
 //	palva_maketable();
 	maketextva_initialize();
 	makesprva_initialize();
 	makegrphva_initialize();
 	subsystemmx_initialize();
-#endif
 	dispsync_initialize();
 	sxsi_initialize();
 
@@ -339,7 +319,6 @@ void pccore_cfgupdate(void) {
 			renewal = TRUE;
 		}
 	}
-#if defined(SUPPORT_PC88VA)
 	{
 		UINT8 val;
 
@@ -351,7 +330,6 @@ void pccore_cfgupdate(void) {
 			}
 		}
 	}
-#endif
 	if (renewal) {
 		sysmng_update(SYS_UPDATECFG);
 	}
@@ -383,11 +361,9 @@ void pccore_reset(void) {
 #if defined(SUPPORT_BMS)
 	bmsio_set();
 #endif
-#if defined(SUPPORT_PC88VA)
 	if (pccore.model_va != PCMODEL_NOTVA) {
 		keystat_setlockedkey(np2cfg.lockedkey);
 	}
-#endif
 	nevent_allreset();
 
 #if defined(VAEG_FIX)
@@ -401,11 +377,9 @@ void pccore_reset(void) {
 	if (np2cfg.dipsw[2] & 0x80) {
 		CPU_TYPE = CPUTYPE_V30;
 	}
-#if defined(SUPPORT_PC88VA)
 	if (pccore.model_va != PCMODEL_NOTVA) {
 		CPU_TYPE = CPUTYPE_V30;
 	}
-#endif
 
 #if defined(VAEG_FIX)
 	CPU_RESET();
@@ -445,9 +419,7 @@ void pccore_reset(void) {
 	fmboard_reset(pccore.sound);
 
 	i286_memorymap((pccore.model & PCMODEL_EPSON)?1:0);
-#if defined(SUPPORT_PC88VA)
 	i286_memorymap_va();
-#endif
 	iocore_build();
 	iocore_bind();
 	cbuscore_bind();
@@ -460,12 +432,10 @@ void pccore_reset(void) {
 	pal_change(1);
 
 	bios_initialize();
-#if defined(SUPPORT_PC88VA)
 	if (pccore.model_va != PCMODEL_NOTVA) {
 		biosva_initialize();
 		va91_initialize();
 	}
-#endif
 	CS_BASE = 0xf0000;
 	CPU_CS = 0xf000;
 	CPU_IP = 0xfff0;
@@ -654,7 +624,6 @@ void screenvsync(NEVENTITEM item) {
 	(void)item;
 }
 
-#if defined(SUPPORT_PC88VA)
 
 static void drawscreenva(void) {
 
@@ -932,7 +901,6 @@ void sysp4vsyncend(NEVENTITEM item) {
 
 }
 
-#endif
 
 
 // ---------------------------------------------------------------------------
@@ -1010,15 +978,10 @@ void pccore_debugmem(UINT32 op, UINT32 addr, UINT16 data) {
 }
 
 void pccore_debugint(UINT32 no) {
-#if defined(SUPPORT_PC88VA)
 	if (no != 0x82 && !(no == 0x83 && CPU_AX==0x2e00) && no != 0x96) {
 		TRACEOUT(("cpu: int 0x%02x %04x:%04x rom0=%02x AX=%04x BX=%04x CX=%04x DX=%04x SI=%04x DI=%04x BP=%04x SP=%04x DS=%04x ES=%04x SS=%04x",
 		no, CPU_CS, CPU_IP,  memoryva.rom0_bank, CPU_AX, CPU_BX, CPU_CX, CPU_DX, CPU_SI, CPU_DI, CPU_BP, CPU_SP, CPU_DS, CPU_ES, CPU_SS));
 	}
-#else
-	TRACEOUT(("cpu: int 0x%02x %04x:%04x AX=%04x BX=%04x CX=%04x DX=%04x SI=%04x DI=%04x BP=%04x SP=%04x DS=%04x ES=%04x SS=%04x",
-	no, CPU_CS, CPU_IP, CPU_AX, CPU_BX, CPU_CX, CPU_DX, CPU_SI, CPU_DI, CPU_BP, CPU_SP, CPU_DS, CPU_ES, CPU_SS));
-#endif
 	/*
 	if (no == 0x8b && CPU_AH == 0x17) {
 		int i;
@@ -1039,12 +1002,10 @@ void pccore_debugint(UINT32 no) {
 #if defined(TRACE) && IPTRACE
 static	UINT	trpos = 0;
 static	UINT32	treip[IPTRACE];
-#if defined(SUPPORT_PC88VA)
 static	BYTE	trerom0bank[IPTRACE];
 static	WORD	tredata1[IPTRACE];
 
 		int		treafter = 0;			// Shinra
-#endif
 
 void iptrace_out(void) {
 
@@ -1062,16 +1023,10 @@ void iptrace_out(void) {
 	}
 	fh = file_create_c("his.txt");
 	while(s < trpos) {
-#if defined(SUPPORT_PC88VA)
 		BYTE	bank = trerom0bank[s & (IPTRACE - 1)];
-#endif
 		eip = treip[s & (IPTRACE - 1)];
-#if defined(SUPPORT_PC88VA)
 //		SPRINTF(buf, "%.4x:%.4x (rom0=%.2x)\r\n", (eip >> 16), eip & 0xffff, bank);
 		SPRINTF(buf, "%.4x:%.4x (rom0=%.2x) ES=%.4x\r\n", (eip >> 16), eip & 0xffff, bank, tredata1[s & (IPTRACE - 1)]);
-#else
-		SPRINTF(buf, "%.4x:%.4x\r\n", (eip >> 16), eip & 0xffff);
-#endif
 		s++;
 		file_write(fh, buf, strlen(buf));
 	}
@@ -1107,7 +1062,6 @@ void pccore_exec(BOOL draw) {
 	MEMWAIT_TRAM = np2cfg.wait[0];
 	MEMWAIT_VRAM = np2cfg.wait[2];
 	MEMWAIT_GRCG = np2cfg.wait[4];
-#if defined(SUPPORT_PC88VA)
 /*	screendispvaに移動
 	tsp.vsync = 0;
 */
@@ -1125,9 +1079,6 @@ void pccore_exec(BOOL draw) {
 			screendispva_setnevent();
 		}
 	}
-#else
-	nevent_set(NEVENT_FLAMES, gdc.dispclock, screenvsync, NEVENT_RELATIVE);
-#endif
 
 //	nevent_get1stevent();
 
@@ -1150,12 +1101,10 @@ void pccore_exec(BOOL draw) {
 			else {
 				CPU_EXECV30();
 			}
-#if defined(SUPPORT_PC88VA)
 			if (pccore.model_va != PCMODEL_NOTVA) {
 				subsystemmx_exec();
 				sgp_step();
 			}
-#endif
 		}
 
 #else	// SINGLESTEPONLY
@@ -1163,10 +1112,8 @@ void pccore_exec(BOOL draw) {
 		while(CPU_REMCLOCK > 0) {
 #if defined(TRACE) && IPTRACE
 			treip[trpos & (IPTRACE - 1)] = (CPU_CS << 16) + CPU_IP;
-#if defined(SUPPORT_PC88VA)
 			trerom0bank[trpos & (IPTRACE - 1)] = memoryva.rom0_bank;
 			tredata1[trpos & (IPTRACE - 1)] =CPU_ES;
-#endif
 			trpos++;
 #endif
 //@@@@@@
@@ -1233,12 +1180,10 @@ void pccore_exec(BOOL draw) {
 				v30x_step();						// added by Shinra
 #endif
 			}
-#if defined(SUPPORT_PC88VA)
 			if (pccore.model_va != PCMODEL_NOTVA) {
 				subsystemmx_exec();
 				sgp_step();
 			}
-#endif
 		}
 #endif	// SINGLESTEPONLY
 

@@ -7,7 +7,6 @@
 #include	"compiler.h"
 #include	"i8255.h"
 
-#if defined(SUPPORT_PC88VA)
 
 #define CTRL_PORTADIR 0x10
 #define CTRL_PORTBDIR 0x02
@@ -120,5 +119,3 @@ void i8255_businportc(I8255CFG p, BYTE dat) {
 
 	s->portc = (s->portc & ~s->portcinmask) | (dat & s->portcinmask);
 }
-
-#endif

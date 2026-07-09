@@ -10,7 +10,6 @@
 #include	"memoryva.h"
 #include	"fddfile.h"
 
-#if defined(SUPPORT_PC88VA)
 
 enum {
 	// ポートC のビット(サブシステムからの見た場合)
@@ -1032,5 +1031,3 @@ void fdsubsys_bind(void) {
 	iocoreva_attachinp(0x0fc, fdsubsys_i0fc);
 	iocoreva_attachinp(0x0fe, fdsubsys_i0fe);
 }
-
-#endif

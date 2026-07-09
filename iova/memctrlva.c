@@ -11,7 +11,6 @@
 #include	"sgp.h"
 #include	"va91.h"
 
-#if defined(SUPPORT_PC88VA)
 
 // ---- I/O
 
@@ -122,5 +121,3 @@ void memctrlva_bind(void) {
 	iocoreva_attachinp(0x030, memctrlva_i030);
 	iocoreva_attachinp(0x031, memctrlva_i031);
 }
-
-#endif

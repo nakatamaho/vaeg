@@ -6,9 +6,7 @@
 #include	"cs4231.h"
 #include	"sasiio.h"
 
-#if defined(SUPPORT_PC88VA)
 #include	"iocoreva.h"
-#endif
 
 // TRACEOUTを有効にする場合は、以下の1を0にする
 #if 1
@@ -130,11 +128,7 @@ static void IOOUTCALL dmac_o01(UINT port, REG8 dat) {
 	lh = dmac.lh;
 	dmac.lh = (UINT8)(lh ^ 1);
 	dmach->adrs.b[lh + DMA32_LOW] = dat;
-#if defined(SUPPORT_PC88VA)
 	dmach->adrsorg.xb[lh + DMA32_LOW] = dat;
-#else
-	dmach->adrsorg.b[lh] = dat;
-#endif
 }
 
 static void IOOUTCALL dmac_o03(UINT port, REG8 dat) {
@@ -257,7 +251,6 @@ static REG8 IOINPCALL dmac_i11(UINT port) {
 }
 
 
-#if defined(SUPPORT_PC88VA)
 
 /*
 	bit0..reset
@@ -543,7 +536,6 @@ static REG8 IOINPCALL dmacva_i16f(UINT port) {
 }
 
 
-#endif
 
 
 // ---- I/F
@@ -569,10 +561,8 @@ void dmac_reset(void) {
 	ZeroMemory(&dmac, sizeof(dmac));
 	dmac.lh = DMA16_LOW;
 	dmac.mask = 0xf;		// DMA要求禁止 全チャンネル
-#if defined(SUPPORT_PC88VA)
 	dmac.selch = 0;			// 根拠なし
 	dmac.base = 0;			// 根拠なし
-#endif
 	dmac_procset();
 //	TRACEOUT(("sizeof(_DMACH) = %d", sizeof(_DMACH)));
 }
@@ -583,7 +573,6 @@ void dmac_bind(void) {
 	iocore_attachsysinpex(0x0001, 0x0ce1, dmaci00, 16);
 	iocore_attachsysoutex(0x0021, 0x0cf1, dmaco21, 8);
 
-#if defined(SUPPORT_PC88VA)
 	iocoreva_attachout(0x160, dmacva_o160);
 	iocoreva_attachout(0x161, dmacva_o161);
 	iocoreva_attachinp(0x161, dmacva_i161);
@@ -606,7 +595,6 @@ void dmac_bind(void) {
 	iocoreva_attachout(0x16f, dmacva_o16f);
 	iocoreva_attachinp(0x16f, dmacva_i16f);
 
-#endif
 }
 
 

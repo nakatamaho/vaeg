@@ -5,7 +5,6 @@
 #include	"sdrawva.h"
 #include	"scrndrawva.h"
 
-#if defined(SUPPORT_PC88VA)
 
 
 
@@ -169,5 +168,3 @@ static const SDRAWFNVA tbl[] = {
 const SDRAWFNVA sdrawva_getproctbl(const SCRNSURF *surf) {
 	return tbl[((surf->bpp >> 3) - 1) & 3];
 }
-
-#endif

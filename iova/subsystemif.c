@@ -11,7 +11,6 @@
 #include	"subsystem.h"
 #include	"subsystemif.h"
 
-#if defined(SUPPORT_PC88VA)
 
 		_SUBSYSTEMIF subsystemif;
 static	_I8255CFG i8255cfg;
@@ -167,5 +166,3 @@ void subsystemif_bind(void) {
 	iocoreva_attachinp(0x0fc, subsystemif_i0fc);
 	iocoreva_attachinp(0x0fe, subsystemif_i0fe);
 }
-
-#endif

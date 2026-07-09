@@ -26,7 +26,6 @@ ToDo:
 #include	"videova.h"
 #include	"maketextva.h"
 
-#if defined(SUPPORT_PC88VA)
 
 //#define	USETABLE					// 返って遅くなってしまうようだ。
 //#define	USETABLE2					// 効果がなさそうだ。
@@ -530,5 +529,3 @@ void maketextva_raster(void) {
 	}
 	work.screeny++;
 }
-
-#endif
