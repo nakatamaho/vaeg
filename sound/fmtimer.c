@@ -17,6 +17,7 @@ void fmport_a(NEVENTITEM item) {
 	BOOL	intreq = FALSE;
 
 	if (item->flag & NEVENT_SETEVENT) {
+		opngen_timerover(0);
 		intreq = pcm86gen_intrq();
 		//if (intreq) TRACEOUT(("fmtimer: int-A (pcm86gen)"));
 		if (fmtimer.reg & 0x04) {
@@ -52,6 +53,7 @@ void fmport_b(NEVENTITEM item) {
 	BOOL	intreq = FALSE;
 
 	if (item->flag & NEVENT_SETEVENT) {
+		opngen_timerover(1);
 		intreq = pcm86gen_intrq();
 		//if (intreq) TRACEOUT(("fmtimer: int-B (pcm86gen)"));
 		if (fmtimer.reg & 0x08) {

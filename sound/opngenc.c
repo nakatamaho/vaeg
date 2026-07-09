@@ -5,6 +5,7 @@
 #include	"sound.h"
 #include	"fmboard.h"
 #include	"keydisp.h"
+#include	"ymfmbridge.h"
 
 
 #define	OPM_ARRATE		 399128L
@@ -48,6 +49,33 @@ static const UINT8 dttable[] = {
 					8, 8, 9,10,11,12,13,14,16,17,19,20,22,22,22,22};
 static const int extendslot[4] = {2, 3, 1, 0};
 static const int fmslot[4] = {0, 2, 1, 3};
+
+static UINT opnbackend = OPN_BACKEND_YMFM;
+
+
+void opngen_setbackend(UINT backend) {
+
+	opnbackend = (backend == OPN_BACKEND_YMFM) ?
+									OPN_BACKEND_YMFM : OPN_BACKEND_NP2;
+}
+
+UINT opngen_getbackend(void) {
+
+	return(opnbackend);
+}
+
+UINT opngen_parsebackend(const char *name) {
+
+	if ((name != NULL) && !strcmp(name, "np2")) {
+		return(OPN_BACKEND_NP2);
+	}
+	return(OPN_BACKEND_YMFM);
+}
+
+const char *opngen_backendname(UINT backend) {
+
+	return((backend == OPN_BACKEND_YMFM) ? "ymfm" : "np2");
+}
 
 
 void opngen_initialize(UINT rate) {
@@ -176,6 +204,7 @@ void opngen_initialize(UINT rate) {
 		attacktable[i] = attacktable[63];
 		decaytable[i] = decaytable[63];
 	}
+	ymfm_opn_initialize(rate);
 }
 
 void opngen_setvol(UINT vol) {
@@ -184,6 +213,7 @@ void opngen_setvol(UINT vol) {
 #if defined(OPNGENX86)
 	opncfg.fmvol <<= FMASMSHIFT;
 #endif
+	ymfm_opn_setvol(vol);
 }
 
 void opngen_setVR(REG8 channel, REG8 value) {
@@ -196,6 +226,7 @@ void opngen_setVR(REG8 channel, REG8 value) {
 	else {
 		opncfg.vr_en = FALSE;
 	}
+	ymfm_opn_setvr(channel, value);
 }
 
 
@@ -412,6 +443,7 @@ void opngen_reset(void) {
 	OPNSLOT	*slot;
 	UINT	j;
 
+	ymfm_opn_reset();
 	ZeroMemory(&opngen, sizeof(opngen));
 	ZeroMemory(opnch, sizeof(opnch));
 	opngen.playchannels = 3;
@@ -467,6 +499,7 @@ void opngen_setcfg(REG8 maxch, UINT flag) {
 			ch++;
 		}
 	}
+	ymfm_opn_setcfg(maxch, flag);
 }
 
 void opngen_setextch(UINT chnum, REG8 data) {
@@ -475,6 +508,15 @@ void opngen_setextch(UINT chnum, REG8 data) {
 
 	ch = opnch;
 	ch[chnum].extop = data;
+	ymfm_opn_setextch(chnum, data);
+}
+
+void opngen_setcontrol(REG8 chbase, REG8 reg, REG8 value) {
+
+	if (reg == 0x27) {
+		opngen_setextch(chbase + 2, value & 0xc0);
+	}
+	ymfm_opn_setcontrol(chbase, reg, value);
 }
 
 void opngen_setreg(REG8 chbase, REG8 reg, REG8 value) {
@@ -484,7 +526,9 @@ void opngen_setreg(REG8 chbase, REG8 reg, REG8 value) {
 	OPNSLOT	*slot;
 	UINT	fn;
 	UINT8	blk;
+	REG8	rawvalue;
 
+	rawvalue = value;
 	chpos = reg & 3;
 	if (chpos == 3) {
 		return;
@@ -575,6 +619,7 @@ void opngen_setreg(REG8 chbase, REG8 reg, REG8 value) {
 				break;
 		}
 	}
+	ymfm_opn_setreg(chbase, reg, rawvalue);
 }
 
 void opngen_keyon(UINT chnum, REG8 value) {
@@ -619,5 +664,10 @@ void opngen_keyon(UINT chnum, REG8 value) {
 		bit <<= 1;
 	}
 	keydisp_fmkeyon((UINT8)chnum, value);
+	ymfm_opn_keyon(chnum, value);
 }
 
+void opngen_timerover(UINT timer) {
+
+	ymfm_opn_timerover(timer);
+}

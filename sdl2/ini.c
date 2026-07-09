@@ -29,6 +29,8 @@
 #include	"dosio.h"
 #include	"ini.h"
 #include	"pccore.h"
+#include	"sound.h"
+#include	"opngen.h"
 
 
 typedef struct {
@@ -404,6 +406,8 @@ static const INITBL iniitem[] = {
 						&np2oscfg.keyboard_tenkey_overlay, 0},
 	{"keyboard_custom_map", INITYPE_STR, np2oscfg.keyboard_custom_map,
 						sizeof(np2oscfg.keyboard_custom_map)},
+	{"opn_backend", INITYPE_STR, np2oscfg.opn_backend,
+						sizeof(np2oscfg.opn_backend)},
 };
 
 #define	INIITEMS	(sizeof(iniitem) / sizeof(INITBL))
@@ -423,6 +427,10 @@ void initload(void) {
 		np2oscfg.keyboard_auto_kana_lock ? 1 : 0;
 	np2oscfg.keyboard_tenkey_overlay =
 		np2oscfg.keyboard_tenkey_overlay ? 1 : 0;
+	opngen_setbackend(opngen_parsebackend(np2oscfg.opn_backend));
+	milstr_ncpy(np2oscfg.opn_backend,
+				opngen_backendname(opngen_getbackend()),
+				sizeof(np2oscfg.opn_backend));
 }
 
 void initsave(void) {

@@ -274,6 +274,9 @@ set(VAEG_SDL2_SOURCES
     external/imgui/imgui_widgets.cpp
     external/imgui/backends/imgui_impl_sdl2.cpp
     external/imgui/backends/imgui_impl_sdlrenderer2.cpp
+    external/ymfm/src/ymfm_adpcm.cpp
+    external/ymfm/src/ymfm_opn.cpp
+    external/ymfm/src/ymfm_ssg.cpp
     sdl2/np2.c
     sdl2/dosio.c
     sdl2/ini.c
@@ -289,6 +292,7 @@ set(VAEG_SDL2_SOURCES
     sdl2/inputmng.c
     sdl2/selftest.c
     sdl2/soundmng.c
+    sdl2/ymfmbridge.cpp
     sdl2/mousemng.c
     sdl2/joymng.c
     sdl2/commng.c
@@ -335,7 +339,8 @@ set_target_properties(vaeg_sdl2 PROPERTIES
 target_include_directories(vaeg_sdl2 PRIVATE
     ${VAEG_INCLUDE_DIRS}
     "${CMAKE_CURRENT_SOURCE_DIR}/external/imgui"
-    "${CMAKE_CURRENT_SOURCE_DIR}/external/imgui/backends")
+    "${CMAKE_CURRENT_SOURCE_DIR}/external/imgui/backends"
+    "${CMAKE_CURRENT_SOURCE_DIR}/external/ymfm/src")
 target_link_libraries(vaeg_sdl2 PRIVATE vaeg_core vaeg_va vaeg_common
     vaeg_core vaeg_va ${VAEG_SDL2_LIBS})
 if(MINGW)

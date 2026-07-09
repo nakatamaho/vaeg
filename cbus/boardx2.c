@@ -31,9 +31,7 @@ static void IOOUTCALL opn_o08a(UINT port, REG8 dat) {
 			}
 			else {
 				fmtimer_setreg(opn.opn2reg, dat);
-				if (opn.opn2reg == 0x27) {
-					opnch[2].extop = dat & 0xc0;
-				}
+				opngen_setcontrol(0, opn.opn2reg, dat);
 			}
 		}
 		else if (opn.opn2reg < 0xc0) {
@@ -97,9 +95,7 @@ static void IOOUTCALL opna_o18a(UINT port, REG8 dat) {
 			}
 			else {
 				fmtimer_setreg(opn.opnreg, dat);
-				if (opn.opnreg == 0x27) {
-					opnch[2].extop = dat & 0xc0;
-				}
+				opngen_setcontrol(0, opn.opnreg, dat);
 			}
 		}
 		else if (opn.opnreg < 0xc0) {

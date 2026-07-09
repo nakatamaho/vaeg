@@ -948,10 +948,10 @@ static int flagload_fm(STFLAGH sfh, const SFENTRY *t) {
 		ret |= statflag_read(sfh, &opn, sizeof(opn));
 		ret |= statflag_read(sfh, &opnkey, sizeof(opnkey));
 		CopyMemory(opngen.keyreg, &opnkey.keyreg, sizeof(opngen.keyreg));
-		opnch[2].extop = opnkey.extop[0];
-		opnch[5].extop = opnkey.extop[1];
-		opnch[8].extop = opnkey.extop[2];
-		opnch[11].extop = opnkey.extop[3];
+		opngen_setextch(2, opnkey.extop[0]);
+		opngen_setextch(5, opnkey.extop[1]);
+		opngen_setextch(8, opnkey.extop[2]);
+		opngen_setextch(11, opnkey.extop[3]);
 	}
 	if (saveflg & FLAG_PSG1) {
 		ret |= statflag_read(sfh, &psg1.reg, sizeof(PSGREG));

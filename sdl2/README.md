@@ -105,6 +105,22 @@ used. `vabkupmem.dat` and fixed GUI save-state slots use the same
 directory. `vabkupmem.dat` also loads once from the configured ROM path
 for migration; saves always go to the user state directory.
 
+## OPN/OPNA FM Backend
+
+The Sound menu exposes `OPN backend -> NP2` and `OPN backend -> ymfm`.
+The selection is saved in `np2.cfg` as:
+
+```ini
+opn_backend=ymfm
+```
+
+`ymfm` is the default and selects the BSD-3-Clause ymfm YM2203/YM2608 FM
+operator implementation. Select `np2` for the established NP2 sound behavior.
+The backend change performs the normal GUI reset so the selected synthesizer
+starts from a fully replayed board state; mounted FDD/SASI paths are retained.
+Timer/IRQ, SSG, ADPCM, rhythm, board I/O, and final mixing remain on the NP2
+path in this stage. Missing or unknown configuration values fall back to `ymfm`.
+
 ## Upgrading From An Older Config
 
 Older `np2.cfg` files can keep PC-98 defaults after switching to the
