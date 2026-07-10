@@ -75,11 +75,7 @@ static	UINT	framemax = 1;
 
 static void usage(const char *progname) {
 
-#if defined(SUPPORT_PC88VA)
 	printf("88VA Eternal Grafx %s (%s)\n", VAEGREL_CORE, NP2VER_CORE);
-#else
-	printf("Neko Project II %s\n", NP2VER_CORE);
-#endif
 	printf("Usage: %s [options]\n", progname);
 	printf("\t--help   [-h]       : print this message\n");
 	printf("\t--smoke             : initialize SDL2, run a short core loop, exit\n");
