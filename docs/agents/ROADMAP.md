@@ -51,9 +51,10 @@ history, not by a current CI or compile guarantee.
 | M15 | tasks/M15_support_pc88va_constant_fold.md | Fold the always-enabled `SUPPORT_PC88VA` compile-time flag in the active tree while retaining runtime model selection | **G15 passed** |
 | M16 | tasks/M16_sasi_hdd_gui.md | Reactivate SASI in active CMake; expose SASI HDI creation and SASI-1/SASI-2 Open/Remove in the SDL2 ImGui HardDisk menu | **G16 passed** |
 | M17 | tasks/M17_opn_backend.md | Keep NP2 OPN/OPNA FM selectable; add BSD-3-Clause ymfm YM2203/YM2608 as the default backend with GUI/config selection | **G17 passed** |
+| M18 | tasks/M18_rom_layout.md | Use executable-relative MAME ROM names/checksums, with VA2 `*_va2.rom` names and GUI VA/VA2 selection | **G18 passed** |
 
 Phase 2 dependencies: M7 → M8 → {M9, M10 parallel} → M11 → M12 → M13.
-Post-phase dependency: M13 → M14 → M15 → M16 → M17.
+Post-phase dependency: M13 → M14 → M15 → M16 → M17 → M18.
 M9 must pass before M11 (all three OSes must ship the VA machine, not
 the PC-98 scaffold).
 
@@ -87,7 +88,7 @@ gate on the PC-98 scaffold; G9 onward use the full VA checklist.
 
 A gate passes only when the user says so. Pushed tags are immutable.
 Tag `portable-pc98` after G8, `portable-va` after G9,
-`phase2-complete` after G13. M14-M17 currently have no tag
+`phase2-complete` after G13. M14-M18 currently have no tag
 assignment.
 
 ## Resolved decision points
@@ -113,3 +114,9 @@ assignment.
   compatibility option and selects the BSD-3-Clause ymfm YM2203/YM2608
   implementation as the default FM-operator backend. NP2 retains timer/IRQ,
   SSG, ADPCM, rhythm, board-I/O, and mixer ownership in this milestone.
+- **Model-specific ROM names (M18).** The active SDL2 frontend reads ROMs
+  beside the executable. VA uses unsuffixed names; VA2 and VA3 use MAME's
+  `pc88va2` `*_va2.rom` names without fallback to VA files. Executable-relative
+  lookup is primary; cwd is a development fallback. Size, CRC32, and SHA-1
+  are checked against MAME, including the extra `vasubsys.rom`, with warning-
+  only mismatch handling. The frozen reference layout is unchanged.

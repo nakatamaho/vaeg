@@ -65,9 +65,37 @@ cmake --build --preset mingw-cross
 ## Runtime Files
 
 Machine ROM images, guest font ROMs, optional mechanical sound WAV files,
-and operating system disks are not provided by this repository. Use
-legally obtained files from your own environment. The host GUI font used
-by Dear ImGui is bundled separately under `assets/`.
+and operating system disks are not provided by this repository. ROMs must
+be extracted from hardware you own. The host GUI font used by Dear ImGui
+is bundled separately under `assets/`.
+
+Place ROMs beside `vaeg` or `vaeg.exe`:
+
+```text
+vaeg distribution root/
+  vaeg[.exe]
+  vadic.rom                 VA
+  vafont.rom
+  varom00.rom
+  varom08.rom
+  varom1.rom
+  vadic_va2.rom             VA2/VA3
+  vafont_va2.rom
+  varom00_va2.rom
+  varom08_va2.rom
+  varom1_va2.rom
+  vasubsys.rom              extra FDD subsystem ROM
+```
+
+The VA2/VA3 names match MAME's `pc88va2` ROM set in
+`src/mame/nec/pc88va.cpp`; VA2 never falls back to the unsuffixed VA names.
+`vasubsys.rom` remains a vaeg extra because vaeg runs the Z80 FDD
+subsystem that MAME currently leaves unconnected. The frontend checks the
+executable directory first, then the current working directory as a
+development fallback. ROM files are intentionally absent from source and
+binary artifacts. At startup, size, CRC32, and SHA-1 are compared with the
+MAME declarations, including MAME's disabled `vasubsys.rom` declaration;
+differences produce warnings but do not prevent startup.
 
 The portable frontend stores writable state in the platform user state
 directory:
@@ -97,6 +125,9 @@ clk_mult=2
 
 `pc_model=88VA2` is also valid. Stale PC-98 defaults can halt at V2,
 leave the VA sound board unbound, or run in the wrong clock domain.
+The GUI exposes `Emulate -> Boot model -> VA / VA2/VA3`; changing the
+selection updates `pc_model`, selects the matching ROM filename set, and
+resets the guest while retaining configured FDD and SASI media.
 
 ## PC-88VA Hardware Notes
 

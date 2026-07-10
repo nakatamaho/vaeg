@@ -328,6 +328,8 @@ static const INITBL iniitem[] = {
 	{"ExMemory", INITYPE_UINT8,		&np2cfg.EXTMEM,			0},
 	{"ITF_WORK", INITYPE_BOOL,		&np2cfg.ITF_WORK,		0},
 
+	{"FDD1FILE", INITYPE_STR,		np2oscfg.fdd_image[0],	MAX_PATH},
+	{"FDD2FILE", INITYPE_STR,		np2oscfg.fdd_image[1],	MAX_PATH},
 	{"HDD1FILE", INITYPE_STR,		np2cfg.sasihdd[0],		MAX_PATH},
 	{"HDD2FILE", INITYPE_STR,		np2cfg.sasihdd[1],		MAX_PATH},
 #if defined(SUPPORT_SCSI)
@@ -337,7 +339,6 @@ static const INITBL iniitem[] = {
 	{"SCSIHDD3", INITYPE_STR,		np2cfg.scsihdd[3],		MAX_PATH},
 #endif
 	{"fontfile", INITYPE_STR,		np2cfg.fontfile,		MAX_PATH},
-	{"biospath", INITYPE_STR,		np2cfg.biospath,		MAX_PATH},
 
 	{"SampleHz", INITYPE_UINT16,	&np2cfg.samplingrate,	0},
 	{"Latencys", INITYPE_UINT16,	&np2cfg.delayms,		0},
