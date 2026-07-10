@@ -3,6 +3,7 @@
 #include	"iocore.h"
 #include	"sound.h"
 #include	"fmboard.h"
+#include	"ymfmbridge.h"
 
 
 #if defined(OPNGENX86)
@@ -105,6 +106,11 @@ void SOUNDCALL opngen_getpcm(void *hdl, SINT32 *pcm, UINT count) {
 	SINT32	samp_l;
 	SINT32	samp_r;
 
+	if (opngen_getbackend() == OPN_BACKEND_YMFM) {
+		ymfm_opn_getpcm(pcm, count, FALSE);
+		return;
+	}
+
 	if ((!opngen.playing) || (!count)) {
 		return;
 	}
@@ -160,6 +166,11 @@ void SOUNDCALL opngen_getpcmvr(void *hdl, SINT32 *pcm, UINT count) {
 	UINT	i;
 	SINT32	samp_l;
 	SINT32	samp_r;
+
+	if (opngen_getbackend() == OPN_BACKEND_YMFM) {
+		ymfm_opn_getpcm(pcm, count, TRUE);
+		return;
+	}
 
 	fm = opnch;
 	while(count--) {

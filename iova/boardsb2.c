@@ -90,9 +90,7 @@ static void IOOUTCALL sb2_o045(UINT port, REG8 dat) {
 			}
 			else {
 				fmtimer_setreg(opn.opnreg, dat);
-				if (opn.opnreg == 0x27) {
-					opnch[2].extop = dat & 0xc0;
-				}
+				opngen_setcontrol(0, opn.opnreg, dat);
 			}
 		}
 		else if (opn.opnreg < 0xc0) {

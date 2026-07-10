@@ -22,50 +22,24 @@
  * IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-#ifndef VAEG_SDL2_NP2_H
-#define VAEG_SDL2_NP2_H
-
-enum {
-	NP2OSCFG_KEYBOARD_NAME_SIZE = 16,
-	NP2OSCFG_KEYBOARD_CUSTOM_MAP_SIZE = 8192,
-	NP2OSCFG_OPN_BACKEND_NAME_SIZE = 8
-};
-
-typedef struct {
-	BYTE	NOWAIT;
-	BYTE	DRAW_SKIP;
-	BYTE	F12KEY;
-	BYTE	resume;
-	BYTE	jastsnd;
-	BYTE	gui_scale;
-	BYTE	gui_aspect;
-	char	gui_fdd_dir[MAX_PATH];
-	char	gui_hdd_dir[MAX_PATH];
-	char	keyboard_host_layout[NP2OSCFG_KEYBOARD_NAME_SIZE];
-	char	keyboard_kana_input[NP2OSCFG_KEYBOARD_NAME_SIZE];
-	BYTE	keyboard_auto_kana_lock;
-	BYTE	keyboard_tenkey_overlay;
-	char	keyboard_custom_map[NP2OSCFG_KEYBOARD_CUSTOM_MAP_SIZE];
-	char	opn_backend[NP2OSCFG_OPN_BACKEND_NAME_SIZE];
-} NP2OSCFG;
-
-#if defined(SIZE_QVGA)
-enum {
-	FULLSCREEN_WIDTH	= 320,
-	FULLSCREEN_HEIGHT	= 240
-};
-#else
-enum {
-	FULLSCREEN_WIDTH	= 640,
-	FULLSCREEN_HEIGHT	= 400
-};
-#endif
+#ifndef VAEG_SOUND_YMFMBRIDGE_H
+#define VAEG_SOUND_YMFMBRIDGE_H
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-extern	NP2OSCFG	np2oscfg;
+void ymfm_opn_initialize(UINT rate);
+void ymfm_opn_setvol(UINT vol);
+void ymfm_opn_setvr(REG8 channel, REG8 value);
+void ymfm_opn_reset(void);
+void ymfm_opn_setcfg(REG8 maxch, UINT flag);
+void ymfm_opn_setcontrol(REG8 chbase, REG8 reg, REG8 value);
+void ymfm_opn_setextch(UINT chnum, REG8 data);
+void ymfm_opn_setreg(REG8 chbase, REG8 reg, REG8 value);
+void ymfm_opn_keyon(UINT chnum, REG8 value);
+void ymfm_opn_timerover(UINT timer);
+void ymfm_opn_getpcm(SINT32 *pcm, UINT count, BOOL use_vr);
 
 #ifdef __cplusplus
 }
