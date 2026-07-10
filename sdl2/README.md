@@ -103,6 +103,46 @@ portable VA build. For PC-88VA booting, check these keys:
 The frontend logs prominent warnings for stale VA sound-board or clock
 settings. It never rewrites the user's configuration silently.
 
+## Keyboard Mapping
+
+The SDL2 keyboard path is scancode based. The default host layout is
+`keyboard_host_layout=jis`; `us` is a US-keytop preset for text entry,
+and `custom` stores GUI-edited bindings as SDL scancode names in the
+user-state sidecar `keyboard.map`.
+`keyboard_custom_map=file:keyboard.map` in `np2.cfg` points to that
+sidecar.
+
+Device / Keyboard in the ImGui menu exposes:
+
+- Host layout: JIS physical, US keytop, Custom
+- Kana input: JIS Kana, Roman Kana
+- Tenkey overlay: maps YUI/HJK/NM,. to guest keypad 789/456/123/0
+- Full key binding table with capture-next-key
+
+JIS physical maps host scancode position to PC-88VA physical key
+position. US keytop maps printable US punctuation keytops/chords to
+guest keys or guest Shift chords that produce the intended ASCII symbol.
+The tenkey overlay is a game-oriented mode for tenkeyless keyboards and
+is independent of the host layout preset. No Unicode or text-buffer
+injection is used. Set `VAEG_KBD_TRACE=1` to log keyboard event routing
+and selected guest actions.
+
+Roman Kana parses A-Z and apostrophe host scancodes and emits the same
+guest keyboard make/break sequence as physical keys. It never injects
+Unicode, CP932, BIOS buffers, DOS buffers, RAM, or VRAM. When ImGui
+captures keyboard or text input, neither raw keys nor Roman Kana output
+reach the guest. The menu selects the kana input method only. Enter and
+leave guest kana mode with the assigned KANA key, which defaults to
+`RightAlt`: one press locks KANA, the next press unlocks it. When the
+menu is set to Roman Kana and KANA is locked, A-Z host scancodes feed the
+helper and are not sent as direct alphabetic guest keys; when KANA is
+unlocked, A-Z is normal guest input.
+
+The PC key defaults to `ScrollLock`. VA2/3 use PC-held reset or power-on
+for the BIOS setup path, and some VA popup helpers use PC key chords such
+as PC+D. See `docs/modernization/keyboard-mapping.md` for the full
+inventory and evidence table.
+
 ## Font Manager Stub
 
 Host GUI text is rendered by Dear ImGui using

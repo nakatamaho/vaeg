@@ -30,13 +30,23 @@ The M10 GUI uses Dear ImGui with `imgui_impl_sdl2` and
 
 ## Input Routing
 
-Every SDL event is first passed to Dear ImGui. Keyboard events reach the
-guest only when `ImGuiIO::WantCaptureKeyboard` is false. Mouse events
-reach guest-side routing only when `ImGuiIO::WantCaptureMouse` is false.
-When ImGui wants the keyboard or mouse, the guest does not receive that
-event.
+Every SDL event is first passed to Dear ImGui. Keyboard events and
+SDL_TEXTINPUT reach the guest only when `ImGuiIO::WantCaptureKeyboard`
+is false. Mouse events reach guest-side routing only when
+`ImGuiIO::WantCaptureMouse` is false. When ImGui wants the keyboard,
+mouse, or text input, the guest does not receive that event.
 
-IME text input is not implemented in M10.
+M14 adds a keyboard binding capture mode. While it waits for the next
+host scancode, the captured keydown and matching keyup are consumed by
+the GUI and never sent to the guest.
+
+Roman-Kana input parses A-Z and apostrophe host scancodes before guest
+routing. It emits guest keyboard make/break sequences through
+`sdl2/kbdinject.c`; it never injects Unicode text or guest memory bytes.
+The menu selects JIS-Kana or Roman-Kana as the kana input method. The
+assigned KANA key controls guest kana mode: one press locks KANA, and the
+next press unlocks it. Roman-Kana consumes A-Z scancodes only while that
+KANA lock mirror is active.
 
 ## Font Asset Lookup
 

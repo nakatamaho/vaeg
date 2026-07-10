@@ -50,6 +50,7 @@
 #include "beep.h"
 #include "pccore.h"
 #include "fdd_mtr.h"
+#include "kbdmap.h"
 #include "opngen.h"
 #include "pcm86.h"
 #include "psggen.h"
@@ -104,7 +105,11 @@ struct GuiState {
 	std::vector<BrowserEntry> fdd_entries;
 	std::string fdd_status;
 	std::string state_status;
+	std::string keyboard_status;
 	UINT sound_sw_saved = 0;
+	bool keyboard_config_open = false;
+	int capture_binding = -1;
+	SDL_Scancode capture_swallow = SDL_SCANCODE_UNKNOWN;
 };
 
 GuiState g_gui;
@@ -471,6 +476,7 @@ static void draw_emulate_menu(void) {
 		if (ImGui::MenuItem("Reset / リセット")) {
 			pccore_cfgupdate();
 			pccore_reset();
+			sdlkbd_reset_state();
 			scrndraw_redraw();
 		}
 		ImGui::Separator();
@@ -549,6 +555,144 @@ static void set_f12_key(BYTE mode) {
 	sysmng_update(SYS_UPDATEOSCFG);
 }
 
+static void set_keyboard_layout(const char *layout) {
+
+	kbdmap_set_layout(layout);
+	g_gui.keyboard_status = "Keyboard layout: ";
+	g_gui.keyboard_status += kbdmap_layout_name();
+	sysmng_update(SYS_UPDATEOSCFG);
+}
+
+static void set_kana_input(const char *mode) {
+
+	kbdmap_set_kana_input(mode);
+	g_gui.keyboard_status = "Kana input: ";
+	g_gui.keyboard_status += kbdmap_kana_input_name();
+	sysmng_update(SYS_UPDATEOSCFG);
+}
+
+static void set_tenkey_overlay(bool enabled) {
+
+	kbdmap_set_tenkey_overlay(enabled ? TRUE : FALSE);
+	g_gui.keyboard_status = enabled ?
+		"Tenkey overlay enabled." : "Tenkey overlay disabled.";
+	sysmng_update(SYS_UPDATEOSCFG);
+}
+
+static const char *binding_name(SDL_Scancode scancode) {
+
+	const char *name;
+
+	if (scancode == SDL_SCANCODE_UNKNOWN) {
+		return "(unassigned)";
+	}
+	name = SDL_GetScancodeName(scancode);
+	if ((name == nullptr) || (name[0] == '\0')) {
+		return "(unknown)";
+	}
+	return name;
+}
+
+static void reset_keyboard_to_jis(void) {
+
+	kbdmap_reset_to_jis();
+	g_gui.keyboard_status = "Keyboard map reset to JIS.";
+	sysmng_update(SYS_UPDATEOSCFG);
+}
+
+static void reset_keyboard_to_us(void) {
+
+	kbdmap_reset_to_us();
+	g_gui.keyboard_status = "Keyboard map reset to US.";
+	sysmng_update(SYS_UPDATEOSCFG);
+}
+
+static void begin_key_capture(int index) {
+
+	g_gui.capture_binding = index;
+	g_gui.capture_swallow = SDL_SCANCODE_UNKNOWN;
+	const KBDMAP_ENTRY *entry = kbdmap_entry(index);
+	g_gui.keyboard_status = "Capture: ";
+	g_gui.keyboard_status += (entry != nullptr) ? entry->label : "(unknown)";
+}
+
+static void clear_key_binding(int index) {
+
+	if (kbdmap_set_binding(index, SDL_SCANCODE_UNKNOWN) == SUCCESS) {
+		g_gui.keyboard_status = "Binding cleared.";
+		sysmng_update(SYS_UPDATEOSCFG);
+	}
+}
+
+static void draw_keyboard_config(void) {
+
+	if (!g_gui.keyboard_config_open) {
+		return;
+	}
+	ImGui::SetNextWindowSize(ImVec2(760.0f, 520.0f), ImGuiCond_FirstUseEver);
+	if (ImGui::Begin("Keyboard mapping", &g_gui.keyboard_config_open)) {
+		if (ImGui::Button("Reset to JIS defaults")) {
+			reset_keyboard_to_jis();
+		}
+		ImGui::SameLine();
+		if (ImGui::Button("Reset to US defaults")) {
+			reset_keyboard_to_us();
+		}
+		if (!g_gui.keyboard_status.empty()) {
+			ImGui::TextWrapped("%s", g_gui.keyboard_status.c_str());
+		}
+		ImGui::Separator();
+		if (ImGui::BeginTable("keyboard-map-table", 6,
+							  ImGuiTableFlags_Borders |
+							  ImGuiTableFlags_RowBg |
+							  ImGuiTableFlags_ScrollY,
+							  ImVec2(0.0f, 390.0f))) {
+			ImGui::TableSetupScrollFreeze(0, 1);
+			ImGui::TableSetupColumn("Role");
+			ImGui::TableSetupColumn("Guest");
+			ImGui::TableSetupColumn("Binding");
+			ImGui::TableSetupColumn("Status");
+			ImGui::TableSetupColumn("Capture");
+			ImGui::TableSetupColumn("Clear");
+			ImGui::TableHeadersRow();
+			for (int i = 0; i < kbdmap_entry_count(); i++) {
+				const KBDMAP_ENTRY *entry = kbdmap_entry(i);
+				char guest[16];
+				if (entry == nullptr) {
+					continue;
+				}
+				std::snprintf(guest, sizeof(guest), "0x%02x",
+							  static_cast<unsigned int>(entry->guest_code));
+				ImGui::TableNextRow();
+				ImGui::TableSetColumnIndex(0);
+				ImGui::TextUnformatted(entry->label);
+				ImGui::TableSetColumnIndex(1);
+				ImGui::TextUnformatted(guest);
+				ImGui::TableSetColumnIndex(2);
+				ImGui::TextUnformatted(binding_name(kbdmap_binding(i)));
+				ImGui::TableSetColumnIndex(3);
+				ImGui::TextUnformatted(
+					kbdmap_status_name(kbdmap_binding_status(i)));
+				ImGui::TableSetColumnIndex(4);
+				ImGui::PushID(i);
+				if (g_gui.capture_binding == i) {
+					ImGui::Button("...");
+				}
+				else if (ImGui::Button("Set")) {
+					begin_key_capture(i);
+				}
+				ImGui::TableSetColumnIndex(5);
+				if (ImGui::Button("Clear")) {
+					clear_key_binding(i);
+				}
+				ImGui::PopID();
+			}
+			ImGui::EndTable();
+		}
+	}
+	ImGui::End();
+}
+
 static void draw_screen_menu(void) {
 
 	if (ImGui::BeginMenu("Screen / 画面")) {
@@ -615,6 +759,42 @@ static void draw_device_menu(void) {
 					set_f12_key(4);
 				}
 				ImGui::EndMenu();
+			}
+			if (ImGui::BeginMenu("Host layout")) {
+				if (ImGui::MenuItem("JIS physical", nullptr,
+									std::string(kbdmap_layout_name()) == "jis")) {
+					set_keyboard_layout("jis");
+				}
+				if (ImGui::MenuItem("US keytop", nullptr,
+									std::string(kbdmap_layout_name()) == "us")) {
+					set_keyboard_layout("us");
+				}
+				if (ImGui::MenuItem("Custom", nullptr,
+									std::string(kbdmap_layout_name()) == "custom")) {
+					set_keyboard_layout("custom");
+				}
+				ImGui::EndMenu();
+			}
+			if (ImGui::BeginMenu("Kana input")) {
+				if (ImGui::MenuItem("JIS Kana", nullptr,
+									std::string(kbdmap_kana_input_name()) == "jis-kana")) {
+					set_kana_input("jis-kana");
+				}
+				if (ImGui::MenuItem("Roman Kana", nullptr,
+									std::string(kbdmap_kana_input_name()) == "roman")) {
+					set_kana_input("roman");
+				}
+				ImGui::EndMenu();
+			}
+			{
+				bool tenkey_overlay = kbdmap_tenkey_overlay_enabled() ? true : false;
+				if (ImGui::MenuItem("Tenkey overlay (YUI/HJK/NM,.)",
+									nullptr, tenkey_overlay)) {
+					set_tenkey_overlay(!tenkey_overlay);
+				}
+			}
+			if (ImGui::MenuItem("Key bindings...")) {
+				g_gui.keyboard_config_open = true;
 			}
 			menu_item_not_implemented("Mechanical keys (not implemented)");
 			ImGui::EndMenu();
@@ -717,10 +897,11 @@ static void draw_state_menu(void) {
 							g_gui.state_status += ")";
 						}
 					}
-					else {
-						statsave_load(path.c_str());
-						scrndraw_redraw();
-						g_gui.state_status = "State loaded: ";
+						else {
+							statsave_load(path.c_str());
+							sdlkbd_reset_state();
+							scrndraw_redraw();
+							g_gui.state_status = "State loaded: ";
 						g_gui.state_status += path;
 						if ((ret & STATFLAG_DISKCHG) != 0) {
 							g_gui.state_status += " (disk warning ignored)";
@@ -813,6 +994,32 @@ BOOL gui_process_event(const void *event) {
 	const SDL_Event *sdl_event = static_cast<const SDL_Event *>(event);
 	ImGui_ImplSDL2_ProcessEvent(sdl_event);
 
+	if (g_gui.capture_binding >= 0) {
+		if ((sdl_event->type == SDL_KEYDOWN) && (!sdl_event->key.repeat)) {
+			SDL_Scancode scancode = sdl_event->key.keysym.scancode;
+			if (kbdmap_set_binding(g_gui.capture_binding, scancode) == SUCCESS) {
+				const KBDMAP_ENTRY *entry = kbdmap_entry(g_gui.capture_binding);
+				g_gui.keyboard_status = "Bound ";
+				g_gui.keyboard_status += (entry != nullptr) ? entry->label : "(unknown)";
+				g_gui.keyboard_status += " to ";
+				g_gui.keyboard_status += binding_name(scancode);
+				sysmng_update(SYS_UPDATEOSCFG);
+			}
+			g_gui.capture_swallow = scancode;
+			g_gui.capture_binding = -1;
+			return TRUE;
+		}
+		if (sdl_event->type == SDL_KEYUP) {
+			return TRUE;
+		}
+	}
+	if ((g_gui.capture_swallow != SDL_SCANCODE_UNKNOWN) &&
+		(sdl_event->type == SDL_KEYUP) &&
+		(sdl_event->key.keysym.scancode == g_gui.capture_swallow)) {
+		g_gui.capture_swallow = SDL_SCANCODE_UNKNOWN;
+		return TRUE;
+	}
+
 	ImGuiIO &io = ImGui::GetIO();
 	switch (sdl_event->type) {
 		case SDL_KEYDOWN:
@@ -860,6 +1067,7 @@ void gui_draw(void) {
 		ImGui::EndMainMenuBar();
 	}
 	draw_fdd_browser();
+	draw_keyboard_config();
 }
 
 void gui_render(void) {

@@ -223,7 +223,7 @@ void ini_write(const char *path, const char *title,
 const INITBL	*p;
 const INITBL	*pterm;
 	BOOL		set;
-	char		work[512];
+	char		work[NP2OSCFG_KEYBOARD_CUSTOM_MAP_SIZE + 512];
 
 	fh = file_create(path);
 	if (fh == FILEH_INVALID) {
@@ -397,6 +397,16 @@ static const INITBL iniitem[] = {
 	{"GUI_scale", INITYPE_UINT8,		&np2oscfg.gui_scale,	0},
 	{"GUI_aspect", INITYPE_BOOL,		&np2oscfg.gui_aspect,	0},
 	{"GUI_fdddir", INITYPE_STR,		np2oscfg.gui_fdd_dir,	MAX_PATH},
+	{"keyboard_host_layout", INITYPE_STR, np2oscfg.keyboard_host_layout,
+						sizeof(np2oscfg.keyboard_host_layout)},
+	{"keyboard_kana_input", INITYPE_STR, np2oscfg.keyboard_kana_input,
+						sizeof(np2oscfg.keyboard_kana_input)},
+	{"keyboard_auto_kana_lock", INITYPE_BOOL,
+						&np2oscfg.keyboard_auto_kana_lock, 0},
+	{"keyboard_tenkey_overlay", INITYPE_BOOL,
+						&np2oscfg.keyboard_tenkey_overlay, 0},
+	{"keyboard_custom_map", INITYPE_STR, np2oscfg.keyboard_custom_map,
+						sizeof(np2oscfg.keyboard_custom_map)},
 };
 
 #define	INIITEMS	(sizeof(iniitem) / sizeof(INITBL))
@@ -412,6 +422,10 @@ void initload(void) {
 		np2oscfg.gui_scale = 1;
 	}
 	np2oscfg.gui_aspect = np2oscfg.gui_aspect ? 1 : 0;
+	np2oscfg.keyboard_auto_kana_lock =
+		np2oscfg.keyboard_auto_kana_lock ? 1 : 0;
+	np2oscfg.keyboard_tenkey_overlay =
+		np2oscfg.keyboard_tenkey_overlay ? 1 : 0;
 }
 
 void initsave(void) {
