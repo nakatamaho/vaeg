@@ -14,12 +14,23 @@
 #include	"subsystem.h"
 
 
-#define VAFONTROM "VAFONT.ROM"
-#define VADICROM  "VADIC.ROM"
-#define VAROM00ROM "VAROM00.ROM"
-#define VAROM08ROM "VAROM08.ROM"
-#define VAROM1ROM  "VAROM1.ROM"
-#define VASUBSYSROM "VASUBSYS.ROM"
+#define VAFONTROM "vafont.rom"
+#define VADICROM  "vadic.rom"
+#define VAROM00ROM "varom00.rom"
+#define VAROM08ROM "varom08.rom"
+#define VAROM1ROM  "varom1.rom"
+#define VAFONTROM_VA2 "vafont_va2.rom"
+#define VADICROM_VA2  "vadic_va2.rom"
+#define VAROM00ROM_VA2 "varom00_va2.rom"
+#define VAROM08ROM_VA2 "varom08_va2.rom"
+#define VAROM1ROM_VA2  "varom1_va2.rom"
+#define VASUBSYSROM "vasubsys.rom"
+
+/* VA2 names follow MAME's pc88va2 ROM set; do not fall back to VA names. */
+static const char *modelrom(const char *va, const char *va2) {
+
+	return((pccore.model_va == PCMODEL_VA2) ? va2 : va);
+}
 
 void biosva_initialize(void) {
 	char	path[MAX_PATH];
@@ -31,7 +42,7 @@ void biosva_initialize(void) {
 	memoryva.sysmromexist = 0;
 	subsystem.romexist = FALSE;
 
-	getbiospath(path, VAFONTROM, sizeof(path));
+	getbiospath(path, modelrom(VAFONTROM, VAFONTROM_VA2), sizeof(path));
 	fh = file_open_rb(path);
 	if (fh != FILEH_INVALID) {
 		success = (file_read(fh, fontmem, 0x50000) == 0x50000);
@@ -39,7 +50,7 @@ void biosva_initialize(void) {
 		file_close(fh);
 	}
 
-	getbiospath(path, VADICROM, sizeof(path));
+	getbiospath(path, modelrom(VADICROM, VADICROM_VA2), sizeof(path));
 	fh = file_open_rb(path);
 	if (fh != FILEH_INVALID) {
 		success = (file_read(fh, dicmem, 0x80000) == 0x80000);
@@ -47,7 +58,7 @@ void biosva_initialize(void) {
 		file_close(fh);
 	}
 
-	getbiospath(path, VAROM00ROM, sizeof(path));
+	getbiospath(path, modelrom(VAROM00ROM, VAROM00ROM_VA2), sizeof(path));
 	fh = file_open_rb(path);
 	if (fh != FILEH_INVALID) {
 		success = (file_read(fh, rom0mem, 0x80000) == 0x80000);
@@ -55,7 +66,7 @@ void biosva_initialize(void) {
 		file_close(fh);
 	}
 
-	getbiospath(path, VAROM08ROM, sizeof(path));
+	getbiospath(path, modelrom(VAROM08ROM, VAROM08ROM_VA2), sizeof(path));
 	fh = file_open_rb(path);
 	if (fh != FILEH_INVALID) {
 		success = (file_read(fh, rom0mem + 0x80000, 0x20000) == 0x20000);
@@ -63,7 +74,7 @@ void biosva_initialize(void) {
 		file_close(fh);
 	}
 
-	getbiospath(path, VAROM1ROM, sizeof(path));
+	getbiospath(path, modelrom(VAROM1ROM, VAROM1ROM_VA2), sizeof(path));
 	fh = file_open_rb(path);
 	if (fh != FILEH_INVALID) {
 		success = (file_read(fh, rom1mem, 0x20000) == 0x20000);
