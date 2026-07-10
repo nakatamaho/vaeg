@@ -24,9 +24,12 @@ POSSIBILITY OF SUCH DAMAGE.
 -->
 # M18 - Use model-specific PC-88VA ROM names
 
-Status: proposed
-Branch: local unless the maintainer asks for a branch
-Gate: G18 (human VA/VA2 ROM selection and boot gate)
+Status: complete
+
+Branch: `topic/m18-rom-layout`
+
+Gate: G18 passed
+
 Depends on: G17 passed.
 
 ## Goal
@@ -162,3 +165,15 @@ G18 is a human model/ROM gate:
   output without aborting startup;
 - confirm a stale `biospath=romimage` setting cannot select the old flat
   layout.
+
+## Completion record
+
+The active SDL2 frontend resolves model-specific ROM names beside the
+executable, with cwd as the development fallback. VA uses unsuffixed ROM
+names; VA2/VA3 uses MAME-compatible `*_va2.rom` names without falling back
+to the VA set. Startup checks size, CRC32, and SHA-1 and reports mismatches
+as warnings. `vasubsys.rom` remains a documented vaeg extra.
+
+G18 passed after the maintainer verified VA and VA2/VA3 model selection,
+boot and reset behavior, missing-ROM and checksum warnings, and persistence
+of configured FDD and SASI media across reset and restart.
