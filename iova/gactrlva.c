@@ -8,7 +8,6 @@
 #include	"iocore.h"
 #include	"iocoreva.h"
 
-#if defined(SUPPORT_PC88VA)
 
 #define SETLOWBYTE(x, y) (x) = ( (x) & 0xff00 | (y) )
 #define SETHIGHBYTE(x, y) (x) = ( (x) & 0x00ff | ((WORD)(y) << 8) )
@@ -463,5 +462,3 @@ void gactrlva_bind(void) {
 		iocoreva_attachinp(0x5a0 + i * 2, gactrlva_i5a0);
 	}
 }
-
-#endif

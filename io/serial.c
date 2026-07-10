@@ -9,7 +9,6 @@
 #include	"oprecord.h"
 #endif
 
-#if defined(SUPPORT_PC88VA)
 /*
   ToDo: 
 	Port 197h (RESETだけは実装済み)
@@ -129,7 +128,6 @@ static REG8 convertmodeldependent(REG8 data) {
 	}
 	return data;
 }
-#endif
 
 
 // ---- Keyboard
@@ -149,9 +147,7 @@ void keyboard_callback(NEVENTITEM item) {
 					keybrd.buffers--;
 					keybrd.data = keybrd.buf[keybrd.bufpos];
 					keybrd.bufpos = (keybrd.bufpos + 1) & KB_BUFMASK;
-#if defined(SUPPORT_PC88VA)
 					//updatekeymap(keybrd.data);
-#endif
 				}
 				//TRACEOUT(("recv -> %02x", keybrd.data));
 			}
@@ -203,7 +199,6 @@ static REG8 IOINPCALL keyboard_i43(UINT port) {
 	return(keybrd.status | 0x85);
 }
 
-#if defined(SUPPORT_PC88VA)
 
 static REG8 IOINPCALL keyboardva_i000(UINT port) {
 	(void)port;
@@ -229,7 +224,6 @@ static void IOOUTCALL keyboardva_o197(UINT port, REG8 dat) {
 	(void)port;
 }
 
-#endif
 
 // ----
 
@@ -241,18 +235,15 @@ static const IOINP keybrdi41[2] = {
 
 
 void keyboard_reset(void) {
-#if defined(SUPPORT_PC88VA)
 	UINT8	mapbkup[KB_MAP];
 
 	// リセット時はkeymapをクリアしない
 	CopyMemory(mapbkup, keybrd.keymap, sizeof(mapbkup));
-#endif
 
 	ZeroMemory(&keybrd, sizeof(keybrd));
 	keybrd.data = 0xff;
 	keybrd.mode = 0x5e;
 
-#if defined(SUPPORT_PC88VA)
 	CopyMemory(keybrd.keymap, mapbkup, sizeof(keybrd.keymap));
 	/*
 	{
@@ -263,7 +254,6 @@ void keyboard_reset(void) {
 		}
 	}
 	*/
-#endif
 
 }
 
@@ -274,7 +264,6 @@ void keyboard_bind(void) {
 	iocore_attachsysoutex(0x0041, 0x0cf1, keybrdo41, 2);
 	iocore_attachsysinpex(0x0041, 0x0cf1, keybrdi41, 2);
 
-#if defined(SUPPORT_PC88VA)
 	{
 		int i;
 		for (i = 0; i < 0x0f; i++) {
@@ -283,18 +272,15 @@ void keyboard_bind(void) {
 		iocoreva_attachinp(0x1c1, keyboard_i41);
 		iocoreva_attachout(0x197, keyboardva_o197);
 	}
-#endif
 }
 
 void keyboard_resetsignal(void) {
 
-#if defined(SUPPORT_PC88VA)
 	int i;
 
 	for (i = 0; i < KB_MAP; i++) {
 		keybrd.keymap[i] = 0xff;
 	}
-#endif
 
 	nevent_reset(NEVENT_KEYBOARD);
 	keybrd.cmd = 0;
@@ -326,11 +312,9 @@ void keyboard_send(REG8 data) {
 	oprecord_record_key(data);
 #endif
 
-#if defined(SUPPORT_PC88VA)
 	data = convertmodeldependent(data);
 	if (data == 0xff) return;
 	updatekeymap(data);
-#endif
 
 	if (keybrd.buffers < KB_BUF) {
 		keybrd.buf[(keybrd.bufpos + keybrd.buffers) & KB_BUFMASK] = data;
@@ -552,11 +536,9 @@ void rs232c_bind(void) {
 	iocore_attachsysoutex(0x0030, 0x0cf1, rs232co30, 2);
 	iocore_attachsysinpex(0x0030, 0x0cf1, rs232ci30, 2);
 
-#if defined(SUPPORT_PC88VA)
 	iocoreva_attachout(0x020, rs232c_o30);
 	iocoreva_attachout(0x021, rs232c_o32);
 	iocoreva_attachinp(0x020, rs232c_i30);
 	iocoreva_attachinp(0x021, rs232c_i32);
-#endif
 }
 

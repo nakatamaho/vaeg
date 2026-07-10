@@ -45,9 +45,7 @@ extern "C" {
 
 extern	BYTE	mem[0x200000];
 
-#if defined(SUPPORT_PC88VA)
 extern	UINT8	memmode_va;
-#endif
 
 void MEMCALL i286_memorymap(UINT type);
 void MEMCALL i286_romareamap(UINT16 map);

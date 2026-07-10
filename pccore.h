@@ -3,18 +3,14 @@
 #include	"statsave.h"
 
 enum {
-#if defined(SUPPORT_PC88VA)
 	PCBASECLOCK40		= 3993600,
-#endif
 	PCBASECLOCK25		= 2457600,
 	PCBASECLOCK20		= 1996800
 };
 
 enum {
 	CPUMODE_8MHZ		= 0x20,
-#if defined(SUPPORT_PC88VA)
 	CPUMODE_BASE4MHZ	= 0x40,
-#endif
 
 	PCMODEL_VF			= 0,
 	PCMODEL_VM			= 1,
@@ -38,11 +34,9 @@ enum {
 	PCCBUS_PC9861K		= 0x0001,
 	PCCBUS_MPU98		= 0x0002,
 
-#if defined(SUPPORT_PC88VA)
 	PCMODEL_NOTVA		= 0,
 	PCMODEL_VA1			= 1,
 	PCMODEL_VA2			= 2,
-#endif
 
 };
 
@@ -85,11 +79,7 @@ typedef struct {
 
 	UINT16	samplingrate;
 	UINT16	delayms;
-#if defined(SUPPORT_PC88VA)
 	UINT16	SOUND_SW;
-#else
-	UINT8	SOUND_SW;
-#endif
 	UINT8	snd_x;
 
 	UINT8	snd14opt[3];
@@ -121,9 +111,7 @@ typedef struct {
 	UINT8	PROTECTMEM;
 	UINT8	hdrvacc;
 
-#if defined(SUPPORT_PC88VA)
 	UINT8	lockedkey;
-#endif
 
 	OEMCHAR	sasihdd[2][MAX_PATH];									// ver0.74
 #if defined(SUPPORT_SCSI)
@@ -150,9 +138,7 @@ typedef struct {
 
 	UINT32	realclock;
 
-#if defined(SUPPORT_PC88VA)
 	UINT8	model_va;
-#endif
 } PCCORE;
 
 enum {
@@ -187,14 +173,12 @@ extern	BOOL	hardwarereset;
 void getbiospath(OEMCHAR *path, const OEMCHAR *fname, int maxlen);
 void screendisp(NEVENTITEM item);
 void screenvsync(NEVENTITEM item);
-#if defined(SUPPORT_PC88VA)
 void screendispva(NEVENTITEM item);
 void screenvsyncva(NEVENTITEM item);
 //void screenvsyncva2(NEVENTITEM item);
 void sysp4vsyncint(NEVENTITEM item);
 void sysp4vsyncstart(NEVENTITEM item);
 void sysp4vsyncend(NEVENTITEM item);
-#endif
 
 void pccore_cfgupdate(void);
 

@@ -6,7 +6,6 @@
 #include	"cpucore.h"
 #include	"gactrlva.h"
 
-#if defined(SUPPORT_PC88VA)
 
 enum {
 	MEMWAITVA_VRAM_SINGLE_R	=	4,
@@ -328,5 +327,3 @@ REG16 MEMCALL gvramw_rd(UINT32 address) {
 	h =  _gvram_rd(address + 1);
 	return l | (((REG16)h) << 8);
 }
-
-#endif

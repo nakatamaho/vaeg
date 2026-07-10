@@ -48,9 +48,10 @@ history, not by a current CI or compile guarantee.
 | M12 | tasks/M12_ci.md            | GitHub Actions 3-OS matrix; ROM-less tests; repo invariant checks | **G12** machine |
 | M13 | tasks/M13_retire_legacy.md | Delete retired `sdl/`; keep frozen `win9x/`, `i286x/`, `cpuxva/memoryva.x86`, `hlp/`; docs | **G13** human sign-off |
 | M14 | tasks/M14_keyboard_mapping.md | PC-88VA/PC-8801-style SDL2 keyboard mapping; JIS physical, US keytop, and custom presets; Kana/Roman-Kana input; tenkeyless overlay; GUI binding table | **G14 passed** |
+| M15 | tasks/M15_support_pc88va_constant_fold.md | Fold the always-enabled `SUPPORT_PC88VA` compile-time flag in the active tree while retaining runtime model selection | **G15 passed** |
 
 Phase 2 dependencies: M7 → M8 → {M9, M10 parallel} → M11 → M12 → M13.
-Post-phase dependency: M13 → M14.
+Post-phase dependency: M13 → M14 → M15.
 M9 must pass before M11 (all three OSes must ship the VA machine, not
 the PC-98 scaffold).
 
@@ -61,6 +62,13 @@ guest-visible Kana lock, Roman-Kana input, and a tenkeyless game overlay.
 The implementation and human-gate record are in
 `tasks/M14_keyboard_mapping.md`; detailed mapping evidence remains in
 `../modernization/keyboard-mapping.md`.
+
+M15 is complete. `SUPPORT_PC88VA` is no longer an active-tree feature
+flag or CMake definition. The runtime `pccore.model_va` checks remain
+because VA1/VA2 and non-VA guest behavior are runtime state, not build
+configuration. The implementation scope, release-integration adjustment,
+verification commands, and G15 record are in
+`tasks/M15_support_pc88va_constant_fold.md`.
 
 ## Gate protocol
 
@@ -77,7 +85,7 @@ gate on the PC-98 scaffold; G9 onward use the full VA checklist.
 
 A gate passes only when the user says so. Pushed tags are immutable.
 Tag `portable-pc98` after G8, `portable-va` after G9,
-`phase2-complete` after G13. M14 passed without a separate tag.
+`phase2-complete` after G13. M14 and M15 passed without separate tags.
 
 ## Resolved decision points
 
@@ -95,3 +103,6 @@ Tag `portable-pc98` after G8, `portable-va` after G9,
   based, distinguishes JIS physical from US keytop behavior, routes all
   synthetic input through normal guest make/break handling, stores custom
   bindings by scancode name, and forbids text or guest-memory injection.
+- **PC-88VA active-tree invariant (M15).** The active CMake/SDL2 build
+  always includes VA support, so `SUPPORT_PC88VA` is folded true. Runtime
+  model checks, `VAEG_FIX`, and `VAEG_EXT` remain independent controls.

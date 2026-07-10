@@ -9,7 +9,6 @@
 #include	"iocoreva.h"
 #include	"memoryva.h"
 
-#if defined(SUPPORT_PC88VA)
 
 #define SETLOWBYTE(x, y) (x) = ( (x) & 0xff00 | (y) )
 #define SETHIGHBYTE(x, y) (x) = ( (x) & 0x00ff | ((WORD)(y) << 8) )
@@ -712,5 +711,3 @@ int videova_hsyncmode(void) {
 	}
 	return ret;
 }
-
-#endif

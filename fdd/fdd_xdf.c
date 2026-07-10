@@ -173,11 +173,7 @@ BOOL fddxdf_eject(FDDFILE fdd) {
 BOOL fddxdf_diskaccess(FDDFILE fdd) {
 
 	if ((fdd->type != DISKTYPE_BETA) ||
-#if defined(SUPPORT_PC88VA)
 		(CTRL_FDMEDIA[fdc.us] != fdd->inf.xdf.disktype)) {
-#else
-		(CTRL_FDMEDIA != fdd->inf.xdf.disktype)) {
-#endif
 		return(FAILURE);
 	}
 	return(SUCCESS);
@@ -186,11 +182,7 @@ BOOL fddxdf_diskaccess(FDDFILE fdd) {
 BOOL fddxdf_seek(FDDFILE fdd) {
 
 	if ((fdd->type != DISKTYPE_BETA) ||
-#if defined(SUPPORT_PC88VA)
 		(CTRL_FDMEDIA[fdc.us] != fdd->inf.xdf.disktype) ||
-#else
-		(CTRL_FDMEDIA != fdd->inf.xdf.disktype) ||
-#endif
 		(fdc.rpm[fdc.us] != fdd->inf.xdf.rpm) ||
 		(fdc.ncn >= (fdd->inf.xdf.tracks >> 1))) {
 		return(FAILURE);
@@ -201,11 +193,7 @@ BOOL fddxdf_seek(FDDFILE fdd) {
 BOOL fddxdf_seeksector(FDDFILE fdd) {
 
 	if ((fdd->type != DISKTYPE_BETA) ||
-#if defined(SUPPORT_PC88VA)
 		(CTRL_FDMEDIA[fdc.us] != fdd->inf.xdf.disktype) ||
-#else
-		(CTRL_FDMEDIA != fdd->inf.xdf.disktype) ||
-#endif
 		(fdc.rpm[fdc.us] != fdd->inf.xdf.rpm) ||
 		(fdc.treg[fdc.us] >= (fdd->inf.xdf.tracks >> 1))) {
 		fddlasterror = 0xe0;

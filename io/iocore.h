@@ -71,9 +71,7 @@ extern	_UPD4990	uPD4990;
 extern	_PCIDEV		pcidev;
 #endif
 
-#if defined(SUPPORT_PC88VA)
 extern	UINT8		iomode_va;
-#endif
 
 
 // I/O - 8bit decode

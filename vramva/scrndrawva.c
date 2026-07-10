@@ -10,7 +10,6 @@
 #include	"makesprva.h"
 #include	"makegrphva.h"
 
-#if defined(SUPPORT_PC88VA)
 
 enum {
 	COLORCODES = 0x10000,
@@ -461,6 +460,3 @@ void scrndrawva_compose_raster(void) {
 	work.bp = bp;
 	work.y++;
 }
-
-
-#endif
