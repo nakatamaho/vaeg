@@ -52,7 +52,9 @@ KANA lock mirror is active.
 
 FDD1/FDD2 Open and Eject act immediately through the existing floppy
 mount path. The GUI Reset command reapplies the mounted FDD paths after
-the core reset, so a mounted FDD stays inserted across reset.
+the core reset. The paths are saved as `FDD1FILE` / `FDD2FILE` in
+`np2.cfg`, so mounted FDDs are restored across reset and application
+restart; Eject clears the corresponding saved path.
 
 HardDisk -> New SASI image creates HDI images through the existing
 `newdisk_hdi()` helper. It supports the legacy 5/10/15/20/30/40 MB SASI
@@ -74,6 +76,15 @@ the output selector uses the existing guest-reset flow to rebuild the selected
 synthesizer from a clean board state while retaining mounted FDD/SASI paths.
 The ymfm option currently replaces only YM2203/YM2608 FM operator synthesis;
 NP2 continues to own timer/IRQ, SSG, ADPCM, rhythm, and stream mixing.
+
+## Boot Model Menu
+
+Emulate -> Boot model selects `VA` or `VA2/VA3`. `VA` writes
+`pc_model=88VA1` and selects the unsuffixed VA ROM names; `VA2/VA3` writes
+`pc_model=88VA2` and selects MAME-compatible `*_va2.rom` names. Both sets are
+read beside the executable. Selection immediately uses the existing
+guest-reset flow, including preservation of configured FDD and SASI media.
+Missing ROMs are reported with the selected model and expected root.
 
 ## Font Asset Lookup
 

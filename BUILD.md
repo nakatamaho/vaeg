@@ -117,6 +117,22 @@ the portable per-user state directory:
 the ROM path once for migration; saves always go to the state directory.
 Legacy `win9x/` remains exe-relative and unchanged.
 
+ROMs are read beside the active executable. VA uses unsuffixed names, while
+VA2/VA3 uses MAME-compatible suffixed names:
+
+```text
+VA:       vadic.rom, vafont.rom, varom00.rom, varom08.rom, varom1.rom
+VA2/VA3:  vadic_va2.rom, vafont_va2.rom, varom00_va2.rom,
+          varom08_va2.rom, varom1_va2.rom
+Extra:    vasubsys.rom
+```
+
+ROMs are not distributed and must be extracted from hardware you own. The
+VA2 names follow MAME's `pc88va2` ROM declaration and do not fall back to VA
+names. The current working directory is accepted only as a development
+fallback. The frontend compares ROM size, CRC32, and SHA-1 with MAME and
+warns without aborting when a file differs.
+
 For VA booting, `np2.cfg` must use:
 
 ```ini

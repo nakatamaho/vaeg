@@ -83,11 +83,41 @@ mounting are not implemented yet.
 
 ## ROM Placement
 
-At startup the frontend uses the existing NP2 configuration field
-`np2cfg.biospath`. If that field is empty and a repository-local
-`romimage/` directory exists, it uses `romimage/` as the BIOS path. Without
-ROM files the M8 frontend should still follow the core's defined no-ROM path
-and must not crash.
+ROMs are not included and must be extracted from hardware you own. Place the
+selected set beside the executable:
+
+| Model | Model ROM files |
+|---|---|
+| VA | `vadic.rom`, `vafont.rom`, `varom00.rom`, `varom08.rom`, `varom1.rom` |
+| VA2/VA3 | `vadic_va2.rom`, `vafont_va2.rom`, `varom00_va2.rom`, `varom08_va2.rom`, `varom1_va2.rom` |
+
+The VA2/VA3 names follow MAME's `pc88va2` `ROM_START` declaration in
+[`src/mame/nec/pc88va.cpp`](https://github.com/mamedev/mame/blob/master/src/mame/nec/pc88va.cpp).
+VA2/VA3 does not fall back to the unsuffixed VA files. Both models also use
+`vasubsys.rom` as an extra: unlike MAME's currently unconnected FDD subsystem
+ROM entry, vaeg executes the Z80 FDD subsystem.
+
+After resolving a complete set, the frontend compares each file's size,
+CRC32, and SHA-1 with MAME's `pc88va` or `pc88va2` declaration. The extra
+`vasubsys.rom` uses the CRC32/SHA-1 from MAME's disabled FDD subsystem
+declaration. A mismatch logs a warning with expected and actual values but
+does not stop the emulator.
+
+The active frontend resolves ROMs in this order:
+
+1. the executable directory, using the filename set selected by model;
+2. the current working directory, for development.
+
+If neither complete set exists, the executable directory remains the expected
+root and the frontend reports the selected model and first missing ROM. The
+old `biospath` INI key is ignored by SDL2 and is no longer written.
+`np2cfg.biospath` remains the shared core loader path but is derived at
+runtime.
+
+Use `Emulate -> Boot model -> VA` for `pc_model=88VA1` and unsuffixed files.
+Use `VA2/VA3` for `pc_model=88VA2` and the five `*_va2.rom` files. Changing
+the selection performs the existing reset flow and retains configured FDD
+and SASI media.
 
 ## Configuration
 

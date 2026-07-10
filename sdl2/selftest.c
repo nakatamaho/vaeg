@@ -33,6 +33,7 @@
 #include	"opngen.h"
 #include	"pccore.h"
 #include	"profile.h"
+#include	"romcheck.h"
 #include	"romankana.h"
 #include	"s98.h"
 #include	"soundmng.h"
@@ -64,6 +65,22 @@ static int test_codecnv(void) {
 		return(fail("codecnv", "SJIS/EUC round-trip changed bytes"));
 	}
 	fprintf(stderr, "selftest: codecnv ok\n");
+	return(SUCCESS);
+}
+
+static int test_romcheck(void) {
+
+	static const char vector[] = "123456789";
+	ROMCHECKSUM result;
+	char sha1[41];
+
+	romcheck_buffer(vector, sizeof(vector) - 1, &result);
+	romcheck_sha1_string(result.sha1, sha1);
+	if ((result.size != 9) || (result.crc32 != 0xcbf43926) ||
+		strcmp(sha1, "f7c3bc1d808e04732adf679965ccc34ca7ae3441")) {
+		return(fail("romcheck", "CRC32/SHA-1 test vector failed"));
+	}
+	fprintf(stderr, "selftest: romcheck ok\n");
 	return(SUCCESS);
 }
 
@@ -437,6 +454,9 @@ static int test_opn_backends(void) {
 int vaeg_selftest_run(void) {
 
 	if (test_codecnv() != SUCCESS) {
+		return(FAILURE);
+	}
+	if (test_romcheck() != SUCCESS) {
 		return(FAILURE);
 	}
 	if (test_profile_ini() != SUCCESS) {
