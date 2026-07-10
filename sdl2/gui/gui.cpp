@@ -44,11 +44,13 @@
 #include "dosio.h"
 #include "fddfile.h"
 #include "keystat.h"
+#include "newdisk.h"
 #include "np2.h"
 #include "sound.h"
 #include "adpcm.h"
 #include "beep.h"
 #include "pccore.h"
+#include "sxsi.h"
 #include "fdd_mtr.h"
 #include "kbdmap.h"
 #include "opngen.h"
@@ -74,7 +76,22 @@ constexpr const char *kFontName = "NotoSansJP-Regular.ttf";
 constexpr float kGuiFontSize = 16.0f;
 constexpr int kStateSlots = 10;
 constexpr int kMasterVolumeMax = 128;
+constexpr int kSasiImageCount = 6;
 namespace fs = std::filesystem;
+
+struct SasiImageChoice {
+	const char *label;
+	UINT hdd_type;
+};
+
+static const SasiImageChoice kSasiImageChoices[kSasiImageCount] = {
+	{"5 MB", 0},
+	{"10 MB", 1},
+	{"15 MB", 2},
+	{"20 MB", 4},
+	{"30 MB", 5},
+	{"40 MB", 6},
+};
 
 static std::string state_slot_path(int slot) {
 
@@ -99,11 +116,25 @@ struct GuiState {
 	float menu_font_size = kGuiFontSize;
 	int fdd_dialog_drive = -1;
 	char fdd_path[2][MAX_PATH] = {};
+	char fdd_mounted_path[2][MAX_PATH] = {};
 	bool fdd_browser_open = false;
 	bool fdd_browser_refresh = false;
 	std::string fdd_browser_dir;
 	std::vector<BrowserEntry> fdd_entries;
 	std::string fdd_status;
+	int hdd_dialog_drive = -1;
+	char hdd_path[2][MAX_PATH] = {};
+	bool hdd_browser_open = false;
+	bool hdd_browser_refresh = false;
+	std::string hdd_browser_dir;
+	std::vector<BrowserEntry> hdd_entries;
+	std::string hdd_status;
+	bool new_sasi_open = false;
+	bool new_sasi_refresh = false;
+	int new_sasi_drive = 0;
+	int new_sasi_choice = 3;
+	bool new_sasi_open_after_create = true;
+	char new_sasi_path[MAX_PATH] = {};
 	std::string state_status;
 	std::string keyboard_status;
 	UINT sound_sw_saved = 0;
@@ -306,12 +337,53 @@ static void refresh_fdd_browser(void) {
 	g_gui.fdd_browser_refresh = false;
 }
 
+static void refresh_hdd_browser(void) {
+
+	std::error_code ec;
+
+	g_gui.hdd_entries.clear();
+	if (!is_directory(g_gui.hdd_browser_dir)) {
+		g_gui.hdd_browser_dir = home_dir();
+	}
+	for (const auto &entry :
+		 fs::directory_iterator(fs::u8path(g_gui.hdd_browser_dir), ec)) {
+		BrowserEntry item;
+		std::error_code st_ec;
+
+		if (ec) {
+			break;
+		}
+		item.is_dir = entry.is_directory(st_ec);
+		if ((!item.is_dir) && (!entry.is_regular_file(st_ec))) {
+			continue;
+		}
+		item.name = entry.path().filename().u8string();
+		item.path = entry.path().u8string();
+		if (item.name.empty() || (item.name[0] == '.')) {
+			continue;
+		}
+		g_gui.hdd_entries.push_back(item);
+	}
+	std::sort(g_gui.hdd_entries.begin(), g_gui.hdd_entries.end(),
+			  browser_entry_less);
+	g_gui.hdd_browser_refresh = false;
+}
+
 static void persist_fdd_dir(const std::string &dir) {
 
 	if (!is_directory(dir)) {
 		return;
 	}
 	copy_path(np2oscfg.gui_fdd_dir, sizeof(np2oscfg.gui_fdd_dir), dir);
+	sysmng_update(SYS_UPDATEOSCFG);
+}
+
+static void persist_hdd_dir(const std::string &dir) {
+
+	if (!is_directory(dir)) {
+		return;
+	}
+	copy_path(np2oscfg.gui_hdd_dir, sizeof(np2oscfg.gui_hdd_dir), dir);
 	sysmng_update(SYS_UPDATEOSCFG);
 }
 
@@ -336,6 +408,27 @@ static bool file_is_mountable(const char *path, std::string *error) {
 	return true;
 }
 
+static bool hdd_file_is_mountable(const char *path, std::string *error) {
+
+	short attr;
+
+	if ((path == nullptr) || (path[0] == '\0')) {
+		*error = "SASI HDD image path is empty.";
+		return false;
+	}
+	attr = file_attr(path);
+	if (attr == static_cast<short>(-1)) {
+		*error = "SASI HDD image not found.";
+		return false;
+	}
+	if ((attr & FILEATTR_DIRECTORY) != 0) {
+		*error = "SASI HDD image path is a directory.";
+		return false;
+	}
+	error->clear();
+	return true;
+}
+
 static void set_fdd_status(int drive, const char *action, const char *path) {
 
 	g_gui.fdd_status = "FDD";
@@ -345,6 +438,60 @@ static void set_fdd_status(int drive, const char *action, const char *path) {
 	if ((path != nullptr) && (path[0] != '\0')) {
 		g_gui.fdd_status += ": ";
 		g_gui.fdd_status += path;
+	}
+}
+
+static void set_hdd_status(int drive, const char *action, const char *path) {
+
+	g_gui.hdd_status = "SASI-";
+	g_gui.hdd_status += static_cast<char>('1' + drive);
+	g_gui.hdd_status += ' ';
+	g_gui.hdd_status += action;
+	if ((path != nullptr) && (path[0] != '\0')) {
+		g_gui.hdd_status += ": ";
+		g_gui.hdd_status += path;
+	}
+}
+
+static void remember_fdd_mount(int drive, const char *path) {
+
+	if ((drive < 0) || (drive >= 2)) {
+		return;
+	}
+	if ((path != nullptr) && (path[0] != '\0')) {
+		copy_path(g_gui.fdd_mounted_path[drive],
+				  sizeof(g_gui.fdd_mounted_path[drive]), path);
+	}
+	else {
+		g_gui.fdd_mounted_path[drive][0] = '\0';
+	}
+}
+
+static void capture_reset_fdd_mounts(char paths[2][MAX_PATH]) {
+
+	for (int drive = 0; drive < 2; drive++) {
+		const char *current;
+
+		paths[drive][0] = '\0';
+		if (g_gui.fdd_mounted_path[drive][0] != '\0') {
+			copy_path(paths[drive], MAX_PATH, g_gui.fdd_mounted_path[drive]);
+			continue;
+		}
+		current = fdd_diskname(static_cast<REG8>(drive));
+		if ((current != nullptr) && (current[0] != '\0')) {
+			copy_path(paths[drive], MAX_PATH, current);
+		}
+	}
+}
+
+static void restore_reset_fdd_mounts(char paths[2][MAX_PATH]) {
+
+	for (int drive = 0; drive < 2; drive++) {
+		if (paths[drive][0] == '\0') {
+			continue;
+		}
+		diskdrv_setfdd(static_cast<REG8>(drive), paths[drive], 0);
+		remember_fdd_mount(drive, paths[drive]);
 	}
 }
 
@@ -373,6 +520,57 @@ static void open_fdd_dialog(int drive) {
 	g_gui.fdd_browser_refresh = true;
 }
 
+static void open_hdd_dialog(int drive) {
+
+	const char *current;
+	std::string start_dir;
+
+	g_gui.hdd_dialog_drive = drive;
+	current = np2cfg.sasihdd[drive];
+	if ((current != nullptr) && (current[0] != '\0')) {
+		milstr_ncpy(g_gui.hdd_path[drive], current,
+					sizeof(g_gui.hdd_path[drive]));
+		start_dir = parent_dir(current);
+	}
+	else {
+		g_gui.hdd_path[drive][0] = '\0';
+	}
+	if (start_dir.empty() &&
+		(np2oscfg.gui_hdd_dir[0] != '\0') &&
+		is_directory(np2oscfg.gui_hdd_dir)) {
+		start_dir = np2oscfg.gui_hdd_dir;
+	}
+	if (start_dir.empty()) {
+		start_dir = home_dir();
+	}
+	g_gui.hdd_browser_dir = absolute_path(start_dir);
+	g_gui.hdd_browser_open = true;
+	g_gui.hdd_browser_refresh = true;
+}
+
+static void open_new_sasi_dialog(int drive) {
+
+	std::string start_dir;
+	std::string path;
+
+	g_gui.new_sasi_drive = std::clamp(drive, 0, 1);
+	if ((np2oscfg.gui_hdd_dir[0] != '\0') &&
+		is_directory(np2oscfg.gui_hdd_dir)) {
+		start_dir = np2oscfg.gui_hdd_dir;
+	}
+	if (start_dir.empty()) {
+		start_dir = home_dir();
+	}
+	g_gui.hdd_browser_dir = absolute_path(start_dir);
+	path = join_path(g_gui.hdd_browser_dir, "newdisk.hdi");
+	copy_path(g_gui.new_sasi_path, sizeof(g_gui.new_sasi_path), path);
+	g_gui.new_sasi_choice = 3;
+	g_gui.new_sasi_open_after_create = true;
+	g_gui.new_sasi_open = true;
+	g_gui.new_sasi_refresh = true;
+	g_gui.hdd_browser_open = false;
+}
+
 static void mount_fdd_from_dialog(void) {
 
 	int drive;
@@ -392,15 +590,113 @@ static void mount_fdd_from_dialog(void) {
 		return;
 	}
 	diskdrv_setfdd(static_cast<REG8>(drive), path, 0);
+	remember_fdd_mount(drive, path);
 	persist_fdd_dir(parent_dir(path));
 	set_fdd_status(drive, "mounted", path);
 	g_gui.fdd_browser_open = false;
 }
 
+static void mount_hdd_from_dialog(void) {
+
+	int drive;
+	const char *path;
+	std::string error;
+
+	drive = g_gui.hdd_dialog_drive;
+	if ((drive < 0) || (drive >= 2)) {
+		return;
+	}
+	path = g_gui.hdd_path[drive];
+	if (!hdd_file_is_mountable(path, &error)) {
+		g_gui.hdd_status = "SASI-";
+		g_gui.hdd_status += static_cast<char>('1' + drive);
+		g_gui.hdd_status += " open failed: ";
+		g_gui.hdd_status += error;
+		return;
+	}
+	diskdrv_sethdd(static_cast<REG8>(drive), path);
+	persist_hdd_dir(parent_dir(path));
+	set_hdd_status(drive, "configured; reset to apply", path);
+	g_gui.hdd_browser_open = false;
+}
+
+static std::string hdi_path(const char *path) {
+
+	std::string result;
+
+	if (path != nullptr) {
+		result = path;
+	}
+	if (result.empty()) {
+		return result;
+	}
+	fs::path p = fs::u8path(result);
+	if (p.extension().empty()) {
+		p += ".hdi";
+		result = p.u8string();
+	}
+	return result;
+}
+
+static void create_new_sasi_image(void) {
+
+	int drive;
+	int choice;
+	std::string path;
+	short attr;
+
+	drive = std::clamp(g_gui.new_sasi_drive, 0, 1);
+	choice = std::clamp(g_gui.new_sasi_choice, 0, kSasiImageCount - 1);
+	path = hdi_path(g_gui.new_sasi_path);
+	if (path.empty()) {
+		g_gui.hdd_status = "New SASI image failed: path is empty.";
+		return;
+	}
+	attr = file_attr(path.c_str());
+	if (attr != static_cast<short>(-1)) {
+		g_gui.hdd_status = "New SASI image failed: file already exists.";
+		return;
+	}
+	if (!is_directory(parent_dir(path))) {
+		g_gui.hdd_status = "New SASI image failed: parent directory not found.";
+		return;
+	}
+	newdisk_hdi(path.c_str(), kSasiImageChoices[choice].hdd_type);
+	attr = file_attr(path.c_str());
+	if ((attr == static_cast<short>(-1)) ||
+		((attr & FILEATTR_DIRECTORY) != 0)) {
+		g_gui.hdd_status = "New SASI image failed: create failed.";
+		return;
+	}
+	copy_path(g_gui.new_sasi_path, sizeof(g_gui.new_sasi_path), path);
+	persist_hdd_dir(parent_dir(path));
+	if (g_gui.new_sasi_open_after_create) {
+		diskdrv_sethdd(static_cast<REG8>(drive), path.c_str());
+		set_hdd_status(drive, "created and configured; reset to apply",
+					   path.c_str());
+	}
+	else {
+		g_gui.hdd_status = "New SASI image created: ";
+		g_gui.hdd_status += path;
+	}
+	g_gui.new_sasi_open = false;
+}
+
 static void eject_fdd(int drive) {
 
 	diskdrv_setfdd(static_cast<REG8>(drive), nullptr, 0);
+	remember_fdd_mount(drive, nullptr);
 	set_fdd_status(drive, "ejected", nullptr);
+}
+
+static void remove_hdd(int drive) {
+
+	diskdrv_sethdd(static_cast<REG8>(drive), nullptr);
+	sxsi_open();
+	if (!sxsi_issasi()) {
+		pccore.hddif &= ~PCHDD_SASI;
+	}
+	set_hdd_status(drive, "removed; reset to apply", nullptr);
 }
 
 static void draw_fdd_browser(void) {
@@ -470,12 +766,161 @@ static void draw_fdd_browser(void) {
 	ImGui::End();
 }
 
+static void draw_hdd_browser(void) {
+
+	int drive;
+
+	if (!g_gui.hdd_browser_open) {
+		return;
+	}
+	drive = g_gui.hdd_dialog_drive;
+	if ((drive < 0) || (drive >= 2)) {
+		g_gui.hdd_browser_open = false;
+		return;
+	}
+	if (g_gui.hdd_browser_refresh) {
+		refresh_hdd_browser();
+	}
+	ImGui::SetNextWindowSize(ImVec2(620.0f, 420.0f),
+							 ImGuiCond_FirstUseEver);
+	if (ImGui::Begin("Open SASI HDD image", &g_gui.hdd_browser_open)) {
+		ImGui::Text("SASI-%d directory", drive + 1);
+		ImGui::TextWrapped("%s", g_gui.hdd_browser_dir.c_str());
+		if (ImGui::Button("Home")) {
+			g_gui.hdd_browser_dir = home_dir();
+			g_gui.hdd_browser_refresh = true;
+		}
+		ImGui::SameLine();
+		if (ImGui::Button("Up")) {
+			g_gui.hdd_browser_dir = parent_dir(g_gui.hdd_browser_dir);
+			g_gui.hdd_browser_refresh = true;
+		}
+		ImGui::Separator();
+		if (ImGui::BeginChild("hdd-browser-list", ImVec2(0, 230.0f),
+							  ImGuiChildFlags_Borders)) {
+			for (const auto &entry : g_gui.hdd_entries) {
+				std::string label = entry.is_dir ? "[D] " : "    ";
+				label += entry.name;
+				if (ImGui::Selectable(label.c_str())) {
+					if (entry.is_dir) {
+						g_gui.hdd_browser_dir = entry.path;
+						g_gui.hdd_browser_refresh = true;
+					}
+					else {
+						copy_path(g_gui.hdd_path[drive],
+								  sizeof(g_gui.hdd_path[drive]),
+								  entry.path);
+					}
+				}
+			}
+		}
+		ImGui::EndChild();
+		ImGui::SetNextItemWidth(-1.0f);
+		ImGui::InputText("##hdd-path", g_gui.hdd_path[drive],
+						 sizeof(g_gui.hdd_path[drive]));
+		if (ImGui::Button("Open")) {
+			mount_hdd_from_dialog();
+		}
+		ImGui::SameLine();
+		if (ImGui::Button("Cancel")) {
+			g_gui.hdd_browser_open = false;
+		}
+		if (!g_gui.hdd_status.empty()) {
+			ImGui::Separator();
+			ImGui::TextWrapped("%s", g_gui.hdd_status.c_str());
+		}
+	}
+	ImGui::End();
+}
+
+static void draw_new_sasi_dialog(void) {
+
+	if (!g_gui.new_sasi_open) {
+		return;
+	}
+	if (g_gui.new_sasi_refresh) {
+		refresh_hdd_browser();
+		g_gui.new_sasi_refresh = false;
+	}
+	ImGui::SetNextWindowSize(ImVec2(620.0f, 500.0f),
+							 ImGuiCond_FirstUseEver);
+	if (ImGui::Begin("Create SASI HDD image", &g_gui.new_sasi_open)) {
+		ImGui::Text("Target directory");
+		ImGui::TextWrapped("%s", g_gui.hdd_browser_dir.c_str());
+		if (ImGui::Button("Home")) {
+			g_gui.hdd_browser_dir = home_dir();
+			g_gui.new_sasi_refresh = true;
+		}
+		ImGui::SameLine();
+		if (ImGui::Button("Up")) {
+			g_gui.hdd_browser_dir = parent_dir(g_gui.hdd_browser_dir);
+			g_gui.new_sasi_refresh = true;
+		}
+		ImGui::Separator();
+		if (ImGui::BeginChild("new-sasi-browser-list",
+							  ImVec2(0, 170.0f), ImGuiChildFlags_Borders)) {
+			for (const auto &entry : g_gui.hdd_entries) {
+				std::string label = entry.is_dir ? "[D] " : "    ";
+				label += entry.name;
+				if (ImGui::Selectable(label.c_str())) {
+					if (entry.is_dir) {
+						g_gui.hdd_browser_dir = entry.path;
+						copy_path(g_gui.new_sasi_path,
+								  sizeof(g_gui.new_sasi_path),
+								  join_path(entry.path, "newdisk.hdi"));
+						g_gui.new_sasi_refresh = true;
+					}
+					else {
+						copy_path(g_gui.new_sasi_path,
+								  sizeof(g_gui.new_sasi_path),
+								  entry.path);
+					}
+				}
+			}
+		}
+		ImGui::EndChild();
+		ImGui::SetNextItemWidth(-1.0f);
+		ImGui::InputText("##new-sasi-path", g_gui.new_sasi_path,
+						 sizeof(g_gui.new_sasi_path));
+		ImGui::Text("Image size");
+		for (int i = 0; i < kSasiImageCount; i++) {
+			if (i > 0) {
+				ImGui::SameLine();
+			}
+			ImGui::RadioButton(kSasiImageChoices[i].label,
+							   &g_gui.new_sasi_choice, i);
+		}
+		ImGui::Text("Configure after create");
+		ImGui::RadioButton("SASI-1", &g_gui.new_sasi_drive, 0);
+		ImGui::SameLine();
+		ImGui::RadioButton("SASI-2", &g_gui.new_sasi_drive, 1);
+		ImGui::Checkbox("Set HDD file after create",
+						&g_gui.new_sasi_open_after_create);
+		if (ImGui::Button("Create")) {
+			create_new_sasi_image();
+		}
+		ImGui::SameLine();
+		if (ImGui::Button("Cancel")) {
+			g_gui.new_sasi_open = false;
+		}
+		if (!g_gui.hdd_status.empty()) {
+			ImGui::Separator();
+			ImGui::TextWrapped("%s", g_gui.hdd_status.c_str());
+		}
+	}
+	ImGui::End();
+}
+
 static void draw_emulate_menu(void) {
 
 	if (ImGui::BeginMenu("Emulate / エミュレート")) {
 		if (ImGui::MenuItem("Reset / リセット")) {
+			char fdd_paths[2][MAX_PATH];
+
+			capture_reset_fdd_mounts(fdd_paths);
 			pccore_cfgupdate();
 			pccore_reset();
+			restore_reset_fdd_mounts(fdd_paths);
 			sdlkbd_reset_state();
 			scrndraw_redraw();
 		}
@@ -519,10 +964,23 @@ static void draw_fdd_menu(void) {
 static void draw_harddisk_menu(void) {
 
 	if (ImGui::BeginMenu("HardDisk")) {
-		menu_item_not_implemented("SASI-1 Open... (not implemented)");
-		menu_item_not_implemented("SASI-1 Remove (not implemented)");
-		menu_item_not_implemented("SASI-2 Open... (not implemented)");
-		menu_item_not_implemented("SASI-2 Remove (not implemented)");
+		if (ImGui::MenuItem("SASI-1 Open...")) {
+			open_hdd_dialog(0);
+		}
+		if (ImGui::MenuItem("SASI-1 Remove")) {
+			remove_hdd(0);
+		}
+		ImGui::Separator();
+		if (ImGui::MenuItem("SASI-2 Open...")) {
+			open_hdd_dialog(1);
+		}
+		if (ImGui::MenuItem("SASI-2 Remove")) {
+			remove_hdd(1);
+		}
+		ImGui::Separator();
+		if (ImGui::MenuItem("New SASI image...")) {
+			open_new_sasi_dialog(0);
+		}
 		ImGui::EndMenu();
 	}
 }
@@ -1067,6 +1525,8 @@ void gui_draw(void) {
 		ImGui::EndMainMenuBar();
 	}
 	draw_fdd_browser();
+	draw_hdd_browser();
+	draw_new_sasi_dialog();
 	draw_keyboard_config();
 }
 

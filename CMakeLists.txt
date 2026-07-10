@@ -308,6 +308,7 @@ target_link_libraries(vaeg_core PUBLIC vaeg_common)
 target_compile_definitions(vaeg_core PUBLIC
     USE_I286C
     SUPPORT_BMS
+    SUPPORT_SASI
     SUPPORT_V30ORIGINAL
     VAEG_FIX)
 target_compile_options(vaeg_core PRIVATE -Wall -fsigned-char)

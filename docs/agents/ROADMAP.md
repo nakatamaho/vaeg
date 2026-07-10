@@ -49,9 +49,10 @@ history, not by a current CI or compile guarantee.
 | M13 | tasks/M13_retire_legacy.md | Delete retired `sdl/`; keep frozen `win9x/`, `i286x/`, `cpuxva/memoryva.x86`, `hlp/`; docs | **G13** human sign-off |
 | M14 | tasks/M14_keyboard_mapping.md | PC-88VA/PC-8801-style SDL2 keyboard mapping; JIS physical, US keytop, and custom presets; Kana/Roman-Kana input; tenkeyless overlay; GUI binding table | **G14 passed** |
 | M15 | tasks/M15_support_pc88va_constant_fold.md | Fold the always-enabled `SUPPORT_PC88VA` compile-time flag in the active tree while retaining runtime model selection | **G15 passed** |
+| M16 | tasks/M16_sasi_hdd_gui.md | Reactivate SASI in active CMake; expose SASI HDI creation and SASI-1/SASI-2 Open/Remove in the SDL2 ImGui HardDisk menu | **G16 passed** |
 
 Phase 2 dependencies: M7 → M8 → {M9, M10 parallel} → M11 → M12 → M13.
-Post-phase dependency: M13 → M14 → M15.
+Post-phase dependency: M13 → M14 → M15 → M16.
 M9 must pass before M11 (all three OSes must ship the VA machine, not
 the PC-98 scaffold).
 
@@ -85,7 +86,8 @@ gate on the PC-98 scaffold; G9 onward use the full VA checklist.
 
 A gate passes only when the user says so. Pushed tags are immutable.
 Tag `portable-pc98` after G8, `portable-va` after G9,
-`phase2-complete` after G13. M14 and M15 passed without separate tags.
+`phase2-complete` after G13. M14, M15, and M16 passed without separate
+tags.
 
 ## Resolved decision points
 

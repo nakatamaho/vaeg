@@ -65,6 +65,22 @@ SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy ./build/linux-debug/sdl2/vaeg --smok
 `--smoke` initializes video, audio, and the PC-98 core, runs a short fixed
 frame loop, then exits with status 0 when initialization succeeds.
 
+## SASI HDD Images
+
+SASI HDD images are configured through `np2.cfg`:
+
+```ini
+HDD1FILE=/path/to/disk.hdi
+HDD2FILE=
+```
+
+The SDL2 GUI also exposes HardDisk -> New SASI image plus SASI-1/SASI-2
+Open and Remove. New SASI image creates HDI images using the existing
+5/10/15/20/30/40 MB SASI geometry table and refuses to overwrite an
+existing file. After changing a SASI image, reset the guest so the
+existing SxSI/SASI open and bind path is rebuilt. SCSI and IDE GUI
+mounting are not implemented yet.
+
 ## ROM Placement
 
 At startup the frontend uses the existing NP2 configuration field

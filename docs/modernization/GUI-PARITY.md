@@ -67,7 +67,7 @@ Unimplemented Win32 features remain visible as disabled stubs with
 |---|---|---|---|
 | Emulate | Reset; Configure; NewDisk; Font; Exit | Reset and Exit `done`; others `later` | Configure covers base clock, model, sampling rate, sound buffer, resize, MMX, confirm, resume. Font selection is not the ImGui Japanese font decision. |
 | FDD dynamic menu | FDD1-FDD4 Open/Eject | FDD1/FDD2 `done`; FDD3/FDD4 `later` | FDD1/FDD2 are required for G10. |
-| HardDisk | SASI1/SASI2 Open/Remove | `later` | HDD mounting is not in the M10 must-have set. |
+| HardDisk | New SASI image; SASI1/SASI2 Open/Remove | SASI HDI create and SASI1/SASI2 Open/Remove `done`; SCSI/IDE `later` | M16 restores SASI through `HDD1FILE`/`HDD2FILE`; reset is the reliable apply point after changing images. |
 | SCSI dynamic menu | SCSI0-SCSI3 Open/Remove | `later` | Added dynamically when SCSI support is compiled. |
 | Screen | Window; FullScreen; rotation; display vsync; real palettes; no wait; frame skip; screen option | Display scale/aspect `done`; rest `later` | Screen option dialog has LCD/skipline, GDC/GRCG/color, wait-state and real palette pages. |
 | Device / Keyboard | Keyboard/JoyKey modes; mechanical SHIFT/CTRL/GRPH; F12 mapping; Alt-right mapping; host-layout mapping mode | Host-layout mapping and binding table `done`; mechanical key options `later` | M14 implements JIS/US/custom SDL scancode mapping, Kana modes, and Roman-Kana helper. Mechanical SHIFT/CTRL/GRPH mode options remain later. |
@@ -84,8 +84,8 @@ Unimplemented Win32 features remain visible as disabled stubs with
 | Dialog/resource | Implementation | Function summary | Status |
 |---|---|---|---|
 | `IDD_CONFIG` | `win9x/dialog/d_config.cpp` | Base clock, multiplier, model, sampling rate, sound buffer, resize, MMX, confirm, resume | `later` |
-| `IDD_NEWDISK`, `IDD_NEWDISK2`, `IDD_NEWHDDDISK`, `IDD_NEWSASI` | `win9x/dialog/d_disk.cpp` | Create floppy/HDD image files | `later` |
-| FDD/HDD file selectors | `win9x/dialog/d_disk.cpp` | Open FDD, SASI/IDE, SCSI images | FDD1/FDD2 `done`; HDD/SCSI `later` |
+| `IDD_NEWDISK`, `IDD_NEWDISK2`, `IDD_NEWHDDDISK`, `IDD_NEWSASI` | `win9x/dialog/d_disk.cpp` | Create floppy/HDD image files | SASI HDI creation `done`; floppy, THD/NHD, and SCSI creation `later` |
+| FDD/HDD file selectors | `win9x/dialog/d_disk.cpp` | Open FDD, SASI/IDE, SCSI images | FDD1/FDD2 and SASI1/SASI2 `done`; SCSI/IDE `later` |
 | `IDD_SCROPT1` | `win9x/dialog/d_screen.cpp` | LCD mode, skipline, skiplight | `later` |
 | `IDD_SCROPT2` | `win9x/dialog/d_screen.cpp` | GDC chip, GRCG/EGC, PC-9801-24 color | `later` |
 | `IDD_SCROPT3` | `win9x/dialog/d_screen.cpp` | Wait-state and real palette tuning | `later` |
