@@ -66,7 +66,9 @@ The implementation and human-gate record are in
 M15 is complete. `SUPPORT_PC88VA` is no longer an active-tree feature
 flag or CMake definition. The runtime `pccore.model_va` checks remain
 because VA1/VA2 and non-VA guest behavior are runtime state, not build
-configuration.
+configuration. The implementation scope, release-integration adjustment,
+verification commands, and G15 record are in
+`tasks/M15_support_pc88va_constant_fold.md`.
 
 ## Gate protocol
 
