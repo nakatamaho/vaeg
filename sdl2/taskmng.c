@@ -54,15 +54,22 @@ void taskmng_rol(void) {
 				break;
 
 			case SDL_KEYDOWN:
-				if ((!captured) && (!e.key.repeat)) {
-					sdlkbd_keydown((UINT)e.key.keysym.scancode);
-				}
+				sdlkbd_keydown((UINT)e.key.keysym.scancode,
+							   e.key.keysym.sym,
+							   (UINT16)e.key.keysym.mod,
+							   captured,
+							   e.key.repeat ? TRUE : FALSE);
 				break;
 
 			case SDL_KEYUP:
-				if (!captured) {
-					sdlkbd_keyup((UINT)e.key.keysym.scancode);
-				}
+				sdlkbd_keyup((UINT)e.key.keysym.scancode,
+							 e.key.keysym.sym,
+							 (UINT16)e.key.keysym.mod,
+							 captured);
+				break;
+
+			case SDL_TEXTINPUT:
+				sdlkbd_textinput(e.text.text, captured);
 				break;
 
 			default:

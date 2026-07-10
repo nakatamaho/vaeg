@@ -27,9 +27,11 @@
 #include	"codecnv.h"
 #include	"commng.h"
 #include	"dosio.h"
+#include	"kbdmap.h"
 #include	"np2.h"
 #include	"pccore.h"
 #include	"profile.h"
+#include	"romankana.h"
 #include	"s98.h"
 #include	"soundmng.h"
 
@@ -266,12 +268,109 @@ static int test_statsave(void) {
 	return(SUCCESS);
 }
 
+typedef struct {
+	char	text[256];
+} TOKENBUF;
+
+static void tokenbuf_emit(const char *token, void *arg) {
+
+	TOKENBUF *buf;
+
+	buf = (TOKENBUF *)arg;
+	if (buf->text[0] != '\0') {
+		milstr_ncat(buf->text, ",", sizeof(buf->text));
+	}
+	milstr_ncat(buf->text, token, sizeof(buf->text));
+}
+
+static int test_romankana(void) {
+
+	ROMANKANA_STATE	state;
+	TOKENBUF		buf;
+
+	romankana_reset(&state);
+	ZeroMemory(&buf, sizeof(buf));
+	romankana_feed(&state, "AkaShi", tokenbuf_emit, &buf);
+	romankana_flush(&state, tokenbuf_emit, &buf);
+	if (strcmp(buf.text, "a,ka,shi") != 0) {
+		return(fail("romankana", "uppercase/basic syllables failed"));
+	}
+
+	romankana_reset(&state);
+	ZeroMemory(&buf, sizeof(buf));
+	romankana_feed(&state, "shi si tsu tu", tokenbuf_emit, &buf);
+	romankana_flush(&state, tokenbuf_emit, &buf);
+	if (strcmp(buf.text, "shi,?,shi,?,tsu,?,tsu") != 0) {
+		return(fail("romankana", "shi/si and tsu/tu aliases failed"));
+	}
+
+	romankana_reset(&state);
+	ZeroMemory(&buf, sizeof(buf));
+	romankana_feed(&state, "nn n' nka kko", tokenbuf_emit, &buf);
+	romankana_flush(&state, tokenbuf_emit, &buf);
+	if (strcmp(buf.text, "nn,?,nn,?,nn,ka,?,xtsu,ko") != 0) {
+		return(fail("romankana", "n and doubled-consonant handling failed"));
+	}
+
+	romankana_reset(&state);
+	ZeroMemory(&buf, sizeof(buf));
+	romankana_feed(&state, "gaza daba papa", tokenbuf_emit, &buf);
+	romankana_flush(&state, tokenbuf_emit, &buf);
+	if (strcmp(buf.text, "ga,za,?,da,ba,?,pa,pa") != 0) {
+		return(fail("romankana", "voiced syllables failed"));
+	}
+
+	romankana_reset(&state);
+	ZeroMemory(&buf, sizeof(buf));
+	romankana_feed(&state, "nya nyu nyo kya sha syo chu tyo ryo gya ja pyo",
+				   tokenbuf_emit, &buf);
+	romankana_flush(&state, tokenbuf_emit, &buf);
+	if (strcmp(buf.text,
+			   "nya,?,nyu,?,nyo,?,kya,?,sha,?,sho,?,chu,?,cho,?,ryo,?,gya,?,ja,?,pyo") != 0) {
+		return(fail("romankana", "yoon syllables failed"));
+	}
+
+	romankana_reset(&state);
+	ZeroMemory(&buf, sizeof(buf));
+	romankana_feed(&state, "xya lyu xyo xa li xo xtu ltu",
+				   tokenbuf_emit, &buf);
+	romankana_flush(&state, tokenbuf_emit, &buf);
+	if (strcmp(buf.text, "xya,?,xyu,?,xyo,?,xa,?,xi,?,xo,?,xtsu,?,xtsu") != 0) {
+		return(fail("romankana", "small kana aliases failed"));
+	}
+
+	romankana_reset(&state);
+	ZeroMemory(&buf, sizeof(buf));
+	romankana_feed(&state, "va vi vu ve vo", tokenbuf_emit, &buf);
+	romankana_flush(&state, tokenbuf_emit, &buf);
+	if (strcmp(buf.text, "va,?,vi,?,vu,?,ve,?,vo") != 0) {
+		return(fail("romankana", "vu syllables failed"));
+	}
+	fprintf(stderr, "selftest: romankana ok\n");
+	return(SUCCESS);
+}
+
+static int test_keyboard_mapping(void) {
+
+	if (kbdmap_selftest() != SUCCESS) {
+		return(fail("keyboard-map", "mapping lookup/persistence failed"));
+	}
+	if (test_romankana() != SUCCESS) {
+		return(FAILURE);
+	}
+	fprintf(stderr, "selftest: keyboard mapping ok\n");
+	return(SUCCESS);
+}
+
 int vaeg_selftest_run(void) {
 
 	if (test_codecnv() != SUCCESS) {
 		return(FAILURE);
 	}
 	if (test_profile_ini() != SUCCESS) {
+		return(FAILURE);
+	}
+	if (test_keyboard_mapping() != SUCCESS) {
 		return(FAILURE);
 	}
 	if (test_statsave() != SUCCESS) {

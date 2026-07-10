@@ -22,47 +22,18 @@
  * IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-#ifndef VAEG_SDL2_NP2_H
-#define VAEG_SDL2_NP2_H
-
-enum {
-	NP2OSCFG_KEYBOARD_NAME_SIZE = 16,
-	NP2OSCFG_KEYBOARD_CUSTOM_MAP_SIZE = 8192
-};
-
-typedef struct {
-	BYTE	NOWAIT;
-	BYTE	DRAW_SKIP;
-	BYTE	F12KEY;
-	BYTE	resume;
-	BYTE	jastsnd;
-	BYTE	gui_scale;
-	BYTE	gui_aspect;
-	char	gui_fdd_dir[MAX_PATH];
-	char	keyboard_host_layout[NP2OSCFG_KEYBOARD_NAME_SIZE];
-	char	keyboard_kana_input[NP2OSCFG_KEYBOARD_NAME_SIZE];
-	BYTE	keyboard_auto_kana_lock;
-	BYTE	keyboard_tenkey_overlay;
-	char	keyboard_custom_map[NP2OSCFG_KEYBOARD_CUSTOM_MAP_SIZE];
-} NP2OSCFG;
-
-#if defined(SIZE_QVGA)
-enum {
-	FULLSCREEN_WIDTH	= 320,
-	FULLSCREEN_HEIGHT	= 240
-};
-#else
-enum {
-	FULLSCREEN_WIDTH	= 640,
-	FULLSCREEN_HEIGHT	= 400
-};
-#endif
+#ifndef VAEG_SDL2_KBDINJECT_H
+#define VAEG_SDL2_KBDINJECT_H
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-extern	NP2OSCFG	np2oscfg;
+void kbdinject_keydown(BYTE guest_code);
+void kbdinject_keyup(BYTE guest_code);
+void kbdinject_press(BYTE guest_code);
+void kbdinject_forcerelease(BYTE guest_code);
+void kbdinject_allrelease(void);
 
 #ifdef __cplusplus
 }

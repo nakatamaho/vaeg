@@ -283,6 +283,9 @@ set(VAEG_SDL2_SOURCES
     sdl2/trace.c
     sdl2/scrnmng.c
     sdl2/sdlkbd.c
+    sdl2/kbdinject.c
+    sdl2/kbdmap.c
+    sdl2/romankana.c
     sdl2/inputmng.c
     sdl2/selftest.c
     sdl2/soundmng.c

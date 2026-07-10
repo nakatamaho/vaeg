@@ -22,50 +22,32 @@
  * IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-#ifndef VAEG_SDL2_NP2_H
-#define VAEG_SDL2_NP2_H
+#include	"compiler.h"
+#include	"keystat.h"
+#include	"kbdinject.h"
 
-enum {
-	NP2OSCFG_KEYBOARD_NAME_SIZE = 16,
-	NP2OSCFG_KEYBOARD_CUSTOM_MAP_SIZE = 8192
-};
+void kbdinject_keydown(BYTE guest_code) {
 
-typedef struct {
-	BYTE	NOWAIT;
-	BYTE	DRAW_SKIP;
-	BYTE	F12KEY;
-	BYTE	resume;
-	BYTE	jastsnd;
-	BYTE	gui_scale;
-	BYTE	gui_aspect;
-	char	gui_fdd_dir[MAX_PATH];
-	char	keyboard_host_layout[NP2OSCFG_KEYBOARD_NAME_SIZE];
-	char	keyboard_kana_input[NP2OSCFG_KEYBOARD_NAME_SIZE];
-	BYTE	keyboard_auto_kana_lock;
-	BYTE	keyboard_tenkey_overlay;
-	char	keyboard_custom_map[NP2OSCFG_KEYBOARD_CUSTOM_MAP_SIZE];
-} NP2OSCFG;
-
-#if defined(SIZE_QVGA)
-enum {
-	FULLSCREEN_WIDTH	= 320,
-	FULLSCREEN_HEIGHT	= 240
-};
-#else
-enum {
-	FULLSCREEN_WIDTH	= 640,
-	FULLSCREEN_HEIGHT	= 400
-};
-#endif
-
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-extern	NP2OSCFG	np2oscfg;
-
-#ifdef __cplusplus
+	keystat_senddata(guest_code);
 }
-#endif
 
-#endif
+void kbdinject_keyup(BYTE guest_code) {
+
+	keystat_senddata((BYTE)(guest_code | 0x80));
+}
+
+void kbdinject_press(BYTE guest_code) {
+
+	kbdinject_keydown(guest_code);
+	kbdinject_keyup(guest_code);
+}
+
+void kbdinject_forcerelease(BYTE guest_code) {
+
+	keystat_forcerelease(guest_code);
+}
+
+void kbdinject_allrelease(void) {
+
+	keystat_allrelease();
+}

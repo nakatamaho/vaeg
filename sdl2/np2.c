@@ -47,7 +47,7 @@
 #include	"selftest.h"
 #include	"np2ver.h"
 
-		NP2OSCFG	np2oscfg = {0, 0, 0, 0, 0, 1, 0};
+		NP2OSCFG	np2oscfg = {0, 0, 0, 0, 0, 1, 0, "", "", "", 0, 0, ""};
 
 static const UINT smoke_timeout_frames = 600;
 static const UINT max_catchup_frames = 15;
@@ -663,6 +663,7 @@ int main(int argc, char **argv) {
 	S98_init();
 
 	pccore_reset();
+	sdlkbd_reset_state();
 	scrndraw_redraw();
 	mount_fdd_images(disk);
 	run_ok = runloop(smoke, pacelog, smoke_detect_screen);
