@@ -22,7 +22,7 @@ STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING
 IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE.
 -->
-# M15 — Treat PC-88VA support as an active-tree invariant
+# M15 - PC-88VA Active-Tree Invariant
 
 Status: complete
 
@@ -30,141 +30,102 @@ Branch: `topic/m15-pc88va-invariant`
 
 Gate: G15 passed
 
-Depends on: G14 passed.
+Depends on: G14 passed
 
 ## Goal
 
-The active CMake/SDL2 tree always builds the PC-88VA machine. Therefore
-`SUPPORT_PC88VA` is no longer a useful compile-time feature flag in the
-active tree.
+Treat PC-88VA support as an unconditional property of the active
+CMake/SDL2 build. Before M15, `SUPPORT_PC88VA` was always defined by
+CMake but still guarded VA code throughout the active core. M15 folds
+that compile-time condition to true and removes the redundant definition.
 
-M15 folds `SUPPORT_PC88VA` to true in active code and removes the CMake
-compile definition. This is intended to be a behavior-preserving cleanup:
-only code that was already compiled in the active build remains.
+This is a behavior-preserving cleanup of the configuration that was
+already shipped. It does not turn runtime model selection into a
+compile-time decision.
 
-The frozen reference tier remains untouched and keeps whatever
-`SUPPORT_PC88VA` archaeology it needs.
+## Resulting Invariant
 
-## Non-goals
+After M15:
 
-Do not mix any of these into M15:
+- active CMake targets always compile the VA-capable code;
+- `SUPPORT_PC88VA` is not defined by `CMakeLists.txt`;
+- active source and headers contain no `SUPPORT_PC88VA` conditionals;
+- runtime checks using `pccore.model_va`, `PCMODEL_NOTVA`, `PCMODEL_VA1`,
+  and `PCMODEL_VA2` remain;
+- `VAEG_FIX` and `VAEG_EXT` remain independent and were not folded;
+- PC-98, EPSON, PC-9821, VA1, and VA2 runtime behavior remains selected
+  by existing state and configuration.
 
-- uPD9002/uPD70002 naming work;
-- V30 instruction integration;
-- Z80 core replacement;
-- `VAEG_FIX` folding;
-- `VAEG_EXT` folding;
-- removal of runtime machine-model checks;
-- PC-98/EPSON/9821 runtime behavior cleanup;
-- formatting or indentation sweeps.
+The active target still defines:
 
-## Constraints
-
-- Do not modify the frozen reference tier:
-  - `win9x/`
-  - `i286x/`
-  - `cpuxva/memoryva.x86`
-  - `hlp/`
-- Do not modify `docs/agents/reports/raw/`.
-- Historical reports under `docs/agents/reports/` may mention
-  `SUPPORT_PC88VA`; leave them alone unless the maintainer explicitly
-  asks for a historical-note update.
-- `VAEG_FIX` and `VAEG_EXT` are separate compile-time controls and must
-  remain as-is.
-- Runtime model checks such as `pccore.model_va != PCMODEL_NOTVA`,
-  `PCMODEL_VA1`, and `PCMODEL_VA2` must remain. `SUPPORT_PC88VA` is a
-  compile-time invariant; `pccore.model_va` is guest runtime state.
-- Do not remove PC-98, EPSON, or PC-9821 compatibility branches just
-  because this task removes a VA compile-time guard.
-- Keep edits mechanical and local to changed preprocessor regions.
-- Preserve UTF-8 without BOM, LF line endings, and lowercase path rules.
-
-## Target scope
-
-Active build files only:
-
-- root C files and headers;
-- `CMakeLists.txt`;
-- `sdl2/`;
-- `io/`;
-- `sound/`;
-- `fdd/`;
-- `cbus/`;
-- `bios/`;
-- `biosva/`;
-- `cpucva/`;
-- `iova/`;
-- `vram/`;
-- `vramva/`;
-- `generic/`;
-- current active CPU core directory (`i286c/` unless renamed by a later
-  milestone);
-- necessary non-raw docs that describe active-tree invariants.
-
-Do not edit vendored third-party code.
-
-## Required audit
-
-Before changing code, list:
-
-1. CMake definition sites for `SUPPORT_PC88VA`.
-2. Active-tree source/header/table uses.
-3. Excluded uses in frozen reference paths.
-4. Historical-report mentions that will intentionally remain.
-
-Use a command equivalent to:
-
-```sh
-rg -n "SUPPORT_PC88VA" . \
-  --glob '!win9x/**' \
-  --glob '!i286x/**' \
-  --glob '!cpuxva/**' \
-  --glob '!hlp/**' \
-  --glob '!docs/agents/reports/raw/**'
+```text
+USE_I286C
+SUPPORT_BMS
+SUPPORT_V30ORIGINAL
+VAEG_FIX
 ```
 
-## Mechanical folding rules
+## Scope
 
-Apply these transformations only where `SUPPORT_PC88VA` is the condition
-being folded:
+The mechanical fold touched 77 active files across:
 
-- `#if defined(SUPPORT_PC88VA)` -> keep the true branch.
-- `#ifdef SUPPORT_PC88VA` -> keep the true branch.
-- `#ifndef SUPPORT_PC88VA` -> remove the guarded branch or keep the
-  `#else` branch if one exists.
-- `#if !defined(SUPPORT_PC88VA)` -> remove the guarded branch or keep
-  the `#else` branch if one exists.
-- `#if defined(VAEG_EXT) || defined(SUPPORT_PC88VA)` -> keep the true
-  branch.
-- `#if defined(SUPPORT_PC88VA) || ...` -> keep the true branch.
-- `#if defined(SUPPORT_PC88VA) && defined(X)` -> simplify to
-  `#if defined(X)`.
-- `#if defined(SUPPORT_PC88VA) && !defined(X)` -> simplify to
-  `#if !defined(X)`.
+- root core files and tables;
+- `bios/`, `biosva/`, `cbus/`, `common/`, `cpucva/`, and `fdd/`;
+- `generic/`, `i286c/`, `io/`, `iova/`, `sound/`, `vram/`, and
+  `vramva/`;
+- the SDL2 frontend and CMake definition;
+- this task record, `docs/agents/ROADMAP.md`, and
+  `docs/modernization/virtual-machine-architecture.md`.
 
-Do not simplify standalone `VAEG_FIX`, standalone `VAEG_EXT`, or runtime
-machine checks.
+The edits retained the branch selected by the active build and removed
+only the preprocessor wrappers and inactive alternatives. Existing files
+were not globally reindented or reformatted.
 
-When a file is wrapped entirely in `#if defined(SUPPORT_PC88VA)`, remove
-only the wrapper. Do not reindent the file.
+## Folding Rules Applied
 
-## CMake update
+The implementation used these transformations:
 
-Remove `SUPPORT_PC88VA` from active target compile definitions. The
-active target must still define the other existing controls, including
-`USE_I286C`, `SUPPORT_BMS`, `SUPPORT_V30ORIGINAL`, and `VAEG_FIX`.
+- `#if defined(SUPPORT_PC88VA)` and `#ifdef SUPPORT_PC88VA`: retain the
+  true branch;
+- `#ifndef SUPPORT_PC88VA` and `#if !defined(SUPPORT_PC88VA)`: discard
+  the false-for-active-build branch, retaining `#else` where applicable;
+- conditions where `SUPPORT_PC88VA` made an OR expression true: retain
+  the true branch;
+- `SUPPORT_PC88VA && X`: reduce to `X`;
+- whole-file VA wrappers: remove the wrapper without reindenting the
+  enclosed source.
 
-## Documentation update
+Standalone `VAEG_FIX`, standalone `VAEG_EXT`, and runtime model branches
+were outside this transformation.
 
-Update active architecture documentation if it states that VA helpers are
-conditional on `SUPPORT_PC88VA`. The correct post-M15 wording is that the
-active CMake/SDL2 tree is always built with PC-88VA support.
+## Main/Release Integration
 
-Do not rewrite historical reports for this milestone.
+The original M15 change predated the `Rel.260708` release-identification
+commit. Reapplying M15 onto the current main exposed two additional
+active guards:
 
-## Required verification
+- `sdl2/np2.c`: command-line version banner;
+- `sdl2/scrnmng.c`: window title.
 
-Run these checks, or explain exactly why any command is unavailable:
+Both were folded to the VA branch. The current `Rel.260708` value in
+`np2ver.h` was retained while its `SUPPORT_PC88VA` wrapper was removed.
+The old `Rel.080608` value from the historical M15 commit was not restored.
+
+## Intentionally Unchanged Areas
+
+The frozen reference tier remains untouched:
+
+- `win9x/`;
+- `i286x/`;
+- `cpuxva/memoryva.x86`;
+- `hlp/`.
+
+Those paths may still define or test `SUPPORT_PC88VA` for behavior
+archaeology. Historical reports under `docs/agents/reports/` also retain
+their original terminology. Vendored code and
+`docs/agents/reports/raw/` were not modified.
+
+The following search is the active-code invariant check:
 
 ```sh
 rg -n "SUPPORT_PC88VA" . \
@@ -172,57 +133,59 @@ rg -n "SUPPORT_PC88VA" . \
   --glob '!i286x/**' \
   --glob '!cpuxva/**' \
   --glob '!hlp/**' \
-  --glob '!docs/agents/reports/**'
+  --glob '!docs/**' \
+  --glob '!external/**'
+```
 
-cmake --preset macos-release
-cmake --build --preset macos-release
-SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy ./build/macos-release/sdl2/vaeg --smoke
-SDL_AUDIODRIVER=dummy ./build/macos-release/sdl2/vaeg --selftest
-git diff --check
+Expected result: no output.
+
+## Verification
+
+The dedicated branch was reconstructed on current main and checked with:
+
+```sh
+cmake --preset linux-release
+cmake --build --preset linux-release
+SDL_AUDIODRIVER=dummy ./build/linux-release/sdl2/vaeg --selftest
+SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
+  ./build/linux-release/sdl2/vaeg --smoke
 python3 tools/repo/check_encoding.py
 python3 tools/repo/check_eol.py
 python3 tools/repo/check_case.py
+git diff main --check
 ```
 
-The `rg` command above intentionally excludes all historical reports.
-If the maintainer specifically wants to see historical-report mentions,
-run the raw-only-excluded variant separately and label those results as
-historical residue.
+Results:
 
-## Deliverables
+- Linux release configure and build passed;
+- ROM-less selftest passed;
+- headless smoke passed in ROM-less mode;
+- encoding and EOL checks passed;
+- case checker reported `0 finding(s)`;
+- active-code `SUPPORT_PC88VA` search returned no matches;
+- frozen-tier diff was empty;
+- runtime `pccore.model_va` checks remained present.
 
-- Local code/docs changes or one mechanical commit if the maintainer
-  asks for commit/push.
-- A short report listing:
-  - files changed;
-  - where `SUPPORT_PC88VA` was removed;
-  - where `SUPPORT_PC88VA` remains by design;
-  - confirmation that runtime `pccore.model_va` checks remain;
-  - verification command results;
-  - residual risk.
+Existing compiler warnings from legacy shared code were not changed by
+this mechanical milestone.
 
-## Gate G15
+## Human Gate
 
-G15 is primarily a machine gate because the intended change is
-compile-time constant folding of code already used by the active build.
+G15 passed after the maintainer verified the rebuilt application. The
+manual acceptance point was unchanged behavior: V3 boot, the VA demo, OS
+boot, simple commands, keyboard input, video, and sound.
 
-The maintainer may still request the standard manual VA check before
-acceptance:
+## Residual Risk
 
-- clean build;
-- V3-mode boot;
-- bundled VA demo;
-- OS boot and simple commands.
+M15 deliberately removes the ability to compile the active target without
+VA support. That configuration was not an active product or CI target.
+The frozen v141 reference keeps its own conditional structure and has no
+current compile guarantee. Runtime non-VA branches remain in the active
+core and were not simplified by this milestone.
 
-## Completion record
+## Commit Record
 
-The active CMake/SDL2 tree was mechanically folded to the
-`SUPPORT_PC88VA=true` branch and the compile definition was removed from
-`CMakeLists.txt`. Two release-identification guards added after the
-original M15 work were folded when the milestone was rebased onto main;
-the current `Rel.260708` version string was preserved.
-
-`VAEG_FIX`, `VAEG_EXT`, and runtime checks using `pccore.model_va`,
-`PCMODEL_VA1`, `PCMODEL_VA2`, and `PCMODEL_NOTVA` remain. References in
-the frozen tier and historical reports remain by design. G15 passed after
-the machine checks and maintainer VA boot check.
+```text
+18ac32b M15: fold PC-88VA support invariant in active tree
+a77c4af M15: fold post-release VA guards and close milestone
+```
