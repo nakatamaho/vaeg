@@ -1,8 +1,35 @@
+<!--
+Copyright (c) 2026 Nakata Maho
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions
+are met:
+1. Redistributions of source code must retain the above copyright
+   notice, this list of conditions and the following disclaimer.
+2. Redistributions in binary form must reproduce the above copyright
+   notice, this list of conditions and the following disclaimer in the
+   documentation and/or other materials provided with the distribution.
+
+THIS SOFTWARE IS PROVIDED BY THE AUTHOR "AS IS" AND ANY EXPRESS OR
+IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT,
+INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING
+IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+POSSIBILITY OF SUCH DAMAGE.
+-->
 # M15 — Treat PC-88VA support as an active-tree invariant
 
-Status: proposed  
-Branch: `topic/m15-support-pc88va-fold`  
-Gate: G15 (machine checks; human VA boot/demo check if the maintainer wants an A/B confirmation)  
+Status: complete
+
+Branch: `topic/m15-pc88va-invariant`
+
+Gate: G15 passed
+
 Depends on: G14 passed.
 
 ## Goal
@@ -186,3 +213,16 @@ acceptance:
 - V3-mode boot;
 - bundled VA demo;
 - OS boot and simple commands.
+
+## Completion record
+
+The active CMake/SDL2 tree was mechanically folded to the
+`SUPPORT_PC88VA=true` branch and the compile definition was removed from
+`CMakeLists.txt`. Two release-identification guards added after the
+original M15 work were folded when the milestone was rebased onto main;
+the current `Rel.260708` version string was preserved.
+
+`VAEG_FIX`, `VAEG_EXT`, and runtime checks using `pccore.model_va`,
+`PCMODEL_VA1`, `PCMODEL_VA2`, and `PCMODEL_NOTVA` remain. References in
+the frozen tier and historical reports remain by design. G15 passed after
+the machine checks and maintainer VA boot check.
