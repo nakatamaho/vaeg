@@ -38,11 +38,19 @@ history, not by a current CI or compile guarantee.
 | M11 | tasks/M11_mingw_macos.md   | MinGW + macOS builds via CMake presets; UTF-8 path boundary on Windows | **G11** human per OS |
 | M12 | tasks/M12_ci.md            | GitHub Actions 3-OS matrix; ROM-less tests; repo invariant checks | **G12** machine |
 | M13 | tasks/M13_retire_legacy.md | Delete retired `sdl/`; keep frozen `win9x/`, `i286x/`, `cpuxva/memoryva.x86`, `hlp/`; docs | **G13** human sign-off |
-| M14 | tasks/M14_keyboard_mapping.md | PC-88VA/PC-8801-style SDL2 keyboard mapping; JIS/US/custom presets; Kana and Roman-Kana input; GUI binding table | **G14** human keyboard gate |
+| M14 | tasks/M14_keyboard_mapping.md | PC-88VA/PC-8801-style SDL2 keyboard mapping; JIS physical, US keytop, and custom presets; Kana/Roman-Kana input; tenkeyless overlay; GUI binding table | **G14 passed** |
 
 Dependencies: M7 → M8 → {M9, M10 parallel} → M11 → M12 → M13 → M14.
 M9 must pass before M11 (all three OSes must ship the VA machine, not
 the PC-98 scaffold).
+
+M14 is complete. The SDL2 frontend now has a named VA key inventory,
+normal guest make/break injection for physical and synthetic input,
+JIS physical and US keytop modes, custom scancode-name bindings,
+guest-visible Kana lock, Roman-Kana input, and a tenkeyless game overlay.
+The implementation and human-gate record are in
+`tasks/M14_keyboard_mapping.md`; detailed mapping evidence remains in
+`../modernization/keyboard-mapping.md`.
 
 ## Gate protocol
 
@@ -59,7 +67,7 @@ gate on the PC-98 scaffold; G9 onward use the full VA checklist.
 
 A gate passes only when the user says so. Pushed tags are immutable.
 Tag `portable-pc98` after G8, `portable-va` after G9,
-`phase2-complete` after G13. M14 currently has no tag assignment.
+`phase2-complete` after G13. M14 passed without a separate tag.
 
 ## Resolved decision points
 
@@ -73,3 +81,7 @@ Tag `portable-pc98` after G8, `portable-va` after G9,
   `win9x/`, `i286x/`, `cpuxva/memoryva.x86`, and `hlp/` frozen as
   references; deletes retired `sdl/` and leftover accessories project
   metadata.
+- **SDL2 keyboard policy (M14).** ADR-0008 keeps guest input scancode
+  based, distinguishes JIS physical from US keytop behavior, routes all
+  synthetic input through normal guest make/break handling, stores custom
+  bindings by scancode name, and forbids text or guest-memory injection.
