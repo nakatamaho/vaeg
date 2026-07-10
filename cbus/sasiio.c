@@ -10,9 +10,7 @@
 #include	"sxsi.h"
 #include	"sasibios.res"
 
-#if defined(SUPPORT_PC88VA)
 #include	"iocoreva.h"
-#endif
 
 // TRACEOUTを有効にする場合は、以下の1を0にする
 #if 1
@@ -513,12 +511,10 @@ void sasiio_bind(void) {
 		iocore_attachout(0x0082, sasiio_o82);
 		iocore_attachinp(0x0080, sasiio_i80);
 		iocore_attachinp(0x0082, sasiio_i82);
-#if defined(SUPPORT_PC88VA)
 		iocoreva_attachout(0x0080, sasiio_o80);
 		iocoreva_attachout(0x0082, sasiio_o82);
 		iocoreva_attachinp(0x0080, sasiio_i80);
 		iocoreva_attachinp(0x0082, sasiio_i82);
-#endif
 	}
 }
 #endif

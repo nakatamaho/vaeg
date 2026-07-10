@@ -12,7 +12,6 @@
 #include	"sgp.h"
 #include	"bmsio.h"
 
-#if defined(SUPPORT_PC88VA)
 
 #define		SWAPWORD(x)	( ((x) << 8) | ((x) >> 8) )
 
@@ -1444,5 +1443,3 @@ void sgp_bind(void) {
 
 	iocoreva_attachinp(0x508, sgp_i508);
 }
-
-#endif

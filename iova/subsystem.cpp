@@ -15,7 +15,6 @@
 
 #include	"subsystem.h"
 
-#if defined(SUPPORT_PC88VA)
 
 // TRACEOUTを有効にする場合は、以下の1を0にする
 #if 1
@@ -366,5 +365,3 @@ void subsystem_savecpustatus(UINT8 *buf) {
 void subsystem_loadcpustatus(const UINT8 *buf) {
 	subsystemobj.z80->LoadStatus(buf);
 }
-
-#endif

@@ -20,9 +20,7 @@
 #include	"keydisp.h"
 #include	"keystat.h"
 
-#if defined(SUPPORT_PC88VA)
 #include	"boardsb2.h"
-#endif
 
 	UINT32		usesound;
 	OPN_T		opn;
@@ -41,9 +39,7 @@
 	_PCM86		pcm86;
 	_CS4231		cs4231;
 
-#if defined(SUPPORT_PC88VA)
 	_FMBOARDVA	fmboardva;
-#endif
 
 
 static void	(*extfn)(REG8 enable);
@@ -147,9 +143,7 @@ void fmboard_reset(UINT32 type) {
 	pcm86_reset();
 	cs4231_reset();
 
-#if defined(SUPPORT_PC88VA)
 	fmboardva.sintm = 0;
-#endif
 
 	switch(type) {
 		case 0x01:
@@ -190,11 +184,9 @@ void fmboard_reset(UINT32 type) {
 //			amd98_reset();
 			break;
 
-#if defined(SUPPORT_PC88VA)
 		case 0x0200:
 			boardsb2_reset();
 			break;
-#endif
 
 		default:
 			type = 0;
@@ -245,11 +237,9 @@ void fmboard_bind(void) {
 			amd98_bind();
 			break;
 
-#if defined(SUPPORT_PC88VA)
 		case 0x0200:
 			boardsb2_bind();
 			break;
-#endif
 	}
 	sound_streamregist(&beep, (SOUNDCB)beep_getpcm);
 }
@@ -290,7 +280,6 @@ const BYTE	*reg;
 
 
 
-#if defined(SUPPORT_PC88VA)
 void fmboard_setintmask(BYTE mask) {
 	mask &= 0x80;
 	if ((fmboardva.sintm ^ mask) & 0x80) {
@@ -323,4 +312,3 @@ void fmboard_setintmask(BYTE mask) {
 BYTE fmboard_getintmask(void) {
 	return fmboardva.sintm;
 }
-#endif

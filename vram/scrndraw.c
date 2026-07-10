@@ -7,9 +7,7 @@
 #include	"dispsync.h"
 #include	"palettes.h"
 
-#if defined(SUPPORT_PC88VA)
 #include	"../vramva/scrndrawva.h"
-#endif
 
 	BYTE	renewal_line[SURFACE_HEIGHT];
 	BYTE	np2_tram[SURFACE_SIZE];
@@ -244,7 +242,6 @@ const SDRAWFN	*sdrawfn;
 		ret = rasterdraw(*sdrawfn, &sdraw, height);
 	}
 
-#if defined(SUPPORT_PC88VA)
 	/*
 	{
 		RGB32 vapal[NP2PALVA_TOTAL];
@@ -274,7 +271,6 @@ const SDRAWFN	*sdrawfn;
 	}
 	*/
 //	scrndrawva_draw_sub(surf);
-#endif
 
 sddr_exit2:
 	scrnmng_surfunlock(surf);
@@ -285,12 +281,10 @@ sddr_exit1:
 
 void scrndraw_redraw(void) {
 
-#if defined(SUPPORT_PC88VA)
 	if (pccore.model_va != PCMODEL_NOTVA) {
 		scrndrawva_redraw();
 		return;
 	}
-#endif
 
 	scrnmng_allflash();
 	pal_change(1);

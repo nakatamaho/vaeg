@@ -12,7 +12,6 @@
 #include	"subsystemmx.h"
 #include	"subsystem.h"
 
-#if defined(SUPPORT_PC88VA)
 
 	_SUBSYSTEMMXCFG subsystemmxcfg = {0};
 
@@ -53,5 +52,3 @@ void subsystemmx_exec(void) {
 		subsystem_exec();
 	}
 }
-
-#endif

@@ -13,7 +13,6 @@
 #include	"iocoreva.h"
 
 
-#if defined(SUPPORT_PC88VA)
 
 enum {
 	XH	= 0,
@@ -221,5 +220,3 @@ void mouseifva_bind(void) {
 
 	iocoreva_attachout(0x1a8, mouseifva_o1a8);
 }
-
-#endif

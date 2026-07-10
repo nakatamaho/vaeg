@@ -3,9 +3,7 @@
 #include	"pccore.h"
 #include	"iocore.h"
 #include	"dmap.h"
-#if defined(SUPPORT_PC88VA)
 #include	"memoryva.h"
-#endif
 
 
 void dmap_i286(void) {
@@ -39,23 +37,15 @@ void dmap_i286(void) {
 
 					case 0x04:		// port->mem
 						dat = ch->proc.inproc();
-#if defined(SUPPORT_PC88VA)
 						memoryva.dma_access = 0x80;
-#endif
 						i286_memorywrite(ch->adrs.d, dat);
-#if defined(SUPPORT_PC88VA)
 						memoryva.dma_access = 0x00;
-#endif
 						break;
 
 					default:
-#if defined(SUPPORT_PC88VA)
 						memoryva.dma_access = 0x80;
-#endif
 						dat = i286_memoryread(ch->adrs.d);
-#if defined(SUPPORT_PC88VA)
 						memoryva.dma_access = 0x00;
-#endif
 						ch->proc.outproc(dat);
 						break;
 				}

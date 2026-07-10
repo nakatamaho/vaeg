@@ -32,7 +32,6 @@
 #include	"gvramva.h"
 #include	"va91.h"
 
-#if defined(SUPPORT_PC88VA)
 
 void MEMCALL gvram_wt(UINT32 address, REG8 value);
 void MEMCALL gvramw_wt(UINT32 address, REG16 value);
@@ -810,5 +809,3 @@ void MEMCALL i286_memorymap_va(void) {
 		rom1word_read[0x0f] = stdrom1w_rd;
 	}
 }
-
-#endif

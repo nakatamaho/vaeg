@@ -10,7 +10,6 @@
 #include	"memoryva.h"
 #include	"timing.h"
 
-#if defined(SUPPORT_PC88VA)
 
 enum {
 	// TSPコマンド
@@ -540,5 +539,3 @@ void tsp_updateclock(void) {
 #endif
 
 }
-
-#endif

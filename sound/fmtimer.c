@@ -25,7 +25,6 @@ void fmport_a(NEVENTITEM item) {
 		}
 		if (intreq) {
 //			pcm86.write = 1;
-#if defined(SUPPORT_PC88VA)
 			if (!fmboard_getintmask()) {
 				//TRACEOUT(("fmtimer: int-A"));
 				pic_setirq(fmtimer.irq);
@@ -33,9 +32,6 @@ void fmport_a(NEVENTITEM item) {
 			else {
 				//TRACEOUT(("fmtimer: int-A (masked)"));
 			}
-#else
-			pic_setirq(fmtimer.irq);
-#endif
 			//TRACEOUT(("fm int-A"));
 		}
 //		TRACE_("A: fifo = ", pcm86.fifo);
@@ -72,7 +68,6 @@ void fmport_b(NEVENTITEM item) {
 #endif
 		if (intreq) {
 //			pcm86.write = 1;
-#if defined(SUPPORT_PC88VA)
 			if (!fmboard_getintmask()) {
 				pic_setirq(fmtimer.irq);
 				//TRACEOUT(("fmtimer: int-B"));
@@ -80,9 +75,6 @@ void fmport_b(NEVENTITEM item) {
 			else {
 				//TRACEOUT(("fmtimer: int-B (masked)"));
 			}
-#else
-			pic_setirq(fmtimer.irq);
-#endif
 			//TRACEOUT(("fm int-B"));
 		}
 //		TRACE_("B: fifo = ", pcm86.fifo);
@@ -103,12 +95,10 @@ static void set_fmtimeraevent(BOOL absolute) {
 	SINT32	l;
 
 	l = 18 * (1024 - fmtimer.timera);
-#if defined(SUPPORT_PC88VA)
 	if (pccore.cpumode & CPUMODE_BASE4MHZ) {	// ベースクロック4MHz
 		l = (l * 1248 * 2 / 625) * pccore.multiple;
 	}
 	else
-#endif
 	if (pccore.cpumode & CPUMODE_8MHZ) {		// 4MHz
 		l = (l * 1248 / 625) * pccore.multiple;
 	}
@@ -124,12 +114,10 @@ static void set_fmtimerbevent(BOOL absolute) {
 	SINT32	l;
 
 	l = 288 * (256 - fmtimer.timerb);
-#if defined(SUPPORT_PC88VA)
 	if (pccore.cpumode & CPUMODE_BASE4MHZ) {	// ベースクロック4MHz
 		l = (l * 1248 * 2 / 625) * pccore.multiple;
 	}
 	else
-#endif
 	if (pccore.cpumode & CPUMODE_8MHZ) {		// 4MHz
 		l = (l * 1248 / 625) * pccore.multiple;
 	}

@@ -74,13 +74,8 @@ enum {
 typedef struct {
 	UINT8	equip;
 	UINT8	support144;
-#if defined(SUPPORT_PC88VA)
 	UINT8	ctrlfd[4];
 	UINT8	trackdensity[4];		// FDD_48TPI or FDD_96TPI
-#else
-	UINT8	ctrlfd;
-	UINT8	padding;
-#endif
 
 	UINT8	us, hd;
 	UINT8	mt, mf, sk;
@@ -126,9 +121,7 @@ typedef struct {
 #if defined(VAEG_FIX) || defined(VAEG_EXT)
 	UINT32	clock;				// 動作周波数(Hz)
 #endif
-#if defined(VAEG_EXT) || defined(SUPPORT_PC88VA)
 	UINT8	motor[4];
-#endif
 #if defined(VAEG_EXT)
 	SINT32	headlastclock;
 	UINT8	head;				// ヘッドの状態
@@ -151,10 +144,8 @@ typedef struct {
 	UINT32	roundtime;			// ディスクが1回転する時間
 	UINT32	amptime;			// プリアンプル、ポストアンプルのアクセス時間
 #endif
-#if defined(SUPPORT_PC88VA)
 	UINT8	fddifmode;			// 1B0h FDDインタフェースモード
 								//      0..インテリジェント 1..DMA
-#endif
 
 	UINT8	cmd;
 	BYTE	cmds[15];
@@ -171,10 +162,8 @@ extern "C" {
 #define	CTRL_FDMEDIA	fdc.ctrlfd
 
 void fdc_intwait(NEVENTITEM item);
-#if defined(VAEG_EXT) || defined(SUPPORT_PC88VA)
 void fdc_timer(NEVENTITEM item);
 void fdc_fddmotor(NEVENTITEM item);
-#endif
 #if defined(VAEG_EXT)
 void fdc_stepwait(NEVENTITEM item);
 #endif
@@ -204,14 +193,12 @@ void fdc_trace_log(REG8 cmd, const char *name, UINT8 drive, UINT8 C, UINT8 H,
 void fdc_reset(void);
 void fdc_bind(void);
 
-#if defined(SUPPORT_PC88VA)
 BYTE fdcsubsys_i_fdc0(void);
 BYTE fdcsubsys_i_fdc1(void);
 void fdcsubsys_o_fdc1(BYTE dat);
 void fdcsubsys_o_mtrctl(BYTE dat);
 void fdcsubsys_o_dskctl(BYTE dat);
 void fdcsubsys_o_tc(void);
-#endif
 
 #ifdef __cplusplus
 }

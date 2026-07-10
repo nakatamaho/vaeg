@@ -17,9 +17,7 @@ typedef struct {
 extern "C" {
 #endif
 
-#if defined(SUPPORT_PC88VA)
 void IOOUTCALL upd4990_o20(UINT port, REG8 dat);
-#endif
 
 void uPD4990_reset(void);
 void uPD4990_bind(void);

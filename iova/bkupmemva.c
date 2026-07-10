@@ -13,7 +13,6 @@
 #include	"memoryva.h"
 #include	"bkupmemva.h"
 
-#if defined(SUPPORT_PC88VA)
 
 
 #define VABKUPMEM "vabkupmem.dat"
@@ -68,5 +67,3 @@ void bkupmemva_save(void) {
 	}
 
 }
-
-#endif

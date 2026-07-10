@@ -56,10 +56,8 @@ extern const OEMCHAR str_VM[];
 extern const OEMCHAR str_VX[];
 extern const OEMCHAR str_EPSON[];
 
-#if defined(SUPPORT_PC88VA)
 extern const OEMCHAR str_VA1[];
 extern const OEMCHAR str_VA2[];
-#endif
 
 extern const OEMCHAR str_biosrom[];
 extern const OEMCHAR str_sasirom[];

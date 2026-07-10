@@ -49,11 +49,7 @@ typedef struct {
 	int		height;
 } SCRNSTAT;
 
-#if defined(SUPPORT_PC88VA)
 static const char app_name[] = "88VA Eternal Grafx " VAEGREL_CORE;
-#else
-static const char app_name[] = "Neko Project II " NP2VER_CORE;
-#endif
 enum {
 	SCRNMNG_CANVAS_WIDTH	= 640,
 	SCRNMNG_CANVAS_HEIGHT	= 400
