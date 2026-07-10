@@ -62,3 +62,20 @@ conversation/PR.
 - [ ] Clean-clone builds on all three OSes following docs only
 - [ ] Standard VA gate one final time per OS
 - [ ] Tag `phase2-complete`
+
+## G17 (M17, human FM/audio comparison)
+- [ ] Vendor metadata and BSD-3-Clause license match ADR-0009; no MAME
+      GPL device code is present
+- [ ] `OPNGENX86` remains undefined
+- [ ] ROM-less selftest exercises NP2, ymfm YM2203, and ymfm YM2608
+- [ ] Standard VA gate passes with the NP2 backend
+- [ ] Standard VA gate passes with the ymfm backend
+- [ ] Backend switching performs a clean reset and retains configured
+      FDD/SASI media
+- [ ] Known music has correct pitch, tempo, envelopes,
+      algorithm/feedback timbre, pan, and relative FM volume under ymfm
+- [ ] Channel-3 special mode/CSM is checked when suitable software is
+      available
+- [ ] SSG, ADPCM-B, and rhythm remain on the NP2 path and do not regress
+- [ ] `opn_backend` persists across restart; missing/invalid values use
+      ymfm and explicit `np2` still selects NP2

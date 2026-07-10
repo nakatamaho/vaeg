@@ -29,6 +29,8 @@
 #include	"dosio.h"
 #include	"kbdmap.h"
 #include	"np2.h"
+#include	"sound.h"
+#include	"opngen.h"
 #include	"pccore.h"
 #include	"profile.h"
 #include	"romankana.h"
@@ -362,6 +364,76 @@ static int test_keyboard_mapping(void) {
 	return(SUCCESS);
 }
 
+static void program_opn_test_voice(void) {
+
+	static const REG8 slots[] = {0x00, 0x04, 0x08, 0x0c};
+	UINT index;
+
+	for (index=0; index<NELEMENTS(slots); index++) {
+		opngen_setreg(0, 0x30 + slots[index], 0x01);
+		opngen_setreg(0, 0x40 + slots[index], 0x00);
+		opngen_setreg(0, 0x50 + slots[index], 0x1f);
+		opngen_setreg(0, 0x60 + slots[index], 0x00);
+		opngen_setreg(0, 0x70 + slots[index], 0x00);
+		opngen_setreg(0, 0x80 + slots[index], 0x0f);
+		opngen_setreg(0, 0x90 + slots[index], 0x00);
+	}
+	opngen_setreg(0, 0xa0, 0x98);
+	opngen_setreg(0, 0xa4, 0x22);
+	opngen_setreg(0, 0xb0, 0x07);
+	opngen_setreg(0, 0xb4, 0xc0);
+	opngen_keyon(0, 0xf0);
+}
+
+static int opn_backend_produces_audio(UINT backend, REG8 channels,
+												UINT flags) {
+
+	SINT32 pcm[4096 * 2];
+	UINT index;
+
+	opngen_setbackend(backend);
+	opngen_reset();
+	opngen_setcfg(channels, flags);
+	opngen_setvol(64);
+	program_opn_test_voice();
+	ZeroMemory(pcm, sizeof(pcm));
+	opngen_getpcm(NULL, pcm, NELEMENTS(pcm) / 2);
+	for (index=0; index<NELEMENTS(pcm); index++) {
+		if (pcm[index] != 0) {
+			return(SUCCESS);
+		}
+	}
+	return(FAILURE);
+}
+
+static int test_opn_backends(void) {
+
+	opngen_initialize(44100);
+	if (opngen_parsebackend("np2") != OPN_BACKEND_NP2 ||
+		opngen_parsebackend("ymfm") != OPN_BACKEND_YMFM ||
+		opngen_parsebackend("invalid") != OPN_BACKEND_YMFM ||
+		opngen_parsebackend("") != OPN_BACKEND_YMFM ||
+		opngen_parsebackend(NULL) != OPN_BACKEND_YMFM) {
+		return(fail("opn-backend", "backend name parsing failed"));
+	}
+	if (opn_backend_produces_audio(OPN_BACKEND_NP2, 3,
+										OPN_MONORAL | 0x007) != SUCCESS) {
+		return(fail("opn-backend", "NP2 YM2203 path was silent"));
+	}
+	if (opn_backend_produces_audio(OPN_BACKEND_YMFM, 3,
+										OPN_MONORAL | 0x007) != SUCCESS) {
+		return(fail("opn-backend", "ymfm YM2203 path was silent"));
+	}
+	if (opn_backend_produces_audio(OPN_BACKEND_YMFM, 6,
+										OPN_STEREO | 0x03f) != SUCCESS) {
+		return(fail("opn-backend", "ymfm YM2608 path was silent"));
+	}
+	opngen_setbackend(OPN_BACKEND_YMFM);
+	opngen_reset();
+	fprintf(stderr, "selftest: OPN backends ok\n");
+	return(SUCCESS);
+}
+
 int vaeg_selftest_run(void) {
 
 	if (test_codecnv() != SUCCESS) {
@@ -371,6 +443,9 @@ int vaeg_selftest_run(void) {
 		return(FAILURE);
 	}
 	if (test_keyboard_mapping() != SUCCESS) {
+		return(FAILURE);
+	}
+	if (test_opn_backends() != SUCCESS) {
 		return(FAILURE);
 	}
 	if (test_statsave() != SUCCESS) {

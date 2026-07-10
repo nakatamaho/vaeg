@@ -39,6 +39,7 @@ static void IOOUTCALL ymf_o18a(UINT port, REG8 dat) {
 			}
 			else {
 				fmtimer_setreg(opn.opnreg, dat);
+				opngen_setcontrol(0, opn.opnreg, dat);
 			}
 		}
 		else if (opn.opnreg < 0xc0) {

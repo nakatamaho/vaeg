@@ -93,6 +93,8 @@ static const SasiImageChoice kSasiImageChoices[kSasiImageCount] = {
 	{"40 MB", 6},
 };
 
+static void reset_guest(void);
+
 static std::string state_slot_path(int slot) {
 
 	char	name[32];
@@ -242,6 +244,19 @@ static void apply_master_volume(int volume) {
 	np2cfg.MOTORVOL = motor_volume;
 	fddmtrsnd_volume(np2cfg.MOTORVOL);
 	sysmng_update(SYS_UPDATECFG);
+}
+
+static void select_opn_backend(UINT backend) {
+
+	if (opngen_getbackend() == backend) {
+		return;
+	}
+	opngen_setbackend(backend);
+	milstr_ncpy(np2oscfg.opn_backend, opngen_backendname(backend),
+										sizeof(np2oscfg.opn_backend));
+	soundrenewal = 1;
+	sysmng_update(SYS_UPDATEOSCFG);
+	reset_guest();
 }
 
 static int menu_bar_height(void) {
@@ -493,6 +508,18 @@ static void restore_reset_fdd_mounts(char paths[2][MAX_PATH]) {
 		diskdrv_setfdd(static_cast<REG8>(drive), paths[drive], 0);
 		remember_fdd_mount(drive, paths[drive]);
 	}
+}
+
+static void reset_guest(void) {
+
+	char fdd_paths[2][MAX_PATH];
+
+	capture_reset_fdd_mounts(fdd_paths);
+	pccore_cfgupdate();
+	pccore_reset();
+	restore_reset_fdd_mounts(fdd_paths);
+	sdlkbd_reset_state();
+	scrndraw_redraw();
 }
 
 static void open_fdd_dialog(int drive) {
@@ -915,14 +942,7 @@ static void draw_emulate_menu(void) {
 
 	if (ImGui::BeginMenu("Emulate / エミュレート")) {
 		if (ImGui::MenuItem("Reset / リセット")) {
-			char fdd_paths[2][MAX_PATH];
-
-			capture_reset_fdd_mounts(fdd_paths);
-			pccore_cfgupdate();
-			pccore_reset();
-			restore_reset_fdd_mounts(fdd_paths);
-			sdlkbd_reset_state();
-			scrndraw_redraw();
+			reset_guest();
 		}
 		ImGui::Separator();
 		menu_item_not_implemented("Configure... (not implemented)");
@@ -1284,6 +1304,18 @@ static void draw_device_menu(void) {
 			int volume = np2cfg.vol_fm;
 			if (ImGui::SliderInt("Master volume", &volume, 0, 128)) {
 				apply_master_volume(volume);
+			}
+			if (ImGui::BeginMenu("OPN backend")) {
+				const UINT backend = opngen_getbackend();
+				if (ImGui::MenuItem("NP2", nullptr,
+								backend == OPN_BACKEND_NP2)) {
+					select_opn_backend(OPN_BACKEND_NP2);
+				}
+				if (ImGui::MenuItem("ymfm", nullptr,
+								backend == OPN_BACKEND_YMFM)) {
+					select_opn_backend(OPN_BACKEND_YMFM);
+				}
+				ImGui::EndMenu();
 			}
 			ImGui::Separator();
 			menu_item_not_implemented("Board selection (not implemented)");
