@@ -61,6 +61,7 @@
 #include "scrnmng.h"
 #include "sdlkbd.h"
 #include "soundmng.h"
+#include "strres.h"
 #include "sysmng.h"
 #include "taskmng.h"
 #include "tms3631.h"
@@ -118,7 +119,6 @@ struct GuiState {
 	float menu_font_size = kGuiFontSize;
 	int fdd_dialog_drive = -1;
 	char fdd_path[2][MAX_PATH] = {};
-	char fdd_mounted_path[2][MAX_PATH] = {};
 	bool fdd_browser_open = false;
 	bool fdd_browser_refresh = false;
 	std::string fdd_browser_dir;
@@ -256,6 +256,13 @@ static void select_opn_backend(UINT backend) {
 										sizeof(np2oscfg.opn_backend));
 	soundrenewal = 1;
 	sysmng_update(SYS_UPDATEOSCFG);
+	reset_guest();
+}
+
+static void select_boot_model(const char *model) {
+
+	np2_select_boot_model(model);
+	sysmng_update(SYS_UPDATECFG);
 	reset_guest();
 }
 
@@ -474,12 +481,13 @@ static void remember_fdd_mount(int drive, const char *path) {
 		return;
 	}
 	if ((path != nullptr) && (path[0] != '\0')) {
-		copy_path(g_gui.fdd_mounted_path[drive],
-				  sizeof(g_gui.fdd_mounted_path[drive]), path);
+		copy_path(np2oscfg.fdd_image[drive],
+				  sizeof(np2oscfg.fdd_image[drive]), path);
 	}
 	else {
-		g_gui.fdd_mounted_path[drive][0] = '\0';
+		np2oscfg.fdd_image[drive][0] = '\0';
 	}
+	sysmng_update(SYS_UPDATEOSCFG);
 }
 
 static void capture_reset_fdd_mounts(char paths[2][MAX_PATH]) {
@@ -488,8 +496,8 @@ static void capture_reset_fdd_mounts(char paths[2][MAX_PATH]) {
 		const char *current;
 
 		paths[drive][0] = '\0';
-		if (g_gui.fdd_mounted_path[drive][0] != '\0') {
-			copy_path(paths[drive], MAX_PATH, g_gui.fdd_mounted_path[drive]);
+		if (np2oscfg.fdd_image[drive][0] != '\0') {
+			copy_path(paths[drive], MAX_PATH, np2oscfg.fdd_image[drive]);
 			continue;
 		}
 		current = fdd_diskname(static_cast<REG8>(drive));
@@ -943,6 +951,18 @@ static void draw_emulate_menu(void) {
 	if (ImGui::BeginMenu("Emulate / エミュレート")) {
 		if (ImGui::MenuItem("Reset / リセット")) {
 			reset_guest();
+		}
+		ImGui::Separator();
+		if (ImGui::BeginMenu("Boot model / 起動機種")) {
+			if (ImGui::MenuItem("VA", nullptr,
+								milstr_cmp(np2cfg.model, str_VA1) == 0)) {
+				select_boot_model(str_VA1);
+			}
+			if (ImGui::MenuItem("VA2/VA3", nullptr,
+								milstr_cmp(np2cfg.model, str_VA2) == 0)) {
+				select_boot_model(str_VA2);
+			}
+			ImGui::EndMenu();
 		}
 		ImGui::Separator();
 		menu_item_not_implemented("Configure... (not implemented)");

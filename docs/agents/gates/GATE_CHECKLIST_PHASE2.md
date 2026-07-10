@@ -79,3 +79,18 @@ conversation/PR.
 - [ ] SSG, ADPCM-B, and rhythm remain on the NP2 path and do not regress
 - [ ] `opn_backend` persists across restart; missing/invalid values use
       ymfm and explicit `np2` still selects NP2
+
+## G18 (M18, human model/ROM boot)
+- [ ] Unsuffixed VA ROMs and extra `vasubsys.rom` are beside the executable
+- [ ] The five MAME-compatible VA2 `*_va2.rom` files are beside the executable
+- [ ] Emulate -> Boot model -> VA selects `88VA1`, resets, and boots VA
+- [ ] Emulate -> Boot model -> VA2/VA3 selects `88VA2`, resets, and boots
+      VA2/VA3-compatible behavior
+- [ ] FDD and SASI selections survive both model changes
+- [ ] The selected model persists across restart and resolves its matching
+      ROM filename set
+- [ ] A missing model ROM reports the model, expected root, and missing file
+- [ ] VA2 does not fall back to unsuffixed VA ROM names
+- [ ] A deliberately changed ROM emits a MAME size/CRC32/SHA-1 warning and
+      startup continues
+- [ ] A stale `biospath=romimage` setting does not reactivate flat lookup

@@ -123,6 +123,12 @@ CI uploads build artifacts for all three operating systems. The Windows
 artifact stages `vaeg.exe` with `SDL2.dll` beside it, matching ADR-0006's
 runtime distribution note.
 
+ROMs are deliberately absent from CI and release artifacts. Users place the
+VA unsuffixed ROM set or the MAME-compatible VA2/VA3 `*_va2.rom` set beside
+the executable, together with the extra `vasubsys.rom`, using ROMs extracted
+from hardware they own. Runtime size/CRC32/SHA-1 checks warn on differences
+from MAME. No ROM placeholder is packaged.
+
 ## VA Configuration Prerequisites
 
 Before running the G11 VA checklist, ensure the portable `np2.cfg`

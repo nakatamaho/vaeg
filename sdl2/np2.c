@@ -44,22 +44,57 @@
 #include	"keystat.h"
 #include	"bkupmemva.h"
 #include	"gui/gui.h"
+#include	"romcheck.h"
 #include	"selftest.h"
 #include	"np2ver.h"
 
-		NP2OSCFG	np2oscfg = {0, 0, 0, 0, 0, 1, 0, "", "", "", "", 0, 0, "", "ymfm"};
+		NP2OSCFG	np2oscfg = {0, 0, 0, 0, 0, 1, 0, "", "", {"", ""},
+								"", "", 0, 0, "", "ymfm"};
 
 static const UINT smoke_timeout_frames = 600;
 static const UINT max_catchup_frames = 15;
-static const char *smoke_required_roms[] = {
-	"FONT.ROM",
-	"VAFONT.ROM",
-	"VADIC.ROM",
-	"VAROM00.ROM",
-	"VAROM08.ROM",
-	"VAROM1.ROM",
-	"VASUBSYS.ROM",
-	NULL
+typedef struct {
+	const char *name;
+	UINT32 size;
+	UINT32 crc32;
+	const char *sha1;
+} ROMEXPECTED;
+
+/* MAME src/mame/nec/pc88va.cpp ROM_START(pc88va). */
+static const ROMEXPECTED va_required_roms[] = {
+	{"vafont.rom", 0x50000, 0xfaf7c466,
+		"196b3d5b7407cb4f286ffe5c1e34ebb1f6905a8c"},
+	{"vadic.rom", 0x80000, 0xf913c605,
+		"5ba1f3578d0aaacdaf7194a80e6d520c81ae55fb"},
+	{"varom00.rom", 0x80000, 0x8a853b00,
+		"1266ba969959ff25433ecc900a2caced26ef1a9e"},
+	{"varom08.rom", 0x20000, 0x154803cc,
+		"7e6591cd465cbb35d6d3446c5a83b46d30fafe95"},
+	{"varom1.rom", 0x20000, 0x0783b16a,
+		"54536dc03238b4668c8bb76337efade001ec7826"},
+	{NULL, 0, 0, NULL}
+};
+
+/* MAME src/mame/nec/pc88va.cpp ROM_START(pc88va2), without fallback. */
+static const ROMEXPECTED va2_required_roms[] = {
+	{"vafont_va2.rom", 0x50000, 0xb40d34e4,
+		"a0227d1fbc2da5db4b46d8d2c7e7a9ac2d91379f"},
+	{"vadic_va2.rom", 0x80000, 0xa6108f4d,
+		"3665db538598abb45d9dfe636423e6728a812b12"},
+	{"varom00_va2.rom", 0x80000, 0x98c9959a,
+		"bcaea28c58816602ca1e8290f534360f1ca03fe8"},
+	{"varom08_va2.rom", 0x20000, 0xeef6d4a0,
+		"47e5f89f8b0ce18ff8d5d7b7aef8ca0a2a8e3345"},
+	{"varom1_va2.rom", 0x20000, 0x7e767f00,
+		"dd4f4521bfbb068f15ab3bcdb8d47c7d82b9d1d4"},
+	{NULL, 0, 0, NULL}
+};
+
+/* MAME lists this ROM in a disabled FDD subsystem declaration. */
+static const ROMEXPECTED extra_roms[] = {
+	{"vasubsys.rom", 0x2000, 0x08962850,
+		"a9375aa480f85e1422a0e1385acb0ea170c5c2e0"},
+	{NULL, 0, 0, NULL}
 };
 
 typedef struct {
@@ -83,16 +118,6 @@ static void usage(const char *progname) {
 	printf("\t--fdctrace          : print one FDC trace line per command to stderr\n");
 	printf("\t--pacelog           : print pacing counters once per second\n");
 	printf("\timage1 [image2]     : mount FDD images in drive 1 and 2\n");
-}
-
-static void set_default_rompath(void) {
-
-	if (np2cfg.biospath[0] != '\0') {
-		return;
-	}
-	if ((file_attr("romimage") & FILEATTR_DIRECTORY) != 0) {
-		file_cpyname(np2cfg.biospath, "romimage", sizeof(np2cfg.biospath));
-	}
 }
 
 static void smoke_configure_va(void) {
@@ -151,19 +176,43 @@ static void make_rom_path(char *path, int size, const char *dir,
 	file_catname(path, name, size);
 }
 
-static BOOL smoke_romdir_complete(const char *dir, char *missing,
+static const char *rom_model_label(const char *model) {
+
+	return((milstr_cmp(model, str_VA1) == 0) ? "VA" : "VA2/VA3");
+}
+
+static const ROMEXPECTED *rom_expected_set(const char *model) {
+
+	return((milstr_cmp(model, str_VA1) == 0) ?
+								va_required_roms : va2_required_roms);
+}
+
+static BOOL romset_complete(const char *dir, const char *model, char *missing,
 														int missing_size) {
 
 	int		i;
+	const ROMEXPECTED *required;
 
 	if ((dir == NULL) || (dir[0] == '\0')) {
 		return(FAILURE);
 	}
-	for (i=0; smoke_required_roms[i] != NULL; i++) {
+	required = rom_expected_set(model);
+	for (i=0; required[i].name != NULL; i++) {
 		char	path[MAX_PATH];
 		short	attr;
 
-		make_rom_path(path, sizeof(path), dir, smoke_required_roms[i]);
+		make_rom_path(path, sizeof(path), dir, required[i].name);
+		attr = file_attr(path);
+		if ((attr == (short)-1) || (attr & FILEATTR_DIRECTORY)) {
+			file_cpyname(missing, path, missing_size);
+			return(FAILURE);
+		}
+	}
+	for (i=0; extra_roms[i].name != NULL; i++) {
+		char	path[MAX_PATH];
+		short	attr;
+
+		make_rom_path(path, sizeof(path), dir, extra_roms[i].name);
 		attr = file_attr(path);
 		if ((attr == (short)-1) || (attr & FILEATTR_DIRECTORY)) {
 			file_cpyname(missing, path, missing_size);
@@ -173,125 +222,162 @@ static BOOL smoke_romdir_complete(const char *dir, char *missing,
 	return(SUCCESS);
 }
 
-static BOOL smoke_try_romdir(const char *dir, char *missing,
-														int missing_size) {
-
-	if (smoke_romdir_complete(dir, missing, missing_size) != SUCCESS) {
-		return(FAILURE);
-	}
-	file_cpyname(np2cfg.biospath, dir, sizeof(np2cfg.biospath));
-	return(SUCCESS);
-}
-
-static BOOL smoke_try_romimage_under(const char *dir, char *missing,
-														int missing_size) {
+static void verify_rom(const char *dir, const char *source,
+											const ROMEXPECTED *expected) {
 
 	char	path[MAX_PATH];
+	char	sha1[41];
+	ROMCHECKSUM actual;
 
-	if ((dir == NULL) || (dir[0] == '\0')) {
-		return(FAILURE);
+	make_rom_path(path, sizeof(path), dir, expected->name);
+	if (romcheck_file(path, &actual) != SUCCESS) {
+		fprintf(stderr, "WARNING: ROM checksum read failed: %s\n", path);
+		return;
 	}
-	file_cpyname(path, dir, sizeof(path));
-	file_setseparator(path, sizeof(path));
-	file_catname(path, "romimage", sizeof(path));
-	return(smoke_try_romdir(path, missing, missing_size));
+	romcheck_sha1_string(actual.sha1, sha1);
+	if ((actual.size != expected->size) ||
+		(actual.crc32 != expected->crc32) || strcmp(sha1, expected->sha1)) {
+		fprintf(stderr,
+				"WARNING: ROM differs from MAME %s: %s; "
+				"expected size=%u crc32=%08x sha1=%s; "
+				"actual size=%u crc32=%08x sha1=%s\n",
+				source, path, expected->size, expected->crc32, expected->sha1,
+				actual.size, actual.crc32, sha1);
+	}
 }
 
-static BOOL smoke_try_disk_romdirs(char *disk[2], char *missing,
-														int missing_size) {
+static void verify_romset(const char *dir, const char *model) {
 
-	char	dir[MAX_PATH];
+	const ROMEXPECTED *required;
+	const char *source;
+	int i;
 
-	if (disk[0] == NULL) {
-		return(FAILURE);
+	required = rom_expected_set(model);
+	source = (milstr_cmp(model, str_VA1) == 0) ? "pc88va" : "pc88va2";
+	for (i=0; required[i].name != NULL; i++) {
+		verify_rom(dir, source, &required[i]);
 	}
-	file_cpyname(dir, disk[0], sizeof(dir));
-	file_cutname(dir);
-	if (dir[0] == '\0') {
-		file_cpyname(dir, ".", sizeof(dir));
+	for (i=0; extra_roms[i].name != NULL; i++) {
+		verify_rom(dir, "pc88va extra", &extra_roms[i]);
 	}
-	if (smoke_try_romdir(dir, missing, missing_size) == SUCCESS) {
-		return(SUCCESS);
-	}
-	return(smoke_try_romimage_under(dir, missing, missing_size));
 }
 
-static BOOL smoke_try_basepath_romdirs(char *missing, int missing_size) {
+static BOOL resolve_model_rompath(char *missing, int missing_size) {
 
 	char	*base;
-	BOOL	ret;
+	char	primary[MAX_PATH];
+	char	fallback[MAX_PATH];
+	char	primary_missing[MAX_PATH];
+	char	fallback_missing[MAX_PATH];
+	BOOL	primary_available;
 
+	primary[0] = '\0';
+	primary_missing[0] = '\0';
+	fallback_missing[0] = '\0';
+	primary_available = FALSE;
 	base = SDL_GetBasePath();
-	if (base == NULL) {
-		return(FAILURE);
+	if (base != NULL) {
+		file_cpyname(primary, base, sizeof(primary));
+		SDL_free(base);
+		primary_available = TRUE;
+		if (romset_complete(primary, np2cfg.model, primary_missing,
+										sizeof(primary_missing)) == SUCCESS) {
+			file_cpyname(np2cfg.biospath, primary,
+												sizeof(np2cfg.biospath));
+			verify_romset(primary, np2cfg.model);
+			missing[0] = '\0';
+			return(SUCCESS);
+		}
 	}
-	ret = smoke_try_romdir(base, missing, missing_size);
-	if (ret != SUCCESS) {
-		ret = smoke_try_romimage_under(base, missing, missing_size);
-	}
-	SDL_free(base);
-	return(ret);
-}
 
-static BOOL smoke_resolve_rompath(char *disk[2]) {
+	file_cpyname(fallback, ".", sizeof(fallback));
+	if (romset_complete(fallback, np2cfg.model, fallback_missing,
+										sizeof(fallback_missing)) == SUCCESS) {
+		file_cpyname(np2cfg.biospath, fallback, sizeof(np2cfg.biospath));
+		verify_romset(fallback, np2cfg.model);
+		missing[0] = '\0';
+		return(SUCCESS);
+	}
 
-	char	missing[MAX_PATH];
-
-	missing[0] = '\0';
-	if (smoke_try_romdir(np2cfg.biospath, missing, sizeof(missing))
-															== SUCCESS) {
-		fprintf(stderr,
-				"smoke: VA ROM set found at %s; "
-				"uniform-screen detector enabled\n",
-				np2cfg.biospath);
-		return(SUCCESS);
+	if (primary_available) {
+		file_cpyname(np2cfg.biospath, primary, sizeof(np2cfg.biospath));
+		file_cpyname(missing, primary_missing, missing_size);
 	}
-	if (smoke_try_romdir(".", missing, sizeof(missing)) == SUCCESS) {
-		fprintf(stderr,
-				"smoke: VA ROM set found at %s; "
-				"uniform-screen detector enabled\n",
-				np2cfg.biospath);
-		return(SUCCESS);
+	else {
+		file_cpyname(np2cfg.biospath, fallback, sizeof(np2cfg.biospath));
+		file_cpyname(missing, fallback_missing, missing_size);
 	}
-	if (smoke_try_romdir("romimage", missing, sizeof(missing)) == SUCCESS) {
-		fprintf(stderr,
-				"smoke: VA ROM set found at %s; "
-				"uniform-screen detector enabled\n",
-				np2cfg.biospath);
-		return(SUCCESS);
-	}
-	if (smoke_try_disk_romdirs(disk, missing, sizeof(missing)) == SUCCESS) {
-		fprintf(stderr,
-				"smoke: VA ROM set found at %s; "
-				"uniform-screen detector enabled\n",
-				np2cfg.biospath);
-		return(SUCCESS);
-	}
-	if (smoke_try_basepath_romdirs(missing, sizeof(missing)) == SUCCESS) {
-		fprintf(stderr,
-				"smoke: VA ROM set found at %s; "
-				"uniform-screen detector enabled\n",
-				np2cfg.biospath);
-		return(SUCCESS);
-	}
-	fprintf(stderr,
-			"smoke: ROM-less mode: missing %s; "
-			"uniform-screen detector disabled\n",
-			(missing[0] != '\0') ? missing : smoke_required_roms[0]);
 	return(FAILURE);
 }
 
-static BOOL check_fdd_image(const char *path) {
+static void report_model_rompath(BOOL result, const char *missing) {
+
+	if (result == SUCCESS) {
+		fprintf(stderr,
+				"INFO: PC-88VA %s ROM path: %s\n",
+				rom_model_label(np2cfg.model), np2cfg.biospath);
+	}
+	else {
+		const ROMEXPECTED *required;
+
+		required = rom_expected_set(np2cfg.model);
+		fprintf(stderr,
+					"WARNING: PC-88VA %s ROM set not found or incomplete; "
+					"expected root: %s; missing: %s\n",
+					rom_model_label(np2cfg.model), np2cfg.biospath,
+					(missing[0] != '\0') ? missing : required[0].name);
+	}
+}
+
+BOOL np2_select_boot_model(const char *model) {
+
+	char	missing[MAX_PATH];
+	BOOL	result;
+
+	if ((milstr_cmp(model, str_VA1) != 0) &&
+		(milstr_cmp(model, str_VA2) != 0)) {
+		return(FAILURE);
+	}
+	file_cpyname(np2cfg.model, model, sizeof(np2cfg.model));
+	result = resolve_model_rompath(missing, sizeof(missing));
+	report_model_rompath(result, missing);
+	return(result);
+}
+
+static BOOL smoke_resolve_rompath(void) {
+
+	char	missing[MAX_PATH];
+	BOOL	result;
+	const ROMEXPECTED *required;
+
+	required = rom_expected_set(np2cfg.model);
+	result = resolve_model_rompath(missing, sizeof(missing));
+	if (result == SUCCESS) {
+		fprintf(stderr,
+				"smoke: PC-88VA %s ROM set found at %s; "
+				"uniform-screen detector enabled\n",
+				rom_model_label(np2cfg.model), np2cfg.biospath);
+		return(SUCCESS);
+	}
+	fprintf(stderr,
+			"smoke: PC-88VA %s ROM-less mode: expected root %s; missing %s; "
+			"uniform-screen detector disabled\n",
+			rom_model_label(np2cfg.model), np2cfg.biospath,
+			(missing[0] != '\0') ? missing : required[0].name);
+	return(FAILURE);
+}
+
+static BOOL check_fdd_image(const char *path, const char *level) {
 
 	short	attr;
 
 	attr = file_attr(path);
 	if (attr == (short)-1) {
-		fprintf(stderr, "Error: FDD image not found: %s\n", path);
+		fprintf(stderr, "%s: FDD image not found: %s\n", level, path);
 		return(FAILURE);
 	}
 	if (attr & FILEATTR_DIRECTORY) {
-		fprintf(stderr, "Error: FDD image is a directory: %s\n", path);
+		fprintf(stderr, "%s: FDD image is a directory: %s\n", level, path);
 		return(FAILURE);
 	}
 	return(SUCCESS);
@@ -299,11 +385,28 @@ static BOOL check_fdd_image(const char *path) {
 
 static void mount_fdd_images(char *disk[2]) {
 
-	if (disk[0]) {
-		diskdrv_setfdd(0, disk[0], 0);
-	}
-	if (disk[1]) {
-		diskdrv_setfdd(1, disk[1], 0);
+	int drive;
+
+	for (drive=0; drive<2; drive++) {
+		const char *path;
+
+		path = disk[drive];
+		if (path == NULL) {
+			path = np2oscfg.fdd_image[drive];
+			if ((path[0] != '\0') &&
+				(check_fdd_image(path, "Warning") != SUCCESS)) {
+				continue;
+			}
+		}
+		if ((path == NULL) || (path[0] == '\0')) {
+			continue;
+		}
+		diskdrv_setfdd((REG8)drive, path, 0);
+		if (disk[drive] != NULL) {
+			file_cpyname(np2oscfg.fdd_image[drive], path,
+									sizeof(np2oscfg.fdd_image[drive]));
+			sysmng_update(SYS_UPDATEOSCFG);
+		}
 	}
 }
 
@@ -605,7 +708,7 @@ int main(int argc, char **argv) {
 		return(run_ok);
 	}
 	for (pos=0; pos<disks; pos++) {
-		if (check_fdd_image(disk[pos]) != SUCCESS) {
+		if (check_fdd_image(disk[pos], "Error") != SUCCESS) {
 			SDL_Quit();
 			dosio_term();
 			return(FAILURE);
@@ -614,10 +717,16 @@ int main(int argc, char **argv) {
 	initload();
 	if (smoke) {
 		smoke_configure_va();
-		smoke_detect_screen = (smoke_resolve_rompath(disk) == SUCCESS);
+		smoke_detect_screen = (smoke_resolve_rompath() == SUCCESS);
+	}
+	else {
+		char missing[MAX_PATH];
+		BOOL result;
+
+		result = resolve_model_rompath(missing, sizeof(missing));
+		report_model_rompath(result, missing);
 	}
 	warn_va_config_sanity();
-	set_default_rompath();
 	if (smoke) {
 		np2oscfg.NOWAIT = 1;
 		np2oscfg.resume = 0;
