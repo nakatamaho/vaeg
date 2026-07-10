@@ -24,9 +24,12 @@ POSSIBILITY OF SUCH DAMAGE.
 -->
 # M17 - Add a selectable NP2/ymfm OPN backend
 
-Status: proposed
-Branch: local unless the maintainer asks for a branch
-Gate: G17 (human FM/audio comparison gate)
+Status: complete
+
+Branch: `topic/m17-ymfm-sound-backend`
+
+Gate: G17 passed
+
 Depends on: G16 passed.
 
 ## Goal
@@ -148,3 +151,17 @@ G17 is a human FM/audio comparison gate:
 
 Expected residual differences must be documented rather than hidden.
 The gate does not pass merely because both backends produce nonzero PCM.
+
+## Completion record
+
+The active SDL2 build vendors the pinned BSD-3-Clause ymfm OPN source,
+uses ymfm as the default FM-operator backend, and retains NP2 as a
+selectable compatibility backend. The ImGui Sound menu and
+`opn_backend=np2|ymfm` configuration select the backend; switching uses
+the normal reset path and preserves configured FDD and SASI media.
+
+G17 passed after the maintainer compared both backends and confirmed
+boot, demo, OS, audio, backend switching, media retention, and setting
+persistence. Timer/IRQ, SSG, ADPCM-B, rhythm, board I/O, and final mixing
+remain owned by the existing NP2 implementation as documented in
+ADR-0009.
