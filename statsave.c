@@ -1522,6 +1522,7 @@ const SFENTRY	*tblterm;
 
 	ret |= flagload_common(&sffh->sfh, np2tbl);
 	pccore_clockrestore();
+	sgp_configure_speed();
 
 	CPU_RESET();
 	CPU_SETEXTSIZE((UINT32)pccore.extmem);

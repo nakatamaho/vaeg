@@ -65,7 +65,7 @@ const OEMCHAR np2version[] = OEMTEXT(NP2VER_CORE);
 				0, 0, 0, 0,
 				{0x3e, 0x73, 0x7b}, 0,
 				0, 0, {1, 1, 6, 1, 8, 1},
-				OEMTEXT("88VA2"), PCBASECLOCK40, 2,
+				OEMTEXT("88VA2"), PCBASECLOCK40, 2, 0, 1,
 				{0x48, 0x05, 0x04, 0x00, 0x01, 0x00, 0x00, 0x6e},
 				1, 1, 2, 1, 0x000000, 0xffffff,
 				22050, 500, FMBOARD_VA_OPNA, 0,
@@ -383,6 +383,7 @@ void pccore_reset(void) {
 	}
 
 	pccore_set();
+	sgp_configure_speed();
 #if defined(SUPPORT_BMS)
 	bmsio_set();
 #endif
