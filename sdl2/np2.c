@@ -51,7 +51,9 @@
 #include	"np2ver.h"
 
 		NP2OSCFG	np2oscfg = {0, 0, 0, 0, 0, 1, 0, "", "", {"", ""},
-								"", "", 0, 0, "", "ymfm", 1};
+								"", "", 0, 0, "", "ymfm", 1,
+								VAEG_EFFECT_UNFILTERED, VAEG_SCALING_FIT,
+								640, 422, VAEG_DISPLAY_WINDOWED, 0, 0, 0, 0, 2};
 
 static const UINT smoke_timeout_frames = 600;
 static const UINT startup_splash_ms = 1500;
@@ -824,13 +826,29 @@ int main(int argc, char **argv) {
 	keystat_initialize();
 
 	scrnmng_initialize();
-	if (scrnmng_create(FULLSCREEN_WIDTH, FULLSCREEN_HEIGHT) != SUCCESS) {
+	scrnmng_set_display(np2oscfg.gui_scale, np2oscfg.gui_aspect);
+	scrnmng_set_scaling(np2oscfg.gui_scaling);
+	scrnmng_set_effect(np2oscfg.gui_effect);
+	SDL_Log("Display config: window=%ux%u mode=%u monitor=%d scaling=%u effect=%u",
+			np2oscfg.gui_window_width, np2oscfg.gui_window_height,
+			np2oscfg.gui_display_mode, np2oscfg.gui_monitor,
+			np2oscfg.gui_scaling, np2oscfg.gui_effect);
+	if (scrnmng_create(np2oscfg.gui_window_width,
+							np2oscfg.gui_window_height) != SUCCESS) {
 		goto np2main_err2;
 	}
-	scrnmng_set_display(np2oscfg.gui_scale, np2oscfg.gui_aspect);
 	if (gui_initialize(scrnmng_get_window(), scrnmng_get_renderer(),
 						   argv[0]) != SUCCESS) {
 		goto np2main_err3;
+	}
+	if ((np2oscfg.gui_display_mode != VAEG_DISPLAY_WINDOWED) &&
+		(scrnmng_set_display_mode(np2oscfg.gui_display_mode,
+			np2oscfg.gui_monitor, np2oscfg.fscrn_cx, np2oscfg.fscrn_cy,
+			np2oscfg.gui_fullscreen_refresh,
+			np2oscfg.fscrnmod) != SUCCESS)) {
+		SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION,
+				"Saved fullscreen mode failed; using Windowed");
+		np2oscfg.gui_display_mode = VAEG_DISPLAY_WINDOWED;
 	}
 	scrnmng_show();
 	SDL_PumpEvents();

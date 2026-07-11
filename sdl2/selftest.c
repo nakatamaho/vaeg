@@ -39,8 +39,10 @@
 #include	"romankana.h"
 #include	"s98.h"
 #include	"sgp.h"
+#include	"scrnmng.h"
 #include	"soundmng.h"
 #include	"strres.h"
+#include	"viewport.h"
 
 static int fail(const char *name, const char *detail) {
 
@@ -99,17 +101,25 @@ static int test_profile_ini(void) {
 	UINT16	read_count;
 	UINT8	bytes[3];
 	UINT8	read_bytes[3];
+	UINT8	effect;
+	UINT8	read_effect;
+	UINT16	window_width;
+	UINT16	read_window_width;
 	PFTBL	write_tbl[] = {
 		{"name", PFTYPE_STR, name, sizeof(name)},
 		{"flag", PFTYPE_BOOL, &flag, 0},
 		{"count", PFTYPE_UINT16, &count, 0},
-		{"bytes", PFTYPE_BIN, bytes, sizeof(bytes)}
+		{"bytes", PFTYPE_BIN, bytes, sizeof(bytes)},
+		{"effect", PFTYPE_UINT8, &effect, 0},
+		{"win_width", PFTYPE_UINT16, &window_width, 0}
 	};
 	PFTBL	read_tbl[] = {
 		{"name", PFTYPE_STR, read_name, sizeof(read_name)},
 		{"flag", PFTYPE_BOOL, &read_flag, 0},
 		{"count", PFTYPE_UINT16, &read_count, 0},
-		{"bytes", PFTYPE_BIN, read_bytes, sizeof(read_bytes)}
+		{"bytes", PFTYPE_BIN, read_bytes, sizeof(read_bytes)},
+		{"effect", PFTYPE_UINT8, &read_effect, 0},
+		{"win_width", PFTYPE_UINT16, &read_window_width, 0}
 	};
 
 	SPRINTF(path, "vaeg-selftest-%lu.ini", (unsigned long)getpid());
@@ -120,10 +130,14 @@ static int test_profile_ini(void) {
 	bytes[0] = 0x12;
 	bytes[1] = 0x34;
 	bytes[2] = 0xab;
+	effect = VAEG_EFFECT_CRT_LITE;
+	window_width = 1280;
 	ZeroMemory(read_name, sizeof(read_name));
 	read_flag = 0;
 	read_count = 0;
 	ZeroMemory(read_bytes, sizeof(read_bytes));
+	read_effect = 0;
+	read_window_width = 0;
 
 	profile_iniwrite(path, "selftest", write_tbl, NELEMENTS(write_tbl),
 																	NULL);
@@ -135,7 +149,8 @@ static int test_profile_ini(void) {
 		return(fail("ini", "string value did not round-trip"));
 	}
 	if ((read_flag != flag) || (read_count != count) ||
-		(memcmp(read_bytes, bytes, sizeof(bytes)) != 0)) {
+		(memcmp(read_bytes, bytes, sizeof(bytes)) != 0) ||
+		(read_effect != effect) || (read_window_width != window_width)) {
 		return(fail("ini", "typed values did not round-trip"));
 	}
 	fprintf(stderr, "selftest: ini ok\n");
@@ -341,6 +356,131 @@ static int test_pacing(void) {
 		return(fail("pacing", "focus/reset cleanup changed saved settings"));
 	}
 	fprintf(stderr, "selftest: pacing ok\n");
+	return(SUCCESS);
+}
+
+static int expect_viewport(int drawable_width, int drawable_height,
+						int menu_inset, int scaling, BOOL aspect,
+						int x, int y, int width, int height) {
+
+	VAEG_VIEWPORT_INPUT input;
+	VAEG_VIEWPORT viewport;
+
+	input.guest_width = 640;
+	input.guest_height = 400;
+	input.drawable_width = drawable_width;
+	input.drawable_height = drawable_height;
+	input.menu_inset = menu_inset;
+	input.scaling = scaling;
+	input.aspect = aspect;
+	if ((vaeg_viewport_calculate(&input, &viewport) != SUCCESS) ||
+		(viewport.x != x) || (viewport.y != y) ||
+		(viewport.width != width) || (viewport.height != height)) {
+		fprintf(stderr,
+			"selftest: viewport expected=%d,%d %dx%d actual=%d,%d %dx%d "
+			"drawable=%dx%d menu=%d mode=%d aspect=%d\n",
+			x, y, width, height, viewport.x, viewport.y,
+			viewport.width, viewport.height, drawable_width, drawable_height,
+			menu_inset, scaling, aspect);
+		return(FAILURE);
+	}
+	return(SUCCESS);
+}
+
+static int test_viewport(void) {
+
+	VAEG_VIEWPORT_INPUT input;
+	VAEG_VIEWPORT viewport;
+	BOOL masked;
+	int guest_x;
+	int guest_y;
+	int width;
+	int height;
+	UINT value;
+
+	if ((expect_viewport(640, 400, 0, VAEG_SCALING_FIT, FALSE,
+								0, 0, 640, 400) != SUCCESS) ||
+		(expect_viewport(800, 600, 0, VAEG_SCALING_FIT, FALSE,
+								0, 50, 800, 500) != SUCCESS) ||
+		(expect_viewport(1024, 768, 0, VAEG_SCALING_FIT, FALSE,
+								0, 64, 1024, 640) != SUCCESS) ||
+		(expect_viewport(1280, 720, 0, VAEG_SCALING_FIT, FALSE,
+								64, 0, 1152, 720) != SUCCESS) ||
+		(expect_viewport(1920, 1080, 0, VAEG_SCALING_FIT, FALSE,
+								96, 0, 1728, 1080) != SUCCESS)) {
+		return(fail("viewport", "Fit geometry failed"));
+	}
+	if ((expect_viewport(800, 600, 0, VAEG_SCALING_NATIVE, FALSE,
+								80, 100, 640, 400) != SUCCESS) ||
+		(expect_viewport(1280, 900, 0, VAEG_SCALING_INTEGER, FALSE,
+								0, 50, 1280, 800) != SUCCESS) ||
+		(expect_viewport(1003, 700, 0, VAEG_SCALING_FIT_8DOT, FALSE,
+								1, 37, 1000, 625) != SUCCESS) ||
+		(expect_viewport(800, 600, 0, VAEG_SCALING_STRETCH, FALSE,
+								0, 0, 800, 600) != SUCCESS) ||
+		(expect_viewport(640, 422, 22, VAEG_SCALING_FIT, FALSE,
+								0, 22, 640, 400) != SUCCESS) ||
+		(expect_viewport(1280, 844, 44, VAEG_SCALING_FIT, FALSE,
+								0, 44, 1280, 800) != SUCCESS)) {
+		return(fail("viewport", "mode or inset geometry failed"));
+	}
+	input.guest_width = 640;
+	input.guest_height = 400;
+	input.drawable_width = 800;
+	input.drawable_height = 600;
+	input.menu_inset = 0;
+	input.scaling = VAEG_SCALING_FIT;
+	input.aspect = FALSE;
+	if ((vaeg_viewport_calculate(&input, &viewport) != SUCCESS) ||
+		(vaeg_viewport_map_point(&viewport, 640, 400, 400, 300,
+										&guest_x, &guest_y) != SUCCESS) ||
+		(guest_x != 320) || (guest_y != 200) ||
+		(vaeg_viewport_map_point(&viewport, 640, 400, 400, 25,
+										&guest_x, &guest_y) != FAILURE)) {
+		return(fail("viewport", "inverse coordinate transform failed"));
+	}
+	input.drawable_width = 0;
+	if (vaeg_viewport_calculate(&input, &viewport) != FAILURE) {
+		return(fail("viewport", "zero drawable size was accepted"));
+	}
+	for (value=0; value<=7; value++) {
+		if ((vaeg_fscrnmod_sanitize(value, &masked) != value) || masked) {
+			return(fail("viewport", "valid fscrnmod changed"));
+		}
+	}
+	if ((vaeg_fscrnmod_sanitize(0x87, &masked) != 7) || !masked) {
+		return(fail("viewport", "fscrnmod upper bits were not masked"));
+	}
+	vaeg_fullscreen_size(0, 0, 0, 1920, 1080, &width, &height);
+	if ((width != 640) || (height != 400)) {
+		return(fail("viewport", "legacy fullscreen fallback failed"));
+	}
+	vaeg_fullscreen_size(1280, 720, 4, 1920, 1080, &width, &height);
+	if ((width != 1920) || (height != 1080)) {
+		return(fail("viewport", "current display fallback failed"));
+	}
+	scrnmng_initialize();
+	for (value=0; value<VAEG_EFFECT_COUNT; value++) {
+		scrnmng_set_effect((int)value);
+		if (scrnmng_get_effect() != (int)value) {
+			return(fail("viewport", "effect selection failed"));
+		}
+	}
+	scrnmng_set_effect(VAEG_EFFECT_COUNT);
+	if (scrnmng_get_effect() != VAEG_EFFECT_UNFILTERED) {
+		return(fail("viewport", "invalid effect did not fall back"));
+	}
+	for (value=0; value<VAEG_SCALING_COUNT; value++) {
+		scrnmng_set_scaling((int)value);
+		if (scrnmng_get_scaling() != (int)value) {
+			return(fail("viewport", "scaling selection failed"));
+		}
+	}
+	scrnmng_set_scaling(VAEG_SCALING_COUNT);
+	if (scrnmng_get_scaling() != VAEG_SCALING_FIT) {
+		return(fail("viewport", "invalid scaling did not fall back"));
+	}
+	fprintf(stderr, "selftest: viewport ok\n");
 	return(SUCCESS);
 }
 
@@ -704,6 +844,9 @@ int vaeg_selftest_run(void) {
 		return(FAILURE);
 	}
 	if (test_pacing() != SUCCESS) {
+		return(FAILURE);
+	}
+	if (test_viewport() != SUCCESS) {
 		return(FAILURE);
 	}
 	if (test_keyboard_mapping() != SUCCESS) {

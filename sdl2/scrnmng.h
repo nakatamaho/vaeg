@@ -25,6 +25,16 @@
 #ifndef VAEG_SDL2_SCRNMNG_H
 #define VAEG_SDL2_SCRNMNG_H
 
+#include "viewport.h"
+
+enum {
+	VAEG_EFFECT_UNFILTERED = 0,
+	VAEG_EFFECT_LINEAR,
+	VAEG_EFFECT_SCANLINE,
+	VAEG_EFFECT_CRT_LITE,
+	VAEG_EFFECT_COUNT
+};
+
 typedef struct {
 	BYTE	*ptr;
 	int		xalign;
@@ -63,6 +73,17 @@ void scrnmng_set_menu_height(int height);
 void scrnmng_set_display(int scale, BOOL aspect);
 int scrnmng_get_display_scale(void);
 BOOL scrnmng_get_display_aspect(void);
+void scrnmng_set_scaling(int scaling);
+int scrnmng_get_scaling(void);
+void scrnmng_set_effect(int effect);
+int scrnmng_get_effect(void);
+BOOL scrnmng_get_viewport(VAEG_VIEWPORT *viewport);
+BOOL scrnmng_map_window_point(int window_x, int window_y,
+								int *guest_x, int *guest_y);
+BOOL scrnmng_set_display_mode(int mode, int monitor, UINT width, UINT height,
+								UINT refresh, UINT8 fscrnmod);
+int scrnmng_get_display_mode(void);
+BOOL scrnmng_capture_window_size(int *width, int *height);
 void scrnmng_log_geometry(const char *reason);
 BOOL scrnmng_texture_uniform(BOOL *uniform);
 void scrnmng_present_begin(void);

@@ -105,6 +105,20 @@ Screen exposes the persisted No Wait and frame-skip controls. F11 is a
 non-persistent frontend shortcut: while held it selects effective No Wait and
 draw skip 16, then immediately returns to the saved values on release.
 
+## Display Controls
+
+Screen exposes Unfiltered, Linear, Scanline, and CRT Lite effects; Native,
+Fit, Fit 8-dot, Integer, and Stretch scaling; Native/x2/x3/Custom logical
+window sizes; and Windowed, Borderless desktop, or Exclusive fullscreen.
+Display settings enumerates SDL displays and resolution/refresh combinations.
+Custom size and display changes use pending values, and failed fullscreen
+changes roll back without saving the failed selection.
+
+The guest shadow framebuffer and texture remain 640x400. The common viewport
+uses SDL renderer output pixels for High-DPI placement and keeps the ImGui
+menu outside the guest rectangle. SDL2 remains the only renderer backend;
+effects are procedural SDL draw operations and contain no MAME assets.
+
 ## Embedded Font
 
 The GUI loads `NotoSansJP-Regular.ttf` with
