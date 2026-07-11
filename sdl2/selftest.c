@@ -37,6 +37,7 @@
 #include	"romcheck.h"
 #include	"romankana.h"
 #include	"s98.h"
+#include	"sgp.h"
 #include	"soundmng.h"
 #include	"strres.h"
 
@@ -186,6 +187,68 @@ static int test_clockscale(void) {
 		return(fail("clockscale", "CPU multiplier validation failed"));
 	}
 	fprintf(stderr, "selftest: clockscale ok\n");
+	return(SUCCESS);
+}
+
+static int test_sgp_speed(void) {
+
+	UINT32 numerator;
+	UINT32 denominator;
+	UINT64 total;
+	UINT index;
+
+	if (!sgp_speed_mode_valid(SGP_SPEED_MODEL_DEFAULT) ||
+		!sgp_speed_mode_valid(SGP_SPEED_FOLLOW_CPU) ||
+		!sgp_speed_mode_valid(SGP_SPEED_CUSTOM) ||
+		sgp_speed_mode_valid(SGP_SPEED_MODE_COUNT) ||
+		!sgp_speed_multiplier_valid(1) ||
+		!sgp_speed_multiplier_valid(2) ||
+		!sgp_speed_multiplier_valid(3) ||
+		!sgp_speed_multiplier_valid(16) ||
+		sgp_speed_multiplier_valid(0) || sgp_speed_multiplier_valid(17)) {
+		return(fail("sgp-speed", "SGP setting validation failed"));
+	}
+	if ((sgp_speed_ratio(SGP_SPEED_MODEL_DEFAULT, 1, 32,
+							&numerator, &denominator) != SUCCESS) ||
+		(numerator != 1) || (denominator != 1)) {
+		return(fail("sgp-speed", "Model default ratio changed"));
+	}
+	if ((sgp_speed_ratio(SGP_SPEED_FOLLOW_CPU, 1, 1,
+							&numerator, &denominator) != SUCCESS) ||
+		(numerator != 1) || (denominator != 2)) {
+		return(fail("sgp-speed", "Follow CPU x1 ratio failed"));
+	}
+	if ((sgp_speed_ratio(SGP_SPEED_FOLLOW_CPU, 1, 4,
+							&numerator, &denominator) != SUCCESS) ||
+		(numerator != 4) || (denominator != 2)) {
+		return(fail("sgp-speed", "Follow CPU x4 ratio failed"));
+	}
+	if ((sgp_speed_ratio(SGP_SPEED_CUSTOM, 3, 2,
+							&numerator, &denominator) != SUCCESS) ||
+		(numerator != 3) || (denominator != 1) ||
+		(sgp_speed_ratio(SGP_SPEED_CUSTOM, 0, 2,
+							&numerator, &denominator) != FAILURE)) {
+		return(fail("sgp-speed", "Custom ratio failed"));
+	}
+
+	np2cfg.sgp_speed_mode = SGP_SPEED_FOLLOW_CPU;
+	np2cfg.sgp_multiplier = 1;
+	np2cfg.multiple = 3;
+	pccore_clockrestore();
+	sgp_configure_speed();
+	total = 0;
+	for (index=0; index<20000; index++) {
+		total += sgp_scale_elapsed(1);
+	}
+	if (total != 30000) {
+		return(fail("sgp-speed", "Follow CPU fractional timing drifted"));
+	}
+	np2cfg.sgp_speed_mode = SGP_SPEED_MODEL_DEFAULT;
+	np2cfg.sgp_multiplier = 1;
+	np2cfg.multiple = PCCORE_STANDARD_MULTIPLE;
+	pccore_clockrestore();
+	sgp_configure_speed();
+	fprintf(stderr, "selftest: SGP speed ok\n");
 	return(SUCCESS);
 }
 
@@ -530,6 +593,9 @@ int vaeg_selftest_run(void) {
 		return(FAILURE);
 	}
 	if (test_clockscale() != SUCCESS) {
+		return(FAILURE);
+	}
+	if (test_sgp_speed() != SUCCESS) {
 		return(FAILURE);
 	}
 	if (test_keyboard_mapping() != SUCCESS) {

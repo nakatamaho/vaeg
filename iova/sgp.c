@@ -3,6 +3,7 @@
  */
 
 #include	"compiler.h"
+#include	"clockscale.h"
 #include	"cpucore.h"
 #include	"pccore.h"
 #include	"iocore.h"
@@ -25,7 +26,73 @@ enum {
 	FUNC_EXEC_LINE_Y,
 };
 
-		_SGP	sgp;
+	_SGP	sgp;
+	static CLOCKSCALE sgp_clock_scale = {1, 1, 0};
+
+BOOL sgp_speed_mode_valid(UINT mode) {
+
+	return(mode < SGP_SPEED_MODE_COUNT);
+}
+
+BOOL sgp_speed_multiplier_valid(UINT multiple) {
+
+	return((multiple >= 1) && (multiple <= SGP_SPEED_MULTIPLIER_MAX));
+}
+
+BOOL sgp_speed_ratio(UINT mode, UINT custom_multiple, UINT cpu_multiple,
+							UINT32 *numerator, UINT32 *denominator) {
+
+	if ((numerator == NULL) || (denominator == NULL) ||
+		!sgp_speed_mode_valid(mode)) {
+		return(FAILURE);
+	}
+	switch(mode) {
+		case SGP_SPEED_MODEL_DEFAULT:
+			*numerator = 1;
+			*denominator = 1;
+			break;
+
+		case SGP_SPEED_FOLLOW_CPU:
+			if (!pccore_cpu_multiple_valid(cpu_multiple)) {
+				return(FAILURE);
+			}
+			*numerator = cpu_multiple;
+			*denominator = PCCORE_STANDARD_MULTIPLE;
+			break;
+
+		case SGP_SPEED_CUSTOM:
+			if (!sgp_speed_multiplier_valid(custom_multiple)) {
+				return(FAILURE);
+			}
+			*numerator = custom_multiple;
+			*denominator = 1;
+			break;
+
+		default:
+			return(FAILURE);
+	}
+	return(SUCCESS);
+}
+
+void sgp_configure_speed(void) {
+
+	UINT32 numerator;
+	UINT32 denominator;
+
+	if (sgp_speed_ratio(np2cfg.sgp_speed_mode, np2cfg.sgp_multiplier,
+				pccore_cpu_multiple(), &numerator, &denominator) != SUCCESS) {
+		np2cfg.sgp_speed_mode = SGP_SPEED_MODEL_DEFAULT;
+		np2cfg.sgp_multiplier = 1;
+		numerator = 1;
+		denominator = 1;
+	}
+	clockscale_configure(&sgp_clock_scale, numerator, denominator);
+}
+
+UINT64 sgp_scale_elapsed(UINT32 elapsed) {
+
+	return(clockscale_apply(&sgp_clock_scale, elapsed));
+}
 
 
 // ---- 
@@ -1283,7 +1350,7 @@ void sgp_step(void) {
 
 	now = CPU_CLOCK + CPU_BASECLOCK - CPU_REMCLOCK;
 	past = now - sgp.lastclock;
-	sgp.remainclock += past;
+	sgp.remainclock += (SINT32)sgp_scale_elapsed(past);
 
 	while (sgp.remainclock > 0) {
 		if (!(sgp.busy & SGP_BUSY)) {
@@ -1422,6 +1489,7 @@ static REG8 IOINPCALL sgp_i508(UINT port) {
 
 void sgp_reset(void) {
 	ZeroMemory(&sgp, sizeof(sgp));
+	clockscale_reset(&sgp_clock_scale);
 	sgp.lastclock = CPU_CLOCK + CPU_BASECLOCK - CPU_REMCLOCK;
 }
 

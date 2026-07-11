@@ -32,6 +32,7 @@
 #include	"pccore.h"
 #include	"sound.h"
 #include	"opngen.h"
+#include	"sgp.h"
 
 
 typedef struct {
@@ -373,6 +374,8 @@ static const INITBL iniitem[] = {
 													sizeof(np2cfg.model)},
 	{"clk_base", INITYPE_SINT32,	&np2cfg.baseclock,		0},
 	{"clk_mult", INITYPE_SINT32,	&np2cfg.multiple,		0},
+	{"sgp_mode", INITYPE_UINT8,		&np2cfg.sgp_speed_mode,	0},
+	{"sgp_mult", INITYPE_UINT8,		&np2cfg.sgp_multiplier,	0},
 
 	{"DIPswtch", INITYPE_BYTEARG,	np2cfg.dipsw,			3},
 	{"MEMswtch", INITYPE_BYTEARG,	np2cfg.memsw,			8},
@@ -476,6 +479,12 @@ void initload(void) {
 		np2oscfg.gui_scale = 1;
 	}
 	np2oscfg.gui_aspect = np2oscfg.gui_aspect ? 1 : 0;
+	if (!sgp_speed_mode_valid(np2cfg.sgp_speed_mode)) {
+		np2cfg.sgp_speed_mode = SGP_SPEED_MODEL_DEFAULT;
+	}
+	if (!sgp_speed_multiplier_valid(np2cfg.sgp_multiplier)) {
+		np2cfg.sgp_multiplier = 1;
+	}
 	np2oscfg.keyboard_auto_kana_lock =
 		np2oscfg.keyboard_auto_kana_lock ? 1 : 0;
 	np2oscfg.keyboard_tenkey_overlay =

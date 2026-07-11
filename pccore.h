@@ -74,6 +74,8 @@ typedef struct {
 	OEMCHAR	model[8];
 	UINT	baseclock;
 	UINT	multiple;
+	UINT8	sgp_speed_mode;
+	UINT8	sgp_multiplier;
 
 	UINT8	memsw[8];
 

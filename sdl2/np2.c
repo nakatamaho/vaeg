@@ -38,6 +38,7 @@
 #include	"pccore.h"
 #include	"scrndraw.h"
 #include	"s98.h"
+#include	"sgp.h"
 #include	"diskdrv.h"
 #include	"fdc.h"
 #include	"timing.h"
@@ -128,6 +129,8 @@ static void smoke_configure_va(void) {
 	file_cpyname(np2cfg.model, str_VA2, sizeof(np2cfg.model));
 	np2cfg.baseclock = PCBASECLOCK40;
 	np2cfg.multiple = 2;
+	np2cfg.sgp_speed_mode = SGP_SPEED_MODEL_DEFAULT;
+	np2cfg.sgp_multiplier = 1;
 	np2cfg.ITF_WORK = 1;
 	np2cfg.EXTMEM = 1;
 	np2cfg.SOUND_SW = FMBOARD_VA_OPNA;
