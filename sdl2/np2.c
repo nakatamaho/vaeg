@@ -55,6 +55,7 @@
 static const UINT smoke_timeout_frames = 600;
 static const UINT startup_splash_ms = 1500;
 static const UINT max_catchup_frames = 15;
+static const char backup_memory_file[] = "vabkupmem.dat";
 typedef struct {
 	const char *name;
 	UINT32 size;
@@ -222,6 +223,29 @@ static BOOL romset_complete(const char *dir, const char *model, char *missing,
 		}
 	}
 	return(SUCCESS);
+}
+
+static void select_backup_memory_path(void) {
+
+	char	path[MAX_PATH];
+	char	*base;
+	short	attr;
+
+	base = SDL_GetBasePath();
+	if (base != NULL) {
+		file_cpyname(path, base, sizeof(path));
+		SDL_free(base);
+		file_catname(path, backup_memory_file, sizeof(path));
+		attr = file_attr(path);
+		if ((attr >= 0) && !(attr & FILEATTR_DIRECTORY)) {
+			bkupmemva_setpath(path);
+			SDL_Log("Backup memory: %s", path);
+			return;
+		}
+	}
+	file_getstatepath(path, sizeof(path), backup_memory_file);
+	bkupmemva_setpath(path);
+	SDL_Log("Backup memory: %s", path);
 }
 
 static void verify_rom(const char *dir, const char *source,
@@ -737,6 +761,7 @@ int main(int argc, char **argv) {
 		}
 	}
 	initload();
+	select_backup_memory_path();
 	if (smoke) {
 		smoke_configure_va();
 		smoke_detect_screen = (smoke_resolve_rompath() == SUCCESS);

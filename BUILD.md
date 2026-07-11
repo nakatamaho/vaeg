@@ -114,19 +114,20 @@ cmake --build --preset macos-asan
 
 ## Runtime State And Config
 
-`vaeg.cfg`, `vabkupmem.dat`, and fixed GUI save-state slots are stored in
-the portable per-user state directory:
+`vaeg.cfg`, `vabkupmem.dat`, and fixed GUI save-state slots are normally
+stored in the portable per-user state directory:
 
 - Linux: `$XDG_CONFIG_HOME/vaeg` or `$HOME/.config/vaeg`
 - Windows: `%APPDATA%\vaeg`
 - macOS: `~/Library/Application Support/vaeg`
 
-An executable-local `vaeg.cfg` overrides the user-state configuration.
-Other writable state remains in the user directory.
+An executable-local `vaeg.cfg` overrides the user-state configuration. An
+existing executable-local `vabkupmem.dat` similarly overrides the
+user-state backup memory, and saves return to the selected file. Save
+states and keyboard sidecars remain in the user directory.
 
-`vabkupmem.dat` loads from that state directory first and falls back to
-the ROM path once for migration; saves always go to the state directory.
-Legacy `win9x/` remains exe-relative and unchanged.
+`vabkupmem.dat` does not fall back to the ROM path. Legacy `win9x/`
+remains exe-relative and unchanged.
 
 ROMs are read beside the active executable. VA uses unsuffixed names, while
 VA2/VA3 uses MAME-compatible suffixed names:

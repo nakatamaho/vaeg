@@ -142,9 +142,11 @@ directory is available, it falls back to the current directory.
 
 Obsolete `np2.cfg`, `np2.ini`, and `vaeg.ini` files are not read.
 
-`vabkupmem.dat` and fixed GUI save-state slots use the user state
-directory. `vabkupmem.dat` also loads once from the configured ROM path
-for migration; saves always go to the user state directory.
+An existing `vabkupmem.dat` beside the executable takes priority over the
+user-state copy and is saved back in place. If no executable-local file
+exists, backup memory uses the user state directory. There is no ROM-path
+migration fallback. Fixed GUI save-state slots and keyboard sidecars
+remain in the user state directory.
 
 ## OPN/OPNA FM Backend
 

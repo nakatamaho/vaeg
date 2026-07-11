@@ -74,6 +74,10 @@ Configuration lookup prefers `vaeg.cfg` beside the executable before
 checking the platform user-state directory. Obsolete NP2 filenames and
 `vaeg.ini` are intentionally not read.
 
+Backup-memory lookup follows the same ordering: an existing
+`vabkupmem.dat` beside the executable is loaded and saved in place;
+otherwise the per-user copy is used.
+
 The important implementation range is `sdl2/np2.c:599-662`.
 
 ## Configuration to Machine State
