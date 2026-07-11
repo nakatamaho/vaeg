@@ -205,6 +205,16 @@ state; keyup clears it. Focus loss, reset, state load, quit, and shutdown also
 clear it. Both F11 edges are consumed and never reach the guest, including
 when ImGui captures keyboard input. Right Alt behavior is unchanged.
 
+## G20 sound-menu correction
+
+Human testing found that the former Sound on/off control cleared `SNDboard`,
+which removed the selected OPN/OPNA hardware, cleared both hardware checks,
+and could stall VA software polling the FM timer. Sound on/off now persists a
+separate `sound_enabled` host-audio setting and only pauses the SDL audio
+device. `SNDboard` remains the selected guest hardware (`100` or `200`) while
+muted. An old or invalid `SNDboard=0` is replaced at load time with the model
+default and produces a warning.
+
 ## Automated verification
 
 - ratio validation, fractional carry, long-run totals, reset, and overflow;

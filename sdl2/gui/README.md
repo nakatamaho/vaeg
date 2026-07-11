@@ -78,6 +78,9 @@ the output selector uses the existing guest-reset flow to rebuild the selected
 synthesizer from a clean board state while retaining mounted FDD/SASI paths.
 The ymfm option currently replaces only YM2203/YM2608 FM operator synthesis;
 NP2 continues to own timer/IRQ, SSG, ADPCM, rhythm, and stream mixing.
+Sound on/off controls only host audio output. It does not clear `SNDboard` or
+detach the guest FM hardware, so muting cannot remove the selected OPN/OPNA
+check or stall software waiting for the FM timer.
 
 ## Boot Model Menu
 
