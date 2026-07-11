@@ -54,7 +54,7 @@ Use the MSYS2 MinGW64 shell. Install:
 
 ```sh
 pacman -S --needed mingw-w64-x86_64-cmake mingw-w64-x86_64-ninja \
-  mingw-w64-x86_64-gcc mingw-w64-x86_64-SDL2 mingw-w64-x86_64-pkgconf
+  mingw-w64-x86_64-gcc mingw-w64-x86_64-pkgconf
 ```
 
 Build:
@@ -74,14 +74,22 @@ cmake --preset mingw-cross
 cmake --build --preset mingw-cross
 ```
 
-The cross preset sets `VAEG_FETCH_SDL2=ON`, so CMake downloads and builds
-the pinned SDL2 release recorded in ADR-0006 for link checks. This does
-not solve runtime distribution: Windows release artifacts must still ship
-`SDL2.dll` next to `vaeg.exe`. MinGW ASan is not enabled in this tree;
+The MinGW presets download the pinned SDL2 release recorded in ADR-0006
+and link it statically. Windows release artifacts therefore require only
+`vaeg.exe` at runtime. MinGW ASan is not enabled in this tree;
 sanitizer availability depends on the MinGW runtime/package set, so G11
 keeps sanitizer acceptance on Linux and macOS.
 
-## macOS (MacPorts)
+## macOS Release
+
+The release preset downloads pinned SDL2 and links it statically:
+
+```sh
+cmake --preset macos-release
+cmake --build --preset macos-release
+```
+
+## macOS Development (MacPorts)
 
 The M11 baseline is MacPorts, not Homebrew. Install:
 
@@ -92,11 +100,11 @@ sudo port install cmake ninja libsdl2 pkgconfig
 Build:
 
 ```sh
-cmake --preset macos-release
-cmake --build --preset macos-release
+cmake --preset macos-macports
+cmake --build --preset macos-macports
 ```
 
-The macOS presets set `CMAKE_PREFIX_PATH=/opt/local` and
+The MacPorts presets set `CMAKE_PREFIX_PATH=/opt/local` and
 `PKG_CONFIG_PATH=/opt/local/lib/pkgconfig`. The sanitizer preset is:
 
 ```sh

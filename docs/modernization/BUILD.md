@@ -32,15 +32,14 @@ covered here.
 
 This is the supported Windows runtime configuration. Build and run the
 native Windows binary from an MSYS2 MINGW64 environment, then distribute
-`vaeg.exe` with `SDL2.dll` beside it. The executable statically links the
-MinGW gcc, libstdc++, and winpthread runtimes; SDL2 remains a bundled
-DLL.
+`vaeg.exe`. The executable statically links SDL2 and the MinGW gcc,
+libstdc++, and winpthread runtimes.
 
 Open the MSYS2 MINGW64 shell, then install the build prerequisites:
 
 ```sh
 pacman -S --needed mingw-w64-x86_64-cmake mingw-w64-x86_64-ninja \
-  mingw-w64-x86_64-gcc mingw-w64-x86_64-SDL2 mingw-w64-x86_64-pkgconf
+  mingw-w64-x86_64-gcc mingw-w64-x86_64-pkgconf
 ```
 
 Configure and build:
@@ -54,7 +53,19 @@ The output is `build/mingw-release/sdl2/vaeg.exe`. The preset builds a
 GUI-subsystem executable. For a console while debugging, configure a
 separate tree with `-DVAEG_WINDOWS_CONSOLE=ON`.
 
-## macOS Native: MacPorts
+## macOS Release
+
+The release preset fetches pinned SDL2 and links it statically:
+
+```sh
+cmake --preset macos-release
+cmake --build --preset macos-release
+```
+
+The output is a plain `build/macos-release/sdl2/vaeg` binary. macOS
+system frameworks remain dynamic operating-system dependencies.
+
+## macOS Development: MacPorts
 
 The M11 baseline is MacPorts under `/opt/local`, not Homebrew. Install:
 
@@ -65,11 +76,11 @@ sudo port install cmake ninja libsdl2 pkgconfig
 Configure and build:
 
 ```sh
-cmake --preset macos-release
-cmake --build --preset macos-release
+cmake --preset macos-macports
+cmake --build --preset macos-macports
 ```
 
-The macOS presets set `CMAKE_PREFIX_PATH=/opt/local` and
+The MacPorts preset sets `CMAKE_PREFIX_PATH=/opt/local` and
 `PKG_CONFIG_PATH=/opt/local/lib/pkgconfig`. A plain binary is accepted for
 G11; no app bundle is required.
 
@@ -83,14 +94,10 @@ cmake --preset mingw-cross
 cmake --build --preset mingw-cross
 ```
 
-The staged output is `build/mingw-cross/sdl2/vaeg.exe` with the
-FetchContent-built `SDL2.dll` beside it. This preset is a link-check
-tier, not the supported Windows runtime configuration. Running the
-cross-built executable against MSYS2's runtime DLLs is an unsupported
-hybrid and can produce misleading crash classes. Standalone viability of
-the cross-built pair is decided by maintainer testing. Windows release
-artifacts should be produced from the supported MSYS2 MINGW64 native
-configuration and must ship `SDL2.dll` next to `vaeg.exe`.
+The staged output is `build/mingw-cross/sdl2/vaeg.exe`. SDL2 and the
+MinGW runtimes are static, so the executable has only Windows system DLL
+imports. This preset remains a link-check tier; Windows release artifacts
+should be produced from the supported MSYS2 MINGW64 native configuration.
 
 ## GitHub Actions CI
 
@@ -100,9 +107,8 @@ The M12 workflow is `.github/workflows/build.yml`. It covers:
 - Ubuntu ASan/UBSan smoke. The known UBSan backlog messages documented in
   `../agents/reports/ubsan_backlog.md` may appear, but sanitizer process
   failures still fail the job.
-- Windows on `windows-latest` through MSYS2/MINGW64 with SDL2 from
-  `pacman`. Package names are pinned explicitly in the workflow because
-  MSYS2 package drift should fail visibly.
+- Windows on `windows-latest` through MSYS2/MINGW64 with pinned static
+  FetchContent SDL2.
 - macOS on `macos-latest` with `VAEG_FETCH_SDL2=ON`. The maintainer
   baseline remains MacPorts, but MacPorts is impractical on hosted
   runners; this CI job deliberately exercises the pinned FetchContent path
@@ -120,8 +126,8 @@ save/check/load on stable sections. M9 did not produce a memoryva fixture,
 so the memoryva fixture test is intentionally skipped.
 
 CI uploads build artifacts for all three operating systems. The Windows
-artifact stages `vaeg.exe` with `SDL2.dll` beside it, matching ADR-0006's
-runtime distribution note.
+artifact is the standalone `vaeg.exe`; its import audit rejects SDL2 and
+MinGW runtime DLL dependencies.
 
 ROMs are deliberately absent from CI and release artifacts. Users place the
 VA unsuffixed ROM set or the MAME-compatible VA2/VA3 `*_va2.rom` set beside

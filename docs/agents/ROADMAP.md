@@ -97,8 +97,8 @@ assignment.
   `cpuxva/memoryva.x86` into `cpucva/memoryva.c`.
 - **ImGui rendering backend (M10).** ADR-0002 selected
   `imgui_impl_sdl2` + `imgui_impl_sdlrenderer2`.
-- **Japanese font for ImGui (M10).** ADR-0003 selected bundled
-  `assets/NotoSansJP-Regular.ttf`.
+- **Japanese font for ImGui (M10).** ADR-0003 selected
+  `assets/NotoSansJP-Regular.ttf`, now embedded in active executables.
 - **Fate of `win9x/` and assembly references (M13).** ADR-0007 keeps
   `win9x/`, `i286x/`, `cpuxva/memoryva.x86`, and `hlp/` frozen as
   references; deletes retired `sdl/` and leftover accessories project

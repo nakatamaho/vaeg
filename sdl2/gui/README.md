@@ -86,23 +86,14 @@ read beside the executable. Selection immediately uses the existing
 guest-reset flow, including preservation of configured FDD and SASI media.
 Missing ROMs are reported with the selected model and expected root.
 
-## Font Asset Lookup
+## Embedded Font
 
 The GUI loads `NotoSansJP-Regular.ttf` with
 `ImGuiIO::Fonts->GetGlyphRangesJapanese()`. The guest font ROM is never
 used for host GUI text.
 
-Lookup order:
-
-1. `$VAEG_ASSET_DIR/NotoSansJP-Regular.ttf`
-2. `assets/NotoSansJP-Regular.ttf` relative to the current working
-   directory
-3. `assets/`, `../assets/`, `../../assets/`, and `../../../assets/`
-   relative to `SDL_GetBasePath()`
-4. `../share/vaeg/assets/` relative to `SDL_GetBasePath()`
-5. `../share/vaeg/` relative to `SDL_GetBasePath()`
-
-The build tree works when launched from the repository root, and also
-from `build/linux-debug/sdl2/` through the `../../../assets/` lookup.
-An installed layout should place assets under
-`$prefix/share/vaeg/assets/`.
+`assets/NotoSansJP-Regular.ttf` is the canonical source asset. CMake embeds
+its bytes in the executable, and Dear ImGui reads the static data through
+`AddFontFromMemoryTTF()`. Runtime font files, platform font lookup, and
+`VAEG_ASSET_DIR` are not used. Release packages retain `assets/OFL.txt`
+and `assets/NOTICE.md` for license compliance and provenance.

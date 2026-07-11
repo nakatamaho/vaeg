@@ -38,26 +38,24 @@ Files supplied by the release package
 Keep this relative layout after unpacking:
 
 - vaeg or vaeg.exe
-- assets/NotoSansJP-Regular.ttf
 - assets/OFL.txt
 - assets/NOTICE.md
 - README-dist.txt
 
-The Dear ImGui host GUI loads assets/NotoSansJP-Regular.ttf at runtime.
-The OFL.txt and NOTICE.md files document the font license and must stay
-with the package.
+The Dear ImGui Japanese font and historical VAEG startup graphic are
+embedded in the executable. OFL.txt and NOTICE.md document the font
+license and provenance and must stay with the package.
 
 Additional platform runtime files:
 
-- Windows: SDL2.dll is included next to vaeg.exe. The MinGW GCC,
-  libstdc++, and winpthread runtimes are statically linked.
+- Windows: SDL2 and the MinGW GCC, libstdc++, and winpthread runtimes are
+  statically linked into vaeg.exe.
 - Linux: SDL2 is a system dependency. Install your distribution's SDL2
   runtime package, for example libsdl2-2.0-0 on Debian/Ubuntu systems.
   Rel.260708 is built and tested on the GitHub Actions ubuntu-latest
   runner using the linux-ci-gcc preset and libsdl2-dev.
-- macOS: the release package includes the SDL2 dylib layout produced by
-  the release workflow when the macos-ci FetchContent preset links a
-  non-system SDL2 library.
+- macOS: the release preset statically links the pinned FetchContent SDL2;
+  macOS system frameworks remain operating-system dependencies.
 
 Files you must supply
 ---------------------

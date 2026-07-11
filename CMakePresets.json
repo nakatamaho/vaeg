@@ -85,7 +85,9 @@
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
         "VAEG_WERROR": "OFF",
-        "VAEG_WINDOWS_CONSOLE": "OFF"
+        "VAEG_WINDOWS_CONSOLE": "OFF",
+        "VAEG_FETCH_SDL2": "ON",
+        "VAEG_STATIC_SDL2": "ON"
       }
     },
     {
@@ -98,7 +100,8 @@
         "CMAKE_BUILD_TYPE": "Release",
         "VAEG_WERROR": "OFF",
         "VAEG_WINDOWS_CONSOLE": "OFF",
-        "VAEG_FETCH_SDL2": "ON"
+        "VAEG_FETCH_SDL2": "ON",
+        "VAEG_STATIC_SDL2": "ON"
       }
     },
     {
@@ -110,14 +113,28 @@
         "CMAKE_BUILD_TYPE": "Release",
         "VAEG_ENABLE_TESTS": "ON",
         "VAEG_WERROR": "OFF",
-        "VAEG_WINDOWS_CONSOLE": "ON"
+        "VAEG_WINDOWS_CONSOLE": "ON",
+        "VAEG_FETCH_SDL2": "ON",
+        "VAEG_STATIC_SDL2": "ON"
       }
     },
     {
       "name": "macos-release",
-      "displayName": "macOS Release (MacPorts)",
+      "displayName": "macOS Release (static FetchContent SDL2)",
       "generator": "Ninja",
       "binaryDir": "${sourceDir}/build/macos-release",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "VAEG_FETCH_SDL2": "ON",
+        "VAEG_STATIC_SDL2": "ON",
+        "VAEG_WERROR": "OFF"
+      }
+    },
+    {
+      "name": "macos-macports",
+      "displayName": "macOS Development (MacPorts SDL2)",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/macos-macports",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
         "CMAKE_PREFIX_PATH": "/opt/local",
@@ -153,6 +170,7 @@
         "CMAKE_BUILD_TYPE": "Release",
         "VAEG_ENABLE_TESTS": "ON",
         "VAEG_FETCH_SDL2": "ON",
+        "VAEG_STATIC_SDL2": "ON",
         "VAEG_WERROR": "OFF"
       }
     }
@@ -197,6 +215,10 @@
     {
       "name": "macos-release",
       "configurePreset": "macos-release"
+    },
+    {
+      "name": "macos-macports",
+      "configurePreset": "macos-macports"
     },
     {
       "name": "macos-asan",
