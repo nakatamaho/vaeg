@@ -82,6 +82,14 @@ override user-state copies, and VA sound hardware distinguishes built-in OPN
 from OPNA in Sound Board II and VA2/VA3. The implementation record and passed
 G19 checklist are in `tasks/M19_portable_runtime.md`.
 
+M20 implementation is complete and G20 is pending. V30 instruction execution
+and SGP command execution now have independent scaling while the existing
+standard-x2 machine/peripheral timeline remains fixed. The SDL2 frontend adds
+transactional CPU/SGP configuration, persisted No Wait and frame skip, and a
+non-persistent hold-F11 fast-forward shortcut. The clock-domain audit,
+automated results, remaining hardware uncertainty, and human checklist are in
+`tasks/M20_cpu_sgp_speed_pacing.md`.
+
 ## Gate protocol
 
 Agent side (pasted into PR): CMake build logs, `tools/repo/` check

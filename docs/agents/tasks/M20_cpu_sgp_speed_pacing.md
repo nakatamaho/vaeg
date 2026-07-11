@@ -24,13 +24,24 @@ POSSIBILITY OF SUCH DAMAGE.
 -->
 # M20 - Separate CPU/SGP execution speed from machine time
 
-Status: in progress
+Status: implementation complete; G20 pending
 
 Branch: `topic/m20-cpu-sgp-speed-pacing`
 
 Gate: G20 human
 
 Depends on: G19 passed.
+
+## Initial worktree
+
+Work began from `main` at `fbd0345`. The pre-existing untracked research
+material was left untouched throughout M20:
+
+```text
+## main...origin/main
+?? docs/modernization/PCEPAT.DOC
+?? docs/tekumani/
+```
 
 ## Scope
 
@@ -101,8 +112,8 @@ boundaries are the important classification points.
 | `io/serial.c`, `cbus/pc9861k.c`, `cbus/mpu98ii.c` | communication setup | `pccore.realclock` | serial/MIDI transfer time | machine/peripheral | Standard nominal clock | regression gate |
 | `sound/beepc.c`, `sound/sound.c` | stream synchronization | current CPU clock expression | elapsed emulated time | machine/peripheral | Keep canonical machine timeline | audio gate |
 | `iova/boardsb2.c` | access wait | realclock/current clock | chip I/O wait | bus/contention | Standard machine ticks | OPN regression |
-| `iova/sgp.c` | `sgp_step` | current clock, `lastclock` | Supplies machine elapsed ticks as SGP budget | SGP execution boundary | Scale elapsed budget by selected SGP ratio with remainder | synthetic SGP tests |
-| `iova/sgp.c` | command functions | `sgp.remainclock -= cost` | SGP native command costs | SGP execution | Keep costs unchanged | completion-ratio tests |
+| `iova/sgp.c` | `sgp_step` | current clock, `lastclock` | Supplies machine elapsed ticks as SGP budget | SGP execution boundary | Scale elapsed budget by selected SGP ratio with remainder | budget-ratio tests |
+| `iova/sgp.c` | command functions | `sgp.remainclock -= cost` | SGP native command costs | SGP execution | Keep costs unchanged | code audit + human completion gate |
 | `iova/sgp.c` | memory helpers | `CPU_REMCLOCK -= 4` | Approximate CPU wait for SGP memory access | bus/contention | Do not multiply by SGP speed | audit + corruption gate |
 | `sdl2/timing.c` | `timing_getcount` | host milliseconds/frame rate | Host-to-guest pacing | host pacing | Keep independent from CPU/SGP scale | pacing tests |
 | `sdl2/np2.c` | `runloop` | `NOWAIT`, `DRAW_SKIP` | Pacing and presentation policy | host pacing | Use per-iteration effective values | selftest + manual gate |
@@ -202,8 +213,74 @@ when ImGui captures keyboard input. Right Alt behavior is unchanged.
 - F11 event/repeat/focus/reset behavior and effective pacing values;
 - existing statsave zeroed round-trip, keyboard, OPN, smoke, and screen
   detector tests;
-- gcc, clang, ASan/UBSan, MinGW cross, and available macOS preset builds;
+- gcc, clang, ASan/UBSan, and MinGW cross builds;
 - encoding, EOL, case, diff, and frozen-tier checks.
+
+The ROM-less SGP selftest verifies validation, Model/Follow/Custom budget
+ratios, fractional carry, and long-run totals at the common `sgp_step()`
+boundary. It does not claim hardware verification of a particular command's
+busy duration or interrupt edge; those remain in G20.
+
+### Agent results
+
+The following commands passed on the Linux development host:
+
+```text
+cmake --preset linux-debug
+cmake --build --preset linux-debug --target vaeg_sdl2
+SDL_AUDIODRIVER=dummy ./build/linux-debug/sdl2/vaeg --selftest
+SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
+  ./build/linux-debug/sdl2/vaeg --smoke
+
+cmake --preset linux-release
+cmake --build --preset linux-release
+SDL_AUDIODRIVER=dummy ./build/linux-release/sdl2/vaeg --selftest
+SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
+  ./build/linux-release/sdl2/vaeg --smoke
+
+cmake --preset linux-ci-gcc
+cmake --build --preset linux-ci-gcc
+ctest --test-dir build/linux-ci-gcc --output-on-failure
+
+cmake --preset linux-ci-clang
+cmake --build --preset linux-ci-clang
+ctest --test-dir build/linux-ci-clang --output-on-failure
+
+cmake --preset linux-ci-asan
+cmake --build --preset linux-ci-asan
+ASAN_OPTIONS=detect_leaks=0 ctest --test-dir build/linux-ci-asan \
+  --output-on-failure
+ASAN_OPTIONS=detect_leaks=0 SDL_AUDIODRIVER=dummy \
+  ./build/linux-ci-asan/sdl2/vaeg --selftest
+ASAN_OPTIONS=detect_leaks=0 SDL_VIDEODRIVER=dummy \
+  SDL_AUDIODRIVER=dummy ./build/linux-ci-asan/sdl2/vaeg --smoke
+
+cmake --preset mingw-cross
+cmake --build --preset mingw-cross
+
+python3 tools/repo/check_encoding.py
+python3 tools/repo/check_eol.py
+python3 tools/repo/check_case.py
+git diff --check
+git diff main...HEAD --stat -- win9x i286x cpuxva/memoryva.x86 hlp
+```
+
+Both GCC and Clang CTest runs reported one of one ROM-less test passed. The
+release and sanitizer selftests reported all tests passed, and ROM-less smoke
+completed using the SDL software renderer. ASan reported no memory errors.
+UBSan emitted only the four pre-existing shared-core findings recorded in
+`docs/agents/reports/ubsan_backlog.md`; none of those files changed in M20.
+
+The plain `linux-debug` preset does not enable CTest registration, so `ctest
+--test-dir build/linux-debug` correctly reports no tests. The CI presets are
+the CTest-bearing configurations. A plain sanitizer CTest invocation also
+cannot use LeakSanitizer under this sandbox's ptrace environment; the accepted
+run used `ASAN_OPTIONS=detect_leaks=0` as documented above.
+
+`macos-release` was not run: this agent host is Linux and has no Darwin SDK or
+native macOS toolchain. Running that preset here would produce another Linux
+binary and would not constitute macOS verification. Native macOS build and
+runtime coverage therefore remains part of G20.
 
 ## Gate G20
 
@@ -233,4 +310,3 @@ not established by this milestone. M20 preserves standard-x2 behavior as
 Model default and introduces no guessed MHz values. Exact contention and
 model-specific SGP frequency require technical-manual or hardware evidence in
 a later milestone.
-
