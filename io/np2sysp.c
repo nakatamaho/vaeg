@@ -78,7 +78,7 @@ static void np2sysp_cpu(const void *arg1, long arg2) {
 
 static void np2sysp_clock(const void *arg1, long arg2) {
 
-	SPRINTF(np2sysp.outstr, str_mhz, (pccore.realclock + 500000) / 1000000);
+	SPRINTF(np2sysp.outstr, str_mhz, (pccore_cpu_clock() + 500000) / 1000000);
 	np2sysp.outpos = 0;
 	(void)arg1;
 	(void)arg2;
@@ -86,7 +86,7 @@ static void np2sysp_clock(const void *arg1, long arg2) {
 
 static void np2sysp_multiple(const void *arg1, long arg2) {
 
-	SPRINTF(np2sysp.outstr, str_u, pccore.multiple);
+	SPRINTF(np2sysp.outstr, str_u, pccore_cpu_multiple());
 	np2sysp.outpos = 0;
 	(void)arg1;
 	(void)arg2;
@@ -250,4 +250,3 @@ void np2sysp_bind(void) {
 	iocore_attachinp(0x07ef, np2sysp_i7ed);
 	iocore_attachinp(0x07ef, np2sysp_i7ef);
 }
-
