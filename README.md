@@ -142,7 +142,7 @@ Custom. The GUI exposes
 `Emulate -> Boot model -> VA / VA2/VA3`; changing the model selects its
 default sound hardware (VA OPN, VA2/VA3 OPNA), selects the matching ROM
 filename set, and resets the guest while retaining configured FDD and
-SASI media. `Sound -> Sound hardware` can add Sound Board II to a VA.
+SASI media. `Sound -> FM sound OPN/OPNA` can add Sound Board II to a VA.
 
 ## PC-88VA Hardware Notes
 

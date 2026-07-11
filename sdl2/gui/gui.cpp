@@ -1461,7 +1461,7 @@ static void draw_device_menu(void) {
 			ImGui::EndMenu();
 		}
 		if (ImGui::BeginMenu("Sound / 音")) {
-			if (ImGui::BeginMenu("Sound hardware")) {
+			if (ImGui::BeginMenu("FM sound OPN/OPNA")) {
 				const bool va1 = milstr_cmp(np2cfg.model, str_VA1) == 0;
 				ImGui::BeginDisabled(!va1);
 				if (ImGui::MenuItem("OPN (VA)", nullptr,
@@ -1476,7 +1476,7 @@ static void draw_device_menu(void) {
 				}
 				ImGui::EndMenu();
 			}
-			if (ImGui::BeginMenu("OPN backend")) {
+			if (ImGui::BeginMenu("FM sound backend")) {
 				const UINT backend = opngen_getbackend();
 				if (ImGui::MenuItem("NP2", nullptr,
 								backend == OPN_BACKEND_NP2)) {
