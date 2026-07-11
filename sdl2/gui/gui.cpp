@@ -34,6 +34,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <filesystem>
+#include <iterator>
 #include <string>
 #include <vector>
 
@@ -59,6 +60,7 @@
 #include "scrndraw.h"
 #include "scrnmng.h"
 #include "sdlkbd.h"
+#include "sgp.h"
 #include "soundmng.h"
 #include "strres.h"
 #include "sysmng.h"
@@ -78,6 +80,8 @@ constexpr float kGuiFontSize = 16.0f;
 constexpr int kStateSlots = 10;
 constexpr int kMasterVolumeMax = 128;
 constexpr int kSasiImageCount = 6;
+constexpr int kCpuPresets[] = {1, 2, 4, 5, 6, 8, 10, 12, 16, 20};
+constexpr int kSgpPresets[] = {1, 2, 4, 8, 16};
 namespace fs = std::filesystem;
 
 struct SasiImageChoice {
@@ -142,6 +146,11 @@ struct GuiState {
 	bool keyboard_config_open = false;
 	int capture_binding = -1;
 	SDL_Scancode capture_swallow = SDL_SCANCODE_UNKNOWN;
+	bool configure_open = false;
+	bool configure_request = false;
+	int pending_cpu_multiplier = PCCORE_STANDARD_MULTIPLE;
+	int pending_sgp_mode = SGP_SPEED_MODEL_DEFAULT;
+	int pending_sgp_multiplier = 1;
 };
 
 GuiState g_gui;
@@ -162,6 +171,160 @@ static void menu_item_not_implemented(const char *label) {
 	ImGui::BeginDisabled();
 	ImGui::MenuItem(label);
 	ImGui::EndDisabled();
+}
+
+static void open_configure_dialog(void) {
+
+	g_gui.pending_cpu_multiplier = static_cast<int>(np2cfg.multiple);
+	g_gui.pending_sgp_mode = static_cast<int>(np2cfg.sgp_speed_mode);
+	g_gui.pending_sgp_multiplier = static_cast<int>(np2cfg.sgp_multiplier);
+	g_gui.configure_open = true;
+	g_gui.configure_request = true;
+}
+
+static void draw_multiplier_combo(const char *label, int *value,
+								  const int *presets, int preset_count) {
+
+	char preview[32];
+
+	std::snprintf(preview, sizeof(preview), "x%d", *value);
+	if (ImGui::BeginCombo(label, preview)) {
+		ImGui::SetNextItemWidth(-1.0f);
+		ImGui::InputInt("##custom-multiplier", value, 0, 0);
+		ImGui::Separator();
+		for (int i=0; i<preset_count; i++) {
+			char item[16];
+
+			std::snprintf(item, sizeof(item), "x%d", presets[i]);
+			if (ImGui::Selectable(item, *value == presets[i])) {
+				*value = presets[i];
+			}
+		}
+		ImGui::EndCombo();
+	}
+}
+
+static void apply_configure_dialog(void) {
+
+	const bool changed =
+		(np2cfg.baseclock != PCBASECLOCK40) ||
+		(np2cfg.multiple != static_cast<UINT>(g_gui.pending_cpu_multiplier)) ||
+		(np2cfg.sgp_speed_mode != static_cast<UINT8>(g_gui.pending_sgp_mode)) ||
+		(np2cfg.sgp_multiplier !=
+							static_cast<UINT8>(g_gui.pending_sgp_multiplier));
+
+	if (changed) {
+		np2cfg.baseclock = PCBASECLOCK40;
+		np2cfg.multiple = static_cast<UINT>(g_gui.pending_cpu_multiplier);
+		np2cfg.sgp_speed_mode = static_cast<UINT8>(g_gui.pending_sgp_mode);
+		np2cfg.sgp_multiplier =
+							static_cast<UINT8>(g_gui.pending_sgp_multiplier);
+		sysmng_update(SYS_UPDATECFG | SYS_UPDATECLOCK);
+		reset_guest();
+	}
+	g_gui.configure_open = false;
+	ImGui::CloseCurrentPopup();
+}
+
+static void draw_configure_dialog(void) {
+
+	if (g_gui.configure_request) {
+		ImGui::OpenPopup("Configure##clock-config");
+		g_gui.configure_request = false;
+	}
+	if (!g_gui.configure_open) {
+		return;
+	}
+	const ImGuiViewport *viewport = ImGui::GetMainViewport();
+	ImGui::SetNextWindowPos(viewport->GetCenter(), ImGuiCond_Appearing,
+												ImVec2(0.5f, 0.5f));
+	ImGui::SetNextWindowSize(ImVec2(420.0f, 390.0f), ImGuiCond_Appearing);
+	if (ImGui::BeginPopupModal("Configure##clock-config",
+										&g_gui.configure_open,
+										ImGuiWindowFlags_NoResize |
+										ImGuiWindowFlags_NoCollapse)) {
+		const bool cpu_valid = pccore_cpu_multiple_valid(
+								static_cast<UINT>(g_gui.pending_cpu_multiplier));
+		const bool sgp_mode_valid = sgp_speed_mode_valid(
+								static_cast<UINT>(g_gui.pending_sgp_mode));
+		const bool sgp_multiplier_valid =
+			(g_gui.pending_sgp_mode != SGP_SPEED_CUSTOM) ||
+			sgp_speed_multiplier_valid(
+								static_cast<UINT>(g_gui.pending_sgp_multiplier));
+		const bool valid = cpu_valid && sgp_mode_valid && sgp_multiplier_valid;
+
+		if (ImGui::BeginChild("cpu-config", ImVec2(0.0f, 145.0f), true,
+												ImGuiWindowFlags_NoScrollbar)) {
+			ImGui::TextUnformatted("CPU");
+			ImGui::Separator();
+			ImGui::BeginDisabled();
+			if (ImGui::BeginCombo("Base clock", "3.9936 MHz")) {
+				ImGui::Selectable("3.9936 MHz", true);
+				ImGui::EndCombo();
+			}
+			ImGui::EndDisabled();
+			draw_multiplier_combo("Multiplier", &g_gui.pending_cpu_multiplier,
+									kCpuPresets, static_cast<int>(std::size(kCpuPresets)));
+			ImGui::Text("Effective CPU clock: %.4f MHz",
+							3.9936 * static_cast<double>(g_gui.pending_cpu_multiplier));
+			ImGui::TextUnformatted("Standard setting: x2 (7.9872 MHz)");
+		}
+		ImGui::EndChild();
+
+		if (ImGui::BeginChild("sgp-config", ImVec2(0.0f, 140.0f), true,
+												ImGuiWindowFlags_NoScrollbar)) {
+			static const char *modes[] = {"Model default", "Follow CPU", "Custom"};
+			ImGui::TextUnformatted("SGP");
+			ImGui::Separator();
+			ImGui::Combo("Speed", &g_gui.pending_sgp_mode, modes,
+										static_cast<int>(std::size(modes)));
+			if (g_gui.pending_sgp_mode == SGP_SPEED_CUSTOM) {
+				draw_multiplier_combo("Custom multiplier",
+									 &g_gui.pending_sgp_multiplier, kSgpPresets,
+									 static_cast<int>(std::size(kSgpPresets)));
+			}
+			if (g_gui.pending_sgp_mode == SGP_SPEED_MODEL_DEFAULT) {
+				ImGui::TextUnformatted(
+							"Effective SGP scale: Model default (x1.0000)");
+			}
+			else if (g_gui.pending_sgp_mode == SGP_SPEED_FOLLOW_CPU) {
+				ImGui::Text("Effective SGP scale: x%.4f relative to Model default",
+						static_cast<double>(g_gui.pending_cpu_multiplier) /
+											PCCORE_STANDARD_MULTIPLE);
+			}
+			else if (g_gui.pending_sgp_mode == SGP_SPEED_CUSTOM) {
+				ImGui::Text("Effective SGP scale: x%d relative to Model default",
+											g_gui.pending_sgp_multiplier);
+			}
+		}
+		ImGui::EndChild();
+
+		if (!cpu_valid) {
+			ImGui::TextUnformatted("Multiplier must be between 1 and 32.");
+		}
+		else if (!sgp_mode_valid) {
+			ImGui::TextUnformatted("Select a valid SGP speed mode.");
+		}
+		else if (!sgp_multiplier_valid) {
+			ImGui::TextUnformatted("SGP multiplier must be between 1 and 16.");
+		}
+
+		const float button_width = 88.0f;
+		ImGui::SetCursorPosX(ImGui::GetWindowContentRegionMax().x -
+												(button_width * 2.0f + 8.0f));
+		ImGui::BeginDisabled(!valid);
+		if (ImGui::Button("OK", ImVec2(button_width, 0.0f))) {
+			apply_configure_dialog();
+		}
+		ImGui::EndDisabled();
+		ImGui::SameLine();
+		if (ImGui::Button("Cancel", ImVec2(button_width, 0.0f)) ||
+			ImGui::IsKeyPressed(ImGuiKey_Escape)) {
+			g_gui.configure_open = false;
+			ImGui::CloseCurrentPopup();
+		}
+		ImGui::EndPopup();
+	}
 }
 
 static UINT8 scale_master_volume(int volume, int max_value) {
@@ -941,7 +1104,9 @@ static void draw_emulate_menu(void) {
 			ImGui::EndMenu();
 		}
 		ImGui::Separator();
-		menu_item_not_implemented("Configure... (not implemented)");
+			if (ImGui::MenuItem("Configure...")) {
+				open_configure_dialog();
+			}
 		menu_item_not_implemented("NewDisk... (not implemented)");
 		menu_item_not_implemented("Font... (not implemented)");
 		ImGui::Separator();
@@ -1568,6 +1733,7 @@ void gui_draw(void) {
 	draw_hdd_browser();
 	draw_new_sasi_dialog();
 	draw_keyboard_config();
+	draw_configure_dialog();
 }
 
 void gui_render(void) {
