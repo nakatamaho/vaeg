@@ -65,7 +65,7 @@ Unimplemented Win32 features remain visible as disabled stubs with
 
 | Win32 menu | Items | Status | Notes |
 |---|---|---|---|
-| Emulate | Reset; Configure; NewDisk; Font; Exit | Reset and Exit `done`; others `later` | Configure covers base clock, model, sampling rate, sound buffer, resize, MMX, confirm, resume. Font selection is not the ImGui Japanese font decision. |
+| Emulate | Reset; Configure; NewDisk; Font; Exit | Reset, CPU/SGP Configure, and Exit `done`; others `later` | M20 Configure covers fixed VA base clock, independent CPU/SGP execution speed, validation, persistence, and reset. Sampling rate, sound buffer, resize, MMX, confirm, and resume remain later. Font selection is not the ImGui Japanese font decision. |
 | FDD dynamic menu | FDD1-FDD4 Open/Eject | FDD1/FDD2 `done`; FDD3/FDD4 `later` | FDD1/FDD2 are required for G10. |
 | HardDisk | New SASI image; SASI1/SASI2 Open/Remove | SASI HDI create and SASI1/SASI2 Open/Remove `done`; SCSI/IDE `later` | M16 restores SASI through `HDD1FILE`/`HDD2FILE`; reset is the reliable apply point after changing images. |
 | SCSI dynamic menu | SCSI0-SCSI3 Open/Remove | `later` | Added dynamically when SCSI support is compiled. |
@@ -83,7 +83,7 @@ Unimplemented Win32 features remain visible as disabled stubs with
 
 | Dialog/resource | Implementation | Function summary | Status |
 |---|---|---|---|
-| `IDD_CONFIG` | `win9x/dialog/d_config.cpp` | Base clock, multiplier, model, sampling rate, sound buffer, resize, MMX, confirm, resume | `later` |
+| `IDD_CONFIG` | `win9x/dialog/d_config.cpp` | Base clock, multiplier, model, sampling rate, sound buffer, resize, MMX, confirm, resume | CPU/SGP execution speed `done`; remaining fields `later` |
 | `IDD_NEWDISK`, `IDD_NEWDISK2`, `IDD_NEWHDDDISK`, `IDD_NEWSASI` | `win9x/dialog/d_disk.cpp` | Create floppy/HDD image files | SASI HDI creation `done`; floppy, THD/NHD, and SCSI creation `later` |
 | FDD/HDD file selectors | `win9x/dialog/d_disk.cpp` | Open FDD, SASI/IDE, SCSI images | FDD1/FDD2 and SASI1/SASI2 `done`; SCSI/IDE `later` |
 | `IDD_SCROPT1` | `win9x/dialog/d_screen.cpp` | LCD mode, skipline, skiplight | `later` |
