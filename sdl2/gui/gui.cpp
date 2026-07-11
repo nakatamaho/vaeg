@@ -182,16 +182,17 @@ static void open_configure_dialog(void) {
 	g_gui.configure_request = true;
 }
 
-static void draw_multiplier_combo(const char *label, int *value,
+static void draw_multiplier_input(const char *label, int *value,
 								  const int *presets, int preset_count) {
 
-	char preview[32];
-
-	std::snprintf(preview, sizeof(preview), "x%d", *value);
-	if (ImGui::BeginCombo(label, preview)) {
-		ImGui::SetNextItemWidth(-1.0f);
-		ImGui::InputInt("##custom-multiplier", value, 0, 0);
-		ImGui::Separator();
+	ImGui::PushID(label);
+	ImGui::TextUnformatted(label);
+	ImGui::SameLine(145.0f);
+	ImGui::SetNextItemWidth(80.0f);
+	ImGui::InputInt("##value", value, 1, 0);
+	ImGui::SameLine();
+	ImGui::SetNextItemWidth(110.0f);
+	if (ImGui::BeginCombo("##presets", "Preset")) {
 		for (int i=0; i<preset_count; i++) {
 			char item[16];
 
@@ -202,6 +203,7 @@ static void draw_multiplier_combo(const char *label, int *value,
 		}
 		ImGui::EndCombo();
 	}
+	ImGui::PopID();
 }
 
 static void apply_configure_dialog(void) {
@@ -263,7 +265,7 @@ static void draw_configure_dialog(void) {
 				ImGui::EndCombo();
 			}
 			ImGui::EndDisabled();
-			draw_multiplier_combo("Multiplier", &g_gui.pending_cpu_multiplier,
+			draw_multiplier_input("Multiplier", &g_gui.pending_cpu_multiplier,
 									kCpuPresets, static_cast<int>(std::size(kCpuPresets)));
 			ImGui::Text("Effective CPU clock: %.4f MHz",
 							3.9936 * static_cast<double>(g_gui.pending_cpu_multiplier));
@@ -279,7 +281,7 @@ static void draw_configure_dialog(void) {
 			ImGui::Combo("Speed", &g_gui.pending_sgp_mode, modes,
 										static_cast<int>(std::size(modes)));
 			if (g_gui.pending_sgp_mode == SGP_SPEED_CUSTOM) {
-				draw_multiplier_combo("Custom multiplier",
+				draw_multiplier_input("Custom multiplier",
 									 &g_gui.pending_sgp_multiplier, kSgpPresets,
 									 static_cast<int>(std::size(kSgpPresets)));
 			}
