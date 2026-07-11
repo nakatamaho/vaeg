@@ -54,9 +54,10 @@ history, not by a current CI or compile guarantee.
 | M18 | tasks/M18_rom_layout.md | Use executable-relative MAME ROM names/checksums, with VA2 `*_va2.rom` names and GUI VA/VA2 selection | **G18 passed** |
 | M19 | tasks/M19_portable_runtime.md | Embed frontend assets, consolidate portable state under `vaeg.cfg`, align backup-memory lookup, and model VA OPN/OPNA hardware explicitly | **G19 passed** |
 | M20 | tasks/M20_cpu_sgp_speed_pacing.md | Separate V30 and SGP execution capacity from fixed machine/peripheral time; add Configure, No Wait, frame skip, and hold-F11 fast-forward | **G20 passed** |
+| M21 | tasks/M21_sdl2_display_effects.md | SDL2-only display effects, resizable common viewport, custom window sizes, and windowed/borderless/exclusive display modes | **G21 pending** |
 
 Phase 2 dependencies: M7 → M8 → {M9, M10 parallel} → M11 → M12 → M13.
-Post-phase dependency: M13 → M14 → M15 → M16 → M17 → M18 → M19 → M20.
+Post-phase dependency: M13 → M14 → M15 → M16 → M17 → M18 → M19 → M20 → M21.
 M9 must pass before M11 (all three OSes must ship the VA machine, not
 the PC-98 scaffold).
 
@@ -93,6 +94,12 @@ automated results, remaining hardware uncertainty, and human checklist are in
 The V30/uPD9002 model default remains 7.9872 MHz for VA, VA2, and VA3. SGP
 Model default follows the documented model distinction: 3.9936 MHz for VA and
 7.9872 MHz for VA2/VA3.
+
+M21 is planned as an SDL_Renderer-only display milestone. It adds a shared
+viewport, resizable and fullscreen display modes, and procedural lightweight
+effects without bgfx, custom shaders, MAME renderer code, or new graphics
+dependencies. The scope and G21 checklist are in
+`tasks/M21_sdl2_display_effects.md`.
 
 ## Gate protocol
 
