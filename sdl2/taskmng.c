@@ -27,6 +27,9 @@
 #include	"taskmng.h"
 #include	"sdlkbd.h"
 #include	"pacing.h"
+#include	"np2.h"
+#include	"scrnmng.h"
+#include	"sysmng.h"
 #include	"gui/gui.h"
 
 		BOOL	task_avail;
@@ -78,10 +81,23 @@ void taskmng_rol(void) {
 			shortcut = vaeg_pacing_key(&task_pacing,
 							(UINT)e.key.keysym.scancode, FALSE, FALSE);
 		}
-		else if ((e.type == SDL_WINDOWEVENT) &&
-				 (e.window.event == SDL_WINDOWEVENT_FOCUS_LOST)) {
-			vaeg_pacing_reset(&task_pacing);
-		}
+			else if ((e.type == SDL_WINDOWEVENT) &&
+					 (e.window.event == SDL_WINDOWEVENT_FOCUS_LOST)) {
+				vaeg_pacing_reset(&task_pacing);
+			}
+			else if ((e.type == SDL_WINDOWEVENT) &&
+					 (e.window.event == SDL_WINDOWEVENT_SIZE_CHANGED)) {
+				int width;
+				int height;
+
+				if ((scrnmng_capture_window_size(&width, &height) == SUCCESS) &&
+					((np2oscfg.gui_window_width != width) ||
+					 (np2oscfg.gui_window_height != height))) {
+					np2oscfg.gui_window_width = (UINT16)min(width, 65535);
+					np2oscfg.gui_window_height = (UINT16)min(height, 65535);
+					sysmng_update(SYS_UPDATEOSCFG);
+				}
+			}
 		else if (e.type == SDL_QUIT) {
 			vaeg_pacing_reset(&task_pacing);
 		}

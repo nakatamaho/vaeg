@@ -151,11 +151,11 @@ void vaeg_fullscreen_size(UINT fscrn_cx, UINT fscrn_cy, UINT8 fscrnmod,
 
 	current = (fscrnmod & 4) ? TRUE : FALSE;
 	if (width != NULL) {
-		*width = fscrn_cx ? (int)fscrn_cx :
-					(current ? max(1, current_width) : 640);
+		*width = current ? max(1, current_width) :
+					(fscrn_cx ? (int)fscrn_cx : 640);
 	}
 	if (height != NULL) {
-		*height = fscrn_cy ? (int)fscrn_cy :
-					(current ? max(1, current_height) : 400);
+		*height = current ? max(1, current_height) :
+					(fscrn_cy ? (int)fscrn_cy : 400);
 	}
 }
