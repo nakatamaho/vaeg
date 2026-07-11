@@ -19,7 +19,8 @@ targets:
 
 - Windows via MSYS2 / MinGW-w64
 - Linux via CMake, Ninja, SDL2, gcc or clang
-- macOS via MacPorts SDL2 under `/opt/local`
+- macOS release builds with pinned static SDL2, or development builds via
+  MacPorts SDL2 under `/opt/local`
 
 The executable is named `vaeg`.
 
@@ -49,8 +50,7 @@ cmake --build --preset mingw-release
 ```
 
 ```sh
-# macOS, with MacPorts SDL2
-sudo port install cmake ninja libsdl2 pkgconfig
+# macOS release (pinned static SDL2)
 cmake --preset macos-release
 cmake --build --preset macos-release
 ```
@@ -66,8 +66,8 @@ cmake --build --preset mingw-cross
 
 Machine ROM images, guest font ROMs, optional mechanical sound WAV files,
 and operating system disks are not provided by this repository. ROMs must
-be extracted from hardware you own. The host GUI font used by Dear ImGui
-is bundled separately under `assets/`.
+be extracted from hardware you own. The host GUI font source is under
+`assets/` and is embedded into every active executable at build time.
 
 Place ROMs beside `vaeg` or `vaeg.exe`:
 
@@ -249,12 +249,12 @@ a replacement for the original notices, source headers, and license files.
   `external/ymfm/` and is licensed under the 3-clause BSD license. See
   `external/ymfm/LICENSE` and
   `docs/agents/DECISIONS/ADR-0009-opn-backend.md`.
-- The bundled host GUI font `assets/NotoSansJP-Regular.ttf` is licensed
+- The embedded host GUI font `assets/NotoSansJP-Regular.ttf` is licensed
   under the SIL Open Font License 1.1. See `assets/OFL.txt` and
   `assets/NOTICE.md`.
-- SDL2 is normally provided by the operating system or package manager.
-  The optional MinGW cross-build FetchContent path uses SDL2 2.32.10,
-  which is zlib-licensed, as recorded in
+- Linux and MacPorts development builds use system SDL2. Windows and
+  macOS release builds statically link pinned SDL2 2.32.10, which is
+  zlib-licensed, as recorded in
   `docs/agents/DECISIONS/ADR-0006-sdl2-acquisition.md`.
 - Machine ROM images, guest font ROMs, optional mechanical sound WAV
   files, and operating system disks are not distributed by this

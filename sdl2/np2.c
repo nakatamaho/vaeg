@@ -46,12 +46,14 @@
 #include	"gui/gui.h"
 #include	"romcheck.h"
 #include	"selftest.h"
+#include	"splash.h"
 #include	"np2ver.h"
 
 		NP2OSCFG	np2oscfg = {0, 0, 0, 0, 0, 1, 0, "", "", {"", ""},
 								"", "", 0, 0, "", "ymfm"};
 
 static const UINT smoke_timeout_frames = 600;
+static const UINT startup_splash_ms = 1500;
 static const UINT max_catchup_frames = 15;
 typedef struct {
 	const char *name;
@@ -639,6 +641,22 @@ static BOOL runloop(BOOL smoke, BOOL pacelog_enabled, BOOL detect_screen) {
 	return(SUCCESS);
 }
 
+static void wait_startup_splash(UINT32 started) {
+
+	while(taskmng_isavail()) {
+		UINT32 elapsed;
+		UINT32 remaining;
+
+		elapsed = GETTICK() - started;
+		if (elapsed >= startup_splash_ms) {
+			break;
+		}
+		taskmng_rol();
+		remaining = startup_splash_ms - elapsed;
+		SDL_Delay((remaining < 10) ? remaining : 10);
+	}
+}
+
 int main(int argc, char **argv) {
 
 	int		pos;
@@ -648,7 +666,9 @@ int main(int argc, char **argv) {
 	BOOL	fdctrace;
 	BOOL	pacelog;
 	BOOL	smoke_detect_screen;
+	BOOL	splash_visible;
 	BOOL	run_ok;
+	UINT32	splash_started;
 	int		disks;
 	char	*disk[2];
 
@@ -657,7 +677,9 @@ int main(int argc, char **argv) {
 	fdctrace = FALSE;
 	pacelog = FALSE;
 	smoke_detect_screen = FALSE;
+	splash_visible = FALSE;
 	run_ok = SUCCESS;
+	splash_started = 0;
 	disks = 0;
 	disk[0] = NULL;
 	disk[1] = NULL;
@@ -744,10 +766,15 @@ int main(int argc, char **argv) {
 	}
 	scrnmng_set_display(np2oscfg.gui_scale, np2oscfg.gui_aspect);
 	if (gui_initialize(scrnmng_get_window(), scrnmng_get_renderer(),
-					   argv[0]) != SUCCESS) {
+						   argv[0]) != SUCCESS) {
 		goto np2main_err3;
 	}
 	scrnmng_show();
+	SDL_PumpEvents();
+	if ((!smoke) && (splash_show() == SUCCESS)) {
+		splash_visible = TRUE;
+		splash_started = GETTICK();
+	}
 
 	soundmng_initialize();
 	commng_initialize();
@@ -756,12 +783,17 @@ int main(int argc, char **argv) {
 	pccore_init();
 	bkupmemva_load();
 	S98_init();
+	if (splash_visible) {
+		wait_startup_splash(splash_started);
+	}
 
-	pccore_reset();
-	sdlkbd_reset_state();
-	scrndraw_redraw();
-	mount_fdd_images(disk);
-	run_ok = runloop(smoke, pacelog, smoke_detect_screen);
+	if (taskmng_isavail()) {
+		pccore_reset();
+		sdlkbd_reset_state();
+		scrndraw_redraw();
+		mount_fdd_images(disk);
+		run_ok = runloop(smoke, pacelog, smoke_detect_screen);
+	}
 
 	pccore_cfgupdate();
 	if ((!smoke) && (sys_updates & (SYS_UPDATECFG | SYS_UPDATEOSCFG))) {

@@ -28,12 +28,19 @@ option(VAEG_ENABLE_TESTS "Enable vaeg tests" OFF)
 option(VAEG_WERROR "Treat warnings as errors" OFF)
 option(VAEG_WINDOWS_CONSOLE "Keep a console window for Windows SDL2 builds" OFF)
 option(VAEG_FETCH_SDL2 "Fetch pinned SDL2 instead of using system SDL2" OFF)
+option(VAEG_STATIC_SDL2 "Link SDL2 statically" OFF)
 
 if(VAEG_FETCH_SDL2)
     include(FetchContent)
-    set(BUILD_SHARED_LIBS ON CACHE BOOL "" FORCE)
-    set(SDL_SHARED ON CACHE BOOL "" FORCE)
-    set(SDL_STATIC OFF CACHE BOOL "" FORCE)
+    if(VAEG_STATIC_SDL2)
+        set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
+        set(SDL_SHARED OFF CACHE BOOL "" FORCE)
+        set(SDL_STATIC ON CACHE BOOL "" FORCE)
+    else()
+        set(BUILD_SHARED_LIBS ON CACHE BOOL "" FORCE)
+        set(SDL_SHARED ON CACHE BOOL "" FORCE)
+        set(SDL_STATIC OFF CACHE BOOL "" FORCE)
+    endif()
     set(SDL_TEST OFF CACHE BOOL "" FORCE)
     set(SDL_TESTS OFF CACHE BOOL "" FORCE)
     set(SDL2_DISABLE_INSTALL ON CACHE BOOL "" FORCE)
@@ -43,10 +50,22 @@ if(VAEG_FETCH_SDL2)
         URL_HASH SHA256=5f5993c530f084535c65a6879e9b26ad441169b3e25d789d83287040a9ca5165
         DOWNLOAD_EXTRACT_TIMESTAMP TRUE)
     FetchContent_MakeAvailable(SDL2)
-    set(VAEG_SDL2_LIBS SDL2::SDL2)
+    if(VAEG_STATIC_SDL2)
+        if(NOT TARGET SDL2::SDL2-static)
+            message(FATAL_ERROR "Fetched SDL2 did not provide SDL2::SDL2-static")
+        endif()
+        set(VAEG_SDL2_LIBS SDL2::SDL2-static)
+    else()
+        set(VAEG_SDL2_LIBS SDL2::SDL2)
+    endif()
 else()
     find_package(SDL2 QUIET CONFIG)
-    if(TARGET SDL2::SDL2)
+    if(VAEG_STATIC_SDL2 AND TARGET SDL2::SDL2-static)
+        set(VAEG_SDL2_LIBS SDL2::SDL2-static)
+    elseif(VAEG_STATIC_SDL2)
+        message(FATAL_ERROR
+            "VAEG_STATIC_SDL2 requires SDL2::SDL2-static; use VAEG_FETCH_SDL2=ON")
+    elseif(TARGET SDL2::SDL2)
         set(VAEG_SDL2_LIBS SDL2::SDL2)
     else()
         find_package(PkgConfig REQUIRED)
@@ -281,6 +300,7 @@ set(VAEG_SDL2_SOURCES
     sdl2/dosio.c
     sdl2/ini.c
     sdl2/taskmng.c
+    sdl2/splash.c
     sdl2/sysmng.c
     sdl2/timemng.c
     sdl2/trace.c
@@ -299,6 +319,40 @@ set(VAEG_SDL2_SOURCES
     sdl2/commng.c
     sdl2/fontmng.c
     sdl2/gui/gui.cpp)
+
+set(VAEG_SPLASH_DATA "${CMAKE_CURRENT_BINARY_DIR}/generated/vaeg_splash_data.c")
+add_custom_command(
+    OUTPUT "${VAEG_SPLASH_DATA}"
+    COMMAND "${CMAKE_COMMAND}" -E make_directory
+        "${CMAKE_CURRENT_BINARY_DIR}/generated"
+    COMMAND "${CMAKE_COMMAND}"
+        "-DINPUT=${CMAKE_CURRENT_SOURCE_DIR}/assets/vaeg.bmp"
+        "-DOUTPUT=${VAEG_SPLASH_DATA}"
+        "-DSYMBOL=vaeg_splash_bmp"
+        "-DSOURCE_LABEL=assets/vaeg.bmp"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/embed_binary.cmake"
+    DEPENDS
+        "${CMAKE_CURRENT_SOURCE_DIR}/assets/vaeg.bmp"
+        "${CMAKE_CURRENT_SOURCE_DIR}/cmake/embed_binary.cmake"
+    VERBATIM)
+list(APPEND VAEG_SDL2_SOURCES "${VAEG_SPLASH_DATA}")
+
+set(VAEG_GUI_FONT_DATA "${CMAKE_CURRENT_BINARY_DIR}/generated/vaeg_gui_font_data.c")
+add_custom_command(
+    OUTPUT "${VAEG_GUI_FONT_DATA}"
+    COMMAND "${CMAKE_COMMAND}" -E make_directory
+        "${CMAKE_CURRENT_BINARY_DIR}/generated"
+    COMMAND "${CMAKE_COMMAND}"
+        "-DINPUT=${CMAKE_CURRENT_SOURCE_DIR}/assets/NotoSansJP-Regular.ttf"
+        "-DOUTPUT=${VAEG_GUI_FONT_DATA}"
+        "-DSYMBOL=vaeg_gui_font_ttf"
+        "-DSOURCE_LABEL=assets/NotoSansJP-Regular.ttf"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/embed_binary.cmake"
+    DEPENDS
+        "${CMAKE_CURRENT_SOURCE_DIR}/assets/NotoSansJP-Regular.ttf"
+        "${CMAKE_CURRENT_SOURCE_DIR}/cmake/embed_binary.cmake"
+    VERBATIM)
+list(APPEND VAEG_SDL2_SOURCES "${VAEG_GUI_FONT_DATA}")
 
 add_library(vaeg_common STATIC ${VAEG_COMMON_SOURCES})
 target_include_directories(vaeg_common PUBLIC ${VAEG_INCLUDE_DIRS})
@@ -351,7 +405,7 @@ endif()
 if(UNIX)
     target_link_libraries(vaeg_sdl2 PRIVATE m)
 endif()
-if(WIN32 AND VAEG_FETCH_SDL2)
+if(WIN32 AND VAEG_FETCH_SDL2 AND NOT VAEG_STATIC_SDL2)
     add_custom_command(TARGET vaeg_sdl2 POST_BUILD
         COMMAND "${CMAKE_COMMAND}" -E copy_if_different
             "$<TARGET_FILE:SDL2::SDL2>"

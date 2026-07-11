@@ -34,7 +34,6 @@
 #include <cstdio>
 #include <cstdlib>
 #include <filesystem>
-#include <fstream>
 #include <string>
 #include <vector>
 
@@ -69,11 +68,12 @@
 extern "C" {
 extern _RHYTHM rhythm;
 extern _ADPCM adpcm;
+extern const unsigned char vaeg_gui_font_ttf[];
+extern const unsigned int vaeg_gui_font_ttf_size;
 }
 
 namespace {
 
-constexpr const char *kFontName = "NotoSansJP-Regular.ttf";
 constexpr float kGuiFontSize = 16.0f;
 constexpr int kStateSlots = 10;
 constexpr int kMasterVolumeMax = 128;
@@ -115,7 +115,6 @@ struct BrowserEntry {
 struct GuiState {
 	bool initialized = false;
 	SDL_Renderer *renderer = nullptr;
-	std::string font_path;
 	float menu_font_size = kGuiFontSize;
 	int fdd_dialog_drive = -1;
 	char fdd_path[2][MAX_PATH] = {};
@@ -147,12 +146,6 @@ struct GuiState {
 
 GuiState g_gui;
 
-static bool file_exists(const std::string &path) {
-
-	std::ifstream f(path.c_str(), std::ios::binary);
-	return f.good();
-}
-
 static std::string join_path(const std::string &base, const char *leaf) {
 
 	if (base.empty()) {
@@ -162,41 +155,6 @@ static std::string join_path(const std::string &base, const char *leaf) {
 		return base + leaf;
 	}
 	return base + "/" + leaf;
-}
-
-static void add_asset_candidate(std::vector<std::string> &paths,
-								const std::string &base) {
-
-	paths.push_back(join_path(base, kFontName));
-}
-
-static std::string find_font_path(void) {
-
-	std::vector<std::string> paths;
-	const char *env = std::getenv("VAEG_ASSET_DIR");
-	if ((env != nullptr) && (env[0] != '\0')) {
-		add_asset_candidate(paths, env);
-	}
-	add_asset_candidate(paths, "assets");
-
-	char *base_path = SDL_GetBasePath();
-	if (base_path != nullptr) {
-		std::string base(base_path);
-		add_asset_candidate(paths, join_path(base, "assets"));
-		add_asset_candidate(paths, join_path(base, "../assets"));
-		add_asset_candidate(paths, join_path(base, "../../assets"));
-		add_asset_candidate(paths, join_path(base, "../../../assets"));
-		add_asset_candidate(paths, join_path(base, "../share/vaeg/assets"));
-		add_asset_candidate(paths, join_path(base, "../share/vaeg"));
-		SDL_free(base_path);
-	}
-
-	for (const auto &path : paths) {
-		if (file_exists(path)) {
-			return path;
-		}
-	}
-	return std::string();
 }
 
 static void menu_item_not_implemented(const char *label) {
@@ -1455,18 +1413,14 @@ BOOL gui_initialize(void *window, void *renderer, const char *argv0) {
 	io.IniFilename = nullptr;
 	io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
 
-	g_gui.font_path = find_font_path();
-	if (g_gui.font_path.empty()) {
-		std::fprintf(stderr, "Error: %s not found in GUI asset paths\n",
-					 kFontName);
-		return FAILURE;
-	}
-	ImFont *font = io.Fonts->AddFontFromFileTTF(
-		g_gui.font_path.c_str(), kGuiFontSize, nullptr,
-		io.Fonts->GetGlyphRangesJapanese());
+	ImFontConfig font_config;
+	font_config.FontDataOwnedByAtlas = false;
+	ImFont *font = io.Fonts->AddFontFromMemoryTTF(
+		const_cast<unsigned char *>(vaeg_gui_font_ttf),
+		static_cast<int>(vaeg_gui_font_ttf_size), kGuiFontSize,
+		&font_config, io.Fonts->GetGlyphRangesJapanese());
 	if (font == nullptr) {
-		std::fprintf(stderr, "Error: failed to load GUI font: %s\n",
-					 g_gui.font_path.c_str());
+		std::fprintf(stderr, "Error: failed to load embedded GUI font\n");
 		return FAILURE;
 	}
 

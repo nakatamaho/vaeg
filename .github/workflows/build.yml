@@ -118,7 +118,6 @@ jobs:
             mingw-w64-x86_64-cmake
             mingw-w64-x86_64-ninja
             mingw-w64-x86_64-gcc
-            mingw-w64-x86_64-SDL2
             mingw-w64-x86_64-pkgconf
       - name: Configure
         run: cmake --preset mingw-ci
@@ -131,17 +130,16 @@ jobs:
       - name: Verify Windows runtime imports
         run: |
           objdump -p build/mingw-ci/sdl2/vaeg.exe | grep 'DLL Name'
-          if objdump -p build/mingw-ci/sdl2/vaeg.exe | grep -E 'libgcc_s_seh-1\.dll|libstdc\+\+-6\.dll|libwinpthread-1\.dll'; then
-            echo "unexpected dynamic MinGW runtime import" >&2
+          if objdump -p build/mingw-ci/sdl2/vaeg.exe | grep -E 'SDL2\.dll|libgcc_s_seh-1\.dll|libstdc\+\+-6\.dll|libwinpthread-1\.dll'; then
+            echo "unexpected SDL2 or MinGW runtime DLL import" >&2
             exit 1
           fi
       - name: Stage artifact
         run: |
-          # vaeg.exe statically links the MinGW gcc/libstdc++/winpthread
-          # runtimes; SDL2.dll is the only non-system DLL bundled here.
+          # vaeg.exe embeds the GUI font and statically links SDL2 plus
+          # the MinGW gcc/libstdc++/winpthread runtimes.
           mkdir -p build/mingw-ci/artifact
           cp build/mingw-ci/sdl2/vaeg.exe build/mingw-ci/artifact/
-          cp /mingw64/bin/SDL2.dll build/mingw-ci/artifact/
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
@@ -158,8 +156,8 @@ jobs:
       - name: Configure
         run: |
           # Maintainer baseline is MacPorts, but MacPorts is impractical on
-          # hosted runners. CI uses VAEG_FETCH_SDL2=ON through macos-ci to
-          # exercise the pinned FetchContent acquisition path from ADR-0006.
+          # hosted runners. CI uses pinned FetchContent SDL2 and links it
+          # statically through macos-ci, as recorded in ADR-0006.
           cmake --preset macos-ci
       - name: Build
         run: cmake --build --preset macos-ci

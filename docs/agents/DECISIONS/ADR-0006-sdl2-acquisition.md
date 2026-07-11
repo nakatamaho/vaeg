@@ -26,6 +26,8 @@ POSSIBILITY OF SUCH DAMAGE.
 
 Date: 2026-07-06
 
+Amended: 2026-07-11
+
 Status: Accepted
 
 ## Context
@@ -34,8 +36,9 @@ M8 established system SDL2 discovery through `find_package` or
 pkg-config, with no FetchContent path. M11 exposed a practical exception:
 the Linux-to-MinGW cross preset can compile the emulator, but procuring a
 matching target SDL2 development package is not reliably available in the
-agent environment. Native Linux and macOS should keep using platform SDL2
-packages, including MacPorts under `/opt/local` on macOS.
+agent environment. Linux should keep using platform SDL2 packages. MacPorts
+under `/opt/local` remains the macOS development baseline, while release
+artifacts benefit from removing a bundled SDL2 dylib.
 
 ## Decision
 
@@ -46,8 +49,8 @@ Default SDL2 acquisition remains system discovery:
 
 Add an opt-in CMake option, `VAEG_FETCH_SDL2`, default `OFF`, that uses
 FetchContent to build SDL2 from a pinned upstream release when a preset
-explicitly requests it. The `mingw-cross` preset enables
-`VAEG_FETCH_SDL2=ON`; the `linux-*` and `macos-*` presets leave it off.
+explicitly requests it. `VAEG_STATIC_SDL2`, also default `OFF`, selects
+SDL2's static target and fails configuration if that target is unavailable.
 
 | Field | Value |
 |---|---|
@@ -61,20 +64,26 @@ explicitly requests it. The `mingw-cross` preset enables
 | Source tarball SHA-256 | `5f5993c530f084535c65a6879e9b26ad441169b3e25d789d83287040a9ca5165` |
 | License | zlib |
 
-The FetchContent build uses SDL2's shared-library target by default on
-all platforms. This matches normal package-manager linkage and the
-Windows distribution shape: M12 release artifacts must place `SDL2.dll`
-next to `vaeg.exe`. The FetchContent option only solves build-time
-acquisition for link checks; it does not define packaging or release
-layout.
+Preset policy is:
+
+| Platform/preset | Acquisition | Linkage |
+|---|---|---|
+| Linux | system SDL2 | dynamic |
+| Windows MinGW native/cross/CI | pinned FetchContent | static |
+| macOS release/CI | pinned FetchContent | static |
+| macOS MacPorts development/ASan | system SDL2 | dynamic |
+
+Windows also statically links the MinGW gcc, libstdc++, and winpthread
+runtimes. macOS continues to use operating-system frameworks dynamically;
+only the distributable SDL2 library is absorbed into the executable.
 
 ## Consequences
 
-- Linux and macOS keep testing against system SDL2, so the default user
-  build remains distro/package-manager aligned.
-- MinGW cross link checks no longer depend on an externally cross-built
-  SDL2 package.
+- Linux keeps distro/package-manager SDL2 integration.
+- Windows release artifacts require no `SDL2.dll`; `vaeg.exe` has only
+  Windows system DLL imports.
+- macOS release artifacts require no bundled SDL2 dylib or rpath rewrite.
+- MacPorts remains available through the `macos-macports` development
+  preset and the dynamic `macos-asan` sanitizer preset.
 - Future SDL2 upgrades require updating this ADR, the pinned
   FetchContent URL, and the URL hash together.
-- M12 must bundle `SDL2.dll` next to the Windows executable in release
-  artifacts; the FetchContent option is not a substitute for packaging.

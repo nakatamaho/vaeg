@@ -70,7 +70,6 @@ jobs:
           rm -rf dist-package "${asset}"
           mkdir -p "dist-package/${package}/assets"
           install -m 755 build/linux-ci-gcc/sdl2/vaeg "dist-package/${package}/vaeg"
-          install -m 644 assets/NotoSansJP-Regular.ttf "dist-package/${package}/assets/"
           install -m 644 assets/OFL.txt "dist-package/${package}/assets/"
           install -m 644 assets/NOTICE.md "dist-package/${package}/assets/"
           install -m 644 dist/readme-dist.txt "dist-package/${package}/README-dist.txt"
@@ -121,7 +120,6 @@ jobs:
             mingw-w64-x86_64-cmake
             mingw-w64-x86_64-ninja
             mingw-w64-x86_64-gcc
-            mingw-w64-x86_64-SDL2
             mingw-w64-x86_64-pkgconf
       - name: Configure
         run: cmake --preset mingw-ci
@@ -136,15 +134,15 @@ jobs:
           set -euo pipefail
           objdump -p build/mingw-ci/sdl2/vaeg.exe |
             awk '/DLL Name:/ {print $3}' | tee imports.txt
-          if grep -E 'libgcc_s_seh-1\.dll|libstdc\+\+-6\.dll|libwinpthread-1\.dll' imports.txt; then
-            echo "unexpected dynamic MinGW runtime import" >&2
+          if grep -E 'SDL2\.dll|libgcc_s_seh-1\.dll|libstdc\+\+-6\.dll|libwinpthread-1\.dll' imports.txt; then
+            echo "unexpected SDL2 or MinGW runtime DLL import" >&2
             exit 1
           fi
           bad=0
           while IFS= read -r dll; do
             lower="$(printf '%s' "${dll}" | tr '[:upper:]' '[:lower:]')"
             case "${lower}" in
-              sdl2.dll|kernel32.dll|msvcrt.dll|user32.dll|gdi32.dll|advapi32.dll|shell32.dll|ole32.dll|oleaut32.dll|imm32.dll|version.dll|winmm.dll|setupapi.dll|uuid.dll|ws2_32.dll|bcrypt.dll|crypt32.dll|comdlg32.dll|comctl32.dll|shlwapi.dll|rpcrt4.dll|dwmapi.dll|hid.dll|cfgmgr32.dll|api-ms-win-*.dll|ext-ms-*.dll)
+              kernel32.dll|msvcrt.dll|user32.dll|gdi32.dll|advapi32.dll|shell32.dll|ole32.dll|oleaut32.dll|imm32.dll|version.dll|winmm.dll|setupapi.dll|uuid.dll|ws2_32.dll|bcrypt.dll|crypt32.dll|comdlg32.dll|comctl32.dll|shlwapi.dll|rpcrt4.dll|dwmapi.dll|hid.dll|cfgmgr32.dll|api-ms-win-*.dll|ext-ms-*.dll)
                 ;;
               *)
                 echo "unexpected non-system DLL import: ${dll}" >&2
@@ -161,8 +159,6 @@ jobs:
           rm -rf dist-package
           mkdir -p "dist-package/${package}/assets"
           cp build/mingw-ci/sdl2/vaeg.exe "dist-package/${package}/"
-          cp /mingw64/bin/SDL2.dll "dist-package/${package}/"
-          cp assets/NotoSansJP-Regular.ttf "dist-package/${package}/assets/"
           cp assets/OFL.txt "dist-package/${package}/assets/"
           cp assets/NOTICE.md "dist-package/${package}/assets/"
           cp dist/readme-dist.txt "dist-package/${package}/README-dist.txt"
@@ -214,28 +210,13 @@ jobs:
           rm -rf dist-package "${asset}"
           mkdir -p "dist-package/${package}/assets"
           install -m 755 build/macos-ci/sdl2/vaeg "dist-package/${package}/vaeg"
-          install -m 644 assets/NotoSansJP-Regular.ttf "dist-package/${package}/assets/"
           install -m 644 assets/OFL.txt "dist-package/${package}/assets/"
           install -m 644 assets/NOTICE.md "dist-package/${package}/assets/"
           install -m 644 dist/readme-dist.txt "dist-package/${package}/README-dist.txt"
 
-          sdl_ref="$(otool -L build/macos-ci/sdl2/vaeg | awk '/libSDL2.*dylib/ {print $1; exit}')"
-          if [ -n "${sdl_ref}" ]; then
-            sdl_base="$(basename "${sdl_ref}")"
-            sdl_path=""
-            if [ -f "${sdl_ref}" ]; then
-              sdl_path="${sdl_ref}"
-            else
-              sdl_path="$(find build/macos-ci -name "${sdl_base}" -type f | head -n 1)"
-            fi
-            if [ -z "${sdl_path}" ]; then
-              echo "could not locate ${sdl_ref} for packaging" >&2
-              exit 1
-            fi
-            mkdir -p "dist-package/${package}/lib"
-            install -m 755 "${sdl_path}" "dist-package/${package}/lib/${sdl_base}"
-            install_name_tool -change "${sdl_ref}" "@executable_path/lib/${sdl_base}" \
-              "dist-package/${package}/vaeg"
+          if otool -L "dist-package/${package}/vaeg" | grep -E 'libSDL2.*dylib'; then
+            echo "unexpected dynamic SDL2 dependency" >&2
+            exit 1
           fi
 
           otool -L "dist-package/${package}/vaeg"

@@ -65,6 +65,12 @@ SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy ./build/linux-debug/sdl2/vaeg --smok
 `--smoke` initializes video, audio, and the PC-98 core, runs a short fixed
 frame loop, then exits with status 0 when initialization succeeds.
 
+Normal startup displays the historical 320x200 VAEG graphic from
+`assets/vaeg.bmp` for at least 1.5 seconds while continuing to process SDL
+events. CMake embeds the graphic in the executable; it is not a runtime file.
+ROM-less `--smoke` and `--selftest` runs skip the graphic and delay. There is
+no alternate-image fallback.
+
 ## SASI HDD Images
 
 SASI HDD images are configured through `np2.cfg`:
@@ -208,7 +214,8 @@ inventory and evidence table.
 ## Font Manager Stub
 
 Host GUI text is rendered by Dear ImGui using
-`assets/NotoSansJP-Regular.ttf`; it does not use `sdl2/fontmng.c`.
+the build-time embedded `assets/NotoSansJP-Regular.ttf`; it does not use
+an external runtime font or `sdl2/fontmng.c`.
 The SDL2 `fontmng` stub remains linked because the shared core still
 builds `font/fontmake.c`, whose `makepc98bmp()` path references
 `fontmng_create()`, `fontmng_get()`, and `fontmng_destroy()`. Removing the

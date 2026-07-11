@@ -26,6 +26,8 @@ POSSIBILITY OF SUCH DAMAGE.
 
 Date: 2026-07-04
 
+Amended: 2026-07-11
+
 Status: Accepted
 
 Decision maker: maintainer pre-decision for M10.
@@ -48,10 +50,15 @@ Bundle Noto Sans JP Regular as:
 - `assets/OFL.txt`
 - `assets/NOTICE.md`
 
-The font is licensed under the SIL Open Font License, Version 1.1. The
-M10 GUI starts with Dear ImGui's `GetGlyphRangesJapanese()` range. Any
-additional glyph ranges or fallback-font strategy require updating this
-ADR.
+The source asset remains under `assets/`, but CMake converts the TTF to a
+generated C byte array and links it into `vaeg` on every platform. Dear
+ImGui loads the static data through `AddFontFromMemoryTTF()` with
+`FontDataOwnedByAtlas=false`. No runtime font lookup or external TTF is
+required.
+
+The font is licensed under the SIL Open Font License, Version 1.1. The GUI
+uses Dear ImGui's `GetGlyphRangesJapanese()` range. Any additional glyph
+ranges or fallback-font strategy require updating this ADR.
 
 Guest font ROM access is forbidden for the host GUI.
 
@@ -73,7 +80,8 @@ Guest font ROM access is forbidden for the host GUI.
 
 ## Consequences
 
-- M10 packaging must include the `assets/` font and license files.
+- Release packages do not need a separate runtime TTF, but must include
+  `assets/OFL.txt` and `assets/NOTICE.md` for license and provenance.
 - The bundled font is binary payload. After introduction it should not be
   rewritten except by an explicit font asset update.
 - Any future switch to platform fonts, guest ROM glyphs, FreeType
