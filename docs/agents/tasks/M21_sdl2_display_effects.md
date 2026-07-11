@@ -22,7 +22,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 -->
 # M21 - SDL2 display effects, resizable viewport, and fullscreen
 
-Status: planned
+Status: implementation complete; G21 pending
 
 Branch: `topic/m21-sdl2-display-effects`
 
@@ -313,6 +313,23 @@ git diff -- win9x i286x cpuxva/memoryva.x86 hlp
 
 Native macOS build and display verification remain maintainer checks when the
 agent host has no Darwin SDK.
+
+### Agent results
+
+The Linux agent completed the following checks on 2026-07-11:
+
+- Linux Debug configure/build, ROM-less `--selftest`, and ROM-less `--smoke`:
+  passed;
+- Linux GCC CI configure/build/CTest: passed, 1/1 test;
+- Linux Clang CI configure/build/CTest: passed, 1/1 test;
+- Linux ASan/UBSan configure/build/CTest: passed, 1/1 test;
+- MinGW cross configure/link: passed and produced `sdl2/vaeg.exe`;
+- isolated temporary-config smoke checks: Windowed custom size with CRT Lite
+  and Fit 8-dot passed; Borderless desktop passed with the dummy driver;
+  unavailable Exclusive mode returned safely to Windowed.
+
+Native macOS, native Windows, real multi-monitor/fullscreen operation, visual
+effect quality, and guest regressions remain part of G21.
 
 ## Gate G21
 
