@@ -26,6 +26,7 @@
 #include	"selftest.h"
 #include	"codecnv.h"
 #include	"commng.h"
+#include	"clockscale.h"
 #include	"dosio.h"
 #include	"kbdmap.h"
 #include	"np2.h"
@@ -136,6 +137,55 @@ static int test_profile_ini(void) {
 		return(fail("ini", "typed values did not round-trip"));
 	}
 	fprintf(stderr, "selftest: ini ok\n");
+	return(SUCCESS);
+}
+
+static int test_clockscale(void) {
+
+	CLOCKSCALE scale;
+	UINT64 total;
+	UINT index;
+
+	if ((clockscale_configure(&scale, 1, 0) != FAILURE) ||
+		(clockscale_configure(NULL, 1, 1) != FAILURE)) {
+		return(fail("clockscale", "invalid ratio was accepted"));
+	}
+	if (clockscale_configure(&scale, 2, 3) != SUCCESS) {
+		return(fail("clockscale", "x3 CPU ratio was rejected"));
+	}
+	total = 0;
+	for (index=0; index<30000; index++) {
+		total += clockscale_apply(&scale, 1);
+	}
+	if ((total != 20000) || (scale.remainder != 0)) {
+		return(fail("clockscale", "fractional carry drifted"));
+	}
+	clockscale_configure(&scale, 2, 32);
+	if ((clockscale_apply(&scale, 15) != 0) ||
+		(clockscale_apply(&scale, 1) != 1)) {
+		return(fail("clockscale", "small CPU slices lost their remainder"));
+	}
+	clockscale_configure(&scale, 32, 1);
+	if (clockscale_apply(&scale, 0xffffffffU) !=
+											(UINT64)0xffffffffU * 32) {
+		return(fail("clockscale", "wide multiplication overflowed"));
+	}
+	clockscale_configure(&scale, 2, 3);
+	(void)clockscale_apply(&scale, 1);
+	clockscale_reset(&scale);
+	if (scale.remainder != 0) {
+		return(fail("clockscale", "reset retained a remainder"));
+	}
+	if (!pccore_cpu_multiple_valid(1) ||
+		!pccore_cpu_multiple_valid(2) ||
+		!pccore_cpu_multiple_valid(3) ||
+		!pccore_cpu_multiple_valid(4) ||
+		!pccore_cpu_multiple_valid(8) ||
+		!pccore_cpu_multiple_valid(32) ||
+		pccore_cpu_multiple_valid(0) || pccore_cpu_multiple_valid(33)) {
+		return(fail("clockscale", "CPU multiplier validation failed"));
+	}
+	fprintf(stderr, "selftest: clockscale ok\n");
 	return(SUCCESS);
 }
 
@@ -255,8 +305,16 @@ static int test_statsave(void) {
 	pccore_init();
 	S98_init();
 	pccore_reset();
+	ret = STATFLAG_SUCCESS;
+	if ((pccore.multiple != PCCORE_STANDARD_MULTIPLE) ||
+		(pccore.realclock != pccore.baseclock * PCCORE_STANDARD_MULTIPLE) ||
+		(pccore_cpu_multiple() != np2cfg.multiple)) {
+		ret = STATFLAG_FAILURE;
+	}
 
-	ret = statsave_save(path1);
+	if (ret == STATFLAG_SUCCESS) {
+		ret = statsave_save(path1);
+	}
 	if (ret == STATFLAG_SUCCESS) {
 		ZeroMemory(err, sizeof(err));
 		ret = statsave_check(path1, err, sizeof(err));
@@ -469,6 +527,9 @@ int vaeg_selftest_run(void) {
 		return(FAILURE);
 	}
 	if (test_profile_ini() != SUCCESS) {
+		return(FAILURE);
+	}
+	if (test_clockscale() != SUCCESS) {
 		return(FAILURE);
 	}
 	if (test_keyboard_mapping() != SUCCESS) {

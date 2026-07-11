@@ -1,11 +1,14 @@
 
 #include	"nevent.h"
 #include	"statsave.h"
+#include	"clockscale.h"
 
 enum {
 	PCBASECLOCK40		= 3993600,
 	PCBASECLOCK25		= 2457600,
-	PCBASECLOCK20		= 1996800
+	PCBASECLOCK20		= 1996800,
+	PCCORE_STANDARD_MULTIPLE = 2,
+	PCCORE_CPU_MULTIPLE_MAX = 32
 };
 
 enum {
@@ -168,6 +171,7 @@ extern const OEMCHAR np2version[];
 
 extern	NP2CFG	np2cfg;
 extern	PCCORE	pccore;
+extern	CLOCKSCALE pccore_cpu_scale;
 extern	UINT8	screenupdate;
 extern	int		soundrenewal;
 extern	BOOL	drawframe;
@@ -185,6 +189,10 @@ void sysp4vsyncstart(NEVENTITEM item);
 void sysp4vsyncend(NEVENTITEM item);
 
 void pccore_cfgupdate(void);
+BOOL pccore_cpu_multiple_valid(UINT multiple);
+void pccore_clockrestore(void);
+UINT pccore_cpu_multiple(void);
+UINT32 pccore_cpu_clock(void);
 
 void pccore_init(void);
 void pccore_term(void);
