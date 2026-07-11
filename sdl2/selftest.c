@@ -219,6 +219,10 @@ static int test_sgp_speed(void) {
 	UINT32 denominator;
 	UINT64 total;
 	UINT index;
+	UINT saved_model_va;
+	UINT saved_sgp_speed_mode;
+	UINT saved_sgp_multiplier;
+	UINT saved_config_multiple;
 
 	if (!sgp_speed_mode_valid(SGP_SPEED_MODEL_DEFAULT) ||
 		!sgp_speed_mode_valid(SGP_SPEED_FOLLOW_CPU) ||
@@ -253,6 +257,29 @@ static int test_sgp_speed(void) {
 							&numerator, &denominator) != FAILURE)) {
 		return(fail("sgp-speed", "Custom ratio failed"));
 	}
+	if ((sgp_model_clock(PCMODEL_VA1) != PCBASECLOCK40) ||
+		(sgp_model_clock(PCMODEL_VA2) != (PCBASECLOCK40 * 2))) {
+		return(fail("sgp-speed", "Model clock selection failed"));
+	}
+
+	saved_model_va = pccore.model_va;
+	saved_sgp_speed_mode = np2cfg.sgp_speed_mode;
+	saved_sgp_multiplier = np2cfg.sgp_multiplier;
+	saved_config_multiple = np2cfg.multiple;
+	pccore.model_va = PCMODEL_VA1;
+	np2cfg.sgp_speed_mode = SGP_SPEED_MODEL_DEFAULT;
+	np2cfg.sgp_multiplier = 1;
+	np2cfg.multiple = PCCORE_STANDARD_MULTIPLE;
+	pccore_clockrestore();
+	sgp_configure_speed();
+	if (sgp_scale_elapsed(20000) != 20000) {
+		return(fail("sgp-speed", "VA Model default timing changed"));
+	}
+	pccore.model_va = PCMODEL_VA2;
+	sgp_configure_speed();
+	if (sgp_scale_elapsed(20000) != 40000) {
+		return(fail("sgp-speed", "VA2 Model default timing failed"));
+	}
 
 	np2cfg.sgp_speed_mode = SGP_SPEED_FOLLOW_CPU;
 	np2cfg.sgp_multiplier = 1;
@@ -263,12 +290,13 @@ static int test_sgp_speed(void) {
 	for (index=0; index<20000; index++) {
 		total += sgp_scale_elapsed(1);
 	}
-	if (total != 30000) {
+	if (total != 60000) {
 		return(fail("sgp-speed", "Follow CPU fractional timing drifted"));
 	}
-	np2cfg.sgp_speed_mode = SGP_SPEED_MODEL_DEFAULT;
-	np2cfg.sgp_multiplier = 1;
-	np2cfg.multiple = PCCORE_STANDARD_MULTIPLE;
+	pccore.model_va = saved_model_va;
+	np2cfg.sgp_speed_mode = saved_sgp_speed_mode;
+	np2cfg.sgp_multiplier = saved_sgp_multiplier;
+	np2cfg.multiple = saved_config_multiple;
 	pccore_clockrestore();
 	sgp_configure_speed();
 	fprintf(stderr, "selftest: SGP speed ok\n");

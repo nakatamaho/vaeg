@@ -239,7 +239,7 @@ static void draw_configure_dialog(void) {
 	const ImGuiViewport *viewport = ImGui::GetMainViewport();
 	ImGui::SetNextWindowPos(viewport->GetCenter(), ImGuiCond_Appearing,
 												ImVec2(0.5f, 0.5f));
-	ImGui::SetNextWindowSize(ImVec2(420.0f, 390.0f), ImGuiCond_Appearing);
+	ImGui::SetNextWindowSize(ImVec2(420.0f, 415.0f), ImGuiCond_Appearing);
 	if (ImGui::BeginPopupModal("Configure##clock-config",
 										&g_gui.configure_open,
 										ImGuiWindowFlags_NoResize |
@@ -272,9 +272,14 @@ static void draw_configure_dialog(void) {
 		}
 		ImGui::EndChild();
 
-		if (ImGui::BeginChild("sgp-config", ImVec2(0.0f, 140.0f), true,
+		if (ImGui::BeginChild("sgp-config", ImVec2(0.0f, 165.0f), true,
 												ImGuiWindowFlags_NoScrollbar)) {
 			static const char *modes[] = {"Model default", "Follow CPU", "Custom"};
+			const UINT model = (milstr_cmp(np2cfg.model, str_VA1) == 0) ?
+											PCMODEL_VA1 : PCMODEL_VA2;
+			const double model_clock_mhz =
+						static_cast<double>(sgp_model_clock(model)) / 1000000.0;
+			double effective_scale = 1.0;
 			ImGui::TextUnformatted("SGP");
 			ImGui::Separator();
 			ImGui::Combo("Speed", &g_gui.pending_sgp_mode, modes,
@@ -297,6 +302,16 @@ static void draw_configure_dialog(void) {
 				ImGui::Text("Effective SGP scale: x%d relative to Model default",
 											g_gui.pending_sgp_multiplier);
 			}
+			if (g_gui.pending_sgp_mode == SGP_SPEED_FOLLOW_CPU) {
+				effective_scale =
+					static_cast<double>(g_gui.pending_cpu_multiplier) /
+											PCCORE_STANDARD_MULTIPLE;
+			}
+			else if (g_gui.pending_sgp_mode == SGP_SPEED_CUSTOM) {
+				effective_scale = g_gui.pending_sgp_multiplier;
+			}
+			ImGui::Text("Effective SGP clock: %.4f MHz",
+									model_clock_mhz * effective_scale);
 		}
 		ImGui::EndChild();
 

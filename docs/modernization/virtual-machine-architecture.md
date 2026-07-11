@@ -197,6 +197,13 @@ The frame loop calls `pccore_exec(draw)` for guest time. Inside
    CPU.
 6. After the frame, disk, calendar, S98, and sound callbacks run.
 
+The SGP model-default execution clock is 3.9936 MHz for VA and 7.9872 MHz for
+VA2/VA3, corresponding to the 4 MHz and 8 MHz clocks documented in
+[Inside PC-88VA Wiki section 4.4.6](http://www.pc88.gr.jp/inside88va/wiki/index.php?%A5%B0%A5%E9%A5%D5%A5%A3%A5%C3%A5%AF).
+The V30/uPD9002 CPU model default is 7.9872 MHz for all three models. CPU
+multiplier changes do not alter the SGP default; Follow CPU and Custom SGP
+modes explicitly scale it.
+
 The key range is `pccore.c:1098-1252`.
 
 ## PC-88VA Guest Boot Path

@@ -152,18 +152,22 @@ remain in the user state directory.
 
 `Emulate -> Configure...` keeps the VA base clock fixed at 3.9936 MHz and
 sets independent execution capacity for the V30 and SGP. CPU x2 is the
-standard 7.9872 MHz setting. CPU x1-x32 changes only the amount of V30 work
-available per unit of machine time.
+standard 7.9872 MHz setting for VA, VA2, and VA3. CPU x1-x32 changes only the
+amount of V30 work available per unit of machine time. Unlike the CPU, the
+SGP model-default clock differs by model.
 
 SGP speed has three modes:
 
-- `Model default`: the established standard-x2 timing, independent of CPU;
+- `Model default`: 3.9936 MHz for VA and 7.9872 MHz for VA2/VA3,
+  independent of CPU;
 - `Follow CPU`: scales Model default by `clk_mult / 2`;
 - `Custom`: scales Model default by an integer x1-x16.
 
-The physical SGP clock is not established, so the GUI displays relative
-scale rather than a guessed MHz value. CPU and SGP changes reset the guest
-through the media-preserving reset path. The settings are stored as:
+These nominal clocks correspond to the 4 MHz and 8 MHz model clocks recorded
+in [Inside PC-88VA Wiki section 4.4.6](http://www.pc88.gr.jp/inside88va/wiki/index.php?%A5%B0%A5%E9%A5%D5%A5%A3%A5%C3%A5%AF).
+The GUI displays both the relative scale and effective clock. CPU and SGP
+changes reset the guest through the media-preserving reset path. The settings
+are stored as:
 
 ```ini
 clk_base=3993600

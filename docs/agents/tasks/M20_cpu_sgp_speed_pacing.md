@@ -64,7 +64,8 @@ replace `M19_portable_runtime.md`.
 
 ## Non-goals
 
-- Do not determine or introduce undocumented absolute VA/VA2/VA3 SGP MHz.
+- Do not guess SGP frequencies beyond the documented VA 4 MHz and VA2/VA3
+  8 MHz model distinction.
 - Do not rewrite the SGP command-cost table.
 - Do not redesign the existing approximate CPU/SGP bus-contention model.
 - Do not change guest framebuffer, renderer, audio backend, OPN hardware, or
@@ -147,14 +148,21 @@ deductions are not scaled as instruction execution.
 `sgp_step()` remains driven by elapsed machine ticks. Before adding them to
 the SGP command budget, a second ratio accumulator applies:
 
-- Model default: 1/1;
+- Model default: VA 1/1, VA2/VA3 2/1;
 - Follow CPU: `np2cfg.multiple / 2`;
 - Custom: `sgp_mult / 1`.
 
 The existing command costs, including historical `* 2` terms, remain
-unchanged because their absolute hardware derivation is not established.
-Model default is defined only as compatibility with current standard-x2
-behavior; it is not a claim about the physical SGP MHz.
+unchanged. The VA model default preserves the established 3.9936 MHz timing;
+VA2/VA3 applies a 2/1 model factor for 7.9872 MHz. These nominal emulator
+values implement the 4 MHz (VA) and 8 MHz (VA2/VA3) distinction documented by
+the [Inside PC-88VA Wiki, section 4.4.6 SGP](http://www.pc88.gr.jp/inside88va/wiki/index.php?%A5%B0%A5%E9%A5%D5%A5%A3%A5%C3%A5%AF),
+attributed there to Shinra. Follow CPU and Custom remain relative to each
+model's default.
+
+The V30/uPD9002 CPU model default remains 7.9872 MHz for VA, VA2, and VA3.
+Only the SGP model-default execution clock has the 4 MHz versus 8 MHz model
+distinction.
 
 ### Bus contention limitation
 
@@ -316,8 +324,8 @@ G20 passes only after the maintainer explicitly reports the gate passed.
 
 ## Remaining hardware uncertainty
 
-The physical VA-family SGP clock and exact CPU/SGP/display bus arbitration are
-not established by this milestone. M20 preserves standard-x2 behavior as
-Model default and introduces no guessed MHz values. Exact contention and
-model-specific SGP frequency require technical-manual or hardware evidence in
-a later milestone.
+The model clock distinction is recorded as VA 4 MHz and VA2/VA3 8 MHz by the
+Inside PC-88VA Wiki source cited above and is implemented as 3.9936 MHz and
+7.9872 MHz nominal clocks. Exact CPU/SGP/display bus arbitration and the
+derivation of individual command costs remain unverified. Exact contention
+still requires technical-manual or hardware evidence in a later milestone.
