@@ -53,7 +53,7 @@ history, not by a current CI or compile guarantee.
 | M17 | tasks/M17_opn_backend.md | Keep NP2 OPN/OPNA FM selectable; add BSD-3-Clause ymfm YM2203/YM2608 as the default backend with GUI/config selection | **G17 passed** |
 | M18 | tasks/M18_rom_layout.md | Use executable-relative MAME ROM names/checksums, with VA2 `*_va2.rom` names and GUI VA/VA2 selection | **G18 passed** |
 | M19 | tasks/M19_portable_runtime.md | Embed frontend assets, consolidate portable state under `vaeg.cfg`, align backup-memory lookup, and model VA OPN/OPNA hardware explicitly | **G19 passed** |
-| M20 | tasks/M20_cpu_sgp_speed_pacing.md | Separate V30 and SGP execution capacity from fixed machine/peripheral time; add Configure, No Wait, frame skip, and hold-F11 fast-forward | **G20 pending** |
+| M20 | tasks/M20_cpu_sgp_speed_pacing.md | Separate V30 and SGP execution capacity from fixed machine/peripheral time; add Configure, No Wait, frame skip, and hold-F11 fast-forward | **G20 passed** |
 
 Phase 2 dependencies: M7 → M8 → {M9, M10 parallel} → M11 → M12 → M13.
 Post-phase dependency: M13 → M14 → M15 → M16 → M17 → M18 → M19 → M20.
@@ -82,7 +82,7 @@ override user-state copies, and VA sound hardware distinguishes built-in OPN
 from OPNA in Sound Board II and VA2/VA3. The implementation record and passed
 G19 checklist are in `tasks/M19_portable_runtime.md`.
 
-M20 implementation is complete and G20 is pending. V30 instruction execution
+M20 is complete and G20 passed. V30 instruction execution
 and SGP command execution now have independent scaling while the existing
 standard-x2 machine/peripheral timeline remains fixed. The SDL2 frontend adds
 transactional CPU/SGP configuration, persisted No Wait and frame skip, and a
