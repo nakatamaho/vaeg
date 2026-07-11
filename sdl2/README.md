@@ -148,6 +148,38 @@ exists, backup memory uses the user state directory. There is no ROM-path
 migration fallback. Fixed GUI save-state slots and keyboard sidecars
 remain in the user state directory.
 
+## Execution Speed And Pacing
+
+`Emulate -> Configure...` keeps the VA base clock fixed at 3.9936 MHz and
+sets independent execution capacity for the V30 and SGP. CPU x2 is the
+standard 7.9872 MHz setting. CPU x1-x32 changes only the amount of V30 work
+available per unit of machine time.
+
+SGP speed has three modes:
+
+- `Model default`: the established standard-x2 timing, independent of CPU;
+- `Follow CPU`: scales Model default by `clk_mult / 2`;
+- `Custom`: scales Model default by an integer x1-x16.
+
+The physical SGP clock is not established, so the GUI displays relative
+scale rather than a guessed MHz value. CPU and SGP changes reset the guest
+through the media-preserving reset path. The settings are stored as:
+
+```ini
+clk_base=3993600
+clk_mult=2
+sgp_mode=0
+sgp_mult=1
+```
+
+CPU or SGP scaling does not change VBlank/TSP timing, sound pitch and timers,
+FDD timing, RTC, or normal one-to-one host pacing. `Screen -> No Wait` removes
+host waiting. `Screen -> Frame skip` selects Auto, Full frame, 1/2, 1/3, or
+1/4 presentation without changing guest time. Holding F11 temporarily uses
+No Wait and draw skip 16; releasing F11, losing focus, resetting, loading a
+state, or quitting clears the temporary mode. F11 is never sent to the guest
+and the saved No Wait/frame-skip/CPU/SGP values are not overwritten.
+
 ## OPN/OPNA FM Backend
 
 The Sound menu exposes `OPN backend -> NP2` and `OPN backend -> ymfm`.
@@ -178,8 +210,8 @@ For PC-88VA booting, check these keys in the selected configuration:
 - `SNDboard=100` for VA built-in OPN, or `200` for VA Sound Board II.
 - `SNDboard=200` for VA2/VA3 built-in OPNA. Other values can leave sound
   hardware unbound and cause a silent hang in FM-timer waits.
-- `clk_base=3993600` and `clk_mult=2`: stale PC-98 clock settings put the
-  VA in the wrong timing domain.
+- `clk_base=3993600`; `clk_mult=2` is standard, while x1-x32 selects V30
+  execution capacity without changing machine/peripheral time.
 
 The frontend logs prominent warnings for stale VA sound-board or clock
 settings. It never rewrites the user's configuration silently.

@@ -127,12 +127,18 @@ pc_model=88VA1
 SNDboard=100
 clk_base=3993600
 clk_mult=2
+sgp_mode=0
+sgp_mult=1
 ```
 
 `SNDboard=100` selects the VA built-in YM2203/OPN. Use `SNDboard=200`
 for a VA with Sound Board II, or with `pc_model=88VA2` for the built-in
 YM2608/OPNA. Stale PC-98 defaults can halt at V2, leave the VA sound
-hardware unbound, or run in the wrong clock domain. The GUI exposes
+hardware unbound, or select an invalid execution setting. CPU x2 is the
+standard execution setting; x1-x32 changes V30 capacity while machine time,
+sound, display, FDD, and RTC timing stay at standard speed. `sgp_mode` selects
+Model default (0), Follow CPU (1), or Custom (2), with `sgp_mult=1..16` for
+Custom. The GUI exposes
 `Emulate -> Boot model -> VA / VA2/VA3`; changing the model selects its
 default sound hardware (VA OPN, VA2/VA3 OPNA), selects the matching ROM
 filename set, and resets the guest while retaining configured FDD and

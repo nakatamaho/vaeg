@@ -24,8 +24,15 @@
  */
 #include	"compiler.h"
 #include	"sysmng.h"
+#include	"taskmng.h"
 
 	UINT	sys_updates;
+
+void sysmng_cpureset(void) {
+
+	taskmng_clear_fast_forward();
+	sys_updates &= (SYS_UPDATECFG | SYS_UPDATEOSCFG);
+}
 
 void sysmng_modeled(BYTE num, BYTE sw) {
 
