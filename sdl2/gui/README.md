@@ -72,7 +72,7 @@ remain later items.
 
 ## Sound Menu
 
-Sound -> OPN backend selects `NP2` or `ymfm` and persists the choice as
+Sound -> FM sound backend selects `NP2` or `ymfm` and persists the choice as
 `opn_backend` in `vaeg.cfg`. Both engines mirror FM register writes, so changing
 the output selector uses the existing guest-reset flow to rebuild the selected
 synthesizer from a clean board state while retaining mounted FDD/SASI paths.

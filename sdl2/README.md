@@ -182,7 +182,8 @@ and the saved No Wait/frame-skip/CPU/SGP values are not overwritten.
 
 ## OPN/OPNA FM Backend
 
-The Sound menu exposes `OPN backend -> NP2` and `OPN backend -> ymfm`.
+The Sound menu exposes `FM sound backend -> NP2` and
+`FM sound backend -> ymfm`.
 The selection is saved in the selected `vaeg.cfg` as:
 
 ```ini
@@ -197,7 +198,7 @@ Timer/IRQ, SSG, ADPCM, rhythm, board I/O, and final mixing remain on the NP2
 path in this stage. Missing or unknown configuration values fall back to `ymfm`.
 
 This backend choice is independent of emulated sound hardware. The Sound
-menu also exposes `Sound hardware`: VA defaults to its built-in YM2203/OPN
+menu also exposes `FM sound OPN/OPNA`: VA defaults to its built-in YM2203/OPN
 (`SNDboard=100`) and can select Sound Board II YM2608/OPNA
 (`SNDboard=200`). VA2/VA3 defaults to YM2608/OPNA; its OPN-only choice is
 disabled. Hardware changes reset the guest and preserve mounted media.
