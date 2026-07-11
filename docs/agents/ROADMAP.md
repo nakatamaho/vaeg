@@ -52,9 +52,10 @@ history, not by a current CI or compile guarantee.
 | M16 | tasks/M16_sasi_hdd_gui.md | Reactivate SASI in active CMake; expose SASI HDI creation and SASI-1/SASI-2 Open/Remove in the SDL2 ImGui HardDisk menu | **G16 passed** |
 | M17 | tasks/M17_opn_backend.md | Keep NP2 OPN/OPNA FM selectable; add BSD-3-Clause ymfm YM2203/YM2608 as the default backend with GUI/config selection | **G17 passed** |
 | M18 | tasks/M18_rom_layout.md | Use executable-relative MAME ROM names/checksums, with VA2 `*_va2.rom` names and GUI VA/VA2 selection | **G18 passed** |
+| M19 | tasks/M19_portable_runtime.md | Embed frontend assets, consolidate portable state under `vaeg.cfg`, align backup-memory lookup, and model VA OPN/OPNA hardware explicitly | **G19 pending** |
 
 Phase 2 dependencies: M7 → M8 → {M9, M10 parallel} → M11 → M12 → M13.
-Post-phase dependency: M13 → M14 → M15 → M16 → M17 → M18.
+Post-phase dependency: M13 → M14 → M15 → M16 → M17 → M18 → M19.
 M9 must pass before M11 (all three OSes must ship the VA machine, not
 the PC-98 scaffold).
 
@@ -73,6 +74,13 @@ configuration. The implementation scope, release-integration adjustment,
 verification commands, and G15 record are in
 `tasks/M15_support_pc88va_constant_fold.md`.
 
+M19 implementation is complete but its human gate is pending. Active
+executables embed the GUI font and startup splash, the portable frontend uses
+only `vaeg.cfg`, executable-local configuration and existing backup memory
+override user-state copies, and VA sound hardware distinguishes built-in OPN
+from OPNA in Sound Board II and VA2/VA3. The implementation record and G19
+checklist are in `tasks/M19_portable_runtime.md`.
+
 ## Gate protocol
 
 Agent side (pasted into PR): CMake build logs, `tools/repo/` check
@@ -88,7 +96,7 @@ gate on the PC-98 scaffold; G9 onward use the full VA checklist.
 
 A gate passes only when the user says so. Pushed tags are immutable.
 Tag `portable-pc98` after G8, `portable-va` after G9,
-`phase2-complete` after G13. M14-M18 currently have no tag
+`phase2-complete` after G13. M14-M19 currently have no tag
 assignment.
 
 ## Resolved decision points
@@ -120,3 +128,10 @@ assignment.
   lookup is primary; cwd is a development fallback. Size, CRC32, and SHA-1
   are checked against MAME, including the extra `vasubsys.rom`, with warning-
   only mismatch handling. The frozen reference layout is unchanged.
+- **Portable runtime identity and VA sound hardware (M19).** The active
+  frontend has one configuration name, `vaeg.cfg`, selected executable-local
+  first and user-state second. Existing executable-local `vabkupmem.dat`
+  similarly selects portable backup state; otherwise user-state storage is
+  used. Frontend assets are embedded, while `SNDboard` independently models
+  VA built-in YM2203/OPN or YM2608/OPNA hardware; NP2/ymfm remains a separate
+  synthesis-backend choice.
