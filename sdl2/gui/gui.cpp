@@ -1461,6 +1461,33 @@ static void draw_device_menu(void) {
 			ImGui::EndMenu();
 		}
 		if (ImGui::BeginMenu("Sound / 音")) {
+			if (ImGui::BeginMenu("Sound hardware")) {
+				const bool va1 = milstr_cmp(np2cfg.model, str_VA1) == 0;
+				ImGui::BeginDisabled(!va1);
+				if (ImGui::MenuItem("OPN (VA)", nullptr,
+								 np2cfg.SOUND_SW == FMBOARD_VA_OPN)) {
+					select_sound_hardware(FMBOARD_VA_OPN);
+				}
+				ImGui::EndDisabled();
+				if (ImGui::MenuItem(
+						"OPNA (VA2/VA3, VA + Sound Board II)",
+						nullptr, np2cfg.SOUND_SW == FMBOARD_VA_OPNA)) {
+					select_sound_hardware(FMBOARD_VA_OPNA);
+				}
+				ImGui::EndMenu();
+			}
+			if (ImGui::BeginMenu("OPN backend")) {
+				const UINT backend = opngen_getbackend();
+				if (ImGui::MenuItem("NP2", nullptr,
+								backend == OPN_BACKEND_NP2)) {
+					select_opn_backend(OPN_BACKEND_NP2);
+				}
+				if (ImGui::MenuItem("ymfm", nullptr,
+								backend == OPN_BACKEND_YMFM)) {
+					select_opn_backend(OPN_BACKEND_YMFM);
+				}
+				ImGui::EndMenu();
+			}
 			bool enabled = np2cfg.SOUND_SW != 0;
 			if (ImGui::MenuItem("Sound on/off", nullptr, enabled)) {
 				if (enabled) {
@@ -1478,21 +1505,6 @@ static void draw_device_menu(void) {
 				sysmng_update(SYS_UPDATECFG | SYS_UPDATESBOARD);
 				reset_guest();
 			}
-			if (ImGui::BeginMenu("Sound hardware")) {
-				const bool va1 = milstr_cmp(np2cfg.model, str_VA1) == 0;
-				ImGui::BeginDisabled(!va1);
-				if (ImGui::MenuItem("OPN (VA)", nullptr,
-								 np2cfg.SOUND_SW == FMBOARD_VA_OPN)) {
-					select_sound_hardware(FMBOARD_VA_OPN);
-				}
-				ImGui::EndDisabled();
-				if (ImGui::MenuItem(
-						"OPNA (VA2/VA3, VA + Sound Board II)",
-						nullptr, np2cfg.SOUND_SW == FMBOARD_VA_OPNA)) {
-					select_sound_hardware(FMBOARD_VA_OPNA);
-				}
-				ImGui::EndMenu();
-			}
 			bool motor = np2cfg.MOTOR != 0;
 			if (ImGui::MenuItem("Seek/motor sound", nullptr, motor)) {
 				np2cfg.MOTOR = motor ? 0 : 1;
@@ -1504,18 +1516,6 @@ static void draw_device_menu(void) {
 			int volume = np2cfg.vol_fm;
 			if (ImGui::SliderInt("Master volume", &volume, 0, 128)) {
 				apply_master_volume(volume);
-			}
-			if (ImGui::BeginMenu("OPN backend")) {
-				const UINT backend = opngen_getbackend();
-				if (ImGui::MenuItem("NP2", nullptr,
-								backend == OPN_BACKEND_NP2)) {
-					select_opn_backend(OPN_BACKEND_NP2);
-				}
-				if (ImGui::MenuItem("ymfm", nullptr,
-								backend == OPN_BACKEND_YMFM)) {
-					select_opn_backend(OPN_BACKEND_YMFM);
-				}
-				ImGui::EndMenu();
 			}
 			menu_item_not_implemented("Sound option... (not implemented)");
 			ImGui::EndMenu();
