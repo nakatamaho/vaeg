@@ -22,26 +22,50 @@
  * IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-#ifndef VAEG_SDL2_TASKMNG_H
-#define VAEG_SDL2_TASKMNG_H
+#include	"compiler.h"
+#include	"sdlapi.h"
+#include	"pacing.h"
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+enum {
+	VAEG_FAST_FORWARD_DRAWSKIP = 16
+};
 
-extern	BOOL	task_avail;
+void vaeg_pacing_reset(VAEG_PACING_STATE *state) {
 
-void taskmng_initialize(void);
-void taskmng_exit(void);
-void taskmng_rol(void);
-void taskmng_clear_fast_forward(void);
-BOOL taskmng_effective_nowait(BOOL configured_nowait);
-UINT taskmng_effective_drawskip(UINT configured_drawskip);
-#define	taskmng_isavail()		(task_avail)
-BOOL taskmng_sleep(UINT32 tick);
-
-#ifdef __cplusplus
+	if (state != NULL) {
+		state->fast_forward_held = FALSE;
+	}
 }
-#endif
 
-#endif
+BOOL vaeg_pacing_key(VAEG_PACING_STATE *state, UINT scancode,
+							 BOOL pressed, BOOL repeat) {
+
+	if ((state == NULL) || (scancode != SDL_SCANCODE_F11)) {
+		return(FALSE);
+	}
+	if (pressed) {
+		if (!repeat) {
+			state->fast_forward_held = TRUE;
+		}
+	}
+	else {
+		state->fast_forward_held = FALSE;
+	}
+	return(TRUE);
+}
+
+BOOL vaeg_pacing_effective_nowait(const VAEG_PACING_STATE *state,
+												BOOL configured_nowait) {
+
+	return(((state != NULL) && state->fast_forward_held) ||
+											configured_nowait);
+}
+
+UINT vaeg_pacing_effective_drawskip(const VAEG_PACING_STATE *state,
+												 UINT configured_drawskip) {
+
+	if ((state != NULL) && state->fast_forward_held) {
+		return(VAEG_FAST_FORWARD_DRAWSKIP);
+	}
+	return(configured_drawskip);
+}

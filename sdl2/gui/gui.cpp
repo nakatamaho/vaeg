@@ -662,6 +662,7 @@ static void reset_guest(void) {
 	char fdd_paths[2][MAX_PATH];
 
 	capture_reset_fdd_mounts(fdd_paths);
+	taskmng_clear_fast_forward();
 	pccore_cfgupdate();
 	pccore_reset();
 	restore_reset_fdd_mounts(fdd_paths);
@@ -1349,6 +1350,25 @@ static void draw_screen_menu(void) {
 			set_display_aspect(!aspect);
 		}
 		ImGui::Separator();
+		bool nowait = np2oscfg.NOWAIT != 0;
+		if (ImGui::MenuItem("No Wait", nullptr, nowait)) {
+			np2oscfg.NOWAIT = nowait ? 0 : 1;
+			sysmng_update(SYS_UPDATEOSCFG);
+		}
+		if (ImGui::BeginMenu("Frame skip")) {
+			static const char *labels[] = {
+				"Auto", "Full frame", "1/2 frame", "1/3 frame", "1/4 frame"
+			};
+			for (int value=0; value<static_cast<int>(std::size(labels)); value++) {
+				if (ImGui::MenuItem(labels[value], nullptr,
+								np2oscfg.DRAW_SKIP == value)) {
+					np2oscfg.DRAW_SKIP = static_cast<BYTE>(value);
+					sysmng_update(SYS_UPDATEOSCFG);
+				}
+			}
+			ImGui::EndMenu();
+		}
+		ImGui::Separator();
 		menu_item_not_implemented("FullScreen (not implemented)");
 		menu_item_not_implemented("Rotate left/right (not implemented)");
 		menu_item_not_implemented("Screen option... (not implemented)");
@@ -1564,6 +1584,7 @@ static void draw_state_menu(void) {
 						}
 					}
 						else {
+							taskmng_clear_fast_forward();
 							statsave_load(path.c_str());
 							sdlkbd_reset_state();
 							scrndraw_redraw();

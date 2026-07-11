@@ -603,9 +603,15 @@ static BOOL runloop(BOOL smoke, BOOL pacelog_enabled, BOOL detect_screen) {
 	framemax = 1;
 	pacelog_initialize(&pacelog);
 	while(taskmng_isavail()) {
+		BOOL effective_nowait;
+		UINT effective_drawskip;
+
 		taskmng_rol();
 		timing_hosttick();
-		if (np2oscfg.NOWAIT) {
+		effective_nowait = taskmng_effective_nowait(
+											np2oscfg.NOWAIT ? TRUE : FALSE);
+		effective_drawskip = taskmng_effective_drawskip(np2oscfg.DRAW_SKIP);
+		if (effective_nowait) {
 			BOOL	draw;
 
 			draw = (framecnt == 0);
@@ -615,9 +621,9 @@ static BOOL runloop(BOOL smoke, BOOL pacelog_enabled, BOOL detect_screen) {
 			if (smoke_after_frame(smoke, frames, detect_screen) != SUCCESS) {
 				return(FAILURE);
 			}
-			if (np2oscfg.DRAW_SKIP) {
+			if (effective_drawskip) {
 				framecnt++;
-				if (framecnt >= np2oscfg.DRAW_SKIP) {
+				if (framecnt >= effective_drawskip) {
 					processwait(0, &pacelog, pacelog_enabled);
 				}
 			}
@@ -632,8 +638,8 @@ static BOOL runloop(BOOL smoke, BOOL pacelog_enabled, BOOL detect_screen) {
 				}
 			}
 		}
-		else if (np2oscfg.DRAW_SKIP) {
-			if (framecnt < np2oscfg.DRAW_SKIP) {
+		else if (effective_drawskip) {
+			if (framecnt < effective_drawskip) {
 				BOOL	draw;
 
 				draw = (framecnt == 0);
@@ -648,7 +654,7 @@ static BOOL runloop(BOOL smoke, BOOL pacelog_enabled, BOOL detect_screen) {
 				framecnt++;
 			}
 			else {
-				processwait(np2oscfg.DRAW_SKIP, &pacelog,
+				processwait(effective_drawskip, &pacelog,
 							pacelog_enabled);
 			}
 		}
