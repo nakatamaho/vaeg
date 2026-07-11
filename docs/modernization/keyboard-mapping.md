@@ -49,9 +49,10 @@ The frozen Win32 tree is evidence only. It was not edited for M14.
 - `keyboard_tenkey_overlay`: `0` or `1`; when enabled, a tenkeyless
   game overlay maps `YUI/HJK/NM,.` to guest keypad digits.
 - `keyboard_custom_map`: `file:keyboard.map` for GUI-edited bindings.
-  The sidecar file lives in the same user-state directory as `np2.cfg`
-  and stores one `role=scancode-name` entry per line. SDL scancode names
-  are stored, never numeric host-dependent values.
+  The sidecar file remains in the portable user-state directory even when
+  `vaeg.cfg` is executable-local, and stores one `role=scancode-name`
+  entry per line. SDL scancode names are stored, never numeric
+  host-dependent values.
 
 Early M14 builds wrote the whole custom map as a single INI value. The
 loader keeps compatibility with that inline form, including scancode

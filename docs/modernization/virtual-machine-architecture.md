@@ -57,7 +57,7 @@ The portable entry point is `sdl2/np2.c:main()`. The startup order is:
 
 1. Parse command-line options and optional FDD image paths.
 2. Initialize SDL and the portable file/path layer.
-3. Load `np2.cfg` through `initload()`.
+3. Load `vaeg.cfg` through `initload()`.
 4. Validate any positional FDD images.
 5. Create the SDL window, renderer, and ImGui GUI.
 6. Initialize host-facing managers: sound, communication, system, task,
@@ -69,6 +69,10 @@ The portable entry point is `sdl2/np2.c:main()`. The startup order is:
     tables exist after reset.
 11. Mount command-line FDD images.
 12. Enter the frame loop.
+
+Configuration lookup prefers `vaeg.cfg` beside the executable before
+checking the platform user-state directory. Obsolete NP2 filenames and
+`vaeg.ini` are intentionally not read.
 
 The important implementation range is `sdl2/np2.c:599-662`.
 

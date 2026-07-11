@@ -73,7 +73,7 @@ no alternate-image fallback.
 
 ## SASI HDD Images
 
-SASI HDD images are configured through `np2.cfg`:
+SASI HDD images are configured through `vaeg.cfg`:
 
 ```ini
 HDD1FILE=/path/to/disk.hdi
@@ -127,24 +127,29 @@ and SASI media.
 
 ## Configuration
 
-The ini format is unchanged. The SDL2 frontend looks for `np2.cfg` in
-the portable user state directory:
+The configuration syntax is unchanged. The SDL2 frontend selects the first
+existing `vaeg.cfg` in this order:
 
-1. `$XDG_CONFIG_HOME/vaeg/np2.cfg`
-2. `$HOME/.config/vaeg/np2.cfg`
-3. `%APPDATA%\vaeg\np2.cfg` on Windows
-4. `~/Library/Application Support/vaeg/np2.cfg` on macOS
-5. `./np2.cfg` if no platform user directory is available
+1. `vaeg.cfg` beside the executable
+2. `vaeg.cfg` in the portable user state directory
 
-The directory is created on save when an environment or home path is
-used. `vabkupmem.dat` and fixed GUI save-state slots use the same
+If neither file exists, the frontend creates `vaeg.cfg` in the user state
+directory when settings are saved. The user state directory is
+`$XDG_CONFIG_HOME/vaeg` or `$HOME/.config/vaeg` on Linux,
+`%APPDATA%\vaeg` on Windows, and
+`~/Library/Application Support/vaeg` on macOS. If no platform user
+directory is available, it falls back to the current directory.
+
+Obsolete `np2.cfg`, `np2.ini`, and `vaeg.ini` files are not read.
+
+`vabkupmem.dat` and fixed GUI save-state slots use the user state
 directory. `vabkupmem.dat` also loads once from the configured ROM path
 for migration; saves always go to the user state directory.
 
 ## OPN/OPNA FM Backend
 
 The Sound menu exposes `OPN backend -> NP2` and `OPN backend -> ymfm`.
-The selection is saved in `np2.cfg` as:
+The selection is saved in the selected `vaeg.cfg` as:
 
 ```ini
 opn_backend=ymfm
@@ -157,10 +162,9 @@ starts from a fully replayed board state; mounted FDD/SASI paths are retained.
 Timer/IRQ, SSG, ADPCM, rhythm, board I/O, and final mixing remain on the NP2
 path in this stage. Missing or unknown configuration values fall back to `ymfm`.
 
-## Upgrading From An Older Config
+## VA Configuration Requirements
 
-Older `np2.cfg` files can keep PC-98 defaults after switching to the
-portable VA build. For PC-88VA booting, check these keys:
+For PC-88VA booting, check these keys in the selected configuration:
 
 - `pc_model=88VA1` or `pc_model=88VA2`: non-VA models can halt at V2.
 - `SNDboard=200`: other values leave the VA Sound Board II unbound and can
@@ -177,7 +181,8 @@ The SDL2 keyboard path is scancode based. The default host layout is
 `keyboard_host_layout=jis`; `us` is a US-keytop preset for text entry,
 and `custom` stores GUI-edited bindings as SDL scancode names in the
 user-state sidecar `keyboard.map`.
-`keyboard_custom_map=file:keyboard.map` in `np2.cfg` points to that
+`keyboard_custom_map=file:keyboard.map` in the selected configuration
+points to that
 sidecar.
 
 Device / Keyboard in the ImGui menu exposes:

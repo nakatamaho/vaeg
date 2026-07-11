@@ -137,7 +137,7 @@ from MAME. No ROM placeholder is packaged.
 
 ## VA Configuration Prerequisites
 
-Before running the G11 VA checklist, ensure the portable `np2.cfg`
+Before running the G11 VA checklist, ensure the portable `vaeg.cfg`
 selects the VA machine and VA Sound Board II:
 
 ```ini

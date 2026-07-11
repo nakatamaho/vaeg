@@ -104,16 +104,20 @@ directory:
 - Windows: `%APPDATA%\vaeg`
 - macOS: `~/Library/Application Support/vaeg`
 
-`np2.cfg`, `vabkupmem.dat`, and fixed GUI save-state slots live there.
+`vaeg.cfg`, `vabkupmem.dat`, and fixed GUI save-state slots live there.
 The legacy `win9x/` build remains exe-relative and is intentionally not
 changed.
+
+For a portable setup, `vaeg.cfg` may be placed beside the executable. It
+takes priority over the user-state configuration; backup RAM and save
+states remain in the user directory.
 
 Save-state files are local runtime artifacts. They are not portable
 across architectures, compilers, or build families; do not move a state
 file between 32-bit and 64-bit builds, between legacy and portable
 builds, or between different host platforms and expect it to load.
 
-For PC-88VA booting, `np2.cfg` should select the VA machine, VA Sound
+For PC-88VA booting, `vaeg.cfg` should select the VA machine, VA Sound
 Board II, and the VA clock domain:
 
 ```ini
@@ -176,8 +180,8 @@ This fork has moved the source tree to modern UTF-8 text.
   stay CRLF.
 - The `hlp/` directory remains CP932 because Microsoft HTML Help Workshop
   cannot compile the files as UTF-8.
-- Portable configuration files are UTF-8 only. Reading old CP932 legacy
-  `np2.ini` files is not part of the phase-2 portable frontend.
+- Portable configuration files are UTF-8 only. Obsolete `np2.ini`,
+  `np2.cfg`, and `vaeg.ini` files are not read by the active frontend.
 - On Windows, the SDL2 frontend keeps paths as UTF-8 internally and
   converts them at the filesystem boundary to UTF-16.
 

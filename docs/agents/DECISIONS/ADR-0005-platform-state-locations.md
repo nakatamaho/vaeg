@@ -26,13 +26,15 @@ POSSIBILITY OF SUCH DAMAGE.
 
 Date: 2026-07-06
 
+Amended: 2026-07-11
+
 Status: Accepted
 
 ## Decision
 
 M11 should move portable frontend user state out of ROM/executable
 locations and into per-user platform state/config directories: Linux uses
-the existing XDG base directory behavior for `np2.cfg` and stores
+the existing XDG base directory behavior for `vaeg.cfg` and stores
 portable state files such as `vabkupmem.dat` and save states under the
 same `vaeg` user area unless a user-selected absolute path is provided;
 Windows uses `%APPDATA%\vaeg` instead of the legacy win9x exe-relative
@@ -41,6 +43,13 @@ uses `~/Library/Application Support/vaeg`. The legacy `win9x/` lineage
 remains exe-relative and unchanged. Exe-relative portable lookup is at
 most a compatibility fallback for explicit assets such as ROM/WAV files,
 not the primary location for writable user state.
+
+The active frontend later adds one explicit portable-mode exception for
+configuration only. It accepts `vaeg.cfg` beside the executable before
+checking the per-user directory. Obsolete `np2.cfg`, `np2.ini`, and
+`vaeg.ini` files are not read. This exception does not relocate
+`vabkupmem.dat`, keyboard sidecars, or save states; those remain in the
+per-user state directory.
 
 `vabkupmem.dat` is writable VA user state. The M9 code currently loads
 and saves it through `getbiospath()` in `iova/bkupmemva.c`, which points

@@ -61,7 +61,7 @@ Files you must supply
 ---------------------
 
 Create a romimage/ directory in the unpacked directory, or point the
-BIOS path in np2.cfg at your ROM directory. A usable PC-88VA setup needs
+BIOS path in vaeg.cfg at your ROM directory. A usable PC-88VA setup needs
 the VA ROM set, including FONT.ROM, VAFONT.ROM, VADIC.ROM,
 VAROM00.ROM, VAROM08.ROM, VAROM1.ROM, and VASUBSYS.ROM.
 
@@ -77,7 +77,7 @@ On Windows:
 VA configuration prerequisites
 ------------------------------
 
-For VA booting, np2.cfg must select the VA machine, VA Sound Board II,
+For VA booting, vaeg.cfg must select the VA machine, VA Sound Board II,
 and the VA clock domain:
 
     pc_model=88VA1
@@ -86,21 +86,23 @@ and the VA clock domain:
     clk_mult=2
 
 pc_model=88VA2 is also valid. The defaults are already correct on first
-run. If you reuse an older config, edit these values before booting; old
-PC-98 defaults can stop at a V2 screen, leave the VA sound board
+run. If you reuse an existing vaeg config, edit these values before
+booting; old PC-98 defaults can stop at a V2 screen, leave the VA sound board
 unbound, or run in the wrong clock domain.
 
 Config and state file locations
 -------------------------------
 
-The portable frontend stores writable files outside the unpacked
+The portable frontend normally stores writable files outside the unpacked
 distribution directory:
 
 - Linux: $XDG_CONFIG_HOME/vaeg or $HOME/.config/vaeg
 - Windows: %APPDATA%\vaeg
 - macOS: ~/Library/Application Support/vaeg
 
-np2.cfg, vabkupmem.dat, and fixed GUI save-state slots live there.
+vaeg.cfg, vabkupmem.dat, and fixed GUI save-state slots live there.
+An executable-local vaeg.cfg takes priority for portable configuration.
+Backup RAM and save states remain in the user directory.
 Save-state files are tied to the architecture and build family that
 created them; do not move them between old Win32 builds, portable
 builds, different CPU architectures, or different operating systems.

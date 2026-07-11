@@ -86,7 +86,7 @@ Both FM engines receive the same FM register, key-on, and channel-3 mode
 writes. The selected backend only controls which engine contributes PCM.
 Changing the backend performs the existing GUI guest-reset flow because an
 inactive synthesizer does not advance its envelope and phase state. Selection
-is stored as `opn_backend=np2|ymfm` in the SDL2 `np2.cfg`; missing or invalid
+is stored as `opn_backend=np2|ymfm` in the SDL2 `vaeg.cfg`; missing or invalid
 values select `ymfm`. An existing explicit `opn_backend=np2` remains effective.
 
 This is a staged integration. ymfm supplies FM operator output only. The NP2
