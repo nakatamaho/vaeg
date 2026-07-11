@@ -150,6 +150,20 @@ struct GuiState {
 	int pending_cpu_multiplier = PCCORE_STANDARD_MULTIPLE;
 	int pending_sgp_mode = SGP_SPEED_MODEL_DEFAULT;
 	int pending_sgp_multiplier = 1;
+	bool custom_size_open = false;
+	bool custom_size_request = false;
+	int pending_window_width = 640;
+	int pending_window_height = 422;
+	bool display_settings_open = false;
+	bool display_settings_request = false;
+	int pending_display_mode = VAEG_DISPLAY_WINDOWED;
+	int pending_monitor = 0;
+	int pending_fullscreen_width = 0;
+	int pending_fullscreen_height = 0;
+	int pending_fullscreen_refresh = 0;
+	int pending_fullscreen_drawing = 2;
+	bool pending_current_display_size = false;
+	std::string display_status;
 };
 
 GuiState g_gui;
@@ -1195,6 +1209,213 @@ static void set_display_aspect(bool aspect) {
 	sysmng_update(SYS_UPDATEOSCFG);
 }
 
+static void set_display_scaling(int scaling) {
+
+	np2oscfg.gui_scaling = static_cast<BYTE>(scaling);
+	scrnmng_set_scaling(np2oscfg.gui_scaling);
+	sysmng_update(SYS_UPDATEOSCFG);
+}
+
+static void set_display_effect(int effect) {
+
+	np2oscfg.gui_effect = static_cast<BYTE>(effect);
+	scrnmng_set_effect(np2oscfg.gui_effect);
+	sysmng_update(SYS_UPDATEOSCFG);
+}
+
+static void open_custom_size_dialog(void) {
+
+	g_gui.pending_window_width = np2oscfg.gui_window_width;
+	g_gui.pending_window_height = np2oscfg.gui_window_height;
+	g_gui.custom_size_request = true;
+}
+
+static void open_display_settings_dialog(void) {
+
+	g_gui.pending_display_mode = np2oscfg.gui_display_mode;
+	g_gui.pending_monitor = np2oscfg.gui_monitor;
+	g_gui.pending_fullscreen_width = np2oscfg.fscrn_cx;
+	g_gui.pending_fullscreen_height = np2oscfg.fscrn_cy;
+	g_gui.pending_fullscreen_refresh = np2oscfg.gui_fullscreen_refresh;
+	g_gui.pending_fullscreen_drawing = np2oscfg.fscrnmod & 3;
+	g_gui.pending_current_display_size = (np2oscfg.fscrnmod & 4) != 0;
+	g_gui.display_status.clear();
+	g_gui.display_settings_request = true;
+}
+
+static void draw_custom_size_dialog(void) {
+
+	if (g_gui.custom_size_request) {
+		g_gui.custom_size_request = false;
+		g_gui.custom_size_open = true;
+		ImGui::OpenPopup("Custom window size##display");
+	}
+	if (!g_gui.custom_size_open) {
+		return;
+	}
+	ImGui::SetNextWindowSize(ImVec2(340.0f, 150.0f), ImGuiCond_Appearing);
+	if (ImGui::BeginPopupModal("Custom window size##display",
+									&g_gui.custom_size_open,
+									ImGuiWindowFlags_NoResize)) {
+		ImGui::InputInt("Logical width", &g_gui.pending_window_width);
+		ImGui::InputInt("Logical height", &g_gui.pending_window_height);
+		const bool valid = (g_gui.pending_window_width >= 320) &&
+			(g_gui.pending_window_width <= 7680) &&
+			(g_gui.pending_window_height >= 240) &&
+			(g_gui.pending_window_height <= 4320);
+		if (!valid) {
+			ImGui::TextUnformatted("Size must be between 320x240 and 7680x4320.");
+		}
+		ImGui::BeginDisabled(!valid ||
+			(scrnmng_get_display_mode() != VAEG_DISPLAY_WINDOWED));
+		if (ImGui::Button("Apply")) {
+			SDL_SetWindowSize(static_cast<SDL_Window *>(scrnmng_get_window()),
+					g_gui.pending_window_width, g_gui.pending_window_height);
+			np2oscfg.gui_window_width =
+					static_cast<UINT16>(g_gui.pending_window_width);
+			np2oscfg.gui_window_height =
+					static_cast<UINT16>(g_gui.pending_window_height);
+			np2oscfg.gui_scale = 0;
+			sysmng_update(SYS_UPDATEOSCFG);
+			g_gui.custom_size_open = false;
+			ImGui::CloseCurrentPopup();
+		}
+		ImGui::EndDisabled();
+		ImGui::SameLine();
+		if (ImGui::Button("Cancel")) {
+			g_gui.custom_size_open = false;
+			ImGui::CloseCurrentPopup();
+		}
+		ImGui::EndPopup();
+	}
+}
+
+static void draw_display_settings_dialog(void) {
+
+	static const char *display_modes[] = {
+		"Windowed", "Borderless desktop", "Exclusive fullscreen"
+	};
+	static const char *drawing_modes[] = {
+		"Native", "Fit 8-dot", "Fit", "Stretch"
+	};
+
+	if (g_gui.display_settings_request) {
+		g_gui.display_settings_request = false;
+		g_gui.display_settings_open = true;
+		ImGui::OpenPopup("Display settings##display");
+	}
+	if (!g_gui.display_settings_open) {
+		return;
+	}
+	ImGui::SetNextWindowSize(ImVec2(480.0f, 410.0f), ImGuiCond_Appearing);
+	if (ImGui::BeginPopupModal("Display settings##display",
+									&g_gui.display_settings_open,
+									ImGuiWindowFlags_NoResize)) {
+		ImGui::Combo("Display mode", &g_gui.pending_display_mode,
+						display_modes, static_cast<int>(std::size(display_modes)));
+		int display_count = SDL_GetNumVideoDisplays();
+		if (display_count < 1) {
+			display_count = 1;
+		}
+		if (g_gui.pending_monitor >= display_count) {
+			g_gui.pending_monitor = 0;
+		}
+		const char *monitor_name = SDL_GetDisplayName(g_gui.pending_monitor);
+		if (ImGui::BeginCombo("Monitor", monitor_name ? monitor_name : "Primary")) {
+			for (int index=0; index<display_count; index++) {
+				const char *name = SDL_GetDisplayName(index);
+				ImGui::PushID(index);
+				if (ImGui::Selectable(name ? name : "Display",
+									g_gui.pending_monitor == index)) {
+					g_gui.pending_monitor = index;
+				}
+				ImGui::PopID();
+			}
+			ImGui::EndCombo();
+		}
+		if (g_gui.pending_display_mode != VAEG_DISPLAY_WINDOWED) {
+			ImGui::Checkbox("Use current display size",
+									&g_gui.pending_current_display_size);
+		}
+		if ((g_gui.pending_display_mode == VAEG_DISPLAY_EXCLUSIVE) &&
+			!g_gui.pending_current_display_size) {
+			ImGui::InputInt("Fullscreen width",
+									&g_gui.pending_fullscreen_width);
+			ImGui::InputInt("Fullscreen height",
+									&g_gui.pending_fullscreen_height);
+			ImGui::InputInt("Refresh rate",
+									&g_gui.pending_fullscreen_refresh);
+			char current_mode[64];
+			std::snprintf(current_mode, sizeof(current_mode), "%dx%d @ %d Hz",
+				g_gui.pending_fullscreen_width, g_gui.pending_fullscreen_height,
+				g_gui.pending_fullscreen_refresh);
+			if (ImGui::BeginCombo("Resolution / refresh", current_mode)) {
+				const int count = SDL_GetNumDisplayModes(g_gui.pending_monitor);
+				for (int index=0; index<count; index++) {
+					SDL_DisplayMode mode;
+					if (SDL_GetDisplayMode(g_gui.pending_monitor, index, &mode) != 0) {
+						continue;
+					}
+					char label[64];
+					std::snprintf(label, sizeof(label), "%dx%d @ %d Hz",
+										mode.w, mode.h, mode.refresh_rate);
+					const bool selected =
+						(g_gui.pending_fullscreen_width == mode.w) &&
+						(g_gui.pending_fullscreen_height == mode.h) &&
+						(g_gui.pending_fullscreen_refresh == mode.refresh_rate);
+					ImGui::PushID(index);
+					if (ImGui::Selectable(label, selected)) {
+						g_gui.pending_fullscreen_width = mode.w;
+						g_gui.pending_fullscreen_height = mode.h;
+						g_gui.pending_fullscreen_refresh = mode.refresh_rate;
+					}
+					ImGui::PopID();
+				}
+				ImGui::EndCombo();
+			}
+		}
+		ImGui::Combo("Fullscreen drawing", &g_gui.pending_fullscreen_drawing,
+						drawing_modes, static_cast<int>(std::size(drawing_modes)));
+		if (!g_gui.display_status.empty()) {
+			ImGui::TextWrapped("%s", g_gui.display_status.c_str());
+		}
+		if (ImGui::Button("Apply")) {
+			const UINT8 fscrnmod = static_cast<UINT8>(
+				(g_gui.pending_fullscreen_drawing & 3) |
+				(g_gui.pending_current_display_size ? 4 : 0));
+			if (scrnmng_set_display_mode(g_gui.pending_display_mode,
+				g_gui.pending_monitor, g_gui.pending_fullscreen_width,
+				g_gui.pending_fullscreen_height,
+				g_gui.pending_fullscreen_refresh, fscrnmod) == SUCCESS) {
+				np2oscfg.gui_display_mode =
+						static_cast<BYTE>(g_gui.pending_display_mode);
+				np2oscfg.gui_monitor =
+						static_cast<SINT16>(g_gui.pending_monitor);
+				np2oscfg.fscrn_cx =
+						static_cast<UINT16>(g_gui.pending_fullscreen_width);
+				np2oscfg.fscrn_cy =
+						static_cast<UINT16>(g_gui.pending_fullscreen_height);
+				np2oscfg.gui_fullscreen_refresh =
+						static_cast<UINT16>(g_gui.pending_fullscreen_refresh);
+				np2oscfg.fscrnmod = fscrnmod;
+				sysmng_update(SYS_UPDATEOSCFG);
+				g_gui.display_settings_open = false;
+				ImGui::CloseCurrentPopup();
+			}
+			else {
+				g_gui.display_status = "Display change failed: ";
+				g_gui.display_status += SDL_GetError();
+			}
+		}
+		ImGui::SameLine();
+		if (ImGui::Button("Cancel")) {
+			g_gui.display_settings_open = false;
+			ImGui::CloseCurrentPopup();
+		}
+		ImGui::EndPopup();
+	}
+}
+
 static void set_key_mode(BYTE mode) {
 
 	np2cfg.KEY_MODE = mode;
@@ -1350,18 +1571,66 @@ static void draw_keyboard_config(void) {
 static void draw_screen_menu(void) {
 
 	if (ImGui::BeginMenu("Screen / 画面")) {
-		if (ImGui::MenuItem("Scale x1", nullptr, np2oscfg.gui_scale == 1)) {
-			set_display_scale(1);
+		if (ImGui::BeginMenu("Effect")) {
+			static const char *labels[] = {
+				"Unfiltered", "Linear", "Scanline", "CRT Lite"
+			};
+			for (int value=0; value<VAEG_EFFECT_COUNT; value++) {
+				if (ImGui::MenuItem(labels[value], nullptr,
+								np2oscfg.gui_effect == value)) {
+					set_display_effect(value);
+				}
+			}
+			ImGui::EndMenu();
 		}
-		if (ImGui::MenuItem("Scale x2", nullptr, np2oscfg.gui_scale == 2)) {
-			set_display_scale(2);
+		if (ImGui::BeginMenu("Scaling")) {
+			static const char *labels[] = {
+				"Native", "Fit", "Fit 8-dot", "Integer", "Stretch"
+			};
+			for (int value=0; value<VAEG_SCALING_COUNT; value++) {
+				if (ImGui::MenuItem(labels[value], nullptr,
+								np2oscfg.gui_scaling == value)) {
+					set_display_scaling(value);
+				}
+			}
+			ImGui::EndMenu();
 		}
-		if (ImGui::MenuItem("Scale x3", nullptr, np2oscfg.gui_scale == 3)) {
-			set_display_scale(3);
+		if (ImGui::BeginMenu("Window size")) {
+			if (ImGui::MenuItem("Native", nullptr, np2oscfg.gui_scale == 1)) {
+				set_display_scale(1);
+			}
+			if (ImGui::MenuItem("x2", nullptr, np2oscfg.gui_scale == 2)) {
+				set_display_scale(2);
+			}
+			if (ImGui::MenuItem("x3", nullptr, np2oscfg.gui_scale == 3)) {
+				set_display_scale(3);
+			}
+			ImGui::Separator();
+			if (ImGui::MenuItem("Custom...", nullptr, false,
+					scrnmng_get_display_mode() == VAEG_DISPLAY_WINDOWED)) {
+				open_custom_size_dialog();
+			}
+			ImGui::EndMenu();
 		}
 		bool aspect = np2oscfg.gui_aspect != 0;
 		if (ImGui::MenuItem("Aspect correction", nullptr, aspect)) {
 			set_display_aspect(!aspect);
+		}
+		if (ImGui::BeginMenu("Display mode")) {
+			static const char *labels[] = {
+				"Windowed...", "Borderless desktop...", "Exclusive fullscreen..."
+			};
+			for (int value=0; value<VAEG_DISPLAY_MODE_COUNT; value++) {
+				if (ImGui::MenuItem(labels[value], nullptr,
+								np2oscfg.gui_display_mode == value)) {
+					open_display_settings_dialog();
+					g_gui.pending_display_mode = value;
+				}
+			}
+			ImGui::EndMenu();
+		}
+		if (ImGui::MenuItem("Display settings...")) {
+			open_display_settings_dialog();
 		}
 		ImGui::Separator();
 		bool nowait = np2oscfg.NOWAIT != 0;
@@ -1383,7 +1652,6 @@ static void draw_screen_menu(void) {
 			ImGui::EndMenu();
 		}
 		ImGui::Separator();
-		menu_item_not_implemented("FullScreen (not implemented)");
 		menu_item_not_implemented("Rotate left/right (not implemented)");
 		menu_item_not_implemented("Screen option... (not implemented)");
 		ImGui::EndMenu();
@@ -1757,6 +2025,8 @@ void gui_draw(void) {
 	draw_new_sasi_dialog();
 	draw_keyboard_config();
 	draw_configure_dialog();
+	draw_custom_size_dialog();
+	draw_display_settings_dialog();
 }
 
 void gui_render(void) {

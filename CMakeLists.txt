@@ -301,6 +301,7 @@ set(VAEG_SDL2_SOURCES
     sdl2/ini.c
     sdl2/taskmng.c
     sdl2/pacing.c
+    sdl2/viewport.c
     sdl2/splash.c
     sdl2/sysmng.c
     sdl2/timemng.c

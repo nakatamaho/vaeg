@@ -148,6 +148,27 @@ exists, backup memory uses the user state directory. There is no ROM-path
 migration fallback. Fixed GUI save-state slots and keyboard sidecars
 remain in the user state directory.
 
+## Display
+
+The SDL2 window is resizable and keeps the guest framebuffer fixed at
+640x400 RGB565. Screen -> Scaling selects Native, Fit, Fit 8-dot, Integer, or
+Stretch. Aspect correction is independent of scaling. Native/x2/x3 remain
+window-size presets, and Custom accepts a logical width and height. High-DPI
+drawable dimensions are calculated separately and are never saved as logical
+window size.
+
+Screen -> Effect selects Unfiltered, Linear, Scanline, or CRT Lite. Scanline
+and CRT Lite are procedural SDL_Renderer overlays aligned to the 400-line
+guest raster. CRT Lite adds a restrained RGB pattern and edge darkening. No
+MAME renderer code, shader, LUT, mask texture, or artwork is used.
+
+Display settings supports Windowed, Borderless desktop, and Exclusive
+fullscreen, including monitor and enumerated resolution/refresh selection.
+Unavailable exclusive modes roll back to Windowed. `fscrn_cx`, `fscrn_cy`,
+and hexadecimal `fscrnmod` retain the legacy fullscreen drawing meanings;
+bit `0x04` uses the current display size. The VA-specific zero-height fallback
+is 400, and the frozen frontend's `force400` option is not imported.
+
 ## Execution Speed And Pacing
 
 `Emulate -> Configure...` keeps the VA base clock fixed at 3.9936 MHz and

@@ -31,6 +31,13 @@ enum {
 	NP2OSCFG_OPN_BACKEND_NAME_SIZE = 8
 };
 
+enum {
+	VAEG_DISPLAY_WINDOWED = 0,
+	VAEG_DISPLAY_BORDERLESS,
+	VAEG_DISPLAY_EXCLUSIVE,
+	VAEG_DISPLAY_MODE_COUNT
+};
+
 typedef struct {
 	BYTE	NOWAIT;
 	BYTE	DRAW_SKIP;
@@ -49,6 +56,16 @@ typedef struct {
 	char	keyboard_custom_map[NP2OSCFG_KEYBOARD_CUSTOM_MAP_SIZE];
 	char	opn_backend[NP2OSCFG_OPN_BACKEND_NAME_SIZE];
 	BYTE	sound_enabled;
+	BYTE	gui_effect;
+	BYTE	gui_scaling;
+	UINT16	gui_window_width;
+	UINT16	gui_window_height;
+	BYTE	gui_display_mode;
+	SINT16	gui_monitor;
+	UINT16	gui_fullscreen_refresh;
+	UINT16	fscrn_cx;
+	UINT16	fscrn_cy;
+	BYTE	fscrnmod;
 } NP2OSCFG;
 
 #if defined(SIZE_QVGA)
