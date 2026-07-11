@@ -147,6 +147,9 @@ static int test_clockscale(void) {
 	CLOCKSCALE scale;
 	UINT64 total;
 	UINT index;
+	UINT saved_config_multiple;
+	UINT saved_baseclock;
+	static const UINT cpu_multipliers[] = {1, 2, 4, 8, 32};
 
 	if ((clockscale_configure(&scale, 1, 0) != FAILURE) ||
 		(clockscale_configure(NULL, 1, 1) != FAILURE)) {
@@ -187,6 +190,25 @@ static int test_clockscale(void) {
 		pccore_cpu_multiple_valid(0) || pccore_cpu_multiple_valid(33)) {
 		return(fail("clockscale", "CPU multiplier validation failed"));
 	}
+	saved_config_multiple = np2cfg.multiple;
+	saved_baseclock = pccore.baseclock;
+	pccore.baseclock = PCBASECLOCK40;
+	for (index=0; index<NELEMENTS(cpu_multipliers); index++) {
+		np2cfg.multiple = cpu_multipliers[index];
+		pccore_clockrestore();
+		if ((pccore.multiple != PCCORE_STANDARD_MULTIPLE) ||
+			(pccore.realclock != PCBASECLOCK40 * PCCORE_STANDARD_MULTIPLE) ||
+			(pccore_cpu_multiple() != cpu_multipliers[index]) ||
+			(pccore_cpu_clock() != PCBASECLOCK40 * cpu_multipliers[index])) {
+			np2cfg.multiple = saved_config_multiple;
+			pccore.baseclock = saved_baseclock;
+			pccore_clockrestore();
+			return(fail("clockscale", "CPU scaling changed machine time"));
+		}
+	}
+	np2cfg.multiple = saved_config_multiple;
+	pccore.baseclock = saved_baseclock;
+	pccore_clockrestore();
 	fprintf(stderr, "selftest: clockscale ok\n");
 	return(SUCCESS);
 }
