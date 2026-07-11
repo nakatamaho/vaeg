@@ -104,13 +104,15 @@ directory:
 - Windows: `%APPDATA%\vaeg`
 - macOS: `~/Library/Application Support/vaeg`
 
-`vaeg.cfg`, `vabkupmem.dat`, and fixed GUI save-state slots live there.
+`vaeg.cfg`, `vabkupmem.dat`, and fixed GUI save-state slots normally live
+there.
 The legacy `win9x/` build remains exe-relative and is intentionally not
 changed.
 
-For a portable setup, `vaeg.cfg` may be placed beside the executable. It
-takes priority over the user-state configuration; backup RAM and save
-states remain in the user directory.
+For a portable setup, `vaeg.cfg` and/or an existing `vabkupmem.dat` may be
+placed beside the executable. Each executable-local file takes priority
+over its user-state counterpart and is saved back to the same location.
+Save states and keyboard sidecars remain in the user directory.
 
 Save-state files are local runtime artifacts. They are not portable
 across architectures, compilers, or build families; do not move a state

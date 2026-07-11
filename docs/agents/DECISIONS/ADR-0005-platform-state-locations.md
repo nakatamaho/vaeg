@@ -44,24 +44,23 @@ remains exe-relative and unchanged. Exe-relative portable lookup is at
 most a compatibility fallback for explicit assets such as ROM/WAV files,
 not the primary location for writable user state.
 
-The active frontend later adds one explicit portable-mode exception for
-configuration only. It accepts `vaeg.cfg` beside the executable before
-checking the per-user directory. Obsolete `np2.cfg`, `np2.ini`, and
-`vaeg.ini` files are not read. This exception does not relocate
-`vabkupmem.dat`, keyboard sidecars, or save states; those remain in the
-per-user state directory.
+The active frontend later adds a portable-mode exception for
+configuration and backup RAM. It accepts `vaeg.cfg` beside the executable
+before checking the per-user directory. An existing executable-local
+`vabkupmem.dat` likewise takes priority over the user-state copy. Both
+files are saved back to the selected location. Obsolete `np2.cfg`,
+`np2.ini`, and `vaeg.ini` files are not read, and backup RAM no longer
+falls back to `getbiospath()` for migration. Keyboard sidecars and save
+states remain in the per-user state directory.
 
-`vabkupmem.dat` is writable VA user state. The M9 code currently loads
-and saves it through `getbiospath()` in `iova/bkupmemva.c`, which points
-at the ROM directory and can silently fail for read-only ROM locations.
-M11 changes the primary location to the per-platform user state
-directory. Loading also falls back to `getbiospath()` for migration of
-existing setups; saving always writes the state directory copy.
+`vabkupmem.dat` is writable VA user state. The portable frontend passes
+the selected path into `iova/bkupmemva.c`; the core file does not depend
+on SDL executable-path APIs.
 
 ## Writable Biospath Audit
 
-- `iova/bkupmemva.c`: `vabkupmem.dat` is writable state and is moved as
-  described above.
+- `iova/bkupmemva.c`: `vabkupmem.dat` is writable state and uses the
+  frontend-selected executable-local or per-user path described above.
 - Other portable `getbiospath()` users found in the audit are read-only
   ROM, WAV, font, dictionary, or key-map assets:
   `biosva/biosva.c`, `bios/bios.c`, `sound/soundrom.c`,

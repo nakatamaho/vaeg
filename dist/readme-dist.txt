@@ -100,9 +100,10 @@ distribution directory:
 - Windows: %APPDATA%\vaeg
 - macOS: ~/Library/Application Support/vaeg
 
-vaeg.cfg, vabkupmem.dat, and fixed GUI save-state slots live there.
-An executable-local vaeg.cfg takes priority for portable configuration.
-Backup RAM and save states remain in the user directory.
+vaeg.cfg, vabkupmem.dat, and fixed GUI save-state slots normally live
+there. An executable-local vaeg.cfg or existing vabkupmem.dat takes
+priority over its user-state counterpart and is saved in place. Save
+states and keyboard sidecars remain in the user directory.
 Save-state files are tied to the architecture and build family that
 created them; do not move them between old Win32 builds, portable
 builds, different CPU architectures, or different operating systems.
