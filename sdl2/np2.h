@@ -67,6 +67,8 @@ extern "C" {
 #endif
 
 extern	NP2OSCFG	np2oscfg;
+UINT16 np2_default_sound_for_model(const char *model);
+BOOL np2_sound_hardware_valid(const char *model, UINT16 sound);
 BOOL np2_select_boot_model(const char *model);
 
 #ifdef __cplusplus

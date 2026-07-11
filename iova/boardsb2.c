@@ -75,15 +75,16 @@ static void IOOUTCALL sb2_o045(UINT port, REG8 dat) {
 		}
 	}
 	else {
-		if (opn.opnreg < 0x20) {
+		if ((opn.opnreg < 0x20) && (opn.channels > 3)) {
 			rhythm_setreg(&rhythm, opn.opnreg, dat);
 		}
-		else if (opn.opnreg < 0x30) {
+		else if ((opn.opnreg < 0x30) &&
+				 ((opn.channels <= 3) || (opn.opnreg >= 0x20))) {
 			if (opn.opnreg == 0x28) {
 				if ((dat & 0x0f) < 3) {
 					opngen_keyon(dat & 0x0f, dat);
 				}
-				else if (((dat & 0x0f) != 3) &&
+				else if ((opn.channels > 3) && ((dat & 0x0f) != 3) &&
 						((dat & 0x0f) < 7)) {
 					opngen_keyon((dat & 0x0f) - 1, dat);
 				}
@@ -138,7 +139,10 @@ static REG8 IOINPCALL sb2_i044(UINT port) {
 
 	(void)port;
 	checkandwait();
-	return((fmtimer.status & 3) | adpcm_status(&adpcm));
+	if (opn.channels > 3) {
+		return((fmtimer.status & 3) | adpcm_status(&adpcm));
+	}
+	return(fmtimer.status & 3);
 }
 
 static REG8 IOINPCALL sb2_i045(UINT port) {
@@ -192,7 +196,7 @@ static void IOOUTCALL sb2_o19e(UINT port, REG8 dat) {
 // ----
 
 
-void boardsb2_reset(void) {
+static void boardsb_reset(void) {
 
 	ZeroMemory(&boardsb2, sizeof(boardsb2));
 	boardsb2.waitenabled = TRUE;
@@ -208,30 +212,60 @@ void boardsb2_reset(void) {
 											   VAの場合、0のようだ 
 											*/
 	fmtimer_reset(0xc0);
+}
+
+void boardopnva_reset(void) {
+
+	boardsb_reset();
+	opn.channels = 3;
+	opngen_setcfg(3, OPN_MONORAL | 0x007);
+}
+
+void boardsb2_reset(void) {
+
+	boardsb_reset();
 	opn.channels = 6;
 	opngen_setcfg(6, OPN_STEREO | 0x03f);
 }
 
-void boardsb2_bind(void) {
+static void boardsb_bind(BOOL opna) {
 
 	fmboard_fmrestore(0, 0);
-	fmboard_fmrestore(3, 1);
 	psggen_restore(&psg1);
-	fmboard_rhyrestore(&rhythm, 0);
-	sound_streamregist(&opngen, (SOUNDCB)opngen_getpcmvr);
-	sound_streamregist(&psg1, (SOUNDCB)psggen_getpcm);
-	rhythm_bind(&rhythm);
-	sound_streamregist(&adpcm, (SOUNDCB)adpcm_getpcm);
+	if (opna) {
+		fmboard_fmrestore(3, 1);
+		fmboard_rhyrestore(&rhythm, 0);
+		sound_streamregist(&opngen, (SOUNDCB)opngen_getpcmvr);
+		sound_streamregist(&psg1, (SOUNDCB)psggen_getpcm);
+		rhythm_bind(&rhythm);
+		sound_streamregist(&adpcm, (SOUNDCB)adpcm_getpcm);
+	}
+	else {
+		sound_streamregist(&opngen, (SOUNDCB)opngen_getpcm);
+		sound_streamregist(&psg1, (SOUNDCB)psggen_getpcm);
+	}
 
 	iocoreva_attachinp(0x044, sb2_i044);
 	iocoreva_attachinp(0x045, sb2_i045);
-	iocoreva_attachinp(0x046, sb2_i044);
-	iocoreva_attachinp(0x047, sb2_i047);
 	iocoreva_attachout(0x044, sb2_o044);
 	iocoreva_attachout(0x045, sb2_o045);
-	iocoreva_attachout(0x046, sb2_o046);
-	iocoreva_attachout(0x047, sb2_o047);
+	if (opna) {
+		iocoreva_attachinp(0x046, sb2_i044);
+		iocoreva_attachinp(0x047, sb2_i047);
+		iocoreva_attachout(0x046, sb2_o046);
+		iocoreva_attachout(0x047, sb2_o047);
+	}
 
 	iocoreva_attachout(0x19c, sb2_o19c);
 	iocoreva_attachout(0x19e, sb2_o19e);
+}
+
+void boardopnva_bind(void) {
+
+	boardsb_bind(FALSE);
+}
+
+void boardsb2_bind(void) {
+
+	boardsb_bind(TRUE);
 }

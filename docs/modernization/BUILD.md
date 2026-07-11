@@ -137,20 +137,21 @@ from MAME. No ROM placeholder is packaged.
 
 ## VA Configuration Prerequisites
 
-Before running the G11 VA checklist, ensure the portable `vaeg.cfg`
-selects the VA machine and VA Sound Board II:
+Before running the VA checklist, ensure the portable `vaeg.cfg` selects
+the VA machine and matching sound hardware:
 
 ```ini
 pc_model=88VA1
-SNDboard=200
+SNDboard=100
 clk_base=3993600
 clk_mult=2
 ```
 
-`pc_model=88VA2` is also valid. Missing or stale values can produce a V2
-halt, an FM-timer wait with no sound board bound, or the wrong clock
-domain. See `../../sdl2/README.md` for the full state directory and stale
-config warning policy.
+`SNDboard=100` is the VA built-in YM2203/OPN. A VA with Sound Board II
+uses `SNDboard=200`; `pc_model=88VA2` also uses `SNDboard=200` for its
+YM2608/OPNA. Missing or stale values can produce a V2 halt, an FM-timer
+wait with no sound hardware bound, or the wrong clock domain. See
+`../../sdl2/README.md` for the full state directory and warning policy.
 
 ## G11 Verification Notes
 

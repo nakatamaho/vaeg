@@ -91,7 +91,8 @@ the runtime `pccore` model state:
 - `clk_base` and `clk_mult` become `pccore.baseclock`, `pccore.multiple`,
   and `pccore.realclock`.
 - `SNDboard` becomes `pccore.sound`, which determines which sound board
-  binds during reset.
+  binds during reset. `100` selects the VA built-in YM2203/OPN path;
+  `200` selects the YM2608/OPNA path used by VA Sound Board II and VA2/VA3.
 - DIP switches and memory size affect CPU mode, extension memory, and HDD
   interface selection.
 
@@ -175,10 +176,12 @@ These calls are in `pccore.c:451-454`. The PC-88VA extended I/O table is
 implemented under `iova/`; `iova/iocoreva.c` provides the 16-bit decoded
 VA port dispatcher and the default unhandled-port trace path.
 
-Sound-board configuration matters for PC-88VA boot. A VA setup should use
-`SNDboard=200`; otherwise the VA Sound Board II does not bind, and software
-that waits on its FM timer can hang. The emulator warns about this stale
-configuration at SDL2 startup.
+Sound-hardware configuration matters for PC-88VA boot. VA defaults to
+`SNDboard=100` (built-in OPN) and may select `200` for Sound Board II.
+VA2/VA3 defaults to and requires `SNDboard=200` (OPNA). The emulator warns
+about invalid model/sound combinations at SDL2 startup. Selecting a boot
+model in the GUI applies that model's default; changing sound hardware
+performs a guest reset so the I/O ports and sound streams are rebound.
 
 ## Frame Execution
 

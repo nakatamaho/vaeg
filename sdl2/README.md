@@ -164,13 +164,20 @@ starts from a fully replayed board state; mounted FDD/SASI paths are retained.
 Timer/IRQ, SSG, ADPCM, rhythm, board I/O, and final mixing remain on the NP2
 path in this stage. Missing or unknown configuration values fall back to `ymfm`.
 
+This backend choice is independent of emulated sound hardware. The Sound
+menu also exposes `Sound hardware`: VA defaults to its built-in YM2203/OPN
+(`SNDboard=100`) and can select Sound Board II YM2608/OPNA
+(`SNDboard=200`). VA2/VA3 defaults to YM2608/OPNA; its OPN-only choice is
+disabled. Hardware changes reset the guest and preserve mounted media.
+
 ## VA Configuration Requirements
 
 For PC-88VA booting, check these keys in the selected configuration:
 
 - `pc_model=88VA1` or `pc_model=88VA2`: non-VA models can halt at V2.
-- `SNDboard=200`: other values leave the VA Sound Board II unbound and can
-  cause a silent hang in software that waits on the FM timer.
+- `SNDboard=100` for VA built-in OPN, or `200` for VA Sound Board II.
+- `SNDboard=200` for VA2/VA3 built-in OPNA. Other values can leave sound
+  hardware unbound and cause a silent hang in FM-timer waits.
 - `clk_base=3993600` and `clk_mult=2`: stale PC-98 clock settings put the
   VA in the wrong timing domain.
 

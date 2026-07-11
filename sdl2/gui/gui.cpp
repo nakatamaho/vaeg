@@ -219,8 +219,26 @@ static void select_opn_backend(UINT backend) {
 
 static void select_boot_model(const char *model) {
 
+	const UINT16 old_sound = np2cfg.SOUND_SW;
+
 	np2_select_boot_model(model);
+	if (np2cfg.SOUND_SW != old_sound) {
+		g_gui.sound_sw_saved = np2cfg.SOUND_SW;
+		soundrenewal = 1;
+	}
 	sysmng_update(SYS_UPDATECFG);
+	reset_guest();
+}
+
+static void select_sound_hardware(UINT16 sound) {
+
+	if (np2cfg.SOUND_SW == sound) {
+		return;
+	}
+	np2cfg.SOUND_SW = sound;
+	g_gui.sound_sw_saved = sound;
+	soundrenewal = 1;
+	sysmng_update(SYS_UPDATECFG | SYS_UPDATESBOARD);
 	reset_guest();
 }
 
@@ -1261,15 +1279,32 @@ static void draw_device_menu(void) {
 				if (enabled) {
 					g_gui.sound_sw_saved = np2cfg.SOUND_SW;
 					np2cfg.SOUND_SW = 0;
-					soundmng_stop();
 				}
 				else {
-					np2cfg.SOUND_SW = g_gui.sound_sw_saved ?
-										g_gui.sound_sw_saved : 4;
-					soundmng_play();
+					np2cfg.SOUND_SW =
+						np2_sound_hardware_valid(np2cfg.model,
+										g_gui.sound_sw_saved) ?
+						g_gui.sound_sw_saved :
+						np2_default_sound_for_model(np2cfg.model);
 				}
 				soundrenewal = 1;
 				sysmng_update(SYS_UPDATECFG | SYS_UPDATESBOARD);
+				reset_guest();
+			}
+			if (ImGui::BeginMenu("Sound hardware")) {
+				const bool va1 = milstr_cmp(np2cfg.model, str_VA1) == 0;
+				ImGui::BeginDisabled(!va1);
+				if (ImGui::MenuItem("VA built-in OPN (YM2203)", nullptr,
+								 np2cfg.SOUND_SW == FMBOARD_VA_OPN)) {
+					select_sound_hardware(FMBOARD_VA_OPN);
+				}
+				ImGui::EndDisabled();
+				if (ImGui::MenuItem(
+						"OPNA (YM2608: VA Sound Board II / VA2/VA3)",
+						nullptr, np2cfg.SOUND_SW == FMBOARD_VA_OPNA)) {
+					select_sound_hardware(FMBOARD_VA_OPNA);
+				}
+				ImGui::EndMenu();
 			}
 			bool motor = np2cfg.MOTOR != 0;
 			if (ImGui::MenuItem("Seek/motor sound", nullptr, motor)) {
@@ -1295,8 +1330,6 @@ static void draw_device_menu(void) {
 				}
 				ImGui::EndMenu();
 			}
-			ImGui::Separator();
-			menu_item_not_implemented("Board selection (not implemented)");
 			menu_item_not_implemented("Sound option... (not implemented)");
 			ImGui::EndMenu();
 		}
@@ -1431,6 +1464,7 @@ BOOL gui_initialize(void *window, void *renderer, const char *argv0) {
 		return FAILURE;
 	}
 	g_gui.renderer = static_cast<SDL_Renderer *>(renderer);
+	g_gui.sound_sw_saved = np2cfg.SOUND_SW;
 	if (!ImGui_ImplSDLRenderer2_Init(g_gui.renderer)) {
 		ImGui_ImplSDL2_Shutdown();
 		return FAILURE;

@@ -130,7 +130,30 @@ static void smoke_configure_va(void) {
 	np2cfg.multiple = 2;
 	np2cfg.ITF_WORK = 1;
 	np2cfg.EXTMEM = 1;
-	np2cfg.SOUND_SW = 0x0200;
+	np2cfg.SOUND_SW = FMBOARD_VA_OPNA;
+}
+
+UINT16 np2_default_sound_for_model(const char *model) {
+
+	if (milstr_cmp(model, str_VA1) == 0) {
+		return(FMBOARD_VA_OPN);
+	}
+	if (milstr_cmp(model, str_VA2) == 0) {
+		return(FMBOARD_VA_OPNA);
+	}
+	return(0x0004);
+}
+
+BOOL np2_sound_hardware_valid(const char *model, UINT16 sound) {
+
+	if (milstr_cmp(model, str_VA1) == 0) {
+		return((sound == FMBOARD_VA_OPN) ||
+			   (sound == FMBOARD_VA_OPNA));
+	}
+	if (milstr_cmp(model, str_VA2) == 0) {
+		return(sound == FMBOARD_VA_OPNA);
+	}
+	return(sound != FMBOARD_NONE);
 }
 
 static BOOL config_selects_va(void) {
@@ -159,11 +182,12 @@ static void warn_va_config_sanity(void) {
 				"(current=%u); stale configs can run in the wrong "
 				"clock domain.\n", np2cfg.multiple);
 	}
-	if (np2cfg.SOUND_SW != 0x0200) {
+	if (!np2_sound_hardware_valid(np2cfg.model, np2cfg.SOUND_SW)) {
 		fprintf(stderr,
-				"WARNING: PC-88VA config expects SNDboard=200 "
-				"(current=%03x); stale configs can leave the VA "
-				"Sound Board II unbound.\n", np2cfg.SOUND_SW);
+					"WARNING: PC-88VA sound hardware is invalid for %s "
+					"(SNDboard=%03x; expected=%03x).\n", np2cfg.model,
+					np2cfg.SOUND_SW,
+					np2_default_sound_for_model(np2cfg.model));
 	}
 }
 
@@ -359,12 +383,17 @@ BOOL np2_select_boot_model(const char *model) {
 
 	char	missing[MAX_PATH];
 	BOOL	result;
+	BOOL	changed;
 
 	if ((milstr_cmp(model, str_VA1) != 0) &&
 		(milstr_cmp(model, str_VA2) != 0)) {
 		return(FAILURE);
 	}
+	changed = (milstr_cmp(np2cfg.model, model) != 0);
 	file_cpyname(np2cfg.model, model, sizeof(np2cfg.model));
+	if (changed) {
+		np2cfg.SOUND_SW = np2_default_sound_for_model(model);
+	}
 	result = resolve_model_rompath(missing, sizeof(missing));
 	report_model_rompath(result, missing);
 	return(result);

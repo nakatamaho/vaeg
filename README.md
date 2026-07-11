@@ -119,21 +119,24 @@ across architectures, compilers, or build families; do not move a state
 file between 32-bit and 64-bit builds, between legacy and portable
 builds, or between different host platforms and expect it to load.
 
-For PC-88VA booting, `vaeg.cfg` should select the VA machine, VA Sound
-Board II, and the VA clock domain:
+For PC-88VA booting, `vaeg.cfg` should select the VA machine, its sound
+hardware, and the VA clock domain:
 
 ```ini
 pc_model=88VA1
-SNDboard=200
+SNDboard=100
 clk_base=3993600
 clk_mult=2
 ```
 
-`pc_model=88VA2` is also valid. Stale PC-98 defaults can halt at V2,
-leave the VA sound board unbound, or run in the wrong clock domain.
-The GUI exposes `Emulate -> Boot model -> VA / VA2/VA3`; changing the
-selection updates `pc_model`, selects the matching ROM filename set, and
-resets the guest while retaining configured FDD and SASI media.
+`SNDboard=100` selects the VA built-in YM2203/OPN. Use `SNDboard=200`
+for a VA with Sound Board II, or with `pc_model=88VA2` for the built-in
+YM2608/OPNA. Stale PC-98 defaults can halt at V2, leave the VA sound
+hardware unbound, or run in the wrong clock domain. The GUI exposes
+`Emulate -> Boot model -> VA / VA2/VA3`; changing the model selects its
+default sound hardware (VA OPN, VA2/VA3 OPNA), selects the matching ROM
+filename set, and resets the guest while retaining configured FDD and
+SASI media. `Sound -> Sound hardware` can add Sound Board II to a VA.
 
 ## PC-88VA Hardware Notes
 

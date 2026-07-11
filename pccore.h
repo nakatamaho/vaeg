@@ -38,6 +38,10 @@ enum {
 	PCMODEL_VA1			= 1,
 	PCMODEL_VA2			= 2,
 
+	FMBOARD_NONE		= 0x0000,
+	FMBOARD_VA_OPN		= 0x0100,
+	FMBOARD_VA_OPNA	= 0x0200,
+
 };
 
 
