@@ -24,11 +24,11 @@ POSSIBILITY OF SUCH DAMAGE.
 -->
 # M19 - Consolidate the portable runtime and VA sound hardware
 
-Status: implementation complete; G19 pending
+Status: complete
 
 Branch: `main` (the four implementation commits were integrated directly)
 
-Gate: G19 human
+Gate: G19 passed
 
 Depends on: G18 passed.
 
@@ -209,7 +209,10 @@ G19 is a human portable-runtime and VA-sound gate:
 - boot an OS and perform simple disk and keyboard operations;
 - exit cleanly.
 
-G19 passes only after the maintainer reports these checks passed.
+G19 passed after the maintainer verified the portable distribution and
+startup behavior, configuration and backup-memory precedence, VA and VA2/VA3
+sound-hardware selection, media retention, and the standard VA regression
+checklist.
 
 ## Commit record
 
@@ -229,4 +232,3 @@ e50fbbd M19: add model-aware VA OPN and OPNA selection
   `SDL2::SDL2-static`; system development packages may remain shared.
 - An executable-local backup file is intentionally writable portable state;
   using it under a protected installation directory can make saves fail.
-
