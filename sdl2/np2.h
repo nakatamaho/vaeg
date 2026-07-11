@@ -48,6 +48,7 @@ typedef struct {
 	BYTE	keyboard_tenkey_overlay;
 	char	keyboard_custom_map[NP2OSCFG_KEYBOARD_CUSTOM_MAP_SIZE];
 	char	opn_backend[NP2OSCFG_OPN_BACKEND_NAME_SIZE];
+	BYTE	sound_enabled;
 } NP2OSCFG;
 
 #if defined(SIZE_QVGA)

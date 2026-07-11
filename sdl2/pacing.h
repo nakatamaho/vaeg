@@ -22,20 +22,27 @@
  * IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-#include	"compiler.h"
-#include	"sysmng.h"
-#include	"taskmng.h"
+#ifndef VAEG_SDL2_PACING_H
+#define VAEG_SDL2_PACING_H
 
-	UINT	sys_updates;
+typedef struct {
+	BOOL fast_forward_held;
+} VAEG_PACING_STATE;
 
-void sysmng_cpureset(void) {
+#ifdef __cplusplus
+extern "C" {
+#endif
 
-	taskmng_clear_fast_forward();
-	sys_updates &= (SYS_UPDATECFG | SYS_UPDATEOSCFG);
+void vaeg_pacing_reset(VAEG_PACING_STATE *state);
+BOOL vaeg_pacing_key(VAEG_PACING_STATE *state, UINT scancode,
+							 BOOL pressed, BOOL repeat);
+BOOL vaeg_pacing_effective_nowait(const VAEG_PACING_STATE *state,
+												BOOL configured_nowait);
+UINT vaeg_pacing_effective_drawskip(const VAEG_PACING_STATE *state,
+												 UINT configured_drawskip);
+
+#ifdef __cplusplus
 }
+#endif
 
-void sysmng_modeled(BYTE num, BYTE sw) {
-
-	(void)num;
-	(void)sw;
-}
+#endif

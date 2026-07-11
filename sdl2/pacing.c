@@ -23,19 +23,49 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 #include	"compiler.h"
-#include	"sysmng.h"
-#include	"taskmng.h"
+#include	"sdlapi.h"
+#include	"pacing.h"
 
-	UINT	sys_updates;
+enum {
+	VAEG_FAST_FORWARD_DRAWSKIP = 16
+};
 
-void sysmng_cpureset(void) {
+void vaeg_pacing_reset(VAEG_PACING_STATE *state) {
 
-	taskmng_clear_fast_forward();
-	sys_updates &= (SYS_UPDATECFG | SYS_UPDATEOSCFG);
+	if (state != NULL) {
+		state->fast_forward_held = FALSE;
+	}
 }
 
-void sysmng_modeled(BYTE num, BYTE sw) {
+BOOL vaeg_pacing_key(VAEG_PACING_STATE *state, UINT scancode,
+							 BOOL pressed, BOOL repeat) {
 
-	(void)num;
-	(void)sw;
+	if ((state == NULL) || (scancode != SDL_SCANCODE_F11)) {
+		return(FALSE);
+	}
+	if (pressed) {
+		if (!repeat) {
+			state->fast_forward_held = TRUE;
+		}
+	}
+	else {
+		state->fast_forward_held = FALSE;
+	}
+	return(TRUE);
+}
+
+BOOL vaeg_pacing_effective_nowait(const VAEG_PACING_STATE *state,
+												BOOL configured_nowait) {
+
+	return(((state != NULL) && state->fast_forward_held) ||
+											configured_nowait);
+}
+
+UINT vaeg_pacing_effective_drawskip(const VAEG_PACING_STATE *state,
+												 UINT configured_drawskip) {
+
+	if ((state != NULL) && state->fast_forward_held) {
+		return(VAEG_FAST_FORWARD_DRAWSKIP);
+	}
+	return(configured_drawskip);
 }

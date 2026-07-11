@@ -57,7 +57,7 @@ Unimplemented Win32 features remain visible as disabled stubs with
 | Reset | `&Emulate` / `IDM_RESET`; `win9x/np2.cpp:699` | Main menu command | `done` | SDL2 has no `np2oscfg.comfirm` prompt setting yet, so the command resets immediately. |
 | State save/load | Dynamic flag menu in `win9x/menu.cpp:250`; handler in `win9x/np2.cpp:1422` | Save/load slots | `done` | SDL2 exposes 10 slots matching Win32 `SUPPORT_STATSAVE`. |
 | Display scale and aspect | Win32 window/fullscreen plus system screen multiple controls in `win9x/menu.cpp:107` | x1/x2/x3, aspect toggle | `done` | This is an SDL2-specific projection of the Win32 screen controls, persisted in the SDL2 ini. |
-| Sound on/off, hardware, and volume | Sound board enable menu in `win9x/np2.rc:892`; mixer dialog `IDD_SNDMIX` | Sound enable, VA OPN/OPNA selection, and master volume UI | `done` | VA defaults to built-in OPN and can select Sound Board II OPNA; VA2/VA3 defaults to OPNA. Full board jumper pages are `later`. |
+| Sound on/off, hardware, and volume | Sound board enable menu in `win9x/np2.rc:892`; mixer dialog `IDD_SNDMIX` | Host audio enable, VA OPN/OPNA selection, and master volume UI | `done` | Sound on/off pauses host output without detaching guest hardware. VA defaults to built-in OPN and can select Sound Board II OPNA; VA2/VA3 defaults to OPNA. Full board jumper pages are `later`. |
 | Key/joystick config, minimal | Keyboard menu in `win9x/np2.rc:872`; sound pad page in `IDD_SNDPAD1` | Keyboard/joystick mode and minimal mappings | `done` | M10 implements SDL key/joy mode and F12 binding. Mechanical keys and joystick rapid settings are `later`. |
 | Exit | `&Emulate` / `IDM_EXIT`; `win9x/np2.cpp:752` | Main menu command | `done` | Reuses the same `taskmng_exit()` shutdown path as SDL2 quit and smoke exit. |
 
@@ -65,11 +65,11 @@ Unimplemented Win32 features remain visible as disabled stubs with
 
 | Win32 menu | Items | Status | Notes |
 |---|---|---|---|
-| Emulate | Reset; Configure; NewDisk; Font; Exit | Reset and Exit `done`; others `later` | Configure covers base clock, model, sampling rate, sound buffer, resize, MMX, confirm, resume. Font selection is not the ImGui Japanese font decision. |
+| Emulate | Reset; Configure; NewDisk; Font; Exit | Reset, CPU/SGP Configure, and Exit `done`; others `later` | M20 Configure covers fixed VA base clock, independent CPU/SGP execution speed, validation, persistence, and reset. Sampling rate, sound buffer, resize, MMX, confirm, and resume remain later. Font selection is not the ImGui Japanese font decision. |
 | FDD dynamic menu | FDD1-FDD4 Open/Eject | FDD1/FDD2 `done`; FDD3/FDD4 `later` | FDD1/FDD2 are required for G10. |
 | HardDisk | New SASI image; SASI1/SASI2 Open/Remove | SASI HDI create and SASI1/SASI2 Open/Remove `done`; SCSI/IDE `later` | M16 restores SASI through `HDD1FILE`/`HDD2FILE`; reset is the reliable apply point after changing images. |
 | SCSI dynamic menu | SCSI0-SCSI3 Open/Remove | `later` | Added dynamically when SCSI support is compiled. |
-| Screen | Window; FullScreen; rotation; display vsync; real palettes; no wait; frame skip; screen option | Display scale/aspect `done`; rest `later` | Screen option dialog has LCD/skipline, GDC/GRCG/color, wait-state and real palette pages. |
+| Screen | Window; FullScreen; rotation; display vsync; real palettes; no wait; frame skip; screen option | Display scale/aspect, No Wait, and frame skip `done`; rest `later` | M20 keeps No Wait in host pacing and maps frame skip to Auto/Full/1/2/1/3/1/4 without changing guest timing. Screen option dialog has LCD/skipline, GDC/GRCG/color, wait-state and real palette pages. |
 | Device / Keyboard | Keyboard/JoyKey modes; mechanical SHIFT/CTRL/GRPH; F12 mapping; Alt-right mapping; host-layout mapping mode | Host-layout mapping and binding table `done`; mechanical key options `later` | M14 implements JIS/US/custom SDL scancode mapping, Kana modes, and Roman-Kana helper. Mechanical SHIFT/CTRL/GRPH mode options remain later. |
 | Device / Sound | Beep level; disable boards; VA Sound Board 2; PC-9801 boards; JAST; seek sound | Sound on/off, VA OPN/OPNA hardware, backend, volume, and seek sound `done`; rest `later` | Hardware selection is model-aware: OPN is VA-only, while OPNA represents VA Sound Board II and VA2/VA3. Detailed jumper pages remain later. |
 | Device / Memory | 640KB, 1.6MB, 3.6MB, 7.6MB | `later` | Win32 command handler also contains 11.6MB and 13.6MB cases. |
@@ -83,7 +83,7 @@ Unimplemented Win32 features remain visible as disabled stubs with
 
 | Dialog/resource | Implementation | Function summary | Status |
 |---|---|---|---|
-| `IDD_CONFIG` | `win9x/dialog/d_config.cpp` | Base clock, multiplier, model, sampling rate, sound buffer, resize, MMX, confirm, resume | `later` |
+| `IDD_CONFIG` | `win9x/dialog/d_config.cpp` | Base clock, multiplier, model, sampling rate, sound buffer, resize, MMX, confirm, resume | CPU/SGP execution speed `done`; remaining fields `later` |
 | `IDD_NEWDISK`, `IDD_NEWDISK2`, `IDD_NEWHDDDISK`, `IDD_NEWSASI` | `win9x/dialog/d_disk.cpp` | Create floppy/HDD image files | SASI HDI creation `done`; floppy, THD/NHD, and SCSI creation `later` |
 | FDD/HDD file selectors | `win9x/dialog/d_disk.cpp` | Open FDD, SASI/IDE, SCSI images | FDD1/FDD2 and SASI1/SASI2 `done`; SCSI/IDE `later` |
 | `IDD_SCROPT1` | `win9x/dialog/d_screen.cpp` | LCD mode, skipline, skiplight | `later` |

@@ -32,6 +32,7 @@
 #include	"pccore.h"
 #include	"sound.h"
 #include	"opngen.h"
+#include	"sgp.h"
 
 
 typedef struct {
@@ -373,6 +374,8 @@ static const INITBL iniitem[] = {
 													sizeof(np2cfg.model)},
 	{"clk_base", INITYPE_SINT32,	&np2cfg.baseclock,		0},
 	{"clk_mult", INITYPE_SINT32,	&np2cfg.multiple,		0},
+	{"sgp_mode", INITYPE_UINT8,		&np2cfg.sgp_speed_mode,	0},
+	{"sgp_mult", INITYPE_UINT8,		&np2cfg.sgp_multiplier,	0},
 
 	{"DIPswtch", INITYPE_BYTEARG,	np2cfg.dipsw,			3},
 	{"MEMswtch", INITYPE_BYTEARG,	np2cfg.memsw,			8},
@@ -460,6 +463,7 @@ static const INITBL iniitem[] = {
 						sizeof(np2oscfg.keyboard_custom_map)},
 	{"opn_backend", INITYPE_STR, np2oscfg.opn_backend,
 						sizeof(np2oscfg.opn_backend)},
+	{"sound_enabled", INITYPE_BOOL, &np2oscfg.sound_enabled, 0},
 };
 
 #define	INIITEMS	(sizeof(iniitem) / sizeof(INITBL))
@@ -476,6 +480,20 @@ void initload(void) {
 		np2oscfg.gui_scale = 1;
 	}
 	np2oscfg.gui_aspect = np2oscfg.gui_aspect ? 1 : 0;
+	if (!sgp_speed_mode_valid(np2cfg.sgp_speed_mode)) {
+		np2cfg.sgp_speed_mode = SGP_SPEED_MODEL_DEFAULT;
+	}
+	if (!sgp_speed_multiplier_valid(np2cfg.sgp_multiplier)) {
+		np2cfg.sgp_multiplier = 1;
+	}
+	if (!np2_sound_hardware_valid(np2cfg.model, np2cfg.SOUND_SW)) {
+		SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION,
+				"Invalid SNDboard=%03x for %s; using model default %03x",
+				np2cfg.SOUND_SW, np2cfg.model,
+				np2_default_sound_for_model(np2cfg.model));
+		np2cfg.SOUND_SW = np2_default_sound_for_model(np2cfg.model);
+	}
+	np2oscfg.sound_enabled = np2oscfg.sound_enabled ? 1 : 0;
 	np2oscfg.keyboard_auto_kana_lock =
 		np2oscfg.keyboard_auto_kana_lock ? 1 : 0;
 	np2oscfg.keyboard_tenkey_overlay =

@@ -52,6 +52,12 @@ typedef struct {
 } _SGP, *SGP;
 
 enum {
+	SGP_SPEED_MODEL_DEFAULT = 0,
+	SGP_SPEED_FOLLOW_CPU = 1,
+	SGP_SPEED_CUSTOM = 2,
+	SGP_SPEED_MODE_COUNT = 3,
+	SGP_SPEED_MULTIPLIER_MAX = 16,
+
 	SGP_INTF	= 0x04,	// 割り込み許可
 	SGP_ABORT	= 0x02, // 中断要求
 
@@ -72,6 +78,13 @@ extern "C" {
 #endif
 
 void sgp_step(void);
+BOOL sgp_speed_mode_valid(UINT mode);
+BOOL sgp_speed_multiplier_valid(UINT multiple);
+BOOL sgp_speed_ratio(UINT mode, UINT custom_multiple, UINT cpu_multiple,
+							UINT32 *numerator, UINT32 *denominator);
+UINT32 sgp_model_clock(UINT model_va);
+void sgp_configure_speed(void);
+UINT64 sgp_scale_elapsed(UINT32 elapsed);
 
 void sgp_reset(void);
 void sgp_bind(void);

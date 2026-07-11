@@ -1,4 +1,8 @@
 
+#include	"clockscale.h"
+
+extern CLOCKSCALE pccore_cpu_scale;
+
 #if defined(X11) && (defined(i386) || defined(__i386__))
 #define	INHIBIT_WORDP(m)	((m) >= (I286_MEMWRITEMAX - 1))
 #elif (defined(ARM) || defined(X11)) && defined(BYTESEX_LITTLE)
@@ -134,7 +138,8 @@ extern UINT calc_a(UINT op, UINT32 *seg);
 		DS_FIX = DS_BASE;
 
 
-#define	I286_WORKCLOCK(c)	I286_REMCLOCK -= (c)
+#define	I286_WORKCLOCK(c)	I286_REMCLOCK -= (SINT32)clockscale_apply( \
+											&pccore_cpu_scale, (UINT32)(c))
 
 
 #define	GET_PCBYTE(b)												\
@@ -503,4 +508,3 @@ extern UINT calc_a(UINT op, UINT32 *seg);
 #define	SEGSELECT(c)	((I286_MSW & MSW_PE)?i286c_selector(c):((c) << 4))
 
 #define	INT_NUM(a, b)	i286c_intnum((a), (REG16)(b))
-

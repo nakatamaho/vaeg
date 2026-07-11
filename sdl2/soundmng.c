@@ -36,6 +36,7 @@
 
 typedef struct {
 	BOOL				opened;
+	BOOL				enabled;
 	SDL_AudioDeviceID	device;
 	int					nsndbuf;
 	int					samples;
@@ -155,7 +156,7 @@ void soundmng_destroy(void) {
 void soundmng_play(void) {
 
 	if (soundmng.opened) {
-		SDL_PauseAudioDevice(soundmng.device, 0);
+		SDL_PauseAudioDevice(soundmng.device, soundmng.enabled ? 0 : 1);
 	}
 }
 
@@ -166,7 +167,22 @@ void soundmng_stop(void) {
 	}
 }
 
+void soundmng_setenabled(BOOL enabled) {
+
+	soundmng.enabled = enabled ? TRUE : FALSE;
+	if (soundmng.opened) {
+		SDL_PauseAudioDevice(soundmng.device, soundmng.enabled ? 0 : 1);
+	}
+}
+
+BOOL soundmng_isenabled(void) {
+
+	return(soundmng.enabled);
+}
+
 void soundmng_initialize(void) {
+
+	soundmng.enabled = TRUE;
 }
 
 void soundmng_deinitialize(void) {

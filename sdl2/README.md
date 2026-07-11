@@ -148,9 +148,46 @@ exists, backup memory uses the user state directory. There is no ROM-path
 migration fallback. Fixed GUI save-state slots and keyboard sidecars
 remain in the user state directory.
 
+## Execution Speed And Pacing
+
+`Emulate -> Configure...` keeps the VA base clock fixed at 3.9936 MHz and
+sets independent execution capacity for the V30 and SGP. CPU x2 is the
+standard 7.9872 MHz setting for VA, VA2, and VA3. CPU x1-x32 changes only the
+amount of V30 work available per unit of machine time. Unlike the CPU, the
+SGP model-default clock differs by model.
+
+SGP speed has three modes:
+
+- `Model default`: 3.9936 MHz for VA and 7.9872 MHz for VA2/VA3,
+  independent of CPU;
+- `Follow CPU`: scales Model default by `clk_mult / 2`;
+- `Custom`: scales Model default by an integer x1-x16.
+
+These nominal clocks correspond to the 4 MHz and 8 MHz model clocks recorded
+in [Inside PC-88VA Wiki section 4.4.6](http://www.pc88.gr.jp/inside88va/wiki/index.php?%A5%B0%A5%E9%A5%D5%A5%A3%A5%C3%A5%AF).
+The GUI displays both the relative scale and effective clock. CPU and SGP
+changes reset the guest through the media-preserving reset path. The settings
+are stored as:
+
+```ini
+clk_base=3993600
+clk_mult=2
+sgp_mode=0
+sgp_mult=1
+```
+
+CPU or SGP scaling does not change VBlank/TSP timing, sound pitch and timers,
+FDD timing, RTC, or normal one-to-one host pacing. `Screen -> No Wait` removes
+host waiting. `Screen -> Frame skip` selects Auto, Full frame, 1/2, 1/3, or
+1/4 presentation without changing guest time. Holding F11 temporarily uses
+No Wait and draw skip 16; releasing F11, losing focus, resetting, loading a
+state, or quitting clears the temporary mode. F11 is never sent to the guest
+and the saved No Wait/frame-skip/CPU/SGP values are not overwritten.
+
 ## OPN/OPNA FM Backend
 
-The Sound menu exposes `OPN backend -> NP2` and `OPN backend -> ymfm`.
+The Sound menu exposes `FM sound backend -> NP2` and
+`FM sound backend -> ymfm`.
 The selection is saved in the selected `vaeg.cfg` as:
 
 ```ini
@@ -165,10 +202,15 @@ Timer/IRQ, SSG, ADPCM, rhythm, board I/O, and final mixing remain on the NP2
 path in this stage. Missing or unknown configuration values fall back to `ymfm`.
 
 This backend choice is independent of emulated sound hardware. The Sound
-menu also exposes `Sound hardware`: VA defaults to its built-in YM2203/OPN
+menu also exposes `FM sound OPN/OPNA`: VA defaults to its built-in YM2203/OPN
 (`SNDboard=100`) and can select Sound Board II YM2608/OPNA
 (`SNDboard=200`). VA2/VA3 defaults to YM2608/OPNA; its OPN-only choice is
 disabled. Hardware changes reset the guest and preserve mounted media.
+
+`Sound on/off` pauses or resumes host audio output without removing the
+selected guest OPN/OPNA hardware. The choice is stored separately as
+`sound_enabled`; `SNDboard` always remains a valid hardware value so FM timer
+polling software continues to run while output is muted.
 
 ## VA Configuration Requirements
 
@@ -178,8 +220,8 @@ For PC-88VA booting, check these keys in the selected configuration:
 - `SNDboard=100` for VA built-in OPN, or `200` for VA Sound Board II.
 - `SNDboard=200` for VA2/VA3 built-in OPNA. Other values can leave sound
   hardware unbound and cause a silent hang in FM-timer waits.
-- `clk_base=3993600` and `clk_mult=2`: stale PC-98 clock settings put the
-  VA in the wrong timing domain.
+- `clk_base=3993600`; `clk_mult=2` is standard, while x1-x32 selects V30
+  execution capacity without changing machine/peripheral time.
 
 The frontend logs prominent warnings for stale VA sound-board or clock
 settings. It never rewrites the user's configuration silently.
