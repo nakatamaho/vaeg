@@ -23,6 +23,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 #include	"compiler.h"
+#include	"sdlapi.h"
 #include	"strres.h"
 #include	"profile.h"
 #include	"np2.h"
@@ -310,11 +311,61 @@ const INITBL	*pterm;
 // ----
 
 static const char ini_title[] = "NekoProjectII";
-static const char inifile[] = "np2.cfg";
+static const char config_file[] = "vaeg.cfg";
+static char active_config_path[MAX_PATH];
 
-static void getinipath(char *path, int size) {
+static BOOL config_exists(const char *path) {
 
-	file_getstatepath(path, size, inifile);
+	short attr;
+
+	attr = file_attr(path);
+	return((attr >= 0) && !(attr & FILEATTR_DIRECTORY));
+}
+
+static BOOL get_executable_config_path(char *path, int size,
+										const char *name) {
+
+	char *base;
+
+	base = SDL_GetBasePath();
+	if (base == NULL) {
+		path[0] = '\0';
+		return(FAILURE);
+	}
+	file_cpyname(path, base, size);
+	SDL_free(base);
+	file_catname(path, name, size);
+	return(SUCCESS);
+}
+
+static void get_user_config_path(char *path, int size, const char *name) {
+
+	file_getstatepath(path, size, name);
+}
+
+static void select_config_path(char *read_path, int size) {
+
+	char candidate[MAX_PATH];
+
+	active_config_path[0] = '\0';
+	if ((get_executable_config_path(candidate, sizeof(candidate),
+						config_file) == SUCCESS) && config_exists(candidate)) {
+		file_cpyname(read_path, candidate, size);
+		file_cpyname(active_config_path, candidate,
+											sizeof(active_config_path));
+		return;
+	}
+	get_user_config_path(candidate, sizeof(candidate), config_file);
+	if (config_exists(candidate)) {
+		file_cpyname(read_path, candidate, size);
+		file_cpyname(active_config_path, candidate,
+											sizeof(active_config_path));
+		return;
+	}
+	get_user_config_path(candidate, sizeof(candidate), config_file);
+	file_cpyname(read_path, candidate, size);
+	file_cpyname(active_config_path, candidate,
+											sizeof(active_config_path));
 }
 
 static const INITBL iniitem[] = {
@@ -418,7 +469,8 @@ void initload(void) {
 
 	char	path[MAX_PATH];
 
-	getinipath(path, sizeof(path));
+	select_config_path(path, sizeof(path));
+	SDL_Log("Config load: %s", path);
 	ini_read(path, ini_title, iniitem, INIITEMS);
 	if ((np2oscfg.gui_scale < 1) || (np2oscfg.gui_scale > 3)) {
 		np2oscfg.gui_scale = 1;
@@ -436,8 +488,9 @@ void initload(void) {
 
 void initsave(void) {
 
-	char	path[MAX_PATH];
-
-	getinipath(path, sizeof(path));
-	ini_write(path, ini_title, iniitem, INIITEMS);
+	if (active_config_path[0] == '\0') {
+		get_user_config_path(active_config_path,
+							sizeof(active_config_path), config_file);
+	}
+	ini_write(active_config_path, ini_title, iniitem, INIITEMS);
 }

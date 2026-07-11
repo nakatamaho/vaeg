@@ -43,10 +43,11 @@ guest keyboard protocol or writing directly into guest text buffers.
 - Use SDL scancodes for guest input mapping. Do not use SDL key symbols
   as guest keys.
 - Store custom host bindings by SDL scancode name, not numeric scancode
-  values. GUI-edited bindings are persisted in `keyboard.map` beside
-  `np2.cfg`, with `keyboard_custom_map=file:keyboard.map` as the INI
-  pointer, so long binding tables do not exceed the legacy INI reader's
-  practical line length.
+  values. GUI-edited bindings are persisted in `keyboard.map` in the
+  portable user-state directory, with
+  `keyboard_custom_map=file:keyboard.map` as the INI pointer, so long
+  binding tables do not exceed the legacy INI reader's practical line
+  length. Executable-local configuration does not relocate the sidecar.
 - Use QUASI88 only as semantic naming reference for PC-8801-style key
   roles. Do not copy QUASI88 numeric `KEY88_*` values.
 - Prove VA guest key codes from this repository, primarily

@@ -114,12 +114,15 @@ cmake --build --preset macos-asan
 
 ## Runtime State And Config
 
-`np2.cfg`, `vabkupmem.dat`, and fixed GUI save-state slots are stored in
+`vaeg.cfg`, `vabkupmem.dat`, and fixed GUI save-state slots are stored in
 the portable per-user state directory:
 
 - Linux: `$XDG_CONFIG_HOME/vaeg` or `$HOME/.config/vaeg`
 - Windows: `%APPDATA%\vaeg`
 - macOS: `~/Library/Application Support/vaeg`
+
+An executable-local `vaeg.cfg` overrides the user-state configuration.
+Other writable state remains in the user directory.
 
 `vabkupmem.dat` loads from that state directory first and falls back to
 the ROM path once for migration; saves always go to the state directory.
@@ -141,7 +144,7 @@ names. The current working directory is accepted only as a development
 fallback. The frontend compares ROM size, CRC32, and SHA-1 with MAME and
 warns without aborting when a file differs.
 
-For VA booting, `np2.cfg` must use:
+For VA booting, `vaeg.cfg` must use:
 
 ```ini
 pc_model=88VA1
@@ -155,8 +158,8 @@ a silent FM-timer hang, or the wrong clock domain. Startup logs warn
 about stale VA `SNDboard` and clock settings but do not rewrite the
 user's configuration.
 
-Configuration files are UTF-8 only in the portable frontend. Reading old
-CP932 `np2.ini` files from the legacy lineage is out of scope for phase 2.
+Configuration files are UTF-8 only in the portable frontend. Obsolete
+`np2.ini`, `np2.cfg`, and `vaeg.ini` files are not read.
 
 ## Known Issue
 

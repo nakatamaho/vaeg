@@ -53,7 +53,7 @@ KANA lock mirror is active.
 FDD1/FDD2 Open and Eject act immediately through the existing floppy
 mount path. The GUI Reset command reapplies the mounted FDD paths after
 the core reset. The paths are saved as `FDD1FILE` / `FDD2FILE` in
-`np2.cfg`, so mounted FDDs are restored across reset and application
+`vaeg.cfg`, so mounted FDDs are restored across reset and application
 restart; Eject clears the corresponding saved path.
 
 HardDisk -> New SASI image creates HDI images through the existing
@@ -61,7 +61,7 @@ HardDisk -> New SASI image creates HDI images through the existing
 geometry choices and refuses to overwrite an existing file.
 
 HardDisk -> SASI-1/SASI-2 Open updates `HDD1FILE` / `HDD2FILE` in
-`np2.cfg` through the existing `diskdrv_sethdd()` path. Remove clears the
+`vaeg.cfg` through the existing `diskdrv_sethdd()` path. Remove clears the
 same key. Reset the guest after changing a SASI image; reset is the
 reliable point where `sxsi_open()`, `PCHDD_SASI`, and `sasiio_bind()` are
 rebuilt for the guest. The configured SASI image path is retained across
@@ -71,7 +71,7 @@ remain later items.
 ## Sound Menu
 
 Sound -> OPN backend selects `NP2` or `ymfm` and persists the choice as
-`opn_backend` in `np2.cfg`. Both engines mirror FM register writes, so changing
+`opn_backend` in `vaeg.cfg`. Both engines mirror FM register writes, so changing
 the output selector uses the existing guest-reset flow to rebuild the selected
 synthesizer from a clean board state while retaining mounted FDD/SASI paths.
 The ymfm option currently replaces only YM2203/YM2608 FM operator synthesis;
