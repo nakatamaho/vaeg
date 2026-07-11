@@ -203,6 +203,11 @@ menu also exposes `FM sound OPN/OPNA`: VA defaults to its built-in YM2203/OPN
 (`SNDboard=200`). VA2/VA3 defaults to YM2608/OPNA; its OPN-only choice is
 disabled. Hardware changes reset the guest and preserve mounted media.
 
+`Sound on/off` pauses or resumes host audio output without removing the
+selected guest OPN/OPNA hardware. The choice is stored separately as
+`sound_enabled`; `SNDboard` always remains a valid hardware value so FM timer
+polling software continues to run while output is muted.
+
 ## VA Configuration Requirements
 
 For PC-88VA booting, check these keys in the selected configuration:

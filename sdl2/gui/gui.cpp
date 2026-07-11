@@ -142,7 +142,6 @@ struct GuiState {
 	char new_sasi_path[MAX_PATH] = {};
 	std::string state_status;
 	std::string keyboard_status;
-	UINT sound_sw_saved = 0;
 	bool keyboard_config_open = false;
 	int capture_binding = -1;
 	SDL_Scancode capture_swallow = SDL_SCANCODE_UNKNOWN;
@@ -388,7 +387,6 @@ static void select_boot_model(const char *model) {
 
 	np2_select_boot_model(model);
 	if (np2cfg.SOUND_SW != old_sound) {
-		g_gui.sound_sw_saved = np2cfg.SOUND_SW;
 		soundrenewal = 1;
 	}
 	sysmng_update(SYS_UPDATECFG);
@@ -401,7 +399,6 @@ static void select_sound_hardware(UINT16 sound) {
 		return;
 	}
 	np2cfg.SOUND_SW = sound;
-	g_gui.sound_sw_saved = sound;
 	soundrenewal = 1;
 	sysmng_update(SYS_UPDATECFG | SYS_UPDATESBOARD);
 	reset_guest();
@@ -1488,22 +1485,11 @@ static void draw_device_menu(void) {
 				}
 				ImGui::EndMenu();
 			}
-			bool enabled = np2cfg.SOUND_SW != 0;
+			bool enabled = soundmng_isenabled() ? true : false;
 			if (ImGui::MenuItem("Sound on/off", nullptr, enabled)) {
-				if (enabled) {
-					g_gui.sound_sw_saved = np2cfg.SOUND_SW;
-					np2cfg.SOUND_SW = 0;
-				}
-				else {
-					np2cfg.SOUND_SW =
-						np2_sound_hardware_valid(np2cfg.model,
-										g_gui.sound_sw_saved) ?
-						g_gui.sound_sw_saved :
-						np2_default_sound_for_model(np2cfg.model);
-				}
-				soundrenewal = 1;
-				sysmng_update(SYS_UPDATECFG | SYS_UPDATESBOARD);
-				reset_guest();
+				np2oscfg.sound_enabled = enabled ? 0 : 1;
+				soundmng_setenabled(np2oscfg.sound_enabled ? TRUE : FALSE);
+				sysmng_update(SYS_UPDATEOSCFG);
 			}
 			bool motor = np2cfg.MOTOR != 0;
 			if (ImGui::MenuItem("Seek/motor sound", nullptr, motor)) {
@@ -1652,7 +1638,6 @@ BOOL gui_initialize(void *window, void *renderer, const char *argv0) {
 		return FAILURE;
 	}
 	g_gui.renderer = static_cast<SDL_Renderer *>(renderer);
-	g_gui.sound_sw_saved = np2cfg.SOUND_SW;
 	if (!ImGui_ImplSDLRenderer2_Init(g_gui.renderer)) {
 		ImGui_ImplSDL2_Shutdown();
 		return FAILURE;

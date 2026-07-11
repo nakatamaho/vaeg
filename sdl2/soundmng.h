@@ -41,6 +41,8 @@ void soundmng_destroy(void);
 #define soundmng_reset()
 void soundmng_play(void);
 void soundmng_stop(void);
+void soundmng_setenabled(BOOL enabled);
+BOOL soundmng_isenabled(void);
 #define soundmng_sync()
 #define soundmng_setreverse(r)
 

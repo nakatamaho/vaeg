@@ -51,7 +51,7 @@
 #include	"np2ver.h"
 
 		NP2OSCFG	np2oscfg = {0, 0, 0, 0, 0, 1, 0, "", "", {"", ""},
-								"", "", 0, 0, "", "ymfm"};
+								"", "", 0, 0, "", "ymfm", 1};
 
 static const UINT smoke_timeout_frames = 600;
 static const UINT startup_splash_ms = 1500;
@@ -840,6 +840,7 @@ int main(int argc, char **argv) {
 	}
 
 	soundmng_initialize();
+	soundmng_setenabled(np2oscfg.sound_enabled ? TRUE : FALSE);
 	commng_initialize();
 	sysmng_initialize();
 	taskmng_initialize();

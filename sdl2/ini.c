@@ -463,6 +463,7 @@ static const INITBL iniitem[] = {
 						sizeof(np2oscfg.keyboard_custom_map)},
 	{"opn_backend", INITYPE_STR, np2oscfg.opn_backend,
 						sizeof(np2oscfg.opn_backend)},
+	{"sound_enabled", INITYPE_BOOL, &np2oscfg.sound_enabled, 0},
 };
 
 #define	INIITEMS	(sizeof(iniitem) / sizeof(INITBL))
@@ -485,6 +486,14 @@ void initload(void) {
 	if (!sgp_speed_multiplier_valid(np2cfg.sgp_multiplier)) {
 		np2cfg.sgp_multiplier = 1;
 	}
+	if (!np2_sound_hardware_valid(np2cfg.model, np2cfg.SOUND_SW)) {
+		SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION,
+				"Invalid SNDboard=%03x for %s; using model default %03x",
+				np2cfg.SOUND_SW, np2cfg.model,
+				np2_default_sound_for_model(np2cfg.model));
+		np2cfg.SOUND_SW = np2_default_sound_for_model(np2cfg.model);
+	}
+	np2oscfg.sound_enabled = np2oscfg.sound_enabled ? 1 : 0;
 	np2oscfg.keyboard_auto_kana_lock =
 		np2oscfg.keyboard_auto_kana_lock ? 1 : 0;
 	np2oscfg.keyboard_tenkey_overlay =
