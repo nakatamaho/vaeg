@@ -1481,13 +1481,13 @@ static void draw_device_menu(void) {
 			if (ImGui::BeginMenu("Sound hardware")) {
 				const bool va1 = milstr_cmp(np2cfg.model, str_VA1) == 0;
 				ImGui::BeginDisabled(!va1);
-				if (ImGui::MenuItem("VA built-in OPN (YM2203)", nullptr,
+				if (ImGui::MenuItem("OPN (VA)", nullptr,
 								 np2cfg.SOUND_SW == FMBOARD_VA_OPN)) {
 					select_sound_hardware(FMBOARD_VA_OPN);
 				}
 				ImGui::EndDisabled();
 				if (ImGui::MenuItem(
-						"OPNA (YM2608: VA Sound Board II / VA2/VA3)",
+						"OPNA (VA2/VA3, VA + Sound Board II)",
 						nullptr, np2cfg.SOUND_SW == FMBOARD_VA_OPNA)) {
 					select_sound_hardware(FMBOARD_VA_OPNA);
 				}
