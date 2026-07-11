@@ -176,9 +176,10 @@ SGP, or peripheral ratios.
 ## Configuration and UI
 
 The Configure modal uses pending values. `clk_base` is displayed read-only as
-3.9936 MHz. CPU multiplier accepts x1-x32 and provides presets 1, 2, 4, 5, 6,
-8, 10, 12, 16, and 20. SGP provides Model default, Follow CPU, and Custom;
-Custom accepts x1-x16 with presets 1, 2, 4, 8, and 16.
+3.9936 MHz. CPU multiplier has an always-visible numeric input accepting
+x1-x32, plus presets 1, 2, 4, 5, 6, 8, 10, 12, 16, and 20. SGP provides Model
+default, Follow CPU, and Custom; Custom has an always-visible numeric input
+accepting x1-x16 plus presets 1, 2, 4, 8, and 16.
 
 Only valid OK commits settings, raises `SYS_UPDATECFG | SYS_UPDATECLOCK`, and
 uses the existing media-preserving guest reset. Cancel, Escape, close, and
