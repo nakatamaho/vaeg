@@ -74,10 +74,19 @@ BOOL sgp_speed_ratio(UINT mode, UINT custom_multiple, UINT cpu_multiple,
 	return(SUCCESS);
 }
 
+UINT32 sgp_model_clock(UINT model_va) {
+
+	if (model_va == PCMODEL_VA2) {
+		return(PCBASECLOCK40 * 2);
+	}
+	return(PCBASECLOCK40);
+}
+
 void sgp_configure_speed(void) {
 
 	UINT32 numerator;
 	UINT32 denominator;
+	UINT32 model_multiple;
 
 	if (sgp_speed_ratio(np2cfg.sgp_speed_mode, np2cfg.sgp_multiplier,
 				pccore_cpu_multiple(), &numerator, &denominator) != SUCCESS) {
@@ -86,6 +95,8 @@ void sgp_configure_speed(void) {
 		numerator = 1;
 		denominator = 1;
 	}
+	model_multiple = sgp_model_clock(pccore.model_va) / PCBASECLOCK40;
+	numerator *= model_multiple;
 	clockscale_configure(&sgp_clock_scale, numerator, denominator);
 }
 

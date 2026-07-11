@@ -96,8 +96,10 @@ Missing ROMs are reported with the selected model and expected root.
 Emulate -> Configure opens a transactional CPU/SGP speed modal. Pending
 values do not touch core or saved configuration until OK. CPU x1-x32 changes
 V30 execution capacity; SGP Model default, Follow CPU, and Custom x1-x16
-change SGP execution capacity. OK validates and resets through the existing
-FDD-preserving path. Cancel, Escape, and window close discard edits.
+change SGP execution capacity. Model default is 3.9936 MHz on VA and 7.9872
+MHz on VA2/VA3; the dialog displays the resulting effective SGP clock. OK
+validates and resets through the existing FDD-preserving path. Cancel, Escape,
+and window close discard edits.
 
 Screen exposes the persisted No Wait and frame-skip controls. F11 is a
 non-persistent frontend shortcut: while held it selects effective No Wait and

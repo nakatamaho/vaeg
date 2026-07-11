@@ -90,6 +90,10 @@ non-persistent hold-F11 fast-forward shortcut. The clock-domain audit,
 automated results, remaining hardware uncertainty, and human checklist are in
 `tasks/M20_cpu_sgp_speed_pacing.md`.
 
+The V30/uPD9002 model default remains 7.9872 MHz for VA, VA2, and VA3. SGP
+Model default follows the documented model distinction: 3.9936 MHz for VA and
+7.9872 MHz for VA2/VA3.
+
 ## Gate protocol
 
 Agent side (pasted into PR): CMake build logs, `tools/repo/` check
