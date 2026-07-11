@@ -38,6 +38,7 @@
 #include	"pccore.h"
 #include	"scrndraw.h"
 #include	"s98.h"
+#include	"sgp.h"
 #include	"diskdrv.h"
 #include	"fdc.h"
 #include	"timing.h"
@@ -50,7 +51,7 @@
 #include	"np2ver.h"
 
 		NP2OSCFG	np2oscfg = {0, 0, 0, 0, 0, 1, 0, "", "", {"", ""},
-								"", "", 0, 0, "", "ymfm"};
+								"", "", 0, 0, "", "ymfm", 1};
 
 static const UINT smoke_timeout_frames = 600;
 static const UINT startup_splash_ms = 1500;
@@ -128,6 +129,8 @@ static void smoke_configure_va(void) {
 	file_cpyname(np2cfg.model, str_VA2, sizeof(np2cfg.model));
 	np2cfg.baseclock = PCBASECLOCK40;
 	np2cfg.multiple = 2;
+	np2cfg.sgp_speed_mode = SGP_SPEED_MODEL_DEFAULT;
+	np2cfg.sgp_multiplier = 1;
 	np2cfg.ITF_WORK = 1;
 	np2cfg.EXTMEM = 1;
 	np2cfg.SOUND_SW = FMBOARD_VA_OPNA;
@@ -176,11 +179,11 @@ static void warn_va_config_sanity(void) {
 				"(current=%u); stale configs can run in the wrong "
 				"clock domain.\n", np2cfg.baseclock);
 	}
-	if (np2cfg.multiple != 2) {
+	if (!pccore_cpu_multiple_valid(np2cfg.multiple)) {
 		fprintf(stderr,
-				"WARNING: PC-88VA config expects clk_mult=2 "
-				"(current=%u); stale configs can run in the wrong "
-				"clock domain.\n", np2cfg.multiple);
+				"WARNING: PC-88VA CPU multiplier must be between 1 and 32 "
+				"(current=%u); runtime will use a safe fallback.\n",
+				np2cfg.multiple);
 	}
 	if (!np2_sound_hardware_valid(np2cfg.model, np2cfg.SOUND_SW)) {
 		fprintf(stderr,
@@ -600,9 +603,15 @@ static BOOL runloop(BOOL smoke, BOOL pacelog_enabled, BOOL detect_screen) {
 	framemax = 1;
 	pacelog_initialize(&pacelog);
 	while(taskmng_isavail()) {
+		BOOL effective_nowait;
+		UINT effective_drawskip;
+
 		taskmng_rol();
 		timing_hosttick();
-		if (np2oscfg.NOWAIT) {
+		effective_nowait = taskmng_effective_nowait(
+											np2oscfg.NOWAIT ? TRUE : FALSE);
+		effective_drawskip = taskmng_effective_drawskip(np2oscfg.DRAW_SKIP);
+		if (effective_nowait) {
 			BOOL	draw;
 
 			draw = (framecnt == 0);
@@ -612,9 +621,9 @@ static BOOL runloop(BOOL smoke, BOOL pacelog_enabled, BOOL detect_screen) {
 			if (smoke_after_frame(smoke, frames, detect_screen) != SUCCESS) {
 				return(FAILURE);
 			}
-			if (np2oscfg.DRAW_SKIP) {
+			if (effective_drawskip) {
 				framecnt++;
-				if (framecnt >= np2oscfg.DRAW_SKIP) {
+				if (framecnt >= effective_drawskip) {
 					processwait(0, &pacelog, pacelog_enabled);
 				}
 			}
@@ -629,8 +638,8 @@ static BOOL runloop(BOOL smoke, BOOL pacelog_enabled, BOOL detect_screen) {
 				}
 			}
 		}
-		else if (np2oscfg.DRAW_SKIP) {
-			if (framecnt < np2oscfg.DRAW_SKIP) {
+		else if (effective_drawskip) {
+			if (framecnt < effective_drawskip) {
 				BOOL	draw;
 
 				draw = (framecnt == 0);
@@ -645,7 +654,7 @@ static BOOL runloop(BOOL smoke, BOOL pacelog_enabled, BOOL detect_screen) {
 				framecnt++;
 			}
 			else {
-				processwait(np2oscfg.DRAW_SKIP, &pacelog,
+				processwait(effective_drawskip, &pacelog,
 							pacelog_enabled);
 			}
 		}
@@ -831,6 +840,7 @@ int main(int argc, char **argv) {
 	}
 
 	soundmng_initialize();
+	soundmng_setenabled(np2oscfg.sound_enabled ? TRUE : FALSE);
 	commng_initialize();
 	sysmng_initialize();
 	taskmng_initialize();

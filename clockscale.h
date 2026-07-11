@@ -22,20 +22,46 @@
  * IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-#include	"compiler.h"
-#include	"sysmng.h"
-#include	"taskmng.h"
+#ifndef VAEG_CLOCKSCALE_H
+#define VAEG_CLOCKSCALE_H
 
-	UINT	sys_updates;
+typedef struct {
+	UINT32	numerator;
+	UINT32	denominator;
+	UINT64	remainder;
+} CLOCKSCALE;
 
-void sysmng_cpureset(void) {
+static INLINE BOOL clockscale_configure(CLOCKSCALE *scale,
+									UINT32 numerator, UINT32 denominator) {
 
-	taskmng_clear_fast_forward();
-	sys_updates &= (SYS_UPDATECFG | SYS_UPDATEOSCFG);
+	if ((scale == NULL) || (numerator == 0) || (denominator == 0)) {
+		return(FAILURE);
+	}
+	scale->numerator = numerator;
+	scale->denominator = denominator;
+	scale->remainder = 0;
+	return(SUCCESS);
 }
 
-void sysmng_modeled(BYTE num, BYTE sw) {
+static INLINE void clockscale_reset(CLOCKSCALE *scale) {
 
-	(void)num;
-	(void)sw;
+	if (scale != NULL) {
+		scale->remainder = 0;
+	}
 }
+
+static INLINE UINT64 clockscale_apply(CLOCKSCALE *scale, UINT32 value) {
+
+	UINT64 total;
+	UINT64 result;
+
+	if ((scale == NULL) || (scale->denominator == 0)) {
+		return(0);
+	}
+	total = ((UINT64)value * scale->numerator) + scale->remainder;
+	result = total / scale->denominator;
+	scale->remainder = total % scale->denominator;
+	return(result);
+}
+
+#endif

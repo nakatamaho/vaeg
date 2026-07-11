@@ -152,13 +152,18 @@ pc_model=88VA1
 SNDboard=100
 clk_base=3993600
 clk_mult=2
+sgp_mode=0
+sgp_mult=1
 ```
 
 For a VA with Sound Board II, use `SNDboard=200`. `88VA2` is also valid
 for `pc_model` and uses `SNDboard=200` for its YM2608/OPNA. Stale configs
-can cause a V2 halt, a silent FM-timer hang, or the wrong clock domain.
-Startup logs warn about invalid model/sound combinations and stale clock
-settings but do not rewrite the user's configuration.
+can cause a V2 halt, a silent FM-timer hang, or an invalid execution setting.
+CPU x2 is standard; x1-x32 changes V30 execution capacity without changing
+the fixed machine/peripheral clock. `sgp_mode=0|1|2` selects Model default,
+Follow CPU, or Custom, and `sgp_mult=1..16` supplies the Custom scale. Startup
+logs warn about invalid model/sound/clock settings but do not rewrite the
+user's configuration.
 
 Configuration files are UTF-8 only in the portable frontend. Obsolete
 `np2.ini`, `np2.cfg`, and `vaeg.ini` files are not read.

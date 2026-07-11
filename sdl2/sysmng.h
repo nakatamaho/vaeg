@@ -47,9 +47,9 @@ extern	UINT	sys_updates;
 
 #define	sysmng_initialize()	sys_updates = 0
 #define	sysmng_update(a)	sys_updates |= (a)
-#define	sysmng_cpureset()	sys_updates &= (SYS_UPDATECFG | SYS_UPDATEOSCFG)
 #define	sysmng_fddaccess(a)
 #define	sysmng_hddaccess(a)
+void sysmng_cpureset(void);
 void sysmng_modeled(BYTE num, BYTE sw);
 
 #ifdef __cplusplus

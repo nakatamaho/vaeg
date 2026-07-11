@@ -26,9 +26,11 @@
 #include	"selftest.h"
 #include	"codecnv.h"
 #include	"commng.h"
+#include	"clockscale.h"
 #include	"dosio.h"
 #include	"kbdmap.h"
 #include	"np2.h"
+#include	"pacing.h"
 #include	"sound.h"
 #include	"opngen.h"
 #include	"pccore.h"
@@ -36,6 +38,7 @@
 #include	"romcheck.h"
 #include	"romankana.h"
 #include	"s98.h"
+#include	"sgp.h"
 #include	"soundmng.h"
 #include	"strres.h"
 
@@ -136,6 +139,208 @@ static int test_profile_ini(void) {
 		return(fail("ini", "typed values did not round-trip"));
 	}
 	fprintf(stderr, "selftest: ini ok\n");
+	return(SUCCESS);
+}
+
+static int test_clockscale(void) {
+
+	CLOCKSCALE scale;
+	UINT64 total;
+	UINT index;
+	UINT saved_config_multiple;
+	UINT saved_baseclock;
+	static const UINT cpu_multipliers[] = {1, 2, 4, 8, 32};
+
+	if ((clockscale_configure(&scale, 1, 0) != FAILURE) ||
+		(clockscale_configure(NULL, 1, 1) != FAILURE)) {
+		return(fail("clockscale", "invalid ratio was accepted"));
+	}
+	if (clockscale_configure(&scale, 2, 3) != SUCCESS) {
+		return(fail("clockscale", "x3 CPU ratio was rejected"));
+	}
+	total = 0;
+	for (index=0; index<30000; index++) {
+		total += clockscale_apply(&scale, 1);
+	}
+	if ((total != 20000) || (scale.remainder != 0)) {
+		return(fail("clockscale", "fractional carry drifted"));
+	}
+	clockscale_configure(&scale, 2, 32);
+	if ((clockscale_apply(&scale, 15) != 0) ||
+		(clockscale_apply(&scale, 1) != 1)) {
+		return(fail("clockscale", "small CPU slices lost their remainder"));
+	}
+	clockscale_configure(&scale, 32, 1);
+	if (clockscale_apply(&scale, 0xffffffffU) !=
+											(UINT64)0xffffffffU * 32) {
+		return(fail("clockscale", "wide multiplication overflowed"));
+	}
+	clockscale_configure(&scale, 2, 3);
+	(void)clockscale_apply(&scale, 1);
+	clockscale_reset(&scale);
+	if (scale.remainder != 0) {
+		return(fail("clockscale", "reset retained a remainder"));
+	}
+	if (!pccore_cpu_multiple_valid(1) ||
+		!pccore_cpu_multiple_valid(2) ||
+		!pccore_cpu_multiple_valid(3) ||
+		!pccore_cpu_multiple_valid(4) ||
+		!pccore_cpu_multiple_valid(8) ||
+		!pccore_cpu_multiple_valid(32) ||
+		pccore_cpu_multiple_valid(0) || pccore_cpu_multiple_valid(33)) {
+		return(fail("clockscale", "CPU multiplier validation failed"));
+	}
+	saved_config_multiple = np2cfg.multiple;
+	saved_baseclock = pccore.baseclock;
+	pccore.baseclock = PCBASECLOCK40;
+	for (index=0; index<NELEMENTS(cpu_multipliers); index++) {
+		np2cfg.multiple = cpu_multipliers[index];
+		pccore_clockrestore();
+		if ((pccore.multiple != PCCORE_STANDARD_MULTIPLE) ||
+			(pccore.realclock != PCBASECLOCK40 * PCCORE_STANDARD_MULTIPLE) ||
+			(pccore_cpu_multiple() != cpu_multipliers[index]) ||
+			(pccore_cpu_clock() != PCBASECLOCK40 * cpu_multipliers[index])) {
+			np2cfg.multiple = saved_config_multiple;
+			pccore.baseclock = saved_baseclock;
+			pccore_clockrestore();
+			return(fail("clockscale", "CPU scaling changed machine time"));
+		}
+	}
+	np2cfg.multiple = saved_config_multiple;
+	pccore.baseclock = saved_baseclock;
+	pccore_clockrestore();
+	fprintf(stderr, "selftest: clockscale ok\n");
+	return(SUCCESS);
+}
+
+static int test_sgp_speed(void) {
+
+	UINT32 numerator;
+	UINT32 denominator;
+	UINT64 total;
+	UINT index;
+	UINT saved_model_va;
+	UINT saved_sgp_speed_mode;
+	UINT saved_sgp_multiplier;
+	UINT saved_config_multiple;
+
+	if (!sgp_speed_mode_valid(SGP_SPEED_MODEL_DEFAULT) ||
+		!sgp_speed_mode_valid(SGP_SPEED_FOLLOW_CPU) ||
+		!sgp_speed_mode_valid(SGP_SPEED_CUSTOM) ||
+		sgp_speed_mode_valid(SGP_SPEED_MODE_COUNT) ||
+		!sgp_speed_multiplier_valid(1) ||
+		!sgp_speed_multiplier_valid(2) ||
+		!sgp_speed_multiplier_valid(3) ||
+		!sgp_speed_multiplier_valid(16) ||
+		sgp_speed_multiplier_valid(0) || sgp_speed_multiplier_valid(17)) {
+		return(fail("sgp-speed", "SGP setting validation failed"));
+	}
+	if ((sgp_speed_ratio(SGP_SPEED_MODEL_DEFAULT, 1, 32,
+							&numerator, &denominator) != SUCCESS) ||
+		(numerator != 1) || (denominator != 1)) {
+		return(fail("sgp-speed", "Model default ratio changed"));
+	}
+	if ((sgp_speed_ratio(SGP_SPEED_FOLLOW_CPU, 1, 1,
+							&numerator, &denominator) != SUCCESS) ||
+		(numerator != 1) || (denominator != 2)) {
+		return(fail("sgp-speed", "Follow CPU x1 ratio failed"));
+	}
+	if ((sgp_speed_ratio(SGP_SPEED_FOLLOW_CPU, 1, 4,
+							&numerator, &denominator) != SUCCESS) ||
+		(numerator != 4) || (denominator != 2)) {
+		return(fail("sgp-speed", "Follow CPU x4 ratio failed"));
+	}
+	if ((sgp_speed_ratio(SGP_SPEED_CUSTOM, 3, 2,
+							&numerator, &denominator) != SUCCESS) ||
+		(numerator != 3) || (denominator != 1) ||
+		(sgp_speed_ratio(SGP_SPEED_CUSTOM, 0, 2,
+							&numerator, &denominator) != FAILURE)) {
+		return(fail("sgp-speed", "Custom ratio failed"));
+	}
+	if ((sgp_model_clock(PCMODEL_VA1) != PCBASECLOCK40) ||
+		(sgp_model_clock(PCMODEL_VA2) != (PCBASECLOCK40 * 2))) {
+		return(fail("sgp-speed", "Model clock selection failed"));
+	}
+
+	saved_model_va = pccore.model_va;
+	saved_sgp_speed_mode = np2cfg.sgp_speed_mode;
+	saved_sgp_multiplier = np2cfg.sgp_multiplier;
+	saved_config_multiple = np2cfg.multiple;
+	pccore.model_va = PCMODEL_VA1;
+	np2cfg.sgp_speed_mode = SGP_SPEED_MODEL_DEFAULT;
+	np2cfg.sgp_multiplier = 1;
+	np2cfg.multiple = PCCORE_STANDARD_MULTIPLE;
+	pccore_clockrestore();
+	sgp_configure_speed();
+	if (sgp_scale_elapsed(20000) != 20000) {
+		return(fail("sgp-speed", "VA Model default timing changed"));
+	}
+	pccore.model_va = PCMODEL_VA2;
+	sgp_configure_speed();
+	if (sgp_scale_elapsed(20000) != 40000) {
+		return(fail("sgp-speed", "VA2 Model default timing failed"));
+	}
+
+	np2cfg.sgp_speed_mode = SGP_SPEED_FOLLOW_CPU;
+	np2cfg.sgp_multiplier = 1;
+	np2cfg.multiple = 3;
+	pccore_clockrestore();
+	sgp_configure_speed();
+	total = 0;
+	for (index=0; index<20000; index++) {
+		total += sgp_scale_elapsed(1);
+	}
+	if (total != 60000) {
+		return(fail("sgp-speed", "Follow CPU fractional timing drifted"));
+	}
+	pccore.model_va = saved_model_va;
+	np2cfg.sgp_speed_mode = saved_sgp_speed_mode;
+	np2cfg.sgp_multiplier = saved_sgp_multiplier;
+	np2cfg.multiple = saved_config_multiple;
+	pccore_clockrestore();
+	sgp_configure_speed();
+	fprintf(stderr, "selftest: SGP speed ok\n");
+	return(SUCCESS);
+}
+
+static int test_pacing(void) {
+
+	VAEG_PACING_STATE state;
+	BOOL configured_nowait;
+	UINT configured_drawskip;
+
+	configured_nowait = FALSE;
+	configured_drawskip = 3;
+	vaeg_pacing_reset(&state);
+	if (state.fast_forward_held ||
+		vaeg_pacing_effective_nowait(&state, configured_nowait) ||
+		(vaeg_pacing_effective_drawskip(&state, configured_drawskip) != 3)) {
+		return(fail("pacing", "reset state changed configured pacing"));
+	}
+	if (!vaeg_pacing_key(&state, SDL_SCANCODE_F11, TRUE, FALSE) ||
+		!state.fast_forward_held ||
+		!vaeg_pacing_effective_nowait(&state, configured_nowait) ||
+		(vaeg_pacing_effective_drawskip(&state, configured_drawskip) != 16)) {
+		return(fail("pacing", "F11 keydown did not enable fast-forward"));
+	}
+	if (!vaeg_pacing_key(&state, SDL_SCANCODE_F11, TRUE, TRUE) ||
+		!state.fast_forward_held) {
+		return(fail("pacing", "F11 repeat damaged held state"));
+	}
+	if (!vaeg_pacing_key(&state, SDL_SCANCODE_F11, FALSE, FALSE) ||
+		state.fast_forward_held) {
+		return(fail("pacing", "F11 keyup did not disable fast-forward"));
+	}
+	if (vaeg_pacing_key(&state, SDL_SCANCODE_RALT, TRUE, FALSE)) {
+		return(fail("pacing", "Right Alt was consumed as a shortcut"));
+	}
+	(void)vaeg_pacing_key(&state, SDL_SCANCODE_F11, TRUE, FALSE);
+	vaeg_pacing_reset(&state);
+	if (state.fast_forward_held || configured_nowait ||
+		(configured_drawskip != 3)) {
+		return(fail("pacing", "focus/reset cleanup changed saved settings"));
+	}
+	fprintf(stderr, "selftest: pacing ok\n");
 	return(SUCCESS);
 }
 
@@ -255,8 +460,16 @@ static int test_statsave(void) {
 	pccore_init();
 	S98_init();
 	pccore_reset();
+	ret = STATFLAG_SUCCESS;
+	if ((pccore.multiple != PCCORE_STANDARD_MULTIPLE) ||
+		(pccore.realclock != pccore.baseclock * PCCORE_STANDARD_MULTIPLE) ||
+		(pccore_cpu_multiple() != np2cfg.multiple)) {
+		ret = STATFLAG_FAILURE;
+	}
 
-	ret = statsave_save(path1);
+	if (ret == STATFLAG_SUCCESS) {
+		ret = statsave_save(path1);
+	}
 	if (ret == STATFLAG_SUCCESS) {
 		ZeroMemory(err, sizeof(err));
 		ret = statsave_check(path1, err, sizeof(err));
@@ -426,14 +639,27 @@ static int opn_backend_produces_audio(UINT backend, REG8 channels,
 
 static int test_opn_backends(void) {
 
+	BOOL saved_sound_enabled;
+
 	if ((np2_default_sound_for_model(str_VA1) != FMBOARD_VA_OPN) ||
 		(np2_default_sound_for_model(str_VA2) != FMBOARD_VA_OPNA) ||
+		(np2_sound_hardware_valid(str_VA1, FMBOARD_NONE) != FALSE) ||
 		(np2_sound_hardware_valid(str_VA1, FMBOARD_VA_OPN) != TRUE) ||
 		(np2_sound_hardware_valid(str_VA1, FMBOARD_VA_OPNA) != TRUE) ||
 		(np2_sound_hardware_valid(str_VA2, FMBOARD_VA_OPN) != FALSE) ||
 		(np2_sound_hardware_valid(str_VA2, FMBOARD_VA_OPNA) != TRUE)) {
 		return(fail("opn-backend", "VA sound hardware policy failed"));
 	}
+	saved_sound_enabled = soundmng_isenabled();
+	soundmng_setenabled(FALSE);
+	if (soundmng_isenabled()) {
+		return(fail("opn-backend", "host audio disable was ignored"));
+	}
+	soundmng_setenabled(TRUE);
+	if (!soundmng_isenabled()) {
+		return(fail("opn-backend", "host audio enable was ignored"));
+	}
+	soundmng_setenabled(saved_sound_enabled);
 	opngen_initialize(44100);
 	if (opngen_parsebackend("np2") != OPN_BACKEND_NP2 ||
 		opngen_parsebackend("ymfm") != OPN_BACKEND_YMFM ||
@@ -469,6 +695,15 @@ int vaeg_selftest_run(void) {
 		return(FAILURE);
 	}
 	if (test_profile_ini() != SUCCESS) {
+		return(FAILURE);
+	}
+	if (test_clockscale() != SUCCESS) {
+		return(FAILURE);
+	}
+	if (test_sgp_speed() != SUCCESS) {
+		return(FAILURE);
+	}
+	if (test_pacing() != SUCCESS) {
 		return(FAILURE);
 	}
 	if (test_keyboard_mapping() != SUCCESS) {

@@ -30,9 +30,11 @@ The M10 GUI uses Dear ImGui with `imgui_impl_sdl2` and
 
 ## Input Routing
 
-Every SDL event is first passed to Dear ImGui. Keyboard events and
-SDL_TEXTINPUT reach the guest only when `ImGuiIO::WantCaptureKeyboard`
-is false. Mouse events reach guest-side routing only when
+F11 is first handled as a frontend-global hold-to-fast-forward shortcut, so
+its keyup always clears the transient state even while ImGui captures input.
+All events are then passed to Dear ImGui. Other keyboard events and
+SDL_TEXTINPUT reach the guest only when `ImGuiIO::WantCaptureKeyboard` is
+false. Mouse events reach guest-side routing only when
 `ImGuiIO::WantCaptureMouse` is false. When ImGui wants the keyboard,
 mouse, or text input, the guest does not receive that event.
 
@@ -70,12 +72,15 @@ remain later items.
 
 ## Sound Menu
 
-Sound -> OPN backend selects `NP2` or `ymfm` and persists the choice as
+Sound -> FM sound backend selects `NP2` or `ymfm` and persists the choice as
 `opn_backend` in `vaeg.cfg`. Both engines mirror FM register writes, so changing
 the output selector uses the existing guest-reset flow to rebuild the selected
 synthesizer from a clean board state while retaining mounted FDD/SASI paths.
 The ymfm option currently replaces only YM2203/YM2608 FM operator synthesis;
 NP2 continues to own timer/IRQ, SSG, ADPCM, rhythm, and stream mixing.
+Sound on/off controls only host audio output. It does not clear `SNDboard` or
+detach the guest FM hardware, so muting cannot remove the selected OPN/OPNA
+check or stall software waiting for the FM timer.
 
 ## Boot Model Menu
 
@@ -85,6 +90,20 @@ Emulate -> Boot model selects `VA` or `VA2/VA3`. `VA` writes
 read beside the executable. Selection immediately uses the existing
 guest-reset flow, including preservation of configured FDD and SASI media.
 Missing ROMs are reported with the selected model and expected root.
+
+## Configure And Pacing
+
+Emulate -> Configure opens a transactional CPU/SGP speed modal. Pending
+values do not touch core or saved configuration until OK. CPU x1-x32 changes
+V30 execution capacity; SGP Model default, Follow CPU, and Custom x1-x16
+change SGP execution capacity. Model default is 3.9936 MHz on VA and 7.9872
+MHz on VA2/VA3; the dialog displays the resulting effective SGP clock. OK
+validates and resets through the existing FDD-preserving path. Cancel, Escape,
+and window close discard edits.
+
+Screen exposes the persisted No Wait and frame-skip controls. F11 is a
+non-persistent frontend shortcut: while held it selects effective No Wait and
+draw skip 16, then immediately returns to the saved values on release.
 
 ## Embedded Font
 

@@ -34,6 +34,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <filesystem>
+#include <iterator>
 #include <string>
 #include <vector>
 
@@ -59,6 +60,7 @@
 #include "scrndraw.h"
 #include "scrnmng.h"
 #include "sdlkbd.h"
+#include "sgp.h"
 #include "soundmng.h"
 #include "strres.h"
 #include "sysmng.h"
@@ -78,6 +80,8 @@ constexpr float kGuiFontSize = 16.0f;
 constexpr int kStateSlots = 10;
 constexpr int kMasterVolumeMax = 128;
 constexpr int kSasiImageCount = 6;
+constexpr int kCpuPresets[] = {1, 2, 4, 5, 6, 8, 10, 12, 16, 20};
+constexpr int kSgpPresets[] = {1, 2, 4, 8, 16};
 namespace fs = std::filesystem;
 
 struct SasiImageChoice {
@@ -138,10 +142,14 @@ struct GuiState {
 	char new_sasi_path[MAX_PATH] = {};
 	std::string state_status;
 	std::string keyboard_status;
-	UINT sound_sw_saved = 0;
 	bool keyboard_config_open = false;
 	int capture_binding = -1;
 	SDL_Scancode capture_swallow = SDL_SCANCODE_UNKNOWN;
+	bool configure_open = false;
+	bool configure_request = false;
+	int pending_cpu_multiplier = PCCORE_STANDARD_MULTIPLE;
+	int pending_sgp_mode = SGP_SPEED_MODEL_DEFAULT;
+	int pending_sgp_multiplier = 1;
 };
 
 GuiState g_gui;
@@ -162,6 +170,177 @@ static void menu_item_not_implemented(const char *label) {
 	ImGui::BeginDisabled();
 	ImGui::MenuItem(label);
 	ImGui::EndDisabled();
+}
+
+static void open_configure_dialog(void) {
+
+	g_gui.pending_cpu_multiplier = static_cast<int>(np2cfg.multiple);
+	g_gui.pending_sgp_mode = static_cast<int>(np2cfg.sgp_speed_mode);
+	g_gui.pending_sgp_multiplier = static_cast<int>(np2cfg.sgp_multiplier);
+	g_gui.configure_open = true;
+	g_gui.configure_request = true;
+}
+
+static void draw_multiplier_input(const char *label, int *value,
+								  const int *presets, int preset_count) {
+
+	ImGui::PushID(label);
+	ImGui::TextUnformatted(label);
+	ImGui::SameLine(145.0f);
+	ImGui::SetNextItemWidth(80.0f);
+	ImGui::InputInt("##value", value, 1, 0);
+	ImGui::SameLine();
+	ImGui::SetNextItemWidth(110.0f);
+	if (ImGui::BeginCombo("##presets", "Preset")) {
+		for (int i=0; i<preset_count; i++) {
+			char item[16];
+
+			std::snprintf(item, sizeof(item), "x%d", presets[i]);
+			if (ImGui::Selectable(item, *value == presets[i])) {
+				*value = presets[i];
+			}
+		}
+		ImGui::EndCombo();
+	}
+	ImGui::PopID();
+}
+
+static void apply_configure_dialog(void) {
+
+	const bool changed =
+		(np2cfg.baseclock != PCBASECLOCK40) ||
+		(np2cfg.multiple != static_cast<UINT>(g_gui.pending_cpu_multiplier)) ||
+		(np2cfg.sgp_speed_mode != static_cast<UINT8>(g_gui.pending_sgp_mode)) ||
+		(np2cfg.sgp_multiplier !=
+							static_cast<UINT8>(g_gui.pending_sgp_multiplier));
+
+	if (changed) {
+		np2cfg.baseclock = PCBASECLOCK40;
+		np2cfg.multiple = static_cast<UINT>(g_gui.pending_cpu_multiplier);
+		np2cfg.sgp_speed_mode = static_cast<UINT8>(g_gui.pending_sgp_mode);
+		np2cfg.sgp_multiplier =
+							static_cast<UINT8>(g_gui.pending_sgp_multiplier);
+		sysmng_update(SYS_UPDATECFG | SYS_UPDATECLOCK);
+		reset_guest();
+	}
+	g_gui.configure_open = false;
+	ImGui::CloseCurrentPopup();
+}
+
+static void draw_configure_dialog(void) {
+
+	if (g_gui.configure_request) {
+		ImGui::OpenPopup("Configure##clock-config");
+		g_gui.configure_request = false;
+	}
+	if (!g_gui.configure_open) {
+		return;
+	}
+	const ImGuiViewport *viewport = ImGui::GetMainViewport();
+	ImGui::SetNextWindowPos(viewport->GetCenter(), ImGuiCond_Appearing,
+												ImVec2(0.5f, 0.5f));
+	ImGui::SetNextWindowSize(ImVec2(420.0f, 415.0f), ImGuiCond_Appearing);
+	if (ImGui::BeginPopupModal("Configure##clock-config",
+										&g_gui.configure_open,
+										ImGuiWindowFlags_NoResize |
+										ImGuiWindowFlags_NoCollapse)) {
+		const bool cpu_valid = pccore_cpu_multiple_valid(
+								static_cast<UINT>(g_gui.pending_cpu_multiplier));
+		const bool sgp_mode_valid = sgp_speed_mode_valid(
+								static_cast<UINT>(g_gui.pending_sgp_mode));
+		const bool sgp_multiplier_valid =
+			(g_gui.pending_sgp_mode != SGP_SPEED_CUSTOM) ||
+			sgp_speed_multiplier_valid(
+								static_cast<UINT>(g_gui.pending_sgp_multiplier));
+		const bool valid = cpu_valid && sgp_mode_valid && sgp_multiplier_valid;
+
+		if (ImGui::BeginChild("cpu-config", ImVec2(0.0f, 145.0f), true,
+												ImGuiWindowFlags_NoScrollbar)) {
+			ImGui::TextUnformatted("CPU");
+			ImGui::Separator();
+			ImGui::BeginDisabled();
+			if (ImGui::BeginCombo("Base clock", "3.9936 MHz")) {
+				ImGui::Selectable("3.9936 MHz", true);
+				ImGui::EndCombo();
+			}
+			ImGui::EndDisabled();
+			draw_multiplier_input("Multiplier", &g_gui.pending_cpu_multiplier,
+									kCpuPresets, static_cast<int>(std::size(kCpuPresets)));
+			ImGui::Text("Effective CPU clock: %.4f MHz",
+							3.9936 * static_cast<double>(g_gui.pending_cpu_multiplier));
+			ImGui::TextUnformatted("Standard setting: x2 (7.9872 MHz)");
+		}
+		ImGui::EndChild();
+
+		if (ImGui::BeginChild("sgp-config", ImVec2(0.0f, 165.0f), true,
+												ImGuiWindowFlags_NoScrollbar)) {
+			static const char *modes[] = {"Model default", "Follow CPU", "Custom"};
+			const UINT model = (milstr_cmp(np2cfg.model, str_VA1) == 0) ?
+											PCMODEL_VA1 : PCMODEL_VA2;
+			const double model_clock_mhz =
+						static_cast<double>(sgp_model_clock(model)) / 1000000.0;
+			double effective_scale = 1.0;
+			ImGui::TextUnformatted("SGP");
+			ImGui::Separator();
+			ImGui::Combo("Speed", &g_gui.pending_sgp_mode, modes,
+										static_cast<int>(std::size(modes)));
+			if (g_gui.pending_sgp_mode == SGP_SPEED_CUSTOM) {
+				draw_multiplier_input("Custom multiplier",
+									 &g_gui.pending_sgp_multiplier, kSgpPresets,
+									 static_cast<int>(std::size(kSgpPresets)));
+			}
+			if (g_gui.pending_sgp_mode == SGP_SPEED_MODEL_DEFAULT) {
+				ImGui::TextUnformatted(
+							"Effective SGP scale: Model default (x1.0000)");
+			}
+			else if (g_gui.pending_sgp_mode == SGP_SPEED_FOLLOW_CPU) {
+				ImGui::Text("Effective SGP scale: x%.4f relative to Model default",
+						static_cast<double>(g_gui.pending_cpu_multiplier) /
+											PCCORE_STANDARD_MULTIPLE);
+			}
+			else if (g_gui.pending_sgp_mode == SGP_SPEED_CUSTOM) {
+				ImGui::Text("Effective SGP scale: x%d relative to Model default",
+											g_gui.pending_sgp_multiplier);
+			}
+			if (g_gui.pending_sgp_mode == SGP_SPEED_FOLLOW_CPU) {
+				effective_scale =
+					static_cast<double>(g_gui.pending_cpu_multiplier) /
+											PCCORE_STANDARD_MULTIPLE;
+			}
+			else if (g_gui.pending_sgp_mode == SGP_SPEED_CUSTOM) {
+				effective_scale = g_gui.pending_sgp_multiplier;
+			}
+			ImGui::Text("Effective SGP clock: %.4f MHz",
+									model_clock_mhz * effective_scale);
+		}
+		ImGui::EndChild();
+
+		if (!cpu_valid) {
+			ImGui::TextUnformatted("Multiplier must be between 1 and 32.");
+		}
+		else if (!sgp_mode_valid) {
+			ImGui::TextUnformatted("Select a valid SGP speed mode.");
+		}
+		else if (!sgp_multiplier_valid) {
+			ImGui::TextUnformatted("SGP multiplier must be between 1 and 16.");
+		}
+
+		const float button_width = 88.0f;
+		ImGui::SetCursorPosX(ImGui::GetWindowContentRegionMax().x -
+												(button_width * 2.0f + 8.0f));
+		ImGui::BeginDisabled(!valid);
+		if (ImGui::Button("OK", ImVec2(button_width, 0.0f))) {
+			apply_configure_dialog();
+		}
+		ImGui::EndDisabled();
+		ImGui::SameLine();
+		if (ImGui::Button("Cancel", ImVec2(button_width, 0.0f)) ||
+			ImGui::IsKeyPressed(ImGuiKey_Escape)) {
+			g_gui.configure_open = false;
+			ImGui::CloseCurrentPopup();
+		}
+		ImGui::EndPopup();
+	}
 }
 
 static UINT8 scale_master_volume(int volume, int max_value) {
@@ -223,7 +402,6 @@ static void select_boot_model(const char *model) {
 
 	np2_select_boot_model(model);
 	if (np2cfg.SOUND_SW != old_sound) {
-		g_gui.sound_sw_saved = np2cfg.SOUND_SW;
 		soundrenewal = 1;
 	}
 	sysmng_update(SYS_UPDATECFG);
@@ -236,7 +414,6 @@ static void select_sound_hardware(UINT16 sound) {
 		return;
 	}
 	np2cfg.SOUND_SW = sound;
-	g_gui.sound_sw_saved = sound;
 	soundrenewal = 1;
 	sysmng_update(SYS_UPDATECFG | SYS_UPDATESBOARD);
 	reset_guest();
@@ -499,6 +676,7 @@ static void reset_guest(void) {
 	char fdd_paths[2][MAX_PATH];
 
 	capture_reset_fdd_mounts(fdd_paths);
+	taskmng_clear_fast_forward();
 	pccore_cfgupdate();
 	pccore_reset();
 	restore_reset_fdd_mounts(fdd_paths);
@@ -941,7 +1119,9 @@ static void draw_emulate_menu(void) {
 			ImGui::EndMenu();
 		}
 		ImGui::Separator();
-		menu_item_not_implemented("Configure... (not implemented)");
+			if (ImGui::MenuItem("Configure...")) {
+				open_configure_dialog();
+			}
 		menu_item_not_implemented("NewDisk... (not implemented)");
 		menu_item_not_implemented("Font... (not implemented)");
 		ImGui::Separator();
@@ -1184,6 +1364,25 @@ static void draw_screen_menu(void) {
 			set_display_aspect(!aspect);
 		}
 		ImGui::Separator();
+		bool nowait = np2oscfg.NOWAIT != 0;
+		if (ImGui::MenuItem("No Wait", nullptr, nowait)) {
+			np2oscfg.NOWAIT = nowait ? 0 : 1;
+			sysmng_update(SYS_UPDATEOSCFG);
+		}
+		if (ImGui::BeginMenu("Frame skip")) {
+			static const char *labels[] = {
+				"Auto", "Full frame", "1/2 frame", "1/3 frame", "1/4 frame"
+			};
+			for (int value=0; value<static_cast<int>(std::size(labels)); value++) {
+				if (ImGui::MenuItem(labels[value], nullptr,
+								np2oscfg.DRAW_SKIP == value)) {
+					np2oscfg.DRAW_SKIP = static_cast<BYTE>(value);
+					sysmng_update(SYS_UPDATEOSCFG);
+				}
+			}
+			ImGui::EndMenu();
+		}
+		ImGui::Separator();
 		menu_item_not_implemented("FullScreen (not implemented)");
 		menu_item_not_implemented("Rotate left/right (not implemented)");
 		menu_item_not_implemented("Screen option... (not implemented)");
@@ -1274,37 +1473,38 @@ static void draw_device_menu(void) {
 			ImGui::EndMenu();
 		}
 		if (ImGui::BeginMenu("Sound / 音")) {
-			bool enabled = np2cfg.SOUND_SW != 0;
-			if (ImGui::MenuItem("Sound on/off", nullptr, enabled)) {
-				if (enabled) {
-					g_gui.sound_sw_saved = np2cfg.SOUND_SW;
-					np2cfg.SOUND_SW = 0;
-				}
-				else {
-					np2cfg.SOUND_SW =
-						np2_sound_hardware_valid(np2cfg.model,
-										g_gui.sound_sw_saved) ?
-						g_gui.sound_sw_saved :
-						np2_default_sound_for_model(np2cfg.model);
-				}
-				soundrenewal = 1;
-				sysmng_update(SYS_UPDATECFG | SYS_UPDATESBOARD);
-				reset_guest();
-			}
-			if (ImGui::BeginMenu("Sound hardware")) {
+			if (ImGui::BeginMenu("FM sound OPN/OPNA")) {
 				const bool va1 = milstr_cmp(np2cfg.model, str_VA1) == 0;
 				ImGui::BeginDisabled(!va1);
-				if (ImGui::MenuItem("VA built-in OPN (YM2203)", nullptr,
+				if (ImGui::MenuItem("OPN (VA)", nullptr,
 								 np2cfg.SOUND_SW == FMBOARD_VA_OPN)) {
 					select_sound_hardware(FMBOARD_VA_OPN);
 				}
 				ImGui::EndDisabled();
 				if (ImGui::MenuItem(
-						"OPNA (YM2608: VA Sound Board II / VA2/VA3)",
+						"OPNA (VA2/VA3, VA + Sound Board II)",
 						nullptr, np2cfg.SOUND_SW == FMBOARD_VA_OPNA)) {
 					select_sound_hardware(FMBOARD_VA_OPNA);
 				}
 				ImGui::EndMenu();
+			}
+			if (ImGui::BeginMenu("FM sound backend")) {
+				const UINT backend = opngen_getbackend();
+				if (ImGui::MenuItem("NP2", nullptr,
+								backend == OPN_BACKEND_NP2)) {
+					select_opn_backend(OPN_BACKEND_NP2);
+				}
+				if (ImGui::MenuItem("ymfm", nullptr,
+								backend == OPN_BACKEND_YMFM)) {
+					select_opn_backend(OPN_BACKEND_YMFM);
+				}
+				ImGui::EndMenu();
+			}
+			bool enabled = soundmng_isenabled() ? true : false;
+			if (ImGui::MenuItem("Sound on/off", nullptr, enabled)) {
+				np2oscfg.sound_enabled = enabled ? 0 : 1;
+				soundmng_setenabled(np2oscfg.sound_enabled ? TRUE : FALSE);
+				sysmng_update(SYS_UPDATEOSCFG);
 			}
 			bool motor = np2cfg.MOTOR != 0;
 			if (ImGui::MenuItem("Seek/motor sound", nullptr, motor)) {
@@ -1317,18 +1517,6 @@ static void draw_device_menu(void) {
 			int volume = np2cfg.vol_fm;
 			if (ImGui::SliderInt("Master volume", &volume, 0, 128)) {
 				apply_master_volume(volume);
-			}
-			if (ImGui::BeginMenu("OPN backend")) {
-				const UINT backend = opngen_getbackend();
-				if (ImGui::MenuItem("NP2", nullptr,
-								backend == OPN_BACKEND_NP2)) {
-					select_opn_backend(OPN_BACKEND_NP2);
-				}
-				if (ImGui::MenuItem("ymfm", nullptr,
-								backend == OPN_BACKEND_YMFM)) {
-					select_opn_backend(OPN_BACKEND_YMFM);
-				}
-				ImGui::EndMenu();
 			}
 			menu_item_not_implemented("Sound option... (not implemented)");
 			ImGui::EndMenu();
@@ -1399,6 +1587,7 @@ static void draw_state_menu(void) {
 						}
 					}
 						else {
+							taskmng_clear_fast_forward();
 							statsave_load(path.c_str());
 							sdlkbd_reset_state();
 							scrndraw_redraw();
@@ -1464,7 +1653,6 @@ BOOL gui_initialize(void *window, void *renderer, const char *argv0) {
 		return FAILURE;
 	}
 	g_gui.renderer = static_cast<SDL_Renderer *>(renderer);
-	g_gui.sound_sw_saved = np2cfg.SOUND_SW;
 	if (!ImGui_ImplSDLRenderer2_Init(g_gui.renderer)) {
 		ImGui_ImplSDL2_Shutdown();
 		return FAILURE;
@@ -1568,6 +1756,7 @@ void gui_draw(void) {
 	draw_hdd_browser();
 	draw_new_sasi_dialog();
 	draw_keyboard_config();
+	draw_configure_dialog();
 }
 
 void gui_render(void) {

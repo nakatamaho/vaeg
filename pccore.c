@@ -57,11 +57,7 @@
 
 const OEMCHAR np2version[] = OEMTEXT(NP2VER_CORE);
 
-#if defined(_WIN32_WCE)
-#define	PCBASEMULTIPLE	2
-#else
-#define	PCBASEMULTIPLE	4
-#endif
+#define	PCBASEMULTIPLE	PCCORE_STANDARD_MULTIPLE
 
 
 	NP2CFG	np2cfg = {
@@ -69,7 +65,7 @@ const OEMCHAR np2version[] = OEMTEXT(NP2VER_CORE);
 				0, 0, 0, 0,
 				{0x3e, 0x73, 0x7b}, 0,
 				0, 0, {1, 1, 6, 1, 8, 1},
-				OEMTEXT("88VA2"), PCBASECLOCK40, 2,
+				OEMTEXT("88VA2"), PCBASECLOCK40, 2, 0, 1,
 				{0x48, 0x05, 0x04, 0x00, 0x01, 0x00, 0x00, 0x6e},
 				1, 1, 2, 1, 0x000000, 0xffffff,
 				22050, 500, FMBOARD_VA_OPNA, 0,
@@ -92,7 +88,10 @@ const OEMCHAR np2version[] = OEMTEXT(NP2VER_CORE);
 	PCCORE	pccore = {	PCBASECLOCK25, PCBASEMULTIPLE,
 						0, PCMODEL_VX, 0, 0, {0x3e, 0x73, 0x7b}, 0,
 						0, 0,
-						PCBASECLOCK25 * PCBASEMULTIPLE};
+							PCBASECLOCK25 * PCBASEMULTIPLE};
+	CLOCKSCALE pccore_cpu_scale = {PCCORE_STANDARD_MULTIPLE,
+								  PCCORE_STANDARD_MULTIPLE, 0};
+	static UINT pccore_cpu_multiple_value = PCCORE_STANDARD_MULTIPLE;
 
 	UINT8	screenupdate = 3;			// bit0=1.画面の一部について描画が必要
 										// bit1=1.画面全体の描画が必要
@@ -102,6 +101,41 @@ const OEMCHAR np2version[] = OEMTEXT(NP2VER_CORE);
 	UINT	drawcount = 0;
 	BOOL	hardwarereset = FALSE;
 
+
+// ---------------------------------------------------------------------------
+
+BOOL pccore_cpu_multiple_valid(UINT multiple) {
+
+	return((multiple >= 1) && (multiple <= PCCORE_CPU_MULTIPLE_MAX));
+}
+
+void pccore_clockrestore(void) {
+
+	UINT multiple;
+
+	multiple = np2cfg.multiple;
+	if (multiple == 0) {
+		multiple = 1;
+	}
+	else if (multiple > PCCORE_CPU_MULTIPLE_MAX) {
+		multiple = PCCORE_CPU_MULTIPLE_MAX;
+	}
+	pccore.multiple = PCCORE_STANDARD_MULTIPLE;
+	pccore.realclock = pccore.baseclock * pccore.multiple;
+	pccore_cpu_multiple_value = multiple;
+	clockscale_configure(&pccore_cpu_scale, PCCORE_STANDARD_MULTIPLE,
+												multiple);
+}
+
+UINT pccore_cpu_multiple(void) {
+
+	return(pccore_cpu_multiple_value);
+}
+
+UINT32 pccore_cpu_clock(void) {
+
+	return(pccore.baseclock * pccore_cpu_multiple_value);
+}
 
 // ---------------------------------------------------------------------------
 
@@ -126,7 +160,6 @@ const OEMCHAR	*p;
 static void pccore_set(void) {
 
 	UINT8	model;
-	UINT32	multiple;
 	UINT8	extsize;
 
 	ZeroMemory(&pccore, sizeof(pccore));
@@ -164,15 +197,7 @@ static void pccore_set(void) {
 		pccore.baseclock = PCBASECLOCK20;			// 2.0MHz
 		pccore.cpumode = CPUMODE_8MHZ;
 	}
-	multiple = np2cfg.multiple;
-	if (multiple == 0) {
-		multiple = 1;
-	}
-	else if (multiple > 32) {
-		multiple = 32;
-	}
-	pccore.multiple = multiple;
-	pccore.realclock = pccore.baseclock * multiple;
+	pccore_clockrestore();
 
 	// HDDの接続 (I/Oの使用状態が変わるので..
 	if (np2cfg.dipsw[1] & 0x20) {
@@ -358,6 +383,7 @@ void pccore_reset(void) {
 	}
 
 	pccore_set();
+	sgp_configure_speed();
 #if defined(SUPPORT_BMS)
 	bmsio_set();
 #endif
