@@ -77,18 +77,19 @@ On Windows:
 VA configuration prerequisites
 ------------------------------
 
-For VA booting, vaeg.cfg must select the VA machine, VA Sound Board II,
-and the VA clock domain:
+For VA booting, vaeg.cfg must select the VA machine, matching sound
+hardware, and the VA clock domain:
 
     pc_model=88VA1
-    SNDboard=200
+    SNDboard=100
     clk_base=3993600
     clk_mult=2
 
-pc_model=88VA2 is also valid. The defaults are already correct on first
-run. If you reuse an existing vaeg config, edit these values before
-booting; old PC-98 defaults can stop at a V2 screen, leave the VA sound board
-unbound, or run in the wrong clock domain.
+SNDboard=100 is the VA built-in YM2203/OPN. Use SNDboard=200 for a VA
+with Sound Board II, or with pc_model=88VA2 for YM2608/OPNA. The GUI
+selects these defaults when the boot model changes. If you reuse an
+existing config, invalid combinations can stop at a V2 screen, leave
+sound hardware unbound, or run in the wrong clock domain.
 
 Config and state file locations
 -------------------------------

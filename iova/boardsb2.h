@@ -20,10 +20,11 @@ extern "C" {
 
 extern	_BOARDSB2	boardsb2;
 
+void boardopnva_reset(void);
+void boardopnva_bind(void);
 void boardsb2_reset(void);
 void boardsb2_bind(void);
 
 #ifdef __cplusplus
 }
 #endif
-

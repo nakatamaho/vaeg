@@ -149,15 +149,16 @@ For VA booting, `vaeg.cfg` must use:
 
 ```ini
 pc_model=88VA1
-SNDboard=200
+SNDboard=100
 clk_base=3993600
 clk_mult=2
 ```
 
-`88VA2` is also valid for `pc_model`. Stale configs can cause a V2 halt,
-a silent FM-timer hang, or the wrong clock domain. Startup logs warn
-about stale VA `SNDboard` and clock settings but do not rewrite the
-user's configuration.
+For a VA with Sound Board II, use `SNDboard=200`. `88VA2` is also valid
+for `pc_model` and uses `SNDboard=200` for its YM2608/OPNA. Stale configs
+can cause a V2 halt, a silent FM-timer hang, or the wrong clock domain.
+Startup logs warn about invalid model/sound combinations and stale clock
+settings but do not rewrite the user's configuration.
 
 Configuration files are UTF-8 only in the portable frontend. Obsolete
 `np2.ini`, `np2.cfg`, and `vaeg.ini` files are not read.

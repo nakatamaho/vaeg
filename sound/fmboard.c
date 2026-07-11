@@ -184,7 +184,11 @@ void fmboard_reset(UINT32 type) {
 //			amd98_reset();
 			break;
 
-		case 0x0200:
+		case FMBOARD_VA_OPN:
+			boardopnva_reset();
+			break;
+
+		case FMBOARD_VA_OPNA:
 			boardsb2_reset();
 			break;
 
@@ -237,7 +241,11 @@ void fmboard_bind(void) {
 			amd98_bind();
 			break;
 
-		case 0x0200:
+		case FMBOARD_VA_OPN:
+			boardopnva_bind();
+			break;
+
+		case FMBOARD_VA_OPNA:
 			boardsb2_bind();
 			break;
 	}

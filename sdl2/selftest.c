@@ -37,6 +37,7 @@
 #include	"romankana.h"
 #include	"s98.h"
 #include	"soundmng.h"
+#include	"strres.h"
 
 static int fail(const char *name, const char *detail) {
 
@@ -425,6 +426,14 @@ static int opn_backend_produces_audio(UINT backend, REG8 channels,
 
 static int test_opn_backends(void) {
 
+	if ((np2_default_sound_for_model(str_VA1) != FMBOARD_VA_OPN) ||
+		(np2_default_sound_for_model(str_VA2) != FMBOARD_VA_OPNA) ||
+		(np2_sound_hardware_valid(str_VA1, FMBOARD_VA_OPN) != TRUE) ||
+		(np2_sound_hardware_valid(str_VA1, FMBOARD_VA_OPNA) != TRUE) ||
+		(np2_sound_hardware_valid(str_VA2, FMBOARD_VA_OPN) != FALSE) ||
+		(np2_sound_hardware_valid(str_VA2, FMBOARD_VA_OPNA) != TRUE)) {
+		return(fail("opn-backend", "VA sound hardware policy failed"));
+	}
 	opngen_initialize(44100);
 	if (opngen_parsebackend("np2") != OPN_BACKEND_NP2 ||
 		opngen_parsebackend("ymfm") != OPN_BACKEND_YMFM ||

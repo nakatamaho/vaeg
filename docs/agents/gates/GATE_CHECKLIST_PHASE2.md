@@ -38,8 +38,9 @@ conversation/PR.
 ## G11 (M11, human, Windows + macOS)
 - [ ] Windows build follows `BUILD.md` from a clean checkout
 - [ ] macOS build follows `BUILD.md` with MacPorts SDL2 under `/opt/local`
-- [ ] `np2.cfg` has `pc_model=88VA1` or `88VA2`, `SNDboard=200`,
-      `clk_base=3993600`, and `clk_mult=2`
+- [ ] `vaeg.cfg` has `pc_model=88VA1` with `SNDboard=100`/`200`, or
+      `pc_model=88VA2` with `SNDboard=200`, plus `clk_base=3993600` and
+      `clk_mult=2`
 - [ ] Stale-config startup warnings are visible if those VA settings are
       deliberately wrong
 - [ ] Standard VA gate executed on real Windows (MinGW build)
@@ -79,6 +80,9 @@ conversation/PR.
 - [ ] SSG, ADPCM-B, and rhythm remain on the NP2 path and do not regress
 - [ ] `opn_backend` persists across restart; missing/invalid values use
       ymfm and explicit `np2` still selects NP2
+- [ ] VA defaults to YM2203/OPN; selecting Sound Board II switches to
+      YM2608/OPNA and survives restart
+- [ ] VA2/VA3 defaults to YM2608/OPNA and does not expose OPN-only selection
 
 ## G18 (M18, human model/ROM boot)
 - [ ] Unsuffixed VA ROMs and extra `vasubsys.rom` are beside the executable
