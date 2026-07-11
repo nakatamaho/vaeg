@@ -24,7 +24,7 @@ POSSIBILITY OF SUCH DAMAGE.
 -->
 # M20 - Separate CPU/SGP execution speed from machine time
 
-Status: implementation complete; G20 pending
+Status: complete; G20 passed
 
 Branch: `topic/m20-cpu-sgp-speed-pacing`
 
@@ -320,7 +320,7 @@ G20 is a human timing and regression gate. It must cover:
 - V3 boot, VA demo, OS boot/simple operation, media retention, clean exit,
   and no graphics or sound regression.
 
-G20 passes only after the maintainer explicitly reports the gate passed.
+The maintainer reported G20 passed on 2026-07-11.
 
 ## Remaining hardware uncertainty
 
