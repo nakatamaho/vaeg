@@ -30,6 +30,7 @@
 #include	"dosio.h"
 #include	"kbdmap.h"
 #include	"np2.h"
+#include	"pacing.h"
 #include	"sound.h"
 #include	"opngen.h"
 #include	"pccore.h"
@@ -249,6 +250,47 @@ static int test_sgp_speed(void) {
 	pccore_clockrestore();
 	sgp_configure_speed();
 	fprintf(stderr, "selftest: SGP speed ok\n");
+	return(SUCCESS);
+}
+
+static int test_pacing(void) {
+
+	VAEG_PACING_STATE state;
+	BOOL configured_nowait;
+	UINT configured_drawskip;
+
+	configured_nowait = FALSE;
+	configured_drawskip = 3;
+	vaeg_pacing_reset(&state);
+	if (state.fast_forward_held ||
+		vaeg_pacing_effective_nowait(&state, configured_nowait) ||
+		(vaeg_pacing_effective_drawskip(&state, configured_drawskip) != 3)) {
+		return(fail("pacing", "reset state changed configured pacing"));
+	}
+	if (!vaeg_pacing_key(&state, SDL_SCANCODE_F11, TRUE, FALSE) ||
+		!state.fast_forward_held ||
+		!vaeg_pacing_effective_nowait(&state, configured_nowait) ||
+		(vaeg_pacing_effective_drawskip(&state, configured_drawskip) != 16)) {
+		return(fail("pacing", "F11 keydown did not enable fast-forward"));
+	}
+	if (!vaeg_pacing_key(&state, SDL_SCANCODE_F11, TRUE, TRUE) ||
+		!state.fast_forward_held) {
+		return(fail("pacing", "F11 repeat damaged held state"));
+	}
+	if (!vaeg_pacing_key(&state, SDL_SCANCODE_F11, FALSE, FALSE) ||
+		state.fast_forward_held) {
+		return(fail("pacing", "F11 keyup did not disable fast-forward"));
+	}
+	if (vaeg_pacing_key(&state, SDL_SCANCODE_RALT, TRUE, FALSE)) {
+		return(fail("pacing", "Right Alt was consumed as a shortcut"));
+	}
+	(void)vaeg_pacing_key(&state, SDL_SCANCODE_F11, TRUE, FALSE);
+	vaeg_pacing_reset(&state);
+	if (state.fast_forward_held || configured_nowait ||
+		(configured_drawskip != 3)) {
+		return(fail("pacing", "focus/reset cleanup changed saved settings"));
+	}
+	fprintf(stderr, "selftest: pacing ok\n");
 	return(SUCCESS);
 }
 
@@ -596,6 +638,9 @@ int vaeg_selftest_run(void) {
 		return(FAILURE);
 	}
 	if (test_sgp_speed() != SUCCESS) {
+		return(FAILURE);
+	}
+	if (test_pacing() != SUCCESS) {
 		return(FAILURE);
 	}
 	if (test_keyboard_mapping() != SUCCESS) {

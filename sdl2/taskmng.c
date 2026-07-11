@@ -26,18 +26,38 @@
 #include	"sdlapi.h"
 #include	"taskmng.h"
 #include	"sdlkbd.h"
+#include	"pacing.h"
 #include	"gui/gui.h"
 
-	BOOL	task_avail;
+		BOOL	task_avail;
+	static VAEG_PACING_STATE task_pacing;
 
 void taskmng_initialize(void) {
 
 	task_avail = TRUE;
+	vaeg_pacing_reset(&task_pacing);
 }
 
 void taskmng_exit(void) {
 
 	task_avail = FALSE;
+	vaeg_pacing_reset(&task_pacing);
+}
+
+void taskmng_clear_fast_forward(void) {
+
+	vaeg_pacing_reset(&task_pacing);
+}
+
+BOOL taskmng_effective_nowait(BOOL configured_nowait) {
+
+	return(vaeg_pacing_effective_nowait(&task_pacing, configured_nowait));
+}
+
+UINT taskmng_effective_drawskip(UINT configured_drawskip) {
+
+	return(vaeg_pacing_effective_drawskip(&task_pacing,
+											configured_drawskip));
 }
 
 void taskmng_rol(void) {
@@ -46,7 +66,25 @@ void taskmng_rol(void) {
 
 	while(task_avail && SDL_PollEvent(&e)) {
 		BOOL captured;
+		BOOL shortcut;
 
+		shortcut = FALSE;
+		if (e.type == SDL_KEYDOWN) {
+			shortcut = vaeg_pacing_key(&task_pacing,
+							(UINT)e.key.keysym.scancode, TRUE,
+							e.key.repeat ? TRUE : FALSE);
+		}
+		else if (e.type == SDL_KEYUP) {
+			shortcut = vaeg_pacing_key(&task_pacing,
+							(UINT)e.key.keysym.scancode, FALSE, FALSE);
+		}
+		else if ((e.type == SDL_WINDOWEVENT) &&
+				 (e.window.event == SDL_WINDOWEVENT_FOCUS_LOST)) {
+			vaeg_pacing_reset(&task_pacing);
+		}
+		else if (e.type == SDL_QUIT) {
+			vaeg_pacing_reset(&task_pacing);
+		}
 		captured = gui_process_event(&e);
 		switch(e.type) {
 			case SDL_QUIT:
@@ -54,18 +92,22 @@ void taskmng_rol(void) {
 				break;
 
 			case SDL_KEYDOWN:
-				sdlkbd_keydown((UINT)e.key.keysym.scancode,
-							   e.key.keysym.sym,
-							   (UINT16)e.key.keysym.mod,
-							   captured,
-							   e.key.repeat ? TRUE : FALSE);
+				if (!shortcut) {
+					sdlkbd_keydown((UINT)e.key.keysym.scancode,
+								   e.key.keysym.sym,
+								   (UINT16)e.key.keysym.mod,
+								   captured,
+								   e.key.repeat ? TRUE : FALSE);
+				}
 				break;
 
 			case SDL_KEYUP:
-				sdlkbd_keyup((UINT)e.key.keysym.scancode,
-							 e.key.keysym.sym,
-							 (UINT16)e.key.keysym.mod,
-							 captured);
+				if (!shortcut) {
+					sdlkbd_keyup((UINT)e.key.keysym.scancode,
+								 e.key.keysym.sym,
+								 (UINT16)e.key.keysym.mod,
+								 captured);
+				}
 				break;
 
 			case SDL_TEXTINPUT:
