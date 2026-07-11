@@ -179,11 +179,11 @@ static void warn_va_config_sanity(void) {
 				"(current=%u); stale configs can run in the wrong "
 				"clock domain.\n", np2cfg.baseclock);
 	}
-	if (np2cfg.multiple != 2) {
+	if (!pccore_cpu_multiple_valid(np2cfg.multiple)) {
 		fprintf(stderr,
-				"WARNING: PC-88VA config expects clk_mult=2 "
-				"(current=%u); stale configs can run in the wrong "
-				"clock domain.\n", np2cfg.multiple);
+				"WARNING: PC-88VA CPU multiplier must be between 1 and 32 "
+				"(current=%u); runtime will use a safe fallback.\n",
+				np2cfg.multiple);
 	}
 	if (!np2_sound_hardware_valid(np2cfg.model, np2cfg.SOUND_SW)) {
 		fprintf(stderr,
