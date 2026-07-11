@@ -33,6 +33,7 @@
 #include	"sound.h"
 #include	"opngen.h"
 #include	"sgp.h"
+#include	"scrnmng.h"
 
 
 typedef struct {
@@ -462,8 +463,19 @@ static const INITBL iniitem[] = {
 	{"keyboard_custom_map", INITYPE_STR, np2oscfg.keyboard_custom_map,
 						sizeof(np2oscfg.keyboard_custom_map)},
 	{"opn_backend", INITYPE_STR, np2oscfg.opn_backend,
-						sizeof(np2oscfg.opn_backend)},
+							sizeof(np2oscfg.opn_backend)},
 	{"sound_enabled", INITYPE_BOOL, &np2oscfg.sound_enabled, 0},
+	{"GUI_effect", INITYPE_UINT8, &np2oscfg.gui_effect, 0},
+	{"GUI_scaling", INITYPE_UINT8, &np2oscfg.gui_scaling, 0},
+	{"GUI_win_cx", INITYPE_UINT16, &np2oscfg.gui_window_width, 0},
+	{"GUI_win_cy", INITYPE_UINT16, &np2oscfg.gui_window_height, 0},
+	{"display_mode", INITYPE_UINT8, &np2oscfg.gui_display_mode, 0},
+	{"monitor", INITYPE_SINT16, &np2oscfg.gui_monitor, 0},
+	{"fullscreen_refresh", INITYPE_UINT16,
+							&np2oscfg.gui_fullscreen_refresh, 0},
+	{"fscrn_cx", INITYPE_UINT16, &np2oscfg.fscrn_cx, 0},
+	{"fscrn_cy", INITYPE_UINT16, &np2oscfg.fscrn_cy, 0},
+	{"fscrnmod", INITYPE_HEX8, &np2oscfg.fscrnmod, 0},
 };
 
 #define	INIITEMS	(sizeof(iniitem) / sizeof(INITBL))
@@ -476,10 +488,40 @@ void initload(void) {
 	select_config_path(path, sizeof(path));
 	SDL_Log("Config load: %s", path);
 	ini_read(path, ini_title, iniitem, INIITEMS);
-	if ((np2oscfg.gui_scale < 1) || (np2oscfg.gui_scale > 3)) {
+	if (np2oscfg.gui_scale > 3) {
 		np2oscfg.gui_scale = 1;
 	}
 	np2oscfg.gui_aspect = np2oscfg.gui_aspect ? 1 : 0;
+	if (np2oscfg.gui_effect >= VAEG_EFFECT_COUNT) {
+		np2oscfg.gui_effect = VAEG_EFFECT_UNFILTERED;
+	}
+	if (np2oscfg.gui_scaling >= VAEG_SCALING_COUNT) {
+		np2oscfg.gui_scaling = VAEG_SCALING_FIT;
+	}
+	if (np2oscfg.gui_window_width < 320) {
+		np2oscfg.gui_window_width = 640;
+	}
+	if (np2oscfg.gui_window_height < 240) {
+		np2oscfg.gui_window_height = 422;
+	}
+	if (np2oscfg.gui_display_mode >= VAEG_DISPLAY_MODE_COUNT) {
+		np2oscfg.gui_display_mode = VAEG_DISPLAY_WINDOWED;
+	}
+	if (np2oscfg.gui_monitor < 0) {
+		np2oscfg.gui_monitor = 0;
+	}
+	{
+		BOOL masked;
+		UINT8 fscrnmod;
+
+		fscrnmod = vaeg_fscrnmod_sanitize(np2oscfg.fscrnmod, &masked);
+		if (masked) {
+			SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION,
+					"Unsupported fscrnmod bits in %02x; using %02x",
+					np2oscfg.fscrnmod, fscrnmod);
+		}
+		np2oscfg.fscrnmod = fscrnmod;
+	}
 	if (!sgp_speed_mode_valid(np2cfg.sgp_speed_mode)) {
 		np2cfg.sgp_speed_mode = SGP_SPEED_MODEL_DEFAULT;
 	}
