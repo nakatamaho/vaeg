@@ -24,3 +24,14 @@ runtime does not depend on either asset path.
 
 - SHA-256:
   `ad68394eb52a7cc75d9759a83982132725ddb66c4bd2260662526d67b8ce0c4e`
+
+## Historical application icon
+
+`vaeg.ico` is the VAEG application icon used by the frozen Win9x frontend.
+It was copied byte-for-byte from `win9x/icons/np2.ico` into the active asset
+directory. CMake embeds the unchanged ICO in every SDL2 executable for the
+runtime window icon; Windows builds also use it as the native executable icon
+resource.
+
+- SHA-256:
+  `a27533f679a31fdb8e2812c1d4906e705e544ba49b976154dde6794ce31a32f4`

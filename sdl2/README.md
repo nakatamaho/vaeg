@@ -82,6 +82,11 @@ events. CMake embeds the graphic in the executable; it is not a runtime file.
 ROM-less `--smoke` and `--selftest` runs skip the graphic and delay. There is
 no alternate-image fallback.
 
+CMake also embeds the byte-identical historical VAEG icon from
+`assets/vaeg.ico`. The frontend decodes the embedded ICO and supplies it to
+SDL as the window icon on every platform. Windows builds additionally compile
+it as a native executable resource. No adjacent icon file is required.
+
 ## SASI HDD Images
 
 SASI HDD images are configured through `vaeg.cfg`:
