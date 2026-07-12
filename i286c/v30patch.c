@@ -414,6 +414,12 @@ I286FN v30_xlat(void) {						// D6:	xlat
 	I286_AL = i286_memoryread(LOW16(I286_AL + I286_BX) + DS_FIX);
 }
 
+I286FN v30_loop(void) {						// E2:	loop
+
+	I286_CX--;
+	if (!I286_CX) JMPNOP(5) else JMPSHORT(17)
+}
+
 I286FN v30_repne(void) {					// F2:	repne
 
 	I286_PREFIX++;
@@ -1164,6 +1170,7 @@ static const V30PATCH v30patch_op[] = {
 			{0xd4, v30_aam},				// D4:	AAM
 			{0xd5, v30_aad},				// D5:	AAD
 			{0xd6, v30_xlat},				// D6:	xlat (8086/V30)
+			{0xe2, v30_loop},				// E2:	loop
 			{0xf2, v30_repne},				// F2:	repne
 			{0xf3, v30_repe},				// F3:	repe
 			{0xf6, v30_ope0xf6},			// F6:
