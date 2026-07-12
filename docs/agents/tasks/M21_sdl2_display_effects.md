@@ -355,6 +355,40 @@ G21 is a human display and guest-regression gate. Verify:
 
 G21 passes only when the maintainer explicitly reports it passed.
 
+### Inherited VA1 defect found during G21
+
+The Windows human gate found a pre-existing VA1-mode failure in PC-Engine
+1.05 V3 BASIC. `BEEP`, `LIST`, and `FILES` can make the guest appear
+frozen; `BEEP` may also produce text-screen garbage when sound is enabled.
+The same workload succeeds in VA2/VA3 mode.
+
+This is not presently attributed to M21:
+
+- the failure reproduces in the original VAEG and in older comparison
+  builds;
+- both `clk_mult=1` and the correct VA setting `clk_mult=2` reproduced it;
+- the expected VA1 ROM set was loaded and its logged CRC32/SHA-1 values
+  matched the known images;
+- Sound Off still froze, without the text garbage;
+- removing BEEP PCM stream registration did not prevent the freeze;
+- suppressing the BEEP event scheduled by system-port 01CFh did not prevent
+  it;
+- `LIST` and `FILES` reproduce without invoking BEEP.
+
+Instruction tracing showed that the CPU was still executing rather than
+hard-stopped. One captured interval repeatedly traversed RAM at
+`19E3:B7E2-B846` and ROM0 bank 1 at `E800:0C62-0CC0`. The ROM routine uses
+INT 83h services and reads text VRAM through `ES:DI`; this trace was armed
+on Return and may represent output before the final stuck state, so it does
+not yet identify the root cause. ROM-bank tracing found only valid ROM0
+banks and was dominated by the normal VA1 timer interrupt.
+
+Follow-up work should use a host-only trigger after the visible freeze,
+capture full registers plus the RAM bytes containing the `19E3` routine,
+and then identify the hardware status or return condition that never
+changes. The temporary trace experiments are not part of the M21 product
+changes. This defect remains open for a later focused fix.
+
 ## Later work
 
 A future optional renderer milestone may reconsider bgfx or another explicit
