@@ -486,7 +486,9 @@ void initload(void) {
 	char	path[MAX_PATH];
 
 	select_config_path(path, sizeof(path));
-	SDL_Log("Config load: %s", path);
+	if (np2_debug) {
+		SDL_Log("Config load: %s", path);
+	}
 	ini_read(path, ini_title, iniitem, INIITEMS);
 	if (np2oscfg.gui_scale > 3) {
 		np2oscfg.gui_scale = 1;

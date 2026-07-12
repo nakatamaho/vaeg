@@ -54,6 +54,7 @@
 								"", "", 0, 0, "", "ymfm", 1,
 								VAEG_EFFECT_UNFILTERED, VAEG_SCALING_FIT,
 								640, 422, VAEG_DISPLAY_WINDOWED, 0, 0, 0, 0, 2};
+		BOOL		np2_debug = FALSE;
 
 static const UINT smoke_timeout_frames = 600;
 static const UINT startup_splash_ms = 1500;
@@ -121,6 +122,7 @@ static void usage(const char *progname) {
 	printf("\t--help   [-h]       : print this message\n");
 	printf("\t--smoke             : initialize SDL2, run a short core loop, exit\n");
 	printf("\t--selftest          : run ROM-less unit tests and exit\n");
+	printf("\t--debug             : print configuration and ROM diagnostics\n");
 	printf("\t--fdctrace          : print one FDC trace line per command to stderr\n");
 	printf("\t--pacelog           : print pacing counters once per second\n");
 	printf("\timage1 [image2]     : mount FDD images in drive 1 and 2\n");
@@ -290,6 +292,12 @@ static void verify_rom(const char *dir, const char *source,
 		return;
 	}
 	romcheck_sha1_string(actual.sha1, sha1);
+	if (np2_debug) {
+		fprintf(stderr,
+				"INFO: ROM loaded: source=%s path=%s size=%u "
+				"crc32=%08x sha1=%s\n",
+				source, path, actual.size, actual.crc32, sha1);
+	}
 	if ((actual.size != expected->size) ||
 		(actual.crc32 != expected->crc32) || strcmp(sha1, expected->sha1)) {
 		fprintf(stderr,
@@ -760,6 +768,9 @@ int main(int argc, char **argv) {
 		else if (!milstr_cmp(p, "--selftest")) {
 			selftest = TRUE;
 		}
+		else if (!milstr_cmp(p, "--debug")) {
+			np2_debug = TRUE;
+		}
 		else if (!milstr_cmp(p, "--fdctrace")) {
 			fdctrace = TRUE;
 		}
@@ -814,6 +825,13 @@ int main(int argc, char **argv) {
 		report_model_rompath(result, missing);
 	}
 	warn_va_config_sanity();
+	if (np2_debug) {
+		fprintf(stderr,
+				"INFO: Machine config: pc_model=%s clk_base=%u "
+				"clk_mult=%u SNDboard=%03x sound_enabled=%u biospath=%s\n",
+				np2cfg.model, np2cfg.baseclock, np2cfg.multiple,
+				np2cfg.SOUND_SW, np2oscfg.sound_enabled, np2cfg.biospath);
+	}
 	if (smoke) {
 		np2oscfg.NOWAIT = 1;
 		np2oscfg.resume = 0;
