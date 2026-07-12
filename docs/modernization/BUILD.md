@@ -175,3 +175,11 @@ builds. This was established during the M11 LLP64 audit: runtime pointer
 and handle-size fixes are safe for process memory, but serialized emulator
 state should be treated as tied to the exact architecture/build family
 that wrote it.
+
+VA1 mode has an inherited V3 BASIC execution defect: commands including
+`BEEP`, `LIST`, and `FILES` can leave the guest running in a repeated
+text-display path and make it appear frozen. VA2/VA3 mode is not known to be
+affected. The problem also reproduces in the original VAEG and predates the
+SDL2 display-effects work. Disabling host sound, suppressing BEEP PCM
+registration, and suppressing the BEEP event did not prevent it, so this is
+not currently classified as an audio-backend defect.
