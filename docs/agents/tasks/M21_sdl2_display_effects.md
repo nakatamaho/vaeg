@@ -50,8 +50,7 @@ depend on a particular SDL OpenGL, Metal, or Direct3D implementation.
 - Use one tested viewport calculator for all scaling and display modes.
 - Distinguish logical window size, drawable output size, menu inset, and the
   fixed guest framebuffer size.
-- Add Windowed, Borderless desktop, and Exclusive fullscreen modes.
-- Enumerate real displays, resolutions, and refresh rates through SDL2.
+- Add immediate Windowed and current-desktop Exclusive fullscreen modes.
 - Add Unfiltered, Linear, Scanline, and CRT Lite display effects.
 - Preserve the existing 640x400 RGB565 guest shadow framebuffer and upload
   path.
@@ -70,6 +69,8 @@ depend on a particular SDL OpenGL, Metal, or Direct3D implementation.
 - No guest framebuffer reallocation for host window or fullscreen changes.
 - No changes to guest video timing, TSP, VRAM, frame pacing, or draw-skip
   behavior.
+- No Borderless desktop or detailed monitor/resolution/refresh GUI in the
+  simplified final M21 interface.
 - No edits to `win9x/`, `i286x/`, `cpuxva/memoryva.x86`, or `hlp/`.
 
 ## Existing presentation path
@@ -176,23 +177,17 @@ the reason and fall back to Linear without terminating emulation.
 
 ## Fullscreen
 
-Display modes:
-
-- Windowed;
-- Borderless desktop fullscreen;
-- Exclusive fullscreen.
-
-The GUI must enumerate displays and display modes through SDL2. Exclusive
-modes distinguish refresh rates for the same resolution. Selection remains
-pending until Apply.
+The public GUI has two immediate display modes: Windowed and Exclusive
+fullscreen. Exclusive uses the current desktop resolution on the saved
+monitor, with no pending selection or separate Apply step.
 
 Before entering fullscreen, retain the window position, logical size, and
 maximized state. Restore them when returning to Windowed. Re-query drawable
 size after every transition before recalculating the viewport.
 
-Invalid display indices, disconnected displays, missing saved modes, dummy
-video drivers, and failed exclusive transitions must not crash. Fall back to
-the primary display's borderless mode or to Windowed and show/log the reason.
+Invalid display indices, disconnected displays, missing modes, dummy video
+drivers, and failed exclusive transitions must not crash. Fall back to
+Windowed and log the reason.
 
 Alt+Enter is not required for M21. Complete the GUI-driven lifecycle first.
 
@@ -251,14 +246,11 @@ Screen menu additions:
 - Effect: Unfiltered / Linear / Scanline / CRT Lite;
 - Scaling: Native / Fit / Fit 8-dot / Integer / Stretch;
 - Window size: Native / x2 / x3 / Custom...;
-- Display mode: Windowed / Borderless desktop / Exclusive fullscreen;
-- Display settings... for monitor, resolution, refresh, fullscreen dimensions,
-  and `fscrnmod` options;
+- Windowed and Exclusive fullscreen as immediate commands;
 - Aspect correction.
 
-Custom size and exclusive display settings use pending values. Cancel,
-Escape, or window close discards edits. Failed Apply restores the previous
-working window/display state and reports the reason in the GUI.
+Custom window size uses pending values. Exclusive fullscreen does not require
+a setup dialog; failed switching restores Windowed and logs the reason.
 
 ## Automated tests
 
@@ -325,8 +317,9 @@ The Linux agent completed the following checks on 2026-07-11:
 - Linux ASan/UBSan configure/build/CTest: passed, 1/1 test;
 - MinGW cross configure/link: passed and produced `sdl2/vaeg.exe`;
 - isolated temporary-config smoke checks: Windowed custom size with CRT Lite
-  and Fit 8-dot passed; Borderless desktop passed with the dummy driver;
-  unavailable Exclusive mode returned safely to Windowed.
+  and Fit 8-dot passed; unavailable Exclusive mode returned safely to
+  Windowed. The earlier Borderless UI was subsequently removed when the
+  fullscreen controls were simplified.
 
 Native macOS, native Windows, real multi-monitor/fullscreen operation, visual
 effect quality, and guest regressions remain part of G21.
@@ -342,9 +335,7 @@ G21 is a human display and guest-regression gate. Verify:
 - aspect correction;
 - Retina/High-DPI clarity and geometry;
 - minimize, restore, maximize, and window-position restoration;
-- Windowed -> Borderless -> Windowed;
 - Windowed -> Exclusive -> Windowed;
-- monitor, resolution, and refresh selection;
 - Unfiltered/Linear/Scanline/CRT Lite appearance;
 - stable scanline period while resizing;
 - no effect leakage into black margins;

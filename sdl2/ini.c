@@ -506,7 +506,8 @@ void initload(void) {
 	if (np2oscfg.gui_window_height < 240) {
 		np2oscfg.gui_window_height = 422;
 	}
-	if (np2oscfg.gui_display_mode >= VAEG_DISPLAY_MODE_COUNT) {
+	if ((np2oscfg.gui_display_mode != VAEG_DISPLAY_WINDOWED) &&
+		(np2oscfg.gui_display_mode != VAEG_DISPLAY_EXCLUSIVE)) {
 		np2oscfg.gui_display_mode = VAEG_DISPLAY_WINDOWED;
 	}
 	if (np2oscfg.gui_monitor < 0) {
@@ -523,6 +524,12 @@ void initload(void) {
 					np2oscfg.fscrnmod, fscrnmod);
 		}
 		np2oscfg.fscrnmod = fscrnmod;
+	}
+	if (np2oscfg.gui_display_mode == VAEG_DISPLAY_EXCLUSIVE) {
+		np2oscfg.fscrn_cx = 0;
+		np2oscfg.fscrn_cy = 0;
+		np2oscfg.gui_fullscreen_refresh = 0;
+		np2oscfg.fscrnmod = (np2oscfg.fscrnmod & 3) | 4;
 	}
 	if (!sgp_speed_mode_valid(np2cfg.sgp_speed_mode)) {
 		np2cfg.sgp_speed_mode = SGP_SPEED_MODEL_DEFAULT;

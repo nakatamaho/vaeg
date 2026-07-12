@@ -96,9 +96,11 @@ Model default follows the documented model distinction: 3.9936 MHz for VA and
 7.9872 MHz for VA2/VA3.
 
 M21 is implemented as an SDL_Renderer-only display milestone. It adds a shared
-viewport, resizable and fullscreen display modes, and procedural lightweight
-effects without bgfx, custom shaders, MAME renderer code, or new graphics
-dependencies. The scope and G21 checklist are in
+viewport, resizable windows, immediate Windowed/current-desktop Exclusive
+switching, and procedural lightweight effects without bgfx, custom shaders,
+MAME renderer code, or new graphics dependencies. Borderless and detailed
+monitor/mode selection are not exposed in the simplified current GUI. The
+scope and G21 checklist are in
 `tasks/M21_sdl2_display_effects.md`.
 
 ## Gate protocol
