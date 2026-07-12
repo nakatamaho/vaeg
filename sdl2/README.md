@@ -162,12 +162,12 @@ and CRT Lite are procedural SDL_Renderer overlays aligned to the 400-line
 guest raster. CRT Lite adds a restrained RGB pattern and edge darkening. No
 MAME renderer code, shader, LUT, mask texture, or artwork is used.
 
-Display settings supports Windowed, Borderless desktop, and Exclusive
-fullscreen, including monitor and enumerated resolution/refresh selection.
-Unavailable exclusive modes roll back to Windowed. `fscrn_cx`, `fscrn_cy`,
-and hexadecimal `fscrnmod` retain the legacy fullscreen drawing meanings;
-bit `0x04` uses the current display size. The VA-specific zero-height fallback
-is 400, and the frozen frontend's `force400` option is not imported.
+Screen provides immediate Windowed and Exclusive fullscreen choices. Exclusive
+fullscreen uses the current desktop resolution on the saved monitor, so no
+separate Apply step or resolution setup is required. Failed transitions roll
+back to Windowed. The backend retains the legacy `fscrn_cx`, `fscrn_cy`, and
+hexadecimal `fscrnmod` fields, but detailed monitor/mode selection and
+Borderless desktop are not exposed in the current GUI.
 
 ## Execution Speed And Pacing
 

@@ -183,16 +183,6 @@ struct GuiState {
 	bool custom_size_request = false;
 	int pending_window_width = 640;
 	int pending_window_height = 422;
-	bool display_settings_open = false;
-	bool display_settings_request = false;
-	int pending_display_mode = VAEG_DISPLAY_WINDOWED;
-	int pending_monitor = 0;
-	int pending_fullscreen_width = 0;
-	int pending_fullscreen_height = 0;
-	int pending_fullscreen_refresh = 0;
-	int pending_fullscreen_drawing = 2;
-	bool pending_current_display_size = false;
-	std::string display_status;
 	bool about_open = false;
 	bool about_request = false;
 	bool about_more = false;
@@ -1278,24 +1268,45 @@ static void set_display_effect(int effect) {
 	sysmng_update(SYS_UPDATEOSCFG);
 }
 
+static void set_display_mode(int mode) {
+
+	UINT width = np2oscfg.fscrn_cx;
+	UINT height = np2oscfg.fscrn_cy;
+	UINT refresh = np2oscfg.gui_fullscreen_refresh;
+	UINT8 fscrnmod = np2oscfg.fscrnmod;
+
+	if (scrnmng_get_display_mode() == mode) {
+		return;
+	}
+	if (mode == VAEG_DISPLAY_EXCLUSIVE) {
+		width = 0;
+		height = 0;
+		refresh = 0;
+		fscrnmod = static_cast<UINT8>((fscrnmod & 3) | 4);
+	}
+	if (scrnmng_set_display_mode(mode, np2oscfg.gui_monitor,
+							width, height, refresh, fscrnmod) == SUCCESS) {
+		np2oscfg.gui_display_mode = static_cast<BYTE>(mode);
+		if (mode == VAEG_DISPLAY_EXCLUSIVE) {
+			np2oscfg.fscrn_cx = 0;
+			np2oscfg.fscrn_cy = 0;
+			np2oscfg.gui_fullscreen_refresh = 0;
+			np2oscfg.fscrnmod = fscrnmod;
+		}
+	}
+	else {
+		SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION,
+				"Display mode change failed: %s", SDL_GetError());
+		np2oscfg.gui_display_mode = VAEG_DISPLAY_WINDOWED;
+	}
+	sysmng_update(SYS_UPDATEOSCFG);
+}
+
 static void open_custom_size_dialog(void) {
 
 	g_gui.pending_window_width = np2oscfg.gui_window_width;
 	g_gui.pending_window_height = np2oscfg.gui_window_height;
 	g_gui.custom_size_request = true;
-}
-
-static void open_display_settings_dialog(void) {
-
-	g_gui.pending_display_mode = np2oscfg.gui_display_mode;
-	g_gui.pending_monitor = np2oscfg.gui_monitor;
-	g_gui.pending_fullscreen_width = np2oscfg.fscrn_cx;
-	g_gui.pending_fullscreen_height = np2oscfg.fscrn_cy;
-	g_gui.pending_fullscreen_refresh = np2oscfg.gui_fullscreen_refresh;
-	g_gui.pending_fullscreen_drawing = np2oscfg.fscrnmod & 3;
-	g_gui.pending_current_display_size = (np2oscfg.fscrnmod & 4) != 0;
-	g_gui.display_status.clear();
-	g_gui.display_settings_request = true;
 }
 
 static void draw_custom_size_dialog(void) {
@@ -1339,132 +1350,6 @@ static void draw_custom_size_dialog(void) {
 		ImGui::SameLine();
 		if (ImGui::Button("Cancel")) {
 			g_gui.custom_size_open = false;
-			ImGui::CloseCurrentPopup();
-		}
-		ImGui::EndPopup();
-	}
-}
-
-static void draw_display_settings_dialog(void) {
-
-	static const char *display_modes[] = {
-		"Windowed", "Borderless desktop", "Exclusive fullscreen"
-	};
-	static const char *drawing_modes[] = {
-		"Native", "Fit 8-dot", "Fit", "Stretch"
-	};
-
-	if (g_gui.display_settings_request) {
-		g_gui.display_settings_request = false;
-		g_gui.display_settings_open = true;
-		ImGui::OpenPopup("Display settings##display");
-	}
-	if (!g_gui.display_settings_open) {
-		return;
-	}
-	ImGui::SetNextWindowSize(ImVec2(480.0f, 410.0f), ImGuiCond_Appearing);
-	if (ImGui::BeginPopupModal("Display settings##display",
-									&g_gui.display_settings_open,
-									ImGuiWindowFlags_NoResize)) {
-		ImGui::Combo("Display mode", &g_gui.pending_display_mode,
-						display_modes, static_cast<int>(std::size(display_modes)));
-		int display_count = SDL_GetNumVideoDisplays();
-		if (display_count < 1) {
-			display_count = 1;
-		}
-		if (g_gui.pending_monitor >= display_count) {
-			g_gui.pending_monitor = 0;
-		}
-		const char *monitor_name = SDL_GetDisplayName(g_gui.pending_monitor);
-		if (ImGui::BeginCombo("Monitor", monitor_name ? monitor_name : "Primary")) {
-			for (int index=0; index<display_count; index++) {
-				const char *name = SDL_GetDisplayName(index);
-				ImGui::PushID(index);
-				if (ImGui::Selectable(name ? name : "Display",
-									g_gui.pending_monitor == index)) {
-					g_gui.pending_monitor = index;
-				}
-				ImGui::PopID();
-			}
-			ImGui::EndCombo();
-		}
-		if (g_gui.pending_display_mode != VAEG_DISPLAY_WINDOWED) {
-			ImGui::Checkbox("Use current display size",
-									&g_gui.pending_current_display_size);
-		}
-		if ((g_gui.pending_display_mode == VAEG_DISPLAY_EXCLUSIVE) &&
-			!g_gui.pending_current_display_size) {
-			ImGui::InputInt("Fullscreen width",
-									&g_gui.pending_fullscreen_width);
-			ImGui::InputInt("Fullscreen height",
-									&g_gui.pending_fullscreen_height);
-			ImGui::InputInt("Refresh rate",
-									&g_gui.pending_fullscreen_refresh);
-			char current_mode[64];
-			std::snprintf(current_mode, sizeof(current_mode), "%dx%d @ %d Hz",
-				g_gui.pending_fullscreen_width, g_gui.pending_fullscreen_height,
-				g_gui.pending_fullscreen_refresh);
-			if (ImGui::BeginCombo("Resolution / refresh", current_mode)) {
-				const int count = SDL_GetNumDisplayModes(g_gui.pending_monitor);
-				for (int index=0; index<count; index++) {
-					SDL_DisplayMode mode;
-					if (SDL_GetDisplayMode(g_gui.pending_monitor, index, &mode) != 0) {
-						continue;
-					}
-					char label[64];
-					std::snprintf(label, sizeof(label), "%dx%d @ %d Hz",
-										mode.w, mode.h, mode.refresh_rate);
-					const bool selected =
-						(g_gui.pending_fullscreen_width == mode.w) &&
-						(g_gui.pending_fullscreen_height == mode.h) &&
-						(g_gui.pending_fullscreen_refresh == mode.refresh_rate);
-					ImGui::PushID(index);
-					if (ImGui::Selectable(label, selected)) {
-						g_gui.pending_fullscreen_width = mode.w;
-						g_gui.pending_fullscreen_height = mode.h;
-						g_gui.pending_fullscreen_refresh = mode.refresh_rate;
-					}
-					ImGui::PopID();
-				}
-				ImGui::EndCombo();
-			}
-		}
-		ImGui::Combo("Fullscreen drawing", &g_gui.pending_fullscreen_drawing,
-						drawing_modes, static_cast<int>(std::size(drawing_modes)));
-		if (!g_gui.display_status.empty()) {
-			ImGui::TextWrapped("%s", g_gui.display_status.c_str());
-		}
-		if (ImGui::Button("Apply")) {
-			const UINT8 fscrnmod = static_cast<UINT8>(
-				(g_gui.pending_fullscreen_drawing & 3) |
-				(g_gui.pending_current_display_size ? 4 : 0));
-			if (scrnmng_set_display_mode(g_gui.pending_display_mode,
-				g_gui.pending_monitor, g_gui.pending_fullscreen_width,
-				g_gui.pending_fullscreen_height,
-				g_gui.pending_fullscreen_refresh, fscrnmod) == SUCCESS) {
-				np2oscfg.gui_display_mode =
-						static_cast<BYTE>(g_gui.pending_display_mode);
-				np2oscfg.gui_monitor =
-						static_cast<SINT16>(g_gui.pending_monitor);
-				np2oscfg.fscrn_cx =
-						static_cast<UINT16>(g_gui.pending_fullscreen_width);
-				np2oscfg.fscrn_cy =
-						static_cast<UINT16>(g_gui.pending_fullscreen_height);
-				np2oscfg.gui_fullscreen_refresh =
-						static_cast<UINT16>(g_gui.pending_fullscreen_refresh);
-				np2oscfg.fscrnmod = fscrnmod;
-				sysmng_update(SYS_UPDATEOSCFG);
-				g_gui.display_settings_open = false;
-				ImGui::CloseCurrentPopup();
-			}
-			else {
-				g_gui.display_status = "Display change failed: ";
-				g_gui.display_status += SDL_GetError();
-			}
-		}
-		ImGui::SameLine();
-		if (ImGui::Button("Cancel")) {
-			g_gui.display_settings_open = false;
 			ImGui::CloseCurrentPopup();
 		}
 		ImGui::EndPopup();
@@ -1671,21 +1556,13 @@ static void draw_screen_menu(void) {
 		if (ImGui::MenuItem("Aspect correction", nullptr, aspect)) {
 			set_display_aspect(!aspect);
 		}
-		if (ImGui::BeginMenu("Display mode")) {
-			static const char *labels[] = {
-				"Windowed...", "Borderless desktop...", "Exclusive fullscreen..."
-			};
-			for (int value=0; value<VAEG_DISPLAY_MODE_COUNT; value++) {
-				if (ImGui::MenuItem(labels[value], nullptr,
-								np2oscfg.gui_display_mode == value)) {
-					open_display_settings_dialog();
-					g_gui.pending_display_mode = value;
-				}
-			}
-			ImGui::EndMenu();
+		if (ImGui::MenuItem("Windowed", nullptr,
+				scrnmng_get_display_mode() == VAEG_DISPLAY_WINDOWED)) {
+			set_display_mode(VAEG_DISPLAY_WINDOWED);
 		}
-		if (ImGui::MenuItem("Display settings...")) {
-			open_display_settings_dialog();
+		if (ImGui::MenuItem("Exclusive fullscreen", nullptr,
+				scrnmng_get_display_mode() == VAEG_DISPLAY_EXCLUSIVE)) {
+			set_display_mode(VAEG_DISPLAY_EXCLUSIVE);
 		}
 		ImGui::Separator();
 		bool nowait = np2oscfg.NOWAIT != 0;
@@ -2164,7 +2041,6 @@ void gui_draw(void) {
 	draw_keyboard_config();
 	draw_configure_dialog();
 	draw_custom_size_dialog();
-	draw_display_settings_dialog();
 	draw_about_dialog();
 }
 
