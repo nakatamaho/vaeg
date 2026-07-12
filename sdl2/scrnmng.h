@@ -87,6 +87,7 @@ BOOL scrnmng_map_window_point(int window_x, int window_y,
 BOOL scrnmng_set_display_mode(int mode, int monitor, UINT width, UINT height,
 								UINT refresh, UINT8 fscrnmod);
 int scrnmng_get_display_mode(void);
+BOOL scrnmng_isfullscreen(void);
 BOOL scrnmng_capture_window_size(int *width, int *height);
 void scrnmng_log_geometry(const char *reason);
 BOOL scrnmng_texture_uniform(BOOL *uniform);

@@ -46,6 +46,8 @@
 #include "keystat.h"
 #include "newdisk.h"
 #include "np2.h"
+#include "np2info.h"
+#include "np2ver.h"
 #include "sound.h"
 #include "adpcm.h"
 #include "beep.h"
@@ -72,6 +74,8 @@ extern _RHYTHM rhythm;
 extern _ADPCM adpcm;
 extern const unsigned char vaeg_gui_font_ttf[];
 extern const unsigned int vaeg_gui_font_ttf_size;
+extern const unsigned char vaeg_splash_bmp[];
+extern const unsigned int vaeg_splash_bmp_size;
 }
 
 namespace {
@@ -82,6 +86,28 @@ constexpr int kMasterVolumeMax = 128;
 constexpr int kSasiImageCount = 6;
 constexpr int kCpuPresets[] = {1, 2, 4, 5, 6, 8, 10, 12, 16, 20};
 constexpr int kSgpPresets[] = {1, 2, 4, 8, 16};
+constexpr const char kAboutInfoTemplate[] =
+	"CPU: %CPU% %CLOCK%\n"
+	"MODEL: %MODEL%\n"
+	"SOUND: %EXSND%\n"
+	"RHYTHM: %RHYTHM%\n"
+	"\n"
+	"SCREEN: %DISP%\n"
+	"\n"
+	"[88VA]\n"
+	"ROM TYPE: %ROMTPVA%\n"
+	"ROM(Main): %BIOSVA%\n"
+	"ROM(VupB): %BIOS91%\n"
+	"ROM(Sub): %BIOSSUB%\n"
+	"\n"
+	"[98x1]\n"
+	"MEM: %MEM1%\n"
+	"GDC: %GDC%\n"
+	"     %GDC2%\n"
+	"TEXT: %TEXT%\n"
+	"GRPH: %GRPH%\n"
+	"\n"
+	"BIOS: %BIOS%";
 namespace fs = std::filesystem;
 
 struct SasiImageChoice {
@@ -119,6 +145,9 @@ struct BrowserEntry {
 struct GuiState {
 	bool initialized = false;
 	SDL_Renderer *renderer = nullptr;
+	SDL_Texture *about_texture = nullptr;
+	int about_texture_width = 0;
+	int about_texture_height = 0;
 	float menu_font_size = kGuiFontSize;
 	int fdd_dialog_drive = -1;
 	char fdd_path[2][MAX_PATH] = {};
@@ -164,9 +193,35 @@ struct GuiState {
 	int pending_fullscreen_drawing = 2;
 	bool pending_current_display_size = false;
 	std::string display_status;
+	bool about_open = false;
+	bool about_request = false;
+	bool about_more = false;
+	char about_info[2048] = {};
 };
 
 GuiState g_gui;
+
+static SDL_Texture *load_about_texture(SDL_Renderer *renderer,
+										int *width, int *height) {
+
+	SDL_RWops *stream = SDL_RWFromConstMem(vaeg_splash_bmp,
+										static_cast<int>(vaeg_splash_bmp_size));
+	if (stream == nullptr) {
+		return nullptr;
+	}
+	SDL_Surface *surface = SDL_LoadBMP_RW(stream, 1);
+	if (surface == nullptr) {
+		return nullptr;
+	}
+	SDL_Texture *texture = SDL_CreateTextureFromSurface(renderer, surface);
+	if (texture != nullptr) {
+		*width = surface->w;
+		*height = surface->h;
+		SDL_SetTextureScaleMode(texture, SDL_ScaleModeNearest);
+	}
+	SDL_FreeSurface(surface);
+	return texture;
+}
 
 static std::string join_path(const std::string &base, const char *leaf) {
 
@@ -1797,16 +1852,88 @@ static void draw_device_menu(void) {
 	}
 }
 
-static void draw_other_menu(void) {
+static void draw_about_menu(void) {
 
-	if (ImGui::BeginMenu("Other")) {
-		menu_item_not_implemented("BMP Save... (not implemented)");
-		menu_item_not_implemented("S98 logging... (not implemented)");
-		menu_item_not_implemented("Calendar... (not implemented)");
-		menu_item_not_implemented("Clock/Frame display (not implemented)");
-		menu_item_not_implemented("Help... (not implemented)");
-		menu_item_not_implemented("About... (not implemented)");
-		ImGui::EndMenu();
+	if (ImGui::MenuItem("About")) {
+		g_gui.about_open = true;
+		g_gui.about_request = true;
+		g_gui.about_more = false;
+		g_gui.about_info[0] = '\0';
+	}
+}
+
+static void draw_about_dialog(void) {
+
+	if (g_gui.about_request) {
+		g_gui.about_request = false;
+		ImGui::OpenPopup("About...##vaeg");
+	}
+	if (!g_gui.about_open) {
+		return;
+	}
+	const ImGuiViewport *viewport = ImGui::GetMainViewport();
+	const float width = (std::min)(g_gui.about_more ? 620.0f : 360.0f,
+									viewport->WorkSize.x * 0.9f);
+	const float height = g_gui.about_more ?
+		(std::min)(700.0f, viewport->WorkSize.y * 0.9f) : 310.0f;
+	ImGui::SetNextWindowPos(viewport->GetCenter(), ImGuiCond_Appearing,
+											ImVec2(0.5f, 0.5f));
+	ImGui::SetNextWindowSize(ImVec2(width, height), ImGuiCond_Always);
+	if (ImGui::BeginPopupModal("About...##vaeg", &g_gui.about_open,
+								ImGuiWindowFlags_NoResize |
+								ImGuiWindowFlags_NoCollapse)) {
+		if (g_gui.about_texture != nullptr) {
+			const float available = ImGui::GetContentRegionAvail().x;
+			const float image_width = static_cast<float>(g_gui.about_texture_width);
+			const float image_height = static_cast<float>(g_gui.about_texture_height);
+			const float scale = (std::min)(1.0f, available / image_width);
+			ImGui::SetCursorPosX(ImGui::GetCursorPosX() +
+										(available - image_width * scale) * 0.5f);
+			ImGui::Image(ImTextureRef(g_gui.about_texture),
+								ImVec2(image_width * scale, image_height * scale));
+		}
+		else {
+			ImGui::TextUnformatted("88VA Eternal Grafx");
+		}
+
+		bool close_about = false;
+		if (ImGui::BeginTable("about-footer", 2,
+								ImGuiTableFlags_SizingStretchProp)) {
+			ImGui::TableSetupColumn("text", ImGuiTableColumnFlags_WidthStretch);
+			ImGui::TableSetupColumn("buttons", ImGuiTableColumnFlags_WidthFixed,
+														88.0f);
+			ImGui::TableNextRow();
+			ImGui::TableNextColumn();
+			ImGui::Text("88VA Eternal Grafx  %s", VAEGREL_CORE);
+			ImGui::TableNextColumn();
+			close_about = ImGui::Button("OK", ImVec2(-1.0f, 0.0f));
+			ImGui::TableNextRow();
+			ImGui::TableNextColumn();
+			ImGui::Text("Based on Neko Project II  %s", NP2VER_CORE);
+			ImGui::TableNextColumn();
+			ImGui::BeginDisabled(g_gui.about_more);
+			if (ImGui::Button("More >>", ImVec2(-1.0f, 0.0f))) {
+				np2info(g_gui.about_info, kAboutInfoTemplate,
+											sizeof(g_gui.about_info), nullptr);
+				g_gui.about_more = true;
+			}
+			ImGui::EndDisabled();
+			ImGui::EndTable();
+		}
+
+		if (g_gui.about_more) {
+			ImGui::SeparatorText("Running VM configuration");
+			ImGui::InputTextMultiline("##runtime-info", g_gui.about_info,
+									sizeof(g_gui.about_info), ImVec2(-1.0f, -1.0f),
+									ImGuiInputTextFlags_ReadOnly);
+		}
+
+		if (close_about ||
+			ImGui::IsKeyPressed(ImGuiKey_Escape)) {
+			g_gui.about_open = false;
+			ImGui::CloseCurrentPopup();
+		}
+		ImGui::EndPopup();
 	}
 }
 
@@ -1925,6 +2052,13 @@ BOOL gui_initialize(void *window, void *renderer, const char *argv0) {
 		ImGui_ImplSDL2_Shutdown();
 		return FAILURE;
 	}
+	g_gui.about_texture = load_about_texture(g_gui.renderer,
+									&g_gui.about_texture_width,
+									&g_gui.about_texture_height);
+	if (g_gui.about_texture == nullptr) {
+		std::fprintf(stderr, "Warning: failed to load embedded About image: %s\n",
+						SDL_GetError());
+	}
 	g_gui.initialized = true;
 	return SUCCESS;
 }
@@ -1933,6 +2067,10 @@ void gui_shutdown(void) {
 
 	if (!g_gui.initialized) {
 		return;
+	}
+	if (g_gui.about_texture != nullptr) {
+		SDL_DestroyTexture(g_gui.about_texture);
+		g_gui.about_texture = nullptr;
 	}
 	ImGui_ImplSDLRenderer2_Shutdown();
 	ImGui_ImplSDL2_Shutdown();
@@ -2015,9 +2153,9 @@ void gui_draw(void) {
 		draw_harddisk_menu();
 		draw_screen_menu();
 		draw_device_menu();
-		draw_other_menu();
 		draw_state_menu();
 		draw_system_menu();
+		draw_about_menu();
 		ImGui::EndMainMenuBar();
 	}
 	draw_fdd_browser();
@@ -2027,6 +2165,7 @@ void gui_draw(void) {
 	draw_configure_dialog();
 	draw_custom_size_dialog();
 	draw_display_settings_dialog();
+	draw_about_dialog();
 }
 
 void gui_render(void) {

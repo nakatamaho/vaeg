@@ -602,6 +602,11 @@ int scrnmng_get_display_mode(void) {
 	return(scrnmng.display_mode);
 }
 
+BOOL scrnmng_isfullscreen(void) {
+
+	return(scrnmng.display_mode != VAEG_DISPLAY_WINDOWED);
+}
+
 BOOL scrnmng_capture_window_size(int *width, int *height) {
 
 	if ((scrnmng.window == NULL) ||

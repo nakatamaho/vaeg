@@ -19,7 +19,6 @@ static const char str_8MHz[] = "8MHz";
 static const char str_notexist[] = "not exist";
 static const char str_disable[] = "disable";
 
-#if defined(VAEG_EXT)
 static const char str_na[] = "N/A";
 static const char str_blank[] = " ";
 static const char str_exist[] = "exist";
@@ -53,9 +52,6 @@ static const char str_88va_rom08[] = "08";
 static const char str_88va_rom1[]  = "1";
 static const char str_88va_dic[]   = "DIC";
 static const char str_88va_font[]  = "FONT";
-static const char str_88va_subsys[]= "SUBSYS";
-
-#endif
 
 static const char str_cpu[] =
 						"8086-2\0"					\
@@ -109,7 +105,7 @@ static const char str_clockfmt[] = "%d.%1dMHz";
 static const char str_memfmt[] = "%3uKB";
 static const char str_memfmt2[] = "%3uKB + %uKB";
 static const char str_memfmt3[] = "%d.%1dMB";
-static const char str_width[] = "width-%u";
+static const char str_widthfmt[] = "width-%u";
 static const char str_dispclock[] = "%u.%.2ukHz / %u.%uHz";
 
 static const char str_pcm86a[] = "   PCM: %dHz %dbit %s";
@@ -125,7 +121,6 @@ static void info_ver(char *str, int maxlen, NP2INFOEX *ex) {
 	(void)ex;
 }
 
-#if defined(VAEG_EXT)
 static void info_model(char *str, int maxlen, NP2INFOEX *ex) {
 	if (pccore.model_va == PCMODEL_NOTVA) {
 		if (pccore.model & PCMODEL_PC9821) {
@@ -143,8 +138,6 @@ static void info_model(char *str, int maxlen, NP2INFOEX *ex) {
 	}
 	(void)ex;
 }
-
-#endif
 
 
 static void info_cpu(char *str, int maxlen, NP2INFOEX *ex) {
@@ -267,7 +260,7 @@ const char	*p;
 		p = str_disable;
 	}
 	else {
-		SPRINTF(textstr, str_width, ((gdc.mode1 & 0x4)?40:80));
+		SPRINTF(textstr, str_widthfmt, ((gdc.mode1 & 0x4)?40:80));
 		p = textstr;
 	}
 	milstr_ncpy(str, p, maxlen);
@@ -499,13 +492,11 @@ typedef struct {
 } INFOPROC;
 
 static const INFOPROC infoproc[] = {
-#if defined(VAEG_EXT)
 			{"MODEL",		info_model},
 			{"ROMTPVA",		info_romtype_88va},
 			{"BIOSVA",		info_bios_88va},
 			{"BIOS91",		info_bios_88va91},
 			{"BIOSSUB",		info_bios_88vasubsys},
-#endif
 			{"VER",			info_ver},
 			{"CPU",			info_cpu},
 			{"CLOCK",		info_clock},
@@ -609,4 +600,3 @@ const INFOPROC	*infterm;
 	}
 	*dst = '\0';
 }
-

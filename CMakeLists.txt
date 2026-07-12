@@ -116,7 +116,8 @@ set(VAEG_COMMON_SOURCES
     common/parts.c
     common/resize.c
     generic/cmjasts.c
-    generic/cmver.c)
+    generic/cmver.c
+    generic/np2info.c)
 
 set(VAEG_CORE_SOURCES
     i286c/i286c.c
