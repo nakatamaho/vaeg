@@ -27,6 +27,7 @@
 #include	"scrnmng.h"
 #include	"np2.h"
 #include	"np2ver.h"
+#include	"appicon.h"
 
 typedef struct {
 	BOOL			enable;
@@ -255,6 +256,7 @@ BOOL scrnmng_create(int width, int height) {
 		fprintf(stderr, "Error: SDL_CreateWindow: %s\n", SDL_GetError());
 		return(FAILURE);
 	}
+	appicon_set_window(scrnmng.window);
 	SDL_SetWindowMinimumSize(scrnmng.window, 320, 240);
 	SDL_GetWindowPosition(scrnmng.window, &scrnmng.window_x,
 									&scrnmng.window_y);

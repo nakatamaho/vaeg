@@ -53,6 +53,9 @@ The output is `build/mingw-release/sdl2/vaeg.exe`. The preset builds a
 GUI-subsystem executable. For a console while debugging, configure a
 separate tree with `-DVAEG_WINDOWS_CONSOLE=ON`.
 
+The historical VAEG icon is embedded both as a Windows executable resource
+and as the cross-platform SDL window icon. No adjacent icon file is required.
+
 ## macOS Release
 
 The release preset fetches pinned SDL2 and links it statically:
@@ -63,7 +66,11 @@ cmake --build --preset macos-release
 ```
 
 The output is a plain `build/macos-release/sdl2/vaeg` binary. macOS
-system frameworks remain dynamic operating-system dependencies.
+system frameworks remain dynamic operating-system dependencies. The
+historical VAEG icon data is embedded and supplied to SDL for the running
+application. The plain executable is not an application bundle, so Finder
+does not assign it a bundle document icon; that would require a separately
+audited `.icns` asset and an app-bundle packaging milestone.
 
 ## macOS Development: MacPorts
 
@@ -98,6 +105,11 @@ The staged output is `build/mingw-cross/sdl2/vaeg.exe`. SDL2 and the
 MinGW runtimes are static, so the executable has only Windows system DLL
 imports. This preset remains a link-check tier; Windows release artifacts
 should be produced from the supported MSYS2 MINGW64 native configuration.
+
+Linux executables also contain the same icon data and set it through SDL for
+window-manager and task-switcher use. The project does not currently install
+a desktop entry or an icon-theme payload, so launchers do not receive a
+system-wide application icon from this unpacked-binary distribution.
 
 ## GitHub Actions CI
 

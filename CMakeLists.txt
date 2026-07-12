@@ -303,6 +303,7 @@ set(VAEG_SDL2_SOURCES
     sdl2/taskmng.c
     sdl2/pacing.c
     sdl2/viewport.c
+    sdl2/appicon.c
     sdl2/splash.c
     sdl2/sysmng.c
     sdl2/timemng.c
@@ -356,6 +357,28 @@ add_custom_command(
         "${CMAKE_CURRENT_SOURCE_DIR}/cmake/embed_binary.cmake"
     VERBATIM)
 list(APPEND VAEG_SDL2_SOURCES "${VAEG_GUI_FONT_DATA}")
+
+set(VAEG_APP_ICON_DATA "${CMAKE_CURRENT_BINARY_DIR}/generated/vaeg_app_icon_data.c")
+add_custom_command(
+    OUTPUT "${VAEG_APP_ICON_DATA}"
+    COMMAND "${CMAKE_COMMAND}" -E make_directory
+        "${CMAKE_CURRENT_BINARY_DIR}/generated"
+    COMMAND "${CMAKE_COMMAND}"
+        "-DINPUT=${CMAKE_CURRENT_SOURCE_DIR}/assets/vaeg.ico"
+        "-DOUTPUT=${VAEG_APP_ICON_DATA}"
+        "-DSYMBOL=vaeg_app_icon_ico"
+        "-DSOURCE_LABEL=assets/vaeg.ico"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/embed_binary.cmake"
+    DEPENDS
+        "${CMAKE_CURRENT_SOURCE_DIR}/assets/vaeg.ico"
+        "${CMAKE_CURRENT_SOURCE_DIR}/cmake/embed_binary.cmake"
+    VERBATIM)
+list(APPEND VAEG_SDL2_SOURCES "${VAEG_APP_ICON_DATA}")
+
+if(WIN32)
+    enable_language(RC)
+    list(APPEND VAEG_SDL2_SOURCES sdl2/vaeg.rc)
+endif()
 
 add_library(vaeg_common STATIC ${VAEG_COMMON_SOURCES})
 target_include_directories(vaeg_common PUBLIC ${VAEG_INCLUDE_DIRS})
