@@ -42,20 +42,26 @@ Keep this relative layout after unpacking:
 - assets/NOTICE.md
 - README-dist.txt
 
-The Dear ImGui Japanese font and historical VAEG startup graphic are
-embedded in the executable. OFL.txt and NOTICE.md document the font
-license and provenance and must stay with the package.
+The Dear ImGui Japanese font, historical VAEG startup graphic, and
+historical VAEG application icon are embedded in the executable. OFL.txt
+and NOTICE.md document the font license and provenance and must stay with
+the package.
 
 Additional platform runtime files:
 
 - Windows: SDL2 and the MinGW GCC, libstdc++, and winpthread runtimes are
-  statically linked into vaeg.exe.
+  statically linked into vaeg.exe. The application icon is also a native
+  Windows executable resource.
 - Linux: SDL2 is a system dependency. Install your distribution's SDL2
   runtime package, for example libsdl2-2.0-0 on Debian/Ubuntu systems.
   Rel.260708 is built and tested on the GitHub Actions ubuntu-latest
-  runner using the linux-ci-gcc preset and libsdl2-dev.
+  runner using the linux-ci-gcc preset and libsdl2-dev. The embedded icon
+  is used for the SDL window; no system-wide desktop entry is installed.
 - macOS: the release preset statically links the pinned FetchContent SDL2;
-  macOS system frameworks remain operating-system dependencies.
+  macOS system frameworks remain operating-system dependencies. The
+  embedded icon is used for the running SDL application. This release is a
+  plain executable rather than an app bundle, so it has no Finder bundle
+  icon.
 
 Files you must supply
 ---------------------
