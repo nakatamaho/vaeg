@@ -93,7 +93,9 @@ static BOOL scrnmng_upload_shadow(void) {
 	if ((scrnmng.texture == NULL) || (scrnmng.shadow == NULL)) {
 		return(FAILURE);
 	}
-	if (SDL_UpdateTexture(scrnmng.texture, NULL, scrnmng.shadow,
+	if (SDL_UpdateTexture(scrnmng.texture, NULL,
+						  scrnmng.shadow +
+							(SCRNMNG_SURFACE_GUARD_LEFT * 2),
 						  scrnmng.shadow_pitch) != 0) {
 		fprintf(stderr, "Error: SDL_UpdateTexture: %s\n", SDL_GetError());
 		return(FAILURE);
@@ -203,7 +205,7 @@ BOOL scrnmng_texture_uniform(BOOL *uniform) {
 	if ((!scrnmng.enable) || (scrnmng.shadow == NULL)) {
 		return(FAILURE);
 	}
-	base = scrnmng.shadow;
+	base = scrnmng.shadow + (SCRNMNG_SURFACE_GUARD_LEFT * 2);
 	first0 = base[0];
 	first1 = base[1];
 	for (y=0; y<scrnmng.height; y++) {
@@ -284,7 +286,8 @@ BOOL scrnmng_create(int width, int height) {
 							SDL_ScaleModeNearest : SDL_ScaleModeLinear);
 	scrnmng.width = SCRNMNG_CANVAS_WIDTH;
 	scrnmng.height = SCRNMNG_CANVAS_HEIGHT;
-	scrnmng.shadow_pitch = (SCRNMNG_CANVAS_WIDTH + 1) * 2;
+	scrnmng.shadow_pitch =
+		(SCRNMNG_CANVAS_WIDTH + SCRNMNG_SURFACE_GUARD_LEFT) * 2;
 	scrnmng.shadow = (BYTE *)calloc(SCRNMNG_CANVAS_HEIGHT,
 									scrnmng.shadow_pitch);
 	if (scrnmng.shadow == NULL) {

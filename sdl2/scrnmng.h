@@ -35,6 +35,10 @@ enum {
 	VAEG_EFFECT_COUNT
 };
 
+enum {
+	SCRNMNG_SURFACE_GUARD_LEFT = 1
+};
+
 typedef struct {
 	BYTE	*ptr;
 	int		xalign;

@@ -39,7 +39,10 @@
 #include	"romankana.h"
 #include	"s98.h"
 #include	"sgp.h"
+#include	"scrndraw.h"
 #include	"scrnmng.h"
+#include	"scrndrawva.h"
+#include	"sdrawva.h"
 #include	"soundmng.h"
 #include	"strres.h"
 #include	"viewport.h"
@@ -484,6 +487,44 @@ static int test_viewport(void) {
 	return(SUCCESS);
 }
 
+static int test_va_raster_guard(void) {
+
+	BYTE output[(SURFACE_WIDTH + SCRNMNG_SURFACE_GUARD_LEFT) * 2];
+	SCRNSURF surf;
+	_SDRAWVA draw;
+	SDRAWFNVA drawfn;
+
+	memset(output, 0x5a, sizeof(output));
+	ZeroMemory(&surf, sizeof(surf));
+	surf.bpp = 16;
+	drawfn = sdrawva_getproctbl(&surf);
+	if (drawfn == NULL) {
+		return(fail("VA raster", "16bpp converter is unavailable"));
+	}
+	ZeroMemory(vabitmap, SURFACE_WIDTH * sizeof(vabitmap[0]));
+	vabitmap[0] = 1;
+	vabitmap[SURFACE_WIDTH - 1] = 2;
+	drawcolor16[1] = 0x1234;
+	drawcolor16[2] = 0xabcd;
+	ZeroMemory(&draw, sizeof(draw));
+	draw.dst = output;
+	draw.width = SURFACE_WIDTH;
+	draw.xbytes = SURFACE_WIDTH * 2;
+	draw.xalign = 2;
+	draw.yalign = sizeof(output);
+	drawfn(&draw, 1);
+	if ((LOADINTELWORD(output) != 0) ||
+		(LOADINTELWORD(output +
+			(SCRNMNG_SURFACE_GUARD_LEFT * 2)) != 0x1234) ||
+		(LOADINTELWORD(output +
+			((SCRNMNG_SURFACE_GUARD_LEFT + SURFACE_WIDTH - 1) * 2)) !=
+				0xabcd)) {
+		return(fail("VA raster", "guard or visible edge pixels are wrong"));
+	}
+	fprintf(stderr, "selftest: VA raster guard ok\n");
+	return(SUCCESS);
+}
+
 static int read_whole_file(const char *path, BYTE **out, UINT *out_size) {
 
 	FILEH	fh;
@@ -847,6 +888,9 @@ int vaeg_selftest_run(void) {
 		return(FAILURE);
 	}
 	if (test_viewport() != SUCCESS) {
+		return(FAILURE);
+	}
+	if (test_va_raster_guard() != SUCCESS) {
 		return(FAILURE);
 	}
 	if (test_keyboard_mapping() != SUCCESS) {
