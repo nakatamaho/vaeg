@@ -50,6 +50,13 @@ assigned KANA key controls guest kana mode: one press locks KANA, and the
 next press unlocks it. Roman-Kana consumes A-Z scancodes only while that
 KANA lock mirror is active.
 
+M24 adds `Edit -> Paste`, Command+V on macOS, and Control+V on Linux/Windows.
+Clipboard UTF-8 is filtered to printable ASCII and line breaks, converted to
+M14 guest key roles, and paced through `kbdinject`. ImGui keyboard/text capture
+prevents shortcut paste and pauses an active queue. Reset, state load, focus
+loss, and shutdown cancel the queue and release any synthetic key. No Unicode,
+IME text, or guest memory injection is used; guest-to-host copy remains later.
+
 ## Storage Menus
 
 FDD1/FDD2 Open and Eject act immediately through the existing floppy

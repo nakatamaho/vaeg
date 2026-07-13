@@ -171,6 +171,21 @@ exists, backup memory uses the user state directory. There is no ROM-path
 migration fallback. Fixed GUI save-state slots and keyboard sidecars
 remain in the user state directory.
 
+## Clipboard Paste
+
+`Edit -> Paste` sends host clipboard text to the guest as paced keyboard
+make/break input. The shortcut is Command+V on macOS and Control+V on
+Linux/Windows. Printable ASCII and CR/LF line breaks are supported; CRLF is
+one Return. Each make or break transition is separated by 20 ms. Unsupported
+control characters and non-ASCII UTF-8 code points are skipped and counted in
+the Edit menu.
+
+The queue finishes an in-flight key release, then pauses while Dear ImGui
+captures keyboard/text input or a modal is open. Reset, state load, focus
+loss, quit, and explicit Cancel Paste stop the queue and release synthetic
+keys. Paste does not access guest memory or text buffers. Japanese/IME paste
+and guest-to-host copy are not implemented.
+
 ## Display
 
 The SDL2 window is resizable and keeps the guest framebuffer fixed at

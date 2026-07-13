@@ -32,6 +32,7 @@
 #include	"fddfile.h"
 #include	"fdd_d88.h"
 #include	"kbdmap.h"
+#include	"kbdpaste.h"
 #include	"newdisk.h"
 #include	"np2.h"
 #include	"pacing.h"
@@ -901,12 +902,67 @@ static int test_romankana(void) {
 
 static int test_keyboard_mapping(void) {
 
+	char printable[96];
+	KBDPASTE_ACTION actions[96];
+	size_t count;
+	UINT skipped;
+	UINT index;
+
 	if (kbdmap_selftest() != SUCCESS) {
 		return(fail("keyboard-map", "mapping lookup/persistence failed"));
 	}
 	if (test_romankana() != SUCCESS) {
 		return(FAILURE);
 	}
+	for (index = 0; index < 95; index++) {
+		printable[index] = (char)(0x20 + index);
+	}
+	printable[95] = '\0';
+	count = kbdpaste_map_text(printable, actions, NELEMENTS(actions),
+							  &skipped);
+	if ((count != 95) || (skipped != 0)) {
+		return(fail("keyboard-paste", "printable ASCII coverage failed"));
+	}
+	count = kbdpaste_map_text("aA0@\"=_\\~", actions,
+							  NELEMENTS(actions), &skipped);
+	if ((count != 9) || (skipped != 0) ||
+		(actions[0].guest_code != kbdmap_guest_code(KBDROLE_A)) ||
+		actions[0].shift ||
+		(actions[1].guest_code != kbdmap_guest_code(KBDROLE_A)) ||
+		!actions[1].shift ||
+		(actions[2].guest_code != kbdmap_guest_code(KBDROLE_0)) ||
+		actions[2].shift ||
+		(actions[3].guest_code != kbdmap_guest_code(KBDROLE_AT)) ||
+		actions[3].shift ||
+		(actions[4].guest_code != kbdmap_guest_code(KBDROLE_2)) ||
+		!actions[4].shift ||
+		(actions[5].guest_code != kbdmap_guest_code(KBDROLE_MINUS)) ||
+		!actions[5].shift ||
+		(actions[6].guest_code != kbdmap_guest_code(KBDROLE_UNDERSCORE)) ||
+		!actions[6].shift ||
+		(actions[7].guest_code != kbdmap_guest_code(KBDROLE_YEN)) ||
+		actions[7].shift ||
+		(actions[8].guest_code != kbdmap_guest_code(KBDROLE_AT)) ||
+		!actions[8].shift) {
+		return(fail("keyboard-paste", "guest chord mapping failed"));
+	}
+	count = kbdpaste_map_text("a\rb\nc\r\nd", actions,
+							  NELEMENTS(actions), &skipped);
+	if ((count != 7) || (skipped != 0) ||
+		(actions[0].guest_code != kbdmap_guest_code(KBDROLE_A)) ||
+		(actions[1].guest_code != kbdmap_guest_code(KBDROLE_RETURNL)) ||
+		(actions[3].guest_code != kbdmap_guest_code(KBDROLE_RETURNL)) ||
+		(actions[5].guest_code != kbdmap_guest_code(KBDROLE_RETURNL))) {
+		return(fail("keyboard-paste", "CR/LF normalization failed"));
+	}
+	count = kbdpaste_map_text("a\t\xc3\xa9", actions,
+							  NELEMENTS(actions), &skipped);
+	if ((count != 1) || (skipped != 2) ||
+		(actions[0].guest_code != kbdmap_guest_code(KBDROLE_A)) ||
+		(kbdpaste_interval_ms() != 20)) {
+		return(fail("keyboard-paste", "UTF-8 skip or pacing failed"));
+	}
+	fprintf(stderr, "selftest: keyboard paste mapping ok\n");
 	fprintf(stderr, "selftest: keyboard mapping ok\n");
 	return(SUCCESS);
 }

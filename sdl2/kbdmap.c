@@ -1351,6 +1351,17 @@ const KBDMAP_ENTRY *kbdmap_entry(int index) {
 	return entries + index;
 }
 
+BYTE kbdmap_guest_code(KBDMAP_ROLE role) {
+
+	int index;
+
+	index = entry_index_from_role(role);
+	if (index < 0) {
+		return KBDMAP_NC;
+	}
+	return entries[index].guest_code;
+}
+
 SDL_Scancode kbdmap_binding(int index) {
 
 	if ((index < 0) || (index >= (int)NELEMENTS(entries))) {

@@ -175,6 +175,7 @@ void kbdmap_trace_captured_key(UINT scancode, SDL_Keycode keycode,
 
 int kbdmap_entry_count(void);
 const KBDMAP_ENTRY *kbdmap_entry(int index);
+BYTE kbdmap_guest_code(KBDMAP_ROLE role);
 SDL_Scancode kbdmap_binding(int index);
 KBDMAP_STATUS kbdmap_binding_status(int index);
 const char *kbdmap_status_name(KBDMAP_STATUS status);

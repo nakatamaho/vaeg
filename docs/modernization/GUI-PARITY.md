@@ -66,6 +66,7 @@ Unimplemented Win32 features remain visible as disabled stubs with
 | Win32 menu | Items | Status | Notes |
 |---|---|---|---|
 | Emulate | Reset; Configure; NewDisk; Font; Exit | Reset, CPU/SGP Configure, and Exit `done`; others `later` | M20 Configure covers fixed VA base clock, independent CPU/SGP execution speed, validation, persistence, and reset. Sampling rate, sound buffer, resize, MMX, confirm, and resume remain later. Font selection is not the ImGui Japanese font decision. |
+| Edit | Copy; Paste | ASCII host-to-guest Paste `done`; guest-to-host Copy `later` | M24 uses SDL clipboard UTF-8 input but emits only paced VA guest keyboard make/break events. Japanese/IME paste is later. |
 | FDD dynamic menu | FDD1-FDD4 Open/Eject | FDD1/FDD2 `done`; FDD3/FDD4 `later` | FDD1/FDD2 are required for G10. |
 | HardDisk | New SASI image; SASI1/SASI2 Open/Remove | SASI HDI create and SASI1/SASI2 Open/Remove `done`; SCSI/IDE `later` | M16 restores SASI through `HDD1FILE`/`HDD2FILE`; reset is the reliable apply point after changing images. |
 | SCSI dynamic menu | SCSI0-SCSI3 Open/Remove | `later` | Added dynamically when SCSI support is compiled. |
@@ -103,8 +104,8 @@ Unimplemented Win32 features remain visible as disabled stubs with
 ## Explicit M10 Gaps
 
 - Debugger UI, debug control, memory dump, and debug viewers are `later`.
-- Host IME text input is not part of M10/M14. M14 Roman-Kana is an ASCII
-  helper that emits guest key sequences, not host IME text.
+- Host IME text input is not part of M10/M14/M24. M14 Roman-Kana and M24
+  ASCII clipboard paste emit guest key sequences, not host text or Unicode.
 - Host physical keyboard layout mapping, including US-host to JIS-guest
   symbol positions, is `done` for the documented M14 inventory, with
   unresolved bindings visible in the GUI.
