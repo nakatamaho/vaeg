@@ -24,7 +24,7 @@ POSSIBILITY OF SUCH DAMAGE.
 -->
 # M25 - D88 and raw formatted FDD images
 
-Status: implemented; awaiting G25
+Status: complete; G25 passed
 
 Branch: `topic/m25-fdd-raw-images`
 
@@ -100,4 +100,7 @@ invariants, and a frozen-tier empty diff remain required.
   FDD1/FDD2 assignment.
 - Confirm FDD Open/Eject, D88/archive handling, V3 boot, VA demo, and OS boot.
 
-M25 remains at G25 until the user reports this checklist passed.
+## Gate result
+
+G25 passed by user report on 2026-07-13 for D88/IMG creation and mtools/raw
+interoperability. The deferred 2D compatibility issue remains outside M25.
