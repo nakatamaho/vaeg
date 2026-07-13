@@ -97,6 +97,8 @@ The ROM-less selftest creates all three formats and checks:
   media byte, sectors/FAT, sectors/track, and head count;
 - boot signature and initialization of the second FAT;
 - refusal to overwrite the generated path.
+- 2D logical-to-physical cylinder double stepping while preserving direct
+  cylinder mapping for 2DD and 2HD.
 
 Repository completion also requires the Linux and MinGW builds, ROM-less
 selftest/smoke runs, invariant checks, and an empty frozen-tier diff.
@@ -118,6 +120,16 @@ selftest/smoke runs, invariant checks, and an empty frozen-tier diff.
   The MinGW binary was copied as `vaeg.exe`; source and destination SHA-256
   were identical.
 - macOS was not built because this Linux host has no Darwin SDK.
+
+## Gate feedback
+
+The first G23 attempt reported `sector not found` on the generated 2D image.
+The image used the documented 40-cylinder, 16-sector, 256-byte geometry, but
+the active VA FDD subsystem sought a 2D logical cylinder as though it were an
+80-cylinder medium. The D88 loader correctly retained the legacy double-step
+rule and rejected cylinder 1. The follow-up maps only 2D logical cylinders to
+even physical seek cylinders; 2DD and 2HD remain direct mapped. A ROM-less
+selftest covers the three mappings. G23 2D retesting remains pending.
 
 ## G23 manual gate
 
