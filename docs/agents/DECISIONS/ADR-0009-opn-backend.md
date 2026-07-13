@@ -93,8 +93,10 @@ This is a staged integration. ymfm supplies FM operator output only. The NP2
 timer remains authoritative and forwards expiry cadence to ymfm for FM CSM;
 timer status and IRQ delivery remain NP2-owned. SSG, ADPCM-B, rhythm, board
 I/O, register shadows, and the final mixer also remain NP2-owned. The wrapper
-uses ymfm minimum OPN fidelity and box downsampling from the native ymfm output
-rate to the configured host rate.
+uses selectable ymfm minimum, medium, or maximum OPN fidelity and box
+downsampling from the native ymfm output rate to the configured host rate.
+Minimum remains the compatibility default; the SDL2 frontend persists the
+selection as `ymfm_fidelity`.
 
 ## Consequences
 
@@ -103,6 +105,9 @@ rate to the configured host rate.
 - The GUI Sound menu can switch FM synthesis between `NP2` and `ymfm`; the
   automatic guest reset rebuilds the board and keeps configured FDD/SASI
   mounts.
+- The GUI exposes ymfm OPN fidelity only while `ymfm` is selected. Higher
+  fidelity increases the native generation rate and CPU cost but does not
+  change NP2-owned timer/IRQ, SSG, ADPCM, rhythm, or mixer behavior.
 - Save states continue to use the existing NP2 register shadows. Loading a
   state restores both FM backends through the normal `fmboard` replay path.
 - A later decision is required before moving SSG, ADPCM, rhythm, timer, status,

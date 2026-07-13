@@ -22,39 +22,44 @@
  * IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-#ifndef VAEG_SOUND_YMFMBRIDGE_H
-#define VAEG_SOUND_YMFMBRIDGE_H
+#include	"compiler.h"
+#include	"soundopts.h"
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+BOOL vaeg_sound_rate_valid(UINT rate) {
 
-enum {
-	YMFMBRIDGE_FIDELITY_MINIMUM = 0,
-	YMFMBRIDGE_FIDELITY_MEDIUM,
-	YMFMBRIDGE_FIDELITY_MAXIMUM,
-	YMFMBRIDGE_FIDELITY_COUNT,
-	YMFMBRIDGE_FIDELITY_DEFAULT = YMFMBRIDGE_FIDELITY_MINIMUM
-};
-
-void ymfm_opn_initialize(UINT rate);
-UINT ymfm_opn_parsefidelity(const char *name);
-const char *ymfm_opn_fidelityname(UINT fidelity);
-void ymfm_opn_setfidelity(UINT fidelity);
-UINT ymfm_opn_getfidelity(void);
-void ymfm_opn_setvol(UINT vol);
-void ymfm_opn_setvr(REG8 channel, REG8 value);
-void ymfm_opn_reset(void);
-void ymfm_opn_setcfg(REG8 maxch, UINT flag);
-void ymfm_opn_setcontrol(REG8 chbase, REG8 reg, REG8 value);
-void ymfm_opn_setextch(UINT chnum, REG8 data);
-void ymfm_opn_setreg(REG8 chbase, REG8 reg, REG8 value);
-void ymfm_opn_keyon(UINT chnum, REG8 value);
-void ymfm_opn_timerover(UINT timer);
-void ymfm_opn_getpcm(SINT32 *pcm, UINT count, BOOL use_vr);
-
-#ifdef __cplusplus
+	return((rate == 11025) || (rate == 22050) || (rate == 44100));
 }
-#endif
 
-#endif
+BOOL vaeg_sound_buffer_valid(UINT ms) {
+
+	return((ms >= VAEG_SOUND_BUFFER_MIN_MS) &&
+							(ms <= VAEG_SOUND_BUFFER_MAX_MS));
+}
+
+UINT vaeg_sound_buffer_clamp(UINT ms) {
+
+	if (ms < VAEG_SOUND_BUFFER_MIN_MS) {
+		return(VAEG_SOUND_BUFFER_MIN_MS);
+	}
+	if (ms > VAEG_SOUND_BUFFER_MAX_MS) {
+		return(VAEG_SOUND_BUFFER_MAX_MS);
+	}
+	return(ms);
+}
+
+UINT vaeg_sound_buffer_samples(UINT rate, UINT ms, UINT buffer_count) {
+
+	UINT64	target;
+	UINT	samples;
+
+	if (!vaeg_sound_rate_valid(rate) || !vaeg_sound_buffer_valid(ms) ||
+		(buffer_count == 0)) {
+		return(0);
+	}
+	target = ((UINT64)rate * ms) / ((UINT64)buffer_count * 1000);
+	samples = 1;
+	while ((UINT64)samples < target) {
+		samples <<= 1;
+	}
+	return(samples);
+}
