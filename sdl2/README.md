@@ -271,6 +271,12 @@ No Wait and draw skip 16; releasing F11, losing focus, resetting, loading a
 state, or quitting clears the temporary mode. F11 is never sent to the guest
 and the saved No Wait/frame-skip/CPU/SGP values are not overwritten.
 
+`Screen -> Frame display` restores the original VAEG `Frame Disp` behavior.
+It samples actual guest framebuffer draws over approximately two seconds and
+appends `N.NFPS` to the native window title. It does not count ImGui-only
+presents and does not change frame skip or guest timing. The toggle is stored
+in the original `DspClock` bit 1 in `vaeg.cfg`.
+
 ## OPN/OPNA FM Backend
 
 The Sound menu exposes `FM sound backend -> NP2` and

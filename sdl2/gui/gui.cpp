@@ -1921,6 +1921,12 @@ static void draw_screen_menu(void) {
 			}
 			ImGui::EndMenu();
 		}
+		bool framedisp = (np2oscfg.DISPCLK & 2) != 0;
+		if (ImGui::MenuItem("Frame display", nullptr, framedisp)) {
+			np2oscfg.DISPCLK ^= 2;
+			scrnmng_set_framedisp((np2oscfg.DISPCLK & 2) ? TRUE : FALSE);
+			sysmng_update(SYS_UPDATEOSCFG);
+		}
 		ImGui::Separator();
 		menu_item_not_implemented("Rotate left/right (not implemented)");
 		menu_item_not_implemented("Screen option... (not implemented)");
