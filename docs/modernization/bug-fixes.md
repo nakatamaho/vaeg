@@ -61,9 +61,13 @@ separate parity correction or move it to Open Defects.
   during reset.
 - **Correction:** ported the required V30 handlers and table wiring, matched
   uPD9002 POP SP behavior, and restored the legacy V30 reset/mode handoff.
-- **Evidence:** `docs/agents/reports/m9_v30_map.md` and M9 ROM-less/boot
-  comparisons.
-- **Commits:** `b9b0da1`, `27b1712`, `7765038`, `dcb6939`, `ee1e9e9`.
+- **Evidence:** [V30/uPD9002 map](../agents/reports/m9_v30_map.md) and
+  [M9 boot comparison](../agents/reports/m9_boot_debug.md).
+- **Commits:** [b9b0da1](https://github.com/nakatamaho/vaeg/commit/b9b0da147d501e67e14eaba0a90d91f7a05eaf3b),
+  [27b1712](https://github.com/nakatamaho/vaeg/commit/27b1712d15c9b1cd1af84bc92e625fc26bfea92e),
+  [7765038](https://github.com/nakatamaho/vaeg/commit/77650387f3e62f602ca9fe4410fc22777202f48c),
+  [dcb6939](https://github.com/nakatamaho/vaeg/commit/dcb6939492e3fd896a17ad2052484b7bb3b77ccd), and
+  [ee1e9e9](https://github.com/nakatamaho/vaeg/commit/ee1e9e91e8fab4a2c4177a09a13def44c3603d03).
 
 ### Direct-mode FDD DMA stopped before a sector was transferred
 
@@ -77,8 +81,8 @@ separate parity correction or move it to Open Defects.
   VA-aware DMA pump and honored extended DRQ state.
 - **Verification:** differential FDC/DMAC traces showed the same channel,
   range, and bank with the transfer reaching 1024 bytes.
-- **Evidence:** `docs/agents/reports/m9_boot_debug.md`.
-- **Commit:** `cc7a154`.
+- **Evidence:** [M9 boot comparison](../agents/reports/m9_boot_debug.md).
+- **Commit:** [cc7a154](https://github.com/nakatamaho/vaeg/commit/cc7a154d2c4839a1a59d67cbfccb865a18f8f695).
 
 ### SDL2 pacing starved host-time work and diverged from legacy frame skip
 
@@ -93,7 +97,9 @@ separate parity correction or move it to Open Defects.
   catch-up limit.
 - **Verification:** `--pacelog`, FDD host-event testing, and the G9 timing
   comparison.
-- **Commits:** `0909547`, `733b4fa`.
+- **Evidence:** [M9 boot and pacing analysis](../agents/reports/m9_boot_debug.md).
+- **Commits:** [0909547](https://github.com/nakatamaho/vaeg/commit/090954705ac235c1b47692bf9376e87c21b257d0) and
+  [733b4fa](https://github.com/nakatamaho/vaeg/commit/733b4faf1804953967b23bce84c533db1e7c9926).
 
 ### Runtime handles and pointers were truncated on 64-bit Windows
 
@@ -108,8 +114,10 @@ separate parity correction or move it to Open Defects.
   comparisons while preserving serialized formats.
 - **Verification:** the LLP64 audit classified each conversion and the MinGW
   build completed after the corrections.
-- **Evidence:** `docs/agents/reports/m11_llp64_audit.md`.
-- **Commits:** `3f0f4ce`, `08723d5`, `7faae73`.
+- **Evidence:** [M11 LLP64 audit](../agents/reports/m11_llp64_audit.md).
+- **Commits:** [3f0f4ce](https://github.com/nakatamaho/vaeg/commit/3f0f4ce8356503b5fd43713e5893aace84354afd),
+  [08723d5](https://github.com/nakatamaho/vaeg/commit/08723d561930d88267d5935e6192d891e010467a), and
+  [7faae73](https://github.com/nakatamaho/vaeg/commit/7faae736d711faa04e36100c5644dd70be42c1fc).
 
 ### VA backup memory was not consistently loaded and saved by SDL2
 
@@ -122,7 +130,10 @@ separate parity correction or move it to Open Defects.
 - **Correction:** connected backup-memory load/save to SDL2 startup/shutdown
   and unified its path priority with active configuration lookup.
 - **Verification:** state-path tests and human persistence checks.
-- **Commits:** `06aaa90`, `4d4f8a0`.
+- **Evidence:** [M11 portability task](../agents/tasks/M11_mingw_macos.md) and
+  [M19 portable runtime task](../agents/tasks/M19_portable_runtime.md).
+- **Commits:** [06aaa90](https://github.com/nakatamaho/vaeg/commit/06aaa90a95952932d0f9aaebd2624d28f0863bfd) and
+  [4d4f8a0](https://github.com/nakatamaho/vaeg/commit/4d4f8a01d4033f09898305d0d0353aedcb65bb10).
 
 ### JIS Kana and punctuation scancodes produced incorrect guest keys
 
@@ -137,7 +148,10 @@ separate parity correction or move it to Open Defects.
   corrected Kana and punctuation bindings without injecting text directly.
 - **Verification:** ROM-less mapping tests and the M14 human JIS/US keyboard
   gate.
-- **Commits:** `57be6f1`, `8bb09b4`.
+- **Evidence:** [M14 keyboard mapping task](../agents/tasks/M14_keyboard_mapping.md)
+  and [keyboard mapping reference](keyboard-mapping.md).
+- **Commits:** [57be6f1](https://github.com/nakatamaho/vaeg/commit/57be6f1a658620a182f0efecacf2cf51aa7c0576) and
+  [8bb09b4](https://github.com/nakatamaho/vaeg/commit/8bb09b40854a8e24ac59465d4c7a134f07c134d1).
 
 ### VA2/VA3 could silently use the wrong model ROM set
 
@@ -151,8 +165,9 @@ separate parity correction or move it to Open Defects.
   `*_va2.rom` names with no VA fallback; size, CRC32, and SHA-1 diagnostics
   identify mismatches.
 - **Verification:** G18 model boot checks and checksum diagnostics.
-- **Evidence:** `docs/agents/tasks/M18_rom_layout.md`.
-- **Commit:** `f59c106` and its M18 topic history.
+- **Evidence:** [M18 ROM layout task](../agents/tasks/M18_rom_layout.md).
+- **Commit:** [f59c106](https://github.com/nakatamaho/vaeg/commit/f59c106e4789217326cb53153908de49873a9e7b)
+  and its linked M18 topic history.
 
 ### SDL2 dropped the rightmost VA guest pixel
 
@@ -165,7 +180,8 @@ separate parity correction or move it to Open Defects.
   guest pixel and made uniform-frame checks use the same visible span.
 - **Verification:** ROM-less checks cover the guard, guest pixels 0 and 639,
   and the 641-pixel backing row; the maintainer confirmed the edge display.
-- **Commit:** `caaf97c`.
+- **Evidence:** [M21 SDL2 display task](../agents/tasks/M21_sdl2_display_effects.md).
+- **Commit:** [caaf97c](https://github.com/nakatamaho/vaeg/commit/caaf97c56dd39e861c12537a38b6b31b43bd8722).
 
 ### V30 LOOP timing made firmware BEEP delays too short
 
@@ -179,7 +195,8 @@ separate parity correction or move it to Open Defects.
   unchanged.
 - **Verification:** ROM-less timing tests and maintainer VA/VA2 BASIC BEEP
   comparison.
-- **Commit:** `a06ab6e`.
+- **Evidence:** [M21 SDL2 display task](../agents/tasks/M21_sdl2_display_effects.md).
+- **Commit:** [a06ab6e](https://github.com/nakatamaho/vaeg/commit/a06ab6ec24f03116152492fa3a0e3c69d87830ad).
 
 ### Restored archive mounts disappeared from the FDD menu
 
@@ -191,7 +208,8 @@ separate parity correction or move it to Open Defects.
 - **Correction:** render FDD1/FDD2 labels from live disk state, including the
   delayed insertion path, and preserve full-path hover text.
 - **Verification:** M22 persistence gate across restart.
-- **Commit:** `afeee5b`.
+- **Evidence:** [M22 disk-image drop task](../agents/tasks/M22_disk_image_drop.md).
+- **Commit:** [afeee5b](https://github.com/nakatamaho/vaeg/commit/afeee5b20e23a27b4f5a1e75024fe1dbb0afe5f).
 
 ### Archive loading was unavailable or failed on POSIX Japanese paths
 
@@ -206,7 +224,9 @@ separate parity correction or move it to Open Defects.
   global process locale.
 - **Verification:** Linux release selftest/smoke and a Japanese 7z basename
   regression case.
-- **Commits:** `bd905a2`, `c05411e`.
+- **Evidence:** [M22 disk-image drop task](../agents/tasks/M22_disk_image_drop.md).
+- **Commits:** [bd905a2](https://github.com/nakatamaho/vaeg/commit/bd905a2b78fd950b9a8cc76c44427f25150f6445) and
+  [c05411e](https://github.com/nakatamaho/vaeg/commit/c05411e5760d57d9530949a18fc4b19550ba0c2c).
 
 ### VA1 PC-Engine 1.00 selected a stack in banked TVRAM
 
@@ -224,8 +244,8 @@ separate parity correction or move it to Open Defects.
   word access.
 - **Verification:** ROM-less aperture tests and successful maintainer VA1
   PC-Engine 1.00 boot.
-- **Evidence:** `docs/agents/tasks/M29_va1_tvram_aperture.md`.
-- **Commit:** `c17d64a`.
+- **Evidence:** [M29 VA1 TVRAM aperture task](../agents/tasks/M29_va1_tvram_aperture.md).
+- **Commit:** [c17d64a](https://github.com/nakatamaho/vaeg/commit/c17d64a71f6f32cf9ce6cd070da7ae3e68899af6).
 
 ### The disabled VA BMS window incorrectly exposed ordinary RAM
 
@@ -240,8 +260,8 @@ separate parity correction or move it to Open Defects.
 - **Verification:** ROM-less absent-window, bank-selection, and bank-isolation
   tests. This did not fix the separate VA1 BASIC failure and is not claimed to
   do so.
-- **Evidence:** `docs/agents/tasks/M30_va_bms_window.md`.
-- **Commit:** `11da283`.
+- **Evidence:** [M30 VA BMS window task](../agents/tasks/M30_va_bms_window.md).
+- **Commit:** [11da283](https://github.com/nakatamaho/vaeg/commit/11da283a0ffa47fc4b645423e4324550d1438bcf).
 
 ## Open Defects
 
@@ -259,8 +279,9 @@ separate parity correction or move it to Open Defects.
   yet demonstrated.
 - **Next step:** capture a bounded post-command CPU/register trace and compare
   the decisive VA1 and VA2/VA3 control flow before changing FDC or memory code.
-- **References:** `docs/agents/tasks/M21_sdl2_display_effects.md`,
-  `docs/modernization/BUILD.md`, and `docs/agents/tasks/M30_va_bms_window.md`.
+- **Evidence:** [M21 diagnostic record](../agents/tasks/M21_sdl2_display_effects.md),
+  [build and runtime notes](BUILD.md), and
+  [M30 BMS investigation result](../agents/tasks/M30_va_bms_window.md).
 
 ### 2D floppy compatibility is not established
 
@@ -270,4 +291,4 @@ separate parity correction or move it to Open Defects.
 - **Current decision:** blank-image creation exposes only tested 2HD and 2DD
   formats. A double-step adjustment did not pass the human gate and is not
   treated as a completed fix.
-- **Reference:** `docs/agents/tasks/M23_formatted_fdd_images.md`.
+- **Evidence:** [M23 formatted FDD task](../agents/tasks/M23_formatted_fdd_images.md).
