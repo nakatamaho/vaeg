@@ -34,8 +34,8 @@ Depends on: M22 implementation.
 
 - Add `FDD -> New formatted D88 image` at the bottom of the SDL2 ImGui FDD
   menu.
-- Create an empty FAT12 data disk in a D88 container as 2HD (1.232 MB), 2DD
-  (640 KB), or 2D (320 KB).
+- Create an empty FAT12 data disk in a D88 container as 2HD (1.232 MB) or 2DD
+  (640 KB).
 - Let the user edit the destination filename and browse the destination
   directory. Append `.d88` unless that extension is already present.
 - Refuse to replace any existing filesystem object.
@@ -46,9 +46,9 @@ Depends on: M22 implementation.
 
 - The generated image is a formatted data disk, not a bootable MS-DOS system
   disk. It contains no operating-system files or proprietary payload.
-- M23 does not create N88-BASIC filesystem structures. The 2D physical
-  geometry is the Japanese 16-sector, 256-byte-sector layout, containing a
-  DOS FAT12 filesystem.
+- 2D creation is deferred. Two G23 attempts produced `sector not found` in the
+  active VA FDD subsystem even though older VAEG builds reportedly read 2D
+  media. Its compatibility path needs a separate audit before it is exposed.
 - No raw disk image, ROM, font, icon, or frozen reference file is changed.
 - Archive drop and managed archive storage remain M22 behavior.
 
@@ -58,28 +58,24 @@ Depends on: M22 implementation.
 |---|---:|---|---|---:|
 | 2HD | `0x20` | 77 cylinders, 2 heads, 8 sectors, 1024 bytes/sector | 1 sector/cluster, 192 root entries, 2 sectors/FAT | `0xfe` |
 | 2DD | `0x10` | 80 cylinders, 2 heads, 8 sectors, 512 bytes/sector | 2 sectors/cluster, 112 root entries, 2 sectors/FAT | `0xfb` |
-| 2D | `0x00` | 40 cylinders, 2 heads, 16 sectors, 256 bytes/sector | 4 sectors/cluster, 112 root entries, 2 sectors/FAT | `0xff` |
 
 Each D88 track contains C/H/R/N sector headers followed by zero-initialized
 sector data. Sector zero contains a DOS BPB and FAT12 signature. Both FAT
 copies begin with the format's media descriptor and reserved FAT12 entries;
 the root directory and data area are empty.
 
-The 2HD layout follows the Japanese NEC/MS-DOS 1.232 MB geometry. The 2DD and
-2D layouts use the Japanese 640 KB and 320 KB physical geometries with DOS
-FAT12 logical structures. Format evidence:
+The 2HD layout follows the Japanese NEC/MS-DOS 1.232 MB geometry. The 2DD
+layout uses the 640 KB physical geometry with DOS FAT12 logical structures.
+Format evidence:
 
 - [D88 format description](https://www.pc98.org/project/doc/d88.html)
 - [PC-98 floppy geometry notes](https://www.pc98.org/project/doc/dcp.html)
 - [NEC APC MS-DOS System Reference Guide](https://www.bitsavers.org/pdf/nec/APC/NEC_APC_MS-DOS_System_Reference_Guide_Sep83.pdf)
 - [GNU mtools standard geometry descriptions](https://www.gnu.org/software/mtools/manual/html_node/geometry-description.html)
-- [PC-88VA Technical Manual bibliographic record](https://ndlsearch.ndl.go.jp/books/R100000002-I000001957772),
-  FDD section 6.1, which records 40-cylinder 2D operation and 16 sectors per
-  track for 256-byte sectors.
 
 ## GUI and persistence
 
-The FDD menu has one final submenu with explicit 2HD, 2DD, and 2D entries.
+The FDD menu has one final submenu with explicit 2HD and 2DD entries.
 The dialog opens in the saved FDD directory, provides a full path field, and
 allows the format and optional mount target to be changed before creation.
 Creation defaults to mounting FDD1. A successful mount uses the same delayed
@@ -88,7 +84,7 @@ restart therefore retain the mounted image until it is ejected or replaced.
 
 ## Automated verification
 
-The ROM-less selftest creates all three formats and checks:
+The ROM-less selftest creates both formats and checks:
 
 - exact D88 file size and media type;
 - first and last populated track pointers and the zero terminator;
@@ -97,8 +93,6 @@ The ROM-less selftest creates all three formats and checks:
   media byte, sectors/FAT, sectors/track, and head count;
 - boot signature and initialization of the second FAT;
 - refusal to overwrite the generated path.
-- 2D logical-to-physical cylinder double stepping while preserving direct
-  cylinder mapping for 2DD and 2HD.
 
 Repository completion also requires the Linux and MinGW builds, ROM-less
 selftest/smoke runs, invariant checks, and an empty frozen-tier diff.
@@ -123,13 +117,10 @@ selftest/smoke runs, invariant checks, and an empty frozen-tier diff.
 
 ## Gate feedback
 
-The first G23 attempt reported `sector not found` on the generated 2D image.
-The image used the documented 40-cylinder, 16-sector, 256-byte geometry, but
-the active VA FDD subsystem sought a 2D logical cylinder as though it were an
-80-cylinder medium. The D88 loader correctly retained the legacy double-step
-rule and rejected cylinder 1. The follow-up maps only 2D logical cylinders to
-even physical seek cylinders; 2DD and 2HD remain direct mapped. A ROM-less
-selftest covers the three mappings. G23 2D retesting remains pending.
+Two G23 attempts reported `sector not found` on generated 2D images. A
+double-step adjustment did not restore compatibility, so 2D creation and that
+FDD subsystem change were removed from M23. Older VAEG reportedly read 2D
+media; recovering that behavior is deferred to a focused compatibility task.
 
 ## G23 manual gate
 
@@ -137,8 +128,7 @@ selftest covers the three mappings. G23 2D retesting remains pending.
   FDD1 mounts it.
 - In Japanese MS-DOS, run `DIR`, create/copy a small file, eject and remount,
   and confirm that the file remains readable.
-- Repeat creation and `DIR` for 2DD (640 KB) and 2D (320 KB) in a guest mode
-  that supports each media type.
+- Repeat creation and `DIR` for 2DD (640 KB).
 - Select FDD2 as the post-create target and confirm FDD1 is unchanged.
 - Disable post-create mounting and confirm the file is created without
   replacing either mounted drive.
