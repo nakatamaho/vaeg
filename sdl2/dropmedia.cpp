@@ -393,8 +393,6 @@ static void mount_candidates(std::vector<DiskCandidate> *images) {
 		file_cpyname(np2oscfg.fdd_image[index], image.path.c_str(),
 					 sizeof(np2oscfg.fdd_image[index]));
 		sysmng_update(SYS_UPDATEOSCFG);
-		append_status_line("FDD" + std::to_string(index + 1) +
-			" mounted: " + image.basename);
 	}
 	if (images->size() > 2) {
 		append_status_line("Ignored " + std::to_string(images->size() - 2) +
