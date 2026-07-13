@@ -27,6 +27,7 @@
 #include	"codecnv.h"
 #include	"commng.h"
 #include	"clockscale.h"
+#include	"bmsio.h"
 #include	"dosio.h"
 #include	"dropmedia.h"
 #include	"fddfile.h"
@@ -153,6 +154,64 @@ static int test_va_tvram_window(void) {
 	textmem_dirty = saved_dirty;
 	if (result == SUCCESS) {
 		fprintf(stderr, "selftest: VA TVRAM window ok\n");
+	}
+	return(result);
+}
+
+static int test_va_bms_window(void) {
+
+	_BMSIO		saved_bmsio;
+	_BMSIOWORK	saved_bmsiowork;
+	BYTE		*testmem;
+	int		result;
+
+	testmem = (BYTE *)_MALLOC(0x40000, "selftest-bms");
+	if (testmem == NULL) {
+		return(fail("VA BMS", "test memory allocation failed"));
+	}
+	saved_bmsio = bmsio;
+	saved_bmsiowork = bmsiowork;
+	ZeroMemory(testmem, 0x40000);
+	bmsiowork.bmsmem = testmem;
+	bmsiowork.bmsmemsize = 0x40000;
+	result = SUCCESS;
+
+	bmsio.bank = 0;
+	bmsio.nomem = 1;
+	i286_memorywrite_va(0x080000, 0x12);
+	i286_memorywrite_va_w(0x09fffe, 0x3456);
+	if ((i286_memoryread_va(0x080000) != 0xff) ||
+		(i286_memoryread_va_w(0x09fffe) != 0xffff) ||
+		(testmem[0] != 0) || (testmem[0x1fffe] != 0)) {
+		result = fail("VA BMS", "disabled window did not use open bus");
+	}
+
+	bmsio.nomem = 0;
+	i286_memorywrite_va(0x080000, 0x12);
+	i286_memorywrite_va_w(0x09fffe, 0x3456);
+	if ((i286_memoryread_va(0x080000) != 0x12) ||
+		(i286_memoryread_va_w(0x09fffe) != 0x3456)) {
+		result = fail("VA BMS", "bank 0 access failed");
+	}
+
+	bmsio.bank = 1;
+	i286_memorywrite_va(0x080000, 0x78);
+	i286_memorywrite_va_w(0x09fffe, 0x9abc);
+	if ((i286_memoryread_va(0x080000) != 0x78) ||
+		(i286_memoryread_va_w(0x09fffe) != 0x9abc)) {
+		result = fail("VA BMS", "bank 1 access failed");
+	}
+	bmsio.bank = 0;
+	if ((i286_memoryread_va(0x080000) != 0x12) ||
+		(i286_memoryread_va_w(0x09fffe) != 0x3456)) {
+		result = fail("VA BMS", "bank switch did not preserve bank 0");
+	}
+
+	bmsio = saved_bmsio;
+	bmsiowork = saved_bmsiowork;
+	_MFREE(testmem);
+	if (result == SUCCESS) {
+		fprintf(stderr, "selftest: VA BMS window ok\n");
 	}
 	return(result);
 }
@@ -1392,6 +1451,9 @@ int vaeg_selftest_run(void) {
 		return(FAILURE);
 	}
 	if (test_va_tvram_window() != SUCCESS) {
+		return(FAILURE);
+	}
+	if (test_va_bms_window() != SUCCESS) {
 		return(FAILURE);
 	}
 	if (test_profile_ini() != SUCCESS) {
