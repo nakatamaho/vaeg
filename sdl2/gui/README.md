@@ -63,7 +63,10 @@ Direct images persist like manual mounts. ZIP, 7z, and LZH contents are
 extracted under managed user-state storage and their mounted paths persist
 through reset and application restart. Eject and replacement prune only
 managed images that are no longer referenced by FDD1 or FDD2. Drop results
-and ignored-image counts are shown at the bottom of the FDD menu.
+and ignored-image counts are shown at the bottom of the FDD menu. The menu
+also reads the live FDD state on every frame and always shows each mounted
+basename, including mounts restored after application restart; hovering the
+name shows its full path.
 
 HardDisk -> New SASI image creates HDI images through the existing
 `newdisk_hdi()` helper. It supports the legacy 5/10/15/20/30/40 MB SASI

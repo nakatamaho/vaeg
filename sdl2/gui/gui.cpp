@@ -1194,6 +1194,34 @@ static void draw_emulate_menu(void) {
 	}
 }
 
+static void draw_fdd_mount_state(int drive) {
+
+	const char *path;
+	bool inserting;
+
+	path = fdd_diskname(static_cast<REG8>(drive));
+	inserting = false;
+	if ((path == nullptr) || (path[0] == '\0')) {
+		path = diskdrv_fname[drive];
+		inserting = path[0] != '\0';
+	}
+	if ((path == nullptr) || (path[0] == '\0')) {
+		ImGui::TextDisabled("FDD%d: Empty", drive + 1);
+		return;
+	}
+	const std::string name = fs::u8path(path).filename().u8string();
+	if (inserting) {
+		ImGui::TextDisabled("FDD%d: %s (inserting)", drive + 1,
+						name.c_str());
+	}
+	else {
+		ImGui::TextDisabled("FDD%d: %s", drive + 1, name.c_str());
+	}
+	if (ImGui::IsItemHovered()) {
+		ImGui::SetTooltip("%s", path);
+	}
+}
+
 static void draw_fdd_menu(void) {
 
 	if (ImGui::BeginMenu("FDD")) {
@@ -1203,6 +1231,7 @@ static void draw_fdd_menu(void) {
 		if (ImGui::MenuItem("FDD1 Eject")) {
 			eject_fdd(0);
 		}
+		draw_fdd_mount_state(0);
 		ImGui::Separator();
 		if (ImGui::MenuItem("FDD2 Open...")) {
 			open_fdd_dialog(1);
@@ -1210,6 +1239,7 @@ static void draw_fdd_menu(void) {
 		if (ImGui::MenuItem("FDD2 Eject")) {
 			eject_fdd(1);
 		}
+		draw_fdd_mount_state(1);
 		ImGui::Separator();
 		menu_item_not_implemented("FDD3 Open... (not implemented)");
 		menu_item_not_implemented("FDD3 Eject (not implemented)");

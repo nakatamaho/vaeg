@@ -46,7 +46,9 @@ Depends on: G21 passed.
   directory and save mounted paths through `FDD1FILE` / `FDD2FILE`.
 - Remove only managed extracted images that are no longer referenced by
   either configured drive.
-- Show mount and error feedback at the bottom of the FDD menu.
+- Show current FDD1/FDD2 mounted basenames persistently in the FDD menu,
+  including after application restart. Show delayed insertion and drop/error
+  feedback separately.
 
 ## Archive dependency
 
@@ -131,6 +133,8 @@ only after neither drive references their private image directory.
 - Open an ImGui dialog and confirm disk drop still reaches the emulator.
 - Reset after an archive mount and confirm the extracted image remains usable.
 - Restart and confirm archive-mounted FDD1/FDD2 images are restored.
+- After restart, open the FDD menu and confirm the restored mounted basenames
+  remain visible; hover them and confirm the full managed path is shown.
 - Eject one archive image and confirm an image still mounted in the other
   drive remains usable.
 - Drop a different one-image archive and confirm FDD1 is replaced while FDD2
