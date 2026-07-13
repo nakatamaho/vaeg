@@ -8,4 +8,4 @@
 // #define	NP2VER_WINCE
 // #define	NP2VER_SDLZAU
 
-#define VAEGREL_CORE		"Rel.260708"
+#define VAEGREL_CORE		"Rel.260713"
