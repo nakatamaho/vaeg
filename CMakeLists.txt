@@ -324,6 +324,7 @@ set(VAEG_SDL2_SOURCES
     sdl2/romcheck.c
     sdl2/selftest.c
     sdl2/soundmng.c
+    sdl2/soundopts.c
     sdl2/ymfmbridge.cpp
     sdl2/mousemng.c
     sdl2/mousestate.c

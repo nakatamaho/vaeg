@@ -119,6 +119,18 @@ the output selector uses the existing guest-reset flow to rebuild the selected
 synthesizer from a clean board state while retaining mounted FDD/SASI paths.
 The ymfm option currently replaces only YM2203/YM2608 FM operator synthesis;
 NP2 continues to own timer/IRQ, SSG, ADPCM, rhythm, and stream mixing.
+Sampling rate selects 11.025, 22.05, or 44.1 kHz for the complete mixed output;
+22.05 kHz remains the compatibility default and 44.1 kHz is recommended for
+new configurations. Sound buffer provides 40/100/200/500/1000 ms presets and
+a validated 40-1000 ms custom value. Both settings rebuild NP2 and ymfm sound
+through the media-preserving guest reset path and persist as `SampleHz` and
+`Latencys`.
+
+ymfm fidelity selects Minimum, Medium, or Maximum native OPN generation before
+box downsampling, approximately 166/333/998 kHz at the configured chip clocks.
+Minimum remains the compatibility default; Maximum has the highest CPU cost.
+The choice persists as `ymfm_fidelity` and is disabled while
+NP2 is selected because NP2 has no equivalent fidelity control.
 Sound on/off controls only host audio output. It does not clear `SNDboard` or
 detach the guest FM hardware, so muting cannot remove the selected OPN/OPNA
 check or stall software waiting for the FM timer.

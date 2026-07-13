@@ -24,6 +24,8 @@
  */
 #include "ymfm_opn.h"
 
+#include <cstring>
+
 #include "compiler.h"
 #include "sound.h"
 #include "opngen.h"
@@ -34,6 +36,18 @@ namespace {
 constexpr uint32_t kYm2203Clock = 3993552;
 constexpr uint32_t kYm2608Clock = kYm2203Clock * 2;
 constexpr unsigned kChipSlots = 2;
+
+ymfm::opn_fidelity native_fidelity(UINT fidelity) {
+
+	switch (fidelity) {
+	case YMFMBRIDGE_FIDELITY_MEDIUM:
+		return ymfm::OPN_FIDELITY_MED;
+	case YMFMBRIDGE_FIDELITY_MAXIMUM:
+		return ymfm::OPN_FIDELITY_MAX;
+	default:
+		return ymfm::OPN_FIDELITY_MIN;
+	}
+}
 
 class vaeg_ymfm_interface : public ymfm::ymfm_interface {
 public:
@@ -75,6 +89,7 @@ struct ymfm_slot {
 ymfm_slot g_slots[kChipSlots];
 uint32_t g_output_rate = 44100;
 uint32_t g_volume = 64;
+UINT g_fidelity = YMFMBRIDGE_FIDELITY_DEFAULT;
 bool g_vr_enabled = false;
 int32_t g_vr_left = 0;
 int32_t g_vr_right = 0;
@@ -148,6 +163,49 @@ extern "C" void ymfm_opn_initialize(UINT rate) {
 
 	g_output_rate = (rate != 0) ? rate : 44100;
 	ymfm_opn_reset();
+}
+
+extern "C" UINT ymfm_opn_parsefidelity(const char *name) {
+
+	if ((name != nullptr) && (std::strcmp(name, "medium") == 0)) {
+		return YMFMBRIDGE_FIDELITY_MEDIUM;
+	}
+	if ((name != nullptr) && (std::strcmp(name, "maximum") == 0)) {
+		return YMFMBRIDGE_FIDELITY_MAXIMUM;
+	}
+	return YMFMBRIDGE_FIDELITY_DEFAULT;
+}
+
+extern "C" const char *ymfm_opn_fidelityname(UINT fidelity) {
+
+	switch (fidelity) {
+	case YMFMBRIDGE_FIDELITY_MEDIUM:
+		return "medium";
+	case YMFMBRIDGE_FIDELITY_MAXIMUM:
+		return "maximum";
+	default:
+		return "minimum";
+	}
+}
+
+extern "C" void ymfm_opn_setfidelity(UINT fidelity) {
+
+	if (fidelity >= YMFMBRIDGE_FIDELITY_COUNT) {
+		fidelity = YMFMBRIDGE_FIDELITY_DEFAULT;
+	}
+	g_fidelity = fidelity;
+	for (ymfm_slot &slot : g_slots) {
+		slot.opn.set_fidelity(native_fidelity(fidelity));
+		slot.opna.set_fidelity(native_fidelity(fidelity));
+		slot.phase = 0;
+		slot.last_left = 0;
+		slot.last_right = 0;
+	}
+}
+
+extern "C" UINT ymfm_opn_getfidelity(void) {
+
+	return g_fidelity;
 }
 
 extern "C" void ymfm_opn_setvol(UINT vol) {
