@@ -87,4 +87,8 @@ invariant checks remain required.
 - Confirm normal physical keyboard, right-Alt KANA, and Roman-Kana behavior.
 - Complete the standard V3 boot, VA demo, and OS boot/simple-operation gate.
 
-M24 remains at G24 until the user reports this checklist passed.
+## Gate result
+
+G24 passed by user report on 2026-07-13. The implemented scope remains
+ASCII host-to-guest paste; Japanese/IME paste and guest-to-host copy remain
+future work.
