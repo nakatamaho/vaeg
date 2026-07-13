@@ -87,7 +87,8 @@
         "VAEG_WERROR": "OFF",
         "VAEG_WINDOWS_CONSOLE": "OFF",
         "VAEG_FETCH_SDL2": "ON",
-        "VAEG_STATIC_SDL2": "ON"
+        "VAEG_STATIC_SDL2": "ON",
+        "VAEG_FETCH_LIBARCHIVE": "ON"
       }
     },
     {
@@ -101,7 +102,8 @@
         "VAEG_WERROR": "OFF",
         "VAEG_WINDOWS_CONSOLE": "OFF",
         "VAEG_FETCH_SDL2": "ON",
-        "VAEG_STATIC_SDL2": "ON"
+        "VAEG_STATIC_SDL2": "ON",
+        "VAEG_FETCH_LIBARCHIVE": "ON"
       }
     },
     {
@@ -115,7 +117,8 @@
         "VAEG_WERROR": "OFF",
         "VAEG_WINDOWS_CONSOLE": "ON",
         "VAEG_FETCH_SDL2": "ON",
-        "VAEG_STATIC_SDL2": "ON"
+        "VAEG_STATIC_SDL2": "ON",
+        "VAEG_FETCH_LIBARCHIVE": "ON"
       }
     },
     {
@@ -127,6 +130,7 @@
         "CMAKE_BUILD_TYPE": "Release",
         "VAEG_FETCH_SDL2": "ON",
         "VAEG_STATIC_SDL2": "ON",
+        "VAEG_FETCH_LIBARCHIVE": "ON",
         "VAEG_WERROR": "OFF"
       }
     },
@@ -171,6 +175,7 @@
         "VAEG_ENABLE_TESTS": "ON",
         "VAEG_FETCH_SDL2": "ON",
         "VAEG_STATIC_SDL2": "ON",
+        "VAEG_FETCH_LIBARCHIVE": "ON",
         "VAEG_WERROR": "OFF"
       }
     }

@@ -29,6 +29,10 @@ option(VAEG_WERROR "Treat warnings as errors" OFF)
 option(VAEG_WINDOWS_CONSOLE "Keep a console window for Windows SDL2 builds" OFF)
 option(VAEG_FETCH_SDL2 "Fetch pinned SDL2 instead of using system SDL2" OFF)
 option(VAEG_STATIC_SDL2 "Link SDL2 statically" OFF)
+option(VAEG_ENABLE_ARCHIVE_DROP
+    "Enable archive disk-image drag and drop when LibArchive is available" ON)
+option(VAEG_FETCH_LIBARCHIVE
+    "Fetch pinned static archive dependencies instead of using system LibArchive" OFF)
 
 if(VAEG_FETCH_SDL2)
     include(FetchContent)
@@ -313,6 +317,7 @@ set(VAEG_SDL2_SOURCES
     sdl2/kbdmap.c
     sdl2/romankana.c
     sdl2/inputmng.c
+    sdl2/dropmedia.cpp
     sdl2/romcheck.c
     sdl2/selftest.c
     sdl2/soundmng.c
@@ -401,6 +406,114 @@ target_include_directories(vaeg_sdl2 PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}/external/ymfm/src")
 target_link_libraries(vaeg_sdl2 PRIVATE vaeg_core vaeg_va vaeg_common
     vaeg_core vaeg_va ${VAEG_SDL2_LIBS})
+if(VAEG_ENABLE_ARCHIVE_DROP)
+    if(MINGW OR VAEG_FETCH_LIBARCHIVE)
+        include(FetchContent)
+        set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
+
+        set(ZLIB_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+        FetchContent_Declare(vaeg_zlib
+            URL "https://github.com/madler/zlib/releases/download/v1.3.1/zlib-1.3.1.tar.xz"
+            URL_HASH SHA256=38ef96b8dfe510d42707d9c781877914792541133e1870841463bfa73f883e32
+            DOWNLOAD_EXTRACT_TIMESTAMP TRUE)
+        FetchContent_MakeAvailable(vaeg_zlib)
+        configure_file("${vaeg_zlib_SOURCE_DIR}/zlib.h"
+            "${vaeg_zlib_BINARY_DIR}/zlib.h" COPYONLY)
+
+        set(XZ_NLS OFF CACHE BOOL "" FORCE)
+        set(XZ_TOOL_XZ OFF CACHE BOOL "" FORCE)
+        set(XZ_TOOL_XZDEC OFF CACHE BOOL "" FORCE)
+        set(XZ_TOOL_LZMADEC OFF CACHE BOOL "" FORCE)
+        set(XZ_TOOL_LZMAINFO OFF CACHE BOOL "" FORCE)
+        set(XZ_DOC OFF CACHE BOOL "" FORCE)
+        FetchContent_Declare(vaeg_xz
+            URL "https://github.com/tukaani-project/xz/releases/download/v5.8.3/xz-5.8.3.tar.xz"
+            URL_HASH SHA256=fff1ffcf2b0da84d308a14de513a1aa23d4e9aa3464d17e64b9714bfdd0bbfb6
+            DOWNLOAD_EXTRACT_TIMESTAMP TRUE)
+        FetchContent_MakeAvailable(vaeg_xz)
+
+        set(ZLIB_USE_STATIC_LIBS ON CACHE BOOL "" FORCE)
+        set(ZLIB_INCLUDE_DIR "${vaeg_zlib_BINARY_DIR}" CACHE PATH "" FORCE)
+        if(WIN32)
+            set(VAEG_ZLIB_STATIC "${vaeg_zlib_BINARY_DIR}/libzlibstatic.a")
+        else()
+            set(VAEG_ZLIB_STATIC "${vaeg_zlib_BINARY_DIR}/libz.a")
+        endif()
+        set(ZLIB_LIBRARY "${VAEG_ZLIB_STATIC}" CACHE FILEPATH "" FORCE)
+        set(LIBLZMA_INCLUDE_DIR "${vaeg_xz_SOURCE_DIR}/src/liblzma/api"
+            CACHE PATH "" FORCE)
+        set(LIBLZMA_LIBRARY "${vaeg_xz_BINARY_DIR}/liblzma.a"
+            CACHE FILEPATH "" FORCE)
+        # FindLibLZMA cannot link-test a same-configure FetchContent target.
+        # The pinned liblzma target exports these API functions once built.
+        set(LIBLZMA_HAS_AUTO_DECODER TRUE CACHE BOOL "" FORCE)
+        set(LIBLZMA_HAS_EASY_ENCODER TRUE CACHE BOOL "" FORCE)
+        set(LIBLZMA_HAS_LZMA_PRESET TRUE CACHE BOOL "" FORCE)
+        set(LZMA_API_STATIC TRUE CACHE BOOL "" FORCE)
+        set(WITHOUT_LZMA_API_STATIC FALSE CACHE BOOL "" FORCE)
+
+        set(ENABLE_WERROR OFF CACHE BOOL "" FORCE)
+        set(ENABLE_TEST OFF CACHE BOOL "" FORCE)
+        set(ENABLE_INSTALL OFF CACHE BOOL "" FORCE)
+        set(ENABLE_TAR OFF CACHE BOOL "" FORCE)
+        set(ENABLE_CPIO OFF CACHE BOOL "" FORCE)
+        set(ENABLE_CAT OFF CACHE BOOL "" FORCE)
+        set(ENABLE_UNZIP OFF CACHE BOOL "" FORCE)
+        set(ENABLE_OPENSSL OFF CACHE BOOL "" FORCE)
+        set(ENABLE_MBEDTLS OFF CACHE BOOL "" FORCE)
+        set(ENABLE_NETTLE OFF CACHE BOOL "" FORCE)
+        set(ENABLE_LIBB2 OFF CACHE BOOL "" FORCE)
+        set(ENABLE_LZ4 OFF CACHE BOOL "" FORCE)
+        set(ENABLE_LZO OFF CACHE BOOL "" FORCE)
+        set(ENABLE_ZSTD OFF CACHE BOOL "" FORCE)
+        set(ENABLE_BZip2 OFF CACHE BOOL "" FORCE)
+        set(ENABLE_LIBXML2 OFF CACHE BOOL "" FORCE)
+        set(ENABLE_EXPAT OFF CACHE BOOL "" FORCE)
+        set(ENABLE_WIN32_XMLLITE OFF CACHE BOOL "" FORCE)
+        set(ENABLE_PCREPOSIX OFF CACHE BOOL "" FORCE)
+        set(ENABLE_PCRE2POSIX OFF CACHE BOOL "" FORCE)
+        set(ENABLE_XATTR OFF CACHE BOOL "" FORCE)
+        set(ENABLE_ACL OFF CACHE BOOL "" FORCE)
+        set(ENABLE_ICONV OFF CACHE BOOL "" FORCE)
+        set(ENABLE_CNG OFF CACHE BOOL "" FORCE)
+        set(ENABLE_LIBGCC OFF CACHE BOOL "" FORCE)
+        set(POSIX_REGEX_LIB NONE CACHE STRING "" FORCE)
+        set(ENABLE_ZLIB ON CACHE BOOL "" FORCE)
+        set(ENABLE_LZMA ON CACHE BOOL "" FORCE)
+        FetchContent_Declare(vaeg_libarchive
+            URL "https://github.com/libarchive/libarchive/releases/download/v3.8.7/libarchive-3.8.7.tar.xz"
+            URL_HASH SHA256=d3a8ba457ae25c27c84fd2830a2efdcc5b1d40bf585d4eb0d35f47e99e5d4774
+            DOWNLOAD_EXTRACT_TIMESTAMP TRUE)
+        # LibArchive's Unix type probes expect the platform's C extensions.
+        # Keep vaeg's own C targets on strict C99 outside this dependency.
+        set(VAEG_SAVED_CMAKE_C_EXTENSIONS ${CMAKE_C_EXTENSIONS})
+        set(CMAKE_C_EXTENSIONS ON)
+        FetchContent_MakeAvailable(vaeg_libarchive)
+        set(CMAKE_C_EXTENSIONS ${VAEG_SAVED_CMAKE_C_EXTENSIONS})
+        add_dependencies(archive_static zlibstatic liblzma)
+        target_compile_definitions(vaeg_sdl2 PRIVATE
+            VAEG_HAVE_LIBARCHIVE LIBARCHIVE_STATIC)
+        target_link_libraries(vaeg_sdl2 PRIVATE archive_static)
+        message(STATUS
+            "Archive disk-image drop: enabled (static fetched LibArchive 3.8.7)")
+    else()
+        find_package(LibArchive QUIET)
+        if(LibArchive_FOUND)
+            target_compile_definitions(vaeg_sdl2 PRIVATE VAEG_HAVE_LIBARCHIVE)
+            if(TARGET LibArchive::LibArchive)
+                target_link_libraries(vaeg_sdl2 PRIVATE LibArchive::LibArchive)
+            else()
+                target_include_directories(vaeg_sdl2 PRIVATE ${LibArchive_INCLUDE_DIRS})
+                target_link_libraries(vaeg_sdl2 PRIVATE ${LibArchive_LIBRARIES})
+            endif()
+            message(STATUS "Archive disk-image drop: enabled (${LibArchive_VERSION})")
+        else()
+            message(STATUS "Archive disk-image drop: disabled (LibArchive not found)")
+        endif()
+    endif()
+else()
+    message(STATUS "Archive disk-image drop: disabled by VAEG_ENABLE_ARCHIVE_DROP")
+endif()
 if(MINGW)
     target_link_options(vaeg_sdl2 PRIVATE -static -static-libgcc -static-libstdc++)
     target_link_libraries(vaeg_sdl2 PRIVATE winpthread)
