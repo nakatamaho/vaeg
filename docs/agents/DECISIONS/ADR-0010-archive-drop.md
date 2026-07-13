@@ -65,6 +65,9 @@ formats. Fetched upstream sources are never hand-edited.
   direct disk drops but reports archive drops as unavailable.
 - Extraction remains application-controlled: only supported floppy images
   are written, with traversal/link rejection and explicit size/count limits.
+- POSIX archive extraction uses a thread-local UTF-8 `LC_CTYPE` locale while
+  LibArchive converts entry names. This supports Unicode ZIP/7z names without
+  changing the process-global locale or depending on the startup C locale.
 - Extracted disk images are durable managed state under the platform
   `archive-drop/` directory. Mounted paths are persisted in `FDD1FILE` and
   `FDD2FILE`; unreferenced managed image directories are removed after eject

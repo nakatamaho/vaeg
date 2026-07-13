@@ -33,6 +33,7 @@
 #include <fstream>
 #include <iterator>
 #include <limits>
+#include <locale.h>
 #include <random>
 #include <string>
 #include <system_error>
@@ -143,6 +144,50 @@ static bool archive_path_safe(const char *entry_path) {
 }
 
 #if defined(VAEG_HAVE_LIBARCHIVE)
+#if !defined(_WIN32)
+class ScopedArchiveLocale {
+public:
+	ScopedArchiveLocale() : locale_(create_utf8_locale()), previous_(nullptr) {
+
+		if (locale_ != nullptr) {
+			previous_ = uselocale(locale_);
+		}
+	}
+
+	~ScopedArchiveLocale() {
+
+		if (previous_ != nullptr) {
+			uselocale(previous_);
+		}
+		if (locale_ != nullptr) {
+			freelocale(locale_);
+		}
+	}
+
+	ScopedArchiveLocale(const ScopedArchiveLocale &) = delete;
+	ScopedArchiveLocale &operator=(const ScopedArchiveLocale &) = delete;
+
+private:
+	static locale_t create_utf8_locale() {
+
+		static const char *names[] = {
+			"C.UTF-8", "C.utf8", "en_US.UTF-8", ""
+		};
+
+		for (const char *name : names) {
+			locale_t locale = newlocale(LC_CTYPE_MASK, name, nullptr);
+			if (locale != nullptr) {
+				return locale;
+			}
+		}
+		return nullptr;
+	}
+
+	locale_t locale_;
+	locale_t previous_;
+};
+#endif
+
 static fs::path archive_storage_root(void) {
 
 	char path[MAX_PATH];
@@ -181,6 +226,9 @@ static fs::path create_archive_directory(const fs::path &root,
 static bool write_test_archive(const fs::path &path, bool seven_zip,
 							   const char *entry_path) {
 
+#if !defined(_WIN32)
+	ScopedArchiveLocale archive_locale;
+#endif
 	struct archive *writer = archive_write_new();
 	struct archive_entry *entry;
 	static const char payload[] = "D88";
@@ -205,7 +253,7 @@ static bool write_test_archive(const fs::path &path, bool seven_zip,
 		archive_write_free(writer);
 		return false;
 	}
-	archive_entry_set_pathname(entry, entry_path);
+	archive_entry_set_pathname_utf8(entry, entry_path);
 	archive_entry_set_filetype(entry, AE_IFREG);
 	archive_entry_set_perm(entry, 0600);
 	archive_entry_set_size(entry, sizeof(payload) - 1);
@@ -235,6 +283,9 @@ static bool extract_archive_images(const std::string &archive_path,
 	std::size_t entry_count;
 	std::size_t image_count;
 	const std::size_t initial_image_count = images->size();
+#if !defined(_WIN32)
+	ScopedArchiveLocale archive_locale;
+#endif
 	int result;
 
 	temp_dir = create_archive_directory(storage_root, error);
@@ -676,10 +727,15 @@ extern "C" BOOL dropmedia_selftest(void) {
 		fs::path archive_path = test_dir /
 			(seven_zip ? "dropmedia-test.7z" : "dropmedia-test.zip");
 		std::vector<DiskCandidate> extracted;
-		if ((!write_test_archive(archive_path, seven_zip, "nested/test.d88")) ||
+		const char *entry_path = seven_zip ?
+			u8"nested/\u30c6\u30b9\u30c8.d88" : "nested/test.d88";
+		const char *expected_basename = seven_zip ?
+			u8"\u30c6\u30b9\u30c8.d88" : "test.d88";
+		if ((!write_test_archive(archive_path, seven_zip, entry_path)) ||
 			(!extract_archive_images(archive_path.u8string(), &extracted, &error,
 									 test_dir / "storage")) ||
-			(extracted.size() != 1) || (extracted[0].basename != "test.d88")) {
+			(extracted.size() != 1) ||
+			(extracted[0].basename != expected_basename)) {
 			fs::remove_all(test_dir);
 			dropmedia_shutdown();
 			return FAILURE;
