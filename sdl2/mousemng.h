@@ -25,11 +25,28 @@
 #ifndef VAEG_SDL2_MOUSEMNG_H
 #define VAEG_SDL2_MOUSEMNG_H
 
+enum {
+	MOUSEMNG_BUTTON_LEFT = 0,
+	MOUSEMNG_BUTTON_RIGHT
+};
+
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 BYTE mousemng_getstat(SINT16 *x, SINT16 *y, int clear);
+void mousemng_initialize(void);
+void mousemng_shutdown(void);
+void mousemng_reset(void);
+BOOL mousemng_setcapture(BOOL capture);
+BOOL mousemng_togglecapture(void);
+BOOL mousemng_getcapture(void);
+BOOL mousemng_iscaptured(void);
+void mousemng_setfocus(BOOL focused);
+void mousemng_setguiblocked(BOOL blocked);
+void mousemng_motion(SINT32 x, SINT32 y);
+void mousemng_button(UINT button, BOOL down);
+const char *mousemng_status(void);
 
 #ifdef __cplusplus
 }

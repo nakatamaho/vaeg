@@ -27,6 +27,7 @@
 #include	"taskmng.h"
 #include	"sdlkbd.h"
 #include	"kbdpaste.h"
+#include	"mousemng.h"
 #include	"pacing.h"
 #include	"np2.h"
 #include	"scrnmng.h"
@@ -37,6 +38,7 @@
 		BOOL	task_avail;
 	static VAEG_PACING_STATE task_pacing;
 	static BOOL paste_shortcut_down;
+	static BOOL middle_shortcut_down;
 
 static BOOL taskmng_paste_shortcut(const SDL_Event *event, BOOL captured) {
 
@@ -72,20 +74,69 @@ static BOOL taskmng_paste_shortcut(const SDL_Event *event, BOOL captured) {
 	return TRUE;
 }
 
+static void taskmng_toggle_mouse(void) {
+
+	np2oscfg.MOUSE_SW = mousemng_togglecapture() ? 1 : 0;
+	sysmng_update(SYS_UPDATEOSCFG);
+}
+
+static BOOL taskmng_mouse_key_shortcut(const SDL_Event *event,
+										BOOL captured) {
+
+	if (((event->type != SDL_KEYDOWN) && (event->type != SDL_KEYUP)) ||
+		(event->key.keysym.scancode != SDL_SCANCODE_F12) ||
+		(np2oscfg.F12KEY != 0)) {
+		return FALSE;
+	}
+	if ((event->type == SDL_KEYDOWN) && !event->key.repeat && !captured) {
+		taskmng_toggle_mouse();
+	}
+	return TRUE;
+}
+
+static BOOL taskmng_mouse_button_shortcut(const SDL_Event *event,
+										BOOL captured) {
+
+	if (((event->type != SDL_MOUSEBUTTONDOWN) &&
+		 (event->type != SDL_MOUSEBUTTONUP)) ||
+		(event->button.button != SDL_BUTTON_MIDDLE)) {
+		return FALSE;
+	}
+	if (event->type == SDL_MOUSEBUTTONUP) {
+		if (middle_shortcut_down) {
+			middle_shortcut_down = FALSE;
+			return TRUE;
+		}
+		return FALSE;
+	}
+	if (!captured) {
+		middle_shortcut_down = TRUE;
+		taskmng_toggle_mouse();
+		return TRUE;
+	}
+	return FALSE;
+}
+
 void taskmng_initialize(void) {
 
 	task_avail = TRUE;
 	paste_shortcut_down = FALSE;
+	middle_shortcut_down = FALSE;
 	vaeg_pacing_reset(&task_pacing);
 	kbdpaste_initialize();
+	mousemng_initialize();
+	mousemng_setguiblocked(gui_guest_mouse_blocked());
+	mousemng_setcapture(np2oscfg.MOUSE_SW ? TRUE : FALSE);
 }
 
 void taskmng_exit(void) {
 
 	task_avail = FALSE;
 	paste_shortcut_down = FALSE;
+	middle_shortcut_down = FALSE;
 	vaeg_pacing_reset(&task_pacing);
 	kbdpaste_shutdown();
+	mousemng_shutdown();
 }
 
 void taskmng_clear_fast_forward(void) {
@@ -125,37 +176,52 @@ void taskmng_rol(void) {
 			shortcut = vaeg_pacing_key(&task_pacing,
 							(UINT)e.key.keysym.scancode, FALSE, FALSE);
 		}
-			else if ((e.type == SDL_WINDOWEVENT) &&
-					 (e.window.event == SDL_WINDOWEVENT_FOCUS_LOST)) {
-				vaeg_pacing_reset(&task_pacing);
-				paste_shortcut_down = FALSE;
-				kbdpaste_cancel();
-			}
-			else if ((e.type == SDL_WINDOWEVENT) &&
-					 (e.window.event == SDL_WINDOWEVENT_SIZE_CHANGED)) {
-				int width;
-				int height;
+		else if ((e.type == SDL_WINDOWEVENT) &&
+				 (e.window.event == SDL_WINDOWEVENT_FOCUS_LOST)) {
+			vaeg_pacing_reset(&task_pacing);
+			paste_shortcut_down = FALSE;
+			middle_shortcut_down = FALSE;
+			kbdpaste_cancel();
+			mousemng_setfocus(FALSE);
+		}
+		else if ((e.type == SDL_WINDOWEVENT) &&
+				 (e.window.event == SDL_WINDOWEVENT_FOCUS_GAINED)) {
+			mousemng_setfocus(TRUE);
+		}
+		else if ((e.type == SDL_WINDOWEVENT) &&
+				 (e.window.event == SDL_WINDOWEVENT_SIZE_CHANGED)) {
+			int width;
+			int height;
 
-				if ((scrnmng_capture_window_size(&width, &height) == SUCCESS) &&
-					((np2oscfg.gui_window_width != width) ||
-					 (np2oscfg.gui_window_height != height))) {
-					np2oscfg.gui_window_width = (UINT16)min(width, 65535);
-					np2oscfg.gui_window_height = (UINT16)min(height, 65535);
-					sysmng_update(SYS_UPDATEOSCFG);
-				}
+			if ((scrnmng_capture_window_size(&width, &height) == SUCCESS) &&
+				((np2oscfg.gui_window_width != width) ||
+				 (np2oscfg.gui_window_height != height))) {
+				np2oscfg.gui_window_width = (UINT16)min(width, 65535);
+				np2oscfg.gui_window_height = (UINT16)min(height, 65535);
+				sysmng_update(SYS_UPDATEOSCFG);
 			}
+		}
 		else if (e.type == SDL_QUIT) {
 			vaeg_pacing_reset(&task_pacing);
 			paste_shortcut_down = FALSE;
+			middle_shortcut_down = FALSE;
 			kbdpaste_cancel();
+			mousemng_setfocus(FALSE);
 		}
 		captured = gui_process_event(&e);
+		mousemng_setguiblocked(gui_guest_mouse_blocked());
 		if (taskmng_paste_shortcut(&e, captured)) {
+			shortcut = TRUE;
+		}
+		if (taskmng_mouse_key_shortcut(&e, captured)) {
+			shortcut = TRUE;
+		}
+		if (taskmng_mouse_button_shortcut(&e, captured)) {
 			shortcut = TRUE;
 		}
 		switch(e.type) {
 			case SDL_QUIT:
-				task_avail = FALSE;
+				taskmng_exit();
 				break;
 
 			case SDL_KEYDOWN:
@@ -181,11 +247,34 @@ void taskmng_rol(void) {
 				sdlkbd_textinput(e.text.text, captured);
 				break;
 
+			case SDL_MOUSEMOTION:
+				if (!captured && !shortcut) {
+					mousemng_motion(e.motion.xrel, e.motion.yrel);
+				}
+				break;
+
+			case SDL_MOUSEBUTTONDOWN:
+			case SDL_MOUSEBUTTONUP:
+				if (!shortcut &&
+					((e.button.button == SDL_BUTTON_LEFT) ||
+					 (e.button.button == SDL_BUTTON_RIGHT))) {
+					UINT button;
+
+					button = (e.button.button == SDL_BUTTON_LEFT) ?
+							MOUSEMNG_BUTTON_LEFT : MOUSEMNG_BUTTON_RIGHT;
+					if (!captured || (e.type == SDL_MOUSEBUTTONUP)) {
+						mousemng_button(button,
+								e.type == SDL_MOUSEBUTTONDOWN ? TRUE : FALSE);
+					}
+				}
+				break;
+
 			default:
 				break;
 		}
 	}
 	if (task_avail) {
+		mousemng_setguiblocked(gui_guest_mouse_blocked());
 		kbdpaste_tick(SDL_GetTicks(), gui_guest_keyboard_blocked());
 	}
 }

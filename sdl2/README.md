@@ -173,6 +173,32 @@ exists, backup memory uses the user state directory. There is no ROM-path
 migration fallback. Fixed GUI save-state slots and keyboard sidecars
 remain in the user state directory.
 
+## Mouse Input
+
+`Device -> Mouse` separates three settings: host pointer capture, the VA
+controller-port device, and rapid buttons. Capture uses SDL relative mouse
+mode and feeds movement plus active-low left/right buttons through the
+existing guest mouse interface. It does not write guest coordinates or BIOS
+state directly.
+
+Select `VA controller port -> Mouse` for VA mouse software; `Joystick` keeps
+the original controller-pad path. `Capture mouse` traps the host pointer only
+while the vaeg window has focus and Dear ImGui is not using the mouse. F12
+toggles capture when `Keyboard -> F12 binding -> Mouse` is selected. Middle
+click also toggles capture outside the GUI. Focus loss, reset, state load, and
+shutdown release both guest buttons and pending movement.
+
+The settings use the original-compatible `vaeg.cfg` keys:
+
+```ini
+Mouse_sw=0
+Mouse_VA=0
+MS_RAPID=0
+```
+
+`Mouse_VA=0` selects joystick and `Mouse_VA=1` selects mouse. Existing
+configuration files without these keys remain uncaptured in joystick mode.
+
 ## Clipboard Paste
 
 `Edit -> Paste` sends host clipboard text to the guest as paced keyboard

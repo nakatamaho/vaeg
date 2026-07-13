@@ -66,6 +66,7 @@ typedef struct {
 	UINT16	fscrn_cx;
 	UINT16	fscrn_cy;
 	BYTE	fscrnmod;
+	BYTE	MOUSE_SW;
 } NP2OSCFG;
 
 #if defined(SIZE_QVGA)

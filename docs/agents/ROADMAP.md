@@ -139,12 +139,13 @@ and normal vaeg mounting. Both the 1.232 MB 2HD and 640 KB 2DD raw geometries
 are recognized. The implementation and G25
 checklist are in `tasks/M25_fdd_raw_images.md`.
 
-M26 is planned and its source audit is complete. The guest-side generic and
-PC-88VA mouse I/O paths already exist; the active SDL2 `mousemng` is still a
-zero-motion stub. M26 will port the original relative capture, active-low
-buttons, F12/middle-button capture controls, and persisted VA joystick/mouse
-port selection without bypassing the existing guest I/O path. The complete
-implementation prompt and G26 checklist are in `tasks/M26_mouse_input.md`.
+M26 is implemented with G26 pending. The guest-side generic and PC-88VA mouse
+I/O paths remain unchanged; the active SDL2 frontend now supplies relative
+motion and active-low buttons through their existing `mousemng_getstat()`
+seam. Capture uses SDL relative mode with focus/ImGui safety, original
+F12/middle-button controls, and persisted VA joystick/mouse port selection.
+The implementation record and G26 checklist are in
+`tasks/M26_mouse_input.md`.
 
 ## Gate protocol
 
