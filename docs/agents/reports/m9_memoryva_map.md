@@ -78,7 +78,7 @@ source for M9.
 
 | Topic | Technical manual | Legacy implementation | M9 action |
 |---|---|---|---|
-| TVRAM size | TVRAM is 64KB at `A0000H-AFFFFH` (`docs/tekumani/4.TXT:202`, `docs/tekumani/4.TXT:215`). | `memoryva.x86`/`memoryva.h` expose `textmem[0x40000]`. | Preserve the legacy buffer and only treat the manual as an annotation. |
+| TVRAM size | The original VA has 64KB at `A0000H-AFFFFH` (`docs/tekumani/4.TXT:202`, `docs/tekumani/4.TXT:215`). NEC product specifications list 256KB for VA2/VA3. | `memoryva.x86`/`memoryva.h` expose `textmem[0x40000]`. | Preserve the shared legacy buffer; enforce the model-specific CPU aperture at the access boundary. |
 | Backup RAM size | Backup RAM is 8KB at `B0000H-B1FFFH`; the memory switch area is `B1FC0H-B1FFFH` (`docs/tekumani/3.TXT:224`, `docs/tekumani/3.TXT:229`, `docs/tekumani/3.TXT:231`). | `memoryva.x86`/`memoryva.h` expose `backupmem[0x4000]`. | Preserve the legacy buffer. Do not shrink storage in M9. |
 | Backup RAM access width | Backup RAM memory access is byte-only (`docs/tekumani/3.TXT:251`). | `memoryva.x86` implements special word read/write behavior for this range. | Port the asm behavior and keep this note. |
 | ROM0 bank range | The spec lists ROM00-ROM05, then reserve, then bus slots (`docs/tekumani/3.TXT:173`, `docs/tekumani/2.TXT:1476`). | VAEG legacy code uses ROM0 banks 0-9, backed by `VAROM00.ROM` and `VAROM08.ROM`. | Treat banks 0-9 as a VAEG implementation extension and keep as-is. |
@@ -94,10 +94,18 @@ place its stack in the banked system-memory window. A later VA1 ROM bank switch
 then made that stack disappear and corrupted the restored bank number.
 
 M29 retains the legacy `textmem[0x40000]` storage object to avoid an unrelated
-ABI and renderer refactor, but limits CPU bank-1 access to the documented 64KB
-aperture at `A0000H-AFFFFH`. Reads from the unused remainder return open-bus
-ones and writes are ignored. See `tasks/M29_va1_tvram_aperture.md` for the
-trace, ROM control flow, correction, and validation record.
+ABI and renderer refactor. The 64KB aperture at `A0000H-AFFFFH` is enforced
+for VA1; reads from the unused remainder return open-bus ones and writes are
+ignored. A later M28/M29 A/B test found that applying this clamp to VA2/VA3
+regressed V3 BASIC. NEC's
+[VA](https://support.nec-lavie.jp/support/product/data/spec/cpu/b047-1.html),
+[VA2](https://support.nec-lavie.jp/support/product/data/spec/cpu/b048-1.html),
+and [VA3](https://support.nec-lavie.jp/support/product/data/spec/cpu/b049-1.html)
+product specifications confirm that TVRAM increased from 64KB to 256KB in
+VA2/VA3, so the model-specific active mapping retains the full 256KB CPU
+exposure for those models. See
+`tasks/M29_va1_tvram_aperture.md` for the trace, ROM control flow, correction,
+regression, and validation record.
 
 ## Header surface and divergences
 

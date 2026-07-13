@@ -52,12 +52,16 @@ targets:
 The executable is named `vaeg`.
 
 ```sh
-vaeg [--smoke] [--pacelog] [image1 [image2]]
+vaeg [--model va|va2] [--smoke] [--pacelog] [image1 [image2]]
 ```
 
 `image1` and `image2` are floppy disk images mounted in drives 1 and 2.
 `--smoke` runs a short headless initialization check. `--pacelog` prints
-emulation pacing counters for timing diagnosis.
+emulation pacing counters for timing diagnosis. `--model va` selects the
+original VA with unsuffixed ROM names; `--model va2` selects the VA2/VA3
+compatible model with `*_va2.rom` names. When the model changes, the existing
+GUI policy also selects its default FM hardware. This is a session-only
+override and does not replace `pc_model` or `SNDboard` in `vaeg.cfg`.
 
 ## Quick Build
 
