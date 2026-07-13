@@ -12,6 +12,33 @@ on modern Windows, Linux, and macOS systems. A frozen Visual Studio
 reference tier is kept for behavior archaeology, but normal development
 targets the CMake/SDL2 tree.
 
+## News
+
+### 2026-07-13 - Rel.260713
+
+[Rel.260713](https://github.com/nakatamaho/vaeg/releases/tag/rel-260713)
+substantially improves everyday usability. Highlights include JIS physical
+and US keytop keyboard modes, Roman-Kana input, host clipboard paste, relative
+mouse input, disk-image and ZIP/7z/LZH drag and drop, blank D88/IMG creation,
+SASI HDD controls, resizable display effects, and CPU/SGP speed and pacing
+controls. Windows is distributed as a static single-file executable, with the
+frontend font, startup image, and icon embedded.
+
+**Important ROM upgrade note:** VA and VA2/VA3 now use separate model ROM
+sets. VA keeps the unsuffixed names, while VA2/VA3 requires
+`vadic_va2.rom`, `vafont_va2.rom`, `varom00_va2.rom`, `varom08_va2.rom`, and
+`varom1_va2.rom`. VA2/VA3 does not fall back to the VA files, and the
+`*_va2.rom` files have different contents and checksums; do not create them
+by merely renaming the VA ROMs. See [CHANGES.20260713.md](CHANGES.20260713.md)
+for the complete upgrade notes.
+
+### 2026-07-08 - First portable release
+
+[Rel.260708](https://github.com/nakatamaho/vaeg/releases/tag/rel-260708) was
+the first release of the maintained portable fork. It established the active
+CMake, SDL2, and Dear ImGui build for Windows-MinGW, Linux, and macOS after
+completion of the phase-2 portability work.
+
 ## Current Frontend
 
 The active frontend is the SDL2 + Dear ImGui build under `sdl2/`. It
