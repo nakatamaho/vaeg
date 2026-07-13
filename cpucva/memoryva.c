@@ -45,8 +45,8 @@ enum {
 	CPUADDR_ROM1		= 0x0f0000,
 	CPUADDR_BMS		= 0x080000,
 	CPUADDR_BACKUP		= 0x0b0000,
-	/* Bank 1 exposes TVRAM only at A0000-AFFFF. */
-	TVRAM_SIZE			= 0x10000,
+	/* VA1 bank 1 exposes TVRAM only at A0000-AFFFF. */
+	TVRAM_VA1_SIZE		= 0x10000,
 	BACKUPMEMORY_SIZE	= 0x04000
 };
 
@@ -275,6 +275,14 @@ static UINT sysm_bank(void) {
 	return(bank & 0x0f);
 }
 
+static UINT32 tvram_size(void) {
+
+	if (pccore.model_va == PCMODEL_VA1) {
+		return(TVRAM_VA1_SIZE);
+	}
+	return(sizeof(textmem));
+}
+
 static UINT va91sysm_bank(void) {
 
 	return(va91.sysm_bank & 0x0f);
@@ -369,7 +377,7 @@ static void MEMCALL sysm_wt(UINT32 address, REG8 value) {
 
 static void MEMCALL tvram_wt(UINT32 address, REG8 value) {
 
-	if ((address - CPUADDR_SYSM) >= TVRAM_SIZE) {
+	if ((address - CPUADDR_SYSM) >= tvram_size()) {
 		return;
 	}
 	textmem[address - CPUADDR_SYSM] = (BYTE)value;
@@ -459,11 +467,11 @@ static void MEMCALL tvramw_wt(UINT32 address, REG16 value) {
 	UINT32	offset;
 
 	offset = address - CPUADDR_SYSM;
-	if (offset >= TVRAM_SIZE) {
+	if (offset >= tvram_size()) {
 		return;
 	}
 	textmem[offset] = (BYTE)value;
-	if ((offset + 1) < TVRAM_SIZE) {
+	if ((offset + 1) < tvram_size()) {
 		textmem[offset + 1] = (BYTE)(value >> 8);
 	}
 	textmem_dirty = TRUE;
@@ -528,7 +536,7 @@ static REG8 MEMCALL sysm_rd(UINT32 address) {
 
 static REG8 MEMCALL tvram_rd(UINT32 address) {
 
-	if ((address - CPUADDR_SYSM) >= TVRAM_SIZE) {
+	if ((address - CPUADDR_SYSM) >= tvram_size()) {
 		return(0xff);
 	}
 	return(textmem[address - CPUADDR_SYSM]);
@@ -695,11 +703,11 @@ static REG16 MEMCALL tvramw_rd(UINT32 address) {
 	REG16	ret;
 
 	offset = address - CPUADDR_SYSM;
-	if (offset >= TVRAM_SIZE) {
+	if (offset >= tvram_size()) {
 		return(0xffff);
 	}
 	ret = textmem[offset];
-	if ((offset + 1) < TVRAM_SIZE) {
+	if ((offset + 1) < tvram_size()) {
 		ret |= (REG16)textmem[offset + 1] << 8;
 	}
 	else {
