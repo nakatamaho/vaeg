@@ -115,3 +115,6 @@ covers both mappings. Maintainer verification confirmed:
 3. Exit each run and confirm `pc_model` and `SNDboard` in `vaeg.cfg` retain
    their pre-run values.
 4. Confirm positional FDD image arguments still mount with either model.
+
+The maintainer confirmed command-line VA and VA2 boot selection and approved
+integration on 2026-07-14. G31 passed.
