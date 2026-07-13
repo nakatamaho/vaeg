@@ -144,6 +144,33 @@ buffers:
 
 The loader is `biosva/biosva.c:25-80`.
 
+The installed memory differs between the original VA and VA2/VA3:
+
+| Resource | VA | VA2/VA3 |
+|---|---:|---:|
+| Main RAM | 512KB | 512KB |
+| Backup RAM | 8KB | 16KB |
+| Text VRAM (also used for sprites) | 64KB | 256KB |
+| Graphics VRAM | 256KB | 256KB |
+| Sound RAM/VRAM | none | 256KB |
+
+The local technical-manual material describes the original VA text VRAM as
+64KB at `A0000H-AFFFFH`. NEC's product specifications independently list
+64KB for the [PC-88VA](https://support.nec-lavie.jp/support/product/data/spec/cpu/b047-1.html)
+and 256KB for both the
+[PC-88VA2](https://support.nec-lavie.jp/support/product/data/spec/cpu/b048-1.html)
+and [PC-88VA3](https://support.nec-lavie.jp/support/product/data/spec/cpu/b049-1.html).
+The [PC-88VA hardware comparison](http://www.pc88.gr.jp/~va/va-hard.html#mem)
+records the same split and also identifies the backup-RAM and sound-RAM
+differences shown above.
+
+Consequently, the active memory layer exposes only `A0000H-AFFFFH` as TVRAM
+for VA1 and treats `B0000H-DFFFFH` as open bus. VA2/VA3 uses the complete
+256KB `A0000H-DFFFFH` bank-1 backing. The VA2/VA3 address extent is the active
+implementation's mapping of the documented capacity and is covered by the
+VA2 V3 BASIC regression test; the cited product specifications state the
+capacity but do not themselves document the CPU address decode.
+
 The main CPU memory entry points are still the i286c memory accessors.
 When the VA memory mode is active, `i286c/memory.c` dispatches memory
 accesses into `cpucva/memoryva.c`:

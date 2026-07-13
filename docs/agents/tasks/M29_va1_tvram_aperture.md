@@ -22,7 +22,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 -->
 # M29: Correct the VA1 TVRAM aperture
 
-Status: implementation complete; focused G29 boot check passed
+Status: implementation complete; focused G29 boot check passed; VA2 regression corrected in M31
 
 Date: 2026-07-13
 
@@ -184,6 +184,32 @@ for the CPU aperture correction and would create avoidable ABI, state, and
 display-code risk. The range is enforced where CPU bank-1 accesses enter the
 memory implementation.
 
+## Post-G29 VA2 compatibility correction
+
+Later M31 testing identified a regression that the focused G29 gate did not
+cover. M28 commit `455c7d5` could enter and use VA2 V3 BASIC, while its direct
+child M29 commit `c17d64a` froze after entering BASIC. The only runtime change
+in that commit was the model-independent bank-1 TVRAM clamp.
+
+The active implementation therefore applies the 64KB aperture correction only
+to `PCMODEL_VA1`. `PCMODEL_VA2`, which is also the VA3 compatibility path,
+exposes the full 256KB bank-1 backing. The local technical-manual text describes
+the original VA, while NEC's product specifications list 64KB of text VRAM for
+the [PC-88VA](https://support.nec-lavie.jp/support/product/data/spec/cpu/b047-1.html)
+and 256KB for both the
+[PC-88VA2](https://support.nec-lavie.jp/support/product/data/spec/cpu/b048-1.html)
+and [PC-88VA3](https://support.nec-lavie.jp/support/product/data/spec/cpu/b049-1.html).
+The [PC-88VA hardware comparison](http://www.pc88.gr.jp/~va/va-hard.html#mem)
+independently records the same model split. The product specifications establish
+the capacity; the active `A0000H-DFFFFH` decode is additionally supported by
+the VA2 V3 BASIC regression result.
+
+ROM-less coverage now selects both models explicitly: VA1 must return open bus
+above `AFFFFH`, while VA2 must retain byte and word access in the legacy
+`B0000H-DFFFFH` range. Human verification confirmed both VA2 V3 BASIC command
+entry and VA1 PC-Engine 1.00 boot. The separate inherited VA1 V3 BASIC command
+failure remains reproducible.
+
 ## Rejected workarounds
 
 The following alternatives would hide the symptom without modeling hardware:
@@ -243,5 +269,5 @@ reclassified as completed by the focused report.
 
 No files under `win9x/`, `i286x/`, `cpuxva/memoryva.x86`, or `hlp/` were
 modified. `cpuxva/memoryva.x86` remains a frozen record of the inherited
-256KB behavior; the active C implementation intentionally corrects it based
-on the hardware map and reproduced guest failure.
+256KB behavior; the active C implementation narrows that behavior for the
+64KB VA1 hardware while retaining it for the 256KB VA2/VA3 hardware.
