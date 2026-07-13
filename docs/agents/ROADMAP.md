@@ -63,9 +63,10 @@ history, not by a current CI or compile guarantee.
 | M27 | tasks/M27_frame_display.md | Restore the original measured guest-draw FPS display in the native window title | **G27 passed** |
 | M28 | tasks/M28_sound_output_settings.md | Select common output sampling rate and sound buffer plus ymfm FM fidelity from the SDL2 Sound menu | **G28 human** |
 | M29 | tasks/M29_va1_tvram_aperture.md | Enforce the VA bank-1 64KB TVRAM aperture and restore PC-Engine 1.00 VA1 boot compatibility | **G29 focused human passed** |
+| M30 | tasks/M30_va_bms_window.md | Restore the VA `80000H-9FFFFH` BMS window semantics lost in the portable C memory port | **G30 accepted** |
 
 Phase 2 dependencies: M7 → M8 → {M9, M10 parallel} → M11 → M12 → M13.
-Post-phase dependency: M13 → M14 → M15 → M16 → M17 → M18 → M19 → M20 → M21 → M22 → M23 → M24 → M25 → M26 → M27 → M28 → M29.
+Post-phase dependency: M13 → M14 → M15 → M16 → M17 → M18 → M19 → M20 → M21 → M22 → M23 → M24 → M25 → M26 → M27 → M28 → M29 → M30.
 M9 must pass before M11 (all three OSes must ship the VA machine, not
 the PC-98 scaffold).
 
@@ -174,6 +175,17 @@ ignores writes. This prevents PC-Engine 1.00 from misdetecting banked system
 memory as main RAM and placing its VA1 stack where a ROM bank switch hides it.
 The root-cause trace, rejected workarounds, automated boundary tests, and
 focused human boot result are in `tasks/M29_va1_tvram_aperture.md`.
+
+M30 restores the frozen implementation's BMS behavior in the portable VA
+memory layer. The `80000H-9FFFFH` aperture now reads as open bus and ignores
+writes when BMS is disabled; when enabled it accesses the selected 128KB bank.
+The M9 C port had temporarily routed the aperture to ordinary main RAM because
+the assembly-only BMS handlers were not callable from `i286c`. That made a
+nonexistent 128KB region pass software memory probes. The code evidence,
+ROM-less bank tests, and G30 acceptance are in
+`tasks/M30_va_bms_window.md`. Human testing showed that this correction does
+not resolve the separate VA1 N88 BASIC V3.0 `FILES`/`BEEP` failure; that
+investigation is deferred and is not part of M30.
 
 ## Gate protocol
 
