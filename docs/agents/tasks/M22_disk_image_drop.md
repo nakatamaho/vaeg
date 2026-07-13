@@ -65,10 +65,11 @@ are recorded in `../DECISIONS/ADR-0010-archive-drop.md`.
 
 | Preset family | Acquisition | Linkage |
 |---|---|---|
+| Linux release | pinned FetchContent | static |
+| Linux development/CI | system LibArchive | package-defined |
 | Windows MinGW native/cross/CI | pinned FetchContent | static |
 | macOS release/CI | pinned FetchContent | static |
 | macOS MacPorts development/ASan | system LibArchive | package-defined |
-| Linux | system LibArchive | package-defined |
 
 ## Extraction policy
 
@@ -120,6 +121,9 @@ Open behavior remains unchanged.
 - A fresh Linux build with `VAEG_FETCH_LIBARCHIVE=ON` passed. Its ROM-less
   selftest generated and extracted deflate ZIP and 7z archives, rejected a
   traversal entry, and verified reference-aware managed-storage pruning.
+- The `linux-release` preset now selects that pinned static stack so the
+  distributed Linux binary does not silently lose archive support when the
+  build host lacks the LibArchive development package.
 - ROM-less `--selftest` and `--smoke` passed in both the normal Linux build
   and the fetched-static archive build.
 - `cmake --preset mingw-cross` and
@@ -139,6 +143,10 @@ the generated ZIP/7z extraction selftest and smoke, and MinGW cross compiled
 the picker path against the pinned static LibArchive stack. LZH picker use
 remains part of the manual gate because LibArchive can read but not generate
 that test format.
+
+The Linux release follow-up configured with static fetched LibArchive 3.8.7,
+built successfully, and passed ROM-less selftest and smoke. `ldd` showed no
+runtime dependency on LibArchive, zlib, or liblzma.
 
 ## G22 manual gate
 
