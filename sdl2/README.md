@@ -49,12 +49,18 @@ the pinned SDL2 release recorded in ADR-0006.
 ## Run
 
 ```sh
-./build/linux-debug/sdl2/vaeg [--smoke] [image1 [image2]]
+./build/linux-debug/sdl2/vaeg [--model va|va2] [--smoke] [image1 [image2]]
 ```
 
 Positional arguments mount FDD images in drive 1 and 2. Missing image files
 are rejected with an error instead of silently starting without media.
 `--pacelog` prints pacing counters once per second for jitter diagnosis.
+`--model va` selects `88VA1` and its unsuffixed ROM set. `--model va2` selects
+the `88VA2` compatibility model and its `*_va2.rom` set. As in the GUI, a
+model change selects the destination model's default FM hardware; selecting
+the already configured model preserves its configured hardware. The
+command-line model owns these values for the current process only and does not
+rewrite `pc_model` or `SNDboard` in `vaeg.cfg`.
 
 Disk images may also be dragged onto the SDL window. One drop operation is
 sorted by case-insensitive basename: the first image mounts as FDD1, the
