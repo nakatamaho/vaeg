@@ -55,6 +55,8 @@ M27 therefore reuses that counter and does not alter core timing or drawing.
   host presentation is skipped.
 - `DspClock` is restored in `vaeg.cfg`; bit 1 controls Frame display and the
   low two bits are retained for original configuration compatibility.
+- Frame display defaults to enabled when `DspClock` is absent. Existing
+  configurations that explicitly save bit 1 clear remain disabled.
 - Screen -> Frame display toggles the option immediately and marks frontend
   configuration dirty.
 

@@ -52,7 +52,7 @@
 #include	"np2ver.h"
 #include	"mousemng.h"
 
-		NP2OSCFG	np2oscfg = {0, 0, 0, 0, 0, 0, 1, 0, "", "", {"", ""},
+		NP2OSCFG	np2oscfg = {0, 0, 2, 0, 0, 0, 1, 0, "", "", {"", ""},
 								"", "", 0, 0, "", "ymfm", "minimum", 1,
 								VAEG_EFFECT_UNFILTERED, VAEG_SCALING_FIT,
 								640, 422, VAEG_DISPLAY_WINDOWED, 0, 0, 0, 0, 2, 0};

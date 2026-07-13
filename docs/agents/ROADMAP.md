@@ -154,9 +154,11 @@ The implementation record and G26 checklist are in
 M27 is complete and G27 passed. It restores the original Frame Disp semantics
 in the SDL2 frontend. It measures the core guest-draw counter over an
 approximately two-second window and appends `N.NFPS` to the native window
-title. It does not report ImGui
-present rate or change frame skip, VBlank, CPU/SGP speed, or host pacing. The
-implementation scope and G27 checklist are in `tasks/M27_frame_display.md`.
+title. Frame display defaults to enabled when no saved `DspClock` setting
+exists, while an explicitly saved off setting is preserved. It does not report
+ImGui present rate or change frame skip, VBlank, CPU/SGP speed, or host
+pacing. The implementation scope and G27 checklist are in
+`tasks/M27_frame_display.md`.
 
 M28 adds common audio-output controls to the Sound menu. Sampling rate and
 requested sound-buffer length apply to both NP2 and ymfm through the existing
