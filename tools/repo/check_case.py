@@ -8,7 +8,8 @@ Usage:
 Checks:
   1. case-fold collisions between tracked paths (breaks case-insensitive
      filesystems, i.e. cloning on Windows/macOS);
-  2. uppercase characters in tracked paths (target: lowercase-only),
+  2. uppercase characters in tracked paths (target: lowercase with approved
+     project/tool-name exceptions),
      minus the ALLOW exemptions;
   3. #include / %include directives whose basename matches a tracked
      file only when case is ignored (breaks case-sensitive filesystems).
@@ -41,6 +42,8 @@ def tracked_files():
 def exempt(path: str) -> bool:
     base = path.rsplit("/", 1)[-1]
     return (path in ALLOW or base in ALLOW_BASENAMES
+            or ("/" not in path and base.startswith("CHANGES")
+                and base.endswith(".md"))
             or base.startswith("Makefile")
             or any(path.startswith(p) for p in ALLOW_PREFIXES))
 
