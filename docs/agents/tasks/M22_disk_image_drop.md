@@ -85,6 +85,8 @@ are recorded in `../DECISIONS/ADR-0010-archive-drop.md`.
 - Delete incomplete output after any error.
 - Open Windows archive paths through LibArchive's wide-character API after
   converting the SDL UTF-8 path with `std::filesystem::u8path()`.
+- On POSIX, perform LibArchive entry-name conversion under a thread-local
+  UTF-8 locale. Do not change the process-global locale.
 
 Archive and direct image drops both persist through the existing `FDD1FILE`
 and `FDD2FILE` settings. Reset and application restart therefore restore the
@@ -107,6 +109,8 @@ Open behavior remains unchanged.
   reads but does not write that format.
 - The same extension classifier is exposed to the FDD picker; tests cover
   case-insensitive ZIP, 7z, and LZH recognition and direct-image rejection.
+- The generated 7z selftest uses a Japanese UTF-16LE entry name and verifies
+  that the extracted basename is represented as UTF-8 on Linux.
 - Linux builds cover both LibArchive-found and LibArchive-missing policy when
   those environments are available.
 - `mingw-cross` must build all archive dependencies statically and retain only
