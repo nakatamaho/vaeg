@@ -33,6 +33,7 @@
 #include <fstream>
 #include <iterator>
 #include <limits>
+#include <locale.h>
 #include <random>
 #include <string>
 #include <system_error>
@@ -143,6 +144,50 @@ static bool archive_path_safe(const char *entry_path) {
 }
 
 #if defined(VAEG_HAVE_LIBARCHIVE)
+#if !defined(_WIN32)
+class ScopedArchiveLocale {
+public:
+	ScopedArchiveLocale() : locale_(create_utf8_locale()), previous_(nullptr) {
+
+		if (locale_ != nullptr) {
+			previous_ = uselocale(locale_);
+		}
+	}
+
+	~ScopedArchiveLocale() {
+
+		if (previous_ != nullptr) {
+			uselocale(previous_);
+		}
+		if (locale_ != nullptr) {
+			freelocale(locale_);
+		}
+	}
+
+	ScopedArchiveLocale(const ScopedArchiveLocale &) = delete;
+	ScopedArchiveLocale &operator=(const ScopedArchiveLocale &) = delete;
+
+private:
+	static locale_t create_utf8_locale() {
+
+		static const char *names[] = {
+			"C.UTF-8", "C.utf8", "en_US.UTF-8", ""
+		};
+
+		for (const char *name : names) {
+			locale_t locale = newlocale(LC_CTYPE_MASK, name, nullptr);
+			if (locale != nullptr) {
+				return locale;
+			}
+		}
+		return nullptr;
+	}
+
+	locale_t locale_;
+	locale_t previous_;
+};
+#endif
+
 static fs::path archive_storage_root(void) {
 
 	char path[MAX_PATH];
@@ -181,6 +226,9 @@ static fs::path create_archive_directory(const fs::path &root,
 static bool write_test_archive(const fs::path &path, bool seven_zip,
 							   const char *entry_path) {
 
+#if !defined(_WIN32)
+	ScopedArchiveLocale archive_locale;
+#endif
 	struct archive *writer = archive_write_new();
 	struct archive_entry *entry;
 	static const char payload[] = "D88";
@@ -205,7 +253,7 @@ static bool write_test_archive(const fs::path &path, bool seven_zip,
 		archive_write_free(writer);
 		return false;
 	}
-	archive_entry_set_pathname(entry, entry_path);
+	archive_entry_set_pathname_utf8(entry, entry_path);
 	archive_entry_set_filetype(entry, AE_IFREG);
 	archive_entry_set_perm(entry, 0600);
 	archive_entry_set_size(entry, sizeof(payload) - 1);
@@ -235,6 +283,9 @@ static bool extract_archive_images(const std::string &archive_path,
 	std::size_t entry_count;
 	std::size_t image_count;
 	const std::size_t initial_image_count = images->size();
+#if !defined(_WIN32)
+	ScopedArchiveLocale archive_locale;
+#endif
 	int result;
 
 	temp_dir = create_archive_directory(storage_root, error);
@@ -384,18 +435,27 @@ static void append_status_line(const std::string &line) {
 	g_status += line;
 }
 
-static void mount_candidates(std::vector<DiskCandidate> *images) {
+static void mount_candidates(std::vector<DiskCandidate> *images,
+								 std::size_t first_drive) {
 
+	if ((images == nullptr) || (first_drive >= 2)) {
+		return;
+	}
+	const std::size_t capacity = 2 - first_drive;
 	std::sort(images->begin(), images->end(), candidate_less);
-	for (std::size_t index = 0; index < images->size() && index < 2; index++) {
+	for (std::size_t index = 0;
+			(index < images->size()) && (index < capacity); index++) {
 		const DiskCandidate &image = (*images)[index];
-		diskdrv_setfdd(static_cast<REG8>(index), image.path.c_str(), 0);
-		file_cpyname(np2oscfg.fdd_image[index], image.path.c_str(),
-					 sizeof(np2oscfg.fdd_image[index]));
+		const std::size_t drive = first_drive + index;
+
+		diskdrv_setfdd(static_cast<REG8>(drive), image.path.c_str(), 0);
+		file_cpyname(np2oscfg.fdd_image[drive], image.path.c_str(),
+						 sizeof(np2oscfg.fdd_image[drive]));
 		sysmng_update(SYS_UPDATEOSCFG);
 	}
-	if (images->size() > 2) {
-		append_status_line("Ignored " + std::to_string(images->size() - 2) +
+	if (images->size() > capacity) {
+		append_status_line("Ignored " +
+			std::to_string(images->size() - capacity) +
 			" additional disk image(s).");
 	}
 	dropmedia_prune_storage();
@@ -439,7 +499,7 @@ static void process_drop_batch(void) {
 			fs_path.filename().u8string());
 	}
 	if (!images.empty()) {
-		mount_candidates(&images);
+		mount_candidates(&images, 0);
 	}
 	else if (g_status.empty()) {
 		g_status = "Drop contained no supported disk image.";
@@ -476,6 +536,51 @@ extern "C" BOOL dropmedia_process_event(const void *event) {
 		default:
 			return FALSE;
 	}
+}
+
+extern "C" BOOL dropmedia_path_is_archive(const char *path) {
+
+	return ((path != nullptr) && archive_extension_supported(path)) ?
+		TRUE : FALSE;
+}
+
+extern "C" BOOL dropmedia_mount_archive(const char *path, UINT first_drive) {
+
+	g_status.clear();
+	if ((path == nullptr) || (path[0] == '\0')) {
+		g_status = "Archive open failed: path is empty.";
+		return FALSE;
+	}
+	if (first_drive >= 2) {
+		g_status = "Archive open failed: invalid FDD drive.";
+		return FALSE;
+	}
+	if (!archive_extension_supported(path)) {
+		g_status = "Archive open failed: unsupported archive extension.";
+		return FALSE;
+	}
+	std::error_code ec;
+	if ((!fs::is_regular_file(fs::u8path(path), ec)) || ec) {
+		g_status = "Archive open failed: file not found.";
+		return FALSE;
+	}
+#if defined(VAEG_HAVE_LIBARCHIVE)
+	std::vector<DiskCandidate> images;
+	std::string error;
+
+	if (!extract_archive_images(path, &images, &error,
+								archive_storage_root())) {
+		g_status = "Archive open failed: " + error + ": " +
+			fs::u8path(path).filename().u8string();
+		return FALSE;
+	}
+	mount_candidates(&images, first_drive);
+	return TRUE;
+#else
+	g_status =
+		"Archive open unavailable: this build has no LibArchive support.";
+	return FALSE;
+#endif
 }
 
 extern "C" const char *dropmedia_status(void) {
@@ -590,8 +695,11 @@ extern "C" BOOL dropmedia_selftest(void) {
 		(!image_extension_supported("disk.2HD")) ||
 		(!image_extension_supported("disk.IMG")) ||
 		image_extension_supported("disk.zip") ||
-		(!archive_extension_supported("set.7Z")) ||
-		(!archive_extension_supported("set.LZH"))) {
+		(!dropmedia_path_is_archive("set.ZIP")) ||
+		(!dropmedia_path_is_archive("set.7Z")) ||
+		(!dropmedia_path_is_archive("set.LZH")) ||
+		dropmedia_path_is_archive("disk.d88") ||
+		dropmedia_path_is_archive(NULL)) {
 		return FAILURE;
 	}
 	if ((!archive_path_safe("folder/disk.d88")) ||
@@ -619,10 +727,15 @@ extern "C" BOOL dropmedia_selftest(void) {
 		fs::path archive_path = test_dir /
 			(seven_zip ? "dropmedia-test.7z" : "dropmedia-test.zip");
 		std::vector<DiskCandidate> extracted;
-		if ((!write_test_archive(archive_path, seven_zip, "nested/test.d88")) ||
+		const char *entry_path = seven_zip ?
+			u8"nested/\u30c6\u30b9\u30c8.d88" : "nested/test.d88";
+		const char *expected_basename = seven_zip ?
+			u8"\u30c6\u30b9\u30c8.d88" : "test.d88";
+		if ((!write_test_archive(archive_path, seven_zip, entry_path)) ||
 			(!extract_archive_images(archive_path.u8string(), &extracted, &error,
 									 test_dir / "storage")) ||
-			(extracted.size() != 1) || (extracted[0].basename != "test.d88")) {
+			(extracted.size() != 1) ||
+			(extracted[0].basename != expected_basename)) {
 			fs::remove_all(test_dir);
 			dropmedia_shutdown();
 			return FAILURE;

@@ -74,6 +74,12 @@ the core reset. The paths are saved as `FDD1FILE` / `FDD2FILE` in
 `vaeg.cfg`, so mounted FDDs are restored across reset and application
 restart; Eject clears the corresponding saved path.
 
+FDD1/FDD2 Open accepts ZIP, 7z, and LZH in LibArchive-enabled builds. FDD1
+Open assigns the first two basename-sorted archive images to FDD1/FDD2. FDD2
+Open assigns only the first image to FDD2 without replacing FDD1 and reports
+additional images as ignored. Archive selection reuses the same bounded,
+traversal-safe extraction and persistent managed storage as SDL drop events.
+
 SDL disk-image drops bypass ImGui capture and use the same FDD insertion path.
 Direct images persist like manual mounts. ZIP, 7z, and LZH contents are
 extracted under managed user-state storage and their mounted paths persist

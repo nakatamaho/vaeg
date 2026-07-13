@@ -67,6 +67,17 @@ when LibArchive support is built. Archive mounts are saved in `FDD1FILE` and
 Unreferenced managed images are removed after eject or replacement; an image
 still mounted in either drive is retained.
 
+FDD1/FDD2 Open also accepts ZIP, 7z, and LZH when LibArchive support is built.
+Opening an archive from FDD1 mounts the first two basename-sorted images as
+FDD1/FDD2. Opening from FDD2 mounts only the first image as FDD2 and leaves
+FDD1 unchanged. The same extraction limits, traversal/link rejection,
+persistent managed storage, and ignored-image reporting used by drag and drop
+apply to menu-selected archives.
+
+The `linux-release`, MinGW, and macOS release presets link the pinned archive
+stack statically. Linux development builds use a system LibArchive when one is
+available and otherwise report archive loading as unavailable.
+
 The FDD menu can also create an empty FAT12 data disk as Japanese MS-DOS 2HD
 (1.232 MB) or 2DD (640 KB). D88 preserves track and sector metadata; IMG is a
 headerless raw sector image that can be accessed directly with tools such as
