@@ -109,7 +109,8 @@ git diff -- win9x i286x cpuxva/memoryva.x86 hlp
   native title in fullscreen; the setting and measurement must remain safe.
 - Complete the standard VA gate: V3 boot, VA demo, and OS boot/simple use.
 
-G27 remains open until the user explicitly reports it passed.
+G27 passed: the user accepted the implementation and requested integration
+into `main`.
 
 ## Verification record
 
