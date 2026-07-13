@@ -286,7 +286,9 @@ and the saved No Wait/frame-skip/CPU/SGP values are not overwritten.
 It samples actual guest framebuffer draws over approximately two seconds and
 appends `N.NFPS` to the native window title. It does not count ImGui-only
 presents and does not change frame skip or guest timing. The toggle is stored
-in the original `DspClock` bit 1 in `vaeg.cfg`.
+in the original `DspClock` bit 1 in `vaeg.cfg`. Frame display defaults to on
+when no saved `DspClock` value exists; an explicitly saved off setting remains
+off.
 
 ## OPN/OPNA FM Backend
 
