@@ -11,7 +11,14 @@ enum {
 	NEWDISK_FDD_MSDOS_COUNT
 };
 
+enum {
+	NEWDISK_FDD_CONTAINER_D88 = 0,
+	NEWDISK_FDD_CONTAINER_RAW,
+	NEWDISK_FDD_CONTAINER_COUNT
+};
+
 BOOL newdisk_fdd_msdos(const char *fname, UINT format);
+BOOL newdisk_fdd_msdos_ex(const char *fname, UINT format, UINT container);
 
 void newdisk_thd(const char *fname, UINT hddsize);
 void newdisk_nhd(const char *fname, UINT hddsize);
