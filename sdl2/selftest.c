@@ -35,6 +35,7 @@
 #include	"framedisp.h"
 #include	"kbdmap.h"
 #include	"kbdpaste.h"
+#include	"memoryva.h"
 #include	"mousestate.h"
 #include	"newdisk.h"
 #include	"np2.h"
@@ -101,6 +102,59 @@ static int test_romcheck(void) {
 	}
 	fprintf(stderr, "selftest: romcheck ok\n");
 	return(SUCCESS);
+}
+
+static int test_va_tvram_window(void) {
+
+	_MEMORYVA	saved_memoryva;
+	BYTE		saved_bytes[4];
+	BOOL		saved_dirty;
+	int		result;
+
+	saved_memoryva = memoryva;
+	saved_bytes[0] = textmem[0x0fffe];
+	saved_bytes[1] = textmem[0x0ffff];
+	saved_bytes[2] = textmem[0x10000];
+	saved_bytes[3] = textmem[0x1fff0];
+	saved_dirty = textmem_dirty;
+	result = SUCCESS;
+
+	memoryva.sysm_bank = 1;
+	memoryva.dma_sysm_bank = 0;
+	memoryva.dma_access = 0;
+	textmem[0x10000] = 0x5a;
+	textmem[0x1fff0] = 0xa5;
+
+	i286_memorywrite_va_w(0x0afffe, 0x1234);
+	if (i286_memoryread_va_w(0x0afffe) != 0x1234) {
+		result = fail("VA TVRAM", "valid word access failed");
+	}
+	i286_memorywrite_va_w(0x0affff, 0x5678);
+	if ((i286_memoryread_va_w(0x0affff) != 0xff78) ||
+		(textmem[0x10000] != 0x5a)) {
+		result = fail("VA TVRAM", "AFFFF boundary crossed into unused memory");
+	}
+	i286_memorywrite_va(0x0b0000, 0x6c);
+	if ((i286_memoryread_va(0x0b0000) != 0xff) ||
+		(textmem[0x10000] != 0x5a)) {
+		result = fail("VA TVRAM", "unused byte access did not use open bus");
+	}
+	i286_memorywrite_va_w(0x0bfff0, 0xabcd);
+	if ((i286_memoryread_va_w(0x0bfff0) != 0xffff) ||
+		(textmem[0x1fff0] != 0xa5)) {
+		result = fail("VA TVRAM", "B0000-DFFFF is not open bus");
+	}
+
+	memoryva = saved_memoryva;
+	textmem[0x0fffe] = saved_bytes[0];
+	textmem[0x0ffff] = saved_bytes[1];
+	textmem[0x10000] = saved_bytes[2];
+	textmem[0x1fff0] = saved_bytes[3];
+	textmem_dirty = saved_dirty;
+	if (result == SUCCESS) {
+		fprintf(stderr, "selftest: VA TVRAM window ok\n");
+	}
+	return(result);
 }
 
 typedef struct {
@@ -1335,6 +1389,9 @@ int vaeg_selftest_run(void) {
 		return(FAILURE);
 	}
 	if (test_romcheck() != SUCCESS) {
+		return(FAILURE);
+	}
+	if (test_va_tvram_window() != SUCCESS) {
 		return(FAILURE);
 	}
 	if (test_profile_ini() != SUCCESS) {
