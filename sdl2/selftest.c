@@ -28,6 +28,7 @@
 #include	"commng.h"
 #include	"clockscale.h"
 #include	"dosio.h"
+#include	"dropmedia.h"
 #include	"kbdmap.h"
 #include	"np2.h"
 #include	"pacing.h"
@@ -893,6 +894,10 @@ int vaeg_selftest_run(void) {
 	if (test_va_raster_guard() != SUCCESS) {
 		return(FAILURE);
 	}
+	if (dropmedia_selftest() != SUCCESS) {
+		return(fail("dropmedia", "extension, path, or sorting policy failed"));
+	}
+	fprintf(stderr, "selftest: dropmedia ok\n");
 	if (test_keyboard_mapping() != SUCCESS) {
 		return(FAILURE);
 	}

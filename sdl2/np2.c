@@ -47,6 +47,7 @@
 #include	"gui/gui.h"
 #include	"romcheck.h"
 #include	"selftest.h"
+#include	"dropmedia.h"
 #include	"splash.h"
 #include	"np2ver.h"
 
@@ -812,6 +813,7 @@ int main(int argc, char **argv) {
 		}
 	}
 	initload();
+	dropmedia_initialize();
 	select_backup_memory_path();
 	if (smoke) {
 		smoke_configure_va();
@@ -892,6 +894,7 @@ int main(int argc, char **argv) {
 		sdlkbd_reset_state();
 		scrndraw_redraw();
 		mount_fdd_images(disk);
+		dropmedia_prune_storage();
 		run_ok = runloop(smoke, pacelog, smoke_detect_screen);
 	}
 
@@ -901,6 +904,7 @@ int main(int argc, char **argv) {
 	}
 	bkupmemva_save();
 	pccore_term();
+	dropmedia_shutdown();
 	S98_trash();
 	soundmng_deinitialize();
 	gui_shutdown();

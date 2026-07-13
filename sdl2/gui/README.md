@@ -58,6 +58,13 @@ the core reset. The paths are saved as `FDD1FILE` / `FDD2FILE` in
 `vaeg.cfg`, so mounted FDDs are restored across reset and application
 restart; Eject clears the corresponding saved path.
 
+SDL disk-image drops bypass ImGui capture and use the same FDD insertion path.
+Direct images persist like manual mounts. ZIP, 7z, and LZH contents are
+extracted under managed user-state storage and their mounted paths persist
+through reset and application restart. Eject and replacement prune only
+managed images that are no longer referenced by FDD1 or FDD2. Drop results
+and ignored-image counts are shown at the bottom of the FDD menu.
+
 HardDisk -> New SASI image creates HDI images through the existing
 `newdisk_hdi()` helper. It supports the legacy 5/10/15/20/30/40 MB SASI
 geometry choices and refuses to overwrite an existing file.

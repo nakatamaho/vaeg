@@ -31,6 +31,7 @@
 #include	"scrnmng.h"
 #include	"sysmng.h"
 #include	"gui/gui.h"
+#include	"dropmedia.h"
 
 		BOOL	task_avail;
 	static VAEG_PACING_STATE task_pacing;
@@ -71,6 +72,9 @@ void taskmng_rol(void) {
 		BOOL captured;
 		BOOL shortcut;
 
+		if (dropmedia_process_event(&e)) {
+			continue;
+		}
 		shortcut = FALSE;
 		if (e.type == SDL_KEYDOWN) {
 			shortcut = vaeg_pacing_key(&task_pacing,
