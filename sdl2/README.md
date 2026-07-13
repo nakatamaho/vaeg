@@ -74,6 +74,10 @@ FDD1 unchanged. The same extraction limits, traversal/link rejection,
 persistent managed storage, and ignored-image reporting used by drag and drop
 apply to menu-selected archives.
 
+The `linux-release`, MinGW, and macOS release presets link the pinned archive
+stack statically. Linux development builds use a system LibArchive when one is
+available and otherwise report archive loading as unavailable.
+
 The FDD menu can also create an empty FAT12 data disk as Japanese MS-DOS 2HD
 (1.232 MB) or 2DD (640 KB). D88 preserves track and sector metadata; IMG is a
 headerless raw sector image that can be accessed directly with tools such as
