@@ -62,7 +62,7 @@ history, not by a current CI or compile guarantee.
 | M26 | tasks/M26_mouse_input.md | Port original relative mouse capture to SDL2 and expose the VA joystick/mouse controller-port choice | **G26 human** |
 | M27 | tasks/M27_frame_display.md | Restore the original measured guest-draw FPS display in the native window title | **G27 passed** |
 | M28 | tasks/M28_sound_output_settings.md | Select common output sampling rate and sound buffer plus ymfm FM fidelity from the SDL2 Sound menu | **G28 human** |
-| M29 | tasks/M29_va1_tvram_aperture.md | Enforce the VA bank-1 64KB TVRAM aperture and restore PC-Engine 1.00 VA1 boot compatibility | **G29 focused human passed** |
+| M29 | tasks/M29_va1_tvram_aperture.md | Enforce the VA1 bank-1 64KB TVRAM aperture and restore PC-Engine 1.00 boot compatibility | **G29 focused human passed; VA2 regression corrected in M31** |
 | M30 | tasks/M30_va_bms_window.md | Restore the VA `80000H-9FFFFH` BMS window semantics lost in the portable C memory port | **G30 accepted** |
 | M31 | tasks/M31_cli_boot_model.md | Select the VA or VA2/VA3 boot model with a session-only command-line override | **G31 machine + human** |
 
@@ -169,13 +169,16 @@ fidelity, with Minimum retained as the compatibility default. The scope,
 backend boundary, automated checks, and G28 checklist are in
 `tasks/M28_sound_output_settings.md`.
 
-M29 corrects the VA system-memory bank-1 aperture. TVRAM remains backed by the
-legacy `textmem` object, but CPU access is now limited to the hardware's 64KB
+M29 corrects the VA1 system-memory bank-1 aperture. TVRAM remains backed by the
+legacy `textmem` object, but VA1 CPU access is limited to the documented 64KB
 `A0000H-AFFFFH` range; the unused `B0000H-DFFFFH` range reads as open bus and
 ignores writes. This prevents PC-Engine 1.00 from misdetecting banked system
 memory as main RAM and placing its VA1 stack where a ROM bank switch hides it.
-The root-cause trace, rejected workarounds, automated boundary tests, and
-focused human boot result are in `tasks/M29_va1_tvram_aperture.md`.
+M31 testing found that applying the same clamp to VA2/VA3 regressed V3 BASIC,
+so that compatibility path retains the M28 bank-1 behavior pending hardware
+verification. The root-cause trace, rejected workarounds, automated boundary
+tests, regression record, and human results are in
+`tasks/M29_va1_tvram_aperture.md`.
 
 M30 restores the frozen implementation's BMS behavior in the portable VA
 memory layer. The `80000H-9FFFFH` aperture now reads as open bus and ignores
@@ -192,8 +195,9 @@ M31 adds `--model va` and `--model va2` to the active SDL2 command line. The
 override is applied after loading `vaeg.cfg`, then uses the same canonical
 model, ROM-set, and sound-hardware transition policy as the GUI. It is restored
 before configuration save, so command-line boot selection does not rewrite
-the user's persistent `pc_model` or `SNDboard`. The implementation and gate
-are in `tasks/M31_cli_boot_model.md`.
+the user's persistent `pc_model` or `SNDboard`. G31 also corrected the M29
+VA2/VA3 TVRAM regression while preserving the VA1 PC-Engine 1.00 fix. The
+implementation and gate are in `tasks/M31_cli_boot_model.md`.
 
 ## Gate protocol
 

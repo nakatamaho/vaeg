@@ -22,7 +22,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 -->
 # M29: Correct the VA1 TVRAM aperture
 
-Status: implementation complete; focused G29 boot check passed
+Status: implementation complete; focused G29 boot check passed; VA2 regression corrected in M31
 
 Date: 2026-07-13
 
@@ -183,6 +183,26 @@ The backing object remains `textmem[0x40000]`. Shrinking it was unnecessary
 for the CPU aperture correction and would create avoidable ABI, state, and
 display-code risk. The range is enforced where CPU bank-1 accesses enter the
 memory implementation.
+
+## Post-G29 VA2 compatibility correction
+
+Later M31 testing identified a regression that the focused G29 gate did not
+cover. M28 commit `455c7d5` could enter and use VA2 V3 BASIC, while its direct
+child M29 commit `c17d64a` froze after entering BASIC. The only runtime change
+in that commit was the model-independent bank-1 TVRAM clamp.
+
+The active implementation therefore applies the 64KB aperture correction only
+to `PCMODEL_VA1`. `PCMODEL_VA2`, which is also the VA3 compatibility path,
+retains the legacy M28 256KB bank-1 backing behavior. This is a compatibility
+boundary, not a claim that VA2/VA3 hardware contains 256KB of TVRAM. The
+technical material still documents 64KB, and the precise VA2/VA3 decode
+behavior requires separate hardware verification.
+
+ROM-less coverage now selects both models explicitly: VA1 must return open bus
+above `AFFFFH`, while VA2 must retain byte and word access in the legacy
+`B0000H-DFFFFH` range. Human verification confirmed both VA2 V3 BASIC command
+entry and VA1 PC-Engine 1.00 boot. The separate inherited VA1 V3 BASIC command
+failure remains reproducible.
 
 ## Rejected workarounds
 

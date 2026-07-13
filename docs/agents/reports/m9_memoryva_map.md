@@ -94,10 +94,13 @@ place its stack in the banked system-memory window. A later VA1 ROM bank switch
 then made that stack disappear and corrupted the restored bank number.
 
 M29 retains the legacy `textmem[0x40000]` storage object to avoid an unrelated
-ABI and renderer refactor, but limits CPU bank-1 access to the documented 64KB
-aperture at `A0000H-AFFFFH`. Reads from the unused remainder return open-bus
-ones and writes are ignored. See `tasks/M29_va1_tvram_aperture.md` for the
-trace, ROM control flow, correction, and validation record.
+ABI and renderer refactor. The 64KB aperture at `A0000H-AFFFFH` is enforced
+for VA1; reads from the unused remainder return open-bus ones and writes are
+ignored. A later M28/M29 A/B test found that applying this clamp to VA2/VA3
+regressed V3 BASIC, so that compatibility model retains the legacy 256KB CPU
+exposure pending hardware verification. See
+`tasks/M29_va1_tvram_aperture.md` for the trace, ROM control flow, correction,
+regression, and validation record.
 
 ## Header surface and divergences
 
