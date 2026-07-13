@@ -47,7 +47,9 @@ cause, correction, verification, milestone/task, and commit. Do not record a
 hypothesis as a root cause. Keep unresolved defects in the ledger's open
 section until evidence and a tested correction exist. Feature additions and
 cosmetic restorations do not belong there unless they also correct a concrete
-defect. Release notes may summarize the ledger but do not replace it.
+defect. Evidence documents and fixing commits must be clickable Markdown
+links; commit links use the repository's GitHub commit URL with the full SHA.
+Release notes may summarize the ledger but do not replace it.
 
 ## Repository invariants (steady state since phase 1)
 
