@@ -21,7 +21,7 @@ STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING
 IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE.
 
-88VA Eternal Grafx Rel.260708 distribution README
+88VA Eternal Grafx Rel.260713 distribution README
 ================================================
 
 This archive contains the portable SDL2/Dear ImGui build of 88VA
@@ -38,6 +38,7 @@ Files supplied by the release package
 Keep this relative layout after unpacking:
 
 - vaeg or vaeg.exe
+- CHANGES.20260713.md
 - assets/OFL.txt
 - assets/NOTICE.md
 - README-dist.txt
@@ -49,27 +50,35 @@ the package.
 
 Additional platform runtime files:
 
-- Windows: SDL2 and the MinGW GCC, libstdc++, and winpthread runtimes are
-  statically linked into vaeg.exe. The application icon is also a native
-  Windows executable resource.
-- Linux: SDL2 is a system dependency. Install your distribution's SDL2
-  runtime package, for example libsdl2-2.0-0 on Debian/Ubuntu systems.
-  Rel.260708 is built and tested on the GitHub Actions ubuntu-latest
-  runner using the linux-ci-gcc preset and libsdl2-dev. The embedded icon
-  is used for the SDL window; no system-wide desktop entry is installed.
-- macOS: the release preset statically links the pinned FetchContent SDL2;
-  macOS system frameworks remain operating-system dependencies. The
-  embedded icon is used for the running SDL application. This release is a
-  plain executable rather than an app bundle, so it has no Finder bundle
-  icon.
+- Windows: SDL2, LibArchive, compression libraries, and the MinGW GCC,
+  libstdc++, and winpthread runtimes are statically linked into vaeg.exe.
+  The GUI font, startup image, and application icon are embedded. No
+  companion DLL or frontend asset file is required.
+- Linux: SDL2 and LibArchive are system dependencies. Install your
+  distribution's SDL2 and LibArchive runtime packages. Rel.260713 is built
+  and tested on the GitHub Actions ubuntu-latest runner using the
+  linux-ci-gcc preset, libsdl2-dev, and libarchive-dev. Frontend assets are
+  embedded; no system-wide desktop entry is installed.
+- macOS: the release preset statically links pinned FetchContent SDL2,
+  LibArchive, and compression libraries. macOS system frameworks remain
+  operating-system dependencies. Frontend assets are embedded. This release
+  is a plain executable rather than an app bundle, so it has no Finder
+  bundle icon.
 
 Files you must supply
 ---------------------
 
-Create a romimage/ directory in the unpacked directory, or point the
-BIOS path in vaeg.cfg at your ROM directory. A usable PC-88VA setup needs
-the VA ROM set, including FONT.ROM, VAFONT.ROM, VADIC.ROM,
-VAROM00.ROM, VAROM08.ROM, VAROM1.ROM, and VASUBSYS.ROM.
+Place ROMs beside vaeg or vaeg.exe. The model ROM sets are separate:
+
+- VA: vadic.rom, vafont.rom, varom00.rom, varom08.rom, varom1.rom
+- VA2/VA3: vadic_va2.rom, vafont_va2.rom, varom00_va2.rom,
+  varom08_va2.rom, varom1_va2.rom
+- Shared extra FDD subsystem ROM: vasubsys.rom
+
+VA2/VA3 does not fall back to the unsuffixed VA names. The _va2.rom files
+have model-specific contents and checksums; do not create them by renaming
+or copying the VA ROMs. The frontend warns about size, CRC32, or SHA-1
+differences but does not block startup solely for a checksum mismatch.
 
 Supply your own disk images. You can mount floppy images from the GUI or
 pass up to two image paths on the command line:
@@ -122,7 +131,7 @@ The macOS command-line binary is not code-signed. If Finder or Gatekeeper
 adds quarantine metadata after download, remove it from the unpacked
 release directory before running:
 
-    xattr -dr com.apple.quarantine vaeg-rel260708-macos-arm64
+    xattr -dr com.apple.quarantine vaeg-rel260713-macos-arm64
 
 You can also remove it from just the binary:
 
