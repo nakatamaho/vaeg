@@ -5,6 +5,14 @@ extern "C" {
 
 void newdisk_fdd(const char *fname, REG8 type, const char *label);
 
+enum {
+	NEWDISK_FDD_MSDOS_2HD = 0,
+	NEWDISK_FDD_MSDOS_2DD,
+	NEWDISK_FDD_MSDOS_COUNT
+};
+
+BOOL newdisk_fdd_msdos(const char *fname, UINT format);
+
 void newdisk_thd(const char *fname, UINT hddsize);
 void newdisk_nhd(const char *fname, UINT hddsize);
 void newdisk_hdi(const char *fname, UINT hddtype);
@@ -13,4 +21,3 @@ void newdisk_vhd(const char *fname, UINT hddsize);
 #ifdef __cplusplus
 }
 #endif
-
