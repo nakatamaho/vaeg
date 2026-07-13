@@ -60,15 +60,17 @@ Disk images may also be dragged onto the SDL window. One drop operation is
 sorted by case-insensitive basename: the first image mounts as FDD1, the
 second as FDD2, and later images are reported as ignored. Supported direct
 extensions are `.d88`, `.88d`, `.d98`, `.98d`, `.fdi`, `.xdf`, `.hdm`,
-`.dup`, `.2hd`, and `.tfd`. ZIP, 7z, and LZH drops extract only supported
+`.dup`, `.2hd`, `.tfd`, and `.img`. ZIP, 7z, and LZH drops extract only supported
 images to bounded managed storage under the platform user-state directory
 when LibArchive support is built. Archive mounts are saved in `FDD1FILE` and
 `FDD2FILE`, so they remain valid through reset and application restart.
 Unreferenced managed images are removed after eject or replacement; an image
 still mounted in either drive is retained.
 
-The FDD menu can also create an empty FAT12 data disk in a D88 container as
-Japanese MS-DOS 2HD (1.232 MB) or 2DD (640 KB). The filename is editable,
+The FDD menu can also create an empty FAT12 data disk as Japanese MS-DOS 2HD
+(1.232 MB) or 2DD (640 KB). D88 preserves track and sector metadata; IMG is a
+headerless raw sector image that can be accessed directly with tools such as
+`mdir -i disk.img ::` and `mcopy -i disk.img`. The filename is editable,
 existing files are never replaced, and the result can be mounted immediately
 as FDD1 or FDD2. The generated image is formatted but does not contain MS-DOS
 system files and is not bootable. 2D creation remains deferred pending a

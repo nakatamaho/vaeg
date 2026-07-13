@@ -97,7 +97,7 @@ static BOOL newdisk_fdd_msdos_sector(FILEH fh,
 										geometry->sector_size);
 }
 
-BOOL newdisk_fdd_msdos(const char *fname, UINT format) {
+BOOL newdisk_fdd_msdos_ex(const char *fname, UINT format, UINT container) {
 
 	const NEWDISKFDDMSDOS	*geometry;
 	_D88HEAD				d88head;
@@ -114,6 +114,7 @@ BOOL newdisk_fdd_msdos(const char *fname, UINT format) {
 
 	if ((fname == NULL) || (fname[0] == '\0') ||
 		(format >= NEWDISK_FDD_MSDOS_COUNT) ||
+		(container >= NEWDISK_FDD_CONTAINER_COUNT) ||
 		(file_attr(fname) != (short)-1)) {
 		return(FAILURE);
 	}
@@ -137,8 +138,11 @@ BOOL newdisk_fdd_msdos(const char *fname, UINT format) {
 	if (fh == FILEH_INVALID) {
 		return(FAILURE);
 	}
-	result = (file_write(fh, &d88head, sizeof(d88head)) ==
+	result = TRUE;
+	if (container == NEWDISK_FDD_CONTAINER_D88) {
+		result = (file_write(fh, &d88head, sizeof(d88head)) ==
 											sizeof(d88head));
+	}
 	logical_sector = 0;
 	for (track=0; result &&
 		 track<(UINT)(geometry->cylinders * geometry->heads); track++) {
@@ -150,8 +154,10 @@ BOOL newdisk_fdd_msdos(const char *fname, UINT format) {
 			d88sec.n = geometry->sector_n;
 			STOREINTELWORD(d88sec.sectors, geometry->sectors);
 			STOREINTELWORD(d88sec.size, geometry->sector_size);
-			result = (file_write(fh, &d88sec, sizeof(d88sec)) ==
+			if (container == NEWDISK_FDD_CONTAINER_D88) {
+				result = (file_write(fh, &d88sec, sizeof(d88sec)) ==
 												sizeof(d88sec));
+			}
 			if (result) {
 				result = newdisk_fdd_msdos_sector(fh, geometry,
 										logical_sector, work);
@@ -165,6 +171,12 @@ BOOL newdisk_fdd_msdos(const char *fname, UINT format) {
 		return(FAILURE);
 	}
 	return(SUCCESS);
+}
+
+BOOL newdisk_fdd_msdos(const char *fname, UINT format) {
+
+	return(newdisk_fdd_msdos_ex(fname, format,
+								NEWDISK_FDD_CONTAINER_D88));
 }
 
 

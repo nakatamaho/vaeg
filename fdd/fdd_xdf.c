@@ -7,6 +7,8 @@
 
 
 static const _XDFINFO supportxdf[] = {
+			// 640KB, 512
+			{0, 160,  8, 2, DISKTYPE_2DD, 0},
 #if 0
 			// 256
 			{0, 154, 26, 1, DISKTYPE_2HD, 0},
@@ -308,4 +310,3 @@ BOOL fddxdf_readid(FDDFILE fdd) {
 	fdc.N = fdd->inf.xdf.n;
 	return(SUCCESS);
 }
-
