@@ -316,6 +316,7 @@ set(VAEG_SDL2_SOURCES
     sdl2/sdlkbd.c
     sdl2/kbdinject.c
     sdl2/kbdmap.c
+    sdl2/kbdpaste.c
     sdl2/romankana.c
     sdl2/inputmng.c
     sdl2/dropmedia.cpp

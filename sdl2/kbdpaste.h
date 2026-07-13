@@ -22,20 +22,32 @@
  * IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-#ifndef VAEG_SDL2_GUI_GUI_H
-#define VAEG_SDL2_GUI_GUI_H
+#ifndef VAEG_SDL2_KBDPASTE_H
+#define VAEG_SDL2_KBDPASTE_H
+
+#include <stddef.h>
+#include "compiler.h"
+
+typedef struct {
+	BYTE guest_code;
+	BOOL shift;
+} KBDPASTE_ACTION;
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-BOOL gui_initialize(void *window, void *renderer, const char *argv0);
-void gui_shutdown(void);
-BOOL gui_process_event(const void *event);
-BOOL gui_guest_keyboard_blocked(void);
-void gui_new_frame(void);
-void gui_draw(void);
-void gui_render(void);
+void kbdpaste_initialize(void);
+void kbdpaste_shutdown(void);
+BOOL kbdpaste_start_clipboard(void);
+BOOL kbdpaste_start_text(const char *text);
+void kbdpaste_tick(UINT32 now, BOOL paused);
+void kbdpaste_cancel(void);
+BOOL kbdpaste_active(void);
+const char *kbdpaste_status(void);
+UINT kbdpaste_interval_ms(void);
+size_t kbdpaste_map_text(const char *text, KBDPASTE_ACTION *actions,
+						 size_t capacity, UINT *skipped);
 
 #ifdef __cplusplus
 }
