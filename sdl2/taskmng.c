@@ -26,6 +26,7 @@
 #include	"sdlapi.h"
 #include	"taskmng.h"
 #include	"sdlkbd.h"
+#include	"kbdpaste.h"
 #include	"pacing.h"
 #include	"np2.h"
 #include	"scrnmng.h"
@@ -35,17 +36,56 @@
 
 		BOOL	task_avail;
 	static VAEG_PACING_STATE task_pacing;
+	static BOOL paste_shortcut_down;
+
+static BOOL taskmng_paste_shortcut(const SDL_Event *event, BOOL captured) {
+
+	UINT16 modifier;
+
+	if (event->type == SDL_KEYUP) {
+		if ((event->key.keysym.scancode == SDL_SCANCODE_V) &&
+			paste_shortcut_down) {
+			paste_shortcut_down = FALSE;
+			return TRUE;
+		}
+		return FALSE;
+	}
+	if ((event->type != SDL_KEYDOWN) ||
+		(event->key.keysym.scancode != SDL_SCANCODE_V)) {
+		return FALSE;
+	}
+	modifier = (UINT16)event->key.keysym.mod;
+#if defined(__APPLE__)
+	if (!(modifier & KMOD_GUI)) {
+#else
+	if (!(modifier & KMOD_CTRL)) {
+#endif
+		return FALSE;
+	}
+	if (captured) {
+		return FALSE;
+	}
+	paste_shortcut_down = TRUE;
+	if (!event->key.repeat) {
+		kbdpaste_start_clipboard();
+	}
+	return TRUE;
+}
 
 void taskmng_initialize(void) {
 
 	task_avail = TRUE;
+	paste_shortcut_down = FALSE;
 	vaeg_pacing_reset(&task_pacing);
+	kbdpaste_initialize();
 }
 
 void taskmng_exit(void) {
 
 	task_avail = FALSE;
+	paste_shortcut_down = FALSE;
 	vaeg_pacing_reset(&task_pacing);
+	kbdpaste_shutdown();
 }
 
 void taskmng_clear_fast_forward(void) {
@@ -88,6 +128,8 @@ void taskmng_rol(void) {
 			else if ((e.type == SDL_WINDOWEVENT) &&
 					 (e.window.event == SDL_WINDOWEVENT_FOCUS_LOST)) {
 				vaeg_pacing_reset(&task_pacing);
+				paste_shortcut_down = FALSE;
+				kbdpaste_cancel();
 			}
 			else if ((e.type == SDL_WINDOWEVENT) &&
 					 (e.window.event == SDL_WINDOWEVENT_SIZE_CHANGED)) {
@@ -104,8 +146,13 @@ void taskmng_rol(void) {
 			}
 		else if (e.type == SDL_QUIT) {
 			vaeg_pacing_reset(&task_pacing);
+			paste_shortcut_down = FALSE;
+			kbdpaste_cancel();
 		}
 		captured = gui_process_event(&e);
+		if (taskmng_paste_shortcut(&e, captured)) {
+			shortcut = TRUE;
+		}
 		switch(e.type) {
 			case SDL_QUIT:
 				task_avail = FALSE;
@@ -137,6 +184,9 @@ void taskmng_rol(void) {
 			default:
 				break;
 		}
+	}
+	if (task_avail) {
+		kbdpaste_tick(SDL_GetTicks(), gui_guest_keyboard_blocked());
 	}
 }
 

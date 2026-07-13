@@ -57,9 +57,10 @@ history, not by a current CI or compile guarantee.
 | M21 | tasks/M21_sdl2_display_effects.md | SDL2-only display effects, resizable common viewport, simplified fullscreen, and embedded historical application icon | **G21 passed** |
 | M22 | tasks/M22_disk_image_drop.md | Direct and ZIP/7z/LZH disk-image drag and drop with sorted FDD1/FDD2 assignment and bounded safe extraction | **G22 human** |
 | M23 | tasks/M23_formatted_fdd_images.md | Create formatted blank FAT12 D88 images as Japanese MS-DOS 2HD (1.232 MB) or 2DD (640 KB), with optional persisted FDD1/FDD2 mounting | **G23 passed** |
+| M24 | tasks/M24_host_clipboard_paste.md | Paste host clipboard printable ASCII and line breaks through a paced guest keyboard make/break queue | **G24 human** |
 
 Phase 2 dependencies: M7 → M8 → {M9, M10 parallel} → M11 → M12 → M13.
-Post-phase dependency: M13 → M14 → M15 → M16 → M17 → M18 → M19 → M20 → M21 → M22 → M23.
+Post-phase dependency: M13 → M14 → M15 → M16 → M17 → M18 → M19 → M20 → M21 → M22 → M23 → M24.
 M9 must pass before M11 (all three OSes must ship the VA machine, not
 the PC-98 scaffold).
 
@@ -121,6 +122,13 @@ FAT12 data disks in D88 containers. It covers the Japanese MS-DOS 1.232 MB
 2HD geometry and standard 640 KB 2DD geometry, refuses overwrite, and can
 mount the new image through the existing persistent FDD path. The
 implementation and G23 checklist are in `tasks/M23_formatted_fdd_images.md`.
+
+M24 adds host-to-guest ASCII clipboard paste through the existing keyboard
+injection path. The Edit menu and platform paste shortcut enqueue printable
+ASCII and Return actions at a conservative rate; GUI text capture pauses the
+queue, while reset, state load, focus loss, and shutdown cancel it safely.
+Japanese/IME paste and guest-to-host copy remain later work. The implementation
+and G24 checklist are in `tasks/M24_host_clipboard_paste.md`.
 
 ## Gate protocol
 
