@@ -29,10 +29,10 @@ Accepted for M22.
 ## Decision
 
 Use LibArchive's streaming reader for ZIP, 7z, and LZH disk-image drops.
-Do not invoke `unzip`, `7z`, `lha`, or another shell command. Windows MinGW
-and macOS release/CI presets use pinned FetchContent sources and static
-linking. Linux and macOS development presets prefer a CMake-discovered system
-LibArchive.
+Do not invoke `unzip`, `7z`, `lha`, or another shell command. Linux release,
+Windows MinGW, and macOS release/CI presets use pinned FetchContent sources
+and static linking. Linux and macOS development presets prefer a
+CMake-discovered system LibArchive.
 
 Pinned release sources, retrieved 2026-07-13:
 
@@ -54,8 +54,10 @@ formats. Fetched upstream sources are never hand-edited.
 
 ## Consequences
 
-- MinGW and macOS release configure and first build take longer, and their
-  static executable is larger.
+- Linux release, MinGW, and macOS release configure and first build take
+  longer, and their executable is larger.
+- The Linux release artifact needs no LibArchive, zlib, or liblzma shared
+  library.
 - The MinGW artifact needs no LibArchive, zlib, or liblzma DLL.
 - The macOS release artifact needs no separately bundled LibArchive, zlib, or
   liblzma dylib. macOS system frameworks remain normal OS dependencies.
@@ -63,6 +65,9 @@ formats. Fetched upstream sources are never hand-edited.
   direct disk drops but reports archive drops as unavailable.
 - Extraction remains application-controlled: only supported floppy images
   are written, with traversal/link rejection and explicit size/count limits.
+- POSIX archive extraction uses a thread-local UTF-8 `LC_CTYPE` locale while
+  LibArchive converts entry names. This supports Unicode ZIP/7z names without
+  changing the process-global locale or depending on the startup C locale.
 - Extracted disk images are durable managed state under the platform
   `archive-drop/` directory. Mounted paths are persisted in `FDD1FILE` and
   `FDD2FILE`; unreferenced managed image directories are removed after eject
