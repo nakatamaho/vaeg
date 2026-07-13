@@ -22,7 +22,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 -->
 # M23 - Formatted blank D88 floppy images
 
-Status: implementation complete; G23 pending
+Status: complete; G23 passed
 
 Branch: `topic/m23-blank-fdd-images`
 
@@ -139,5 +139,7 @@ media; recovering that behavior is deferred to a focused compatibility task.
 - Confirm existing FDD Open/Eject, direct/archive drag-and-drop, V3 boot, VA
   demo, and OS boot/simple operations remain functional.
 
-G23 passes only after the user reports these manual checks passed. Merge to
-`main` is deferred until that report.
+## Gate result
+
+G23 passed by user report on 2026-07-13 for the final 2HD/2DD scope. The 2D
+compatibility issue remains deferred and is not part of the passed gate.
