@@ -62,9 +62,10 @@ history, not by a current CI or compile guarantee.
 | M26 | tasks/M26_mouse_input.md | Port original relative mouse capture to SDL2 and expose the VA joystick/mouse controller-port choice | **G26 human** |
 | M27 | tasks/M27_frame_display.md | Restore the original measured guest-draw FPS display in the native window title | **G27 passed** |
 | M28 | tasks/M28_sound_output_settings.md | Select common output sampling rate and sound buffer plus ymfm FM fidelity from the SDL2 Sound menu | **G28 human** |
+| M29 | tasks/M29_va1_tvram_aperture.md | Enforce the VA bank-1 64KB TVRAM aperture and restore PC-Engine 1.00 VA1 boot compatibility | **G29 focused human passed** |
 
 Phase 2 dependencies: M7 → M8 → {M9, M10 parallel} → M11 → M12 → M13.
-Post-phase dependency: M13 → M14 → M15 → M16 → M17 → M18 → M19 → M20 → M21 → M22 → M23 → M24 → M25 → M26 → M27 → M28.
+Post-phase dependency: M13 → M14 → M15 → M16 → M17 → M18 → M19 → M20 → M21 → M22 → M23 → M24 → M25 → M26 → M27 → M28 → M29.
 M9 must pass before M11 (all three OSes must ship the VA machine, not
 the PC-98 scaffold).
 
@@ -163,6 +164,14 @@ sound rebuild path. ymfm also exposes Minimum, Medium, and Maximum native OPN
 fidelity, with Minimum retained as the compatibility default. The scope,
 backend boundary, automated checks, and G28 checklist are in
 `tasks/M28_sound_output_settings.md`.
+
+M29 corrects the VA system-memory bank-1 aperture. TVRAM remains backed by the
+legacy `textmem` object, but CPU access is now limited to the hardware's 64KB
+`A0000H-AFFFFH` range; the unused `B0000H-DFFFFH` range reads as open bus and
+ignores writes. This prevents PC-Engine 1.00 from misdetecting banked system
+memory as main RAM and placing its VA1 stack where a ROM bank switch hides it.
+The root-cause trace, rejected workarounds, automated boundary tests, and
+focused human boot result are in `tasks/M29_va1_tvram_aperture.md`.
 
 ## Gate protocol
 

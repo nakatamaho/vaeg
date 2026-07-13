@@ -84,6 +84,21 @@ source for M9.
 | ROM0 bank range | The spec lists ROM00-ROM05, then reserve, then bus slots (`docs/tekumani/3.TXT:173`, `docs/tekumani/2.TXT:1476`). | VAEG legacy code uses ROM0 banks 0-9, backed by `VAROM00.ROM` and `VAROM08.ROM`. | Treat banks 0-9 as a VAEG implementation extension and keep as-is. |
 | DMA to backup RAM | The manual forbids DMA access to backup RAM (`docs/tekumani/3.TXT:322`, `docs/tekumani/3.TXT:325`). | The asm path does not explicitly reject it; see the implementation checklist below. | Settle this before transliteration: preserve the legacy pass-through unless an ADR authorizes a behavior change. |
 
+### Post-M9 correction: bank-1 TVRAM aperture
+
+M29 demonstrated that preserving the legacy 256KB CPU-visible TVRAM range was
+not compatible with PC-88VA hardware. PC-Engine 1.00 uses a write/read memory
+probe and expects bank 1 to stop responding above `AFFFFH`. The transliterated
+C implementation instead made `B0000H-DFFFFH` writable, causing the program to
+place its stack in the banked system-memory window. A later VA1 ROM bank switch
+then made that stack disappear and corrupted the restored bank number.
+
+M29 retains the legacy `textmem[0x40000]` storage object to avoid an unrelated
+ABI and renderer refactor, but limits CPU bank-1 access to the documented 64KB
+aperture at `A0000H-AFFFFH`. Reads from the unused remainder return open-bus
+ones and writes are ignored. See `tasks/M29_va1_tvram_aperture.md` for the
+trace, ROM control flow, correction, and validation record.
+
 ## Header surface and divergences
 
 `cpuxva/memoryva.h` declares:
