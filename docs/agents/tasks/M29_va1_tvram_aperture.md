@@ -193,10 +193,16 @@ in that commit was the model-independent bank-1 TVRAM clamp.
 
 The active implementation therefore applies the 64KB aperture correction only
 to `PCMODEL_VA1`. `PCMODEL_VA2`, which is also the VA3 compatibility path,
-retains the legacy M28 256KB bank-1 backing behavior. This is a compatibility
-boundary, not a claim that VA2/VA3 hardware contains 256KB of TVRAM. The
-technical material still documents 64KB, and the precise VA2/VA3 decode
-behavior requires separate hardware verification.
+exposes the full 256KB bank-1 backing. The local technical-manual text describes
+the original VA, while NEC's product specifications list 64KB of text VRAM for
+the [PC-88VA](https://support.nec-lavie.jp/support/product/data/spec/cpu/b047-1.html)
+and 256KB for both the
+[PC-88VA2](https://support.nec-lavie.jp/support/product/data/spec/cpu/b048-1.html)
+and [PC-88VA3](https://support.nec-lavie.jp/support/product/data/spec/cpu/b049-1.html).
+The [PC-88VA hardware comparison](http://www.pc88.gr.jp/~va/va-hard.html#mem)
+independently records the same model split. The product specifications establish
+the capacity; the active `A0000H-DFFFFH` decode is additionally supported by
+the VA2 V3 BASIC regression result.
 
 ROM-less coverage now selects both models explicitly: VA1 must return open bus
 above `AFFFFH`, while VA2 must retain byte and word access in the legacy
@@ -263,5 +269,5 @@ reclassified as completed by the focused report.
 
 No files under `win9x/`, `i286x/`, `cpuxva/memoryva.x86`, or `hlp/` were
 modified. `cpuxva/memoryva.x86` remains a frozen record of the inherited
-256KB behavior; the active C implementation intentionally corrects it based
-on the hardware map and reproduced guest failure.
+256KB behavior; the active C implementation narrows that behavior for the
+64KB VA1 hardware while retaining it for the 256KB VA2/VA3 hardware.

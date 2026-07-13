@@ -96,8 +96,9 @@ V3 BASIC, while its direct child M29 commit `c17d64a` froze after entering
 BASIC. M29 had applied its VA1 64KB TVRAM aperture correction to the shared
 VA2/VA3 memory path.
 
-Commit `c580222` scopes the open-bus aperture to `PCMODEL_VA1` and keeps the
-M28 bank-1 compatibility behavior for `PCMODEL_VA2`. ROM-less selftest now
+Commit `c580222` scopes the open-bus aperture to `PCMODEL_VA1` and restores the
+full 256KB TVRAM aperture for `PCMODEL_VA2`, matching the model-specific
+capacities in NEC's VA/VA2/VA3 product specifications. ROM-less selftest now
 covers both mappings. Maintainer verification confirmed:
 
 - `--model va2`: VA2 V3 BASIC command entry works;
