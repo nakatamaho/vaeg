@@ -48,7 +48,8 @@ Depends on: G21 passed.
   either configured drive.
 - Show current FDD1/FDD2 mounted basenames persistently in the FDD menu,
   including after application restart. Show delayed insertion and drop/error
-  feedback separately.
+  feedback separately. Do not duplicate successful mount names in the drop
+  status area.
 
 ## Archive dependency
 

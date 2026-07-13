@@ -1401,12 +1401,28 @@ static void draw_fdd_mount_state(int drive) {
 	}
 	const std::string name = fs::u8path(path).filename().u8string();
 	if (inserting) {
-		ImGui::TextDisabled("FDD%d: %s (inserting)", drive + 1,
+		ImGui::Text("FDD%d: %s (inserting)", drive + 1,
 						name.c_str());
 	}
 	else {
-		ImGui::TextDisabled("FDD%d: %s", drive + 1, name.c_str());
+		ImGui::Text("FDD%d: %s", drive + 1, name.c_str());
 	}
+	if (ImGui::IsItemHovered()) {
+		ImGui::SetTooltip("%s", path);
+	}
+}
+
+static void draw_hdd_mount_state(int drive) {
+
+	const char *path;
+
+	path = np2cfg.sasihdd[drive];
+	if ((path == nullptr) || (path[0] == '\0')) {
+		ImGui::TextDisabled("SASI-%d: Empty", drive + 1);
+		return;
+	}
+	const std::string name = fs::u8path(path).filename().u8string();
+	ImGui::Text("SASI-%d: %s", drive + 1, name.c_str());
 	if (ImGui::IsItemHovered()) {
 		ImGui::SetTooltip("%s", path);
 	}
@@ -1462,6 +1478,7 @@ static void draw_harddisk_menu(void) {
 		if (ImGui::MenuItem("SASI-1 Remove")) {
 			remove_hdd(0);
 		}
+		draw_hdd_mount_state(0);
 		ImGui::Separator();
 		if (ImGui::MenuItem("SASI-2 Open...")) {
 			open_hdd_dialog(1);
@@ -1469,6 +1486,7 @@ static void draw_harddisk_menu(void) {
 		if (ImGui::MenuItem("SASI-2 Remove")) {
 			remove_hdd(1);
 		}
+		draw_hdd_mount_state(1);
 		ImGui::Separator();
 		if (ImGui::MenuItem("New SASI image...")) {
 			open_new_sasi_dialog(0);
