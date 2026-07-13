@@ -26,6 +26,7 @@
 #include	"sdlapi.h"
 #include	"sdlkbd.h"
 #include	"kbdmap.h"
+#include	"kbdpaste.h"
 
 void sdlkbd_initialize(void) {
 
@@ -67,5 +68,6 @@ void sdlkbd_textinput(const char *text, BOOL captured) {
 
 void sdlkbd_reset_state(void) {
 
+	kbdpaste_cancel();
 	kbdmap_reset_frontend_state();
 }

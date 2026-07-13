@@ -56,6 +56,7 @@
 #include "sxsi.h"
 #include "fdd_mtr.h"
 #include "kbdmap.h"
+#include "kbdpaste.h"
 #include "opngen.h"
 #include "pcm86.h"
 #include "psggen.h"
@@ -1384,6 +1385,29 @@ static void draw_emulate_menu(void) {
 	}
 }
 
+static void draw_edit_menu(void) {
+
+	if (ImGui::BeginMenu("Edit / 編集")) {
+#if defined(__APPLE__)
+		const char *shortcut = "Cmd+V";
+#else
+		const char *shortcut = "Ctrl+V";
+#endif
+		if (ImGui::MenuItem("Paste / 貼り付け", shortcut)) {
+			kbdpaste_start_clipboard();
+		}
+		if (ImGui::MenuItem("Cancel Paste", nullptr, false,
+						kbdpaste_active() ? true : false)) {
+			kbdpaste_cancel();
+		}
+		if (kbdpaste_status()[0] != '\0') {
+			ImGui::Separator();
+			ImGui::TextWrapped("%s", kbdpaste_status());
+		}
+		ImGui::EndMenu();
+	}
+}
+
 static void draw_fdd_mount_state(int drive) {
 
 	const char *path;
@@ -2249,7 +2273,7 @@ BOOL gui_process_event(const void *event) {
 		case SDL_KEYDOWN:
 		case SDL_KEYUP:
 		case SDL_TEXTINPUT:
-			return io.WantCaptureKeyboard ? TRUE : FALSE;
+			return (io.WantCaptureKeyboard || io.WantTextInput) ? TRUE : FALSE;
 
 		case SDL_MOUSEBUTTONDOWN:
 		case SDL_MOUSEBUTTONUP:
@@ -2260,6 +2284,22 @@ BOOL gui_process_event(const void *event) {
 		default:
 			return FALSE;
 	}
+}
+
+BOOL gui_guest_keyboard_blocked(void) {
+
+	if (!g_gui.initialized) {
+		return FALSE;
+	}
+	ImGuiIO &io = ImGui::GetIO();
+	if (io.WantCaptureKeyboard || io.WantTextInput ||
+		(g_gui.capture_binding >= 0)) {
+		return TRUE;
+	}
+	return (g_gui.fdd_browser_open || g_gui.hdd_browser_open ||
+			g_gui.new_fdd_open || g_gui.new_sasi_open ||
+			g_gui.keyboard_config_open || g_gui.configure_open ||
+			g_gui.custom_size_open || g_gui.about_open) ? TRUE : FALSE;
 }
 
 void gui_new_frame(void) {
@@ -2283,6 +2323,7 @@ void gui_draw(void) {
 		draw_emulate_menu();
 		draw_fdd_menu();
 		draw_harddisk_menu();
+		draw_edit_menu();
 		draw_screen_menu();
 		draw_device_menu();
 		draw_state_menu();
