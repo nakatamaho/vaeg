@@ -93,6 +93,8 @@ void scrnmng_log_geometry(const char *reason);
 BOOL scrnmng_texture_uniform(BOOL *uniform);
 void scrnmng_present_begin(void);
 void scrnmng_present_end(void);
+void scrnmng_set_framedisp(BOOL enabled);
+void scrnmng_framedisp_tick(UINT32 tick, UINT32 draws);
 
 typedef struct {
 	int		width;

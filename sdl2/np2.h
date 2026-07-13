@@ -41,6 +41,7 @@ enum {
 typedef struct {
 	BYTE	NOWAIT;
 	BYTE	DRAW_SKIP;
+	BYTE	DISPCLK;
 	BYTE	F12KEY;
 	BYTE	resume;
 	BYTE	jastsnd;
