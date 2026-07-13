@@ -255,6 +255,9 @@ BOOL scrnmng_create(int width, int height) {
 		fprintf(stderr, "Error: SDL_CreateWindow: %s\n", SDL_GetError());
 		return(FAILURE);
 	}
+	SDL_EventState(SDL_DROPBEGIN, SDL_ENABLE);
+	SDL_EventState(SDL_DROPFILE, SDL_ENABLE);
+	SDL_EventState(SDL_DROPCOMPLETE, SDL_ENABLE);
 	SDL_SetWindowMinimumSize(scrnmng.window, 320, 240);
 	SDL_GetWindowPosition(scrnmng.window, &scrnmng.window_x,
 									&scrnmng.window_y);

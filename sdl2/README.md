@@ -56,6 +56,17 @@ Positional arguments mount FDD images in drive 1 and 2. Missing image files
 are rejected with an error instead of silently starting without media.
 `--pacelog` prints pacing counters once per second for jitter diagnosis.
 
+Disk images may also be dragged onto the SDL window. One drop operation is
+sorted by case-insensitive basename: the first image mounts as FDD1, the
+second as FDD2, and later images are reported as ignored. Supported direct
+extensions are `.d88`, `.88d`, `.d98`, `.98d`, `.fdi`, `.xdf`, `.hdm`,
+`.dup`, `.2hd`, and `.tfd`. ZIP, 7z, and LZH drops extract only supported
+images to bounded managed storage under the platform user-state directory
+when LibArchive support is built. Archive mounts are saved in `FDD1FILE` and
+`FDD2FILE`, so they remain valid through reset and application restart.
+Unreferenced managed images are removed after eject or replacement; an image
+still mounted in either drive is retained.
+
 Headless smoke check:
 
 ```sh
