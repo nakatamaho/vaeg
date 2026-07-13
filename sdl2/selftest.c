@@ -31,6 +31,7 @@
 #include	"dropmedia.h"
 #include	"fddfile.h"
 #include	"fdd_d88.h"
+#include	"fdsubsys.h"
 #include	"kbdmap.h"
 #include	"newdisk.h"
 #include	"np2.h"
@@ -1020,6 +1021,10 @@ int vaeg_selftest_run(void) {
 	if (test_new_fdd_image() != SUCCESS) {
 		return(FAILURE);
 	}
+	if (fdsubsys_selftest() != SUCCESS) {
+		return(fail("fdsubsys", "2D double-step mapping failed"));
+	}
+	fprintf(stderr, "selftest: FDD subsystem geometry ok\n");
 	if (test_clockscale() != SUCCESS) {
 		return(FAILURE);
 	}
