@@ -29,7 +29,10 @@
 #include	"clockscale.h"
 #include	"dosio.h"
 #include	"dropmedia.h"
+#include	"fddfile.h"
+#include	"fdd_d88.h"
 #include	"kbdmap.h"
+#include	"newdisk.h"
 #include	"np2.h"
 #include	"pacing.h"
 #include	"sound.h"
@@ -92,6 +95,137 @@ static int test_romcheck(void) {
 	}
 	fprintf(stderr, "selftest: romcheck ok\n");
 	return(SUCCESS);
+}
+
+typedef struct {
+	UINT	format;
+	UINT8	d88_type;
+	UINT8	cylinders;
+	UINT8	heads;
+	UINT8	sectors;
+	UINT8	sector_n;
+	UINT16	sector_size;
+	UINT8	sectors_per_cluster;
+	UINT8	media;
+	UINT16	root_entries;
+	UINT16	fat_sectors;
+} SELFTESTFDDGEOMETRY;
+
+static const SELFTESTFDDGEOMETRY selftest_fdd_geometry[] = {
+	{NEWDISK_FDD_MSDOS_2HD, 0x20, 77, 2, 8, 3, 1024, 1, 0xfe, 192, 2},
+	{NEWDISK_FDD_MSDOS_2DD, 0x10, 80, 2, 8, 2, 512, 2, 0xfb, 112, 2}
+};
+
+static int test_new_fdd_image(void) {
+
+	const SELFTESTFDDGEOMETRY	*geometry;
+	_D88HEAD					header;
+	_D88SEC					sector_header;
+	_FDDFILE					parsed;
+	BYTE						sector[1024];
+	char						path[MAX_PATH];
+	FILEH						fh;
+	UINT32						data_offset;
+	UINT32						expected_size;
+	UINT32						fat_sector;
+	UINT32						total_sectors;
+	UINT						index;
+	UINT						tracks;
+	int						result;
+
+	result = SUCCESS;
+	for (index=0; index<NELEMENTS(selftest_fdd_geometry); index++) {
+		geometry = selftest_fdd_geometry + index;
+		SPRINTF(path, "vaeg-selftest-%lu-fdd-%u.d88",
+				(unsigned long)getpid(), geometry->format);
+		file_delete(path);
+		if (newdisk_fdd_msdos(path, geometry->format) != SUCCESS) {
+			result = fail("new-fdd", "formatted D88 creation failed");
+			break;
+		}
+		if (newdisk_fdd_msdos(path, geometry->format) != FAILURE) {
+			result = fail("new-fdd", "existing image was overwritten");
+			file_delete(path);
+			break;
+		}
+		ZeroMemory(&parsed, sizeof(parsed));
+		if ((fddd88_set(&parsed, path, 0) != SUCCESS) ||
+			(parsed.inf.d88.fdtype_major != (geometry->d88_type >> 4))) {
+			result = fail("new-fdd", "active D88 loader rejected the image");
+			file_delete(path);
+			break;
+		}
+		fh = file_open_rb(path);
+		if (fh == FILEH_INVALID) {
+			result = fail("new-fdd", "created D88 could not be opened");
+			file_delete(path);
+			break;
+		}
+		total_sectors = geometry->cylinders * geometry->heads *
+											geometry->sectors;
+		tracks = geometry->cylinders * geometry->heads;
+		expected_size = sizeof(header) + total_sectors *
+							(sizeof(sector_header) + geometry->sector_size);
+		if ((file_getsize(fh) != expected_size) ||
+			(file_read(fh, &header, sizeof(header)) != sizeof(header)) ||
+			(header.fd_type != geometry->d88_type) ||
+			(LOADINTELDWORD(header.fd_size) != expected_size) ||
+			(LOADINTELDWORD(header.trackp[0]) != sizeof(header)) ||
+			(LOADINTELDWORD(header.trackp[tracks - 1]) !=
+			 sizeof(header) + (tracks - 1) * geometry->sectors *
+						(sizeof(sector_header) + geometry->sector_size)) ||
+			((tracks < NELEMENTS(header.trackp)) &&
+			 (LOADINTELDWORD(header.trackp[tracks]) != 0))) {
+			result = fail("new-fdd", "D88 header or track table is invalid");
+			file_close(fh);
+			file_delete(path);
+			break;
+		}
+		if ((file_read(fh, &sector_header, sizeof(sector_header)) !=
+			 sizeof(sector_header)) ||
+			(file_read(fh, sector, geometry->sector_size) !=
+			 geometry->sector_size) ||
+			(sector_header.c != 0) || (sector_header.h != 0) ||
+			(sector_header.r != 1) ||
+			(sector_header.n != geometry->sector_n) ||
+			(LOADINTELWORD(sector_header.sectors) != geometry->sectors) ||
+			(LOADINTELWORD(sector_header.size) != geometry->sector_size) ||
+			(LOADINTELWORD(sector + 11) != geometry->sector_size) ||
+			(sector[13] != geometry->sectors_per_cluster) ||
+			(LOADINTELWORD(sector + 14) != 1) || (sector[16] != 2) ||
+			(LOADINTELWORD(sector + 17) != geometry->root_entries) ||
+			(LOADINTELWORD(sector + 19) != total_sectors) ||
+			(sector[21] != geometry->media) ||
+			(LOADINTELWORD(sector + 22) != geometry->fat_sectors) ||
+			(LOADINTELWORD(sector + 24) != geometry->sectors) ||
+			(LOADINTELWORD(sector + 26) != geometry->heads) ||
+			(sector[510] != 0x55) || (sector[511] != 0xaa)) {
+			result = fail("new-fdd", "D88 sector or FAT12 BPB is invalid");
+			file_close(fh);
+			file_delete(path);
+			break;
+		}
+		fat_sector = 1 + geometry->fat_sectors;
+		data_offset = sizeof(header) + fat_sector *
+							(sizeof(sector_header) + geometry->sector_size);
+		if ((file_seek(fh, data_offset + sizeof(sector_header),
+										SEEK_SET) != (long)(data_offset +
+										sizeof(sector_header))) ||
+			(file_read(fh, sector, 3) != 3) ||
+			(sector[0] != geometry->media) ||
+			(sector[1] != 0xff) || (sector[2] != 0xff)) {
+			result = fail("new-fdd", "second FAT was not initialized");
+			file_close(fh);
+			file_delete(path);
+			break;
+		}
+		file_close(fh);
+		file_delete(path);
+	}
+	if (result == SUCCESS) {
+		fprintf(stderr, "selftest: formatted D88 images ok\n");
+	}
+	return(result);
 }
 
 static int test_profile_ini(void) {
@@ -877,6 +1011,9 @@ int vaeg_selftest_run(void) {
 		return(FAILURE);
 	}
 	if (test_profile_ini() != SUCCESS) {
+		return(FAILURE);
+	}
+	if (test_new_fdd_image() != SUCCESS) {
 		return(FAILURE);
 	}
 	if (test_clockscale() != SUCCESS) {
