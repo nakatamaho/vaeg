@@ -133,16 +133,27 @@ The reset implementation is `pccore.c:360-480`.
 
 ## ROM and Memory
 
-For PC-88VA, `biosva_initialize()` loads the ROM images into emulator
-buffers:
+For PC-88VA, `biosva_initialize()` selects a model-specific ROM filename set
+and loads it into the emulator buffers:
 
-- `VAFONT.ROM` -> `fontmem`
-- `VADIC.ROM` -> `dicmem`
-- `VAROM00.ROM` / `VAROM08.ROM` -> `rom0mem`
-- `VAROM1.ROM` -> `rom1mem`
-- `VASUBSYS.ROM` -> the FDD subsystem ROM buffer
+| Buffer | VA | VA2/VA3 |
+|---|---|---|
+| `fontmem` | `vafont.rom` | `vafont_va2.rom` |
+| `dicmem` | `vadic.rom` | `vadic_va2.rom` |
+| `rom0mem` banks 0-7 | `varom00.rom` | `varom00_va2.rom` |
+| `rom0mem` banks 8-9 | `varom08.rom` | `varom08_va2.rom` |
+| `rom1mem` | `varom1.rom` | `varom1_va2.rom` |
+| FDD subsystem ROM | `vasubsys.rom` | `vasubsys.rom` |
 
-The loader is `biosva/biosva.c:25-80`.
+VA2/VA3 uses the existing `PCMODEL_VA2` core model and the MAME-compatible
+`pc88va2` filenames. It does not fall back to the unsuffixed VA ROM set, which
+prevents same-named but model-specific ROM data from being mixed. VA3 currently
+shares the VA2 ROM set and emulation path. `vasubsys.rom` is a separate vaeg
+extra shared by both models rather than one of MAME's five active model ROMs.
+
+The filename selection and loader are in `biosva/biosva.c:17-94`; the expected
+MAME CRC32/SHA-1 values are recorded in
+`docs/agents/tasks/M18_rom_layout.md`.
 
 The installed memory differs between the original VA and VA2/VA3:
 
