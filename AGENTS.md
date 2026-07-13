@@ -35,6 +35,20 @@ run the bundled VA demo, boot an OS and perform simple operations.
 Never begin milestone N+1 until the user states that gate N passed.
 Always push the branch and report the exact commit SHAs when done.
 
+## Permanent bug-fix ledger
+
+`docs/modernization/bug-fixes.md` is the permanent correctness ledger for
+this fork. Update it in the same milestone and normally in the same commit
+whenever a change fixes incorrect guest-visible behavior, a portability
+crash or data-corruption risk, persistence/media handling, or a regression.
+
+Each entry must identify the symptom, affected scope, demonstrated root
+cause, correction, verification, milestone/task, and commit. Do not record a
+hypothesis as a root cause. Keep unresolved defects in the ledger's open
+section until evidence and a tested correction exist. Feature additions and
+cosmetic restorations do not belong there unless they also correct a concrete
+defect. Release notes may summarize the ledger but do not replace it.
+
 ## Repository invariants (steady state since phase 1)
 
 - Sources are UTF-8 without BOM. Never introduce CP932 content.
