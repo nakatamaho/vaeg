@@ -39,8 +39,7 @@ typedef struct {
 
 static const NEWDISKFDDMSDOS newdisk_fdd_msdos_geometry[] = {
 	{77, 2, 8, 3, 1024, 0x20, 1, 0xfe, 192, 2},
-	{80, 2, 8, 2,  512, 0x10, 2, 0xfb, 112, 2},
-	{40, 2, 16, 1, 256, 0x00, 4, 0xff, 112, 2}
+	{80, 2, 8, 2,  512, 0x10, 2, 0xfb, 112, 2}
 };
 
 static void newdisk_fdd_msdos_boot(BYTE *sector,
@@ -74,14 +73,8 @@ static void newdisk_fdd_msdos_boot(BYTE *sector,
 					geometry->sector_size);
 	CopyMemory(sector + 43, "NO NAME    ", 11);
 	CopyMemory(sector + 54, "FAT12   ", 8);
-	if (geometry->sector_size >= 512) {
-		sector[510] = 0x55;
-		sector[511] = 0xaa;
-	}
-	else {
-		sector[geometry->sector_size - 2] = 0x55;
-		sector[geometry->sector_size - 1] = 0xaa;
-	}
+	sector[510] = 0x55;
+	sector[511] = 0xaa;
 }
 
 static BOOL newdisk_fdd_msdos_sector(FILEH fh,

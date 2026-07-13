@@ -832,9 +832,6 @@ static const char *new_fdd_default_name(int format) {
 		case NEWDISK_FDD_MSDOS_2DD:
 			return "newdisk-2dd.d88";
 
-		case NEWDISK_FDD_MSDOS_2D:
-			return "newdisk-2d.d88";
-
 		default:
 			return "newdisk-2hd.d88";
 	}
@@ -1335,9 +1332,6 @@ static void draw_new_fdd_dialog(void) {
 		ImGui::SameLine();
 		ImGui::RadioButton("2DD (640 KB)", &g_gui.new_fdd_format,
 						   NEWDISK_FDD_MSDOS_2DD);
-		ImGui::SameLine();
-		ImGui::RadioButton("2D (320 KB)", &g_gui.new_fdd_format,
-						   NEWDISK_FDD_MSDOS_2D);
 		ImGui::Text("Mount after create");
 		ImGui::RadioButton("FDD1##new-fdd", &g_gui.new_fdd_drive, 0);
 		ImGui::SameLine();
@@ -1452,9 +1446,6 @@ static void draw_fdd_menu(void) {
 			}
 			if (ImGui::MenuItem("2DD (640 KB)...")) {
 				open_new_fdd_dialog(NEWDISK_FDD_MSDOS_2DD);
-			}
-			if (ImGui::MenuItem("2D (320 KB)...")) {
-				open_new_fdd_dialog(NEWDISK_FDD_MSDOS_2D);
 			}
 			ImGui::EndMenu();
 		}

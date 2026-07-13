@@ -8,7 +8,6 @@ void newdisk_fdd(const char *fname, REG8 type, const char *label);
 enum {
 	NEWDISK_FDD_MSDOS_2HD = 0,
 	NEWDISK_FDD_MSDOS_2DD,
-	NEWDISK_FDD_MSDOS_2D,
 	NEWDISK_FDD_MSDOS_COUNT
 };
 

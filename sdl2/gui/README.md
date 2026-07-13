@@ -69,10 +69,11 @@ basename, including mounts restored after application restart; hovering the
 name shows its full path.
 
 FDD -> New formatted D88 image creates an empty FAT12 data disk as Japanese
-MS-DOS 2HD (1.232 MB), 2DD (640 KB), or 2D (320 KB). The destination filename
-is editable, existing files are never replaced, and the new image can be
-mounted immediately as FDD1 or FDD2 through the same persistent mount path.
-These are formatted data disks, not bootable MS-DOS system disks.
+MS-DOS 2HD (1.232 MB) or 2DD (640 KB). The destination filename is editable,
+existing files are never replaced, and the new image can be mounted
+immediately as FDD1 or FDD2 through the same persistent mount path. These are
+formatted data disks, not bootable MS-DOS system disks. 2D creation remains
+deferred pending a separate compatibility audit.
 
 HardDisk -> New SASI image creates HDI images through the existing
 `newdisk_hdi()` helper. It supports the legacy 5/10/15/20/30/40 MB SASI

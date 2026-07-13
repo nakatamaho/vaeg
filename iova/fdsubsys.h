@@ -9,7 +9,6 @@ extern "C" {
 
 void fdsubsys_reset(void);
 void fdsubsys_bind(void);
-BOOL fdsubsys_selftest(void);
 
 #ifdef __cplusplus
 }

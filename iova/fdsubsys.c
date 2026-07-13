@@ -461,29 +461,6 @@ static void config_fdc_by_disk_mode(int drv, int track) {
 	subsysmem[WORK_LAST_DISK_MODE] = mode;
 }
 
-static UINT fdsubsys_seek_cylinder(BYTE mode, UINT track) {
-
-	UINT cylinder;
-
-	cylinder = track >> 1;
-	if (((mode >> 4) & 0x03) == 0) {
-		cylinder <<= 1;
-	}
-	return cylinder;
-}
-
-BOOL fdsubsys_selftest(void) {
-
-	if ((fdsubsys_seek_cylinder(0x01, 0) != 0) ||
-		(fdsubsys_seek_cylinder(0x01, 2) != 2) ||
-		(fdsubsys_seek_cylinder(0x01, 78) != 78) ||
-		(fdsubsys_seek_cylinder(0x12, 2) != 1) ||
-		(fdsubsys_seek_cylinder(0x23, 2) != 1)) {
-		return FAILURE;
-	}
-	return SUCCESS;
-}
-
 static void set_command_status(BYTE status) {
 	subsysmem[WORK_COMMAND_STATUS] = status;
 	fdsubtrace.st0 = status;
@@ -675,8 +652,7 @@ static void subsys_exec_read_data(void) {
 	fdsubtrace.req_len = totalbytes;
 	fdsubsys_trace_set_range(WORK_DATA_BUF, totalbytes);
 
-	fdc.ncn = fdsubsys_seek_cylinder(subsysmem[WORK_DISK_MODE + drv],
-										track);
+	fdc.ncn = track >> 1;
 	fdc.hd = track & 1;
 	if (fdd_seek()) goto failed;
 

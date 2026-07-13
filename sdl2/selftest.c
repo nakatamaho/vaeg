@@ -31,7 +31,6 @@
 #include	"dropmedia.h"
 #include	"fddfile.h"
 #include	"fdd_d88.h"
-#include	"fdsubsys.h"
 #include	"kbdmap.h"
 #include	"newdisk.h"
 #include	"np2.h"
@@ -114,8 +113,7 @@ typedef struct {
 
 static const SELFTESTFDDGEOMETRY selftest_fdd_geometry[] = {
 	{NEWDISK_FDD_MSDOS_2HD, 0x20, 77, 2, 8, 3, 1024, 1, 0xfe, 192, 2},
-	{NEWDISK_FDD_MSDOS_2DD, 0x10, 80, 2, 8, 2, 512, 2, 0xfb, 112, 2},
-	{NEWDISK_FDD_MSDOS_2D, 0x00, 40, 2, 16, 1, 256, 4, 0xff, 112, 2}
+	{NEWDISK_FDD_MSDOS_2DD, 0x10, 80, 2, 8, 2, 512, 2, 0xfb, 112, 2}
 };
 
 static int test_new_fdd_image(void) {
@@ -201,10 +199,7 @@ static int test_new_fdd_image(void) {
 			(LOADINTELWORD(sector + 22) != geometry->fat_sectors) ||
 			(LOADINTELWORD(sector + 24) != geometry->sectors) ||
 			(LOADINTELWORD(sector + 26) != geometry->heads) ||
-			(sector[(geometry->sector_size >= 512) ? 510 :
-							geometry->sector_size - 2] != 0x55) ||
-			(sector[(geometry->sector_size >= 512) ? 511 :
-							geometry->sector_size - 1] != 0xaa)) {
+			(sector[510] != 0x55) || (sector[511] != 0xaa)) {
 			result = fail("new-fdd", "D88 sector or FAT12 BPB is invalid");
 			file_close(fh);
 			file_delete(path);
@@ -1021,10 +1016,6 @@ int vaeg_selftest_run(void) {
 	if (test_new_fdd_image() != SUCCESS) {
 		return(FAILURE);
 	}
-	if (fdsubsys_selftest() != SUCCESS) {
-		return(fail("fdsubsys", "2D double-step mapping failed"));
-	}
-	fprintf(stderr, "selftest: FDD subsystem geometry ok\n");
 	if (test_clockscale() != SUCCESS) {
 		return(FAILURE);
 	}
