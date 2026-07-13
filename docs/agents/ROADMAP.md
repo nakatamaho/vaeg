@@ -54,7 +54,7 @@ history, not by a current CI or compile guarantee.
 | M18 | tasks/M18_rom_layout.md | Use executable-relative MAME ROM names/checksums, with VA2 `*_va2.rom` names and GUI VA/VA2 selection | **G18 passed** |
 | M19 | tasks/M19_portable_runtime.md | Embed frontend assets, consolidate portable state under `vaeg.cfg`, align backup-memory lookup, and model VA OPN/OPNA hardware explicitly | **G19 passed** |
 | M20 | tasks/M20_cpu_sgp_speed_pacing.md | Separate V30 and SGP execution capacity from fixed machine/peripheral time; add Configure, No Wait, frame skip, and hold-F11 fast-forward | **G20 passed** |
-| M21 | tasks/M21_sdl2_display_effects.md | SDL2-only display effects, resizable common viewport, custom window sizes, and windowed/borderless/exclusive display modes | **G21 passed** |
+| M21 | tasks/M21_sdl2_display_effects.md | SDL2-only display effects, resizable common viewport, simplified fullscreen, and embedded historical application icon | **G21 passed** |
 | M22 | tasks/M22_disk_image_drop.md | Direct and ZIP/7z/LZH disk-image drag and drop with sorted FDD1/FDD2 assignment and bounded safe extraction | **G22 human** |
 
 Phase 2 dependencies: M7 → M8 → {M9, M10 parallel} → M11 → M12 → M13.
@@ -96,12 +96,15 @@ The V30/uPD9002 model default remains 7.9872 MHz for VA, VA2, and VA3. SGP
 Model default follows the documented model distinction: 3.9936 MHz for VA and
 7.9872 MHz for VA2/VA3.
 
-M21 is implemented and G21 passed as an SDL_Renderer-only display milestone. It adds a shared
-viewport, resizable windows, immediate Windowed/current-desktop Exclusive
-switching, and procedural lightweight effects without bgfx, custom shaders,
-MAME renderer code, or new graphics dependencies. Borderless and detailed
-monitor/mode selection are not exposed in the simplified current GUI. The
-scope and G21 checklist are in
+M21 is implemented and G21 passed as an SDL_Renderer-only display milestone.
+It adds a shared viewport, resizable windows, immediate
+Windowed/current-desktop Exclusive switching, and procedural lightweight
+effects without bgfx, custom shaders, MAME renderer code, or new graphics
+dependencies. Its packaging follow-up embeds the unchanged historical VAEG
+ICO for SDL runtime window icons on all platforms and as a native Windows PE
+resource. Borderless and detailed monitor/mode selection are not exposed in
+the simplified current GUI. The scope, icon provenance, verification, and G21
+checklist are in
 `tasks/M21_sdl2_display_effects.md`.
 
 M22 adds SDL2 disk-image drag and drop. Direct images and archive contents are

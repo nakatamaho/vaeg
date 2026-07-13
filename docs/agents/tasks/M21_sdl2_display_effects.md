@@ -324,6 +324,41 @@ The Linux agent completed the following checks on 2026-07-11:
 Native macOS, native Windows, real multi-monitor/fullscreen operation, visual
 effect quality, and guest regressions remain part of G21.
 
+## Application icon follow-up
+
+After G21 passed, the portable frontend restored the historical VAEG
+application icon as an M21 packaging follow-up. The source asset is
+`assets/vaeg.ico`, copied byte-for-byte from the frozen reference
+`win9x/icons/np2.ico`; the frozen file itself was not edited. Both files have
+SHA-256
+`a27533f679a31fdb8e2812c1d4906e705e544ba49b976154dde6794ce31a32f4`.
+
+CMake embeds the ICO as generated C data in every SDL2 executable.
+`sdl2/appicon.c` decodes the embedded 32-bit ICO into an SDL surface and calls
+`SDL_SetWindowIcon()` immediately after window creation. This supplies the
+runtime window/task-switcher icon on Windows, Linux, and macOS without an
+adjacent icon file.
+
+Windows builds additionally compile `sdl2/vaeg.rc`, embedding the unchanged
+ICO as native `RT_ICON` and `RT_GROUP_ICON` resources so Explorer can display
+the icon before vaeg runs. macOS remains a plain executable rather than an app
+bundle, so the running SDL application has the icon but Finder has no bundle
+document icon. Linux similarly has a runtime window icon but no installed
+desktop entry or icon-theme payload.
+
+The icon follow-up was verified on 2026-07-13:
+
+- `mingw-cross` configured and linked successfully;
+- PE inspection found a `.rsrc` section, three `RT_ICON` entries, and one
+  `RT_GROUP_ICON` entry;
+- the MinGW executable retained only Windows system DLL imports;
+- Linux Debug build, ROM-less selftest, and ROM-less smoke passed;
+- encoding, EOL, case, diff, and frozen-tier checks passed.
+
+The icon disappeared from one distributed M22 binary because the completed
+icon topic commit had not been integrated into `main`. Main commit `2f14f5c`
+restored the resource and runtime icon while retaining M22 archive-drop code.
+
 ## Gate G21
 
 G21 is a human display and guest-regression gate. Verify:
