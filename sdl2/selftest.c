@@ -124,11 +124,13 @@ static int test_cli_boot_model(void) {
 static int test_va_tvram_window(void) {
 
 	_MEMORYVA	saved_memoryva;
+	UINT8		saved_model_va;
 	BYTE		saved_bytes[4];
 	BOOL		saved_dirty;
 	int		result;
 
 	saved_memoryva = memoryva;
+	saved_model_va = pccore.model_va;
 	saved_bytes[0] = textmem[0x0fffe];
 	saved_bytes[1] = textmem[0x0ffff];
 	saved_bytes[2] = textmem[0x10000];
@@ -139,6 +141,7 @@ static int test_va_tvram_window(void) {
 	memoryva.sysm_bank = 1;
 	memoryva.dma_sysm_bank = 0;
 	memoryva.dma_access = 0;
+	pccore.model_va = PCMODEL_VA1;
 	textmem[0x10000] = 0x5a;
 	textmem[0x1fff0] = 0xa5;
 
@@ -162,14 +165,27 @@ static int test_va_tvram_window(void) {
 		result = fail("VA TVRAM", "B0000-DFFFF is not open bus");
 	}
 
+	pccore.model_va = PCMODEL_VA2;
+	i286_memorywrite_va(0x0b0000, 0x6c);
+	if ((i286_memoryread_va(0x0b0000) != 0x6c) ||
+		(textmem[0x10000] != 0x6c)) {
+		result = fail("VA2 TVRAM", "legacy B0000 byte access was blocked");
+	}
+	i286_memorywrite_va_w(0x0bfff0, 0xabcd);
+	if ((i286_memoryread_va_w(0x0bfff0) != 0xabcd) ||
+		(textmem[0x1fff0] != 0xcd)) {
+		result = fail("VA2 TVRAM", "legacy B0000-DFFFF word access was blocked");
+	}
+
 	memoryva = saved_memoryva;
+	pccore.model_va = saved_model_va;
 	textmem[0x0fffe] = saved_bytes[0];
 	textmem[0x0ffff] = saved_bytes[1];
 	textmem[0x10000] = saved_bytes[2];
 	textmem[0x1fff0] = saved_bytes[3];
 	textmem_dirty = saved_dirty;
 	if (result == SUCCESS) {
-		fprintf(stderr, "selftest: VA TVRAM window ok\n");
+		fprintf(stderr, "selftest: model-specific TVRAM window ok\n");
 	}
 	return(result);
 }
