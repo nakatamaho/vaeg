@@ -32,6 +32,7 @@
 #include	"fddfile.h"
 #include	"fdd_d88.h"
 #include	"fdd_xdf.h"
+#include	"framedisp.h"
 #include	"kbdmap.h"
 #include	"kbdpaste.h"
 #include	"mousestate.h"
@@ -357,6 +358,44 @@ static int test_profile_ini(void) {
 		return(fail("ini", "typed values did not round-trip"));
 	}
 	fprintf(stderr, "selftest: ini ok\n");
+	return(SUCCESS);
+}
+
+static int test_framedisp(void) {
+
+	VAEG_FRAMEDISP state;
+
+	vaeg_framedisp_reset(&state, 1000, 100);
+	if (vaeg_framedisp_update(&state, 2999, 220) != FALSE) {
+		return(fail("framedisp", "measurement renewed before two seconds"));
+	}
+	if ((vaeg_framedisp_update(&state, 3000, 220) != TRUE) ||
+		(state.fps_tenths != 600)) {
+		return(fail("framedisp", "60.0 FPS measurement is incorrect"));
+	}
+	if (vaeg_framedisp_update(&state, 4000, 280) != FALSE) {
+		return(fail("framedisp", "measurement interval was not restarted"));
+	}
+	if ((vaeg_framedisp_update(&state, 5000, 280) != TRUE) ||
+		(state.fps_tenths != 300)) {
+		return(fail("framedisp", "30.0 FPS measurement is incorrect"));
+	}
+	vaeg_framedisp_reset(&state, 0, 0);
+	if ((vaeg_framedisp_update(&state, 2000, 0) != TRUE) ||
+		(state.fps_tenths != 0)) {
+		return(fail("framedisp", "zero-draw interval is incorrect"));
+	}
+	vaeg_framedisp_reset(&state, 0xffffffffU - 1000U,
+									0xffffffffU - 3U);
+	if ((vaeg_framedisp_update(&state, 999, 116) != TRUE) ||
+		(state.fps_tenths != 600)) {
+		return(fail("framedisp", "counter wrap handling is incorrect"));
+	}
+	if (vaeg_framedisp_update(NULL, 0, 0) != FALSE) {
+		return(fail("framedisp", "NULL state was accepted"));
+	}
+	vaeg_framedisp_reset(NULL, 0, 0);
+	fprintf(stderr, "selftest: frame display ok\n");
 	return(SUCCESS);
 }
 
@@ -1244,6 +1283,9 @@ int vaeg_selftest_run(void) {
 		return(FAILURE);
 	}
 	if (test_profile_ini() != SUCCESS) {
+		return(FAILURE);
+	}
+	if (test_framedisp() != SUCCESS) {
 		return(FAILURE);
 	}
 	if (test_new_fdd_image() != SUCCESS) {

@@ -447,6 +447,7 @@ static const INITBL iniitem[] = {
 	// OS依存～
 	{"s_NOWAIT", INITYPE_BOOL,		&np2oscfg.NOWAIT,		0},
 	{"SkpFrame", INITYPE_UINT8,		&np2oscfg.DRAW_SKIP,	0},
+	{"DspClock", INITYPE_UINT8,		&np2oscfg.DISPCLK,		0},
 	{"F12_bind", INITYPE_UINT8,		&np2oscfg.F12KEY,		0},
 	{"Mouse_sw", INITYPE_BOOL,		&np2oscfg.MOUSE_SW,		0},
 	{"e_resume", INITYPE_BOOL,		&np2oscfg.resume,		0},
@@ -493,6 +494,7 @@ void initload(void) {
 		SDL_Log("Config load: %s", path);
 	}
 	ini_read(path, ini_title, iniitem, INIITEMS);
+	np2oscfg.DISPCLK &= 3;
 	if (np2oscfg.gui_scale > 3) {
 		np2oscfg.gui_scale = 1;
 	}
