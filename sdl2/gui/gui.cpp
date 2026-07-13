@@ -2321,9 +2321,9 @@ void gui_draw(void) {
 	}
 	if (ImGui::BeginMainMenuBar()) {
 		draw_emulate_menu();
-		draw_edit_menu();
 		draw_fdd_menu();
 		draw_harddisk_menu();
+		draw_edit_menu();
 		draw_screen_menu();
 		draw_device_menu();
 		draw_state_menu();
