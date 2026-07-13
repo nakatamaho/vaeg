@@ -61,9 +61,10 @@ history, not by a current CI or compile guarantee.
 | M25 | tasks/M25_fdd_raw_images.md | Create formatted FAT12 FDD images as D88 or mtools-compatible IMG raw containers | **G25 passed** |
 | M26 | tasks/M26_mouse_input.md | Port original relative mouse capture to SDL2 and expose the VA joystick/mouse controller-port choice | **G26 human** |
 | M27 | tasks/M27_frame_display.md | Restore the original measured guest-draw FPS display in the native window title | **G27 passed** |
+| M28 | tasks/M28_sound_output_settings.md | Select common output sampling rate and sound buffer plus ymfm FM fidelity from the SDL2 Sound menu | **G28 human** |
 
 Phase 2 dependencies: M7 → M8 → {M9, M10 parallel} → M11 → M12 → M13.
-Post-phase dependency: M13 → M14 → M15 → M16 → M17 → M18 → M19 → M20 → M21 → M22 → M23 → M24 → M25 → M26 → M27.
+Post-phase dependency: M13 → M14 → M15 → M16 → M17 → M18 → M19 → M20 → M21 → M22 → M23 → M24 → M25 → M26 → M27 → M28.
 M9 must pass before M11 (all three OSes must ship the VA machine, not
 the PC-98 scaffold).
 
@@ -154,6 +155,13 @@ approximately two-second window and appends `N.NFPS` to the native window
 title. It does not report ImGui
 present rate or change frame skip, VBlank, CPU/SGP speed, or host pacing. The
 implementation scope and G27 checklist are in `tasks/M27_frame_display.md`.
+
+M28 adds common audio-output controls to the Sound menu. Sampling rate and
+requested sound-buffer length apply to both NP2 and ymfm through the existing
+sound rebuild path. ymfm also exposes Minimum, Medium, and Maximum native OPN
+fidelity, with Minimum retained as the compatibility default. The scope,
+backend boundary, automated checks, and G28 checklist are in
+`tasks/M28_sound_output_settings.md`.
 
 ## Gate protocol
 

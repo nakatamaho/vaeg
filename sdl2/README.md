@@ -285,6 +285,7 @@ The selection is saved in the selected `vaeg.cfg` as:
 
 ```ini
 opn_backend=ymfm
+ymfm_fidelity=minimum
 ```
 
 `ymfm` is the default and selects the BSD-3-Clause ymfm YM2203/YM2608 FM
@@ -304,6 +305,20 @@ disabled. Hardware changes reset the guest and preserve mounted media.
 selected guest OPN/OPNA hardware. The choice is stored separately as
 `sound_enabled`; `SNDboard` always remains a valid hardware value so FM timer
 polling software continues to run while output is muted.
+
+The Sound menu also selects the mixed output rate and requested buffer length
+for both FM backends. Supported rates are 11.025, 22.05, and 44.1 kHz;
+22.05 kHz remains the compatibility default, while the GUI recommends 44.1
+kHz for new configurations. Buffer presets are 40, 100, 200, 500, and 1000 ms,
+with custom values accepted from 40 through 1000 ms. These persist as
+`SampleHz` and `Latencys` and rebuild the SDL audio device through the normal
+media-preserving guest reset.
+
+When ymfm is selected, `ymfm_fidelity` can be `minimum`, `medium`, or
+`maximum`. It controls ymfm's native YM2203/YM2608 generation rate before box
+downsampling; Maximum has the highest CPU cost. Minimum preserves the previous
+behavior and is the fallback for missing or unknown values. NP2 has no
+equivalent control, so the fidelity menu is disabled for that backend.
 
 ## VA Configuration Requirements
 

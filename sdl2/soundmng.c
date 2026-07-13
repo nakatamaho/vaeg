@@ -26,6 +26,7 @@
 #include	"sdlapi.h"
 #include	"parts.h"
 #include	"soundmng.h"
+#include	"soundopts.h"
 #include	"sound.h"
 #if defined(VERMOUTH_LIB)
 #include	"commng.h"
@@ -84,10 +85,9 @@ UINT soundmng_create(UINT rate, UINT ms) {
 		goto smcre_err1;
 	}
 
-	s = rate * ms / (NSNDBUF * 1000);
-	samples = 1;
-	while(s > samples) {
-		samples <<= 1;
+	samples = vaeg_sound_buffer_samples(rate, ms, NSNDBUF);
+	if (samples == 0) {
+		goto smcre_err1;
 	}
 	soundmng.nsndbuf = 0;
 	soundmng.samples = samples;
