@@ -27,7 +27,9 @@
 #include	"scrnmng.h"
 #include	"np2.h"
 #include	"np2ver.h"
+#include	"pccore.h"
 #include	"appicon.h"
+#include	"framedisp.h"
 
 typedef struct {
 	BOOL			enable;
@@ -53,6 +55,8 @@ typedef struct {
 	BOOL			window_maximized;
 	UINT8			fscrnmod;
 	BOOL			dirty;
+	BOOL			framedisp_enabled;
+	VAEG_FRAMEDISP	framedisp;
 } SCRNMNG;
 
 typedef struct {
@@ -69,6 +73,28 @@ enum {
 static	SCRNMNG		scrnmng;
 static	SCRNSTAT	scrnstat;
 static	SCRNSURF	scrnsurf;
+
+static void scrnmng_update_title(void) {
+
+	char	title[128];
+
+	if (scrnmng.window == NULL) {
+		return;
+	}
+	if (!scrnmng.framedisp_enabled) {
+		SDL_SetWindowTitle(scrnmng.window, app_name);
+		return;
+	}
+	if (scrnmng.framedisp.fps_tenths != 0) {
+		snprintf(title, sizeof(title), "%s - %u.%1uFPS", app_name,
+				(unsigned int)(scrnmng.framedisp.fps_tenths / 10),
+				(unsigned int)(scrnmng.framedisp.fps_tenths % 10));
+	}
+	else {
+		snprintf(title, sizeof(title), "%s - 0FPS", app_name);
+	}
+	SDL_SetWindowTitle(scrnmng.window, title);
+}
 
 static void scrnmng_log_renderer(void) {
 
@@ -780,6 +806,21 @@ void scrnmng_present_end(void) {
 		return;
 	}
 	SDL_RenderPresent(scrnmng.renderer);
+}
+
+void scrnmng_set_framedisp(BOOL enabled) {
+
+	scrnmng.framedisp_enabled = enabled ? TRUE : FALSE;
+	vaeg_framedisp_reset(&scrnmng.framedisp, SDL_GetTicks(), drawcount);
+	scrnmng_update_title();
+}
+
+void scrnmng_framedisp_tick(UINT32 tick, UINT32 draws) {
+
+	if (scrnmng.framedisp_enabled &&
+		vaeg_framedisp_update(&scrnmng.framedisp, tick, draws)) {
+		scrnmng_update_title();
+	}
 }
 
 BOOL scrnmng_entermenu(SCRNMENU *smenu) {

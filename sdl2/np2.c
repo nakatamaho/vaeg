@@ -52,7 +52,7 @@
 #include	"np2ver.h"
 #include	"mousemng.h"
 
-		NP2OSCFG	np2oscfg = {0, 0, 0, 0, 0, 1, 0, "", "", {"", ""},
+		NP2OSCFG	np2oscfg = {0, 0, 0, 0, 0, 0, 1, 0, "", "", {"", ""},
 								"", "", 0, 0, "", "ymfm", 1,
 								VAEG_EFFECT_UNFILTERED, VAEG_SCALING_FIT,
 								640, 422, VAEG_DISPLAY_WINDOWED, 0, 0, 0, 0, 2, 0};
@@ -580,6 +580,7 @@ static void run_guest_frame(BOOL draw) {
 		gui_render();
 		scrnmng_present_end();
 	}
+	scrnmng_framedisp_tick(SDL_GetTicks(), drawcount);
 }
 
 static BOOL smoke_after_frame(BOOL smoke, UINT frames, BOOL detect_screen) {
@@ -858,6 +859,7 @@ int main(int argc, char **argv) {
 							np2oscfg.gui_window_height) != SUCCESS) {
 		goto np2main_err2;
 	}
+	scrnmng_set_framedisp((np2oscfg.DISPCLK & 2) ? TRUE : FALSE);
 	if (gui_initialize(scrnmng_get_window(), scrnmng_get_renderer(),
 						   argv[0]) != SUCCESS) {
 		goto np2main_err3;
