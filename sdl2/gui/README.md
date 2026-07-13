@@ -62,11 +62,11 @@ SDL disk-image drops bypass ImGui capture and use the same FDD insertion path.
 Direct images persist like manual mounts. ZIP, 7z, and LZH contents are
 extracted under managed user-state storage and their mounted paths persist
 through reset and application restart. Eject and replacement prune only
-managed images that are no longer referenced by FDD1 or FDD2. Drop results
-and ignored-image counts are shown at the bottom of the FDD menu. The menu
-also reads the live FDD state on every frame and always shows each mounted
-basename, including mounts restored after application restart; hovering the
-name shows its full path.
+managed images that are no longer referenced by FDD1 or FDD2. Drop errors and
+ignored-image counts are shown at the bottom of the FDD menu; successful mount
+names are not duplicated there. The menu reads the live FDD state on every
+frame and shows each mounted basename in normal text, including mounts
+restored after application restart; hovering the name shows its full path.
 
 FDD -> New formatted D88 image creates an empty FAT12 data disk as Japanese
 MS-DOS 2HD (1.232 MB) or 2DD (640 KB). The destination filename is editable,
@@ -84,8 +84,9 @@ HardDisk -> SASI-1/SASI-2 Open updates `HDD1FILE` / `HDD2FILE` in
 same key. Reset the guest after changing a SASI image; reset is the
 reliable point where `sxsi_open()`, `PCHDD_SASI`, and `sasiio_bind()` are
 rebuilt for the guest. The configured SASI image path is retained across
-the GUI Reset command. SCSI/IDE mounting and THD/NHD/SCSI image creation
-remain later items.
+the GUI Reset command. The HardDisk menu shows the live mounted basename
+below each Remove command and exposes its full path on hover. SCSI/IDE
+mounting and THD/NHD/SCSI image creation remain later items.
 
 ## Sound Menu
 
