@@ -105,6 +105,22 @@ static int test_romcheck(void) {
 	return(SUCCESS);
 }
 
+static int test_cli_boot_model(void) {
+
+	if ((np2_cli_boot_model("va") != str_VA1) ||
+		(np2_cli_boot_model("VA") != str_VA1) ||
+		(np2_cli_boot_model("va2") != str_VA2) ||
+		(np2_cli_boot_model("VA2") != str_VA2) ||
+		(np2_cli_boot_model("va1") != NULL) ||
+		(np2_cli_boot_model("va3") != NULL) ||
+		(np2_cli_boot_model("") != NULL) ||
+		(np2_cli_boot_model(NULL) != NULL)) {
+		return(fail("CLI boot model", "model name parsing failed"));
+	}
+	fprintf(stderr, "selftest: CLI boot model ok\n");
+	return(SUCCESS);
+}
+
 static int test_va_tvram_window(void) {
 
 	_MEMORYVA	saved_memoryva;
@@ -1448,6 +1464,9 @@ int vaeg_selftest_run(void) {
 		return(FAILURE);
 	}
 	if (test_romcheck() != SUCCESS) {
+		return(FAILURE);
+	}
+	if (test_cli_boot_model() != SUCCESS) {
 		return(FAILURE);
 	}
 	if (test_va_tvram_window() != SUCCESS) {

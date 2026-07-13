@@ -126,20 +126,21 @@ static void usage(const char *progname) {
 	printf("\t--selftest          : run ROM-less unit tests and exit\n");
 	printf("\t--debug             : print configuration and ROM diagnostics\n");
 	printf("\t--fdctrace          : print one FDC trace line per command to stderr\n");
+	printf("\t--model va|va2      : select the boot model for this session\n");
 	printf("\t--pacelog           : print pacing counters once per second\n");
 	printf("\timage1 [image2]     : mount FDD images in drive 1 and 2\n");
 }
 
-static void smoke_configure_va(void) {
+static void smoke_configure_va(const char *model) {
 
-	file_cpyname(np2cfg.model, str_VA2, sizeof(np2cfg.model));
+	file_cpyname(np2cfg.model, model, sizeof(np2cfg.model));
 	np2cfg.baseclock = PCBASECLOCK40;
 	np2cfg.multiple = 2;
 	np2cfg.sgp_speed_mode = SGP_SPEED_MODEL_DEFAULT;
 	np2cfg.sgp_multiplier = 1;
 	np2cfg.ITF_WORK = 1;
 	np2cfg.EXTMEM = 1;
-	np2cfg.SOUND_SW = FMBOARD_VA_OPNA;
+	np2cfg.SOUND_SW = np2_default_sound_for_model(model);
 }
 
 UINT16 np2_default_sound_for_model(const char *model) {
@@ -163,6 +164,20 @@ BOOL np2_sound_hardware_valid(const char *model, UINT16 sound) {
 		return(sound == FMBOARD_VA_OPNA);
 	}
 	return(sound != FMBOARD_NONE);
+}
+
+const char *np2_cli_boot_model(const char *value) {
+
+	if (value == NULL) {
+		return(NULL);
+	}
+	if (milstr_cmp(value, "va") == 0) {
+		return(str_VA1);
+	}
+	if (milstr_cmp(value, "va2") == 0) {
+		return(str_VA2);
+	}
+	return(NULL);
 }
 
 static BOOL config_selects_va(void) {
@@ -743,9 +758,13 @@ int main(int argc, char **argv) {
 	BOOL	smoke_detect_screen;
 	BOOL	splash_visible;
 	BOOL	run_ok;
+	BOOL	cli_model_applied;
 	UINT32	splash_started;
 	int		disks;
 	char	*disk[2];
+	const char *cli_model;
+	char	saved_model[sizeof(np2cfg.model)];
+	UINT16	saved_sound;
 
 	smoke = FALSE;
 	selftest = FALSE;
@@ -754,10 +773,14 @@ int main(int argc, char **argv) {
 	smoke_detect_screen = FALSE;
 	splash_visible = FALSE;
 	run_ok = SUCCESS;
+	cli_model_applied = FALSE;
 	splash_started = 0;
 	disks = 0;
 	disk[0] = NULL;
 	disk[1] = NULL;
+	cli_model = NULL;
+	saved_model[0] = '\0';
+	saved_sound = 0;
 	pos = 1;
 	while(pos < argc) {
 		p = argv[pos++];
@@ -776,6 +799,17 @@ int main(int argc, char **argv) {
 		}
 		else if (!milstr_cmp(p, "--fdctrace")) {
 			fdctrace = TRUE;
+		}
+		else if (!milstr_cmp(p, "--model")) {
+			if (pos >= argc) {
+				fprintf(stderr, "Error: --model requires va or va2\n");
+				return(FAILURE);
+			}
+			cli_model = np2_cli_boot_model(argv[pos++]);
+			if (cli_model == NULL) {
+				fprintf(stderr, "Error: --model accepts only va or va2\n");
+				return(FAILURE);
+			}
 		}
 		else if (!milstr_cmp(p, "--pacelog")) {
 			pacelog = TRUE;
@@ -815,18 +849,33 @@ int main(int argc, char **argv) {
 		}
 	}
 	initload();
+	if (cli_model != NULL) {
+		file_cpyname(saved_model, np2cfg.model, sizeof(saved_model));
+		saved_sound = np2cfg.SOUND_SW;
+		cli_model_applied = TRUE;
+	}
 	dropmedia_initialize();
 	select_backup_memory_path();
 	if (smoke) {
-		smoke_configure_va();
+		smoke_configure_va((cli_model != NULL) ? cli_model : str_VA2);
 		smoke_detect_screen = (smoke_resolve_rompath() == SUCCESS);
 	}
 	else {
-		char missing[MAX_PATH];
-		BOOL result;
+		if (cli_model != NULL) {
+			(void)np2_select_boot_model(cli_model);
+			if (np2_debug) {
+				fprintf(stderr, "INFO: CLI boot model override: %s "
+								"(session only)\n",
+						(milstr_cmp(cli_model, str_VA1) == 0) ? "va" : "va2");
+			}
+		}
+		else {
+			char missing[MAX_PATH];
+			BOOL result;
 
-		result = resolve_model_rompath(missing, sizeof(missing));
-		report_model_rompath(result, missing);
+			result = resolve_model_rompath(missing, sizeof(missing));
+			report_model_rompath(result, missing);
+		}
 	}
 	warn_va_config_sanity();
 	if (np2_debug) {
@@ -902,6 +951,11 @@ int main(int argc, char **argv) {
 	}
 
 	pccore_cfgupdate();
+	if (cli_model_applied &&
+		(milstr_cmp(np2cfg.model, cli_model) == 0)) {
+		file_cpyname(np2cfg.model, saved_model, sizeof(np2cfg.model));
+		np2cfg.SOUND_SW = saved_sound;
+	}
 	if ((!smoke) && (sys_updates & (SYS_UPDATECFG | SYS_UPDATEOSCFG))) {
 		initsave();
 	}
