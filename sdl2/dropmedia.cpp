@@ -384,18 +384,27 @@ static void append_status_line(const std::string &line) {
 	g_status += line;
 }
 
-static void mount_candidates(std::vector<DiskCandidate> *images) {
+static void mount_candidates(std::vector<DiskCandidate> *images,
+								 std::size_t first_drive) {
 
+	if ((images == nullptr) || (first_drive >= 2)) {
+		return;
+	}
+	const std::size_t capacity = 2 - first_drive;
 	std::sort(images->begin(), images->end(), candidate_less);
-	for (std::size_t index = 0; index < images->size() && index < 2; index++) {
+	for (std::size_t index = 0;
+			(index < images->size()) && (index < capacity); index++) {
 		const DiskCandidate &image = (*images)[index];
-		diskdrv_setfdd(static_cast<REG8>(index), image.path.c_str(), 0);
-		file_cpyname(np2oscfg.fdd_image[index], image.path.c_str(),
-					 sizeof(np2oscfg.fdd_image[index]));
+		const std::size_t drive = first_drive + index;
+
+		diskdrv_setfdd(static_cast<REG8>(drive), image.path.c_str(), 0);
+		file_cpyname(np2oscfg.fdd_image[drive], image.path.c_str(),
+						 sizeof(np2oscfg.fdd_image[drive]));
 		sysmng_update(SYS_UPDATEOSCFG);
 	}
-	if (images->size() > 2) {
-		append_status_line("Ignored " + std::to_string(images->size() - 2) +
+	if (images->size() > capacity) {
+		append_status_line("Ignored " +
+			std::to_string(images->size() - capacity) +
 			" additional disk image(s).");
 	}
 	dropmedia_prune_storage();
@@ -439,7 +448,7 @@ static void process_drop_batch(void) {
 			fs_path.filename().u8string());
 	}
 	if (!images.empty()) {
-		mount_candidates(&images);
+		mount_candidates(&images, 0);
 	}
 	else if (g_status.empty()) {
 		g_status = "Drop contained no supported disk image.";
@@ -476,6 +485,51 @@ extern "C" BOOL dropmedia_process_event(const void *event) {
 		default:
 			return FALSE;
 	}
+}
+
+extern "C" BOOL dropmedia_path_is_archive(const char *path) {
+
+	return ((path != nullptr) && archive_extension_supported(path)) ?
+		TRUE : FALSE;
+}
+
+extern "C" BOOL dropmedia_mount_archive(const char *path, UINT first_drive) {
+
+	g_status.clear();
+	if ((path == nullptr) || (path[0] == '\0')) {
+		g_status = "Archive open failed: path is empty.";
+		return FALSE;
+	}
+	if (first_drive >= 2) {
+		g_status = "Archive open failed: invalid FDD drive.";
+		return FALSE;
+	}
+	if (!archive_extension_supported(path)) {
+		g_status = "Archive open failed: unsupported archive extension.";
+		return FALSE;
+	}
+	std::error_code ec;
+	if ((!fs::is_regular_file(fs::u8path(path), ec)) || ec) {
+		g_status = "Archive open failed: file not found.";
+		return FALSE;
+	}
+#if defined(VAEG_HAVE_LIBARCHIVE)
+	std::vector<DiskCandidate> images;
+	std::string error;
+
+	if (!extract_archive_images(path, &images, &error,
+								archive_storage_root())) {
+		g_status = "Archive open failed: " + error + ": " +
+			fs::u8path(path).filename().u8string();
+		return FALSE;
+	}
+	mount_candidates(&images, first_drive);
+	return TRUE;
+#else
+	g_status =
+		"Archive open unavailable: this build has no LibArchive support.";
+	return FALSE;
+#endif
 }
 
 extern "C" const char *dropmedia_status(void) {
@@ -590,8 +644,11 @@ extern "C" BOOL dropmedia_selftest(void) {
 		(!image_extension_supported("disk.2HD")) ||
 		(!image_extension_supported("disk.IMG")) ||
 		image_extension_supported("disk.zip") ||
-		(!archive_extension_supported("set.7Z")) ||
-		(!archive_extension_supported("set.LZH"))) {
+		(!dropmedia_path_is_archive("set.ZIP")) ||
+		(!dropmedia_path_is_archive("set.7Z")) ||
+		(!dropmedia_path_is_archive("set.LZH")) ||
+		dropmedia_path_is_archive("disk.d88") ||
+		dropmedia_path_is_archive(NULL)) {
 		return FAILURE;
 	}
 	if ((!archive_path_safe("folder/disk.d88")) ||
