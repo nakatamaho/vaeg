@@ -255,16 +255,21 @@ separate parity correction or move it to Open Defects.
   aperture correction.
 - **Root cause:** the M29 `A0000H-AFFFFH` limit was implemented in shared
   `tvram_*()` handlers without a model check, so it changed the VA2/VA3
-  compatibility path as well as VA1.
+  memory path as well as VA1. NEC specifications identify 64KB of TVRAM in
+  VA1 and 256KB in VA2/VA3.
 - **Correction:** apply the 64KB/open-bus behavior only to `PCMODEL_VA1` and
-  preserve the M28 256KB bank-1 backing behavior for `PCMODEL_VA2`. This is a
-  compatibility choice pending VA2/VA3 hardware decode verification, not a
-  claim that those machines have 256KB of physical TVRAM.
+  preserve the 256KB bank-1 backing behavior for `PCMODEL_VA2`. This matches
+  the documented physical TVRAM capacities; the VA2 V3 BASIC regression test
+  also exercises the active `A0000H-DFFFFH` mapping.
 - **Verification:** ROM-less tests cover both model-specific mappings. Human
   testing confirmed VA2 V3 BASIC and VA1 PC-Engine 1.00; the separate inherited
   VA1 V3 BASIC command failure remains open.
-- **Evidence:** [M29 VA1 TVRAM aperture task](../agents/tasks/M29_va1_tvram_aperture.md)
-  and [M31 CLI boot-model task](../agents/tasks/M31_cli_boot_model.md).
+- **Evidence:** [M29 VA1 TVRAM aperture task](../agents/tasks/M29_va1_tvram_aperture.md),
+  [M31 CLI boot-model task](../agents/tasks/M31_cli_boot_model.md),
+  [NEC PC-88VA specification](https://support.nec-lavie.jp/support/product/data/spec/cpu/b047-1.html),
+  [NEC PC-88VA2 specification](https://support.nec-lavie.jp/support/product/data/spec/cpu/b048-1.html),
+  [NEC PC-88VA3 specification](https://support.nec-lavie.jp/support/product/data/spec/cpu/b049-1.html),
+  and the [PC-88VA hardware comparison](http://www.pc88.gr.jp/~va/va-hard.html#mem).
 - **Commit:** [c580222](https://github.com/nakatamaho/vaeg/commit/c5802228f1d8f7cf91b41d1182aaad4ebd30ccea).
 
 ### The disabled VA BMS window incorrectly exposed ordinary RAM
