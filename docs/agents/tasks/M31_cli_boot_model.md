@@ -22,7 +22,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 -->
 # M31: Command-line boot model selection
 
-Status: implemented; automated checks passed; G31 human verification pending
+Status: implemented; automated checks passed; focused model regression checks passed; G31 persistence checks pending
 
 Date: 2026-07-14
 
@@ -87,6 +87,23 @@ Automated results on the implementation branch:
 - missing and `va3` model values failed before SDL initialization with the
   documented messages.
 - MinGW cross build passed and produced `vaeg.exe`.
+
+## M29 regression found during G31
+
+Initial G31 testing exposed a pre-existing M29 regression rather than a CLI
+parser or ROM-selection failure. M28 commit `455c7d5` could enter and use VA2
+V3 BASIC, while its direct child M29 commit `c17d64a` froze after entering
+BASIC. M29 had applied its VA1 64KB TVRAM aperture correction to the shared
+VA2/VA3 memory path.
+
+Commit `c580222` scopes the open-bus aperture to `PCMODEL_VA1` and keeps the
+M28 bank-1 compatibility behavior for `PCMODEL_VA2`. ROM-less selftest now
+covers both mappings. Maintainer verification confirmed:
+
+- `--model va2`: VA2 V3 BASIC command entry works;
+- `--model va`: PC-Engine 1.00 boots;
+- VA1 V3 BASIC still reproduces the separately tracked inherited command
+  failure.
 
 ## G31 Gate
 
