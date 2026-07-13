@@ -55,7 +55,7 @@ history, not by a current CI or compile guarantee.
 | M19 | tasks/M19_portable_runtime.md | Embed frontend assets, consolidate portable state under `vaeg.cfg`, align backup-memory lookup, and model VA OPN/OPNA hardware explicitly | **G19 passed** |
 | M20 | tasks/M20_cpu_sgp_speed_pacing.md | Separate V30 and SGP execution capacity from fixed machine/peripheral time; add Configure, No Wait, frame skip, and hold-F11 fast-forward | **G20 passed** |
 | M21 | tasks/M21_sdl2_display_effects.md | SDL2-only display effects, resizable common viewport, simplified fullscreen, and embedded historical application icon | **G21 passed** |
-| M22 | tasks/M22_disk_image_drop.md | Direct and ZIP/7z/LZH disk-image drag and drop with sorted FDD1/FDD2 assignment and bounded safe extraction | **G22 human** |
+| M22 | tasks/M22_disk_image_drop.md | Direct and ZIP/7z/LZH disk-image drag and drop plus FDD-picker archive open, with sorted assignment and bounded safe extraction | **G22 human** |
 | M23 | tasks/M23_formatted_fdd_images.md | Create formatted blank FAT12 D88 images as Japanese MS-DOS 2HD (1.232 MB) or 2DD (640 KB), with optional persisted FDD1/FDD2 mounting | **G23 passed** |
 | M24 | tasks/M24_host_clipboard_paste.md | Paste host clipboard printable ASCII and line breaks through a paced guest keyboard make/break queue | **G24 passed** |
 | M25 | tasks/M25_fdd_raw_images.md | Create formatted FAT12 FDD images as D88 or mtools-compatible IMG raw containers | **G25 passed** |
@@ -117,7 +117,8 @@ sorted by basename and assigned to FDD1/FDD2. ZIP, 7z, and LZH extraction uses
 bounded LibArchive streaming with traversal and link rejection; MinGW builds
 the pinned archive stack statically, as do macOS release builds. Extracted
 images are persistent managed user state and are pruned only when neither FDD
-references them. The implementation and G22 checklist are in
+references them. The FDD1/FDD2 Open browser also accepts those archive formats
+through the same extraction path. The implementation and G22 checklist are in
 `tasks/M22_disk_image_drop.md`.
 
 M23 is complete and G23 passed. It adds FDD-menu creation of empty, formatted

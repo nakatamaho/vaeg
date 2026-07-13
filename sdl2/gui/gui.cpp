@@ -890,6 +890,16 @@ static void mount_fdd_from_dialog(void) {
 		g_gui.fdd_status += error;
 		return;
 	}
+	if (dropmedia_path_is_archive(path)) {
+		if (!dropmedia_mount_archive(path, static_cast<UINT>(drive))) {
+			g_gui.fdd_status = dropmedia_status();
+			return;
+		}
+		g_gui.fdd_status.clear();
+		persist_fdd_dir(parent_dir(path));
+		g_gui.fdd_browser_open = false;
+		return;
+	}
 	diskdrv_setfdd(static_cast<REG8>(drive), path, 0);
 	remember_fdd_mount(drive, path);
 	dropmedia_prune_storage();
@@ -1097,7 +1107,7 @@ static void draw_fdd_browser(void) {
 	}
 	ImGui::SetNextWindowSize(ImVec2(620.0f, 420.0f),
 							 ImGuiCond_FirstUseEver);
-	if (ImGui::Begin("Mount FDD image", &g_gui.fdd_browser_open)) {
+	if (ImGui::Begin("Mount FDD image or archive", &g_gui.fdd_browser_open)) {
 		ImGui::Text("FDD%d directory", drive + 1);
 		ImGui::TextWrapped("%s", g_gui.fdd_browser_dir.c_str());
 		if (ImGui::Button("Home")) {
