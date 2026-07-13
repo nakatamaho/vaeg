@@ -67,6 +67,12 @@ when LibArchive support is built. Archive mounts are saved in `FDD1FILE` and
 Unreferenced managed images are removed after eject or replacement; an image
 still mounted in either drive is retained.
 
+The FDD menu can also create an empty FAT12 data disk in a D88 container as
+Japanese MS-DOS 2HD (1.232 MB), 2DD (640 KB), or 2D (320 KB). The filename is
+editable, existing files are never replaced, and the result can be mounted
+immediately as FDD1 or FDD2. The generated image is formatted but does not
+contain MS-DOS system files and is not bootable.
+
 Headless smoke check:
 
 ```sh

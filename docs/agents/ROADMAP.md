@@ -56,9 +56,10 @@ history, not by a current CI or compile guarantee.
 | M20 | tasks/M20_cpu_sgp_speed_pacing.md | Separate V30 and SGP execution capacity from fixed machine/peripheral time; add Configure, No Wait, frame skip, and hold-F11 fast-forward | **G20 passed** |
 | M21 | tasks/M21_sdl2_display_effects.md | SDL2-only display effects, resizable common viewport, simplified fullscreen, and embedded historical application icon | **G21 passed** |
 | M22 | tasks/M22_disk_image_drop.md | Direct and ZIP/7z/LZH disk-image drag and drop with sorted FDD1/FDD2 assignment and bounded safe extraction | **G22 human** |
+| M23 | tasks/M23_formatted_fdd_images.md | Create formatted blank FAT12 D88 images as Japanese MS-DOS 2HD (1.232 MB), 2DD (640 KB), or 2D (320 KB), with optional persisted FDD1/FDD2 mounting | **G23 human** |
 
 Phase 2 dependencies: M7 → M8 → {M9, M10 parallel} → M11 → M12 → M13.
-Post-phase dependency: M13 → M14 → M15 → M16 → M17 → M18 → M19 → M20 → M21 → M22.
+Post-phase dependency: M13 → M14 → M15 → M16 → M17 → M18 → M19 → M20 → M21 → M22 → M23.
 M9 must pass before M11 (all three OSes must ship the VA machine, not
 the PC-98 scaffold).
 
@@ -114,6 +115,13 @@ the pinned archive stack statically, as do macOS release builds. Extracted
 images are persistent managed user state and are pruned only when neither FDD
 references them. The implementation and G22 checklist are in
 `tasks/M22_disk_image_drop.md`.
+
+M23 adds FDD-menu creation of empty, formatted FAT12 data disks in D88
+containers. It covers the Japanese MS-DOS 1.232 MB 2HD geometry, standard
+640 KB 2DD geometry, and Japanese 320 KB 2D geometry. It refuses overwrite
+and can mount the new image through the existing persistent FDD path. The
+implementation and G23 checklist are in
+`tasks/M23_formatted_fdd_images.md`.
 
 ## Gate protocol
 
