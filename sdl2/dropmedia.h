@@ -31,6 +31,8 @@ extern "C" {
 #endif
 
 BOOL dropmedia_process_event(const void *event);
+BOOL dropmedia_path_is_archive(const char *path);
+BOOL dropmedia_mount_archive(const char *path, UINT first_drive);
 const char *dropmedia_status(void);
 void dropmedia_initialize(void);
 void dropmedia_prune_storage(void);

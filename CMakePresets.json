@@ -23,6 +23,7 @@
       "binaryDir": "${sourceDir}/build/linux-release",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
+        "VAEG_FETCH_LIBARCHIVE": "ON",
         "VAEG_WERROR": "OFF"
       }
     },
