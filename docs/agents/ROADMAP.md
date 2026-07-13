@@ -139,7 +139,7 @@ and normal vaeg mounting. Both the 1.232 MB 2HD and 640 KB 2DD raw geometries
 are recognized. The implementation and G25
 checklist are in `tasks/M25_fdd_raw_images.md`.
 
-M26 is implemented with G26 pending. The guest-side generic and PC-88VA mouse
+M26 is complete and G26 passed. The guest-side generic and PC-88VA mouse
 I/O paths remain unchanged; the active SDL2 frontend now supplies relative
 motion and active-low buttons through their existing `mousemng_getstat()`
 seam. Capture uses SDL relative mode with focus/ImGui safety, original

@@ -24,7 +24,7 @@ POSSIBILITY OF SUCH DAMAGE.
 -->
 # M26 - SDL2 host mouse input
 
-Status: implemented and machine-verified; G26 pending
+Status: complete; G26 passed
 
 Branch: `topic/m26-mouse-input`
 
@@ -345,7 +345,7 @@ builds. Unavailable platforms remain explicitly unverified.
 - Check VA and VA2/VA3, OPN/OPNA including VA Sound Board II where applicable,
   Mouse Rapid off/on, V3 boot, VA demo, and OS boot/simple operations.
 
-G26 passes only after the user explicitly reports the human checks passed.
+G26 passed: the user explicitly confirmed the human checks passed.
 
 ## Implementation record
 
@@ -389,5 +389,5 @@ The following checks passed on the Linux development host:
   `cpuxva/memoryva.x86`, and `hlp/`.
 
 The Linux release binary and Windows-MinGW `vaeg.exe` were copied to the
-shared manual-test directory. A macOS build and real host/guest mouse behavior
-remain unverified on this Linux host and are part of G26.
+shared manual-test directory. The user completed the real host/guest mouse
+checks; macOS remains outside the available build environment.
