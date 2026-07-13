@@ -239,13 +239,38 @@ separate parity correction or move it to Open Defects.
   stack. A VA ROM switch from bank 1 to backup-memory bank 9 hid a pushed map
   value; the subsequent pop restored `FFFFH`, selected bank F, and corrupted
   stack/interrupt state.
-- **Correction:** limited CPU-visible bank-1 TVRAM to 64KB, returned open-bus
-  ones, and ignored writes in `B0000H-DFFFFH`, including boundary-crossing
-  word access.
+- **Correction:** limited VA1 CPU-visible bank-1 TVRAM to 64KB, returned
+  open-bus ones, and ignored writes in `B0000H-DFFFFH`, including
+  boundary-crossing word access.
 - **Verification:** ROM-less aperture tests and successful maintainer VA1
   PC-Engine 1.00 boot.
 - **Evidence:** [M29 VA1 TVRAM aperture task](../agents/tasks/M29_va1_tvram_aperture.md).
 - **Commit:** [c17d64a](https://github.com/nakatamaho/vaeg/commit/c17d64a71f6f32cf9ce6cd070da7ae3e68899af6).
+
+### The M29 TVRAM clamp regressed VA2 V3 BASIC
+
+- **Status:** fixed during M31 verification.
+- **Symptom:** M28 could enter and use VA2 V3 BASIC, while its direct child
+  M29 froze after entering BASIC. VA1 PC-Engine 1.00 still required the M29
+  aperture correction.
+- **Root cause:** the M29 `A0000H-AFFFFH` limit was implemented in shared
+  `tvram_*()` handlers without a model check, so it changed the VA2/VA3
+  memory path as well as VA1. NEC specifications identify 64KB of TVRAM in
+  VA1 and 256KB in VA2/VA3.
+- **Correction:** apply the 64KB/open-bus behavior only to `PCMODEL_VA1` and
+  preserve the 256KB bank-1 backing behavior for `PCMODEL_VA2`. This matches
+  the documented physical TVRAM capacities; the VA2 V3 BASIC regression test
+  also exercises the active `A0000H-DFFFFH` mapping.
+- **Verification:** ROM-less tests cover both model-specific mappings. Human
+  testing confirmed VA2 V3 BASIC and VA1 PC-Engine 1.00; the separate inherited
+  VA1 V3 BASIC command failure remains open.
+- **Evidence:** [M29 VA1 TVRAM aperture task](../agents/tasks/M29_va1_tvram_aperture.md),
+  [M31 CLI boot-model task](../agents/tasks/M31_cli_boot_model.md),
+  [NEC PC-88VA specification](https://support.nec-lavie.jp/support/product/data/spec/cpu/b047-1.html),
+  [NEC PC-88VA2 specification](https://support.nec-lavie.jp/support/product/data/spec/cpu/b048-1.html),
+  [NEC PC-88VA3 specification](https://support.nec-lavie.jp/support/product/data/spec/cpu/b049-1.html),
+  and the [PC-88VA hardware comparison](http://www.pc88.gr.jp/~va/va-hard.html#mem).
+- **Commit:** [c580222](https://github.com/nakatamaho/vaeg/commit/c5802228f1d8f7cf91b41d1182aaad4ebd30ccea).
 
 ### The disabled VA BMS window incorrectly exposed ordinary RAM
 
