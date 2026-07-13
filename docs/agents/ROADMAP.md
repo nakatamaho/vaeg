@@ -60,7 +60,7 @@ history, not by a current CI or compile guarantee.
 | M24 | tasks/M24_host_clipboard_paste.md | Paste host clipboard printable ASCII and line breaks through a paced guest keyboard make/break queue | **G24 passed** |
 | M25 | tasks/M25_fdd_raw_images.md | Create formatted FAT12 FDD images as D88 or mtools-compatible IMG raw containers | **G25 passed** |
 | M26 | tasks/M26_mouse_input.md | Port original relative mouse capture to SDL2 and expose the VA joystick/mouse controller-port choice | **G26 human** |
-| M27 | tasks/M27_frame_display.md | Restore the original measured guest-draw FPS display in the native window title | **G27 human** |
+| M27 | tasks/M27_frame_display.md | Restore the original measured guest-draw FPS display in the native window title | **G27 passed** |
 
 Phase 2 dependencies: M7 → M8 → {M9, M10 parallel} → M11 → M12 → M13.
 Post-phase dependency: M13 → M14 → M15 → M16 → M17 → M18 → M19 → M20 → M21 → M22 → M23 → M24 → M25 → M26 → M27.
@@ -148,9 +148,10 @@ F12/middle-button controls, and persisted VA joystick/mouse port selection.
 The implementation record and G26 checklist are in
 `tasks/M26_mouse_input.md`.
 
-M27 restores the original Frame Disp semantics in the SDL2 frontend. It
-measures the core guest-draw counter over an approximately two-second window
-and appends `N.NFPS` to the native window title. It does not report ImGui
+M27 is complete and G27 passed. It restores the original Frame Disp semantics
+in the SDL2 frontend. It measures the core guest-draw counter over an
+approximately two-second window and appends `N.NFPS` to the native window
+title. It does not report ImGui
 present rate or change frame skip, VBlank, CPU/SGP speed, or host pacing. The
 implementation scope and G27 checklist are in `tasks/M27_frame_display.md`.
 
