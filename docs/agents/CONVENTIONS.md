@@ -6,7 +6,7 @@
 |-----------|------|---------|
 | Encoding  | UTF-8 without BOM everywhere except `hlp/` (CP932, permanent exemption) | `tools/repo/check_encoding.py` |
 | EOL       | LF; `.dsp/.dsw/.sln/.vcproj/.vcxproj` CRLF via `.gitattributes` | `tools/repo/check_eol.py` |
-| Names     | all tracked paths lowercase, except tool-mandated names and `external/` (allowlist in `check_case.py`) | `tools/repo/check_case.py` |
+| Names     | tracked paths lowercase, except tool/project-mandated names such as top-level `CHANGES*.md` and `external/` (allowlist in `check_case.py`) | `tools/repo/check_case.py` |
 | Binaries  | `romimage/`, ROMs, disk images, fonts, icons, wave data are untouchable | review |
 
 Run the checkers before every push. A regression in any invariant is a

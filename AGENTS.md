@@ -41,7 +41,9 @@ Always push the branch and report the exact commit SHAs when done.
   Exemption: `hlp/` stays CP932 (HTML Help Workshop requirement).
 - EOL is LF. Exceptions (`.dsp/.dsw/.sln/.vcproj/.vcxproj` = CRLF) are
   enforced by `.gitattributes`; do not add new CRLF files.
-- All tracked paths are lowercase. New files must be lowercase.
+- Tracked paths are lowercase except tool- or project-mandated names listed
+  by `tools/repo/check_case.py`, including top-level `CHANGES*.md` release
+  notes. New paths must otherwise be lowercase.
 - Never modify binary payloads: `romimage/`, ROM/disk images, fonts,
   icons, cursors, wave data.
 - Never re-encode, re-wrap, or reformat lines you are not changing.
