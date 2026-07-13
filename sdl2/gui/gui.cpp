@@ -42,6 +42,7 @@
 #include "gui/gui.h"
 #include "diskdrv.h"
 #include "dosio.h"
+#include "dropmedia.h"
 #include "fddfile.h"
 #include "keystat.h"
 #include "newdisk.h"
@@ -839,6 +840,7 @@ static void mount_fdd_from_dialog(void) {
 	}
 	diskdrv_setfdd(static_cast<REG8>(drive), path, 0);
 	remember_fdd_mount(drive, path);
+	dropmedia_prune_storage();
 	persist_fdd_dir(parent_dir(path));
 	set_fdd_status(drive, "mounted", path);
 	g_gui.fdd_browser_open = false;
@@ -934,6 +936,7 @@ static void eject_fdd(int drive) {
 
 	diskdrv_setfdd(static_cast<REG8>(drive), nullptr, 0);
 	remember_fdd_mount(drive, nullptr);
+	dropmedia_prune_storage();
 	set_fdd_status(drive, "ejected", nullptr);
 }
 
@@ -1212,6 +1215,10 @@ static void draw_fdd_menu(void) {
 		menu_item_not_implemented("FDD3 Eject (not implemented)");
 		menu_item_not_implemented("FDD4 Open... (not implemented)");
 		menu_item_not_implemented("FDD4 Eject (not implemented)");
+		if (dropmedia_status()[0] != '\0') {
+			ImGui::Separator();
+			ImGui::TextWrapped("%s", dropmedia_status());
+		}
 		ImGui::EndMenu();
 	}
 }

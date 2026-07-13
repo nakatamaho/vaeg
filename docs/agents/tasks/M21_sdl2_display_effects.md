@@ -22,7 +22,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 -->
 # M21 - SDL2 display effects, resizable viewport, and fullscreen
 
-Status: implementation complete; G21 pending
+Status: complete; G21 passed
 
 Branch: `topic/m21-sdl2-display-effects`
 
