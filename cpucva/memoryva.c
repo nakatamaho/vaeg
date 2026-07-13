@@ -31,6 +31,7 @@
 #include	"memoryva.h"
 #include	"gvramva.h"
 #include	"va91.h"
+#include	"bmsio.h"
 
 
 void MEMCALL gvram_wt(UINT32 address, REG8 value);
@@ -42,6 +43,7 @@ enum {
 	CPUADDR_SYSM		= 0x0a0000,
 	CPUADDR_ROM0		= 0x0e0000,
 	CPUADDR_ROM1		= 0x0f0000,
+	CPUADDR_BMS		= 0x080000,
 	CPUADDR_BACKUP		= 0x0b0000,
 	/* Bank 1 exposes TVRAM only at A0000-AFFFF. */
 	TVRAM_SIZE			= 0x10000,
@@ -348,7 +350,16 @@ static void MEMCALL i286_wn_va(UINT32 address, REG8 value) {
 
 static void MEMCALL bms_wt_va(UINT32 address, REG8 value) {
 
-	i286_wt_va(address, value);
+	UINT32	offset;
+
+	if (bmsio.nomem || (bmsiowork.bmsmem == NULL)) {
+		return;
+	}
+	offset = ((UINT32)bmsio.bank << 17) + address - CPUADDR_BMS;
+	if (offset >= bmsiowork.bmsmemsize) {
+		return;
+	}
+	bmsiowork.bmsmem[offset] = (BYTE)value;
 }
 
 static void MEMCALL sysm_wt(UINT32 address, REG8 value) {
@@ -425,7 +436,17 @@ static void MEMCALL i286w_wn_va(UINT32 address, REG16 value) {
 
 static void MEMCALL bmsw_wt_va(UINT32 address, REG16 value) {
 
-	i286w_wt_va(address, value);
+	UINT32	offset;
+
+	if (bmsio.nomem || (bmsiowork.bmsmem == NULL)) {
+		return;
+	}
+	offset = ((UINT32)bmsio.bank << 17) + address - CPUADDR_BMS;
+	if ((offset >= bmsiowork.bmsmemsize) ||
+		((bmsiowork.bmsmemsize - offset) < 2)) {
+		return;
+	}
+	STOREINTELWORD(bmsiowork.bmsmem + offset, value);
 }
 
 static void MEMCALL sysmw_wt(UINT32 address, REG16 value) {
@@ -488,7 +509,16 @@ static REG8 MEMCALL i286_rn_va(UINT32 address) {
 
 static REG8 MEMCALL bms_rd_va(UINT32 address) {
 
-	return(i286_rd_va(address));
+	UINT32	offset;
+
+	if (bmsio.nomem || (bmsiowork.bmsmem == NULL)) {
+		return(0xff);
+	}
+	offset = ((UINT32)bmsio.bank << 17) + address - CPUADDR_BMS;
+	if (offset >= bmsiowork.bmsmemsize) {
+		return(0xff);
+	}
+	return(bmsiowork.bmsmem[offset]);
 }
 
 static REG8 MEMCALL sysm_rd(UINT32 address) {
@@ -641,7 +671,17 @@ static REG16 MEMCALL i286w_rn_va(UINT32 address) {
 
 static REG16 MEMCALL bmsw_rd_va(UINT32 address) {
 
-	return(i286w_rd_va(address));
+	UINT32	offset;
+
+	if (bmsio.nomem || (bmsiowork.bmsmem == NULL)) {
+		return(0xffff);
+	}
+	offset = ((UINT32)bmsio.bank << 17) + address - CPUADDR_BMS;
+	if ((offset >= bmsiowork.bmsmemsize) ||
+		((bmsiowork.bmsmemsize - offset) < 2)) {
+		return(0xffff);
+	}
+	return(LOADINTELWORD(bmsiowork.bmsmem + offset));
 }
 
 static REG16 MEMCALL sysmw_rd(UINT32 address) {
