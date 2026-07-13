@@ -31,6 +31,7 @@
 #include	"dropmedia.h"
 #include	"fddfile.h"
 #include	"fdd_d88.h"
+#include	"fdd_xdf.h"
 #include	"kbdmap.h"
 #include	"kbdpaste.h"
 #include	"newdisk.h"
@@ -222,9 +223,71 @@ static int test_new_fdd_image(void) {
 		}
 		file_close(fh);
 		file_delete(path);
+
+		SPRINTF(path, "vaeg-selftest-%lu-fdd-%u.img",
+				(unsigned long)getpid(), geometry->format);
+		file_delete(path);
+		if (newdisk_fdd_msdos_ex(path, geometry->format,
+							NEWDISK_FDD_CONTAINER_RAW) != SUCCESS) {
+			result = fail("new-fdd", "formatted raw creation failed");
+			break;
+		}
+		if (newdisk_fdd_msdos_ex(path, geometry->format,
+							NEWDISK_FDD_CONTAINER_RAW) != FAILURE) {
+			result = fail("new-fdd", "existing raw image was overwritten");
+			file_delete(path);
+			break;
+		}
+		ZeroMemory(&parsed, sizeof(parsed));
+		if ((fddxdf_set(&parsed, path, 0) != SUCCESS) ||
+			(parsed.inf.xdf.headersize != 0) ||
+			(parsed.inf.xdf.tracks != tracks) ||
+			(parsed.inf.xdf.sectors != geometry->sectors) ||
+			(parsed.inf.xdf.n != geometry->sector_n) ||
+			(parsed.inf.xdf.disktype != (geometry->d88_type >> 4))) {
+			result = fail("new-fdd", "active raw loader rejected the image");
+			file_delete(path);
+			break;
+		}
+		fh = file_open_rb(path);
+		if (fh == FILEH_INVALID) {
+			result = fail("new-fdd", "created raw image could not be opened");
+			file_delete(path);
+			break;
+		}
+		expected_size = total_sectors * geometry->sector_size;
+		if ((file_getsize(fh) != expected_size) ||
+			(file_read(fh, sector, geometry->sector_size) !=
+			 geometry->sector_size) ||
+			(LOADINTELWORD(sector + 11) != geometry->sector_size) ||
+			(sector[13] != geometry->sectors_per_cluster) ||
+			(LOADINTELWORD(sector + 17) != geometry->root_entries) ||
+			(LOADINTELWORD(sector + 19) != total_sectors) ||
+			(sector[21] != geometry->media) ||
+			(LOADINTELWORD(sector + 22) != geometry->fat_sectors) ||
+			(LOADINTELWORD(sector + 24) != geometry->sectors) ||
+			(LOADINTELWORD(sector + 26) != geometry->heads) ||
+			(sector[510] != 0x55) || (sector[511] != 0xaa)) {
+			result = fail("new-fdd", "raw FAT12 BPB is invalid");
+			file_close(fh);
+			file_delete(path);
+			break;
+		}
+		data_offset = fat_sector * geometry->sector_size;
+		if ((file_seek(fh, data_offset, SEEK_SET) != (long)data_offset) ||
+			(file_read(fh, sector, 3) != 3) ||
+			(sector[0] != geometry->media) ||
+			(sector[1] != 0xff) || (sector[2] != 0xff)) {
+			result = fail("new-fdd", "raw second FAT was not initialized");
+			file_close(fh);
+			file_delete(path);
+			break;
+		}
+		file_close(fh);
+		file_delete(path);
 	}
 	if (result == SUCCESS) {
-		fprintf(stderr, "selftest: formatted D88 images ok\n");
+		fprintf(stderr, "selftest: formatted D88/raw images ok\n");
 	}
 	return(result);
 }

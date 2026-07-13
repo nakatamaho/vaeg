@@ -84,7 +84,7 @@ static bool image_extension_supported(const std::string &path) {
 
 	static const char *extensions[] = {
 		".d88", ".88d", ".d98", ".98d", ".fdi",
-		".xdf", ".hdm", ".dup", ".2hd", ".tfd"
+		".xdf", ".hdm", ".dup", ".2hd", ".tfd", ".img"
 	};
 	const std::string extension = path_extension(path);
 
@@ -588,6 +588,7 @@ extern "C" BOOL dropmedia_selftest(void) {
 
 	if ((!image_extension_supported("disk.D88")) ||
 		(!image_extension_supported("disk.2HD")) ||
+		(!image_extension_supported("disk.IMG")) ||
 		image_extension_supported("disk.zip") ||
 		(!archive_extension_supported("set.7Z")) ||
 		(!archive_extension_supported("set.LZH"))) {

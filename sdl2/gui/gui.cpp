@@ -161,6 +161,7 @@ struct GuiState {
 	bool new_fdd_open = false;
 	bool new_fdd_refresh = false;
 	int new_fdd_format = NEWDISK_FDD_MSDOS_2HD;
+	int new_fdd_container = NEWDISK_FDD_CONTAINER_D88;
 	int new_fdd_drive = 0;
 	bool new_fdd_mount_after_create = true;
 	char new_fdd_path[MAX_PATH] = {};
@@ -827,15 +828,18 @@ static void open_new_sasi_dialog(int drive) {
 	g_gui.hdd_browser_open = false;
 }
 
-static const char *new_fdd_default_name(int format) {
+static const char *new_fdd_default_name(int format, int container) {
 
-	switch (format) {
-		case NEWDISK_FDD_MSDOS_2DD:
-			return "newdisk-2dd.d88";
-
-		default:
-			return "newdisk-2hd.d88";
+	if (container == NEWDISK_FDD_CONTAINER_RAW) {
+		if (format == NEWDISK_FDD_MSDOS_2DD) {
+			return "newdisk-2dd.img";
+		}
+		return "newdisk-2hd.img";
 	}
+	if (format == NEWDISK_FDD_MSDOS_2DD) {
+		return "newdisk-2dd.d88";
+	}
+	return "newdisk-2hd.d88";
 }
 
 static void open_new_fdd_dialog(int format) {
@@ -845,6 +849,7 @@ static void open_new_fdd_dialog(int format) {
 
 	g_gui.new_fdd_format = std::clamp(format, 0,
 									NEWDISK_FDD_MSDOS_COUNT - 1);
+	g_gui.new_fdd_container = NEWDISK_FDD_CONTAINER_D88;
 	if ((np2oscfg.gui_fdd_dir[0] != '\0') &&
 		is_directory(np2oscfg.gui_fdd_dir)) {
 		start_dir = np2oscfg.gui_fdd_dir;
@@ -854,7 +859,8 @@ static void open_new_fdd_dialog(int format) {
 	}
 	g_gui.fdd_browser_dir = absolute_path(start_dir);
 	path = join_path(g_gui.fdd_browser_dir,
-					new_fdd_default_name(g_gui.new_fdd_format));
+					new_fdd_default_name(g_gui.new_fdd_format,
+									 g_gui.new_fdd_container));
 	copy_path(g_gui.new_fdd_path, sizeof(g_gui.new_fdd_path), path);
 	g_gui.new_fdd_drive = 0;
 	g_gui.new_fdd_mount_after_create = true;
@@ -931,7 +937,7 @@ static std::string hdi_path(const char *path) {
 	return result;
 }
 
-static std::string d88_path(const char *path) {
+static std::string fdd_image_path(const char *path, int container) {
 
 	std::string result;
 	std::string extension;
@@ -946,8 +952,16 @@ static std::string d88_path(const char *path) {
 	extension = p.extension().u8string();
 	std::transform(extension.begin(), extension.end(), extension.begin(),
 		[](unsigned char c) { return static_cast<char>(std::tolower(c)); });
-	if (extension != ".d88") {
-		p += ".d88";
+	const char *wanted = (container == NEWDISK_FDD_CONTAINER_RAW) ?
+							".img" : ".d88";
+	if (extension.empty()) {
+		p += wanted;
+	}
+	else if ((extension == ".d88") || (extension == ".img")) {
+		p.replace_extension(wanted);
+	}
+	else if (extension != wanted) {
+		p += wanted;
 	}
 	return p.u8string();
 }
@@ -956,13 +970,16 @@ static void create_new_fdd_image(void) {
 
 	int drive;
 	int format;
+	int container;
 	std::string path;
 	short attr;
 
 	drive = std::clamp(g_gui.new_fdd_drive, 0, 1);
 	format = std::clamp(g_gui.new_fdd_format, 0,
 									NEWDISK_FDD_MSDOS_COUNT - 1);
-	path = d88_path(g_gui.new_fdd_path);
+	container = std::clamp(g_gui.new_fdd_container, 0,
+									NEWDISK_FDD_CONTAINER_COUNT - 1);
+	path = fdd_image_path(g_gui.new_fdd_path, container);
 	if (path.empty()) {
 		g_gui.fdd_status = "New FDD image failed: path is empty.";
 		return;
@@ -978,8 +995,8 @@ static void create_new_fdd_image(void) {
 				"New FDD image failed: parent directory not found.";
 		return;
 	}
-	if (newdisk_fdd_msdos(path.c_str(), static_cast<UINT>(format)) !=
-		SUCCESS) {
+	if (newdisk_fdd_msdos_ex(path.c_str(), static_cast<UINT>(format),
+								 static_cast<UINT>(container)) != SUCCESS) {
 		g_gui.fdd_status = "New FDD image failed: create failed.";
 		return;
 	}
@@ -992,7 +1009,7 @@ static void create_new_fdd_image(void) {
 		set_fdd_status(drive, "created and mounted", path.c_str());
 	}
 	else {
-		g_gui.fdd_status = "New formatted D88 image created: ";
+		g_gui.fdd_status = "New FDD image created: ";
 		g_gui.fdd_status += path;
 	}
 	g_gui.new_fdd_open = false;
@@ -1283,14 +1300,15 @@ static void draw_new_fdd_dialog(void) {
 	}
 	ImGui::SetNextWindowSize(ImVec2(620.0f, 500.0f),
 							 ImGuiCond_FirstUseEver);
-	if (ImGui::Begin("Create formatted D88 image", &g_gui.new_fdd_open)) {
+	if (ImGui::Begin("New FDD image", &g_gui.new_fdd_open)) {
 		ImGui::Text("Target directory");
 		ImGui::TextWrapped("%s", g_gui.fdd_browser_dir.c_str());
 		if (ImGui::Button("Home##new-fdd")) {
 			g_gui.fdd_browser_dir = home_dir();
 			copy_path(g_gui.new_fdd_path, sizeof(g_gui.new_fdd_path),
 				join_path(g_gui.fdd_browser_dir,
-						new_fdd_default_name(g_gui.new_fdd_format)));
+						new_fdd_default_name(g_gui.new_fdd_format,
+										 g_gui.new_fdd_container)));
 			g_gui.new_fdd_refresh = true;
 		}
 		ImGui::SameLine();
@@ -1298,7 +1316,8 @@ static void draw_new_fdd_dialog(void) {
 			g_gui.fdd_browser_dir = parent_dir(g_gui.fdd_browser_dir);
 			copy_path(g_gui.new_fdd_path, sizeof(g_gui.new_fdd_path),
 				join_path(g_gui.fdd_browser_dir,
-						new_fdd_default_name(g_gui.new_fdd_format)));
+						new_fdd_default_name(g_gui.new_fdd_format,
+										 g_gui.new_fdd_container)));
 			g_gui.new_fdd_refresh = true;
 		}
 		ImGui::Separator();
@@ -1313,7 +1332,8 @@ static void draw_new_fdd_dialog(void) {
 						copy_path(g_gui.new_fdd_path,
 								  sizeof(g_gui.new_fdd_path),
 							join_path(entry.path, new_fdd_default_name(
-												g_gui.new_fdd_format)));
+											g_gui.new_fdd_format,
+											g_gui.new_fdd_container)));
 						g_gui.new_fdd_refresh = true;
 					}
 					else {
@@ -1327,6 +1347,20 @@ static void draw_new_fdd_dialog(void) {
 		ImGui::SetNextItemWidth(-1.0f);
 		ImGui::InputText("##new-fdd-path", g_gui.new_fdd_path,
 						 sizeof(g_gui.new_fdd_path));
+		ImGui::Text("Image format");
+		if (ImGui::RadioButton("D88", &g_gui.new_fdd_container,
+							NEWDISK_FDD_CONTAINER_D88)) {
+			copy_path(g_gui.new_fdd_path, sizeof(g_gui.new_fdd_path),
+				fdd_image_path(g_gui.new_fdd_path,
+								NEWDISK_FDD_CONTAINER_D88));
+		}
+		ImGui::SameLine();
+		if (ImGui::RadioButton("IMG (raw)", &g_gui.new_fdd_container,
+							NEWDISK_FDD_CONTAINER_RAW)) {
+			copy_path(g_gui.new_fdd_path, sizeof(g_gui.new_fdd_path),
+				fdd_image_path(g_gui.new_fdd_path,
+								NEWDISK_FDD_CONTAINER_RAW));
+		}
 		ImGui::Text("Disk format");
 		ImGui::RadioButton("2HD (1.2 MB)", &g_gui.new_fdd_format,
 						   NEWDISK_FDD_MSDOS_2HD);
@@ -1480,7 +1514,7 @@ static void draw_fdd_menu(void) {
 			ImGui::TextWrapped("%s", dropmedia_status());
 		}
 		ImGui::Separator();
-		if (ImGui::BeginMenu("New formatted D88 image")) {
+		if (ImGui::BeginMenu("New FDD image")) {
 			if (ImGui::MenuItem("2HD (1.2 MB)...")) {
 				open_new_fdd_dialog(NEWDISK_FDD_MSDOS_2HD);
 			}
