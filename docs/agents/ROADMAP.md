@@ -175,9 +175,10 @@ legacy `textmem` object, but VA1 CPU access is limited to the documented 64KB
 ignores writes. This prevents PC-Engine 1.00 from misdetecting banked system
 memory as main RAM and placing its VA1 stack where a ROM bank switch hides it.
 M31 testing found that applying the same clamp to VA2/VA3 regressed V3 BASIC,
-so that compatibility path retains the M28 bank-1 behavior pending hardware
-verification. The root-cause trace, rejected workarounds, automated boundary
-tests, regression record, and human results are in
+so that model retains its 256KB bank-1 behavior. NEC's VA, VA2, and VA3 product
+specifications confirm the model split: 64KB of TVRAM in VA1 and 256KB in
+VA2/VA3. The root-cause trace, rejected workarounds, automated boundary tests,
+regression record, and human results are in
 `tasks/M29_va1_tvram_aperture.md`.
 
 M30 restores the frozen implementation's BMS behavior in the portable VA
