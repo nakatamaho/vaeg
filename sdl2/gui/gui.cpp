@@ -68,9 +68,11 @@
 #include "sdlkbd.h"
 #include "sgp.h"
 #include "soundmng.h"
+#include "soundopts.h"
 #include "strres.h"
 #include "sysmng.h"
 #include "taskmng.h"
+#include "ymfmbridge.h"
 #include "tms3631.h"
 
 extern "C" {
@@ -90,6 +92,7 @@ constexpr int kMasterVolumeMax = 128;
 constexpr int kSasiImageCount = 6;
 constexpr int kCpuPresets[] = {1, 2, 4, 5, 6, 8, 10, 12, 16, 20};
 constexpr int kSgpPresets[] = {1, 2, 4, 8, 16};
+constexpr int kSoundBufferPresets[] = {40, 100, 200, 500, 1000};
 constexpr const char kAboutInfoTemplate[] =
 	"CPU: %CPU% %CLOCK%\n"
 	"MODEL: %MODEL%\n"
@@ -194,6 +197,9 @@ struct GuiState {
 	bool custom_size_request = false;
 	int pending_window_width = 640;
 	int pending_window_height = 422;
+	bool sound_buffer_open = false;
+	bool sound_buffer_request = false;
+	int pending_sound_buffer_ms = VAEG_SOUND_BUFFER_DEFAULT_MS;
 	bool about_open = false;
 	bool about_request = false;
 	bool about_more = false;
@@ -463,6 +469,44 @@ static void select_opn_backend(UINT backend) {
 										sizeof(np2oscfg.opn_backend));
 	soundrenewal = 1;
 	sysmng_update(SYS_UPDATEOSCFG);
+	reset_guest();
+}
+
+static void select_ymfm_fidelity(UINT fidelity) {
+
+	if ((fidelity >= YMFMBRIDGE_FIDELITY_COUNT) ||
+		(ymfm_opn_getfidelity() == fidelity)) {
+		return;
+	}
+	soundmng_stop();
+	ymfm_opn_setfidelity(fidelity);
+	milstr_ncpy(np2oscfg.ymfm_fidelity,
+				ymfm_opn_fidelityname(fidelity),
+				sizeof(np2oscfg.ymfm_fidelity));
+	soundrenewal = 1;
+	sysmng_update(SYS_UPDATEOSCFG);
+	reset_guest();
+}
+
+static void select_sampling_rate(UINT rate) {
+
+	if (!vaeg_sound_rate_valid(rate) || (np2cfg.samplingrate == rate)) {
+		return;
+	}
+	np2cfg.samplingrate = static_cast<UINT16>(rate);
+	soundrenewal = 1;
+	sysmng_update(SYS_UPDATECFG | SYS_UPDATERATE);
+	reset_guest();
+}
+
+static void select_sound_buffer(UINT delayms) {
+
+	if (!vaeg_sound_buffer_valid(delayms) || (np2cfg.delayms == delayms)) {
+		return;
+	}
+	np2cfg.delayms = static_cast<UINT16>(delayms);
+	soundrenewal = 1;
+	sysmng_update(SYS_UPDATECFG | SYS_UPDATESBUF);
 	reset_guest();
 }
 
@@ -1672,6 +1716,52 @@ static void draw_custom_size_dialog(void) {
 	}
 }
 
+static void open_sound_buffer_dialog(void) {
+
+	g_gui.pending_sound_buffer_ms = np2cfg.delayms;
+	g_gui.sound_buffer_request = true;
+}
+
+static void draw_sound_buffer_dialog(void) {
+
+	if (g_gui.sound_buffer_request) {
+		g_gui.sound_buffer_request = false;
+		g_gui.sound_buffer_open = true;
+		ImGui::OpenPopup("Custom sound buffer##sound");
+	}
+	if (!g_gui.sound_buffer_open) {
+		return;
+	}
+	ImGui::SetNextWindowSize(ImVec2(360.0f, 145.0f), ImGuiCond_Appearing);
+	if (ImGui::BeginPopupModal("Custom sound buffer##sound",
+									&g_gui.sound_buffer_open,
+									ImGuiWindowFlags_NoResize)) {
+		ImGui::InputInt("Buffer length (ms)",
+								&g_gui.pending_sound_buffer_ms);
+		const bool valid = vaeg_sound_buffer_valid(
+					static_cast<UINT>(g_gui.pending_sound_buffer_ms)) != FALSE;
+		if (!valid) {
+			ImGui::TextUnformatted("Buffer length must be between 40 and 1000 ms.");
+		}
+		ImGui::BeginDisabled(!valid);
+		if (ImGui::Button("Apply")) {
+			const UINT delayms =
+					static_cast<UINT>(g_gui.pending_sound_buffer_ms);
+
+			g_gui.sound_buffer_open = false;
+			ImGui::CloseCurrentPopup();
+			select_sound_buffer(delayms);
+		}
+		ImGui::EndDisabled();
+		ImGui::SameLine();
+		if (ImGui::Button("Cancel")) {
+			g_gui.sound_buffer_open = false;
+			ImGui::CloseCurrentPopup();
+		}
+		ImGui::EndPopup();
+	}
+}
+
 static void set_key_mode(BYTE mode) {
 
 	np2cfg.KEY_MODE = mode;
@@ -2044,6 +2134,59 @@ static void draw_device_menu(void) {
 				}
 				ImGui::EndMenu();
 			}
+			ImGui::BeginDisabled(opngen_getbackend() != OPN_BACKEND_YMFM);
+			if (ImGui::BeginMenu("ymfm fidelity")) {
+				const UINT fidelity = ymfm_opn_getfidelity();
+				if (ImGui::MenuItem("Minimum (~166 kHz native, default)", nullptr,
+							fidelity == YMFMBRIDGE_FIDELITY_MINIMUM)) {
+					select_ymfm_fidelity(YMFMBRIDGE_FIDELITY_MINIMUM);
+				}
+				if (ImGui::MenuItem("Medium (~333 kHz native)", nullptr,
+							fidelity == YMFMBRIDGE_FIDELITY_MEDIUM)) {
+					select_ymfm_fidelity(YMFMBRIDGE_FIDELITY_MEDIUM);
+				}
+				if (ImGui::MenuItem("Maximum (~998 kHz native, high CPU)", nullptr,
+							fidelity == YMFMBRIDGE_FIDELITY_MAXIMUM)) {
+					select_ymfm_fidelity(YMFMBRIDGE_FIDELITY_MAXIMUM);
+				}
+				ImGui::EndMenu();
+			}
+			ImGui::EndDisabled();
+			if (ImGui::BeginMenu("Sampling rate")) {
+				if (ImGui::MenuItem("11.025 kHz", nullptr,
+								np2cfg.samplingrate == 11025)) {
+					select_sampling_rate(11025);
+				}
+				if (ImGui::MenuItem("22.05 kHz", nullptr,
+								np2cfg.samplingrate == 22050)) {
+					select_sampling_rate(22050);
+				}
+				if (ImGui::MenuItem("44.1 kHz (Recommended)", nullptr,
+								np2cfg.samplingrate == 44100)) {
+					select_sampling_rate(44100);
+				}
+				ImGui::EndMenu();
+			}
+			if (ImGui::BeginMenu("Sound buffer")) {
+				bool preset_selected = false;
+				for (const int preset : kSoundBufferPresets) {
+					char label[32];
+					const bool selected = np2cfg.delayms == preset;
+
+					std::snprintf(label, sizeof(label), "%d ms", preset);
+					preset_selected = preset_selected || selected;
+					if (ImGui::MenuItem(label, nullptr, selected)) {
+						select_sound_buffer(static_cast<UINT>(preset));
+					}
+				}
+				char custom_label[48];
+				std::snprintf(custom_label, sizeof(custom_label),
+							"Custom... (%u ms)", np2cfg.delayms);
+				if (ImGui::MenuItem(custom_label, nullptr, !preset_selected)) {
+					open_sound_buffer_dialog();
+				}
+				ImGui::EndMenu();
+			}
 			bool enabled = soundmng_isenabled() ? true : false;
 			if (ImGui::MenuItem("Sound on/off", nullptr, enabled)) {
 				np2oscfg.sound_enabled = enabled ? 0 : 1;
@@ -2062,7 +2205,6 @@ static void draw_device_menu(void) {
 			if (ImGui::SliderInt("Master volume", &volume, 0, 128)) {
 				apply_master_volume(volume);
 			}
-			menu_item_not_implemented("Sound option... (not implemented)");
 			ImGui::EndMenu();
 		}
 		menu_item_not_implemented("Memory (not implemented)");
@@ -2449,6 +2591,7 @@ void gui_draw(void) {
 	draw_keyboard_config();
 	draw_configure_dialog();
 	draw_custom_size_dialog();
+	draw_sound_buffer_dialog();
 	draw_about_dialog();
 }
 

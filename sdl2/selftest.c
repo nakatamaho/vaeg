@@ -52,8 +52,10 @@
 #include	"scrndrawva.h"
 #include	"sdrawva.h"
 #include	"soundmng.h"
+#include	"soundopts.h"
 #include	"strres.h"
 #include	"viewport.h"
+#include	"ymfmbridge.h"
 
 static int fail(const char *name, const char *detail) {
 
@@ -1204,6 +1206,33 @@ static void program_opn_test_voice(void) {
 	opngen_keyon(0, 0xf0);
 }
 
+static int test_sound_options(void) {
+
+	if (!vaeg_sound_rate_valid(11025) ||
+		!vaeg_sound_rate_valid(22050) ||
+		!vaeg_sound_rate_valid(44100) ||
+		vaeg_sound_rate_valid(0) || vaeg_sound_rate_valid(48000)) {
+		return(fail("sound-options", "sampling-rate validation failed"));
+	}
+	if (!vaeg_sound_buffer_valid(40) ||
+		!vaeg_sound_buffer_valid(1000) ||
+		vaeg_sound_buffer_valid(39) || vaeg_sound_buffer_valid(1001) ||
+		(vaeg_sound_buffer_clamp(39) != 40) ||
+		(vaeg_sound_buffer_clamp(1001) != 1000) ||
+		(vaeg_sound_buffer_clamp(200) != 200)) {
+		return(fail("sound-options", "buffer validation failed"));
+	}
+	if ((vaeg_sound_buffer_samples(44100, 40, 2) != 1024) ||
+		(vaeg_sound_buffer_samples(22050, 500, 2) != 8192) ||
+		(vaeg_sound_buffer_samples(48000, 40, 2) != 0) ||
+		(vaeg_sound_buffer_samples(44100, 39, 2) != 0) ||
+		(vaeg_sound_buffer_samples(44100, 40, 0) != 0)) {
+		return(fail("sound-options", "buffer sample calculation failed"));
+	}
+	fprintf(stderr, "selftest: sound options ok\n");
+	return(SUCCESS);
+}
+
 static int opn_backend_produces_audio(UINT backend, REG8 channels,
 												UINT flags) {
 
@@ -1249,6 +1278,30 @@ static int test_opn_backends(void) {
 	}
 	soundmng_setenabled(saved_sound_enabled);
 	opngen_initialize(44100);
+	if ((ymfm_opn_parsefidelity("minimum") !=
+							YMFMBRIDGE_FIDELITY_MINIMUM) ||
+		(ymfm_opn_parsefidelity("medium") !=
+							YMFMBRIDGE_FIDELITY_MEDIUM) ||
+		(ymfm_opn_parsefidelity("maximum") !=
+							YMFMBRIDGE_FIDELITY_MAXIMUM) ||
+		(ymfm_opn_parsefidelity("invalid") !=
+							YMFMBRIDGE_FIDELITY_DEFAULT)) {
+		return(fail("opn-backend", "ymfm fidelity parsing failed"));
+	}
+	ymfm_opn_setfidelity(YMFMBRIDGE_FIDELITY_MEDIUM);
+	if ((ymfm_opn_getfidelity() != YMFMBRIDGE_FIDELITY_MEDIUM) ||
+		strcmp(ymfm_opn_fidelityname(ymfm_opn_getfidelity()), "medium")) {
+		return(fail("opn-backend", "ymfm fidelity selection failed"));
+	}
+	ymfm_opn_setfidelity(YMFMBRIDGE_FIDELITY_MAXIMUM);
+	if ((ymfm_opn_getfidelity() != YMFMBRIDGE_FIDELITY_MAXIMUM) ||
+		strcmp(ymfm_opn_fidelityname(ymfm_opn_getfidelity()), "maximum")) {
+		return(fail("opn-backend", "maximum ymfm fidelity selection failed"));
+	}
+	ymfm_opn_setfidelity(99);
+	if (ymfm_opn_getfidelity() != YMFMBRIDGE_FIDELITY_DEFAULT) {
+		return(fail("opn-backend", "invalid ymfm fidelity did not fallback"));
+	}
 	if (opngen_parsebackend("np2") != OPN_BACKEND_NP2 ||
 		opngen_parsebackend("ymfm") != OPN_BACKEND_YMFM ||
 		opngen_parsebackend("invalid") != OPN_BACKEND_YMFM ||
@@ -1261,14 +1314,16 @@ static int test_opn_backends(void) {
 		return(fail("opn-backend", "NP2 YM2203 path was silent"));
 	}
 	if (opn_backend_produces_audio(OPN_BACKEND_YMFM, 3,
-										OPN_MONORAL | 0x007) != SUCCESS) {
+									OPN_MONORAL | 0x007) != SUCCESS) {
 		return(fail("opn-backend", "ymfm YM2203 path was silent"));
 	}
+	ymfm_opn_setfidelity(YMFMBRIDGE_FIDELITY_MAXIMUM);
 	if (opn_backend_produces_audio(OPN_BACKEND_YMFM, 6,
 										OPN_STEREO | 0x03f) != SUCCESS) {
 		return(fail("opn-backend", "ymfm YM2608 path was silent"));
 	}
 	opngen_setbackend(OPN_BACKEND_YMFM);
+	ymfm_opn_setfidelity(YMFMBRIDGE_FIDELITY_DEFAULT);
 	opngen_reset();
 	fprintf(stderr, "selftest: OPN backends ok\n");
 	return(SUCCESS);
@@ -1311,6 +1366,9 @@ int vaeg_selftest_run(void) {
 	}
 	fprintf(stderr, "selftest: dropmedia ok\n");
 	if (test_mouse_state() != SUCCESS) {
+		return(FAILURE);
+	}
+	if (test_sound_options() != SUCCESS) {
 		return(FAILURE);
 	}
 	if (test_keyboard_mapping() != SUCCESS) {

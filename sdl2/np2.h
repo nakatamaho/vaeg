@@ -28,7 +28,8 @@
 enum {
 	NP2OSCFG_KEYBOARD_NAME_SIZE = 16,
 	NP2OSCFG_KEYBOARD_CUSTOM_MAP_SIZE = 8192,
-	NP2OSCFG_OPN_BACKEND_NAME_SIZE = 8
+	NP2OSCFG_OPN_BACKEND_NAME_SIZE = 8,
+	NP2OSCFG_YMFM_FIDELITY_NAME_SIZE = 8
 };
 
 enum {
@@ -56,6 +57,7 @@ typedef struct {
 	BYTE	keyboard_tenkey_overlay;
 	char	keyboard_custom_map[NP2OSCFG_KEYBOARD_CUSTOM_MAP_SIZE];
 	char	opn_backend[NP2OSCFG_OPN_BACKEND_NAME_SIZE];
+	char	ymfm_fidelity[NP2OSCFG_YMFM_FIDELITY_NAME_SIZE];
 	BYTE	sound_enabled;
 	BYTE	gui_effect;
 	BYTE	gui_scaling;

@@ -31,7 +31,9 @@
 #include	"ini.h"
 #include	"pccore.h"
 #include	"sound.h"
+#include	"soundopts.h"
 #include	"opngen.h"
+#include	"ymfmbridge.h"
 #include	"sgp.h"
 #include	"scrnmng.h"
 #include	"mouseifva.h"
@@ -468,6 +470,8 @@ static const INITBL iniitem[] = {
 						sizeof(np2oscfg.keyboard_custom_map)},
 	{"opn_backend", INITYPE_STR, np2oscfg.opn_backend,
 							sizeof(np2oscfg.opn_backend)},
+	{"ymfm_fidelity", INITYPE_STR, np2oscfg.ymfm_fidelity,
+							sizeof(np2oscfg.ymfm_fidelity)},
 	{"sound_enabled", INITYPE_BOOL, &np2oscfg.sound_enabled, 0},
 	{"GUI_effect", INITYPE_UINT8, &np2oscfg.gui_effect, 0},
 	{"GUI_scaling", INITYPE_UINT8, &np2oscfg.gui_scaling, 0},
@@ -494,6 +498,20 @@ void initload(void) {
 		SDL_Log("Config load: %s", path);
 	}
 	ini_read(path, ini_title, iniitem, INIITEMS);
+	if (!vaeg_sound_rate_valid(np2cfg.samplingrate)) {
+		SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION,
+				"Invalid SampleHz=%u; using %u",
+				np2cfg.samplingrate, VAEG_SOUND_RATE_DEFAULT);
+		np2cfg.samplingrate = VAEG_SOUND_RATE_DEFAULT;
+	}
+	if (!vaeg_sound_buffer_valid(np2cfg.delayms)) {
+		const UINT delayms = vaeg_sound_buffer_clamp(np2cfg.delayms);
+
+		SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION,
+				"Invalid Latencys=%u; using %u",
+				np2cfg.delayms, delayms);
+		np2cfg.delayms = (UINT16)delayms;
+	}
 	np2oscfg.DISPCLK &= 3;
 	if (np2oscfg.gui_scale > 3) {
 		np2oscfg.gui_scale = 1;
@@ -565,6 +583,10 @@ void initload(void) {
 	milstr_ncpy(np2oscfg.opn_backend,
 				opngen_backendname(opngen_getbackend()),
 				sizeof(np2oscfg.opn_backend));
+	ymfm_opn_setfidelity(ymfm_opn_parsefidelity(np2oscfg.ymfm_fidelity));
+	milstr_ncpy(np2oscfg.ymfm_fidelity,
+				ymfm_opn_fidelityname(ymfm_opn_getfidelity()),
+				sizeof(np2oscfg.ymfm_fidelity));
 }
 
 void initsave(void) {

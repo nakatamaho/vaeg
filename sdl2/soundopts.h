@@ -22,36 +22,24 @@
  * IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-#ifndef VAEG_SOUND_YMFMBRIDGE_H
-#define VAEG_SOUND_YMFMBRIDGE_H
+#ifndef VAEG_SDL2_SOUNDOPTS_H
+#define VAEG_SDL2_SOUNDOPTS_H
+
+enum {
+	VAEG_SOUND_RATE_DEFAULT = 22050,
+	VAEG_SOUND_BUFFER_DEFAULT_MS = 500,
+	VAEG_SOUND_BUFFER_MIN_MS = 40,
+	VAEG_SOUND_BUFFER_MAX_MS = 1000
+};
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-enum {
-	YMFMBRIDGE_FIDELITY_MINIMUM = 0,
-	YMFMBRIDGE_FIDELITY_MEDIUM,
-	YMFMBRIDGE_FIDELITY_MAXIMUM,
-	YMFMBRIDGE_FIDELITY_COUNT,
-	YMFMBRIDGE_FIDELITY_DEFAULT = YMFMBRIDGE_FIDELITY_MINIMUM
-};
-
-void ymfm_opn_initialize(UINT rate);
-UINT ymfm_opn_parsefidelity(const char *name);
-const char *ymfm_opn_fidelityname(UINT fidelity);
-void ymfm_opn_setfidelity(UINT fidelity);
-UINT ymfm_opn_getfidelity(void);
-void ymfm_opn_setvol(UINT vol);
-void ymfm_opn_setvr(REG8 channel, REG8 value);
-void ymfm_opn_reset(void);
-void ymfm_opn_setcfg(REG8 maxch, UINT flag);
-void ymfm_opn_setcontrol(REG8 chbase, REG8 reg, REG8 value);
-void ymfm_opn_setextch(UINT chnum, REG8 data);
-void ymfm_opn_setreg(REG8 chbase, REG8 reg, REG8 value);
-void ymfm_opn_keyon(UINT chnum, REG8 value);
-void ymfm_opn_timerover(UINT timer);
-void ymfm_opn_getpcm(SINT32 *pcm, UINT count, BOOL use_vr);
+BOOL vaeg_sound_rate_valid(UINT rate);
+BOOL vaeg_sound_buffer_valid(UINT ms);
+UINT vaeg_sound_buffer_clamp(UINT ms);
+UINT vaeg_sound_buffer_samples(UINT rate, UINT ms, UINT buffer_count);
 
 #ifdef __cplusplus
 }
