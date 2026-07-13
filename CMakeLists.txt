@@ -325,6 +325,7 @@ set(VAEG_SDL2_SOURCES
     sdl2/soundmng.c
     sdl2/ymfmbridge.cpp
     sdl2/mousemng.c
+    sdl2/mousestate.c
     sdl2/joymng.c
     sdl2/commng.c
     sdl2/fontmng.c

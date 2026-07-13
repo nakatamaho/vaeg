@@ -57,6 +57,8 @@
 #include "fdd_mtr.h"
 #include "kbdmap.h"
 #include "kbdpaste.h"
+#include "mousemng.h"
+#include "mouseifva.h"
 #include "opngen.h"
 #include "pcm86.h"
 #include "psggen.h"
@@ -749,6 +751,7 @@ static void reset_guest(void) {
 	pccore_reset();
 	restore_reset_fdd_mounts(fdd_paths);
 	sdlkbd_reset_state();
+	mousemng_reset();
 	scrndraw_redraw();
 }
 
@@ -1683,6 +1686,28 @@ static void set_f12_key(BYTE mode) {
 	sysmng_update(SYS_UPDATEOSCFG);
 }
 
+static void set_mouse_capture(bool capture) {
+
+	np2oscfg.MOUSE_SW = capture ? 1 : 0;
+	mousemng_setcapture(capture ? TRUE : FALSE);
+	sysmng_update(SYS_UPDATEOSCFG);
+}
+
+static void set_mouse_device(UINT8 device) {
+
+	if ((device != MOUSEIFVA_JOYPAD) && (device != MOUSEIFVA_MOUSE)) {
+		return;
+	}
+	mouseifvacfg.device = device;
+	sysmng_update(SYS_UPDATECFG);
+}
+
+static void set_mouse_rapid(bool rapid) {
+
+	np2cfg.MOUSERAPID = rapid ? 1 : 0;
+	sysmng_update(SYS_UPDATECFG);
+}
+
 static void set_keyboard_layout(const char *layout) {
 
 	kbdmap_set_layout(layout);
@@ -2035,7 +2060,36 @@ static void draw_device_menu(void) {
 			ImGui::EndMenu();
 		}
 		menu_item_not_implemented("Memory (not implemented)");
-		menu_item_not_implemented("Mouse (not implemented)");
+		if (ImGui::BeginMenu("Mouse")) {
+			bool capture = np2oscfg.MOUSE_SW != 0;
+			const char *capture_shortcut = (np2oscfg.F12KEY == 0) ?
+								"F12 / middle click" : "Middle click";
+			if (ImGui::MenuItem("Capture mouse", capture_shortcut, capture)) {
+				set_mouse_capture(!capture);
+			}
+			if (ImGui::BeginMenu("VA controller port")) {
+				if (ImGui::MenuItem("Joystick", nullptr,
+						mouseifvacfg.device == MOUSEIFVA_JOYPAD)) {
+					set_mouse_device(MOUSEIFVA_JOYPAD);
+				}
+				if (ImGui::MenuItem("Mouse", nullptr,
+						mouseifvacfg.device == MOUSEIFVA_MOUSE)) {
+					set_mouse_device(MOUSEIFVA_MOUSE);
+				}
+				ImGui::EndMenu();
+			}
+			bool rapid = np2cfg.MOUSERAPID != 0;
+			if (ImGui::MenuItem("Rapid buttons", nullptr, rapid)) {
+				set_mouse_rapid(!rapid);
+			}
+			if (mousemng_status()[0] != '\0') {
+				ImGui::Separator();
+				ImGui::BeginDisabled();
+				ImGui::MenuItem(mousemng_status());
+				ImGui::EndDisabled();
+			}
+			ImGui::EndMenu();
+		}
 		menu_item_not_implemented("Serial option... (not implemented)");
 		menu_item_not_implemented("MIDI option... (not implemented)");
 		ImGui::EndMenu();
@@ -2175,6 +2229,7 @@ static void draw_state_menu(void) {
 							taskmng_clear_fast_forward();
 							statsave_load(path.c_str());
 							sdlkbd_reset_state();
+							mousemng_reset();
 							scrndraw_redraw();
 							g_gui.state_status = "State loaded: ";
 						g_gui.state_status += path;
@@ -2258,6 +2313,7 @@ void gui_shutdown(void) {
 	if (!g_gui.initialized) {
 		return;
 	}
+	mousemng_setguiblocked(TRUE);
 	if (g_gui.about_texture != nullptr) {
 		SDL_DestroyTexture(g_gui.about_texture);
 		g_gui.about_texture = nullptr;
@@ -2328,6 +2384,21 @@ BOOL gui_guest_keyboard_blocked(void) {
 	ImGuiIO &io = ImGui::GetIO();
 	if (io.WantCaptureKeyboard || io.WantTextInput ||
 		(g_gui.capture_binding >= 0)) {
+		return TRUE;
+	}
+	return (g_gui.fdd_browser_open || g_gui.hdd_browser_open ||
+			g_gui.new_fdd_open || g_gui.new_sasi_open ||
+			g_gui.keyboard_config_open || g_gui.configure_open ||
+			g_gui.custom_size_open || g_gui.about_open) ? TRUE : FALSE;
+}
+
+BOOL gui_guest_mouse_blocked(void) {
+
+	if (!g_gui.initialized) {
+		return FALSE;
+	}
+	ImGuiIO &io = ImGui::GetIO();
+	if (io.WantCaptureMouse || (g_gui.capture_binding >= 0)) {
 		return TRUE;
 	}
 	return (g_gui.fdd_browser_open || g_gui.hdd_browser_open ||

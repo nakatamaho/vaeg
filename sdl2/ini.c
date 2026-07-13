@@ -34,6 +34,7 @@
 #include	"opngen.h"
 #include	"sgp.h"
 #include	"scrnmng.h"
+#include	"mouseifva.h"
 
 
 typedef struct {
@@ -423,6 +424,7 @@ static const INITBL iniitem[] = {
 	{"btnRAPID", INITYPE_BOOL,		&np2cfg.BTN_RAPID,		0},
 	{"btn_MODE", INITYPE_BOOL,		&np2cfg.BTN_MODE,		0},
 	{"MS_RAPID", INITYPE_BOOL,		&np2cfg.MOUSERAPID,		0},
+	{"Mouse_VA", INITYPE_UINT8,		&mouseifvacfg.device,	0},
 
 	{"VRAMwait", INITYPE_BYTEARG,	np2cfg.wait,			6},
 	{"DispSync", INITYPE_BOOL,		&np2cfg.DISPSYNC,		0},
@@ -446,6 +448,7 @@ static const INITBL iniitem[] = {
 	{"s_NOWAIT", INITYPE_BOOL,		&np2oscfg.NOWAIT,		0},
 	{"SkpFrame", INITYPE_UINT8,		&np2oscfg.DRAW_SKIP,	0},
 	{"F12_bind", INITYPE_UINT8,		&np2oscfg.F12KEY,		0},
+	{"Mouse_sw", INITYPE_BOOL,		&np2oscfg.MOUSE_SW,		0},
 	{"e_resume", INITYPE_BOOL,		&np2oscfg.resume,		0},
 	{"jast_snd", INITYPE_BOOL,		&np2oscfg.jastsnd,		0},		// ver0.73
 	{"GUI_scale", INITYPE_UINT8,		&np2oscfg.gui_scale,	0},
@@ -545,6 +548,13 @@ void initload(void) {
 		np2cfg.SOUND_SW = np2_default_sound_for_model(np2cfg.model);
 	}
 	np2oscfg.sound_enabled = np2oscfg.sound_enabled ? 1 : 0;
+	np2oscfg.MOUSE_SW = np2oscfg.MOUSE_SW ? 1 : 0;
+	if (mouseifvacfg.device > MOUSEIFVA_MOUSE) {
+		SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION,
+				"Invalid Mouse_VA=%u; using joystick",
+				mouseifvacfg.device);
+		mouseifvacfg.device = MOUSEIFVA_JOYPAD;
+	}
 	np2oscfg.keyboard_auto_kana_lock =
 		np2oscfg.keyboard_auto_kana_lock ? 1 : 0;
 	np2oscfg.keyboard_tenkey_overlay =

@@ -57,6 +57,15 @@ prevents shortcut paste and pauses an active queue. Reset, state load, focus
 loss, and shutdown cancel the queue and release any synthetic key. No Unicode,
 IME text, or guest memory injection is used; guest-to-host copy remains later.
 
+M26 routes mouse events only while SDL relative mouse mode is active and
+ImGui does not want the mouse. The persistent capture request is independent
+of temporary focus, menu, modal, and binding-capture blockers. Those blockers
+release guest buttons and pending movement, suspend relative mode, and restore
+it after the blocker clears. Button-up, focus-loss, reset, state-load, quit,
+and shutdown cleanup are processed even when normal guest mouse input is
+blocked, preventing stuck buttons. F12 is a host capture toggle only when its
+binding is Mouse; middle click is always a host capture toggle outside ImGui.
+
 ## Storage Menus
 
 FDD1/FDD2 Open and Eject act immediately through the existing floppy

@@ -24,7 +24,7 @@ POSSIBILITY OF SUCH DAMAGE.
 -->
 # M26 - SDL2 host mouse input
 
-Status: planned; source audit complete; implementation not started
+Status: implemented and machine-verified; G26 pending
 
 Branch: `topic/m26-mouse-input`
 
@@ -346,3 +346,48 @@ builds. Unavailable platforms remain explicitly unverified.
   Mouse Rapid off/on, V3 boot, VA demo, and OS boot/simple operations.
 
 G26 passes only after the user explicitly reports the human checks passed.
+
+## Implementation record
+
+The active SDL2 frontend now implements the audited design:
+
+- `sdl2/mousestate.c` owns deterministic relative movement, the original
+  `VAEG_FIX` divide-by-two remainder, saturation, and active-low buttons.
+- `sdl2/mousemng.c` owns SDL relative mode and separates the saved capture
+  request from focus and ImGui blockers.
+- `sdl2/taskmng.c` routes uncaptured SDL motion and left/right buttons, treats
+  middle click as a host capture toggle, and intercepts F12 only when
+  `F12_bind=0` selects Mouse.
+- `Mouse_sw`, `Mouse_VA`, and the existing `MS_RAPID` are persisted in
+  `vaeg.cfg`. Invalid `Mouse_VA` values fall back to joystick.
+- Device -> Mouse exposes capture, VA controller-port Joystick/Mouse, rapid
+  buttons, and SDL capture errors.
+- Reset, state load, focus loss, GUI blocking, quit, and shutdown release
+  frontend movement and button state without erasing saved settings.
+
+No guest I/O implementation was changed. `pccore_exec()` continues to pull
+the frontend sample through `mouseif_sync()` and `mousemng_getstat()`, while
+`iova/mouseifva.c` retains VA nibble latching and joystick/mouse dispatch.
+
+ROM-less tests cover state initialization, inactive-input rejection,
+movement scaling and remainders, clamping and accumulator saturation,
+active-low buttons, reset/disable release, F12 Mouse non-mapping, and all
+four existing non-Mouse F12 guest mappings. Real SDL capture, guest cursor
+direction/sensitivity, INT 33h software, and controller-port behavior remain
+G26 human checks.
+
+## Verification record
+
+The following checks passed on the Linux development host:
+
+- Linux debug configure/build, ROM-less selftest, and dummy-driver smoke;
+- Linux release configure/build, ROM-less selftest, and dummy-driver smoke;
+- Linux GCC CI configure/build and its CTest selftest;
+- Windows-MinGW cross configure/build with the repository-pinned static SDL2;
+- encoding, EOL, lowercase-path, and `git diff --check` invariants;
+- an empty path-scoped diff for `win9x/`, `i286x/`,
+  `cpuxva/memoryva.x86`, and `hlp/`.
+
+The Linux release binary and Windows-MinGW `vaeg.exe` were copied to the
+shared manual-test directory. A macOS build and real host/guest mouse behavior
+remain unverified on this Linux host and are part of G26.

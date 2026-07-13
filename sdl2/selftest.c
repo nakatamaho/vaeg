@@ -34,6 +34,7 @@
 #include	"fdd_xdf.h"
 #include	"kbdmap.h"
 #include	"kbdpaste.h"
+#include	"mousestate.h"
 #include	"newdisk.h"
 #include	"np2.h"
 #include	"pacing.h"
@@ -1030,6 +1031,119 @@ static int test_keyboard_mapping(void) {
 	return(SUCCESS);
 }
 
+static int test_mouse_state(void) {
+
+	VAEG_MOUSE_STATE state;
+	SINT16 x;
+	SINT16 y;
+	BYTE buttons;
+	BYTE saved_f12;
+
+	vaeg_mouse_state_initialize(&state);
+	buttons = vaeg_mouse_state_getstat(&state, &x, &y, 1);
+	if ((x != 0) || (y != 0) || (buttons != VAEG_MOUSE_RELEASED)) {
+		return(fail("mouse", "initial state is not released"));
+	}
+	vaeg_mouse_state_motion(&state, 20, -20);
+	vaeg_mouse_state_button(&state, VAEG_MOUSE_BUTTON_LEFT, TRUE);
+	buttons = vaeg_mouse_state_getstat(&state, &x, &y, 1);
+	if ((x != 0) || (y != 0) || (buttons != VAEG_MOUSE_RELEASED)) {
+		return(fail("mouse", "inactive input was accepted"));
+	}
+
+	vaeg_mouse_state_set_active(&state, TRUE);
+	vaeg_mouse_state_motion(&state, 3, -5);
+	buttons = vaeg_mouse_state_getstat(&state, &x, &y, 0);
+#if defined(VAEG_FIX)
+	if ((x != 1) || (y != -2)) {
+#else
+	if ((x != 3) || (y != -5)) {
+#endif
+		return(fail("mouse", "relative movement scaling failed"));
+	}
+	vaeg_mouse_state_getstat(&state, &x, &y, 1);
+	vaeg_mouse_state_motion(&state, 1, -1);
+	vaeg_mouse_state_getstat(&state, &x, &y, 1);
+	if ((x != 1) || (y != -1)) {
+		return(fail("mouse", "relative movement remainder was lost"));
+	}
+
+	vaeg_mouse_state_button(&state, VAEG_MOUSE_BUTTON_LEFT, TRUE);
+	buttons = vaeg_mouse_state_getstat(&state, &x, &y, 0);
+	if (buttons != VAEG_MOUSE_RIGHTBIT) {
+		return(fail("mouse", "left button is not active-low"));
+	}
+	vaeg_mouse_state_button(&state, VAEG_MOUSE_BUTTON_RIGHT, TRUE);
+	buttons = vaeg_mouse_state_getstat(&state, &x, &y, 0);
+	if (buttons != 0) {
+		return(fail("mouse", "right button is not active-low"));
+	}
+	vaeg_mouse_state_button(&state, VAEG_MOUSE_BUTTON_LEFT, FALSE);
+	vaeg_mouse_state_button(&state, VAEG_MOUSE_BUTTON_RIGHT, FALSE);
+	buttons = vaeg_mouse_state_getstat(&state, &x, &y, 0);
+	if (buttons != VAEG_MOUSE_RELEASED) {
+		return(fail("mouse", "button release failed"));
+	}
+
+	state.x = ((SINT64)INT16_MAX + 1) * 2;
+	vaeg_mouse_state_getstat(&state, &x, &y, 1);
+	if (x != INT16_MAX) {
+		return(fail("mouse", "large movement was not clamped"));
+	}
+	vaeg_mouse_state_getstat(&state, &x, &y, 1);
+#if defined(VAEG_FIX)
+	if (x != 1) {
+#else
+	if (x != INT16_MAX) {
+#endif
+		return(fail("mouse", "clamped movement remainder was lost"));
+	}
+	state.x = INT64_MAX - 1;
+	vaeg_mouse_state_motion(&state, INT32_MAX, 0);
+	if (state.x != INT64_MAX) {
+		return(fail("mouse", "movement accumulator overflowed"));
+	}
+	vaeg_mouse_state_reset(&state);
+	if (!state.active || (state.x != 0) || (state.y != 0) ||
+		(state.buttons != VAEG_MOUSE_RELEASED)) {
+		return(fail("mouse", "reset did not release active state"));
+	}
+	vaeg_mouse_state_set_active(&state, FALSE);
+	if (state.active || (state.buttons != VAEG_MOUSE_RELEASED)) {
+		return(fail("mouse", "capture disable did not release state"));
+	}
+
+	saved_f12 = np2oscfg.F12KEY;
+	np2oscfg.F12KEY = 0;
+	if (kbdmap_lookup(SDL_SCANCODE_F12) != KBDMAP_NC) {
+		np2oscfg.F12KEY = saved_f12;
+		return(fail("mouse", "F12 Mouse binding leaked a guest key"));
+	}
+	np2oscfg.F12KEY = 1;
+	if (kbdmap_lookup(SDL_SCANCODE_F12) != 0x61) {
+		np2oscfg.F12KEY = saved_f12;
+		return(fail("mouse", "F12 COPY binding changed"));
+	}
+	np2oscfg.F12KEY = 2;
+	if (kbdmap_lookup(SDL_SCANCODE_F12) != 0x60) {
+		np2oscfg.F12KEY = saved_f12;
+		return(fail("mouse", "F12 STOP binding changed"));
+	}
+	np2oscfg.F12KEY = 3;
+	if (kbdmap_lookup(SDL_SCANCODE_F12) != 0x4d) {
+		np2oscfg.F12KEY = saved_f12;
+		return(fail("mouse", "F12 keypad-equal binding changed"));
+	}
+	np2oscfg.F12KEY = 4;
+	if (kbdmap_lookup(SDL_SCANCODE_F12) != 0x4f) {
+		np2oscfg.F12KEY = saved_f12;
+		return(fail("mouse", "F12 keypad-comma binding changed"));
+	}
+	np2oscfg.F12KEY = saved_f12;
+	fprintf(stderr, "selftest: mouse state ok\n");
+	return(SUCCESS);
+}
+
 static void program_opn_test_voice(void) {
 
 	static const REG8 slots[] = {0x00, 0x04, 0x08, 0x0c};
@@ -1154,6 +1268,9 @@ int vaeg_selftest_run(void) {
 		return(fail("dropmedia", "extension, path, or sorting policy failed"));
 	}
 	fprintf(stderr, "selftest: dropmedia ok\n");
+	if (test_mouse_state() != SUCCESS) {
+		return(FAILURE);
+	}
 	if (test_keyboard_mapping() != SUCCESS) {
 		return(FAILURE);
 	}

@@ -50,11 +50,12 @@
 #include	"dropmedia.h"
 #include	"splash.h"
 #include	"np2ver.h"
+#include	"mousemng.h"
 
 		NP2OSCFG	np2oscfg = {0, 0, 0, 0, 0, 1, 0, "", "", {"", ""},
 								"", "", 0, 0, "", "ymfm", 1,
 								VAEG_EFFECT_UNFILTERED, VAEG_SCALING_FIT,
-								640, 422, VAEG_DISPLAY_WINDOWED, 0, 0, 0, 0, 2};
+								640, 422, VAEG_DISPLAY_WINDOWED, 0, 0, 0, 0, 2, 0};
 		BOOL		np2_debug = FALSE;
 
 static const UINT smoke_timeout_frames = 600;
@@ -907,6 +908,7 @@ int main(int argc, char **argv) {
 	dropmedia_shutdown();
 	S98_trash();
 	soundmng_deinitialize();
+	mousemng_shutdown();
 	gui_shutdown();
 	scrnmng_destroy();
 	TRACETERM();

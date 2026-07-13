@@ -22,22 +22,41 @@
  * IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-#include	"compiler.h"
-#include	"sysmng.h"
-#include	"taskmng.h"
-#include	"mousemng.h"
+#ifndef VAEG_SDL2_MOUSESTATE_H
+#define VAEG_SDL2_MOUSESTATE_H
 
-	UINT	sys_updates;
+enum {
+	VAEG_MOUSE_BUTTON_LEFT = 0,
+	VAEG_MOUSE_BUTTON_RIGHT
+};
 
-void sysmng_cpureset(void) {
+enum {
+	VAEG_MOUSE_LEFTBIT = 0x80,
+	VAEG_MOUSE_RIGHTBIT = 0x20,
+	VAEG_MOUSE_RELEASED = VAEG_MOUSE_LEFTBIT | VAEG_MOUSE_RIGHTBIT
+};
 
-	taskmng_clear_fast_forward();
-	mousemng_reset();
-	sys_updates &= (SYS_UPDATECFG | SYS_UPDATEOSCFG);
+typedef struct {
+	SINT64	x;
+	SINT64	y;
+	BYTE	buttons;
+	BOOL	active;
+} VAEG_MOUSE_STATE;
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+void vaeg_mouse_state_initialize(VAEG_MOUSE_STATE *state);
+void vaeg_mouse_state_reset(VAEG_MOUSE_STATE *state);
+void vaeg_mouse_state_set_active(VAEG_MOUSE_STATE *state, BOOL active);
+void vaeg_mouse_state_motion(VAEG_MOUSE_STATE *state, SINT32 x, SINT32 y);
+void vaeg_mouse_state_button(VAEG_MOUSE_STATE *state, UINT button, BOOL down);
+BYTE vaeg_mouse_state_getstat(VAEG_MOUSE_STATE *state,
+								SINT16 *x, SINT16 *y, int clear);
+
+#ifdef __cplusplus
 }
+#endif
 
-void sysmng_modeled(BYTE num, BYTE sw) {
-
-	(void)num;
-	(void)sw;
-}
+#endif
