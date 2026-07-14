@@ -138,19 +138,19 @@ reload, correct drive/path association, and rejection of an unrelated mounted
 path. The macOS MacPorts target and complete ROM-less selftest pass with the
 follow-up applied.
 
-The first implementation did not pass the macOS arm64 G32 check: a real drop
-had no metadata file and FDD Open still exposed the extracted image path. The
-follow-up therefore recognizes managed extraction paths independently of the
-metadata. It falls back to the persisted `GUI_fdddir`, updates that directory
-from each new archive drop, and leaves the FDD Open filename field empty
-instead of displaying an internal extracted path. The ROM-less test now also
-covers the no-metadata fallback. Human confirmation remains part of G32.
+Two apparent macOS arm64 failures were invalid tests of a stale executable:
+the rebuilt binary had been copied to `/Users/maho/vaeg_new/vaeg`, while the
+application under test was `/Users/maho/88VA/vaeg_new/vaeg`. After the
+`ce26003` build was copied to the actual test location, the maintainer
+confirmed that FDD Open started in the source ZIP directory and declared the
+defect fixed. The archive-browser item of G32 therefore passed; the remaining
+G32 items are still pending.
 
-The second macOS arm64 check found one remaining disclosure outside the Open
-dialog: the mounted-FDD tooltip in the FDD menu rendered `fdd_diskname()`
-directly. Managed archive mounts now show the source archive directory in that
-tooltip, or a generic managed-image label when no source directory is
-available. No GUI element intentionally renders the internal extraction path.
+Additional hardening recognizes managed extraction paths independently of
+metadata, falls back to the persisted `GUI_fdddir`, leaves the FDD Open
+filename field empty, and routes the mounted-FDD tooltip through the same
+source-directory policy. The ROM-less test covers the no-metadata fallback.
+No GUI element intentionally renders the internal extraction path.
 
 ## G32 Gate
 
