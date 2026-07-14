@@ -230,8 +230,7 @@ separate parity correction or move it to Open Defects.
 
 ### FDD Open exposed managed extraction storage after an archive drop
 
-- **Status:** corrected again in M32 after two macOS arm64 G32 checks exposed
-  remaining managed paths; G32 recheck pending.
+- **Status:** fixed in M32; macOS arm64 archive-browser check passed.
 - **Symptom:** after dragging and dropping a ZIP, 7z, or LZH archive, opening
   FDD1/FDD2 Open started the browser in the managed user-state extraction
   directory instead of the directory containing the source archive.
@@ -250,15 +249,16 @@ separate parity correction or move it to Open Defects.
   policy instead of rendering `fdd_diskname()` directly.
 - **Verification:** ROM-less dropmedia tests cover ZIP and 7z source capture,
   metadata reload, drive/path matching, unrelated-path rejection, managed-path
-  classification, and the no-metadata browser fallback. The first macOS arm64
-  GUI check still showed the extraction directory, and the second found the
-  raw path in the FDD menu tooltip. After both follow-ups, the macOS MacPorts
-  and MinGW cross targets build successfully and the full ROM-less selftest
-  passes. GUI recheck remains in G32.
+  classification, and the no-metadata browser fallback. Two apparent macOS
+  arm64 failures used a stale executable copied to the wrong destination and
+  were not valid results. With the `ce26003` build installed at the actual
+  test location, the maintainer confirmed that FDD Open starts in the source
+  ZIP directory and declared the defect fixed. The macOS MacPorts and MinGW
+  cross targets build successfully and the full ROM-less selftest passes.
 - **Evidence:** [M32 command-line startup task and G32 follow-up](../agents/tasks/M32_cli_startup_overrides.md#g32-archive-browser-follow-up).
 - **Commits:** initial correction
   [ce26003782cec9b93639cc34b2e33c5de3e63d8a](https://github.com/nakatamaho/vaeg/commit/ce26003782cec9b93639cc34b2e33c5de3e63d8a)
-  and macOS arm64 follow-ups
+  and additional hardening
   [214cab3bc14b26ea2aa044aa505c0e1151787bb7](https://github.com/nakatamaho/vaeg/commit/214cab3bc14b26ea2aa044aa505c0e1151787bb7)
   and
   [6b17d23551750538850e5fcac3623d2ddfc8552b](https://github.com/nakatamaho/vaeg/commit/6b17d23551750538850e5fcac3623d2ddfc8552b).
