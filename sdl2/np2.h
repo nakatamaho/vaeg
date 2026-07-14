@@ -94,6 +94,7 @@ UINT16 np2_default_sound_for_model(const char *model);
 BOOL np2_sound_hardware_valid(const char *model, UINT16 sound);
 const char *np2_cli_boot_model(const char *value);
 BOOL np2_select_boot_model(const char *model);
+BOOL np2_cli_override_selftest(void);
 
 #ifdef __cplusplus
 }
