@@ -977,10 +977,14 @@ extern "C" BOOL dropmedia_selftest(void) {
 		std::vector<DiskCandidate> extracted;
 		char source_directory[MAX_PATH];
 		char short_directory[2];
-		const char *entry_path = seven_zip ?
-			u8"nested/\u30c6\u30b9\u30c8.d88" : "nested/test.d88";
-		const char *expected_basename = seven_zip ?
-			u8"\u30c6\u30b9\u30c8.d88" : "test.d88";
+		const char *entry_path = "nested/test.d88";
+		const char *expected_basename = "test.d88";
+#if !defined(_WIN32)
+		if (seven_zip) {
+			entry_path = u8"nested/\u30c6\u30b9\u30c8.d88";
+			expected_basename = u8"\u30c6\u30b9\u30c8.d88";
+		}
+#endif
 		if ((!write_test_archive(archive_path, seven_zip, entry_path)) ||
 			(!extract_archive_images(archive_path.u8string(), &extracted, &error,
 									 storage_root)) ||
