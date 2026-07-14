@@ -122,6 +122,22 @@ Automated results on the implementation branch:
 - The encoding, EOL, and case checks passed with zero findings;
   `git diff --check` passed and the frozen reference tier remained unchanged.
 
+### G32 archive-browser follow-up
+
+G32 preparation exposed an archive-media browser defect inherited from M22.
+After a ZIP, 7z, or LZH drag-and-drop mount, FDD Open used the live extracted
+image path and therefore opened the managed user-state directory. The archive
+loader now records the source archive's parent directory for each mounted
+image. FDD Open uses that source directory only while the corresponding
+extracted image remains mounted. Per-image metadata restores the association
+after application restart and is removed by the existing managed-storage
+pruning path.
+
+The dropmedia selftest covers ZIP and 7z source-directory capture, metadata
+reload, correct drive/path association, and rejection of an unrelated mounted
+path. The macOS MacPorts target and complete ROM-less selftest pass with the
+follow-up applied. Human confirmation remains part of G32.
+
 ## G32 Gate
 
 1. From a clean checkout, boot with representative VA and VA2 combinations
@@ -130,6 +146,8 @@ Automated results on the implementation branch:
    initialization with a clear incompatibility error.
 3. Mount direct FDD images with `--fdd1` and `--fdd2`; confirm positional FDD
    image arguments are rejected.
+   Also drag and drop a ZIP or 7z archive, then confirm FDD Open starts in the
+   source archive directory rather than managed extraction storage.
 4. Mount valid SASI images with `--sasi1` and `--sasi2`; confirm an existing
    but invalid or non-SASI image is rejected before machine initialization.
 5. Confirm `none` temporarily empties each requested media slot.
