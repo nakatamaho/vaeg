@@ -569,15 +569,6 @@ static void remember_archive_source(std::size_t drive,
 	g_archive_source_directories[drive] = source_directory;
 }
 
-static void persist_drop_browser_directory(const std::string &directory) {
-
-	if (!directory.empty() && (directory.size() < MAX_PATH)) {
-		file_cpyname(np2oscfg.gui_fdd_dir, directory.c_str(),
-								 sizeof(np2oscfg.gui_fdd_dir));
-		sysmng_update(SYS_UPDATEOSCFG);
-	}
-}
-
 static void append_status_line(const std::string &line) {
 
 	if (!g_status.empty()) {
@@ -593,7 +584,6 @@ static void mount_candidates(std::vector<DiskCandidate> *images,
 		return;
 	}
 	const std::size_t capacity = 2 - first_drive;
-	std::string browser_directory;
 	std::sort(images->begin(), images->end(), candidate_less);
 	for (std::size_t index = 0;
 			(index < images->size()) && (index < capacity); index++) {
@@ -604,9 +594,6 @@ static void mount_candidates(std::vector<DiskCandidate> *images,
 		file_cpyname(np2oscfg.fdd_image[drive], image.path.c_str(),
 						 sizeof(np2oscfg.fdd_image[drive]));
 		remember_archive_source(drive, image.path, image.source_directory);
-		if (browser_directory.empty() && !image.source_directory.empty()) {
-			browser_directory = image.source_directory;
-		}
 		sysmng_update(SYS_UPDATEOSCFG);
 	}
 	if (images->size() > capacity) {
@@ -614,7 +601,6 @@ static void mount_candidates(std::vector<DiskCandidate> *images,
 			std::to_string(images->size() - capacity) +
 			" additional disk image(s).");
 	}
-	persist_drop_browser_directory(browser_directory);
 	dropmedia_prune_storage();
 }
 
@@ -701,19 +687,6 @@ extern "C" BOOL dropmedia_path_is_archive(const char *path) {
 		TRUE : FALSE;
 }
 
-extern "C" BOOL dropmedia_path_is_managed_archive_image(const char *path) {
-
-#if defined(VAEG_HAVE_LIBARCHIVE)
-	if ((path != nullptr) && (path[0] != '\0') &&
-		(!managed_archive_directory(path, archive_storage_root()).empty())) {
-		return TRUE;
-	}
-#else
-	(void)path;
-#endif
-	return FALSE;
-}
-
 extern "C" BOOL dropmedia_mount_archive(const char *path, UINT first_drive) {
 
 	g_status.clear();
@@ -757,36 +730,24 @@ extern "C" BOOL dropmedia_fdd_source_directory(UINT drive,
 									const char *mounted_path, char *directory,
 									UINT directory_size) {
 
-	const char *source_directory;
-
 	if ((directory != nullptr) && (directory_size != 0)) {
 		directory[0] = '\0';
 	}
 	if ((drive >= 2) || (mounted_path == nullptr) ||
 		(mounted_path[0] == '\0') || (directory == nullptr) ||
-		(directory_size == 0)) {
-		return FALSE;
-	}
-	source_directory = nullptr;
-	if ((g_mounted_archive_paths[drive] == mounted_path) &&
-		(!g_archive_source_directories[drive].empty())) {
-		source_directory = g_archive_source_directories[drive].c_str();
-	}
-#if defined(VAEG_HAVE_LIBARCHIVE)
-	else if (dropmedia_path_is_managed_archive_image(mounted_path) &&
-		(np2oscfg.gui_fdd_dir[0] != '\0')) {
-		source_directory = np2oscfg.gui_fdd_dir;
-	}
-#endif
-	if ((source_directory == nullptr) ||
-		(strlen(source_directory) >= directory_size)) {
+		(directory_size == 0) ||
+		(g_mounted_archive_paths[drive] != mounted_path) ||
+		g_archive_source_directories[drive].empty() ||
+		(g_archive_source_directories[drive].size() >= directory_size)) {
 		return FALSE;
 	}
 	std::error_code ec;
-	if ((!fs::is_directory(fs::u8path(source_directory), ec)) || ec) {
+	if ((!fs::is_directory(
+			fs::u8path(g_archive_source_directories[drive]), ec)) || ec) {
 		return FALSE;
 	}
-	file_cpyname(directory, source_directory, static_cast<int>(directory_size));
+	file_cpyname(directory, g_archive_source_directories[drive].c_str(),
+										static_cast<int>(directory_size));
 	return TRUE;
 }
 
@@ -941,33 +902,6 @@ extern "C" BOOL dropmedia_selftest(void) {
 	fs::path test_dir = fs::temp_directory_path(ec) / "vaeg-dropmedia-selftest";
 	fs::remove_all(test_dir, ec);
 	if (ec || (!fs::create_directory(test_dir, ec)) || ec) {
-		return FAILURE;
-	}
-	const fs::path managed_test_path = archive_storage_root() /
-							"drop-selftest" / "0000" / "disk.d88";
-	char saved_gui_fdd_dir[MAX_PATH];
-	char fallback_directory[MAX_PATH];
-	if ((!dropmedia_path_is_managed_archive_image(
-							managed_test_path.u8string().c_str())) ||
-		dropmedia_path_is_managed_archive_image(
-							(test_dir / "disk.d88").u8string().c_str())) {
-		fs::remove_all(test_dir);
-		dropmedia_shutdown();
-		return FAILURE;
-	}
-	file_cpyname(saved_gui_fdd_dir, np2oscfg.gui_fdd_dir,
-									 sizeof(saved_gui_fdd_dir));
-	file_cpyname(np2oscfg.gui_fdd_dir, test_dir.u8string().c_str(),
-									 sizeof(np2oscfg.gui_fdd_dir));
-	const BOOL fallback_ok = dropmedia_fdd_source_directory(1,
-		managed_test_path.u8string().c_str(), fallback_directory,
-									 sizeof(fallback_directory));
-	file_cpyname(np2oscfg.gui_fdd_dir, saved_gui_fdd_dir,
-									 sizeof(np2oscfg.gui_fdd_dir));
-	if ((!fallback_ok) || strcmp(fallback_directory,
-									 test_dir.u8string().c_str())) {
-		fs::remove_all(test_dir);
-		dropmedia_shutdown();
 		return FAILURE;
 	}
 	for (bool seven_zip : {false, true}) {

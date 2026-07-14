@@ -803,7 +803,6 @@ static void open_fdd_dialog(int drive) {
 
 	const char *current;
 	char archive_source_dir[MAX_PATH];
-	bool managed_archive_mount;
 	std::string start_dir;
 
 	g_gui.fdd_dialog_drive = drive;
@@ -811,22 +810,14 @@ static void open_fdd_dialog(int drive) {
 	if ((current == nullptr) || (current[0] == '\0')) {
 		current = diskdrv_fname[drive];
 	}
-	managed_archive_mount = false;
 	if ((current != nullptr) && (current[0] != '\0')) {
-		managed_archive_mount =
-			dropmedia_path_is_managed_archive_image(current) ? true : false;
-		if (managed_archive_mount) {
-			g_gui.fdd_path[drive][0] = '\0';
-		}
-		else {
-			milstr_ncpy(g_gui.fdd_path[drive], current,
-						sizeof(g_gui.fdd_path[drive]));
-		}
+		milstr_ncpy(g_gui.fdd_path[drive], current,
+					sizeof(g_gui.fdd_path[drive]));
 		if (dropmedia_fdd_source_directory(static_cast<UINT>(drive), current,
 					archive_source_dir, sizeof(archive_source_dir))) {
 			start_dir = archive_source_dir;
 		}
-		else if (!managed_archive_mount) {
+		else {
 			start_dir = parent_dir(current);
 		}
 	}
@@ -1521,7 +1512,6 @@ static void draw_edit_menu(void) {
 static void draw_fdd_mount_state(int drive) {
 
 	const char *path;
-	char archive_source_dir[MAX_PATH];
 	bool inserting;
 
 	path = fdd_diskname(static_cast<REG8>(drive));
@@ -1543,19 +1533,7 @@ static void draw_fdd_mount_state(int drive) {
 		ImGui::Text("FDD%d: %s", drive + 1, name.c_str());
 	}
 	if (ImGui::IsItemHovered()) {
-		if (dropmedia_path_is_managed_archive_image(path)) {
-			if (dropmedia_fdd_source_directory(static_cast<UINT>(drive), path,
-					archive_source_dir, sizeof(archive_source_dir))) {
-				ImGui::SetTooltip("Archive source directory: %s",
-										archive_source_dir);
-			}
-			else {
-				ImGui::SetTooltip("Managed archive image");
-			}
-		}
-		else {
-			ImGui::SetTooltip("%s", path);
-		}
+		ImGui::SetTooltip("%s", path);
 	}
 }
 

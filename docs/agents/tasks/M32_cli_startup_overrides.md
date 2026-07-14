@@ -146,12 +146,6 @@ confirmed that FDD Open started in the source ZIP directory and declared the
 defect fixed. The archive-browser item of G32 therefore passed; the remaining
 G32 items are still pending.
 
-Additional hardening recognizes managed extraction paths independently of
-metadata, falls back to the persisted `GUI_fdddir`, leaves the FDD Open
-filename field empty, and routes the mounted-FDD tooltip through the same
-source-directory policy. The ROM-less test covers the no-metadata fallback.
-No GUI element intentionally renders the internal extraction path.
-
 ## G32 Gate
 
 1. From a clean checkout, boot with representative VA and VA2 combinations
