@@ -35,6 +35,8 @@ BOOL dropmedia_path_is_archive(const char *path);
 BOOL dropmedia_mount_archive(const char *path, UINT first_drive);
 const char *dropmedia_status(void);
 void dropmedia_initialize(void);
+void dropmedia_set_session_fdd_references(const char *first,
+														 const char *second);
 void dropmedia_prune_storage(void);
 void dropmedia_shutdown(void);
 BOOL dropmedia_selftest(void);
