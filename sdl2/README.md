@@ -105,7 +105,8 @@ starts in the directory that contained the source archive instead of exposing
 the managed extraction directory. This association is kept per drive and is
 restored with persistent managed mounts after an application restart. Managed
 mounts without association metadata fall back to the last source FDD directory,
-and the Open filename field does not expose an internal extraction path.
+and neither the Open filename field nor the FDD menu tooltip exposes an
+internal extraction path.
 
 FDD1/FDD2 Open also accepts ZIP, 7z, and LZH when LibArchive support is built.
 Opening an archive from FDD1 mounts the first two basename-sorted images as

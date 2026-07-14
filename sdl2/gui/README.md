@@ -95,7 +95,8 @@ inside each managed image directory preserves that browser location across an
 application restart and is pruned together with the extracted image. For an
 older or metadata-less managed mount, the browser uses the saved FDD directory;
 new archive drops update that fallback. The filename field stays empty rather
-than showing the internal extracted image path.
+than showing the internal extracted image path, and the FDD menu tooltip shows
+the source directory instead of the managed mount path.
 
 FDD -> New FDD image creates an empty FAT12 data disk as Japanese MS-DOS 2HD
 (1.232 MB) or 2DD (640 KB). D88 output retains track/sector metadata; IMG
