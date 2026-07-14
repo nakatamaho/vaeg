@@ -29,7 +29,7 @@ POSSIBILITY OF SUCH DAMAGE.
 
 This document follows one concrete original-PC-88VA boot from the VA ROM IPL
 loader into NEC PC-Engine 1.1. It uses the same analysis boundary as the
-[PC-Engine 1.05 boot analysis](pc88va-boot-pcengine.md):
+[PC-Engine 1.05 boot analysis](pc88va-boot-pcengine1.05.md):
 
 1. the original-VA ROM boot decision;
 2. the disk IPL loaded at `3000:0000`;
