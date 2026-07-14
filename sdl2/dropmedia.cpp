@@ -68,6 +68,7 @@ struct DiskCandidate {
 
 std::vector<std::string> g_dropped_paths;
 std::string g_status;
+std::string g_session_references[2];
 
 static std::string ascii_lower(std::string value) {
 
@@ -607,12 +608,13 @@ static bool path_is_within(const fs::path &path, const fs::path &directory) {
 }
 
 static bool storage_directory_referenced(const fs::path &directory,
-										 const char *references[2]) {
+										 const char *const *references,
+										 std::size_t reference_count) {
 
-	for (unsigned int drive = 0; drive < 2; drive++) {
-		if ((references[drive] != nullptr) &&
-			(references[drive][0] != '\0') &&
-			path_is_within(fs::u8path(references[drive]), directory)) {
+	for (std::size_t index = 0; index < reference_count; index++) {
+		if ((references[index] != nullptr) &&
+			(references[index][0] != '\0') &&
+			path_is_within(fs::u8path(references[index]), directory)) {
 			return true;
 		}
 	}
@@ -620,7 +622,8 @@ static bool storage_directory_referenced(const fs::path &directory,
 }
 
 static void prune_storage_root(const fs::path &root,
-							  const char *references[2]) {
+							  const char *const *references,
+							  std::size_t reference_count) {
 
 	std::error_code ec;
 
@@ -648,7 +651,8 @@ static void prune_storage_root(const fs::path &root,
 					[](unsigned char ch) { return std::isdigit(ch) != 0; }))) {
 				continue;
 			}
-			if (!storage_directory_referenced(image.path(), references)) {
+			if (!storage_directory_referenced(image.path(), references,
+													reference_count)) {
 				fs::remove_all(image.path(), ec);
 				ec.clear();
 			}
@@ -664,23 +668,36 @@ static void prune_storage_root(const fs::path &root,
 extern "C" void dropmedia_prune_storage(void) {
 
 #if defined(VAEG_HAVE_LIBARCHIVE)
-	const char *references[2] = {
-		np2oscfg.fdd_image[0], np2oscfg.fdd_image[1]
+	const char *references[4] = {
+		np2oscfg.fdd_image[0], np2oscfg.fdd_image[1],
+		g_session_references[0].c_str(), g_session_references[1].c_str()
 	};
 
-	prune_storage_root(archive_storage_root(), references);
+	prune_storage_root(archive_storage_root(), references,
+												std::size(references));
 #endif
 }
 
 extern "C" void dropmedia_initialize(void) {
 
+	g_session_references[0].clear();
+	g_session_references[1].clear();
 	dropmedia_prune_storage();
+}
+
+extern "C" void dropmedia_set_session_fdd_references(const char *first,
+															 const char *second) {
+
+	g_session_references[0] = (first != nullptr) ? first : "";
+	g_session_references[1] = (second != nullptr) ? second : "";
 }
 
 extern "C" void dropmedia_shutdown(void) {
 
 	g_dropped_paths.clear();
 	g_status.clear();
+	g_session_references[0].clear();
+	g_session_references[1].clear();
 }
 
 extern "C" BOOL dropmedia_selftest(void) {
@@ -765,7 +782,7 @@ extern "C" BOOL dropmedia_selftest(void) {
 	const char *references[2] = {
 		first_reference.c_str(), second_reference.c_str()
 	};
-	prune_storage_root(prune_root, references);
+	prune_storage_root(prune_root, references, std::size(references));
 	if ((!fs::exists(keep_first)) || fs::exists(remove_image) ||
 		(!fs::exists(keep_second))) {
 		fs::remove_all(test_dir);
@@ -773,7 +790,7 @@ extern "C" BOOL dropmedia_selftest(void) {
 		return FAILURE;
 	}
 	references[0] = "";
-	prune_storage_root(prune_root, references);
+	prune_storage_root(prune_root, references, std::size(references));
 	if (fs::exists(keep_first) || (!fs::exists(keep_second))) {
 		fs::remove_all(test_dir);
 		dropmedia_shutdown();
