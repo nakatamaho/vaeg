@@ -59,16 +59,19 @@ constexpr std::uintmax_t kMaxImageBytes = 64u * 1024u * 1024u;
 constexpr std::uintmax_t kMaxExtractedBytes = 128u * 1024u * 1024u;
 constexpr std::size_t kMaxArchiveEntries = 4096;
 constexpr std::size_t kMaxImageCandidates = 256;
+constexpr const char kArchiveSourceDirectoryFile[] = ".source-directory";
 
 struct DiskCandidate {
 	std::string path;
 	std::string basename;
-	bool temporary = false;
+	std::string source_directory;
 };
 
 std::vector<std::string> g_dropped_paths;
 std::string g_status;
 std::string g_session_references[2];
+std::string g_mounted_archive_paths[2];
+std::string g_archive_source_directories[2];
 
 static std::string ascii_lower(std::string value) {
 
@@ -197,6 +200,124 @@ static fs::path archive_storage_root(void) {
 	return fs::u8path(path);
 }
 
+static bool path_is_within(const fs::path &path, const fs::path &directory) {
+
+	const fs::path normalized_path = path.lexically_normal();
+	const fs::path normalized_directory = directory.lexically_normal();
+	auto path_part = normalized_path.begin();
+	auto directory_part = normalized_directory.begin();
+
+	for (; directory_part != normalized_directory.end();
+		 directory_part++, path_part++) {
+		if ((path_part == normalized_path.end()) ||
+			(*path_part != *directory_part)) {
+			return false;
+		}
+	}
+	return true;
+}
+
+static std::string archive_source_directory(const std::string &archive_path) {
+
+	std::error_code ec;
+	fs::path path = fs::absolute(fs::u8path(archive_path), ec);
+
+	if (ec) {
+		path = fs::u8path(archive_path);
+	}
+	path = path.parent_path();
+	return path.empty() ? std::string() : path.u8string();
+}
+
+static void write_archive_source_directory(const fs::path &archive_directory,
+										 const std::string &source_directory) {
+
+	if (source_directory.empty() || (source_directory.size() >= MAX_PATH)) {
+		return;
+	}
+	std::ofstream output(archive_directory / kArchiveSourceDirectoryFile,
+										std::ios::binary | std::ios::trunc);
+	if (output) {
+		output.write(source_directory.data(),
+					 static_cast<std::streamsize>(source_directory.size()));
+	}
+}
+
+static fs::path managed_archive_directory(const std::string &mounted_path,
+										 const fs::path &storage_root) {
+
+	std::error_code ec;
+	const fs::path root = storage_root.lexically_normal();
+	fs::path path = fs::absolute(fs::u8path(mounted_path), ec);
+
+	if (ec) {
+		path = fs::u8path(mounted_path);
+	}
+	path = path.lexically_normal();
+	if (!path_is_within(path, root)) {
+		return fs::path();
+	}
+	const fs::path relative = path.lexically_relative(root);
+	if (relative.empty()) {
+		return fs::path();
+	}
+	auto component = relative.begin();
+	if (component == relative.end()) {
+		return fs::path();
+	}
+	const fs::path batch_name = *component++;
+	if (batch_name.u8string().rfind("drop-", 0) != 0) {
+		return fs::path();
+	}
+	if (component == relative.end()) {
+		return fs::path();
+	}
+	const fs::path image_name = *component;
+	const std::string image_name_string = image_name.u8string();
+	if ((image_name_string.size() != 4) ||
+		(!std::all_of(image_name_string.begin(), image_name_string.end(),
+			[](unsigned char ch) { return std::isdigit(ch) != 0; }))) {
+		return fs::path();
+	}
+	return root / batch_name / image_name;
+}
+
+static std::string read_archive_source_directory(
+										 const std::string &mounted_path,
+										 const fs::path &storage_root) {
+
+	const fs::path archive_directory =
+					managed_archive_directory(mounted_path, storage_root);
+	char buffer[MAX_PATH];
+
+	if (archive_directory.empty()) {
+		return std::string();
+	}
+	std::ifstream input(archive_directory / kArchiveSourceDirectoryFile,
+										std::ios::binary);
+	if (!input) {
+		return std::string();
+	}
+	input.read(buffer, sizeof(buffer));
+	const std::streamsize size = input.gcount();
+	if ((size <= 0) || (size >= static_cast<std::streamsize>(sizeof(buffer)))) {
+		return std::string();
+	}
+	const std::string source_directory(buffer, static_cast<std::size_t>(size));
+	std::error_code ec;
+	if ((source_directory.find('\0') != std::string::npos) ||
+		(!fs::is_directory(fs::u8path(source_directory), ec)) || ec) {
+		return std::string();
+	}
+	return source_directory;
+}
+
+static std::string read_archive_source_directory(
+										 const std::string &mounted_path) {
+
+	return read_archive_source_directory(mounted_path, archive_storage_root());
+}
+
 static fs::path create_archive_directory(const fs::path &root,
 										 std::string *error) {
 
@@ -284,6 +405,8 @@ static bool extract_archive_images(const std::string &archive_path,
 	std::size_t entry_count;
 	std::size_t image_count;
 	const std::size_t initial_image_count = images->size();
+	const std::string source_directory =
+								archive_source_directory(archive_path);
 #if !defined(_WIN32)
 	ScopedArchiveLocale archive_locale;
 #endif
@@ -400,11 +523,13 @@ static bool extract_archive_images(const std::string &archive_path,
 			*error = "could not finish an extracted disk image";
 			goto extract_error;
 		}
+		write_archive_source_directory(output_dir, source_directory);
 		if (output_path.u8string().size() >= MAX_PATH) {
 			*error = "extracted disk image path is too long";
 			goto extract_error;
 		}
-		images->push_back({output_path.u8string(), basename.u8string(), true});
+		images->push_back({output_path.u8string(), basename.u8string(),
+										 source_directory});
 		image_count++;
 	}
 	if (result != ARCHIVE_EOF) {
@@ -427,6 +552,22 @@ extract_error:
 	return false;
 }
 #endif
+
+static void remember_archive_source(std::size_t drive,
+									const std::string &mounted_path,
+									const std::string &source_directory) {
+
+	if (drive >= 2) {
+		return;
+	}
+	if (mounted_path.empty() || source_directory.empty()) {
+		g_mounted_archive_paths[drive].clear();
+		g_archive_source_directories[drive].clear();
+		return;
+	}
+	g_mounted_archive_paths[drive] = mounted_path;
+	g_archive_source_directories[drive] = source_directory;
+}
 
 static void append_status_line(const std::string &line) {
 
@@ -452,6 +593,7 @@ static void mount_candidates(std::vector<DiskCandidate> *images,
 		diskdrv_setfdd(static_cast<REG8>(drive), image.path.c_str(), 0);
 		file_cpyname(np2oscfg.fdd_image[drive], image.path.c_str(),
 						 sizeof(np2oscfg.fdd_image[drive]));
+		remember_archive_source(drive, image.path, image.source_directory);
 		sysmng_update(SYS_UPDATEOSCFG);
 	}
 	if (images->size() > capacity) {
@@ -479,7 +621,7 @@ static void process_drop_batch(void) {
 				append_status_line("Drop ignored: path is too long: " + path);
 				continue;
 			}
-			images.push_back({path, fs_path.filename().u8string(), false});
+			images.push_back({path, fs_path.filename().u8string(), std::string()});
 			continue;
 		}
 		if (archive_extension_supported(path)) {
@@ -584,29 +726,37 @@ extern "C" BOOL dropmedia_mount_archive(const char *path, UINT first_drive) {
 #endif
 }
 
+extern "C" BOOL dropmedia_fdd_source_directory(UINT drive,
+									const char *mounted_path, char *directory,
+									UINT directory_size) {
+
+	if ((directory != nullptr) && (directory_size != 0)) {
+		directory[0] = '\0';
+	}
+	if ((drive >= 2) || (mounted_path == nullptr) ||
+		(mounted_path[0] == '\0') || (directory == nullptr) ||
+		(directory_size == 0) ||
+		(g_mounted_archive_paths[drive] != mounted_path) ||
+		g_archive_source_directories[drive].empty() ||
+		(g_archive_source_directories[drive].size() >= directory_size)) {
+		return FALSE;
+	}
+	std::error_code ec;
+	if ((!fs::is_directory(
+			fs::u8path(g_archive_source_directories[drive]), ec)) || ec) {
+		return FALSE;
+	}
+	file_cpyname(directory, g_archive_source_directories[drive].c_str(),
+										static_cast<int>(directory_size));
+	return TRUE;
+}
+
 extern "C" const char *dropmedia_status(void) {
 
 	return g_status.c_str();
 }
 
 #if defined(VAEG_HAVE_LIBARCHIVE)
-static bool path_is_within(const fs::path &path, const fs::path &directory) {
-
-	const fs::path normalized_path = path.lexically_normal();
-	const fs::path normalized_directory = directory.lexically_normal();
-	auto path_part = normalized_path.begin();
-	auto directory_part = normalized_directory.begin();
-
-	for (; directory_part != normalized_directory.end();
-		 directory_part++, path_part++) {
-		if ((path_part == normalized_path.end()) ||
-			(*path_part != *directory_part)) {
-			return false;
-		}
-	}
-	return true;
-}
-
 static bool storage_directory_referenced(const fs::path &directory,
 										 const char *const *references,
 										 std::size_t reference_count) {
@@ -682,6 +832,16 @@ extern "C" void dropmedia_initialize(void) {
 
 	g_session_references[0].clear();
 	g_session_references[1].clear();
+	for (std::size_t drive = 0; drive < 2; drive++) {
+		g_mounted_archive_paths[drive].clear();
+		g_archive_source_directories[drive].clear();
+#if defined(VAEG_HAVE_LIBARCHIVE)
+		const std::string source_directory =
+			read_archive_source_directory(np2oscfg.fdd_image[drive]);
+		remember_archive_source(drive, np2oscfg.fdd_image[drive],
+										source_directory);
+#endif
+	}
 	dropmedia_prune_storage();
 }
 
@@ -698,14 +858,18 @@ extern "C" void dropmedia_shutdown(void) {
 	g_status.clear();
 	g_session_references[0].clear();
 	g_session_references[1].clear();
+	g_mounted_archive_paths[0].clear();
+	g_mounted_archive_paths[1].clear();
+	g_archive_source_directories[0].clear();
+	g_archive_source_directories[1].clear();
 }
 
 extern "C" BOOL dropmedia_selftest(void) {
 
 	std::vector<DiskCandidate> candidates = {
-		{"/tmp/b.D88", "b.D88", false},
-		{"/tmp/A.d88", "A.d88", false},
-		{"/tmp/c.xdf", "c.xdf", false}
+		{"/tmp/b.D88", "b.D88", std::string()},
+		{"/tmp/A.d88", "A.d88", std::string()},
+		{"/tmp/c.xdf", "c.xdf", std::string()}
 	};
 
 	if ((!image_extension_supported("disk.D88")) ||
@@ -743,16 +907,35 @@ extern "C" BOOL dropmedia_selftest(void) {
 	for (bool seven_zip : {false, true}) {
 		fs::path archive_path = test_dir /
 			(seven_zip ? "dropmedia-test.7z" : "dropmedia-test.zip");
+		const fs::path storage_root = test_dir / "storage";
 		std::vector<DiskCandidate> extracted;
+		char source_directory[MAX_PATH];
+		char short_directory[2];
 		const char *entry_path = seven_zip ?
 			u8"nested/\u30c6\u30b9\u30c8.d88" : "nested/test.d88";
 		const char *expected_basename = seven_zip ?
 			u8"\u30c6\u30b9\u30c8.d88" : "test.d88";
 		if ((!write_test_archive(archive_path, seven_zip, entry_path)) ||
 			(!extract_archive_images(archive_path.u8string(), &extracted, &error,
-									 test_dir / "storage")) ||
+									 storage_root)) ||
 			(extracted.size() != 1) ||
-			(extracted[0].basename != expected_basename)) {
+			(extracted[0].basename != expected_basename) ||
+			(extracted[0].source_directory != test_dir.u8string()) ||
+			(read_archive_source_directory(extracted[0].path, storage_root) !=
+											 test_dir.u8string())) {
+			fs::remove_all(test_dir);
+			dropmedia_shutdown();
+			return FAILURE;
+		}
+		remember_archive_source(0, extracted[0].path,
+									 extracted[0].source_directory);
+		if ((!dropmedia_fdd_source_directory(0, extracted[0].path.c_str(),
+					source_directory, sizeof(source_directory))) ||
+			strcmp(source_directory, test_dir.u8string().c_str()) ||
+			dropmedia_fdd_source_directory(0, extracted[0].path.c_str(),
+					short_directory, sizeof(short_directory)) ||
+			dropmedia_fdd_source_directory(0, "different.d88",
+					source_directory, sizeof(source_directory))) {
 			fs::remove_all(test_dir);
 			dropmedia_shutdown();
 			return FAILURE;
