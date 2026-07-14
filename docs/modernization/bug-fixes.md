@@ -230,7 +230,8 @@ separate parity correction or move it to Open Defects.
 
 ### FDD Open exposed managed extraction storage after an archive drop
 
-- **Status:** fixed in M32; G32 human confirmation pending.
+- **Status:** corrected again in M32 after the first macOS arm64 G32 check
+  failed; G32 recheck pending.
 - **Symptom:** after dragging and dropping a ZIP, 7z, or LZH archive, opening
   FDD1/FDD2 Open started the browser in the managed user-state extraction
   directory instead of the directory containing the source archive.
@@ -241,13 +242,21 @@ separate parity correction or move it to Open Defects.
 - **Correction:** retain the source directory per mounted drive and extracted
   image, use it only when the live mount still matches, and store the
   association beside each managed image so it survives application restart
-  and is removed by the existing prune lifecycle.
+  and is removed by the existing prune lifecycle. The follow-up also detects
+  managed extraction paths without metadata, falls back to the persisted FDD
+  browser directory, updates that fallback on each archive drop, and does not
+  display the internal extracted path in the FDD Open filename field.
 - **Verification:** ROM-less dropmedia tests cover ZIP and 7z source capture,
-  metadata reload, drive/path matching, and unrelated-path rejection. The
-  macOS MacPorts and MinGW cross targets build successfully; the full ROM-less
-  selftest passes. GUI reproduction confirmation remains in G32.
+  metadata reload, drive/path matching, unrelated-path rejection, managed-path
+  classification, and the no-metadata browser fallback. The first macOS arm64
+  GUI check still showed the extraction directory; after the follow-up, the
+  macOS MacPorts and MinGW cross targets build successfully and the full
+  ROM-less selftest passes. GUI recheck remains in G32.
 - **Evidence:** [M32 command-line startup task and G32 follow-up](../agents/tasks/M32_cli_startup_overrides.md#g32-archive-browser-follow-up).
-- **Commit:** [ce26003782cec9b93639cc34b2e33c5de3e63d8a](https://github.com/nakatamaho/vaeg/commit/ce26003782cec9b93639cc34b2e33c5de3e63d8a).
+- **Commits:** initial correction
+  [ce26003782cec9b93639cc34b2e33c5de3e63d8a](https://github.com/nakatamaho/vaeg/commit/ce26003782cec9b93639cc34b2e33c5de3e63d8a)
+  and macOS arm64 follow-up
+  [214cab3bc14b26ea2aa044aa505c0e1151787bb7](https://github.com/nakatamaho/vaeg/commit/214cab3bc14b26ea2aa044aa505c0e1151787bb7).
 
 ### VA1 PC-Engine 1.00 selected a stack in banked TVRAM
 
