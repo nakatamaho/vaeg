@@ -22,7 +22,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 -->
 # M32: Command-line startup overrides
 
-Status: implemented; automated checks passed; G32 pending
+Status: complete; G32 passed
 
 Date: 2026-07-14
 
@@ -143,8 +143,8 @@ the rebuilt binary had been copied to `/Users/maho/vaeg_new/vaeg`, while the
 application under test was `/Users/maho/88VA/vaeg_new/vaeg`. After the
 `ce26003` build was copied to the actual test location, the maintainer
 confirmed that FDD Open started in the source ZIP directory and declared the
-defect fixed. The archive-browser item of G32 therefore passed; the remaining
-G32 items are still pending.
+defect fixed. The archive-browser item of G32 therefore passed before the full
+gate was completed.
 
 ## G32 Gate
 
@@ -164,4 +164,7 @@ G32 items are still pending.
    run can still persist.
 7. Complete the standard clean-checkout V3/demo/OS gate.
 
-G32 remains a human gate until the maintainer explicitly passes it.
+The maintainer tested the deployed MinGW build and reported G32 passed on
+2026-07-14. This accepts the command-line startup overrides, validation and
+session-only persistence behavior, media handling, and standard guest
+regression gate.
