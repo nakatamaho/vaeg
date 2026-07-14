@@ -97,9 +97,8 @@ const char *sxsi_getname(REG8 drv) {
 	return(NULL);
 }
 
-BOOL sxsi_hddopen(REG8 drv, const char *file) {
+static BOOL sxsi_hddopen_device(REG8 drv, const char *file, SXSIDEV sxsi) {
 
-	SXSIDEV	sxsi;
 	FILEH	fh;
 const char	*ext;
 	UINT16	type;
@@ -110,11 +109,7 @@ const char	*ext;
 	UINT32	sectors;
 	UINT32	size;
 
-	if ((file == NULL) || (file[0] == '\0')) {
-		goto sxsiope_err1;
-	}
-	sxsi = sxsi_getptr(drv);
-	if (sxsi == NULL) {
+	if ((file == NULL) || (file[0] == '\0') || (sxsi == NULL)) {
 		goto sxsiope_err1;
 	}
 	fh = file_open(file);
@@ -212,6 +207,34 @@ sxsiope_err2:
 
 sxsiope_err1:
 	return(FAILURE);
+}
+
+BOOL sxsi_hddopen(REG8 drv, const char *file) {
+
+	return(sxsi_hddopen_device(drv, file, sxsi_getptr(drv)));
+}
+
+BOOL sxsi_hddvalidate_sasi(const char *file) {
+
+	_SXSIDEV candidate;
+	UINT64 expected_size;
+	BOOL result;
+
+	ZeroMemory(&candidate, sizeof(candidate));
+	candidate.fh = FILEH_INVALID;
+	if (sxsi_hddopen_device(0, file, &candidate) != SUCCESS) {
+		return(FAILURE);
+	}
+	expected_size = (UINT64)candidate.headersize +
+							((UINT64)candidate.totals * candidate.size);
+	result = (((candidate.type & SXSITYPE_IFMASK) == SXSITYPE_SASI) &&
+			(candidate.totals > 0) &&
+			((UINT64)file_getsize(candidate.fh) >= expected_size)) ?
+											SUCCESS : FAILURE;
+	if (candidate.fh != FILEH_INVALID) {
+		file_close(candidate.fh);
+	}
+	return(result);
 }
 
 void sxsi_open(void) {

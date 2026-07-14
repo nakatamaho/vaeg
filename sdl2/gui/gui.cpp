@@ -802,14 +802,24 @@ static void reset_guest(void) {
 static void open_fdd_dialog(int drive) {
 
 	const char *current;
+	char archive_source_dir[MAX_PATH];
 	std::string start_dir;
 
 	g_gui.fdd_dialog_drive = drive;
 	current = fdd_diskname(static_cast<REG8>(drive));
+	if ((current == nullptr) || (current[0] == '\0')) {
+		current = diskdrv_fname[drive];
+	}
 	if ((current != nullptr) && (current[0] != '\0')) {
 		milstr_ncpy(g_gui.fdd_path[drive], current,
 					sizeof(g_gui.fdd_path[drive]));
-		start_dir = parent_dir(current);
+		if (dropmedia_fdd_source_directory(static_cast<UINT>(drive), current,
+					archive_source_dir, sizeof(archive_source_dir))) {
+			start_dir = archive_source_dir;
+		}
+		else {
+			start_dir = parent_dir(current);
+		}
 	}
 	if (start_dir.empty() &&
 		(np2oscfg.gui_fdd_dir[0] != '\0') &&

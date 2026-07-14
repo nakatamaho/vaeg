@@ -52,16 +52,25 @@ targets:
 The executable is named `vaeg`.
 
 ```sh
-vaeg [--model va|va2] [--smoke] [--pacelog] [image1 [image2]]
+vaeg [options]
 ```
 
-`image1` and `image2` are floppy disk images mounted in drives 1 and 2.
-`--smoke` runs a short headless initialization check. `--pacelog` prints
-emulation pacing counters for timing diagnosis. `--model va` selects the
-original VA with unsuffixed ROM names; `--model va2` selects the VA2/VA3
-compatible model with `*_va2.rom` names. When the model changes, the existing
-GUI policy also selects its default FM hardware. This is a session-only
-override and does not replace `pc_model` or `SNDboard` in `vaeg.cfg`.
+Run `vaeg --help` for the complete option list. Startup overrides include
+`--model va|va2`, `--fmbackend np2|ymfm`, `--fmsound opn|opna`, named
+`--fdd1`/`--fdd2` and `--sasi1`/`--sasi2` media, CPU/SGP and frame pacing,
+display effects/scaling, controller choice, and keyboard layout. Use `none`
+as a media value to make that slot empty for the session. Positional FDD image
+arguments are no longer accepted.
+
+These overrides are session-only: they are applied after loading `vaeg.cfg`
+and do not replace saved settings unless the setting is changed through the
+GUI during the run. Invalid combinations such as `--model va2 --fmsound opn`
+fail before video, audio, and machine initialization. SASI options also verify
+that the image is recognized as a complete, usable SASI disk rather than
+merely checking that it exists.
+`--smoke` runs a short headless initialization check and `--pacelog` prints
+emulation pacing counters for timing diagnosis. See
+[sdl2/README.md](sdl2/README.md#command-line-options) for details.
 
 ## Quick Build
 
