@@ -245,6 +245,114 @@ The root directory identifies this region as the beginning of
 by the IPL are only its initial bootstrap-visible portion. The exact later
 loader call that brings in the remainder still needs a runtime trace.
 
+## PCENGINE.SB2 And SYS2.COM
+
+### Alternate Sound Board II Driver
+
+PC-Engine 1.05 carries two implementations of the `__ENGINE` DOS character
+device:
+
+| File | Size | SHA-256 | Guest sound interface |
+| ---- | ---: | ------- | --------------------- |
+| `PCENGINE.SYS` | 52,090 bytes | `c3e2cc06c7007f05a43ed8c49da4262c47567b86ef501f641d288ab47ec51815` | Original-VA OPN path |
+| `PCENGINE.SB2` | 62,250 bytes | `fdcac3749ff449d0d69860affaca0e0194e559fe24e27930a22a1d3d575d00c7` | Sound Board II OPNA path |
+
+Both files have the same DOS device name, `__ENGINE`, and the same strategy
+and interrupt entry offsets, `0016h` and `0021h`. `PCENGINE.SB2` is therefore
+an alternate implementation of `PCENGINE.SYS`, not a data file consumed by
+the normal driver. It identifies itself internally as:
+
+```text
+NEC PC-Engine v1.05
+Copyright (C) 1987,1988 NEC Corporation
+```
+
+The normal driver uses the primary OPN ports `0044h/0045h` and contains no
+direct `0046h/0047h` I/O instructions. The `.SB2` driver also accesses the
+OPNA extended ports directly:
+
+| Direct instruction | `PCENGINE.SYS` | `PCENGINE.SB2` |
+| ------------------ | -------------: | --------------: |
+| `IN AL,46h` | 0 | 9 |
+| `OUT 46h,AL` | 0 | 7 |
+| `IN AL,47h` | 0 | 3 |
+| `OUT 47h,AL` | 0 | 5 |
+
+Those ports are the Sound Board II extended address/status and data ports in
+the active implementation, as documented by
+[iova/boardsb2.c](../../iova/boardsb2.c). The `.SB2` body includes the related
+rhythm, ADPCM, and recording-facing routines. This direct hardware access is
+the decisive evidence that `SB2` denotes Sound Board II.
+
+The earlier unnumbered Sound Board II system disk instead carries its OPNA
+driver under the canonical name `PCENGINE.SYS`. Its relationship to the 1.05
+alternate driver is analyzed in
+[pc88va-boot-pcengine-soundboard2.md](pc88va-boot-pcengine-soundboard2.md).
+
+### How SYS2.COM Activates The Alternate Driver
+
+`ENGINEIO.SYS` always emits:
+
+```text
+DEVICE=PCENGINE.SYS
+```
+
+It never names `PCENGINE.SB2`, so the `.SB2` file is not loaded merely because
+it is present in the root directory. `SYS2.COM` contains these three paths:
+
+```text
+A:\PCENGINE.SYS
+A:\PCENGINE.VA
+A:\PCENGINE.SB2
+```
+
+Its replacement path uses DOS `INT 21h`, function `56h` to perform:
+
+```text
+PCENGINE.SYS -> PCENGINE.VA
+PCENGINE.SB2 -> PCENGINE.SYS
+```
+
+If the second rename fails, it restores `PCENGINE.VA` to `PCENGINE.SYS`.
+Consequently, `PCENGINE.VA` is the preserved normal-driver copy and the Sound
+Board II driver becomes loadable under the canonical name expected by
+`ENGINEIO.SYS`. The exact user-facing procedure that invokes `SYS2.COM` is not
+established by this static analysis, but the file-selection and rollback
+mechanism are explicit in the executable.
+
+The analyzed `SYS2.COM` has SHA-256:
+
+```text
+f9dc585c161e46f35a69f38f2d819288c88b570ef83e10e10f0d2b7c2d75faff
+```
+
+### Resident Main-Memory Footprint
+
+During DOS device initialization, each driver returns its resident-end
+address in request-packet fields `0Eh/10h`. On an original VA, identified by
+`F000:FFFE == FFFFh`, the returned addresses are:
+
+| Active driver | Resident-end address | Paragraph-rounded image size |
+| ------------- | -------------------- | ---------------------------: |
+| Normal `PCENGINE.SYS` | `CS:C337h` | 49,984 bytes |
+| Sound Board II driver | `CS:EAB7h` | 60,096 bytes |
+
+The Sound Board II implementation therefore retains approximately 10 KiB
+more main-memory driver code than the normal OPN implementation. Its complete
+62,250-byte file is not all resident: the initialization tail beginning at
+`EAB7h` can be discarded after initialization.
+
+On a VA2/VA3 model identifier, both drivers return `CS:004Dh` instead. Only
+the 77-byte device header and dispatch stub need remain, with the later model's
+ROM-side implementation providing the corresponding environment. These are
+resident V30 main-memory ranges; they are not Sound Board II sound RAM or
+ADPCM sample RAM.
+
+The three `PCENGINE.SYS` sectors exposed at `1340:1000` by the IPL are a
+separate bootstrap placement. The final DOS device instance is loaded at a
+DOS-assigned segment and uses the resident-end address above to release its
+initialization tail.
+
 ## ROM-Side OS Handoff
 
 After `ENGINEIO.SYS` returns, the IPL calls `F000:940D`. In the analyzed
@@ -281,6 +389,12 @@ The first clearly PC-Engine-specific execution occurs at `1340:0000`, the
   sectors of `PCENGINE.SYS`.
 - `ENGINEIO.SYS` tests the original-VA model identifier and installs hooks.
 - The following data begins with the `__ENGINE` DOS device header.
+- `PCENGINE.SB2` is the alternate Sound Board II/OPNA implementation of the
+  same `__ENGINE` device.
+- `SYS2.COM` safely renames the `.SB2` file to the canonical
+  `PCENGINE.SYS` name expected by `ENGINEIO.SYS`.
+- On an original VA, the normal and Sound Board II drivers request resident
+  ends at `C337h` and `EAB7h`, respectively.
 - The IPL then enters ROM-side initialization through `F000:940D`.
 
 ### Still Requiring Runtime Trace Or Additional Documentation
@@ -288,6 +402,7 @@ The first clearly PC-Engine-specific execution occurs at `1340:0000`, the
 - Exact names and contracts of every ROM service called by the IPL.
 - Exact meaning of the IPL's `INT 80h` operations after the stage-two read.
 - The later path that loads the remainder of `PCENGINE.SYS`.
+- The exact user-facing operating procedure around `SYS2.COM`.
 - Which ROM-side initialization call becomes the final non-returning transfer
   into the running PC-Engine environment.
 - Whether VA2/VA3 uses the same disk layout with a different `ENGINEIO.SYS`
