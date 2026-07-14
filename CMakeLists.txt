@@ -302,6 +302,7 @@ set(VAEG_SDL2_SOURCES
     external/ymfm/src/ymfm_opn.cpp
     external/ymfm/src/ymfm_ssg.cpp
     sdl2/np2.c
+    sdl2/cliopts.c
     sdl2/dosio.c
     sdl2/ini.c
     sdl2/taskmng.c

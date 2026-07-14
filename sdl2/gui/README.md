@@ -89,6 +89,10 @@ ignored-image counts are shown at the bottom of the FDD menu; successful mount
 names are not duplicated there. The menu reads the live FDD state on every
 frame and shows each mounted basename in normal text, including mounts
 restored after application restart; hovering the name shows its full path.
+FDD1/FDD2 Open remembers the source archive directory per drive and starts
+there rather than displaying managed extraction storage. A small metadata file
+inside each managed image directory preserves that browser location across an
+application restart and is pruned together with the extracted image.
 
 FDD -> New FDD image creates an empty FAT12 data disk as Japanese MS-DOS 2HD
 (1.232 MB) or 2DD (640 KB). D88 output retains track/sector metadata; IMG

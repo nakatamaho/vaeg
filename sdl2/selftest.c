@@ -28,6 +28,7 @@
 #include	"commng.h"
 #include	"clockscale.h"
 #include	"bmsio.h"
+#include	"cliopts.h"
 #include	"dosio.h"
 #include	"dropmedia.h"
 #include	"fddfile.h"
@@ -49,6 +50,7 @@
 #include	"romankana.h"
 #include	"s98.h"
 #include	"sgp.h"
+#include	"sxsi.h"
 #include	"scrndraw.h"
 #include	"scrnmng.h"
 #include	"scrndrawva.h"
@@ -118,6 +120,80 @@ static int test_cli_boot_model(void) {
 		return(fail("CLI boot model", "model name parsing failed"));
 	}
 	fprintf(stderr, "selftest: CLI boot model ok\n");
+	return(SUCCESS);
+}
+
+static int test_cli_options(void) {
+
+	char *valid[] = {
+		"vaeg", "--model", "VA", "--fmbackend", "NP2",
+		"--fmsound", "OPNA", "--ymfm-fidelity", "MAXIMUM",
+		"--samplerate", "44100", "--soundbuffer", "40", "--mute",
+		"--fdd1", "boot.d88", "--fdd2", "none",
+		"--sasi1", "disk.hdi", "--sasi2", "NONE",
+		"--cpumult", "32", "--sgp", "16", "--nowait",
+		"--frameskip", "4", "--fullscreen", "--effect", "crt-lite",
+		"--scaling", "fit-8dot", "--controller", "mouse",
+		"--keyboard-layout", "custom", "--debug", "--fdctrace",
+		"--pacelog", "--smoke"
+	};
+	char *positional[] = {"vaeg", "boot.d88"};
+	char *invalid_model[] = {"vaeg", "--model", "va3"};
+	char *invalid_backend[] = {"vaeg", "--fmbackend", "mame"};
+	char *invalid_rate[] = {"vaeg", "--samplerate", "48000"};
+	char *invalid_sgp[] = {"vaeg", "--sgp", "17"};
+	char *invalid_scaling[] = {"vaeg", "--scaling", "nearest"};
+	char *missing_value[] = {"vaeg", "--fdd1"};
+	VAEG_CLI_OPTIONS options;
+	char error[256];
+
+	if (vaeg_cli_parse((int)NELEMENTS(valid), valid, &options, error,
+											sizeof(error)) != SUCCESS) {
+		return(fail("CLI options", error));
+	}
+	if ((options.model != VAEG_CLI_MODEL_VA) ||
+		(options.fm_backend != VAEG_CLI_FM_BACKEND_NP2) ||
+		(options.fm_sound != VAEG_CLI_FM_SOUND_OPNA) ||
+		(options.ymfm_fidelity != VAEG_CLI_FIDELITY_MAXIMUM) ||
+		(options.sample_rate != 44100) || (options.sound_buffer != 40) ||
+		!options.mute ||
+		(options.fdd_mode[0] != VAEG_CLI_MEDIA_PATH) ||
+		strcmp(options.fdd_path[0], "boot.d88") ||
+		(options.fdd_mode[1] != VAEG_CLI_MEDIA_NONE) ||
+		(options.sasi_mode[0] != VAEG_CLI_MEDIA_PATH) ||
+		strcmp(options.sasi_path[0], "disk.hdi") ||
+		(options.sasi_mode[1] != VAEG_CLI_MEDIA_NONE) ||
+		(options.cpu_multiplier != 32) ||
+		(options.sgp_mode != VAEG_CLI_SGP_CUSTOM) ||
+		(options.sgp_multiplier != 16) || !options.nowait ||
+		(options.frame_skip != VAEG_CLI_FRAMESKIP_QUARTER) ||
+		(options.display_mode != VAEG_CLI_DISPLAY_FULLSCREEN) ||
+		(options.effect != VAEG_CLI_EFFECT_CRT_LITE) ||
+		(options.scaling != VAEG_CLI_SCALING_FIT_8DOT) ||
+		(options.controller != VAEG_CLI_CONTROLLER_MOUSE) ||
+		(options.keyboard_layout != VAEG_CLI_KEYBOARD_CUSTOM) ||
+		!options.debug || !options.fdctrace || !options.pacelog ||
+		!options.smoke) {
+		return(fail("CLI options", "accepted values were parsed incorrectly"));
+	}
+	if ((vaeg_cli_parse((int)NELEMENTS(positional), positional, &options,
+			error, sizeof(error)) == SUCCESS) ||
+		(strstr(error, "positional FDD arguments were removed") == NULL) ||
+		(vaeg_cli_parse((int)NELEMENTS(invalid_model), invalid_model, &options,
+			error, sizeof(error)) == SUCCESS) ||
+		(vaeg_cli_parse((int)NELEMENTS(invalid_backend), invalid_backend,
+			&options, error, sizeof(error)) == SUCCESS) ||
+		(vaeg_cli_parse((int)NELEMENTS(invalid_rate), invalid_rate, &options,
+			error, sizeof(error)) == SUCCESS) ||
+		(vaeg_cli_parse((int)NELEMENTS(invalid_sgp), invalid_sgp, &options,
+			error, sizeof(error)) == SUCCESS) ||
+		(vaeg_cli_parse((int)NELEMENTS(invalid_scaling), invalid_scaling,
+			&options, error, sizeof(error)) == SUCCESS) ||
+		(vaeg_cli_parse((int)NELEMENTS(missing_value), missing_value, &options,
+			error, sizeof(error)) == SUCCESS)) {
+		return(fail("CLI options", "invalid input was accepted"));
+	}
+	fprintf(stderr, "selftest: CLI options ok\n");
 	return(SUCCESS);
 }
 
@@ -437,6 +513,60 @@ static int test_new_fdd_image(void) {
 	}
 	if (result == SUCCESS) {
 		fprintf(stderr, "selftest: formatted D88/raw images ok\n");
+	}
+	return(result);
+}
+
+static int test_sasi_image_validation(void) {
+
+	char valid_path[MAX_PATH];
+	char invalid_path[MAX_PATH];
+	FILEH fh;
+	HDIHDR valid_header;
+	int result;
+
+	SPRINTF(valid_path, "vaeg-selftest-%lu-sasi.hdi", (unsigned long)getpid());
+	SPRINTF(invalid_path, "vaeg-selftest-%lu-invalid.hdi",
+												(unsigned long)getpid());
+	file_delete(valid_path);
+	file_delete(invalid_path);
+	newdisk_hdi(valid_path, 0);
+	result = SUCCESS;
+	if (sxsi_hddvalidate_sasi(valid_path) != SUCCESS) {
+		result = fail("SASI image", "valid generated HDI was rejected");
+		goto done;
+	}
+	fh = file_open_rb(valid_path);
+	if ((fh == FILEH_INVALID) ||
+		(file_read(fh, &valid_header, sizeof(valid_header)) !=
+											sizeof(valid_header))) {
+		if (fh != FILEH_INVALID) {
+			file_close(fh);
+		}
+		result = fail("SASI image", "valid HDI header could not be read");
+		goto done;
+	}
+	file_close(fh);
+	fh = file_create(invalid_path);
+	if ((fh == FILEH_INVALID) ||
+		(file_write(fh, &valid_header, sizeof(valid_header)) !=
+											sizeof(valid_header))) {
+		if (fh != FILEH_INVALID) {
+			file_close(fh);
+		}
+		result = fail("SASI image", "truncated test HDI could not be created");
+		goto done;
+	}
+	file_close(fh);
+	if (sxsi_hddvalidate_sasi(invalid_path) != FAILURE) {
+		result = fail("SASI image", "truncated SASI HDI was accepted");
+	}
+
+done:
+	file_delete(valid_path);
+	file_delete(invalid_path);
+	if (result == SUCCESS) {
+		fprintf(stderr, "selftest: SASI image validation ok\n");
 	}
 	return(result);
 }
@@ -1485,6 +1615,13 @@ int vaeg_selftest_run(void) {
 	if (test_cli_boot_model() != SUCCESS) {
 		return(FAILURE);
 	}
+	if (test_cli_options() != SUCCESS) {
+		return(FAILURE);
+	}
+	if (np2_cli_override_selftest() != TRUE) {
+		return(fail("CLI options", "session override restoration failed"));
+	}
+	fprintf(stderr, "selftest: CLI override restoration ok\n");
 	if (test_va_tvram_window() != SUCCESS) {
 		return(FAILURE);
 	}
@@ -1498,6 +1635,9 @@ int vaeg_selftest_run(void) {
 		return(FAILURE);
 	}
 	if (test_new_fdd_image() != SUCCESS) {
+		return(FAILURE);
+	}
+	if (test_sasi_image_validation() != SUCCESS) {
 		return(FAILURE);
 	}
 	if (test_clockscale() != SUCCESS) {

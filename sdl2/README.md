@@ -49,18 +49,45 @@ the pinned SDL2 release recorded in ADR-0006.
 ## Run
 
 ```sh
-./build/linux-debug/sdl2/vaeg [--model va|va2] [--smoke] [image1 [image2]]
+./build/linux-debug/sdl2/vaeg [options]
 ```
 
-Positional arguments mount FDD images in drive 1 and 2. Missing image files
-are rejected with an error instead of silently starting without media.
-`--pacelog` prints pacing counters once per second for jitter diagnosis.
+### Command-line options
+
+| Area | Options |
+|------|---------|
+| Machine | `--model va|va2` |
+| Sound | `--fmbackend np2|ymfm`, `--fmsound opn|opna`, `--ymfm-fidelity minimum|medium|maximum`, `--samplerate 11025|22050|44100`, `--soundbuffer 40..1000`, `--mute` |
+| Media | `--fdd1 path|none`, `--fdd2 path|none`, `--sasi1 path|none`, `--sasi2 path|none` |
+| Execution | `--cpumult 1..32`, `--sgp model|follow-cpu|1..16`, `--nowait`, `--frameskip auto|full|2|3|4` |
+| Display/input | `--fullscreen`, `--windowed`, `--effect unfiltered|linear|scanline|crt-lite`, `--scaling native|fit|fit-8dot|integer|stretch`, `--controller joystick|mouse`, `--keyboard-layout jis|us|custom` |
+| Diagnostics/information | `--smoke`, `--selftest`, `--debug`, `--fdctrace`, `--pacelog`, `--version`, `--help`, `-h` |
+
+Run `vaeg --help` for the built-in list. Enum values are ASCII
+case-insensitive, and the last occurrence wins when an option is repeated.
+Positional FDD arguments have been removed; use `--fdd1` and `--fdd2`.
+
 `--model va` selects `88VA1` and its unsuffixed ROM set. `--model va2` selects
-the `88VA2` compatibility model and its `*_va2.rom` set. As in the GUI, a
-model change selects the destination model's default FM hardware; selecting
-the already configured model preserves its configured hardware. The
-command-line model owns these values for the current process only and does not
-rewrite `pc_model` or `SNDboard` in `vaeg.cfg`.
+the `88VA2` compatibility model and its `*_va2.rom` set. The effective model
+and FM hardware must be compatible, so `--model va2 --fmsound opn` is an
+explicit startup error. A changed model otherwise uses the same default-sound
+policy as the GUI.
+
+Named FDD options accept existing direct image files. SASI options go further
+than a file-existence check: the image is opened and accepted only when its
+recognized geometry is usable through the SASI interface and the declared
+sector data is present. Use `none` to make a named drive empty for the session.
+An invalid media path or removed positional argument fails before SDL machine
+initialization.
+
+All setting and media options are session-only. They are applied after
+`vaeg.cfg` is loaded and restored before its normal shutdown save as long as
+the active value still matches the CLI-applied value. A setting changed
+through the GUI during the run can therefore persist. A pre-existing managed
+archive image remains protected from pruning while a CLI FDD override is
+active.
+
+`--pacelog` prints pacing counters once per second for jitter diagnosis.
 
 Disk images may also be dragged onto the SDL window. One drop operation is
 sorted by case-insensitive basename: the first image mounts as FDD1, the
@@ -72,6 +99,11 @@ when LibArchive support is built. Archive mounts are saved in `FDD1FILE` and
 `FDD2FILE`, so they remain valid through reset and application restart.
 Unreferenced managed images are removed after eject or replacement; an image
 still mounted in either drive is retained.
+
+When a mounted image came from a ZIP, 7z, or LZH archive, FDD1/FDD2 Open
+starts in the directory that contained the source archive instead of exposing
+the managed extraction directory. This association is kept per drive and is
+restored with persistent managed mounts after an application restart.
 
 FDD1/FDD2 Open also accepts ZIP, 7z, and LZH when LibArchive support is built.
 Opening an archive from FDD1 mounts the first two basename-sorted images as
