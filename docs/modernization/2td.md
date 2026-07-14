@@ -87,6 +87,22 @@ PC-88VA-22 and PC-88T31 pairing is listed in a
 [PC-8800 option-board index](https://www.je1vuj.net/pc88/boad.html), while the
 VA3 external-drive requirement is stated directly in NEC's specification.
 
+A [PC-88VA-22 hardware entry](http://pc88pc98.web.fc2.com/pc-8801etc/pc-88va-22.html)
+adds that the PC-88T31-01 was a one-drive expansion for the PC-88T31 and
+explicitly says that a VA3 cannot connect a second PC-88T31. Taken together,
+this supports the following maximum configuration:
+
+| Model | Built-in 2TD | External 2TD configuration | Apparent maximum |
+|---|---:|---|---:|
+| VA | 0 | PC-88T31 plus PC-88T31-01 expansion | 2 |
+| VA2 | 0 | PC-88T31 plus PC-88T31-01 expansion | 2 |
+| VA3 | 1 | One external PC-88T31; no second external unit | 2 total |
+
+The source is a retrospective hardware catalog rather than an NEC manual, so
+the two-drive limit for VA and VA2 should still be checked against a surviving
+PC-88VA-22 or PC-88T31 manual. It is nevertheless stronger evidence than the
+previous assumption that the optional path exposed only one 2TD drive.
+
 An individual [VA3 hardware report](https://www.asayan-town.com/nec/pc-88va3/)
 records the following resource assignment:
 
@@ -195,8 +211,10 @@ A staged implementation should use these boundaries:
    motor, seek, ready, write-protect, and rotational timing state.
 3. Determine the actual register and command interface from the VA2/VA3 ROM,
    PC-88VA-22 documentation, or real-hardware traces before binding I/O ports.
-4. Add a separate 2TD media slot and fixed-geometry raw backend. Do not overload
-   the two standard FDD menu entries or `DISKTYPE_2HD`.
+4. Add up to two separately addressable 2TD media slots and a fixed-geometry
+   raw backend. Do not overload the two standard FDD menu entries or
+   `DISKTYPE_2HD`. Model the VA/VA2 external two-drive topology separately from
+   the VA3 internal-plus-external topology.
 5. Route the verified interrupt and DMA resources independently from the
    standard FDD subsystem.
 6. Implement 2TD sector read first, followed by write and format after the
@@ -241,6 +259,7 @@ ROM-less tests should cover:
 - CHS/LBA conversion at the first and last sectors;
 - cylinder 239, head 1, sector 38 access without integer truncation;
 - independent standard-FDD and 2TD controller state;
+- independent selection and bounds for both possible 2TD drives;
 - reset, ready, motor, write-protect, IRQ, and DMA transitions;
 - rotational wrap at 360rpm;
 - 2TD read/write bounds and short-file handling;
@@ -256,6 +275,7 @@ The human gate should include:
 - formatting only after the genuine FAT12 layout is known;
 - reading supported 2HD and 2DD media and rejecting writes to them;
 - simultaneous use of the standard 5.25-inch drives and 2TD drive;
+- both 2TD drives on VA/VA2, and the internal-plus-external pair on VA3;
 - interrupt/DMA conflict checks for internal and external configurations;
 - no behavior change when 2TD hardware is disabled.
 
