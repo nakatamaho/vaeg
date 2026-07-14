@@ -65,7 +65,7 @@ history, not by a current CI or compile guarantee.
 | M29 | tasks/M29_va1_tvram_aperture.md | Enforce the VA1 bank-1 64KB TVRAM aperture and restore PC-Engine 1.00 boot compatibility | **G29 focused human passed; VA2 regression corrected in M31** |
 | M30 | tasks/M30_va_bms_window.md | Restore the VA `80000H-9FFFFH` BMS window semantics lost in the portable C memory port | **G30 accepted** |
 | M31 | tasks/M31_cli_boot_model.md | Select the VA or VA2/VA3 boot model with a session-only command-line override | **G31 passed** |
-| M32 | tasks/M32_cli_startup_overrides.md | Add session-only CLI overrides for sound, media, execution, display, and input; remove positional FDD syntax | **G32 human** |
+| M32 | tasks/M32_cli_startup_overrides.md | Add session-only CLI overrides for sound, media, execution, display, and input; remove positional FDD syntax | **G32 passed** |
 
 Phase 2 dependencies: M7 → M8 → {M9, M10 parallel} → M11 → M12 → M13.
 Post-phase dependency: M13 → M14 → M15 → M16 → M17 → M18 → M19 → M20 → M21 → M22 → M23 → M24 → M25 → M26 → M27 → M28 → M29 → M30 → M31 → M32.
@@ -209,7 +209,8 @@ classification. Named
 `--fdd1`/`--fdd2` options replace the retired positional FDD syntax. CLI-owned
 values are restored before configuration save while GUI changes made during
 the run remain persistable. The implementation and G32 checklist are in
-`tasks/M32_cli_startup_overrides.md`.
+`tasks/M32_cli_startup_overrides.md`. G32 passed after maintainer verification
+of the deployed MinGW build.
 
 ## Gate protocol
 
