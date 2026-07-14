@@ -29,7 +29,7 @@ POSSIBILITY OF SUCH DAMAGE.
 
 This document follows one concrete original-PC-88VA boot from the VA ROM IPL
 loader into NEC PC-Engine 1.00. This release is important because its boot
-layout is the earliest of the three analyzed PC-Engine system disks and is
+layout is the earliest of the four analyzed PC-Engine system disks and is
 not simply the later PC-Engine 1.05 IPL with older driver files.
 
 The analysis separates:
@@ -48,6 +48,7 @@ is from the [*PC-88VA Technical Manual*, page 12](https://archive.org/details/PC
 
 The later disk analyses are:
 
+- [Sound Board II system disk](pc88va-boot-pcengine-soundboard2.md)
 - [PC-Engine 1.05](pc88va-boot-pcengine1.05.md)
 - [PC-Engine 1.1](pc88va-boot-pcengine1.1.md)
 
@@ -470,22 +471,23 @@ IPL's initial stage read has completed.
 
 ## Comparison With Later Releases
 
-| Property | PC-Engine 1.00 | PC-Engine 1.05 | PC-Engine 1.1 |
-| -------- | -------------- | -------------- | ------------- |
-| Populated D88 tracks | 160 | 161 | 161 |
-| Stored D88 error-status sectors | None | 26 on C80/H0 | 26 on C80/H0 |
-| IPL implementation | Original 1.00 path | Later common path | Same executable path as 1.05 |
-| IPL end on return | `HLT` | Infinite loop | Infinite loop |
-| Stage read count | Literal 7 | `1C00h / sector size` | `1C00h / sector size` |
-| Stage destination | `1340:0000` | `1340:0000` | `1340:0000` |
-| `ENGINEIO.SYS` size | 7,168 bytes | 4,096 bytes | 4,096 bytes |
-| Initial PCENGINE bytes | 0 | 3,072 | 3,072 |
-| Original-VA hook count | 25 | 26 | 26 |
-| `PCENGINE.SYS` size | 38,996 bytes | 52,090 bytes | 62,347 bytes |
-| Strategy/interrupt entries | `0016h` / `0021h` | `0016h` / `0021h` | `C197h` / `C1A2h` |
-| `ADVGBIOS.SYS` size | 16,356 bytes | 30,956 bytes | 16,364 bytes |
-| Graphics BIOS string | `Ver 1.00 87/03/01` | `Ver 1.12 87/03/10` | `Ver 1.10 87/04/22` |
-| `PCENGINE.SB2` | Not present | Present | Not present |
+| Property | PC-Engine 1.00 | Sound Board II system disk | PC-Engine 1.05 | PC-Engine 1.1 |
+| -------- | -------------- | -------------------------- | -------------- | ------------- |
+| Populated D88 tracks | 160 | 160 | 161 | 161 |
+| Stored D88 error-status sectors | None | None | 26 on C80/H0 | 26 on C80/H0 |
+| IPL implementation | Original 1.00 path | Distinct Sound Board II-era path | Later common path | Same executable path as 1.05 |
+| IPL end on return | `HLT` | `HLT` | Infinite loop | Infinite loop |
+| Stage read count | Literal 7 | `1C00h / sector size` | `1C00h / sector size` | `1C00h / sector size` |
+| Stage destination | `1340:0000` | `1340:0000` | `1340:0000` | `1340:0000` |
+| `ENGINEIO.SYS` size | 7,168 bytes | 4,096 bytes | 4,096 bytes | 4,096 bytes |
+| Initial PCENGINE bytes | 0 | 3,072 | 3,072 | 3,072 |
+| Original-VA hook count | 25 | 26 | 26 | 26 |
+| `PCENGINE.SYS` size | 38,996 bytes | 59,956 bytes | 52,090 bytes | 62,347 bytes |
+| Strategy/interrupt entries | `0016h` / `0021h` | `0016h` / `0021h` | `0016h` / `0021h` | `C197h` / `C1A2h` |
+| `ADVGBIOS.SYS` size | 16,356 bytes | 16,356 bytes | 30,956 bytes | 16,364 bytes |
+| Graphics BIOS string | `Ver 1.00 87/03/01` | `Ver 1.00 87/03/01` | `Ver 1.12 87/03/10` | `Ver 1.10 87/04/22` |
+| Sound Board II driver form | Not present | Integrated into `PCENGINE.SYS` | Separate `PCENGINE.SB2` | Not present |
+| Direct OPNA `0046h/0047h` access | None | Present | Present in `PCENGINE.SB2`, absent from normal `PCENGINE.SYS` | Not analyzed |
 
 The extra C80/H0 tracks in the two later D88 containers may reflect imaging
 or conversion history. The table records them as observed container facts and
@@ -494,10 +496,10 @@ does not treat them as proof of a release-level disk-format change.
 The major boot evolution is instead visible in ordinary filesystem data:
 
 - 1.00 pads `ENGINEIO.SYS` to the entire seven-sector initial load;
-- 1.05 and 1.1 reduce it to four sectors;
+- the Sound Board II, 1.05, and 1.1 disks reduce it to four sectors;
 - the freed three sectors expose the beginning of `PCENGINE.SYS` during the
   initial transfer;
-- all three still use the embedded configuration mechanism to name
+- all four still use the embedded configuration mechanism to name
   `PCENGINE.SYS` and `ADVGBIOS.SYS` for later device loading.
 
 ## Confirmed And Unresolved Points
