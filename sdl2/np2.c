@@ -26,6 +26,7 @@
 #include	"sdlapi.h"
 #include	"strres.h"
 #include	"np2.h"
+#include	"cliopts.h"
 #include	"dosio.h"
 #include	"commng.h"
 #include	"inputmng.h"
@@ -40,6 +41,7 @@
 #include	"s98.h"
 #include	"sgp.h"
 #include	"diskdrv.h"
+#include	"sxsi.h"
 #include	"fdc.h"
 #include	"timing.h"
 #include	"keystat.h"
@@ -51,6 +53,10 @@
 #include	"splash.h"
 #include	"np2ver.h"
 #include	"mousemng.h"
+#include	"mouseifva.h"
+#include	"sound.h"
+#include	"opngen.h"
+#include	"ymfmbridge.h"
 
 		NP2OSCFG	np2oscfg = {0, 0, 2, 0, 0, 0, 1, 0, "", "", {"", ""},
 								"", "", 0, 0, "", "ymfm", "minimum", 1,
@@ -113,6 +119,60 @@ typedef struct {
 	UINT	max_pending;
 } PACELOG;
 
+typedef struct {
+	BOOL model_sound;
+	char model[sizeof(np2cfg.model)];
+	char applied_model[sizeof(np2cfg.model)];
+	UINT16 sound;
+	UINT16 applied_sound;
+	BOOL fm_backend;
+	char backend[sizeof(np2oscfg.opn_backend)];
+	BOOL ymfm_fidelity;
+	char fidelity[sizeof(np2oscfg.ymfm_fidelity)];
+	BOOL sample_rate;
+	UINT16 samplingrate;
+	BOOL sound_buffer;
+	UINT16 delayms;
+	BOOL mute;
+	BYTE sound_enabled;
+	BOOL cpu_multiplier;
+	UINT multiple;
+	BOOL sgp;
+	UINT8 sgp_mode;
+	UINT8 sgp_multiplier;
+	UINT8 applied_sgp_mode;
+	UINT8 applied_sgp_multiplier;
+	BOOL nowait;
+	BYTE saved_nowait;
+	BOOL frame_skip;
+	BYTE draw_skip;
+	BOOL display_mode;
+	BYTE saved_display_mode;
+	UINT16 fscrn_cx;
+	UINT16 fscrn_cy;
+	UINT16 fullscreen_refresh;
+	UINT8 fscrnmod;
+	BYTE applied_display_mode;
+	UINT16 applied_fscrn_cx;
+	UINT16 applied_fscrn_cy;
+	UINT16 applied_fullscreen_refresh;
+	UINT8 applied_fscrnmod;
+	BOOL effect;
+	BYTE saved_effect;
+	BOOL scaling;
+	BYTE saved_scaling;
+	BOOL controller;
+	UINT8 saved_controller;
+	BOOL keyboard_layout;
+	char saved_keyboard_layout[sizeof(np2oscfg.keyboard_host_layout)];
+	BOOL fdd[2];
+	char saved_fdd[2][MAX_PATH];
+	char applied_fdd[2][MAX_PATH];
+	BOOL sasi[2];
+	char saved_sasi[2][MAX_PATH];
+	char applied_sasi[2][MAX_PATH];
+} CLI_SAVED_CONFIG;
+
 static	UINT	framecnt;
 static	UINT	waitcnt;
 static	UINT	framemax = 1;
@@ -121,14 +181,31 @@ static void usage(const char *progname) {
 
 	printf("88VA Eternal Grafx %s (%s)\n", VAEGREL_CORE, NP2VER_CORE);
 	printf("Usage: %s [options]\n", progname);
-	printf("\t--help   [-h]       : print this message\n");
-	printf("\t--smoke             : initialize SDL2, run a short core loop, exit\n");
-	printf("\t--selftest          : run ROM-less unit tests and exit\n");
-	printf("\t--debug             : print configuration and ROM diagnostics\n");
-	printf("\t--fdctrace          : print one FDC trace line per command to stderr\n");
-	printf("\t--model va|va2      : select the boot model for this session\n");
-	printf("\t--pacelog           : print pacing counters once per second\n");
-	printf("\timage1 [image2]     : mount FDD images in drive 1 and 2\n");
+	printf("Machine and sound (session only):\n");
+	printf("\t--model va|va2\n");
+	printf("\t--fmbackend np2|ymfm\n");
+	printf("\t--fmsound opn|opna\n");
+	printf("\t--ymfm-fidelity minimum|medium|maximum\n");
+	printf("\t--samplerate 11025|22050|44100\n");
+	printf("\t--soundbuffer 40..1000\n");
+	printf("\t--mute\n");
+	printf("Media (session only; use none for an empty drive):\n");
+	printf("\t--fdd1 path|none    --fdd2 path|none\n");
+	printf("\t--sasi1 path|none   --sasi2 path|none\n");
+	printf("Execution (session only):\n");
+	printf("\t--cpumult 1..32\n");
+	printf("\t--sgp model|follow-cpu|1..16\n");
+	printf("\t--nowait\n");
+	printf("\t--frameskip auto|full|2|3|4\n");
+	printf("Display and input (session only):\n");
+	printf("\t--fullscreen | --windowed\n");
+	printf("\t--effect unfiltered|linear|scanline|crt-lite\n");
+	printf("\t--scaling native|fit|fit-8dot|integer|stretch\n");
+	printf("\t--controller joystick|mouse\n");
+	printf("\t--keyboard-layout jis|us|custom\n");
+	printf("Diagnostics:\n");
+	printf("\t--smoke --selftest --debug --fdctrace --pacelog\n");
+	printf("\t--version --help [-h]\n");
 }
 
 static void smoke_configure_va(const char *model) {
@@ -468,31 +545,560 @@ static BOOL check_fdd_image(const char *path, const char *level) {
 	return(SUCCESS);
 }
 
-static void mount_fdd_images(char *disk[2]) {
+static void mount_configured_fdd_images(void) {
 
 	int drive;
 
 	for (drive=0; drive<2; drive++) {
 		const char *path;
 
-		path = disk[drive];
-		if (path == NULL) {
-			path = np2oscfg.fdd_image[drive];
-			if ((path[0] != '\0') &&
-				(check_fdd_image(path, "Warning") != SUCCESS)) {
-				continue;
-			}
+		path = np2oscfg.fdd_image[drive];
+		if ((path[0] != '\0') &&
+			(check_fdd_image(path, "Warning") != SUCCESS)) {
+			continue;
 		}
-		if ((path == NULL) || (path[0] == '\0')) {
+		if (path[0] == '\0') {
 			continue;
 		}
 		diskdrv_setfdd((REG8)drive, path, 0);
-		if (disk[drive] != NULL) {
-			file_cpyname(np2oscfg.fdd_image[drive], path,
-									sizeof(np2oscfg.fdd_image[drive]));
-			sysmng_update(SYS_UPDATEOSCFG);
+	}
+}
+
+static const char *cli_model_name(UINT model) {
+
+	return((model == VAEG_CLI_MODEL_VA) ? str_VA1 : str_VA2);
+}
+
+static UINT16 cli_fm_sound(UINT sound) {
+
+	return((sound == VAEG_CLI_FM_SOUND_OPN) ?
+								FMBOARD_VA_OPN : FMBOARD_VA_OPNA);
+}
+
+static UINT cli_fm_backend(UINT backend) {
+
+	return((backend == VAEG_CLI_FM_BACKEND_NP2) ?
+								OPN_BACKEND_NP2 : OPN_BACKEND_YMFM);
+}
+
+static UINT cli_ymfm_fidelity(UINT fidelity) {
+
+	switch(fidelity) {
+		case VAEG_CLI_FIDELITY_MEDIUM:
+			return(YMFMBRIDGE_FIDELITY_MEDIUM);
+
+		case VAEG_CLI_FIDELITY_MAXIMUM:
+			return(YMFMBRIDGE_FIDELITY_MAXIMUM);
+
+		default:
+			return(YMFMBRIDGE_FIDELITY_MINIMUM);
+	}
+}
+
+static UINT8 cli_sgp_mode(UINT mode) {
+
+	switch(mode) {
+		case VAEG_CLI_SGP_FOLLOW_CPU:
+			return(SGP_SPEED_FOLLOW_CPU);
+
+		case VAEG_CLI_SGP_CUSTOM:
+			return(SGP_SPEED_CUSTOM);
+
+		default:
+			return(SGP_SPEED_MODEL_DEFAULT);
+	}
+}
+
+static BYTE cli_frame_skip(UINT value) {
+
+	return((BYTE)(value - VAEG_CLI_FRAMESKIP_AUTO));
+}
+
+static BYTE cli_display_mode(UINT value) {
+
+	return((value == VAEG_CLI_DISPLAY_FULLSCREEN) ?
+						VAEG_DISPLAY_EXCLUSIVE : VAEG_DISPLAY_WINDOWED);
+}
+
+static BYTE cli_effect(UINT value) {
+
+	return((BYTE)(value - VAEG_CLI_EFFECT_UNFILTERED));
+}
+
+static BYTE cli_scaling(UINT value) {
+
+	return((BYTE)(value - VAEG_CLI_SCALING_NATIVE));
+}
+
+static UINT8 cli_controller(UINT value) {
+
+	return((value == VAEG_CLI_CONTROLLER_MOUSE) ?
+								MOUSEIFVA_MOUSE : MOUSEIFVA_JOYPAD);
+}
+
+static const char *cli_keyboard_layout(UINT value) {
+
+	switch(value) {
+		case VAEG_CLI_KEYBOARD_US:
+			return("us");
+
+		case VAEG_CLI_KEYBOARD_CUSTOM:
+			return("custom");
+
+		default:
+			return("jis");
+	}
+}
+
+static BOOL check_sasi_image(const char *path, int drive) {
+
+	short attr;
+
+	attr = file_attr(path);
+	if (attr == (short)-1) {
+		fprintf(stderr, "Error: SASI-%d image not found: %s\n", drive + 1,
+														path);
+		return(FAILURE);
+	}
+	if (attr & FILEATTR_DIRECTORY) {
+		fprintf(stderr, "Error: SASI-%d image is a directory: %s\n", drive + 1,
+														path);
+		return(FAILURE);
+	}
+	if (sxsi_hddvalidate_sasi(path) != SUCCESS) {
+		fprintf(stderr,
+			"Error: SASI-%d image has an unsupported format or geometry: %s\n",
+													drive + 1, path);
+		return(FAILURE);
+	}
+	return(SUCCESS);
+}
+
+static BOOL validate_cli_options(const VAEG_CLI_OPTIONS *options) {
+
+	const char *model;
+	int drive;
+
+	model = np2cfg.model;
+	if (options->smoke) {
+		model = (options->model != VAEG_CLI_MODEL_UNSET) ?
+								cli_model_name(options->model) : str_VA2;
+	}
+	else if (options->model != VAEG_CLI_MODEL_UNSET) {
+		model = cli_model_name(options->model);
+	}
+	if ((options->fm_sound != VAEG_CLI_FM_SOUND_UNSET) &&
+		!np2_sound_hardware_valid(model, cli_fm_sound(options->fm_sound))) {
+		fprintf(stderr, "Error: --fmsound opn is not valid with --model va2\n");
+		return(FAILURE);
+	}
+	for (drive=0; drive<2; drive++) {
+		if ((options->fdd_mode[drive] == VAEG_CLI_MEDIA_PATH) &&
+			(check_fdd_image(options->fdd_path[drive], "Error") != SUCCESS)) {
+			return(FAILURE);
+		}
+		if ((options->sasi_mode[drive] == VAEG_CLI_MEDIA_PATH) &&
+			(check_sasi_image(options->sasi_path[drive], drive) != SUCCESS)) {
+			return(FAILURE);
 		}
 	}
+	return(SUCCESS);
+}
+
+static void save_cli_config(const VAEG_CLI_OPTIONS *options,
+									CLI_SAVED_CONFIG *saved) {
+
+	int drive;
+
+	ZeroMemory(saved, sizeof(*saved));
+	saved->model_sound = (options->model != VAEG_CLI_MODEL_UNSET) ||
+							(options->fm_sound != VAEG_CLI_FM_SOUND_UNSET);
+	if (saved->model_sound) {
+		file_cpyname(saved->model, np2cfg.model, sizeof(saved->model));
+		saved->sound = np2cfg.SOUND_SW;
+	}
+	saved->fm_backend = options->fm_backend != VAEG_CLI_FM_BACKEND_UNSET;
+	if (saved->fm_backend) {
+		milstr_ncpy(saved->backend, np2oscfg.opn_backend,
+													sizeof(saved->backend));
+	}
+	saved->ymfm_fidelity =
+				options->ymfm_fidelity != VAEG_CLI_FIDELITY_UNSET;
+	if (saved->ymfm_fidelity) {
+		milstr_ncpy(saved->fidelity, np2oscfg.ymfm_fidelity,
+													sizeof(saved->fidelity));
+	}
+	saved->sample_rate = options->sample_rate != 0;
+	saved->samplingrate = np2cfg.samplingrate;
+	saved->sound_buffer = options->sound_buffer != 0;
+	saved->delayms = np2cfg.delayms;
+	saved->mute = options->mute;
+	saved->sound_enabled = np2oscfg.sound_enabled;
+	saved->cpu_multiplier = options->cpu_multiplier != 0;
+	saved->multiple = np2cfg.multiple;
+	saved->sgp = options->sgp_mode != VAEG_CLI_SGP_UNSET;
+	saved->sgp_mode = np2cfg.sgp_speed_mode;
+	saved->sgp_multiplier = np2cfg.sgp_multiplier;
+	saved->nowait = options->nowait;
+	saved->saved_nowait = np2oscfg.NOWAIT;
+	saved->frame_skip = options->frame_skip != VAEG_CLI_FRAMESKIP_UNSET;
+	saved->draw_skip = np2oscfg.DRAW_SKIP;
+	saved->display_mode = options->display_mode != VAEG_CLI_DISPLAY_UNSET;
+	saved->saved_display_mode = np2oscfg.gui_display_mode;
+	saved->fscrn_cx = np2oscfg.fscrn_cx;
+	saved->fscrn_cy = np2oscfg.fscrn_cy;
+	saved->fullscreen_refresh = np2oscfg.gui_fullscreen_refresh;
+	saved->fscrnmod = np2oscfg.fscrnmod;
+	saved->effect = options->effect != VAEG_CLI_EFFECT_UNSET;
+	saved->saved_effect = np2oscfg.gui_effect;
+	saved->scaling = options->scaling != VAEG_CLI_SCALING_UNSET;
+	saved->saved_scaling = np2oscfg.gui_scaling;
+	saved->controller = options->controller != VAEG_CLI_CONTROLLER_UNSET;
+	saved->saved_controller = mouseifvacfg.device;
+	saved->keyboard_layout =
+					options->keyboard_layout != VAEG_CLI_KEYBOARD_UNSET;
+	if (saved->keyboard_layout) {
+		milstr_ncpy(saved->saved_keyboard_layout,
+					np2oscfg.keyboard_host_layout,
+					sizeof(saved->saved_keyboard_layout));
+	}
+	for (drive=0; drive<2; drive++) {
+		saved->fdd[drive] = options->fdd_mode[drive] != VAEG_CLI_MEDIA_UNSET;
+		if (saved->fdd[drive]) {
+			file_cpyname(saved->saved_fdd[drive], np2oscfg.fdd_image[drive],
+											sizeof(saved->saved_fdd[drive]));
+		}
+		saved->sasi[drive] = options->sasi_mode[drive] != VAEG_CLI_MEDIA_UNSET;
+		if (saved->sasi[drive]) {
+			file_cpyname(saved->saved_sasi[drive], np2cfg.sasihdd[drive],
+											sizeof(saved->saved_sasi[drive]));
+		}
+	}
+}
+
+static void apply_cli_config(const VAEG_CLI_OPTIONS *options,
+									CLI_SAVED_CONFIG *saved) {
+
+	UINT value;
+	int drive;
+
+	if (options->fm_sound != VAEG_CLI_FM_SOUND_UNSET) {
+		np2cfg.SOUND_SW = cli_fm_sound(options->fm_sound);
+	}
+	if (saved->model_sound) {
+		file_cpyname(saved->applied_model, np2cfg.model,
+											sizeof(saved->applied_model));
+		saved->applied_sound = np2cfg.SOUND_SW;
+	}
+	if (saved->fm_backend) {
+		value = cli_fm_backend(options->fm_backend);
+		opngen_setbackend(value);
+		milstr_ncpy(np2oscfg.opn_backend, opngen_backendname(value),
+											sizeof(np2oscfg.opn_backend));
+	}
+	if (saved->ymfm_fidelity) {
+		value = cli_ymfm_fidelity(options->ymfm_fidelity);
+		ymfm_opn_setfidelity(value);
+		milstr_ncpy(np2oscfg.ymfm_fidelity, ymfm_opn_fidelityname(value),
+											sizeof(np2oscfg.ymfm_fidelity));
+	}
+	if (saved->sample_rate) {
+		np2cfg.samplingrate = (UINT16)options->sample_rate;
+	}
+	if (saved->sound_buffer) {
+		np2cfg.delayms = (UINT16)options->sound_buffer;
+	}
+	if (saved->mute) {
+		np2oscfg.sound_enabled = 0;
+	}
+	if (saved->cpu_multiplier) {
+		np2cfg.multiple = options->cpu_multiplier;
+	}
+	if (saved->sgp) {
+		np2cfg.sgp_speed_mode = cli_sgp_mode(options->sgp_mode);
+		if (options->sgp_mode == VAEG_CLI_SGP_CUSTOM) {
+			np2cfg.sgp_multiplier = (UINT8)options->sgp_multiplier;
+		}
+		saved->applied_sgp_mode = np2cfg.sgp_speed_mode;
+		saved->applied_sgp_multiplier = np2cfg.sgp_multiplier;
+	}
+	if (saved->nowait) {
+		np2oscfg.NOWAIT = 1;
+	}
+	if (saved->frame_skip) {
+		np2oscfg.DRAW_SKIP = cli_frame_skip(options->frame_skip);
+	}
+	if (saved->display_mode) {
+		np2oscfg.gui_display_mode = cli_display_mode(options->display_mode);
+		if (np2oscfg.gui_display_mode == VAEG_DISPLAY_EXCLUSIVE) {
+			np2oscfg.fscrn_cx = 0;
+			np2oscfg.fscrn_cy = 0;
+			np2oscfg.gui_fullscreen_refresh = 0;
+			np2oscfg.fscrnmod = (np2oscfg.fscrnmod & 3) | 4;
+		}
+	}
+	if (saved->effect) {
+		np2oscfg.gui_effect = cli_effect(options->effect);
+	}
+	if (saved->scaling) {
+		np2oscfg.gui_scaling = cli_scaling(options->scaling);
+	}
+	if (saved->controller) {
+		mouseifvacfg.device = cli_controller(options->controller);
+	}
+	if (saved->keyboard_layout) {
+		milstr_ncpy(np2oscfg.keyboard_host_layout,
+				cli_keyboard_layout(options->keyboard_layout),
+				sizeof(np2oscfg.keyboard_host_layout));
+	}
+	for (drive=0; drive<2; drive++) {
+		if (saved->fdd[drive]) {
+			if (options->fdd_mode[drive] == VAEG_CLI_MEDIA_PATH) {
+				file_cpyname(np2oscfg.fdd_image[drive], options->fdd_path[drive],
+										sizeof(np2oscfg.fdd_image[drive]));
+			}
+			else {
+				np2oscfg.fdd_image[drive][0] = '\0';
+			}
+			file_cpyname(saved->applied_fdd[drive], np2oscfg.fdd_image[drive],
+											sizeof(saved->applied_fdd[drive]));
+		}
+		if (saved->sasi[drive]) {
+			if (options->sasi_mode[drive] == VAEG_CLI_MEDIA_PATH) {
+				file_cpyname(np2cfg.sasihdd[drive], options->sasi_path[drive],
+											sizeof(np2cfg.sasihdd[drive]));
+			}
+			else {
+				np2cfg.sasihdd[drive][0] = '\0';
+			}
+			file_cpyname(saved->applied_sasi[drive], np2cfg.sasihdd[drive],
+											sizeof(saved->applied_sasi[drive]));
+		}
+	}
+}
+
+static void update_applied_display(CLI_SAVED_CONFIG *saved) {
+
+	if (!saved->display_mode) {
+		return;
+	}
+	saved->applied_display_mode = np2oscfg.gui_display_mode;
+	saved->applied_fscrn_cx = np2oscfg.fscrn_cx;
+	saved->applied_fscrn_cy = np2oscfg.fscrn_cy;
+	saved->applied_fullscreen_refresh = np2oscfg.gui_fullscreen_refresh;
+	saved->applied_fscrnmod = np2oscfg.fscrnmod;
+}
+
+static void restore_cli_config(const VAEG_CLI_OPTIONS *options,
+									const CLI_SAVED_CONFIG *saved) {
+
+	int drive;
+
+	if (saved->model_sound &&
+		!strcmp(np2cfg.model, saved->applied_model) &&
+		(np2cfg.SOUND_SW == saved->applied_sound)) {
+		file_cpyname(np2cfg.model, saved->model, sizeof(np2cfg.model));
+		np2cfg.SOUND_SW = saved->sound;
+	}
+	if (saved->fm_backend &&
+		!strcmp(np2oscfg.opn_backend,
+			opngen_backendname(cli_fm_backend(options->fm_backend)))) {
+		milstr_ncpy(np2oscfg.opn_backend, saved->backend,
+											sizeof(np2oscfg.opn_backend));
+		opngen_setbackend(opngen_parsebackend(saved->backend));
+	}
+	if (saved->ymfm_fidelity &&
+		!strcmp(np2oscfg.ymfm_fidelity,
+			ymfm_opn_fidelityname(cli_ymfm_fidelity(options->ymfm_fidelity)))) {
+		milstr_ncpy(np2oscfg.ymfm_fidelity, saved->fidelity,
+											sizeof(np2oscfg.ymfm_fidelity));
+		ymfm_opn_setfidelity(ymfm_opn_parsefidelity(saved->fidelity));
+	}
+	if (saved->sample_rate &&
+		(np2cfg.samplingrate == (UINT16)options->sample_rate)) {
+		np2cfg.samplingrate = saved->samplingrate;
+	}
+	if (saved->sound_buffer &&
+		(np2cfg.delayms == (UINT16)options->sound_buffer)) {
+		np2cfg.delayms = saved->delayms;
+	}
+	if (saved->mute && (np2oscfg.sound_enabled == 0)) {
+		np2oscfg.sound_enabled = saved->sound_enabled;
+	}
+	if (saved->cpu_multiplier &&
+		(np2cfg.multiple == options->cpu_multiplier)) {
+		np2cfg.multiple = saved->multiple;
+	}
+	if (saved->sgp &&
+		(np2cfg.sgp_speed_mode == saved->applied_sgp_mode) &&
+		(np2cfg.sgp_multiplier == saved->applied_sgp_multiplier)) {
+		np2cfg.sgp_speed_mode = saved->sgp_mode;
+		np2cfg.sgp_multiplier = saved->sgp_multiplier;
+	}
+	if (saved->nowait && (np2oscfg.NOWAIT == 1)) {
+		np2oscfg.NOWAIT = saved->saved_nowait;
+	}
+	if (saved->frame_skip &&
+		(np2oscfg.DRAW_SKIP == cli_frame_skip(options->frame_skip))) {
+		np2oscfg.DRAW_SKIP = saved->draw_skip;
+	}
+	if (saved->display_mode &&
+		(np2oscfg.gui_display_mode == saved->applied_display_mode) &&
+		(np2oscfg.fscrn_cx == saved->applied_fscrn_cx) &&
+		(np2oscfg.fscrn_cy == saved->applied_fscrn_cy) &&
+		(np2oscfg.gui_fullscreen_refresh == saved->applied_fullscreen_refresh) &&
+		(np2oscfg.fscrnmod == saved->applied_fscrnmod)) {
+		np2oscfg.gui_display_mode = saved->saved_display_mode;
+		np2oscfg.fscrn_cx = saved->fscrn_cx;
+		np2oscfg.fscrn_cy = saved->fscrn_cy;
+		np2oscfg.gui_fullscreen_refresh = saved->fullscreen_refresh;
+		np2oscfg.fscrnmod = saved->fscrnmod;
+	}
+	if (saved->effect &&
+		(np2oscfg.gui_effect == cli_effect(options->effect))) {
+		np2oscfg.gui_effect = saved->saved_effect;
+	}
+	if (saved->scaling &&
+		(np2oscfg.gui_scaling == cli_scaling(options->scaling))) {
+		np2oscfg.gui_scaling = saved->saved_scaling;
+	}
+	if (saved->controller &&
+		(mouseifvacfg.device == cli_controller(options->controller))) {
+		mouseifvacfg.device = saved->saved_controller;
+	}
+	if (saved->keyboard_layout &&
+		!strcmp(np2oscfg.keyboard_host_layout,
+						cli_keyboard_layout(options->keyboard_layout))) {
+		milstr_ncpy(np2oscfg.keyboard_host_layout, saved->saved_keyboard_layout,
+										sizeof(np2oscfg.keyboard_host_layout));
+	}
+	for (drive=0; drive<2; drive++) {
+		if (saved->fdd[drive] &&
+			!strcmp(np2oscfg.fdd_image[drive], saved->applied_fdd[drive])) {
+			file_cpyname(np2oscfg.fdd_image[drive], saved->saved_fdd[drive],
+											sizeof(np2oscfg.fdd_image[drive]));
+		}
+		if (saved->sasi[drive] &&
+			!strcmp(np2cfg.sasihdd[drive], saved->applied_sasi[drive])) {
+			file_cpyname(np2cfg.sasihdd[drive], saved->saved_sasi[drive],
+											sizeof(np2cfg.sasihdd[drive]));
+		}
+	}
+}
+
+BOOL np2_cli_override_selftest(void) {
+
+	NP2CFG original_cfg;
+	NP2CFG baseline_cfg;
+	NP2OSCFG original_oscfg;
+	NP2OSCFG baseline_oscfg;
+	VAEG_CLI_OPTIONS options;
+	CLI_SAVED_CONFIG saved;
+	UINT8 original_controller;
+	UINT8 baseline_controller;
+	UINT original_backend;
+	UINT original_fidelity;
+	BOOL result;
+
+	original_cfg = np2cfg;
+	original_oscfg = np2oscfg;
+	original_controller = mouseifvacfg.device;
+	original_backend = opngen_getbackend();
+	original_fidelity = ymfm_opn_getfidelity();
+	file_cpyname(np2cfg.model, str_VA2, sizeof(np2cfg.model));
+	np2cfg.SOUND_SW = FMBOARD_VA_OPNA;
+	np2cfg.samplingrate = 22050;
+	np2cfg.delayms = 500;
+	np2cfg.multiple = 2;
+	np2cfg.sgp_speed_mode = SGP_SPEED_MODEL_DEFAULT;
+	np2cfg.sgp_multiplier = 1;
+	file_cpyname(np2cfg.sasihdd[0], "saved1.hdi",
+											sizeof(np2cfg.sasihdd[0]));
+	file_cpyname(np2cfg.sasihdd[1], "saved2.hdi",
+											sizeof(np2cfg.sasihdd[1]));
+	milstr_ncpy(np2oscfg.opn_backend, "ymfm",
+											sizeof(np2oscfg.opn_backend));
+	milstr_ncpy(np2oscfg.ymfm_fidelity, "minimum",
+											sizeof(np2oscfg.ymfm_fidelity));
+	np2oscfg.sound_enabled = 1;
+	np2oscfg.NOWAIT = 0;
+	np2oscfg.DRAW_SKIP = 0;
+	np2oscfg.gui_display_mode = VAEG_DISPLAY_WINDOWED;
+	np2oscfg.fscrn_cx = 640;
+	np2oscfg.fscrn_cy = 480;
+	np2oscfg.gui_fullscreen_refresh = 60;
+	np2oscfg.fscrnmod = 2;
+	np2oscfg.gui_effect = VAEG_EFFECT_UNFILTERED;
+	np2oscfg.gui_scaling = VAEG_SCALING_FIT;
+	milstr_ncpy(np2oscfg.keyboard_host_layout, "jis",
+									sizeof(np2oscfg.keyboard_host_layout));
+	file_cpyname(np2oscfg.fdd_image[0], "saved1.d88",
+											sizeof(np2oscfg.fdd_image[0]));
+	file_cpyname(np2oscfg.fdd_image[1], "saved2.d88",
+											sizeof(np2oscfg.fdd_image[1]));
+	mouseifvacfg.device = MOUSEIFVA_JOYPAD;
+	opngen_setbackend(OPN_BACKEND_YMFM);
+	ymfm_opn_setfidelity(YMFMBRIDGE_FIDELITY_MINIMUM);
+	baseline_cfg = np2cfg;
+	baseline_oscfg = np2oscfg;
+	baseline_controller = mouseifvacfg.device;
+	vaeg_cli_options_init(&options);
+	options.model = VAEG_CLI_MODEL_VA;
+	options.fm_backend = VAEG_CLI_FM_BACKEND_NP2;
+	options.fm_sound = VAEG_CLI_FM_SOUND_OPNA;
+	options.ymfm_fidelity = VAEG_CLI_FIDELITY_MAXIMUM;
+	options.sample_rate = 44100;
+	options.sound_buffer = 40;
+	options.mute = TRUE;
+	options.cpu_multiplier = 32;
+	options.sgp_mode = VAEG_CLI_SGP_CUSTOM;
+	options.sgp_multiplier = 16;
+	options.nowait = TRUE;
+	options.frame_skip = VAEG_CLI_FRAMESKIP_QUARTER;
+	options.display_mode = VAEG_CLI_DISPLAY_FULLSCREEN;
+	options.effect = VAEG_CLI_EFFECT_CRT_LITE;
+	options.scaling = VAEG_CLI_SCALING_STRETCH;
+	options.controller = VAEG_CLI_CONTROLLER_MOUSE;
+	options.keyboard_layout = VAEG_CLI_KEYBOARD_US;
+	options.fdd_mode[0] = VAEG_CLI_MEDIA_PATH;
+	options.fdd_path[0] = "cli1.d88";
+	options.fdd_mode[1] = VAEG_CLI_MEDIA_NONE;
+	options.sasi_mode[0] = VAEG_CLI_MEDIA_PATH;
+	options.sasi_path[0] = "cli1.hdi";
+	options.sasi_mode[1] = VAEG_CLI_MEDIA_NONE;
+	save_cli_config(&options, &saved);
+	file_cpyname(np2cfg.model, str_VA1, sizeof(np2cfg.model));
+	apply_cli_config(&options, &saved);
+	update_applied_display(&saved);
+	result = (np2cfg.SOUND_SW == FMBOARD_VA_OPNA) &&
+		(opngen_getbackend() == OPN_BACKEND_NP2) &&
+		(ymfm_opn_getfidelity() == YMFMBRIDGE_FIDELITY_MAXIMUM) &&
+		(np2cfg.samplingrate == 44100) && (np2cfg.delayms == 40) &&
+		(np2oscfg.sound_enabled == 0) && (np2cfg.multiple == 32) &&
+		(np2cfg.sgp_speed_mode == SGP_SPEED_CUSTOM) &&
+		(np2cfg.sgp_multiplier == 16) && (np2oscfg.NOWAIT == 1) &&
+		(np2oscfg.DRAW_SKIP == 4) &&
+		(np2oscfg.gui_display_mode == VAEG_DISPLAY_EXCLUSIVE) &&
+		(np2oscfg.gui_effect == VAEG_EFFECT_CRT_LITE) &&
+		(np2oscfg.gui_scaling == VAEG_SCALING_STRETCH) &&
+		(mouseifvacfg.device == MOUSEIFVA_MOUSE) &&
+		!strcmp(np2oscfg.keyboard_host_layout, "us") &&
+		!strcmp(np2oscfg.fdd_image[0], "cli1.d88") &&
+		(np2oscfg.fdd_image[1][0] == '\0') &&
+		!strcmp(np2cfg.sasihdd[0], "cli1.hdi") &&
+		(np2cfg.sasihdd[1][0] == '\0');
+	restore_cli_config(&options, &saved);
+	result = result && !memcmp(&np2cfg, &baseline_cfg, sizeof(np2cfg)) &&
+		!memcmp(&np2oscfg, &baseline_oscfg, sizeof(np2oscfg)) &&
+		(mouseifvacfg.device == baseline_controller) &&
+		(opngen_getbackend() == OPN_BACKEND_YMFM) &&
+		(ymfm_opn_getfidelity() == YMFMBRIDGE_FIDELITY_MINIMUM);
+	np2cfg = original_cfg;
+	np2oscfg = original_oscfg;
+	mouseifvacfg.device = original_controller;
+	opngen_setbackend(original_backend);
+	ymfm_opn_setfidelity(original_fidelity);
+	return(result);
 }
 
 static BOOL smoke_check_screen(UINT frames, BOOL *done) {
@@ -749,83 +1355,35 @@ static void wait_startup_splash(UINT32 started) {
 
 int main(int argc, char **argv) {
 
-	int		pos;
-	char	*p;
-	BOOL	smoke;
-	BOOL	selftest;
-	BOOL	fdctrace;
-	BOOL	pacelog;
 	BOOL	smoke_detect_screen;
 	BOOL	splash_visible;
 	BOOL	run_ok;
-	BOOL	cli_model_applied;
 	UINT32	splash_started;
-	int		disks;
-	char	*disk[2];
+	VAEG_CLI_OPTIONS options;
+	CLI_SAVED_CONFIG saved_cli;
+	char cli_error[256];
 	const char *cli_model;
-	char	saved_model[sizeof(np2cfg.model)];
-	UINT16	saved_sound;
 
-	smoke = FALSE;
-	selftest = FALSE;
-	fdctrace = FALSE;
-	pacelog = FALSE;
 	smoke_detect_screen = FALSE;
 	splash_visible = FALSE;
 	run_ok = SUCCESS;
-	cli_model_applied = FALSE;
 	splash_started = 0;
-	disks = 0;
-	disk[0] = NULL;
-	disk[1] = NULL;
 	cli_model = NULL;
-	saved_model[0] = '\0';
-	saved_sound = 0;
-	pos = 1;
-	while(pos < argc) {
-		p = argv[pos++];
-		if ((!milstr_cmp(p, "-h")) || (!milstr_cmp(p, "--help"))) {
-			usage(argv[0]);
-			return(SUCCESS);
-		}
-		else if (!milstr_cmp(p, "--smoke")) {
-			smoke = TRUE;
-		}
-		else if (!milstr_cmp(p, "--selftest")) {
-			selftest = TRUE;
-		}
-		else if (!milstr_cmp(p, "--debug")) {
-			np2_debug = TRUE;
-		}
-		else if (!milstr_cmp(p, "--fdctrace")) {
-			fdctrace = TRUE;
-		}
-		else if (!milstr_cmp(p, "--model")) {
-			if (pos >= argc) {
-				fprintf(stderr, "Error: --model requires va or va2\n");
-				return(FAILURE);
-			}
-			cli_model = np2_cli_boot_model(argv[pos++]);
-			if (cli_model == NULL) {
-				fprintf(stderr, "Error: --model accepts only va or va2\n");
-				return(FAILURE);
-			}
-		}
-		else if (!milstr_cmp(p, "--pacelog")) {
-			pacelog = TRUE;
-		}
-		else if (p[0] == '-') {
-			fprintf(stderr, "error command: %s\n", p);
-			return(FAILURE);
-		}
-		else {
-			if (disks >= 2) {
-				fprintf(stderr, "Error: too many FDD images: %s\n", p);
-				return(FAILURE);
-			}
-			disk[disks++] = p;
-		}
+	if (vaeg_cli_parse(argc, argv, &options, cli_error,
+											sizeof(cli_error)) != SUCCESS) {
+		fprintf(stderr, "Error: %s\n", cli_error);
+		fprintf(stderr, "Try '%s --help' for available options.\n", argv[0]);
+		return(FAILURE);
 	}
+	if (options.help) {
+		usage(argv[0]);
+		return(SUCCESS);
+	}
+	if (options.version) {
+		printf("88VA Eternal Grafx %s (%s)\n", VAEGREL_CORE, NP2VER_CORE);
+		return(SUCCESS);
+	}
+	np2_debug = options.debug;
 
 	SDL_SetMainReady();
 	if (SDL_Init(0) < 0) {
@@ -835,29 +1393,30 @@ int main(int argc, char **argv) {
 
 	dosio_init();
 	file_setcd("./");
-	if (selftest) {
+	if (options.selftest) {
 		run_ok = vaeg_selftest_run();
 		SDL_Quit();
 		dosio_term();
 		return(run_ok);
 	}
-	for (pos=0; pos<disks; pos++) {
-		if (check_fdd_image(disk[pos], "Error") != SUCCESS) {
-			SDL_Quit();
-			dosio_term();
-			return(FAILURE);
-		}
-	}
 	initload();
-	if (cli_model != NULL) {
-		file_cpyname(saved_model, np2cfg.model, sizeof(saved_model));
-		saved_sound = np2cfg.SOUND_SW;
-		cli_model_applied = TRUE;
+	if (validate_cli_options(&options) != SUCCESS) {
+		SDL_Quit();
+		dosio_term();
+		return(FAILURE);
 	}
+	save_cli_config(&options, &saved_cli);
 	dropmedia_initialize();
+	dropmedia_set_session_fdd_references(
+			saved_cli.fdd[0] ? saved_cli.saved_fdd[0] : NULL,
+			saved_cli.fdd[1] ? saved_cli.saved_fdd[1] : NULL);
 	select_backup_memory_path();
-	if (smoke) {
+	if (options.model != VAEG_CLI_MODEL_UNSET) {
+		cli_model = cli_model_name(options.model);
+	}
+	if (options.smoke) {
 		smoke_configure_va((cli_model != NULL) ? cli_model : str_VA2);
+		apply_cli_config(&options, &saved_cli);
 		smoke_detect_screen = (smoke_resolve_rompath() == SUCCESS);
 	}
 	else {
@@ -876,6 +1435,7 @@ int main(int argc, char **argv) {
 			result = resolve_model_rompath(missing, sizeof(missing));
 			report_model_rompath(result, missing);
 		}
+		apply_cli_config(&options, &saved_cli);
 	}
 	warn_va_config_sanity();
 	if (np2_debug) {
@@ -884,14 +1444,24 @@ int main(int argc, char **argv) {
 				"clk_mult=%u SNDboard=%03x sound_enabled=%u biospath=%s\n",
 				np2cfg.model, np2cfg.baseclock, np2cfg.multiple,
 				np2cfg.SOUND_SW, np2oscfg.sound_enabled, np2cfg.biospath);
+		fprintf(stderr,
+				"INFO: Runtime config: opn_backend=%s ymfm_fidelity=%s "
+				"SampleHz=%u Latencys=%u sgp_mode=%u sgp_mult=%u\n",
+				np2oscfg.opn_backend, np2oscfg.ymfm_fidelity,
+				np2cfg.samplingrate, np2cfg.delayms, np2cfg.sgp_speed_mode,
+				np2cfg.sgp_multiplier);
+		fprintf(stderr,
+				"INFO: Media config: FDD1=%s FDD2=%s SASI1=%s SASI2=%s\n",
+				np2oscfg.fdd_image[0], np2oscfg.fdd_image[1],
+				np2cfg.sasihdd[0], np2cfg.sasihdd[1]);
 	}
-	if (smoke) {
+	if (options.smoke) {
 		np2oscfg.NOWAIT = 1;
 		np2oscfg.resume = 0;
 	}
 
 	TRACEINIT();
-	fdc_trace_enable(fdctrace);
+	fdc_trace_enable(options.fdctrace);
 	sdlkbd_initialize();
 	inputmng_init();
 	keystat_initialize();
@@ -922,9 +1492,10 @@ int main(int argc, char **argv) {
 				"Saved fullscreen mode failed; using Windowed");
 		np2oscfg.gui_display_mode = VAEG_DISPLAY_WINDOWED;
 	}
+	update_applied_display(&saved_cli);
 	scrnmng_show();
 	SDL_PumpEvents();
-	if ((!smoke) && (splash_show() == SUCCESS)) {
+	if ((!options.smoke) && (splash_show() == SUCCESS)) {
 		splash_visible = TRUE;
 		splash_started = GETTICK();
 	}
@@ -945,18 +1516,15 @@ int main(int argc, char **argv) {
 		pccore_reset();
 		sdlkbd_reset_state();
 		scrndraw_redraw();
-		mount_fdd_images(disk);
+		mount_configured_fdd_images();
 		dropmedia_prune_storage();
-		run_ok = runloop(smoke, pacelog, smoke_detect_screen);
+		run_ok = runloop(options.smoke, options.pacelog, smoke_detect_screen);
 	}
 
 	pccore_cfgupdate();
-	if (cli_model_applied &&
-		(milstr_cmp(np2cfg.model, cli_model) == 0)) {
-		file_cpyname(np2cfg.model, saved_model, sizeof(np2cfg.model));
-		np2cfg.SOUND_SW = saved_sound;
-	}
-	if ((!smoke) && (sys_updates & (SYS_UPDATECFG | SYS_UPDATEOSCFG))) {
+	restore_cli_config(&options, &saved_cli);
+	if ((!options.smoke) &&
+		(sys_updates & (SYS_UPDATECFG | SYS_UPDATEOSCFG))) {
 		initsave();
 	}
 	bkupmemva_save();
