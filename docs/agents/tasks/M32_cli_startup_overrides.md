@@ -146,6 +146,12 @@ from each new archive drop, and leaves the FDD Open filename field empty
 instead of displaying an internal extracted path. The ROM-less test now also
 covers the no-metadata fallback. Human confirmation remains part of G32.
 
+The second macOS arm64 check found one remaining disclosure outside the Open
+dialog: the mounted-FDD tooltip in the FDD menu rendered `fdd_diskname()`
+directly. Managed archive mounts now show the source archive directory in that
+tooltip, or a generic managed-image label when no source directory is
+available. No GUI element intentionally renders the internal extraction path.
+
 ## G32 Gate
 
 1. From a clean checkout, boot with representative VA and VA2 combinations
