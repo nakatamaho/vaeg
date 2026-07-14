@@ -211,9 +211,9 @@ should not be attributed to the FDD subsystem Z80.
 The ROM observations above were made against a PC-88VA2 ROM image. Do not
 generalize every visible boot symptom to every VA model yet.
 
-Maintainer hardware memory adds one important distinction: on an original
-PC-88VA with no FDD inserted at power-on, the machine does not show the
-same `V2S`-style path. It falls back to V1/V2 behavior, controlled by DIP
+Maintainer hardware observation and the original-VA flowchart described
+below establish one important distinction: on an original PC-88VA with no
+V3 IPL available, the machine falls back to V1/V2 behavior according to DIP
 switch configuration. On PC-88VA2/3-class machines, the no-disk path is
 reported to stop at a prompt equivalent to "insert a system disk" instead.
 
@@ -224,6 +224,96 @@ FDD boot or the no-media fallback path.
 The current note should therefore be read as a VA2-centered ROM trace with
 known model-dependent behavior. Original PC-88VA ROM behavior may differ,
 and PC-88VA3 behavior is still unverified here.
+
+## Original PC-88VA Boot Decision Flow
+
+Page 12 of the [*PC-88VA Technical Manual* scan](https://archive.org/details/PC88VA/page/12/mode/2up)
+contains a boot flowchart for the original PC-88VA. It must not be applied
+unchanged to VA2/VA3. Normalized into a decision flow, it reads:
+
+```text
+Power on
+  |
+  v
+Initialize hardware for V1/V2
+  |
+  v
+PC key held?
+  |
+  +-- yes --> V3 setup initialization
+  |             |
+  |             v
+  |           BIOS initialization
+  |
+  +-- no --> SW7 on?
+                |
+                +-- no --> Configure IDP/TSP for V1/V2
+                |            Enable I/O traps
+                |            Jump to V1/V2
+                |              |
+                |              v
+                |            N88-BASIC from ROM or disk
+                |
+                +-- yes --> Floppy has a V3 IPL?
+                             |
+                             +-- no --> Configure IDP/TSP for V1/V2
+                             |            Enable I/O traps
+                             |            Jump to V1/V2
+                             |
+                             +-- yes --> Load one IPL sector at 3000:0000
+                                          Initialize V3 hardware
+                                          Initialize BIOS
+                                          Set CS:IP = 3000:0000
+                                          Set SS:SP near 3000:FFFE
+                                          Jump to IPL
+                                            |
+                                            v
+                                          DOS boot
+```
+
+The important model-specific conclusions are:
+
+1. The common power-on state is initialized for V1/V2 compatibility before
+   the ROM chooses the final boot mode.
+2. Holding the PC key selects the V3 setup and BIOS-initialization path before
+   the SW7 and floppy-IPL decisions. The flowchart does not show whether the
+   setup UI later resumes normal boot or waits for user action.
+3. With SW7 off, the ROM goes directly to V1/V2 compatibility. With SW7 on,
+   it attempts V3 boot only when the floppy contains a recognized V3 IPL; a
+   failed recognition falls back to V1/V2 rather than stopping.
+4. The V1/V2 path first configures the display processor for V1/V2 and then
+   enables the uPD9002 I/O-trap mechanism before transferring control. The
+   flowchart's IDP operation and I/O-trap operation belong to different
+   functional blocks and should not be collapsed into one device.
+5. The V3 path loads one sector before V3 and BIOS initialization, then enters
+   the IPL with `CS:IP=3000:0000`. Physical IPL address `30000h` and a stack
+   near physical `3FFFEh` place code and stack in the same 64KB segment.
+
+A compact behavioral model is:
+
+```c
+initialize_hardware_for_v1_v2();
+
+if (pc_key_held()) {
+    initialize_v3_setup();
+    initialize_bios();
+} else if (sw7_on() && floppy_has_v3_ipl()) {
+    load_one_ipl_sector(0x30000);
+    initialize_v3();
+    initialize_bios();
+    enter_ipl(0x3000, 0x0000, 0x3000, 0xfffe);
+} else {
+    configure_display_for_v1_v2();
+    enable_v1_v2_io_traps();
+    jump_to_v1_v2();
+}
+```
+
+The flowchart does not define how `floppy_has_v3_ipl()` recognizes a V3 disk.
+The signature, boot-sector field, checksum, media descriptor, or other test
+must still be established from original-VA ROM disassembly or another
+technical-manual section. It also does not prove that VA2/VA3 load their IPL
+at the same address or use the same no-media fallback.
 
 The ROM-visible model identification method reported for VA software is
 to read the word at `F000:FFFE`:
@@ -240,7 +330,7 @@ DIP-switch state. It also reinforces the caveat above: the current
 disassembly notes are centered on a VA2 ROM, while original VA and VA-91
 paths can legitimately differ.
 
-## Working Boot Sequence Summary
+## VA2 ROM Working Boot Sequence Summary
 
 The current working model is:
 
@@ -267,7 +357,10 @@ entered by `BRKEM2`. That mode-transition analysis is separated into
 
 | Step | Confidence | Reason |
 | ---- | ---------- | ------ |
-| 1-5 | High | These are direct reset-vector, memory-map, ROM-byte, and I/O-port observations, and they line up with current source bindings. |
-| 6 | Medium | The ROM definitely updates the mode-switch/system-port neighborhood, and the emulator definitely derives LEDs from `sysportva.c`. The exact `V2S` drawing routine is still unidentified. |
-| 7 | High for byte identity; medium-high for runtime execution | `0F FE 90` appears at a valid instruction boundary in a path that prepares vector `90h`. Detailed BRKEM2 interpretation now lives in `upd9002-z80-emulation.md`. |
-| 8 | Medium | The later native initializer and `1000:C003` jump are statically visible, but the producer of that RAM target still needs execution tracing. |
+| VA2 1-5 | High | These are direct reset-vector, memory-map, ROM-byte, and I/O-port observations, and they line up with current source bindings. |
+| VA2 6 | Medium | The ROM definitely updates the mode-switch/system-port neighborhood, and the emulator definitely derives LEDs from `sysportva.c`. The exact `V2S` drawing routine is still unidentified. |
+| VA2 7 | High for byte identity; medium-high for runtime execution | `0F FE 90` appears at a valid instruction boundary in a path that prepares vector `90h`. Detailed BRKEM2 interpretation now lives in `upd9002-z80-emulation.md`. |
+| VA2 8 | Medium | The later native initializer and `1000:C003` jump are statically visible, but the producer of that RAM target still needs execution tracing. |
+| Original VA decision flow | High | The PC-key, SW7, V3-IPL, V1/V2 fallback, IPL load-address, and register-state sequence is transcribed from the technical-manual flowchart. |
+| Original VA V3-IPL recognition test | Unknown | The flowchart names the decision but does not define the signature or validation algorithm. |
+| VA2/VA3 equivalence to the original-VA flow | Low | The current evidence explicitly shows model-dependent no-media behavior; the original-VA diagram must not be generalized to VA2/VA3. |
