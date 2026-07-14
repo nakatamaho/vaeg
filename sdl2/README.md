@@ -103,10 +103,7 @@ still mounted in either drive is retained.
 When a mounted image came from a ZIP, 7z, or LZH archive, FDD1/FDD2 Open
 starts in the directory that contained the source archive instead of exposing
 the managed extraction directory. This association is kept per drive and is
-restored with persistent managed mounts after an application restart. Managed
-mounts without association metadata fall back to the last source FDD directory,
-and neither the Open filename field nor the FDD menu tooltip exposes an
-internal extraction path.
+restored with persistent managed mounts after an application restart.
 
 FDD1/FDD2 Open also accepts ZIP, 7z, and LZH when LibArchive support is built.
 Opening an archive from FDD1 mounts the first two basename-sorted images as
