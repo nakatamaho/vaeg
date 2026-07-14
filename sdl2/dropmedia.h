@@ -32,6 +32,7 @@ extern "C" {
 
 BOOL dropmedia_process_event(const void *event);
 BOOL dropmedia_path_is_archive(const char *path);
+BOOL dropmedia_path_is_managed_archive_image(const char *path);
 BOOL dropmedia_mount_archive(const char *path, UINT first_drive);
 BOOL dropmedia_fdd_source_directory(UINT drive, const char *mounted_path,
 									char *directory, UINT directory_size);

@@ -803,6 +803,7 @@ static void open_fdd_dialog(int drive) {
 
 	const char *current;
 	char archive_source_dir[MAX_PATH];
+	bool managed_archive_mount;
 	std::string start_dir;
 
 	g_gui.fdd_dialog_drive = drive;
@@ -810,14 +811,22 @@ static void open_fdd_dialog(int drive) {
 	if ((current == nullptr) || (current[0] == '\0')) {
 		current = diskdrv_fname[drive];
 	}
+	managed_archive_mount = false;
 	if ((current != nullptr) && (current[0] != '\0')) {
-		milstr_ncpy(g_gui.fdd_path[drive], current,
-					sizeof(g_gui.fdd_path[drive]));
+		managed_archive_mount =
+			dropmedia_path_is_managed_archive_image(current) ? true : false;
+		if (managed_archive_mount) {
+			g_gui.fdd_path[drive][0] = '\0';
+		}
+		else {
+			milstr_ncpy(g_gui.fdd_path[drive], current,
+						sizeof(g_gui.fdd_path[drive]));
+		}
 		if (dropmedia_fdd_source_directory(static_cast<UINT>(drive), current,
 					archive_source_dir, sizeof(archive_source_dir))) {
 			start_dir = archive_source_dir;
 		}
-		else {
+		else if (!managed_archive_mount) {
 			start_dir = parent_dir(current);
 		}
 	}

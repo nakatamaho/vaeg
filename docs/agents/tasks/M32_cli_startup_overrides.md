@@ -136,7 +136,15 @@ pruning path.
 The dropmedia selftest covers ZIP and 7z source-directory capture, metadata
 reload, correct drive/path association, and rejection of an unrelated mounted
 path. The macOS MacPorts target and complete ROM-less selftest pass with the
-follow-up applied. Human confirmation remains part of G32.
+follow-up applied.
+
+The first implementation did not pass the macOS arm64 G32 check: a real drop
+had no metadata file and FDD Open still exposed the extracted image path. The
+follow-up therefore recognizes managed extraction paths independently of the
+metadata. It falls back to the persisted `GUI_fdddir`, updates that directory
+from each new archive drop, and leaves the FDD Open filename field empty
+instead of displaying an internal extracted path. The ROM-less test now also
+covers the no-metadata fallback. Human confirmation remains part of G32.
 
 ## G32 Gate
 
