@@ -92,11 +92,7 @@ restored after application restart; hovering the name shows its full path.
 FDD1/FDD2 Open remembers the source archive directory per drive and starts
 there rather than displaying managed extraction storage. A small metadata file
 inside each managed image directory preserves that browser location across an
-application restart and is pruned together with the extracted image. For an
-older or metadata-less managed mount, the browser uses the saved FDD directory;
-new archive drops update that fallback. The filename field stays empty rather
-than showing the internal extracted image path, and the FDD menu tooltip shows
-the source directory instead of the managed mount path.
+application restart and is pruned together with the extracted image.
 
 FDD -> New FDD image creates an empty FAT12 data disk as Japanese MS-DOS 2HD
 (1.232 MB) or 2DD (640 KB). D88 output retains track/sector metadata; IMG
