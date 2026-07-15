@@ -267,7 +267,7 @@ frontend boot script. The current working model is:
 
 The exact BRKEM2 return path and the producer of the later RAM code at
 `1000:C003` remain open investigation items. The emulator currently has a
-Z80 core for the FDD subsystem (`cpucva/z80c.cpp`), but it does not yet
+Z80 core for the FDD subsystem (`cpucva/z80_core.cpp`), but it does not yet
 emulate the main CPU's uPD780/Z80-compatible mode entered by BRKEM2.
 
 ## Practical Consequences

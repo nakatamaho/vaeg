@@ -2257,3 +2257,13 @@ The migration is complete only when all of the following are true:
 16. No legacy selectable fallback remains.
 17. Third-party notices and ADRs are complete.
 18. The final human gate passes.
+
+## M41 implementation status
+
+M41 removed the build selector and exactly the seven approved M88/cisc-derived
+Z80 files. Current production unconditionally uses `cpucva/z80_core.cpp`,
+`cpucva/z80_legacy_state.cpp`, and `cpucva/z80_disasm.cpp`; the vendored MIT
+source is unchanged. Historical old/new procedures and filename references in
+this master and milestone evidence remain historical, not active build or
+packaging inputs. Final G41 public/hosted validation is recorded in the M41
+evidence report.

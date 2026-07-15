@@ -17,8 +17,9 @@ three-platform CMake coverage, and CI.
 M13 closes phase 2 by removing retired paths and documenting the final
 tier split:
 
-- Active tree: CMake/C/SDL2/Dear ImGui; CPU in `i286c/`; VA memory in
-  `cpucva/memoryva.c`; Z80 side in `cpucva/z80c.cpp`.
+- Active tree: CMake/C/SDL2/Dear ImGui; main CPU in `i286c/`; VA memory in
+  `cpucva/memoryva.c`; Z80 side in the suzukiplan-backed
+  `cpucva/z80_core.cpp` wrapper with `cpucva/z80_disasm.cpp`.
 - Frozen reference tier: `win9x/`, `i286x/`, `cpuxva/memoryva.x86`, and
   `hlp/`. These remain reference-only because the v141 build was
   decisive in the G9 defect chain: differential FDC traces, the V30 DMA

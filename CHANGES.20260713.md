@@ -65,6 +65,10 @@ from hardware you own.
 
 ## CPU, SGP, and pacing
 
+- Replaced the current-tree M88/cisc-derived subsystem Z80 and disassembler
+  with the pinned MIT-licensed suzukiplan core plus independently authored
+  BSD-2-Clause vaeg wrapper, revision-1 codec, and disassembler. Historical
+  Git commits were not rewritten.
 - Separated CPU execution speed from machine/peripheral timing.
 - Added independent CPU multiplier configuration and SGP speed modes:
   Model default, Follow CPU, and Custom.

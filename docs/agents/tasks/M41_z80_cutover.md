@@ -22,7 +22,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 -->
 # M41: Cut over to the replacement Z80 and remove the legacy implementation
 
-Status: draft; blocked until the maintainer explicitly passes G40
+Status: implemented; final G41 public validation in progress
 
 Branch: `topic/m41-z80-cutover`
 
@@ -77,3 +77,18 @@ idle, WAIT wake, old-save load, new save/load during FDD activity, reset/
 reboot, and archive contents. G41 passes only when tests and human regression
 pass, all seven files/fallbacks are absent, the archive is clean, and exact
 SHAs are reported. Tag only after explicit approval. Stop.
+
+## Execution record
+
+M41 removed the production selector, made the suzukiplan-backed wrapper and
+BSD-2-Clause decoder unconditional, deleted exactly the seven approved files,
+collapsed duplicate CI jobs, retained standalone conformance/regression
+coverage, and strengthened the archive audit against copied legacy bytes and
+private/test artifacts. Revision-1 remains 68 bytes and all 15 retained
+fixtures pass.
+
+Fresh private regression on 2026-07-15 passed VA2/VA3 boot, FDD read,
+expendable-copy write/readback, timing-sensitive loader, VA and Sorcerian
+SLEEP_HACK with ATN WAIT wake, legacy-to-final and final-to-final state, an
+FDD-active frame-boundary state, and a 16-instruction live disassembly spot
+check. Only neutral identifiers and sanitized summaries are tracked.
