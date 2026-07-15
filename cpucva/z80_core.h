@@ -70,6 +70,7 @@ private:
     static std::uint8_t Acknowledge(void *opaque);
 
     void SynchronizePublicMirror();
+    void ApplyInstructionCorrections();
 
     Z80C(const Z80C &) = delete;
     Z80C &operator=(const Z80C &) = delete;
@@ -83,6 +84,13 @@ private:
     std::int32_t acknowledge_port_;
     bool external_wait_;
     bool irq_asserted_;
+    bool instruction_fetch_started_;
+    bool prefix_fetch_pending_;
+    std::uint8_t first_opcode_;
+    std::uint8_t prefixed_opcode_;
+    bool restore_iff1_after_instruction_;
+    bool materialize_i_flags_after_instruction_;
+    bool materialize_r_flags_after_instruction_;
     Z80Reg public_registers_;
 };
 

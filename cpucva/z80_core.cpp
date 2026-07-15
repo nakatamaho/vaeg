@@ -39,6 +39,10 @@ constexpr std::uint8_t kIff2 = 0x04;
 constexpr std::uint8_t kIffNmi = 0x40;
 constexpr std::uint8_t kIffHalt = 0x80;
 
+bool IsOpcodePrefix(std::uint8_t value) {
+    return value == 0xcb || value == 0xdd || value == 0xed || value == 0xfd;
+}
+
 std::uint16_t MakeWord(std::uint8_t high, std::uint8_t low) {
     return static_cast<std::uint16_t>(
         (static_cast<std::uint16_t>(high) << 8) | low);
@@ -129,7 +133,12 @@ struct Z80C::Impl {
 Z80C::Z80C()
     : impl_(nullptr), memory_(nullptr), bus_(nullptr), clock_(nullptr),
       clockcounter_(nullptr), lastclock_(0), acknowledge_port_(0),
-      external_wait_(false), irq_asserted_(false), public_registers_{} {
+      external_wait_(false), irq_asserted_(false),
+      instruction_fetch_started_(false), prefix_fetch_pending_(false),
+      first_opcode_(0), prefixed_opcode_(0),
+      restore_iff1_after_instruction_(false),
+      materialize_i_flags_after_instruction_(false),
+      materialize_r_flags_after_instruction_(false), public_registers_{} {
 }
 
 Z80C::~Z80C() {
@@ -177,7 +186,20 @@ void Z80C::Exec() {
         }
     } else {
         while (clockcounter_->GetRemainclock() > 0) {
+            instruction_fetch_started_ = false;
+            prefix_fetch_pending_ = false;
+            first_opcode_ = 0;
+            prefixed_opcode_ = 0;
+            restore_iff1_after_instruction_ = false;
+            materialize_i_flags_after_instruction_ = false;
+            materialize_r_flags_after_instruction_ = false;
+            if ((impl_->cpu.reg.IFF & kIffHalt) != 0) {
+                impl_->cpu.reg.R = static_cast<std::uint8_t>(
+                    ((impl_->cpu.reg.R + 1) & 0x7f) |
+                    (impl_->cpu.reg.R & 0x80));
+            }
             impl_->cpu.execute(1);
+            ApplyInstructionCorrections();
         }
     }
 
@@ -214,6 +236,7 @@ void IOCALL Z80C::NMI(std::uint32_t, std::uint32_t) {
         return;
     }
 
+    const std::uint16_t mirrored_pc = public_registers_.pc;
     Z80::Register &reg = impl_->cpu.reg;
     reg.R = static_cast<std::uint8_t>(((reg.R + 1) & 0x7f) |
                                       (reg.R & 0x80));
@@ -232,6 +255,7 @@ void IOCALL Z80C::NMI(std::uint32_t, std::uint32_t) {
     reg.PC = 0x0066;
     clockcounter_->past(11);
     SynchronizePublicMirror();
+    public_registers_.pc = mirrored_pc;
 }
 
 void Z80C::Wait(bool asserted) {
@@ -302,8 +326,34 @@ Z80Diag *Z80C::GetDiag() {
 
 std::uint8_t Z80C::ReadMemory(void *opaque, std::uint16_t address) {
     Z80C *cpu = static_cast<Z80C *>(opaque);
-    return static_cast<std::uint8_t>(
+    const std::uint8_t value = static_cast<std::uint8_t>(
         cpu->memory_->Read8(static_cast<std::uint16_t>(address)));
+    if (!cpu->instruction_fetch_started_) {
+        cpu->instruction_fetch_started_ = true;
+        cpu->first_opcode_ = value;
+        cpu->prefix_fetch_pending_ = IsOpcodePrefix(value);
+    } else if (cpu->prefix_fetch_pending_) {
+        Z80::Register &reg = cpu->impl_->cpu.reg;
+        reg.R = static_cast<std::uint8_t>(((reg.R + 1) & 0x7f) |
+                                          (reg.R & 0x80));
+        cpu->prefixed_opcode_ = value;
+        cpu->prefix_fetch_pending_ = false;
+        if (cpu->first_opcode_ == 0xed) {
+            if (value == 0x45 || value == 0x4d) {
+                cpu->restore_iff1_after_instruction_ = true;
+                if ((reg.IFF & kIff2) != 0) {
+                    reg.IFF |= kIff1;
+                } else {
+                    reg.IFF &= static_cast<std::uint8_t>(~kIff1);
+                }
+            } else if (value == 0x57) {
+                cpu->materialize_i_flags_after_instruction_ = true;
+            } else if (value == 0x5f) {
+                cpu->materialize_r_flags_after_instruction_ = true;
+            }
+        }
+    }
+    return value;
 }
 
 void Z80C::WriteMemory(void *opaque, std::uint16_t address,
@@ -329,8 +379,45 @@ void Z80C::ConsumeClock(void *opaque, int clocks) {
 
 std::uint8_t Z80C::Acknowledge(void *opaque) {
     Z80C *cpu = static_cast<Z80C *>(opaque);
-    return static_cast<std::uint8_t>(cpu->bus_->In(
+    const std::uint8_t value = static_cast<std::uint8_t>(cpu->bus_->In(
         static_cast<std::uint32_t>(cpu->acknowledge_port_)));
+    if (IsOpcodePrefix(value)) {
+        cpu->instruction_fetch_started_ = true;
+        cpu->first_opcode_ = value;
+        cpu->prefixed_opcode_ = 0;
+        cpu->prefix_fetch_pending_ = true;
+    }
+    return value;
+}
+
+void Z80C::ApplyInstructionCorrections() {
+    if (impl_ == nullptr) {
+        return;
+    }
+    Z80::Register &reg = impl_->cpu.reg;
+    if (restore_iff1_after_instruction_) {
+        if ((reg.IFF & kIff2) != 0) {
+            reg.IFF |= kIff1;
+        } else {
+            reg.IFF &= static_cast<std::uint8_t>(~kIff1);
+        }
+    }
+    if (!materialize_i_flags_after_instruction_ &&
+        !materialize_r_flags_after_instruction_) {
+        return;
+    }
+    const std::uint8_t value =
+        materialize_i_flags_after_instruction_ ? reg.I : reg.R;
+    constexpr std::uint8_t kCarry = 0x01;
+    constexpr std::uint8_t kParityOverflow = 0x04;
+    constexpr std::uint8_t kFlag3 = 0x08;
+    constexpr std::uint8_t kFlag5 = 0x20;
+    constexpr std::uint8_t kZero = 0x40;
+    constexpr std::uint8_t kSign = 0x80;
+    reg.pair.F = static_cast<std::uint8_t>(
+        (reg.pair.F & kCarry) | (value & (kSign | kFlag5 | kFlag3)) |
+        (value == 0 ? kZero : 0) |
+        ((reg.IFF & kIff2) != 0 ? kParityOverflow : 0));
 }
 
 void Z80C::SynchronizePublicMirror() {
