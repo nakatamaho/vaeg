@@ -24,9 +24,10 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ## Status and entry state
 
-The focused extension and all required tests are complete. G35 is not passed:
-an approved immutable accessible upstream or fork commit is still required.
-M36 is not authorized.
+The focused extension and its required focused tests are complete. G35 is not
+passed: an approved immutable accessible upstream or fork commit is still
+required, and the full-suite dual-callback gate wording has a verified existing
+test-harness limitation. M36 is not authorized.
 
 The vaeg M35 branch started as
 `topic/m35-z80-upstream-extension` at
@@ -140,6 +141,38 @@ exact base. The vaeg repository checks ran against the staged evidence change.
 | `python3 tools/repo/find_unreferenced.py` in vaeg | PASS; exit 0, 69 unreferenced paths reported and no M35 path |
 | `git diff --cached --check` in vaeg | PASS; the generated patch is treated as patch data by its exact-path `-diff` attribute |
 
+### Full-suite dual-callback contradiction
+
+After the required tests passed, the following additional diagnostic was run
+on the M35 result:
+
+```sh
+make CFLAGS='-I../ -std=c++11 -Wall -Wfloat-equal -Wshadow -Wunused-variable -Wsign-conversion -Wclass-varargs -Wtype-limits -Wsequence-point -Wunsequenced -Werror -DZ80_NO_FUNCTIONAL'
+```
+
+It exits 2 at the first target. `test/test-checkreg-on-callback.cpp:88` passes
+the capturing lambda `[=, &expectIndex]` to the function-pointer `Z80`
+constructor selected by `Z80_NO_FUNCTIONAL`; Clang correctly reports no
+conversion. The same target and flags were then run from a separate clean
+checkout at exact base `e3926769a790fab0af1c34a5540e317f8d4f0ddc`:
+
+```sh
+make test-checkreg-on-callback CFLAGS='-I../ -std=c++11 -Wall -Wfloat-equal -Wshadow -Wunused-variable -Wsign-conversion -Wclass-varargs -Wtype-limits -Wsequence-point -Wunsequenced -Werror -DZ80_NO_FUNCTIONAL'
+```
+
+It fails identically at `test/test-checkreg-on-callback.cpp:88`, before any
+M35 code exists. Other existing tests also contain capturing callback lambdas,
+so porting the entire legacy harness set is a separate, non-minimal test rewrite.
+
+This directly qualifies the task's full-suite/both-configurations sentence and
+the G35 dual-configuration sentence. The verified green matrix is: complete
+existing `test/` suite in its normal configuration; focused M35 tests in both
+configurations; and the upstream ZEX harness in its declared
+`Z80_NO_FUNCTIONAL` configuration. The stricter interpretation that every
+legacy harness must run in both configurations is not green and is not claimed.
+The maintainer must either accept the verified matrix as the intended gate or
+explicitly authorize the broader harness port.
+
 The focused build used the upstream warning policy with Clang 21.1.8,
 C++11, `-Wall`, the upstream additional warnings, and `-Werror`. ZEX used the
 upstream C++17 CP/M harness. These are public upstream test inputs; no private
@@ -196,15 +229,20 @@ Hypotheses or externally unresolved items:
 - The future immutable fork commit is expected to have the tested tree, but
   its repository and commit ID do not yet exist.
 
-**Recommendation: TECHNICAL GO; HOLD AT G35 FOR IMMUTABLE PUBLICATION.** The
-patch is suitable for review and publication as a minimal MIT fork commit.
-G35 must remain unpassed, and M36 must not begin, until the maintainer supplies
-or approves an immutable accessible commit and explicitly passes the gate.
+**Recommendation: TECHNICAL GO; HOLD AT G35.** The patch is suitable for
+review and publication as a minimal MIT fork commit. G35 must remain unpassed,
+and M36 must not begin, until the maintainer supplies or approves an immutable
+accessible commit, resolves the full-suite dual-callback interpretation, and
+explicitly passes the gate.
 
 ## Unresolved risks
 
 - No immutable accessible upstream/fork commit or pull request exists yet;
   the local commit alone cannot satisfy G35.
+- The strict dual-configuration reading of every existing upstream harness is
+  not satisfied because the unchanged suite uses capturing lambdas that cannot
+  compile as function pointers. A broader test-harness port is not approved by
+  the focused M35 scope.
 - The focused patch has been exercised on this Linux/Clang host, not on every
   future vaeg build host. Cross-platform backend conformance belongs to the
   later vendor/conformance milestone after G35.
