@@ -10,7 +10,8 @@ under the MIT License, Copyright (c) 2019 Yoji Suzuki.
 - Approved patch SHA-256:
   `d8624085139ef4e7b400b918b2b498e79bea1af4a1942e4ac935545846e746a4`
 - Reproduced tree: `8a606eb39332a6e79b69bb62d9dedca042b923dc`
-- License text: `external/suzukiplan-z80/LICENSE.txt`
+- Source license text: `external/suzukiplan-z80/LICENSE.txt`
+- Runtime-package copy: `licenses/suzukiplan-z80.txt`
 - Full provenance: `external/suzukiplan-z80/provenance.txt`
 
 The vaeg wrapper, revision-1 codec, and disassembler are independently
