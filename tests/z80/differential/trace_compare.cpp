@@ -357,7 +357,7 @@ void WriteCycleReport(const std::string &path, const Trace &legacy,
 int main(int argc, char **argv) {
     using namespace vaeg::z80::differential;
     if (argc < 3) {
-        std::cerr << "usage: vaeg_z80_trace_compare LEGACY NEW "
+        std::cerr << "usage: vaeg_z80_trace_compare REFERENCE REPEAT "
                      "[--cycle-report PATH]\n";
         return 2;
     }
@@ -380,7 +380,7 @@ int main(int argc, char **argv) {
             ReadTrace(argv[1], &legacy_backend, &legacy_suite);
         const Trace modern =
             ReadTrace(argv[2], &modern_backend, &modern_suite);
-        if (legacy_backend != "legacy" || modern_backend != "new" ||
+        if (legacy_backend != "reference" || modern_backend != "repeat" ||
             legacy_suite != modern_suite) {
             throw std::runtime_error("trace backend or suite mismatch");
         }

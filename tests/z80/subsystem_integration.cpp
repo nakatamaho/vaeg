@@ -45,15 +45,8 @@ constexpr std::size_t kRemainOffset = 60;
 constexpr std::size_t kLastClockOffset = 64;
 constexpr std::uint8_t kWaitHalt = 0x01;
 constexpr std::uint8_t kWaitExternal = 0x02;
-#if defined(VAEG_Z80_CORE_SUZUKIPLAN)
 constexpr std::uint8_t kWaitEi = 0x04;
-#endif
-
-#if defined(VAEG_Z80_CORE_SUZUKIPLAN)
 constexpr const char *kCoreName = "suzukiplan";
-#else
-constexpr const char *kCoreName = "legacy";
-#endif
 
 using Status = std::array<std::uint8_t, kStatusSize>;
 
@@ -348,16 +341,10 @@ void TestEiBeforeSleepHypothesis() {
     ExecAt(1);
     ExecAt(5);
     const VAEG_Z80_INTEGRATION_TRACE_STATE trace = Trace();
-#if defined(VAEG_Z80_CORE_SUZUKIPLAN)
     Require(trace.fe_read_count == 1 && trace.sleep_path == 1 &&
                 trace.sleep_public_pc == 0x1732 &&
                 trace.wait_active != FALSE,
-            "EI-following new-core sleep boundary was not preserved");
-#else
-    Require(trace.fe_read_count == 1 && trace.sleep_path == 0 &&
-                trace.wait_active == FALSE,
-            "legacy EI-fused sleep observation changed unexpectedly");
-#endif
+            "EI-following production sleep boundary was not preserved");
 }
 
 void TestFddBoundary() {
@@ -379,7 +366,6 @@ void TestFddBoundary() {
             "FDD-boundary resume duplicated or changed port 0xf4 output");
 }
 
-#if defined(VAEG_Z80_CORE_SUZUKIPLAN)
 void TestEiStateBoundary() {
     Reset();
     Status enabled{};
@@ -409,7 +395,6 @@ void TestEiStateBoundary() {
                 (Save()[kWaitOffset] & kWaitEi) == 0,
             "restored EI boundary changed following instruction or IRQ timing");
 }
-#endif
 
 } // namespace
 
@@ -423,9 +408,7 @@ extern "C" int vaeg_z80_subsystem_integration_test(void) {
     TestSleepPath(0x700e, 2, false);
     TestEiBeforeSleepHypothesis();
     TestFddBoundary();
-#if defined(VAEG_Z80_CORE_SUZUKIPLAN)
     TestEiStateBoundary();
-#endif
     std::fprintf(stderr,
                  "subsystem-integration[%s]: all tests passed\n",
                  kCoreName);

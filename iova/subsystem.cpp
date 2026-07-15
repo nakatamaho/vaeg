@@ -10,11 +10,7 @@
 #include	<cstdint>
 
 #include	"cpucva/z80_disasm.h"
-#if defined(VAEG_Z80_CORE_SUZUKIPLAN)
 #include	"cpucva/z80_core.h"
-#else
-#include	"cpucva/z80c.h"
-#endif
 #include	"i8255.h"
 #include	"subsystemif.h"
 #include	"fdc.h"
@@ -34,11 +30,7 @@
 #define Z80TRACE(arg)
 #endif
 
-#if defined(VAEG_Z80_CORE_SUZUKIPLAN)
 #define Z80CORENAME	"suzukiplan"
-#else
-#define Z80CORENAME	"legacy"
-#endif
 
 #define SLEEP_HACK		// メインからのコマンド待ち時にCPUを停止する機能を有効にする 
 
