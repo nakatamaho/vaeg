@@ -315,11 +315,30 @@ a fetched ZEX name or content hash.
 
 ### Hosted CI
 
-The implementation branch is configured to run Linux GCC, Linux Clang,
-ASan/UBSan, native hosted Windows, and native hosted macOS for both production
-selections. The standalone conformance/ZEX job remains single because it is
-independent of production selection. Exact hosted run and job results are
-recorded after the evidence branch is pushed.
+Public [build run 29395315812](https://github.com/nakatamaho/vaeg/actions/runs/29395315812)
+tested `b062b80ce7a6957b791c24a1080e9691e47d3e33`. All 12 jobs completed
+successfully:
+
+| Hosted job | Result | Duration |
+|---|---|---:|
+| repo invariants | PASS | 4 s |
+| ubuntu gcc legacy z80 | PASS | 90 s |
+| ubuntu gcc suzukiplan z80 | PASS | 82 s |
+| ubuntu clang legacy z80 | PASS | 84 s |
+| ubuntu clang suzukiplan z80 | PASS | 88 s |
+| ubuntu asan legacy z80 | PASS | 77 s |
+| ubuntu asan suzukiplan z80 | PASS | 70 s |
+| windows msys2 mingw64 legacy z80 | PASS | 467 s |
+| windows msys2 mingw64 suzukiplan z80 | PASS | 499 s |
+| macos fetch-sdl2 legacy z80 | PASS | 217 s |
+| macos fetch-sdl2 suzukiplan z80 | PASS | 169 s |
+| standalone z80 conformance | PASS | 499 s |
+
+The Windows and macOS results are native hosted execution. The standalone job
+verified immutable ZEX acquisition, raw and wrapper ZEXDOC/ZEXALL, focused
+interrupt/wrapper/differential tests, ROM-less smoke, and source-archive
+exclusion. It remains single because it is independent of the production
+selection.
 
 ## Files and commits before the final evidence commit
 
