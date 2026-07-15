@@ -368,6 +368,17 @@ bit 1; the restored CPU state remains authoritative. The status size, offsets,
 HALT translation, external IRQ level, EI bit 2, and frame-call boundary are
 unchanged.
 
+The first M39 MinGW build of the suzukiplan production selection exposed a
+portable-adapter defect: `iova/subsystem.cpp` still obtained the non-standard
+`uint` alias transitively from the legacy header, while the independently
+authored wrapper deliberately does not define that alias. The minimal
+reproducer was the normal `mingw-cross` production build with
+`VAEG_Z80_CORE=suzukiplan`, which failed before linking at the `Subsystem`
+memory and I/O overrides. Those adapter signatures and helpers now use
+`std::uint32_t`, matching `z80_bus.h`; both MinGW selections build and execute
+their ROM-less integration selftests under Wine. No vendored or legacy-core
+source was changed.
+
 ROM-less tests under both production selections preserve the VA and Sorcerian
 SLEEP_HACK constants. At the callback, live PC is after `IN (0xfe)` while the
 public mirror still contains `0x1732` or `0x700e`; at `Exec()` return the
