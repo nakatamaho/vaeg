@@ -22,7 +22,8 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 -->
 # M38: Add normalized legacy/new Z80 differential evidence
 
-Status: draft; blocked until the maintainer explicitly passes G37
+Status: implemented; G38 blocked by a reproducible FDD-visible clock-slice
+divergence; stopped before M39
 
 Branch: `topic/m38-z80-differential`
 
@@ -67,3 +68,29 @@ and the recorded long command. Require green or evidence-backed divergences,
 an empty/evidence-backed allowlist, cycle report, and unchanged production
 core. Push exact traces/report hashes, commands, files, and SHAs, then stop for
 review.
+
+## M38 result
+
+The separate `vaeg_z80_legacy_trace`, `vaeg_z80_new_trace`, and
+`vaeg_z80_trace_compare` executables implement the canonical
+`vaeg-z80-trace-v1` schema without linking both `Z80C` classes into one
+process. The normal directed, state, and four-seed generated corpora pass with
+only the exact evidence-backed classifications recorded in the
+[M38 report](../reports/m38_z80_differential.md). The long local run covers
+16,384 generated cases with no allowlist match.
+
+The probes found wrapper-correctable third-party behavior for prefix and HALT
+R increments, RETN/RETI IFF restoration, `LD A,I`/`LD A,R` flags, and the
+legacy NMI mirror. These corrections are confined to the standalone wrapper,
+have focused regressions, and do not edit the vendored tree or production
+selection.
+
+G38 is not passed. The minimal `cycle-fdd-io-scheduling` suite runs `JR +2`
+from `0x0000`, then `OUT (0xf4),A` at `0x0004`, with identical clock slices
+`1,7`. The legacy core charges 7 clocks for the taken JR and performs the FDD
+control-port write in the second `Exec()` call. The new core charges the
+architectural 12 clocks and remains at `0x0004`, so it emits no write in that
+call. This is an explained legacy timing defect, but it changes FDD-visible
+I/O scheduling and is therefore a failure under this task's clock policy. It
+is intentionally not allowlisted. Maintainer disposition is required before
+G38 can pass; M39 remains unauthorized.
