@@ -30,7 +30,7 @@ int main(int argc, char **argv) {
     using vaeg::z80::differential::Backend;
     using vaeg::z80::differential::RunTraceMain;
     using vaeg::z80::differential::TraceBackend;
-    return RunTraceMain(argc, argv, "new", []() {
+    return RunTraceMain(argc, argv, "repeat", []() {
         return std::unique_ptr<Backend>(new TraceBackend<Z80C>());
     });
 }

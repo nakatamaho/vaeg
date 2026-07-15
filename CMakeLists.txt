@@ -33,9 +33,6 @@ option(VAEG_ENABLE_ARCHIVE_DROP
     "Enable archive disk-image drag and drop when LibArchive is available" ON)
 option(VAEG_FETCH_LIBARCHIVE
     "Fetch pinned static archive dependencies instead of using system LibArchive" OFF)
-set(VAEG_Z80_CORE "legacy" CACHE STRING
-    "Production Z80 core (legacy or suzukiplan)")
-set_property(CACHE VAEG_Z80_CORE PROPERTY STRINGS legacy suzukiplan)
 option(VAEG_Z80_INTEGRATION_TRACE
     "Compile deterministic subsystem Z80/FDD integration tracing" OFF)
 set(VAEG_ZEX_ARTIFACT_DIR "" CACHE PATH
@@ -268,20 +265,10 @@ set(VAEG_CORE_SOURCES
     debugsub.c)
 
 set(VAEG_Z80_PRODUCTION_SOURCES
-    cpucva/z80_disasm.cpp)
-if(VAEG_Z80_CORE STREQUAL "legacy")
-    list(APPEND VAEG_Z80_PRODUCTION_SOURCES
-        cpucva/z80c.cpp
-        cpucva/z80diag.cpp)
-elseif(VAEG_Z80_CORE STREQUAL "suzukiplan")
-    list(APPEND VAEG_Z80_PRODUCTION_SOURCES
-        cpucva/z80_core.cpp
-        cpucva/z80_legacy_state.cpp)
-else()
-    message(FATAL_ERROR
-        "VAEG_Z80_CORE must be legacy or suzukiplan, got: ${VAEG_Z80_CORE}")
-endif()
-message(STATUS "Production Z80 core: ${VAEG_Z80_CORE}")
+    cpucva/z80_disasm.cpp
+    cpucva/z80_core.cpp
+    cpucva/z80_legacy_state.cpp)
+message(STATUS "Production Z80 core: suzukiplan")
 
 set(VAEG_VA_SOURCES
     biosva/biosva.c
@@ -440,20 +427,14 @@ add_library(vaeg_va STATIC ${VAEG_VA_SOURCES})
 target_include_directories(vaeg_va PUBLIC ${VAEG_INCLUDE_DIRS})
 target_link_libraries(vaeg_va PUBLIC vaeg_core vaeg_common)
 target_compile_options(vaeg_va PRIVATE -Wall -fsigned-char)
-if(VAEG_Z80_CORE STREQUAL "suzukiplan")
-    target_include_directories(vaeg_va PRIVATE
-        "${CMAKE_CURRENT_SOURCE_DIR}/external/suzukiplan-z80")
-    target_compile_definitions(vaeg_va PUBLIC
-        VAEG_Z80_CORE_SUZUKIPLAN=1)
-    target_compile_definitions(vaeg_va PRIVATE
-        Z80_DISABLE_BREAKPOINT
-        Z80_DISABLE_DEBUG
-        Z80_DISABLE_NESTCHECK
-        Z80_NO_EXCEPTION
-        Z80_UNSUPPORT_16BIT_PORT)
-else()
-    target_compile_definitions(vaeg_va PUBLIC VAEG_Z80_CORE_LEGACY=1)
-endif()
+target_include_directories(vaeg_va PRIVATE
+    "${CMAKE_CURRENT_SOURCE_DIR}/external/suzukiplan-z80")
+target_compile_definitions(vaeg_va PRIVATE
+    Z80_DISABLE_BREAKPOINT
+    Z80_DISABLE_DEBUG
+    Z80_DISABLE_NESTCHECK
+    Z80_NO_EXCEPTION
+    Z80_UNSUPPORT_16BIT_PORT)
 if(VAEG_Z80_INTEGRATION_TRACE)
     target_compile_definitions(vaeg_va PRIVATE
         VAEG_Z80_INTEGRATION_TRACE=1)
@@ -724,11 +705,9 @@ if(VAEG_ENABLE_TESTS)
         Z80_UNSUPPORT_16BIT_PORT)
 
     add_executable(vaeg_z80_legacy_contract
-        tests/z80/legacy_contract.cpp
-        cpucva/z80c.cpp
-        cpucva/z80diag.cpp)
-    target_include_directories(vaeg_z80_legacy_contract PRIVATE
-        ${VAEG_INCLUDE_DIRS})
+        tests/z80/legacy_contract.cpp)
+    target_link_libraries(vaeg_z80_legacy_contract PRIVATE
+        vaeg_z80_wrapper_no_functional)
     target_compile_options(vaeg_z80_legacy_contract PRIVATE
         -Wall -fsigned-char)
     if(VAEG_WERROR)
@@ -744,22 +723,18 @@ if(VAEG_ENABLE_TESTS)
     target_compile_options(vaeg_z80_trace_common PRIVATE
         -Wall -fsigned-char)
 
-    add_executable(vaeg_z80_legacy_trace
-        tests/z80/differential/legacy_trace.cpp
-        cpucva/z80c.cpp
-        cpucva/z80diag.cpp)
-    target_include_directories(vaeg_z80_legacy_trace PRIVATE
-        ${VAEG_INCLUDE_DIRS})
-    target_link_libraries(vaeg_z80_legacy_trace PRIVATE
-        vaeg_z80_trace_common)
-    target_compile_options(vaeg_z80_legacy_trace PRIVATE
+    add_executable(vaeg_z80_trace_reference
+        tests/z80/differential/reference_trace.cpp)
+    target_link_libraries(vaeg_z80_trace_reference PRIVATE
+        vaeg_z80_trace_common vaeg_z80_wrapper_no_functional)
+    target_compile_options(vaeg_z80_trace_reference PRIVATE
         -Wall -fsigned-char)
 
-    add_executable(vaeg_z80_new_trace
+    add_executable(vaeg_z80_trace_repeat
         tests/z80/differential/new_trace.cpp)
-    target_link_libraries(vaeg_z80_new_trace PRIVATE
+    target_link_libraries(vaeg_z80_trace_repeat PRIVATE
         vaeg_z80_trace_common vaeg_z80_wrapper_no_functional)
-    target_compile_options(vaeg_z80_new_trace PRIVATE
+    target_compile_options(vaeg_z80_trace_repeat PRIVATE
         -Wall -fsigned-char)
 
     add_executable(vaeg_z80_trace_compare
@@ -771,7 +746,8 @@ if(VAEG_ENABLE_TESTS)
         -Wall -fsigned-char)
 
     if(VAEG_WERROR)
-        foreach(target vaeg_z80_trace_common vaeg_z80_new_trace
+        foreach(target vaeg_z80_trace_common vaeg_z80_trace_reference
+                       vaeg_z80_trace_repeat
                        vaeg_z80_trace_compare)
             target_compile_options(${target} PRIVATE -Werror)
         endforeach()
@@ -798,18 +774,18 @@ if(VAEG_ENABLE_TESTS)
     add_test(NAME vaeg_z80_disasm COMMAND vaeg_z80_disasm)
     set_tests_properties(vaeg_z80_disasm PROPERTIES
         LABELS "romless;z80;disasm" TIMEOUT 120)
-    foreach(differential_suite directed state generated convergence)
-        add_test(NAME vaeg_z80_differential_${differential_suite}
+    foreach(regression_suite directed state generated convergence)
+        add_test(NAME vaeg_z80_regression_${regression_suite}
             COMMAND "${CMAKE_COMMAND}"
-                "-DLEGACY_RUNNER=$<TARGET_FILE:vaeg_z80_legacy_trace>"
-                "-DNEW_RUNNER=$<TARGET_FILE:vaeg_z80_new_trace>"
+                "-DREFERENCE_RUNNER=$<TARGET_FILE:vaeg_z80_trace_reference>"
+                "-DREPEAT_RUNNER=$<TARGET_FILE:vaeg_z80_trace_repeat>"
                 "-DCOMPARATOR=$<TARGET_FILE:vaeg_z80_trace_compare>"
-                "-DSUITE=${differential_suite}"
+                "-DSUITE=${regression_suite}"
                 "-DCASES=128"
-                "-DOUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR}/z80-differential"
+                "-DOUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR}/z80-regression"
                 -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/z80/differential/run_differential.cmake")
-        set_tests_properties(vaeg_z80_differential_${differential_suite}
-            PROPERTIES LABELS "romless;z80;differential" TIMEOUT 120)
+        set_tests_properties(vaeg_z80_regression_${regression_suite}
+            PROPERTIES LABELS "romless;z80;regression" TIMEOUT 120)
     endforeach()
     if(VAEG_ZEX_ARTIFACT_DIR)
         get_filename_component(VAEG_ZEX_ARTIFACT_DIR_ABSOLUTE

@@ -23,183 +23,26 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "cpucva/z80_core.h"
+#include "cpucva/z80_legacy_state.h"
+
 #include <array>
-#include <algorithm>
 #include <cstddef>
 #include <cstdint>
-#include <cstdlib>
 #include <cstdio>
-#include <cstring>
-#include <initializer_list>
+#include <cstdlib>
 #include <string>
-#include <utility>
-#include <vector>
-
-/* Test-only access is required to report the exact private revision-1 ABI. */
-#define private public
-#include "cpucva/z80c.h"
-#undef private
 
 namespace {
 
-constexpr int kClockMultiple = 2;
-constexpr int kAcknowledgePort = 0x102;
-
-using LegacyStatus = Z80C::Status;
-using StatusBytes = std::array<uint8_t, sizeof(LegacyStatus)>;
-
-static_assert(sizeof(bool) == 1, "revision-1 fixtures require one-byte bool");
-static_assert(sizeof(uint) == 4, "revision-1 fixtures require four-byte uint");
-static_assert(sizeof(sint32) == 4,
-              "revision-1 fixtures require four-byte sint32");
-static_assert(sizeof(Z80Reg::wordreg) == 4,
-              "revision-1 fixtures require four-byte word registers");
-static_assert(sizeof(Z80Reg) == 56,
-              "unexpected legacy public-register ABI");
-static_assert(sizeof(LegacyStatus) == 68,
-              "unexpected legacy status ABI");
-
-struct BusEvent {
-    char kind;
-    uint32_t address;
-    uint8_t data;
-
-    bool operator==(const BusEvent &other) const {
-        return kind == other.kind && address == other.address &&
-               data == other.data;
-    }
-};
-
-class Memory final : public IMemoryAccess {
-public:
-    std::array<uint8_t, 0x10000> bytes{};
-    std::vector<BusEvent> events;
-
-    uint IFCALL Read8(uint address) override {
-        const uint16_t masked = static_cast<uint16_t>(address);
-        const uint8_t data = bytes[masked];
-        events.push_back({'r', masked, data});
-        return data;
-    }
-
-    void IFCALL Write8(uint address, uint data) override {
-        const uint16_t masked = static_cast<uint16_t>(address);
-        const uint8_t value = static_cast<uint8_t>(data);
-        bytes[masked] = value;
-        events.push_back({'w', masked, value});
-    }
-};
-
-class IO final : public IIOAccess {
-public:
-    uint8_t acknowledge = 0x7f;
-    std::vector<BusEvent> events;
-
-    uint IFCALL In(uint port) override {
-        const uint8_t data = port == kAcknowledgePort ? acknowledge : 0xff;
-        events.push_back({'i', port, data});
-        return data;
-    }
-
-    void IFCALL Out(uint port, uint data) override {
-        events.push_back(
-            {'o', port, static_cast<uint8_t>(data)});
-    }
-
-    size_t acknowledge_count() const {
-        size_t count = 0;
-        for (const BusEvent &event : events) {
-            if (event.kind == 'i' && event.address == kAcknowledgePort) {
-                count++;
-            }
-        }
-        return count;
-    }
-};
-
-class Clock final : public IClock {
-public:
-    uint32_t value = 0;
-
-    uint32 IFCALL now() override {
-        return value;
-    }
-};
-
-class ClockCounter final : public IClockCounter {
-public:
-    sint32 remain = 0;
-
-    void IFCALL past(sint32 clocks) override {
-        remain -= clocks * kClockMultiple;
-    }
-
-    sint32 IFCALL GetRemainclock() override {
-        return remain;
-    }
-
-    void IFCALL SetRemainclock(sint32 clocks) override {
-        remain = clocks;
-    }
-};
-
-struct Machine {
-    Memory memory;
-    IO io;
-    Clock clock;
-    ClockCounter counter;
-    Z80C cpu;
-
-    Machine() {
-        if (!cpu.Init(&memory, &io, &clock, &counter,
-                      kAcknowledgePort)) {
-            std::fputs("legacy-contract: Z80C::Init failed\n", stderr);
-            std::abort();
-        }
-    }
-
-    void install(std::initializer_list<uint8_t> program) {
-        std::copy(program.begin(), program.end(), memory.bytes.begin());
-    }
-
-    void install_at(uint16_t address,
-                    std::initializer_list<uint8_t> program) {
-        std::copy(program.begin(), program.end(),
-                  memory.bytes.begin() + address);
-    }
-
-    void exec_to(uint32_t now) {
-        clock.value = now;
-        cpu.Exec();
-    }
-
-    StatusBytes save() {
-        LegacyStatus status;
-        StatusBytes bytes;
-        std::memset(&status, 0xa5, sizeof(status));
-        if (cpu.GetStatusSize() != sizeof(status) ||
-            !cpu.SaveStatus(reinterpret_cast<uint8_t *>(&status))) {
-            std::fputs("legacy-contract: save failed\n", stderr);
-            std::abort();
-        }
-        std::memcpy(bytes.data(), &status, sizeof(status));
-        return bytes;
-    }
-};
+using Status = std::array<std::uint8_t, vaeg::z80::kRevision1Size>;
 
 struct Fixture {
-    std::string name;
-    StatusBytes status;
-    std::array<uint8_t, 0x10000> memory;
-    uint8_t acknowledge;
-};
-
-struct ExpectedFixture {
     const char *name;
     const char *hex;
 };
 
-constexpr ExpectedFixture kExpectedFixtures[] = {
+constexpr Fixture kFixtures[] = {
     {"ordinary", "20330000bc9a0000785600003412000000000000000000000090000000000000000000000000000000000000110000000007000000000000000033010000000074000000"},
     {"alternate", "0000000000000000000000000000000057130000682400000090000045de0000bc9a000078560000341200001a000000000d0000000000000000000100000000b6000000"},
     {"im0-iff-enabled", "4400000000000000000000000000000000000000000000000000000000000000000000000000000000000000050000000005000001010000000000010000000028000000"},
@@ -217,424 +60,158 @@ constexpr ExpectedFixture kExpectedFixtures[] = {
     {"ei-ei", "4400000000000000000000000000000000000000000000000000000000000000000000000000000000000000020000000002000000000000010000010000000010000000"},
 };
 
-[[noreturn]] void fail(const std::string &message) {
+[[noreturn]] void Fail(const std::string &message) {
     std::fprintf(stderr, "legacy-contract: %s\n", message.c_str());
     std::exit(1);
 }
 
-LegacyStatus decode(const StatusBytes &bytes) {
-    LegacyStatus status;
-    std::memcpy(&status, bytes.data(), sizeof(status));
+std::uint8_t HexDigit(char digit) {
+    if (digit >= '0' && digit <= '9') {
+        return static_cast<std::uint8_t>(digit - '0');
+    }
+    if (digit >= 'a' && digit <= 'f') {
+        return static_cast<std::uint8_t>(digit - 'a' + 10);
+    }
+    Fail("invalid retained fixture hex digit");
+}
+
+Status Parse(const char *hex) {
+    const std::string text(hex);
+    if (text.size() != vaeg::z80::kRevision1Size * 2) {
+        Fail("retained fixture has an invalid encoded length");
+    }
+    Status status{};
+    for (std::size_t index = 0; index < status.size(); ++index) {
+        status[index] = static_cast<std::uint8_t>(
+            (HexDigit(text[index * 2]) << 4) |
+            HexDigit(text[index * 2 + 1]));
+    }
     return status;
 }
 
-bool load(Z80C &cpu, const StatusBytes &bytes) {
-    LegacyStatus status;
-    std::memcpy(&status, bytes.data(), sizeof(status));
-    return cpu.LoadStatus(reinterpret_cast<const uint8_t *>(&status));
+bool SameRegisters(const Z80Reg &left, const Z80Reg &right) {
+    return left.af == right.af && left.hl == right.hl &&
+           left.de == right.de && left.bc == right.bc &&
+           left.ix == right.ix && left.iy == right.iy &&
+           left.sp == right.sp && left.r_af == right.r_af &&
+           left.r_hl == right.r_hl && left.r_de == right.r_de &&
+           left.r_bc == right.r_bc && left.pc == right.pc &&
+           left.ireg == right.ireg && left.rreg == right.rreg &&
+           left.rreg7 == right.rreg7 &&
+           left.intmode == right.intmode && left.iff1 == right.iff1 &&
+           left.iff2 == right.iff2;
 }
 
-std::string hex(const StatusBytes &bytes) {
-    static constexpr char digits[] = "0123456789abcdef";
-    std::string result;
-    result.reserve(bytes.size() * 2);
-    for (const uint8_t byte : bytes) {
-        result.push_back(digits[byte >> 4]);
-        result.push_back(digits[byte & 0x0f]);
-    }
-    return result;
+bool SameState(const vaeg::z80::LegacyState &left,
+               const vaeg::z80::LegacyState &right) {
+    return SameRegisters(left.registers, right.registers) &&
+           left.halted == right.halted &&
+           left.external_wait == right.external_wait &&
+           left.irq_asserted == right.irq_asserted &&
+           left.ei_inhibited == right.ei_inhibited &&
+           left.remainclock == right.remainclock &&
+           left.lastclock == right.lastclock;
 }
 
-void require(bool condition, const std::string &message) {
-    if (!condition) {
-        fail(message);
-    }
-}
+class Memory final : public IMemoryAccess {
+public:
+    std::uint32_t IFCALL Read8(std::uint32_t) override { return 0; }
+    void IFCALL Write8(std::uint32_t, std::uint32_t) override {}
+};
 
-void prime_flags(Machine &machine) {
-    machine.install({0xaf}); // XOR A initializes architectural and lazy flags.
-    machine.exec_to(8);
-    require(machine.counter.remain == 0 && machine.cpu.GetPC() == 1,
-            "flag initialization boundary mismatch");
-}
+class IO final : public IIOAccess {
+public:
+    std::uint32_t IFCALL In(std::uint32_t) override { return 0xff; }
+    void IFCALL Out(std::uint32_t, std::uint32_t) override {}
+};
 
-Fixture capture(const char *name, Machine &machine) {
-    return {name, machine.save(), machine.memory.bytes,
-            machine.io.acknowledge};
-}
+class Clock final : public IClock {
+public:
+    std::uint32_t IFCALL now() override { return 0; }
+};
 
-Fixture ordinary_fixture() {
-    Machine machine;
-    prime_flags(machine);
-    machine.install_at(1, {
-        0x31, 0x00, 0x90,       // LD SP,$9000
-        0x01, 0x34, 0x12,       // LD BC,$1234
-        0x11, 0x78, 0x56,       // LD DE,$5678
-        0x21, 0xbc, 0x9a,       // LD HL,$9abc
-        0x3e, 0x11,             // LD A,$11
-        0xc6, 0x22,             // ADD A,$22 (leaves lazy flags)
-    });
-    machine.exec_to(116);
-    require(machine.counter.remain == 0, "ordinary fixture clock balance");
-    return capture("ordinary", machine);
-}
-
-Fixture alternate_fixture() {
-    Machine machine;
-    prime_flags(machine);
-    machine.install_at(1, {
-        0x31, 0x00, 0x90,       // LD SP,$9000
-        0x01, 0x34, 0x12,       // LD BC,$1234
-        0x11, 0x78, 0x56,       // LD DE,$5678
-        0x21, 0xbc, 0x9a,       // LD HL,$9abc
-        0x3e, 0xde,             // LD A,$de
-        0x37,                   // SCF
-        0xd9,                   // EXX
-        0x08,                   // EX AF,AF'
-        0xdd, 0x21, 0x57, 0x13, // LD IX,$1357
-        0xfd, 0x21, 0x68, 0x24, // LD IY,$2468
-    });
-    machine.exec_to(182);
-    require(machine.counter.remain == 0, "alternate fixture clock balance");
-    return capture("alternate", machine);
-}
-
-Fixture interrupt_mode_fixture(const char *name, uint8_t opcode) {
-    Machine machine;
-    prime_flags(machine);
-    machine.install_at(1, {0xfb, 0x00, 0xed, opcode}); // EI; NOP; IM n
-    machine.exec_to(40);
-    require(machine.counter.remain == 0,
-            std::string(name) + " fixture clock balance");
-    return capture(name, machine);
-}
-
-Fixture iff2_only_fixture() {
-    Machine machine;
-    prime_flags(machine);
-    machine.install_at(1, {
-        0xfb, 0x00,             // EI; NOP
-        0x31, 0x00, 0x90,       // LD SP,$9000
-    });
-    machine.exec_to(44);
-    machine.cpu.NMI();
-    require(machine.cpu.GetReg()->iff1 == false &&
-                machine.cpu.GetReg()->iff2 == true,
-            "NMI did not produce the IFF2-only boundary");
-    return capture("iff2-only", machine);
-}
-
-Fixture halt_fixture() {
-    Machine machine;
-    prime_flags(machine);
-    machine.install_at(1, {0x76}); // HALT
-    machine.exec_to(16);
-    return capture("halt", machine);
-}
-
-Fixture wait_fixture() {
-    Machine machine;
-    prime_flags(machine);
-    machine.cpu.Wait(true);
-    machine.exec_to(21);
-    return capture("external-wait", machine);
-}
-
-Fixture asserted_irq_fixture() {
-    Machine machine;
-    prime_flags(machine);
-    machine.install_at(1, {0x00}); // NOP
-    machine.exec_to(16);
-    machine.cpu.IRQ(0, 1);   // Assert only after Exec() has returned.
-    require(machine.io.acknowledge_count() == 0,
-            "asserting IRQ after Exec performed acknowledge read");
-    return capture("asserted-irq-after-exec", machine);
-}
-
-Fixture negative_remain_fixture() {
-    Machine machine;
-    prime_flags(machine);
-    machine.install_at(1, {0x00}); // NOP
-    machine.exec_to(9);
-    require(machine.counter.remain == -7,
-            "negative remainclock fixture did not overshoot");
-    return capture("negative-remainclock", machine);
-}
-
-Fixture nonzero_lastclock_fixture() {
-    Machine machine;
-    prime_flags(machine);
-    machine.install_at(1, {0x00}); // NOP
-    machine.exec_to(16);
-    return capture("nonzero-lastclock", machine);
-}
-
-Fixture ei_nop_fixture(bool irq) {
-    Machine machine;
-    prime_flags(machine);
-    machine.install_at(1, {0xfb, 0x00, 0x00}); // EI; NOP; NOP
-    if (irq) {
-        machine.cpu.IRQ(0, 1);
-    }
-    machine.exec_to(24);
-    if (irq) {
-        require(machine.io.acknowledge_count() == 1,
-                "EI/NOP accepted IRQ without exactly one acknowledge");
-    }
-    return capture(irq ? "ei-nop-accepted-irq" : "ei-nop", machine);
-}
-
-Fixture ei_di_fixture() {
-    Machine machine;
-    prime_flags(machine);
-    machine.install_at(1, {0xfb, 0xf3, 0x00}); // EI; DI; NOP
-    machine.cpu.IRQ(0, 1);
-    machine.exec_to(16);
-    require(machine.cpu.GetPC() == 2 &&
-                machine.io.acknowledge_count() == 0,
-            "EI/DI return boundary mismatch");
-    return capture("ei-di", machine);
-}
-
-Fixture ei_ei_fixture() {
-    Machine machine;
-    prime_flags(machine);
-    machine.install_at(1, {0xfb, 0xfb, 0x00}); // EI; EI; NOP
-    machine.cpu.IRQ(0, 1);
-    machine.exec_to(16);
-    require(machine.cpu.GetPC() == 2 &&
-                machine.io.acknowledge_count() == 0,
-            "EI/EI return boundary mismatch");
-    return capture("ei-ei", machine);
-}
-
-std::vector<Fixture> make_fixtures() {
-    std::vector<Fixture> fixtures;
-    fixtures.push_back(ordinary_fixture());
-    fixtures.push_back(alternate_fixture());
-    fixtures.push_back(interrupt_mode_fixture("im0-iff-enabled", 0x46));
-    fixtures.push_back(interrupt_mode_fixture("im1-iff-enabled", 0x56));
-    fixtures.push_back(interrupt_mode_fixture("im2-iff-enabled", 0x5e));
-    fixtures.push_back(iff2_only_fixture());
-    fixtures.push_back(halt_fixture());
-    fixtures.push_back(wait_fixture());
-    fixtures.push_back(asserted_irq_fixture());
-    fixtures.push_back(negative_remain_fixture());
-    fixtures.push_back(nonzero_lastclock_fixture());
-    fixtures.push_back(ei_nop_fixture(false));
-    fixtures.push_back(ei_nop_fixture(true));
-    fixtures.push_back(ei_di_fixture());
-    fixtures.push_back(ei_ei_fixture());
-    return fixtures;
-}
-
-void verify_immediate_round_trip(const Fixture &fixture) {
-    Machine restored;
-    restored.memory.bytes = fixture.memory;
-    restored.io.acknowledge = fixture.acknowledge;
-    require(load(restored.cpu, fixture.status),
-            fixture.name + " LoadStatus failed");
-    require(restored.save() == fixture.status,
-            fixture.name + " immediate save/load bytes differ");
-}
-
-void compare_continuation(const Fixture &fixture, uint32_t clock_delta,
-                          bool assert_irq) {
-    Machine baseline;
-    Machine restored;
-    baseline.memory.bytes = fixture.memory;
-    restored.memory.bytes = fixture.memory;
-    baseline.io.acknowledge = fixture.acknowledge;
-    restored.io.acknowledge = fixture.acknowledge;
-    require(load(baseline.cpu, fixture.status),
-            fixture.name + " baseline load failed");
-    require(load(restored.cpu, fixture.status),
-            fixture.name + " restored load failed");
-    if (assert_irq) {
-        baseline.cpu.IRQ(0, 1);
-        restored.cpu.IRQ(0, 1);
-    }
-    const uint32_t next_clock =
-        static_cast<uint32_t>(decode(fixture.status).lastclock) + clock_delta;
-    baseline.memory.events.clear();
-    baseline.io.events.clear();
-    restored.memory.events.clear();
-    restored.io.events.clear();
-    baseline.exec_to(next_clock);
-    restored.exec_to(next_clock);
-    require(baseline.save() == restored.save(),
-            fixture.name + " continuation status mismatch");
-    require(baseline.memory.bytes == restored.memory.bytes,
-            fixture.name + " continuation memory mismatch");
-    require(baseline.memory.events == restored.memory.events,
-            fixture.name + " continuation memory trace mismatch");
-    require(baseline.io.events == restored.io.events,
-            fixture.name + " continuation I/O trace mismatch");
-}
-
-void verify_fixtures(const std::vector<Fixture> &fixtures) {
-    require(fixtures.size() ==
-                sizeof(kExpectedFixtures) / sizeof(kExpectedFixtures[0]),
-            "fixture count differs from the retained baseline");
-    for (const Fixture &fixture : fixtures) {
-        const LegacyStatus status = decode(fixture.status);
-        require(status.rev == 1, fixture.name + " revision is not one");
-        require(status.remainclock <= 0,
-                fixture.name + " exposed a positive remainclock");
-        verify_immediate_round_trip(fixture);
-        bool found = false;
-        for (const ExpectedFixture &expected : kExpectedFixtures) {
-            if (fixture.name == expected.name) {
-                require(hex(fixture.status) == expected.hex,
-                        fixture.name + " bytes differ from retained baseline");
-                found = true;
-                break;
-            }
-        }
-        require(found, fixture.name + " has no retained baseline");
+class ClockCounter final : public IClockCounter {
+public:
+    void IFCALL past(std::int32_t clocks) override { remain_ -= clocks; }
+    std::int32_t IFCALL GetRemainclock() override { return remain_; }
+    void IFCALL SetRemainclock(std::int32_t clocks) override {
+        remain_ = clocks;
     }
 
-    for (const Fixture &fixture : fixtures) {
-        if (fixture.name == "ei-nop") {
-            compare_continuation(fixture, 8, true);
-        } else if (fixture.name == "ei-nop-accepted-irq") {
-            compare_continuation(fixture, 8, false);
-        } else if (fixture.name == "ei-di") {
-            compare_continuation(fixture, 8, false);
-        } else if (fixture.name == "ei-ei") {
-            compare_continuation(fixture, 16, false);
-        }
+private:
+    std::int32_t remain_ = 0;
+};
+
+void VerifyFixture(const Fixture &fixture) {
+    const Status input = Parse(fixture.hex);
+    if ((input[vaeg::z80::kOffsetWait] &
+         vaeg::z80::kWaitEiInhibited) != 0) {
+        Fail(std::string(fixture.name) +
+             " unexpectedly uses reserved revision-1 wait bit 2");
     }
-}
 
-void print_offset(const char *name, size_t offset) {
-    std::printf("offset.%s=%zu\n", name, offset);
-}
+    vaeg::z80::LegacyState decoded;
+    if (!vaeg::z80::DecodeRevision1(input.data(), &decoded)) {
+        Fail(std::string(fixture.name) + " codec decode failed");
+    }
 
-void print_abi() {
-#if defined(__BYTE_ORDER__) && __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
-    const char *byte_order = "little";
-#elif defined(_WIN32)
-    const char *byte_order = "little";
-#else
-    const char *byte_order = "unknown";
-#endif
+    Memory memory;
+    IO io;
+    Clock clock;
+    ClockCounter counter;
+    Z80C cpu;
+    if (!cpu.Init(&memory, &io, &clock, &counter, 0x102) ||
+        cpu.GetStatusSize() != vaeg::z80::kRevision1Size ||
+        !cpu.LoadStatus(input.data())) {
+        Fail(std::string(fixture.name) + " production wrapper load failed");
+    }
 
-#if defined(__clang__)
-    const char *compiler = "clang " __clang_version__;
-#elif defined(__GNUC__)
-    const char *compiler = "gcc " __VERSION__;
-#elif defined(_MSC_VER)
-    const char *compiler = "msvc";
-#else
-    const char *compiler = "unknown";
-#endif
-
-#if defined(__aarch64__) || defined(_M_ARM64)
-    const char *architecture = "aarch64";
-#elif defined(__x86_64__) || defined(_M_X64)
-    const char *architecture = "x86_64";
-#elif defined(__i386__) || defined(_M_IX86)
-    const char *architecture = "x86";
-#else
-    const char *architecture = "unknown";
-#endif
-
-    std::printf("abi.compiler=%s\n", compiler);
-    std::printf("abi.architecture=%s\n", architecture);
-    std::printf("abi.byte_order=%s\n", byte_order);
-    std::printf("sizeof.bool=%zu\n", sizeof(bool));
-    std::printf("sizeof.uint=%zu\n", sizeof(uint));
-    std::printf("sizeof.sint32=%zu\n", sizeof(sint32));
-    std::printf("sizeof.uint8=%zu\n", sizeof(uint8));
-    std::printf("sizeof.uint16=%zu\n", sizeof(uint16));
-    std::printf("sizeof.uint32=%zu\n", sizeof(uint32));
-    std::printf("sizeof.pointer=%zu\n", sizeof(void *));
-    std::printf("sizeof.z80_wordreg=%zu\n", sizeof(Z80Reg::wordreg));
-    std::printf("sizeof.z80_reg=%zu\n", sizeof(Z80Reg));
-    std::printf("sizeof.z80_status=%zu\n", sizeof(LegacyStatus));
-
-    const size_t reg = offsetof(LegacyStatus, reg);
-    const size_t words = offsetof(Z80Reg, r) + offsetof(Z80Reg::regs, w);
-    const size_t bytes = offsetof(Z80Reg, r) + offsetof(Z80Reg::regs, b);
-    print_offset("reg.r.w.af", reg + words +
-                                  offsetof(Z80Reg::regs::shorts, af));
-    print_offset("reg.r.w.hl", reg + words +
-                                  offsetof(Z80Reg::regs::shorts, hl));
-    print_offset("reg.r.w.de", reg + words +
-                                  offsetof(Z80Reg::regs::shorts, de));
-    print_offset("reg.r.w.bc", reg + words +
-                                  offsetof(Z80Reg::regs::shorts, bc));
-    print_offset("reg.r.w.ix", reg + words +
-                                  offsetof(Z80Reg::regs::shorts, ix));
-    print_offset("reg.r.w.iy", reg + words +
-                                  offsetof(Z80Reg::regs::shorts, iy));
-    print_offset("reg.r.w.sp", reg + words +
-                                  offsetof(Z80Reg::regs::shorts, sp));
-    print_offset("reg.r.b.flags", reg + bytes +
-                                     offsetof(Z80Reg::regs::words, flags));
-    print_offset("reg.r.b.a", reg + bytes +
-                                 offsetof(Z80Reg::regs::words, a));
-    print_offset("reg.r.b.l", reg + bytes +
-                                 offsetof(Z80Reg::regs::words, l));
-    print_offset("reg.r.b.h", reg + bytes +
-                                 offsetof(Z80Reg::regs::words, h));
-    print_offset("reg.r.b.e", reg + bytes +
-                                 offsetof(Z80Reg::regs::words, e));
-    print_offset("reg.r.b.d", reg + bytes +
-                                 offsetof(Z80Reg::regs::words, d));
-    print_offset("reg.r.b.c", reg + bytes +
-                                 offsetof(Z80Reg::regs::words, c));
-    print_offset("reg.r.b.b", reg + bytes +
-                                 offsetof(Z80Reg::regs::words, b));
-    print_offset("reg.r.b.xl", reg + bytes +
-                                  offsetof(Z80Reg::regs::words, xl));
-    print_offset("reg.r.b.xh", reg + bytes +
-                                  offsetof(Z80Reg::regs::words, xh));
-    print_offset("reg.r.b.yl", reg + bytes +
-                                  offsetof(Z80Reg::regs::words, yl));
-    print_offset("reg.r.b.yh", reg + bytes +
-                                  offsetof(Z80Reg::regs::words, yh));
-    print_offset("reg.r.b.spl", reg + bytes +
-                                   offsetof(Z80Reg::regs::words, spl));
-    print_offset("reg.r.b.sph", reg + bytes +
-                                   offsetof(Z80Reg::regs::words, sph));
-    print_offset("reg.r_af", reg + offsetof(Z80Reg, r_af));
-    print_offset("reg.r_hl", reg + offsetof(Z80Reg, r_hl));
-    print_offset("reg.r_de", reg + offsetof(Z80Reg, r_de));
-    print_offset("reg.r_bc", reg + offsetof(Z80Reg, r_bc));
-    print_offset("reg.pc", reg + offsetof(Z80Reg, pc));
-    print_offset("reg.ireg", reg + offsetof(Z80Reg, ireg));
-    print_offset("reg.rreg", reg + offsetof(Z80Reg, rreg));
-    print_offset("reg.rreg7", reg + offsetof(Z80Reg, rreg7));
-    print_offset("reg.intmode", reg + offsetof(Z80Reg, intmode));
-    print_offset("reg.iff1", reg + offsetof(Z80Reg, iff1));
-    print_offset("reg.iff2", reg + offsetof(Z80Reg, iff2));
-    print_offset("intr", offsetof(LegacyStatus, intr));
-    print_offset("wait", offsetof(LegacyStatus, wait));
-    print_offset("xf", offsetof(LegacyStatus, xf));
-    print_offset("rev", offsetof(LegacyStatus, rev));
-    print_offset("remainclock", offsetof(LegacyStatus, remainclock));
-    print_offset("lastclock", offsetof(LegacyStatus, lastclock));
+    Status output{};
+    if (!cpu.SaveStatus(output.data())) {
+        Fail(std::string(fixture.name) + " production wrapper save failed");
+    }
+    vaeg::z80::LegacyState round_trip;
+    if (!vaeg::z80::DecodeRevision1(output.data(), &round_trip) ||
+        !SameState(decoded, round_trip)) {
+        Fail(std::string(fixture.name) +
+             " decoded state changed across wrapper load/save");
+    }
+    std::printf("fixture.%s=PASS\n", fixture.name);
 }
 
 } // namespace
 
 int main() {
-    const std::vector<Fixture> fixtures = make_fixtures();
-    verify_fixtures(fixtures);
-    print_abi();
-    for (const Fixture &fixture : fixtures) {
-        const LegacyStatus status = decode(fixture.status);
-        std::printf("fixture.%s.pc=%04x\n", fixture.name.c_str(),
-                    static_cast<unsigned int>(status.reg.pc & 0xffff));
-        std::printf("fixture.%s.remainclock=%d\n", fixture.name.c_str(),
-                    status.remainclock);
-        std::printf("fixture.%s.lastclock=%d\n", fixture.name.c_str(),
-                    status.lastclock);
-        std::printf("fixture.%s.hex=%s\n", fixture.name.c_str(),
-                    hex(fixture.status).c_str());
+    static_assert(vaeg::z80::kRevision1Size == 68,
+                  "revision-1 status size changed");
+    static_assert(vaeg::z80::kOffsetAf == 0 &&
+                      vaeg::z80::kOffsetPc == 44 &&
+                      vaeg::z80::kOffsetWait == 57 &&
+                      vaeg::z80::kOffsetRevision == 59 &&
+                      vaeg::z80::kOffsetRemainClock == 60 &&
+                      vaeg::z80::kOffsetLastClock == 64,
+                  "revision-1 field offsets changed");
+
+    for (const Fixture &fixture : kFixtures) {
+        VerifyFixture(fixture);
     }
-    std::printf("legacy-contract: %zu fixtures passed\n", fixtures.size());
+
+    Status unsupported{};
+    unsupported[vaeg::z80::kOffsetRevision] = 2;
+    vaeg::z80::LegacyState decoded;
+    if (vaeg::z80::DecodeRevision1(unsupported.data(), &decoded)) {
+        Fail("unsupported revision was accepted");
+    }
+
+    std::printf("sizeof.z80_status=%zu\n", vaeg::z80::kRevision1Size);
+    std::printf("offset.af=%zu\n", vaeg::z80::kOffsetAf);
+    std::printf("offset.pc=%zu\n", vaeg::z80::kOffsetPc);
+    std::printf("offset.wait=%zu\n", vaeg::z80::kOffsetWait);
+    std::printf("offset.revision=%zu\n", vaeg::z80::kOffsetRevision);
+    std::printf("offset.remainclock=%zu\n",
+                vaeg::z80::kOffsetRemainClock);
+    std::printf("offset.lastclock=%zu\n", vaeg::z80::kOffsetLastClock);
+    std::printf("legacy-contract: %zu retained fixtures passed\n",
+                sizeof(kFixtures) / sizeof(kFixtures[0]));
     return 0;
 }
