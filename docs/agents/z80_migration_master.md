@@ -2265,5 +2265,5 @@ Z80 files. Current production unconditionally uses `cpucva/z80_core.cpp`,
 `cpucva/z80_legacy_state.cpp`, and `cpucva/z80_disasm.cpp`; the vendored MIT
 source is unchanged. Historical old/new procedures and filename references in
 this master and milestone evidence remain historical, not active build or
-packaging inputs. Final G41 public/hosted validation is recorded in the M41
-evidence report.
+packaging inputs. G41 public, private, archive, and hosted validation passed;
+details are in the M41 evidence report.
