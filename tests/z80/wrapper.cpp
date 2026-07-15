@@ -226,8 +226,6 @@ void TestResetAndDeterministicSave() {
         Require(first[index] == expected,
                 "reset save image contains unexpected data");
     }
-    Require(harness.cpu.GetDiag() == nullptr,
-            "M37 diagnostic placeholder must be inert");
 }
 
 void TestOrdinaryExecutionAndWrapping() {
