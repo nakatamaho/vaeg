@@ -79,13 +79,13 @@ The exact vendored file list is:
 
 ```text
 external/suzukiplan-z80/LICENSE.txt
-external/suzukiplan-z80/VERSION
+external/suzukiplan-z80/provenance.txt
 external/suzukiplan-z80/test/test-interrupt-extension.cpp
 external/suzukiplan-z80/z80.hpp
 ```
 
-`VERSION` is vaeg-authored provenance. The other three files are byte-for-byte
-copies from the reproduced tree:
+`provenance.txt` is vaeg-authored provenance. The other three files are
+byte-for-byte copies from the reproduced tree:
 
 | File | Git blob | SHA-256 |
 |---|---|---|
@@ -221,6 +221,14 @@ command with both dummy variables then passed and is the claimed smoke result.
 Wine initially exited 53 until the dynamically linked standalone tests were
 given the MinGW runtime directory through `WINEPATH`; every required Wine test
 then passed. These diagnostic attempts are not hidden as successful tests.
+
+The first hosted macOS build failed after configure because the initially named
+`external/suzukiplan-z80/VERSION` shadowed libc++'s `<version>` header on the
+runner's case-insensitive filesystem. Public Apple Clang annotations identify
+the former file's lines 3, 4, and 5 as invalid preprocessing directives. Commit
+`560fab64c8556771e5d1316337df1934a3402c51` renamed only the vaeg-authored
+metadata to `provenance.txt`; the copied upstream files and their hashes did not
+change. The hosted rerun is reported separately for the final pushed SHA.
 
 ## Platform classification
 

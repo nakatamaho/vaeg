@@ -45,12 +45,14 @@ with `git am`, reproduce tested commit
 `b4a0a5a238fecc280781e6fe5719faf0eafcd667` when the committer date is made
 deterministic, reproduce the expected tree, and prove `LICENSE.txt` unchanged.
 Import only required source/license/test files without hand edits. Add
-`VERSION` recording the upstream repository, base, patch path/hash, tested
-commit, resulting tree, MIT license, milestone/date, and extension summary.
-Preserve `LICENSE.txt` verbatim. Update the third-party notice and ADR,
-distinguishing upstream/downstream MIT code, vaeg BSD-2-Clause code, and
-external GPL test inputs. A later third-party source change requires a newly
-approved base-and-patch reproduction in its own commit.
+`provenance.txt` recording the upstream repository, base, patch path/hash,
+tested commit, resulting tree, MIT license, milestone/date, and extension
+summary. The lowercase descriptive name avoids shadowing the C++ standard
+library's `<version>` header on case-insensitive filesystems. Preserve
+`LICENSE.txt` verbatim. Update the third-party notice and ADR, distinguishing
+upstream/downstream MIT code, vaeg BSD-2-Clause code, and external GPL test
+inputs. A later third-party source change requires a newly approved
+base-and-patch reproduction in its own commit.
 
 ## Standalone validation
 

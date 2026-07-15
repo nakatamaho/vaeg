@@ -1052,7 +1052,7 @@ policy.
 Add a provenance file such as:
 
 ```text
-external/suzukiplan-z80/VERSION
+external/suzukiplan-z80/provenance.txt
 ```
 
 It must record:

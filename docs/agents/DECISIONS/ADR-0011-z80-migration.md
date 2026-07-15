@@ -209,8 +209,14 @@ The only copied upstream files are `LICENSE.txt`, `z80.hpp`, and
 `a4cbbf62b0edaf761ef48556c7a2e50bb3b4817f`,
 `b4e1f9d357ff4076c9e4c2a9cb4b8ae64d273865`, and
 `3708c77fabbfef85bd68da99fc7cef068af4ec55`. Byte comparisons against the
-reproduced tree pass. `VERSION` is vaeg-authored provenance, not a modified
-upstream source. The MIT license remains byte-identical with SHA-256
+reproduced tree pass. `provenance.txt` is vaeg-authored provenance, not a
+modified upstream source. It was initially named `VERSION`, but the first
+hosted macOS build proved that this path shadows libc++'s `<version>` header on
+the runner's case-insensitive filesystem: Apple Clang diagnosed the provenance
+comments at the former `external/suzukiplan-z80/VERSION:3`, `:4`, and `:5` as
+invalid preprocessing directives. Renaming only the vaeg-authored metadata
+removed that collision without changing an upstream byte. The MIT license
+remains byte-identical with SHA-256
 `ca7261ecf96ab7fea40c4c66aeb644710d210bd71418d285a9dd0098a7bddff1`.
 
 The vendored header is compiled only by standalone test targets. Four target-
