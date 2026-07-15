@@ -52,8 +52,9 @@ evidence uses neutral identifiers only.
 | `b559868ddf74bdc0c399d55b4fe1b89dd151583c` | `M41: remove approved legacy Z80 sources` |
 | `0e625c49ab624f7f1da92aa7ab8343844cb3bc40` | `M41: enforce single-core CI and archive audits` |
 | `5c855dd3c2823fc480f4ec12ca68902fa401beb3` | `M41: document the final Z80 production design` |
+| `753ab46592aa7e19534cb9e357c1a7e7d8feaaf6` | `M41: record local and private cutover evidence` |
 
-The final evidence commit and ending/remote SHA are reported after hosted CI.
+The ending and remote SHA are reported in the final G41 handoff.
 
 ## Production cutover
 
@@ -308,14 +309,18 @@ Known limitations:
   command completion, IRQ/acknowledge, and guest-visible behavior provide the
   recorded evidence.
 
-Native hosted Windows and macOS remain pending until the final evidence commit
-is pushed. Local MinGW/Wine is not native Windows; Linux cannot execute native
-macOS. There is no unresolved architectural, bus, interrupt, state, WAIT,
-SLEEP_HACK, FDD, or disassembly finding. Optional M42 performance work was not
-started.
+Hosted Actions run
+[`29454125225`](https://github.com/nakatamaho/vaeg/actions/runs/29454125225)
+passed all seven jobs on
+`753ab46592aa7e19534cb9e357c1a7e7d8feaaf6`: repository invariants, Ubuntu
+GCC, Ubuntu Clang, Ubuntu ASan, standalone Z80 conformance, native Windows
+MSYS2/MinGW64, and native macOS arm64. Local MinGW/Wine remains classified as
+non-native evidence. There is no unresolved architectural, bus, interrupt,
+state, WAIT, SLEEP_HACK, FDD, or disassembly finding. Optional M42 performance
+work was not started.
 
 ## Gate
 
-Local implementation, machine validation, and private validation support
-passing G41. Final disposition remains pending hosted CI on the final pushed
-SHA. M42 has not started.
+**G41 PASSED.** The final implementation, local/hosted public validation,
+private focused regression, state compatibility, licensing, source audit, and
+release audit all pass. M42 has not started.

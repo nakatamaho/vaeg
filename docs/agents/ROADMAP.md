@@ -74,7 +74,7 @@ history, not by a current CI or compile guarantee.
 | M38 | tasks/M38_z80_differential.md | Compare normalized externally observable legacy and replacement traces | **G38 machine + review** |
 | M39 | tasks/M39_z80_integration.md | Integrate an opt-in replacement Z80 path and run private-system regressions | **G39 human** |
 | M40 | tasks/M40_z80_disassembler.md | Replace active legacy disassembly consumers and close the dual-core evidence period | **G40 human + machine** |
-| M41 | tasks/M41_z80_cutover.md | Select the replacement exclusively, delete the seven approved files, and audit releases | **G41 full human + release audit** |
+| M41 | tasks/M41_z80_cutover.md | Select the replacement exclusively, delete the seven approved files, and audit releases | **G41 passed** |
 | M42 | tasks/M42_z80_performance.md | Optionally apply profiling-justified replacement-core performance settings | **G42 machine + human smoke** |
 
 Phase 2 dependencies: M7 → M8 → {M9, M10 parallel} → M11 → M12 → M13.
