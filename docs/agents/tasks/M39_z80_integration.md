@@ -22,8 +22,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 -->
 # M39: Integrate an opt-in replacement Z80 subsystem
 
-Status: implemented for public/ROM-less validation; G38 passed; awaiting the
-maintainer-private G39 system tests
+Status: complete; public and maintainer-private validation passed; G39 passed
 
 Branch: `topic/m39-z80-integration`
 
@@ -91,7 +90,10 @@ selection.
 
 The private manifest is
 [`docs/modernization/z80-private-integration.md`](../../modernization/z80-private-integration.md).
-No private asset was available in the agent workspace, and the four known
-untracked paths were not used. G39 cannot pass on public evidence alone; stop
-at this gate until the maintainer records the required dual-core boot, FDD,
-SLEEP_HACK, WAIT, and state results.
+All 15 cases were executed with maintainer-authorized assets under neutral
+tracked identifiers. Both production selections passed boot, FDD read/write,
+loaders, SLEEP_HACK, WAIT wake, and applicable state cases. Private filenames,
+absolute paths, hashes, screenshots, traces, save files, and writable media
+copies remain outside Git. The four known untracked paths were not used.
+
+G39 passed on 2026-07-15. The default remains legacy, and M40 has not started.

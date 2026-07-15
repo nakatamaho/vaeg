@@ -26,11 +26,10 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 The public and ROM-less M39 implementation is complete. The suzukiplan-backed
 wrapper is a production build option, the default remains legacy, and every
-available local check is green. G39 is nevertheless **not passed by this
-report**: the mandatory private VA/V3, FDD, SLEEP_HACK, WAIT-wake, and active
-transfer state tests were not run because no approved private asset was
-available to the agent. The maintainer must execute the committed manifest and
-explicitly pass G39. M40 has not started.
+available public check is green. The maintainer-private manifest was executed
+under both production selections on 2026-07-15. Boot, FDD read/write, loaders,
+SLEEP_HACK, WAIT wake, and frame-boundary state cases passed. **G39 PASSED.**
+M40 has not started.
 
 ## Starting state
 
@@ -385,15 +384,91 @@ unchanged.
 
 The committed
 [`z80-private-integration.md`](../../modernization/z80-private-integration.md)
-defines stable dual-core cases for VA/V3 boot, legal demo, OS operations,
-repeat reset, FDD read/write, representative and timing-sensitive loaders,
-port `0xf4`, IRQ/DRQ, VA and Sorcerian sleep/wake, legacy-to-new state,
-new-to-new state, active FDD state, HALT, and external WAIT.
+records all 15 cases with neutral identifiers. Private filenames, absolute
+paths, hashes, screenshots, raw logs, traces, state files, and writable media
+copies remain outside Git. Originals were not mounted writable. The four
+maintainer-designated untracked paths were deliberately not inspected or used.
 
-Every case is **NOT RUN** for both core choices. No ROM-set/disk identifier,
-FDD trace, IRQ/DRQ trace, private SLEEP_HACK result, WAIT-wake result, state
-result, or failure artifact is claimed. The four maintainer-designated
-untracked paths were deliberately not inspected or used.
+Both production selections passed VA2/VA3 OS boot and directory operation,
+three reset/boot cycles, legal demo execution, FDD read, expendable-copy write
+and binary readback, representative loader, and timing-sensitive loader. The
+timing-sensitive program reached the same stable menu under both cores. A
+later wall-clock sample showed the new core still in an intermediate scene,
+but sufficient execution converged to the same menu without a timeout, retry,
+or device-visible failure.
+
+The representative trace produced the same 21 ordered port-`0xf4` writes:
+nine `00`, `10 14 04 04 04 14 1c`, then five `0c`. The common 164 completed
+FDC records were byte-identical. The longer legacy wall-clock capture had 24
+additional post-convergence records. FDC DMA lengths/ranges and Z80 IRQ and
+acceptance-time acknowledge events were present; the current instrumentation
+does not emit a dedicated DRQ-edge record, so no separate DRQ edge-count claim
+is made.
+
+Actual VA and Sorcerian sleep paths preserved the callback-stale mirror:
+live/public PC was `1734/1732` with memory `ff` for VA and `7010/700e` for the
+Sorcerian path. WAIT kept PC fixed while clock balance drained, actual ATN
+released WAIT, and execution resumed. Both constants remain unchanged.
+
+Revision-1 legacy-to-new and new-to-new ordinary states resumed FDD directory
+activity. Legacy-to-new and new-to-new saves taken during visible loader
+activity completed exactly once after load. Active external-WAIT saves under
+both cores restored live/public PC `7010/7010`; a later actual ATN release and
+subsequent recurring sleep/wake cycles were observed. The task-permitted idle
+alternative was used for `m39-state-halt`; no private HALT assertion is
+claimed, and both selections resumed a single directory operation after load.
+
+### Private-completion validation
+
+The documentation-only completion reran the required repository checks:
+
+```sh
+python3 tools/repo/check_encoding.py --expect utf8 --exclude hlp/
+python3 tools/repo/check_eol.py --enforce
+python3 tools/repo/check_case.py
+python3 tools/repo/find_unreferenced.py --report
+git diff --check
+```
+
+Encoding, EOL, case, and diff checks passed with zero findings. The
+unreferenced report retained the established 69-file baseline and added no
+M39 file.
+
+Both production selections were reconfigured and built with:
+
+```sh
+cmake -S . -B build/m39-private-<core> -G Ninja \
+  -DCMAKE_BUILD_TYPE=Release -DVAEG_ENABLE_TESTS=ON \
+  -DVAEG_Z80_CORE=<core> -DVAEG_Z80_INTEGRATION_TRACE=OFF
+cmake --build build/m39-private-<core> -j2
+ctest --test-dir build/m39-private-<core> --output-on-failure
+```
+
+Configure output selected the requested core, both incremental builds were
+clean, and each CTest run passed 14/14, including subsystem state, directed,
+generated, state-boundary, and eventual-convergence tests.
+
+Final ROM-less commands were:
+
+```sh
+env SDL_AUDIODRIVER=dummy \
+  build/m39-private-legacy/sdl2/vaeg --selftest
+env SDL_AUDIODRIVER=dummy \
+  build/m39-private-suzukiplan/sdl2/vaeg --selftest
+env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
+  build/m39-private-legacy/sdl2/vaeg --smoke
+env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
+  build/m39-private-suzukiplan/sdl2/vaeg --smoke
+```
+
+All four final commands exited 0. An initial parallel selftest attempt made
+the two processes share a generated-image pathname; the suzukiplan process
+reported `existing image was overwritten`. Sequential rerun passed and CTest
+had already passed. Initial direct smoke attempts while temporary private-ROM
+symlinks remained in the ignored build trees exited 1 because the sandbox
+could identify but not read the external targets. Removing only those
+temporary symlinks restored the intended ROM-less condition; both identical
+smoke commands then passed. No private target was modified.
 
 ## Risks and recommendation
 
@@ -407,6 +482,10 @@ untracked paths were deliberately not inspected or used.
 - Unsupported Z80 state revisions now fail the top-level load safely.
 - Public traces preserve callback-stale/return-fresh mirror behavior and
   acceptance-time acknowledge behavior.
+- All 15 private manifest cases have recorded dispositions and passed their
+  applicable dual-core requirements.
+- No private binary, screenshot, raw trace, save, path, filename, or hash is
+  tracked.
 
 ### Accepted timing difference
 
@@ -420,26 +499,27 @@ the synthetic case. M39 adds no legacy per-opcode timing emulation.
 - Wine is not native Windows.
 - Local Linux cannot execute native macOS or native Windows jobs.
 - Sanitized smoke retains unrelated pre-existing sound/common UBSan reports.
-- Public synthetic FDD and SLEEP fixtures cannot establish private guest
-  compatibility.
+- The private FDC trace has no dedicated DRQ-edge record. Completed-command,
+  DMA transfer, IRQ, acknowledge, final-data, and guest-visible results were
+  checked instead.
+- The task-permitted idle alternative, rather than a positively identified
+  private HALT instruction, was used for `m39-state-halt`.
 
-### Unresolved gate risk
+### Unresolved issues
 
-Real VA/FDD timing remains unverified. Missing, duplicated, reordered, or
-permanently divergent FDD effects; timeout; corrupted data; changed IRQ/DRQ;
-failed sleep/wake; or changed active-transfer completion after load blocks
-G39.
+No G39-blocking private-system issue remains. Native private runs covered the
+gate risks available through the current instrumentation.
 
 ### Hypotheses
 
-The public eventual-convergence and production-seam fixtures suggest the
-cycle correction will change only slice assignment for real FDD traffic. This
-is not a verified private-system fact.
+The later intermediate wall-clock sample for the new timing-sensitive loader
+is consistent with the M38 slice-scheduling correction. The root cause of that
+wall-clock observation is not independently measured, so only eventual
+device-visible convergence is treated as verified.
 
 ### G39 recommendation
 
-**Do not mark G39 passed yet.** The public implementation is ready for the
-maintainer-private manifest, but M39's human gate requires successful results
-under both cores, especially suzukiplan FDD read/write, timing-sensitive
-loader, IRQ/DRQ/`0xf4`, actual SLEEP_HACK/WAIT wake, and active-transfer state
-load. Stop here; M40 is deliberately not started.
+**G39 PASSED.** The mandatory private boot, FDD read/write, timing-sensitive
+loader, port-`0xf4`, SLEEP_HACK/WAIT wake, and state-boundary cases completed
+without a blocking divergence. The default remains legacy. Stop here; M40 is
+deliberately not started.
