@@ -395,6 +395,26 @@ activity. Missing or reordered events, timeout, corruption, changed IRQ/DRQ,
 failed sleep/wake, or altered completion after load blocks G39. The default
 cannot change until the maintainer explicitly passes that gate.
 
+The maintainer-private manifest was completed on 2026-07-15 and G39 passed.
+Both production selections booted and completed OS, demo, reset, FDD
+read/write, representative-loader, and timing-sensitive-loader cases. The
+timing-sensitive trace had the same 21 ordered port-`0xf4` values and an exact
+164-record common prefix of completed FDC commands. The longer legacy
+wall-clock capture contained only additional post-convergence commands. No
+loss, duplication, reordering, timeout, retry, or data mismatch was observed.
+The diagnostic stream records DMA transfer metadata, IRQ, and acknowledge but
+does not expose dedicated DRQ edges; no independent DRQ edge-count claim is
+made.
+
+Actual SLEEP_HACK traces preserved live/public PC `1734/1732` and `7010/700e`,
+fixed-PC WAIT clock draining, ATN release, and resumed execution. Legacy-to-new
+and new-to-new revision-1 states resumed ordinary and active-loader behavior.
+Active external-WAIT states saved at live/public PC `7010/7010`, restored, and
+woke through actual ATN under both cores. The task-permitted stable-idle
+alternative was used for the private HALT/idle case; private HALT assertion is
+not claimed. Tracked records use neutral asset identifiers and exclude private
+filenames, absolute paths, hashes, screenshots, raw traces, saves, and media.
+
 ## Frame-boundary revision-1 state
 
 Production save is initiated by the GUI only after `pccore_exec()` returns.
@@ -486,11 +506,11 @@ historical G35 recommendation rather than a current authorization statement.
 - Genuine revision-1 images are compiler-shaped. Local native GCC/Clang and
   cross-target layout probes agree, but Windows and macOS CI must execute the
   fixture target before M37 freezes per-family codecs.
-- Actual private-ROM IM0 acceptance bytes are not yet observed. Optional M39
-  tracing logs them only at real acceptance; static code permits every byte.
-- ROM-less M39 tests preserve SLEEP_HACK's stale callback-time
-  `GetReg()->pc` mirror, both constants, clock drain, and ATN wake. Actual VA
-  and Sorcerian asset testing remains required at G39.
+- Actual private-ROM IM0 acceptance bytes were not required by the observed
+  private scenarios. Optional tracing still logs them only at real acceptance;
+  static code permits every byte.
+- ROM-less and private M39 tests preserve SLEEP_HACK's stale callback-time
+  `GetReg()->pc` mirror, both constants, clock drain, and ATN wake.
 - The M34 task/master claim that positive remaining credit can be present
   after `Exec()` conflicts with current code; the verified zero/negative
   boundary governs implementation.

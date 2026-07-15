@@ -92,8 +92,16 @@ production-subsystem test emits exactly one `OUT (0xf4),0x5a` through
 without losing or duplicating that output under either production selection.
 This proves the adapter and frame-boundary plumbing, not private FDD timing.
 
-Real dual-core VA/FDD read, write, loader, IRQ/DRQ, SLEEP_HACK/WAIT, and
-active-transfer state testing remains mandatory at G39. Any transfer failure,
-timeout, corrupted data, changed IRQ/DRQ order, missing/extra `0xf4` effect,
-failed wake, or changed post-load completion blocks the gate regardless of the
-public convergence result.
+The M39 private manifest subsequently passed under both core selections. A
+timing-sensitive loader reached the same stable result after a later
+intermediate wall-clock sample under the new core. Both traces contained the
+same 21 ordered port-`0xf4` values; their first 164 completed FDC records were
+byte-identical, and the longer legacy capture contained only additional
+post-convergence records. Read/write, loader, SLEEP_HACK/WAIT, legacy-to-new,
+new-to-new, and active-loader state cases had no timeout, corruption, lost or
+duplicated event, failed wake, or changed completion.
+
+This evidence discharges the mandatory G39 integration risk without changing
+the M38 classification or adding legacy cycle emulation. The current private
+trace has no dedicated DRQ-edge record; FDC DMA transfer metadata, IRQ and
+acknowledge events, final data, and guest-visible completion were checked.

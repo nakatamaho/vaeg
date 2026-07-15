@@ -113,15 +113,27 @@ assertion/release, and state-boundary records. It contains no host pointer or
 timestamp. Formatting and file I/O can perturb host wall-clock scheduling, so
 it is diagnostic evidence rather than a claim of uninstrumented wall-clock
 performance. Emulated clock values and ordered device events remain explicit.
-Private traces and asset identifiers stay outside Git.
+Private filenames, paths, hashes, screenshots, raw traces, saves, and media
+stay outside Git. Tracked records use neutral stable identifiers only.
 
-## Remaining G39 risk
+## G39 private disposition
 
 M38's exact `0xf4` reproducer remains applicable: corrected JR timing can move
 an otherwise identical FDD output to a later `Exec()` slice. M39 adds no
-legacy per-opcode cycle emulation. The public synthetic test proves eventual
-single-event completion through the real port handler, but only the
-[private integration manifest](z80-private-integration.md) can establish boot,
-read/write transfer, IRQ/DRQ ordering, timing-sensitive loaders, SLEEP_HACK,
-WAIT wake, and state-load behavior with real systems. Until those tests pass
-under `suzukiplan`, the default remains `legacy` and G39 is not complete.
+legacy per-opcode cycle emulation. The
+[private integration manifest](z80-private-integration.md) passed under both
+production selections. Boot, read/write, representative and timing-sensitive
+loaders, SLEEP_HACK, WAIT wake, and state-load behavior converged without a
+guest-visible failure.
+
+The representative trace emitted the same 21 ordered port-`0xf4` writes and
+an exact 164-record common prefix of completed FDC commands. A fixed
+wall-clock sample caught the new core in a later intermediate loader scene,
+then sufficient execution reached the same stable menu. This remains an
+accepted scheduling difference, not a lost, duplicated, reordered, or
+permanently divergent device effect. The current trace has no dedicated DRQ
+edge record, so DMA transfer metadata, IRQ/acknowledge events, final data, and
+guest-visible completion provide the recorded evidence instead.
+
+G39 passed on 2026-07-15. The default remains `legacy`, and M40 has not
+started.
