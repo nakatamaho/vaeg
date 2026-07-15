@@ -566,6 +566,11 @@ historical G35 recommendation rather than a current authorization statement.
 
 ## Consequences and unresolved risks
 
+- The ordinary ASan/UBSan matrix passes. An additional sanitizer-plus-ZEX
+  experiment is too slow for the ZEX runner's 600-second wall limit and emits
+  signed-left-shift reports at immutable vendored `z80.hpp` lines 3000 and
+  3885. Normal GCC, Clang, and Wine raw/wrapper ZEX pass. This combined-mode
+  limitation is recorded rather than changing the approved vendor tree.
 - `xf` is not initialized by legacy `Reset()` but influences saved AF and is
   serialized. Fixtures deliberately execute `XOR A` first. This is a legacy
   defect, not a behavior contract; it remains open and is not fixed by M34.

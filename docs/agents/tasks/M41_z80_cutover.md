@@ -92,3 +92,6 @@ expendable-copy write/readback, timing-sensitive loader, VA and Sorcerian
 SLEEP_HACK with ATN WAIT wake, legacy-to-final and final-to-final state, an
 FDD-active frame-boundary state, and a 16-instruction live disassembly spot
 check. Only neutral identifiers and sanitized summaries are tracked.
+
+Exact implementation, validation, archive, licensing, and private evidence is
+in the [M41 evidence report](../reports/m41_z80_cutover.md).
