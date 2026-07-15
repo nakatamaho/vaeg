@@ -186,26 +186,27 @@ the CP/M CALL-5 services used by ZEX, and stops on an emulated-clock or wall-
 clock limit with register and recent-output diagnostics. The archive checker
 rejects both known artifact names and the five pinned content hashes.
 
-M37 also provides the independently authored, non-production compatibility
-libraries `vaeg_z80_wrapper` and `vaeg_z80_wrapper_no_functional`. Their
+The independently authored compatibility layer is the production Z80 seam;
+the standalone `vaeg_z80_wrapper` and `vaeg_z80_wrapper_no_functional`
+libraries remain permanent conformance targets. Their
 consumer-facing declarations are under `cpucva/`; third-party and STL types do
 not cross that interface. The corresponding `vaeg_z80_wrapper_default` and
 `vaeg_z80_wrapper_no_functional` tests cover the vaeg bus, clock, interrupt,
 public-register mirror, and revision-1 state contracts. When a verified ZEX
 cache is configured, `vaeg_z80_wrapper_zexdoc` and
 `vaeg_z80_wrapper_zexall` run the same external inputs through the wrapper.
-These targets remain standalone conformance. M39 can also compile the wrapper
-directly into the production `vaeg_va` target through the opt-in selection
-below; the default emulator build still uses `cpucva/z80c.cpp`.
+The production `vaeg_va` target unconditionally compiles
+`cpucva/z80_core.cpp` and `cpucva/z80_legacy_state.cpp`.
 
-M38 adds separate legacy/new canonical trace runners and a comparator. The
-ordinary CI corpus is deterministic and ROM-less:
+The permanent M38-derived regression corpus uses two deterministic runs of the
+current wrapper and a canonical trace comparator. The ordinary CI corpus is
+ROM-less:
 
 ```sh
 cmake --build --preset linux-ci-gcc --target \
-  vaeg_z80_legacy_trace vaeg_z80_new_trace vaeg_z80_trace_compare
+  vaeg_z80_trace_reference vaeg_z80_trace_repeat vaeg_z80_trace_compare
 ctest --test-dir build/linux-ci-gcc --output-on-failure \
-  -R '^vaeg_z80_differential_'
+  -R '^vaeg_z80_regression_'
 ```
 
 The public generated test uses seeds `0x4d383001` through `0x4d383004` and
@@ -213,8 +214,8 @@ The public generated test uses seeds `0x4d383001` through `0x4d383004` and
 
 ```sh
 cmake \
-  -DLEGACY_RUNNER="$PWD/build/linux-ci-gcc/vaeg_z80_legacy_trace" \
-  -DNEW_RUNNER="$PWD/build/linux-ci-gcc/vaeg_z80_new_trace" \
+  -DREFERENCE_RUNNER="$PWD/build/linux-ci-gcc/vaeg_z80_trace_reference" \
+  -DREPEAT_RUNNER="$PWD/build/linux-ci-gcc/vaeg_z80_trace_repeat" \
   -DCOMPARATOR="$PWD/build/linux-ci-gcc/vaeg_z80_trace_compare" \
   -DSUITE=generated -DCASES=4096 \
   -DOUTPUT_DIR=/tmp/vaeg-m38-long \
@@ -224,46 +225,34 @@ cmake \
 `--suite scheduling` is a deliberate slice-exact evidence case, not an
 ordinary green CTest. It retains the unallowlisted FDD port-`0xf4` timing
 divergence documented in `docs/agents/reports/m38_z80_differential.md`.
-`vaeg_z80_differential_convergence` is the green policy test: the same program
-and initial `1,7` slices receive identical additional `4,1` slices, after
-which ordered events and final machine-visible state converge with exactly
-one `OUT (0xf4),0x5a` from each runner.
+`vaeg_z80_regression_convergence` retains the green policy reproducer: the
+program and initial `1,7` slices receive additional `4,1` slices and emit
+exactly one `OUT (0xf4),0x5a`, with stable final state and event order.
 
-## M39 production Z80 selection
+## Production Z80
 
-The default remains the legacy core. Configure explicit, separate build trees
-to compare the two production choices:
+The suzukiplan-backed wrapper is the only production Z80 implementation. No
+build-time or runtime core selector remains. A normal build is sufficient:
 
 ```sh
-cmake --preset linux-ci-gcc -DVAEG_Z80_CORE=legacy
+cmake --preset linux-ci-gcc
 cmake --build --preset linux-ci-gcc
-
-cmake -S . -B build/linux-suzukiplan -G Ninja \
-  -DCMAKE_BUILD_TYPE=Release \
-  -DVAEG_ENABLE_TESTS=ON \
-  -DVAEG_Z80_CORE=suzukiplan
-cmake --build build/linux-suzukiplan
-ctest --test-dir build/linux-suzukiplan --output-on-failure
+ctest --test-dir build/linux-ci-gcc --output-on-failure
 ```
 
-Only `legacy` and `suzukiplan` are valid, and the choice is build-time only.
-The selected implementation is the only `Z80C` linked into the emulator. The
-ROM-less selftest exercises the selected production subsystem, including the
+The ROM-less selftest exercises the production subsystem, including the
 revision-1 state bridge, SLEEP_HACK/WAIT behavior, acknowledge timing, and a
 port-`0xf4` state boundary. See [Z80 production integration](z80-integration.md)
 for the contract and trace command.
 
-Public CI performs native Linux, Windows, and macOS build/smoke/CTest for both
-choices. The dedicated conformance job runs raw/wrapper ZEX and the independent
-differential suite once because those executables do not use the production
-selection. The release workflow does not override the default and therefore
-continues to package the legacy choice during M39.
+Public CI performs one native Linux, Windows, and macOS production build and
+keeps the standalone wrapper, state, interrupt, ZEX, disassembler, and
+M38-derived regression coverage.
 
 ## M40 production Z80 disassembly
 
-Both production Z80 selections compile and use the vaeg-owned
-`cpucva/z80_disasm.cpp`; the CPU choice does not change debugger text or
-instruction boundaries. The subsystem exposes the capacity-aware
+Production compiles and uses the vaeg-owned `cpucva/z80_disasm.cpp`. The
+subsystem exposes the capacity-aware
 `subsystem_disassemble_bounded()` seam and retains the historical
 `subsystem_disassemble()` signature as a 64-byte compatibility adapter.
 Neither interface exposes STL or third-party types.

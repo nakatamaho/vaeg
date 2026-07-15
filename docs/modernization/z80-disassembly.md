@@ -23,8 +23,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 # Z80 disassembly
 
 The production subsystem uses the independently authored vaeg decoder in
-`cpucva/z80_disasm.cpp` for both `VAEG_Z80_CORE=legacy` and
-`VAEG_Z80_CORE=suzukiplan`. It reads instruction memory through a function
+`cpucva/z80_disasm.cpp`. It reads instruction memory through a function
 pointer, writes within an explicit destination capacity, and returns the
 16-bit next PC, exact byte length, and a status. It does not execute the CPU
 or mutate CPU state.
@@ -110,8 +109,8 @@ the available debugger-equivalent check.
 
 ## M41 boundary
 
-Production subsystem disassembly no longer calls `Z80C::GetDiag()` or includes
-`z80diag.h`, `z80if.h`, `z80.h`, or `types.h`. The temporary M39 bridge is
-removed. The selectable legacy CPU still owns `Z80Diag` for its internal dump
-facility and therefore retains the seven approved M88-derived files until
-M41. M40 does not delete them or change the default `legacy` core.
+Production subsystem disassembly does not call `Z80C::GetDiag()` or include
+`z80diag.h`, `z80if.h`, `z80.h`, or `types.h`. The temporary M39 bridge and
+the legacy diagnostic implementation are removed. The seven approved
+M88/cisc-derived Z80 files are absent from current HEAD. The bounded decoder
+and compatibility adapter tests remain permanent.

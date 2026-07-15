@@ -22,35 +22,30 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 -->
 # Z80 production integration
 
-M39 adds a build-time production selection while deliberately retaining the
-legacy core as the default:
+The production subsystem unconditionally uses the suzukiplan-backed vaeg
+wrapper. There is no build-time or runtime core selector:
 
 ```sh
-cmake -S . -B build/z80-legacy -G Ninja \
-  -DVAEG_Z80_CORE=legacy -DVAEG_ENABLE_TESTS=ON
-cmake -S . -B build/z80-suzukiplan -G Ninja \
-  -DVAEG_Z80_CORE=suzukiplan -DVAEG_ENABLE_TESTS=ON
-cmake --build build/z80-legacy
-cmake --build build/z80-suzukiplan
+cmake --preset linux-ci-gcc
+cmake --build --preset linux-ci-gcc
+ctest --test-dir build/linux-ci-gcc --output-on-failure
 ```
 
-Only `legacy` and `suzukiplan` are accepted. The legacy selection compiles
-`cpucva/z80c.cpp`; the new selection compiles `cpucva/z80_core.cpp` and
-`cpucva/z80_legacy_state.cpp`. They are mutually exclusive in the production
-`vaeg_va` target. There is no runtime toggle. Standalone conformance and M38
-differential targets remain independent of this production choice.
+The production `vaeg_va` target compiles `cpucva/z80_core.cpp`,
+`cpucva/z80_legacy_state.cpp`, and `cpucva/z80_disasm.cpp`. Standalone
+conformance, state, disassembler, ZEX, and M38-derived regression targets
+remain available.
 
-The new selection keeps the existing consumer-facing `Z80C` signatures and C
+The wrapper keeps the existing consumer-facing `Z80C` signatures and C
 bridge in `iova/subsystem.cpp`. Third-party and STL types do not cross that
 seam. Every wrapper I/O callback masks the external port to eight bits, IRQ
 remains a level, and the acknowledge port is read only when the core accepts a
-maskable interrupt. The legacy `z80diag.cpp` remains the production decoder
-for both choices through a small separately compiled callback bridge. M39 does
-not replace or modify the disassembler.
+maskable interrupt. The independently authored BSD-2-Clause decoder in
+`cpucva/z80_disasm.cpp` is the only production Z80 disassembler.
 
 ## ROM-less integration evidence
 
-With `VAEG_ENABLE_TESTS=ON`, `vaeg --selftest` runs the selected implementation
+With `VAEG_ENABLE_TESTS=ON`, `vaeg --selftest` runs the implementation
 through the real `Subsystem`, I/O, clock, and state-save bridge. It covers:
 
 - ordinary execution, live PC, and return-fresh public register mirror;
@@ -63,7 +58,7 @@ through the real `Subsystem`, I/O, clock, and state-save bridge. It covers:
 - rejected revision propagation through the complete `statsave_load()` path;
 - one production `OUT (0xf4),0x5a`, save/load between CPU calls, and proof
   that the event is not duplicated on resume; and
-- continued use of the legacy diagnostic decoder under both selections.
+- bounded, side-effect-free production disassembly.
 
 The synthetic sleep trace has the same observed contract for each core. At
 the IN callback, live PC has advanced past `db fe` while public PC still names
@@ -101,7 +96,6 @@ only in a separate diagnostic tree:
 
 ```sh
 cmake -S . -B build/z80-private-trace -G Ninja \
-  -DVAEG_Z80_CORE=suzukiplan \
   -DVAEG_Z80_INTEGRATION_TRACE=ON
 cmake --build build/z80-private-trace
 ./build/z80-private-trace/sdl2/vaeg --fdctrace
@@ -135,5 +129,13 @@ permanently divergent device effect. The current trace has no dedicated DRQ
 edge record, so DMA transfer metadata, IRQ/acknowledge events, final data, and
 guest-visible completion provide the recorded evidence instead.
 
-G39 passed on 2026-07-15. The default remains `legacy`, and M40 has not
-started.
+G39 passed on 2026-07-15. Its dual-selection procedures are retained as
+historical evidence; M41 subsequently removed the selector and old source.
+
+## M41 final cutover
+
+The current tree contains only the wrapper-backed production path and the
+independently authored disassembler. The seven approved M88/cisc-derived Z80
+files are absent from current HEAD and release inputs; Git history was not
+rewritten. Revision-1 remains 68 bytes, retained legacy fixtures still load,
+and `LoadStatus()` rejection propagation remains active.
