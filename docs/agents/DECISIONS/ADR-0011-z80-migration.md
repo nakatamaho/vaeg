@@ -24,11 +24,13 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ## Status
 
-Accepted through G37. The maintainer approved the reproducible downstream
-patch and documented callback test matrix as sufficient M35 provenance on
-2026-07-15. M36 reproduced and vendored the approved tree, G36 passed, and the
-maintainer explicitly authorized M37. The standalone M37 implementation and
-all configured hosted-platform jobs passed; work is stopped at G37.
+Accepted through G37; M38 implemented but G38 is blocked. The maintainer
+approved the reproducible downstream patch and documented callback test matrix
+as sufficient M35 provenance on 2026-07-15. M36 reproduced and vendored the
+approved tree, G36 passed, and the maintainer explicitly authorized M37. The
+standalone M37 implementation and all configured hosted-platform jobs passed.
+M38 now has a deterministic old/new harness, but its FDD-visible
+cycle-scheduling reproducer prevents G38 from passing; M39 has not started.
 
 ## Decision
 
@@ -281,6 +283,45 @@ The wrapper unit suite passes in both configurations. The separate wrapper
 ZEX runner passes ZEXDOC and ZEXALL. These libraries are not members of
 `VAEG_CORE_SOURCES`: the emulator still builds `cpucva/z80c.cpp`, and no
 production selection or guest-visible path changed in M37.
+
+## M38 differential result and blocked gate
+
+M38 uses three standalone processes: the legacy runner, the new-wrapper
+runner, and a comparator. Both runners consume the same compiled scenario,
+memory-patch, IRQ/NMI/WAIT, input, acknowledge, save/load, and clock-slice
+descriptions. They emit `vaeg-z80-trace-v1` records with fixed lower-case
+fields, full and selected memory hashes, ordered memory/I/O/acknowledge/NMI
+events, callback-time live/public PC, authoritative state, clock balance, and
+normalized checkpoint reasons. The comparator never assumes that an old
+private step equals one new instruction; EI intermediate returns are retained
+for diagnostics but compared only at the next declared normalized boundary.
+
+The harness exposed third-party behaviors that the vaeg adapter can correct
+without editing vendored bytes. The adapter now counts the second M1 fetch for
+CB/ED/DD/FD prefixes, including raw IM0 prefixes, and counts HALT idle M1
+cycles. It restores IFF1 from IFF2 after RETN/RETI and materializes the defined
+S/Z/5/H/3/PV/N flag result after `LD A,I` and `LD A,R`. Its synchronous NMI
+still updates architectural state immediately but retains the legacy stale
+public PC until `Exec()` refreshes the mirror. These are instruction-boundary
+adapter fields only; they are inactive at the approved frame save boundary
+and are not added to revision-1 state.
+
+The normal comparison has evidence-backed exact classifications for the
+legacy HALT-PC/fetch representation, low/high stack write order, skipped
+untaken-branch displacement read, lazy-`xf` exchange result, fused-EI
+deassertion behavior, missing interrupt-acknowledge R increments, block
+memory/I/O undocumented flags, and EI save-boundary event placement. The
+complete identifiers and minimal bytes are in the
+[M38 evidence report](../reports/m38_z80_differential.md). There is no broad
+opcode allowlist and the generated corpus matches without any allowlist.
+
+G38 remains blocked by an unallowlisted cycle result. With bytes
+`18 02 00 00 d3 f4`, initial A=`0x5a`, and slices `1,7`, legacy's 7-clock taken
+JR reaches and writes FDD control port `0xf4` in the second `Exec()`; the new
+core's 12-clock JR leaves it at `0x0004` with no write. This is a reproducible
+FDD-visible scheduling change, which the M38 clock policy defines as a
+failure even though the new timing is the architectural correction. M39 is
+not authorized until the maintainer resolves this gate finding.
 
 ## Frame-boundary revision-1 state
 
