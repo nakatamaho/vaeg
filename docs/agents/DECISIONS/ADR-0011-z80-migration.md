@@ -24,10 +24,9 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ## Status
 
-Accepted at G34. The M35 extension is technically verified, but G35 remains
-blocked until its format patch is published as an approved immutable upstream
-or fork commit and the full-suite dual-callback test wording is resolved. M36
-remains forbidden until the maintainer passes G35.
+Accepted at G34 and G35. The maintainer approved the reproducible downstream
+patch and documented callback test matrix as sufficient M35 provenance on
+2026-07-15. M36 remains forbidden until the maintainer explicitly starts it.
 
 ## Decision
 
@@ -48,10 +47,13 @@ No C++ STL or third-party type may cross the consumer-visible subsystem,
 debugger, C bridge, or state-save interfaces. Other new emulator-core code
 remains C99 unless separately approved.
 
-Development is upstream-first. M35 must propose a general-purpose minimal
-patch against the exact base above. If it is not merged, the approved fallback
-is an immutable, accessible, MIT-licensed fork commit containing only the
-required extension and tests. A vendored copy must never be hand-edited.
+Development remains upstream-first where practical. For M35, the maintainer
+approved a reproducible downstream patch against the exact base above as
+sufficient provenance; an immutable public upstream or fork commit is not
+required. A vendored copy must never be hand-edited. Before vendoring, M36 must
+apply the approved patch to the approved base, reproduce the expected tree,
+and record the base SHA, patch SHA-256, and resulting tree hash in the vendored
+provenance file.
 
 ## Legacy provenance and deletion boundary
 
@@ -169,13 +171,15 @@ copyright claim: this file previously said `2021-2023`, while the selected
 base's `LICENSE.txt:3` and `z80.hpp:6` both say `Copyright (c) 2019 Yoji
 Suzuki`. This documentary correction does not change the license decision.
 
-An accessible maintainer fork was unavailable, so the directly applicable
+The directly applicable
 [M35 format patch](../reports/m35_suzukiplan_irq_extension.patch) is the
-approved fallback artifact for review. Its SHA-256 is
+approved downstream provenance artifact. Its SHA-256 is
 `d8624085139ef4e7b400b918b2b498e79bea1af4a1942e4ac935545846e746a4`.
 The complete provenance, source references, and test record are in the
-[M35 evidence report](../reports/m35_suzukiplan_irq_extension.md). G35 cannot
-pass until the maintainer supplies or approves an immutable accessible commit.
+[M35 evidence report](../reports/m35_suzukiplan_irq_extension.md). A clean
+`git am` from base `e3926769a790fab0af1c34a5540e317f8d4f0ddc` reproduced tested
+commit `b4a0a5a238fecc280781e6fe5719faf0eafcd667`'s tree
+`8a606eb39332a6e79b69bb62d9dedca042b923dc`; MIT verification passed.
 
 M35 also found that the existing `test/` suite cannot be compiled wholesale
 with `Z80_NO_FUNCTIONAL`: `test/test-checkreg-on-callback.cpp:88` passes a
@@ -183,10 +187,9 @@ capturing lambda to the function-pointer constructor. The exact selected base
 fails identically before reaching any extension code. Focused extension tests
 pass in both configurations, the complete existing `test/` suite passes in
 its normal configuration, and the upstream ZEX harness passes in its declared
-`Z80_NO_FUNCTIONAL` configuration. If G35's wording requires every legacy
-test harness to run in both configurations, that condition is not met and
-requires a separately approved harness-port expansion; it must not be reported
-as green silently.
+`Z80_NO_FUNCTIONAL` configuration. The maintainer accepted this matrix for
+G35: baseline-incompatible legacy tests need not be rewritten when the
+limitation is reproduced and documented.
 
 ## Frame-boundary revision-1 state
 
@@ -256,10 +259,9 @@ scope.
 
 ## M35 feasibility recommendation
 
-**TECHNICAL GO; HOLD AT G35.** The focused extension meets the contract and is
-suitable for a minimal MIT fork. Do not start M36 until the format patch has an
-approved immutable accessible commit, the full-suite dual-callback wording is
-resolved, and the maintainer explicitly passes G35.
+**G35 PASSED; M36 IS FEASIBLE BUT NOT AUTHORIZED.** The focused extension,
+approved downstream patch provenance, license verification, and accepted test
+matrix meet G35. Do not start M36 until the maintainer explicitly instructs it.
 
 | Area | Finding |
 |---|---|
@@ -268,7 +270,7 @@ resolved, and the maintainer explicitly passes G35.
 | Revision-1 save | Feasible at the verified frame boundary with an explicit 68-byte codec, HALT-PC translation, and reserved EI bit. |
 | Practical IM0 | Feasible by routing the supplied first byte through the normal decoder; current upstream RST-only handling is insufficient. |
 | Disassembler | Feasible as an independent BSD-2-Clause vaeg component in M40. |
-| Licensing/provenance | MIT base/fork and BSD-2-Clause vaeg adapter are compatible and precisely pinnable. |
+| Licensing/provenance | MIT base plus the approved hash-verified downstream patch and BSD-2-Clause vaeg adapter are compatible and precisely reproducible. |
 | Test acquisition | ZEXDOC/ZEXALL have an immutable, hash-verified GPL test-input path with source and offline cache support. |
 
 ## Consequences and unresolved risks
