@@ -185,6 +185,17 @@ the CP/M CALL-5 services used by ZEX, and stops on an emulated-clock or wall-
 clock limit with register and recent-output diagnostics. The archive checker
 rejects both known artifact names and the five pinned content hashes.
 
+M37 also provides the independently authored, non-production compatibility
+libraries `vaeg_z80_wrapper` and `vaeg_z80_wrapper_no_functional`. Their
+consumer-facing declarations are under `cpucva/`; third-party and STL types do
+not cross that interface. The corresponding `vaeg_z80_wrapper_default` and
+`vaeg_z80_wrapper_no_functional` tests cover the vaeg bus, clock, interrupt,
+public-register mirror, and revision-1 state contracts. When a verified ZEX
+cache is configured, `vaeg_z80_wrapper_zexdoc` and
+`vaeg_z80_wrapper_zexall` run the same external inputs through the wrapper.
+These targets are standalone conformance only: the emulator target continues
+to compile `cpucva/z80c.cpp` and does not link either wrapper library.
+
 ROMs are deliberately absent from CI and release artifacts. Users place the
 VA unsuffixed ROM set or the MAME-compatible VA2/VA3 `*_va2.rom` set beside
 the executable, together with the extra `vasubsys.rom`, using ROMs extracted

@@ -105,10 +105,13 @@ jobs:
           vaeg_z80_interrupt_default
           vaeg_z80_interrupt_no_functional
           vaeg_z80_zex_runner
+          vaeg_z80_wrapper_default
+          vaeg_z80_wrapper_no_functional_test
+          vaeg_z80_wrapper_zex_runner
       - name: Run standalone conformance
         run: >-
           ctest --test-dir build/linux-ci-gcc --output-on-failure
-          -R '^vaeg_z80_(header|interrupt|zex)'
+          -R '^vaeg_z80_(header|interrupt|wrapper|zex)'
       - name: Verify source archive excludes external ZEX inputs
         run: |
           git archive --format=tar.gz --output=/tmp/vaeg-source.tar.gz HEAD

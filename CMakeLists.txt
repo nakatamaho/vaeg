@@ -612,6 +612,50 @@ if(VAEG_ENABLE_TESTS)
     target_compile_definitions(vaeg_z80_interrupt_no_functional PRIVATE
         Z80_NO_FUNCTIONAL)
 
+    function(vaeg_add_z80_wrapper_library target)
+        add_library(${target} STATIC
+            cpucva/z80_core.cpp
+            cpucva/z80_legacy_state.cpp)
+        target_include_directories(${target}
+            PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}"
+            PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/external/suzukiplan-z80")
+        target_compile_features(${target} PUBLIC cxx_std_17)
+        target_compile_options(${target} PRIVATE -Wall -fsigned-char)
+        target_compile_definitions(${target} PRIVATE
+            Z80_DISABLE_BREAKPOINT
+            Z80_DISABLE_DEBUG
+            Z80_DISABLE_NESTCHECK
+            Z80_NO_EXCEPTION
+            Z80_UNSUPPORT_16BIT_PORT)
+        if(VAEG_WERROR)
+            target_compile_options(${target} PRIVATE -Werror)
+        endif()
+    endfunction()
+
+    vaeg_add_z80_wrapper_library(vaeg_z80_wrapper)
+    vaeg_add_z80_wrapper_library(vaeg_z80_wrapper_no_functional)
+    target_compile_definitions(vaeg_z80_wrapper_no_functional PRIVATE
+        Z80_NO_FUNCTIONAL)
+
+    add_executable(vaeg_z80_wrapper_default tests/z80/wrapper.cpp)
+    target_link_libraries(vaeg_z80_wrapper_default PRIVATE vaeg_z80_wrapper)
+    target_compile_options(vaeg_z80_wrapper_default PRIVATE
+        -Wall -fsigned-char)
+
+    add_executable(vaeg_z80_wrapper_no_functional_test
+        tests/z80/wrapper.cpp)
+    target_link_libraries(vaeg_z80_wrapper_no_functional_test PRIVATE
+        vaeg_z80_wrapper_no_functional)
+    target_compile_options(vaeg_z80_wrapper_no_functional_test PRIVATE
+        -Wall -fsigned-char)
+
+    add_executable(vaeg_z80_wrapper_zex_runner
+        tests/z80/wrapper_zex_runner.cpp)
+    target_link_libraries(vaeg_z80_wrapper_zex_runner PRIVATE
+        vaeg_z80_wrapper_no_functional)
+    target_compile_options(vaeg_z80_wrapper_zex_runner PRIVATE
+        -Wall -fsigned-char)
+
     add_executable(vaeg_z80_zex_runner tests/z80/zex_runner.cpp)
     vaeg_configure_z80_standalone_target(vaeg_z80_zex_runner)
     target_compile_definitions(vaeg_z80_zex_runner PRIVATE
@@ -646,6 +690,10 @@ if(VAEG_ENABLE_TESTS)
         COMMAND vaeg_z80_interrupt_default)
     add_test(NAME vaeg_z80_interrupt_no_functional
         COMMAND vaeg_z80_interrupt_no_functional)
+    add_test(NAME vaeg_z80_wrapper_default
+        COMMAND vaeg_z80_wrapper_default)
+    add_test(NAME vaeg_z80_wrapper_no_functional
+        COMMAND vaeg_z80_wrapper_no_functional_test)
     if(VAEG_ZEX_ARTIFACT_DIR)
         get_filename_component(VAEG_ZEX_ARTIFACT_DIR_ABSOLUTE
             "${VAEG_ZEX_ARTIFACT_DIR}" ABSOLUTE)
@@ -679,8 +727,18 @@ if(VAEG_ENABLE_TESTS)
         add_test(NAME vaeg_z80_zexall
             COMMAND vaeg_z80_zex_runner
                 "${VAEG_ZEX_ARTIFACT_DIR_ABSOLUTE}/zexall.cim")
+        add_test(NAME vaeg_z80_wrapper_zexdoc
+            COMMAND vaeg_z80_wrapper_zex_runner
+                "${VAEG_ZEX_ARTIFACT_DIR_ABSOLUTE}/zexdoc.cim")
+        add_test(NAME vaeg_z80_wrapper_zexall
+            COMMAND vaeg_z80_wrapper_zex_runner
+                "${VAEG_ZEX_ARTIFACT_DIR_ABSOLUTE}/zexall.cim")
         set_tests_properties(vaeg_z80_zexdoc vaeg_z80_zexall PROPERTIES
             LABELS "romless;z80;zex"
+            TIMEOUT 900)
+        set_tests_properties(
+            vaeg_z80_wrapper_zexdoc vaeg_z80_wrapper_zexall PROPERTIES
+            LABELS "romless;z80;zex;wrapper"
             TIMEOUT 900)
     endif()
     add_test(NAME vaeg_romless_tests COMMAND vaeg_sdl2 --selftest)
