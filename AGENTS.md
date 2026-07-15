@@ -76,7 +76,11 @@ Release notes may summarize the ledger but do not replace it.
   `hlp/`) are reference-only. Do not edit them unless a task explicitly
   says to update the reference tier.
 - Core code (root, `io/`, `sound/`, `cbus/`, `vram/`, `*va/`, `i286c/`)
-  stays C. C++17 is allowed only under `sdl2/` (frontend + GUI).
+  stays C. C++17 is allowed under `sdl2/` (frontend + GUI) and, when an
+  approved third-party CPU core requires it, for CPU backends and thin
+  compatibility adapters under `cpucva/`. C++ and STL types must not cross
+  existing C-facing subsystem or state-save interfaces. Other newly written
+  emulator-core code remains C99 unless an ADR separately approves it.
 - Vendored third-party code lives under `external/` with the exact
   version recorded in `docs/agents/DECISIONS/`. Never hand-edit it.
 - Run the machine checks named in your task file (`tools/repo/*.py`,

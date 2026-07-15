@@ -15,7 +15,11 @@ defect regardless of what the diff was trying to do.
 ## New code (phase 2)
 
 - Language: C (C99, no compiler extensions beyond what the tree already
-  uses) for anything the core links. C++17 only under `sdl2/`.
+  uses) for emulator-core code. C++17 is allowed under `sdl2/` and, when an
+  approved third-party CPU core requires it, for CPU backends and thin
+  compatibility adapters under `cpucva/`. C++ and STL types must not cross
+  existing C-facing subsystem or state-save interfaces. Other newly written
+  emulator-core code remains C99 unless an ADR separately approves it.
 - Every NEW file starts with this header (adapt comment style):
 
 ```
