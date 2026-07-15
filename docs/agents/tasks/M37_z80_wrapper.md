@@ -22,7 +22,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 -->
 # M37: Add the vaeg Z80 wrapper and revision-1 codec
 
-Status: draft; blocked until the maintainer explicitly passes G36
+Status: complete; G37 passed; stopped before M38
 
 Branch: `topic/m37-z80-wrapper`
 
