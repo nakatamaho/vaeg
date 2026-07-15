@@ -31,8 +31,6 @@
 
 #include <cstdint>
 
-class Z80Diag;
-
 class Z80C {
 public:
     Z80C();
@@ -54,8 +52,6 @@ public:
     std::uint32_t GetPC();
     void SetPC(std::uint32_t new_pc);
     const Z80Reg *GetReg();
-
-    Z80Diag *GetDiag();
 
 private:
     struct Impl;

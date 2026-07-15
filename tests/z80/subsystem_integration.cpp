@@ -152,9 +152,14 @@ void TestOrdinaryAndStateBridge() {
 
     Reset();
     Install(0x0000, {0xaf, 0x3e, 0x42});
+    Require(subsystem_disassemble_bounded(
+                0x0000, diagnostic, sizeof(diagnostic)) == 0x0001 &&
+                std::strcmp(diagnostic, "xor a") == 0,
+            "bounded production disassembler was unavailable");
+    std::memset(diagnostic, 0, sizeof(diagnostic));
     Require(subsystem_disassemble(0x0000, diagnostic) == 0x0001 &&
-                diagnostic[0] != '\0',
-            "legacy diagnostic bridge was unavailable");
+                std::strcmp(diagnostic, "xor a") == 0,
+            "production disassembler compatibility adapter failed");
     subsystem_z80_test_set_pc(0x0000);
     ExecAt(11);
     const VAEG_Z80_INTEGRATION_CPU_STATE executed = State();
