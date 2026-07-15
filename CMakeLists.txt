@@ -562,6 +562,19 @@ endif()
 
 if(VAEG_ENABLE_TESTS)
     enable_testing()
+    add_executable(vaeg_z80_legacy_contract
+        tests/z80/legacy_contract.cpp
+        cpucva/z80c.cpp
+        cpucva/z80diag.cpp)
+    target_include_directories(vaeg_z80_legacy_contract PRIVATE
+        ${VAEG_INCLUDE_DIRS})
+    target_compile_options(vaeg_z80_legacy_contract PRIVATE
+        -Wall -fsigned-char)
+    if(VAEG_WERROR)
+        target_compile_options(vaeg_z80_legacy_contract PRIVATE -Werror)
+    endif()
+    add_test(NAME vaeg_z80_legacy_contract
+        COMMAND vaeg_z80_legacy_contract)
     add_test(NAME vaeg_romless_tests COMMAND vaeg_sdl2 --selftest)
     set_tests_properties(vaeg_romless_tests PROPERTIES
         WORKING_DIRECTORY "$<TARGET_FILE_DIR:vaeg_sdl2>"
