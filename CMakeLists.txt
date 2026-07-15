@@ -737,7 +737,7 @@ if(VAEG_ENABLE_TESTS)
         COMMAND vaeg_z80_wrapper_default)
     add_test(NAME vaeg_z80_wrapper_no_functional
         COMMAND vaeg_z80_wrapper_no_functional_test)
-    foreach(differential_suite directed state generated)
+    foreach(differential_suite directed state generated convergence)
         add_test(NAME vaeg_z80_differential_${differential_suite}
             COMMAND "${CMAKE_COMMAND}"
                 "-DLEGACY_RUNNER=$<TARGET_FILE:vaeg_z80_legacy_trace>"

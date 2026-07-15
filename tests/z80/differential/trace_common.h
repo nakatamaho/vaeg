@@ -149,6 +149,7 @@ std::vector<Scenario> MakeGeneratedCorpus(std::uint32_t seed,
                                           std::size_t count);
 std::vector<Scenario> MakeStateCorpus();
 std::vector<Scenario> MakeSchedulingRiskCorpus();
+std::vector<Scenario> MakeSchedulingConvergenceCorpus();
 std::uint64_t HashMemory(const std::array<std::uint8_t, kMemorySize> &memory,
                          std::size_t begin, std::size_t end);
 int RunTraceMain(int argc, char **argv, const std::string &backend_name,

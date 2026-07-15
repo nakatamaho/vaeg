@@ -784,6 +784,21 @@ std::vector<Scenario> MakeSchedulingRiskCorpus() {
     return {scenario};
 }
 
+std::vector<Scenario> MakeSchedulingConvergenceCorpus() {
+    State state;
+    state.registers.af = 0x5a00;
+    Scenario scenario;
+    scenario.identifier = "cycle-fdd-io-eventual-convergence";
+    scenario.initial = state;
+    scenario.patches.push_back(
+        {0x0000, {0x18, 0x02, 0x00, 0x00, 0xd3, 0xf4}});
+    scenario.actions = {Exec(1, "branch-return", false),
+                        Exec(7, "fdd-io-slice", false),
+                        Exec(4, "convergence-wait-slice", false),
+                        Exec(1, "eventual-convergence", true)};
+    return {scenario};
+}
+
 std::uint64_t HashMemory(
     const std::array<std::uint8_t, kMemorySize> &memory,
     std::size_t begin, std::size_t end) {
@@ -842,6 +857,12 @@ int RunTraceMain(int argc, char **argv, const std::string &backend_name,
                 MakeGeneratedCorpus(seed, generated_count);
             scenarios.insert(scenarios.end(), generated.begin(), generated.end());
         }
+    }
+    if (suite == "convergence" || suite == "all") {
+        std::vector<Scenario> convergence =
+            MakeSchedulingConvergenceCorpus();
+        scenarios.insert(scenarios.end(), convergence.begin(),
+                         convergence.end());
     }
     if (suite == "scheduling") {
         scenarios = MakeSchedulingRiskCorpus();
