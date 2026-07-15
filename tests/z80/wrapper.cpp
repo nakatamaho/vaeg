@@ -493,7 +493,8 @@ void TestIm0RawOpcodes() {
         harness.Install(1, {0x00});
         harness.Advance(4);
         Require(harness.cpu.GetReg()->bc == 0x0300 &&
-                    harness.cpu.GetPC() == 2,
+                    harness.cpu.GetPC() == 2 &&
+                    harness.cpu.GetReg()->rreg == 3,
                 "IM0 CB prefix failed");
     }
     {
@@ -605,8 +606,9 @@ void TestIm1Im2HaltAndNmi() {
     const std::uint64_t clocks_before_idle = halted.consumed;
     halted.Advance(4);
     Require(halted.cpu.GetPC() == 1 &&
-                halted.consumed == clocks_before_idle + 4,
-            "HALT did not consume clocks as completed idle cycles");
+                halted.consumed == clocks_before_idle + 4 &&
+                halted.cpu.GetReg()->rreg == 2,
+            "HALT idle M1 did not consume clocks or update R");
     halted.cpu.IRQ(0, 1);
     halted.Advance(4);
     Require(halted.AcknowledgeCount() == 1 &&
@@ -621,12 +623,14 @@ void TestIm1Im2HaltAndNmi() {
     nmi_state.registers.rreg = 0x7f;
     nmi.Load(Encode(nmi_state));
     nmi.cpu.IRQ(0, 1);
+    const std::uint16_t mirrored_pc_before_nmi = nmi.cpu.GetReg()->pc;
     nmi.cpu.NMI();
     Require(nmi.AcknowledgeCount() == 0 && nmi.cpu.GetPC() == 0x0066 &&
                 !nmi.cpu.GetReg()->iff1 && nmi.cpu.GetReg()->iff2 &&
                 nmi.cpu.GetReg()->rreg == 0 &&
+                nmi.cpu.GetReg()->pc == mirrored_pc_before_nmi &&
                 nmi.cpu.GetReg()->sp == 0xeffe,
-            "NMI state transition, R increment, or acknowledge isolation failed");
+            "NMI state, legacy mirror, R, or acknowledge isolation failed");
 
     Harness refresh;
     vaeg::z80::LegacyState r_state = BasicState();
@@ -635,9 +639,32 @@ void TestIm1Im2HaltAndNmi() {
     refresh.Load(Encode(r_state));
     refresh.Install(0, {0xcb, 0x00});
     refresh.Advance(8);
-    Require(refresh.cpu.GetReg()->rreg == 0 &&
+    Require(refresh.cpu.GetReg()->rreg == 1 &&
                 refresh.cpu.GetReg()->rreg7 == 0x80,
-            "R refresh counter did not preserve the core's prefix behavior");
+            "R refresh counter did not count both prefix M1 fetches");
+
+    Harness load_r;
+    vaeg::z80::LegacyState load_r_state = BasicState();
+    load_r_state.registers.af = 0x0001;
+    load_r_state.registers.rreg = 0x7f;
+    load_r_state.registers.rreg7 = 0x80;
+    load_r.Load(Encode(load_r_state));
+    load_r.Install(0, {0xed, 0x5f});
+    load_r.Advance(4);
+    Require(A(load_r) == 0x81 &&
+                static_cast<std::uint8_t>(Af(load_r)) == 0x81,
+            "LD A,R did not materialize architectural flags");
+
+    Harness reti;
+    vaeg::z80::LegacyState reti_state = BasicState();
+    reti_state.registers.iff2 = true;
+    reti.Load(Encode(reti_state));
+    reti.memory[0xf000] = 0x34;
+    reti.memory[0xf001] = 0x12;
+    reti.Install(0, {0xed, 0x4d});
+    reti.Advance(4);
+    Require(reti.cpu.GetReg()->iff1 && reti.cpu.GetPC() == 0x1234,
+            "RETI did not restore IFF1 from IFF2");
 }
 
 std::uint8_t HexNibble(char value) {
