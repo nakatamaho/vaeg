@@ -22,9 +22,20 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 -->
 # M35: Minimal suzukiplan Z80 interrupt extension
 
-Status: draft; blocked until the maintainer explicitly passes G34
+Status: implementation and tests complete; G35 blocked pending an approved
+immutable upstream or fork commit
 
 Branch: `topic/m35-z80-upstream-extension`
+
+The verified local result is
+`b4a0a5a238fecc280781e6fe5719faf0eafcd667`, based directly on
+`e3926769a790fab0af1c34a5540e317f8d4f0ddc`. Publication was unavailable, so
+M35 produced a directly applicable
+[format patch](../reports/m35_suzukiplan_irq_extension.patch) and
+[evidence report](../reports/m35_suzukiplan_irq_extension.md). Its SHA-256 is
+`d8624085139ef4e7b400b918b2b498e79bea1af4a1942e4ac935545846e746a4`.
+Do not begin M36 until the maintainer supplies or approves an immutable
+accessible commit and explicitly passes G35.
 
 ## Entry and scope
 
