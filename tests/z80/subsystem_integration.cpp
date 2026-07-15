@@ -36,7 +36,6 @@
 namespace {
 
 constexpr std::size_t kStatusSize = 68;
-constexpr std::size_t kPcOffset = 44;
 constexpr std::size_t kIff1Offset = 52;
 constexpr std::size_t kIff2Offset = 53;
 constexpr std::size_t kIrqOffset = 56;
@@ -46,7 +45,9 @@ constexpr std::size_t kRemainOffset = 60;
 constexpr std::size_t kLastClockOffset = 64;
 constexpr std::uint8_t kWaitHalt = 0x01;
 constexpr std::uint8_t kWaitExternal = 0x02;
+#if defined(VAEG_Z80_CORE_SUZUKIPLAN)
 constexpr std::uint8_t kWaitEi = 0x04;
+#endif
 
 #if defined(VAEG_Z80_CORE_SUZUKIPLAN)
 constexpr const char *kCoreName = "suzukiplan";
