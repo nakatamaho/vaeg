@@ -62,6 +62,11 @@ Release notes may summarize the ledger but do not replace it.
   notes. New paths must otherwise be lowercase.
 - Never modify binary payloads: `romimage/`, ROM/disk images, fonts,
   icons, cursors, wave data.
+- Treat private integration asset identities as sensitive. Tracked files must
+  use neutral stable test identifiers; do not record private filenames,
+  absolute paths, or hashes unless the maintainer explicitly authorizes that
+  exact metadata. Keep raw private screenshots, logs, traces, and save files
+  outside Git, and never stage, commit, or push them.
 - Never re-encode, re-wrap, or reformat lines you are not changing.
 
 ## Hard rules
