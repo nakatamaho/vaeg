@@ -24,8 +24,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ## Status
 
-Accepted through G39; M40 is implemented and undergoing its final gate
-validation. The maintainer
+Accepted through G40. The maintainer
 approved the reproducible downstream patch and documented callback test matrix
 as sufficient M35 provenance on 2026-07-15. M36 reproduced and vendored the
 approved tree, G36 passed, and the maintainer explicitly authorized M37. The
