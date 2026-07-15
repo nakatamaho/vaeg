@@ -26,7 +26,8 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 Accepted at G34. The M35 extension is technically verified, but G35 remains
 blocked until its format patch is published as an approved immutable upstream
-or fork commit. M36 remains forbidden until the maintainer passes G35.
+or fork commit and the full-suite dual-callback test wording is resolved. M36
+remains forbidden until the maintainer passes G35.
 
 ## Decision
 
@@ -176,6 +177,17 @@ The complete provenance, source references, and test record are in the
 [M35 evidence report](../reports/m35_suzukiplan_irq_extension.md). G35 cannot
 pass until the maintainer supplies or approves an immutable accessible commit.
 
+M35 also found that the existing `test/` suite cannot be compiled wholesale
+with `Z80_NO_FUNCTIONAL`: `test/test-checkreg-on-callback.cpp:88` passes a
+capturing lambda to the function-pointer constructor. The exact selected base
+fails identically before reaching any extension code. Focused extension tests
+pass in both configurations, the complete existing `test/` suite passes in
+its normal configuration, and the upstream ZEX harness passes in its declared
+`Z80_NO_FUNCTIONAL` configuration. If G35's wording requires every legacy
+test harness to run in both configurations, that condition is not met and
+requires a separately approved harness-port expansion; it must not be reported
+as green silently.
+
 ## Frame-boundary revision-1 state
 
 Production save is initiated by the GUI only after `pccore_exec()` returns.
@@ -244,10 +256,10 @@ scope.
 
 ## M35 feasibility recommendation
 
-**TECHNICAL GO; HOLD AT G35 FOR IMMUTABLE PUBLICATION.** The focused extension
-meets the contract and is suitable for a minimal MIT fork. Do not start M36
-until the format patch has an approved immutable accessible commit and the
-maintainer explicitly passes G35.
+**TECHNICAL GO; HOLD AT G35.** The focused extension meets the contract and is
+suitable for a minimal MIT fork. Do not start M36 until the format patch has an
+approved immutable accessible commit, the full-suite dual-callback wording is
+resolved, and the maintainer explicitly passes G35.
 
 | Area | Finding |
 |---|---|
