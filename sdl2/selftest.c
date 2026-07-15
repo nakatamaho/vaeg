@@ -60,6 +60,10 @@
 #include	"strres.h"
 #include	"viewport.h"
 #include	"ymfmbridge.h"
+#if defined(VAEG_Z80_INTEGRATION_TESTING)
+#include	"iova/subsystem.h"
+#include	"tests/z80/subsystem_integration.h"
+#endif
 
 static int fail(const char *name, const char *detail) {
 
@@ -1082,6 +1086,51 @@ static BOOL statsave_section_body_stable(const BYTE *hdr) {
 	return(TRUE);
 }
 
+static int make_statsave_with_unsupported_subcpu(const char *source,
+											const char *destination) {
+
+	BYTE	*data;
+	UINT	size;
+	UINT	pos;
+	BOOL	found;
+	FILEH	fh;
+	int		ret;
+
+	data = NULL;
+	if (read_whole_file(source, &data, &size) != SUCCESS) {
+		return(FAILURE);
+	}
+	found = FALSE;
+	pos = 0x30;
+	while((pos + 16) <= size) {
+		UINT body_size;
+		UINT padded;
+
+		body_size = LOADINTELDWORD(data + pos + 12);
+		padded = (body_size + 15) & ~15U;
+		if ((pos + 16 + padded) > size) {
+			break;
+		}
+		if (!memcmp(data + pos, "SUBCPU", 6) && (body_size == 68)) {
+			data[pos + 16 + 59] = 2;
+			found = TRUE;
+			break;
+		}
+		pos += 16 + padded;
+	}
+	ret = FAILURE;
+	fh = file_create(destination);
+	if (found && (fh != FILEH_INVALID) &&
+		(file_write(fh, data, size) == size)) {
+		ret = SUCCESS;
+	}
+	if (fh != FILEH_INVALID) {
+		file_close(fh);
+	}
+	_MFREE(data);
+	return(ret);
+}
+
 static int compare_statsave_stable_sections(const char *left,
 													const char *right) {
 
@@ -1128,6 +1177,17 @@ static int compare_statsave_stable_sections(const char *left,
 		}
 		if (statsave_section_body_stable(ldata + pos) &&
 			memcmp(ldata + body, rdata + body, padded)) {
+			UINT diff;
+
+			for (diff=0; diff<padded; diff++) {
+				if (ldata[body + diff] != rdata[body + diff]) {
+					fprintf(stderr,
+						"selftest: statsave section %.10s differs at %u: %02x/%02x\n",
+						ldata + pos, diff, ldata[body + diff],
+						rdata[body + diff]);
+					break;
+				}
+			}
 			goto cmp_done;
 		}
 		pos = body + padded;
@@ -1144,13 +1204,20 @@ static int test_statsave(void) {
 
 	char	path1[MAX_PATH];
 	char	path2[MAX_PATH];
+	char	pathbad[MAX_PATH];
 	char	err[256];
 	int		ret;
+#if defined(VAEG_Z80_INTEGRATION_TESTING)
+	static const UINT8 f4_program[] = {0xaf, 0x3e, 0x5a, 0xd3, 0xf4, 0x00};
+	VAEG_Z80_INTEGRATION_TRACE_STATE z80trace;
+#endif
 
 	SPRINTF(path1, "vaeg-selftest-%lu-1.sts", (unsigned long)getpid());
 	SPRINTF(path2, "vaeg-selftest-%lu-2.sts", (unsigned long)getpid());
+	SPRINTF(pathbad, "vaeg-selftest-%lu-bad.sts", (unsigned long)getpid());
 	file_delete(path1);
 	file_delete(path2);
+	file_delete(pathbad);
 
 	soundmng_initialize();
 	commng_initialize();
@@ -1164,6 +1231,20 @@ static int test_statsave(void) {
 		ret = STATFLAG_FAILURE;
 	}
 
+#if defined(VAEG_Z80_INTEGRATION_TESTING)
+	if (ret == STATFLAG_SUCCESS) {
+		subsystem_z80_test_reset();
+		subsystem_z80_test_install(0, f4_program, sizeof(f4_program));
+		subsystem_z80_test_set_pc(0);
+		subsystem_z80_test_set_clock(22);
+		subsystem_exec();
+		subsystem_z80_test_get_trace(&z80trace);
+		if ((z80trace.f4_count != 1) || (z80trace.f4_last_value != 0x5a)) {
+			ret = STATFLAG_FAILURE;
+		}
+	}
+#endif
+
 	if (ret == STATFLAG_SUCCESS) {
 		ret = statsave_save(path1);
 	}
@@ -1171,9 +1252,25 @@ static int test_statsave(void) {
 		ZeroMemory(err, sizeof(err));
 		ret = statsave_check(path1, err, sizeof(err));
 	}
+	if ((ret == STATFLAG_SUCCESS) &&
+		(make_statsave_with_unsupported_subcpu(path1, pathbad) != SUCCESS)) {
+		ret = STATFLAG_FAILURE;
+	}
+	if ((ret == STATFLAG_SUCCESS) &&
+		(statsave_load(pathbad) != STATFLAG_FAILURE)) {
+		ret = STATFLAG_FAILURE;
+	}
 	if (ret == STATFLAG_SUCCESS) {
 		ret = statsave_load(path1);
 	}
+#if defined(VAEG_Z80_INTEGRATION_TESTING)
+	if (ret == STATFLAG_SUCCESS) {
+		subsystem_z80_test_get_trace(&z80trace);
+		if ((z80trace.f4_count != 1) || (z80trace.f4_last_value != 0x5a)) {
+			ret = STATFLAG_FAILURE;
+		}
+	}
+#endif
 	if (ret == STATFLAG_SUCCESS) {
 		ret = statsave_save(path2);
 	}
@@ -1184,16 +1281,19 @@ static int test_statsave(void) {
 	if (ret != STATFLAG_SUCCESS) {
 		file_delete(path1);
 		file_delete(path2);
+		file_delete(pathbad);
 		return(fail("statsave", "save/check/load returned failure"));
 	}
 	if (compare_statsave_stable_sections(path1, path2) != SUCCESS) {
 		file_delete(path1);
 		file_delete(path2);
+		file_delete(pathbad);
 		return(fail("statsave", "save/load/save bytes differ"));
 	}
 
 	file_delete(path1);
 	file_delete(path2);
+	file_delete(pathbad);
 	fprintf(stderr, "selftest: statsave ok\n");
 	return(SUCCESS);
 }
@@ -1674,6 +1774,11 @@ int vaeg_selftest_run(void) {
 	if (test_statsave() != SUCCESS) {
 		return(FAILURE);
 	}
+#if defined(VAEG_Z80_INTEGRATION_TESTING)
+	if (vaeg_z80_subsystem_integration_test() != SUCCESS) {
+		return(fail("Z80 subsystem integration", "production seam test failed"));
+	}
+#endif
 	fprintf(stderr, "selftest: all tests passed\n");
 	return(SUCCESS);
 }

@@ -17,8 +17,9 @@ three-platform CMake coverage, and CI.
 M13 closes phase 2 by removing retired paths and documenting the final
 tier split:
 
-- Active tree: CMake/C/SDL2/Dear ImGui; CPU in `i286c/`; VA memory in
-  `cpucva/memoryva.c`; Z80 side in `cpucva/z80c.cpp`.
+- Active tree: CMake/C/SDL2/Dear ImGui; main CPU in `i286c/`; VA memory in
+  `cpucva/memoryva.c`; Z80 side in the suzukiplan-backed
+  `cpucva/z80_core.cpp` wrapper with `cpucva/z80_disasm.cpp`.
 - Frozen reference tier: `win9x/`, `i286x/`, `cpuxva/memoryva.x86`, and
   `hlp/`. These remain reference-only because the v141 build was
   decisive in the G9 defect chain: differential FDC traces, the V30 DMA
@@ -66,9 +67,18 @@ history, not by a current CI or compile guarantee.
 | M30 | tasks/M30_va_bms_window.md | Restore the VA `80000H-9FFFFH` BMS window semantics lost in the portable C memory port | **G30 accepted** |
 | M31 | tasks/M31_cli_boot_model.md | Select the VA or VA2/VA3 boot model with a session-only command-line override | **G31 passed** |
 | M32 | tasks/M32_cli_startup_overrides.md | Add session-only CLI overrides for sound, media, execution, display, and input; remove positional FDD syntax | **G32 passed** |
+| M34 | tasks/M34_z80_migration_contract.md | Verify the legacy Z80 contract, select the migration design, and retain revision-1 fixtures | **G34 passed** |
+| M35 | tasks/M35_suzukiplan_irq_extension.md | Add the approved interrupt-acknowledge, level-IRQ, and raw-IM0 extension upstream or in a minimal fork | **G35 passed** |
+| M36 | tasks/M36_z80_vendor_conformance.md | Vendor the approved Z80 revision and add standalone conformance and ZEX CI | **G36 passed** |
+| M37 | tasks/M37_z80_wrapper.md | Add independently authored vaeg interfaces, revision-1 codec, and wrapper unit tests without integration | **G37 passed** |
+| M38 | tasks/M38_z80_differential.md | Compare normalized externally observable legacy and replacement traces | **G38 passed** |
+| M39 | tasks/M39_z80_integration.md | Integrate an opt-in replacement Z80 path and run private-system regressions | **G39 passed** |
+| M40 | tasks/M40_z80_disassembler.md | Replace active legacy disassembly consumers and close the dual-core evidence period | **G40 passed** |
+| M41 | tasks/M41_z80_cutover.md | Select the replacement exclusively, delete the seven approved files, and audit releases | **G41 passed** |
+| M42 | tasks/M42_z80_performance.md | Optional performance investigation, to be replaced by a new task only if measured performance evidence requires it | **Not scheduled** |
 
 Phase 2 dependencies: M7 → M8 → {M9, M10 parallel} → M11 → M12 → M13.
-Post-phase dependency: M13 → M14 → M15 → M16 → M17 → M18 → M19 → M20 → M21 → M22 → M23 → M24 → M25 → M26 → M27 → M28 → M29 → M30 → M31 → M32.
+Post-phase dependency: M13 → M14 → M15 → M16 → M17 → M18 → M19 → M20 → M21 → M22 → M23 → M24 → M25 → M26 → M27 → M28 → M29 → M30 → M31 → M32. The required Z80 migration sequence M34 → M35 → M36 → M37 → M38 → M39 → M40 → M41 is complete. M42 is not scheduled; create a new task only if measured performance evidence requires work.
 M9 must pass before M11 (all three OSes must ship the VA machine, not
 the PC-98 scaffold).
 

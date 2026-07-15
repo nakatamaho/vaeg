@@ -30,7 +30,8 @@ PC-88VA boot-sequence trace. The boot-sequence overview lives in
 
 The scope here is the main CPU's uPD780/Z80-compatible mode entered by the
 PC-88VA `BRKEM2` instruction. This is not the FDD subsystem Z80. The FDD
-subsystem CPU is a separate device implemented through `cpucva/z80c.cpp`,
+subsystem CPU is a separate device implemented through the suzukiplan-backed
+`cpucva/z80_core.cpp` wrapper,
 `iova/subsystem.cpp`, and `VASUBSYS.ROM`.
 
 ## Reference Materials
@@ -431,7 +432,8 @@ later `1000:C003` jump.
 Current emulator status:
 
 - The FDD subsystem Z80 is implemented separately through
-  `cpucva/z80c.cpp`, `iova/subsystem.cpp`, and `VASUBSYS.ROM`.
+  the historical `cpucva/z80c.cpp`, current `cpucva/z80_core.cpp`,
+  `iova/subsystem.cpp`, and `VASUBSYS.ROM`.
 - The main CPU's uPD780/Z80-compatible execution mode required by
   `BRKEM2` is not implemented.
 - `docs/agents/reports/m9_v30_map.md` records this as an explicit future

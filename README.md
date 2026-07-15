@@ -14,6 +14,15 @@ targets the CMake/SDL2 tree.
 
 ## News
 
+### 2026-07-15 - Z80 migration
+
+The active PC-88VA subsystem now uses the pinned MIT-licensed
+`suzukiplan/z80` core through vaeg's BSD-2-Clause compatibility wrapper. The
+independently authored BSD-2-Clause disassembler is the only production Z80
+disassembler. The former M88/cisc-derived Z80 implementation has been removed
+from the current tree after wrapper, conformance, state, differential, public,
+and private-system gates; project history remains unchanged.
+
 ### 2026-07-13 - Rel.260713
 
 [Rel.260713](https://github.com/nakatamaho/vaeg/releases/tag/rel-260713)
@@ -290,9 +299,11 @@ a replacement for the original notices, source headers, and license files.
   license as: "ソースコードは 修正BSDライセンスとします。"
 - Neko Project II attribution: `win9x/readme.txt` credits "Neko Project
   II (c) NP2 developer team, 1999-2001,2003,2004".
-- Z80 emulation attribution: `win9x/readme.txt` records the PC-8801
-  emulator M88 source as the basis for Z80 emulation, credited as
-  "M88 - PC8801 Series Emulator, Copyright (C) by cisc 1998, 2002."
+- Historical Z80 attribution: `win9x/readme.txt` records the PC-8801
+  emulator M88 source used by the former implementation, credited as
+  "M88 - PC8801 Series Emulator, Copyright (C) by cisc 1998, 2002." Those
+  seven approved Z80 files are absent from current HEAD; this attribution and
+  Git history are retained as historical evidence, not a relicensing claim.
 - New phase-2 code and documentation by Nakata Maho are licensed under
   the 2-clause BSD license. New files carry the full notice in their file
   header; the required header template is in
@@ -304,6 +315,12 @@ a replacement for the original notices, source headers, and license files.
   `external/ymfm/` and is licensed under the 3-clause BSD license. See
   `external/ymfm/LICENSE` and
   `docs/agents/DECISIONS/ADR-0009-opn-backend.md`.
+- suzukiplan/z80 is vendored under `external/suzukiplan-z80/` and is
+  licensed under the MIT license. Its vaeg-required IRQ extension is
+  reproduced from the approved downstream patch. See
+  `external/suzukiplan-z80/LICENSE.txt`,
+  `external/suzukiplan-z80/provenance.txt`, and
+  `docs/agents/DECISIONS/ADR-0011-z80-migration.md`.
 - The embedded host GUI font `assets/NotoSansJP-Regular.ttf` is licensed
   under the SIL Open Font License 1.1. See `assets/OFL.txt` and
   `assets/NOTICE.md`.
