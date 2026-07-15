@@ -1279,8 +1279,12 @@ static int flagsave_subsystemcpu(STFLAGH sfh, const SFENTRY *tbl) {
 	buf = (UINT8 *)_MALLOC(bufsize, "SUBCPUSTS");
 	if (!buf) return STATFLAG_FAILURE;
 
-	subsystem_savecpustatus(buf);
-	ret = statflag_write(sfh, buf, bufsize);
+	if (subsystem_savecpustatus(buf)) {
+		ret = statflag_write(sfh, buf, bufsize);
+	}
+	else {
+		ret = STATFLAG_FAILURE;
+	}
 	_MFREE(buf);
 
 	return(ret);
@@ -1296,7 +1300,9 @@ static int flagload_subsystemcpu(STFLAGH sfh, const SFENTRY *tbl) {
 	if (!buf) return STATFLAG_FAILURE;
 
 	ret = statflag_read(sfh, buf, bufsize);
-	subsystem_loadcpustatus(buf);
+	if ((ret == STATFLAG_SUCCESS) && !subsystem_loadcpustatus(buf)) {
+		ret = STATFLAG_FAILURE;
+	}
 	_MFREE(buf);
 
 	return(ret);

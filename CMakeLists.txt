@@ -33,6 +33,10 @@ option(VAEG_ENABLE_ARCHIVE_DROP
     "Enable archive disk-image drag and drop when LibArchive is available" ON)
 option(VAEG_FETCH_LIBARCHIVE
     "Fetch pinned static archive dependencies instead of using system LibArchive" OFF)
+option(VAEG_Z80_INTEGRATION_TRACE
+    "Compile deterministic subsystem Z80/FDD integration tracing" OFF)
+set(VAEG_ZEX_ARTIFACT_DIR "" CACHE PATH
+    "Offline directory containing the five hash-verified ZEX artifacts")
 
 if(VAEG_FETCH_SDL2)
     include(FetchContent)
@@ -260,12 +264,17 @@ set(VAEG_CORE_SOURCES
     statsave.c
     debugsub.c)
 
+set(VAEG_Z80_PRODUCTION_SOURCES
+    cpucva/z80_disasm.cpp
+    cpucva/z80_core.cpp
+    cpucva/z80_legacy_state.cpp)
+message(STATUS "Production Z80 core: suzukiplan")
+
 set(VAEG_VA_SOURCES
     biosva/biosva.c
     cpucva/gvramva.c
     cpucva/memoryva.c
-    cpucva/z80c.cpp
-    cpucva/z80diag.cpp
+    ${VAEG_Z80_PRODUCTION_SOURCES}
     iova/bkupmemva.c
     iova/boardsb2.c
     iova/cgromva.c
@@ -333,6 +342,9 @@ set(VAEG_SDL2_SOURCES
     sdl2/commng.c
     sdl2/fontmng.c
     sdl2/gui/gui.cpp)
+if(VAEG_ENABLE_TESTS)
+    list(APPEND VAEG_SDL2_SOURCES tests/z80/subsystem_integration.cpp)
+endif()
 
 set(VAEG_SPLASH_DATA "${CMAKE_CURRENT_BINARY_DIR}/generated/vaeg_splash_data.c")
 add_custom_command(
@@ -415,6 +427,22 @@ add_library(vaeg_va STATIC ${VAEG_VA_SOURCES})
 target_include_directories(vaeg_va PUBLIC ${VAEG_INCLUDE_DIRS})
 target_link_libraries(vaeg_va PUBLIC vaeg_core vaeg_common)
 target_compile_options(vaeg_va PRIVATE -Wall -fsigned-char)
+target_include_directories(vaeg_va PRIVATE
+    "${CMAKE_CURRENT_SOURCE_DIR}/external/suzukiplan-z80")
+target_compile_definitions(vaeg_va PRIVATE
+    Z80_DISABLE_BREAKPOINT
+    Z80_DISABLE_DEBUG
+    Z80_DISABLE_NESTCHECK
+    Z80_NO_EXCEPTION
+    Z80_UNSUPPORT_16BIT_PORT)
+if(VAEG_Z80_INTEGRATION_TRACE)
+    target_compile_definitions(vaeg_va PRIVATE
+        VAEG_Z80_INTEGRATION_TRACE=1)
+endif()
+if(VAEG_ENABLE_TESTS)
+    target_compile_definitions(vaeg_va PUBLIC
+        VAEG_Z80_INTEGRATION_TESTING=1)
+endif()
 if(VAEG_WERROR)
     target_compile_options(vaeg_va PRIVATE -Werror)
 endif()
@@ -562,6 +590,250 @@ endif()
 
 if(VAEG_ENABLE_TESTS)
     enable_testing()
+
+    function(vaeg_configure_z80_standalone_target target)
+        target_include_directories(${target} PRIVATE
+            "${CMAKE_CURRENT_SOURCE_DIR}/external/suzukiplan-z80")
+        target_compile_options(${target} PRIVATE -Wall -fsigned-char)
+        if(VAEG_WERROR)
+            target_compile_options(${target} PRIVATE -Werror)
+        endif()
+    endfunction()
+
+    set(VAEG_Z80_HEADER_COMPILE_SOURCE tests/z80/header_compile.cpp)
+    add_executable(vaeg_z80_header_default
+        ${VAEG_Z80_HEADER_COMPILE_SOURCE})
+    vaeg_configure_z80_standalone_target(vaeg_z80_header_default)
+
+    add_executable(vaeg_z80_header_no_functional
+        ${VAEG_Z80_HEADER_COMPILE_SOURCE})
+    vaeg_configure_z80_standalone_target(vaeg_z80_header_no_functional)
+    target_compile_definitions(vaeg_z80_header_no_functional PRIVATE
+        Z80_NO_FUNCTIONAL)
+
+    add_executable(vaeg_z80_header_debug_default
+        ${VAEG_Z80_HEADER_COMPILE_SOURCE})
+    vaeg_configure_z80_standalone_target(vaeg_z80_header_debug_default)
+    target_compile_definitions(vaeg_z80_header_debug_default PRIVATE
+        VAEG_Z80_REQUIRE_DEBUG)
+
+    add_executable(vaeg_z80_header_release
+        ${VAEG_Z80_HEADER_COMPILE_SOURCE})
+    vaeg_configure_z80_standalone_target(vaeg_z80_header_release)
+    target_compile_definitions(vaeg_z80_header_release PRIVATE
+        VAEG_Z80_REQUIRE_RELEASE
+        Z80_DISABLE_DEBUG
+        Z80_DISABLE_BREAKPOINT
+        Z80_DISABLE_NESTCHECK
+        Z80_NO_EXCEPTION)
+
+    add_executable(vaeg_z80_interrupt_default
+        external/suzukiplan-z80/test/test-interrupt-extension.cpp)
+    vaeg_configure_z80_standalone_target(vaeg_z80_interrupt_default)
+
+    add_executable(vaeg_z80_interrupt_no_functional
+        external/suzukiplan-z80/test/test-interrupt-extension.cpp)
+    vaeg_configure_z80_standalone_target(
+        vaeg_z80_interrupt_no_functional)
+    target_compile_definitions(vaeg_z80_interrupt_no_functional PRIVATE
+        Z80_NO_FUNCTIONAL)
+
+    function(vaeg_add_z80_wrapper_library target)
+        add_library(${target} STATIC
+            cpucva/z80_core.cpp
+            cpucva/z80_legacy_state.cpp)
+        target_include_directories(${target}
+            PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}"
+            PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/external/suzukiplan-z80")
+        target_compile_features(${target} PUBLIC cxx_std_17)
+        target_compile_options(${target} PRIVATE -Wall -fsigned-char)
+        target_compile_definitions(${target} PRIVATE
+            Z80_DISABLE_BREAKPOINT
+            Z80_DISABLE_DEBUG
+            Z80_DISABLE_NESTCHECK
+            Z80_NO_EXCEPTION
+            Z80_UNSUPPORT_16BIT_PORT)
+        if(VAEG_WERROR)
+            target_compile_options(${target} PRIVATE -Werror)
+        endif()
+    endfunction()
+
+    vaeg_add_z80_wrapper_library(vaeg_z80_wrapper)
+    vaeg_add_z80_wrapper_library(vaeg_z80_wrapper_no_functional)
+    target_compile_definitions(vaeg_z80_wrapper_no_functional PRIVATE
+        Z80_NO_FUNCTIONAL)
+
+    add_executable(vaeg_z80_wrapper_default tests/z80/wrapper.cpp)
+    target_link_libraries(vaeg_z80_wrapper_default PRIVATE vaeg_z80_wrapper)
+    target_compile_options(vaeg_z80_wrapper_default PRIVATE
+        -Wall -fsigned-char)
+
+    add_executable(vaeg_z80_wrapper_no_functional_test
+        tests/z80/wrapper.cpp)
+    target_link_libraries(vaeg_z80_wrapper_no_functional_test PRIVATE
+        vaeg_z80_wrapper_no_functional)
+    target_compile_options(vaeg_z80_wrapper_no_functional_test PRIVATE
+        -Wall -fsigned-char)
+
+    add_executable(vaeg_z80_wrapper_zex_runner
+        tests/z80/wrapper_zex_runner.cpp)
+    target_link_libraries(vaeg_z80_wrapper_zex_runner PRIVATE
+        vaeg_z80_wrapper_no_functional)
+    target_compile_options(vaeg_z80_wrapper_zex_runner PRIVATE
+        -Wall -fsigned-char)
+
+    add_executable(vaeg_z80_disasm
+        cpucva/z80_disasm.cpp
+        tests/z80/disasm.cpp)
+    target_include_directories(vaeg_z80_disasm PRIVATE
+        "${CMAKE_CURRENT_SOURCE_DIR}")
+    target_compile_features(vaeg_z80_disasm PRIVATE cxx_std_17)
+    target_compile_definitions(vaeg_z80_disasm PRIVATE
+        "VAEG_Z80_DISASM_GOLDEN_PATH=\"${CMAKE_CURRENT_SOURCE_DIR}/tests/z80/disasm_golden.txt\"")
+    target_compile_options(vaeg_z80_disasm PRIVATE -Wall -fsigned-char)
+    if(VAEG_WERROR)
+        target_compile_options(vaeg_z80_disasm PRIVATE -Werror)
+    endif()
+
+    add_executable(vaeg_z80_zex_runner tests/z80/zex_runner.cpp)
+    vaeg_configure_z80_standalone_target(vaeg_z80_zex_runner)
+    target_compile_definitions(vaeg_z80_zex_runner PRIVATE
+        Z80_CALLBACK_PER_INSTRUCTION
+        Z80_DISABLE_DEBUG
+        Z80_DISABLE_NESTCHECK
+        Z80_NO_FUNCTIONAL
+        Z80_UNSUPPORT_16BIT_PORT)
+
+    add_executable(vaeg_z80_legacy_contract
+        tests/z80/legacy_contract.cpp)
+    target_link_libraries(vaeg_z80_legacy_contract PRIVATE
+        vaeg_z80_wrapper_no_functional)
+    target_compile_options(vaeg_z80_legacy_contract PRIVATE
+        -Wall -fsigned-char)
+    if(VAEG_WERROR)
+        target_compile_options(vaeg_z80_legacy_contract PRIVATE -Werror)
+    endif()
+
+    add_library(vaeg_z80_trace_common STATIC
+        tests/z80/differential/trace_common.cpp)
+    target_include_directories(vaeg_z80_trace_common PUBLIC
+        "${CMAKE_CURRENT_SOURCE_DIR}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tests/z80/differential")
+    target_compile_features(vaeg_z80_trace_common PUBLIC cxx_std_17)
+    target_compile_options(vaeg_z80_trace_common PRIVATE
+        -Wall -fsigned-char)
+
+    add_executable(vaeg_z80_trace_reference
+        tests/z80/differential/reference_trace.cpp)
+    target_link_libraries(vaeg_z80_trace_reference PRIVATE
+        vaeg_z80_trace_common vaeg_z80_wrapper_no_functional)
+    target_compile_options(vaeg_z80_trace_reference PRIVATE
+        -Wall -fsigned-char)
+
+    add_executable(vaeg_z80_trace_repeat
+        tests/z80/differential/new_trace.cpp)
+    target_link_libraries(vaeg_z80_trace_repeat PRIVATE
+        vaeg_z80_trace_common vaeg_z80_wrapper_no_functional)
+    target_compile_options(vaeg_z80_trace_repeat PRIVATE
+        -Wall -fsigned-char)
+
+    add_executable(vaeg_z80_trace_compare
+        tests/z80/differential/trace_compare.cpp)
+    target_include_directories(vaeg_z80_trace_compare PRIVATE
+        "${CMAKE_CURRENT_SOURCE_DIR}/tests/z80/differential")
+    target_compile_features(vaeg_z80_trace_compare PRIVATE cxx_std_17)
+    target_compile_options(vaeg_z80_trace_compare PRIVATE
+        -Wall -fsigned-char)
+
+    if(VAEG_WERROR)
+        foreach(target vaeg_z80_trace_common vaeg_z80_trace_reference
+                       vaeg_z80_trace_repeat
+                       vaeg_z80_trace_compare)
+            target_compile_options(${target} PRIVATE -Werror)
+        endforeach()
+    endif()
+
+    add_test(NAME vaeg_z80_legacy_contract
+        COMMAND vaeg_z80_legacy_contract)
+    add_test(NAME vaeg_z80_header_default
+        COMMAND vaeg_z80_header_default)
+    add_test(NAME vaeg_z80_header_no_functional
+        COMMAND vaeg_z80_header_no_functional)
+    add_test(NAME vaeg_z80_header_debug_default
+        COMMAND vaeg_z80_header_debug_default)
+    add_test(NAME vaeg_z80_header_release
+        COMMAND vaeg_z80_header_release)
+    add_test(NAME vaeg_z80_interrupt_default
+        COMMAND vaeg_z80_interrupt_default)
+    add_test(NAME vaeg_z80_interrupt_no_functional
+        COMMAND vaeg_z80_interrupt_no_functional)
+    add_test(NAME vaeg_z80_wrapper_default
+        COMMAND vaeg_z80_wrapper_default)
+    add_test(NAME vaeg_z80_wrapper_no_functional
+        COMMAND vaeg_z80_wrapper_no_functional_test)
+    add_test(NAME vaeg_z80_disasm COMMAND vaeg_z80_disasm)
+    set_tests_properties(vaeg_z80_disasm PROPERTIES
+        LABELS "romless;z80;disasm" TIMEOUT 120)
+    foreach(regression_suite directed state generated convergence)
+        add_test(NAME vaeg_z80_regression_${regression_suite}
+            COMMAND "${CMAKE_COMMAND}"
+                "-DREFERENCE_RUNNER=$<TARGET_FILE:vaeg_z80_trace_reference>"
+                "-DREPEAT_RUNNER=$<TARGET_FILE:vaeg_z80_trace_repeat>"
+                "-DCOMPARATOR=$<TARGET_FILE:vaeg_z80_trace_compare>"
+                "-DSUITE=${regression_suite}"
+                "-DCASES=128"
+                "-DOUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR}/z80-regression"
+                -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/z80/differential/run_differential.cmake")
+        set_tests_properties(vaeg_z80_regression_${regression_suite}
+            PROPERTIES LABELS "romless;z80;regression" TIMEOUT 120)
+    endforeach()
+    if(VAEG_ZEX_ARTIFACT_DIR)
+        get_filename_component(VAEG_ZEX_ARTIFACT_DIR_ABSOLUTE
+            "${VAEG_ZEX_ARTIFACT_DIR}" ABSOLUTE)
+        function(vaeg_verify_zex_artifact filename expected_sha256)
+            set(artifact
+                "${VAEG_ZEX_ARTIFACT_DIR_ABSOLUTE}/${filename}")
+            if(NOT EXISTS "${artifact}")
+                message(FATAL_ERROR "Required ZEX artifact is absent: ${artifact}")
+            endif()
+            file(SHA256 "${artifact}" actual_sha256)
+            if(NOT actual_sha256 STREQUAL expected_sha256)
+                message(FATAL_ERROR
+                    "ZEX artifact hash mismatch for ${artifact}: "
+                    "expected ${expected_sha256}, got ${actual_sha256}")
+            endif()
+        endfunction()
+        vaeg_verify_zex_artifact(zexdoc.cim
+            b3015112a99bb72273e0cacde7c7549eb9840ba996af76f7bf7992ef7d6e2f90)
+        vaeg_verify_zex_artifact(zexall.cim
+            fbb1bb5d46f61c33ea6841a71f2b23c49b9b62410ce6ed4e57b7d9b2e7b437e0)
+        vaeg_verify_zex_artifact(zexdoc.src
+            0e2e7d05e5dd27c932de64d4c3711351f53388ed02d2e99e2e706ef6216ca9b3)
+        vaeg_verify_zex_artifact(zexall.src
+            a263efc67ed6f890268c6f9e00f7911d9376a6bc6ddaec5ce04e33a5f483733c)
+        vaeg_verify_zex_artifact(zex-license.txt
+            e57f1c320b8cf8798a7d2ff83a6f9e06a33a03585f6e065fea97f1d86db84052)
+
+        add_test(NAME vaeg_z80_zexdoc
+            COMMAND vaeg_z80_zex_runner
+                "${VAEG_ZEX_ARTIFACT_DIR_ABSOLUTE}/zexdoc.cim")
+        add_test(NAME vaeg_z80_zexall
+            COMMAND vaeg_z80_zex_runner
+                "${VAEG_ZEX_ARTIFACT_DIR_ABSOLUTE}/zexall.cim")
+        add_test(NAME vaeg_z80_wrapper_zexdoc
+            COMMAND vaeg_z80_wrapper_zex_runner
+                "${VAEG_ZEX_ARTIFACT_DIR_ABSOLUTE}/zexdoc.cim")
+        add_test(NAME vaeg_z80_wrapper_zexall
+            COMMAND vaeg_z80_wrapper_zex_runner
+                "${VAEG_ZEX_ARTIFACT_DIR_ABSOLUTE}/zexall.cim")
+        set_tests_properties(vaeg_z80_zexdoc vaeg_z80_zexall PROPERTIES
+            LABELS "romless;z80;zex"
+            TIMEOUT 900)
+        set_tests_properties(
+            vaeg_z80_wrapper_zexdoc vaeg_z80_wrapper_zexall PROPERTIES
+            LABELS "romless;z80;zex;wrapper"
+            TIMEOUT 900)
+    endif()
     add_test(NAME vaeg_romless_tests COMMAND vaeg_sdl2 --selftest)
     set_tests_properties(vaeg_romless_tests PROPERTIES
         WORKING_DIRECTORY "$<TARGET_FILE_DIR:vaeg_sdl2>"

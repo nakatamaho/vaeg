@@ -115,16 +115,17 @@ system-wide application icon from this unpacked-binary distribution.
 
 The M12 workflow is `.github/workflows/build.yml`. It covers:
 
-- Ubuntu with system SDL2 from `apt`, in separate gcc and clang jobs.
+- Ubuntu with system SDL2 from `apt`, in separate gcc and clang jobs for both
+  production Z80 selections.
 - Ubuntu ASan/UBSan smoke. The known UBSan backlog messages documented in
   `../agents/reports/ubsan_backlog.md` may appear, but sanitizer process
-  failures still fail the job.
+  failures still fail the job. Both Z80 selections are covered.
 - Windows on `windows-latest` through MSYS2/MINGW64 with pinned static
-  FetchContent SDL2.
+  FetchContent SDL2, for both Z80 selections.
 - macOS on `macos-latest` with `VAEG_FETCH_SDL2=ON`. The maintainer
   baseline remains MacPorts, but MacPorts is impractical on hosted
   runners; this CI job deliberately exercises the pinned FetchContent path
-  from ADR-0006.
+  from ADR-0006. Both Z80 selections build and run ROM-less tests natively.
 
 CI has no ROMs or disk images by design. `--smoke` therefore runs in a
 reduced-scope ROM-less mode on hosted runners: SDL initialization, core
@@ -140,6 +141,140 @@ so the memoryva fixture test is intentionally skipped.
 CI uploads build artifacts for all three operating systems. The Windows
 artifact is the standalone `vaeg.exe`; its import audit rejects SDL2 and
 MinGW runtime DLL dependencies.
+
+## Standalone Z80 conformance
+
+`VAEG_ENABLE_TESTS=ON` also builds the vendored suzukiplan/z80 header without
+linking it into the emulator. The build covers the default callback API,
+`Z80_NO_FUNCTIONAL`, the default debug API, and a release-oriented configuration
+with debug, breakpoint, nest-check, and exception support disabled. CTest runs
+the focused interrupt extension in both callback configurations.
+
+ZEXDOC and ZEXALL are external GPL test inputs and are never stored in the
+source tree or release archives. The dedicated CI job downloads the five files
+from `suzukiplan/z80` commit
+`e3926769a790fab0af1c34a5540e317f8d4f0ddc`, verifies every approved SHA-256,
+and keeps them only in an optional CI cache. To acquire them online locally:
+
+```sh
+python3 tests/z80/fetch_zex.py --output-dir build/zex-cache
+```
+
+For offline use, point the acquisition tool at a directory containing
+`zexdoc.cim`, `zexall.cim`, `zexdoc.src`, `zexall.src`, and the upstream
+`test-ex/LICENSE.txt`:
+
+```sh
+python3 tests/z80/fetch_zex.py \
+  --source-dir /path/to/suzukiplan-z80/test-ex \
+  --output-dir build/zex-cache
+```
+
+Configure the test-bearing build with the verified cache, then run only the
+standalone suite or the complete CTest set:
+
+```sh
+cmake --preset linux-ci-gcc \
+  -DVAEG_ZEX_ARTIFACT_DIR="$PWD/build/zex-cache"
+cmake --build --preset linux-ci-gcc
+ctest --test-dir build/linux-ci-gcc --output-on-failure \
+  -R '^vaeg_z80_(header|interrupt|zex)'
+```
+
+The runner uses deterministic 64 KiB memory, loads at `0x0100`, supplies only
+the CP/M CALL-5 services used by ZEX, and stops on an emulated-clock or wall-
+clock limit with register and recent-output diagnostics. The archive checker
+rejects both known artifact names and the five pinned content hashes.
+
+The independently authored compatibility layer is the production Z80 seam;
+the standalone `vaeg_z80_wrapper` and `vaeg_z80_wrapper_no_functional`
+libraries remain permanent conformance targets. Their
+consumer-facing declarations are under `cpucva/`; third-party and STL types do
+not cross that interface. The corresponding `vaeg_z80_wrapper_default` and
+`vaeg_z80_wrapper_no_functional` tests cover the vaeg bus, clock, interrupt,
+public-register mirror, and revision-1 state contracts. When a verified ZEX
+cache is configured, `vaeg_z80_wrapper_zexdoc` and
+`vaeg_z80_wrapper_zexall` run the same external inputs through the wrapper.
+The production `vaeg_va` target unconditionally compiles
+`cpucva/z80_core.cpp` and `cpucva/z80_legacy_state.cpp`.
+
+The permanent M38-derived regression corpus uses two deterministic runs of the
+current wrapper and a canonical trace comparator. The ordinary CI corpus is
+ROM-less:
+
+```sh
+cmake --build --preset linux-ci-gcc --target \
+  vaeg_z80_trace_reference vaeg_z80_trace_repeat vaeg_z80_trace_compare
+ctest --test-dir build/linux-ci-gcc --output-on-failure \
+  -R '^vaeg_z80_regression_'
+```
+
+The public generated test uses seeds `0x4d383001` through `0x4d383004` and
+128 cases per seed. A longer maintainer-local run uses 4,096 cases per seed:
+
+```sh
+cmake \
+  -DREFERENCE_RUNNER="$PWD/build/linux-ci-gcc/vaeg_z80_trace_reference" \
+  -DREPEAT_RUNNER="$PWD/build/linux-ci-gcc/vaeg_z80_trace_repeat" \
+  -DCOMPARATOR="$PWD/build/linux-ci-gcc/vaeg_z80_trace_compare" \
+  -DSUITE=generated -DCASES=4096 \
+  -DOUTPUT_DIR=/tmp/vaeg-m38-long \
+  -P tests/z80/differential/run_differential.cmake
+```
+
+`--suite scheduling` is a deliberate slice-exact evidence case, not an
+ordinary green CTest. It retains the unallowlisted FDD port-`0xf4` timing
+divergence documented in `docs/agents/reports/m38_z80_differential.md`.
+`vaeg_z80_regression_convergence` retains the green policy reproducer: the
+program and initial `1,7` slices receive additional `4,1` slices and emit
+exactly one `OUT (0xf4),0x5a`, with stable final state and event order.
+
+## Production Z80
+
+The suzukiplan-backed wrapper is the only production Z80 implementation. No
+build-time or runtime core selector remains. A normal build is sufficient:
+
+```sh
+cmake --preset linux-ci-gcc
+cmake --build --preset linux-ci-gcc
+ctest --test-dir build/linux-ci-gcc --output-on-failure
+```
+
+The ROM-less selftest exercises the production subsystem, including the
+revision-1 state bridge, SLEEP_HACK/WAIT behavior, acknowledge timing, and a
+port-`0xf4` state boundary. See [Z80 production integration](z80-integration.md)
+for the contract and trace command.
+
+Public CI performs one native Linux, Windows, and macOS production build and
+keeps the standalone wrapper, state, interrupt, ZEX, disassembler, and
+M38-derived regression coverage.
+
+## M40 production Z80 disassembly
+
+Production compiles and uses the vaeg-owned `cpucva/z80_disasm.cpp`. The
+subsystem exposes the capacity-aware
+`subsystem_disassemble_bounded()` seam and retains the historical
+`subsystem_disassemble()` signature as a 64-byte compatibility adapter.
+Neither interface exposes STL or third-party types.
+
+The ROM-less disassembler test is part of ordinary CTest. Run it directly
+with:
+
+```sh
+cmake --build build/linux-ci-gcc --target vaeg_z80_disasm
+ctest --test-dir build/linux-ci-gcc --output-on-failure \
+  -R '^vaeg_z80_disasm$'
+```
+
+The target checks all base, CB, ED, DD, FD, DDCB, and FDCB opcode pages,
+reviewed canonical output, address wrapping, deterministic memory reads, and
+bounded buffers. See [Z80 disassembly](z80-disassembly.md) for the API,
+license, formatting, reserved-encoding, and M41 dependency policy.
+
+Private ROM/disk testing is not public CI. Use the committed
+[M39 private integration manifest](z80-private-integration.md), record asset
+hashes and traces outside Git, and require explicit maintainer approval at
+G39. A boot alone is not sufficient.
 
 ROMs are deliberately absent from CI and release artifacts. Users place the
 VA unsuffixed ROM set or the MAME-compatible VA2/VA3 `*_va2.rom` set beside

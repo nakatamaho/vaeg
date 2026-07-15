@@ -313,7 +313,49 @@ separate parity correction or move it to Open Defects.
 - **Evidence:** [M30 VA BMS window task](../agents/tasks/M30_va_bms_window.md).
 - **Commit:** [11da283](https://github.com/nakatamaho/vaeg/commit/11da283a0ffa47fc4b645423e4324550d1438bcf).
 
+### Z80 state-codec rejection was ignored by the state coordinator
+
+- **Status:** fixed in M39.
+- **Symptom:** a save whose embedded Z80 status revision was unsupported could
+  continue through `statsave_load()` as though the subsystem CPU had restored
+  successfully, leaving a partially loaded machine rather than reporting the
+  incompatible state.
+- **Affected scope:** revision-1 subsystem state loading under both production
+  Z80 selections; valid revision-1 images are unchanged.
+- **Demonstrated root cause:** the subsystem C bridge returned `void` and
+  discarded `Z80C::LoadStatus()`'s Boolean result; `flagload_subsystemcpu()`
+  therefore had no failure to propagate.
+- **Correction:** return success/failure from the subsystem save/load bridge
+  and convert a codec rejection into `STATFLAG_FAILURE` in the existing state
+  coordinator. No scheduler or status-image layout changed.
+- **Verification:** the ROM-less state test saves a valid complete state,
+  copies it, changes only revision-1 byte 59 to unsupported revision 2, and
+  requires top-level `statsave_load()` failure under both `legacy` and
+  `suzukiplan`; the original image then loads and re-saves successfully.
+- **Evidence:** [M39 integration task](../agents/tasks/M39_z80_integration.md)
+  and [M39 integration contract](z80-integration.md#state-boundary-and-error-handling).
+- **Commit:** [23b7071](https://github.com/nakatamaho/vaeg/commit/23b70711b84deb027a1c8dbf11e6284b65d0d4fe).
+
 ## Open Defects
+
+### Legacy Z80 reset leaves saved undocumented flag bits uninitialized
+
+- **Status:** open; demonstrated during M34 contract capture, with no behavior
+  change authorized in that milestone.
+- **Symptom:** a revision-1 Z80 state saved immediately after reset can depend
+  on an indeterminate `xf` byte, and architectural F bits 3 and 5 can inherit
+  that value when flags are materialized.
+- **Demonstrated root cause:** `Z80C::Reset()` zeroes the register structure and
+  lazy-flag mask but does not initialize member `xf`; `GetAF()` merges `xf`
+  into F, and `SaveStatus()` serializes it.
+- **Current containment:** the M34 ROM-less legacy fixtures execute `XOR A`
+  before capture so their bytes are deterministic. This avoids the defect in
+  evidence generation but does not correct production reset behavior.
+- **Next step:** decide in a separately authorized correctness milestone
+  whether to initialize `xf` in the legacy path or correct it only at the M41
+  replacement cutover, then add a reset/save regression test and human gate.
+- **Evidence:** [M34 legacy Z80 contract](z80-legacy-contract.md#verified-legacy-execution-behavior)
+  and [ADR-0011](../agents/DECISIONS/ADR-0011-z80-migration.md#consequences-and-unresolved-risks).
 
 ### VA1 N88 BASIC V3.0 commands can enter an apparent hang
 

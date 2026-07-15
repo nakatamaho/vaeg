@@ -45,7 +45,7 @@ jobs:
         run: python3 tools/repo/check_case.py
 
   linux:
-    name: ubuntu ${{ matrix.compiler }}
+    name: ubuntu ${{ matrix.compiler }} z80
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -72,11 +72,56 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: vaeg-linux-${{ matrix.compiler }}
+          name: vaeg-linux-${{ matrix.compiler }}-z80
           path: build/${{ matrix.preset }}/sdl2/vaeg
 
+  z80-conformance:
+    name: standalone z80 conformance
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake ninja-build pkg-config libsdl2-dev gcc g++
+      - name: Cache external ZEX inputs
+        uses: actions/cache@v4
+        with:
+          path: build/zex-cache
+          key: zex-e3926769-b3015112-fbb1bb5d
+      - name: Acquire and verify external ZEX inputs
+        run: python3 tests/z80/fetch_zex.py --output-dir build/zex-cache
+      - name: Configure standalone conformance
+        run: >-
+          cmake --preset linux-ci-gcc
+          -DVAEG_ZEX_ARTIFACT_DIR=${{ github.workspace }}/build/zex-cache
+      - name: Build standalone conformance
+        run: >-
+          cmake --build --preset linux-ci-gcc --target
+          vaeg_z80_header_default
+          vaeg_z80_header_no_functional
+          vaeg_z80_header_debug_default
+          vaeg_z80_header_release
+          vaeg_z80_interrupt_default
+          vaeg_z80_interrupt_no_functional
+          vaeg_z80_zex_runner
+          vaeg_z80_wrapper_default
+          vaeg_z80_wrapper_no_functional_test
+          vaeg_z80_wrapper_zex_runner
+          vaeg_z80_trace_reference
+          vaeg_z80_trace_repeat
+          vaeg_z80_trace_compare
+      - name: Run standalone conformance
+        run: >-
+          ctest --test-dir build/linux-ci-gcc --output-on-failure
+          -R '^vaeg_z80_(header|interrupt|wrapper|zex|regression)'
+      - name: Verify source archive excludes external ZEX inputs
+        run: |
+          git archive --format=tar.gz --output=/tmp/vaeg-source.tar.gz HEAD
+          python3 tests/z80/check_zex_archive.py /tmp/vaeg-source.tar.gz
+
   linux-asan:
-    name: ubuntu asan
+    name: ubuntu asan z80
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -100,7 +145,7 @@ jobs:
             ctest --test-dir build/linux-ci-asan --output-on-failure
 
   windows:
-    name: windows msys2 mingw64
+    name: windows msys2 mingw64 z80
     runs-on: windows-latest
     defaults:
       run:
@@ -143,11 +188,11 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: vaeg-windows-mingw64
+          name: vaeg-windows-mingw64-z80
           path: build/mingw-ci/artifact/
 
   macos:
-    name: macos fetch-sdl2
+    name: macos fetch-sdl2 z80
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
@@ -160,7 +205,18 @@ jobs:
           # statically through macos-ci, as recorded in ADR-0006.
           cmake --preset macos-ci
       - name: Build
-        run: cmake --build --preset macos-ci
+        run: |
+          set +e
+          cmake --build --preset macos-ci >macos-build.log 2>&1
+          status=$?
+          cat macos-build.log
+          if test "${status}" -ne 0; then
+            tail -n 60 macos-build.log |
+              while IFS= read -r line; do
+                echo "::error title=macOS build log::${line}"
+              done
+          fi
+          exit "${status}"
       - name: Smoke
         run: SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy ./build/macos-ci/sdl2/vaeg --smoke
       - name: Unit tests
@@ -168,5 +224,5 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: vaeg-macos
+          name: vaeg-macos-z80
           path: build/macos-ci/sdl2/vaeg
