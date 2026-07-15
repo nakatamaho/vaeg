@@ -320,10 +320,6 @@ const Z80Reg *Z80C::GetReg() {
     return &public_registers_;
 }
 
-Z80Diag *Z80C::GetDiag() {
-    return nullptr;
-}
-
 std::uint8_t Z80C::ReadMemory(void *opaque, std::uint16_t address) {
     Z80C *cpu = static_cast<Z80C *>(opaque);
     const std::uint8_t value = static_cast<std::uint8_t>(

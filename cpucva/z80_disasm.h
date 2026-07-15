@@ -23,40 +23,28 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "z80diag_bridge.h"
+#ifndef CPUCVA_Z80_DISASM_H
+#define CPUCVA_Z80_DISASM_H
 
-#include "z80diag.h"
+#include <cstdint>
 
-namespace {
+using VaegZ80DisasmRead = std::uint8_t (*)(void *opaque,
+                                           std::uint16_t address);
 
-class DiagnosticMemory final : public IMemoryAccess {
-public:
-    explicit DiagnosticMemory(VaegZ80DiagnosticRead read) : read_(read) {
-    }
-
-    uint IFCALL Read8(uint address) override {
-        return read_(static_cast<std::uint16_t>(address));
-    }
-
-    void IFCALL Write8(uint, uint) override {
-    }
-
-private:
-    VaegZ80DiagnosticRead read_;
+enum VaegZ80DisasmStatus : std::uint8_t {
+    VAEG_Z80_DISASM_OK = 0,
+    VAEG_Z80_DISASM_INVALID_READER = 1,
+    VAEG_Z80_DISASM_PREFIX_LIMIT = 2
 };
 
-} // namespace
+struct VaegZ80DisasmResult {
+    std::uint16_t next_pc;
+    std::uint8_t length;
+    std::uint8_t status;
+};
 
-std::uint16_t VaegZ80LegacyDisassemble(
-    std::uint16_t pc, char *destination, VaegZ80DiagnosticRead read) {
-    if (destination == nullptr || read == nullptr) {
-        return pc;
-    }
-    DiagnosticMemory memory(read);
-    Z80Diag diagnostic;
-    if (!diagnostic.Init(&memory)) {
-        return pc;
-    }
-    return static_cast<std::uint16_t>(
-        diagnostic.Disassemble(pc, destination));
-}
+VaegZ80DisasmResult VaegZ80Disassemble(
+    std::uint16_t pc, char *destination, std::uint32_t capacity,
+    VaegZ80DisasmRead read, void *opaque);
+
+#endif

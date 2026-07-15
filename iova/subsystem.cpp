@@ -9,11 +9,10 @@
 
 #include	<cstdint>
 
+#include	"cpucva/z80_disasm.h"
 #if defined(VAEG_Z80_CORE_SUZUKIPLAN)
 #include	"cpucva/z80_core.h"
-#include	"cpucva/z80diag_bridge.h"
 #else
-#include	"cpucva/z80if.h"
 #include	"cpucva/z80c.h"
 #endif
 #include	"i8255.h"
@@ -551,12 +550,23 @@ const struct Z80Reg *subsystem_getcpureg(void) {
 	return subsystemobj.z80->GetReg();
 }
 
+static std::uint8_t subsystem_disasm_read(void *opaque,
+		std::uint16_t address) {
+	Subsystem *target = static_cast<Subsystem *>(opaque);
+	return static_cast<std::uint8_t>(target->Read8(address));
+}
+
+WORD subsystem_disassemble_bounded(WORD pc, char *str, UINT capacity) {
+	const VaegZ80DisasmResult result = VaegZ80Disassemble(
+		static_cast<std::uint16_t>(pc), str,
+		static_cast<std::uint32_t>(capacity), subsystem_disasm_read,
+		&subsystemobj);
+	return static_cast<WORD>(result.next_pc);
+}
+
 WORD subsystem_disassemble(WORD pc, char *str) {
-#if defined(VAEG_Z80_CORE_SUZUKIPLAN)
-	return VaegZ80LegacyDisassemble(pc, str, subsystem_readmem);
-#else
-	return subsystemobj.z80->GetDiag()->Disassemble(pc,str);
-#endif
+	return subsystem_disassemble_bounded(
+		pc, str, SUBSYSTEM_DISASSEMBLY_CAPACITY);
 }
 
 UINT subsystem_getcpustatussize(void) {

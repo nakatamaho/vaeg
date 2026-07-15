@@ -267,16 +267,16 @@ set(VAEG_CORE_SOURCES
     statsave.c
     debugsub.c)
 
+set(VAEG_Z80_PRODUCTION_SOURCES
+    cpucva/z80_disasm.cpp)
 if(VAEG_Z80_CORE STREQUAL "legacy")
-    set(VAEG_Z80_PRODUCTION_SOURCES
+    list(APPEND VAEG_Z80_PRODUCTION_SOURCES
         cpucva/z80c.cpp
         cpucva/z80diag.cpp)
 elseif(VAEG_Z80_CORE STREQUAL "suzukiplan")
-    set(VAEG_Z80_PRODUCTION_SOURCES
+    list(APPEND VAEG_Z80_PRODUCTION_SOURCES
         cpucva/z80_core.cpp
-        cpucva/z80_legacy_state.cpp
-        cpucva/z80diag.cpp
-        cpucva/z80diag_bridge.cpp)
+        cpucva/z80_legacy_state.cpp)
 else()
     message(FATAL_ERROR
         "VAEG_Z80_CORE must be legacy or suzukiplan, got: ${VAEG_Z80_CORE}")
@@ -701,6 +701,19 @@ if(VAEG_ENABLE_TESTS)
     target_compile_options(vaeg_z80_wrapper_zex_runner PRIVATE
         -Wall -fsigned-char)
 
+    add_executable(vaeg_z80_disasm
+        cpucva/z80_disasm.cpp
+        tests/z80/disasm.cpp)
+    target_include_directories(vaeg_z80_disasm PRIVATE
+        "${CMAKE_CURRENT_SOURCE_DIR}")
+    target_compile_features(vaeg_z80_disasm PRIVATE cxx_std_17)
+    target_compile_definitions(vaeg_z80_disasm PRIVATE
+        "VAEG_Z80_DISASM_GOLDEN_PATH=\"${CMAKE_CURRENT_SOURCE_DIR}/tests/z80/disasm_golden.txt\"")
+    target_compile_options(vaeg_z80_disasm PRIVATE -Wall -fsigned-char)
+    if(VAEG_WERROR)
+        target_compile_options(vaeg_z80_disasm PRIVATE -Werror)
+    endif()
+
     add_executable(vaeg_z80_zex_runner tests/z80/zex_runner.cpp)
     vaeg_configure_z80_standalone_target(vaeg_z80_zex_runner)
     target_compile_definitions(vaeg_z80_zex_runner PRIVATE
@@ -782,6 +795,9 @@ if(VAEG_ENABLE_TESTS)
         COMMAND vaeg_z80_wrapper_default)
     add_test(NAME vaeg_z80_wrapper_no_functional
         COMMAND vaeg_z80_wrapper_no_functional_test)
+    add_test(NAME vaeg_z80_disasm COMMAND vaeg_z80_disasm)
+    set_tests_properties(vaeg_z80_disasm PROPERTIES
+        LABELS "romless;z80;disasm" TIMEOUT 120)
     foreach(differential_suite directed state generated convergence)
         add_test(NAME vaeg_z80_differential_${differential_suite}
             COMMAND "${CMAKE_COMMAND}"
