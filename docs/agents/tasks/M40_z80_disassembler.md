@@ -75,5 +75,5 @@ manually reviewed golden rows, buffers, wrapping, reserved encodings, repeated
 prefixes, and non-mutation. GCC, Clang, sanitizers, MinGW/Wine, ZEX, both
 production selections, and a sanitized dual-core private boot/live-memory
 spot check passed locally. Hosted Linux, native Windows, and native macOS
-passed all 11 configured jobs. The final G40 disposition is recorded in the
+passed all 12 configured jobs. The final G40 disposition is recorded in the
 M40 evidence report.
