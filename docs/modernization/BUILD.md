@@ -259,6 +259,29 @@ differential suite once because those executables do not use the production
 selection. The release workflow does not override the default and therefore
 continues to package the legacy choice during M39.
 
+## M40 production Z80 disassembly
+
+Both production Z80 selections compile and use the vaeg-owned
+`cpucva/z80_disasm.cpp`; the CPU choice does not change debugger text or
+instruction boundaries. The subsystem exposes the capacity-aware
+`subsystem_disassemble_bounded()` seam and retains the historical
+`subsystem_disassemble()` signature as a 64-byte compatibility adapter.
+Neither interface exposes STL or third-party types.
+
+The ROM-less disassembler test is part of ordinary CTest. Run it directly
+with:
+
+```sh
+cmake --build build/linux-ci-gcc --target vaeg_z80_disasm
+ctest --test-dir build/linux-ci-gcc --output-on-failure \
+  -R '^vaeg_z80_disasm$'
+```
+
+The target checks all base, CB, ED, DD, FD, DDCB, and FDCB opcode pages,
+reviewed canonical output, address wrapping, deterministic memory reads, and
+bounded buffers. See [Z80 disassembly](z80-disassembly.md) for the API,
+license, formatting, reserved-encoding, and M41 dependency policy.
+
 Private ROM/disk testing is not public CI. Use the committed
 [M39 private integration manifest](z80-private-integration.md), record asset
 hashes and traces outside Git, and require explicit maintainer approval at
