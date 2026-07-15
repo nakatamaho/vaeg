@@ -308,7 +308,7 @@ a replacement for the original notices, source headers, and license files.
   licensed under the MIT license. Its vaeg-required IRQ extension is
   reproduced from the approved downstream patch. See
   `external/suzukiplan-z80/LICENSE.txt`,
-  `external/suzukiplan-z80/VERSION`, and
+  `external/suzukiplan-z80/provenance.txt`, and
   `docs/agents/DECISIONS/ADR-0011-z80-migration.md`.
 - The embedded host GUI font `assets/NotoSansJP-Regular.ttf` is licensed
   under the SIL Open Font License 1.1. See `assets/OFL.txt` and
