@@ -302,9 +302,23 @@ git diff --cached --check
 ```
 
 The 69 unreferenced paths are the established repository baseline; neither
-new decoder nor its tests appear in that list. Source/runtime archive and
-hosted CI results are added on the final pushed SHA. The vendor/M35
-immutability checks already passed:
+new decoder nor its tests appear in that list. The archive commands and
+results on commit `5286c5cccb69c863ebbe728e584290b6ce715b38` were:
+
+```sh
+git archive --format=tar.gz \
+  --output=/tmp/vaeg-m40-source-5286c5c.tar.gz HEAD
+tar -czf /tmp/vaeg-m40-runtime-5286c5c.tar.gz \
+  build/m40-gcc-legacy/sdl2/vaeg assets/OFL.txt assets/NOTICE.md \
+  CHANGES.20260713.md dist/readme-dist.txt
+python3 tests/z80/check_zex_archive.py \
+  /tmp/vaeg-m40-source-5286c5c.tar.gz \
+  /tmp/vaeg-m40-runtime-5286c5c.tar.gz
+```
+
+The source archive passed with 998 files and the runtime archive passed with
+five files; neither contained a ZEX artifact. Hosted CI results are added on
+the final pushed SHA. The vendor/M35 immutability checks already passed:
 
 ```text
 M35 patch SHA-256:
