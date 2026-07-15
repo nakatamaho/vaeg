@@ -24,8 +24,8 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 Date: 2026-07-15
 
-Status: implemented; **G38 blocked** by one unallowlisted FDD-visible
-clock-scheduling divergence; stopped before M39
+Status: implemented; **G38 passed** after the maintainer-approved eventual
+convergence test; stopped before M39
 
 ## Starting state and scope
 
@@ -55,6 +55,8 @@ The implementation and first documentation-closure commits are:
 8923817 M38: correct wrapper state exposed by differential probes
 37ffe3c M38: add normalized Z80 differential harness
 6d5d6e9 M38: document blocked differential gate
+dc25a3e M38: record final validation evidence
+bf5ca60 M38: prove FDD event convergence across slices
 ```
 
 The final validation-record commit and exact ending SHA are reported in the
@@ -96,8 +98,10 @@ The comparator matches `test/reason/occurrence`, not private decoder step
 count. Events from non-normalized EI checkpoints accumulate into the next
 normalized checkpoint. Architectural fields, R bits 0-6, R bit 7, memory
 hashes, and event order are strict except for an exact allowlist entry. Clock
-and remaining-balance differences go to the cycle report and become failures
-when a later normalized checkpoint proves an external scheduling effect.
+and remaining-balance differences go to the cycle report. Lost, duplicated,
+reordered, or permanently divergent external effects fail G38; a verified
+architectural timing correction may move an otherwise identical event to a
+later `Exec()` slice only when eventual convergence is proven.
 
 ## Corpus
 
@@ -116,7 +120,8 @@ inhibition save/load boundary. It compares decoded/resumed behavior, not raw
 new-versus-old serialized bytes, and does not ask the legacy core to load a
 new EI-bit image.
 
-The public generated corpus uses fixed seeds `0x4d383001`, `0x4d383002`,
+The convergence corpus adds one scenario and one normalized checkpoint. The
+public generated corpus uses fixed seeds `0x4d383001`, `0x4d383002`,
 `0x4d383003`, and `0x4d383004`, with 128 bounded defined base-instruction
 cases per seed: 512 cases/checkpoints. The trace header preserves the exact
 first failing generated program if a regression occurs. Prefix and interrupt
@@ -169,15 +174,15 @@ neither production handler consumes mirrored PC. A hypothetical EI directly
 before the production SLEEP_HACK `IN 0xfe` remains a G39 private-system risk,
 not an observed M38 result.
 
-## Cycle evidence and unresolved G38 failure
+## Cycle evidence and eventual convergence
 
 The generated [cycle report](../../modernization/z80-cycle-deltas.md) lists
-29 normalized directed/state checkpoints with a nonzero consumed/balance
-delta. The generated corpus has zero cycle-delta groups. Examples include
-taken JR legacy/new `7/12`, RET `4/10`, repeated block I/O `16/21`, DDCB
-`16/20`, IM1 acceptance `17/12`, and legacy HALT wake `77/12`.
+30 normalized checkpoints with a nonzero consumed/balance delta, including
+the convergence checkpoint. The generated corpus has zero cycle-delta groups.
+Examples include taken JR legacy/new `7/12`, RET `4/10`, repeated block I/O
+`16/21`, DDCB `16/20`, IM1 acceptance `17/12`, and legacy HALT wake `77/12`.
 
-G38 is blocked by the separate unallowlisted scheduling suite:
+The separate unallowlisted scheduling suite remains slice-exact evidence:
 
 ```text
 initial: A=5a, PC=0000
@@ -189,11 +194,27 @@ new:    PC=0004, R=01, no memory or I/O event in that slice
 ```
 
 The source explanation is exact: legacy charges 7 clocks for taken JR, while
-the new core charges 12. Production `Subsystem::Out(0xf4)` calls
-`fdcsubsys_o_dskctl`. The cycle difference therefore changes an FDD-visible
-I/O event's `Exec()` return boundary. The M38 clock policy defines that as a
-failure. The comparator exits 1 with five unresolved differences (PC, R,
-live PC, public PC, and events). No allowlist entry suppresses it.
+the new core charges the architectural 12. Production
+`Subsystem::Out(0xf4)` calls `fdcsubsys_o_dskctl`, so the difference is not
+relabelled as externally inert. The reproducer remains and still exits 1 with
+five differences (PC, R, live PC, public PC, and events).
+
+The maintainer-approved `cycle-fdd-io-eventual-convergence` case keeps the
+same program and `1,7` slices, then supplies identical additional `4,1`
+slices. At the normalized 13-clock boundary, both runners have the same
+ordered five events, including exactly one `OUT (0xf4),0x5a`. They finish
+with PC=`0006`, R=`02`, AF=`5a00`, SP=`f000`, identical other architectural
+and interrupt state, matching full/device memory hashes, and `lastclock=13`.
+No I/O is lost, duplicated, or reordered. The only remaining differences are
+consumed clocks `18/23`, balances `-5/-10`, and the earlier slice assignment.
+
+Under the revised policy, G38 blocks only on lost, duplicated, reordered, or
+permanently divergent external effects. A verified architectural timing
+correction may shift a slice boundary when eventual convergence is proven.
+This case passes G38 but remains a mandatory M39 private integration risk.
+M39 must stop production integration if real VA/FDD testing finds transfer
+failure, timeout, corrupted data, changed IRQ/DRQ sequencing, or broken
+save/load behavior. No legacy per-opcode timing emulation was added.
 
 ## Validation evidence
 
@@ -211,9 +232,21 @@ live PC, public PC, and events). No allowlist entry suppresses it.
 | `cmake --preset linux-ci-asan && cmake --build --preset linux-ci-asan` | PASS |
 | `SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy ASAN_OPTIONS=detect_leaks=0 ctest --test-dir build/linux-ci-asan --output-on-failure` | PASS, 13/13; differential 3/3 under ASan/UBSan |
 | `SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy ASAN_OPTIONS=detect_leaks=0 ./build/linux-ci-asan/sdl2/vaeg --smoke` | Process PASS; reproduced the pre-existing signed-overflow/shift UBSan backlog in `tms3631c.c`, `psggenc.c`, `psggeng.c`, and `parts.c` |
-| final all-suite CMake-script command with `SUITE=all`, `CASES=128` | PASS; 595 scenarios, 602 normalized checkpoints, 58 exact accepted matches |
+| final all-suite CMake-script command with `SUITE=all`, `CASES=128` | PASS; 596 scenarios, 603 normalized checkpoints, 58 exact accepted matches |
 | long CMake-script command documented in `BUILD.md`, `SUITE=generated`, `CASES=4096` | PASS; 16,384 cases/checkpoints, zero allowlist matches, about 3 seconds locally |
 | direct legacy/new `--suite scheduling`, then comparator | Expected gate failure; five unresolved FDD-scheduling differences, exit 1 |
+
+### Clock-policy continuation
+
+| Exact command | Result |
+|---|---|
+| GCC build of the three trace targets, then `ctest --test-dir build/linux-ci-gcc --output-on-failure -R '^vaeg_z80_differential_(directed\|state\|generated\|convergence)$'` | PASS, 4/4 |
+| direct legacy/new `--suite convergence`, then comparator | PASS; exactly one `OUT 00f4:5a`, 1 normalized checkpoint, 0 allowlist matches |
+| direct legacy/new `--suite scheduling`, then comparator | Expected slice-exact evidence failure preserved; the same five differences, exit 1 |
+| Clang build of the three trace targets, then the same four-test CTest regex | PASS, 4/4 |
+| ASan/UBSan build of the three trace targets, then the same four-test CTest regex with `ASAN_OPTIONS=detect_leaks=0` | PASS, 4/4 |
+| MinGW cross-build of the three trace targets | PASS |
+| Wine legacy/new `--suite convergence`, then the Wine comparator | PASS; exactly one `OUT 00f4:5a`, 1 checkpoint, 0 allowlist matches |
 
 ### MinGW and Wine
 
@@ -254,9 +287,13 @@ d8624085139ef4e7b400b918b2b498e79bea1af4a1942e4ac935545846e746a4  M35 patch
 ```
 
 The final all-suite trace hashes are legacy
-`43df97262bd4ea48d866657b560a94f7ec783694f77318bdbcece4f4d3971df5`
+`30aedfb57fbc849561c4870ae233568f3777b174c94a83607f836a7785a95fc7`
 and new
-`66d48f9e7f480ff9e93314ff55a6af28a136bd0463fae41601d8c105500bb7ec`.
+`3ee3af91d52269fde3143b97829f8a05db5080e8286a9bf5988a473a65090037`.
+The focused convergence hashes are legacy
+`cb48b389bb932c2d466628a06b7bf0f886d7b116d6fbf59314ea29663f2c1b2c`
+and new
+`127201f2a64b4e73cbbd14c4f1e4c64382686d0ef3bcd82fc397ebcdf5beeb35`.
 The long generated trace hashes are legacy
 `0fa6b1c03342db39d0c802b84cf38a95a3b683efe0a9eee7f9ce0f91d1ce9cd8`
 and new
@@ -287,7 +324,9 @@ were not run locally; only the hosted results are claimed as native.
 - Production still compiles the legacy `cpucva/z80c.cpp`; the new wrapper is
   absent from production sources and `iova/subsystem.cpp` is unchanged.
 - The scheduling reproducer changes the timing of an actual FDD control-port
-  call, so G38 is not passed.
+  call and remains documented. Identical additional slices prove that the
+  ordered external effect and final state eventually converge, so G38 passed
+  under the maintainer-approved policy.
 
 ### Accepted differences
 
@@ -296,24 +335,29 @@ inputs and exact checkpoint sets. They are legacy defects, deliberate
 architectural corrections, or externally inert representation/scheduling
 differences. None is used by the generated corpus.
 
+The FDD slice shift is not in that allowlist and is not classified as
+externally inert. It is accepted only by the explicit convergence rule and is
+a mandatory M39 private integration risk.
+
 ### Known limitations
 
 - The public corpus is bounded and is not exhaustive instruction fuzzing.
-- Cycle identity is deliberately not asserted. Twenty-nine normal
+- Cycle identity is deliberately not asserted. Thirty normal
   checkpoints have deltas, and the FDD scheduling case proves at least one is
   externally consequential.
 - Private subsystem ROM and disk behavior is not tested or committed. G39 is
-  the intended private-system comparison milestone, but it cannot start
-  while G38 is blocked.
-- Native hosted platform results depend on the pushed CI run and are not
-  inferred from cross-compilation or Wine.
+  the intended private-system comparison milestone and was not started in
+  M38.
+- Native hosted platform results are reported only from the pushed CI run and
+  are not inferred from cross-compilation or Wine.
 
-### Unresolved issue
+### G38 disposition
 
-`cycle-fdd-io-scheduling` is unresolved and blocks G38. A maintainer decision
-must not simply relabel it as an inert cycle delta: resolution needs an
-approved clock-compatibility policy or implementation that addresses the
-FDD-visible `Exec()` scheduling difference.
+`cycle-fdd-io-scheduling` remains a slice-exact divergence, but it no longer
+blocks G38 because `cycle-fdd-io-eventual-convergence` proves no lost,
+duplicated, reordered, or permanently divergent effect. G38 passed. M39 must
+stop integration on any real VA/FDD transfer failure, timeout, data
+corruption, IRQ/DRQ sequencing change, or save/load regression.
 
 ### Hypotheses
 

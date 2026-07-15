@@ -22,8 +22,8 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 -->
 # M38: Add normalized legacy/new Z80 differential evidence
 
-Status: implemented; G38 blocked by a reproducible FDD-visible clock-slice
-divergence; stopped before M39
+Status: implemented; G38 passed after eventual convergence was proven under
+the maintainer-approved clock policy; stopped before M39
 
 Branch: `topic/m38-z80-differential`
 
@@ -59,7 +59,11 @@ does not classify a divergence.
 
 Create `docs/modernization/z80-cycle-deltas.md`, recording scenario deltas and
 whether they change event order, FDD behavior, interrupts, WAIT, HALT, or a
-guest-visible result. Such effects are failures until resolved.
+guest-visible result. G38 blocks on lost, duplicated, reordered, or
+permanently divergent external effects. A slice-boundary shift caused by a
+verified architectural timing correction may pass only when identical
+additional clock slices prove eventual convergence. Every accepted shift
+remains a mandatory M39 private integration risk.
 
 ## Gate G38
 
@@ -85,12 +89,22 @@ legacy NMI mirror. These corrections are confined to the standalone wrapper,
 have focused regressions, and do not edit the vendored tree or production
 selection.
 
-G38 is not passed. The minimal `cycle-fdd-io-scheduling` suite runs `JR +2`
+The minimal `cycle-fdd-io-scheduling` suite runs `JR +2`
 from `0x0000`, then `OUT (0xf4),A` at `0x0004`, with identical clock slices
 `1,7`. The legacy core charges 7 clocks for the taken JR and performs the FDD
 control-port write in the second `Exec()` call. The new core charges the
 architectural 12 clocks and remains at `0x0004`, so it emits no write in that
-call. This is an explained legacy timing defect, but it changes FDD-visible
-I/O scheduling and is therefore a failure under this task's clock policy. It
-is intentionally not allowlisted. Maintainer disposition is required before
-G38 can pass; M39 remains unauthorized.
+call. This slice-exact difference stays documented and is intentionally not
+relabelled as externally inert or removed.
+
+The `cycle-fdd-io-eventual-convergence` test gives both runners the same
+additional `4,1` slices. After 13 clocks the new core has emitted exactly one
+`OUT (0xf4),0x5a`; the ordered event sequence, architectural registers,
+memory, device-visible hashes, R, and final PC match legacy. There is no lost,
+duplicated, or reordered I/O. The remaining differences are the classified
+cycle count, clock balance, and earlier slice assignment. G38 therefore
+passed under the revised policy. This scheduling difference is a mandatory
+M39 private risk; M39 must stop integration on real VA/FDD transfer failure,
+timeout, data corruption, IRQ/DRQ sequencing change, or broken save/load.
+No legacy per-opcode timing emulation was added, and work is stopped before
+M39.
