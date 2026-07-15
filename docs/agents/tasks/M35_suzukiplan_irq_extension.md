@@ -22,22 +22,26 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 -->
 # M35: Minimal suzukiplan Z80 interrupt extension
 
-Status: implementation and required focused tests complete; G35 blocked
-pending an approved immutable upstream/fork commit and maintainer disposition
-of the full-suite dual-callback harness limitation
+Status: complete; G35 passed by maintainer approval on 2026-07-15
 
 Branch: `topic/m35-z80-upstream-extension`
 
-The verified local result is
-`b4a0a5a238fecc280781e6fe5719faf0eafcd667`, based directly on
-`e3926769a790fab0af1c34a5540e317f8d4f0ddc`. Publication was unavailable, so
-M35 produced a directly applicable
-[format patch](../reports/m35_suzukiplan_irq_extension.patch) and
-[evidence report](../reports/m35_suzukiplan_irq_extension.md). Its SHA-256 is
-`d8624085139ef4e7b400b918b2b498e79bea1af4a1942e4ac935545846e746a4`.
-Do not begin M36 until the maintainer supplies or approves an immutable
-accessible commit, resolves the verified existing-test limitation below, and
-explicitly passes G35.
+The approved provenance is:
+
+| Item | Value |
+|---|---|
+| Upstream base SHA | `e3926769a790fab0af1c34a5540e317f8d4f0ddc` |
+| [Downstream patch](../reports/m35_suzukiplan_irq_extension.patch) SHA-256 | `d8624085139ef4e7b400b918b2b498e79bea1af4a1942e4ac935545846e746a4` |
+| Tested resulting commit | `b4a0a5a238fecc280781e6fe5719faf0eafcd667` |
+| Tested resulting tree | `8a606eb39332a6e79b69bb62d9dedca042b923dc` |
+| Clean `git am` reproduction | Passed |
+| MIT license verification | Passed |
+
+The complete record is in the
+[evidence report](../reports/m35_suzukiplan_irq_extension.md).
+The maintainer approved this reproducible downstream patch as sufficient M35
+provenance; an immutable public upstream or fork commit is not required. Do
+not begin M36 until the maintainer explicitly instructs it.
 
 Direct execution found that the current full `test/` suite cannot be compiled
 wholesale with `Z80_NO_FUNCTIONAL`: the unchanged
@@ -45,11 +49,10 @@ wholesale with `Z80_NO_FUNCTIONAL`: the unchanged
 configuration requires a function pointer. The exact selected base fails at
 the same line. The full suite is green in its normal configuration, the M35
 focused suite is green in both configurations, and the upstream ZEX harness is
-green in its declared `Z80_NO_FUNCTIONAL` configuration. Therefore the strict
-reading of the G35 dual-configuration sentence as requiring every legacy
-harness in both configurations is not met. M35 records rather than hides this
-source-backed contradiction; rewriting the legacy test suite would expand the
-approved focused patch and requires maintainer direction.
+green in its declared `Z80_NO_FUNCTIONAL` configuration. The maintainer
+accepted this test matrix. Legacy tests that already fail at the approved base
+under `Z80_NO_FUNCTIONAL` do not require an M35 rewrite when the limitation is
+reproduced and documented.
 
 ## Entry and scope
 
@@ -83,20 +86,26 @@ instruction, deassertion before acceptance, persistent assertion across later
 EI, HALT wake, and NMI non-acknowledge. Cover IM0 RST, `0x00`, `0x7f`, a
 multi-byte control transfer, CB, ED, DD, FD, DDCB, and FDCB with remaining
 bytes fetched from memory. Cover IM1 acknowledge and IM2 callback/vector read
-order. Run the full existing suite and both callback configurations.
+order. Use the maintainer-approved matrix: run the existing full suite in its
+supported default callback configuration; run every M35 interrupt-extension
+test in both normal and `Z80_NO_FUNCTIONAL` configurations; and run ZEXDOC and
+ZEXALL in their supported harness configuration. Reproduce and document any
+legacy test that already fails to compile with `Z80_NO_FUNCTIONAL` at the
+approved base; do not rewrite that harness in M35.
 
 ## Upstream-first evidence
 
-Prefer an upstream pull request. Otherwise publish an immutable minimal MIT
-fork commit. Record base SHA, result SHA, repository, issue/PR, license, patch
-scope, commands, and complete results. If publishing is unavailable, create a
-directly applicable `git format-patch`, record its SHA-256, and stop for the
-maintainer to supply an approved immutable commit. Do not proceed to M36 on an
-uncommitted working tree or mutable branch name.
+An upstream pull request remains preferable but is not required for G35. The
+maintainer approved the directly applicable downstream `git format-patch` as
+sufficient provenance when its base SHA, patch SHA-256, tested result commit,
+tested result tree, clean-application result, license, scope, commands, and
+complete results are recorded. M36 must reproduce the expected tree from the
+approved base and patch before vendoring, then record the base SHA, patch hash,
+and resulting tree hash in the vendored provenance file.
 
 ## Gate G35
 
-G35 requires review of the focused patch, unchanged MIT license, all upstream
-and focused tests green in both callback configurations, and an approved
-immutable upstream/fork commit. Push the M35 vaeg evidence branch, report exact
-SHAs and status, and stop.
+G35 passed on maintainer review of the focused patch, unchanged MIT license,
+clean `git am` reproduction, approved downstream provenance, and accepted test
+matrix. Push the M35 vaeg evidence branch, report exact SHAs and status, and
+stop. Do not begin M36 without an explicit maintainer instruction.

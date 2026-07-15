@@ -24,10 +24,10 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ## Status and entry state
 
-The focused extension and its required focused tests are complete. G35 is not
-passed: an approved immutable accessible upstream or fork commit is still
-required, and the full-suite dual-callback gate wording has a verified existing
-test-harness limitation. M36 is not authorized.
+The focused extension and its required tests are complete. The maintainer
+approved the reproducible downstream patch provenance and documented callback
+test matrix, and G35 passed on 2026-07-15. M36 is not authorized until the
+maintainer explicitly instructs it.
 
 The vaeg M35 branch started as
 `topic/m35-z80-upstream-extension` at
@@ -141,7 +141,7 @@ exact base. The vaeg repository checks ran against the staged evidence change.
 | `python3 tools/repo/find_unreferenced.py` in vaeg | PASS; exit 0, 69 unreferenced paths reported and no M35 path |
 | `git diff --cached --check` in vaeg | PASS; the generated patch is treated as patch data by its exact-path `-diff` attribute |
 
-### Full-suite dual-callback contradiction
+### Approved callback test matrix and baseline limitation
 
 After the required tests passed, the following additional diagnostic was run
 on the M35 result:
@@ -164,14 +164,12 @@ It fails identically at `test/test-checkreg-on-callback.cpp:88`, before any
 M35 code exists. Other existing tests also contain capturing callback lambdas,
 so porting the entire legacy harness set is a separate, non-minimal test rewrite.
 
-This directly qualifies the task's full-suite/both-configurations sentence and
-the G35 dual-configuration sentence. The verified green matrix is: complete
-existing `test/` suite in its normal configuration; focused M35 tests in both
-configurations; and the upstream ZEX harness in its declared
-`Z80_NO_FUNCTIONAL` configuration. The stricter interpretation that every
-legacy harness must run in both configurations is not green and is not claimed.
-The maintainer must either accept the verified matrix as the intended gate or
-explicitly authorize the broader harness port.
+The maintainer accepted the verified green matrix: complete existing `test/`
+suite in its supported default configuration; focused M35 tests in both
+configurations; and ZEXDOC/ZEXALL in the supported harness configuration.
+Legacy tests that already fail to compile with `Z80_NO_FUNCTIONAL` at the
+approved base do not need an M35 rewrite because the baseline limitation is
+reproduced and documented above.
 
 The focused build used the upstream warning policy with Clang 21.1.8,
 C++11, `-Wall`, the upstream additional warnings, and `-Werror`. ZEX used the
@@ -182,15 +180,9 @@ M35 changes only vaeg documentation, provenance, and the generated patch; it
 does not change a vaeg build target. The task therefore requires no vaeg CMake
 build or CTest run, and none is claimed as M35 evidence.
 
-## Publication and patch provenance
+## Approved downstream patch provenance
 
-The preferred maintainer fork URL,
-`git@github.com:nakatamaho/z80.git`, returned `Repository not found`. No GitHub
-CLI or API token was available, so creating an accessible fork or pull request
-was not possible in this environment. No write was attempted against the
-official `suzukiplan/z80` repository.
-
-The fallback artifact is the directly applicable
+The maintainer approved the directly applicable
 [format patch](m35_suzukiplan_irq_extension.patch):
 
 | Item | Value |
@@ -200,7 +192,9 @@ The fallback artifact is the directly applicable
 | Result tree | `8a606eb39332a6e79b69bb62d9dedca042b923dc` |
 | Patch SHA-256 | `d8624085139ef4e7b400b918b2b498e79bea1af4a1942e4ac935545846e746a4` |
 | License | Unchanged MIT, Copyright (c) 2019 Yoji Suzuki |
-| Upstream issue/PR | None; publication unavailable |
+| Clean `git am` reproduction | Passed |
+| MIT license verification | Passed |
+| Public upstream/fork commit | Not required for G35 |
 
 The `.patch` file is generated third-party commit evidence and intentionally
 retains standard `git format-patch` metadata rather than a vaeg BSD header.
@@ -215,7 +209,9 @@ Verified facts:
 
 - The focused extension satisfies the required IRQ line, acknowledge timing,
   IM0/IM1/IM2, state-access, and dual-callback-build contracts in its tests.
-- The complete existing upstream suite, ZEXDOC, and ZEXALL remain green.
+- The complete existing upstream suite is green in its supported default
+  callback configuration, and ZEXDOC/ZEXALL are green in their supported
+  harness configuration.
 - The MIT license is unchanged.
 - The format patch applies directly to the exact approved base and recreates
   the tested tree.
@@ -225,27 +221,23 @@ Verified facts:
 Hypotheses or externally unresolved items:
 
 - Upstream acceptance is unknown because no issue or pull request could be
-  published.
-- The future immutable fork commit is expected to have the tested tree, but
-  its repository and commit ID do not yet exist.
+  published, but it is not a G35 provenance requirement.
 
-**Recommendation: TECHNICAL GO; HOLD AT G35.** The patch is suitable for
-review and publication as a minimal MIT fork commit. G35 must remain unpassed,
-and M36 must not begin, until the maintainer supplies or approves an immutable
-accessible commit, resolves the full-suite dual-callback interpretation, and
-explicitly passes the gate.
+**G35 PASSED; STOP BEFORE M36.** The approved base and downstream patch
+reproduce the tested result tree, license verification passes, and the accepted
+test matrix is green. M36 must not begin until the maintainer explicitly
+instructs it.
 
 ## Unresolved risks
 
-- No immutable accessible upstream/fork commit or pull request exists yet;
-  the local commit alone cannot satisfy G35.
-- The strict dual-configuration reading of every existing upstream harness is
-  not satisfied because the unchanged suite uses capturing lambdas that cannot
-  compile as function pointers. A broader test-harness port is not approved by
-  the focused M35 scope.
+- Upstream acceptance is still unknown; downstream maintenance may remain
+  necessary, although the approved patch is reproducible and sufficient for
+  vaeg provenance.
 - The focused patch has been exercised on this Linux/Clang host, not on every
-  future vaeg build host. Cross-platform backend conformance belongs to the
-  later vendor/conformance milestone after G35.
+  future vaeg build host. M36 must reproduce tree
+  `8a606eb39332a6e79b69bb62d9dedca042b923dc` before vendoring and record the
+  approved base SHA, patch SHA-256, and resulting tree hash in the vendored
+  provenance file.
 - This milestone intentionally does not integrate the core with vaeg, so
   guest-system interrupt behavior remains for the later differential and
   integration gates.
