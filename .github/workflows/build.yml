@@ -199,7 +199,18 @@ jobs:
           # statically through macos-ci, as recorded in ADR-0006.
           cmake --preset macos-ci
       - name: Build
-        run: cmake --build --preset macos-ci
+        run: |
+          set +e
+          cmake --build --preset macos-ci >macos-build.log 2>&1
+          status=$?
+          cat macos-build.log
+          if test "${status}" -ne 0; then
+            tail -n 60 macos-build.log |
+              while IFS= read -r line; do
+                echo "::error title=macOS build log::${line}"
+              done
+          fi
+          exit "${status}"
       - name: Smoke
         run: SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy ./build/macos-ci/sdl2/vaeg --smoke
       - name: Unit tests
