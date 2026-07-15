@@ -24,13 +24,16 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ## Status
 
-Accepted through G37; M38 implemented but G38 is blocked. The maintainer
+Accepted through G38. The maintainer
 approved the reproducible downstream patch and documented callback test matrix
 as sufficient M35 provenance on 2026-07-15. M36 reproduced and vendored the
 approved tree, G36 passed, and the maintainer explicitly authorized M37. The
 standalone M37 implementation and all configured hosted-platform jobs passed.
-M38 now has a deterministic old/new harness, but its FDD-visible
-cycle-scheduling reproducer prevents G38 from passing; M39 has not started.
+M38 has a deterministic old/new harness. Its FDD-visible slice shift remains
+documented, and the maintainer-approved eventual-convergence test proves that
+the external effect is delayed but not lost, duplicated, reordered, or
+permanently divergent. G38 passed under the revised clock policy; M39 has not
+started.
 
 ## Decision
 
@@ -284,7 +287,7 @@ ZEX runner passes ZEXDOC and ZEXALL. These libraries are not members of
 `VAEG_CORE_SOURCES`: the emulator still builds `cpucva/z80c.cpp`, and no
 production selection or guest-visible path changed in M37.
 
-## M38 differential result and blocked gate
+## M38 differential result and passed gate
 
 M38 uses three standalone processes: the legacy runner, the new-wrapper
 runner, and a comparator. Both runners consume the same compiled scenario,
@@ -315,13 +318,28 @@ complete identifiers and minimal bytes are in the
 [M38 evidence report](../reports/m38_z80_differential.md). There is no broad
 opcode allowlist and the generated corpus matches without any allowlist.
 
-G38 remains blocked by an unallowlisted cycle result. With bytes
+The slice-exact evidence remains unallowlisted. With bytes
 `18 02 00 00 d3 f4`, initial A=`0x5a`, and slices `1,7`, legacy's 7-clock taken
 JR reaches and writes FDD control port `0xf4` in the second `Exec()`; the new
-core's 12-clock JR leaves it at `0x0004` with no write. This is a reproducible
-FDD-visible scheduling change, which the M38 clock policy defines as a
-failure even though the new timing is the architectural correction. M39 is
-not authorized until the maintainer resolves this gate finding.
+core's architectural 12-clock JR leaves it at `0x0004` with no write. This
+remains a reproducible FDD-visible slice assignment difference and is not
+relabelled as externally inert.
+
+The approved convergence continuation gives both runners the same additional
+`4,1` clock slices. At 13 total clocks each trace contains the same ordered
+reads and exactly one `OUT (0xf4),0x5a`; AF, BC, DE, HL, IX, IY, SP, PC,
+alternate registers, I/R, interrupt state, memory hashes, device-visible
+values, and `lastclock` agree. Only the classified architectural cycle count,
+remaining balance, and earlier slice assignment differ.
+
+G38 blocks on lost, duplicated, reordered, or permanently divergent external
+effects. A slice-boundary shift caused by a verified architectural timing
+correction may pass when eventual convergence is proven. Every such shift is
+still a mandatory M39 private integration risk. M39 must stop production
+integration if real VA/FDD testing finds a transfer failure, timeout,
+corrupted data, changed IRQ/DRQ sequencing, or broken save/load behavior.
+M38 adds no legacy per-opcode timing emulation. G38 passed and work remains
+stopped before M39.
 
 ## Frame-boundary revision-1 state
 

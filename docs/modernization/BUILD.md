@@ -219,9 +219,13 @@ cmake \
   -P tests/z80/differential/run_differential.cmake
 ```
 
-`--suite scheduling` is a deliberate G38 evidence case, not an ordinary
-green CTest. It currently reports the unallowlisted FDD port-`0xf4` timing
+`--suite scheduling` is a deliberate slice-exact evidence case, not an
+ordinary green CTest. It retains the unallowlisted FDD port-`0xf4` timing
 divergence documented in `docs/agents/reports/m38_z80_differential.md`.
+`vaeg_z80_differential_convergence` is the green policy test: the same program
+and initial `1,7` slices receive identical additional `4,1` slices, after
+which ordered events and final machine-visible state converge with exactly
+one `OUT (0xf4),0x5a` from each runner.
 
 ROMs are deliberately absent from CI and release artifacts. Users place the
 VA unsuffixed ROM set or the MAME-compatible VA2/VA3 `*_va2.rom` set beside
