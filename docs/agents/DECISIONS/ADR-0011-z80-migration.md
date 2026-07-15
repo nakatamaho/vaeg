@@ -26,7 +26,8 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 Accepted at G34 and G35. The maintainer approved the reproducible downstream
 patch and documented callback test matrix as sufficient M35 provenance on
-2026-07-15. M36 remains forbidden until the maintainer explicitly starts it.
+2026-07-15, then passed G35 and explicitly authorized M36. M36 has reproduced
+and vendored the approved tree and is stopped at G36 for review.
 
 ## Decision
 
@@ -191,6 +192,42 @@ its normal configuration, and the upstream ZEX harness passes in its declared
 G35: baseline-incompatible legacy tests need not be rewritten when the
 limitation is reproduced and documented.
 
+## M36 verified vendoring and standalone conformance
+
+M36 cloned the public upstream repository into a clean temporary checkout,
+checked out base `e3926769a790fab0af1c34a5540e317f8d4f0ddc`, computed the approved
+patch SHA-256, and applied it with `git am`. A plain application created a new
+commit ID because Git used the current committer timestamp, but its tree was
+the required `8a606eb39332a6e79b69bb62d9dedca042b923dc`. Repeating the clean
+application with `git am --committer-date-is-author-date` reproduced historical
+tested commit `b4a0a5a238fecc280781e6fe5719faf0eafcd667` exactly. Thus the approved
+commit is reproducible when commit metadata is deterministic, while the tree
+is the time-independent vendoring identity.
+
+The only copied upstream files are `LICENSE.txt`, `z80.hpp`, and
+`test/test-interrupt-extension.cpp`. Their Git blob IDs are respectively
+`a4cbbf62b0edaf761ef48556c7a2e50bb3b4817f`,
+`b4e1f9d357ff4076c9e4c2a9cb4b8ae64d273865`, and
+`3708c77fabbfef85bd68da99fc7cef068af4ec55`. Byte comparisons against the
+reproduced tree pass. `VERSION` is vaeg-authored provenance, not a modified
+upstream source. The MIT license remains byte-identical with SHA-256
+`ca7261ecf96ab7fea40c4c66aeb644710d210bd71418d285a9dd0098a7bddff1`.
+
+The vendored header is compiled only by standalone test targets. Four target-
+local configurations cover normal callbacks, `Z80_NO_FUNCTIONAL`, the default
+debug API, and release-oriented disabled debug/breakpoint/nest-check/exception
+features. The focused 21-case interrupt extension runs in normal and
+`Z80_NO_FUNCTIONAL` configurations. The raw core is not present in
+`VAEG_CORE_SOURCES`, and the production emulator continues to compile
+`cpucva/z80c.cpp` and `cpucva/z80diag.cpp`.
+
+The vaeg-owned ZEX runner uses deterministic 64 KiB memory, loads at `0x0100`,
+provides the required CP/M CALL-5 services, and enforces emulated-clock and
+wall-clock limits. Its acquisition helper pins the approved base URLs and
+verifies the two `.cim` files, two GPL `.src` files, and license. These external
+inputs remain outside Git and release packages. Archive checks reject both
+their expected names and their content hashes.
+
 ## Frame-boundary revision-1 state
 
 Production save is initiated by the GUI only after `pccore_exec()` returns.
@@ -257,11 +294,12 @@ switch is removed, the seven approved files are deleted, and source/release
 archives are audited for their absence. Historical Git objects are out of
 scope.
 
-## M35 feasibility recommendation
+## M35 feasibility recommendation (historical G35 output)
 
-**G35 PASSED; M36 IS FEASIBLE BUT NOT AUTHORIZED.** The focused extension,
-approved downstream patch provenance, license verification, and accepted test
-matrix meet G35. Do not start M36 until the maintainer explicitly instructs it.
+**G35 PASSED; M36 WAS FEASIBLE.** The focused extension, approved downstream
+patch provenance, license verification, and accepted test matrix met G35. The
+maintainer subsequently authorized M36; this paragraph is retained as the
+historical G35 recommendation rather than a current authorization statement.
 
 | Area | Finding |
 |---|---|
