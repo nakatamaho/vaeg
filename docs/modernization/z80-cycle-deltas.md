@@ -83,3 +83,17 @@ mandatory M39 private integration risk. M39 must stop production integration
 if real VA/FDD testing finds transfer failure, timeout, corrupted data,
 changed IRQ/DRQ sequencing, or broken save/load behavior. M38 adds no legacy
 per-opcode timing emulation.
+
+## M39 production-seam status
+
+M39 preserves this risk and adds no legacy cycle emulation. A ROM-less
+production-subsystem test emits exactly one `OUT (0xf4),0x5a` through
+`fdcsubsys_o_dskctl`, saves after the CPU call returns, reloads, and resumes
+without losing or duplicating that output under either production selection.
+This proves the adapter and frame-boundary plumbing, not private FDD timing.
+
+Real dual-core VA/FDD read, write, loader, IRQ/DRQ, SLEEP_HACK/WAIT, and
+active-transfer state testing remains mandatory at G39. Any transfer failure,
+timeout, corrupted data, changed IRQ/DRQ order, missing/extra `0xf4` effect,
+failed wake, or changed post-load completion blocks the gate regardless of the
+public convergence result.
