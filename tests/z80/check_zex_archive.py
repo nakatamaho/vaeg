@@ -20,7 +20,7 @@
 # OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
 # OF THE POSSIBILITY OF SUCH DAMAGE.
 
-"""Prove that fetched ZEX inputs are absent from an archive."""
+"""Audit source and runtime archives for forbidden migration artifacts."""
 
 import argparse
 import hashlib
@@ -44,15 +44,59 @@ PROHIBITED_HASHES = {
     "a263efc67ed6f890268c6f9e00f7911d9376a6bc6ddaec5ce04e33a5f483733c",
     "e57f1c320b8cf8798a7d2ff83a6f9e06a33a03585f6e065fea97f1d86db84052",
 }
+DELETED_LEGACY_PATHS = {
+    "cpucva/types.h",
+    "cpucva/z80.h",
+    "cpucva/z80if.h",
+    "cpucva/z80c.h",
+    "cpucva/z80c.cpp",
+    "cpucva/z80diag.h",
+    "cpucva/z80diag.cpp",
+}
+DELETED_LEGACY_HASHES = {
+    "aff5219486b4264bf9e75c8994a1e6714cb3a93f59136f8e8cf19bd2557973e7",
+    "eb8e12d76dc824ea993eab7a238aae5cc1ce9b2d7458188a033db93037e1a073",
+    "28e187571b5da870c91ee8511b2f2c4de624c42cbe087ab617bb084b368b747d",
+    "4e84d24bb22f41de50c73815547e6bdca245d6c51cbbe0eee32f7d76fdaaec5d",
+    "34eb3b6accb856efee356b3cc6ac61fb24847874df4f31475db511ae638b30d8",
+    "f6711f349f5c5febe05d23c47ee38c6314c46ba4b2d42894493f5d77a53298b1",
+    "b4db3d4c5e4466fce62326c445b0ea86955335945e1e406afb09960cd75385ef",
+}
+PRIVATE_ASSET_SUFFIXES = {
+    ".d88", ".d77", ".fdi", ".xdf", ".hdm", ".hdi", ".thd",
+    ".nhd", ".rom", ".sav",
+}
+APPROVED_EXTERNAL_ROOTS = {"imgui", "suzukiplan-z80", "ymfm"}
+APPROVED_PATCH = "docs/agents/reports/m35_suzukiplan_irq_extension.patch"
 
 
 def inspect_member(name: str, data: bytes, violations: List[str]) -> None:
-    basename = PurePosixPath(name.replace("\\", "/")).name.lower()
+    normalized = name.replace("\\", "/").lstrip("./")
+    path = PurePosixPath(normalized)
+    basename = path.name.lower()
     digest = hashlib.sha256(data).hexdigest()
     if basename in PROHIBITED_NAMES:
         violations.append(f"prohibited ZEX artifact name: {name}")
     if digest in PROHIBITED_HASHES:
         violations.append(f"prohibited ZEX artifact content: {name} ({digest})")
+    for legacy_path in DELETED_LEGACY_PATHS:
+        if normalized == legacy_path or normalized.endswith("/" + legacy_path):
+            violations.append(f"deleted legacy Z80 path: {name}")
+    if digest in DELETED_LEGACY_HASHES:
+        violations.append(f"copied legacy Z80 content: {name} ({digest})")
+    if path.suffix.lower() in PRIVATE_ASSET_SUFFIXES:
+        violations.append(f"private-media filename class: {name}")
+    parts = path.parts
+    if "external" in parts:
+        index = parts.index("external")
+        if index + 1 >= len(parts) or parts[index + 1] not in APPROVED_EXTERNAL_ROOTS:
+            violations.append(f"unrecorded external source root: {name}")
+    if basename.endswith((".orig", ".rej")):
+        violations.append(f"patch-work artifact: {name}")
+    if basename.endswith(".patch") and not (
+        normalized == APPROVED_PATCH or normalized.endswith("/" + APPROVED_PATCH)
+    ):
+        violations.append(f"unapproved patch artifact: {name}")
 
 
 def inspect_tar(path: Path) -> Tuple[int, List[str]]:
@@ -84,7 +128,7 @@ def inspect_zip(path: Path) -> Tuple[int, List[str]]:
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Reject fetched ZEX inputs from source/release archives"
+        description="Reject deleted legacy, fetched ZEX, and private artifacts"
     )
     parser.add_argument("archives", type=Path, nargs="+")
     args = parser.parse_args()
@@ -108,7 +152,7 @@ def main() -> int:
                 print(f"  {violation}")
             failed = True
         else:
-            print(f"PASS {path}: checked {count} files; no ZEX artifacts")
+            print(f"PASS {path}: checked {count} files; no forbidden artifacts")
     return 1 if failed else 0
 
 
