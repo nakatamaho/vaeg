@@ -22,8 +22,9 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 -->
 # M35: Minimal suzukiplan Z80 interrupt extension
 
-Status: implementation and tests complete; G35 blocked pending an approved
-immutable upstream or fork commit
+Status: implementation and required focused tests complete; G35 blocked
+pending an approved immutable upstream/fork commit and maintainer disposition
+of the full-suite dual-callback harness limitation
 
 Branch: `topic/m35-z80-upstream-extension`
 
@@ -35,7 +36,20 @@ M35 produced a directly applicable
 [evidence report](../reports/m35_suzukiplan_irq_extension.md). Its SHA-256 is
 `d8624085139ef4e7b400b918b2b498e79bea1af4a1942e4ac935545846e746a4`.
 Do not begin M36 until the maintainer supplies or approves an immutable
-accessible commit and explicitly passes G35.
+accessible commit, resolves the verified existing-test limitation below, and
+explicitly passes G35.
+
+Direct execution found that the current full `test/` suite cannot be compiled
+wholesale with `Z80_NO_FUNCTIONAL`: the unchanged
+`test/test-checkreg-on-callback.cpp:88` uses a capturing lambda where that
+configuration requires a function pointer. The exact selected base fails at
+the same line. The full suite is green in its normal configuration, the M35
+focused suite is green in both configurations, and the upstream ZEX harness is
+green in its declared `Z80_NO_FUNCTIONAL` configuration. Therefore the strict
+reading of the G35 dual-configuration sentence as requiring every legacy
+harness in both configurations is not met. M35 records rather than hides this
+source-backed contradiction; rewriting the legacy test suite would expand the
+approved focused patch and requires maintainer direction.
 
 ## Entry and scope
 
