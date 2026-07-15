@@ -234,7 +234,7 @@ save/load behavior. No legacy per-opcode timing emulation was added.
 | `SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy ASAN_OPTIONS=detect_leaks=0 ./build/linux-ci-asan/sdl2/vaeg --smoke` | Process PASS; reproduced the pre-existing signed-overflow/shift UBSan backlog in `tms3631c.c`, `psggenc.c`, `psggeng.c`, and `parts.c` |
 | final all-suite CMake-script command with `SUITE=all`, `CASES=128` | PASS; 596 scenarios, 603 normalized checkpoints, 58 exact accepted matches |
 | long CMake-script command documented in `BUILD.md`, `SUITE=generated`, `CASES=4096` | PASS; 16,384 cases/checkpoints, zero allowlist matches, about 3 seconds locally |
-| direct legacy/new `--suite scheduling`, then comparator | Expected gate failure; five unresolved FDD-scheduling differences, exit 1 |
+| direct legacy/new `--suite scheduling`, then comparator | Expected slice-exact comparator failure under the superseded policy; five preserved differences, exit 1 |
 
 ### Clock-policy continuation
 
@@ -306,6 +306,15 @@ Ubuntu GCC, Ubuntu Clang, Ubuntu ASan/UBSan, standalone Z80 conformance, and
 repository invariants. The Windows and macOS jobs each passed configure,
 build, native smoke, and native unit tests. Native macOS and native Windows
 were not run locally; only the hosted results are claimed as native.
+
+[GitHub Actions run 29391037922](https://github.com/nakatamaho/vaeg/actions/runs/29391037922)
+for convergence-policy SHA
+`1abb3ef90b1dc9305220d46499eee82613cdd30f` also passed all seven jobs.
+The new convergence CTest passed in the native Windows and macOS unit suites
+and the Ubuntu GCC, Clang, and ASan/UBSan suites. The standalone job passed
+raw and wrapper ZEX plus archive exclusion. Job runtimes were Windows 486
+seconds, macOS 158, Ubuntu GCC 86, Ubuntu Clang 92, Ubuntu ASan/UBSan 85,
+standalone conformance 517, and repository invariants 7.
 
 ## Verified facts, limitations, and hypotheses
 
