@@ -53,6 +53,8 @@ evidence uses neutral identifiers only.
 | `0e625c49ab624f7f1da92aa7ab8343844cb3bc40` | `M41: enforce single-core CI and archive audits` |
 | `5c855dd3c2823fc480f4ec12ca68902fa401beb3` | `M41: document the final Z80 production design` |
 | `753ab46592aa7e19534cb9e357c1a7e7d8feaaf6` | `M41: record local and private cutover evidence` |
+| `149bff9a76eaed78e7164ebe97b58f9d1bf5b8c6` | `M41: record hosted cutover validation` |
+| `c0a124da042cfffa3b5b1453b7a02d184b77f258` | `M41: include Z80 license in runtime packages` |
 
 The ending and remote SHA are reported in the final G41 handoff.
 
@@ -106,7 +108,8 @@ in ADRs, tasks, reports, the migration master, frozen-reference attribution,
 and the archive checker's forbidden-path list. No active source include,
 CMake source list, CI selector, or packaging input refers to them.
 
-Changed tracked paths are `.github/workflows/build.yml`, `AGENTS.md`,
+Changed tracked paths are `.github/workflows/build.yml`,
+`.github/workflows/release.yml`, `AGENTS.md`,
 `CHANGES.20260713.md`, `CMakeLists.txt`, `README.md`, `assets/NOTICE.md`,
 `dist/readme-dist.txt`, the M41/ADR/roadmap/master and modernization documents,
 `iova/subsystem.cpp`, the archive checker, retained Z80 trace sources/scripts,
@@ -245,11 +248,13 @@ python3 tests/z80/check_zex_archive.py \
 tar -tzf build/vaeg-m41-linux-x86_64.tar.gz
 ```
 
-Result: the source archive checked 991 files and the release-workflow-equivalent
-runtime archive checked five files; both contained no deleted path, copied
+Result: the ending source archive checked 992 files and the
+release-workflow-equivalent runtime archive checked six files; both contained
+no deleted path, copied
 legacy hash, ZEX input, private media, patch work tree, or unrecorded external
-source. A negative exact-path/copy fixture and a neutral `.d88` fixture were
-both rejected by the checker.
+source. The runtime archive contains the byte-identical upstream MIT text as
+`licenses/suzukiplan-z80.txt`. A negative exact-path/copy fixture and a neutral
+`.d88` fixture were both rejected by the checker.
 
 ### Required source audit
 
@@ -286,7 +291,10 @@ The approved base remains
 `8a606eb39332a6e79b69bb62d9dedca042b923dc`. The vendored code retains MIT;
 the wrapper, codec, and disassembler retain BSD-2-Clause. Documentation says
 the removed files were removed from current HEAD, not relicensed. Git history
-was not rewritten.
+was not rewritten. Linux, Windows, and macOS release staging copies the
+unchanged upstream MIT text to `licenses/suzukiplan-z80.txt`; its runtime-copy
+SHA-256 remains
+`ca7261ecf96ab7fea40c4c66aeb644710d210bd71418d285a9dd0098a7bddff1`.
 
 ## Platform status and risks
 
