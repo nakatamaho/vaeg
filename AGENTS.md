@@ -5,9 +5,10 @@ is abandoned; this fork is the living tree.
 
 The active tree is the portable CMake build: C core, SDL2 frontend under
 `sdl2/`, Dear ImGui GUI, and macOS / Linux / Windows-MinGW support. It
-uses `i286c/` for the CPU, `cpucva/z80c.cpp` for the Z80 side,
-`sound/opngenc.c` for OPN generation (never define `OPNGENX86`), and
-`cpucva/memoryva.c` for the VA memory layer.
+uses `i286c/` for the main CPU, the suzukiplan-backed wrapper in
+`cpucva/z80_core.cpp` for the Z80 side, `sound/opngenc.c` for OPN
+generation (never define `OPNGENX86`), and `cpucva/memoryva.c` for the VA
+memory layer.
 
 A frozen reference tier remains for behavior archaeology only:
 
@@ -62,6 +63,11 @@ Release notes may summarize the ledger but do not replace it.
   notes. New paths must otherwise be lowercase.
 - Never modify binary payloads: `romimage/`, ROM/disk images, fonts,
   icons, cursors, wave data.
+- Treat private integration asset identities as sensitive. Tracked files must
+  use neutral stable test identifiers; do not record private filenames,
+  absolute paths, or hashes unless the maintainer explicitly authorizes that
+  exact metadata. Keep raw private screenshots, logs, traces, and save files
+  outside Git, and never stage, commit, or push them.
 - Never re-encode, re-wrap, or reformat lines you are not changing.
 
 ## Hard rules
@@ -76,7 +82,11 @@ Release notes may summarize the ledger but do not replace it.
   `hlp/`) are reference-only. Do not edit them unless a task explicitly
   says to update the reference tier.
 - Core code (root, `io/`, `sound/`, `cbus/`, `vram/`, `*va/`, `i286c/`)
-  stays C. C++17 is allowed only under `sdl2/` (frontend + GUI).
+  stays C. C++17 is allowed under `sdl2/` (frontend + GUI) and, when an
+  approved third-party CPU core requires it, for CPU backends and thin
+  compatibility adapters under `cpucva/`. C++ and STL types must not cross
+  existing C-facing subsystem or state-save interfaces. Other newly written
+  emulator-core code remains C99 unless an ADR separately approves it.
 - Vendored third-party code lives under `external/` with the exact
   version recorded in `docs/agents/DECISIONS/`. Never hand-edit it.
 - Run the machine checks named in your task file (`tools/repo/*.py`,
