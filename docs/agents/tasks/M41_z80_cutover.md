@@ -22,7 +22,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 -->
 # M41: Cut over to the replacement Z80 and remove the legacy implementation
 
-Status: implemented; final G41 public validation in progress
+Status: complete; G41 passed
 
 Branch: `topic/m41-z80-cutover`
 

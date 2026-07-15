@@ -24,8 +24,8 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ## Status
 
-Accepted through G40; M41 implementation and private validation are complete,
-with final public validation in progress. The maintainer
+Accepted through G41. M41 implementation, private validation, release audit,
+and native Linux/Windows/macOS hosted CI passed. The maintainer
 approved the reproducible downstream patch and documented callback test matrix
 as sufficient M35 provenance on 2026-07-15. M36 reproduced and vendored the
 approved tree, G36 passed, and the maintainer explicitly authorized M37. The
