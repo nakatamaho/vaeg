@@ -2,11 +2,17 @@
 
 ## Status
 
-Planning and evidence milestone only.
+Planning and evidence milestone implemented; awaiting G34 maintainer review.
 
 Do not vendor or integrate a replacement Z80 core in this milestone.
 Do not begin M35.
 Stop at gate G34 and wait for explicit maintainer approval.
+
+M34 evidence corrected one premise below: with the current positive subsystem
+clock multiplier, both normal execution and external WAIT return from
+`Z80C::Exec()` only after `remainclock` becomes zero or negative. A positive
+revision-1 field remains codec input coverage, but is not a proven production
+return state. See `docs/modernization/z80-legacy-contract.md` and ADR-0011.
 
 ## Required references
 
