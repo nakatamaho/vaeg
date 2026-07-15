@@ -676,6 +676,49 @@ if(VAEG_ENABLE_TESTS)
     if(VAEG_WERROR)
         target_compile_options(vaeg_z80_legacy_contract PRIVATE -Werror)
     endif()
+
+    add_library(vaeg_z80_trace_common STATIC
+        tests/z80/differential/trace_common.cpp)
+    target_include_directories(vaeg_z80_trace_common PUBLIC
+        "${CMAKE_CURRENT_SOURCE_DIR}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tests/z80/differential")
+    target_compile_features(vaeg_z80_trace_common PUBLIC cxx_std_17)
+    target_compile_options(vaeg_z80_trace_common PRIVATE
+        -Wall -fsigned-char)
+
+    add_executable(vaeg_z80_legacy_trace
+        tests/z80/differential/legacy_trace.cpp
+        cpucva/z80c.cpp
+        cpucva/z80diag.cpp)
+    target_include_directories(vaeg_z80_legacy_trace PRIVATE
+        ${VAEG_INCLUDE_DIRS})
+    target_link_libraries(vaeg_z80_legacy_trace PRIVATE
+        vaeg_z80_trace_common)
+    target_compile_options(vaeg_z80_legacy_trace PRIVATE
+        -Wall -fsigned-char)
+
+    add_executable(vaeg_z80_new_trace
+        tests/z80/differential/new_trace.cpp)
+    target_link_libraries(vaeg_z80_new_trace PRIVATE
+        vaeg_z80_trace_common vaeg_z80_wrapper_no_functional)
+    target_compile_options(vaeg_z80_new_trace PRIVATE
+        -Wall -fsigned-char)
+
+    add_executable(vaeg_z80_trace_compare
+        tests/z80/differential/trace_compare.cpp)
+    target_include_directories(vaeg_z80_trace_compare PRIVATE
+        "${CMAKE_CURRENT_SOURCE_DIR}/tests/z80/differential")
+    target_compile_features(vaeg_z80_trace_compare PRIVATE cxx_std_17)
+    target_compile_options(vaeg_z80_trace_compare PRIVATE
+        -Wall -fsigned-char)
+
+    if(VAEG_WERROR)
+        foreach(target vaeg_z80_trace_common vaeg_z80_new_trace
+                       vaeg_z80_trace_compare)
+            target_compile_options(${target} PRIVATE -Werror)
+        endforeach()
+    endif()
+
     add_test(NAME vaeg_z80_legacy_contract
         COMMAND vaeg_z80_legacy_contract)
     add_test(NAME vaeg_z80_header_default
@@ -694,6 +737,19 @@ if(VAEG_ENABLE_TESTS)
         COMMAND vaeg_z80_wrapper_default)
     add_test(NAME vaeg_z80_wrapper_no_functional
         COMMAND vaeg_z80_wrapper_no_functional_test)
+    foreach(differential_suite directed state generated)
+        add_test(NAME vaeg_z80_differential_${differential_suite}
+            COMMAND "${CMAKE_COMMAND}"
+                "-DLEGACY_RUNNER=$<TARGET_FILE:vaeg_z80_legacy_trace>"
+                "-DNEW_RUNNER=$<TARGET_FILE:vaeg_z80_new_trace>"
+                "-DCOMPARATOR=$<TARGET_FILE:vaeg_z80_trace_compare>"
+                "-DSUITE=${differential_suite}"
+                "-DCASES=128"
+                "-DOUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR}/z80-differential"
+                -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/z80/differential/run_differential.cmake")
+        set_tests_properties(vaeg_z80_differential_${differential_suite}
+            PROPERTIES LABELS "romless;z80;differential" TIMEOUT 120)
+    endforeach()
     if(VAEG_ZEX_ARTIFACT_DIR)
         get_filename_component(VAEG_ZEX_ARTIFACT_DIR_ABSOLUTE
             "${VAEG_ZEX_ARTIFACT_DIR}" ABSOLUTE)
