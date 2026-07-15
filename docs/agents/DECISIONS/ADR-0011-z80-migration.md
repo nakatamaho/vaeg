@@ -24,10 +24,11 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ## Status
 
-Accepted at G34 and G35. The maintainer approved the reproducible downstream
+Accepted through G37. The maintainer approved the reproducible downstream
 patch and documented callback test matrix as sufficient M35 provenance on
-2026-07-15, then passed G35 and explicitly authorized M36. M36 has reproduced
-and vendored the approved tree and is stopped at G36 for review.
+2026-07-15. M36 reproduced and vendored the approved tree, G36 passed, and the
+maintainer explicitly authorized M37. The standalone M37 implementation and
+all configured hosted-platform jobs passed; work is stopped at G37.
 
 ## Decision
 
@@ -233,6 +234,53 @@ wall-clock limits. Its acquisition helper pins the approved base URLs and
 verifies the two `.cim` files, two GPL `.src` files, and license. These external
 inputs remain outside Git and release packages. Archive checks reject both
 their expected names and their content hashes.
+
+## M37 standalone wrapper and revision-1 codec result
+
+M37 added the independently authored `z80_bus.h`, `z80_registers.h`,
+`z80_legacy_state.*`, and `z80_core.*` components named above. The public
+surface retains the used `Z80C` constructor, destructor, `Init`, `Exec`,
+`Reset`, `IRQ`, `Wait`, status methods, `GetReg`, and placeholder `GetDiag`,
+plus the approved architectural `GetPC`, `SetPC`, and `NMI`. `TestIntr`,
+`GetWaits`, `IsIntr`, dump controls, and statistics were not reproduced. No
+STL or third-party type crosses the consumer-visible headers.
+
+The wrapper owns a public register mirror separate from the authoritative
+third-party register state. `GetReg()` returns that mirror; `Exec()` refreshes
+it only on return, while `GetPC()` and status save use the authoritative live
+PC. A synthetic port callback at the production SLEEP_HACK PC proves that the
+callback sees the old mirror PC while `GetPC()` sees the advanced PC. Memory,
+I/O, level IRQ, acceptance acknowledge, and fine-grained clock callbacks are
+adapted without a wrapper-side interrupt approximation. NMI remains the
+synchronous vaeg operation and copies IFF1 to IFF2 before clearing IFF1.
+
+The revision-1 codec is an explicit 68-byte little-endian representation. It
+does not reinterpret an input buffer as runtime state. Its offsets remain AF
+0, HL 4, DE 8, BC 12, IX 16, IY 20, SP 24, alternate pairs 28/32/36/40, PC 44,
+I/R-low/R7/IM/IFF1/IFF2 at 48/49/50/51/52/53, IRQ 56, wait 57, `xf` 58,
+revision 59, remaining clock 60, and last clock 64. All 15 retained M34 images
+load. HALT load adds one to the legacy opcode PC and save subtracts one from
+the authoritative post-HALT PC. Architectural AF is authoritative; load
+ignores the legacy lazy-flag `xf`, and save writes deterministic F bits 3 and
+5. The ordinary retained fixture therefore normalizes its historical `xf`
+byte rather than reproducing uninitialized state.
+
+Every retained fixture has wait bit 2 clear. A clear bit imports no EI
+inhibition; a new boundary immediately after EI exports `execEI` in bit 2.
+Reloading that image executes the required following instruction before an
+asserted level IRQ is accepted. HALT, external WAIT, and EI occupy independent
+bits 0, 1, and 2. The focused continuation test produces the same next
+instruction, memory/I/O trace, architectural result, status image, and clock
+balance before and after reload. IRQ assertion is inspectable in the image,
+restored through the approved core setter, accepted as a level, and cleared
+from later images only when vaeg deasserts it.
+
+Two standalone libraries compile the wrapper with normal callbacks and
+`Z80_NO_FUNCTIONAL`; both use target-local release-oriented core definitions.
+The wrapper unit suite passes in both configurations. The separate wrapper
+ZEX runner passes ZEXDOC and ZEXALL. These libraries are not members of
+`VAEG_CORE_SOURCES`: the emulator still builds `cpucva/z80c.cpp`, and no
+production selection or guest-visible path changed in M37.
 
 ## Frame-boundary revision-1 state
 
