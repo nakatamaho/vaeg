@@ -22,7 +22,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 -->
 # M40: Replace Z80 disassembly and detach active legacy-header consumers
 
-Status: draft; blocked until the maintainer explicitly passes G39
+Status: implemented; local G40 validation complete, hosted gate pending
 
 Branch: `topic/m40-z80-disassembler`
 
@@ -59,3 +59,21 @@ Run invariants, all builds/CTest/smoke, exhaustive/golden tests on every
 platform, debugger spot check, and new-core system smoke. Both CPU selections
 must build, and the include graph must confine legacy files to the legacy CPU
 target. Push exact evidence and SHAs, then stop; do not cut over or delete.
+
+## Implementation result
+
+M40 independently authored the BSD-2-Clause decoder in `z80_disasm.*`, moved
+the production subsystem seam to its bounded API for both CPU selections, and
+removed the temporary M39 bridge and the new wrapper's inert `GetDiag()`
+placeholder. The portable active tree has no disassembly-string parser or
+interactive Z80 debugger; the frozen Win9x caller remains unchanged. Legacy
+diagnostic headers and implementation are confined to the still-selectable
+legacy CPU until M41, and all seven approved files remain present.
+
+The deterministic suite covers 3,844 exhaustive page/displacement cases, 31
+manually reviewed golden rows, buffers, wrapping, reserved encodings, repeated
+prefixes, and non-mutation. GCC, Clang, sanitizers, MinGW/Wine, ZEX, both
+production selections, and a sanitized dual-core private boot/live-memory
+spot check passed locally. Hosted Windows/macOS results and the final G40
+disposition are recorded in the M40 evidence report after the final branch is
+pushed.

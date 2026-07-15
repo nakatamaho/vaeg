@@ -24,8 +24,8 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ## Status
 
-Accepted through G38; M39 is implemented but its private-system gate is
-pending. The maintainer
+Accepted through G39; M40 is implemented and undergoing its final gate
+validation. The maintainer
 approved the reproducible downstream patch and documented callback test matrix
 as sufficient M35 provenance on 2026-07-15. M36 reproduced and vendored the
 approved tree, G36 passed, and the maintainer explicitly authorized M37. The
@@ -33,9 +33,9 @@ standalone M37 implementation and all configured hosted-platform jobs passed.
 M38 has a deterministic old/new harness. Its FDD-visible slice shift remains
 documented, and the maintainer-approved eventual-convergence test proves that
 the external effect is delayed but not lost, duplicated, reordered, or
-permanently divergent. G38 passed under the revised clock policy. M39 now has
-an opt-in production build and public ROM-less evidence, but no private boot,
-FDD, SLEEP_HACK, WAIT-wake, or active-transfer state result is claimed.
+permanently divergent. G38 passed under the revised clock policy. M39 added
+the opt-in production build and passed its public and maintainer-private boot,
+FDD, SLEEP_HACK, WAIT-wake, and state gates.
 
 ## Decision
 
@@ -414,6 +414,51 @@ woke through actual ATN under both cores. The task-permitted stable-idle
 alternative was used for the private HALT/idle case; private HALT assertion is
 not claimed. Tracked records use neutral asset identifiers and exclude private
 filenames, absolute paths, hashes, screenshots, raw traces, saves, and media.
+
+## M40 disassembler replacement
+
+M40 selects an independently authored vaeg decoder rather than adding an
+upstream-derived API. The approved vendored suzukiplan revision has
+execution-time debug strings but no public side-effect-free decoding API.
+`cpucva/z80_disasm.h` and `cpucva/z80_disasm.cpp` therefore implement the Z80
+encoding structure directly as new BSD-2-Clause vaeg code, Copyright (c) 2026
+Nakata Maho. No M88/cisc implementation or opcode table, GPL opcode table, or
+other disassembler implementation/table was copied or adapted. No vendored
+byte changed.
+
+The decoder accepts a fixed-width memory-reader callback and explicit output
+capacity and returns a 16-bit next PC, exact byte length, and status. STL use
+is implementation-private. Both production CPU selections compile this one
+decoder. `subsystem_disassemble_bounded()` is the capacity-aware C-facing seam;
+the old `subsystem_disassemble()` signature remains as a 64-byte compatibility
+adapter. Source inventory finds no active text parser and no interactive Z80
+debugger in the portable SDL2 frontend. The frozen Win9x debugger caller is
+unchanged.
+
+Canonical output is lower case with fixed-width `0x` hexadecimal operands,
+absolute wrapped relative targets, and signed IX/IY displacement syntax. Base,
+CB, ED, DD, FD, DDCB, and FDCB pages include SLL, index-register halves, and
+indexed-CB register-result forms. Reserved ED encodings use a deterministic
+`db` representation with their actual consumed length. Redundant index
+prefixes count toward length and ordered memory reads; the final DD/FD selects
+IX/IY. A stream with no finite boundary is rejected after 32 consecutive
+index prefixes with explicit prefix-limit status, zero length, and unchanged
+next PC.
+
+The reviewed golden data was generated from the new decoder and manually
+checked against documented Z80 encodings, not against the old disassembler.
+An independent test-side encoding classifier cross-checks lengths. The
+deterministic exhaustive corpus contains 3,844 cases and covers all 256 base,
+CB, ED, DD-following, and FD-following bytes plus all DDCB/FDCB final bytes at
+five displacements, repeated prefixes, and wrap boundaries. Buffer tests cover
+zero, one-byte, exact, truncated, large, null-reader, and prefix-limit output.
+
+Production subsystem disassembly no longer calls `Z80C::GetDiag()` and no
+active subsystem/debugger source includes `z80diag.h`, `z80if.h`, `z80.h`, or
+`types.h`. The M39 `z80diag_bridge` is removed. The selectable legacy CPU
+still owns its legacy diagnostic object for internal dump support, so the
+seven approved M88-derived files remain confined to that implementation until
+M41. M40 does not delete them, remove the legacy choice, or change the default.
 
 ## Frame-boundary revision-1 state
 
