@@ -129,11 +129,11 @@ public:
 	bool SaveStatus(UINT8 *buffer);
 	bool LoadStatus(const UINT8 *buffer);
 
-	uint IFCALL	Read8(uint addr);
-	void IFCALL Write8(uint addr, uint data);
+	std::uint32_t IFCALL Read8(std::uint32_t addr);
+	void IFCALL Write8(std::uint32_t addr, std::uint32_t data);
 
-	uint IFCALL In(uint port);
-	void IFCALL Out(uint port, uint data);
+	std::uint32_t IFCALL In(std::uint32_t port);
+	void IFCALL Out(std::uint32_t port, std::uint32_t data);
 
 
 
@@ -155,11 +155,11 @@ private:
 	Clock *clock;
 	bool waitactive;
 
-	uint _ram_rd(uint addr);
-	uint ram_rd(uint addr);
-	uint rom_rd(uint addr);
-	uint nonmem_rd(uint addr);
-	void ram_wt(uint addr, uint data);
+	std::uint32_t _ram_rd(std::uint32_t addr);
+	std::uint32_t ram_rd(std::uint32_t addr);
+	std::uint32_t rom_rd(std::uint32_t addr);
+	std::uint32_t nonmem_rd(std::uint32_t addr);
+	void ram_wt(std::uint32_t addr, std::uint32_t data);
 
 #if defined(VAEG_Z80_INTEGRATION_TESTING)
 public:
@@ -171,8 +171,8 @@ public:
 #endif
 
 #if defined(SLEEP_HACK)
-	bool SleepCheck_VA(uint portc);
-	bool SleepCheck_Sorcerian(uint portc);
+	bool SleepCheck_VA(std::uint32_t portc);
+	bool SleepCheck_Sorcerian(std::uint32_t portc);
 #endif
 };
 
@@ -328,28 +328,28 @@ BOOL Subsystem::TestGetState(VAEG_Z80_INTEGRATION_CPU_STATE *state) {
 }
 #endif
 
-uint Subsystem::_ram_rd(uint addr) {
+std::uint32_t Subsystem::_ram_rd(std::uint32_t addr) {
 	return subsystem.ram[addr-0x4000];
 }
 
-uint Subsystem::ram_rd(uint addr) {
+std::uint32_t Subsystem::ram_rd(std::uint32_t addr) {
 	return _ram_rd(addr);
 }
 
-void Subsystem::ram_wt(uint addr, uint data) {
+void Subsystem::ram_wt(std::uint32_t addr, std::uint32_t data) {
 	subsystem.ram[addr-0x4000] = data;
 }
 
-uint Subsystem::rom_rd(uint addr) {
+std::uint32_t Subsystem::rom_rd(std::uint32_t addr) {
 	return subsystem.rom[addr];
 }
 
-uint Subsystem::nonmem_rd(uint addr) {
+std::uint32_t Subsystem::nonmem_rd(std::uint32_t addr) {
 	return 0xff;
 }
 
 
-uint IFCALL Subsystem::Read8(uint addr) {
+std::uint32_t IFCALL Subsystem::Read8(std::uint32_t addr) {
 	switch(addr >> 13) {
 	case 0: return rom_rd(addr);
 	case 2: return ram_rd(addr);
@@ -358,7 +358,7 @@ uint IFCALL Subsystem::Read8(uint addr) {
 	}
 }
 
-void IFCALL Subsystem::Write8(uint addr, uint data) {
+void IFCALL Subsystem::Write8(std::uint32_t addr, std::uint32_t data) {
 	switch(addr >> 13) {
 	case 2: ram_wt(addr, data);
 	case 3: ram_wt(addr, data);
@@ -367,7 +367,7 @@ void IFCALL Subsystem::Write8(uint addr, uint data) {
 
 #if defined(SLEEP_HACK)
 // VA/2 の ROMの処理の場合
-bool Subsystem::SleepCheck_VA(uint portc) {
+bool Subsystem::SleepCheck_VA(std::uint32_t portc) {
 	return !(portc & 0x08) && _ram_rd(0x7f67)==0xff && z80->GetReg()->pc == 0x1732;
 	/*
 	  7f67 は サブシステムスリープ時 ffh, アクティブ時 00h
@@ -379,7 +379,7 @@ bool Subsystem::SleepCheck_VA(uint portc) {
 }
 
 // ソーサリアンの場合
-bool Subsystem::SleepCheck_Sorcerian(uint portc) {
+bool Subsystem::SleepCheck_Sorcerian(std::uint32_t portc) {
 	return !(portc & 0x08) && z80->GetReg()->pc == 0x700e;
 	/*
 	  700e のコードでポートfehからinしている
@@ -387,8 +387,8 @@ bool Subsystem::SleepCheck_Sorcerian(uint portc) {
 }
 #endif
 
-uint IFCALL Subsystem::In(uint port) {
-	uint ret = 0xff;
+std::uint32_t IFCALL Subsystem::In(std::uint32_t port) {
+	std::uint32_t ret = 0xff;
 
 	switch(port) {
 	case 0xf8:
@@ -460,7 +460,7 @@ uint IFCALL Subsystem::In(uint port) {
 	return ret;
 }
 
-void IFCALL Subsystem::Out(uint port, uint dat) {
+void IFCALL Subsystem::Out(std::uint32_t port, std::uint32_t dat) {
 	TRACEOUT(("subsys: out: %02x <- %02x  [%04x]", port, dat, z80->GetReg()->pc));
 	Z80TRACE(("z80trace core=%s event=out port=%02x value=%02x live=%04x public=%04x",
 			Z80CORENAME, (unsigned)(port & 0xff),
