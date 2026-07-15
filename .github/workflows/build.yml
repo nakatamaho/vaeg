@@ -45,7 +45,7 @@ jobs:
         run: python3 tools/repo/check_case.py
 
   linux:
-    name: ubuntu ${{ matrix.compiler }} ${{ matrix.core }} z80
+    name: ubuntu ${{ matrix.compiler }} z80
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -53,16 +53,8 @@ jobs:
         include:
           - compiler: gcc
             preset: linux-ci-gcc
-            core: legacy
-          - compiler: gcc
-            preset: linux-ci-gcc
-            core: suzukiplan
           - compiler: clang
             preset: linux-ci-clang
-            core: legacy
-          - compiler: clang
-            preset: linux-ci-clang
-            core: suzukiplan
     steps:
       - uses: actions/checkout@v4
       - name: Install dependencies
@@ -70,9 +62,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y cmake ninja-build pkg-config libsdl2-dev gcc g++ clang
       - name: Configure
-        run: >-
-          cmake --preset ${{ matrix.preset }}
-          -DVAEG_Z80_CORE=${{ matrix.core }}
+        run: cmake --preset ${{ matrix.preset }}
       - name: Build
         run: cmake --build --preset ${{ matrix.preset }}
       - name: Smoke
@@ -82,7 +72,7 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: vaeg-linux-${{ matrix.compiler }}-${{ matrix.core }}-z80
+          name: vaeg-linux-${{ matrix.compiler }}-z80
           path: build/${{ matrix.preset }}/sdl2/vaeg
 
   z80-conformance:
@@ -118,25 +108,21 @@ jobs:
           vaeg_z80_wrapper_default
           vaeg_z80_wrapper_no_functional_test
           vaeg_z80_wrapper_zex_runner
-          vaeg_z80_legacy_trace
-          vaeg_z80_new_trace
+          vaeg_z80_trace_reference
+          vaeg_z80_trace_repeat
           vaeg_z80_trace_compare
       - name: Run standalone conformance
         run: >-
           ctest --test-dir build/linux-ci-gcc --output-on-failure
-          -R '^vaeg_z80_(header|interrupt|wrapper|zex|differential)'
+          -R '^vaeg_z80_(header|interrupt|wrapper|zex|regression)'
       - name: Verify source archive excludes external ZEX inputs
         run: |
           git archive --format=tar.gz --output=/tmp/vaeg-source.tar.gz HEAD
           python3 tests/z80/check_zex_archive.py /tmp/vaeg-source.tar.gz
 
   linux-asan:
-    name: ubuntu asan ${{ matrix.core }} z80
+    name: ubuntu asan z80
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        core: [legacy, suzukiplan]
     steps:
       - uses: actions/checkout@v4
       - name: Install dependencies
@@ -144,9 +130,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y cmake ninja-build pkg-config libsdl2-dev gcc g++
       - name: Configure
-        run: >-
-          cmake --preset linux-ci-asan
-          -DVAEG_Z80_CORE=${{ matrix.core }}
+        run: cmake --preset linux-ci-asan
       - name: Build
         run: cmake --build --preset linux-ci-asan
       - name: Smoke
@@ -161,12 +145,8 @@ jobs:
             ctest --test-dir build/linux-ci-asan --output-on-failure
 
   windows:
-    name: windows msys2 mingw64 ${{ matrix.core }} z80
+    name: windows msys2 mingw64 z80
     runs-on: windows-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        core: [legacy, suzukiplan]
     defaults:
       run:
         shell: msys2 {0}
@@ -185,9 +165,7 @@ jobs:
             mingw-w64-x86_64-gcc
             mingw-w64-x86_64-pkgconf
       - name: Configure
-        run: >-
-          cmake --preset mingw-ci
-          -DVAEG_Z80_CORE=${{ matrix.core }}
+        run: cmake --preset mingw-ci
       - name: Build
         run: cmake --build --preset mingw-ci
       - name: Smoke
@@ -210,16 +188,12 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: vaeg-windows-mingw64-${{ matrix.core }}-z80
+          name: vaeg-windows-mingw64-z80
           path: build/mingw-ci/artifact/
 
   macos:
-    name: macos fetch-sdl2 ${{ matrix.core }} z80
+    name: macos fetch-sdl2 z80
     runs-on: macos-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        core: [legacy, suzukiplan]
     steps:
       - uses: actions/checkout@v4
       - name: Install build tools
@@ -229,7 +203,7 @@ jobs:
           # Maintainer baseline is MacPorts, but MacPorts is impractical on
           # hosted runners. CI uses pinned FetchContent SDL2 and links it
           # statically through macos-ci, as recorded in ADR-0006.
-          cmake --preset macos-ci -DVAEG_Z80_CORE=${{ matrix.core }}
+          cmake --preset macos-ci
       - name: Build
         run: |
           set +e
@@ -250,5 +224,5 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: vaeg-macos-${{ matrix.core }}-z80
+          name: vaeg-macos-z80
           path: build/macos-ci/sdl2/vaeg
