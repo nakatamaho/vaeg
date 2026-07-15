@@ -24,7 +24,8 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ## Status
 
-Accepted through G38. The maintainer
+Accepted through G38; M39 is implemented but its private-system gate is
+pending. The maintainer
 approved the reproducible downstream patch and documented callback test matrix
 as sufficient M35 provenance on 2026-07-15. M36 reproduced and vendored the
 approved tree, G36 passed, and the maintainer explicitly authorized M37. The
@@ -32,8 +33,9 @@ standalone M37 implementation and all configured hosted-platform jobs passed.
 M38 has a deterministic old/new harness. Its FDD-visible slice shift remains
 documented, and the maintainer-approved eventual-convergence test proves that
 the external effect is delayed but not lost, duplicated, reordered, or
-permanently divergent. G38 passed under the revised clock policy; M39 has not
-started.
+permanently divergent. G38 passed under the revised clock policy. M39 now has
+an opt-in production build and public ROM-less evidence, but no private boot,
+FDD, SLEEP_HACK, WAIT-wake, or active-transfer state result is claimed.
 
 ## Decision
 
@@ -339,7 +341,48 @@ still a mandatory M39 private integration risk. M39 must stop production
 integration if real VA/FDD testing finds a transfer failure, timeout,
 corrupted data, changed IRQ/DRQ sequencing, or broken save/load behavior.
 M38 adds no legacy per-opcode timing emulation. G38 passed and work remains
-stopped before M39.
+subject to the M39 private-system gate.
+
+## M39 production integration
+
+M39 adds one build-time CMake cache selection with exactly
+`VAEG_Z80_CORE=legacy|suzukiplan`; `legacy` remains the default. The
+production `vaeg_va` target compiles `cpucva/z80c.cpp` only for `legacy`, or
+`cpucva/z80_core.cpp` plus `cpucva/z80_legacy_state.cpp` only for
+`suzukiplan`. It never links both `Z80C` implementations, and there is no
+runtime toggle. The vendored tree and approved M35 patch remain byte-unchanged.
+
+The C subsystem seam and consumer signatures remain stable. The new selection
+uses the same memory, eight-bit port, clock, level IRQ, and acceptance-time
+acknowledge interfaces. Because M40 is not authorized, both selections still
+compile the legacy `z80diag.cpp`; the new selection calls it through an
+independent function-pointer memory bridge in a separate translation unit.
+No M88 declaration, type, or disassembler object crosses the new wrapper's
+consumer-visible interface.
+
+The production state bridge now propagates `SaveStatus()` and `LoadStatus()`
+failure through `statsave.c`. A copied valid state with only embedded Z80
+revision changed to 2 is rejected by the top-level load path. Successful load
+also refreshes the subsystem's diagnostic WAIT mirror from revision-1 byte 57
+bit 1; the restored CPU state remains authoritative. The status size, offsets,
+HALT translation, external IRQ level, EI bit 2, and frame-call boundary are
+unchanged.
+
+ROM-less tests under both production selections preserve the VA and Sorcerian
+SLEEP_HACK constants. At the callback, live PC is after `IN (0xfe)` while the
+public mirror still contains `0x1732` or `0x700e`; at `Exec()` return the
+mirror catches up. WAIT drains clocks, ATN releases it, and execution resumes.
+The focused synthetic EI-before-VA-IN case confirms the M38 scheduling
+hypothesis under the new core without changing a magic constant. The tests
+also require exactly one production `OUT (0xf4),0x5a` across a state boundary.
+
+These results do not discharge the M38 timing risk. The committed private
+manifest requires separate legacy/new VA/V3 boot, FDD read/write and
+timing-sensitive loaders, IRQ/DRQ/`0xf4` evidence, actual VA and Sorcerian
+sleep/wake paths, and legacy-to-new/new-to-new state during logical FDD
+activity. Missing or reordered events, timeout, corruption, changed IRQ/DRQ,
+failed sleep/wake, or altered completion after load blocks G39. The default
+cannot change until the maintainer explicitly passes that gate.
 
 ## Frame-boundary revision-1 state
 
@@ -432,10 +475,11 @@ historical G35 recommendation rather than a current authorization statement.
 - Genuine revision-1 images are compiler-shaped. Local native GCC/Clang and
   cross-target layout probes agree, but Windows and macOS CI must execute the
   fixture target before M37 freezes per-family codecs.
-- Actual private-ROM IM0 acceptance bytes are not yet observed. M39 must log
-  only at real acceptance; static code permits every byte.
-- SLEEP_HACK depends on the stale callback-time `GetReg()->pc` mirror and
-  requires private VA, Sorcerian, and ATN wake testing at G39.
+- Actual private-ROM IM0 acceptance bytes are not yet observed. Optional M39
+  tracing logs them only at real acceptance; static code permits every byte.
+- ROM-less M39 tests preserve SLEEP_HACK's stale callback-time
+  `GetReg()->pc` mirror, both constants, clock drain, and ATN wake. Actual VA
+  and Sorcerian asset testing remains required at G39.
 - The M34 task/master claim that positive remaining credit can be present
   after `Exec()` conflicts with current code; the verified zero/negative
   boundary governs implementation.

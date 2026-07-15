@@ -115,16 +115,17 @@ system-wide application icon from this unpacked-binary distribution.
 
 The M12 workflow is `.github/workflows/build.yml`. It covers:
 
-- Ubuntu with system SDL2 from `apt`, in separate gcc and clang jobs.
+- Ubuntu with system SDL2 from `apt`, in separate gcc and clang jobs for both
+  production Z80 selections.
 - Ubuntu ASan/UBSan smoke. The known UBSan backlog messages documented in
   `../agents/reports/ubsan_backlog.md` may appear, but sanitizer process
-  failures still fail the job.
+  failures still fail the job. Both Z80 selections are covered.
 - Windows on `windows-latest` through MSYS2/MINGW64 with pinned static
-  FetchContent SDL2.
+  FetchContent SDL2, for both Z80 selections.
 - macOS on `macos-latest` with `VAEG_FETCH_SDL2=ON`. The maintainer
   baseline remains MacPorts, but MacPorts is impractical on hosted
   runners; this CI job deliberately exercises the pinned FetchContent path
-  from ADR-0006.
+  from ADR-0006. Both Z80 selections build and run ROM-less tests natively.
 
 CI has no ROMs or disk images by design. `--smoke` therefore runs in a
 reduced-scope ROM-less mode on hosted runners: SDL initialization, core
@@ -193,8 +194,9 @@ not cross that interface. The corresponding `vaeg_z80_wrapper_default` and
 public-register mirror, and revision-1 state contracts. When a verified ZEX
 cache is configured, `vaeg_z80_wrapper_zexdoc` and
 `vaeg_z80_wrapper_zexall` run the same external inputs through the wrapper.
-These targets are standalone conformance only: the emulator target continues
-to compile `cpucva/z80c.cpp` and does not link either wrapper library.
+These targets remain standalone conformance. M39 can also compile the wrapper
+directly into the production `vaeg_va` target through the opt-in selection
+below; the default emulator build still uses `cpucva/z80c.cpp`.
 
 M38 adds separate legacy/new canonical trace runners and a comparator. The
 ordinary CI corpus is deterministic and ROM-less:
@@ -226,6 +228,41 @@ divergence documented in `docs/agents/reports/m38_z80_differential.md`.
 and initial `1,7` slices receive identical additional `4,1` slices, after
 which ordered events and final machine-visible state converge with exactly
 one `OUT (0xf4),0x5a` from each runner.
+
+## M39 production Z80 selection
+
+The default remains the legacy core. Configure explicit, separate build trees
+to compare the two production choices:
+
+```sh
+cmake --preset linux-ci-gcc -DVAEG_Z80_CORE=legacy
+cmake --build --preset linux-ci-gcc
+
+cmake -S . -B build/linux-suzukiplan -G Ninja \
+  -DCMAKE_BUILD_TYPE=Release \
+  -DVAEG_ENABLE_TESTS=ON \
+  -DVAEG_Z80_CORE=suzukiplan
+cmake --build build/linux-suzukiplan
+ctest --test-dir build/linux-suzukiplan --output-on-failure
+```
+
+Only `legacy` and `suzukiplan` are valid, and the choice is build-time only.
+The selected implementation is the only `Z80C` linked into the emulator. The
+ROM-less selftest exercises the selected production subsystem, including the
+revision-1 state bridge, SLEEP_HACK/WAIT behavior, acknowledge timing, and a
+port-`0xf4` state boundary. See [Z80 production integration](z80-integration.md)
+for the contract and trace command.
+
+Public CI performs native Linux, Windows, and macOS build/smoke/CTest for both
+choices. The dedicated conformance job runs raw/wrapper ZEX and the independent
+differential suite once because those executables do not use the production
+selection. The release workflow does not override the default and therefore
+continues to package the legacy choice during M39.
+
+Private ROM/disk testing is not public CI. Use the committed
+[M39 private integration manifest](z80-private-integration.md), record asset
+hashes and traces outside Git, and require explicit maintainer approval at
+G39. A boot alone is not sufficient.
 
 ROMs are deliberately absent from CI and release artifacts. Users place the
 VA unsuffixed ROM set or the MAME-compatible VA2/VA3 `*_va2.rom` set beside
