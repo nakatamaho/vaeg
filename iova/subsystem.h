@@ -25,8 +25,8 @@ BYTE subsystem_readmem(WORD addr);
 const struct Z80Reg *subsystem_getcpureg(void);
 WORD subsystem_disassemble(WORD pc, char *str);
 UINT subsystem_getcpustatussize(void);
-void subsystem_savecpustatus(UINT8 *buf);
-void subsystem_loadcpustatus(const UINT8 *buf);
+BOOL subsystem_savecpustatus(UINT8 *buf);
+BOOL subsystem_loadcpustatus(const UINT8 *buf);
 
 void subsystem_businporta(BYTE dat);
 void subsystem_businportc(BYTE dat);
@@ -35,8 +35,47 @@ void subsystem_businportc(BYTE dat);
 void subsystem_reset(void);
 void subsystem_irq(BOOL irq);
 
+#if defined(VAEG_Z80_INTEGRATION_TESTING)
+typedef struct {
+	UINT	f4_count;
+	BYTE	f4_last_value;
+	UINT	acknowledge_count;
+	UINT	fe_read_count;
+	UINT	wait_assert_count;
+	UINT	wait_release_count;
+	WORD	sleep_live_pc;
+	WORD	sleep_public_pc;
+	BYTE	sleep_path;
+	BYTE	sleep_port_value;
+	BYTE	sleep_memory_value;
+	BOOL	wait_active;
+} VAEG_Z80_INTEGRATION_TRACE_STATE;
+
+typedef struct {
+	UINT16	af;
+	UINT16	bc;
+	UINT16	de;
+	UINT16	hl;
+	UINT16	sp;
+	UINT16	live_pc;
+	UINT16	public_pc;
+	UINT8	irq;
+	UINT8	wait_flags;
+	SINT32	remainclock;
+	SINT32	lastclock;
+} VAEG_Z80_INTEGRATION_CPU_STATE;
+
+void subsystem_z80_test_reset(void);
+void subsystem_z80_test_install(WORD address, const UINT8 *data, UINT size);
+void subsystem_z80_test_set_pc(WORD pc);
+void subsystem_z80_test_set_clock(UINT32 now);
+void subsystem_z80_test_set_wait(BOOL wait);
+void subsystem_z80_test_reset_trace(void);
+void subsystem_z80_test_get_trace(VAEG_Z80_INTEGRATION_TRACE_STATE *trace);
+BOOL subsystem_z80_test_get_state(VAEG_Z80_INTEGRATION_CPU_STATE *state);
+#endif
+
 
 #ifdef __cplusplus
 }
 #endif
-
