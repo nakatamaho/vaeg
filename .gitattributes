@@ -20,3 +20,6 @@
 *.png binary
 *.ttf binary
 *.wav binary
+
+# Generated mail patch; embedded upstream context whitespace is patch data
+docs/agents/reports/m35_suzukiplan_irq_extension.patch -diff

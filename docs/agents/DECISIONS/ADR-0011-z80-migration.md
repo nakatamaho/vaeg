@@ -24,15 +24,16 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ## Status
 
-Accepted design for maintainer review at G34. Implementation is forbidden
-until each following gate passes.
+Accepted at G34. The M35 extension is technically verified, but G35 remains
+blocked until its format patch is published as an approved immutable upstream
+or fork commit. M36 remains forbidden until the maintainer passes G35.
 
 ## Decision
 
 Use `suzukiplan/z80` release `1.10.0`, commit
 `e3926769a790fab0af1c34a5540e317f8d4f0ddc`, as the replacement base. The
 upstream repository is `https://github.com/suzukiplan/z80`; its code is MIT
-licensed, Copyright (c) 2021-2023 Yoji Suzuki. At the inspected revision:
+licensed, Copyright (c) 2019 Yoji Suzuki. At the inspected revision:
 
 | Item | SHA-256 |
 |---|---|
@@ -152,6 +153,29 @@ registers, I/R, IFF, IM, HALT flag, and `execEI`; no broader import/export API
 is needed. Current vaeg has synchronous NMI and no pending-NMI caller or saved
 condition, so no pending NMI state is required.
 
+## M35 verified extension result
+
+The focused extension was implemented and tested from the exact selected base
+as local commit `b4a0a5a238fecc280781e6fe5719faf0eafcd667`. It adds
+`setIRQLine`, `isIRQLineAsserted`, an interrupt-acknowledge callback for both
+callback configurations, and normal-decoder IM0 injection. It retains the
+one-shot behavior for existing users that do not opt into the new APIs. The
+level line is inspectable and restorable, so M35 found no need for a broader
+state API.
+
+The MIT license blob is unchanged. M35 also corrected this ADR's former
+copyright claim: this file previously said `2021-2023`, while the selected
+base's `LICENSE.txt:3` and `z80.hpp:6` both say `Copyright (c) 2019 Yoji
+Suzuki`. This documentary correction does not change the license decision.
+
+An accessible maintainer fork was unavailable, so the directly applicable
+[M35 format patch](../reports/m35_suzukiplan_irq_extension.patch) is the
+approved fallback artifact for review. Its SHA-256 is
+`d8624085139ef4e7b400b918b2b498e79bea1af4a1942e4ac935545846e746a4`.
+The complete provenance, source references, and test record are in the
+[M35 evidence report](../reports/m35_suzukiplan_irq_extension.md). G35 cannot
+pass until the maintainer supplies or approves an immutable accessible commit.
+
 ## Frame-boundary revision-1 state
 
 Production save is initiated by the GUI only after `pccore_exec()` returns.
@@ -220,8 +244,10 @@ scope.
 
 ## M35 feasibility recommendation
 
-**GO WITH APPROVED MINIMAL FORK.** The recommendation remains upstream-first;
-"fork" is the approved fallback until an immutable upstream commit exists.
+**TECHNICAL GO; HOLD AT G35 FOR IMMUTABLE PUBLICATION.** The focused extension
+meets the contract and is suitable for a minimal MIT fork. Do not start M36
+until the format patch has an approved immutable accessible commit and the
+maintainer explicitly passes G35.
 
 | Area | Finding |
 |---|---|
