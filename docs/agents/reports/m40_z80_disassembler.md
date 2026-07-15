@@ -334,7 +334,7 @@ Hosted run
 [29411805128](https://github.com/nakatamaho/vaeg/actions/runs/29411805128)
 tested commit `c469c233da7de1640ff499ea5347353f63a8aa96` from
 2026-07-15 11:29:28 UTC through 11:38:06 UTC. It completed successfully with
-11/11 jobs:
+12/12 jobs:
 
 ```text
 repo invariants: success
