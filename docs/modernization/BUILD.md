@@ -196,6 +196,33 @@ cache is configured, `vaeg_z80_wrapper_zexdoc` and
 These targets are standalone conformance only: the emulator target continues
 to compile `cpucva/z80c.cpp` and does not link either wrapper library.
 
+M38 adds separate legacy/new canonical trace runners and a comparator. The
+ordinary CI corpus is deterministic and ROM-less:
+
+```sh
+cmake --build --preset linux-ci-gcc --target \
+  vaeg_z80_legacy_trace vaeg_z80_new_trace vaeg_z80_trace_compare
+ctest --test-dir build/linux-ci-gcc --output-on-failure \
+  -R '^vaeg_z80_differential_'
+```
+
+The public generated test uses seeds `0x4d383001` through `0x4d383004` and
+128 cases per seed. A longer maintainer-local run uses 4,096 cases per seed:
+
+```sh
+cmake \
+  -DLEGACY_RUNNER="$PWD/build/linux-ci-gcc/vaeg_z80_legacy_trace" \
+  -DNEW_RUNNER="$PWD/build/linux-ci-gcc/vaeg_z80_new_trace" \
+  -DCOMPARATOR="$PWD/build/linux-ci-gcc/vaeg_z80_trace_compare" \
+  -DSUITE=generated -DCASES=4096 \
+  -DOUTPUT_DIR=/tmp/vaeg-m38-long \
+  -P tests/z80/differential/run_differential.cmake
+```
+
+`--suite scheduling` is a deliberate G38 evidence case, not an ordinary
+green CTest. It currently reports the unallowlisted FDD port-`0xf4` timing
+divergence documented in `docs/agents/reports/m38_z80_differential.md`.
+
 ROMs are deliberately absent from CI and release artifacts. Users place the
 VA unsuffixed ROM set or the MAME-compatible VA2/VA3 `*_va2.rom` set beside
 the executable, together with the extra `vasubsys.rom`, using ROMs extracted
