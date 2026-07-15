@@ -313,6 +313,29 @@ separate parity correction or move it to Open Defects.
 - **Evidence:** [M30 VA BMS window task](../agents/tasks/M30_va_bms_window.md).
 - **Commit:** [11da283](https://github.com/nakatamaho/vaeg/commit/11da283a0ffa47fc4b645423e4324550d1438bcf).
 
+### Z80 state-codec rejection was ignored by the state coordinator
+
+- **Status:** fixed in M39.
+- **Symptom:** a save whose embedded Z80 status revision was unsupported could
+  continue through `statsave_load()` as though the subsystem CPU had restored
+  successfully, leaving a partially loaded machine rather than reporting the
+  incompatible state.
+- **Affected scope:** revision-1 subsystem state loading under both production
+  Z80 selections; valid revision-1 images are unchanged.
+- **Demonstrated root cause:** the subsystem C bridge returned `void` and
+  discarded `Z80C::LoadStatus()`'s Boolean result; `flagload_subsystemcpu()`
+  therefore had no failure to propagate.
+- **Correction:** return success/failure from the subsystem save/load bridge
+  and convert a codec rejection into `STATFLAG_FAILURE` in the existing state
+  coordinator. No scheduler or status-image layout changed.
+- **Verification:** the ROM-less state test saves a valid complete state,
+  copies it, changes only revision-1 byte 59 to unsupported revision 2, and
+  requires top-level `statsave_load()` failure under both `legacy` and
+  `suzukiplan`; the original image then loads and re-saves successfully.
+- **Evidence:** [M39 integration task](../agents/tasks/M39_z80_integration.md)
+  and [M39 integration contract](z80-integration.md#state-boundary-and-error-handling).
+- **Commit:** [23b7071](https://github.com/nakatamaho/vaeg/commit/23b70711b84deb027a1c8dbf11e6284b65d0d4fe).
+
 ## Open Defects
 
 ### Legacy Z80 reset leaves saved undocumented flag bits uninitialized

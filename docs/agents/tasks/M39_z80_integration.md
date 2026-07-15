@@ -22,7 +22,8 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 -->
 # M39: Integrate an opt-in replacement Z80 subsystem
 
-Status: draft; blocked until the maintainer explicitly passes G38
+Status: implemented for public/ROM-less validation; G38 passed; awaiting the
+maintainer-private G39 system tests
 
 Branch: `topic/m39-z80-integration`
 
@@ -69,3 +70,28 @@ normal VA idle, Sorcerian idle, ATN/8255 wake, legacy-save-to-new load during
 FDD activity, repeated reset, and model changes. G39 requires explicit
 maintainer confirmation under `suzukiplan`; build/ZEX alone is insufficient.
 Push and report exact SHAs/results, then stop.
+
+## M39 implementation record
+
+`VAEG_Z80_CORE` is a target-local CMake cache selection with exactly
+`legacy` and `suzukiplan`; the default is `legacy`. The production target
+compiles only the selected implementation. The new choice uses the M37 wrapper
+and revision-1 codec without changing the vendored tree. The existing legacy
+disassembler remains compiled for both selections through a separate callback
+bridge; M40 work has not started.
+
+ROM-less production-seam tests exercise ordinary execution, public mirror,
+acceptance-time acknowledge, SLEEP_HACK/WAIT wake, retained and new state,
+codec failure propagation, EI bit 2, signed clock fields, and a single
+production port-`0xf4` event across a save/load boundary. Public CI is a
+legacy/suzukiplan matrix on Linux GCC/Clang, ASan/UBSan, native hosted Windows,
+and native hosted macOS. Standalone ZEX and differential conformance remains a
+single independent job because those targets do not use the production
+selection.
+
+The private manifest is
+[`docs/modernization/z80-private-integration.md`](../../modernization/z80-private-integration.md).
+No private asset was available in the agent workspace, and the four known
+untracked paths were not used. G39 cannot pass on public evidence alone; stop
+at this gate until the maintainer records the required dual-core boot, FDD,
+SLEEP_HACK, WAIT, and state results.
