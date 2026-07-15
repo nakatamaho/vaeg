@@ -33,6 +33,11 @@ option(VAEG_ENABLE_ARCHIVE_DROP
     "Enable archive disk-image drag and drop when LibArchive is available" ON)
 option(VAEG_FETCH_LIBARCHIVE
     "Fetch pinned static archive dependencies instead of using system LibArchive" OFF)
+set(VAEG_Z80_CORE "legacy" CACHE STRING
+    "Production Z80 core (legacy or suzukiplan)")
+set_property(CACHE VAEG_Z80_CORE PROPERTY STRINGS legacy suzukiplan)
+option(VAEG_Z80_INTEGRATION_TRACE
+    "Compile deterministic subsystem Z80/FDD integration tracing" OFF)
 set(VAEG_ZEX_ARTIFACT_DIR "" CACHE PATH
     "Offline directory containing the five hash-verified ZEX artifacts")
 
@@ -262,12 +267,27 @@ set(VAEG_CORE_SOURCES
     statsave.c
     debugsub.c)
 
+if(VAEG_Z80_CORE STREQUAL "legacy")
+    set(VAEG_Z80_PRODUCTION_SOURCES
+        cpucva/z80c.cpp
+        cpucva/z80diag.cpp)
+elseif(VAEG_Z80_CORE STREQUAL "suzukiplan")
+    set(VAEG_Z80_PRODUCTION_SOURCES
+        cpucva/z80_core.cpp
+        cpucva/z80_legacy_state.cpp
+        cpucva/z80diag.cpp
+        cpucva/z80diag_bridge.cpp)
+else()
+    message(FATAL_ERROR
+        "VAEG_Z80_CORE must be legacy or suzukiplan, got: ${VAEG_Z80_CORE}")
+endif()
+message(STATUS "Production Z80 core: ${VAEG_Z80_CORE}")
+
 set(VAEG_VA_SOURCES
     biosva/biosva.c
     cpucva/gvramva.c
     cpucva/memoryva.c
-    cpucva/z80c.cpp
-    cpucva/z80diag.cpp
+    ${VAEG_Z80_PRODUCTION_SOURCES}
     iova/bkupmemva.c
     iova/boardsb2.c
     iova/cgromva.c
@@ -335,6 +355,9 @@ set(VAEG_SDL2_SOURCES
     sdl2/commng.c
     sdl2/fontmng.c
     sdl2/gui/gui.cpp)
+if(VAEG_ENABLE_TESTS)
+    list(APPEND VAEG_SDL2_SOURCES tests/z80/subsystem_integration.cpp)
+endif()
 
 set(VAEG_SPLASH_DATA "${CMAKE_CURRENT_BINARY_DIR}/generated/vaeg_splash_data.c")
 add_custom_command(
@@ -417,6 +440,28 @@ add_library(vaeg_va STATIC ${VAEG_VA_SOURCES})
 target_include_directories(vaeg_va PUBLIC ${VAEG_INCLUDE_DIRS})
 target_link_libraries(vaeg_va PUBLIC vaeg_core vaeg_common)
 target_compile_options(vaeg_va PRIVATE -Wall -fsigned-char)
+if(VAEG_Z80_CORE STREQUAL "suzukiplan")
+    target_include_directories(vaeg_va PRIVATE
+        "${CMAKE_CURRENT_SOURCE_DIR}/external/suzukiplan-z80")
+    target_compile_definitions(vaeg_va PUBLIC
+        VAEG_Z80_CORE_SUZUKIPLAN=1)
+    target_compile_definitions(vaeg_va PRIVATE
+        Z80_DISABLE_BREAKPOINT
+        Z80_DISABLE_DEBUG
+        Z80_DISABLE_NESTCHECK
+        Z80_NO_EXCEPTION
+        Z80_UNSUPPORT_16BIT_PORT)
+else()
+    target_compile_definitions(vaeg_va PUBLIC VAEG_Z80_CORE_LEGACY=1)
+endif()
+if(VAEG_Z80_INTEGRATION_TRACE)
+    target_compile_definitions(vaeg_va PRIVATE
+        VAEG_Z80_INTEGRATION_TRACE=1)
+endif()
+if(VAEG_ENABLE_TESTS)
+    target_compile_definitions(vaeg_va PUBLIC
+        VAEG_Z80_INTEGRATION_TESTING=1)
+endif()
 if(VAEG_WERROR)
     target_compile_options(vaeg_va PRIVATE -Werror)
 endif()

@@ -7,8 +7,15 @@
 #include	"cpucore.h"
 #include	"pccore.h"
 
+#include	<cstdint>
+
+#if defined(VAEG_Z80_CORE_SUZUKIPLAN)
+#include	"cpucva/z80_core.h"
+#include	"cpucva/z80diag_bridge.h"
+#else
 #include	"cpucva/z80if.h"
 #include	"cpucva/z80c.h"
+#endif
 #include	"i8255.h"
 #include	"subsystemif.h"
 #include	"fdc.h"
@@ -22,20 +29,56 @@
 #define TRACEOUT(arg)
 #endif
 
+#if defined(VAEG_Z80_INTEGRATION_TRACE)
+#define Z80TRACE(arg)	fdc_trace_text arg
+#else
+#define Z80TRACE(arg)
+#endif
+
+#if defined(VAEG_Z80_CORE_SUZUKIPLAN)
+#define Z80CORENAME	"suzukiplan"
+#else
+#define Z80CORENAME	"legacy"
+#endif
+
 #define SLEEP_HACK		// メインからのコマンド待ち時にCPUを停止する機能を有効にする 
+
+enum {
+	Z80_STATUS_WAIT_OFFSET = 57,
+	Z80_STATUS_WAIT_EXTERNAL = 0x02
+};
 
 
 static	_I8255CFG i8255cfg;
 		_SUBSYSTEM subsystem;
+
+#if defined(VAEG_Z80_INTEGRATION_TESTING)
+static VAEG_Z80_INTEGRATION_TRACE_STATE z80testtrace;
+#endif
 
 
 // ---- Clock
 
 class Clock : public IClock
 {
-	uint32 IFCALL now() {
+	#if defined(VAEG_Z80_INTEGRATION_TESTING)
+public:
+	Clock() : testoverride(false), testnow(0) {}
+	void SetTestNow(std::uint32_t now) { testoverride = true; testnow = now; }
+	#endif
+
+	std::uint32_t IFCALL now() {
+	#if defined(VAEG_Z80_INTEGRATION_TESTING)
+		if (testoverride) return testnow;
+	#endif
 		return CPU_CLOCK + CPU_BASECLOCK - CPU_REMCLOCK;
 	}
+
+	#if defined(VAEG_Z80_INTEGRATION_TESTING)
+private:
+	bool testoverride;
+	std::uint32_t testnow;
+	#endif
 };
 
 
@@ -44,9 +87,9 @@ class Clock : public IClock
 class ClockCounter : public IClockCounter
 {
 public:
-	void IFCALL past(sint32 clock);
-	sint32 IFCALL GetRemainclock();
-	void IFCALL SetRemainclock(sint32 clock);
+	void IFCALL past(std::int32_t clock);
+	std::int32_t IFCALL GetRemainclock();
+	void IFCALL SetRemainclock(std::int32_t clock);
 	void IFCALL SetMultiple(int multiple);
 private:
 	SINT32 remainclock;
@@ -59,13 +102,13 @@ void ClockCounter::SetMultiple(int _mul) {
 	mul = _mul;
 }
 
-void IFCALL ClockCounter::past(sint32 clock) {
+void IFCALL ClockCounter::past(std::int32_t clock) {
 	remainclock -= clock * mul;
 }
-sint32 IFCALL ClockCounter::GetRemainclock() {
+std::int32_t IFCALL ClockCounter::GetRemainclock() {
 	return remainclock;
 }
-void IFCALL ClockCounter::SetRemainclock(sint32 clock) {
+void IFCALL ClockCounter::SetRemainclock(std::int32_t clock) {
 	remainclock = clock;
 }
 
@@ -82,6 +125,9 @@ public:
 	void Reset();
 	void IRQ(BOOL irq);
 	void Exec();
+	void SetWait(bool wait, const char *source);
+	bool SaveStatus(UINT8 *buffer);
+	bool LoadStatus(const UINT8 *buffer);
 
 	uint IFCALL	Read8(uint addr);
 	void IFCALL Write8(uint addr, uint data);
@@ -107,12 +153,22 @@ public:
 private:
 	ClockCounter *clockcounter;
 	Clock *clock;
+	bool waitactive;
 
 	uint _ram_rd(uint addr);
 	uint ram_rd(uint addr);
 	uint rom_rd(uint addr);
 	uint nonmem_rd(uint addr);
 	void ram_wt(uint addr, uint data);
+
+#if defined(VAEG_Z80_INTEGRATION_TESTING)
+public:
+	void TestReset();
+	void TestInstall(WORD address, const UINT8 *data, UINT size);
+	void TestSetPC(WORD pc);
+	void TestSetClock(UINT32 now);
+	BOOL TestGetState(VAEG_Z80_INTEGRATION_CPU_STATE *state);
+#endif
 
 #if defined(SLEEP_HACK)
 	bool SleepCheck_VA(uint portc);
@@ -129,6 +185,7 @@ Subsystem::Subsystem() {
 	z80 = new Z80C();
 	clockcounter = new ClockCounter();
 	clock = new Clock();
+	waitactive = false;
 }
 
 Subsystem::~Subsystem() {
@@ -153,17 +210,123 @@ void Subsystem::Initialize() {
 void Subsystem::Reset() {
 	clockcounter->SetMultiple(pccore.multiple);
 	z80->Reset();
+	SetWait(false, "reset");
 	i8255_reset(&i8255cfg);
 	subsystem.intopcode = 0x7f;
 }
 
 void Subsystem::IRQ(BOOL irq) {
+	Z80TRACE(("z80trace core=%s event=irq level=%u live=%04x public=%04x",
+			Z80CORENAME, (unsigned)!!irq, (unsigned)z80->GetPC(),
+			(unsigned)z80->GetReg()->pc));
 	z80->IRQ(0,irq);
 }
 
 void Subsystem::Exec() {
+	Z80TRACE(("z80trace core=%s event=exec-enter live=%04x public=%04x wait=%u remain=%d now=%u",
+			Z80CORENAME, (unsigned)z80->GetPC(),
+			(unsigned)z80->GetReg()->pc, (unsigned)waitactive,
+			(int)clockcounter->GetRemainclock(), (unsigned)clock->now()));
 	z80->Exec();
+	Z80TRACE(("z80trace core=%s event=exec-exit live=%04x public=%04x wait=%u remain=%d now=%u",
+			Z80CORENAME, (unsigned)z80->GetPC(),
+			(unsigned)z80->GetReg()->pc, (unsigned)waitactive,
+			(int)clockcounter->GetRemainclock(), (unsigned)clock->now()));
 }
+
+void Subsystem::SetWait(bool wait, const char *source) {
+	z80->Wait(wait);
+	waitactive = wait;
+	Z80TRACE(("z80trace core=%s event=wait level=%u source=%s live=%04x public=%04x remain=%d now=%u",
+			Z80CORENAME, (unsigned)wait, source,
+			(unsigned)z80->GetPC(), (unsigned)z80->GetReg()->pc,
+			(int)clockcounter->GetRemainclock(), (unsigned)clock->now()));
+#if defined(VAEG_Z80_INTEGRATION_TESTING)
+	z80testtrace.wait_active = wait ? TRUE : FALSE;
+	if (wait) {
+		z80testtrace.wait_assert_count++;
+	}
+	else {
+		z80testtrace.wait_release_count++;
+	}
+#endif
+}
+
+bool Subsystem::SaveStatus(UINT8 *buffer) {
+	return z80->SaveStatus(buffer);
+}
+
+bool Subsystem::LoadStatus(const UINT8 *buffer) {
+	if (!z80->LoadStatus(buffer)) {
+		return false;
+	}
+	waitactive = (buffer[Z80_STATUS_WAIT_OFFSET] &
+						Z80_STATUS_WAIT_EXTERNAL) != 0;
+#if defined(VAEG_Z80_INTEGRATION_TESTING)
+	z80testtrace.wait_active = waitactive ? TRUE : FALSE;
+#endif
+	return true;
+}
+
+#if defined(VAEG_Z80_INTEGRATION_TESTING)
+void Subsystem::TestReset() {
+	clock->SetTestNow(0);
+	clockcounter->SetMultiple(1);
+	ZeroMemory(subsystem.rom, sizeof(subsystem.rom));
+	ZeroMemory(subsystem.ram, sizeof(subsystem.ram));
+	z80->Reset();
+	waitactive = false;
+	i8255_reset(&i8255cfg);
+	subsystem.intopcode = 0x7f;
+	ZeroMemory(&z80testtrace, sizeof(z80testtrace));
+}
+
+void Subsystem::TestInstall(WORD address, const UINT8 *data, UINT size) {
+	UINT i;
+
+	if (data == NULL) return;
+	for (i=0; i<size; i++) {
+		const UINT current = (address + i) & 0xffff;
+		if (current < 0x2000) {
+			subsystem.rom[current] = data[i];
+		}
+		else if ((current >= 0x4000) && (current < 0x8000)) {
+			subsystem.ram[current - 0x4000] = data[i];
+		}
+	}
+}
+
+void Subsystem::TestSetPC(WORD pc) {
+	z80->SetPC(pc);
+}
+
+void Subsystem::TestSetClock(UINT32 now) {
+	clock->SetTestNow(now);
+}
+
+BOOL Subsystem::TestGetState(VAEG_Z80_INTEGRATION_CPU_STATE *state) {
+	UINT8 status[68];
+	const Z80Reg *reg;
+
+	if ((state == NULL) || (z80->GetStatusSize() != sizeof(status)) ||
+			!z80->SaveStatus(status)) {
+		return FALSE;
+	}
+	reg = z80->GetReg();
+	state->af = LOADINTELWORD(status + 0);
+	state->hl = LOADINTELWORD(status + 4);
+	state->de = LOADINTELWORD(status + 8);
+	state->bc = LOADINTELWORD(status + 12);
+	state->sp = LOADINTELWORD(status + 24);
+	state->live_pc = (UINT16)z80->GetPC();
+	state->public_pc = reg->pc;
+	state->irq = status[56];
+	state->wait_flags = status[57];
+	state->remainclock = clockcounter->GetRemainclock();
+	state->lastclock = (SINT32)LOADINTELDWORD(status + 64);
+	return TRUE;
+}
+#endif
 
 uint Subsystem::_ram_rd(uint addr) {
 	return subsystem.ram[addr-0x4000];
@@ -244,23 +407,53 @@ uint IFCALL Subsystem::In(uint port) {
 	case 0xfd:
 		ret = i8255_inportb(&i8255cfg);
 		break;
-	case 0xfe:
+	case 0xfe: {
 		ret = i8255_inportc(&i8255cfg);
 #if defined(SLEEP_HACK)
-		if (SleepCheck_VA(ret) || SleepCheck_Sorcerian(ret)) {
+		const bool sleepva = SleepCheck_VA(ret);
+		const bool sleepsorcerian = !sleepva && SleepCheck_Sorcerian(ret);
+		if (sleepva || sleepsorcerian) {
+#if defined(VAEG_Z80_INTEGRATION_TESTING)
+			z80testtrace.sleep_live_pc = (WORD)z80->GetPC();
+			z80testtrace.sleep_public_pc = z80->GetReg()->pc;
+			z80testtrace.sleep_path = sleepva ? 1 : 2;
+			z80testtrace.sleep_port_value = (BYTE)ret;
+			z80testtrace.sleep_memory_value =
+						sleepva ? (BYTE)_ram_rd(0x7f67) : 0;
+#endif
+			Z80TRACE(("z80trace core=%s event=sleep-assert path=%s port=fe value=%02x live=%04x public=%04x memory=%02x",
+					Z80CORENAME, sleepva ? "va" : "sorcerian",
+					(unsigned)(ret & 0xff), (unsigned)z80->GetPC(),
+					(unsigned)z80->GetReg()->pc,
+					(unsigned)(sleepva ? _ram_rd(0x7f67) : 0)));
 			// サブシステムZ80スリープ
-			z80->Wait(true);
+			SetWait(true, sleepva ? "sleep-va" : "sleep-sorcerian");
 		}
 #endif
 		break;
+	}
 
 	// 仮想ポート
 	case piac2:
 		// 割り込み受理
 		ret = subsystem.intopcode;
+#if defined(VAEG_Z80_INTEGRATION_TESTING)
+		z80testtrace.acknowledge_count++;
+#endif
+		Z80TRACE(("z80trace core=%s event=ack port=%03x value=%02x live=%04x public=%04x",
+				Z80CORENAME, piac2, (unsigned)(ret & 0xff),
+				(unsigned)z80->GetPC(), (unsigned)z80->GetReg()->pc));
 		//z80->IRQ(0,0);
 		break;
 	}
+#if defined(VAEG_Z80_INTEGRATION_TESTING)
+	if (port == 0xfe) {
+		z80testtrace.fe_read_count++;
+	}
+#endif
+	Z80TRACE(("z80trace core=%s event=in port=%03x value=%02x live=%04x public=%04x",
+			Z80CORENAME, (unsigned)port, (unsigned)(ret & 0xff),
+			(unsigned)z80->GetPC(), (unsigned)z80->GetReg()->pc));
 	if (port != 0xfe) {
 		TRACEOUT(("subsys: in : %02x -> %02x  [%04x]", port, ret, z80->GetReg()->pc));
 	}
@@ -269,12 +462,20 @@ uint IFCALL Subsystem::In(uint port) {
 
 void IFCALL Subsystem::Out(uint port, uint dat) {
 	TRACEOUT(("subsys: out: %02x <- %02x  [%04x]", port, dat, z80->GetReg()->pc));
+	Z80TRACE(("z80trace core=%s event=out port=%02x value=%02x live=%04x public=%04x",
+			Z80CORENAME, (unsigned)(port & 0xff),
+			(unsigned)(dat & 0xff), (unsigned)z80->GetPC(),
+			(unsigned)z80->GetReg()->pc));
 
 	switch(port) {
 	case 0xf0:
 		subsystem.intopcode = dat;
 		break;
 	case 0xf4:
+#if defined(VAEG_Z80_INTEGRATION_TESTING)
+		z80testtrace.f4_count++;
+		z80testtrace.f4_last_value = (BYTE)dat;
+#endif
 		fdcsubsys_o_dskctl(dat);
 		break;
 	case 0xf8:
@@ -319,7 +520,7 @@ void subsystem_businportc(BYTE dat) {
 #if defined(SLEEP_HACK)
 	if (dat & 0x80) {
 		// ATN = 1
-		subsystemobj.z80->Wait(false);
+		subsystemobj.SetWait(false, "atn");
 	}
 #endif
 }
@@ -351,17 +552,67 @@ const struct Z80Reg *subsystem_getcpureg(void) {
 }
 
 WORD subsystem_disassemble(WORD pc, char *str) {
+#if defined(VAEG_Z80_CORE_SUZUKIPLAN)
+	return VaegZ80LegacyDisassemble(pc, str, subsystem_readmem);
+#else
 	return subsystemobj.z80->GetDiag()->Disassemble(pc,str);
+#endif
 }
 
 UINT subsystem_getcpustatussize(void) {
 	return subsystemobj.z80->GetStatusSize();
 }
 
-void subsystem_savecpustatus(UINT8 *buf) {
-	subsystemobj.z80->SaveStatus(buf);
+BOOL subsystem_savecpustatus(UINT8 *buf) {
+	const BOOL result = subsystemobj.SaveStatus(buf) ? TRUE : FALSE;
+	Z80TRACE(("z80trace core=%s event=state-save result=%u live=%04x public=%04x",
+			Z80CORENAME, (unsigned)result,
+			(unsigned)subsystemobj.z80->GetPC(),
+			(unsigned)subsystemobj.z80->GetReg()->pc));
+	return result;
 }
 
-void subsystem_loadcpustatus(const UINT8 *buf) {
-	subsystemobj.z80->LoadStatus(buf);
+BOOL subsystem_loadcpustatus(const UINT8 *buf) {
+	const BOOL result = subsystemobj.LoadStatus(buf) ? TRUE : FALSE;
+	Z80TRACE(("z80trace core=%s event=state-load result=%u live=%04x public=%04x",
+			Z80CORENAME, (unsigned)result,
+			(unsigned)subsystemobj.z80->GetPC(),
+			(unsigned)subsystemobj.z80->GetReg()->pc));
+	return result;
 }
+
+#if defined(VAEG_Z80_INTEGRATION_TESTING)
+void subsystem_z80_test_reset(void) {
+	subsystemobj.TestReset();
+}
+
+void subsystem_z80_test_install(WORD address, const UINT8 *data, UINT size) {
+	subsystemobj.TestInstall(address, data, size);
+}
+
+void subsystem_z80_test_set_pc(WORD pc) {
+	subsystemobj.TestSetPC(pc);
+}
+
+void subsystem_z80_test_set_clock(UINT32 now) {
+	subsystemobj.TestSetClock(now);
+}
+
+void subsystem_z80_test_set_wait(BOOL wait) {
+	subsystemobj.SetWait(wait != FALSE, "test");
+}
+
+void subsystem_z80_test_reset_trace(void) {
+	ZeroMemory(&z80testtrace, sizeof(z80testtrace));
+}
+
+void subsystem_z80_test_get_trace(VAEG_Z80_INTEGRATION_TRACE_STATE *trace) {
+	if (trace != NULL) {
+		*trace = z80testtrace;
+	}
+}
+
+BOOL subsystem_z80_test_get_state(VAEG_Z80_INTEGRATION_CPU_STATE *state) {
+	return subsystemobj.TestGetState(state);
+}
+#endif
