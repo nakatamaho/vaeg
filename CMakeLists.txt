@@ -562,6 +562,54 @@ endif()
 
 if(VAEG_ENABLE_TESTS)
     enable_testing()
+
+    function(vaeg_configure_z80_standalone_target target)
+        target_include_directories(${target} PRIVATE
+            "${CMAKE_CURRENT_SOURCE_DIR}/external/suzukiplan-z80")
+        target_compile_options(${target} PRIVATE -Wall -fsigned-char)
+        if(VAEG_WERROR)
+            target_compile_options(${target} PRIVATE -Werror)
+        endif()
+    endfunction()
+
+    set(VAEG_Z80_HEADER_COMPILE_SOURCE tests/z80/header_compile.cpp)
+    add_executable(vaeg_z80_header_default
+        ${VAEG_Z80_HEADER_COMPILE_SOURCE})
+    vaeg_configure_z80_standalone_target(vaeg_z80_header_default)
+
+    add_executable(vaeg_z80_header_no_functional
+        ${VAEG_Z80_HEADER_COMPILE_SOURCE})
+    vaeg_configure_z80_standalone_target(vaeg_z80_header_no_functional)
+    target_compile_definitions(vaeg_z80_header_no_functional PRIVATE
+        Z80_NO_FUNCTIONAL)
+
+    add_executable(vaeg_z80_header_debug_default
+        ${VAEG_Z80_HEADER_COMPILE_SOURCE})
+    vaeg_configure_z80_standalone_target(vaeg_z80_header_debug_default)
+    target_compile_definitions(vaeg_z80_header_debug_default PRIVATE
+        VAEG_Z80_REQUIRE_DEBUG)
+
+    add_executable(vaeg_z80_header_release
+        ${VAEG_Z80_HEADER_COMPILE_SOURCE})
+    vaeg_configure_z80_standalone_target(vaeg_z80_header_release)
+    target_compile_definitions(vaeg_z80_header_release PRIVATE
+        VAEG_Z80_REQUIRE_RELEASE
+        Z80_DISABLE_DEBUG
+        Z80_DISABLE_BREAKPOINT
+        Z80_DISABLE_NESTCHECK
+        Z80_NO_EXCEPTION)
+
+    add_executable(vaeg_z80_interrupt_default
+        external/suzukiplan-z80/test/test-interrupt-extension.cpp)
+    vaeg_configure_z80_standalone_target(vaeg_z80_interrupt_default)
+
+    add_executable(vaeg_z80_interrupt_no_functional
+        external/suzukiplan-z80/test/test-interrupt-extension.cpp)
+    vaeg_configure_z80_standalone_target(
+        vaeg_z80_interrupt_no_functional)
+    target_compile_definitions(vaeg_z80_interrupt_no_functional PRIVATE
+        Z80_NO_FUNCTIONAL)
+
     add_executable(vaeg_z80_legacy_contract
         tests/z80/legacy_contract.cpp
         cpucva/z80c.cpp
@@ -575,6 +623,18 @@ if(VAEG_ENABLE_TESTS)
     endif()
     add_test(NAME vaeg_z80_legacy_contract
         COMMAND vaeg_z80_legacy_contract)
+    add_test(NAME vaeg_z80_header_default
+        COMMAND vaeg_z80_header_default)
+    add_test(NAME vaeg_z80_header_no_functional
+        COMMAND vaeg_z80_header_no_functional)
+    add_test(NAME vaeg_z80_header_debug_default
+        COMMAND vaeg_z80_header_debug_default)
+    add_test(NAME vaeg_z80_header_release
+        COMMAND vaeg_z80_header_release)
+    add_test(NAME vaeg_z80_interrupt_default
+        COMMAND vaeg_z80_interrupt_default)
+    add_test(NAME vaeg_z80_interrupt_no_functional
+        COMMAND vaeg_z80_interrupt_no_functional)
     add_test(NAME vaeg_romless_tests COMMAND vaeg_sdl2 --selftest)
     set_tests_properties(vaeg_romless_tests PROPERTIES
         WORKING_DIRECTORY "$<TARGET_FILE_DIR:vaeg_sdl2>"
