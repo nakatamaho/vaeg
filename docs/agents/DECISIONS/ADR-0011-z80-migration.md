@@ -24,7 +24,8 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ## Status
 
-Accepted through G40. The maintainer
+Accepted through G40; M41 implementation and private validation are complete,
+with final public validation in progress. The maintainer
 approved the reproducible downstream patch and documented callback test matrix
 as sufficient M35 provenance on 2026-07-15. M36 reproduced and vendored the
 approved tree, G36 passed, and the maintainer explicitly authorized M37. The
@@ -78,20 +79,20 @@ cpucva/z80diag.h
 cpucva/z80diag.cpp
 ```
 
-This is the final approved deletion list. M34 does not delete any file. No
-additional active M88-derived Z80 file was found. Frozen reference consumers
-remain untouched and are not an active build obligation.
+This was the final approved deletion list. M41 removed exactly these seven
+files from current HEAD after the dependency inventory found no non-legacy
+consumer. No additional active M88-derived Z80 file was found. Git history and
+frozen reference consumers remain untouched.
 
 ## Consumer-visible contract
 
 Keep the class name `Z80C` and source-compatible signatures for every method
 used by the active tree: constructor/destructor, `Init`, `Exec`, `Reset`,
-`IRQ`, `Wait`, `GetStatusSize`, `SaveStatus`, `LoadStatus`, `GetReg`, and the
-temporary `GetDiag()->Disassemble` bridge. Retain `GetPC`, `SetPC`, and `NMI`
-as required architectural services for the replacement contract even though
-no active external caller was found. `GetDiag` may be removed after M40 moves
-the bridge. The public `TestIntr`, `GetWaits`, `IsIntr`, dump controls, and
-statistics API have no active consumer and are not required after cutover.
+`IRQ`, `Wait`, `GetStatusSize`, `SaveStatus`, `LoadStatus`, and `GetReg`.
+Retain `GetPC`, `SetPC`, and `NMI` as required architectural services. M40
+removed the temporary `GetDiag()->Disassemble` bridge. The public `TestIntr`,
+`GetWaits`, `IsIntr`, dump controls, and statistics API had no active consumer
+and were removed at cutover.
 
 Independently author the replacement contracts. Familiar names may be kept to
 minimize consumer edits, but no M88 comments, layout, macro collection, or
@@ -454,10 +455,31 @@ zero, one-byte, exact, truncated, large, null-reader, and prefix-limit output.
 
 Production subsystem disassembly no longer calls `Z80C::GetDiag()` and no
 active subsystem/debugger source includes `z80diag.h`, `z80if.h`, `z80.h`, or
-`types.h`. The M39 `z80diag_bridge` is removed. The selectable legacy CPU
-still owns its legacy diagnostic object for internal dump support, so the
-seven approved M88-derived files remain confined to that implementation until
-M41. M40 does not delete them, remove the legacy choice, or change the default.
+`types.h`. The M39 `z80diag_bridge` is removed. M41 removed the legacy CPU and
+its diagnostic object; `cpucva/z80_disasm.cpp` is now the only production Z80
+decoder.
+
+## M41 final production design
+
+The production `vaeg_va` target unconditionally compiles
+`cpucva/z80_core.cpp`, `cpucva/z80_legacy_state.cpp`, and
+`cpucva/z80_disasm.cpp`. `VAEG_Z80_CORE` is removed; there is no compatibility
+alias, hidden fallback, or runtime switch. The same standalone header,
+interrupt, wrapper, revision-1, ZEX, disassembler, and M38-derived regression
+tests remain permanent.
+
+The seven approved M88/cisc-derived files are absent from current HEAD and
+release inputs. Historical ADR, task, report, and migration-master references
+remain as evidence and are not current build dependencies. Source and runtime
+archive audits reject both the exact deleted paths and byte-identical copied
+legacy source, fetched ZEX inputs, private media, and unapproved third-party
+copies.
+
+The consumer-visible class name and required methods remain unchanged. The
+revision-1 image remains 68 bytes and all retained fixtures load. HALT PC
+translation, external WAIT, level IRQ, EI bit 2, signed `remainclock`, and
+`lastclock` retain their M37 mapping; top-level state load continues to
+propagate codec failure.
 
 ## Frame-boundary revision-1 state
 

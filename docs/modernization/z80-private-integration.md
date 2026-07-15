@@ -30,10 +30,12 @@ metadata. Raw screenshots, logs, traces, save files, and writable media copies
 remain outside Git. Suggested failure evidence paths below are outside this
 repository.
 
-Build separate trees from the same commit with
-`VAEG_Z80_CORE=legacy` and `VAEG_Z80_CORE=suzukiplan`. Run uninstrumented
-first. Repeat the relevant case with `VAEG_Z80_INTEGRATION_TRACE=ON` and
-`--fdctrace` only when event evidence is needed.
+The M39 procedure below is historical dual-core evidence. It built separate
+trees from the same commit with `VAEG_Z80_CORE=legacy` and
+`VAEG_Z80_CORE=suzukiplan`. Current M41 production has no selector. Run the
+current single-core build uninstrumented first; repeat a relevant case with
+`VAEG_Z80_INTEGRATION_TRACE=ON` and `--fdctrace` only when event evidence is
+needed.
 
 ## Test definitions
 
@@ -100,3 +102,28 @@ or derived payload is staged or tracked.
 
 **G39 PASSED.** None of the blocking boot, loader, FDD, IRQ-visible, sleep,
 WAIT, or state-restore failures occurred. M40 has not started.
+
+## M41 final single-core regression
+
+Fresh M41 evidence was collected on 2026-07-15 from the final unconditional
+wrapper build on Linux x86_64. The deleted M39 private evidence was not used.
+Tracked records use neutral IDs only; private filenames, absolute paths,
+hashes, ROM bytes, screenshots, traces, state files, and writable media copies
+remain outside Git.
+
+| Stable ID | Result | Sanitized evidence |
+|---|---|---|
+| `m41-boot-final-a` | PASS | VA2/VA3 reached the OS date prompt and usable command prompt without retry or timeout. |
+| `m41-fdd-read-a` | PASS | A directory listing and known small file read completed with the expected value. |
+| `m41-fdd-write-a` | PASS | An expendable copy received a small guest write and exact readback; the archival image was never mounted writable. |
+| `m41-loader-timing-a` | PASS | The timing-sensitive loader reached its stable `Ready` destination without timeout or repeated completion. |
+| `m41-sleep-va-a` | PASS | Live/public PC `1734/1732` triggered unchanged VA sleep, WAIT drained at fixed PC, ATN released it, and execution resumed. |
+| `m41-sleep-sorcerian-a` | PASS | Live/public PC `7010/700e` triggered unchanged Sorcerian sleep, WAIT drained, ATN released it, and execution resumed. |
+| `m41-state-legacy-final-a` | PASS | A fresh same-build-family legacy revision-1 save loaded in the final build; the command prompt and subsequent FDD read resumed. |
+| `m41-state-final-final-a` | PASS | The final build restored its saved screen/prompt and subsequent FDD operation. |
+| `m41-state-fdd-a` | PASS | A frame-boundary save captured a loader mid-word (`Read`); reload returned there and completed once at `Ready` without timeout or replay. |
+| `m41-disasm-private-a` | PASS | At a live boundary, 16 bounded disassemblies all advanced; live/public PC remained unchanged before and after. |
+
+The fresh diagnostic sleep capture contained 21 port-`0xf4` writes and showed
+real ATN WAIT release for both sleep paths. Only sanitized counts and state
+transitions are retained here. No raw trace or private asset is tracked.

@@ -5,9 +5,10 @@ is abandoned; this fork is the living tree.
 
 The active tree is the portable CMake build: C core, SDL2 frontend under
 `sdl2/`, Dear ImGui GUI, and macOS / Linux / Windows-MinGW support. It
-uses `i286c/` for the CPU, `cpucva/z80c.cpp` for the Z80 side,
-`sound/opngenc.c` for OPN generation (never define `OPNGENX86`), and
-`cpucva/memoryva.c` for the VA memory layer.
+uses `i286c/` for the main CPU, the suzukiplan-backed wrapper in
+`cpucva/z80_core.cpp` for the Z80 side, `sound/opngenc.c` for OPN
+generation (never define `OPNGENX86`), and `cpucva/memoryva.c` for the VA
+memory layer.
 
 A frozen reference tier remains for behavior archaeology only:
 

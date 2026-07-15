@@ -43,10 +43,10 @@ Keep this relative layout after unpacking:
 - assets/NOTICE.md
 - README-dist.txt
 
-The Dear ImGui Japanese font, historical VAEG startup graphic, and
-historical VAEG application icon are embedded in the executable. OFL.txt
-and NOTICE.md document the font license and provenance and must stay with
-the package.
+The Dear ImGui Japanese font, historical VAEG startup graphic, historical
+VAEG application icon, and MIT-licensed suzukiplan Z80 core are embedded in
+the executable. OFL.txt and NOTICE.md document their licenses and provenance
+and must stay with the package.
 
 Additional platform runtime files:
 

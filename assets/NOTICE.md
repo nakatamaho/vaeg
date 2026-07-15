@@ -1,5 +1,24 @@
 # Bundled Asset Notice
 
+## Z80 CPU core
+
+The production PC-88VA subsystem includes the pinned `suzukiplan/z80` header
+under the MIT License, Copyright (c) 2019 Yoji Suzuki.
+
+- Upstream: `https://github.com/suzukiplan/z80`
+- Approved base: `e3926769a790fab0af1c34a5540e317f8d4f0ddc`
+- Approved patch SHA-256:
+  `d8624085139ef4e7b400b918b2b498e79bea1af4a1942e4ac935545846e746a4`
+- Reproduced tree: `8a606eb39332a6e79b69bb62d9dedca042b923dc`
+- License text: `external/suzukiplan-z80/LICENSE.txt`
+- Full provenance: `external/suzukiplan-z80/provenance.txt`
+
+The vaeg wrapper, revision-1 codec, and disassembler are independently
+authored BSD-2-Clause code. The removed historical M88/cisc-derived Z80 files
+were not relicensed; Git history was not rewritten.
+
+## GUI font
+
 This directory includes `NotoSansJP-Regular.ttf`, a static Regular
 instance generated from the Google Fonts `NotoSansJP[wght].ttf` source.
 
