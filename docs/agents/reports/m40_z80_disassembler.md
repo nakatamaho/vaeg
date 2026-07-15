@@ -317,8 +317,8 @@ python3 tests/z80/check_zex_archive.py \
 ```
 
 The source archive passed with 998 files and the runtime archive passed with
-five files; neither contained a ZEX artifact. Hosted CI results are added on
-the final pushed SHA. The vendor/M35 immutability checks already passed:
+five files; neither contained a ZEX artifact. The vendor/M35 immutability
+checks passed:
 
 ```text
 M35 patch SHA-256:
@@ -329,6 +329,31 @@ ca7261ecf96ab7fea40c4c66aeb644710d210bd71418d285a9dd0098a7bddff1
 
 `git diff --exit-code -- external/suzukiplan-z80` and the same check for the
 approved patch produced no difference.
+
+Hosted run
+[29411805128](https://github.com/nakatamaho/vaeg/actions/runs/29411805128)
+tested commit `c469c233da7de1640ff499ea5347353f63a8aa96` from
+2026-07-15 11:29:28 UTC through 11:38:06 UTC. It completed successfully with
+11/11 jobs:
+
+```text
+repo invariants: success
+ubuntu gcc legacy z80: success
+ubuntu gcc suzukiplan z80: success
+ubuntu clang legacy z80: success
+ubuntu clang suzukiplan z80: success
+ubuntu asan legacy z80: success
+ubuntu asan suzukiplan z80: success
+standalone z80 conformance: success
+windows msys2 mingw64 legacy z80: success
+windows msys2 mingw64 suzukiplan z80: success
+macos fetch-sdl2 legacy z80: success
+macos fetch-sdl2 suzukiplan z80: success
+```
+
+The Windows jobs are native hosted Windows evidence and the macOS jobs are
+native hosted macOS evidence; the local MinGW/Wine result is reported
+separately and is not mislabeled as native Windows.
 
 ## Risks and gate disposition
 
@@ -367,5 +392,4 @@ No unresolved disassembler, consumer, buffer, boot, or CPU-behavior finding
 remains locally. No hypothesis is used as a pass condition. M41 has not
 started.
 
-**G40 remains pending only the final repository/archive checks and hosted
-Windows/macOS CI on the pushed branch.**
+G40 PASSED

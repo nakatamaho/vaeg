@@ -22,7 +22,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 -->
 # M40: Replace Z80 disassembly and detach active legacy-header consumers
 
-Status: implemented; local G40 validation complete, hosted gate pending
+Status: complete; G40 passed on 2026-07-15
 
 Branch: `topic/m40-z80-disassembler`
 
@@ -74,6 +74,6 @@ The deterministic suite covers 3,844 exhaustive page/displacement cases, 31
 manually reviewed golden rows, buffers, wrapping, reserved encodings, repeated
 prefixes, and non-mutation. GCC, Clang, sanitizers, MinGW/Wine, ZEX, both
 production selections, and a sanitized dual-core private boot/live-memory
-spot check passed locally. Hosted Windows/macOS results and the final G40
-disposition are recorded in the M40 evidence report after the final branch is
-pushed.
+spot check passed locally. Hosted Linux, native Windows, and native macOS
+passed all 11 configured jobs. The final G40 disposition is recorded in the
+M40 evidence report.
