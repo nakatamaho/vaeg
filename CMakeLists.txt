@@ -33,6 +33,8 @@ option(VAEG_ENABLE_ARCHIVE_DROP
     "Enable archive disk-image drag and drop when LibArchive is available" ON)
 option(VAEG_FETCH_LIBARCHIVE
     "Fetch pinned static archive dependencies instead of using system LibArchive" OFF)
+set(VAEG_ZEX_ARTIFACT_DIR "" CACHE PATH
+    "Offline directory containing the five hash-verified ZEX artifacts")
 
 if(VAEG_FETCH_SDL2)
     include(FetchContent)
@@ -610,6 +612,15 @@ if(VAEG_ENABLE_TESTS)
     target_compile_definitions(vaeg_z80_interrupt_no_functional PRIVATE
         Z80_NO_FUNCTIONAL)
 
+    add_executable(vaeg_z80_zex_runner tests/z80/zex_runner.cpp)
+    vaeg_configure_z80_standalone_target(vaeg_z80_zex_runner)
+    target_compile_definitions(vaeg_z80_zex_runner PRIVATE
+        Z80_CALLBACK_PER_INSTRUCTION
+        Z80_DISABLE_DEBUG
+        Z80_DISABLE_NESTCHECK
+        Z80_NO_FUNCTIONAL
+        Z80_UNSUPPORT_16BIT_PORT)
+
     add_executable(vaeg_z80_legacy_contract
         tests/z80/legacy_contract.cpp
         cpucva/z80c.cpp
@@ -635,6 +646,43 @@ if(VAEG_ENABLE_TESTS)
         COMMAND vaeg_z80_interrupt_default)
     add_test(NAME vaeg_z80_interrupt_no_functional
         COMMAND vaeg_z80_interrupt_no_functional)
+    if(VAEG_ZEX_ARTIFACT_DIR)
+        get_filename_component(VAEG_ZEX_ARTIFACT_DIR_ABSOLUTE
+            "${VAEG_ZEX_ARTIFACT_DIR}" ABSOLUTE)
+        function(vaeg_verify_zex_artifact filename expected_sha256)
+            set(artifact
+                "${VAEG_ZEX_ARTIFACT_DIR_ABSOLUTE}/${filename}")
+            if(NOT EXISTS "${artifact}")
+                message(FATAL_ERROR "Required ZEX artifact is absent: ${artifact}")
+            endif()
+            file(SHA256 "${artifact}" actual_sha256)
+            if(NOT actual_sha256 STREQUAL expected_sha256)
+                message(FATAL_ERROR
+                    "ZEX artifact hash mismatch for ${artifact}: "
+                    "expected ${expected_sha256}, got ${actual_sha256}")
+            endif()
+        endfunction()
+        vaeg_verify_zex_artifact(zexdoc.cim
+            b3015112a99bb72273e0cacde7c7549eb9840ba996af76f7bf7992ef7d6e2f90)
+        vaeg_verify_zex_artifact(zexall.cim
+            fbb1bb5d46f61c33ea6841a71f2b23c49b9b62410ce6ed4e57b7d9b2e7b437e0)
+        vaeg_verify_zex_artifact(zexdoc.src
+            0e2e7d05e5dd27c932de64d4c3711351f53388ed02d2e99e2e706ef6216ca9b3)
+        vaeg_verify_zex_artifact(zexall.src
+            a263efc67ed6f890268c6f9e00f7911d9376a6bc6ddaec5ce04e33a5f483733c)
+        vaeg_verify_zex_artifact(zex-license.txt
+            e57f1c320b8cf8798a7d2ff83a6f9e06a33a03585f6e065fea97f1d86db84052)
+
+        add_test(NAME vaeg_z80_zexdoc
+            COMMAND vaeg_z80_zex_runner
+                "${VAEG_ZEX_ARTIFACT_DIR_ABSOLUTE}/zexdoc.cim")
+        add_test(NAME vaeg_z80_zexall
+            COMMAND vaeg_z80_zex_runner
+                "${VAEG_ZEX_ARTIFACT_DIR_ABSOLUTE}/zexall.cim")
+        set_tests_properties(vaeg_z80_zexdoc vaeg_z80_zexall PROPERTIES
+            LABELS "romless;z80;zex"
+            TIMEOUT 900)
+    endif()
     add_test(NAME vaeg_romless_tests COMMAND vaeg_sdl2 --selftest)
     set_tests_properties(vaeg_romless_tests PROPERTIES
         WORKING_DIRECTORY "$<TARGET_FILE_DIR:vaeg_sdl2>"

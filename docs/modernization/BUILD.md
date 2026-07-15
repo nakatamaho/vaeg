@@ -141,6 +141,50 @@ CI uploads build artifacts for all three operating systems. The Windows
 artifact is the standalone `vaeg.exe`; its import audit rejects SDL2 and
 MinGW runtime DLL dependencies.
 
+## Standalone Z80 conformance
+
+`VAEG_ENABLE_TESTS=ON` also builds the vendored suzukiplan/z80 header without
+linking it into the emulator. The build covers the default callback API,
+`Z80_NO_FUNCTIONAL`, the default debug API, and a release-oriented configuration
+with debug, breakpoint, nest-check, and exception support disabled. CTest runs
+the focused interrupt extension in both callback configurations.
+
+ZEXDOC and ZEXALL are external GPL test inputs and are never stored in the
+source tree or release archives. The dedicated CI job downloads the five files
+from `suzukiplan/z80` commit
+`e3926769a790fab0af1c34a5540e317f8d4f0ddc`, verifies every approved SHA-256,
+and keeps them only in an optional CI cache. To acquire them online locally:
+
+```sh
+python3 tests/z80/fetch_zex.py --output-dir build/zex-cache
+```
+
+For offline use, point the acquisition tool at a directory containing
+`zexdoc.cim`, `zexall.cim`, `zexdoc.src`, `zexall.src`, and the upstream
+`test-ex/LICENSE.txt`:
+
+```sh
+python3 tests/z80/fetch_zex.py \
+  --source-dir /path/to/suzukiplan-z80/test-ex \
+  --output-dir build/zex-cache
+```
+
+Configure the test-bearing build with the verified cache, then run only the
+standalone suite or the complete CTest set:
+
+```sh
+cmake --preset linux-ci-gcc \
+  -DVAEG_ZEX_ARTIFACT_DIR="$PWD/build/zex-cache"
+cmake --build --preset linux-ci-gcc
+ctest --test-dir build/linux-ci-gcc --output-on-failure \
+  -R '^vaeg_z80_(header|interrupt|zex)'
+```
+
+The runner uses deterministic 64 KiB memory, loads at `0x0100`, supplies only
+the CP/M CALL-5 services used by ZEX, and stops on an emulated-clock or wall-
+clock limit with register and recent-output diagnostics. The archive checker
+rejects both known artifact names and the five pinned content hashes.
+
 ROMs are deliberately absent from CI and release artifacts. Users place the
 VA unsuffixed ROM set or the MAME-compatible VA2/VA3 `*_va2.rom` set beside
 the executable, together with the extra `vasubsys.rom`, using ROMs extracted

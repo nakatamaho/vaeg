@@ -76,6 +76,7 @@ jobs:
           install -m 644 dist/readme-dist.txt "dist-package/${package}/README-dist.txt"
           tar -C dist-package -czf "${asset}" "${package}"
           tar -tzf "${asset}"
+          python3 tests/z80/check_zex_archive.py "${asset}"
       - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -175,6 +176,7 @@ jobs:
             Remove-Item $asset
           }
           Compress-Archive -Path "dist-package/$package" -DestinationPath $asset -Force
+          python tests/z80/check_zex_archive.py $asset
       - name: Upload release asset
         shell: pwsh
         env:
@@ -226,6 +228,7 @@ jobs:
           find "dist-package/${package}" -type f | sort
           tar -C dist-package -czf "${asset}" "${package}"
           tar -tzf "${asset}"
+          python3 tests/z80/check_zex_archive.py "${asset}"
       - name: Upload release asset
         env:
           GH_TOKEN: ${{ github.token }}
