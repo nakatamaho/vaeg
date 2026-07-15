@@ -2,7 +2,7 @@
 
 ## Status
 
-Planning and evidence milestone implemented; awaiting G34 maintainer review.
+Complete; G34 passed by maintainer approval on 2026-07-15.
 
 Do not vendor or integrate a replacement Z80 core in this milestone.
 Do not begin M35.
@@ -13,6 +13,12 @@ clock multiplier, both normal execution and external WAIT return from
 `Z80C::Exec()` only after `remainclock` becomes zero or negative. A positive
 revision-1 field remains codec input coverage, but is not a proven production
 return state. See `docs/modernization/z80-legacy-contract.md` and ADR-0011.
+
+The accepted state import/export conclusion is that architectural state,
+HALT, and `execEI` are importable and exportable through the selected core's
+public register state. The only state-related M35 extension required is an
+inspectable and restorable level-sensitive IRQ state; no broader state API is
+needed.
 
 ## Required references
 
