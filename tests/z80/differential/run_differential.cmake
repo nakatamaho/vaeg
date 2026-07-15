@@ -21,7 +21,7 @@
 # IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-foreach(required LEGACY_RUNNER NEW_RUNNER COMPARATOR SUITE OUTPUT_DIR)
+foreach(required REFERENCE_RUNNER REPEAT_RUNNER COMPARATOR SUITE OUTPUT_DIR)
     if(NOT DEFINED ${required})
         message(FATAL_ERROR "${required} is required")
     endif()
@@ -32,39 +32,40 @@ if(NOT DEFINED CASES)
 endif()
 
 file(MAKE_DIRECTORY "${OUTPUT_DIR}")
-set(legacy_trace "${OUTPUT_DIR}/${SUITE}-legacy.trace")
-set(new_trace "${OUTPUT_DIR}/${SUITE}-new.trace")
+set(reference_trace "${OUTPUT_DIR}/${SUITE}-reference.trace")
+set(repeat_trace "${OUTPUT_DIR}/${SUITE}-repeat.trace")
 set(cycle_report "${OUTPUT_DIR}/${SUITE}-cycle-deltas.md")
 if(DEFINED CYCLE_REPORT AND NOT CYCLE_REPORT STREQUAL "")
     set(cycle_report "${CYCLE_REPORT}")
 endif()
 
 execute_process(
-    COMMAND "${LEGACY_RUNNER}" --suite "${SUITE}" --cases "${CASES}"
-        --output "${legacy_trace}"
-    RESULT_VARIABLE legacy_result
-    OUTPUT_VARIABLE legacy_output
-    ERROR_VARIABLE legacy_error)
-if(NOT legacy_result EQUAL 0)
+    COMMAND "${REFERENCE_RUNNER}" --suite "${SUITE}" --cases "${CASES}"
+        --output "${reference_trace}"
+    RESULT_VARIABLE reference_result
+    OUTPUT_VARIABLE reference_output
+    ERROR_VARIABLE reference_error)
+if(NOT reference_result EQUAL 0)
     message(FATAL_ERROR
-        "legacy trace failed (${legacy_result})\n${legacy_output}${legacy_error}")
+        "reference trace failed (${reference_result})\n"
+        "${reference_output}${reference_error}")
 endif()
-message(STATUS "${legacy_output}")
+message(STATUS "${reference_output}")
 
 execute_process(
-    COMMAND "${NEW_RUNNER}" --suite "${SUITE}" --cases "${CASES}"
-        --output "${new_trace}"
-    RESULT_VARIABLE new_result
-    OUTPUT_VARIABLE new_output
-    ERROR_VARIABLE new_error)
-if(NOT new_result EQUAL 0)
+    COMMAND "${REPEAT_RUNNER}" --suite "${SUITE}" --cases "${CASES}"
+        --output "${repeat_trace}"
+    RESULT_VARIABLE repeat_result
+    OUTPUT_VARIABLE repeat_output
+    ERROR_VARIABLE repeat_error)
+if(NOT repeat_result EQUAL 0)
     message(FATAL_ERROR
-        "new trace failed (${new_result})\n${new_output}${new_error}")
+        "repeat trace failed (${repeat_result})\n${repeat_output}${repeat_error}")
 endif()
-message(STATUS "${new_output}")
+message(STATUS "${repeat_output}")
 
 execute_process(
-    COMMAND "${COMPARATOR}" "${legacy_trace}" "${new_trace}"
+    COMMAND "${COMPARATOR}" "${reference_trace}" "${repeat_trace}"
         --cycle-report "${cycle_report}"
     RESULT_VARIABLE compare_result
     OUTPUT_VARIABLE compare_output
