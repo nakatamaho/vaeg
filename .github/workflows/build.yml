@@ -75,6 +75,45 @@ jobs:
           name: vaeg-linux-${{ matrix.compiler }}
           path: build/${{ matrix.preset }}/sdl2/vaeg
 
+  z80-conformance:
+    name: standalone z80 conformance
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake ninja-build pkg-config libsdl2-dev gcc g++
+      - name: Cache external ZEX inputs
+        uses: actions/cache@v4
+        with:
+          path: build/zex-cache
+          key: zex-e3926769-b3015112-fbb1bb5d
+      - name: Acquire and verify external ZEX inputs
+        run: python3 tests/z80/fetch_zex.py --output-dir build/zex-cache
+      - name: Configure standalone conformance
+        run: >-
+          cmake --preset linux-ci-gcc
+          -DVAEG_ZEX_ARTIFACT_DIR=${{ github.workspace }}/build/zex-cache
+      - name: Build standalone conformance
+        run: >-
+          cmake --build --preset linux-ci-gcc --target
+          vaeg_z80_header_default
+          vaeg_z80_header_no_functional
+          vaeg_z80_header_debug_default
+          vaeg_z80_header_release
+          vaeg_z80_interrupt_default
+          vaeg_z80_interrupt_no_functional
+          vaeg_z80_zex_runner
+      - name: Run standalone conformance
+        run: >-
+          ctest --test-dir build/linux-ci-gcc --output-on-failure
+          -R '^vaeg_z80_(header|interrupt|zex)'
+      - name: Verify source archive excludes external ZEX inputs
+        run: |
+          git archive --format=tar.gz --output=/tmp/vaeg-source.tar.gz HEAD
+          python3 tests/z80/check_zex_archive.py /tmp/vaeg-source.tar.gz
+
   linux-asan:
     name: ubuntu asan
     runs-on: ubuntu-latest
