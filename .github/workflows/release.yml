@@ -68,10 +68,13 @@ jobs:
           package="vaeg-${release_id}-linux-x86_64"
           asset="${package}.tar.gz"
           rm -rf dist-package "${asset}"
-          mkdir -p "dist-package/${package}/assets"
+          mkdir -p "dist-package/${package}/assets" \
+            "dist-package/${package}/licenses"
           install -m 755 build/linux-ci-gcc/sdl2/vaeg "dist-package/${package}/vaeg"
           install -m 644 assets/OFL.txt "dist-package/${package}/assets/"
           install -m 644 assets/NOTICE.md "dist-package/${package}/assets/"
+          install -m 644 external/suzukiplan-z80/LICENSE.txt \
+            "dist-package/${package}/licenses/suzukiplan-z80.txt"
           install -m 644 CHANGES.20260713.md "dist-package/${package}/"
           install -m 644 dist/readme-dist.txt "dist-package/${package}/README-dist.txt"
           tar -C dist-package -czf "${asset}" "${package}"
@@ -159,10 +162,12 @@ jobs:
           release_id="${RELEASE_TAG//-/}"
           package="vaeg-${release_id}-win-x86_64"
           rm -rf dist-package
-          mkdir -p "dist-package/${package}/assets"
+          mkdir -p "dist-package/${package}/assets" "dist-package/${package}/licenses"
           cp build/mingw-ci/sdl2/vaeg.exe "dist-package/${package}/"
           cp assets/OFL.txt "dist-package/${package}/assets/"
           cp assets/NOTICE.md "dist-package/${package}/assets/"
+          cp external/suzukiplan-z80/LICENSE.txt \
+            "dist-package/${package}/licenses/suzukiplan-z80.txt"
           cp CHANGES.20260713.md "dist-package/${package}/"
           cp dist/readme-dist.txt "dist-package/${package}/README-dist.txt"
           find "dist-package/${package}" -type f | sort
@@ -212,10 +217,13 @@ jobs:
           package="vaeg-${release_id}-macos-arm64"
           asset="${package}.tar.gz"
           rm -rf dist-package "${asset}"
-          mkdir -p "dist-package/${package}/assets"
+          mkdir -p "dist-package/${package}/assets" \
+            "dist-package/${package}/licenses"
           install -m 755 build/macos-ci/sdl2/vaeg "dist-package/${package}/vaeg"
           install -m 644 assets/OFL.txt "dist-package/${package}/assets/"
           install -m 644 assets/NOTICE.md "dist-package/${package}/assets/"
+          install -m 644 external/suzukiplan-z80/LICENSE.txt \
+            "dist-package/${package}/licenses/suzukiplan-z80.txt"
           install -m 644 CHANGES.20260713.md "dist-package/${package}/"
           install -m 644 dist/readme-dist.txt "dist-package/${package}/README-dist.txt"
 
