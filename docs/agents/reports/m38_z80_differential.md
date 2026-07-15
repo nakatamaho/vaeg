@@ -49,15 +49,16 @@ All four paths remain untracked and untouched. The optional M34 report was
 absent. All other required inputs were read in the requested order. No ROM,
 disk image, or frozen-reference input was used.
 
-The implementation commits before documentation closure are:
+The implementation and first documentation-closure commits are:
 
 ```text
 8923817 M38: correct wrapper state exposed by differential probes
 37ffe3c M38: add normalized Z80 differential harness
+6d5d6e9 M38: document blocked differential gate
 ```
 
-The documentation closure commit and exact ending SHA are reported in the
-final G38 handoff; a commit cannot embed its own immutable SHA.
+The final validation-record commit and exact ending SHA are reported in the
+G38 handoff; a commit cannot embed its own immutable SHA.
 
 ## Runner architecture and trace schema
 
@@ -228,10 +229,46 @@ Wine is execution of a cross-built Windows binary, not hosted native Windows.
 
 ### Repository, archive, provenance, and hosted CI
 
-The final repository checks, archive exclusion audit, vendored hashes,
-production-selection proof, and hosted GitHub Actions results are recorded in
-the final G38 handoff after the documentation commit. Native macOS and native
-Windows are not available locally and are not claimed from the Linux host.
+| Exact command or evidence | Result |
+|---|---|
+| `python3 tools/repo/check_encoding.py --expect utf8 --exclude hlp/` | PASS, 0 violations |
+| `python3 tools/repo/check_eol.py --enforce` | PASS, 0 violations |
+| `python3 tools/repo/check_case.py` | PASS, 0 findings |
+| `python3 tools/repo/find_unreferenced.py` | PASS, 69 pre-existing paths and no M38 path |
+| `git diff --check` | PASS |
+| Python YAML parse of `.github/workflows/build.yml` and `.github/workflows/release.yml` | PASS |
+| `git archive --format=tar.gz --output=/tmp/vaeg-m38-source-6d5d6e9.tar.gz HEAD` then archive checker | PASS, 987 files and no ZEX artifact |
+| staged five-file Linux runtime archive then archive checker | PASS, 5 files and no ZEX artifact |
+| SHA-256 of the four vendored files and the approved M35 patch, plus `git diff --exit-code 9599e5c... -- external/suzukiplan-z80 ...patch` | PASS; hashes unchanged and no diff |
+| `git diff --exit-code 9599e5c... -- iova/subsystem.cpp` and frozen-tier name-status check | PASS, no diff |
+| `ar t build/linux-ci-gcc/libvaeg_va.a \| rg 'z80'` | `z80c.cpp.o`, `z80diag.cpp.o`; no new-wrapper object |
+
+Vendored SHA-256 values are:
+
+```text
+ca7261ecf96ab7fea40c4c66aeb644710d210bd71418d285a9dd0098a7bddff1  LICENSE.txt
+59d660c57262d1166cd317877691496e0a072200f4e20e388f8d88e77ba39cda  provenance.txt
+abe7cd10642c6d13ad0636ef53091cd3c4bf643ecd6f564a22707393e06728c4  test/test-interrupt-extension.cpp
+88c878f0087f114eb864dc6a9e8cb98473c022e052c62937ab7a23aecbdb7106  z80.hpp
+d8624085139ef4e7b400b918b2b498e79bea1af4a1942e4ac935545846e746a4  M35 patch
+```
+
+The final all-suite trace hashes are legacy
+`43df97262bd4ea48d866657b560a94f7ec783694f77318bdbcece4f4d3971df5`
+and new
+`66d48f9e7f480ff9e93314ff55a6af28a136bd0463fae41601d8c105500bb7ec`.
+The long generated trace hashes are legacy
+`0fa6b1c03342db39d0c802b84cf38a95a3b683efe0a9eee7f9ce0f91d1ce9cd8`
+and new
+`d3f574db8a1d4806acabe3a604f600d917b7e4ffb1bf1f2d85c3f2c5fba0bf4f`.
+
+[GitHub Actions run 29389442853](https://github.com/nakatamaho/vaeg/actions/runs/29389442853)
+for SHA `6d5d6e9035ecadf209c0123a551409ad337d6fc3` completed successfully
+with all seven jobs green: native Windows MSYS2/MinGW64, native macOS,
+Ubuntu GCC, Ubuntu Clang, Ubuntu ASan/UBSan, standalone Z80 conformance, and
+repository invariants. The Windows and macOS jobs each passed configure,
+build, native smoke, and native unit tests. Native macOS and native Windows
+were not run locally; only the hosted results are claimed as native.
 
 ## Verified facts, limitations, and hypotheses
 
