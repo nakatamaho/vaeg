@@ -75,10 +75,10 @@ history, not by a current CI or compile guarantee.
 | M39 | tasks/M39_z80_integration.md | Integrate an opt-in replacement Z80 path and run private-system regressions | **G39 passed** |
 | M40 | tasks/M40_z80_disassembler.md | Replace active legacy disassembly consumers and close the dual-core evidence period | **G40 passed** |
 | M41 | tasks/M41_z80_cutover.md | Select the replacement exclusively, delete the seven approved files, and audit releases | **G41 passed** |
-| M42 | tasks/M42_z80_performance.md | Optional performance investigation, to be replaced by a new task only if measured performance evidence requires it | **Not scheduled** |
+| M42 | tasks/M42_upd9002_adr_inventory_harness.md | Record uPD9002 ownership, dispatch/state inventory, behavior-neutral trace/harness infrastructure, and reproducible baselines | **G42 human review** |
 
 Phase 2 dependencies: M7 → M8 → {M9, M10 parallel} → M11 → M12 → M13.
-Post-phase dependency: M13 → M14 → M15 → M16 → M17 → M18 → M19 → M20 → M21 → M22 → M23 → M24 → M25 → M26 → M27 → M28 → M29 → M30 → M31 → M32. The required Z80 migration sequence M34 → M35 → M36 → M37 → M38 → M39 → M40 → M41 is complete. M42 is not scheduled; create a new task only if measured performance evidence requires work.
+Post-phase dependency: M13 → M14 → M15 → M16 → M17 → M18 → M19 → M20 → M21 → M22 → M23 → M24 → M25 → M26 → M27 → M28 → M29 → M30 → M31 → M32. The required Z80 migration sequence M34 → M35 → M36 → M37 → M38 → M39 → M40 → M41 is complete. M42 begins the separately authorized uPD9002 consolidation evidence series. M43 is not authorized until G42 is explicitly accepted.
 M9 must pass before M11 (all three OSes must ship the VA machine, not
 the PC-98 scaffold).
 

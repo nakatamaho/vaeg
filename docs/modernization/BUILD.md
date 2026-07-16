@@ -308,6 +308,32 @@ not blurry at integer display scales, and writable state files were
 created under `~/Library/Application Support/vaeg` as required by
 ADR-0005.
 
+## uPD9002 M42 evidence targets
+
+Test-bearing builds expose behavior-neutral uPD9002 inventory and regression
+targets. The supported product presets always compile the C core and the VA
+runtime selects its V30 step function; the frozen assembly reference is not a
+supported preset. Run the complete M42 ROM-less evidence set with:
+
+```sh
+cmake --preset linux-ci-gcc
+cmake --build --preset linux-ci-gcc
+ctest --test-dir build/linux-ci-gcc --output-on-failure \
+  -L upd9002
+```
+
+The labeled tests regenerate the fail-closed dispatch graph, exercise parser
+selftests, verify the recorded raw-state ABI, run the graph-derived direct
+instruction manifest, compare deterministic `--trace-cpu 8` output with its
+golden, and verify the reset, executed, and CPU_SHUT fixtures. The trace is
+disabled by default. Its schema uses ordered CPU, DMA, and device records and
+records CPU memory writes and eight-bit I/O transactions when active.
+
+`tests/upd9002/direct_harness.h` is test-only. It accepts fixed-width CPU,
+program, and RAM input structures and returns a fixed-width result without
+exposing emulator globals. The SingleStepTests V20 dataset is deliberately not
+downloaded or integrated in M42; that work belongs to M43 after G42.
+
 ## Known Issues
 
 US physical host keyboards do not yet have a dedicated mapping mode for
