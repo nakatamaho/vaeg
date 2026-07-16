@@ -26,7 +26,7 @@ POSSIBILITY OF SUCH DAMAGE.
 
 > **Status:** Reconstructed, non-authoritative specification
 >
-> **Version:** 0.1
+> **Version:** 0.2
 >
 > **Date:** 2026-07-16 (JST)
 >
@@ -147,23 +147,151 @@ must be treated as one platform configuration.
 
 The PC-88VA material records the following complete `SYNC` vectors:
 
-| Active lines | Horizontal profile | Raster use | 14 parameter bytes |
+| Platform mode | Horizontal profile | Raw TSP raster use | 14 parameter bytes |
 |---:|---:|---|---|
-| 200 | 15.98kHz | Noninterlace | `C1 57 1C 00 9F 00 10 0F 25 00 C8 00 0F 08` |
-| 200 | 15.73kHz | Interlace-labeled system profile | `C1 47 1C 00 9F 00 12 11 24 00 C8 00 17 04` |
-| 200 | 24.8kHz | Vertically magnified | `81 57 10 00 9F 00 10 0F 19 00 90 40 07 08` |
-| 204 | 15.98kHz | Noninterlace | `C1 57 1C 00 9F 00 10 0F 23 00 CC 00 0D 08` |
-| 204 | 15.73kHz | Interlace-labeled system profile | `C1 47 1C 00 9F 00 12 11 22 00 CC 00 15 04` |
-| 204 | 24.8kHz | Vertically magnified | `81 57 10 00 9F 00 10 0F 19 00 98 40 07 08` |
-| 400 | 15.73kHz | Interlace, 200-line sprite data | `41 47 1C 00 9F 00 12 11 24 00 C8 00 17 04` |
-| 400 | 24.8kHz | Noninterlace, 200-line sprite data | `01 57 10 00 9F 00 10 0F 19 00 90 40 07 08` |
-| 400 | 24.8kHz | Noninterlace, 400-line sprite data | `C1 57 10 00 9F 00 10 0F 19 00 90 40 07 08` |
-| 408 | 15.73kHz | Interlace, 200-line sprite data | `41 47 1C 00 9F 00 12 11 22 00 CC 00 15 04` |
-| 408 | 24.8kHz | Noninterlace, 200-line sprite data | `01 57 10 00 9F 00 10 0F 19 00 98 40 07 08` |
-| 408 | 24.8kHz | Noninterlace, 400-line sprite data | `C1 57 10 00 9F 00 10 0F 19 00 98 40 07 08` |
+| 200 lines | 15.98kHz | `RM=11b`, normal raster | `C1 57 1C 00 9F 00 10 0F 25 00 C8 00 0F 08` |
+| 200 lines | 15.73kHz | `RM=11b`, normal raster | `C1 47 1C 00 9F 00 12 11 24 00 C8 00 17 04` |
+| 200 lines | 24.8kHz | `RM=10b`, vertically magnified | `81 57 10 00 9F 00 10 0F 19 00 90 40 07 08` |
+| 204 lines | 15.98kHz | `RM=11b`, normal raster | `C1 57 1C 00 9F 00 10 0F 23 00 CC 00 0D 08` |
+| 204 lines | 15.73kHz | `RM=11b`, normal raster | `C1 47 1C 00 9F 00 12 11 22 00 CC 00 15 04` |
+| 204 lines | 24.8kHz | `RM=10b`, vertically magnified | `81 57 10 00 9F 00 10 0F 19 00 98 40 07 08` |
+| 400 lines | 15.73kHz | `RM=01b`, interlace, 200-line sprite data | `41 47 1C 00 9F 00 12 11 24 00 C8 00 17 04` |
+| 400 lines | 24.8kHz | `RM=00b`, noninterlace, 200-line sprite data | `01 57 10 00 9F 00 10 0F 19 00 90 40 07 08` |
+| 400 lines | 24.8kHz | `RM=11b`, normal raster, 400-line sprite data | `C1 57 10 00 9F 00 10 0F 19 00 90 40 07 08` |
+| 408 lines | 15.73kHz | `RM=01b`, interlace, 200-line sprite data | `41 47 1C 00 9F 00 12 11 22 00 CC 00 15 04` |
+| 408 lines | 24.8kHz | `RM=00b`, noninterlace, 200-line sprite data | `01 57 10 00 9F 00 10 0F 19 00 98 40 07 08` |
+| 408 lines | 24.8kHz | `RM=11b`, normal raster, 400-line sprite data | `C1 57 10 00 9F 00 10 0F 19 00 98 40 07 08` |
 
-The first byte must be decoded as raw `RM` and control bits. The descriptive
-system-profile label is not a substitute for decoding it.
+The descriptive platform mode must not replace raw-byte decoding. In
+particular, the 200/204-line 15.73kHz vectors begin with `C1h` and therefore
+select `RM=11b`, not the `RM=01b` interlace mode used by the 400/408-line
+15.73kHz vectors.
+
+### 3.2.1 Invariant fields and the first two bytes
+
+Every vector has `HAD=9Fh`, so every documented PC-88VA profile has a 640-dot
+TSP active interval:
+
+~~~text
+(9Fh + 1) * 4 = 640 dots
+~~~
+
+Every first byte also has `ILM=1`, selecting the interleave memory interface.
+The four observed first-byte values differ primarily in `RM`:
+
+| Byte 0 | `RM` | `ILM` | Raw TSP interpretation |
+|---:|---:|---:|---|
+| `C1h` | `11b` | 1 | Normal raster progression |
+| `81h` | `10b` | 1 | Vertical magnification |
+| `41h` | `01b` | 1 | Interlace |
+| `01h` | `00b` | 1 | Noninterlace |
+
+The two observed second-byte values are:
+
+| Byte 1 | `RF` | `EC` | `ES` | `RS` | Interpretation |
+|---:|---:|---:|---:|---:|---|
+| `57h` | 1 | 0 | 1 | `111b` | External dot clock; TSP outputs HSYN/VSYN |
+| `47h` | 1 | 0 | 0 | `111b` | External dot clock; TSP accepts external HSYN/VSYN |
+
+Thus none of these vectors uses the generic internal-clock `RS=000b` through
+`100b` modes. The 15.73kHz family alone uses `ES=0`; identifying the exact
+board-level synchronization master in this configuration still requires a
+schematic or hardware measurement.
+
+### 3.2.2 Three horizontal timing families
+
+`[IMPLEMENTATION]` Current vaeg calculates PC-88VA line width without adding
+one to `LBR` or `RBR`:
+
+~~~text
+H_total_dots =
+    ((LBL + 1) + LBR + (HAD + 1) +
+     RBR + (RBL + 1) + (HS + 1)) * 4
+~~~
+
+With the current vaeg external-dot-clock constants, the twelve vectors reduce
+to three horizontal families:
+
+| Profile | `LBL LBR HAD RBR RBL HS` | Total dots | vaeg dot clock | Derived horizontal rate |
+|---:|---|---:|---:|---:|
+| 15.98kHz | `1C 00 9F 00 10 0F` | 888 | 14.189837MHz | 15.9795kHz |
+| 15.73kHz | `1C 00 9F 00 12 11` | 904 | 14.252364MHz | 15.7659kHz |
+| 24.8kHz | `10 00 9F 00 10 0F` | 840 | 20.854022MHz | 24.8262kHz |
+
+The generic uPD72022 formula adds one to both border fields and would instead
+give 896, 912, and 848 dots. With the vaeg clock constants, those totals do not
+match the named horizontal profiles as closely. This strengthens, but does not
+prove, the vaeg real-machine-fit hypothesis that PC-88VA `LBR/RBR` use differs
+from the generic data-book explanation. The clock constants themselves include
+implementation fitting and are not all independently established crystal
+frequencies.
+
+Current vaeg chooses the clock family from the monitor selection and
+`GRMODE` bit 7, not by matching a `SYNC` byte sequence. Therefore an absolute
+frequency can be derived only after the TSP vector and board-level graphics
+mode are paired.
+
+### 3.2.3 Vertical totals and logical-line interpretation
+
+`[IMPLEMENTATION]` Current vaeg uses:
+
+~~~text
+V_total_lines = TBL + TBR + VAD + BBR + BBL + VS
+field_rate     = horizontal_rate / V_total_lines
+~~~
+
+This gives:
+
+| Platform mode | Raw `VAD` | Total lines | Raw `RM` | Derived field/frame cadence |
+|---:|---:|---:|---:|---:|
+| 200/15.98 | 200 | 260 | `11b` | 61.46Hz |
+| 204/15.98 | 204 | 260 | `11b` | 61.46Hz |
+| 200/15.73 | 200 | 263 | `11b` | 59.95Hz |
+| 204/15.73 | 204 | 263 | `11b` | 59.95Hz |
+| 200/24.8 | 400 | 440 | `10b` | 56.42Hz |
+| 204/24.8 | 408 | 448 | `10b` | 55.42Hz |
+| 400/15.73 | 200 per field | 263 per field | `01b` | 59.95 fields/s, about 29.97 two-field frames/s |
+| 408/15.73 | 204 per field | 263 per field | `01b` | 59.95 fields/s, about 29.97 two-field frames/s |
+| 400/24.8 | 400 | 440 | `00b` or `11b` | 56.42Hz |
+| 408/24.8 | 408 | 448 | `00b` or `11b` | 55.42Hz |
+
+Several relationships are now visible:
+
+- The 15kHz 200-to-204 change adds four active lines but removes four lines
+  from top/bottom blanking, preserving totals of 260 or 263 lines.
+- The 24.8kHz 200/204 modes use raw `VAD=400/408` with `RM=10b`, so the TSP
+  scans 400/408 physical rasters while vertically magnifying 200/204-line data.
+- The 200-line and 400-line 15.73kHz vectors have the same horizontal and
+  vertical interval bytes. Changing byte 0 from `C1h` to `41h` changes raster
+  progression to interlace rather than changing the CRT interval counts.
+- The three 24.8kHz 200/400 variants likewise share physical interval values.
+  Byte 0 selects vertical magnification, noninterlace with 200-line sprite
+  data, or normal raster progression with 400-line sprite data.
+
+The rates above are derived from the current vaeg timing model. They are not
+yet direct oscilloscope measurements of every PC-88VA model.
+
+### 3.2.4 Current confidence boundary
+
+The vectors now determine, or strongly constrain:
+
+- every timing-field value and the 640-dot active width;
+- the three horizontal timing families;
+- raw active and total line counts in the current model;
+- normal, magnified, interlace, and noninterlace raster selection;
+- the distinction between logical 200/204-line data and physical 400/408-line
+  scanning; and
+- why 200/400 or 204/408 profiles can share almost all timing bytes.
+
+The remaining hardware questions are:
+
+- the precise TSP/D65101 synchronization-master relationship when `ES=0`;
+- exact external dot-clock frequency and model variation;
+- hardware confirmation of the no-`+1` `LBR/RBR` rule;
+- even/odd-field phase, half-line behavior, and sync polarity in interlace;
+- exact text/sprite address progression for the two 24.8kHz 400-line
+  interpretations; and
+- the required `GRMODE` and monitor-switch pairing for every vector.
 
 ## 4. Port `0100h`: `GRMODE`
 
@@ -465,6 +593,18 @@ The principal unresolved points are:
 8. model differences among VA, VA2, and VA3.
 
 ## 12. Change log
+
+### Version 0.2 - 2026-07-16
+
+- Decoded all twelve PC-88VA `SYNC` vectors into raw `RM`, clock/sync, active,
+  blanking, border, and synchronization fields.
+- Reduced the vectors to three horizontal timing families and derived their
+  current vaeg horizontal and field rates.
+- Explained the 200/204 versus 400/408 logical/physical raster relationships.
+- Corrected the 200/204-line 15.73kHz description: its raw TSP mode is
+  `RM=11b` normal raster, not `RM=01b` interlace.
+- Separated deductions supported by raw bytes from vaeg timing-model evidence
+  and remaining real-hardware questions.
 
 ### Version 0.1 - 2026-07-16
 
