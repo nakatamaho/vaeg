@@ -360,7 +360,6 @@ void scrnmng_destroy(void) {
 		scrnmng.renderer = NULL;
 	}
 	if (scrnmng.window) {
-		appicon_release_window();
 		SDL_DestroyWindow(scrnmng.window);
 		scrnmng.window = NULL;
 	}
