@@ -22,13 +22,74 @@ STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING
 IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE.
 -->
-# NEC uPD72022 and the PC-88VA TSP
+# Reconstructed Formal Specification of the PC-88VA uPD72022 TSP
 
-This note records the available NEC documentation for the uPD72022 and relates
-it to vaeg's PC-88VA Text Sprite Processor (TSP) implementation. The uPD72022
-is a display processor. It is unrelated to the PC-88VA3 2TD floppy controller.
+> **Status:** Reconstructed, non-authoritative specification
+> **Version:** 0.1
+> **Date:** 2026-07-16 (JST)
+> **Target:** NEC PC-88VA-series use of the NEC μPD72022 Intelligent Display
+> Processor
+> **PC-88VA name:** TSP, meaning Text/Sprite Processor
+> **Repository path:** `docs/modernization/upd72022-tsp.md`
 
-## Terminology
+> [!WARNING]
+> This document is not an original NEC data sheet and must not be treated as
+> an electrical replacement specification. It reconstructs the programming
+> model relevant to PC-88VA emulation by reconciling the NEC μPD72022 data
+> book, PC-88VA technical material, Tekumani material, and emulator sources.
+> Where sources disagree or leave gaps, the uncertainty is explicit.
+
+The μPD72022 is a display processor. It is unrelated to the PC-88VA3 2TD
+floppy controller. The close functional match between the retail μPD72022 and
+the VA TSP does not by itself prove that every PC-88VA model contains an
+electrically identical, unmodified commercial part.
+
+## 1. Purpose and scope
+
+This is an emulator-oriented behavioral specification for the μPD72022
+programming model as used by the PC-88VA family. The original PC-88VA is the
+baseline profile. VA2/VA3 differences are stated separately where evidence
+exists and otherwise remain unresolved.
+
+The reconstructed PC-88VA profile covers:
+
+- host I/O at ports `0142h` and `0146h`;
+- command, parameter, result, and status behavior;
+- native text rendering and four horizontal split-screen descriptors;
+- the six PC-88VA text attribute modes;
+- hardware character codes, ANK/Kanji selection, and 40/80-column operation;
+- 32 hardware sprites, pattern formats, priority, clipping, overflow, and
+  collision detection;
+- cursor operation through the sprite engine;
+- the PC-88VA-specific μPD3301 emulation command `EMUL` (`8Ch`);
+- board-level registers that compose TSP output with two graphics screens;
+- documented PC-88VA timing profiles;
+- known MAME and vaeg implementation gaps; and
+- conformance tests and unresolved hardware questions.
+
+Electrical limits, package dimensions, pin timing, DRAM refresh waveforms,
+DMA waveforms, and bus-arbitration waveforms remain defined by the original
+NEC data book and are not reproduced in full.
+
+## 2. Normative vocabulary and evidence labels
+
+The words **MUST**, **MUST NOT**, **SHOULD**, **SHOULD NOT**, and **MAY**
+describe implementation requirements in this reconstructed specification.
+
+| Label | Meaning |
+|---|---|
+| `[CONFIRMED]` | Agrees across the NEC device data and PC-88VA-specific documentation, or follows from an unambiguous bit layout. |
+| `[DOCUMENTED]` | Explicitly stated in one authoritative or near-authoritative source, but not independently cross-checked. |
+| `[IMPLEMENTATION]` | Behavior found in emulator source code; evidence of software assumptions, not automatically hardware behavior. |
+| `[INFERENCE]` | Derived from several documented facts or necessary address/format arithmetic. |
+| `[CONFLICT]` | Two sources, or two sections of one source, disagree. |
+| `[UNKNOWN]` | The surviving material does not determine the behavior. |
+
+Confirmed and documented behavior should be implemented first. Conflicts and
+unknowns should be isolated behind named helpers, tests, or deliberately named
+compatibility switches rather than silently guessed.
+
+## 3. Terminology
 
 NEC names the uPD72022 an **Intelligent Display Processor (IDP)**. The active
 vaeg tree names the corresponding PC-88VA functional block the **Text Sprite
@@ -50,7 +111,9 @@ differs from the uPD72022 data sheet. Board markings, an NEC VA schematic, or a
 VA-specific parts list are still needed to establish the exact silicon
 relationship.
 
-## Primary Documentation
+## 4. Source inventory and evidence hierarchy
+
+### 4.1 Primary and near-primary sources
 
 The best available source is NEC Electronics Inc., *Intelligent Peripheral
 Devices (IPD) Data Book*, 1989-1990 edition, June 1989, Document No. 50051.
@@ -79,7 +142,40 @@ No uPD72022 file is present in the
 [ChipDB NEC index](https://datasheets.chipdb.org/NEC/) that hosts the V20/V30
 and V40/V50 manuals. For this device, Bitsavers is the more complete source.
 
-## Published Device Capabilities
+The platform-specific sources are:
+
+1. **PC-88VA Technical Manual**, preserved by the
+   [Internet Archive](https://archive.org/details/PC88VA/page/76/mode/2up).
+2. **PC-88VA Tekumani material**, especially `2.TXT`, `4.TXT`,
+   `604TEXT.TXT`, and `605SPR.TXT`. These provide the I/O map, status and
+   text-control registers, TVRAM and descriptor formats, native attributes,
+   TSP command profiles, timing vectors, Text BIOS behavior, and Sprite BIOS
+   policy.
+
+The NEC data-book chapter is primary for the generic device. The PC-88VA
+technical manual and Tekumani material take precedence for board wiring,
+machine-specific extensions, installed memory, and external composition.
+
+### 4.2 Implementation sources
+
+Implementation evidence comes from:
+
+- vaeg [`iova/tsp.c`](../../iova/tsp.c) and
+  [`iova/videova.c`](../../iova/videova.c);
+- MAME
+  [`pc88va.cpp`](https://github.com/mamedev/mame/blob/master/src/mame/nec/pc88va.cpp)
+  and
+  [`pc88va_v.cpp`](https://github.com/mamedev/mame/blob/master/src/mame/nec/pc88va_v.cpp).
+
+MAME explicitly describes its PC-88VA video support as incomplete, and vaeg
+implements only part of the command set. Neither implementation is a hardware
+oracle.
+
+The [Inside PC-88VA Wiki](http://www.pc88.gr.jp/inside88va/wiki/index.php?FrontPage)
+is useful as a preservation and cross-reference index, but has lower authority
+than the device and machine technical material.
+
+## 5. Published device capabilities and executive summary
 
 The data book gives the following headline capabilities:
 
@@ -107,7 +203,29 @@ statement that every PC-88VA exposes 512KiB of text/sprite RAM. The documented
 VA configuration is 64KiB of TVRAM on VA and 256KiB on VA2/VA3; see
 [`virtual-machine-architecture.md`](virtual-machine-architecture.md).
 
-## Internal Architecture
+`[CONFIRMED]` The TSP emits one four-bit color code. Sprite pixels have
+intrinsic priority over text pixels. PC-88VA board logic can then classify the
+combined output into sprite-color and text-color classes and insert a graphics
+screen between those classes in the external priority mixer.
+
+`[DOCUMENTED]` The original VA native text system uses a 64KiB CPU-visible
+TVRAM window divided into a 32KiB character-code side and a 32KiB attribute
+side. Text buffers, four screen descriptors, 32 sprite descriptors, and sprite
+patterns share this RAM. VA2/VA3 install 256KiB, but their complete TSP-side
+decode is not fully reconstructed here.
+
+`[CONFIRMED]` The sprite engine has 32 descriptors. Each sprite independently
+selects packed 4-bpp color or 1-bpp monochrome pattern data, with programmable
+position and size. Collision and per-scanline overflow detection are hardware
+functions.
+
+> [!IMPORTANT]
+> The generic device limits and examples such as `256 x 192` or `512 x 192`
+> do not establish PC-88VA system modes. PC-88VA material documents 200, 204,
+> 400, and 408 active-line profiles. External 40/80-column circuitry changes
+> horizontal text presentation independently of those generic examples.
+
+## 6. Functional architecture
 
 The data book divides the uPD72022 into three units:
 
@@ -123,7 +241,14 @@ memory operations, and raster scheduling should not be collapsed into one
 immediate register-write side effect when BUSY, DMA, interrupt, or command
 completion timing is guest-visible.
 
-## Command Set
+The PC-88VA uses the TSP for native text, sprites, and dynamic μPD3301
+attribute expansion. The two graphics screens are produced by separate
+graphics circuitry and are composited with the TSP output afterward. Normal
+native software writes TVRAM directly through the CPU memory map; generic
+`RDAT`, `WDAT`, `BLKTOT`, and `BLKTIN` operations are not required for that
+path.
+
+## 7. Command-set overview
 
 The complete documented command set is:
 
@@ -157,7 +282,13 @@ behavior. Their bit-level meanings and parameter formats should be taken from
 the command descriptions on printed pages 3-78 through 3-88 rather than
 inferred from this summary.
 
-## PC-88VA Relationship
+The PC-88VA adds `EMUL` (`8Ch`), a persistent μPD3301-compatible dynamic
+attribute expansion mode that is absent from the generic data-book command
+list. Generic names `DSPOF` and `SPROF` are commonly written `DSPOFF` and
+`SPROFF` in PC-88VA material. Opcode `84h` is officially `SPRWR`; `SPWR` and
+`SPRDEF` are implementation aliases.
+
+## 8. PC-88VA relationship
 
 Contemporary PC-88VA descriptions identify two display processors:
 
@@ -177,7 +308,794 @@ used by the VA ROM and current vaeg implementation. This is strong functional
 evidence. It is not sufficient physical evidence to claim that the VA's custom
 IDP and retail uPD72022 are electrically identical.
 
-## Current vaeg Implementation
+## 9. Address, byte order, and host I/O
+
+### 9.1 Original-VA TVRAM address conversion
+
+`[CONFIRMED]` The original VA CPU sees TVRAM as bytes while the TSP addresses
+character, attribute, and sprite-pattern storage as 16-bit words. The two
+physical 32KiB halves occupy non-contiguous TSP word ranges:
+
+| Logical region | TSP word address | CPU byte offset | CPU address |
+|---|---:|---:|---:|
+| Character-code side | `0000h-3FFFh` | `0000h-7FFFh` | `A0000h-A7FFFh` |
+| Attribute side | `8000h-BFFFh` | `8000h-FFFFh` | `A8000h-AFFFFh` |
+
+~~~c
+static uint32_t tsp_word_to_va1_cpu_offset(uint16_t address)
+{
+    if ((address & 0x8000u) != 0)
+        return 0x8000u + ((uint32_t)(address & 0x3fffu) << 1);
+
+    return (uint32_t)(address & 0x3fffu) << 1;
+}
+~~~
+
+| TSP word | CPU bytes, high/low as printed | CPU byte base |
+|---:|---:|---:|
+| `0000h` | `0001h / 0000h` | `0000h` |
+| `0001h` | `0003h / 0002h` | `0002h` |
+| `3FFFh` | `7FFFh / 7FFEh` | `7FFEh` |
+| `8000h` | `8001h / 8000h` | `8000h` |
+| `BFFFh` | `FFFFh / FFFEh` | `FFFEh` |
+
+Words are little-endian in CPU memory. `[UNKNOWN]` Original-VA behavior for
+TSP word ranges `4000h-7FFFh` and `C000h-FFFFh` is not determined; an emulator
+must not invent RAM or aliases there without a machine test.
+
+The VA2 and VA3 install 256KiB of TVRAM and the current memory layer exposes a
+larger CPU bank-1 window. The product capacity is documented, but the full
+TSP-side page/address decode is not. Code should therefore keep the original
+VA mapping helper separate from a future verified VA2/VA3 mapping.
+
+### 9.2 Address units by structure
+
+| Item | Address unit |
+|---|---|
+| CPU access to TVRAM | Byte address |
+| Character, attribute, and sprite-pattern fetch | TSP word address translated to machine TVRAM |
+| Sprite `SPDA` | TSP word address |
+| `DSPON` table base | 256-byte page number |
+| Screen-table `VSA` and `RSA` | 19-bit byte offset from TVRAM base |
+| `DSPDEF.ATROFF` | Signed 19-bit byte offset |
+| `DPLD` pointers | Generic 19-bit display-memory address |
+
+`[DOCUMENTED]` Sprite X is a ten-bit modular coordinate and sprite Y is a
+nine-bit modular coordinate: `-1` is encoded as `1023` and `511`
+respectively. `[INFERENCE]` The ten-bit split-screen `RXP` should likewise be
+sign-extended when negative horizontal placement is requested.
+
+### 9.3 Host-visible ports
+
+| Port | Direction | Specification |
+|---:|---|---|
+| `0142h` | Write | Command byte |
+| `0142h` | Read | Status byte |
+| `0146h` | Write | Parameter or streaming input byte |
+| `0146h` | Read | Result or streaming output byte |
+
+Before every command and every parameter byte, PC-88VA software tests status
+mask `05h` (`IBF | BUSY`) and waits for zero. Output-producing commands set
+`OBF`; software waits for `OBF=1` before reading `0146h`. Reading consumes the
+byte and clears `OBF`. The generic data book warns that `READY` alone is not a
+substitute for all read-command conditions.
+
+### 9.4 Status register
+
+| Bit | Mask | Generic name | PC-88VA name | Meaning |
+|---:|---:|---|---|---|
+| 7 | `80h` | `LP` | `LP` | Light-pen position latched; documented unavailable on PC-88VA |
+| 6 | `40h` | `VB` | `VB` | Vertical blank active |
+| 5 | `20h` | `SC` | `SC` | Sprite-over or collision condition latched |
+| 4 | `10h` | `ER` | `ER` | Command, parameter-count, value, or sequence error |
+| 3 | `08h` | Reserved | `EMEN` | PC-88VA μPD3301 expansion active |
+| 2 | `04h` | `BUSY` | `BUSY` | Command processing active |
+| 1 | `02h` | `OBF` | `OBF` | Unread output byte available |
+| 0 | `01h` | `IBF` | `IBF` | Unconsumed command/parameter byte present |
+
+`IBF` is set by a host write and clears when the command processor consumes
+the byte. `OBF` is set when a result is produced and clears when the host reads
+it; a new command clears a stale generic `OBF` condition. `BUSY` spans accepted
+command work. Streaming commands require explicit parser/FIFO state and cannot
+be modeled as unrelated immediate commands.
+
+On malformed input, `ER` stops command processing until `EXIT` restores the
+command-wait state. `SC` is updated at vertical blank and is cleared by
+`SPROV`. `EMEN` is a PC-88VA extension that tracks persistent `EMUL`
+expansion.
+
+## 10. Detailed command behavior
+
+### 10.1 `SYNC` (`10h`)
+
+`SYNC` accepts 14 bytes, stops display-controller operation, and installs the
+memory-interface, raster, interrupt, clock, and CRT timing configuration.
+
+| Byte | Bits | Field | Meaning |
+|---:|---:|---|---|
+| 0 | 7:6 | `RM` | Raster mode |
+| 0 | 5 | `EL` | Light-pen interrupt enable |
+| 0 | 4 | `EV` | Vertical-blank interrupt enable |
+| 0 | 3 | `VM` | Static-picture access: 0 random, 1 serial |
+| 0 | 2 | - | Reserved, zero |
+| 0 | 1 | `DPM` | Dual-port selector |
+| 0 | 0 | `ILM` | Interleave selector |
+| 1 | 7 | - | Reserved, zero |
+| 1 | 6 | `RF` | VRAM refresh enable |
+| 1 | 5 | `EC` | Internal divided dot-clock output when set |
+| 1 | 4 | `ES` | Output HSYN/VSYN when set; otherwise use external sync |
+| 1 | 3 | `RV` | Global text foreground/background reverse |
+| 1 | 2:0 | `RS` | Dot-time divider/resolution selector |
+| 2 | 5:0 | `LBL` | Left blanking |
+| 3 | 5:0 | `LBR` | Left border |
+| 4 | 7:0 | `HAD` | Horizontal active display |
+| 5 | 5:0 | `RBR` | Right border |
+| 6 | 5:0 | `RBL` | Right blanking |
+| 7 | 5:0 | `HS` | Horizontal sync |
+| 8 | 5:0 | `TBL` | Top blanking |
+| 9 | 5:0 | `TBR` | Top border |
+| 10 | 7:0 | `VAD[7:0]` | Vertical active display low byte |
+| 11 | 6 | `VAD[8]` | Vertical active display high bit |
+| 11 | 5:0 | `BBR` | Bottom border |
+| 12 | 5:0 | `BBL` | Bottom blanking |
+| 13 | 5:0 | `VS` | Vertical sync |
+
+The memory-interface combinations are:
+
+| DPM | ILM | Mode |
+|---:|---:|---|
+| 0 | 0 | Standalone |
+| 0 | 1 | Interleave; used by documented PC-88VA profiles |
+| 1 | 0 | Dual-port, valid only with `VM=1` |
+| 1 | 1 | Invalid/disabled |
+
+Raster modes are:
+
+| RM | Generic name and example |
+|---:|---|
+| `00b` | Noninterlace, canonical 640x400/24kHz example |
+| `01b` | Interlace, canonical 640x400/15kHz example |
+| `10b` | Vertical magnification, canonical 640x200/24kHz example |
+| `11b` | Normal, canonical 640x200/15kHz example |
+
+These names describe raster and display-address progression, not a complete
+PC-88VA mode register. The machine combines `RM` with explicit timing,
+external clock/sync selection, and sprite-line interpretation.
+
+The generic 20MHz source-clock examples are:
+
+| RS | Divider | Example | HAD | VAD |
+|---:|---:|---:|---:|---:|
+| `000b` | /4 | 256x192 | 63 | 192 |
+| `001b` | /3 | 320x200 | 79 | 200 |
+| `010b` | /2 | 512x192 | 127 | 192 |
+| `011b` | /1.5 | 640x200 | 159 | 200 |
+| `100b` | /1 | 640x400 | 159 | 400 |
+| other | disabled | no dot-clock output | - | - |
+
+Documented PC-88VA vectors use `RS=111b` with external dot-clock input, so
+this table is not a list of machine modes.
+
+For the generic device, each horizontal interval is documented as
+`(field + 1) * TCK` and each TCK is four dots:
+
+~~~text
+H_total_TCK =
+    (LBL + 1) + (LBR + 1) + (HAD + 1) +
+    (RBR + 1) + (RBL + 1) + (HS + 1)
+H_total_dots = H_total_TCK * 4
+~~~
+
+Generic constraints include `HS >= 04h`, `LBL >= 03h`, odd `HAD`,
+`VS >= 04h`, `VAD >= 4` and even, `BBR + BBL >= 2`, and top blank/border
+totals of at least `10h` without sprites or `20h` with sprites.
+
+`[CONFLICT]` vaeg's real-machine-fit comment omits `+1` for `LBR` and `RBR`:
+
+~~~text
+H_total_TCK_PC_candidate =
+    (LBL + 1) + LBR + (HAD + 1) +
+    RBR + (RBL + 1) + (HS + 1)
+~~~
+
+This remains a measurable PC-88VA timing hypothesis, not part of the generic
+formula.
+
+### 10.2 Documented PC-88VA `SYNC` vectors
+
+These 14-byte vectors are copied from the Tekumani material:
+
+| Lines | H profile | Raster/sprite interpretation | Bytes |
+|---:|---:|---|---|
+| 200 | 15.98kHz | Noninterlace, 200-line sprites | `C1 57 1C 00 9F 00 10 0F 25 00 C8 00 0F 08` |
+| 200 | 15.73kHz | Normal raster, 200-line sprites | `C1 47 1C 00 9F 00 12 11 24 00 C8 00 17 04` |
+| 200 | 24.8kHz | 200-line vertically magnified | `81 57 10 00 9F 00 10 0F 19 00 90 40 07 08` |
+| 204 | 15.98kHz | Noninterlace, 204-line sprites | `C1 57 1C 00 9F 00 10 0F 23 00 CC 00 0D 08` |
+| 204 | 15.73kHz | Normal raster, 204-line sprites | `C1 47 1C 00 9F 00 12 11 22 00 CC 00 15 04` |
+| 204 | 24.8kHz | 204-line vertically magnified | `81 57 10 00 9F 00 10 0F 19 00 98 40 07 08` |
+| 400 | 15.73kHz | Interlace, 200-line sprite data | `41 47 1C 00 9F 00 12 11 24 00 C8 00 17 04` |
+| 400 | 24.8kHz | Noninterlace, 200-line sprite data | `01 57 10 00 9F 00 10 0F 19 00 90 40 07 08` |
+| 400 | 24.8kHz | Noninterlace, 400-line sprite data | `C1 57 10 00 9F 00 10 0F 19 00 90 40 07 08` |
+| 408 | 15.73kHz | Interlace, 200-line sprite data | `41 47 1C 00 9F 00 12 11 22 00 CC 00 15 04` |
+| 408 | 24.8kHz | Noninterlace, 200-line sprite data | `01 57 10 00 9F 00 10 0F 19 00 98 40 07 08` |
+| 408 | 24.8kHz | Noninterlace, 400-line sprite data | `C1 57 10 00 9F 00 10 0F 19 00 98 40 07 08` |
+
+An emulator must decode the raw bytes rather than infer TSP behavior only from
+the human-readable profile. In particular, the 15.98kHz and 15.73kHz profiles
+must not be collapsed until tests prove that software cannot observe their
+VRTC, raster, or monitor-selection differences.
+
+### 10.3 Display-definition commands
+
+`DSPON` (`12h`) accepts a screen-table page low byte, upper page bits, and a
+four-bit backdrop color. The effective generic byte address is
+`page_number * 256`. The conventional original-VA table at `7F00h` uses
+parameters `7Fh, 00h`; the third byte is normally zero because board-level
+composition supplies the backdrop. `DSPON` starts text; sprites require a
+separate `SPRON`.
+
+`DSPOF/DSPOFF` (`13h`) has no parameters and stops both text and sprite
+controllers while retrace timing continues. To hide only text while retaining
+sprites, software uses board port `0148h.TD`.
+
+`DSPDEF` (`14h`) accepts six bytes:
+
+| Byte | Encoding |
+|---:|---|
+| 0 | `ATROFF[7:0]` |
+| 1 | `ATROFF[15:8]` |
+| 2 | `PITCH[2:0]` in bits 6:4; `ATROFF[18:16]` in bits 2:0 |
+| 3 | `MRA` in bits 4:0 |
+| 4 | `HRA` in bits 4:0 |
+| 5 | `BR` in bits 7:3 |
+
+`ATROFF` is a signed 19-bit byte displacement. Native original-VA text usually
+uses `8000h`. Encoded `PITCH=0` disables it; `1..7` means a one- through
+seven-byte pitch, with `2` normal for native character words. `MRA+1` is the
+character height; `MRA=07h, 0Fh, 1Fh` select 8, 16, or 32 rasters, while
+`00h..06h` disable character display. `HRA=0` is the first raster and
+underline uses the maximum raster.
+
+For `BR=1..31`, attribute blink is bright for `BR*24` fields and dark for
+`BR*8`; cursor phases are each `BR*8` fields. Generic `BR=0` wraps to 32:
+768/256 attribute fields and 256/256 cursor fields.
+
+### 10.4 Cursor, active screen, and light pen
+
+`CURDEF` (`15h`) accepts one byte: cursor sprite number in bits 7:3, cursor
+enable in bit 1, and blink enable in bit 0. The cursor is a selected hardware
+sprite, so the descriptor and `SPRON` state must also be valid.
+
+`ACTSCR` (`16h`) accepts the split number in bits 6:5 (equivalently
+`split * 32`) and selects the virtual coordinate space used by `CURS` and
+`LPNR`.
+
+`CURS` (`1Eh`) accepts Y low/high followed by X low/high. The generic device
+clamps coordinates beyond the virtual screen's lower or right edge and updates
+`DPTR0` to the corresponding memory address.
+
+`LPNR` (`1Ah`) returns Y then X in the same four-byte order, clears `LP`, and
+updates `DPTR0`. PC-88VA material marks light-pen use unavailable, so the board
+profile may expose a stable unasserted state pending verified hardware.
+
+### 10.5 `EMUL` (`8Ch`), PC-88VA extension
+
+`EMUL` accepts:
+
+1. split number multiplied by 32;
+2. character count;
+3. μPD3301 attribute count;
+4. row count.
+
+`[DOCUMENTED]` The TSP dynamically expands μPD3301-style character/attribute
+rows into native TSP attribute interpretation. Expansion persists until
+another command or `EXIT` terminates it, and `EMEN` reports the state. A
+conforming implementation must not turn this into a one-shot memory rewrite
+without contrary hardware evidence.
+
+`[UNKNOWN]` Malformed row data, attribute-count overflow, and exact state reset
+at split boundaries require N88 V1/V2 hardware tests.
+
+### 10.6 `EXIT` and generic display-memory commands
+
+`EXIT` (`88h`) aborts partial parameter acceptance, terminates a streaming
+display-memory command, clears generic error state, and terminates `EMUL`. It
+does not necessarily cancel a non-stream command after every parameter has
+already been accepted.
+
+`DPLD` (`8Eh/8Fh`) loads a 19-bit `DPTR0` or `DPTR1`; `DPTR1` may be a signed
+two's-complement increment. `DPRD` (`8Ah`) returns `DPTR0` as three bytes.
+`MASK` (`89h`) loads the 16-bit write mask:
+
+~~~c
+new_value = (old_value & (uint16_t)~mask) | (input_value & mask);
+~~~
+
+The transfer opcode's `MOD` selects pointer update:
+
+| MOD | Update after access | Host stream | DMA stream |
+|---:|---|---|---|
+| `00b` | None | Enabled | Disabled |
+| `01b` | Add `ATROFF` | Enabled | Enabled |
+| `10b` | Add `PITCH` | Enabled | Enabled |
+| `11b` | Add signed `DPTR1` | Enabled | Enabled |
+
+`RDAT` (`90h-93h`) and `WDAT` (`94h-97h`) continuously read or masked-write
+words through the host port. `BLKTOT` (`99h-9Bh`) and `BLKTIN` (`9Dh-9Fh`)
+are DMA equivalents. `[UNKNOWN]` The abbreviated surviving material does not
+make every 16-bit stream byte order sufficiently explicit for conformance
+tests; the existing low-byte-first PC convention should remain isolated in a
+testable helper.
+
+### 10.7 Sprite commands
+
+`SPRON` (`82h`) accepts the sprite-table page low byte, upper page bits, and:
+
+| Byte 2 bits | Field | Meaning |
+|---:|---|---|
+| 7:3 | `HSPN` | Per-scanline accepted sprite threshold |
+| 2 | `ESP` | Generic sprite interrupt enable |
+| 1 | `MG` | Vertically double every sprite |
+| 0 | `GR` | Detect collision only between different color groups |
+
+The conventional table at `A7E00h` uses page `7Eh` relative to the original
+VA TVRAM window. Sprite-over occurs when more than `HSPN+1` descriptors occupy
+a scanline. `[UNKNOWN]` Generic `ESP` wiring to a usable PC-88VA interrupt is
+not established.
+
+`SPROF/SPROFF` (`83h`) stops sprites and therefore also the cursor.
+`SPRSW` (`85h`) selects sprite number in bits 7:3 and writes descriptor enable
+from bit 1.
+
+`SPRRD` (`80h`) and `SPRWR` (`84h`) begin with a sprite/attribute-byte
+selector, then stream descriptor bytes 0 through 7 and continue into the next
+descriptor. The byte sequence is Y low; Y-size/enable/Y high; X low;
+X-size/mode/X high; pattern address low/high; color control; reserved.
+
+`SPROV` (`81h`) returns:
+
+| Bit | Field | Meaning |
+|---:|---|---|
+| 6 | `SO` | Sprite-over detected |
+| 5 | `C/CD` | Collision detected |
+| 4:0 | `OVS` | First sprite number exceeding `HSPN` |
+
+The read clears `SC`. PC-88VA material requires `SPROV` within 160
+microseconds after VRTC becomes active for valid overflow detail.
+
+## 11. TVRAM and screen-control table
+
+### 11.1 Installed memory and conventional original-VA layout
+
+The original VA CPU window is `A0000h-AFFFFh` after the system-memory bank
+selects TVRAM. That bank selection is outside the TSP.
+
+| CPU address | Size | Conventional use |
+|---:|---:|---|
+| `A0000h-A7FFFh` | 32KiB | Character-code side, tables, optional patterns |
+| `A8000h-AFFFFh` | 32KiB | Attribute side, optional patterns |
+| `A7E00h-A7EFFh` | 256B | 32 sprite descriptors |
+| `A7F00h-A7F7Fh` | 128B | Four 32-byte screen entries |
+| `A7F80h-A7FFFh` | 128B | Reserved portion of the 256-byte control page |
+
+Unused space is shared by frame buffers, sprite/cursor/mouse patterns, and
+documented BIOS work. A sprite pattern may be entirely on either side of the
+`A8000h` physical boundary but must not cross it.
+
+### 11.2 Four screen descriptors
+
+`DSPON` selects a 256-byte-aligned page. Four consecutive 32-byte entries
+describe horizontal split screens:
+
+| Offset | Bits | Field | Meaning |
+|---:|---:|---|---|
+| `00h` | 18:0 | `VSA` | Virtual-buffer start byte address |
+| `04h` | 10:0 | `VH` | Virtual height in character rows |
+| `08h` | 9:0 | `VW` | Virtual width in bytes |
+| `0Ah` | 15:12 | `BG` | Screen background |
+| `0Ah` | 11:8 | `FG` | Screen foreground |
+| `0Ah` | 4:0 | `MODE` | PC-88VA attribute mode 0 through 5 |
+| `0Ch` | 12:8 | `RASTER_OFFSET` | Vertical smooth-scroll offset |
+| `10h` | 18:0 | `RSA` | Displayed source byte address |
+| `14h` | 8:0 | `RH` | Real split height in rasters |
+| `16h` | 9:0 | `RW` | Real split width in dots |
+| `18h` | 8:0 | `RYP` | Real split Y in rasters |
+| `1Ah` | 9:0 | `RXP` | Real split X in dots/modular signed form |
+
+The unused words at `06h`, `0Eh`, `1Ch`, and `1Eh` and all reserved bits are
+zero. All fields are little-endian. `VSA`/`RSA` high bits are in the low three
+bits of the following word.
+
+~~~text
+virtual_row(y) = VSA + y * VW
+cell(x, y)     = virtual_row(y) + x * 2
+~~~
+
+`RSA` provides coarse scrolling. `RASTER_OFFSET` moves the first source row
+up by 0 through 31 rasters; larger vertical motion advances `RSA` by `VW` and
+reduces the offset modulo character height. `RXP` provides sub-cell horizontal
+placement.
+
+The real strips should be contiguous. `RH` is even and at least 16; their sum
+normally covers the active text height. `RYP` is even. `RW` is a multiple of
+32. `RW=0` with `RXP=03F0h` is the documented single-split blank convention.
+
+`[DOCUMENTED][CONFLICT]` The PC-88VA manual says that `RW/8 + 2` cells are
+fetched/displayed. Those extra cells plausibly cover scrolling edges, but the
+exact fetch/clipping rule is not defined. A renderer should fetch sufficient
+edge coverage and clip every output pixel to the real split rectangle.
+
+If the source rectangle leaves the virtual buffer, the TSP does not wrap.
+`[UNKNOWN]` The emitted value outside the buffer is not specified; transparent
+output is a testable initial policy, not a confirmed hardware rule.
+
+## 12. Native text engine
+
+### 12.1 Cell fetch and hardware character codes
+
+For every source cell, the renderer:
+
+1. fetches a 16-bit hardware character code;
+2. adds signed `ATROFF` to obtain the attribute word;
+3. decodes its low byte according to the split's `MODE`;
+4. selects ANK, Kanji, or RAM-character pattern data;
+5. applies shape, blink, color, reverse, and geometry; and
+6. clips the result to the real split rectangle.
+
+Native defaults are `PITCH=2`, `ATROFF=8000h`, an eight-dot body, and commonly
+`MRA=0Fh` for a 16-raster cell.
+
+A zero high byte denotes a single-byte ANK code. The two-byte Japanese
+hardware code is:
+
+~~~text
+bit 15     half: 0=left, 1=right
+bits 14:8  JIS second byte
+bit 7      0
+bits 6:0   JIS first byte - 20h
+~~~
+
+A full-width character occupies a left/right pair of eight-dot cells.
+MAME's surviving Kanji-ROM address transform is an implementation detail and
+must be tested independently from this cell format.
+
+### 12.2 Font and 40/80-column modes
+
+Board port `0148h.ANKM` selects an 8x16 ANK body when clear and 8x8 when set.
+Japanese full-width output is documented unavailable in 8x8 mode.
+
+Port `0030h` bit 0 (`80CM`) selects 40 or 80 text columns. Forty-column mode is
+external horizontal pixel doubling, not the TSP `DWID` attribute. In native V3
+mode, the even word supplies the enlarged left half and the odd word the right
+half; software stores the same character in both words. Sprite coordinates
+remain on the 640-dot basis in either mode.
+
+### 12.3 Attribute storage and shape controls
+
+Each character has a 16-bit attribute word, but native software uses the low
+byte and writes zero to the high byte.
+
+| Control | Meaning |
+|---|---|
+| `SECRET` | Suppress the glyph |
+| `BLINK` | Show or hide by programmed blink phase |
+| `REVERSE` | Swap cell foreground/background |
+| `HLINE` | Draw at `HRA` |
+| `ULINE` | Draw at the maximum raster |
+| `DWID` | Horizontally double one selected glyph half |
+| `DWIDC` | Select left (0) or right (1) half for `DWID` |
+
+### 12.4 Attribute modes 0 through 5
+
+Mode 0:
+
+~~~text
+bits 7:4  background 0..15
+bits 3:0  foreground 0..15
+~~~
+
+Mode 1:
+
+~~~text
+bits 7:4  foreground
+bit 3     HLINE
+bit 2     REVERSE
+bit 1     BLINK
+bit 0     SECRET
+~~~
+
+Its background comes from the screen table. Mode 2 uses both screen-table
+colors:
+
+~~~text
+bit 7  DWIDC
+bit 6  DWID
+bit 5  ULINE
+bit 4  HLINE
+bit 3  reserved
+bit 2  REVERSE
+bit 1  BLINK
+bit 0  SECRET
+~~~
+
+Mode 3 is a stateful stream. A color record has bit 3 set:
+
+~~~text
+bits 7:4  foreground 0..15
+bit 3     1
+bits 2:0  background 0..7
+~~~
+
+A shape record has bit 3 clear and uses the mode-2 shape bits. Color and shape
+states persist independently until another record of the same type. A single
+attribute byte cannot update both.
+
+`[UNKNOWN]` Mode-3 reset and persistence at row, split, `RSA`, and frame
+boundaries are not completely specified. The policy must be explicit and
+test-covered.
+
+Modes 4 and 5 share:
+
+~~~text
+bit 7     BLINK
+bits 6:4  background 0..7
+bits 3:0  foreground 0..15
+~~~
+
+Mode 5 additionally asserts `HLINE` when `(foreground & 7) == 1`, so colors 1
+and 9 select the line.
+
+Recommended application order is: select/update color and mode-3 state; fetch
+the raw glyph; apply secret/blink visibility; apply per-cell reverse and
+`SYNC.RV`; add HLINE/ULINE foreground pixels; apply `DWID/DWIDC` geometry;
+then apply external transparency and class separation.
+
+`[UNKNOWN]` Ordering of line pixels against every secret/reverse combination
+requires a hardware discriminator test.
+
+## 13. Sprite engine
+
+### 13.1 Descriptors, ownership, and priority
+
+There are 32 eight-byte descriptors. Lower descriptor addresses have higher
+priority, so sprite 0 is highest and a software overwrite renderer draws 31
+down to 0. Every opaque sprite pixel has intrinsic priority over TSP text.
+
+Hardware `CURDEF.CURN` may select any sprite as cursor. Sprite BIOS policy
+reserves 0 for the mouse, 1 through 30 for callers, and 31 for the text cursor;
+this is not a silicon restriction.
+
+| Offset | Bits | Field | Meaning |
+|---:|---:|---|---|
+| `00h` | 15:10 | `YSIZE` | Encoded vertical size |
+| `00h` | 9 | `SW` | Enable |
+| `00h` | 8:0 | `YP` | Y coordinate |
+| `02h` | 15:11 | `XSIZE` | Encoded horizontal size |
+| `02h` | 10 | `MD` | 0 packed color, 1 monochrome |
+| `02h` | 9:0 | `XP` | X coordinate |
+| `04h` | 15:0 | `SPDA` | Pattern TSP word address |
+| `06h` | 7:4 | `FG` | Monochrome foreground |
+| `06h` | 3 | `BC` | Zero bit: transparent (0) or color 8 (1) |
+
+Reserved bits are zero.
+
+### 13.2 Size and pattern formats
+
+Both modes use:
+
+~~~text
+height_pixels = 4 * (YSIZE + 1)
+row_bytes     = 4 * (XSIZE + 1)
+pattern_bytes = row_bytes * height_pixels
+~~~
+
+Packed color width is `8 * (XSIZE + 1)`, from 8 through 256 dots. Each byte's
+high nibble is the left pixel and low nibble the right; color 0 is transparent.
+
+Monochrome width is `32 * (XSIZE + 1)`. Bits are MSB first; one emits `FG`,
+zero emits transparent for `BC=0` or color 8 for `BC=1`.
+
+`[CONFLICT]` The descriptor field can encode monochrome widths through 1024,
+while a later capability section states a practical 32-through-256-dot range.
+Decode the full field but retain a hardware-limit conformance test.
+
+`SPDA` uses the word-to-byte translation in section 9. A pattern must not cross
+the original-VA `A8000h` physical boundary.
+
+### 13.3 Position, clipping, and magnification
+
+The sprite coordinate system is always 640 dots horizontally. Left, right, and
+bottom overflow are clipped. Top overflow is asymmetric: the manual directs
+software to advance `SPDA` to the first visible source row while retaining
+`YSIZE`. An emulator must preserve this rule until hardware disproves it.
+
+The PC-88VA documents 200/204- and 400/408-line presentations. Interlace raster
+mode 1 cannot use a true 400-line sprite pattern. `SPRON.MG` vertically doubles
+every sprite to reuse 200-line data in a 400-line display.
+
+### 13.4 Per-line limit, overflow, and collision
+
+The hardware describes 32 sprites, but scanline capacity also depends on
+descriptor, pattern, text, refresh, CPU/SGP, and command memory traffic. The
+manual gives approximately 256 total packed-color sprite dots per line as a
+normal capacity.
+
+`HSPN` is a separate object-count threshold. More than `HSPN+1` sprites on one
+line sets `SC`/`SO` and records the first excess sprite in `OVS`.
+
+Collision rules are:
+
+1. only active-display pixels participate;
+2. both pixels must be opaque;
+3. without grouping, all sprite pairs can collide;
+4. with grouping, only different groups collide;
+5. the first collision in a frame is latched; and
+6. `SC` updates at vertical blank.
+
+Emitted colors 1 through 7 are group 0, 8 through 15 group 1, and 0 is
+transparent. Packed-color grouping can vary per pixel. The manual describes
+monochrome grouping as per sprite, but does not unambiguously resolve a sprite
+whose `FG` and opaque `BC=1` background fall in different groups. Using the
+foreground high bit is only a hypothesis.
+
+## 14. Board-level composition
+
+These controls are outside the generic μPD72022 command registers.
+
+### 14.1 Text control and model-sensitive TVRAM mode
+
+Port `0148h` contains:
+
+| Bit | Name | Baseline meaning |
+|---:|---|---|
+| 7 | `TD` | Disable text while sprites may remain visible |
+| 6:4 | `VALT` | TVRAM access limit; zero unrestricted, nonzero documented as value times four accesses |
+| 3 | `ATM` | 0 native V3, 1 V1/V2 compatibility |
+| 2 | `ANKM` | 0 8x16 ANK, 1 8x8 ANK |
+| 1 | `TVWM` | 0 byte organization, 1 word organization |
+| 0 | model-sensitive | Written as 1 in the original-VA profile; vaeg interprets 0 as an unsupported 256KiB TVRAM mode |
+
+`VALT` is not the CPU TVRAM bank selector. `[UNKNOWN]` Its access-accounting
+interval remains unresolved. Bit 0 must not be globally labeled fixed across
+the family: the original-VA material and vaeg's later-model comment need a
+model-specific test.
+
+### 14.2 Color classes, priority, and transparency
+
+Port `0111h` upper nibble supplies boundary `N`:
+
+- colors 1 through `N` become the sprite class;
+- colors `N+1` through 15 become the text class;
+- color 0 is transparent;
+- `N=0` disables the sprite class;
+- `N=15` disables the text class.
+
+This classification does not change intrinsic sprite-over-text priority.
+
+Each nibble of port `0106h` assigns palette priority slots 0 through 3, with
+slot 0 highest:
+
+| Value | Source |
+|---:|---|
+| `0h` | Disabled |
+| `8h` | Text class |
+| `9h` | Sprite class |
+| `Ah` | Graphics screen 0 |
+| `Bh` | Graphics screen 1 |
+
+Direct-color slots 4 and 5 are controlled separately at `0108h` and apply to
+graphics screens.
+
+Port `012Eh` supplies one transparency bit per TSP color: one means externally
+transparent. Color 0 remains transparent regardless of software programming.
+Palette and palette-bank controls map TSP color codes to final RGB and belong
+in the board mixer, not descriptor decoding.
+
+### 14.3 Resolution ownership and viewport rule
+
+The generic μPD72022 can generate examples such as 256x192, 320x200,
+512x192, 640x200, and 640x400 by changing `SYNC.RS`, `HAD`, and `VAD`.
+That does not establish those as complete PC-88VA machine modes.
+
+The known PC-88VA organization is:
+
+- the TSP normally uses an external dot clock;
+- graphics horizontal selection at port `0102h` is 640 or 320;
+- native vertical profiles at port `0100h` are 200, 204, 400, or 408;
+- D65101-side composition combines TSP, graphics screen 0, and graphics
+  screen 1 under a common display timing; and
+- sprite coordinates and external class boundaries remain in the common
+  640-dot coordinate system.
+
+Therefore, "`uPD72022 alone can generate 256x192`" is not evidence of an
+official 256x192 PC-88VA mode composited with GVRAM. A TSP-only 256-dot active
+width risks disagreement with graphics fetch, sprite coordinates, and mixer
+boundaries.
+
+Arbitrary logical sizes should initially be treated as a viewport inside a
+documented physical raster. For example:
+
+~~~text
+physical raster      640 x 400
+logical framebuffer  384 x 256
+display position     (128, 72)
+outside area         backdrop or transparent
+~~~
+
+The graphics block supplies the 384-dot pitch and 256-line buffer/visible
+height, while display-position and mask/composition controls center the window.
+TSP `SYNC` remains at the known 640x400 timing. This is a fixed-raster viewport,
+not a new native 384x256 scan mode.
+
+The first discriminator target should be 320x200 represented as a logical
+screen enlarged 2x2 within 640x400 output. Once that works, tests can separate
+SGP pitch, GVRAM read format, `0102h` horizontal scaling, `0100h` vertical
+mode, TSP timing, and D65101 composition without introducing an unknown sync
+frequency.
+
+## 15. Initialization and required state
+
+A robust native sequence is:
+
+1. reset command, status, and output state;
+2. select the monitor/scan profile;
+3. send one documented `SYNC` vector;
+4. program complete `DSPDEF` state;
+5. initialize four screen descriptors;
+6. initialize sprite descriptors and patterns;
+7. select cursor state if required;
+8. issue `SPRON` and `DSPON`;
+9. program board text mode, 40/80 mode, color boundary, transparency, palette,
+   and priority; and
+10. update TVRAM in safe periods or under a verified contention policy.
+
+A complete core state includes command/parser buffers, input/output flags,
+display and sprite enables, persistent `EMUL` state, all 14 `SYNC` bytes,
+19-bit table/pointer state, signed `ATROFF`, pitch/raster/blink state, active
+split, cursor state, sprite limits and grouping, collision/overflow latches,
+`DPTR0`/`DPTR1`, and the write mask. The PC-88VA wrapper separately owns
+`TD`, `VALT`, `ATM`, `ANKM`, `TVWM`, 40/80 mode, boundary, transparency,
+priority, and palette selection.
+
+## 16. Generic device versus PC-88VA profile
+
+| Area | Generic μPD72022 | PC-88VA profile |
+|---|---|---|
+| Display paths | Text, semigraphics, graphics, sprites | Native text, sprites, and `EMUL`; graphics is separate |
+| Addressable memory | Up to 256K x 16-bit words | 64KiB installed on VA, 256KiB on VA2/VA3 |
+| Mode examples | 256x192 through 640x400 examples | 200/204/400/408 active lines; external 40/80 columns |
+| Light pen | Supported | Documented unavailable |
+| Opcode `8Ch` | Not in generic list | Persistent `EMUL` |
+| Status bit 3 | Reserved | `EMEN` |
+| Backdrop | `DSPON.BC` | Normally board-level composition |
+| Host VRAM access | Commands, DMA, arbitration | Normal software maps TVRAM directly |
+| Text/sprite output | One four-bit stream | External boundary splitter creates two priority classes |
+
+## 17. MAME implementation audit
+
+`[IMPLEMENTATION]` The examined MAME source recognizes `SYNC`, `DSPON`,
+`DSPOFF`, `DSPDEF`, `CURDEF`, `ACTSCR`, `CURS`, `EMUL`, `EXIT`, `SPRON`,
+`SPROFF`, `SPRSW`, `SPROV`, and opcode `84h` under `SPWR`. It partially
+decodes four splits, text, Kanji/ANK, sprites, and external priority.
+
+Known gaps and divergences are:
+
+1. status read exposes only `VB` and omits `IBF`, `OBF`, `BUSY`, `ER`,
+   `EMEN`, `SC`, and `LP`;
+2. `SPRRD`, `LPNR`, `MASK`, `DPLD`, `DPRD`, `RDAT`, `WDAT`, `BLKTOT`, and
+   `BLKTIN` are TODOs;
+3. screen-table FG/BG assignment appears reversed relative to the documented
+   high-background/next-foreground nibbles;
+4. `VSA` is not fully integrated into address bounds;
+5. mode 3 is not implemented as independent persistent color/shape state;
+6. blink, double width, underline, and horizontal line are incomplete;
+7. collision, overflow, `SC` timing, and `SPROV` are incomplete; and
+8. several priority/palette paths remain unverified.
+
+MAME is a regression reference for booting software, not the sole
+specification.
+
+## 18. Current vaeg implementation
 
 ### Ownership and rendering path
 
@@ -233,6 +1151,38 @@ or controller interrupts.
 The 22-command data-book chapter is useful not only as background but as a
 concrete completeness checklist for the TSP core.
 
+### Critical correctness gaps
+
+The local source at this revision has these concrete issues:
+
+1. `tsp_i142()` is parsed as
+
+   ~~~c
+   return (tsp.status | tsp.vsync) ? STATUS_VB : 0;
+   ~~~
+
+   because bitwise OR binds before the conditional operator. It therefore
+   returns only `VB` when either operand is nonzero and cannot return `BUSY` or
+   a combined byte. The intended expression is:
+
+   ~~~c
+   return tsp.status | (tsp.vsync ? STATUS_VB : 0);
+   ~~~
+
+2. `IBF`, `OBF`, `ER`, `EMEN`, `SC`, command-result reads at `0146h`, and
+   output streaming are absent.
+3. `DSPDEF.PITCH` is commented out, and only the low 16 bits of signed 19-bit
+   `ATROFF` are retained.
+4. Blink uses a heuristic shift rather than a verified hardware correction.
+5. `vramva/maketextva.c` lists modes 2 through 5, underline, and double width
+   as TODOs; mode 3 cannot yet retain independent color and shape state.
+6. Screen rendering does not enforce the complete `VSA/VH` virtual-buffer
+   contract.
+7. Sprite rendering lacks `HSPN` overflow, collision groups, `SC/SPROV`, and
+   complete clipping.
+8. Port `0148h` forces bit 0 to one and only warns on the path labeled 256KiB
+   TVRAM mode, so VA2/VA3 is not yet a complete TSP display profile.
+
 ### Timing model
 
 `tsp_updateclock()` derives horizontal and vertical periods from the 14-byte
@@ -257,7 +1207,7 @@ Other timing comments identify unresolved approximations:
 These behaviors should be preserved until replaced by better measurements,
 not mechanically overwritten with generic uPD72022 equations.
 
-## Audit Findings for Future Work
+### Implementation priorities already identified
 
 The source and data book expose several areas that need focused tests before
 the TSP implementation is expanded:
@@ -282,7 +1232,88 @@ The active code also deserves ROM-less unit coverage for command parameter
 counts, status transitions, sprite-table bounds, malformed command streams,
 and timing arithmetic. No implementation changes are made by this document.
 
-## Verification Sources Needed
+## 19. Conformance requirements
+
+A minimum native implementation must provide ports `0142h` and `0146h`,
+coherent command acceptance, the display/cursor/sprite control commands, `VB`
+and `BUSY`, explicit original-VA and later-model TVRAM profiles, all four
+screen descriptors, all six attributes, ANK and Japanese codes, 40/80-column
+expansion, both sprite formats, and board-level classification and mixing.
+
+The full PC-88VA profile additionally requires `EMUL/EMEN`, `SC`, collision,
+sprite-over and `SPROV` timing, cursor blink, all documented `SYNC` profiles,
+and sufficient access/contention modeling for software that observes `VALT`
+or raster timing.
+
+Generic-device light pen, semigraphics/graphics, serial/dual-port memory,
+host/DMA memory commands, refresh, arbitration, and interrupt behavior should
+remain a separable profile rather than being silently mixed into the board
+wrapper.
+
+## 20. Conformance test plan
+
+### 20.1 Command, status, and address
+
+- reset leaves no stale `OBF`, `ER`, `SC`, or `EMEN`;
+- every fixed command consumes exactly its documented byte count;
+- `EXIT` aborts a partial command without consuming stale bytes;
+- malformed input sets `ER` without corrupting TVRAM;
+- synthetic overflow/collision makes `SPROV` set `OBF`, return one byte, and
+  clear `SC` on read;
+- entering/leaving `EMUL` tracks `EMEN`; and
+- original-VA TSP words `0000h`, `0001h`, `3FFFh`, `8000h`, and `BFFFh` map
+  to CPU offsets `0000h`, `0002h`, `7FFEh`, `8000h`, and `FFFEh`.
+
+### 20.2 Splits, attributes, and fonts
+
+Test one and four contiguous splits; independent `VSA/VW/VH`; `RSA` coarse
+scroll; every raster offset; negative `RXP`; out-of-bounds source fill;
+FG/BG orientation; every mode and shape bit; mode-3 state at row/split
+boundaries; modes 4/5 at colors 1 and 9; global/per-cell reverse; every line,
+blink, and double-width transition; ANK and Japanese pairs; and both column
+modes.
+
+### 20.3 Sprites and composition
+
+Test packed nibble and monochrome bit order, size extremes, priority, all edge
+clips, both sides of the `A8000h` pattern boundary, `MG`, `HSPN`, first
+overflow sprite, collision transparency and grouping, `SC` frame latching,
+the 160-microsecond `SPROV` window, every boundary extreme, graphics between
+text/sprite classes, every transparency bit, color 0, `TD`, and `DSPOFF`.
+
+### 20.4 Resolution and timing
+
+For every documented `SYNC` vector, capture total dots/lines, horizontal and
+frame frequency, VRTC start/duration, `VB`, `LBR/RBR` semantics, and raster
+address progression. Then test in this order:
+
+1. known 640x400/24.8kHz with a one-dot grid;
+2. 640x200 by changing only documented vertical controls;
+3. 320x200 through `0102h.HW0`, checking physical two-dot horizontal pixels;
+4. framebuffer pitch independently from visible width;
+5. candidate 320x400 to test horizontal/vertical independence; and
+6. a 384x256 viewport while retaining 640x400 `SYNC`.
+
+Do not begin with arbitrary `SYNC` values: out-of-range CRT timing is unsafe
+and combines too many unknowns. Hardware captures must identify model, monitor
+setting, clock source, probe point, and measurement uncertainty.
+
+## 21. Unresolved questions
+
+The highest-priority questions are:
+
+1. PC-88VA `LBR/RBR` field-versus-field-plus-one behavior;
+2. mode-3 reset boundaries;
+3. `VSA` out-of-bounds fill and exact `RW/8+2` fetch/clipping;
+4. `DWID/DWIDC` source advance and Japanese-pair interaction;
+5. top-sprite fetch behavior and monochrome maximum width;
+6. `VALT` accounting and port `0148h` bit-0 model behavior;
+7. sprite interrupt wiring and `SPROV` latch lifetime;
+8. streaming byte order;
+9. original-VA undefined word ranges and VA2/VA3 TSP address decode; and
+10. exact model differences.
+
+## 22. Verification sources still needed
 
 The following evidence would resolve the remaining architectural uncertainty:
 
@@ -298,3 +1329,31 @@ The following evidence would resolve the remaining architectural uncertainty:
 Until that evidence is available, the 1989 data book should be cited as the
 primary semantic reference for the VA TSP while VA-specific observed behavior
 retains priority where the two differ.
+
+## 23. References
+
+1. NEC Electronics, *μPD72022 Intelligent Display Processor*, in
+   *Intelligent Peripheral Devices Data Book*, Document 50051, June 1989,
+   printed pages 3-57 through 3-96.
+2. BNN, *PC-88VA Technical Manual*,
+   [Internet Archive scan](https://archive.org/details/PC88VA/page/76/mode/2up).
+3. *PC-88VA Tekumani*, especially `2.TXT`, `4.TXT`, `604TEXT.TXT`, and
+   `605SPR.TXT`.
+4. vaeg [`iova/tsp.c`](../../iova/tsp.c) and
+   [`iova/videova.c`](../../iova/videova.c).
+5. MAME [`pc88va.cpp`](https://github.com/mamedev/mame/blob/master/src/mame/nec/pc88va.cpp)
+   and [`pc88va_v.cpp`](https://github.com/mamedev/mame/blob/master/src/mame/nec/pc88va_v.cpp).
+6. [Inside PC-88VA Wiki](http://www.pc88.gr.jp/inside88va/wiki/index.php?FrontPage).
+
+## 24. Change log
+
+### Version 0.1 - 2026-07-16
+
+- Replaced the initial source survey with a reconstructed programming
+  specification.
+- Separated generic μPD72022 behavior, original-VA board behavior, and
+  unresolved VA2/VA3 extensions.
+- Added status and command semantics, PC-88VA timing vectors, TVRAM and screen
+  formats, all text attributes, sprites, and external composition.
+- Added the fixed-raster viewport rule and a safe resolution-test sequence.
+- Added MAME and vaeg audits, conformance tests, and prioritized unknowns.
