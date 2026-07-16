@@ -31,6 +31,5 @@ BOOL appicon_wslg_needs_x11(const char *video_driver, const char *display,
 				const char *wsl_distro_name);
 void appicon_prepare_video_driver(void);
 void appicon_set_window(void *window);
-void appicon_release_window(void);
 
 #endif
