@@ -27,8 +27,71 @@
 #include "sdlapi.h"
 #include "appicon.h"
 
+#if defined(VAEG_HAVE_X11_ICON_HINT) && defined(SDL_VIDEO_DRIVER_X11)
+#include <SDL_syswm.h>
+#include <X11/Xutil.h>
+#endif
+
 extern const unsigned char vaeg_app_icon_ico[];
 extern const unsigned int vaeg_app_icon_ico_size;
+
+#if defined(VAEG_HAVE_X11_ICON_HINT) && defined(SDL_VIDEO_DRIVER_X11)
+static Display *appicon_x11_display;
+static Pixmap appicon_x11_pixmap;
+static Pixmap appicon_x11_mask;
+#endif
+
+static BOOL appicon_value_present(const char *value) {
+
+	return((value != NULL) && (value[0] != '\0'));
+}
+
+#if defined(__linux__)
+static BOOL appicon_video_driver_available(const char *name) {
+
+	int	index;
+	int	count;
+
+	count = SDL_GetNumVideoDrivers();
+	for (index = 0; index < count; index++) {
+		if (SDL_strcmp(SDL_GetVideoDriver(index), name) == 0) {
+			return(TRUE);
+		}
+	}
+	return(FALSE);
+}
+#endif
+
+BOOL appicon_wslg_needs_x11(const char *video_driver, const char *display,
+				const char *wayland_display, const char *wsl_interop,
+				const char *wsl_distro_name) {
+
+	return(!appicon_value_present(video_driver) &&
+		appicon_value_present(display) &&
+		appicon_value_present(wayland_display) &&
+		(appicon_value_present(wsl_interop) ||
+		 appicon_value_present(wsl_distro_name)));
+}
+
+void appicon_prepare_video_driver(void) {
+
+#if defined(__linux__)
+	if (appicon_wslg_needs_x11(SDL_getenv("SDL_VIDEODRIVER"),
+			SDL_getenv("DISPLAY"), SDL_getenv("WAYLAND_DISPLAY"),
+			SDL_getenv("WSL_INTEROP"), SDL_getenv("WSL_DISTRO_NAME")) &&
+		appicon_video_driver_available("x11")) {
+		if (SDL_setenv("SDL_VIDEODRIVER", "x11", 0) == 0) {
+			fprintf(stderr,
+				"INFO: WSLg runtime icon: using XWayland icon support\n");
+		}
+		else {
+			fprintf(stderr,
+				"Warning: could not select XWayland for the WSLg icon: %s\n",
+				SDL_GetError());
+		}
+	}
+#endif
+}
 
 static UINT16 appicon_u16(const unsigned char *data) {
 
@@ -41,7 +104,7 @@ static UINT32 appicon_u32(const unsigned char *data) {
 			((UINT32)data[2] << 16) | ((UINT32)data[3] << 24));
 }
 
-static SDL_Surface *appicon_load_surface(void) {
+static SDL_Surface *appicon_load_surface(int preferred_size) {
 
 	const unsigned char	*icon;
 	const unsigned char	*entry;
@@ -50,6 +113,8 @@ static SDL_Surface *appicon_load_surface(void) {
 	SDL_Surface			*surface;
 	UINT32				best_area;
 	UINT32				area;
+	UINT32				difference;
+	UINT32				best_difference;
 	UINT32				offset;
 	UINT32				size;
 	UINT32				dib_size;
@@ -72,6 +137,7 @@ static SDL_Surface *appicon_load_surface(void) {
 	}
 	best_index = 0xffff;
 	best_area = 0;
+	best_difference = 0xffffffff;
 	for (index = 0; index < count; index++) {
 		entry = icon + 6 + (index * 16);
 		width = entry[0] ? entry[0] : 256;
@@ -95,8 +161,15 @@ static SDL_Surface *appicon_load_surface(void) {
 			continue;
 		}
 		area = (UINT32)(width * height);
-		if (area > best_area) {
+		difference = (preferred_size > 0) ?
+			(UINT32)(abs(width - preferred_size) +
+					abs(height - preferred_size)) : 0;
+		if (((preferred_size > 0) &&
+			((difference < best_difference) ||
+			 ((difference == best_difference) && (area > best_area)))) ||
+			((preferred_size <= 0) && (area > best_area))) {
 			best_area = area;
+			best_difference = difference;
 			best_index = index;
 		}
 	}
@@ -128,6 +201,164 @@ static SDL_Surface *appicon_load_surface(void) {
 	return(surface);
 }
 
+#if defined(VAEG_HAVE_X11_ICON_HINT) && defined(SDL_VIDEO_DRIVER_X11)
+static unsigned long appicon_x11_channel(BYTE value, unsigned long mask) {
+
+	unsigned long	maximum;
+	unsigned int	shift;
+
+	if (mask == 0) {
+		return(0);
+	}
+	shift = 0;
+	while (((mask >> shift) & 1UL) == 0) {
+		shift++;
+	}
+	maximum = mask >> shift;
+	return(((((unsigned long)value * maximum + 127UL) / 255UL) << shift) &
+												mask);
+}
+
+static void appicon_set_x11_hint(SDL_Window *window, SDL_Surface *surface) {
+
+	SDL_SysWMinfo	info;
+	Display			*display;
+	Window			xwindow;
+	Visual			*visual;
+	XImage			*image;
+	XWMHints		*hints;
+	GC				gc;
+	GC				mask_gc;
+	Pixmap			pixmap;
+	Pixmap			mask;
+	UINT32			pixel;
+	BYTE			red;
+	BYTE			green;
+	BYTE			blue;
+	BYTE			alpha;
+	unsigned long	xpixel;
+	int				screen;
+	int				depth;
+	int				x;
+	int				y;
+
+	SDL_VERSION(&info.version);
+	if (!SDL_GetWindowWMInfo(window, &info) ||
+		(info.subsystem != SDL_SYSWM_X11)) {
+		return;
+	}
+	display = info.info.x11.display;
+	xwindow = info.info.x11.window;
+	screen = DefaultScreen(display);
+	visual = DefaultVisual(display, screen);
+	depth = DefaultDepth(display, screen);
+	pixmap = XCreatePixmap(display, xwindow, (unsigned int)surface->w,
+							(unsigned int)surface->h, (unsigned int)depth);
+	mask = XCreatePixmap(display, xwindow, (unsigned int)surface->w,
+							(unsigned int)surface->h, 1);
+	if ((pixmap == None) || (mask == None)) {
+		if (pixmap != None) {
+			XFreePixmap(display, pixmap);
+		}
+		if (mask != None) {
+			XFreePixmap(display, mask);
+		}
+		return;
+	}
+	image = XCreateImage(display, visual, (unsigned int)depth, ZPixmap, 0,
+						NULL, (unsigned int)surface->w,
+						(unsigned int)surface->h, 32, 0);
+	if (image == NULL) {
+		XFreePixmap(display, pixmap);
+		XFreePixmap(display, mask);
+		return;
+	}
+	image->data = (char *)calloc((size_t)image->bytes_per_line,
+							(size_t)image->height);
+	if (image->data == NULL) {
+		XDestroyImage(image);
+		XFreePixmap(display, pixmap);
+		XFreePixmap(display, mask);
+		return;
+	}
+	if (SDL_MUSTLOCK(surface) && (SDL_LockSurface(surface) != 0)) {
+		XDestroyImage(image);
+		XFreePixmap(display, pixmap);
+		XFreePixmap(display, mask);
+		return;
+	}
+	for (y = 0; y < surface->h; y++) {
+		for (x = 0; x < surface->w; x++) {
+			memcpy(&pixel, (BYTE *)surface->pixels + (y * surface->pitch) +
+							(x * surface->format->BytesPerPixel), sizeof(pixel));
+			SDL_GetRGBA(pixel, surface->format, &red, &green, &blue, &alpha);
+			xpixel = appicon_x11_channel(red, visual->red_mask) |
+				appicon_x11_channel(green, visual->green_mask) |
+				appicon_x11_channel(blue, visual->blue_mask);
+			XPutPixel(image, x, y, xpixel);
+		}
+	}
+	gc = XCreateGC(display, pixmap, 0, NULL);
+	mask_gc = XCreateGC(display, mask, 0, NULL);
+	if ((gc == NULL) || (mask_gc == NULL)) {
+		if (gc != NULL) {
+			XFreeGC(display, gc);
+		}
+		if (mask_gc != NULL) {
+			XFreeGC(display, mask_gc);
+		}
+		if (SDL_MUSTLOCK(surface)) {
+			SDL_UnlockSurface(surface);
+		}
+		XDestroyImage(image);
+		XFreePixmap(display, pixmap);
+		XFreePixmap(display, mask);
+		return;
+	}
+	XPutImage(display, pixmap, gc, image, 0, 0, 0, 0,
+					(unsigned int)surface->w, (unsigned int)surface->h);
+	XSetForeground(display, mask_gc, 0);
+	XFillRectangle(display, mask, mask_gc, 0, 0,
+					(unsigned int)surface->w, (unsigned int)surface->h);
+	XSetForeground(display, mask_gc, 1);
+	for (y = 0; y < surface->h; y++) {
+		for (x = 0; x < surface->w; x++) {
+			memcpy(&pixel, (BYTE *)surface->pixels + (y * surface->pitch) +
+							(x * surface->format->BytesPerPixel), sizeof(pixel));
+			SDL_GetRGBA(pixel, surface->format, &red, &green, &blue, &alpha);
+			if (alpha >= 128) {
+				XDrawPoint(display, mask, mask_gc, x, y);
+			}
+		}
+	}
+	if (SDL_MUSTLOCK(surface)) {
+		SDL_UnlockSurface(surface);
+	}
+	XFreeGC(display, gc);
+	XFreeGC(display, mask_gc);
+	XDestroyImage(image);
+	hints = XGetWMHints(display, xwindow);
+	if (hints == NULL) {
+		hints = XAllocWMHints();
+	}
+	if (hints == NULL) {
+		XFreePixmap(display, pixmap);
+		XFreePixmap(display, mask);
+		return;
+	}
+	hints->flags |= IconPixmapHint | IconMaskHint;
+	hints->icon_pixmap = pixmap;
+	hints->icon_mask = mask;
+	XSetWMHints(display, xwindow, hints);
+	XFree(hints);
+	XFlush(display);
+	appicon_release_window();
+	appicon_x11_display = display;
+	appicon_x11_pixmap = pixmap;
+	appicon_x11_mask = mask;
+}
+#endif
+
 void appicon_set_window(void *window) {
 
 	SDL_Surface	*surface;
@@ -135,7 +366,7 @@ void appicon_set_window(void *window) {
 	if (window == NULL) {
 		return;
 	}
-	surface = appicon_load_surface();
+	surface = appicon_load_surface(0);
 	if (surface == NULL) {
 		fprintf(stderr, "Warning: embedded application icon is invalid: %s\n",
 				SDL_GetError());
@@ -143,4 +374,31 @@ void appicon_set_window(void *window) {
 	}
 	SDL_SetWindowIcon((SDL_Window *)window, surface);
 	SDL_FreeSurface(surface);
+#if defined(VAEG_HAVE_X11_ICON_HINT) && defined(SDL_VIDEO_DRIVER_X11)
+	if ((SDL_GetWindowFlags((SDL_Window *)window) & SDL_WINDOW_SHOWN) != 0) {
+		surface = appicon_load_surface(16);
+		if (surface != NULL) {
+			appicon_set_x11_hint((SDL_Window *)window, surface);
+			SDL_FreeSurface(surface);
+		}
+	}
+#endif
+}
+
+void appicon_release_window(void) {
+
+#if defined(VAEG_HAVE_X11_ICON_HINT) && defined(SDL_VIDEO_DRIVER_X11)
+	if (appicon_x11_display != NULL) {
+		if (appicon_x11_pixmap != None) {
+			XFreePixmap(appicon_x11_display, appicon_x11_pixmap);
+		}
+		if (appicon_x11_mask != None) {
+			XFreePixmap(appicon_x11_display, appicon_x11_mask);
+		}
+		XFlush(appicon_x11_display);
+	}
+	appicon_x11_display = NULL;
+	appicon_x11_pixmap = None;
+	appicon_x11_mask = None;
+#endif
 }

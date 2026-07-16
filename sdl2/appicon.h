@@ -26,6 +26,11 @@
 #ifndef VAEG_SDL2_APPICON_H
 #define VAEG_SDL2_APPICON_H
 
+BOOL appicon_wslg_needs_x11(const char *video_driver, const char *display,
+				const char *wayland_display, const char *wsl_interop,
+				const char *wsl_distro_name);
+void appicon_prepare_video_driver(void);
 void appicon_set_window(void *window);
+void appicon_release_window(void);
 
 #endif

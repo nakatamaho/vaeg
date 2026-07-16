@@ -462,6 +462,14 @@ target_include_directories(vaeg_sdl2 PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}/external/ymfm/src")
 target_link_libraries(vaeg_sdl2 PRIVATE vaeg_core vaeg_va vaeg_common
     vaeg_core vaeg_va ${VAEG_SDL2_LIBS})
+if(UNIX AND NOT APPLE)
+    find_package(X11 QUIET)
+    if(X11_FOUND)
+        target_compile_definitions(vaeg_sdl2 PRIVATE
+            VAEG_HAVE_X11_ICON_HINT=1)
+        target_link_libraries(vaeg_sdl2 PRIVATE X11::X11)
+    endif()
+endif()
 if(VAEG_ENABLE_ARCHIVE_DROP)
     if(MINGW OR VAEG_FETCH_LIBARCHIVE)
         include(FetchContent)

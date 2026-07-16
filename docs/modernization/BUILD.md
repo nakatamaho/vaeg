@@ -109,7 +109,12 @@ should be produced from the supported MSYS2 MINGW64 native configuration.
 Linux executables also contain the same icon data and set it through SDL for
 window-manager and task-switcher use. The project does not currently install
 a desktop entry or an icon-theme payload, so launchers do not receive a
-system-wide application icon from this unpacked-binary distribution.
+system-wide application icon from this unpacked-binary distribution. WSLg
+compositors that do not expose Wayland's toplevel-icon protocol receive the
+embedded runtime icon through XWayland instead. On X11 builds with Xlib
+available, vaeg also supplies the 16-pixel ICCCM icon pixmap used by WSLg's
+small window decoration. Set `SDL_VIDEODRIVER=wayland` explicitly to override
+that WSLg-only fallback.
 
 ## GitHub Actions CI
 
