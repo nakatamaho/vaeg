@@ -24,6 +24,7 @@
  */
 #include	"compiler.h"
 #include	"selftest.h"
+#include	"appicon.h"
 #include	"codecnv.h"
 #include	"commng.h"
 #include	"clockscale.h"
@@ -108,6 +109,33 @@ static int test_romcheck(void) {
 		return(fail("romcheck", "CRC32/SHA-1 test vector failed"));
 	}
 	fprintf(stderr, "selftest: romcheck ok\n");
+	return(SUCCESS);
+}
+
+static int test_appicon_video_driver(void) {
+
+	if (!appicon_wslg_needs_x11(NULL, ":0", "wayland-0",
+							"/run/WSL/1_interop", "Ubuntu")) {
+		return(fail("application icon", "WSLg was not detected"));
+	}
+	if (!appicon_wslg_needs_x11("", ":0", "wayland-0", NULL,
+							"Ubuntu")) {
+		return(fail("application icon", "WSL distro fallback was not detected"));
+	}
+	if (appicon_wslg_needs_x11("wayland", ":0", "wayland-0",
+							"/run/WSL/1_interop", "Ubuntu") ||
+		appicon_wslg_needs_x11("x11", ":0", "wayland-0",
+							"/run/WSL/1_interop", "Ubuntu")) {
+		return(fail("application icon", "explicit SDL driver was overridden"));
+	}
+	if (appicon_wslg_needs_x11(NULL, NULL, "wayland-0",
+							"/run/WSL/1_interop", "Ubuntu") ||
+		appicon_wslg_needs_x11(NULL, ":0", NULL,
+							"/run/WSL/1_interop", "Ubuntu") ||
+		appicon_wslg_needs_x11(NULL, ":0", "wayland-0", NULL, NULL)) {
+		return(fail("application icon", "non-WSLg session was changed"));
+	}
+	fprintf(stderr, "selftest: application icon video driver ok\n");
 	return(SUCCESS);
 }
 
@@ -1710,6 +1738,9 @@ int vaeg_selftest_run(void) {
 		return(FAILURE);
 	}
 	if (test_romcheck() != SUCCESS) {
+		return(FAILURE);
+	}
+	if (test_appicon_video_driver() != SUCCESS) {
 		return(FAILURE);
 	}
 	if (test_cli_boot_model() != SUCCESS) {

@@ -268,6 +268,7 @@ BOOL scrnmng_create(int width, int height) {
 
 	width = max(320, width);
 	height = max(240, height);
+	appicon_prepare_video_driver();
 	if (SDL_InitSubSystem(SDL_INIT_VIDEO | SDL_INIT_TIMER) < 0) {
 		fprintf(stderr, "Error: SDL video init: %s\n", SDL_GetError());
 		return(FAILURE);
@@ -335,6 +336,7 @@ void scrnmng_show(void) {
 
 	if ((scrnmng.window) && (!scrnmng.visible)) {
 		SDL_ShowWindow(scrnmng.window);
+		appicon_set_window(scrnmng.window);
 		scrnmng.visible = TRUE;
 		scrnmng_log_geometry("startup");
 	}
@@ -358,6 +360,7 @@ void scrnmng_destroy(void) {
 		scrnmng.renderer = NULL;
 	}
 	if (scrnmng.window) {
+		appicon_release_window();
 		SDL_DestroyWindow(scrnmng.window);
 		scrnmng.window = NULL;
 	}
