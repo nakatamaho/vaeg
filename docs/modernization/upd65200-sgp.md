@@ -193,6 +193,10 @@ silently assigned invented behavior.
 
 ### 2.1 Resolution ownership
 
+The complete cross-block register map and worked mode relationships are in
+[PC-88VA Video-Mode and Framebuffer Control](pc88va-video-modes.md). This SGP
+document retains only the boundary needed to describe drawing behavior.
+
 The display blocks have separate responsibilities:
 
 | Block | Responsibility |
@@ -216,16 +220,17 @@ viewport in a documented physical raster:
 
 ~~~text
 physical raster      640 x 400
-logical framebuffer  384 x 256
+graphics source rows 640 dots wide
+content rectangle    384 x 256
 display position     (128, 72)
 outside area         backdrop or transparent
 ~~~
 
-Use a pitch (`FBW`) corresponding to 384 pixels, a 256-line framebuffer and
-visible height (`FBL`/`DSH` as defined by the graphics registers), vertical
-position `DSP=72`, and horizontal placement through framebuffer offset,
-masking, or composition. Keep TSP timing at known 640x400 values. This is a
-fixed-raster viewport, not a native 384x256 timing.
+For the safe first test, retain a 640-dot graphics-source pitch, place the
+384-dot content at X=128 in each source row, use `DSH=256` and `DSP=72`, and
+keep TSP timing at known 640x400 values. `OFX` changes the source position and
+is not a proven destination-X placement control. A tightly packed 384-dot
+pitch is a later hardware discriminator, not a documented native fetch width.
 
 ### 2.3 Safe hardware-test order
 
@@ -998,3 +1003,5 @@ are not primary evidence without a retrievable page or corroboration.
   and SCAN conflicts.
 - Added fixed-raster viewport guidance, safe resolution experiments,
   conformance tests, and implementation profiles.
+- Linked the cross-block video-mode control reconstruction and corrected the
+  first 384x256 experiment to retain a 640-dot graphics-source pitch.

@@ -993,6 +993,11 @@ in the board mixer, not descriptor decoding.
 
 ### 14.3 Resolution ownership and viewport rule
 
+The complete cross-block control map, including ports `0100h`, `0102h`, the
+four framebuffer descriptors at `0200h-027fh`, SGP pitch, and worked mode
+relationships, is reconstructed in
+[PC-88VA Video-Mode and Framebuffer Control](pc88va-video-modes.md).
+
 The generic μPD72022 can generate examples such as 256x192, 320x200,
 512x192, 640x200, and 640x400 by changing `SYNC.RS`, `HAD`, and `VAD`.
 That does not establish those as complete PC-88VA machine modes.
@@ -1017,15 +1022,18 @@ documented physical raster. For example:
 
 ~~~text
 physical raster      640 x 400
-logical framebuffer  384 x 256
+graphics source rows 640 dots wide
+content rectangle    384 x 256
 display position     (128, 72)
 outside area         backdrop or transparent
 ~~~
 
-The graphics block supplies the 384-dot pitch and 256-line buffer/visible
-height, while display-position and mask/composition controls center the window.
-TSP `SYNC` remains at the known 640x400 timing. This is a fixed-raster viewport,
-not a new native 384x256 scan mode.
+The safe first test retains a 640-dot source pitch, stores the 384-dot content
+at X=128 in each row, and uses framebuffer `DSP`/`DSH` for the 72-line vertical
+offset and 256-line visible height. No proven graphics destination-X register
+equivalent to TSP `RXP` has been identified; `OFX` is a source offset. A tightly
+packed 384-dot pitch is a later discriminator test, not a documented native
+fetch width. TSP `SYNC` remains at the known 640x400 timing.
 
 The first discriminator target should be 320x200 represented as a logical
 screen enlarged 2x2 within 640x400 output. Once that works, tests can separate
@@ -1356,4 +1364,6 @@ retains priority where the two differ.
 - Added status and command semantics, PC-88VA timing vectors, TVRAM and screen
   formats, all text attributes, sprites, and external composition.
 - Added the fixed-raster viewport rule and a safe resolution-test sequence.
+- Linked the cross-block video-mode control reconstruction and clarified that
+  the first 384x256 viewport test retains a 640-dot graphics pitch.
 - Added MAME and vaeg audits, conformance tests, and prioritized unknowns.
