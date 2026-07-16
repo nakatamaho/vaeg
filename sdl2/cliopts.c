@@ -175,6 +175,16 @@ BOOL vaeg_cli_parse(int argc, char **argv, VAEG_CLI_OPTIONS *options,
 		else if (!strcmp(argument, "--nowait")) {
 			options->nowait = TRUE;
 		}
+		else if (!strcmp(argument, "--trace-cpu")) {
+			value = option_value(argc, argv, &position, argument, error,
+														error_size);
+			if ((value == NULL) || (parse_uint(value, &number) != SUCCESS) ||
+				(number == 0) || (number > 1000000)) {
+				return(set_error(error, error_size,
+						"--trace-cpu accepts 1 through 1000000 steps", value));
+			}
+			options->trace_cpu = number;
+		}
 		else if (!strcmp(argument, "--fullscreen")) {
 			options->display_mode = VAEG_CLI_DISPLAY_FULLSCREEN;
 		}

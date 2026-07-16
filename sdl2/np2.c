@@ -49,6 +49,7 @@
 #include	"gui/gui.h"
 #include	"romcheck.h"
 #include	"selftest.h"
+#include	"upd9002_trace.h"
 #include	"dropmedia.h"
 #include	"splash.h"
 #include	"np2ver.h"
@@ -205,6 +206,7 @@ static void usage(const char *progname) {
 	printf("\t--keyboard-layout jis|us|custom\n");
 	printf("Diagnostics:\n");
 	printf("\t--smoke --selftest --debug --fdctrace --pacelog\n");
+	printf("\t--trace-cpu 1..1000000\n");
 	printf("\t--version --help [-h]\n");
 }
 
@@ -1393,8 +1395,12 @@ int main(int argc, char **argv) {
 
 	dosio_init();
 	file_setcd("./");
+	if (options.trace_cpu != 0) {
+		upd9002_trace_start(stderr, options.trace_cpu);
+	}
 	if (options.selftest) {
 		run_ok = vaeg_selftest_run();
+		upd9002_trace_stop();
 		SDL_Quit();
 		dosio_term();
 		return(run_ok);
@@ -1536,6 +1542,7 @@ int main(int argc, char **argv) {
 	gui_shutdown();
 	scrnmng_destroy();
 	TRACETERM();
+	upd9002_trace_stop();
 	SDL_Quit();
 	dosio_term();
 	return(run_ok);
@@ -1546,6 +1553,7 @@ np2main_err3:
 
 np2main_err2:
 	TRACETERM();
+	upd9002_trace_stop();
 	SDL_Quit();
 	dosio_term();
 	return(FAILURE);

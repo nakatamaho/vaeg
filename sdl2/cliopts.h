@@ -120,6 +120,7 @@ typedef struct {
 	BOOL pacelog;
 	BOOL mute;
 	BOOL nowait;
+	UINT trace_cpu;
 	UINT model;
 	UINT fm_backend;
 	UINT fm_sound;
