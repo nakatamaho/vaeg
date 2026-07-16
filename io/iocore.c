@@ -14,6 +14,7 @@
 #include	"subsystemmx.h"
 #include	"va91.h"
 #include	"upd9002.h"
+#include	"upd9002_trace.h"
 
 	_ARTIC		artic;
 	_CGROM		cgrom;
@@ -531,6 +532,9 @@ void IOOUTCALL iocore_out8(UINT port, REG8 dat) {
 
 	IOFUNC	iof;
 
+	upd9002_trace_event(UPD9002_TRACE_ORIGIN_CPU, "io-write",
+		(uint32_t)port, (uint32_t)dat, 1);
+
 	if (iomode_va) {
 		iocoreva_out8(port, dat);
 		return;
@@ -549,12 +553,17 @@ REG8 IOINPCALL iocore_inp8(UINT port) {
 	REG8	ret;
 
 	if (iomode_va) {
-		return iocoreva_inp8(port);
+		ret = iocoreva_inp8(port);
+		upd9002_trace_event(UPD9002_TRACE_ORIGIN_CPU, "io-read",
+			(uint32_t)port, (uint32_t)ret, 1);
+		return ret;
 	}
 
 	CPU_REMCLOCK -= iocore.busclock;
 	iof = iocore.base[(port >> 8) & 0xff];
 	ret = iof->ioinp[port & 0xff](port);
+	upd9002_trace_event(UPD9002_TRACE_ORIGIN_CPU, "io-read",
+		(uint32_t)port, (uint32_t)ret, 1);
 //	TRACEOUT(("iocore_inp8(%.2x) -> %.2x", port, ret));
 	return(ret);
 }
@@ -673,4 +682,3 @@ UINT32 IOINPCALL iocore_inp32(UINT port) {
 	ret = iocore_inp16(port);
 	return(ret + (iocore_inp16(port+2) << 16));
 }
-

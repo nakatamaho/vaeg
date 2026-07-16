@@ -6,6 +6,7 @@
 #include	"vram.h"
 #include	"font.h"
 #include	"memoryva.h"
+#include	"upd9002_trace.h"
 
 
 	BYTE	mem[0x200000];
@@ -864,6 +865,9 @@ REG16 MEMCALL i286_memoryread_w(UINT32 address) {
 
 void MEMCALL i286_memorywrite(UINT32 address, REG8 value) {
 
+	upd9002_trace_event(UPD9002_TRACE_ORIGIN_CPU, "memory-write",
+		(uint32_t)address, (uint32_t)value, 1);
+
 	if (memmode_va) {
 		i286_memorywrite_va(address, value);
 		return;
@@ -885,6 +889,9 @@ void MEMCALL i286_memorywrite(UINT32 address, REG8 value) {
 }
 
 void MEMCALL i286_memorywrite_w(UINT32 address, REG16 value) {
+
+	upd9002_trace_event(UPD9002_TRACE_ORIGIN_CPU, "memory-write",
+		(uint32_t)address, (uint32_t)value, 2);
 
 	if (memmode_va) {
 		i286_memorywrite_va_w(address, value);

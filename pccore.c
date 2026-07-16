@@ -1075,6 +1075,21 @@ void pccore_postevent(UINT32 event) {	// yet!
 	(void)event;
 }
 
+static void pccore_process_cpu_reset_request(void) {
+
+	if (CPU_RESETREQ) {
+		CPU_RESETREQ = 0;
+		CPU_SHUT();
+	}
+}
+
+#if defined(VAEG_UPD9002_M42_TESTING)
+void upd9002_m42_process_cpu_reset_request(void) {
+
+	pccore_process_cpu_reset_request();
+}
+#endif
+
 void pccore_exec(BOOL draw) {
 
 	drawframe = draw;
@@ -1113,10 +1128,7 @@ void pccore_exec(BOOL draw) {
 		resetcnt++;
 #endif
 		pic_irq();
-		if (CPU_RESETREQ) {
-			CPU_RESETREQ = 0;
-			CPU_SHUT();
-		}
+		pccore_process_cpu_reset_request();
 
 #define SINGLESTEPONLY
 #if !defined(SINGLESTEPONLY)
