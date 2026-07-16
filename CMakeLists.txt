@@ -138,6 +138,7 @@ set(VAEG_CORE_SOURCES
     i286c/i286c_fe.c
     i286c/i286c_rp.c
     i286c/v30patch.c
+    i286c/upd9002_trace.c
     i286c/memory.c
     i286c/egcmem.c
     i286c/dmap.c
@@ -343,7 +344,10 @@ set(VAEG_SDL2_SOURCES
     sdl2/fontmng.c
     sdl2/gui/gui.cpp)
 if(VAEG_ENABLE_TESTS)
-    list(APPEND VAEG_SDL2_SOURCES tests/z80/subsystem_integration.cpp)
+    list(APPEND VAEG_SDL2_SOURCES
+        tests/z80/subsystem_integration.cpp
+        tests/upd9002/direct_harness.c
+        tests/upd9002/fixtures.c)
 endif()
 
 set(VAEG_SPLASH_DATA "${CMAKE_CURRENT_BINARY_DIR}/generated/vaeg_splash_data.c")
@@ -418,6 +422,10 @@ target_compile_definitions(vaeg_core PUBLIC
     SUPPORT_SASI
     SUPPORT_V30ORIGINAL
     VAEG_FIX)
+if(VAEG_ENABLE_TESTS)
+    target_compile_definitions(vaeg_core PRIVATE
+        VAEG_UPD9002_M42_TESTING=1)
+endif()
 target_compile_options(vaeg_core PRIVATE -Wall -fsigned-char)
 if(VAEG_WERROR)
     target_compile_options(vaeg_core PRIVATE -Werror)
@@ -462,6 +470,11 @@ target_include_directories(vaeg_sdl2 PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}/external/ymfm/src")
 target_link_libraries(vaeg_sdl2 PRIVATE vaeg_core vaeg_va vaeg_common
     vaeg_core vaeg_va ${VAEG_SDL2_LIBS})
+if(VAEG_ENABLE_TESTS)
+    target_compile_definitions(vaeg_sdl2 PRIVATE
+        "VAEG_UPD9002_HARNESS_MANIFEST_PATH=\"${CMAKE_CURRENT_SOURCE_DIR}/tests/upd9002/harness_manifest.csv\""
+        "VAEG_UPD9002_FIXTURE_PATH=\"${CMAKE_CURRENT_SOURCE_DIR}/tests/upd9002/state_fixtures_m42.txt\"")
+endif()
 if(VAEG_ENABLE_ARCHIVE_DROP)
     if(MINGW OR VAEG_FETCH_LIBARCHIVE)
         include(FetchContent)
@@ -590,6 +603,40 @@ endif()
 
 if(VAEG_ENABLE_TESTS)
     enable_testing()
+    find_package(Python3 REQUIRED COMPONENTS Interpreter)
+
+    add_test(NAME vaeg_upd9002_dispatch_graph
+        COMMAND "${Python3_EXECUTABLE}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/upd9002_dispatch.py"
+            --root "${CMAKE_CURRENT_SOURCE_DIR}")
+    set_tests_properties(vaeg_upd9002_dispatch_graph PROPERTIES
+        LABELS "romless;upd9002;dispatch")
+
+    add_test(NAME vaeg_upd9002_dispatch_generator_selftest
+        COMMAND "${Python3_EXECUTABLE}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/upd9002_dispatch.py"
+            --root "${CMAKE_CURRENT_SOURCE_DIR}" --selftest)
+    set_tests_properties(vaeg_upd9002_dispatch_generator_selftest PROPERTIES
+        LABELS "romless;upd9002;dispatch")
+
+    add_executable(vaeg_upd9002_abi tests/upd9002/abi.c)
+    target_include_directories(vaeg_upd9002_abi PRIVATE ${VAEG_INCLUDE_DIRS})
+    target_compile_definitions(vaeg_upd9002_abi PRIVATE
+        USE_I286C SUPPORT_BMS SUPPORT_SASI SUPPORT_V30ORIGINAL VAEG_FIX)
+    target_compile_options(vaeg_upd9002_abi PRIVATE -Wall -fsigned-char)
+    add_test(NAME vaeg_upd9002_abi
+        COMMAND vaeg_upd9002_abi
+            "${CMAKE_CURRENT_SOURCE_DIR}/tests/upd9002/abi_g41.txt")
+    set_tests_properties(vaeg_upd9002_abi PROPERTIES
+        LABELS "romless;upd9002;state")
+
+    add_test(NAME vaeg_upd9002_trace_equivalence
+        COMMAND "${CMAKE_COMMAND}"
+            "-DVAEG_EXECUTABLE=$<TARGET_FILE:vaeg_sdl2>"
+            "-DTRACE_GOLDEN=${CMAKE_CURRENT_SOURCE_DIR}/tests/upd9002/trace_baseline.txt"
+            -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/upd9002/run_trace_equivalence.cmake")
+    set_tests_properties(vaeg_upd9002_trace_equivalence PROPERTIES
+        LABELS "romless;upd9002;trace;harness" TIMEOUT 180)
 
     function(vaeg_configure_z80_standalone_target target)
         target_include_directories(${target} PRIVATE

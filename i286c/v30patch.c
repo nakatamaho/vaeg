@@ -2,6 +2,7 @@
 #include	"cpucore.h"
 #include	"i286c.h"
 #include	"v30patch.h"
+#include	"upd9002_trace.h"
 #include	"pccore.h"
 #include	"iocore.h"
 #include	"bios.h"
@@ -1440,6 +1441,7 @@ void v30c_step(void) {
 
 	UINT	opcode;
 
+	upd9002_trace_step_begin();
 	I286_OV = I286_FLAG & O_FLAG;
 	I286_FLAG &= ~(O_FLAG);
 
@@ -1451,4 +1453,5 @@ void v30c_step(void) {
 		I286_FLAG |= (O_FLAG);
 	}
 	V30_DMAP();
+	upd9002_trace_step_end();
 }

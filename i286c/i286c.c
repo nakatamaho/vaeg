@@ -5,6 +5,7 @@
 #include	"pccore.h"
 #include	"iocore.h"
 #include	"dmap.h"
+#include	"upd9002_trace.h"
 #include	"i286c.mcr"
 
 
@@ -240,6 +241,9 @@ void i286c_setemm(UINT frame, UINT32 addr) {
 
 void CPUCALL i286c_intnum(UINT vect, REG16 IP) {
 
+	upd9002_trace_event(UPD9002_TRACE_ORIGIN_CPU, "exception",
+		(uint32_t)vect, (uint32_t)IP, 2);
+
 const BYTE	*ptr;
 
 	REGPUSH0(REAL_FLAGREG)
@@ -257,6 +261,9 @@ const BYTE	*ptr;
 }
 
 void CPUCALL i286c_interrupt(REG8 vect) {
+
+	upd9002_trace_event(UPD9002_TRACE_ORIGIN_DEVICE, "interrupt",
+		(uint32_t)vect, (uint32_t)I286_IP, 2);
 
 	UINT	op;
 const BYTE	*ptr;
@@ -312,6 +319,7 @@ void i286c_step(void) {
 
 	UINT	opcode;
 
+	upd9002_trace_step_begin();
 	I286_OV = I286_FLAG & O_FLAG;
 	I286_FLAG &= ~(O_FLAG);
 
@@ -323,6 +331,7 @@ void i286c_step(void) {
 		I286_FLAG |= (O_FLAG);
 	}
 	dmap_i286();
+	upd9002_trace_step_end();
 }
 
 

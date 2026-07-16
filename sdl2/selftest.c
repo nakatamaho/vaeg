@@ -63,6 +63,8 @@
 #if defined(VAEG_Z80_INTEGRATION_TESTING)
 #include	"iova/subsystem.h"
 #include	"tests/z80/subsystem_integration.h"
+#include	"tests/upd9002/direct_harness.h"
+#include	"tests/upd9002/fixtures.h"
 #endif
 
 static int fail(const char *name, const char *detail) {
@@ -139,7 +141,7 @@ static int test_cli_options(void) {
 		"--frameskip", "4", "--fullscreen", "--effect", "crt-lite",
 		"--scaling", "fit-8dot", "--controller", "mouse",
 		"--keyboard-layout", "custom", "--debug", "--fdctrace",
-		"--pacelog", "--smoke"
+		"--pacelog", "--trace-cpu", "17", "--smoke"
 	};
 	char *positional[] = {"vaeg", "boot.d88"};
 	char *invalid_model[] = {"vaeg", "--model", "va3"};
@@ -176,6 +178,7 @@ static int test_cli_options(void) {
 		(options.scaling != VAEG_CLI_SCALING_FIT_8DOT) ||
 		(options.controller != VAEG_CLI_CONTROLLER_MOUSE) ||
 		(options.keyboard_layout != VAEG_CLI_KEYBOARD_CUSTOM) ||
+		(options.trace_cpu != 17) ||
 		!options.debug || !options.fdctrace || !options.pacelog ||
 		!options.smoke) {
 		return(fail("CLI options", "accepted values were parsed incorrectly"));
@@ -1228,6 +1231,15 @@ static int test_statsave(void) {
 	if ((pccore.multiple != PCCORE_STANDARD_MULTIPLE) ||
 		(pccore.realclock != pccore.baseclock * PCCORE_STANDARD_MULTIPLE) ||
 		(pccore_cpu_multiple() != np2cfg.multiple)) {
+		ret = STATFLAG_FAILURE;
+	}
+	if ((ret == STATFLAG_SUCCESS) &&
+		(upd9002_harness_run_manifest(VAEG_UPD9002_HARNESS_MANIFEST_PATH)
+														!= SUCCESS)) {
+		ret = STATFLAG_FAILURE;
+	}
+	if ((ret == STATFLAG_SUCCESS) &&
+		(upd9002_fixture_verify(VAEG_UPD9002_FIXTURE_PATH) != SUCCESS)) {
 		ret = STATFLAG_FAILURE;
 	}
 
