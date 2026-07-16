@@ -1,0 +1,1000 @@
+<!--
+Copyright (c) 2026 Nakata Maho
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions
+are met:
+1. Redistributions of source code must retain the above copyright
+   notice, this list of conditions and the following disclaimer.
+2. Redistributions in binary form must reproduce the above copyright
+   notice, this list of conditions and the following disclaimer in the
+   documentation and/or other materials provided with the distribution.
+
+THIS SOFTWARE IS PROVIDED BY THE AUTHOR "AS IS" AND ANY EXPRESS OR
+IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT,
+INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING
+IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+POSSIBILITY OF SUCH DAMAGE.
+-->
+---
+title: "PC-88VA Super Graphics Processor Specification Reconstruction"
+short_title: "PC-88VA SGP Reconstructed Specification"
+filename: "docs/modernization/upd65200-sgp.md"
+requested_filename: "uPD65200-sgp-en.md"
+document_status: "Reconstructed, non-authoritative specification"
+language: "en"
+version: "0.3-en.1"
+date: "2026-07-16"
+target_system: "NEC PC-88VA family"
+requested_device_identifier: "uPD65200 (not independently verified)"
+---
+
+# PC-88VA Super Graphics Processor Specification Reconstruction
+
+> **Status:** Reconstructed, unofficial specification
+> **Target:** PC-88VA Super Graphics Processor (SGP)
+> **Requested identifier:** `uPD65200`
+> **Important:** The period sources examined consistently call this device the
+> **SGP (Super Graphics Processor)**. No NEC primary source, semiconductor
+> data sheet, package marking, or pinout has yet been found that independently
+> identifies the PC-88VA SGP as **μPD65200/uPD65200**. The requested
+> identifier is retained as metadata, but the association remains
+> **unverified**.
+
+## 0. Purpose and interpretation
+
+This document reconstructs the software-visible PC-88VA SGP specification by
+comparing surviving technical documentation, community research, and emulator
+implementations.
+
+It covers CPU I/O, the private 4MiB address space, in-memory command streams,
+the twelve identifiable opcodes, transfers, Boolean raster operations,
+transparency, line drawing, clearing, scan/paint assistance, termination,
+interrupts, abort, contention, model differences, and hardware questions.
+
+It is not a semiconductor data sheet. Internal microarchitecture, pins,
+electrical limits, process, and an authoritative command-cycle table have not
+been recovered.
+
+### 0.1 Evidence labels
+
+| Label | Meaning |
+|---|---|
+| **[CONFIRMED]** | Explicit in period technical material and consistent with another source or implementation |
+| **[DOCUMENTED]** | Explicit in a period source but not independently verified on hardware |
+| **[IMPLEMENTATION]** | Present in vaeg or MAME; not automatically hardware behavior |
+| **[INFERENCE]** | Reasoned from multiple pieces of evidence |
+| **[CONFLICT]** | Sources, or source and implementation, disagree |
+| **[UNKNOWN]** | Insufficient evidence; primary documentation or hardware is required |
+| **[CAPTURED]** | Retained from an earlier source capture that could not be fetched again |
+
+Confirmed and documented behavior should be implemented first. Conflicts and
+unknowns should remain visible through tests, model profiles, or deliberately
+named compatibility choices.
+
+## 1. Sources and evidence hierarchy
+
+### 1.1 Period and near-primary documentation
+
+**[TM] BNN, *PC-88VA Technical Manual***
+
+- [Internet Archive item](https://archive.org/details/PC88VA)
+- [User-specified viewing position](https://archive.org/details/PC88VA/page/76/mode/2up)
+- BNN Corporation, first edition, 25 June 1987
+- ISBN-10 **4-89369-024-8**
+
+The check digit is valid; no DOI is expected. OCR and extracted text broadly
+agree, but bit positions derived from diagrams remain vulnerable to OCR error.
+
+**[VC] *PC-88VA Technical Manual, 88VA Users Club Edition, beta 1.0,
+1992-01-20***
+
+- historical [distribution page](http://www.iris.dti.ne.jp/~nano/88va/tekumani.html)
+- canonical archive name: `tekumani.lzh`
+
+The investigation copy was a `tar.xz` repackaging of extracted files. That
+wrapper is not the canonical historical distribution, and the original LZH
+SHA-256 has not been verified. A raw extracted-member hash and a UTF-8
+converted-text hash identify different byte sequences and must not be
+misrepresented as the original archive hash.
+
+| File | Subject |
+|---|---|
+| `TEKUMANI.DOC` | Provenance, target systems, cautions, editorial status |
+| `2.TXT` | I/O map, SGP control ports, interrupt table |
+| `3.TXT` | Memory wait states and TVRAM/character-generator contention |
+| `4.TXT` | Display system and SGP commands |
+
+The Users Club text is an independently researched beta manual, not an official
+NEC publication. Actual hardware takes precedence.
+
+### 1.2 Emulator implementations
+
+vaeg evidence:
+
+- [repository](https://github.com/nakatamaho/vaeg)
+- [`iova/sgp.c`](../../iova/sgp.c)
+- [`iova/sgp.h`](../../iova/sgp.h)
+
+The local implementation contains BITBLT, PATBLT, LINE, CLS, dispatch,
+interrupts, and memory access. SCAN commands are TODOs; Kanji handlers and
+some memory regions are incomplete; timing and contention contain provisional
+constants; and later-model descriptor widths are reconstruction evidence.
+
+MAME evidence:
+
+- [`pc88va.cpp`](https://github.com/mamedev/mame/blob/master/src/mame/nec/pc88va.cpp)
+- [`pc88va_sgp.cpp`](https://github.com/mamedev/mame/blob/master/src/mame/nec/pc88va_sgp.cpp)
+- [`pc88va_sgp.h`](https://github.com/mamedev/mame/blob/master/src/mame/nec/pc88va_sgp.h)
+
+MAME confirms integration points such as I/O and device address mapping, but
+its existence does not establish every command semantic.
+
+### 1.3 Inside PC-88VA Wiki
+
+- [root](http://www.pc88.gr.jp/inside88va/wiki/)
+- [FrontPage](http://www.pc88.gr.jp/inside88va/wiki/index.php?FrontPage)
+
+The Wiki is a separate community source. During this revision, relevant pages
+could not be fetched reliably. Earlier-captured statements are marked
+**[CAPTURED]** and cannot alone establish normative behavior.
+
+One captured claim assigns 4MHz to the original VA SGP and 8MHz to VA2/VA3.
+The repository implements nominal 3.9936MHz and 7.9872MHz defaults with the
+same 2:1 ratio. The absolute hardware clock remains provisional until tied to
+a recoverable page or primary source.
+
+### 1.4 Default evidence order
+
+1. NEC primary source or repeatable real-hardware measurement;
+2. BNN technical manual [TM];
+3. Users Club investigation [VC];
+4. implementation comments explicitly reporting hardware comparison;
+5. observable vaeg or MAME behavior;
+6. inference in this reconstruction.
+
+Agreement between [TM] and [VC] is useful but not necessarily independent.
+
+## 2. Functional role and display-system boundaries
+
+**[CONFIRMED]** The SGP is a memory-oriented drawing processor, distinct from
+the display-timing controller. It provides rectangular transfer, repeated
+patterns, 16 Boolean ROPs, packed 1/4/8/16-bpp pixels, one-bit color expansion,
+line drawing, range fill, scan assistance, command-list execution, and END
+interrupts.
+
+~~~text
+Main CPU
+    |
+    | ports 0500h..0507h
+    v
++--------------------------------+
+| Super Graphics Processor       |
+| command fetch and decode       |<--- command list in main RAM
+| source/destination descriptors |
+| color and Boolean ROP          |
+| block, line, and scan engines  |
++--------------------------------+
+    |
+    | 16-bit accesses in SGP space
+    v
+Main RAM / expansion RAM / Kanji ROM / TVRAM / GVRAM
+~~~
+
+**[DOCUMENTED]** The SGP is usable only in single-plane graphics mode. Starting
+it in multi-plane mode is **[UNKNOWN]** and should be diagnosable rather than
+silently assigned invented behavior.
+
+### 2.1 Resolution ownership
+
+The display blocks have separate responsibilities:
+
+| Block | Responsibility |
+|---|---|
+| SGP | Where pixels are drawn and which framebuffer pitch is used |
+| VDP/graphics fetch | How GVRAM is interpreted and read |
+| Port `0102h` | Native 640/320 horizontal selection and pixel format |
+| Port `0100h` | 200/204/400/408 vertical and scan selection |
+| TSP `SYNC` | Actual sync, blanking, and active intervals |
+| D65101-side logic | Compose TSP, G0, and G1 in the common 640-dot coordinate system |
+
+The generic μPD72022 can produce 256x192 or other examples by changing
+`SYNC.RS`, `HAD`, and `VAD`. That does not establish an official PC-88VA
+256x192 mode composited with GVRAM. A TSP-only 256-dot width risks disagreement
+with graphics fetch, sprite coordinates, and composition boundaries.
+
+### 2.2 Arbitrary sizes are viewports
+
+An arbitrary logical size such as 384x256 should first be implemented as a
+viewport in a documented physical raster:
+
+~~~text
+physical raster      640 x 400
+logical framebuffer  384 x 256
+display position     (128, 72)
+outside area         backdrop or transparent
+~~~
+
+Use a pitch (`FBW`) corresponding to 384 pixels, a 256-line framebuffer and
+visible height (`FBL`/`DSH` as defined by the graphics registers), vertical
+position `DSP=72`, and horizontal placement through framebuffer offset,
+masking, or composition. Keep TSP timing at known 640x400 values. This is a
+fixed-raster viewport, not a native 384x256 timing.
+
+### 2.3 Safe hardware-test order
+
+Do not begin with arbitrary `SYNC`: an out-of-range CRT signal is unsafe and
+makes failures ambiguous.
+
+1. Establish known 640x400/24.8kHz with a one-dot grid.
+2. Change only documented vertical controls for 640x200.
+3. Select `0102h.HW0=1` for 320x200 and verify that logical pixels become two
+   physical dots wide.
+4. Change `FBW` independently; determine whether line stepping still uses the
+   old 640-dot pitch.
+5. Try candidate 320x400 to test horizontal/vertical independence; do not call
+   it an official mode without hardware evidence.
+6. Test a 384x256 viewport while retaining 640x400 timing.
+
+The first implementation target is 320x200 as a logical screen enlarged 2x2
+inside 640x400 output. Success separates pitch, graphics readout, horizontal
+and vertical scaling, TSP timing, and final composition.
+
+## 3. SGP address space
+
+### 3.1 Width and alignment
+
+**[CONFIRMED]** The SGP uses a private 22-bit, 4MiB space:
+
+~~~text
+000000h .. 3FFFFFh
+~~~
+
+Command addresses are SGP physical addresses, not CPU logical or bank-window
+offsets. Most data is 16-bit and starts at even addresses.
+
+### 3.2 Reconstructed original-VA map
+
+| SGP address | Size | Resource | Notes |
+|---:|---:|---|---|
+| `000000h-09FFFFh` | 640KiB | Main RAM | CPU and SGP physical addresses coincide |
+| `0A0000h-0FFFFFh` | 384KiB | Expansion memory | Population/banking dependent |
+| `100000h-13FFFFh` | 256KiB | Kanji ROM 1 | Normally read-only source |
+| `140000h-17FFFFh` | 256KiB | Kanji ROM 2/later overlay | Model dependent |
+| `180000h-18FFFFh` | 64KiB | Original-VA TVRAM | Display contention |
+| `190000h-1FFFFFh` | 448KiB | Reserved | Behavior unknown |
+| `200000h-23FFFFh` | 256KiB | GVRAM | Principal packed drawing destination |
+| `240000h-3FFFFFh` | 1792KiB | Reserved | Behavior unknown |
+
+The Users Club text describes this full layout. MAME and vaeg differ in
+expansion attachment, later overlays, Kanji region widths, and broad TVRAM
+handlers. Those implementations must not replace the original-VA baseline.
+
+Kanji ROM is a legal source but not a meaningful destination. Reserved reads,
+writes, and wrap at `3FFFFFh` remain **[UNKNOWN]**. Returning `FFFFh` is an
+emulator policy, not established hardware.
+
+## 4. CPU I/O interface
+
+### 4.1 Registers
+
+The word-oriented interface is in `0500h-0507h`:
+
+| Port | Direction | Reconstructed function |
+|---:|---|---|
+| `0500h-0503h` | Write | Four bytes of command-list start address; bit 0 forced even |
+| `0504h` | Read/write | Interrupt enable and abort control |
+| `0506h` | Read/write | Start/attention and busy |
+| `0508h` | Read in vaeg | Unknown; current implementation returns 1 |
+| `0580h` | Read | System `RBUSY`, checked before sensitive SGP reads |
+
+The local implementation masks `0504h` to interrupt enable `04h` and abort
+`02h`. OCR wording that appears to say “bit 4” conflicts with diagrams/examples
+indicating value `04h`; the latter is stronger evidence.
+
+Writing busy bit 0 at `0506h` while idle loads the programmed command pointer
+and starts. END clears busy and optionally requests interrupt 8 in vaeg. Abort
+clears busy and follows the current completion-interrupt helper; exact hardware
+abort/interrupt ordering remains unresolved.
+
+Before certain reads, software ensures `0580h.RBUSY=0`. This bus/register
+readiness is separate from SGP command busy.
+
+### 4.2 Recommended start sequence
+
+1. Build the complete list in main RAM.
+2. Reserve and initialize required descriptors and work memory.
+3. Wait until SGP busy is clear.
+4. Program `0500h-0503h`.
+5. Configure interrupt enable at `0504h`.
+6. Start through `0506h`.
+7. Poll busy or wait for completion interrupt.
+8. Observe `0580h.RBUSY=0` before sensitive status reads.
+
+Self-modifying active lists and start-while-busy are not known coherent.
+
+## 5. Command execution and state
+
+The SGP reads little-endian 16-bit opcodes and command-specific parameters.
+State-setting commands update work, source, destination, and color state;
+drawing commands consume it; END terminates.
+
+At minimum, state contains command PC, 58-byte work-area address, source and
+destination descriptors, full color word, busy, interrupt enable/pending,
+abort, and intermediate command progress.
+
+The work area must be writable and stable during execution. Its internal
+58-byte layout is not recovered and should not be invented unless software
+observes SGP writes there.
+
+Power-on values for all fields are **[UNKNOWN]**; software initializes required
+state explicitly.
+
+## 6. Pixel representation
+
+| Mode | Bits/pixel | Pixels per 16-bit word |
+|---|---:|---:|
+| 0 | 1 | 16 |
+| 1 | 4 | 4 |
+| 2 | 8 | 2 |
+| 3 | 16 | 1 |
+
+Words are little-endian in memory, but CPU byte order alone does not establish
+visual pixel lane order. Tests must determine least-significant lane,
+start-dot selection, boundary crossing, and reverse traversal in every mode.
+
+SET_COLOR may represent a scalar color, repeated packed word, or foreground/
+background expansion lanes depending on the command. Host-endian fill shortcuts
+are unsafe without lane tests.
+
+## 7. Block descriptors
+
+A descriptor contains pixel mode, start dot, width, height, framebuffer pitch
+`FBW`, and even 22-bit start address. `FBW` advances scan lines and is not the
+transfer rectangle width.
+
+The aligned word address and start-dot offset allow unaligned rectangles while
+first/last-word masks preserve neighboring pixels. Horizontal and vertical
+direction select top-left, top-right, bottom-left, or bottom-right traversal,
+which is required for overlapping copies.
+
+**[IMPLEMENTATION]/[INFERENCE]** vaeg reads width as 14 bits and height as 16
+bits with comments identifying VA2 capability. This is not yet a verified
+original-VA rule and must be model-specific rather than generalized to VA3.
+
+Zero width/height semantics, exact original field widths, signed `FBW`, and
+overflow remain hardware-test targets.
+
+## 8. Command-set summary
+
+The documentation says thirteen command types exist, but only twelve opcodes
+are presently identified:
+
+| Opcode | Name | Function |
+|---:|---|---|
+| `0001h` | END | Terminate and optionally interrupt |
+| `0002h` | NOP | No operation |
+| `0003h` | SET_WORK | Set 58-byte work-area address |
+| `0004h` | SET_SOURCE | Load source descriptor |
+| `0005h` | SET_DESTINATION | Load destination descriptor |
+| `0006h` | SET_COLOR | Load color state |
+| `0007h` | BITBLT | Rectangular source-to-destination transfer |
+| `0008h` | PATBLT | Repeated two-dimensional pattern transfer |
+| `0009h` | LINE | Draw a straight line |
+| `000Ah` | CLS | Fill a word range |
+| `000Bh` | SCAN_RIGHT | Scan right to a color condition |
+| `000Ch` | SCAN_LEFT | Scan left to a color condition |
+
+Possible explanations are a missing opcode, an internal/reserved operation, an
+editorial count error, or a later-model addition. Unknown opcodes must not be
+silently aliased to NOP.
+
+## 9. State-setting and control commands
+
+### 9.1 END (`0001h`) and NOP (`0002h`)
+
+END stops execution, clears busy, and generates a completion interrupt when
+enabled. Exact post-END command pointer and completion-latch behavior remain
+unknown. NOP advances without changing drawing state.
+
+### 9.2 SET_WORK (`0003h`)
+
+SET_WORK loads an even address for the 58-byte writable work area. Software
+must keep it valid and must not reuse it while the SGP is busy.
+
+### 9.3 SET_SOURCE (`0004h`) and SET_DESTINATION (`0005h`)
+
+Each loads a block descriptor: address, start dot, pixel mode, width, height,
+and pitch. Source may be RAM or Kanji ROM. Destination normally targets
+writable RAM, TVRAM, or GVRAM.
+
+### 9.4 SET_COLOR (`0006h`)
+
+SET_COLOR loads the full 16-bit color word used by expansion, LINE, CLS, and
+possibly scan comparison. It must not be truncated to the current display
+depth.
+
+## 10. BITBLT/PATBLT mode and Boolean ROP
+
+The mode word contains source alignment/format `SF`, vertical direction `VD`,
+horizontal direction `HD`, transparent-processing `TP`, a four-bit operation,
+and reserved bits.
+
+The local vaeg definitions use:
+
+| Field | Mask |
+|---|---:|
+| `SF` | `1000h` |
+| `VD` | `0800h` |
+| `HD` | `0400h` |
+| `TP` | `0300h` |
+| operation | `000Fh` |
+
+These are implementation evidence until checked against a clean period bit
+diagram and raw command lists.
+
+`VD`/`HD` choose traversal direction and safe overlap order. `SF` affects
+source alignment when source and destination start dots differ. Each start-dot
+offset and word-boundary crossing needs a raw-vector test.
+
+### 10.1 Transparency
+
+At minimum, the recovered modes distinguish:
+
+- ordinary source transfer;
+- skip when the source pixel is zero;
+- transfer only where destination is zero;
+- one-bit source color expansion.
+
+vaeg handles source-zero suppression in important paths, treats `TP=3` like
+destination-zero in one helper, and leaves some `TP=2/3` paths commented out.
+That is incomplete emulation, not a hardware restriction.
+
+### 10.2 ROP ordering conflict
+
+All sixteen Boolean functions exist, but the nibble ordering must be verified
+from the period table. The reconstruction supplied for this revision proposed:
+
+| ROP | Candidate result |
+|---:|---|
+| `0` | `0` |
+| `1` | `S & D` |
+| `2` | `S & ~D` |
+| `3` | `S` |
+| `4` | `~S & D` |
+| `5` | `D` |
+| `6` | `S ^ D` |
+| `7` | `S | D` |
+| `8` | `~(S | D)` |
+| `9` | `~(S ^ D)` |
+| `A` | `~D` |
+| `B` | `S | ~D` |
+| `C` | `~S` |
+| `D` | `~S | D` |
+| `E` | `~(S & D)` |
+| `F` | all ones |
+
+**[CONFLICT]** Current vaeg instead implements the complete set in this order:
+
+| ROP | vaeg result |
+|---:|---|
+| `0` | `0` |
+| `1` | `S & D` |
+| `2` | `~S & D` |
+| `3` | `D` (write mask cleared) |
+| `4` | `S & ~D` |
+| `5` | `S` |
+| `6` | `S ^ D` |
+| `7` | `S | D` |
+| `8` | `~(S | D)` |
+| `9` | `~(S ^ D)` |
+| `A` | `~S` |
+| `B` | `~S | D` |
+| `C` | `~D` |
+| `D` | `S | ~D` |
+| `E` | `~(S & D)` |
+| `F` | all ones |
+
+Do not choose between the tables merely because either is a conventional
+truth-table ordering. A hardware test must record raw ROP nibble, source word,
+initial destination, mask edges, and result.
+
+## 11. BITBLT (`0007h`)
+
+BITBLT walks a rectangular source and destination using independent pitch and
+start-dot alignment. For every destination pixel it obtains source, applies
+transparency, reads destination when the ROP needs it, evaluates the operation,
+and writes only selected bits. First- and last-word masks preserve neighboring
+pixels.
+
+The ordinary case uses equal pixel modes. A 1-bpp source can expand to a
+multi-bit destination using the loaded color and `TP`; the source bit may emit
+foreground/background, skip, or combine through ROP depending on mode.
+
+Overlapping regions require the direction that preserves unread source.
+All four direction combinations must be compared against a snapshot-based
+reference copy.
+
+**[IMPLEMENTATION]** vaeg replaces destination width/height with the source
+dimensions for BITBLT. Whether this is the precise hardware rule must be tied
+to period wording or raw hardware tests.
+
+## 12. PATBLT (`0008h`)
+
+PATBLT repeats the source block as a two-dimensional tile across the
+destination:
+
+~~~text
+source_x = destination_relative_x mod source_width
+source_y = destination_relative_y mod source_height
+~~~
+
+It then applies transparency and ROP. `PATBLT` is the canonical spelling here;
+`PTNBLT` is retained as a search synonym.
+
+Tests include 1x1, non-divisor pattern sizes, source word boundaries, reverse
+directions, one-bit expansion, and a Kanji-ROM pattern.
+
+## 13. LINE (`0009h`)
+
+LINE uses a destination descriptor, color, ROP, direction, and discrete slope
+state. Behavior is consistent with an integer Bresenham-family accumulator,
+but endpoint inclusion, tie breaking, major-axis choice, and initial error are
+hardware-visible.
+
+**[CONFLICT]** vaeg's generic BLT masks name `VD=0800h` and `HD=0400h`, while
+its LINE-specific names swap those meanings: `LINE_VD=0400h` and
+`LINE_HD=0800h`. The supplied period-document reconstruction says the LINE
+direction symbols disagree with those local definitions.
+
+Implementations must decode raw bits under a named profile and test asymmetric
+lines in all four direction combinations. Do not use a host graphics-library
+line routine.
+
+Required cases are horizontal, vertical, 45-degree, shallow, steep, every
+octant, one-pixel, reversed endpoints, word boundaries, and descriptor edges.
+Transparency and all ROPs apply per selected pixel.
+
+The local source contains two hardware-fit observations that remain evidence,
+not formal rules: a one-count error adjustment for a 7-by-6 case, and suspected
+large destructive behavior for zero-by-zero dimensions.
+
+## 14. CLS (`000Ah`)
+
+CLS is a contiguous word-range fill. Current vaeg reads a 32-bit even start
+address, a 32-bit word count, and repeatedly stores the current 16-bit color.
+
+A 640x400 4-bpp buffer occupies 128000 bytes or 64000 words, but software must
+use the documented encoding rather than assume whether a field is count,
+count-minus-one, or terminal address.
+
+Odd starts, zero count, abort during fill, and 22-bit boundary crossing require
+tests.
+
+## 15. SCAN_RIGHT (`000Bh`)
+
+SCAN_RIGHT advances pixel by pixel until a specified equality/inequality or
+boundary condition, assisting flood fill. Recoverable inputs include initial
+position, descriptor, comparison color/set, pixel mode, and extent.
+
+The exact condition bits, inclusive/exclusive start, result location, and
+boundary convention remain **[UNKNOWN]**. Current vaeg only logs the command as
+not implemented.
+
+## 16. SCAN_LEFT (`000Ch`)
+
+SCAN_LEFT is the symmetric leftward operation and is also a vaeg TODO.
+
+Tests must distinguish initial-pixel stopping, one-pixel-away stopping,
+inclusive/exclusive boundary, packed-word crossing, x=0, rightmost start,
+equality/inequality, and left/right symmetry.
+
+SCAN is a documented functional command and should not be omitted merely
+because common software may implement flood fill on the CPU.
+
+## 17. Restrictions and undefined cases
+
+1. SGP operation is intended for single-plane mode.
+2. Portable command lists should reside in main RAM.
+3. The 58-byte work area must stay writable and stable.
+4. Word addresses should be even.
+5. Reserved bits should be zero.
+6. ROM is source-only.
+7. Reserved-space writes and reads are undefined.
+8. 4MiB boundary crossing is unverified.
+9. Zero width/height semantics are unverified.
+10. Descriptor fields may differ by model.
+11. Active command-list modification is not known coherent.
+12. Start-while-busy is undefined.
+13. Abort may leave a partially updated read-modify-write word.
+14. Unknown opcodes must remain visible in diagnostics.
+15. CPU, SGP, and display access to shared memory may contend.
+
+## 18. Memory contention and timing
+
+The Users Club material documents waits and contention involving TVRAM,
+character/Kanji resources, GVRAM, and display activity. CPU wait tables
+constrain relative costs but are not automatically SGP command-cycle counts.
+
+~~~text
+command time =
+    decode/setup
+  + source reads
+  + destination reads required by ROP
+  + destination writes
+  + line or scan stepping
+  + bus/display arbitration
+~~~
+
+No authoritative per-command clock table has been recovered. Command fetch,
+setup, pixel/word cost, ROP differences, transparency skip, active-versus-blank
+cost, model clock, abort latency, and interrupt latency remain unresolved.
+
+**[IMPLEMENTATION]** vaeg has detailed historical command costs and deducts a
+fixed four CPU clocks for every SGP memory access, with a source comment that
+four has no basis and real contention should apply only when CPU access
+coincides. The M20 speed work deliberately preserved these values. They must
+not be described as measured hardware timing.
+
+A staged emulator strategy is:
+
+1. **Functional:** execute deterministically, schedule estimated completion,
+   keep busy until then.
+2. **Contention-aware:** route memory through a shared bus scheduler and define
+   save-state boundaries.
+3. **Research:** trace fetches, accesses, arbitration, and provisional costs
+   against hardware captures.
+
+## 19. Source and implementation differences
+
+| Topic | Period documentation | Current vaeg | Reconstruction decision |
+|---|---|---|---|
+| Device name | SGP | SGP | Use SGP; `uPD65200` remains unverified |
+| Command count | Says 13, lists 12 | Dispatches 1 through C | Do not invent or hide an opcode |
+| Address space | 4MiB original-VA map | Broadly modeled; incomplete handlers | Period map is baseline; overlays are model profiles |
+| Command table | Main RAM for portable software | Fetch backend can address SGP space | Require main RAM until hardware proves otherwise |
+| Work area | 58 bytes | Address retained | Preserve size; do not invent layout |
+| BITBLT/PATBLT | Documented | Implemented with incomplete modes | Period semantics first |
+| LINE | Documented | Implemented; direction conflict | Raw-bit hardware test |
+| CLS | Documented | Word-count fill | Verify count encoding |
+| SCAN | Documented | Both TODO | Required, detailed format unresolved |
+| VA2 descriptor width | Not fully established | 14-bit width/16-bit height comments | Separate later-model profile |
+| Clock | No recovered primary table | Nominal 3.9936/7.9872MHz | Captured/provisional provenance |
+| Contention | Shared-memory waits | Fixed approximate CPU deduction | Do not claim cycle accuracy |
+
+MAME must be checked directly for individual semantics before attributing a
+behavior to it. Its device and map are useful implementation evidence, not a
+blanket confirmation.
+
+## 20. Reference execution model
+
+This pseudocode describes separation of concerns, not an implementation oracle:
+
+~~~c
+typedef struct {
+    uint32_t address;
+    uint16_t framebuffer_width;
+    uint16_t block_width;
+    uint16_t block_height;
+    uint8_t start_dot;
+    uint8_t pixel_mode;
+} SgpBlock;
+
+typedef struct {
+    uint32_t command_pc;
+    uint32_t work_address;
+    SgpBlock source;
+    SgpBlock destination;
+    uint16_t color;
+    bool busy;
+    bool interrupt_enabled;
+    bool interrupt_pending;
+    bool abort_requested;
+} SgpState;
+
+static uint32_t sgp_mask_address(uint32_t address)
+{
+    return address & 0x003fffffU;
+}
+
+static void sgp_execute_command_list(SgpState *state)
+{
+    state->busy = true;
+    state->interrupt_pending = false;
+
+    while (state->busy && !state->abort_requested) {
+        uint16_t opcode = sgp_read_word(state->command_pc);
+        state->command_pc = sgp_mask_address(state->command_pc + 2U);
+
+        switch (opcode) {
+        case 0x0001:
+            state->busy = false;
+            state->interrupt_pending = state->interrupt_enabled;
+            break;
+        case 0x0002:
+            break;
+        case 0x0003:
+            sgp_decode_work_address(state);
+            break;
+        case 0x0004:
+            sgp_decode_source_descriptor(state);
+            break;
+        case 0x0005:
+            sgp_decode_destination_descriptor(state);
+            break;
+        case 0x0006:
+            sgp_decode_color(state);
+            break;
+        case 0x0007:
+            sgp_execute_bitblt(state);
+            break;
+        case 0x0008:
+            sgp_execute_patblt(state);
+            break;
+        case 0x0009:
+            sgp_execute_line(state);
+            break;
+        case 0x000a:
+            sgp_execute_cls(state);
+            break;
+        case 0x000b:
+            sgp_execute_scan_right(state);
+            break;
+        case 0x000c:
+            sgp_execute_scan_left(state);
+            break;
+        default:
+            sgp_report_unknown_opcode(state, opcode);
+            state->busy = false;
+            break;
+        }
+    }
+
+    if (state->abort_requested)
+        sgp_finish_abort(state);
+}
+~~~
+
+Command decoding, pixel/ROP semantics, SGP address access, timing/arbitration,
+and machine-model differences should be separate layers.
+
+## 21. Command-list examples
+
+These examples are schematic; descriptor packing must be replaced by verified
+raw fields before use as binary vectors.
+
+### 21.1 Work area
+
+~~~text
+0003h               ; SET_WORK
+<low address word>
+<high address bits>
+0001h               ; END
+~~~
+
+The programmed area occupies 58 writable bytes.
+
+### 21.2 Clear a 640x400 4-bpp framebuffer
+
+~~~text
+640 * 400 * 4 / 8 = 128000 bytes
+128000 / 2         = 64000 words
+
+0003h               ; SET_WORK
+...
+0006h               ; SET_COLOR
+0000h               ; black packed word
+000Ah               ; CLS
+<destination address>
+<documented count/range>
+0001h               ; END
+~~~
+
+Do not assume the field stores exactly 64000 until count versus count-minus-one
+versus terminal-address semantics are verified.
+
+## 22. Conformance-test plan
+
+### 22.1 Minimal function
+
+1. `NOP; END` clears busy and optionally interrupts.
+2. SET_WORK preserves the exact even address.
+3. SET_SOURCE/DESTINATION do not alter unrelated state.
+4. SET_COLOR retains every bit.
+5. CLS fills exactly the requested range.
+6. BITBLT copies 1x1 and an unaligned rectangle.
+7. PATBLT repeats a non-power-of-two tile.
+8. LINE draws every octant.
+9. SCAN RIGHT/LEFT produce symmetric results.
+10. Abort stops a long command at a reproducible boundary.
+11. Unknown opcodes are reported rather than hidden.
+
+### 22.2 Pixel order and ROP
+
+For every pixel mode, place distinct values in every lane, copy one pixel from
+each start-dot, repeat in reverse, cross a word boundary, and compare both raw
+bytes and displayed pixels.
+
+For every ROP nibble, use asymmetric source and destination values and partial
+edge masks. This resolves the two ordering tables in section 10.
+
+### 22.3 LINE direction discriminator
+
+Use a non-square, unequal-slope line and run raw modes:
+
+~~~text
+VD=0 HD=0
+VD=0 HD=1
+VD=1 HD=0
+VD=1 HD=1
+~~~
+
+Capture raw command words, memory before/after, every changed coordinate, busy
+duration, and final command pointer.
+
+### 22.4 Descriptor widths and zero dimensions
+
+On each model, test the highest documented original width/height, the next
+value, candidate 14/16-bit limits, zero, and guarded large transfers. Observe
+ignore, wrap, extension, alias, or another-field effects.
+
+### 22.5 SCAN, abort, and unknown opcode
+
+SCAN tests cover target on initial/next/final pixel, absent target, packed-word
+boundary, x=0/right edge, equality/inequality, and left/right symmetry.
+
+Abort each command during fetch, source read, destination read/write, line
+step, and scan step. Observe partial word, busy, interrupt, pointer, and restart.
+
+Unknown-opcode probes require controlled hardware, guard memory, a following
+END, watchdog, and power-cycle recovery. Record status, pointer, interrupt, and
+all memory changes.
+
+### 22.6 Resolution and viewport
+
+Use the safe sequence in section 2.3. For 320x200, distinguish physical 2x2
+expansion from a new sync mode. For 384x256, keep 640x400 timing and test only
+pitch, logical height, display position, masking, and backdrop. Record raw
+registers and GVRAM so SGP drawing errors are not confused with fetch or mixer
+errors.
+
+## 23. Unresolved issues and priorities
+
+### P0: functional correctness
+
+1. Confirm or reject the `uPD65200` part number.
+2. Resolve LINE `VD`/`HD`.
+3. Recover exact SCAN parameters and results.
+4. Resolve thirteen stated commands versus twelve opcodes.
+5. Verify raw descriptor bit layout.
+6. Determine zero width/height.
+7. Establish first/last-pixel masks.
+8. Verify every `TP` encoding.
+9. Resolve the Boolean ROP nibble ordering conflict.
+
+### P1: likely software compatibility
+
+1. Verify later-model descriptor extensions.
+2. Confirm Kanji ROM/RAM overlays by model.
+3. Test command lists outside main RAM.
+4. Establish start-while-busy.
+5. Establish abort and partial-write rules.
+6. Determine reserved-region read values.
+7. Verify pointer readback/post-END value.
+8. Recover and cite Wiki pages individually.
+9. Verify 320x400 and fixed-raster viewport behavior without calling them
+   official modes prematurely.
+
+### P2: timing
+
+1. Determine actual clock by model.
+2. Measure opcode setup and per-word/per-pixel costs.
+3. Measure ROP/transparency cost differences.
+4. Measure CPU/SGP/display arbitration.
+5. Compare active display and blanking throughput.
+6. Measure interrupt and abort latency.
+7. Define safe save-state boundaries.
+
+## 24. Emulator implementation recommendations
+
+Use explicit profiles such as:
+
+~~~text
+original_va_documented
+va2_candidate
+va3_candidate
+mame_compatibility
+vaeg_legacy_compatibility
+hardware_research
+~~~
+
+Profiles select descriptor widths, memory overlays, timing, LINE direction,
+ROP ordering until resolved, reserved-bit policy, and undefined-space behavior.
+
+The command engine should request abstract operations such as:
+
+~~~text
+read_word(address)
+write_word(address, value, mask)
+read_pixel(descriptor, x, y)
+write_pixel(descriptor, x, y, value)
+consume_cycles(count)
+request_bus(resource)
+~~~
+
+The backend owns model maps, ROM suppression, contention, CPU arbitration,
+tracing, and save-state serialization.
+
+For every conflict, retain documented interpretation, observed vaeg/MAME
+interpretation, selected default, provenance, and a falsifying test. Implement
+SCAN rather than treating its current absence as specification evidence.
+
+Every timing constant should carry:
+
+~~~text
+source = measured | manual | implementation | estimate
+machine = va | va2 | va3
+confidence = confirmed | provisional | unknown
+~~~
+
+## 25. Consolidated specification summary
+
+The SGP is a memory drawing coprocessor controlled through the `0500h` range.
+It fetches little-endian commands from a programmed list, retains work/source/
+destination/color state, and accesses a private 22-bit, 4MiB space.
+
+The recoverable command set is END, NOP, SET_WORK, SET_SOURCE,
+SET_DESTINATION, SET_COLOR, BITBLT, PATBLT, LINE, CLS, SCAN_RIGHT, and
+SCAN_LEFT. The stated thirteen-command count remains unresolved.
+
+It supports packed 1/4/8/16-bpp pixels, rectangle and pattern transfer,
+one-bit expansion, sixteen Boolean functions, lines, range fill, and scan
+assistance. The strongest functional conflicts are the LINE direction symbols,
+ROP ordering, missing SCAN detail, and absent thirteenth opcode.
+
+The SGP does not own display timing. Arbitrary logical resolutions should be
+viewports inside documented raster modes until TSP, graphics fetch, scaling,
+and D65101 composition are independently verified.
+
+A faithful emulator implements period semantics first, isolates machine
+profiles, exposes unresolved behavior through traceable choices, and does not
+treat vaeg or MAME as a hardware oracle.
+
+## 26. References
+
+1. BNN Corporation, *PC-88VA Technical Manual*, first edition, 25 June 1987,
+   ISBN-10 **4-89369-024-8**.
+   <https://archive.org/details/PC88VA>
+2. *PC-88VA Technical Manual, 88VA Users Club Edition*, beta 1.0,
+   1992-01-20, historically distributed as `tekumani.lzh`.
+   <http://www.iris.dti.ne.jp/~nano/88va/tekumani.html>
+3. vaeg repository and local [`iova/sgp.c`](../../iova/sgp.c) /
+   [`iova/sgp.h`](../../iova/sgp.h).
+4. MAME [`pc88va.cpp`](https://github.com/mamedev/mame/blob/master/src/mame/nec/pc88va.cpp).
+5. MAME [`pc88va_sgp.cpp`](https://github.com/mamedev/mame/blob/master/src/mame/nec/pc88va_sgp.cpp)
+   and [`pc88va_sgp.h`](https://github.com/mamedev/mame/blob/master/src/mame/nec/pc88va_sgp.h).
+6. [Inside PC-88VA Wiki](http://www.pc88.gr.jp/inside88va/wiki/).
+
+Wiki statements must be cited page by page when recoverable. Captured claims
+are not primary evidence without a retrievable page or corroboration.
+
+## 27. Change log
+
+### 0.3-en.1 - 2026-07-16
+
+- Added a complete English reconstructed specification.
+- Preserved distinctions among period documentation, community research,
+  vaeg, MAME, and captured Wiki evidence.
+- Identified `tekumani.lzh` as the canonical distribution and kept its original
+  SHA-256 unverified.
+- Kept `uPD65200` explicitly unverified.
+- Preserved the twelve-opcode/thirteen-command, LINE direction, ROP ordering,
+  and SCAN conflicts.
+- Added fixed-raster viewport guidance, safe resolution experiments,
+  conformance tests, and implementation profiles.
