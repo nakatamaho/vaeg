@@ -29,6 +29,7 @@
 
 #define UPD9002_HARNESS_RAM_CAPACITY 4096
 #define UPD9002_HARNESS_PROGRAM_CAPACITY 32
+#define UPD9002_SSTS_IO_CAPACITY 1024
 
 typedef struct {
 	uint16_t ax;
@@ -72,8 +73,41 @@ typedef struct {
 	uint8_t termination;
 } UPD9002_HARNESS_RESULT;
 
+typedef struct {
+	uint32_t address;
+	uint8_t value;
+} UPD9002_SSTS_RAM_ENTRY;
+
+typedef struct {
+	uint16_t port;
+	uint8_t value;
+	uint8_t direction;
+} UPD9002_SSTS_IO_EVENT;
+
+typedef struct {
+	UPD9002_HARNESS_CPU_STATE cpu;
+	const UPD9002_SSTS_RAM_ENTRY *ram;
+	uint32_t ram_count;
+	const uint32_t *watch_addresses;
+	uint32_t watch_count;
+} UPD9002_SSTS_INPUT;
+
+typedef struct {
+	UPD9002_HARNESS_CPU_STATE cpu;
+	uint8_t termination;
+	uint32_t watch_count;
+	uint8_t *watch_values;
+	uint32_t io_count;
+	UPD9002_SSTS_IO_EVENT io[UPD9002_SSTS_IO_CAPACITY];
+} UPD9002_SSTS_RESULT;
+
 int upd9002_harness_run(const UPD9002_HARNESS_INPUT *input,
 						UPD9002_HARNESS_RESULT *result);
 int upd9002_harness_run_manifest(const char *path);
+int upd9002_harness_run_ssts(const UPD9002_SSTS_INPUT *input,
+						UPD9002_SSTS_RESULT *result);
+int upd9002_ssts_io_active(void);
+uint8_t upd9002_ssts_io_read(uint16_t port);
+void upd9002_ssts_io_write(uint16_t port, uint8_t value);
 
 #endif
