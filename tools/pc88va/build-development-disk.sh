@@ -26,6 +26,7 @@
 set -euo pipefail
 
 program_name=${0##*/}
+script_dir=$(CDPATH= cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 source_d88=
 output_d88=
 cache_dir=${VAEG_PC88VA_DEVDISK_CACHE:-${XDG_CACHE_HOME:-${HOME}/.cache}/vaeg/pc88va-development-disk}
@@ -37,8 +38,8 @@ usage() {
 	printf '%s\n' \
 		"Usage: $program_name --source SOURCE.d88 --output OUTPUT.d88 [--cache DIR]" \
 		'' \
-		'Build a bootable PC-Engine 1.1 development floppy with PCEPAT,' \
-		'MSE 3.52b, PCPLUS, DOS patch/archive tools, and K-Launcher.' \
+		'First create a vanilla PC-Engine 1.1 system disk, then add PCEPAT,' \
+		'BMS, MSE 3.52b, PCPLUS, DOS tools, and K-Launcher.' \
 		'The source and generated D88 images are never added to the repository.'
 }
 
@@ -94,7 +95,7 @@ done
 [[ ! -e ${output_d88} ]] || die 'output already exists; refusing to overwrite it'
 [[ -d ${output_d88%/*} || ${output_d88} != */* ]] || die 'output directory does not exist'
 
-for required_command in curl dosbox lha python3 sha256sum; do
+for required_command in curl dosbox lha python3 sha256sum tar; do
 	command -v "$required_command" >/dev/null 2>&1 ||
 		die "required host command is missing: $required_command"
 done
@@ -163,6 +164,9 @@ fetch_package lha213.exe \
 fetch_package kl130.lzh \
 	8b8e2b23d3da27cf4089e283f49d923e884611a11e213532afa77b5fb4246dfb \
 	'https://toroidj.github.io/dos/KL130.LZH'
+fetch_package bms15020.tgz \
+	b0ee1dc6679ecad155ed9aabc2aa66f253c9d5f1c0190cf2110cc68e59f7b405 \
+	'https://ftp.vector.co.jp/09/04/385/bms15020.tgz'
 
 work_dir=$(mktemp -d "${TMPDIR:-/tmp}/vaeg-pc88va-devdisk.XXXXXX")
 
@@ -183,6 +187,8 @@ extract_archive "$cache_dir/mse352bf.lzh" "$work_dir/mse352bf"
 extract_archive "$cache_dir/wsp150.lzh" "$work_dir/wsp"
 extract_archive "$cache_dir/lha213.exe" "$work_dir/lha"
 extract_archive "$cache_dir/kl130.lzh" "$work_dir/kl"
+mkdir -p -- "$work_dir/bms"
+tar -xzf "$cache_dir/bms15020.tgz" -C "$work_dir/bms"
 
 stage_dir=$work_dir/stage
 mkdir -p -- "$stage_dir"
@@ -244,300 +250,63 @@ verify_generated KLVA.EXE c6ad097435111398f1c1ebc90e9f35cd15caded6b5d6bed49d92c3
 verify_generated KLCUST.EXE 72376b967fe51d4f40759f5d875762fa3b2b09a353afb1a9ea3c957f5a9c87bf
 
 payload_dir=$work_dir/payload
-mkdir -p -- "$payload_dir"
+mkdir -p -- "$payload_dir/root" "$payload_dir/bin" "$payload_dir/tmp"
 
 copy_payload() {
 	cp -- "$1" "$payload_dir/$2"
 }
 
-copy_payload "$work_dir/pcepat/PCEPAT.SYS" PCEPAT.SYS
-copy_payload "$work_dir/pcepat/PCEPAT.DOC" PCEPAT.DOC
-copy_payload "$stage_dir/MSE352B.COM" MSE352B.COM
-copy_payload "$stage_dir/MSE352B.DOC" MSE352B.DOC
-copy_payload "$stage_dir/MSE352B.HIS" MSE352B.HIS
-copy_payload "$stage_dir/ALIAS.COM" ALIAS.COM
-copy_payload "$stage_dir/MSE350.DEF" MSE350.DEF
-copy_payload "$stage_dir/MSECUST.COM" MSECUST.COM
-copy_payload "$stage_dir/MSET.COM" MSET.COM
-copy_payload "$stage_dir/README.DOC" MSEREAD.DOC
-copy_payload "$stage_dir/PCPLUS.SYS" PCPLUS.SYS
-copy_payload "$work_dir/pcp108/PCP108/PCPLUS.DOC" PCPLUS.DOC
-copy_payload "$work_dir/pcp108/PCP108/PCPLUS.TXT" PCPLUS.TXT
-copy_payload "$work_dir/pcp108/PCP108/BIN/SMSTAT.COM" SMSTAT.COM
-copy_payload "$work_dir/pcp108/PCP108/BIN/SETDMA.COM" SETDMA.COM
-copy_payload "$work_dir/lha/LHA.EXE" LHA.EXE
-copy_payload "$work_dir/lha/LHA.DOC" LHA.DOC
-copy_payload "$work_dir/lha/HISTORY.DOC" LHAHIST.DOC
-copy_payload "$work_dir/bdiff/BDIFF.EXE" BDIFF.EXE
-copy_payload "$work_dir/bdiff/BUPDATE.EXE" BUPDATE.EXE
-copy_payload "$work_dir/bdiff/MODTIME.EXE" MODTIME.EXE
-copy_payload "$work_dir/bdiff/BDIFF.DOC" BDIFF.DOC
-copy_payload "$work_dir/wsp/WSP.COM" WSP.COM
-copy_payload "$work_dir/wsp/WSP.DOC" WSP.DOC
-copy_payload "$stage_dir/KLL.COM" KLL.COM
-copy_payload "$stage_dir/KLVA.EXE" KLVA.EXE
-copy_payload "$stage_dir/KLCUST.EXE" KLCUST.EXE
-copy_payload "$work_dir/kl/KL.CFG" KL.CFG
-copy_payload "$work_dir/kl/KLJPN.HLP" KLJPN.HLP
-copy_payload "$work_dir/kl/KL.DOC" KL.DOC
-copy_payload "$work_dir/kl/KL1ST.DOC" KL1ST.DOC
+copy_payload "$work_dir/pcepat/PCEPAT.SYS" root/PCEPAT.SYS
+copy_payload "$work_dir/bms/bmsdrva.com" root/BMSDRVA.COM
+copy_payload "$work_dir/bms/bmsaddva.com" root/BMSADDVA.COM
+copy_payload "$stage_dir/MSE352B.COM" root/MSE352B.COM
+copy_payload "$stage_dir/PCPLUS.SYS" root/PCPLUS.SYS
+
+copy_payload "$work_dir/lha/LHA.EXE" bin/LHA.EXE
+copy_payload "$work_dir/bdiff/BUPDATE.EXE" bin/BUPDATE.EXE
+copy_payload "$work_dir/wsp/WSP.COM" bin/WSP.COM
+copy_payload "$stage_dir/MSET.COM" bin/MSET.COM
+copy_payload "$stage_dir/ALIAS.COM" bin/ALIAS.COM
+copy_payload "$stage_dir/MSECUST.COM" bin/MSECUST.COM
+copy_payload "$stage_dir/MSE350.DEF" bin/MSE350.DEF
+copy_payload "$stage_dir/KLL.COM" bin/KLL.COM
+copy_payload "$stage_dir/KLVA.EXE" bin/KLVA.EXE
+copy_payload "$stage_dir/KLCUST.EXE" bin/KLCUST.EXE
+copy_payload "$work_dir/kl/KL.CFG" bin/KL.CFG
+copy_payload "$work_dir/kl/KLJPN.HLP" bin/KLJPN.HLP
 
 printf '%s\r\n' \
 	'FILES = 20' \
 	'BUFFERS = 30' \
 	'DEVICE = A:\PCEPAT.SYS' \
 	'DEVICE = A:\MSE352B.COM' \
-	'DEVICE = A:\PCPLUS.SYS' >"$payload_dir/CONFIG.SYS"
+	'DEVICE = A:\PCPLUS.SYS' >"$payload_dir/root/CONFIG.SYS"
 
 printf '%s\r\n' \
-	'@ECHO OFF' \
-	'PATH A:\' \
-	'SET TMP=A:\' \
-	'SET COMSPEC=A:\PCENGINE.COM' \
-	'PROMPT $P$G' >"$payload_dir/AUTOEXEC.BAT"
+	'PATH A:\BIN' \
+	'SET TMP=A:\TMP' \
+	'SET COMSPEC=A:\PCENGINE.COM' >"$payload_dir/root/AUTOEXEC.BAT"
+
+vanilla_d88=$work_dir/vanilla.d88
+"$script_dir/create-vanilla-system-disk.sh" \
+	--source "$source_d88" \
+	--output "$vanilla_d88"
 
 output_tmp=$(mktemp "$output_d88.tmp.XXXXXX")
-cp -- "$source_d88" "$output_tmp"
-
-python3 - "$output_tmp" "$payload_dir" <<'PY'
-import re
-import struct
-import sys
-from pathlib import Path
-
-
-SECTOR_SIZE = 1024
-DATA_START_LBA = 11
-DATA_CLUSTER_COUNT = 1269
-LAST_DATA_CLUSTER = DATA_CLUSTER_COUNT + 1
-ROOT_START_LBA = 5
-ROOT_SECTORS = 6
-
-
-def fail(message):
-    raise SystemExit(f"error: {message}")
-
-
-image_path = Path(sys.argv[1])
-payload_path = Path(sys.argv[2])
-image = bytearray(image_path.read_bytes())
-
-if len(image) < 0x2B0:
-    fail("source is too small to be a D88 image")
-if image[0x1B] != 0x20:
-    fail("source is not a 2HD D88 image")
-if struct.unpack_from("<I", image, 0x1C)[0] != len(image):
-    fail("D88 header size does not match the file size")
-if image[0x1A] != 0:
-    fail("source D88 is write protected")
-
-track_offsets = struct.unpack_from("<164I", image, 0x20)
-sectors = {}
-for track_index, track_offset in enumerate(track_offsets):
-    if track_offset == 0:
-        continue
-    if track_offset + 16 > len(image):
-        fail(f"invalid D88 track offset at index {track_index}")
-    sector_count = struct.unpack_from("<H", image, track_offset + 4)[0]
-    position = track_offset
-    for _ in range(sector_count):
-        if position + 16 > len(image):
-            fail(f"truncated D88 sector header at track {track_index}")
-        cylinder, head, record, size_code = struct.unpack_from("<BBBB", image, position)
-        status = image[position + 8]
-        stored_size = struct.unpack_from("<H", image, position + 14)[0]
-        data_offset = position + 16
-        if data_offset + stored_size > len(image):
-            fail(f"truncated D88 sector data at track {track_index}")
-        key = (cylinder, head, record)
-        if key in sectors:
-            fail(f"duplicate D88 sector C={cylinder} H={head} R={record}")
-        sectors[key] = (data_offset, stored_size, size_code, status)
-        position = data_offset + stored_size
-
-normal_sectors = []
-for cylinder in range(80):
-    for head in range(2):
-        for record in range(1, 9):
-            key = (cylinder, head, record)
-            if key not in sectors:
-                fail(f"missing normal-area sector C={cylinder} H={head} R={record}")
-            sector = sectors[key]
-            if sector[1:] != (SECTOR_SIZE, 3, 0):
-                fail(f"unexpected normal-area sector form at C={cylinder} H={head} R={record}")
-            normal_sectors.append(sector)
-
-
-def read_lbas(start, count):
-    result = bytearray()
-    for lba in range(start, start + count):
-        data_offset = normal_sectors[lba][0]
-        result.extend(image[data_offset:data_offset + SECTOR_SIZE])
-    return result
-
-
-def write_lbas(start, data):
-    if len(data) % SECTOR_SIZE:
-        fail("internal non-sector-aligned write")
-    for index in range(len(data) // SECTOR_SIZE):
-        data_offset = normal_sectors[start + index][0]
-        begin = index * SECTOR_SIZE
-        image[data_offset:data_offset + SECTOR_SIZE] = data[begin:begin + SECTOR_SIZE]
-
-
-boot_sector = bytes(read_lbas(0, 1))
-fat = read_lbas(1, 2)
-fat_copy = read_lbas(3, 2)
-root = read_lbas(ROOT_START_LBA, ROOT_SECTORS)
-
-if fat != fat_copy:
-    fail("the two source FAT12 copies differ")
-if fat[:3] != b"\xfe\xff\xff":
-    fail("source does not have the expected PC-Engine FAT12 media header")
-
-
-def fat_get(cluster):
-    offset = cluster + cluster // 2
-    pair = fat[offset] | (fat[offset + 1] << 8)
-    if cluster & 1:
-        pair >>= 4
-    return pair & 0xFFF
-
-
-def fat_set(cluster, value):
-    offset = cluster + cluster // 2
-    value &= 0xFFF
-    if cluster & 1:
-        fat[offset] = (fat[offset] & 0x0F) | ((value & 0x0F) << 4)
-        fat[offset + 1] = (value >> 4) & 0xFF
-    else:
-        fat[offset] = value & 0xFF
-        fat[offset + 1] = (fat[offset + 1] & 0xF0) | ((value >> 8) & 0x0F)
-
-
-def short_name(name):
-    upper = name.upper()
-    if upper.count(".") > 1:
-        fail(f"payload name is not 8.3: {name}")
-    base, separator, extension = upper.partition(".")
-    if not base or len(base) > 8 or len(extension) > 3:
-        fail(f"payload name is not 8.3: {name}")
-    valid = re.compile(r"^[A-Z0-9_$~!#%&'()@^`{}-]+$")
-    if not valid.fullmatch(base) or (extension and not valid.fullmatch(extension)):
-        fail(f"payload name uses unsupported FAT characters: {name}")
-    return base.ljust(8).encode("ascii") + extension.ljust(3).encode("ascii")
-
-
-def find_root_entry(raw_name):
-    first_free = None
-    for offset in range(0, len(root), 32):
-        first = root[offset]
-        if first in (0x00, 0xE5) and first_free is None:
-            first_free = offset
-        if first == 0x00:
-            break
-        if first != 0xE5 and bytes(root[offset:offset + 11]) == raw_name:
-            return offset, True
-    if first_free is None:
-        fail("root directory is full")
-    return first_free, False
-
-
-def release_chain(first_cluster):
-    cluster = first_cluster
-    visited = set()
-    while 2 <= cluster <= LAST_DATA_CLUSTER:
-        if cluster in visited:
-            fail("loop in an existing FAT12 chain")
-        visited.add(cluster)
-        following = fat_get(cluster)
-        fat_set(cluster, 0)
-        if following >= 0xFF8:
-            return
-        if following == 0:
-            fail("unterminated existing FAT12 chain")
-        cluster = following
-    fail("existing FAT12 chain points outside the data area")
-
-
-expected_source_files = {
-    "ENGINEIO.SYS": (2, 4096),
-    "PCENGINE.SYS": (6, 62347),
-    "ADVGBIOS.SYS": (67, 16364),
-    "PCENGINE.COM": (83, 5),
-    "HDFORM.COM": (84, 6706),
-}
-for source_name, (expected_cluster, expected_size) in expected_source_files.items():
-    source_offset, source_exists = find_root_entry(short_name(source_name))
-    if not source_exists:
-        fail(f"source is not the expected PC-Engine 1.1 disk: missing {source_name}")
-    source_cluster = struct.unpack_from("<H", root, source_offset + 26)[0]
-    source_size = struct.unpack_from("<I", root, source_offset + 28)[0]
-    if (source_cluster, source_size) != (expected_cluster, expected_size):
-        fail(f"source is not the expected PC-Engine 1.1 layout: {source_name}")
-
-
-fixed_date = ((2026 - 1980) << 9) | (1 << 5) | 1
-payloads = sorted((path for path in payload_path.iterdir() if path.is_file()),
-                  key=lambda path: path.name)
-added_bytes = 0
-
-for payload in payloads:
-    raw_name = short_name(payload.name)
-    root_offset, existed = find_root_entry(raw_name)
-    if existed:
-        attributes = root[root_offset + 11]
-        if attributes & 0x18:
-            fail(f"refusing to replace a directory or volume label: {payload.name}")
-        old_cluster = struct.unpack_from("<H", root, root_offset + 26)[0]
-        if old_cluster:
-            release_chain(old_cluster)
-
-    contents = payload.read_bytes()
-    cluster_count = (len(contents) + SECTOR_SIZE - 1) // SECTOR_SIZE
-    free_clusters = [cluster for cluster in range(2, LAST_DATA_CLUSTER + 1)
-                     if fat_get(cluster) == 0][:cluster_count]
-    if len(free_clusters) != cluster_count:
-        fail(f"not enough free space for {payload.name}")
-
-    for index, cluster in enumerate(free_clusters):
-        following = 0xFFF if index + 1 == cluster_count else free_clusters[index + 1]
-        fat_set(cluster, following)
-        lba = DATA_START_LBA + cluster - 2
-        data_offset = normal_sectors[lba][0]
-        begin = index * SECTOR_SIZE
-        chunk = contents[begin:begin + SECTOR_SIZE]
-        image[data_offset:data_offset + SECTOR_SIZE] = chunk.ljust(SECTOR_SIZE, b"\x00")
-
-    entry = bytearray(32)
-    entry[:11] = raw_name
-    entry[11] = 0x20
-    struct.pack_into("<H", entry, 14, 0)
-    struct.pack_into("<H", entry, 16, fixed_date)
-    struct.pack_into("<H", entry, 18, fixed_date)
-    struct.pack_into("<H", entry, 22, 0)
-    struct.pack_into("<H", entry, 24, fixed_date)
-    struct.pack_into("<H", entry, 26, free_clusters[0] if free_clusters else 0)
-    struct.pack_into("<I", entry, 28, len(contents))
-    root[root_offset:root_offset + 32] = entry
-    added_bytes += len(contents)
-
-write_lbas(1, fat)
-write_lbas(3, fat)
-write_lbas(ROOT_START_LBA, root)
-
-if bytes(read_lbas(0, 1)) != boot_sector:
-    fail("internal error: boot sector changed")
-
-image_path.write_bytes(image)
-free_clusters = sum(fat_get(cluster) == 0
-                    for cluster in range(2, LAST_DATA_CLUSTER + 1))
-print(f"Installed {len(payloads)} files ({added_bytes} bytes)")
-print(f"Remaining FAT12 space: {free_clusters * SECTOR_SIZE} bytes")
-PY
-
+cp -- "$vanilla_d88" "$output_tmp"
+python3 "$script_dir/pcengine_disk.py" install \
+	--image "$output_tmp" \
+	--payload "$payload_dir"
 chmod 0644 "$output_tmp"
-mv -- "$output_tmp" "$output_d88"
+output_moved=false
+for move_attempt in 1 2 3; do
+	if mv -- "$output_tmp" "$output_d88"; then
+		output_moved=true
+		break
+	fi
+	sleep 1
+done
+[[ ${output_moved} == true ]] || die 'could not finalize output after three attempts'
 output_tmp=
 
 printf 'Created bootable development disk: %s\n' "$output_d88"
