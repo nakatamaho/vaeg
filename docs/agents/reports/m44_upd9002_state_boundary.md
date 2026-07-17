@@ -76,6 +76,26 @@ gate and is not claimed here.
 
 ## Validation run
 
+## Trace-equivalence configuration correction
+
+The earlier diagnosis that the canonical trace lacked origin fields was
+incorrect. The committed M42 baseline contains `origin=cpu`, `origin=dma`, and
+`origin=device` (SHA-256
+`17e5383f0d3fce707a64d995cc9c13c6ae62a61462bf0df202ec523278587bba`). The
+missing-origin output came from a stale/incorrectly configured test executable:
+the build had `VAEG_ENABLE_TESTS=ON` but
+`VAEG_Z80_INTEGRATION_TRACE=OFF`. Consequently the CPU trace seam did not emit
+canonical origin records. The producer and baseline were not changed.
+
+A fresh build configured with
+`-DVAEG_ENABLE_TESTS=ON -DVAEG_Z80_INTEGRATION_TRACE=ON` generated the correct
+trace and passed `vaeg_upd9002_trace_equivalence` (exit 0, 3.49 seconds). The
+trace test therefore retains origin as part of semantic equality and continues
+to compare ordering and event contents. Tests-disabled production builds keep
+the trace option disabled. The remaining improvement for G44 is a fail-closed
+configuration preflight so this target cannot accidentally use a trace-disabled
+executable.
+
 Successful commands:
 
 ```text
