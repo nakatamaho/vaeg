@@ -1329,6 +1329,170 @@ def verify_failure_files(summary_path: pathlib.Path, result: dict[str, Any]) -> 
         )
 
 
+def load_failures(summary_path: pathlib.Path) -> tuple[dict[str, Any], dict[str, Any]]:
+    result = json.loads(summary_path.read_text(encoding="utf-8"))
+    if result.get("schema") != "vaeg-upd9002-ssts-result-v1":
+        raise CorpusError(f"{summary_path}: unknown result schema")
+    verify_failure_files(summary_path, result)
+    failures = {}
+    for item in result["failure_signature_files"]:
+        with gzip.open(summary_path.parent / item["path"], "rt", encoding="utf-8") as stream:
+            payload = json.load(stream)
+        if payload.get("schema") != "vaeg-upd9002-ssts-failures-v1":
+            raise CorpusError(f"{item['path']}: unknown failure sidecar schema")
+        if payload.get("failure_count") != len(payload.get("failure_signatures", [])):
+            raise CorpusError(f"{item['path']}: failure count differs from content")
+        for failure in payload["failure_signatures"]:
+            record_hash = failure["content"]["record_hash"]
+            if record_hash in failures:
+                raise CorpusError(f"duplicate failure record hash {record_hash}")
+            failures[record_hash] = failure
+    if len(failures) != result["failure_signature_count"]:
+        raise CorpusError(f"{summary_path}: unique failure count differs from summary")
+    return result, failures
+
+
+def transition_reason(
+    old_failure: dict[str, Any], new_failure: dict[str, Any] | None
+) -> str:
+    old_content = old_failure["content"]
+    old_kinds = set(old_content["mismatch_kinds"])
+    form = old_content["opcode_form"]
+    if new_failure is None and form in {"6E", "6F"} and old_kinds == {"io"}:
+        return "segment_override_outs_fixture_translation"
+    if new_failure is not None:
+        new_kinds = set(new_failure["content"]["mismatch_kinds"])
+        if (
+            form == "6F"
+            and "io" in old_kinds
+            and "io" in new_kinds
+            and old_content["io_differences"]
+            != new_failure["content"]["io_differences"]
+        ):
+            return "segment_override_outs_fixture_translation"
+        if form == "CD" and "termination" in old_kinds and "termination" not in new_kinds:
+            return "software_interrupt_execution_result_classification"
+        if (
+            form in {"F6.6", "F6.7", "F7.6", "F7.7"}
+            and old_content["exception_or_halt_result"]
+            != new_failure["content"]["exception_or_halt_result"]
+        ):
+            return "divide_error_execution_result_classification"
+    raise CorpusError(
+        f"record {old_content['record_hash']}: unclassified baseline transition"
+    )
+
+
+def create_transition_profile(
+    old_path: pathlib.Path, new_path: pathlib.Path
+) -> dict[str, Any]:
+    old_result, old_failures = load_failures(old_path)
+    new_result, new_failures = load_failures(new_path)
+    for field in (
+        "dataset_id", "dataset_digest", "metadata_sha256", "corpus_sha256",
+        "upstream_commit", "profile", "profile_definition", "selection_digest",
+        "selected_records", "executed_records", "classification_counts",
+    ):
+        if old_result.get(field) != new_result.get(field):
+            raise CorpusError(f"transition changes immutable profile field {field}")
+    removed = []
+    entered = []
+    changed = []
+    for record_hash in sorted(old_failures.keys() - new_failures.keys()):
+        old_failure = old_failures[record_hash]
+        removed.append(
+            {
+                "record_hash": record_hash,
+                "opcode_form": old_failure["content"]["opcode_form"],
+                "old_signature_sha256": old_failure["signature_sha256"],
+                "reason": transition_reason(old_failure, None),
+            }
+        )
+    for record_hash in sorted(new_failures.keys() - old_failures.keys()):
+        failure = new_failures[record_hash]
+        entered.append(
+            {
+                "record_hash": record_hash,
+                "opcode_form": failure["content"]["opcode_form"],
+                "new_signature_sha256": failure["signature_sha256"],
+                "reason": "unexpected_new_semantic_failure",
+            }
+        )
+    for record_hash in sorted(old_failures.keys() & new_failures.keys()):
+        old_failure = old_failures[record_hash]
+        new_failure = new_failures[record_hash]
+        if old_failure["signature_sha256"] == new_failure["signature_sha256"]:
+            continue
+        changed.append(
+            {
+                "record_hash": record_hash,
+                "opcode_form": old_failure["content"]["opcode_form"],
+                "old_signature_sha256": old_failure["signature_sha256"],
+                "new_signature_sha256": new_failure["signature_sha256"],
+                "old_mismatch_kinds": old_failure["content"]["mismatch_kinds"],
+                "new_mismatch_kinds": new_failure["content"]["mismatch_kinds"],
+                "reason": transition_reason(old_failure, new_failure),
+            }
+        )
+    if entered:
+        raise CorpusError("corrected baseline unexpectedly adds semantic failures")
+    changed_records = len(removed) + len(entered) + len(changed)
+    if changed_records != len(
+        (old_failures.keys() ^ new_failures.keys())
+        | {
+            record_hash
+            for record_hash in old_failures.keys() & new_failures.keys()
+            if old_failures[record_hash]["signature_sha256"]
+            != new_failures[record_hash]["signature_sha256"]
+        }
+    ):
+        raise AssertionError("transition report omitted a changed record")
+    return {
+        "profile": old_result["profile"],
+        "old_summary_sha256": sha256_file(old_path),
+        "new_summary_sha256": sha256_file(new_path),
+        "old_failure_count": len(old_failures),
+        "new_failure_count": len(new_failures),
+        "old_signature_index_sha256": old_result["failure_signature_index_sha256"],
+        "new_signature_index_sha256": new_result["failure_signature_index_sha256"],
+        "removed_from_semantic_failure": removed,
+        "newly_entering_semantic_failure": entered,
+        "reclassified_as_unsupported_fixture": [],
+        "changed_failure_signatures": changed,
+        "unchanged_failure_count": len(old_failures) - len(removed) - len(changed),
+    }
+
+
+def create_transition_report(
+    old_ci: pathlib.Path,
+    old_full: pathlib.Path,
+    new_ci: pathlib.Path,
+    new_full: pathlib.Path,
+    old_known_gaps: pathlib.Path,
+    new_known_gaps: pathlib.Path,
+) -> dict[str, Any]:
+    old_gap_bytes = old_known_gaps.read_bytes()
+    new_gap_bytes = new_known_gaps.read_bytes()
+    if old_gap_bytes != new_gap_bytes:
+        raise CorpusError("known-gap selector file changed across corrected baselines")
+    gaps = json.loads(new_gap_bytes)
+    return {
+        "schema": "vaeg-upd9002-ssts-transition-v1",
+        "dataset_id": json.loads(new_ci.read_text(encoding="utf-8"))["dataset_id"],
+        "known_gaps": {
+            "byte_identical": True,
+            "sha256": sha256_bytes(new_gap_bytes),
+            "rule_count": gaps["rule_count"],
+            "resolved_record_count": gaps["resolved_record_count"],
+            "known_target_gap_expanded": False,
+        },
+        "profiles": [
+            create_transition_profile(old_ci, new_ci),
+            create_transition_profile(old_full, new_full),
+        ],
+    }
+
+
 def report_result(summary_path: pathlib.Path) -> None:
     result = json.loads(summary_path.read_text(encoding="utf-8"))
     if result.get("schema") != "vaeg-upd9002-ssts-result-v1":
@@ -2058,6 +2222,16 @@ def parse_args(argv: Iterable[str]) -> argparse.Namespace:
         "report", help="verify and print a canonical result summary"
     )
     report.add_argument("--summary", required=True, type=pathlib.Path)
+    transition = subparsers.add_parser(
+        "transition", help="record a complete corrected-baseline transition"
+    )
+    transition.add_argument("--old-ci", required=True, type=pathlib.Path)
+    transition.add_argument("--old-full", required=True, type=pathlib.Path)
+    transition.add_argument("--new-ci", required=True, type=pathlib.Path)
+    transition.add_argument("--new-full", required=True, type=pathlib.Path)
+    transition.add_argument("--old-known-gaps", required=True, type=pathlib.Path)
+    transition.add_argument("--new-known-gaps", required=True, type=pathlib.Path)
+    transition.add_argument("--output", required=True, type=pathlib.Path)
     skip = subparsers.add_parser(
         "external-skip", help="report an unavailable external-data comparison"
     )
@@ -2092,6 +2266,25 @@ def main(argv: Iterable[str] | None = None) -> int:
             )
         elif arguments.command == "report":
             report_result(arguments.summary.resolve())
+        elif arguments.command == "transition":
+            value = create_transition_report(
+                arguments.old_ci.resolve(),
+                arguments.old_full.resolve(),
+                arguments.new_ci.resolve(),
+                arguments.new_full.resolve(),
+                arguments.old_known_gaps.resolve(),
+                arguments.new_known_gaps.resolve(),
+            )
+            write_json(arguments.output, value)
+            counts = {
+                profile["profile"]: {
+                    "removed": len(profile["removed_from_semantic_failure"]),
+                    "entered": len(profile["newly_entering_semantic_failure"]),
+                    "changed": len(profile["changed_failure_signatures"]),
+                }
+                for profile in value["profiles"]
+            }
+            print(f"ssts-transition: {canonical_bytes(counts).decode()}")
         elif arguments.command == "external-skip":
             print(
                 "ssts-report: "
