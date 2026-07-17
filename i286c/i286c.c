@@ -6,6 +6,9 @@
 #include	"iocore.h"
 #include	"dmap.h"
 #include	"upd9002_trace.h"
+#if defined(VAEG_UPD9002_SSTS_TESTING)
+#include	"tests/upd9002/direct_harness.h"
+#endif
 #include	"i286c.mcr"
 
 
@@ -243,6 +246,9 @@ void CPUCALL i286c_intnum(UINT vect, REG16 IP) {
 
 	upd9002_trace_event(UPD9002_TRACE_ORIGIN_CPU, "exception",
 		(uint32_t)vect, (uint32_t)IP, 2);
+#if defined(VAEG_UPD9002_SSTS_TESTING)
+	upd9002_ssts_interrupt((uint8_t)vect);
+#endif
 
 const BYTE	*ptr;
 
