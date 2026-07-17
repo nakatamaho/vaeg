@@ -241,6 +241,86 @@ PC-Engine, matching the TomoRetroPC note:
 SET COMSPEC=A:\PCENGINE.COM
 ```
 
+## Reproducible Boot-Floppy Builder
+
+The repository provides
+[`tools/pc88va/build-development-disk.sh`](../../tools/pc88va/build-development-disk.sh)
+to build a personal PC-88VA development floppy from a user-supplied original
+PC-Engine 1.1 D88 image. The script does not contain, copy into Git, or identify
+the private source image. It validates the public PC-Engine 1.1 filesystem
+layout by system-file names, sizes, and starting clusters instead of recording
+the source image's filename or checksum.
+
+On Debian or Ubuntu, install the host-side build dependencies with:
+
+```sh
+sudo apt-get install curl lhasa dosbox python3 coreutils
+```
+
+Then run:
+
+```sh
+tools/pc88va/build-development-disk.sh \
+  --source /path/to/user-supplied-pcengine-1.1.d88 \
+  --output /path/to/pc88va-development.d88
+```
+
+The destination must not already exist. Downloads are cached under the normal
+user cache directory by default; `--cache DIR` selects another cache. Every
+public input archive is pinned by SHA-256 in the script. An existing cache file
+with different contents is rejected rather than replaced.
+
+The build performs these operations:
+
+1. Fetch and verify PCEPAT, PCPLUS 1.08 and its patch, BDIFF/BUPDATE 1.28,
+   MSE 3.52a and the 3.52b patch, WSP 1.50, LHA 2.13, and K-Launcher 1.30.
+2. Extract the packages with the host `lha` command.
+3. Run the original DOS `WSP.COM` and `BUPDATE.EXE` under headless DOSBox to
+   produce `MSE352B.COM`, the patched `PCPLUS.SYS`, and the PC-88VA
+   K-Launcher files `KLL.COM`, `KLVA.EXE`, and `KLCUST.EXE`.
+4. Verify those generated files against known public-package checksums.
+5. Copy the private source D88, preserve its D88 header, IPL sector, existing
+   system files, and extra track, then add the new files to its FAT12 area.
+
+The PC-Engine disk has a valid FAT12 allocation structure but no conventional
+DOS BPB, so normal `mtools` commands reject it as non-DOS media. The builder
+therefore contains a narrowly scoped D88/FAT12 writer for the known 80-cylinder,
+two-head, eight-sector, 1024-byte PC-Engine 1.1 layout. It never relocates the
+existing `ENGINEIO.SYS` or `PCENGINE.SYS` boot chains. New directory entries use
+a fixed DOS date so repeated builds from the same source are byte-for-byte
+reproducible.
+
+The generated root directory contains the three boot-time drivers, MSE control
+tools, LHA, BDIFF/BUPDATE, WSP, the PC-88VA K-Launcher build, and their relevant
+documentation. `CONFIG.SYS` is:
+
+```dos
+FILES = 20
+BUFFERS = 30
+DEVICE = A:\PCEPAT.SYS
+DEVICE = A:\MSE352B.COM
+DEVICE = A:\PCPLUS.SYS
+```
+
+PCEPAT is deliberately first, as required by its documentation. `BUFFERS=30`
+uses the PCEPAT example's value; the referenced HDD article uses 20. MSE is
+loaded without `/A`, `/B`, or `/X`, so this baseline does not require BMSDR.
+`AUTOEXEC.BAT` establishes the tool environment:
+
+```dos
+@ECHO OFF
+PATH A:\
+SET TMP=A:\
+SET COMSPEC=A:\PCENGINE.COM
+PROMPT $P$G
+```
+
+The resulting disk is intended for PC-Engine 1.1 on a PC-88VA2/VA3 or the
+corresponding upgraded VA environment. The script proves structural
+bootability by retaining the original IPL and fixed system-file placement;
+actual startup, driver messages, `DIR`, MSE utility execution, and K-Launcher
+remain a PC-88VA/vaeg human boot check.
+
 ## vaeg Implications
 
 This recipe is useful for guest-side development and validation, but it is
@@ -272,4 +352,5 @@ environment to test against.
 Do not vendor these third-party archives or generated binaries into the
 vaeg repository. Keep them as user-supplied software, documented by URL
 and checksum if a release workflow ever needs reproducible external
-inputs.
+inputs. The generated development D88 is also a private build artifact
+containing third-party software and must never be staged or committed.
