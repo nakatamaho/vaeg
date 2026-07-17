@@ -64,6 +64,9 @@
 #include	"tests/upd9002/direct_harness.h"
 #include	"tests/upd9002/fixtures.h"
 #endif
+#if defined(VAEG_UPD9002_M44_TESTING)
+#include	"tests/upd9002/statsave_boundary.h"
+#endif
 #if defined(VAEG_Z80_INTEGRATION_TESTING)
 #include	"iova/subsystem.h"
 #include	"tests/z80/subsystem_integration.h"
@@ -1264,6 +1267,12 @@ static int test_statsave(void) {
 	if (ret == STATFLAG_SUCCESS) {
 		ret = statsave_save(path1);
 	}
+#if defined(VAEG_UPD9002_M44_TESTING)
+	if ((ret == STATFLAG_SUCCESS) &&
+		(upd9002_statsave_boundary_verify(path1) != SUCCESS)) {
+		ret = STATFLAG_FAILURE;
+	}
+#endif
 	if (ret == STATFLAG_SUCCESS) {
 		ZeroMemory(err, sizeof(err));
 		ret = statsave_check(path1, err, sizeof(err));

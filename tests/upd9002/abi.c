@@ -24,6 +24,7 @@
  */
 #include "compiler.h"
 #include "cpucore.h"
+#include "upd9002_state.h"
 #include "upd9002.h"
 
 #include <stddef.h>
@@ -41,12 +42,54 @@ static void append(char *buffer, size_t size, const char *name,
 	snprintf(buffer + used, size - used, "%s=%u\n", name, value);
 }
 
+static int verify_cpu286_compat_abi(void) {
+
+	if ((sizeof(Cpu286StateCompat) != 112) ||
+		(ALIGNOF(Cpu286StateCompat) != 4)) {
+		return 0;
+	}
+#define OFFSET(field, value) \
+	if (offsetof(Cpu286StateCompat, field) != (value)) return 0
+	OFFSET(r, 0);
+	OFFSET(es_base, 28);
+	OFFSET(cs_base, 32);
+	OFFSET(ss_base, 36);
+	OFFSET(ds_base, 40);
+	OFFSET(ss_fix, 44);
+	OFFSET(ds_fix, 48);
+	OFFSET(adrsmask, 52);
+	OFFSET(prefix, 56);
+	OFFSET(trap, 58);
+	OFFSET(resetreq, 59);
+	OFFSET(ovflag, 60);
+	OFFSET(GDTR, 64);
+	OFFSET(MSW, 70);
+	OFFSET(IDTR, 72);
+	OFFSET(LDTR, 78);
+	OFFSET(LDTRC, 80);
+	OFFSET(TR, 86);
+	OFFSET(TRC, 88);
+	OFFSET(padding, 94);
+	OFFSET(cpu_type, 96);
+	OFFSET(itfbank, 97);
+	OFFSET(ram_d0, 98);
+	OFFSET(remainclock, 100);
+	OFFSET(baseclock, 104);
+	OFFSET(clock, 108);
+#undef OFFSET
+	return 1;
+}
+
 int main(int argc, char **argv) {
 
 	char actual[4096];
 	char expected[4096];
 	FILE *stream;
 	size_t bytes;
+
+	if (!verify_cpu286_compat_abi()) {
+		return 5;
+	}
 
 	actual[0] = '\0';
 	append(actual, sizeof(actual), "cpu286.size", sizeof(I286STAT));
