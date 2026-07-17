@@ -183,6 +183,18 @@ but do not expose per-region digest output for runtime, compatibility image,
 live CPU, UPD9002, and unrelated machine state. A digest-backed atomicity
 matrix and hosted/Wine execution therefore remain G44 blockers.
 
+## Final black-box input audit
+
+At HEAD `93ec1bf`, a repository-wide scan for `*.sav` and `*.state` inputs
+found no state containers. The committed M42 fixtures are extracted CPU286 and
+UPD9002 payload text, not complete state files, and cannot validate section
+headers, padding, duplicate tags, or container metadata. No private state file
+was opened or imported. Consequently the requested G41-to-M44 and M44-to-G41
+round trips, opaque section mutation, and external section digest matrix cannot
+be executed without an approved state-file artifact. Wine and hosted CI remain
+environmental blockers. This report records the limitation rather than
+fabricating matrix rows or changing any baseline.
+
 The corrected black-box approach was evaluated. No G41 or M44 state files are
 available in the repository or permitted public inputs, and the state container
 header/section metadata is tied to the emulator's `NP2FHDR` implementation.
