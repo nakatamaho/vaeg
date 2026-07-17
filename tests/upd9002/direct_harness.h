@@ -98,6 +98,8 @@ typedef struct {
 typedef struct {
 	UPD9002_HARNESS_CPU_STATE cpu;
 	uint8_t termination;
+	uint32_t interrupt_count;
+	uint8_t last_interrupt_vector;
 	uint32_t watch_count;
 	uint8_t *watch_values;
 	uint32_t io_count;
@@ -112,5 +114,6 @@ int upd9002_harness_run_ssts(const UPD9002_SSTS_INPUT *input,
 int upd9002_ssts_io_active(void);
 uint8_t upd9002_ssts_io_read(uint16_t port);
 void upd9002_ssts_io_write(uint16_t port, uint8_t value);
+void upd9002_ssts_interrupt(uint8_t vector);
 
 #endif
