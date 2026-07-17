@@ -260,7 +260,7 @@ source image's filename or checksum.
 On Debian or Ubuntu, install the host-side build dependencies with:
 
 ```sh
-sudo apt-get install curl lhasa dosbox python3 coreutils tar
+sudo apt-get install curl lhasa dosbox python3 coreutils tar unzip
 ```
 
 To create only the vanilla system disk, run:
@@ -291,8 +291,9 @@ The complete build performs these operations:
 2. Fetch and verify PCEPAT, BMS Driver 1.50 Rev 0.20, PCPLUS 1.08 and its
    patch, BDIFF/BUPDATE 1.28, MSE 3.52a and the 3.52b patch, WSP 1.50,
    LHA 2.13, K-Launcher 1.30, TEEN 0.30p, VBUFF 1.02, FATMAP 1.1,
-   FORG 2.03, and the VA RAMDISK self-extracting archive.
-3. Extract the packages with the host `lha` and `tar` commands.
+   FORG 2.03, the VA RAMDISK self-extracting archive, and the GNU File
+   Utilities 3.12 MS-DOS rev B executable archive.
+3. Extract the packages with the host `lha`, `tar`, and `unzip` commands.
 4. Run the original DOS `WSP.COM` and `BUPDATE.EXE` under headless DOSBox to
    produce `MSE352B.COM`, the patched `PCPLUS.SYS`, and the PC-88VA
    K-Launcher files `KLL.COM`, `KLVA.EXE`, and `KLCUST.EXE`.
@@ -350,6 +351,21 @@ A:\BIN\
   FORG.EXE
   FORG.DAT
   RAMDISK.COM
+  CHMOD.EXE
+  COPYING
+  CP.EXE
+  DD.EXE
+  DF.EXE
+  DI.EXE
+  DU.EXE
+  INSTALL.EXE
+  LS.EXE
+  MKD.EXE
+  MV.EXE
+  RM.EXE
+  RMD.EXE
+  TOUCH.EXE
+  VDIR.EXE
 
 A:\DOC\
   TEEN.DOC
@@ -374,6 +390,13 @@ from `A:\TMP` when its contents are needed. The Softlib catalog records the
 standalone `RAMDISK.DOC` as 1,148 bytes, while its current download endpoint
 serves a 1,230-byte CRLF file. The builder pins the bytes actually served by
 the public endpoint.
+
+The GNUish catalog identifies `fut312bx.zip` as the executable distribution of
+GNU File Utilities 3.12 for DOS. The builder extracts all 15 entries from its
+`BIN` directory, including the GPL `COPYING` file, into `A:\BIN`. Its formatted
+manuals are not installed. Since the resulting `BIN` directory has more than
+30 ordinary entries, the FAT12 writer allocates and links multiple directory
+clusters.
 
 The hidden/system `ENGINEIO.SYS`, `PCENGINE.SYS`, and `ADVGBIOS.SYS` files
 remain in the root as required for boot. `CONFIG.SYS` is:
