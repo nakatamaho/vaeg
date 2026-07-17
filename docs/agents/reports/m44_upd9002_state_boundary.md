@@ -109,10 +109,9 @@ ctest --test-dir /tmp/vaeg-m44-tests --output-on-failure -R 'vaeg_upd9002_(abi|s
 
 The initial production-only configure used the wrong option name and produced
 an expected link failure from test-only objects; it was discarded and does not
-alter the repository. A subsequent trace-equivalence check failed because
-`tests/upd9002/run_trace_equivalence.cmake` reported that the canonical trace
-lacked the required CPU origin field; this is an existing test/instrumentation
-failure and remains unresolved. Repository-wide encoding/EOL/case/unreferenced checks,
+alter the repository. The trace-equivalence configuration issue is resolved by
+the fail-closed guard and trace-enabled target definitions described below.
+Repository-wide encoding/EOL/case/unreferenced checks,
 sanitizers, MinGW/Wine, hosted CI, and full M43 reproduction remain pending.
 
 ## G44 human-review checklist
@@ -135,3 +134,19 @@ seam symbols in the production executable. The pinned M43 CI/full baseline tests
 both pass in the trace-enabled build. The detached G41 tree contains no
 cross-version state probe equivalent to the M44 probe, so the full bidirectional
 G41 matrix remains unexecuted and is a G44 blocker rather than an inferred pass.
+
+## Trace no-op side-effect audit
+
+All call sites in `sdl2/np2.c`, `i286c/i286c.c`, `i286c/v30patch.c`, and
+`i286c/memory.c` were inspected. Trace arguments are constants, casts,
+already-computed locals, or direct non-volatile reads. No argument contains an
+increment/decrement, function call, assignment, volatile read, clock/queue/
+memory/I/O mutation, or state update. Values needed by emulation are computed
+before the trace call. The OFF build removes the implementation source and
+uses no-op macros, while the ON build passed trace equivalence; no required
+production side effect is suppressed.
+
+The trace-only build directory did not build the standalone ABI/state probe
+executables, so that particular combined CTest invocation reported them as
+`Not Run`; the independent state build previously passed ABI, boundary, and
+payload probe 3/3. This remains a validation limitation, not a baseline change.
