@@ -34,6 +34,8 @@ The work started from accepted M42 commit
 `336227f093d37e3c60bc50333216d66668755cef` on branch
 `topic/m43-upd9002-singlestep-v20-baseline`. The ending and remote SHA are
 recorded in the final validation section after the evidence commit is pushed.
+The G43 audit correction continued from M43 review SHA
+`237b21883cbc3a41f690ffdd1aabe9a1a8858337` on the same branch.
 
 ## Commits and changed files
 
@@ -46,17 +48,23 @@ The implementation and immutable-baseline commits preceding this report are:
 5. `e7a985d473330b27d0fc9252a1e38a301c31b7a9` - `M43: run deterministic V20 comparison profiles`
 6. `1865d46c5ea85a6a376ff3c634656b7cb10d2ab9` - `M43: integrate reproducible V20 profile checks`
 7. `949bffce836124fcdd99f7e48cc468244e8b10f9` - `M43: record V20 CI and full comparison baselines`
+8. `e30ccfee439755d481bc8ddbe89d7726e40cd055` - `M43: translate segment-override SSTS fixtures`
+9. `7cea7725777c7184ccaec6dd1458372473614af1` - `M43: classify synchronous SSTS execution results`
+10. `57d83cbd238d17203f6c76ef736ae105c92d9b14` - `M43: add corrected baseline transition audit`
+11. `e0b27afb380c9763e3c7922e3b214b0b4a1e7d9a` - `M43: record corrected V20 comparison baselines`
 
 The final documentation commit is the commit containing this report and is
 identified by the completion response and pushed branch. Changed active/test
-infrastructure files are `CMakeLists.txt`, `i286c/memory.c`, `io/iocore.c`,
+infrastructure files are `CMakeLists.txt`, `i286c/i286c.c`,
+`i286c/memory.c`, `io/iocore.c`,
 `sdl2/np2.c`, `tests/upd9002/direct_harness.c`,
 `tests/upd9002/direct_harness.h`, new `tests/upd9002/ssts_worker.c`, new
 `tests/upd9002/ssts_worker.h`, and new `tools/qa/upd9002_ssts.py`. Dataset and
 baseline files are `tests/ssts/README.md`,
 `tests/ssts/v20_dataset_manifest.json`,
-`tests/ssts/baseline/upd9002_v20_known_gaps.json`, both profile summaries, and
-their hexadecimal-sharded deterministic failure sidecars. Documentation files
+`tests/ssts/baseline/upd9002_v20_known_gaps.json`, both profile summaries,
+their hexadecimal-sharded deterministic failure sidecars, and
+`tests/ssts/baseline/v20_native_g43_transition.json`. Documentation files
 are the M43 task and report, `assets/NOTICE.md`, ADR-0012, ROADMAP, and
 `docs/modernization/BUILD.md`. No file was renamed or deleted.
 
@@ -157,14 +165,14 @@ The full profile selects every empty-queue record and has selection digest
 |---|---:|---:|
 | Selected records | 180,000 | 1,562,502 |
 | Applicable/executed | 166,821 | 1,443,876 |
-| Passed | 155,984 | 1,358,343 |
-| Semantic failures | 10,837 | 85,533 |
+| Passed | 156,228 | 1,359,547 |
+| Semantic failures | 10,593 | 84,329 |
 | Known-target-gap skips | 8,179 | 68,626 |
 | Upstream-nonblocking skips | 5,000 | 50,000 |
 | Total skips | 13,179 | 118,626 |
 | Prefetched unsupported fixtures, reported separately | 1,562,498 | 1,562,498 |
-| Normal termination | 165,546 | 1,431,171 |
-| Type-0 termination | 1,275 | 12,705 |
+| Normal termination | 165,546 | 1,431,180 |
+| Type-0 termination | 1,275 | 12,696 |
 | Timeout | 0 | 0 |
 | Crash | 0 | 0 |
 | Approved expected divergence | 0 | 0 |
@@ -177,10 +185,10 @@ M43 records these mismatches and does not repair the CPU.
 
 Both profiles were rerun into independent `/tmp` output directories using
 `--expect`. Their summaries, failure counts, canonical failure contents, and
-signature indices reproduced exactly. The CI signature-index digest is
-`96a4abdab6497467b6ec9e760a07fb540b7a6a3aa1dad27f5ac8c39715126d8e`;
+signature indices reproduced exactly. The corrected CI signature-index digest
+is `946268103309f8dc7d442fade21596b46c734f48bf0b1e9e32a18736e5e85597`;
 the full digest is
-`19f6cecb1d79868a1257da2491c4107ac64e60a302336ceac2f0fab3ecc30a7b`.
+`50087f8f6b9483ac70ce5e2dc922ab11fade51a58bea9cb72322ef85ef264ec0`.
 
 ## Applicability and known gaps
 
@@ -221,19 +229,87 @@ A known failure is keyed by both record digest and signature digest.
 
 Complete readable contents are stored as deterministic gzip sidecars. The
 summary records SHA-256 of each uncompressed canonical JSON payload, so gzip
-library details are not semantic identity. CI mismatch groups are registers
-3,957, RAM 3,292, RAM+registers 3,206, I/O 244, and I/O+registers 138. Full
-groups are registers 33,976, RAM 30,911, RAM+registers 18,787, I/O 1,204,
-I/O+registers 641, RAM+termination 10, and RAM+registers+termination 4.
+library details are not semantic identity. Corrected CI mismatch groups are
+registers 3,957, RAM 3,292, RAM+registers 3,206, and I/O+registers 138.
+Corrected full groups are registers 33,975, RAM 30,921, RAM+registers 18,787,
+I/O+registers 641, registers+termination 1, and
+RAM+registers+termination 4.
 
 Representative full signatures, with complete content in the sidecars, are:
 
 | Mismatch | Form | Upstream test hash | Signature SHA-256 |
 |---|---|---|---|
-| RAM | `0F20` | `45629c32445ab4b97ec4365ef8e575b1a9df191a` | `7f5b51fe9b40a22852a5b868f3e0a39dc6eeee9f437da02b04ce255396ca5ca5` |
-| registers | `0F2A` | `4adf7c385afec8b14e0f1b054e89fc2ad1ff2997` | `529e09ca8ac0033161ea89f942785b68e358faa21f74428bd79572c51895169b` |
-| I/O | `6E` | `c978f32e0cdfb083f50ccafa5b3b3ee18dd0e986` | `850a5c90b7cc0f0c10d6d12c1d8d8702d9cf0363aa730756bc1abfee1fe3ad10` |
-| RAM+termination | `CD` | `1d744c11c86f6697aebba2dfcafb6f127ad2f9a9` | `5c13cbc541c8c6be65c59d2ba3e4161016cebce6290bfe86cb57a203899d7188` |
+| registers | `D4` | `d8fe4d553bf74e186538f25fe6de1ce5d5159caa` | `f3f9409c8614f26794833bd7f14485ea8a32cf27ddf05fe2f58584e6a487022c` |
+| RAM | `F7.7` | `e40f87b9f2ede05e490e8ae34d82a8247d2caab6` | `3390d83fb4b064b246189f1f4d6b099541ae57f0914a4fb7aafc430015d2cf0b` |
+| I/O+registers | `6F` | `057b807ec32ed4c651902c996913f705ffe09b99` | `04980ee75c56dddcd083fabf57d38466717755f6f272ec277386a48e1c7741ac` |
+| registers+termination | `F7.6` | `76f3cbd08c2ab2f926164883efb972a0e85dea41` | `e2c55c91c6d31b87d2a09afb68a1dea94258365a47359f68774afed0b34c5b61` |
+| RAM+registers+termination | `F6.7` | `8d739050cfc68513fd96754063c1215b52cac469` | `f41cb7943661dd0f4631fa82f3c9ac3a680a1575c571f405c0bd5cabf1e74d7e` |
+
+## G43 audit findings and resolution
+
+The read-only G43 audit identified two adapter defects. Neither correction
+changes an active CPU instruction, dispatch entry, timing path, or production
+build.
+
+For segment-overridden `OUTSB`/`OUTSW`, the pinned fixture represents the
+source byte at the default DS-relative address in `initial.ram`, while its
+cycle oracle names the actual segment-overridden physical MEMR address. For
+example, upstream test `c978f32e0cdfb083f50ccafa5b3b3ee18dd0e986`
+(`36 6e`) supplies `0x9e` at the DS-relative source and expects the same
+`0x9e` on the SS-relative MEMR and I/O cycles. This convention was checked
+across every affected prefix/form. The adapter now mirrors a source byte only
+when an expected MEMR cycle proves the effective address and byte, the
+default DS-relative byte exists and matches, and no effective-address byte
+conflicts. Missing or contradictory evidence fails closed; arbitrary memory
+is never invented.
+
+There are 1,433 applicable non-DS segment-override OUTS records. After the
+correction, 1,209 pass and 224 `6F` cases remain I/O+register failures. All
+1,204 old I/O-only failures became passes; none became
+`unsupported_fixture`. All 641 old I/O+register failures were re-audited:
+224 segment-overridden cases changed signature but remain visible, and 417
+were byte-identical. These remaining cases are CPU-correctness evidence, not
+adapter exclusions.
+
+The old termination classifier inferred a divide exception solely from final
+CS:IP equalling the IVT0 target. The test-only direct harness now records the
+actual synchronous interrupt event emitted by `i286c_intnum`; worker protocol
+revision 2 returns its count and vector. Instruction bytes then distinguish a
+software `INT`, DIV/IDIV divide error, ordinary control flow, normal finish,
+HALT, and other exceptions. Focused synthetic tests cover `CD 00`, F6 divide
+by zero, and a NOP ending exactly at the IVT0 target. The ten `CD 00`
+false-positive termination differences are gone; those records remain as RAM
+differences rather than disappearing. One existing `F7.6` register failure
+now also records a cycle-observed type-0 event, making the termination evidence
+more precise.
+
+The four pre-existing `F6.7` records whose oracle expects type 0 while the CPU
+finishes normally remain visible and retain their exact failure signatures:
+record digests `02ff7651...`, `04c1e093...`, `0db03013...`, and
+`f5ab434c...`. They remain CPU-correctness candidates.
+
+The machine-readable transition report is
+`tests/ssts/baseline/v20_native_g43_transition.json`, SHA-256
+`95559fa2a42a80710e850a9308202780a6fd4dad42ae20644c308bd0a72be092`.
+It accounts for every removed, added, or changed record. CI changed from
+10,837 to 10,593 failures (244 removed, 49 signatures changed); full changed
+from 85,533 to 84,329 (1,204 removed, 235 signatures changed). No record
+entered semantic failure. The known-gap file remains byte-identical at
+SHA-256 `11ec1496a96d661c0656720b13939b1ade3448b693b923f8acf36576cd7048c1`:
+40 selectors, 68,626 hashes, and no expansion.
+
+| Identity | Before audit correction | Corrected |
+|---|---|---|
+| CI summary SHA-256 | `85cb26f5b7828b514532d0775ece0e6a61eedd6b2393a4c4e243b796802bf835` | `a5db6a6cc82ae794fd2f60306c3d4a70136d6030e17e1aec733523bece864e31` |
+| Full summary SHA-256 | `078213bc6e60ce88663ccd16cfe6a79fe3f32ad5a30240053fe19555657e32a3` | `dd3247774afe5c5a19228d3a08f01ac6f614e6b67a3a6f454c1abc58f3dbf3d9` |
+| CI signature index | `96a4abdab6497467b6ec9e760a07fb540b7a6a3aa1dad27f5ac8c39715126d8e` | `946268103309f8dc7d442fade21596b46c734f48bf0b1e9e32a18736e5e85597` |
+| Full signature index | `19f6cecb1d79868a1257da2491c4107ac64e60a302336ceac2f0fab3ecc30a7b` | `50087f8f6b9483ac70ce5e2dc922ab11fade51a58bea9cb72322ef85ef264ec0` |
+
+The focused worker selftest, both record and `--expect` profile runs, both
+committed-summary reports, transition generation, transition `cmp`, known-gap
+`cmp`, and the read-only sidecar overlap audit all returned 0. The overlap
+audit reported 84,329 unique full failures, zero known-gap/failure overlap,
+zero remaining `CD` termination mismatches, and all four `F6.7` candidates.
 
 ## Difficult instruction families
 
@@ -267,7 +343,8 @@ pre-M42 tracked test goldens remain unmodified.
 
 All commands below returned zero unless explicitly noted. Exact profile
 commands are documented in `tests/ssts/README.md`; both were executed once to
-record and once with `--expect` to prove reproduction.
+record and once in an independent directory with `--expect` to prove
+reproduction.
 
 ```sh
 python3 tools/qa/upd9002_ssts.py verify \
@@ -281,8 +358,9 @@ python3 tools/qa/upd9002_ssts.py report \
 ```
 
 The two required comparison profiles were reproduced with these exact command
-forms (the first recording run used the committed output paths; the second run
-used `/tmp/m43-repro/` and added the shown `--expect` arguments):
+forms. The first outputs were under `/tmp/m43-corrected-record`; the second
+were under `/tmp/m43-corrected-repro` and used the first summaries as the
+expectations:
 
 ```sh
 python3 tools/qa/upd9002_ssts.py run \
@@ -290,25 +368,42 @@ python3 tools/qa/upd9002_ssts.py run \
   --manifest tests/ssts/v20_dataset_manifest.json \
   --support-map tools/qa/golden/upd9002_support_map_m42.csv \
   --worker build/m43-linux-debug/sdl2/vaeg \
-  --profile ci --shard-timeout 300 \
-  --output /tmp/m43-repro/v20_native_ci.json \
-  --failure-directory /tmp/m43-repro/v20_native_ci_failures \
-  --expect tests/ssts/baseline/v20_native_ci.json
+  --profile ci --shard-timeout 120 \
+  --output /tmp/m43-corrected-repro/v20_native_ci.json \
+  --failure-directory /tmp/m43-corrected-repro/ci_failures \
+  --expect /tmp/m43-corrected-record/v20_native_ci.json
 python3 tools/qa/upd9002_ssts.py run \
   --dataset-root /tmp/singlesteptests-v20-9efbd02b \
   --manifest tests/ssts/v20_dataset_manifest.json \
   --support-map tools/qa/golden/upd9002_support_map_m42.csv \
   --worker build/m43-linux-debug/sdl2/vaeg \
-  --profile full --shard-timeout 300 \
-  --output /tmp/m43-repro/v20_native_full.json \
-  --failure-directory /tmp/m43-repro/v20_native_full_failures \
-  --expect tests/ssts/baseline/v20_native_full.json
+  --profile full --shard-timeout 120 \
+  --output /tmp/m43-corrected-repro/v20_native_full.json \
+  --failure-directory /tmp/m43-corrected-repro/full_failures \
+  --expect /tmp/m43-corrected-record/v20_native_full.json
 ```
 
 Both commands returned zero. CI executed 166,821 applicable records; full
 executed 1,443,876. Neither run crashed or timed out. The command's success
 means the complete committed semantic-failure signatures reproduced, not that
 the target matched the V20 oracle for every applicable record.
+
+The complete old-to-corrected transition was generated and verified with:
+
+```sh
+python3 tools/qa/upd9002_ssts.py transition \
+  --old-ci /tmp/vaeg-m43-audit-old/v20_native_ci.json \
+  --old-full /tmp/vaeg-m43-audit-old/v20_native_full.json \
+  --new-ci /tmp/m43-corrected-final/v20_native_ci.json \
+  --new-full /tmp/m43-corrected-final/v20_native_full.json \
+  --old-known-gaps /tmp/vaeg-m43-audit-old/upd9002_v20_known_gaps.json \
+  --new-known-gaps tests/ssts/baseline/upd9002_v20_known_gaps.json \
+  --output /tmp/m43-corrected-final/v20_native_g43_transition.json
+```
+
+It returned zero and reported CI `removed=244, entered=0, changed=49` and
+full `removed=1204, entered=0, changed=235`. The generated transition file
+was byte-identical to the committed file.
 
 M42 generation and immutable-baseline preservation were checked with:
 
@@ -341,7 +436,7 @@ env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
 ```
 
 The configured GCC comparison build ran the external CI profile through
-CTest in 179.45 seconds with no skip on the final rerun. All 24 tests passed,
+CTest in 195.11 seconds with no skip on the final rerun. All 24 tests passed,
 as did
 manual ROM-less selftest and smoke. The equivalent Clang 21.1.8 build passed
 all 24 CTests with the external corpus intentionally absent/visibly skipped,
@@ -411,7 +506,7 @@ env WINEDEBUG=-all WINEPREFIX=/tmp/vaeg-m43-wine \
   wine64 build/m43-mingw/sdl2/vaeg.exe --smoke
 ```
 
-The cross-build had no pending work after its successful 553-step build. ABI,
+The final cross-build rebuilt eight affected objects/targets successfully. ABI,
 156 direct-harness cases, reset/executed/CPU_SHUT fixtures, selftest, and smoke
 passed under Wine. Wine is not native Windows execution.
 
@@ -445,8 +540,8 @@ MinGW cross-build or Wine execution as native.
   never silently ignored.
 * FPU/undefined oracle entries are upstream nonblocking, not target-gap or
   semantic-failure conversions.
-* The 85,533 full semantic failures are investigation evidence. M43 neither
-  approves them as permanent divergences nor changes CPU behavior.
+* The 84,329 corrected full semantic failures are investigation evidence.
+  M43 neither approves them as permanent divergences nor changes CPU behavior.
 * Human G43 review must approve the 40 narrow known-gap selectors, verify both
   profile identities/counts/signature indices, accept the explicit external
   corpus/cache policy, confirm M42 byte preservation, and review the recorded
