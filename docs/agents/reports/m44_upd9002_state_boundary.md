@@ -150,3 +150,15 @@ The trace build's standalone ABI/state/payload targets were subsequently built
 explicitly. The combined CTest selection (`abi`, `state_boundary`,
 `state_payload_probe`, and `trace_equivalence`) then passed 4/4. No baseline
 bytes changed.
+
+## Additional validation status
+
+Clang Debug configured with trace enabled and the three state targets passed
+3/3. Clang AddressSanitizer/UndefinedBehaviorSanitizer built all three targets;
+CTest passed 3/3 with `ASAN_OPTIONS=detect_leaks=0`. LeakSanitizer itself cannot
+run under this sandbox's ptrace restrictions and is recorded as an environment
+limitation. MinGW cross-configuration and the three state targets built
+successfully. Wine execution was attempted with a dedicated prefix but failed
+before test startup because wineserver could not create its runtime directory
+under the restricted filesystem. Hosted CI, native Windows/macOS, and a full
+detached G41 bidirectional matrix remain unavailable and are not claimed.
