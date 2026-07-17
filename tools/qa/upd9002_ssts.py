@@ -24,6 +24,7 @@
 from __future__ import annotations
 
 import argparse
+import csv
 import gzip
 import hashlib
 import json
@@ -81,6 +82,33 @@ REGISTER_KEYS_IN_RECORD = {
     "es",
     "ip",
     "flags",
+}
+SEGMENT_PREFIXES = {0x26, 0x2E, 0x36, 0x3E}
+REPEAT_PREFIXES = {
+    0x64: "repnc",
+    0x65: "repc",
+    0xF2: "repne",
+    0xF3: "repe",
+}
+IGNORED_PREFIXES = {0xF0, 0xF1}
+GROUP_FORMS = {
+    "80",
+    "81",
+    "82",
+    "83",
+    "8F",
+    "C0",
+    "C1",
+    "C6",
+    "C7",
+    "D0",
+    "D1",
+    "D2",
+    "D3",
+    "F6",
+    "F7",
+    "FE",
+    "FF",
 }
 HEX40 = re.compile(r"^[0-9a-f]{40}$")
 
@@ -305,6 +333,326 @@ def corpus_files(dataset_root: pathlib.Path) -> list[pathlib.Path]:
     if not paths:
         raise CorpusError(f"no corpus shards found below {suite}")
     return paths
+
+
+def load_support_map(path: pathlib.Path) -> dict[tuple[str, int, str], dict[str, str]]:
+    try:
+        with path.open("r", encoding="utf-8", newline="") as stream:
+            rows = list(csv.DictReader(stream))
+    except OSError as error:
+        raise CorpusError(f"cannot read support map {path}: {error}") from error
+    expected_fields = {
+        "mode", "opcode", "subopcode", "target", "classification", "basis"
+    }
+    if not rows or set(rows[0]) != expected_fields:
+        raise CorpusError(f"{path}: unsupported support-map schema")
+    result = {}
+    for row in rows:
+        if row["classification"] not in {"implemented", "known_target_gap"}:
+            raise CorpusError(
+                f"{path}: unknown support classification {row['classification']!r}"
+            )
+        key = (row["mode"], int(row["opcode"], 16), row["subopcode"])
+        if key in result:
+            raise CorpusError(f"{path}: duplicate support-map key {key!r}")
+        result[key] = row
+    if len(result) != 1296:
+        raise CorpusError(f"{path}: expected 1296 support rows, got {len(result)}")
+    return result
+
+
+def metadata_for_form(
+    metadata: dict[str, Any], form: str
+) -> tuple[dict[str, Any], dict[str, Any], str, str, int]:
+    opcode_key = form.split(".", 1)[0]
+    opcodes = metadata["opcodes"]
+    if opcode_key not in opcodes:
+        raise CorpusError(f"{form}: no metadata entry for {opcode_key}")
+    parent = opcodes[opcode_key]
+    entry = parent
+    if "." in form:
+        base, register = form.split(".", 1)
+        if base not in GROUP_FORMS or register not in {str(i) for i in range(8)}:
+            raise CorpusError(f"{form}: unsupported structural form")
+        try:
+            entry = parent["reg"][register]
+        except (KeyError, TypeError) as error:
+            raise CorpusError(f"{form}: no metadata register entry") from error
+    status = entry.get("status", "normal")
+    if status not in REGISTER_STATUSES | PRIMARY_STATUSES:
+        raise CorpusError(f"{form}: unknown resolved metadata status {status!r}")
+    arch = entry.get("arch", parent.get("arch"))
+    if arch is None:
+        arch = "missing"
+    if arch not in {"86", "186", "v30", "missing"}:
+        raise CorpusError(f"{form}: unknown resolved architecture {arch!r}")
+    flags_mask = entry.get("flags-mask", parent.get("flags-mask", 0xffff))
+    if not isinstance(flags_mask, int) or not 0 <= flags_mask <= 0xffff:
+        raise CorpusError(f"{form}: invalid resolved flags mask")
+    return parent, entry, status, arch, flags_mask
+
+
+def resolve_dispatch(
+    form: str,
+    instruction: list[int],
+    support: dict[tuple[str, int, str], dict[str, str]],
+) -> dict[str, Any]:
+    position = 0
+    repeat = "none"
+    segment_prefixes = []
+    lock_prefixes = []
+    while position < len(instruction):
+        byte = instruction[position]
+        if byte in SEGMENT_PREFIXES:
+            segment_prefixes.append(byte)
+        elif byte in REPEAT_PREFIXES:
+            repeat = REPEAT_PREFIXES[byte]
+        elif byte in IGNORED_PREFIXES:
+            lock_prefixes.append(byte)
+        else:
+            break
+        position += 1
+    if position >= len(instruction):
+        raise CorpusError(f"{form}: instruction contains prefixes only")
+    opcode = instruction[position]
+    position += 1
+    second_byte = None
+    modrm_reg = None
+    if opcode == 0x0f:
+        if position >= len(instruction):
+            raise CorpusError(f"{form}: 0f instruction lacks a second byte")
+        second_byte = instruction[position]
+        position += 1
+    if form.split(".", 1)[0] in GROUP_FORMS:
+        if position >= len(instruction):
+            raise CorpusError(f"{form}: group instruction lacks ModR/M")
+        modrm_reg = (instruction[position] >> 3) & 7
+
+    expected_key = form.split(".", 1)[0]
+    if expected_key.startswith("0F"):
+        if opcode != 0x0f or second_byte != int(expected_key[2:], 16):
+            raise CorpusError(
+                f"{form}: bytes do not match extended opcode identity"
+            )
+    elif opcode != int(expected_key, 16):
+        raise CorpusError(
+            f"{form}: final opcode {opcode:02x} does not match shard identity"
+        )
+    if "." in form and modrm_reg != int(form.split(".", 1)[1]):
+        raise CorpusError(f"{form}: ModR/M reg does not match shard identity")
+
+    if repeat == "repnc":
+        support_key = ("v30op", 0x64, "-")
+    else:
+        mode = {
+            "none": "v30op",
+            "repc": "v30op_repc",
+            "repe": "v30op_repe",
+            "repne": "v30op_repne",
+        }[repeat]
+        if mode == "v30op" and opcode == 0x0f:
+            support_key = ("v30op_0f", 0x0f, f"0x{second_byte:02x}")
+        elif mode == "v30op" and opcode in {0xf6, 0xf7}:
+            support_key = (
+                f"v30ope0x{opcode:02x}_table", opcode, f"/{modrm_reg}"
+            )
+        else:
+            support_key = (mode, opcode, "-")
+    if support_key not in support:
+        raise CorpusError(f"{form}: no M42 support-map row for {support_key!r}")
+    row = support[support_key]
+    return {
+        "repeat_prefix": repeat,
+        "segment_prefixes": [f"0x{byte:02x}" for byte in segment_prefixes],
+        "lock_prefixes": [f"0x{byte:02x}" for byte in lock_prefixes],
+        "opcode": f"0x{opcode:02x}",
+        "second_byte": None if second_byte is None else f"0x{second_byte:02x}",
+        "modrm_reg": modrm_reg,
+        "support_mode": support_key[0],
+        "support_subopcode": support_key[2],
+        "support_target": row["target"],
+        "support_classification": row["classification"],
+    }
+
+
+def classify_record(
+    form: str,
+    record: dict[str, Any],
+    metadata: dict[str, Any],
+    support: dict[tuple[str, int, str], dict[str, str]],
+) -> dict[str, Any]:
+    _, _, status, arch, flags_mask = metadata_for_form(metadata, form)
+    if record["initial"]["queue"]:
+        return {
+            "classification": "unsupported_fixture",
+            "reason": "prefetch queue injection is not available in the M42 harness",
+            "metadata_status": status,
+            "metadata_arch": arch,
+            "flags_mask": flags_mask,
+            "dispatch": None,
+        }
+    dispatch = resolve_dispatch(form, record["bytes"], support)
+    if status in {"fpu", "undefined"}:
+        classification = "upstream_nonblocking"
+        reason = f"upstream metadata status {status} is outside blocking semantics"
+    elif dispatch["support_classification"] == "known_target_gap":
+        classification = "known_target_gap"
+        reason = "the exact M42 final dispatch form is absent from the current target"
+    else:
+        classification = "applicable"
+        reason = "implemented target form with a defined V20 final-state oracle"
+    return {
+        "classification": classification,
+        "reason": reason,
+        "metadata_status": status,
+        "metadata_arch": arch,
+        "flags_mask": flags_mask,
+        "dispatch": dispatch,
+    }
+
+
+def gap_selector(form: str, resolved: dict[str, Any]) -> dict[str, Any]:
+    dispatch = resolved["dispatch"]
+    return {
+        "metadata_form": form,
+        "opcode": dispatch["opcode"],
+        "second_byte": dispatch["second_byte"],
+        "modrm_reg": dispatch["modrm_reg"],
+        "repeat_prefix": dispatch["repeat_prefix"],
+        "segment_prefix_constraint": "dispatch-neutral-any",
+        "lock_prefix_constraint": "dispatch-neutral-any",
+        "support_mode": dispatch["support_mode"],
+        "support_subopcode": dispatch["support_subopcode"],
+        "support_target": dispatch["support_target"],
+    }
+
+
+def profile_records(records: list[dict[str, Any]], profile: str) -> list[dict[str, Any]]:
+    empty = [record for record in records if not record["initial"]["queue"]]
+    empty.sort(key=lambda record: record["hash"])
+    if profile == "ci":
+        return empty[:500]
+    if profile == "full":
+        return empty
+    raise CorpusError(f"unknown profile {profile!r}")
+
+
+def classify_profile(
+    dataset_root: pathlib.Path,
+    manifest: dict[str, Any],
+    support_map_path: pathlib.Path,
+    profile: str,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    verify_fast(dataset_root, manifest)
+    metadata = json.loads(
+        (dataset_root / SUITE_PATH / "metadata.json").read_text(encoding="utf-8")
+    )
+    validate_metadata(metadata)
+    support = load_support_map(support_map_path)
+    classifications = Counter()
+    all_classifications = Counter()
+    per_form = []
+    known_rules: dict[bytes, dict[str, Any]] = {}
+    selection_testsets = []
+    selected_total = 0
+    for shard_number, path in enumerate(corpus_files(dataset_root), 1):
+        relative = path.relative_to(dataset_root).as_posix()
+        with gzip.open(path, "rt", encoding="utf-8") as stream:
+            records = json.load(stream)
+        form = path.name.removesuffix(".json.gz").upper()
+        selected = profile_records(records, profile)
+        selected_hashes = []
+        form_counts = Counter()
+        for index, raw_record in enumerate(records):
+            record = validate_record(raw_record, f"{relative}[{index}]")
+            resolved = classify_record(form, record, metadata, support)
+            all_classifications[resolved["classification"]] += 1
+        for record in selected:
+            resolved = classify_record(form, record, metadata, support)
+            classification = resolved["classification"]
+            if classification == "unsupported_fixture":
+                raise CorpusError(
+                    f"{form}:{record['hash']}: empty-queue profile became unsupported"
+                )
+            classifications[classification] += 1
+            form_counts[classification] += 1
+            selected_hashes.append(record["hash"])
+            if classification == "known_target_gap":
+                selector = gap_selector(form, resolved)
+                selector_bytes = canonical_bytes(selector)
+                rule = known_rules.setdefault(
+                    selector_bytes,
+                    {
+                        "selector": selector,
+                        "reason": resolved["reason"],
+                        "evidence": {
+                            "support_map": support_map_path.as_posix(),
+                            "support_classification": "known_target_gap",
+                            "metadata_status": resolved["metadata_status"],
+                            "metadata_arch": resolved["metadata_arch"],
+                        },
+                        "resolved_test_hashes": [],
+                    },
+                )
+                rule["resolved_test_hashes"].append(record["hash"])
+        selected_hashes.sort()
+        selection_testsets.append(
+            {
+                "form": form,
+                "selected_count": len(selected_hashes),
+                "selected_test_hashes_sha256": sha256_bytes(
+                    canonical_bytes(selected_hashes)
+                ),
+            }
+        )
+        per_form.append(
+            {
+                "form": form,
+                "selected_count": len(selected),
+                "classification_counts": dict(sorted(form_counts.items())),
+            }
+        )
+        selected_total += len(selected)
+        print(
+            f"ssts-classify: {shard_number:03d}/{len(corpus_files(dataset_root)):03d} "
+            f"{form} selected={len(selected)}",
+            file=sys.stderr,
+            flush=True,
+        )
+    selection_digest = sha256_bytes(canonical_bytes(selection_testsets))
+    result = {
+        "schema": "vaeg-upd9002-ssts-classification-v1",
+        "dataset_id": manifest["dataset_id"],
+        "dataset_digest": manifest["dataset_digest"],
+        "profile": profile,
+        "profile_definition": (
+            "empty initial queue; stable upstream-hash order; maximum 500 per form"
+            if profile == "ci"
+            else "all records with an empty initial prefetch queue"
+        ),
+        "selection_digest": selection_digest,
+        "selected_records": selected_total,
+        "classification_counts": dict(sorted(classifications.items())),
+        "all_corpus_classification_counts": dict(sorted(all_classifications.items())),
+        "per_form": per_form,
+    }
+    rules = []
+    for selector_bytes, rule in sorted(known_rules.items()):
+        del selector_bytes
+        hashes = sorted(rule["resolved_test_hashes"])
+        rule["resolved_test_hashes"] = hashes
+        rule["resolved_count"] = len(hashes)
+        rule["resolved_test_hashes_sha256"] = sha256_bytes(canonical_bytes(hashes))
+        rules.append(rule)
+    known_gaps = {
+        "schema": "vaeg-upd9002-ssts-known-gaps-v1",
+        "dataset_id": manifest["dataset_id"],
+        "profile": profile,
+        "rule_count": len(rules),
+        "resolved_record_count": sum(rule["resolved_count"] for rule in rules),
+        "rules": rules,
+    }
+    return result, known_gaps
 
 
 def create_manifest(dataset_root: pathlib.Path) -> dict[str, Any]:
@@ -593,6 +941,21 @@ def selftest() -> None:
     else:
         raise CorpusError("unknown metadata status was silently accepted")
 
+    unclassified_record = json.loads(json.dumps(record))
+    unclassified_record["bytes"] = [0x90]
+    try:
+        classify_record(
+            "90",
+            unclassified_record,
+            {"opcodes": {"90": {"status": "normal", "arch": "86"}}},
+            {},
+        )
+    except CorpusError as error:
+        if "no M42 support-map row" not in str(error):
+            raise
+    else:
+        raise CorpusError("unclassified dispatch form was silently accepted")
+
     with tempfile.TemporaryDirectory(prefix="vaeg-ssts-selftest-") as temporary:
         root = pathlib.Path(temporary)
         suite = root / SUITE_PATH
@@ -626,7 +989,7 @@ def selftest() -> None:
         else:
             raise CorpusError("corpus digest mismatch was silently accepted")
     print(
-        "ssts-selftest: canonical digest, fail-closed schema/status, and "
+        "ssts-selftest: canonical digest, fail-closed schema/status/form, and "
         "digest rejection passed"
     )
 
@@ -644,6 +1007,15 @@ def parse_args(argv: Iterable[str]) -> argparse.Namespace:
     verify = subparsers.add_parser("verify", help="verify pinned compressed bytes")
     verify.add_argument("--dataset-root", required=True, type=pathlib.Path)
     verify.add_argument("--manifest", required=True, type=pathlib.Path)
+    classify = subparsers.add_parser(
+        "classify", help="classify a deterministic comparison profile"
+    )
+    classify.add_argument("--dataset-root", required=True, type=pathlib.Path)
+    classify.add_argument("--manifest", required=True, type=pathlib.Path)
+    classify.add_argument("--support-map", required=True, type=pathlib.Path)
+    classify.add_argument("--profile", required=True, choices=("ci", "full"))
+    classify.add_argument("--output", required=True, type=pathlib.Path)
+    classify.add_argument("--known-gaps", required=True, type=pathlib.Path)
     subparsers.add_parser("selftest", help="run synthetic parser tests")
     return parser.parse_args(argv)
 
@@ -667,6 +1039,22 @@ def main(argv: Iterable[str] | None = None) -> int:
             print(
                 "ssts-verify: verified "
                 f"dataset_id={value['dataset_id']} files={len(value['files'])}"
+            )
+        elif arguments.command == "classify":
+            manifest = load_manifest(arguments.manifest)
+            result, known_gaps = classify_profile(
+                arguments.dataset_root.resolve(),
+                manifest,
+                arguments.support_map.resolve(),
+                arguments.profile,
+            )
+            write_json(arguments.output, result)
+            write_json(arguments.known_gaps, known_gaps)
+            print(
+                "ssts-classify: "
+                f"dataset_id={result['dataset_id']} profile={result['profile']} "
+                f"selected={result['selected_records']} "
+                f"categories={canonical_bytes(result['classification_counts']).decode()}"
             )
         elif arguments.command == "selftest":
             selftest()
