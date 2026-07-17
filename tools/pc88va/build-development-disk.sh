@@ -95,7 +95,7 @@ done
 [[ ! -e ${output_d88} ]] || die 'output already exists; refusing to overwrite it'
 [[ -d ${output_d88%/*} || ${output_d88} != */* ]] || die 'output directory does not exist'
 
-for required_command in curl dosbox lha python3 sha256sum tar; do
+for required_command in curl dosbox lha python3 sha256sum tar unzip; do
 	command -v "$required_command" >/dev/null 2>&1 ||
 		die "required host command is missing: $required_command"
 done
@@ -185,6 +185,9 @@ fetch_package ramdisk.com \
 fetch_package ramdisk.doc \
 	4f5e549bdbc75db6cf95ebd13dc722500891fa22265ed793b22e81585e94e461 \
 	'http://www.pc88.gr.jp/softlib/index.php?action=download&anum=2&gnum=398&fname=RAMDISK.DOC'
+fetch_package fut312bx.zip \
+	49df5a5f68b91f64affc9f305a328f0925e07cbe88604e17687c653a523eabe5 \
+	'https://www.ibiblio.org/pub/micro/pc-stuff/freedos/mirrors/gnuish/dos_only/fut312bx.zip'
 
 work_dir=$(mktemp -d "${TMPDIR:-/tmp}/vaeg-pc88va-devdisk.XXXXXX")
 
@@ -211,6 +214,8 @@ extract_archive "$cache_dir/fatmap11.lzh" "$work_dir/fatmap"
 extract_archive "$cache_dir/forg203.lzh" "$work_dir/forg"
 mkdir -p -- "$work_dir/bms"
 tar -xzf "$cache_dir/bms15020.tgz" -C "$work_dir/bms"
+mkdir -p -- "$work_dir/fut312bx"
+unzip -q "$cache_dir/fut312bx.zip" 'BIN/*' -d "$work_dir/fut312bx"
 
 stage_dir=$work_dir/stage
 mkdir -p -- "$stage_dir"
@@ -310,6 +315,21 @@ copy_payload "$work_dir/fatmap/FATMAP_E.COM" bin/FATMAP_E.COM
 copy_payload "$work_dir/forg/FORG.EXE" bin/FORG.EXE
 copy_payload "$work_dir/forg/FORG.DAT" bin/FORG.DAT
 copy_payload "$cache_dir/ramdisk.com" bin/RAMDISK.COM
+copy_payload "$work_dir/fut312bx/BIN/CHMOD.EXE" bin/CHMOD.EXE
+copy_payload "$work_dir/fut312bx/BIN/COPYING" bin/COPYING
+copy_payload "$work_dir/fut312bx/BIN/CP.EXE" bin/CP.EXE
+copy_payload "$work_dir/fut312bx/BIN/DD.EXE" bin/DD.EXE
+copy_payload "$work_dir/fut312bx/BIN/DF.EXE" bin/DF.EXE
+copy_payload "$work_dir/fut312bx/BIN/DI.EXE" bin/DI.EXE
+copy_payload "$work_dir/fut312bx/BIN/DU.EXE" bin/DU.EXE
+copy_payload "$work_dir/fut312bx/BIN/INSTALL.EXE" bin/INSTALL.EXE
+copy_payload "$work_dir/fut312bx/BIN/LS.EXE" bin/LS.EXE
+copy_payload "$work_dir/fut312bx/BIN/MKD.EXE" bin/MKD.EXE
+copy_payload "$work_dir/fut312bx/BIN/MV.EXE" bin/MV.EXE
+copy_payload "$work_dir/fut312bx/BIN/RM.EXE" bin/RM.EXE
+copy_payload "$work_dir/fut312bx/BIN/RMD.EXE" bin/RMD.EXE
+copy_payload "$work_dir/fut312bx/BIN/TOUCH.EXE" bin/TOUCH.EXE
+copy_payload "$work_dir/fut312bx/BIN/VDIR.EXE" bin/VDIR.EXE
 
 copy_payload "$work_dir/teen/TEEN.DOC" doc/TEEN.DOC
 copy_payload "$work_dir/teen/TEENUPDT.DOC" doc/TEENUPDT.DOC
