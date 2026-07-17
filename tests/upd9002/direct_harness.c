@@ -101,7 +101,7 @@ static void set_cpu(const UPD9002_HARNESS_CPU_STATE *state) {
 	CPU_BASECLOCK = state->base_clock;
 	CPU_CLOCK = state->clock;
 	CPU_ADRSMASK = 0xfffff;
-	CPU_TYPE = CPUTYPE_V30;
+	i286core.s.cpu_type = CPUTYPE_V30;
 }
 
 static void get_cpu(UPD9002_HARNESS_CPU_STATE *state) {

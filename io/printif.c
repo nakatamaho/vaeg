@@ -39,9 +39,7 @@ static REG8 IOINPCALL prt_i42(UINT port) {
 		ret |= 0x08;
 	}
 	if (!(pccore.model & PCMODEL_EPSON)) {
-		if (CPU_TYPE & CPUTYPE_V30) {
-			ret |= 0x02;
-		}
+		ret |= 0x02;
 	}
 	else {
 		if (np2cfg.dipsw[2] & 0x80) {
@@ -72,4 +70,3 @@ void printif_bind(void) {
 	iocore_attachsysoutex(0x0040, 0x0cf1, prto40, 4);
 	iocore_attachsysinpex(0x0040, 0x0cf1, prti40, 4);
 }
-

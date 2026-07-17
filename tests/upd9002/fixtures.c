@@ -67,7 +67,7 @@ static void fixture_line(const char *scenario, char *line, size_t size) {
 		(unsigned int)sizeof(upd9002), regs_hex,
 		CPU_AX, CPU_BX, CPU_CX, CPU_DX, CPU_SP, CPU_CS, CPU_IP,
 		CPU_FLAG, CS_BASE, (uint32_t)CPU_REMCLOCK,
-		(uint32_t)CPU_BASECLOCK, CPU_CLOCK, CPU_TYPE);
+		(uint32_t)CPU_BASECLOCK, CPU_CLOCK, i286core.s.cpu_type);
 }
 
 static void prepare_executed(void) {
@@ -77,7 +77,7 @@ static void prepare_executed(void) {
 
 	ZeroMemory(&CPU_STATSAVE, sizeof(CPU_STATSAVE));
 	upd9002_state_reset();
-	CPU_TYPE = CPUTYPE_V30;
+	i286core.s.cpu_type = CPUTYPE_V30;
 	CPU_FLAG = 0xf002;
 	CPU_ADRSMASK = 0xfffff;
 	CPU_SP = 0x8000;
@@ -91,6 +91,22 @@ static void prepare_executed(void) {
 	}
 }
 
+static int verify_native_reset_invariant(void) {
+
+	Cpu286StateCompat saved;
+
+	upd9002_state_export(&saved);
+	i286core.s.cpu_type = 0;
+	i286c_reset();
+	if ((i286core.s.cpu_type != CPUTYPE_V30) ||
+		(CPU_CS != 0xf000) || (CPU_IP != 0xfff0) ||
+		(CS_BASE != 0x000f0000) || (CPU_FLAG != 0xf002)) {
+		(void)upd9002_state_import(&saved, sizeof(saved), NULL, 0);
+		return FAILURE;
+	}
+	return upd9002_state_import(&saved, sizeof(saved), NULL, 0);
+}
+
 int upd9002_fixture_verify(const char *path) {
 
 	FILE *stream;
@@ -101,6 +117,10 @@ int upd9002_fixture_verify(const char *path) {
 	char expected[FIXTURE_LINE_CAPACITY];
 	uint32_t index;
 
+	if (verify_native_reset_invariant() != SUCCESS) {
+		fprintf(stderr, "upd9002-fixture: native reset invariant failed\n");
+		return FAILURE;
+	}
 	upd9002_state_export(&saved_cpu);
 	saved_regs = upd9002;
 	CopyMemory(saved_program, mem + 0x2000, sizeof(saved_program));

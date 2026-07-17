@@ -399,14 +399,6 @@ void pccore_reset(void) {
 	CPU_SETEXTSIZE((UINT32)pccore.extmem);
 #endif
 
-	CPU_TYPE = 0;
-	if (np2cfg.dipsw[2] & 0x80) {
-		CPU_TYPE = CPUTYPE_V30;
-	}
-	if (pccore.model_va != PCMODEL_NOTVA) {
-		CPU_TYPE = CPUTYPE_V30;
-	}
-
 #if defined(VAEG_FIX)
 	CPU_RESET();
 	CPU_SETEXTSIZE((UINT32)pccore.extmem);
@@ -1130,23 +1122,6 @@ void pccore_exec(BOOL draw) {
 		pic_irq();
 		pccore_process_cpu_reset_request();
 
-#define SINGLESTEPONLY
-#if !defined(SINGLESTEPONLY)
-		if (CPU_REMCLOCK > 0) {
-			if (!(CPU_TYPE & CPUTYPE_V30)) {
-				CPU_EXEC();
-			}
-			else {
-				CPU_EXECV30();
-			}
-			if (pccore.model_va != PCMODEL_NOTVA) {
-				subsystemmx_exec();
-				sgp_step();
-			}
-		}
-
-#else	// SINGLESTEPONLY
-
 		while(CPU_REMCLOCK > 0) {
 #if defined(TRACE) && IPTRACE
 			treip[trpos & (IPTRACE - 1)] = (CPU_CS << 16) + CPU_IP;
@@ -1204,26 +1179,12 @@ void pccore_exec(BOOL draw) {
 #endif
 
 			//TRACEOUT(("%.4x:%.4x", CPU_CS, CPU_IP));
-			if (!(CPU_TYPE & CPUTYPE_V30)) {		// added by Shinra
-#if defined(USE_I286C)
-				i286c_step();
-#else
-				i286x_step();
-#endif
-			}
-			else {
-#if defined(USE_I286C)
-				v30c_step();
-#else
-				v30x_step();						// added by Shinra
-#endif
-			}
+			v30c_step();
 			if (pccore.model_va != PCMODEL_NOTVA) {
 				subsystemmx_exec();
 				sgp_step();
 			}
 		}
-#endif	// SINGLESTEPONLY
 
 		nevent_progress();
 	}

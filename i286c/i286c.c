@@ -152,6 +152,7 @@ void i286c_initialize(void) {
 	v30cinit();
 	ZeroMemory(&i286core, sizeof(i286core));
 	upd9002_state_initialize();
+	i286core.s.cpu_type = CPUTYPE_V30;
 }
 
 void i286c_deinitialize(void) {
@@ -171,37 +172,26 @@ static void i286c_initreg(void) {
 	I286_ADRSMASK = 0xfffff;
 }
 
-#if defined(VAEG_FIX)
 static void v30c_initreg(void) {
 
 	i286c_initreg();
 	I286_FLAG = 0xf002;
 }
-#endif
 
 void i286c_reset(void) {
 
-#if defined(VAEG_FIX)
-	UINT8	cputype;
-
-	cputype = CPU_TYPE;
-#endif
 	ZeroMemory(&i286core.s, sizeof(i286core.s));
-#if defined(VAEG_FIX)
-	CPU_TYPE = cputype;
-	if (cputype == CPUTYPE_V30) {
-		v30c_initreg();
-	}
-	else
-#endif
-	{
-		i286c_initreg();
-	}
+	i286core.s.cpu_type = CPUTYPE_V30;
+	v30c_initreg();
 	upd9002_state_reset();
 }
 
 void i286c_shut(void) {
 
+	/*
+	 * ADR-0012 preserves this CPU_SHUT-only 286-style register result.
+	 * It is a regression fixture exception, not an 80286 execution mode.
+	 */
 	ZeroMemory(&i286core.s, offsetof(I286STAT, cpu_type));
 	i286c_initreg();
 	upd9002_state_shut();
@@ -324,26 +314,6 @@ void i286c(void) {
 		} while(I286_REMCLOCK > 0);
 	}
 }
-
-void i286c_step(void) {
-
-	UINT	opcode;
-
-	upd9002_trace_step_begin();
-	I286_OV = I286_FLAG & O_FLAG;
-	I286_FLAG &= ~(O_FLAG);
-
-	GET_PCBYTE(opcode);
-	i286op[opcode]();
-
-	I286_FLAG &= ~(O_FLAG);
-	if (I286_OV) {
-		I286_FLAG |= (O_FLAG);
-	}
-	dmap_i286();
-	upd9002_trace_step_end();
-}
-
 
 // ---- test
 
