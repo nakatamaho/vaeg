@@ -454,7 +454,8 @@ tools/pc88va/build-softlib-archive-disk.sh \
 The output must not already exist. The cache option is optional and follows
 the same verified-download behavior as the development-disk builder. The
 script pins every public file by SHA-256, rejects mismatched cache entries,
-and installs the downloaded bytes without running or extracting any archive.
+and installs the Softlib and Vector archive bytes without running or
+extracting them.
 
 The requested Softlib groups and files are:
 
@@ -477,7 +478,28 @@ The requested Softlib groups and files are:
 Group 2-306 appeared twice in the requested URL list and is intentionally
 stored once. The disk also contains the 409,884-byte `LSIC330C.LZH` archive
 from the [LSI C-86 3.30c trial-version page](https://www.vector.co.jp/soft/maker/lsi/se001169.html).
-The 18 files contain 575,449 bytes and occupy 584,704 bytes in the
+The complete [PRJ_PLUS repository](https://github.com/mazone-ma3/PRJ_PLUS) is
+too large for this floppy. The builder instead pins commit
+[`ed4036bf70a8e03d926d0b8a943208e909810f2a`](https://github.com/mazone-ma3/PRJ_PLUS/commit/ed4036bf70a8e03d926d0b8a943208e909810f2a),
+downloads its root `LICENSE` and
+`README.md` plus the seven-file `PC88VA` selection, and packages them as the
+113,062-byte `PRJVA.ZIP`. The ZIP uses stored entries, fixed metadata, and a
+commit-identifying archive comment so its bytes do not depend on a host zlib
+version. [`tools/pc88va/create-stored-zip.py`](../../tools/pc88va/create-stored-zip.py)
+performs this packaging, and the generated archive is also checksum-pinned.
+
+The disk also provides the free 16-bit DOS executables from
+the GNUish DOS-only distributions of
+[Info-ZIP UnZip 5.32 and Zip 2.2](https://www.ibiblio.org/pub/micro/pc-stuff/freedos/mirrors/gnuish/dos_only/).
+The [GNUish collection](https://www.math.utah.edu/docs/info/gnuish_6.html)
+was organized for small 8088- and 80286-based DOS systems. Its distributions
+contain both 16-bit and 32-bit programs; the builder deliberately installs
+`unzip.exe` and `zip.exe`, not `unzip32.exe` or `zip32.exe`. It also installs
+their copying terms and primary manuals. The original `UNZ532X3.EXE` and
+`ZIP22X.ZIP` distributions remain in the verified host cache but are not
+duplicated on the D88.
+
+The 26 disk files contain 895,144 bytes and occupy 908,288 bytes in the
 1024-byte-cluster FAT12 filesystem. They are organized as follows:
 
 ```text
@@ -496,16 +518,29 @@ A:\
     FDFRMSRC.LZH
     JFPPAT.ZIP
     LSIC330C.LZH
+    PRJVA.ZIP
     RDEMS152.LZH
     RDPCM001.DOC
     RDPCM001.LZH
     TDC10.LZH
     VBUFF102.LZH
+
+  BIN\
+    UNZIP.EXE
+    ZIP.EXE
+
+  DOC\
+    COPYING
+    UNZIP.DOC
+    UNZDOS.TXT
+    ZIP.DOC
+    ZIPREAD.TXT
 ```
 
-The directory itself uses one additional cluster, leaving 713,728 bytes
-(697 KiB) free. Two builds from the same source and verified cache are
-byte-for-byte identical.
+The three directories use one additional cluster each, leaving 388,096 bytes
+(379 KiB) free. Two builds from the same source and verified cache are
+byte-for-byte identical. A headless DOSBox check confirmed that these 16-bit
+executables can test and extract `PRJVA.ZIP` and create a valid ZIP archive.
 
 ## vaeg Implications
 
