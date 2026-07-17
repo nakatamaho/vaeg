@@ -241,6 +241,272 @@ PC-Engine, matching the TomoRetroPC note:
 SET COMSPEC=A:\PCENGINE.COM
 ```
 
+## Reproducible Boot-Floppy Builder
+
+The repository provides two shell-script entry points. First,
+[`tools/pc88va/create-vanilla-system-disk.sh`](../../tools/pc88va/create-vanilla-system-disk.sh)
+creates a `FORMAT /S`-like PC-Engine 1.1 disk containing only the original IPL
+and required `ENGINEIO.SYS`, `PCENGINE.SYS`, `ADVGBIOS.SYS`, and
+`PCENGINE.COM`. Second,
+[`tools/pc88va/build-development-disk.sh`](../../tools/pc88va/build-development-disk.sh)
+creates that vanilla disk in a temporary directory and installs the development
+environment on top of it.
+
+Neither script contains, copies into Git, or identifies the private source
+image. The common helper validates the public PC-Engine 1.1 filesystem layout
+by system-file names, sizes, and starting clusters instead of recording the
+source image's filename or checksum.
+
+On Debian or Ubuntu, install the host-side build dependencies with:
+
+```sh
+sudo apt-get install curl lhasa dosbox python3 coreutils tar unzip
+```
+
+To create only the vanilla system disk, run:
+
+```sh
+tools/pc88va/create-vanilla-system-disk.sh \
+  --source /path/to/user-supplied-pcengine-1.1.d88 \
+  --output /path/to/pcengine-1.1-vanilla.d88
+```
+
+To create the complete development disk, run:
+
+```sh
+tools/pc88va/build-development-disk.sh \
+  --source /path/to/user-supplied-pcengine-1.1.d88 \
+  --output /path/to/pc88va-development.d88
+```
+
+The destination must not already exist. Downloads are cached under the normal
+user cache directory by default; `--cache DIR` selects another cache. Every
+public input archive is pinned by SHA-256 in the script. An existing cache file
+with different contents is rejected rather than replaced.
+
+The complete build performs these operations:
+
+1. Create the minimal vanilla system disk while retaining the IPL and the
+   original fixed system-file chains.
+2. Fetch and verify PCEPAT, BMS Driver 1.50 Rev 0.20, PCPLUS 1.08 and its
+   patch, BDIFF/BUPDATE 1.28, MSE 3.52a and the 3.52b patch, WSP 1.50,
+   LHA 2.13, K-Launcher 1.30, TEEN 0.30p, VBUFF 1.02, FATMAP 1.1,
+   FORG 2.03, the VA RAMDISK self-extracting archive, and the GNU File
+   Utilities 3.12 MS-DOS rev B executable archive.
+3. Extract the packages with the host `lha`, `tar`, and `unzip` commands.
+4. Run the original DOS `WSP.COM` and `BUPDATE.EXE` under headless DOSBox to
+   produce `MSE352B.COM`, the patched `PCPLUS.SYS`, and the PC-88VA
+   K-Launcher files `KLL.COM`, `KLVA.EXE`, and `KLCUST.EXE`.
+5. Verify those generated files against known public-package checksums.
+6. Add the root drivers, the `BIN` utilities, their `DOC` files, and an empty
+   `TMP` directory to the vanilla FAT12 filesystem.
+
+The PC-Engine disk has a valid FAT12 allocation structure but no conventional
+DOS BPB, so normal `mtools` commands reject it as non-DOS media. The builder
+therefore contains a narrowly scoped D88/FAT12 writer for the known 80-cylinder,
+two-head, eight-sector, 1024-byte PC-Engine 1.1 layout. It never relocates the
+existing `ENGINEIO.SYS` or `PCENGINE.SYS` boot chains. The vanilla builder
+clears all unreferenced data clusters, and new directory entries use a fixed
+DOS date, so repeated builds from the same source are byte-for-byte
+reproducible.
+
+The development disk is organized as follows. `KLVA.EXE`, `KLCUST.EXE`,
+`KL.CFG`, and `KLJPN.HLP` are also kept in `BIN` because `KLL.COM` needs the
+VA-specific executable and configuration files.
+
+```text
+A:\
+  CONFIG.SYS
+  AUTOEXEC.BAT
+  PCEPAT.SYS
+  BMSDRVA.COM
+  BMSADDVA.COM
+  MSE352B.COM
+  PCPLUS.SYS
+  PCENGINE.COM
+
+A:\BIN\
+  LHA.EXE
+  BUPDATE.EXE
+  WSP.COM
+  MSET.COM
+  ALIAS.COM
+  MSECUST.COM
+  KLL.COM
+  KLVA.EXE
+  KLCUST.EXE
+  KL.CFG
+  KLJPN.HLP
+  MSE350.DEF
+  TEEN.COM
+  TEENM.COM
+  TEEN.DEF
+  TOPEN.EXE
+  TCLOSE.EXE
+  TLOG.COM
+  TLOGBMS.COM
+  VBUFF.COM
+  FATMAP.EXE
+  FATMAP_E.COM
+  FORG.EXE
+  FORG.DAT
+  RAMDISK.COM
+  CHMOD.EXE
+  COPYING
+  CP.EXE
+  DD.EXE
+  DF.EXE
+  DI.EXE
+  DU.EXE
+  INSTALL.EXE
+  LS.EXE
+  MKD.EXE
+  MV.EXE
+  RM.EXE
+  RMD.EXE
+  TOUCH.EXE
+  VDIR.EXE
+
+A:\DOC\
+  TEEN.DOC
+  TEENUPDT.DOC
+  TEENREAD.DOC
+  TLOG.DOC
+  VBUFF.DOC
+  VBUFF.LOG
+  FATMAP.MAN
+  FATMREAD.DOC
+  FORG.DOC
+  FORGREAD.DOC
+  RAMDISK.DOC
+
+A:\TMP\
+```
+
+The three archive `README.DOC` files are renamed to `TEENREAD.DOC`,
+`FATMREAD.DOC`, and `FORGREAD.DOC` to avoid collisions in the flat `DOC`
+directory. `RAMDISK.COM` remains the original self-extracting archive; run it
+from `A:\TMP` when its contents are needed. The Softlib catalog records the
+standalone `RAMDISK.DOC` as 1,148 bytes, while its current download endpoint
+serves a 1,230-byte CRLF file. The builder pins the bytes actually served by
+the public endpoint.
+
+The GNUish catalog identifies `fut312bx.zip` as the executable distribution of
+GNU File Utilities 3.12 for DOS. The builder extracts all 15 entries from its
+`BIN` directory, including the GPL `COPYING` file, into `A:\BIN`. Its formatted
+manuals are not installed. Since the resulting `BIN` directory has more than
+30 ordinary entries, the FAT12 writer allocates and links multiple directory
+clusters.
+
+The hidden/system `ENGINEIO.SYS`, `PCENGINE.SYS`, and `ADVGBIOS.SYS` files
+remain in the root as required for boot. `CONFIG.SYS` is:
+
+```dos
+FILES = 20
+BUFFERS = 30
+DEVICE = A:\PCEPAT.SYS
+DEVICE = A:\MSE352B.COM
+DEVICE = A:\PCPLUS.SYS
+```
+
+PCEPAT is deliberately first, as required by its documentation. `BUFFERS=30`
+uses the PCEPAT example's value; the referenced HDD article uses 20. MSE is
+loaded without `/A`, `/B`, or `/X`. The BMS VA programs are present for later
+use but are not made resident by this baseline. `AUTOEXEC.BAT` uses neither
+`ECHO OFF` nor `PROMPT`; it only establishes the requested tool environment:
+
+```dos
+PATH A:\BIN
+SET TEEN=A:\BIN\TEEN.DEF
+SET TMP=A:\TMP
+SET COMSPEC=A:\PCENGINE.COM
+```
+
+The `TEEN` variable follows TEEN's documentation and points the network stack
+at its configuration file. TEEN, TLOG, VBUFF, FORG, and RAMDISK are not run
+automatically. In particular, FORG modifies FAT allocation and should only be
+used after making a backup as directed by its documentation.
+
+The resulting disk is intended for PC-Engine 1.1 on a PC-88VA2/VA3 or the
+corresponding upgraded VA environment. The script proves structural
+bootability by retaining the original IPL and fixed system-file placement;
+actual startup, driver messages, `DIR`, MSE utility execution, and K-Launcher
+remain a PC-88VA/vaeg human boot check.
+
+## Supplemental Softlib Archive Disk
+
+[`tools/pc88va/build-softlib-archive-disk.sh`](../../tools/pc88va/build-softlib-archive-disk.sh)
+creates a separate data-only D88 containing additional PC-88VA software
+archives.
+It validates a user-supplied PC-Engine 1.1 D88 as the media-layout template,
+clears the FAT, root directory, and data clusters, and does not retain any
+PC-Engine system files. The resulting disk is therefore not a system disk.
+
+Run it with:
+
+```sh
+tools/pc88va/build-softlib-archive-disk.sh \
+  --source /path/to/user-supplied-pcengine-1.1.d88 \
+  --output /path/to/pc88va-softlib-archives.d88 \
+  --cache /path/to/download-cache
+```
+
+The output must not already exist. The cache option is optional and follows
+the same verified-download behavior as the development-disk builder. The
+script pins every public file by SHA-256, rejects mismatched cache entries,
+and installs the downloaded bytes without running or extracting any archive.
+
+The requested Softlib groups and files are:
+
+| Group | Files stored verbatim |
+|-------|-----------------------|
+| [2-452](http://www.pc88.gr.jp/softlib/index.php?action=list_file&anum=2&gnum=452) | `VBUFF102.LZH` |
+| [2-390](http://www.pc88.gr.jp/softlib/index.php?action=list_file&anum=2&gnum=390) | `ALGO_VA.DOC`, `ALGO_VA.LZH` |
+| [2-400](http://www.pc88.gr.jp/softlib/index.php?action=list_file&anum=2&gnum=400) | `2HCDRSRC.LZH` |
+| [2-435](http://www.pc88.gr.jp/softlib/index.php?action=list_file&anum=2&gnum=435) | `EMACSVA.LZH`, `EMACSVA.DOC` |
+| [2-424](http://www.pc88.gr.jp/softlib/index.php?action=list_file&anum=2&gnum=424) | `CPMVA.LZH` |
+| [2-401](http://www.pc88.gr.jp/softlib/index.php?action=list_file&anum=2&gnum=401) | `FDFRMSRC.LZH` |
+| [2-396](http://www.pc88.gr.jp/softlib/index.php?action=list_file&anum=2&gnum=396) | `RDPCM001.LZH`, `RDPCM001.DOC` |
+| [2-306](http://www.pc88.gr.jp/softlib/index.php?action=list_file&anum=2&gnum=306) | `2HCDRV.ZIP` |
+| [2-351](http://www.pc88.gr.jp/softlib/index.php?action=list_file&anum=2&gnum=351) | `EMMVA15A.LZH` |
+| [2-307](http://www.pc88.gr.jp/softlib/index.php?action=list_file&anum=2&gnum=307) | `JFPPAT.ZIP` |
+| [2-270](http://www.pc88.gr.jp/softlib/index.php?action=list_file&anum=2&gnum=270) | `RDEMS152.LZH` |
+| [2-201](http://www.pc88.gr.jp/softlib/index.php?action=list_file&anum=2&gnum=201) | `TDC10.LZH` |
+| [2-389](http://www.pc88.gr.jp/softlib/index.php?action=list_file&anum=2&gnum=389) | `BENCH003.DOC`, `BENCH003.LZH` |
+
+Group 2-306 appeared twice in the requested URL list and is intentionally
+stored once. The disk also contains the 409,884-byte `LSIC330C.LZH` archive
+from the [LSI C-86 3.30c trial-version page](https://www.vector.co.jp/soft/maker/lsi/se001169.html).
+The 18 files contain 575,449 bytes and occupy 584,704 bytes in the
+1024-byte-cluster FAT12 filesystem. They are organized as follows:
+
+```text
+A:\
+  ARCHIVE\
+    2HCDRSRC.LZH
+    2HCDRV.ZIP
+    ALGO_VA.DOC
+    ALGO_VA.LZH
+    BENCH003.DOC
+    BENCH003.LZH
+    CPMVA.LZH
+    EMACSVA.DOC
+    EMACSVA.LZH
+    EMMVA15A.LZH
+    FDFRMSRC.LZH
+    JFPPAT.ZIP
+    LSIC330C.LZH
+    RDEMS152.LZH
+    RDPCM001.DOC
+    RDPCM001.LZH
+    TDC10.LZH
+    VBUFF102.LZH
+```
+
+The directory itself uses one additional cluster, leaving 713,728 bytes
+(697 KiB) free. Two builds from the same source and verified cache are
+byte-for-byte identical.
+
 ## vaeg Implications
 
 This recipe is useful for guest-side development and validation, but it is
@@ -272,4 +538,5 @@ environment to test against.
 Do not vendor these third-party archives or generated binaries into the
 vaeg repository. Keep them as user-supplied software, documented by URL
 and checksum if a release workflow ever needs reproducible external
-inputs.
+inputs. The generated development D88 is also a private build artifact
+containing third-party software and must never be staged or committed.
