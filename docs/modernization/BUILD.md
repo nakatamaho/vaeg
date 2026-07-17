@@ -332,7 +332,28 @@ records CPU memory writes and eight-bit I/O transactions when active.
 `tests/upd9002/direct_harness.h` is test-only. It accepts fixed-width CPU,
 program, and RAM input structures and returns a fixed-width result without
 exposing emulator globals. The SingleStepTests V20 dataset is deliberately not
-downloaded or integrated in M42; that work belongs to M43 after G42.
+downloaded or integrated in M42.
+
+## uPD9002 M43 external V20 baseline
+
+M43 extends the direct harness with a test-only child-process adapter for the
+pinned MIT-licensed SingleStepTests V20 `v1_native` corpus. The corpus remains
+outside the repository. Acquisition, digest verification, deterministic CI and
+full commands, and baseline-report commands are documented in
+`tests/ssts/README.md`.
+
+Set `VAEG_SSTS_V20_ROOT` to the verified pinned checkout when configuring a
+test-bearing build. CTest then reproduces the CI profile and requires exact
+agreement with the committed result and failure signatures. When the setting
+is absent, ordinary hosted CI records a visible external-data skip while still
+running the synthetic fail-closed adapter test and checking both committed
+result summaries. An external-data skip never satisfies the M43 human gate or
+the corresponding comparison gate in M44--M49.
+
+The worker entry point exists only when `VAEG_ENABLE_TESTS=ON`; production
+builds do not compile the adapter, deterministic flat-memory seam, or test I/O
+seam. V20 bus timing and prefetch-cycle details are diagnostic rather than
+uPD9002 timing requirements.
 
 ## Known Issues
 
