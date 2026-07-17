@@ -5,6 +5,7 @@
 #include	"pccore.h"
 #include	"iocore.h"
 #include	"dmap.h"
+#include	"upd9002_state.h"
 #include	"upd9002_trace.h"
 #if defined(VAEG_UPD9002_SSTS_TESTING)
 #include	"tests/upd9002/direct_harness.h"
@@ -150,6 +151,7 @@ void i286c_initialize(void) {
 #endif
 	v30cinit();
 	ZeroMemory(&i286core, sizeof(i286core));
+	upd9002_state_initialize();
 }
 
 void i286c_deinitialize(void) {
@@ -195,12 +197,14 @@ void i286c_reset(void) {
 	{
 		i286c_initreg();
 	}
+	upd9002_state_reset();
 }
 
 void i286c_shut(void) {
 
 	ZeroMemory(&i286core.s, offsetof(I286STAT, cpu_type));
 	i286c_initreg();
+	upd9002_state_shut();
 }
 
 void i286c_setextsize(UINT32 size) {

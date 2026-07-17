@@ -6,6 +6,9 @@
 //
 //----------------------------------------------------------------------------
 
+#ifndef VAEG_I286C_CPUCORE_H
+#define VAEG_I286C_CPUCORE_H
+
 #include "memory.h"
 
 #if defined(CPUCORE_IA32)
@@ -174,9 +177,53 @@ typedef struct {
 	SINT32	remainclock;
 	SINT32	baseclock;
 	UINT32	clock;
-} I286STAT;
+} Cpu286StateCompat;
 
-typedef struct {							// for ver0.73
+typedef struct {
+	union {
+		I286REG8	b;
+		I286REG16	w;
+	}		r;
+	UINT32	es_base;
+	UINT32	cs_base;
+	UINT32	ss_base;
+	UINT32	ds_base;
+	UINT32	ss_fix;
+	UINT32	ds_fix;
+	UINT32	adrsmask;						// ver0.72
+	UINT16	prefix;
+	UINT8	trap;
+	UINT8	resetreq;						// ver0.72
+	UINT32	ovflag;
+	I286DTR	GDTR;
+	UINT16	MSW;
+	I286DTR	IDTR;
+	UINT16	LDTR;							// ver0.73
+	I286DTR	LDTRC;
+	UINT16	TR;
+	I286DTR	TRC;
+	UINT8	padding[2];
+
+	UINT8	cpu_type;
+	UINT8	itfbank;						// ver0.72
+	UINT16	ram_d0;
+	SINT32	remainclock;
+	SINT32	baseclock;
+	UINT32	clock;
+} Upd9002RuntimeState;
+
+typedef Upd9002RuntimeState I286STAT;
+
+typedef struct {
+	UINT8 bytes[112];
+} Cpu286CompatImage;
+
+/*
+ * I286STAT remains the internal compatibility name for the active runtime
+ * object.  Cpu286StateCompat is the independently typed on-disk contract.
+ */
+typedef struct {
+	/* for ver0.73 */
 	BYTE	*ext;
 	UINT32	extsize;
 	BYTE	*ems[4];
@@ -190,7 +237,7 @@ typedef struct {							// for ver0.73
 } I286EXT;
 
 typedef struct {
-	I286STAT	s;							// STATsaveされる奴
+	Upd9002RuntimeState	s;
 	I286EXT		e;
 } I286CORE;
 
@@ -299,3 +346,4 @@ void v30c_step(void);
 #define	CPU_SETEXTSIZE(size)		i286c_setextsize((UINT32)(size) << 20)
 #define	CPU_SETEMM(frame, addr)		i286c_setemm(frame, addr)
 
+#endif
