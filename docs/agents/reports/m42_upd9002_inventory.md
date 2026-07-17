@@ -281,6 +281,134 @@ trace records are checkpoints in M42; DMA transactions are represented by a
 deterministic scheduler-origin checkpoint unless a tested instruction causes a
 real transfer. None of these gaps authorizes semantic work in M42.
 
+## Validation evidence
+
+All commands below completed with exit status 0 unless a limitation is stated.
+The Linux runs were native x86_64 executions. The Windows run was a MinGW-w64
+cross-build followed by Wine execution; it is not a native Windows result.
+
+Repository and generator checks:
+
+```sh
+python3 tools/qa/upd9002_dispatch.py --root .
+python3 tools/qa/upd9002_dispatch.py --root . --selftest
+python3 tools/repo/check_encoding.py --expect utf8 --exclude hlp/
+python3 tools/repo/check_eol.py --enforce
+python3 tools/repo/check_case.py
+python3 tools/repo/find_unreferenced.py --report
+git diff --check
+```
+
+The dispatch graph and provenance matched their committed baselines exactly;
+all fail-closed generator cases passed. The repository checks reported zero
+encoding, EOL, and case violations. The unreferenced-file report retained the
+69 pre-existing findings and returned success. `git diff --check` was clean.
+
+Native GCC 15.2.0 release validation:
+
+```sh
+cmake -S . -B /tmp/vaeg-m42-final-gcc -G Ninja \
+  -DCMAKE_BUILD_TYPE=Release -DVAEG_ENABLE_TESTS=ON \
+  -DVAEG_ENABLE_ARCHIVE_DROP=OFF
+cmake --build /tmp/vaeg-m42-final-gcc -j2
+ctest --test-dir /tmp/vaeg-m42-final-gcc --output-on-failure
+env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
+  /tmp/vaeg-m42-final-gcc/sdl2/vaeg --selftest
+env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
+  /tmp/vaeg-m42-final-gcc/sdl2/vaeg --smoke
+```
+
+The build passed, CTest passed 19/19, the ROM-less selftest passed (including
+156 manifest cases and all reset/executed/CPU_SHUT fixtures), and smoke passed.
+
+Native Clang 21.1.8 release validation:
+
+```sh
+cmake -S . -B /tmp/vaeg-m42-final-clang -G Ninja \
+  -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER=clang \
+  -DCMAKE_CXX_COMPILER=clang++ -DVAEG_ENABLE_TESTS=ON \
+  -DVAEG_ENABLE_ARCHIVE_DROP=OFF
+cmake --build /tmp/vaeg-m42-final-clang -j2
+ctest --test-dir /tmp/vaeg-m42-final-clang --output-on-failure
+env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
+  /tmp/vaeg-m42-final-clang/sdl2/vaeg --smoke
+```
+
+The build passed, CTest passed 19/19, and smoke passed.
+
+Native GCC 15.2.0 ASan/UBSan validation:
+
+```sh
+cmake -S . -B /tmp/vaeg-m42-final-asan -G Ninja \
+  -DCMAKE_BUILD_TYPE=Debug \
+  -DCMAKE_C_FLAGS=-fsanitize=address,undefined \
+  -DCMAKE_CXX_FLAGS=-fsanitize=address,undefined \
+  -DCMAKE_EXE_LINKER_FLAGS=-fsanitize=address,undefined \
+  -DVAEG_ENABLE_TESTS=ON -DVAEG_ENABLE_ARCHIVE_DROP=OFF
+cmake --build /tmp/vaeg-m42-final-asan -j2
+env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
+  ASAN_OPTIONS=detect_leaks=0 \
+  ctest --test-dir /tmp/vaeg-m42-final-asan --output-on-failure
+env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
+  ASAN_OPTIONS=detect_leaks=0 \
+  /tmp/vaeg-m42-final-asan/sdl2/vaeg --smoke
+```
+
+CTest passed 19/19 and smoke returned success. Smoke reproduced only the
+pre-existing UBSan findings in `sound/tms3631c.c`, `sound/psggenc.c`,
+`sound/psggeng.c`, and `common/parts.c`; no diagnostic identified M42 code.
+
+MinGW-w64 GCC 13.0.0 and Wine validation:
+
+```sh
+cmake -S . -B /tmp/vaeg-m42-final-mingw -G Ninja \
+  -DCMAKE_TOOLCHAIN_FILE=/tmp/vaeg-m42-upd9002/cmake/mingw-w64-x86_64.cmake \
+  -DCMAKE_BUILD_TYPE=Release -DVAEG_ENABLE_TESTS=ON \
+  -DVAEG_WINDOWS_CONSOLE=ON -DVAEG_FETCH_SDL2=ON \
+  -DVAEG_STATIC_SDL2=ON -DVAEG_FETCH_LIBARCHIVE=ON \
+  -DFETCHCONTENT_SOURCE_DIR_SDL2=/home/maho/vaeg/build/mingw-cross/_deps/sdl2-src \
+  -DFETCHCONTENT_SOURCE_DIR_VAEG_ZLIB=/home/maho/vaeg/build/mingw-cross/_deps/vaeg_zlib-src \
+  -DFETCHCONTENT_SOURCE_DIR_VAEG_XZ=/home/maho/vaeg/build/mingw-cross/_deps/vaeg_xz-src \
+  -DFETCHCONTENT_SOURCE_DIR_VAEG_LIBARCHIVE=/home/maho/vaeg/build/mingw-cross/_deps/vaeg_libarchive-src
+cmake --build /tmp/vaeg-m42-final-mingw -j2
+env WINEDEBUG=-all \
+  WINEPREFIX=/home/maho/vaeg/build/m42-wine-prefix \
+  WINEPATH=/usr/lib/gcc/x86_64-w64-mingw32/13-win32 \
+  wine64 /tmp/vaeg-m42-final-mingw/vaeg_upd9002_abi.exe \
+  'Z:\tmp\vaeg-m42-upd9002\tests\upd9002\abi_g41.txt'
+env WINEDEBUG=-all \
+  WINEPREFIX=/home/maho/vaeg/build/m42-wine-prefix \
+  WINEPATH=/usr/lib/gcc/x86_64-w64-mingw32/13-win32 \
+  SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
+  wine64 /tmp/vaeg-m42-final-mingw/sdl2/vaeg.exe --selftest
+env WINEDEBUG=-all \
+  WINEPREFIX=/home/maho/vaeg/build/m42-wine-prefix \
+  WINEPATH=/usr/lib/gcc/x86_64-w64-mingw32/13-win32 \
+  SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
+  wine64 /tmp/vaeg-m42-final-mingw/sdl2/vaeg.exe --smoke
+```
+
+All 821 cross-build steps passed. The ABI baseline, ROM-less selftest, 156-case
+harness, state fixtures, and smoke passed under Wine. Diagnostics were limited
+to unrelated existing/vendor warnings. Native Windows and macOS execution were
+not performed locally.
+
+The detached G41 comparison used the same native GCC ABI and definitions:
+
+```sh
+cmake -S /tmp/vaeg-m42-g41 -B /tmp/vaeg-m42-g41-build -G Ninja \
+  -DCMAKE_BUILD_TYPE=Release -DVAEG_ENABLE_TESTS=ON \
+  -DVAEG_ENABLE_ARCHIVE_DROP=OFF
+cmake --build /tmp/vaeg-m42-g41-build -j2
+ctest --test-dir /tmp/vaeg-m42-g41-build --output-on-failure
+```
+
+The unmodified G41 suite passed 15/15. The ABI probe and three fixture payloads
+matched exactly, and all 28 pre-existing selftest checkpoint lines were
+byte-identical. No tracked `golden_smoke.sh` exists, so its requested command
+could not be run; the contradiction and the exact substitute evidence are
+recorded above rather than represented as a pass.
+
 ## G42 review disposition
 
 The automated evidence is intended for human G42 review. Human review must
