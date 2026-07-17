@@ -224,7 +224,7 @@ int upd9002_harness_run_ssts(const UPD9002_SSTS_INPUT *input,
 	}
 	vector_ip = (uint16_t)(mem[0] | (mem[1] << 8));
 	vector_cs = (uint16_t)(mem[2] | (mem[3] << 8));
-	result->termination = 0;
+	result->termination = UPD9002_SSTS_TERMINATION_NORMAL;
 	result->watch_count = input->watch_count;
 	result->io_count = 0;
 	ssts_io_result = result;
@@ -236,9 +236,12 @@ int upd9002_harness_run_ssts(const UPD9002_SSTS_INPUT *input,
 	}
 	get_cpu(&result->cpu);
 	result->cpu.flags = (uint16_t)((result->cpu.flags & 0x0fff) | 0xf002);
-	if ((result->cpu.ip == vector_ip) && (result->cpu.cs == vector_cs) &&
+	if (CPU_REMCLOCK < 0) {
+		result->termination = UPD9002_SSTS_TERMINATION_HALT;
+	}
+	else if ((result->cpu.ip == vector_ip) && (result->cpu.cs == vector_cs) &&
 		((vector_ip != 0) || (vector_cs != 0))) {
-		result->termination = 1;
+		result->termination = UPD9002_SSTS_TERMINATION_TYPE0;
 	}
 	for (index = 0; index < input->watch_count; index++) {
 		result->watch_values[index] =

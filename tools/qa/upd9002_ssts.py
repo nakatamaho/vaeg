@@ -597,6 +597,8 @@ def expected_io(record: dict[str, Any]) -> list[dict[str, Any]]:
 
 
 def expected_termination(form: str, record: dict[str, Any]) -> str:
+    if form == "F4":
+        return "halt"
     if form not in {"F6.6", "F6.7", "F7.6", "F7.7"}:
         return "normal"
     initial_memory = {
@@ -661,7 +663,7 @@ def read_response(path: pathlib.Path, contexts: list[dict[str, Any]]) -> list[di
             if digest != context["record_digest"]:
                 raise CorpusError("worker response record digest is out of order")
             termination_code = read_exact_binary(stream, 1, "termination")[0]
-            if termination_code not in {0, 1}:
+            if termination_code not in {0, 1, 2}:
                 raise CorpusError(f"worker returned unknown termination {termination_code}")
             values = struct.unpack(
                 "<14H", read_exact_binary(stream, 28, "register state")
@@ -698,7 +700,11 @@ def read_response(path: pathlib.Path, contexts: list[dict[str, Any]]) -> list[di
                 )
             results.append(
                 {
-                    "termination": "normal" if termination_code == 0 else "type0",
+                    "termination": {
+                        0: "normal",
+                        1: "type0",
+                        2: "halt",
+                    }[termination_code],
                     "registers": actual_registers,
                     "ram": actual_ram,
                     "io": io,
@@ -947,6 +953,7 @@ def run_profile(
     result_counts = Counter()
     termination_counts = Counter()
     difficult = Counter()
+    difficult_results = Counter()
     failures = []
     per_form = []
     selected_testsets = []
@@ -979,6 +986,8 @@ def run_profile(
             else:
                 result_counts["skip"] += 1
                 form_results["skip"] += 1
+                for family in difficult_family(form, record):
+                    difficult_results[f"{family}:skip"] += 1
         contained = run_worker_contained(worker, runnable, timeout)
         if len(contained) != len(runnable):
             raise CorpusError(f"{form}: worker result count mismatch")
@@ -1001,6 +1010,8 @@ def run_profile(
             )
             result_counts[outcome] += 1
             form_results[outcome] += 1
+            for family in difficult_family(form, record):
+                difficult_results[f"{family}:{outcome}"] += 1
             executed_total += 1
             if actual is not None:
                 termination_counts[actual["termination"]] += 1
@@ -1064,8 +1075,113 @@ def run_profile(
         "failure_signature_count": len(failures),
         "failure_signatures": failures,
         "difficult_family_counts": dict(sorted(difficult.items())),
+        "difficult_family_result_counts": dict(sorted(difficult_results.items())),
         "per_form": per_form,
     }
+
+
+def externalize_failure_signatures(
+    result: dict[str, Any], directory: pathlib.Path
+) -> None:
+    failures = result.pop("failure_signatures")
+    groups: dict[str, list[dict[str, Any]]] = {}
+    signature_index = []
+    for failure in failures:
+        form = failure["content"]["opcode_form"]
+        group = form[0].lower()
+        groups.setdefault(group, []).append(failure)
+        signature_index.append(
+            {
+                "record_hash": failure["content"]["record_hash"],
+                "signature_sha256": failure["signature_sha256"],
+            }
+        )
+    directory.mkdir(parents=True, exist_ok=True)
+    files = []
+    for group, values in sorted(groups.items()):
+        path = directory / f"{group}.json.gz"
+        payload = {
+            "schema": "vaeg-upd9002-ssts-failures-v1",
+            "dataset_id": result["dataset_id"],
+            "profile": result["profile"],
+            "group": group,
+            "failure_count": len(values),
+            "failure_signatures": values,
+        }
+        serialized = canonical_bytes(payload) + b"\n"
+        with path.open("wb") as stream:
+            with gzip.GzipFile(
+                filename="",
+                mode="wb",
+                compresslevel=9,
+                fileobj=stream,
+                mtime=0,
+            ) as compressed:
+                compressed.write(serialized)
+        files.append(
+            {
+                "path": f"{directory.name}/{path.name}",
+                "failure_count": len(values),
+                "canonical_sha256": sha256_bytes(serialized),
+            }
+        )
+    signature_index.sort(key=lambda item: item["record_hash"])
+    result["failure_signature_index_sha256"] = sha256_bytes(
+        canonical_bytes(signature_index)
+    )
+    result["failure_signature_files"] = files
+
+
+def verify_failure_files(summary_path: pathlib.Path, result: dict[str, Any]) -> None:
+    files = result.get("failure_signature_files", [])
+    if not isinstance(files, list):
+        raise CorpusError("failure_signature_files: expected array")
+    count = 0
+    for item in files:
+        if not isinstance(item, dict) or set(item) != {
+            "path", "failure_count", "canonical_sha256"
+        }:
+            raise CorpusError("failure signature file entry has unknown schema")
+        path = summary_path.parent / item["path"]
+        if not path.is_file():
+            raise CorpusError(f"failure signature file is missing: {path}")
+        with gzip.open(path, "rb") as stream:
+            serialized = stream.read()
+        digest = sha256_bytes(serialized)
+        if digest != item["canonical_sha256"]:
+            raise CorpusError(
+                f"failure signature file digest mismatch: {path} "
+                f"expected={item['canonical_sha256']} actual={digest}"
+            )
+        count += item["failure_count"]
+    if count != result.get("failure_signature_count"):
+        raise CorpusError(
+            "failure signature sidecar count differs from result summary"
+        )
+
+
+def report_result(summary_path: pathlib.Path) -> None:
+    result = json.loads(summary_path.read_text(encoding="utf-8"))
+    if result.get("schema") != "vaeg-upd9002-ssts-result-v1":
+        raise CorpusError(f"{summary_path}: unknown result schema")
+    verify_failure_files(summary_path, result)
+    report = {
+        "dataset_id": result.get("dataset_id"),
+        "profile": result.get("profile"),
+        "selected_records": result.get("selected_records"),
+        "executed_records": result.get("executed_records"),
+        "classification_counts": result.get("classification_counts"),
+        "result_counts": result.get("result_counts"),
+        "termination_counts": result.get("termination_counts"),
+        "failure_signature_count": result.get("failure_signature_count"),
+        "failure_signature_index_sha256": result.get(
+            "failure_signature_index_sha256"
+        ),
+        "external_data_skipped": False,
+    }
+    if any(value is None for value in report.values()):
+        raise CorpusError(f"{summary_path}: incomplete result summary")
+    print(f"ssts-report: {canonical_bytes(report).decode()}")
 
 
 def classify_profile(
@@ -1521,10 +1637,71 @@ def selftest() -> None:
                 raise
         else:
             raise CorpusError("corpus digest mismatch was silently accepted")
+
+        summary = root / "synthetic.json"
+        failures = root / "synthetic_failures"
+        result = {
+            "schema": "vaeg-upd9002-ssts-result-v1",
+            "dataset_id": "synthetic",
+            "profile": "ci",
+            "selected_records": 1,
+            "executed_records": 1,
+            "classification_counts": {"applicable": 1},
+            "result_counts": {"semantic_failure": 1},
+            "termination_counts": {"normal": 1},
+            "failure_signature_count": 1,
+            "failure_signatures": [
+                {
+                    "content": {
+                        "record_hash": "0" * 40,
+                        "opcode_form": "90",
+                    },
+                    "signature_sha256": "0" * 64,
+                }
+            ],
+        }
+        externalize_failure_signatures(result, failures)
+        write_json(summary, result, compact=True)
+        report_result(summary)
     print(
         "ssts-selftest: canonical digest, fail-closed schema/status/form, and "
         "digest rejection passed"
     )
+
+
+def worker_selftest(worker: pathlib.Path) -> None:
+    registers = {name: 0 for name in REGISTER_KEYS_IN_RECORD}
+    registers.update({"cs": 0, "ip": 0x0100, "flags": 0xf002})
+    record = {
+        "name": "synthetic hlt termination",
+        "bytes": [0xf4],
+        "initial": {
+            "regs": registers,
+            "ram": [[0x0100, 0xf4]],
+            "queue": [],
+        },
+        "final": {
+            "regs": registers,
+            "ram": [[0x0100, 0xf4]],
+            "queue": [],
+        },
+        "cycles": [],
+        "hash": "0" * 40,
+        "idx": 0,
+    }
+    validate_record(record, "synthetic-worker")
+    status, results = run_worker_once(worker, [record], 30.0)
+    if status != "ok" or results is None or len(results) != 1:
+        raise CorpusError(f"synthetic worker failed with status {status}")
+    actual = results[0]
+    if actual["termination"] != "halt":
+        raise CorpusError(
+            "synthetic HLT was not classified as halt: "
+            f"{actual['termination']}"
+        )
+    if actual["registers"]["cs"] != 0 or actual["registers"]["ip"] != 0x0100:
+        raise CorpusError("synthetic HLT did not retain its restart address")
+    print("ssts-worker-selftest: HLT termination classification passed")
 
 
 def parse_args(argv: Iterable[str]) -> argparse.Namespace:
@@ -1557,8 +1734,21 @@ def parse_args(argv: Iterable[str]) -> argparse.Namespace:
     run.add_argument("--profile", required=True, choices=("ci", "full"))
     run.add_argument("--shard-timeout", type=float, default=120.0)
     run.add_argument("--output", required=True, type=pathlib.Path)
+    run.add_argument("--failure-directory", type=pathlib.Path)
     run.add_argument("--expect", type=pathlib.Path)
+    report = subparsers.add_parser(
+        "report", help="verify and print a canonical result summary"
+    )
+    report.add_argument("--summary", required=True, type=pathlib.Path)
+    skip = subparsers.add_parser(
+        "external-skip", help="report an unavailable external-data comparison"
+    )
+    skip.add_argument("--reason", required=True)
     subparsers.add_parser("selftest", help="run synthetic parser tests")
+    worker_test = subparsers.add_parser(
+        "worker-selftest", help="run synthetic execution-worker tests"
+    )
+    worker_test.add_argument("--worker", required=True, type=pathlib.Path)
     return parser.parse_args(argv)
 
 
@@ -1582,6 +1772,19 @@ def main(argv: Iterable[str] | None = None) -> int:
                 "ssts-verify: verified "
                 f"dataset_id={value['dataset_id']} files={len(value['files'])}"
             )
+        elif arguments.command == "report":
+            report_result(arguments.summary.resolve())
+        elif arguments.command == "external-skip":
+            print(
+                "ssts-report: "
+                + canonical_bytes(
+                    {
+                        "external_data_skipped": True,
+                        "reason": arguments.reason,
+                    }
+                ).decode()
+            )
+            return 77
         elif arguments.command == "classify":
             manifest = load_manifest(arguments.manifest)
             result, known_gaps = classify_profile(
@@ -1610,9 +1813,14 @@ def main(argv: Iterable[str] | None = None) -> int:
                 arguments.profile,
                 arguments.shard_timeout,
             )
+            if arguments.failure_directory is not None:
+                externalize_failure_signatures(
+                    result, arguments.failure_directory.resolve()
+                )
             write_json(arguments.output, result, compact=True)
             if arguments.expect is not None:
                 expected = json.loads(arguments.expect.read_text(encoding="utf-8"))
+                verify_failure_files(arguments.expect, expected)
                 if result != expected:
                     raise CorpusError(
                         f"{arguments.profile} result differs from {arguments.expect}"
@@ -1626,6 +1834,8 @@ def main(argv: Iterable[str] | None = None) -> int:
             )
         elif arguments.command == "selftest":
             selftest()
+        elif arguments.command == "worker-selftest":
+            worker_selftest(arguments.worker.resolve())
         else:
             raise AssertionError(arguments.command)
     except (CorpusError, OSError) as error:
