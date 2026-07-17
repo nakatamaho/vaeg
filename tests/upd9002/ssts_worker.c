@@ -211,6 +211,8 @@ static int run_record(FILE *input_stream, FILE *output_stream) {
 	}
 	if (!write_exact(output_stream, record_digest, sizeof(record_digest)) ||
 		!write_u8(output_stream, result.termination) ||
+		!write_u32(output_stream, result.interrupt_count) ||
+		!write_u8(output_stream, result.last_interrupt_vector) ||
 		!write_cpu(output_stream, &result.cpu) ||
 		!write_u32(output_stream, result.watch_count) ||
 		!write_exact(output_stream, result.watch_values, result.watch_count) ||
@@ -236,10 +238,10 @@ cleanup:
 int upd9002_ssts_worker_main(int argc, char **argv) {
 
 	static const uint8_t request_magic[8] = {
-		'V', '2', '0', 'R', 'E', 'Q', '1', 0
+		'V', '2', '0', 'R', 'E', 'Q', '2', 0
 	};
 	static const uint8_t response_magic[8] = {
-		'V', '2', '0', 'R', 'S', 'P', '1', 0
+		'V', '2', '0', 'R', 'S', 'P', '2', 0
 	};
 	uint8_t actual_magic[8];
 	FILE *input_stream;

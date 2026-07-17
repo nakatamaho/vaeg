@@ -716,7 +716,7 @@ def expected_termination(form: str, record: dict[str, Any]) -> str:
 def write_request(path: pathlib.Path, records: list[dict[str, Any]]) -> list[dict[str, Any]]:
     contexts = []
     with path.open("wb") as stream:
-        stream.write(b"V20REQ1\0")
+        stream.write(b"V20REQ2\0")
         stream.write(struct.pack("<I", len(records)))
         for record in records:
             digest = sha256_bytes(canonical_bytes(record))
@@ -749,10 +749,66 @@ def read_exact_binary(stream: Any, size: int, where: str) -> bytes:
     return value
 
 
+def instruction_opcode(record: dict[str, Any]) -> tuple[int, int | None]:
+    prefixes = {0x26, 0x2E, 0x36, 0x3E, 0xF0, 0xF2, 0xF3}
+    data = record["bytes"]
+    index = 0
+    while index < len(data) and data[index] in prefixes:
+        index += 1
+    if index == len(data):
+        return data[-1], None
+    opcode = data[index]
+    following = data[index + 1] if index + 1 < len(data) else None
+    return opcode, following
+
+
+def classify_execution_result(
+    record: dict[str, Any],
+    worker_termination: str,
+    interrupt_count: int,
+    interrupt_vector: int,
+) -> dict[str, Any]:
+    if worker_termination == "halt":
+        return {
+            "kind": "halt",
+            "interrupt_count": interrupt_count,
+            "interrupt_vector": None if interrupt_count == 0 else interrupt_vector,
+            "termination": "halt",
+        }
+    if interrupt_count == 0:
+        return {
+            "kind": "normal",
+            "interrupt_count": 0,
+            "interrupt_vector": None,
+            "termination": "normal",
+        }
+    opcode, following = instruction_opcode(record)
+    if opcode in {0xCC, 0xCD, 0xCE}:
+        kind = "software_interrupt"
+        termination = "normal"
+    elif (
+        opcode in {0xF6, 0xF7}
+        and following is not None
+        and ((following >> 3) & 7) in {6, 7}
+        and interrupt_vector == 0
+    ):
+        kind = "divide_error"
+        termination = "type0"
+    else:
+        kind = "exception"
+        termination = "type0" if interrupt_vector == 0 else "normal"
+    return {
+        "kind": kind,
+        "interrupt_count": interrupt_count,
+        "interrupt_vector": interrupt_vector,
+        "termination": termination,
+    }
+
+
 def read_response(path: pathlib.Path, contexts: list[dict[str, Any]]) -> list[dict[str, Any]]:
     results = []
     with path.open("rb") as stream:
-        if read_exact_binary(stream, 8, "response magic") != b"V20RSP1\0":
+        if read_exact_binary(stream, 8, "response magic") != b"V20RSP2\0":
             raise CorpusError("worker returned an unsupported response schema")
         count = struct.unpack("<I", read_exact_binary(stream, 4, "response count"))[0]
         if count != len(contexts):
@@ -766,6 +822,10 @@ def read_response(path: pathlib.Path, contexts: list[dict[str, Any]]) -> list[di
             termination_code = read_exact_binary(stream, 1, "termination")[0]
             if termination_code not in {0, 1, 2}:
                 raise CorpusError(f"worker returned unknown termination {termination_code}")
+            interrupt_count = struct.unpack(
+                "<I", read_exact_binary(stream, 4, "interrupt count")
+            )[0]
+            interrupt_vector = read_exact_binary(stream, 1, "interrupt vector")[0]
             values = struct.unpack(
                 "<14H", read_exact_binary(stream, 28, "register state")
             )
@@ -799,13 +859,21 @@ def read_response(path: pathlib.Path, contexts: list[dict[str, Any]]) -> list[di
                         "value": value,
                     }
                 )
+            worker_termination = {
+                0: "normal",
+                1: "type0",
+                2: "halt",
+            }[termination_code]
+            execution_result = classify_execution_result(
+                context["record"],
+                worker_termination,
+                interrupt_count,
+                interrupt_vector,
+            )
             results.append(
                 {
-                    "termination": {
-                        0: "normal",
-                        1: "type0",
-                        2: "halt",
-                    }[termination_code],
+                    "termination": execution_result["termination"],
+                    "execution_result": execution_result,
                     "registers": actual_registers,
                     "ram": actual_ram,
                     "io": io,
@@ -1840,10 +1908,72 @@ def worker_selftest(worker: pathlib.Path) -> None:
         "hash": "1" * 40,
         "idx": 1,
     }
+    int_registers = dict(registers)
+    int_record = {
+        "name": "synthetic explicit int 00",
+        "bytes": [0xCD, 0x00],
+        "initial": {
+            "regs": int_registers,
+            "ram": [
+                [0x0000, 0x34], [0x0001, 0x12],
+                [0x0002, 0x78], [0x0003, 0x56],
+                [0x0100, 0xCD], [0x0101, 0x00],
+            ],
+            "queue": [],
+        },
+        "final": {"regs": {}, "ram": [], "queue": []},
+        "cycles": [],
+        "hash": "2" * 40,
+        "idx": 2,
+    }
+    divide_registers = dict(registers)
+    divide_registers["ax"] = 0
+    divide_record = {
+        "name": "synthetic divide error",
+        "bytes": [0xF6, 0xF0],
+        "initial": {
+            "regs": divide_registers,
+            "ram": [
+                [0x0000, 0x34], [0x0001, 0x12],
+                [0x0002, 0x78], [0x0003, 0x56],
+                [0x0100, 0xF6], [0x0101, 0xF0],
+            ],
+            "queue": [],
+        },
+        "final": {"regs": {}, "ram": [], "queue": []},
+        "cycles": [],
+        "hash": "3" * 40,
+        "idx": 3,
+    }
+    target_registers = dict(registers)
+    target_record = {
+        "name": "synthetic normal completion at IVT0 target",
+        "bytes": [0x90],
+        "initial": {
+            "regs": target_registers,
+            "ram": [
+                [0x0000, 0x01], [0x0001, 0x01],
+                [0x0002, 0x00], [0x0003, 0x00],
+                [0x0100, 0x90],
+            ],
+            "queue": [],
+        },
+        "final": {"regs": {}, "ram": [], "queue": []},
+        "cycles": [],
+        "hash": "4" * 40,
+        "idx": 4,
+    }
     validate_record(record, "synthetic-worker")
     validate_record(outs_record, "synthetic-worker-override")
-    status, results = run_worker_once(worker, [record, outs_record], 30.0)
-    if status != "ok" or results is None or len(results) != 2:
+    validate_record(int_record, "synthetic-worker-int00")
+    validate_record(divide_record, "synthetic-worker-divide")
+    validate_record(target_record, "synthetic-worker-ivt0-target")
+    status, results = run_worker_once(
+        worker,
+        [record, outs_record, int_record, divide_record, target_record],
+        30.0,
+    )
+    if status != "ok" or results is None or len(results) != 5:
         raise CorpusError(f"synthetic worker failed with status {status}")
     actual = results[0]
     if actual["termination"] != "halt":
@@ -1860,8 +1990,35 @@ def worker_selftest(worker: pathlib.Path) -> None:
         raise CorpusError(
             "segment-overridden OUTSB did not use the translated source byte"
         )
+    int_actual = results[2]
+    if int_actual["termination"] != "normal" or int_actual["execution_result"] != {
+        "kind": "software_interrupt",
+        "interrupt_count": 1,
+        "interrupt_vector": 0,
+        "termination": "normal",
+    }:
+        raise CorpusError("explicit INT 00 was not classified as a software interrupt")
+    divide_actual = results[3]
+    if divide_actual["termination"] != "type0" or divide_actual["execution_result"] != {
+        "kind": "divide_error",
+        "interrupt_count": 1,
+        "interrupt_vector": 0,
+        "termination": "type0",
+    }:
+        raise CorpusError("F6 divide error was not classified as type0")
+    target_actual = results[4]
+    if target_actual["registers"]["ip"] != 0x0101 or target_actual[
+        "execution_result"
+    ] != {
+        "kind": "normal",
+        "interrupt_count": 0,
+        "interrupt_vector": None,
+        "termination": "normal",
+    }:
+        raise CorpusError("ordinary completion at the IVT0 target was misclassified")
     print(
-        "ssts-worker-selftest: HLT and segment-override fixture translation passed"
+        "ssts-worker-selftest: HLT, segment override, INT 00, divide error, "
+        "and IVT0-target completion passed"
     )
 
 
