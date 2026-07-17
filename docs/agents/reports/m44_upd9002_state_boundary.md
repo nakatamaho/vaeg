@@ -124,3 +124,12 @@ sanitizers, MinGW/Wine, hosted CI, and full M43 reproduction remain pending.
 * Verify detached G41/current cross-version matrix in both directions.
 * Review payload digests, CPU_SHUT anomaly, and rejection atomicity.
 * Confirm final clean worktree and hosted CI result.
+
+Current continuation status: the fail-closed CMake guard is committed in
+`f72d3c60e602a94bb9e5a3a77537941116322609`. A fresh tests-enabled build with
+trace ON passed trace-equivalence; a fresh tests-enabled build with trace OFF
+fails at configure as required; a tests-disabled build with trace OFF configures
+successfully. The pinned M43 CI/full baseline tests and M42 dispatch graph tests
+both pass in the trace-enabled build. The detached G41 tree contains no
+cross-version state probe equivalent to the M44 probe, so the full bidirectional
+G41 matrix remains unexecuted and is a G44 blocker rather than an inferred pass.
