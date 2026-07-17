@@ -145,7 +145,6 @@ set(VAEG_CORE_SOURCES
     i286c/i286c_fe.c
     i286c/i286c_rp.c
     i286c/v30patch.c
-    i286c/upd9002_trace.c
     i286c/memory.c
     i286c/egcmem.c
     i286c/dmap.c
@@ -422,6 +421,10 @@ if(VAEG_WERROR)
     target_compile_options(vaeg_common PRIVATE -Werror)
 endif()
 
+if(VAEG_Z80_INTEGRATION_TRACE)
+    list(APPEND VAEG_CORE_SOURCES i286c/upd9002_trace.c)
+endif()
+
 add_library(vaeg_core STATIC ${VAEG_CORE_SOURCES})
 target_include_directories(vaeg_core PUBLIC ${VAEG_INCLUDE_DIRS})
 target_link_libraries(vaeg_core PUBLIC vaeg_common)
@@ -435,6 +438,10 @@ if(VAEG_ENABLE_TESTS)
     target_compile_definitions(vaeg_core PRIVATE
         VAEG_UPD9002_M42_TESTING=1
         VAEG_UPD9002_SSTS_TESTING=1)
+endif()
+if(VAEG_Z80_INTEGRATION_TRACE)
+    target_compile_definitions(vaeg_core PRIVATE
+        VAEG_Z80_INTEGRATION_TRACE=1)
 endif()
 target_compile_options(vaeg_core PRIVATE -Wall -fsigned-char)
 if(VAEG_WERROR)
@@ -487,6 +494,10 @@ if(VAEG_ENABLE_TESTS)
         VAEG_UPD9002_SSTS_TESTING=1
         "VAEG_UPD9002_HARNESS_MANIFEST_PATH=\"${CMAKE_CURRENT_SOURCE_DIR}/tests/upd9002/harness_manifest.csv\""
         "VAEG_UPD9002_FIXTURE_PATH=\"${CMAKE_CURRENT_SOURCE_DIR}/tests/upd9002/state_fixtures_m42.txt\"")
+endif()
+if(VAEG_Z80_INTEGRATION_TRACE)
+    target_compile_definitions(vaeg_sdl2 PRIVATE
+        VAEG_Z80_INTEGRATION_TRACE=1)
 endif()
 if(VAEG_ENABLE_ARCHIVE_DROP)
     if(MINGW OR VAEG_FETCH_LIBARCHIVE)
