@@ -38,6 +38,12 @@ option(VAEG_Z80_INTEGRATION_TRACE
 set(VAEG_ZEX_ARTIFACT_DIR "" CACHE PATH
     "Offline directory containing the five hash-verified ZEX artifacts")
 
+if(VAEG_ENABLE_TESTS AND NOT VAEG_Z80_INTEGRATION_TRACE)
+    message(FATAL_ERROR
+        "VAEG_ENABLE_TESTS requires VAEG_Z80_INTEGRATION_TRACE=ON; "
+        "the trace-equivalence test cannot use an uninstrumented executable")
+endif()
+
 if(VAEG_FETCH_SDL2)
     include(FetchContent)
     if(VAEG_STATIC_SDL2)

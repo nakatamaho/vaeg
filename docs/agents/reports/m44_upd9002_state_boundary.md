@@ -92,9 +92,12 @@ A fresh build configured with
 trace and passed `vaeg_upd9002_trace_equivalence` (exit 0, 3.49 seconds). The
 trace test therefore retains origin as part of semantic equality and continues
 to compare ordering and event contents. Tests-disabled production builds keep
-the trace option disabled. The remaining improvement for G44 is a fail-closed
-configuration preflight so this target cannot accidentally use a trace-disabled
-executable.
+the trace option disabled. CMake now fails closed when
+`VAEG_ENABLE_TESTS=ON` and `VAEG_Z80_INTEGRATION_TRACE=OFF`, with the diagnostic
+`VAEG_ENABLE_TESTS requires VAEG_Z80_INTEGRATION_TRACE=ON; the trace-equivalence
+test cannot use an uninstrumented executable`. A fresh tests-disabled configure
+with both options OFF still succeeds. Runtime origin checks remain fail-closed
+for missing CPU, DMA, or device records.
 
 Successful commands:
 
