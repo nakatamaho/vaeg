@@ -146,7 +146,7 @@ before the trace call. The OFF build removes the implementation source and
 uses no-op macros, while the ON build passed trace equivalence; no required
 production side effect is suppressed.
 
-The trace-only build directory did not build the standalone ABI/state probe
-executables, so that particular combined CTest invocation reported them as
-`Not Run`; the independent state build previously passed ABI, boundary, and
-payload probe 3/3. This remains a validation limitation, not a baseline change.
+The trace build's standalone ABI/state/payload targets were subsequently built
+explicitly. The combined CTest selection (`abi`, `state_boundary`,
+`state_payload_probe`, and `trace_equivalence`) then passed 4/4. No baseline
+bytes changed.
