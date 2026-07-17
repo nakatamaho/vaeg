@@ -349,6 +349,7 @@ if(VAEG_ENABLE_TESTS)
         tests/z80/subsystem_integration.cpp
         tests/upd9002/direct_harness.c
         tests/upd9002/fixtures.c
+        tests/upd9002/statsave_boundary.c
         tests/upd9002/ssts_worker.c)
 endif()
 
@@ -476,6 +477,7 @@ target_link_libraries(vaeg_sdl2 PRIVATE vaeg_core vaeg_va vaeg_common
 if(VAEG_ENABLE_TESTS)
     target_compile_definitions(vaeg_sdl2 PRIVATE
         VAEG_UPD9002_M42_TESTING=1
+        VAEG_UPD9002_M44_TESTING=1
         VAEG_UPD9002_SSTS_TESTING=1
         "VAEG_UPD9002_HARNESS_MANIFEST_PATH=\"${CMAKE_CURRENT_SOURCE_DIR}/tests/upd9002/harness_manifest.csv\""
         "VAEG_UPD9002_FIXTURE_PATH=\"${CMAKE_CURRENT_SOURCE_DIR}/tests/upd9002/state_fixtures_m42.txt\"")
@@ -635,6 +637,20 @@ if(VAEG_ENABLE_TESTS)
         COMMAND vaeg_upd9002_abi
             "${CMAKE_CURRENT_SOURCE_DIR}/tests/upd9002/abi_g41.txt")
     set_tests_properties(vaeg_upd9002_abi PROPERTIES
+        LABELS "romless;upd9002;state")
+
+    add_executable(vaeg_upd9002_state_boundary
+        tests/upd9002/state_boundary.c
+        i286c/upd9002_state.c)
+    target_include_directories(vaeg_upd9002_state_boundary PRIVATE
+        ${VAEG_INCLUDE_DIRS})
+    target_compile_definitions(vaeg_upd9002_state_boundary PRIVATE
+        USE_I286C SUPPORT_BMS SUPPORT_SASI SUPPORT_V30ORIGINAL VAEG_FIX)
+    target_compile_options(vaeg_upd9002_state_boundary PRIVATE
+        -Wall -fsigned-char)
+    add_test(NAME vaeg_upd9002_state_boundary
+        COMMAND vaeg_upd9002_state_boundary)
+    set_tests_properties(vaeg_upd9002_state_boundary PROPERTIES
         LABELS "romless;upd9002;state")
 
     add_test(NAME vaeg_upd9002_trace_equivalence

@@ -24,6 +24,7 @@
  */
 #include "compiler.h"
 #include "cpucore.h"
+#include "upd9002_state.h"
 #include "upd9002.h"
 #include "v30patch.h"
 #include "tests/upd9002/fixtures.h"
@@ -51,16 +52,18 @@ static void bytes_hex(const void *data, size_t size, char *output) {
 
 static void fixture_line(const char *scenario, char *line, size_t size) {
 
-	char cpu_hex[sizeof(CPU_STATSAVE) * 2 + 1];
+	Cpu286StateCompat cpu;
+	char cpu_hex[sizeof(cpu) * 2 + 1];
 	char regs_hex[sizeof(upd9002) * 2 + 1];
 
-	bytes_hex(&CPU_STATSAVE, sizeof(CPU_STATSAVE), cpu_hex);
+	upd9002_state_export(&cpu);
+	bytes_hex(&cpu, sizeof(cpu), cpu_hex);
 	bytes_hex(&upd9002, sizeof(upd9002), regs_hex);
 	snprintf(line, size,
 		"%s,cpu286_size=%u,cpu286=%s,upd9002_size=%u,upd9002=%s,"
 		"ax=%04x,bx=%04x,cx=%04x,dx=%04x,sp=%04x,cs=%04x,ip=%04x,"
 		"flags=%04x,csbase=%08x,remain=%08x,base=%08x,clock=%08x,type=%02x\n",
-		scenario, (unsigned int)sizeof(CPU_STATSAVE), cpu_hex,
+		scenario, (unsigned int)sizeof(cpu), cpu_hex,
 		(unsigned int)sizeof(upd9002), regs_hex,
 		CPU_AX, CPU_BX, CPU_CX, CPU_DX, CPU_SP, CPU_CS, CPU_IP,
 		CPU_FLAG, CS_BASE, (uint32_t)CPU_REMCLOCK,
@@ -73,6 +76,7 @@ static void prepare_executed(void) {
 	uint32_t index;
 
 	ZeroMemory(&CPU_STATSAVE, sizeof(CPU_STATSAVE));
+	upd9002_state_reset();
 	CPU_TYPE = CPUTYPE_V30;
 	CPU_FLAG = 0xf002;
 	CPU_ADRSMASK = 0xfffff;
@@ -90,14 +94,14 @@ static void prepare_executed(void) {
 int upd9002_fixture_verify(const char *path) {
 
 	FILE *stream;
-	I286STAT saved_cpu;
+	Cpu286StateCompat saved_cpu;
 	_UPD9002 saved_regs;
 	uint8_t saved_program[8];
 	char actual[3][FIXTURE_LINE_CAPACITY];
 	char expected[FIXTURE_LINE_CAPACITY];
 	uint32_t index;
 
-	saved_cpu = CPU_STATSAVE;
+	upd9002_state_export(&saved_cpu);
 	saved_regs = upd9002;
 	CopyMemory(saved_program, mem + 0x2000, sizeof(saved_program));
 	fixture_line("reset", actual[0], sizeof(actual[0]));
@@ -106,7 +110,10 @@ int upd9002_fixture_verify(const char *path) {
 	CPU_RESETREQ = 1;
 	upd9002_m42_process_cpu_reset_request();
 	fixture_line("cpu-shut-request", actual[2], sizeof(actual[2]));
-	CPU_STATSAVE = saved_cpu;
+	if (upd9002_state_import(&saved_cpu, sizeof(saved_cpu), NULL, 0) !=
+															SUCCESS) {
+		return FAILURE;
+	}
 	upd9002 = saved_regs;
 	CopyMemory(mem + 0x2000, saved_program, sizeof(saved_program));
 
