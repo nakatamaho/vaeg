@@ -113,7 +113,7 @@ def make_entry(raw_name, attributes, first_cluster, size):
 
 
 class PcEngineDisk:
-    def __init__(self, image):
+    def __init__(self, image, require_system_files=True):
         self.image = bytearray(image)
         if len(self.image) < 0x2B0:
             raise DiskError("source is too small to be a D88 image")
@@ -150,7 +150,8 @@ class PcEngineDisk:
             raise DiskError("the two source FAT12 copies differ")
         if self.fat[:3] != b"\xfe\xff\xff":
             raise DiskError("source does not have the expected PC-Engine FAT12 header")
-        self.validate_system_files()
+        if require_system_files:
+            self.validate_system_files()
 
     def _parse_sectors(self):
         track_offsets = struct.unpack_from("<164I", self.image, 0x20)
@@ -347,6 +348,21 @@ def create_vanilla(source, output):
     print(f"Remaining FAT12 space: {disk.free_bytes()} bytes")
 
 
+def create_data_disk(source, output):
+    disk = PcEngineDisk(Path(source).read_bytes())
+    new_fat = bytearray(len(disk.fat))
+    new_fat[:3] = disk.fat[:3]
+    disk.fat = new_fat
+    disk.root = bytearray(len(disk.root))
+    zero_cluster = bytes(SECTOR_SIZE)
+    for cluster in range(2, LAST_DATA_CLUSTER + 1):
+        disk.write_cluster(cluster, zero_cluster)
+    disk.flush()
+    write_new_file(output, disk.image)
+    print(f"Created empty PC-Engine data disk: {output}")
+    print(f"Remaining FAT12 space: {disk.free_bytes()} bytes")
+
+
 def add_file(disk, directory, payload):
     raw_name = short_name(payload.name)
     offset, exists = find_entry(directory, raw_name)
@@ -411,7 +427,7 @@ def create_root_directory(disk, name, additional_entries):
 
 def install_payload(image, payload_root):
     image_path = Path(image)
-    disk = PcEngineDisk(image_path.read_bytes())
+    disk = PcEngineDisk(image_path.read_bytes(), require_system_files=False)
     payload = Path(payload_root)
     if not payload.is_dir():
         raise DiskError("payload directory does not exist")
@@ -422,8 +438,11 @@ def install_payload(image, payload_root):
         for _, entry in iter_entries(disk.root)
         if not entry[11] & 0x08
     }
-    if existing_names != allowed_root_names:
-        raise DiskError("install input is not a vanilla PC-Engine 1.1 system disk")
+    if existing_names not in (set(), allowed_root_names):
+        raise DiskError(
+            "install input is neither an empty data disk nor a vanilla "
+            "PC-Engine 1.1 system disk"
+        )
 
     installed_files = 0
     installed_bytes = 0
@@ -482,7 +501,7 @@ def list_directory(disk, directory, prefix, visited):
 
 
 def list_image(image):
-    disk = PcEngineDisk(Path(image).read_bytes())
+    disk = PcEngineDisk(Path(image).read_bytes(), require_system_files=False)
     list_directory(disk, disk.root, "A:\\", set())
     print(f"Free bytes: {disk.free_bytes()}")
 
@@ -497,6 +516,10 @@ def main():
     vanilla_parser.add_argument("--source", required=True)
     vanilla_parser.add_argument("--output", required=True)
 
+    data_parser = subparsers.add_parser("data")
+    data_parser.add_argument("--source", required=True)
+    data_parser.add_argument("--output", required=True)
+
     install_parser = subparsers.add_parser("install")
     install_parser.add_argument("--image", required=True)
     install_parser.add_argument("--payload", required=True)
@@ -508,6 +531,8 @@ def main():
     try:
         if args.command == "vanilla":
             create_vanilla(args.source, args.output)
+        elif args.command == "data":
+            create_data_disk(args.source, args.output)
         elif args.command == "install":
             install_payload(args.image, args.payload)
         else:

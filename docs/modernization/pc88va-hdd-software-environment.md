@@ -433,6 +433,80 @@ bootability by retaining the original IPL and fixed system-file placement;
 actual startup, driver messages, `DIR`, MSE utility execution, and K-Launcher
 remain a PC-88VA/vaeg human boot check.
 
+## Supplemental Softlib Archive Disk
+
+[`tools/pc88va/build-softlib-archive-disk.sh`](../../tools/pc88va/build-softlib-archive-disk.sh)
+creates a separate data-only D88 containing additional PC-88VA software
+archives.
+It validates a user-supplied PC-Engine 1.1 D88 as the media-layout template,
+clears the FAT, root directory, and data clusters, and does not retain any
+PC-Engine system files. The resulting disk is therefore not a system disk.
+
+Run it with:
+
+```sh
+tools/pc88va/build-softlib-archive-disk.sh \
+  --source /path/to/user-supplied-pcengine-1.1.d88 \
+  --output /path/to/pc88va-softlib-archives.d88 \
+  --cache /path/to/download-cache
+```
+
+The output must not already exist. The cache option is optional and follows
+the same verified-download behavior as the development-disk builder. The
+script pins every public file by SHA-256, rejects mismatched cache entries,
+and installs the downloaded bytes without running or extracting any archive.
+
+The requested Softlib groups and files are:
+
+| Group | Files stored verbatim |
+|-------|-----------------------|
+| [2-452](http://www.pc88.gr.jp/softlib/index.php?action=list_file&anum=2&gnum=452) | `VBUFF102.LZH` |
+| [2-390](http://www.pc88.gr.jp/softlib/index.php?action=list_file&anum=2&gnum=390) | `ALGO_VA.DOC`, `ALGO_VA.LZH` |
+| [2-400](http://www.pc88.gr.jp/softlib/index.php?action=list_file&anum=2&gnum=400) | `2HCDRSRC.LZH` |
+| [2-435](http://www.pc88.gr.jp/softlib/index.php?action=list_file&anum=2&gnum=435) | `EMACSVA.LZH`, `EMACSVA.DOC` |
+| [2-424](http://www.pc88.gr.jp/softlib/index.php?action=list_file&anum=2&gnum=424) | `CPMVA.LZH` |
+| [2-401](http://www.pc88.gr.jp/softlib/index.php?action=list_file&anum=2&gnum=401) | `FDFRMSRC.LZH` |
+| [2-396](http://www.pc88.gr.jp/softlib/index.php?action=list_file&anum=2&gnum=396) | `RDPCM001.LZH`, `RDPCM001.DOC` |
+| [2-306](http://www.pc88.gr.jp/softlib/index.php?action=list_file&anum=2&gnum=306) | `2HCDRV.ZIP` |
+| [2-351](http://www.pc88.gr.jp/softlib/index.php?action=list_file&anum=2&gnum=351) | `EMMVA15A.LZH` |
+| [2-307](http://www.pc88.gr.jp/softlib/index.php?action=list_file&anum=2&gnum=307) | `JFPPAT.ZIP` |
+| [2-270](http://www.pc88.gr.jp/softlib/index.php?action=list_file&anum=2&gnum=270) | `RDEMS152.LZH` |
+| [2-201](http://www.pc88.gr.jp/softlib/index.php?action=list_file&anum=2&gnum=201) | `TDC10.LZH` |
+| [2-389](http://www.pc88.gr.jp/softlib/index.php?action=list_file&anum=2&gnum=389) | `BENCH003.DOC`, `BENCH003.LZH` |
+
+Group 2-306 appeared twice in the requested URL list and is intentionally
+stored once. The disk also contains the 409,884-byte `LSIC330C.LZH` archive
+from the [LSI C-86 3.30c trial-version page](https://www.vector.co.jp/soft/maker/lsi/se001169.html).
+The 18 files contain 575,449 bytes and occupy 584,704 bytes in the
+1024-byte-cluster FAT12 filesystem. They are organized as follows:
+
+```text
+A:\
+  ARCHIVE\
+    2HCDRSRC.LZH
+    2HCDRV.ZIP
+    ALGO_VA.DOC
+    ALGO_VA.LZH
+    BENCH003.DOC
+    BENCH003.LZH
+    CPMVA.LZH
+    EMACSVA.DOC
+    EMACSVA.LZH
+    EMMVA15A.LZH
+    FDFRMSRC.LZH
+    JFPPAT.ZIP
+    LSIC330C.LZH
+    RDEMS152.LZH
+    RDPCM001.DOC
+    RDPCM001.LZH
+    TDC10.LZH
+    VBUFF102.LZH
+```
+
+The directory itself uses one additional cluster, leaving 713,728 bytes
+(697 KiB) free. Two builds from the same source and verified cache are
+byte-for-byte identical.
+
 ## vaeg Implications
 
 This recipe is useful for guest-side development and validation, but it is
