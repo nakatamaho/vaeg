@@ -50,6 +50,28 @@ separate parity correction or move it to Open Defects.
 
 ## Fixed Defects
 
+### Invalid CPU286 state payloads could partially alter the machine
+
+- **Status:** fixed in M44 implementation; G44 human review pending.
+- **Symptom:** a malformed CPU286 section, or a legacy payload selecting a CPU
+  type other than V30, could be discovered only while loading raw live state,
+  after unrelated machine sections had begun to change.
+- **Root cause:** the CPU286 section used the generic raw binary statsave path,
+  which had no CPU-specific size/type validation and no complete preflight
+  before live-section application.
+- **Correction:** introduced a dedicated CPU286 serialization adapter and
+  statsave handler. It validates the complete temporary payload, requires
+  `CPUTYPE_V30`, constructs temporary runtime state, and commits the runtime and
+  opaque compatibility image together only after full-file preflight.
+- **Verification:** invalid CPU type, malformed declared size, and truncation
+  tests preserve CPU runtime, compatibility bytes, PCCORE, UPD9002 registers,
+  and memory. Raw-G41/current bidirectional tests preserve every valid CPU286
+  and UPD9002 payload byte, including reset and CPU_SHUT behavior.
+- **Evidence:** [M44 state-boundary report](../agents/reports/m44_upd9002_state_boundary.md)
+  and [M44 task](../agents/tasks/M44_upd9002_state_boundary.md).
+- **Commits:** [2895c113](https://github.com/nakatamaho/vaeg/commit/2895c11354c73b1758b6c06fad4b5c5ec8e68570)
+  and [8e709db3](https://github.com/nakatamaho/vaeg/commit/8e709db3431a3a7c64f7040c4cf719e5102de559).
+
 ### Portable V30/uPD9002 execution did not match the VA CPU path
 
 - **Status:** fixed in M9.
