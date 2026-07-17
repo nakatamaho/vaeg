@@ -57,7 +57,7 @@ static void prepare_executed(void) {
 #if !defined(VAEG_M44_RAW_I286STAT)
 	upd9002_state_reset();
 #endif
-	CPU_TYPE = CPUTYPE_V30;
+	i286core.s.cpu_type = CPUTYPE_V30;
 	CPU_FLAG = 0xf002;
 	CPU_ADRSMASK = 0xfffff;
 	CPU_SP = 0x8000;
