@@ -321,6 +321,27 @@ env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
 The build passed, CTest passed 19/19, the ROM-less selftest passed (including
 156 manifest cases and all reset/executed/CPU_SHUT fixtures), and smoke passed.
 
+Production configuration with test-only code disabled:
+
+```sh
+cmake -S . -B /tmp/vaeg-m42-final-production -G Ninja \
+  -DCMAKE_BUILD_TYPE=Release -DVAEG_ENABLE_TESTS=OFF \
+  -DVAEG_ENABLE_ARCHIVE_DROP=OFF
+cmake --build /tmp/vaeg-m42-final-production -j2
+env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
+  /tmp/vaeg-m42-final-production/sdl2/vaeg --selftest
+env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
+  /tmp/vaeg-m42-final-production/sdl2/vaeg --smoke
+```
+
+The first build attempt returned exit 1 and exposed that the new manifest and
+fixture calls were not compile-guarded when their test-only sources were
+absent. Commit `50b53df` gives the M42 harness its own target-local test macro
+and guards both declarations and calls. The repeated production build,
+pre-existing selftest, and smoke then returned exit 0. This correction changes
+only M42 test instrumentation reachability and does not add a production test
+seam or alter emulation behavior.
+
 Native Clang 21.1.8 release validation:
 
 ```sh
