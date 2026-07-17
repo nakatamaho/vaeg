@@ -30,6 +30,7 @@ import hashlib
 import json
 import pathlib
 import re
+import struct
 import subprocess
 import sys
 import tempfile
@@ -83,6 +84,10 @@ REGISTER_KEYS_IN_RECORD = {
     "ip",
     "flags",
 }
+REGISTER_ORDER = (
+    "ax", "bx", "cx", "dx", "sp", "bp", "si", "di",
+    "cs", "ss", "ds", "es", "ip", "flags",
+)
 SEGMENT_PREFIXES = {0x26, 0x2E, 0x36, 0x3E}
 REPEAT_PREFIXES = {
     0x64: "repnc",
@@ -537,6 +542,532 @@ def profile_records(records: list[dict[str, Any]], profile: str) -> list[dict[st
     raise CorpusError(f"unknown profile {profile!r}")
 
 
+def expected_registers(record: dict[str, Any]) -> dict[str, int]:
+    expected = dict(record["initial"]["regs"])
+    expected.update(record["final"]["regs"])
+    return {name: expected[name] for name in REGISTER_ORDER}
+
+
+def expected_memory(record: dict[str, Any]) -> tuple[list[int], dict[int, int]]:
+    memory = {address: value for address, value in record["initial"]["ram"]}
+    memory.update({address: value for address, value in record["final"]["ram"]})
+    addresses = sorted(memory)
+    return addresses, {address: memory[address] for address in addresses}
+
+
+def expected_io(record: dict[str, Any]) -> list[dict[str, Any]]:
+    result = []
+    cycles = record["cycles"]
+    for index, cycle in enumerate(cycles):
+        if (
+            not isinstance(cycle, list)
+            or len(cycle) != 11
+            or cycle[7] not in {"IOR", "IOW"}
+            or cycle[8] != "T1"
+        ):
+            continue
+        bus_type = cycle[7]
+        port = cycle[1]
+        value = None
+        for following in cycles[index + 1:index + 5]:
+            if (
+                isinstance(following, list)
+                and len(following) == 11
+                and following[8] == "T3"
+            ):
+                value = following[6]
+                break
+        if (
+            not isinstance(port, int)
+            or not 0 <= port <= 0xffff
+            or not isinstance(value, int)
+            or not 0 <= value <= 0xff
+        ):
+            raise CorpusError(
+                f"record {record['hash']}: cannot resolve {bus_type} cycle"
+            )
+        result.append(
+            {
+                "direction": "read" if bus_type == "IOR" else "write",
+                "port": port,
+                "value": value,
+            }
+        )
+    return result
+
+
+def expected_termination(form: str, record: dict[str, Any]) -> str:
+    if form not in {"F6.6", "F6.7", "F7.6", "F7.7"}:
+        return "normal"
+    initial_memory = {
+        address: value for address, value in record["initial"]["ram"]
+    }
+    vector_ip = initial_memory.get(0, 0) | (initial_memory.get(1, 0) << 8)
+    vector_cs = initial_memory.get(2, 0) | (initial_memory.get(3, 0) << 8)
+    registers = expected_registers(record)
+    if registers["ip"] == vector_ip and registers["cs"] == vector_cs:
+        return "type0"
+    return "normal"
+
+
+def write_request(path: pathlib.Path, records: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    contexts = []
+    with path.open("wb") as stream:
+        stream.write(b"V20REQ1\0")
+        stream.write(struct.pack("<I", len(records)))
+        for record in records:
+            digest = sha256_bytes(canonical_bytes(record))
+            stream.write(bytes.fromhex(digest))
+            registers = record["initial"]["regs"]
+            stream.write(struct.pack("<14H", *(registers[name] for name in REGISTER_ORDER)))
+            ram = record["initial"]["ram"]
+            stream.write(struct.pack("<I", len(ram)))
+            for address, value in ram:
+                stream.write(struct.pack("<IB", address, value))
+            watch, expected_ram = expected_memory(record)
+            stream.write(struct.pack("<I", len(watch)))
+            for address in watch:
+                stream.write(struct.pack("<I", address))
+            contexts.append(
+                {
+                    "record": record,
+                    "record_digest": digest,
+                    "watch": watch,
+                    "expected_ram": expected_ram,
+                }
+            )
+    return contexts
+
+
+def read_exact_binary(stream: Any, size: int, where: str) -> bytes:
+    value = stream.read(size)
+    if len(value) != size:
+        raise CorpusError(f"{where}: truncated worker response")
+    return value
+
+
+def read_response(path: pathlib.Path, contexts: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    results = []
+    with path.open("rb") as stream:
+        if read_exact_binary(stream, 8, "response magic") != b"V20RSP1\0":
+            raise CorpusError("worker returned an unsupported response schema")
+        count = struct.unpack("<I", read_exact_binary(stream, 4, "response count"))[0]
+        if count != len(contexts):
+            raise CorpusError(
+                f"worker response count mismatch: expected={len(contexts)} actual={count}"
+            )
+        for context in contexts:
+            digest = read_exact_binary(stream, 32, "record digest").hex()
+            if digest != context["record_digest"]:
+                raise CorpusError("worker response record digest is out of order")
+            termination_code = read_exact_binary(stream, 1, "termination")[0]
+            if termination_code not in {0, 1}:
+                raise CorpusError(f"worker returned unknown termination {termination_code}")
+            values = struct.unpack(
+                "<14H", read_exact_binary(stream, 28, "register state")
+            )
+            actual_registers = dict(zip(REGISTER_ORDER, values))
+            watch_count = struct.unpack(
+                "<I", read_exact_binary(stream, 4, "watch count")
+            )[0]
+            if watch_count != len(context["watch"]):
+                raise CorpusError("worker response watch count mismatch")
+            watch_values = read_exact_binary(stream, watch_count, "watch values")
+            actual_ram = {
+                address: value
+                for address, value in zip(context["watch"], watch_values)
+            }
+            io_count = struct.unpack(
+                "<I", read_exact_binary(stream, 4, "I/O count")
+            )[0]
+            if io_count > 1024:
+                raise CorpusError("worker response I/O count exceeds protocol limit")
+            io = []
+            for _ in range(io_count):
+                port, value, direction = struct.unpack(
+                    "<HBB", read_exact_binary(stream, 4, "I/O event")
+                )
+                if direction not in {0, 1}:
+                    raise CorpusError("worker response has unknown I/O direction")
+                io.append(
+                    {
+                        "direction": "read" if direction == 0 else "write",
+                        "port": port,
+                        "value": value,
+                    }
+                )
+            results.append(
+                {
+                    "termination": "normal" if termination_code == 0 else "type0",
+                    "registers": actual_registers,
+                    "ram": actual_ram,
+                    "io": io,
+                }
+            )
+        if stream.read(1):
+            raise CorpusError("worker response contains trailing bytes")
+    return results
+
+
+def run_worker_once(
+    worker: pathlib.Path,
+    records: list[dict[str, Any]],
+    timeout: float,
+) -> tuple[str, list[dict[str, Any]] | None]:
+    with tempfile.TemporaryDirectory(prefix="vaeg-ssts-shard-") as temporary:
+        root = pathlib.Path(temporary)
+        request = root / "request.bin"
+        response = root / "response.bin"
+        contexts = write_request(request, records)
+        try:
+            completed = subprocess.run(
+                [str(worker), "--upd9002-ssts-worker", str(request), str(response)],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.PIPE,
+                timeout=timeout,
+                check=False,
+                text=True,
+            )
+        except subprocess.TimeoutExpired:
+            return "timeout", None
+        if completed.returncode != 0:
+            return "crash", None
+        try:
+            return "ok", read_response(response, contexts)
+        except (CorpusError, OSError):
+            return "crash", None
+
+
+def run_worker_contained(
+    worker: pathlib.Path,
+    records: list[dict[str, Any]],
+    timeout: float,
+) -> list[tuple[str, dict[str, Any] | None]]:
+    if not records:
+        return []
+    status, results = run_worker_once(worker, records, timeout)
+    if status == "ok":
+        assert results is not None
+        return [("ok", result) for result in results]
+    if len(records) == 1:
+        return [(status, None)]
+    middle = len(records) // 2
+    return (
+        run_worker_contained(worker, records[:middle], timeout)
+        + run_worker_contained(worker, records[middle:], timeout)
+    )
+
+
+def hex_registers(registers: dict[str, int]) -> dict[str, str]:
+    return {name: f"{registers[name]:04x}" for name in REGISTER_ORDER}
+
+
+def make_failure(
+    dataset_id: str,
+    profile: str,
+    form: str,
+    classification: str,
+    flags_mask: int,
+    context: dict[str, Any],
+    status: str,
+    actual: dict[str, Any] | None,
+) -> dict[str, Any]:
+    record = context["record"]
+    expected_regs = expected_registers(record)
+    expected_ram = context["expected_ram"]
+    expected_events = expected_io(record)
+    expected_term = expected_termination(form, record)
+    initial_digest = sha256_bytes(canonical_bytes(record["initial"]))
+    mismatch_kinds = []
+    register_differences = []
+    ram_differences = []
+    io_differences = []
+    masked_flags = {
+        "mask": f"{flags_mask:04x}",
+        "expected": f"{expected_regs['flags'] & flags_mask:04x}",
+        "actual": None,
+    }
+    actual_state: Any = None
+    actual_term = status
+    if actual is None:
+        mismatch_kinds.append(status)
+    else:
+        actual_term = actual["termination"]
+        for name in REGISTER_ORDER:
+            if name == "flags":
+                continue
+            if expected_regs[name] != actual["registers"][name]:
+                register_differences.append(
+                    {
+                        "register": name,
+                        "expected": f"{expected_regs[name]:04x}",
+                        "actual": f"{actual['registers'][name]:04x}",
+                    }
+                )
+        masked_actual = actual["registers"]["flags"] & flags_mask
+        masked_flags["actual"] = f"{masked_actual:04x}"
+        if masked_actual != (expected_regs["flags"] & flags_mask):
+            register_differences.append(
+                {
+                    "register": "flags",
+                    "expected": masked_flags["expected"],
+                    "actual": masked_flags["actual"],
+                }
+            )
+        if register_differences:
+            mismatch_kinds.append("registers")
+        for address in sorted(expected_ram):
+            if expected_ram[address] != actual["ram"][address]:
+                ram_differences.append(
+                    {
+                        "address": f"{address:05x}",
+                        "expected": f"{expected_ram[address]:02x}",
+                        "actual": f"{actual['ram'][address]:02x}",
+                    }
+                )
+        if ram_differences:
+            mismatch_kinds.append("ram")
+        if expected_events != actual["io"]:
+            mismatch_kinds.append("io")
+            maximum = max(len(expected_events), len(actual["io"]))
+            for index in range(maximum):
+                expected_event = expected_events[index] if index < len(expected_events) else None
+                actual_event = actual["io"][index] if index < len(actual["io"]) else None
+                if expected_event != actual_event:
+                    io_differences.append(
+                        {
+                            "index": index,
+                            "expected": expected_event,
+                            "actual": actual_event,
+                        }
+                    )
+        if expected_term != actual_term:
+            mismatch_kinds.append("termination")
+        actual_state = {
+            "registers": hex_registers(actual["registers"]),
+            "termination": actual_term,
+        }
+    content = {
+        "dataset_id": dataset_id,
+        "profile": profile,
+        "record_hash": context["record_digest"],
+        "upstream_test_hash": record["hash"],
+        "opcode_form": form,
+        "classification": classification,
+        "initial_state_digest": initial_digest,
+        "expected_state": {
+            "registers": hex_registers(expected_regs),
+            "termination": expected_term,
+        },
+        "actual_state": actual_state,
+        "masked_flags_comparison": masked_flags,
+        "ram_differences": ram_differences,
+        "io_differences": io_differences,
+        "exception_or_halt_result": {
+            "expected": expected_term,
+            "actual": actual_term,
+        },
+        "timeout_crash_status": status if status in {"timeout", "crash"} else "none",
+        "instruction_bytes": "".join(f"{byte:02x}" for byte in record["bytes"]),
+        "mismatch_kinds": sorted(set(mismatch_kinds)),
+        "register_differences": register_differences,
+    }
+    signature_bytes = json.dumps(
+        content, ensure_ascii=True, separators=(",", ":"), sort_keys=False
+    ).encode("utf-8")
+    return {
+        "signature_sha256": sha256_bytes(signature_bytes),
+        "content": content,
+    }
+
+
+def compare_result(
+    dataset_id: str,
+    profile: str,
+    form: str,
+    resolved: dict[str, Any],
+    context: dict[str, Any],
+    worker_status: str,
+    actual: dict[str, Any] | None,
+) -> tuple[str, dict[str, Any] | None]:
+    failure = make_failure(
+        dataset_id,
+        profile,
+        form,
+        resolved["classification"],
+        resolved["flags_mask"],
+        context,
+        worker_status,
+        actual,
+    )
+    if not failure["content"]["mismatch_kinds"]:
+        return "pass", None
+    if worker_status in {"timeout", "crash"}:
+        return worker_status, failure
+    return "semantic_failure", failure
+
+
+def difficult_family(form: str, record: dict[str, Any]) -> list[str]:
+    families = []
+    byte_set = set(record["bytes"])
+    if 0x65 in byte_set and form in {"6C", "6D", "6E", "6F"}:
+        families.append("repc-string-io")
+    if 0x64 in byte_set and form in {"6C", "6D", "6E", "6F"}:
+        families.append("repnc-string-io")
+    if form in {"A6", "A7"} and byte_set & {0xF2, 0xF3}:
+        families.append("repe-repne-cmps-order")
+    if form.startswith(("C0.", "C1.", "D2.", "D3.")):
+        families.append("shift-count-six-bit")
+    if form in {"F6.6", "F6.7", "F7.6", "F7.7"}:
+        families.append("div-idiv")
+        if form in {"F6.7", "F7.7"} and byte_set & {0xF2, 0xF3}:
+            families.append("rep-idiv")
+    if form.startswith("0F"):
+        families.append("0f-extension")
+    return families
+
+
+def run_profile(
+    dataset_root: pathlib.Path,
+    manifest: dict[str, Any],
+    support_map_path: pathlib.Path,
+    worker: pathlib.Path,
+    profile: str,
+    timeout: float,
+) -> dict[str, Any]:
+    verify_fast(dataset_root, manifest)
+    if not worker.is_file():
+        raise CorpusError(f"worker executable is missing: {worker}")
+    metadata = json.loads(
+        (dataset_root / SUITE_PATH / "metadata.json").read_text(encoding="utf-8")
+    )
+    validate_metadata(metadata)
+    support = load_support_map(support_map_path)
+    category_counts = Counter()
+    result_counts = Counter()
+    termination_counts = Counter()
+    difficult = Counter()
+    failures = []
+    per_form = []
+    selected_testsets = []
+    selected_total = 0
+    executed_total = 0
+    for shard_number, path in enumerate(corpus_files(dataset_root), 1):
+        with gzip.open(path, "rt", encoding="utf-8") as stream:
+            records = json.load(stream)
+        form = path.name.removesuffix(".json.gz").upper()
+        selected = profile_records(records, profile)
+        resolved_records = []
+        runnable = []
+        selected_hashes = []
+        form_categories = Counter()
+        form_results = Counter()
+        for record in selected:
+            validate_record(record, f"{path.name}:{record.get('idx', '?')}")
+            resolved = classify_record(form, record, metadata, support)
+            classification = resolved["classification"]
+            if classification == "unsupported_fixture":
+                raise CorpusError(f"{form}:{record['hash']}: selected unsupported fixture")
+            resolved_records.append((record, resolved))
+            category_counts[classification] += 1
+            form_categories[classification] += 1
+            selected_hashes.append(record["hash"])
+            for family in difficult_family(form, record):
+                difficult[f"{family}:{classification}"] += 1
+            if classification == "applicable":
+                runnable.append(record)
+            else:
+                result_counts["skip"] += 1
+                form_results["skip"] += 1
+        contained = run_worker_contained(worker, runnable, timeout)
+        if len(contained) != len(runnable):
+            raise CorpusError(f"{form}: worker result count mismatch")
+        runnable_index = 0
+        for record, resolved in resolved_records:
+            if resolved["classification"] != "applicable":
+                continue
+            worker_status, actual = contained[runnable_index]
+            runnable_index += 1
+            watch, expected_ram = expected_memory(record)
+            context = {
+                "record": record,
+                "record_digest": sha256_bytes(canonical_bytes(record)),
+                "watch": watch,
+                "expected_ram": expected_ram,
+            }
+            outcome, failure = compare_result(
+                manifest["dataset_id"], profile, form, resolved,
+                context, worker_status, actual,
+            )
+            result_counts[outcome] += 1
+            form_results[outcome] += 1
+            executed_total += 1
+            if actual is not None:
+                termination_counts[actual["termination"]] += 1
+            if failure is not None:
+                failures.append(failure)
+        selected_hashes.sort()
+        selected_testsets.append(
+            {
+                "form": form,
+                "selected_count": len(selected_hashes),
+                "selected_test_hashes_sha256": sha256_bytes(
+                    canonical_bytes(selected_hashes)
+                ),
+            }
+        )
+        per_form.append(
+            {
+                "form": form,
+                "selected_count": len(selected),
+                "classification_counts": dict(sorted(form_categories.items())),
+                "result_counts": dict(sorted(form_results.items())),
+            }
+        )
+        selected_total += len(selected)
+        print(
+            f"ssts-run: {shard_number:03d}/{len(corpus_files(dataset_root)):03d} "
+            f"{form} selected={len(selected)} executable={len(runnable)} "
+            f"results={dict(sorted(form_results.items()))}",
+            file=sys.stderr,
+            flush=True,
+        )
+    failures.sort(
+        key=lambda failure: (
+            failure["content"]["opcode_form"],
+            failure["content"]["record_hash"],
+        )
+    )
+    selection_digest = sha256_bytes(canonical_bytes(selected_testsets))
+    return {
+        "schema": "vaeg-upd9002-ssts-result-v1",
+        "dataset_id": manifest["dataset_id"],
+        "dataset_digest": manifest["dataset_digest"],
+        "metadata_sha256": manifest["metadata_sha256"],
+        "corpus_sha256": manifest["corpus_sha256"],
+        "upstream_commit": UPSTREAM_COMMIT,
+        "profile": profile,
+        "profile_definition": (
+            "empty initial queue; stable upstream-hash order; maximum 500 per form"
+            if profile == "ci"
+            else "all records with an empty initial prefetch queue"
+        ),
+        "selection_digest": selection_digest,
+        "selected_records": selected_total,
+        "executed_records": executed_total,
+        "classification_counts": dict(sorted(category_counts.items())),
+        "result_counts": dict(sorted(result_counts.items())),
+        "termination_counts": dict(sorted(termination_counts.items())),
+        "prefetched_unsupported_fixture_records": manifest["counts"][
+            "prefetched_records"
+        ],
+        "failure_signature_count": len(failures),
+        "failure_signatures": failures,
+        "difficult_family_counts": dict(sorted(difficult.items())),
+        "per_form": per_form,
+    }
+
+
 def classify_profile(
     dataset_root: pathlib.Path,
     manifest: dict[str, Any],
@@ -888,13 +1419,15 @@ def acquire(cache_root: pathlib.Path) -> pathlib.Path:
     return destination
 
 
-def write_json(path: pathlib.Path, value: Any) -> None:
+def write_json(path: pathlib.Path, value: Any, compact: bool = False) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(
-        json.dumps(value, ensure_ascii=True, indent=2, sort_keys=True) + "\n",
-        encoding="utf-8",
-        newline="\n",
-    )
+    if compact:
+        content = json.dumps(
+            value, ensure_ascii=True, separators=(",", ":"), sort_keys=True
+        )
+    else:
+        content = json.dumps(value, ensure_ascii=True, indent=2, sort_keys=True)
+    path.write_text(content + "\n", encoding="utf-8", newline="\n")
 
 
 def selftest() -> None:
@@ -1016,6 +1549,15 @@ def parse_args(argv: Iterable[str]) -> argparse.Namespace:
     classify.add_argument("--profile", required=True, choices=("ci", "full"))
     classify.add_argument("--output", required=True, type=pathlib.Path)
     classify.add_argument("--known-gaps", required=True, type=pathlib.Path)
+    run = subparsers.add_parser("run", help="execute a comparison profile")
+    run.add_argument("--dataset-root", required=True, type=pathlib.Path)
+    run.add_argument("--manifest", required=True, type=pathlib.Path)
+    run.add_argument("--support-map", required=True, type=pathlib.Path)
+    run.add_argument("--worker", required=True, type=pathlib.Path)
+    run.add_argument("--profile", required=True, choices=("ci", "full"))
+    run.add_argument("--shard-timeout", type=float, default=120.0)
+    run.add_argument("--output", required=True, type=pathlib.Path)
+    run.add_argument("--expect", type=pathlib.Path)
     subparsers.add_parser("selftest", help="run synthetic parser tests")
     return parser.parse_args(argv)
 
@@ -1055,6 +1597,32 @@ def main(argv: Iterable[str] | None = None) -> int:
                 f"dataset_id={result['dataset_id']} profile={result['profile']} "
                 f"selected={result['selected_records']} "
                 f"categories={canonical_bytes(result['classification_counts']).decode()}"
+            )
+        elif arguments.command == "run":
+            if arguments.shard_timeout <= 0:
+                raise CorpusError("shard timeout must be positive")
+            manifest = load_manifest(arguments.manifest)
+            result = run_profile(
+                arguments.dataset_root.resolve(),
+                manifest,
+                arguments.support_map.resolve(),
+                arguments.worker.resolve(),
+                arguments.profile,
+                arguments.shard_timeout,
+            )
+            write_json(arguments.output, result, compact=True)
+            if arguments.expect is not None:
+                expected = json.loads(arguments.expect.read_text(encoding="utf-8"))
+                if result != expected:
+                    raise CorpusError(
+                        f"{arguments.profile} result differs from {arguments.expect}"
+                    )
+            print(
+                "ssts-result: "
+                f"dataset_id={result['dataset_id']} profile={result['profile']} "
+                f"selected={result['selected_records']} "
+                f"executed={result['executed_records']} "
+                f"results={canonical_bytes(result['result_counts']).decode()}"
             )
         elif arguments.command == "selftest":
             selftest()
