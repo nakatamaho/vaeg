@@ -24,8 +24,9 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ## Status
 
-Proposed at M42 for G42 human review. This ADR does not authorize M43 or any
-later milestone.
+Accepted at G42. M43 is authorized only to add the external V20 comparison
+baseline described below; this ADR does not authorize M44 or any later
+milestone.
 
 ## Context
 
@@ -150,9 +151,31 @@ unreachability or a symbol name.
 SingleStepTests V20 is an external semantic oracle only for the intersection
 of the supported uPD9002/V52 native profile and faithfully representable V20
 records. M42 records the internal support map but does not download, vendor,
-classify, or baseline the corpus. Broader V20/V30 family membership does not
-prove target support. Known missing instruction forms are target gaps, not
-failures or implementation requests.
+classify, or baseline the corpus. M43 pins upstream commit
+`9efbd02b8ec1a3aad347c2b59672ad25f3bcdb21` and content-addresses the corpus
+from canonical record digests, ordered opcode/form digests, the pinned metadata
+digest, and corpus digest. README and metadata version strings are
+informational and do not participate in identity. The corpus remains external
+MIT-licensed test data and is not part of vaeg source or release archives.
+
+The CI selection is the first 500 empty-prefetch-queue records per resolved
+form after stable upstream-test-hash ordering. The full selection is every
+empty-queue record. Prefetched records are `unsupported_fixture`. Implemented
+and representable forms are `applicable`; absent target forms are narrowly
+resolved `known_target_gap`; undefined/FPU oracle records are
+`upstream_nonblocking`. M43 records no approved `expected_target_divergence`.
+Applicable semantic mismatches are immutable evidence, not permission to
+change CPU behavior during this structural series.
+
+The pinned `v1_native/metadata.json` has a coarse primary `0F` entry with
+status `extension`, but, contrary to a literal reading that it describes only
+that coarse entry, it also contains explicit keys for the represented `0Fxx`
+forms. Classification uses the actual second byte and M42 support-map form in
+all cases and never treats the primary `0F` entry as an allowlist for the
+extension space.
+
+Broader V20/V30 family membership does not prove target support. Known missing
+instruction forms are target gaps, not failures or implementation requests.
 
 The following remain out of scope: uPD9002 compatibility mode, missing
 instructions, timing changes, prefetch modeling, performance optimization,

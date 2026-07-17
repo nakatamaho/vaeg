@@ -18,6 +18,15 @@ The vaeg wrapper, revision-1 codec, and disassembler are independently
 authored BSD-2-Clause code. The removed historical M88/cisc-derived Z80 files
 were not relicensed; Git history was not rewritten.
 
+## External V20 comparison data
+
+The uPD9002 comparison infrastructure can use the SingleStepTests V20
+`v1_native` corpus under the MIT License, Copyright (c) 2024 Daniel Balsom.
+The corpus and its license are not bundled in vaeg source or runtime archives.
+The exact upstream commit and verified license/content digests are recorded in
+`tests/ssts/v20_dataset_manifest.json`; acquisition and verification are
+documented in `tests/ssts/README.md`.
+
 ## GUI font
 
 This directory includes `NotoSansJP-Regular.ttf`, a static Regular
