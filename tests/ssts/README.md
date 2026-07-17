@@ -47,6 +47,15 @@ metadata version strings are informational and are deliberately excluded from
 the dataset identity. Any missing file, changed digest, unknown metadata status,
 or unknown schema field fails closed.
 
+The adapter follows the pinned OUTS fixture convention: a non-DS segment
+override may leave the source byte at its DS-relative `initial.ram` address
+while the expected MEMR cycle identifies the effective overridden address.
+The byte is mirrored only when the expected cycle and default source agree;
+missing or conflicting evidence fails closed. Synchronous interrupt results
+come from a test-only event seam, rather than inference from final CS:IP, so
+software `INT 00`, DIV/IDIV type 0, and ordinary arrival at the IVT0 target
+remain distinct.
+
 Configure a test build with the verified checkout to enable the external CI
 comparison in CTest:
 
@@ -92,3 +101,9 @@ are not part of the semantic baseline. Print a compact verified summary with:
 python3 tools/qa/upd9002_ssts.py report \
   --summary tests/ssts/baseline/v20_native_full.json
 ```
+
+`v20_native_g43_transition.json` records every semantic-failure removal and
+signature change made while resolving the G43 adapter audit. It also proves
+that the known-gap selector file and all 68,626 resolved gap hashes remained
+unchanged. The `transition` subcommand regenerates this artifact when supplied
+the preserved pre-correction and corrected summaries and sidecars.
