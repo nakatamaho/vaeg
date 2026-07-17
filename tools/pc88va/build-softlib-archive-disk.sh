@@ -31,6 +31,7 @@ source_d88=
 output_d88=
 cache_dir=${VAEG_PC88VA_SOFTLIB_CACHE:-${XDG_CACHE_HOME:-${HOME}/.cache}/vaeg/pc88va-softlib-archive-disk}
 work_dir=
+prj_work_dir=
 output_tmp=
 download_tmp=
 
@@ -57,6 +58,9 @@ cleanup() {
 	fi
 	if [[ -n ${work_dir} && ${work_dir} == "${TMPDIR:-/tmp}"/vaeg-pc88va-softlib.* && -d ${work_dir} ]]; then
 		rm -rf -- "$work_dir"
+	fi
+	if [[ -n ${prj_work_dir} && ${prj_work_dir} == "${TMPDIR:-/tmp}"/vaeg-prj-plus.* && -d ${prj_work_dir} ]]; then
+		rm -rf -- "$prj_work_dir"
 	fi
 }
 
@@ -95,7 +99,7 @@ done
 [[ ! -e ${output_d88} ]] || die 'output already exists; refusing to overwrite it'
 [[ -d ${output_d88%/*} || ${output_d88} != */* ]] || die 'output directory does not exist'
 
-for required_command in curl python3 sha256sum; do
+for required_command in curl python3 sha256sum unzip; do
 	command -v "$required_command" >/dev/null 2>&1 ||
 		die "required host command is missing: $required_command"
 done
@@ -161,6 +165,68 @@ fetch_softlib_package() {
 	fetch_package "$name" "$expected" "$url"
 }
 
+fetch_prj_plus_file() {
+	local path=$1
+	local expected=$2
+	local destination=$prj_work_dir/source/$path
+	local url="https://raw.githubusercontent.com/mazone-ma3/PRJ_PLUS/ed4036bf70a8e03d926d0b8a943208e909810f2a/$path"
+
+	mkdir -p -- "${destination%/*}"
+	printf 'Fetching PRJ_PLUS/%s\n' "$path"
+	if ! curl --fail --location --silent --show-error --retry 3 --connect-timeout 20 \
+		--output "$destination" "$url"; then
+		die "download failed: PRJ_PLUS/$path"
+	fi
+	verify_sha256 "$destination" "$expected" ||
+		die "downloaded PRJ_PLUS file has the wrong SHA-256: $path"
+}
+
+fetch_prj_plus_archive() {
+	local name=PRJVA.ZIP
+	local expected=e804bdae01bad0701aac8ffd62d415288bed8cdf65cb9ef0acafc994e2d2a61b
+	local destination=$cache_dir/$name
+
+	if [[ -f ${destination} ]]; then
+		verify_sha256 "$destination" "$expected" ||
+			die "cached package has the wrong SHA-256: $name"
+		printf 'Using cached %s\n' "$name"
+		return
+	fi
+
+	prj_work_dir=$(mktemp -d "${TMPDIR:-/tmp}/vaeg-prj-plus.XXXXXX")
+	fetch_prj_plus_file LICENSE \
+		fd44c187957ca28c4c2b5407a108d8db5ab3a8f92cd9cafa35734067b1be7456
+	fetch_prj_plus_file README.md \
+		40808e6c2567ae3c0df3295cb04c437c0cf7b00847b50fbe21366af3551d890b
+	fetch_prj_plus_file PC88VA/BIN/FONTYOKO.SC5 \
+		57b45acf19ad0761fe04e5628f3fa4e1c8ae536a9145793e038e6084d76a2d0a
+	fetch_prj_plus_file PC88VA/BIN/PLUSTAKE.SC5 \
+		0cdbdb68b8bdcdca873d6d9a09fbfe3a67bcc746e2e9c76ed4c2181b6cec8e4a
+	fetch_prj_plus_file PC88VA/BIN/plustakerva.exe \
+		e391c142af17963bd803d382cc37ecbff5de04375247029f91096c107af20f51
+	fetch_prj_plus_file PC88VA/WIN64.BAT \
+		a8dcc21df6f9268bcacd281a9e1155e81631e5335cab3eac93cee0ce7f228f28
+	fetch_prj_plus_file PC88VA/inkey.h \
+		0a8a9b2bf7f7ed0decc38ea267a309c68da9095c9661b617f28248d16948f49e
+	fetch_prj_plus_file PC88VA/makefile \
+		64e01bac977d3c8dc9860bc132d2085f97482fc0089b6a31f6d1833c93fee983
+	fetch_prj_plus_file PC88VA/plustakerva.c \
+		d6266e23cc704c77c191a71f1a876eb9c7172751a1a8a17dfbdc010f1857dec4
+
+	download_tmp=$prj_work_dir/$name
+	python3 "$script_dir/create-stored-zip.py" \
+		--source "$prj_work_dir/source" \
+		--output "$download_tmp" \
+		--comment 'PRJ_PLUS ed4036bf70a8e03d926d0b8a943208e909810f2a'
+	verify_sha256 "$download_tmp" "$expected" ||
+		die "generated package has the wrong SHA-256: $name"
+	move_with_retry "$download_tmp" "$destination" ||
+		die "could not finalize cached package after three attempts: $name"
+	download_tmp=
+	rm -rf -- "$prj_work_dir"
+	prj_work_dir=
+}
+
 fetch_softlib_package VBUFF102.LZH \
 	c51d2f9bd04efeda77760a2c8e476777c07edb8775a7120793dd98bc0a8ff01f 452
 fetch_softlib_package ALGO_VA.DOC \
@@ -198,19 +264,42 @@ fetch_softlib_package BENCH003.LZH \
 fetch_package LSIC330C.LZH \
 	c8c4c49aed600fb2413cf5707ef01b2f4057de69196c3478d5226bf1b224081b \
 	'https://ftp.vector.co.jp/00/11/980/lsic330c.lzh'
+fetch_prj_plus_archive
+fetch_package UNZ532X3.EXE \
+	cb55dee22473caf143353938da76e61d5574c5edead7b321c14b8900c0b493ce \
+	'https://www.ibiblio.org/pub/micro/pc-stuff/freedos/mirrors/gnuish/dos_only/unz532x3.exe'
+fetch_package ZIP22X.ZIP \
+	f0048e0003d0a115624c086e9570355b8689cdd1376b4f6fc7dc4f55cb6eb9a5 \
+	'https://www.ibiblio.org/pub/micro/pc-stuff/freedos/mirrors/gnuish/dos_only/zip22x.zip'
 
 work_dir=$(mktemp -d "${TMPDIR:-/tmp}/vaeg-pc88va-softlib.XXXXXX")
 payload_dir=$work_dir/payload
-mkdir -p -- "$payload_dir/archive"
+mkdir -p -- "$payload_dir/archive" "$payload_dir/bin" "$payload_dir/doc" \
+	"$work_dir/infozip/unzip" "$work_dir/infozip/zip"
+
+unzip -q "$cache_dir/UNZ532X3.EXE" \
+	unzip.exe unzip.doc COPYING README.DOS \
+	-d "$work_dir/infozip/unzip"
+unzip -q "$cache_dir/ZIP22X.ZIP" \
+	zip.exe MANUAL README \
+	-d "$work_dir/infozip/zip"
 
 for package in \
 	VBUFF102.LZH ALGO_VA.DOC ALGO_VA.LZH 2HCDRSRC.LZH \
 	EMACSVA.LZH EMACSVA.DOC CPMVA.LZH FDFRMSRC.LZH \
 	RDPCM001.LZH RDPCM001.DOC 2HCDRV.ZIP EMMVA15A.LZH \
 	JFPPAT.ZIP RDEMS152.LZH TDC10.LZH BENCH003.DOC BENCH003.LZH \
-	LSIC330C.LZH; do
+	LSIC330C.LZH PRJVA.ZIP; do
 	cp -- "$cache_dir/$package" "$payload_dir/archive/$package"
 done
+
+cp -- "$work_dir/infozip/unzip/unzip.exe" "$payload_dir/bin/UNZIP.EXE"
+cp -- "$work_dir/infozip/zip/zip.exe" "$payload_dir/bin/ZIP.EXE"
+cp -- "$work_dir/infozip/unzip/COPYING" "$payload_dir/doc/COPYING"
+cp -- "$work_dir/infozip/unzip/unzip.doc" "$payload_dir/doc/UNZIP.DOC"
+cp -- "$work_dir/infozip/unzip/README.DOS" "$payload_dir/doc/UNZDOS.TXT"
+cp -- "$work_dir/infozip/zip/MANUAL" "$payload_dir/doc/ZIP.DOC"
+cp -- "$work_dir/infozip/zip/README" "$payload_dir/doc/ZIPREAD.TXT"
 
 data_d88=$work_dir/data.d88
 python3 "$script_dir/pcengine_disk.py" data \
