@@ -182,3 +182,10 @@ The M44 state tests provide deterministic rejection and opaque-byte coverage,
 but do not expose per-region digest output for runtime, compatibility image,
 live CPU, UPD9002, and unrelated machine state. A digest-backed atomicity
 matrix and hosted/Wine execution therefore remain G44 blockers.
+
+The corrected black-box approach was evaluated. No G41 or M44 state files are
+available in the repository or permitted public inputs, and the state container
+header/section metadata is tied to the emulator's `NP2FHDR` implementation.
+Therefore no external payload matrix can be honestly populated in this session
+without private state artifacts or a new version-neutral extractor. No private
+state was opened, copied, or committed, and no G41 source was modified.
