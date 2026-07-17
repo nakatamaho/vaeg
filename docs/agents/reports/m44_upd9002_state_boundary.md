@@ -1,7 +1,7 @@
 # M44 uPD9002 serialized/runtime state boundary
 
-Status: implementation and required local machine validation complete; hosted
-CI is pending at this report revision. This report does not declare G44 passed.
+Status: implementation and required local and hosted machine validation
+complete. This report does not declare G44 passed.
 
 ## Identity and starting audit
 
@@ -10,6 +10,7 @@ CI is pending at this report revision. This report does not declare G44 passed.
 - Assigned continuation start: `83858f26e0896e9cb2510e247443d4c0c2728fe6`
 - Evidence HEAD before this report revision:
   `59aca2daf99fefa8451a31aa4292f078dfaa39e2`
+- Hosted-CI evidence SHA: `f70d1a65b1a4f25e152e41e48f0f22d5fe0b025d`
 - Remote branch before the continuation commits:
   `83858f26e0896e9cb2510e247443d4c0c2728fe6`
 - Final and remote SHAs are reported in the completion handoff because the
@@ -209,7 +210,8 @@ with exactly 40 structural selectors and 68,626 resolved test hashes.
 | MacPorts GCC 15.2 | all three M44 C state targets built; 3/3 state CTests passed |
 | AppleClang ASan+UBSan Debug | build passed; 26/26 CTests passed, external corpus visibly skipped because the separate required runs were already executed |
 | MinGW-w64 GCC 15.2 x86_64 | complete Windows console build passed; all three M44 state executables and `vaeg.exe` are PE32+ x86-64 |
-| Wine | unavailable on this host; Windows execution delegated to hosted CI |
+| Wine | unavailable on this host; local Wine execution not claimed |
+| [GitHub Actions run 29616059501](https://github.com/nakatamaho/vaeg/actions/runs/29616059501) | 7/7 jobs passed: Ubuntu GCC, Clang, ASan, repository invariants, macOS FetchContent, Windows MSYS2 MinGW, and standalone conformance |
 
 The production cache contained `VAEG_ENABLE_TESTS=OFF` and
 `VAEG_Z80_INTEGRATION_TRACE=OFF`. `ninja -t commands` contained none of
@@ -250,6 +252,7 @@ Unless stated otherwise, every command returned 0.
 | GCC 15 M44 state target build and targeted CTest | 0; 3/3 |
 | ASan+UBSan build and complete CTest | 0; 26/26, external skip |
 | MinGW cross configure and build with `CCACHE_DISABLE=1` | 0 |
+| hosted build run 29616059501 at `f70d1a65...` | 0; 7/7 jobs successful |
 | `check_encoding --expect utf8 --exclude hlp/` | 0; 0 violations |
 | `check_eol --enforce` | 0; 0 violations |
 | `check_case.py` | 0; 0 findings |
@@ -296,6 +299,7 @@ The M44 history through the evidence HEAD is, in order:
 20. `d2f8f2e2ea23e487f33ec144d95b969507fa6e18` — trace-enabled CI presets
 21. `485fc0efc74c1d15427b5cd93a085121e93ea00b` — authoritative scenarios
 22. `59aca2daf99fefa8451a31aa4292f078dfaa39e2` — bidirectional matrix verifier
+23. `f70d1a65b1a4f25e152e41e48f0f22d5fe0b025d` — final local evidence and ledger
 
 The documentation/hosted-CI evidence commits after this list are included in
 the final handoff. Across G43 through the evidence HEAD, 27 paths changed; this
@@ -324,11 +328,9 @@ paths in the final branch:
 - The state format remains ABI-specific. Only the recorded arm64 little-endian
   LP64 ABI was used for the required G41 matrix; the exact MinGW LLP64 layout
   compiled, but no new cross-ABI compatibility claim is made.
-- Wine is not installed locally. MinGW compilation succeeded; native Windows
-  execution remains part of hosted CI.
+- Wine is not installed locally. MinGW cross-compilation succeeded, and the
+  hosted Windows MSYS2 job built, smoked, tested, and audited runtime imports.
 - The two pre-existing sound UBSan diagnostics remain outside M44 scope.
-- Hosted CI is pending in this report revision and must be recorded before the
-  final handoff.
 - The maintainer's clean-checkout boot/demo/OS human gate has not been run by
   this automated session. G44 remains a human decision.
 
@@ -343,7 +345,8 @@ paths in the final branch:
 - [x] Verify exact M42 graph, harness, trace, ABI, reset, and CPU_SHUT fixtures.
 - [x] Verify exact M43 CI/full profiles, all signatures, and zero timeout/crash.
 - [x] Review tests-disabled production isolation and available toolchains.
-- [ ] Record hosted CI for the final pushed branch SHA.
+- [x] Record hosted CI for pushed evidence SHA `f70d1a65` (run 29616059501,
+  7/7 jobs successful).
 - [ ] Build from a clean checkout and perform the standard V3/demo/OS human
   gate.
 - [ ] Maintainer decides G44; this report does not make that declaration.
