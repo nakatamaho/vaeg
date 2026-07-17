@@ -34,6 +34,39 @@
 #include <stdlib.h>
 #include <string.h>
 
+static UPD9002_SSTS_RESULT *ssts_io_result;
+static int ssts_io_overflow;
+
+int upd9002_ssts_io_active(void) {
+
+	return ssts_io_result != NULL;
+}
+
+static void ssts_io_append(uint16_t port, uint8_t value, uint8_t direction) {
+
+	UPD9002_SSTS_IO_EVENT *event;
+
+	if (ssts_io_result->io_count >= UPD9002_SSTS_IO_CAPACITY) {
+		ssts_io_overflow = 1;
+		return;
+	}
+	event = &ssts_io_result->io[ssts_io_result->io_count++];
+	event->port = port;
+	event->value = value;
+	event->direction = direction;
+}
+
+uint8_t upd9002_ssts_io_read(uint16_t port) {
+
+	ssts_io_append(port, 0xff, 0);
+	return 0xff;
+}
+
+void upd9002_ssts_io_write(uint16_t port, uint8_t value) {
+
+	ssts_io_append(port, value, 1);
+}
+
 static void set_cpu(const UPD9002_HARNESS_CPU_STATE *state) {
 
 	CPU_AX = state->ax;
@@ -151,6 +184,66 @@ int upd9002_harness_run(const UPD9002_HARNESS_INPUT *input,
 	memmode_va = saved_memmode;
 	CopyMemory(mem, saved_ram, 0x10000);
 	free(saved_ram);
+	return SUCCESS;
+}
+
+int upd9002_harness_run_ssts(const UPD9002_SSTS_INPUT *input,
+						UPD9002_SSTS_RESULT *result) {
+
+	uint16_t vector_ip;
+	uint16_t vector_cs;
+	uint32_t index;
+
+	if ((input == NULL) || (result == NULL) ||
+		(input->ram_count > 0x100000) ||
+		(input->watch_count > 0x100000) ||
+		((input->ram_count != 0) && (input->ram == NULL)) ||
+		((input->watch_count != 0) &&
+			((input->watch_addresses == NULL) ||
+			(result->watch_values == NULL)))) {
+		return FAILURE;
+	}
+	for (index = 0; index < input->ram_count; index++) {
+		if (input->ram[index].address > 0xfffff) {
+			return FAILURE;
+		}
+	}
+	for (index = 0; index < input->watch_count; index++) {
+		if (input->watch_addresses[index] > 0xfffff) {
+			return FAILURE;
+		}
+	}
+
+	ZeroMemory(&CPU_STATSAVE, sizeof(CPU_STATSAVE));
+	ZeroMemory(&dmac, sizeof(dmac));
+	ZeroMemory(mem, 0x100000);
+	memmode_va = 0;
+	set_cpu(&input->cpu);
+	for (index = 0; index < input->ram_count; index++) {
+		mem[input->ram[index].address] = input->ram[index].value;
+	}
+	vector_ip = (uint16_t)(mem[0] | (mem[1] << 8));
+	vector_cs = (uint16_t)(mem[2] | (mem[3] << 8));
+	result->termination = 0;
+	result->watch_count = input->watch_count;
+	result->io_count = 0;
+	ssts_io_result = result;
+	ssts_io_overflow = 0;
+	v30c_step();
+	ssts_io_result = NULL;
+	if (ssts_io_overflow) {
+		return FAILURE;
+	}
+	get_cpu(&result->cpu);
+	result->cpu.flags = (uint16_t)((result->cpu.flags & 0x0fff) | 0xf002);
+	if ((result->cpu.ip == vector_ip) && (result->cpu.cs == vector_cs) &&
+		((vector_ip != 0) || (vector_cs != 0))) {
+		result->termination = 1;
+	}
+	for (index = 0; index < input->watch_count; index++) {
+		result->watch_values[index] =
+			mem[input->watch_addresses[index] & 0xfffff];
+	}
 	return SUCCESS;
 }
 

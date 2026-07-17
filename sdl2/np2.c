@@ -58,6 +58,9 @@
 #include	"sound.h"
 #include	"opngen.h"
 #include	"ymfmbridge.h"
+#if defined(VAEG_UPD9002_SSTS_TESTING)
+#include	"tests/upd9002/ssts_worker.h"
+#endif
 
 		NP2OSCFG	np2oscfg = {0, 0, 2, 0, 0, 0, 1, 0, "", "", {"", ""},
 								"", "", 0, 0, "", "ymfm", "minimum", 1,
@@ -1365,6 +1368,12 @@ int main(int argc, char **argv) {
 	CLI_SAVED_CONFIG saved_cli;
 	char cli_error[256];
 	const char *cli_model;
+
+#if defined(VAEG_UPD9002_SSTS_TESTING)
+	if ((argc > 1) && !strcmp(argv[1], "--upd9002-ssts-worker")) {
+		return upd9002_ssts_worker_main(argc - 1, argv + 1);
+	}
+#endif
 
 	smoke_detect_screen = FALSE;
 	splash_visible = FALSE;

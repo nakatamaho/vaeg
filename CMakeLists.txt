@@ -347,7 +347,8 @@ if(VAEG_ENABLE_TESTS)
     list(APPEND VAEG_SDL2_SOURCES
         tests/z80/subsystem_integration.cpp
         tests/upd9002/direct_harness.c
-        tests/upd9002/fixtures.c)
+        tests/upd9002/fixtures.c
+        tests/upd9002/ssts_worker.c)
 endif()
 
 set(VAEG_SPLASH_DATA "${CMAKE_CURRENT_BINARY_DIR}/generated/vaeg_splash_data.c")
@@ -424,7 +425,8 @@ target_compile_definitions(vaeg_core PUBLIC
     VAEG_FIX)
 if(VAEG_ENABLE_TESTS)
     target_compile_definitions(vaeg_core PRIVATE
-        VAEG_UPD9002_M42_TESTING=1)
+        VAEG_UPD9002_M42_TESTING=1
+        VAEG_UPD9002_SSTS_TESTING=1)
 endif()
 target_compile_options(vaeg_core PRIVATE -Wall -fsigned-char)
 if(VAEG_WERROR)
@@ -473,6 +475,7 @@ target_link_libraries(vaeg_sdl2 PRIVATE vaeg_core vaeg_va vaeg_common
 if(VAEG_ENABLE_TESTS)
     target_compile_definitions(vaeg_sdl2 PRIVATE
         VAEG_UPD9002_M42_TESTING=1
+        VAEG_UPD9002_SSTS_TESTING=1
         "VAEG_UPD9002_HARNESS_MANIFEST_PATH=\"${CMAKE_CURRENT_SOURCE_DIR}/tests/upd9002/harness_manifest.csv\""
         "VAEG_UPD9002_FIXTURE_PATH=\"${CMAKE_CURRENT_SOURCE_DIR}/tests/upd9002/state_fixtures_m42.txt\"")
 endif()
