@@ -60,11 +60,13 @@
 #include	"strres.h"
 #include	"viewport.h"
 #include	"ymfmbridge.h"
+#if defined(VAEG_UPD9002_M42_TESTING)
+#include	"tests/upd9002/direct_harness.h"
+#include	"tests/upd9002/fixtures.h"
+#endif
 #if defined(VAEG_Z80_INTEGRATION_TESTING)
 #include	"iova/subsystem.h"
 #include	"tests/z80/subsystem_integration.h"
-#include	"tests/upd9002/direct_harness.h"
-#include	"tests/upd9002/fixtures.h"
 #endif
 
 static int fail(const char *name, const char *detail) {
@@ -1233,15 +1235,17 @@ static int test_statsave(void) {
 		(pccore_cpu_multiple() != np2cfg.multiple)) {
 		ret = STATFLAG_FAILURE;
 	}
+#if defined(VAEG_UPD9002_M42_TESTING)
 	if ((ret == STATFLAG_SUCCESS) &&
 		(upd9002_harness_run_manifest(VAEG_UPD9002_HARNESS_MANIFEST_PATH)
-														!= SUCCESS)) {
+												!= SUCCESS)) {
 		ret = STATFLAG_FAILURE;
 	}
 	if ((ret == STATFLAG_SUCCESS) &&
 		(upd9002_fixture_verify(VAEG_UPD9002_FIXTURE_PATH) != SUCCESS)) {
 		ret = STATFLAG_FAILURE;
 	}
+#endif
 
 #if defined(VAEG_Z80_INTEGRATION_TESTING)
 	if (ret == STATFLAG_SUCCESS) {
