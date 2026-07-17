@@ -243,21 +243,35 @@ SET COMSPEC=A:\PCENGINE.COM
 
 ## Reproducible Boot-Floppy Builder
 
-The repository provides
+The repository provides two shell-script entry points. First,
+[`tools/pc88va/create-vanilla-system-disk.sh`](../../tools/pc88va/create-vanilla-system-disk.sh)
+creates a `FORMAT /S`-like PC-Engine 1.1 disk containing only the original IPL
+and required `ENGINEIO.SYS`, `PCENGINE.SYS`, `ADVGBIOS.SYS`, and
+`PCENGINE.COM`. Second,
 [`tools/pc88va/build-development-disk.sh`](../../tools/pc88va/build-development-disk.sh)
-to build a personal PC-88VA development floppy from a user-supplied original
-PC-Engine 1.1 D88 image. The script does not contain, copy into Git, or identify
-the private source image. It validates the public PC-Engine 1.1 filesystem
-layout by system-file names, sizes, and starting clusters instead of recording
-the source image's filename or checksum.
+creates that vanilla disk in a temporary directory and installs the development
+environment on top of it.
+
+Neither script contains, copies into Git, or identifies the private source
+image. The common helper validates the public PC-Engine 1.1 filesystem layout
+by system-file names, sizes, and starting clusters instead of recording the
+source image's filename or checksum.
 
 On Debian or Ubuntu, install the host-side build dependencies with:
 
 ```sh
-sudo apt-get install curl lhasa dosbox python3 coreutils
+sudo apt-get install curl lhasa dosbox python3 coreutils tar
 ```
 
-Then run:
+To create only the vanilla system disk, run:
+
+```sh
+tools/pc88va/create-vanilla-system-disk.sh \
+  --source /path/to/user-supplied-pcengine-1.1.d88 \
+  --output /path/to/pcengine-1.1-vanilla.d88
+```
+
+To create the complete development disk, run:
 
 ```sh
 tools/pc88va/build-development-disk.sh \
@@ -270,29 +284,64 @@ user cache directory by default; `--cache DIR` selects another cache. Every
 public input archive is pinned by SHA-256 in the script. An existing cache file
 with different contents is rejected rather than replaced.
 
-The build performs these operations:
+The complete build performs these operations:
 
-1. Fetch and verify PCEPAT, PCPLUS 1.08 and its patch, BDIFF/BUPDATE 1.28,
-   MSE 3.52a and the 3.52b patch, WSP 1.50, LHA 2.13, and K-Launcher 1.30.
-2. Extract the packages with the host `lha` command.
-3. Run the original DOS `WSP.COM` and `BUPDATE.EXE` under headless DOSBox to
+1. Create the minimal vanilla system disk while retaining the IPL and the
+   original fixed system-file chains.
+2. Fetch and verify PCEPAT, BMS Driver 1.50 Rev 0.20, PCPLUS 1.08 and its
+   patch, BDIFF/BUPDATE 1.28, MSE 3.52a and the 3.52b patch, WSP 1.50,
+   LHA 2.13, and K-Launcher 1.30.
+3. Extract the packages with the host `lha` and `tar` commands.
+4. Run the original DOS `WSP.COM` and `BUPDATE.EXE` under headless DOSBox to
    produce `MSE352B.COM`, the patched `PCPLUS.SYS`, and the PC-88VA
    K-Launcher files `KLL.COM`, `KLVA.EXE`, and `KLCUST.EXE`.
-4. Verify those generated files against known public-package checksums.
-5. Copy the private source D88, preserve its D88 header, IPL sector, existing
-   system files, and extra track, then add the new files to its FAT12 area.
+5. Verify those generated files against known public-package checksums.
+6. Add the root drivers, the `BIN` utilities, and an empty `TMP` directory to
+   the vanilla FAT12 filesystem.
 
 The PC-Engine disk has a valid FAT12 allocation structure but no conventional
 DOS BPB, so normal `mtools` commands reject it as non-DOS media. The builder
 therefore contains a narrowly scoped D88/FAT12 writer for the known 80-cylinder,
 two-head, eight-sector, 1024-byte PC-Engine 1.1 layout. It never relocates the
-existing `ENGINEIO.SYS` or `PCENGINE.SYS` boot chains. New directory entries use
-a fixed DOS date so repeated builds from the same source are byte-for-byte
+existing `ENGINEIO.SYS` or `PCENGINE.SYS` boot chains. The vanilla builder
+clears all unreferenced data clusters, and new directory entries use a fixed
+DOS date, so repeated builds from the same source are byte-for-byte
 reproducible.
 
-The generated root directory contains the three boot-time drivers, MSE control
-tools, LHA, BDIFF/BUPDATE, WSP, the PC-88VA K-Launcher build, and their relevant
-documentation. `CONFIG.SYS` is:
+The development disk is organized as follows. `KLVA.EXE`, `KLCUST.EXE`,
+`KL.CFG`, and `KLJPN.HLP` are also kept in `BIN` because `KLL.COM` needs the
+VA-specific executable and configuration files.
+
+```text
+A:\
+  CONFIG.SYS
+  AUTOEXEC.BAT
+  PCEPAT.SYS
+  BMSDRVA.COM
+  BMSADDVA.COM
+  MSE352B.COM
+  PCPLUS.SYS
+  PCENGINE.COM
+
+A:\BIN\
+  LHA.EXE
+  BUPDATE.EXE
+  WSP.COM
+  MSET.COM
+  ALIAS.COM
+  MSECUST.COM
+  KLL.COM
+  KLVA.EXE
+  KLCUST.EXE
+  KL.CFG
+  KLJPN.HLP
+  MSE350.DEF
+
+A:\TMP\
+```
+
+The hidden/system `ENGINEIO.SYS`, `PCENGINE.SYS`, and `ADVGBIOS.SYS` files
+remain in the root as required for boot. `CONFIG.SYS` is:
 
 ```dos
 FILES = 20
@@ -304,15 +353,14 @@ DEVICE = A:\PCPLUS.SYS
 
 PCEPAT is deliberately first, as required by its documentation. `BUFFERS=30`
 uses the PCEPAT example's value; the referenced HDD article uses 20. MSE is
-loaded without `/A`, `/B`, or `/X`, so this baseline does not require BMSDR.
-`AUTOEXEC.BAT` establishes the tool environment:
+loaded without `/A`, `/B`, or `/X`. The BMS VA programs are present for later
+use but are not made resident by this baseline. `AUTOEXEC.BAT` uses neither
+`ECHO OFF` nor `PROMPT`; it only establishes the requested tool environment:
 
 ```dos
-@ECHO OFF
-PATH A:\
-SET TMP=A:\
+PATH A:\BIN
+SET TMP=A:\TMP
 SET COMSPEC=A:\PCENGINE.COM
-PROMPT $P$G
 ```
 
 The resulting disk is intended for PC-Engine 1.1 on a PC-88VA2/VA3 or the
