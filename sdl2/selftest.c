@@ -23,6 +23,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 #include	"compiler.h"
+#include	<stdlib.h>
 #include	"selftest.h"
 #include	"codecnv.h"
 #include	"commng.h"
@@ -33,6 +34,7 @@
 #include	"dropmedia.h"
 #include	"fddfile.h"
 #include	"fdd_d88.h"
+#include	"cpucore.h"
 #include	"fdd_xdf.h"
 #include	"framedisp.h"
 #include	"kbdmap.h"
@@ -1232,6 +1234,29 @@ static int test_statsave(void) {
 	pccore_init();
 	S98_init();
 	pccore_reset();
+
+#if defined(VAEG_UPD9002_M44_TESTING)
+	{
+		const char *scenario_dir = getenv("VAEG_M44_SCENARIO_DIR");
+		if (scenario_dir != NULL) {
+			char scenario_path[MAX_PATH];
+			SPRINTF(scenario_path, "%s/m44-reset.state", scenario_dir);
+			if (statsave_save(scenario_path) != STATFLAG_SUCCESS) {
+				return(fail("statsave-scenario", "reset save failed"));
+			}
+			CPU_EXEC();
+			SPRINTF(scenario_path, "%s/m44-fixed.state", scenario_dir);
+			if (statsave_save(scenario_path) != STATFLAG_SUCCESS) {
+				return(fail("statsave-scenario", "fixed save failed"));
+			}
+			CPU_SHUT();
+			SPRINTF(scenario_path, "%s/m44-shut.state", scenario_dir);
+			if (statsave_save(scenario_path) != STATFLAG_SUCCESS) {
+				return(fail("statsave-scenario", "shut save failed"));
+			}
+		}
+	}
+#endif
 	ret = STATFLAG_SUCCESS;
 	if ((pccore.multiple != PCCORE_STANDARD_MULTIPLE) ||
 		(pccore.realclock != pccore.baseclock * PCCORE_STANDARD_MULTIPLE) ||
@@ -1730,6 +1755,9 @@ static int test_opn_backends(void) {
 }
 
 int vaeg_selftest_run(void) {
+	if (getenv("VAEG_M44_SCENARIO_DIR") != NULL) {
+		return(test_statsave() == SUCCESS ? SUCCESS : FAILURE);
+	}
 
 	if (test_codecnv() != SUCCESS) {
 		return(FAILURE);
