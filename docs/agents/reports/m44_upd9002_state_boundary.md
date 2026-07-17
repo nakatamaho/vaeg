@@ -183,6 +183,17 @@ but do not expose per-region digest output for runtime, compatibility image,
 live CPU, UPD9002, and unrelated machine state. A digest-backed atomicity
 matrix and hosted/Wine execution therefore remain G44 blockers.
 
+## Version-neutral container inspector
+
+`tools/qa/statsave_sections.py` was added as a state-type-independent inspector
+and same-size payload mutator. It parses the 48-byte container header and
+16-byte section headers, validates padding and truncation, rejects duplicate or
+missing `CPU286`/`UPD9002` tags, reports declared/actual sizes and SHA-256, and
+only permits replacements with an identical declared size. A synthetic opaque
+container passed inspection and replacement validation. No emulator state type
+is imported. No real G41/M44 containers were available to feed the tool, so no
+round-trip digest rows are claimed.
+
 ## Final black-box input audit
 
 At HEAD `93ec1bf`, a repository-wide scan for `*.sav` and `*.state` inputs
