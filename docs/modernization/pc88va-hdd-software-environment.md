@@ -290,14 +290,15 @@ The complete build performs these operations:
    original fixed system-file chains.
 2. Fetch and verify PCEPAT, BMS Driver 1.50 Rev 0.20, PCPLUS 1.08 and its
    patch, BDIFF/BUPDATE 1.28, MSE 3.52a and the 3.52b patch, WSP 1.50,
-   LHA 2.13, and K-Launcher 1.30.
+   LHA 2.13, K-Launcher 1.30, TEEN 0.30p, VBUFF 1.02, FATMAP 1.1,
+   FORG 2.03, and the VA RAMDISK self-extracting archive.
 3. Extract the packages with the host `lha` and `tar` commands.
 4. Run the original DOS `WSP.COM` and `BUPDATE.EXE` under headless DOSBox to
    produce `MSE352B.COM`, the patched `PCPLUS.SYS`, and the PC-88VA
    K-Launcher files `KLL.COM`, `KLVA.EXE`, and `KLCUST.EXE`.
 5. Verify those generated files against known public-package checksums.
-6. Add the root drivers, the `BIN` utilities, and an empty `TMP` directory to
-   the vanilla FAT12 filesystem.
+6. Add the root drivers, the `BIN` utilities, their `DOC` files, and an empty
+   `TMP` directory to the vanilla FAT12 filesystem.
 
 The PC-Engine disk has a valid FAT12 allocation structure but no conventional
 DOS BPB, so normal `mtools` commands reject it as non-DOS media. The builder
@@ -336,9 +337,43 @@ A:\BIN\
   KL.CFG
   KLJPN.HLP
   MSE350.DEF
+  TEEN.COM
+  TEENM.COM
+  TEEN.DEF
+  TOPEN.EXE
+  TCLOSE.EXE
+  TLOG.COM
+  TLOGBMS.COM
+  VBUFF.COM
+  FATMAP.EXE
+  FATMAP_E.COM
+  FORG.EXE
+  FORG.DAT
+  RAMDISK.COM
+
+A:\DOC\
+  TEEN.DOC
+  TEENUPDT.DOC
+  TEENREAD.DOC
+  TLOG.DOC
+  VBUFF.DOC
+  VBUFF.LOG
+  FATMAP.MAN
+  FATMREAD.DOC
+  FORG.DOC
+  FORGREAD.DOC
+  RAMDISK.DOC
 
 A:\TMP\
 ```
+
+The three archive `README.DOC` files are renamed to `TEENREAD.DOC`,
+`FATMREAD.DOC`, and `FORGREAD.DOC` to avoid collisions in the flat `DOC`
+directory. `RAMDISK.COM` remains the original self-extracting archive; run it
+from `A:\TMP` when its contents are needed. The Softlib catalog records the
+standalone `RAMDISK.DOC` as 1,148 bytes, while its current download endpoint
+serves a 1,230-byte CRLF file. The builder pins the bytes actually served by
+the public endpoint.
 
 The hidden/system `ENGINEIO.SYS`, `PCENGINE.SYS`, and `ADVGBIOS.SYS` files
 remain in the root as required for boot. `CONFIG.SYS` is:
@@ -359,9 +394,15 @@ use but are not made resident by this baseline. `AUTOEXEC.BAT` uses neither
 
 ```dos
 PATH A:\BIN
+SET TEEN=A:\BIN\TEEN.DEF
 SET TMP=A:\TMP
 SET COMSPEC=A:\PCENGINE.COM
 ```
+
+The `TEEN` variable follows TEEN's documentation and points the network stack
+at its configuration file. TEEN, TLOG, VBUFF, FORG, and RAMDISK are not run
+automatically. In particular, FORG modifies FAT allocation and should only be
+used after making a backup as directed by its documentation.
 
 The resulting disk is intended for PC-Engine 1.1 on a PC-88VA2/VA3 or the
 corresponding upgraded VA environment. The script proves structural
