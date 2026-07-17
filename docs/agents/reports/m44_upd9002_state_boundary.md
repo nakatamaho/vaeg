@@ -162,3 +162,23 @@ successfully. Wine execution was attempted with a dedicated prefix but failed
 before test startup because wineserver could not create its runtime directory
 under the restricted filesystem. Hosted CI, native Windows/macOS, and a full
 detached G41 bidirectional matrix remain unavailable and are not claimed.
+
+## Temporary G41 probe attempt
+
+The exact G41 source is `pre-upd9002-series^{commit}` =
+`dc8a72da974f0ea328613e480f1de662c28f4436`. A disposable `/tmp` tree was
+created from that commit and the minimum M44 probe sources were copied without
+committing or changing the G41 object. The combined copied-file patch input
+digest is `537268e849a85aa4e7f6cd2e53a151e8378abce3c28f9558a1068fd0095b38ea`.
+
+The probe cannot be compiled against G41: the G41 tree has no
+`Cpu286StateCompat`, `Cpu286CompatImage`, or `Upd9002RuntimeState` definitions;
+the compile fails on those missing types. Completing the probe would require
+importing the M44 ABI/runtime ownership implementation, which is precisely the
+state-boundary change under test. No valid G41-to-M44 or M44-to-G41 matrix is
+claimed.
+
+The M44 state tests provide deterministic rejection and opaque-byte coverage,
+but do not expose per-region digest output for runtime, compatibility image,
+live CPU, UPD9002, and unrelated machine state. A digest-backed atomicity
+matrix and hosted/Wine execution therefore remain G44 blockers.
