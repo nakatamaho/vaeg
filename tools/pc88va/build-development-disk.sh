@@ -39,7 +39,7 @@ usage() {
 		"Usage: $program_name --source SOURCE.d88 --output OUTPUT.d88 [--cache DIR]" \
 		'' \
 		'First create a vanilla PC-Engine 1.1 system disk, then add PCEPAT,' \
-		'BMS, MSE 3.52b, PCPLUS, DOS tools, and K-Launcher.' \
+		'BMS, MSE 3.52b, PCPLUS, network and disk tools, and K-Launcher.' \
 		'The source and generated D88 images are never added to the repository.'
 }
 
@@ -167,6 +167,24 @@ fetch_package kl130.lzh \
 fetch_package bms15020.tgz \
 	b0ee1dc6679ecad155ed9aabc2aa66f253c9d5f1c0190cf2110cc68e59f7b405 \
 	'https://ftp.vector.co.jp/09/04/385/bms15020.tgz'
+fetch_package teen030p.lzh \
+	9b6bdd4b2dbc4908d5a749994cdb87c63e99b13cb294c108608ce4f04248c71e \
+	'http://www.pc88.gr.jp/softlib/index.php?action=download&anum=2&gnum=470&fname=TEEN030P.LZH'
+fetch_package vbuff102.lzh \
+	c51d2f9bd04efeda77760a2c8e476777c07edb8775a7120793dd98bc0a8ff01f \
+	'http://www.pc88.gr.jp/softlib/index.php?action=download&anum=2&gnum=452&fname=VBUFF102.LZH'
+fetch_package fatmap11.lzh \
+	9e25c73df9d589306ae24c3908fb3b8e4ee2b1c6f306a1b8eb07155a60e2e701 \
+	'http://www.pc88.gr.jp/softlib/index.php?action=download&anum=2&gnum=430&fname=FATMAP11.LZH'
+fetch_package forg203.lzh \
+	1315141e7e6c37d010ef9a725a927fa2ba71e4e086d630d2aa942a704a7ae5c4 \
+	'http://www.pc88.gr.jp/softlib/index.php?action=download&anum=2&gnum=431&fname=FORG203.LZH'
+fetch_package ramdisk.com \
+	e0cf4510f4f54ee2825c866ee3a2b07fb2e5f60b7e8d10bfa34401a29e7e4b51 \
+	'http://www.pc88.gr.jp/softlib/index.php?action=download&anum=2&gnum=398&fname=RAMDISK.COM'
+fetch_package ramdisk.doc \
+	4f5e549bdbc75db6cf95ebd13dc722500891fa22265ed793b22e81585e94e461 \
+	'http://www.pc88.gr.jp/softlib/index.php?action=download&anum=2&gnum=398&fname=RAMDISK.DOC'
 
 work_dir=$(mktemp -d "${TMPDIR:-/tmp}/vaeg-pc88va-devdisk.XXXXXX")
 
@@ -187,6 +205,10 @@ extract_archive "$cache_dir/mse352bf.lzh" "$work_dir/mse352bf"
 extract_archive "$cache_dir/wsp150.lzh" "$work_dir/wsp"
 extract_archive "$cache_dir/lha213.exe" "$work_dir/lha"
 extract_archive "$cache_dir/kl130.lzh" "$work_dir/kl"
+extract_archive "$cache_dir/teen030p.lzh" "$work_dir/teen"
+extract_archive "$cache_dir/vbuff102.lzh" "$work_dir/vbuff"
+extract_archive "$cache_dir/fatmap11.lzh" "$work_dir/fatmap"
+extract_archive "$cache_dir/forg203.lzh" "$work_dir/forg"
 mkdir -p -- "$work_dir/bms"
 tar -xzf "$cache_dir/bms15020.tgz" -C "$work_dir/bms"
 
@@ -250,7 +272,8 @@ verify_generated KLVA.EXE c6ad097435111398f1c1ebc90e9f35cd15caded6b5d6bed49d92c3
 verify_generated KLCUST.EXE 72376b967fe51d4f40759f5d875762fa3b2b09a353afb1a9ea3c957f5a9c87bf
 
 payload_dir=$work_dir/payload
-mkdir -p -- "$payload_dir/root" "$payload_dir/bin" "$payload_dir/tmp"
+mkdir -p -- "$payload_dir/root" "$payload_dir/bin" "$payload_dir/doc" \
+	"$payload_dir/tmp"
 
 copy_payload() {
 	cp -- "$1" "$payload_dir/$2"
@@ -274,6 +297,31 @@ copy_payload "$stage_dir/KLVA.EXE" bin/KLVA.EXE
 copy_payload "$stage_dir/KLCUST.EXE" bin/KLCUST.EXE
 copy_payload "$work_dir/kl/KL.CFG" bin/KL.CFG
 copy_payload "$work_dir/kl/KLJPN.HLP" bin/KLJPN.HLP
+copy_payload "$work_dir/teen/TEEN.COM" bin/TEEN.COM
+copy_payload "$work_dir/teen/TEENM.COM" bin/TEENM.COM
+copy_payload "$work_dir/teen/TEEN.DEF" bin/TEEN.DEF
+copy_payload "$work_dir/teen/TOPEN.EXE" bin/TOPEN.EXE
+copy_payload "$work_dir/teen/TCLOSE.EXE" bin/TCLOSE.EXE
+copy_payload "$work_dir/teen/TLOG.COM" bin/TLOG.COM
+copy_payload "$work_dir/teen/TLOGBMS.COM" bin/TLOGBMS.COM
+copy_payload "$work_dir/vbuff/VBUFF.COM" bin/VBUFF.COM
+copy_payload "$work_dir/fatmap/FATMAP.EXE" bin/FATMAP.EXE
+copy_payload "$work_dir/fatmap/FATMAP_E.COM" bin/FATMAP_E.COM
+copy_payload "$work_dir/forg/FORG.EXE" bin/FORG.EXE
+copy_payload "$work_dir/forg/FORG.DAT" bin/FORG.DAT
+copy_payload "$cache_dir/ramdisk.com" bin/RAMDISK.COM
+
+copy_payload "$work_dir/teen/TEEN.DOC" doc/TEEN.DOC
+copy_payload "$work_dir/teen/TEENUPDT.DOC" doc/TEENUPDT.DOC
+copy_payload "$work_dir/teen/README.DOC" doc/TEENREAD.DOC
+copy_payload "$work_dir/teen/TLOG.DOC" doc/TLOG.DOC
+copy_payload "$work_dir/vbuff/VBUFF.DOC" doc/VBUFF.DOC
+copy_payload "$work_dir/vbuff/VBUFF.LOG" doc/VBUFF.LOG
+copy_payload "$work_dir/fatmap/FATMAP.MAN" doc/FATMAP.MAN
+copy_payload "$work_dir/fatmap/README.DOC" doc/FATMREAD.DOC
+copy_payload "$work_dir/forg/FORG.DOC" doc/FORG.DOC
+copy_payload "$work_dir/forg/README.DOC" doc/FORGREAD.DOC
+copy_payload "$cache_dir/ramdisk.doc" doc/RAMDISK.DOC
 
 printf '%s\r\n' \
 	'FILES = 20' \
@@ -284,6 +332,7 @@ printf '%s\r\n' \
 
 printf '%s\r\n' \
 	'PATH A:\BIN' \
+	'SET TEEN=A:\BIN\TEEN.DEF' \
 	'SET TMP=A:\TMP' \
 	'SET COMSPEC=A:\PCENGINE.COM' >"$payload_dir/root/AUTOEXEC.BAT"
 
