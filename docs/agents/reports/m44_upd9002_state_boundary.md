@@ -5,12 +5,30 @@ Status: implementation complete; G44 is not declared by this report.
 ## State
 
 Branch: `topic/m44-upd9002-state-boundary`  
-Starting SHA: `91ec9a4c998928523360c37dab8d6ade8e698731`  
+Continuation starting SHA: `83858f26e0896e9cb2510e247443d4c0c2728fe6`
 Current SHA at report preparation: `44aa172d7bfe1ba2fca65c7ba9eac2ad791fd82b`  
 Baseline tag: `pre-upd9002-refactor` -> `91ec9a4c998928523360c37dab8d6ade8e698731`.
 
 The worktree was clean before the report change. The branch descends from the
 approved M43 SHA. No M45 work was started.
+
+## Approved G41 baseline resolution
+
+The approved legacy raw-`I286STAT` G41 baseline is
+`dc8a72da974f0ea328613e480f1de662c28f4436`. This identity is unambiguous:
+the M42 report names that full SHA as its accepted starting point, and the
+local and remote annotated `pre-upd9002-series` tags peel to the same commit.
+The G43 commit
+`91ec9a4c998928523360c37dab8d6ade8e698731` and the
+`pre-upd9002-refactor` tag are M42/M43 preservation references; they are not
+substitutes for G41 in legacy raw-loader cross-version tests.
+
+The authoritative scenario definitions are the committed M42 fixture
+implementation and `tests/upd9002/state_fixtures_m42.txt`, whose SHA-256 is
+`c8ed4bcf1a7df2a88964d71d85b846a6d7881f60a9233d8c9b787d3d5076f4fb`.
+The cross-version matrix must reproduce those reset, `executed-3`, and
+`cpu-shut-request` payloads rather than infer a scenario from comments or
+redesign it from current code.
 
 ## ABI and ownership
 
