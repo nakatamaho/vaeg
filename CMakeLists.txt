@@ -653,6 +653,21 @@ if(VAEG_ENABLE_TESTS)
     set_tests_properties(vaeg_upd9002_state_boundary PROPERTIES
         LABELS "romless;upd9002;state")
 
+    add_executable(vaeg_upd9002_state_payload_probe
+        tests/upd9002/state_payload_probe.c
+        i286c/upd9002_state.c)
+    target_include_directories(vaeg_upd9002_state_payload_probe PRIVATE
+        ${VAEG_INCLUDE_DIRS})
+    target_compile_definitions(vaeg_upd9002_state_payload_probe PRIVATE
+        USE_I286C SUPPORT_BMS SUPPORT_SASI SUPPORT_V30ORIGINAL VAEG_FIX)
+    target_compile_options(vaeg_upd9002_state_payload_probe PRIVATE
+        -Wall -fsigned-char)
+    add_test(NAME vaeg_upd9002_state_payload_probe
+        COMMAND vaeg_upd9002_state_payload_probe
+            "${CMAKE_CURRENT_SOURCE_DIR}/tests/upd9002/state_fixtures_m42.txt")
+    set_tests_properties(vaeg_upd9002_state_payload_probe PROPERTIES
+        LABELS "romless;upd9002;state")
+
     add_test(NAME vaeg_upd9002_trace_equivalence
         COMMAND "${CMAKE_COMMAND}"
             "-DVAEG_EXECUTABLE=$<TARGET_FILE:vaeg_sdl2>"
