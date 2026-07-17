@@ -608,6 +608,8 @@ endif()
 if(VAEG_ENABLE_TESTS)
     enable_testing()
     find_package(Python3 REQUIRED COMPONENTS Interpreter)
+    set(VAEG_SSTS_V20_ROOT "" CACHE PATH
+        "Verified external SingleStepTests V20 checkout for uPD9002 comparison")
 
     add_test(NAME vaeg_upd9002_dispatch_graph
         COMMAND "${Python3_EXECUTABLE}"
@@ -641,6 +643,65 @@ if(VAEG_ENABLE_TESTS)
             -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/upd9002/run_trace_equivalence.cmake")
     set_tests_properties(vaeg_upd9002_trace_equivalence PROPERTIES
         LABELS "romless;upd9002;trace;harness" TIMEOUT 180)
+
+    add_test(NAME vaeg_upd9002_ssts_selftest
+        COMMAND "${Python3_EXECUTABLE}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/upd9002_ssts.py"
+            selftest)
+    set_tests_properties(vaeg_upd9002_ssts_selftest PROPERTIES
+        LABELS "romless;upd9002;ssts")
+
+    add_test(NAME vaeg_upd9002_ssts_worker_selftest
+        COMMAND "${Python3_EXECUTABLE}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/upd9002_ssts.py"
+            worker-selftest
+            --worker "$<TARGET_FILE:vaeg_sdl2>")
+    set_tests_properties(vaeg_upd9002_ssts_worker_selftest PROPERTIES
+        LABELS "romless;upd9002;ssts;harness" TIMEOUT 60)
+
+    foreach(profile ci full)
+        add_test(NAME vaeg_upd9002_ssts_${profile}_baseline
+            COMMAND "${Python3_EXECUTABLE}"
+                "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/upd9002_ssts.py"
+                report
+                --summary
+                "${CMAKE_CURRENT_SOURCE_DIR}/tests/ssts/baseline/v20_native_${profile}.json")
+        set_tests_properties(vaeg_upd9002_ssts_${profile}_baseline PROPERTIES
+            LABELS "romless;upd9002;ssts;baseline")
+    endforeach()
+
+    if(VAEG_SSTS_V20_ROOT)
+        add_test(NAME vaeg_upd9002_ssts_ci_external
+            COMMAND "${Python3_EXECUTABLE}"
+                "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/upd9002_ssts.py"
+                run
+                --dataset-root "${VAEG_SSTS_V20_ROOT}"
+                --manifest
+                "${CMAKE_CURRENT_SOURCE_DIR}/tests/ssts/v20_dataset_manifest.json"
+                --support-map
+                "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/golden/upd9002_support_map_m42.csv"
+                --worker "$<TARGET_FILE:vaeg_sdl2>"
+                --profile ci
+                --shard-timeout 300
+                --output
+                "${CMAKE_CURRENT_BINARY_DIR}/ssts/v20_native_ci.json"
+                --failure-directory
+                "${CMAKE_CURRENT_BINARY_DIR}/ssts/v20_native_ci_failures"
+                --expect
+                "${CMAKE_CURRENT_SOURCE_DIR}/tests/ssts/baseline/v20_native_ci.json")
+        set_tests_properties(vaeg_upd9002_ssts_ci_external PROPERTIES
+            LABELS "romless;upd9002;ssts;external"
+            TIMEOUT 1800)
+    else()
+        add_test(NAME vaeg_upd9002_ssts_ci_external
+            COMMAND "${Python3_EXECUTABLE}"
+                "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/upd9002_ssts.py"
+                external-skip
+                --reason "VAEG_SSTS_V20_ROOT is not configured")
+        set_tests_properties(vaeg_upd9002_ssts_ci_external PROPERTIES
+            LABELS "romless;upd9002;ssts;external"
+            SKIP_RETURN_CODE 77)
+    endif()
 
     function(vaeg_configure_z80_standalone_target target)
         target_include_directories(${target} PRIVATE
