@@ -7,6 +7,9 @@
 #include	"font.h"
 #include	"memoryva.h"
 #include	"upd9002_trace.h"
+#if defined(VAEG_UPD9002_SSTS_TESTING)
+#include	"tests/upd9002/direct_harness.h"
+#endif
 
 
 	BYTE	mem[0x200000];
@@ -798,6 +801,12 @@ const VACCTBL	*vacc;
 
 REG8 MEMCALL i286_memoryread(UINT32 address) {
 
+#if defined(VAEG_UPD9002_SSTS_TESTING)
+	if (upd9002_ssts_io_active()) {
+		return mem[address & 0xfffff];
+	}
+#endif
+
 	if (memmode_va) {
 		return(i286_memoryread_va(address));
 	}
@@ -823,6 +832,13 @@ REG8 MEMCALL i286_memoryread(UINT32 address) {
 REG16 MEMCALL i286_memoryread_w(UINT32 address) {
 
 	REG16	ret;
+
+#if defined(VAEG_UPD9002_SSTS_TESTING)
+	if (upd9002_ssts_io_active()) {
+		return (REG16)(mem[address & 0xfffff] |
+			(mem[(address + 1) & 0xfffff] << 8));
+	}
+#endif
 
 	if (memmode_va) {
 		return(i286_memoryread_va_w(address));
@@ -865,6 +881,13 @@ REG16 MEMCALL i286_memoryread_w(UINT32 address) {
 
 void MEMCALL i286_memorywrite(UINT32 address, REG8 value) {
 
+#if defined(VAEG_UPD9002_SSTS_TESTING)
+	if (upd9002_ssts_io_active()) {
+		mem[address & 0xfffff] = (BYTE)value;
+		return;
+	}
+#endif
+
 	upd9002_trace_event(UPD9002_TRACE_ORIGIN_CPU, "memory-write",
 		(uint32_t)address, (uint32_t)value, 1);
 
@@ -889,6 +912,14 @@ void MEMCALL i286_memorywrite(UINT32 address, REG8 value) {
 }
 
 void MEMCALL i286_memorywrite_w(UINT32 address, REG16 value) {
+
+#if defined(VAEG_UPD9002_SSTS_TESTING)
+	if (upd9002_ssts_io_active()) {
+		mem[address & 0xfffff] = (BYTE)value;
+		mem[(address + 1) & 0xfffff] = (BYTE)(value >> 8);
+		return;
+	}
+#endif
 
 	upd9002_trace_event(UPD9002_TRACE_ORIGIN_CPU, "memory-write",
 		(uint32_t)address, (uint32_t)value, 2);
