@@ -109,7 +109,7 @@ static const PROCTBL dmaproc[] = {
 static const SFENTRY np2tbl[] = {
 	{"PCCORE",		0,	STATFLAG_BIN,	&pccore,		sizeof(pccore)},
 
-	{"CPU286",		0,	STATFLAG_BIN,	&CPU_STATSAVE,	sizeof(CPU_STATSAVE)},
+	{"CPU286",		0,	STATFLAG_CPU286,NULL,			sizeof(Cpu286StateCompat)},
 	{"MEMORY",		0,	STATFLAG_MEM,	NULL,			0x130000},
 	{"EXTMEM",		0,	STATFLAG_EXT,	NULL,			0},
 #if defined(SUPPORT_PC9821)
@@ -197,4 +197,3 @@ static const SFENTRY np2tbl[] = {
 	{"VA91",		0,	STATFLAG_BIN,	&va91,			sizeof(va91)},
 	{"UPD9002",		0,	STATFLAG_BIN,	&upd9002,		sizeof(upd9002)},
 	{"TERMINATE",	0,	STATFLAG_TERM,	NULL,			0}};
-
