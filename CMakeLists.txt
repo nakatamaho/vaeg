@@ -354,6 +354,7 @@ if(VAEG_ENABLE_TESTS)
         tests/z80/subsystem_integration.cpp
         tests/upd9002/direct_harness.c
         tests/upd9002/fixtures.c
+        tests/upd9002/state_scenario.c
         tests/upd9002/statsave_boundary.c
         tests/upd9002/ssts_worker.c)
 endif()

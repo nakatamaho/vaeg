@@ -23,7 +23,6 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 #include	"compiler.h"
-#include	<stdlib.h>
 #include	"selftest.h"
 #include	"codecnv.h"
 #include	"commng.h"
@@ -34,7 +33,6 @@
 #include	"dropmedia.h"
 #include	"fddfile.h"
 #include	"fdd_d88.h"
-#include	"cpucore.h"
 #include	"fdd_xdf.h"
 #include	"framedisp.h"
 #include	"kbdmap.h"
@@ -67,6 +65,7 @@
 #include	"tests/upd9002/fixtures.h"
 #endif
 #if defined(VAEG_UPD9002_M44_TESTING)
+#include	"tests/upd9002/state_scenario.h"
 #include	"tests/upd9002/statsave_boundary.h"
 #endif
 #if defined(VAEG_Z80_INTEGRATION_TESTING)
@@ -1236,25 +1235,13 @@ static int test_statsave(void) {
 	pccore_reset();
 
 #if defined(VAEG_UPD9002_M44_TESTING)
-	{
-		const char *scenario_dir = getenv("VAEG_M44_SCENARIO_DIR");
-		if (scenario_dir != NULL) {
-			char scenario_path[MAX_PATH];
-			SPRINTF(scenario_path, "%s/m44-reset.state", scenario_dir);
-			if (statsave_save(scenario_path) != STATFLAG_SUCCESS) {
-				return(fail("statsave-scenario", "reset save failed"));
-			}
-			CPU_EXEC();
-			SPRINTF(scenario_path, "%s/m44-fixed.state", scenario_dir);
-			if (statsave_save(scenario_path) != STATFLAG_SUCCESS) {
-				return(fail("statsave-scenario", "fixed save failed"));
-			}
-			CPU_SHUT();
-			SPRINTF(scenario_path, "%s/m44-shut.state", scenario_dir);
-			if (statsave_save(scenario_path) != STATFLAG_SUCCESS) {
-				return(fail("statsave-scenario", "shut save failed"));
-			}
-		}
+	if (upd9002_state_scenario_requested()) {
+		ret = upd9002_state_scenario_run();
+		S98_trash();
+		pccore_term();
+		soundmng_deinitialize();
+		return (ret == SUCCESS) ? SUCCESS :
+			fail("statsave-scenario", "scenario operation failed");
 	}
 #endif
 	ret = STATFLAG_SUCCESS;
@@ -1755,9 +1742,11 @@ static int test_opn_backends(void) {
 }
 
 int vaeg_selftest_run(void) {
-	if (getenv("VAEG_M44_SCENARIO_DIR") != NULL) {
+#if defined(VAEG_UPD9002_M44_TESTING)
+	if (upd9002_state_scenario_requested()) {
 		return(test_statsave() == SUCCESS ? SUCCESS : FAILURE);
 	}
+#endif
 
 	if (test_codecnv() != SUCCESS) {
 		return(FAILURE);
