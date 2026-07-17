@@ -38,7 +38,6 @@ const void	*arg1;
 	long	arg2;
 } SYSPCMD;
 
-static const char str_80286[] = "80286";
 static const char str_v30[] = "V30";
 static const char str_pentium[] = "PENTIUM";
 static const char str_mhz[] = "%uMHz";
@@ -60,18 +59,7 @@ static void np2sysp_poweroff(const void *arg1, long arg2) {
 
 static void np2sysp_cpu(const void *arg1, long arg2) {
 
-	// CPUを返す
-#if 1											// 80286 or V30
-	if (!(CPU_TYPE & CPUTYPE_V30)) {
-		np2sysp_outstr(str_80286, 0);
-	}
-	else {
-		np2sysp_outstr(str_v30, 0);
-	}
-#else
-	// 386機以降の場合 V30モードはエミュレーションだから固定(?)
-	np2sysp_outstr(str_pentium, 0);
-#endif
+	np2sysp_outstr(str_v30, 0);
 	(void)arg1;
 	(void)arg2;
 }

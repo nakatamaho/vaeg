@@ -430,7 +430,6 @@ add_library(vaeg_core STATIC ${VAEG_CORE_SOURCES})
 target_include_directories(vaeg_core PUBLIC ${VAEG_INCLUDE_DIRS})
 target_link_libraries(vaeg_core PUBLIC vaeg_common)
 target_compile_definitions(vaeg_core PUBLIC
-    USE_I286C
     SUPPORT_BMS
     SUPPORT_SASI
     SUPPORT_V30ORIGINAL
@@ -646,10 +645,17 @@ if(VAEG_ENABLE_TESTS)
     set_tests_properties(vaeg_upd9002_dispatch_generator_selftest PROPERTIES
         LABELS "romless;upd9002;dispatch")
 
+    add_test(NAME vaeg_upd9002_native_invariant
+        COMMAND "${Python3_EXECUTABLE}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/upd9002_native_invariant.py"
+            --root "${CMAKE_CURRENT_SOURCE_DIR}")
+    set_tests_properties(vaeg_upd9002_native_invariant PROPERTIES
+        LABELS "romless;upd9002;dispatch;state")
+
     add_executable(vaeg_upd9002_abi tests/upd9002/abi.c)
     target_include_directories(vaeg_upd9002_abi PRIVATE ${VAEG_INCLUDE_DIRS})
     target_compile_definitions(vaeg_upd9002_abi PRIVATE
-        USE_I286C SUPPORT_BMS SUPPORT_SASI SUPPORT_V30ORIGINAL VAEG_FIX)
+        SUPPORT_BMS SUPPORT_SASI SUPPORT_V30ORIGINAL VAEG_FIX)
     target_compile_options(vaeg_upd9002_abi PRIVATE -Wall -fsigned-char)
     add_test(NAME vaeg_upd9002_abi
         COMMAND vaeg_upd9002_abi
@@ -663,7 +669,7 @@ if(VAEG_ENABLE_TESTS)
     target_include_directories(vaeg_upd9002_state_boundary PRIVATE
         ${VAEG_INCLUDE_DIRS})
     target_compile_definitions(vaeg_upd9002_state_boundary PRIVATE
-        USE_I286C SUPPORT_BMS SUPPORT_SASI SUPPORT_V30ORIGINAL VAEG_FIX)
+        SUPPORT_BMS SUPPORT_SASI SUPPORT_V30ORIGINAL VAEG_FIX)
     target_compile_options(vaeg_upd9002_state_boundary PRIVATE
         -Wall -fsigned-char)
     add_test(NAME vaeg_upd9002_state_boundary
@@ -677,7 +683,7 @@ if(VAEG_ENABLE_TESTS)
     target_include_directories(vaeg_upd9002_state_payload_probe PRIVATE
         ${VAEG_INCLUDE_DIRS})
     target_compile_definitions(vaeg_upd9002_state_payload_probe PRIVATE
-        USE_I286C SUPPORT_BMS SUPPORT_SASI SUPPORT_V30ORIGINAL VAEG_FIX)
+        SUPPORT_BMS SUPPORT_SASI SUPPORT_V30ORIGINAL VAEG_FIX)
     target_compile_options(vaeg_upd9002_state_payload_probe PRIVATE
         -Wall -fsigned-char)
     add_test(NAME vaeg_upd9002_state_payload_probe

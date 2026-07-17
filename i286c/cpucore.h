@@ -259,7 +259,6 @@ void i286c_setemm(UINT frame, UINT32 addr);
 void CPUCALL i286c_interrupt(REG8 vect);
 
 void i286c(void);
-void i286c_step(void);
 
 void v30c(void);
 void v30c_step(void);
@@ -317,8 +316,6 @@ void v30c_step(void);
 #define	CPU_EXTMEMSIZE	i286core.e.extsize
 #define	CPU_INPADRS		i286core.e.inport
 #define	CPU_EMSPTR		i286core.e.ems
-
-#define	CPU_TYPE		i286core.s.cpu_type
 
 #if defined(CPUSTRUC_MEMWAIT)
 #define	MEMWAIT_TRAM	i286core.e.tramwait
