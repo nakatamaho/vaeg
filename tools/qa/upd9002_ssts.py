@@ -89,6 +89,12 @@ REGISTER_ORDER = (
     "cs", "ss", "ds", "es", "ip", "flags",
 )
 SEGMENT_PREFIXES = {0x26, 0x2E, 0x36, 0x3E}
+SEGMENT_PREFIX_REGISTERS = {
+    0x26: "es",
+    0x2E: "cs",
+    0x36: "ss",
+    0x3E: "ds",
+}
 REPEAT_PREFIXES = {
     0x64: "repnc",
     0x65: "repc",
@@ -596,6 +602,101 @@ def expected_io(record: dict[str, Any]) -> list[dict[str, Any]]:
     return result
 
 
+def translated_initial_ram(record: dict[str, Any]) -> list[list[int]]:
+    """Translate the pinned V20 OUTS segment-override fixture convention.
+
+    The pinned corpus records OUTS source bytes at their default DS-relative
+    physical addresses even when a segment override is present.  The hardware
+    bus cycles identify the overridden physical addresses and carry the same
+    byte values.  Mirror only those cycle-proven values to the effective
+    addresses, and fail closed on any inconsistent record.
+    """
+
+    position = 0
+    segment_prefix = None
+    instruction = record["bytes"]
+    while position < len(instruction):
+        byte = instruction[position]
+        if byte in SEGMENT_PREFIXES:
+            segment_prefix = byte
+        elif byte not in set(REPEAT_PREFIXES) | IGNORED_PREFIXES:
+            break
+        position += 1
+    if position >= len(instruction) or instruction[position] not in {0x6E, 0x6F}:
+        return [list(entry) for entry in record["initial"]["ram"]]
+    if segment_prefix is None or segment_prefix == 0x3E:
+        return [list(entry) for entry in record["initial"]["ram"]]
+
+    registers = record["initial"]["regs"]
+    selected_register = SEGMENT_PREFIX_REGISTERS[segment_prefix]
+    selected_base = registers[selected_register] << 4
+    default_base = registers["ds"] << 4
+    entries = [list(entry) for entry in record["initial"]["ram"]]
+    memory: dict[int, int] = {}
+    for address, value in entries:
+        if address in memory and memory[address] != value:
+            raise CorpusError(
+                f"record {record['hash']}: conflicting initial RAM values at "
+                f"0x{address:05x}"
+            )
+        memory[address] = value
+
+    cycles = record["cycles"]
+    for index, cycle in enumerate(cycles):
+        if (
+            not isinstance(cycle, list)
+            or len(cycle) != 11
+            or cycle[7] != "MEMR"
+            or cycle[8] != "T1"
+        ):
+            continue
+        effective_address = cycle[1]
+        if not isinstance(effective_address, int):
+            raise CorpusError(
+                f"record {record['hash']}: OUTS MEMR lacks a physical address"
+            )
+        effective_address &= 0xFFFFF
+        value = None
+        observed_segments = set()
+        for following in cycles[index + 1:index + 6]:
+            if not isinstance(following, list) or len(following) != 11:
+                continue
+            if following[8] == "T1":
+                break
+            if following[2] != "--":
+                observed_segments.add(following[2])
+            if following[8] == "T3":
+                value = following[6]
+                break
+        expected_segment = selected_register.upper()
+        if value is None or not isinstance(value, int) or not 0 <= value <= 0xFF:
+            raise CorpusError(
+                f"record {record['hash']}: cannot resolve OUTS MEMR data"
+            )
+        if observed_segments != {expected_segment}:
+            raise CorpusError(
+                f"record {record['hash']}: OUTS segment evidence differs: "
+                f"expected={expected_segment} actual={sorted(observed_segments)!r}"
+            )
+        offset = (effective_address - selected_base) & 0xFFFF
+        default_address = (default_base + offset) & 0xFFFFF
+        if memory.get(default_address) != value:
+            raise CorpusError(
+                f"record {record['hash']}: OUTS default source does not match "
+                f"cycle data at 0x{default_address:05x}"
+            )
+        if effective_address in memory:
+            if memory[effective_address] != value:
+                raise CorpusError(
+                    f"record {record['hash']}: OUTS effective source conflicts "
+                    f"at 0x{effective_address:05x}"
+                )
+            continue
+        memory[effective_address] = value
+        entries.append([effective_address, value])
+    return entries
+
+
 def expected_termination(form: str, record: dict[str, Any]) -> str:
     if form == "F4":
         return "halt"
@@ -622,7 +723,7 @@ def write_request(path: pathlib.Path, records: list[dict[str, Any]]) -> list[dic
             stream.write(bytes.fromhex(digest))
             registers = record["initial"]["regs"]
             stream.write(struct.pack("<14H", *(registers[name] for name in REGISTER_ORDER)))
-            ram = record["initial"]["ram"]
+            ram = translated_initial_ram(record)
             stream.write(struct.pack("<I", len(ram)))
             for address, value in ram:
                 stream.write(struct.pack("<IB", address, value))
@@ -1605,6 +1706,31 @@ def selftest() -> None:
     else:
         raise CorpusError("unclassified dispatch form was silently accepted")
 
+    override_record = json.loads(json.dumps(record))
+    override_record["name"] = "segment-overridden outsb"
+    override_record["bytes"] = [0x36, 0x6E]
+    override_record["initial"]["regs"].update(
+        {"ds": 0x1000, "ss": 0x2000, "si": 0x0010}
+    )
+    override_record["initial"]["ram"] = [[0x10010, 0x5A]]
+    override_record["cycles"] = [
+        [1, 0x20010, "--", "---", "---", 0, 0, "MEMR", "T1", "-", 0],
+        [0, 0, "SS", "R--", "---", 0, 0, "MEMR", "T2", "-", 0],
+        [0, 0, "SS", "R--", "---", 0, 0x5A, "PASV", "T3", "-", 0],
+    ]
+    translated = dict(translated_initial_ram(override_record))
+    if translated.get(0x10010) != 0x5A or translated.get(0x20010) != 0x5A:
+        raise CorpusError("segment-override source translation did not mirror data")
+    conflicting_override = json.loads(json.dumps(override_record))
+    conflicting_override["initial"]["ram"][0][1] = 0xA5
+    try:
+        translated_initial_ram(conflicting_override)
+    except CorpusError as error:
+        if "default source does not match" not in str(error):
+            raise
+    else:
+        raise CorpusError("segment-override source mismatch was silently invented")
+
     with tempfile.TemporaryDirectory(prefix="vaeg-ssts-selftest-") as temporary:
         root = pathlib.Path(temporary)
         suite = root / SUITE_PATH
@@ -1689,9 +1815,35 @@ def worker_selftest(worker: pathlib.Path) -> None:
         "hash": "0" * 40,
         "idx": 0,
     }
+    outs_registers = dict(registers)
+    outs_registers.update(
+        {"dx": 0x1234, "ds": 0x1000, "ss": 0x2000, "si": 0x0010}
+    )
+    outs_record = {
+        "name": "synthetic segment-overridden outsb",
+        "bytes": [0x36, 0x6E],
+        "initial": {
+            "regs": outs_registers,
+            "ram": [[0x0100, 0x36], [0x0101, 0x6E], [0x10010, 0x5A]],
+            "queue": [],
+        },
+        "final": {
+            "regs": {"si": 0x0011, "ip": 0x0102},
+            "ram": [],
+            "queue": [],
+        },
+        "cycles": [
+            [1, 0x20010, "--", "---", "---", 0, 0, "MEMR", "T1", "-", 0],
+            [0, 0, "SS", "R--", "---", 0, 0, "MEMR", "T2", "-", 0],
+            [0, 0, "SS", "R--", "---", 0, 0x5A, "PASV", "T3", "-", 0],
+        ],
+        "hash": "1" * 40,
+        "idx": 1,
+    }
     validate_record(record, "synthetic-worker")
-    status, results = run_worker_once(worker, [record], 30.0)
-    if status != "ok" or results is None or len(results) != 1:
+    validate_record(outs_record, "synthetic-worker-override")
+    status, results = run_worker_once(worker, [record, outs_record], 30.0)
+    if status != "ok" or results is None or len(results) != 2:
         raise CorpusError(f"synthetic worker failed with status {status}")
     actual = results[0]
     if actual["termination"] != "halt":
@@ -1701,7 +1853,16 @@ def worker_selftest(worker: pathlib.Path) -> None:
         )
     if actual["registers"]["cs"] != 0 or actual["registers"]["ip"] != 0x0100:
         raise CorpusError("synthetic HLT did not retain its restart address")
-    print("ssts-worker-selftest: HLT termination classification passed")
+    outs_actual = results[1]
+    if outs_actual["registers"]["si"] != 0x0011 or outs_actual["io"] != [
+        {"direction": "write", "port": 0x1234, "value": 0x5A}
+    ]:
+        raise CorpusError(
+            "segment-overridden OUTSB did not use the translated source byte"
+        )
+    print(
+        "ssts-worker-selftest: HLT and segment-override fixture translation passed"
+    )
 
 
 def parse_args(argv: Iterable[str]) -> argparse.Namespace:
