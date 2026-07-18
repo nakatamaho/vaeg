@@ -1,5 +1,5 @@
 /*
- * upd9002.c: PC-88VA CPU port
+ * upd9002_regs.c: PC-88VA CPU port
  */
 
 
@@ -7,15 +7,15 @@
 #include	"pccore.h"
 #include	"iocore.h"
 #include	"iocoreva.h"
-#include	"upd9002.h"
+#include	"upd9002_regs.h"
 
 
-	_UPD9002		upd9002 = {0};
+	UPD9002_REGS	upd9002_regs = {0};
 
 
 
 static void IOOUTCALL upd9002_offf0(UINT port, REG8 dat) {
-	upd9002.tcks = dat;
+	upd9002_regs.tcks = dat;
 	pit_ontckschanged();
 }
 
@@ -23,17 +23,17 @@ static void IOOUTCALL upd9002_offf0(UINT port, REG8 dat) {
 
 static REG8 IOINPCALL upd9002_ifff0(UINT port) {
 	(void)port;
-	return(upd9002.tcks);
+	return(upd9002_regs.tcks);
 }
 
 
 // ---- I/F
 
-void upd9002_reset(void) {
-	ZeroMemory(&upd9002, sizeof(upd9002));
+void upd9002_regs_reset(void) {
+	ZeroMemory(&upd9002_regs, sizeof(upd9002_regs));
 }
 
-void upd9002_bind(void) {
+void upd9002_regs_bind(void) {
 
 	iocoreva_attachout(0xfff0, upd9002_offf0);
 	iocoreva_attachinp(0xfff0, upd9002_ifff0);

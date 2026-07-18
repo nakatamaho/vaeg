@@ -25,7 +25,7 @@
 #include "compiler.h"
 #include "cpucore.h"
 #include "upd9002_state.h"
-#include "upd9002.h"
+#include "upd9002_regs.h"
 #include "upd9002_dispatch.h"
 #include "tests/upd9002/fixtures.h"
 
@@ -54,17 +54,17 @@ static void fixture_line(const char *scenario, char *line, size_t size) {
 
 	Cpu286StateCompat cpu;
 	char cpu_hex[sizeof(cpu) * 2 + 1];
-	char regs_hex[sizeof(upd9002) * 2 + 1];
+	char regs_hex[sizeof(upd9002_regs) * 2 + 1];
 
 	upd9002_state_export(&cpu);
 	bytes_hex(&cpu, sizeof(cpu), cpu_hex);
-	bytes_hex(&upd9002, sizeof(upd9002), regs_hex);
+	bytes_hex(&upd9002_regs, sizeof(upd9002_regs), regs_hex);
 	snprintf(line, size,
 		"%s,cpu286_size=%u,cpu286=%s,upd9002_size=%u,upd9002=%s,"
 		"ax=%04x,bx=%04x,cx=%04x,dx=%04x,sp=%04x,cs=%04x,ip=%04x,"
 		"flags=%04x,csbase=%08x,remain=%08x,base=%08x,clock=%08x,type=%02x\n",
 		scenario, (unsigned int)sizeof(cpu), cpu_hex,
-		(unsigned int)sizeof(upd9002), regs_hex,
+		(unsigned int)sizeof(upd9002_regs), regs_hex,
 		CPU_AX, CPU_BX, CPU_CX, CPU_DX, CPU_SP, CPU_CS, CPU_IP,
 		CPU_FLAG, CS_BASE, (uint32_t)CPU_REMCLOCK,
 		(uint32_t)CPU_BASECLOCK, CPU_CLOCK, i286core.s.cpu_type);
@@ -111,7 +111,7 @@ int upd9002_fixture_verify(const char *path) {
 
 	FILE *stream;
 	Cpu286StateCompat saved_cpu;
-	_UPD9002 saved_regs;
+	UPD9002_REGS saved_regs;
 	uint8_t saved_program[8];
 	char actual[3][FIXTURE_LINE_CAPACITY];
 	char expected[FIXTURE_LINE_CAPACITY];
@@ -122,7 +122,7 @@ int upd9002_fixture_verify(const char *path) {
 		return FAILURE;
 	}
 	upd9002_state_export(&saved_cpu);
-	saved_regs = upd9002;
+	saved_regs = upd9002_regs;
 	CopyMemory(saved_program, mem + 0x2000, sizeof(saved_program));
 	fixture_line("reset", actual[0], sizeof(actual[0]));
 	prepare_executed();
@@ -134,7 +134,7 @@ int upd9002_fixture_verify(const char *path) {
 															SUCCESS) {
 		return FAILURE;
 	}
-	upd9002 = saved_regs;
+	upd9002_regs = saved_regs;
 	CopyMemory(mem + 0x2000, saved_program, sizeof(saved_program));
 
 	stream = fopen(path, "rb");

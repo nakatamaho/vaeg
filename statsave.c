@@ -49,7 +49,7 @@
 #include	"subsystem.h"
 #include	"boardsb2.h"
 #include	"va91.h"
-#include	"upd9002.h"
+#include	"upd9002_regs.h"
 
 #if defined(MACOS)
 #define	CRCONST		str_cr

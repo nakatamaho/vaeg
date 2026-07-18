@@ -25,7 +25,7 @@
 #include "compiler.h"
 #include "cpucore.h"
 #include "upd9002_state.h"
-#include "upd9002.h"
+#include "upd9002_regs.h"
 
 #include <stddef.h>
 #include <stdio.h>
@@ -123,12 +123,12 @@ int main(int argc, char **argv) {
 	FIELD(baseclock);
 	FIELD(clock);
 #undef FIELD
-	append(actual, sizeof(actual), "upd9002.size", sizeof(_UPD9002));
-	append(actual, sizeof(actual), "upd9002.align", ALIGNOF(_UPD9002));
+	append(actual, sizeof(actual), "upd9002.size", sizeof(UPD9002_REGS));
+	append(actual, sizeof(actual), "upd9002.align", ALIGNOF(UPD9002_REGS));
 	append(actual, sizeof(actual), "upd9002.offset.tcks",
-		offsetof(_UPD9002, tcks));
+		offsetof(UPD9002_REGS, tcks));
 	append(actual, sizeof(actual), "upd9002.offset.dmy",
-		offsetof(_UPD9002, dmy));
+		offsetof(UPD9002_REGS, dmy));
 	fputs(actual, stdout);
 	if (argc == 1) {
 		return 0;

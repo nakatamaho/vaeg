@@ -27,7 +27,7 @@
 #if !defined(VAEG_M44_RAW_COMPAT_PROBE)
 #include "upd9002_state.h"
 #endif
-#include "upd9002.h"
+#include "upd9002_regs.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -38,7 +38,7 @@
 #define UPD9002_PAYLOAD_SIZE 16
 
 I286CORE i286core;
-_UPD9002 upd9002;
+UPD9002_REGS upd9002_regs;
 
 static int hex_value(int ch) {
 
@@ -119,8 +119,8 @@ static int verify_record(const char *line) {
 		(import_export_cpu(cpu_input, cpu_output) != SUCCESS)) {
 		return FAILURE;
 	}
-	memcpy(&upd9002, registers_input, sizeof(upd9002));
-	memcpy(registers_output, &upd9002, sizeof(registers_output));
+	memcpy(&upd9002_regs, registers_input, sizeof(upd9002_regs));
+	memcpy(registers_output, &upd9002_regs, sizeof(registers_output));
 	if (memcmp(cpu_input, cpu_output, sizeof(cpu_input)) ||
 		memcmp(registers_input, registers_output, sizeof(registers_input))) {
 		return FAILURE;
@@ -157,7 +157,7 @@ int main(int argc, char **argv) {
 		return 2;
 	}
 	if ((sizeof(i286core.s) != CPU_PAYLOAD_SIZE) ||
-		(sizeof(upd9002) != UPD9002_PAYLOAD_SIZE)) {
+		(sizeof(upd9002_regs) != UPD9002_PAYLOAD_SIZE)) {
 		return 3;
 	}
 #if !defined(VAEG_M44_RAW_COMPAT_PROBE)

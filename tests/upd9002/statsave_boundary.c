@@ -27,7 +27,7 @@
 #include "cpucore.h"
 #include "upd9002_state.h"
 #include "pccore.h"
-#include "upd9002.h"
+#include "upd9002_regs.h"
 #include "tests/upd9002/statsave_boundary.h"
 
 #include <stddef.h>
@@ -42,7 +42,7 @@ typedef struct {
 	Upd9002RuntimeState runtime;
 	Cpu286StateCompat compatibility;
 	PCCORE core;
-	_UPD9002 registers;
+	UPD9002_REGS registers;
 	UINT32 memory_hash;
 } STATE_SNAPSHOT;
 
@@ -78,7 +78,7 @@ static void snapshot_capture(STATE_SNAPSHOT *snapshot) {
 	snapshot->runtime = i286core.s;
 	upd9002_state_export(&snapshot->compatibility);
 	snapshot->core = pccore;
-	snapshot->registers = upd9002;
+	snapshot->registers = upd9002_regs;
 	snapshot->memory_hash = memory_hash();
 }
 
@@ -91,7 +91,7 @@ static int snapshot_matches(const STATE_SNAPSHOT *snapshot) {
 		!memcmp(&snapshot->compatibility, &compatibility,
 			sizeof(snapshot->compatibility)) &&
 		!memcmp(&snapshot->core, &pccore, sizeof(snapshot->core)) &&
-		!memcmp(&snapshot->registers, &upd9002,
+		!memcmp(&snapshot->registers, &upd9002_regs,
 			sizeof(snapshot->registers)) &&
 		(snapshot->memory_hash == memory_hash());
 }
