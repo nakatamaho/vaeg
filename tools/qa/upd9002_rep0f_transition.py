@@ -73,6 +73,17 @@ M48_PATHS = {
     "manifest": "tools/qa/golden/upd9002_rep0f_transition_manifest_m48.json",
 }
 
+M48_IDENTITIES = {
+    M48_PATHS["graph"]:
+        "fe9df28ad3d51cc55235afc3979ada890e86158b294762c15fa33c20d8a800a6",
+    M48_PATHS["provenance"]:
+        "128698af06c4e4e98183e4ec0151b7025f427c4f812f95d9012f41417461027a",
+    M48_PATHS["support"]:
+        "21dd037c3eb11e1674805ad456ef03663f17804affbd7382c8db77291ab25279",
+    M48_PATHS["manifest"]:
+        "4f3fefe8cbfb20a03364a80a0b917e475d3d545cab8eda6bee8a22c66e2147ee",
+}
+
 Row = Tuple[str, ...]
 
 
@@ -333,17 +344,26 @@ def compare_or_write(path: pathlib.Path, data: bytes, write: bool) -> None:
 def verify(root: pathlib.Path, write: bool, selftest: bool) -> None:
     verify_historical(root)
     verify_source_policy(root)
+    for relative, expected in M48_IDENTITIES.items():
+        actual = sha256((root / relative).read_bytes())
+        if actual != expected:
+            raise TransitionError(
+                "accepted M48 artifact identity changed: {} expected={} actual={}".format(
+                    relative, expected, actual))
     module = load_dispatch_module(root)
     if selftest:
         module.internal_selftest()
-    graph, provenance, harness, support = module.generate(root)
-    outputs = {
-        "graph": graph.encode("utf-8"),
-        "provenance": provenance.encode("utf-8"),
-        "support": support.encode("utf-8"),
-    }
-    for name in ("graph", "provenance", "support"):
-        compare_or_write(root / M48_PATHS[name], outputs[name], write)
+    live_graph, _live_provenance, harness, live_support = module.generate(root)
+    graph = (root / M48_PATHS["graph"]).read_text(encoding="utf-8")
+    provenance = (root / M48_PATHS["provenance"]).read_text(encoding="utf-8")
+    support = (root / M48_PATHS["support"]).read_text(encoding="utf-8")
+    if live_graph != graph:
+        raise TransitionError("live final graph differs from accepted M48 graph")
+    if live_support != support:
+        raise TransitionError("live support map differs from accepted M48 support")
+    for name, content in (("graph", graph), ("provenance", provenance),
+                          ("support", support)):
+        compare_or_write(root / M48_PATHS[name], content.encode("utf-8"), False)
     manifest = build_manifest(root, graph, provenance, support, harness)
     compare_or_write(root / M48_PATHS["manifest"], manifest, write)
 
