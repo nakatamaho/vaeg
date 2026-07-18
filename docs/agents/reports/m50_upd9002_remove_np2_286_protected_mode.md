@@ -23,9 +23,9 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 # M50 remove approved NP2 286 protected-mode groups
 
 Status: the three and only three groups explicitly approved at G49 have been
-deleted. Local preservation validation is complete. Hosted validation and the
-G50 human gate remain external to this report; this report does not declare G50
-passed and M51 has not begun.
+deleted. Local and hosted preservation validation are complete. The G50 human
+gate remains external to this report; this report does not declare G50 passed
+and M51 has not begun.
 
 The final report/remote SHA is supplied in the handoff because a report cannot
 contain the SHA of the commit that contains itself.
@@ -39,8 +39,12 @@ contain the SHA of the commit that contains itself.
   `topic/m49-upd9002-protected-mode-reachability`
 - Pre-report implementation and QA SHA:
   `303e6cb3f128fbc0300d1a1943887cce36a2944b`
+- Hosted evidence and remote report SHA:
+  `8bb5b1e2c5f3cff0f19b1cfd649f0f97f4c6329a`
+- Hosted evidence run:
+  [build 29662304823](https://github.com/nakatamaho/vaeg/actions/runs/29662304823)
+  — 7/7 jobs successful
 - Final and remote SHA: supplied in the handoff after hosted validation
-- Hosted evidence run: supplied after the final pushed SHA completes
 
 The worktree started clean at the exact approved G49 SHA. No reset, rebase,
 squash, force push, or M42--M49 history rewrite was performed. M50 changes no
@@ -233,7 +237,8 @@ construction, one rejected repeat construction, roots
 The deterministic checker fails if any approved member remains active, any
 placeholder/final patch changes, any known member is omitted, any group grows,
 or any accepted M42/M48 artifact changes unexpectedly. Its negative selftests
-cover source resurrection, a changed placeholder, and manifest drift.
+cover a duplicate candidate, an invalid retained-replacement action, a
+host-dependent manifest value, and malformed dispatch-parser inputs.
 
 Post-deletion production object inventories contain no `i286c_0f.c.o`.
 ELF and PE symbol searches contain none of the deleted functions/tables.
@@ -324,7 +329,7 @@ M48 diagnostic/state rejection and M49 accepted evidence remain exact.
 | GCC `linux-release` | fresh tests-disabled build; selftest and ROM-less smoke pass |
 | MinGW-w64 `mingw-cross` | fresh tests-disabled build; Wine selftest and ROM-less smoke pass |
 | function-section/linker map | tests-disabled build; approved symbols absent, retained symbols present |
-| hosted Linux/Windows/macOS/standalone | pending final pushed SHA |
+| hosted Linux/Windows/macOS/standalone | [build 29662304823](https://github.com/nakatamaho/vaeg/actions/runs/29662304823): 7/7 successful at `8bb5b1e2c5f3cff0f19b1cfd649f0f97f4c6329a` |
 | repository invariants | encoding 0, EOL 0, case 0, diff/frozen/binary checks pass; accepted unreferenced count 70 |
 
 Production artifact identities before publication are:
@@ -482,6 +487,8 @@ python3 tools/repo/find_unreferenced.py --report
 git diff --check
 git diff --exit-code 2a21a5264a3830f5a393ed7fbd3fbe1e900f2926 -- \
   win9x i286x cpuxva/memoryva.x86 hlp romimage
+git push -u origin topic/m50-upd9002-remove-protected-mode
+gh run view 29662304823 --json status,conclusion,url,headSha,jobs
 ```
 
 ## Deviations and remaining risks
