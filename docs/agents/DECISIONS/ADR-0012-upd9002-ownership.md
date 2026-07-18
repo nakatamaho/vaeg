@@ -25,9 +25,10 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 ## Status
 
 Accepted at G42. G44 was explicitly accepted at
-`b5f6ee7da7665789ce23013f2f8418fe0889773c`. M45 implements the native-mode
-decision below and remains subject to G45 human review. This ADR does not
-authorize M46 before G45 passes.
+`b5f6ee7da7665789ce23013f2f8418fe0889773c`, and G45 was explicitly accepted
+at `5d1880c9446d05e863011df41e629801c9328779`. M46 implements the dispatch
+normalization decision below and remains subject to G46 human review. This ADR
+does not authorize M47 before G46 passes.
 
 ## Context
 
