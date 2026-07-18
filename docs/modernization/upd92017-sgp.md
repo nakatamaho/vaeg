@@ -23,29 +23,30 @@ IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE.
 -->
 ---
-title: "PC-88VA Super Graphics Processor Specification Reconstruction"
-short_title: "PC-88VA SGP Reconstructed Specification"
-filename: "docs/modernization/upd65200-sgp.md"
-requested_filename: "uPD65200-sgp-en.md"
+title: "PC-88VA uPD92017 Super Graphics Processor Specification Reconstruction"
+short_title: "PC-88VA uPD92017 SGP Reconstruction"
+filename: "docs/modernization/upd92017-sgp.md"
 document_status: "Reconstructed, non-authoritative specification"
 language: "en"
-version: "0.3-en.1"
-date: "2026-07-16"
+version: "0.4-en.1"
+date: "2026-07-18"
 target_system: "NEC PC-88VA family"
-requested_device_identifier: "uPD65200 (not independently verified)"
+device_identifier: "uPD92017; original-VA package marking D92017-002"
+later_device_identifier: "uPD92046; VA2 package marking D92046GD-001"
 ---
 
-# PC-88VA Super Graphics Processor Specification Reconstruction
+# PC-88VA uPD92017 Super Graphics Processor Specification Reconstruction
 
 > **Status:** Reconstructed, unofficial specification
 > **Target:** PC-88VA Super Graphics Processor (SGP)
-> **Requested identifier:** `uPD65200`
-> **Important:** The period sources examined consistently call this device the
-> **SGP (Super Graphics Processor)**. No NEC primary source, semiconductor
-> data sheet, package marking, or pinout has yet been found that independently
-> identifies the PC-88VA SGP as **μPD65200/uPD65200**. The requested
-> identifier is retained as metadata, but the association remains
-> **unverified**.
+> **Original-VA device:** `μPD92017`, package marking `D92017-002`, schematic
+> reference IC75 and label `VDP`
+> **VA2 successor:** `μPD92046`, package marking `D92046GD-001`
+> **Corrected identification:** The original-VA circuit diagrams place the CPU
+> slave interface, main-memory bus-master interface, GVRAM master interface,
+> completion interrupt, DMA, ready, and wait signals on IC75. This uniquely
+> matches the software-visible SGP. IC76 `D65200GD-054` is a separate `GAL-3`
+> GVRAM sequencer; it is not the SGP.
 
 ## 0. Purpose and interpretation
 
@@ -58,7 +59,8 @@ the twelve identifiable opcodes, transfers, Boolean raster operations,
 transparency, line drawing, clearing, scan/paint assistance, termination,
 interrupts, abort, contention, model differences, and hardware questions.
 
-It is not a semiconductor data sheet. Internal microarchitecture, pins,
+It is not a semiconductor data sheet. The original-VA schematic now identifies
+the device and its external bus roles, but internal microarchitecture,
 electrical limits, process, and an authoritative command-cycle table have not
 been recovered.
 
@@ -91,6 +93,25 @@ named compatibility choices.
 
 The check digit is valid; no DOI is expected. OCR and extracted text broadly
 agree, but bit positions derived from diagrams remain vulnerable to OCR error.
+
+**[SCH] Original-VA full-circuit-diagram ownership audit, 18 July 2026**
+
+- The maintainer read the complete circuit-diagram section of [TM] and checked
+  each page title, reference designator, printed part-number label, and signal
+  group against repeated OCR.
+- IC75 is marked `D92017-002`, labelled `VDP`, and carries the CPU-slave,
+  main-memory bus-master, GVRAM-master, `VINT`, `VOPRDY`, `VODMA`, and `WAIT`
+  interfaces required by the software-visible SGP.
+- IC76 is independently present on the same diagrams as `D65200GD-054`,
+  labelled `GAL-3`, and carries GVRAM sequencing, serial clocks, display
+  transfer, and arbitration signals.
+- The identification is therefore based on distinct devices and net roles,
+  not on similarity between an emulator model and an isolated OCR token.
+
+The scan quality leaves the middle digits of IC80's `D65070GD-084` marking
+slightly uncertain and leaves IC82's marking unresolved. Neither ambiguity
+affects the IC75/IC76 separation. Exact schematic page and full-pin
+transcriptions remain desirable for independent review.
 
 **[VC] *PC-88VA Technical Manual, 88VA Users Club Edition, beta 1.0,
 1992-01-20***
@@ -161,10 +182,13 @@ a recoverable page or primary source.
 
 Agreement between [TM] and [VC] is useful but not necessarily independent.
 
-## 2. Functional role and display-system boundaries
+## 2. Hardware identity, role, and display-system boundaries
 
-**[CONFIRMED]** The SGP is a memory-oriented drawing processor, distinct from
-the display-timing controller. It provides rectangular transfer, repeated
+**[CONFIRMED]** The original PC-88VA SGP is IC75, `D92017-002`. The circuit
+diagrams label it `VDP`; the software documentation calls the programming
+interface `SGP`. Its interfaces identify those names as two views of the same
+device. The SGP is a memory-oriented drawing processor, distinct from the
+display-timing controller, and provides rectangular transfer, repeated
 patterns, 16 Boolean ROPs, packed 1/4/8/16-bpp pixels, one-bit color expansion,
 line drawing, range fill, scan assistance, command-list execution, and END
 interrupts.
@@ -174,24 +198,101 @@ Main CPU
     |
     | ports 0500h..0507h
     v
-+--------------------------------+
-| Super Graphics Processor       |
-| command fetch and decode       |<--- command list in main RAM
-| source/destination descriptors |
-| color and Boolean ROP          |
-| block, line, and scan engines  |
-+--------------------------------+
-    |
-    | 16-bit accesses in SGP space
-    v
-Main RAM / expansion RAM / Kanji ROM / TVRAM / GVRAM
++------------------------------------------+
+| uPD92017 / D92017-002                    |
+| schematic label: VDP                    |
+| software-visible role: SGP              |<--- command list in main RAM
+| command fetch, descriptors, ROP, drawing|
++------------------------------------------+
+    |                    |
+    | main-memory master | GVRAM master
+    v                    v
+Main/expansion RAM       shared GVRAM bus
+                             ^
+                             |
+                   D65200GD-054 GAL-3
+                   display transfer/sequencing
 ~~~
 
 **[DOCUMENTED]** The SGP is usable only in single-plane graphics mode. Starting
 it in multi-plane mode is **[UNKNOWN]** and should be diagnosable rather than
 silently assigned invented behavior.
 
-### 2.1 Resolution ownership
+### 2.1 Original-VA custom-LSI ownership
+
+The full schematic audit gives the following ownership map. Part numbers are
+recorded as printed package patterns; `μPD` family names are used only where
+the identity is established.
+
+| Ref | Package marking | Diagram name | Function established by signal groups |
+|---|---|---|---|
+| IC83 | `μPD9002` | CPU/interrupt area | CPU; 15.9744MHz crystal divided to 8MHz, i8259A slave, and SA/SD bus generation through LS373/ALS245 |
+| IC77 | `D65042GD-093` | `GAL-1` | Memory/bus controller; MA, DRAM RAS/CAS, ROM/dictionary banking, ready bundle, and `X8V3` |
+| IC74 | `D65101GD-055` | `GAL-2` | Video composition/output; combines GVRAM serial data, IDP `TXVD`, expansion video, and GPD before RGB latches and three D6901C DACs |
+| IC76 | `D65200GD-054` | `GAL-3` | GVRAM sequencer; GA, chip select, RAS/CAS/WE/DTOE, serial clocks, display transfer, and drawing/display arbitration |
+| IC75 | `D92017-002` | `VDP` | **SGP**; CPU slave, main-memory bus master, GVRAM master, interrupt, DMA, ready, and wait |
+| IC79 | `D72022G` | GDC/IDP | Text/sprite processor (TSP/IDP), `VAD`, `TXVD`, and sync interfaces |
+| IC80 | `D65070GD-084` (OCR caveat) | IDP attribute control | 64KiB TVRAM control, attribute expansion, and character-ROM address generation |
+| IC81 | `D65012GF-042` | IDP pipeline | Later text-pipeline serialization using VAD/TDB paths |
+| IC78 | `PCZ80-27` | V1/V2-mode emulator | PC-8801 compatibility I/O/peripheral emulation, keyboard paths, mode/reset, and legacy port decode |
+| IC14 | `D65013GF-124` | FDD interface/mode switch | Z80 disk-subsystem to main-system bus bridge, DMA, and interrupt paths |
+| IC1 | `D65006GF-067` | CPU clock/FDD area | Disk-side memory control, FDD signals, and dual-oscillator clock generation |
+| IC82 | `SLA6050C0R` (uncertain OCR) | Digital-RGB page | Keyboard receive paths; vendor/part identity remains unresolved |
+
+Three OCR passes read IC80 as `65070`, but the scan cannot fully exclude
+`65010`. IC82's marking does not fit the surrounding NEC numbering and may be
+an OCR error. These caveats do not touch IC75 or IC76.
+
+The generic devices corroborate the partitioning: a `μPD780C-1`, `μPD765A`,
+`μPD71066`, two D41416 DRAMs, and D23C64 form the intelligent FDD subsystem.
+The remaining support logic includes two 8255s, 8251, 8259A, keyboard
+`μPD7811CW-655`, YM2203/YM3014 sound, MC1377 video encoding, `μPD4990`, and
+three D6901C video DACs.
+
+### 2.2 Why D92017-002 is the SGP
+
+The IC75 pin profile matches every integration property of the documented SGP:
+
+| Interface | IC75 signal groups | SGP implication |
+|---|---|---|
+| CPU slave | `AD0-15`, `BS0-2`, `A16-19` | CPU programming and status interface |
+| Main-memory master | `MAD0-15`, `MA16-19`, `XMADH`, `XMADL`, `MHDIR` | Command fetch and BITBLT access beyond the CPU's current logical window; physical support for the documented 22-bit space |
+| GVRAM master | `GDB0-15`, `GA00-17`, `XCSW0-7`, RAS/CAS/WE/DTOE | Direct packed-pixel drawing and read-modify-write access |
+| Flow/interrupt | `VINT`, `VOPRDY`, `VODMA`, `WAIT` | Completion IRQ 8, DMA/bus ownership, readiness, and CPU stall paths |
+
+No other original-VA device has this combination. In particular, IC76
+`D65200GD-054` is visible at the same time as IC75 and has a different role:
+`GA00-17`, `XCSW0-7`, `XGRAS`, `XGCAS`, `XGWE0-3`, `XDTOE0-3`, `SCLK0-7`,
+`ILCLK`, `XSEN`, `XSOE`, `RSM`, `WAM`, and `SYNCM` form the GVRAM display
+sequencer and arbitration block.
+
+IC75 and IC76 both drive or observe GA/XCSW because the drawing master and
+display-refresh sequencer share the GVRAM bus. Shared nets are evidence of
+arbitration, not evidence that `D65200` implements the drawing engine. GAL-1's
+`TRDY`, `VRDY`, `IRDY`, `ERDY`, and `NSPD` bundle is the physical place to
+trace wait insertion. Whether `VRDY` is driven directly from the IC75 ready
+path still requires a complete pin-to-net transcription.
+
+### 2.3 Original VA to VA2 correspondence
+
+| Function | Original VA | VA2 schematic |
+|---|---|---|
+| Memory/bus control | `D65042GD-093` | `D65042GD-246`, redesigned for the no-wait model |
+| Video composition/output | `D65101GD-055` | `D65101GD-055`, same package pattern |
+| GVRAM sequencer | `D65200GD-054` | `D65200GD-076` |
+| VDP/SGP | `D92017-002` | `D92046GD-001` |
+| IDP | `D72022G` | `D72022GF` |
+| TVRAM/attribute control | `D65070GD-084` plus `D65012GF-042` | Daughter-board `D65101GD-107`; correspondence is coarse after the 256KiB TVRAM redesign |
+| FDD interface | `D65013GF-124` plus `D65006GF-067` | Apparently integrated into `D65101GD-110` |
+| V1/V2-mode emulator | `PCZ80-27` | Outside the available VA2 diagram scope |
+| VA2-only block | none | `D92044GD-001`; likely expansion-slot/bus control, not yet established |
+
+This lineage independently separates the 92-series VDP/SGP from the 65200
+GAL-3 family: both devices advance to distinct VA2 patterns. It also explains
+why a VA2 diagram can show `D92046GD-001` generating GVRAM addresses while a
+65200-series device remains present on the shared bus.
+
+### 2.4 Resolution ownership
 
 The complete cross-block register map and worked mode relationships are in
 [PC-88VA Video-Mode and Framebuffer Control](pc88va-video-modes.md). This SGP
@@ -201,19 +302,19 @@ The display blocks have separate responsibilities:
 
 | Block | Responsibility |
 |---|---|
-| SGP | Where pixels are drawn and which framebuffer pitch is used |
-| VDP/graphics fetch | How GVRAM is interpreted and read |
+| `μPD92017` VDP/SGP | Where pixels are drawn and which framebuffer pitch is used |
+| `D65200GD-054` GAL-3 | GVRAM display transfer, serial clocks, sequencing, and drawing/display arbitration |
 | Port `0102h` | Native 640/320 horizontal selection and pixel format |
 | Port `0100h` | 200/204/400/408 vertical and scan selection |
-| TSP `SYNC` | Actual sync, blanking, and active intervals |
-| D65101-side logic | Compose TSP, G0, and G1 in the common 640-dot coordinate system |
+| `μPD72022` TSP/IDP `SYNC` | Text/sprite processing and actual sync, blanking, and active intervals |
+| `D65101GD-055` GAL-2 | Compose TSP, G0, G1, and expansion video in the common 640-dot coordinate system |
 
 The generic μPD72022 can produce 256x192 or other examples by changing
 `SYNC.RS`, `HAD`, and `VAD`. That does not establish an official PC-88VA
 256x192 mode composited with GVRAM. A TSP-only 256-dot width risks disagreement
 with graphics fetch, sprite coordinates, and composition boundaries.
 
-### 2.2 Arbitrary sizes are viewports
+### 2.5 Arbitrary sizes are viewports
 
 An arbitrary logical size such as 384x256 should first be implemented as a
 viewport in a documented physical raster:
@@ -232,7 +333,7 @@ keep TSP timing at known 640x400 values. `OFX` changes the source position and
 is not a proven destination-X placement control. A tightly packed 384-dot
 pitch is a later hardware discriminator, not a documented native fetch width.
 
-### 2.3 Safe hardware-test order
+### 2.6 Safe hardware-test order
 
 Do not begin with arbitrary `SYNC`: an out-of-range CRT signal is unsafe and
 makes failures ambiguous.
@@ -660,7 +761,7 @@ A staged emulator strategy is:
 
 | Topic | Period documentation | Current vaeg | Reconstruction decision |
 |---|---|---|---|
-| Device name | SGP | SGP | Use SGP; `uPD65200` remains unverified |
+| Device identity | Software name SGP; schematic IC75 `VDP`, `D92017-002` | SGP | Original VA is `μPD92017`; VA2 successor is `D92046GD-001`; `D65200` is the separate GAL-3 |
 | Command count | Says 13, lists 12 | Dispatches 1 through C | Do not invent or hide an opcode |
 | Address space | 4MiB original-VA map | Broadly modeled; incomplete handlers | Period map is baseline; overlays are model profiles |
 | Command table | Main RAM for portable software | Fetch backend can address SGP space | Require main RAM until hardware proves otherwise |
@@ -863,7 +964,7 @@ all memory changes.
 
 ### 22.6 Resolution and viewport
 
-Use the safe sequence in section 2.3. For 320x200, distinguish physical 2x2
+Use the safe sequence in section 2.6. For 320x200, distinguish physical 2x2
 expansion from a new sync mode. For 384x256, keep 640x400 timing and test only
 pitch, logical height, display position, masking, and backdrop. Record raw
 registers and GVRAM so SGP drawing errors are not confused with fetch or mixer
@@ -873,27 +974,28 @@ errors.
 
 ### P0: functional correctness
 
-1. Confirm or reject the `uPD65200` part number.
-2. Resolve LINE `VD`/`HD`.
-3. Recover exact SCAN parameters and results.
-4. Resolve thirteen stated commands versus twelve opcodes.
-5. Verify raw descriptor bit layout.
-6. Determine zero width/height.
-7. Establish first/last-pixel masks.
-8. Verify every `TP` encoding.
-9. Resolve the Boolean ROP nibble ordering conflict.
+1. Resolve LINE `VD`/`HD`.
+2. Recover exact SCAN parameters and results.
+3. Resolve thirteen stated commands versus twelve opcodes.
+4. Verify raw descriptor bit layout.
+5. Determine zero width/height.
+6. Establish first/last-pixel masks.
+7. Verify every `TP` encoding.
+8. Resolve the Boolean ROP nibble ordering conflict.
 
 ### P1: likely software compatibility
 
-1. Verify later-model descriptor extensions.
-2. Confirm Kanji ROM/RAM overlays by model.
-3. Test command lists outside main RAM.
-4. Establish start-while-busy.
-5. Establish abort and partial-write rules.
-6. Determine reserved-region read values.
-7. Verify pointer readback/post-END value.
-8. Recover and cite Wiki pages individually.
-9. Verify 320x400 and fixed-raster viewport behavior without calling them
+1. Complete an independently reviewable IC75/IC76 page, pin, and net
+   transcription; trace `VRDY`, `VOPRDY`, `VODMA`, and `WAIT` end to end.
+2. Verify later-model descriptor extensions.
+3. Confirm Kanji ROM/RAM overlays by model.
+4. Test command lists outside main RAM.
+5. Establish start-while-busy.
+6. Establish abort and partial-write rules.
+7. Determine reserved-region read values.
+8. Verify pointer readback/post-END value.
+9. Recover and cite Wiki pages individually.
+10. Verify 320x400 and fixed-raster viewport behavior without calling them
    official modes prematurely.
 
 ### P2: timing
@@ -950,9 +1052,16 @@ confidence = confirmed | provisional | unknown
 
 ## 25. Consolidated specification summary
 
+The original PC-88VA SGP is the `μPD92017` at IC75, package marking
+`D92017-002` and schematic label `VDP`. Its VA2 successor is
+`D92046GD-001`. The concurrently present `D65200GD-054` is GAL-3, a separate
+GVRAM display sequencer and arbitration device.
+
 The SGP is a memory drawing coprocessor controlled through the `0500h` range.
 It fetches little-endian commands from a programmed list, retains work/source/
-destination/color state, and accesses a private 22-bit, 4MiB space.
+destination/color state, and accesses a private 22-bit, 4MiB space. The IC75
+main-memory-master pin group physically corroborates this reach, while its
+GVRAM-master and `VINT` interfaces corroborate drawing and IRQ 8 integration.
 
 The recoverable command set is END, NOP, SET_WORK, SET_SOURCE,
 SET_DESTINATION, SET_COLOR, BITBLT, PATBLT, LINE, CLS, SCAN_RIGHT, and
@@ -985,11 +1094,29 @@ treat vaeg or MAME as a hardware oracle.
 5. MAME [`pc88va_sgp.cpp`](https://github.com/mamedev/mame/blob/master/src/mame/nec/pc88va_sgp.cpp)
    and [`pc88va_sgp.h`](https://github.com/mamedev/mame/blob/master/src/mame/nec/pc88va_sgp.h).
 6. [Inside PC-88VA Wiki](http://www.pc88.gr.jp/inside88va/wiki/).
+7. Maintainer full-circuit-diagram ownership audit, 18 July 2026, based on the
+   complete original-VA schematic section of reference 1 and recorded in
+   sections 1.1 and 2 of this document.
 
 Wiki statements must be cited page by page when recoverable. Captured claims
 are not primary evidence without a retrievable page or corroboration.
 
 ## 27. Change log
+
+### 0.4-en.1 - 2026-07-18
+
+- Corrected the original-VA SGP identity to `μPD92017`, package marking
+  `D92017-002`, schematic reference IC75 and label `VDP`.
+- Identified `D65200GD-054` as the separate IC76 `GAL-3` GVRAM sequencer and
+  documented the shared drawing/display GVRAM bus.
+- Added the complete original-VA custom-LSI ownership table and signal-based
+  SGP identification evidence.
+- Added the VA1-to-VA2 correspondence, including `D92046GD-001` as the VA2
+  VDP/SGP successor and `D65200GD-076` as its distinct GAL-3 contemporary.
+- Recorded the `VINT`, ready, DMA, wait, main-memory-master, and GVRAM-master
+  implications for emulator interrupt, address-space, and contention work.
+- Renamed the document from `upd65200-sgp.md` to `upd92017-sgp.md` and updated
+  its cross-document reference.
 
 ### 0.3-en.1 - 2026-07-16
 
@@ -998,7 +1125,8 @@ are not primary evidence without a retrievable page or corroboration.
   vaeg, MAME, and captured Wiki evidence.
 - Identified `tekumani.lzh` as the canonical distribution and kept its original
   SHA-256 unverified.
-- Kept `uPD65200` explicitly unverified.
+- Retained the then-unverified `uPD65200` hypothesis; version 0.4 supersedes
+  it with the full-schematic IC75/IC76 identification.
 - Preserved the twelve-opcode/thirteen-command, LINE direction, ROP ordering,
   and SCAN conflicts.
 - Added fixed-raster viewport guidance, safe resolution experiments,
