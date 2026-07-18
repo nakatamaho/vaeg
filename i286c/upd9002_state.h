@@ -33,6 +33,8 @@
 #define UPD9002_STATE_ERROR_SIZE "CPU286 payload size is not 112 bytes"
 #define UPD9002_STATE_ERROR_CPU_TYPE \
 	"CPU286 cpu_type is not CPUTYPE_V30"
+#define UPD9002_STATE_ERROR_PROTECTED_MODE \
+	"CPU286 state requires unsupported 80286 protected-mode execution"
 
 #ifdef __cplusplus
 extern "C" {
