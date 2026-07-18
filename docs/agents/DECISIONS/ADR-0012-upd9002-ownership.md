@@ -26,9 +26,10 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 Accepted at G42. G44 was explicitly accepted at
 `b5f6ee7da7665789ce23013f2f8418fe0889773c`, and G45 was explicitly accepted
-at `5d1880c9446d05e863011df41e629801c9328779`. M46 implements the dispatch
-normalization decision below and remains subject to G46 human review. This ADR
-does not authorize M47 before G46 passes.
+at `5d1880c9446d05e863011df41e629801c9328779`, and G46 was explicitly
+accepted at `5a9b4c1de72ce18fd7989c8db22a542ca49ede09`. ADR-0013 supersedes this
+ADR's original M47--M49 sequencing and its disproved assumption that the NP2
+protected-mode cluster was unreachable. It does not authorize M48.
 
 ## Context
 
@@ -50,7 +51,7 @@ The instruction engine owns the future `upd9002_core_*` namespace. The
 `Upd9002Device` is outside this series.
 
 The final instruction-core directory is `cpu/upd9002/`. Active file moves and
-public renames occur only in M49. Internal static opcode-handler identifiers
+public renames occur only in M51. Internal static opcode-handler identifiers
 and `I286_*` implementation helpers may remain when changing them would alter
 the immutable source-level dispatch identity or add cosmetic risk.
 
@@ -58,23 +59,23 @@ The expected public mapping is:
 
 | Current API | Final API / disposition | Owner milestone |
 |---|---|---|
-| `i286c_initialize` | `upd9002_core_initialize` | M49 |
-| `i286c_deinitialize` | `upd9002_core_deinitialize` | M49 |
-| `i286c_reset` | `upd9002_core_reset` | M49 |
-| `i286c_shut` | `upd9002_core_shut` | M49 |
-| `i286c_setextsize` | `upd9002_core_set_ext_size` | M49 |
-| `i286c_setemm` | `upd9002_core_set_emm` | M49 |
-| `i286c_interrupt` | `upd9002_core_interrupt` | M49 |
-| `v30c_step` | `upd9002_core_step` | M49 |
-| `v30cinit` | `upd9002_dispatch_initialize` | M49 |
+| `i286c_initialize` | `upd9002_core_initialize` | M51 |
+| `i286c_deinitialize` | `upd9002_core_deinitialize` | M51 |
+| `i286c_reset` | `upd9002_core_reset` | M51 |
+| `i286c_shut` | `upd9002_core_shut` | M51 |
+| `i286c_setextsize` | `upd9002_core_set_ext_size` | M51 |
+| `i286c_setemm` | `upd9002_core_set_emm` | M51 |
+| `i286c_interrupt` | `upd9002_core_interrupt` | M51 |
+| `v30c_step` | `upd9002_core_step` | M51 |
+| `v30cinit` | `upd9002_dispatch_initialize` | M51 |
 | `i286c_step` | removed after native invariant | M45 |
 | `i286c`, `v30c` | remove block executors | M46 |
-| `i286c_intnum`, `i286c_selector`, REP helpers | internalize or retain under the graph/name exception | M47–M49 evidence |
-| `upd9002_reset`, `upd9002_bind`, `upd9002` | future `upd9002_regs_*` names | M49 |
+| `i286c_intnum`, `i286c_selector`, REP helpers | internalize or retain under the graph/name exception | M47–M51 evidence |
+| `upd9002_reset`, `upd9002_bind`, `upd9002` | future `upd9002_regs_*` names | M51 |
 
 The one authoritative final execution primitive is
 `upd9002_core_step()`. A future `upd9002_core_run(cycle_budget)` may loop that
-primitive, but no run-budget API is implemented in M42–M49.
+primitive, but no run-budget API is implemented in M42–M51.
 
 ### State model
 
@@ -116,10 +117,13 @@ Runtime table construction remains. M42 records two different artifacts:
 * `upd9002_dispatch_provenance_m42.csv` records base entries, patch operations,
   and explicit DIV/IDIV replacements at M42.
 
-The final graph must remain byte-identical through G49. Construction
-provenance may change only when an approved later task changes dead base
-construction while preserving the final graph. Runtime pointer values,
-addresses, symbolizers, and function-pointer object hashes are not identity.
+The accepted M42 graph remains byte-identical through G47 and remains an
+immutable historical artifact afterward. M48 may change only exact graph,
+provenance, and support-map rows explicitly approved at G47 and must record a
+separate transition artifact rather than overwrite M42 evidence. Construction
+provenance otherwise changes only under an explicit later approval. Runtime
+pointer values, addresses, symbolizers, and function-pointer object hashes are
+not identity.
 
 ### Native-mode and shutdown invariants
 
@@ -147,15 +151,21 @@ must remain byte-identical to the M42 shutdown fixture.
 * M45 owns removal of `i286c_step()` and the supported-selector branch after
   native-only evidence.
 * M46 owns removal of `i286c()` and `v30c()` and construction normalization.
-* M47 inventories and isolates the partial NP2 80286 protected-mode cluster.
-* M48 may delete only the dependency-closed protected-mode groups explicitly
-  approved at G47.
-* M49 owns active moves, public renames, register-model renames, and final
+* M47 determines REP-prefixed 0x0F correctness evidence and prepares an
+  explicit protected-residue state-policy decision without changing behavior.
+* M48 may implement only the exact semantic, state, dispatch, and baseline
+  transition approved at G47.
+* M49 inventories the remaining partial NP2 80286 protected-mode cluster after
+  that transition without assuming it is unreachable.
+* M50 may delete only dependency-closed groups explicitly approved at G49.
+* M51 owns active moves, public renames, register-model renames, and final
   repository guards.
 
 NP2 80286 protected-mode handlers, state, and helpers remain present through
-G47. M42 inventories them only. No deletion is inferred from native
-unreachability or a symbol name.
+G49. The accepted M47 audit proved active REPNE/REPE 0x0F edges into
+`i286c_cts`, and imported MSW_PE state can activate `i286c_selector`. No
+deletion is inferred from a symbol name, an overwritten base slot, or presumed
+native unreachability.
 
 ### External oracle and non-goals
 
@@ -190,7 +200,8 @@ instruction forms are target gaps, not failures or implementation requests.
 
 The following remain out of scope: uPD9002 compatibility mode, missing
 instructions, timing changes, prefetch modeling, performance optimization,
-multithreading, a run-budget API, and state version changes.
+multithreading, and a run-budget API. A state-version change remains forbidden
+unless it is an exact part of the G47-approved M48 protected-residue policy.
 
 ### Baseline and tags
 
