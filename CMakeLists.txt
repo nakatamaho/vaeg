@@ -139,7 +139,6 @@ set(VAEG_CORE_SOURCES
     i286c/upd9002_state.c
     i286c/i286c_mn.c
     i286c/i286c_ea.c
-    i286c/i286c_0f.c
     i286c/i286c_8x.c
     i286c/i286c_sf.c
     i286c/i286c_f6.c
