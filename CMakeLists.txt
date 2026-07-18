@@ -639,14 +639,14 @@ if(VAEG_ENABLE_TESTS)
 
     add_test(NAME vaeg_upd9002_dispatch_graph
         COMMAND "${Python3_EXECUTABLE}"
-            "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/upd9002_dispatch.py"
+            "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/upd9002_rep0f_transition.py"
             --root "${CMAKE_CURRENT_SOURCE_DIR}")
     set_tests_properties(vaeg_upd9002_dispatch_graph PROPERTIES
         LABELS "romless;upd9002;dispatch")
 
     add_test(NAME vaeg_upd9002_dispatch_generator_selftest
         COMMAND "${Python3_EXECUTABLE}"
-            "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/upd9002_dispatch.py"
+            "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/upd9002_rep0f_transition.py"
             --root "${CMAKE_CURRENT_SOURCE_DIR}" --selftest)
     set_tests_properties(vaeg_upd9002_dispatch_generator_selftest PROPERTIES
         LABELS "romless;upd9002;dispatch")
@@ -675,18 +675,18 @@ if(VAEG_ENABLE_TESTS)
     set_tests_properties(vaeg_upd9002_rep0f_diagnostic_stop PROPERTIES
 		LABELS "romless;upd9002;dispatch;state")
 
-    add_test(NAME vaeg_upd9002_rep0f_analysis_selftest
+    add_test(NAME vaeg_upd9002_rep0f_transition_selftest
 		COMMAND "${Python3_EXECUTABLE}"
-			"${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/upd9002_rep0f_analysis.py"
-			selftest --root "${CMAKE_CURRENT_SOURCE_DIR}")
-    set_tests_properties(vaeg_upd9002_rep0f_analysis_selftest PROPERTIES
+			"${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/upd9002_rep0f_transition.py"
+			--root "${CMAKE_CURRENT_SOURCE_DIR}" --selftest)
+    set_tests_properties(vaeg_upd9002_rep0f_transition_selftest PROPERTIES
 		LABELS "romless;upd9002;dispatch;state;ssts")
 
-    add_test(NAME vaeg_upd9002_rep0f_analysis_static
+    add_test(NAME vaeg_upd9002_rep0f_transition_static
 		COMMAND "${Python3_EXECUTABLE}"
-			"${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/upd9002_rep0f_analysis.py"
-			check-static --root "${CMAKE_CURRENT_SOURCE_DIR}")
-    set_tests_properties(vaeg_upd9002_rep0f_analysis_static PROPERTIES
+			"${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/upd9002_rep0f_transition.py"
+			--root "${CMAKE_CURRENT_SOURCE_DIR}")
+    set_tests_properties(vaeg_upd9002_rep0f_transition_static PROPERTIES
 		LABELS "romless;upd9002;dispatch;state;ssts")
 
     add_executable(vaeg_upd9002_abi tests/upd9002/abi.c)
