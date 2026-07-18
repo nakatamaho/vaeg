@@ -80,6 +80,19 @@ and link it statically. Windows release artifacts therefore require only
 sanitizer availability depends on the MinGW runtime/package set, so G11
 keeps sanitizer acceptance on Linux and macOS.
 
+## Maintainer Local Handoff
+
+For the maintainer, "the usual place" means:
+
+`/mnt/c/Users/maho/Dropbox/Documents/Emulators/PASOCON/NEC PC-88VA/vaeg_new/`
+
+Copy `build/linux-release/sdl2/vaeg` to `vaeg` in that directory. Copy
+`build/mingw-release/sdl2/vaeg.exe`, or
+`build/mingw-cross/sdl2/vaeg.exe` when cross-building on Linux, to
+`vaeg.exe`. Verify both copies byte-for-byte or with SHA-256. Do not copy or
+modify any other files in this maintainer-local integration directory unless
+the maintainer explicitly requests it.
+
 ## macOS Release
 
 The release preset downloads pinned SDL2 and links it statically:
