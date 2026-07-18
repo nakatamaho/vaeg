@@ -1511,35 +1511,6 @@ void v30cinit(void) {
 	v30_dispatch_initialized = TRUE;
 }
 
-void v30c(void) {
-
-	UINT	opcode;
-
-	if (I286_TRAP) {
-		do {
-			GET_PCBYTE(opcode);
-			v30op[opcode]();
-			if (I286_TRAP) {
-				i286c_interrupt(1);
-			}
-			V30_DMAP();
-		} while(I286_REMCLOCK > 0);
-	}
-	else if (dmac.working) {
-		do {
-			GET_PCBYTE(opcode);
-			v30op[opcode]();
-			V30_DMAP();
-		} while(I286_REMCLOCK > 0);
-	}
-	else {
-		do {
-			GET_PCBYTE(opcode);
-			v30op[opcode]();
-		} while(I286_REMCLOCK > 0);
-	}
-}
-
 void v30c_step(void) {
 
 	UINT	opcode;
