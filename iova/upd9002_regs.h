@@ -1,5 +1,5 @@
 /*
- * upd9002.h: PC-88VA CPU port
+ * upd9002_regs.h: PC-88VA CPU port
  */
 
 typedef struct {
@@ -7,19 +7,18 @@ typedef struct {
 							// bit4-2 タイマ2-0への供給クロック 0..内部 1..外部
 							// bit1-0 分周比　00..2 01..4 10..8 11..16
 	BYTE	dmy[15];
-} _UPD9002, *UPD9002;
+} UPD9002_REGS;
 
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-extern	_UPD9002		upd9002;
+extern	UPD9002_REGS	upd9002_regs;
 
-void upd9002_reset(void);
-void upd9002_bind(void);
+void upd9002_regs_reset(void);
+void upd9002_regs_bind(void);
 
 #ifdef __cplusplus
 }
 #endif
-

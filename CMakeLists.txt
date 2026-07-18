@@ -297,7 +297,7 @@ set(VAEG_VA_SOURCES
     iova/subsystemmx.c
     iova/sysportva.c
     iova/tsp.c
-    iova/upd9002.c
+    iova/upd9002_regs.c
     iova/va91.c
     iova/videova.c
     vramva/makegrphva.c
