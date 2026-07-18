@@ -40,6 +40,7 @@
 #include	"timing.h"
 #include	"keystat.h"
 #include	"debugsub.h"
+#include	"upd9002_diagnostic.h"
 
 #include	"bmsio.h"
 
@@ -1084,6 +1085,10 @@ void upd9002_m42_process_cpu_reset_request(void) {
 
 void pccore_exec(BOOL draw) {
 
+	if (upd9002_diagnostic_pending()) {
+		return;
+	}
+
 	drawframe = draw;
 //	keystat_sync();
 	soundmng_sync();
@@ -1180,6 +1185,9 @@ void pccore_exec(BOOL draw) {
 
 			//TRACEOUT(("%.4x:%.4x", CPU_CS, CPU_IP));
 			v30c_step();
+			if (upd9002_diagnostic_pending()) {
+				return;
+			}
 			if (pccore.model_va != PCMODEL_NOTVA) {
 				subsystemmx_exec();
 				sgp_step();

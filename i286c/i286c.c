@@ -5,6 +5,7 @@
 #include	"pccore.h"
 #include	"iocore.h"
 #include	"dmap.h"
+#include	"upd9002_diagnostic.h"
 #include	"upd9002_state.h"
 #include	"upd9002_trace.h"
 #if defined(VAEG_UPD9002_SSTS_TESTING)
@@ -151,6 +152,7 @@ void i286c_initialize(void) {
 #endif
 	v30cinit();
 	ZeroMemory(&i286core, sizeof(i286core));
+	upd9002_diagnostic_clear();
 	upd9002_state_initialize();
 	i286core.s.cpu_type = CPUTYPE_V30;
 }
@@ -185,6 +187,7 @@ void i286c_reset(void) {
 #endif
 	ZeroMemory(&i286core.s, sizeof(i286core.s));
 	i286core.s.cpu_type = CPUTYPE_V30;
+	upd9002_diagnostic_clear();
 	v30c_initreg();
 	upd9002_state_reset();
 }
@@ -196,6 +199,7 @@ void i286c_shut(void) {
 	 * It is a regression fixture exception, not an 80286 execution mode.
 	 */
 	ZeroMemory(&i286core.s, offsetof(I286STAT, cpu_type));
+	upd9002_diagnostic_clear();
 	i286c_initreg();
 	upd9002_state_shut();
 }

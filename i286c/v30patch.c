@@ -2,6 +2,7 @@
 #include	"cpucore.h"
 #include	"i286c.h"
 #include	"v30patch.h"
+#include	"upd9002_diagnostic.h"
 #include	"upd9002_trace.h"
 #include	"pccore.h"
 #include	"iocore.h"
@@ -41,6 +42,8 @@ static	I286OPF6	v30ope0xf6_table[8];
 static	I286OPF6	v30ope0xf7_table[8];
 static	BOOL		v30_dispatch_initialized;
 static	UINT16		v30_repc_ipbak;
+static	UINT16		v30_step_start_cs;
+static	UINT16		v30_step_start_ip;
 
 #if defined(VAEG_UPD9002_M46_TESTING)
 static	I286OP		v30op_snapshot[256];
@@ -538,6 +541,18 @@ I286FN v30_repe(void) {						// F3:	repe
 	else {
 		INT_NUM(6, I286_IP);
 	}
+}
+
+I286FN v30_repne_0f_diagnostic_stop(void) {
+
+	upd9002_diagnostic_raise_rep0f(0xf2, v30_step_start_cs,
+		v30_step_start_ip);
+}
+
+I286FN v30_repe_0f_diagnostic_stop(void) {
+
+	upd9002_diagnostic_raise_rep0f(0xf3, v30_step_start_cs,
+		v30_step_start_ip);
 }
 
 I286_F6 v30_div_ea8(UINT op) {
@@ -1340,6 +1355,7 @@ I286FN v30repe_segprefix_ds(void) {
 }
 
 static const V30PATCH v30patch_repe[] = {
+			{0x0f, v30_repe_0f_diagnostic_stop},
 			{0x26, v30repe_segprefix_es},	// 26:	repe es:
 			{0x2e, v30repe_segprefix_cs},	// 2E:	repe cs:
 			{0x36, v30repe_segprefix_ss},	// 36:	repe ss:
@@ -1438,6 +1454,7 @@ I286FN v30repne_segprefix_ds(void) {
 }
 
 static const V30PATCH v30patch_repne[] = {
+			{0x0f, v30_repne_0f_diagnostic_stop},
 			{0x26, v30repne_segprefix_es},	// 26:	repne es:
 			{0x2e, v30repne_segprefix_cs},	// 2E:	repne cs:
 			{0x36, v30repne_segprefix_ss},	// 36:	repne ss:
@@ -1514,17 +1531,46 @@ void v30cinit(void) {
 void v30c_step(void) {
 
 	UINT	opcode;
+	BOOL	preserve_state;
+	Upd9002RuntimeState state_before;
+
+	if (upd9002_diagnostic_pending()) {
+		return;
+	}
 
 	upd9002_trace_step_begin();
+	v30_step_start_cs = I286_CS;
+	v30_step_start_ip = I286_IP;
+	opcode = i286_memoryread(CS_BASE + I286_IP);
+	preserve_state = (opcode == 0x26) || (opcode == 0x2e) ||
+		(opcode == 0x36) || (opcode == 0x3e) ||
+		(opcode == 0xf2) || (opcode == 0xf3);
+	if (preserve_state) {
+		state_before = i286core.s;
+	}
 	I286_OV = I286_FLAG & O_FLAG;
 	I286_FLAG &= ~(O_FLAG);
 
-	GET_PCBYTE(opcode);
+	I286_IP++;
 	v30op[opcode]();
 
 	I286_FLAG &= ~(O_FLAG);
 	if (I286_OV) {
 		I286_FLAG |= (O_FLAG);
+	}
+	if (upd9002_diagnostic_pending()) {
+		/*
+		 * Every active path to the diagnostic starts with one of the
+		 * prefixes above. Restore the complete runtime image so the
+		 * unresolved encoding has no architectural effect.
+		 */
+		if (preserve_state) {
+			i286core.s = state_before;
+		}
+		upd9002_trace_event(UPD9002_TRACE_ORIGIN_CPU,
+			"diagnostic-stop-rep0f", CS_BASE + I286_IP, opcode, 1);
+		upd9002_trace_step_end();
+		return;
 	}
 	V30_DMAP();
 	upd9002_trace_step_end();
