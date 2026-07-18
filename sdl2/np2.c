@@ -50,6 +50,7 @@
 #include	"romcheck.h"
 #include	"selftest.h"
 #include	"upd9002_trace.h"
+#include	"upd9002_diagnostic.h"
 #include	"dropmedia.h"
 #include	"splash.h"
 #include	"np2ver.h"
@@ -1200,12 +1201,22 @@ static void processwait(UINT cnt, PACELOG *pacelog, BOOL pacelog_enabled) {
 	soundmng_sync();
 }
 
-static void run_guest_frame(BOOL draw) {
+static BOOL run_guest_frame(BOOL draw) {
+
+	UPD9002_DIAGNOSTIC diagnostic;
 
 	if (draw) {
 		gui_new_frame();
 	}
 	pccore_exec(draw);
+	if (upd9002_diagnostic_get(&diagnostic) == SUCCESS) {
+		fprintf(stderr,
+			"Error: uPD9002 fail-closed diagnostic stop at %04x:%04x: "
+			"%02x 0f was not executed because its semantics are unresolved\n",
+			diagnostic.cs, diagnostic.ip, diagnostic.prefix);
+		taskmng_exit();
+		return FAILURE;
+	}
 	if (draw) {
 		gui_draw();
 		scrnmng_present_begin();
@@ -1213,6 +1224,7 @@ static void run_guest_frame(BOOL draw) {
 		scrnmng_present_end();
 	}
 	scrnmng_framedisp_tick(SDL_GetTicks(), drawcount);
+	return SUCCESS;
 }
 
 static BOOL smoke_after_frame(BOOL smoke, UINT frames, BOOL detect_screen) {
@@ -1260,7 +1272,9 @@ static BOOL runloop(BOOL smoke, BOOL pacelog_enabled, BOOL detect_screen) {
 			BOOL	draw;
 
 			draw = (framecnt == 0);
-			run_guest_frame(draw);
+			if (run_guest_frame(draw) != SUCCESS) {
+				return FAILURE;
+			}
 			frames++;
 			pacelog_update(&pacelog, pacelog_enabled, 1, draw ? 0 : 1, 0);
 			if (smoke_after_frame(smoke, frames, detect_screen) != SUCCESS) {
@@ -1288,7 +1302,9 @@ static BOOL runloop(BOOL smoke, BOOL pacelog_enabled, BOOL detect_screen) {
 				BOOL	draw;
 
 				draw = (framecnt == 0);
-				run_guest_frame(draw);
+				if (run_guest_frame(draw) != SUCCESS) {
+					return FAILURE;
+				}
 				frames++;
 				pacelog_update(&pacelog, pacelog_enabled, 1,
 							   draw ? 0 : 1, 0);
@@ -1309,7 +1325,9 @@ static BOOL runloop(BOOL smoke, BOOL pacelog_enabled, BOOL detect_screen) {
 				UINT	cnt;
 
 				draw = (framecnt == 0);
-				run_guest_frame(draw);
+				if (run_guest_frame(draw) != SUCCESS) {
+					return FAILURE;
+				}
 				frames++;
 				pacelog_update(&pacelog, pacelog_enabled, 1,
 							   draw ? 0 : 1, 0);
