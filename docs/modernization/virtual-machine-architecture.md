@@ -38,8 +38,8 @@ global singleton state inherited from Neko Project II:
 ```text
 SDL2 frontend
   -> pccore reset/run
-    -> CPU core: i286c/v30c
-    -> memory: i286c memory dispatcher plus PC-88VA memoryva layer
+    -> CPU core: cpu/upd9002
+    -> memory: uPD9002 memory dispatcher plus PC-88VA memoryva layer
     -> I/O: iocore, iova, cbus, FDC, DMAC, sound boards
     -> video: vram, vramva, scrndraw/scrndrawva
     -> sound: fm/psg/adpcm/beep/FDD motor sources
@@ -182,9 +182,9 @@ implementation's mapping of the documented capacity and is covered by the
 VA2 V3 BASIC regression test; the cited product specifications state the
 capacity but do not themselves document the CPU address decode.
 
-The main CPU memory entry points are still the i286c memory accessors.
-When the VA memory mode is active, `i286c/memory.c` dispatches memory
-accesses into `cpucva/memoryva.c`:
+The main CPU memory entry points retain their historical `i286_*` internal
+names. When the VA memory mode is active, `cpu/upd9002/memory.c` dispatches
+memory accesses into `cpucva/memoryva.c`:
 
 ```text
 i286_memoryread()     -> i286_memoryread_va()
@@ -193,7 +193,7 @@ i286_memorywrite()    -> i286_memorywrite_va()
 i286_memorywrite_w()  -> i286_memorywrite_va_w()
 ```
 
-The switch points are `i286c/memory.c:805-930`. The PC-88VA map routines
+The switch points are `cpu/upd9002/memory.c:805-930`. The PC-88VA map routines
 are in `cpucva/memoryva.c:770-812`.
 
 This is why the reset vector at physical `0xFFFF0` reads from `VAROM1.ROM`
