@@ -229,11 +229,17 @@ The frame loop calls `pccore_exec(draw)` for guest time. Inside
 1. The display/vsync event is scheduled. PC-98 uses GDC timing; PC-88VA
    uses the VA screen-display event path.
 2. The CPU runs until the frame event clears `screendispflag`.
-3. The step dispatcher chooses i286 or V30 by `CPU_TYPE`.
-4. Portable builds use `i286c_step()` or `v30c_step()`.
-5. For PC-88VA, the FDD subsystem and SGP are stepped alongside the main
+3. The scheduler calls `v30c_step()` directly for each instruction. No active
+   build or runtime state can select an 80286 instruction dispatcher.
+4. For PC-88VA, the FDD subsystem and SGP are stepped alongside the main
    CPU.
-6. After the frame, disk, calendar, S98, and sound callbacks run.
+5. After the frame, disk, calendar, S98, and sound callbacks run.
+
+Normal initialization and reset always establish V30/uPD9002 native state.
+The legacy serialized `cpu_type` byte remains for save compatibility and is
+validated only by the state adapter; it is not runtime control. CPU_SHUT alone
+preserves its historical 286-style register-initializer output, including the
+recorded upper-FLAGS anomaly, but still returns to the same V30 dispatcher.
 
 The SGP model-default execution clock is 3.9936 MHz for VA and 7.9872 MHz for
 VA2/VA3, corresponding to the 4 MHz and 8 MHz clocks documented in
@@ -242,7 +248,7 @@ The V30/uPD9002 CPU model default is 7.9872 MHz for all three models. CPU
 multiplier changes do not alter the SGP default; Follow CPU and Custom SGP
 modes explicitly scale it.
 
-The key range is `pccore.c:1098-1252`.
+The key implementation is `pccore_exec()` in `pccore.c`.
 
 ## PC-88VA Guest Boot Path
 

@@ -311,8 +311,8 @@ ADR-0005.
 ## uPD9002 M42 evidence targets
 
 Test-bearing builds expose behavior-neutral uPD9002 inventory and regression
-targets. The supported product presets always compile the C core and the VA
-runtime selects its V30 step function; the frozen assembly reference is not a
+targets. M42 proved that every supported product preset compiled the C core
+and reached its V30 step function; the frozen assembly reference was not a
 supported preset. Run the complete M42 ROM-less evidence set with:
 
 ```sh
@@ -354,6 +354,31 @@ The worker entry point exists only when `VAEG_ENABLE_TESTS=ON`; production
 builds do not compile the adapter, deterministic flat-memory seam, or test I/O
 seam. V20 bus timing and prefetch-cycle details are diagnostic rather than
 uPD9002 timing requirements.
+
+## uPD9002 M45 native execution invariant
+
+M45 makes the proved build/runtime choice unconditional. All 13 supported
+CMake presets compile `i286c/i286c.c` and `i286c/v30patch.c`; the scheduler
+calls `v30c_step()` directly. There is no active CMake or header selector for
+an assembly core or per-instruction 80286 execution. Historical
+`USE_I286C=off`, `i286x_step()`, and `v30x_step()` configurations are frozen
+unsupported references and must not be offered as product build options.
+
+Normal initialization and reset always establish V30-compatible register
+state. The serialized `CPU286` `cpu_type` byte remains ABI-compatible and is
+validated by the M44 state adapter, but it does not control runtime execution.
+CPU_SHUT remains the sole documented initializer-level exception: it preserves
+the M42 286-style register-init fixture, including its upper-FLAGS anomaly,
+without selecting a 286 opcode dispatcher.
+
+Run the fail-closed source/build/reference map with:
+
+```sh
+python3 tools/qa/upd9002_native_invariant.py --root .
+```
+
+The check also requires the `i286c()` and `v30c()` block executors to remain
+until their separately owned M46 removal.
 
 ## Known Issues
 
