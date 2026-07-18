@@ -50,6 +50,35 @@ separate parity correction or move it to Open Defects.
 
 ## Fixed Defects
 
+### REP-prefixed 0F could enter unverified 80286 protected-mode behavior
+
+- **Status:** fixed by the G47-approved M48 fail-closed policy; G48 human
+  review pending.
+- **Symptom:** F2/F3-prefixed 0F could run inherited NP2 80286 system handlers;
+  in particular, F2/F3 0F 01 F0 could set `MSW.PE`. A saved state with
+  `MSW.PE` set could then activate legacy selector processing after import.
+- **Root cause:** `v30op_repne[0x0f]` and `v30op_repe[0x0f]` inherited
+  `i286c_cts`, while CPU286 state validation accepted `MSW.PE`. M47's source,
+  runtime, and state audit demonstrated both active paths. No primary source
+  or pinned V20 record establishes that behavior as correct uPD9002/V52
+  semantics.
+- **Correction:** both dispatch slots now latch an emulator diagnostic and
+  restore the complete pre-instruction runtime state before DMA or VA-device
+  scheduling. State preflight rejects `MSW.PE` transactionally; dormant
+  descriptor residue with PE clear remains opaque and compatible. This is a
+  safety policy, not an architectural instruction claim.
+- **Verification:** a 522-case regression covers all F2/F3+0F second bytes,
+  segment-prefix entry, PE-set runtime state, full CPU-state equality, memory
+  equality, and persistent stop. Direct and full-file state tests prove the
+  new rejection leaves CPU runtime, compatibility image, PCCORE, UPD9002, and
+  memory unchanged. The M48 transition manifest accounts for every graph,
+  provenance, and support row while preserving all M42/M43 historical files.
+- **Evidence:** [ADR-0013](../agents/DECISIONS/ADR-0013-upd9002-rep0f-correctness.md),
+  [M48 task](../agents/tasks/M48_upd9002_rep0f_implementation.md), and
+  [M48 report](../agents/reports/m48_upd9002_rep0f_implementation.md).
+- **Commits:** [bc00b370](https://github.com/nakatamaho/vaeg/commit/bc00b370480283dbf7f7529fc6345def87a7dc75)
+  and [9924b85c](https://github.com/nakatamaho/vaeg/commit/9924b85ca13a87610571392968ca63bd74e85321).
+
 ### Invalid CPU286 state payloads could partially alter the machine
 
 - **Status:** fixed in M44 implementation; G44 human review pending.

@@ -24,9 +24,10 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ## Status
 
-Proposed and unresolved in M47. No REP+0F semantic rule, protected-state import
-policy, M48 dispatch/state change, or baseline transition is authorized. M48
-must not start until all five G47 choices below are explicit.
+Accepted as a fail-closed implementation policy at G47. The approved M47
+evidence SHA is `c683fe502647918d8ded2b4c2243da1b787c9d0a`. This decision
+authorizes M48 safety behavior; it does not determine the architectural
+uPD9002/V52 semantics of REP-prefixed 0F.
 
 This ADR amends ADR-0012. Its ownership and state-boundary decisions remain in
 force, while its original M47--M49 schedule and protected-cluster
@@ -111,31 +112,50 @@ artifacts are never overwritten to hide a transition.
 
 ## Decision
 
-Evidence is currently insufficient to select A, B, C, or D. Documentary
-evidence does not define the target behavior, the V20 corpus has no applicable
-records, and the required PC-88VA hardware results are pending. State-policy
-selection is also unresolved because no target semantic rule or user save
-corpus is available.
+The documentary, corpus, and pending-hardware evidence remains insufficient to
+select architectural outcome A, B, C, or D. G47 therefore selected a separate
+fail-closed emulator policy:
 
-Therefore M47 preserves the active legacy path without certifying it as correct,
-and M48 is forbidden.
+* every F2/F3-prefixed 0F form raises one emulator-level diagnostic stop;
+* the complete pre-instruction runtime state is restored, the following 0F
+  second byte is not executed, DMA and VA coprocessor scheduling do not run,
+  and the latch prevents a later scheduler call from resuming the instruction;
+* this stop is deliberately not an emulated interrupt, exception, reserved
+  instruction, or claim about real uPD9002/V52 behavior;
+* imported CPU286 payloads with `MSW.PE` set are rejected during preflight,
+  before any live section is committed;
+* descriptor-table and selector-cache residue remains accepted and opaque when
+  `MSW.PE` is clear, because that residue alone cannot select the legacy
+  protected-mode execution path;
+* CPU286 layout, version, opaque-byte ownership, reset, and CPU_SHUT remain
+  unchanged.
 
-## Required G47 choices
+The exact transition is frozen by
+`tools/qa/golden/upd9002_rep0f_transition_manifest_m48.json`. The two final-root
+targets, two provenance rows, and two support-map rows change. The final graph
+also drops the 18-row derived CTS0/CTS1 reachability closure; M48 does not delete
+the corresponding implementation. The M43 transition contains no record hash,
+classification, or failure-signature change because the pinned dataset has no
+decoded F2/F3+0F record.
 
-The maintainer must explicitly approve, in separate statements:
+## G47 resolution
 
-1. one REP+0F semantic rule, including every unresolved second-byte class;
-2. one policy for MSW_PE and all protected-state residue;
-3. the exact M48 dispatch and state changes;
-4. the exact M42/M43 transition scope while retaining historical artifacts;
-5. that the combined documentary, corpus, and real-hardware evidence is
-   sufficient to begin M48.
+The maintainer explicitly approved:
 
-General approval, silence, or successful builds do not make these decisions.
+1. the fail-closed diagnostic rule for all 512 F2/F3+0F forms;
+2. transactional rejection of state that requires legacy protected execution,
+   implemented by rejecting `MSW.PE` while retaining dormant opaque residue;
+3. replacement of exactly the two active REP+0F root targets;
+4. retention of M42/M43 history and a separate exact M48 transition baseline;
+5. sufficient evidence to implement this safety policy without claiming an
+   architectural answer.
+
+The approval does not authorize protected-mode source deletion.
 
 ## Consequences
 
-M49 inventories actual post-M48 reachability, M50 may delete only groups
-approved at G49, and M51 performs renames. If G47 remains unresolved, the
-current legacy path and protected runtime/state dependencies remain, and none
-of M48--M51 may infer permission to remove or redirect them.
+M49 inventories actual post-M48 reachability. M50 may delete only groups
+explicitly approved at G49, and M51 performs renames. Authoritative
+uPD9002/V52 documentation or PC-88VA hardware results may later replace this
+emulator policy through a separately approved correctness milestone and an
+explicit baseline transition.
