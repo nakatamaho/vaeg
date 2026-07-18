@@ -11,7 +11,7 @@
 #include	"board14.h"
 
 #include	"iocoreva.h"
-#include	"upd9002.h"
+#include	"upd9002_regs.h"
 
 #define	BEEPCOUNTEREX					// BEEPアイドル時のカウンタをα倍に
 #if defined(CPUCORE_IA32)
@@ -28,7 +28,7 @@ static UINT timermultiple(void) {
 		return pccore.multiple;
 	}
 	else {
-		return pccore.multiple << (upd9002.tcks & 3);
+		return pccore.multiple << (upd9002_regs.tcks & 3);
 	}
 }
 
@@ -475,4 +475,3 @@ void itimer_bind(void) {
 	iocoreva_attachinp(0x1a2, pit_i71);
 	iocoreva_attachinp(0x1a4, pit_i71);
 }
-

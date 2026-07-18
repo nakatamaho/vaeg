@@ -147,7 +147,7 @@ static void info_cpu(char *str, int maxlen, NP2INFOEX *ex) {
 #if defined(CPU_FAMILY)
 	family = min(CPU_FAMILY, 6);
 #else
-	family = (CPU_TYPE & CPUTYPE_V30)?1:2;
+	family = 1;
 #endif
 	milstr_ncpy(str, milstr_list(str_cpu, family), maxlen);
 	(void)ex;

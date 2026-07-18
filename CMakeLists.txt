@@ -38,6 +38,12 @@ option(VAEG_Z80_INTEGRATION_TRACE
 set(VAEG_ZEX_ARTIFACT_DIR "" CACHE PATH
     "Offline directory containing the five hash-verified ZEX artifacts")
 
+if(VAEG_ENABLE_TESTS AND NOT VAEG_Z80_INTEGRATION_TRACE)
+    message(FATAL_ERROR
+        "VAEG_ENABLE_TESTS requires VAEG_Z80_INTEGRATION_TRACE=ON; "
+        "the trace-equivalence test cannot use an uninstrumented executable")
+endif()
+
 if(VAEG_FETCH_SDL2)
     include(FetchContent)
     if(VAEG_STATIC_SDL2)
@@ -93,7 +99,7 @@ set(VAEG_INCLUDE_DIRS
     "${CMAKE_CURRENT_SOURCE_DIR}/sdl2"
     "${CMAKE_CURRENT_SOURCE_DIR}"
     "${CMAKE_CURRENT_SOURCE_DIR}/common"
-    "${CMAKE_CURRENT_SOURCE_DIR}/i286c"
+    "${CMAKE_CURRENT_SOURCE_DIR}/cpu/upd9002"
     "${CMAKE_CURRENT_SOURCE_DIR}/io"
     "${CMAKE_CURRENT_SOURCE_DIR}/cbus"
     "${CMAKE_CURRENT_SOURCE_DIR}/bios"
@@ -107,7 +113,6 @@ set(VAEG_INCLUDE_DIRS
     "${CMAKE_CURRENT_SOURCE_DIR}/lio"
     "${CMAKE_CURRENT_SOURCE_DIR}/font"
     "${CMAKE_CURRENT_SOURCE_DIR}/cpucva"
-    "${CMAKE_CURRENT_SOURCE_DIR}/cpuxva"
     "${CMAKE_CURRENT_SOURCE_DIR}/iova"
     "${CMAKE_CURRENT_SOURCE_DIR}/generic")
 
@@ -128,19 +133,20 @@ set(VAEG_COMMON_SOURCES
     generic/np2info.c)
 
 set(VAEG_CORE_SOURCES
-    i286c/i286c.c
-    i286c/i286c_mn.c
-    i286c/i286c_ea.c
-    i286c/i286c_0f.c
-    i286c/i286c_8x.c
-    i286c/i286c_sf.c
-    i286c/i286c_f6.c
-    i286c/i286c_fe.c
-    i286c/i286c_rp.c
-    i286c/v30patch.c
-    i286c/memory.c
-    i286c/egcmem.c
-    i286c/dmap.c
+    cpu/upd9002/upd9002_core.c
+	cpu/upd9002/upd9002_diagnostic.c
+    cpu/upd9002/upd9002_state.c
+    cpu/upd9002/i286c_mn.c
+    cpu/upd9002/i286c_ea.c
+    cpu/upd9002/i286c_8x.c
+    cpu/upd9002/i286c_sf.c
+    cpu/upd9002/i286c_f6.c
+    cpu/upd9002/i286c_fe.c
+    cpu/upd9002/i286c_rp.c
+    cpu/upd9002/upd9002_dispatch.c
+    cpu/upd9002/memory.c
+    cpu/upd9002/egcmem.c
+    cpu/upd9002/dmap.c
     io/iocore.c
     io/artic.c
     io/bmsio.c
@@ -290,7 +296,7 @@ set(VAEG_VA_SOURCES
     iova/subsystemmx.c
     iova/sysportva.c
     iova/tsp.c
-    iova/upd9002.c
+    iova/upd9002_regs.c
     iova/va91.c
     iova/videova.c
     vramva/makegrphva.c
@@ -343,7 +349,15 @@ set(VAEG_SDL2_SOURCES
     sdl2/fontmng.c
     sdl2/gui/gui.cpp)
 if(VAEG_ENABLE_TESTS)
-    list(APPEND VAEG_SDL2_SOURCES tests/z80/subsystem_integration.cpp)
+    list(APPEND VAEG_SDL2_SOURCES
+        tests/z80/subsystem_integration.cpp
+        tests/upd9002/direct_harness.c
+		tests/upd9002/dispatch_normalization.c
+        tests/upd9002/fixtures.c
+		tests/upd9002/rep0f_diagnostic_stop.c
+        tests/upd9002/state_scenario.c
+        tests/upd9002/statsave_boundary.c
+        tests/upd9002/ssts_worker.c)
 endif()
 
 set(VAEG_SPLASH_DATA "${CMAKE_CURRENT_BINARY_DIR}/generated/vaeg_splash_data.c")
@@ -409,15 +423,28 @@ if(VAEG_WERROR)
     target_compile_options(vaeg_common PRIVATE -Werror)
 endif()
 
+if(VAEG_Z80_INTEGRATION_TRACE)
+    list(APPEND VAEG_CORE_SOURCES cpu/upd9002/upd9002_trace.c)
+endif()
+
 add_library(vaeg_core STATIC ${VAEG_CORE_SOURCES})
 target_include_directories(vaeg_core PUBLIC ${VAEG_INCLUDE_DIRS})
 target_link_libraries(vaeg_core PUBLIC vaeg_common)
 target_compile_definitions(vaeg_core PUBLIC
-    USE_I286C
     SUPPORT_BMS
     SUPPORT_SASI
     SUPPORT_V30ORIGINAL
     VAEG_FIX)
+if(VAEG_ENABLE_TESTS)
+    target_compile_definitions(vaeg_core PRIVATE
+        VAEG_UPD9002_M42_TESTING=1
+		VAEG_UPD9002_M46_TESTING=1
+        VAEG_UPD9002_SSTS_TESTING=1)
+endif()
+if(VAEG_Z80_INTEGRATION_TRACE)
+    target_compile_definitions(vaeg_core PRIVATE
+        VAEG_Z80_INTEGRATION_TRACE=1)
+endif()
 target_compile_options(vaeg_core PRIVATE -Wall -fsigned-char)
 if(VAEG_WERROR)
     target_compile_options(vaeg_core PRIVATE -Werror)
@@ -462,6 +489,20 @@ target_include_directories(vaeg_sdl2 PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}/external/ymfm/src")
 target_link_libraries(vaeg_sdl2 PRIVATE vaeg_core vaeg_va vaeg_common
     vaeg_core vaeg_va ${VAEG_SDL2_LIBS})
+if(VAEG_ENABLE_TESTS)
+    target_compile_definitions(vaeg_sdl2 PRIVATE
+        VAEG_UPD9002_M42_TESTING=1
+        VAEG_UPD9002_M44_TESTING=1
+		VAEG_UPD9002_M46_TESTING=1
+		VAEG_UPD9002_M48_TESTING=1
+        VAEG_UPD9002_SSTS_TESTING=1
+        "VAEG_UPD9002_HARNESS_MANIFEST_PATH=\"${CMAKE_CURRENT_SOURCE_DIR}/tests/upd9002/harness_manifest.csv\""
+        "VAEG_UPD9002_FIXTURE_PATH=\"${CMAKE_CURRENT_SOURCE_DIR}/tests/upd9002/state_fixtures_m42.txt\"")
+endif()
+if(VAEG_Z80_INTEGRATION_TRACE)
+    target_compile_definitions(vaeg_sdl2 PRIVATE
+        VAEG_Z80_INTEGRATION_TRACE=1)
+endif()
 if(VAEG_ENABLE_ARCHIVE_DROP)
     if(MINGW OR VAEG_FETCH_LIBARCHIVE)
         include(FetchContent)
@@ -590,6 +631,190 @@ endif()
 
 if(VAEG_ENABLE_TESTS)
     enable_testing()
+    find_package(Python3 REQUIRED COMPONENTS Interpreter)
+    set(VAEG_SSTS_V20_ROOT "" CACHE PATH
+        "Verified external SingleStepTests V20 checkout for uPD9002 comparison")
+
+    add_test(NAME vaeg_upd9002_dispatch_graph
+        COMMAND "${Python3_EXECUTABLE}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/upd9002_rep0f_transition.py"
+            --root "${CMAKE_CURRENT_SOURCE_DIR}")
+    set_tests_properties(vaeg_upd9002_dispatch_graph PROPERTIES
+        LABELS "romless;upd9002;dispatch")
+
+    add_test(NAME vaeg_upd9002_dispatch_generator_selftest
+        COMMAND "${Python3_EXECUTABLE}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/upd9002_rep0f_transition.py"
+            --root "${CMAKE_CURRENT_SOURCE_DIR}" --selftest)
+    set_tests_properties(vaeg_upd9002_dispatch_generator_selftest PROPERTIES
+        LABELS "romless;upd9002;dispatch")
+
+    add_test(NAME vaeg_upd9002_native_invariant
+        COMMAND "${Python3_EXECUTABLE}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/upd9002_native_invariant.py"
+            --root "${CMAKE_CURRENT_SOURCE_DIR}")
+    set_tests_properties(vaeg_upd9002_native_invariant PROPERTIES
+        LABELS "romless;upd9002;dispatch;state")
+
+    add_test(NAME vaeg_upd9002_dispatch_normalization_static
+		COMMAND "${Python3_EXECUTABLE}"
+			"${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/upd9002_dispatch_normalization.py"
+			--root "${CMAKE_CURRENT_SOURCE_DIR}")
+    set_tests_properties(vaeg_upd9002_dispatch_normalization_static PROPERTIES
+		LABELS "romless;upd9002;dispatch;state")
+
+    add_test(NAME vaeg_upd9002_dispatch_normalization
+		COMMAND vaeg_sdl2 --upd9002-m46-dispatch-qa)
+    set_tests_properties(vaeg_upd9002_dispatch_normalization PROPERTIES
+		LABELS "romless;upd9002;dispatch;state")
+
+    add_test(NAME vaeg_upd9002_rep0f_diagnostic_stop
+		COMMAND vaeg_sdl2 --upd9002-m48-rep0f-diagnostic)
+    set_tests_properties(vaeg_upd9002_rep0f_diagnostic_stop PROPERTIES
+		LABELS "romless;upd9002;dispatch;state")
+
+    add_test(NAME vaeg_upd9002_rep0f_transition_selftest
+		COMMAND "${Python3_EXECUTABLE}"
+			"${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/upd9002_rep0f_transition.py"
+			--root "${CMAKE_CURRENT_SOURCE_DIR}" --selftest)
+    set_tests_properties(vaeg_upd9002_rep0f_transition_selftest PROPERTIES
+		LABELS "romless;upd9002;dispatch;state;ssts")
+
+    add_test(NAME vaeg_upd9002_rep0f_transition_static
+		COMMAND "${Python3_EXECUTABLE}"
+			"${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/upd9002_rep0f_transition.py"
+			--root "${CMAKE_CURRENT_SOURCE_DIR}")
+    set_tests_properties(vaeg_upd9002_rep0f_transition_static PROPERTIES
+		LABELS "romless;upd9002;dispatch;state;ssts")
+
+    add_test(NAME vaeg_upd9002_protected_deletion
+		COMMAND "${Python3_EXECUTABLE}"
+			"${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/upd9002_protected_deletion.py"
+			--root "${CMAKE_CURRENT_SOURCE_DIR}")
+    set_tests_properties(vaeg_upd9002_protected_deletion PROPERTIES
+		LABELS "romless;upd9002;dispatch;state")
+
+    add_test(NAME vaeg_upd9002_protected_deletion_selftest
+		COMMAND "${Python3_EXECUTABLE}"
+			"${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/upd9002_protected_deletion.py"
+			--root "${CMAKE_CURRENT_SOURCE_DIR}" --selftest)
+    set_tests_properties(
+		vaeg_upd9002_protected_deletion_selftest PROPERTIES
+		LABELS "romless;upd9002;dispatch;state")
+
+    add_test(NAME vaeg_upd9002_rename
+		COMMAND "${Python3_EXECUTABLE}"
+			"${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/upd9002_rename.py"
+			--root "${CMAKE_CURRENT_SOURCE_DIR}")
+    set_tests_properties(vaeg_upd9002_rename PROPERTIES
+		LABELS "romless;upd9002;repository")
+
+    add_executable(vaeg_upd9002_abi tests/upd9002/abi.c)
+    target_include_directories(vaeg_upd9002_abi PRIVATE ${VAEG_INCLUDE_DIRS})
+    target_compile_definitions(vaeg_upd9002_abi PRIVATE
+        SUPPORT_BMS SUPPORT_SASI SUPPORT_V30ORIGINAL VAEG_FIX)
+    target_compile_options(vaeg_upd9002_abi PRIVATE -Wall -fsigned-char)
+    add_test(NAME vaeg_upd9002_abi
+        COMMAND vaeg_upd9002_abi
+            "${CMAKE_CURRENT_SOURCE_DIR}/tests/upd9002/abi_g41.txt")
+    set_tests_properties(vaeg_upd9002_abi PROPERTIES
+        LABELS "romless;upd9002;state")
+
+    add_executable(vaeg_upd9002_state_boundary
+        tests/upd9002/state_boundary.c
+        cpu/upd9002/upd9002_state.c)
+    target_include_directories(vaeg_upd9002_state_boundary PRIVATE
+        ${VAEG_INCLUDE_DIRS})
+    target_compile_definitions(vaeg_upd9002_state_boundary PRIVATE
+        SUPPORT_BMS SUPPORT_SASI SUPPORT_V30ORIGINAL VAEG_FIX)
+    target_compile_options(vaeg_upd9002_state_boundary PRIVATE
+        -Wall -fsigned-char)
+    add_test(NAME vaeg_upd9002_state_boundary
+        COMMAND vaeg_upd9002_state_boundary)
+    set_tests_properties(vaeg_upd9002_state_boundary PROPERTIES
+        LABELS "romless;upd9002;state")
+
+    add_executable(vaeg_upd9002_state_payload_probe
+        tests/upd9002/state_payload_probe.c
+        cpu/upd9002/upd9002_state.c)
+    target_include_directories(vaeg_upd9002_state_payload_probe PRIVATE
+        ${VAEG_INCLUDE_DIRS})
+    target_compile_definitions(vaeg_upd9002_state_payload_probe PRIVATE
+        SUPPORT_BMS SUPPORT_SASI SUPPORT_V30ORIGINAL VAEG_FIX)
+    target_compile_options(vaeg_upd9002_state_payload_probe PRIVATE
+        -Wall -fsigned-char)
+    add_test(NAME vaeg_upd9002_state_payload_probe
+        COMMAND vaeg_upd9002_state_payload_probe
+            "${CMAKE_CURRENT_SOURCE_DIR}/tests/upd9002/state_fixtures_m42.txt")
+    set_tests_properties(vaeg_upd9002_state_payload_probe PROPERTIES
+        LABELS "romless;upd9002;state")
+
+    add_test(NAME vaeg_upd9002_trace_equivalence
+        COMMAND "${CMAKE_COMMAND}"
+            "-DVAEG_EXECUTABLE=$<TARGET_FILE:vaeg_sdl2>"
+            "-DTRACE_GOLDEN=${CMAKE_CURRENT_SOURCE_DIR}/tests/upd9002/trace_baseline.txt"
+            -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/upd9002/run_trace_equivalence.cmake")
+    set_tests_properties(vaeg_upd9002_trace_equivalence PROPERTIES
+        LABELS "romless;upd9002;trace;harness" TIMEOUT 180)
+
+    add_test(NAME vaeg_upd9002_ssts_selftest
+        COMMAND "${Python3_EXECUTABLE}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/upd9002_ssts.py"
+            selftest)
+    set_tests_properties(vaeg_upd9002_ssts_selftest PROPERTIES
+        LABELS "romless;upd9002;ssts")
+
+    add_test(NAME vaeg_upd9002_ssts_worker_selftest
+        COMMAND "${Python3_EXECUTABLE}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/upd9002_ssts.py"
+            worker-selftest
+            --worker "$<TARGET_FILE:vaeg_sdl2>")
+    set_tests_properties(vaeg_upd9002_ssts_worker_selftest PROPERTIES
+        LABELS "romless;upd9002;ssts;harness" TIMEOUT 60)
+
+    foreach(profile ci full)
+        add_test(NAME vaeg_upd9002_ssts_${profile}_baseline
+            COMMAND "${Python3_EXECUTABLE}"
+                "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/upd9002_ssts.py"
+                report
+                --summary
+                "${CMAKE_CURRENT_SOURCE_DIR}/tests/ssts/baseline/v20_native_${profile}.json")
+        set_tests_properties(vaeg_upd9002_ssts_${profile}_baseline PROPERTIES
+            LABELS "romless;upd9002;ssts;baseline")
+    endforeach()
+
+    if(VAEG_SSTS_V20_ROOT)
+        add_test(NAME vaeg_upd9002_ssts_ci_external
+            COMMAND "${Python3_EXECUTABLE}"
+                "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/upd9002_ssts.py"
+                run
+                --dataset-root "${VAEG_SSTS_V20_ROOT}"
+                --manifest
+                "${CMAKE_CURRENT_SOURCE_DIR}/tests/ssts/v20_dataset_manifest.json"
+                --support-map
+                "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/golden/upd9002_support_map_m42.csv"
+                --worker "$<TARGET_FILE:vaeg_sdl2>"
+                --profile ci
+                --shard-timeout 300
+                --output
+                "${CMAKE_CURRENT_BINARY_DIR}/ssts/v20_native_ci.json"
+                --failure-directory
+                "${CMAKE_CURRENT_BINARY_DIR}/ssts/v20_native_ci_failures"
+                --expect
+                "${CMAKE_CURRENT_SOURCE_DIR}/tests/ssts/baseline/v20_native_ci.json")
+        set_tests_properties(vaeg_upd9002_ssts_ci_external PROPERTIES
+            LABELS "romless;upd9002;ssts;external"
+            TIMEOUT 1800)
+    else()
+        add_test(NAME vaeg_upd9002_ssts_ci_external
+            COMMAND "${Python3_EXECUTABLE}"
+                "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/upd9002_ssts.py"
+                external-skip
+                --reason "VAEG_SSTS_V20_ROOT is not configured")
+        set_tests_properties(vaeg_upd9002_ssts_ci_external PROPERTIES
+            LABELS "romless;upd9002;ssts;external"
+            SKIP_RETURN_CODE 77)
+    endif()
 
     function(vaeg_configure_z80_standalone_target target)
         target_include_directories(${target} PRIVATE

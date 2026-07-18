@@ -60,6 +60,17 @@
 #include	"strres.h"
 #include	"viewport.h"
 #include	"ymfmbridge.h"
+#if defined(VAEG_UPD9002_M42_TESTING)
+#include	"tests/upd9002/direct_harness.h"
+#include	"tests/upd9002/fixtures.h"
+#endif
+#if defined(VAEG_UPD9002_M44_TESTING)
+#include	"tests/upd9002/state_scenario.h"
+#include	"tests/upd9002/statsave_boundary.h"
+#endif
+#if defined(VAEG_UPD9002_M46_TESTING)
+#include	"tests/upd9002/dispatch_normalization.h"
+#endif
 #if defined(VAEG_Z80_INTEGRATION_TESTING)
 #include	"iova/subsystem.h"
 #include	"tests/z80/subsystem_integration.h"
@@ -139,7 +150,7 @@ static int test_cli_options(void) {
 		"--frameskip", "4", "--fullscreen", "--effect", "crt-lite",
 		"--scaling", "fit-8dot", "--controller", "mouse",
 		"--keyboard-layout", "custom", "--debug", "--fdctrace",
-		"--pacelog", "--smoke"
+		"--pacelog", "--trace-cpu", "17", "--smoke"
 	};
 	char *positional[] = {"vaeg", "boot.d88"};
 	char *invalid_model[] = {"vaeg", "--model", "va3"};
@@ -176,6 +187,7 @@ static int test_cli_options(void) {
 		(options.scaling != VAEG_CLI_SCALING_FIT_8DOT) ||
 		(options.controller != VAEG_CLI_CONTROLLER_MOUSE) ||
 		(options.keyboard_layout != VAEG_CLI_KEYBOARD_CUSTOM) ||
+		(options.trace_cpu != 17) ||
 		!options.debug || !options.fdctrace || !options.pacelog ||
 		!options.smoke) {
 		return(fail("CLI options", "accepted values were parsed incorrectly"));
@@ -1224,12 +1236,42 @@ static int test_statsave(void) {
 	pccore_init();
 	S98_init();
 	pccore_reset();
+#if defined(VAEG_UPD9002_M46_TESTING)
+	if (upd9002_dispatch_normalization_verify_live() != SUCCESS) {
+		S98_trash();
+		pccore_term();
+		soundmng_deinitialize();
+		return fail("dispatch normalization", "initialization/reset changed tables");
+	}
+#endif
+
+#if defined(VAEG_UPD9002_M44_TESTING)
+	if (upd9002_state_scenario_requested()) {
+		ret = upd9002_state_scenario_run();
+		S98_trash();
+		pccore_term();
+		soundmng_deinitialize();
+		return (ret == SUCCESS) ? SUCCESS :
+			fail("statsave-scenario", "scenario operation failed");
+	}
+#endif
 	ret = STATFLAG_SUCCESS;
 	if ((pccore.multiple != PCCORE_STANDARD_MULTIPLE) ||
 		(pccore.realclock != pccore.baseclock * PCCORE_STANDARD_MULTIPLE) ||
 		(pccore_cpu_multiple() != np2cfg.multiple)) {
 		ret = STATFLAG_FAILURE;
 	}
+#if defined(VAEG_UPD9002_M42_TESTING)
+	if ((ret == STATFLAG_SUCCESS) &&
+		(upd9002_harness_run_manifest(VAEG_UPD9002_HARNESS_MANIFEST_PATH)
+												!= SUCCESS)) {
+		ret = STATFLAG_FAILURE;
+	}
+	if ((ret == STATFLAG_SUCCESS) &&
+		(upd9002_fixture_verify(VAEG_UPD9002_FIXTURE_PATH) != SUCCESS)) {
+		ret = STATFLAG_FAILURE;
+	}
+#endif
 
 #if defined(VAEG_Z80_INTEGRATION_TESTING)
 	if (ret == STATFLAG_SUCCESS) {
@@ -1248,6 +1290,12 @@ static int test_statsave(void) {
 	if (ret == STATFLAG_SUCCESS) {
 		ret = statsave_save(path1);
 	}
+#if defined(VAEG_UPD9002_M44_TESTING)
+	if ((ret == STATFLAG_SUCCESS) &&
+		(upd9002_statsave_boundary_verify(path1) != SUCCESS)) {
+		ret = STATFLAG_FAILURE;
+	}
+#endif
 	if (ret == STATFLAG_SUCCESS) {
 		ZeroMemory(err, sizeof(err));
 		ret = statsave_check(path1, err, sizeof(err));
@@ -1263,6 +1311,12 @@ static int test_statsave(void) {
 	if (ret == STATFLAG_SUCCESS) {
 		ret = statsave_load(path1);
 	}
+#if defined(VAEG_UPD9002_M46_TESTING)
+	if ((ret == STATFLAG_SUCCESS) &&
+		(upd9002_dispatch_normalization_verify_live() != SUCCESS)) {
+		ret = STATFLAG_FAILURE;
+	}
+#endif
 #if defined(VAEG_Z80_INTEGRATION_TESTING)
 	if (ret == STATFLAG_SUCCESS) {
 		subsystem_z80_test_get_trace(&z80trace);
@@ -1705,6 +1759,11 @@ static int test_opn_backends(void) {
 }
 
 int vaeg_selftest_run(void) {
+#if defined(VAEG_UPD9002_M44_TESTING)
+	if (upd9002_state_scenario_requested()) {
+		return(test_statsave() == SUCCESS ? SUCCESS : FAILURE);
+	}
+#endif
 
 	if (test_codecnv() != SUCCESS) {
 		return(FAILURE);

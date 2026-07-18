@@ -17,8 +17,8 @@ three-platform CMake coverage, and CI.
 M13 closes phase 2 by removing retired paths and documenting the final
 tier split:
 
-- Active tree: CMake/C/SDL2/Dear ImGui; main CPU in `i286c/`; VA memory in
-  `cpucva/memoryva.c`; Z80 side in the suzukiplan-backed
+- Active tree: CMake/C/SDL2/Dear ImGui; main CPU in `cpu/upd9002/`; VA memory
+  in `cpucva/memoryva.c`; Z80 side in the suzukiplan-backed
   `cpucva/z80_core.cpp` wrapper with `cpucva/z80_disasm.cpp`.
 - Frozen reference tier: `win9x/`, `i286x/`, `cpuxva/memoryva.x86`, and
   `hlp/`. These remain reference-only because the v141 build was
@@ -31,6 +31,10 @@ The frozen reference tier is protected by immutable tags and source
 history, not by a current CI or compile guarantee.
 
 ## Milestone table
+
+Task files whose gates have passed are historical records, not runnable
+instructions. See [`tasks/README.md`](tasks/README.md), including the explicit
+M36–M41 archive status.
 
 | ID  | Task file                  | Deliverable | Gate |
 |-----|----------------------------|-------------|------|
@@ -75,10 +79,19 @@ history, not by a current CI or compile guarantee.
 | M39 | tasks/M39_z80_integration.md | Integrate an opt-in replacement Z80 path and run private-system regressions | **G39 passed** |
 | M40 | tasks/M40_z80_disassembler.md | Replace active legacy disassembly consumers and close the dual-core evidence period | **G40 passed** |
 | M41 | tasks/M41_z80_cutover.md | Select the replacement exclusively, delete the seven approved files, and audit releases | **G41 passed** |
-| M42 | tasks/M42_z80_performance.md | Optional performance investigation, to be replaced by a new task only if measured performance evidence requires it | **Not scheduled** |
+| M42 | tasks/M42_upd9002_adr_inventory_harness.md | Record uPD9002 ownership, dispatch/state inventory, behavior-neutral trace/harness infrastructure, and reproducible baselines | **G42 passed** |
+| M43 | tasks/M43_upd9002_singlestep_v20_baseline.md | Pin and classify the external V20 corpus and freeze deterministic comparison baselines without changing CPU behavior | **G43 passed** |
+| M44 | tasks/M44_upd9002_state_boundary.md | Separate runtime and serialized CPU state while preserving G41 payload compatibility and adding atomic validation | **G44 passed** |
+| M45 | tasks/M45_upd9002_native_dispatch_fold.md | Make V30-compatible execution unconditional and remove the per-instruction 286/V30 selector and `i286c_step()` | **G45 passed** |
+| M46 | tasks/M46_upd9002_dispatch_normalization.md | Normalize the one-time V30 dispatch constructor, prove post-construction immutability, and remove the obsolete block executors | **G46 passed** |
+| M47 | tasks/M47_upd9002_rep0f_correctness.md | Determine correct uPD9002/V52 REP-prefixed 0x0F semantics and protected-state policy from pinned documents, V20 corpus evidence, and a safe PC-88VA probe without changing behavior | **G47 passed** |
+| M48 | tasks/M48_upd9002_rep0f_implementation.md | Implement only the exact REP+0F semantic rule, state policy, and baseline transition explicitly approved at G47 | **G48 passed** |
+| M49 | tasks/M49_upd9002_isolate_np2_286_protected_mode.md | Inventory the remaining NP2 286 protected-mode dependency closure after the approved correctness transition | **G49 passed** |
+| M50 | tasks/M50_remove_np2_286_protected_mode.md | Remove only dependency-closed protected-mode groups explicitly approved at G49 | **G50 passed** |
+| M51 | tasks/M51_upd9002_rename.md | Perform pure uPD9002 moves, public API renames, and final repository guards | **G51 human** |
 
 Phase 2 dependencies: M7 → M8 → {M9, M10 parallel} → M11 → M12 → M13.
-Post-phase dependency: M13 → M14 → M15 → M16 → M17 → M18 → M19 → M20 → M21 → M22 → M23 → M24 → M25 → M26 → M27 → M28 → M29 → M30 → M31 → M32. The required Z80 migration sequence M34 → M35 → M36 → M37 → M38 → M39 → M40 → M41 is complete. M42 is not scheduled; create a new task only if measured performance evidence requires work.
+Post-phase dependency: M13 → M14 → M15 → M16 → M17 → M18 → M19 → M20 → M21 → M22 → M23 → M24 → M25 → M26 → M27 → M28 → M29 → M30 → M31 → M32. The required Z80 migration sequence M34 → M35 → M36 → M37 → M38 → M39 → M40 → M41 is complete. The separately authorized uPD9002 sequence has passed G42 through G50 and is now at M51. The accepted M47 pre-implementation audit disproved the old assumption that REP-prefixed 0x0F could not reach NP2 80286 system handlers. M47 therefore collected correctness evidence, M48 installed the approved fail-closed policy, and M49/M50 audited and removed only the explicitly approved dependency-closed groups.
 M9 must pass before M11 (all three OSes must ship the VA machine, not
 the PC-98 scaffold).
 
