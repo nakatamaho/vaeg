@@ -702,6 +702,13 @@ if(VAEG_ENABLE_TESTS)
 		vaeg_upd9002_protected_deletion_selftest PROPERTIES
 		LABELS "romless;upd9002;dispatch;state")
 
+    add_test(NAME vaeg_upd9002_rename
+		COMMAND "${Python3_EXECUTABLE}"
+			"${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/upd9002_rename.py"
+			--root "${CMAKE_CURRENT_SOURCE_DIR}")
+    set_tests_properties(vaeg_upd9002_rename PROPERTIES
+		LABELS "romless;upd9002;repository")
+
     add_executable(vaeg_upd9002_abi tests/upd9002/abi.c)
     target_include_directories(vaeg_upd9002_abi PRIVATE ${VAEG_INCLUDE_DIRS})
     target_compile_definitions(vaeg_upd9002_abi PRIVATE
