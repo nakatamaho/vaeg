@@ -24,9 +24,10 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ## Status
 
-Accepted at G42. M43 is authorized only to add the external V20 comparison
-baseline described below; this ADR does not authorize M44 or any later
-milestone.
+Accepted at G42. G44 was explicitly accepted at
+`b5f6ee7da7665789ce23013f2f8418fe0889773c`. M45 implements the native-mode
+decision below and remains subject to G45 human review. This ADR does not
+authorize M46 before G45 passes.
 
 ## Context
 
@@ -100,7 +101,7 @@ raw structure serialization. The M42 Linux x86_64 GCC 15.2.0 fixture records a
 The literal section names, section version zero, sizes, and loader-facing
 layouts remain unchanged throughout this series.
 
-M44 will add the only intentional externally visible behavior change in the
+M44 added the only intentional externally visible behavior change in the
 series: a serialized `CPU286` payload with `cpu_type != CPUTYPE_V30` is
 rejected atomically before resume. This is a narrow compatibility firewall and
 must not be generalized.
@@ -121,9 +122,18 @@ addresses, symbolizers, and function-pointer object hashes are not identity.
 
 ### Native-mode and shutdown invariants
 
-All supported active CMake presets define `USE_I286C` on `vaeg_core` and reach
-`v30c_step()` for VA machines. `USE_I286C=off`, `i286x_step()`, `v30x_step()`,
-and the assembly tree are frozen unsupported reference configurations.
+M42 proved that all 13 supported active CMake presets compiled the C core and
+reached `v30c_step()` for VA machines. M45 removes the now-redundant
+`USE_I286C` selector surface and calls `v30c_step()` directly for every active
+instruction. The historical `USE_I286C=off`, `i286x_step()`, `v30x_step()`,
+and assembly-tree configurations are frozen unsupported references, not
+product options.
+
+Normal initialization and reset establish the V30-compatible state
+unconditionally. The legacy runtime `cpu_type` slot remains temporarily for
+the M44 compatibility adapter, but it is never read as execution, reset,
+interrupt, scheduler, diagnostic, or state-resume control. Only the state
+adapter validates the serialized byte as `CPUTYPE_V30`.
 
 The current CPU_SHUT path is an explicit initializer anomaly: it clears bytes
 only through `offsetof(I286STAT, cpu_type)`, retains the tail beginning with
