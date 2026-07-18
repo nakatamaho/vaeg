@@ -1,10 +1,29 @@
-# vaeg uPD9002 core consolidation series (M42–M49) — final task specification, v6
+# vaeg uPD9002 core consolidation series (M42–M51) — v7 sequence amendment
 
-Sixth revision. This document supersedes v5. It is written as the final master
-prompt for creating and executing the eight task files M42–M49.
+Seventh revision.  The filename is retained so accepted M42–M46 links remain
+stable.  This amendment supersedes the v6 M47–M49 sequence and defines ten task
+files M42–M51.
 
 Designation: **μPD9002** in prose and **uPD9002** in ASCII identifiers and file
 names.
+
+## What v7 changes after the accepted M47 audit
+
+1. The accepted M42 graph routes v30op_repe[0x0f] and
+   v30op_repne[0x0f] to i286c_cts; the protected-mode cluster is not dormant.
+2. M47 is now a behavior-neutral correctness-evidence milestone for REP+0F and
+   protected-state import policy.
+3. M48 may implement only the semantic rule, state policy, dispatch/state
+   edits, and baseline transition explicitly approved at G47.
+4. The old inventory, deletion, and rename milestones move to M49, M50, and
+   M51.  M49 must inventory actual post-M48 reachability and may conclude that
+   no safe M50 deletion group exists.
+5. Correcting REP+0F may intentionally change explicitly approved M42 graph
+   rows and M43 records.  Historical M42/M43 artifacts remain immutable; M48
+   records a separately reviewed transition rather than hiding the change.
+
+The v6 non-reachability assumption and its old M47 gate are invalid and must not
+be executed.
 
 Position: start only after the maintainer has explicitly accepted G41. Finish
 before any multithreading, CPU timing re-derivation, performance optimization,
@@ -35,13 +54,13 @@ or μPD9002 compatibility-mode implementation.
    identity is based on the pinned commit, content digests, and selection-policy
    version, never either human-readable version string.
 6. **External-corpus gates can no longer evaporate through skips.** Every
-   M43–M49 report records the executed dataset ID and record/category counts.
+   M43–M51 report records the executed dataset ID and record/category counts.
    The CI profile and full profile are mandatory at each human gate; a missing
    corpus or skipped comparison is a gate failure, although ordinary hosted CI
    may retain a clearly reported external-data skip policy.
 7. **Immutable dispatch-graph identity takes precedence over cosmetic rename
    cleanup.** If an old-looking symbol is part of the committed graph identity,
-   M49 records an ADR exception and defers that internal rename rather than
+   M51 records an ADR exception and defers that internal rename rather than
    changing the graph baseline.
 8. **Runtime-state ownership covers writes as well as reads.** Every field read,
    written, or address-taken by active instruction execution belongs to
@@ -90,7 +109,7 @@ git push origin pre-upd9002-refactor
 ```
 
 M44 must not start until this tag exists and points at the accepted G43 SHA.
-M44–M49 compare CPU traces, instruction-harness results, final dispatch graphs,
+M44–M51 compare CPU traces, instruction-harness results, final dispatch graphs,
 shutdown fixtures, and SingleStepTests V20 differential results with this tag.
 
 Build an old tag for compatibility checks in a separate detached worktree. Do
@@ -100,14 +119,17 @@ not switch the active milestone worktree between old and current commits.
 
 ## Fixed scope and architectural decisions
 
-1. **Behavior preservation with one explicit defensive exception.** No
+1. **Behavior preservation through M47, followed only by an explicitly approved
+   transition.** No
    legitimate golden, trace, instruction result, final dispatch mapping, device
    result, cycle result, or accepted save-state payload change exists in
-   M42–M49. The sole intentional externally visible change is that M44 rejects a
+   M42–M47. The sole intentional externally visible change before G47 is that
+   M44 rejects a
    `CPU286` payload whose serialized `cpu_type` is not `CPUTYPE_V30` before the
    machine can resume. The previous raw loader did not perform that validation.
    This exception is narrowly scoped and is not precedent for any other behavior
-   change.
+   change. M48 may introduce only the REP+0F and protected-state transition
+   explicitly approved at G47, with immutable before/after manifests.
 2. **Native execution only, with the preserved CPU_SHUT initializer anomaly.**
    The active machine uses the μPD9002 native V30-compatible execution path. No
    active path may select 80286 instruction execution by G45. The historical
@@ -122,10 +144,10 @@ not switch the active milestone worktree between old and current commits.
    emulation mechanism must not be treated as a specification for that mode.
 4. **Ownership is split.** The instruction engine is named
    `upd9002_core_*`. The existing 0xFFF0 built-in port/register model in
-   `iova/upd9002.*` is named `upd9002_regs_*` after M49. A future aggregate
+   `iova/upd9002.*` is named `upd9002_regs_*` after M51. A future aggregate
    `Upd9002Device` is outside this series.
 5. **Final directory is fixed.** The surviving instruction core moves to
-   `cpu/upd9002/` in M49. Do not defer this choice to Codex.
+   `cpu/upd9002/` in M51. Do not defer this choice to Codex.
 6. **Runtime table construction remains.** Do not force a merged hand-written
    `static const` table. A generated single-source table design is separate
    work.
@@ -230,7 +252,9 @@ This records the reachable final dispatch graph used by native execution:
 - table name, slot, entry kind, target handler or secondary-table identifier;
 - stable source-level handler names only, with no addresses or file paths.
 
-This artifact must be byte-identical from the accepted M42 tip through G49.
+This artifact must be byte-identical from the accepted M42 tip through G47.
+M48 may change only the exact rows approved at G47 and must preserve this M42
+file as immutable historical evidence while recording a post-correction graph.
 
 ### 2. Construction provenance
 
@@ -239,9 +263,9 @@ This artifact must be byte-identical from the accepted M42 tip through G49.
 This records base entries, patch-list operations, explicit DIV/IDIV
 replacements, and the final target selected for each runtime-built root slot.
 It is evidence about how M42 constructs the final graph. M48 may deliberately
-change base entries or patch provenance while preserving the final graph. Such
-changes are reported and reviewed; they do not authorize a change to the final
-graph baseline.
+change only the provenance and final-graph rows explicitly approved at G47.
+Such changes are reported in a separate transition manifest and never silently
+replace the M42 artifact.
 
 Generator requirements:
 
@@ -254,7 +278,7 @@ Generator requirements:
 4. Verify the declared cardinality of every table and recursively enumerate all
    secondary tables reachable from the six roots. A hand-written list of a few
    known secondary tables is not sufficient.
-5. Exclude file paths so M49 moves do not perturb the final graph.
+5. Exclude file paths so M51 moves do not perturb the final graph.
 6. The final graph is execution evidence. The provenance file is diagnostic
    evidence. Do not conflate them.
 7. Function-pointer arrays may be compared at runtime only element by element
@@ -267,9 +291,9 @@ Generator requirements:
 
 ### Existing baseline
 
-All pre-existing G41/M23 checkpoint lines remain byte-identical through G49.
-No task may re-record them without a separate maintainer decision outside this
-series.
+All pre-existing G41/M23 checkpoint lines remain byte-identical through G47.
+M48 may change only items explicitly named by the G47 transition decision; all
+others remain byte-identical through G51.
 
 ### Canonical CPU trace
 
@@ -437,8 +461,9 @@ supported, missing, or nonblocking from the top-level metadata entry alone.
 2. Allowlisting by `idx`, by a blanket `all`, or by an unbounded textual pattern is
    forbidden. Use upstream test hashes or an exact opcode/ModR-M/prefix selector,
    then commit the resolved count and hash digest.
-3. M44–M49 require the known-gap file and its resolved hash set to remain
-   byte-identical. The set may not grow to hide a regression.
+3. M44–M47 require the known-gap file and its resolved hash set to remain
+   byte-identical. M48 may alter only exact selectors/hashes approved at G47;
+   the set may never grow merely to hide a regression.
 4. A known gap may shrink only in a separate instruction-implementation milestone
    with its own specification and new semantic baseline. This series must not make
    that change.
@@ -491,7 +516,7 @@ Use fixed field order, fixed register order, ascending RAM addresses, lowercase
 zero-padded hexadecimal, sorted/deduplicated `mismatch_kinds`, and no volatile
 host text. Hash the canonical serialization with SHA-256.
 
-M44–M49 require exact equality with M43 for:
+M44–M47 require exact equality with M43 for:
 
 - dataset identity and record counts;
 - category counts and resolved hash sets;
@@ -499,9 +524,9 @@ M44–M49 require exact equality with M43 for:
 - applicable pass/failure test-hash sets;
 - every failure signature and termination class.
 
-Because the series is behavior-preserving, both a new failure and an unexplained
-failure disappearance are gate failures. Semantic fixes belong to separate
-milestones.
+At M48 and later, every difference must be present in the exact G47-approved
+transition manifest; both an extra failure and an unexplained disappearance are
+gate failures.
 
 ---
 
@@ -514,7 +539,7 @@ milestones.
 3. Use `M<n>:` commit prefixes and the repository's required report format.
 4. Run the repository's full standard build/lint/smoke/selftest/ctest gate,
    `golden_smoke.sh --check`, all applicable CPU/state/dispatch tests, and from
-   M43 onward the pinned SingleStepTests V20 CI comparison. At every G43–G49
+   M43 onward the pinned SingleStepTests V20 CI comparison. At every G43–G51
    human gate, run both the verified CI profile and the verified full profile.
    A missing corpus, external-data skip, or unexecuted required profile at a
    human gate is a gate failure, not a warning. Ordinary hosted CI may follow a
@@ -524,9 +549,10 @@ milestones.
    failure signature differs, stop and identify the cause. Do not re-record it
    in this series.
 6. Ambiguous reachability means keep and defer.
-7. M47 must produce the exact NP2 286 protected-mode deletion list and stop.
-   M48 may delete only the list explicitly approved at G47, after revalidating
-   that the evidence and source identities have not drifted.
+7. M47 produces REP+0F correctness and state-policy evidence and stops. M48 may
+   implement only all five explicit G47 approvals. M49 then inventories the
+   remaining protected cluster; M50 may delete only exact groups approved at
+   G49. M51 is rename-only cleanup.
 8. By accepting this master specification, the maintainer pre-approves removal
    of only these three named dead entry points at their assigned milestones,
    after their gates establish non-use: `i286c_step()`, `i286c()`, and `v30c()`.
@@ -569,26 +595,26 @@ Steps:
    d. Exact state payload compatibility scope per ABI/toolchain.
    e. Runtime table construction retained; immutable final graph plus mutable
       construction provenance.
-   f. Removal ownership: i286c_step() in M45; i286c()/v30c() in M46;
-      protected-mode inventory/isolation in M47; approved NP2 286
-      protected-mode deletion only in M48.
+   f. Ownership: i286c_step() in M45; i286c()/v30c() in M46; REP+0F
+      correctness evidence in M47; approved semantics/state transition in M48;
+      protected-mode inventory in M49; approved deletion only in M50.
    g. Future upd9002_core_run(cycle_budget) pattern, not implemented here.
    h. Compatibility-mode and missing-instruction non-goals.
    i. CPU_SHUT upper-FLAGS anomaly preserved by fixture.
-   j. Public API and active-file rename policy for M49; internal static handler
+   j. Public API and active-file rename policy for M51; internal static handler
       identifiers and I286_* helpers may remain.
    k. G41, M42, and M43 baseline/tag policy.
    l. SingleStepTests V20 is an external semantic oracle only for the
       supported uPD9002/V52 intersection; known missing V30/V20 forms
       are target gaps, not failures or implementation requests.
-   m. NP2 286 protected-mode code is retained through G47 and may be
-      deleted only by the dedicated M48 task after explicit approval.
+   m. NP2 286 protected-mode code is retained through G49 and may be
+      deleted only by the dedicated M50 task after explicit G49 approval.
    n. Supported active presets require the C core. `USE_I286C=off` and the
       `i286x/` implementation are frozen unsupported references; if M42 finds a
       supported preset that selects them, stop and amend this ADR before M43.
    o. The M44 `cpu_type != CPUTYPE_V30` rejection is the sole intentional
-      externally visible behavior change in the series and must not be
-      generalized.
+      externally visible change through G47. M48 may apply only the exact
+      REP+0F/state transition approved at G47.
 
 2. Write docs/agents/reports/m42_upd9002_inventory.md with:
    a. Every exported/public i286c_*, v30c*, CPU_EXEC*, and related core symbol,
@@ -628,8 +654,9 @@ Steps:
       unknown edges, duplicate/missing slots, or non-deterministic provenance.
    e. Keep the M42 provenance file as a historical diagnostic baseline. Compare
       current provenance in milestone reports; do not make permanent equality to
-      the M42 provenance a gate after approved M48 protected-mode cleanup.
-   The final graph, not provenance, is the immutable M42–M49 baseline.
+      the M42 provenance a gate after the approved M48 correctness transition.
+   Both M42 artifacts remain immutable historical baselines; M48 records any
+   approved post-correction graph separately.
 
 4. Add canonical --trace-cpu N support and prove:
    a. Two identical trace-enabled runs are byte-identical.
@@ -721,7 +748,7 @@ Steps:
    d. Provide an explicit acquisition/verification command and cache-root
       setting. A missing corpus may produce a clear external-data skip only in
       ordinary hosted CI where the task explicitly permits it. It is a hard gate
-      failure at G43–G49 and in every milestone report's required local/human
+      failure at G43–G51 and in every milestone report's required local/human
       comparison. Digest mismatch is always a hard failure.
 
 3. Define and test the content-addressed dataset contract:
@@ -808,8 +835,8 @@ Steps:
     b. Applicable pass and failure test-hash sets.
     c. Complete failure signatures and termination classes.
     d. Known gaps and any separately approved target divergences.
-    e. The current core is not required to have zero failures. M44–M49 require
-       exact equality because this series is structural and behavior-preserving.
+    e. The current core is not required to have zero failures. M44–M47 require
+       exact equality; M48 and later allow only the explicit G47 transition.
 
 11. Add ctest/CI integration:
     a. Required CI comparison when the verified CI dataset is available under the
@@ -823,7 +850,7 @@ Steps:
        skipped.
     f. A report helper that prints the executed dataset_id, profile, total record
        count, per-category counts, and skip status in canonical form. Every
-       M43–M49 milestone report embeds this output.
+       M43–M51 milestone report embeds this output.
     g. Both CI and full profiles are mandatory at G43 and every later human gate;
        missing corpus or skip is a gate failure.
 
@@ -891,7 +918,7 @@ Steps:
    b. Validate payload size, cpu_type == CPUTYPE_V30, and existing loader
       invariants before committing runtime state. Document that the cpu_type
       rejection is new defensive behavior relative to the raw G41 loader and is
-      the only intentional external semantic change in M42–M49.
+      the only intentional external semantic change through M47.
    c. Construct a temporary Upd9002RuntimeState.
    d. Commit runtime state and compatibility image atomically.
    e. Immediate export starts from the compatibility image and overlays active
@@ -1046,7 +1073,7 @@ Prerequisites:
 
 Steps:
 1. Construction lifecycle:
-   a. Keep v30cinit() as the sole production constructor until M49 renames it.
+   a. Keep v30cinit() as the sole production constructor until M51 renames it.
    b. Invoke it once per production core/process initialization lifecycle.
    c. Test-only scratch construction must not mutate live tables.
    d. Reject or assert on an attempted second mutation of initialized live
@@ -1081,7 +1108,7 @@ Steps:
    b. Pointer-snapshot results for all presets.
    c. Current construction provenance.
    d. Candidate base slots that are overwritten on every final native path.
-      These are M47/M48 inputs only, not sufficient deletion evidence.
+      These are future M49/M50 inputs only, not sufficient deletion evidence.
 
 Gate:
 - Final graph byte-identical to M42.
@@ -1094,7 +1121,77 @@ Gate:
 
 ---
 
-## M47 — Isolate and inventory the dormant NP2 286 protected-mode cluster
+## M47 — Determine uPD9002 REP-prefixed 0x0F correctness
+
+Task: docs/agents/tasks/M47_upd9002_rep0f_correctness.md
+
+M47 is evidence and decision preparation only.  It records the accepted current
+REPNE/REPE-to-i286c_cts behavior without certifying it as correct and without
+changing dispatch, state, instruction behavior, or an accepted baseline.
+
+M47 pins primary NEC and PC-88VA/uPD9002 documents, analyzes every M43
+F2/F3+0F record and affected hash under each candidate outcome, builds a
+complete instruction matrix, inventories protected-state residue, designs a
+safe machine-readable PC-88VA probe, and prepares an exact prospective M48
+transition manifest.  Unsourced emulator implementations are not architectural
+proof, and V20 evidence alone is not uPD9002 proof.
+
+G47 must explicitly approve the REP+0F semantic rule, protected-state policy,
+exact dispatch/state edits, exact M42/M43 transition scope, and evidence
+sufficiency.  An unresolved decision forbids M48.
+
+---
+
+## M48 — Implement the explicitly approved REP+0F and state decision
+
+Task: docs/agents/tasks/M48_upd9002_rep0f_implementation.md
+
+M48 starts only after all five G47 approvals.  It implements exactly the
+approved semantic/state rule and exact prospective transition manifest.  M42
+and M43 historical artifacts remain immutable; M48 records a separately
+reviewed post-correction baseline and accounts for every changed graph row,
+record hash, classification, and failure signature.
+
+M48 does not perform protected-mode deletion or rename work.  CPU_SHUT FLAGS
+0000, unaffected state bytes, v30c_step ownership, and the single immutable
+constructor remain required.
+
+---
+
+## M49 — Inventory the remaining NP2 286 protected-mode cluster
+
+Task: docs/agents/tasks/M49_upd9002_isolate_np2_286_protected_mode.md
+
+M49 evaluates actual reachability after the approved M48 correction.  It must
+not assume the cluster is unreachable.  Every file, symbol, dispatch edge,
+shared helper, lifecycle edge, runtime field, and serialized position receives
+deterministic evidence.  Only dependency-closed members proven unreachable
+after M48 may be proposed for M50; an empty proposal list is valid.
+
+---
+
+## M50 — Remove only G49-approved protected-mode groups
+
+Task: docs/agents/tasks/M50_remove_np2_286_protected_mode.md
+
+M50 may delete only exact dependency-closed identifiers explicitly approved at
+G49 and revalidated at its starting SHA.  It preserves the G48 semantic/state
+decision, every unapproved or shared dependency, serialization compatibility
+required by that decision, and CPU_SHUT.  No correctness or rename work belongs
+in M50.
+
+---
+
+## M51 — Pure renames, moves, API cleanup, and repository guards
+
+Task: docs/agents/tasks/M51_upd9002_rename.md
+
+M51 performs only mechanical moves, public API renames, and final guards after
+G50.  It contains no semantic, state-policy, dispatch, or dead-code decision.
+
+---
+
+## Superseded v6 M47 — historical text; do not execute
 
 ```text
 Task: docs/agents/tasks/M47_upd9002_isolate_np2_286_protected_mode.md
@@ -1196,7 +1293,7 @@ Gate:
 
 ---
 
-## M48 — Remove the explicitly approved NP2 286 protected-mode implementation
+## Superseded v6 M48 — historical text; do not execute
 
 ```text
 Task: docs/agents/tasks/M48_remove_np2_286_protected_mode.md
@@ -1300,7 +1397,7 @@ Gate:
 
 ---
 
-## M49 — Pure renames, moves, API cleanup, and repository guards
+## Superseded v6 M49 — historical text; do not execute
 
 ```text
 Task: docs/agents/tasks/M49_upd9002_rename.md
@@ -1402,35 +1499,33 @@ Gate:
 
 ---
 
-## Series completion criteria checked at G49
+## Revised series completion criteria checked at G51
 
 1. `upd9002_core_step()` is the sole public execution primitive. No block
    executor remains.
-2. No execution, normal reset, interrupt, scheduler, or state-resume path
-   selects 80286 semantics. Serialized `cpu_type` is validated only by the state
-   adapter and never controls runtime dispatch. CPU_SHUT remains the sole
-   documented initializer-level anomaly and never selects an 80286 dispatcher.
-3. `Upd9002RuntimeState` is the only state read, written, or address-taken by the
-   active execution core. `Cpu286CompatImage` is serialization-only and
-   inaccessible to instruction logic.
-4. G41 reset, fixed-execution, and CPU_SHUT `CPU286`/`UPD9002` payloads load and
-   immediately round-trip exactly in current builds using the same ABI/toolchain;
-   current equivalents load in the G41 build.
-5. Reset and shutdown transform compatibility bytes exactly as G41 did. Imported
-   opaque bytes and padding survive an immediate round trip.
-6. The immutable M42 final dispatch graph is byte-identical at G49. Construction
-   provenance changes caused by the explicitly approved M48 protected-mode
-   deletion are documented.
+2. REP+0F execution and protected-state import follow the exact G47-approved
+   uPD9002 rule.  Any retained legacy behavior is explicit and evidence-backed,
+   not inferred from an inherited 80286 implementation.
+3. Runtime and compatibility-image ownership follows the G47-approved state
+   policy.  Instruction code cannot access serialization-only opaque bytes.
+4. Every change from the G41/M44 state matrix is limited to the exact G47
+   approval and recorded in the G48 transition manifest; all unaffected
+   CPU286/UPD9002 bytes still round-trip exactly.
+5. Reset and CPU_SHUT transformations remain exact, including FLAGS 0000.
+   Import behavior for protected residue matches the selected G47 policy.
+6. Historical M42 graph/provenance artifacts remain immutable.  The current
+   graph equals the separately approved G48 post-correction baseline, and every
+   transition row is documented.
 7. The six live runtime-built root tables remain element-wise equal to their
    post-construction snapshots. No function-pointer `memcmp`, raw pointer hash,
    or runtime symbol resolution is used.
 8. SingleStepTests V20 is pinned by exact upstream commit and content-addressed
    dataset identity derived from commit/digests/policy, not human-readable
    version strings. The README and metadata versions are recorded separately.
-   Every G43–G49 human gate executed both CI and full profiles without skip and
+   Every G43–G51 human gate executed both CI and full profiles without skip and
    reported dataset ID and record/category counts. The M43 category counts,
    resolved hash sets, applicable pass/failure sets, failure signatures, and
-   termination classes are exactly unchanged at G49.
+   termination classes differ only by the exact G47-approved transition.
 9. The uPD9002/V52 known-gap manifest explicitly lists the V20/V30 instruction
    forms missing from the current target. Those records are counted separately,
    are not failures, did not grow during the series, and did not trigger new
@@ -1440,10 +1535,10 @@ Gate:
     by second opcode byte against the target map. Empty-queue semantic
     comparison is the required profile; prefetched/cycle traces are not
     misrepresented as V52 timing requirements.
-11. M47 isolated and inventoried the NP2 partial 286 protected-mode cluster
-    without deleting it. M48 deleted only dependency-closed groups explicitly
-    approved at G47, with graph, direct-reference, linker, state-use, regression,
-    and maintainer-approval evidence. Ambiguous/shared code remains documented.
+11. M47 established REP+0F correctness evidence without changing behavior.
+    M48 implemented only the G47-approved transition. M49 inventoried the
+    remaining cluster, and M50 deleted only dependency-closed groups explicitly
+    approved at G49. Ambiguous/shared code remains documented.
 12. The CPU_SHUT active-state, trace, and serialized payload fixtures remain
     byte-identical; the known upper-FLAGS anomaly was not silently fixed.
 13. No missing uPD9002/V52 instruction, timing change, performance optimization,
@@ -1453,21 +1548,23 @@ Gate:
     `iova/upd9002_regs.*` with `upd9002_regs_*`.
 15. All surviving public CPU APIs and active file basenames have uPD9002 names,
     except a narrowly documented ADR exception if immutable dispatch-graph
-    identity makes an internal rename unsafe in M49. Retained `I286_*` and static
+    identity makes an internal rename unsafe in M51. Retained `I286_*` and static
     handler identifiers are explicitly internal and documented, not evidence
     that protected-mode code was retained accidentally.
-16. `CPU286` and `UPD9002` tags, sizes, offsets, and ABI-specific payload layouts
-    are unchanged; no state-version bump occurred.
+16. `CPU286` and `UPD9002` tags, sizes, offsets, versions, and payload
+    transition rules equal the exact G47 approval; all unrelated layout bytes
+    are unchanged.
 17. Every supported active preset uses the C core and has no selectable
     `USE_I286C=off`/i286x execution path. `i286x/` and
     `cpuxva/memoryva.x86` remain untouched frozen references; `cpuxva/` is not
     an active include path.
 18. `pre-upd9002-series` points at accepted G41 and
     `pre-upd9002-refactor` points at accepted G43; neither tag was moved.
-19. All pre-existing G41/M23 checkpoints, M42 trace/harness/final-graph/shutdown
-    artifacts, and M43 V20 differential artifacts are unchanged at G49.
+19. All pre-existing G41/M23, M42, and M43 artifacts remain immutable historical
+    evidence. Current results differ only where the G47/G48 transition manifest
+    explicitly authorizes them.
 20. The accepted uPD9002 ADR records ownership, directory, public API mapping,
     state-shadow lifecycle semantics, dispatch final/provenance split,
-    SingleStepTests V20 applicability and target-gap policy, dedicated M47/M48
-    protected-mode isolation/deletion policy, future run-budget pattern,
+    SingleStepTests V20 applicability and target-gap policy, M47 correctness,
+    M48 transition, M49 inventory, and M50 deletion policy, future run-budget pattern,
     compatibility-mode non-goals, tag policy, and shutdown anomaly.
