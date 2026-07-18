@@ -1216,18 +1216,6 @@ I286FN _bound(void) {						// 62:	bound
 	INT_NUM(vect, I286_IP);
 }
 
-I286FN _arpl(void) {						// 63:	arpl
-
-	UINT	op;
-	UINT	tmp;
-
-	GET_PCBYTE(op)
-	tmp = ((op < 0xc0)?1:0);
-	I286_IP += (BYTE)tmp;
-	I286_WORKCLOCK(tmp + 10);
-	INT_NUM(6, I286_IP);
-}
-
 I286FN _push_data16(void) {				// 68:	push	DATA16
 
 	UINT16	tmp;
@@ -2823,7 +2811,7 @@ const I286OP i286op[] = {
 			_pusha,							// 60:	pusha
 			_popa,							// 61:	popa
 			_bound,							// 62:	bound
-			_arpl,							// 63:	arpl
+			_reserved,						// 63:	reserved placeholder
 			_reserved,						// 64:	reserved
 			_reserved,						// 65:	reserved
 			_reserved,						// 66:	reserved
@@ -3169,7 +3157,7 @@ const I286OP i286op_repe[] = {
 			_pusha,							// 60:	pusha
 			_popa,							// 61:	popa
 			_bound,							// 62:	bound
-			_arpl,							// 63:	arpl
+			_reserved,						// 63:	reserved placeholder
 			_reserved,						// 64:	reserved
 			_reserved,						// 65:	reserved
 			_reserved,						// 66:	reserved
@@ -3514,7 +3502,7 @@ const I286OP i286op_repne[] = {
 			_pusha,							// 60:	pusha
 			_popa,							// 61:	popa
 			_bound,							// 62:	bound
-			_arpl,							// 63:	arpl
+			_reserved,						// 63:	reserved placeholder
 			_reserved,						// 64:	reserved
 			_reserved,						// 65:	reserved
 			_reserved,						// 66:	reserved
@@ -3681,4 +3669,3 @@ const I286OP i286op_repne[] = {
 			_ope0xfe,						// FE:	
 			_ope0xff,						// FF:	
 };
-
