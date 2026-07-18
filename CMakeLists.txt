@@ -353,6 +353,7 @@ if(VAEG_ENABLE_TESTS)
     list(APPEND VAEG_SDL2_SOURCES
         tests/z80/subsystem_integration.cpp
         tests/upd9002/direct_harness.c
+		tests/upd9002/dispatch_normalization.c
         tests/upd9002/fixtures.c
         tests/upd9002/state_scenario.c
         tests/upd9002/statsave_boundary.c
@@ -437,6 +438,7 @@ target_compile_definitions(vaeg_core PUBLIC
 if(VAEG_ENABLE_TESTS)
     target_compile_definitions(vaeg_core PRIVATE
         VAEG_UPD9002_M42_TESTING=1
+		VAEG_UPD9002_M46_TESTING=1
         VAEG_UPD9002_SSTS_TESTING=1)
 endif()
 if(VAEG_Z80_INTEGRATION_TRACE)
@@ -491,6 +493,7 @@ if(VAEG_ENABLE_TESTS)
     target_compile_definitions(vaeg_sdl2 PRIVATE
         VAEG_UPD9002_M42_TESTING=1
         VAEG_UPD9002_M44_TESTING=1
+		VAEG_UPD9002_M46_TESTING=1
         VAEG_UPD9002_SSTS_TESTING=1
         "VAEG_UPD9002_HARNESS_MANIFEST_PATH=\"${CMAKE_CURRENT_SOURCE_DIR}/tests/upd9002/harness_manifest.csv\""
         "VAEG_UPD9002_FIXTURE_PATH=\"${CMAKE_CURRENT_SOURCE_DIR}/tests/upd9002/state_fixtures_m42.txt\"")
@@ -651,6 +654,11 @@ if(VAEG_ENABLE_TESTS)
             --root "${CMAKE_CURRENT_SOURCE_DIR}")
     set_tests_properties(vaeg_upd9002_native_invariant PROPERTIES
         LABELS "romless;upd9002;dispatch;state")
+
+    add_test(NAME vaeg_upd9002_dispatch_normalization
+		COMMAND vaeg_sdl2 --upd9002-m46-dispatch-qa)
+    set_tests_properties(vaeg_upd9002_dispatch_normalization PROPERTIES
+		LABELS "romless;upd9002;dispatch;state")
 
     add_executable(vaeg_upd9002_abi tests/upd9002/abi.c)
     target_include_directories(vaeg_upd9002_abi PRIVATE ${VAEG_INCLUDE_DIRS})
