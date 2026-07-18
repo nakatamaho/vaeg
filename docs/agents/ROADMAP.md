@@ -78,10 +78,11 @@ history, not by a current CI or compile guarantee.
 | M42 | tasks/M42_upd9002_adr_inventory_harness.md | Record uPD9002 ownership, dispatch/state inventory, behavior-neutral trace/harness infrastructure, and reproducible baselines | **G42 passed** |
 | M43 | tasks/M43_upd9002_singlestep_v20_baseline.md | Pin and classify the external V20 corpus and freeze deterministic comparison baselines without changing CPU behavior | **G43 passed** |
 | M44 | tasks/M44_upd9002_state_boundary.md | Separate runtime and serialized CPU state while preserving G41 payload compatibility and adding atomic validation | **G44 passed** |
-| M45 | tasks/M45_upd9002_native_dispatch_fold.md | Make V30-compatible execution unconditional and remove the per-instruction 286/V30 selector and `i286c_step()` | **G45 human review** |
+| M45 | tasks/M45_upd9002_native_dispatch_fold.md | Make V30-compatible execution unconditional and remove the per-instruction 286/V30 selector and `i286c_step()` | **G45 passed** |
+| M46 | tasks/M46_upd9002_dispatch_normalization.md | Normalize the one-time V30 dispatch constructor, prove post-construction immutability, and remove the obsolete block executors | **G46 human review** |
 
 Phase 2 dependencies: M7 → M8 → {M9, M10 parallel} → M11 → M12 → M13.
-Post-phase dependency: M13 → M14 → M15 → M16 → M17 → M18 → M19 → M20 → M21 → M22 → M23 → M24 → M25 → M26 → M27 → M28 → M29 → M30 → M31 → M32. The required Z80 migration sequence M34 → M35 → M36 → M37 → M38 → M39 → M40 → M41 is complete. The separately authorized uPD9002 consolidation series has passed G42 through G44. M45 is implemented only to its human gate; M46 remains unauthorized until G45 is explicitly accepted.
+Post-phase dependency: M13 → M14 → M15 → M16 → M17 → M18 → M19 → M20 → M21 → M22 → M23 → M24 → M25 → M26 → M27 → M28 → M29 → M30 → M31 → M32. The required Z80 migration sequence M34 → M35 → M36 → M37 → M38 → M39 → M40 → M41 is complete. The separately authorized uPD9002 consolidation series has passed G42 through G45. M46 is implemented only to its human gate; M47 remains unauthorized until G46 is explicitly accepted.
 M9 must pass before M11 (all three OSes must ship the VA machine, not
 the PC-98 scaffold).
 
