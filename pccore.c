@@ -40,6 +40,7 @@
 #include	"timing.h"
 #include	"keystat.h"
 #include	"debugsub.h"
+#include	"upd9002_diagnostic.h"
 
 #include	"bmsio.h"
 
@@ -398,14 +399,6 @@ void pccore_reset(void) {
 	CPU_RESET();
 	CPU_SETEXTSIZE((UINT32)pccore.extmem);
 #endif
-
-	CPU_TYPE = 0;
-	if (np2cfg.dipsw[2] & 0x80) {
-		CPU_TYPE = CPUTYPE_V30;
-	}
-	if (pccore.model_va != PCMODEL_NOTVA) {
-		CPU_TYPE = CPUTYPE_V30;
-	}
 
 #if defined(VAEG_FIX)
 	CPU_RESET();
@@ -1075,7 +1068,26 @@ void pccore_postevent(UINT32 event) {	// yet!
 	(void)event;
 }
 
+static void pccore_process_cpu_reset_request(void) {
+
+	if (CPU_RESETREQ) {
+		CPU_RESETREQ = 0;
+		CPU_SHUT();
+	}
+}
+
+#if defined(VAEG_UPD9002_M42_TESTING)
+void upd9002_m42_process_cpu_reset_request(void) {
+
+	pccore_process_cpu_reset_request();
+}
+#endif
+
 void pccore_exec(BOOL draw) {
+
+	if (upd9002_diagnostic_pending()) {
+		return;
+	}
 
 	drawframe = draw;
 //	keystat_sync();
@@ -1113,27 +1125,7 @@ void pccore_exec(BOOL draw) {
 		resetcnt++;
 #endif
 		pic_irq();
-		if (CPU_RESETREQ) {
-			CPU_RESETREQ = 0;
-			CPU_SHUT();
-		}
-
-#define SINGLESTEPONLY
-#if !defined(SINGLESTEPONLY)
-		if (CPU_REMCLOCK > 0) {
-			if (!(CPU_TYPE & CPUTYPE_V30)) {
-				CPU_EXEC();
-			}
-			else {
-				CPU_EXECV30();
-			}
-			if (pccore.model_va != PCMODEL_NOTVA) {
-				subsystemmx_exec();
-				sgp_step();
-			}
-		}
-
-#else	// SINGLESTEPONLY
+		pccore_process_cpu_reset_request();
 
 		while(CPU_REMCLOCK > 0) {
 #if defined(TRACE) && IPTRACE
@@ -1192,26 +1184,15 @@ void pccore_exec(BOOL draw) {
 #endif
 
 			//TRACEOUT(("%.4x:%.4x", CPU_CS, CPU_IP));
-			if (!(CPU_TYPE & CPUTYPE_V30)) {		// added by Shinra
-#if defined(USE_I286C)
-				i286c_step();
-#else
-				i286x_step();
-#endif
-			}
-			else {
-#if defined(USE_I286C)
-				v30c_step();
-#else
-				v30x_step();						// added by Shinra
-#endif
+			upd9002_core_step();
+			if (upd9002_diagnostic_pending()) {
+				return;
 			}
 			if (pccore.model_va != PCMODEL_NOTVA) {
 				subsystemmx_exec();
 				sgp_step();
 			}
 		}
-#endif	// SINGLESTEPONLY
 
 		nevent_progress();
 	}

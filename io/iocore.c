@@ -13,7 +13,11 @@
 #include	"sgp.h"
 #include	"subsystemmx.h"
 #include	"va91.h"
-#include	"upd9002.h"
+#include	"upd9002_regs.h"
+#include	"upd9002_trace.h"
+#if defined(VAEG_UPD9002_SSTS_TESTING)
+#include	"tests/upd9002/direct_harness.h"
+#endif
 
 	_ARTIC		artic;
 	_CGROM		cgrom;
@@ -468,7 +472,7 @@ static const IOCBFN resetfn[] = {
 			gactrlva_reset,
 			cgromva_reset,
 			va91_reset,
-			upd9002_reset,
+			upd9002_regs_reset,
 		};
 
 static const IOCBFN bindfn[] = {
@@ -499,7 +503,7 @@ static const IOCBFN bindfn[] = {
 			gactrlva_bind,
 			cgromva_bind,
 			va91_bind,
-			upd9002_bind,
+			upd9002_regs_bind,
 		};
 
 
@@ -531,6 +535,16 @@ void IOOUTCALL iocore_out8(UINT port, REG8 dat) {
 
 	IOFUNC	iof;
 
+#if defined(VAEG_UPD9002_SSTS_TESTING)
+	if (upd9002_ssts_io_active()) {
+		upd9002_ssts_io_write((uint16_t)port, (uint8_t)dat);
+		return;
+	}
+#endif
+
+	upd9002_trace_event(UPD9002_TRACE_ORIGIN_CPU, "io-write",
+		(uint32_t)port, (uint32_t)dat, 1);
+
 	if (iomode_va) {
 		iocoreva_out8(port, dat);
 		return;
@@ -548,13 +562,24 @@ REG8 IOINPCALL iocore_inp8(UINT port) {
 	IOFUNC	iof;
 	REG8	ret;
 
+#if defined(VAEG_UPD9002_SSTS_TESTING)
+	if (upd9002_ssts_io_active()) {
+		return upd9002_ssts_io_read((uint16_t)port);
+	}
+#endif
+
 	if (iomode_va) {
-		return iocoreva_inp8(port);
+		ret = iocoreva_inp8(port);
+		upd9002_trace_event(UPD9002_TRACE_ORIGIN_CPU, "io-read",
+			(uint32_t)port, (uint32_t)ret, 1);
+		return ret;
 	}
 
 	CPU_REMCLOCK -= iocore.busclock;
 	iof = iocore.base[(port >> 8) & 0xff];
 	ret = iof->ioinp[port & 0xff](port);
+	upd9002_trace_event(UPD9002_TRACE_ORIGIN_CPU, "io-read",
+		(uint32_t)port, (uint32_t)ret, 1);
 //	TRACEOUT(("iocore_inp8(%.2x) -> %.2x", port, ret));
 	return(ret);
 }
@@ -562,6 +587,14 @@ REG8 IOINPCALL iocore_inp8(UINT port) {
 void IOOUTCALL iocore_out16(UINT port, REG16 dat) {
 
 	IOFUNC	iof;
+
+#if defined(VAEG_UPD9002_SSTS_TESTING)
+	if (upd9002_ssts_io_active()) {
+		upd9002_ssts_io_write((uint16_t)port, (uint8_t)dat);
+		upd9002_ssts_io_write((uint16_t)(port + 1), (uint8_t)(dat >> 8));
+		return;
+	}
+#endif
 
 	if (iomode_va) {
 		iocoreva_out16(port, dat);
@@ -605,6 +638,16 @@ REG16 IOINPCALL iocore_inp16(UINT port) {
 
 	IOFUNC	iof;
 	REG8	ret;
+
+#if defined(VAEG_UPD9002_SSTS_TESTING)
+	if (upd9002_ssts_io_active()) {
+		REG16 low;
+
+		low = upd9002_ssts_io_read((uint16_t)port);
+		return (REG16)(low |
+			(upd9002_ssts_io_read((uint16_t)(port + 1)) << 8));
+	}
+#endif
 
 	if (iomode_va) {
 		return iocoreva_inp16(port);
@@ -673,4 +716,3 @@ UINT32 IOINPCALL iocore_inp32(UINT port) {
 	ret = iocore_inp16(port);
 	return(ret + (iocore_inp16(port+2) << 16));
 }
-

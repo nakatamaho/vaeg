@@ -6,6 +6,7 @@
 #include	"soundmng.h"
 #include	"timemng.h"
 #include	"cpucore.h"
+#include	"upd9002_state.h"
 #include	"pccore.h"
 #include	"iocore.h"
 #include	"gdc_sub.h"
@@ -48,7 +49,7 @@
 #include	"subsystem.h"
 #include	"boardsb2.h"
 #include	"va91.h"
-#include	"upd9002.h"
+#include	"upd9002_regs.h"
 
 #if defined(MACOS)
 #define	CRCONST		str_cr
@@ -79,6 +80,7 @@ typedef struct {
 
 enum {
 	STATFLAG_BIN			= 0,
+	STATFLAG_CPU286,
 	STATFLAG_TERM,
 #if defined(CGWND_FONTPTR)
 	STATFLAG_CGW,
@@ -422,6 +424,38 @@ static int flagsave_common(STFLAGH sfh, const SFENTRY *tbl) {
 static int flagload_common(STFLAGH sfh, const SFENTRY *tbl) {
 
 	return(statflag_read(sfh, tbl->arg1, tbl->arg2));
+}
+
+static int flagsave_cpu286(STFLAGH sfh, const SFENTRY *tbl) {
+
+	Cpu286StateCompat state;
+
+	upd9002_state_export(&state);
+	return(statflag_write(sfh, &state, tbl->arg2));
+}
+
+static int flagload_cpu286(STFLAGH sfh, const SFENTRY *tbl) {
+
+	Cpu286StateCompat state;
+	char error[128];
+	int ret;
+
+	if ((sfh->hdr.ver != tbl->ver) || (sfh->hdr.size != tbl->arg2)) {
+		statflag_seterr(sfh, UPD9002_STATE_ERROR_SIZE);
+		return(STATFLAG_FAILURE);
+	}
+	ret = statflag_read(sfh, &state, sizeof(state));
+	if (ret != STATFLAG_SUCCESS) {
+		statflag_seterr(sfh, "CPU286 payload is truncated");
+		return(STATFLAG_FAILURE);
+	}
+	error[0] = '\0';
+	if (upd9002_state_import(&state, sizeof(state), error,
+													sizeof(error)) != SUCCESS) {
+		statflag_seterr(sfh, error);
+		return(STATFLAG_FAILURE);
+	}
+	return(STATFLAG_SUCCESS);
 }
 
 
@@ -1327,6 +1361,34 @@ static int flagcheck_veronly(STFLAGH sfh, const SFENTRY *tbl) {
 	return(STATFLAG_FAILURE);
 }
 
+static int flagcheck_cpu286(STFLAGH sfh, const SFENTRY *tbl) {
+
+	Cpu286StateCompat state;
+	char error[128];
+	int ret;
+
+	if (sfh->hdr.ver != tbl->ver) {
+		statflag_seterr(sfh, "CPU286 payload version is unsupported");
+		return(STATFLAG_FAILURE);
+	}
+	if (sfh->hdr.size != tbl->arg2) {
+		statflag_seterr(sfh, UPD9002_STATE_ERROR_SIZE);
+		return(STATFLAG_FAILURE);
+	}
+	ret = statflag_read(sfh, &state, sizeof(state));
+	if (ret != STATFLAG_SUCCESS) {
+		statflag_seterr(sfh, "CPU286 payload is truncated");
+		return(STATFLAG_FAILURE);
+	}
+	error[0] = '\0';
+	if (upd9002_state_validate(&state, sizeof(state), error,
+													sizeof(error)) != SUCCESS) {
+		statflag_seterr(sfh, error);
+		return(STATFLAG_FAILURE);
+	}
+	return(STATFLAG_SUCCESS);
+}
+
 
 // ----
 
@@ -1351,6 +1413,10 @@ const SFENTRY	*tblterm;
 			case STATFLAG_BIN:
 			case STATFLAG_TERM:
 				ret |= flagsave_common(&sffh->sfh, tbl);
+				break;
+
+			case STATFLAG_CPU286:
+				ret |= flagsave_cpu286(&sffh->sfh, tbl);
 				break;
 
 #if defined(CGWND_FONTPTR)
@@ -1458,6 +1524,10 @@ const SFENTRY	*tblterm;
 					ret |= flagcheck_versize(&sffh->sfh, tbl);
 					break;
 
+				case STATFLAG_CPU286:
+					ret |= flagcheck_cpu286(&sffh->sfh, tbl);
+					break;
+
 				case STATFLAG_TERM:
 					done = TRUE;
 					break;
@@ -1502,10 +1572,17 @@ const SFENTRY	*tblterm;
 int statsave_load(const char *filename) {
 
 	SFFILEH		sffh;
+	char		error[256];
 	int			ret;
 	BOOL		done;
 const SFENTRY	*tbl;
 const SFENTRY	*tblterm;
+
+	error[0] = '\0';
+	ret = statsave_check(filename, error, sizeof(error));
+	if (ret == STATFLAG_FAILURE) {
+		return(STATFLAG_FAILURE);
+	}
 
 	sffh = statflag_open(filename, NULL, 0);
 	if (sffh == NULL) {
@@ -1558,6 +1635,10 @@ const SFENTRY	*tblterm;
 			switch(tbl->type) {
 				case STATFLAG_BIN:
 					ret |= flagload_common(&sffh->sfh, tbl);
+					break;
+
+				case STATFLAG_CPU286:
+					ret |= flagload_cpu286(&sffh->sfh, tbl);
 					break;
 
 				case STATFLAG_TERM:
