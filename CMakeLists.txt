@@ -355,6 +355,7 @@ if(VAEG_ENABLE_TESTS)
         tests/upd9002/direct_harness.c
 		tests/upd9002/dispatch_normalization.c
         tests/upd9002/fixtures.c
+		tests/upd9002/rep0f_current_behavior.c
         tests/upd9002/state_scenario.c
         tests/upd9002/statsave_boundary.c
         tests/upd9002/ssts_worker.c)
@@ -494,6 +495,7 @@ if(VAEG_ENABLE_TESTS)
         VAEG_UPD9002_M42_TESTING=1
         VAEG_UPD9002_M44_TESTING=1
 		VAEG_UPD9002_M46_TESTING=1
+		VAEG_UPD9002_M47_TESTING=1
         VAEG_UPD9002_SSTS_TESTING=1
         "VAEG_UPD9002_HARNESS_MANIFEST_PATH=\"${CMAKE_CURRENT_SOURCE_DIR}/tests/upd9002/harness_manifest.csv\""
         "VAEG_UPD9002_FIXTURE_PATH=\"${CMAKE_CURRENT_SOURCE_DIR}/tests/upd9002/state_fixtures_m42.txt\"")
@@ -666,6 +668,25 @@ if(VAEG_ENABLE_TESTS)
 		COMMAND vaeg_sdl2 --upd9002-m46-dispatch-qa)
     set_tests_properties(vaeg_upd9002_dispatch_normalization PROPERTIES
 		LABELS "romless;upd9002;dispatch;state")
+
+    add_test(NAME vaeg_upd9002_rep0f_current_behavior
+		COMMAND vaeg_sdl2 --upd9002-m47-rep0f-current)
+    set_tests_properties(vaeg_upd9002_rep0f_current_behavior PROPERTIES
+		LABELS "romless;upd9002;dispatch;state")
+
+    add_test(NAME vaeg_upd9002_rep0f_analysis_selftest
+		COMMAND "${Python3_EXECUTABLE}"
+			"${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/upd9002_rep0f_analysis.py"
+			selftest --root "${CMAKE_CURRENT_SOURCE_DIR}")
+    set_tests_properties(vaeg_upd9002_rep0f_analysis_selftest PROPERTIES
+		LABELS "romless;upd9002;dispatch;state;ssts")
+
+    add_test(NAME vaeg_upd9002_rep0f_analysis_static
+		COMMAND "${Python3_EXECUTABLE}"
+			"${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/upd9002_rep0f_analysis.py"
+			check-static --root "${CMAKE_CURRENT_SOURCE_DIR}")
+    set_tests_properties(vaeg_upd9002_rep0f_analysis_static PROPERTIES
+		LABELS "romless;upd9002;dispatch;state;ssts")
 
     add_executable(vaeg_upd9002_abi tests/upd9002/abi.c)
     target_include_directories(vaeg_upd9002_abi PRIVATE ${VAEG_INCLUDE_DIRS})
