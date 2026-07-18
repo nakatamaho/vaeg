@@ -22,10 +22,11 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 -->
 # M49 uPD9002 protected-mode reachability after M48
 
-Status: the post-M48 audit, deterministic inventory, and local validation are
-complete. This report proposes three exact dependency-closed groups for
-maintainer consideration at G49. It does not delete a group, alter CPU or state
-behavior, begin M50/M51, or declare G49 passed.
+Status: the post-M48 audit, deterministic inventory, local validation, and
+hosted validation are complete. This report proposes three exact
+dependency-closed groups for maintainer consideration at G49. It does not
+delete a group, alter CPU or state behavior, begin M50/M51, or declare G49
+passed.
 
 The final report/remote SHA is supplied in the handoff because this file cannot
 contain the SHA of the commit that contains itself.
@@ -37,7 +38,11 @@ contain the SHA of the commit that contains itself.
   `339f5f62b3e69611f66f6689be8798f1c675b2cf`
 - Pre-report audit SHA:
   `7fd80f7299402e2f5c324b89bf3edfc2b56e012c`
-- Remote SHA before M49 publication: no M49 remote branch existed
+- Hosted evidence and remote report SHA:
+  `a4cde3140bf00d9beb6c471c14833a2d10084725`
+- Hosted evidence run:
+  [build 29659803344](https://github.com/nakatamaho/vaeg/actions/runs/29659803344)
+  — 7/7 jobs successful
 - Accepted G48 branch: `topic/m48-upd9002-rep0f-fail-closed`
 
 The worktree started clean at the exact approved G48 SHA. No reset, rebase,
@@ -531,7 +536,7 @@ for all three scenarios. Sizes remain 112 and 16 bytes.
 | GCC ASan/UBSan `linux-ci-asan` | fresh configure/build; CTest 34/34; focused halt-on-error 5/5 |
 | GCC `linux-release` | fresh tests-disabled build; selftest and ROM-less smoke pass |
 | MinGW-w64 `mingw-cross` | fresh tests-disabled build; Wine selftest and ROM-less smoke pass |
-| hosted Linux/Windows/macOS/standalone | recorded after publication |
+| hosted Linux/Windows/macOS/standalone | [build 29659803344](https://github.com/nakatamaho/vaeg/actions/runs/29659803344): 7/7 successful at `a4cde3140bf00d9beb6c471c14833a2d10084725` |
 | repository invariants | encoding 0, EOL 0, case 0, diff/frozen/binary checks pass; unreferenced report remains the accepted 70 |
 
 Both production caches have `VAEG_ENABLE_TESTS=OFF` and integration tracing
@@ -677,6 +682,8 @@ python3 tools/repo/find_unreferenced.py --report
 git diff --check
 git diff --exit-code 339f5f62b3e69611f66f6689be8798f1c675b2cf -- \
   win9x i286x cpuxva/memoryva.x86 hlp romimage
+git push -u origin topic/m49-upd9002-protected-mode-reachability
+gh run view 29659803344 --json status,conclusion,url,headSha,jobs
 ```
 
 ## Deviations and risks
@@ -746,8 +753,9 @@ The maintainer must make each choice explicitly:
 - [x] Review each proposed M50 group member and retained replacement.
 - [x] Review every deferred/rejected group and blocking edge.
 - [x] Verify M42--M48 local preservation and production isolation.
-- [ ] Confirm hosted Linux, Windows, macOS, and standalone jobs at the pushed
-  M49 SHA.
+- [x] Confirm hosted Linux, Windows, macOS, and standalone jobs at pushed
+  evidence SHA `a4cde3140bf00d9beb6c471c14833a2d10084725`: build
+  29659803344, 7/7 successful.
 - [ ] Build from a clean checkout and boot in V3 mode.
 - [ ] Run the bundled VA demo.
 - [ ] Boot an OS and verify keyboard input and FDD read.
