@@ -13,7 +13,7 @@
 #include	"sgp.h"
 #include	"subsystemmx.h"
 #include	"va91.h"
-#include	"upd9002.h"
+#include	"upd9002_regs.h"
 #include	"upd9002_trace.h"
 #if defined(VAEG_UPD9002_SSTS_TESTING)
 #include	"tests/upd9002/direct_harness.h"
@@ -472,7 +472,7 @@ static const IOCBFN resetfn[] = {
 			gactrlva_reset,
 			cgromva_reset,
 			va91_reset,
-			upd9002_reset,
+			upd9002_regs_reset,
 		};
 
 static const IOCBFN bindfn[] = {
@@ -503,7 +503,7 @@ static const IOCBFN bindfn[] = {
 			gactrlva_bind,
 			cgromva_bind,
 			va91_bind,
-			upd9002_bind,
+			upd9002_regs_bind,
 		};
 
 
