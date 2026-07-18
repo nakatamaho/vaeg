@@ -180,9 +180,9 @@ def check_presets_and_core(root):
 
 def check_native_lifecycle(root):
     core = read_text(root, "cpu/upd9002/upd9002_core.c")
-    initialize = function_body(core, "void i286c_initialize(void)")
-    reset = function_body(core, "void i286c_reset(void)")
-    shut = function_body(core, "void i286c_shut(void)")
+    initialize = function_body(core, "void upd9002_core_initialize(void)")
+    reset = function_body(core, "void upd9002_core_reset(void)")
+    shut = function_body(core, "void upd9002_core_shut(void)")
     scheduler = function_body(read_text(root, "pccore.c"),
                               "void pccore_exec(BOOL draw)")
 
@@ -200,8 +200,8 @@ def check_native_lifecycle(root):
             "CPU_SHUT upper-FLAGS anomaly was normalized")
     require("ADR-0012" in shut and "not an 80286 execution mode" in shut,
             "CPU_SHUT exception is not linked to the ownership ADR")
-    require(scheduler.count("v30c_step();") == 1,
-            "scheduler does not call v30c_step exactly once")
+    require(scheduler.count("upd9002_core_step();") == 1,
+            "scheduler does not call upd9002_core_step exactly once")
     require("CPU_EXEC" not in scheduler,
             "block executor remains reachable from the scheduler")
 
@@ -280,9 +280,10 @@ def main():
         "{}={}".format(path, reference_counts[path])
         for path in sorted(reference_counts)
     )
-    print("upd9002-native-invariant: presets={} core=i286c selectors=absent".format(
+    print("upd9002-native-invariant: presets={} core=upd9002 selectors=absent".format(
         preset_count))
-    print("upd9002-native-invariant: reset=v30c_initreg step=v30c_step "
+    print("upd9002-native-invariant: reset=v30c_initreg "
+          "step=upd9002_core_step "
           "shutdown=i286c_initreg")
     print("upd9002-native-invariant: cpu_type={} control=state-validation-only".format(
         reference_text))

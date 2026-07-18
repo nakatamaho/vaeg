@@ -98,7 +98,7 @@ const UINT8 iflags[512] = {					// Z_FLAG, S_FLAG, P_FLAG
 	UINT16	*_reg16_b20[256];
 #endif
 
-void i286c_initialize(void) {
+void upd9002_core_initialize(void) {
 
 #if !defined(MEMOPTIMIZE) || (MEMOPTIMIZE < 2)
 	UINT	i;
@@ -150,14 +150,14 @@ void i286c_initialize(void) {
 #if !defined(MEMOPTIMIZE) || (MEMOPTIMIZE < 2)
 	i286cea_initialize();
 #endif
-	v30cinit();
+	upd9002_dispatch_initialize();
 	ZeroMemory(&i286core, sizeof(i286core));
 	upd9002_diagnostic_clear();
 	upd9002_state_initialize();
 	i286core.s.cpu_type = CPUTYPE_V30;
 }
 
-void i286c_deinitialize(void) {
+void upd9002_core_deinitialize(void) {
 
 	if (CPU_EXTMEM) {
 		_MFREE(CPU_EXTMEM);
@@ -180,7 +180,7 @@ static void v30c_initreg(void) {
 	I286_FLAG = 0xf002;
 }
 
-void i286c_reset(void) {
+void upd9002_core_reset(void) {
 
 #if defined(VAEG_UPD9002_M46_TESTING)
 	upd9002_dispatch_test_require_immutable();
@@ -192,7 +192,7 @@ void i286c_reset(void) {
 	upd9002_state_reset();
 }
 
-void i286c_shut(void) {
+void upd9002_core_shut(void) {
 
 	/*
 	 * ADR-0012 preserves this CPU_SHUT-only 286-style register result.
@@ -204,7 +204,7 @@ void i286c_shut(void) {
 	upd9002_state_shut();
 }
 
-void i286c_setextsize(UINT32 size) {
+void upd9002_core_set_ext_size(UINT32 size) {
 
 	if (CPU_EXTMEMSIZE != size) {
 		if (CPU_EXTMEM) {
@@ -225,7 +225,7 @@ void i286c_setextsize(UINT32 size) {
 	i286core.e.ems[3] = mem + 0xcc000;
 }
 
-void i286c_setemm(UINT frame, UINT32 addr) {
+void upd9002_core_set_emm(UINT frame, UINT32 addr) {
 
 	BYTE	*ptr;
 
@@ -267,7 +267,7 @@ const BYTE	*ptr;
 	I286_WORKCLOCK(20);
 }
 
-void CPUCALL i286c_interrupt(REG8 vect) {
+void CPUCALL upd9002_core_interrupt(REG8 vect) {
 
 	upd9002_trace_event(UPD9002_TRACE_ORIGIN_DEVICE, "interrupt",
 		(uint32_t)vect, (uint32_t)I286_IP, 2);

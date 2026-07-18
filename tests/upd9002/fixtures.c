@@ -87,7 +87,7 @@ static void prepare_executed(void) {
 	CPU_CLOCK = 0x12345678;
 	CopyMemory(mem + 0x2000, program, sizeof(program));
 	for (index = 0; index < 3; index++) {
-		v30c_step();
+		upd9002_core_step();
 	}
 }
 
@@ -97,7 +97,7 @@ static int verify_native_reset_invariant(void) {
 
 	upd9002_state_export(&saved);
 	i286core.s.cpu_type = 0;
-	i286c_reset();
+	upd9002_core_reset();
 	if ((i286core.s.cpu_type != CPUTYPE_V30) ||
 		(CPU_CS != 0xf000) || (CPU_IP != 0xfff0) ||
 		(CS_BASE != 0x000f0000) || (CPU_FLAG != 0xf002)) {

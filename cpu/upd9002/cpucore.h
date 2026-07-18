@@ -249,16 +249,16 @@ extern "C" {
 extern	I286CORE	i286core;
 extern	const UINT8	iflags[];
 
-void i286c_initialize(void);
-void i286c_deinitialize(void);
-void i286c_reset(void);
-void i286c_shut(void);
-void i286c_setextsize(UINT32 size);
-void i286c_setemm(UINT frame, UINT32 addr);
+void upd9002_core_initialize(void);
+void upd9002_core_deinitialize(void);
+void upd9002_core_reset(void);
+void upd9002_core_shut(void);
+void upd9002_core_set_ext_size(UINT32 size);
+void upd9002_core_set_emm(UINT frame, UINT32 addr);
 
-void CPUCALL i286c_interrupt(REG8 vect);
+void CPUCALL upd9002_core_interrupt(REG8 vect);
 
-void v30c_step(void);
+void upd9002_core_step(void);
 
 #ifdef __cplusplus
 }
@@ -329,13 +329,13 @@ void v30c_step(void);
 						i286core.s.trap = (i286core.s.r.w.flag >> 8) & 1;
 #define	CPU_A20EN(en)	CPU_ADRSMASK = (en)?0xfffffff:0x000fffff;
 
-#define	CPU_INITIALIZE				i286c_initialize
-#define	CPU_DEINITIALIZE			i286c_deinitialize
-#define	CPU_RESET					i286c_reset
+#define	CPU_INITIALIZE				upd9002_core_initialize
+#define	CPU_DEINITIALIZE			upd9002_core_deinitialize
+#define	CPU_RESET					upd9002_core_reset
 #define	CPU_CLEARPREFETCH()			
-#define	CPU_INTERRUPT(vect, soft)	i286c_interrupt(vect)
-#define	CPU_SHUT					i286c_shut
-#define	CPU_SETEXTSIZE(size)		i286c_setextsize((UINT32)(size) << 20)
-#define	CPU_SETEMM(frame, addr)		i286c_setemm(frame, addr)
+#define	CPU_INTERRUPT(vect, soft)	upd9002_core_interrupt(vect)
+#define	CPU_SHUT					upd9002_core_shut
+#define	CPU_SETEXTSIZE(size)		upd9002_core_set_ext_size((UINT32)(size) << 20)
+#define	CPU_SETEMM(frame, addr)		upd9002_core_set_emm(frame, addr)
 
 #endif

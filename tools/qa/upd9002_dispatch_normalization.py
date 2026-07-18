@@ -115,7 +115,9 @@ def tracked_production_sources(root):
 def check_constructor_references(root, core, dispatch, header):
     references = {}
     for relative in tracked_production_sources(root):
-        count = len(re.findall(r"\bv30cinit\s*\(", read_text(root, relative)))
+        count = len(re.findall(
+            r"\bupd9002_dispatch_initialize\s*\(",
+            read_text(root, relative)))
         if count:
             references[relative] = count
     require(references == {
@@ -123,12 +125,12 @@ def check_constructor_references(root, core, dispatch, header):
         "cpu/upd9002/upd9002_dispatch.c": 1,
         "cpu/upd9002/upd9002_dispatch.h": 1,
     }, "constructor reference map changed: {}".format(references))
-    require(header.count("void v30cinit(void);") == 1,
+    require(header.count("void upd9002_dispatch_initialize(void);") == 1,
             "constructor declaration is not unique")
-    require(dispatch.count("void v30cinit(void)") == 1,
+    require(dispatch.count("void upd9002_dispatch_initialize(void)") == 1,
             "constructor definition is not unique")
-    initialize = function_body(core, "void i286c_initialize(void)")
-    require(initialize.count("v30cinit();") == 1,
+    initialize = function_body(core, "void upd9002_core_initialize(void)")
+    require(initialize.count("upd9002_dispatch_initialize();") == 1,
             "production initialization does not invoke constructor once")
 
 
@@ -139,7 +141,7 @@ def check_roots_and_construction(dispatch):
         require(len(re.findall(pattern, dispatch)) == 1,
                 "root definition changed: {}".format(root))
 
-    body = function_body(dispatch, "void v30cinit(void)")
+    body = function_body(dispatch, "void upd9002_dispatch_initialize(void)")
     body_compact = compact(body)
     cursor = 0
     for operation in CONSTRUCTION_OPERATIONS:
@@ -235,18 +237,18 @@ def check_snapshot_and_lifecycle(root, core, dispatch, header):
     require("VAEG_UPD9002_M46_TESTING" in header,
             "test seam declarations are not target-local")
 
-    reset = function_body(core, "void i286c_reset(void)")
+    reset = function_body(core, "void upd9002_core_reset(void)")
     require(reset.count("upd9002_dispatch_test_require_immutable();") == 1,
             "ordinary reset lacks immutability verification")
     selftest = read_text(root, "sdl2/selftest.c")
     require(selftest.count("upd9002_dispatch_normalization_verify_live()") == 2,
             "selftest/state-load verification count changed")
     dedicated = read_text(root, "tests/upd9002/dispatch_normalization.c")
-    require(dedicated.count("i286c_initialize();") == 1,
+    require(dedicated.count("upd9002_core_initialize();") == 1,
             "dedicated QA initialization count changed")
-    require(dedicated.count("i286c_reset();") == 1,
+    require(dedicated.count("upd9002_core_reset();") == 1,
             "dedicated QA reset count changed")
-    require(dedicated.count("v30cinit();") == 1,
+    require(dedicated.count("upd9002_dispatch_initialize();") == 1,
             "dedicated QA lacks exactly one rejected re-entry attempt")
     require("upd9002_dispatch_test_construction_count() != 1" in dedicated,
             "dedicated QA does not enforce one construction")
@@ -279,7 +281,8 @@ def main():
         print("upd9002-dispatch-normalization-static: FAIL: {}".format(error),
               file=sys.stderr)
         return 1
-    print("upd9002-dispatch-normalization-static: constructor=v30cinit "
+    print("upd9002-dispatch-normalization-static: "
+          "constructor=upd9002_dispatch_initialize "
           "production-calls=1 successful-constructions=1")
     print("upd9002-dispatch-normalization-static: roots="
           "v30op:256,v30op_repne:256,v30op_repe:256,v30op_repc:256,"
