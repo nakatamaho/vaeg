@@ -27,7 +27,7 @@
 #include "nevent.h"
 #include "iocore.h"
 #include "upd9002_trace.h"
-#include "v30patch.h"
+#include "upd9002_dispatch.h"
 #include "tests/upd9002/direct_harness.h"
 
 #include <stdio.h>

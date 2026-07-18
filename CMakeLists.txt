@@ -99,7 +99,7 @@ set(VAEG_INCLUDE_DIRS
     "${CMAKE_CURRENT_SOURCE_DIR}/sdl2"
     "${CMAKE_CURRENT_SOURCE_DIR}"
     "${CMAKE_CURRENT_SOURCE_DIR}/common"
-    "${CMAKE_CURRENT_SOURCE_DIR}/i286c"
+    "${CMAKE_CURRENT_SOURCE_DIR}/cpu/upd9002"
     "${CMAKE_CURRENT_SOURCE_DIR}/io"
     "${CMAKE_CURRENT_SOURCE_DIR}/cbus"
     "${CMAKE_CURRENT_SOURCE_DIR}/bios"
@@ -134,20 +134,20 @@ set(VAEG_COMMON_SOURCES
     generic/np2info.c)
 
 set(VAEG_CORE_SOURCES
-    i286c/i286c.c
-	i286c/upd9002_diagnostic.c
-    i286c/upd9002_state.c
-    i286c/i286c_mn.c
-    i286c/i286c_ea.c
-    i286c/i286c_8x.c
-    i286c/i286c_sf.c
-    i286c/i286c_f6.c
-    i286c/i286c_fe.c
-    i286c/i286c_rp.c
-    i286c/v30patch.c
-    i286c/memory.c
-    i286c/egcmem.c
-    i286c/dmap.c
+    cpu/upd9002/upd9002_core.c
+	cpu/upd9002/upd9002_diagnostic.c
+    cpu/upd9002/upd9002_state.c
+    cpu/upd9002/i286c_mn.c
+    cpu/upd9002/i286c_ea.c
+    cpu/upd9002/i286c_8x.c
+    cpu/upd9002/i286c_sf.c
+    cpu/upd9002/i286c_f6.c
+    cpu/upd9002/i286c_fe.c
+    cpu/upd9002/i286c_rp.c
+    cpu/upd9002/upd9002_dispatch.c
+    cpu/upd9002/memory.c
+    cpu/upd9002/egcmem.c
+    cpu/upd9002/dmap.c
     io/iocore.c
     io/artic.c
     io/bmsio.c
@@ -425,7 +425,7 @@ if(VAEG_WERROR)
 endif()
 
 if(VAEG_Z80_INTEGRATION_TRACE)
-    list(APPEND VAEG_CORE_SOURCES i286c/upd9002_trace.c)
+    list(APPEND VAEG_CORE_SOURCES cpu/upd9002/upd9002_trace.c)
 endif()
 
 add_library(vaeg_core STATIC ${VAEG_CORE_SOURCES})
@@ -716,7 +716,7 @@ if(VAEG_ENABLE_TESTS)
 
     add_executable(vaeg_upd9002_state_boundary
         tests/upd9002/state_boundary.c
-        i286c/upd9002_state.c)
+        cpu/upd9002/upd9002_state.c)
     target_include_directories(vaeg_upd9002_state_boundary PRIVATE
         ${VAEG_INCLUDE_DIRS})
     target_compile_definitions(vaeg_upd9002_state_boundary PRIVATE
@@ -730,7 +730,7 @@ if(VAEG_ENABLE_TESTS)
 
     add_executable(vaeg_upd9002_state_payload_probe
         tests/upd9002/state_payload_probe.c
-        i286c/upd9002_state.c)
+        cpu/upd9002/upd9002_state.c)
     target_include_directories(vaeg_upd9002_state_payload_probe PRIVATE
         ${VAEG_INCLUDE_DIRS})
     target_compile_definitions(vaeg_upd9002_state_payload_probe PRIVATE

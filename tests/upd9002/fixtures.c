@@ -26,7 +26,7 @@
 #include "cpucore.h"
 #include "upd9002_state.h"
 #include "upd9002.h"
-#include "v30patch.h"
+#include "upd9002_dispatch.h"
 #include "tests/upd9002/fixtures.h"
 
 #include <stddef.h>

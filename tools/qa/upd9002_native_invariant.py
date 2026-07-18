@@ -170,14 +170,16 @@ def check_presets_and_core(root):
 
     cmake = read_text(root, "CMakeLists.txt")
     sources = cmake_call(cmake, "set(VAEG_CORE_SOURCES")
-    require("i286c/i286c.c" in sources, "C core implementation is missing")
-    require("i286c/v30patch.c" in sources, "V30 dispatch source is missing")
+    require("cpu/upd9002/upd9002_core.c" in sources,
+            "uPD9002 core implementation is missing")
+    require("cpu/upd9002/upd9002_dispatch.c" in sources,
+            "uPD9002 dispatch source is missing")
     require("i286x/" not in sources, "frozen assembly core entered active sources")
     return len(configured)
 
 
 def check_native_lifecycle(root):
-    core = read_text(root, "i286c/i286c.c")
+    core = read_text(root, "cpu/upd9002/upd9002_core.c")
     initialize = function_body(core, "void i286c_initialize(void)")
     reset = function_body(core, "void i286c_reset(void)")
     shut = function_body(core, "void i286c_shut(void)")
@@ -205,10 +207,10 @@ def check_native_lifecycle(root):
 
     require("void i286c(void)" not in core,
             "i286c block executor remains after M46")
-    dispatch = read_text(root, "i286c/v30patch.c")
+    dispatch = read_text(root, "cpu/upd9002/upd9002_dispatch.c")
     require("void v30c(void)" not in dispatch,
             "v30c block executor remains after M46")
-    header = read_text(root, "i286c/cpucore.h")
+    header = read_text(root, "cpu/upd9002/cpucore.h")
     require("void i286c(void)" not in header,
             "i286c block-executor declaration remains after M46")
     require("void v30c(void)" not in header,
@@ -217,10 +219,10 @@ def check_native_lifecycle(root):
 
 def check_cpu_type_reference_map(root):
     allowed = {
-        "i286c/cpucore.h",
-        "i286c/i286c.c",
-        "i286c/upd9002_state.c",
-        "i286c/upd9002_state.h",
+        "cpu/upd9002/cpucore.h",
+        "cpu/upd9002/upd9002_core.c",
+        "cpu/upd9002/upd9002_state.c",
+        "cpu/upd9002/upd9002_state.h",
     }
     counts = {}
     for relative in tracked_active_files(root):
@@ -239,12 +241,12 @@ def check_cpu_type_reference_map(root):
                 ",".join(sorted(counts))))
 
     header_lines = [line.strip() for line in
-                    read_text(root, "i286c/cpucore.h").splitlines()
+                    read_text(root, "cpu/upd9002/cpucore.h").splitlines()
                     if re.search(r"\bcpu_type\b", line)]
     require(header_lines == ["UINT8\tcpu_type;", "UINT8\tcpu_type;"],
             "cpucore cpu_type declarations changed")
 
-    for line in read_text(root, "i286c/i286c.c").splitlines():
+    for line in read_text(root, "cpu/upd9002/upd9002_core.c").splitlines():
         if not re.search(r"\bcpu_type\b", line):
             continue
         stripped = line.strip()
@@ -252,7 +254,7 @@ def check_cpu_type_reference_map(root):
                 ("offsetof(I286STAT, cpu_type)" in stripped),
                 "cpu_type became production control: {}".format(stripped))
 
-    adapter = read_text(root, "i286c/upd9002_state.c")
+    adapter = read_text(root, "cpu/upd9002/upd9002_state.c")
     require(adapter.count("if (state.cpu_type != CPUTYPE_V30)") == 1,
             "state adapter V30 validation changed")
     return counts
