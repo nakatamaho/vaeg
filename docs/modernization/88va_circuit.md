@@ -235,6 +235,12 @@ VA's cost structure.
 
 ### 7b. External references
 
+- VAEG SGP implementation: [`iova/sgp.c`](../../iova/sgp.c) and
+  [`iova/sgp.h`](../../iova/sgp.h)
+- PC-88VA Technical Manual (てくまに):
+  <http://www.iris.dti.ne.jp/~nano/88va/tekumani.html>
+- Inside PC-88VA Wiki — グラフィック:
+  <http://www.pc88.gr.jp/inside88va/wiki/index.php?%A5%B0%A5%E9%A5%D5%A5%A3%A5%C3%A5%AF>
 - MAME SGP device: <https://github.com/mamedev/mame/blob/master/src/mame/nec/pc88va_sgp.cpp>
 - MAME PC-88VA video (TSP/IDP handling): <https://github.com/mamedev/mame/blob/master/src/mame/nec/pc88va_v.cpp>
 - MAME PC-88VA driver: <https://github.com/mamedev/mame/blob/master/src/mame/nec/pc88va.cpp>
