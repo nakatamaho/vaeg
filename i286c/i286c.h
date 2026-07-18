@@ -50,11 +50,7 @@
 #define	I286_OV			i286core.s.ovflag
 
 #define	I286_GDTR		i286core.s.GDTR
-#define	I286_IDTR		i286core.s.IDTR
-#define	I286_LDTR		i286core.s.LDTR
 #define	I286_LDTRC		i286core.s.LDTRC
-#define	I286_TR			i286core.s.TR
-#define	I286_TRC		i286core.s.TRC
 #define	I286_MSW		i286core.s.MSW
 
 #define	I286_REMCLOCK	i286core.s.remainclock
@@ -82,12 +78,6 @@ extern void i286cea_initialize(void);
 extern const I286OP i286op[];
 extern const I286OP i286op_repe[];
 extern const I286OP i286op_repne[];
-
-#define	I286_0F	static void CPUCALL
-typedef void (CPUCALL * I286OP_0F)(UINT op);
-
-I286EXT i286c_cts(void);
-
 
 #define	I286_8X	static void CPUCALL
 typedef void (CPUCALL * I286OP8XREG8)(UINT8 *p);
@@ -150,4 +140,3 @@ extern I286EXT i286c_repe_scasb(void);
 extern I286EXT i286c_repne_scasb(void);
 extern I286EXT i286c_repe_scasw(void);
 extern I286EXT i286c_repne_scasw(void);
-

@@ -2678,7 +2678,7 @@ const I286OP i286op[] = {
 			_or_al_data8,					// 0C:	or		al, DATA8
 			_or_ax_data16,					// 0D:	or		ax, DATA16
 			_push_cs,						// 0E:	push	cs
-			i286c_cts,						// 0F:	i286 upper opcode
+			_reserved,						// 0F:	reserved placeholder
 
 			_adc_ea_r8,						// 10:	adc		EA, REG8
 			_adc_ea_r16,					// 11:	adc		EA, REG16
@@ -3024,7 +3024,7 @@ const I286OP i286op_repe[] = {
 			_or_al_data8,					// 0C:	or		al, DATA8
 			_or_ax_data16,					// 0D:	or		ax, DATA16
 			_push_cs,						// 0E:	push	cs
-			i286c_cts,						// 0F:	i286 upper opcode
+			_reserved,						// 0F:	reserved placeholder
 
 			_adc_ea_r8,						// 10:	adc		EA, REG8
 			_adc_ea_r16,					// 11:	adc		EA, REG16
@@ -3369,7 +3369,7 @@ const I286OP i286op_repne[] = {
 			_or_al_data8,					// 0C:	or		al, DATA8
 			_or_ax_data16,					// 0D:	or		ax, DATA16
 			_push_cs,						// 0E:	push	cs
-			i286c_cts,						// 0F:	i286 upper opcode
+			_reserved,						// 0F:	reserved placeholder
 
 			_adc_ea_r8,						// 10:	adc		EA, REG8
 			_adc_ea_r16,					// 11:	adc		EA, REG16
