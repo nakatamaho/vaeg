@@ -158,4 +158,3 @@ map, trace and fixtures; M43 identity/classifications/gaps/signatures; M44 state
 behavior/payloads; M45 native dispatch; M46 constructor/immutability; and the
 CPU_SHUT FLAGS 0000 anomaly.  Production binaries contain no M47 probe or
 research seam.
-
