@@ -38,7 +38,6 @@ class DispatchError(RuntimeError):
 
 POINTER_TYPES = {
     "I286OP",
-    "I286OP_0F",
     "I286OP8XREG8",
     "I286OP8XEXT8",
     "I286OP8XREG16",
@@ -75,8 +74,6 @@ EXPECTED_ARRAY_SIZES = {
     "c_ope0xf7_table": 8,
     "c_ope0xfe_table": 2,
     "c_ope0xff_table": 8,
-    "cts0_table": 8,
-    "cts1_table": 8,
 }
 
 ROOTS = (
@@ -214,14 +211,14 @@ def parse_patch_array(source: str, name: str) -> list[PatchEntry]:
 def extract_function_bodies(sources: dict[str, str]) -> dict[str, str]:
     functions: dict[str, str] = {}
     pattern = re.compile(
-        r"(?:I286FN|I286_0F|I286_8X|I286_SFT|I286_F6|I286EXT|"
+        r"(?:I286FN|I286_8X|I286_SFT|I286_F6|I286EXT|"
         r"static\s+(?:void|REG8|REG16|UINT|UINT32)|void\s+CPUCALL)\s+"
         r"(?P<name>[A-Za-z_]\w*)\s*\([^;{}]*\)\s*\{"
     )
     for source_name in sorted(sources):
         text = strip_comments(sources[source_name])
         for declaration in re.finditer(
-            r"(?:I286FN|I286_0F|I286_8X|I286_SFT|I286_F6|I286EXT)\s+"
+            r"(?:I286FN|I286_8X|I286_SFT|I286_F6|I286EXT)\s+"
             r"(?P<name>[A-Za-z_]\w*)\s*\(", text
         ):
             functions.setdefault(declaration.group("name"), "")

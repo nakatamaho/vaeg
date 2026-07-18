@@ -688,19 +688,19 @@ if(VAEG_ENABLE_TESTS)
     set_tests_properties(vaeg_upd9002_rep0f_transition_static PROPERTIES
 		LABELS "romless;upd9002;dispatch;state;ssts")
 
-    add_test(NAME vaeg_upd9002_protected_reachability
+    add_test(NAME vaeg_upd9002_protected_deletion
 		COMMAND "${Python3_EXECUTABLE}"
-			"${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/upd9002_protected_reachability.py"
+			"${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/upd9002_protected_deletion.py"
 			--root "${CMAKE_CURRENT_SOURCE_DIR}")
-    set_tests_properties(vaeg_upd9002_protected_reachability PROPERTIES
+    set_tests_properties(vaeg_upd9002_protected_deletion PROPERTIES
 		LABELS "romless;upd9002;dispatch;state")
 
-    add_test(NAME vaeg_upd9002_protected_reachability_selftest
+    add_test(NAME vaeg_upd9002_protected_deletion_selftest
 		COMMAND "${Python3_EXECUTABLE}"
-			"${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/upd9002_protected_reachability.py"
+			"${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/upd9002_protected_deletion.py"
 			--root "${CMAKE_CURRENT_SOURCE_DIR}" --selftest)
     set_tests_properties(
-		vaeg_upd9002_protected_reachability_selftest PROPERTIES
+		vaeg_upd9002_protected_deletion_selftest PROPERTIES
 		LABELS "romless;upd9002;dispatch;state")
 
     add_executable(vaeg_upd9002_abi tests/upd9002/abi.c)
