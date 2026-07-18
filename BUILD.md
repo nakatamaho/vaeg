@@ -28,6 +28,11 @@ The portable frontend is built with CMake and SDL2. The legacy Visual
 Studio projects remain as reference artifacts and are not part of these
 instructions.
 
+The active main-CPU instruction core is under `cpu/upd9002/`; its public
+entry points use `upd9002_core_*` and `upd9002_dispatch_*`. The separate
+built-in register/port model is `iova/upd9002_regs.*` and uses
+`upd9002_regs_*`. The VA memory header is `cpucva/memoryva.h`.
+
 ## Linux
 
 Install CMake 3.20 or newer, Ninja, a C/C++ compiler, and SDL2
