@@ -289,35 +289,6 @@ const BYTE	*ptr;
 	I286_WORKCLOCK(20);
 }
 
-void i286c(void) {
-
-	UINT	opcode;
-
-	if (I286_TRAP) {
-		do {
-			GET_PCBYTE(opcode);
-			i286op[opcode]();
-			if (I286_TRAP) {
-				i286c_interrupt(1);
-			}
-			dmap_i286();
-		} while(I286_REMCLOCK > 0);
-	}
-	else if (dmac.working) {
-		do {
-			GET_PCBYTE(opcode);
-			i286op[opcode]();
-			dmap_i286();
-		} while(I286_REMCLOCK > 0);
-	}
-	else {
-		do {
-			GET_PCBYTE(opcode);
-			i286op[opcode]();
-		} while(I286_REMCLOCK > 0);
-	}
-}
-
 // ---- test
 
 #if defined(I286C_TEST)
