@@ -308,6 +308,78 @@ not blurry at integer display scales, and writable state files were
 created under `~/Library/Application Support/vaeg` as required by
 ADR-0005.
 
+## uPD9002 M42 evidence targets
+
+Test-bearing builds expose behavior-neutral uPD9002 inventory and regression
+targets. M42 proved that every supported product preset compiled the C core
+and reached its V30 step function; the frozen assembly reference was not a
+supported preset. Run the complete M42 ROM-less evidence set with:
+
+```sh
+cmake --preset linux-ci-gcc
+cmake --build --preset linux-ci-gcc
+ctest --test-dir build/linux-ci-gcc --output-on-failure \
+  -L upd9002
+```
+
+The labeled tests regenerate the fail-closed dispatch graph, exercise parser
+selftests, verify the recorded raw-state ABI, run the graph-derived direct
+instruction manifest, compare deterministic `--trace-cpu 8` output with its
+golden, and verify the reset, executed, and CPU_SHUT fixtures. The trace is
+disabled by default. Its schema uses ordered CPU, DMA, and device records and
+records CPU memory writes and eight-bit I/O transactions when active.
+
+`tests/upd9002/direct_harness.h` is test-only. It accepts fixed-width CPU,
+program, and RAM input structures and returns a fixed-width result without
+exposing emulator globals. The SingleStepTests V20 dataset is deliberately not
+downloaded or integrated in M42.
+
+## uPD9002 M43 external V20 baseline
+
+M43 extends the direct harness with a test-only child-process adapter for the
+pinned MIT-licensed SingleStepTests V20 `v1_native` corpus. The corpus remains
+outside the repository. Acquisition, digest verification, deterministic CI and
+full commands, and baseline-report commands are documented in
+`tests/ssts/README.md`.
+
+Set `VAEG_SSTS_V20_ROOT` to the verified pinned checkout when configuring a
+test-bearing build. CTest then reproduces the CI profile and requires exact
+agreement with the committed result and failure signatures. When the setting
+is absent, ordinary hosted CI records a visible external-data skip while still
+running the synthetic fail-closed adapter test and checking both committed
+result summaries. An external-data skip never satisfies the M43 human gate or
+the corresponding comparison gate in M44--M49.
+
+The worker entry point exists only when `VAEG_ENABLE_TESTS=ON`; production
+builds do not compile the adapter, deterministic flat-memory seam, or test I/O
+seam. V20 bus timing and prefetch-cycle details are diagnostic rather than
+uPD9002 timing requirements.
+
+## uPD9002 M45 native execution invariant
+
+M45 makes the proved build/runtime choice unconditional. All 13 supported
+CMake presets compile `i286c/i286c.c` and `i286c/v30patch.c`; the scheduler
+calls `v30c_step()` directly. There is no active CMake or header selector for
+an assembly core or per-instruction 80286 execution. Historical
+`USE_I286C=off`, `i286x_step()`, and `v30x_step()` configurations are frozen
+unsupported references and must not be offered as product build options.
+
+Normal initialization and reset always establish V30-compatible register
+state. The serialized `CPU286` `cpu_type` byte remains ABI-compatible and is
+validated by the M44 state adapter, but it does not control runtime execution.
+CPU_SHUT remains the sole documented initializer-level exception: it preserves
+the M42 286-style register-init fixture, including its upper-FLAGS anomaly,
+without selecting a 286 opcode dispatcher.
+
+Run the fail-closed source/build/reference map with:
+
+```sh
+python3 tools/qa/upd9002_native_invariant.py --root .
+```
+
+The check also requires the `i286c()` and `v30c()` block executors to remain
+until their separately owned M46 removal.
+
 ## Known Issues
 
 US physical host keyboards do not yet have a dedicated mapping mode for

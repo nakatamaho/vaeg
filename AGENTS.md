@@ -5,10 +5,10 @@ is abandoned; this fork is the living tree.
 
 The active tree is the portable CMake build: C core, SDL2 frontend under
 `sdl2/`, Dear ImGui GUI, and macOS / Linux / Windows-MinGW support. It
-uses `i286c/` for the main CPU, the suzukiplan-backed wrapper in
-`cpucva/z80_core.cpp` for the Z80 side, `sound/opngenc.c` for OPN
-generation (never define `OPNGENX86`), and `cpucva/memoryva.c` for the VA
-memory layer.
+uses `cpu/upd9002/` for the main CPU instruction core, the built-in CPU
+register model in `iova/upd9002_regs.*`, the suzukiplan-backed wrapper in
+`cpucva/z80_core.cpp` for the Z80 side, `sound/opngenc.c` for OPN generation
+(never define `OPNGENX86`), and `cpucva/memoryva.c` for the VA memory layer.
 
 A frozen reference tier remains for behavior archaeology only:
 
@@ -81,7 +81,8 @@ Release notes may summarize the ledger but do not replace it.
 - Frozen reference files (`win9x/`, `i286x/`, `cpuxva/memoryva.x86`,
   `hlp/`) are reference-only. Do not edit them unless a task explicitly
   says to update the reference tier.
-- Core code (root, `io/`, `sound/`, `cbus/`, `vram/`, `*va/`, `i286c/`)
+- Core code (root, `io/`, `sound/`, `cbus/`, `vram/`, `*va/`,
+  `cpu/upd9002/`)
   stays C. C++17 is allowed under `sdl2/` (frontend + GUI) and, when an
   approved third-party CPU core requires it, for CPU backends and thin
   compatibility adapters under `cpucva/`. C++ and STL types must not cross
@@ -101,6 +102,24 @@ Release notes may summarize the ledger but do not replace it.
 - Frozen reference: `win9x/np2_v141.sln` / VS2017 v141 / Win32 remains
   available for behavior comparison, but it is no longer an active build
   target with CI or compile-guarantee coverage.
+
+### Maintainer release handoff
+
+When the maintainer says to copy release builds to "the usual place", the
+destination is:
+
+`/mnt/c/Users/maho/Dropbox/Documents/Emulators/PASOCON/NEC PC-88VA/vaeg_new/`
+
+- Copy `build/linux-release/sdl2/vaeg` there as `vaeg`.
+- Copy the MinGW release executable there as `vaeg.exe`; its source is
+  `build/mingw-release/sdl2/vaeg.exe` for a native build or
+  `build/mingw-cross/sdl2/vaeg.exe` for the Linux cross-build.
+- Verify each copied executable against its build artifact with `cmp` or
+  SHA-256.
+
+This is a maintainer-local directory outside Git. Unless explicitly requested,
+replace only `vaeg` and `vaeg.exe`; do not alter or inventory its ROMs, disk
+images, configuration, save data, or other private integration assets.
 
 ## Commit messages
 

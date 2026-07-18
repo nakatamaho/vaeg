@@ -38,8 +38,8 @@ global singleton state inherited from Neko Project II:
 ```text
 SDL2 frontend
   -> pccore reset/run
-    -> CPU core: i286c/v30c
-    -> memory: i286c memory dispatcher plus PC-88VA memoryva layer
+    -> CPU core: cpu/upd9002
+    -> memory: uPD9002 memory dispatcher plus PC-88VA memoryva layer
     -> I/O: iocore, iova, cbus, FDC, DMAC, sound boards
     -> video: vram, vramva, scrndraw/scrndrawva
     -> sound: fm/psg/adpcm/beep/FDD motor sources
@@ -182,9 +182,9 @@ implementation's mapping of the documented capacity and is covered by the
 VA2 V3 BASIC regression test; the cited product specifications state the
 capacity but do not themselves document the CPU address decode.
 
-The main CPU memory entry points are still the i286c memory accessors.
-When the VA memory mode is active, `i286c/memory.c` dispatches memory
-accesses into `cpucva/memoryva.c`:
+The main CPU memory entry points retain their historical `i286_*` internal
+names. When the VA memory mode is active, `cpu/upd9002/memory.c` dispatches
+memory accesses into `cpucva/memoryva.c`:
 
 ```text
 i286_memoryread()     -> i286_memoryread_va()
@@ -193,7 +193,7 @@ i286_memorywrite()    -> i286_memorywrite_va()
 i286_memorywrite_w()  -> i286_memorywrite_va_w()
 ```
 
-The switch points are `i286c/memory.c:805-930`. The PC-88VA map routines
+The switch points are `cpu/upd9002/memory.c:805-930`. The PC-88VA map routines
 are in `cpucva/memoryva.c:770-812`.
 
 This is why the reset vector at physical `0xFFFF0` reads from `VAROM1.ROM`
@@ -229,11 +229,17 @@ The frame loop calls `pccore_exec(draw)` for guest time. Inside
 1. The display/vsync event is scheduled. PC-98 uses GDC timing; PC-88VA
    uses the VA screen-display event path.
 2. The CPU runs until the frame event clears `screendispflag`.
-3. The step dispatcher chooses i286 or V30 by `CPU_TYPE`.
-4. Portable builds use `i286c_step()` or `v30c_step()`.
-5. For PC-88VA, the FDD subsystem and SGP are stepped alongside the main
+3. The scheduler calls `v30c_step()` directly for each instruction. No active
+   build or runtime state can select an 80286 instruction dispatcher.
+4. For PC-88VA, the FDD subsystem and SGP are stepped alongside the main
    CPU.
-6. After the frame, disk, calendar, S98, and sound callbacks run.
+5. After the frame, disk, calendar, S98, and sound callbacks run.
+
+Normal initialization and reset always establish V30/uPD9002 native state.
+The legacy serialized `cpu_type` byte remains for save compatibility and is
+validated only by the state adapter; it is not runtime control. CPU_SHUT alone
+preserves its historical 286-style register-initializer output, including the
+recorded upper-FLAGS anomaly, but still returns to the same V30 dispatcher.
 
 The SGP model-default execution clock is 3.9936 MHz for VA and 7.9872 MHz for
 VA2/VA3, corresponding to the 4 MHz and 8 MHz clocks documented in
@@ -242,7 +248,7 @@ The V30/uPD9002 CPU model default is 7.9872 MHz for all three models. CPU
 multiplier changes do not alter the SGP default; Follow CPU and Custom SGP
 modes explicitly scale it.
 
-The key range is `pccore.c:1098-1252`.
+The key implementation is `pccore_exec()` in `pccore.c`.
 
 ## PC-88VA Guest Boot Path
 

@@ -49,6 +49,8 @@
 #include	"gui/gui.h"
 #include	"romcheck.h"
 #include	"selftest.h"
+#include	"upd9002_trace.h"
+#include	"upd9002_diagnostic.h"
 #include	"dropmedia.h"
 #include	"splash.h"
 #include	"np2ver.h"
@@ -57,6 +59,15 @@
 #include	"sound.h"
 #include	"opngen.h"
 #include	"ymfmbridge.h"
+#if defined(VAEG_UPD9002_M46_TESTING)
+#include	"tests/upd9002/dispatch_normalization.h"
+#endif
+#if defined(VAEG_UPD9002_M48_TESTING)
+#include	"tests/upd9002/rep0f_diagnostic_stop.h"
+#endif
+#if defined(VAEG_UPD9002_SSTS_TESTING)
+#include	"tests/upd9002/ssts_worker.h"
+#endif
 
 		NP2OSCFG	np2oscfg = {0, 0, 2, 0, 0, 0, 1, 0, "", "", {"", ""},
 								"", "", 0, 0, "", "ymfm", "minimum", 1,
@@ -205,6 +216,7 @@ static void usage(const char *progname) {
 	printf("\t--keyboard-layout jis|us|custom\n");
 	printf("Diagnostics:\n");
 	printf("\t--smoke --selftest --debug --fdctrace --pacelog\n");
+	printf("\t--trace-cpu 1..1000000\n");
 	printf("\t--version --help [-h]\n");
 }
 
@@ -1189,12 +1201,22 @@ static void processwait(UINT cnt, PACELOG *pacelog, BOOL pacelog_enabled) {
 	soundmng_sync();
 }
 
-static void run_guest_frame(BOOL draw) {
+static BOOL run_guest_frame(BOOL draw) {
+
+	UPD9002_DIAGNOSTIC diagnostic;
 
 	if (draw) {
 		gui_new_frame();
 	}
 	pccore_exec(draw);
+	if (upd9002_diagnostic_get(&diagnostic) == SUCCESS) {
+		fprintf(stderr,
+			"Error: uPD9002 fail-closed diagnostic stop at %04x:%04x: "
+			"%02x 0f was not executed because its semantics are unresolved\n",
+			diagnostic.cs, diagnostic.ip, diagnostic.prefix);
+		taskmng_exit();
+		return FAILURE;
+	}
 	if (draw) {
 		gui_draw();
 		scrnmng_present_begin();
@@ -1202,6 +1224,7 @@ static void run_guest_frame(BOOL draw) {
 		scrnmng_present_end();
 	}
 	scrnmng_framedisp_tick(SDL_GetTicks(), drawcount);
+	return SUCCESS;
 }
 
 static BOOL smoke_after_frame(BOOL smoke, UINT frames, BOOL detect_screen) {
@@ -1249,7 +1272,9 @@ static BOOL runloop(BOOL smoke, BOOL pacelog_enabled, BOOL detect_screen) {
 			BOOL	draw;
 
 			draw = (framecnt == 0);
-			run_guest_frame(draw);
+			if (run_guest_frame(draw) != SUCCESS) {
+				return FAILURE;
+			}
 			frames++;
 			pacelog_update(&pacelog, pacelog_enabled, 1, draw ? 0 : 1, 0);
 			if (smoke_after_frame(smoke, frames, detect_screen) != SUCCESS) {
@@ -1277,7 +1302,9 @@ static BOOL runloop(BOOL smoke, BOOL pacelog_enabled, BOOL detect_screen) {
 				BOOL	draw;
 
 				draw = (framecnt == 0);
-				run_guest_frame(draw);
+				if (run_guest_frame(draw) != SUCCESS) {
+					return FAILURE;
+				}
 				frames++;
 				pacelog_update(&pacelog, pacelog_enabled, 1,
 							   draw ? 0 : 1, 0);
@@ -1298,7 +1325,9 @@ static BOOL runloop(BOOL smoke, BOOL pacelog_enabled, BOOL detect_screen) {
 				UINT	cnt;
 
 				draw = (framecnt == 0);
-				run_guest_frame(draw);
+				if (run_guest_frame(draw) != SUCCESS) {
+					return FAILURE;
+				}
 				frames++;
 				pacelog_update(&pacelog, pacelog_enabled, 1,
 							   draw ? 0 : 1, 0);
@@ -1364,6 +1393,22 @@ int main(int argc, char **argv) {
 	char cli_error[256];
 	const char *cli_model;
 
+#if defined(VAEG_UPD9002_M46_TESTING)
+	if ((argc == 2) && !strcmp(argv[1], "--upd9002-m46-dispatch-qa")) {
+		return upd9002_dispatch_normalization_main();
+	}
+#endif
+#if defined(VAEG_UPD9002_M48_TESTING)
+	if ((argc == 2) && !strcmp(argv[1], "--upd9002-m48-rep0f-diagnostic")) {
+		return upd9002_rep0f_diagnostic_stop_main();
+	}
+#endif
+#if defined(VAEG_UPD9002_SSTS_TESTING)
+	if ((argc > 1) && !strcmp(argv[1], "--upd9002-ssts-worker")) {
+		return upd9002_ssts_worker_main(argc - 1, argv + 1);
+	}
+#endif
+
 	smoke_detect_screen = FALSE;
 	splash_visible = FALSE;
 	run_ok = SUCCESS;
@@ -1393,8 +1438,12 @@ int main(int argc, char **argv) {
 
 	dosio_init();
 	file_setcd("./");
+	if (options.trace_cpu != 0) {
+		upd9002_trace_start(stderr, options.trace_cpu);
+	}
 	if (options.selftest) {
 		run_ok = vaeg_selftest_run();
+		upd9002_trace_stop();
 		SDL_Quit();
 		dosio_term();
 		return(run_ok);
@@ -1536,6 +1585,7 @@ int main(int argc, char **argv) {
 	gui_shutdown();
 	scrnmng_destroy();
 	TRACETERM();
+	upd9002_trace_stop();
 	SDL_Quit();
 	dosio_term();
 	return(run_ok);
@@ -1546,6 +1596,7 @@ np2main_err3:
 
 np2main_err2:
 	TRACETERM();
+	upd9002_trace_stop();
 	SDL_Quit();
 	dosio_term();
 	return(FAILURE);
