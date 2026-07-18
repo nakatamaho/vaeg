@@ -37,7 +37,10 @@ cannot contain the SHA of the commit that contains itself.
   `5a9b4c1de72ce18fd7989c8db22a542ca49ede09`
 - Pre-report evidence SHA:
   `60781fa62e08c1b54a6ec3f0bac4bec663093295`
-- Remote SHA and hosted run: recorded after the report commit and push
+- Hosted-tested report SHA:
+  `13f7aac9b95e324994261324da0005e147e7c302`
+- Hosted run: [build 29639368627](https://github.com/nakatamaho/vaeg/actions/runs/29639368627),
+  7/7 jobs successful
 - Accepted M47 pre-implementation audit SHA-256:
   `3b93bc4b9fefe3026b3dd1533a968f7f6ea2a6b6b00a9c4756d3315dbcdfa5ea`
 
@@ -329,7 +332,7 @@ checks passed.
 | probe reproducibility | NASM 3.01, 8/8 digests exact; parser smoke passed |
 | encoding/EOL/case | 0/0/0 findings |
 | unreferenced report | 70 findings: accepted prior 69 plus the intentionally standalone, production-unlinked probe ASM |
-| hosted Linux/Windows/macOS/standalone | pending report-commit push |
+| hosted Linux/Windows/macOS/standalone | [build 29639368627](https://github.com/nakatamaho/vaeg/actions/runs/29639368627): 7/7 jobs successful on `13f7aac9b95e324994261324da0005e147e7c302` |
 
 The first clean FetchContent configure required network access for the pinned
 zlib/libarchive/SDL2 archives; rerunning with network access succeeded. Native
@@ -443,6 +446,9 @@ python3 tools/repo/check_eol.py --enforce
 python3 tools/repo/check_case.py
 python3 tools/repo/find_unreferenced.py --report
 git diff --check
+
+git push -u origin topic/m47-upd9002-rep0f-correctness
+gh run view 29639368627 --json status,conclusion,url,jobs
 ```
 
 ## Files changed and production boundary
