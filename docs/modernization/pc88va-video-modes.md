@@ -56,7 +56,7 @@ G0/G1 in a common output coordinate system. The reconstructed TSP and SGP
 specifications remain authoritative for their individual blocks:
 
 - [uPD72022 TSP reconstruction](upd72022-tsp.md)
-- [PC-88VA SGP reconstruction](upd65200-sgp.md)
+- [PC-88VA uPD92017 SGP reconstruction](upd92017-sgp.md)
 
 Evidence labels used below are:
 
