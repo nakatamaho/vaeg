@@ -1,0 +1,145 @@
+{
+  "accepted_artifact_sha256": {
+    "ci_baseline": "a5db6a6cc82ae794fd2f60306c3d4a70136d6030e17e1aec733523bece864e31",
+    "construction_provenance": "605e9af6761e3069f6c5af0ad9647ae574ab98252f7373969586cfee892cd6ba",
+    "final_dispatch_graph": "e8c8fded6e1f44ef2d74ace93ba1063d64464b217bdd4f9180bf50e86e19df3d",
+    "full_baseline": "dd3247774afe5c5a19228d3a08f01ac6f614e6b67a3a6f454c1abc58f3dbf3d9",
+    "known_gaps": "11ec1496a96d661c0656720b13939b1ade3448b693b923f8acf36576cd7048c1",
+    "state_fixtures": "c8ed4bcf1a7df2a88964d71d85b846a6d7881f60a9233d8c9b787d3d5076f4fb",
+    "support_map": "7b856f95d8c3d0356325483d188b9dde2d03a8e6cbe9b7fd0cacd004f1d09d13"
+  },
+  "candidate_A_prefix_ignored": {
+    "final_dispatch_replacements": [
+      {
+        "entry_kind": "handler",
+        "slot": "0x0f",
+        "table": "v30op_repe",
+        "target": "v30_ope0x0f"
+      },
+      {
+        "entry_kind": "handler",
+        "slot": "0x0f",
+        "table": "v30op_repne",
+        "target": "v30_ope0x0f"
+      }
+    ],
+    "m43_record_hashes": [],
+    "provenance_replacements": [
+      {
+        "base": "i286op_repne",
+        "base_target": "i286c_cts",
+        "final_target": "v30_ope0x0f",
+        "operation": "patch",
+        "root": "v30op_repne",
+        "slot": "0x0f",
+        "transition_note": "exact constructor representation requires G47 approval"
+      },
+      {
+        "base": "i286op_repe",
+        "base_target": "i286c_cts",
+        "final_target": "v30_ope0x0f",
+        "operation": "patch",
+        "root": "v30op_repe",
+        "slot": "0x0f",
+        "transition_note": "exact constructor representation requires G47 approval"
+      }
+    ],
+    "support_map_replacements": [
+      {
+        "basis": "REP-prefix-ignored-second-byte-resolved",
+        "classification": "implemented",
+        "mode": "v30op_repe",
+        "opcode": "0x0f",
+        "subopcode": "-",
+        "target": "v30_ope0x0f",
+        "transition_note": "classification must resolve the following 0F second byte"
+      },
+      {
+        "basis": "REP-prefix-ignored-second-byte-resolved",
+        "classification": "implemented",
+        "mode": "v30op_repne",
+        "opcode": "0x0f",
+        "subopcode": "-",
+        "target": "v30_ope0x0f",
+        "transition_note": "classification must resolve the following 0F second byte"
+      }
+    ]
+  },
+  "candidate_B_target_specific": {
+    "exact_rows": null,
+    "m43_record_hashes": [],
+    "reason": "uPD9002-specific operation has not been established"
+  },
+  "candidate_C_reserved_or_undefined": {
+    "exact_rows": null,
+    "m43_record_hashes": [],
+    "reason": "exception/no-op/restart semantics have not been established"
+  },
+  "candidate_D_second_byte_dependent": {
+    "exact_rows": null,
+    "m43_record_hashes": [],
+    "reason": "per-second-byte behavior awaits hardware evidence"
+  },
+  "current_rows": {
+    "final_dispatch": [
+      {
+        "entry_kind": "handler",
+        "slot": "0x0f",
+        "table": "v30op_repe",
+        "target": "i286c_cts"
+      },
+      {
+        "entry_kind": "handler",
+        "slot": "0x0f",
+        "table": "v30op_repne",
+        "target": "i286c_cts"
+      }
+    ],
+    "provenance": [
+      {
+        "base": "i286op_repne",
+        "base_target": "i286c_cts",
+        "final_target": "i286c_cts",
+        "operation": "base",
+        "root": "v30op_repne",
+        "slot": "0x0f"
+      },
+      {
+        "base": "i286op_repe",
+        "base_target": "i286c_cts",
+        "final_target": "i286c_cts",
+        "operation": "base",
+        "root": "v30op_repe",
+        "slot": "0x0f"
+      }
+    ],
+    "support_map": [
+      {
+        "basis": "final-root-target",
+        "classification": "implemented",
+        "mode": "v30op_repe",
+        "opcode": "0x0f",
+        "subopcode": "-",
+        "target": "i286c_cts"
+      },
+      {
+        "basis": "final-root-target",
+        "classification": "implemented",
+        "mode": "v30op_repne",
+        "opcode": "0x0f",
+        "subopcode": "-",
+        "target": "i286c_cts"
+      }
+    ]
+  },
+  "g47_decision": "unresolved pending PC-88VA hardware results",
+  "m47_changes_accepted_baselines": false,
+  "schema": "vaeg-upd9002-rep0f-transition-manifest-m47-v1",
+  "state_transition": {
+    "committed_reset_executed3_cpu_shut_fixtures": "must remain byte-identical",
+    "cpu_shut_flags_0000": "must remain byte-identical",
+    "g41_m44_matrix": "all three accepted scenarios have zero protected residue",
+    "states_with_protected_residue": "policy unresolved; no rejection or migration authorized"
+  },
+  "status": "prospective-not-authorized"
+}
