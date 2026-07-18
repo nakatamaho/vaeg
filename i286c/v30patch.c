@@ -35,6 +35,7 @@ static	I286OP		v30op_repe[256];
 static	I286OP		v30op_repc[256];
 static	I286OPF6	v30ope0xf6_table[8];
 static	I286OPF6	v30ope0xf7_table[8];
+static	BOOL		v30_dispatch_initialized;
 static	UINT16		v30_repc_ipbak;
 
 
@@ -1390,6 +1391,10 @@ void v30cinit(void) {
 
 	UINT	i;
 
+	/* ADR-0012: this is the sole live dispatch-construction path. */
+	if (v30_dispatch_initialized) {
+		return;
+	}
 	CopyMemory(v30op, i286op, sizeof(v30op));
 	V30PATCHING(v30op, v30patch_op);
 	CopyMemory(v30op_repne, i286op_repne, sizeof(v30op_repne));
@@ -1406,6 +1411,7 @@ void v30cinit(void) {
 		v30op_repc[i] = v30_reserved_repc;
 	}
 	V30PATCHING(v30op_repc, v30patch_repc);
+	v30_dispatch_initialized = TRUE;
 }
 
 void v30c(void) {
