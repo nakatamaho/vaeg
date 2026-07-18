@@ -57,6 +57,8 @@ BANNED_ACTIVE_TOKENS = (
     "i286c_step",
     "CPU_TYPE",
     "SINGLESTEPONLY",
+    "CPU_EXEC",
+    "CPU_EXECV30",
 )
 EXPECTED_PRESETS = {
     "linux-debug",
@@ -201,11 +203,16 @@ def check_native_lifecycle(root):
     require("CPU_EXEC" not in scheduler,
             "block executor remains reachable from the scheduler")
 
-    require("void i286c(void)" in core,
-            "M45 deleted the i286c block executor owned by M46")
+    require("void i286c(void)" not in core,
+            "i286c block executor remains after M46")
     dispatch = read_text(root, "i286c/v30patch.c")
-    require("void v30c(void)" in dispatch,
-            "M45 deleted the v30c block executor owned by M46")
+    require("void v30c(void)" not in dispatch,
+            "v30c block executor remains after M46")
+    header = read_text(root, "i286c/cpucore.h")
+    require("void i286c(void)" not in header,
+            "i286c block-executor declaration remains after M46")
+    require("void v30c(void)" not in header,
+            "v30c block-executor declaration remains after M46")
 
 
 def check_cpu_type_reference_map(root):
@@ -277,7 +284,7 @@ def main():
           "shutdown=i286c_initreg")
     print("upd9002-native-invariant: cpu_type={} control=state-validation-only".format(
         reference_text))
-    print("upd9002-native-invariant: block-executors=i286c,v30c retained-for-m46")
+    print("upd9002-native-invariant: block-executors=absent cpu-exec-macros=absent")
     return 0
 
 
