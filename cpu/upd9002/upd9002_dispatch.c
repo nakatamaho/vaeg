@@ -1,7 +1,7 @@
 #include	"compiler.h"
 #include	"cpucore.h"
 #include	"i286c.h"
-#include	"v30patch.h"
+#include	"upd9002_dispatch.h"
 #include	"upd9002_diagnostic.h"
 #include	"upd9002_trace.h"
 #include	"pccore.h"

@@ -25,7 +25,7 @@
 
 #include "compiler.h"
 #include "cpucore.h"
-#include "v30patch.h"
+#include "upd9002_dispatch.h"
 #include "tests/upd9002/dispatch_normalization.h"
 
 #include <stdio.h>

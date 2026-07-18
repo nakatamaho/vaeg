@@ -200,8 +200,10 @@ HARNESS_ADDED = {
 
 
 def verify_source_policy(root: pathlib.Path) -> None:
-    dispatch = (root / "i286c/v30patch.c").read_text(encoding="utf-8")
-    state = (root / "i286c/upd9002_state.c").read_text(encoding="utf-8")
+    dispatch = (root / "cpu/upd9002/upd9002_dispatch.c").read_text(
+        encoding="utf-8")
+    state = (root / "cpu/upd9002/upd9002_state.c").read_text(
+        encoding="utf-8")
     pccore = (root / "pccore.c").read_text(encoding="utf-8")
     test = (root / "tests/upd9002/rep0f_diagnostic_stop.c").read_text(
         encoding="utf-8")

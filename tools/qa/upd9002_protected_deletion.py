@@ -56,19 +56,19 @@ M50_MANIFEST = "tools/qa/golden/upd9002_286_deletion_manifest_m50.csv"
 M50_PROVENANCE = "tools/qa/golden/upd9002_dispatch_provenance_m50.csv"
 
 IMMUTABLE_FILES = {
-    "i286c/cpucore.h":
+    "cpu/upd9002/cpucore.h":
         "78456e2de3a5903289f23382fa83863d6f092b9d86dbee055b576a2e24775196",
-    "i286c/upd9002_state.c":
+    "cpu/upd9002/upd9002_state.c":
         "09b1ffe22bab6d2a411f15e89ab72f82ee42195606bcefeb6740fd5e4f677505",
-    "i286c/upd9002_state.h":
+    "cpu/upd9002/upd9002_state.h":
         "a3ef33e7a9171c4cd14dda9759d929fe943d6e85ba5e2a7f04d6631ab6db4d80",
-    "i286c/i286c.c":
+    "cpu/upd9002/upd9002_core.c":
         "658408730cd4fe7cc102a21b1262788abca877ea9e10d1d40929f96ab0bc9892",
-    "i286c/v30patch.c":
+    "cpu/upd9002/upd9002_dispatch.c":
         "e7b5d743d0e99d46f0ef114383dda25d130b35b436244fbc6c275566672d2502",
-    "i286c/i286c_ea.c":
+    "cpu/upd9002/i286c_ea.c":
         "f63a82a595028b05d7bbbc485e53186618fd844649f31f8b16822fbeb88d63d2",
-    "i286c/i286c.mcr":
+    "cpu/upd9002/i286c.mcr":
         "4a68fe820cfcfb5c2f68e2d8370bc5aeec85bc96264a857443f3f8a62e245e88",
     "tests/upd9002/rep0f_diagnostic_stop.c":
         "59baf7627310f73c6862b6f7e26d3704f2ed972c1f9e352dd1c04c571eee91e6",
@@ -82,6 +82,18 @@ IMMUTABLE_FILES = {
         "21dd037c3eb11e1674805ad456ef03663f17804affbd7382c8db77291ab25279",
     "tools/qa/golden/upd9002_rep0f_transition_manifest_m48.json":
         "4f3fefe8cbfb20a03364a80a0b917e475d3d545cab8eda6bee8a22c66e2147ee",
+}
+
+M51_CANONICAL_REPLACEMENTS = {
+    "cpu/upd9002/upd9002_core.c": (
+        (b'#include\t"upd9002_dispatch.h"', b'#include\t"v30patch.h"', 1),
+    ),
+    "cpu/upd9002/upd9002_dispatch.c": (
+        (b'#include\t"upd9002_dispatch.h"', b'#include\t"v30patch.h"', 1),
+    ),
+    "tests/upd9002/rep0f_diagnostic_stop.c": (
+        (b'#include "upd9002_dispatch.h"', b'#include "v30patch.h"', 1),
+    ),
 }
 
 DELETED_IDENTIFIERS = (
@@ -129,7 +141,17 @@ def read_bytes(root: pathlib.Path, relative: str) -> bytes:
 
 def verify_immutable_files(root: pathlib.Path) -> None:
     for relative, expected in IMMUTABLE_FILES.items():
-        actual = sha256(read_bytes(root, relative))
+        data = read_bytes(root, relative)
+        for current, accepted, expected_count in M51_CANONICAL_REPLACEMENTS.get(
+                relative, ()):
+            actual_count = data.count(current)
+            if actual_count != expected_count:
+                raise DeletionError(
+                    "M51 rename count changed: {} token={!r} expected={} "
+                    "actual={}".format(relative, current, expected_count,
+                                       actual_count))
+            data = data.replace(current, accepted)
+        actual = sha256(data)
         if actual != expected:
             raise DeletionError(
                 "retained artifact changed: {} expected={} actual={}".format(
@@ -228,7 +250,7 @@ def manifest_bytes(rows: Sequence[Mapping[str, str]]) -> bytes:
 
 def active_source_paths(root: pathlib.Path) -> List[pathlib.Path]:
     paths = [root / "CMakeLists.txt"]
-    for base in (root / "i286c", root / "tests/upd9002"):
+    for base in (root / "cpu/upd9002", root / "tests/upd9002"):
         for path in sorted(base.iterdir()):
             if path.is_file() and path.suffix in {".c", ".h", ".mcr"}:
                 paths.append(path)
@@ -236,7 +258,7 @@ def active_source_paths(root: pathlib.Path) -> List[pathlib.Path]:
 
 
 def verify_source_absence(root: pathlib.Path) -> None:
-    if (root / "i286c/i286c_0f.c").exists():
+    if (root / "cpu/upd9002/i286c_0f.c").exists():
         raise DeletionError("approved CTS translation unit still exists")
     findings = []
     for path in active_source_paths(root):
@@ -256,7 +278,7 @@ def verify_dispatch(root: pathlib.Path, module, write: bool) -> Tuple[str, str]:
     sources = module.load_sources(root)
     arrays = module.parse_arrays(sources)
     roots, _provenance_rows = module.construct_roots(
-        arrays, sources["v30patch.c"])
+        arrays, sources["upd9002_dispatch.c"])
     for root_name, base_name, slot, _old_target, final_target in PLACEHOLDERS:
         if arrays[base_name][slot] != "_reserved":
             raise DeletionError("base placeholder changed: {}[{:#04x}]".format(

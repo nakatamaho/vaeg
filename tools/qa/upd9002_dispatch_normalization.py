@@ -119,9 +119,9 @@ def check_constructor_references(root, core, dispatch, header):
         if count:
             references[relative] = count
     require(references == {
-        "i286c/i286c.c": 1,
-        "i286c/v30patch.c": 1,
-        "i286c/v30patch.h": 1,
+        "cpu/upd9002/upd9002_core.c": 1,
+        "cpu/upd9002/upd9002_dispatch.c": 1,
+        "cpu/upd9002/upd9002_dispatch.h": 1,
     }, "constructor reference map changed: {}".format(references))
     require(header.count("void v30cinit(void);") == 1,
             "constructor declaration is not unique")
@@ -269,9 +269,9 @@ def main():
     arguments = parser.parse_args()
     root = arguments.root.resolve()
     try:
-        core = read_text(root, "i286c/i286c.c")
-        dispatch = read_text(root, "i286c/v30patch.c")
-        header = read_text(root, "i286c/v30patch.h")
+        core = read_text(root, "cpu/upd9002/upd9002_core.c")
+        dispatch = read_text(root, "cpu/upd9002/upd9002_dispatch.c")
+        header = read_text(root, "cpu/upd9002/upd9002_dispatch.h")
         check_constructor_references(root, core, dispatch, header)
         check_roots_and_construction(dispatch)
         check_snapshot_and_lifecycle(root, core, dispatch, header)
