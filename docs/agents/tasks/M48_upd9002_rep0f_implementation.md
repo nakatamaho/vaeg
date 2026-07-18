@@ -71,4 +71,3 @@ approval, or unrelated state-version change.
 The implementation equals the exact G47 decision; every prospective transition
 row is accounted for; no extra baseline record changes; state and CPU_SHUT
 effects match approval; all builds/tests/human checks are green.  Stop at G48.
-
