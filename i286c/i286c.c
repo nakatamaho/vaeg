@@ -180,6 +180,9 @@ static void v30c_initreg(void) {
 
 void i286c_reset(void) {
 
+#if defined(VAEG_UPD9002_M46_TESTING)
+	upd9002_dispatch_test_require_immutable();
+#endif
 	ZeroMemory(&i286core.s, sizeof(i286core.s));
 	i286core.s.cpu_type = CPUTYPE_V30;
 	v30c_initreg();

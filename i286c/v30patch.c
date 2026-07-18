@@ -9,6 +9,10 @@
 #include	"dmap.h"
 #include	"i286c.mcr"
 
+#if defined(VAEG_UPD9002_M46_TESTING)
+#include <stdlib.h>
+#endif
+
 
 // victory30 patch
 
@@ -37,6 +41,92 @@ static	I286OPF6	v30ope0xf6_table[8];
 static	I286OPF6	v30ope0xf7_table[8];
 static	BOOL		v30_dispatch_initialized;
 static	UINT16		v30_repc_ipbak;
+
+#if defined(VAEG_UPD9002_M46_TESTING)
+static	I286OP		v30op_snapshot[256];
+static	I286OP		v30op_repne_snapshot[256];
+static	I286OP		v30op_repe_snapshot[256];
+static	I286OP		v30op_repc_snapshot[256];
+static	I286OPF6	v30ope0xf6_snapshot[8];
+static	I286OPF6	v30ope0xf7_snapshot[8];
+static	UINT		v30_dispatch_construction_count;
+static	UINT		v30_dispatch_rejected_count;
+
+static void v30_dispatch_snapshot(void) {
+
+	UINT	i;
+
+	for (i=0; i<256; i++) {
+		v30op_snapshot[i] = v30op[i];
+		v30op_repne_snapshot[i] = v30op_repne[i];
+		v30op_repe_snapshot[i] = v30op_repe[i];
+		v30op_repc_snapshot[i] = v30op_repc[i];
+	}
+	for (i=0; i<8; i++) {
+		v30ope0xf6_snapshot[i] = v30ope0xf6_table[i];
+		v30ope0xf7_snapshot[i] = v30ope0xf7_table[i];
+	}
+}
+
+static BOOL v30_dispatch_equal(const I286OP *live,
+								const I286OP *snapshot, UINT count) {
+
+	UINT	i;
+
+	for (i=0; i<count; i++) {
+		if (!(live[i] == snapshot[i])) {
+			return(FALSE);
+		}
+	}
+	return(TRUE);
+}
+
+static BOOL v30_dispatch_f6_equal(const I286OPF6 *live,
+								const I286OPF6 *snapshot, UINT count) {
+
+	UINT	i;
+
+	for (i=0; i<count; i++) {
+		if (!(live[i] == snapshot[i])) {
+			return(FALSE);
+		}
+	}
+	return(TRUE);
+}
+
+int upd9002_dispatch_test_verify(void) {
+
+	if ((v30_dispatch_construction_count != 1) ||
+		(!v30_dispatch_equal(v30op, v30op_snapshot, 256)) ||
+		(!v30_dispatch_equal(v30op_repne, v30op_repne_snapshot, 256)) ||
+		(!v30_dispatch_equal(v30op_repe, v30op_repe_snapshot, 256)) ||
+		(!v30_dispatch_equal(v30op_repc, v30op_repc_snapshot, 256)) ||
+		(!v30_dispatch_f6_equal(v30ope0xf6_table,
+							v30ope0xf6_snapshot, 8)) ||
+		(!v30_dispatch_f6_equal(v30ope0xf7_table,
+							v30ope0xf7_snapshot, 8))) {
+		return(FAILURE);
+	}
+	return(SUCCESS);
+}
+
+void upd9002_dispatch_test_require_immutable(void) {
+
+	if (upd9002_dispatch_test_verify() != SUCCESS) {
+		abort();
+	}
+}
+
+UINT upd9002_dispatch_test_construction_count(void) {
+
+	return(v30_dispatch_construction_count);
+}
+
+UINT upd9002_dispatch_test_rejected_count(void) {
+
+	return(v30_dispatch_rejected_count);
+}
+#endif
 
 
 static const UINT8 shiftbase16[256] =
@@ -1393,6 +1483,9 @@ void v30cinit(void) {
 
 	/* ADR-0012: this is the sole live dispatch-construction path. */
 	if (v30_dispatch_initialized) {
+#if defined(VAEG_UPD9002_M46_TESTING)
+		v30_dispatch_rejected_count++;
+#endif
 		return;
 	}
 	CopyMemory(v30op, i286op, sizeof(v30op));
@@ -1411,6 +1504,10 @@ void v30cinit(void) {
 		v30op_repc[i] = v30_reserved_repc;
 	}
 	V30PATCHING(v30op_repc, v30patch_repc);
+#if defined(VAEG_UPD9002_M46_TESTING)
+	v30_dispatch_snapshot();
+	v30_dispatch_construction_count++;
+#endif
 	v30_dispatch_initialized = TRUE;
 }
 

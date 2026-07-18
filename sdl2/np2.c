@@ -58,6 +58,9 @@
 #include	"sound.h"
 #include	"opngen.h"
 #include	"ymfmbridge.h"
+#if defined(VAEG_UPD9002_M46_TESTING)
+#include	"tests/upd9002/dispatch_normalization.h"
+#endif
 #if defined(VAEG_UPD9002_SSTS_TESTING)
 #include	"tests/upd9002/ssts_worker.h"
 #endif
@@ -1369,6 +1372,11 @@ int main(int argc, char **argv) {
 	char cli_error[256];
 	const char *cli_model;
 
+#if defined(VAEG_UPD9002_M46_TESTING)
+	if ((argc == 2) && !strcmp(argv[1], "--upd9002-m46-dispatch-qa")) {
+		return upd9002_dispatch_normalization_main();
+	}
+#endif
 #if defined(VAEG_UPD9002_SSTS_TESTING)
 	if ((argc > 1) && !strcmp(argv[1], "--upd9002-ssts-worker")) {
 		return upd9002_ssts_worker_main(argc - 1, argv + 1);
