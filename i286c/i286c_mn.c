@@ -1651,49 +1651,6 @@ I286FN _lea_r16_ea(void) {					// 8D:	lea		REG16, EA
 	}
 }
 
-I286FN _mov_seg_ea(void) {					// 8E:	mov		segrem, EA
-
-	UINT	op;
-	UINT	tmp;
-	UINT32	base;
-	UINT16	ipbak;
-
-	ipbak = I286_IP;
-	GET_PCBYTE(op);
-	if (op >= 0xc0) {
-		I286_WORKCLOCK(2);
-		tmp = *(REG16_B20(op));
-	}
-	else {
-		I286_WORKCLOCK(5);
-		tmp = i286_memoryread_w(CALC_EA(op));
-	}
-	base = SEGSELECT(tmp);
-	switch(op & 0x18) {
-		case 0x00:			// es
-			I286_ES = (UINT16)tmp;
-			ES_BASE = base;
-			break;
-
-		case 0x10:			// ss
-			I286_SS = (UINT16)tmp;
-			SS_BASE = base;
-			SS_FIX = base;
-			NEXT_OPCODE
-			break;
-
-		case 0x18:			// ds
-			I286_DS = (UINT16)tmp;
-			DS_BASE = base;
-			DS_FIX = base;
-			break;
-
-		default:			// cs
-			INT_NUM(6, ipbak - 1);
-			break;
-	}
-}
-
 I286FN _pop_ea(void) {						// 8F:	pop		EA
 
 	UINT	op;
@@ -2856,7 +2813,7 @@ const I286OP i286op[] = {
 			_mov_r16_ea,					// 8B:	mov		REG16, EA
 			_mov_ea_seg,					// 8C:	mov		EA, segreg
 			_lea_r16_ea,					// 8D:	lea		REG16, EA
-			_mov_seg_ea,					// 8E:	mov		segrem, EA
+			_reserved,						// 8E:	reserved placeholder
 			_pop_ea,						// 8F:	pop		EA
 
 			_nop,							// 90:	xchg	ax, ax
@@ -3202,7 +3159,7 @@ const I286OP i286op_repe[] = {
 			_mov_r16_ea,					// 8B:	add		REG16, EA
 			_mov_ea_seg,					// 8C:	mov		EA, segreg
 			_lea_r16_ea,					// 8D:	lea		REG16, EA
-			_mov_seg_ea,					// 8E:	mov		segrem, EA
+			_reserved,						// 8E:	reserved placeholder
 			_pop_ea,						// 8F:	pop		EA
 
 			_nop,							// 90:	xchg	ax, ax
@@ -3547,7 +3504,7 @@ const I286OP i286op_repne[] = {
 			_mov_r16_ea,					// 8B:	add		REG16, EA
 			_mov_ea_seg,					// 8C:	mov		EA, segreg
 			_lea_r16_ea,					// 8D:	lea		REG16, EA
-			_mov_seg_ea,					// 8E:	mov		segrem, EA
+			_reserved,						// 8E:	reserved placeholder
 			_pop_ea,						// 8F:	pop		EA
 
 			_nop,							// 90:	xchg	ax, ax
