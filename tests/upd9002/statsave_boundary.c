@@ -219,6 +219,7 @@ int upd9002_statsave_boundary_verify(const char *valid_path) {
 	char invalid_path[MAX_PATH];
 	char malformed_path[MAX_PATH];
 	char opaque_path[MAX_PATH];
+	char protected_path[MAX_PATH];
 	char roundtrip_path[MAX_PATH];
 	char truncated_path[MAX_PATH];
 	int result;
@@ -228,11 +229,13 @@ int upd9002_statsave_boundary_verify(const char *valid_path) {
 	SPRINTF(invalid_path, "%s-m44-invalid", valid_path);
 	SPRINTF(malformed_path, "%s-m44-size", valid_path);
 	SPRINTF(opaque_path, "%s-m44-opaque", valid_path);
+	SPRINTF(protected_path, "%s-m48-protected", valid_path);
 	SPRINTF(roundtrip_path, "%s-m44-roundtrip", valid_path);
 	SPRINTF(truncated_path, "%s-m44-truncated", valid_path);
 	file_delete(invalid_path);
 	file_delete(malformed_path);
 	file_delete(opaque_path);
+	file_delete(protected_path);
 	file_delete(roundtrip_path);
 	file_delete(truncated_path);
 
@@ -252,6 +255,15 @@ int upd9002_statsave_boundary_verify(const char *valid_path) {
 		goto done;
 	}
 	data[body + offsetof(Cpu286StateCompat, cpu_type)] = CPUTYPE_V30;
+	data[body + offsetof(Cpu286StateCompat, MSW)] = MSW_PE;
+	data[body + offsetof(Cpu286StateCompat, MSW) + 1] = 0;
+	if ((write_file(protected_path, data, data_size) != SUCCESS) ||
+		(check_rejection(protected_path,
+			UPD9002_STATE_ERROR_PROTECTED_MODE, &snapshot) != SUCCESS)) {
+		goto done;
+	}
+	data[body + offsetof(Cpu286StateCompat, MSW)] = 0;
+	data[body + offsetof(Cpu286StateCompat, MSW) + 1] = 0;
 
 	write_u32(data + header + 12, sizeof(Cpu286StateCompat) - 1);
 	if ((write_file(malformed_path, data, data_size) != SUCCESS) ||
@@ -295,11 +307,12 @@ done:
 	file_delete(invalid_path);
 	file_delete(malformed_path);
 	file_delete(opaque_path);
+	file_delete(protected_path);
 	file_delete(roundtrip_path);
 	file_delete(truncated_path);
 	if (result == SUCCESS) {
 		fprintf(stderr,
-			"upd9002-statsave-boundary: invalid type, size, truncation, atomicity, and opaque round trip passed\n");
+			"upd9002-statsave-boundary: invalid type, protected state, size, truncation, atomicity, and opaque round trip passed\n");
 	}
 	return result;
 }
