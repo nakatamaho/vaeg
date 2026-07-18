@@ -146,6 +146,11 @@ int upd9002_state_validate(const void *payload, size_t size,
 		state_set_error(error, error_size, UPD9002_STATE_ERROR_CPU_TYPE);
 		return FAILURE;
 	}
+	if (state.MSW & MSW_PE) {
+		state_set_error(error, error_size,
+			UPD9002_STATE_ERROR_PROTECTED_MODE);
+		return FAILURE;
+	}
 	if ((error != NULL) && (error_size != 0)) {
 		error[0] = '\0';
 	}

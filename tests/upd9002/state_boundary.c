@@ -147,6 +147,20 @@ static int test_rejected_imports(void) {
 		memcmp(&before_image, &after_image, sizeof(before_image))) {
 		return fail("size rejection changed live state");
 	}
+
+	invalid = before_image;
+	invalid.MSW |= MSW_PE;
+	error[0] = '\0';
+	if ((upd9002_state_import(&invalid, sizeof(invalid), error,
+												sizeof(error)) != FAILURE) ||
+		strcmp(error, UPD9002_STATE_ERROR_PROTECTED_MODE)) {
+		return fail("MSW.PE state was not rejected deterministically");
+	}
+	upd9002_state_export(&after_image);
+	if (memcmp(&before_runtime, &i286core.s, sizeof(before_runtime)) ||
+		memcmp(&before_image, &after_image, sizeof(before_image))) {
+		return fail("MSW.PE rejection changed live state");
+	}
 	return 0;
 }
 
@@ -215,6 +229,6 @@ int main(void) {
 		return 1;
 	}
 	fprintf(stderr,
-		"upd9002-state-boundary: ABI, transaction, opaque bytes, reset, and CPU_SHUT passed\n");
+		"upd9002-state-boundary: ABI, protected-state transaction, opaque bytes, reset, and CPU_SHUT passed\n");
 	return 0;
 }
