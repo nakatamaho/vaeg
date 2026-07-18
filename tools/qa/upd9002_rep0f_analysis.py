@@ -602,6 +602,13 @@ def build_transition(root: pathlib.Path, corpus: dict[str, Any]) -> bytes:
     if any(row["target"] != "i286c_cts" for row in graph + support):
         raise AnalysisError("current REP+0F targets changed")
     affected = corpus["candidate_outcome_affected_record_hashes"]
+    prefix_matrix_cases = [
+        "{}-0f-{:02x}".format(prefix, second)
+        for prefix in ("f2", "f3")
+        for second in range(256)
+    ]
+    if any(affected[outcome] for outcome in affected):
+        raise AnalysisError("M43 REP+0F affected-record set is no longer empty")
     value = {
         "schema": "vaeg-upd9002-rep0f-transition-manifest-m47-v1",
         "status": "prospective-not-authorized",
@@ -619,6 +626,21 @@ def build_transition(root: pathlib.Path, corpus: dict[str, Any]) -> bytes:
             "final_dispatch": graph,
             "provenance": provenance,
             "support_map": support,
+        },
+        "complete_prospective_scope": {
+            "instruction_matrix_case_ids": prefix_matrix_cases,
+            "instruction_matrix_case_count": len(prefix_matrix_cases),
+            "m42_final_dispatch_rows": len(graph),
+            "m42_provenance_rows": len(provenance),
+            "m42_support_map_rows": len(support),
+            "m43_applicable_record_hashes": [],
+            "m43_known_gap_record_hashes": [],
+            "m43_semantic_failure_record_hashes": [],
+            "m43_failure_signatures": [],
+            "reason_m43_is_empty": (
+                "the pinned corpus has zero decoded F2/F3+0F records; "
+                "105 adjacent byte sequences are operands, immediates, or displacements"
+            ),
         },
         "candidate_A_prefix_ignored": {
             "final_dispatch_replacements": [
@@ -642,22 +664,30 @@ def build_transition(root: pathlib.Path, corpus: dict[str, Any]) -> bytes:
                 }
                 for row in support
             ],
+            "instruction_matrix_case_ids": prefix_matrix_cases,
             "m43_record_hashes": affected["A_prefix_ignored"],
+            "m43_failure_signatures": [],
         },
         "candidate_B_target_specific": {
             "exact_rows": None,
             "reason": "uPD9002-specific operation has not been established",
+            "rows_requiring_resolution": prefix_matrix_cases,
             "m43_record_hashes": affected["B_target_specific"],
+            "m43_failure_signatures": [],
         },
         "candidate_C_reserved_or_undefined": {
             "exact_rows": None,
             "reason": "exception/no-op/restart semantics have not been established",
+            "rows_requiring_resolution": prefix_matrix_cases,
             "m43_record_hashes": affected["C_reserved_or_undefined"],
+            "m43_failure_signatures": [],
         },
         "candidate_D_second_byte_dependent": {
             "exact_rows": None,
             "reason": "per-second-byte behavior awaits hardware evidence",
+            "rows_requiring_resolution": prefix_matrix_cases,
             "m43_record_hashes": affected["D_second_byte_dependent"],
+            "m43_failure_signatures": [],
         },
         "state_transition": {
             "committed_reset_executed3_cpu_shut_fixtures": "must remain byte-identical",
@@ -863,8 +893,8 @@ def parse_args(argv: Iterable[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "command",
-        choices=("generate", "check", "check-static", "selftest",
-                 "verify-documents"),
+        choices=("generate", "generate-static", "check", "check-static",
+                 "selftest", "verify-documents"),
     )
     parser.add_argument("--root", type=pathlib.Path, default=pathlib.Path("."))
     parser.add_argument("--dataset-root", type=pathlib.Path)
@@ -885,6 +915,8 @@ def main(argv: Iterable[str] | None = None) -> int:
             static_artifacts(root, arguments.command == "generate")
         elif arguments.command == "check-static":
             static_artifacts(root, False)
+        elif arguments.command == "generate-static":
+            static_artifacts(root, True)
         elif arguments.command == "selftest":
             selftest(root)
         elif arguments.command == "verify-documents":
