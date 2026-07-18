@@ -1,7 +1,7 @@
-# M49 — Pure renames, moves, API cleanup, and repository guards
+# M51 — Pure renames, moves, API cleanup, and repository guards
 
 Derived from `docs/agents/plans/upd9002-core-consolidation-M42-M49-v6.md`
-(master SHA-256: `07c53e542adbe838de3d79999aa3d7acebf7a15f85f4d17aa0f5a5e50a293938`).
+(v7 M47–M51 sequence amendment).
 
 ## Authoritative context
 
@@ -15,13 +15,13 @@ Before editing, read and obey:
 
 The master plan is authoritative for shared preconditions, immutable baselines,
 state compatibility, dispatch identity, regression traces, SingleStepTests V20
-classification, execution protocol, and G42–G49 human-gate requirements. If this
+classification, execution protocol, and G42–G51 human-gate requirements. If this
 extracted task conflicts with the master plan, stop and report the conflict; do
 not improvise.
 
 ## Session boundary
 
-Work only on **M49** in this Codex session. Do not begin the next
+Work only on **M51** in this Codex session. Do not begin the next
 milestone, do not claim the human gate has passed, and stop after producing the
 required report and final SHA. A failed baseline is evidence to investigate, not
 permission to re-record a golden, expand a known-gap set, weaken an allowlist, or
@@ -29,15 +29,15 @@ change CPU semantics.
 
 ## Extracted task specification
 
-Task: docs/agents/tasks/M49_upd9002_rename.md
+Task: docs/agents/tasks/M51_upd9002_rename.md
 
 Goal:
-Make active names reflect the consolidated uPD9002 design. M49 contains no
+Make active names reflect the consolidated uPD9002 design. M51 contains no
 semantic, timing, state-layout, dispatch, or dead-code change.
 
 Prerequisite:
-- G48 explicitly accepted.
-- All semantic/state work and the dedicated M48 protected-mode
+- G50 explicitly accepted.
+- All semantic/state work and the dedicated M50 protected-mode
   deletion milestone are complete.
 
 Commit discipline:
@@ -55,7 +55,7 @@ Steps:
          i286c.c       -> upd9002_core.c
          v30patch.c    -> upd9002_dispatch.c
       Rename additional surviving i286c_* files mechanically; do not leave an active file/path identity suggesting an 80286 core.
-      Confirm the M48 protected-mode implementation is not merely moved under the
+      Confirm the M50 protected-mode implementation is not merely moved under the
       uPD9002 directory.
    c. Internal static handler names and I286_* helper/opcode macros may remain
       when explicitly permitted by the ADR. Do not rename them merely for
@@ -72,7 +72,7 @@ Steps:
       i286c_interrupt     -> upd9002_core_interrupt
       v30c_step           -> upd9002_core_step
       v30cinit            -> upd9002_dispatch_initialize
-   Rename any additional externally visible survivor found by M42. After M49,
+   Rename any additional externally visible survivor found by M42. After M51,
    no active external declaration or definition uses an i286c_* or v30c* public
    name.
 
@@ -94,7 +94,7 @@ Steps:
       are not cosmetically renamed, so it must remain byte-identical to M42.
       Graph identity takes priority over cosmetic naming. If the M42 inventory
       finds a surviving symbol that is both part of immutable graph identity and
-      matched by an old public-name cleanup pattern, do not rename it in M49;
+      matched by an old public-name cleanup pattern, do not rename it in M51;
       record an explicit ADR exception, scope the repository guard accordingly,
       and defer that rename to a separately baselined milestone.
    b. CPU286/UPD9002 layout and cross-version payload fixtures must remain

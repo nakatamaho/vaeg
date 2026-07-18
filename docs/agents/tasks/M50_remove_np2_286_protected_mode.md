@@ -1,7 +1,7 @@
-# M48 — Remove the explicitly approved NP2 286 protected-mode implementation
+# M50 — Remove the explicitly approved NP2 286 protected-mode implementation
 
 Derived from `docs/agents/plans/upd9002-core-consolidation-M42-M49-v6.md`
-(master SHA-256: `07c53e542adbe838de3d79999aa3d7acebf7a15f85f4d17aa0f5a5e50a293938`).
+(v7 M47–M51 sequence amendment).
 
 ## Authoritative context
 
@@ -15,13 +15,13 @@ Before editing, read and obey:
 
 The master plan is authoritative for shared preconditions, immutable baselines,
 state compatibility, dispatch identity, regression traces, SingleStepTests V20
-classification, execution protocol, and G42–G49 human-gate requirements. If this
+classification, execution protocol, and G42–G51 human-gate requirements. If this
 extracted task conflicts with the master plan, stop and report the conflict; do
 not improvise.
 
 ## Session boundary
 
-Work only on **M48** in this Codex session. Do not begin the next
+Work only on **M50** in this Codex session. Do not begin the next
 milestone, do not claim the human gate has passed, and stop after producing the
 required report and final SHA. A failed baseline is evidence to investigate, not
 permission to re-record a golden, expand a known-gap set, weaken an allowlist, or
@@ -29,26 +29,26 @@ change CPU semantics.
 
 ## Extracted task specification
 
-Task: docs/agents/tasks/M48_remove_np2_286_protected_mode.md
+Task: docs/agents/tasks/M50_remove_np2_286_protected_mode.md
 
 Goal:
 Remove only the NP2 partial 80286 protected-mode implementation explicitly
-approved at G47. Preserve the active uPD9002/V52 native instruction semantics,
-final dispatch graph, state payload ABI, SingleStepTests V20 result baseline, and
-CPU_SHUT behavior.
+approved at G49. Preserve the G47/G48 REP+0F semantic and state decision, its
+accepted post-correction dispatch/baseline identity, unaffected state payload
+ABI, and CPU_SHUT behavior.
 
 Prerequisites:
-- G47 explicitly accepted.
-- The G47 decision names the exact dependency-closed deletion groups approved for
-  M48.
+- G49 explicitly accepted.
+- The G49 decision names the exact dependency-closed deletion groups approved for
+  M50.
 - No source identity, final graph, dataset identity, or evidence input has drifted
-  since the accepted M47 report. Drift is a hard stop and requires re-approval.
+  since the accepted M49 report. Drift is a hard stop and requires re-approval.
 
 Steps:
 1. Revalidate the approved list before editing:
    a. Re-run graph, direct-reference, macro-expansion, callback, state-use,
       compiler cross-reference, function-section, and linker-map evidence.
-   b. Confirm every candidate remains inside the M47 protected-mode cluster.
+   b. Confirm every candidate remains inside the M49 protected-mode cluster.
    c. Remove any ambiguous or newly shared candidate from the working list and
       report the deferral; never broaden the list automatically.
 
@@ -68,7 +68,7 @@ Steps:
 4. Delete only the approved protected-mode implementation:
    a. Candidate examples include 80286 system-opcode handlers, descriptor-table
       operations, selector/privilege/presence checks, protected interrupt/return
-      branches, and protected-only helpers, but the accepted M47 list is the sole
+      branches, and protected-only helpers, but the accepted M49 list is the sole
       authority.
    b. Do not delete shared real-mode/V30 execution, Type-0 divide delivery,
       interrupt mechanics, memory helpers, the 0xFFF0 register model, or the
@@ -77,7 +77,7 @@ Steps:
    c. Use small dependency-group commits and gate after each group.
 
 5. Reduce Upd9002RuntimeState only for fields proven protected-only:
-   a. Remove a field only when the M47 audit and post-deletion build prove no
+   a. Remove a field only when the M49 audit and post-deletion build prove no
       active reader/writer/address-taking use remains.
    b. Preserve the exact serialized byte positions in Cpu286StateCompat and
       Cpu286CompatImage.
@@ -111,18 +111,19 @@ Steps:
    c. Evidence and gate result for each dependency group.
    d. Final construction-provenance diff and unchanged final graph proof.
    e. Remaining internal I286_* names that are shared implementation details and
-      will be handled only mechanically, if at all, by M49.
+      will be handled only mechanically, if at all, by M51.
 
 Non-goals:
 - No uPD9002/V52 instruction implementation or bug fix.
 - No change to the M43 known-gap or expected-divergence sets.
 - No timing/prefetch/MT work.
-- No public/file rename; that is M49.
+- No REP+0F correctness or protected-state policy change; that was M48.
+- No public/file rename; that is M51.
 
 Gate:
-- Every deletion was explicitly approved at G47 and revalidated.
+- Every deletion was explicitly approved at G49 and revalidated.
 - No protected-mode candidate was inferred from its name alone.
-- M42 final graph and all behavior fixtures unchanged.
-- M43 V20 dataset/category/gap/failure signatures exactly unchanged.
+- The G48 post-correction graph and all unaffected behavior fixtures are unchanged.
+- M43 historical artifacts and the exact G48 transition manifest are unchanged.
 - CPU286/UPD9002 tags, sizes, offsets, and payload lifecycle unchanged.
 - ASan, linker evidence, all supported presets, and human gate green.
