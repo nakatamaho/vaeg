@@ -31,6 +31,38 @@ change CPU semantics.
 
 Task: docs/agents/tasks/M51_upd9002_rename.md
 
+## Maintainer-resolved M51 scope
+
+The accepted pre-implementation audit found ambiguity between the original
+task wording and the required graph-preserving rename. The maintainer resolved
+it before implementation as follows; this section is authoritative for M51:
+
+* Use the exact public API spellings in the mapping below, including
+  `upd9002_core_set_ext_size`, `upd9002_core_set_emm`, and
+  `upd9002_dispatch_initialize`.
+* Move `i286c/` to `cpu/upd9002/`, but rename only `i286c.c`, `v30patch.c`,
+  and `v30patch.h` within that directory. Historical internal basenames such
+  as `i286c_8x.c`, `i286c_mn.c`, and `cpucore.h` remain unchanged.
+* Move `iova/upd9002.c/.h` to `iova/upd9002_regs.c/.h` and move
+  `cpuxva/memoryva.h` to `cpucva/memoryva.h`.
+* Preserve `cpuxva/memoryva.x86` byte-identically as a frozen reference.
+* Preserve exactly these 18 internal historical REP-helper names:
+
+  ```text
+  i286c_rep_insb       i286c_rep_insw       i286c_rep_outsb
+  i286c_rep_outsw      i286c_rep_movsb       i286c_rep_movsw
+  i286c_rep_lodsb      i286c_rep_lodsw       i286c_rep_stosb
+  i286c_rep_stosw      i286c_repe_cmpsb      i286c_repne_cmpsb
+  i286c_repe_cmpsw     i286c_repne_cmpsw     i286c_repe_scasb
+  i286c_repne_scasb    i286c_repe_scasw      i286c_repne_scasw
+  ```
+
+The first 17 names are part of accepted graph/provenance evidence.
+`i286c_rep_outsw` remains with the same cross-translation-unit REP-helper
+family to avoid asymmetric mechanical churn. These are internal exceptions,
+not public APIs. This conservative scope supersedes step 1.b's provisional
+instruction to rename every additional `i286c_*` basename.
+
 Goal:
 Make active names reflect the consolidated uPD9002 design. M51 contains no
 semantic, timing, state-layout, dispatch, or dead-code change.

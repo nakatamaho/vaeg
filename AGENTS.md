@@ -5,10 +5,10 @@ is abandoned; this fork is the living tree.
 
 The active tree is the portable CMake build: C core, SDL2 frontend under
 `sdl2/`, Dear ImGui GUI, and macOS / Linux / Windows-MinGW support. It
-uses `i286c/` for the main CPU, the suzukiplan-backed wrapper in
-`cpucva/z80_core.cpp` for the Z80 side, `sound/opngenc.c` for OPN
-generation (never define `OPNGENX86`), and `cpucva/memoryva.c` for the VA
-memory layer.
+uses `cpu/upd9002/` for the main CPU instruction core, the built-in CPU
+register model in `iova/upd9002_regs.*`, the suzukiplan-backed wrapper in
+`cpucva/z80_core.cpp` for the Z80 side, `sound/opngenc.c` for OPN generation
+(never define `OPNGENX86`), and `cpucva/memoryva.c` for the VA memory layer.
 
 A frozen reference tier remains for behavior archaeology only:
 
@@ -81,7 +81,8 @@ Release notes may summarize the ledger but do not replace it.
 - Frozen reference files (`win9x/`, `i286x/`, `cpuxva/memoryva.x86`,
   `hlp/`) are reference-only. Do not edit them unless a task explicitly
   says to update the reference tier.
-- Core code (root, `io/`, `sound/`, `cbus/`, `vram/`, `*va/`, `i286c/`)
+- Core code (root, `io/`, `sound/`, `cbus/`, `vram/`, `*va/`,
+  `cpu/upd9002/`)
   stays C. C++17 is allowed under `sdl2/` (frontend + GUI) and, when an
   approved third-party CPU core requires it, for CPU backends and thin
   compatibility adapters under `cpucva/`. C++ and STL types must not cross

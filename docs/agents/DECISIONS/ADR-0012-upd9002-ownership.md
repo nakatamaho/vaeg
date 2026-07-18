@@ -27,15 +27,23 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 Accepted at G42. G44 was explicitly accepted at
 `b5f6ee7da7665789ce23013f2f8418fe0889773c`, and G45 was explicitly accepted
 at `5d1880c9446d05e863011df41e629801c9328779`, and G46 was explicitly
-accepted at `5a9b4c1de72ce18fd7989c8db22a542ca49ede09`. ADR-0013 supersedes this
-ADR's original M47--M49 sequencing and its disproved assumption that the NP2
-protected-mode cluster was unreachable. It does not authorize M48.
+accepted at `5a9b4c1de72ce18fd7989c8db22a542ca49ede09`. G47 accepted the
+fail-closed decision evidence at
+`c683fe502647918d8ded2b4c2243da1b787c9d0a`; G48 accepted its implementation
+at `339f5f62b3e69611f66f6689be8798f1c675b2cf`; G49 accepted the post-M48
+reachability inventory at `2a21a5264a3830f5a393ed7fbd3fbe1e900f2926`; and
+G50 accepted only the three approved deletion groups at
+`8b818fca173b2e86b4a8af20e75bc069f7697cdf`. ADR-0013 supersedes this ADR's
+original M47--M49 sequencing and its disproved assumption that the NP2
+protected-mode cluster was unreachable. M51 is a mechanical ownership rename
+and does not reopen those decisions.
 
 ## Context
 
-The active PC-88VA main CPU is a C implementation under `i286c/`. It combines
-an inherited 80286-oriented base decoder, run-time V30 patches, ABI-shaped raw
-save state, and the separate built-in register object at I/O port `0xfff0`.
+Before M51, the active PC-88VA main CPU was a C implementation under `i286c/`.
+It combines an inherited 80286-oriented base decoder, run-time V30 patches,
+ABI-shaped raw save state, and the separate built-in register object at I/O
+port `0xfff0`.
 The supported machine always selects the V30-compatible native path, while the
 source still exposes historical 286 and assembly-core choices. The M42
 inventory and immutable dispatch baseline are needed before ownership can be
@@ -45,9 +53,9 @@ separated without changing behavior.
 
 ### Ownership and final names
 
-The instruction engine owns the future `upd9002_core_*` namespace. The
-`0xfff0` built-in register block currently in `iova/upd9002.*` owns the future
-`upd9002_regs_*` namespace. These are separate components; a future aggregate
+The instruction engine owns the `upd9002_core_*` namespace. The `0xfff0`
+built-in register block in `iova/upd9002_regs.*` owns the `upd9002_regs_*`
+namespace. These are separate components; a future aggregate
 `Upd9002Device` is outside this series.
 
 The final instruction-core directory is `cpu/upd9002/`. Active file moves and
@@ -71,11 +79,52 @@ The expected public mapping is:
 | `i286c_step` | removed after native invariant | M45 |
 | `i286c`, `v30c` | remove block executors | M46 |
 | `i286c_intnum`, `i286c_selector`, REP helpers | internalize or retain under the graph/name exception | M47–M51 evidence |
-| `upd9002_reset`, `upd9002_bind`, `upd9002` | future `upd9002_regs_*` names | M51 |
+| `upd9002_reset`, `upd9002_bind`, `upd9002` | `upd9002_regs_reset`, `upd9002_regs_bind`, `upd9002_regs` | M51 |
 
 The one authoritative final execution primitive is
 `upd9002_core_step()`. A future `upd9002_core_run(cycle_budget)` may loop that
 primitive, but no run-budget API is implemented in M42–M51.
+
+### M51 mechanical ownership amendment
+
+The maintainer accepted this exact move map after the M51 pre-implementation
+audit:
+
+| Before M51 | After M51 |
+|---|---|
+| `i286c/` | `cpu/upd9002/` |
+| `i286c/i286c.c` | `cpu/upd9002/upd9002_core.c` |
+| `i286c/v30patch.c` | `cpu/upd9002/upd9002_dispatch.c` |
+| `i286c/v30patch.h` | `cpu/upd9002/upd9002_dispatch.h` |
+| `iova/upd9002.c` | `iova/upd9002_regs.c` |
+| `iova/upd9002.h` | `iova/upd9002_regs.h` |
+| `cpuxva/memoryva.h` | `cpucva/memoryva.h` |
+
+Historical internal basenames remain when they do not express a public
+ownership boundary. `cpuxva/memoryva.x86` remains in place and byte-identical
+as a frozen reference.
+
+These 18 internal historical REP-helper identifiers are exact M51 exceptions:
+
+```text
+i286c_rep_insb       i286c_rep_insw       i286c_rep_outsb
+i286c_rep_outsw      i286c_rep_movsb       i286c_rep_movsw
+i286c_rep_lodsb      i286c_rep_lodsw       i286c_rep_stosb
+i286c_rep_stosw      i286c_repe_cmpsb      i286c_repne_cmpsb
+i286c_repe_cmpsw     i286c_repne_cmpsw     i286c_repe_scasb
+i286c_repne_scasb    i286c_repe_scasw      i286c_repne_scasw
+```
+
+The first 17 are graph/provenance-bound. `i286c_rep_outsw` remains as part of
+the same cross-translation-unit REP-helper family. The repository guard
+enumerates these names and their permitted active files exactly; it does not
+allow an `i286c_*` wildcard. They are internal implementation names, not
+supported public APIs.
+
+The literal state tags `CPU286` and `UPD9002`, `Cpu286StateCompat`,
+`Upd9002RuntimeState`, `Cpu286CompatImage`, `I286_*` macros, and
+`i286c_initreg` remain historical compatibility identifiers. Their spelling
+does not imply active 80286 dispatch and is not changed by M51.
 
 ### State model
 
