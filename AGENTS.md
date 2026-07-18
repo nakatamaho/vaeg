@@ -102,6 +102,24 @@ Release notes may summarize the ledger but do not replace it.
   available for behavior comparison, but it is no longer an active build
   target with CI or compile-guarantee coverage.
 
+### Maintainer release handoff
+
+When the maintainer says to copy release builds to "the usual place", the
+destination is:
+
+`/mnt/c/Users/maho/Dropbox/Documents/Emulators/PASOCON/NEC PC-88VA/vaeg_new/`
+
+- Copy `build/linux-release/sdl2/vaeg` there as `vaeg`.
+- Copy the MinGW release executable there as `vaeg.exe`; its source is
+  `build/mingw-release/sdl2/vaeg.exe` for a native build or
+  `build/mingw-cross/sdl2/vaeg.exe` for the Linux cross-build.
+- Verify each copied executable against its build artifact with `cmp` or
+  SHA-256.
+
+This is a maintainer-local directory outside Git. Unless explicitly requested,
+replace only `vaeg` and `vaeg.exe`; do not alter or inventory its ROMs, disk
+images, configuration, save data, or other private integration assets.
+
 ## Commit messages
 
 UTF-8, LF, English subject, `M<n>:` prefix. Example:
