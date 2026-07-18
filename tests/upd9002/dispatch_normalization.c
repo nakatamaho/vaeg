@@ -43,24 +43,24 @@ int upd9002_dispatch_normalization_verify_live(void) {
 
 int upd9002_dispatch_normalization_main(void) {
 
-	i286c_initialize();
+	upd9002_core_initialize();
 	if (upd9002_dispatch_normalization_verify_live() != SUCCESS) {
 		fprintf(stderr, "upd9002-dispatch-normalization: initial construction failed\n");
 		return(EXIT_FAILURE);
 	}
-	i286c_reset();
+	upd9002_core_reset();
 	if (upd9002_dispatch_normalization_verify_live() != SUCCESS) {
 		fprintf(stderr, "upd9002-dispatch-normalization: reset rebuilt or changed tables\n");
 		return(EXIT_FAILURE);
 	}
-	v30cinit();
+	upd9002_dispatch_initialize();
 	if ((upd9002_dispatch_test_construction_count() != 1) ||
 		(upd9002_dispatch_test_rejected_count() != 1) ||
 		(upd9002_dispatch_test_verify() != SUCCESS)) {
 		fprintf(stderr, "upd9002-dispatch-normalization: re-entry was not rejected\n");
 		return(EXIT_FAILURE);
 	}
-	i286c_deinitialize();
+	upd9002_core_deinitialize();
 	fprintf(stderr,
 		"upd9002-dispatch-normalization: constructed=1 rejected=1 "
 		"roots=256,256,256,256,8,8 immutable\n");

@@ -1,5 +1,5 @@
 
-void v30cinit(void);
+void upd9002_dispatch_initialize(void);
 
 #if defined(VAEG_UPD9002_M46_TESTING)
 int upd9002_dispatch_test_verify(void);

@@ -271,11 +271,11 @@ int upd9002_ssts_worker_main(int argc, char **argv) {
 		(record_count <= SSTS_WORKER_MAX_RECORDS) &&
 		write_exact(output_stream, response_magic, sizeof(response_magic)) &&
 		write_u32(output_stream, record_count);
-	i286c_initialize();
+	upd9002_core_initialize();
 	for (index = 0; success && (index < record_count); index++) {
 		success = run_record(input_stream, output_stream);
 	}
-	i286c_deinitialize();
+	upd9002_core_deinitialize();
 	if (fgetc(input_stream) != EOF) {
 		success = 0;
 	}

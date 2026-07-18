@@ -1494,7 +1494,7 @@ static void v30patching(I286OP *op, const V30PATCH *patch, int cnt) {
 
 #define	V30PATCHING(a, b)	v30patching(a, b, sizeof(b)/sizeof(V30PATCH))
 
-void v30cinit(void) {
+void upd9002_dispatch_initialize(void) {
 
 	UINT	i;
 
@@ -1528,7 +1528,7 @@ void v30cinit(void) {
 	v30_dispatch_initialized = TRUE;
 }
 
-void v30c_step(void) {
+void upd9002_core_step(void) {
 
 	UINT	opcode;
 	BOOL	preserve_state;

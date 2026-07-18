@@ -48,7 +48,7 @@ static UINT32 memory_hash(void) {
 
 static void setup_state(const UINT8 *bytes, UINT size, UINT16 msw) {
 
-	i286c_reset();
+	upd9002_core_reset();
 	ZeroMemory(mem, 0x100000);
 	CPU_AX = 0x1357;
 	CPU_BX = 0x2468;
@@ -87,7 +87,7 @@ static int run_unprefixed_control(void) {
 
 	setup_state(bytes, sizeof(bytes), 0);
 	CPU_AX = 0x0001;
-	v30c_step();
+	upd9002_core_step();
 	if (upd9002_diagnostic_pending() || (CPU_IP != 0x2002) ||
 		(CPU_MSW != 0)) {
 		fprintf(stderr,
@@ -120,7 +120,7 @@ static int run_diagnostic_case(UINT8 prefix, UINT8 second,
 	state_before = i286core.s;
 	hash_before = memory_hash();
 
-	v30c_step();
+	upd9002_core_step();
 	if ((upd9002_diagnostic_get(&diagnostic) != SUCCESS) ||
 		(diagnostic.reason != UPD9002_DIAGNOSTIC_REP0F) ||
 		(diagnostic.prefix != prefix) || (diagnostic.cs != 0x0200) ||
@@ -134,7 +134,7 @@ static int run_diagnostic_case(UINT8 prefix, UINT8 second,
 	}
 
 	/* A latched stop must not execute on a subsequent scheduler call. */
-	v30c_step();
+	upd9002_core_step();
 	if (memcmp(&state_before, &i286core.s, sizeof(state_before)) ||
 		(hash_before != memory_hash())) {
 		fprintf(stderr,
@@ -152,7 +152,7 @@ int upd9002_rep0f_diagnostic_stop_main(void) {
 	UINT segment_index;
 	UINT cases;
 
-	i286c_initialize();
+	upd9002_core_initialize();
 	if (run_unprefixed_control() != SUCCESS) {
 		goto failed;
 	}
@@ -182,13 +182,13 @@ int upd9002_rep0f_diagnostic_stop_main(void) {
 		goto failed;
 	}
 	cases += 2;
-	i286c_deinitialize();
+	upd9002_core_deinitialize();
 	fprintf(stderr,
 		"upd9002-rep0f-diagnostic: cases=%u state-and-memory-atomic pass\n",
 		cases);
 	return(EXIT_SUCCESS);
 
 failed:
-	i286c_deinitialize();
+	upd9002_core_deinitialize();
 	return(EXIT_FAILURE);
 }

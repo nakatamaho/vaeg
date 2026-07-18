@@ -85,14 +85,38 @@ IMMUTABLE_FILES = {
 }
 
 M51_CANONICAL_REPLACEMENTS = {
+    "cpu/upd9002/cpucore.h": (
+        (b"upd9002_core_initialize", b"i286c_initialize", 2),
+        (b"upd9002_core_deinitialize", b"i286c_deinitialize", 2),
+        (b"upd9002_core_reset", b"i286c_reset", 2),
+        (b"upd9002_core_shut", b"i286c_shut", 2),
+        (b"upd9002_core_set_ext_size", b"i286c_setextsize", 2),
+        (b"upd9002_core_set_emm", b"i286c_setemm", 2),
+        (b"upd9002_core_interrupt", b"i286c_interrupt", 2),
+        (b"upd9002_core_step", b"v30c_step", 1),
+    ),
     "cpu/upd9002/upd9002_core.c": (
         (b'#include\t"upd9002_dispatch.h"', b'#include\t"v30patch.h"', 1),
+        (b"upd9002_core_initialize", b"i286c_initialize", 1),
+        (b"upd9002_core_deinitialize", b"i286c_deinitialize", 1),
+        (b"upd9002_core_reset", b"i286c_reset", 1),
+        (b"upd9002_core_shut", b"i286c_shut", 1),
+        (b"upd9002_core_set_ext_size", b"i286c_setextsize", 1),
+        (b"upd9002_core_set_emm", b"i286c_setemm", 1),
+        (b"upd9002_core_interrupt", b"i286c_interrupt", 1),
+        (b"upd9002_dispatch_initialize", b"v30cinit", 1),
     ),
     "cpu/upd9002/upd9002_dispatch.c": (
         (b'#include\t"upd9002_dispatch.h"', b'#include\t"v30patch.h"', 1),
+        (b"upd9002_dispatch_initialize", b"v30cinit", 1),
+        (b"upd9002_core_step", b"v30c_step", 1),
     ),
     "tests/upd9002/rep0f_diagnostic_stop.c": (
         (b'#include "upd9002_dispatch.h"', b'#include "v30patch.h"', 1),
+        (b"upd9002_core_reset", b"i286c_reset", 1),
+        (b"upd9002_core_step", b"v30c_step", 3),
+        (b"upd9002_core_initialize", b"i286c_initialize", 1),
+        (b"upd9002_core_deinitialize", b"i286c_deinitialize", 2),
     ),
 }
 

@@ -67,7 +67,7 @@ static void prepare_executed(void) {
 	CPU_CLOCK = 0x12345678;
 	CopyMemory(mem + 0x2000, program, sizeof(program));
 	for (index = 0; index < 3; index++) {
-		v30c_step();
+		upd9002_core_step();
 	}
 }
 
