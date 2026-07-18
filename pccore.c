@@ -1184,7 +1184,7 @@ void pccore_exec(BOOL draw) {
 #endif
 
 			//TRACEOUT(("%.4x:%.4x", CPU_CS, CPU_IP));
-			v30c_step();
+			upd9002_core_step();
 			if (upd9002_diagnostic_pending()) {
 				return;
 			}

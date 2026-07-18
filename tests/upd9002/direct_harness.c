@@ -179,7 +179,7 @@ int upd9002_harness_run(const UPD9002_HARNESS_INPUT *input,
 	CopyMemory(mem + input->program_address, input->program,
 		input->program_size);
 	for (index = 0; index < input->step_count; index++) {
-		v30c_step();
+		upd9002_core_step();
 	}
 	ZeroMemory(result, sizeof(*result));
 	get_cpu(&result->cpu);
@@ -235,7 +235,7 @@ int upd9002_harness_run_ssts(const UPD9002_SSTS_INPUT *input,
 	result->io_count = 0;
 	ssts_io_result = result;
 	ssts_io_overflow = 0;
-	v30c_step();
+	upd9002_core_step();
 	ssts_io_result = NULL;
 	if (ssts_io_overflow) {
 		return FAILURE;

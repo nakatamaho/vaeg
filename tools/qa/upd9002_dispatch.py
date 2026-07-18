@@ -257,7 +257,8 @@ def verify_constructor(source: str) -> None:
     compact = re.sub(r"\s+", "", text)
     for statement in required:
         if re.sub(r"\s+", "", statement) not in compact:
-            raise DispatchError(f"unparsed v30cinit operation: {statement}")
+            raise DispatchError(
+                f"unparsed upd9002_dispatch_initialize operation: {statement}")
 
 
 def construct_roots(
