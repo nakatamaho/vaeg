@@ -655,6 +655,13 @@ if(VAEG_ENABLE_TESTS)
     set_tests_properties(vaeg_upd9002_native_invariant PROPERTIES
         LABELS "romless;upd9002;dispatch;state")
 
+    add_test(NAME vaeg_upd9002_dispatch_normalization_static
+		COMMAND "${Python3_EXECUTABLE}"
+			"${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/upd9002_dispatch_normalization.py"
+			--root "${CMAKE_CURRENT_SOURCE_DIR}")
+    set_tests_properties(vaeg_upd9002_dispatch_normalization_static PROPERTIES
+		LABELS "romless;upd9002;dispatch;state")
+
     add_test(NAME vaeg_upd9002_dispatch_normalization
 		COMMAND vaeg_sdl2 --upd9002-m46-dispatch-qa)
     set_tests_properties(vaeg_upd9002_dispatch_normalization PROPERTIES
