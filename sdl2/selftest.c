@@ -68,6 +68,9 @@
 #include	"tests/upd9002/state_scenario.h"
 #include	"tests/upd9002/statsave_boundary.h"
 #endif
+#if defined(VAEG_UPD9002_M46_TESTING)
+#include	"tests/upd9002/dispatch_normalization.h"
+#endif
 #if defined(VAEG_Z80_INTEGRATION_TESTING)
 #include	"iova/subsystem.h"
 #include	"tests/z80/subsystem_integration.h"
@@ -1233,6 +1236,14 @@ static int test_statsave(void) {
 	pccore_init();
 	S98_init();
 	pccore_reset();
+#if defined(VAEG_UPD9002_M46_TESTING)
+	if (upd9002_dispatch_normalization_verify_live() != SUCCESS) {
+		S98_trash();
+		pccore_term();
+		soundmng_deinitialize();
+		return fail("dispatch normalization", "initialization/reset changed tables");
+	}
+#endif
 
 #if defined(VAEG_UPD9002_M44_TESTING)
 	if (upd9002_state_scenario_requested()) {
@@ -1300,6 +1311,12 @@ static int test_statsave(void) {
 	if (ret == STATFLAG_SUCCESS) {
 		ret = statsave_load(path1);
 	}
+#if defined(VAEG_UPD9002_M46_TESTING)
+	if ((ret == STATFLAG_SUCCESS) &&
+		(upd9002_dispatch_normalization_verify_live() != SUCCESS)) {
+		ret = STATFLAG_FAILURE;
+	}
+#endif
 #if defined(VAEG_Z80_INTEGRATION_TESTING)
 	if (ret == STATFLAG_SUCCESS) {
 		subsystem_z80_test_get_trace(&z80trace);
