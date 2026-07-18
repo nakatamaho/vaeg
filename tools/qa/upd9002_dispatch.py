@@ -421,9 +421,9 @@ def harness_rows(provenance: list[list[str]], arrays: dict[str, list[str]]) -> l
 
 
 def load_sources(root: Path) -> dict[str, str]:
-    paths = sorted((root / "i286c").glob("*.c"))
+    paths = sorted((root / "cpu/upd9002").glob("*.c"))
     if not paths:
-        raise DispatchError("no i286c C sources found")
+        raise DispatchError("no uPD9002 core C sources found")
     return {path.name: path.read_text(encoding="utf-8") for path in paths}
 
 
@@ -456,9 +456,9 @@ def support_rows(roots: dict[str, list[str]], arrays: dict[str, list[str]]) -> l
 def generate(root: Path) -> tuple[str, str, str, str]:
     sources = load_sources(root)
     arrays = parse_arrays(sources)
-    v30source = sources.get("v30patch.c")
+    v30source = sources.get("upd9002_dispatch.c")
     if v30source is None:
-        raise DispatchError("v30patch.c is absent")
+        raise DispatchError("upd9002_dispatch.c is absent")
     roots, provenance = construct_roots(arrays, v30source)
     functions = extract_function_bodies(sources)
     graph = final_graph(roots, arrays, functions)
