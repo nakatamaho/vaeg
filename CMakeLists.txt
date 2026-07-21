@@ -163,6 +163,7 @@ set(VAEG_CORE_SOURCES
     io/gdc.c
     io/gdc_sub.c
     io/gdc_pset.c
+    io/hostfat.c
     io/mouseif.c
     io/necio.c
     io/nmiio.c
@@ -337,6 +338,7 @@ set(VAEG_SDL2_SOURCES
     sdl2/romankana.c
     sdl2/inputmng.c
     sdl2/dropmedia.cpp
+    sdl2/hostfat_snapshot.cpp
     sdl2/romcheck.c
     sdl2/selftest.c
     sdl2/soundmng.c

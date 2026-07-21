@@ -58,7 +58,7 @@ the pinned SDL2 release recorded in ADR-0006.
 |------|---------|
 | Machine | `--model va|va2` |
 | Sound | `--fmbackend np2|ymfm`, `--fmsound opn|opna`, `--ymfm-fidelity minimum|medium|maximum`, `--samplerate 11025|22050|44100`, `--soundbuffer 40..1000`, `--mute` |
-| Media | `--fdd1 path|none`, `--fdd2 path|none`, `--sasi1 path|none`, `--sasi2 path|none` |
+| Media | `--fdd1 path|none`, `--fdd2 path|none`, `--sasi1 path|none`, `--sasi2 path|none`, `--hostfat-dir path` |
 | Execution | `--cpumult 1..32`, `--sgp model|follow-cpu|1..16`, `--nowait`, `--frameskip auto|full|2|3|4` |
 | Display/input | `--fullscreen`, `--windowed`, `--effect unfiltered|linear|scanline|crt-lite`, `--scaling native|fit|fit-8dot|integer|stretch`, `--controller joystick|mouse`, `--keyboard-layout jis|us|custom` |
 | Diagnostics/information | `--smoke`, `--selftest`, `--debug`, `--fdctrace`, `--pacelog`, `--trace-cpu N`, `--version`, `--help`, `-h` |
@@ -79,6 +79,16 @@ recognized geometry is usable through the SASI interface and the declared
 sector data is present. Use `none` to make a named drive empty for the session.
 An invalid media path or removed positional argument fails before SDL machine
 initialization.
+
+`--hostfat-dir` enables the M54 read-only HOSTFAT prototype for PC-Engine.
+Before the machine starts, vaeg copies the selected directory into an
+immutable 8 MiB FAT12 snapshot. Source names must already be unique ASCII 8.3
+names; lowercase ASCII is folded to uppercase, while links, special files,
+unsupported names, excessive depth/count, and content that does not fit are
+rejected rather than omitted. Host changes made after startup are not visible
+to the guest. Build and install the matching `HOSTFAT.SYS` as described in
+[`tools/pc88va/hostfat/README.md`](../tools/pc88va/hostfat/README.md). The
+prototype has no Configure setting or persistence; those are gated on G54.
 
 All setting and media options are session-only. They are applied after
 `vaeg.cfg` is loaded and restored before its normal shutdown save as long as
