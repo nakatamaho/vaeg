@@ -69,6 +69,8 @@ struct Node {
 	std::array<unsigned char, 11> dos_name{};
 	bool directory = false;
 	std::uint32_t size = 0;
+	fs::file_time_type modified_time{};
+	std::uintmax_t hard_links = 0;
 	std::uint16_t first_cluster = 0;
 	std::uint16_t cluster_count = 0;
 	Node *parent = nullptr;
@@ -80,6 +82,7 @@ struct BuildState {
 	unsigned files = 0;
 	unsigned directories = 0;
 	std::uint64_t source_bytes = 0;
+	std::vector<fs::path> regular_files;
 	std::string error;
 };
 
@@ -164,6 +167,22 @@ bool make_dos_name(const std::string &source,
 	return true;
 }
 
+bool sort_and_check_children(Node &node, BuildState &state) {
+
+	std::sort(node.children.begin(), node.children.end(),
+		[](const std::unique_ptr<Node> &left, const std::unique_ptr<Node> &right) {
+			return left->dos_name < right->dos_name;
+		});
+	for (std::size_t position = 1; position < node.children.size(); position++) {
+		if (node.children[position - 1]->dos_name ==
+			node.children[position]->dos_name) {
+			state.error = "case-insensitive 8.3 name collision";
+			return false;
+		}
+	}
+	return true;
+}
+
 bool scan_directory(Node &node, unsigned depth, BuildState &state) {
 
 	std::error_code error;
@@ -226,6 +245,32 @@ bool scan_directory(Node &node, unsigned depth, BuildState &state) {
 				return false;
 			}
 			child->size = static_cast<std::uint32_t>(size);
+			child->modified_time = item.last_write_time(error);
+			if (error) {
+				state.error = "cannot inspect host file timestamp: " + name;
+				return false;
+			}
+			child->hard_links = fs::hard_link_count(item.path(), error);
+			if (error) {
+				state.error = "cannot inspect host file links: " + name;
+				return false;
+			}
+			if (child->hard_links != 1) {
+				state.error = "hard-linked files are not supported: " + name;
+				return false;
+			}
+			for (const fs::path &previous : state.regular_files) {
+				const bool same_file = fs::equivalent(previous, item.path(), error);
+				if (error) {
+					state.error = "cannot compare host file identities: " + name;
+					return false;
+				}
+				if (same_file) {
+					state.error = "hard-linked files are not supported: " + name;
+					return false;
+				}
+			}
+			state.regular_files.push_back(item.path());
 			state.files++;
 			state.source_bytes += size;
 		}
@@ -235,18 +280,7 @@ bool scan_directory(Node &node, unsigned depth, BuildState &state) {
 		state.error = "cannot finish host-directory scan: " + error.message();
 		return false;
 	}
-	std::sort(node.children.begin(), node.children.end(),
-		[](const std::unique_ptr<Node> &left, const std::unique_ptr<Node> &right) {
-			return left->dos_name < right->dos_name;
-		});
-	for (std::size_t position = 1; position < node.children.size(); position++) {
-		if (node.children[position - 1]->dos_name ==
-			node.children[position]->dos_name) {
-			state.error = "case-insensitive 8.3 name collision";
-			return false;
-		}
-	}
-	return true;
+	return sort_and_check_children(node, state);
 }
 
 bool assign_clusters(Node &node, std::size_t &next_cluster,
@@ -309,6 +343,86 @@ std::size_t cluster_offset(std::uint16_t cluster) {
 		(static_cast<std::size_t>(cluster) - 2) * kClusterSize;
 }
 
+bool file_identity_is_unchanged(const Node &node, BuildState &state) {
+
+	std::error_code error;
+	const fs::file_status status = fs::symlink_status(node.path, error);
+	if (error || fs::is_symlink(status) || !fs::is_regular_file(status)) {
+		state.error = "host file type changed while creating snapshot";
+		return false;
+	}
+	const std::uintmax_t size = fs::file_size(node.path, error);
+	if (error || (size != node.size)) {
+		state.error = "host file size changed while creating snapshot";
+		return false;
+	}
+	const fs::file_time_type modified_time = fs::last_write_time(node.path, error);
+	if (error || (modified_time != node.modified_time)) {
+		state.error = "host file timestamp changed while creating snapshot";
+		return false;
+	}
+	const std::uintmax_t hard_links = fs::hard_link_count(node.path, error);
+	if (error || (hard_links != node.hard_links) || (hard_links != 1)) {
+		state.error = "host file link identity changed while creating snapshot";
+		return false;
+	}
+	return true;
+}
+
+bool write_stable_file(const Node &node, unsigned char *destination,
+		BuildState &state) {
+
+	if (!file_identity_is_unchanged(node, state)) {
+		return false;
+	}
+	std::ifstream input(node.path, std::ios::binary);
+	if (!input) {
+		state.error = "cannot open host file while creating snapshot";
+		return false;
+	}
+	if (node.size != 0) {
+		input.read(reinterpret_cast<char *>(destination),
+			static_cast<std::streamsize>(node.size));
+	}
+	if ((static_cast<std::uint32_t>(input.gcount()) != node.size) ||
+		(input.peek() != std::char_traits<char>::eof()) ||
+		!file_identity_is_unchanged(node, state)) {
+		if (state.error.empty()) {
+			state.error = "host file changed while creating snapshot";
+		}
+		return false;
+	}
+
+	std::ifstream verification(node.path, std::ios::binary);
+	if (!verification) {
+		state.error = "cannot reopen host file while verifying snapshot";
+		return false;
+	}
+	std::array<unsigned char, 65536> buffer{};
+	std::size_t position = 0;
+	while (position < node.size) {
+		const std::size_t amount = std::min<std::size_t>(
+			buffer.size(), static_cast<std::size_t>(node.size) - position);
+		verification.read(reinterpret_cast<char *>(buffer.data()),
+			static_cast<std::streamsize>(amount));
+		if ((static_cast<std::size_t>(verification.gcount()) != amount) ||
+			!std::equal(buffer.begin(), buffer.begin() + amount,
+				destination + position)) {
+			state.error = "host file content changed while creating snapshot";
+			return false;
+		}
+		position += amount;
+	}
+	if ((verification.peek() != std::char_traits<char>::eof()) ||
+		!file_identity_is_unchanged(node, state)) {
+		if (state.error.empty()) {
+			state.error = "host file changed while verifying snapshot";
+		}
+		return false;
+	}
+	return true;
+}
+
 bool write_node(Node &node, std::vector<unsigned char> &image,
 		BuildState &state) {
 
@@ -333,24 +447,8 @@ bool write_node(Node &node, std::vector<unsigned char> &image,
 					child.first_cluster, child.size);
 			}
 		}
-		else if (node.size != 0) {
-			std::ifstream input(node.path, std::ios::binary);
-			if (!input) {
-				state.error = "cannot open host file while creating snapshot";
-				return false;
-			}
-			input.read(reinterpret_cast<char *>(destination),
-				static_cast<std::streamsize>(node.size));
-			if ((static_cast<std::uint32_t>(input.gcount()) != node.size) ||
-				(input.peek() != std::char_traits<char>::eof())) {
-				state.error = "host file changed while creating snapshot";
-				return false;
-			}
-			std::error_code error;
-			if (fs::file_size(node.path, error) != node.size || error) {
-				state.error = "host file size changed while creating snapshot";
-				return false;
-			}
+		else if (!write_stable_file(node, destination, state)) {
+			return false;
 		}
 	}
 	for (auto &child : node.children) {
@@ -503,6 +601,18 @@ bool verify_internal_limits() {
 		make_dos_name("bad name.txt", uppercase)) {
 		return false;
 	}
+	Node collision_root;
+	for (const char *name : {"case.txt", "CASE.TXT"}) {
+		auto child = std::make_unique<Node>();
+		if (!make_dos_name(name, child->dos_name)) {
+			return false;
+		}
+		collision_root.children.push_back(std::move(child));
+	}
+	BuildState collision_state;
+	if (sort_and_check_children(collision_root, collision_state)) {
+		return false;
+	}
 	Node root;
 	auto oversized = std::make_unique<Node>();
 	oversized->parent = &root;
@@ -590,9 +700,12 @@ extern "C" BOOL hostfat_snapshot_selftest(void) {
 		HOSTFAT_SNAPSHOT_INFO first{};
 		HOSTFAT_SNAPSHOT_INFO second{};
 		char message[256];
-		if ((hostfat_snapshot_mount_directory(root.u8string().c_str(), &first,
-				message, sizeof(message)) != SUCCESS) ||
-			(first.files != 2) || (first.directories != 1) ||
+		if (hostfat_snapshot_mount_directory(root.u8string().c_str(), &first,
+				message, sizeof(message)) != SUCCESS) {
+			throw std::runtime_error(std::string("valid snapshot mount failed: ") +
+				message);
+		}
+		if ((first.files != 2) || (first.directories != 1) ||
 			(first.source_bytes != 13) || !verify_test_image()) {
 			throw std::runtime_error("valid snapshot check failed");
 		}
@@ -629,6 +742,19 @@ extern "C" BOOL hostfat_snapshot_selftest(void) {
 			}
 		}
 		error.clear();
+		fs::create_hard_link(root / "hello.txt", root / "hard.txt", error);
+		if (!error) {
+			if ((hostfat_snapshot_mount_directory(root.u8string().c_str(), nullptr,
+					message, sizeof(message)) == SUCCESS) ||
+				(hostfat_image_digest() != accepted_digest)) {
+				throw std::runtime_error("hard link was accepted");
+			}
+			fs::remove(root / "hard.txt", error);
+			if (error) {
+				throw std::runtime_error("temporary hard-link cleanup failed");
+			}
+		}
+		error.clear();
 		fs::path nested = root;
 		for (unsigned depth = 0; depth <= kMaximumDepth; depth++) {
 			nested /= "deep" + std::to_string(depth);
@@ -643,7 +769,12 @@ extern "C" BOOL hostfat_snapshot_selftest(void) {
 		}
 		result = true;
 	}
+	catch (const std::exception &exception) {
+		std::fprintf(stderr, "HOSTFAT selftest detail: %s\n", exception.what());
+		result = false;
+	}
 	catch (...) {
+		std::fprintf(stderr, "HOSTFAT selftest detail: unknown exception\n");
 		result = false;
 	}
 	hostfat_snapshot_unmount();
