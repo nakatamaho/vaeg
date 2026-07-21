@@ -35,7 +35,13 @@
 #include	"fdd_d88.h"
 #include	"fdd_xdf.h"
 #include	"framedisp.h"
+#include	"hostfat.h"
+#include	"hostfat_snapshot.h"
 #include	"ini.h"
+#include	"pccore.h"
+#include	"cpucore.h"
+#include	"iocore.h"
+#include	"iocoreva.h"
 #include	"kbdmap.h"
 #include	"kbdpaste.h"
 #include	"memoryva.h"
@@ -45,7 +51,6 @@
 #include	"pacing.h"
 #include	"sound.h"
 #include	"opngen.h"
-#include	"pccore.h"
 #include	"profile.h"
 #include	"romcheck.h"
 #include	"romankana.h"
@@ -147,6 +152,7 @@ static int test_cli_options(void) {
 		"--samplerate", "44100", "--soundbuffer", "40", "--mute",
 		"--fdd1", "boot.d88", "--fdd2", "none",
 		"--sasi1", "disk.hdi", "--sasi2", "NONE",
+		"--hostfat-dir", "host-root",
 		"--cpumult", "32", "--sgp", "16", "--nowait",
 		"--frameskip", "4", "--fullscreen", "--effect", "crt-lite",
 		"--scaling", "fit-8dot", "--controller", "mouse",
@@ -160,6 +166,7 @@ static int test_cli_options(void) {
 	char *invalid_sgp[] = {"vaeg", "--sgp", "17"};
 	char *invalid_scaling[] = {"vaeg", "--scaling", "nearest"};
 	char *missing_value[] = {"vaeg", "--fdd1"};
+	char *hostfat_disabled[] = {"vaeg", "--smoke"};
 	VAEG_CLI_OPTIONS options;
 	char error[256];
 
@@ -179,6 +186,8 @@ static int test_cli_options(void) {
 		(options.sasi_mode[0] != VAEG_CLI_MEDIA_PATH) ||
 		strcmp(options.sasi_path[0], "disk.hdi") ||
 		(options.sasi_mode[1] != VAEG_CLI_MEDIA_NONE) ||
+		(options.hostfat_path == NULL) ||
+		strcmp(options.hostfat_path, "host-root") ||
 		(options.cpu_multiplier != 32) ||
 		(options.sgp_mode != VAEG_CLI_SGP_CUSTOM) ||
 		(options.sgp_multiplier != 16) || !options.nowait ||
@@ -192,6 +201,11 @@ static int test_cli_options(void) {
 		!options.debug || !options.fdctrace || !options.pacelog ||
 		!options.smoke) {
 		return(fail("CLI options", "accepted values were parsed incorrectly"));
+	}
+	if ((vaeg_cli_parse((int)NELEMENTS(hostfat_disabled), hostfat_disabled,
+			&options, error, sizeof(error)) != SUCCESS) ||
+		(options.hostfat_path != NULL)) {
+		return(fail("CLI options", "HOSTFAT was not disabled by default"));
 	}
 	if ((vaeg_cli_parse((int)NELEMENTS(positional), positional, &options,
 			error, sizeof(error)) == SUCCESS) ||
@@ -211,6 +225,193 @@ static int test_cli_options(void) {
 		return(fail("CLI options", "invalid input was accepted"));
 	}
 	fprintf(stderr, "selftest: CLI options ok\n");
+	return(SUCCESS);
+}
+
+static void hostfat_send_string(const char *value) {
+
+	while (*value != '\0') {
+		iocoreva_out8(0x07ef, (REG8)*value++);
+	}
+}
+
+static void hostfat_send_string_generic(const char *value) {
+
+	while (*value != '\0') {
+		iocore_out8(0x07ef, (REG8)*value++);
+	}
+}
+
+static void hostfat_send_far_pointer(UINT32 value) {
+
+	int index;
+
+	for (index=0; index<4; index++) {
+		iocoreva_out8(0x07ed, (REG8)value);
+		value >>= 8;
+	}
+}
+
+static int test_hostfat_transport(void) {
+
+	BYTE *image;
+	BYTE packet[18];
+	BYTE saved_packet[sizeof(packet)];
+	BYTE saved_destination[HOSTFAT_SECTOR_SIZE];
+	BYTE unchanged[HOSTFAT_SECTOR_SIZE];
+	UINT32 request_pointer;
+	UINT32 packet_address;
+	UINT32 destination_address;
+	UINT8 result;
+	SINT32 saved_remclock;
+	int index;
+	int status;
+
+	image = (BYTE *)_MALLOC(HOSTFAT_IMAGE_SIZE, "hostfat-selftest-image");
+	if (image == NULL) {
+		return(fail("HOSTFAT transport", "image allocation failed"));
+	}
+	ZeroMemory(image, HOSTFAT_IMAGE_SIZE);
+	for (index=0; index<HOSTFAT_SECTOR_SIZE; index++) {
+		image[(3 * HOSTFAT_SECTOR_SIZE) + index] = (BYTE)(index ^ 0x5a);
+	}
+	if (hostfat_mount_image(image, HOSTFAT_IMAGE_SIZE) != SUCCESS) {
+		_MFREE(image);
+		return(fail("HOSTFAT transport", "image mount failed"));
+	}
+	_MFREE(image);
+
+	packet_address = 0x01000;
+	destination_address = 0x02000;
+	request_pointer = 0x01000000;
+	MEML_READ(packet_address, saved_packet, sizeof(saved_packet));
+	MEML_READ(destination_address, saved_destination,
+									sizeof(saved_destination));
+	ZeroMemory(packet, sizeof(packet));
+	packet[0] = sizeof(packet);
+	packet[2] = 4;
+	STOREINTELWORD(packet + 10, 0);
+	STOREINTELWORD(packet + 12, 0x0200);
+	STOREINTELWORD(packet + 14, 1);
+	STOREINTELWORD(packet + 16, 3);
+	MEML_WRITE(packet_address, packet, sizeof(packet));
+	FillMemory(unchanged, sizeof(unchanged), 0xa5);
+	MEML_WRITE(destination_address, unchanged, sizeof(unchanged));
+
+	status = FAILURE;
+	saved_remclock = CPU_REMCLOCK;
+	iocore_create();
+	if (iocore_build() != SUCCESS) {
+		goto transport_cleanup;
+	}
+	np2sysp_reset();
+	np2sysp_bind();
+	iocoreva_bind();
+	hostfat_send_string_generic("check_hostfat");
+	if ((iocore_inp8(0x07ef) != 'H') ||
+		(iocore_inp8(0x07ef) != '1')) {
+		goto transport_cleanup;
+	}
+	np2sysp_reset();
+	hostfat_send_string("check_hostfat");
+	if ((iocoreva_inp8(0x07ef) != 'H') ||
+		(iocoreva_inp8(0x07ef) != '1')) {
+		goto transport_cleanup;
+	}
+	hostfat_send_far_pointer(request_pointer);
+	hostfat_send_string("read_hostfat1");
+	result = iocoreva_inp8(0x07ed);
+	if (result != HOSTFAT_RESULT_OK) {
+		goto transport_cleanup;
+	}
+	for (index=0; index<HOSTFAT_SECTOR_SIZE; index++) {
+		if (i286_memoryread(destination_address + index) !=
+				(BYTE)(index ^ 0x5a)) {
+			goto transport_cleanup;
+		}
+	}
+	STOREINTELWORD(packet + 16, HOSTFAT_TOTAL_SECTORS);
+	MEML_WRITE(packet_address, packet, sizeof(packet));
+	MEML_WRITE(destination_address, unchanged, sizeof(unchanged));
+	hostfat_send_far_pointer(request_pointer);
+	hostfat_send_string("read_hostfat1");
+	result = iocoreva_inp8(0x07ed);
+	if (result != HOSTFAT_RESULT_RANGE) {
+		goto transport_cleanup;
+	}
+	for (index=0; index<HOSTFAT_SECTOR_SIZE; index++) {
+		if (i286_memoryread(destination_address + index) != 0xa5) {
+			goto transport_cleanup;
+		}
+	}
+	packet[0] = sizeof(packet) - 1;
+	STOREINTELWORD(packet + 16, 3);
+	MEML_WRITE(packet_address, packet, sizeof(packet));
+	hostfat_send_far_pointer(request_pointer);
+	hostfat_send_string("read_hostfat1");
+	if (iocoreva_inp8(0x07ed) != HOSTFAT_RESULT_BAD_REQUEST) {
+		goto transport_cleanup;
+	}
+	packet[0] = sizeof(packet);
+	STOREINTELWORD(packet + 14, 129);
+	MEML_WRITE(packet_address, packet, sizeof(packet));
+	hostfat_send_far_pointer(request_pointer);
+	hostfat_send_string("read_hostfat1");
+	if (iocoreva_inp8(0x07ed) != HOSTFAT_RESULT_RANGE) {
+		goto transport_cleanup;
+	}
+	STOREINTELWORD(packet + 14, 1);
+	STOREINTELWORD(packet + 10, 0);
+	STOREINTELWORD(packet + 12, 0x9ff0);
+	MEML_WRITE(packet_address, packet, sizeof(packet));
+	hostfat_send_far_pointer(request_pointer);
+	hostfat_send_string("read_hostfat1");
+	if (iocoreva_inp8(0x07ed) != HOSTFAT_RESULT_RANGE) {
+		goto transport_cleanup;
+	}
+	for (index=0; index<HOSTFAT_SECTOR_SIZE; index++) {
+		if (i286_memoryread(destination_address + index) != 0xa5) {
+			goto transport_cleanup;
+		}
+	}
+	np2sysp_reset();
+	if (!hostfat_is_mounted()) {
+		goto transport_cleanup;
+	}
+	hostfat_unmount();
+	hostfat_send_string("check_hostfat");
+	if (iocoreva_inp8(0x07ef) != 0) {
+		goto transport_cleanup;
+	}
+	hostfat_send_far_pointer(request_pointer);
+	hostfat_send_string("read_hostfat1");
+	if (iocoreva_inp8(0x07ed) != HOSTFAT_RESULT_NOT_MOUNTED) {
+		goto transport_cleanup;
+	}
+	status = SUCCESS;
+
+transport_cleanup:
+	iocore_destroy();
+	CPU_REMCLOCK = saved_remclock;
+	hostfat_unmount();
+	MEML_WRITE(packet_address, saved_packet, sizeof(saved_packet));
+	MEML_WRITE(destination_address, saved_destination,
+									sizeof(saved_destination));
+	if (status != SUCCESS) {
+		return(fail("HOSTFAT transport",
+				"VA 07EDH/07EFH read or atomic range rejection failed"));
+	}
+	fprintf(stderr, "selftest: HOSTFAT transport ok\n");
+	return(SUCCESS);
+}
+
+static int test_hostfat_snapshot(void) {
+
+	if (hostfat_snapshot_selftest() != SUCCESS) {
+		return(fail("HOSTFAT snapshot",
+				"FAT generation, determinism, or rejection policy failed"));
+	}
+	fprintf(stderr, "selftest: HOSTFAT snapshot ok\n");
 	return(SUCCESS);
 }
 
@@ -1851,14 +2052,14 @@ int vaeg_selftest_run(void) {
 	if (test_cli_options() != SUCCESS) {
 		return(FAILURE);
 	}
+	if (test_hostfat_snapshot() != SUCCESS) {
+		return(FAILURE);
+	}
 	if (np2_cli_override_selftest() != TRUE) {
 		return(fail("CLI options", "session override restoration failed"));
 	}
 	fprintf(stderr, "selftest: CLI override restoration ok\n");
 	if (test_va_tvram_window() != SUCCESS) {
-		return(FAILURE);
-	}
-	if (test_va_bms_window() != SUCCESS) {
 		return(FAILURE);
 	}
 	if (test_profile_ini() != SUCCESS) {
@@ -1905,6 +2106,12 @@ int vaeg_selftest_run(void) {
 		return(FAILURE);
 	}
 	if (test_statsave() != SUCCESS) {
+		return(FAILURE);
+	}
+	if (test_va_bms_window() != SUCCESS) {
+		return(FAILURE);
+	}
+	if (test_hostfat_transport() != SUCCESS) {
 		return(FAILURE);
 	}
 #if defined(VAEG_Z80_INTEGRATION_TESTING)
