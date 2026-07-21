@@ -353,6 +353,22 @@ static int test_hostfat_transport(void) {
 		goto transport_cleanup;
 	}
 	packet[0] = sizeof(packet);
+	packet[1] = 1;
+	MEML_WRITE(packet_address, packet, sizeof(packet));
+	hostfat_send_far_pointer(request_pointer);
+	hostfat_send_string("read_hostfat1");
+	if (iocoreva_inp8(0x07ed) != HOSTFAT_RESULT_BAD_REQUEST) {
+		goto transport_cleanup;
+	}
+	packet[1] = 0;
+	packet[2] = 5;
+	MEML_WRITE(packet_address, packet, sizeof(packet));
+	hostfat_send_far_pointer(request_pointer);
+	hostfat_send_string("read_hostfat1");
+	if (iocoreva_inp8(0x07ed) != HOSTFAT_RESULT_BAD_REQUEST) {
+		goto transport_cleanup;
+	}
+	packet[2] = 4;
 	STOREINTELWORD(packet + 14, 129);
 	MEML_WRITE(packet_address, packet, sizeof(packet));
 	hostfat_send_far_pointer(request_pointer);
@@ -387,6 +403,11 @@ static int test_hostfat_transport(void) {
 	hostfat_send_string("read_hostfat1");
 	if (iocoreva_inp8(0x07ed) != HOSTFAT_RESULT_NOT_MOUNTED) {
 		goto transport_cleanup;
+	}
+	for (index=0; index<HOSTFAT_SECTOR_SIZE; index++) {
+		if (i286_memoryread(destination_address + index) != 0xa5) {
+			goto transport_cleanup;
+		}
 	}
 	status = SUCCESS;
 
