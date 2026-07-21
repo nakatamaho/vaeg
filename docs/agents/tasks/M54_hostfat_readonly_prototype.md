@@ -22,7 +22,7 @@ POSSIBILITY OF SUCH DAMAGE.
 -->
 # M54: Read-only HOSTFAT prototype
 
-Status: **in progress; stop at G54**
+Status: **implementation complete; G54 human gate pending**
 
 Starting SHA: `e5741b83fe12f121bb2eb955cbd7b8f0d2af61f2`
 
