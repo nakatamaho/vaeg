@@ -35,6 +35,7 @@
 #include	"fdd_d88.h"
 #include	"fdd_xdf.h"
 #include	"framedisp.h"
+#include	"ini.h"
 #include	"kbdmap.h"
 #include	"kbdpaste.h"
 #include	"memoryva.h"
@@ -284,33 +285,48 @@ static int test_va_tvram_window(void) {
 
 static int test_va_bms_window(void) {
 
+	_BMSIOCFG	saved_bmsiocfg;
 	_BMSIO		saved_bmsio;
 	_BMSIOWORK	saved_bmsiowork;
-	BYTE		*testmem;
+	BYTE		*retained_mem;
 	int		result;
 
-	testmem = (BYTE *)_MALLOC(0x40000, "selftest-bms");
-	if (testmem == NULL) {
-		return(fail("VA BMS", "test memory allocation failed"));
-	}
+	saved_bmsiocfg = bmsiocfg;
 	saved_bmsio = bmsio;
 	saved_bmsiowork = bmsiowork;
-	ZeroMemory(testmem, 0x40000);
-	bmsiowork.bmsmem = testmem;
-	bmsiowork.bmsmemsize = 0x40000;
+	ZeroMemory(&bmsio, sizeof(bmsio));
+	ZeroMemory(&bmsiowork, sizeof(bmsiowork));
 	result = SUCCESS;
 
-	bmsio.bank = 0;
-	bmsio.nomem = 1;
+	bmsiocfg.enabled = FALSE;
+	bmsiocfg.port = BMSIO_PORT_PRIMARY;
+	bmsiocfg.portmask = BMSIO_PORT_MASK;
+	bmsiocfg.numbanks = BMSIO_DEFAULT_BANKS;
+	bmsio_set();
+	bmsio_reset();
 	i286_memorywrite_va(0x080000, 0x12);
 	i286_memorywrite_va_w(0x09fffe, 0x3456);
 	if ((i286_memoryread_va(0x080000) != 0xff) ||
 		(i286_memoryread_va_w(0x09fffe) != 0xffff) ||
-		(testmem[0] != 0) || (testmem[0x1fffe] != 0)) {
+		(bmsiowork.bmsmem != NULL) || (bmsiowork.bmsmemsize != 0) ||
+		(bmsio.nomem == 0)) {
 		result = fail("VA BMS", "disabled window did not use open bus");
 	}
 
-	bmsio.nomem = 0;
+	bmsiocfg.enabled = TRUE;
+	bmsiocfg.port = BMSIO_PORT_ALTERNATE;
+	bmsiocfg.numbanks = 2;
+	bmsio_set();
+	bmsio_reset();
+	if ((bmsiowork.bmsmem == NULL) ||
+		(bmsiowork.bmsmemsize != 0x40000) ||
+		(bmsio.cfg.enabled == FALSE) ||
+		(bmsio.cfg.port != BMSIO_PORT_ALTERNATE) ||
+		(bmsio.cfg.numbanks != 2) || (bmsio.nomem != 0)) {
+		result = fail("VA BMS", "enabled configuration was not applied");
+		goto bms_test_cleanup;
+	}
+	ZeroMemory(bmsiowork.bmsmem, bmsiowork.bmsmemsize);
 	i286_memorywrite_va(0x080000, 0x12);
 	i286_memorywrite_va_w(0x09fffe, 0x3456);
 	if ((i286_memoryread_va(0x080000) != 0x12) ||
@@ -318,7 +334,17 @@ static int test_va_bms_window(void) {
 		result = fail("VA BMS", "bank 0 access failed");
 	}
 
+	retained_mem = bmsiowork.bmsmem;
+	bmsio_set();
+	bmsio_reset();
+	if ((bmsiowork.bmsmem != retained_mem) ||
+		(i286_memoryread_va(0x080000) != 0x12) ||
+		(i286_memoryread_va_w(0x09fffe) != 0x3456)) {
+		result = fail("VA BMS", "ordinary reset did not retain BMS contents");
+	}
+
 	bmsio.bank = 1;
+	bmsio.nomem = 0;
 	i286_memorywrite_va(0x080000, 0x78);
 	i286_memorywrite_va_w(0x09fffe, 0x9abc);
 	if ((i286_memoryread_va(0x080000) != 0x78) ||
@@ -331,11 +357,24 @@ static int test_va_bms_window(void) {
 		result = fail("VA BMS", "bank switch did not preserve bank 0");
 	}
 
+	bmsiocfg.enabled = FALSE;
+	bmsio_set();
+	bmsio_reset();
+	if ((bmsiowork.bmsmem != NULL) || (bmsiowork.bmsmemsize != 0) ||
+		(bmsio.nomem == 0) ||
+		(i286_memoryread_va(0x080000) != 0xff)) {
+		result = fail("VA BMS", "disable did not release the BMS window");
+	}
+
+bms_test_cleanup:
+	if (bmsiowork.bmsmem != NULL) {
+		_MFREE(bmsiowork.bmsmem);
+	}
+	bmsiocfg = saved_bmsiocfg;
 	bmsio = saved_bmsio;
 	bmsiowork = saved_bmsiowork;
-	_MFREE(testmem);
 	if (result == SUCCESS) {
-		fprintf(stderr, "selftest: VA BMS window ok\n");
+		fprintf(stderr, "selftest: VA BMS config/window lifecycle ok\n");
 	}
 	return(result);
 }
@@ -602,6 +641,8 @@ static int test_profile_ini(void) {
 	UINT8	read_effect;
 	UINT16	window_width;
 	UINT16	read_window_width;
+	_BMSIOCFG	write_bms;
+	_BMSIOCFG	read_bms;
 	PFTBL	write_tbl[] = {
 		{"name", PFTYPE_STR, name, sizeof(name)},
 		{"flag", PFTYPE_BOOL, &flag, 0},
@@ -617,6 +658,16 @@ static int test_profile_ini(void) {
 		{"bytes", PFTYPE_BIN, read_bytes, sizeof(read_bytes)},
 		{"effect", PFTYPE_UINT8, &read_effect, 0},
 		{"win_width", PFTYPE_UINT16, &read_window_width, 0}
+	};
+	INITBL	write_bms_tbl[] = {
+		{"Use_BMS_", INITYPE_BOOL, &write_bms.enabled, 0},
+		{"BMS_Port", INITYPE_HEX16, &write_bms.port, 0},
+		{"BMS_Size", INITYPE_UINT8, &write_bms.numbanks, 0}
+	};
+	INITBL	read_bms_tbl[] = {
+		{"Use_BMS_", INITYPE_BOOL, &read_bms.enabled, 0},
+		{"BMS_Port", INITYPE_HEX16, &read_bms.port, 0},
+		{"BMS_Size", INITYPE_UINT8, &read_bms.numbanks, 0}
 	};
 
 	SPRINTF(path, "vaeg-selftest-%lu.ini", (unsigned long)getpid());
@@ -635,11 +686,20 @@ static int test_profile_ini(void) {
 	ZeroMemory(read_bytes, sizeof(read_bytes));
 	read_effect = 0;
 	read_window_width = 0;
+	write_bms.enabled = TRUE;
+	write_bms.port = BMSIO_PORT_ALTERNATE;
+	write_bms.portmask = BMSIO_PORT_MASK;
+	write_bms.numbanks = 32;
+	ZeroMemory(&read_bms, sizeof(read_bms));
 
 	profile_iniwrite(path, "selftest", write_tbl, NELEMENTS(write_tbl),
 																	NULL);
 	profile_iniread(path, "selftest", read_tbl, NELEMENTS(read_tbl),
 																	NULL);
+	ini_write(path, "selftest-bms", write_bms_tbl,
+										NELEMENTS(write_bms_tbl));
+	ini_read(path, "selftest-bms", read_bms_tbl,
+										NELEMENTS(read_bms_tbl));
 	file_delete(path);
 
 	if (strcmp(read_name, name) != 0) {
@@ -649,6 +709,11 @@ static int test_profile_ini(void) {
 		(memcmp(read_bytes, bytes, sizeof(bytes)) != 0) ||
 		(read_effect != effect) || (read_window_width != window_width)) {
 		return(fail("ini", "typed values did not round-trip"));
+	}
+	if ((read_bms.enabled != TRUE) ||
+		(read_bms.port != BMSIO_PORT_ALTERNATE) ||
+		(read_bms.numbanks != 32)) {
+		return(fail("ini", "BMS settings did not round-trip"));
 	}
 	fprintf(stderr, "selftest: ini ok\n");
 	return(SUCCESS);
