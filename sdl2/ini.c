@@ -37,6 +37,7 @@
 #include	"sgp.h"
 #include	"scrnmng.h"
 #include	"mouseifva.h"
+#include	"bmsio.h"
 
 
 typedef struct {
@@ -385,6 +386,11 @@ static const INITBL iniitem[] = {
 	{"MEMswtch", INITYPE_BYTEARG,	np2cfg.memsw,			8},
 	{"ExMemory", INITYPE_UINT8,		&np2cfg.EXTMEM,			0},
 	{"ITF_WORK", INITYPE_BOOL,		&np2cfg.ITF_WORK,		0},
+#if defined(SUPPORT_BMS)
+	{"Use_BMS_", INITYPE_BOOL,		&bmsiocfg.enabled,		0},
+	{"BMS_Port", INITYPE_HEX16,		&bmsiocfg.port,			0},
+	{"BMS_Size", INITYPE_UINT8,		&bmsiocfg.numbanks,		0},
+#endif
 
 	{"FDD1FILE", INITYPE_STR,		np2oscfg.fdd_image[0],	MAX_PATH},
 	{"FDD2FILE", INITYPE_STR,		np2oscfg.fdd_image[1],	MAX_PATH},
@@ -498,6 +504,23 @@ void initload(void) {
 		SDL_Log("Config load: %s", path);
 	}
 	ini_read(path, ini_title, iniitem, INIITEMS);
+#if defined(SUPPORT_BMS)
+	bmsiocfg.enabled = bmsiocfg.enabled ? TRUE : FALSE;
+	if ((bmsiocfg.port != BMSIO_PORT_PRIMARY) &&
+		(bmsiocfg.port != BMSIO_PORT_ALTERNATE)) {
+		SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION,
+				"Invalid BMS_Port=%04x; using %04x",
+				bmsiocfg.port, BMSIO_PORT_PRIMARY);
+		bmsiocfg.port = BMSIO_PORT_PRIMARY;
+	}
+	if (bmsiocfg.numbanks == 0) {
+		SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION,
+				"Invalid BMS_Size=0; using %u",
+				BMSIO_DEFAULT_BANKS);
+		bmsiocfg.numbanks = BMSIO_DEFAULT_BANKS;
+	}
+	bmsiocfg.portmask = BMSIO_PORT_MASK;
+#endif
 	if (!vaeg_sound_rate_valid(np2cfg.samplingrate)) {
 		SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION,
 				"Invalid SampleHz=%u; using %u",

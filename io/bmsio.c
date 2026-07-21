@@ -10,7 +10,8 @@
 #include	"iocoreva.h"
 #include	"bmsio.h"
 
-		_BMSIOCFG	bmsiocfg = {FALSE, 0x00ec, 0xffff, 0x10};
+		_BMSIOCFG	bmsiocfg = {FALSE, BMSIO_PORT_PRIMARY,
+							BMSIO_PORT_MASK, BMSIO_DEFAULT_BANKS};
 		_BMSIO		bmsio;
 		_BMSIOWORK	bmsiowork;
 
@@ -90,4 +91,3 @@ void bmsio_bind(void) {
 		iocoreva_attachinp(bmsio.cfg.port, bmsio_i00ec);
 	}
 }
-
