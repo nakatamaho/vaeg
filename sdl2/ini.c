@@ -506,12 +506,12 @@ void initload(void) {
 	ini_read(path, ini_title, iniitem, INIITEMS);
 #if defined(SUPPORT_BMS)
 	bmsiocfg.enabled = bmsiocfg.enabled ? TRUE : FALSE;
-	if ((bmsiocfg.port != BMSIO_PORT_PRIMARY) &&
-		(bmsiocfg.port != BMSIO_PORT_ALTERNATE)) {
+	if ((bmsiocfg.port != BMSIO_PORT_DEFAULT) &&
+		(bmsiocfg.port != BMSIO_PORT_COMPAT)) {
 		SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION,
 				"Invalid BMS_Port=%04x; using %04x",
-				bmsiocfg.port, BMSIO_PORT_PRIMARY);
-		bmsiocfg.port = BMSIO_PORT_PRIMARY;
+				bmsiocfg.port, BMSIO_PORT_DEFAULT);
+		bmsiocfg.port = BMSIO_PORT_DEFAULT;
 	}
 	if (bmsiocfg.numbanks == 0) {
 		SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION,
