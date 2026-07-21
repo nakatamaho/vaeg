@@ -52,6 +52,7 @@
 #include "sound.h"
 #include "adpcm.h"
 #include "beep.h"
+#include "bmsio.h"
 #include "pccore.h"
 #include "sxsi.h"
 #include "fdd_mtr.h"
@@ -193,6 +194,11 @@ struct GuiState {
 	int pending_cpu_multiplier = PCCORE_STANDARD_MULTIPLE;
 	int pending_sgp_mode = SGP_SPEED_MODEL_DEFAULT;
 	int pending_sgp_multiplier = 1;
+	bool bms_config_open = false;
+	bool bms_config_request = false;
+	bool pending_bms_enabled = false;
+	int pending_bms_port = 0;
+	int pending_bms_banks = BMSIO_DEFAULT_BANKS;
 	bool custom_size_open = false;
 	bool custom_size_request = false;
 	int pending_window_width = 640;
@@ -413,6 +419,100 @@ static void draw_configure_dialog(void) {
 		if (ImGui::Button("Cancel", ImVec2(button_width, 0.0f)) ||
 			ImGui::IsKeyPressed(ImGuiKey_Escape)) {
 			g_gui.configure_open = false;
+			ImGui::CloseCurrentPopup();
+		}
+		ImGui::EndPopup();
+	}
+}
+
+static void open_bms_config_dialog(void) {
+
+	g_gui.pending_bms_enabled = bmsiocfg.enabled != FALSE;
+	g_gui.pending_bms_port =
+		(bmsiocfg.port == BMSIO_PORT_ALTERNATE) ? 1 : 0;
+	g_gui.pending_bms_banks = bmsiocfg.numbanks;
+	g_gui.bms_config_open = true;
+	g_gui.bms_config_request = true;
+}
+
+static void apply_bms_config_dialog(void) {
+
+	const UINT16 port = (g_gui.pending_bms_port == 1) ?
+		BMSIO_PORT_ALTERNATE : BMSIO_PORT_PRIMARY;
+	const BOOL enabled = g_gui.pending_bms_enabled ? TRUE : FALSE;
+	const UINT8 banks = static_cast<UINT8>(g_gui.pending_bms_banks);
+	const bool changed = (bmsiocfg.enabled != enabled) ||
+		(bmsiocfg.port != port) || (bmsiocfg.numbanks != banks) ||
+		(bmsiocfg.portmask != BMSIO_PORT_MASK);
+
+	if (changed) {
+		bmsiocfg.enabled = enabled;
+		bmsiocfg.port = port;
+		bmsiocfg.portmask = BMSIO_PORT_MASK;
+		bmsiocfg.numbanks = banks;
+		sysmng_update(SYS_UPDATECFG);
+		reset_guest();
+	}
+	g_gui.bms_config_open = false;
+	ImGui::CloseCurrentPopup();
+}
+
+static void draw_bms_config_dialog(void) {
+
+	if (g_gui.bms_config_request) {
+		ImGui::OpenPopup("I-O Bank Memory##bms-config");
+		g_gui.bms_config_request = false;
+	}
+	if (!g_gui.bms_config_open) {
+		return;
+	}
+	const ImGuiViewport *viewport = ImGui::GetMainViewport();
+	ImGui::SetNextWindowPos(viewport->GetCenter(), ImGuiCond_Appearing,
+											ImVec2(0.5f, 0.5f));
+	ImGui::SetNextWindowSize(ImVec2(430.0f, 285.0f), ImGuiCond_Appearing);
+	if (ImGui::BeginPopupModal("I-O Bank Memory##bms-config",
+										&g_gui.bms_config_open,
+										ImGuiWindowFlags_NoResize |
+										ImGuiWindowFlags_NoCollapse)) {
+		static const char *ports[] = {
+			"00ECH (legacy default)",
+			"01D0H"
+		};
+		const bool banks_valid = (g_gui.pending_bms_banks >= 1) &&
+			(g_gui.pending_bms_banks <= BMSIO_MAX_BANKS);
+		const bool port_valid = (g_gui.pending_bms_port >= 0) &&
+			(g_gui.pending_bms_port < static_cast<int>(std::size(ports)));
+
+		ImGui::Checkbox("Use I-O Bank Memory", &g_gui.pending_bms_enabled);
+		ImGui::SetNextItemWidth(220.0f);
+		ImGui::Combo("I/O port", &g_gui.pending_bms_port, ports,
+										static_cast<int>(std::size(ports)));
+		ImGui::SetNextItemWidth(120.0f);
+		ImGui::InputInt("128KB banks", &g_gui.pending_bms_banks, 1, 16);
+		if (banks_valid) {
+			ImGui::Text("Capacity: %dKB (%.3fMiB)",
+				g_gui.pending_bms_banks * 128,
+				static_cast<double>(g_gui.pending_bms_banks) / 8.0);
+		}
+		else {
+			ImGui::TextUnformatted("Bank count must be between 1 and 255.");
+		}
+		ImGui::Separator();
+		ImGui::TextWrapped("Applying a change resets the guest. Disabling BMS or "
+			"changing its bank count discards current BMS contents.");
+
+		const float button_width = 88.0f;
+		ImGui::SetCursorPosX(ImGui::GetWindowContentRegionMax().x -
+										(button_width * 2.0f + 8.0f));
+		ImGui::BeginDisabled(!banks_valid || !port_valid);
+		if (ImGui::Button("OK", ImVec2(button_width, 0.0f))) {
+			apply_bms_config_dialog();
+		}
+		ImGui::EndDisabled();
+		ImGui::SameLine();
+		if (ImGui::Button("Cancel", ImVec2(button_width, 0.0f)) ||
+			ImGui::IsKeyPressed(ImGuiKey_Escape)) {
+			g_gui.bms_config_open = false;
 			ImGui::CloseCurrentPopup();
 		}
 		ImGui::EndPopup();
@@ -2227,7 +2327,10 @@ static void draw_device_menu(void) {
 			}
 			ImGui::EndMenu();
 		}
-		menu_item_not_implemented("Memory (not implemented)");
+		if (ImGui::MenuItem("I-O Bank Memory...", nullptr,
+										bmsiocfg.enabled != FALSE)) {
+			open_bms_config_dialog();
+		}
 		if (ImGui::BeginMenu("Mouse")) {
 			bool capture = np2oscfg.MOUSE_SW != 0;
 			const char *capture_shortcut = (np2oscfg.F12KEY == 0) ?
@@ -2557,6 +2660,7 @@ BOOL gui_guest_keyboard_blocked(void) {
 	return (g_gui.fdd_browser_open || g_gui.hdd_browser_open ||
 			g_gui.new_fdd_open || g_gui.new_sasi_open ||
 			g_gui.keyboard_config_open || g_gui.configure_open ||
+			g_gui.bms_config_open ||
 			g_gui.custom_size_open || g_gui.about_open) ? TRUE : FALSE;
 }
 
@@ -2572,6 +2676,7 @@ BOOL gui_guest_mouse_blocked(void) {
 	return (g_gui.fdd_browser_open || g_gui.hdd_browser_open ||
 			g_gui.new_fdd_open || g_gui.new_sasi_open ||
 			g_gui.keyboard_config_open || g_gui.configure_open ||
+			g_gui.bms_config_open ||
 			g_gui.custom_size_open || g_gui.about_open) ? TRUE : FALSE;
 }
 
@@ -2610,6 +2715,7 @@ void gui_draw(void) {
 	draw_new_sasi_dialog();
 	draw_keyboard_config();
 	draw_configure_dialog();
+	draw_bms_config_dialog();
 	draw_custom_size_dialog();
 	draw_sound_buffer_dialog();
 	draw_about_dialog();
