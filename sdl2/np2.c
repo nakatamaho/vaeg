@@ -52,6 +52,7 @@
 #include	"upd9002_trace.h"
 #include	"upd9002_diagnostic.h"
 #include	"dropmedia.h"
+#include	"hostfat_snapshot.h"
 #include	"splash.h"
 #include	"np2ver.h"
 #include	"mousemng.h"
@@ -203,6 +204,7 @@ static void usage(const char *progname) {
 	printf("Media (session only; use none for an empty drive):\n");
 	printf("\t--fdd1 path|none    --fdd2 path|none\n");
 	printf("\t--sasi1 path|none   --sasi2 path|none\n");
+	printf("\t--hostfat-dir path  read-only PC-Engine HOSTFAT snapshot\n");
 	printf("Execution (session only):\n");
 	printf("\t--cpumult 1..32\n");
 	printf("\t--sgp model|follow-cpu|1..16\n");
@@ -1473,6 +1475,25 @@ int main(int argc, char **argv) {
 		dosio_term();
 		return(FAILURE);
 	}
+	if (options.hostfat_path != NULL) {
+		HOSTFAT_SNAPSHOT_INFO hostfat_info;
+		char hostfat_error[256];
+
+		if (hostfat_snapshot_mount_directory(options.hostfat_path,
+				&hostfat_info, hostfat_error, sizeof(hostfat_error)) != SUCCESS) {
+			fprintf(stderr, "Error: cannot create HOSTFAT snapshot: %s\n",
+					hostfat_error);
+			SDL_Quit();
+			dosio_term();
+			return(FAILURE);
+		}
+		fprintf(stderr,
+			"HOSTFAT: read-only snapshot ready: %u files, %u directories, "
+			"%llu source bytes, digest %08x\n",
+			hostfat_info.files, hostfat_info.directories,
+			(unsigned long long)hostfat_info.source_bytes,
+			hostfat_info.digest);
+	}
 	save_cli_config(&options, &saved_cli);
 	dropmedia_initialize();
 	dropmedia_set_session_fdd_references(
@@ -1597,6 +1618,7 @@ int main(int argc, char **argv) {
 	}
 	bkupmemva_save();
 	pccore_term();
+	hostfat_snapshot_unmount();
 	dropmedia_shutdown();
 	S98_trash();
 	soundmng_deinitialize();
@@ -1614,6 +1636,7 @@ np2main_err3:
 	scrnmng_destroy();
 
 np2main_err2:
+	hostfat_snapshot_unmount();
 	TRACETERM();
 	upd9002_trace_stop();
 	SDL_Quit();
