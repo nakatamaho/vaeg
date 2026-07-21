@@ -310,11 +310,11 @@ static int test_va_bms_window(void) {
 	bmsio_reset();
 	i286_memorywrite_va(0x080000, 0x12);
 	i286_memorywrite_va_w(0x09fffe, 0x3456);
-	if ((i286_memoryread_va(0x080000) != 0xff) ||
-		(i286_memoryread_va_w(0x09fffe) != 0xffff) ||
+	if ((i286_memoryread_va(0x080000) != 0x12) ||
+		(i286_memoryread_va_w(0x09fffe) != 0x3456) ||
 		(bmsiowork.bmsmem != NULL) || (bmsiowork.bmsmemsize != 0) ||
-		(bmsio.cfg.port != BMSIO_PORT_DEFAULT) || (bmsio.nomem == 0)) {
-		result = fail("VA BMS", "disabled window did not use open bus");
+		(bmsio.cfg.port != BMSIO_PORT_DEFAULT) || (bmsio.nomem != 0)) {
+		result = fail("VA BMS", "bank zero did not pass through main RAM");
 	}
 
 	bmsiocfg.enabled = TRUE;
@@ -326,16 +326,15 @@ static int test_va_bms_window(void) {
 		(bmsiowork.bmsmemsize != 0x40000) ||
 		(bmsio.cfg.enabled == FALSE) ||
 		(bmsio.cfg.port != BMSIO_PORT_COMPAT) ||
-		(bmsio.cfg.numbanks != 2) || (bmsio.nomem != 0)) {
+		(bmsio.cfg.numbanks != 2) || (bmsio.bank != 0) ||
+		(bmsio.nomem != 0)) {
 		result = fail("VA BMS", "enabled configuration was not applied");
 		goto bms_test_cleanup;
 	}
 	ZeroMemory(bmsiowork.bmsmem, bmsiowork.bmsmemsize);
-	i286_memorywrite_va(0x080000, 0x12);
-	i286_memorywrite_va_w(0x09fffe, 0x3456);
 	if ((i286_memoryread_va(0x080000) != 0x12) ||
 		(i286_memoryread_va_w(0x09fffe) != 0x3456)) {
-		result = fail("VA BMS", "bank 0 access failed");
+		result = fail("VA BMS", "enabled bank zero did not preserve main RAM");
 	}
 
 	retained_mem = bmsiowork.bmsmem;
@@ -365,9 +364,9 @@ static int test_va_bms_window(void) {
 	bmsio_set();
 	bmsio_reset();
 	if ((bmsiowork.bmsmem != NULL) || (bmsiowork.bmsmemsize != 0) ||
-		(bmsio.nomem == 0) ||
-		(i286_memoryread_va(0x080000) != 0xff)) {
-		result = fail("VA BMS", "disable did not release the BMS window");
+		(bmsio.nomem != 0) ||
+		(i286_memoryread_va(0x080000) != 0x12)) {
+		result = fail("VA BMS", "disable did not restore main RAM");
 	}
 
 bms_test_cleanup:

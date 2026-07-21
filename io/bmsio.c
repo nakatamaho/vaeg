@@ -49,7 +49,7 @@ static void IOOUTCALL bmsio_o00ec(UINT port, REG8 dat) {
 
 	bank=dat;
 	bmsio.bank=bank;
-	if (bank<bmsio.cfg.numbanks)  {
+	if ((bank == 0) || (bank <= bmsio.cfg.numbanks)) {
 		bmsio.nomem=0;
 	}
 	else {
