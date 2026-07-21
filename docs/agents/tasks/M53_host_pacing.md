@@ -22,7 +22,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 -->
 # M53: Configurable non-blocking host pacing
 
-Status: implemented; G53 human gate pending
+Status: **G53 passed**
 
 Starting SHA: `a80a6f9303402945942f12ec72912c49046994e2`
 
@@ -67,7 +67,9 @@ unresponsive.
 4. Restart VAEG and confirm the selected value persists.
 5. Return PacingMs to 0 and confirm ordinary OS operation.
 
-G53 passes only after explicit maintainer approval.
+G53 passed after maintainer confirmation of zero-delay compatibility,
+readable 32/64ms-paced boot messages, responsive UI/input while paced,
+configuration persistence, and ordinary device operation.
 
 ## Implementation record
 
@@ -78,8 +80,8 @@ G53 passes only after explicit maintainer approval.
 
 Maintainer testing confirmed that RAM-disk and MSE registration messages are
 readable at nonzero pacing values and that the corrected scheduling keeps the
-UI responsive at 64ms. G53 remains pending until the complete checklist is
-explicitly accepted.
+UI responsive at 64ms. The maintainer subsequently accepted the complete G53
+checklist.
 
 ## Local validation result
 

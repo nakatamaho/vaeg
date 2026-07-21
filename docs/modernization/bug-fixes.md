@@ -351,7 +351,7 @@ separate parity correction or move it to Open Defects.
 ### VA BMS bank zero hid 128KB of conventional memory
 
 - **Status:** M30's open-bus interpretation was disproved and corrected in
-  M52; G52 human review pending.
+  M52; G52 passed.
 - **Symptom:** enabling I/O Bank Memory with 640KB main memory prevented
   CONFIG.SYS RAM-disk and MSE registration. Reducing main memory to 512KB
   avoided the failure by leaving `80000H-9FFFFH` unused.
@@ -375,7 +375,7 @@ separate parity correction or move it to Open Defects.
 
 ### VA bank memory defaulted to the PC-9801 compatibility port
 
-- **Status:** fixed in the M52 implementation; G52 human review pending.
+- **Status:** fixed in the M52 implementation; G52 passed.
 - **Symptom:** a clean VAEG configuration selected `00ECH`, so a PC-88VA bank
   memory driver configured for the machine-native `01D0H` control port could
   not select the emulated banks without a matching manual configuration
