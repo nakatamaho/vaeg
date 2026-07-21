@@ -30,6 +30,14 @@
 #define HOSTFAT_SECTOR_SIZE 1024U
 #define HOSTFAT_TOTAL_SECTORS 8192U
 #define HOSTFAT_IMAGE_SIZE (HOSTFAT_SECTOR_SIZE * HOSTFAT_TOTAL_SECTORS)
+#define HOSTFAT_PROTOCOL_SIGNATURE "H1"
+
+enum {
+	HOSTFAT_RESULT_OK = 0,
+	HOSTFAT_RESULT_NOT_MOUNTED = 1,
+	HOSTFAT_RESULT_BAD_REQUEST = 2,
+	HOSTFAT_RESULT_RANGE = 3
+};
 
 #ifdef __cplusplus
 extern "C" {
@@ -40,6 +48,7 @@ void hostfat_unmount(void);
 BOOL hostfat_is_mounted(void);
 UINT32 hostfat_image_digest(void);
 BOOL hostfat_read_sector(UINT32 sector, void *destination);
+UINT8 hostfat_service_request(UINT32 request_far_pointer);
 
 #ifdef __cplusplus
 }
