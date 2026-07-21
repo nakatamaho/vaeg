@@ -34,9 +34,14 @@ cannot contain the SHA of the commit that contains itself.
 - Branch: `topic/m54-hostfat-readonly-prototype`
 - Starting SHA: `e5741b83fe12f121bb2eb955cbd7b8f0d2af61f2`
 - Pre-report implementation SHA: `b661490322a998a20ca9881442c6a06c8c312958`
+- Human-gate packet-layout correction SHA:
+  `a07a8c4a764a2b5d8560bdbaea8f5ebc5c0edae4`
 - Hosted implementation run:
   [build 29813271492](https://github.com/nakatamaho/vaeg/actions/runs/29813271492)
   (result recorded below)
+- Hosted packet-layout correction run:
+  [build 29817436136](https://github.com/nakatamaho/vaeg/actions/runs/29817436136)
+  (seven of seven jobs passed)
 - Final and remote SHA: supplied in the G54 handoff
 
 The worktree began clean at the stated starting SHA. M54 adds only a
@@ -63,6 +68,8 @@ behavior is present.
    `M54: harden snapshot race and link rejection`;
 8. `b661490322a998a20ca9881442c6a06c8c312958` —
    `M54: reject cross-platform hard links`.
+9. `a07a8c4a764a2b5d8560bdbaea8f5ebc5c0edae4` —
+   `M54: fix PC-Engine HOSTFAT request layout`.
 
 ## Files changed
 
@@ -144,12 +151,17 @@ PC-88VA hardware ports:
 - request far pointer via `07EDH`, then `read_hostfat1` via `07EFH`;
 - one-byte result via `07EDH` (`0` success, nonzero no transfer).
 
-The service reads the full 18-byte PC-Engine request packet and validates the
+The service reads the full 22-byte PC-Engine request packet and validates the
 packet span, length, unit, command, nonzero transfer count limit, LBA interval,
 destination interval, and mounted state before its first guest-memory write.
 Zero-sector reads succeed without writing. Invalid packet, unit, command,
 count, LBA, destination, and unmounted cases are deterministic and leave the
 destination unchanged.
+
+The packet uses PC-Engine's 13-byte non-IBM common header. Its command fields
+begin after eight reserved bytes at offsets 5--12: media/unit is at `0DH`, the
+transfer pointer at `0EH`, count or BPB pointer at `12H`, and starting sector
+at `14H`.
 
 The audit also demonstrated and corrected a pre-existing binding defect:
 `np2sysp_bind()` had attached both value and string callbacks to `07EFH`, and
@@ -175,12 +187,38 @@ message. NASM is optional for emulator builds; when present, CMake builds and
 structurally checks `guest/hostfat.sys`. A clean configure with NASM forced
 unavailable also succeeded and disabled only the guest-driver target.
 
-Two independent NASM invocations produced byte-identical files:
+The initial G54 handoff driver used IBM-sized field offsets. Although its
+header and BPB passed the original shallow checker, live PC-Engine
+initialization interpreted its misplaced resident-end pointer as `CS:001CH`,
+reclaimed the remaining driver, and later entered overwritten code. The
+corrected driver keeps the same size but has these deterministic identities:
 
 - size: 455 bytes;
-- SHA-256: `b2d6a44445290a08ac413b79019f0c9388179d680e0f47fef2fcda7b20ae747a`.
+- SHA-256: `7be6d3be6f22fa32130eac7e7b2224146dae1f20448802d449c211814291c4bc`.
+
+Two independent corrected NASM invocations are byte-identical. The
+strengthened checker verifies every relevant `0DH`--`14H` displacement in the
+emitted machine code and rejects the former binary at its first old-layout
+field.
 
 The generated binary is not committed.
+
+## Human-gate packet-layout correction
+
+The first G54 boot printed the driver ready message and then stopped during
+CONFIG.SYS processing. A debugger capture of the loaded driver proved that
+PC-Engine had reclaimed and overwritten the bytes following offset `001CH`.
+The next request was therefore dispatched through corrupted code. This
+excluded host snapshot construction, the command-line path, and the private
+I/O channel as causes.
+
+Comparison with the independently retained RDBMS source established the
+missing eight-byte reserved region in the common request header. After both
+sides were moved to the complete 22-byte layout, the same private live
+PC-Engine integration boot printed the ready message and reached its command
+prompt. No private image name, host path, screenshot, save state, or asset
+digest is retained in Git. Full DIR/TYPE/copy/write-protect/reset behavior
+remains for maintainer G54 review.
 
 ## Automated evidence
 
@@ -194,7 +232,8 @@ The ROM-less M54 coverage verifies:
 - transactional preservation of the accepted image after rejected rebuilds;
 - default-disabled and explicit CLI parsing;
 - generic and VA `07EDH`/`07EFH` signature probes;
-- a valid sector read and rejection of malformed length, unit, command,
+- a valid 22-byte sector request whose eight reserved bytes are nonzero, plus
+  rejection of malformed length, unit, command,
   count, LBA, destination, and unmounted requests without destination changes;
 - mount retention across `np2sysp_reset()` and explicit unmount behavior;
 - deterministic assembly and structural validation of `HOSTFAT.SYS`.
@@ -222,18 +261,19 @@ ASAN_OPTIONS=detect_leaks=0 ctest --test-dir .../m54-linux-ci-asan \
   --output-on-failure
 ```
 
-Each tests-enabled profile reported 35 passed, one external-dataset test
-skipped because no external SingleStepTests path was configured, and zero
-failed out of 36. The M42 graph, constructor, trace, 156-case harness, ABI and
-state fixtures; M43 accepted sidecars; M44 state boundary; M45 native
-execution; M46 normalization; M48 522-case diagnostic atomicity; and M49--M51
-guards all passed unchanged.
+Each corrected tests-enabled profile reported 35 passed, one external-dataset
+test skipped because no external SingleStepTests path was configured, and
+zero failed out of 36. The M42 graph, constructor, trace, 156-case harness,
+ABI and state fixtures; M43 accepted sidecars; M44 state boundary; M45 native
+execution; M46 normalization; M48 522-case diagnostic atomicity; and
+M49--M51 guards all passed unchanged.
 
-The first sanitizer CTest invocation used LeakSanitizer defaults and failed
-because this managed execution environment runs tests under ptrace. It was
-rerun with only leak detection disabled. ASan and UBSan remained enabled; the
-full suite then passed. Existing documented sound and vendored Z80 shift
-diagnostics remain outside M54 and did not fail the configured suite.
+The corrected sanitizer CTest invocation first used LeakSanitizer defaults
+and failed because this managed execution environment runs tests under
+ptrace. It was rerun with only leak detection disabled. ASan and UBSan
+remained enabled; the full suite then passed. Existing documented sound and
+vendored Z80 shift diagnostics remain outside M54 and did not fail the
+configured suite.
 
 ```text
 cmake --preset linux-release -B .../m54-linux-release --fresh
@@ -255,7 +295,7 @@ WINEDEBUG=-all WINEPREFIX=... wine64 .../vaeg.exe --selftest
 The MinGW build and Wine ROM-less selftest passed, including snapshot link and
 file-stability checks and the VA transport. Direct NASM output compared equal
 to CMake output, and `check_driver.py` accepted the header, BPB, protocol
-markers, size, and digest.
+markers, 22-byte field displacements, size, and digest.
 
 ```text
 cmake --preset linux-ci-gcc -B .../m54-linux-no-nasm --fresh \
@@ -273,6 +313,14 @@ the unreferenced scan exited 0 with the same established 70 findings and no
 M54 source; `git diff --check` passed; and the frozen/payload path diff was
 empty.
 
+The human-gate correction additionally used clean `m54-fix-*` build trees.
+The corrected GCC, Clang, and ASan/UBSan matrices again reported zero failed
+tests, the tests-disabled Linux release selftest and smoke run passed, and the
+MinGW build passed its Wine selftest. Direct NASM assembly produced the same
+455-byte corrected driver as both CMake builds. The strengthened checker
+accepted its `7be6d3be...` digest and rejected the former driver because it
+did not write the media-check result at packet offset `0EH`.
+
 ## Hosted CI
 
 [Run 29813271492](https://github.com/nakatamaho/vaeg/actions/runs/29813271492)
@@ -281,6 +329,13 @@ passed: Ubuntu GCC, Ubuntu Clang, Ubuntu ASan/UBSan, Windows MSYS2 MinGW64,
 macOS FetchContent SDL2, standalone Z80 conformance, and repository
 invariants. The final handoff supplies the later report-only remote SHA.
 
+[Correction run 29817436136](https://github.com/nakatamaho/vaeg/actions/runs/29817436136)
+completed successfully at packet-layout fix SHA
+`a07a8c4a764a2b5d8560bdbaea8f5ebc5c0edae4`. The same seven jobs passed,
+including the corrected generated-driver structure check and HOSTFAT
+transport regression. This run supersedes the earlier run for the
+human-gate packet-layout correction.
+
 ## Deviations and remaining risks
 
 - The external pinned SingleStepTests corpus was not configured locally; its
@@ -288,9 +343,10 @@ invariants. The final handoff supplies the later report-only remote SHA.
   for the normal repository matrix.
 - LeakSanitizer cannot run under the managed ptrace wrapper, so only its leak
   detector was disabled; ASan/UBSan instrumentation remained active.
-- Automated tests prove the FAT image and private transport, but cannot prove
-  PC-Engine's live drive-letter assignment, request scheduling, or INT 83H
-  message display. Those are deliberately the G54 human gate.
+- The corrected private live boot proves PC-Engine initialization, INT 83H
+  message display, resident-end handling, and return to the command prompt.
+  Drive-letter assignment and DIR/TYPE/copy/write-protect/reset behavior are
+  still deliberately the G54 maintainer gate.
 - The prototype is a fixed startup snapshot. GUI configuration, persistent
   selection, refresh semantics, save-state identity, broader deterministic
   name mapping, and final containment UX are deferred to gated M55.
