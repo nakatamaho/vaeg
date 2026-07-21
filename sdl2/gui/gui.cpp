@@ -429,7 +429,7 @@ static void open_bms_config_dialog(void) {
 
 	g_gui.pending_bms_enabled = bmsiocfg.enabled != FALSE;
 	g_gui.pending_bms_port =
-		(bmsiocfg.port == BMSIO_PORT_ALTERNATE) ? 1 : 0;
+		(bmsiocfg.port == BMSIO_PORT_COMPAT) ? 1 : 0;
 	g_gui.pending_bms_banks = bmsiocfg.numbanks;
 	g_gui.bms_config_open = true;
 	g_gui.bms_config_request = true;
@@ -438,7 +438,7 @@ static void open_bms_config_dialog(void) {
 static void apply_bms_config_dialog(void) {
 
 	const UINT16 port = (g_gui.pending_bms_port == 1) ?
-		BMSIO_PORT_ALTERNATE : BMSIO_PORT_PRIMARY;
+		BMSIO_PORT_COMPAT : BMSIO_PORT_DEFAULT;
 	const BOOL enabled = g_gui.pending_bms_enabled ? TRUE : FALSE;
 	const UINT8 banks = static_cast<UINT8>(g_gui.pending_bms_banks);
 	const bool changed = (bmsiocfg.enabled != enabled) ||
@@ -475,8 +475,8 @@ static void draw_bms_config_dialog(void) {
 										ImGuiWindowFlags_NoResize |
 										ImGuiWindowFlags_NoCollapse)) {
 		static const char *ports[] = {
-			"00ECH (legacy default)",
-			"01D0H"
+			"01D0H (PC-88VA default)",
+			"00ECH (compatibility)"
 		};
 		const bool banks_valid = (g_gui.pending_bms_banks >= 1) &&
 			(g_gui.pending_bms_banks <= BMSIO_MAX_BANKS);

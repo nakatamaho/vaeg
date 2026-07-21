@@ -40,6 +40,9 @@ implementation usable without editing or rebuilding the emulator.
   `vaeg.cfg`.
 - Expose enable, I/O port, and 128KB bank count in the SDL2 Device menu.
 - Support the two legacy UI port choices, `00ECH` and `01D0H`.
+- Use the PC-88VA-native RAM-bank control port `01D0H` for clean configuration
+  and invalid-port fallback; retain `00ECH` as an explicit compatibility
+  choice.
 - Accept 1 through 255 banks and display the resulting capacity.
 - Apply a changed configuration through the normal guest-reset path so BMS
   allocation, I/O binding, and the memory window change together.
@@ -72,8 +75,8 @@ From a clean checkout and clean configuration:
 
 1. Confirm BMS starts disabled and V3 mode, the bundled VA demo, and an OS
    still boot normally.
-2. Open Device / I-O Bank Memory, select `00ECH` and 16 banks, apply it, and
-   confirm the guest resets cleanly.
+2. Open Device / I-O Bank Memory, confirm `01D0H` is the clean-config default,
+   select 16 banks, apply it, and confirm the guest resets cleanly.
 3. Run a BMS-aware guest utility and confirm it detects 16 banks (2048KB),
    can write/read more than one bank, and retains distinct bank contents.
 4. Restart vaeg and confirm the three BMS settings persist.
@@ -139,4 +142,4 @@ GCC, Clang, ASan, MinGW/Wine selftests all report
 pre-existing sound diagnostics in `sound/tms3631c.c` and `sound/psggenc.c`;
 both predate M52 and the selftest completes successfully. A separate ROM-less
 smoke run with `BMS_Port=1234` and `BMS_Size=0` confirmed deterministic
-warnings and fallback to port `00ECH`, 16 banks, before machine startup.
+warnings and fallback to port `01D0H`, 16 banks, before machine startup.

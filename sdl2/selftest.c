@@ -299,7 +299,11 @@ static int test_va_bms_window(void) {
 	result = SUCCESS;
 
 	bmsiocfg.enabled = FALSE;
-	bmsiocfg.port = BMSIO_PORT_PRIMARY;
+	if ((BMSIO_PORT_DEFAULT != 0x01d0) || (BMSIO_PORT_COMPAT != 0x00ec)) {
+		result = fail("VA BMS", "unexpected default or compatibility port");
+		goto bms_test_cleanup;
+	}
+	bmsiocfg.port = BMSIO_PORT_DEFAULT;
 	bmsiocfg.portmask = BMSIO_PORT_MASK;
 	bmsiocfg.numbanks = BMSIO_DEFAULT_BANKS;
 	bmsio_set();
@@ -309,19 +313,19 @@ static int test_va_bms_window(void) {
 	if ((i286_memoryread_va(0x080000) != 0xff) ||
 		(i286_memoryread_va_w(0x09fffe) != 0xffff) ||
 		(bmsiowork.bmsmem != NULL) || (bmsiowork.bmsmemsize != 0) ||
-		(bmsio.nomem == 0)) {
+		(bmsio.cfg.port != BMSIO_PORT_DEFAULT) || (bmsio.nomem == 0)) {
 		result = fail("VA BMS", "disabled window did not use open bus");
 	}
 
 	bmsiocfg.enabled = TRUE;
-	bmsiocfg.port = BMSIO_PORT_ALTERNATE;
+	bmsiocfg.port = BMSIO_PORT_COMPAT;
 	bmsiocfg.numbanks = 2;
 	bmsio_set();
 	bmsio_reset();
 	if ((bmsiowork.bmsmem == NULL) ||
 		(bmsiowork.bmsmemsize != 0x40000) ||
 		(bmsio.cfg.enabled == FALSE) ||
-		(bmsio.cfg.port != BMSIO_PORT_ALTERNATE) ||
+		(bmsio.cfg.port != BMSIO_PORT_COMPAT) ||
 		(bmsio.cfg.numbanks != 2) || (bmsio.nomem != 0)) {
 		result = fail("VA BMS", "enabled configuration was not applied");
 		goto bms_test_cleanup;
@@ -687,7 +691,7 @@ static int test_profile_ini(void) {
 	read_effect = 0;
 	read_window_width = 0;
 	write_bms.enabled = TRUE;
-	write_bms.port = BMSIO_PORT_ALTERNATE;
+	write_bms.port = BMSIO_PORT_COMPAT;
 	write_bms.portmask = BMSIO_PORT_MASK;
 	write_bms.numbanks = 32;
 	ZeroMemory(&read_bms, sizeof(read_bms));
@@ -711,7 +715,7 @@ static int test_profile_ini(void) {
 		return(fail("ini", "typed values did not round-trip"));
 	}
 	if ((read_bms.enabled != TRUE) ||
-		(read_bms.port != BMSIO_PORT_ALTERNATE) ||
+		(read_bms.port != BMSIO_PORT_COMPAT) ||
 		(read_bms.numbanks != 32)) {
 		return(fail("ini", "BMS settings did not round-trip"));
 	}

@@ -238,8 +238,10 @@ of the deployed MinGW build.
 M52 restores the active SDL2 configuration path for the optional PC-88VA I-O
 Bank Memory device. M30's accepted aperture and selected-bank semantics remain
 unchanged; M52 adds legacy-compatible configuration persistence and a Device
-menu dialog for enable, I/O port, and bank count. The implementation scope and
-G52 checklist are in `tasks/M52_io_bank_memory.md`.
+menu dialog for enable, I/O port, and bank count. Native PC-88VA port `01D0H`
+is the default; `00ECH` remains available for compatible boards and software.
+The implementation scope and G52 checklist are in
+`tasks/M52_io_bank_memory.md`.
 
 ## Gate protocol
 
