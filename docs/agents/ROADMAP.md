@@ -89,6 +89,8 @@ M36–M41 archive status.
 | M49 | tasks/M49_upd9002_isolate_np2_286_protected_mode.md | Inventory the remaining NP2 286 protected-mode dependency closure after the approved correctness transition | **G49 passed** |
 | M50 | tasks/M50_remove_np2_286_protected_mode.md | Remove only dependency-closed protected-mode groups explicitly approved at G49 | **G50 passed** |
 | M51 | tasks/M51_upd9002_rename.md | Perform pure uPD9002 moves, public API renames, and final repository guards | **G51 human** |
+| M52 | tasks/M52_io_bank_memory.md | Restore portable I/O Bank Memory configuration and correct bank-zero main-RAM pass-through | **G52 passed** |
+| M53 | tasks/M53_host_pacing.md | Add configurable non-blocking host pacing that slows guest execution without slowing the UI | **G53 passed** |
 
 Phase 2 dependencies: M7 → M8 → {M9, M10 parallel} → M11 → M12 → M13.
 Post-phase dependency: M13 → M14 → M15 → M16 → M17 → M18 → M19 → M20 → M21 → M22 → M23 → M24 → M25 → M26 → M27 → M28 → M29 → M30 → M31 → M32. The required Z80 migration sequence M34 → M35 → M36 → M37 → M38 → M39 → M40 → M41 is complete. The separately authorized uPD9002 sequence has passed G42 through G50 and is now at M51. The accepted M47 pre-implementation audit disproved the old assumption that REP-prefixed 0x0F could not reach NP2 80286 system handlers. M47 therefore collected correctness evidence, M48 installed the approved fail-closed policy, and M49/M50 audited and removed only the explicitly approved dependency-closed groups.
@@ -234,6 +236,21 @@ values are restored before configuration save while GUI changes made during
 the run remain persistable. The implementation and G32 checklist are in
 `tasks/M32_cli_startup_overrides.md`. G32 passed after maintainer verification
 of the deployed MinGW build.
+
+M52 restores the active SDL2 configuration path for the optional PC-88VA I/O
+Bank Memory device and corrects the M30 bank-zero interpretation using RDBMS
+1.21 source and guest evidence. Port value zero restores ordinary main RAM at
+`80000H-9FFFFH`; values 1 through N select the N allocated 128KB banks. Native
+PC-88VA port `01D0H` is the default; `00ECH` remains the PC-9801 mode. RDBMS's
+compiled `00ECH` default must be overridden with `-P1D0` in PC-88VA mode.
+The implementation scope and G52 checklist are in
+`tasks/M52_io_bank_memory.md`.
+
+M53 adds an optional `PacingMs` host delay in Configure. The implementation
+does not alter emulated clock accounting. It schedules guest frames at the
+chosen interval while continuing to process and render the host UI, so large
+values such as 64ms leave menus and input responsive. The implementation and
+G53 checklist are in `tasks/M53_host_pacing.md`.
 
 ## Gate protocol
 

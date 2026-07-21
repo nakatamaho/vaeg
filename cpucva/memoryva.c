@@ -360,10 +360,14 @@ static void MEMCALL bms_wt_va(UINT32 address, REG8 value) {
 
 	UINT32	offset;
 
+	if (bmsio.bank == 0) {
+		i286_wt_va(address, value);
+		return;
+	}
 	if (bmsio.nomem || (bmsiowork.bmsmem == NULL)) {
 		return;
 	}
-	offset = ((UINT32)bmsio.bank << 17) + address - CPUADDR_BMS;
+	offset = ((UINT32)(bmsio.bank - 1) << 17) + address - CPUADDR_BMS;
 	if (offset >= bmsiowork.bmsmemsize) {
 		return;
 	}
@@ -446,10 +450,14 @@ static void MEMCALL bmsw_wt_va(UINT32 address, REG16 value) {
 
 	UINT32	offset;
 
+	if (bmsio.bank == 0) {
+		i286w_wt_va(address, value);
+		return;
+	}
 	if (bmsio.nomem || (bmsiowork.bmsmem == NULL)) {
 		return;
 	}
-	offset = ((UINT32)bmsio.bank << 17) + address - CPUADDR_BMS;
+	offset = ((UINT32)(bmsio.bank - 1) << 17) + address - CPUADDR_BMS;
 	if ((offset >= bmsiowork.bmsmemsize) ||
 		((bmsiowork.bmsmemsize - offset) < 2)) {
 		return;
@@ -519,10 +527,13 @@ static REG8 MEMCALL bms_rd_va(UINT32 address) {
 
 	UINT32	offset;
 
+	if (bmsio.bank == 0) {
+		return(i286_rd_va(address));
+	}
 	if (bmsio.nomem || (bmsiowork.bmsmem == NULL)) {
 		return(0xff);
 	}
-	offset = ((UINT32)bmsio.bank << 17) + address - CPUADDR_BMS;
+	offset = ((UINT32)(bmsio.bank - 1) << 17) + address - CPUADDR_BMS;
 	if (offset >= bmsiowork.bmsmemsize) {
 		return(0xff);
 	}
@@ -681,10 +692,13 @@ static REG16 MEMCALL bmsw_rd_va(UINT32 address) {
 
 	UINT32	offset;
 
+	if (bmsio.bank == 0) {
+		return(i286w_rd_va(address));
+	}
 	if (bmsio.nomem || (bmsiowork.bmsmem == NULL)) {
 		return(0xffff);
 	}
-	offset = ((UINT32)bmsio.bank << 17) + address - CPUADDR_BMS;
+	offset = ((UINT32)(bmsio.bank - 1) << 17) + address - CPUADDR_BMS;
 	if ((offset >= bmsiowork.bmsmemsize) ||
 		((bmsiowork.bmsmemsize - offset) < 2)) {
 		return(0xffff);
