@@ -43,6 +43,8 @@ org 0
 %define COMMAND_READ            4
 %define COMMAND_WRITE           8
 %define COMMAND_WRITE_VERIFY    9
+%define COMMAND_OPEN            0x0d
+%define COMMAND_CLOSE           0x0e
 %define COMMAND_REMOVABLE       0x0f
 
 %define STATUS_DONE             0x0100
@@ -109,6 +111,10 @@ interrupt:
 	je write_protected
 	cmp al, COMMAND_WRITE_VERIFY
 	je write_protected
+	cmp al, COMMAND_OPEN
+	je open_close
+	cmp al, COMMAND_CLOSE
+	je open_close
 	cmp al, COMMAND_REMOVABLE
 	je removable
 	mov ax, STATUS_UNKNOWN_COMMAND
@@ -140,6 +146,10 @@ read_error:
 
 write_protected:
 	mov ax, STATUS_WRITE_PROTECT
+	jmp finish
+
+open_close:
+	mov ax, STATUS_DONE
 	jmp finish
 
 removable:
