@@ -22,7 +22,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 -->
 # M52: Restore portable I/O Bank Memory configuration
 
-Status: implemented; G52 human gate pending
+Status: **G52 passed**
 
 Starting SHA: `97d19aa979f2ec235b2b72c6bda9bba69f94eefa`
 
@@ -88,7 +88,9 @@ From a clean checkout and clean configuration:
 5. Disable BMS, apply, and confirm the utility no longer detects the device
    while ordinary V3 operation remains normal.
 
-G52 passes only after the maintainer explicitly accepts this gate.
+G52 passed after maintainer confirmation of 640KB main-memory preservation,
+RDBMS/MSE registration, RAM-disk operation, matched `01D0H`/`00ECH` port
+configuration, reset, and ordinary V3/OS operation.
 
 ## Implementation record
 
