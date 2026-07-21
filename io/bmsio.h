@@ -2,6 +2,14 @@
  * bmsio.h: I-O Bank Memory
  */
 
+enum {
+	BMSIO_PORT_PRIMARY = 0x00ec,
+	BMSIO_PORT_ALTERNATE = 0x01d0,
+	BMSIO_PORT_MASK = 0xffff,
+	BMSIO_DEFAULT_BANKS = 0x10,
+	BMSIO_MAX_BANKS = 0xff
+};
+
 // 構成設定
 typedef struct {
 	BOOL	enabled;		// IOバンクメモリを使用する
@@ -43,4 +51,3 @@ void bmsio_bind(void);
 #ifdef __cplusplus
 }
 #endif
-
