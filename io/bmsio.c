@@ -10,7 +10,8 @@
 #include	"iocoreva.h"
 #include	"bmsio.h"
 
-		_BMSIOCFG	bmsiocfg = {FALSE, 0x00ec, 0xffff, 0x10};
+		_BMSIOCFG	bmsiocfg = {FALSE, BMSIO_PORT_DEFAULT,
+							BMSIO_PORT_MASK, BMSIO_DEFAULT_BANKS};
 		_BMSIO		bmsio;
 		_BMSIOWORK	bmsiowork;
 
@@ -48,7 +49,7 @@ static void IOOUTCALL bmsio_o00ec(UINT port, REG8 dat) {
 
 	bank=dat;
 	bmsio.bank=bank;
-	if (bank<bmsio.cfg.numbanks)  {
+	if ((bank == 0) || (bank <= bmsio.cfg.numbanks)) {
 		bmsio.nomem=0;
 	}
 	else {
@@ -90,4 +91,3 @@ void bmsio_bind(void) {
 		iocoreva_attachinp(bmsio.cfg.port, bmsio_i00ec);
 	}
 }
-

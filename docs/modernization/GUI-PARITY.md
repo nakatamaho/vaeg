@@ -65,7 +65,7 @@ Unimplemented Win32 features remain visible as disabled stubs with
 
 | Win32 menu | Items | Status | Notes |
 |---|---|---|---|
-| Emulate | Reset; Configure; NewDisk; Font; Exit | Reset, CPU/SGP Configure, and Exit `done`; others `later` | M20 Configure covers CPU/SGP speed. M28 places sampling rate and sound buffer under Sound rather than enlarging Configure. Resize, MMX, confirm, and resume remain later. Font selection is not the ImGui Japanese font decision. |
+| Emulate | Reset; Configure; NewDisk; Font; Exit | Reset, CPU/SGP/host-pacing Configure, and Exit `done`; others `later` | M20 Configure covers CPU/SGP speed; M53 adds non-blocking host pacing. M28 places sampling rate and sound buffer under Sound. Resize, MMX, confirm, and resume remain later. Font selection is not the ImGui Japanese font decision. |
 | Edit | Copy; Paste | ASCII host-to-guest Paste `done`; guest-to-host Copy `later` | M24 uses SDL clipboard UTF-8 input but emits only paced VA guest keyboard make/break events. Japanese/IME paste is later. |
 | FDD dynamic menu | FDD1-FDD4 Open/Eject | FDD1/FDD2 `done`; FDD3/FDD4 `later` | FDD1/FDD2 are required for G10. |
 | HardDisk | New SASI image; SASI1/SASI2 Open/Remove | SASI HDI create and SASI1/SASI2 Open/Remove `done`; SCSI/IDE `later` | M16 restores SASI through `HDD1FILE`/`HDD2FILE`; reset is the reliable apply point after changing images. |
@@ -74,7 +74,7 @@ Unimplemented Win32 features remain visible as disabled stubs with
 | Device / Keyboard | Keyboard/JoyKey modes; mechanical SHIFT/CTRL/GRPH; F12 mapping; Alt-right mapping; host-layout mapping mode | Host-layout mapping and binding table `done`; mechanical key options `later` | M14 implements JIS/US/custom SDL scancode mapping, Kana modes, and Roman-Kana helper. Mechanical SHIFT/CTRL/GRPH mode options remain later. |
 | Device / Sound | Beep level; disable boards; VA Sound Board 2; PC-9801 boards; JAST; seek sound | Sound on/off, VA OPN/OPNA hardware, backend, output rate/buffer, ymfm fidelity, volume, and seek sound `done`; rest `later` | Hardware selection is model-aware. M28 output settings rebuild both backends; fidelity affects only ymfm FM synthesis. Detailed jumper pages remain later. |
 | Device / Memory | 640KB, 1.6MB, 3.6MB, 7.6MB | `later` | Win32 command handler also contains 11.6MB and 13.6MB cases. |
-| Device | IO Bank Memory; Mouse; Mouse Port; Version Up Board; Serial; MIDI; MIDI Panic; Sound option | Mouse capture and VA joystick/mouse port `done`; rest `later` | M26 uses SDL relative mode and the existing guest mouse I/O path. Capture request, transient GUI/focus blocking, and guest port selection are separate states. |
+| Device | I/O Bank Memory; Mouse; Mouse Port; Version Up Board; Serial; MIDI; MIDI Panic; Sound option | I/O Bank Memory, mouse capture, and VA joystick/mouse port `done`; rest `later` | M52 restores the BMS dialog and one-based overlay semantics. M26 uses SDL relative mode and the existing guest mouse I/O path. |
 | Other | BMP save; S98 logging; Calendar; shortcuts; clock/frame display; joy reverse/rapid; mouse rapid; SSTP; Help; About | Frame display, Mouse rapid, and About `done`; rest `later` | Frame display is organized under Screen in SDL2. CPU clock display remains later. Mouse rapid is exposed under Device -> Mouse. Help uses the retired Windows help path. |
 | State dynamic menu | Save slots and load slots | `done` | Required by M10 as state save/load. |
 | Operation record dynamic menu | Stop; Play; Multi play; Record; Repeat; record/play slots | `later` | `SUPPORT_OPRECORD` feature, not M10 gate scope. |
@@ -84,7 +84,7 @@ Unimplemented Win32 features remain visible as disabled stubs with
 
 | Dialog/resource | Implementation | Function summary | Status |
 |---|---|---|---|
-| `IDD_CONFIG` | `win9x/dialog/d_config.cpp` | Base clock, multiplier, model, sampling rate, sound buffer, resize, MMX, confirm, resume | CPU/SGP speed and Sound-menu sampling/buffer controls `done`; remaining fields `later` |
+| `IDD_CONFIG` | `win9x/dialog/d_config.cpp` | Base clock, multiplier, model, sampling rate, sound buffer, resize, MMX, confirm, resume | CPU/SGP speed, host pacing, and Sound-menu sampling/buffer controls `done`; remaining fields `later` |
 | `IDD_NEWDISK`, `IDD_NEWDISK2`, `IDD_NEWHDDDISK`, `IDD_NEWSASI` | `win9x/dialog/d_disk.cpp` | Create floppy/HDD image files | Formatted FAT12 D88/IMG and SASI HDI creation `done`; THD/NHD and SCSI creation `later` |
 | FDD/HDD file selectors | `win9x/dialog/d_disk.cpp` | Open FDD, SASI/IDE, SCSI images | FDD1/FDD2 and SASI1/SASI2 `done`; SCSI/IDE `later` |
 | `IDD_SCROPT1` | `win9x/dialog/d_screen.cpp` | LCD mode, skipline, skiplight | `later` |
@@ -95,7 +95,7 @@ Unimplemented Win32 features remain visible as disabled stubs with
 | `IDD_SNDMIX` | `win9x/dialog/d_sound.cpp` | FM/PSG/ADPCM/PCM/rhythm volumes | Volume `done`; detailed mixer `later` |
 | `IDD_SND14`, `IDD_SND26`, `IDD_SND86`, `IDD_SNDSPB`, `IDD_SNDPAD1` | `win9x/dialog/d_sound.cpp` | Board-specific volume/jumper/joystick pad settings | `later` |
 | S98 and WAV file selectors | `win9x/dialog/d_sound.cpp` | Audio logging and WAV recording | `later` |
-| `IDD_BMS` | `win9x/dialog/d_bms.cpp` | IO bank memory enable, port, bank count | `later` |
+| `IDD_BMS` | `win9x/dialog/d_bms.cpp` | I/O bank memory enable, port, bank count | `done` (M52); legacy keys persist, bank zero restores main RAM, and changes apply through guest reset |
 | `IDD_CALENDAR` | `win9x/dialog/d_clnd.cpp` | Real/virtual calendar and BCD time fields | `later` |
 | `IDD_ABOUT` | `win9x/dialog/d_about.cpp` | About box | `later` |
 | `IDD_VIEW_ADDRESS`, `IDR_VIEW` | `win9x/debuguty/*.cpp` | Debug/viewer address, register, dump, disassembly, VA views | `later` |
