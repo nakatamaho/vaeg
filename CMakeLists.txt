@@ -413,6 +413,25 @@ add_custom_command(
     VERBATIM)
 list(APPEND VAEG_SDL2_SOURCES "${VAEG_APP_ICON_DATA}")
 
+find_program(VAEG_NASM_EXECUTABLE NAMES nasm)
+set(VAEG_HOSTFAT_SYS "${CMAKE_CURRENT_BINARY_DIR}/guest/hostfat.sys")
+if(VAEG_NASM_EXECUTABLE)
+    add_custom_command(
+        OUTPUT "${VAEG_HOSTFAT_SYS}"
+        COMMAND "${CMAKE_COMMAND}" -E make_directory
+            "${CMAKE_CURRENT_BINARY_DIR}/guest"
+        COMMAND "${VAEG_NASM_EXECUTABLE}" -f bin
+            -o "${VAEG_HOSTFAT_SYS}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/tools/pc88va/hostfat/hostfat.asm"
+        DEPENDS
+            "${CMAKE_CURRENT_SOURCE_DIR}/tools/pc88va/hostfat/hostfat.asm"
+        VERBATIM)
+    add_custom_target(hostfat_sys ALL DEPENDS "${VAEG_HOSTFAT_SYS}")
+    message(STATUS "HOSTFAT.SYS: enabled (${VAEG_NASM_EXECUTABLE})")
+else()
+    message(STATUS "HOSTFAT.SYS: NASM not found; guest-driver target disabled")
+endif()
+
 if(WIN32)
     enable_language(RC)
     list(APPEND VAEG_SDL2_SOURCES sdl2/vaeg.rc)
@@ -636,6 +655,15 @@ if(VAEG_ENABLE_TESTS)
     find_package(Python3 REQUIRED COMPONENTS Interpreter)
     set(VAEG_SSTS_V20_ROOT "" CACHE PATH
         "Verified external SingleStepTests V20 checkout for uPD9002 comparison")
+
+    if(TARGET hostfat_sys)
+        add_test(NAME vaeg_hostfat_driver
+            COMMAND "${Python3_EXECUTABLE}"
+                "${CMAKE_CURRENT_SOURCE_DIR}/tools/pc88va/hostfat/check_driver.py"
+                --input "${VAEG_HOSTFAT_SYS}")
+        set_tests_properties(vaeg_hostfat_driver PROPERTIES
+            LABELS "romless;hostfat;pcengine")
+    endif()
 
     add_test(NAME vaeg_upd9002_dispatch_graph
         COMMAND "${Python3_EXECUTABLE}"
