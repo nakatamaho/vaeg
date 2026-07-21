@@ -32,10 +32,10 @@ org 0
 %define REQUEST_UNIT            1
 %define REQUEST_COMMAND         2
 %define REQUEST_STATUS          3
-%define REQUEST_MEDIA           9
-%define REQUEST_TRANSFER        10
-%define REQUEST_COUNT           14
-%define REQUEST_START           16
+%define REQUEST_MEDIA           13
+%define REQUEST_TRANSFER        14
+%define REQUEST_COUNT           18
+%define REQUEST_START           20
 
 %define COMMAND_INITIALIZE      0
 %define COMMAND_MEDIA_CHECK     1

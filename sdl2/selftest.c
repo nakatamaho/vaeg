@@ -255,7 +255,7 @@ static void hostfat_send_far_pointer(UINT32 value) {
 static int test_hostfat_transport(void) {
 
 	BYTE *image;
-	BYTE packet[18];
+	BYTE packet[22];
 	BYTE saved_packet[sizeof(packet)];
 	BYTE saved_destination[HOSTFAT_SECTOR_SIZE];
 	BYTE unchanged[HOSTFAT_SECTOR_SIZE];
@@ -290,10 +290,14 @@ static int test_hostfat_transport(void) {
 	ZeroMemory(packet, sizeof(packet));
 	packet[0] = sizeof(packet);
 	packet[2] = 4;
-	STOREINTELWORD(packet + 10, 0);
-	STOREINTELWORD(packet + 12, 0x0200);
-	STOREINTELWORD(packet + 14, 1);
-	STOREINTELWORD(packet + 16, 3);
+	/* Reserved header bytes must not be mistaken for IBM packet fields. */
+	for (index=5; index<13; index++) {
+		packet[index] = (BYTE)(0xa0 + index);
+	}
+	STOREINTELWORD(packet + 14, 0);
+	STOREINTELWORD(packet + 16, 0x0200);
+	STOREINTELWORD(packet + 18, 1);
+	STOREINTELWORD(packet + 20, 3);
 	MEML_WRITE(packet_address, packet, sizeof(packet));
 	FillMemory(unchanged, sizeof(unchanged), 0xa5);
 	MEML_WRITE(destination_address, unchanged, sizeof(unchanged));
@@ -330,7 +334,7 @@ static int test_hostfat_transport(void) {
 			goto transport_cleanup;
 		}
 	}
-	STOREINTELWORD(packet + 16, HOSTFAT_TOTAL_SECTORS);
+	STOREINTELWORD(packet + 20, HOSTFAT_TOTAL_SECTORS);
 	MEML_WRITE(packet_address, packet, sizeof(packet));
 	MEML_WRITE(destination_address, unchanged, sizeof(unchanged));
 	hostfat_send_far_pointer(request_pointer);
@@ -345,7 +349,7 @@ static int test_hostfat_transport(void) {
 		}
 	}
 	packet[0] = sizeof(packet) - 1;
-	STOREINTELWORD(packet + 16, 3);
+	STOREINTELWORD(packet + 20, 3);
 	MEML_WRITE(packet_address, packet, sizeof(packet));
 	hostfat_send_far_pointer(request_pointer);
 	hostfat_send_string("read_hostfat1");
@@ -369,16 +373,16 @@ static int test_hostfat_transport(void) {
 		goto transport_cleanup;
 	}
 	packet[2] = 4;
-	STOREINTELWORD(packet + 14, 129);
+	STOREINTELWORD(packet + 18, 129);
 	MEML_WRITE(packet_address, packet, sizeof(packet));
 	hostfat_send_far_pointer(request_pointer);
 	hostfat_send_string("read_hostfat1");
 	if (iocoreva_inp8(0x07ed) != HOSTFAT_RESULT_RANGE) {
 		goto transport_cleanup;
 	}
-	STOREINTELWORD(packet + 14, 1);
-	STOREINTELWORD(packet + 10, 0);
-	STOREINTELWORD(packet + 12, 0x9ff0);
+	STOREINTELWORD(packet + 18, 1);
+	STOREINTELWORD(packet + 14, 0);
+	STOREINTELWORD(packet + 16, 0x9ff0);
 	MEML_WRITE(packet_address, packet, sizeof(packet));
 	hostfat_send_far_pointer(request_pointer);
 	hostfat_send_string("read_hostfat1");

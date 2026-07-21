@@ -77,7 +77,9 @@ when a compatible snapshot is mounted. For `read_hostfat1`, the driver first
 writes the PC-Engine request-packet far pointer to `07EDH`, least-significant
 byte first, then writes the command to `07EFH` and reads one result byte from
 `07EDH`. Result 0 means success; all other results mean no guest bytes were
-written. vaeg validates the complete request packet, command, unit, sector
+written. The non-IBM PC-Engine packet is 22 bytes, with its transfer pointer,
+sector count, and starting sector at offsets `0EH`, `12H`, and `14H`.
+vaeg validates the complete request packet, command, unit, sector
 count, LBA range, and destination range before copying. Guest write commands
 are rejected inside `HOSTFAT.SYS` with write-protect status and never reach
 this service.
