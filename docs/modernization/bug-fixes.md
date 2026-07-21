@@ -50,6 +50,33 @@ separate parity correction or move it to Open Defects.
 
 ## Fixed Defects
 
+### HOSTFAT used an IBM-sized request layout on PC-Engine
+
+- **Status:** fixed in the M54 human-gate correction; G54 PC-Engine retest
+  pending.
+- **Symptom:** PC-Engine printed `HOSTFAT read-only drive ready` while loading
+  `HOSTFAT.SYS`, then hung before completing CONFIG.SYS processing.
+- **Root cause:** both the guest driver and emulator service treated the
+  non-IBM block request as an 18-byte packet. PC-Engine uses a 13-byte common
+  header, including eight reserved bytes at offsets 5--12, followed by the
+  media/unit byte at `0DH`, transfer pointer at `0EH`, count or BPB pointer at
+  `12H`, and starting sector at `14H`. The wrong initialization offsets made
+  PC-Engine reclaim most of the resident driver and later execute overwritten
+  code.
+- **Correction:** the driver and host service now use the complete 22-byte
+  layout. The ROM-less transport test fills the reserved header bytes with a
+  nonzero pattern, and the generated-driver checker verifies the exact field
+  displacements in emitted machine code so the former layout fails closed.
+- **Verification:** clean GCC, Clang, and ASan/UBSan suites pass all 36 tests
+  apart from the configured external-corpus skip; the former generated SYS is
+  rejected by the strengthened checker and two independent corrected NASM
+  outputs are byte-identical. A private live PC-Engine boot printed the ready
+  message and reached the command prompt instead of hanging. G54 retains live
+  DIR/TYPE/copy/write-protect and reset checks.
+- **Evidence:** [M54 task](../agents/tasks/M54_hostfat_readonly_prototype.md)
+  and [M54 report](../agents/reports/m54_hostfat_readonly_prototype.md).
+- **Commit:** [a07a8c4a](https://github.com/nakatamaho/vaeg/commit/a07a8c4a764a2b5d8560bdbaea8f5ebc5c0edae4).
+
 ### VA mode did not expose the emulator-private value/string channels
 
 - **Status:** fixed in M54; G54 PC-Engine integration review pending.
