@@ -381,6 +381,10 @@ For PC-88VA booting, check these keys in the selected configuration:
   hardware unbound and cause a silent hang in FM-timer waits.
 - `clk_base=3993600`; `clk_mult=2` is standard, while x1-x32 selects V30
   execution capacity without changing machine/peripheral time.
+- `PacingMs=0` disables extra host pacing. Values from 1 through 1000 defer
+  guest frames by that many milliseconds while the frontend continues to poll
+  input and render ImGui. This is useful for reading transient boot messages;
+  it does not change emulated CPU clock accounting.
 
 The frontend logs prominent warnings for stale VA sound-board or clock
 settings. It never rewrites the user's configuration silently.
