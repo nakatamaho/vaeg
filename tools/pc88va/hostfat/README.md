@@ -27,6 +27,11 @@ It exposes the immutable read-only FAT12 snapshot created by vaeg's
 `--hostfat-dir` option. It does not use INT 2FH redirector internals and never
 sends guest writes to the host.
 
+The driver explicitly accepts PC-Engine's open and close lifecycle requests
+as successful no-ops. These notifications bracket operations such as COPY;
+all actual file data still arrives through the read-only sector path. Write
+and write-with-verify requests continue to return write-protect.
+
 Build with CMake when NASM is available:
 
 ```sh

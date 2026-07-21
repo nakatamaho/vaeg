@@ -87,6 +87,8 @@ def main() -> None:
         (bytes.fromhex("26c747140000"), 1, "zero BPB segment at 14H"),
         (bytes.fromhex("26c7470e0000"), 1, "resident-end offset at 0EH"),
         (bytes.fromhex("26894710"), 1, "resident-end segment at 10H"),
+        (bytes.fromhex("3c0d"), 1, "open-command comparison"),
+        (bytes.fromhex("3c0e"), 1, "close-command comparison"),
     )
     for marker, expected, description in request_layout_markers:
         require_count(data, marker, expected, description)
