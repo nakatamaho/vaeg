@@ -194,6 +194,7 @@ struct GuiState {
 	int pending_cpu_multiplier = PCCORE_STANDARD_MULTIPLE;
 	int pending_sgp_mode = SGP_SPEED_MODEL_DEFAULT;
 	int pending_sgp_multiplier = 1;
+	int pending_pacing_ms = 0;
 	bool bms_config_open = false;
 	bool bms_config_request = false;
 	bool pending_bms_enabled = false;
@@ -259,6 +260,7 @@ static void open_configure_dialog(void) {
 	g_gui.pending_cpu_multiplier = static_cast<int>(np2cfg.multiple);
 	g_gui.pending_sgp_mode = static_cast<int>(np2cfg.sgp_speed_mode);
 	g_gui.pending_sgp_multiplier = static_cast<int>(np2cfg.sgp_multiplier);
+	g_gui.pending_pacing_ms = static_cast<int>(np2oscfg.pacing_ms);
 	g_gui.configure_open = true;
 	g_gui.configure_request = true;
 }
@@ -294,7 +296,8 @@ static void apply_configure_dialog(void) {
 		(np2cfg.multiple != static_cast<UINT>(g_gui.pending_cpu_multiplier)) ||
 		(np2cfg.sgp_speed_mode != static_cast<UINT8>(g_gui.pending_sgp_mode)) ||
 		(np2cfg.sgp_multiplier !=
-							static_cast<UINT8>(g_gui.pending_sgp_multiplier));
+							static_cast<UINT8>(g_gui.pending_sgp_multiplier)) ||
+		(np2oscfg.pacing_ms != static_cast<UINT16>(g_gui.pending_pacing_ms));
 
 	if (changed) {
 		np2cfg.baseclock = PCBASECLOCK40;
@@ -302,6 +305,7 @@ static void apply_configure_dialog(void) {
 		np2cfg.sgp_speed_mode = static_cast<UINT8>(g_gui.pending_sgp_mode);
 		np2cfg.sgp_multiplier =
 							static_cast<UINT8>(g_gui.pending_sgp_multiplier);
+		np2oscfg.pacing_ms = static_cast<UINT16>(g_gui.pending_pacing_ms);
 		sysmng_update(SYS_UPDATECFG | SYS_UPDATECLOCK);
 		reset_guest();
 	}
@@ -396,6 +400,13 @@ static void draw_configure_dialog(void) {
 									model_clock_mhz * effective_scale);
 		}
 		ImGui::EndChild();
+		ImGui::Text("Host pacing delay per loop (ms)");
+		ImGui::SetNextItemWidth(120.0f);
+		ImGui::InputInt("##pacing-ms", &g_gui.pending_pacing_ms, 1, 8);
+		if (g_gui.pending_pacing_ms < 0) g_gui.pending_pacing_ms = 0;
+		if (g_gui.pending_pacing_ms > VAEG_PACING_MS_MAX) {
+			g_gui.pending_pacing_ms = VAEG_PACING_MS_MAX;
+		}
 
 		if (!cpu_valid) {
 			ImGui::TextUnformatted("Multiplier must be between 1 and 32.");
