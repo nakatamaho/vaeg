@@ -235,6 +235,12 @@ the run remain persistable. The implementation and G32 checklist are in
 `tasks/M32_cli_startup_overrides.md`. G32 passed after maintainer verification
 of the deployed MinGW build.
 
+M52 restores the active SDL2 configuration path for the optional PC-88VA I-O
+Bank Memory device. M30's accepted aperture and selected-bank semantics remain
+unchanged; M52 adds legacy-compatible configuration persistence and a Device
+menu dialog for enable, I/O port, and bank count. The implementation scope and
+G52 checklist are in `tasks/M52_io_bank_memory.md`.
+
 ## Gate protocol
 
 Agent side (pasted into PR): CMake build logs, `tools/repo/` check
