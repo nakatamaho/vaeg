@@ -364,6 +364,31 @@ separate parity correction or move it to Open Defects.
 - **Evidence:** [M30 VA BMS window task](../agents/tasks/M30_va_bms_window.md).
 - **Commit:** [11da283](https://github.com/nakatamaho/vaeg/commit/11da283a0ffa47fc4b645423e4324550d1438bcf).
 
+### VA bank memory defaulted to the PC-9801 compatibility port
+
+- **Status:** fixed in the M52 implementation; G52 human review pending.
+- **Symptom:** a clean VAEG configuration selected `00ECH`, so a PC-88VA bank
+  memory driver configured for the machine-native `01D0H` control port could
+  not select the emulated banks without a matching manual configuration
+  change.
+- **Affected scope:** clean configurations and invalid persisted BMS port
+  values. An explicitly saved valid `00ECH` selection remains supported and
+  is not migrated.
+- **Demonstrated root cause:** the restored portable dialog inherited the
+  first generic BMS choice from the frozen frontend. The bundled historical
+  specification help identifies `00ECH` as the PC-9801 choice and `01D0H` as
+  the PC-88VA-01/02 choice, but the active default still used `00ECH`.
+- **Correction:** made `01D0H` the active clean-config default, invalid-value
+  fallback, and first GUI choice while retaining `00ECH` as an explicit
+  compatibility option. BMS remains disabled by default.
+- **Verification:** the ROM-less selftest checks the exact port constants and
+  copied runtime default; Linux and MinGW clean release builds pass their
+  selftests, including BMS configuration/window lifecycle coverage. A
+  black-box run loading `BMS_Port=1234` logs fallback to `01d0` before machine
+  startup.
+- **Evidence:** [M52 I-O Bank Memory task](../agents/tasks/M52_io_bank_memory.md).
+- **Commit:** [e9ad63e3](https://github.com/nakatamaho/vaeg/commit/e9ad63e3d720e8dad14d5a63289f3d3443b54422).
+
 ### Z80 state-codec rejection was ignored by the state coordinator
 
 - **Status:** fixed in M39.

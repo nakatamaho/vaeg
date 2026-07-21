@@ -97,6 +97,9 @@ G52 passes only after the maintainer explicitly accepts this gate.
 - `cca7c3d38c6e126b866ec195745f87d1e7b77690` verifies configuration-file
   round-trip, disabled open bus, enabled allocation, two-bank isolation,
   same-size reset retention, and disable-time release.
+- `e9ad63e3d720e8dad14d5a63289f3d3443b54422` makes `01D0H` the
+  PC-88VA clean-config and invalid-value fallback, retains `00ECH` as the
+  explicit compatibility choice, and adds exact default/fallback assertions.
 
 The frozen `win9x/` dialog and `cpuxva/memoryva.x86` were not modified. The
 existing BMS runtime/state structures and state-save section names are
@@ -143,3 +146,5 @@ pre-existing sound diagnostics in `sound/tms3631c.c` and `sound/psggenc.c`;
 both predate M52 and the selftest completes successfully. A separate ROM-less
 smoke run with `BMS_Port=1234` and `BMS_Size=0` confirmed deterministic
 warnings and fallback to port `01D0H`, 16 banks, before machine startup.
+The final handoff binaries were rebuilt with `--clean-first`; Linux release
+selftest and smoke, plus MinGW/Wine selftest, all exited 0.
