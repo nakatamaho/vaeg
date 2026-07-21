@@ -644,6 +644,8 @@ static int test_profile_ini(void) {
 	UINT8	read_effect;
 	UINT16	window_width;
 	UINT16	read_window_width;
+	UINT16	pacing_ms;
+	UINT16	read_pacing_ms;
 	_BMSIOCFG	write_bms;
 	_BMSIOCFG	read_bms;
 	PFTBL	write_tbl[] = {
@@ -665,12 +667,14 @@ static int test_profile_ini(void) {
 	INITBL	write_bms_tbl[] = {
 		{"Use_BMS_", INITYPE_BOOL, &write_bms.enabled, 0},
 		{"BMS_Port", INITYPE_HEX16, &write_bms.port, 0},
-		{"BMS_Size", INITYPE_UINT8, &write_bms.numbanks, 0}
+		{"BMS_Size", INITYPE_UINT8, &write_bms.numbanks, 0},
+		{"PacingMs", INITYPE_UINT16, &pacing_ms, 0}
 	};
 	INITBL	read_bms_tbl[] = {
 		{"Use_BMS_", INITYPE_BOOL, &read_bms.enabled, 0},
 		{"BMS_Port", INITYPE_HEX16, &read_bms.port, 0},
-		{"BMS_Size", INITYPE_UINT8, &read_bms.numbanks, 0}
+		{"BMS_Size", INITYPE_UINT8, &read_bms.numbanks, 0},
+		{"PacingMs", INITYPE_UINT16, &read_pacing_ms, 0}
 	};
 
 	SPRINTF(path, "vaeg-selftest-%lu.ini", (unsigned long)getpid());
@@ -683,12 +687,14 @@ static int test_profile_ini(void) {
 	bytes[2] = 0xab;
 	effect = VAEG_EFFECT_CRT_LITE;
 	window_width = 1280;
+	pacing_ms = 64;
 	ZeroMemory(read_name, sizeof(read_name));
 	read_flag = 0;
 	read_count = 0;
 	ZeroMemory(read_bytes, sizeof(read_bytes));
 	read_effect = 0;
 	read_window_width = 0;
+	read_pacing_ms = 0;
 	write_bms.enabled = TRUE;
 	write_bms.port = BMSIO_PORT_COMPAT;
 	write_bms.portmask = BMSIO_PORT_MASK;
@@ -715,7 +721,7 @@ static int test_profile_ini(void) {
 	}
 	if ((read_bms.enabled != TRUE) ||
 		(read_bms.port != BMSIO_PORT_COMPAT) ||
-		(read_bms.numbanks != 32)) {
+		(read_bms.numbanks != 32) || (read_pacing_ms != pacing_ms)) {
 		return(fail("ini", "BMS settings did not round-trip"));
 	}
 	fprintf(stderr, "selftest: ini ok\n");
