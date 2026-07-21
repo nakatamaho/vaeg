@@ -26,12 +26,28 @@
 #include "cpucore.h"
 #include "hostfat.h"
 
+enum {
+	HOSTFAT_PACKET_SIZE = 18,
+	HOSTFAT_PACKET_UNIT = 1,
+	HOSTFAT_PACKET_COMMAND = 2,
+	HOSTFAT_PACKET_TRANSFER = 10,
+	HOSTFAT_PACKET_COUNT = 14,
+	HOSTFAT_PACKET_START = 16,
+	HOSTFAT_COMMAND_READ = 4,
+	HOSTFAT_MAX_REQUEST_SECTORS = 128
+};
+
 typedef struct {
 	BYTE *image;
 	UINT32 digest;
 } HOSTFAT_STATE;
 
 static HOSTFAT_STATE hostfat_state;
+
+static UINT16 load_word(const BYTE *source) {
+
+	return((UINT16)(source[0] | ((UINT16)source[1] << 8)));
+}
 
 static UINT32 digest_image(const BYTE *image, UINT32 size) {
 
@@ -96,4 +112,65 @@ BOOL hostfat_read_sector(UINT32 sector, void *destination) {
 			hostfat_state.image + (sector * HOSTFAT_SECTOR_SIZE),
 			HOSTFAT_SECTOR_SIZE);
 	return(SUCCESS);
+}
+
+UINT8 hostfat_service_request(UINT32 request_far_pointer) {
+
+	BYTE packet[HOSTFAT_PACKET_SIZE];
+	UINT request_offset;
+	UINT request_segment;
+	UINT transfer_offset;
+	UINT transfer_segment;
+	UINT16 count;
+	UINT16 start;
+	UINT32 request_address;
+	UINT32 transfer_address;
+	UINT32 transfer_size;
+	UINT32 image_offset;
+	UINT32 position;
+
+	if (hostfat_state.image == NULL) {
+		return(HOSTFAT_RESULT_NOT_MOUNTED);
+	}
+	request_offset = LOW16(request_far_pointer);
+	request_segment = (UINT)(request_far_pointer >> 16);
+	request_address = ((UINT32)request_segment << 4) + request_offset;
+	if ((request_offset > (0x10000U - HOSTFAT_PACKET_SIZE)) ||
+		(request_address >= I286_MEMWRITEMAX) ||
+		(HOSTFAT_PACKET_SIZE > (I286_MEMWRITEMAX - request_address))) {
+		return(HOSTFAT_RESULT_BAD_REQUEST);
+	}
+	for (position=0; position<sizeof(packet); position++) {
+		packet[position] = i286_memoryread(request_address + position);
+	}
+	if ((packet[0] < HOSTFAT_PACKET_SIZE) ||
+		(packet[HOSTFAT_PACKET_UNIT] != 0) ||
+		(packet[HOSTFAT_PACKET_COMMAND] != HOSTFAT_COMMAND_READ)) {
+		return(HOSTFAT_RESULT_BAD_REQUEST);
+	}
+	count = load_word(packet + HOSTFAT_PACKET_COUNT);
+	start = load_word(packet + HOSTFAT_PACKET_START);
+	if (count == 0) {
+		return(HOSTFAT_RESULT_OK);
+	}
+	if ((count > HOSTFAT_MAX_REQUEST_SECTORS) ||
+		(start >= HOSTFAT_TOTAL_SECTORS) ||
+		((UINT32)count > (HOSTFAT_TOTAL_SECTORS - start))) {
+		return(HOSTFAT_RESULT_RANGE);
+	}
+	transfer_offset = load_word(packet + HOSTFAT_PACKET_TRANSFER);
+	transfer_segment = load_word(packet + HOSTFAT_PACKET_TRANSFER + 2);
+	transfer_address = ((UINT32)transfer_segment << 4) + transfer_offset;
+	transfer_size = (UINT32)count * HOSTFAT_SECTOR_SIZE;
+	if ((transfer_address >= I286_MEMWRITEMAX) ||
+		(transfer_size > (I286_MEMWRITEMAX - transfer_address))) {
+		return(HOSTFAT_RESULT_RANGE);
+	}
+
+	image_offset = (UINT32)start * HOSTFAT_SECTOR_SIZE;
+	for (position=0; position<transfer_size; position++) {
+		i286_memorywrite(transfer_address + position,
+				hostfat_state.image[image_offset + position]);
+	}
+	return(HOSTFAT_RESULT_OK);
 }
