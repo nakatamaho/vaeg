@@ -72,7 +72,7 @@
 		NP2OSCFG	np2oscfg = {0, 0, 2, 0, 0, 0, 1, 0, "", "", {"", ""},
 								"", "", 0, 0, "", "ymfm", "minimum", 1,
 								VAEG_EFFECT_UNFILTERED, VAEG_SCALING_FIT,
-								640, 422, VAEG_DISPLAY_WINDOWED, 0, 0, 0, 0, 2, 0};
+								640, 422, VAEG_DISPLAY_WINDOWED, 0, 0, 0, 0, 2, 0, 0};
 		BOOL		np2_debug = FALSE;
 
 static const UINT smoke_timeout_frames = 600;
@@ -1227,6 +1227,14 @@ static BOOL run_guest_frame(BOOL draw) {
 	return SUCCESS;
 }
 
+static void render_host_ui_only(void) {
+	gui_new_frame();
+	gui_draw();
+	scrnmng_present_begin();
+	gui_render();
+	scrnmng_present_end();
+}
+
 static BOOL smoke_after_frame(BOOL smoke, UINT frames, BOOL detect_screen) {
 
 	BOOL	done;
@@ -1253,17 +1261,25 @@ static BOOL runloop(BOOL smoke, BOOL pacelog_enabled, BOOL detect_screen) {
 
 	UINT	frames;
 	PACELOG	pacelog;
+	UINT32 next_guest_tick;
 
 	frames = 0;
 	framecnt = 0;
 	waitcnt = 0;
 	framemax = 1;
+	next_guest_tick = 0;
 	pacelog_initialize(&pacelog);
 	while(taskmng_isavail()) {
 		BOOL effective_nowait;
 		UINT effective_drawskip;
 
 		taskmng_rol();
+		if ((np2oscfg.pacing_ms != 0) &&
+			((SINT32)(next_guest_tick - SDL_GetTicks()) > 0)) {
+			render_host_ui_only();
+			SDL_Delay(1);
+			continue;
+		}
 		timing_hosttick();
 		effective_nowait = taskmng_effective_nowait(
 											np2oscfg.NOWAIT ? TRUE : FALSE);
@@ -1275,6 +1291,7 @@ static BOOL runloop(BOOL smoke, BOOL pacelog_enabled, BOOL detect_screen) {
 			if (run_guest_frame(draw) != SUCCESS) {
 				return FAILURE;
 			}
+			next_guest_tick = SDL_GetTicks() + np2oscfg.pacing_ms;
 			frames++;
 			pacelog_update(&pacelog, pacelog_enabled, 1, draw ? 0 : 1, 0);
 			if (smoke_after_frame(smoke, frames, detect_screen) != SUCCESS) {
@@ -1305,6 +1322,7 @@ static BOOL runloop(BOOL smoke, BOOL pacelog_enabled, BOOL detect_screen) {
 				if (run_guest_frame(draw) != SUCCESS) {
 					return FAILURE;
 				}
+				next_guest_tick = SDL_GetTicks() + np2oscfg.pacing_ms;
 				frames++;
 				pacelog_update(&pacelog, pacelog_enabled, 1,
 							   draw ? 0 : 1, 0);
@@ -1328,6 +1346,7 @@ static BOOL runloop(BOOL smoke, BOOL pacelog_enabled, BOOL detect_screen) {
 				if (run_guest_frame(draw) != SUCCESS) {
 					return FAILURE;
 				}
+				next_guest_tick = SDL_GetTicks() + np2oscfg.pacing_ms;
 				frames++;
 				pacelog_update(&pacelog, pacelog_enabled, 1,
 							   draw ? 0 : 1, 0);

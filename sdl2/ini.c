@@ -406,6 +406,7 @@ static const INITBL iniitem[] = {
 
 	{"SampleHz", INITYPE_UINT16,	&np2cfg.samplingrate,	0},
 	{"Latencys", INITYPE_UINT16,	&np2cfg.delayms,		0},
+	{"PacingMs", INITYPE_UINT16,	&np2oscfg.pacing_ms,	0},
 	{"SNDboard", INITYPE_HEX16,		&np2cfg.SOUND_SW,		0},
 	{"BEEP_vol", INITYPE_UINT8,		&np2cfg.BEEP_VOL,		0},
 	{"xspeaker", INITYPE_BOOL,		&np2cfg.snd_x,			0},
@@ -504,6 +505,12 @@ void initload(void) {
 		SDL_Log("Config load: %s", path);
 	}
 	ini_read(path, ini_title, iniitem, INIITEMS);
+	if (np2oscfg.pacing_ms > VAEG_PACING_MS_MAX) {
+		SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION,
+				"Invalid PacingMs=%u; using %u",
+				np2oscfg.pacing_ms, VAEG_PACING_MS_MAX);
+		np2oscfg.pacing_ms = VAEG_PACING_MS_MAX;
+	}
 #if defined(SUPPORT_BMS)
 	bmsiocfg.enabled = bmsiocfg.enabled ? TRUE : FALSE;
 	if ((bmsiocfg.port != BMSIO_PORT_DEFAULT) &&
