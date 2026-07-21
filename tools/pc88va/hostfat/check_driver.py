@@ -33,6 +33,12 @@ def fail(message: str) -> None:
     raise SystemExit(f"HOSTFAT.SYS check failed: {message}")
 
 
+def require_count(data: bytes, marker: bytes, expected: int, description: str) -> None:
+    actual = data.count(marker)
+    if actual != expected:
+        fail(f"{description} was found {actual} times, expected {expected}")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Validate the M54 HOSTFAT.SYS")
     parser.add_argument("--input", type=Path, required=True)
@@ -56,11 +62,37 @@ def main() -> None:
         fail("device-name far pointer is invalid")
     if data[name_offset : name_offset + 8] != b"HOSTFAT\0":
         fail("device name is not HOSTFAT")
-    if data.count(EXPECTED_BPB) != 1:
-        fail("RDBMS-compatible BPB was not found exactly once")
+    require_count(data, EXPECTED_BPB, 1, "RDBMS-compatible BPB")
+    bpb_offset = data.find(EXPECTED_BPB)
+    bpb_pointer_list_offset = bpb_offset - 2
+    if bpb_pointer_list_offset < 15:
+        fail("BPB pointer list is outside the driver data area")
+    if struct.unpack_from("<H", data, bpb_pointer_list_offset)[0] != bpb_offset:
+        fail("BPB pointer list does not point to the BPB")
+
+    # PC-Engine's non-IBM block request packet has eight reserved bytes at
+    # offsets 5..12. Validate the emitted field displacements themselves so
+    # an IBM-sized 18-byte packet layout cannot pass this structural check.
+    request_layout_markers = (
+        (bytes.fromhex("26c6470e01"), 1, "media-check result at 0EH"),
+        (bytes.fromhex("26c6470df0"), 1, "Build-BPB media byte at 0DH"),
+        (bytes.fromhex("26c6470d01"), 1, "initialize media byte at 0DH"),
+        (bytes.fromhex("26c6470d00"), 1, "unavailable media byte at 0DH"),
+        (b"\x26\xc7\x47\x12" + struct.pack("<H", bpb_offset), 1,
+         "Build-BPB pointer offset at 12H"),
+        (b"\x26\xc7\x47\x12" + struct.pack("<H", bpb_pointer_list_offset), 1,
+         "initialize BPB-list pointer offset at 12H"),
+        (bytes.fromhex("268c4f14"), 2, "BPB pointer segment at 14H"),
+        (bytes.fromhex("26c747120000"), 2, "zero sector-count/BPB offset at 12H"),
+        (bytes.fromhex("26c747140000"), 1, "zero BPB segment at 14H"),
+        (bytes.fromhex("26c7470e0000"), 1, "resident-end offset at 0EH"),
+        (bytes.fromhex("26894710"), 1, "resident-end segment at 10H"),
+    )
+    for marker, expected, description in request_layout_markers:
+        require_count(data, marker, expected, description)
+
     for marker in (b"check_hostfat", b"read_hostfat1", b"H1"):
-        if data.count(marker) != 1:
-            fail(f"protocol marker {marker!r} was not found exactly once")
+        require_count(data, marker, 1, f"protocol marker {marker!r}")
     digest = hashlib.sha256(data).hexdigest()
     print(f"HOSTFAT.SYS ok: {len(data)} bytes sha256={digest}")
 
