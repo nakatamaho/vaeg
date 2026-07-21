@@ -95,7 +95,7 @@ Unimplemented Win32 features remain visible as disabled stubs with
 | `IDD_SNDMIX` | `win9x/dialog/d_sound.cpp` | FM/PSG/ADPCM/PCM/rhythm volumes | Volume `done`; detailed mixer `later` |
 | `IDD_SND14`, `IDD_SND26`, `IDD_SND86`, `IDD_SNDSPB`, `IDD_SNDPAD1` | `win9x/dialog/d_sound.cpp` | Board-specific volume/jumper/joystick pad settings | `later` |
 | S98 and WAV file selectors | `win9x/dialog/d_sound.cpp` | Audio logging and WAV recording | `later` |
-| `IDD_BMS` | `win9x/dialog/d_bms.cpp` | IO bank memory enable, port, bank count | `later` |
+| `IDD_BMS` | `win9x/dialog/d_bms.cpp` | IO bank memory enable, port, bank count | `done` (M52); legacy keys persist and changes apply through guest reset |
 | `IDD_CALENDAR` | `win9x/dialog/d_clnd.cpp` | Real/virtual calendar and BCD time fields | `later` |
 | `IDD_ABOUT` | `win9x/dialog/d_about.cpp` | About box | `later` |
 | `IDD_VIEW_ADDRESS`, `IDR_VIEW` | `win9x/debuguty/*.cpp` | Debug/viewer address, register, dump, disassembly, VA views | `later` |

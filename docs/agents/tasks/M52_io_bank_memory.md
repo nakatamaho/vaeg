@@ -22,7 +22,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 -->
 # M52: Restore portable I-O Bank Memory configuration
 
-Status: in progress
+Status: implemented; G52 human gate pending
 
 Starting SHA: `97d19aa979f2ec235b2b72c6bda9bba69f94eefa`
 
@@ -81,3 +81,62 @@ From a clean checkout and clean configuration:
    while ordinary V3 operation remains normal.
 
 G52 passes only after the maintainer explicitly accepts this gate.
+
+## Implementation record
+
+- `7baa72a24acc0c4cbcf2fc2377a2b22e66941a98` restores the three
+  legacy-compatible configuration keys and rejects unsupported ports or a
+  zero bank count before machine initialization.
+- `13908f45309b3e7370fb5fc7bcb2d727f0cb2532` restores the Device-menu
+  dialog. Changes are transactional until OK; a changed configuration uses
+  the normal reset path, while Cancel leaves both configuration and the live
+  machine untouched.
+- `cca7c3d38c6e126b866ec195745f87d1e7b77690` verifies configuration-file
+  round-trip, disabled open bus, enabled allocation, two-bank isolation,
+  same-size reset retention, and disable-time release.
+
+The frozen `win9x/` dialog and `cpuxva/memoryva.x86` were not modified. The
+existing BMS runtime/state structures and state-save section names are
+unchanged.
+
+## Local validation result
+
+The following completed successfully:
+
+```text
+cmake --preset linux-debug
+cmake --build --preset linux-debug --parallel 4
+SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
+  ./build/linux-debug/sdl2/vaeg --selftest
+
+cmake --preset linux-release --fresh
+cmake --build --preset linux-release --parallel 3
+SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
+  ./build/linux-release/sdl2/vaeg --selftest
+SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
+  ./build/linux-release/sdl2/vaeg --smoke
+
+cmake --preset linux-ci-clang --fresh
+cmake --build --preset linux-ci-clang --parallel 3
+ctest --test-dir build/linux-ci-clang --output-on-failure
+# 35/35 passed; the optional external SingleStepTests dataset test skipped.
+
+cmake --preset linux-asan --fresh
+cmake --build --preset linux-asan --parallel 3
+ASAN_OPTIONS=detect_leaks=0 UBSAN_OPTIONS=print_stacktrace=1 \
+  SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
+  ./build/asan/sdl2/vaeg --selftest
+
+cmake --preset mingw-cross --fresh
+cmake --build --preset mingw-cross --parallel 4
+WINEDEBUG=-all WINEPREFIX=build/m51-wine-prefix \
+  WINEPATH=/usr/lib/gcc/x86_64-w64-mingw32/13-win32 \
+  wine64 build/mingw-cross/sdl2/vaeg.exe --selftest
+```
+
+GCC, Clang, ASan, MinGW/Wine selftests all report
+`VA BMS config/window lifecycle ok`. The ASan/UBSan run still reports the two
+pre-existing sound diagnostics in `sound/tms3631c.c` and `sound/psggenc.c`;
+both predate M52 and the selftest completes successfully. A separate ROM-less
+smoke run with `BMS_Port=1234` and `BMS_Size=0` confirmed deterministic
+warnings and fallback to port `00ECH`, 16 banks, before machine startup.
