@@ -20,7 +20,7 @@ WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
 OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
 OF THE POSSIBILITY OF SUCH DAMAGE.
 -->
-# M52: Restore portable I-O Bank Memory configuration
+# M52: Restore portable I/O Bank Memory configuration
 
 Status: implemented; G52 human gate pending
 
@@ -29,9 +29,9 @@ Starting SHA: `97d19aa979f2ec235b2b72c6bda9bba69f94eefa`
 ## Goal
 
 Restore the active SDL2 frontend path needed to configure the optional
-PC-88VA I-O Bank Memory device. M30 already restored the guest-visible
-`80000H-9FFFFH` aperture and selected-bank behavior; M52 makes that accepted
-implementation usable without editing or rebuilding the emulator.
+PC-88VA I/O Bank Memory device. M52 also corrects the guest-visible
+`80000H-9FFFFH` aperture after RDBMS 1.21 testing demonstrated that bank zero
+must restore main RAM rather than select an expansion bank.
 
 ## Required behavior
 
@@ -44,6 +44,10 @@ implementation usable without editing or rebuilding the emulator.
   and invalid-port fallback; retain `00ECH` as an explicit compatibility
   choice.
 - Accept 1 through 255 banks and display the resulting capacity.
+- Interpret a port value of zero as main-RAM pass-through at
+  `80000H-9FFFFH`.
+- Map BMS banks 1 through N onto the configured N 128KB storage banks.
+- Preserve the same mapping for CPU byte/word and SGP word accesses.
 - Apply a changed configuration through the normal guest-reset path so BMS
   allocation, I/O binding, and the memory window change together.
 - Preserve unchanged BMS storage across an ordinary reset.
@@ -52,9 +56,8 @@ implementation usable without editing or rebuilding the emulator.
 
 ## Non-goals and invariants
 
-- Do not change the M30 disabled-window open-bus semantics.
-- Do not change BMS bank selection, state-save section names, or payload
-  layout.
+- Do not reduce 640KB main memory merely because BMS is enabled.
+- Do not change state-save section names or payload layout.
 - Do not edit the frozen Win9x dialog or assembly memory reference.
 - Do not enable BMS by default or bundle third-party BMS software.
 - Do not change main RAM, system-memory banks, TVRAM, GVRAM, CPU, SGP, FDD,
@@ -75,10 +78,12 @@ From a clean checkout and clean configuration:
 
 1. Confirm BMS starts disabled and V3 mode, the bundled VA demo, and an OS
    still boot normally.
-2. Open Device / I-O Bank Memory, confirm `01D0H` is the clean-config default,
+2. Open Device / I/O Bank Memory, confirm `01D0H` is the clean-config default,
    select 16 banks, apply it, and confirm the guest resets cleanly.
-3. Run a BMS-aware guest utility and confirm it detects 16 banks (2048KB),
-   can write/read more than one bank, and retains distinct bank contents.
+3. With 640KB main memory, load RDBMS using `-P1D0 -S1`; confirm bank zero
+   preserves DOS main memory, RDBMS and MSE register, and more than one BMS
+   bank retains distinct contents. When using the driver's compiled `00ECH`
+   default instead, select the `00ECH (PC-9801 mode)` UI choice.
 4. Restart vaeg and confirm the three BMS settings persist.
 5. Disable BMS, apply, and confirm the utility no longer detects the device
    while ordinary V3 operation remains normal.
@@ -94,16 +99,27 @@ G52 passes only after the maintainer explicitly accepts this gate.
   dialog. Changes are transactional until OK; a changed configuration uses
   the normal reset path, while Cancel leaves both configuration and the live
   machine untouched.
-- `cca7c3d38c6e126b866ec195745f87d1e7b77690` verifies configuration-file
-  round-trip, disabled open bus, enabled allocation, two-bank isolation,
+- `cca7c3d38c6e126b866ec195745f87d1e7b77690` initially verified
+  configuration-file round-trip, enabled allocation, two-bank isolation,
   same-size reset retention, and disable-time release.
 - `e9ad63e3d720e8dad14d5a63289f3d3443b54422` makes `01D0H` the
   PC-88VA clean-config and invalid-value fallback, retains `00ECH` as the
   explicit compatibility choice, and adds exact default/fallback assertions.
+- `5eb04ae91a9900833096bb43b3b599d358c099c5` corrects selector zero to
+  pass through main RAM and maps selectors 1 through N onto all N configured
+  banks for both CPU and SGP access paths.
 
 The frozen `win9x/` dialog and `cpuxva/memoryva.x86` were not modified. The
 existing BMS runtime/state structures and state-save section names are
 unchanged.
+
+Post-implementation RDBMS 1.21 source and guest testing corrected one M30/M52
+assumption. The driver performs transfers through segment `8000H`, selects a
+nonzero bank, and its `ResetBank` macro writes zero after each transfer. Its
+compiled port default is `00ECH`, while `-P1D0` selects the PC-88VA-01/02
+mode. VAEG therefore treats bank zero as main-RAM pass-through and numbers
+allocated BMS storage from bank one. This retains all 640KB of conventional
+memory outside the short interval in which a nonzero bank is selected.
 
 ## Local validation result
 
@@ -140,8 +156,10 @@ WINEDEBUG=-all WINEPREFIX=build/m51-wine-prefix \
   wine64 build/mingw-cross/sdl2/vaeg.exe --selftest
 ```
 
-GCC, Clang, ASan, MinGW/Wine selftests all report
-`VA BMS config/window lifecycle ok`. The ASan/UBSan run still reports the two
+GCC, Clang, ASan, MinGW/Wine selftests reported
+`VA BMS config/window lifecycle ok` for the original configuration work. The
+updated lifecycle check additionally proves bank-zero main-RAM pass-through
+and one-based BMS storage mapping. The ASan/UBSan run still reports the two
 pre-existing sound diagnostics in `sound/tms3631c.c` and `sound/psggenc.c`;
 both predate M52 and the selftest completes successfully. A separate ROM-less
 smoke run with `BMS_Port=1234` and `BMS_Size=0` confirmed deterministic

@@ -460,7 +460,7 @@ static void apply_bms_config_dialog(void) {
 static void draw_bms_config_dialog(void) {
 
 	if (g_gui.bms_config_request) {
-		ImGui::OpenPopup("I-O Bank Memory##bms-config");
+		ImGui::OpenPopup("I/O Bank Memory##bms-config");
 		g_gui.bms_config_request = false;
 	}
 	if (!g_gui.bms_config_open) {
@@ -470,20 +470,20 @@ static void draw_bms_config_dialog(void) {
 	ImGui::SetNextWindowPos(viewport->GetCenter(), ImGuiCond_Appearing,
 											ImVec2(0.5f, 0.5f));
 	ImGui::SetNextWindowSize(ImVec2(430.0f, 285.0f), ImGuiCond_Appearing);
-	if (ImGui::BeginPopupModal("I-O Bank Memory##bms-config",
+	if (ImGui::BeginPopupModal("I/O Bank Memory##bms-config",
 										&g_gui.bms_config_open,
 										ImGuiWindowFlags_NoResize |
 										ImGuiWindowFlags_NoCollapse)) {
 		static const char *ports[] = {
-			"01D0H (PC-88VA default)",
-			"00ECH (compatibility)"
+			"01D0H (PC-88VA-01/02 mode)",
+			"00ECH (PC-9801 mode)"
 		};
 		const bool banks_valid = (g_gui.pending_bms_banks >= 1) &&
 			(g_gui.pending_bms_banks <= BMSIO_MAX_BANKS);
 		const bool port_valid = (g_gui.pending_bms_port >= 0) &&
 			(g_gui.pending_bms_port < static_cast<int>(std::size(ports)));
 
-		ImGui::Checkbox("Use I-O Bank Memory", &g_gui.pending_bms_enabled);
+		ImGui::Checkbox("Use I/O Bank Memory", &g_gui.pending_bms_enabled);
 		ImGui::SetNextItemWidth(220.0f);
 		ImGui::Combo("I/O port", &g_gui.pending_bms_port, ports,
 										static_cast<int>(std::size(ports)));
@@ -2327,7 +2327,7 @@ static void draw_device_menu(void) {
 			}
 			ImGui::EndMenu();
 		}
-		if (ImGui::MenuItem("I-O Bank Memory...", nullptr,
+		if (ImGui::MenuItem("I/O Bank Memory...", nullptr,
 										bmsiocfg.enabled != FALSE)) {
 			open_bms_config_dialog();
 		}

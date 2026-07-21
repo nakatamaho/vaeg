@@ -348,21 +348,30 @@ separate parity correction or move it to Open Defects.
   and the [PC-88VA hardware comparison](http://www.pc88.gr.jp/~va/va-hard.html#mem).
 - **Commit:** [c580222](https://github.com/nakatamaho/vaeg/commit/c5802228f1d8f7cf91b41d1182aaad4ebd30ccea).
 
-### The disabled VA BMS window incorrectly exposed ordinary RAM
+### VA BMS bank zero hid 128KB of conventional memory
 
-- **Status:** accepted parity correction in M30.
-- **Symptom:** with BMS disabled, `80000H-9FFFFH` retained writes as ordinary
-  memory instead of behaving as an absent bank-memory aperture.
-- **Root cause:** the M9 C port could not call the assembly-internal BMS
-  handlers and temporarily routed the window through normal i286 memory.
-- **Correction:** implemented local byte/word BMS handlers: absent storage is
-  open bus with ignored writes, while enabled access uses the selected 128KB
-  bank with allocation bounds checks.
-- **Verification:** ROM-less absent-window, bank-selection, and bank-isolation
-  tests. This did not fix the separate VA1 BASIC failure and is not claimed to
-  do so.
-- **Evidence:** [M30 VA BMS window task](../agents/tasks/M30_va_bms_window.md).
-- **Commit:** [11da283](https://github.com/nakatamaho/vaeg/commit/11da283a0ffa47fc4b645423e4324550d1438bcf).
+- **Status:** M30's open-bus interpretation was disproved and corrected in
+  M52; G52 human review pending.
+- **Symptom:** enabling I/O Bank Memory with 640KB main memory prevented
+  CONFIG.SYS RAM-disk and MSE registration. Reducing main memory to 512KB
+  avoided the failure by leaving `80000H-9FFFFH` unused.
+- **Affected scope:** CPU byte/word and SGP word access to the 128KB BMS
+  aperture, both while BMS was disabled and after the driver reset the bank
+  selector to zero.
+- **Demonstrated root cause:** the M30 portable handlers treated selector zero
+  as expansion bank zero and permanently overlaid `80000H-9FFFFH`. RDBMS 1.21
+  instead selects a nonzero bank for each transfer and writes zero in its
+  `ResetBank` macro to restore conventional memory.
+- **Correction:** selector zero now passes through ordinary main RAM; selectors
+  1 through N map one-to-one onto N allocated 128KB banks. Invalid nonzero
+  selectors remain open bus. CPU and SGP paths use the same rule.
+- **Verification:** the updated ROM-less lifecycle test covers disabled and
+  enabled selector-zero pass-through, bank-one isolation, ordinary-reset
+  retention, and disable-time restoration. Maintainer guest testing with
+  640KB main memory is the G52 gate.
+- **Evidence:** [M30 historical task](../agents/tasks/M30_va_bms_window.md) and
+  [M52 corrected I/O Bank Memory task](../agents/tasks/M52_io_bank_memory.md).
+- **Commit:** [5eb04ae9](https://github.com/nakatamaho/vaeg/commit/5eb04ae91a9900833096bb43b3b599d358c099c5).
 
 ### VA bank memory defaulted to the PC-9801 compatibility port
 
