@@ -36,6 +36,16 @@
 #include <system_error>
 #include <vector>
 
+#if defined(_WIN32)
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>
+#endif
+
 #include "compiler.h"
 #include "hostfat_snapshot.h"
 #include "hostfat.h"
@@ -167,6 +177,37 @@ bool make_dos_name(const std::string &source,
 	return true;
 }
 
+bool hard_link_count(const fs::path &path, std::uintmax_t &count,
+		std::error_code &error) {
+
+#if defined(_WIN32)
+	const HANDLE handle = CreateFileW(path.c_str(), FILE_READ_ATTRIBUTES,
+		FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr,
+		OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+	if (handle == INVALID_HANDLE_VALUE) {
+		error = std::error_code(static_cast<int>(GetLastError()),
+			std::system_category());
+		return false;
+	}
+	BY_HANDLE_FILE_INFORMATION information{};
+	if (!GetFileInformationByHandle(handle, &information)) {
+		error = std::error_code(static_cast<int>(GetLastError()),
+			std::system_category());
+		CloseHandle(handle);
+		return false;
+	}
+	CloseHandle(handle);
+	count = information.nNumberOfLinks;
+#else
+	count = fs::hard_link_count(path, error);
+	if (error) {
+		return false;
+	}
+#endif
+	error.clear();
+	return true;
+}
+
 bool sort_and_check_children(Node &node, BuildState &state) {
 
 	std::sort(node.children.begin(), node.children.end(),
@@ -250,8 +291,7 @@ bool scan_directory(Node &node, unsigned depth, BuildState &state) {
 				state.error = "cannot inspect host file timestamp: " + name;
 				return false;
 			}
-			child->hard_links = fs::hard_link_count(item.path(), error);
-			if (error) {
+			if (!hard_link_count(item.path(), child->hard_links, error)) {
 				state.error = "cannot inspect host file links: " + name;
 				return false;
 			}
@@ -361,8 +401,9 @@ bool file_identity_is_unchanged(const Node &node, BuildState &state) {
 		state.error = "host file timestamp changed while creating snapshot";
 		return false;
 	}
-	const std::uintmax_t hard_links = fs::hard_link_count(node.path, error);
-	if (error || (hard_links != node.hard_links) || (hard_links != 1)) {
+	std::uintmax_t current_hard_links = 0;
+	if (!hard_link_count(node.path, current_hard_links, error) ||
+		(current_hard_links != node.hard_links) || (current_hard_links != 1)) {
 		state.error = "host file link identity changed while creating snapshot";
 		return false;
 	}
