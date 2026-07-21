@@ -66,9 +66,12 @@ persistence, refresh, and save-state identity are deferred to M55.
 The prototype accepts at most 1024 entries and eight directory levels. Every
 name must fit ASCII 8.3 using letters, digits, `_`, and `-`; lowercase is
 folded to uppercase and folded-name collisions fail the entire mount. The
-8 MiB geometry is fixed. The final FAT12-reserved cluster range is deliberately
-left unused, so the maximum source payload is slightly smaller than 8 MiB and
-also depends on directory and per-file cluster rounding.
+backing snapshot is fixed at 8 MiB. The driver advertises 8186 sectors
+(8186 KiB), leaving the final six backing sectors inaccessible so PC-Engine
+counts 4084 data clusters and selects FAT12 rather than FAT16. The final
+FAT12-reserved cluster range is also deliberately left unused, so the maximum
+source payload is smaller and depends on directory and per-file cluster
+rounding.
 
 ## Private protocol
 

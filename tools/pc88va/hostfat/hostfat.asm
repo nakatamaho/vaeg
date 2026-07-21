@@ -54,7 +54,9 @@ org 0
 %define STATUS_SECTOR_NOT_FOUND 0x8108
 
 %define MEDIA_ID                0xf0
-%define TOTAL_SECTORS           8192
+; Keep the DOS-visible data-cluster count at 4084, below the FAT16 cutoff.
+; The host snapshot backing remains 8 MiB; its final six sectors are hidden.
+%define TOTAL_SECTORS           8186
 
 device_header:
 	dd 0xffffffff
