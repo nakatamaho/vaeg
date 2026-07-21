@@ -26,7 +26,7 @@ import struct
 from pathlib import Path
 
 
-EXPECTED_BPB = bytes.fromhex("00040200000280000020f0070090")
+EXPECTED_BPB = bytes.fromhex("0004020000028000fa1ff0070090")
 
 
 def fail(message: str) -> None:
@@ -64,6 +64,22 @@ def main() -> None:
         fail("device name is not HOSTFAT")
     require_count(data, EXPECTED_BPB, 1, "RDBMS-compatible BPB")
     bpb_offset = data.find(EXPECTED_BPB)
+    (bytes_per_sector, sectors_per_cluster, reserved_sectors, fat_copies,
+     root_entries, total_sectors, _media_id, sectors_per_fat) = (
+        struct.unpack_from("<HBHBHHBH", data, bpb_offset)
+    )
+    root_sectors = (
+        root_entries * 32 + bytes_per_sector - 1
+    ) // bytes_per_sector
+    data_clusters = (
+        total_sectors - reserved_sectors - fat_copies * sectors_per_fat
+        - root_sectors
+    ) // sectors_per_cluster
+    if data_clusters >= 4085:
+        fail(
+            f"DOS-visible geometry has {data_clusters} clusters and would "
+            "be interpreted as FAT16"
+        )
     bpb_pointer_list_offset = bpb_offset - 2
     if bpb_pointer_list_offset < 15:
         fail("BPB pointer list is outside the driver data area")

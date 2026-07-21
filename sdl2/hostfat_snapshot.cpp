@@ -66,10 +66,15 @@ constexpr std::size_t kRootSectors =
 constexpr std::size_t kDataStartSector = kFatSectors * kFatCopies + kRootSectors;
 constexpr std::size_t kDataClusters =
 	(kTotalSectors - kDataStartSector) / kSectorsPerCluster;
+constexpr std::size_t kFat12ClusterLimit = 4085;
 constexpr std::size_t kFatEntries = 4096;
 constexpr std::size_t kFirstReservedFat12Cluster = 0x0ff0;
 constexpr unsigned kMaximumDepth = 8;
 constexpr unsigned kMaximumEntries = 1024;
+static_assert(kDataClusters < kFat12ClusterLimit,
+	"HOSTFAT DOS-visible geometry must remain FAT12");
+static_assert(HOSTFAT_BACKING_SECTORS >= HOSTFAT_TOTAL_SECTORS,
+	"HOSTFAT backing must contain every DOS-visible sector");
 constexpr std::array<unsigned char, 11> kVolumeLabel = {
 	'H', 'O', 'S', 'T', 'F', 'A', 'T', ' ', ' ', ' ', ' '
 };

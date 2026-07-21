@@ -42,7 +42,9 @@ directory and it never writes to the host.
   immutable 8 MiB FAT12 snapshot.
 - Use the RDBMS-compatible geometry: 1024-byte sectors, two sectors per
   cluster, no reserved sectors, two seven-sector FATs, 128 root entries,
-  8192 total sectors, and media ID F0H.
+  8186 DOS-visible sectors, and media ID F0H. Retain an 8192-sector backing
+  allocation but hide its final six sectors so PC-Engine counts 4084 data
+  clusters and selects FAT12 rather than FAT16.
 - Accept only deterministic ASCII 8.3 names in M54. Fold lowercase ASCII to
   uppercase and fail on collisions or unsupported names; never omit a source
   entry silently.
