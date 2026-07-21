@@ -10,7 +10,7 @@
 #include	"iocoreva.h"
 #include	"bmsio.h"
 
-		_BMSIOCFG	bmsiocfg = {FALSE, BMSIO_PORT_PRIMARY,
+		_BMSIOCFG	bmsiocfg = {FALSE, BMSIO_PORT_DEFAULT,
 							BMSIO_PORT_MASK, BMSIO_DEFAULT_BANKS};
 		_BMSIO		bmsio;
 		_BMSIOWORK	bmsiowork;
