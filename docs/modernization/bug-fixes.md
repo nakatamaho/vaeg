@@ -50,6 +50,28 @@ separate parity correction or move it to Open Defects.
 
 ## Fixed Defects
 
+### VA mode did not expose the emulator-private value/string channels
+
+- **Status:** fixed in M54; G54 PC-Engine integration review pending.
+- **Symptom:** a PC-88VA guest driver using vaeg's established emulator-private
+  interface could not exchange the scalar values required by a request-packet
+  protocol. The generic and VA I/O paths also disagreed about whether ports
+  `07EDH` and `07EFH` were present.
+- **Root cause:** `np2sysp_bind()` attached both scalar and string callbacks to
+  `07EFH`, so the later string attachment replaced the scalar callback. It
+  attached only the generic I/O table even though active VA execution uses the
+  separate VA table.
+- **Correction:** `07EDH` now carries four-byte values and `07EFH` carries
+  command/response strings in both the generic and VA tables. These remain
+  emulator-private channels; no physical PC-88VA port was reassigned.
+- **Verification:** the M54 ROM-less test sends a version probe through both
+  tables, performs a sector transfer through the VA table, and verifies that
+  malformed packet, count, LBA, destination, and unmounted-image failures do
+  not modify the guest destination. G54 retains a real PC-Engine driver gate.
+- **Evidence:** [M54 task](../agents/tasks/M54_hostfat_readonly_prototype.md)
+  and [M54 report](../agents/reports/m54_hostfat_readonly_prototype.md).
+- **Commit:** [f79b677c](https://github.com/nakatamaho/vaeg/commit/f79b677c1e48071779349a4ac3b404ed291f821a).
+
 ### REP-prefixed 0F could enter unverified 80286 protected-mode behavior
 
 - **Status:** fixed by the G47-approved M48 fail-closed policy; G48 human
