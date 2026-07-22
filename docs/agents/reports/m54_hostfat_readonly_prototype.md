@@ -36,11 +36,18 @@ cannot contain the SHA of the commit that contains itself.
 - Pre-report implementation SHA: `b661490322a998a20ca9881442c6a06c8c312958`
 - Human-gate packet-layout correction SHA:
   `a07a8c4a764a2b5d8560bdbaea8f5ebc5c0edae4`
+- Human-gate COPY lifecycle correction SHA:
+  `bf6896d801c2d021f44cec43b7070531030c780a`
+- Human-gate FAT12 geometry correction SHA:
+  `5faa8ca0b04aac954a1da3d08c882c32651a0033`
 - Hosted implementation run:
   [build 29813271492](https://github.com/nakatamaho/vaeg/actions/runs/29813271492)
   (result recorded below)
 - Hosted packet-layout correction run:
   [build 29817436136](https://github.com/nakatamaho/vaeg/actions/runs/29817436136)
+  (seven of seven jobs passed)
+- Hosted COPY correction run:
+  [build 29820788369](https://github.com/nakatamaho/vaeg/actions/runs/29820788369)
   (seven of seven jobs passed)
 - Final and remote SHA: supplied in the G54 handoff
 
@@ -70,6 +77,10 @@ behavior is present.
    `M54: reject cross-platform hard links`.
 9. `a07a8c4a764a2b5d8560bdbaea8f5ebc5c0edae4` —
    `M54: fix PC-Engine HOSTFAT request layout`.
+10. `bf6896d801c2d021f44cec43b7070531030c780a` —
+    `M54: support PC-Engine HOSTFAT copy lifecycle`;
+11. `5faa8ca0b04aac954a1da3d08c882c32651a0033` —
+    `M54: keep HOSTFAT geometry within FAT12`.
 
 ## Files changed
 
@@ -118,7 +129,9 @@ The FAT12 geometry is fixed and matches the RDBMS block-driver convention:
 | FAT copies | 2 |
 | sectors per FAT | 7 |
 | root entries | 128 |
-| total sectors | 8192 |
+| DOS-visible sectors | 8186 |
+| backing sectors | 8192 |
+| DOS-visible data clusters | 4084 |
 | media descriptor | `F0H` |
 
 Both FAT copies are generated from the same packed table. Allocation starts
@@ -174,9 +187,10 @@ tables. The permanent correctness ledger records the evidence and fix.
 `tools/pc88va/hostfat/hostfat.asm` is an independently written non-IBM-format
 CONFIG.SYS block driver. It implements initialization, media check, BuildBPB,
 read, removable query, write/write-with-verify rejection, and deterministic
-unknown-command handling. Writes return the PC-Engine write-protect status
-inside the driver and never invoke the host service. Initialization installs
-one unit after an `H1` probe and prints:
+unknown-command handling. Device-open and device-close notifications are
+successful no-ops. Writes return the PC-Engine write-protect status inside
+the driver and never invoke the host service. Initialization installs one
+unit after an `H1` probe and prints:
 
 ```text
 HOSTFAT read-only drive ready
@@ -191,7 +205,7 @@ The initial G54 handoff driver used IBM-sized field offsets. Although its
 header and BPB passed the original shallow checker, live PC-Engine
 initialization interpreted its misplaced resident-end pointer as `CS:001CH`,
 reclaimed the remaining driver, and later entered overwritten code. The
-corrected driver keeps the same size but has these deterministic identities:
+packet-layout-corrected driver had these deterministic identities:
 
 - size: 455 bytes;
 - SHA-256: `7be6d3be6f22fa32130eac7e7b2224146dae1f20448802d449c211814291c4bc`.
@@ -200,6 +214,15 @@ Two independent corrected NASM invocations are byte-identical. The
 strengthened checker verifies every relevant `0DH`--`14H` displacement in the
 emitted machine code and rejects the former binary at its first old-layout
 field.
+
+After the COPY corrections, the final generated driver identity is:
+
+- size: 468 bytes;
+- SHA-256: `62e04cffcd0d883becde965a9d87f8e0001d0f0d6f78a35aeff59367af4adc29`.
+
+The checker also requires explicit `0DH` and `0EH` command comparisons and
+derives the data-cluster count from the emitted BPB. A BPB at or beyond the
+4085-cluster FAT16 cutoff fails validation.
 
 The generated binary is not committed.
 
@@ -217,8 +240,34 @@ missing eight-byte reserved region in the common request header. After both
 sides were moved to the complete 22-byte layout, the same private live
 PC-Engine integration boot printed the ready message and reached its command
 prompt. No private image name, host path, screenshot, save state, or asset
-digest is retained in Git. Full DIR/TYPE/copy/write-protect/reset behavior
-remains for maintainer G54 review.
+digest is retained in Git.
+
+## Human-gate COPY corrections
+
+Root DIR then worked, but COPY reported that the drive driver could not
+execute the command. A comparison with RDBMS command dispatch showed that
+PC-Engine brackets COPY with device-open command `0DH` and device-close
+command `0EH`. HOSTFAT had returned unknown-command status `8103H`; the final
+driver accepts both notifications as successful no-ops without weakening its
+write-protect path.
+
+After that correction, COPY advanced to source reads but reported a read
+failure. Captured 22-byte requests proved that PC-Engine followed packed
+FAT12 cluster 2 to cluster `0040H` and eventually requested invalid LBA
+`AE18H`. The 8192-sector BPB yielded 4087 data clusters, so PC-Engine correctly
+classified the volume as FAT16 while HOSTFAT had generated FAT12. The final
+BPB exposes 8186 sectors, exactly 4084 data clusters. The 8192-sector backing
+allocation is retained, but the host service rejects its final six hidden
+sectors before any guest-memory write.
+
+A private live PC-Engine retest copied neutral `TEST.TXT` from HOSTFAT to a
+writable RAM disk, returned to `Ready` without an error, and reported the
+exact 3958-byte destination length. A separate file larger than the RAM
+disk's 112,640 free bytes reached the ordinary destination-full error rather
+than a HOSTFAT driver or source-read error. No private asset identity,
+screenshot, path, or digest is committed. Subdirectory TYPE,
+write-protection, reset retention, and disabled-mode behavior remain for the
+maintainer G54 gate.
 
 ## Automated evidence
 
@@ -235,8 +284,10 @@ The ROM-less M54 coverage verifies:
 - a valid 22-byte sector request whose eight reserved bytes are nonzero, plus
   rejection of malformed length, unit, command,
   count, LBA, destination, and unmounted requests without destination changes;
+- rejection of the first hidden backing sector at DOS-visible LBA 8186;
 - mount retention across `np2sysp_reset()` and explicit unmount behavior;
-- deterministic assembly and structural validation of `HOSTFAT.SYS`.
+- deterministic assembly and structural validation of `HOSTFAT.SYS`, including
+  open/close dispatch and a computed 4084-cluster FAT12 boundary.
 
 The M52 BMS and M54 transport tests run after the accepted eight-step M42 CPU
 trace has been exhausted. This prevents test setup I/O from contaminating the
@@ -321,6 +372,16 @@ MinGW build passed its Wine selftest. Direct NASM assembly produced the same
 accepted its `7be6d3be...` digest and rejected the former driver because it
 did not write the media-check result at packet offset `0EH`.
 
+The subsequent COPY correction was rebuilt from clean `m54-copy-*` build
+trees. GCC CTest reported 35 passed, one external-dataset skip, and zero
+failed out of 36. The tests-disabled Linux release selftest and smoke run
+both exited zero, and the MinGW binary passed the Wine selftest. Direct NASM,
+Linux CMake, and MinGW CMake outputs were byte-identical 468-byte drivers with
+SHA-256 `62e04cffcd0d883becde965a9d87f8e0001d0f0d6f78a35aeff59367af4adc29`.
+The checker accepted the explicit open/close lifecycle handling and computed
+4084 FAT12 data clusters from the emitted BPB. The transport regression
+rejected DOS-visible LBA 8186 without modifying guest memory.
+
 ## Hosted CI
 
 [Run 29813271492](https://github.com/nakatamaho/vaeg/actions/runs/29813271492)
@@ -336,6 +397,12 @@ including the corrected generated-driver structure check and HOSTFAT
 transport regression. This run supersedes the earlier run for the
 human-gate packet-layout correction.
 
+[COPY correction run 29820788369](https://github.com/nakatamaho/vaeg/actions/runs/29820788369)
+completed successfully at FAT12 geometry fix SHA
+`5faa8ca0b04aac954a1da3d08c882c32651a0033`. All seven jobs passed. This is
+the authoritative hosted run for the lifecycle and FAT12 corrections made in
+response to the COPY failure.
+
 ## Deviations and remaining risks
 
 - The external pinned SingleStepTests corpus was not configured locally; its
@@ -344,9 +411,10 @@ human-gate packet-layout correction.
 - LeakSanitizer cannot run under the managed ptrace wrapper, so only its leak
   detector was disabled; ASan/UBSan instrumentation remained active.
 - The corrected private live boot proves PC-Engine initialization, INT 83H
-  message display, resident-end handling, and return to the command prompt.
-  Drive-letter assignment and DIR/TYPE/copy/write-protect/reset behavior are
-  still deliberately the G54 maintainer gate.
+  message display, resident-end handling, drive-letter assignment, root DIR,
+  and neutral small-file COPY to a writable RAM disk. Subdirectory DIR/TYPE,
+  copied-byte comparison, write-protect behavior, reset retention, and
+  disabled-mode behavior remain deliberately in the G54 maintainer gate.
 - The prototype is a fixed startup snapshot. GUI configuration, persistent
   selection, refresh semantics, save-state identity, broader deterministic
   name mapping, and final containment UX are deferred to gated M55.
@@ -357,14 +425,15 @@ human-gate packet-layout correction.
 
 ## G54 human-review checklist
 
-- [ ] Build from a clean checkout and create a host folder containing only
+- [x] Build from a clean checkout and create a host folder containing only
   ASCII 8.3 files plus one ASCII 8.3 subdirectory.
-- [ ] Build `HOSTFAT.SYS`, put it on a PC-Engine system disk, and add
+- [x] Build `HOSTFAT.SYS`, put it on a PC-Engine system disk, and add
   `DEVICE=HOSTFAT.SYS` to CONFIG.SYS.
-- [ ] Start vaeg with `--hostfat-dir <folder>` and confirm
+- [x] Start vaeg with `--hostfat-dir <folder>` and confirm
   `HOSTFAT read-only drive ready`.
-- [ ] Identify the assigned drive; run DIR in its root and subdirectory, TYPE
-  a text file, and copy files to a writable disk or RAM disk.
+- [x] Identify the assigned drive, run root DIR, and copy a neutral small file
+  to a writable RAM disk without a HOSTFAT source-read or driver error.
+- [ ] Run DIR in a subdirectory and TYPE a text file.
 - [ ] Compare the copied bytes with the source files.
 - [ ] Attempt create, overwrite, and delete; confirm write-protect and confirm
   the host folder remains byte-for-byte unchanged.
