@@ -84,14 +84,21 @@ initialization.
 machine starts, vaeg copies the selected directory into an immutable FAT12
 snapshot. The M55 geometry uses 2048-byte sectors and 32 KiB clusters: its
 DOS-visible size is 127.65625 MiB and up to 127.4375 MiB of cluster payload is
-allocatable before directory and per-file rounding. Source names must already
-be unique ASCII 8.3 names; lowercase ASCII is folded to uppercase, while
-links, special files,
-unsupported names, excessive depth/count, and content that does not fit are
-rejected rather than omitted. Host changes made after startup are not visible
-to the guest. Build and install the matching `HOSTFAT.SYS` as described in
-[`tools/pc88va/hostfat/README.md`](../tools/pc88va/hostfat/README.md). M55 also
-adds persistent Configure and explicit snapshot-refresh controls.
+allocatable before directory and per-file rounding. Valid unique ASCII 8.3
+names are retained (and folded to uppercase); longer, spaced, or Unicode UTF-8
+names receive deterministic 8.3 aliases. Invalid UTF-8, links, special files,
+excessive depth/count, and content that does not fit are rejected rather than
+omitted.
+
+HOSTFAT can also be enabled persistently under Emulate -> Configure. Selecting
+a folder and pressing OK builds the replacement snapshot on a worker thread,
+leaves the current mounted image unchanged during the build, then atomically
+commits it and resets the guest. Disable HOSTFAT to unmount and reset. Host
+changes are intentionally invisible until this explicit rebuild. A save state
+records the SHA-256 identity of the mounted image; loading with a missing or
+different mounted snapshot fails transactionally before live machine state is
+changed. Build and install the matching `HOSTFAT.SYS` as described in
+[`tools/pc88va/hostfat/README.md`](../tools/pc88va/hostfat/README.md).
 
 All setting and media options are session-only. They are applied after
 `vaeg.cfg` is loaded and restored before its normal shutdown save as long as
