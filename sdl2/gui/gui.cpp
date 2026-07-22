@@ -138,6 +138,7 @@ static void reset_guest(void);
 static bool is_directory(const std::string &path);
 static void open_hostfat_browser(void);
 static void draw_hostfat_browser_popup(void);
+static void draw_state_error_dialog(void);
 
 static std::string state_slot_path(int slot) {
 
@@ -190,6 +191,10 @@ struct GuiState {
 	bool new_sasi_open_after_create = true;
 	char new_sasi_path[MAX_PATH] = {};
 	std::string state_status;
+	bool state_error_open = false;
+	bool state_error_request = false;
+	bool state_force_hostfat_available = false;
+	std::string state_force_hostfat_path;
 	std::string keyboard_status;
 	bool keyboard_config_open = false;
 	int capture_binding = -1;
@@ -2693,10 +2698,16 @@ static void draw_state_menu(void) {
 				if (ImGui::MenuItem(label)) {
 					std::string path = state_slot_path(slot);
 					char error[1024];
+					char override_error[1024];
 					error[0] = '\0';
+					override_error[0] = '\0';
+					g_gui.state_force_hostfat_available = false;
+					g_gui.state_force_hostfat_path.clear();
 					int ret = statsave_check(path.c_str(), error,
 											 sizeof(error));
 					if ((ret & ~STATFLAG_DISKCHG) != 0) {
+						int override_ret = statsave_check_hostfat_override(
+							path.c_str(), override_error, sizeof(override_error));
 						g_gui.state_status = "State load failed: ";
 						g_gui.state_status += path;
 						if (error[0] != '\0') {
@@ -2704,6 +2715,11 @@ static void draw_state_menu(void) {
 							g_gui.state_status += error;
 							g_gui.state_status += ")";
 						}
+						if ((override_ret & ~STATFLAG_DISKCHG) == 0) {
+							g_gui.state_force_hostfat_available = true;
+							g_gui.state_force_hostfat_path = path;
+						}
+						g_gui.state_error_request = true;
 					}
 						else {
 							taskmng_clear_fast_forward();
@@ -2726,6 +2742,70 @@ static void draw_state_menu(void) {
 			ImGui::TextWrapped("%s", g_gui.state_status.c_str());
 		}
 		ImGui::EndMenu();
+	}
+}
+
+static void draw_state_error_dialog(void) {
+	bool force_load = false;
+	std::string force_path;
+
+	if (g_gui.state_error_request) {
+		g_gui.state_error_request = false;
+		g_gui.state_error_open = true;
+		ImGui::OpenPopup("State load rejected##state-load-error");
+	}
+	if (ImGui::BeginPopupModal("State load rejected##state-load-error",
+			&g_gui.state_error_open, ImGuiWindowFlags_AlwaysAutoResize)) {
+		ImGui::TextWrapped("%s", g_gui.state_status.c_str());
+		if (g_gui.state_force_hostfat_available) {
+			ImGui::Spacing();
+			ImGui::TextWrapped(
+				"This save state references a different HOSTFAT snapshot. "
+				"Force load keeps the current HOSTFAT mount state and "
+				"read-only snapshot. Guest-cached FAT, directory, open-file, "
+				"or file data may no longer match.");
+		}
+		ImGui::Separator();
+		const char *cancel_label = g_gui.state_force_hostfat_available ?
+			"Cancel" : "OK";
+		if (ImGui::Button(cancel_label, ImVec2(120.0f, 0.0f)) ||
+				ImGui::IsKeyPressed(ImGuiKey_Escape)) {
+			g_gui.state_error_open = false;
+			g_gui.state_force_hostfat_available = false;
+			g_gui.state_force_hostfat_path.clear();
+			ImGui::CloseCurrentPopup();
+		}
+		if (g_gui.state_force_hostfat_available) {
+			ImGui::SameLine();
+			if (ImGui::Button("Force load", ImVec2(120.0f, 0.0f))) {
+				force_load = true;
+				force_path = g_gui.state_force_hostfat_path;
+				g_gui.state_error_open = false;
+				g_gui.state_force_hostfat_available = false;
+				g_gui.state_force_hostfat_path.clear();
+				ImGui::CloseCurrentPopup();
+			}
+		}
+		ImGui::EndPopup();
+	}
+	if (force_load) {
+		taskmng_clear_fast_forward();
+		int ret = statsave_load_hostfat_override(force_path.c_str());
+		if (ret == STATFLAG_FAILURE) {
+			g_gui.state_status = "Forced state load failed: ";
+			g_gui.state_status += force_path;
+			g_gui.state_error_request = true;
+		}
+		else {
+			sdlkbd_reset_state();
+			mousemng_reset();
+			scrndraw_redraw();
+			g_gui.state_status = "State loaded with HOSTFAT override: ";
+			g_gui.state_status += force_path;
+			if ((ret & STATFLAG_DISKCHG) != 0) {
+				g_gui.state_status += " (disk warning ignored)";
+			}
+		}
 	}
 }
 
@@ -2871,7 +2951,8 @@ BOOL gui_guest_keyboard_blocked(void) {
 			g_gui.new_fdd_open || g_gui.new_sasi_open ||
 			g_gui.keyboard_config_open || g_gui.configure_open ||
 			g_gui.bms_config_open ||
-			g_gui.custom_size_open || g_gui.about_open) ? TRUE : FALSE;
+			g_gui.custom_size_open || g_gui.state_error_open ||
+			g_gui.about_open) ? TRUE : FALSE;
 }
 
 BOOL gui_guest_mouse_blocked(void) {
@@ -2888,7 +2969,8 @@ BOOL gui_guest_mouse_blocked(void) {
 			g_gui.new_fdd_open || g_gui.new_sasi_open ||
 			g_gui.keyboard_config_open || g_gui.configure_open ||
 			g_gui.bms_config_open ||
-			g_gui.custom_size_open || g_gui.about_open) ? TRUE : FALSE;
+			g_gui.custom_size_open || g_gui.state_error_open ||
+			g_gui.about_open) ? TRUE : FALSE;
 }
 
 void gui_new_frame(void) {
@@ -2937,6 +3019,7 @@ void gui_draw(void) {
 		draw_about_menu();
 		ImGui::EndMainMenuBar();
 	}
+	draw_state_error_dialog();
 	draw_fdd_browser();
 	draw_hdd_browser();
 	draw_new_fdd_dialog();
