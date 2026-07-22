@@ -66,6 +66,11 @@ without changing the 16-bit PC-Engine block-request LBA contract.
   changing FAT view to a mounted guest.
 - Give each snapshot a deterministic identity and define transactional
   save-state load behavior for matching, missing, and mismatched snapshots.
+- Show every state-load rejection in a persistent modal. Keep strict identity
+  matching as the default, but permit an explicit, warned `Force load` only
+  when bypassing the HOSTFAT identity check makes the remaining preflight
+  acceptable. The override retains the current mount state and read-only
+  snapshot; it does not restore or silently substitute the saved snapshot.
 - Complete canonical-root containment, symlink/reparse-point rejection,
   race-resistant file-copy validation, depth/count/size limits, and diagnostics.
 - Add deterministic 8.3 alias generation and an explicitly documented policy
@@ -77,7 +82,8 @@ without changing the 16-bit PC-Engine block-request LBA contract.
 - No host writes, delete, rename, or metadata updates.
 - No INT 2FH redirector or dependency on MS-DOS SDA/CDS internals.
 - No live sector synthesis from a directory that can change while mounted.
-- No silent state substitution when snapshot identity does not match.
+- No silent state substitution when snapshot identity does not match. The
+  maintainer-approved, explicitly confirmed `Force load` is the sole override.
 - No further geometry change without reporting the observed PC-Engine
   behavior and obtaining maintainer approval.
 
@@ -90,6 +96,8 @@ without changing the 16-bit PC-Engine block-request LBA contract.
 - Confirm a marker allocated after at least 60 MiB of preceding file data can
   be copied byte-identically. Note the known approximately 8 MiB free-space
   display rather than treating it as the readable capacity.
-- Confirm matching save-state continuation and fail-closed mismatch handling.
+- Confirm matching save-state continuation, fail-closed mismatch handling,
+  visible rejection feedback, cancel-without-mutation, and the warned explicit
+  override while retaining the current read-only HOSTFAT snapshot.
 - Repeat root/subdirectory reads and host write-protection checks on Linux and
   Windows, followed by the standard V3/VA-demo/OS gate.
