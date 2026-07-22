@@ -86,6 +86,8 @@ static_assert(kDataClusters < kFat12ClusterLimit,
 	"HOSTFAT DOS-visible geometry must remain FAT12");
 static_assert(kDataClusters == 4084,
 	"HOSTFAT must remain at the maximum FAT12 cluster-count boundary");
+static_assert(2 + kDataClusters == 0x0ff6,
+	"HOSTFAT FAT12-max geometry must expose clusters 002H through 0FF5H");
 static_assert(kClusterSize == 32768,
 	"HOSTFAT FAT12-max clusters must remain 32 KiB");
 static_assert(HOSTFAT_TOTAL_SECTORS <= UINT16_MAX,
@@ -908,6 +910,10 @@ bool build_image(const fs::path &root_path, std::vector<unsigned char> &image,
 	std::vector<std::uint16_t> fat(kFatEntries, 0);
 	fat[0] = 0x0ff0;
 	fat[1] = 0x0fff;
+	for (std::size_t cluster = kFirstReservedFat12Cluster;
+			cluster < 2 + kDataClusters; cluster++) {
+		fat[cluster] = 0x0ff0;
+	}
 	add_chain(root, fat);
 	std::vector<unsigned char> packed_fat(kFatSectors * kSectorSize, 0);
 	for (std::size_t entry = 0; entry < kFatEntries; entry += 2) {
@@ -1007,6 +1013,12 @@ bool verify_test_image(const fs::path &source_root) {
 		}
 		return static_cast<std::uint16_t>(value & 0x0fff);
 	};
+	for (std::uint16_t cluster = kFirstReservedFat12Cluster;
+			cluster < 2 + kDataClusters; cluster++) {
+		if (fat_entry(cluster) != 0x0ff0) {
+			return false;
+		}
+	}
 	if ((docs_cluster < 2) || (hello_cluster < 2) ||
 		(fat_entry(docs_cluster) != 0x0fff) ||
 		(fat_entry(hello_cluster) != 0x0fff)) {

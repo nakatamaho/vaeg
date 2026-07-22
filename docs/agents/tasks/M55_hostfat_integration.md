@@ -44,8 +44,8 @@ without changing the 16-bit PC-Engine block-request LBA contract.
   - 65,360 DOS-visible sectors in a 65,536-sector backing image;
   - 4,084 DOS-visible data clusters, remaining below the 4,085-cluster FAT16
     threshold;
-  - allocation only through cluster `0FEFH`, leaving FAT12-reserved cluster
-    identifiers unused.
+  - allocation only through cluster `0FEFH`, with the six geometrically
+    present tail clusters marked reserved in both FAT copies.
 - Report both capacities accurately: the DOS-visible volume is 133,857,280
   bytes (127.65625 MiB), while at most 133,627,904 bytes (127.4375 MiB) of
   cluster payload can be allocated before directory and per-file rounding.
