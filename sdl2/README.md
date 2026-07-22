@@ -82,13 +82,21 @@ initialization.
 
 `--hostfat-dir` enables the read-only HOSTFAT drive for PC-Engine. Before the
 machine starts, vaeg copies the selected directory into an immutable FAT12
-snapshot. The M55 geometry uses 2048-byte sectors and 32 KiB clusters: its
-DOS-visible size is 127.65625 MiB and up to 127.4375 MiB of cluster payload is
+snapshot. The M55 geometry uses 1024-byte sectors and 16 KiB clusters: its
+DOS-visible size is 63.830078125 MiB and up to 63.71875 MiB of cluster payload is
 allocatable before directory and per-file rounding. Valid unique ASCII 8.3
 names are retained (and folded to uppercase); longer, spaced, or Unicode UTF-8
 names receive deterministic 8.3 aliases. Invalid UTF-8, links, special files,
 excessive depth/count, and content that does not fit are rejected rather than
 omitted.
+
+Unpatched PC-Engine reports HOSTFAT free space as if every free FAT entry were
+2 KiB, so `DIR` shows approximately 8 MiB even though 16 KiB cluster reads are
+used. This is a display limitation, not the readable snapshot limit: the G55
+integration check copied byte-identical data from beyond 60 MiB. PC-88VA
+40 MB SASI disks use a separate built-in storage path and likewise demonstrate
+16 KiB FAT12 clusters; 32 KiB clusters are not accepted by this CONFIG.SYS
+driver path.
 
 HOSTFAT can also be enabled persistently under Emulate -> Configure. Selecting
 a folder and pressing OK builds the replacement snapshot on a worker thread,
