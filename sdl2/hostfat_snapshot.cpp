@@ -24,9 +24,11 @@
  */
 #include <algorithm>
 #include <array>
+#include <cerrno>
 #include <chrono>
 #include <cstdio>
 #include <cstdint>
+#include <ctime>
 #include <filesystem>
 #include <fstream>
 #include <memory>
@@ -44,6 +46,8 @@
 #define NOMINMAX
 #endif
 #include <windows.h>
+#else
+#include <sys/stat.h>
 #endif
 
 #include "compiler.h"
@@ -79,12 +83,18 @@ constexpr std::array<unsigned char, 11> kVolumeLabel = {
 	'H', 'O', 'S', 'T', 'F', 'A', 'T', ' ', ' ', ' ', ' '
 };
 
+struct FatTimestamp {
+	std::uint16_t time = 0;
+	std::uint16_t date = 0x0021;
+};
+
 struct Node {
 	fs::path path;
 	std::array<unsigned char, 11> dos_name{};
 	bool directory = false;
 	std::uint32_t size = 0;
 	fs::file_time_type modified_time{};
+	FatTimestamp fat_timestamp{};
 	std::uintmax_t hard_links = 0;
 	std::uint16_t first_cluster = 0;
 	std::uint16_t cluster_count = 0;
@@ -126,6 +136,81 @@ std::uint16_t load_word(const unsigned char *source) {
 
 	return static_cast<std::uint16_t>(source[0] |
 		(static_cast<std::uint16_t>(source[1]) << 8));
+}
+
+FatTimestamp pack_fat_timestamp(int year, int month, int day,
+		int hour, int minute, int second) {
+
+	// FAT stores local civil time without a timezone and with two-second
+	// resolution. Clamp metadata outside the representable 1980--2107 range.
+	if (year < 1980) {
+		return FatTimestamp{};
+	}
+	if (year > 2107) {
+		return FatTimestamp{0xbf7d, 0xff9f};
+	}
+	month = std::clamp(month, 1, 12);
+	day = std::clamp(day, 1, 31);
+	hour = std::clamp(hour, 0, 23);
+	minute = std::clamp(minute, 0, 59);
+	second = std::clamp(second, 0, 59);
+	FatTimestamp result;
+	result.time = static_cast<std::uint16_t>((hour << 11) |
+		(minute << 5) | (second / 2));
+	result.date = static_cast<std::uint16_t>(((year - 1980) << 9) |
+		(month << 5) | day);
+	return result;
+}
+
+bool read_fat_timestamp(const fs::path &path, FatTimestamp &timestamp,
+		std::error_code &error) {
+
+#if defined(_WIN32)
+	const HANDLE handle = CreateFileW(path.c_str(), FILE_READ_ATTRIBUTES,
+		FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr,
+		OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, nullptr);
+	if (handle == INVALID_HANDLE_VALUE) {
+		error = std::error_code(static_cast<int>(GetLastError()),
+			std::system_category());
+		return false;
+	}
+	FILETIME modified{};
+	const BOOL got_time = GetFileTime(handle, nullptr, nullptr, &modified);
+	const DWORD get_time_error = got_time ? ERROR_SUCCESS : GetLastError();
+	CloseHandle(handle);
+	if (!got_time) {
+		error = std::error_code(static_cast<int>(get_time_error),
+			std::system_category());
+		return false;
+	}
+	SYSTEMTIME utc{};
+	SYSTEMTIME local{};
+	if (!FileTimeToSystemTime(&modified, &utc) ||
+		!SystemTimeToTzSpecificLocalTime(nullptr, &utc, &local)) {
+		error = std::error_code(static_cast<int>(GetLastError()),
+			std::system_category());
+		return false;
+	}
+	timestamp = pack_fat_timestamp(local.wYear, local.wMonth, local.wDay,
+		local.wHour, local.wMinute, local.wSecond);
+#else
+	struct stat information{};
+	if (::stat(path.c_str(), &information) != 0) {
+		error = std::error_code(errno, std::generic_category());
+		return false;
+	}
+	std::tm local{};
+	errno = 0;
+	if (localtime_r(&information.st_mtime, &local) == nullptr) {
+		error = std::error_code(errno != 0 ? errno : EOVERFLOW,
+			std::generic_category());
+		return false;
+	}
+	timestamp = pack_fat_timestamp(local.tm_year + 1900, local.tm_mon + 1,
+		local.tm_mday, local.tm_hour, local.tm_min, local.tm_sec);
+#endif
+	error.clear();
+	return true;
 }
 
 bool dos_character(unsigned char value) {
@@ -213,6 +298,20 @@ bool hard_link_count(const fs::path &path, std::uintmax_t &count,
 	return true;
 }
 
+bool capture_timestamp(Node &node, const std::string &name, BuildState &state) {
+
+	std::error_code error;
+	node.modified_time = fs::last_write_time(node.path, error);
+	if (error || !read_fat_timestamp(node.path, node.fat_timestamp, error)) {
+		state.error = "cannot inspect host timestamp: " + name;
+		if (error) {
+			state.error += ": " + error.message();
+		}
+		return false;
+	}
+	return true;
+}
+
 bool sort_and_check_children(Node &node, BuildState &state) {
 
 	std::sort(node.children.begin(), node.children.end(),
@@ -273,6 +372,9 @@ bool scan_directory(Node &node, unsigned depth, BuildState &state) {
 			state.error = "entry is not an ASCII 8.3 name: " + name;
 			return false;
 		}
+		if (!capture_timestamp(*child, name, state)) {
+			return false;
+		}
 		if (child->directory) {
 			if (depth >= kMaximumDepth) {
 				state.error = "host directory exceeds the M54 depth limit";
@@ -291,11 +393,6 @@ bool scan_directory(Node &node, unsigned depth, BuildState &state) {
 				return false;
 			}
 			child->size = static_cast<std::uint32_t>(size);
-			child->modified_time = item.last_write_time(error);
-			if (error) {
-				state.error = "cannot inspect host file timestamp: " + name;
-				return false;
-			}
 			if (!hard_link_count(item.path(), child->hard_links, error)) {
 				state.error = "cannot inspect host file links: " + name;
 				return false;
@@ -372,12 +469,13 @@ void add_chain(const Node &node, std::vector<std::uint16_t> &fat) {
 
 void write_directory_entry(unsigned char *destination,
 		const std::array<unsigned char, 11> &name, unsigned char attributes,
-		std::uint16_t cluster, std::uint32_t size) {
+		std::uint16_t cluster, std::uint32_t size,
+		const FatTimestamp &timestamp) {
 
 	std::copy(name.begin(), name.end(), destination);
 	destination[11] = attributes;
-	store_word(destination + 22, 0);
-	store_word(destination + 24, 0x0021);
+	store_word(destination + 22, timestamp.time);
+	store_word(destination + 24, timestamp.date);
 	store_word(destination + 26, cluster);
 	store_dword(destination + 28, size);
 }
@@ -410,6 +508,22 @@ bool file_identity_is_unchanged(const Node &node, BuildState &state) {
 	if (!hard_link_count(node.path, current_hard_links, error) ||
 		(current_hard_links != node.hard_links) || (current_hard_links != 1)) {
 		state.error = "host file link identity changed while creating snapshot";
+		return false;
+	}
+	return true;
+}
+
+bool directory_identity_is_unchanged(const Node &node, BuildState &state) {
+
+	std::error_code error;
+	const fs::file_status status = fs::symlink_status(node.path, error);
+	if (error || fs::is_symlink(status) || !fs::is_directory(status)) {
+		state.error = "host directory type changed while creating snapshot";
+		return false;
+	}
+	const fs::file_time_type modified_time = fs::last_write_time(node.path, error);
+	if (error || (modified_time != node.modified_time)) {
+		state.error = "host directory timestamp changed while creating snapshot";
 		return false;
 	}
 	return true;
@@ -472,6 +586,9 @@ bool write_stable_file(const Node &node, unsigned char *destination,
 bool write_node(Node &node, std::vector<unsigned char> &image,
 		BuildState &state) {
 
+	if (node.directory && !directory_identity_is_unchanged(node, state)) {
+		return false;
+	}
 	if (node.parent != nullptr) {
 		unsigned char *destination = image.data() + cluster_offset(node.first_cluster);
 		if (node.directory) {
@@ -483,14 +600,15 @@ bool write_node(Node &node, std::vector<unsigned char> &image,
 			dotdot[0] = '.';
 			dotdot[1] = '.';
 			write_directory_entry(destination, dot, 0x10,
-				node.first_cluster, 0);
+				node.first_cluster, 0, node.fat_timestamp);
 			write_directory_entry(destination + 32, dotdot, 0x10,
-				(node.parent->parent == nullptr) ? 0 : node.parent->first_cluster, 0);
+				(node.parent->parent == nullptr) ? 0 : node.parent->first_cluster, 0,
+				node.parent->fat_timestamp);
 			for (std::size_t index = 0; index < node.children.size(); index++) {
 				const Node &child = *node.children[index];
 				write_directory_entry(destination + (index + 2) * 32,
 					child.dos_name, child.directory ? 0x10 : 0x21,
-					child.first_cluster, child.size);
+					child.first_cluster, child.size, child.fat_timestamp);
 			}
 		}
 		else if (!write_stable_file(node, destination, state)) {
@@ -502,7 +620,7 @@ bool write_node(Node &node, std::vector<unsigned char> &image,
 			return false;
 		}
 	}
-	return true;
+	return !node.directory || directory_identity_is_unchanged(node, state);
 }
 
 bool build_image(const fs::path &root_path, std::vector<unsigned char> &image,
@@ -522,6 +640,9 @@ bool build_image(const fs::path &root_path, std::vector<unsigned char> &image,
 	Node root;
 	root.path = canonical;
 	root.directory = true;
+	if (!capture_timestamp(root, canonical.u8string(), state)) {
+		return false;
+	}
 	if (!scan_directory(root, 0, state)) {
 		return false;
 	}
@@ -554,17 +675,38 @@ bool build_image(const fs::path &root_path, std::vector<unsigned char> &image,
 	}
 	unsigned char *root_directory =
 		image.data() + kFatCopies * kFatSectors * kSectorSize;
-	write_directory_entry(root_directory, kVolumeLabel, 0x08, 0, 0);
+	write_directory_entry(root_directory, kVolumeLabel, 0x08, 0, 0,
+		root.fat_timestamp);
 	for (std::size_t index = 0; index < root.children.size(); index++) {
 		const Node &child = *root.children[index];
 		write_directory_entry(root_directory + (index + 1) * 32,
 			child.dos_name, child.directory ? 0x10 : 0x21,
-			child.first_cluster, child.size);
+			child.first_cluster, child.size, child.fat_timestamp);
 	}
 	return write_node(root, image, state);
 }
 
-bool verify_test_image() {
+bool verify_test_image(const fs::path &source_root) {
+
+	std::error_code timestamp_error;
+	FatTimestamp root_timestamp{};
+	FatTimestamp docs_timestamp{};
+	FatTimestamp hello_timestamp{};
+	FatTimestamp readme_timestamp{};
+	if (!read_fat_timestamp(source_root, root_timestamp, timestamp_error) ||
+		!read_fat_timestamp(source_root / "docs", docs_timestamp,
+			timestamp_error) ||
+		!read_fat_timestamp(source_root / "hello.txt", hello_timestamp,
+			timestamp_error) ||
+		!read_fat_timestamp(source_root / "docs" / "readme.txt",
+			readme_timestamp, timestamp_error)) {
+		return false;
+	}
+	auto timestamp_matches = [](const unsigned char *entry,
+			const FatTimestamp &timestamp) {
+		return (load_word(entry + 22) == timestamp.time) &&
+			(load_word(entry + 24) == timestamp.date);
+	};
 
 	std::array<unsigned char, kFatSectors * kSectorSize> first_fat{};
 	std::array<unsigned char, kFatSectors * kSectorSize> second_fat{};
@@ -582,7 +724,7 @@ bool verify_test_image() {
 		return false;
 	}
 	if (!std::equal(kVolumeLabel.begin(), kVolumeLabel.end(), root.begin()) ||
-		(root[11] != 0x08)) {
+		(root[11] != 0x08) || !timestamp_matches(root.data(), root_timestamp)) {
 		return false;
 	}
 	const unsigned char *docs = root.data() + 32;
@@ -595,7 +737,9 @@ bool verify_test_image() {
 	};
 	if (!std::equal(docs_name.begin(), docs_name.end(), docs) ||
 		!std::equal(hello_name.begin(), hello_name.end(), hello) ||
-		(docs[11] != 0x10) || (hello[11] != 0x21)) {
+		(docs[11] != 0x10) || (hello[11] != 0x21) ||
+		!timestamp_matches(docs, docs_timestamp) ||
+		!timestamp_matches(hello, hello_timestamp)) {
 		return false;
 	}
 	const std::uint16_t docs_cluster = load_word(docs + 26);
@@ -634,11 +778,23 @@ bool verify_test_image() {
 	const std::uint16_t readme_cluster = load_word(sector.data() + 64 + 26);
 	return (sector[0] == '.') && (sector[32] == '.') &&
 		(sector[33] == '.') &&
+		timestamp_matches(sector.data(), docs_timestamp) &&
+		timestamp_matches(sector.data() + 32, root_timestamp) &&
 		std::equal(readme_name.begin(), readme_name.end(), sector.begin() + 64) &&
+		timestamp_matches(sector.data() + 64, readme_timestamp) &&
 		(readme_cluster >= 2) && (fat_entry(readme_cluster) == 0x0fff);
 }
 
 bool verify_internal_limits() {
+
+	const FatTimestamp before_fat = pack_fat_timestamp(1979, 12, 31, 23, 59, 59);
+	const FatTimestamp known = pack_fat_timestamp(2026, 7, 22, 12, 34, 57);
+	const FatTimestamp after_fat = pack_fat_timestamp(2108, 1, 1, 0, 0, 0);
+	if ((before_fat.time != 0) || (before_fat.date != 0x0021) ||
+		(known.time != 0x645c) || (known.date != 0x5cf6) ||
+		(after_fat.time != 0xbf7d) || (after_fat.date != 0xff9f)) {
+		return false;
+	}
 
 	std::array<unsigned char, 11> lowercase{};
 	std::array<unsigned char, 11> uppercase{};
@@ -752,7 +908,7 @@ extern "C" BOOL hostfat_snapshot_selftest(void) {
 				message);
 		}
 		if ((first.files != 2) || (first.directories != 1) ||
-			(first.source_bytes != 13) || !verify_test_image()) {
+			(first.source_bytes != 13) || !verify_test_image(root)) {
 			throw std::runtime_error("valid snapshot check failed");
 		}
 		if ((hostfat_snapshot_mount_directory(root.u8string().c_str(), &second,
