@@ -22,9 +22,9 @@ POSSIBILITY OF SUCH DAMAGE.
 -->
 # M55 HOSTFAT integration
 
-Status: corrected implementation validation in progress; G55 PC-Engine and
-standard human gate pending. The focused override interaction is provisionally
-accepted, but G55 has not been declared passed.
+Status: corrected implementation validated locally and by hosted CI. G55
+PC-Engine and standard human gate remain pending. The focused override
+interaction is provisionally accepted, but G55 has not been declared passed.
 
 ## Identity
 
@@ -33,8 +33,8 @@ accepted, but G55 has not been declared passed.
   `e0bafbaa3cc0b12f945e18c231c843fc17ff0392`
 - Current override implementation SHA:
   `40b96acaea8b925873d50c33f6fd3fc52dd71eb1`
-- Pre-correction remote SHA:
-  `a8f6d3da172d815c53ef4ec8d63330b6cb65b67f`
+- Current implementation/documentation and remote SHA:
+  `e021e356185102911563ee9ee70d49637bcdd741`
 - Final and remote SHA: supplied after the corrected validation/report commit.
 
 ## Commits
@@ -55,6 +55,7 @@ accepted, but G55 has not been declared passed.
 14. `1910dc1` — `M55: correct HOSTFAT validation geometry note`
 15. `a8f6d3d` — `M55: record corrected G55 validation`
 16. `40b96ac` — `M55: add explicit HOSTFAT state override`
+17. `e021e35` — `M55: document HOSTFAT state override`
 
 ## Files changed
 
@@ -202,18 +203,18 @@ Unless noted as an expected environmental result, every command below exited
 zero.
 
 ```text
-cmake --preset linux-ci-gcc -B /tmp/vaeg-m55-corrected-gcc --fresh
-cmake --build /tmp/vaeg-m55-corrected-gcc --parallel 2
-ctest --test-dir /tmp/vaeg-m55-corrected-gcc --output-on-failure
+cmake --preset linux-ci-gcc -B /tmp/vaeg-m55-override-gcc --fresh
+cmake --build /tmp/vaeg-m55-override-gcc --parallel 2
+ctest --test-dir /tmp/vaeg-m55-override-gcc --output-on-failure
 
-cmake --preset linux-ci-clang -B /tmp/vaeg-m55-corrected-clang --fresh
-cmake --build /tmp/vaeg-m55-corrected-clang --parallel 2
-ctest --test-dir /tmp/vaeg-m55-corrected-clang --output-on-failure
+cmake --preset linux-ci-clang -B /tmp/vaeg-m55-override-clang --fresh
+cmake --build /tmp/vaeg-m55-override-clang --parallel 2
+ctest --test-dir /tmp/vaeg-m55-override-clang --output-on-failure
 ```
 
 GCC and Clang each passed 35 tests, skipped only the unavailable external
-SingleStepTests corpus test, and had zero failures out of 36 in 22.76 and
-23.10 seconds respectively. These runs cover
+SingleStepTests corpus test, and had zero failures out of 36 in 30.83 and
+31.07 seconds respectively. These runs cover
 the accepted M42--M54 dispatch, trace, ABI, state, REP+0F, protected-state,
 rename, Z80, pacing, I/O-bank, and HOSTFAT gates. In particular, final dispatch
 and accepted provenance artifacts, the 522-case diagnostic-stop suite, state
@@ -221,10 +222,10 @@ payload fixtures, and embedded M43 CI/full expectation summaries remained
 unchanged.
 
 ```text
-cmake --preset linux-ci-asan -B /tmp/vaeg-m55-corrected-asan --fresh
-cmake --build /tmp/vaeg-m55-corrected-asan --parallel 2
+cmake --preset linux-ci-asan -B /tmp/vaeg-m55-override-asan --fresh
+cmake --build /tmp/vaeg-m55-override-asan --parallel 2
 ASAN_OPTIONS=detect_leaks=0 \
-  ctest --test-dir /tmp/vaeg-m55-corrected-asan --output-on-failure \
+  ctest --test-dir /tmp/vaeg-m55-override-asan --output-on-failure \
     --parallel 2
 ```
 
@@ -233,7 +234,7 @@ except the existing trace-equivalence wrapper passed; that wrapper reached its
 old 180-second timeout because it invokes the now larger complete selftest
 three times. M55 raises only that test timeout to 420 seconds. The final
 corrected matrix passed 35 tests, skipped only the external corpus, and had
-zero failures out of 36 in 139.81 seconds; trace equivalence took 129.75
+zero failures out of 36 in 125.31 seconds; trace equivalence took 118.65
 seconds. LeakSanitizer was disabled for the managed environment; address and
 undefined-behavior instrumentation remained enabled.
 
@@ -253,12 +254,12 @@ Wine-only failure occurred.
 
 ```text
 python3 tools/pc88va/hostfat/check_driver.py \
-  --input /tmp/vaeg-m55-corrected-gcc/guest/hostfat.sys
+  --input /tmp/vaeg-m55-override-gcc/guest/hostfat.sys
 python3 tools/repo/check_encoding.py
 python3 tools/repo/check_eol.py
 python3 tools/repo/check_case.py
 python3 tools/repo/find_unreferenced.py
-cmake --preset linux-ci-gcc -B /tmp/vaeg-m55-corrected-no-nasm --fresh \
+cmake --preset linux-ci-gcc -B /tmp/vaeg-m55-override-no-nasm --fresh \
   -DVAEG_NASM_EXECUTABLE=VAEG_NASM_EXECUTABLE-NOTFOUND
 git diff --check
 git diff --name-only e0bafbaa3cc0b12f945e18c231c843fc17ff0392 \
@@ -272,27 +273,27 @@ frozen/binary-payload comparison was empty. The optional-NASM configuration
 also passed while disabling only the generated guest-driver target.
 
 ```text
-cmake --preset linux-release -B /tmp/vaeg-m55-corrected-release --fresh
-cmake --build /tmp/vaeg-m55-corrected-release --parallel 2
+cmake --preset linux-release --fresh
+cmake --build --preset linux-release --parallel 2
 SDL_AUDIODRIVER=dummy SDL_VIDEODRIVER=dummy \
-  /tmp/vaeg-m55-corrected-release/sdl2/vaeg --selftest
+  build/linux-release/sdl2/vaeg --selftest
 SDL_AUDIODRIVER=dummy SDL_VIDEODRIVER=dummy \
-  /tmp/vaeg-m55-corrected-release/sdl2/vaeg --smoke
-readelf --dyn-syms --wide /tmp/vaeg-m55-corrected-release/sdl2/vaeg
+  build/linux-release/sdl2/vaeg --smoke
+readelf --dyn-syms --wide build/linux-release/sdl2/vaeg
 ```
 
 The tests-disabled cache records `VAEG_ENABLE_TESTS=OFF`. The ROM-less
 selftest and headless smoke run passed. Dynamic-symbol filtering found no M55,
 HOSTFAT selftest, snapshot-test, or audit seam exported by the production
 binary. The release executable SHA-256 is
-`d7bb87ef565a9206b390f31e160d50d118f97d3bf4c0d65732ec6f4da2c92967`;
+`06d4effb0b56671ecc7f8347305ed94cba66eeb86aa87cd104b3ed8ca40404ce`;
 the MinGW executable SHA-256 is
-`be93bb4f0b14a936ea326d6a5343c320b253517d89042a46bb036b86a190e808`.
+`a33eeb863fa3ff57cd79a6857f9e2a9189028fa6c109c19ef444fc8c631460e1`.
 
 The final FAT-boundary review additionally marked physical tail-cluster
 entries `0FF0H`--`0FF5H` reserved in both FAT copies. Corrected clean GCC,
 Clang, ASan/UBSan, Linux release, and MinGW builds passed. The three CTest
-matrices completed in 22.76, 23.10, and 139.81 seconds plus successful release
+matrices completed in 30.83, 31.07, and 125.31 seconds plus successful release
 and Wine runs. The snapshot selftest asserts all six packed FAT12 entries
 exactly, requires a 96 KiB file to occupy six 16 KiB clusters, and verifies
 allocation of a marker after a 60 MiB filler.
@@ -301,9 +302,9 @@ allocation of a marker after a 60 MiB filler.
 
 - Tests-disabled Linux release and ROM-less smoke: passed.
 - Dynamic symbol inspection: passed; no M55-only test/audit seam exported.
-- [Hosted run 29900461789](https://github.com/nakatamaho/vaeg/actions/runs/29900461789)
-  tested implementation SHA
-  `1910dc1e7f58a31b18ff7dea5fbc2e02a7e4f981` and completed successfully.
+- [Hosted run 29906518052](https://github.com/nakatamaho/vaeg/actions/runs/29906518052)
+  tested the corrected implementation/documentation SHA
+  `e021e356185102911563ee9ee70d49637bcdd741` and completed successfully.
 - All seven jobs passed: Linux GCC, Linux Clang, ASan/UBSan, Windows
   MSYS2/MinGW64, macOS FetchContent SDL2, standalone Z80 conformance, and
   repository invariants.
