@@ -38,21 +38,25 @@ without changing the 16-bit PC-Engine block-request LBA contract.
 ## Authorized scope
 
 - Use this fixed FAT12-max geometry:
-  - 2048 bytes per logical sector;
-  - 16 sectors per cluster (32 KiB);
+  - 1024 bytes per logical sector;
+  - 16 sectors per cluster (16 KiB);
   - zero reserved sectors, two seven-sector FAT copies, and 128 root entries;
-  - 65,360 DOS-visible sectors in a 65,536-sector backing image;
+  - 65,362 DOS-visible sectors in a 65,536-sector backing image;
   - 4,084 DOS-visible data clusters, remaining below the 4,085-cluster FAT16
     threshold;
   - allocation only through cluster `0FEFH`, with the six geometrically
     present tail clusters marked reserved in both FAT copies.
-- Report both capacities accurately: the DOS-visible volume is 133,857,280
-  bytes (127.65625 MiB), while at most 133,627,904 bytes (127.4375 MiB) of
+- Report both capacities accurately: the DOS-visible volume is 66,930,688
+  bytes (63.830078125 MiB), while at most 66,813,952 bytes (63.71875 MiB) of
   cluster payload can be allocated before directory and per-file rounding.
-- Treat PC-Engine acceptance of the 2048-byte logical sector as a G55 human
-  gate. Historical 128 MB SCSI MO support makes the geometry plausible but is
-  not proof because HOSTFAT uses its own CONFIG.SYS block driver rather than
-  the SCSI storage stack.
+- The G55 human run disproved the original 2048-byte-sector/32 KiB-cluster
+  proposal: a 96 KiB file occupied three FAT entries but PC-Engine copied only
+  6144 bytes. Use the 1024-byte-sector/16 KiB-cluster geometry demonstrated by
+  the PC-88VA 40 MB SASI layout. The corrected HOSTFAT copied all 96 KiB
+  byte-identically and read a marker allocated beyond 60 MiB.
+- Document that unpatched PC-Engine reports free space using 2 KiB per free
+  FAT entry even though 16 KiB cluster reads work. Its approximately 8 MiB
+  `DIR` figure is therefore not the HOSTFAT readable-capacity limit.
 
 - Add an enable switch and host-folder picker to Configure.
 - Persist the setting using the portable executable-local/user-state policy.
@@ -74,16 +78,18 @@ without changing the 16-bit PC-Engine block-request LBA contract.
 - No INT 2FH redirector or dependency on MS-DOS SDA/CDS internals.
 - No live sector synthesis from a directory that can change while mounted.
 - No silent state substitution when snapshot identity does not match.
-- No fallback to a different geometry without reporting the observed
-  PC-Engine incompatibility and obtaining maintainer approval.
+- No further geometry change without reporting the observed PC-Engine
+  behavior and obtaining maintainer approval.
 
 ## Planned G55 human gate
 
 - Configure, persist, restart, rebuild, unmount, and reset the host drive.
 - Confirm UI responsiveness during snapshot creation.
-- Confirm PC-Engine accepts the 2048-byte-sector FAT12-max BPB, reports the
-  expected capacity, and can DIR, TYPE, and COPY a file spanning more than one
-  32 KiB cluster.
+- Confirm PC-Engine accepts the 1024-byte-sector FAT12-max BPB and can DIR,
+  TYPE, and COPY a file spanning more than one 16 KiB cluster.
+- Confirm a marker allocated after at least 60 MiB of preceding file data can
+  be copied byte-identically. Note the known approximately 8 MiB free-space
+  display rather than treating it as the readable capacity.
 - Confirm matching save-state continuation and fail-closed mismatch handling.
 - Repeat root/subdirectory reads and host write-protection checks on Linux and
   Windows, followed by the standard V3/VA-demo/OS gate.

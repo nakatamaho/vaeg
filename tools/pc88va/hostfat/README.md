@@ -55,8 +55,8 @@ Or assemble directly:
 nasm -f bin -o hostfat.sys tools/pc88va/hostfat/hostfat.asm
 ```
 
-The M55 FAT12-max output is 528 bytes with SHA-256
-`74af84b10e2157e3c178e423d80469a81f1ad122bd82eb99520d69d44b6d82f4`.
+The M55 PC-Engine-compatible FAT12-max output is 528 bytes with SHA-256
+`393226edcde6b0cc8648ce9f8b380804c44e2bec7c3d762cb60f0bc211b1767e`.
 
 Copy the generated file to the PC-Engine boot disk and add:
 
@@ -97,20 +97,23 @@ uppercase folding. Other valid UTF-8 host names receive deterministic 8.3
 aliases; duplicate aliases are resolved deterministically. DOS device names,
 invalid UTF-8, links/reparse points, special files, containment escapes, and
 files whose identity or size changes while copied reject the whole rebuild.
-The backing snapshot is fixed at 128 MiB. The driver advertises 65,360 logical
-sectors of 2048 bytes (127.65625 MiB) with 16 sectors per cluster. PC-Engine
+The backing snapshot is fixed at 64 MiB. The driver advertises 65,362 logical
+sectors of 1024 bytes (63.830078125 MiB) with 16 sectors per cluster. PC-Engine
 therefore counts 4084 data clusters and selects FAT12 rather than FAT16. The
-remaining 176 backing sectors are inaccessible through the guest service.
+remaining 174 backing sectors are inaccessible through the guest service.
 The six final FAT12-reserved cluster identifiers are marked reserved in both
-FAT copies, so allocation stops at cluster `0FEFH`: at most 127.4375 MiB of
-cluster payload is available before directory and per-file 32 KiB rounding.
+FAT copies, so allocation stops at cluster `0FEFH`: at most 63.71875 MiB of
+cluster payload is available before directory and per-file 16 KiB rounding.
 
-This 2048-byte-sector geometry deliberately approaches the practical FAT12
-limit while retaining the driver's 16-bit sector number. Historical PC-88VA
-SCSI MO support is not used by HOSTFAT and does not remove the need to verify
-this BPB with PC-Engine at G55. A physical MO normally uses the machine's SCSI
-host-adapter and block-driver stack; HOSTFAT does not emulate SCSI and needs no
-SCSI driver because `HOSTFAT.SYS` itself is the PC-Engine block driver.
+This 1024-byte-sector geometry approaches the practical PC-Engine FAT12 limit
+while retaining the driver's 16-bit sector number. PC-Engine's free-space
+display still multiplies each free FAT entry by 2 KiB, so `DIR` reports about
+8 MiB; a G55 test nevertheless copied byte-identical data allocated beyond
+60 MiB. The rejected 2048-byte-sector/32 KiB geometry truncated a 96 KiB test
+file to 6144 bytes, whereas the corrected 16 KiB geometry copied all 98,304
+bytes. Historical PC-88VA SASI HDD and SCSI MO support use dedicated storage
+paths. HOSTFAT does not emulate either interface: `HOSTFAT.SYS` itself is the
+PC-Engine block driver.
 
 ## Private protocol
 

@@ -50,6 +50,51 @@ separate parity correction or move it to Open Defects.
 
 ## Fixed Defects
 
+### HOSTFAT 32 KiB clusters truncated files under PC-Engine
+
+- **Status:** fixed in the M55 human-gate correction; corrected G55 retest
+  pending.
+- **Symptom:** the proposed 128 MiB HOSTFAT mounted and listed files, but
+  PC-Engine reported only about 8 MiB free. More importantly, copying a
+  generated 96 KiB file produced only 6144 bytes on writable guest media.
+- **Root cause:** M55 used 2048-byte sectors and 16 sectors per cluster, making
+  each FAT entry represent 32 KiB. The PC-Engine CONFIG.SYS block-device path
+  does not accept that cluster size: the three-entry source chain advanced as
+  only 2 KiB per entry. The separate PC-88VA 40 MB SASI layout uses 16 KiB
+  clusters and does not establish 32 KiB support for this driver path.
+- **Correction:** HOSTFAT now uses 1024-byte sectors and 16 sectors per
+  cluster. Its 65,362 visible sectors still yield exactly 4084 FAT12 data
+  clusters; reserved cluster identifiers `0FF0H`--`0FF5H` remain unavailable.
+  The readable payload limit is 63.71875 MiB.
+- **Verification:** a nonzero 96 KiB source copied byte-identically through
+  PC-Engine. A separate 4 KiB marker allocated after a 60 MiB filler also
+  copied byte-identically, proving that PC-Engine's approximately 8 MiB free-
+  space display is not the readable-capacity limit. The snapshot selftest now
+  asserts both allocation boundaries, and the generated-driver checker
+  requires the corrected BPB.
+- **Evidence:** [M55 task](../agents/tasks/M55_hostfat_integration.md) and
+  [M55 report](../agents/reports/m55_hostfat_integration.md).
+- **Commit:** [14157f7d](https://github.com/nakatamaho/vaeg/commit/14157f7d5888bbc6d1e9243f382506a8ced863a8).
+
+### HOSTFAT Browse opened its popup under a different ImGui ID scope
+
+- **Status:** fixed in M55; corrected G55 retest pending.
+- **Symptom:** Configure -> HOSTFAT -> Browse appeared to do nothing on the
+  SDL2 frontend.
+- **Root cause:** the button called `ImGui::OpenPopup` inside the HOSTFAT child
+  region, while `BeginPopupModal` ran later in its parent. ImGui popup IDs are
+  relative to the current ID stack, so those two calls addressed different
+  popup IDs.
+- **Correction:** the child records a one-shot browser request; the parent
+  consumes it and calls `OpenPopup` from the same ID scope as
+  `BeginPopupModal`.
+- **Verification:** GCC, Linux release, and MinGW builds completed, and an
+  Xvfb-driven Configure interaction visibly opened the directory selector
+  with navigation and Select/Cancel controls.
+- **Evidence:** [M55 task](../agents/tasks/M55_hostfat_integration.md) and
+  [M55 report](../agents/reports/m55_hostfat_integration.md).
+- **Commit:** [5e83dfc9](https://github.com/nakatamaho/vaeg/commit/5e83dfc9a7ab47166c7be46a53c9bcf253307676).
+
 ### HOSTFAT discarded host modification timestamps
 
 - **Status:** fixed in the M54 supplemental human-gate correction; maintainer
