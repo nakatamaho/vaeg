@@ -256,19 +256,24 @@ G53 checklist are in `tasks/M53_host_pacing.md`.
 
 M54 adds the first read-only HOSTFAT path for PC-Engine. A session-only command
 line option converts a deliberately constrained host directory into one fixed
-RDBMS-compatible FAT12 snapshot before machine startup. A small CONFIG.SYS
+FAT12 snapshot before machine startup. A small clean-room CONFIG.SYS
 block driver reads that snapshot through the versioned emulator-private
 07EDH/07EFH channel. It is a virtual block disk, not an INT 2FH redirector;
 host changes are not visible until a new emulator session, and all guest write
 commands return write-protect. The exact prototype boundary and G54 checklist
-are in `tasks/M54_hostfat_readonly_prototype.md`.
+are in `tasks/M54_hostfat_readonly_prototype.md`. G54 passed for the original
+driver at `19626dc`, after which its source provenance was found insufficient
+for two-clause BSD redistribution. The independently authored replacement,
+factual contract, and attestation require supplemental human revalidation
+before M55; no history rewrite is part of that correction.
 
-M55 is gated on explicit G54 approval. It will add persistent GUI selection,
+M55 is gated on explicit approval of the clean-room M54 replacement. It will
+add persistent GUI selection,
 snapshot refresh and identity policy, save-state handling, broader deterministic
 8.3 mapping, and the final host-path containment checks. It must retain the
 read-only block-device contract established by M54. Its approved future scope
 is recorded in `tasks/M55_hostfat_integration.md`; no M55 implementation may
-begin before G54.
+begin before the supplemental M54 gate.
 
 ## Gate protocol
 

@@ -32,8 +32,11 @@ implementation or output.
 
 The complete list of informational inputs consulted is:
 
-1. `docs/agents/research/m54_hostfat_cleanroom_spec.md`, read completely from
-   line 1 through line 220.
+1. The 220-line revision of
+   `docs/agents/research/m54_hostfat_cleanroom_spec.md` committed at
+   `53e44dac5f2046c1c2cd5090f4f7464744fecf7e`, read completely. The later
+   explicit CPU-level amendment was made during integration and was not an
+   authorship input.
 2. My pre-existing general knowledge of NASM syntax and NEC V30/8086-family
    real-mode assembly. I did not consult an external manual, web page, example
    driver, or other source while producing this implementation.
@@ -74,3 +77,36 @@ NASM 3.01 assembled `hostfat.asm` successfully as the 512-byte flat binary
 
 Signed-off-by: OpenAI Codex clean-room implementation agent  
 Date: 2026-07-22 (Asia/Tokyo)
+
+## Post-authorship integration audit
+
+The hashes above identify the isolated implementation seed exactly as
+attested; they are not the final integrated source or binary identities. The
+reviewing agent subsequently assembled and disassembled that seed, compared
+only after independent authorship, and performed PC-Engine integration tests.
+
+The seed allowed NASM to select its default CPU. Long conditional branches
+were consequently relaxed to 80386 `0F 84H` encodings. On a V30, `0FH` is not
+the 80386 conditional-jump escape, so sector-command dispatch did not reach
+the intended handler. The integration correction:
+
+- fixes the assembler CPU level at 8086;
+- expresses dispatch as short `JNE` around an 8086 short or near `JMP`; and
+- makes the generated-driver checker reject every `0F 80H`--`0F 8FH`
+  encoding and validate each dispatch edge.
+
+No RDBMS source, superseded HOSTFAT source, or third-party implementation was
+used to express that correction. Its inputs were the NEC V30 execution
+constraint, the independently authored source, its generated disassembly,
+and observed PC-Engine behavior. A separate comparison tested the original
+resident-end ordering with the corrected 8086 dispatch; DIR, TYPE, and COPY
+still passed, so that independently authored ordering was retained.
+
+Final integrated identities:
+
+- `hostfat.asm` SHA-256:
+  `aa91ed4768a789398a63fa26669da843f91c28947b929b1051d542abe8f04788`;
+- generated `hostfat.sys`: 528 bytes, SHA-256
+  `c036b88178f058295eaeedae8c9dffd0bcf13addb13449c307b2fba921a8f675`;
+- integration correction commit:
+  [`bdcbeae89b254dd02b8916104baac81c94f94a4d`](https://github.com/nakatamaho/vaeg/commit/bdcbeae89b254dd02b8916104baac81c94f94a4d).

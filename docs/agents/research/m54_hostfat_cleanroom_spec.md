@@ -37,7 +37,11 @@ assembly knowledge and NASM documentation are permitted.
 ## Build and licensing requirements
 
 - Write a new standalone NASM source for a 16-bit flat binary.
-- The instruction set may require 80186/V30 instructions.
+- Restrict emitted instructions to the 8086-compatible subset implemented by
+  the NEC V30. In particular, do not emit the 80386 `0F 80H`--`0F 8FH` near
+  conditional-jump encodings: V30 assigns the `0FH` space different meanings.
+- Set an explicit NASM CPU level so branch relaxation cannot silently select
+  instructions introduced after the V30.
 - The output is a PC-Engine CONFIG.SYS non-IBM block-device driver.
 - The source must carry the repository-standard two-clause BSD notice with
   `Copyright (c) 2026 Nakata Maho`.
