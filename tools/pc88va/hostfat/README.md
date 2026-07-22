@@ -80,15 +80,21 @@ earlier odd seconds are therefore displayed rounded down. Values outside
 FAT's representable range clamp to `1980-01-01 00:00:00` or
 `2107-12-31 23:59:58`.
 
-The prototype accepts at most 1024 entries and eight directory levels. Every
+The snapshot accepts at most 1024 entries and eight directory levels. Every
 name must fit ASCII 8.3 using letters, digits, `_`, and `-`; lowercase is
 folded to uppercase and folded-name collisions fail the entire mount. The
-backing snapshot is fixed at 8 MiB. The driver advertises 8186 sectors
-(8186 KiB), leaving the final six backing sectors inaccessible so PC-Engine
-counts 4084 data clusters and selects FAT12 rather than FAT16. The final
-FAT12-reserved cluster range is also deliberately left unused, so the maximum
-source payload is smaller and depends on directory and per-file cluster
-rounding.
+backing snapshot is fixed at 128 MiB. The driver advertises 65,360 logical
+sectors of 2048 bytes (127.65625 MiB) with 16 sectors per cluster. PC-Engine
+therefore counts 4084 data clusters and selects FAT12 rather than FAT16. The
+remaining 176 backing sectors are inaccessible through the guest service.
+The final FAT12-reserved cluster identifiers are deliberately left unused, so
+allocation stops at cluster `0FEFH`: at most 127.4375 MiB of cluster payload
+is available before directory and per-file 32 KiB rounding.
+
+This 2048-byte-sector geometry deliberately approaches the practical FAT12
+limit while retaining the driver's 16-bit sector number. Historical PC-88VA
+SCSI MO support is not used by HOSTFAT and does not remove the need to verify
+this BPB with PC-Engine at G55.
 
 ## Private protocol
 
