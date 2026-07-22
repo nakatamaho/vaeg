@@ -22,7 +22,7 @@ POSSIBILITY OF SUCH DAMAGE.
 -->
 # M55: HOSTFAT GUI, save-state identity, and safety finish
 
-Status: **in progress after supplemental G54 approval**
+Status: **implementation and automated validation complete; G55 pending**
 
 The maintainer accepted the clean-room M54 replacement at
 `e0bafbaa3cc0b12f945e18c231c843fc17ff0392`. M55 starts exactly from that
