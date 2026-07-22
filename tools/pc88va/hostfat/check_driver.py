@@ -39,6 +39,24 @@ def require_count(data: bytes, marker: bytes, expected: int, description: str) -
         fail(f"{description} was found {actual} times, expected {expected}")
 
 
+def dispatch_target(data: bytes, command: int) -> tuple[int, int]:
+    marker = bytes((0x3C, command))  # CMP AL, imm8
+    require_count(data, marker, 1, f"command {command:02X}H comparison")
+    branch = data.index(marker) + len(marker)
+    if data[branch] == 0x74:  # JE rel8
+        end = branch + 2
+        displacement = struct.unpack_from("<b", data, branch + 1)[0]
+    elif data[branch : branch + 2] == b"\x0f\x84":  # JE rel16
+        end = branch + 4
+        displacement = struct.unpack_from("<h", data, branch + 2)[0]
+    else:
+        fail(f"command {command:02X}H comparison is not followed by JE")
+    target = end + displacement
+    if not (0 <= target < len(data)):
+        fail(f"command {command:02X}H target is outside the driver")
+    return target, end
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Validate the M54 HOSTFAT.SYS")
     parser.add_argument("--input", type=Path, required=True)
@@ -62,7 +80,7 @@ def main() -> None:
         fail("device-name far pointer is invalid")
     if data[name_offset : name_offset + 8] != b"HOSTFAT\0":
         fail("device name is not HOSTFAT")
-    require_count(data, EXPECTED_BPB, 1, "RDBMS-compatible BPB")
+    require_count(data, EXPECTED_BPB, 1, "PC-Engine HOSTFAT BPB")
     bpb_offset = data.find(EXPECTED_BPB)
     (bytes_per_sector, sectors_per_cluster, reserved_sectors, fat_copies,
      root_entries, total_sectors, _media_id, sectors_per_fat) = (
@@ -98,18 +116,59 @@ def main() -> None:
          "Build-BPB pointer offset at 12H"),
         (b"\x26\xc7\x47\x12" + struct.pack("<H", bpb_pointer_list_offset), 1,
          "initialize BPB-list pointer offset at 12H"),
-        (bytes.fromhex("268c4f14"), 2, "BPB pointer segment at 14H"),
+        (bytes.fromhex("8cc826894714"), 2, "BPB pointer segment at 14H"),
         (bytes.fromhex("26c747120000"), 2, "zero sector-count/BPB offset at 12H"),
         (bytes.fromhex("26c747140000"), 1, "zero BPB segment at 14H"),
         (bytes.fromhex("26c7470e0000"), 1, "resident-end offset at 0EH"),
         (bytes.fromhex("26894710"), 1, "resident-end segment at 10H"),
-        (bytes.fromhex("3c0d"), 1, "open-command comparison"),
-        (bytes.fromhex("3c0e"), 1, "close-command comparison"),
+        (bytes.fromhex("26894703"), 1, "completion status at 03H"),
+        (bytes.fromhex("b80881"), 1, "read-error status 8108H"),
     )
     for marker, expected, description in request_layout_markers:
         require_count(data, marker, expected, description)
 
-    for marker in (b"check_hostfat", b"read_hostfat1", b"H1"):
+    commands = (0x00, 0x01, 0x02, 0x04, 0x08, 0x09, 0x0D, 0x0E, 0x0F)
+    dispatch = {command: dispatch_target(data, command) for command in commands}
+    positions = [data.index(bytes((0x3C, command))) for command in commands]
+    if positions != sorted(positions):
+        fail("command comparisons are not in deterministic dispatch order")
+
+    if dispatch[0x08][0] != dispatch[0x09][0]:
+        fail("write and write-with-verify do not share the protected path")
+    if not data.startswith(bytes.fromhex("b80081"), dispatch[0x08][0]):
+        fail("write path does not return write-protect status 8100H")
+    if dispatch[0x0D][0] != dispatch[0x0E][0]:
+        fail("open and close do not share the successful no-op path")
+    if not data.startswith(bytes.fromhex("b80001"), dispatch[0x0D][0]):
+        fail("open/close path does not return successful status 0100H")
+    if not data.startswith(bytes.fromhex("b80002"), dispatch[0x0F][0]):
+        fail("removable-query path does not return status 0200H")
+    if not data.startswith(bytes.fromhex("b80381"), dispatch[0x0F][1]):
+        fail("unknown-command path does not return status 8103H")
+    if not data.startswith(bytes.fromhex("26c6470e01"), dispatch[0x01][0]):
+        fail("media-check dispatch does not write its result at 0EH")
+    if not data.startswith(bytes.fromhex("26c6470df0"), dispatch[0x02][0]):
+        fail("Build-BPB dispatch does not write media ID F0H at 0DH")
+
+    if len(data) % 16 != 0:
+        fail("resident image is not paragraph aligned")
+    resident_paragraphs = len(data) // 16
+    if resident_paragraphs > 0x7F:
+        fail("resident image exceeds the clean-room imm8 paragraph contract")
+    resident_marker = (
+        bytes.fromhex("8cc883c0") + bytes((resident_paragraphs,))
+        + bytes.fromhex("26894710")
+    )
+    require_count(data, resident_marker, 1, "paragraph-rounded resident end")
+    require_count(data, bytes.fromhex("80fc48"), 1, "protocol signature H comparison")
+    require_count(data, bytes.fromhex("3c31"), 1, "protocol signature 1 comparison")
+
+    for marker in (
+        b"check_hostfat",
+        b"read_hostfat1",
+        b"\r\nHOSTFAT read-only drive ready\r\n\0",
+        b"\r\nHOSTFAT unavailable (start vaeg with --hostfat-dir)\r\n\0",
+    ):
         require_count(data, marker, 1, f"protocol marker {marker!r}")
     digest = hashlib.sha256(data).hexdigest()
     print(f"HOSTFAT.SYS ok: {len(data)} bytes sha256={digest}")
