@@ -158,6 +158,15 @@ MHz on VA2/VA3; the dialog displays the resulting effective SGP clock. OK
 validates and resets through the existing FDD-preserving path. Cancel, Escape,
 and window close discard edits.
 
+The same modal contains the persistent HOSTFAT read-only host-folder setting.
+Browse selects a directory without exposing files as selectable media.
+Rebuild + reset on OK creates the fixed FAT12-max snapshot on a worker thread,
+reports scan/copy/preparation progress, and keeps both the GUI and the old
+mounted snapshot available until the replacement is complete. Commit is an
+atomic pointer swap followed by a guest reset. A build error preserves the old
+mount. Disabling HOSTFAT explicitly unmounts it and resets the guest. Host
+folder changes are never reflected live inside a mounted FAT view.
+
 Screen exposes the persisted No Wait and frame-skip controls. F11 is a
 non-persistent frontend shortcut: while held it selects effective No Wait and
 draw skip 16, then immediately returns to the saved values on release.

@@ -20,7 +20,7 @@ CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE.
 -->
-# HOSTFAT.SYS M54 prototype
+# HOSTFAT.SYS read-only host-folder drive
 
 `HOSTFAT.SYS` is a clean-room PC-Engine CONFIG.SYS block driver distributed
 under the repository's two-clause BSD terms. It exposes the immutable
@@ -55,8 +55,8 @@ Or assemble directly:
 nasm -f bin -o hostfat.sys tools/pc88va/hostfat/hostfat.asm
 ```
 
-The accepted clean-room output is 528 bytes with SHA-256
-`c036b88178f058295eaeedae8c9dffd0bcf13addb13449c307b2fba921a8f675`.
+The M55 FAT12-max output is 528 bytes with SHA-256
+`74af84b10e2157e3c178e423d80469a81f1ad122bd82eb99520d69d44b6d82f4`.
 
 Copy the generated file to the PC-Engine boot disk and add:
 
@@ -64,15 +64,26 @@ Copy the generated file to the PC-Engine boot disk and add:
 DEVICE=HOSTFAT.SYS
 ```
 
-Then start vaeg with a deliberately constrained ASCII 8.3 source tree:
+Then either start vaeg with a source tree for this session:
 
 ```sh
 vaeg --hostfat-dir /path/to/read-only-root
 ```
 
-M54 snapshots are fixed at startup. Changes to the source directory are not
-visible until vaeg is restarted with a newly generated snapshot. GUI,
-persistence, refresh, and save-state identity are deferred to M55.
+or use Emulate -> Configure -> HOSTFAT read-only host folder. The GUI setting
+persists as `HOSTFAT` and `HOSTFATDIR` in `vaeg.cfg`. Browse selects a folder;
+OK builds a complete replacement image on a worker thread. The previous image
+stays mounted while the progress indicator advances. A successful commit is
+atomic and resets the guest so PC-Engine and `HOSTFAT.SYS` re-read the BPB.
+A failed build leaves the old image mounted and reports the precise error.
+Disable HOSTFAT to unmount and reset.
+
+Snapshots never change while mounted. Additions, removals, and modifications
+on the host become visible only after an explicit Rebuild + reset on OK. Save
+states carry the mounted snapshot's SHA-256 identity. A matching image resumes
+normally; a missing or different image rejects the load before any live state
+is modified. States made without HOSTFAT remain loadable when no HOSTFAT image
+is mounted.
 
 Files and directories preserve the host's local last-write time in FAT
 date/time fields. FAT has no timezone and stores seconds in two-second units;
@@ -80,10 +91,13 @@ earlier odd seconds are therefore displayed rounded down. Values outside
 FAT's representable range clamp to `1980-01-01 00:00:00` or
 `2107-12-31 23:59:58`.
 
-The snapshot accepts at most 1024 entries and eight directory levels. Every
-name must fit ASCII 8.3 using letters, digits, `_`, and `-`; lowercase is
-folded to uppercase and folded-name collisions fail the entire mount. The
-backing snapshot is fixed at 128 MiB. The driver advertises 65,360 logical
+The snapshot accepts at most 1024 entries and eight directory levels. A valid,
+unique ASCII 8.3 name using letters, digits, `_`, and `-` is retained after
+uppercase folding. Other valid UTF-8 host names receive deterministic 8.3
+aliases; duplicate aliases are resolved deterministically. DOS device names,
+invalid UTF-8, links/reparse points, special files, containment escapes, and
+files whose identity or size changes while copied reject the whole rebuild.
+The backing snapshot is fixed at 128 MiB. The driver advertises 65,360 logical
 sectors of 2048 bytes (127.65625 MiB) with 16 sectors per cluster. PC-Engine
 therefore counts 4084 data clusters and selects FAT12 rather than FAT16. The
 remaining 176 backing sectors are inaccessible through the guest service.
@@ -94,7 +108,9 @@ is available before directory and per-file 32 KiB rounding.
 This 2048-byte-sector geometry deliberately approaches the practical FAT12
 limit while retaining the driver's 16-bit sector number. Historical PC-88VA
 SCSI MO support is not used by HOSTFAT and does not remove the need to verify
-this BPB with PC-Engine at G55.
+this BPB with PC-Engine at G55. A physical MO normally uses the machine's SCSI
+host-adapter and block-driver stack; HOSTFAT does not emulate SCSI and needs no
+SCSI driver because `HOSTFAT.SYS` itself is the PC-Engine block driver.
 
 ## Private protocol
 
