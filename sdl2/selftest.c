@@ -1625,14 +1625,35 @@ static int test_statsave(void) {
 			ret = STATFLAG_FAILURE;
 		}
 		else {
+			UINT32 mismatched_digest;
+
 			identity_ip = CPU_IP;
 			identity_memory = i286_memoryread(0x0400);
+			mismatched_digest = hostfat_image_digest();
 			ZeroMemory(err, sizeof(err));
 			if ((statsave_check(path1, err, sizeof(err)) != STATFLAG_FAILURE) ||
 				(strstr(err, "HOSTFAT snapshot") == NULL) ||
 				(CPU_IP != identity_ip) ||
 				(i286_memoryread(0x0400) != identity_memory)) {
 				ret = STATFLAG_FAILURE;
+			}
+			ZeroMemory(err, sizeof(err));
+			if (ret == STATFLAG_SUCCESS) {
+				if (statsave_check_hostfat_override(path1, err, sizeof(err)) !=
+						STATFLAG_SUCCESS) {
+					ret = STATFLAG_FAILURE;
+				}
+				else {
+					CPU_IP ^= 0x0100;
+					i286_memorywrite(0x0400, identity_memory ^ 0xff);
+					if ((statsave_load_hostfat_override(path1) !=
+							STATFLAG_SUCCESS) ||
+						(CPU_IP != identity_ip) ||
+						(i286_memoryread(0x0400) != identity_memory) ||
+						(hostfat_image_digest() != mismatched_digest)) {
+						ret = STATFLAG_FAILURE;
+					}
+				}
 			}
 		}
 		hostfat_image[HOSTFAT_SECTOR_SIZE] ^= 0x5a;
