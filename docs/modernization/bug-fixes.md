@@ -50,6 +50,35 @@ separate parity correction or move it to Open Defects.
 
 ## Fixed Defects
 
+### HOSTFAT COPY rejected valid lifecycle requests and misclassified its FAT
+
+- **Status:** fixed in the M54 human-gate correction; remaining G54 media and
+  reset checks pending.
+- **Symptom:** root-directory listing worked, but PC-Engine COPY first reported
+  that the drive's driver could not execute the command. After that rejection
+  was isolated, file copying failed during source reads.
+- **Root cause:** the driver returned unknown-command status `8103H` for the
+  valid `0DH` device-open and `0EH` device-close notifications that bracket
+  COPY. Independently, its 8192-sector BPB described 4087 data clusters,
+  crossing the 4085-cluster FAT12/FAT16 boundary. PC-Engine consequently read
+  the packed FAT12 table as FAT16: cluster 2's successor became `0040H`, and a
+  later packed pair became the invalid source LBA `AE18H`.
+- **Correction:** open and close are explicit successful no-ops; write and
+  write-with-verify remain write-protected. The backing image remains 8192
+  sectors, but the BPB and host service expose only 8186 sectors, yielding
+  exactly 4084 data clusters. The inaccessible final six sectors are rejected
+  by the same pre-transfer range check as every other out-of-range request.
+- **Verification:** the generated-driver checker requires both lifecycle
+  comparisons, decodes the BPB, and fails if its data-cluster count reaches
+  the FAT16 boundary. The ROM-less transport test rejects the first hidden
+  sector without modifying guest memory. In a private live PC-Engine boot,
+  COPY of neutral `TEST.TXT` returned to `Ready`, and destination DIR reported
+  the exact 3958-byte length.
+- **Evidence:** [M54 task](../agents/tasks/M54_hostfat_readonly_prototype.md)
+  and [M54 report](../agents/reports/m54_hostfat_readonly_prototype.md).
+- **Commits:** [bf6896d8](https://github.com/nakatamaho/vaeg/commit/bf6896d801c2d021f44cec43b7070531030c780a),
+  [5faa8ca0](https://github.com/nakatamaho/vaeg/commit/5faa8ca0b04aac954a1da3d08c882c32651a0033).
+
 ### HOSTFAT used an IBM-sized request layout on PC-Engine
 
 - **Status:** fixed in the M54 human-gate correction; G54 PC-Engine retest
