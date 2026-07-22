@@ -50,6 +50,30 @@ separate parity correction or move it to Open Defects.
 
 ## Fixed Defects
 
+### HOSTFAT clean-room dispatch emitted unsupported 80386 branches
+
+- **Status:** fixed in the M54 clean-room provenance correction; supplemental
+  maintainer gate pending.
+- **Symptom:** the independently authored replacement driver initialized far
+  enough for PC-Engine to reach `Ready`, but the first HOSTFAT DIR printed the
+  initialization message and failed to list the snapshot.
+- **Root cause:** NASM's unspecified CPU level relaxed long conditional jumps
+  to the 80386 `0F 84H` encoding. NEC V30 does not decode `0F 84H` as that
+  conditional branch, so the sector-read command did not reach its handler.
+  A same-disk comparison excluded snapshot geometry and host transport; an
+  8086-safe build passed with either tested resident-end ordering.
+- **Correction:** the source fixes NASM at the 8086 CPU level and implements
+  dispatch with short `JNE` plus 8086 `JMP`. The checker decodes all nine
+  command edges and rejects all `0F 80H`--`0F 8FH` encodings.
+- **Verification:** the final 528-byte driver completed root DIR, TYPE, and
+  COPY in a private PC-Engine boot. The 6,780-byte copied file was re-extracted
+  from the temporary D88 and matched its source byte-for-byte and by SHA-256.
+  Clean GCC, Clang, ASan/UBSan, MinGW/Wine, and hosted results are recorded in
+  the clean-room report.
+- **Evidence:** [M54 clean-room report](../agents/reports/m54_hostfat_cleanroom_reimplementation.md)
+  and [clean-room contract](../agents/research/m54_hostfat_cleanroom_spec.md).
+- **Commit:** [bdcbeae8](https://github.com/nakatamaho/vaeg/commit/bdcbeae89b254dd02b8916104baac81c94f94a4d).
+
 ### HOSTFAT COPY rejected valid lifecycle requests and misclassified its FAT
 
 - **Status:** fixed in the M54 human-gate correction; remaining G54 media and

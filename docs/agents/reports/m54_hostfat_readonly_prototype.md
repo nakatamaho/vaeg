@@ -22,9 +22,10 @@ POSSIBILITY OF SUCH DAMAGE.
 -->
 # M54 read-only HOSTFAT prototype
 
-Status: implementation plus local and hosted validation complete; G54
-PC-Engine human gate pending. This report does not declare G54 passed and no
-M55 work has begun.
+Status: the maintainer passed G54 for the functional prototype at
+`19626dc6be4337eb4666181d0a42f0bfcb2f38ce`. A later source-provenance audit
+required a clean-room guest-driver rewrite; its supplemental human gate is
+pending and no M55 work has begun.
 
 The final report/remote SHA is supplied in the handoff because this file
 cannot contain the SHA of the commit that contains itself.
@@ -412,9 +413,10 @@ response to the COPY failure.
   detector was disabled; ASan/UBSan instrumentation remained active.
 - The corrected private live boot proves PC-Engine initialization, INT 83H
   message display, resident-end handling, drive-letter assignment, root DIR,
-  and neutral small-file COPY to a writable RAM disk. Subdirectory DIR/TYPE,
-  copied-byte comparison, write-protect behavior, reset retention, and
-  disabled-mode behavior remain deliberately in the G54 maintainer gate.
+  and neutral small-file COPY to a writable RAM disk. The maintainer later
+  completed subdirectory DIR/TYPE, copied-byte comparison, write protection,
+  reset retention, and disabled-mode checks at G54. Those checks must be
+  repeated for the clean-room binary.
 - The prototype is a fixed startup snapshot. GUI configuration, persistent
   selection, refresh semantics, save-state identity, broader deterministic
   name mapping, and final containment UX are deferred to gated M55.
@@ -423,7 +425,21 @@ response to the COPY failure.
   ordinary source mutation and fails transactionally; users should select a
   stable source tree for snapshot creation.
 
-## G54 human-review checklist
+## Clean-room driver replacement
+
+The original driver was functionally accepted at G54, but its authoring
+process had consulted RDBMS source. It is superseded at the active branch tip
+by a separately authored BSD-2 implementation. The factual contract,
+isolation procedure, attestation, final source/binary hashes, demonstrated
+V30 dispatch correction, private DIR/TYPE/COPY result, distribution boundary,
+and replacement human gate are recorded in the
+[M54 clean-room report](m54_hostfat_cleanroom_reimplementation.md).
+
+The original source remains in published Git history because no history
+rewrite is authorized. M55 remains blocked until the maintainer explicitly
+approves the clean-room replacement.
+
+## Original G54 human-review checklist
 
 - [x] Build from a clean checkout and create a host folder containing only
   ASCII 8.3 files plus one ASCII 8.3 subdirectory.
@@ -433,13 +449,14 @@ response to the COPY failure.
   `HOSTFAT read-only drive ready`.
 - [x] Identify the assigned drive, run root DIR, and copy a neutral small file
   to a writable RAM disk without a HOSTFAT source-read or driver error.
-- [ ] Run DIR in a subdirectory and TYPE a text file.
-- [ ] Compare the copied bytes with the source files.
-- [ ] Attempt create, overwrite, and delete; confirm write-protect and confirm
+- [x] Run DIR in a subdirectory and TYPE a text file.
+- [x] Compare the copied bytes with the source files.
+- [x] Attempt create, overwrite, and delete; confirm write-protect and confirm
   the host folder remains byte-for-byte unchanged.
-- [ ] Reset the guest and confirm the same snapshot remains readable.
-- [ ] Start without `--hostfat-dir`; confirm zero-unit/unavailable behavior and
+- [x] Reset the guest and confirm the same snapshot remains readable.
+- [x] Start without `--hostfat-dir`; confirm zero-unit/unavailable behavior and
   unchanged V3 boot, bundled VA demo, OS, RDBMS, and MSE operation.
 
-G54 passes only when the maintainer explicitly says so. Do not begin M55
-before that approval.
+The maintainer reported this original checklist all green. The clean-room
+replacement checklist in the focused report is a new required approval. Do
+not begin M55 before that supplemental approval.

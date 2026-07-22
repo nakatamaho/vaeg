@@ -22,7 +22,8 @@ POSSIBILITY OF SUCH DAMAGE.
 -->
 # M54: Read-only HOSTFAT prototype
 
-Status: **implementation complete; G54 human gate pending**
+Status: **original implementation passed G54 at `19626dc`; clean-room driver
+replacement complete with supplemental human revalidation pending**
 
 Starting SHA: `e5741b83fe12f121bb2eb955cbd7b8f0d2af61f2`
 
@@ -54,8 +55,9 @@ directory and it never writes to the host.
   07EDH value channel and 07EFH string channel.
 - Validate the complete guest request, LBA range, count, destination range,
   mounted-image state, and protocol version before modifying guest memory.
-- Add an independently written `HOSTFAT.SYS` block driver using the request
-  packet contract demonstrated by RDBMS.
+- Add a clean-room `HOSTFAT.SYS` block driver using the factual request-packet
+  contract recorded in
+  `docs/agents/research/m54_hostfat_cleanroom_spec.md`.
 - Support initialization, media check, Build BPB, read, removable-query, and
   deterministic unsupported-command handling.
 - Return write-protect for write and write-with-verify without invoking the
@@ -98,6 +100,11 @@ directory and it never writes to the host.
   smoke, repository invariant checks, and clean final tracked worktree.
 
 ## Human gate G54
+
+The maintainer passed this gate for the original generated driver at
+`19626dc6be4337eb4666181d0a42f0bfcb2f38ce`. Because the clean-room rewrite
+changes every generated driver binary, repeat items 2--8 for the replacement
+before beginning M55.
 
 1. Build from a clean checkout and create a host folder containing only ASCII
    8.3 files plus one ASCII 8.3 subdirectory.
