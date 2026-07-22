@@ -22,15 +22,17 @@ POSSIBILITY OF SUCH DAMAGE.
 -->
 # M55: HOSTFAT GUI, save-state identity, and safety finish
 
-Status: **blocked on explicit G54 approval**
+Status: **blocked on explicit supplemental approval of the M54 clean-room
+driver replacement**
 
 ## Goal
 
-Turn the accepted M54 read-only block-device prototype into a persistent,
+Turn the accepted M54 read-only block-device prototype, after its clean-room
+driver replacement is reapproved, into a persistent,
 reviewable frontend feature while preserving its immutable snapshot and
 write-protect contract.
 
-## Authorized future scope after G54
+## Authorized future scope after the supplemental M54 gate
 
 - Add an enable switch and host-folder picker to Configure.
 - Persist the setting using the portable executable-local/user-state policy.
@@ -52,7 +54,8 @@ write-protect contract.
 - No INT 2FH redirector or dependency on MS-DOS SDA/CDS internals.
 - No live sector synthesis from a directory that can change while mounted.
 - No silent state substitution when snapshot identity does not match.
-- No M55 implementation before the maintainer explicitly passes G54.
+- No M55 implementation before the maintainer explicitly passes the
+  clean-room replacement gate.
 
 ## Planned G55 human gate
 

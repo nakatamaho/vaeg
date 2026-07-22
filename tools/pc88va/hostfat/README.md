@@ -22,10 +22,18 @@ POSSIBILITY OF SUCH DAMAGE.
 -->
 # HOSTFAT.SYS M54 prototype
 
-`HOSTFAT.SYS` is an independently written PC-Engine CONFIG.SYS block driver.
-It exposes the immutable read-only FAT12 snapshot created by vaeg's
-`--hostfat-dir` option. It does not use INT 2FH redirector internals and never
-sends guest writes to the host.
+`HOSTFAT.SYS` is a clean-room PC-Engine CONFIG.SYS block driver distributed
+under the repository's two-clause BSD terms. It exposes the immutable
+read-only FAT12 snapshot created by vaeg's `--hostfat-dir` option. It does not
+use INT 2FH redirector internals and never sends guest writes to the host.
+
+The implementation was authored from the factual
+[clean-room contract](../../../docs/agents/research/m54_hostfat_cleanroom_spec.md)
+under the recorded
+[input attestation](../../../docs/agents/research/m54_hostfat_cleanroom_attestation.md).
+The final source fixes the NASM CPU level at 8086 so a V30 cannot encounter
+80386 `0F 8x` near conditional-jump encodings. The generated-driver checker
+fails if such an encoding or an unexpected command-dispatch edge appears.
 
 The driver explicitly accepts PC-Engine's open and close lifecycle requests
 as successful no-ops. These notifications bracket operations such as COPY;
@@ -46,6 +54,9 @@ Or assemble directly:
 ```sh
 nasm -f bin -o hostfat.sys tools/pc88va/hostfat/hostfat.asm
 ```
+
+The accepted clean-room output is 528 bytes with SHA-256
+`c036b88178f058295eaeedae8c9dffd0bcf13addb13449c307b2fba921a8f675`.
 
 Copy the generated file to the PC-Engine boot disk and add:
 
