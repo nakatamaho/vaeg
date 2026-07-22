@@ -215,7 +215,12 @@ checking reported zero findings. The unreferenced scan exited zero with the
 established 70 findings and no clean-room M54 source. Diff checking passed,
 and the frozen-reference and binary-payload path comparison was empty.
 
-Hosted CI is recorded below after the branch is pushed.
+Hosted [run 29886944384](https://github.com/nakatamaho/vaeg/actions/runs/29886944384)
+completed successfully at documentation-and-implementation SHA
+`e85400cf6ac15fae1030ff0112dada02ce8d5573`. All seven jobs passed: Ubuntu
+GCC, Ubuntu Clang, Ubuntu ASan/UBSan, Windows MSYS2 MinGW64, macOS
+FetchContent SDL2, standalone Z80 conformance, and repository invariants.
+The final handoff supplies the later CI-record-only remote SHA.
 
 ## Distribution boundary
 
