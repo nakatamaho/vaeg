@@ -205,6 +205,7 @@ struct GuiState {
 	bool pending_hostfat_rebuild = false;
 	bool hostfat_reset_after_build = false;
 	bool hostfat_browser_open = false;
+	bool hostfat_browser_request = false;
 	bool hostfat_browser_refresh = false;
 	std::string hostfat_browser_dir;
 	std::vector<BrowserEntry> hostfat_entries;
@@ -908,12 +909,16 @@ static void open_hostfat_browser(void) {
 	}
 	g_gui.hostfat_browser_dir = absolute_path(start);
 	g_gui.hostfat_browser_open = true;
+	g_gui.hostfat_browser_request = true;
 	g_gui.hostfat_browser_refresh = true;
-	ImGui::OpenPopup("Select HOSTFAT folder##hostfat-browser");
 }
 
 static void draw_hostfat_browser_popup(void) {
 
+	if (g_gui.hostfat_browser_request) {
+		ImGui::OpenPopup("Select HOSTFAT folder##hostfat-browser");
+		g_gui.hostfat_browser_request = false;
+	}
 	if (!g_gui.hostfat_browser_open) {
 		return;
 	}
