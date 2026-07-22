@@ -22,9 +22,9 @@ POSSIBILITY OF SUCH DAMAGE.
 -->
 # M55 HOSTFAT integration
 
-Status: corrected implementation validated locally and by hosted CI. G55
-PC-Engine and standard human gate remain pending. The focused override
-interaction is provisionally accepted, but G55 has not been declared passed.
+Status: corrected implementation validated locally and by hosted CI. The
+maintainer explicitly declared G55 passed on 2026-07-22 after the focused
+PC-Engine HOSTFAT override and standard human-gate checks.
 
 ## Identity
 
@@ -56,6 +56,7 @@ interaction is provisionally accepted, but G55 has not been declared passed.
 15. `a8f6d3d` — `M55: record corrected G55 validation`
 16. `40b96ac` — `M55: add explicit HOSTFAT state override`
 17. `e021e35` — `M55: document HOSTFAT state override`
+18. `710982f` — `M55: record HOSTFAT state override validation`
 
 ## Files changed
 
@@ -338,6 +339,8 @@ allocation of a marker after a 60 MiB filler.
 
 ## G55 human gate
 
+Maintainer result: **passed on 2026-07-22**.
+
 - [ ] From a clean checkout of the reported SHA, build Linux and/or Windows
   release plus `HOSTFAT.SYS`; verify the driver is 528 bytes with SHA-256
   `393226edcde6b0cc8648ce9f8b380804c44e2bec7c3d762cb60f0bc211b1767e`.
@@ -372,5 +375,5 @@ allocation of a marker after a 60 MiB filler.
 - [ ] Complete the standard V3 boot, bundled VA demo, OS boot, keyboard, FDD,
   Sound Board II, save/load, reset, and no-test-seam checks.
 
-The maintainer must explicitly state that G55 passed. No later milestone is
-started by this report.
+G55 was explicitly approved by the maintainer. No later milestone is started
+by this report.
