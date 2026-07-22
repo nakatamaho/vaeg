@@ -80,15 +80,18 @@ sector data is present. Use `none` to make a named drive empty for the session.
 An invalid media path or removed positional argument fails before SDL machine
 initialization.
 
-`--hostfat-dir` enables the M54 read-only HOSTFAT prototype for PC-Engine.
-Before the machine starts, vaeg copies the selected directory into an
-immutable 8 MiB FAT12 snapshot. Source names must already be unique ASCII 8.3
-names; lowercase ASCII is folded to uppercase, while links, special files,
+`--hostfat-dir` enables the read-only HOSTFAT drive for PC-Engine. Before the
+machine starts, vaeg copies the selected directory into an immutable FAT12
+snapshot. The M55 geometry uses 2048-byte sectors and 32 KiB clusters: its
+DOS-visible size is 127.65625 MiB and up to 127.4375 MiB of cluster payload is
+allocatable before directory and per-file rounding. Source names must already
+be unique ASCII 8.3 names; lowercase ASCII is folded to uppercase, while
+links, special files,
 unsupported names, excessive depth/count, and content that does not fit are
 rejected rather than omitted. Host changes made after startup are not visible
 to the guest. Build and install the matching `HOSTFAT.SYS` as described in
-[`tools/pc88va/hostfat/README.md`](../tools/pc88va/hostfat/README.md). The
-prototype has no Configure setting or persistence; those are gated on G54.
+[`tools/pc88va/hostfat/README.md`](../tools/pc88va/hostfat/README.md). M55 also
+adds persistent Configure and explicit snapshot-refresh controls.
 
 All setting and media options are session-only. They are applied after
 `vaeg.cfg` is loaded and restored before its normal shutdown save as long as

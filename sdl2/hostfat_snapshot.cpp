@@ -60,7 +60,7 @@ namespace {
 
 constexpr std::size_t kSectorSize = HOSTFAT_SECTOR_SIZE;
 constexpr std::size_t kTotalSectors = HOSTFAT_TOTAL_SECTORS;
-constexpr std::size_t kSectorsPerCluster = 2;
+constexpr std::size_t kSectorsPerCluster = HOSTFAT_SECTORS_PER_CLUSTER;
 constexpr std::size_t kClusterSize = kSectorSize * kSectorsPerCluster;
 constexpr std::size_t kFatSectors = 7;
 constexpr std::size_t kFatCopies = 2;
@@ -77,6 +77,12 @@ constexpr unsigned kMaximumDepth = 8;
 constexpr unsigned kMaximumEntries = 1024;
 static_assert(kDataClusters < kFat12ClusterLimit,
 	"HOSTFAT DOS-visible geometry must remain FAT12");
+static_assert(kDataClusters == 4084,
+	"HOSTFAT must remain at the maximum FAT12 cluster-count boundary");
+static_assert(kClusterSize == 32768,
+	"HOSTFAT FAT12-max clusters must remain 32 KiB");
+static_assert(HOSTFAT_TOTAL_SECTORS <= UINT16_MAX,
+	"PC-Engine HOSTFAT requests contain a 16-bit starting sector");
 static_assert(HOSTFAT_BACKING_SECTORS >= HOSTFAT_TOTAL_SECTORS,
 	"HOSTFAT backing must contain every DOS-visible sector");
 constexpr std::array<unsigned char, 11> kVolumeLabel = {
@@ -438,7 +444,7 @@ bool assign_clusters(Node &node, std::size_t &next_cluster,
 		if ((clusters > UINT16_MAX) ||
 			(next_cluster + clusters > 2 + kDataClusters) ||
 			(next_cluster + clusters > kFirstReservedFat12Cluster)) {
-			state.error = "host directory does not fit the 8 MiB snapshot";
+			state.error = "host directory does not fit the FAT12-max snapshot";
 			return false;
 		}
 		node.cluster_count = static_cast<std::uint16_t>(clusters);
