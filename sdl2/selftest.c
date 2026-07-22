@@ -37,6 +37,7 @@
 #include	"framedisp.h"
 #include	"hostfat.h"
 #include	"hostfat_snapshot.h"
+#include	"hostfat_manager.h"
 #include	"ini.h"
 #include	"pccore.h"
 #include	"cpucore.h"
@@ -432,9 +433,10 @@ transport_cleanup:
 
 static int test_hostfat_snapshot(void) {
 
-	if (hostfat_snapshot_selftest() != SUCCESS) {
+	if ((hostfat_snapshot_selftest() != SUCCESS) ||
+		(hostfat_manager_selftest() != SUCCESS)) {
 		return(fail("HOSTFAT snapshot",
-				"FAT generation, determinism, or rejection policy failed"));
+				"FAT generation, asynchronous commit, or rejection policy failed"));
 	}
 	fprintf(stderr, "selftest: HOSTFAT snapshot ok\n");
 	return(SUCCESS);

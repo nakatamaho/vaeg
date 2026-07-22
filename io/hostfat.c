@@ -44,6 +44,12 @@ typedef struct {
 	BYTE identity[HOSTFAT_IDENTITY_SIZE];
 } HOSTFAT_STATE;
 
+struct hostfat_prepared_image {
+	BYTE *image;
+	UINT32 digest;
+	BYTE identity[HOSTFAT_IDENTITY_SIZE];
+};
+
 typedef struct {
 	UINT32 state[8];
 	UINT64 bit_count;
@@ -242,26 +248,77 @@ static BOOL sha256_selftest(void) {
 
 BOOL hostfat_mount_image(const void *image, UINT32 size) {
 
-	BYTE *replacement;
-	BYTE *previous;
+	HOSTFAT_PREPARED_IMAGE *prepared;
+	BOOL result;
 
-	if ((image == NULL) || (size != HOSTFAT_IMAGE_SIZE) ||
-		(sha256_selftest() != SUCCESS)) {
+	if (hostfat_prepare_image(image, size, &prepared, NULL) != SUCCESS) {
 		return(FAILURE);
 	}
-	replacement = (BYTE *)_MALLOC(size, "hostfat-image");
+	result = hostfat_commit_prepared_image(prepared);
+	hostfat_destroy_prepared_image(prepared);
+	return(result);
+}
+
+BOOL hostfat_prepare_image(const void *image, UINT32 size,
+		HOSTFAT_PREPARED_IMAGE **prepared, UINT32 *digest) {
+
+	HOSTFAT_PREPARED_IMAGE *replacement;
+
+	if (prepared != NULL) {
+		*prepared = NULL;
+	}
+	if ((image == NULL) || (size != HOSTFAT_IMAGE_SIZE) ||
+		(prepared == NULL) || (sha256_selftest() != SUCCESS)) {
+		return(FAILURE);
+	}
+	replacement = (HOSTFAT_PREPARED_IMAGE *)_MALLOC(sizeof(*replacement),
+		"hostfat-prepared");
 	if (replacement == NULL) {
 		return(FAILURE);
 	}
-	CopyMemory(replacement, image, size);
+	ZeroMemory(replacement, sizeof(*replacement));
+	replacement->image = (BYTE *)_MALLOC(size, "hostfat-image");
+	if (replacement->image == NULL) {
+		_MFREE(replacement);
+		return(FAILURE);
+	}
+	CopyMemory(replacement->image, image, size);
+	replacement->digest = digest_image(replacement->image, size);
+	identify_image(replacement->image, size, replacement->identity);
+	if (digest != NULL) {
+		*digest = replacement->digest;
+	}
+	*prepared = replacement;
+	return(SUCCESS);
+}
+
+BOOL hostfat_commit_prepared_image(HOSTFAT_PREPARED_IMAGE *prepared) {
+
+	BYTE *previous;
+
+	if ((prepared == NULL) || (prepared->image == NULL)) {
+		return(FAILURE);
+	}
 	previous = hostfat_state.image;
-	hostfat_state.image = replacement;
-	hostfat_state.digest = digest_image(replacement, size);
-	identify_image(replacement, size, hostfat_state.identity);
+	hostfat_state.image = prepared->image;
+	hostfat_state.digest = prepared->digest;
+	CopyMemory(hostfat_state.identity, prepared->identity,
+		HOSTFAT_IDENTITY_SIZE);
+	prepared->image = NULL;
 	if (previous != NULL) {
 		_MFREE(previous);
 	}
 	return(SUCCESS);
+}
+
+void hostfat_destroy_prepared_image(HOSTFAT_PREPARED_IMAGE *prepared) {
+
+	if (prepared != NULL) {
+		if (prepared->image != NULL) {
+			_MFREE(prepared->image);
+		}
+		_MFREE(prepared);
+	}
 }
 
 void hostfat_unmount(void) {

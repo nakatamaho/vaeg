@@ -34,12 +34,22 @@ typedef struct {
 	UINT32 digest;
 } HOSTFAT_SNAPSHOT_INFO;
 
+typedef struct hostfat_snapshot_candidate HOSTFAT_SNAPSHOT_CANDIDATE;
+typedef void (*HOSTFAT_SNAPSHOT_PROGRESS)(void *context, const char *phase,
+		UINT64 completed, UINT64 total);
+
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 BOOL hostfat_snapshot_mount_directory(const char *path,
 		HOSTFAT_SNAPSHOT_INFO *info, char *error, UINT error_size);
+BOOL hostfat_snapshot_build_directory(const char *path,
+		HOSTFAT_SNAPSHOT_CANDIDATE **candidate, HOSTFAT_SNAPSHOT_PROGRESS progress,
+		void *progress_context, char *error, UINT error_size);
+BOOL hostfat_snapshot_candidate_mount(HOSTFAT_SNAPSHOT_CANDIDATE *candidate,
+		HOSTFAT_SNAPSHOT_INFO *info, char *error, UINT error_size);
+void hostfat_snapshot_candidate_destroy(HOSTFAT_SNAPSHOT_CANDIDATE *candidate);
 void hostfat_snapshot_unmount(void);
 BOOL hostfat_snapshot_selftest(void);
 
