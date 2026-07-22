@@ -26,7 +26,7 @@ import struct
 from pathlib import Path
 
 
-EXPECTED_BPB = bytes.fromhex("000810000002800050fff0070090")
+EXPECTED_BPB = bytes.fromhex("000410000002800052fff0070090")
 
 
 def fail(message: str) -> None:
@@ -111,8 +111,11 @@ def main() -> None:
             f"DOS-visible geometry has {data_clusters} data clusters, "
             "expected the FAT12 maximum of 4084"
         )
-    if bytes_per_sector * sectors_per_cluster != 32768:
-        fail("FAT12-max geometry does not use 32 KiB clusters")
+    if bytes_per_sector != 1024 or sectors_per_cluster != 16:
+        fail(
+            "PC-Engine geometry does not use 1024-byte sectors and "
+            "16 KiB clusters"
+        )
     bpb_pointer_list_offset = bpb_offset - 2
     if bpb_pointer_list_offset < 15:
         fail("BPB pointer list is outside the driver data area")

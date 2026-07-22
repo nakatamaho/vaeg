@@ -88,8 +88,8 @@ static_assert(kDataClusters == 4084,
 	"HOSTFAT must remain at the maximum FAT12 cluster-count boundary");
 static_assert(2 + kDataClusters == 0x0ff6,
 	"HOSTFAT FAT12-max geometry must expose clusters 002H through 0FF5H");
-static_assert(kClusterSize == 32768,
-	"HOSTFAT FAT12-max clusters must remain 32 KiB");
+static_assert(kClusterSize == 16384,
+	"PC-Engine HOSTFAT clusters must remain 16 KiB");
 static_assert(HOSTFAT_TOTAL_SECTORS <= UINT16_MAX,
 	"PC-Engine HOSTFAT requests contain a 16-bit starting sector");
 static_assert(HOSTFAT_BACKING_SECTORS >= HOSTFAT_TOTAL_SECTORS,
@@ -1093,12 +1093,39 @@ bool verify_internal_limits() {
 		return false;
 	}
 	Node root;
+	auto boundary_file = std::make_unique<Node>();
+	boundary_file->parent = &root;
+	boundary_file->size = 96 * 1024;
+	root.children.push_back(std::move(boundary_file));
+	std::size_t next_cluster = 2;
+	BuildState state;
+	if (!assign_clusters(root, next_cluster, state) ||
+		(root.children[0]->cluster_count != 6)) {
+		return false;
+	}
+	root.children.clear();
+	auto far_filler = std::make_unique<Node>();
+	far_filler->parent = &root;
+	far_filler->size = 60 * 1024 * 1024;
+	root.children.push_back(std::move(far_filler));
+	auto far_marker = std::make_unique<Node>();
+	far_marker->parent = &root;
+	far_marker->size = 4096;
+	root.children.push_back(std::move(far_marker));
+	next_cluster = 2;
+	state = BuildState{};
+	if (!assign_clusters(root, next_cluster, state) ||
+		(root.children[0]->cluster_count != 3840) ||
+		(root.children[1]->first_cluster != 3842)) {
+		return false;
+	}
+	root.children.clear();
 	auto oversized = std::make_unique<Node>();
 	oversized->parent = &root;
 	oversized->size = HOSTFAT_IMAGE_SIZE;
 	root.children.push_back(std::move(oversized));
-	std::size_t next_cluster = 2;
-	BuildState state;
+	next_cluster = 2;
+	state = BuildState{};
 	if (assign_clusters(root, next_cluster, state)) {
 		return false;
 	}
