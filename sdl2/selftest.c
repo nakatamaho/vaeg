@@ -1518,6 +1518,9 @@ static int test_statsave(void) {
 	char	path2[MAX_PATH];
 	char	pathbad[MAX_PATH];
 	char	err[256];
+	BYTE	*hostfat_image;
+	UINT16	identity_ip;
+	BYTE	identity_memory;
 	int		ret;
 #if defined(VAEG_Z80_INTEGRATION_TESTING)
 	static const UINT8 f4_program[] = {0xaf, 0x3e, 0x5a, 0xd3, 0xf4, 0x00};
@@ -1530,6 +1533,7 @@ static int test_statsave(void) {
 	file_delete(path1);
 	file_delete(path2);
 	file_delete(pathbad);
+	hostfat_image = NULL;
 
 	soundmng_initialize();
 	commng_initialize();
@@ -1588,6 +1592,19 @@ static int test_statsave(void) {
 #endif
 
 	if (ret == STATFLAG_SUCCESS) {
+		hostfat_image = (BYTE *)_MALLOC(HOSTFAT_IMAGE_SIZE,
+									"hostfat-state-selftest");
+		if (hostfat_image == NULL) {
+			ret = STATFLAG_FAILURE;
+		}
+		else {
+			ZeroMemory(hostfat_image, HOSTFAT_IMAGE_SIZE);
+			hostfat_image[0] = 0xf0;
+			ret = (hostfat_mount_image(hostfat_image, HOSTFAT_IMAGE_SIZE) ==
+				SUCCESS) ? STATFLAG_SUCCESS : STATFLAG_FAILURE;
+		}
+	}
+	if (ret == STATFLAG_SUCCESS) {
 		ret = statsave_save(path1);
 	}
 #if defined(VAEG_UPD9002_M44_TESTING)
@@ -1599,6 +1616,28 @@ static int test_statsave(void) {
 	if (ret == STATFLAG_SUCCESS) {
 		ZeroMemory(err, sizeof(err));
 		ret = statsave_check(path1, err, sizeof(err));
+	}
+	if (ret == STATFLAG_SUCCESS) {
+		hostfat_image[HOSTFAT_SECTOR_SIZE] ^= 0x5a;
+		if (hostfat_mount_image(hostfat_image, HOSTFAT_IMAGE_SIZE) != SUCCESS) {
+			ret = STATFLAG_FAILURE;
+		}
+		else {
+			identity_ip = CPU_IP;
+			identity_memory = i286_memoryread(0x0400);
+			ZeroMemory(err, sizeof(err));
+			if ((statsave_check(path1, err, sizeof(err)) != STATFLAG_FAILURE) ||
+				(strstr(err, "HOSTFAT snapshot") == NULL) ||
+				(CPU_IP != identity_ip) ||
+				(i286_memoryread(0x0400) != identity_memory)) {
+				ret = STATFLAG_FAILURE;
+			}
+		}
+		hostfat_image[HOSTFAT_SECTOR_SIZE] ^= 0x5a;
+		if ((ret == STATFLAG_SUCCESS) &&
+			(hostfat_mount_image(hostfat_image, HOSTFAT_IMAGE_SIZE) != SUCCESS)) {
+			ret = STATFLAG_FAILURE;
+		}
 	}
 	if ((ret == STATFLAG_SUCCESS) &&
 		(make_statsave_with_unsupported_subcpu(path1, pathbad) != SUCCESS)) {
@@ -1631,6 +1670,10 @@ static int test_statsave(void) {
 	S98_trash();
 	pccore_term();
 	soundmng_deinitialize();
+	hostfat_unmount();
+	if (hostfat_image != NULL) {
+		_MFREE(hostfat_image);
+	}
 
 	if (ret != STATFLAG_SUCCESS) {
 		file_delete(path1);

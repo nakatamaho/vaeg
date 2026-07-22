@@ -41,9 +41,162 @@ enum {
 typedef struct {
 	BYTE *image;
 	UINT32 digest;
+	BYTE identity[HOSTFAT_IDENTITY_SIZE];
 } HOSTFAT_STATE;
 
+typedef struct {
+	UINT32 state[8];
+	UINT64 bit_count;
+	BYTE block[64];
+	UINT block_size;
+} HOSTFAT_SHA256;
+
 static HOSTFAT_STATE hostfat_state;
+
+static const UINT32 sha256_round_constants[64] = {
+	0x428a2f98U, 0x71374491U, 0xb5c0fbcfU, 0xe9b5dba5U,
+	0x3956c25bU, 0x59f111f1U, 0x923f82a4U, 0xab1c5ed5U,
+	0xd807aa98U, 0x12835b01U, 0x243185beU, 0x550c7dc3U,
+	0x72be5d74U, 0x80deb1feU, 0x9bdc06a7U, 0xc19bf174U,
+	0xe49b69c1U, 0xefbe4786U, 0x0fc19dc6U, 0x240ca1ccU,
+	0x2de92c6fU, 0x4a7484aaU, 0x5cb0a9dcU, 0x76f988daU,
+	0x983e5152U, 0xa831c66dU, 0xb00327c8U, 0xbf597fc7U,
+	0xc6e00bf3U, 0xd5a79147U, 0x06ca6351U, 0x14292967U,
+	0x27b70a85U, 0x2e1b2138U, 0x4d2c6dfcU, 0x53380d13U,
+	0x650a7354U, 0x766a0abbU, 0x81c2c92eU, 0x92722c85U,
+	0xa2bfe8a1U, 0xa81a664bU, 0xc24b8b70U, 0xc76c51a3U,
+	0xd192e819U, 0xd6990624U, 0xf40e3585U, 0x106aa070U,
+	0x19a4c116U, 0x1e376c08U, 0x2748774cU, 0x34b0bcb5U,
+	0x391c0cb3U, 0x4ed8aa4aU, 0x5b9cca4fU, 0x682e6ff3U,
+	0x748f82eeU, 0x78a5636fU, 0x84c87814U, 0x8cc70208U,
+	0x90befffaU, 0xa4506cebU, 0xbef9a3f7U, 0xc67178f2U
+};
+
+static UINT32 rotate_right(UINT32 value, UINT count) {
+
+	return((value >> count) | (value << (32 - count)));
+}
+
+static void sha256_transform(HOSTFAT_SHA256 *sha, const BYTE *block) {
+
+	UINT32 words[64];
+	UINT32 a;
+	UINT32 b;
+	UINT32 c;
+	UINT32 d;
+	UINT32 e;
+	UINT32 f;
+	UINT32 g;
+	UINT32 h;
+	UINT32 first;
+	UINT32 second;
+	UINT index;
+
+	for (index=0; index<16; index++) {
+		words[index] = ((UINT32)block[index * 4] << 24) |
+			((UINT32)block[index * 4 + 1] << 16) |
+			((UINT32)block[index * 4 + 2] << 8) |
+			block[index * 4 + 3];
+	}
+	for (index=16; index<64; index++) {
+		first = rotate_right(words[index - 15], 7) ^
+			rotate_right(words[index - 15], 18) ^
+			(words[index - 15] >> 3);
+		second = rotate_right(words[index - 2], 17) ^
+			rotate_right(words[index - 2], 19) ^
+			(words[index - 2] >> 10);
+		words[index] = words[index - 16] + first + words[index - 7] + second;
+	}
+	a = sha->state[0];
+	b = sha->state[1];
+	c = sha->state[2];
+	d = sha->state[3];
+	e = sha->state[4];
+	f = sha->state[5];
+	g = sha->state[6];
+	h = sha->state[7];
+	for (index=0; index<64; index++) {
+		first = h + (rotate_right(e, 6) ^ rotate_right(e, 11) ^
+			rotate_right(e, 25)) + ((e & f) ^ ((~e) & g)) +
+			sha256_round_constants[index] + words[index];
+		second = (rotate_right(a, 2) ^ rotate_right(a, 13) ^
+			rotate_right(a, 22)) + ((a & b) ^ (a & c) ^ (b & c));
+		h = g;
+		g = f;
+		f = e;
+		e = d + first;
+		d = c;
+		c = b;
+		b = a;
+		a = first + second;
+	}
+	sha->state[0] += a;
+	sha->state[1] += b;
+	sha->state[2] += c;
+	sha->state[3] += d;
+	sha->state[4] += e;
+	sha->state[5] += f;
+	sha->state[6] += g;
+	sha->state[7] += h;
+}
+
+static void sha256_initialize(HOSTFAT_SHA256 *sha) {
+
+	static const UINT32 initial[8] = {
+		0x6a09e667U, 0xbb67ae85U, 0x3c6ef372U, 0xa54ff53aU,
+		0x510e527fU, 0x9b05688cU, 0x1f83d9abU, 0x5be0cd19U
+	};
+
+	ZeroMemory(sha, sizeof(*sha));
+	CopyMemory(sha->state, initial, sizeof(initial));
+}
+
+static void sha256_update(HOSTFAT_SHA256 *sha, const BYTE *data, UINT32 size) {
+
+	UINT amount;
+
+	sha->bit_count += (UINT64)size * 8;
+	while (size != 0) {
+		amount = 64 - sha->block_size;
+		if (amount > size) {
+			amount = size;
+		}
+		CopyMemory(sha->block + sha->block_size, data, amount);
+		sha->block_size += amount;
+		data += amount;
+		size -= amount;
+		if (sha->block_size == 64) {
+			sha256_transform(sha, sha->block);
+			sha->block_size = 0;
+		}
+	}
+}
+
+static void sha256_finish(HOSTFAT_SHA256 *sha,
+		BYTE identity[HOSTFAT_IDENTITY_SIZE]) {
+
+	UINT64 bit_count;
+	UINT index;
+
+	bit_count = sha->bit_count;
+	sha->block[sha->block_size++] = 0x80;
+	if (sha->block_size > 56) {
+		ZeroMemory(sha->block + sha->block_size, 64 - sha->block_size);
+		sha256_transform(sha, sha->block);
+		sha->block_size = 0;
+	}
+	ZeroMemory(sha->block + sha->block_size, 56 - sha->block_size);
+	for (index=0; index<8; index++) {
+		sha->block[63 - index] = (BYTE)(bit_count >> (index * 8));
+	}
+	sha256_transform(sha, sha->block);
+	for (index=0; index<8; index++) {
+		identity[index * 4] = (BYTE)(sha->state[index] >> 24);
+		identity[index * 4 + 1] = (BYTE)(sha->state[index] >> 16);
+		identity[index * 4 + 2] = (BYTE)(sha->state[index] >> 8);
+		identity[index * 4 + 3] = (BYTE)sha->state[index];
+	}
+}
 
 static UINT16 load_word(const BYTE *source) {
 
@@ -63,12 +216,37 @@ static UINT32 digest_image(const BYTE *image, UINT32 size) {
 	return(digest);
 }
 
+static void identify_image(const BYTE *image, UINT32 size,
+		BYTE identity[HOSTFAT_IDENTITY_SIZE]) {
+
+	HOSTFAT_SHA256 sha;
+
+	sha256_initialize(&sha);
+	sha256_update(&sha, image, size);
+	sha256_finish(&sha, identity);
+}
+
+static BOOL sha256_selftest(void) {
+
+	static const BYTE expected[HOSTFAT_IDENTITY_SIZE] = {
+		0xba, 0x78, 0x16, 0xbf, 0x8f, 0x01, 0xcf, 0xea,
+		0x41, 0x41, 0x40, 0xde, 0x5d, 0xae, 0x22, 0x23,
+		0xb0, 0x03, 0x61, 0xa3, 0x96, 0x17, 0x7a, 0x9c,
+		0xb4, 0x10, 0xff, 0x61, 0xf2, 0x00, 0x15, 0xad
+	};
+	BYTE actual[HOSTFAT_IDENTITY_SIZE];
+
+	identify_image((const BYTE *)"abc", 3, actual);
+	return(memcmp(actual, expected, sizeof(expected)) ? FAILURE : SUCCESS);
+}
+
 BOOL hostfat_mount_image(const void *image, UINT32 size) {
 
 	BYTE *replacement;
 	BYTE *previous;
 
-	if ((image == NULL) || (size != HOSTFAT_IMAGE_SIZE)) {
+	if ((image == NULL) || (size != HOSTFAT_IMAGE_SIZE) ||
+		(sha256_selftest() != SUCCESS)) {
 		return(FAILURE);
 	}
 	replacement = (BYTE *)_MALLOC(size, "hostfat-image");
@@ -79,6 +257,7 @@ BOOL hostfat_mount_image(const void *image, UINT32 size) {
 	previous = hostfat_state.image;
 	hostfat_state.image = replacement;
 	hostfat_state.digest = digest_image(replacement, size);
+	identify_image(replacement, size, hostfat_state.identity);
 	if (previous != NULL) {
 		_MFREE(previous);
 	}
@@ -101,6 +280,16 @@ BOOL hostfat_is_mounted(void) {
 UINT32 hostfat_image_digest(void) {
 
 	return(hostfat_state.digest);
+}
+
+BOOL hostfat_snapshot_identity(void *identity, UINT size) {
+
+	if ((hostfat_state.image == NULL) || (identity == NULL) ||
+		(size != HOSTFAT_IDENTITY_SIZE)) {
+		return(FAILURE);
+	}
+	CopyMemory(identity, hostfat_state.identity, HOSTFAT_IDENTITY_SIZE);
+	return(SUCCESS);
 }
 
 BOOL hostfat_read_sector(UINT32 sector, void *destination) {
