@@ -50,6 +50,33 @@ separate parity correction or move it to Open Defects.
 
 ## Fixed Defects
 
+### State-load rejection feedback disappeared with the State menu
+
+- **Status:** fixed in the M55 corrected human gate; final G55 retest pending.
+- **Symptom:** after rebuilding a changed HOSTFAT snapshot, selecting an older
+  state correctly refused the load but appeared to do nothing. Reopening the
+  State menu was the only way to find the rejection text.
+- **Root cause:** the SDL2 frontend stored the preflight error in
+  `state_status`, but rendered that string only inside the State menu. Choosing
+  a load slot closes that menu before the next frame, so no rejection feedback
+  remained visible.
+- **Correction:** every rejected state load now opens a root-scope modal and
+  blocks guest input until it is dismissed. When a valid state's only blocking
+  preflight condition is its HOSTFAT identity (apart from the already accepted
+  disk-change warning), the modal offers an explicit `Force load`. That path
+  retains the current HOSTFAT mount state and read-only snapshot and warns that
+  guest-cached FAT, directory, open-file, or file data may differ.
+- **Verification:** Linux and Wine selftests proved strict rejection leaves CPU
+  IP and guest memory unchanged. They also proved the explicit override
+  restores the saved CPU/memory state without changing the currently mounted
+  HOSTFAT digest. A PC-Engine GUI run displayed the mismatch modal, returned to
+  the live guest on cancel, and restored the earlier guest state on explicit
+  force; the maintainer accepted the focused interaction as provisionally
+  passed pending the final G55 gate.
+- **Evidence:** [M55 task](../agents/tasks/M55_hostfat_integration.md) and
+  [M55 report](../agents/reports/m55_hostfat_integration.md).
+- **Commit:** [40b96aca](https://github.com/nakatamaho/vaeg/commit/40b96acaea8b925873d50c33f6fd3fc52dd71eb1).
+
 ### HOSTFAT 32 KiB clusters truncated files under PC-Engine
 
 - **Status:** fixed in the M55 human-gate correction; corrected G55 retest

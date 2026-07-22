@@ -22,19 +22,20 @@ POSSIBILITY OF SUCH DAMAGE.
 -->
 # M55 HOSTFAT integration
 
-Status: implementation and automated validation complete; G55 PC-Engine and
-standard human gate pending. G55 has not been declared passed.
+Status: corrected implementation validation in progress; G55 PC-Engine and
+standard human gate pending. The focused override interaction is provisionally
+accepted, but G55 has not been declared passed.
 
 ## Identity
 
 - Branch: `topic/m55-hostfat-integration`
 - Starting and approved supplemental G54 SHA:
   `e0bafbaa3cc0b12f945e18c231c843fc17ff0392`
-- Hosted-validated implementation SHA:
-  `1910dc1e7f58a31b18ff7dea5fbc2e02a7e4f981`
-- Final and remote SHA: the report-only handoff commit is supplied in the
-  completion message; its parent is the hosted-validated implementation SHA
-  above.
+- Current override implementation SHA:
+  `40b96acaea8b925873d50c33f6fd3fc52dd71eb1`
+- Pre-correction remote SHA:
+  `a8f6d3da172d815c53ef4ec8d63330b6cb65b67f`
+- Final and remote SHA: supplied after the corrected validation/report commit.
 
 ## Commits
 
@@ -52,13 +53,13 @@ standard human gate pending. G55 has not been declared passed.
 12. `5e83dfc` — `M55: fix HOSTFAT folder browser popup`
 13. `063cf7c` — `M55: document PC-Engine HOSTFAT limits`
 14. `1910dc1` — `M55: correct HOSTFAT validation geometry note`
-15. `M55: record corrected G55 validation` — report-only final handoff commit;
-    full SHA supplied in the completion message
+15. `a8f6d3d` — `M55: record corrected G55 validation`
+16. `40b96ac` — `M55: add explicit HOSTFAT state override`
 
 ## Files changed
 
 - Geometry, image ownership, identity, and transport:
-  `io/hostfat.c`, `io/hostfat.h`, `statsave.c`, `statsave.tbl`.
+  `io/hostfat.c`, `io/hostfat.h`, `statsave.c`, `statsave.h`, `statsave.tbl`.
 - Snapshot creation and frontend lifecycle:
   `sdl2/hostfat_snapshot.cpp`, `sdl2/hostfat_snapshot.h`,
   `sdl2/hostfat_manager.cpp`, `sdl2/hostfat_manager.h`, `sdl2/np2.c`,
@@ -158,10 +159,27 @@ State preflight applies this policy before any live subsystem is imported:
 - legacy state without a HOSTFAT section: accept only when HOSTFAT is not
   mounted.
 
+Every rejection is presented in a root-scope modal rather than only in the
+State menu that closes when a slot is selected. Strict matching remains the
+default. If rechecking while bypassing only the valid HOSTFAT identity mismatch
+leaves no blocker except the existing disk-change warning, the modal offers
+`Force load`. The button warns that DOS may retain cached FAT, directory,
+open-file, or file data. It restores the saved guest state while deliberately
+retaining the current HOSTFAT mount state and read-only image; it never tries
+to reconstruct or silently substitute the saved image. Malformed/truncated
+HOSTFAT sections and unrelated preflight failures do not gain this override.
+
 The selftest changes both CPU IP and guest memory before attempting a
-mismatched load and verifies that both remain unchanged after rejection. The
-M44 transactional CPU286/UPD9002 adapter, opaque residue policy, section
-sizes, and CPU_SHUT `FLAGS 0000` behavior are unchanged.
+mismatched load and verifies that both remain unchanged after strict
+rejection. It then changes them again, explicitly overrides the identity,
+requires both values to return to their saved values, and verifies that the
+current HOSTFAT digest remains unchanged. Linux and Wine passed this test. A
+PC-Engine GUI run with neutral A/B snapshots displayed the modal and restored
+the earlier guest clock/state after `Force load`; the maintainer accepted the
+focused interaction as provisionally passed. No private media name, path,
+identity, or screenshot is recorded in Git. The M44 transactional
+CPU286/UPD9002 adapter, opaque residue policy, section sizes, and CPU_SHUT
+`FLAGS 0000` behavior are unchanged.
 
 ## Name mapping and host-path safety
 
@@ -309,6 +327,10 @@ allocation of a marker after a 60 MiB filler.
   16 KiB cluster reads. The byte-identical marker copied from beyond 60 MiB is
   the capacity evidence; changing PC-Engine's display is outside the read-only
   CONFIG.SYS block-device contract.
+- `Force load` is deliberately opt-in. It protects host data because HOSTFAT
+  remains read-only, but guest code can observe inconsistent cached FAT,
+  directory, open-file, or file data if it was using the old snapshot. Normal
+  load therefore remains fail-closed.
 - Real uPD9002 REP+0F semantics remain unknown and unchanged from the accepted
   M48 fail-closed policy. No CPU, timing, memory, DMA, interrupt, I/O, or
   protected-state policy was altered.
@@ -335,8 +357,12 @@ allocation of a marker after a 60 MiB filler.
 - [ ] Add or change a host file and confirm it is invisible before rebuild;
   rebuild, observe the progress/reset, then confirm it appears.
 - [ ] Save and load with the same snapshot and continue operation.
-- [ ] Change/rebuild the snapshot, then load the old state and confirm a clear
-  mismatch error with the running guest left unchanged.
+- [ ] Change/rebuild the snapshot, then load the old state and confirm the
+  modal explains the mismatch. Cancel and confirm the running guest is left
+  unchanged.
+- [ ] Repeat the mismatch, choose `Force load`, confirm the earlier guest state
+  returns, and confirm reads use the current read-only HOSTFAT snapshot rather
+  than silently restoring the saved snapshot.
 - [ ] Confirm create, overwrite, rename, and delete on HOSTFAT return
   write-protect and leave the host tree unchanged.
 - [ ] Disable HOSTFAT and confirm unmount/reset; restart vaeg and confirm the

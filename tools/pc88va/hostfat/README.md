@@ -82,8 +82,13 @@ Snapshots never change while mounted. Additions, removals, and modifications
 on the host become visible only after an explicit Rebuild + reset on OK. Save
 states carry the mounted snapshot's SHA-256 identity. A matching image resumes
 normally; a missing or different image rejects the load before any live state
-is modified. States made without HOSTFAT remain loadable when no HOSTFAT image
-is mounted.
+is modified and opens a visible rejection dialog. The dialog's optional
+`Force load` is explicit rather than automatic: it keeps the current HOSTFAT
+mount state and read-only snapshot, then restores the remaining saved machine
+state. Use it only when accepting the same risk as changing a read-only disk
+while DOS may retain cached FAT, directory, open-file, or file data. Cancel
+continues the current guest unchanged. States made without HOSTFAT remain
+loadable when no HOSTFAT image is mounted.
 
 Files and directories preserve the host's local last-write time in FAT
 date/time fields. FAT has no timezone and stores seconds in two-second units;
