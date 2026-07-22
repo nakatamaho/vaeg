@@ -167,6 +167,13 @@ atomic pointer swap followed by a guest reset. A build error preserves the old
 mount. Disabling HOSTFAT explicitly unmounts it and resets the guest. Host
 folder changes are never reflected live inside a mounted FAT view.
 
+State loads remain strict by default. A missing or different HOSTFAT identity
+opens a modal rejection instead of leaving its error hidden in the closed State
+menu. If every other preflight result is acceptable, the modal offers
+`Force load` with a warning: the current HOSTFAT mount state and read-only
+snapshot remain active while the rest of the saved guest state is restored.
+Cancel leaves the running guest untouched.
+
 Screen exposes the persisted No Wait and frame-skip controls. F11 is a
 non-persistent frontend shortcut: while held it selects effective No Wait and
 draw skip 16, then immediately returns to the saved values on release.
