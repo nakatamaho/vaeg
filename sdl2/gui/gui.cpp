@@ -33,6 +33,7 @@
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
 #include <filesystem>
 #include <iterator>
 #include <string>
@@ -43,6 +44,7 @@
 #include "diskdrv.h"
 #include "dosio.h"
 #include "dropmedia.h"
+#include "hostfat_manager.h"
 #include "fddfile.h"
 #include "keystat.h"
 #include "newdisk.h"
@@ -133,6 +135,9 @@ static const SasiImageChoice kSasiImageChoices[kSasiImageCount] = {
 };
 
 static void reset_guest(void);
+static bool is_directory(const std::string &path);
+static void open_hostfat_browser(void);
+static void draw_hostfat_browser_popup(void);
 
 static std::string state_slot_path(int slot) {
 
@@ -195,6 +200,15 @@ struct GuiState {
 	int pending_sgp_mode = SGP_SPEED_MODEL_DEFAULT;
 	int pending_sgp_multiplier = 1;
 	int pending_pacing_ms = 0;
+	bool pending_hostfat_enabled = false;
+	char pending_hostfat_dir[MAX_PATH] = {};
+	bool pending_hostfat_rebuild = false;
+	bool hostfat_reset_after_build = false;
+	bool hostfat_browser_open = false;
+	bool hostfat_browser_refresh = false;
+	std::string hostfat_browser_dir;
+	std::vector<BrowserEntry> hostfat_entries;
+	std::string hostfat_status;
 	bool bms_config_open = false;
 	bool bms_config_request = false;
 	bool pending_bms_enabled = false;
@@ -261,6 +275,10 @@ static void open_configure_dialog(void) {
 	g_gui.pending_sgp_mode = static_cast<int>(np2cfg.sgp_speed_mode);
 	g_gui.pending_sgp_multiplier = static_cast<int>(np2cfg.sgp_multiplier);
 	g_gui.pending_pacing_ms = static_cast<int>(np2oscfg.pacing_ms);
+	g_gui.pending_hostfat_enabled = np2oscfg.hostfat_enabled != 0;
+	milstr_ncpy(g_gui.pending_hostfat_dir, np2oscfg.hostfat_dir,
+		sizeof(g_gui.pending_hostfat_dir));
+	g_gui.pending_hostfat_rebuild = false;
 	g_gui.configure_open = true;
 	g_gui.configure_request = true;
 }
@@ -291,24 +309,58 @@ static void draw_multiplier_input(const char *label, int *value,
 
 static void apply_configure_dialog(void) {
 
-	const bool changed =
+	const bool clock_changed =
 		(np2cfg.baseclock != PCBASECLOCK40) ||
 		(np2cfg.multiple != static_cast<UINT>(g_gui.pending_cpu_multiplier)) ||
 		(np2cfg.sgp_speed_mode != static_cast<UINT8>(g_gui.pending_sgp_mode)) ||
 		(np2cfg.sgp_multiplier !=
 							static_cast<UINT8>(g_gui.pending_sgp_multiplier)) ||
 		(np2oscfg.pacing_ms != static_cast<UINT16>(g_gui.pending_pacing_ms));
+	const bool hostfat_changed =
+		((np2oscfg.hostfat_enabled != 0) != g_gui.pending_hostfat_enabled) ||
+		(std::strcmp(np2oscfg.hostfat_dir, g_gui.pending_hostfat_dir) != 0);
+	bool reset_done = false;
 
-	if (changed) {
+	if (clock_changed) {
 		np2cfg.baseclock = PCBASECLOCK40;
 		np2cfg.multiple = static_cast<UINT>(g_gui.pending_cpu_multiplier);
 		np2cfg.sgp_speed_mode = static_cast<UINT8>(g_gui.pending_sgp_mode);
 		np2cfg.sgp_multiplier =
 							static_cast<UINT8>(g_gui.pending_sgp_multiplier);
 		np2oscfg.pacing_ms = static_cast<UINT16>(g_gui.pending_pacing_ms);
-		sysmng_update(SYS_UPDATECFG | SYS_UPDATECLOCK);
+		sysmng_update(SYS_UPDATECFG | SYS_UPDATEOSCFG | SYS_UPDATECLOCK);
 		reset_guest();
+		reset_done = true;
 	}
+	if (hostfat_changed || g_gui.pending_hostfat_rebuild) {
+		np2oscfg.hostfat_enabled = g_gui.pending_hostfat_enabled ? 1 : 0;
+		milstr_ncpy(np2oscfg.hostfat_dir, g_gui.pending_hostfat_dir,
+			sizeof(np2oscfg.hostfat_dir));
+		sysmng_update(SYS_UPDATEOSCFG);
+		char error[256]{};
+		if (g_gui.pending_hostfat_enabled) {
+			if (hostfat_manager_rebuild_async(g_gui.pending_hostfat_dir, error,
+					sizeof(error)) == SUCCESS) {
+				g_gui.hostfat_status = "Building immutable HOSTFAT snapshot...";
+				g_gui.hostfat_reset_after_build = true;
+			}
+			else {
+				g_gui.hostfat_status = "HOSTFAT rebuild failed to start: ";
+				g_gui.hostfat_status += error;
+			}
+		}
+		else if (hostfat_manager_unmount(error, sizeof(error)) == SUCCESS) {
+			g_gui.hostfat_status = "HOSTFAT unmounted.";
+			if (!reset_done) {
+				reset_guest();
+			}
+		}
+		else {
+			g_gui.hostfat_status = "HOSTFAT unmount failed: ";
+			g_gui.hostfat_status += error;
+		}
+	}
+	g_gui.pending_hostfat_rebuild = false;
 	g_gui.configure_open = false;
 	ImGui::CloseCurrentPopup();
 }
@@ -325,7 +377,7 @@ static void draw_configure_dialog(void) {
 	const ImGuiViewport *viewport = ImGui::GetMainViewport();
 	ImGui::SetNextWindowPos(viewport->GetCenter(), ImGuiCond_Appearing,
 												ImVec2(0.5f, 0.5f));
-	ImGui::SetNextWindowSize(ImVec2(420.0f, 415.0f), ImGuiCond_Appearing);
+	ImGui::SetNextWindowSize(ImVec2(560.0f, 650.0f), ImGuiCond_Appearing);
 	if (ImGui::BeginPopupModal("Configure##clock-config",
 										&g_gui.configure_open,
 										ImGuiWindowFlags_NoResize |
@@ -338,7 +390,14 @@ static void draw_configure_dialog(void) {
 			(g_gui.pending_sgp_mode != SGP_SPEED_CUSTOM) ||
 			sgp_speed_multiplier_valid(
 								static_cast<UINT>(g_gui.pending_sgp_multiplier));
-		const bool valid = cpu_valid && sgp_mode_valid && sgp_multiplier_valid;
+		const bool hostfat_valid = !g_gui.pending_hostfat_enabled ||
+			is_directory(g_gui.pending_hostfat_dir);
+		HOSTFAT_MANAGER_STATUS hostfat_manager_status{};
+		hostfat_manager_get_status(&hostfat_manager_status);
+		const bool hostfat_idle =
+			hostfat_manager_status.state != HOSTFAT_MANAGER_BUILDING;
+		const bool valid = cpu_valid && sgp_mode_valid && sgp_multiplier_valid &&
+			hostfat_valid && hostfat_idle;
 
 		if (ImGui::BeginChild("cpu-config", ImVec2(0.0f, 145.0f), true,
 												ImGuiWindowFlags_NoScrollbar)) {
@@ -408,6 +467,40 @@ static void draw_configure_dialog(void) {
 			g_gui.pending_pacing_ms = VAEG_PACING_MS_MAX;
 		}
 
+		if (ImGui::BeginChild("hostfat-config", ImVec2(0.0f, 175.0f), true,
+											ImGuiWindowFlags_NoScrollbar)) {
+			ImGui::TextUnformatted("HOSTFAT read-only host folder");
+			ImGui::Separator();
+			ImGui::Checkbox("Enable HOSTFAT", &g_gui.pending_hostfat_enabled);
+			ImGui::SetNextItemWidth(-92.0f);
+			ImGui::InputText("##hostfat-dir", g_gui.pending_hostfat_dir,
+				sizeof(g_gui.pending_hostfat_dir));
+			ImGui::SameLine();
+			if (ImGui::Button("Browse...", ImVec2(84.0f, 0.0f))) {
+				open_hostfat_browser();
+			}
+			if (ImGui::Button("Rebuild + reset on OK")) {
+				g_gui.pending_hostfat_rebuild = true;
+			}
+			ImGui::SameLine();
+			ImGui::TextDisabled("FAT12 max: 127.44 MiB usable");
+			if (hostfat_manager_status.state == HOSTFAT_MANAGER_BUILDING) {
+				const float fraction = (hostfat_manager_status.total != 0) ?
+					static_cast<float>(static_cast<double>(
+						hostfat_manager_status.completed) /
+						static_cast<double>(hostfat_manager_status.total)) : 0.0f;
+				ImGui::ProgressBar(std::clamp(fraction, 0.0f, 1.0f),
+					ImVec2(-1.0f, 0.0f), hostfat_manager_status.phase);
+			}
+			else if (hostfat_manager_status.message[0] != '\0') {
+				ImGui::TextWrapped("%s", hostfat_manager_status.message);
+			}
+			else {
+				ImGui::TextDisabled("%s", hostfat_manager_status.phase);
+			}
+		}
+		ImGui::EndChild();
+
 		if (!cpu_valid) {
 			ImGui::TextUnformatted("Multiplier must be between 1 and 32.");
 		}
@@ -416,6 +509,12 @@ static void draw_configure_dialog(void) {
 		}
 		else if (!sgp_multiplier_valid) {
 			ImGui::TextUnformatted("SGP multiplier must be between 1 and 16.");
+		}
+		else if (!hostfat_valid) {
+			ImGui::TextUnformatted("Select an existing HOSTFAT directory.");
+		}
+		else if (!hostfat_idle) {
+			ImGui::TextUnformatted("Wait for the current HOSTFAT build to finish.");
 		}
 
 		const float button_width = 88.0f;
@@ -432,6 +531,7 @@ static void draw_configure_dialog(void) {
 			g_gui.configure_open = false;
 			ImGui::CloseCurrentPopup();
 		}
+		draw_hostfat_browser_popup();
 		ImGui::EndPopup();
 	}
 }
@@ -767,6 +867,99 @@ static void refresh_hdd_browser(void) {
 	std::sort(g_gui.hdd_entries.begin(), g_gui.hdd_entries.end(),
 			  browser_entry_less);
 	g_gui.hdd_browser_refresh = false;
+}
+
+static void refresh_hostfat_browser(void) {
+
+	std::error_code ec;
+	g_gui.hostfat_entries.clear();
+	if (!is_directory(g_gui.hostfat_browser_dir)) {
+		g_gui.hostfat_browser_dir = home_dir();
+	}
+	for (const auto &entry :
+		 fs::directory_iterator(fs::u8path(g_gui.hostfat_browser_dir), ec)) {
+		if (ec) {
+			break;
+		}
+		std::error_code status_error;
+		const fs::file_status status = entry.symlink_status(status_error);
+		if (status_error || fs::is_symlink(status) || !fs::is_directory(status)) {
+			continue;
+		}
+		BrowserEntry item;
+		item.is_dir = true;
+		item.name = entry.path().filename().u8string();
+		item.path = entry.path().u8string();
+		if (item.name.empty() || (item.name[0] == '.')) {
+			continue;
+		}
+		g_gui.hostfat_entries.push_back(std::move(item));
+	}
+	std::sort(g_gui.hostfat_entries.begin(), g_gui.hostfat_entries.end(),
+		browser_entry_less);
+	g_gui.hostfat_browser_refresh = false;
+}
+
+static void open_hostfat_browser(void) {
+
+	std::string start = g_gui.pending_hostfat_dir;
+	if (!is_directory(start)) {
+		start = home_dir();
+	}
+	g_gui.hostfat_browser_dir = absolute_path(start);
+	g_gui.hostfat_browser_open = true;
+	g_gui.hostfat_browser_refresh = true;
+	ImGui::OpenPopup("Select HOSTFAT folder##hostfat-browser");
+}
+
+static void draw_hostfat_browser_popup(void) {
+
+	if (!g_gui.hostfat_browser_open) {
+		return;
+	}
+	const ImGuiViewport *viewport = ImGui::GetMainViewport();
+	ImGui::SetNextWindowPos(viewport->GetCenter(), ImGuiCond_Appearing,
+		ImVec2(0.5f, 0.5f));
+	ImGui::SetNextWindowSize(ImVec2(620.0f, 480.0f), ImGuiCond_Appearing);
+	if (ImGui::BeginPopupModal("Select HOSTFAT folder##hostfat-browser",
+			&g_gui.hostfat_browser_open, ImGuiWindowFlags_NoCollapse)) {
+		if (g_gui.hostfat_browser_refresh) {
+			refresh_hostfat_browser();
+		}
+		ImGui::TextWrapped("%s", g_gui.hostfat_browser_dir.c_str());
+		if (ImGui::Button("Up")) {
+			g_gui.hostfat_browser_dir = parent_dir(g_gui.hostfat_browser_dir);
+			g_gui.hostfat_browser_refresh = true;
+		}
+		ImGui::SameLine();
+		if (ImGui::Button("Refresh")) {
+			g_gui.hostfat_browser_refresh = true;
+		}
+		if (ImGui::BeginChild("hostfat-directory-list", ImVec2(0, 330.0f),
+				ImGuiChildFlags_Borders)) {
+			for (const BrowserEntry &entry : g_gui.hostfat_entries) {
+				const std::string label = "[D] " + entry.name;
+				if (ImGui::Selectable(label.c_str())) {
+					g_gui.hostfat_browser_dir = entry.path;
+					g_gui.hostfat_browser_refresh = true;
+				}
+			}
+		}
+		ImGui::EndChild();
+		if (ImGui::Button("Select this folder")) {
+			copy_path(g_gui.pending_hostfat_dir,
+				sizeof(g_gui.pending_hostfat_dir), g_gui.hostfat_browser_dir);
+			g_gui.hostfat_browser_open = false;
+			ImGui::CloseCurrentPopup();
+		}
+		ImGui::SameLine();
+		if (ImGui::Button("Cancel##hostfat-folder") ||
+			ImGui::IsKeyPressed(ImGuiKey_Escape)) {
+			g_gui.hostfat_browser_open = false;
+			ImGui::CloseCurrentPopup();
+		}
+		ImGui::EndPopup();
+	}
 }
 
 static void persist_fdd_dir(const std::string &dir) {
@@ -2669,6 +2862,7 @@ BOOL gui_guest_keyboard_blocked(void) {
 		return TRUE;
 	}
 	return (g_gui.fdd_browser_open || g_gui.hdd_browser_open ||
+			g_gui.hostfat_browser_open ||
 			g_gui.new_fdd_open || g_gui.new_sasi_open ||
 			g_gui.keyboard_config_open || g_gui.configure_open ||
 			g_gui.bms_config_open ||
@@ -2685,6 +2879,7 @@ BOOL gui_guest_mouse_blocked(void) {
 		return TRUE;
 	}
 	return (g_gui.fdd_browser_open || g_gui.hdd_browser_open ||
+			g_gui.hostfat_browser_open ||
 			g_gui.new_fdd_open || g_gui.new_sasi_open ||
 			g_gui.keyboard_config_open || g_gui.configure_open ||
 			g_gui.bms_config_open ||
@@ -2707,6 +2902,23 @@ void gui_draw(void) {
 
 	if (!g_gui.initialized) {
 		return;
+	}
+	const UINT hostfat_event = hostfat_manager_poll();
+	if (hostfat_event == HOSTFAT_MANAGER_EVENT_MOUNTED) {
+		HOSTFAT_MANAGER_STATUS status{};
+		hostfat_manager_get_status(&status);
+		g_gui.hostfat_status = status.message;
+		if (g_gui.hostfat_reset_after_build) {
+			g_gui.hostfat_reset_after_build = false;
+			reset_guest();
+		}
+	}
+	else if (hostfat_event == HOSTFAT_MANAGER_EVENT_FAILED) {
+		HOSTFAT_MANAGER_STATUS status{};
+		hostfat_manager_get_status(&status);
+		g_gui.hostfat_status = "HOSTFAT rebuild failed: ";
+		g_gui.hostfat_status += status.message;
+		g_gui.hostfat_reset_after_build = false;
 	}
 	if (ImGui::BeginMainMenuBar()) {
 		draw_emulate_menu();
