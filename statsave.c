@@ -1371,7 +1371,8 @@ static int flagsave_hostfat(STFLAGH sfh, const SFENTRY *tbl) {
 	return(statflag_write(sfh, payload, sizeof(payload)));
 }
 
-static int flagcheck_hostfat(STFLAGH sfh, const SFENTRY *tbl) {
+static int flagcheck_hostfat(STFLAGH sfh, const SFENTRY *tbl,
+		BOOL allow_identity_mismatch) {
 
 	BYTE payload[HOSTFAT_STATE_SIZE];
 	BYTE current[HOSTFAT_IDENTITY_SIZE];
@@ -1397,6 +1398,9 @@ static int flagcheck_hostfat(STFLAGH sfh, const SFENTRY *tbl) {
 	saved_mounted = payload[1] ? TRUE : FALSE;
 	current_mounted = hostfat_is_mounted();
 	if (saved_mounted != current_mounted) {
+		if (allow_identity_mismatch) {
+			return(STATFLAG_SUCCESS);
+		}
 		statflag_seterr(sfh,
 			"HOSTFAT snapshot is missing or differs from the saved state");
 		return(STATFLAG_FAILURE);
@@ -1405,6 +1409,9 @@ static int flagcheck_hostfat(STFLAGH sfh, const SFENTRY *tbl) {
 		if ((hostfat_snapshot_identity(current, sizeof(current)) != SUCCESS) ||
 			memcmp(current, payload + HOSTFAT_STATE_IDENTITY_OFFSET,
 				HOSTFAT_IDENTITY_SIZE)) {
+			if (allow_identity_mismatch) {
+				return(STATFLAG_SUCCESS);
+			}
 			statflag_seterr(sfh,
 				"HOSTFAT snapshot is missing or differs from the saved state");
 			return(STATFLAG_FAILURE);
@@ -1572,7 +1579,8 @@ const SFENTRY	*tblterm;
 	return(ret);
 }
 
-int statsave_check(const char *filename, char *buf, int size) {
+static int statsave_check_internal(const char *filename, char *buf, int size,
+		BOOL allow_hostfat_mismatch) {
 
 	SFFILEH		sffh;
 	int			ret;
@@ -1615,7 +1623,8 @@ const SFENTRY	*tblterm;
 
 				case STATFLAG_HOSTFAT:
 					hostfat_seen = TRUE;
-					ret |= flagcheck_hostfat(&sffh->sfh, tbl);
+					ret |= flagcheck_hostfat(&sffh->sfh, tbl,
+						allow_hostfat_mismatch);
 					break;
 
 				case STATFLAG_TERM:
@@ -1664,7 +1673,19 @@ const SFENTRY	*tblterm;
 	return(ret);
 }
 
-int statsave_load(const char *filename) {
+int statsave_check(const char *filename, char *buf, int size) {
+
+	return(statsave_check_internal(filename, buf, size, FALSE));
+}
+
+int statsave_check_hostfat_override(const char *filename, char *buf,
+		int size) {
+
+	return(statsave_check_internal(filename, buf, size, TRUE));
+}
+
+static int statsave_load_internal(const char *filename,
+		BOOL allow_hostfat_mismatch) {
 
 	SFFILEH		sffh;
 	char		error[256];
@@ -1674,7 +1695,8 @@ const SFENTRY	*tbl;
 const SFENTRY	*tblterm;
 
 	error[0] = '\0';
-	ret = statsave_check(filename, error, sizeof(error));
+	ret = statsave_check_internal(filename, error, sizeof(error),
+		allow_hostfat_mismatch);
 	if (ret == STATFLAG_FAILURE) {
 		return(STATFLAG_FAILURE);
 	}
@@ -1842,6 +1864,16 @@ const SFENTRY	*tblterm;
 	soundmng_play();
 
 	return(ret);
+}
+
+int statsave_load(const char *filename) {
+
+	return(statsave_load_internal(filename, FALSE));
+}
+
+int statsave_load_hostfat_override(const char *filename) {
+
+	return(statsave_load_internal(filename, TRUE));
 }
 
 #if defined(VAEG_EXT)
