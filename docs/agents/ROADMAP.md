@@ -91,8 +91,8 @@ M36–M41 archive status.
 | M51 | tasks/M51_upd9002_rename.md | Perform pure uPD9002 moves, public API renames, and final repository guards | **G51 human** |
 | M52 | tasks/M52_io_bank_memory.md | Restore portable I/O Bank Memory configuration and correct bank-zero main-RAM pass-through | **G52 passed** |
 | M53 | tasks/M53_host_pacing.md | Add configurable non-blocking host pacing that slows guest execution without slowing the UI | **G53 passed** |
-| M54 | tasks/M54_hostfat_readonly_prototype.md | Add a session-only read-only HOSTFAT block-device prototype backed by a fixed FAT snapshot | **G54 human** |
-| M55 | tasks/M55_hostfat_integration.md | Add HOSTFAT GUI/configuration, save-state identity, refresh policy, and hardened host-path handling | **G55 human; after G54** |
+| M54 | tasks/M54_hostfat_readonly_prototype.md | Add a session-only read-only HOSTFAT block-device prototype backed by a fixed FAT snapshot | **G54 passed** |
+| M55 | tasks/M55_hostfat_integration.md | Add FAT12-max HOSTFAT geometry, GUI/configuration, save-state identity, refresh policy, and hardened host-path handling | **G55 human; in progress** |
 
 Phase 2 dependencies: M7 → M8 → {M9, M10 parallel} → M11 → M12 → M13.
 Post-phase dependency: M13 → M14 → M15 → M16 → M17 → M18 → M19 → M20 → M21 → M22 → M23 → M24 → M25 → M26 → M27 → M28 → M29 → M30 → M31 → M32. The required Z80 migration sequence M34 → M35 → M36 → M37 → M38 → M39 → M40 → M41 is complete. The separately authorized uPD9002 sequence has passed G42 through G50 and is now at M51. The accepted M47 pre-implementation audit disproved the old assumption that REP-prefixed 0x0F could not reach NP2 80286 system handlers. M47 therefore collected correctness evidence, M48 installed the approved fail-closed policy, and M49/M50 audited and removed only the explicitly approved dependency-closed groups.
@@ -265,15 +265,19 @@ are in `tasks/M54_hostfat_readonly_prototype.md`. G54 passed for the original
 driver at `19626dc`, after which its source provenance was found insufficient
 for two-clause BSD redistribution. The independently authored replacement,
 factual contract, and attestation require supplemental human revalidation
-before M55; no history rewrite is part of that correction.
+before M55; no history rewrite is part of that correction. The maintainer
+accepted the clean-room replacement and its supplemental gate at
+`e0bafbaa3cc0b12f945e18c231c843fc17ff0392`.
 
-M55 is gated on explicit approval of the clean-room M54 replacement. It will
-add persistent GUI selection,
-snapshot refresh and identity policy, save-state handling, broader deterministic
-8.3 mapping, and the final host-path containment checks. It must retain the
-read-only block-device contract established by M54. Its approved future scope
-is recorded in `tasks/M55_hostfat_integration.md`; no M55 implementation may
-begin before the supplemental M54 gate.
+M55 adds persistent GUI selection, snapshot refresh and identity policy,
+save-state handling, broader deterministic 8.3 mapping, and the final
+host-path containment checks. It also expands the fixed image to the practical
+FAT12 limit: 2048-byte logical sectors, 32 KiB clusters, 4084 DOS-visible data
+clusters, and at most 127.4375 MiB of allocatable cluster payload. The
+read-only block-device contract established by M54 remains unchanged.
+PC-Engine acceptance of the 2048-byte logical sector is an explicit G55 human
+gate; historical SCSI MO support is supporting context, not proof for this
+independent CONFIG.SYS driver path.
 
 ## Gate protocol
 
