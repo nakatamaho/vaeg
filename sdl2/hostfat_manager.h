@@ -22,44 +22,49 @@
  * IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-#ifndef VAEG_IO_HOSTFAT_H
-#define VAEG_IO_HOSTFAT_H
+#ifndef VAEG_SDL2_HOSTFAT_MANAGER_H
+#define VAEG_SDL2_HOSTFAT_MANAGER_H
 
 #include "compiler.h"
-
-#define HOSTFAT_SECTOR_SIZE 2048U
-#define HOSTFAT_SECTORS_PER_CLUSTER 16U
-#define HOSTFAT_TOTAL_SECTORS 65360U
-#define HOSTFAT_BACKING_SECTORS 65536U
-#define HOSTFAT_IMAGE_SIZE (HOSTFAT_SECTOR_SIZE * HOSTFAT_BACKING_SECTORS)
-#define HOSTFAT_VOLUME_SIZE (HOSTFAT_SECTOR_SIZE * HOSTFAT_TOTAL_SECTORS)
-#define HOSTFAT_PROTOCOL_SIGNATURE "H1"
-#define HOSTFAT_IDENTITY_SIZE 32U
-
-typedef struct hostfat_prepared_image HOSTFAT_PREPARED_IMAGE;
+#include "hostfat_snapshot.h"
 
 enum {
-	HOSTFAT_RESULT_OK = 0,
-	HOSTFAT_RESULT_NOT_MOUNTED = 1,
-	HOSTFAT_RESULT_BAD_REQUEST = 2,
-	HOSTFAT_RESULT_RANGE = 3
+	HOSTFAT_MANAGER_UNMOUNTED = 0,
+	HOSTFAT_MANAGER_BUILDING,
+	HOSTFAT_MANAGER_MOUNTED,
+	HOSTFAT_MANAGER_ERROR
 };
+
+enum {
+	HOSTFAT_MANAGER_EVENT_NONE = 0,
+	HOSTFAT_MANAGER_EVENT_MOUNTED,
+	HOSTFAT_MANAGER_EVENT_FAILED
+};
+
+typedef struct {
+	UINT state;
+	BOOL mounted;
+	UINT64 completed;
+	UINT64 total;
+	HOSTFAT_SNAPSHOT_INFO info;
+	char phase[64];
+	char message[256];
+} HOSTFAT_MANAGER_STATUS;
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-BOOL hostfat_mount_image(const void *image, UINT32 size);
-BOOL hostfat_prepare_image(const void *image, UINT32 size,
-		HOSTFAT_PREPARED_IMAGE **prepared, UINT32 *digest);
-BOOL hostfat_commit_prepared_image(HOSTFAT_PREPARED_IMAGE *prepared);
-void hostfat_destroy_prepared_image(HOSTFAT_PREPARED_IMAGE *prepared);
-void hostfat_unmount(void);
-BOOL hostfat_is_mounted(void);
-UINT32 hostfat_image_digest(void);
-BOOL hostfat_snapshot_identity(void *identity, UINT size);
-BOOL hostfat_read_sector(UINT32 sector, void *destination);
-UINT8 hostfat_service_request(UINT32 request_far_pointer);
+BOOL hostfat_manager_initialize(void);
+void hostfat_manager_shutdown(void);
+BOOL hostfat_manager_mount_startup(const char *path,
+		HOSTFAT_SNAPSHOT_INFO *info, char *error, UINT error_size);
+BOOL hostfat_manager_rebuild_async(const char *path, char *error,
+		UINT error_size);
+UINT hostfat_manager_poll(void);
+BOOL hostfat_manager_unmount(char *error, UINT error_size);
+void hostfat_manager_get_status(HOSTFAT_MANAGER_STATUS *status);
+BOOL hostfat_manager_selftest(void);
 
 #ifdef __cplusplus
 }

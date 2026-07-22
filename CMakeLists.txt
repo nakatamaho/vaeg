@@ -339,6 +339,7 @@ set(VAEG_SDL2_SOURCES
     sdl2/inputmng.c
     sdl2/dropmedia.cpp
     sdl2/hostfat_snapshot.cpp
+    sdl2/hostfat_manager.cpp
     sdl2/romcheck.c
     sdl2/selftest.c
     sdl2/soundmng.c

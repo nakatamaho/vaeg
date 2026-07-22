@@ -33,6 +33,7 @@
 #include <fstream>
 #include <memory>
 #include <limits>
+#include <new>
 #include <stdexcept>
 #include <string>
 #include <system_error>
@@ -53,6 +54,12 @@
 #include "compiler.h"
 #include "hostfat_snapshot.h"
 #include "hostfat.h"
+
+struct hostfat_snapshot_candidate {
+	std::vector<unsigned char> image;
+	HOSTFAT_SNAPSHOT_INFO info{};
+	HOSTFAT_PREPARED_IMAGE *prepared = nullptr;
+};
 
 namespace fs = std::filesystem;
 
@@ -125,10 +132,21 @@ struct BuildState {
 	unsigned files = 0;
 	unsigned directories = 0;
 	std::uint64_t source_bytes = 0;
+	std::uint64_t copied_bytes = 0;
 	fs::path canonical_root;
 	std::vector<FileIdentity> regular_files;
+	HOSTFAT_SNAPSHOT_PROGRESS progress = nullptr;
+	void *progress_context = nullptr;
 	std::string error;
 };
+
+void report_progress(BuildState &state, const char *phase,
+		std::uint64_t completed, std::uint64_t total) {
+
+	if (state.progress != nullptr) {
+		state.progress(state.progress_context, phase, completed, total);
+	}
+}
 
 void set_error(char *destination, UINT size, const std::string &message) {
 
@@ -581,6 +599,8 @@ bool scan_directory(Node &node, unsigned depth, BuildState &state) {
 			state.error = "host directory exceeds the HOSTFAT entry limit";
 			return false;
 		}
+		report_progress(state, "Scanning host directory", state.entries,
+			kMaximumEntries);
 		const std::string name = item.path().filename().u8string();
 		if (!valid_utf8_name(name)) {
 			state.error = "host entry name is not valid UTF-8";
@@ -802,6 +822,9 @@ bool write_stable_file(const Node &node, unsigned char *destination,
 		}
 		return false;
 	}
+	state.copied_bytes += node.size;
+	report_progress(state, "Copying immutable file data", state.copied_bytes,
+		state.source_bytes);
 	return true;
 }
 
@@ -878,7 +901,10 @@ bool build_image(const fs::path &root_path, std::vector<unsigned char> &image,
 	if (!assign_clusters(root, next_cluster, state)) {
 		return false;
 	}
+	report_progress(state, "Allocating FAT12-max image", 0,
+		HOSTFAT_IMAGE_SIZE);
 	image.assign(HOSTFAT_IMAGE_SIZE, 0);
+	report_progress(state, "Creating FAT and directories", 1, 1);
 	std::vector<std::uint16_t> fat(kFatEntries, 0);
 	fat[0] = 0x0ff0;
 	fat[1] = 0x0fff;
@@ -907,7 +933,11 @@ bool build_image(const fs::path &root_path, std::vector<unsigned char> &image,
 			child.dos_name, child.directory ? 0x10 : 0x21,
 			child.first_cluster, child.size, child.fat_timestamp);
 	}
-	return write_node(root, image, state);
+	if (!write_node(root, image, state)) {
+		return false;
+	}
+	report_progress(state, "Snapshot ready to commit", 1, 1);
+	return true;
 }
 
 bool verify_test_image(const fs::path &source_root) {
@@ -1070,34 +1100,49 @@ bool verify_internal_limits() {
 
 }  // namespace
 
-extern "C" BOOL hostfat_snapshot_mount_directory(const char *path,
-		HOSTFAT_SNAPSHOT_INFO *info, char *error, UINT error_size) {
+extern "C" BOOL hostfat_snapshot_build_directory(const char *path,
+		HOSTFAT_SNAPSHOT_CANDIDATE **candidate,
+		HOSTFAT_SNAPSHOT_PROGRESS progress, void *progress_context,
+		char *error, UINT error_size) {
 
 	if ((error != nullptr) && (error_size != 0)) {
 		error[0] = '\0';
 	}
-	if ((path == nullptr) || (path[0] == '\0')) {
+	if (candidate != nullptr) {
+		*candidate = nullptr;
+	}
+	if ((candidate == nullptr) || (path == nullptr) || (path[0] == '\0')) {
 		set_error(error, error_size, "HOSTFAT directory path is empty");
 		return FAILURE;
 	}
 	try {
 		BuildState state;
-		std::vector<unsigned char> image;
-		if (!build_image(fs::u8path(path), image, state)) {
+		state.progress = progress;
+		state.progress_context = progress_context;
+		auto result = std::unique_ptr<HOSTFAT_SNAPSHOT_CANDIDATE>(
+			new(std::nothrow) HOSTFAT_SNAPSHOT_CANDIDATE());
+		if (!result) {
+			set_error(error, error_size, "cannot allocate HOSTFAT candidate");
+			return FAILURE;
+		}
+		if (!build_image(fs::u8path(path), result->image, state)) {
 			set_error(error, error_size, state.error);
 			return FAILURE;
 		}
-		if (hostfat_mount_image(image.data(), static_cast<UINT32>(image.size()))
-				!= SUCCESS) {
-			set_error(error, error_size, "cannot allocate HOSTFAT snapshot");
+		result->info.files = state.files;
+		result->info.directories = state.directories;
+		result->info.source_bytes = state.source_bytes;
+		report_progress(state, "Preparing immutable snapshot", 0,
+			HOSTFAT_IMAGE_SIZE);
+		if (hostfat_prepare_image(result->image.data(),
+				static_cast<UINT32>(result->image.size()), &result->prepared,
+				&result->info.digest) != SUCCESS) {
+			set_error(error, error_size, "cannot prepare HOSTFAT snapshot");
 			return FAILURE;
 		}
-		if (info != nullptr) {
-			info->files = state.files;
-			info->directories = state.directories;
-			info->source_bytes = state.source_bytes;
-			info->digest = hostfat_image_digest();
-		}
+		std::vector<unsigned char>().swap(result->image);
+		report_progress(state, "Snapshot ready to commit", 1, 1);
+		*candidate = result.release();
 		return SUCCESS;
 	}
 	catch (const std::exception &exception) {
@@ -1105,6 +1150,47 @@ extern "C" BOOL hostfat_snapshot_mount_directory(const char *path,
 			std::string("HOSTFAT snapshot failed: ") + exception.what());
 		return FAILURE;
 	}
+}
+
+extern "C" BOOL hostfat_snapshot_candidate_mount(
+		HOSTFAT_SNAPSHOT_CANDIDATE *candidate, HOSTFAT_SNAPSHOT_INFO *info,
+		char *error, UINT error_size) {
+
+	if ((error != nullptr) && (error_size != 0)) {
+		error[0] = '\0';
+	}
+	if ((candidate == nullptr) || (candidate->prepared == nullptr) ||
+		(hostfat_commit_prepared_image(candidate->prepared) != SUCCESS)) {
+		set_error(error, error_size, "cannot commit HOSTFAT snapshot");
+		return FAILURE;
+	}
+	if (info != nullptr) {
+		*info = candidate->info;
+	}
+	return SUCCESS;
+}
+
+extern "C" void hostfat_snapshot_candidate_destroy(
+		HOSTFAT_SNAPSHOT_CANDIDATE *candidate) {
+
+	if (candidate != nullptr) {
+		hostfat_destroy_prepared_image(candidate->prepared);
+	}
+	delete candidate;
+}
+
+extern "C" BOOL hostfat_snapshot_mount_directory(const char *path,
+		HOSTFAT_SNAPSHOT_INFO *info, char *error, UINT error_size) {
+
+	HOSTFAT_SNAPSHOT_CANDIDATE *candidate = nullptr;
+	if (hostfat_snapshot_build_directory(path, &candidate, nullptr, nullptr,
+			error, error_size) != SUCCESS) {
+		return FAILURE;
+	}
+	const BOOL result = hostfat_snapshot_candidate_mount(candidate, info,
+		error, error_size);
+	hostfat_snapshot_candidate_destroy(candidate);
+	return result;
 }
 
 extern "C" void hostfat_snapshot_unmount(void) {

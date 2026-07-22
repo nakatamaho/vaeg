@@ -52,7 +52,7 @@
 #include	"upd9002_trace.h"
 #include	"upd9002_diagnostic.h"
 #include	"dropmedia.h"
-#include	"hostfat_snapshot.h"
+#include	"hostfat_manager.h"
 #include	"splash.h"
 #include	"np2ver.h"
 #include	"mousemng.h"
@@ -73,7 +73,8 @@
 		NP2OSCFG	np2oscfg = {0, 0, 2, 0, 0, 0, 1, 0, "", "", {"", ""},
 								"", "", 0, 0, "", "ymfm", "minimum", 1,
 								VAEG_EFFECT_UNFILTERED, VAEG_SCALING_FIT,
-								640, 422, VAEG_DISPLAY_WINDOWED, 0, 0, 0, 0, 2, 0, 0};
+								640, 422, VAEG_DISPLAY_WINDOWED, 0, 0, 0, 0, 2, 0, 0,
+								0, ""};
 		BOOL		np2_debug = FALSE;
 
 static const UINT smoke_timeout_frames = 600;
@@ -1475,14 +1476,34 @@ int main(int argc, char **argv) {
 		dosio_term();
 		return(FAILURE);
 	}
-	if (options.hostfat_path != NULL) {
+	if (hostfat_manager_initialize() != SUCCESS) {
+		fprintf(stderr, "Error: cannot initialize HOSTFAT manager: %s\n",
+			SDL_GetError());
+		SDL_Quit();
+		dosio_term();
+		return(FAILURE);
+	}
+	const char *hostfat_path = options.hostfat_path;
+	if ((hostfat_path == NULL) && np2oscfg.hostfat_enabled) {
+		if (np2oscfg.hostfat_dir[0] == '\0') {
+			fprintf(stderr,
+				"Error: HOSTFAT is enabled but HOSTFATDIR is empty\n");
+			hostfat_manager_shutdown();
+			SDL_Quit();
+			dosio_term();
+			return(FAILURE);
+		}
+		hostfat_path = np2oscfg.hostfat_dir;
+	}
+	if (hostfat_path != NULL) {
 		HOSTFAT_SNAPSHOT_INFO hostfat_info;
 		char hostfat_error[256];
 
-		if (hostfat_snapshot_mount_directory(options.hostfat_path,
+		if (hostfat_manager_mount_startup(hostfat_path,
 				&hostfat_info, hostfat_error, sizeof(hostfat_error)) != SUCCESS) {
 			fprintf(stderr, "Error: cannot create HOSTFAT snapshot: %s\n",
 					hostfat_error);
+			hostfat_manager_shutdown();
 			SDL_Quit();
 			dosio_term();
 			return(FAILURE);
@@ -1618,7 +1639,7 @@ int main(int argc, char **argv) {
 	}
 	bkupmemva_save();
 	pccore_term();
-	hostfat_snapshot_unmount();
+	hostfat_manager_shutdown();
 	dropmedia_shutdown();
 	S98_trash();
 	soundmng_deinitialize();
@@ -1636,7 +1657,7 @@ np2main_err3:
 	scrnmng_destroy();
 
 np2main_err2:
-	hostfat_snapshot_unmount();
+	hostfat_manager_shutdown();
 	TRACETERM();
 	upd9002_trace_stop();
 	SDL_Quit();
