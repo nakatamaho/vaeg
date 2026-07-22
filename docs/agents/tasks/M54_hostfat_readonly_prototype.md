@@ -89,6 +89,8 @@ directory and it never writes to the host.
 ## Automated validation
 
 - Deterministic FAT generation including root files and one subdirectory.
+- Host local last-write time encoded at FAT two-second resolution for files
+  and directories, with defined 1980--2107 clamping.
 - Byte-identical regeneration from unchanged input.
 - FAT-copy identity, chain, directory, file-content, and capacity checks.
 - Fail-closed unsupported-name, collision, link, range, and overflow checks.
@@ -116,6 +118,8 @@ before beginning M55.
    in the root and subdirectory, TYPE a text file, and copy files from HOSTFAT
    to a writable disk or RAM disk.
 5. Compare copied contents with the host originals.
+   Confirm DIR reports the host last-write timestamps at FAT's two-second
+   resolution rather than the fixed date `80-01-01`.
 6. Attempt create, overwrite, and delete operations on HOSTFAT; confirm a
    write-protect error and confirm the host folder is byte-for-byte unchanged.
 7. Reset the guest and confirm the same snapshot remains readable.
