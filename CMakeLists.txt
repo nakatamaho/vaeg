@@ -786,7 +786,9 @@ if(VAEG_ENABLE_TESTS)
             "-DTRACE_GOLDEN=${CMAKE_CURRENT_SOURCE_DIR}/tests/upd9002/trace_baseline.txt"
             -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/upd9002/run_trace_equivalence.cmake")
     set_tests_properties(vaeg_upd9002_trace_equivalence PROPERTIES
-        LABELS "romless;upd9002;trace;harness" TIMEOUT 180)
+        # This invokes the complete selftest three times.  The M55 128 MiB
+        # snapshot identity checks are intentionally expensive under ASan.
+        LABELS "romless;upd9002;trace;harness" TIMEOUT 420)
 
     add_test(NAME vaeg_upd9002_ssts_selftest
         COMMAND "${Python3_EXECUTABLE}"
