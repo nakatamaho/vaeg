@@ -1,273 +1,281 @@
 ; Copyright (c) 2026 Nakata Maho
 ;
 ; Redistribution and use in source and binary forms, with or without
-; modification, are permitted provided that the following conditions
-; are met:
-; 1. Redistributions of source code must retain the above copyright
-;    notice, this list of conditions and the following disclaimer.
-; 2. Redistributions in binary form must reproduce the above copyright
-;    notice, this list of conditions and the following disclaimer in the
-;    documentation and/or other materials provided with the distribution.
+; modification, are permitted provided that the following conditions are met:
+; 1. Redistributions of source code must retain the above copyright notice,
+;    this list of conditions and the following disclaimer.
+; 2. Redistributions in binary form must reproduce the above copyright notice,
+;    this list of conditions and the following disclaimer in the documentation
+;    and/or other materials provided with the distribution.
 ;
-; THIS SOFTWARE IS PROVIDED BY THE AUTHOR "AS IS" AND ANY EXPRESS OR
-; IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
-; OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
-; IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT, INDIRECT,
-; INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
-; BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF
-; USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON
-; ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-; (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
-; THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+; THIS SOFTWARE IS PROVIDED BY THE AUTHOR "AS IS" AND ANY EXPRESS OR IMPLIED
+; WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+; MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO
+; EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+; EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT
+; OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+; INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+; CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+; ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+; POSSIBILITY OF SUCH DAMAGE.
 
 bits 16
-cpu 186
 org 0
-[warning -reloc-abs-word]       ; flat SYS image intentionally uses 16-bit offsets
 
-%define NP2_VALUE_PORT          0x07ed
-%define NP2_STRING_PORT         0x07ef
+port_value      equ 0x07ed
+port_command    equ 0x07ef
 
-%define REQUEST_SIZE            0
-%define REQUEST_UNIT            1
-%define REQUEST_COMMAND         2
-%define REQUEST_STATUS          3
-%define REQUEST_MEDIA           13
-%define REQUEST_TRANSFER        14
-%define REQUEST_COUNT           18
-%define REQUEST_START           20
+status_done     equ 0x0100
+status_removable equ 0x0200
+status_protected equ 0x8100
+status_bad_command equ 0x8103
+status_read_error equ 0x8108
 
-%define COMMAND_INITIALIZE      0
-%define COMMAND_MEDIA_CHECK     1
-%define COMMAND_BUILD_BPB       2
-%define COMMAND_READ            4
-%define COMMAND_WRITE           8
-%define COMMAND_WRITE_VERIFY    9
-%define COMMAND_OPEN            0x0d
-%define COMMAND_CLOSE           0x0e
-%define COMMAND_REMOVABLE       0x0f
-
-%define STATUS_DONE             0x0100
-%define STATUS_BUSY             0x0200
-%define STATUS_WRITE_PROTECT    0x8100
-%define STATUS_UNKNOWN_COMMAND  0x8103
-%define STATUS_SECTOR_NOT_FOUND 0x8108
-
-%define MEDIA_ID                0xf0
-; Keep the DOS-visible data-cluster count at 4084, below the FAT16 cutoff.
-; The host snapshot backing remains 8 MiB; its final six sectors are hidden.
-%define TOTAL_SECTORS           8186
+packet_command  equ 0x02
+packet_status   equ 0x03
+packet_media    equ 0x0d
+packet_transfer equ 0x0e
+packet_count    equ 0x12
+packet_sector   equ 0x14
 
 device_header:
-	dd 0xffffffff
-	dw 0x2000                    ; PC-Engine non-IBM block format
-	dw strategy
-	dw interrupt
-	db 1                         ; units
-	dw device_name
-	dw 0                         ; device-name segment is this driver
+    dd 0xffffffff
+    dw 0x2000
+    dw strategy_entry
+    dw interrupt_entry
+    db 1
+    dw device_name
+    dw 0
 
 device_name:
-	db 'HOSTFAT', 0
+    db 'HOSTFAT', 0
 
-align 2
-request_pointer:
-	dd 0
+strategy_entry:
+    push ax
+    push ds
+    mov ax, cs
+    mov ds, ax
+    mov [active_packet], bx
+    mov [active_packet + 2], es
+    pop ds
+    pop ax
+    retf
 
-bpb_pointer_list:
-	dw bpb
+interrupt_entry:
+    push ax
+    push bx
+    push cx
+    push dx
+    push si
+    push di
+    push bp
+    push ds
+    push es
 
-bpb:
-	dw 1024                      ; bytes per sector
-	db 2                         ; sectors per cluster
-	dw 0                         ; reserved sectors
-	db 2                         ; FAT copies
-	dw 128                       ; root entries
-	dw TOTAL_SECTORS
-	db MEDIA_ID
-	dw 7                         ; sectors per FAT
-	db 0x90                      ; PC-Engine/RDBMS-compatible filler
+    push cs
+    pop ds
+    les bx, [active_packet]
+    mov al, [es:bx + packet_command]
 
-strategy:
-	mov [cs:request_pointer], bx
-	mov [cs:request_pointer + 2], es
-	retf
+    cmp al, 0x00
+    je command_initialize
+    cmp al, 0x01
+    je command_media_check
+    cmp al, 0x02
+    je command_build_bpb
+    cmp al, 0x04
+    je command_read
+    cmp al, 0x08
+    je command_write
+    cmp al, 0x09
+    je command_write
+    cmp al, 0x0d
+    je command_noop
+    cmp al, 0x0e
+    je command_noop
+    cmp al, 0x0f
+    je command_removable
+    mov ax, status_bad_command
+    jmp finish_request
 
-interrupt:
-	pusha
-	push ds
-	push es
-	push cs
-	pop ds
-	les bx, [request_pointer]
-	mov al, [es:bx + REQUEST_COMMAND]
-	cmp al, COMMAND_INITIALIZE
-	je initialize
-	cmp al, COMMAND_MEDIA_CHECK
-	je media_check
-	cmp al, COMMAND_BUILD_BPB
-	je build_bpb
-	cmp al, COMMAND_READ
-	je read_sectors
-	cmp al, COMMAND_WRITE
-	je write_protected
-	cmp al, COMMAND_WRITE_VERIFY
-	je write_protected
-	cmp al, COMMAND_OPEN
-	je open_close
-	cmp al, COMMAND_CLOSE
-	je open_close
-	cmp al, COMMAND_REMOVABLE
-	je removable
-	mov ax, STATUS_UNKNOWN_COMMAND
-	jmp finish
+command_initialize:
+    call return_resident_end
+    call service_available
+    test al, al
+    jz initialize_unavailable
 
-media_check:
-	mov byte [es:bx + REQUEST_TRANSFER], 1
-	mov ax, STATUS_DONE
-	jmp finish
-
-build_bpb:
-	mov word [es:bx + REQUEST_COUNT], bpb
-	mov word [es:bx + REQUEST_COUNT + 2], cs
-	mov byte [es:bx + REQUEST_MEDIA], MEDIA_ID
-	mov ax, STATUS_DONE
-	jmp finish
-
-read_sectors:
-	call hostfat_read
-	test al, al
-	jnz read_error
-	mov ax, STATUS_DONE
-	jmp finish
-
-read_error:
-	mov word [es:bx + REQUEST_COUNT], 0
-	mov ax, STATUS_SECTOR_NOT_FOUND
-	jmp finish
-
-write_protected:
-	mov ax, STATUS_WRITE_PROTECT
-	jmp finish
-
-open_close:
-	mov ax, STATUS_DONE
-	jmp finish
-
-removable:
-	mov ax, STATUS_BUSY
-	jmp finish
-
-initialize:
-	call hostfat_probe
-	jc initialize_unavailable
-	mov byte [es:bx + REQUEST_MEDIA], 1
-	mov word [es:bx + REQUEST_COUNT], bpb_pointer_list
-	mov word [es:bx + REQUEST_COUNT + 2], cs
-	mov si, ready_message
-	call display_message
-	jmp initialize_end
+    mov byte [es:bx + packet_media], 1
+    mov word [es:bx + packet_count], bpb_offset_list
+    mov ax, cs
+    mov word [es:bx + packet_sector], ax
+    mov si, ready_message
+    call display_message
+    mov ax, status_done
+    jmp finish_request
 
 initialize_unavailable:
-	mov byte [es:bx + REQUEST_MEDIA], 0
-	mov word [es:bx + REQUEST_COUNT], 0
-	mov word [es:bx + REQUEST_COUNT + 2], 0
-	mov si, unavailable_message
-	call display_message
+    mov byte [es:bx + packet_media], 0
+    mov word [es:bx + packet_count], 0
+    mov word [es:bx + packet_sector], 0
+    mov si, unavailable_message
+    call display_message
+    mov ax, status_done
+    jmp finish_request
 
-initialize_end:
-	mov ax, resident_end
-	add ax, 15
-	mov cl, 4
-	shr ax, cl
-	mov dx, cs
-	add ax, dx
-	mov word [es:bx + REQUEST_TRANSFER], 0
-	mov word [es:bx + REQUEST_TRANSFER + 2], ax
-	mov ax, STATUS_DONE
+command_media_check:
+    mov byte [es:bx + packet_transfer], 1
+    mov ax, status_done
+    jmp finish_request
 
-finish:
-	mov [es:bx + REQUEST_STATUS], ax
-	pop es
-	pop ds
-	popa
-	retf
+command_build_bpb:
+    mov byte [es:bx + packet_media], 0xf0
+    mov word [es:bx + packet_count], bios_parameter_block
+    mov ax, cs
+    mov word [es:bx + packet_sector], ax
+    mov ax, status_done
+    jmp finish_request
 
-hostfat_probe:
-	push cx
-	push dx
-	push si
-	mov dx, NP2_STRING_PORT
-	mov si, check_command
-	mov cx, check_command_end - check_command
-	cld
-	rep outsb
-	mov si, protocol_signature
-	mov cx, protocol_signature_end - protocol_signature
-.compare:
-	in al, dx
-	cmp al, [si]
-	jne .failed
-	inc si
-	loop .compare
-	clc
-	jmp short .done
-.failed:
-	stc
-.done:
-	pop si
-	pop dx
-	pop cx
-	ret
+command_read:
+    call perform_host_read
+    test al, al
+    jnz read_failed
+    mov ax, status_done
+    jmp finish_request
 
-hostfat_read:
-	push cx
-	push dx
-	push si
-	mov dx, NP2_VALUE_PORT
-	mov si, request_pointer
-	mov cx, 4
-	cld
-	rep outsb
-	mov dx, NP2_STRING_PORT
-	mov si, read_command
-	mov cx, read_command_end - read_command
-	rep outsb
-	mov dx, NP2_VALUE_PORT
-	in al, dx
-	pop si
-	pop dx
-	pop cx
-	ret
+read_failed:
+    mov word [es:bx + packet_count], 0
+    mov ax, status_read_error
+    jmp finish_request
+
+command_write:
+    mov ax, status_protected
+    jmp finish_request
+
+command_noop:
+    mov ax, status_done
+    jmp finish_request
+
+command_removable:
+    mov ax, status_removable
+
+finish_request:
+    mov [es:bx + packet_status], ax
+
+    pop es
+    pop ds
+    pop bp
+    pop di
+    pop si
+    pop dx
+    pop cx
+    pop bx
+    pop ax
+    retf
+
+return_resident_end:
+    mov word [es:bx + packet_transfer], 0
+    mov ax, cs
+    add ax, resident_paragraphs
+    mov word [es:bx + packet_transfer + 2], ax
+    ret
+
+service_available:
+    mov dx, port_command
+    mov si, probe_text
+    mov cx, probe_text_length
+    call send_bytes
+    in al, dx
+    mov ah, al
+    in al, dx
+    cmp ah, 'H'
+    jne service_not_found
+    cmp al, '1'
+    jne service_not_found
+    mov al, 1
+    ret
+
+service_not_found:
+    xor al, al
+    ret
+
+perform_host_read:
+    mov dx, port_value
+    mov si, active_packet
+    mov cx, 4
+    call send_bytes
+    mov dx, port_command
+    mov si, read_text
+    mov cx, read_text_length
+    call send_bytes
+    mov dx, port_value
+    in al, dx
+    ret
+
+send_bytes:
+    mov al, [si]
+    out dx, al
+    inc si
+    loop send_bytes
+    ret
 
 display_message:
-	pusha
-	push ds
-	push es
-	mov dx, 0x8000
-	mov ah, 2
-	int 0x83
-	pop es
-	pop ds
-	popa
-	ret
+    push ax
+    push bx
+    push cx
+    push dx
+    push si
+    push di
+    push bp
+    push ds
+    push es
+    mov ah, 0x02
+    mov dx, 0x8000
+    int 0x83
+    pop es
+    pop ds
+    pop bp
+    pop di
+    pop si
+    pop dx
+    pop cx
+    pop bx
+    pop ax
+    ret
 
-check_command:
-	db 'check_hostfat'
-check_command_end:
+active_packet:
+    dw 0, 0
 
-read_command:
-	db 'read_hostfat1'
-read_command_end:
+probe_text:
+    db 'check_hostfat'
+probe_text_length equ $ - probe_text
 
-protocol_signature:
-	db 'H1'
-protocol_signature_end:
+read_text:
+    db 'read_hostfat1'
+read_text_length equ $ - read_text
 
 ready_message:
-	db 13, 10, 'HOSTFAT read-only drive ready', 13, 10, 0
+    db 0x0d, 0x0a, 'HOSTFAT read-only drive ready', 0x0d, 0x0a, 0
 
 unavailable_message:
-	db 13, 10, 'HOSTFAT unavailable (start vaeg with --hostfat-dir)', 13, 10, 0
+    db 0x0d, 0x0a
+    db 'HOSTFAT unavailable (start vaeg with --hostfat-dir)'
+    db 0x0d, 0x0a, 0
 
-resident_end:
+bpb_offset_list:
+    dw bios_parameter_block
+
+bios_parameter_block:
+    dw 1024
+    db 2
+    dw 0
+    db 2
+    dw 128
+    dw 8186
+    db 0xf0
+    dw 7
+    db 0x90
+
+align 16, db 0
+resident_image_end:
+
+resident_paragraphs equ (resident_image_end - $$ + 15) / 16
