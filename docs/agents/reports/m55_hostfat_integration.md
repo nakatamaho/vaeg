@@ -79,8 +79,9 @@ changed.
 | Allocatable payload | 133,627,904 bytes (127.4375 MiB) |
 
 The cluster count stays below the 4,085-cluster FAT16 cutoff. Allocation also
-stops before FAT12's `0FF0H` reserved identifiers, so six geometrically present
-tail clusters are not put in any file chain. The PC-Engine request packet
+stops before FAT12's `0FF0H` reserved identifiers. The six geometrically
+present tail clusters are marked `0FF0H` in both FAT copies, so a DOS free-space
+scan cannot advertise them for allocation. The PC-Engine request packet
 retains its 16-bit starting-sector contract. `HOSTFAT.SYS` advertises the same
 BPB as the snapshot generator, and the generated-driver checker fails if the
 geometry or cutoff changes.
@@ -239,9 +240,15 @@ The tests-disabled cache records `VAEG_ENABLE_TESTS=OFF`. The ROM-less
 selftest and headless smoke run passed. Dynamic-symbol filtering found no M55,
 HOSTFAT selftest, snapshot-test, or audit seam exported by the production
 binary. The release executable SHA-256 is
-`2ae3fc9c56de91a2a27e644381b1019d90fba8680030190a28074033d0848563`;
+`1714d49d69820e7e750f2f614bb206928a4a241f558853de28180ee11f5a2a5d`;
 the MinGW executable SHA-256 is
-`47d9eeb990f6a62e652622b8dc1c1f00c3f57c170b3b539bdf58ff191de69c21`.
+`bad372b9369539287baf7fe35dfc52052caf18e5babae2dac64dea0720408484`.
+
+The final FAT-boundary review additionally marked physical tail-cluster
+entries `0FF0H`--`0FF5H` reserved in both FAT copies. Incremental GCC, Clang,
+ASan/UBSan, Linux release, and MinGW builds passed. Their ROM-less suites
+passed in 7.71, 7.84, and 69.59 seconds plus successful release and Wine runs;
+the snapshot selftest now asserts all six packed FAT12 entries exactly.
 
 ## Production isolation and hosted CI
 
