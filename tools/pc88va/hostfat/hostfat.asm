@@ -284,12 +284,12 @@ bpb_offset_list:
     dw bios_parameter_block
 
 bios_parameter_block:
-    dw 2048
+    dw 1024
     db 16
     dw 0
     db 2
     dw 128
-    dw 65360
+    dw 65362
     db 0xf0
     dw 7
     db 0x90
