@@ -138,8 +138,11 @@ The FAT12 geometry is fixed and matches the RDBMS block-driver convention:
 Both FAT copies are generated from the same packed table. Allocation starts
 at cluster 2, uses deterministic depth-first order after each directory is
 sorted by its folded 11-byte DOS name, and never allocates FAT12 values
-`FF0H`--`FFFH` as data clusters. Dates, times, attributes, volume label,
-directory ordering, unused bytes, and cluster padding are deterministic.
+`FF0H`--`FFFH` as data clusters. File and directory timestamps preserve host
+local last-write time at FAT's two-second resolution and clamp to the FAT
+1980--2107 range. For unchanged source metadata in the same timezone,
+attributes, timestamps, volume label, directory ordering, unused bytes, and
+cluster padding are deterministic.
 
 M54 accepts only ASCII letters, digits, `_`, and `-` in 8.3 names. Lowercase
 ASCII folds to uppercase. Unsupported names and folded collisions reject the

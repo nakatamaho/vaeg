@@ -74,6 +74,12 @@ M54 snapshots are fixed at startup. Changes to the source directory are not
 visible until vaeg is restarted with a newly generated snapshot. GUI,
 persistence, refresh, and save-state identity are deferred to M55.
 
+Files and directories preserve the host's local last-write time in FAT
+date/time fields. FAT has no timezone and stores seconds in two-second units;
+earlier odd seconds are therefore displayed rounded down. Values outside
+FAT's representable range clamp to `1980-01-01 00:00:00` or
+`2107-12-31 23:59:58`.
+
 The prototype accepts at most 1024 entries and eight directory levels. Every
 name must fit ASCII 8.3 using letters, digits, `_`, and `-`; lowercase is
 folded to uppercase and folded-name collisions fail the entire mount. The

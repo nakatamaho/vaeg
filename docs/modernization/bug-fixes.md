@@ -50,6 +50,27 @@ separate parity correction or move it to Open Defects.
 
 ## Fixed Defects
 
+### HOSTFAT discarded host modification timestamps
+
+- **Status:** fixed in the M54 supplemental human-gate correction; maintainer
+  timestamp display recheck pending.
+- **Symptom:** every HOSTFAT file and directory appeared in PC-Engine with the
+  timestamp `80-01-01 00:00` regardless of its host last-write time.
+- **Root cause:** the snapshot scanner captured regular-file modification time
+  only to detect source mutation, while the directory-entry writer always
+  emitted FAT time `0000H` and date `0021H`.
+- **Correction:** files, directories, the volume label, `.` and `..` now use
+  host local last-write time at FAT's two-second resolution. Values clamp to
+  the FAT 1980--2107 range. Directory type and time are checked before and
+  after construction so the metadata addition remains transactional.
+- **Verification:** GCC, Clang and ASan/UBSan CTest passed with exact FAT-field
+  and range-clamp assertions; MinGW compiled the Windows `FILETIME` path and
+  its Wine selftest passed. Final hosted and human results are recorded in the
+  clean-room report.
+- **Evidence:** [M54 clean-room report](../agents/reports/m54_hostfat_cleanroom_reimplementation.md)
+  and [M54 task](../agents/tasks/M54_hostfat_readonly_prototype.md).
+- **Commit:** [9c707a93](https://github.com/nakatamaho/vaeg/commit/9c707a93bc64ded691c756e205a2b7a0ef42c899).
+
 ### HOSTFAT clean-room dispatch emitted unsupported 80386 branches
 
 - **Status:** fixed in the M54 clean-room provenance correction; supplemental

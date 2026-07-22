@@ -125,6 +125,27 @@ old and corrected clean-room binaries both completed `DIR`. This isolates the
 demonstrated root cause from disk geometry, host snapshot generation, and the
 emulator transport.
 
+## Host timestamp correction
+
+The supplemental gate then showed every HOSTFAT entry as `80-01-01`. The
+snapshot builder had captured each regular file's last-write time only for
+change detection while unconditionally writing FAT time `0000H` and date
+`0021H` to every directory entry. This was deterministic but discarded
+guest-visible source metadata.
+
+Commit
+[`9c707a93bc64ded691c756e205a2b7a0ef42c899`](https://github.com/nakatamaho/vaeg/commit/9c707a93bc64ded691c756e205a2b7a0ef42c899)
+converts the host last-write time to FAT local civil time. Seconds are reduced
+to FAT's two-second resolution, values before 1980 clamp to
+`1980-01-01 00:00:00`, and values after 2107 clamp to
+`2107-12-31 23:59:58`. The timestamp is recorded for files, directories,
+volume label, `.` and `..` entries. Directory type and last-write identity are
+now rechecked before and after snapshot construction, extending the existing
+transactional file checks.
+
+This does not make HOSTFAT live. The metadata and content remain fixed for the
+session and are refreshed only by fully restarting vaeg in M54.
+
 ## Validation
 
 All commands below ran from the clean-room branch worktree. Unless an expected
@@ -222,6 +243,15 @@ GCC, Ubuntu Clang, Ubuntu ASan/UBSan, Windows MSYS2 MinGW64, macOS
 FetchContent SDL2, standalone Z80 conformance, and repository invariants.
 The final handoff supplies the later CI-record-only remote SHA.
 
+The timestamp correction was then rebuilt with GCC, Clang, ASan/UBSan and
+MinGW. Each Linux CTest profile again reported 35 passed, one external-corpus
+skip and zero failures out of 36. The selftest compares the generated FAT
+time/date fields for a root file, subdirectory, nested file, volume label,
+`.` and `..`; it also checks exact packing and both representable-range clamps.
+Wine exercised the Windows `FILETIME` conversion and returned zero. Final
+fresh-tree and hosted results are supplied in the handoff after this report
+update.
+
 ## Distribution boundary
 
 The branch tip and source archives generated from it contain the clean-room
@@ -239,6 +269,8 @@ separate explicit maintainer and legal approval.
   `DEVICE=HOSTFAT.SYS` in CONFIG.SYS.
 - [ ] Start with `--hostfat-dir` and confirm the ready message and OS prompt.
 - [ ] Run root and subdirectory DIR plus TYPE.
+- [ ] Confirm files and directories show their host last-write date/time,
+  rounded down to FAT's two-second resolution rather than `80-01-01`.
 - [ ] COPY at least one file to writable media and compare its bytes.
 - [ ] Confirm create, overwrite, and delete on HOSTFAT return write-protect and
   do not change the host tree.
