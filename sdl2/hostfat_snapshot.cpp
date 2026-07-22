@@ -94,14 +94,26 @@ struct FatTimestamp {
 	std::uint16_t date = 0x0021;
 };
 
+struct FileIdentity {
+	std::uint64_t first = 0;
+	std::uint64_t second = 0;
+
+	bool operator==(const FileIdentity &other) const {
+		return (first == other.first) && (second == other.second);
+	}
+};
+
 struct Node {
 	fs::path path;
+	std::string source_name;
 	std::array<unsigned char, 11> dos_name{};
+	bool dos_name_assigned = false;
 	bool directory = false;
 	std::uint32_t size = 0;
 	fs::file_time_type modified_time{};
 	FatTimestamp fat_timestamp{};
 	std::uintmax_t hard_links = 0;
+	FileIdentity identity{};
 	std::uint16_t first_cluster = 0;
 	std::uint16_t cluster_count = 0;
 	Node *parent = nullptr;
@@ -113,7 +125,8 @@ struct BuildState {
 	unsigned files = 0;
 	unsigned directories = 0;
 	std::uint64_t source_bytes = 0;
-	std::vector<fs::path> regular_files;
+	fs::path canonical_root;
+	std::vector<FileIdentity> regular_files;
 	std::string error;
 };
 
@@ -273,13 +286,179 @@ bool make_dos_name(const std::string &source,
 	return true;
 }
 
-bool hard_link_count(const fs::path &path, std::uintmax_t &count,
-		std::error_code &error) {
+bool valid_utf8_name(const std::string &source) {
+
+	std::size_t position = 0;
+	while (position < source.size()) {
+		const unsigned char first =
+			static_cast<unsigned char>(source[position]);
+		std::uint32_t codepoint;
+		std::size_t continuation;
+		if (first < 0x80) {
+			if ((first < 0x20) || (first == 0x7f)) {
+				return false;
+			}
+			position++;
+			continue;
+		}
+		if ((first >= 0xc2) && (first <= 0xdf)) {
+			codepoint = first & 0x1f;
+			continuation = 1;
+		}
+		else if ((first >= 0xe0) && (first <= 0xef)) {
+			codepoint = first & 0x0f;
+			continuation = 2;
+		}
+		else if ((first >= 0xf0) && (first <= 0xf4)) {
+			codepoint = first & 0x07;
+			continuation = 3;
+		}
+		else {
+			return false;
+		}
+		if (position + continuation >= source.size()) {
+			return false;
+		}
+		for (std::size_t index = 1; index <= continuation; index++) {
+			const unsigned char next =
+				static_cast<unsigned char>(source[position + index]);
+			if ((next & 0xc0) != 0x80) {
+				return false;
+			}
+			codepoint = (codepoint << 6) | (next & 0x3f);
+		}
+		if (((continuation == 2) && (codepoint < 0x800)) ||
+			((continuation == 3) && (codepoint < 0x10000)) ||
+			(codepoint > 0x10ffff) ||
+			((codepoint >= 0xd800) && (codepoint <= 0xdfff))) {
+			return false;
+		}
+		position += continuation + 1;
+	}
+	return !source.empty();
+}
+
+bool dos_device_name(const std::array<unsigned char, 11> &name) {
+
+	std::string base;
+	for (std::size_t index = 0; index < 8 && name[index] != ' '; index++) {
+		base.push_back(static_cast<char>(name[index]));
+	}
+	if ((base == "CON") || (base == "PRN") || (base == "AUX") ||
+		(base == "NUL")) {
+		return true;
+	}
+	return (base.size() == 4) &&
+		(((base.compare(0, 3, "COM") == 0) ||
+		  (base.compare(0, 3, "LPT") == 0)) &&
+		 (base[3] >= '1') && (base[3] <= '9'));
+}
+
+std::uint32_t alias_hash(const std::string &source) {
+
+	std::uint32_t hash = 2166136261U;
+	for (const unsigned char value : source) {
+		hash ^= value;
+		hash *= 16777619U;
+	}
+	return hash;
+}
+
+void append_alias_characters(const std::string &source, std::string &output,
+		std::size_t limit) {
+
+	for (const unsigned char source_value : source) {
+		unsigned char value = source_value;
+		if ((value >= 'a') && (value <= 'z')) {
+			value = static_cast<unsigned char>(value - 'a' + 'A');
+		}
+		if (dos_character(value)) {
+			output.push_back(static_cast<char>(value));
+			if (output.size() == limit) {
+				break;
+			}
+		}
+	}
+}
+
+void make_dos_alias(const std::string &source, unsigned attempt,
+		std::array<unsigned char, 11> &destination) {
+
+	static constexpr char hex[] = "0123456789ABCDEF";
+	const std::size_t dot = source.rfind('.');
+	const std::string base = ((dot == std::string::npos) || (dot == 0)) ?
+		source : source.substr(0, dot);
+	const std::string extension = ((dot == std::string::npos) ||
+		(dot + 1 == source.size())) ? std::string() : source.substr(dot + 1);
+	std::string prefix;
+	std::string suffix;
+	append_alias_characters(base, prefix, 4);
+	append_alias_characters(extension, suffix, 3);
+	if (prefix.empty()) {
+		prefix = "FILE";
+	}
+	const std::uint32_t hash =
+		(alias_hash(source) + attempt * 0x9e3779b9U) & 0x0fffU;
+	destination.fill(' ');
+	std::copy(prefix.begin(), prefix.end(), destination.begin());
+	destination[prefix.size()] = '~';
+	destination[prefix.size() + 1] = hex[(hash >> 8) & 0x0f];
+	destination[prefix.size() + 2] = hex[(hash >> 4) & 0x0f];
+	destination[prefix.size() + 3] = hex[hash & 0x0f];
+	std::copy(suffix.begin(), suffix.end(), destination.begin() + 8);
+}
+
+bool assign_dos_names(Node &node, BuildState &state) {
+
+	std::sort(node.children.begin(), node.children.end(),
+		[](const std::unique_ptr<Node> &left,
+				const std::unique_ptr<Node> &right) {
+			return left->source_name < right->source_name;
+		});
+	std::vector<std::array<unsigned char, 11>> used;
+	for (auto &child : node.children) {
+		if (make_dos_name(child->source_name, child->dos_name) &&
+			!dos_device_name(child->dos_name) &&
+			(std::find(used.begin(), used.end(), child->dos_name) == used.end())) {
+			child->dos_name_assigned = true;
+			used.push_back(child->dos_name);
+		}
+	}
+	for (auto &child : node.children) {
+		if (child->dos_name_assigned) {
+			continue;
+		}
+		bool assigned = false;
+		for (unsigned attempt = 0; attempt < 4096; attempt++) {
+			make_dos_alias(child->source_name, attempt, child->dos_name);
+			if (std::find(used.begin(), used.end(), child->dos_name) == used.end()) {
+				child->dos_name_assigned = true;
+				used.push_back(child->dos_name);
+				assigned = true;
+				break;
+			}
+		}
+		if (!assigned) {
+			state.error = "cannot generate a unique DOS 8.3 alias";
+			return false;
+		}
+	}
+	std::sort(node.children.begin(), node.children.end(),
+		[](const std::unique_ptr<Node> &left,
+				const std::unique_ptr<Node> &right) {
+			return left->dos_name < right->dos_name;
+		});
+	return true;
+}
+
+bool inspect_file_identity(const fs::path &path, bool directory,
+		FileIdentity &identity, std::uintmax_t &links, std::error_code &error) {
 
 #if defined(_WIN32)
 	const HANDLE handle = CreateFileW(path.c_str(), FILE_READ_ATTRIBUTES,
 		FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr,
-		OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+		OPEN_EXISTING, FILE_FLAG_OPEN_REPARSE_POINT |
+			(directory ? FILE_FLAG_BACKUP_SEMANTICS : 0), nullptr);
 	if (handle == INVALID_HANDLE_VALUE) {
 		error = std::error_code(static_cast<int>(GetLastError()),
 			std::system_category());
@@ -292,13 +471,31 @@ bool hard_link_count(const fs::path &path, std::uintmax_t &count,
 		CloseHandle(handle);
 		return false;
 	}
-	CloseHandle(handle);
-	count = information.nNumberOfLinks;
-#else
-	count = fs::hard_link_count(path, error);
-	if (error) {
+	if ((information.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT) != 0) {
+		error = std::make_error_code(std::errc::too_many_symbolic_link_levels);
+		CloseHandle(handle);
 		return false;
 	}
+	CloseHandle(handle);
+	links = information.nNumberOfLinks;
+	identity.first = information.dwVolumeSerialNumber;
+	identity.second =
+		(static_cast<std::uint64_t>(information.nFileIndexHigh) << 32) |
+		information.nFileIndexLow;
+#else
+	struct stat information{};
+	if (::lstat(path.c_str(), &information) != 0) {
+		error = std::error_code(errno, std::generic_category());
+		return false;
+	}
+	if (S_ISLNK(information.st_mode) ||
+		(directory ? !S_ISDIR(information.st_mode) : !S_ISREG(information.st_mode))) {
+		error = std::make_error_code(std::errc::invalid_argument);
+		return false;
+	}
+	links = static_cast<std::uintmax_t>(information.st_nlink);
+	identity.first = static_cast<std::uint64_t>(information.st_dev);
+	identity.second = static_cast<std::uint64_t>(information.st_ino);
 #endif
 	error.clear();
 	return true;
@@ -318,18 +515,33 @@ bool capture_timestamp(Node &node, const std::string &name, BuildState &state) {
 	return true;
 }
 
-bool sort_and_check_children(Node &node, BuildState &state) {
+bool path_is_within(const fs::path &root, const fs::path &candidate) {
 
-	std::sort(node.children.begin(), node.children.end(),
-		[](const std::unique_ptr<Node> &left, const std::unique_ptr<Node> &right) {
-			return left->dos_name < right->dos_name;
-		});
-	for (std::size_t position = 1; position < node.children.size(); position++) {
-		if (node.children[position - 1]->dos_name ==
-			node.children[position]->dos_name) {
-			state.error = "case-insensitive 8.3 name collision";
+	auto root_part = root.begin();
+	auto candidate_part = candidate.begin();
+	for (; root_part != root.end(); ++root_part, ++candidate_part) {
+		if ((candidate_part == candidate.end()) ||
+			(*candidate_part != *root_part)) {
 			return false;
 		}
+	}
+	return true;
+}
+
+bool capture_identity(Node &node, const std::string &name, BuildState &state) {
+
+	std::error_code error;
+	if (!inspect_file_identity(node.path, node.directory, node.identity,
+			node.hard_links, error)) {
+		state.error = "cannot inspect host entry identity: " + name;
+		if (error) {
+			state.error += ": " + error.message();
+		}
+		return false;
+	}
+	if (!node.directory && (node.hard_links != 1)) {
+		state.error = "hard-linked files are not supported: " + name;
+		return false;
 	}
 	return true;
 }
@@ -366,24 +578,31 @@ bool scan_directory(Node &node, unsigned depth, BuildState &state) {
 			return false;
 		}
 		if (++state.entries > kMaximumEntries) {
-			state.error = "host directory exceeds the M54 entry limit";
+			state.error = "host directory exceeds the HOSTFAT entry limit";
+			return false;
+		}
+		const std::string name = item.path().filename().u8string();
+		if (!valid_utf8_name(name)) {
+			state.error = "host entry name is not valid UTF-8";
+			return false;
+		}
+		const fs::path canonical = fs::canonical(item.path(), error);
+		if (error || !path_is_within(state.canonical_root, canonical)) {
+			state.error = "host entry escapes the canonical HOSTFAT root: " + name;
 			return false;
 		}
 		auto child = std::make_unique<Node>();
-		child->path = item.path();
+		child->path = canonical;
+		child->source_name = name;
 		child->parent = &node;
 		child->directory = fs::is_directory(status);
-		const std::string name = item.path().filename().u8string();
-		if (!make_dos_name(name, child->dos_name)) {
-			state.error = "entry is not an ASCII 8.3 name: " + name;
-			return false;
-		}
-		if (!capture_timestamp(*child, name, state)) {
+		if (!capture_timestamp(*child, name, state) ||
+			!capture_identity(*child, name, state)) {
 			return false;
 		}
 		if (child->directory) {
 			if (depth >= kMaximumDepth) {
-				state.error = "host directory exceeds the M54 depth limit";
+				state.error = "host directory exceeds the HOSTFAT depth limit";
 				return false;
 			}
 			state.directories++;
@@ -392,33 +611,20 @@ bool scan_directory(Node &node, unsigned depth, BuildState &state) {
 			}
 		}
 		else {
-			const std::uintmax_t size = item.file_size(error);
+			const std::uintmax_t size = fs::file_size(child->path, error);
 			if (error ||
 				(size > (std::numeric_limits<std::uint32_t>::max)())) {
 				state.error = "cannot represent host file size: " + name;
 				return false;
 			}
 			child->size = static_cast<std::uint32_t>(size);
-			if (!hard_link_count(item.path(), child->hard_links, error)) {
-				state.error = "cannot inspect host file links: " + name;
-				return false;
-			}
-			if (child->hard_links != 1) {
-				state.error = "hard-linked files are not supported: " + name;
-				return false;
-			}
-			for (const fs::path &previous : state.regular_files) {
-				const bool same_file = fs::equivalent(previous, item.path(), error);
-				if (error) {
-					state.error = "cannot compare host file identities: " + name;
-					return false;
-				}
-				if (same_file) {
+			for (const FileIdentity &previous : state.regular_files) {
+				if (previous == child->identity) {
 					state.error = "hard-linked files are not supported: " + name;
 					return false;
 				}
 			}
-			state.regular_files.push_back(item.path());
+			state.regular_files.push_back(child->identity);
 			state.files++;
 			state.source_bytes += size;
 		}
@@ -428,7 +634,7 @@ bool scan_directory(Node &node, unsigned depth, BuildState &state) {
 		state.error = "cannot finish host-directory scan: " + error.message();
 		return false;
 	}
-	return sort_and_check_children(node, state);
+	return assign_dos_names(node, state);
 }
 
 bool assign_clusters(Node &node, std::size_t &next_cluster,
@@ -495,6 +701,8 @@ std::size_t cluster_offset(std::uint16_t cluster) {
 bool file_identity_is_unchanged(const Node &node, BuildState &state) {
 
 	std::error_code error;
+	FileIdentity current_identity{};
+	std::uintmax_t current_hard_links = 0;
 	const fs::file_status status = fs::symlink_status(node.path, error);
 	if (error || fs::is_symlink(status) || !fs::is_regular_file(status)) {
 		state.error = "host file type changed while creating snapshot";
@@ -510,8 +718,9 @@ bool file_identity_is_unchanged(const Node &node, BuildState &state) {
 		state.error = "host file timestamp changed while creating snapshot";
 		return false;
 	}
-	std::uintmax_t current_hard_links = 0;
-	if (!hard_link_count(node.path, current_hard_links, error) ||
+	if (!inspect_file_identity(node.path, false, current_identity,
+			current_hard_links, error) ||
+		!(current_identity == node.identity) ||
 		(current_hard_links != node.hard_links) || (current_hard_links != 1)) {
 		state.error = "host file link identity changed while creating snapshot";
 		return false;
@@ -522,6 +731,8 @@ bool file_identity_is_unchanged(const Node &node, BuildState &state) {
 bool directory_identity_is_unchanged(const Node &node, BuildState &state) {
 
 	std::error_code error;
+	FileIdentity current_identity{};
+	std::uintmax_t current_hard_links = 0;
 	const fs::file_status status = fs::symlink_status(node.path, error);
 	if (error || fs::is_symlink(status) || !fs::is_directory(status)) {
 		state.error = "host directory type changed while creating snapshot";
@@ -530,6 +741,11 @@ bool directory_identity_is_unchanged(const Node &node, BuildState &state) {
 	const fs::file_time_type modified_time = fs::last_write_time(node.path, error);
 	if (error || (modified_time != node.modified_time)) {
 		state.error = "host directory timestamp changed while creating snapshot";
+		return false;
+	}
+	if (!inspect_file_identity(node.path, true, current_identity,
+			current_hard_links, error) || !(current_identity == node.identity)) {
+		state.error = "host directory identity changed while creating snapshot";
 		return false;
 	}
 	return true;
@@ -643,10 +859,12 @@ bool build_image(const fs::path &root_path, std::vector<unsigned char> &image,
 		state.error = "HOSTFAT root is not a readable directory";
 		return false;
 	}
+	state.canonical_root = canonical;
 	Node root;
 	root.path = canonical;
 	root.directory = true;
-	if (!capture_timestamp(root, canonical.u8string(), state)) {
+	if (!capture_timestamp(root, canonical.u8string(), state) ||
+		!capture_identity(root, canonical.u8string(), state)) {
 		return false;
 	}
 	if (!scan_directory(root, 0, state)) {
@@ -806,19 +1024,30 @@ bool verify_internal_limits() {
 	std::array<unsigned char, 11> uppercase{};
 	if (!make_dos_name("case.txt", lowercase) ||
 		!make_dos_name("CASE.TXT", uppercase) || (lowercase != uppercase) ||
-		make_dos_name("bad name.txt", uppercase)) {
+		make_dos_name("bad name.txt", uppercase) ||
+		!valid_utf8_name("\xe3\x83\x86\xe3\x82\xb9\xe3\x83\x88.txt") ||
+		valid_utf8_name("\xc0\xaf")) {
 		return false;
 	}
 	Node collision_root;
 	for (const char *name : {"case.txt", "CASE.TXT"}) {
 		auto child = std::make_unique<Node>();
-		if (!make_dos_name(name, child->dos_name)) {
-			return false;
-		}
+		child->source_name = name;
 		collision_root.children.push_back(std::move(child));
 	}
 	BuildState collision_state;
-	if (sort_and_check_children(collision_root, collision_state)) {
+	if (!assign_dos_names(collision_root, collision_state) ||
+		(collision_root.children[0]->dos_name ==
+		 collision_root.children[1]->dos_name)) {
+		return false;
+	}
+	std::array<unsigned char, 11> alias_first{};
+	std::array<unsigned char, 11> alias_second{};
+	make_dos_alias("Long Unicode \xe5\x90\x8d.txt", 0, alias_first);
+	make_dos_alias("Long Unicode \xe5\x90\x8d.txt", 0, alias_second);
+	if ((alias_first != alias_second) ||
+		(alias_first[4] != '~') || (alias_first[8] != 'T') ||
+		(alias_first[9] != 'X') || (alias_first[10] != 'T')) {
 		return false;
 	}
 	Node root;
@@ -922,19 +1151,21 @@ extern "C" BOOL hostfat_snapshot_selftest(void) {
 			(first.digest != second.digest)) {
 			throw std::runtime_error("snapshot regeneration was not deterministic");
 		}
-		const UINT32 accepted_digest = second.digest;
+		UINT32 accepted_digest = second.digest;
 		{
-			std::ofstream invalid(root / "bad name.txt", std::ios::binary);
-			invalid << "invalid\n";
+			std::ofstream aliased(root / "long name.txt", std::ios::binary);
+			aliased << "aliased\n";
 		}
-		if ((hostfat_snapshot_mount_directory(root.u8string().c_str(), nullptr,
-				message, sizeof(message)) == SUCCESS) ||
-			(hostfat_image_digest() != accepted_digest)) {
-			throw std::runtime_error("invalid name did not fail transactionally");
+		HOSTFAT_SNAPSHOT_INFO aliased{};
+		if ((hostfat_snapshot_mount_directory(root.u8string().c_str(), &aliased,
+				message, sizeof(message)) != SUCCESS) ||
+			(aliased.files != 3) || (aliased.digest == accepted_digest)) {
+			throw std::runtime_error("deterministic 8.3 alias was not generated");
 		}
-		fs::remove(root / "bad name.txt", error);
+		accepted_digest = aliased.digest;
+		fs::remove(root / "long name.txt", error);
 		if (error) {
-			throw std::runtime_error("temporary invalid-name cleanup failed");
+			throw std::runtime_error("temporary aliased-name cleanup failed");
 		}
 		error.clear();
 		fs::create_symlink(root / "hello.txt", root / "link.txt", error);
