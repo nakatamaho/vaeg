@@ -31,7 +31,7 @@ standard human gate pending. G55 has not been declared passed.
 - Starting and approved supplemental G54 SHA:
   `e0bafbaa3cc0b12f945e18c231c843fc17ff0392`
 - Hosted-validated implementation SHA:
-  `c9b70c4d4e8b88a6b7045311e316aa46a68acee5`
+  `1910dc1e7f58a31b18ff7dea5fbc2e02a7e4f981`
 - Final and remote SHA: the report-only handoff commit is supplied in the
   completion message; its parent is the hosted-validated implementation SHA
   above.
@@ -47,7 +47,12 @@ standard human gate pending. G55 has not been declared passed.
 7. `57e3deb` — `M55: allow sanitizer time for FAT12-max checks`
 8. `ac7537a` — `M55: record HOSTFAT integration evidence`
 9. `c9b70c4` — `M55: reserve FAT12 tail clusters explicitly`
-10. `M55: record hosted validation result` — report-only final handoff commit;
+10. `5366547` — `M55: record hosted validation result`
+11. `14157f7` — `M55: use PC-Engine-compatible HOSTFAT clusters`
+12. `5e83dfc` — `M55: fix HOSTFAT folder browser popup`
+13. `063cf7c` — `M55: document PC-Engine HOSTFAT limits`
+14. `1910dc1` — `M55: correct HOSTFAT validation geometry note`
+15. `M55: record corrected G55 validation` — report-only final handoff commit;
     full SHA supplied in the completion message
 
 ## Files changed
@@ -62,7 +67,8 @@ standard human gate pending. G55 has not been declared passed.
 - Guest driver and deterministic checker:
   `tools/pc88va/hostfat/hostfat.asm`, `check_driver.py`, and `README.md`.
 - Planning and user documentation: `docs/agents/ROADMAP.md`, the M55 task,
-  `sdl2/README.md`, `sdl2/gui/README.md`, and this report.
+  `docs/modernization/bug-fixes.md`, `sdl2/README.md`, `sdl2/gui/README.md`,
+  and this report.
 
 No frozen-reference file, ROM, disk image, font, icon, cursor, or wave payload
 changed.
@@ -71,18 +77,18 @@ changed.
 
 | Property | M55 value |
 |---|---:|
-| Logical sector | 2,048 bytes |
+| Logical sector | 1,024 bytes |
 | Sectors per cluster | 16 |
-| Cluster size | 32 KiB |
+| Cluster size | 16 KiB |
 | Reserved sectors | 0 |
 | FAT copies / sectors per FAT | 2 / 7 |
-| Root entries / sectors | 128 / 2 |
-| DOS-visible sectors | 65,360 |
+| Root entries / sectors | 128 / 4 |
+| DOS-visible sectors | 65,362 |
 | Backing sectors | 65,536 |
-| DOS-visible capacity | 133,857,280 bytes (127.65625 MiB) |
+| DOS-visible capacity | 66,930,688 bytes (63.830078125 MiB) |
 | Data-cluster count used for FAT type | 4,084 |
 | Highest allocatable cluster | `0FEFH` |
-| Allocatable payload | 133,627,904 bytes (127.4375 MiB) |
+| Allocatable payload | 66,813,952 bytes (63.71875 MiB) |
 
 The cluster count stays below the 4,085-cluster FAT16 cutoff. Allocation also
 stops before FAT12's `0FF0H` reserved identifiers. The six geometrically
@@ -92,21 +98,34 @@ retains its 16-bit starting-sector contract. `HOSTFAT.SYS` advertises the same
 BPB as the snapshot generator, and the generated-driver checker fails if the
 geometry or cutoff changes.
 
-The generated driver is 528 bytes with SHA-256
-`74af84b10e2157e3c178e423d80469a81f1ad122bd82eb99520d69d44b6d82f4`.
+The corrected generated driver is 528 bytes with SHA-256
+`393226edcde6b0cc8648ce9f8b380804c44e2bec7c3d762cb60f0bc211b1767e`.
 Direct NASM plus GCC, Clang, ASan, and MinGW CMake outputs reproduced it
 byte-identically.
 
-Historical 128 MB SCSI MO support is plausibility evidence only. A physical
-MO normally uses a SCSI host adapter and block-driver stack. HOSTFAT does not
-emulate SCSI and needs no SCSI driver: `HOSTFAT.SYS` is itself the PC-Engine
-block device. PC-Engine acceptance of its 2,048-byte logical sectors remains
-an explicit G55 check.
+The first G55 run disproved the original 2,048-byte-sector/32 KiB-cluster
+proposal. A generated 96 KiB file occupied three FAT entries, but PC-Engine
+copied only 6144 bytes. The corrected layout follows the demonstrated PC-88VA
+40 MB SASI layout's 1024-byte sectors and 16 KiB clusters while retaining the
+FAT12 maximum of 4084 data clusters. The same 96 KiB source then occupied six
+FAT entries and copied byte-identically. A separate marker allocated after a
+60 MiB filler also copied byte-identically, proving access beyond 60 MiB.
+
+Unpatched PC-Engine still reports free space as two KiB per free FAT entry, so
+`DIR` displays approximately 8 MiB. This is not the readable snapshot limit.
+Historical SASI HDD and SCSI MO support use dedicated storage paths; HOSTFAT
+does not emulate either interface and `HOSTFAT.SYS` remains the independent
+PC-Engine CONFIG.SYS block device.
 
 ## Persistent frontend and refresh lifecycle
 
 `HOSTFAT` and `HOSTFATDIR` are persisted in `vaeg.cfg`. Emulate -> Configure
 provides an enable switch, UTF-8 path input, and directory-only browser.
+The initial browser button opened the popup under the child widget's ImGui ID
+stack but attempted to begin it from the parent stack, so the IDs did not
+match and the button appeared inert. The corrected code records the request
+inside the child and opens the popup from the same parent scope as
+`BeginPopupModal`. An Xvfb-driven GUI run visibly opened the folder selector.
 Enabling or rebuilding creates a complete candidate on an SDL worker thread.
 Scan, copy, and image-preparation progress is synchronized through an SDL
 mutex; the ImGui/event/render loop continues normally.
@@ -165,17 +184,18 @@ Unless noted as an expected environmental result, every command below exited
 zero.
 
 ```text
-cmake --preset linux-ci-gcc -B /tmp/vaeg-m55-final-gcc --fresh
-cmake --build /tmp/vaeg-m55-final-gcc --parallel 4
-ctest --test-dir /tmp/vaeg-m55-final-gcc --output-on-failure
+cmake --preset linux-ci-gcc -B /tmp/vaeg-m55-corrected-gcc --fresh
+cmake --build /tmp/vaeg-m55-corrected-gcc --parallel 2
+ctest --test-dir /tmp/vaeg-m55-corrected-gcc --output-on-failure
 
-cmake --preset linux-ci-clang -B /tmp/vaeg-m55-final-clang --fresh
-cmake --build /tmp/vaeg-m55-final-clang --parallel 4
-ctest --test-dir /tmp/vaeg-m55-final-clang --output-on-failure
+cmake --preset linux-ci-clang -B /tmp/vaeg-m55-corrected-clang --fresh
+cmake --build /tmp/vaeg-m55-corrected-clang --parallel 2
+ctest --test-dir /tmp/vaeg-m55-corrected-clang --output-on-failure
 ```
 
 GCC and Clang each passed 35 tests, skipped only the unavailable external
-SingleStepTests corpus test, and had zero failures out of 36. These runs cover
+SingleStepTests corpus test, and had zero failures out of 36 in 22.76 and
+23.10 seconds respectively. These runs cover
 the accepted M42--M54 dispatch, trace, ABI, state, REP+0F, protected-state,
 rename, Z80, pacing, I/O-bank, and HOSTFAT gates. In particular, final dispatch
 and accepted provenance artifacts, the 522-case diagnostic-stop suite, state
@@ -183,24 +203,25 @@ payload fixtures, and embedded M43 CI/full expectation summaries remained
 unchanged.
 
 ```text
-cmake --preset linux-ci-asan -B /tmp/vaeg-m55-final-asan --fresh
-cmake --build /tmp/vaeg-m55-final-asan --parallel 4
+cmake --preset linux-ci-asan -B /tmp/vaeg-m55-corrected-asan --fresh
+cmake --build /tmp/vaeg-m55-corrected-asan --parallel 2
 ASAN_OPTIONS=detect_leaks=0 \
-  ctest --test-dir /tmp/vaeg-m55-final-asan --output-on-failure
+  ctest --test-dir /tmp/vaeg-m55-corrected-asan --output-on-failure \
+    --parallel 2
 ```
 
 The first ASan/UBSan matrix ran concurrently with GCC and Clang. All tests
 except the existing trace-equivalence wrapper passed; that wrapper reached its
 old 180-second timeout because it invokes the now larger complete selftest
-three times. M55 raises only that test timeout to 420 seconds. With no competing
-builds, the unchanged test passed under ASan/UBSan in 207.85 seconds. The
-standalone ROM-less suite had already passed in 68.69 seconds. LeakSanitizer
-was disabled for the managed environment; address and undefined-behavior
-instrumentation remained enabled.
+three times. M55 raises only that test timeout to 420 seconds. The final
+corrected matrix passed 35 tests, skipped only the external corpus, and had
+zero failures out of 36 in 139.81 seconds; trace equivalence took 129.75
+seconds. LeakSanitizer was disabled for the managed environment; address and
+undefined-behavior instrumentation remained enabled.
 
 ```text
-cmake --preset mingw-cross
-cmake --build --preset mingw-cross --parallel 4
+cmake --preset mingw-cross --fresh
+cmake --build --preset mingw-cross --parallel 2
 WINEDEBUG=-all \
 WINEPREFIX=/home/maho/vaeg/build/m54-wine-prefix \
   wine64 build/mingw-cross/sdl2/vaeg.exe --selftest
@@ -214,12 +235,12 @@ Wine-only failure occurred.
 
 ```text
 python3 tools/pc88va/hostfat/check_driver.py \
-  --input build/linux-debug/guest/hostfat.sys
+  --input /tmp/vaeg-m55-corrected-gcc/guest/hostfat.sys
 python3 tools/repo/check_encoding.py
 python3 tools/repo/check_eol.py
 python3 tools/repo/check_case.py
 python3 tools/repo/find_unreferenced.py
-cmake --preset linux-ci-gcc -B /tmp/vaeg-m55-final-no-nasm --fresh \
+cmake --preset linux-ci-gcc -B /tmp/vaeg-m55-corrected-no-nasm --fresh \
   -DVAEG_NASM_EXECUTABLE=VAEG_NASM_EXECUTABLE-NOTFOUND
 git diff --check
 git diff --name-only e0bafbaa3cc0b12f945e18c231c843fc17ff0392 \
@@ -233,55 +254,61 @@ frozen/binary-payload comparison was empty. The optional-NASM configuration
 also passed while disabling only the generated guest-driver target.
 
 ```text
-cmake --preset linux-release -B /tmp/vaeg-m55-final-release --fresh
-cmake --build /tmp/vaeg-m55-final-release --parallel 4
+cmake --preset linux-release -B /tmp/vaeg-m55-corrected-release --fresh
+cmake --build /tmp/vaeg-m55-corrected-release --parallel 2
 SDL_AUDIODRIVER=dummy SDL_VIDEODRIVER=dummy \
-  /tmp/vaeg-m55-final-release/sdl2/vaeg --selftest
+  /tmp/vaeg-m55-corrected-release/sdl2/vaeg --selftest
 SDL_AUDIODRIVER=dummy SDL_VIDEODRIVER=dummy \
-  /tmp/vaeg-m55-final-release/sdl2/vaeg --smoke
-readelf --dyn-syms --wide /tmp/vaeg-m55-final-release/sdl2/vaeg
+  /tmp/vaeg-m55-corrected-release/sdl2/vaeg --smoke
+readelf --dyn-syms --wide /tmp/vaeg-m55-corrected-release/sdl2/vaeg
 ```
 
 The tests-disabled cache records `VAEG_ENABLE_TESTS=OFF`. The ROM-less
 selftest and headless smoke run passed. Dynamic-symbol filtering found no M55,
 HOSTFAT selftest, snapshot-test, or audit seam exported by the production
 binary. The release executable SHA-256 is
-`1714d49d69820e7e750f2f614bb206928a4a241f558853de28180ee11f5a2a5d`;
+`d7bb87ef565a9206b390f31e160d50d118f97d3bf4c0d65732ec6f4da2c92967`;
 the MinGW executable SHA-256 is
-`bad372b9369539287baf7fe35dfc52052caf18e5babae2dac64dea0720408484`.
+`be93bb4f0b14a936ea326d6a5343c320b253517d89042a46bb036b86a190e808`.
 
 The final FAT-boundary review additionally marked physical tail-cluster
-entries `0FF0H`--`0FF5H` reserved in both FAT copies. Incremental GCC, Clang,
-ASan/UBSan, Linux release, and MinGW builds passed. Their ROM-less suites
-passed in 7.71, 7.84, and 69.59 seconds plus successful release and Wine runs;
-the snapshot selftest now asserts all six packed FAT12 entries exactly.
+entries `0FF0H`--`0FF5H` reserved in both FAT copies. Corrected clean GCC,
+Clang, ASan/UBSan, Linux release, and MinGW builds passed. The three CTest
+matrices completed in 22.76, 23.10, and 139.81 seconds plus successful release
+and Wine runs. The snapshot selftest asserts all six packed FAT12 entries
+exactly, requires a 96 KiB file to occupy six 16 KiB clusters, and verifies
+allocation of a marker after a 60 MiB filler.
 
 ## Production isolation and hosted CI
 
 - Tests-disabled Linux release and ROM-less smoke: passed.
 - Dynamic symbol inspection: passed; no M55-only test/audit seam exported.
-- [Hosted run 29894448587](https://github.com/nakatamaho/vaeg/actions/runs/29894448587)
+- [Hosted run 29900461789](https://github.com/nakatamaho/vaeg/actions/runs/29900461789)
   tested implementation SHA
-  `c9b70c4d4e8b88a6b7045311e316aa46a68acee5` and completed successfully.
+  `1910dc1e7f58a31b18ff7dea5fbc2e02a7e4f981` and completed successfully.
 - All seven jobs passed: Linux GCC, Linux Clang, ASan/UBSan, Windows
   MSYS2/MinGW64, macOS FetchContent SDL2, standalone Z80 conformance, and
   repository invariants.
 - GitHub's Node.js 20 deprecation annotations apply to the pinned Actions
   runtime and did not report a source, build, or test failure.
+- The clean Linux release, MinGW release, and matching generated
+  `HOSTFAT.SYS` were copied to the maintainer-local handoff directory and
+  reproduced their build-artifact SHA-256 values byte-for-byte.
 
 ## Deviations and residual risks
 
 - The ASan trace timeout was raised from 180 to 420 seconds because the test
-  deliberately runs the complete 128 MiB snapshot suite three times. No test
+  deliberately ran the former 128 MiB snapshot suite three times. The
+  corrected 64 MiB geometry retains the timeout margin. No test
   content, dispatch artifact, or expected output changed.
-- An atomic rebuild temporarily retains the old 128 MiB image while creating
-  and preparing its replacement. Peak host memory can approach 384 MiB; this
+- An atomic rebuild temporarily retains the old 64 MiB image while creating
+  and preparing its replacement. Peak host memory can approach 192 MiB; this
   is bounded and avoids exposing a partial image or blocking the UI during the
   bulk copy/hash.
-- Automated tests prove the BPB is internally FAT12 and that every LBA fits the
-  private 16-bit request contract. Only the G55 PC-Engine run can prove that
-  this OS/driver combination accepts 2,048-byte logical sectors and reports the
-  intended capacity.
+- PC-Engine's approximately 8 MiB `DIR` free-space figure does not reflect the
+  16 KiB cluster reads. The byte-identical marker copied from beyond 60 MiB is
+  the capacity evidence; changing PC-Engine's display is outside the read-only
+  CONFIG.SYS block-device contract.
 - Real uPD9002 REP+0F semantics remain unknown and unchanged from the accepted
   M48 fail-closed policy. No CPU, timing, memory, DMA, interrupt, I/O, or
   protected-state policy was altered.
@@ -290,19 +317,21 @@ the snapshot selftest now asserts all six packed FAT12 entries exactly.
 
 - [ ] From a clean checkout of the reported SHA, build Linux and/or Windows
   release plus `HOSTFAT.SYS`; verify the driver is 528 bytes with SHA-256
-  `74af84b10e2157e3c178e423d80469a81f1ad122bd82eb99520d69d44b6d82f4`.
+  `393226edcde6b0cc8648ce9f8b380804c44e2bec7c3d762cb60f0bc211b1767e`.
 - [ ] Put that `HOSTFAT.SYS` on a copy of the PC-Engine boot disk and retain
   `DEVICE=HOSTFAT.SYS` in `CONFIG.SYS`.
 - [ ] In Configure, enable HOSTFAT, browse to a test folder, press OK, and
   confirm progress while menus/window/input remain responsive.
 - [ ] Confirm the successful commit resets the guest, prints the HOSTFAT ready
   message, and reaches the OS prompt without hanging.
-- [ ] Run `DIR` and confirm PC-Engine accepts 2,048-byte sectors and reports
-  approximately 127.66 MiB total capacity.
+- [ ] Run `DIR` and note its known approximately 8 MiB free-space display;
+  confirm this is not treated as the readable-capacity limit.
 - [ ] `DIR`/`TYPE` a root file, subdirectory file, long/spaced name, and Unicode
   host name; record the deterministic 8.3 aliases.
-- [ ] Copy a file larger than 32 KiB from HOSTFAT to writable guest media and
+- [ ] Copy a file larger than 16 KiB from HOSTFAT to writable guest media and
   compare its complete bytes with the host source.
+- [ ] Place a small marker after at least 60 MiB of preceding source data,
+  rebuild, copy the marker, and compare its complete bytes with the host.
 - [ ] Add or change a host file and confirm it is invisible before rebuild;
   rebuild, observe the progress/reset, then confirm it appears.
 - [ ] Save and load with the same snapshot and continue operation.
