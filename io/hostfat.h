@@ -34,6 +34,7 @@
 #define HOSTFAT_IMAGE_SIZE (HOSTFAT_SECTOR_SIZE * HOSTFAT_BACKING_SECTORS)
 #define HOSTFAT_VOLUME_SIZE (HOSTFAT_SECTOR_SIZE * HOSTFAT_TOTAL_SECTORS)
 #define HOSTFAT_PROTOCOL_SIGNATURE "H1"
+#define HOSTFAT_IDENTITY_SIZE 32U
 
 enum {
 	HOSTFAT_RESULT_OK = 0,
@@ -50,6 +51,7 @@ BOOL hostfat_mount_image(const void *image, UINT32 size);
 void hostfat_unmount(void);
 BOOL hostfat_is_mounted(void);
 UINT32 hostfat_image_digest(void);
+BOOL hostfat_snapshot_identity(void *identity, UINT size);
 BOOL hostfat_read_sector(UINT32 sector, void *destination);
 UINT8 hostfat_service_request(UINT32 request_far_pointer);
 
