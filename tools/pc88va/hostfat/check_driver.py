@@ -43,18 +43,23 @@ def dispatch_target(data: bytes, command: int) -> tuple[int, int]:
     marker = bytes((0x3C, command))  # CMP AL, imm8
     require_count(data, marker, 1, f"command {command:02X}H comparison")
     branch = data.index(marker) + len(marker)
-    if data[branch] == 0x74:  # JE rel8
-        end = branch + 2
-        displacement = struct.unpack_from("<b", data, branch + 1)[0]
-    elif data[branch : branch + 2] == b"\x0f\x84":  # JE rel16
-        end = branch + 4
-        displacement = struct.unpack_from("<h", data, branch + 2)[0]
+    if data[branch] != 0x75:  # JNE rel8 over JMP rel16
+        fail(f"command {command:02X}H comparison is not followed by short JNE")
+    next_path = branch + 2 + struct.unpack_from("<b", data, branch + 1)[0]
+    jump = branch + 2
+    if data[jump] == 0xEB:  # JMP rel8
+        jump_end = jump + 2
+        target = jump_end + struct.unpack_from("<b", data, jump + 1)[0]
+    elif data[jump] == 0xE9:  # JMP rel16
+        jump_end = jump + 3
+        target = jump_end + struct.unpack_from("<h", data, jump + 1)[0]
     else:
-        fail(f"command {command:02X}H comparison is not followed by JE")
-    target = end + displacement
+        fail(f"command {command:02X}H dispatch does not use an 8086 JMP")
+    if next_path != jump_end:
+        fail(f"command {command:02X}H short JNE does not skip its JMP")
     if not (0 <= target < len(data)):
         fail(f"command {command:02X}H target is outside the driver")
-    return target, end
+    return target, next_path
 
 
 def main() -> None:
@@ -64,6 +69,9 @@ def main() -> None:
     data = args.input.read_bytes()
     if len(data) < 128 or len(data) > 4096:
         fail(f"unexpected size {len(data)}")
+    for opcode in range(0x80, 0x90):
+        if bytes((0x0F, opcode)) in data:
+            fail("386 near conditional jump is not valid in the V30 driver")
     next_driver, attributes, strategy, interrupt = struct.unpack_from("<IHHH", data)
     if next_driver != 0xFFFFFFFF:
         fail("next-driver pointer is not FFFFFFFF")
@@ -156,7 +164,7 @@ def main() -> None:
     if resident_paragraphs > 0x7F:
         fail("resident image exceeds the clean-room imm8 paragraph contract")
     resident_marker = (
-        bytes.fromhex("8cc883c0") + bytes((resident_paragraphs,))
+        bytes.fromhex("26c7470e00008cc883c0") + bytes((resident_paragraphs,))
         + bytes.fromhex("26894710")
     )
     require_count(data, resident_marker, 1, "paragraph-rounded resident end")

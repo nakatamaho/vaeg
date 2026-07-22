@@ -20,6 +20,7 @@
 ; POSSIBILITY OF SUCH DAMAGE.
 
 bits 16
+cpu 8086
 org 0
 
 port_value      equ 0x07ed
@@ -78,23 +79,41 @@ interrupt_entry:
     mov al, [es:bx + packet_command]
 
     cmp al, 0x00
-    je command_initialize
+    jne dispatch_media_check
+    jmp command_initialize
+dispatch_media_check:
     cmp al, 0x01
-    je command_media_check
+    jne dispatch_build_bpb
+    jmp command_media_check
+dispatch_build_bpb:
     cmp al, 0x02
-    je command_build_bpb
+    jne dispatch_read
+    jmp command_build_bpb
+dispatch_read:
     cmp al, 0x04
-    je command_read
+    jne dispatch_write
+    jmp command_read
+dispatch_write:
     cmp al, 0x08
-    je command_write
+    jne dispatch_write_verify
+    jmp command_write
+dispatch_write_verify:
     cmp al, 0x09
-    je command_write
+    jne dispatch_open
+    jmp command_write
+dispatch_open:
     cmp al, 0x0d
-    je command_noop
+    jne dispatch_close
+    jmp command_noop
+dispatch_close:
     cmp al, 0x0e
-    je command_noop
+    jne dispatch_removable
+    jmp command_noop
+dispatch_removable:
     cmp al, 0x0f
-    je command_removable
+    jne command_unknown
+    jmp command_removable
+command_unknown:
     mov ax, status_bad_command
     jmp finish_request
 
