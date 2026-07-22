@@ -52,7 +52,7 @@ separate parity correction or move it to Open Defects.
 
 ### State-load rejection feedback disappeared with the State menu
 
-- **Status:** fixed in the M55 corrected human gate; final G55 retest pending.
+- **Status:** fixed; corrected G55 human gate passed on 2026-07-22.
 - **Symptom:** after rebuilding a changed HOSTFAT snapshot, selecting an older
   state correctly refused the load but appeared to do nothing. Reopening the
   State menu was the only way to find the rejection text.
@@ -71,8 +71,8 @@ separate parity correction or move it to Open Defects.
   restores the saved CPU/memory state without changing the currently mounted
   HOSTFAT digest. A PC-Engine GUI run displayed the mismatch modal, returned to
   the live guest on cancel, and restored the earlier guest state on explicit
-  force; the maintainer accepted the focused interaction as provisionally
-  passed pending the final G55 gate.
+  force; the maintainer accepted the focused interaction and explicitly
+  declared the corrected G55 human gate passed.
 - **Evidence:** [M55 task](../agents/tasks/M55_hostfat_integration.md) and
   [M55 report](../agents/reports/m55_hostfat_integration.md).
 - **Commit:** [40b96aca](https://github.com/nakatamaho/vaeg/commit/40b96acaea8b925873d50c33f6fd3fc52dd71eb1).
