@@ -30,8 +30,11 @@ standard human gate pending. G55 has not been declared passed.
 - Branch: `topic/m55-hostfat-integration`
 - Starting and approved supplemental G54 SHA:
   `e0bafbaa3cc0b12f945e18c231c843fc17ff0392`
-- Final and remote SHA: supplied in the handoff after the hosted-CI result is
-  recorded
+- Hosted-validated implementation SHA:
+  `c9b70c4d4e8b88a6b7045311e316aa46a68acee5`
+- Final and remote SHA: the report-only handoff commit is supplied in the
+  completion message; its parent is the hosted-validated implementation SHA
+  above.
 
 ## Commits
 
@@ -42,7 +45,10 @@ standard human gate pending. G55 has not been declared passed.
 5. `0f4dfd1` — `M55: add persistent asynchronous HOSTFAT controls`
 6. `1d87511` — `M55: document FAT12-max HOSTFAT workflow`
 7. `57e3deb` — `M55: allow sanitizer time for FAT12-max checks`
-8. Final report/CI-record commits: supplied in the handoff
+8. `ac7537a` — `M55: record HOSTFAT integration evidence`
+9. `c9b70c4` — `M55: reserve FAT12 tail clusters explicitly`
+10. `M55: record hosted validation result` — report-only final handoff commit;
+    full SHA supplied in the completion message
 
 ## Files changed
 
@@ -254,8 +260,14 @@ the snapshot selftest now asserts all six packed FAT12 entries exactly.
 
 - Tests-disabled Linux release and ROM-less smoke: passed.
 - Dynamic symbol inspection: passed; no M55-only test/audit seam exported.
-- Hosted Linux GCC, Linux Clang, ASan/UBSan, Windows MinGW, macOS,
-  standalone Z80, and repository checks: pending final record and URL.
+- [Hosted run 29894448587](https://github.com/nakatamaho/vaeg/actions/runs/29894448587)
+  tested implementation SHA
+  `c9b70c4d4e8b88a6b7045311e316aa46a68acee5` and completed successfully.
+- All seven jobs passed: Linux GCC, Linux Clang, ASan/UBSan, Windows
+  MSYS2/MinGW64, macOS FetchContent SDL2, standalone Z80 conformance, and
+  repository invariants.
+- GitHub's Node.js 20 deprecation annotations apply to the pinned Actions
+  runtime and did not report a source, build, or test failure.
 
 ## Deviations and residual risks
 
