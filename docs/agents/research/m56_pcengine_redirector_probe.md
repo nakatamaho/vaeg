@@ -106,3 +106,9 @@ new decision:
 
 Until such a design is approved, the accepted read-only HOSTFAT path remains
 the supported host-to-guest transfer mechanism.
+
+## Maintainer disposition
+
+On 2026-07-23 the maintainer explicitly stopped M56 because the prerequisite
+redirector bridge is absent. G56 did not pass. No alternate file-service
+bridge or successor milestone was authorized by that decision.
