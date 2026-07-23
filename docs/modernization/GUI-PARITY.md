@@ -30,6 +30,10 @@ Unimplemented Win32 features remain visible as disabled stubs with
 
 ## Sources
 
+Paths below beginning with `win9x/` refer to the immutable
+[`archive/frozen-win9x-i286x-g56`](https://github.com/nakatamaho/vaeg/tree/archive/frozen-win9x-i286x-g56)
+snapshot; that tier is absent from the current tree.
+
 - Main menu resource: `win9x/np2.rc:840`.
 - Dynamic FDD, SCSI, state-save, operation-record, and system-menu items:
   `win9x/menu.cpp:211`, `win9x/menu.cpp:236`, `win9x/menu.cpp:250`,

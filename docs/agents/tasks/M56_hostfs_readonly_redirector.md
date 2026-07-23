@@ -22,7 +22,8 @@ POSSIBILITY OF SUCH DAMAGE.
 -->
 # M56: Read-only HOSTFS DOS redirector
 
-Status: **stopped by maintainer because the prerequisite is absent; G56 not passed**
+Status: **G56 administratively closed because the prerequisite is absent; no
+HOSTFS implementation was completed**
 
 M56 starts from the G55-approved SHA
 `df47b5f829d7b8cc9c02f45d9a00e16c4b43dad4` on
@@ -58,10 +59,11 @@ non-transparent utility protocol is a materially different task and requires
 explicit maintainer approval before work begins. The detailed evidence is in
 [`m56_pcengine_redirector_probe.md`](../research/m56_pcengine_redirector_probe.md).
 
-On 2026-07-23 the maintainer explicitly accepted the disposition
-"M56 stopped because the prerequisite is absent." This is not G56 approval,
-and it does not authorize an alternate HOSTFS implementation or a successor
-milestone.
+On 2026-07-23 the maintainer administratively closed G56 at approved SHA
+`b72e641733ddea6f0e8faef2507093f7c3aee5a4`. The closure accepts the
+disposition "M56 stopped because the prerequisite is absent." It is not
+evidence of a successful HOSTFS implementation and does not authorize an
+alternate file-service bridge.
 
 ## Goal
 
@@ -174,10 +176,11 @@ It is not runnable while the prerequisite bridge is absent.
   human gate.
 - Repository encoding, EOL, case, unreferenced-file, and diff checks.
 
-## Dormant G56 human gate
+## Unexecuted HOSTFS implementation checklist
 
-This gate has not been issued and cannot pass without an explicitly approved
-replacement design and implementation.
+This implementation checklist was not executed. G56 was administratively
+closed because the prerequisite bridge is absent, not because the requested
+HOSTFS implementation or its human validation succeeded.
 
 1. Build from a clean checkout and copy `HOSTFS.COM` to writable guest media.
 2. Boot PC-Engine with `LASTDRIVE` high enough, run `HOSTFS <drive>`, and
@@ -194,5 +197,5 @@ replacement design and implementation.
    an existing `--hostfat-dir` invocation still works.
 8. Complete the standard V3/VA demo/OS/keyboard/FDD/sound/reset gate.
 
-Stop at the failed prerequisite evidence gate. Do not request G56 approval for
-the unimplemented design.
+The requested design stopped at the failed prerequisite evidence gate. The
+administrative G56 closure does not approve this unimplemented design.
