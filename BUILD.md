@@ -35,14 +35,19 @@ built-in register/port model is `iova/upd9002_regs.*` and uses
 
 ## Linux
 
-Install CMake 3.20 or newer, Ninja, a C/C++ compiler, and SDL2
+Install CMake 3.20 or newer, Ninja, a C/C++ compiler, NASM, and SDL2
 development files. On Debian-like systems:
 
 ```sh
-sudo apt install cmake ninja-build gcc g++ clang libsdl2-dev pkg-config
+sudo apt install cmake ninja-build gcc g++ clang nasm libsdl2-dev pkg-config
 cmake --preset linux-release
 cmake --build --preset linux-release
 ```
+
+When NASM is present, the normal build also produces the independently built
+PC-Engine read-only HOSTFAT driver at
+`build/linux-release/guest/hostfat.sys`. It is a generated integration
+artifact and is not committed.
 
 The Linux sanitizer smoke preset is:
 
