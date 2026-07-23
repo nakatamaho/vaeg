@@ -46,21 +46,23 @@ be replaced by reading from, the emulated guest font ROM.
 
 ## Historical startup graphic
 
-`vaeg.bmp` is the 320x200 startup graphic used by the frozen Win9x VAEG
-frontend. It was copied byte-for-byte from `hlp/vaeg.bmp` into the active
-asset directory and is embedded in the SDL2 executable at build time, so the
-runtime does not depend on either asset path.
+`vaeg.bmp` is the 320x200 startup graphic used by the former Win9x VAEG
+frontend. It was copied byte-for-byte from
+[`hlp/vaeg.bmp` at the archived G56 tree](https://github.com/nakatamaho/vaeg/blob/b72e641733ddea6f0e8faef2507093f7c3aee5a4/hlp/vaeg.bmp)
+into the active asset directory and is embedded in the SDL2 executable at
+build time, so the runtime does not depend on the archived path.
 
 - SHA-256:
   `ad68394eb52a7cc75d9759a83982132725ddb66c4bd2260662526d67b8ce0c4e`
 
 ## Historical application icon
 
-`vaeg.ico` is the VAEG application icon used by the frozen Win9x frontend.
-It was copied byte-for-byte from `win9x/icons/np2.ico` into the active asset
-directory. CMake embeds the unchanged ICO in every SDL2 executable for the
-runtime window icon; Windows builds also use it as the native executable icon
-resource.
+`vaeg.ico` is the VAEG application icon used by the former Win9x frontend.
+It was copied byte-for-byte from
+[`win9x/icons/np2.ico` at the archived G56 tree](https://github.com/nakatamaho/vaeg/blob/b72e641733ddea6f0e8faef2507093f7c3aee5a4/win9x/icons/np2.ico)
+into the active asset directory. CMake embeds the unchanged ICO in every SDL2
+executable for the runtime window icon; Windows builds also use it as the
+native executable icon resource.
 
 - SHA-256:
   `a27533f679a31fdb8e2812c1d4906e705e544ba49b976154dde6794ce31a32f4`

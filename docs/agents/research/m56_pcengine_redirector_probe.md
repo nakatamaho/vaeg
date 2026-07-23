@@ -109,6 +109,8 @@ the supported host-to-guest transfer mechanism.
 
 ## Maintainer disposition
 
-On 2026-07-23 the maintainer explicitly stopped M56 because the prerequisite
-redirector bridge is absent. G56 did not pass. No alternate file-service
-bridge or successor milestone was authorized by that decision.
+On 2026-07-23 the maintainer administratively closed G56 at approved SHA
+`b72e641733ddea6f0e8faef2507093f7c3aee5a4` because the prerequisite
+redirector bridge is absent. This closure is not evidence of a successful
+HOSTFS implementation and does not authorize an alternate file-service
+bridge.
