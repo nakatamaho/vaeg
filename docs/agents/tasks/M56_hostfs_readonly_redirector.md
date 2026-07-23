@@ -22,11 +22,41 @@ POSSIBILITY OF SUCH DAMAGE.
 -->
 # M56: Read-only HOSTFS DOS redirector
 
-Status: **authorized; implementation in progress; G56 pending**
+Status: **blocked by accepted PC-Engine probe evidence; G56 not passed**
 
 M56 starts from the G55-approved SHA
 `df47b5f829d7b8cc9c02f45d9a00e16c4b43dad4` on
 `topic/m56-hostfs-readonly-redirector`.
+
+## Pre-implementation gate result
+
+The original task assumed that PC-Engine DOS forwards public DOS redirection
+functions to the `INT 2FH/AH=11H` network-redirector multiplex. The
+non-resident M56 probe disproved that assumption in the accepted emulator
+environment:
+
+```text
+DOS=02.00
+INT2F/1100 before hook AX=1100 CF=0
+INT2F/1100 after hook AX=11FF CF=0
+INT21/5D06 AX=0001 CF=1
+INT21/5F02 AX=0001 CF=1 CALLS=0000 LAST=0000 STACK=0000
+INT21/5F03 AX=0001 CF=1 CALLS=0000 LAST=0000 STACK=0000
+RESULT=NO_DOS_REDIRECTOR_BRIDGE
+```
+
+The probe temporarily installed an `AH=11H` handler, made a read-only
+redirection-list query and a deliberately rejected assignment request, then
+restored the original vector. Neither DOS call reached the handler. No drive,
+CDS entry, resident code, host path, or guest-media write was created.
+
+Consequently the `HOSTFS.COM` implementation described below cannot provide
+transparent `DIR`, `TYPE`, or program loading on this PC-Engine environment.
+M56 stops at the evidence gate. Implementing or patching a replacement DOS
+file-service bridge, intercepting PC-Engine internals, or changing to a
+non-transparent utility protocol is a materially different task and requires
+explicit maintainer approval before work begins. The detailed evidence is in
+[`m56_pcengine_redirector_probe.md`](../research/m56_pcengine_redirector_probe.md).
 
 ## Goal
 
@@ -35,6 +65,10 @@ that exposes a selected host directory as a read-only DOS drive through
 file-level operations. Unlike HOSTFAT, HOSTFS must not synthesize FAT, BPB,
 cluster, or sector data. A directory rescan may make newly added host files
 visible without rebuilding a disk image or resetting the guest.
+
+This goal remains the historical requested design. It is not implementable
+through the authorized interface under the probe result above and is not an
+active authorization to bypass the evidence gate.
 
 ## Clean-room and licensing boundary
 
@@ -116,7 +150,10 @@ visible without rebuilding a disk image or resetting the guest.
 - No modification of the frozen reference tier or dormant legacy HOSTDRV.
 - No unrelated CPU, timing, sound, video, media, or state changes.
 
-## Required validation
+## Historical implementation validation
+
+The following validation list applied to the requested HOSTFS implementation.
+It is not runnable while the prerequisite bridge is absent.
 
 - Reproducible NASM build and deterministic structural check for
   `HOSTFS.COM`.
@@ -132,7 +169,10 @@ visible without rebuilding a disk image or resetting the guest.
   human gate.
 - Repository encoding, EOL, case, unreferenced-file, and diff checks.
 
-## G56 human gate
+## Dormant G56 human gate
+
+This gate has not been issued and cannot pass without an explicitly approved
+replacement design and implementation.
 
 1. Build from a clean checkout and copy `HOSTFS.COM` to writable guest media.
 2. Boot PC-Engine with `LASTDRIVE` high enough, run `HOSTFS <drive>`, and
@@ -149,4 +189,5 @@ visible without rebuilding a disk image or resetting the guest.
    an existing `--hostfat-dir` invocation still works.
 8. Complete the standard V3/VA demo/OS/keyboard/FDD/sound/reset gate.
 
-Stop after M56 and request explicit G56 approval.
+Stop at the failed prerequisite evidence gate. Do not request G56 approval for
+the unimplemented design.

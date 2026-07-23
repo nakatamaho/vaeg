@@ -93,7 +93,7 @@ M36–M41 archive status.
 | M53 | tasks/M53_host_pacing.md | Add configurable non-blocking host pacing that slows guest execution without slowing the UI | **G53 passed** |
 | M54 | tasks/M54_hostfat_readonly_prototype.md | Add a session-only read-only HOSTFAT block-device prototype backed by a fixed FAT snapshot | **G54 passed** |
 | M55 | tasks/M55_hostfat_integration.md | Add PC-Engine-compatible FAT12-max HOSTFAT geometry, GUI/configuration, save-state identity, refresh policy, and hardened host-path handling | **G55 passed** |
-| M56 | tasks/M56_hostfs_readonly_redirector.md | Add a clean-room two-clause-BSD read-only DOS redirector with live file-level host-directory access | **G56 pending** |
+| M56 | tasks/M56_hostfs_readonly_redirector.md | Probe the PC-Engine DOS redirector bridge before a clean-room read-only HOSTFS implementation | **blocked: no DOS redirector bridge** |
 
 Phase 2 dependencies: M7 → M8 → {M9, M10 parallel} → M11 → M12 → M13.
 Post-phase dependency: M13 → M14 → M15 → M16 → M17 → M18 → M19 → M20 → M21 → M22 → M23 → M24 → M25 → M26 → M27 → M28 → M29 → M30 → M31 → M32. The required Z80 migration sequence M34 → M35 → M36 → M37 → M38 → M39 → M40 → M41 is complete. The separately authorized uPD9002 sequence has passed G42 through G50 and is now at M51. The accepted M47 pre-implementation audit disproved the old assumption that REP-prefixed 0x0F could not reach NP2 80286 system handlers. M47 therefore collected correctness evidence, M48 installed the approved fail-closed policy, and M49/M50 audited and removed only the explicitly approved dependency-closed groups.
@@ -283,13 +283,16 @@ allocated beyond 60 MiB. Historical SASI HDD and SCSI MO support use their
 dedicated storage paths and do not prove larger clusters for this independent
 CONFIG.SYS driver path.
 
-M56 adds an independently authored read-only DOS network-redirector client
-and bounded emulator-private file RPC. `HOSTFS.COM` exposes file-level host
-directory access without FAT/BPB/sector emulation, while all host mutations
-fail closed. HOSTFAT remains supported for compatibility but is hidden from
-the normal Configure UI when HOSTFS is available. The clean-room boundary,
-state policy, and G56 checklist are in
-`tasks/M56_hostfs_readonly_redirector.md`.
+M56 first tested the prerequisite for an independently authored read-only DOS
+network redirector. The non-resident probe reports PC-Engine's DOS interface
+as 2.00; `INT 21H/AX=5F02H` and `5F03H` both return `AX=0001, CF=1` without a
+single call to the temporary `INT 2FH/AH=11H` hook. The conventional redirector
+design therefore cannot expose transparent `DIR`, `TYPE`, or program loading
+in the accepted environment. M56 is stopped at this fail-closed evidence gate.
+HOSTFAT remains unchanged and visible. Any PC-Engine file-service patch or
+non-transparent utility protocol requires a separately approved design. See
+`tasks/M56_hostfs_readonly_redirector.md` and
+`research/m56_pcengine_redirector_probe.md`.
 
 ## Gate protocol
 
