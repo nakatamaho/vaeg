@@ -454,6 +454,19 @@ BOOL vaeg_cli_parse(int argc, char **argv, VAEG_CLI_OPTIONS *options,
 				return(FAILURE);
 			}
 		}
+		else if (!strcmp(argument, "--hostfat-dir")) {
+			value = option_value(argc, argv, &position, argument, error,
+												error_size);
+			if ((value == NULL) || (value[0] == '\0')) {
+				return(set_error(error, error_size,
+						"--hostfat-dir requires a non-empty path", value));
+			}
+			if (strlen(value) >= MAX_PATH) {
+				return(set_error(error, error_size,
+						"HOSTFAT directory path is too long", value));
+			}
+			options->hostfat_path = value;
+		}
 		else if (argument[0] == '-') {
 			return(set_error(error, error_size, "unknown option", argument));
 		}

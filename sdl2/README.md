@@ -58,7 +58,7 @@ the pinned SDL2 release recorded in ADR-0006.
 |------|---------|
 | Machine | `--model va|va2` |
 | Sound | `--fmbackend np2|ymfm`, `--fmsound opn|opna`, `--ymfm-fidelity minimum|medium|maximum`, `--samplerate 11025|22050|44100`, `--soundbuffer 40..1000`, `--mute` |
-| Media | `--fdd1 path|none`, `--fdd2 path|none`, `--sasi1 path|none`, `--sasi2 path|none` |
+| Media | `--fdd1 path|none`, `--fdd2 path|none`, `--sasi1 path|none`, `--sasi2 path|none`, `--hostfat-dir path` |
 | Execution | `--cpumult 1..32`, `--sgp model|follow-cpu|1..16`, `--nowait`, `--frameskip auto|full|2|3|4` |
 | Display/input | `--fullscreen`, `--windowed`, `--effect unfiltered|linear|scanline|crt-lite`, `--scaling native|fit|fit-8dot|integer|stretch`, `--controller joystick|mouse`, `--keyboard-layout jis|us|custom` |
 | Diagnostics/information | `--smoke`, `--selftest`, `--debug`, `--fdctrace`, `--pacelog`, `--trace-cpu N`, `--version`, `--help`, `-h` |
@@ -79,6 +79,34 @@ recognized geometry is usable through the SASI interface and the declared
 sector data is present. Use `none` to make a named drive empty for the session.
 An invalid media path or removed positional argument fails before SDL machine
 initialization.
+
+`--hostfat-dir` enables the read-only HOSTFAT drive for PC-Engine. Before the
+machine starts, vaeg copies the selected directory into an immutable FAT12
+snapshot. The M55 geometry uses 1024-byte sectors and 16 KiB clusters: its
+DOS-visible size is 63.830078125 MiB and up to 63.71875 MiB of cluster payload is
+allocatable before directory and per-file rounding. Valid unique ASCII 8.3
+names are retained (and folded to uppercase); longer, spaced, or Unicode UTF-8
+names receive deterministic 8.3 aliases. Invalid UTF-8, links, special files,
+excessive depth/count, and content that does not fit are rejected rather than
+omitted.
+
+Unpatched PC-Engine reports HOSTFAT free space as if every free FAT entry were
+2 KiB, so `DIR` shows approximately 8 MiB even though 16 KiB cluster reads are
+used. This is a display limitation, not the readable snapshot limit: the G55
+integration check copied byte-identical data from beyond 60 MiB. PC-88VA
+40 MB SASI disks use a separate built-in storage path and likewise demonstrate
+16 KiB FAT12 clusters; 32 KiB clusters are not accepted by this CONFIG.SYS
+driver path.
+
+HOSTFAT can also be enabled persistently under Emulate -> Configure. Selecting
+a folder and pressing OK builds the replacement snapshot on a worker thread,
+leaves the current mounted image unchanged during the build, then atomically
+commits it and resets the guest. Disable HOSTFAT to unmount and reset. Host
+changes are intentionally invisible until this explicit rebuild. A save state
+records the SHA-256 identity of the mounted image; loading with a missing or
+different mounted snapshot fails transactionally before live machine state is
+changed. Build and install the matching `HOSTFAT.SYS` as described in
+[`tools/pc88va/hostfat/README.md`](../tools/pc88va/hostfat/README.md).
 
 All setting and media options are session-only. They are applied after
 `vaeg.cfg` is loaded and restored before its normal shutdown save as long as

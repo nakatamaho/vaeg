@@ -31,6 +31,7 @@
 #include	"sxsi.h"
 #include	"keydisp.h"
 #include	"hostdrv.h"
+#include	"hostfat.h"
 #include	"calendar.h"
 #include	"keystat.h"
 
@@ -102,6 +103,7 @@ enum {
 	STATFLAG_BMS,
 #endif
 	STATFLAG_SUBCPU,
+	STATFLAG_HOSTFAT,
 };
 
 typedef struct {
@@ -1343,6 +1345,90 @@ static int flagload_subsystemcpu(STFLAGH sfh, const SFENTRY *tbl) {
 }
 
 
+// ---- HOSTFAT immutable snapshot identity
+
+enum {
+	HOSTFAT_STATE_VERSION = 1,
+	HOSTFAT_STATE_MOUNTED = 1,
+	HOSTFAT_STATE_IDENTITY_OFFSET = 4,
+	HOSTFAT_STATE_SIZE = HOSTFAT_STATE_IDENTITY_OFFSET + HOSTFAT_IDENTITY_SIZE
+};
+
+static int flagsave_hostfat(STFLAGH sfh, const SFENTRY *tbl) {
+
+	BYTE payload[HOSTFAT_STATE_SIZE];
+
+	(void)tbl;
+	ZeroMemory(payload, sizeof(payload));
+	payload[0] = HOSTFAT_STATE_VERSION;
+	if (hostfat_is_mounted()) {
+		payload[1] = HOSTFAT_STATE_MOUNTED;
+		if (hostfat_snapshot_identity(payload + HOSTFAT_STATE_IDENTITY_OFFSET,
+				HOSTFAT_IDENTITY_SIZE) != SUCCESS) {
+			return(STATFLAG_FAILURE);
+		}
+	}
+	return(statflag_write(sfh, payload, sizeof(payload)));
+}
+
+static int flagcheck_hostfat(STFLAGH sfh, const SFENTRY *tbl,
+		BOOL allow_identity_mismatch) {
+
+	BYTE payload[HOSTFAT_STATE_SIZE];
+	BYTE current[HOSTFAT_IDENTITY_SIZE];
+	BOOL saved_mounted;
+	BOOL current_mounted;
+
+	if ((sfh->hdr.ver != tbl->ver) ||
+		(sfh->hdr.size != HOSTFAT_STATE_SIZE) ||
+		(tbl->arg2 != HOSTFAT_STATE_SIZE)) {
+		statflag_seterr(sfh, "HOSTFAT state identity format is unsupported");
+		return(STATFLAG_FAILURE);
+	}
+	if (statflag_read(sfh, payload, sizeof(payload)) != STATFLAG_SUCCESS) {
+		statflag_seterr(sfh, "HOSTFAT state identity is truncated");
+		return(STATFLAG_FAILURE);
+	}
+	if ((payload[0] != HOSTFAT_STATE_VERSION) ||
+		(payload[1] > HOSTFAT_STATE_MOUNTED) ||
+		(payload[2] != 0) || (payload[3] != 0)) {
+		statflag_seterr(sfh, "HOSTFAT state identity is malformed");
+		return(STATFLAG_FAILURE);
+	}
+	saved_mounted = payload[1] ? TRUE : FALSE;
+	current_mounted = hostfat_is_mounted();
+	if (saved_mounted != current_mounted) {
+		if (allow_identity_mismatch) {
+			return(STATFLAG_SUCCESS);
+		}
+		statflag_seterr(sfh,
+			"HOSTFAT snapshot is missing or differs from the saved state");
+		return(STATFLAG_FAILURE);
+	}
+	if (saved_mounted) {
+		if ((hostfat_snapshot_identity(current, sizeof(current)) != SUCCESS) ||
+			memcmp(current, payload + HOSTFAT_STATE_IDENTITY_OFFSET,
+				HOSTFAT_IDENTITY_SIZE)) {
+			if (allow_identity_mismatch) {
+				return(STATFLAG_SUCCESS);
+			}
+			statflag_seterr(sfh,
+				"HOSTFAT snapshot is missing or differs from the saved state");
+			return(STATFLAG_FAILURE);
+		}
+	}
+	return(STATFLAG_SUCCESS);
+}
+
+static int flagload_hostfat(STFLAGH sfh, const SFENTRY *tbl) {
+
+	BYTE payload[HOSTFAT_STATE_SIZE];
+
+	(void)tbl;
+	return(statflag_read(sfh, payload, sizeof(payload)));
+}
+
+
 // ----
 
 static int flagcheck_versize(STFLAGH sfh, const SFENTRY *tbl) {
@@ -1482,6 +1568,10 @@ const SFENTRY	*tblterm;
 			case STATFLAG_SUBCPU:
 				ret |= flagsave_subsystemcpu(&sffh->sfh, tbl);
 				break;
+
+			case STATFLAG_HOSTFAT:
+				ret |= flagsave_hostfat(&sffh->sfh, tbl);
+				break;
 		}
 		tbl++;
 	}
@@ -1489,11 +1579,13 @@ const SFENTRY	*tblterm;
 	return(ret);
 }
 
-int statsave_check(const char *filename, char *buf, int size) {
+static int statsave_check_internal(const char *filename, char *buf, int size,
+		BOOL allow_hostfat_mismatch) {
 
 	SFFILEH		sffh;
 	int			ret;
 	BOOL		done;
+	BOOL		hostfat_seen;
 const SFENTRY	*tbl;
 const SFENTRY	*tblterm;
 
@@ -1503,6 +1595,7 @@ const SFENTRY	*tblterm;
 	}
 
 	done = FALSE;
+	hostfat_seen = FALSE;
 	ret = STATFLAG_SUCCESS;
 	while((!done) && (ret != STATFLAG_FAILURE)) {
 		ret |= statflag_readsection(sffh);
@@ -1526,6 +1619,12 @@ const SFENTRY	*tblterm;
 
 				case STATFLAG_CPU286:
 					ret |= flagcheck_cpu286(&sffh->sfh, tbl);
+					break;
+
+				case STATFLAG_HOSTFAT:
+					hostfat_seen = TRUE;
+					ret |= flagcheck_hostfat(&sffh->sfh, tbl,
+						allow_hostfat_mismatch);
 					break;
 
 				case STATFLAG_TERM:
@@ -1565,11 +1664,28 @@ const SFENTRY	*tblterm;
 			ret |= STATFLAG_WARNING;
 		}
 	}
+	if ((ret != STATFLAG_FAILURE) && hostfat_is_mounted() && !hostfat_seen) {
+		statflag_seterr(&sffh->sfh,
+			"saved state has no HOSTFAT snapshot identity");
+		ret = STATFLAG_FAILURE;
+	}
 	statflag_close(sffh);
 	return(ret);
 }
 
-int statsave_load(const char *filename) {
+int statsave_check(const char *filename, char *buf, int size) {
+
+	return(statsave_check_internal(filename, buf, size, FALSE));
+}
+
+int statsave_check_hostfat_override(const char *filename, char *buf,
+		int size) {
+
+	return(statsave_check_internal(filename, buf, size, TRUE));
+}
+
+static int statsave_load_internal(const char *filename,
+		BOOL allow_hostfat_mismatch) {
 
 	SFFILEH		sffh;
 	char		error[256];
@@ -1579,7 +1695,8 @@ const SFENTRY	*tbl;
 const SFENTRY	*tblterm;
 
 	error[0] = '\0';
-	ret = statsave_check(filename, error, sizeof(error));
+	ret = statsave_check_internal(filename, error, sizeof(error),
+		allow_hostfat_mismatch);
 	if (ret == STATFLAG_FAILURE) {
 		return(STATFLAG_FAILURE);
 	}
@@ -1709,6 +1826,10 @@ const SFENTRY	*tblterm;
 					ret |= flagload_subsystemcpu(&sffh->sfh, tbl);
 					break;
 
+				case STATFLAG_HOSTFAT:
+					ret |= flagload_hostfat(&sffh->sfh, tbl);
+					break;
+
 				default:
 					ret |= STATFLAG_WARNING;
 					break;
@@ -1743,6 +1864,16 @@ const SFENTRY	*tblterm;
 	soundmng_play();
 
 	return(ret);
+}
+
+int statsave_load(const char *filename) {
+
+	return(statsave_load_internal(filename, FALSE));
+}
+
+int statsave_load_hostfat_override(const char *filename) {
+
+	return(statsave_load_internal(filename, TRUE));
 }
 
 #if defined(VAEG_EXT)

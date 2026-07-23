@@ -40,7 +40,11 @@ void statflag_seterr(STFLAGH sfh, const char *str);
 
 int statsave_save(const char *filename);
 int statsave_check(const char *filename, char *buf, int size);
+/* Explicit UI-confirmed override; all non-HOSTFAT checks remain active. */
+int statsave_check_hostfat_override(const char *filename, char *buf, int size);
 int statsave_load(const char *filename);
+/* Retains the current HOSTFAT mount state and read-only snapshot. */
+int statsave_load_hostfat_override(const char *filename);
 
 #if defined(VAEG_EXT)
 BOOL statsave_skipall(FILEH fh);
@@ -56,4 +60,3 @@ void statsave_set_load_disk_hook(STATSAVE_LOAD_DISK_HOOK hook);
 #ifdef __cplusplus
 }
 #endif
-

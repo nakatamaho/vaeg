@@ -196,4 +196,5 @@ static const SFENTRY np2tbl[] = {
 	{"BOARDSB2",	0,	STATFLAG_BIN,	&boardsb2,		sizeof(boardsb2)},
 	{"VA91",		0,	STATFLAG_BIN,	&va91,			sizeof(va91)},
 	{"UPD9002",		0,	STATFLAG_BIN,	&upd9002_regs,	sizeof(upd9002_regs)},
+	{"HOSTFAT",		1,	STATFLAG_HOSTFAT,NULL,			36},
 	{"TERMINATE",	0,	STATFLAG_TERM,	NULL,			0}};
