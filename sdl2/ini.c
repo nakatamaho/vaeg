@@ -407,6 +407,8 @@ static const INITBL iniitem[] = {
 	{"SampleHz", INITYPE_UINT16,	&np2cfg.samplingrate,	0},
 	{"Latencys", INITYPE_UINT16,	&np2cfg.delayms,		0},
 	{"PacingMs", INITYPE_UINT16,	&np2oscfg.pacing_ms,	0},
+	{"HOSTFAT", INITYPE_BOOL,		&np2oscfg.hostfat_enabled,	0},
+	{"HOSTFATDIR", INITYPE_STR,		np2oscfg.hostfat_dir,	MAX_PATH},
 	{"SNDboard", INITYPE_HEX16,		&np2cfg.SOUND_SW,		0},
 	{"BEEP_vol", INITYPE_UINT8,		&np2cfg.BEEP_VOL,		0},
 	{"xspeaker", INITYPE_BOOL,		&np2cfg.snd_x,			0},

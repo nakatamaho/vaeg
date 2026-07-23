@@ -72,6 +72,8 @@ typedef struct {
 	BYTE	fscrnmod;
 	BYTE	MOUSE_SW;
 	UINT16	pacing_ms;
+	BYTE	hostfat_enabled;
+	char	hostfat_dir[MAX_PATH];
 } NP2OSCFG;
 
 #if defined(SIZE_QVGA)

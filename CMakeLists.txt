@@ -163,6 +163,7 @@ set(VAEG_CORE_SOURCES
     io/gdc.c
     io/gdc_sub.c
     io/gdc_pset.c
+    io/hostfat.c
     io/mouseif.c
     io/necio.c
     io/nmiio.c
@@ -337,6 +338,8 @@ set(VAEG_SDL2_SOURCES
     sdl2/romankana.c
     sdl2/inputmng.c
     sdl2/dropmedia.cpp
+    sdl2/hostfat_snapshot.cpp
+    sdl2/hostfat_manager.cpp
     sdl2/romcheck.c
     sdl2/selftest.c
     sdl2/soundmng.c
@@ -410,6 +413,39 @@ add_custom_command(
         "${CMAKE_CURRENT_SOURCE_DIR}/cmake/embed_binary.cmake"
     VERBATIM)
 list(APPEND VAEG_SDL2_SOURCES "${VAEG_APP_ICON_DATA}")
+
+find_program(VAEG_NASM_EXECUTABLE NAMES nasm)
+set(VAEG_HOSTFAT_SYS "${CMAKE_CURRENT_BINARY_DIR}/guest/hostfat.sys")
+set(VAEG_R2FPROBE_COM "${CMAKE_CURRENT_BINARY_DIR}/guest/r2fprobe.com")
+if(VAEG_NASM_EXECUTABLE)
+    add_custom_command(
+        OUTPUT "${VAEG_HOSTFAT_SYS}"
+        COMMAND "${CMAKE_COMMAND}" -E make_directory
+            "${CMAKE_CURRENT_BINARY_DIR}/guest"
+        COMMAND "${VAEG_NASM_EXECUTABLE}" -f bin
+            -o "${VAEG_HOSTFAT_SYS}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/tools/pc88va/hostfat/hostfat.asm"
+        DEPENDS
+            "${CMAKE_CURRENT_SOURCE_DIR}/tools/pc88va/hostfat/hostfat.asm"
+        VERBATIM)
+    add_custom_target(hostfat_sys ALL DEPENDS "${VAEG_HOSTFAT_SYS}")
+    add_custom_command(
+        OUTPUT "${VAEG_R2FPROBE_COM}"
+        COMMAND "${CMAKE_COMMAND}" -E make_directory
+            "${CMAKE_CURRENT_BINARY_DIR}/guest"
+        COMMAND "${VAEG_NASM_EXECUTABLE}" -f bin
+            -o "${VAEG_R2FPROBE_COM}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/tools/pc88va/hostfs/r2fprobe.asm"
+        DEPENDS
+            "${CMAKE_CURRENT_SOURCE_DIR}/tools/pc88va/hostfs/r2fprobe.asm"
+        VERBATIM)
+    add_custom_target(r2fprobe_com ALL DEPENDS "${VAEG_R2FPROBE_COM}")
+    message(STATUS "HOSTFAT.SYS: enabled (${VAEG_NASM_EXECUTABLE})")
+    message(STATUS "R2FPROBE.COM: enabled (${VAEG_NASM_EXECUTABLE})")
+else()
+    message(STATUS "HOSTFAT.SYS: NASM not found; guest-driver target disabled")
+    message(STATUS "R2FPROBE.COM: NASM not found; guest-probe target disabled")
+endif()
 
 if(WIN32)
     enable_language(RC)
@@ -635,6 +671,24 @@ if(VAEG_ENABLE_TESTS)
     set(VAEG_SSTS_V20_ROOT "" CACHE PATH
         "Verified external SingleStepTests V20 checkout for uPD9002 comparison")
 
+    if(TARGET hostfat_sys)
+        add_test(NAME vaeg_hostfat_driver
+            COMMAND "${Python3_EXECUTABLE}"
+                "${CMAKE_CURRENT_SOURCE_DIR}/tools/pc88va/hostfat/check_driver.py"
+                --input "${VAEG_HOSTFAT_SYS}")
+        set_tests_properties(vaeg_hostfat_driver PROPERTIES
+            LABELS "romless;hostfat;pcengine")
+    endif()
+
+    if(TARGET r2fprobe_com)
+        add_test(NAME vaeg_pcengine_redirector_probe
+            COMMAND "${Python3_EXECUTABLE}"
+                "${CMAKE_CURRENT_SOURCE_DIR}/tools/pc88va/hostfs/check_probe.py"
+                --input "${VAEG_R2FPROBE_COM}")
+        set_tests_properties(vaeg_pcengine_redirector_probe PROPERTIES
+            LABELS "romless;hostfs;pcengine")
+    endif()
+
     add_test(NAME vaeg_upd9002_dispatch_graph
         COMMAND "${Python3_EXECUTABLE}"
             "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/upd9002_rep0f_transition.py"
@@ -755,7 +809,9 @@ if(VAEG_ENABLE_TESTS)
             "-DTRACE_GOLDEN=${CMAKE_CURRENT_SOURCE_DIR}/tests/upd9002/trace_baseline.txt"
             -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/upd9002/run_trace_equivalence.cmake")
     set_tests_properties(vaeg_upd9002_trace_equivalence PROPERTIES
-        LABELS "romless;upd9002;trace;harness" TIMEOUT 180)
+        # This invokes the complete selftest three times.  The M55 64 MiB
+        # snapshot identity checks are intentionally expensive under ASan.
+        LABELS "romless;upd9002;trace;harness" TIMEOUT 420)
 
     add_test(NAME vaeg_upd9002_ssts_selftest
         COMMAND "${Python3_EXECUTABLE}"

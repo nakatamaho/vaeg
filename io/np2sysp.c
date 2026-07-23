@@ -4,6 +4,8 @@
 #include	"cpucore.h"
 #include	"pccore.h"
 #include	"iocore.h"
+#include	"iocoreva.h"
+#include	"hostfat.h"
 #include	"sxsibios.h"
 #if defined(SUPPORT_HOSTDRV)
 #include	"hostdrv.h"
@@ -105,6 +107,24 @@ static const char str_hdrvcheck[] = "check_hostdrv";
 static const char str_hdrvopen[] = "open_hostdrv";
 static const char str_hdrvclose[] = "close_hostdrv";
 static const char str_hdrvintr[] = "intr_hostdrv";
+static const char str_hostfatcheck[] = "check_hostfat";
+static const char str_hostfatread[] = "read_hostfat1";
+
+
+static void np2sysp_hostfatcheck(const void *arg1, long arg2) {
+
+	np2sysp_outstr(hostfat_is_mounted() ? HOSTFAT_PROTOCOL_SIGNATURE :
+										str_null, 0);
+	(void)arg1;
+	(void)arg2;
+}
+
+static void np2sysp_hostfatread(const void *arg1, long arg2) {
+
+	np2sysp.inpval = hostfat_service_request(np2sysp.outval);
+	(void)arg1;
+	(void)arg2;
+}
 
 
 #if defined(NP2SYSP_VER)
@@ -151,6 +171,8 @@ static const SYSPCMD np2spcmd[] = {
 			{str_hdrvclose,	hostdrv_unmount,	NULL,			0},
 			{str_hdrvintr,	hostdrv_intr,		NULL,			0},
 #endif
+			{str_hostfatcheck, np2sysp_hostfatcheck, NULL,		0},
+			{str_hostfatread,	np2sysp_hostfatread,	NULL,		0},
 };
 
 
@@ -233,8 +255,12 @@ void np2sysp_reset(void) {
 
 void np2sysp_bind(void) {
 
-	iocore_attachout(0x07ef, np2sysp_o7ed);
+	iocore_attachout(0x07ed, np2sysp_o7ed);
 	iocore_attachout(0x07ef, np2sysp_o7ef);
-	iocore_attachinp(0x07ef, np2sysp_i7ed);
+	iocore_attachinp(0x07ed, np2sysp_i7ed);
 	iocore_attachinp(0x07ef, np2sysp_i7ef);
+	iocoreva_attachout(0x07ed, np2sysp_o7ed);
+	iocoreva_attachout(0x07ef, np2sysp_o7ef);
+	iocoreva_attachinp(0x07ed, np2sysp_i7ed);
+	iocoreva_attachinp(0x07ef, np2sysp_i7ef);
 }
