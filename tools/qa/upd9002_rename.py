@@ -45,13 +45,13 @@ REQUIRED_PATHS = (
     "iova/upd9002_regs.c",
     "iova/upd9002_regs.h",
     "cpucva/memoryva.h",
-    "cpuxva/memoryva.x86",
 )
 
 RETIRED_PATHS = (
     "iova/upd9002.c",
     "iova/upd9002.h",
     "cpuxva/memoryva.h",
+    "cpuxva/memoryva.x86",
 )
 
 RETIRED_CORE_APIS = (
@@ -119,9 +119,6 @@ EXCEPTION_PATHS["i286c_rep_outsw"] = {
 ACTIVE_SOURCE_SUFFIXES = {
     ".c", ".cc", ".cpp", ".h", ".hpp", ".mcr", ".rc", ".tbl",
 }
-FROZEN_PREFIXES = ("hlp/", "i286x/", "win9x/")
-
-
 def git_files(root: pathlib.Path) -> List[str]:
     completed = subprocess.run(
         ["git", "ls-files", "--cached", "--others", "--exclude-standard",
@@ -145,8 +142,6 @@ def read_text(root: pathlib.Path, relative: str) -> str:
 
 def active_sources(files: Iterable[str]) -> Iterable[str]:
     for relative in files:
-        if relative.startswith(FROZEN_PREFIXES):
-            continue
         if pathlib.PurePosixPath(relative).suffix.lower() in ACTIVE_SOURCE_SUFFIXES:
             yield relative
 

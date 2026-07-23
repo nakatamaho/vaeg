@@ -38,7 +38,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Check encoding
-        run: python3 tools/repo/check_encoding.py --expect utf8 --exclude hlp/
+        run: python3 tools/repo/check_encoding.py --expect utf8
       - name: Check EOL
         run: python3 tools/repo/check_eol.py --enforce
       - name: Check path case
