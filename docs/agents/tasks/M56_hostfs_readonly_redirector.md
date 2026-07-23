@@ -22,7 +22,7 @@ POSSIBILITY OF SUCH DAMAGE.
 -->
 # M56: Read-only HOSTFS DOS redirector
 
-Status: **blocked by accepted PC-Engine probe evidence; G56 not passed**
+Status: **stopped by maintainer because the prerequisite is absent; G56 not passed**
 
 M56 starts from the G55-approved SHA
 `df47b5f829d7b8cc9c02f45d9a00e16c4b43dad4` on
@@ -57,6 +57,11 @@ file-service bridge, intercepting PC-Engine internals, or changing to a
 non-transparent utility protocol is a materially different task and requires
 explicit maintainer approval before work begins. The detailed evidence is in
 [`m56_pcengine_redirector_probe.md`](../research/m56_pcengine_redirector_probe.md).
+
+On 2026-07-23 the maintainer explicitly accepted the disposition
+"M56 stopped because the prerequisite is absent." This is not G56 approval,
+and it does not authorize an alternate HOSTFS implementation or a successor
+milestone.
 
 ## Goal
 
