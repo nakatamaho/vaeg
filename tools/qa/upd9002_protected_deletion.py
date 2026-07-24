@@ -120,6 +120,64 @@ M51_CANONICAL_REPLACEMENTS = {
     ),
 }
 
+M60A_CANONICAL_REPLACEMENTS = {
+    "cpu/upd9002/upd9002_core.c": (
+        (
+            b"static UINT16 upd9002_materialize_interrupt_saved_flags(void) {\n"
+            b"\n"
+            b"\treturn (UINT16)((I286_FLAG & (UINT16)~O_FLAG) |\n"
+            b"\t\t\t\t\t\t(I286_OV ? O_FLAG : 0));\n"
+            b"}\n\n",
+            b"",
+            1,
+        ),
+        (
+            b"REGPUSH0(upd9002_materialize_interrupt_saved_flags())",
+            b"REGPUSH0(REAL_FLAGREG)",
+            1,
+        ),
+    ),
+    "cpu/upd9002/upd9002_dispatch.c": (
+        (
+            b"#define V30_DMAP()\t\tdmap_i286()",
+            b"#define REAL_V30FLAG\t(UINT16)((I286_FLAG & 0x7ff) + \\\n"
+            b"\t\t\t\t\t\t\t\t\t\t\t(I286_OV?O_FLAG:0) + 0xf000)\n"
+            b"#define V30_DMAP()\t\tdmap_i286()",
+            1,
+        ),
+        (
+            b"static UINT16 v30_materialize_pushf_image(void) {\n"
+            b"\n"
+            b"\treturn (UINT16)((I286_FLAG & (UINT16)~O_FLAG) |\n"
+            b"\t\t\t\t\t\t(I286_OV ? O_FLAG : 0));\n"
+            b"}\n\n",
+            b"",
+            1,
+        ),
+        (
+            b"REGPUSH(v30_materialize_pushf_image(), 3)",
+            b"REGPUSH(REAL_V30FLAG, 3)",
+            1,
+        ),
+        (
+            b"\tUINT\tflag;\n\n"
+            b"\tI286_WORKCLOCK(5);\n"
+            b"\tREGPOP0(flag)\n"
+            b"\tflag = (flag & 0x0ed5) | 0xf002;\n"
+            b"\tI286_OV = flag & O_FLAG;\n"
+            b"\tI286_FLAG = flag & (UINT16)~O_FLAG;\n"
+            b"\tI286_TRAP = ((flag & 0x300) == 0x300);",
+            b"\tI286_WORKCLOCK(5);\n"
+            b"\tREGPOP0(I286_FLAG)\n"
+            b"\tI286_FLAG |= 0xf000;\n"
+            b"\tI286_OV = I286_FLAG & O_FLAG;\n"
+            b"\tI286_FLAG &= (0xfff ^ O_FLAG);\n"
+            b"\tI286_TRAP = ((I286_FLAG & 0x300) == 0x300);",
+            1,
+        ),
+    ),
+}
+
 DELETED_IDENTIFIERS = (
     "_arpl", "_mov_seg_ea", "i286c_cts", "cts0_table", "cts1_table",
     "_sldt", "_str", "_lldt", "_ltr", "_verr", "_verw", "_sgdt",
@@ -166,6 +224,15 @@ def read_bytes(root: pathlib.Path, relative: str) -> bytes:
 def verify_immutable_files(root: pathlib.Path) -> None:
     for relative, expected in IMMUTABLE_FILES.items():
         data = read_bytes(root, relative)
+        for current, accepted, expected_count in (
+                M60A_CANONICAL_REPLACEMENTS.get(relative, ())):
+            actual_count = data.count(current)
+            if actual_count != expected_count:
+                raise DeletionError(
+                    "M60a semantic transition count changed: {} token={!r} "
+                    "expected={} actual={}".format(
+                        relative, current, expected_count, actual_count))
+            data = data.replace(current, accepted)
         for current, accepted, expected_count in M51_CANONICAL_REPLACEMENTS.get(
                 relative, ()):
             actual_count = data.count(current)

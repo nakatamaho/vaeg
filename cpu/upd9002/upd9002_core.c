@@ -243,6 +243,12 @@ void upd9002_core_set_emm(UINT frame, UINT32 addr) {
 }
 
 
+static UINT16 upd9002_materialize_interrupt_saved_flags(void) {
+
+	return (UINT16)((I286_FLAG & (UINT16)~O_FLAG) |
+						(I286_OV ? O_FLAG : 0));
+}
+
 void CPUCALL i286c_intnum(UINT vect, REG16 IP) {
 
 	upd9002_trace_event(UPD9002_TRACE_ORIGIN_CPU, "exception",
@@ -253,7 +259,7 @@ void CPUCALL i286c_intnum(UINT vect, REG16 IP) {
 
 const BYTE	*ptr;
 
-	REGPUSH0(REAL_FLAGREG)
+	REGPUSH0(upd9002_materialize_interrupt_saved_flags())
 	REGPUSH0(I286_CS)
 	REGPUSH0(IP)
 
