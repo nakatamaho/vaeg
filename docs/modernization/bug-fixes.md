@@ -616,6 +616,38 @@ separate parity correction or move it to Open Defects.
   and [M39 integration contract](z80-integration.md#state-boundary-and-error-handling).
 - **Commit:** [23b7071](https://github.com/nakatamaho/vaeg/commit/23b70711b84deb027a1c8dbf11e6284b65d0d4fe).
 
+### uPD9002 guest-visible FLAGS images lost or loaded reserved bits
+
+- **Status:** fixed in the M60a implementation; G60a candidate review pending.
+- **Symptom:** the saved FLAGS word in every executing `INT3`, `INT imm8`, and
+  interrupting `INTO` frame lost bits 12 through 15. `POPF` and `SAHF` also
+  loaded reserved bits 3 and 5 instead of forcing them to zero.
+- **Affected scope:** guest-visible FLAGS materialization for software
+  interrupt frames and `PUSHF`, plus the SST-observed loading rules for
+  `POPF` and `SAHF`. Interrupt eligibility, vectoring, frame placement,
+  stack addressing, `IRET`, and final FLAGS comparison contracts are
+  unchanged.
+- **Demonstrated root cause:** the software-interrupt path saved
+  `REAL_FLAGREG`, which masks the internal FLAGS word to 12 bits. The V30
+  `POPF` path copied the popped low FLAGS bits directly, and `SAHF` copied AH
+  directly, so neither path applied the target-observed zero rule for bits 3
+  and 5.
+- **Correction:** construct the interrupt and `PUSHF` images explicitly from
+  all 16 stored FLAGS bits plus the split overflow bit, and apply explicit,
+  instruction-specific masks when loading `POPF` and `SAHF`. `LAHF` remains
+  unchanged.
+- **Verification:** focused deterministic tests cover ordinary, 64-KiB
+  segment-wrap, and 20-bit physical-wrap frames and all affected bit rules.
+  The complete architectural SST population improved from 84,329 to 60,582
+  failures: all 19,968 directly targeted records passed, as did 3,565 BOUND
+  and 214 divide-fault records that use the corrected saved-FLAGS primitive.
+  No hash became newly failing, and all required profiles completed with zero
+  timeout or crash. Hosted Linux GCC/Clang/ASan, macOS, Windows-MinGW, Z80
+  conformance, repository-invariant, and architectural-ratchet jobs passed.
+- **Evidence:** [M60a task](../agents/tasks/M60a_upd9002_flags_materialization.md)
+  and [M60a report](../agents/reports/m60a_upd9002_flags_materialization.md).
+- **Commit:** [aab78b78](https://github.com/nakatamaho/vaeg/commit/aab78b78a2473ce35b1e28a9af7420e46e72a1c4).
+
 ## Open Defects
 
 ### Legacy Z80 reset leaves saved undocumented flag bits uninitialized
