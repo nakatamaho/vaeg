@@ -576,10 +576,11 @@ The active vaeg implementation provides the following evidence:
 - [`vramva/makegrphva.c`](../../vramva/makegrphva.c) implements 320-dot
   horizontal duplication, `FBW` line stepping, `FBL` wrap, `DSH` height,
   `DSP` placement, and FB0/FB2/FB3 versus FB1 selection; and
-- the frozen [`win9x/debuguty/viewvideova.cpp`](../../win9x/debuguty/viewvideova.cpp)
+- the archived
+  [`win9x/debuguty/viewvideova.cpp`](https://github.com/nakatamaho/vaeg/blob/b72e641733ddea6f0e8faef2507093f7c3aee5a4/win9x/debuguty/viewvideova.cpp)
   records the original diagnostic interpretation of `GRMODE` and `GRRES`.
 
-The frozen file is evidence only and must not be modified.
+The archived file is evidence only and must not be modified.
 
 The principal unresolved points are:
 

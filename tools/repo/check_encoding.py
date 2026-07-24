@@ -5,7 +5,7 @@ Usage:
   python tools/repo/check_encoding.py --report          # census only
   python tools/repo/check_encoding.py --expect cp932    # fail on non-CP932 text
   python tools/repo/check_encoding.py --expect utf8     # fail on non-UTF-8 or BOM
-  python tools/repo/check_encoding.py --expect utf8 --exclude hlp/
+  python tools/repo/check_encoding.py --expect utf8
 
 Classification per file: BINARY, ASCII, UTF8, UTF8-BOM, CP932, UNKNOWN.
 ASCII always satisfies both --expect modes. Exit 0 clean, 1 violations.

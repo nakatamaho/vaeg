@@ -4,8 +4,8 @@
 
 | Property  | Rule | Checker |
 |-----------|------|---------|
-| Encoding  | UTF-8 without BOM everywhere except `hlp/` (CP932, permanent exemption) | `tools/repo/check_encoding.py` |
-| EOL       | LF; `.dsp/.dsw/.sln/.vcproj/.vcxproj` CRLF via `.gitattributes` | `tools/repo/check_eol.py` |
+| Encoding  | UTF-8 without BOM throughout the current tree | `tools/repo/check_encoding.py` |
+| EOL       | LF throughout the current tree; any future tool-mandated exception requires explicit policy and `.gitattributes` coverage | `tools/repo/check_eol.py` |
 | Names     | tracked paths lowercase, except tool/project-mandated names such as top-level `CHANGES*.md` and `external/` (allowlist in `check_case.py`) | `tools/repo/check_case.py` |
 | Binaries  | `romimage/`, ROMs, disk images, fonts, icons, wave data are untouchable | review |
 
@@ -55,7 +55,7 @@ defect regardless of what the diff was trying to do.
   existing author's copyright.
 - No new globals into the core from the frontend. Frontend talks to the
   core through the existing seams (`sysmng`/`taskmng`/`soundmng`-style
-  interfaces), mirroring how `sdl/` and `win9x/` already do it.
+  interfaces).
 - Do not reformat existing code. No clang-format runs over legacy files.
 - CMake: explicit source lists, no `file(GLOB)`. Options are prefixed
   `VAEG_` (`VAEG_ENABLE_TESTS`, `VAEG_WERROR` default OFF).
@@ -65,11 +65,12 @@ defect regardless of what the diff was trying to do.
 ## Commits and PRs
 
 - One concern per commit; rename-only commits separate from fixups.
-- Subject: `M<n>: <english imperative>`, LF, UTF-8.
+- Subject: canonical `M<id>: <english imperative>`, LF, UTF-8. An ID is an
+  integer or an integer followed by one lowercase letter and an optional
+  nonzero decimal suffix, for example `M58:`, `M60a:`, or `M62b1:`.
 - Mass mechanical commits get their hash appended to
   `.git-blame-ignore-revs` in the same PR.
 - PR description contains: task file name, machine-check output, build
-  logs, and an explicit statement whether the LEGACY v141 build is
-  affected (yes/no/unknown — "unknown" only if the change cannot touch
-  it by construction).
+  logs, and an explicit statement whether archived reference-tier behavior
+  or provenance is affected.
 - Always push and report SHAs; work not on GitHub does not exist.
