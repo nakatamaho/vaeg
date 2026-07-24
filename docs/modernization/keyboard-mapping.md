@@ -32,13 +32,17 @@ make/break path via `sdl2/kbdinject.c`.
 
 ## Evidence
 
+The `win9x/` references below resolve in the immutable
+[`archive/frozen-win9x-i286x-g56`](https://github.com/nakatamaho/vaeg/tree/archive/frozen-win9x-i286x-g56)
+snapshot; that tier is absent from the current tree.
+
 - Pre-M14 SDL2 mapping: `sdl2/sdlkbd.c`.
 - VA guest key names and base codes: `keystat.h`.
 - Win32/v141 host mapping reference: `win9x/winkbd.cpp`.
 - VA model-dependent keyboard matrix positions: `io/serial.c`.
 - Roman-Kana physical kana table: `bios/keytable.res`.
 
-The frozen Win32 tree is evidence only. It was not edited for M14.
+The archived Win32 tree is evidence only. It was not edited for M14.
 
 ## Runtime Model
 

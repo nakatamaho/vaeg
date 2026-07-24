@@ -19,8 +19,8 @@ import re
 import subprocess
 import sys
 
-ALLOW = {"AGENTS.md"}
-ALLOW_PREFIXES = ("docs/", ".git", "external/")
+ALLOW = {"AGENTS.md", "MILESTONE_RENUMBERING.md"}
+ALLOW_PREFIXES = ("docs/", ".git", "external/", "LICENSES/")
 # Tool-mandated basenames that cannot be made lowercase.
 ALLOW_TOOL_BASENAMES = {"README.md", "README.txt", "BUILD.md",
                         "CMakeLists.txt",

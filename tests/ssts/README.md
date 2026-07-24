@@ -107,3 +107,54 @@ signature change made while resolving the G43 adapter audit. It also proves
 that the known-gap selector file and all 68,626 resolved gap hashes remained
 unchanged. The `transition` subcommand regenerates this artifact when supplied
 the preserved pre-correction and corrected summaries and sidecars.
+
+## G58 immutable ratchet and profiles
+
+M58 does not alter the M43 summaries or sidecars. Their raw-byte digests,
+canonical sidecar-content digests, failure-index digests, and selected,
+applicable, pass, failure, and classification hash-set digests are fixed in
+`epochs/g43/manifest.json`. Verify the immutable references, contracts, gap
+taxonomy, registries, and any committed G58 artifacts with:
+
+```sh
+python3 tools/qa/upd9002_ssts_ratchet.py verify-static --root .
+python3 tools/qa/upd9002_ssts_ratchet.py selftest
+python3 tools/qa/milestone_ids.py --root . --selftest --discover --audit
+```
+
+The blocking architectural comparison preserves the M43 metadata-defined
+FLAGS mask and compares final registers, SST-represented RAM, I/O events, and
+architectural termination. The diagnostic fingerprint comparison changes only
+the FLAGS comparison to all 16 bits. Cycles, prefetch, and bus timing are
+excluded from both contracts. The exact contracts are under `contracts/`, and
+the versioned structural schema is in `schema/scoreboard-v1.md`.
+
+Generate transient raw results with the current M48 support map. Use
+`--flags-comparison all16` only for the fingerprint full profile:
+
+```sh
+python3 tools/qa/upd9002_ssts.py run \
+  --dataset-root /path/to/pinned-v20 \
+  --manifest tests/ssts/v20_dataset_manifest.json \
+  --support-map tools/qa/golden/upd9002_support_map_m48.csv \
+  --worker build/ssts/sdl2/vaeg \
+  --profile full \
+  --flags-comparison all16 \
+  --output /tmp/v20_fingerprint_full.json \
+  --failure-directory /tmp/v20_fingerprint_full_failures
+```
+
+`upd9002_ssts_ratchet.py generate` converts one raw result into exactly one
+canonical artifact family. `ratchet` requires
+`--predecessor-sha 72322d5c9b8e40e4a988312aebe163a8190e2aa5`; omission,
+substitution, self-comparison, a new failing hash, a changed signature,
+per-form pass regression, timeout/crash, identity drift, or unapproved
+classification transition fails closed.
+
+The taxonomy file annotates each immutable M43 known-gap rule by its selector
+and resolved-set content digests. Opcode 63 is
+`documented_silicon_absent`; the other 39 rules are
+`implementation_missing`. There are no `target_support_unverified` rules at
+G58, so `hardware_pending.json` is intentionally empty. That registry is
+orthogonal evidence and can never alter classification or the applicable
+denominator.

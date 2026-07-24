@@ -1,3 +1,4 @@
 /bin/
 /build/
 /obj/
+/tools/qa/__pycache__/

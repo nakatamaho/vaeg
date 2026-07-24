@@ -10,16 +10,11 @@ register model in `iova/upd9002_regs.*`, the suzukiplan-backed wrapper in
 `cpucva/z80_core.cpp` for the Z80 side, `sound/opngenc.c` for OPN generation
 (never define `OPNGENX86`), and `cpucva/memoryva.c` for the VA memory layer.
 
-A frozen reference tier remains for behavior archaeology only:
-
-- `win9x/`: VS2017 v141 Win32 reference frontend and project files.
-- `i286x/`: x86 assembly CPU reference used by the v141 build.
-- `cpuxva/memoryva.x86`: original VA memory assembly reference.
-- `hlp/`: CP932 HTML Help payload paired with the frozen Win32 tree.
-
-Do not refactor or improve the frozen reference tier. Normal fixes land
-in the active CMake/C/SDL2 tree. The frozen tier is protected by tags and
-history, not by a current compile guarantee or CI job.
+The former frozen reference tier (`win9x/`, `i286x/`,
+`cpuxva/memoryva.x86`, and `hlp/`) was removed from the current tree in
+M57. Its exact G56 snapshot remains available at the annotated tag
+`archive/frozen-win9x-i286x-g56` for behavior archaeology and provenance.
+Normal fixes land in the active CMake/C/SDL2 tree.
 
 ## How work is organized
 
@@ -54,10 +49,11 @@ Release notes may summarize the ledger but do not replace it.
 
 ## Repository invariants (steady state since phase 1)
 
-- Sources are UTF-8 without BOM. Never introduce CP932 content.
-  Exemption: `hlp/` stays CP932 (HTML Help Workshop requirement).
-- EOL is LF. Exceptions (`.dsp/.dsw/.sln/.vcproj/.vcxproj` = CRLF) are
-  enforced by `.gitattributes`; do not add new CRLF files.
+- Sources and documentation are UTF-8 without BOM. Never introduce CP932
+  content.
+- EOL is LF throughout the current tree. Tool-mandated project formats remain
+  declared in `.gitattributes`; do not add new CRLF files without an explicit
+  repository-policy exception.
 - Tracked paths are lowercase except tool- or project-mandated names listed
   by `tools/repo/check_case.py`, including top-level `CHANGES*.md` release
   notes. New paths must otherwise be lowercase.
@@ -78,9 +74,9 @@ Release notes may summarize the ledger but do not replace it.
 - New files created in phase 2 carry a 2-clause BSD header
   `Copyright (c) 2026 Nakata Maho` (see CONVENTIONS.md §New code).
   Never alter copyright headers of existing files.
-- Frozen reference files (`win9x/`, `i286x/`, `cpuxva/memoryva.x86`,
-  `hlp/`) are reference-only. Do not edit them unless a task explicitly
-  says to update the reference tier.
+- Do not restore the M57-deleted reference-tier paths (`win9x/`, `i286x/`,
+  `cpuxva/memoryva.x86`, or `hlp/`) unless a task explicitly requires it.
+  Use tag `archive/frozen-win9x-i286x-g56` for historical comparison.
 - Core code (root, `io/`, `sound/`, `cbus/`, `vram/`, `*va/`,
   `cpu/upd9002/`)
   stays C. C++17 is allowed under `sdl2/` (frontend + GUI) and, when an
@@ -99,9 +95,9 @@ Release notes may summarize the ledger but do not replace it.
   discovered via find_package/pkg-config by default, with the
   ADR-0006-pinned FetchContent path only where a preset opts into it.
   Dear ImGui is vendored under `external/imgui`.
-- Frozen reference: `win9x/np2_v141.sln` / VS2017 v141 / Win32 remains
-  available for behavior comparison, but it is no longer an active build
-  target with CI or compile-guarantee coverage.
+- Archived reference: the former VS2017 v141/Win32 tree is available only at
+  tag `archive/frozen-win9x-i286x-g56`; it is not a current build target and
+  has no CI or compile-guarantee coverage.
 
 ### Maintainer release handoff
 
@@ -123,5 +119,6 @@ images, configuration, save data, or other private integration assets.
 
 ## Commit messages
 
-UTF-8, LF, English subject, `M<n>:` prefix. Example:
-`M9: port cpuxva/memoryva.x86 to C (cpucva/memoryva.c)`.
+UTF-8, LF, English subject, canonical `M<id>:` prefix. The ID is an integer
+or an integer followed by one lowercase letter and an optional nonzero decimal
+suffix, such as `M58:`, `M60a:`, or `M62b1:`.

@@ -820,6 +820,29 @@ if(VAEG_ENABLE_TESTS)
     set_tests_properties(vaeg_upd9002_ssts_selftest PROPERTIES
         LABELS "romless;upd9002;ssts")
 
+    add_test(NAME vaeg_upd9002_ssts_ratchet_selftest
+        COMMAND "${Python3_EXECUTABLE}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/upd9002_ssts_ratchet.py"
+            selftest)
+    set_tests_properties(vaeg_upd9002_ssts_ratchet_selftest PROPERTIES
+        LABELS "romless;upd9002;ssts;ratchet")
+
+    add_test(NAME vaeg_upd9002_ssts_ratchet_static
+        COMMAND "${Python3_EXECUTABLE}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/upd9002_ssts_ratchet.py"
+            verify-static
+            --root "${CMAKE_CURRENT_SOURCE_DIR}")
+    set_tests_properties(vaeg_upd9002_ssts_ratchet_static PROPERTIES
+        LABELS "romless;upd9002;ssts;ratchet;repository")
+
+    add_test(NAME vaeg_milestone_id_selftest
+        COMMAND "${Python3_EXECUTABLE}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/milestone_ids.py"
+            --root "${CMAKE_CURRENT_SOURCE_DIR}"
+            --selftest --discover --audit)
+    set_tests_properties(vaeg_milestone_id_selftest PROPERTIES
+        LABELS "romless;repository;milestone")
+
     add_test(NAME vaeg_upd9002_ssts_worker_selftest
         COMMAND "${Python3_EXECUTABLE}"
             "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/upd9002_ssts.py"
@@ -840,26 +863,31 @@ if(VAEG_ENABLE_TESTS)
     endforeach()
 
     if(VAEG_SSTS_V20_ROOT)
+        execute_process(
+            COMMAND git rev-parse HEAD
+            WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+            RESULT_VARIABLE VAEG_SSTS_GIT_RESULT
+            OUTPUT_VARIABLE VAEG_SSTS_EVALUATED_SHA
+            OUTPUT_STRIP_TRAILING_WHITESPACE)
+        string(LENGTH "${VAEG_SSTS_EVALUATED_SHA}"
+            VAEG_SSTS_EVALUATED_SHA_LENGTH)
+        if(NOT VAEG_SSTS_GIT_RESULT EQUAL 0
+                OR NOT VAEG_SSTS_EVALUATED_SHA MATCHES "^[0-9a-f]+$"
+                OR NOT VAEG_SSTS_EVALUATED_SHA_LENGTH EQUAL 40)
+            message(FATAL_ERROR
+                "A precise Git HEAD is required for the SST ratchet")
+        endif()
         add_test(NAME vaeg_upd9002_ssts_ci_external
             COMMAND "${Python3_EXECUTABLE}"
-                "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/upd9002_ssts.py"
-                run
+                "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/upd9002_ssts_ratchet.py"
+                ci-enforce
+                --root "${CMAKE_CURRENT_SOURCE_DIR}"
                 --dataset-root "${VAEG_SSTS_V20_ROOT}"
-                --manifest
-                "${CMAKE_CURRENT_SOURCE_DIR}/tests/ssts/v20_dataset_manifest.json"
-                --support-map
-                "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/golden/upd9002_support_map_m42.csv"
                 --worker "$<TARGET_FILE:vaeg_sdl2>"
-                --profile ci
-                --shard-timeout 300
-                --output
-                "${CMAKE_CURRENT_BINARY_DIR}/ssts/v20_native_ci.json"
-                --failure-directory
-                "${CMAKE_CURRENT_BINARY_DIR}/ssts/v20_native_ci_failures"
-                --expect
-                "${CMAKE_CURRENT_SOURCE_DIR}/tests/ssts/baseline/v20_native_ci.json")
+                --evaluated-sha "${VAEG_SSTS_EVALUATED_SHA}"
+                --output-root "${CMAKE_CURRENT_BINARY_DIR}/ssts")
         set_tests_properties(vaeg_upd9002_ssts_ci_external PROPERTIES
-            LABELS "romless;upd9002;ssts;external"
+            LABELS "romless;upd9002;ssts;external;ratchet"
             TIMEOUT 1800)
     else()
         add_test(NAME vaeg_upd9002_ssts_ci_external

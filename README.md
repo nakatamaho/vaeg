@@ -8,9 +8,9 @@ II. This fork is the living tree: the old upstream should be treated as
 historical source material, not as the active project.
 
 The active product is a portable PC-88VA emulator that builds and runs
-on modern Windows, Linux, and macOS systems. A frozen Visual Studio
-reference tier is kept for behavior archaeology, but normal development
-targets the CMake/SDL2 tree.
+on modern Windows, Linux, and macOS systems. The former Visual Studio
+reference tier is archived at tag `archive/frozen-win9x-i286x-g56`;
+normal development targets the CMake/SDL2 tree.
 
 ## News
 
@@ -155,8 +155,6 @@ directory:
 
 `vaeg.cfg`, `vabkupmem.dat`, and fixed GUI save-state slots normally live
 there.
-The legacy `win9x/` build remains exe-relative and is intentionally not
-changed.
 
 For a portable setup, `vaeg.cfg` and/or an existing `vabkupmem.dat` may be
 placed beside the executable. Each executable-local file takes priority
@@ -235,11 +233,8 @@ behavior.
 
 This fork has moved the source tree to modern UTF-8 text.
 
-- Active source files and documentation are UTF-8 without BOM.
-- Line endings are LF, except legacy Visual Studio project files that must
-  stay CRLF.
-- The `hlp/` directory remains CP932 because Microsoft HTML Help Workshop
-  cannot compile the files as UTF-8.
+- Source files and documentation are UTF-8 without BOM.
+- Line endings are LF throughout the current tree.
 - Portable configuration files are UTF-8 only. Obsolete `np2.ini`,
   `np2.cfg`, and `vaeg.ini` files are not read by the active frontend.
 - On Windows, the SDL2 frontend keeps paths as UTF-8 internally and
@@ -249,28 +244,20 @@ This policy is about the repository and host frontend. It does not mean
 the emulated guest machine is UTF-8; the PC-88VA and PC-98 software
 environments keep their original character encodings and ROM behavior.
 
-The frozen Visual Studio reference files use UTF-8 source input with a
-CP932 execution charset where that is required for legacy Win32 behavior.
+## Archived Reference Tier
 
-## Frozen Reference Tier
+M57 removed the former Win9x/VS2017 reference tier from the current tree.
+Its exact G56 contents remain available at the annotated tag
+[`archive/frozen-win9x-i286x-g56`](https://github.com/nakatamaho/vaeg/tree/archive/frozen-win9x-i286x-g56).
+That archive contains the former `win9x/`, `i286x/`, `hlp/`, and
+`cpuxva/memoryva.x86` paths. It remains useful for behavior archaeology,
+including the G9 differential FDC and V30 DMA comparisons, but it is not a
+current build target and has no CI compile guarantee.
 
-The original Win9x Visual Studio reference tier is still kept, but it is
-not the active product and it has no CI compile guarantee.
-
-- `win9x/np2_v141.sln` is the VS2017 v141 reference solution.
-- `win9x/` contains the frozen Win32 frontend, project files, resources,
-  and NASM helper files.
-- `i286x/` and `cpuxva/memoryva.x86` are the frozen assembly CPU and VA
-  memory references used by the v141 tree.
-- `hlp/` is the CP932 HTML Help payload paired with the frozen Win32
-  tree.
-
-Do not refactor or improve the frozen tier during portable work. It was
-kept because same-tree v141 comparison was decisive during the G9 VA
-debugging chain: differential FDC traces and the legacy V30 DMA pump
-identified the portable defect. Future fixes should land in the active
-CMake/C/SDL2 tree unless a task explicitly says to update the reference
-tier.
+Required lineage and license evidence is preserved in
+[`LICENSES/legacy-vaeg.txt`](LICENSES/legacy-vaeg.txt), with its relationship
+to the archived source documented in
+[`docs/legal/legacy-source-provenance.md`](docs/legal/legacy-source-provenance.md).
 
 ## Documentation Map
 
@@ -284,8 +271,8 @@ tier.
 ## Status
 
 The phase-2 portable tree is the path forward for Windows, Linux, and
-macOS. The active build is CMake/C/SDL2/Dear ImGui. The frozen reference
-tier remains for historical comparison and behavior archaeology.
+macOS. The active build is CMake/C/SDL2/Dear ImGui. Historical comparison
+uses the immutable archive tag described above.
 
 ## License Status
 
@@ -294,12 +281,13 @@ a replacement for the original notices, source headers, and license files.
 
 - Original emulator lineage: this fork is derived from project-vaeg and
   [Neko Project II (NP2)](http://www.retropc.net/yui/np2help.html).
-  The historical `win9x/readme.txt` records that vaeg follows the Neko
+  The preserved [`LICENSES/legacy-vaeg.txt`](LICENSES/legacy-vaeg.txt)
+  records that vaeg follows the Neko
   Project II terms: "Neko Project II に準じます。" It also records the source
   license as: "ソースコードは 修正BSDライセンスとします。"
-- Neko Project II attribution: `win9x/readme.txt` credits "Neko Project
-  II (c) NP2 developer team, 1999-2001,2003,2004".
-- Historical Z80 attribution: `win9x/readme.txt` records the PC-8801
+- Neko Project II attribution: `LICENSES/legacy-vaeg.txt` credits "Neko
+  Project II (c) NP2 developer team, 1999-2001,2003,2004".
+- Historical Z80 attribution: `LICENSES/legacy-vaeg.txt` records the PC-8801
   emulator M88 source used by the former implementation, credited as
   "M88 - PC8801 Series Emulator, Copyright (C) by cisc 1998, 2002." Those
   seven approved Z80 files are absent from current HEAD; this attribution and

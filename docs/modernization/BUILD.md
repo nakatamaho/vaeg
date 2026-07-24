@@ -355,6 +355,30 @@ builds do not compile the adapter, deterministic flat-memory seam, or test I/O
 seam. V20 bus timing and prefetch-cycle details are diagnostic rather than
 uPD9002 timing requirements.
 
+## uPD9002 M58 SST ratchet
+
+M58 preserves the M43 result files byte-for-byte and records their immutable
+content identities in `tests/ssts/epochs/g43/manifest.json`. The blocking
+architectural CI and full profiles use the metadata-defined FLAGS mask. The
+separate, non-blocking fingerprint full profile compares all 16 FLAGS bits.
+Neither contract includes cycles, prefetch, or bus timing.
+
+With `VAEG_SSTS_V20_ROOT` configured, CTest runs the architectural CI profile
+through `tools/qa/upd9002_ssts_ratchet.py ci-enforce`. The command requires
+the configured Git commit and compares it with the explicit approved G57 SHA,
+not with a mutable worktree result. When the corpus is unavailable, CTest
+reports the existing visible skip; that skip never satisfies G58.
+
+The always-available repository tests verify immutable M43 files, schema
+versions, deterministic JSON and gzip, closed classification registries,
+strict lettered milestone identifiers, and fail-closed negative cases:
+
+```sh
+python3 tools/qa/upd9002_ssts_ratchet.py verify-static --root .
+python3 tools/qa/upd9002_ssts_ratchet.py selftest
+python3 tools/qa/milestone_ids.py --root . --selftest --discover --audit
+```
+
 ## uPD9002 M45 native execution invariant
 
 M45 makes the proved build/runtime choice unconditional. All 13 supported

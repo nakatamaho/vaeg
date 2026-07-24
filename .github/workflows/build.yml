@@ -38,11 +38,43 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Check encoding
-        run: python3 tools/repo/check_encoding.py --expect utf8 --exclude hlp/
+        run: python3 tools/repo/check_encoding.py --expect utf8
       - name: Check EOL
         run: python3 tools/repo/check_eol.py --enforce
       - name: Check path case
         run: python3 tools/repo/check_case.py
+
+  upd9002-ssts:
+    name: uPD9002 architectural SST ratchet
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake ninja-build pkg-config libsdl2-dev gcc g++
+      - name: Cache verified V20 corpus
+        uses: actions/cache@v4
+        with:
+          path: build/ssts-v20-cache
+          key: ssts-v20-9efbd02b8ec1a3aad347c2b59672ad25f3bcdb21
+      - name: Acquire and verify V20 corpus
+        run: |
+          python3 tools/qa/upd9002_ssts.py acquire \
+            --cache-root build/ssts-v20-cache
+          python3 tools/qa/upd9002_ssts.py verify \
+            --dataset-root build/ssts-v20-cache/singlesteptests-v20-9efbd02b8ec1a3aad347c2b59672ad25f3bcdb21 \
+            --manifest tests/ssts/v20_dataset_manifest.json
+      - name: Configure verified SST build
+        run: >-
+          cmake --preset linux-ci-gcc
+          -DVAEG_SSTS_V20_ROOT=${{ github.workspace }}/build/ssts-v20-cache/singlesteptests-v20-9efbd02b8ec1a3aad347c2b59672ad25f3bcdb21
+      - name: Build verified SST worker
+        run: cmake --build --preset linux-ci-gcc --target vaeg_sdl2
+      - name: Enforce architectural CI ratchet
+        run: >-
+          ctest --test-dir build/linux-ci-gcc --output-on-failure
+          -R '^vaeg_upd9002_ssts_(selftest|ratchet_selftest|ratchet_static|worker_selftest|ci_external)$'
 
   linux:
     name: ubuntu ${{ matrix.compiler }} z80
