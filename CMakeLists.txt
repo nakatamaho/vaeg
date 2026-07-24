@@ -835,6 +835,24 @@ if(VAEG_ENABLE_TESTS)
     set_tests_properties(vaeg_upd9002_ssts_ratchet_static PROPERTIES
         LABELS "romless;upd9002;ssts;ratchet;repository")
 
+    add_test(NAME vaeg_upd9002_ssts_evidence_selftest
+        COMMAND "${Python3_EXECUTABLE}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/upd9002_semantics_evidence.py"
+            selftest)
+    set_tests_properties(vaeg_upd9002_ssts_evidence_selftest PROPERTIES
+        LABELS "romless;upd9002;ssts;evidence")
+
+    if(EXISTS
+            "${CMAKE_CURRENT_SOURCE_DIR}/tests/ssts/evidence/g59/manifest.json")
+        add_test(NAME vaeg_upd9002_ssts_evidence_static
+            COMMAND "${Python3_EXECUTABLE}"
+                "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/upd9002_semantics_evidence.py"
+                verify-static
+                --root "${CMAKE_CURRENT_SOURCE_DIR}")
+        set_tests_properties(vaeg_upd9002_ssts_evidence_static PROPERTIES
+            LABELS "romless;upd9002;ssts;evidence;repository")
+    endif()
+
     add_test(NAME vaeg_milestone_id_selftest
         COMMAND "${Python3_EXECUTABLE}"
             "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/milestone_ids.py"
