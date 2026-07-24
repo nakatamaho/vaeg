@@ -189,3 +189,37 @@ The canonical format and bounded same-environment gzip reproducibility claim
 are defined in `schema/evidence-pack-v1.md`. Diagnostic replay of a known gap
 does not change its G58 classification, applicable denominator, or official
 skip outcome.
+
+## G60a FLAGS-materialization transition
+
+M60a uses `tools/qa/upd9002_m60a_evidence.py` to bind each candidate
+scoreboard and transition explicitly to approved G59 commit
+`e7f2325bc81310532091a8ca82914030fdb8b6ba`. The driver keeps the M58
+fail-closed defaults, but permits changed failure signatures only when it can
+write and verify their complete deterministic shards. It never approves those
+changes.
+
+The G60a families are:
+
+```text
+scoreboard/g60a_architectural_ci.json
+scoreboard/g60a_architectural_full.json
+scoreboard/g60a_fingerprint_full.json
+transitions/g60a_architectural_ci_from_g59.json
+transitions/g60a_architectural_full_from_g59.json
+transitions/g60a_flags_materialization_summary.json
+```
+
+Run the positive/fail-closed and committed-artifact checks with:
+
+```sh
+python3 tools/qa/upd9002_m60a_evidence.py selftest
+python3 tools/qa/upd9002_m60a_evidence.py verify-static \
+  --root . \
+  --predecessor-sha e7f2325bc81310532091a8ca82914030fdb8b6ba
+```
+
+The focused summary proves the direct FLAGS-family transition separately from
+dependent interrupt-frame effects in BOUND and divide-error populations.
+PUSHF's pre-existing segment-wrap anomaly remains blocking and is not
+reclassified.

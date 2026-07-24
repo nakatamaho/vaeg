@@ -1785,7 +1785,7 @@ I286FN _popf(void) {						// 9D:	popf
 I286FN _sahf(void) {						// 9E:	sahf
 
 	I286_WORKCLOCK(2);
-	I286_FLAGL = I286_AH;
+	I286_FLAGL = (UINT8)((I286_AH & 0xd5) | 0x02);
 }
 
 I286FN _lahf(void) {						// 9F:	lahf

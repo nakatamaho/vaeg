@@ -66,6 +66,9 @@
 #if defined(VAEG_UPD9002_M48_TESTING)
 #include	"tests/upd9002/rep0f_diagnostic_stop.h"
 #endif
+#if defined(VAEG_UPD9002_M60A_TESTING)
+#include	"tests/upd9002/flags_materialization.h"
+#endif
 #if defined(VAEG_UPD9002_SSTS_TESTING)
 #include	"tests/upd9002/ssts_worker.h"
 #endif
@@ -1423,6 +1426,12 @@ int main(int argc, char **argv) {
 #if defined(VAEG_UPD9002_M48_TESTING)
 	if ((argc == 2) && !strcmp(argv[1], "--upd9002-m48-rep0f-diagnostic")) {
 		return upd9002_rep0f_diagnostic_stop_main();
+	}
+#endif
+#if defined(VAEG_UPD9002_M60A_TESTING)
+	if ((argc == 2) &&
+		!strcmp(argv[1], "--upd9002-m60a-flags-materialization")) {
+		return upd9002_flags_materialization_main();
 	}
 #endif
 #if defined(VAEG_UPD9002_SSTS_TESTING)

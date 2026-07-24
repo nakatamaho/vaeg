@@ -57,7 +57,18 @@ valid DEFLATE stream.
 `vaeg-upd9002-ssts-transition-v1` compares the scoreboard with an explicitly
 supplied approved predecessor SHA. Hash arrays and classification changes are
 ordered by record SHA-256. Changed failure signatures require deterministic
-content-addressed shards and human review; the G58 ratchet rejects them.
+content-addressed shards and human review; the G58 default ratchet rejects
+them unless a milestone-specific driver supplies a changed-failure output
+directory.
+
+`vaeg-upd9002-ssts-changed-failures-v1` shards every changed signature by the
+first hexadecimal digit of `form`. Each record contains the complete
+normalized failure entry before and after the candidate, including both
+signature digests, forms, upstream identities, mismatch classes, FLAGS masks,
+and termination classes. The transition records the exact compressed and
+canonical-content SHA-256 digests and the total count. The same deterministic
+gzip contract used by ordinary failure shards applies. Merely enumerating a
+changed failure does not approve it; the gate still requires human review.
 
 The executable schema validator and positive/negative tests are in
 `tools/qa/upd9002_ssts_ratchet.py`. Unknown fields, versions, classifications,

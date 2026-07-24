@@ -25,8 +25,6 @@
 			I286_REMCLOCK = 1;									\
 		}
 
-#define REAL_V30FLAG	(UINT16)((I286_FLAG & 0x7ff) + \
-											(I286_OV?O_FLAG:0) + 0xf000)
 #define V30_DMAP()		dmap_i286()
 
 typedef struct {
@@ -304,19 +302,27 @@ I286FN v30mov_seg_ea(void) {				// 8E:	mov		segrem, EA
 	}
 }
 
+static UINT16 v30_materialize_pushf_image(void) {
+
+	return (UINT16)((I286_FLAG & (UINT16)~O_FLAG) |
+						(I286_OV ? O_FLAG : 0));
+}
+
 I286FN v30_pushf(void) {					// 9C:	pushf
 
-	REGPUSH(REAL_V30FLAG, 3)
+	REGPUSH(v30_materialize_pushf_image(), 3)
 }
 
 I286FN v30_popf(void) {						// 9D:	popf
 
+	UINT	flag;
+
 	I286_WORKCLOCK(5);
-	REGPOP0(I286_FLAG)
-	I286_FLAG |= 0xf000;
-	I286_OV = I286_FLAG & O_FLAG;
-	I286_FLAG &= (0xfff ^ O_FLAG);
-	I286_TRAP = ((I286_FLAG & 0x300) == 0x300);
+	REGPOP0(flag)
+	flag = (flag & 0x0ed5) | 0xf002;
+	I286_OV = flag & O_FLAG;
+	I286_FLAG = flag & (UINT16)~O_FLAG;
+	I286_TRAP = ((flag & 0x300) == 0x300);
 	I286IRQCHECKTERM
 }
 
