@@ -28,13 +28,14 @@ import argparse
 import copy
 import gzip
 import hashlib
-import io
 import json
 import pathlib
 import re
+import struct
 import subprocess
 import sys
 import tempfile
+import zlib
 from collections import Counter, defaultdict
 from collections.abc import Callable, Iterable, Iterator
 from typing import Any
@@ -124,12 +125,19 @@ def write_json(path: pathlib.Path, value: Any) -> None:
 
 def deterministic_gzip_bytes(value: Any) -> bytes:
     payload = canonical_bytes(value) + b"\n"
-    output = io.BytesIO()
-    with gzip.GzipFile(
-        filename="", mode="wb", compresslevel=9, fileobj=output, mtime=0
-    ) as stream:
-        stream.write(payload)
-    return output.getvalue()
+    compressor = zlib.compressobj(
+        level=9,
+        method=zlib.DEFLATED,
+        wbits=-zlib.MAX_WBITS,
+        memLevel=8,
+        strategy=zlib.Z_DEFAULT_STRATEGY,
+    )
+    deflate = compressor.compress(payload) + compressor.flush(zlib.Z_FINISH)
+    header = b"\x1f\x8b\x08\x00\x00\x00\x00\x00\x02\xff"
+    trailer = struct.pack(
+        "<II", zlib.crc32(payload) & 0xFFFFFFFF, len(payload) & 0xFFFFFFFF
+    )
+    return header + deflate + trailer
 
 
 def write_deterministic_gzip(path: pathlib.Path, value: Any) -> tuple[str, str]:
@@ -141,15 +149,29 @@ def write_deterministic_gzip(path: pathlib.Path, value: Any) -> tuple[str, str]:
 
 def read_deterministic_gzip(path: pathlib.Path) -> Any:
     compressed = path.read_bytes()
+    header = b"\x1f\x8b\x08\x00\x00\x00\x00\x00\x02\xff"
+    if len(compressed) < len(header) + 8 or compressed[: len(header)] != header:
+        raise RatchetError(f"{path}: gzip metadata is not canonical")
     try:
-        payload = gzip.decompress(compressed)
+        decompressor = zlib.decompressobj(-zlib.MAX_WBITS)
+        payload = decompressor.decompress(compressed[len(header) : -8])
+        payload += decompressor.flush()
+        if (
+            not decompressor.eof
+            or decompressor.unconsumed_tail
+            or decompressor.unused_data
+        ):
+            raise RatchetError(f"{path}: gzip must contain one complete member")
+        expected_crc32, expected_size = struct.unpack("<II", compressed[-8:])
+        if expected_crc32 != zlib.crc32(payload) & 0xFFFFFFFF:
+            raise RatchetError(f"{path}: gzip CRC-32 mismatch")
+        if expected_size != len(payload) & 0xFFFFFFFF:
+            raise RatchetError(f"{path}: gzip size mismatch")
         value = json.loads(payload.decode("utf-8"))
-    except (gzip.BadGzipFile, json.JSONDecodeError, UnicodeDecodeError) as error:
+    except (json.JSONDecodeError, UnicodeDecodeError, zlib.error) as error:
         raise RatchetError(f"{path}: invalid deterministic JSON gzip: {error}") from error
     if payload != canonical_bytes(value) + b"\n":
         raise RatchetError(f"{path}: gzip payload is not canonical JSON")
-    if compressed != deterministic_gzip_bytes(value):
-        raise RatchetError(f"{path}: gzip bytes are nondeterministic")
     return value
 
 
@@ -2510,8 +2532,26 @@ def selftest() -> None:
         if first.read_bytes() != second.read_bytes():
             raise AssertionError("deterministic gzip generation differs")
         tests.append("deterministic gzip generation")
-        nondeterministic = temporary_path / "nondeterministic.json.gz"
         canonical = canonical_bytes(payload) + b"\n"
+        stored_deflate = (
+            b"\x01"
+            + struct.pack("<HH", len(canonical), len(canonical) ^ 0xFFFF)
+            + canonical
+        )
+        portable = temporary_path / "portable.json.gz"
+        portable.write_bytes(
+            b"\x1f\x8b\x08\x00\x00\x00\x00\x00\x02\xff"
+            + stored_deflate
+            + struct.pack(
+                "<II",
+                zlib.crc32(canonical) & 0xFFFFFFFF,
+                len(canonical) & 0xFFFFFFFF,
+            )
+        )
+        if read_deterministic_gzip(portable) != payload:
+            raise AssertionError("portable deterministic gzip validation differs")
+        tests.append("portable deterministic gzip validation")
+        nondeterministic = temporary_path / "nondeterministic.json.gz"
         nondeterministic.write_bytes(gzip.compress(canonical, mtime=1))
         expect_ratchet_error(
             "nondeterministic gzip shard",

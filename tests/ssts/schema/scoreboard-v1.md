@@ -48,8 +48,11 @@ form; the summary-level termination counter covers every executed record.
 hex digit of `form`. Entries are ordered by the canonical record SHA-256 and
 contain the upstream test SHA-1, failure-signature SHA-256, exact form,
 FLAGS mask, mismatch classes, and expected/actual termination. Gzip uses an
-empty filename, compression level 9, and `mtime=0`; validation decompresses,
-canonicalizes, recompresses, and requires byte identity.
+empty filename, compression level 9, `mtime=0`, no optional header fields,
+XFL 2, and OS 255. Validation requires one complete member, canonical JSON,
+and matching CRC-32 and size. The artifact SHA-256 pins the exact compressed
+bytes without requiring different zlib implementations to emit the same
+valid DEFLATE stream.
 
 `vaeg-upd9002-ssts-transition-v1` compares the scoreboard with an explicitly
 supplied approved predecessor SHA. Hash arrays and classification changes are
