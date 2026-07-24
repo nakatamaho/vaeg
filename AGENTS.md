@@ -119,5 +119,6 @@ images, configuration, save data, or other private integration assets.
 
 ## Commit messages
 
-UTF-8, LF, English subject, `M<n>:` prefix. Example:
-`M57: remove frozen reference tier`.
+UTF-8, LF, English subject, canonical `M<id>:` prefix. The ID is an integer
+or an integer followed by one lowercase letter and an optional nonzero decimal
+suffix, such as `M58:`, `M60a:`, or `M62b1:`.

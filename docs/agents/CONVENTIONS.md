@@ -65,7 +65,9 @@ defect regardless of what the diff was trying to do.
 ## Commits and PRs
 
 - One concern per commit; rename-only commits separate from fixups.
-- Subject: `M<n>: <english imperative>`, LF, UTF-8.
+- Subject: canonical `M<id>: <english imperative>`, LF, UTF-8. An ID is an
+  integer or an integer followed by one lowercase letter and an optional
+  nonzero decimal suffix, for example `M58:`, `M60a:`, or `M62b1:`.
 - Mass mechanical commits get their hash appended to
   `.git-blame-ignore-revs` in the same PR.
 - PR description contains: task file name, machine-check output, build

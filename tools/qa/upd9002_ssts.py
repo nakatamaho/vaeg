@@ -1109,7 +1109,10 @@ def run_profile(
     worker: pathlib.Path,
     profile: str,
     timeout: float,
+    flags_comparison: str = "defined",
 ) -> dict[str, Any]:
+    if flags_comparison not in {"defined", "all16"}:
+        raise CorpusError(f"unknown FLAGS comparison: {flags_comparison}")
     verify_fast(dataset_root, manifest)
     if not worker.is_file():
         raise CorpusError(f"worker executable is missing: {worker}")
@@ -1173,8 +1176,12 @@ def run_profile(
                 "watch": watch,
                 "expected_ram": expected_ram,
             }
+            comparison_resolved = resolved
+            if flags_comparison == "all16":
+                comparison_resolved = dict(resolved)
+                comparison_resolved["flags_mask"] = 0xffff
             outcome, failure = compare_result(
-                manifest["dataset_id"], profile, form, resolved,
+                manifest["dataset_id"], profile, form, comparison_resolved,
                 context, worker_status, actual,
             )
             result_counts[outcome] += 1
@@ -1219,7 +1226,7 @@ def run_profile(
         )
     )
     selection_digest = sha256_bytes(canonical_bytes(selected_testsets))
-    return {
+    result = {
         "schema": "vaeg-upd9002-ssts-result-v1",
         "dataset_id": manifest["dataset_id"],
         "dataset_digest": manifest["dataset_digest"],
@@ -1247,6 +1254,9 @@ def run_profile(
         "difficult_family_result_counts": dict(sorted(difficult_results.items())),
         "per_form": per_form,
     }
+    if flags_comparison == "all16":
+        result["flags_comparison"] = "all16"
+    return result
 
 
 def externalize_failure_signatures(
@@ -2214,6 +2224,12 @@ def parse_args(argv: Iterable[str]) -> argparse.Namespace:
     run.add_argument("--support-map", required=True, type=pathlib.Path)
     run.add_argument("--worker", required=True, type=pathlib.Path)
     run.add_argument("--profile", required=True, choices=("ci", "full"))
+    run.add_argument(
+        "--flags-comparison",
+        choices=("defined", "all16"),
+        default="defined",
+        help="compare metadata-defined FLAGS bits or all 16 V20 fingerprint bits",
+    )
     run.add_argument("--shard-timeout", type=float, default=120.0)
     run.add_argument("--output", required=True, type=pathlib.Path)
     run.add_argument("--failure-directory", type=pathlib.Path)
@@ -2315,6 +2331,10 @@ def main(argv: Iterable[str] | None = None) -> int:
         elif arguments.command == "run":
             if arguments.shard_timeout <= 0:
                 raise CorpusError("shard timeout must be positive")
+            if arguments.flags_comparison == "all16" and arguments.expect is not None:
+                raise CorpusError(
+                    "--expect is unavailable for the diagnostic all16 profile"
+                )
             manifest = load_manifest(arguments.manifest)
             result = run_profile(
                 arguments.dataset_root.resolve(),
@@ -2323,6 +2343,7 @@ def main(argv: Iterable[str] | None = None) -> int:
                 arguments.worker.resolve(),
                 arguments.profile,
                 arguments.shard_timeout,
+                arguments.flags_comparison,
             )
             if arguments.failure_directory is not None:
                 externalize_failure_signatures(
