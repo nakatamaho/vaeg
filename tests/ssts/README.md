@@ -158,3 +158,34 @@ and resolved-set content digests. Opcode 63 is
 G58, so `hardware_pending.json` is intentionally empty. That registry is
 orthogonal evidence and can never alter classification or the applicable
 denominator.
+
+## G59 semantic evidence pack
+
+M59 replays six explicitly bounded instruction populations without changing
+the worker, comparison contracts, fixtures, classifications, or CPU
+implementation. It records initial, expected, and actual architectural state
+in deterministic case tables and keeps architectural and all-16-bit FLAGS
+fingerprint observations separate.
+
+Generate the pack only from the exact M59 analysis implementation commit:
+
+```sh
+python3 tools/qa/upd9002_semantics_evidence.py generate \
+  --root . \
+  --dataset-root /path/to/pinned-v20 \
+  --worker build/ssts/sdl2/vaeg \
+  --analysis-evaluated-sha 40-hex-implementation-commit \
+  --output /tmp/g59
+```
+
+Validate the generator and a committed pack with:
+
+```sh
+python3 tools/qa/upd9002_semantics_evidence.py selftest
+python3 tools/qa/upd9002_semantics_evidence.py verify-static --root .
+```
+
+The canonical format and bounded same-environment gzip reproducibility claim
+are defined in `schema/evidence-pack-v1.md`. Diagnostic replay of a known gap
+does not change its G58 classification, applicable denominator, or official
+skip outcome.
