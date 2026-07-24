@@ -96,10 +96,11 @@ M36–M41 archive status.
 | M54 | tasks/M54_hostfat_readonly_prototype.md | Add a session-only read-only HOSTFAT block-device prototype backed by a fixed FAT snapshot | **G54 passed** |
 | M55 | tasks/M55_hostfat_integration.md | Add PC-Engine-compatible FAT12-max HOSTFAT geometry, GUI/configuration, save-state identity, refresh policy, and hardened host-path handling | **G55 passed** |
 | M56 | tasks/M56_hostfs_readonly_redirector.md | Probe the PC-Engine DOS redirector bridge before a clean-room read-only HOSTFS implementation | **G56 administratively closed at `b72e641733ddea6f0e8faef2507093f7c3aee5a4`: prerequisite absent; no HOSTFS implementation** |
-| M57 | tasks/M57_remove_frozen_reference_tier.md | Preserve legal provenance, archive the exact G56 tier, then remove `win9x/`, `i286x/`, `hlp/`, and `cpuxva/memoryva.x86` without changing behavior | **G57 candidate; maintainer review required** |
+| M57 | tasks/M57_remove_frozen_reference_tier.md | Preserve legal provenance, archive the exact G56 tier, then remove `win9x/`, `i286x/`, `hlp/`, and `cpuxva/memoryva.x86` without changing behavior | **G57 passed at `72322d5c9b8e40e4a988312aebe163a8190e2aa5`** |
+| M58 | tasks/M58_upd9002_ssts_ratchet.md | Add immutable hash-level SST epochs, separate architectural/fingerprint profiles, strict classification governance, and lettered-milestone tooling support without changing CPU semantics | **G58 candidate; maintainer review required** |
 
 Phase 2 dependencies: M7 → M8 → {M9, M10 parallel} → M11 → M12 → M13.
-Post-phase dependency: M13 → M14 → M15 → M16 → M17 → M18 → M19 → M20 → M21 → M22 → M23 → M24 → M25 → M26 → M27 → M28 → M29 → M30 → M31 → M32. The required Z80 migration sequence M34 → M35 → M36 → M37 → M38 → M39 → M40 → M41 is complete. The separately authorized uPD9002 preparation sequence passed G42 through G51. M52–M56 were consumed by unrelated work and retain their historical meanings. The renumbered semantics campaign begins with M57; M58 remains blocked until the maintainer passes G57. See [`UPD9002_SEMANTICS_MIGRATION.md`](UPD9002_SEMANTICS_MIGRATION.md) and the repository-root [`MILESTONE_RENUMBERING.md`](../../MILESTONE_RENUMBERING.md). The accepted M47 pre-implementation audit disproved the old assumption that REP-prefixed 0x0F could not reach NP2 80286 system handlers. M47 therefore collected correctness evidence, M48 installed the approved fail-closed policy, and M49/M50 audited and removed only the explicitly approved dependency-closed groups.
+Post-phase dependency: M13 → M14 → M15 → M16 → M17 → M18 → M19 → M20 → M21 → M22 → M23 → M24 → M25 → M26 → M27 → M28 → M29 → M30 → M31 → M32. The required Z80 migration sequence M34 → M35 → M36 → M37 → M38 → M39 → M40 → M41 is complete. The separately authorized uPD9002 preparation sequence passed G42 through G51. M52–M56 were consumed by unrelated work and retain their historical meanings. The renumbered semantics campaign passed G57 at exactly `72322d5c9b8e40e4a988312aebe163a8190e2aa5`; M58 is limited to infrastructure and evidence and must stop at the G58 human gate. See [`UPD9002_SEMANTICS_MIGRATION.md`](UPD9002_SEMANTICS_MIGRATION.md) and the repository-root [`MILESTONE_RENUMBERING.md`](../../MILESTONE_RENUMBERING.md). The accepted M47 pre-implementation audit disproved the old assumption that REP-prefixed 0x0F could not reach NP2 80286 system handlers. M47 therefore collected correctness evidence, M48 installed the approved fail-closed policy, and M49/M50 audited and removed only the explicitly approved dependency-closed groups.
 M9 must pass before M11 (all three OSes must ship the VA machine, not
 the PC-98 scaffold).
 
@@ -308,8 +309,14 @@ removes exactly `win9x/`, `i286x/`, `hlp/`, and
 is retained at `LICENSES/legacy-vaeg.txt`, with its relationship to the
 archived source recorded in `docs/legal/legacy-source-provenance.md`. The
 complete pre-deletion tree remains at annotated tag
-`archive/frozen-win9x-i286x-g56`. M57 is a G57 candidate only; the maintainer
-must review and pass G57 before M58 begins.
+`archive/frozen-win9x-i286x-g56`. The maintainer passed G57 at exactly
+`72322d5c9b8e40e4a988312aebe163a8190e2aa5`.
+
+M58 adds immutable references to the M43 summaries and failure sidecars,
+separate blocking architectural and diagnostic all-FLAGS fingerprint
+profiles, a hash-level predecessor ratchet, gap taxonomy, and strict
+lettered-milestone parsing. It changes no uPD9002 instruction semantics and
+stops at the G58 human gate.
 
 ## Gate protocol
 
