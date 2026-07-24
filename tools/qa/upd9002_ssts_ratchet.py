@@ -46,6 +46,10 @@ import upd9002_ssts as ssts
 APPROVED_PREDECESSOR_GATE = "G57"
 APPROVED_PREDECESSOR_SHA = "72322d5c9b8e40e4a988312aebe163a8190e2aa5"
 EPOCH_GATE = "G58"
+IMMUTABLE_M43_PREDECESSOR_GATE = "G57"
+IMMUTABLE_M43_PREDECESSOR_SHA = (
+    "72322d5c9b8e40e4a988312aebe163a8190e2aa5"
+)
 TOP_LEVEL_CLASSIFICATIONS = (
     "applicable",
     "known_target_gap",
@@ -291,9 +295,15 @@ def verify_immutable_m43(
         or manifest["schema_version"] != 1
     ):
         raise RatchetError(f"{manifest_path}: unsupported immutable-manifest version")
-    if manifest["approved_predecessor_gate"] != APPROVED_PREDECESSOR_GATE:
+    if (
+        manifest["approved_predecessor_gate"]
+        != IMMUTABLE_M43_PREDECESSOR_GATE
+    ):
         raise RatchetError("immutable manifest has wrong approved predecessor gate")
-    if manifest["approved_predecessor_sha"] != APPROVED_PREDECESSOR_SHA:
+    if (
+        manifest["approved_predecessor_sha"]
+        != IMMUTABLE_M43_PREDECESSOR_SHA
+    ):
         raise RatchetError("immutable manifest has wrong approved predecessor SHA")
     verify_immutable_file_entries(root, manifest["files"])
     profiles = manifest["profiles"]

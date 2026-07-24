@@ -131,6 +131,9 @@ def generate_transition(
 def verify_static(root: pathlib.Path, predecessor_sha: str) -> None:
     ratchet.verify_static(root)
     configure_ratchet_identity(predecessor_sha)
+    ratchet.verify_immutable_m43(
+        root, root / "tests/ssts/epochs/g43/manifest.json"
+    )
     scoreboards = (
         root / "tests/ssts/scoreboard/g60a_architectural_ci.json",
         root / "tests/ssts/scoreboard/g60a_architectural_full.json",
