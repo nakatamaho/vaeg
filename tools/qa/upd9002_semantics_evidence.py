@@ -2377,7 +2377,7 @@ def representative_markdown(
                 "",
             ]
         )
-    return ("\n".join(lines) + "\n").encode("utf-8")
+    return ("\n".join(lines).rstrip("\n") + "\n").encode("utf-8")
 
 
 def scoreboard_population(
@@ -2969,7 +2969,7 @@ def validate_pack(root: pathlib.Path, pack: pathlib.Path) -> dict[str, Any]:
                 text = raw.decode("utf-8")
             except UnicodeDecodeError as error:
                 raise EvidenceError(f"{path}: invalid representative UTF-8") from error
-            if not text.endswith("\n") or "\r" in text:
+            if not text.endswith("\n") or text.endswith("\n\n") or "\r" in text:
                 raise EvidenceError(f"{path}: noncanonical representative text")
         else:
             raise EvidenceError(f"{entry['path']}: unknown artifact kind")
