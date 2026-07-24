@@ -149,8 +149,7 @@ existing executable-local `vabkupmem.dat` similarly overrides the
 user-state backup memory, and saves return to the selected file. Save
 states and keyboard sidecars remain in the user directory.
 
-`vabkupmem.dat` does not fall back to the ROM path. Legacy `win9x/`
-remains exe-relative and unchanged.
+`vabkupmem.dat` does not fall back to the ROM path.
 
 ROMs are read beside the active executable. VA uses unsuffixed names, while
 VA2/VA3 uses MAME-compatible suffixed names:

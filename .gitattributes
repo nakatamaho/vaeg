@@ -23,3 +23,6 @@
 
 # Generated mail patch; embedded upstream context whitespace is patch data
 docs/agents/reports/m35_suzukiplan_irq_extension.patch -diff
+
+# Byte-identical legal evidence retains its historical line whitespace
+LICENSES/legacy-vaeg.txt whitespace=-blank-at-eol
