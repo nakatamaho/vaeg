@@ -74,7 +74,7 @@ jobs:
       - name: Enforce architectural CI ratchet
         run: >-
           ctest --test-dir build/linux-ci-gcc --output-on-failure
-          -R '^vaeg_upd9002_ssts_(selftest|ratchet_selftest|ratchet_static|worker_selftest|ci_external)$'
+          -R '^vaeg_upd9002_ssts_(selftest|ratchet_selftest|ratchet_static|evidence_selftest|evidence_static|worker_selftest|ci_external)$'
 
   linux:
     name: ubuntu ${{ matrix.compiler }} z80
