@@ -1165,6 +1165,67 @@ def write_failure_shards(
     )
 
 
+def write_changed_failure_shards(
+    changed_hashes: Iterable[str],
+    predecessor_failures: dict[str, dict[str, Any]],
+    candidate_failures: dict[str, dict[str, Any]],
+    profile: str,
+    scope: str,
+    dataset_id: str,
+    output_directory: pathlib.Path,
+) -> list[dict[str, Any]]:
+    if output_directory.exists() and any(output_directory.iterdir()):
+        raise RatchetError(
+            f"changed-failure directory is not empty: {output_directory}"
+        )
+    groups: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for record_hash in sorted(changed_hashes):
+        before = predecessor_failures.get(record_hash)
+        after = candidate_failures.get(record_hash)
+        if before is None or after is None:
+            raise RatchetError(
+                f"{record_hash}: changed failure is absent from one side"
+            )
+        if before["form"] != after["form"]:
+            raise RatchetError(f"{record_hash}: changed failure form differs")
+        if before["upstream_test_hash"] != after["upstream_test_hash"]:
+            raise RatchetError(
+                f"{record_hash}: changed failure upstream identity differs"
+            )
+        groups[after["form"][0].lower()].append(
+            {
+                "after": after,
+                "before": before,
+                "record_hash": record_hash,
+            }
+        )
+    output_directory.mkdir(parents=True, exist_ok=True)
+    shard_entries = []
+    for group, entries in sorted(groups.items()):
+        entries.sort(key=lambda item: item["record_hash"])
+        payload = {
+            "changed_failure_count": len(entries),
+            "changed_failures": entries,
+            "dataset_id": dataset_id,
+            "group": group,
+            "profile": profile,
+            "schema": "vaeg-upd9002-ssts-changed-failures-v1",
+            "schema_version": 1,
+            "scope": scope,
+        }
+        path = output_directory / f"{group}.json.gz"
+        raw_digest, canonical_digest = write_deterministic_gzip(path, payload)
+        shard_entries.append(
+            {
+                "canonical_sha256": canonical_digest,
+                "changed_failure_count": len(entries),
+                "path": f"{output_directory.name}/{path.name}",
+                "sha256": raw_digest,
+            }
+        )
+    return shard_entries
+
+
 def generate_scoreboard(
     root: pathlib.Path,
     dataset_root: pathlib.Path,
@@ -1534,7 +1595,10 @@ def govern_classification_changes(
         raise RatchetError(f"invalid classification transition: {before} -> {after}")
 
 
-def enforce_ratchet_policy(policy: dict[str, Any]) -> None:
+def enforce_ratchet_policy(
+    policy: dict[str, Any],
+    allow_changed_failure_signatures: bool = False,
+) -> None:
     predecessor_sha = policy.get("predecessor_sha")
     if predecessor_sha is None:
         raise RatchetError("omitted predecessor SHA")
@@ -1568,7 +1632,7 @@ def enforce_ratchet_policy(policy: dict[str, Any]) -> None:
         for record_hash in sorted(before_failures & after_failures)
         if signatures_before.get(record_hash) != signatures_after.get(record_hash)
     ]
-    if changed:
+    if changed and not allow_changed_failure_signatures:
         raise RatchetError(f"changed failure signature: {changed[0]}")
     before_passes = policy.get("form_passes_before", {})
     after_passes = policy.get("form_passes_after", {})
@@ -1671,6 +1735,12 @@ def validate_transition(value: Any) -> None:
         )
         require_sha256(shard["canonical_sha256"], "changed shard canonical digest")
         require_sha256(shard["sha256"], "changed shard raw digest")
+        if (
+            not isinstance(shard["path"], str)
+            or not shard["path"].endswith(".json.gz")
+            or ".." in pathlib.PurePosixPath(shard["path"]).parts
+        ):
+            raise RatchetError("transition: malformed changed-failure path")
         paths.append(shard["path"])
     if paths != sorted(paths) or len(paths) != len(set(paths)):
         raise RatchetError("transition: changed-failure shards are nondeterministic")
@@ -1678,6 +1748,139 @@ def validate_transition(value: Any) -> None:
         value["changed_failure_count"], "transition.changed_failure_count"
     ) != total:
         raise RatchetError("transition: changed-failure count mismatch")
+
+
+def validate_normalized_failure_entry(value: Any, field: str) -> None:
+    required = {
+        "actual_termination",
+        "expected_termination",
+        "flags_mask",
+        "form",
+        "mismatch_classes",
+        "record_hash",
+        "signature_sha256",
+        "upstream_test_hash",
+    }
+    if not isinstance(value, dict) or set(value) != required:
+        raise RatchetError(f"{field}: unknown failure entry schema")
+    require_sha256(value["record_hash"], f"{field}.record_hash")
+    require_sha256(value["signature_sha256"], f"{field}.signature_sha256")
+    require_sha1(value["upstream_test_hash"], f"{field}.upstream_test_hash")
+    parse_form(value["form"])
+    if (
+        not isinstance(value["flags_mask"], str)
+        or re.fullmatch(r"[0-9a-f]{4}", value["flags_mask"]) is None
+    ):
+        raise RatchetError(f"{field}: malformed FLAGS mask")
+    if (
+        not isinstance(value["mismatch_classes"], list)
+        or value["mismatch_classes"]
+        != sorted(set(value["mismatch_classes"]))
+        or not all(
+            isinstance(item, str) and item
+            for item in value["mismatch_classes"]
+        )
+    ):
+        raise RatchetError(f"{field}: malformed mismatch classes")
+    for name in ("actual_termination", "expected_termination"):
+        if not isinstance(value[name], str) or not value[name]:
+            raise RatchetError(f"{field}: malformed {name}")
+
+
+def load_transition_changed_failures(
+    transition_path: pathlib.Path,
+    transition: dict[str, Any],
+) -> dict[str, dict[str, Any]]:
+    changed: dict[str, dict[str, Any]] = {}
+    for shard_index, shard in enumerate(transition["changed_failure_shards"]):
+        path = transition_path.parent / shard["path"]
+        if not path.is_file():
+            raise RatchetError(f"changed-failure shard is missing: {path}")
+        if sha256_file(path) != shard["sha256"]:
+            raise RatchetError(f"{path}: changed-failure byte digest differs")
+        payload = read_deterministic_gzip(path)
+        required = {
+            "changed_failure_count",
+            "changed_failures",
+            "dataset_id",
+            "group",
+            "profile",
+            "schema",
+            "schema_version",
+            "scope",
+        }
+        if not isinstance(payload, dict) or set(payload) != required:
+            raise RatchetError(f"{path}: unknown changed-failure schema")
+        if (
+            payload["schema"] != "vaeg-upd9002-ssts-changed-failures-v1"
+            or payload["schema_version"] != 1
+        ):
+            raise RatchetError(f"{path}: unsupported changed-failure version")
+        if (
+            payload["dataset_id"] != transition["dataset_id"]
+            or payload["profile"] != transition["profile"]
+            or payload["scope"] != transition["scope"]
+        ):
+            raise RatchetError(f"{path}: changed-failure identity mismatch")
+        group = payload["group"]
+        if (
+            not isinstance(group, str)
+            or re.fullmatch(r"[0-9a-f]", group) is None
+        ):
+            raise RatchetError(f"{path}: malformed changed-failure group")
+        entries = payload["changed_failures"]
+        if (
+            not isinstance(entries, list)
+            or payload["changed_failure_count"] != len(entries)
+            or shard["changed_failure_count"] != len(entries)
+        ):
+            raise RatchetError(f"{path}: changed-failure count mismatch")
+        hashes = []
+        for entry_index, entry in enumerate(entries):
+            field = f"{path}:{entry_index}"
+            if not isinstance(entry, dict) or set(entry) != {
+                "after",
+                "before",
+                "record_hash",
+            }:
+                raise RatchetError(f"{field}: unknown changed-failure entry")
+            record_hash = require_sha256(
+                entry["record_hash"], f"{field}.record_hash"
+            )
+            validate_normalized_failure_entry(
+                entry["before"], f"{field}.before"
+            )
+            validate_normalized_failure_entry(
+                entry["after"], f"{field}.after"
+            )
+            if (
+                entry["before"]["record_hash"] != record_hash
+                or entry["after"]["record_hash"] != record_hash
+                or entry["before"]["form"] != entry["after"]["form"]
+                or entry["before"]["upstream_test_hash"]
+                != entry["after"]["upstream_test_hash"]
+                or entry["before"]["signature_sha256"]
+                == entry["after"]["signature_sha256"]
+            ):
+                raise RatchetError(f"{field}: changed-failure sides mismatch")
+            if entry["after"]["form"][0].lower() != group:
+                raise RatchetError(f"{field}: changed-failure group mismatch")
+            if record_hash in changed:
+                raise RatchetError("changed-failure shards overlap")
+            changed[record_hash] = entry
+            hashes.append(record_hash)
+        if hashes != sorted(hashes):
+            raise RatchetError(
+                f"{path}: changed failures are nondeterministically ordered"
+            )
+        if (
+            sha256_bytes(canonical_bytes(payload) + b"\n")
+            != shard["canonical_sha256"]
+        ):
+            raise RatchetError(f"{path}: changed-failure canonical digest differs")
+    if len(changed) != transition["changed_failure_count"]:
+        raise RatchetError("changed-failure shards do not cover the transition")
+    return changed
 
 
 def build_transition(
@@ -1693,6 +1896,7 @@ def build_transition(
     approved_divergences_path: pathlib.Path,
     predecessor_sha: str | None,
     output_path: pathlib.Path,
+    changed_failure_directory: pathlib.Path | None = None,
 ) -> dict[str, Any]:
     immutable = verify_immutable_m43(root, g43_manifest_path)
     candidate = read_json(candidate_path)
@@ -1815,15 +2019,33 @@ def build_transition(
         },
         "timeouts": candidate["timeouts"],
     }
-    enforce_ratchet_policy(policy)
     changed = [
         record_hash
         for record_hash in sorted(before_failure_set & after_failure_set)
         if predecessor_failures[record_hash]["signature_sha256"]
         != candidate_failures[record_hash]["signature_sha256"]
     ]
-    if changed:
+    enforce_ratchet_policy(
+        policy,
+        allow_changed_failure_signatures=(
+            changed_failure_directory is not None
+        ),
+    )
+    if changed and changed_failure_directory is None:
         raise RatchetError("changed failures require explicit human review")
+    changed_failure_shards = (
+        write_changed_failure_shards(
+            changed,
+            predecessor_failures,
+            candidate_failures,
+            candidate["profile"],
+            scope,
+            candidate["dataset_id"],
+            changed_failure_directory,
+        )
+        if changed_failure_directory is not None
+        else []
+    )
     transition = {
         "applicable_hash_set_after_sha256": candidate[
             "applicable_hash_set_sha256"
@@ -1833,8 +2055,8 @@ def build_transition(
         ],
         "before_gate": APPROVED_PREDECESSOR_GATE,
         "before_sha": predecessor_sha,
-        "changed_failure_count": 0,
-        "changed_failure_shards": [],
+        "changed_failure_count": len(changed),
+        "changed_failure_shards": changed_failure_shards,
         "classification_changes": enumeration["classification_changes"],
         "comparison_contract_id": candidate["comparison_contract_id"],
         "comparison_contract_sha256": candidate["comparison_contract_sha256"],
@@ -1856,7 +2078,7 @@ def build_transition(
     print(
         "ssts-ratchet: "
         f"scope={scope} newly_passing={len(transition['newly_passing'])} "
-        "newly_failing=0 changed_failures=0 classification_changes="
+        f"newly_failing=0 changed_failures={len(changed)} classification_changes="
         f"{len(transition['classification_changes'])}"
     )
     return transition
@@ -2070,6 +2292,7 @@ def verify_static(root: pathlib.Path) -> None:
         if path.read_bytes() != canonical_bytes(value) + b"\n":
             raise RatchetError(f"{path}: transition serialization is not canonical")
         validate_transition(value)
+        load_transition_changed_failures(path, value)
         if evaluated_shas and value["evaluated_sha"] not in evaluated_shas:
             raise RatchetError("transition and scoreboard evaluated SHAs differ")
     print(
