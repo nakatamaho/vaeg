@@ -109,10 +109,26 @@ Every selected record structurally encoded with primary opcode `6C`, `6D`, `6E`,
 resolved as `known_target_gap/documented_silicon_absent` in the target-correct epoch. The correction
 covers currently applicable forms and existing gap forms and is fixed structurally before execution.
 
-The G43 fixture correction that made 1,204 V20 cases pass remains valid historical V20 evidence. The
-recorded 6E=417 and 6F=224 residual failures likewise remain historical. None are uPD9002 fixes.
-M60b removes exact target-absent hashes from the denominator and records them as retired applicable
-pass/failure sets, never as newly passing.
+The G43 fixture correction that made 1,204 V20 cases pass remains valid historical V20 evidence.
+Historical-label correction established by G60b: at G60a, the exact retired failure population was
+`6E=0` and `6F=641`. The values 417 and 224 identify, respectively, unchanged-signature and
+changed-signature subsets of the same 641-case G43 OUTS transition population; they were not
+per-opcode failure counts. The exact content-addressed sets are:
+
+- G60a 6E retired failures: 0,
+  `4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945`;
+- G60a 6F retired failures: 641,
+  `03f8ea83c510e67e27cc60a9455322f0cd899eb88287835080d2f9e98a0fa1f2`;
+- unchanged-signature subset: 417,
+  `7240eff77e38a2ca67cf94d6cec13c4ddec1f2e122cf62cbb7318ee39c82be2e`;
+- changed-signature subset: 224,
+  `f70b2e4e614cc677a883bc8d9ceb349f7a9bff32f185b253d893e6aea904a814`;
+- G43 fixture-pass population: 1,204,
+  `c8de1415733c5bad2ba85d667d56f5d04631d19379ce16f85e641792e7644322`.
+
+Exact content-addressed G60a/G60b hash sets govern all later accounting. None of these populations
+are uPD9002 semantic fixes. M60b removes exact target-absent hashes from the denominator and records
+them as retired applicable pass/failure sets, never as newly passing.
 
 ### 5.3 REPC/REPNC and PREPARE/DISPOSE
 
