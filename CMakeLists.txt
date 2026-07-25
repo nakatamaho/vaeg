@@ -859,6 +859,23 @@ if(VAEG_ENABLE_TESTS)
     set_tests_properties(vaeg_upd9002_m60a_evidence_static PROPERTIES
         LABELS "romless;upd9002;ssts;ratchet;flags;repository")
 
+    add_test(NAME vaeg_upd9002_m60b_authority_selftest
+        COMMAND "${Python3_EXECUTABLE}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/upd9002_m60b_authority.py"
+            selftest
+            --root "${CMAKE_CURRENT_SOURCE_DIR}")
+    set_tests_properties(vaeg_upd9002_m60b_authority_selftest PROPERTIES
+        LABELS "romless;upd9002;ssts;ratchet;authority;target-policy")
+
+    add_test(NAME vaeg_upd9002_m60b_authority_static
+        COMMAND "${Python3_EXECUTABLE}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/upd9002_m60b_authority.py"
+            verify-static
+            --root "${CMAKE_CURRENT_SOURCE_DIR}")
+    set_tests_properties(vaeg_upd9002_m60b_authority_static PROPERTIES
+        LABELS
+            "romless;upd9002;ssts;ratchet;authority;target-policy;repository")
+
     add_test(NAME vaeg_upd9002_ssts_evidence_selftest
         COMMAND "${Python3_EXECUTABLE}"
             "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/upd9002_semantics_evidence.py"
@@ -921,14 +938,12 @@ if(VAEG_ENABLE_TESTS)
         endif()
         add_test(NAME vaeg_upd9002_ssts_ci_external
             COMMAND "${Python3_EXECUTABLE}"
-                "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/upd9002_m60a_evidence.py"
+                "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/upd9002_m60b_authority.py"
                 ci-enforce
                 --root "${CMAKE_CURRENT_SOURCE_DIR}"
                 --dataset-root "${VAEG_SSTS_V20_ROOT}"
                 --worker "$<TARGET_FILE:vaeg_sdl2>"
                 --evaluated-sha "${VAEG_SSTS_EVALUATED_SHA}"
-                --predecessor-sha
-                "e7f2325bc81310532091a8ca82914030fdb8b6ba"
                 --output-root "${CMAKE_CURRENT_BINARY_DIR}/ssts")
         set_tests_properties(vaeg_upd9002_ssts_ci_external PROPERTIES
             LABELS "romless;upd9002;ssts;external;ratchet"
