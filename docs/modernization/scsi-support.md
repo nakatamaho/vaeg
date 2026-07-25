@@ -30,6 +30,19 @@ It does not reproduce the forum post or package manuals. The repository does
 not contain or redistribute PC-Engine, PCPLUS, SCHD, VBUFF, or SCFORM
 binaries.
 
+## Preservation Scope
+
+VAEG does not currently emulate the PC-9801-55-compatible SCSI interface.
+This work adds no SCSI hardware emulation and does not claim that the
+generated disk can use a SCSI target under the current emulator.
+
+The purpose is preservation: record the public package locations and exact
+download identities, retain an independently written English setup procedure,
+and provide a reproducible way to assemble the software while the public
+downloads or a verified local cache remain available. A generated disk also
+keeps the original package manuals together for use with real PC-88VA
+hardware or a future SCSI-capable implementation.
+
 ## Sources and Software
 
 The primary setup note is the PC88.gr.jp forum topic
@@ -248,8 +261,10 @@ The historical setup has these important limitations:
 ## Verification
 
 The builder verifies downloads, the patched PCPLUS result, the source
-PC-Engine 1.1 filesystem layout, and the generated FAT12 structure. Hardware
-or emulator testing is still required:
+PC-Engine 1.1 filesystem layout, and the generated FAT12 structure. Current
+VAEG cannot perform the functional checks below because it has no SCSI
+interface emulation. They require real PC-88VA hardware or a future
+SCSI-capable implementation:
 
 1. Boot the generated disk in V3 mode.
 2. Confirm that PCPLUS loads before SCHD and that SCHD reports the intended
