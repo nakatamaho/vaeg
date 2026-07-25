@@ -223,3 +223,24 @@ The focused summary proves the direct FLAGS-family transition separately from
 dependent interrupt-frame effects in BOUND and divide-error populations.
 PUSHF's pre-existing segment-wrap anomaly remains blocking and is not
 reclassified.
+
+## G60d synchronous interrupt-frame closure
+
+M60d uses `tools/qa/upd9002_m60d_frame_audit.py` to replay the complete CC,
+CD, CE, and BOUND populations together with the exact 214-hash M60a
+divide-exception dependency set. The audit compares event classification,
+termination, stack addresses, saved IP/CS/FLAGS, vector fetch, final CS:IP,
+post-entry TF/IF, and final represented RAM. It keeps BOUND range decisions
+and DIV/IDIV arithmetic outside frame ownership.
+
+Run the positive/fail-closed and committed-artifact checks with:
+
+```sh
+python3 tools/qa/upd9002_m60d_frame_audit.py selftest
+python3 tools/qa/upd9002_m60d_frame_audit.py verify-static --root .
+```
+
+The versioned format and Path A closure requirements are defined in
+`schema/synchronous-frame-audit-v1.md`. An evidence-only closure requires
+zero frame residuals and exact G60c pass, failure, signature, selected, and
+applicable identities.
