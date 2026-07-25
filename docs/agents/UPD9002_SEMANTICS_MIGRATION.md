@@ -1,311 +1,237 @@
-<!--
-Copyright (c) 2026 Nakata Maho
-
-Redistribution and use in source and binary forms, with or without
-modification, are permitted provided that the following conditions are met:
-1. Redistributions of source code must retain the above copyright notice,
-   this list of conditions and the following disclaimer.
-2. Redistributions in binary form must reproduce the above copyright notice,
-   this list of conditions and the following disclaimer in the documentation
-   and/or other materials provided with the distribution.
-
-THIS SOFTWARE IS PROVIDED BY THE AUTHOR "AS IS" AND ANY EXPRESS OR IMPLIED
-WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
-MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO
-EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
-EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
-PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
-OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
-WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
-OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
-OF THE POSSIBILITY OF SUCH DAMAGE.
--->
-# uPD9002 Semantics Migration Specification (v4.3)
+# uPD9002 Semantics Migration Specification (v5)
 
 Repository: `github.com/nakatamaho/vaeg`
 
-Status:
+## 1. Status
 
-- Repository milestones M52-M56 were consumed by unrelated work and remain historical.
-- The maintainer treats G56 as passed because the intended implementation was not feasible.
-- This semantics campaign begins at M57. Before any M57 commit, resolve and verify the exact approved
-  G56 SHA from the repository's approved G56 report/ROADMAP; do not guess it from current HEAD.
-- This document is the fixed campaign specification for M58 onward.
-- Codex must execute exactly one milestone or lettered submilestone per session and stop at its gate.
+- G57 approved at `72322d5c9b8e40e4a988312aebe163a8190e2aa5`.
+- G58 approved at `bc8a55c6da1082b85b794068e0d933e31fe46b13`.
+- G59 approved at `e7f2325bc81310532091a8ca82914030fdb8b6ba`.
+- M59 analysis/evaluated SHA is `7b4bd12aecf92e8fe8299d8b1ec5e48bbb1b61a7`.
+- M60a FLAGS materialization is already in progress under the existing contract.
+- **v5 changes prospective work only after G60a.** Do not rewrite or restart M60a.
 
-## 1. Current state
+Codex executes one milestone or lettered submilestone per session and stops at its candidate gate.
 
-- M50 completed deletion of the 286 protected-mode execution machinery. Do not repeat that work.
-- M51 completed ownership and naming migration to `cpu/upd9002/`, `upd9002_core_*`,
-  `upd9002_dispatch_*`, and `upd9002_regs_*`.
-- Active production sources still contain 286-derived handler files and `I286_*` macros. These
-  remain until their owning semantic families are green and the final M66b sweep is reached.
-- G56's "implementation impossible" acceptance does not waive any semantics-campaign requirement.
-- The immutable M43 SST v20 architectural full-profile baseline contains 84,329 failures.
-  The deterministic CI profile contains 10,593 failures at approved G51 SHA
-  `78c712f0bab53a6960cfc102eae7ee54b3fc29ef`. Before deletion, M57 must reproduce the same
-  dataset identity, classifications, pass/failure hashes, signatures, and termination classes at
-  the exact approved G56 predecessor. Any drift is a hard stop; do not silently rebaseline.
-- M43 summaries and failure sidecars are immutable evidence and must remain byte-identical.
-- Real-hardware access is scarce. SST v20 is the primary architectural-state oracle, but an SST
-  match is not proof of exact uPD9002 silicon behavior.
+## 2. Approved historical evidence
 
-## 2. Mission
+- M50 removed protected-mode execution machinery.
+- M51 established `cpu/upd9002/` ownership and names.
+- G57 removed the frozen Win9x/i286x tier.
+- G58 established the hash-level ratchet, architectural/fingerprint profiles, and gap taxonomy.
+- G59 produced the 160,000-row evidence pack without changing production semantics.
+- G43/G58/G59 artifacts remain immutable, including the historical G43 OUTS fixture correction.
 
-Replace the remaining 286-derived instruction semantics with V30-class semantics validated against
-SST v20 until the blocking architectural full profile has zero failures among records currently
-classified `applicable`.
+The G59 architectural full profile had 84,329 applicable failures and the CI profile 10,593. M60a
+may change those values semantically. M60b must use the exact approved G60a result as predecessor;
+it must not assume the G59 counts remain current.
 
-Unconfirmed uPD9002 questions remain visible in `hardware_pending.json`; they are never used to
-excuse a failing applicable case or to claim complete silicon accuracy.
+## 3. Mission
 
-## 3. Non-goals
+Replace remaining 286-derived native instruction semantics with evidence-supported uPD9002/V30-class
+semantics, while keeping target-absent and unresolved forms outside claims of correctness.
 
-- Cycle counts, prefetch modeling, bus timing, and SST V20 bus traces.
-- Z80 compatibility-mode implementation.
-- Real-hardware CRC execution.
-- Re-deletion of M50 protected-mode paths.
-- Rewriting immutable M43 artifacts, historical reports, or provenance records.
+Completion means zero failures among the current target-correct `applicable` set, not that every V20
+SST record is executed and not that silicon accuracy is complete.
 
-## 4. Oracle profiles
+## 4. Profiles and denominator
 
-### 4.1 Architectural profile — blocking
+### 4.1 Architectural — blocking
 
-Compare:
-
-- metadata-masked defined bits of the final FLAGS register;
-- final general and segment registers and IP;
-- SST-represented final RAM bytes, byte-exact;
-- architectural termination class.
-
-Exclude cycles and prefetch.
-
-The denominator is exactly:
+Compare metadata-defined final FLAGS bits, final registers/IP, SST-represented final RAM bytes, and
+termination. Cycles, prefetch, and bus timing are excluded.
 
 ```text
 blocking_denominator = count(current top-level classification == applicable)
-architectural_pass_rate = applicable_pass / blocking_denominator
+pass_rate = applicable_pass / blocking_denominator
 ```
 
-`known_target_gap`, `expected_target_divergence`, `unsupported_fixture`, and
-`upstream_nonblocking` are reported separately and never counted as passes.
+Non-applicable categories are reported separately and never counted as passes.
 
-### 4.2 V20 silicon fingerprint — diagnostic
+### 4.2 Fingerprint — diagnostic
 
-Compare all 16 bits of the final FLAGS register. This profile provides corroborating evidence for
-V20-observed behavior. It is non-blocking unless a later explicit approval changes that policy.
+Compare all 16 final FLAGS bits. This is V20-observed evidence, not a blocking uPD9002 contract.
 
-## 5. Guest-visible FLAGS materialization
+### 4.3 Target-policy epochs
 
-PUSHF, interrupt/fault frames, and LAHF materialize FLAGS into byte-exact RAM or a general register.
-POPF, IRET, and SAHF consume guest-visible images.
+Dataset and comparison-contract identities are independent of target policy. M60b creates a new
+content-addressed target-policy epoch because the applicable set changes. Every later scoreboard
+must record dataset ID, comparison-contract ID, target-policy ID, and selected/applicable digests.
 
-- Never mask frame FLAGS bytes, PUSHF stack bytes, or LAHF's AH result.
-- Derive an interrupt/fault pushed image from SST expected RAM frame bytes, not from the final FLAGS
-  register alone.
-- Derive PUSHF and LAHF images independently. Do not reuse the interrupt-frame convention by
-  analogy.
-- Record adopted images as V20-compatibility conventions. Unconfirmed uPD9002 commonality belongs
-  in `hardware_pending.json`.
+## 5. ROM target authority
 
-## 6. Ground-truth discipline
+M60b must bind maintainer-provided findings to content-addressed evidence. At minimum record ROM
+SHA-256/size, address mapping, table start/end, raw bytes, deterministic decoders, group/mnemonic
+mapping, string-pool search range, and independent debugger references. Do not commit copyrighted ROM
+bytes without explicit authorization.
 
-- Do not modify a fixture or harness merely to improve the score.
-- A fixture correction requires concrete case hashes, written justification, and a transition
-  audit comparable to the G43 OUTS correction.
-- Derive semantic conventions from aggregate SST evidence and cite case hashes.
-- NEC primary documentation is secondary corroboration. Intel 8086/286 documentation is not an
-  authority where SST evidence exists.
-- Absence from a failure distribution is not proof of passing. Verify top-level classification and
-  executed count before using a form as a green reference.
-- Do not infer ordered writes, transient writes, RMW ordering, or rollback behavior from SST final
-  RAM data.
+### 5.1 Complete V30-side `0F` inventory
 
-## 7. PR, commit, and gate discipline
+The table at `0x66A8A` uses `(mask, value, group)` records and identifies:
 
-- One primitive or one instruction family per semantic PR.
-- One semantic PR equals one gated milestone or lettered gated submilestone.
-- Do not stack a semantic PR on an unapproved semantic PR.
-- Evidence-only, documentation-only, and rename-only follow-up commits may be in the same PR.
-- After transition evidence is generated, add no further semantic change to that PR.
-- Rename historical handlers only after the owning family is green, in a rename-only commit.
-- After a shared primitive changes, regenerate the full distribution and re-rank later work.
-- Every task ends with a report and a human gate; stop after reporting.
-- All newly authored repository code, comments, identifiers, commit messages, and documentation are
-  in English.
+- TEST1: `0F10/11/18/19`
+- CLR1: `0F12/13/1A/1B`
+- SET1: `0F14/15/1C/1D`
+- NOT1: `0F16/17/1E/1F`
+- ADD4S/SUB4S/CMP4S: `0F20/22/26`
+- ROL4/ROR4: `0F28/2A`
+- BRKFEM: `0FFE imm8`
+- BRKEM: `0FFF imm8`
 
-Before creating the first lettered task or gate, M58 must audit repository tooling for numeric-only
-milestone assumptions. Canonical forms are:
+`0F31/33/39/3B` are absent from the complete table. String-pool absence is corroboration, not the
+sole proof. `0F28` is a mandatory implementation-missing form. BRKFEM semantics remain pending.
 
-- task: `M60a_<name>.md`
-- report: `m60a_<name>.md`
-- branch: `topic/m60a-<name>`
-- commit prefix: `M60a:`
-- gate: `G60a`
+### 5.2 Target-absent `6C-6F`
 
-If tooling cannot support this unambiguously, renumber all affected future tasks contiguously with
-integer IDs before semantic work begins. Do not mix naming schemes after work starts.
+Every selected record structurally encoded with primary opcode `6C`, `6D`, `6E`, or `6F` must be
+resolved as `known_target_gap/documented_silicon_absent` in the target-correct epoch. The correction
+covers currently applicable forms and existing gap forms and is fixed structurally before execution.
 
-## 8. Ratchet
+The G43 fixture correction that made 1,204 V20 cases pass remains valid historical V20 evidence. The
+recorded 6E=417 and 6F=224 residual failures likewise remain historical. None are uPD9002 fixes.
+M60b removes exact target-absent hashes from the denominator and records them as retired applicable
+pass/failure sets, never as newly passing.
 
-The predecessor is always the exact previously approved gate SHA, never a mutable file in the
-current worktree.
+### 5.3 REPC/REPNC and PREPARE/DISPOSE
 
-Required invariants:
+Their presence is independent evidence. The absence of base opcodes `6C-6F` must not be generalized
+to deletion of REPC/REPNC or PREPARE/DISPOSE.
 
-1. `current_failure_hashes - previous_failure_hashes` is empty.
-2. Per-opcode pass counts do not decrease.
-3. Dataset identity and comparison-contract identity match.
-4. Timeout and crash counts are zero.
-5. A current golden cannot authorize itself.
-6. The candidate is compared against an explicitly resolved approved predecessor SHA.
+## 6. FPU/FPO evidence discipline
 
-Permitted classification transitions:
+Generic mnemonic absence is non-evidence. The monitor stores individual FPU mnemonics and D8-DF
+records near `0x66B3B`. FPO2 must be investigated through the main dispatch table near `0x66900`.
+The hypothesis that primary opcodes 66/67 encode FPO2 must be verified, not assumed.
 
-- `known_target_gap` with `gap_kind=implementation_missing` to `applicable`, only in the
-  implementation PR, with every newly applicable hash passing in that PR;
-- `applicable` to `expected_target_divergence`, only for records failing in the approved predecessor,
-  with explicit approval, qualifying target evidence, and an exact matching entry in
-  `approved_target_divergences.json`.
+M60c must inspect every 66/67 SST record's current classification, selected/executed counts,
+metadata status, support-map mapping, and gap kind if any. It then traces the ROM dispatch to a
+handler/group. It may correct a known-gap `gap_kind` only from positive evidence or downgrade an
+unsupported absence claim to `target_support_unverified` with exact hardware-pending coverage.
+It does not implement FPU semantics or change top-level classification.
 
-Forbidden:
+## 7. Ground-truth rules
 
-- previously passing record to `expected_target_divergence`;
-- `applicable` to `known_target_gap`, `unsupported_fixture`, or `upstream_nonblocking`;
-- outcome-based splitting of a known-gap entry.
+- Absence from a failure list is never proof of passing.
+- Never use Intel 8086/286 documentation as target authority where SST/ROM target evidence exists.
+- Never modify fixtures to improve the target score.
+- Preserve expected and actual evidence separately.
+- Final RAM does not prove transient order, rollback, or bus activity.
+- Do not infer target absence from missing generic strings.
 
-A known-gap entry may be split before implementation only by an evidence-based structural selector
-such as opcode, subopcode, ModR/M form, prefix class, or documented operand form.
+## 8. Classification governance
 
-## 9. Transition artifacts
+Top-level categories remain `applicable`, `known_target_gap`, `expected_target_divergence`,
+`unsupported_fixture`, and `upstream_nonblocking`. Gap kinds remain
+`documented_silicon_absent`, `implementation_missing`, and `target_support_unverified`.
 
-Commit chain:
+### 8.1 One authorized target-authority correction
+
+Ordinarily `applicable -> known_target_gap` is forbidden. M60b is explicitly authorized to perform
+exactly this structural correction for primary opcodes `6C-6F`, after ROM evidence is bound:
 
 ```text
-approved predecessor
-  -> semantic commit
-  -> transition generation
-  -> evidence-only commit containing the artifact
-  -> human gate
+applicable -> known_target_gap
+gap_kind = documented_silicon_absent
+transition_kind = target_authority_correction
 ```
 
-The artifact records `evaluated_sha`, the semantic commit being measured. It never attempts to
-contain the SHA of the commit that contains the artifact.
+Requirements:
 
-Required identity fields include:
+- exact selectors fixed before observing outcome;
+- exact resolved hashes/counts/sorted-hash digests;
+- no pass/fail-based partition;
+- retired pass and retired failure sets reported separately;
+- no other top-level transition;
+- no production semantic change;
+- unaffected applicable hashes satisfy no-regression.
 
-```json
-{
-  "before_gate": "G60a",
-  "before_sha": "40-hex-approved-predecessor",
-  "evaluated_sha": "40-hex-semantic-commit",
-  "profile": "architectural",
-  "scope": "full",
-  "dataset_id": "...",
-  "comparison_contract_sha256": "...",
-  "selected_hash_set_sha256": "...",
-  "applicable_hash_set_before_sha256": "...",
-  "applicable_hash_set_after_sha256": "...",
-  "newly_passing": [],
-  "newly_failing": [],
-  "changed_failure_count": 0,
-  "changed_failure_shards": [],
-  "classification_changes": [],
-  "scoreboard_before_digest": "...",
-  "scoreboard_after_digest": "..."
-}
-```
+M60b may also change `gap_kind` to `documented_silicon_absent` for existing exact gaps under
+`6C-6F` and `0F31/33/39/3B`, and must preserve `0F28` as
+`known_target_gap/implementation_missing`.
 
-Changed failures are fully enumerated in deterministic gzip shards with count and SHA-256. A changed
-signature is not automatically an improvement and requires human review.
+After G60b, `applicable -> known_target_gap` is forbidden again without a new approved master-spec
+revision.
 
-## 10. Classification and evidence governance
+### 8.2 Ordinary transitions
 
-M43 top-level categories remain:
+- `known_target_gap/implementation_missing -> applicable` only in the implementing PR, with all
+  newly applicable hashes passing;
+- failing `applicable -> expected_target_divergence` only with exact target evidence and explicit
+  approval;
+- passing records never move to divergence;
+- outcome-based splitting is forbidden.
 
-- `applicable`
-- `known_target_gap`
-- `expected_target_divergence`
-- `unsupported_fixture`
-- `upstream_nonblocking`
+## 9. Ratchet and artifacts
 
-For `known_target_gap` only, M58 adds exactly one `gap_kind`:
+The predecessor is the exact approved gate SHA. A candidate records dataset, comparison contract,
+target policy, selected/applicable sets, pass/failure sets, signatures, and terminations.
 
-- `documented_silicon_absent`
-- `implementation_missing`
-- `target_support_unverified`
+For M60b, comparison is over the intersection of predecessor/candidate applicable sets plus explicit
+`retired_applicable` accounting. Retired failures are not improvements. For ordinary semantic gates,
+newly failing must be empty and no unaffected per-form pass count may decrease.
 
-Every `target_support_unverified` entry must be covered exactly by a matching content-addressed entry
-in `hardware_pending.json` with identical selector, resolved hash set, count, and sorted-hash digest.
+Artifacts record `evaluated_sha`, never the containing evidence commit's SHA. Changed failures and
+classification changes are fully enumerated in deterministic shards.
 
-`approved_target_divergences.json` backs every approved transition to
-`expected_target_divergence`. `hardware_pending.json` is an orthogonal registry and never changes a
-record's classification or removes it from the blocking denominator.
+## 10. Guest-visible FLAGS
 
-Each entry in either registry includes:
+M60a is governed by its existing task and live prompt. v5 does not change it. Later work must not
+reuse interrupt, PUSHF, LAHF, POPF, SAHF, or IRET conventions by analogy without evidence.
 
-- structural selector;
-- exact resolved case hashes;
-- resolved count;
-- sorted-hash digest;
-- reason and evidence;
-- first introduced milestone;
-- review status.
+M60d is conditional: if G60a already clears synchronous frame populations and no independent frame
+residual remains, M60d closes with evidence and no semantic edit. Otherwise it fixes only the proven
+residual. M60e handles IRET separately.
 
-No open-ended entries or generic mismatch buckets are allowed.
+## 11. PR and gate discipline
 
-## 11. CI and full-profile enforcement
+- One primitive/family per semantic PR and one approval gate.
+- Do not stack semantic PRs on unapproved predecessors.
+- No semantic changes after evidence generation.
+- Evidence-only and rename-only commits remain separate.
+- Regenerate the full target-correct profile after shared changes.
+- All new repository text/code is English.
 
-Hosted PR CI runs the deterministic architectural CI profile and enforces the ratchet where the
-verified corpus is available. An explicit hosted external-data skip never satisfies a milestone.
+## 12. Prospective order after G60a
 
-Every milestone gate runs both verified CI and complete full profiles against the exact approved
-predecessor. Missing corpus, skipped full execution, or digest mismatch is a hard gate failure.
-
-The 84,329 baseline and campaign completion refer to the architectural full profile.
-
-## 12. Scoreboard epochs
-
-M58 adds new artifacts and does not rewrite M43 evidence:
-
-```text
-tests/ssts/epochs/g43/
-tests/ssts/scoreboard/g58_architectural_ci.json
-tests/ssts/scoreboard/g58_architectural_ci_failures/*.json.gz
-tests/ssts/scoreboard/g58_architectural_full.json
-tests/ssts/scoreboard/g58_architectural_full_failures/*.json.gz
-tests/ssts/scoreboard/g58_fingerprint_full.json
-tests/ssts/scoreboard/g58_fingerprint_full_failures/*.json.gz
-tests/ssts/transitions/
-```
-
-Each summary records `evaluated_sha`, not a self-referential gate SHA, plus:
-
-- `epoch_gate=G58`;
-- approved G57 predecessor gate and SHA;
-- profile and scope;
-- blocking boolean;
-- comparison-contract ID and SHA-256;
-- dataset ID;
-- selected and applicable hash-set digests;
-- separate M43 CI/full summary and failure-index digests.
-
-The evidence-commit SHA and approved G58 SHA belong in the gate report.
+1. M60b — ROM authority and target-policy correction.
+2. M60c — main-dispatch/FPO2 audit.
+3. M60d — conditional synchronous interrupt-frame residual.
+4. M60e — IRET.
+5. M61 — C6/C7 register-form MOV immediate; F7 `/2` remains separate.
+6. M62a — AAM only; D5 remains protected.
+7. M62b1 — ROR4.
+8. M62b2 — mandatory ROL4 and exact gap-to-applicable transition.
+9. M62c — BCD/ASCII adjust.
+10. M63 — shift family, split before editing if evidence shows independent causes.
+11. M64 — DIV/IDIV.
+12. M65 — residue re-plan, including F7 `/2`, BOUND, FF `/7`, `6C-6F` reserved behavior,
+    BRKFEM/BRKEM, FPO2, remaining 0F forms, and prefixes.
+13. M66a — drop obsolete CPU286 save-state compatibility after generated residue work.
+14. M66b — remove active I286/i286c identity.
+15. M67 — final divergence and hardware-question consolidation.
 
 ## 13. Definition of done
 
-1. The architectural full profile has zero failures among all current `applicable` records.
-2. Every non-applicable category is separately counted and content-addressed; none is presented as
-   a pass.
-3. No `implementation_missing` or unclassified record remains.
-4. Every remaining `target_support_unverified` hash has exact `hardware_pending.json` coverage.
-5. Approved divergences have target documentation or real-hardware evidence.
-6. Every previously passing hash remains passing unless an exact approved classification transition
-   exists.
-7. No active production uPD9002 declaration, definition, dispatch target, source basename, or macro
-   uses `I286` or `i286c` identity.
-8. Historical reports and immutable evidence remain unchanged for textual hygiene.
-9. `win9x/`, `i286x/`, `hlp/`, and `cpuxva/memoryva.x86` are absent while required legal and
-   provenance evidence remains in current HEAD.
-10. A zero-failure SST result is never represented as complete uPD9002 silicon validation while
-    `hardware_pending.json` is non-empty.
+- Zero failures among target-correct `applicable` hashes.
+- No `implementation_missing` remains.
+- Every `6C-6F` form and `0F31/33/39/3B` gap is exact and evidence-backed as target absent.
+- `0F28` is applicable and passing.
+- Active `6C-6F` V20 handlers are not reachable or advertised as uPD9002 instructions; final
+  reserved behavior is evidence-governed.
+- FPO2 status is positively resolved or explicitly pending without a false absence claim.
+- BRKFEM/BRKEM unresolved semantics remain explicit.
+- Historical G43/G58/G59 artifacts remain byte-identical and the 1,204 OUTS gain is never presented
+  as target progress.
+- No active I286/i286c production identity remains.
+- SST success is not described as complete hardware validation.
+
+## 14. Prohibitions
+
+- Do not change or restart M60a under v5.
+- Do not revert the G43 fixture correction.
+- Do not count reclassified `6C-6F` records as fixed or passing.
+- Do not implement V20 INM/OUTM/INS/OUTS as uPD9002 correctness.
+- Do not infer FPO2 absence from missing generic strings.
+- Do not infer RETEM/CALLN absence from the V30-side `0F` table.
+- Do not leave 0F28 conditional after target authority is accepted.
+- Do not touch cycles, prefetch, or bus timing in semantic milestones.
