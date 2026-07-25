@@ -2721,24 +2721,59 @@ def verify_old_policy_raw(
 
 def compact_selector_changes(
     policy: dict[str, Any],
+    changes: list[dict[str, Any]],
 ) -> list[dict[str, Any]]:
+    ownership: dict[str, dict[str, Any]] = {}
+    for rule in policy["classification_selector_rules"]:
+        if rule["before_classification"] != "applicable":
+            continue
+        for upstream_hash in rule["resolved_test_hashes"]:
+            if upstream_hash in ownership:
+                raise M60bError(
+                    "applicable selector ownership overlaps"
+                )
+            ownership[upstream_hash] = rule
+
+    grouped: dict[str, list[str]] = defaultdict(list)
+    seen: set[str] = set()
+    for change in changes:
+        upstream_hash = change["upstream_test_hash"]
+        if upstream_hash in seen:
+            raise M60bError("duplicate scoped classification change")
+        seen.add(upstream_hash)
+        rule = ownership.get(upstream_hash)
+        if (
+            rule is None
+            or rule["form"] != change["form"]
+            or rule["selector"]["repeat_prefix"]
+            != change["repeat_prefix"]
+        ):
+            raise M60bError(
+                "scoped classification change has no selector owner"
+            )
+        grouped[rule["selector_sha256"]].append(upstream_hash)
+
     result = []
-    for item in policy["classification_selector_rules"]:
-        if item["before_classification"] != "applicable":
+    for rule in policy["classification_selector_rules"]:
+        selector_sha256 = rule["selector_sha256"]
+        hashes = sorted(grouped.get(selector_sha256, []))
+        if not hashes:
             continue
         result.append(
             {
                 "after": "known_target_gap",
                 "before": "applicable",
-                "form": item["form"],
-                "resolved_count": item["resolved_count"],
-                "resolved_test_hashes_sha256": item[
-                    "resolved_test_hashes_sha256"
-                ],
-                "selector_sha256": item["selector_sha256"],
+                "form": rule["form"],
+                "resolved_count": len(hashes),
+                "resolved_test_hashes_sha256": (
+                    ratchet.upstream_hash_set_digest(hashes)
+                ),
+                "selector_sha256": selector_sha256,
             }
         )
     result.sort(key=lambda item: item["selector_sha256"])
+    if sum(item["resolved_count"] for item in result) != len(changes):
+        raise M60bError("scoped selector summary is incomplete")
     return result
 
 
@@ -2900,12 +2935,15 @@ def validate_target_authority_transition(
     ):
         raise M60bError("opcode outside 6c-6f left applicable")
     selectors = value["classification_changes"]
+    policy = read_json(output_root / TARGET_POLICY_PATH)
+    expected_selectors = compact_selector_changes(policy, changes)
     if (
         not isinstance(selectors, list)
         or [item.get("selector_sha256") for item in selectors]
         != sorted(item.get("selector_sha256") for item in selectors)
         or sum(item["resolved_count"] for item in selectors)
         != value["classification_change_count"]
+        or selectors != expected_selectors
     ):
         raise M60bError("transition selector summary differs")
 
@@ -2975,6 +3013,12 @@ def generate_transition(
         "retired_count",
         "retired",
     )
+    classification_rows = load_partition_rows(
+        output_root,
+        partition["classification_change_shards"],
+        "classification_change_count",
+        "classification_changes",
+    )
     retired_passes = {item["record_hash"] for item in pass_rows}
     retired_failures = {item["record_hash"] for item in failure_rows}
     validate_retirement_result_sets(
@@ -3043,7 +3087,9 @@ def generate_transition(
         "classification_change_shards": partition[
             "classification_change_shards"
         ],
-        "classification_changes": compact_selector_changes(policy),
+        "classification_changes": compact_selector_changes(
+            policy, classification_rows
+        ),
         "comparison_contract_id": contract["id"],
         "comparison_contract_sha256": contract["sha256"],
         "dataset_id": policy["dataset_id"],
@@ -4002,6 +4048,43 @@ def selftest(root: pathlib.Path) -> None:
         [digest_mismatch],
         1,
     )
+    scoped_policy = {
+        "classification_selector_rules": [
+            {
+                "before_classification": "applicable",
+                "form": "6C",
+                "resolved_test_hashes": ["1" * 40, "2" * 40],
+                "selector": {"repeat_prefix": "none"},
+                "selector_sha256": "3" * 64,
+            }
+        ]
+    }
+    scoped_changes = [
+        {
+            "form": "6C",
+            "repeat_prefix": "none",
+            "upstream_test_hash": "1" * 40,
+        }
+    ]
+    scoped_summary = compact_selector_changes(
+        scoped_policy, scoped_changes
+    )
+    if (
+        scoped_summary[0]["resolved_count"] != 1
+        or scoped_summary[0]["resolved_test_hashes_sha256"]
+        != ratchet.upstream_hash_set_digest(["1" * 40])
+    ):
+        raise AssertionError("scope-local selector summary differs")
+    positive.append("scope-local selector summary")
+    unknown_scoped_change = copy.deepcopy(scoped_changes)
+    unknown_scoped_change[0]["upstream_test_hash"] = "4" * 40
+    expect_rejected(
+        negative,
+        "scope-local selector ownership mismatch",
+        compact_selector_changes,
+        scoped_policy,
+        unknown_scoped_change,
+    )
 
     contract = synthetic_contract()
     enforce_authority_correction_contract(contract)
@@ -4270,6 +4353,7 @@ def selftest(root: pathlib.Path) -> None:
         "selector overlap",
         "incomplete selector coverage",
         "selector hash-list digest mismatch",
+        "scope-local selector ownership mismatch",
         "missing authority digest",
         "missing gap kind",
         "wrong transition kind",
