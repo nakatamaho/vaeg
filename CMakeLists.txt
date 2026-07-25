@@ -876,6 +876,21 @@ if(VAEG_ENABLE_TESTS)
         LABELS
             "romless;upd9002;ssts;ratchet;authority;target-policy;repository")
 
+    add_test(NAME vaeg_upd9002_m60c_erratum_selftest
+        COMMAND "${Python3_EXECUTABLE}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/upd9002_m60c_erratum.py"
+            selftest)
+    set_tests_properties(vaeg_upd9002_m60c_erratum_selftest PROPERTIES
+        LABELS "romless;upd9002;ssts;authority;documentation")
+
+    add_test(NAME vaeg_upd9002_m60c_erratum_static
+        COMMAND "${Python3_EXECUTABLE}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/upd9002_m60c_erratum.py"
+            verify-static
+            --root "${CMAKE_CURRENT_SOURCE_DIR}")
+    set_tests_properties(vaeg_upd9002_m60c_erratum_static PROPERTIES
+        LABELS "romless;upd9002;ssts;authority;documentation;repository")
+
     add_test(NAME vaeg_upd9002_ssts_evidence_selftest
         COMMAND "${Python3_EXECUTABLE}"
             "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/upd9002_semantics_evidence.py"
