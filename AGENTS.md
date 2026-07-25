@@ -89,6 +89,45 @@ Release notes may summarize the ledger but do not replace it.
 - Run the machine checks named in your task file (`tools/repo/*.py`,
   cmake builds) and paste their output into the PR description.
 
+## Validator design and negative-test isolation
+
+Design new evidence and repository validators as three independently callable
+layers:
+
+1. content validation for schemas, counts, hashes, classifications, and
+   semantic evidence;
+2. protected-history validation for explicitly enumerated approved artifacts;
+3. Git-topology validation for evaluated/evidence commit ordering and
+   evidence-only commit scope.
+
+The production entry point may compose all three layers, but focused tests
+must call the smallest relevant layer. Do not make a content-mismatch test
+depend on the current Git history, and do not make a commit-topology test
+depend on a large real evidence corpus. Exercise Git-topology checks in a
+purpose-built temporary repository.
+
+Every fail-closed negative test must:
+
+- start from a fixture that passes all checks relevant to that test;
+- apply exactly one controlled mutation;
+- assert a stable, machine-readable error code for the intended invariant,
+  not merely a nonzero exit status or message substring;
+- fail if an unrelated validator masks the intended failure;
+- retain one final integration test that composes every layer.
+
+Use explicit protected artifact manifests or closed path prefixes. Never
+protect an open-ended parent directory when later milestones legitimately add
+new children beneath it. Generators must write out of tree and be validated as
+generated output before repository-placement or commit-scope checks run.
+Generation must not require the future evidence commit to exist.
+
+Keep stable error codes separate from explanatory text, for example
+`M60D_FRAME_SET_MISMATCH` versus
+`M60D_EVIDENCE_COMMIT_SCOPE`. A test for one code must not pass when it
+receives the other. Do not add production bypass flags merely to make a
+negative test reach its intended branch; isolate the underlying validator
+function instead.
+
 ## Build reference
 
 - Active: CMake >= 3.20. `cmake --preset linux-debug` etc. SDL2 is
