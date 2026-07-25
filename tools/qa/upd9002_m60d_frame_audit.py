@@ -256,6 +256,27 @@ def output_path(output_root: pathlib.Path, relative: pathlib.Path) -> pathlib.Pa
     return output_root / relative
 
 
+def verify_upstream_static(root: pathlib.Path) -> None:
+    before = (
+        ratchet.APPROVED_PREDECESSOR_GATE,
+        ratchet.APPROVED_PREDECESSOR_SHA,
+        ratchet.EPOCH_GATE,
+    )
+    ratchet.APPROVED_PREDECESSOR_GATE = "G57"
+    ratchet.APPROVED_PREDECESSOR_SHA = (
+        "72322d5c9b8e40e4a988312aebe163a8190e2aa5"
+    )
+    ratchet.EPOCH_GATE = "G58"
+    try:
+        m60c.verify_static(root)
+    finally:
+        (
+            ratchet.APPROVED_PREDECESSOR_GATE,
+            ratchet.APPROVED_PREDECESSOR_SHA,
+            ratchet.EPOCH_GATE,
+        ) = before
+
+
 def hex_registers(registers: dict[str, int]) -> dict[str, str]:
     return {name: f"{registers[name]:04x}" for name in ssts.REGISTER_ORDER}
 
@@ -1416,7 +1437,7 @@ def generate(
     require_sha(evaluated_sha, "evaluated_sha", HEX40)
     if evaluated_sha == APPROVED_PREDECESSOR_SHA:
         raise M60dError("current-worktree self-comparison is forbidden")
-    m60c.verify_static(root)
+    verify_upstream_static(root)
     scoreboards = {
         "architectural_ci": write_scoreboard(
             root,
@@ -1662,7 +1683,7 @@ def validate_final_commit_scope(root: pathlib.Path) -> None:
 
 
 def verify_static(root: pathlib.Path) -> None:
-    m60c.verify_static(root)
+    verify_upstream_static(root)
     verify_protected_paths(root)
     family = [
         (root / EVIDENCE_ROOT / "manifest.json").is_file(),
