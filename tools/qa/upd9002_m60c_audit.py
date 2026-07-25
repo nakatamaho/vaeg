@@ -2146,7 +2146,6 @@ def verify_protected_paths(root: pathlib.Path) -> None:
         "tests/ssts/evidence/g59",
         "tests/ssts/gap_taxonomy.json",
         "tests/ssts/hardware_pending.json",
-        "tests/ssts/scoreboard",
         "tests/ssts/target_policy",
         "tests/ssts/v20_dataset_manifest.json",
         "tests/ssts/authority/g60b",
@@ -2157,6 +2156,14 @@ def verify_protected_paths(root: pathlib.Path) -> None:
         root,
         protected,
         "production semantics, policy, fixture, contract, or protected evidence",
+    )
+    protected_scoreboards = [
+        path.relative_to(root).as_posix()
+        for path in (root / "tests/ssts/scoreboard").glob("*")
+        if path.name.startswith(("g58", "g60a", "g60b"))
+    ]
+    verify_git_unchanged(
+        root, protected_scoreboards, "approved scoreboard evidence"
     )
     protected_transitions = [
         path.relative_to(root).as_posix()
