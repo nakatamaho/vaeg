@@ -38,7 +38,7 @@ that implementation policy is not proof that VA3 firmware behavior is
 identical.
 
 Detailed uPD9002 `BRKEM2`, `CALLN`, `RETEM`, and uPD780-compatible-mode
-analysis is kept in [upd9002-z80-emulation.md](upd9002-z80-emulation.md).
+analysis is kept in [upd9002-upd780-mode.md](upd9002-upd780-mode.md).
 
 ## Sources And Evidence Levels
 
@@ -373,7 +373,7 @@ FFE3=00 FFE2=5B FFE1=00 FFE0=50
 
 These values match the VA2-specific settings summarized from the local
 technical notes in
-[upd9002-z80-emulation.md](upd9002-z80-emulation.md). A complete public
+[upd9002-upd780-mode.md](upd9002-upd780-mode.md). A complete public
 uPD9002 register manual has not been located. Public V40/V50 documentation is
 only a family analogy for the integrated DMA, interrupt, timer, serial, and
 wait-control model.
@@ -433,7 +433,7 @@ code at `1000:0000` and saves `13B4h` as the native return address.
 
 The exact saved frame, mode-latch protection, interrupt interaction, prefetch
 behavior, and cycle timing remain unverified. See
-[upd9002-z80-emulation.md](upd9002-z80-emulation.md) for the detailed boundary.
+[upd9002-upd780-mode.md](upd9002-upd780-mode.md) for the detailed boundary.
 
 ### VA2 Native Resume And Later Initialization
 
