@@ -907,6 +907,22 @@ if(VAEG_ENABLE_TESTS)
         LABELS
             "romless;upd9002;ssts;authority;fpu;target-policy;repository")
 
+    add_test(NAME vaeg_upd9002_m60d_frame_selftest
+        COMMAND "${Python3_EXECUTABLE}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/upd9002_m60d_frame_audit.py"
+            selftest)
+    set_tests_properties(vaeg_upd9002_m60d_frame_selftest PROPERTIES
+        LABELS "romless;upd9002;ssts;evidence;interrupt-frame")
+
+    add_test(NAME vaeg_upd9002_m60d_frame_static
+        COMMAND "${Python3_EXECUTABLE}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/upd9002_m60d_frame_audit.py"
+            verify-static
+            --root "${CMAKE_CURRENT_SOURCE_DIR}")
+    set_tests_properties(vaeg_upd9002_m60d_frame_static PROPERTIES
+        LABELS
+            "romless;upd9002;ssts;evidence;interrupt-frame;repository")
+
     add_test(NAME vaeg_upd9002_ssts_evidence_selftest
         COMMAND "${Python3_EXECUTABLE}"
             "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/upd9002_semantics_evidence.py"
