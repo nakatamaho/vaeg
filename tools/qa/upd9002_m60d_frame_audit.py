@@ -268,7 +268,20 @@ def verify_upstream_static(root: pathlib.Path) -> None:
     )
     ratchet.EPOCH_GATE = "G58"
     try:
-        m60c.verify_static(root)
+        m60c.erratum.verify_static(root)
+        try:
+            m60b.verify_static(root)
+        except m60b.M60bError as error:
+            raise M60dError(str(error)) from error
+        family = [
+            (root / m60c.AUTHORITY_ROOT / "manifest.json").is_file(),
+            (root / m60c.TRANSITION_PATH).is_file(),
+            (root / m60c.RESULT_MANIFEST_PATH).is_file(),
+        ]
+        if any(family) and not all(family):
+            raise M60dError("G60c evidence family is incomplete")
+        if all(family):
+            m60c.validate_result_manifest(root)
     finally:
         (
             ratchet.APPROVED_PREDECESSOR_GATE,
@@ -1628,6 +1641,29 @@ def verify_protected_paths(root: pathlib.Path) -> None:
         raise M60dError(
             "production semantics, policy, fixtures, or protected evidence changed"
         )
+    scoreboards = [
+        path.relative_to(root).as_posix()
+        for path in (root / "tests/ssts/scoreboard").glob("*")
+        if path.name.startswith(("g58", "g60a", "g60b", "g60c"))
+    ]
+    if scoreboards:
+        completed = subprocess.run(
+            [
+                "git",
+                "diff",
+                "--exit-code",
+                f"{APPROVED_PREDECESSOR_SHA}...HEAD",
+                "--",
+                *scoreboards,
+            ],
+            cwd=root,
+            check=False,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+        if completed.returncode != 0:
+            raise M60dError("approved scoreboard evidence changed")
     transitions = [
         path.relative_to(root).as_posix()
         for path in (root / "tests/ssts/transitions").glob("*")
