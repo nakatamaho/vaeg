@@ -2091,7 +2091,7 @@ I286FN _mov_ea8_data8(void) {				// C6:	mov		EA8, DATA8
 	GET_PCBYTE(op)
 	if (op >= 0xc0) {
 		I286_WORKCLOCK(2);
-		GET_PCBYTE(*(REG8_B53(op)))
+		GET_PCBYTE(*(REG8_B20(op)))
 	}
 	else {				// 03/11/23
 		UINT32 ad;
@@ -2110,7 +2110,7 @@ I286FN _mov_ea16_data16(void) {				// C7:	mov		EA16, DATA16
 	GET_PCBYTE(op)
 	if (op >= 0xc0) {
 		I286_WORKCLOCK(2);
-		GET_PCWORD(*(REG16_B53(op)))
+		GET_PCWORD(*(REG16_B20(op)))
 	}
 	else {				// 03/11/23
 		UINT32	ad;
