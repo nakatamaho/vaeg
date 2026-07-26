@@ -84,6 +84,52 @@ M48_IDENTITIES = {
         "4f3fefe8cbfb20a03364a80a0b917e475d3d545cab8eda6bee8a22c66e2147ee",
 }
 
+M62_GRAPH_REMOVED = {
+    ("v30op", "0x27", "handler", "_daa"),
+    ("v30op", "0x2f", "handler", "_das"),
+    ("v30op", "0x37", "handler", "_aaa"),
+    ("v30op", "0x3f", "handler", "_aas"),
+    ("v30ope0x0f_table", "0x28", "handler", "v30_reserved_0x0f"),
+}
+
+M62_GRAPH_ADDED = {
+    ("v30op", "0x27", "handler", "v30_daa"),
+    ("v30op", "0x2f", "handler", "v30_das"),
+    ("v30op", "0x37", "handler", "v30_aaa"),
+    ("v30op", "0x3f", "handler", "v30_aas"),
+    ("v30ope0x0f_table", "0x28", "handler", "v30_rol4_ea8"),
+}
+
+M62_SUPPORT_REMOVED = {
+    ("v30op", "0x27", "-", "_daa", "implemented", "final-root-target"),
+    ("v30op", "0x2f", "-", "_das", "implemented", "final-root-target"),
+    ("v30op", "0x37", "-", "_aaa", "implemented", "final-root-target"),
+    ("v30op", "0x3f", "-", "_aas", "implemented", "final-root-target"),
+    (
+        "v30op_0f",
+        "0x0f",
+        "0x28",
+        "v30_reserved_0x0f",
+        "known_target_gap",
+        "second-byte-resolved",
+    ),
+}
+
+M62_SUPPORT_ADDED = {
+    ("v30op", "0x27", "-", "v30_daa", "implemented", "final-root-target"),
+    ("v30op", "0x2f", "-", "v30_das", "implemented", "final-root-target"),
+    ("v30op", "0x37", "-", "v30_aaa", "implemented", "final-root-target"),
+    ("v30op", "0x3f", "-", "v30_aas", "implemented", "final-root-target"),
+    (
+        "v30op_0f",
+        "0x0f",
+        "0x28",
+        "v30_rol4_ea8",
+        "implemented",
+        "second-byte-resolved",
+    ),
+}
+
 Row = Tuple[str, ...]
 
 
@@ -198,6 +244,66 @@ HARNESS_ADDED = {
      "patched-root"),
 }
 
+M62_HARNESS_REMOVED = {
+    (
+        "native-0f-28",
+        "v30ope0x0f_table",
+        "0x28",
+        "v30_reserved_0x0f",
+        "0f28c0000000000000",
+        "1",
+        "native-secondary",
+    ),
+}
+
+M62_HARNESS_ADDED = {
+    (
+        "native-0f-28",
+        "v30ope0x0f_table",
+        "0x28",
+        "v30_rol4_ea8",
+        "0f28c0000000000000",
+        "1",
+        "native-secondary",
+    ),
+    (
+        "patch-v30op-27",
+        "v30op",
+        "0x27",
+        "v30_daa",
+        "27c0000000000000",
+        "1",
+        "patched-root",
+    ),
+    (
+        "patch-v30op-2f",
+        "v30op",
+        "0x2f",
+        "v30_das",
+        "2fc0000000000000",
+        "1",
+        "patched-root",
+    ),
+    (
+        "patch-v30op-37",
+        "v30op",
+        "0x37",
+        "v30_aaa",
+        "37c0000000000000",
+        "1",
+        "patched-root",
+    ),
+    (
+        "patch-v30op-3f",
+        "v30op",
+        "0x3f",
+        "v30_aas",
+        "3fc0000000000000",
+        "1",
+        "patched-root",
+    ),
+}
+
 
 def verify_source_policy(root: pathlib.Path) -> None:
     dispatch = (root / "cpu/upd9002/upd9002_dispatch.c").read_text(
@@ -236,7 +342,7 @@ def build_manifest(
     new_graph = rows(graph)
     new_provenance = rows(provenance)
     new_support = rows(support)
-    new_harness = rows(harness)
+    new_harness = old_harness | HARNESS_ADDED
 
     graph_removed = expected_graph_removed()
     require_exact_difference(
@@ -359,10 +465,30 @@ def verify(root: pathlib.Path, write: bool, selftest: bool) -> None:
     graph = (root / M48_PATHS["graph"]).read_text(encoding="utf-8")
     provenance = (root / M48_PATHS["provenance"]).read_text(encoding="utf-8")
     support = (root / M48_PATHS["support"]).read_text(encoding="utf-8")
-    if live_graph != graph:
-        raise TransitionError("live final graph differs from accepted M48 graph")
-    if live_support != support:
-        raise TransitionError("live support map differs from accepted M48 support")
+    require_exact_difference(
+        "post-M48 governed graph",
+        rows(graph),
+        rows(live_graph),
+        M62_GRAPH_REMOVED,
+        M62_GRAPH_ADDED,
+    )
+    require_exact_difference(
+        "post-M48 governed support",
+        rows(support),
+        rows(live_support),
+        M62_SUPPORT_REMOVED,
+        M62_SUPPORT_ADDED,
+    )
+    accepted_harness = (
+        file_rows(root, "tests/upd9002/harness_manifest.csv") | HARNESS_ADDED
+    )
+    require_exact_difference(
+        "post-M48 governed harness",
+        accepted_harness,
+        rows(harness),
+        M62_HARNESS_REMOVED,
+        M62_HARNESS_ADDED,
+    )
     for name, content in (("graph", graph), ("provenance", provenance),
                           ("support", support)):
         compare_or_write(root / M48_PATHS[name], content.encode("utf-8"), False)
