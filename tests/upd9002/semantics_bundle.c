@@ -42,6 +42,14 @@ typedef struct {
 	UINT8 expected_al;
 } AAM_CASE;
 
+typedef struct {
+	UINT8 opcode;
+	UINT8 initial_al;
+	UINT8 input_flags;
+	UINT8 expected_al;
+	UINT16 expected_flags;
+} DECIMAL_ADJUST_CASE;
+
 static UINT16 aam_expected_flags(UINT16 initial_flags, UINT8 value) {
 
 	UINT bits = value;
@@ -363,6 +371,45 @@ static int test_rol4_memory(void) {
 	return SUCCESS;
 }
 
+static int test_daa_das_semantics(void) {
+
+	static const DECIMAL_ADJUST_CASE cases[] = {
+		{0x27, 0x09, 0x00, 0x09, 0xf406},
+		{0x27, 0x0a, 0x00, 0x10, 0xf412},
+		{0x27, 0x7a, 0x00, 0x80, 0xfc92},
+		{0x27, 0x99, 0x00, 0x99, 0xf486},
+		{0x27, 0x9a, 0x00, 0x00, 0xf457},
+		{0x27, 0x9a, A_FLAG, 0xa0, 0xf496},
+		{0x27, 0xa0, A_FLAG, 0x06, 0xf417},
+		{0x2f, 0x00, 0x00, 0x00, 0xf446},
+		{0x2f, 0x0a, 0x00, 0x04, 0xf412},
+		{0x2f, 0x7a, 0x00, 0x74, 0xf416},
+		{0x2f, 0x99, 0x00, 0x99, 0xf486},
+		{0x2f, 0x9a, 0x00, 0x34, 0xfc13},
+		{0x2f, 0x9a, A_FLAG, 0x94, 0xf492},
+		{0x2f, 0xa0, A_FLAG, 0x3a, 0xfc17}
+	};
+	UINT index;
+
+	for (index = 0; index < NELEMENTS(cases); index++) {
+		const DECIMAL_ADJUST_CASE *const value = &cases[index];
+		const UINT8 instruction[] = {value->opcode};
+
+		setup_instruction(instruction, NELEMENTS(instruction),
+							(UINT16)(0x5a00 | value->initial_al),
+							(UINT16)(0xf402 | value->input_flags));
+		upd9002_core_step();
+		if ((CPU_AL != value->expected_al) || (CPU_AH != 0x5a) ||
+			(CPU_FLAG != value->expected_flags) || (CPU_IP != 0x0101)) {
+			fprintf(stderr,
+				"upd9002-m62: decimal adjust %02x case %u differs\n",
+				value->opcode, index);
+			return FAILURE;
+		}
+	}
+	return SUCCESS;
+}
+
 int upd9002_semantics_bundle_main(void) {
 
 	upd9002_core_initialize();
@@ -371,7 +418,8 @@ int upd9002_semantics_bundle_main(void) {
 		(test_ror4_registers() != SUCCESS) ||
 		(test_ror4_memory() != SUCCESS) ||
 		(test_rol4_registers() != SUCCESS) ||
-		(test_rol4_memory() != SUCCESS)) {
+		(test_rol4_memory() != SUCCESS) ||
+		(test_daa_das_semantics() != SUCCESS)) {
 		upd9002_core_deinitialize();
 		return FAILURE;
 	}
