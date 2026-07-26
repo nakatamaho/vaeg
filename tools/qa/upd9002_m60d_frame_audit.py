@@ -1617,7 +1617,6 @@ def verify_protected_paths(
         "tests/ssts/evidence/g59",
         "tests/ssts/gap_taxonomy.json",
         "tests/ssts/hardware_pending.json",
-        "tests/ssts/target_policy",
         "tests/ssts/v20_dataset_manifest.json",
         "tests/ssts/authority/g60b",
         "tests/ssts/authority/g60c",
@@ -1625,8 +1624,13 @@ def verify_protected_paths(
         "tests/ssts/authority/g60c_result_manifest.json",
         "tools/qa/golden/upd9002_support_map_m48.csv",
     ]
-    if not protected_evidence_only:
-        protected.append("cpu/upd9002")
+    if protected_evidence_only:
+        protected.extend(
+            path.relative_to(root).as_posix()
+            for path in (root / "tests/ssts/target_policy").glob("g60b*")
+        )
+    else:
+        protected.extend(["tests/ssts/target_policy", "cpu/upd9002"])
     completed = subprocess.run(
         [
             "git",
@@ -1726,6 +1730,10 @@ def validate_final_commit_scope(root: pathlib.Path) -> None:
 def verify_static(
     root: pathlib.Path, protected_evidence_only: bool = False
 ) -> None:
+    forward_milestone = (
+        root / "docs/agents/tasks/M62_upd9002_semantics_bundle.md"
+    ).is_file()
+    protected_evidence_only = protected_evidence_only or forward_milestone
     verify_upstream_static(root, protected_evidence_only)
     verify_protected_paths(root, protected_evidence_only)
     family = [
