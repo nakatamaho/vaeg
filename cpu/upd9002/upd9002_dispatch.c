@@ -1034,6 +1034,19 @@ I286FN v30_clr1_ea8_cl(void) {				// 0F 12: clr1 EA8, CL
 	v30_ea8_write(op, madr, value);
 }
 
+I286FN v30_clr1_ea16_cl(void) {			// 0F 13: clr1 EA16, CL
+
+	UINT	op;
+	UINT32	madr = 0;
+	UINT16	value;
+
+	GET_PCBYTE(op);
+	I286_WORKCLOCK((op >= 0xc0)?5:14);
+	value = v30_ea16_read(op, &madr);
+	value &= (UINT16)~(1U << (I286_CL & 15));
+	v30_ea16_write(op, madr, value);
+}
+
 I286FN v30_set1_ea8_cl(void) {				// 0F 14: set1 EA8, CL
 
 	UINT	op;
@@ -1045,6 +1058,45 @@ I286FN v30_set1_ea8_cl(void) {				// 0F 14: set1 EA8, CL
 	value = v30_ea8_read(op, &madr);
 	value |= (UINT8)(1U << (I286_CL & 7));
 	v30_ea8_write(op, madr, value);
+}
+
+I286FN v30_set1_ea16_cl(void) {			// 0F 15: set1 EA16, CL
+
+	UINT	op;
+	UINT32	madr = 0;
+	UINT16	value;
+
+	GET_PCBYTE(op);
+	I286_WORKCLOCK((op >= 0xc0)?4:13);
+	value = v30_ea16_read(op, &madr);
+	value |= (UINT16)(1U << (I286_CL & 15));
+	v30_ea16_write(op, madr, value);
+}
+
+I286FN v30_not1_ea8_cl(void) {				// 0F 16: not1 EA8, CL
+
+	UINT	op;
+	UINT32	madr = 0;
+	UINT8	value;
+
+	GET_PCBYTE(op);
+	I286_WORKCLOCK((op >= 0xc0)?4:13);
+	value = v30_ea8_read(op, &madr);
+	value ^= (UINT8)(1U << (I286_CL & 7));
+	v30_ea8_write(op, madr, value);
+}
+
+I286FN v30_not1_ea16_cl(void) {			// 0F 17: not1 EA16, CL
+
+	UINT	op;
+	UINT32	madr = 0;
+	UINT16	value;
+
+	GET_PCBYTE(op);
+	I286_WORKCLOCK((op >= 0xc0)?4:13);
+	value = v30_ea16_read(op, &madr);
+	value ^= (UINT16)(1U << (I286_CL & 15));
+	v30_ea16_write(op, madr, value);
 }
 
 I286FN v30_test1_ea8_i3(void) {				// 0F 18: test1 EA8, imm3
@@ -1138,6 +1190,36 @@ I286FN v30_set1_ea16_i4(void) {				// 0F 1D: set1 EA16, imm4
 	value = v30_ea16_read(op, &madr);
 	GET_PCBYTE(imm);
 	value |= (UINT16)(1U << (imm & 15));
+	v30_ea16_write(op, madr, value);
+}
+
+I286FN v30_not1_ea8_i3(void) {				// 0F 1E: not1 EA8, imm3
+
+	UINT	op;
+	UINT	imm;
+	UINT32	madr = 0;
+	UINT8	value;
+
+	GET_PCBYTE(op);
+	I286_WORKCLOCK((op >= 0xc0)?5:14);
+	value = v30_ea8_read(op, &madr);
+	GET_PCBYTE(imm);
+	value ^= (UINT8)(1U << (imm & 7));
+	v30_ea8_write(op, madr, value);
+}
+
+I286FN v30_not1_ea16_i4(void) {			// 0F 1F: not1 EA16, imm4
+
+	UINT	op;
+	UINT	imm;
+	UINT32	madr = 0;
+	UINT16	value;
+
+	GET_PCBYTE(op);
+	I286_WORKCLOCK((op >= 0xc0)?5:14);
+	value = v30_ea16_read(op, &madr);
+	GET_PCBYTE(imm);
+	value ^= (UINT16)(1U << (imm & 15));
 	v30_ea16_write(op, madr, value);
 }
 
@@ -1507,19 +1589,19 @@ static const I286OP v30ope0x0f_table[64] = {
 			v30_test1_ea8_cl,				// 10:
 			v30_test1_ea16_cl,				// 11:
 			v30_clr1_ea8_cl,				// 12:
-			v30_reserved_0x0f,				// 13:
+			v30_clr1_ea16_cl,				// 13:
 			v30_set1_ea8_cl,				// 14:
-			v30_reserved_0x0f,				// 15:
-			v30_reserved_0x0f,				// 16:
-			v30_reserved_0x0f,				// 17:
+			v30_set1_ea16_cl,				// 15:
+			v30_not1_ea8_cl,				// 16:
+			v30_not1_ea16_cl,				// 17:
 			v30_test1_ea8_i3,				// 18:
 			v30_test1_ea16_i4,				// 19:
 			v30_clr1_ea8_i3,				// 1A:
 			v30_clr1_ea16_i4,				// 1B:
 			v30_set1_ea8_i3,				// 1C:
 			v30_set1_ea16_i4,				// 1D:
-			v30_reserved_0x0f,				// 1E:
-			v30_reserved_0x0f,				// 1F:
+			v30_not1_ea8_i3,				// 1E:
+			v30_not1_ea16_i4,				// 1F:
 
 			v30_add4s,					// 20:
 			v30_reserved_0x0f,				// 21:
