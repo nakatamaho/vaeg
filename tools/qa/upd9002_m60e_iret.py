@@ -1635,7 +1635,9 @@ def verify_semantic_diff(root: pathlib.Path) -> None:
     )
 
 
-def validate_generated_family(root: pathlib.Path) -> None:
+def validate_generated_family(
+    root: pathlib.Path, enforce_final_commit_scope: bool = True
+) -> None:
     family = [
         (root / EVIDENCE_ROOT / "manifest.json").is_file(),
         (root / RESULT_MANIFEST_PATH).is_file(),
@@ -1730,6 +1732,8 @@ def validate_generated_family(root: pathlib.Path) -> None:
         "ranking-total-mismatch",
         "ranking does not reconcile",
     )
+    if not enforce_final_commit_scope:
+        return
     completed = subprocess.run(
         ["git", "diff", "--name-only", "HEAD^..HEAD"],
         cwd=root,
@@ -1758,14 +1762,24 @@ def validate_generated_family(root: pathlib.Path) -> None:
     )
 
 
-def verify_static(root: pathlib.Path) -> None:
+def verify_static(
+    root: pathlib.Path, protected_evidence_only: bool = False
+) -> None:
     verify_predecessor(root)
     verify_protected_paths(root)
-    verify_semantic_diff(root)
-    validate_generated_family(root)
+    if not protected_evidence_only:
+        verify_semantic_diff(root)
+    validate_generated_family(
+        root, enforce_final_commit_scope=not protected_evidence_only
+    )
     print(
-        "m60e-static: predecessor, protected artifacts, bounded IRET semantic "
-        "diff, deterministic evidence family, and final commit scope passed"
+        "m60e-static: predecessor, protected artifacts, deterministic evidence "
+        "family"
+        + (
+            " passed for forward-milestone protection"
+            if protected_evidence_only
+            else ", bounded IRET semantic diff, and final commit scope passed"
+        )
     )
 
 
@@ -2148,6 +2162,7 @@ def parse_args(argv: Iterable[str]) -> argparse.Namespace:
         predecessor.add_argument(f"--{name}-raw", type=pathlib.Path, required=True)
     static = subparsers.add_parser("verify-static")
     add_root(static)
+    static.add_argument("--protected-evidence-only", action="store_true")
     audit = subparsers.add_parser("audit")
     add_root(audit)
     audit.add_argument("--dataset-root", type=pathlib.Path, required=True)
@@ -2189,7 +2204,7 @@ def main(argv: Iterable[str] | None = None) -> int:
             return 0
         root = arguments.root.resolve()
         if arguments.command == "verify-static":
-            verify_static(root)
+            verify_static(root, arguments.protected_evidence_only)
         elif arguments.command == "verify-predecessor":
             verify_predecessor(root)
             verify_raw_predecessor_profile(
