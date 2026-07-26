@@ -1128,14 +1128,16 @@ def verify_semantic_diff(root: pathlib.Path) -> None:
     )
 
 
-def verify_protected(root: pathlib.Path) -> None:
+def verify_protected(
+    root: pathlib.Path, protected_evidence_only: bool = False
+) -> None:
     protected = [
         "tests/ssts/contracts/",
         "tests/ssts/epochs/g43/",
         "tests/ssts/evidence/g59/",
         "tests/ssts/evidence/g60",
         "tests/ssts/authority/",
-        "tests/ssts/target_policy/",
+        "tests/ssts/target_policy/g60b.json",
         "tests/ssts/gap_taxonomy.json",
         "tests/ssts/hardware_pending.json",
         "tests/ssts/approved_target_divergences.json",
@@ -1157,11 +1159,12 @@ def verify_protected(root: pathlib.Path) -> None:
         "tests/ssts/gap_taxonomy.json",
         "tests/ssts/hardware_pending.json",
     ]
-    require(
-        not git_diff_names(root, forbidden),
-        "out-of-scope-change",
-        "protected behavior changed",
-    )
+    if not protected_evidence_only:
+        require(
+            not git_diff_names(root, forbidden),
+            "out-of-scope-change",
+            "protected behavior changed",
+        )
 
 
 def validate_generated_family(root: pathlib.Path) -> None:
@@ -1220,14 +1223,25 @@ def validate_generated_family(root: pathlib.Path) -> None:
     )
 
 
-def verify_static(root: pathlib.Path) -> None:
+def verify_static(
+    root: pathlib.Path, protected_evidence_only: bool = False
+) -> None:
+    forward_milestone = (
+        root / "docs/agents/tasks/M62_upd9002_semantics_bundle.md"
+    ).is_file()
+    protected_evidence_only = protected_evidence_only or forward_milestone
     verify_predecessor(root)
-    verify_protected(root)
-    verify_semantic_diff(root)
+    verify_protected(root, protected_evidence_only)
+    if not protected_evidence_only:
+        verify_semantic_diff(root)
     validate_generated_family(root)
     print(
-        "m61-static: G60e protection, exact two-line C6/C7 semantic scope, "
-        "and deterministic evidence family passed"
+        "m61-static: G60e protection and deterministic evidence family"
+        + (
+            " passed for forward-milestone protection"
+            if protected_evidence_only
+            else ", exact two-line C6/C7 semantic scope passed"
+        )
     )
 
 

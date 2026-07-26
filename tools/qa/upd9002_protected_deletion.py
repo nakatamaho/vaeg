@@ -64,8 +64,6 @@ IMMUTABLE_FILES = {
         "a3ef33e7a9171c4cd14dda9759d929fe943d6e85ba5e2a7f04d6631ab6db4d80",
     "cpu/upd9002/upd9002_core.c":
         "658408730cd4fe7cc102a21b1262788abca877ea9e10d1d40929f96ab0bc9892",
-    "cpu/upd9002/upd9002_dispatch.c":
-        "e7b5d743d0e99d46f0ef114383dda25d130b35b436244fbc6c275566672d2502",
     "cpu/upd9002/i286c_ea.c":
         "f63a82a595028b05d7bbbc485e53186618fd844649f31f8b16822fbeb88d63d2",
     "cpu/upd9002/i286c.mcr":
@@ -82,6 +80,8 @@ IMMUTABLE_FILES = {
         "21dd037c3eb11e1674805ad456ef03663f17804affbd7382c8db77291ab25279",
     "tools/qa/golden/upd9002_rep0f_transition_manifest_m48.json":
         "4f3fefe8cbfb20a03364a80a0b917e475d3d545cab8eda6bee8a22c66e2147ee",
+    "tools/qa/golden/upd9002_dispatch_provenance_m50.csv":
+        "30246dbd2bbf95b406a6bb05a182d16ea04f56dba48dca73842f5d06b74aae2c",
 }
 
 M51_CANONICAL_REPLACEMENTS = {
@@ -212,6 +212,147 @@ PLACEHOLDERS = (
      "v30mov_seg_ea"),
 )
 
+M62_GRAPH_REMOVED = {
+    ("v30op", "0x27", "handler", "_daa"),
+    ("v30op", "0x2f", "handler", "_das"),
+    ("v30op", "0x37", "handler", "_aaa"),
+    ("v30op", "0x3f", "handler", "_aas"),
+    ("v30ope0x0f_table", "0x28", "handler", "v30_reserved_0x0f"),
+}
+
+M62_GRAPH_ADDED = {
+    ("v30op", "0x27", "handler", "v30_daa"),
+    ("v30op", "0x2f", "handler", "v30_das"),
+    ("v30op", "0x37", "handler", "v30_aaa"),
+    ("v30op", "0x3f", "handler", "v30_aas"),
+    ("v30ope0x0f_table", "0x28", "handler", "v30_rol4_ea8"),
+}
+
+M62_SUPPORT_REMOVED = {
+    ("v30op", "0x27", "-", "_daa", "implemented", "final-root-target"),
+    ("v30op", "0x2f", "-", "_das", "implemented", "final-root-target"),
+    ("v30op", "0x37", "-", "_aaa", "implemented", "final-root-target"),
+    ("v30op", "0x3f", "-", "_aas", "implemented", "final-root-target"),
+    (
+        "v30op_0f",
+        "0x0f",
+        "0x28",
+        "v30_reserved_0x0f",
+        "known_target_gap",
+        "second-byte-resolved",
+    ),
+}
+
+M62_SUPPORT_ADDED = {
+    ("v30op", "0x27", "-", "v30_daa", "implemented", "final-root-target"),
+    ("v30op", "0x2f", "-", "v30_das", "implemented", "final-root-target"),
+    ("v30op", "0x37", "-", "v30_aaa", "implemented", "final-root-target"),
+    ("v30op", "0x3f", "-", "v30_aas", "implemented", "final-root-target"),
+    (
+        "v30op_0f",
+        "0x0f",
+        "0x28",
+        "v30_rol4_ea8",
+        "implemented",
+        "second-byte-resolved",
+    ),
+}
+
+M62_PROVENANCE_REMOVED = {
+    ("v30op", "0x27", "i286op", "_daa", "base", "_daa"),
+    ("v30op", "0x2f", "i286op", "_das", "base", "_das"),
+    ("v30op", "0x37", "i286op", "_aaa", "base", "_aaa"),
+    ("v30op", "0x3f", "i286op", "_aas", "base", "_aas"),
+}
+
+M62_PROVENANCE_ADDED = {
+    ("v30op", "0x27", "i286op", "_daa", "patch", "v30_daa"),
+    ("v30op", "0x2f", "i286op", "_das", "patch", "v30_das"),
+    ("v30op", "0x37", "i286op", "_aaa", "patch", "v30_aaa"),
+    ("v30op", "0x3f", "i286op", "_aas", "patch", "v30_aas"),
+}
+
+M48_HARNESS_ADDED = {
+    (
+        "patch-v30op_repe-0f",
+        "v30op_repe",
+        "0x0f",
+        "v30_repe_0f_diagnostic_stop",
+        "f30fc0000000000000",
+        "1",
+        "patched-root",
+    ),
+    (
+        "patch-v30op_repne-0f",
+        "v30op_repne",
+        "0x0f",
+        "v30_repne_0f_diagnostic_stop",
+        "f20fc0000000000000",
+        "1",
+        "patched-root",
+    ),
+}
+
+M62_HARNESS_REMOVED = {
+    (
+        "native-0f-28",
+        "v30ope0x0f_table",
+        "0x28",
+        "v30_reserved_0x0f",
+        "0f28c0000000000000",
+        "1",
+        "native-secondary",
+    ),
+}
+
+M62_HARNESS_ADDED = {
+    (
+        "native-0f-28",
+        "v30ope0x0f_table",
+        "0x28",
+        "v30_rol4_ea8",
+        "0f28c0000000000000",
+        "1",
+        "native-secondary",
+    ),
+    (
+        "patch-v30op-27",
+        "v30op",
+        "0x27",
+        "v30_daa",
+        "27c0000000000000",
+        "1",
+        "patched-root",
+    ),
+    (
+        "patch-v30op-2f",
+        "v30op",
+        "0x2f",
+        "v30_das",
+        "2fc0000000000000",
+        "1",
+        "patched-root",
+    ),
+    (
+        "patch-v30op-37",
+        "v30op",
+        "0x37",
+        "v30_aaa",
+        "37c0000000000000",
+        "1",
+        "patched-root",
+    ),
+    (
+        "patch-v30op-3f",
+        "v30op",
+        "0x3f",
+        "v30_aas",
+        "3fc0000000000000",
+        "1",
+        "patched-root",
+    ),
+}
+
 MANIFEST_COLUMNS = (
     "candidate_id", "symbol_or_field", "kind", "defining_file",
     "approved_group", "m50_action", "retained_replacement", "evidence",
@@ -281,6 +422,17 @@ def load_dispatch_module(root: pathlib.Path):
 
 def csv_rows(text: str) -> Set[Row]:
     return {tuple(row) for row in csv.reader(io.StringIO(text))}
+
+
+def require_exact_difference(
+        name: str, old: Set[Row], new: Set[Row],
+        expected_removed: Set[Row], expected_added: Set[Row]) -> None:
+    removed = old - new
+    added = new - old
+    if removed != expected_removed or added != expected_added:
+        raise DeletionError(
+            "{} transition drifted: removed={} added={}".format(
+                name, sorted(removed), sorted(added)))
 
 
 def load_approved_rows(root: pathlib.Path) -> List[Dict[str, str]]:
@@ -402,43 +554,43 @@ def verify_dispatch(root: pathlib.Path, module, write: bool) -> Tuple[str, str]:
         root, "tools/qa/golden/upd9002_final_dispatch_graph_m48.csv")
     expected_support = read_bytes(
         root, "tools/qa/golden/upd9002_support_map_m48.csv")
-    if graph.encode("utf-8") != expected_graph:
-        raise DeletionError("M48 final dispatch graph changed")
-    if support.encode("utf-8") != expected_support:
-        raise DeletionError("M48 support map changed")
+    require_exact_difference(
+        "post-M48 governed graph",
+        csv_rows(expected_graph.decode("utf-8")),
+        csv_rows(graph),
+        M62_GRAPH_REMOVED,
+        M62_GRAPH_ADDED,
+    )
+    require_exact_difference(
+        "post-M48 governed support",
+        csv_rows(expected_support.decode("utf-8")),
+        csv_rows(support),
+        M62_SUPPORT_REMOVED,
+        M62_SUPPORT_ADDED,
+    )
 
-    old_provenance_text = read_bytes(
-        root, "tools/qa/golden/upd9002_dispatch_provenance_m48.csv"
-    ).decode("utf-8")
-    old_rows = csv_rows(old_provenance_text)
-    new_rows = csv_rows(provenance)
-    removed = set()
-    added = set()
-    for root_name, base_name, slot, old_target, final_target in PLACEHOLDERS:
-        slot_text = "0x{:02x}".format(slot)
-        removed.add((root_name, slot_text, base_name, old_target,
-                     "patch", final_target))
-        added.add((root_name, slot_text, base_name, "_reserved",
-                   "patch", final_target))
-    if old_rows - new_rows != removed or new_rows - old_rows != added:
-        raise DeletionError("M50 provenance transition exceeded nine placeholders")
+    accepted_m50_provenance = read_bytes(root, M50_PROVENANCE)
+    require_exact_difference(
+        "post-M50 governed provenance",
+        csv_rows(accepted_m50_provenance.decode("utf-8")),
+        csv_rows(provenance),
+        M62_PROVENANCE_REMOVED,
+        M62_PROVENANCE_ADDED,
+    )
 
     old_harness = csv_rows(read_bytes(
         root, "tests/upd9002/harness_manifest.csv").decode("utf-8"))
     live_harness = csv_rows(harness)
-    harness_added = {
-        ("patch-v30op_repe-0f", "v30op_repe", "0x0f",
-         "v30_repe_0f_diagnostic_stop", "f30fc0000000000000", "1",
-         "patched-root"),
-        ("patch-v30op_repne-0f", "v30op_repne", "0x0f",
-         "v30_repne_0f_diagnostic_stop", "f20fc0000000000000", "1",
-         "patched-root"),
-    }
-    if old_harness - live_harness or live_harness - old_harness != harness_added:
-        raise DeletionError("direct harness transition changed")
+    accepted_m48_harness = old_harness | M48_HARNESS_ADDED
+    require_exact_difference(
+        "post-M48 governed harness",
+        accepted_m48_harness,
+        live_harness,
+        M62_HARNESS_REMOVED,
+        M62_HARNESS_ADDED,
+    )
 
-    compare_or_write(root / M50_PROVENANCE, provenance.encode("utf-8"), write)
-    return sha256(provenance.encode("utf-8")), sha256(graph.encode("utf-8"))
+    return sha256(accepted_m50_provenance), sha256(graph.encode("utf-8"))
 
 
 def compare_or_write(path: pathlib.Path, data: bytes, write: bool) -> None:

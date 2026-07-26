@@ -1317,14 +1317,19 @@ def tree_identities(root: pathlib.Path) -> list[dict[str, Any]]:
     ]
 
 
-def load_phase_commits(path: pathlib.Path) -> dict[str, str]:
+def load_phase_commits(path: pathlib.Path) -> dict[str, list[str]]:
     value = read_json(path)
     require(
         isinstance(value, dict)
         and list(value) == list(PHASE_ORDER)
         and all(
-            isinstance(item, str) and HEX40.fullmatch(item) is not None
-            for item in value.values()
+            isinstance(items, list)
+            and items
+            and all(
+                isinstance(item, str) and HEX40.fullmatch(item) is not None
+                for item in items
+            )
+            for items in value.values()
         ),
         "phase-commit-identity",
         str(path),
@@ -1359,7 +1364,7 @@ def write_phase_checkpoints(
     output_root: pathlib.Path,
     scoreboards: dict[str, dict[str, Any]],
     failures_after: dict[str, dict[str, dict[str, Any]]],
-    phase_commits: dict[str, str],
+    phase_commits: dict[str, list[str]],
     worker_sha256: str,
 ) -> list[pathlib.Path]:
     before_failures = load_scoreboard_failures(
@@ -1442,13 +1447,14 @@ def write_phase_checkpoints(
             "rows": rows,
             "schema": "vaeg-upd9002-m62-phase-checkpoint-v1",
             "schema_version": 1,
-            "semantic_commit": phase_commits[phase],
+            "semantic_commit": phase_commits[phase][-1],
+            "semantic_commits": phase_commits[phase],
             "worker_sha256": worker_sha256,
         }
         path = EVIDENCE_ROOT / "phases" / f"phase_{phase}.json"
         write_json(output_root / path, checkpoint)
         paths.append(path)
-        parent = phase_commits[phase]
+        parent = phase_commits[phase][-1]
     return paths
 
 
@@ -1465,7 +1471,7 @@ def generate_evidence(
     verify_predecessor(root)
     phase_commits = load_phase_commits(phase_commits_path)
     require(
-        phase_commits["shifts"] == evaluated_sha,
+        phase_commits["shifts"][-1] == evaluated_sha,
         "evaluated-sha",
         "last worker-changing phase is not evaluated SHA",
     )
@@ -1639,7 +1645,7 @@ def synthetic_decision() -> dict[str, Any]:
         "newly_applicable_failures": [],
         "newly_failing": [],
         "phase_commits": {
-            phase: f"{index + 1:x}" * 40
+            phase: [f"{index + 1:x}" * 40]
             for index, phase in enumerate(PHASE_ORDER)
         },
         "protected_changes": [],
@@ -1659,8 +1665,20 @@ def validate_decision(value: dict[str, Any]) -> None:
     require(
         isinstance(commits, dict)
         and list(commits) == list(PHASE_ORDER)
-        and len(set(commits.values())) == len(PHASE_ORDER)
-        and all(HEX40.fullmatch(item) is not None for item in commits.values()),
+        and all(isinstance(items, list) and items for items in commits.values())
+        and len(
+            {
+                item
+                for items in commits.values()
+                for item in items
+            }
+        )
+        == sum(len(items) for items in commits.values())
+        and all(
+            HEX40.fullmatch(item) is not None
+            for items in commits.values()
+            for item in items
+        ),
         "phase-commit-identity",
         "semantic commits are missing or squashed",
     )
@@ -1734,7 +1752,7 @@ def selftest() -> None:
         (
             "phase-commit-identity",
             lambda value: value["phase_commits"].__setitem__(
-                "shifts", value["phase_commits"]["aam"]
+                "shifts", value["phase_commits"]["aam"].copy()
             ),
         ),
         ("dataset-drift", lambda value: value.__setitem__("dataset_id", "wrong")),
