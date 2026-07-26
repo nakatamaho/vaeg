@@ -103,6 +103,48 @@ static void setup_instruction(const UINT8 *instruction, UINT length,
 	}
 }
 
+static UINT16 get_word_register(UINT code) {
+
+	switch (code) {
+	case 0:
+		return CPU_AX;
+	case 1:
+		return CPU_CX;
+	case 2:
+		return CPU_DX;
+	case 3:
+		return CPU_BX;
+	case 4:
+		return CPU_SP;
+	case 5:
+		return CPU_BP;
+	case 6:
+		return CPU_SI;
+	default:
+		return CPU_DI;
+	}
+}
+
+static UINT8 get_byte_register(UINT code) {
+
+	const UINT16 value = get_word_register(code & 3);
+
+	return (code & 4) ? (UINT8)(value >> 8) : (UINT8)value;
+}
+
+static void set_byte_register(UINT code, UINT8 value) {
+
+	UINT16 *const registers[] = {&CPU_AX, &CPU_CX, &CPU_DX, &CPU_BX};
+	UINT16 *const target = registers[code & 3];
+
+	if (code & 4) {
+		*target = (UINT16)((*target & 0x00ff) | ((UINT16)value << 8));
+	}
+	else {
+		*target = (UINT16)((*target & 0xff00) | value);
+	}
+}
+
 static int test_aam_semantics(void) {
 
 	static const AAM_CASE cases[] = {
@@ -153,6 +195,75 @@ static int test_aam_semantics(void) {
 	return SUCCESS;
 }
 
+static int test_ror4_registers(void) {
+
+	static const UINT8 sources[] =
+		{0x12, 0xab, 0xf0, 0x5e, 0x87, 0xd5, 0x09, 0xff};
+	const UINT16 initial_flags = 0xfcd7;
+	UINT code;
+
+	for (code = 0; code < NELEMENTS(sources); code++) {
+		const UINT8 instruction[] = {0x0f, 0x2a, (UINT8)(0xc0 | code)};
+		UINT16 before[8];
+		UINT8 accumulator;
+		UINT8 expected_destination;
+		UINT index;
+
+		setup_instruction(instruction, NELEMENTS(instruction),
+							0x7a34, initial_flags);
+		set_byte_register(code, sources[code]);
+		accumulator = CPU_AL;
+		expected_destination =
+			(UINT8)((sources[code] >> 4) | ((accumulator & 0x0f) << 4));
+		for (index = 0; index < 8; index++) {
+			before[index] = get_word_register(index);
+		}
+		upd9002_core_step();
+		if (CPU_AL != sources[code]) {
+			fprintf(stderr,
+				"upd9002-m62: ROR4 register %u did not load AL\n", code);
+			return FAILURE;
+		}
+		if ((code != 0) &&
+			(get_byte_register(code) != expected_destination)) {
+			fprintf(stderr,
+				"upd9002-m62: ROR4 register %u destination differs\n", code);
+			return FAILURE;
+		}
+		for (index = 0; index < 8; index++) {
+			if ((index > 3) && (get_word_register(index) != before[index])) {
+				fprintf(stderr,
+					"upd9002-m62: ROR4 changed an unrelated word register\n");
+				return FAILURE;
+			}
+		}
+		if ((CPU_FLAG != initial_flags) || (CPU_IP != 0x0103)) {
+			fprintf(stderr, "upd9002-m62: ROR4 changed FLAGS or IP\n");
+			return FAILURE;
+		}
+	}
+	return SUCCESS;
+}
+
+static int test_ror4_memory(void) {
+
+	static const UINT8 instruction[] = {0x0f, 0x2a, 0x06, 0x34, 0x12};
+	const UINT16 initial_flags = 0xfcd7;
+	const UINT32 address = (((UINT32)0x3333 << 4) + 0x1234) & 0xfffff;
+
+	setup_instruction(instruction, NELEMENTS(instruction),
+						0x7a34, initial_flags);
+	mem[address] = 0xab;
+	upd9002_core_step();
+	if ((CPU_AL != 0xab) || (mem[address] != 0x4a) ||
+		(CPU_AH != 0x7a) || (CPU_FLAG != initial_flags) ||
+		(CPU_IP != 0x0105)) {
+		fprintf(stderr, "upd9002-m62: ROR4 memory result differs\n");
+		return FAILURE;
+	}
+	return SUCCESS;
+}
+
 static int test_evidence_oracles(void) {
 
 	static const PACKED_BCD_CASE ror4_cases[] = {
@@ -194,7 +305,9 @@ int upd9002_semantics_bundle_main(void) {
 
 	upd9002_core_initialize();
 	if ((test_evidence_oracles() != SUCCESS) ||
-		(test_aam_semantics() != SUCCESS)) {
+		(test_aam_semantics() != SUCCESS) ||
+		(test_ror4_registers() != SUCCESS) ||
+		(test_ror4_memory() != SUCCESS)) {
 		upd9002_core_deinitialize();
 		return FAILURE;
 	}
