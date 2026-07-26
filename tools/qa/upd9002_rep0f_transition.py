@@ -130,6 +130,50 @@ M62_SUPPORT_ADDED = {
     ),
 }
 
+M64_GRAPH_REMOVED = M62_GRAPH_REMOVED | {
+    ("v30ope0x0f_table", opcode, "handler", "v30_reserved_0x0f")
+    for opcode in ("0x13", "0x15", "0x16", "0x17", "0x1e", "0x1f", "0x26")
+}
+
+M64_GRAPH_ADDED = M62_GRAPH_ADDED | {
+    ("v30ope0x0f_table", "0x13", "handler", "v30_clr1_ea16_cl"),
+    ("v30ope0x0f_table", "0x15", "handler", "v30_set1_ea16_cl"),
+    ("v30ope0x0f_table", "0x16", "handler", "v30_not1_ea8_cl"),
+    ("v30ope0x0f_table", "0x17", "handler", "v30_not1_ea16_cl"),
+    ("v30ope0x0f_table", "0x1e", "handler", "v30_not1_ea8_i3"),
+    ("v30ope0x0f_table", "0x1f", "handler", "v30_not1_ea16_i4"),
+    ("v30ope0x0f_table", "0x26", "handler", "v30_cmp4s"),
+}
+
+M64_SUPPORT_REMOVED = M62_SUPPORT_REMOVED | {
+    (
+        "v30op_0f",
+        "0x0f",
+        opcode,
+        "v30_reserved_0x0f",
+        "known_target_gap",
+        "second-byte-resolved",
+    )
+    for opcode in ("0x13", "0x15", "0x16", "0x17", "0x1e", "0x1f", "0x26")
+}
+
+M64_SUPPORT_ADDED = M62_SUPPORT_ADDED | {
+    ("v30op_0f", "0x0f", "0x13", "v30_clr1_ea16_cl", "implemented",
+     "second-byte-resolved"),
+    ("v30op_0f", "0x0f", "0x15", "v30_set1_ea16_cl", "implemented",
+     "second-byte-resolved"),
+    ("v30op_0f", "0x0f", "0x16", "v30_not1_ea8_cl", "implemented",
+     "second-byte-resolved"),
+    ("v30op_0f", "0x0f", "0x17", "v30_not1_ea16_cl", "implemented",
+     "second-byte-resolved"),
+    ("v30op_0f", "0x0f", "0x1e", "v30_not1_ea8_i3", "implemented",
+     "second-byte-resolved"),
+    ("v30op_0f", "0x0f", "0x1f", "v30_not1_ea16_i4", "implemented",
+     "second-byte-resolved"),
+    ("v30op_0f", "0x0f", "0x26", "v30_cmp4s", "implemented",
+     "second-byte-resolved"),
+}
+
 Row = Tuple[str, ...]
 
 
@@ -304,6 +348,42 @@ M62_HARNESS_ADDED = {
     ),
 }
 
+M64_NATIVE_HANDLERS = {
+    "13": "v30_clr1_ea16_cl",
+    "15": "v30_set1_ea16_cl",
+    "16": "v30_not1_ea8_cl",
+    "17": "v30_not1_ea16_cl",
+    "1e": "v30_not1_ea8_i3",
+    "1f": "v30_not1_ea16_i4",
+    "26": "v30_cmp4s",
+}
+
+M64_HARNESS_REMOVED = M62_HARNESS_REMOVED | {
+    (
+        "native-0f-{}".format(opcode),
+        "v30ope0x0f_table",
+        "0x{}".format(opcode),
+        "v30_reserved_0x0f",
+        "0f{}c0000000000000".format(opcode),
+        "1",
+        "native-secondary",
+    )
+    for opcode in M64_NATIVE_HANDLERS
+}
+
+M64_HARNESS_ADDED = M62_HARNESS_ADDED | {
+    (
+        "native-0f-{}".format(opcode),
+        "v30ope0x0f_table",
+        "0x{}".format(opcode),
+        handler,
+        "0f{}c0000000000000".format(opcode),
+        "1",
+        "native-secondary",
+    )
+    for opcode, handler in M64_NATIVE_HANDLERS.items()
+}
+
 
 def verify_source_policy(root: pathlib.Path) -> None:
     dispatch = (root / "cpu/upd9002/upd9002_dispatch.c").read_text(
@@ -469,15 +549,15 @@ def verify(root: pathlib.Path, write: bool, selftest: bool) -> None:
         "post-M48 governed graph",
         rows(graph),
         rows(live_graph),
-        M62_GRAPH_REMOVED,
-        M62_GRAPH_ADDED,
+        M64_GRAPH_REMOVED,
+        M64_GRAPH_ADDED,
     )
     require_exact_difference(
         "post-M48 governed support",
         rows(support),
         rows(live_support),
-        M62_SUPPORT_REMOVED,
-        M62_SUPPORT_ADDED,
+        M64_SUPPORT_REMOVED,
+        M64_SUPPORT_ADDED,
     )
     accepted_harness = (
         file_rows(root, "tests/upd9002/harness_manifest.csv") | HARNESS_ADDED
@@ -486,8 +566,8 @@ def verify(root: pathlib.Path, write: bool, selftest: bool) -> None:
         "post-M48 governed harness",
         accepted_harness,
         rows(harness),
-        M62_HARNESS_REMOVED,
-        M62_HARNESS_ADDED,
+        M64_HARNESS_REMOVED,
+        M64_HARNESS_ADDED,
     )
     for name, content in (("graph", graph), ("provenance", provenance),
                           ("support", support)):
