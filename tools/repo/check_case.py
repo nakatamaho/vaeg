@@ -19,7 +19,14 @@ import re
 import subprocess
 import sys
 
-ALLOW = {"AGENTS.md", "MILESTONE_RENUMBERING.md"}
+ALLOW = {
+    "AGENTS.md",
+    "ALL_TASKS_CONCATENATED.md",
+    "MANIFEST.sha256.json",
+    "MILESTONE_RENUMBERING.md",
+    "MILESTONE_UPDATE_AFTER_G59.md",
+    "V5_TARGET_AUTHORITY_AND_FPO2_CHANGES.md",
+}
 ALLOW_PREFIXES = ("docs/", ".git", "external/", "LICENSES/")
 # Tool-mandated basenames that cannot be made lowercase.
 ALLOW_TOOL_BASENAMES = {"README.md", "README.txt", "BUILD.md",
