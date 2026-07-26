@@ -356,6 +356,7 @@ if(VAEG_ENABLE_TESTS)
         tests/z80/subsystem_integration.cpp
         tests/upd9002/direct_harness.c
 		tests/upd9002/dispatch_normalization.c
+        tests/upd9002/flags_materialization.c
         tests/upd9002/fixtures.c
 		tests/upd9002/rep0f_diagnostic_stop.c
         tests/upd9002/state_scenario.c
@@ -531,6 +532,7 @@ if(VAEG_ENABLE_TESTS)
         VAEG_UPD9002_M44_TESTING=1
 		VAEG_UPD9002_M46_TESTING=1
 		VAEG_UPD9002_M48_TESTING=1
+        VAEG_UPD9002_M60A_TESTING=1
         VAEG_UPD9002_SSTS_TESTING=1
         "VAEG_UPD9002_HARNESS_MANIFEST_PATH=\"${CMAKE_CURRENT_SOURCE_DIR}/tests/upd9002/harness_manifest.csv\""
         "VAEG_UPD9002_FIXTURE_PATH=\"${CMAKE_CURRENT_SOURCE_DIR}/tests/upd9002/state_fixtures_m42.txt\"")
@@ -727,6 +729,11 @@ if(VAEG_ENABLE_TESTS)
     set_tests_properties(vaeg_upd9002_rep0f_diagnostic_stop PROPERTIES
 		LABELS "romless;upd9002;dispatch;state")
 
+    add_test(NAME vaeg_upd9002_flags_materialization
+		COMMAND vaeg_sdl2 --upd9002-m60a-flags-materialization)
+    set_tests_properties(vaeg_upd9002_flags_materialization PROPERTIES
+		LABELS "romless;upd9002;flags;semantics")
+
     add_test(NAME vaeg_upd9002_rep0f_transition_selftest
 		COMMAND "${Python3_EXECUTABLE}"
 			"${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/upd9002_rep0f_transition.py"
@@ -835,6 +842,87 @@ if(VAEG_ENABLE_TESTS)
     set_tests_properties(vaeg_upd9002_ssts_ratchet_static PROPERTIES
         LABELS "romless;upd9002;ssts;ratchet;repository")
 
+    add_test(NAME vaeg_upd9002_m60a_evidence_selftest
+        COMMAND "${Python3_EXECUTABLE}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/upd9002_m60a_evidence.py"
+            selftest)
+    set_tests_properties(vaeg_upd9002_m60a_evidence_selftest PROPERTIES
+        LABELS "romless;upd9002;ssts;ratchet;flags")
+
+    add_test(NAME vaeg_upd9002_m60a_evidence_static
+        COMMAND "${Python3_EXECUTABLE}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/upd9002_m60a_evidence.py"
+            verify-static
+            --root "${CMAKE_CURRENT_SOURCE_DIR}"
+            --predecessor-sha
+            "e7f2325bc81310532091a8ca82914030fdb8b6ba")
+    set_tests_properties(vaeg_upd9002_m60a_evidence_static PROPERTIES
+        LABELS "romless;upd9002;ssts;ratchet;flags;repository")
+
+    add_test(NAME vaeg_upd9002_m60b_authority_selftest
+        COMMAND "${Python3_EXECUTABLE}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/upd9002_m60b_authority.py"
+            selftest
+            --root "${CMAKE_CURRENT_SOURCE_DIR}")
+    set_tests_properties(vaeg_upd9002_m60b_authority_selftest PROPERTIES
+        LABELS "romless;upd9002;ssts;ratchet;authority;target-policy")
+
+    add_test(NAME vaeg_upd9002_m60b_authority_static
+        COMMAND "${Python3_EXECUTABLE}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/upd9002_m60b_authority.py"
+            verify-static
+            --root "${CMAKE_CURRENT_SOURCE_DIR}")
+    set_tests_properties(vaeg_upd9002_m60b_authority_static PROPERTIES
+        LABELS
+            "romless;upd9002;ssts;ratchet;authority;target-policy;repository")
+
+    add_test(NAME vaeg_upd9002_m60c_erratum_selftest
+        COMMAND "${Python3_EXECUTABLE}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/upd9002_m60c_erratum.py"
+            selftest)
+    set_tests_properties(vaeg_upd9002_m60c_erratum_selftest PROPERTIES
+        LABELS "romless;upd9002;ssts;authority;documentation")
+
+    add_test(NAME vaeg_upd9002_m60c_erratum_static
+        COMMAND "${Python3_EXECUTABLE}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/upd9002_m60c_erratum.py"
+            verify-static
+            --root "${CMAKE_CURRENT_SOURCE_DIR}")
+    set_tests_properties(vaeg_upd9002_m60c_erratum_static PROPERTIES
+        LABELS "romless;upd9002;ssts;authority;documentation;repository")
+
+    add_test(NAME vaeg_upd9002_m60c_audit_selftest
+        COMMAND "${Python3_EXECUTABLE}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/upd9002_m60c_audit.py"
+            selftest)
+    set_tests_properties(vaeg_upd9002_m60c_audit_selftest PROPERTIES
+        LABELS "romless;upd9002;ssts;authority;fpu;target-policy")
+
+    add_test(NAME vaeg_upd9002_m60c_audit_static
+        COMMAND "${Python3_EXECUTABLE}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/upd9002_m60c_audit.py"
+            verify-static
+            --root "${CMAKE_CURRENT_SOURCE_DIR}")
+    set_tests_properties(vaeg_upd9002_m60c_audit_static PROPERTIES
+        LABELS
+            "romless;upd9002;ssts;authority;fpu;target-policy;repository")
+
+    add_test(NAME vaeg_upd9002_m60d_frame_selftest
+        COMMAND "${Python3_EXECUTABLE}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/upd9002_m60d_frame_audit.py"
+            selftest)
+    set_tests_properties(vaeg_upd9002_m60d_frame_selftest PROPERTIES
+        LABELS "romless;upd9002;ssts;evidence;interrupt-frame")
+
+    add_test(NAME vaeg_upd9002_m60d_frame_static
+        COMMAND "${Python3_EXECUTABLE}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/upd9002_m60d_frame_audit.py"
+            verify-static
+            --root "${CMAKE_CURRENT_SOURCE_DIR}")
+    set_tests_properties(vaeg_upd9002_m60d_frame_static PROPERTIES
+        LABELS
+            "romless;upd9002;ssts;evidence;interrupt-frame;repository")
+
     add_test(NAME vaeg_upd9002_ssts_evidence_selftest
         COMMAND "${Python3_EXECUTABLE}"
             "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/upd9002_semantics_evidence.py"
@@ -897,7 +985,7 @@ if(VAEG_ENABLE_TESTS)
         endif()
         add_test(NAME vaeg_upd9002_ssts_ci_external
             COMMAND "${Python3_EXECUTABLE}"
-                "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/upd9002_ssts_ratchet.py"
+                "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/upd9002_m60b_authority.py"
                 ci-enforce
                 --root "${CMAKE_CURRENT_SOURCE_DIR}"
                 --dataset-root "${VAEG_SSTS_V20_ROOT}"

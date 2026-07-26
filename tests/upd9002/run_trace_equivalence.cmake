@@ -62,8 +62,25 @@ foreach(origin cpu dma device)
     endif()
 endforeach()
 file(READ "${TRACE_GOLDEN}" golden)
-if(NOT first STREQUAL golden)
-    message(FATAL_ERROR "canonical trace differs from M42 golden")
+set(m60a_saved_flags_lines
+    "event step=00000004 seq=00000004 origin=cpu kind=memory-write address=00007ffe value=0000f002 width=02"
+    "event step=00000005 seq=00000004 origin=cpu kind=memory-write address=00007ffe value=0000f002 width=02")
+set(m42_compatible_trace "${first}")
+foreach(current_line IN LISTS m60a_saved_flags_lines)
+    string(REGEX MATCHALL "${current_line}" matches "${m42_compatible_trace}")
+    list(LENGTH matches match_count)
+    if(NOT match_count EQUAL 1)
+        message(FATAL_ERROR
+            "approved M60a saved-FLAGS trace transition is absent or duplicated")
+    endif()
+    string(REPLACE "value=0000f002" "value=00000002"
+        baseline_line "${current_line}")
+    string(REPLACE "${current_line}" "${baseline_line}"
+        m42_compatible_trace "${m42_compatible_trace}")
+endforeach()
+if(NOT m42_compatible_trace STREQUAL golden)
+    message(FATAL_ERROR
+        "canonical trace differs outside the approved M60a saved-FLAGS transition")
 endif()
 
 execute_process(
@@ -80,4 +97,4 @@ if(NOT first_checkpoints STREQUAL untraced_error)
         "trace-enabled and trace-disabled final checkpoint streams differ")
 endif()
 
-message(STATUS "uPD9002 trace determinism, origin schema, golden, and complete on/off checkpoint equivalence passed")
+message(STATUS "uPD9002 trace determinism, origin schema, M42 baseline plus M60a saved-FLAGS transition, and complete on/off checkpoint equivalence passed")
