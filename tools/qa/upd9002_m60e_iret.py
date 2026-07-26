@@ -139,6 +139,27 @@ def reject(code: str, message: str) -> None:
     raise M60eError(code, message)
 
 
+def validate_candidate_scoreboard(value: dict[str, Any]) -> None:
+    """Validate a v2 scoreboard against the M60e epoch identity."""
+
+    previous = (
+        m60b.APPROVED_PREDECESSOR_GATE,
+        m60b.APPROVED_PREDECESSOR_SHA,
+        m60b.CANDIDATE_GATE,
+    )
+    try:
+        m60b.APPROVED_PREDECESSOR_GATE = APPROVED_PREDECESSOR_GATE
+        m60b.APPROVED_PREDECESSOR_SHA = APPROVED_PREDECESSOR_SHA
+        m60b.CANDIDATE_GATE = CANDIDATE_GATE
+        m60b.validate_scoreboard_v2(value)
+    finally:
+        (
+            m60b.APPROVED_PREDECESSOR_GATE,
+            m60b.APPROVED_PREDECESSOR_SHA,
+            m60b.CANDIDATE_GATE,
+        ) = previous
+
+
 def require(condition: bool, code: str, message: str) -> None:
     if not condition:
         reject(code, message)
@@ -873,7 +894,7 @@ def generate_scoreboard(
         f"{profile_key} governing identity differs",
     )
     try:
-        m60b.validate_scoreboard_v2(scoreboard)
+        validate_candidate_scoreboard(scoreboard)
     except m60b.M60bError as error:
         reject("candidate-scoreboard-schema", str(error))
     write_json(output_path(output_root, SCOREBOARD_PATHS[profile_key]), scoreboard)
@@ -1691,7 +1712,7 @@ def validate_generated_family(root: pathlib.Path) -> None:
             path.as_posix(),
         )
         try:
-            m60b.validate_scoreboard_v2(value)
+            validate_candidate_scoreboard(value)
             ratchet.load_scoreboard_failures(root / path, value)
         except (m60b.M60bError, ratchet.RatchetError) as error:
             reject("candidate-scoreboard-schema", f"{key}: {error}")
