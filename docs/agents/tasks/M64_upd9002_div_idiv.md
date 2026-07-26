@@ -42,7 +42,7 @@ repository documentation must be in English.
 
 ## Predecessor and identifiers
 
-Prerequisite: G63 explicitly approved and current ranking confirms F6.6/F6.7/F7.6/F7.7.
+Prerequisite: G62 explicitly approved and current ranking confirms F6.6/F6.7/F7.6/F7.7.
 
 Branch: `topic/m64-upd9002-div-idiv`
 
