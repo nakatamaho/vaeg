@@ -3594,9 +3594,10 @@ def verify_git_paths_unchanged(
         raise M60bError(f"{label} changed")
 
 
-def verify_protected_git_diff(root: pathlib.Path) -> None:
+def verify_protected_git_diff(
+    root: pathlib.Path, protected_evidence_only: bool = False
+) -> None:
     protected = [
-        "cpu/upd9002",
         "tests/ssts/baseline",
         "tests/ssts/epochs/g43",
         "tests/ssts/evidence/g59",
@@ -3608,6 +3609,8 @@ def verify_protected_git_diff(root: pathlib.Path) -> None:
         "tools/qa/upd9002_ssts.py",
         OLD_SUPPORT_MAP.as_posix(),
     ]
+    if not protected_evidence_only:
+        protected.append("cpu/upd9002")
     protected.extend(
         path.relative_to(root).as_posix()
         for base in (
@@ -3628,7 +3631,9 @@ def verify_protected_git_diff(root: pathlib.Path) -> None:
     )
 
 
-def verify_static(root: pathlib.Path) -> None:
+def verify_static(
+    root: pathlib.Path, protected_evidence_only: bool = False
+) -> None:
     try:
         ratchet.verify_static(root)
         m59.validate_pack(root, root / "tests/ssts/evidence/g59")
@@ -3654,7 +3659,7 @@ def verify_static(root: pathlib.Path) -> None:
     )
     if sha256_file(transition_path) != G60A_FULL_TRANSITION_SHA256:
         raise M60bError("approved G60a full transition differs")
-    verify_protected_git_diff(root)
+    verify_protected_git_diff(root, protected_evidence_only)
 
     authority_manifest = root / AUTHORITY_ROOT / "manifest.json"
     policy_path = root / TARGET_POLICY_PATH
@@ -3671,10 +3676,14 @@ def verify_static(root: pathlib.Path) -> None:
     if all(family):
         load_and_validate_authority_pack(root)
         validate_result_manifest(root, root)
+        scope = (
+            "protected evidence"
+            if protected_evidence_only
+            else "protected evidence and cpu/upd9002"
+        )
         print(
-            "m60b-static: protected G43/G58/G59/G60a evidence, "
-            "cpu/upd9002, ROM authority, target policy, scoreboards, "
-            "transitions, and result manifest passed"
+            f"m60b-static: {scope}, ROM authority, target policy, "
+            "scoreboards, transitions, and result manifest passed"
         )
     else:
         print(
@@ -4449,6 +4458,7 @@ def parse_args(argv: Iterable[str]) -> argparse.Namespace:
 
     static = subparsers.add_parser("verify-static")
     add_root(static)
+    static.add_argument("--protected-evidence-only", action="store_true")
 
     authority = subparsers.add_parser("generate-authority")
     add_root(authority)
@@ -4582,7 +4592,7 @@ def main(argv: Iterable[str] | None = None) -> int:
         if arguments.command == "selftest":
             selftest(root)
         elif arguments.command == "verify-static":
-            verify_static(root)
+            verify_static(root, arguments.protected_evidence_only)
         elif arguments.command == "generate-authority":
             generate_authority_pack(
                 root,

@@ -878,7 +878,8 @@ if(VAEG_ENABLE_TESTS)
         COMMAND "${Python3_EXECUTABLE}"
             "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/upd9002_m60b_authority.py"
             verify-static
-            --root "${CMAKE_CURRENT_SOURCE_DIR}")
+            --root "${CMAKE_CURRENT_SOURCE_DIR}"
+            --protected-evidence-only)
     set_tests_properties(vaeg_upd9002_m60b_authority_static PROPERTIES
         LABELS
             "romless;upd9002;ssts;ratchet;authority;target-policy;repository")
@@ -909,7 +910,8 @@ if(VAEG_ENABLE_TESTS)
         COMMAND "${Python3_EXECUTABLE}"
             "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/upd9002_m60c_audit.py"
             verify-static
-            --root "${CMAKE_CURRENT_SOURCE_DIR}")
+            --root "${CMAKE_CURRENT_SOURCE_DIR}"
+            --protected-evidence-only)
     set_tests_properties(vaeg_upd9002_m60c_audit_static PROPERTIES
         LABELS
             "romless;upd9002;ssts;authority;fpu;target-policy;repository")
@@ -925,7 +927,8 @@ if(VAEG_ENABLE_TESTS)
         COMMAND "${Python3_EXECUTABLE}"
             "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/upd9002_m60d_frame_audit.py"
             verify-static
-            --root "${CMAKE_CURRENT_SOURCE_DIR}")
+            --root "${CMAKE_CURRENT_SOURCE_DIR}"
+            --protected-evidence-only)
     set_tests_properties(vaeg_upd9002_m60d_frame_static PROPERTIES
         LABELS
             "romless;upd9002;ssts;evidence;interrupt-frame;repository")
