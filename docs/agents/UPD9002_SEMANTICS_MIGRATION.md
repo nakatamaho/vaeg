@@ -251,9 +251,12 @@ residual. M60e handles IRET separately.
 6. M62 — one-time consolidated gate for AAM, ROR4, mandatory ROL4 activation,
    BCD/ASCII adjust, and shifts. Each phase remains independently reviewable.
 7. M64 — DIV/IDIV plus the exact requested monitor-authorized ADD4S,
-   SUB4S, CMP4S, TEST1/NOT1/CLR1/SET1, and BRKEM families. Raw ROM
+   SUB4S, CMP4S, and TEST1/NOT1/CLR1/SET1 families. Raw ROM
    `(mask,value,group)` records are not instruction-byte sequences. ROL4 and
-   ROR4 remain protected G62 behavior; BRKFEM remains out of scope.
+   ROR4 remain protected G62 behavior; BRKFEM remains out of scope. The
+   approved SST v20 metadata names BRKEM (`0FFF`) but has no corresponding
+   shard, so M64 records an exact zero-case authority/coverage checkpoint and
+   does not claim or invent executable BRKEM semantics.
 8. M65 — residue re-plan, including F7 `/2`, BOUND, FF `/7`, `6C-6F`
    reserved behavior, BRKFEM, FPO2, remaining 0F forms, and prefixes.
 9. M66a — drop obsolete CPU286 save-state compatibility after generated residue work.
@@ -269,9 +272,9 @@ residual. M60e handles IRET separately.
 - Active `6C-6F` V20 handlers are not reachable or advertised as uPD9002 instructions; final
   reserved behavior is evidence-governed.
 - FPO2 status is positively resolved or explicitly pending without a false absence claim.
-- BRKFEM unresolved semantics remain explicit. BRKEM's implemented
-  compatibility scope and any unresolved silicon-mode identity remain
-  explicitly separated.
+- BRKFEM unresolved semantics remain explicit. BRKEM's zero-case SST coverage
+  and unresolved executable compatibility and silicon-mode semantics remain
+  explicitly separated until an approved corpus adds cases.
 - Historical G43/G58/G59 artifacts remain byte-identical and the 1,204 OUTS gain is never presented
   as target progress.
 - No active I286/i286c production identity remains.
