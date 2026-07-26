@@ -50,6 +50,14 @@ typedef struct {
 	UINT16 expected_flags;
 } DECIMAL_ADJUST_CASE;
 
+typedef struct {
+	UINT8 opcode;
+	UINT8 initial_al;
+	UINT8 input_flags;
+	UINT16 expected_ax;
+	UINT16 expected_flags;
+} ASCII_ADJUST_CASE;
+
 static UINT16 aam_expected_flags(UINT16 initial_flags, UINT8 value) {
 
 	UINT bits = value;
@@ -410,6 +418,46 @@ static int test_daa_das_semantics(void) {
 	return SUCCESS;
 }
 
+static int test_aaa_aas_semantics(void) {
+
+	static const ASCII_ADJUST_CASE cases[] = {
+		{0x37, 0x09, 0x00, 0x5a09, 0xf406},
+		{0x37, 0x0a, 0x00, 0x5b00, 0xf413},
+		{0x37, 0x40, 0x00, 0x5a00, 0xf402},
+		{0x37, 0x7a, 0x00, 0x5b00, 0xfc93},
+		{0x37, 0x7f, 0x00, 0x5b05, 0xfc93},
+		{0x37, 0xfa, 0x00, 0x5b00, 0xf457},
+		{0x37, 0x18, A_FLAG, 0x5b0e, 0xf417},
+		{0x3f, 0x09, 0x00, 0x5a09, 0xf406},
+		{0x3f, 0x0a, 0x00, 0x5904, 0xf413},
+		{0x3f, 0x56, 0x00, 0x5a06, 0xf406},
+		{0x3f, 0x7c, 0x00, 0x5906, 0xf413},
+		{0x3f, 0x80, A_FLAG, 0x590a, 0xfc13},
+		{0x3f, 0x85, A_FLAG, 0x590f, 0xfc13},
+		{0x3f, 0x00, A_FLAG, 0x590a, 0xf497},
+		{0x3f, 0x56, A_FLAG, 0x5900, 0xf417}
+	};
+	UINT index;
+
+	for (index = 0; index < NELEMENTS(cases); index++) {
+		const ASCII_ADJUST_CASE *const value = &cases[index];
+		const UINT8 instruction[] = {value->opcode};
+
+		setup_instruction(instruction, NELEMENTS(instruction),
+							(UINT16)(0x5a00 | value->initial_al),
+							(UINT16)(0xf402 | value->input_flags));
+		upd9002_core_step();
+		if ((CPU_AX != value->expected_ax) ||
+			(CPU_FLAG != value->expected_flags) || (CPU_IP != 0x0101)) {
+			fprintf(stderr,
+				"upd9002-m62: ASCII adjust %02x case %u differs\n",
+				value->opcode, index);
+			return FAILURE;
+		}
+	}
+	return SUCCESS;
+}
+
 int upd9002_semantics_bundle_main(void) {
 
 	upd9002_core_initialize();
@@ -419,7 +467,8 @@ int upd9002_semantics_bundle_main(void) {
 		(test_ror4_memory() != SUCCESS) ||
 		(test_rol4_registers() != SUCCESS) ||
 		(test_rol4_memory() != SUCCESS) ||
-		(test_daa_das_semantics() != SUCCESS)) {
+		(test_daa_das_semantics() != SUCCESS) ||
+		(test_aaa_aas_semantics() != SUCCESS)) {
 		upd9002_core_deinitialize();
 		return FAILURE;
 	}
