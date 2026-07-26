@@ -1,92 +1,37 @@
-<!--
-Copyright (c) 2026 Nakata Maho
+<!-- Copyright (c) 2026 Nakata Maho -->
+# M65 — Re-plan the complete target-correct residue after G64
 
-Redistribution and use in source and binary forms, with or without
-modification, are permitted provided that the following conditions are met:
-1. Redistributions of source code must retain the above copyright notice,
-   this list of conditions and the following disclaimer.
-2. Redistributions in binary form must reproduce the above copyright notice,
-   this list of conditions and the following disclaimer in the documentation
-   and/or other materials provided with the distribution.
+M65 is planning and evidence only. It uses approved G64
+`9b151923f9468555043152ffe8651c97b9ecac5b` and changes no production CPU,
+fixtures, contracts, target policy, selected/applicable sets, classifications,
+or taxonomy. No generated M65a-or-later task starts here.
 
-THIS SOFTWARE IS PROVIDED BY THE AUTHOR "AS IS" AND ANY EXPRESS OR IMPLIED
-WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
-MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO
-EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
-EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
-PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
-OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
-WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
-OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
-OF THE POSSIBILITY OF SUCH DAMAGE.
--->
-# M65 — Re-plan the target-correct structural and long-tail residue
+Branch: `topic/m65-upd9002-residue-plan`; commit prefix: `M65:`; gate: `G65`;
+report: `docs/agents/reports/m65_upd9002_residue_replan.md`.
 
-## Mandatory preparation
+Re-enumerate every exact G64 architectural failure (7,511 hashes) and every
+live `implementation_missing` hash (5,908 hashes), with pairwise-disjoint
+owners, selectors, sorted-hash digests, evidence, prerequisites, and human
+gates. Completed G62/G64 families are regression dependencies only: AAM,
+ROL4/ROR4, BCD/ASCII adjust, shifts, DIV/IDIV, ADD4S/SUB4S/CMP4S, and
+TEST1/CLR1/SET1/NOT1.
 
-Before doing any work:
+BRKEM `0F FF imm8` has metadata and monitor authority but no `0fff.json.gz`
+corpus shard: selected=0, executed=0, implemented=false, and passing is not
+claimed. It is deferred to a two-stage corpus/evidence approval then
+conditional implementation workflow. This deferral applies only to BRKEM.
+BRKFEM `0F FE imm8` is a separate evidence task; neither is implemented here.
 
-1. Read `AGENTS.md`.
-2. Read `docs/agents/ROADMAP.md` and `docs/agents/CONVENTIONS.md`.
-3. Read `docs/agents/UPD9002_SEMANTICS_MIGRATION.md`.
-4. Read this task and every report from prerequisite gates.
-5. Run `git status --short`; use a clean dedicated worktree at the exact approved predecessor SHA.
-6. Record the starting branch, SHA, remote, tool versions, and verified SST corpus identity.
-7. Resolve the approved predecessor from the maintainer-approved report; never infer it from HEAD,
-   a branch tip, a mutable tag, or milestone numbering.
-8. Execute this milestone only and stop at its candidate gate.
+Generate executable future tasks M65a, M65b, … for FF `/7`, BOUND residual,
+F7 `/2`, FF `/6`, the exact ten-case tail, 6C–6F reserved behavior, BRKEM,
+BRKFEM, 66/67/FPO2, remaining NEC 0F, reserved-opcode policy, prefix/restart
+evidence, and fingerprint-only diagnostics. Use the domains
+`applicable_semantic_failure`, `implementation_missing_with_executable_corpus`,
+`target_authority_evidence_required`, `corpus_required_before_implementation`,
+`production_cleanup_only`, `reserved_opcode_policy`,
+`prefix_or_restart_semantics`, `diagnostic_only`, and `no_further_action`.
 
-All newly authored source, comments, identifiers, commit messages, test names, schemas, and
-repository documentation must be in English.
-
-
-## Status and identifiers
-
-This is planning/evidence only. Prerequisite: G64 explicitly approved.
-
-Branch: `topic/m65-upd9002-residue-plan`
-
-Commit prefix: `M65:`
-
-Gate: `G65`
-
-## Goal
-
-Replace the residue bucket with actual independently gated tasks from the exact G64 target-correct
-scoreboard and all remaining `implementation_missing` entries.
-
-## Mandatory populations
-
-At minimum classify and plan:
-
-- F7 `/2` low-memory word RMW, kept separate from C6/C7;
-- BOUND range-decision residuals, separate from frame-only history;
-- FF `/7` normal-completion state behavior;
-- active `6C-6F` V20 handlers: acquire reserved-opcode behavior evidence, then remove or route them so
-  they are not reachable/advertised as uPD9002 string-I/O instructions; never return them to the
-  blocking denominator;
-- BRKFEM `0FFE` vector handling, destination mode, and return mechanism;
-- BRKEM/BRKFEM relationship and Z80-side RETEM/CALLN questions;
-- the M60c 66/67/FPO2 conclusion, including a separate implementation/profile-policy task if target
-  support is proven, or exact pending evidence if unresolved;
-- remaining NEC `0F` implementation-missing forms;
-- undefined/reserved opcode policy;
-- REPC/REPNC and multi-prefix restart;
-- remaining long-tail failures.
-
-Do not interpret missing FPO generic strings as absence. Do not plan INS/EXT or `6C-6F` V20
-semantics as implementation work after M60b target authority.
-
-## Required output
-
-For every proposed task provide exact selectors/hashes/digests, mismatch classes, evidence status,
-blast radius, prerequisite order, task/report/branch/gate names, and classification transitions.
-Create the actual future task files only after the decomposition is supported by evidence.
-
-## Gate G65
-
-No production semantic change. Every remaining applicable failure and implementation-missing entry
-has one non-overlapping owner or an explicit evidence task. Maintainer approval is required before
-any generated semantic task begins.
-
-Write `docs/agents/reports/m65_upd9002_residue_replan.md` and stop.
+Architectural owners must union exactly to 7,511; implementation-gap owners
+must union exactly to 5,908; zero-coverage authority items must not gain fake
+hashes. Unowned failure/gap/authority sets must be empty. Preserve M66a,
+M66b, and M67 identifiers unchanged. Stop at G65 human review.
