@@ -257,7 +257,12 @@ residual. M60e handles IRET separately.
    approved SST v20 metadata names BRKEM (`0FFF`) but has no corresponding
    shard, so M64 records an exact zero-case authority/coverage checkpoint and
    does not claim or invent executable BRKEM semantics.
-8. M65 — residue re-plan, including F7 `/2`, BOUND, FF `/7`, `6C-6F`
+8. M65 — evidence-only residue re-plan after approved G64. Enumerate all
+   7,511 architectural failures and 5,908 implementation-missing hashes with
+   disjoint owners. BRKEM (`0F FF imm8`) is explicitly deferred because the
+   v20 metadata exists but the `0fff.json.gz` corpus shard is absent; no cases
+   may be fabricated. Generated M65a-or-later tasks, M66a, M66b, and M67 do
+   not start in M65.
    reserved behavior, BRKFEM, FPO2, remaining 0F forms, and prefixes.
 9. M66a — drop obsolete CPU286 save-state compatibility after generated residue work.
 10. M66b — remove active I286/i286c identity.
