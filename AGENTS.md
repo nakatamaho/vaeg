@@ -31,6 +31,30 @@ run the bundled VA demo, boot an OS and perform simple operations.
 Never begin milestone N+1 until the user states that gate N passed.
 Always push the branch and report the exact commit SHAs when done.
 
+## CI and expensive-test discipline
+
+Do not use hosted CI as an iterative debugger. Before requesting a hosted CI
+run, complete the applicable local builds, tests, static validators, repository
+checks, and final-commit scope checks. Confirm that the intended commit chain
+and generated-evidence layout are final.
+
+Preserve expensive intermediate results in commits or untracked, task-specific
+work directories. Record the evaluated commit, worker-binary digest, corpus
+identity, comparison-contract identity, target-policy identity, exact command,
+exit status, and output digests. Reuse a completed SST or other expensive run
+when these identities are unchanged and the task contract permits reuse. A
+documentation-only, report-only, evidence-only, or validator-only edit does
+not by itself justify rerunning unchanged emulator behavior; prove that the
+build-relevant inputs and worker digest are unchanged instead. Never rerun an
+unchanged failing hosted job without first retrieving its exact log and
+addressing or explaining the failure locally.
+
+Push and run hosted CI only after local validation and commit ordering are
+settled. Prefer one final hosted run for the review candidate. If a hosted-only
+failure requires another attempt, preserve the prior results, make the
+smallest justified correction, rerun the affected local check, and avoid
+repeating unrelated jobs or profiles.
+
 ## Permanent bug-fix ledger
 
 `docs/modernization/bug-fixes.md` is the permanent correctness ledger for
