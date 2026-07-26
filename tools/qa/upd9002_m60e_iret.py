@@ -113,7 +113,7 @@ EXPECTED_CF_PASS_BEFORE = 1231
 EXPECTED_CF_FAILURE_BEFORE = 3769
 EXPECTED_CF_PASS_AFTER = 5000
 EXPECTED_CF_FAILURE_AFTER = 0
-IRET_STACK_MASK = 0x0ED5
+IRET_STACK_MASK = 0x0FD7
 IRET_FORCED_BITS = 0xF002
 VALID_RULES = {
     "loadable",
@@ -1604,15 +1604,13 @@ def verify_semantic_diff(root: pathlib.Path) -> None:
         removed
         == [
             "\tflag = (flag & 0x0fff) | 0xf002;",
-            "\tI286_FLAG = flag & (0xfff ^ O_FLAG);",
         ]
         and added
         == [
-            "\tflag = (flag & 0x0ed5) | 0xf002;",
-            "\tI286_FLAG = flag & (UINT16)~O_FLAG;",
+            "\tflag = (flag & 0x0fd7) | 0xf002;",
         ],
         "semantic-scope",
-        "production diff is not the two evidence-proven IRET FLAGS lines",
+        "production diff is not the one evidence-proven IRET FLAGS line",
     )
 
 
