@@ -77,6 +77,8 @@ the maintainer handoff and is independently available from
   `40a6b3ae62cc219410ac1f2aeb2d084fe0e57cd4`
 - Permanent bug-fix ledger SHA:
   `c302550fed36d2644516551d799d4b43bbe2573b`
+- Forward target-policy validator isolation SHA:
+  `e78127f44e41d51f12803726977d64c2eb643131`
 - Evidence commit/final candidate: the commit containing this report
 
 The primary worktree was not cleaned, reset, stashed, staged, or modified.
@@ -517,6 +519,19 @@ provenance/harness replacements are accepted only as complete exact sets.
 The seven formerly conflated checks then passed 7/7, followed by the complete
 61/61 suite.
 
+The first hosted run,
+[build 30193902710](https://github.com/nakatamaho/vaeg/actions/runs/30193902710),
+exposed the same boundary issue in the M60c and M60d static validators only
+after the generated G62 target-policy artifact became tracked. Both validators
+still treated the whole target-policy directory as an old-gate-owned path.
+The forward-policy validator commit narrows their historical ownership to the
+exact protected G60b policy artifacts and delegates the exact G62 policy and
+support-map transition to the M62 validator. Their ordinary pre-M62
+fail-closed behavior is unchanged. The two previously failing tests then
+passed 2/2 locally; their selftests and both M62 tests passed 4/4. All other
+tests in the failed GCC job had passed. The failed run was canceled once the
+common cause was identified rather than consuming the remaining CI matrix.
+
 Candidate raw profiles were preserved at:
 
 ```text
@@ -585,10 +600,11 @@ python3 tools/qa/milestone_ids.py --selftest --audit --discover
 git diff --check
 ```
 
-Hosted CI is intentionally launched only after the evidence-only commit
-containing this report is pushed. Its GitHub-assigned URL and successful
-conclusion are supplied in the maintainer handoff rather than self-referenced
-inside this report. Hosted CI is not used as an iterative debugger.
+The final hosted CI is launched only after the validator-only correction and
+the evidence-only follow-up containing this report are pushed. Its
+GitHub-assigned URL and successful conclusion are supplied in the maintainer
+handoff rather than self-referenced inside this report. Hosted CI is not used
+as an iterative debugger.
 
 ## Known limitations
 
