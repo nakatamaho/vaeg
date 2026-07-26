@@ -944,9 +944,25 @@ if(VAEG_ENABLE_TESTS)
         COMMAND "${Python3_EXECUTABLE}"
             "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/upd9002_m60e_iret.py"
             verify-static
-            --root "${CMAKE_CURRENT_SOURCE_DIR}")
+            --root "${CMAKE_CURRENT_SOURCE_DIR}"
+            --protected-evidence-only)
     set_tests_properties(vaeg_upd9002_m60e_iret_static PROPERTIES
         LABELS "romless;upd9002;ssts;evidence;iret;flags;repository")
+
+    add_test(NAME vaeg_upd9002_m61_mov_imm_selftest
+        COMMAND "${Python3_EXECUTABLE}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/upd9002_m61_mov_imm.py"
+            selftest)
+    set_tests_properties(vaeg_upd9002_m61_mov_imm_selftest PROPERTIES
+        LABELS "romless;upd9002;ssts;evidence;mov;semantics")
+
+    add_test(NAME vaeg_upd9002_m61_mov_imm_static
+        COMMAND "${Python3_EXECUTABLE}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/upd9002_m61_mov_imm.py"
+            verify-static
+            --root "${CMAKE_CURRENT_SOURCE_DIR}")
+    set_tests_properties(vaeg_upd9002_m61_mov_imm_static PROPERTIES
+        LABELS "romless;upd9002;ssts;evidence;mov;semantics;repository")
 
     add_test(NAME vaeg_upd9002_ssts_evidence_selftest
         COMMAND "${Python3_EXECUTABLE}"
@@ -1010,7 +1026,7 @@ if(VAEG_ENABLE_TESTS)
         endif()
         add_test(NAME vaeg_upd9002_ssts_ci_external
             COMMAND "${Python3_EXECUTABLE}"
-                "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/upd9002_m60e_ci.py"
+                "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/upd9002_m61_ci.py"
                 --root "${CMAKE_CURRENT_SOURCE_DIR}"
                 --dataset-root "${VAEG_SSTS_V20_ROOT}"
                 --worker "$<TARGET_FILE:vaeg_sdl2>"
