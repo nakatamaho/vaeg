@@ -486,6 +486,52 @@ I286FN v30shift_ea16_cl(void) {				// D3:	shift EA16, cl
 	sft_r16cl_table[(op >> 3) & 7](out, cl);
 }
 
+static void v30_adjust_flags(UINT8 value, BOOL adjust_low,
+							BOOL adjust_high, UINT overflow) {
+
+	I286_FLAGL = (UINT8)((I286_FLAGL & 0x02) |
+						(adjust_low ? A_FLAG : 0) |
+						(adjust_high ? C_FLAG : 0) |
+						BYTESZPF(value));
+	I286_OV = overflow;
+}
+
+I286FN v30_daa(void) {						// 27:	DAA
+
+	const UINT8 value = I286_AL;
+	const BOOL adjust_low =
+				((I286_FLAGL & A_FLAG) || ((value & 0x0f) > 9));
+	const BOOL adjust_high =
+				((I286_FLAGL & C_FLAG) || (value > 0x9f) ||
+				 ((value > 0x99) && !(I286_FLAGL & A_FLAG)));
+	const UINT8 delta = (UINT8)((adjust_low ? 6 : 0) +
+								(adjust_high ? 0x60 : 0));
+	const UINT8 result = (UINT8)(value + delta);
+
+	I286_WORKCLOCK(3);
+	I286_AL = result;
+	v30_adjust_flags(result, adjust_low, adjust_high,
+					(UINT)((~(value ^ delta) & (value ^ result)) & 0x80));
+}
+
+I286FN v30_das(void) {						// 2F:	DAS
+
+	const UINT8 value = I286_AL;
+	const BOOL adjust_low =
+				((I286_FLAGL & A_FLAG) || ((value & 0x0f) > 9));
+	const BOOL adjust_high =
+				((I286_FLAGL & C_FLAG) || (value > 0x9f) ||
+				 ((value > 0x99) && !(I286_FLAGL & A_FLAG)));
+	const UINT8 delta = (UINT8)((adjust_low ? 6 : 0) +
+								(adjust_high ? 0x60 : 0));
+	const UINT8 result = (UINT8)(value - delta);
+
+	I286_WORKCLOCK(3);
+	I286_AL = result;
+	v30_adjust_flags(result, adjust_low, adjust_high,
+					(UINT)(((value ^ delta) & (value ^ result)) & 0x80));
+}
+
 I286FN v30_aam(void) {						// D4:	AAM
 
 	UINT8	al;
@@ -1285,7 +1331,9 @@ I286FN v30_ope0x0f(void) {				// 0F:
 static const V30PATCH v30patch_op[] = {
 			{0x0f, v30_ope0x0f},			// 0F:
 			{0x26, v30segprefix_es},		// 26:	es:
+			{0x27, v30_daa},				// 27:	daa
 			{0x2e, v30segprefix_cs},		// 2E:	cs:
+			{0x2f, v30_das},				// 2F:	das
 			{0x36, v30segprefix_ss},		// 36:	ss:
 			{0x3e, v30segprefix_ds},		// 3E:	ds:
 			{0x54, v30push_sp},				// 54:	push	sp
