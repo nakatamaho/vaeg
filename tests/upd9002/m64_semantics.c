@@ -24,6 +24,7 @@
 
 #include "compiler.h"
 #include "cpucore.h"
+#include "i286c.h"
 #include "tests/upd9002/m64_semantics.h"
 
 #include <stdio.h>
@@ -276,16 +277,74 @@ static int test_packed_decimal_strings(void) {
 	return SUCCESS;
 }
 
+typedef struct {
+	UINT8 opcode;
+	UINT8 bit;
+	UINT16 initial_ax;
+	UINT16 expected_ax;
+	UINT16 expected_flag_mask;
+	BOOL immediate;
+	BOOL test_only;
+} BIT_OPERATION_CASE;
+
+static int test_bit_operations(void) {
+
+	static const BIT_OPERATION_CASE cases[] = {
+		{0x10, 7,  0x55aa, 0x55aa, 0x0080, FALSE, TRUE},
+		{0x11, 15, 0xd5aa, 0xd5aa, 0x0084, FALSE, TRUE},
+		{0x12, 7,  0x55aa, 0x552a, 0x00d5, FALSE, FALSE},
+		{0x13, 15, 0xd5aa, 0x55aa, 0x00d5, FALSE, FALSE},
+		{0x14, 7,  0x552a, 0x55aa, 0x00d5, FALSE, FALSE},
+		{0x15, 15, 0x55aa, 0xd5aa, 0x00d5, FALSE, FALSE},
+		{0x16, 7,  0x55aa, 0x552a, 0x00d5, FALSE, FALSE},
+		{0x17, 15, 0xd5aa, 0x55aa, 0x00d5, FALSE, FALSE},
+		{0x18, 7,  0x55aa, 0x55aa, 0x0080, TRUE, TRUE},
+		{0x19, 15, 0xd5aa, 0xd5aa, 0x0084, TRUE, TRUE},
+		{0x1a, 7,  0x55aa, 0x552a, 0x00d5, TRUE, FALSE},
+		{0x1b, 15, 0xd5aa, 0x55aa, 0x00d5, TRUE, FALSE},
+		{0x1c, 7,  0x552a, 0x55aa, 0x00d5, TRUE, FALSE},
+		{0x1d, 15, 0x55aa, 0xd5aa, 0x00d5, TRUE, FALSE},
+		{0x1e, 7,  0x55aa, 0x552a, 0x00d5, TRUE, FALSE},
+		{0x1f, 15, 0xd5aa, 0x55aa, 0x00d5, TRUE, FALSE}
+	};
+	UINT index;
+
+	for (index = 0; index < NELEMENTS(cases); index++) {
+		const BIT_OPERATION_CASE *const value = &cases[index];
+		UINT8 instruction[] = {0x0f, value->opcode, 0xc0, value->bit};
+		const UINT length = value->immediate ? 4 : 3;
+
+		setup_instruction(instruction, length, 0xfcd7);
+		CPU_AX = value->initial_ax;
+		if (!value->immediate) {
+			CPU_CL = value->bit;
+		}
+		upd9002_core_step();
+		if ((CPU_AX != value->expected_ax) ||
+			(CPU_IP != (UINT16)(0x0100 + length)) ||
+			((CPU_FLAG & 0x00d5) != value->expected_flag_mask) ||
+			(value->test_only && I286_OV) ||
+			(!value->test_only && (CPU_FLAG != 0xfcd7))) {
+			fprintf(stderr,
+				"upd9002-m64: bit operation 0F%02X differs\n",
+				value->opcode);
+			return FAILURE;
+		}
+	}
+	return SUCCESS;
+}
+
 int upd9002_m64_semantics_main(void) {
 
 	upd9002_core_initialize();
 	if ((test_div8() != SUCCESS) || (test_idiv8() != SUCCESS) ||
 		(test_div16() != SUCCESS) || (test_idiv16() != SUCCESS) ||
-		(test_packed_decimal_strings() != SUCCESS)) {
+		(test_packed_decimal_strings() != SUCCESS) ||
+		(test_bit_operations() != SUCCESS)) {
 		upd9002_core_deinitialize();
 		return FAILURE;
 	}
 	upd9002_core_deinitialize();
-	puts("upd9002-m64-semantics: DIV/IDIV and packed-BCD checks passed");
+	puts("upd9002-m64-semantics: arithmetic and 0F checks passed");
 	return SUCCESS;
 }
