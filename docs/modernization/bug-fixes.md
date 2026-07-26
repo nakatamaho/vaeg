@@ -675,6 +675,33 @@ separate parity correction or move it to Open Defects.
   [M60e report](../agents/reports/m60e_upd9002_iret.md).
 - **Commit:** [7f815acb](https://github.com/nakatamaho/vaeg/commit/7f815acb26f1be546bbcfd5de12972235dfd175c).
 
+### uPD9002 C6/C7 register forms wrote the ModR/M extension register
+
+- **Status:** fixed in the M61 implementation; G61 candidate review pending.
+- **Symptom:** 1,088 C6 and 1,120 C7 applicable SST records failed. The
+  encoded destination did not receive the immediate, and a different register
+  could change instead.
+- **Affected scope:** register-destination forms of `C6 /0 MOV r/m8, imm8` and
+  `C7 /0 MOV r/m16, imm16`. Their memory forms and all other instruction
+  families are unchanged.
+- **Demonstrated root cause:** both register-form paths selected ModR/M bits
+  5:3 through `REG8_B53` or `REG16_B53`. Complete pre-fix replay and direct
+  code inspection show that the executed SST population selects the
+  destination through r/m bits 2:0. The 161 C6 and 154 C7 pre-fix
+  register-form passes are exactly the records where those two fields happen
+  to name the same register; they are not value-coincidence passes.
+- **Correction:** select the byte or word register through `REG8_B20` or
+  `REG16_B20`. Immediate fetch, instruction length, FLAGS, termination, and
+  the memory paths are unchanged.
+- **Verification:** focused tests cover all eight byte-register encodings, all
+  eight word-register encodings, immediate edge values, paired-byte and
+  unrelated-register preservation, and representative memory displacement,
+  segment-override, 16-bit offset-wrap, and 20-bit physical-wrap cases.
+  Complete G61 SST results are recorded in the milestone report.
+- **Evidence:** [M61 task](../agents/tasks/M61_upd9002_mov_immediate_register.md)
+  and [M61 report](../agents/reports/m61_upd9002_mov_imm_register.md).
+- **Commit:** [90fa7dec](https://github.com/nakatamaho/vaeg/commit/90fa7dec5d46708a807851f61ae0792ee39e9b8f).
+
 ## Open Defects
 
 ### Legacy Z80 reset leaves saved undocumented flag bits uninitialized
