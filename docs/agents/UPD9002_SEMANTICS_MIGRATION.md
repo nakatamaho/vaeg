@@ -32,8 +32,11 @@ Repository: `github.com/nakatamaho/vaeg`
 - M59 analysis/evaluated SHA is `7b4bd12aecf92e8fe8299d8b1ec5e48bbb1b61a7`.
 - G60a through G61 are approved historical gates. G61 is approved at
   `829f314bb0d363ec5b6e9aa738e948b1a3adb365`.
-- M62 is the next prospective gate and is the one-time consolidation defined
-  by its canonical task.
+- G62 is approved at
+  `70b8e94e96aef4cb79eed72c7813c4148c5c0dd8`.
+- M64 is the next prospective gate. Its maintainer-approved scope expansion
+  combines DIV/IDIV with the exact requested monitor-authorized 0F support
+  while retaining separate phase audits, semantic commits, and evidence.
 
 Codex executes one milestone or lettered submilestone per session and stops at its candidate gate.
 
@@ -228,6 +231,10 @@ residual. M60e handles IRET separately.
 - M62 is the one maintainer-approved exception: AAM, ROR4, ROL4 activation,
   BCD/ASCII adjust, and shifts share G62 only while retaining separate
   pre-edit audits, semantic commits, phase manifests, and hash ownership.
+- M64 is a second explicit maintainer-approved exception: DIV/IDIV,
+  ADD4S/SUB4S/CMP4S, TEST1/NOT1/CLR1/SET1, and BRKEM share G64 only while
+  retaining separate phase audits, semantic commits, phase manifests, and
+  exact hash ownership.
 - Do not stack semantic PRs on unapproved predecessors.
 - No semantic changes after evidence generation.
 - Evidence-only and rename-only commits remain separate.
@@ -243,9 +250,12 @@ residual. M60e handles IRET separately.
 5. M61 — C6/C7 register-form MOV immediate; F7 `/2` remains separate.
 6. M62 — one-time consolidated gate for AAM, ROR4, mandatory ROL4 activation,
    BCD/ASCII adjust, and shifts. Each phase remains independently reviewable.
-7. M64 — DIV/IDIV.
-8. M65 — residue re-plan, including F7 `/2`, BOUND, FF `/7`, `6C-6F` reserved behavior,
-    BRKFEM/BRKEM, FPO2, remaining 0F forms, and prefixes.
+7. M64 — DIV/IDIV plus the exact requested monitor-authorized ADD4S,
+   SUB4S, CMP4S, TEST1/NOT1/CLR1/SET1, and BRKEM families. Raw ROM
+   `(mask,value,group)` records are not instruction-byte sequences. ROL4 and
+   ROR4 remain protected G62 behavior; BRKFEM remains out of scope.
+8. M65 — residue re-plan, including F7 `/2`, BOUND, FF `/7`, `6C-6F`
+   reserved behavior, BRKFEM, FPO2, remaining 0F forms, and prefixes.
 9. M66a — drop obsolete CPU286 save-state compatibility after generated residue work.
 10. M66b — remove active I286/i286c identity.
 11. M67 — final divergence and hardware-question consolidation.
@@ -259,7 +269,9 @@ residual. M60e handles IRET separately.
 - Active `6C-6F` V20 handlers are not reachable or advertised as uPD9002 instructions; final
   reserved behavior is evidence-governed.
 - FPO2 status is positively resolved or explicitly pending without a false absence claim.
-- BRKFEM/BRKEM unresolved semantics remain explicit.
+- BRKFEM unresolved semantics remain explicit. BRKEM's implemented
+  compatibility scope and any unresolved silicon-mode identity remain
+  explicitly separated.
 - Historical G43/G58/G59 artifacts remain byte-identical and the 1,204 OUTS gain is never presented
   as target progress.
 - No active I286/i286c production identity remains.
