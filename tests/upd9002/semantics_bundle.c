@@ -58,6 +58,15 @@ typedef struct {
 	UINT16 expected_flags;
 } ASCII_ADJUST_CASE;
 
+typedef struct {
+	UINT8 opcode;
+	UINT8 subform;
+	UINT8 count;
+	UINT16 initial_destination;
+	UINT16 expected_destination;
+	UINT16 expected_flags;
+} SHIFT_CASE;
+
 static UINT16 aam_expected_flags(UINT16 initial_flags, UINT8 value) {
 
 	UINT bits = value;
@@ -458,6 +467,171 @@ static int test_aaa_aas_semantics(void) {
 	return SUCCESS;
 }
 
+static int test_shift_registers(void) {
+
+	static const SHIFT_CASE cases[] = {
+		{0xc0, 4,   0, 0x0095, 0x0095, 0xfcd7},
+		{0xc0, 4,   1, 0x0095, 0x002a, 0xfc03},
+		{0xc0, 4,   2, 0x0095, 0x0054, 0xf402},
+		{0xc0, 4,   7, 0x0095, 0x0080, 0xfc82},
+		{0xc0, 4,   8, 0x0095, 0x0000, 0xfc47},
+		{0xc0, 4,   9, 0x0095, 0x0000, 0xf446},
+		{0xc0, 4,  31, 0x0095, 0x0000, 0xf446},
+		{0xc0, 4,  32, 0x0095, 0x0000, 0xf446},
+		{0xc0, 4,  33, 0x0095, 0x0000, 0xf446},
+		{0xc0, 4, 255, 0x0095, 0x0000, 0xf446},
+		{0xc0, 5,   1, 0x0095, 0x004a, 0xfc03},
+		{0xc0, 5,   2, 0x0095, 0x0025, 0xf402},
+		{0xc0, 5,   8, 0x0095, 0x0000, 0xf447},
+		{0xc0, 5,   9, 0x0095, 0x0000, 0xf446},
+		{0xc0, 6,   1, 0x0095, 0x002a, 0xfc03},
+		{0xc0, 6,   9, 0x0095, 0x0000, 0xf446},
+		{0xc0, 7,   1, 0x0095, 0x00ca, 0xf487},
+		{0xc0, 7,   2, 0x0095, 0x00e5, 0xf482},
+		{0xc0, 7,   8, 0x0095, 0x00ff, 0xf487},
+		{0xc0, 7,   9, 0x0095, 0x00ff, 0xf487},
+		{0xc1, 4,   0, 0x95a5, 0x95a5, 0xfcd7},
+		{0xc1, 4,   1, 0x95a5, 0x2b4a, 0xfc03},
+		{0xc1, 4,   2, 0x95a5, 0x5694, 0xf402},
+		{0xc1, 4,  15, 0x95a5, 0x8000, 0xfc86},
+		{0xc1, 4,  16, 0x95a5, 0x0000, 0xfc47},
+		{0xc1, 4,  17, 0x95a5, 0x0000, 0xf446},
+		{0xc1, 4,  31, 0x95a5, 0x0000, 0xf446},
+		{0xc1, 4,  32, 0x95a5, 0x0000, 0xf446},
+		{0xc1, 4,  33, 0x95a5, 0x0000, 0xf446},
+		{0xc1, 4, 255, 0x95a5, 0x0000, 0xf446},
+		{0xc1, 5,   1, 0x95a5, 0x4ad2, 0xfc07},
+		{0xc1, 5,   2, 0x95a5, 0x2569, 0xf406},
+		{0xc1, 5,  16, 0x95a5, 0x0000, 0xf447},
+		{0xc1, 5,  17, 0x95a5, 0x0000, 0xf446},
+		{0xc1, 6,   1, 0x95a5, 0x2b4a, 0xfc03},
+		{0xc1, 6,  17, 0x95a5, 0x0000, 0xf446},
+		{0xc1, 7,   1, 0x95a5, 0xcad2, 0xf487},
+		{0xc1, 7,   2, 0x95a5, 0xe569, 0xf486},
+		{0xc1, 7,  16, 0x95a5, 0xffff, 0xf487},
+		{0xc1, 7,  17, 0x95a5, 0xffff, 0xf487},
+		{0xd2, 4,  33, 0x00d3, 0x0000, 0xf446},
+		{0xd2, 5,  31, 0x00d3, 0x0000, 0xf446},
+		{0xd2, 6, 255, 0x00d3, 0x0000, 0xf446},
+		{0xd2, 7,  32, 0x00d3, 0x00ff, 0xf487},
+		{0xd2, 7,   9, 0x0035, 0x0000, 0xf446},
+		{0xd3, 4,  33, 0xd357, 0x0000, 0xf446},
+		{0xd3, 5,  31, 0xd357, 0x0000, 0xf446},
+		{0xd3, 6, 255, 0xd357, 0x0000, 0xf446},
+		{0xd3, 7,  32, 0xd357, 0xffff, 0xf487},
+		{0xd3, 7,  17, 0x3579, 0x0000, 0xf446}
+	};
+	UINT index;
+
+	for (index = 0; index < NELEMENTS(cases); index++) {
+		const SHIFT_CASE *const value = &cases[index];
+		UINT8 instruction[3] = {
+			value->opcode, (UINT8)(0xc0 | (value->subform << 3)),
+			value->count
+		};
+		const BOOL immediate = ((value->opcode == 0xc0) ||
+								(value->opcode == 0xc1));
+		const BOOL word = ((value->opcode == 0xc1) ||
+							(value->opcode == 0xd3));
+		const UINT length = immediate ? 3 : 2;
+
+		setup_instruction(instruction, length, value->initial_destination,
+							0xfcd7);
+		if (!immediate) {
+			CPU_CL = value->count;
+		}
+		upd9002_core_step();
+		if (((word ? CPU_AX : CPU_AL) != value->expected_destination) ||
+			(!word && (CPU_AH != (UINT8)(value->initial_destination >> 8))) ||
+			(CPU_FLAG != value->expected_flags) ||
+			(CPU_IP != (UINT16)(0x0100 + length))) {
+			fprintf(stderr,
+				"upd9002-m62: shift register case %u differs\n", index);
+			return FAILURE;
+		}
+	}
+	return SUCCESS;
+}
+
+static int test_shift_memory_and_rotate_protection(void) {
+
+	static const UINT8 c0_memory[] =
+						{0xc0, 0x26, 0x34, 0x12, 0x09};
+	static const UINT8 c1_memory[] =
+						{0xc1, 0x3e, 0x34, 0x12, 0x11};
+	static const UINT8 d2_physical_wrap[] =
+						{0x26, 0xd2, 0x2e, 0x10, 0x00};
+	static const UINT8 d3_offset_wrap[] = {0xd3, 0x20};
+	const UINT32 direct = (((UINT32)0x3333 << 4) + 0x1234) & 0xfffff;
+	UINT subform;
+
+	setup_instruction(c0_memory, NELEMENTS(c0_memory), 0x5a00, 0xfcd7);
+	mem[direct] = 0x95;
+	upd9002_core_step();
+	if ((mem[direct] != 0x00) || (CPU_FLAG != 0xf446) ||
+		(CPU_IP != 0x0105)) {
+		fprintf(stderr, "upd9002-m62: C0 memory shift differs\n");
+		return FAILURE;
+	}
+
+	setup_instruction(c1_memory, NELEMENTS(c1_memory), 0x5a00, 0xfcd7);
+	mem[direct] = 0xa5;
+	mem[(direct + 1) & 0xfffff] = 0x95;
+	upd9002_core_step();
+	if ((mem[direct] != 0xff) || (mem[(direct + 1) & 0xfffff] != 0xff) ||
+		(CPU_FLAG != 0xf487) || (CPU_IP != 0x0105)) {
+		fprintf(stderr,
+			"upd9002-m62: C1 memory shift differs: %02x %02x %04x %04x\n",
+			mem[direct], mem[(direct + 1) & 0xfffff], CPU_FLAG, CPU_IP);
+		return FAILURE;
+	}
+
+	setup_instruction(d2_physical_wrap, NELEMENTS(d2_physical_wrap),
+						0x5a00, 0xfcd7);
+	CPU_ES = 0xffff;
+	ES_BASE = (UINT32)CPU_ES << 4;
+	CPU_CL = 8;
+	mem[0] = 0x95;
+	upd9002_core_step();
+	if ((mem[0] != 0x00) || (CPU_FLAG != 0xf447) ||
+		(CPU_IP != 0x0105)) {
+		fprintf(stderr, "upd9002-m62: D2 physical-wrap shift differs\n");
+		return FAILURE;
+	}
+
+	setup_instruction(d3_offset_wrap, NELEMENTS(d3_offset_wrap),
+						0x5a00, 0xfcd7);
+	CPU_BX = 0xffff;
+	CPU_SI = 0x0002;
+	CPU_CL = 16;
+	mem[(DS_BASE + 1) & 0xfffff] = 0xa5;
+	mem[(DS_BASE + 2) & 0xfffff] = 0x95;
+	upd9002_core_step();
+	if ((mem[(DS_BASE + 1) & 0xfffff] != 0x00) ||
+		(mem[(DS_BASE + 2) & 0xfffff] != 0x00) ||
+		(CPU_FLAG != 0xfc47) || (CPU_IP != 0x0102)) {
+		fprintf(stderr, "upd9002-m62: D3 offset-wrap shift differs\n");
+		return FAILURE;
+	}
+
+	for (subform = 0; subform < 4; subform++) {
+		const UINT8 instruction[] =
+			{0xc0, (UINT8)(0xc0 | (subform << 3)), 0x00};
+
+		setup_instruction(instruction, NELEMENTS(instruction),
+							0x5a95, 0xfcd7);
+		upd9002_core_step();
+		if ((CPU_AX != 0x5a95) || (CPU_FLAG != 0xfcd7) ||
+			(CPU_IP != 0x0103)) {
+			fprintf(stderr,
+				"upd9002-m62: rotate subform %u count-zero changed\n",
+				subform);
+			return FAILURE;
+		}
+	}
+	return SUCCESS;
+}
+
 int upd9002_semantics_bundle_main(void) {
 
 	upd9002_core_initialize();
@@ -468,7 +642,9 @@ int upd9002_semantics_bundle_main(void) {
 		(test_rol4_registers() != SUCCESS) ||
 		(test_rol4_memory() != SUCCESS) ||
 		(test_daa_das_semantics() != SUCCESS) ||
-		(test_aaa_aas_semantics() != SUCCESS)) {
+		(test_aaa_aas_semantics() != SUCCESS) ||
+		(test_shift_registers() != SUCCESS) ||
+		(test_shift_memory_and_rotate_protection() != SUCCESS)) {
 		upd9002_core_deinitialize();
 		return FAILURE;
 	}

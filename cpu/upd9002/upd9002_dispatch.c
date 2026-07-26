@@ -326,14 +326,119 @@ I286FN v30_popf(void) {						// 9D:	popf
 	I286IRQCHECKTERM
 }
 
+static UINT8 v30_ea8_read(UINT op, UINT32 *madr);
+static void v30_ea8_write(UINT op, UINT32 madr, UINT8 value);
+static UINT16 v30_ea16_read(UINT op, UINT32 *madr);
+static void v30_ea16_write(UINT op, UINT32 madr, UINT16 value);
+
+static UINT8 v30_shift8(UINT8 value, UINT count, UINT subform) {
+
+	UINT8	result;
+	UINT8	carry;
+
+	if (!count) {
+		return value;
+	}
+	switch (subform) {
+	case 4:
+	case 6:
+		result = (count < 8) ? (UINT8)(value << count) : 0;
+		carry = (count <= 8) ? (UINT8)((value >> (8 - count)) & 1) : 0;
+		I286_OV = ((result >> 7) ^ carry) & 1;
+		break;
+
+	case 5:
+		result = (count < 8) ? (UINT8)(value >> count) : 0;
+		carry = (count <= 8) ? (UINT8)((value >> (count - 1)) & 1) : 0;
+		I286_OV = ((result >> 7) ^ (result >> 6)) & 1;
+		break;
+
+	default:
+		if (count < 8) {
+			result = (UINT8)(value >> count);
+			if (value & 0x80) {
+				result |= (UINT8)(0xffU << (8 - count));
+			}
+		}
+		else {
+			result = (value & 0x80) ? 0xff : 0;
+		}
+		carry = (count <= 8) ? (UINT8)((value >> (count - 1)) & 1) :
+								(UINT8)((value >> 7) & 1);
+		I286_OV = 0;
+		break;
+	}
+	I286_FLAGL = (UINT8)((I286_FLAGL & 0x02) | carry |
+								BYTESZPF(result));
+	return result;
+}
+
+static UINT16 v30_shift16(UINT16 value, UINT count, UINT subform) {
+
+	UINT16	result;
+	UINT8	carry;
+
+	if (!count) {
+		return value;
+	}
+	switch (subform) {
+	case 4:
+	case 6:
+		result = (count < 16) ? (UINT16)(value << count) : 0;
+		carry = (count <= 16) ?
+							(UINT8)((value >> (16 - count)) & 1) : 0;
+		I286_OV = ((result >> 15) ^ carry) & 1;
+		break;
+
+	case 5:
+		result = (count < 16) ? (UINT16)(value >> count) : 0;
+		carry = (count <= 16) ?
+							(UINT8)((value >> (count - 1)) & 1) : 0;
+		I286_OV = ((result >> 15) ^ (result >> 14)) & 1;
+		break;
+
+	default:
+		if (count < 16) {
+			result = (UINT16)(value >> count);
+			if (value & 0x8000) {
+				result |= (UINT16)(0xffffU << (16 - count));
+			}
+		}
+		else {
+			result = (value & 0x8000) ? 0xffff : 0;
+		}
+		carry = (count <= 16) ?
+							(UINT8)((value >> (count - 1)) & 1) :
+							(UINT8)((value >> 15) & 1);
+		I286_OV = 0;
+		break;
+	}
+	I286_FLAGL = (UINT8)((I286_FLAGL & 0x02) | carry |
+								WORDSZPF(result));
+	return result;
+}
+
 I286FN v30shift_ea8_data8(void) {			// C0:	shift	EA8, DATA8
 
 	UINT8	*out;
 	UINT	op;
-	UINT32	madr;
+	UINT32	madr = 0;
 	REG8	cl;
 
 	GET_PCBYTE(op)
+	if (op & 0x20) {
+		UINT8	value;
+
+		I286_WORKCLOCK((op >= 0xc0) ? 5 : 8);
+		value = v30_ea8_read(op, &madr);
+		GET_PCBYTE(cl)
+		I286_WORKCLOCK(cl);
+		if (cl) {
+			v30_ea8_write(op, madr,
+						v30_shift8(value, cl, (op >> 3) & 7));
+		}
+		return;
+	}
 	if (op >= 0xc0) {
 		I286_WORKCLOCK(5);
 		out = REG8_B20(op);
@@ -370,10 +475,23 @@ I286FN v30shift_ea16_data8(void) {			// C1:	shift	EA16, DATA8
 
 	UINT16	*out;
 	UINT	op;
-	UINT32	madr;
+	UINT32	madr = 0;
 	REG8	cl;
 
 	GET_PCBYTE(op)
+	if (op & 0x20) {
+		UINT16	value;
+
+		I286_WORKCLOCK((op >= 0xc0) ? 5 : 8);
+		value = v30_ea16_read(op, &madr);
+		GET_PCBYTE(cl);
+		I286_WORKCLOCK(cl);
+		if (cl) {
+			v30_ea16_write(op, madr,
+						v30_shift16(value, cl, (op >> 3) & 7));
+		}
+		return;
+	}
 	if (op >= 0xc0) {
 		I286_WORKCLOCK(5);
 		out = REG16_B20(op);
@@ -410,10 +528,23 @@ I286FN v30shift_ea8_cl(void) {				// D2:	shift EA8, cl
 
 	UINT8	*out;
 	UINT	op;
-	UINT32	madr;
+	UINT32	madr = 0;
 	REG8	cl;
 
 	GET_PCBYTE(op)
+	if (op & 0x20) {
+		UINT8	value;
+
+		I286_WORKCLOCK((op >= 0xc0) ? 5 : 8);
+		value = v30_ea8_read(op, &madr);
+		cl = I286_CL;
+		I286_WORKCLOCK(cl);
+		if (cl) {
+			v30_ea8_write(op, madr,
+						v30_shift8(value, cl, (op >> 3) & 7));
+		}
+		return;
+	}
 	if (op >= 0xc0) {
 		I286_WORKCLOCK(5);
 		out = REG8_B20(op);
@@ -450,10 +581,23 @@ I286FN v30shift_ea16_cl(void) {				// D3:	shift EA16, cl
 
 	UINT16	*out;
 	UINT	op;
-	UINT32	madr;
+	UINT32	madr = 0;
 	REG8	cl;
 
 	GET_PCBYTE(op)
+	if (op & 0x20) {
+		UINT16	value;
+
+		I286_WORKCLOCK((op >= 0xc0) ? 5 : 8);
+		value = v30_ea16_read(op, &madr);
+		cl = I286_CL;
+		I286_WORKCLOCK(cl);
+		if (cl) {
+			v30_ea16_write(op, madr,
+						v30_shift16(value, cl, (op >> 3) & 7));
+		}
+		return;
+	}
 	if (op >= 0xc0) {
 		I286_WORKCLOCK(5);
 		out = REG16_B20(op);
