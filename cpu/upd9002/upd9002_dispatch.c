@@ -532,6 +532,40 @@ I286FN v30_das(void) {						// 2F:	DAS
 					(UINT)(((value ^ delta) & (value ^ result)) & 0x80));
 }
 
+I286FN v30_aaa(void) {						// 37:	AAA
+
+	const UINT8 value = I286_AL;
+	const BOOL adjust =
+				((I286_FLAGL & A_FLAG) || ((value & 0x0f) > 9));
+	UINT8 result = value;
+
+	I286_WORKCLOCK(3);
+	if (adjust) {
+		result = (UINT8)(value + 6);
+		I286_AH++;
+	}
+	I286_AL = result & 0x0f;
+	v30_adjust_flags(result, adjust, adjust,
+					(UINT)((~(value ^ 6) & (value ^ result)) & 0x80));
+}
+
+I286FN v30_aas(void) {						// 3F:	AAS
+
+	const UINT8 value = I286_AL;
+	const BOOL adjust =
+				((I286_FLAGL & A_FLAG) || ((value & 0x0f) > 9));
+	UINT8 result = value;
+
+	I286_WORKCLOCK(3);
+	if (adjust) {
+		result = (UINT8)(value - 6);
+		I286_AH--;
+	}
+	I286_AL = result & 0x0f;
+	v30_adjust_flags(result, adjust, adjust,
+					(UINT)(((value ^ 6) & (value ^ result)) & 0x80));
+}
+
 I286FN v30_aam(void) {						// D4:	AAM
 
 	UINT8	al;
@@ -1335,7 +1369,9 @@ static const V30PATCH v30patch_op[] = {
 			{0x2e, v30segprefix_cs},		// 2E:	cs:
 			{0x2f, v30_das},				// 2F:	das
 			{0x36, v30segprefix_ss},		// 36:	ss:
+			{0x37, v30_aaa},				// 37:	aaa
 			{0x3e, v30segprefix_ds},		// 3E:	ds:
+			{0x3f, v30_aas},				// 3F:	aas
 			{0x54, v30push_sp},				// 54:	push	sp
 			{0x63, v30_reserved},			// 63:	reserved
 			{0x64, v30_reserved_0x0f},		// 64:	repnc
