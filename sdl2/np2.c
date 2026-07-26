@@ -78,6 +78,9 @@
 #if defined(VAEG_UPD9002_M62_TESTING)
 #include	"tests/upd9002/semantics_bundle.h"
 #endif
+#if defined(VAEG_UPD9002_M64_TESTING)
+#include	"tests/upd9002/m64_semantics.h"
+#endif
 #if defined(VAEG_UPD9002_SSTS_TESTING)
 #include	"tests/upd9002/ssts_worker.h"
 #endif
@@ -1459,6 +1462,11 @@ int main(int argc, char **argv) {
 	if ((argc == 2) &&
 		!strcmp(argv[1], "--upd9002-m62-semantics-bundle")) {
 		return upd9002_semantics_bundle_main();
+	}
+#endif
+#if defined(VAEG_UPD9002_M64_TESTING)
+	if ((argc == 2) && !strcmp(argv[1], "--upd9002-m64-semantics")) {
+		return upd9002_m64_semantics_main();
 	}
 #endif
 #if defined(VAEG_UPD9002_SSTS_TESTING)
