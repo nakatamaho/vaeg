@@ -115,37 +115,61 @@ static int run_restoration_case(const char *name, UINT16 ss, UINT16 sp,
 static int test_stack_contract(void) {
 
 	if (run_restoration_case("ordinary", 0x3000, 0x8000,
-					0x1234, 0xabcd, 0x0202, 0x0202) != SUCCESS ||
+					0x1234, 0xabcd, 0x0202, 0xf202) != SUCCESS ||
 		run_restoration_case("segment offset wrap", 0x2345, 0xfffc,
-					0x0000, 0xffff, 0x0202, 0x0202) != SUCCESS ||
+					0x0000, 0xffff, 0x0202, 0xf202) != SUCCESS ||
 		run_restoration_case("physical wrap", 0xffff, 0x000c,
-					0xffff, 0x0000, 0x0202, 0x0202) != SUCCESS) {
+					0xffff, 0x0000, 0x0202, 0xf202) != SUCCESS) {
 		return FAILURE;
 	}
 	return SUCCESS;
 }
 
-static int test_pre_fix_flags_characterization(void) {
+static int test_flags_restoration(void) {
 
-	/*
-	 * The pre-fix audit proves that the legacy IRET path loads stack bits
-	 * 3 and 5.  The semantic commit replaces this characterization with
-	 * the independently derived SST rule.
-	 */
-	return run_restoration_case("legacy reserved bits", 0x3000, 0x8000,
-					0x7654, 0x3210, 0x0028, 0x002a);
+	static const struct {
+		UINT16 stack_flags;
+		UINT16 expected_flags;
+	} cases[] = {
+		{0x0000, 0xf002},
+		{0x0001, 0xf003},
+		{0x0002, 0xf002},
+		{0x0004, 0xf006},
+		{0x0008, 0xf002},
+		{0x0010, 0xf012},
+		{0x0020, 0xf002},
+		{0x0040, 0xf042},
+		{0x0080, 0xf082},
+		{0x0200, 0xf202},
+		{0x0400, 0xf402},
+		{0x0800, 0xf802},
+		{0x1000, 0xf002},
+		{0x2000, 0xf002},
+		{0x4000, 0xf002},
+		{0x8000, 0xf002}
+	};
+	UINT index;
+
+	for (index = 0; index < NELEMENTS(cases); index++) {
+		if (run_restoration_case("FLAGS bit rule", 0x3000, 0x8000,
+						0x7654, 0x3210, cases[index].stack_flags,
+						cases[index].expected_flags) != SUCCESS) {
+			return FAILURE;
+		}
+	}
+	return SUCCESS;
 }
 
 int upd9002_iret_restoration_main(void) {
 
 	upd9002_core_initialize();
 	if ((test_stack_contract() != SUCCESS) ||
-		(test_pre_fix_flags_characterization() != SUCCESS)) {
+		(test_flags_restoration() != SUCCESS)) {
 		upd9002_core_deinitialize();
 		return FAILURE;
 	}
 	upd9002_core_deinitialize();
 	fprintf(stderr,
-		"upd9002-iret-restoration: pre-fix contract checks passed\n");
+		"upd9002-iret-restoration: corrected contract checks passed\n");
 	return SUCCESS;
 }

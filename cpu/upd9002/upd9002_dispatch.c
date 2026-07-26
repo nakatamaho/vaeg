@@ -1168,9 +1168,9 @@ I286FN v30_iret(void) {					// CF: iret
 	REGPOP0(I286_CS)
 	REGPOP0(flag)
 	CS_BASE = I286_CS << 4;
-	flag = (flag & 0x0fff) | 0xf002;
+	flag = (flag & 0x0ed5) | 0xf002;
 	I286_OV = flag & O_FLAG;
-	I286_FLAG = flag & (0xfff ^ O_FLAG);
+	I286_FLAG = flag & (UINT16)~O_FLAG;
 	I286_TRAP = ((flag & T_FLAG) != 0);
 	I286_WORKCLOCK(31);
 	if ((I286_TRAP) || ((flag & I_FLAG) && (PICEXISTINTR))) {
