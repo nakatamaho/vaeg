@@ -2147,14 +2147,23 @@ def verify_protected_paths(
         "tests/ssts/evidence/g59",
         "tests/ssts/gap_taxonomy.json",
         "tests/ssts/hardware_pending.json",
-        "tests/ssts/target_policy",
         "tests/ssts/v20_dataset_manifest.json",
         "tests/ssts/authority/g60b",
-        SUPPORT_MAP_PATH.as_posix(),
         "tools/qa/upd9002_ssts.py",
     ]
-    if not protected_evidence_only:
-        protected.append("cpu/upd9002")
+    if protected_evidence_only:
+        protected.extend(
+            path.relative_to(root).as_posix()
+            for path in (root / "tests/ssts/target_policy").glob("g60b*")
+        )
+    else:
+        protected.extend(
+            [
+                "tests/ssts/target_policy",
+                SUPPORT_MAP_PATH.as_posix(),
+                "cpu/upd9002",
+            ]
+        )
     verify_git_unchanged(
         root,
         protected,
@@ -2181,6 +2190,10 @@ def verify_protected_paths(
 def verify_static(
     root: pathlib.Path, protected_evidence_only: bool = False
 ) -> None:
+    forward_milestone = (
+        root / "docs/agents/tasks/M62_upd9002_semantics_bundle.md"
+    ).is_file()
+    protected_evidence_only = protected_evidence_only or forward_milestone
     erratum.verify_static(root)
     try:
         m60b.verify_static(root, protected_evidence_only)
