@@ -69,6 +69,9 @@
 #if defined(VAEG_UPD9002_M60A_TESTING)
 #include	"tests/upd9002/flags_materialization.h"
 #endif
+#if defined(VAEG_UPD9002_M60E_TESTING)
+#include	"tests/upd9002/iret_restoration.h"
+#endif
 #if defined(VAEG_UPD9002_SSTS_TESTING)
 #include	"tests/upd9002/ssts_worker.h"
 #endif
@@ -1432,6 +1435,12 @@ int main(int argc, char **argv) {
 	if ((argc == 2) &&
 		!strcmp(argv[1], "--upd9002-m60a-flags-materialization")) {
 		return upd9002_flags_materialization_main();
+	}
+#endif
+#if defined(VAEG_UPD9002_M60E_TESTING)
+	if ((argc == 2) &&
+		!strcmp(argv[1], "--upd9002-m60e-iret-restoration")) {
+		return upd9002_iret_restoration_main();
 	}
 #endif
 #if defined(VAEG_UPD9002_SSTS_TESTING)
