@@ -79,6 +79,8 @@ the maintainer handoff and is independently available from
   `c302550fed36d2644516551d799d4b43bbe2573b`
 - Forward target-policy validator isolation SHA:
   `e78127f44e41d51f12803726977d64c2eb643131`
+- G62 hosted SST ratchet SHA:
+  `a0347dbef8808288e45870116c75f953f77cfd7b`
 - Evidence commit/final candidate: the commit containing this report
 
 The primary worktree was not cleaned, reset, stashed, staged, or modified.
@@ -532,6 +534,36 @@ passed 2/2 locally; their selftests and both M62 tests passed 4/4. All other
 tests in the failed GCC job had passed. The failed run was canceled once the
 common cause was identified rather than consuming the remaining CI matrix.
 
+The second hosted run,
+[build 30194283261](https://github.com/nakatamaho/vaeg/actions/runs/30194283261),
+confirmed that GCC, Clang, AddressSanitizer, macOS, repository invariants,
+and the standalone Z80 suite were green. Its uPD9002 SST job executed the
+correct final M62 worker but still invoked the historical M61 CI wrapper.
+That wrapper reproduced the old G60b-policy CI profile and then rejected the
+valid M62 result because it compared it with committed G61 evidence. The run
+was canceled after this exact CI-wiring cause was established.
+
+The G62 hosted SST ratchet commit adds a milestone-specific wrapper and wires
+the external CTest gate to it. The wrapper rederives the content-addressed G62
+target policy, executes architectural CI with that policy, regenerates the
+candidate scoreboard, and compares its stable identity with committed G62
+evidence. The exact external test passed locally:
+
+```text
+vaeg_upd9002_ssts_ci_external:
+  passed in 572.99 seconds
+  selected: 180,000
+  applicable/executed: 165,800
+  pass: 163,567
+  fail: 2,233
+  timeout/crash: 0/0
+```
+
+Its checkout-identity negative test rejected a mismatched configured SHA
+before profile execution. This validator-only correction does not change the
+evaluated worker, corpus, contracts, target policy, selected/applicable sets,
+or any generated profile result.
+
 Candidate raw profiles were preserved at:
 
 ```text
@@ -600,8 +632,8 @@ python3 tools/qa/milestone_ids.py --selftest --audit --discover
 git diff --check
 ```
 
-The final hosted CI is launched only after the validator-only correction and
-the evidence-only follow-up containing this report are pushed. Its
+The final hosted CI is launched only after the G62-specific ratchet correction
+and the evidence-only follow-up containing this report are pushed. Its
 GitHub-assigned URL and successful conclusion are supplied in the maintainer
 handoff rather than self-referenced inside this report. Hosted CI is not used
 as an iterative debugger.
