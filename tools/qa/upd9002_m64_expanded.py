@@ -32,6 +32,7 @@ import hashlib
 import json
 import pathlib
 import re
+import shutil
 import sys
 import tempfile
 from collections import Counter
@@ -74,6 +75,41 @@ DATASET_MANIFEST_PATH = m61.DATASET_MANIFEST_PATH
 TARGET_POLICY_PATH = pathlib.Path("tests/ssts/target_policy/g64.json")
 TASK_PATH = pathlib.Path("docs/agents/tasks/M64_upd9002_div_idiv.md")
 REPORT_PATH = pathlib.Path("docs/agents/reports/m64_upd9002_div_idiv.md")
+EVIDENCE_ROOT = pathlib.Path("tests/ssts/evidence/g64")
+RESULT_MANIFEST_PATH = pathlib.Path("tests/ssts/evidence/g64_result_manifest.json")
+RANKING_JSON_PATH = pathlib.Path("tests/ssts/rankings/g64_architectural_full.json")
+RANKING_MD_PATH = pathlib.Path("tests/ssts/rankings/g64_architectural_full.md")
+SCOREBOARD_PATHS = {
+    "architectural_ci": pathlib.Path(
+        "tests/ssts/scoreboard/g64_architectural_ci.json"
+    ),
+    "architectural_full": pathlib.Path(
+        "tests/ssts/scoreboard/g64_architectural_full.json"
+    ),
+    "fingerprint_full": pathlib.Path(
+        "tests/ssts/scoreboard/g64_fingerprint_full.json"
+    ),
+}
+FAILURE_DIRECTORY_PATHS = {
+    key: pathlib.Path(str(path).removesuffix(".json") + "_failures")
+    for key, path in SCOREBOARD_PATHS.items()
+}
+TRANSITION_PATHS = {
+    "architectural_ci": pathlib.Path(
+        "tests/ssts/transitions/g64_architectural_ci_from_g62.json"
+    ),
+    "architectural_full": pathlib.Path(
+        "tests/ssts/transitions/g64_architectural_full_from_g62.json"
+    ),
+}
+G62_SCOREBOARD_PATHS = {
+    key: pathlib.Path(str(path).replace("g64_", "g62_"))
+    for key, path in SCOREBOARD_PATHS.items()
+}
+APPLICABLE_BEFORE_HASH_SETS = {
+    "ci": "440a621dea647cf11a4e8b834fc139c2c95f6081f294d717263ba8f42eb2a750",
+    "full": "4e8cf0af125f3d8404912311fc18fc3c75952c4c27215256ae7dd983d095cdff",
+}
 HEX40 = re.compile(r"^[0-9a-f]{40}$")
 HEX64 = re.compile(r"^[0-9a-f]{64}$")
 
@@ -131,6 +167,22 @@ BRKEM_COVERAGE = {
     "silicon_mode_identity": "underdetermined",
 }
 EMPTY_HASH_SET_SHA256 = ratchet.hash_set_digest([])
+PROTECTED_FORMS = (
+    "D4",
+    "D5",
+    "27",
+    "2F",
+    "37",
+    "3F",
+    "0F28",
+    "0F2A",
+    "62",
+    "CF",
+    "C6",
+    "C7",
+    "F7.2",
+    "FF.7",
+)
 
 
 class M64Error(RuntimeError):
@@ -740,6 +792,769 @@ def write_phase_audit(output: pathlib.Path, value: dict[str, Any], source_sha: s
     )
 
 
+@contextlib.contextmanager
+def configured_scoreboard_generator() -> Iterator[None]:
+    """Bind the shared scoreboard writer to the G64 epoch."""
+    replacements = {
+        "APPROVED_PREDECESSOR_GATE": APPROVED_PREDECESSOR_GATE,
+        "APPROVED_PREDECESSOR_SHA": APPROVED_PREDECESSOR_SHA,
+        "CANDIDATE_GATE": CANDIDATE_GATE,
+        "CONTRACTS": CONTRACTS,
+        "DATASET_ID": DATASET_ID,
+        "FAILURE_DIRECTORY_PATHS": FAILURE_DIRECTORY_PATHS,
+        "G61_SCOREBOARD_PATHS": G62_SCOREBOARD_PATHS,
+        "SCOREBOARD_PATHS": SCOREBOARD_PATHS,
+        "SELECTED_HASH_SETS": SELECTED_HASH_SETS,
+        "policy_enumerations": policy_enumerations,
+    }
+    previous = {name: getattr(m62, name) for name in replacements}
+    for name, item in replacements.items():
+        setattr(m62, name, item)
+    try:
+        yield
+    finally:
+        for name, item in previous.items():
+            setattr(m62, name, item)
+
+
+def generate_scoreboard(
+    root: pathlib.Path,
+    output_root: pathlib.Path,
+    dataset_root: pathlib.Path,
+    raw_path: pathlib.Path,
+    profile_key: str,
+    evaluated_sha: str,
+    policy: dict[str, Any],
+) -> tuple[dict[str, Any], dict[str, dict[str, Any]]]:
+    with configured_scoreboard_generator():
+        return m62.generate_scoreboard(
+            root,
+            output_root,
+            dataset_root,
+            raw_path,
+            profile_key,
+            evaluated_sha,
+            policy,
+        )
+
+
+def load_scoreboard_failures(
+    root: pathlib.Path, relative: pathlib.Path
+) -> dict[str, dict[str, Any]]:
+    summary = read_json(root / relative)
+    return ratchet.load_scoreboard_failures(root / relative, summary)
+
+
+def grouped_classification_changes(
+    changes: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    grouped: dict[str, list[str]] = {}
+    for change in changes:
+        require(
+            change["before"] == "known_target_gap"
+            and change["after"] == "applicable"
+            and change["form"] in ACTIVATIONS,
+            "unauthorized-classification-change",
+            repr(change),
+        )
+        grouped.setdefault(change["form"], []).append(change["record_hash"])
+    return [
+        {
+            "after": "applicable",
+            "before": "known_target_gap",
+            "count": len(grouped[form]),
+            "form": form,
+            "record_hash_set_sha256": ratchet.hash_set_digest(grouped[form]),
+        }
+        for form in sorted(grouped)
+    ]
+
+
+def write_transition(
+    root: pathlib.Path,
+    output_root: pathlib.Path,
+    dataset_root: pathlib.Path,
+    profile_key: str,
+    scoreboard: dict[str, Any],
+    failures_after: dict[str, dict[str, Any]],
+    evaluated_sha: str,
+    policy: dict[str, Any],
+) -> dict[str, Any]:
+    profile, scope = profile_key.rsplit("_", 1)
+    before_summary = read_json(root / G62_SCOREBOARD_PATHS[profile_key])
+    failures_before = load_scoreboard_failures(
+        root, G62_SCOREBOARD_PATHS[profile_key]
+    )
+    before_set = set(failures_before)
+    after_set = set(failures_after)
+    newly_passing = sorted(before_set - after_set)
+    newly_failing = sorted(after_set - before_set)
+    changed = sorted(
+        record_hash
+        for record_hash in before_set & after_set
+        if failures_before[record_hash]["signature_sha256"]
+        != failures_after[record_hash]["signature_sha256"]
+    )
+    governed_forms = {
+        *PHASE_FORMS["div_idiv"],
+        *PHASE_FORMS["add4s_sub4s_cmp4s"],
+        *PHASE_FORMS["bit_operations"],
+    }
+    require(not newly_failing, "newly-failing", profile_key)
+    require(not changed, "changed-failure-not-enumerated", profile_key)
+    require(
+        all(
+            failures_before[record_hash]["form"] in governed_forms
+            for record_hash in newly_passing
+        ),
+        "ungoverned-newly-passing",
+        profile_key,
+    )
+    before_rows = {
+        (row["form"], row["classification"]): row
+        for row in before_summary["records"]
+    }
+    after_rows = {
+        (row["form"], row["classification"]): row
+        for row in scoreboard["records"]
+    }
+    decreases = []
+    for key, before_row in before_rows.items():
+        if before_row["classification"] != "applicable":
+            continue
+        after_row = after_rows.get(key)
+        if after_row is None or after_row["pass"] < before_row["pass"]:
+            decreases.append(key[0])
+    require(not decreases, "per-form-pass-decrease", repr(decreases))
+    enumerations = policy_enumerations(root, dataset_root)
+    changes = enumerations[scope]["classification_changes"]
+    newly_applicable = sorted(change["record_hash"] for change in changes)
+    require(
+        len(newly_applicable)
+        == policy["classification_changes"][scope]["count"],
+        "newly-applicable-count",
+        profile_key,
+    )
+    div_forms = set(PHASE_FORMS["div_idiv"])
+    requested_0f_forms = {
+        *PHASE_FORMS["add4s_sub4s_cmp4s"],
+        *PHASE_FORMS["bit_operations"],
+    }
+    div_before = sorted(
+        record_hash
+        for record_hash, failure in failures_before.items()
+        if failure["form"] in div_forms
+    )
+    requested_0f_before = sorted(
+        record_hash
+        for record_hash, failure in failures_before.items()
+        if failure["form"] in requested_0f_forms
+    )
+    transition = {
+        "applicable_hash_set_after_sha256": scoreboard[
+            "applicable_hash_set_sha256"
+        ],
+        "applicable_hash_set_before_sha256": before_summary[
+            "applicable_hash_set_sha256"
+        ],
+        "before_gate": APPROVED_PREDECESSOR_GATE,
+        "before_sha": APPROVED_PREDECESSOR_SHA,
+        "changed_failure_count": 0,
+        "changed_failure_shards": [],
+        "comparison_contract_ids": {profile: CONTRACTS[profile]},
+        "dataset_id": DATASET_ID,
+        "div_idiv_failure_count_before": len(div_before),
+        "div_idiv_failure_hash_set_sha256": ratchet.hash_set_digest(div_before),
+        "evaluated_sha": evaluated_sha,
+        "gap_kind_changes": policy["gap_kind_changes"],
+        "hardware_pending_changes": [],
+        "newly_applicable": newly_applicable,
+        "newly_applicable_count": len(newly_applicable),
+        "newly_applicable_hash_set_sha256": ratchet.hash_set_digest(
+            newly_applicable
+        ),
+        "newly_failing": [],
+        "newly_failing_hash_set_sha256": EMPTY_HASH_SET_SHA256,
+        "newly_passing": newly_passing,
+        "newly_passing_hash_set_sha256": ratchet.hash_set_digest(newly_passing),
+        "phases": list(PHASE_ORDER),
+        "profile": profile,
+        "requested_0f_failure_count_before": len(requested_0f_before),
+        "requested_0f_failure_hash_set_sha256": ratchet.hash_set_digest(
+            requested_0f_before
+        ),
+        "schema": "vaeg-upd9002-m64-transition-v1",
+        "schema_version": 1,
+        "scope": scope,
+        "selected_hash_set_sha256": SELECTED_HASH_SETS[scope],
+        "target_policy_after_id": policy["target_policy_id"],
+        "target_policy_before_id": G62_POLICY_ID,
+        "top_level_classification_changes": grouped_classification_changes(
+            changes
+        ),
+        "transition_kind": "div_idiv_and_monitor_0f_support",
+    }
+    write_json(output_root / TRANSITION_PATHS[profile_key], transition)
+    return transition
+
+
+def write_ranking(
+    root: pathlib.Path,
+    output_root: pathlib.Path,
+    scoreboard: dict[str, Any],
+    failures: dict[str, dict[str, Any]],
+) -> dict[str, Any]:
+    failure_hashes: dict[str, list[str]] = {}
+    mismatch: dict[str, Counter[str]] = {}
+    termination: dict[str, Counter[str]] = {}
+    for record_hash, failure in failures.items():
+        form = failure["form"]
+        failure_hashes.setdefault(form, []).append(record_hash)
+        mismatch.setdefault(form, Counter()).update(failure["mismatch_classes"])
+        termination.setdefault(form, Counter())[
+            failure["actual_termination"]
+        ] += 1
+    before = read_json(root / G62_SCOREBOARD_PATHS["architectural_full"])
+    before_rows = {
+        (row["form"], row["classification"]): row for row in before["records"]
+    }
+    rows = []
+    for record in scoreboard["records"]:
+        if record["classification"] != "applicable":
+            continue
+        form = record["form"]
+        before_fail = before_rows.get((form, "applicable"), {"fail": 0})["fail"]
+        rows.append(
+            {
+                "change_from_g62": record["fail"] - before_fail,
+                "classification": "applicable",
+                "executed": record["executed"],
+                "fail": record["fail"],
+                "failure_hash_set_sha256": ratchet.hash_set_digest(
+                    failure_hashes.get(form, [])
+                ),
+                "form": form,
+                "mismatch_classes": dict(
+                    sorted(mismatch.get(form, Counter()).items())
+                ),
+                "opcode": record["opcode"],
+                "pass": record["pass"],
+                "selected": record["selected"],
+                "subform": record["subform"],
+                "termination_classes": dict(
+                    sorted(termination.get(form, Counter()).items())
+                ),
+            }
+        )
+    rows.sort(key=lambda value: (-value["fail"], value["form"]))
+    total = scoreboard["fail"]
+    cumulative = 0
+    for row in rows:
+        cumulative += row["fail"]
+        row["cumulative_failure_count"] = cumulative
+        row["cumulative_share_ppm"] = (
+            0 if total == 0 else cumulative * 1_000_000 // total
+        )
+    require(
+        sum(row["fail"] for row in rows) == total,
+        "ranking-total-mismatch",
+        str(total),
+    )
+    green_forms = {
+        *PHASE_FORMS["div_idiv"],
+        *PHASE_FORMS["add4s_sub4s_cmp4s"],
+        *PHASE_FORMS["bit_operations"],
+        "0F28",
+        "0F2A",
+    }
+    indexed = {row["form"]: row for row in rows}
+    require(
+        all(form in indexed and indexed[form]["fail"] == 0 for form in green_forms),
+        "phase-not-green",
+        "ranking contains an M64 failure",
+    )
+    ranking = {
+        "architectural_full_failure_count": total,
+        "brkem_coverage": BRKEM_COVERAGE,
+        "family_aggregation": {
+            "m64_div_idiv": {
+                "fail": sum(indexed[form]["fail"] for form in PHASE_FORMS["div_idiv"]),
+                "forms": list(PHASE_FORMS["div_idiv"]),
+            },
+            "m64_monitor_0f": {
+                "fail": sum(
+                    indexed[form]["fail"]
+                    for form in green_forms
+                    if form.startswith("0F")
+                ),
+                "forms": sorted(form for form in green_forms if form.startswith("0F")),
+            },
+        },
+        "m64_green_forms": sorted(green_forms),
+        "row_count": len(rows),
+        "rows": rows,
+        "schema": "vaeg-upd9002-m64-failure-ranking-v1",
+        "schema_version": 1,
+    }
+    write_json(output_root / RANKING_JSON_PATH, ranking)
+    lines = [
+        "<!-- Copyright (c) 2026 Nakata Maho; 2-clause BSD. -->",
+        "",
+        "# G64 architectural-full failure ranking",
+        "",
+        f"Total remaining failures: **{total:,}**.",
+        "",
+        "| Rank | Form | Pass | Fail | Change from G62 | Cumulative |",
+        "| ---: | :--- | ---: | ---: | ---: | ---: |",
+    ]
+    for index, row in enumerate(rows[:30], 1):
+        lines.append(
+            f"| {index} | `{row['form']}` | {row['pass']:,} | "
+            f"{row['fail']:,} | {row['change_from_g62']:+,} | "
+            f"{row['cumulative_share_ppm'] / 10000:.2f}% |"
+        )
+    lines.extend(
+        [
+            "",
+            "All requested DIV/IDIV and SST-covered monitor `0F` forms have "
+            "explicit zero-failure rows in the machine-readable ranking. "
+            "`0FFF BRKEM` has metadata but no v20 SST shard, so it has zero "
+            "selected and executed cases and is recorded separately rather "
+            "than inferred to pass. `0F28 ROL4` and `0F2A ROR4` remain green. "
+            "Omission from this top-30 view is not proof of passing.",
+            "",
+        ]
+    )
+    path = output_root / RANKING_MD_PATH
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("\n".join(lines), encoding="utf-8", newline="\n")
+    return ranking
+
+
+def load_phase_commits(path: pathlib.Path) -> dict[str, list[str]]:
+    value = read_json(path)
+    require(
+        isinstance(value, dict)
+        and set(value) == set(PHASE_ORDER)
+        and all(isinstance(items, list) for items in value.values())
+        and all(
+            isinstance(item, str) and HEX40.fullmatch(item) is not None
+            for items in value.values()
+            for item in items
+        )
+        and all(value[phase] for phase in PHASE_ORDER[:-1])
+        and value["brkem"] == [],
+        "phase-commit-identity",
+        str(path),
+    )
+    return {phase: value[phase] for phase in PHASE_ORDER}
+
+
+def copy_phase_audits(
+    output_root: pathlib.Path, audit_root: pathlib.Path
+) -> list[pathlib.Path]:
+    paths = []
+    for phase in PHASE_ORDER:
+        source = audit_root / phase
+        require((source / "phase_summary.json").is_file(), "missing-phase", phase)
+        target = output_root / EVIDENCE_ROOT / phase
+        target.mkdir(parents=True, exist_ok=True)
+        for item in sorted(source.iterdir()):
+            if item.is_file():
+                shutil.copyfile(item, target / item.name)
+                paths.append(EVIDENCE_ROOT / phase / item.name)
+    return paths
+
+
+def write_phase_checkpoints(
+    root: pathlib.Path,
+    output_root: pathlib.Path,
+    dataset_root: pathlib.Path,
+    scoreboards: dict[str, dict[str, Any]],
+    failures_after: dict[str, dict[str, dict[str, Any]]],
+    phase_commits: dict[str, list[str]],
+    worker_sha256: str,
+) -> list[pathlib.Path]:
+    before_scoreboard = read_json(
+        root / G62_SCOREBOARD_PATHS["architectural_full"]
+    )
+    before_failures = load_scoreboard_failures(
+        root, G62_SCOREBOARD_PATHS["architectural_full"]
+    )
+    after_failures = failures_after["architectural_full"]
+    before_rows = {row["form"]: row for row in before_scoreboard["records"]}
+    after_rows = {
+        row["form"]: row
+        for row in scoreboards["architectural_full"]["records"]
+        if row["classification"] == "applicable"
+    }
+    changes = policy_enumerations(root, dataset_root)["full"][
+        "classification_changes"
+    ]
+    paths = []
+    parent = APPROVED_PREDECESSOR_SHA
+    for phase in PHASE_ORDER:
+        forms = set(PHASE_FORMS[phase])
+        owned_before = sorted(
+            record_hash
+            for record_hash, failure in before_failures.items()
+            if failure["form"] in forms
+        )
+        surviving_after = sorted(
+            record_hash
+            for record_hash, failure in after_failures.items()
+            if failure["form"] in forms
+        )
+        require(not surviving_after, "phase-not-green", phase)
+        newly_applicable = sorted(
+            item["record_hash"] for item in changes if item["form"] in forms
+        )
+        rows = []
+        for form in sorted(forms):
+            before = before_rows.get(
+                form,
+                {
+                    "classification": "not_in_dataset",
+                    "executed": 0,
+                    "fail": 0,
+                    "pass": 0,
+                    "selected": 0,
+                },
+            )
+            after = after_rows.get(
+                form,
+                {
+                    "classification": "not_in_dataset",
+                    "executed": 0,
+                    "fail": 0,
+                    "pass": 0,
+                    "selected": 0,
+                },
+            )
+            rows.append(
+                {
+                    "classification_after": after["classification"],
+                    "classification_before": before["classification"],
+                    "executed_after": after["executed"],
+                    "executed_before": before["executed"],
+                    "fail_after": after["fail"],
+                    "fail_before": before["fail"],
+                    "form": form,
+                    "pass_after": after["pass"],
+                    "pass_before": before["pass"],
+                    "selected": after["selected"],
+                }
+            )
+        commits = phase_commits[phase]
+        checkpoint = {
+            "brkem_coverage": BRKEM_COVERAGE if phase == "brkem" else None,
+            "changed_failure_count": 0,
+            "focused_tests": "passed",
+            "forms": sorted(forms),
+            "newly_applicable_count": len(newly_applicable),
+            "newly_applicable_hash_set_sha256": ratchet.hash_set_digest(
+                newly_applicable
+            ),
+            "newly_failing": [],
+            "newly_passing_count": len(owned_before),
+            "newly_passing_hash_set_sha256": ratchet.hash_set_digest(
+                owned_before
+            ),
+            "owned_failure_count_before": len(owned_before),
+            "owned_failure_hash_set_sha256": ratchet.hash_set_digest(
+                owned_before
+            ),
+            "parent_semantic_commit": parent,
+            "phase": phase,
+            "protected_families": list(PROTECTED_FORMS),
+            "rows": rows,
+            "schema": "vaeg-upd9002-m64-phase-checkpoint-v1",
+            "schema_version": 1,
+            "semantic_commit": commits[-1] if commits else None,
+            "semantic_commits": commits,
+            "worker_sha256": worker_sha256,
+        }
+        path = EVIDENCE_ROOT / "phases" / f"phase_{phase}.json"
+        write_json(output_root / path, checkpoint)
+        paths.append(path)
+        if commits:
+            parent = commits[-1]
+    return paths
+
+
+def artifact_entry(root: pathlib.Path, relative: pathlib.Path) -> dict[str, Any]:
+    return m62.artifact_entry(root, relative)
+
+
+def tree_identities(root: pathlib.Path) -> list[dict[str, Any]]:
+    return m62.tree_identities(root)
+
+
+def generate_evidence(
+    root: pathlib.Path,
+    output_root: pathlib.Path,
+    dataset_root: pathlib.Path,
+    audit_root: pathlib.Path,
+    raw_paths: dict[str, pathlib.Path],
+    phase_commits_path: pathlib.Path,
+    evaluated_sha: str,
+    worker: pathlib.Path,
+) -> dict[str, Any]:
+    verify_predecessor(root)
+    phase_commits = load_phase_commits(phase_commits_path)
+    require(
+        phase_commits["bit_operations"][-1] == evaluated_sha,
+        "evaluated-sha",
+        "last worker-changing phase is not evaluated SHA",
+    )
+    policy = generate_target_policy(root, dataset_root, evaluated_sha)
+    write_json(output_root / TARGET_POLICY_PATH, policy)
+    scoreboards: dict[str, dict[str, Any]] = {}
+    failures: dict[str, dict[str, dict[str, Any]]] = {}
+    for key in ("architectural_ci", "architectural_full", "fingerprint_full"):
+        scoreboards[key], failures[key] = generate_scoreboard(
+            root,
+            output_root,
+            dataset_root,
+            raw_paths[key],
+            key,
+            evaluated_sha,
+            policy,
+        )
+    transitions = {
+        key: write_transition(
+            root,
+            output_root,
+            dataset_root,
+            key,
+            scoreboards[key],
+            failures[key],
+            evaluated_sha,
+            policy,
+        )
+        for key in ("architectural_ci", "architectural_full")
+    }
+    ranking = write_ranking(
+        root,
+        output_root,
+        scoreboards["architectural_full"],
+        failures["architectural_full"],
+    )
+    audit_paths = copy_phase_audits(output_root, audit_root)
+    worker_sha256 = sha256_file(worker)
+    checkpoint_paths = write_phase_checkpoints(
+        root,
+        output_root,
+        dataset_root,
+        scoreboards,
+        failures,
+        phase_commits,
+        worker_sha256,
+    )
+    artifact_paths = [
+        TARGET_POLICY_PATH,
+        *SCOREBOARD_PATHS.values(),
+        *TRANSITION_PATHS.values(),
+        RANKING_JSON_PATH,
+        RANKING_MD_PATH,
+        *audit_paths,
+        *checkpoint_paths,
+    ]
+    for directory in FAILURE_DIRECTORY_PATHS.values():
+        artifact_paths.extend(
+            path.relative_to(output_root)
+            for path in sorted((output_root / directory).glob("*.json.gz"))
+        )
+    artifact_paths = sorted(set(artifact_paths), key=lambda path: path.as_posix())
+    artifacts = [artifact_entry(output_root, path) for path in artifact_paths]
+    artifact_tree = sha256_bytes(canonical_bytes(artifacts))
+    before_failures = load_scoreboard_failures(
+        root, G62_SCOREBOARD_PATHS["architectural_full"]
+    )
+    div_forms = set(PHASE_FORMS["div_idiv"])
+    requested_0f_forms = {
+        *PHASE_FORMS["add4s_sub4s_cmp4s"],
+        *PHASE_FORMS["bit_operations"],
+    }
+    d_hashes = sorted(
+        record_hash
+        for record_hash, failure in before_failures.items()
+        if failure["form"] in div_forms
+    )
+    o_hashes = sorted(
+        record_hash
+        for record_hash, failure in before_failures.items()
+        if failure["form"] in requested_0f_forms
+    )
+    full_changes = policy_enumerations(root, dataset_root)["full"][
+        "classification_changes"
+    ]
+    l_hashes = sorted(item["record_hash"] for item in full_changes)
+    full_transition = transitions["architectural_full"]
+    require(len(d_hashes) == 12486, "div-idiv-failure-count", str(len(d_hashes)))
+    require(len(o_hashes) == 395, "requested-0f-failure-count", str(len(o_hashes)))
+    require(len(l_hashes) == 31000, "newly-applicable-count", str(len(l_hashes)))
+    require(
+        scoreboards["architectural_full"]["fail"] == 7511
+        and scoreboards["architectural_full"]["pass"] == 1467083,
+        "full-arithmetic",
+        repr(scoreboards["architectural_full"]),
+    )
+    manifest = {
+        "applicable_hash_set_after_sha256": {
+            scope: policy["applicable_hash_sets"][scope]["after_sha256"]
+            for scope in ("ci", "full")
+        },
+        "applicable_hash_set_before_sha256": APPLICABLE_BEFORE_HASH_SETS,
+        "approved_predecessor_gate": APPROVED_PREDECESSOR_GATE,
+        "approved_predecessor_sha": APPROVED_PREDECESSOR_SHA,
+        "artifact_tree_sha256": artifact_tree,
+        "artifacts": artifacts,
+        "brkem_coverage": BRKEM_COVERAGE,
+        "candidate_gate": CANDIDATE_GATE,
+        "comparison_contracts": CONTRACTS,
+        "dataset_id": DATASET_ID,
+        "div_idiv_failure_count_before": len(d_hashes),
+        "div_idiv_failure_hash_set_sha256": ratchet.hash_set_digest(d_hashes),
+        "evaluated_sha": evaluated_sha,
+        "milestone": MILESTONE,
+        "newly_applicable_count": len(l_hashes),
+        "newly_applicable_hash_set_sha256": ratchet.hash_set_digest(l_hashes),
+        "newly_failing_count": 0,
+        "newly_failing_hash_set_sha256": EMPTY_HASH_SET_SHA256,
+        "newly_passing_count": len(full_transition["newly_passing"]),
+        "newly_passing_hash_set_sha256": full_transition[
+            "newly_passing_hash_set_sha256"
+        ],
+        "phase_semantic_commits": phase_commits,
+        "ranking_sha256": sha256_file(output_root / RANKING_JSON_PATH),
+        "requested_0f_failure_count_before": len(o_hashes),
+        "requested_0f_failure_hash_set_sha256": ratchet.hash_set_digest(o_hashes),
+        "rom_authority_manifest_sha256": G60B_AUTHORITY_SHA256,
+        "schema": "vaeg-upd9002-m64-evidence-manifest-v1",
+        "schema_version": 1,
+        "selected_hash_set_sha256": SELECTED_HASH_SETS,
+        "target_policy_after_id": policy["target_policy_id"],
+        "target_policy_before_id": G62_POLICY_ID,
+        "worker_sha256": worker_sha256,
+    }
+    manifest_path = EVIDENCE_ROOT / "manifest.json"
+    write_json(output_root / manifest_path, manifest)
+    result = {
+        "artifact_tree_sha256": artifact_tree,
+        "candidate_gate": CANDIDATE_GATE,
+        "evaluated_sha": evaluated_sha,
+        "evidence_manifest_sha256": sha256_file(output_root / manifest_path),
+        "profile_identities": {
+            key: {
+                field: scoreboards[key][field]
+                for field in (
+                    "applicable",
+                    "applicable_hash_set_sha256",
+                    "executed",
+                    "fail",
+                    "failure_hash_set_sha256",
+                    "failure_signature_index_sha256",
+                    "pass",
+                    "pass_hash_set_sha256",
+                    "selected",
+                    "selected_hash_set_sha256",
+                    "target_policy_id",
+                )
+            }
+            for key in scoreboards
+        },
+        "ranking_failure_total": ranking["architectural_full_failure_count"],
+        "schema": "vaeg-upd9002-m64-result-manifest-v1",
+        "schema_version": 1,
+        "target_policy_sha256": policy["target_policy_sha256"],
+        "transition_sha256": {
+            key: sha256_file(output_root / path)
+            for key, path in TRANSITION_PATHS.items()
+        },
+    }
+    write_json(output_root / RESULT_MANIFEST_PATH, result)
+    return {
+        "artifact_tree_sha256": artifact_tree,
+        "evidence_manifest_sha256": result["evidence_manifest_sha256"],
+        "target_policy_id": policy["target_policy_id"],
+        "transition_sha256": result["transition_sha256"],
+    }
+
+
+def regenerate_twice(**kwargs: Any) -> dict[str, Any]:
+    output_root = kwargs.pop("output_root")
+    with tempfile.TemporaryDirectory(prefix="vaeg-m64-a-") as first_name:
+        with tempfile.TemporaryDirectory(prefix="vaeg-m64-b-") as second_name:
+            first = pathlib.Path(first_name)
+            second = pathlib.Path(second_name)
+            result = generate_evidence(output_root=first, **kwargs)
+            generate_evidence(output_root=second, **kwargs)
+            require(
+                tree_identities(first) == tree_identities(second),
+                "nondeterministic-generation",
+                "complete G64 evidence generations differ",
+            )
+            for source in sorted(first.rglob("*")):
+                if source.is_file():
+                    target = output_root / source.relative_to(first)
+                    target.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.copyfile(source, target)
+            return result
+
+
+def verify_evidence(root: pathlib.Path, dataset_root: pathlib.Path) -> None:
+    manifest_path = root / EVIDENCE_ROOT / "manifest.json"
+    result_path = root / RESULT_MANIFEST_PATH
+    require(manifest_path.is_file(), "missing-evidence", str(manifest_path))
+    require(result_path.is_file(), "missing-evidence", str(result_path))
+    manifest = read_json(manifest_path)
+    result = read_json(result_path)
+    policy = read_json(root / TARGET_POLICY_PATH)
+    validate_target_policy(policy)
+    require(
+        manifest.get("candidate_gate") == CANDIDATE_GATE
+        and manifest.get("milestone") == MILESTONE
+        and manifest.get("brkem_coverage") == BRKEM_COVERAGE,
+        "evidence-identity",
+        "manifest",
+    )
+    require(
+        result.get("candidate_gate") == CANDIDATE_GATE
+        and result.get("evaluated_sha") == manifest.get("evaluated_sha")
+        and result.get("target_policy_sha256")
+        == policy.get("target_policy_sha256"),
+        "evidence-identity",
+        "result manifest",
+    )
+    require(
+        canonical_bytes(
+            generate_target_policy(root, dataset_root, manifest["evaluated_sha"])
+        )
+        == canonical_bytes(policy),
+        "target-policy-drift",
+        "committed policy is not reproducible",
+    )
+    for artifact in manifest["artifacts"]:
+        path = root / artifact["path"]
+        require(path.is_file(), "missing-artifact", artifact["path"])
+        require(
+            path.stat().st_size == artifact["bytes"]
+            and sha256_file(path) == artifact["sha256"],
+            "artifact-digest",
+            artifact["path"],
+        )
+    require(
+        result["evidence_manifest_sha256"] == sha256_file(manifest_path),
+        "manifest-digest",
+        str(manifest_path),
+    )
+    print(
+        "m64-evidence: exact G64 policy, profiles, transitions, "
+        "BRKEM zero coverage, and artifact identities verified"
+    )
+
+
 def verify_static(root: pathlib.Path) -> None:
     verify_predecessor(root)
     verify_rom_contract()
@@ -868,6 +1683,27 @@ def parse_args(argv: Iterable[str]) -> argparse.Namespace:
     audit.add_argument("--epoch", choices=("g62", "g64"), required=True)
     audit.add_argument("--source-sha", required=True)
     audit.add_argument("--output", type=pathlib.Path, required=True)
+    generate = subparsers.add_parser("generate")
+    generate.add_argument("--root", type=pathlib.Path, required=True)
+    generate.add_argument("--dataset-root", type=pathlib.Path, required=True)
+    generate.add_argument("--audit-root", type=pathlib.Path, required=True)
+    generate.add_argument("--worker", type=pathlib.Path, required=True)
+    generate.add_argument("--evaluated-sha", required=True)
+    generate.add_argument("--phase-commits", type=pathlib.Path, required=True)
+    generate.add_argument(
+        "--architectural-ci-raw", type=pathlib.Path, required=True
+    )
+    generate.add_argument(
+        "--architectural-full-raw", type=pathlib.Path, required=True
+    )
+    generate.add_argument(
+        "--fingerprint-full-raw", type=pathlib.Path, required=True
+    )
+    generate.add_argument("--output-root", type=pathlib.Path, required=True)
+    generate.add_argument("--regenerate-twice", action="store_true")
+    evidence = subparsers.add_parser("verify-evidence")
+    evidence.add_argument("--root", type=pathlib.Path, required=True)
+    evidence.add_argument("--dataset-root", type=pathlib.Path, required=True)
     return parser.parse_args(list(argv))
 
 
@@ -907,6 +1743,34 @@ def main(argv: Iterable[str] | None = None) -> int:
             print(
                 f"m64-audit: phase={arguments.phase} epoch={arguments.epoch} "
                 f"forms={len(value['forms'])}"
+            )
+        elif arguments.command == "generate":
+            keyword = {
+                "root": arguments.root.resolve(),
+                "output_root": arguments.output_root.resolve(),
+                "dataset_root": arguments.dataset_root.resolve(),
+                "audit_root": arguments.audit_root.resolve(),
+                "raw_paths": {
+                    "architectural_ci": arguments.architectural_ci_raw.resolve(),
+                    "architectural_full": arguments.architectural_full_raw.resolve(),
+                    "fingerprint_full": arguments.fingerprint_full_raw.resolve(),
+                },
+                "phase_commits_path": arguments.phase_commits.resolve(),
+                "evaluated_sha": arguments.evaluated_sha,
+                "worker": arguments.worker.resolve(),
+            }
+            result = (
+                regenerate_twice(**keyword)
+                if arguments.regenerate_twice
+                else generate_evidence(**keyword)
+            )
+            print(
+                f"m64-generate: policy={result['target_policy_id']} "
+                f"tree={result['artifact_tree_sha256']}"
+            )
+        elif arguments.command == "verify-evidence":
+            verify_evidence(
+                arguments.root.resolve(), arguments.dataset_root.resolve()
             )
     except (
         M64Error,
