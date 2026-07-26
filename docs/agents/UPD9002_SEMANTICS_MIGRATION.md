@@ -30,8 +30,10 @@ Repository: `github.com/nakatamaho/vaeg`
 - G58 approved at `bc8a55c6da1082b85b794068e0d933e31fe46b13`.
 - G59 approved at `e7f2325bc81310532091a8ca82914030fdb8b6ba`.
 - M59 analysis/evaluated SHA is `7b4bd12aecf92e8fe8299d8b1ec5e48bbb1b61a7`.
-- M60a FLAGS materialization is already in progress under the existing contract.
-- **v5 changes prospective work only after G60a.** Do not rewrite or restart M60a.
+- G60a through G61 are approved historical gates. G61 is approved at
+  `829f314bb0d363ec5b6e9aa738e948b1a3adb365`.
+- M62 is the next prospective gate and is the one-time consolidation defined
+  by its canonical task.
 
 Codex executes one milestone or lettered submilestone per session and stops at its candidate gate.
 
@@ -223,6 +225,9 @@ residual. M60e handles IRET separately.
 ## 11. PR and gate discipline
 
 - One primitive/family per semantic PR and one approval gate.
+- M62 is the one maintainer-approved exception: AAM, ROR4, ROL4 activation,
+  BCD/ASCII adjust, and shifts share G62 only while retaining separate
+  pre-edit audits, semantic commits, phase manifests, and hash ownership.
 - Do not stack semantic PRs on unapproved predecessors.
 - No semantic changes after evidence generation.
 - Evidence-only and rename-only commits remain separate.
@@ -236,17 +241,14 @@ residual. M60e handles IRET separately.
 3. M60d — conditional synchronous interrupt-frame residual.
 4. M60e — IRET.
 5. M61 — C6/C7 register-form MOV immediate; F7 `/2` remains separate.
-6. M62a — AAM only; D5 remains protected.
-7. M62b1 — ROR4.
-8. M62b2 — mandatory ROL4 and exact gap-to-applicable transition.
-9. M62c — BCD/ASCII adjust.
-10. M63 — shift family, split before editing if evidence shows independent causes.
-11. M64 — DIV/IDIV.
-12. M65 — residue re-plan, including F7 `/2`, BOUND, FF `/7`, `6C-6F` reserved behavior,
+6. M62 — one-time consolidated gate for AAM, ROR4, mandatory ROL4 activation,
+   BCD/ASCII adjust, and shifts. Each phase remains independently reviewable.
+7. M64 — DIV/IDIV.
+8. M65 — residue re-plan, including F7 `/2`, BOUND, FF `/7`, `6C-6F` reserved behavior,
     BRKFEM/BRKEM, FPO2, remaining 0F forms, and prefixes.
-13. M66a — drop obsolete CPU286 save-state compatibility after generated residue work.
-14. M66b — remove active I286/i286c identity.
-15. M67 — final divergence and hardware-question consolidation.
+9. M66a — drop obsolete CPU286 save-state compatibility after generated residue work.
+10. M66b — remove active I286/i286c identity.
+11. M67 — final divergence and hardware-question consolidation.
 
 ## 13. Definition of done
 
