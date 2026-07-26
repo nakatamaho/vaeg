@@ -702,6 +702,81 @@ separate parity correction or move it to Open Defects.
   and [M61 report](../agents/reports/m61_upd9002_mov_imm_register.md).
 - **Commit:** [90fa7dec](https://github.com/nakatamaho/vaeg/commit/90fa7dec5d46708a807851f61ae0792ee39e9b8f).
 
+### uPD9002 AAM ignored its encoded radix
+
+- **Status:** fixed in the M62 implementation; G62 candidate review pending.
+- **Symptom:** 4,803 of the 5,000 applicable `D4 AAM` SST records failed.
+- **Affected scope:** real-mode uPD9002 `AAM imm8` result and FLAGS
+  materialization. `D5 AAD` is unchanged.
+- **Demonstrated root cause:** the active handler skipped the encoded
+  immediate and always divided AL by 10. It also derived SZP from AX rather
+  than the final AL and retained unrelated FLAGS state.
+- **Correction:** consume the immediate as the SST-observed radix, place the
+  quotient and remainder in AH and AL, apply the observed immediate-zero
+  normal-result rule, and materialize the exact result FLAGS.
+- **Verification:** the complete D4 population is 5,000 pass / 0 fail,
+  including radix values 0, 1, 2, 9, 10, 11, 16, and 255; D5 remains 5,000
+  pass / 0 fail.
+- **Evidence:** [M62 task](../agents/tasks/M62_upd9002_semantics_bundle.md)
+  and [M62 report](../agents/reports/m62_upd9002_semantics_bundle.md).
+- **Commit:** [c55e5730](https://github.com/nakatamaho/vaeg/commit/c55e57305052b2670f0edf4f1e9bda6041cb0c80).
+
+### uPD9002 ROR4 retained the old AL high nibble
+
+- **Status:** fixed in the M62 implementation; G62 candidate review pending.
+- **Symptom:** 4,692 of the 5,000 applicable `0F 2A ROR4` SST records failed.
+- **Affected scope:** V30 packed-BCD `ROR4` register and memory operands only.
+- **Demonstrated root cause:** the handler merged the source low nibble into
+  the old AL high nibble instead of transferring the complete source byte to
+  AL. The destination calculation was otherwise structurally correct.
+- **Correction:** write the rotated destination first, preserving the AL
+  alias case, then transfer the original complete source byte to AL.
+- **Verification:** all 5,000 register and memory ROR4 records pass, including
+  displacement, prefix, 16-bit offset-wrap, and physical-wrap partitions.
+- **Evidence:** [M62 task](../agents/tasks/M62_upd9002_semantics_bundle.md)
+  and [M62 report](../agents/reports/m62_upd9002_semantics_bundle.md).
+- **Commit:** [e74d814f](https://github.com/nakatamaho/vaeg/commit/e74d814f4397a5d832e7fbef675a93df4160bb2f).
+
+### uPD9002 decimal and ASCII adjust used inherited 286 behavior
+
+- **Status:** fixed in the M62 implementation; G62 candidate review pending.
+- **Symptom:** the complete G61 populations contained 34 DAA, 64 DAS, 124
+  AAA, and 4,716 AAS architectural failures.
+- **Affected scope:** `27 DAA`, `2F DAS`, `37 AAA`, and `3F AAS` only.
+  `D4 AAM` and `D5 AAD` are independently governed.
+- **Demonstrated root cause:** the inherited handlers did not implement the
+  SST-observed V30 high-adjust branch and FLAGS rules. AAA/AAS additionally
+  adjusted AX as a word, allowing a carry or borrow across AL/AH where the
+  observed behavior adjusts the two bytes independently.
+- **Correction:** add V30-specific low/high adjustment decisions, result
+  materialization, AF/CF/SZP/OF rules, and byte-local AAA/AAS AH changes.
+- **Verification:** each of DAA, DAS, AAA, and AAS is 5,000 pass / 0 fail;
+  their exact pre-fix union contains 4,938 hashes.
+- **Evidence:** [M62 task](../agents/tasks/M62_upd9002_semantics_bundle.md)
+  and [M62 report](../agents/reports/m62_upd9002_semantics_bundle.md).
+- **Commits:** [33bec007](https://github.com/nakatamaho/vaeg/commit/33bec0078328fdaf6612188b6341c6e938f6dcb6)
+  and [bfd9710b](https://github.com/nakatamaho/vaeg/commit/bfd9710bdac52ec5092871a2f5595a34212df1f2).
+
+### uPD9002 shifts used the inherited normalized-count paths
+
+- **Status:** fixed in the M62 implementation; G62 candidate review pending.
+- **Symptom:** 19,139 applicable shift records failed across the C0, C1, D2,
+  and D3 `/4` through `/7` subforms.
+- **Affected scope:** 8-bit and 16-bit SHL/SAL/SHR/SAR register and memory
+  forms. Rotate subforms `/0` through `/3` are unchanged.
+- **Demonstrated root cause:** the inherited group paths normalized counts
+  and materialized destination and FLAGS with rules that differ from the
+  complete V30 SST population, especially at zero, width, and beyond-width
+  counts. Subform `/6` also required the evidence-proven SHL behavior.
+- **Correction:** route only shift subforms through width-specific raw-count
+  helpers with exact destination, CF, OF, AF, SZP, and count-zero
+  preservation rules; retain the existing rotate paths.
+- **Verification:** all 40,000 shift hashes pass, and all 40,000 protected
+  rotate hashes remain architecturally green.
+- **Evidence:** [M62 task](../agents/tasks/M62_upd9002_semantics_bundle.md)
+  and [M62 report](../agents/reports/m62_upd9002_semantics_bundle.md).
+- **Commit:** [2cdaed95](https://github.com/nakatamaho/vaeg/commit/2cdaed95072d74bbf7187ae854fb31d3886c995d).
+
 ## Open Defects
 
 ### Legacy Z80 reset leaves saved undocumented flag bits uninitialized
