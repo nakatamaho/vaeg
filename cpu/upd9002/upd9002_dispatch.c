@@ -489,14 +489,20 @@ I286FN v30shift_ea16_cl(void) {				// D3:	shift EA16, cl
 I286FN v30_aam(void) {						// D4:	AAM
 
 	UINT8	al;
+	UINT	radix;
 
 	I286_WORKCLOCK(16);
-	I286_IP++;								// is 10
+	GET_PCBYTE(radix);
 	al = I286_AL;
-	I286_AH = al / 10;
-	I286_AL = al % 10;
-	I286_FLAGL &= ~(S_FLAG | Z_FLAG | P_FLAG);
-	I286_FLAGL |= WORDSZPF(I286_AX);
+	if (radix) {
+		I286_AH = (UINT8)(al / radix);
+		I286_AL = (UINT8)(al % radix);
+	}
+	else {
+		I286_AH = 0xff;
+	}
+	I286_FLAGL = (I286_FLAGL & 0x02) | BYTESZPF(I286_AL);
+	I286_OV = 0;
 }
 
 I286FN v30_aad(void) {						// D5:	AAD
