@@ -178,6 +178,16 @@ M60A_CANONICAL_REPLACEMENTS = {
     ),
 }
 
+M60E_CANONICAL_REPLACEMENTS = {
+    "cpu/upd9002/upd9002_dispatch.c": (
+        (
+            b"\tflag = (flag & 0x0fd7) | 0xf002;",
+            b"\tflag = (flag & 0x0fff) | 0xf002;",
+            1,
+        ),
+    ),
+}
+
 DELETED_IDENTIFIERS = (
     "_arpl", "_mov_seg_ea", "i286c_cts", "cts0_table", "cts1_table",
     "_sldt", "_str", "_lldt", "_ltr", "_verr", "_verw", "_sgdt",
@@ -224,6 +234,15 @@ def read_bytes(root: pathlib.Path, relative: str) -> bytes:
 def verify_immutable_files(root: pathlib.Path) -> None:
     for relative, expected in IMMUTABLE_FILES.items():
         data = read_bytes(root, relative)
+        for current, accepted, expected_count in (
+                M60E_CANONICAL_REPLACEMENTS.get(relative, ())):
+            actual_count = data.count(current)
+            if actual_count != expected_count:
+                raise DeletionError(
+                    "M60e semantic transition count changed: {} token={!r} "
+                    "expected={} actual={}".format(
+                        relative, current, expected_count, actual_count))
+            data = data.replace(current, accepted)
         for current, accepted, expected_count in (
                 M60A_CANONICAL_REPLACEMENTS.get(relative, ())):
             actual_count = data.count(current)

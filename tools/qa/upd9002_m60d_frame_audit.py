@@ -256,7 +256,9 @@ def output_path(output_root: pathlib.Path, relative: pathlib.Path) -> pathlib.Pa
     return output_root / relative
 
 
-def verify_upstream_static(root: pathlib.Path) -> None:
+def verify_upstream_static(
+    root: pathlib.Path, protected_evidence_only: bool = False
+) -> None:
     before = (
         ratchet.APPROVED_PREDECESSOR_GATE,
         ratchet.APPROVED_PREDECESSOR_SHA,
@@ -270,7 +272,7 @@ def verify_upstream_static(root: pathlib.Path) -> None:
     try:
         m60c.erratum.verify_static(root)
         try:
-            m60b.verify_static(root)
+            m60b.verify_static(root, protected_evidence_only)
         except m60b.M60bError as error:
             raise M60dError(str(error)) from error
         family = [
@@ -1604,9 +1606,10 @@ def validate_manifest(root: pathlib.Path) -> None:
             raise M60dError(f"{key}: committed transition changed")
 
 
-def verify_protected_paths(root: pathlib.Path) -> None:
+def verify_protected_paths(
+    root: pathlib.Path, protected_evidence_only: bool = False
+) -> None:
     protected = [
-        "cpu/upd9002",
         "tests/ssts/approved_target_divergences.json",
         "tests/ssts/baseline",
         "tests/ssts/contracts",
@@ -1622,6 +1625,8 @@ def verify_protected_paths(root: pathlib.Path) -> None:
         "tests/ssts/authority/g60c_result_manifest.json",
         "tools/qa/golden/upd9002_support_map_m48.csv",
     ]
+    if not protected_evidence_only:
+        protected.append("cpu/upd9002")
     completed = subprocess.run(
         [
             "git",
@@ -1718,9 +1723,11 @@ def validate_final_commit_scope(root: pathlib.Path) -> None:
         )
 
 
-def verify_static(root: pathlib.Path) -> None:
-    verify_upstream_static(root)
-    verify_protected_paths(root)
+def verify_static(
+    root: pathlib.Path, protected_evidence_only: bool = False
+) -> None:
+    verify_upstream_static(root, protected_evidence_only)
+    verify_protected_paths(root, protected_evidence_only)
     family = [
         (root / EVIDENCE_ROOT / "manifest.json").is_file(),
         (root / RESULT_MANIFEST_PATH).is_file(),
@@ -1731,10 +1738,16 @@ def verify_static(root: pathlib.Path) -> None:
         raise M60dError("G60d evidence family is incomplete")
     if all(family):
         validate_manifest(root)
-        validate_final_commit_scope(root)
+        if not protected_evidence_only:
+            validate_final_commit_scope(root)
+        scope = (
+            "protected evidence"
+            if protected_evidence_only
+            else "protected inputs and final evidence-only commit"
+        )
         print(
-            "m60d-static: Path A evidence-only closure, protected inputs, "
-            "scoreboards, transitions, and final evidence-only commit passed"
+            f"m60d-static: Path A evidence-only closure, {scope}, "
+            "scoreboards, and transitions passed"
         )
     else:
         print(
@@ -2020,6 +2033,7 @@ def main(argv: Iterable[str] | None = None) -> int:
     subparsers.add_parser("selftest")
     static = subparsers.add_parser("verify-static")
     static.add_argument("--root", type=pathlib.Path, default=pathlib.Path("."))
+    static.add_argument("--protected-evidence-only", action="store_true")
     for name in ("generate", "regenerate-twice"):
         command = subparsers.add_parser(name)
         command.add_argument(
@@ -2043,7 +2057,9 @@ def main(argv: Iterable[str] | None = None) -> int:
         if arguments.command == "selftest":
             selftest()
         elif arguments.command == "verify-static":
-            verify_static(arguments.root.resolve())
+            verify_static(
+                arguments.root.resolve(), arguments.protected_evidence_only
+            )
         elif arguments.command == "generate":
             if arguments.output_root is None:
                 raise M60dError("generate requires --output-root")
