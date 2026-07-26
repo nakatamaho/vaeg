@@ -777,6 +777,64 @@ separate parity correction or move it to Open Defects.
   and [M62 report](../agents/reports/m62_upd9002_semantics_bundle.md).
 - **Commit:** [2cdaed95](https://github.com/nakatamaho/vaeg/commit/2cdaed95072d74bbf7187ae854fb31d3886c995d).
 
+### uPD9002 DIV and IDIV used inherited result and exception rules
+
+- **Status:** fixed in the M64 implementation; G64 candidate review pending.
+- **Symptom:** 12,486 applicable records failed across `F6 /6`, `F6 /7`,
+  `F7 /6`, and `F7 /7`.
+- **Affected scope:** byte and word unsigned and signed division arithmetic,
+  result placement, divide-error decisions, and pre-event FLAGS only.
+- **Demonstrated root cause:** the inherited paths used result, overflow, and
+  FLAGS rules that differ from the complete V20 SST contract. The word signed
+  path also exposed the host-language minimum-signed-value divided by `-1`
+  hazard.
+- **Correction:** use widened arithmetic with explicit zero and overflow
+  checks, materialize the observed quotient/remainder and pre-event FLAGS,
+  and retain the G60d-approved type-0 entry machinery unchanged.
+- **Verification:** all four 5,000-case populations pass; the exact 214-case
+  saved-FLAGS dependency set remains green.
+- **Evidence:** [M64 task](../agents/tasks/M64_upd9002_div_idiv.md) and
+  [M64 report](../agents/reports/m64_upd9002_div_idiv.md).
+- **Commit:** [63f12b4e](https://github.com/nakatamaho/vaeg/commit/63f12b4e2bc38999efec66a43042673111e242fe).
+
+### uPD9002 packed-BCD string operations used incomplete inherited behavior
+
+- **Status:** fixed in the M64 implementation; G64 candidate review pending.
+- **Symptom:** 91 `ADD4S` and 304 `SUB4S` architectural records failed, while
+  `CMP4S` was monitor-authorized but remained an implementation gap.
+- **Affected scope:** `0F20 ADD4S`, `0F22 SUB4S`, and `0F26 CMP4S`.
+- **Demonstrated root cause:** the inherited ADD4S/SUB4S paths used
+  incompatible decimal-adjust and address-wrap behavior, and no CMP4S
+  handler existed.
+- **Correction:** apply the independently observed packed-decimal carry,
+  borrow, comparison, register-update, and logical/physical wrapping rules;
+  implement CMP4S without a destination write.
+- **Verification:** all three 1,000-case full populations pass; ROL4 and ROR4
+  remain 5,000 pass / 0 fail.
+- **Evidence:** [M64 task](../agents/tasks/M64_upd9002_div_idiv.md) and
+  [M64 report](../agents/reports/m64_upd9002_div_idiv.md).
+- **Commit:** [60385167](https://github.com/nakatamaho/vaeg/commit/60385167cede30a3c06e97373a92646e19021523).
+
+### uPD9002 monitor-authorized bit-operation forms were incomplete
+
+- **Status:** fixed in the M64 implementation; G64 candidate review pending.
+- **Symptom:** six exact monitor-authorized forms remained classified as
+  implementation gaps even though their byte/word and CL/immediate sibling
+  forms were present.
+- **Affected scope:** the expanded `TEST1`, `CLR1`, `SET1`, and `NOT1`
+  opcodes `0F10` through `0F1F`.
+- **Demonstrated root cause:** dispatch and handlers were missing for
+  `0F13`, `0F15`, `0F16`, `0F17`, `0F1E`, and `0F1F`.
+- **Correction:** add only the evidence-derived word/CL and NOT1 forms,
+  including exact bit-index, register/memory, FLAGS, and instruction-length
+  behavior, then activate their complete pre-approved structural sets.
+- **Verification:** every one of the sixteen expanded 5,000-case populations
+  passes. `0FFF BRKEM` is not counted: v20 has metadata but no SST shard, so
+  selected and executed coverage is exactly zero.
+- **Evidence:** [M64 task](../agents/tasks/M64_upd9002_div_idiv.md) and
+  [M64 report](../agents/reports/m64_upd9002_div_idiv.md).
+- **Commit:** [99c6388d](https://github.com/nakatamaho/vaeg/commit/99c6388df903dfc69432730cc9fa908a83946774).
+
 ## Open Defects
 
 ### Legacy Z80 reset leaves saved undocumented flag bits uninitialized
