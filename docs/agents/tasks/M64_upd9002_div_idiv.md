@@ -64,7 +64,7 @@ Execute these phases in order:
 1. `F6/F7 /6-/7` DIV and IDIV.
 2. `0F20/0F22/0F26` ADD4S, SUB4S, and CMP4S.
 3. The complete TEST1, CLR1, SET1, and NOT1 expanded opcode families.
-4. `0FFF imm8` BRKEM.
+4. `0FFF imm8` BRKEM authority and SST-coverage checkpoint.
 
 Use separate pre-edit audits, content-addressed selectors, focused tests,
 independently reviewable semantic commits, and phase checkpoints. The final
@@ -137,12 +137,20 @@ Derive TEST1, CLR1, SET1, and NOT1 independently across every expanded opcode,
 operand width, CL/immediate bit source, register/memory form, index boundary,
 FLAGS rule, alias, and memory boundary.
 
-Derive BRKEM from the executable V20 SST compatibility contract, including
-immediate consumption, architectural entry state, target/termination,
-register preservation, represented stack/RAM, and mode state where observable.
-Record `compatibility_scope = v20_sst` and
-`silicon_mode_identity = underdetermined` unless independent target evidence
-resolves the latter.
+The approved SST v20 metadata defines `0FFF`, but the approved dataset manifest
+contains no `0FFF.json.gz` shard. Consequently the live selected, applicable,
+and executed BRKEM populations are all zero. This is an accepted
+maintainer-supplied clarification, not a fixture defect.
+
+Phase D must bind that zero coverage to the exact dataset and metadata
+identities and produce a deterministic authority/coverage checkpoint. It must
+not fabricate cases, alter the selected set, activate a policy population, or
+make a cosmetic semantic edit. Record
+`compatibility_scope = no_v20_sst_cases`,
+`sst_contract_status = not_yet_present`, and
+`silicon_mode_identity = underdetermined`. Executable BRKEM semantics remain
+pending until an approved content-addressed corpus supplies expected and
+actual compatibility cases.
 
 ## Prohibited scope
 
@@ -154,8 +162,10 @@ Do not reopen ROL4/ROR4 or any completed G62 family.
 ## Commit and evidence structure
 
 Use a documentation-only first commit, a shared audit/policy-tooling commit,
-separate semantic commits for the four phases (and additional commits for
-independent causes), then one final evidence-only commit. The last
+separate semantic commits for phases with executable cases (and additional
+commits for independent causes), then one final evidence-only commit. Phase D
+is an evidence-only checkpoint while the approved BRKEM population is zero.
+The last
 worker-changing commit is `evaluated_sha`; all final profiles and evidence
 must bind to it.
 
@@ -167,10 +177,11 @@ and prove byte identity.
 
 ## Gate G64
 
-All four DIV/IDIV forms and every requested 0F population are applicable,
-executed, and green. Every newly applicable hash passes; newly failing,
-timeout, and crash sets are empty. ROL4/ROR4 and all protected G62 results
-remain exact. Dataset, contracts, selected sets, and unrelated policy
+All four DIV/IDIV forms and every SST-covered requested 0F population are
+applicable, executed, and green. BRKEM has an exact zero-coverage checkpoint
+and no unsupported semantic claim. Every newly applicable hash passes; newly
+failing, timeout, and crash sets are empty. ROL4/ROR4 and all protected G62
+results remain exact. Dataset, contracts, selected sets, and unrelated policy
 ownership are unchanged. A complete fresh ranking is published for M65.
 
 Write `docs/agents/reports/m64_upd9002_div_idiv.md` and stop.
