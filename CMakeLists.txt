@@ -357,6 +357,7 @@ if(VAEG_ENABLE_TESTS)
         tests/upd9002/direct_harness.c
 		tests/upd9002/dispatch_normalization.c
         tests/upd9002/flags_materialization.c
+        tests/upd9002/iret_restoration.c
         tests/upd9002/fixtures.c
 		tests/upd9002/rep0f_diagnostic_stop.c
         tests/upd9002/state_scenario.c
@@ -531,8 +532,9 @@ if(VAEG_ENABLE_TESTS)
         VAEG_UPD9002_M42_TESTING=1
         VAEG_UPD9002_M44_TESTING=1
 		VAEG_UPD9002_M46_TESTING=1
-		VAEG_UPD9002_M48_TESTING=1
+        VAEG_UPD9002_M48_TESTING=1
         VAEG_UPD9002_M60A_TESTING=1
+        VAEG_UPD9002_M60E_TESTING=1
         VAEG_UPD9002_SSTS_TESTING=1
         "VAEG_UPD9002_HARNESS_MANIFEST_PATH=\"${CMAKE_CURRENT_SOURCE_DIR}/tests/upd9002/harness_manifest.csv\""
         "VAEG_UPD9002_FIXTURE_PATH=\"${CMAKE_CURRENT_SOURCE_DIR}/tests/upd9002/state_fixtures_m42.txt\"")
@@ -734,6 +736,11 @@ if(VAEG_ENABLE_TESTS)
     set_tests_properties(vaeg_upd9002_flags_materialization PROPERTIES
 		LABELS "romless;upd9002;flags;semantics")
 
+    add_test(NAME vaeg_upd9002_iret_restoration
+		COMMAND vaeg_sdl2 --upd9002-m60e-iret-restoration)
+    set_tests_properties(vaeg_upd9002_iret_restoration PROPERTIES
+		LABELS "romless;upd9002;flags;iret;semantics")
+
     add_test(NAME vaeg_upd9002_rep0f_transition_selftest
 		COMMAND "${Python3_EXECUTABLE}"
 			"${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/upd9002_rep0f_transition.py"
@@ -922,6 +929,21 @@ if(VAEG_ENABLE_TESTS)
     set_tests_properties(vaeg_upd9002_m60d_frame_static PROPERTIES
         LABELS
             "romless;upd9002;ssts;evidence;interrupt-frame;repository")
+
+    add_test(NAME vaeg_upd9002_m60e_iret_selftest
+        COMMAND "${Python3_EXECUTABLE}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/upd9002_m60e_iret.py"
+            selftest)
+    set_tests_properties(vaeg_upd9002_m60e_iret_selftest PROPERTIES
+        LABELS "romless;upd9002;ssts;evidence;iret;flags")
+
+    add_test(NAME vaeg_upd9002_m60e_iret_static
+        COMMAND "${Python3_EXECUTABLE}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/upd9002_m60e_iret.py"
+            verify-static
+            --root "${CMAKE_CURRENT_SOURCE_DIR}")
+    set_tests_properties(vaeg_upd9002_m60e_iret_static PROPERTIES
+        LABELS "romless;upd9002;ssts;evidence;iret;flags;repository")
 
     add_test(NAME vaeg_upd9002_ssts_evidence_selftest
         COMMAND "${Python3_EXECUTABLE}"
