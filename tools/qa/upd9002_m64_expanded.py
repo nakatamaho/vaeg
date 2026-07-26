@@ -167,6 +167,9 @@ BRKEM_COVERAGE = {
     "silicon_mode_identity": "underdetermined",
 }
 EMPTY_HASH_SET_SHA256 = ratchet.hash_set_digest([])
+_POLICY_ENUMERATION_CACHE: dict[
+    tuple[pathlib.Path, pathlib.Path], dict[str, dict[str, Any]]
+] = {}
 PROTECTED_FORMS = (
     "D4",
     "D5",
@@ -328,6 +331,10 @@ def support_map(root: pathlib.Path, epoch: str) -> Iterator[pathlib.Path]:
 def policy_enumerations(
     root: pathlib.Path, dataset_root: pathlib.Path
 ) -> dict[str, dict[str, Any]]:
+    cache_key = (root.resolve(), dataset_root.resolve())
+    cached = _POLICY_ENUMERATION_CACHE.get(cache_key)
+    if cached is not None:
+        return cached
     manifest = ssts.load_manifest(root / DATASET_MANIFEST_PATH)
     require(manifest["dataset_id"] == DATASET_ID, "dataset-drift", "manifest")
     ssts.verify_fast(dataset_root, manifest)
@@ -421,6 +428,7 @@ def policy_enumerations(
             values[scope] = value
     full = Counter(item["form"] for item in values["full"]["classification_changes"])
     require(dict(full) == ACTIVATION_COUNTS_FULL, "partial-activation", repr(full))
+    _POLICY_ENUMERATION_CACHE[cache_key] = values
     return values
 
 
