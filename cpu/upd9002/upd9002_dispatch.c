@@ -1161,40 +1161,30 @@ static UINT8 v30_sub8_flag(UINT8 dst, UINT8 src, UINT8 borrow, UINT8 *result) {
 
 static UINT8 v30_daa_local(UINT8 value, UINT8 flags, UINT8 *outflags) {
 
-	if ((flags & A_FLAG) || ((value & 0x0f) > 9)) {
-		flags |= A_FLAG;
-		if ((UINT)value + 6 > 0xff) {
-			flags |= C_FLAG;
-		}
-		value = (UINT8)(value + 6);
-	}
-	if ((flags & C_FLAG) || (value > 0x9f)) {
-		flags |= C_FLAG;
-		value = (UINT8)(value + 0x60);
-	}
-	flags &= A_FLAG | C_FLAG;
-	flags |= BYTESZPF(value);
-	*outflags = flags;
-	return value;
+	const BOOL adjust_low = ((flags & A_FLAG) || ((value & 0x0f) > 9));
+	const BOOL adjust_high = ((flags & C_FLAG) || (value > 0x9f) ||
+					((value > 0x99) && !(flags & A_FLAG)));
+	const UINT8 result = (UINT8)(value + (adjust_low ? 6 : 0) +
+								(adjust_high ? 0x60 : 0));
+
+	*outflags = (UINT8)((adjust_low ? A_FLAG : 0) |
+						(adjust_high ? C_FLAG : 0) |
+						BYTESZPF(result));
+	return result;
 }
 
 static UINT8 v30_das_local(UINT8 value, UINT8 flags, UINT8 *outflags) {
 
-	if ((flags & C_FLAG) || (value > 0x99)) {
-		flags |= C_FLAG;
-		value = (UINT8)(value - 0x60);
-	}
-	if ((flags & A_FLAG) || ((value & 0x0f) > 9)) {
-		flags |= A_FLAG;
-		if (value < 6) {
-			flags |= C_FLAG;
-		}
-		value = (UINT8)(value - 6);
-	}
-	flags &= A_FLAG | C_FLAG;
-	flags |= BYTESZPF(value);
-	*outflags = flags;
-	return value;
+	const BOOL adjust_low = ((flags & A_FLAG) || ((value & 0x0f) > 9));
+	const BOOL adjust_high = ((flags & C_FLAG) || (value > 0x9f) ||
+					((value > 0x99) && !(flags & A_FLAG)));
+	const UINT8 result = (UINT8)(value - (adjust_low ? 6 : 0) -
+								(adjust_high ? 0x60 : 0));
+
+	*outflags = (UINT8)((adjust_low ? A_FLAG : 0) |
+						(adjust_high ? C_FLAG : 0) |
+						BYTESZPF(result));
+	return result;
 }
 
 static UINT v30_addsub4s_extra_count(void) {
@@ -1222,76 +1212,100 @@ static void v30_addsub4s_finish(UINT8 flags) {
 
 I286FN v30_add4s(void) {					// 0F 20: add4s
 
-	UINT32	srcaddr;
-	UINT32	dstaddr;
+	UINT16	srcoffset;
+	UINT16	dstoffset;
 	UINT	count;
 	UINT8	src;
 	UINT8	dst;
 	UINT8	flags;
-	UINT8	mask;
 	UINT8	result;
+	BOOL	all_zero;
 
 	I286_WORKCLOCK(26);
-	srcaddr = DS_FIX + I286_SI;
-	dstaddr = ES_BASE + I286_DI;
+	srcoffset = I286_SI;
+	dstoffset = I286_DI;
+	flags = 0;
+	all_zero = TRUE;
+	for (count = v30_addsub4s_extra_count() + 1; count; count--) {
+		const UINT32 srcaddr =
+			(DS_FIX + srcoffset) & CPU_ADRSMASK;
+		const UINT32 dstaddr =
+			(ES_BASE + dstoffset) & CPU_ADRSMASK;
 
-	src = i286_memoryread(srcaddr);
-	dst = i286_memoryread(dstaddr);
-	flags = v30_add8_flag(dst, src, 0, &result);
-	result = v30_daa_local(result, flags, &flags);
-	i286_memorywrite(dstaddr, result);
-	mask = (UINT8)(flags | (UINT8)~Z_FLAG);
-
-	for (count = v30_addsub4s_extra_count(); count; count--) {
-		I286_WORKCLOCK(19);
-		srcaddr++;
-		dstaddr++;
 		src = i286_memoryread(srcaddr);
 		dst = i286_memoryread(dstaddr);
 		flags = v30_add8_flag(dst, src, flags, &result);
 		result = v30_daa_local(result, flags, &flags);
-		flags &= mask;
 		i286_memorywrite(dstaddr, result);
-		mask = (UINT8)(flags | (UINT8)~Z_FLAG);
+		all_zero = (BOOL)(all_zero && !result);
+		srcoffset++;
+		dstoffset++;
+		if (count > 1) {
+			I286_WORKCLOCK(19);
+		}
+	}
+	if (all_zero) {
+		flags |= Z_FLAG;
+	}
+	else {
+		flags &= (UINT8)~Z_FLAG;
+	}
+	v30_addsub4s_finish(flags);
+}
+
+static void v30_subcmp4s(BOOL compare_only) {
+
+	UINT16	srcoffset;
+	UINT16	dstoffset;
+	UINT	count;
+	UINT8	src;
+	UINT8	dst;
+	UINT8	flags;
+	UINT8	result;
+	BOOL	all_zero;
+
+	I286_WORKCLOCK(26);
+	srcoffset = I286_SI;
+	dstoffset = I286_DI;
+	flags = 0;
+	all_zero = TRUE;
+	for (count = v30_addsub4s_extra_count() + 1; count; count--) {
+		const UINT32 srcaddr =
+			(DS_FIX + srcoffset) & CPU_ADRSMASK;
+		const UINT32 dstaddr =
+			(ES_BASE + dstoffset) & CPU_ADRSMASK;
+
+		src = i286_memoryread(srcaddr);
+		dst = i286_memoryread(dstaddr);
+		flags = v30_sub8_flag(dst, src, flags, &result);
+		result = v30_das_local(result, flags, &flags);
+		if (!compare_only) {
+			i286_memorywrite(dstaddr, result);
+		}
+		all_zero = (BOOL)(all_zero && !result);
+		srcoffset++;
+		dstoffset++;
+		if (count > 1) {
+			I286_WORKCLOCK(19);
+		}
+	}
+	if (all_zero) {
+		flags |= Z_FLAG;
+	}
+	else {
+		flags &= (UINT8)~Z_FLAG;
 	}
 	v30_addsub4s_finish(flags);
 }
 
 I286FN v30_sub4s(void) {					// 0F 22: sub4s
 
-	UINT32	srcaddr;
-	UINT32	dstaddr;
-	UINT	count;
-	UINT8	src;
-	UINT8	dst;
-	UINT8	flags;
-	UINT8	mask;
-	UINT8	result;
+	v30_subcmp4s(FALSE);
+}
 
-	I286_WORKCLOCK(26);
-	srcaddr = DS_FIX + I286_SI;
-	dstaddr = ES_BASE + I286_DI;
+I286FN v30_cmp4s(void) {					// 0F 26: cmp4s
 
-	src = i286_memoryread(srcaddr);
-	dst = i286_memoryread(dstaddr);
-	flags = v30_sub8_flag(dst, src, 0, &result);
-	result = v30_das_local(result, flags, &flags);
-	i286_memorywrite(dstaddr, result);
-	mask = (UINT8)(flags | (UINT8)~Z_FLAG);
-
-	for (count = v30_addsub4s_extra_count(); count; count--) {
-		I286_WORKCLOCK(19);
-		srcaddr++;
-		dstaddr++;
-		src = i286_memoryread(srcaddr);
-		dst = i286_memoryread(dstaddr);
-		flags = v30_sub8_flag(dst, src, flags, &result);
-		result = v30_das_local(result, flags, &flags);
-		flags &= mask;
-		i286_memorywrite(dstaddr, result);
-		mask = (UINT8)(flags | (UINT8)~Z_FLAG);
-	}
-	v30_addsub4s_finish(flags);
+	v30_subcmp4s(TRUE);
 }
 
 I286FN v30_rol4_ea8(void) {				// 0F 28: rol4 EA8
@@ -1513,7 +1527,7 @@ static const I286OP v30ope0x0f_table[64] = {
 			v30_reserved_0x0f,				// 23:
 			v30_reserved_0x0f,				// 24:
 			v30_reserved_0x0f,				// 25:
-			v30_reserved_0x0f,				// 26:
+			v30_cmp4s,					// 26:
 			v30_reserved_0x0f,				// 27:
 			v30_rol4_ea8,					// 28:
 			v30_reserved_0x0f,				// 29:

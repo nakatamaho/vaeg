@@ -207,15 +207,85 @@ static int test_idiv16(void) {
 	return SUCCESS;
 }
 
+static int test_packed_decimal_strings(void) {
+
+	static const UINT8 add4s[] = {0x0f, 0x20};
+	static const UINT8 sub4s[] = {0x0f, 0x22};
+	static const UINT8 cmp4s[] = {0x0f, 0x26};
+	UINT32 src0;
+	UINT32 src1;
+	UINT32 dst0;
+	UINT32 dst1;
+
+	setup_instruction(add4s, NELEMENTS(add4s), 0xf002);
+	CPU_CL = 3;
+	CPU_SI = 0xffff;
+	CPU_DI = 0xffff;
+	src0 = (DS_BASE + 0xffff) & 0xfffff;
+	src1 = DS_BASE & 0xfffff;
+	dst0 = (ES_BASE + 0xffff) & 0xfffff;
+	dst1 = ES_BASE & 0xfffff;
+	mem[src0] = 0x5f;
+	mem[src1] = 0x87;
+	mem[dst0] = 0x3e;
+	mem[dst1] = 0x58;
+	upd9002_core_step();
+	if ((mem[dst0] != 0xa3) || (mem[dst1] != 0x45) ||
+		(CPU_FLAG != 0xf093) || (CPU_IP != 0x0102)) {
+		fprintf(stderr, "upd9002-m64: ADD4S result or wrap differs\n");
+		return FAILURE;
+	}
+
+	setup_instruction(sub4s, NELEMENTS(sub4s), 0xf002);
+	CPU_CL = 3;
+	CPU_SI = 0x1234;
+	CPU_DI = 0x5678;
+	src0 = (DS_BASE + CPU_SI) & 0xfffff;
+	src1 = (src0 + 1) & 0xfffff;
+	dst0 = (ES_BASE + CPU_DI) & 0xfffff;
+	dst1 = (dst0 + 1) & 0xfffff;
+	mem[src0] = 0x12;
+	mem[src1] = 0x34;
+	mem[dst0] = 0x56;
+	mem[dst1] = 0x78;
+	upd9002_core_step();
+	if ((mem[dst0] != 0x44) || (mem[dst1] != 0x44) ||
+		(CPU_FLAG != 0xf002) || (CPU_IP != 0x0102)) {
+		fprintf(stderr, "upd9002-m64: SUB4S result differs\n");
+		return FAILURE;
+	}
+
+	setup_instruction(cmp4s, NELEMENTS(cmp4s), 0xf002);
+	CPU_CL = 3;
+	CPU_SI = 0x1234;
+	CPU_DI = 0x5678;
+	src0 = (DS_BASE + CPU_SI) & 0xfffff;
+	src1 = (src0 + 1) & 0xfffff;
+	dst0 = (ES_BASE + CPU_DI) & 0xfffff;
+	dst1 = (dst0 + 1) & 0xfffff;
+	mem[src0] = 0x12;
+	mem[src1] = 0x34;
+	mem[dst0] = 0x56;
+	mem[dst1] = 0x78;
+	upd9002_core_step();
+	if ((mem[dst0] != 0x56) || (mem[dst1] != 0x78) ||
+		(CPU_FLAG != 0xf002) || (CPU_IP != 0x0102)) {
+		fprintf(stderr, "upd9002-m64: CMP4S result or write protection differs\n");
+		return FAILURE;
+	}
+	return SUCCESS;
+}
+
 int upd9002_m64_semantics_main(void) {
 
 	upd9002_core_initialize();
 	if ((test_div8() != SUCCESS) || (test_idiv8() != SUCCESS) ||
-		(test_div16() != SUCCESS) || (test_idiv16() != SUCCESS)) {
+		(test_div16() != SUCCESS) || (test_idiv16() != SUCCESS) ||
+		(test_packed_decimal_strings() != SUCCESS)) {
 		upd9002_core_deinitialize();
 		return FAILURE;
 	}
 	upd9002_core_deinitialize();
-	puts("upd9002-m64-semantics: DIV/IDIV focused checks passed");
+	puts("upd9002-m64-semantics: DIV/IDIV and packed-BCD checks passed");
 	return SUCCESS;
 }
