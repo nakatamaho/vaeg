@@ -208,6 +208,16 @@ DATASET_MANIFEST_PATH = pathlib.Path("tests/ssts/v20_dataset_manifest.json")
 REPORT_PATH = pathlib.Path(
     "docs/agents/reports/m60d_upd9002_interrupt_frame.md"
 )
+EVIDENCE_MANIFEST_PATH = EVIDENCE_ROOT / "manifest.json"
+EVIDENCE_COMMIT_IDENTITY_ERROR = "M60D_EVIDENCE_COMMIT_IDENTITY"
+EVIDENCE_COMMIT_SCOPE_ERROR = "M60D_EVIDENCE_COMMIT_SCOPE"
+EVIDENCE_COMMIT_ALLOWED_PATHS = (
+    "docs/agents/reports/m60d_upd9002_interrupt_frame.md",
+    "tests/ssts/evidence/g60d/",
+    "tests/ssts/evidence/g60d_result_manifest.json",
+    "tests/ssts/scoreboard/g60d_",
+    "tests/ssts/transitions/g60d_",
+)
 HEX40 = re.compile(r"^[0-9a-f]{40}$")
 HEX64 = re.compile(r"^[0-9a-f]{64}$")
 FOCUS_FORMS = {"CC", "CD", "CE", "62"}
@@ -1689,33 +1699,102 @@ def verify_protected_paths(root: pathlib.Path) -> None:
             raise M60dError("approved transition evidence changed")
 
 
-def validate_final_commit_scope(root: pathlib.Path) -> None:
+def validate_evidence_commit_paths(paths: Iterable[str]) -> None:
+    unexpected = [
+        path
+        for path in paths
+        if not any(
+            path == prefix or path.startswith(prefix)
+            for prefix in EVIDENCE_COMMIT_ALLOWED_PATHS
+        )
+    ]
+    if unexpected:
+        raise M60dError(
+            f"{EVIDENCE_COMMIT_SCOPE_ERROR}: evidence commit contains "
+            f"implementation changes: {unexpected}"
+        )
+
+
+def find_evidence_commit(root: pathlib.Path) -> str:
     completed = subprocess.run(
-        ["git", "diff", "--name-only", "HEAD^..HEAD"],
+        [
+            "git",
+            "log",
+            "--format=%H",
+            "--diff-filter=A",
+            "--",
+            EVIDENCE_MANIFEST_PATH.as_posix(),
+        ],
         cwd=root,
         check=False,
         capture_output=True,
         text=True,
     )
     if completed.returncode != 0:
-        raise M60dError("cannot inspect final evidence commit")
-    paths = completed.stdout.splitlines()
-    allowed = (
-        "docs/agents/reports/m60d_upd9002_interrupt_frame.md",
-        "tests/ssts/evidence/g60d/",
-        "tests/ssts/evidence/g60d_result_manifest.json",
-        "tests/ssts/scoreboard/g60d_",
-        "tests/ssts/transitions/g60d_",
-    )
-    unexpected = [
-        path
-        for path in paths
-        if not any(path == prefix or path.startswith(prefix) for prefix in allowed)
-    ]
-    if unexpected:
         raise M60dError(
-            f"evidence commit contains implementation changes: {unexpected}"
+            f"{EVIDENCE_COMMIT_IDENTITY_ERROR}: cannot resolve evidence commit"
         )
+    commits = completed.stdout.splitlines()
+    if len(commits) != 1 or HEX40.fullmatch(commits[0]) is None:
+        raise M60dError(
+            f"{EVIDENCE_COMMIT_IDENTITY_ERROR}: expected one manifest-adding "
+            f"commit, found {len(commits)}"
+        )
+    evidence_commit = commits[0]
+    ancestry = subprocess.run(
+        ["git", "merge-base", "--is-ancestor", evidence_commit, "HEAD"],
+        cwd=root,
+        check=False,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+    if ancestry.returncode != 0:
+        raise M60dError(
+            f"{EVIDENCE_COMMIT_IDENTITY_ERROR}: evidence commit is not an "
+            "ancestor of HEAD"
+        )
+    parent = subprocess.run(
+        ["git", "rev-parse", f"{evidence_commit}^"],
+        cwd=root,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    manifest = read_json(root / EVIDENCE_MANIFEST_PATH)
+    if (
+        parent.returncode != 0
+        or HEX40.fullmatch(parent.stdout.strip()) is None
+        or parent.stdout.strip() != manifest.get("evaluated_sha")
+    ):
+        raise M60dError(
+            f"{EVIDENCE_COMMIT_IDENTITY_ERROR}: evidence commit parent does "
+            "not match evaluated_sha"
+        )
+    return evidence_commit
+
+
+def validate_evidence_commit_scope(root: pathlib.Path) -> None:
+    evidence_commit = find_evidence_commit(root)
+    completed = subprocess.run(
+        [
+            "git",
+            "diff-tree",
+            "--no-commit-id",
+            "--name-only",
+            "-r",
+            evidence_commit,
+        ],
+        cwd=root,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    if completed.returncode != 0:
+        raise M60dError(
+            f"{EVIDENCE_COMMIT_SCOPE_ERROR}: cannot inspect evidence commit"
+        )
+    validate_evidence_commit_paths(completed.stdout.splitlines())
 
 
 def verify_static(root: pathlib.Path) -> None:
@@ -1731,7 +1810,7 @@ def verify_static(root: pathlib.Path) -> None:
         raise M60dError("G60d evidence family is incomplete")
     if all(family):
         validate_manifest(root)
-        validate_final_commit_scope(root)
+        validate_evidence_commit_scope(root)
         print(
             "m60d-static: Path A evidence-only closure, protected inputs, "
             "scoreboards, transitions, and final evidence-only commit passed"
@@ -1938,16 +2017,25 @@ def selftest() -> None:
         "tests/ssts/transitions/g60c_target_authority_from_g60b.json",
         "tools/qa/upd9002_m60d_frame_audit.py",
     ]
-    allowed = (
-        "docs/agents/reports/m60d_upd9002_interrupt_frame.md",
-        "tests/ssts/evidence/g60d/",
-        "tests/ssts/evidence/g60d_result_manifest.json",
-        "tests/ssts/scoreboard/g60d_",
-        "tests/ssts/transitions/g60d_",
+    validate_evidence_commit_paths(
+        [
+            "docs/agents/reports/m60d_upd9002_interrupt_frame.md",
+            "tests/ssts/evidence/g60d/manifest.json",
+            "tests/ssts/evidence/g60d_result_manifest.json",
+            "tests/ssts/scoreboard/g60d_architectural_ci.json",
+            "tests/ssts/transitions/g60d_architectural_ci_from_g60c.json",
+        ]
     )
     for path in disallowed:
-        if any(path == prefix or path.startswith(prefix) for prefix in allowed):
-            raise AssertionError(f"final evidence allowlist admitted {path}")
+        try:
+            validate_evidence_commit_paths([path])
+        except M60dError as error:
+            if not str(error).startswith(f"{EVIDENCE_COMMIT_SCOPE_ERROR}:"):
+                raise AssertionError(
+                    f"wrong evidence-scope rejection for {path}: {error}"
+                ) from error
+        else:
+            raise AssertionError(f"evidence commit allowlist admitted {path}")
     print(
         "m60d-selftest: 3 positive and "
         f"{len(mutations) + len(disallowed)} fail-closed checks passed"
