@@ -1010,8 +1010,7 @@ if(VAEG_ENABLE_TESTS)
         endif()
         add_test(NAME vaeg_upd9002_ssts_ci_external
             COMMAND "${Python3_EXECUTABLE}"
-                "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/upd9002_m60b_authority.py"
-                ci-enforce
+                "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/upd9002_m60e_ci.py"
                 --root "${CMAKE_CURRENT_SOURCE_DIR}"
                 --dataset-root "${VAEG_SSTS_V20_ROOT}"
                 --worker "$<TARGET_FILE:vaeg_sdl2>"
