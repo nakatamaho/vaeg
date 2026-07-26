@@ -993,6 +993,22 @@ if(VAEG_ENABLE_TESTS)
     set_tests_properties(vaeg_upd9002_m62_bundle_static PROPERTIES
         LABELS "romless;upd9002;ssts;evidence;m62;semantics;repository")
 
+    add_test(NAME vaeg_upd9002_m64_expanded_selftest
+        COMMAND "${Python3_EXECUTABLE}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/upd9002_m64_expanded.py"
+            selftest)
+    set_tests_properties(vaeg_upd9002_m64_expanded_selftest PROPERTIES
+        LABELS "romless;upd9002;ssts;evidence;m64;semantics;target-policy")
+
+    add_test(NAME vaeg_upd9002_m64_expanded_static
+        COMMAND "${Python3_EXECUTABLE}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/upd9002_m64_expanded.py"
+            verify-static
+            --root "${CMAKE_CURRENT_SOURCE_DIR}")
+    set_tests_properties(vaeg_upd9002_m64_expanded_static PROPERTIES
+        LABELS
+            "romless;upd9002;ssts;evidence;m64;semantics;target-policy;repository")
+
     add_test(NAME vaeg_upd9002_ssts_evidence_selftest
         COMMAND "${Python3_EXECUTABLE}"
             "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/upd9002_semantics_evidence.py"
