@@ -33,6 +33,7 @@ from typing import Any
 
 
 G60B_SHA = "4e5d74d0d9f675df2342353b8bfdbb2e5cded768"
+G60C_SHA = "e425e55fc17117000ba5178a796de4444d897234"
 G43_TRANSITION_SHA256 = (
     "95559fa2a42a80710e850a9308202780a6fd4dad42ae20644c308bd0a72be092"
 )
@@ -134,8 +135,15 @@ def validate_roadmap(text: str) -> None:
     expected = f"**G60b passed at `{G60B_SHA}`**"
     if text.count(expected) != 1:
         raise ErratumError("ROADMAP does not record the unique approved G60b SHA")
-    if "| M60c |" not in text or "G60c in progress; candidate not yet approved" not in text:
-        raise ErratumError("ROADMAP does not identify the active unapproved G60c gate")
+    approved = f"**G60c passed at `{G60C_SHA}`**"
+    in_progress = "G60c in progress; candidate not yet approved"
+    if (
+        "| M60c |" not in text
+        or (text.count(approved) != 1 and text.count(in_progress) != 1)
+    ):
+        raise ErratumError(
+            "ROADMAP does not identify the unique in-progress or approved G60c gate"
+        )
 
 
 def verify_static(root: pathlib.Path) -> None:
@@ -174,6 +182,22 @@ per-opcode failure counts.
 Exact content-addressed G60a/G60b hash sets govern all later accounting.
 """ + "\n".join(digest for _, digest in HISTORICAL_SETS.values())
     validate_master_text(good)
+    roadmap_prefix = (
+        f"| M60b | task | scope | **G60b passed at `{G60B_SHA}`** |\n"
+        "| M60c | task | scope | "
+    )
+    validate_roadmap(
+        roadmap_prefix + f"**G60c passed at `{G60C_SHA}`** |\n"
+    )
+    validate_roadmap(
+        roadmap_prefix + "G60c in progress; candidate not yet approved |\n"
+    )
+    expect_rejected(
+        lambda: validate_roadmap(
+            roadmap_prefix + "**G60c passed at `" + "0" * 40 + "`** |\n"
+        ),
+        "wrong approved G60c SHA",
+    )
     expect_rejected(
         lambda: validate_master_text(good.replace("`6E=0`", "`6E=417`")),
         "wrong 6E opcode count",
@@ -192,7 +216,9 @@ Exact content-addressed G60a/G60b hash sets govern all later accounting.
             ),
             f"incorrect digest {digest}",
         )
-    print("m60c-erratum-selftest: 1 positive and 7 fail-closed checks passed")
+    print(
+        "m60c-erratum-selftest: 3 positive and 8 fail-closed checks passed"
+    )
 
 
 def main() -> int:

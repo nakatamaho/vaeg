@@ -359,6 +359,7 @@ if(VAEG_ENABLE_TESTS)
         tests/upd9002/flags_materialization.c
         tests/upd9002/iret_restoration.c
         tests/upd9002/mov_imm_register.c
+        tests/upd9002/semantics_bundle.c
         tests/upd9002/fixtures.c
 		tests/upd9002/rep0f_diagnostic_stop.c
         tests/upd9002/state_scenario.c
@@ -537,6 +538,7 @@ if(VAEG_ENABLE_TESTS)
         VAEG_UPD9002_M60A_TESTING=1
         VAEG_UPD9002_M60E_TESTING=1
         VAEG_UPD9002_M61_TESTING=1
+        VAEG_UPD9002_M62_TESTING=1
         VAEG_UPD9002_SSTS_TESTING=1
         "VAEG_UPD9002_HARNESS_MANIFEST_PATH=\"${CMAKE_CURRENT_SOURCE_DIR}/tests/upd9002/harness_manifest.csv\""
         "VAEG_UPD9002_FIXTURE_PATH=\"${CMAKE_CURRENT_SOURCE_DIR}/tests/upd9002/state_fixtures_m42.txt\"")
@@ -747,6 +749,11 @@ if(VAEG_ENABLE_TESTS)
 		COMMAND vaeg_sdl2 --upd9002-m61-mov-imm-register)
     set_tests_properties(vaeg_upd9002_mov_imm_register PROPERTIES
 		LABELS "romless;upd9002;mov;semantics")
+
+    add_test(NAME vaeg_upd9002_semantics_bundle
+		COMMAND vaeg_sdl2 --upd9002-m62-semantics-bundle)
+    set_tests_properties(vaeg_upd9002_semantics_bundle PROPERTIES
+		LABELS "romless;upd9002;m62;semantics")
 
     add_test(NAME vaeg_upd9002_rep0f_transition_selftest
 		COMMAND "${Python3_EXECUTABLE}"
@@ -970,6 +977,21 @@ if(VAEG_ENABLE_TESTS)
             --root "${CMAKE_CURRENT_SOURCE_DIR}")
     set_tests_properties(vaeg_upd9002_m61_mov_imm_static PROPERTIES
         LABELS "romless;upd9002;ssts;evidence;mov;semantics;repository")
+
+    add_test(NAME vaeg_upd9002_m62_bundle_selftest
+        COMMAND "${Python3_EXECUTABLE}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/upd9002_m62_bundle.py"
+            selftest)
+    set_tests_properties(vaeg_upd9002_m62_bundle_selftest PROPERTIES
+        LABELS "romless;upd9002;ssts;evidence;m62;semantics")
+
+    add_test(NAME vaeg_upd9002_m62_bundle_static
+        COMMAND "${Python3_EXECUTABLE}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/upd9002_m62_bundle.py"
+            verify-static
+            --root "${CMAKE_CURRENT_SOURCE_DIR}")
+    set_tests_properties(vaeg_upd9002_m62_bundle_static PROPERTIES
+        LABELS "romless;upd9002;ssts;evidence;m62;semantics;repository")
 
     add_test(NAME vaeg_upd9002_ssts_evidence_selftest
         COMMAND "${Python3_EXECUTABLE}"
