@@ -1718,15 +1718,8 @@ def validate_generated_family(root: pathlib.Path) -> None:
             reject("candidate-scoreboard-schema", f"{key}: {error}")
     for key, path in TRANSITION_PATHS.items():
         transition = read_json(root / path)
-        require(
-            transition["before_sha"] == APPROVED_PREDECESSOR_SHA
-            and transition["evaluated_sha"] == manifest["evaluated_sha"]
-            and not transition["newly_failing"]
-            and transition["changed_failure_count"] == 0
-            and len(transition["newly_passing"])
-            == EXPECTED_CF_FAILURE_BEFORE,
-            "transition-identity",
-            key,
+        validate_transition_identity(
+            transition, manifest["evaluated_sha"], key
         )
     ranking = read_json(root / RANKING_JSON_PATH)
     require(
@@ -1814,6 +1807,21 @@ def synthetic_decision() -> dict[str, Any]:
         "taxonomy_or_registry_changed": False,
         "div_idiv_arithmetic_unchanged": True,
     }
+
+
+def validate_transition_identity(
+    transition: dict[str, Any], evaluated_sha: str, label: str
+) -> None:
+    require(
+        transition["before_sha"] == APPROVED_PREDECESSOR_SHA
+        and transition["evaluated_sha"] == evaluated_sha
+        and not transition["newly_failing"]
+        and transition["changed_failure_count"] == 0
+        and len(transition["newly_passing"])
+        == transition["cf_failure_count_before"],
+        "transition-identity",
+        label,
+    )
 
 
 def validate_decision(value: Any) -> None:
@@ -1992,6 +2000,17 @@ def expect_rejection(
 
 def selftest() -> None:
     validate_decision(synthetic_decision())
+    synthetic_transition = {
+        "before_sha": APPROVED_PREDECESSOR_SHA,
+        "cf_failure_count_before": 2,
+        "changed_failure_count": 0,
+        "evaluated_sha": "3" * 40,
+        "newly_failing": [],
+        "newly_passing": ["1" * 64, "2" * 64],
+    }
+    validate_transition_identity(
+        synthetic_transition, synthetic_transition["evaluated_sha"], "synthetic"
+    )
     mutations: list[tuple[str, str, Callable[[dict[str, Any]], None]]] = [
         ("predecessor", "wrong-predecessor-sha",
          lambda value: value.__setitem__("approved_predecessor_sha", "0" * 40)),
@@ -2069,6 +2088,15 @@ def selftest() -> None:
         value = synthetic_decision()
         mutation(value)
         expect_rejection(label, code, lambda candidate=value: validate_decision(candidate))
+    bad_transition = copy.deepcopy(synthetic_transition)
+    bad_transition["cf_failure_count_before"] = 3
+    expect_rejection(
+        "scope-specific transition count",
+        "transition-identity",
+        lambda: validate_transition_identity(
+            bad_transition, bad_transition["evaluated_sha"], "synthetic"
+        ),
+    )
     rows = [
         {"case_hash": "2" * 64},
         {"case_hash": "1" * 64},
@@ -2100,7 +2128,7 @@ def selftest() -> None:
         if json_path.read_bytes() != canonical_bytes(payload) + b"\n":
             raise AssertionError("canonical JSON differs")
     print(
-        f"m60e-selftest: {len(mutations) + 1} fail-closed mutations rejected "
+        f"m60e-selftest: {len(mutations) + 2} fail-closed mutations rejected "
         "at the intended reason code; surrounding validation could not mask "
         "the target check; deterministic JSON/gzip passed"
     )
