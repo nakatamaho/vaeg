@@ -237,9 +237,9 @@ def verify_predecessor(root: pathlib.Path) -> None:
         "G60d result manifest is not canonical",
     )
     try:
-        m60d.verify_upstream_static(root)
+        m60c.erratum.verify_static(root)
         m60d.validate_manifest(root)
-    except m60d.M60dError as error:
+    except (m60c.erratum.ErratumError, m60d.M60dError) as error:
         reject("protected-artifact-mutation", str(error))
 
 
