@@ -347,7 +347,10 @@ def policy_enumerations(
         after_support = ssts.load_support_map(after)
         work = {
             scope: {
-                "after_applicable": [],
+                "after_sets": {
+                    classification: []
+                    for classification in ratchet.TOP_LEVEL_CLASSIFICATIONS
+                },
                 "after_form_counts": {},
                 "changes": [],
                 "selected_count": 0,
@@ -374,8 +377,9 @@ def policy_enumerations(
                 for scope in scopes:
                     work[scope]["selected_count"] += 1
                     counts[scope][after_classification] += 1
-                    if after_classification == "applicable":
-                        work[scope]["after_applicable"].append(record_hash)
+                    work[scope]["after_sets"][after_classification].append(
+                        record_hash
+                    )
                     if before_classification != after_classification:
                         work[scope]["changes"].append(
                             {
@@ -389,7 +393,7 @@ def policy_enumerations(
             for scope in ("ci", "full"):
                 work[scope]["after_form_counts"][form] = counts[scope]
         for scope in ("ci", "full"):
-            after_applicable = work[scope]["after_applicable"]
+            after_sets = work[scope]["after_sets"]
             changes = work[scope]["changes"]
             after_form_counts = work[scope]["after_form_counts"]
             selected_count = work[scope]["selected_count"]
@@ -405,11 +409,13 @@ def policy_enumerations(
                 scope,
             )
             predecessor_sets = predecessor["applicable_hash_sets"][scope]
-            after_digest = ratchet.hash_set_digest(after_applicable)
             value = {
                 "after_form_counts": after_form_counts,
-                "after_set_digests": {"applicable": after_digest},
-                "after_sets": {"applicable": after_applicable},
+                "after_set_digests": {
+                    classification: ratchet.hash_set_digest(hashes)
+                    for classification, hashes in after_sets.items()
+                },
+                "after_sets": after_sets,
                 "before_set_digests": {
                     "applicable": predecessor_sets["after_sha256"]
                 },
