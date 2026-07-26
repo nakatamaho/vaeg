@@ -1022,6 +1022,22 @@ I286FN v30_sub4s(void) {					// 0F 22: sub4s
 	v30_addsub4s_finish(flags);
 }
 
+I286FN v30_rol4_ea8(void) {				// 0F 28: rol4 EA8
+
+	UINT	op;
+	UINT32	madr = 0;
+	UINT8	value;
+	UINT8	oldal;
+
+	GET_PCBYTE(op);
+	I286_WORKCLOCK(25);
+	value = v30_ea8_read(op, &madr);
+	oldal = I286_AL;
+	v30_ea8_write(op, madr,
+				(UINT8)((value << 4) | (oldal & 0x0f)));
+	I286_AL = (UINT8)((oldal << 4) | (value >> 4));
+}
+
 I286FN v30_ror4_ea8(void) {				// 0F 2A: ror4 EA8
 
 	UINT	op;
@@ -1227,7 +1243,7 @@ static const I286OP v30ope0x0f_table[64] = {
 			v30_reserved_0x0f,				// 25:
 			v30_reserved_0x0f,				// 26:
 			v30_reserved_0x0f,				// 27:
-			v30_reserved_0x0f,				// 28:
+			v30_rol4_ea8,					// 28:
 			v30_reserved_0x0f,				// 29:
 			v30_ror4_ea8,					// 2A:
 			v30_reserved_0x0f,				// 2B:
