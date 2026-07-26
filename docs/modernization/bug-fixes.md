@@ -648,6 +648,33 @@ separate parity correction or move it to Open Defects.
   and [M60a report](../agents/reports/m60a_upd9002_flags_materialization.md).
 - **Commit:** [aab78b78](https://github.com/nakatamaho/vaeg/commit/aab78b78a2473ce35b1e28a9af7420e46e72a1c4).
 
+### uPD9002 IRET loaded reserved FLAGS bits 3 and 5
+
+- **Status:** fixed in the M60e implementation; G60e candidate review pending.
+- **Symptom:** 3,769 of the 5,000 applicable `CF IRET` SST records failed
+  because the restored FLAGS value retained reserved bits 3 and 5 from the
+  stack.
+- **Affected scope:** real-mode uPD9002 `IRET` FLAGS restoration only. Stack
+  word order, logical and physical stack addresses, restored IP and CS, final
+  SP, termination, interrupt entry, and other FLAGS instructions are
+  unchanged.
+- **Demonstrated root cause:** the V30 `IRET` path masked the popped FLAGS word
+  with `0x0fff`, which made bits 3 and 5 loadable. Complete pre-fix replay
+  showed that the SST-observed rule forces both bits to zero while every other
+  observed IRET rule already matched.
+- **Correction:** use the IRET-specific `0x0fd7` stack mask, clearing only
+  bits 3 and 5. The underdetermined bit 8 and the existing internal high-FLAGS
+  representation are deliberately preserved.
+- **Verification:** deterministic focused tests cover ordinary, 16-bit
+  segment-wrap, and 20-bit physical-wrap stack reads and explicit FLAGS bit
+  rules. The complete CF population improved from 1,231 pass / 3,769 fail to
+  5,000 pass / 0 fail. Architectural full failures fell from 59,941 to
+  56,172, with no newly failing hash, timeout, crash, or protected-form
+  regression.
+- **Evidence:** [M60e IRET task](../agents/tasks/M60e_upd9002_iret.md) and
+  [M60e report](../agents/reports/m60e_upd9002_iret.md).
+- **Commit:** [7f815acb](https://github.com/nakatamaho/vaeg/commit/7f815acb26f1be546bbcfd5de12972235dfd175c).
+
 ## Open Defects
 
 ### Legacy Z80 reset leaves saved undocumented flag bits uninitialized
