@@ -272,9 +272,9 @@ static int test_evidence_oracles(void) {
 		{0xf0, 0x0f, 0xf0, 0xff}
 	};
 	static const PACKED_BCD_CASE rol4_cases[] = {
-		{0x12, 0x34, 0x12, 0x24},
-		{0xab, 0xcd, 0xab, 0xbd},
-		{0xf0, 0x0f, 0xf0, 0x0f}
+		{0x12, 0x34, 0x41, 0x24},
+		{0xab, 0xcd, 0xda, 0xbd},
+		{0xf0, 0x0f, 0xff, 0x0f}
 	};
 	UINT index;
 
@@ -290,7 +290,8 @@ static int test_evidence_oracles(void) {
 	}
 	for (index = 0; index < NELEMENTS(rol4_cases); index++) {
 		const PACKED_BCD_CASE *const value = &rol4_cases[index];
-		if ((value->expected_accumulator != value->source) ||
+		if ((value->expected_accumulator !=
+			 (UINT8)((value->accumulator << 4) | (value->source >> 4))) ||
 			(value->expected_destination !=
 			 (UINT8)((value->source << 4) |
 					 (value->accumulator & 0x0f)))) {
@@ -301,13 +302,76 @@ static int test_evidence_oracles(void) {
 	return SUCCESS;
 }
 
+static int test_rol4_registers(void) {
+
+	static const UINT8 sources[] =
+		{0x12, 0xab, 0xf0, 0x5e, 0x87, 0xd5, 0x09, 0xff};
+	const UINT16 initial_flags = 0xfcd7;
+	UINT code;
+
+	for (code = 0; code < NELEMENTS(sources); code++) {
+		const UINT8 instruction[] = {0x0f, 0x28, (UINT8)(0xc0 | code)};
+		UINT8 accumulator;
+		UINT8 expected_accumulator;
+		UINT8 expected_destination;
+
+		setup_instruction(instruction, NELEMENTS(instruction),
+							0x7a34, initial_flags);
+		set_byte_register(code, sources[code]);
+		accumulator = CPU_AL;
+		expected_accumulator =
+			(UINT8)((accumulator << 4) | (sources[code] >> 4));
+		expected_destination =
+			(UINT8)((sources[code] << 4) | (accumulator & 0x0f));
+		upd9002_core_step();
+		if (CPU_AL != expected_accumulator) {
+			fprintf(stderr,
+				"upd9002-m62: ROL4 register %u accumulator differs\n", code);
+			return FAILURE;
+		}
+		if ((code != 0) &&
+			(get_byte_register(code) != expected_destination)) {
+			fprintf(stderr,
+				"upd9002-m62: ROL4 register %u destination differs\n", code);
+			return FAILURE;
+		}
+		if ((CPU_FLAG != initial_flags) || (CPU_IP != 0x0103)) {
+			fprintf(stderr, "upd9002-m62: ROL4 changed FLAGS or IP\n");
+			return FAILURE;
+		}
+	}
+	return SUCCESS;
+}
+
+static int test_rol4_memory(void) {
+
+	static const UINT8 instruction[] =
+							{0x3e, 0x0f, 0x28, 0x06, 0x34, 0x12};
+	const UINT16 initial_flags = 0xfcd7;
+	const UINT32 address = (((UINT32)0x3333 << 4) + 0x1234) & 0xfffff;
+
+	setup_instruction(instruction, NELEMENTS(instruction),
+						0x7acd, initial_flags);
+	mem[address] = 0xab;
+	upd9002_core_step();
+	if ((CPU_AL != 0xda) || (mem[address] != 0xbd) ||
+		(CPU_AH != 0x7a) || (CPU_FLAG != initial_flags) ||
+		(CPU_IP != 0x0106)) {
+		fprintf(stderr, "upd9002-m62: ROL4 memory result differs\n");
+		return FAILURE;
+	}
+	return SUCCESS;
+}
+
 int upd9002_semantics_bundle_main(void) {
 
 	upd9002_core_initialize();
 	if ((test_evidence_oracles() != SUCCESS) ||
 		(test_aam_semantics() != SUCCESS) ||
 		(test_ror4_registers() != SUCCESS) ||
-		(test_ror4_memory() != SUCCESS)) {
+		(test_ror4_memory() != SUCCESS) ||
+		(test_rol4_registers() != SUCCESS) ||
+		(test_rol4_memory() != SUCCESS)) {
 		upd9002_core_deinitialize();
 		return FAILURE;
 	}
