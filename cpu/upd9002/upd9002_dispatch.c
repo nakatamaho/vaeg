@@ -1033,9 +1033,9 @@ I286FN v30_ror4_ea8(void) {				// 0F 2A: ror4 EA8
 	I286_WORKCLOCK(25);
 	value = v30_ea8_read(op, &madr);
 	oldal = I286_AL;
-	I286_AL = (UINT8)((value & 0x0f) | (oldal & 0xf0));
-	value = (UINT8)((value >> 4) | ((oldal & 0x0f) << 4));
-	v30_ea8_write(op, madr, value);
+	v30_ea8_write(op, madr,
+				(UINT8)((value >> 4) | ((oldal & 0x0f) << 4)));
+	I286_AL = value;
 }
 
 I286FN v30_reserved_repc(void) {
