@@ -10,6 +10,7 @@
       "commit_prefix": "M65a:",
       "domain": "applicable_semantic_failure",
       "human_gate": "required",
+      "implementation_authorized": true,
       "milestone": "M65a",
       "owned_count": 5000,
       "owned_hash_set_sha256": "6028d5dcd4b6a3dcded2aaf69fb186e502f7f5a4d094180572f802c86240039a",
@@ -5015,6 +5016,7 @@
         "fff2e5d20da9c70e2d30f782bb7b1677cc78bc0b30fd99da2a1fe47db878cf98",
         "fff362079fe0abf94492edf6881ae78caf99f84b222159f250dd7f9d78b33263"
       ],
+      "planning_only": false,
       "prohibited_scope": [
         "cpu/upd9002 changes before task start",
         "fixtures",
@@ -5035,6 +5037,7 @@
       "commit_prefix": "M65b:",
       "domain": "applicable_semantic_failure",
       "human_gate": "required",
+      "implementation_authorized": true,
       "milestone": "M65b",
       "owned_count": 1244,
       "owned_hash_set_sha256": "2fd0e1053b264042031c657ebf55796858e8ff2405509b3cc1d17ace71ae4f0d",
@@ -6284,6 +6287,7 @@
         "ff63ac06e69acc311ea679c250313e8451af05a24498e323579fc29d557698f8",
         "ffe21b4828faf82b8633dd2eae3c346c25259c5b42fc8e77773970ccbb469984"
       ],
+      "planning_only": false,
       "prohibited_scope": [
         "cpu/upd9002 changes before task start",
         "fixtures",
@@ -6304,6 +6308,7 @@
       "commit_prefix": "M65c:",
       "domain": "applicable_semantic_failure",
       "human_gate": "required",
+      "implementation_authorized": true,
       "milestone": "M65c",
       "owned_count": 1113,
       "owned_hash_set_sha256": "69bf316c8a0751f7aed67504d0ea606fd2530e8d254b2b4e73ead66ccbc30ccc",
@@ -7422,6 +7427,7 @@
         "ffb7b792986ed83a397922eac7179ab56a6302bd742873045b343cd2891a776c",
         "ffff8b9c1a5e0fb35a875001072a3c3253ea83aaa73d299052f82df0a8285343"
       ],
+      "planning_only": false,
       "prohibited_scope": [
         "cpu/upd9002 changes before task start",
         "fixtures",
@@ -7442,6 +7448,7 @@
       "commit_prefix": "M65d:",
       "domain": "applicable_semantic_failure",
       "human_gate": "required",
+      "implementation_authorized": true,
       "milestone": "M65d",
       "owned_count": 144,
       "owned_hash_set_sha256": "ce1bc644ee5a5bc73ae872440ad4446cb0dbccbad626ba93372082fe7add9076",
@@ -7591,6 +7598,7 @@
         "fdc47abf0fbd76c17323b9aef3ef156adba877fe2b847443d48171f6a3847340",
         "ff3b0636ddb18a93a14ebd71be596ece8fb3d8f4f0d20e6c4dfa2274c6c2261a"
       ],
+      "planning_only": false,
       "prohibited_scope": [
         "cpu/upd9002 changes before task start",
         "fixtures",
@@ -7611,6 +7619,7 @@
       "commit_prefix": "M65e:",
       "domain": "applicable_semantic_failure",
       "human_gate": "required",
+      "implementation_authorized": true,
       "milestone": "M65e",
       "owned_count": 10,
       "owned_hash_set_sha256": "7b228418bf0391884381514282e60ea9ccaf3af8c0f1f7f5a1b038a24de230a1",
@@ -7626,6 +7635,7 @@
         "abc302e4933a4548f9af931e8c0f8333265ff18c6b94a9f75b3ea94b6b522171",
         "cbad10077f6e4b2dd631f45baffb3a862400450f561bedd74c9bd5be7d52b9da"
       ],
+      "planning_only": false,
       "prohibited_scope": [
         "cpu/upd9002 changes before task start",
         "fixtures",
@@ -7646,10 +7656,12 @@
       "commit_prefix": "M65f:",
       "domain": "reserved_opcode_policy",
       "human_gate": "required",
+      "implementation_authorized": true,
       "milestone": "M65f",
       "owned_count": 0,
       "owned_hash_set_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
       "owned_hashes": [],
+      "planning_only": false,
       "prohibited_scope": [
         "cpu/upd9002 changes before task start",
         "fixtures",
@@ -7670,10 +7682,12 @@
       "commit_prefix": "M65g:",
       "domain": "corpus_required_before_implementation",
       "human_gate": "required",
+      "implementation_authorized": true,
       "milestone": "M65g",
       "owned_count": 0,
       "owned_hash_set_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
       "owned_hashes": [],
+      "planning_only": false,
       "prohibited_scope": [
         "cpu/upd9002 changes before task start",
         "fixtures",
@@ -7694,10 +7708,12 @@
       "commit_prefix": "M65h:",
       "domain": "target_authority_evidence_required",
       "human_gate": "required",
+      "implementation_authorized": true,
       "milestone": "M65h",
       "owned_count": 0,
       "owned_hash_set_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
       "owned_hashes": [],
+      "planning_only": false,
       "prohibited_scope": [
         "cpu/upd9002 changes before task start",
         "fixtures",
@@ -7718,10 +7734,12 @@
       "commit_prefix": "M65i:",
       "domain": "target_authority_evidence_required",
       "human_gate": "required",
+      "implementation_authorized": true,
       "milestone": "M65i",
       "owned_count": 0,
       "owned_hash_set_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
       "owned_hashes": [],
+      "planning_only": false,
       "prohibited_scope": [
         "cpu/upd9002 changes before task start",
         "fixtures",
@@ -7742,6 +7760,7 @@
       "commit_prefix": "M65j:",
       "domain": "implementation_missing_with_executable_corpus",
       "human_gate": "required",
+      "implementation_authorized": false,
       "milestone": "M65j",
       "owned_count": 5908,
       "owned_hash_set_sha256": "240e0bf76de968b310ad13ef53de8d044637b185e267e1cfb2540f32ab6571e5",
@@ -13655,6 +13674,7 @@
         "fda7953f26ca50b26759e8b8d84bd0290d5902c7",
         "fee928dc1c34f5b129b8a03a1269724d58bce07b"
       ],
+      "planning_only": true,
       "prohibited_scope": [
         "cpu/upd9002 changes before task start",
         "fixtures",
@@ -13675,10 +13695,12 @@
       "commit_prefix": "M65k:",
       "domain": "reserved_opcode_policy",
       "human_gate": "required",
+      "implementation_authorized": true,
       "milestone": "M65k",
       "owned_count": 0,
       "owned_hash_set_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
       "owned_hashes": [],
+      "planning_only": false,
       "prohibited_scope": [
         "cpu/upd9002 changes before task start",
         "fixtures",
@@ -13699,10 +13721,12 @@
       "commit_prefix": "M65l:",
       "domain": "prefix_or_restart_semantics",
       "human_gate": "required",
+      "implementation_authorized": true,
       "milestone": "M65l",
       "owned_count": 0,
       "owned_hash_set_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
       "owned_hashes": [],
+      "planning_only": false,
       "prohibited_scope": [
         "cpu/upd9002 changes before task start",
         "fixtures",
@@ -13723,10 +13747,12 @@
       "commit_prefix": "M65m:",
       "domain": "diagnostic_only",
       "human_gate": "required",
+      "implementation_authorized": true,
       "milestone": "M65m",
       "owned_count": 79902,
       "owned_hash_set_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
       "owned_hashes": [],
+      "planning_only": false,
       "prohibited_scope": [
         "cpu/upd9002 changes before task start",
         "fixtures",
