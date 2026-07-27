@@ -35,3 +35,11 @@ Architectural owners must union exactly to 7,511; implementation-gap owners
 must union exactly to 5,908; zero-coverage authority items must not gain fake
 hashes. Unowned failure/gap/authority sets must be empty. Preserve M66a,
 M66b, and M67 identifiers unchanged. Stop at G65 human review.
+
+## Campaign execution amendment
+
+Under the maintainer-approved terminal-only protocol, M65j is the first
+internal checkpoint and performs selector/hash decomposition. M65a through
+M65m then execute serially on `topic/m65-residue-campaign`; intermediate
+checkpoints are technically validated but not independently approved. Only
+G65m is a formal approval gate, and M66a requires approved G65m.
