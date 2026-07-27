@@ -65,7 +65,7 @@ def tasks():
     ]
     result=[]
     for mid,slug,title,count,domain,scope in specs:
-        result.append({"milestone":mid,"title":title,"slug":slug,"branch":f"topic/{mid.lower()}-upd9002-{slug}","commit_prefix":f"{mid}:","candidate_gate":mid.replace("M","G"),"report":f"docs/agents/reports/{mid.lower()}_upd9002_{slug}.md","approved_prerequisite":"G65 human approval","owned_count":int(count),"domain":domain,"scope":scope,"status":"planned","semantic_change":domain=="applicable_semantic_failure" or domain=="implementation_missing_with_executable_corpus","prohibited_scope":["cpu/upd9002 changes before task start","fixtures","contracts","target policy outside exact owner"],"human_gate":"required"})
+        result.append({"milestone":mid,"title":title,"slug":slug,"branch":f"topic/{mid.lower()}-upd9002-{slug}","commit_prefix":f"{mid}:","candidate_gate":mid.replace("M","G"),"report":f"docs/agents/reports/{mid.lower()}_upd9002_{slug}.md","approved_prerequisite":"G65 human approval","owned_count":int(count),"domain":domain,"scope":scope,"status":"planned","semantic_change":domain=="applicable_semantic_failure" or domain=="implementation_missing_with_executable_corpus","planning_only":mid=="M65j","implementation_authorized":False if mid=="M65j" else True,"prohibited_scope":["cpu/upd9002 changes before task start","fixtures","contracts","target policy outside exact owner"],"human_gate":"required"})
     return result
 
 def generate(outdir: pathlib.Path):
