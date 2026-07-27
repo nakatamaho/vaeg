@@ -257,7 +257,10 @@ residual. M60e handles IRET separately.
    approved SST v20 metadata names BRKEM (`0FFF`) but has no corresponding
    shard, so M64 records an exact zero-case authority/coverage checkpoint and
    does not claim or invent executable BRKEM semantics.
-8. M65 — evidence-only residue re-plan after approved G64. Enumerate all
+8. M65 — serial residue campaign after approved G65. M65j decomposes all
+   5,908 implementation-missing selectors, then M65a–M65m execute one at a
+   time. Intermediate checkpoints are not independently approved; only G65m
+   is a formal gate. M66a requires approved G65m. Enumerate all
    7,511 architectural failures and 5,908 implementation-missing hashes with
    disjoint owners. BRKEM (`0F FF imm8`) is explicitly deferred because the
    v20 metadata exists but the `0fff.json.gz` corpus shard is absent; no cases
