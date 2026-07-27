@@ -13,7 +13,7 @@ def main():
     groups=[]; all_hashes=[]
     for i,e in enumerate(sorted(data["entries"], key=lambda x:x["selector_sha256"]), 1):
         hs=sorted(e["resolved_test_hashes"]); all_hashes.extend(hs)
-        groups.append({"internal_id":f"M65j.{i:02d}","parent_milestone":"M65j","campaign_base_gate":"G65","campaign_base_sha":BASE,"selector":e["selector"],"selector_sha256":e["selector_sha256"],"hashes":hs,"count":len(hs),"hash_set_sha256":digest(hs),"classification_before":"known_target_gap","gap_kind_before":"implementation_missing","target_authority":e["selector"].get("support_target"),"corpus_availability":"resolved v20 hashes","disposition":"internal_semantic_work_package","canonical_task_assignment":None,"status":"complete_pending_campaign_gate"})
+        groups.append({"internal_id":f"M65j.{i:02d}","parent_milestone":"M65j","campaign_base_gate":"G65","campaign_base_sha":BASE,"selector":e["selector"],"selector_sha256":e["selector_sha256"],"hashes":hs,"count":len(hs),"hash_set_sha256":digest(hs),"classification_before":"known_target_gap","gap_kind_before":"implementation_missing","target_authority":e["selector"].get("support_target"),"corpus_availability":"resolved v20 hashes; positive target authority not established","disposition":"internal_evidence_work_package","canonical_task_assignment":None,"evidence_blocker":"G65 does not prove target support for v30_reserved selectors","status":"complete_pending_campaign_gate"})
     assert len(all_hashes)==5908 and len(all_hashes)==len(set(all_hashes))
     OUT.mkdir(parents=True, exist_ok=True)
     def write(name,obj): (OUT/name).write_text(json.dumps(obj,sort_keys=True,indent=2)+"\n")

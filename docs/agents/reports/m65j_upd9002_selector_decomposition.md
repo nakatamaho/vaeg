@@ -18,8 +18,15 @@ The inventory contains 19 selector groups and exactly 5,908 hashes with digest
 Each group has its own selector, exact hashes, count, and digest. The groups
 are pairwise disjoint and their union is the complete G65 implementation-
 missing population. Every group is classified
-`internal_semantic_work_package`; no generic implementation task is created,
-and no production implementation is authorized by this checkpoint.
+`internal_evidence_work_package`: the selectors identify
+`v30_reserved_0x0f`/`v30_reserved_repc`, but G65 does not establish positive
+target authority or an executable semantic contract. No generic implementation
+task is created, and no production implementation is authorized by this
+checkpoint.
+
+The campaign stops at M65j under the hard-stop rule. A maintainer amendment or
+new authority/corpus evidence is required before these evidence packages can
+be completed or semantic work can begin.
 
 Next task: M65a, after the campaign schedule is regenerated. The internal
 work-package identifiers are `M65j.01` through `M65j.19`; they are not formal
