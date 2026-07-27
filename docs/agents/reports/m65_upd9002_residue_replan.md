@@ -10,10 +10,11 @@ The fixed predecessor is G64, SHA
 `9b151923f9468555043152ffe8651c97b9ecac5b`, branch
 `topic/m64-upd9002-div-idiv`, evaluated worker
 `99c6388df903dfc69432730cc9fa908a83946774`, and hosted CI
-[30199906912](https://github.com/nakatamaho/vaeg/actions/runs/30223337112).
+[30223337112](https://github.com/nakatamaho/vaeg/actions/runs/30223337112).
 M65 uses branch `topic/m65-upd9002-residue-plan`. The audit/planning commits
-are `4a72102` and `f5f21c7`; the final evidence commit is the containing
-commit for this report. The dedicated worktree was based directly on the fixed
+are `4a72102` and `f5f21c7`; the final evidence candidate SHA is
+`5a540a9cdc853a9789c27eaa6f68aac6e2783f82`, and the approved CI head SHA is
+the same. The dedicated worktree was based directly on the fixed
 G64 SHA; the unrelated primary worktree was not modified.
 
 The verified dataset is
@@ -55,8 +56,12 @@ The live G64 policy resolves exactly 5,908 `known_target_gap /
 implementation_missing` hashes after excluding completed G62/G64 forms. The
 complete selector rows, hashes, counts, and sorted-hash digests are in
 `tests/ssts/evidence/g65/implementation_missing_inventory.json`. They are
-owned by the generated M65j selector-owned task and are not mixed with
-applicable failures. The taxonomy cross-check is documented/silicon-absent
+owned by M65j only as a planning/re-decomposition inventory: it is not a
+generic semantic implementation task and authorizes no CPU change. Each
+selector row retains its own exact hashes, count, and digest in the inventory;
+future semantic tasks must split those rows by independently reviewable
+primitive. They are not mixed with applicable failures. The taxonomy
+cross-check is documented/silicon-absent
 32,000, implementation-missing 5,908, target-support-unverified 0.
 
 ## Zero coverage and authority work
