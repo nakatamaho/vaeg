@@ -122,6 +122,29 @@ separate parity correction or move it to Open Defects.
   [M65 expected/actual reconstruction report](../agents/reports/m65_campaign_expected_actual_reconstruction.md).
 - **Commit:** [8d338a52](https://github.com/nakatamaho/vaeg/commit/8d338a528a7c3b4a18636f2f3a4678ece6dbcd4f).
 
+### uPD9002 FF /6 pushed the old SP value for the SP register operand
+
+- **Status:** fixed in the M65 residue campaign; formal approval deferred to
+  terminal G65m.
+- **Symptom:** 144 applicable G65 `FF /6` SST cases failed final RAM
+  comparison. All owned cases were register-form `r/m = SP` rows. The
+  predecessor decremented `SP` but pushed the pre-decrement SP value.
+- **Root cause:** `_push_ea16` read the register operand before invoking the
+  push macro. For the SP alias case, the observable pushed value must be the
+  decremented SP value produced by the push.
+- **Correction:** `_push_ea16` now captures `SP - 2` for the register
+  `r/m = SP` case before using the existing push path. Other register and
+  memory-source forms remain unchanged.
+- **Verification:** the focused `vaeg_upd9002_m65d_ff6` test covers SP alias,
+  segment-prefixed SP alias, non-SP register, memory operand, and stack-wrap
+  cases. The M65d replay ran the exact 144 owned hashes as
+  `144 pass / 0 fail` and the complete selected `FF /6` population as
+  `5,000 pass / 0 fail`, with zero timeout/crash and M65a, M65b, BOUND frame,
+  M65c, and M65e guards preserved.
+- **Evidence:** [M65d report](../agents/reports/m65d_upd9002_ff6.md) and
+  [M65 expected/actual reconstruction report](../agents/reports/m65_campaign_expected_actual_reconstruction.md).
+- **Commit:** [5cfc3540](https://github.com/nakatamaho/vaeg/commit/5cfc3540b5f1d78a7aace699d51729d272529552).
+
 ### State-load rejection feedback disappeared with the State menu
 
 - **Status:** fixed; corrected G55 human gate passed on 2026-07-22.
