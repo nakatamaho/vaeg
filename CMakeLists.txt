@@ -353,6 +353,7 @@ set(VAEG_SDL2_SOURCES
     sdl2/gui/gui.cpp)
 if(VAEG_ENABLE_TESTS)
     list(APPEND VAEG_SDL2_SOURCES
+        tests/idp/m69_status_composition.c
         tests/z80/subsystem_integration.cpp
         tests/upd9002/direct_harness.c
 		tests/upd9002/dispatch_normalization.c
@@ -553,6 +554,7 @@ if(VAEG_ENABLE_TESTS)
         VAEG_UPD9002_M65D_TESTING=1
         VAEG_UPD9002_M65E_TESTING=1
         VAEG_UPD9002_M68_TESTING=1
+        VAEG_IDP_M69_TESTING=1
         VAEG_UPD9002_SSTS_TESTING=1
         "VAEG_UPD9002_HARNESS_MANIFEST_PATH=\"${CMAKE_CURRENT_SOURCE_DIR}/tests/upd9002/harness_manifest.csv\""
         "VAEG_UPD9002_FIXTURE_PATH=\"${CMAKE_CURRENT_SOURCE_DIR}/tests/upd9002/state_fixtures_m42.txt\"")
@@ -802,6 +804,11 @@ if(VAEG_ENABLE_TESTS)
 		COMMAND vaeg_sdl2 --upd9002-m68-segmented-memory)
     set_tests_properties(vaeg_upd9002_m68_segmented_memory PROPERTIES
 		LABELS "romless;upd9002;m68;memory;semantics")
+
+    add_test(NAME vaeg_idp_m69_status_composition
+		COMMAND vaeg_sdl2 --idp-m69-status-composition)
+    set_tests_properties(vaeg_idp_m69_status_composition PROPERTIES
+		LABELS "romless;idp;tsp;m69")
 
     add_test(NAME vaeg_upd9002_rep0f_transition_selftest
 		COMMAND "${Python3_EXECUTABLE}"

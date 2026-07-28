@@ -99,6 +99,9 @@
 #if defined(VAEG_UPD9002_M68_TESTING)
 #include	"tests/upd9002/m68_segmented_memory.h"
 #endif
+#if defined(VAEG_IDP_M69_TESTING)
+#include	"tests/idp/m69_status_composition.h"
+#endif
 #if defined(VAEG_UPD9002_SSTS_TESTING)
 #include	"tests/upd9002/ssts_worker.h"
 #endif
@@ -1515,6 +1518,11 @@ int main(int argc, char **argv) {
 #if defined(VAEG_UPD9002_M68_TESTING)
 	if ((argc == 2) && !strcmp(argv[1], "--upd9002-m68-segmented-memory")) {
 		return upd9002_m68_segmented_memory_main();
+	}
+#endif
+#if defined(VAEG_IDP_M69_TESTING)
+	if ((argc == 2) && !strcmp(argv[1], "--idp-m69-status-composition")) {
+		return idp_m69_status_composition_main();
 	}
 #endif
 #if defined(VAEG_UPD9002_SSTS_TESTING)
