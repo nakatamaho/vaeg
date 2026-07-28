@@ -50,6 +50,28 @@ separate parity correction or move it to Open Defects.
 
 ## Fixed Defects
 
+### uPD9002 FF /7 executed a POP-like operation instead of the observed stack push
+
+- **Status:** fixed in the M65 residue campaign; formal approval deferred to
+  terminal G65m.
+- **Symptom:** all 5,000 applicable G65 `FF /7` SST cases terminated normally
+  but failed final architectural comparison. The expected state decremented
+  `SP` by two and wrote the selected `r/m16` value to the stack; the actual
+  state followed the inherited POP-like dispatch.
+- **Root cause:** the active `FF` ModR/M group table routed `/7` to the
+  obsolete `_pop_ea16` helper. The reconstructed M65a evidence proves the
+  observable `FF /7` contract is a stack push, including the `r/m = SP` alias
+  writing the decremented `SP`.
+- **Correction:** `FF /7` now uses an M65a-owned push helper. It preserves the
+  existing `FF /6` helper for the later M65d-owned SP-alias residue.
+- **Verification:** the focused `vaeg_upd9002_m65a_ff7` test covers register,
+  memory, and SP-alias forms. The selective M65a replay ran the exact 5,000
+  owned hashes as `5,000 pass / 0 fail`, with zero timeout/crash and an M65d
+  guard preserving the exact 144 `FF /6` G65 failures.
+- **Evidence:** [M65a report](../agents/reports/m65a_upd9002_ff7.md) and
+  [M65 expected/actual reconstruction report](../agents/reports/m65_campaign_expected_actual_reconstruction.md).
+- **Commit:** [15f2ac8e](https://github.com/nakatamaho/vaeg/commit/15f2ac8e861c3cfedbc12acc9ef470925d00716c).
+
 ### State-load rejection feedback disappeared with the State menu
 
 - **Status:** fixed; corrected G55 human gate passed on 2026-07-22.
