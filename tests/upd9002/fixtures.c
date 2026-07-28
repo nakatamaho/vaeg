@@ -52,7 +52,7 @@ static void bytes_hex(const void *data, size_t size, char *output) {
 
 static void fixture_line(const char *scenario, char *line, size_t size) {
 
-	Cpu286StateCompat cpu;
+	Upd9002StateImage cpu;
 	char cpu_hex[sizeof(cpu) * 2 + 1];
 	char regs_hex[sizeof(upd9002_regs) * 2 + 1];
 
@@ -60,7 +60,7 @@ static void fixture_line(const char *scenario, char *line, size_t size) {
 	bytes_hex(&cpu, sizeof(cpu), cpu_hex);
 	bytes_hex(&upd9002_regs, sizeof(upd9002_regs), regs_hex);
 	snprintf(line, size,
-		"%s,cpu286_size=%u,cpu286=%s,upd9002_size=%u,upd9002=%s,"
+		"%s,upd9cpu_size=%u,upd9cpu=%s,upd9002_size=%u,upd9002=%s,"
 		"ax=%04x,bx=%04x,cx=%04x,dx=%04x,sp=%04x,cs=%04x,ip=%04x,"
 		"flags=%04x,csbase=%08x,remain=%08x,base=%08x,clock=%08x,type=%02x\n",
 		scenario, (unsigned int)sizeof(cpu), cpu_hex,
@@ -93,7 +93,7 @@ static void prepare_executed(void) {
 
 static int verify_native_reset_invariant(void) {
 
-	Cpu286StateCompat saved;
+	Upd9002StateImage saved;
 
 	upd9002_state_export(&saved);
 	i286core.s.cpu_type = 0;
@@ -110,7 +110,7 @@ static int verify_native_reset_invariant(void) {
 int upd9002_fixture_verify(const char *path) {
 
 	FILE *stream;
-	Cpu286StateCompat saved_cpu;
+	Upd9002StateImage saved_cpu;
 	UPD9002_REGS saved_regs;
 	uint8_t saved_program[8];
 	char actual[3][FIXTURE_LINE_CAPACITY];

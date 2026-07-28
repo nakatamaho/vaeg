@@ -872,6 +872,13 @@ if(VAEG_ENABLE_TESTS)
     set_tests_properties(vaeg_upd9002_state_payload_probe PROPERTIES
         LABELS "romless;upd9002;state")
 
+    add_test(NAME vaeg_upd9002_m66a_state_verify
+        COMMAND "${Python3_EXECUTABLE}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/upd9002_m66_state.py"
+            --root "${CMAKE_CURRENT_SOURCE_DIR}" verify-m66a)
+    set_tests_properties(vaeg_upd9002_m66a_state_verify PROPERTIES
+        LABELS "romless;upd9002;state")
+
     add_test(NAME vaeg_upd9002_trace_equivalence
         COMMAND "${CMAKE_COMMAND}"
             "-DVAEG_EXECUTABLE=$<TARGET_FILE:vaeg_sdl2>"

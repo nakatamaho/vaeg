@@ -37,6 +37,8 @@
 
 #include	"bmsio.h"
 
+#include	<string.h>
+
 #include	"sysportva.h"
 #include	"memoryva.h"
 #include	"gvramva.h"
@@ -81,7 +83,7 @@ typedef struct {
 
 enum {
 	STATFLAG_BIN			= 0,
-	STATFLAG_CPU286,
+	STATFLAG_UPD9002_CPU,
 	STATFLAG_TERM,
 #if defined(CGWND_FONTPTR)
 	STATFLAG_CGW,
@@ -428,27 +430,52 @@ static int flagload_common(STFLAGH sfh, const SFENTRY *tbl) {
 	return(statflag_read(sfh, tbl->arg1, tbl->arg2));
 }
 
-static int flagsave_cpu286(STFLAGH sfh, const SFENTRY *tbl) {
+static BOOL statflag_index_equals(const char index[10], const char *name) {
 
-	Cpu286StateCompat state;
+	char padded[10];
+	size_t length;
+
+	ZeroMemory(padded, sizeof(padded));
+	length = strlen(name);
+	if (length > sizeof(padded)) {
+		length = sizeof(padded);
+	}
+	CopyMemory(padded, name, length);
+	return(!memcmp(index, padded, sizeof(padded)));
+}
+
+static BOOL statflag_is_legacy_cpu_state(STFLAGH sfh) {
+
+	return(statflag_index_equals(sfh->hdr.index, "CPU286"));
+}
+
+static BOOL statflag_is_upd9002_format_marker(STFLAGH sfh) {
+
+	return(statflag_index_equals(sfh->hdr.index, "UPD9002"));
+}
+
+static int flagsave_upd9002_cpu(STFLAGH sfh, const SFENTRY *tbl) {
+
+	Upd9002StateImage state;
 
 	upd9002_state_export(&state);
 	return(statflag_write(sfh, &state, tbl->arg2));
 }
 
-static int flagload_cpu286(STFLAGH sfh, const SFENTRY *tbl) {
+static int flagload_upd9002_state_image(STFLAGH sfh, UINT16 version,
+						UINT32 payload_size, const char *truncated_error) {
 
-	Cpu286StateCompat state;
+	Upd9002StateImage state;
 	char error[128];
 	int ret;
 
-	if ((sfh->hdr.ver != tbl->ver) || (sfh->hdr.size != tbl->arg2)) {
+	if ((sfh->hdr.ver != version) || (sfh->hdr.size != payload_size)) {
 		statflag_seterr(sfh, UPD9002_STATE_ERROR_SIZE);
 		return(STATFLAG_FAILURE);
 	}
 	ret = statflag_read(sfh, &state, sizeof(state));
 	if (ret != STATFLAG_SUCCESS) {
-		statflag_seterr(sfh, "CPU286 payload is truncated");
+		statflag_seterr(sfh, truncated_error);
 		return(STATFLAG_FAILURE);
 	}
 	error[0] = '\0';
@@ -460,6 +487,17 @@ static int flagload_cpu286(STFLAGH sfh, const SFENTRY *tbl) {
 	return(STATFLAG_SUCCESS);
 }
 
+static int flagload_upd9002_cpu(STFLAGH sfh, const SFENTRY *tbl) {
+
+	return(flagload_upd9002_state_image(sfh, tbl->ver, tbl->arg2,
+		"uPD9002 payload is truncated"));
+}
+
+static int flagload_legacy_cpu_state(STFLAGH sfh) {
+
+	return(flagload_upd9002_state_image(sfh, 0, UPD9002_STATE_PAYLOAD_SIZE,
+		"obsolete processor state section is truncated"));
+}
 
 // ---- memory
 
@@ -1447,23 +1485,25 @@ static int flagcheck_veronly(STFLAGH sfh, const SFENTRY *tbl) {
 	return(STATFLAG_FAILURE);
 }
 
-static int flagcheck_cpu286(STFLAGH sfh, const SFENTRY *tbl) {
+static int flagcheck_upd9002_state_image(STFLAGH sfh, UINT16 version,
+						UINT32 payload_size, const char *version_error,
+						const char *truncated_error) {
 
-	Cpu286StateCompat state;
+	Upd9002StateImage state;
 	char error[128];
 	int ret;
 
-	if (sfh->hdr.ver != tbl->ver) {
-		statflag_seterr(sfh, "CPU286 payload version is unsupported");
+	if (sfh->hdr.ver != version) {
+		statflag_seterr(sfh, version_error);
 		return(STATFLAG_FAILURE);
 	}
-	if (sfh->hdr.size != tbl->arg2) {
+	if (sfh->hdr.size != payload_size) {
 		statflag_seterr(sfh, UPD9002_STATE_ERROR_SIZE);
 		return(STATFLAG_FAILURE);
 	}
 	ret = statflag_read(sfh, &state, sizeof(state));
 	if (ret != STATFLAG_SUCCESS) {
-		statflag_seterr(sfh, "CPU286 payload is truncated");
+		statflag_seterr(sfh, truncated_error);
 		return(STATFLAG_FAILURE);
 	}
 	error[0] = '\0';
@@ -1473,6 +1513,20 @@ static int flagcheck_cpu286(STFLAGH sfh, const SFENTRY *tbl) {
 		return(STATFLAG_FAILURE);
 	}
 	return(STATFLAG_SUCCESS);
+}
+
+static int flagcheck_upd9002_cpu(STFLAGH sfh, const SFENTRY *tbl) {
+
+	return(flagcheck_upd9002_state_image(sfh, tbl->ver, tbl->arg2,
+		"uPD9002 payload version is unsupported",
+		"uPD9002 payload is truncated"));
+}
+
+static int flagcheck_legacy_cpu_state(STFLAGH sfh) {
+
+	return(flagcheck_upd9002_state_image(sfh, 0, UPD9002_STATE_PAYLOAD_SIZE,
+		UPD9002_STATE_ERROR_LEGACY_SECTION,
+		"obsolete processor state section is truncated"));
 }
 
 
@@ -1501,8 +1555,8 @@ const SFENTRY	*tblterm;
 				ret |= flagsave_common(&sffh->sfh, tbl);
 				break;
 
-			case STATFLAG_CPU286:
-				ret |= flagsave_cpu286(&sffh->sfh, tbl);
+			case STATFLAG_UPD9002_CPU:
+				ret |= flagsave_upd9002_cpu(&sffh->sfh, tbl);
 				break;
 
 #if defined(CGWND_FONTPTR)
@@ -1586,6 +1640,8 @@ static int statsave_check_internal(const char *filename, char *buf, int size,
 	int			ret;
 	BOOL		done;
 	BOOL		hostfat_seen;
+	BOOL		legacy_cpu_state_seen;
+	BOOL		upd9002_format_marker_seen;
 const SFENTRY	*tbl;
 const SFENTRY	*tblterm;
 
@@ -1596,9 +1652,14 @@ const SFENTRY	*tblterm;
 
 	done = FALSE;
 	hostfat_seen = FALSE;
+	legacy_cpu_state_seen = FALSE;
+	upd9002_format_marker_seen = FALSE;
 	ret = STATFLAG_SUCCESS;
 	while((!done) && (ret != STATFLAG_FAILURE)) {
 		ret |= statflag_readsection(sffh);
+		if (statflag_is_upd9002_format_marker(&sffh->sfh)) {
+			upd9002_format_marker_seen = TRUE;
+		}
 		tbl = np2tbl;
 		tblterm = tbl + (sizeof(np2tbl)/sizeof(SFENTRY));
 		while(tbl < tblterm) {
@@ -1617,8 +1678,8 @@ const SFENTRY	*tblterm;
 					ret |= flagcheck_versize(&sffh->sfh, tbl);
 					break;
 
-				case STATFLAG_CPU286:
-					ret |= flagcheck_cpu286(&sffh->sfh, tbl);
+				case STATFLAG_UPD9002_CPU:
+					ret |= flagcheck_upd9002_cpu(&sffh->sfh, tbl);
 					break;
 
 				case STATFLAG_HOSTFAT:
@@ -1661,8 +1722,19 @@ const SFENTRY	*tblterm;
 			}
 		}
 		else {
-			ret |= STATFLAG_WARNING;
+			if (statflag_is_legacy_cpu_state(&sffh->sfh)) {
+				legacy_cpu_state_seen = TRUE;
+				ret |= flagcheck_legacy_cpu_state(&sffh->sfh);
+			}
+			else {
+				ret |= STATFLAG_WARNING;
+			}
 		}
+	}
+	if ((ret != STATFLAG_FAILURE) && legacy_cpu_state_seen &&
+									!upd9002_format_marker_seen) {
+		statflag_seterr(&sffh->sfh, UPD9002_STATE_ERROR_LEGACY_MARKER);
+		ret = STATFLAG_FAILURE;
 	}
 	if ((ret != STATFLAG_FAILURE) && hostfat_is_mounted() && !hostfat_seen) {
 		statflag_seterr(&sffh->sfh,
@@ -1754,8 +1826,8 @@ const SFENTRY	*tblterm;
 					ret |= flagload_common(&sffh->sfh, tbl);
 					break;
 
-				case STATFLAG_CPU286:
-					ret |= flagload_cpu286(&sffh->sfh, tbl);
+				case STATFLAG_UPD9002_CPU:
+					ret |= flagload_upd9002_cpu(&sffh->sfh, tbl);
 					break;
 
 				case STATFLAG_TERM:
@@ -1836,7 +1908,12 @@ const SFENTRY	*tblterm;
 			}
 		}
 		else {
-			ret |= STATFLAG_WARNING;
+			if (statflag_is_legacy_cpu_state(&sffh->sfh)) {
+				ret |= flagload_legacy_cpu_state(&sffh->sfh);
+			}
+			else {
+				ret |= STATFLAG_WARNING;
+			}
 		}
 	}
 	statflag_close(sffh);

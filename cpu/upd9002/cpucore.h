@@ -177,7 +177,7 @@ typedef struct {
 	SINT32	remainclock;
 	SINT32	baseclock;
 	UINT32	clock;
-} Cpu286StateCompat;
+} Upd9002StateImage;
 
 typedef struct {
 	union {
@@ -216,11 +216,11 @@ typedef Upd9002RuntimeState I286STAT;
 
 typedef struct {
 	UINT8 bytes[112];
-} Cpu286CompatImage;
+} Upd9002StateOpaqueImage;
 
 /*
- * I286STAT remains the internal compatibility name for the active runtime
- * object.  Cpu286StateCompat is the independently typed on-disk contract.
+ * I286STAT remains the historical internal runtime typedef until M66b.
+ * Upd9002StateImage is the independently typed current on-disk contract.
  */
 typedef struct {
 	/* for ver0.73 */
