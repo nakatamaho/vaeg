@@ -22,19 +22,25 @@
  * IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-#ifndef VAEG_I286C_UPD9002_STATE_H
-#define VAEG_I286C_UPD9002_STATE_H
+#ifndef VAEG_UPD9002_STATE_H
+#define VAEG_UPD9002_STATE_H
 
 #include "cpucore.h"
 
 #include <stddef.h>
 
-#define UPD9002_CPU286_PAYLOAD_SIZE 112
-#define UPD9002_STATE_ERROR_SIZE "CPU286 payload size is not 112 bytes"
+#define UPD9002_STATE_PAYLOAD_SIZE 112
+#define UPD9002_STATE_SECTION "UPD9CPU"
+#define UPD9002_STATE_VERSION 1
+#define UPD9002_STATE_ERROR_SIZE "uPD9002 payload size is not 112 bytes"
 #define UPD9002_STATE_ERROR_CPU_TYPE \
-	"CPU286 cpu_type is not CPUTYPE_V30"
+	"uPD9002 cpu_type is not CPUTYPE_V30"
 #define UPD9002_STATE_ERROR_PROTECTED_MODE \
-	"CPU286 state requires unsupported 80286 protected-mode execution"
+	"uPD9002 state requires unsupported protected-mode execution"
+#define UPD9002_STATE_ERROR_LEGACY_SECTION \
+	"obsolete processor state section is unsupported"
+#define UPD9002_STATE_ERROR_LEGACY_MARKER \
+	"obsolete processor state section lacks uPD9002 format marker"
 
 #ifdef __cplusplus
 extern "C" {
@@ -48,7 +54,7 @@ int upd9002_state_validate(const void *payload, size_t size,
 										char *error, size_t error_size);
 int upd9002_state_import(const void *payload, size_t size,
 									char *error, size_t error_size);
-void upd9002_state_export(Cpu286StateCompat *state);
+void upd9002_state_export(Upd9002StateImage *state);
 
 #ifdef __cplusplus
 }

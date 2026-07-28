@@ -42,14 +42,14 @@ static void append(char *buffer, size_t size, const char *name,
 	snprintf(buffer + used, size - used, "%s=%u\n", name, value);
 }
 
-static int verify_cpu286_compat_abi(void) {
+static int verify_upd9002_state_abi(void) {
 
-	if ((sizeof(Cpu286StateCompat) != 112) ||
-		(ALIGNOF(Cpu286StateCompat) != 4)) {
+	if ((sizeof(Upd9002StateImage) != 112) ||
+		(ALIGNOF(Upd9002StateImage) != 4)) {
 		return 0;
 	}
 #define OFFSET(field, value) \
-	if (offsetof(Cpu286StateCompat, field) != (value)) return 0
+	if (offsetof(Upd9002StateImage, field) != (value)) return 0
 	OFFSET(r, 0);
 	OFFSET(es_base, 28);
 	OFFSET(cs_base, 32);
@@ -87,14 +87,14 @@ int main(int argc, char **argv) {
 	FILE *stream;
 	size_t bytes;
 
-	if (!verify_cpu286_compat_abi()) {
+	if (!verify_upd9002_state_abi()) {
 		return 5;
 	}
 
 	actual[0] = '\0';
-	append(actual, sizeof(actual), "cpu286.size", sizeof(I286STAT));
-	append(actual, sizeof(actual), "cpu286.align", ALIGNOF(I286STAT));
-#define FIELD(name) append(actual, sizeof(actual), "cpu286.offset." #name, \
+	append(actual, sizeof(actual), "upd9002_state.size", sizeof(I286STAT));
+	append(actual, sizeof(actual), "upd9002_state.align", ALIGNOF(I286STAT));
+#define FIELD(name) append(actual, sizeof(actual), "upd9002_state.offset." #name, \
 												offsetof(I286STAT, name))
 	FIELD(r);
 	FIELD(es_base);

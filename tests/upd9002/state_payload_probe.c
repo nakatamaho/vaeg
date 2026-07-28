@@ -94,7 +94,7 @@ static int import_export_cpu(const UINT8 *input, UINT8 *output) {
 	memcpy(output, &i286core.s, sizeof(i286core.s));
 	return SUCCESS;
 #else
-	Cpu286StateCompat state;
+	Upd9002StateImage state;
 
 	if (upd9002_state_import(input, CPU_PAYLOAD_SIZE, NULL, 0) != SUCCESS) {
 		return FAILURE;
@@ -112,7 +112,7 @@ static int verify_record(const char *line) {
 	UINT8 registers_input[UPD9002_PAYLOAD_SIZE];
 	UINT8 registers_output[UPD9002_PAYLOAD_SIZE];
 
-	if ((parse_payload(line, "cpu286=", cpu_input,
+	if ((parse_payload(line, "upd9cpu=", cpu_input,
 												sizeof(cpu_input)) != SUCCESS) ||
 		(parse_payload(line, "upd9002=", registers_input,
 										sizeof(registers_input)) != SUCCESS) ||
@@ -133,7 +133,7 @@ static int verify_opaque_record(const char *line) {
 	UINT8 cpu_input[CPU_PAYLOAD_SIZE];
 	UINT8 cpu_output[CPU_PAYLOAD_SIZE];
 
-	if (parse_payload(line, "cpu286=", cpu_input, sizeof(cpu_input)) !=
+	if (parse_payload(line, "upd9cpu=", cpu_input, sizeof(cpu_input)) !=
 															SUCCESS) {
 		return FAILURE;
 	}
