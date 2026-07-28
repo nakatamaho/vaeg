@@ -420,3 +420,212 @@ UPD9002EXT upd9002_repne_scasw(void) {
 		} while((UPD9002_CX) && (!(UPD9002_FLAGL & Z_FLAG)));
 	}
 }
+
+
+// ------------------------------------------------------------ repnc / repc
+
+typedef enum {
+	UPD9002_CARRY_STRING_MOVSB,
+	UPD9002_CARRY_STRING_MOVSW,
+	UPD9002_CARRY_STRING_CMPSB,
+	UPD9002_CARRY_STRING_CMPSW,
+	UPD9002_CARRY_STRING_STOSB,
+	UPD9002_CARRY_STRING_STOSW,
+	UPD9002_CARRY_STRING_LODSB,
+	UPD9002_CARRY_STRING_LODSW,
+	UPD9002_CARRY_STRING_SCASB,
+	UPD9002_CARRY_STRING_SCASW
+} UPD9002_CARRY_STRING_OP;
+
+static BOOL upd9002_carry_repeat_continue(BOOL repeat_on_carry) {
+
+	return(((UPD9002_FLAGL & C_FLAG) != 0) == repeat_on_carry);
+}
+
+static int upd9002_carry_string_start_clock(UPD9002_CARRY_STRING_OP op) {
+
+	switch(op) {
+		case UPD9002_CARRY_STRING_STOSB:
+		case UPD9002_CARRY_STRING_STOSW:
+			return(4);
+
+		default:
+			return(5);
+	}
+}
+
+static int upd9002_carry_string_iteration_clock(UPD9002_CARRY_STRING_OP op) {
+
+	switch(op) {
+		case UPD9002_CARRY_STRING_CMPSB:
+		case UPD9002_CARRY_STRING_CMPSW:
+			return(9);
+
+		case UPD9002_CARRY_STRING_SCASB:
+		case UPD9002_CARRY_STRING_SCASW:
+			return(8);
+
+		case UPD9002_CARRY_STRING_STOSB:
+		case UPD9002_CARRY_STRING_STOSW:
+			return(3);
+
+		default:
+			return(4);
+	}
+}
+
+static void upd9002_carry_string_one(UPD9002_CARRY_STRING_OP op) {
+
+	int	stp;
+	UINT	res;
+	UINT32	res32;
+	UINT	dst;
+	UINT	src;
+	UINT32	dst32;
+	UINT32	src32;
+
+	switch(op) {
+		case UPD9002_CARRY_STRING_MOVSB:
+			stp = STRING_DIR;
+			src = upd9002_memoryread(DS_FIX + UPD9002_SI);
+			upd9002_memorywrite(ES_BASE + UPD9002_DI, (REG8)src);
+			UPD9002_SI = (UINT16)(UPD9002_SI + stp);
+			UPD9002_DI = (UINT16)(UPD9002_DI + stp);
+			break;
+
+		case UPD9002_CARRY_STRING_MOVSW:
+			stp = STRING_DIRx2;
+			src32 = upd9002_memoryread_seg_w(DS_FIX, UPD9002_SI);
+			upd9002_memorywrite_seg_w(ES_BASE, UPD9002_DI, (REG16)src32);
+			UPD9002_SI = (UINT16)(UPD9002_SI + stp);
+			UPD9002_DI = (UINT16)(UPD9002_DI + stp);
+			break;
+
+		case UPD9002_CARRY_STRING_CMPSB:
+			stp = STRING_DIR;
+			dst = upd9002_memoryread(DS_FIX + UPD9002_SI);
+			src = upd9002_memoryread(ES_BASE + UPD9002_DI);
+			UPD9002_SI = (UINT16)(UPD9002_SI + stp);
+			UPD9002_DI = (UINT16)(UPD9002_DI + stp);
+			SUBBYTE(res, dst, src)
+			break;
+
+		case UPD9002_CARRY_STRING_CMPSW:
+			stp = STRING_DIRx2;
+			dst32 = upd9002_memoryread_seg_w(DS_FIX, UPD9002_SI);
+			src32 = upd9002_memoryread_seg_w(ES_BASE, UPD9002_DI);
+			UPD9002_SI = (UINT16)(UPD9002_SI + stp);
+			UPD9002_DI = (UINT16)(UPD9002_DI + stp);
+			SUBWORD(res32, dst32, src32)
+			break;
+
+		case UPD9002_CARRY_STRING_STOSB:
+			stp = STRING_DIR;
+			upd9002_memorywrite(ES_BASE + UPD9002_DI, UPD9002_AL);
+			UPD9002_DI = (UINT16)(UPD9002_DI + stp);
+			break;
+
+		case UPD9002_CARRY_STRING_STOSW:
+			stp = STRING_DIRx2;
+			upd9002_memorywrite_seg_w(ES_BASE, UPD9002_DI, UPD9002_AX);
+			UPD9002_DI = (UINT16)(UPD9002_DI + stp);
+			break;
+
+		case UPD9002_CARRY_STRING_LODSB:
+			stp = STRING_DIR;
+			UPD9002_AL = upd9002_memoryread(DS_FIX + UPD9002_SI);
+			UPD9002_SI = (UINT16)(UPD9002_SI + stp);
+			break;
+
+		case UPD9002_CARRY_STRING_LODSW:
+			stp = STRING_DIRx2;
+			UPD9002_AX = upd9002_memoryread_seg_w(DS_FIX, UPD9002_SI);
+			UPD9002_SI = (UINT16)(UPD9002_SI + stp);
+			break;
+
+		case UPD9002_CARRY_STRING_SCASB:
+			stp = STRING_DIR;
+			dst = UPD9002_AL;
+			src = upd9002_memoryread(ES_BASE + UPD9002_DI);
+			UPD9002_DI = (UINT16)(UPD9002_DI + stp);
+			SUBBYTE(res, dst, src)
+			break;
+
+		case UPD9002_CARRY_STRING_SCASW:
+			stp = STRING_DIRx2;
+			dst32 = UPD9002_AX;
+			src32 = upd9002_memoryread_seg_w(ES_BASE, UPD9002_DI);
+			UPD9002_DI = (UINT16)(UPD9002_DI + stp);
+			SUBWORD(res32, dst32, src32)
+			break;
+	}
+	UPD9002_WORKCLOCK(upd9002_carry_string_iteration_clock(op));
+}
+
+static void upd9002_repeat_carry_string(UPD9002_CARRY_STRING_OP op,
+													BOOL repeat_on_carry) {
+
+	UPD9002_WORKCLOCK(upd9002_carry_string_start_clock(op));
+	if (UPD9002_CX) {
+		while(1) {
+			upd9002_carry_string_one(op);
+			UPD9002_CX--;
+			if (!UPD9002_CX) {
+				break;
+			}
+			if (!upd9002_carry_repeat_continue(repeat_on_carry)) {
+				break;
+			}
+			if (UPD9002_REMCLOCK <= 0) {
+				UPD9002_IP -= UPD9002_PREFIX + 1;
+				break;
+			}
+		}
+	}
+}
+
+#define UPD9002_CARRY_REPEAT_WRAPPER(name, op, repeat_on_carry)		\
+UPD9002EXT name(void) {												\
+	upd9002_repeat_carry_string(op, repeat_on_carry);				\
+}
+
+UPD9002_CARRY_REPEAT_WRAPPER(upd9002_repnc_movsb,
+	UPD9002_CARRY_STRING_MOVSB, FALSE)
+UPD9002_CARRY_REPEAT_WRAPPER(upd9002_repc_movsb,
+	UPD9002_CARRY_STRING_MOVSB, TRUE)
+UPD9002_CARRY_REPEAT_WRAPPER(upd9002_repnc_movsw,
+	UPD9002_CARRY_STRING_MOVSW, FALSE)
+UPD9002_CARRY_REPEAT_WRAPPER(upd9002_repc_movsw,
+	UPD9002_CARRY_STRING_MOVSW, TRUE)
+UPD9002_CARRY_REPEAT_WRAPPER(upd9002_repnc_cmpsb,
+	UPD9002_CARRY_STRING_CMPSB, FALSE)
+UPD9002_CARRY_REPEAT_WRAPPER(upd9002_repc_cmpsb,
+	UPD9002_CARRY_STRING_CMPSB, TRUE)
+UPD9002_CARRY_REPEAT_WRAPPER(upd9002_repnc_cmpsw,
+	UPD9002_CARRY_STRING_CMPSW, FALSE)
+UPD9002_CARRY_REPEAT_WRAPPER(upd9002_repc_cmpsw,
+	UPD9002_CARRY_STRING_CMPSW, TRUE)
+UPD9002_CARRY_REPEAT_WRAPPER(upd9002_repnc_stosb,
+	UPD9002_CARRY_STRING_STOSB, FALSE)
+UPD9002_CARRY_REPEAT_WRAPPER(upd9002_repc_stosb,
+	UPD9002_CARRY_STRING_STOSB, TRUE)
+UPD9002_CARRY_REPEAT_WRAPPER(upd9002_repnc_stosw,
+	UPD9002_CARRY_STRING_STOSW, FALSE)
+UPD9002_CARRY_REPEAT_WRAPPER(upd9002_repc_stosw,
+	UPD9002_CARRY_STRING_STOSW, TRUE)
+UPD9002_CARRY_REPEAT_WRAPPER(upd9002_repnc_lodsb,
+	UPD9002_CARRY_STRING_LODSB, FALSE)
+UPD9002_CARRY_REPEAT_WRAPPER(upd9002_repc_lodsb,
+	UPD9002_CARRY_STRING_LODSB, TRUE)
+UPD9002_CARRY_REPEAT_WRAPPER(upd9002_repnc_lodsw,
+	UPD9002_CARRY_STRING_LODSW, FALSE)
+UPD9002_CARRY_REPEAT_WRAPPER(upd9002_repc_lodsw,
+	UPD9002_CARRY_STRING_LODSW, TRUE)
+UPD9002_CARRY_REPEAT_WRAPPER(upd9002_repnc_scasb,
+	UPD9002_CARRY_STRING_SCASB, FALSE)
+UPD9002_CARRY_REPEAT_WRAPPER(upd9002_repc_scasb,
+	UPD9002_CARRY_STRING_SCASB, TRUE)
+UPD9002_CARRY_REPEAT_WRAPPER(upd9002_repnc_scasw,
+	UPD9002_CARRY_STRING_SCASW, FALSE)
+UPD9002_CARRY_REPEAT_WRAPPER(upd9002_repc_scasw,
+	UPD9002_CARRY_STRING_SCASW, TRUE)
