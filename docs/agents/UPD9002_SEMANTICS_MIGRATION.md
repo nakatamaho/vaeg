@@ -260,16 +260,23 @@ residual. M60e handles IRET separately.
 8. M65 — serial residue campaign after approved G65. M65j decomposes all
    5,908 implementation-missing selectors, then M65a–M65m execute one at a
    time. Intermediate checkpoints are not independently approved; only G65m
-   is a formal gate. M66a requires approved G65m. Enumerate all
+   is a formal gate. G65m passed at
+   `81887aae14f718d7d4d0f2a7bd3fe05d5ea80630`. M66a requires approved G65m. Enumerate all
    7,511 architectural failures and 5,908 implementation-missing hashes with
    disjoint owners. BRKEM (`0F FF imm8`) is explicitly deferred because the
    v20 metadata exists but the `0fff.json.gz` corpus shard is absent; no cases
    may be fabricated. Generated M65a-or-later tasks, M66a, M66b, and M67 do
    not start in M65.
    reserved behavior, BRKFEM, FPO2, remaining 0F forms, and prefixes.
-9. M66a — drop obsolete CPU286 save-state compatibility after generated residue work.
-10. M66b — remove active I286/i286c identity.
-11. M67 — final divergence and hardware-question consolidation.
+9. M66 bundle — execute the two canonical cleanup milestones on one linear
+   branch: `G65m → M66a internal checkpoint → M66b terminal bundle closure →
+   G66b human approval → M67`. G65m is the only approved predecessor. M66a
+   runs first and receives no independent approval. M66b starts only from the
+   exact M66a checkpoint SHA and is the only terminal candidate presented for
+   G66b review. M66a and M66b retain separate scope, ownership, commits,
+   evidence, and reports; the combined approval protocol does not permit
+   combining unrelated code changes into one commit.
+10. M67 — final divergence and hardware-question consolidation after approved G66b.
 
 ## 13. Definition of done
 
