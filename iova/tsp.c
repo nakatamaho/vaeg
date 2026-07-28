@@ -262,7 +262,10 @@ static void paramfunc_generic(REG8 dat) {
 static REG8 IOINPCALL tsp_i142(UINT port) {
 	REG8 dat;
 
-	dat = tsp.status | (tsp.vsync) ? STATUS_VB : 0;
+	dat = tsp.status;
+	if (tsp.vsync) {
+		dat |= STATUS_VB;
+	}
 	return dat;
 }
 
