@@ -60,7 +60,7 @@ static void fixture_line(const char *scenario, char *line, size_t size) {
 	bytes_hex(&cpu, sizeof(cpu), cpu_hex);
 	bytes_hex(&upd9002_regs, sizeof(upd9002_regs), regs_hex);
 	snprintf(line, size,
-		"%s,upd9cpu_size=%u,upd9cpu=%s,upd9002_size=%u,upd9002=%s,"
+		"%s,cpu286_size=%u,cpu286=%s,upd9002_size=%u,upd9002=%s,"
 		"ax=%04x,bx=%04x,cx=%04x,dx=%04x,sp=%04x,cs=%04x,ip=%04x,"
 		"flags=%04x,csbase=%08x,remain=%08x,base=%08x,clock=%08x,type=%02x\n",
 		scenario, (unsigned int)sizeof(cpu), cpu_hex,

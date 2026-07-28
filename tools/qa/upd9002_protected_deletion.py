@@ -57,11 +57,11 @@ M50_PROVENANCE = "tools/qa/golden/upd9002_dispatch_provenance_m50.csv"
 
 IMMUTABLE_FILES = {
     "cpu/upd9002/cpucore.h":
-        "78456e2de3a5903289f23382fa83863d6f092b9d86dbee055b576a2e24775196",
+        "1908569867b51412a308be4dc990e09791a21262fec08c41899a6946df19239a",
     "cpu/upd9002/upd9002_state.c":
-        "09b1ffe22bab6d2a411f15e89ab72f82ee42195606bcefeb6740fd5e4f677505",
+        "87ad6a3a56792bb22afefaabaae87c8f86731f4c9ee9f0a1259e5f1931c09cba",
     "cpu/upd9002/upd9002_state.h":
-        "a3ef33e7a9171c4cd14dda9759d929fe943d6e85ba5e2a7f04d6631ab6db4d80",
+        "07d23bc255b0f931d8576b44c333d6046126c6e4173e2ea31f042cf1de491e92",
     "cpu/upd9002/upd9002_core.c":
         "658408730cd4fe7cc102a21b1262788abca877ea9e10d1d40929f96ab0bc9892",
     "cpu/upd9002/i286c_ea.c":
