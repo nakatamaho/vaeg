@@ -184,7 +184,7 @@ def hash_set_digest(values: set[str] | list[str]) -> str:
     ordered = sorted(values)
     if len(ordered) != len(set(ordered)):
         raise M67Error("hash set contains duplicate values")
-    return sha256_bytes(canonical_bytes(ordered))
+    return sha256_bytes(json.dumps(ordered, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8"))
 
 
 def git_output(args: list[str]) -> str:
