@@ -302,6 +302,14 @@ M64_SUPPORT_ADDED = M62_SUPPORT_ADDED | {
      "second-byte-resolved"),
 }
 
+M65A_GRAPH_REMOVED = M64_GRAPH_REMOVED | {
+    ("c_ope0xff_table", "0x07", "handler", "_pop_ea16"),
+}
+
+M65A_GRAPH_ADDED = M64_GRAPH_ADDED | {
+    ("c_ope0xff_table", "0x07", "handler", "_push_ff7_ea16"),
+}
+
 M62_PROVENANCE_REMOVED = {
     ("v30op", "0x27", "i286op", "_daa", "base", "_daa"),
     ("v30op", "0x2f", "i286op", "_das", "base", "_das"),
@@ -638,8 +646,8 @@ def verify_dispatch(root: pathlib.Path, module, write: bool) -> Tuple[str, str]:
         "post-M48 governed graph",
         csv_rows(expected_graph.decode("utf-8")),
         csv_rows(graph),
-        M64_GRAPH_REMOVED,
-        M64_GRAPH_ADDED,
+        M65A_GRAPH_REMOVED,
+        M65A_GRAPH_ADDED,
     )
     require_exact_difference(
         "post-M48 governed support",
