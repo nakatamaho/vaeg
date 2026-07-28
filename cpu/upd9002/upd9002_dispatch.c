@@ -1,6 +1,6 @@
 #include	"compiler.h"
 #include	"cpucore.h"
-#include	"i286c.h"
+#include	"upd9002_ops.h"
 #include	"upd9002_dispatch.h"
 #include	"upd9002_diagnostic.h"
 #include	"upd9002_trace.h"
@@ -8,7 +8,7 @@
 #include	"iocore.h"
 #include	"bios.h"
 #include	"dmap.h"
-#include	"i286c.mcr"
+#include	"upd9002_ops.mcr"
 
 #if defined(VAEG_UPD9002_M46_TESTING)
 #include <stdlib.h>

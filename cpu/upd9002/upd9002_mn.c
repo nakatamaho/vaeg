@@ -1,10 +1,10 @@
 #include	"compiler.h"
 #include	"cpucore.h"
-#include	"i286c.h"
+#include	"upd9002_ops.h"
 #include	"pccore.h"
 #include	"iocore.h"
 #include	"bios.h"
-#include	"i286c.mcr"
+#include	"upd9002_ops.mcr"
 
 
 #define	MAX_PREFIX		8
