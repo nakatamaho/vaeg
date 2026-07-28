@@ -187,7 +187,12 @@ I286_F6 _push_ea16(UINT op) {
 
 	if (op >= 0xc0) {
 		I286_WORKCLOCK(3);
-		src = *(REG16_B20(op));
+		if ((op & 7) == 4) {
+			src = (UINT16)(I286_SP - 2);
+		}
+		else {
+			src = *(REG16_B20(op));
+		}
 	}
 	else {
 		I286_WORKCLOCK(5);
