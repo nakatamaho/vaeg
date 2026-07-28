@@ -356,6 +356,48 @@ static int test_repnc_movsw_segment_wrap(void) {
 	return SUCCESS;
 }
 
+static int test_mixed_repe_then_repnc_uses_last_repeat(void) {
+
+	static const UINT8 instruction[] = {0xf3, 0x64, 0xa4};
+
+	setup_instruction(instruction, NELEMENTS(instruction),
+		(UINT16)(M70_NORMAL_BASE >> 4), 0x0140,
+		(UINT16)(M70_ES_NORMAL_BASE >> 4), 0x0250,
+		2, 0x1111, FALSE, FALSE);
+	mem[phys(M70_NORMAL_BASE, 0x0140)] = 0x64;
+	mem[phys(M70_NORMAL_BASE, 0x0141)] = 0xa4;
+	upd9002_core_step();
+	if ((check_byte("F3 64 A4 first byte",
+			mem[phys(M70_ES_NORMAL_BASE, 0x0250)], 0x64) != SUCCESS) ||
+		(check_byte("F3 64 A4 second byte",
+			mem[phys(M70_ES_NORMAL_BASE, 0x0251)], 0xa4) != SUCCESS) ||
+		(check_word("F3 64 A4 CX", CPU_CX, 0) != SUCCESS)) {
+		return FAILURE;
+	}
+	return SUCCESS;
+}
+
+static int test_mixed_repnc_then_repe_uses_last_repeat(void) {
+
+	static const UINT8 instruction[] = {0x64, 0xf3, 0xa4};
+
+	setup_instruction(instruction, NELEMENTS(instruction),
+		(UINT16)(M70_NORMAL_BASE >> 4), 0x0148,
+		(UINT16)(M70_ES_NORMAL_BASE >> 4), 0x0258,
+		2, 0x1111, TRUE, FALSE);
+	mem[phys(M70_NORMAL_BASE, 0x0148)] = 0xf3;
+	mem[phys(M70_NORMAL_BASE, 0x0149)] = 0xa4;
+	upd9002_core_step();
+	if ((check_byte("64 F3 A4 first byte",
+			mem[phys(M70_ES_NORMAL_BASE, 0x0258)], 0xf3) != SUCCESS) ||
+		(check_byte("64 F3 A4 second byte",
+			mem[phys(M70_ES_NORMAL_BASE, 0x0259)], 0xa4) != SUCCESS) ||
+		(check_word("64 F3 A4 CX", CPU_CX, 0) != SUCCESS)) {
+		return FAILURE;
+	}
+	return SUCCESS;
+}
+
 static int test_negative_protection_pair(UINT8 prefix, UINT8 opcode) {
 
 	UPD9002_HARNESS_CPU_STATE cpu;
@@ -469,6 +511,8 @@ int upd9002_m70_prefix_string_main(void) {
 		{"REPNC MOVSW TVRAM->normal", test_repnc_movsw_tvram_to_normal},
 		{"REPC MOVSW normal->BMS", test_repc_movsw_normal_to_bms},
 		{"REPNC MOVSW FFFFh-to-0000h source wrap", test_repnc_movsw_segment_wrap},
+		{"F3 64 A4 last repeat is REPNC", test_mixed_repe_then_repnc_uses_last_repeat},
+		{"64 F3 A4 last repeat is REPE", test_mixed_repnc_then_repe_uses_last_repeat},
 		{"64/65 + 6C-6F negative protection", test_negative_protection_6c_6f}
 	};
 	UINT index;
