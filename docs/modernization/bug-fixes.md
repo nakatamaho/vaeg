@@ -169,6 +169,32 @@ separate parity correction or move it to Open Defects.
   [M65 expected/actual reconstruction report](../agents/reports/m65_campaign_expected_actual_reconstruction.md).
 - **Commit:** [c7bb5ee2](https://github.com/nakatamaho/vaeg/commit/c7bb5ee274441d608096e4a33e2eca5a2d5af3a4).
 
+### uPD9002 segmented word helpers bypassed mapped-memory dispatch
+
+- **Status:** fixed in M68; G68 remains pending human review.
+- **Symptom:** PC-Engine/MS-DOS text output stopped scrolling normally after
+  reaching the bottom row. New output repeatedly overwrote the last text row
+  instead of moving existing lines upward.
+- **Root cause:** the M65e A5/MOVSW segmented-word path delegated through a
+  helper that correctly calculated 16-bit segment wrapping but then
+  independently selected a flat `mem[]` fast path. For VA TVRAM and BMS
+  mapped regions this bypassed the canonical mapped-memory dispatcher,
+  callbacks, dirty/display side effects, and the active backing store such as
+  `textmem[]`.
+- **Correction:** segmented word helpers now own only segment-offset address
+  formation and `0xffff`-to-`0x0000` wrapping. Contiguous words delegate to the
+  canonical generic word API, and only the noncontiguous segment-wrap case
+  splits into canonical byte accesses. No A5-, TVRAM-, BMS-, or `A0000h`-
+  specific special case was added.
+- **Verification:** focused M68 mapped-memory probes fail on the predecessor
+  for the flat-`mem[]` bypass and pass after the fix for TVRAM, BMS, normal
+  RAM, segmented word reads/writes, REP and non-REP MOVSW, DF=0/1, `FFFEh`,
+  and `FFFFh -> 0000h` wrapping. The full architectural CI/full and
+  fingerprint-full SST profiles preserve the approved G67 counts and digests,
+  and the maintainer reported the PC-Engine/MS-DOS manual gate passed.
+- **Evidence:** [M68 report](../agents/reports/m68_upd9002_segmented_word_mapped_dispatch.md).
+- **Commit:** [90258f26](https://github.com/nakatamaho/vaeg/commit/90258f26207b7ce7dc3473a5df2811da4bb0c19c).
+
 ### State-load rejection feedback disappeared with the State menu
 
 - **Status:** fixed; corrected G55 human gate passed on 2026-07-22.
