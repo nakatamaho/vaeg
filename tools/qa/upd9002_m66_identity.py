@@ -356,7 +356,14 @@ def load_json(path: pathlib.Path) -> Dict[str, Any]:
     try:
         if path.suffix == ".gz":
             return json.loads(gzip.decompress(path.read_bytes()).decode("utf-8"))
-        return json.loads(path.read_text(encoding="utf-8"))
+        data = json.loads(path.read_text(encoding="utf-8"))
+        compressed = data.get("compressed_artifact_path")
+        if isinstance(compressed, str):
+            compressed_path = pathlib.Path(compressed)
+            if not compressed_path.is_absolute():
+                compressed_path = path.parent / compressed_path
+            return load_json(compressed_path)
+        return data
     except (OSError, json.JSONDecodeError) as exc:
         raise IdentityError(f"cannot load {path}: {exc}") from exc
 
