@@ -1,6 +1,6 @@
 #include	"compiler.h"
 #include	"cpucore.h"
-#include	"i286c.h"
+#include	"upd9002_ops.h"
 #include	"upd9002_dispatch.h"
 #include	"pccore.h"
 #include	"iocore.h"
@@ -11,7 +11,7 @@
 #if defined(VAEG_UPD9002_SSTS_TESTING)
 #include	"tests/upd9002/direct_harness.h"
 #endif
-#include	"i286c.mcr"
+#include	"upd9002_ops.mcr"
 
 
 	I286CORE	i286core;

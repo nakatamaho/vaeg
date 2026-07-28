@@ -1,7 +1,7 @@
 #include	"compiler.h"
 #include	"cpucore.h"
-#include	"i286c.h"
-#include	"i286c.mcr"
+#include	"upd9002_ops.h"
+#include	"upd9002_ops.mcr"
 
 
 enum {
