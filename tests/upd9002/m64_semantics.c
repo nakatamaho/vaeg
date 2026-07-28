@@ -24,7 +24,7 @@
 
 #include "compiler.h"
 #include "cpucore.h"
-#include "i286c.h"
+#include "upd9002_ops.h"
 #include "tests/upd9002/m64_semantics.h"
 
 #include <stdio.h>

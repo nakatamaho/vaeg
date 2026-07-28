@@ -136,13 +136,13 @@ set(VAEG_CORE_SOURCES
     cpu/upd9002/upd9002_core.c
 	cpu/upd9002/upd9002_diagnostic.c
     cpu/upd9002/upd9002_state.c
-    cpu/upd9002/i286c_mn.c
-    cpu/upd9002/i286c_ea.c
-    cpu/upd9002/i286c_8x.c
-    cpu/upd9002/i286c_sf.c
-    cpu/upd9002/i286c_f6.c
-    cpu/upd9002/i286c_fe.c
-    cpu/upd9002/i286c_rp.c
+    cpu/upd9002/upd9002_mn.c
+    cpu/upd9002/upd9002_ea.c
+    cpu/upd9002/upd9002_8x.c
+    cpu/upd9002/upd9002_sf.c
+    cpu/upd9002/upd9002_f6.c
+    cpu/upd9002/upd9002_fe.c
+    cpu/upd9002/upd9002_rp.c
     cpu/upd9002/upd9002_dispatch.c
     cpu/upd9002/memory.c
     cpu/upd9002/egcmem.c

@@ -1,8 +1,8 @@
 #include	"compiler.h"
 #include	"cpucore.h"
-#include	"i286c.h"
-#include	"i286c.mcr"
-#include	"i286c_sf.mcr"
+#include	"upd9002_ops.h"
+#include	"upd9002_ops.mcr"
+#include	"upd9002_shift_flags.mcr"
 
 
 // ------------------------------------------------------------------------

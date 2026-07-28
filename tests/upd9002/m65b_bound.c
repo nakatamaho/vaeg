@@ -25,7 +25,7 @@
 
 #include "compiler.h"
 #include "cpucore.h"
-#include "i286c.h"
+#include "upd9002_ops.h"
 #include "tests/upd9002/m65b_bound.h"
 
 #include <stdio.h>
