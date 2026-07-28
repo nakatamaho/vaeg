@@ -98,6 +98,30 @@ separate parity correction or move it to Open Defects.
   [M65 expected/actual reconstruction report](../agents/reports/m65_campaign_expected_actual_reconstruction.md).
 - **Commit:** [d0e01694](https://github.com/nakatamaho/vaeg/commit/d0e01694a9b82b4cd16500743d77e45459c74be1).
 
+### uPD9002 F7 /2 word NOT updated only the low memory byte
+
+- **Status:** fixed in the M65 residue campaign; formal approval deferred to
+  terminal G65m.
+- **Symptom:** 1,113 applicable G65 `F7 /2` word NOT memory SST cases failed
+  final architectural comparison. The expected RAM contained both complemented
+  operand bytes, while the actual RAM complemented only the low byte.
+- **Root cause:** the `_not_ea16` memory fast path applied `^= 0xffff` through
+  the byte pointer `mem + madr`, so only the low byte was modified. The
+  inhibited word path already used the 16-bit memory read/write helpers.
+- **Correction:** `_not_ea16` now loads the little-endian word with
+  `LOADINTELWORD`, complements all 16 bits, and stores the complete word with
+  `STOREINTELWORD` on the direct memory path.
+- **Verification:** the focused `vaeg_upd9002_m65c_f72` test covers register
+  protection, low-memory word writes, odd-address word-path protection,
+  segment override, indexed displacement, offset boundary behavior, high
+  memory path preservation, FLAGS, IP, and neighbor preservation. The M65c
+  replay ran the exact 1,113 owned hashes as `1,113 pass / 0 fail` and the
+  complete selected `F7 /2` population as `5,000 pass / 0 fail`, with zero
+  timeout/crash and M65a, M65b, M65d, and M65e guards preserved.
+- **Evidence:** [M65c report](../agents/reports/m65c_upd9002_f72.md) and
+  [M65 expected/actual reconstruction report](../agents/reports/m65_campaign_expected_actual_reconstruction.md).
+- **Commit:** [8d338a52](https://github.com/nakatamaho/vaeg/commit/8d338a528a7c3b4a18636f2f3a4678ece6dbcd4f).
+
 ### State-load rejection feedback disappeared with the State menu
 
 - **Status:** fixed; corrected G55 human gate passed on 2026-07-22.
