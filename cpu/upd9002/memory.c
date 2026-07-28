@@ -976,9 +976,13 @@ REG16 MEMCALL upd9002_memoryread_seg_w(UINT32 segment_base, UINT off) {
 
 	address = segment_base + LOW16(off);
 	high_address = segment_base + LOW16(off + 1);
-	if ((high_address == (address + 1)) &&
-		(address < (UPD9002_MEMREADMAX - 1))) {
-		return(LOADINTELWORD(mem + address));
+	/*
+	 * This helper resolves 16-bit segment-offset wrapping only.  Mapped
+	 * memory routing and fast-path selection remain owned by the canonical
+	 * generic memory API.
+	 */
+	if (high_address == (address + 1)) {
+		return(upd9002_memoryread_w(address));
 	}
 	else {
 		return((REG16)(upd9002_memoryread(address) |
@@ -1011,9 +1015,13 @@ void MEMCALL upd9002_memorywrite_seg_w(UINT32 segment_base, UINT off, REG16 valu
 
 	address = segment_base + LOW16(off);
 	high_address = segment_base + LOW16(off + 1);
-	if ((high_address == (address + 1)) &&
-		(address < (UPD9002_MEMWRITEMAX - 1))) {
-		STOREINTELWORD(mem + address, value);
+	/*
+	 * This helper resolves 16-bit segment-offset wrapping only.  Mapped
+	 * memory routing and fast-path selection remain owned by the canonical
+	 * generic memory API.
+	 */
+	if (high_address == (address + 1)) {
+		upd9002_memorywrite_w(address, value);
 	}
 	else {
 		upd9002_memorywrite(address, (REG8)value);
