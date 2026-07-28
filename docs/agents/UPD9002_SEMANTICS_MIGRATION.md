@@ -276,7 +276,24 @@ residual. M60e handles IRET separately.
    G66b review. M66a and M66b retain separate scope, ownership, commits,
    evidence, and reports; the combined approval protocol does not permit
    combining unrelated code changes into one commit.
-10. M67 — final divergence and hardware-question consolidation after approved G66b.
+10. M67 — final divergence and hardware-question consolidation after approved
+   G66b. M67 starts only from G66b at
+   `97f760e8da573888edf089c2875c623895a3c2c9` and records the current
+   divergence-domain state in `tests/ssts/divergence/g67/registry.json`.
+   Compatibility views for approved target divergences, hardware-pending
+   questions, evidence backlogs, zero-coverage items, fingerprint diagnostics,
+   and state-compatibility exceptions are generated from that registry rather
+   than hand-edited as duplicate current sources. Conflicts discovered during
+   consolidation are blockers, not permission for M67 to change target policy
+   or classifications. The M65j 19-group/5,908-hash target-support-unverified
+   backlog remains non-applicable, unimplemented, not officially executed, not
+   claimed passing, and nonblocking only under its recorded amendment. BRKEM
+   and BRKFEM zero-coverage or evidence-backlog records remain non-passing
+   until separate approved evidence/corpus gates. Fingerprint residue remains
+   diagnostic rather than architectural blocking. The G66b
+   `CPU286 v0 + UPD9002 v0 -> UPD9CPU v1 + UPD9002 v0` migration bridge is a
+   state-format exception only and does not restore broader CPU286
+   compatibility. The next milestone requires approved G67.
 
 ## 13. Definition of done
 
