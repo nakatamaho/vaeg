@@ -34,9 +34,10 @@ Repository: `github.com/nakatamaho/vaeg`
   `829f314bb0d363ec5b6e9aa738e948b1a3adb365`.
 - G62 is approved at
   `70b8e94e96aef4cb79eed72c7813c4148c5c0dd8`.
-- M64 is the next prospective gate. Its maintainer-approved scope expansion
-  combines DIV/IDIV with the exact requested monitor-authorized 0F support
-  while retaining separate phase audits, semantic commits, and evidence.
+- G68 is approved at
+  `d1e0225c4edb716893fe5579283fbf0915db72b9`.
+- M69 is the next prospective gate. It corrects only the Boolean composition
+  of the IDP/TSP `0142H` status byte.
 
 Codex executes one milestone or lettered submilestone per session and stops at its candidate gate.
 
@@ -305,7 +306,14 @@ residual. M60e handles IRET separately.
    TVRAM, BMS and device mapping, callbacks, side effects, dirty tracking,
    and fast-path selection. Any former unapproved M68 scope is revoked and
    deferred for later reassignment. The unrelated TSP `0142H` status-port
-   defect is explicitly out of scope.
+   defect is explicitly out of scope. G68 passed at
+   `d1e0225c4edb716893fe5579283fbf0915db72b9`.
+12. M69 — IDP/TSP `0142H` status-bit composition correction. M69 starts from
+   the approved G68 candidate and fixes only the Boolean composition of the
+   status byte: stored IDP status flags are preserved and the dynamic VB bit
+   is added orthogonally. It does not change IDP timing, FIFO behavior, IBF,
+   OBF, ER, SC, EMEN, light-pen behavior, command latency, rendering,
+   segmented memory, MOVSW, or CPU instruction semantics.
 
 ## 13. Definition of done
 
