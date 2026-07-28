@@ -35,6 +35,7 @@ FROZEN_OR_HISTORICAL_PREFIXES = (
     "hlp/",
     "i286x/",
     "win9x/",
+    "tests/ssts/",
 )
 SCANNED_SUFFIXES = {
     ".c",
@@ -186,15 +187,15 @@ def check_native_lifecycle(root):
     scheduler = function_body(read_text(root, "pccore.c"),
                               "void pccore_exec(BOOL draw)")
 
-    require("i286core.s.cpu_type = CPUTYPE_V30;" in initialize,
+    require("upd9002_core_context.s.cpu_type = CPUTYPE_V30;" in initialize,
             "initialization does not establish the V30 compatibility byte")
-    require("i286core.s.cpu_type = CPUTYPE_V30;" in reset,
+    require("upd9002_core_context.s.cpu_type = CPUTYPE_V30;" in reset,
             "reset does not establish the V30 compatibility byte")
     require(reset.count("v30c_initreg();") == 1,
             "reset does not select the native register initializer exactly once")
-    require("i286c_initreg();" not in reset,
+    require("upd9002_initreg();" not in reset,
             "normal reset still selects the 286-style initializer")
-    require(shut.count("i286c_initreg();") == 1,
+    require(shut.count("upd9002_initreg();") == 1,
             "CPU_SHUT no longer preserves the 286-style initializer")
     require("v30c_initreg();" not in shut,
             "CPU_SHUT upper-FLAGS anomaly was normalized")
@@ -205,13 +206,13 @@ def check_native_lifecycle(root):
     require("CPU_EXEC" not in scheduler,
             "block executor remains reachable from the scheduler")
 
-    require("void i286c(void)" not in core,
-            "i286c block executor remains after M46")
+    require("void upd9002_legacy_block_executor(void)" not in core,
+            "retired block executor remains after M46")
     dispatch = read_text(root, "cpu/upd9002/upd9002_dispatch.c")
     require("void v30c(void)" not in dispatch,
             "v30c block executor remains after M46")
     header = read_text(root, "cpu/upd9002/cpucore.h")
-    require("void i286c(void)" not in header,
+    require("void upd9002_legacy_block_executor(void)" not in header,
             "i286c block-executor declaration remains after M46")
     require("void v30c(void)" not in header,
             "v30c block-executor declaration remains after M46")
@@ -250,8 +251,8 @@ def check_cpu_type_reference_map(root):
         if not re.search(r"\bcpu_type\b", line):
             continue
         stripped = line.strip()
-        require((stripped == "i286core.s.cpu_type = CPUTYPE_V30;") or
-                ("offsetof(I286STAT, cpu_type)" in stripped),
+        require((stripped == "upd9002_core_context.s.cpu_type = CPUTYPE_V30;") or
+                ("offsetof(Upd9002RuntimeState, cpu_type)" in stripped),
                 "cpu_type became production control: {}".format(stripped))
 
     adapter = read_text(root, "cpu/upd9002/upd9002_state.c")
@@ -284,7 +285,7 @@ def main():
         preset_count))
     print("upd9002-native-invariant: reset=v30c_initreg "
           "step=upd9002_core_step "
-          "shutdown=i286c_initreg")
+          "shutdown=upd9002_initreg")
     print("upd9002-native-invariant: cpu_type={} control=state-validation-only".format(
         reference_text))
     print("upd9002-native-invariant: block-executors=absent cpu-exec-macros=absent")

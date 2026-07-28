@@ -57,19 +57,19 @@ M50_PROVENANCE = "tools/qa/golden/upd9002_dispatch_provenance_m50.csv"
 
 IMMUTABLE_FILES = {
     "cpu/upd9002/cpucore.h":
-        "1908569867b51412a308be4dc990e09791a21262fec08c41899a6946df19239a",
+        "f6e7e657cf706455c7f02d5434695e74be9d858f821d0c1ac6e21ea2213426c3",
     "cpu/upd9002/upd9002_state.c":
-        "87ad6a3a56792bb22afefaabaae87c8f86731f4c9ee9f0a1259e5f1931c09cba",
+        "72212d8a3b7bed6fcaf4a6670904187cdf268d5846195423ece5fdf3c05b318b",
     "cpu/upd9002/upd9002_state.h":
         "07d23bc255b0f931d8576b44c333d6046126c6e4173e2ea31f042cf1de491e92",
     "cpu/upd9002/upd9002_core.c":
-        "658408730cd4fe7cc102a21b1262788abca877ea9e10d1d40929f96ab0bc9892",
-    "cpu/upd9002/i286c_ea.c":
-        "f63a82a595028b05d7bbbc485e53186618fd844649f31f8b16822fbeb88d63d2",
-    "cpu/upd9002/i286c.mcr":
-        "4a68fe820cfcfb5c2f68e2d8370bc5aeec85bc96264a857443f3f8a62e245e88",
+        "fe9af107e7a2a97b08549033ad7dadca8229bef569bb92c9ea5d3c36d58ad03f",
+    "cpu/upd9002/upd9002_ea.c":
+        "64fd640d307540d85b7d1fd6932daf49e83d99f5dfe81efe5f2035fb23f36172",
+    "cpu/upd9002/upd9002_ops.mcr":
+        "dbfcc5b3ce7d3f0b4df493cd494b7fe297aa932e231904ddeb4b59411cd73183",
     "tests/upd9002/rep0f_diagnostic_stop.c":
-        "59baf7627310f73c6862b6f7e26d3704f2ed972c1f9e352dd1c04c571eee91e6",
+        "36bfcee12551eda40ab3e9e1875c9098dab72f4e45408b0dee176e59b3c87474",
     "tests/upd9002/state_fixtures_m42.txt":
         "c8ed4bcf1a7df2a88964d71d85b846a6d7881f60a9233d8c9b787d3d5076f4fb",
     "tools/qa/golden/upd9002_final_dispatch_graph_m48.csv":
@@ -125,8 +125,8 @@ M60A_CANONICAL_REPLACEMENTS = {
         (
             b"static UINT16 upd9002_materialize_interrupt_saved_flags(void) {\n"
             b"\n"
-            b"\treturn (UINT16)((I286_FLAG & (UINT16)~O_FLAG) |\n"
-            b"\t\t\t\t\t\t(I286_OV ? O_FLAG : 0));\n"
+            b"\treturn (UINT16)((UPD9002_FLAG & (UINT16)~O_FLAG) |\n"
+            b"\t\t\t\t\t\t(UPD9002_OV ? O_FLAG : 0));\n"
             b"}\n\n",
             b"",
             1,
@@ -197,18 +197,18 @@ DELETED_IDENTIFIERS = (
 )
 
 PLACEHOLDERS = (
-    ("v30op", "i286op", 0x0F, "i286c_cts", "v30_ope0x0f"),
-    ("v30op_repe", "i286op_repe", 0x0F, "i286c_cts",
+    ("v30op", "upd9002op", 0x0F, "_reserved", "v30_ope0x0f"),
+    ("v30op_repe", "upd9002op_repe", 0x0F, "_reserved",
      "v30_repe_0f_diagnostic_stop"),
-    ("v30op_repne", "i286op_repne", 0x0F, "i286c_cts",
+    ("v30op_repne", "upd9002op_repne", 0x0F, "_reserved",
      "v30_repne_0f_diagnostic_stop"),
-    ("v30op", "i286op", 0x63, "_arpl", "v30_reserved"),
-    ("v30op_repe", "i286op_repe", 0x63, "_arpl", "v30_reserved"),
-    ("v30op_repne", "i286op_repne", 0x63, "_arpl", "v30_reserved"),
-    ("v30op", "i286op", 0x8E, "_mov_seg_ea", "v30mov_seg_ea"),
-    ("v30op_repe", "i286op_repe", 0x8E, "_mov_seg_ea",
+    ("v30op", "upd9002op", 0x63, "_reserved", "v30_reserved"),
+    ("v30op_repe", "upd9002op_repe", 0x63, "_reserved", "v30_reserved"),
+    ("v30op_repne", "upd9002op_repne", 0x63, "_reserved", "v30_reserved"),
+    ("v30op", "upd9002op", 0x8E, "_reserved", "v30mov_seg_ea"),
+    ("v30op_repe", "upd9002op_repe", 0x8E, "_reserved",
      "v30mov_seg_ea"),
-    ("v30op_repne", "i286op_repne", 0x8E, "_mov_seg_ea",
+    ("v30op_repne", "upd9002op_repne", 0x8E, "_reserved",
      "v30mov_seg_ea"),
 )
 
@@ -308,6 +308,57 @@ M65A_GRAPH_REMOVED = M64_GRAPH_REMOVED | {
 
 M65A_GRAPH_ADDED = M64_GRAPH_ADDED | {
     ("c_ope0xff_table", "0x07", "handler", "_push_ff7_ea16"),
+}
+
+M66B_REP_ROWS = (
+    ("v30op_repe", "0x6c", "i286c_rep_insb", "upd9002_rep_insb"),
+    ("v30op_repe", "0x6d", "i286c_rep_insw", "upd9002_rep_insw"),
+    ("v30op_repe", "0x6e", "i286c_rep_outsb", "upd9002_rep_outsb"),
+    ("v30op_repe", "0x6f", "i286c_rep_outsb", "upd9002_rep_outsb"),
+    ("v30op_repe", "0xa4", "i286c_rep_movsb", "upd9002_rep_movsb"),
+    ("v30op_repe", "0xa5", "i286c_rep_movsw", "upd9002_rep_movsw"),
+    ("v30op_repe", "0xa6", "i286c_repe_cmpsb", "upd9002_repe_cmpsb"),
+    ("v30op_repe", "0xa7", "i286c_repe_cmpsw", "upd9002_repe_cmpsw"),
+    ("v30op_repe", "0xaa", "i286c_rep_stosb", "upd9002_rep_stosb"),
+    ("v30op_repe", "0xab", "i286c_rep_stosw", "upd9002_rep_stosw"),
+    ("v30op_repe", "0xac", "i286c_rep_lodsb", "upd9002_rep_lodsb"),
+    ("v30op_repe", "0xad", "i286c_rep_lodsw", "upd9002_rep_lodsw"),
+    ("v30op_repe", "0xae", "i286c_repe_scasb", "upd9002_repe_scasb"),
+    ("v30op_repe", "0xaf", "i286c_repe_scasw", "upd9002_repe_scasw"),
+    ("v30op_repne", "0x6c", "i286c_rep_insb", "upd9002_rep_insb"),
+    ("v30op_repne", "0x6d", "i286c_rep_insw", "upd9002_rep_insw"),
+    ("v30op_repne", "0x6e", "i286c_rep_outsb", "upd9002_rep_outsb"),
+    ("v30op_repne", "0x6f", "i286c_rep_outsb", "upd9002_rep_outsb"),
+    ("v30op_repne", "0xa4", "i286c_rep_movsb", "upd9002_rep_movsb"),
+    ("v30op_repne", "0xa5", "i286c_rep_movsw", "upd9002_rep_movsw"),
+    ("v30op_repne", "0xa6", "i286c_repne_cmpsb", "upd9002_repne_cmpsb"),
+    ("v30op_repne", "0xa7", "i286c_repne_cmpsw", "upd9002_repne_cmpsw"),
+    ("v30op_repne", "0xaa", "i286c_rep_stosb", "upd9002_rep_stosb"),
+    ("v30op_repne", "0xab", "i286c_rep_stosw", "upd9002_rep_stosw"),
+    ("v30op_repne", "0xac", "i286c_rep_lodsb", "upd9002_rep_lodsb"),
+    ("v30op_repne", "0xad", "i286c_rep_lodsw", "upd9002_rep_lodsw"),
+    ("v30op_repne", "0xae", "i286c_repne_scasb", "upd9002_repne_scasb"),
+    ("v30op_repne", "0xaf", "i286c_repne_scasw", "upd9002_repne_scasw"),
+)
+
+M66B_GRAPH_REMOVED = M65A_GRAPH_REMOVED | {
+    (table, opcode, "handler", old)
+    for table, opcode, old, _new in M66B_REP_ROWS
+}
+
+M66B_GRAPH_ADDED = M65A_GRAPH_ADDED | {
+    (table, opcode, "handler", new)
+    for table, opcode, _old, new in M66B_REP_ROWS
+}
+
+M66B_SUPPORT_REMOVED = M64_SUPPORT_REMOVED | {
+    (table, opcode, "-", old, "implemented", "final-root-target")
+    for table, opcode, old, _new in M66B_REP_ROWS
+}
+
+M66B_SUPPORT_ADDED = M64_SUPPORT_ADDED | {
+    (table, opcode, "-", new, "implemented", "final-root-target")
+    for table, opcode, _old, new in M66B_REP_ROWS
 }
 
 M62_PROVENANCE_REMOVED = {
@@ -512,6 +563,34 @@ def csv_rows(text: str) -> Set[Row]:
     return {tuple(row) for row in csv.reader(io.StringIO(text))}
 
 
+M66B_PROVENANCE_TABLE_CANONICAL = {
+    "upd9002op": "i286op",
+    "upd9002op_repe": "i286op_repe",
+    "upd9002op_repne": "i286op_repne",
+}
+
+M66B_PROVENANCE_HANDLER_CANONICAL = {
+    new: old for _table, _opcode, old, new in M66B_REP_ROWS
+}
+
+
+def canonicalize_m66b_provenance(rows: Set[Row]) -> Set[Row]:
+    canonical: Set[Row] = set()
+    for row in rows:
+        fields = list(row)
+        if len(fields) >= 3:
+            fields[2] = M66B_PROVENANCE_TABLE_CANONICAL.get(
+                fields[2], fields[2])
+        if len(fields) >= 4:
+            fields[3] = M66B_PROVENANCE_HANDLER_CANONICAL.get(
+                fields[3], fields[3])
+        if len(fields) >= 6:
+            fields[5] = M66B_PROVENANCE_HANDLER_CANONICAL.get(
+                fields[5], fields[5])
+        canonical.add(tuple(fields))
+    return canonical
+
+
 def require_exact_difference(
         name: str, old: Set[Row], new: Set[Row],
         expected_removed: Set[Row], expected_added: Set[Row]) -> None:
@@ -646,22 +725,22 @@ def verify_dispatch(root: pathlib.Path, module, write: bool) -> Tuple[str, str]:
         "post-M48 governed graph",
         csv_rows(expected_graph.decode("utf-8")),
         csv_rows(graph),
-        M65A_GRAPH_REMOVED,
-        M65A_GRAPH_ADDED,
+        M66B_GRAPH_REMOVED,
+        M66B_GRAPH_ADDED,
     )
     require_exact_difference(
         "post-M48 governed support",
         csv_rows(expected_support.decode("utf-8")),
         csv_rows(support),
-        M64_SUPPORT_REMOVED,
-        M64_SUPPORT_ADDED,
+        M66B_SUPPORT_REMOVED,
+        M66B_SUPPORT_ADDED,
     )
 
     accepted_m50_provenance = read_bytes(root, M50_PROVENANCE)
     require_exact_difference(
         "post-M50 governed provenance",
         csv_rows(accepted_m50_provenance.decode("utf-8")),
-        csv_rows(provenance),
+        canonicalize_m66b_provenance(csv_rows(provenance)),
         M62_PROVENANCE_REMOVED,
         M62_PROVENANCE_ADDED,
     )

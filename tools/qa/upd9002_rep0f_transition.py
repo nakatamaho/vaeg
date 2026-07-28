@@ -182,6 +182,77 @@ M65A_GRAPH_ADDED = M64_GRAPH_ADDED | {
     ("c_ope0xff_table", "0x07", "handler", "_push_ff7_ea16"),
 }
 
+M66B_REP_RENAMES = {
+    ("i286c_rep_insb", "upd9002_rep_insb"),
+    ("i286c_rep_insw", "upd9002_rep_insw"),
+    ("i286c_rep_outsb", "upd9002_rep_outsb"),
+    ("i286c_rep_movsb", "upd9002_rep_movsb"),
+    ("i286c_rep_movsw", "upd9002_rep_movsw"),
+    ("i286c_repe_cmpsb", "upd9002_repe_cmpsb"),
+    ("i286c_repe_cmpsw", "upd9002_repe_cmpsw"),
+    ("i286c_rep_stosb", "upd9002_rep_stosb"),
+    ("i286c_rep_stosw", "upd9002_rep_stosw"),
+    ("i286c_rep_lodsb", "upd9002_rep_lodsb"),
+    ("i286c_rep_lodsw", "upd9002_rep_lodsw"),
+    ("i286c_repe_scasb", "upd9002_repe_scasb"),
+    ("i286c_repe_scasw", "upd9002_repe_scasw"),
+    ("i286c_repne_cmpsb", "upd9002_repne_cmpsb"),
+    ("i286c_repne_cmpsw", "upd9002_repne_cmpsw"),
+    ("i286c_repne_scasb", "upd9002_repne_scasb"),
+    ("i286c_repne_scasw", "upd9002_repne_scasw"),
+}
+
+M66B_REP_ROWS = (
+    ("v30op_repe", "0x6c", "i286c_rep_insb", "upd9002_rep_insb"),
+    ("v30op_repe", "0x6d", "i286c_rep_insw", "upd9002_rep_insw"),
+    ("v30op_repe", "0x6e", "i286c_rep_outsb", "upd9002_rep_outsb"),
+    ("v30op_repe", "0x6f", "i286c_rep_outsb", "upd9002_rep_outsb"),
+    ("v30op_repe", "0xa4", "i286c_rep_movsb", "upd9002_rep_movsb"),
+    ("v30op_repe", "0xa5", "i286c_rep_movsw", "upd9002_rep_movsw"),
+    ("v30op_repe", "0xa6", "i286c_repe_cmpsb", "upd9002_repe_cmpsb"),
+    ("v30op_repe", "0xa7", "i286c_repe_cmpsw", "upd9002_repe_cmpsw"),
+    ("v30op_repe", "0xaa", "i286c_rep_stosb", "upd9002_rep_stosb"),
+    ("v30op_repe", "0xab", "i286c_rep_stosw", "upd9002_rep_stosw"),
+    ("v30op_repe", "0xac", "i286c_rep_lodsb", "upd9002_rep_lodsb"),
+    ("v30op_repe", "0xad", "i286c_rep_lodsw", "upd9002_rep_lodsw"),
+    ("v30op_repe", "0xae", "i286c_repe_scasb", "upd9002_repe_scasb"),
+    ("v30op_repe", "0xaf", "i286c_repe_scasw", "upd9002_repe_scasw"),
+    ("v30op_repne", "0x6c", "i286c_rep_insb", "upd9002_rep_insb"),
+    ("v30op_repne", "0x6d", "i286c_rep_insw", "upd9002_rep_insw"),
+    ("v30op_repne", "0x6e", "i286c_rep_outsb", "upd9002_rep_outsb"),
+    ("v30op_repne", "0x6f", "i286c_rep_outsb", "upd9002_rep_outsb"),
+    ("v30op_repne", "0xa4", "i286c_rep_movsb", "upd9002_rep_movsb"),
+    ("v30op_repne", "0xa5", "i286c_rep_movsw", "upd9002_rep_movsw"),
+    ("v30op_repne", "0xa6", "i286c_repne_cmpsb", "upd9002_repne_cmpsb"),
+    ("v30op_repne", "0xa7", "i286c_repne_cmpsw", "upd9002_repne_cmpsw"),
+    ("v30op_repne", "0xaa", "i286c_rep_stosb", "upd9002_rep_stosb"),
+    ("v30op_repne", "0xab", "i286c_rep_stosw", "upd9002_rep_stosw"),
+    ("v30op_repne", "0xac", "i286c_rep_lodsb", "upd9002_rep_lodsb"),
+    ("v30op_repne", "0xad", "i286c_rep_lodsw", "upd9002_rep_lodsw"),
+    ("v30op_repne", "0xae", "i286c_repne_scasb", "upd9002_repne_scasb"),
+    ("v30op_repne", "0xaf", "i286c_repne_scasw", "upd9002_repne_scasw"),
+)
+
+M66B_GRAPH_REMOVED = M65A_GRAPH_REMOVED | {
+    (table, opcode, "handler", old)
+    for table, opcode, old, _new in M66B_REP_ROWS
+}
+
+M66B_GRAPH_ADDED = M65A_GRAPH_ADDED | {
+    (table, opcode, "handler", new)
+    for table, opcode, _old, new in M66B_REP_ROWS
+}
+
+M66B_SUPPORT_REMOVED = M64_SUPPORT_REMOVED | {
+    (table, opcode, "-", old, "implemented", "final-root-target")
+    for table, opcode, old, _new in M66B_REP_ROWS
+}
+
+M66B_SUPPORT_ADDED = M64_SUPPORT_ADDED | {
+    (table, opcode, "-", new, "implemented", "final-root-target")
+    for table, opcode, _old, new in M66B_REP_ROWS
+}
+
 Row = Tuple[str, ...]
 
 
@@ -406,12 +477,12 @@ def verify_source_policy(root: pathlib.Path) -> None:
             "{0x0f, v30_repne_0f_diagnostic_stop}") == 1,
         "REPE patch": dispatch.count(
             "{0x0f, v30_repe_0f_diagnostic_stop}") == 1,
-        "complete state restore": dispatch.count("i286core.s = state_before;") == 1,
+        "complete state restore": dispatch.count("upd9002_core_context.s = state_before;") == 1,
         "DMA bypass": "upd9002_diagnostic_pending()" in dispatch,
         "scheduler stop": pccore.count("upd9002_diagnostic_pending()") == 2,
         "MSW.PE preflight": state.count("state.MSW & MSW_PE") == 1,
         "512-case loop": "second < 256" in test,
-        "state atomic test": "memcmp(&state_before, &i286core.s" in test,
+        "state atomic test": "memcmp(&state_before, &upd9002_core_context.s" in test,
         "memory atomic test": "hash_before != memory_hash()" in test,
     }
     missing = [name for name, present in requirements.items() if not present]
@@ -557,15 +628,15 @@ def verify(root: pathlib.Path, write: bool, selftest: bool) -> None:
         "post-M48 governed graph",
         rows(graph),
         rows(live_graph),
-        M65A_GRAPH_REMOVED,
-        M65A_GRAPH_ADDED,
+        M66B_GRAPH_REMOVED,
+        M66B_GRAPH_ADDED,
     )
     require_exact_difference(
         "post-M48 governed support",
         rows(support),
         rows(live_support),
-        M64_SUPPORT_REMOVED,
-        M64_SUPPORT_ADDED,
+        M66B_SUPPORT_REMOVED,
+        M66B_SUPPORT_ADDED,
     )
     accepted_harness = (
         file_rows(root, "tests/upd9002/harness_manifest.csv") | HARNESS_ADDED
