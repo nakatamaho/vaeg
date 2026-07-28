@@ -380,9 +380,9 @@ static int test_pushf(void) {
 	wrapped_high = physical_address(0x3da8, 0x0000);
 	if ((CPU_SP != 0xffff) ||
 		(mem[physical_address(0x3da8, 0xffff)] != 0xd6) ||
-		(mem[linear_high] != 0xf0) || (mem[wrapped_high] != 0x00)) {
+		(mem[linear_high] != 0x00) || (mem[wrapped_high] != 0xf0)) {
 		return fail_case("PUSHF segment wrap",
-			"the approved boundary anomaly changed");
+			"the M65e segment-wrap stack image differs");
 	}
 	return SUCCESS;
 }
