@@ -29,12 +29,12 @@ import sys
 
 
 ROOTS = {
-    "v30op": ("I286OP", 256),
-    "v30op_repne": ("I286OP", 256),
-    "v30op_repe": ("I286OP", 256),
-    "v30op_repc": ("I286OP", 256),
-    "v30ope0xf6_table": ("I286OPF6", 8),
-    "v30ope0xf7_table": ("I286OPF6", 8),
+    "v30op": ("UPD9002OP", 256),
+    "v30op_repne": ("UPD9002OP", 256),
+    "v30op_repe": ("UPD9002OP", 256),
+    "v30op_repc": ("UPD9002OP", 256),
+    "v30ope0xf6_table": ("UPD9002OPF6", 8),
+    "v30ope0xf7_table": ("UPD9002OPF6", 8),
 }
 SNAPSHOTS = {
     "v30op": "v30op_snapshot",
@@ -45,11 +45,11 @@ SNAPSHOTS = {
     "v30ope0xf7_table": "v30ope0xf7_snapshot",
 }
 CONSTRUCTION_OPERATIONS = (
-    "CopyMemory(v30op, i286op, sizeof(v30op));",
+    "CopyMemory(v30op, upd9002op, sizeof(v30op));",
     "V30PATCHING(v30op, v30patch_op);",
-    "CopyMemory(v30op_repne, i286op_repne, sizeof(v30op_repne));",
+    "CopyMemory(v30op_repne, upd9002op_repne, sizeof(v30op_repne));",
     "V30PATCHING(v30op_repne, v30patch_repne);",
-    "CopyMemory(v30op_repe, i286op_repe, sizeof(v30op_repe));",
+    "CopyMemory(v30op_repe, upd9002op_repe, sizeof(v30op_repe));",
     "V30PATCHING(v30op_repe, v30patch_repe);",
     "CopyMemory(v30ope0xf6_table, c_ope0xf6_table, sizeof(v30ope0xf6_table));",
     "v30ope0xf6_table[6] = v30_div_ea8;",
@@ -176,7 +176,7 @@ def check_roots_and_construction(dispatch):
                 "unexpected direct live-table writes for {}: {}".format(
                     root, len(assignments)))
     patcher = function_body(dispatch,
-                            "static void v30patching(I286OP *op, const V30PATCH *patch, int cnt)")
+                            "static void v30patching(UPD9002OP *op, const V30PATCH *patch, int cnt)")
     require(compact(patcher).count("op[patch->opnum]=patch->v30opcode;") == 1,
             "patch helper write changed")
     require(dispatch.count("#define\tV30PATCHING(a, b)\t") == 1,
@@ -221,14 +221,14 @@ def check_snapshot_and_lifecycle(root, core, dispatch, header):
             "function-pointer table code must not use memcmp")
     equal = function_body(
         dispatch,
-        "static BOOL v30_dispatch_equal(const I286OP *live,")
+        "static BOOL v30_dispatch_equal(const UPD9002OP *live,")
     f6_equal = function_body(
         dispatch,
-        "static BOOL v30_dispatch_f6_equal(const I286OPF6 *live,")
+        "static BOOL v30_dispatch_f6_equal(const UPD9002OPF6 *live,")
     require(compact(equal).count("live[i]==snapshot[i]") == 1,
-            "I286OP snapshots are not compared element-wise with ==")
+            "UPD9002OP snapshots are not compared element-wise with ==")
     require(compact(f6_equal).count("live[i]==snapshot[i]") == 1,
-            "I286OPF6 snapshots are not compared element-wise with ==")
+            "UPD9002OPF6 snapshots are not compared element-wise with ==")
     verify = compact(function_body(
         dispatch, "int upd9002_dispatch_test_verify(void)"))
     for live, snapshot in SNAPSHOTS.items():

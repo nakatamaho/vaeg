@@ -50,6 +50,125 @@ separate parity correction or move it to Open Defects.
 
 ## Fixed Defects
 
+### uPD9002 FF /7 executed a POP-like operation instead of the observed stack push
+
+- **Status:** fixed in the M65 residue campaign; formal approval deferred to
+  terminal G65m.
+- **Symptom:** all 5,000 applicable G65 `FF /7` SST cases terminated normally
+  but failed final architectural comparison. The expected state decremented
+  `SP` by two and wrote the selected `r/m16` value to the stack; the actual
+  state followed the inherited POP-like dispatch.
+- **Root cause:** the active `FF` ModR/M group table routed `/7` to the
+  obsolete `_pop_ea16` helper. The reconstructed M65a evidence proves the
+  observable `FF /7` contract is a stack push, including the `r/m = SP` alias
+  writing the decremented `SP`.
+- **Correction:** `FF /7` now uses an M65a-owned push helper. It preserves the
+  existing `FF /6` helper for the later M65d-owned SP-alias residue.
+- **Verification:** the focused `vaeg_upd9002_m65a_ff7` test covers register,
+  memory, and SP-alias forms. The selective M65a replay ran the exact 5,000
+  owned hashes as `5,000 pass / 0 fail`, with zero timeout/crash and an M65d
+  guard preserving the exact 144 `FF /6` G65 failures.
+- **Evidence:** [M65a report](../agents/reports/m65a_upd9002_ff7.md) and
+  [M65 expected/actual reconstruction report](../agents/reports/m65_campaign_expected_actual_reconstruction.md).
+- **Commit:** [15f2ac8e](https://github.com/nakatamaho/vaeg/commit/15f2ac8e861c3cfedbc12acc9ef470925d00716c).
+
+### uPD9002 BOUND used unsigned range comparison
+
+- **Status:** fixed in the M65 residue campaign; formal approval deferred to
+  terminal G65m.
+- **Symptom:** 1,244 applicable G65 `62` BOUND SST cases failed final
+  architectural comparison. Some cases expected a type-5 event but completed
+  normally; others expected normal completion but entered type 5.
+- **Root cause:** the active BOUND implementation compared the register
+  operand and memory bounds as unsigned 16-bit values. The reconstructed M65b
+  evidence proves the observable contract uses signed 16-bit lower and upper
+  bounds with inclusive boundaries.
+- **Correction:** BOUND now converts the selected register, lower bound, and
+  upper bound to `SINT16` before applying the inclusive range decision. It
+  continues to use the existing effective-address and synchronous type-5
+  event-entry paths.
+- **Verification:** the focused `vaeg_upd9002_m65b_bound` test covers
+  signed lower/upper inclusivity, negative, positive, and cross-zero ranges,
+  segment override, offset wrapping, physical wrapping, and type-5 frame
+  preservation. The selective M65b replay ran the exact 1,244 owned hashes as
+  `1,244 pass / 0 fail`, with zero timeout/crash, M65a `FF /7` protection,
+  M65d `FF /6` guard preservation, and 3,565 former BOUND frame-only hashes
+  still passing.
+- **Evidence:** [M65b report](../agents/reports/m65b_upd9002_bound.md) and
+  [M65 expected/actual reconstruction report](../agents/reports/m65_campaign_expected_actual_reconstruction.md).
+- **Commit:** [d0e01694](https://github.com/nakatamaho/vaeg/commit/d0e01694a9b82b4cd16500743d77e45459c74be1).
+
+### uPD9002 F7 /2 word NOT updated only the low memory byte
+
+- **Status:** fixed in the M65 residue campaign; formal approval deferred to
+  terminal G65m.
+- **Symptom:** 1,113 applicable G65 `F7 /2` word NOT memory SST cases failed
+  final architectural comparison. The expected RAM contained both complemented
+  operand bytes, while the actual RAM complemented only the low byte.
+- **Root cause:** the `_not_ea16` memory fast path applied `^= 0xffff` through
+  the byte pointer `mem + madr`, so only the low byte was modified. The
+  inhibited word path already used the 16-bit memory read/write helpers.
+- **Correction:** `_not_ea16` now loads the little-endian word with
+  `LOADINTELWORD`, complements all 16 bits, and stores the complete word with
+  `STOREINTELWORD` on the direct memory path.
+- **Verification:** the focused `vaeg_upd9002_m65c_f72` test covers register
+  protection, low-memory word writes, odd-address word-path protection,
+  segment override, indexed displacement, offset boundary behavior, high
+  memory path preservation, FLAGS, IP, and neighbor preservation. The M65c
+  replay ran the exact 1,113 owned hashes as `1,113 pass / 0 fail` and the
+  complete selected `F7 /2` population as `5,000 pass / 0 fail`, with zero
+  timeout/crash and M65a, M65b, M65d, and M65e guards preserved.
+- **Evidence:** [M65c report](../agents/reports/m65c_upd9002_f72.md) and
+  [M65 expected/actual reconstruction report](../agents/reports/m65_campaign_expected_actual_reconstruction.md).
+- **Commit:** [8d338a52](https://github.com/nakatamaho/vaeg/commit/8d338a528a7c3b4a18636f2f3a4678ece6dbcd4f).
+
+### uPD9002 FF /6 pushed the old SP value for the SP register operand
+
+- **Status:** fixed in the M65 residue campaign; formal approval deferred to
+  terminal G65m.
+- **Symptom:** 144 applicable G65 `FF /6` SST cases failed final RAM
+  comparison. All owned cases were register-form `r/m = SP` rows. The
+  predecessor decremented `SP` but pushed the pre-decrement SP value.
+- **Root cause:** `_push_ea16` read the register operand before invoking the
+  push macro. For the SP alias case, the observable pushed value must be the
+  decremented SP value produced by the push.
+- **Correction:** `_push_ea16` now captures `SP - 2` for the register
+  `r/m = SP` case before using the existing push path. Other register and
+  memory-source forms remain unchanged.
+- **Verification:** the focused `vaeg_upd9002_m65d_ff6` test covers SP alias,
+  segment-prefixed SP alias, non-SP register, memory operand, and stack-wrap
+  cases. The M65d replay ran the exact 144 owned hashes as
+  `144 pass / 0 fail` and the complete selected `FF /6` population as
+  `5,000 pass / 0 fail`, with zero timeout/crash and M65a, M65b, BOUND frame,
+  M65c, and M65e guards preserved.
+- **Evidence:** [M65d report](../agents/reports/m65d_upd9002_ff6.md) and
+  [M65 expected/actual reconstruction report](../agents/reports/m65_campaign_expected_actual_reconstruction.md).
+- **Commit:** [5cfc3540](https://github.com/nakatamaho/vaeg/commit/5cfc3540b5f1d78a7aace699d51729d272529552).
+
+### uPD9002 wrapped segment-offset word accesses used contiguous linear bytes
+
+- **Status:** fixed in the M65 residue campaign; formal approval deferred to
+  terminal G65m.
+- **Symptom:** the exact ten-case M65e tail failed final architectural
+  comparison across `61`, `81 /6`, `FF /5`, `A5`, `9C`, `D1 /6`, `C8`, and
+  `C4` forms. The mismatches involved registers, FLAGS, or represented RAM
+  when a word operand crossed offset `0xffff`.
+- **Root cause:** several inherited word paths treated the second byte as the
+  next contiguous physical byte after `segment_base + 0xffff` rather than the
+  byte at the same segment base with offset `0x0000`.
+- **Correction:** M65e adds segment-offset word helpers and applies them only
+  to the proven tail paths: `POPA`, V30 `PUSHF`, wrapped memory word ALU and
+  shift operations, `MOVSW`, `LES`/`LDS`, far pointer fetches, and `ENTER`
+  frame-copy reads and writes. Generic stack macros remain protected.
+- **Verification:** the focused `vaeg_upd9002_m65e_tail10` test covers all
+  eight structural tail forms. The M65e replay ran the exact ten owned hashes
+  as `10 pass / 0 fail`; the original 7,511-hash G65 architectural residue
+  replayed as `7,511 pass / 0 fail`, with zero timeout/crash and all M65a
+  through M65d protected populations preserved.
+- **Evidence:** [M65e report](../agents/reports/m65e_upd9002_tail10.md) and
+  [M65 expected/actual reconstruction report](../agents/reports/m65_campaign_expected_actual_reconstruction.md).
+- **Commit:** [c7bb5ee2](https://github.com/nakatamaho/vaeg/commit/c7bb5ee274441d608096e4a33e2eca5a2d5af3a4).
+
 ### State-load rejection feedback disappeared with the State menu
 
 - **Status:** fixed; corrected G55 human gate passed on 2026-07-22.
@@ -647,6 +766,193 @@ separate parity correction or move it to Open Defects.
 - **Evidence:** [M60a task](../agents/tasks/M60a_upd9002_flags_materialization.md)
   and [M60a report](../agents/reports/m60a_upd9002_flags_materialization.md).
 - **Commit:** [aab78b78](https://github.com/nakatamaho/vaeg/commit/aab78b78a2473ce35b1e28a9af7420e46e72a1c4).
+
+### uPD9002 IRET loaded reserved FLAGS bits 3 and 5
+
+- **Status:** fixed in the M60e implementation; G60e candidate review pending.
+- **Symptom:** 3,769 of the 5,000 applicable `CF IRET` SST records failed
+  because the restored FLAGS value retained reserved bits 3 and 5 from the
+  stack.
+- **Affected scope:** real-mode uPD9002 `IRET` FLAGS restoration only. Stack
+  word order, logical and physical stack addresses, restored IP and CS, final
+  SP, termination, interrupt entry, and other FLAGS instructions are
+  unchanged.
+- **Demonstrated root cause:** the V30 `IRET` path masked the popped FLAGS word
+  with `0x0fff`, which made bits 3 and 5 loadable. Complete pre-fix replay
+  showed that the SST-observed rule forces both bits to zero while every other
+  observed IRET rule already matched.
+- **Correction:** use the IRET-specific `0x0fd7` stack mask, clearing only
+  bits 3 and 5. The underdetermined bit 8 and the existing internal high-FLAGS
+  representation are deliberately preserved.
+- **Verification:** deterministic focused tests cover ordinary, 16-bit
+  segment-wrap, and 20-bit physical-wrap stack reads and explicit FLAGS bit
+  rules. The complete CF population improved from 1,231 pass / 3,769 fail to
+  5,000 pass / 0 fail. Architectural full failures fell from 59,941 to
+  56,172, with no newly failing hash, timeout, crash, or protected-form
+  regression.
+- **Evidence:** [M60e IRET task](../agents/tasks/M60e_upd9002_iret.md) and
+  [M60e report](../agents/reports/m60e_upd9002_iret.md).
+- **Commit:** [7f815acb](https://github.com/nakatamaho/vaeg/commit/7f815acb26f1be546bbcfd5de12972235dfd175c).
+
+### uPD9002 C6/C7 register forms wrote the ModR/M extension register
+
+- **Status:** fixed in the M61 implementation; G61 candidate review pending.
+- **Symptom:** 1,088 C6 and 1,120 C7 applicable SST records failed. The
+  encoded destination did not receive the immediate, and a different register
+  could change instead.
+- **Affected scope:** register-destination forms of `C6 /0 MOV r/m8, imm8` and
+  `C7 /0 MOV r/m16, imm16`. Their memory forms and all other instruction
+  families are unchanged.
+- **Demonstrated root cause:** both register-form paths selected ModR/M bits
+  5:3 through `REG8_B53` or `REG16_B53`. Complete pre-fix replay and direct
+  code inspection show that the executed SST population selects the
+  destination through r/m bits 2:0. The 161 C6 and 154 C7 pre-fix
+  register-form passes are exactly the records where those two fields happen
+  to name the same register; they are not value-coincidence passes.
+- **Correction:** select the byte or word register through `REG8_B20` or
+  `REG16_B20`. Immediate fetch, instruction length, FLAGS, termination, and
+  the memory paths are unchanged.
+- **Verification:** focused tests cover all eight byte-register encodings, all
+  eight word-register encodings, immediate edge values, paired-byte and
+  unrelated-register preservation, and representative memory displacement,
+  segment-override, 16-bit offset-wrap, and 20-bit physical-wrap cases.
+  Complete G61 SST results are recorded in the milestone report.
+- **Evidence:** [M61 task](../agents/tasks/M61_upd9002_mov_immediate_register.md)
+  and [M61 report](../agents/reports/m61_upd9002_mov_imm_register.md).
+- **Commit:** [90fa7dec](https://github.com/nakatamaho/vaeg/commit/90fa7dec5d46708a807851f61ae0792ee39e9b8f).
+
+### uPD9002 AAM ignored its encoded radix
+
+- **Status:** fixed in the M62 implementation; G62 candidate review pending.
+- **Symptom:** 4,803 of the 5,000 applicable `D4 AAM` SST records failed.
+- **Affected scope:** real-mode uPD9002 `AAM imm8` result and FLAGS
+  materialization. `D5 AAD` is unchanged.
+- **Demonstrated root cause:** the active handler skipped the encoded
+  immediate and always divided AL by 10. It also derived SZP from AX rather
+  than the final AL and retained unrelated FLAGS state.
+- **Correction:** consume the immediate as the SST-observed radix, place the
+  quotient and remainder in AH and AL, apply the observed immediate-zero
+  normal-result rule, and materialize the exact result FLAGS.
+- **Verification:** the complete D4 population is 5,000 pass / 0 fail,
+  including radix values 0, 1, 2, 9, 10, 11, 16, and 255; D5 remains 5,000
+  pass / 0 fail.
+- **Evidence:** [M62 task](../agents/tasks/M62_upd9002_semantics_bundle.md)
+  and [M62 report](../agents/reports/m62_upd9002_semantics_bundle.md).
+- **Commit:** [c55e5730](https://github.com/nakatamaho/vaeg/commit/c55e57305052b2670f0edf4f1e9bda6041cb0c80).
+
+### uPD9002 ROR4 retained the old AL high nibble
+
+- **Status:** fixed in the M62 implementation; G62 candidate review pending.
+- **Symptom:** 4,692 of the 5,000 applicable `0F 2A ROR4` SST records failed.
+- **Affected scope:** V30 packed-BCD `ROR4` register and memory operands only.
+- **Demonstrated root cause:** the handler merged the source low nibble into
+  the old AL high nibble instead of transferring the complete source byte to
+  AL. The destination calculation was otherwise structurally correct.
+- **Correction:** write the rotated destination first, preserving the AL
+  alias case, then transfer the original complete source byte to AL.
+- **Verification:** all 5,000 register and memory ROR4 records pass, including
+  displacement, prefix, 16-bit offset-wrap, and physical-wrap partitions.
+- **Evidence:** [M62 task](../agents/tasks/M62_upd9002_semantics_bundle.md)
+  and [M62 report](../agents/reports/m62_upd9002_semantics_bundle.md).
+- **Commit:** [e74d814f](https://github.com/nakatamaho/vaeg/commit/e74d814f4397a5d832e7fbef675a93df4160bb2f).
+
+### uPD9002 decimal and ASCII adjust used inherited 286 behavior
+
+- **Status:** fixed in the M62 implementation; G62 candidate review pending.
+- **Symptom:** the complete G61 populations contained 34 DAA, 64 DAS, 124
+  AAA, and 4,716 AAS architectural failures.
+- **Affected scope:** `27 DAA`, `2F DAS`, `37 AAA`, and `3F AAS` only.
+  `D4 AAM` and `D5 AAD` are independently governed.
+- **Demonstrated root cause:** the inherited handlers did not implement the
+  SST-observed V30 high-adjust branch and FLAGS rules. AAA/AAS additionally
+  adjusted AX as a word, allowing a carry or borrow across AL/AH where the
+  observed behavior adjusts the two bytes independently.
+- **Correction:** add V30-specific low/high adjustment decisions, result
+  materialization, AF/CF/SZP/OF rules, and byte-local AAA/AAS AH changes.
+- **Verification:** each of DAA, DAS, AAA, and AAS is 5,000 pass / 0 fail;
+  their exact pre-fix union contains 4,938 hashes.
+- **Evidence:** [M62 task](../agents/tasks/M62_upd9002_semantics_bundle.md)
+  and [M62 report](../agents/reports/m62_upd9002_semantics_bundle.md).
+- **Commits:** [33bec007](https://github.com/nakatamaho/vaeg/commit/33bec0078328fdaf6612188b6341c6e938f6dcb6)
+  and [bfd9710b](https://github.com/nakatamaho/vaeg/commit/bfd9710bdac52ec5092871a2f5595a34212df1f2).
+
+### uPD9002 shifts used the inherited normalized-count paths
+
+- **Status:** fixed in the M62 implementation; G62 candidate review pending.
+- **Symptom:** 19,139 applicable shift records failed across the C0, C1, D2,
+  and D3 `/4` through `/7` subforms.
+- **Affected scope:** 8-bit and 16-bit SHL/SAL/SHR/SAR register and memory
+  forms. Rotate subforms `/0` through `/3` are unchanged.
+- **Demonstrated root cause:** the inherited group paths normalized counts
+  and materialized destination and FLAGS with rules that differ from the
+  complete V30 SST population, especially at zero, width, and beyond-width
+  counts. Subform `/6` also required the evidence-proven SHL behavior.
+- **Correction:** route only shift subforms through width-specific raw-count
+  helpers with exact destination, CF, OF, AF, SZP, and count-zero
+  preservation rules; retain the existing rotate paths.
+- **Verification:** all 40,000 shift hashes pass, and all 40,000 protected
+  rotate hashes remain architecturally green.
+- **Evidence:** [M62 task](../agents/tasks/M62_upd9002_semantics_bundle.md)
+  and [M62 report](../agents/reports/m62_upd9002_semantics_bundle.md).
+- **Commit:** [2cdaed95](https://github.com/nakatamaho/vaeg/commit/2cdaed95072d74bbf7187ae854fb31d3886c995d).
+
+### uPD9002 DIV and IDIV used inherited result and exception rules
+
+- **Status:** fixed in the M64 implementation; G64 candidate review pending.
+- **Symptom:** 12,486 applicable records failed across `F6 /6`, `F6 /7`,
+  `F7 /6`, and `F7 /7`.
+- **Affected scope:** byte and word unsigned and signed division arithmetic,
+  result placement, divide-error decisions, and pre-event FLAGS only.
+- **Demonstrated root cause:** the inherited paths used result, overflow, and
+  FLAGS rules that differ from the complete V20 SST contract. The word signed
+  path also exposed the host-language minimum-signed-value divided by `-1`
+  hazard.
+- **Correction:** use widened arithmetic with explicit zero and overflow
+  checks, materialize the observed quotient/remainder and pre-event FLAGS,
+  and retain the G60d-approved type-0 entry machinery unchanged.
+- **Verification:** all four 5,000-case populations pass; the exact 214-case
+  saved-FLAGS dependency set remains green.
+- **Evidence:** [M64 task](../agents/tasks/M64_upd9002_div_idiv.md) and
+  [M64 report](../agents/reports/m64_upd9002_div_idiv.md).
+- **Commit:** [63f12b4e](https://github.com/nakatamaho/vaeg/commit/63f12b4e2bc38999efec66a43042673111e242fe).
+
+### uPD9002 packed-BCD string operations used incomplete inherited behavior
+
+- **Status:** fixed in the M64 implementation; G64 candidate review pending.
+- **Symptom:** 91 `ADD4S` and 304 `SUB4S` architectural records failed, while
+  `CMP4S` was monitor-authorized but remained an implementation gap.
+- **Affected scope:** `0F20 ADD4S`, `0F22 SUB4S`, and `0F26 CMP4S`.
+- **Demonstrated root cause:** the inherited ADD4S/SUB4S paths used
+  incompatible decimal-adjust and address-wrap behavior, and no CMP4S
+  handler existed.
+- **Correction:** apply the independently observed packed-decimal carry,
+  borrow, comparison, register-update, and logical/physical wrapping rules;
+  implement CMP4S without a destination write.
+- **Verification:** all three 1,000-case full populations pass; ROL4 and ROR4
+  remain 5,000 pass / 0 fail.
+- **Evidence:** [M64 task](../agents/tasks/M64_upd9002_div_idiv.md) and
+  [M64 report](../agents/reports/m64_upd9002_div_idiv.md).
+- **Commit:** [60385167](https://github.com/nakatamaho/vaeg/commit/60385167cede30a3c06e97373a92646e19021523).
+
+### uPD9002 monitor-authorized bit-operation forms were incomplete
+
+- **Status:** fixed in the M64 implementation; G64 candidate review pending.
+- **Symptom:** six exact monitor-authorized forms remained classified as
+  implementation gaps even though their byte/word and CL/immediate sibling
+  forms were present.
+- **Affected scope:** the expanded `TEST1`, `CLR1`, `SET1`, and `NOT1`
+  opcodes `0F10` through `0F1F`.
+- **Demonstrated root cause:** dispatch and handlers were missing for
+  `0F13`, `0F15`, `0F16`, `0F17`, `0F1E`, and `0F1F`.
+- **Correction:** add only the evidence-derived word/CL and NOT1 forms,
+  including exact bit-index, register/memory, FLAGS, and instruction-length
+  behavior, then activate their complete pre-approved structural sets.
+- **Verification:** every one of the sixteen expanded 5,000-case populations
+  passes. `0FFF BRKEM` is not counted: v20 has metadata but no SST shard, so
+  selected and executed coverage is exactly zero.
+- **Evidence:** [M64 task](../agents/tasks/M64_upd9002_div_idiv.md) and
+  [M64 report](../agents/reports/m64_upd9002_div_idiv.md).
+- **Commit:** [99c6388d](https://github.com/nakatamaho/vaeg/commit/99c6388df903dfc69432730cc9fa908a83946774).
 
 ## Open Defects
 

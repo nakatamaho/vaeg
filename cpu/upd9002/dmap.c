@@ -6,7 +6,7 @@
 #include	"memoryva.h"
 
 
-void dmap_i286(void) {
+void upd9002_dmap(void) {
 
 	DMACH	ch;
 	REG8	bit;
@@ -38,13 +38,13 @@ void dmap_i286(void) {
 					case 0x04:		// port->mem
 						dat = ch->proc.inproc();
 						memoryva.dma_access = 0x80;
-						i286_memorywrite(ch->adrs.d, dat);
+						upd9002_memorywrite(ch->adrs.d, dat);
 						memoryva.dma_access = 0x00;
 						break;
 
 					default:
 						memoryva.dma_access = 0x80;
-						dat = i286_memoryread(ch->adrs.d);
+						dat = upd9002_memoryread(ch->adrs.d);
 						memoryva.dma_access = 0x00;
 						ch->proc.outproc(dat);
 						break;
@@ -84,11 +84,11 @@ void dmap_v30(void) {
 						break;
 
 					case 0x04:		// port->mem
-						i286_memorywrite(ch->adrs.d, ch->proc.inproc());
+						upd9002_memorywrite(ch->adrs.d, ch->proc.inproc());
 						break;
 
 					default:
-						ch->proc.outproc(i286_memoryread(ch->adrs.d));
+						ch->proc.outproc(upd9002_memoryread(ch->adrs.d));
 						break;
 				}
 				ch->adrs.w[DMA16_LOW] += ((ch->mode & 0x20)?-1:1);

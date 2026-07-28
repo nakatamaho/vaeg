@@ -3,7 +3,7 @@
 extern "C" {
 #endif
 
-void dmap_i286(void);
+void upd9002_dmap(void);
 void dmap_v30(void);
 
 #ifdef __cplusplus

@@ -27,7 +27,7 @@ static void IOOUTCALL crtc_o7c(UINT port, REG8 dat) {
 		if (grcg.chip >= 2) {
 			grcg.gdcwithgrcg = (dat >> 4) & 0x0c;
 		}
-		i286_vram_dispatch(vramop.operate);
+		upd9002_vram_dispatch(vramop.operate);
 	}
 	(void)port;
 }

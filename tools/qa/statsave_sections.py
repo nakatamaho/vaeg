@@ -32,7 +32,7 @@ def inspect(path):
         pos = padded
     if pos != len(data):
         raise ValueError("trailing container bytes")
-    required = {"CPU286", "UPD9002"}
+    required = {"UPD9CPU", "UPD9002"}
     if not required.issubset(seen):
         raise ValueError("missing required section")
     return sections

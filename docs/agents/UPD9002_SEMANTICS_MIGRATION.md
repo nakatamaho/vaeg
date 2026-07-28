@@ -30,8 +30,13 @@ Repository: `github.com/nakatamaho/vaeg`
 - G58 approved at `bc8a55c6da1082b85b794068e0d933e31fe46b13`.
 - G59 approved at `e7f2325bc81310532091a8ca82914030fdb8b6ba`.
 - M59 analysis/evaluated SHA is `7b4bd12aecf92e8fe8299d8b1ec5e48bbb1b61a7`.
-- M60a FLAGS materialization is already in progress under the existing contract.
-- **v5 changes prospective work only after G60a.** Do not rewrite or restart M60a.
+- G60a through G61 are approved historical gates. G61 is approved at
+  `829f314bb0d363ec5b6e9aa738e948b1a3adb365`.
+- G62 is approved at
+  `70b8e94e96aef4cb79eed72c7813c4148c5c0dd8`.
+- M64 is the next prospective gate. Its maintainer-approved scope expansion
+  combines DIV/IDIV with the exact requested monitor-authorized 0F support
+  while retaining separate phase audits, semantic commits, and evidence.
 
 Codex executes one milestone or lettered submilestone per session and stops at its candidate gate.
 
@@ -223,6 +228,13 @@ residual. M60e handles IRET separately.
 ## 11. PR and gate discipline
 
 - One primitive/family per semantic PR and one approval gate.
+- M62 is the one maintainer-approved exception: AAM, ROR4, ROL4 activation,
+  BCD/ASCII adjust, and shifts share G62 only while retaining separate
+  pre-edit audits, semantic commits, phase manifests, and hash ownership.
+- M64 is a second explicit maintainer-approved exception: DIV/IDIV,
+  ADD4S/SUB4S/CMP4S, TEST1/NOT1/CLR1/SET1, and BRKEM share G64 only while
+  retaining separate phase audits, semantic commits, phase manifests, and
+  exact hash ownership.
 - Do not stack semantic PRs on unapproved predecessors.
 - No semantic changes after evidence generation.
 - Evidence-only and rename-only commits remain separate.
@@ -236,17 +248,52 @@ residual. M60e handles IRET separately.
 3. M60d — conditional synchronous interrupt-frame residual.
 4. M60e — IRET.
 5. M61 — C6/C7 register-form MOV immediate; F7 `/2` remains separate.
-6. M62a — AAM only; D5 remains protected.
-7. M62b1 — ROR4.
-8. M62b2 — mandatory ROL4 and exact gap-to-applicable transition.
-9. M62c — BCD/ASCII adjust.
-10. M63 — shift family, split before editing if evidence shows independent causes.
-11. M64 — DIV/IDIV.
-12. M65 — residue re-plan, including F7 `/2`, BOUND, FF `/7`, `6C-6F` reserved behavior,
-    BRKFEM/BRKEM, FPO2, remaining 0F forms, and prefixes.
-13. M66a — drop obsolete CPU286 save-state compatibility after generated residue work.
-14. M66b — remove active I286/i286c identity.
-15. M67 — final divergence and hardware-question consolidation.
+6. M62 — one-time consolidated gate for AAM, ROR4, mandatory ROL4 activation,
+   BCD/ASCII adjust, and shifts. Each phase remains independently reviewable.
+7. M64 — DIV/IDIV plus the exact requested monitor-authorized ADD4S,
+   SUB4S, CMP4S, and TEST1/NOT1/CLR1/SET1 families. Raw ROM
+   `(mask,value,group)` records are not instruction-byte sequences. ROL4 and
+   ROR4 remain protected G62 behavior; BRKFEM remains out of scope. The
+   approved SST v20 metadata names BRKEM (`0FFF`) but has no corresponding
+   shard, so M64 records an exact zero-case authority/coverage checkpoint and
+   does not claim or invent executable BRKEM semantics.
+8. M65 — serial residue campaign after approved G65. M65j decomposes all
+   5,908 implementation-missing selectors, then M65a–M65m execute one at a
+   time. Intermediate checkpoints are not independently approved; only G65m
+   is a formal gate. G65m passed at
+   `81887aae14f718d7d4d0f2a7bd3fe05d5ea80630`. M66a requires approved G65m. Enumerate all
+   7,511 architectural failures and 5,908 implementation-missing hashes with
+   disjoint owners. BRKEM (`0F FF imm8`) is explicitly deferred because the
+   v20 metadata exists but the `0fff.json.gz` corpus shard is absent; no cases
+   may be fabricated. Generated M65a-or-later tasks, M66a, M66b, and M67 do
+   not start in M65.
+   reserved behavior, BRKFEM, FPO2, remaining 0F forms, and prefixes.
+9. M66 bundle — execute the two canonical cleanup milestones on one linear
+   branch: `G65m → M66a internal checkpoint → M66b terminal bundle closure →
+   G66b human approval → M67`. G65m is the only approved predecessor. M66a
+   runs first and receives no independent approval. M66b starts only from the
+   exact M66a checkpoint SHA and is the only terminal candidate presented for
+   G66b review. M66a and M66b retain separate scope, ownership, commits,
+   evidence, and reports; the combined approval protocol does not permit
+   combining unrelated code changes into one commit.
+10. M67 — final divergence and hardware-question consolidation after approved
+   G66b. M67 starts only from G66b at
+   `97f760e8da573888edf089c2875c623895a3c2c9` and records the current
+   divergence-domain state in `tests/ssts/divergence/g67/registry.json`.
+   Compatibility views for approved target divergences, hardware-pending
+   questions, evidence backlogs, zero-coverage items, fingerprint diagnostics,
+   and state-compatibility exceptions are generated from that registry rather
+   than hand-edited as duplicate current sources. Conflicts discovered during
+   consolidation are blockers, not permission for M67 to change target policy
+   or classifications. The M65j 19-group/5,908-hash target-support-unverified
+   backlog remains non-applicable, unimplemented, not officially executed, not
+   claimed passing, and nonblocking only under its recorded amendment. BRKEM
+   and BRKFEM zero-coverage or evidence-backlog records remain non-passing
+   until separate approved evidence/corpus gates. Fingerprint residue remains
+   diagnostic rather than architectural blocking. The G66b
+   `CPU286 v0 + UPD9002 v0 -> UPD9CPU v1 + UPD9002 v0` migration bridge is a
+   state-format exception only and does not restore broader CPU286
+   compatibility. The next milestone requires approved G67.
 
 ## 13. Definition of done
 
@@ -257,7 +304,9 @@ residual. M60e handles IRET separately.
 - Active `6C-6F` V20 handlers are not reachable or advertised as uPD9002 instructions; final
   reserved behavior is evidence-governed.
 - FPO2 status is positively resolved or explicitly pending without a false absence claim.
-- BRKFEM/BRKEM unresolved semantics remain explicit.
+- BRKFEM unresolved semantics remain explicit. BRKEM's zero-case SST coverage
+  and unresolved executable compatibility and silicon-mode semantics remain
+  explicitly separated until an approved corpus adds cases.
 - Historical G43/G58/G59 artifacts remain byte-identical and the 1,204 OUTS gain is never presented
   as target progress.
 - No active I286/i286c production identity remains.

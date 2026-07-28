@@ -47,14 +47,16 @@ extern	BYTE	mem[0x200000];
 
 extern	UINT8	memmode_va;
 
-void MEMCALL i286_memorymap(UINT type);
-void MEMCALL i286_romareamap(UINT16 map);
-void MEMCALL i286_vram_dispatch(UINT operate);
+void MEMCALL upd9002_memorymap(UINT type);
+void MEMCALL upd9002_romareamap(UINT16 map);
+void MEMCALL upd9002_vram_dispatch(UINT operate);
 
-REG8 MEMCALL i286_memoryread(UINT32 address);
-REG16 MEMCALL i286_memoryread_w(UINT32 address);
-void MEMCALL i286_memorywrite(UINT32 address, REG8 value);
-void MEMCALL i286_memorywrite_w(UINT32 address, REG16 value);
+REG8 MEMCALL upd9002_memoryread(UINT32 address);
+REG16 MEMCALL upd9002_memoryread_w(UINT32 address);
+void MEMCALL upd9002_memorywrite(UINT32 address, REG8 value);
+void MEMCALL upd9002_memorywrite_w(UINT32 address, REG16 value);
+REG16 MEMCALL upd9002_memoryread_seg_w(UINT32 segment_base, UINT off);
+void MEMCALL upd9002_memorywrite_seg_w(UINT32 segment_base, UINT off, REG16 value);
 
 REG8 MEMCALL meml_read8(UINT seg, UINT off);
 REG16 MEMCALL meml_read16(UINT seg, UINT off);
@@ -71,9 +73,9 @@ void MEMCALL meml_write(UINT32 address, const void *dat, UINT leng);
 // ---- Physical Space (DMA)
 
 #define	MEMP_READ8(addr)					\
-			i286_memoryread((addr))
+			upd9002_memoryread((addr))
 #define	MEMP_WRITE8(addr, dat)				\
-			i286_memorywrite((addr), (dat))
+			upd9002_memorywrite((addr), (dat))
 
 
 // ---- Logical Space (BIOS)
