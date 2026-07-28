@@ -119,7 +119,17 @@ def classify(path: str, line: str, term: str) -> str:
     if path in ACTIVE_STATE_PATHS:
         if path == "statsave.c" and "statflag_index_equals" in line:
             return "negative_test"
-        return "active_cpu286_state_compat"
+        if term in {
+            "cpu286",
+            "CPU286",
+            "state286",
+            "STATE286",
+            "286 state",
+            "legacy CPU state",
+            "legacy processor state",
+        }:
+            return "active_cpu286_state_compat"
+        return "current_upd9002_state"
     if path in CURRENT_TEST_PATHS:
         if "CPU286" in line and (
             "write_section_index" in line or "compare_section_pair" in line
