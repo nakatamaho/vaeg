@@ -119,8 +119,33 @@ FROZEN_REFERENCE_PREFIXES = (
 )
 
 NEGATIVE_OR_HISTORICAL_FIXTURES = {
+    "tests/upd9002/fixtures.c",
+    "tests/upd9002/state_payload_probe.c",
+    "tests/upd9002/statsave_boundary.c",
     "tests/upd9002/state_fixtures_m42.txt",
     "tests/upd9002/protected_state_inventory_m47.json",
+}
+
+NEGATIVE_QA_PATHS = {
+    "tools/qa/upd9002_m66_identity.py",
+    "tools/qa/upd9002_m66_state.py",
+    "tools/qa/upd9002_rename.py",
+}
+
+HISTORICAL_QA_PATHS = {
+    "tools/qa/upd9002_dispatch_normalization.py",
+    "tools/qa/upd9002_m61_mov_imm.py",
+    "tools/qa/upd9002_native_invariant.py",
+    "tools/qa/upd9002_protected_deletion.py",
+    "tools/qa/upd9002_protected_reachability.py",
+    "tools/qa/upd9002_rep0f_analysis.py",
+    "tools/qa/upd9002_rep0f_transition.py",
+    "tools/qa/upd9002_state_matrix.py",
+}
+
+SELF_REFERENTIAL_OUTPUT_PATHS = {
+    "tests/ssts/campaigns/g66b/active_identity_allowlist.json",
+    "tests/ssts/campaigns/g66b/identity_inventory_after.json",
 }
 
 TASK_DOCUMENTATION_PREFIX = "docs/agents/tasks/"
@@ -199,6 +224,16 @@ def classify(path: str, line: str, terms: Sequence[str]) -> tuple[str, str]:
             "negative_test_preserve",
             "exact historical state/fixture payload retained for regression evidence",
         )
+    if path in NEGATIVE_QA_PATHS:
+        return (
+            "negative_test_preserve",
+            "fail-closed QA validator intentionally names retired identity",
+        )
+    if path in HISTORICAL_QA_PATHS:
+        return (
+            "historical_record_preserve",
+            "QA validator preserves exact historical evidence or predecessor identity",
+        )
     if is_frozen_reference(path):
         return (
             "third_party_provenance_preserve",
@@ -251,7 +286,11 @@ def inventory(root: pathlib.Path) -> Dict[str, Any]:
     occurrences: List[Dict[str, Any]] = []
     scanned_paths: List[str] = []
     skipped_binary: List[str] = []
+    skipped_self_referential_outputs: List[str] = []
     for path in files:
+        if path in SELF_REFERENTIAL_OUTPUT_PATHS:
+            skipped_self_referential_outputs.append(path)
+            continue
         suffix = pathlib.PurePosixPath(path).suffix.lower()
         if suffix and suffix not in SOURCE_SUFFIXES:
             continue
@@ -288,6 +327,7 @@ def inventory(root: pathlib.Path) -> Dict[str, Any]:
         "scanned_path_count": len(scanned_paths),
         "scanned_paths_sha256": sha256_text("\n".join(scanned_paths)),
         "skipped_binary_paths": skipped_binary,
+        "skipped_self_referential_outputs": skipped_self_referential_outputs,
         "occurrence_count": len(occurrences),
         "classification_counts": dict(sorted(counts.items())),
         "active_occurrence_count": sum(counts[name] for name in ACTIVE_CLASSES),
@@ -338,28 +378,32 @@ def make_allowlist(inventory_data: Mapping[str, Any]) -> Dict[str, Any]:
 
 def verify_allowlist(root: pathlib.Path, allowlist: Mapping[str, Any]) -> List[str]:
     failures: List[str] = []
+    line_cache: Dict[str, List[str] | None] = {}
     for entry in allowlist.get("entries", []):
         if entry["classification"] in ACTIVE_CLASSES:
             failures.append(
                 f"active class cannot be allowlisted: {entry['path']}:{entry['line']}"
             )
             continue
-        text = read_text(root, entry["path"])
-        if text is None:
-            failures.append(f"allowlisted path is not UTF-8 text: {entry['path']}")
+        path = str(entry["path"])
+        if path not in line_cache:
+            text = read_text(root, path)
+            line_cache[path] = None if text is None else text.splitlines()
+        lines = line_cache[path]
+        if lines is None:
+            failures.append(f"allowlisted path is not UTF-8 text: {path}")
             continue
-        lines = text.splitlines()
         line_index = int(entry["line"]) - 1
         if line_index < 0 or line_index >= len(lines):
-            failures.append(f"allowlisted line missing: {entry['path']}:{entry['line']}")
+            failures.append(f"allowlisted line missing: {path}:{entry['line']}")
             continue
         line = lines[line_index]
         if sha256_text(line) != entry["line_sha256"]:
-            failures.append(f"allowlisted line digest mismatch: {entry['path']}:{entry['line']}")
+            failures.append(f"allowlisted line digest mismatch: {path}:{entry['line']}")
             continue
         for term in entry["terms"]:
             if term not in line:
-                failures.append(f"allowlisted term missing: {entry['path']}:{entry['line']} {term}")
+                failures.append(f"allowlisted term missing: {path}:{entry['line']} {term}")
     return failures
 
 
