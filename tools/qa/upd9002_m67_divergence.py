@@ -1059,7 +1059,7 @@ def build_validation_summary() -> dict[str, Any]:
         },
         "profile_reuse": {
             "authorized": True,
-            "reason": "M67 changes no CPU source, build graph, target policy, fixtures, contracts, selected/applicable sets, comparison logic, or termination logic.",
+            "reason": "AGENTS.md permits reuse of completed expensive SST runs when identities are unchanged and the task contract permits reuse; M67 changes no CPU source, build graph, target policy, fixtures, contracts, selected/applicable sets, comparison logic, or termination logic.",
             "source_manifest": "tests/ssts/campaigns/g66b/manifest.json",
         },
     }
@@ -1094,7 +1094,6 @@ def build_manifest() -> dict[str, Any]:
         DIVERGENCE_DIR / "schema/manifest.schema.json",
         CAMPAIGN_DIR / "closure_audit.json",
         CAMPAIGN_DIR / "identity_transition.json",
-        REPORT_PATH,
     ]
     artifacts = [artifact_entry(path) for path in artifact_paths if (ROOT / path).exists()]
     g66 = read_json(ROOT / "tests/ssts/campaigns/g66b/manifest.json")
