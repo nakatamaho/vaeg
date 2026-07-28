@@ -293,7 +293,19 @@ residual. M60e handles IRET separately.
    diagnostic rather than architectural blocking. The G66b
    `CPU286 v0 + UPD9002 v0 -> UPD9CPU v1 + UPD9002 v0` migration bridge is a
    state-format exception only and does not restore broader CPU286
-   compatibility. The next milestone requires approved G67.
+   compatibility. G67 passed at
+   `f8f350e1aadec4b6c79c20192d14c50bd39934be`.
+11. M68 — maintainer-reassigned runtime-regression hotfix. M68 restores
+   canonical mapped-memory dispatch ownership for uPD9002 segmented word
+   access after the approved G67 predecessor. The defect is not MOVSW
+   iteration semantics; it is an independent host-memory fast path inside the
+   segmented word helper that bypasses canonical VA mapped-memory dispatch.
+   The segmented helper owns only segment-offset address calculation and
+   `FFFFh -> 0000h` wrapping. The canonical generic memory API owns RAM,
+   TVRAM, BMS and device mapping, callbacks, side effects, dirty tracking,
+   and fast-path selection. Any former unapproved M68 scope is revoked and
+   deferred for later reassignment. The unrelated TSP `0142H` status-port
+   defect is explicitly out of scope.
 
 ## 13. Definition of done
 
