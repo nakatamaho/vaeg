@@ -24,6 +24,7 @@
 from __future__ import annotations
 
 import argparse
+import gzip
 import hashlib
 import json
 import pathlib
@@ -145,7 +146,9 @@ HISTORICAL_QA_PATHS = {
 
 SELF_REFERENTIAL_OUTPUT_PATHS = {
     "tests/ssts/campaigns/g66b/active_identity_allowlist.json",
+    "tests/ssts/campaigns/g66b/active_identity_allowlist.json.gz",
     "tests/ssts/campaigns/g66b/identity_inventory_after.json",
+    "tests/ssts/campaigns/g66b/identity_inventory_after.json.gz",
 }
 
 TASK_DOCUMENTATION_PREFIX = "docs/agents/tasks/"
@@ -342,11 +345,17 @@ def stable_json(data: Mapping[str, Any]) -> str:
 
 def write_json(path: pathlib.Path, data: Mapping[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(stable_json(data), encoding="utf-8")
+    text = stable_json(data).encode("utf-8")
+    if path.suffix == ".gz":
+        path.write_bytes(gzip.compress(text, compresslevel=9, mtime=0))
+    else:
+        path.write_bytes(text)
 
 
 def load_json(path: pathlib.Path) -> Dict[str, Any]:
     try:
+        if path.suffix == ".gz":
+            return json.loads(gzip.decompress(path.read_bytes()).decode("utf-8"))
         return json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
         raise IdentityError(f"cannot load {path}: {exc}") from exc
