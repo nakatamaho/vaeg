@@ -60,13 +60,13 @@ static void setup_instruction(const UINT8 *instruction, UINT length) {
 	CS_BASE = (UINT32)CPU_CS << 4;
 	SS_BASE = (UINT32)CPU_SS << 4;
 	DS_BASE = (UINT32)CPU_DS << 4;
-	i286core.s.ss_fix = SS_BASE;
-	i286core.s.ds_fix = DS_BASE;
+	upd9002_core_context.s.ss_fix = SS_BASE;
+	upd9002_core_context.s.ds_fix = DS_BASE;
 	CPU_ADRSMASK = 0x000fffff;
 	CPU_REMCLOCK = 1000;
 	CPU_BASECLOCK = 1000;
 	CPU_CLOCK = 0;
-	i286core.s.cpu_type = CPUTYPE_V30;
+	upd9002_core_context.s.cpu_type = CPUTYPE_V30;
 	for (index = 0; index < length; index++) {
 		mem[(CS_BASE + CPU_IP + index) & CPU_ADRSMASK] =
 														instruction[index];
@@ -207,7 +207,7 @@ static int test_bound_physical_wrap(void) {
 	CPU_AX = 0x0000;
 	CPU_DS = 0xffff;
 	DS_BASE = (UINT32)CPU_DS << 4;
-	i286core.s.ds_fix = DS_BASE;
+	upd9002_core_context.s.ds_fix = DS_BASE;
 	write_bounds(0x00000, 0xffff, 0x0001);
 	upd9002_core_step();
 	return expect_normal(0x0104);

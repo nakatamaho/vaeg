@@ -383,12 +383,12 @@ UINT8 hostfat_service_request(UINT32 request_far_pointer) {
 	request_segment = (UINT)(request_far_pointer >> 16);
 	request_address = ((UINT32)request_segment << 4) + request_offset;
 	if ((request_offset > (0x10000U - HOSTFAT_PACKET_SIZE)) ||
-		(request_address >= I286_MEMWRITEMAX) ||
-		(HOSTFAT_PACKET_SIZE > (I286_MEMWRITEMAX - request_address))) {
+		(request_address >= UPD9002_MEMWRITEMAX) ||
+		(HOSTFAT_PACKET_SIZE > (UPD9002_MEMWRITEMAX - request_address))) {
 		return(HOSTFAT_RESULT_BAD_REQUEST);
 	}
 	for (position=0; position<sizeof(packet); position++) {
-		packet[position] = i286_memoryread(request_address + position);
+		packet[position] = upd9002_memoryread(request_address + position);
 	}
 	if ((packet[0] < HOSTFAT_PACKET_SIZE) ||
 		(packet[HOSTFAT_PACKET_UNIT] != 0) ||
@@ -409,14 +409,14 @@ UINT8 hostfat_service_request(UINT32 request_far_pointer) {
 	transfer_segment = load_word(packet + HOSTFAT_PACKET_TRANSFER + 2);
 	transfer_address = ((UINT32)transfer_segment << 4) + transfer_offset;
 	transfer_size = (UINT32)count * HOSTFAT_SECTOR_SIZE;
-	if ((transfer_address >= I286_MEMWRITEMAX) ||
-		(transfer_size > (I286_MEMWRITEMAX - transfer_address))) {
+	if ((transfer_address >= UPD9002_MEMWRITEMAX) ||
+		(transfer_size > (UPD9002_MEMWRITEMAX - transfer_address))) {
 		return(HOSTFAT_RESULT_RANGE);
 	}
 
 	image_offset = (UINT32)start * HOSTFAT_SECTOR_SIZE;
 	for (position=0; position<transfer_size; position++) {
-		i286_memorywrite(transfer_address + position,
+		upd9002_memorywrite(transfer_address + position,
 				hostfat_state.image[image_offset + position]);
 	}
 	return(HOSTFAT_RESULT_OK);

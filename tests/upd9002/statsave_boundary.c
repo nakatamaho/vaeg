@@ -93,7 +93,7 @@ static UINT32 memory_hash(void) {
 
 static void snapshot_capture(STATE_SNAPSHOT *snapshot) {
 
-	snapshot->runtime = i286core.s;
+	snapshot->runtime = upd9002_core_context.s;
 	upd9002_state_export(&snapshot->state_image);
 	snapshot->core = pccore;
 	snapshot->registers = upd9002_regs;
@@ -105,7 +105,7 @@ static int snapshot_matches(const STATE_SNAPSHOT *snapshot) {
 	Upd9002StateImage compatibility;
 
 	upd9002_state_export(&compatibility);
-	return !memcmp(&snapshot->runtime, &i286core.s, sizeof(snapshot->runtime)) &&
+	return !memcmp(&snapshot->runtime, &upd9002_core_context.s, sizeof(snapshot->runtime)) &&
 		!memcmp(&snapshot->state_image, &compatibility,
 			sizeof(snapshot->state_image)) &&
 		!memcmp(&snapshot->core, &pccore, sizeof(snapshot->core)) &&

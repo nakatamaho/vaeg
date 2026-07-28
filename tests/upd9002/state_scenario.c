@@ -25,7 +25,7 @@
 #include "compiler.h"
 #include "cpucore.h"
 #include "statsave.h"
-#if !defined(VAEG_M44_RAW_I286STAT)
+#if !defined(VAEG_M44_RAW_UPD9002_STATE)
 #include "upd9002_state.h"
 #endif
 #include "tests/upd9002/state_scenario.h"
@@ -43,7 +43,7 @@ static const char *const m44_scenario_names[] = {
 	"m44-cpu-shut-request.state"
 };
 
-#if !defined(VAEG_M44_RAW_I286STAT)
+#if !defined(VAEG_M44_RAW_UPD9002_STATE)
 void upd9002_m42_process_cpu_reset_request(void);
 #endif
 
@@ -54,10 +54,10 @@ static void prepare_executed(void) {
 
 	/* Keep this identical to the committed M42 fixture definition. */
 	ZeroMemory(&CPU_STATSAVE, sizeof(CPU_STATSAVE));
-#if !defined(VAEG_M44_RAW_I286STAT)
+#if !defined(VAEG_M44_RAW_UPD9002_STATE)
 	upd9002_state_reset();
 #endif
-	i286core.s.cpu_type = CPUTYPE_V30;
+	upd9002_core_context.s.cpu_type = CPUTYPE_V30;
 	CPU_FLAG = 0xf002;
 	CPU_ADRSMASK = 0xfffff;
 	CPU_SP = 0x8000;
@@ -74,7 +74,7 @@ static void prepare_executed(void) {
 static void prepare_cpu_shut(void) {
 
 	CPU_RESETREQ = 1;
-#if defined(VAEG_M44_RAW_I286STAT)
+#if defined(VAEG_M44_RAW_UPD9002_STATE)
 	/* Exact production reset-request operation at the approved G41 SHA. */
 	if (CPU_RESETREQ) {
 		CPU_RESETREQ = 0;

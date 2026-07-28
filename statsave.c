@@ -446,7 +446,11 @@ static BOOL statflag_index_equals(const char index[10], const char *name) {
 
 static BOOL statflag_is_legacy_cpu_state(STFLAGH sfh) {
 
-	return(statflag_index_equals(sfh->hdr.index, "CPU286"));
+	static const char legacy_cpu_state_section[] = {
+		'C', 'P', 'U', '2', '8', '6', '\0'
+	};
+
+	return(statflag_index_equals(sfh->hdr.index, legacy_cpu_state_section));
 }
 
 static BOOL statflag_is_upd9002_format_marker(STFLAGH sfh) {
@@ -1919,8 +1923,8 @@ const SFENTRY	*tblterm;
 	statflag_close(sffh);
 
 	// I/O作り直し
-	i286_memorymap((pccore.model & PCMODEL_EPSON)?1:0);
-	i286_memorymap_va();
+	upd9002_memorymap((pccore.model & PCMODEL_EPSON)?1:0);
+	upd9002_memorymap_va();
 	iocore_build();
 	iocore_bind();
 	cbuscore_bind();
@@ -1937,7 +1941,7 @@ const SFENTRY	*tblterm;
 	FONTPTR_LOW = fontrom + cgwindow.low;
 	FONTPTR_HIGH = fontrom + cgwindow.high;
 #endif
-	i286_vram_dispatch(vramop.operate);
+	upd9002_vram_dispatch(vramop.operate);
 	soundmng_play();
 
 	return(ret);
