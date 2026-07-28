@@ -359,6 +359,7 @@ if(VAEG_ENABLE_TESTS)
         tests/upd9002/flags_materialization.c
         tests/upd9002/iret_restoration.c
         tests/upd9002/m65a_ff7.c
+        tests/upd9002/m65b_bound.c
         tests/upd9002/m64_semantics.c
         tests/upd9002/mov_imm_register.c
         tests/upd9002/semantics_bundle.c
@@ -543,6 +544,7 @@ if(VAEG_ENABLE_TESTS)
         VAEG_UPD9002_M62_TESTING=1
         VAEG_UPD9002_M64_TESTING=1
         VAEG_UPD9002_M65A_TESTING=1
+        VAEG_UPD9002_M65B_TESTING=1
         VAEG_UPD9002_SSTS_TESTING=1
         "VAEG_UPD9002_HARNESS_MANIFEST_PATH=\"${CMAKE_CURRENT_SOURCE_DIR}/tests/upd9002/harness_manifest.csv\""
         "VAEG_UPD9002_FIXTURE_PATH=\"${CMAKE_CURRENT_SOURCE_DIR}/tests/upd9002/state_fixtures_m42.txt\"")
@@ -768,6 +770,11 @@ if(VAEG_ENABLE_TESTS)
 		COMMAND vaeg_sdl2 --upd9002-m65a-ff7)
     set_tests_properties(vaeg_upd9002_m65a_ff7 PROPERTIES
 		LABELS "romless;upd9002;m65a;semantics")
+
+    add_test(NAME vaeg_upd9002_m65b_bound
+		COMMAND vaeg_sdl2 --upd9002-m65b-bound)
+    set_tests_properties(vaeg_upd9002_m65b_bound PROPERTIES
+		LABELS "romless;upd9002;m65b;semantics")
 
     add_test(NAME vaeg_upd9002_rep0f_transition_selftest
 		COMMAND "${Python3_EXECUTABLE}"

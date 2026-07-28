@@ -1195,18 +1195,20 @@ I286FN _bound(void) {						// 62:	bound
 	UINT	vect = 0;
 	UINT	op;
 	UINT32	madr;
-	REG16	reg;
+	SINT16	reg;
+	SINT16	lower;
+	SINT16	upper;
 
 	I286_WORKCLOCK(13);										// ToDo
 	GET_PCBYTE(op);
 	if (op < 0xc0) {
-		reg = *(REG16_B53(op));
+		reg = (SINT16)*(REG16_B53(op));
 		madr = CALC_EA(op);
-		if (reg >= i286_memoryread_w(madr)) {
-			madr += 2;										// ToDo
-			if (reg <= i286_memoryread_w(madr)) {
-				return;
-			}
+		lower = (SINT16)i286_memoryread_w(madr);
+		madr += 2;											// ToDo
+		upper = (SINT16)i286_memoryread_w(madr);
+		if ((reg >= lower) && (reg <= upper)) {
+			return;
 		}
 		vect = 5;
 	}
