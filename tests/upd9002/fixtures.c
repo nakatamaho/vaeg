@@ -67,7 +67,7 @@ static void fixture_line(const char *scenario, char *line, size_t size) {
 		(unsigned int)sizeof(upd9002_regs), regs_hex,
 		CPU_AX, CPU_BX, CPU_CX, CPU_DX, CPU_SP, CPU_CS, CPU_IP,
 		CPU_FLAG, CS_BASE, (uint32_t)CPU_REMCLOCK,
-		(uint32_t)CPU_BASECLOCK, CPU_CLOCK, i286core.s.cpu_type);
+		(uint32_t)CPU_BASECLOCK, CPU_CLOCK, upd9002_core_context.s.cpu_type);
 }
 
 static void prepare_executed(void) {
@@ -77,7 +77,7 @@ static void prepare_executed(void) {
 
 	ZeroMemory(&CPU_STATSAVE, sizeof(CPU_STATSAVE));
 	upd9002_state_reset();
-	i286core.s.cpu_type = CPUTYPE_V30;
+	upd9002_core_context.s.cpu_type = CPUTYPE_V30;
 	CPU_FLAG = 0xf002;
 	CPU_ADRSMASK = 0xfffff;
 	CPU_SP = 0x8000;
@@ -96,9 +96,9 @@ static int verify_native_reset_invariant(void) {
 	Upd9002StateImage saved;
 
 	upd9002_state_export(&saved);
-	i286core.s.cpu_type = 0;
+	upd9002_core_context.s.cpu_type = 0;
 	upd9002_core_reset();
-	if ((i286core.s.cpu_type != CPUTYPE_V30) ||
+	if ((upd9002_core_context.s.cpu_type != CPUTYPE_V30) ||
 		(CPU_CS != 0xf000) || (CPU_IP != 0xfff0) ||
 		(CS_BASE != 0x000f0000) || (CPU_FLAG != 0xf002)) {
 		(void)upd9002_state_import(&saved, sizeof(saved), NULL, 0);

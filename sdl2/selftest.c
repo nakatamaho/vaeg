@@ -330,7 +330,7 @@ static int test_hostfat_transport(void) {
 		goto transport_cleanup;
 	}
 	for (index=0; index<HOSTFAT_SECTOR_SIZE; index++) {
-		if (i286_memoryread(destination_address + index) !=
+		if (upd9002_memoryread(destination_address + index) !=
 				(BYTE)(index ^ 0x5a)) {
 			goto transport_cleanup;
 		}
@@ -345,7 +345,7 @@ static int test_hostfat_transport(void) {
 		goto transport_cleanup;
 	}
 	for (index=0; index<HOSTFAT_SECTOR_SIZE; index++) {
-		if (i286_memoryread(destination_address + index) != 0xa5) {
+		if (upd9002_memoryread(destination_address + index) != 0xa5) {
 			goto transport_cleanup;
 		}
 	}
@@ -391,7 +391,7 @@ static int test_hostfat_transport(void) {
 		goto transport_cleanup;
 	}
 	for (index=0; index<HOSTFAT_SECTOR_SIZE; index++) {
-		if (i286_memoryread(destination_address + index) != 0xa5) {
+		if (upd9002_memoryread(destination_address + index) != 0xa5) {
 			goto transport_cleanup;
 		}
 	}
@@ -410,7 +410,7 @@ static int test_hostfat_transport(void) {
 		goto transport_cleanup;
 	}
 	for (index=0; index<HOSTFAT_SECTOR_SIZE; index++) {
-		if (i286_memoryread(destination_address + index) != 0xa5) {
+		if (upd9002_memoryread(destination_address + index) != 0xa5) {
 			goto transport_cleanup;
 		}
 	}
@@ -466,34 +466,34 @@ static int test_va_tvram_window(void) {
 	textmem[0x10000] = 0x5a;
 	textmem[0x1fff0] = 0xa5;
 
-	i286_memorywrite_va_w(0x0afffe, 0x1234);
-	if (i286_memoryread_va_w(0x0afffe) != 0x1234) {
+	upd9002_memorywrite_va_w(0x0afffe, 0x1234);
+	if (upd9002_memoryread_va_w(0x0afffe) != 0x1234) {
 		result = fail("VA TVRAM", "valid word access failed");
 	}
-	i286_memorywrite_va_w(0x0affff, 0x5678);
-	if ((i286_memoryread_va_w(0x0affff) != 0xff78) ||
+	upd9002_memorywrite_va_w(0x0affff, 0x5678);
+	if ((upd9002_memoryread_va_w(0x0affff) != 0xff78) ||
 		(textmem[0x10000] != 0x5a)) {
 		result = fail("VA TVRAM", "AFFFF boundary crossed into unused memory");
 	}
-	i286_memorywrite_va(0x0b0000, 0x6c);
-	if ((i286_memoryread_va(0x0b0000) != 0xff) ||
+	upd9002_memorywrite_va(0x0b0000, 0x6c);
+	if ((upd9002_memoryread_va(0x0b0000) != 0xff) ||
 		(textmem[0x10000] != 0x5a)) {
 		result = fail("VA TVRAM", "unused byte access did not use open bus");
 	}
-	i286_memorywrite_va_w(0x0bfff0, 0xabcd);
-	if ((i286_memoryread_va_w(0x0bfff0) != 0xffff) ||
+	upd9002_memorywrite_va_w(0x0bfff0, 0xabcd);
+	if ((upd9002_memoryread_va_w(0x0bfff0) != 0xffff) ||
 		(textmem[0x1fff0] != 0xa5)) {
 		result = fail("VA TVRAM", "B0000-DFFFF is not open bus");
 	}
 
 	pccore.model_va = PCMODEL_VA2;
-	i286_memorywrite_va(0x0b0000, 0x6c);
-	if ((i286_memoryread_va(0x0b0000) != 0x6c) ||
+	upd9002_memorywrite_va(0x0b0000, 0x6c);
+	if ((upd9002_memoryread_va(0x0b0000) != 0x6c) ||
 		(textmem[0x10000] != 0x6c)) {
 		result = fail("VA2 TVRAM", "legacy B0000 byte access was blocked");
 	}
-	i286_memorywrite_va_w(0x0bfff0, 0xabcd);
-	if ((i286_memoryread_va_w(0x0bfff0) != 0xabcd) ||
+	upd9002_memorywrite_va_w(0x0bfff0, 0xabcd);
+	if ((upd9002_memoryread_va_w(0x0bfff0) != 0xabcd) ||
 		(textmem[0x1fff0] != 0xcd)) {
 		result = fail("VA2 TVRAM", "legacy B0000-DFFFF word access was blocked");
 	}
@@ -536,10 +536,10 @@ static int test_va_bms_window(void) {
 	bmsiocfg.numbanks = BMSIO_DEFAULT_BANKS;
 	bmsio_set();
 	bmsio_reset();
-	i286_memorywrite_va(0x080000, 0x12);
-	i286_memorywrite_va_w(0x09fffe, 0x3456);
-	if ((i286_memoryread_va(0x080000) != 0x12) ||
-		(i286_memoryread_va_w(0x09fffe) != 0x3456) ||
+	upd9002_memorywrite_va(0x080000, 0x12);
+	upd9002_memorywrite_va_w(0x09fffe, 0x3456);
+	if ((upd9002_memoryread_va(0x080000) != 0x12) ||
+		(upd9002_memoryread_va_w(0x09fffe) != 0x3456) ||
 		(bmsiowork.bmsmem != NULL) || (bmsiowork.bmsmemsize != 0) ||
 		(bmsio.cfg.port != BMSIO_PORT_DEFAULT) || (bmsio.nomem != 0)) {
 		result = fail("VA BMS", "bank zero did not pass through main RAM");
@@ -560,8 +560,8 @@ static int test_va_bms_window(void) {
 		goto bms_test_cleanup;
 	}
 	ZeroMemory(bmsiowork.bmsmem, bmsiowork.bmsmemsize);
-	if ((i286_memoryread_va(0x080000) != 0x12) ||
-		(i286_memoryread_va_w(0x09fffe) != 0x3456)) {
+	if ((upd9002_memoryread_va(0x080000) != 0x12) ||
+		(upd9002_memoryread_va_w(0x09fffe) != 0x3456)) {
 		result = fail("VA BMS", "enabled bank zero did not preserve main RAM");
 	}
 
@@ -569,22 +569,22 @@ static int test_va_bms_window(void) {
 	bmsio_set();
 	bmsio_reset();
 	if ((bmsiowork.bmsmem != retained_mem) ||
-		(i286_memoryread_va(0x080000) != 0x12) ||
-		(i286_memoryread_va_w(0x09fffe) != 0x3456)) {
+		(upd9002_memoryread_va(0x080000) != 0x12) ||
+		(upd9002_memoryread_va_w(0x09fffe) != 0x3456)) {
 		result = fail("VA BMS", "ordinary reset did not retain BMS contents");
 	}
 
 	bmsio.bank = 1;
 	bmsio.nomem = 0;
-	i286_memorywrite_va(0x080000, 0x78);
-	i286_memorywrite_va_w(0x09fffe, 0x9abc);
-	if ((i286_memoryread_va(0x080000) != 0x78) ||
-		(i286_memoryread_va_w(0x09fffe) != 0x9abc)) {
+	upd9002_memorywrite_va(0x080000, 0x78);
+	upd9002_memorywrite_va_w(0x09fffe, 0x9abc);
+	if ((upd9002_memoryread_va(0x080000) != 0x78) ||
+		(upd9002_memoryread_va_w(0x09fffe) != 0x9abc)) {
 		result = fail("VA BMS", "bank 1 access failed");
 	}
 	bmsio.bank = 0;
-	if ((i286_memoryread_va(0x080000) != 0x12) ||
-		(i286_memoryread_va_w(0x09fffe) != 0x3456)) {
+	if ((upd9002_memoryread_va(0x080000) != 0x12) ||
+		(upd9002_memoryread_va_w(0x09fffe) != 0x3456)) {
 		result = fail("VA BMS", "bank switch did not preserve bank 0");
 	}
 
@@ -593,7 +593,7 @@ static int test_va_bms_window(void) {
 	bmsio_reset();
 	if ((bmsiowork.bmsmem != NULL) || (bmsiowork.bmsmemsize != 0) ||
 		(bmsio.nomem != 0) ||
-		(i286_memoryread_va(0x080000) != 0x12)) {
+		(upd9002_memoryread_va(0x080000) != 0x12)) {
 		result = fail("VA BMS", "disable did not restore main RAM");
 	}
 
@@ -1628,13 +1628,13 @@ static int test_statsave(void) {
 			UINT32 mismatched_digest;
 
 			identity_ip = CPU_IP;
-			identity_memory = i286_memoryread(0x0400);
+			identity_memory = upd9002_memoryread(0x0400);
 			mismatched_digest = hostfat_image_digest();
 			ZeroMemory(err, sizeof(err));
 			if ((statsave_check(path1, err, sizeof(err)) != STATFLAG_FAILURE) ||
 				(strstr(err, "HOSTFAT snapshot") == NULL) ||
 				(CPU_IP != identity_ip) ||
-				(i286_memoryread(0x0400) != identity_memory)) {
+				(upd9002_memoryread(0x0400) != identity_memory)) {
 				ret = STATFLAG_FAILURE;
 			}
 			ZeroMemory(err, sizeof(err));
@@ -1645,11 +1645,11 @@ static int test_statsave(void) {
 				}
 				else {
 					CPU_IP ^= 0x0100;
-					i286_memorywrite(0x0400, identity_memory ^ 0xff);
+					upd9002_memorywrite(0x0400, identity_memory ^ 0xff);
 					if ((statsave_load_hostfat_override(path1) !=
 							STATFLAG_SUCCESS) ||
 						(CPU_IP != identity_ip) ||
-						(i286_memoryread(0x0400) != identity_memory) ||
+						(upd9002_memoryread(0x0400) != identity_memory) ||
 						(hostfat_image_digest() != mismatched_digest)) {
 						ret = STATFLAG_FAILURE;
 					}

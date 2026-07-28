@@ -56,13 +56,13 @@ UINT32 breakpoint_evalval(BREAKVAL *val) {
 	case BREAKVAL_REG:
 		if (val->p.reg <= BREAKREG_BYTEREG_MAX) {
 #if defined(BYTESEX_LITTLE)
-			v = ((BYTE *)&i286core.s.r)[val->p.reg - BREAKREG_BYTEREG_BASE];
+			v = ((BYTE *)&upd9002_core_context.s.r)[val->p.reg - BREAKREG_BYTEREG_BASE];
 #else
-			v = ((BYTE *)&i286core.s.r)[(val->p.reg - BREAKREG_BYTEREG_BASE) ^ 1];
+			v = ((BYTE *)&upd9002_core_context.s.r)[(val->p.reg - BREAKREG_BYTEREG_BASE) ^ 1];
 #endif
 		}
 		else if (val->p.reg <= BREAKREG_WORDREG_MAX) {
-			v = ((WORD *)&i286core.s.r)[val->p.reg - BREAKREG_WORDREG_BASE];
+			v = ((WORD *)&upd9002_core_context.s.r)[val->p.reg - BREAKREG_WORDREG_BASE];
 		}
 		else switch(val->p.reg) {
 		case BREAKREG_CSIP:
@@ -87,7 +87,7 @@ BOOL breakpoint_evalcond(BREAKCOND *cond) {
 	return FALSE;
 }
 
-#define CPUPREFETCH(index) (i286core.s.prefetchque[index])
+#define CPUPREFETCH(index) (upd9002_core_context.s.prefetchque[index])
 
 static BOOL breakpoint_check(int type, UINT32 param1) {
 	int	i;

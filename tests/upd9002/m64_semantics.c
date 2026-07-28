@@ -54,13 +54,13 @@ static void setup_instruction(const UINT8 *instruction, UINT length,
 	CS_BASE = (UINT32)CPU_CS << 4;
 	SS_BASE = (UINT32)CPU_SS << 4;
 	DS_BASE = (UINT32)CPU_DS << 4;
-	i286core.s.ss_fix = SS_BASE;
-	i286core.s.ds_fix = DS_BASE;
+	upd9002_core_context.s.ss_fix = SS_BASE;
+	upd9002_core_context.s.ds_fix = DS_BASE;
 	CPU_ADRSMASK = 0x000fffff;
 	CPU_REMCLOCK = 1000;
 	CPU_BASECLOCK = 1000;
 	CPU_CLOCK = 0;
-	i286core.s.cpu_type = CPUTYPE_V30;
+	upd9002_core_context.s.cpu_type = CPUTYPE_V30;
 	mem[0] = 0x00;
 	mem[1] = 0x04;
 	mem[2] = 0x00;
@@ -323,7 +323,7 @@ static int test_bit_operations(void) {
 		if ((CPU_AX != value->expected_ax) ||
 			(CPU_IP != (UINT16)(0x0100 + length)) ||
 			((CPU_FLAG & 0x00d5) != value->expected_flag_mask) ||
-			(value->test_only && I286_OV) ||
+			(value->test_only && UPD9002_OV) ||
 			(!value->test_only && (CPU_FLAG != 0xfcd7))) {
 			fprintf(stderr,
 				"upd9002-m64: bit operation 0F%02X differs\n",

@@ -6,8 +6,8 @@
 //
 //----------------------------------------------------------------------------
 
-#ifndef VAEG_I286C_CPUCORE_H
-#define VAEG_I286C_CPUCORE_H
+#ifndef VAEG_UPD9002_CPUCORE_H
+#define VAEG_UPD9002_CPUCORE_H
 
 #include "memory.h"
 
@@ -17,13 +17,13 @@
 
 #if !defined(CPUDEBUG)
 enum {
-	I286_MEMREADMAX		= 0xa4000,
-	I286_MEMWRITEMAX	= 0xa0000
+	UPD9002_MEMREADMAX		= 0xa4000,
+	UPD9002_MEMWRITEMAX	= 0xa0000
 };
 #else									// ダイレクトアクセス範囲を狭める
 enum {
-	I286_MEMREADMAX		= 0x00400,
-	I286_MEMWRITEMAX	= 0x00400
+	UPD9002_MEMREADMAX		= 0x00400,
+	UPD9002_MEMWRITEMAX	= 0x00400
 };
 #endif
 
@@ -85,7 +85,7 @@ typedef struct {
 	UINT8	flag_h;
 	UINT8	ip_l;
 	UINT8	ip_h;
-} I286REG8;
+} Upd9002RegisterBytes;
 
 #else
 
@@ -118,7 +118,7 @@ typedef struct {
 	UINT8	flag_l;
 	UINT8	ip_h;
 	UINT8	ip_l;
-} I286REG8;
+} Upd9002RegisterBytes;
 
 #endif
 
@@ -137,19 +137,19 @@ typedef struct {
 	UINT16	ds;
 	UINT16	flag;
 	UINT16	ip;
-} I286REG16;
+} Upd9002RegisterWords;
 
 typedef struct {
 	UINT16	limit;
 	UINT16	base;
 	UINT8	base24;
 	UINT8	reserved;
-} I286DTR;
+} Upd9002DescriptorImage;
 
 typedef struct {
 	union {
-		I286REG8	b;
-		I286REG16	w;
+		Upd9002RegisterBytes	b;
+		Upd9002RegisterWords	w;
 	}		r;
 	UINT32	es_base;
 	UINT32	cs_base;
@@ -162,13 +162,13 @@ typedef struct {
 	UINT8	trap;
 	UINT8	resetreq;						// ver0.72
 	UINT32	ovflag;
-	I286DTR	GDTR;
+	Upd9002DescriptorImage	GDTR;
 	UINT16	MSW;
-	I286DTR	IDTR;
+	Upd9002DescriptorImage	IDTR;
 	UINT16	LDTR;							// ver0.73
-	I286DTR	LDTRC;
+	Upd9002DescriptorImage	LDTRC;
 	UINT16	TR;
-	I286DTR	TRC;
+	Upd9002DescriptorImage	TRC;
 	UINT8	padding[2];
 
 	UINT8	cpu_type;
@@ -181,8 +181,8 @@ typedef struct {
 
 typedef struct {
 	union {
-		I286REG8	b;
-		I286REG16	w;
+		Upd9002RegisterBytes	b;
+		Upd9002RegisterWords	w;
 	}		r;
 	UINT32	es_base;
 	UINT32	cs_base;
@@ -195,13 +195,13 @@ typedef struct {
 	UINT8	trap;
 	UINT8	resetreq;						// ver0.72
 	UINT32	ovflag;
-	I286DTR	GDTR;
+	Upd9002DescriptorImage	GDTR;
 	UINT16	MSW;
-	I286DTR	IDTR;
+	Upd9002DescriptorImage	IDTR;
 	UINT16	LDTR;							// ver0.73
-	I286DTR	LDTRC;
+	Upd9002DescriptorImage	LDTRC;
 	UINT16	TR;
-	I286DTR	TRC;
+	Upd9002DescriptorImage	TRC;
 	UINT8	padding[2];
 
 	UINT8	cpu_type;
@@ -212,16 +212,9 @@ typedef struct {
 	UINT32	clock;
 } Upd9002RuntimeState;
 
-typedef Upd9002RuntimeState I286STAT;
-
 typedef struct {
 	UINT8 bytes[112];
 } Upd9002StateOpaqueImage;
-
-/*
- * I286STAT remains the historical internal runtime typedef until M66b.
- * Upd9002StateImage is the independently typed current on-disk contract.
- */
 typedef struct {
 	/* for ver0.73 */
 	BYTE	*ext;
@@ -234,19 +227,19 @@ typedef struct {
 	UINT8	grcgwait;
 	UINT8	padding;
 #endif
-} I286EXT;
+} Upd9002ExtendedState;
 
 typedef struct {
 	Upd9002RuntimeState	s;
-	I286EXT		e;
-} I286CORE;
+	Upd9002ExtendedState		e;
+} Upd9002CoreContext;
 
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-extern	I286CORE	i286core;
+extern	Upd9002CoreContext	upd9002_core_context;
 extern	const UINT8	iflags[];
 
 void upd9002_core_initialize(void);
@@ -267,66 +260,66 @@ void upd9002_core_step(void);
 
 // ---- macros
 
-#define	CPU_STATSAVE	i286core.s
+#define	CPU_STATSAVE	upd9002_core_context.s
 
-#define	CPU_AX			i286core.s.r.w.ax
-#define	CPU_BX			i286core.s.r.w.bx
-#define	CPU_CX			i286core.s.r.w.cx
-#define	CPU_DX			i286core.s.r.w.dx
-#define	CPU_SI			i286core.s.r.w.si
-#define	CPU_DI			i286core.s.r.w.di
-#define	CPU_BP			i286core.s.r.w.bp
-#define	CPU_SP			i286core.s.r.w.sp
-#define	CPU_CS			i286core.s.r.w.cs
-#define	CPU_DS			i286core.s.r.w.ds
-#define	CPU_ES			i286core.s.r.w.es
-#define	CPU_SS			i286core.s.r.w.ss
-#define	CPU_IP			i286core.s.r.w.ip
+#define	CPU_AX			upd9002_core_context.s.r.w.ax
+#define	CPU_BX			upd9002_core_context.s.r.w.bx
+#define	CPU_CX			upd9002_core_context.s.r.w.cx
+#define	CPU_DX			upd9002_core_context.s.r.w.dx
+#define	CPU_SI			upd9002_core_context.s.r.w.si
+#define	CPU_DI			upd9002_core_context.s.r.w.di
+#define	CPU_BP			upd9002_core_context.s.r.w.bp
+#define	CPU_SP			upd9002_core_context.s.r.w.sp
+#define	CPU_CS			upd9002_core_context.s.r.w.cs
+#define	CPU_DS			upd9002_core_context.s.r.w.ds
+#define	CPU_ES			upd9002_core_context.s.r.w.es
+#define	CPU_SS			upd9002_core_context.s.r.w.ss
+#define	CPU_IP			upd9002_core_context.s.r.w.ip
 
-#define	ES_BASE			i286core.s.es_base
-#define	CS_BASE			i286core.s.cs_base
-#define	SS_BASE			i286core.s.ss_base
-#define	DS_BASE			i286core.s.ds_base
+#define	ES_BASE			upd9002_core_context.s.es_base
+#define	CS_BASE			upd9002_core_context.s.cs_base
+#define	SS_BASE			upd9002_core_context.s.ss_base
+#define	DS_BASE			upd9002_core_context.s.ds_base
 
-#define	CPU_AL			i286core.s.r.b.al
-#define	CPU_BL			i286core.s.r.b.bl
-#define	CPU_CL			i286core.s.r.b.cl
-#define	CPU_DL			i286core.s.r.b.dl
-#define	CPU_AH			i286core.s.r.b.ah
-#define	CPU_BH			i286core.s.r.b.bh
-#define	CPU_CH			i286core.s.r.b.ch
-#define	CPU_DH			i286core.s.r.b.dh
+#define	CPU_AL			upd9002_core_context.s.r.b.al
+#define	CPU_BL			upd9002_core_context.s.r.b.bl
+#define	CPU_CL			upd9002_core_context.s.r.b.cl
+#define	CPU_DL			upd9002_core_context.s.r.b.dl
+#define	CPU_AH			upd9002_core_context.s.r.b.ah
+#define	CPU_BH			upd9002_core_context.s.r.b.bh
+#define	CPU_CH			upd9002_core_context.s.r.b.ch
+#define	CPU_DH			upd9002_core_context.s.r.b.dh
 
-#define	CPU_FLAG		i286core.s.r.w.flag
-#define	CPU_FLAGL		i286core.s.r.b.flag_l
+#define	CPU_FLAG		upd9002_core_context.s.r.w.flag
+#define	CPU_FLAGL		upd9002_core_context.s.r.b.flag_l
 
-#define	CPU_REMCLOCK	i286core.s.remainclock
-#define	CPU_BASECLOCK	i286core.s.baseclock
-#define	CPU_CLOCK		i286core.s.clock
-#define	CPU_ADRSMASK	i286core.s.adrsmask
-#define	CPU_MSW			i286core.s.MSW
-#define	CPU_RESETREQ	i286core.s.resetreq
-#define	CPU_ITFBANK		i286core.s.itfbank
-#define	CPU_RAM_D000	i286core.s.ram_d0
+#define	CPU_REMCLOCK	upd9002_core_context.s.remainclock
+#define	CPU_BASECLOCK	upd9002_core_context.s.baseclock
+#define	CPU_CLOCK		upd9002_core_context.s.clock
+#define	CPU_ADRSMASK	upd9002_core_context.s.adrsmask
+#define	CPU_MSW			upd9002_core_context.s.MSW
+#define	CPU_RESETREQ	upd9002_core_context.s.resetreq
+#define	CPU_ITFBANK		upd9002_core_context.s.itfbank
+#define	CPU_RAM_D000	upd9002_core_context.s.ram_d0
 
-#define	CPU_EXTMEM		i286core.e.ext
-#define	CPU_EXTMEMSIZE	i286core.e.extsize
-#define	CPU_INPADRS		i286core.e.inport
-#define	CPU_EMSPTR		i286core.e.ems
+#define	CPU_EXTMEM		upd9002_core_context.e.ext
+#define	CPU_EXTMEMSIZE	upd9002_core_context.e.extsize
+#define	CPU_INPADRS		upd9002_core_context.e.inport
+#define	CPU_EMSPTR		upd9002_core_context.e.ems
 
 #if defined(CPUSTRUC_MEMWAIT)
-#define	MEMWAIT_TRAM	i286core.e.tramwait
-#define	MEMWAIT_VRAM	i286core.e.vramwait
-#define	MEMWAIT_GRCG	i286core.e.grcgwait
+#define	MEMWAIT_TRAM	upd9002_core_context.e.tramwait
+#define	MEMWAIT_VRAM	upd9002_core_context.e.vramwait
+#define	MEMWAIT_GRCG	upd9002_core_context.e.grcgwait
 #endif
 
 
-#define	CPU_isDI		(!(i286core.s.r.w.flag & I_FLAG))
-#define	CPU_isEI		(i286core.s.r.w.flag & I_FLAG)
-#define	CPU_CLI			i286core.s.r.w.flag &= ~I_FLAG;						\
-						i286core.s.trap = 0;
-#define	CPU_STI			i286core.s.r.w.flag |= I_FLAG;						\
-						i286core.s.trap = (i286core.s.r.w.flag >> 8) & 1;
+#define	CPU_isDI		(!(upd9002_core_context.s.r.w.flag & I_FLAG))
+#define	CPU_isEI		(upd9002_core_context.s.r.w.flag & I_FLAG)
+#define	CPU_CLI			upd9002_core_context.s.r.w.flag &= ~I_FLAG;						\
+						upd9002_core_context.s.trap = 0;
+#define	CPU_STI			upd9002_core_context.s.r.w.flag |= I_FLAG;						\
+						upd9002_core_context.s.trap = (upd9002_core_context.s.r.w.flag >> 8) & 1;
 #define	CPU_A20EN(en)	CPU_ADRSMASK = (en)?0xfffffff:0x000fffff;
 
 #define	CPU_INITIALIZE				upd9002_core_initialize
