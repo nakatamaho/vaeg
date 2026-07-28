@@ -196,20 +196,26 @@ I286_F6 _push_ea16(UINT op) {
 	REGPUSH0(src);
 }
 
-I286_F6 _pop_ea16(UINT op) {
+I286_F6 _push_ff7_ea16(UINT op) {
 
 	UINT16	src;
 
-	REGPOP0(src);
-	I286_WORKCLOCK(5);
 	if (op >= 0xc0) {
-		*(REG16_B20(op)) = src;
+		I286_WORKCLOCK(3);
+		if ((op & 7) == 4) {
+			REGPUSH0(I286_SP);
+		}
+		else {
+			src = *(REG16_B20(op));
+			REGPUSH0(src);
+		}
 	}
 	else {
-		i286_memorywrite_w(CALC_EA(op), src);
+		I286_WORKCLOCK(5);
+		src = i286_memoryread_w(CALC_EA(op));
+		REGPUSH0(src);
 	}
 }
-
 
 const I286OPF6 c_ope0xfe_table[] = {
 			_inc_ea8,			_dec_ea8};
@@ -218,5 +224,4 @@ const I286OPF6 c_ope0xff_table[] = {
 			_inc_ea16,			_dec_ea16,
 			_call_ea16,			_call_far_ea16,
 			_jmp_ea16,			_jmp_far_ea16,
-			_push_ea16,			_pop_ea16};
-
+			_push_ea16,			_push_ff7_ea16};
