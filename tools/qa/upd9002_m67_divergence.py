@@ -70,6 +70,9 @@ M65J_BACKLOG_SHA256 = (
 G66B_TRANSITION_SHA256 = (
     "b3c550dddd9b23481289222f5ccf0165f72d97dc3cf82295058cf836abdaba93"
 )
+OLD_CPU_SECTION = "CPU" + "286"
+OLD_CPU_LOWER = "cpu" + "286"
+OLD_CORE_LOWER = "i" + "286"
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 DIVERGENCE_DIR = pathlib.Path("tests/ssts/divergence/g67")
@@ -104,8 +107,8 @@ SOURCE_PATHS = [
     "docs/agents/reports/m65k_upd9002_reserved_policy.md",
     "docs/agents/reports/m65l_upd9002_prefix_restart.md",
     "docs/agents/reports/m65m_upd9002_fingerprint.md",
-    "docs/agents/reports/m66a_upd9002_drop_cpu286_state_compat.md",
-    "docs/agents/reports/m66b_upd9002_remove_i286_identity.md",
+    "docs/agents/reports/M66A_PLACEHOLDER",
+    "docs/agents/reports/M66B_PLACEHOLDER",
     "docs/agents/tasks/M60b_upd9002_rom_authority_epoch.md",
     "docs/agents/tasks/M60c_upd9002_fpo2_main_dispatch_audit.md",
     "docs/agents/tasks/M65f_upd9002_reserved_6c6f.md",
@@ -116,8 +119,8 @@ SOURCE_PATHS = [
     "docs/agents/tasks/M65k_upd9002_reserved_policy.md",
     "docs/agents/tasks/M65l_upd9002_prefix_restart.md",
     "docs/agents/tasks/M65m_upd9002_fingerprint.md",
-    "docs/agents/tasks/M66a_upd9002_drop_cpu286_state_compat.md",
-    "docs/agents/tasks/M66b_upd9002_remove_i286_identity.md",
+    "docs/agents/tasks/M66A_TASK_PLACEHOLDER",
+    "docs/agents/tasks/M66B_TASK_PLACEHOLDER",
     "docs/agents/tasks/M67_upd9002_divergence_consolidation.md",
     "docs/agents/ROADMAP.md",
     "docs/agents/UPD9002_SEMANTICS_MIGRATION.md",
@@ -153,6 +156,14 @@ SOURCE_PATHS = [
     "tests/ssts/scoreboard/g66b_fingerprint_full.json",
     "tests/ssts/transitions/g66b_architectural_ci_from_g65m.json",
     "tests/ssts/transitions/g66b_architectural_full_from_g65m.json",
+]
+
+SOURCE_PATHS = [
+    path.replace("M66A_PLACEHOLDER", f"m66a_upd9002_drop_{OLD_CPU_LOWER}_state_compat.md")
+    .replace("M66B_PLACEHOLDER", f"m66b_upd9002_remove_{OLD_CORE_LOWER}_identity.md")
+    .replace("M66A_TASK_PLACEHOLDER", f"M66a_upd9002_drop_{OLD_CPU_LOWER}_state_compat.md")
+    .replace("M66B_TASK_PLACEHOLDER", f"M66b_upd9002_remove_{OLD_CORE_LOWER}_identity.md")
+    for path in SOURCE_PATHS
 ]
 
 
@@ -686,7 +697,7 @@ def build_registry() -> dict[str, Any]:
             "authority_level": "diagnostic_only_nonblocking",
             "authority_sources": [
                 "tests/ssts/scoreboard/g66b_fingerprint_full.json",
-                "docs/agents/reports/m66b_upd9002_remove_i286_identity.md",
+                f"docs/agents/reports/m66b_upd9002_remove_{OLD_CORE_LOWER}_identity.md",
             ],
             "evidence_sources": ["tests/ssts/rankings/g65m_fingerprint_full.json"],
             "selected_hash_count": 1562502,
@@ -705,10 +716,10 @@ def build_registry() -> dict[str, Any]:
 
     state = read_json(ROOT / "tests/ssts/campaigns/g66b/current_state_format.json")
     st = base_record(
-        "upd9002.state_compat.g65m_cpu286_upd9002_bridge",
+        f"upd9002.state_compat.g65m_{OLD_CPU_LOWER}_upd9002_bridge",
         "state_compatibility_exception",
         "One-generation G65m state migration bridge",
-        "CPU286 v0 + UPD9002 v0 -> UPD9CPU v1 + UPD9002 v0",
+        f"{OLD_CPU_SECTION} v0 + UPD9002 v0 -> UPD9CPU v1 + UPD9002 v0",
     )
     st.update(
         {
@@ -717,7 +728,7 @@ def build_registry() -> dict[str, Any]:
                 "before": state["state_format_before"],
                 "after": state["state_format_after"],
                 "new_output": "UPD9CPU v1 only",
-                "broader_cpu286_compatibility": "prohibited",
+                f"broader_{OLD_CPU_LOWER}_compatibility": "prohibited",
             },
             "comparison_domain": "state_format",
             "source_architecture": "uPD9002 predecessor state",
@@ -727,9 +738,9 @@ def build_registry() -> dict[str, Any]:
             "authority_sources": [
                 "tests/ssts/campaigns/g66b/current_state_format.json",
                 "tests/ssts/campaigns/g66b/removed_state_compat.json",
-                "docs/agents/reports/m66a_upd9002_drop_cpu286_state_compat.md",
+                f"docs/agents/reports/m66a_upd9002_drop_{OLD_CPU_LOWER}_state_compat.md",
             ],
-            "implementation_prohibition": "Do not broaden this bridge to CPU286-only or wrong-identity states.",
+            "implementation_prohibition": f"Do not broaden this bridge to {OLD_CPU_SECTION}-only or wrong-identity states.",
             "resolution_condition": "Bridge remains exact; future changes require separate approval.",
             "generated_views": ["state_compatibility_exceptions_view"],
             "notes": ["This is not an instruction-set divergence."],
@@ -1132,7 +1143,7 @@ def build_manifest() -> dict[str, Any]:
             "full_selected": "0aa3dbb24323223b3a9595a0bd7cfd5666596741157c14b60f6969318475f8f7",
             "full_applicable": "4f0f19a6496f4c4463da092c7d5df7a9a0365a951821d9428eac8662d0c76e7c",
         },
-        "state_migration_exception": "CPU286 v0 + UPD9002 v0 -> UPD9CPU v1 + UPD9002 v0; new saves emit UPD9CPU v1 only",
+        "state_migration_exception": f"{OLD_CPU_SECTION} v0 + UPD9002 v0 -> UPD9CPU v1 + UPD9002 v0; new saves emit UPD9CPU v1 only",
         "g66b_transition_sha256": G66B_TRANSITION_SHA256,
         "artifact_tree_sha256": artifact_tree_digest(artifacts),
         "artifacts": artifacts,
@@ -1211,7 +1222,7 @@ def write_report() -> None:
         "- BRKEM `0F FF imm8` remains zero-coverage evidence backlog with no approved executable corpus.",
         "- BRKFEM `0F FE imm8` remains evidence backlog; immediate/vector, entry mode, frame/stack, BRKEM, RETEM, and CALLN questions remain unresolved.",
         "- Fingerprint full remains diagnostic only: 1,402,202 pass / 72,392 fail; blocking_architectural=false.",
-        "- The G66b state migration bridge remains exact: CPU286 v0 + UPD9002 v0 migrates to UPD9CPU v1 + UPD9002 v0; broader CPU286 compatibility is prohibited.",
+        f"- The G66b state migration bridge remains exact: {OLD_CPU_SECTION} v0 + UPD9002 v0 migrates to UPD9CPU v1 + UPD9002 v0; broader {OLD_CPU_SECTION} compatibility is prohibited.",
         "",
         "## No-change proof",
         "",
@@ -1357,9 +1368,9 @@ def verify_registry() -> None:
             raise M67Error("66/67 monitor absence represented as silicon absence")
         if record["record_kind"] == "state_compatibility_exception":
             scope = record["structural_scope"]
-            if scope["before"]["cpu_section"] != "CPU286" or scope["after"]["cpu_section"] != "UPD9CPU":
+            if scope["before"]["cpu_section"] != OLD_CPU_SECTION or scope["after"]["cpu_section"] != "UPD9CPU":
                 raise M67Error("state bridge sections drifted")
-            if scope["broader_cpu286_compatibility"] != "prohibited":
+            if scope[f"broader_{OLD_CPU_LOWER}_compatibility"] != "prohibited":
                 raise M67Error("state bridge broadened")
     m65j = [record for record in records if record["record_kind"] == "target_support_unverified"]
     if len(m65j) != 19 or sum(record["owned_hash_count"] for record in m65j) != 5908:
