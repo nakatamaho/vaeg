@@ -37,7 +37,7 @@ static int fail(const char *message) {
 	return 1;
 }
 
-static void make_noncanonical(Cpu286StateCompat *state, UINT8 padding0,
+static void make_noncanonical(Upd9002StateImage *state, UINT8 padding0,
 												UINT8 padding1) {
 
 	memset(state, 0, sizeof(*state));
@@ -68,9 +68,9 @@ static void make_noncanonical(Cpu286StateCompat *state, UINT8 padding0,
 
 static int test_import_export(void) {
 
-	Cpu286StateCompat alternate;
-	Cpu286StateCompat exported;
-	Cpu286StateCompat imported;
+	Upd9002StateImage alternate;
+	Upd9002StateImage exported;
+	Upd9002StateImage imported;
 	Upd9002RuntimeState first_runtime;
 
 	make_noncanonical(&imported, 0xa5, 0x5a);
@@ -110,9 +110,9 @@ static int test_import_export(void) {
 
 static int test_rejected_imports(void) {
 
-	Cpu286StateCompat before_image;
-	Cpu286StateCompat invalid;
-	Cpu286StateCompat after_image;
+	Upd9002StateImage before_image;
+	Upd9002StateImage invalid;
+	Upd9002StateImage after_image;
 	Upd9002RuntimeState before_runtime;
 	char error[128];
 
@@ -166,9 +166,9 @@ static int test_rejected_imports(void) {
 
 static int test_reset_and_shut(void) {
 
-	Cpu286StateCompat expected;
-	Cpu286StateCompat exported;
-	Cpu286StateCompat imported;
+	Upd9002StateImage expected;
+	Upd9002StateImage exported;
+	Upd9002StateImage imported;
 	UINT8 cpu_type;
 
 	make_noncanonical(&imported, 0xa5, 0x5a);
@@ -193,14 +193,14 @@ static int test_reset_and_shut(void) {
 	expected.adrsmask = 0x000fffff;
 	expected.r.w.flag = 0xf002;
 	if (memcmp(&expected, &exported, sizeof(expected))) {
-		return fail("reset did not create the canonical legacy image");
+		return fail("reset did not create the canonical uPD9002 image");
 	}
 
 	if (upd9002_state_import(&imported, sizeof(imported), NULL, 0) != SUCCESS) {
 		return fail("CPU_SHUT setup import failed");
 	}
 	expected = imported;
-	memset(&expected, 0, offsetof(Cpu286StateCompat, cpu_type));
+	memset(&expected, 0, offsetof(Upd9002StateImage, cpu_type));
 	expected.r.w.cs = 0xf000;
 	expected.cs_base = 0x000f0000;
 	expected.r.w.ip = 0xfff0;
@@ -213,7 +213,7 @@ static int test_reset_and_shut(void) {
 	upd9002_state_shut();
 	upd9002_state_export(&exported);
 	if (memcmp(&expected, &exported, sizeof(expected))) {
-		return fail("CPU_SHUT legacy byte-range transformation changed");
+		return fail("CPU_SHUT uPD9002 byte-range transformation changed");
 	}
 	if (exported.r.w.flag != 0x0000) {
 		return fail("CPU_SHUT FLAGS anomaly was normalized");
