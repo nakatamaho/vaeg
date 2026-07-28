@@ -1626,6 +1626,8 @@ static const V30PATCH v30patch_repnc[] = {
 			{0x3e, v30repnc_segprefix_ds},	// 3E:	repnc ds:
 			{0x64, v30_repnc},				// 64:	repnc
 			{0x65, v30_repc},				// 65:	repc
+			{0xf2, v30_repne},				// F2:	repne
+			{0xf3, v30_repe},				// F3:	repe
 			{0xa4, upd9002_repnc_movsb},	// A4:	repnc movsb
 			{0xa5, upd9002_repnc_movsw},	// A5:	repnc movsw
 			{0xa6, upd9002_repnc_cmpsb},	// A6:	repnc cmpsb
@@ -1644,6 +1646,8 @@ static const V30PATCH v30patch_repc[] = {
 			{0x3e, v30repc_segprefix_ds},	// 3E:	repc ds:
 			{0x64, v30_repnc},				// 64:	repnc
 			{0x65, v30_repc},				// 65:	repc
+			{0xf2, v30_repne},				// F2:	repne
+			{0xf3, v30_repe},				// F3:	repe
 			{0xa4, upd9002_repc_movsb},		// A4:	repc movsb
 			{0xa5, upd9002_repc_movsw},		// A5:	repc movsw
 			{0xa6, upd9002_repc_cmpsb},		// A6:	repc cmpsb
@@ -1872,8 +1876,8 @@ static const V30PATCH v30patch_repe[] = {
 			{0x3e, v30repe_segprefix_ds},	// 3E:	repe ds:
 			{0x54, v30push_sp},				// 54:	push	sp
 			{0x63, v30_reserved},			// 63:	reserved
-			{0x64, v30_reserved},			// 64:	reserved
-			{0x65, v30_reserved},			// 65:	reserved
+			{0x64, v30_repnc},				// 64:	repnc
+			{0x65, v30_repc},				// 65:	repc
 			{0x66, v30_reserved},			// 66:	reserved
 			{0x67, v30_reserved},			// 67:	reserved
 			{0x8e, v30mov_seg_ea},			// 8E:	mov		segrem, EA
@@ -1971,8 +1975,8 @@ static const V30PATCH v30patch_repne[] = {
 			{0x3e, v30repne_segprefix_ds},	// 3E:	repne ds:
 			{0x54, v30push_sp},				// 54:	push	sp
 			{0x63, v30_reserved},			// 63:	reserved
-			{0x64, v30_reserved},			// 64:	reserved
-			{0x65, v30_reserved},			// 65:	reserved
+			{0x64, v30_repnc},				// 64:	repnc
+			{0x65, v30_repc},				// 65:	repc
 			{0x66, v30_reserved},			// 66:	reserved
 			{0x67, v30_reserved},			// 67:	reserved
 			{0x8e, v30mov_seg_ea},			// 8E:	mov		segrem, EA
