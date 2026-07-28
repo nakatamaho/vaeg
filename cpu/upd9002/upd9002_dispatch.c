@@ -310,7 +310,9 @@ static UINT16 v30_materialize_pushf_image(void) {
 
 I286FN v30_pushf(void) {					// 9C:	pushf
 
-	REGPUSH(v30_materialize_pushf_image(), 3)
+	I286_WORKCLOCK(3);
+	I286_SP -= 2;
+	i286_memorywrite_seg_w(SS_BASE, I286_SP, v30_materialize_pushf_image());
 }
 
 I286FN v30_popf(void) {						// 9D:	popf
