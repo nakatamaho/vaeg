@@ -72,6 +72,32 @@ separate parity correction or move it to Open Defects.
   [M65 expected/actual reconstruction report](../agents/reports/m65_campaign_expected_actual_reconstruction.md).
 - **Commit:** [15f2ac8e](https://github.com/nakatamaho/vaeg/commit/15f2ac8e861c3cfedbc12acc9ef470925d00716c).
 
+### uPD9002 BOUND used unsigned range comparison
+
+- **Status:** fixed in the M65 residue campaign; formal approval deferred to
+  terminal G65m.
+- **Symptom:** 1,244 applicable G65 `62` BOUND SST cases failed final
+  architectural comparison. Some cases expected a type-5 event but completed
+  normally; others expected normal completion but entered type 5.
+- **Root cause:** the active BOUND implementation compared the register
+  operand and memory bounds as unsigned 16-bit values. The reconstructed M65b
+  evidence proves the observable contract uses signed 16-bit lower and upper
+  bounds with inclusive boundaries.
+- **Correction:** BOUND now converts the selected register, lower bound, and
+  upper bound to `SINT16` before applying the inclusive range decision. It
+  continues to use the existing effective-address and synchronous type-5
+  event-entry paths.
+- **Verification:** the focused `vaeg_upd9002_m65b_bound` test covers
+  signed lower/upper inclusivity, negative, positive, and cross-zero ranges,
+  segment override, offset wrapping, physical wrapping, and type-5 frame
+  preservation. The selective M65b replay ran the exact 1,244 owned hashes as
+  `1,244 pass / 0 fail`, with zero timeout/crash, M65a `FF /7` protection,
+  M65d `FF /6` guard preservation, and 3,565 former BOUND frame-only hashes
+  still passing.
+- **Evidence:** [M65b report](../agents/reports/m65b_upd9002_bound.md) and
+  [M65 expected/actual reconstruction report](../agents/reports/m65_campaign_expected_actual_reconstruction.md).
+- **Commit:** [d0e01694](https://github.com/nakatamaho/vaeg/commit/d0e01694a9b82b4cd16500743d77e45459c74be1).
+
 ### State-load rejection feedback disappeared with the State menu
 
 - **Status:** fixed; corrected G55 human gate passed on 2026-07-22.
