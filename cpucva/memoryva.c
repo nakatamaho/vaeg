@@ -346,7 +346,7 @@ static void MEMCALL i286_wt_va(UINT32 address, REG8 value) {
 
 	save = memmode_va;
 	memmode_va = 0;
-	i286_memorywrite(address, value);
+	upd9002_memorywrite(address, value);
 	memmode_va = save;
 }
 
@@ -436,7 +436,7 @@ static void MEMCALL i286w_wt_va(UINT32 address, REG16 value) {
 
 	save = memmode_va;
 	memmode_va = 0;
-	i286_memorywrite_w(address, value);
+	upd9002_memorywrite_w(address, value);
 	memmode_va = save;
 }
 
@@ -512,7 +512,7 @@ static REG8 MEMCALL i286_rd_va(UINT32 address) {
 
 	save = memmode_va;
 	memmode_va = 0;
-	ret = i286_memoryread(address);
+	ret = upd9002_memoryread(address);
 	memmode_va = save;
 	return(ret);
 }
@@ -677,7 +677,7 @@ static REG16 MEMCALL i286w_rd_va(UINT32 address) {
 
 	save = memmode_va;
 	memmode_va = 0;
-	ret = i286_memoryread_w(address);
+	ret = upd9002_memoryread_w(address);
 	memmode_va = save;
 	return(ret);
 }
@@ -838,13 +838,13 @@ static REG16 MEMCALL va91rom1w_rd(UINT32 address) {
 	return(LOADINTELWORD(va91rom1mem + offset));
 }
 
-void MEMCALL i286_memorywrite_va(UINT32 address, REG8 value) {
+void MEMCALL upd9002_memorywrite_va(UINT32 address, REG8 value) {
 
 	pccore_debugmem(0, address, value);
 	membyte_write[top_index(address)](address, value);
 }
 
-void MEMCALL i286_memorywrite_va_w(UINT32 address, REG16 value) {
+void MEMCALL upd9002_memorywrite_va_w(UINT32 address, REG16 value) {
 
 	UINT32	next;
 
@@ -859,12 +859,12 @@ void MEMCALL i286_memorywrite_va_w(UINT32 address, REG16 value) {
 	}
 }
 
-REG8 MEMCALL i286_memoryread_va(UINT32 address) {
+REG8 MEMCALL upd9002_memoryread_va(UINT32 address) {
 
 	return(membyte_read[top_index(address)](address));
 }
 
-REG16 MEMCALL i286_memoryread_va_w(UINT32 address) {
+REG16 MEMCALL upd9002_memoryread_va_w(UINT32 address) {
 
 	UINT32	next;
 	REG8	lo;
@@ -879,7 +879,7 @@ REG16 MEMCALL i286_memoryread_va_w(UINT32 address) {
 	return((REG16)lo | ((REG16)hi << 8));
 }
 
-void MEMCALL i286_memorymap_va(void) {
+void MEMCALL upd9002_memorymap_va(void) {
 
 	if (va91.cfg.enabled & 1) {
 		sysmbyte_write[0x0f] = va91sysm_wt;

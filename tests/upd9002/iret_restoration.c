@@ -65,13 +65,13 @@ static void setup_state(UINT16 ss, UINT16 sp, UINT16 restored_ip,
 	CS_BASE = (UINT32)CPU_CS << 4;
 	SS_BASE = (UINT32)CPU_SS << 4;
 	DS_BASE = (UINT32)CPU_DS << 4;
-	i286core.s.ss_fix = SS_BASE;
-	i286core.s.ds_fix = DS_BASE;
+	upd9002_core_context.s.ss_fix = SS_BASE;
+	upd9002_core_context.s.ds_fix = DS_BASE;
 	CPU_ADRSMASK = 0x000fffff;
 	CPU_REMCLOCK = 1000;
 	CPU_BASECLOCK = 1000;
 	CPU_CLOCK = 0;
-	i286core.s.cpu_type = CPUTYPE_V30;
+	upd9002_core_context.s.cpu_type = CPUTYPE_V30;
 	mem[(CS_BASE + CPU_IP) & CPU_ADRSMASK] = instruction[0];
 	write_stack_word(ss, sp, restored_ip);
 	write_stack_word(ss, (UINT16)(sp + 2), restored_cs);

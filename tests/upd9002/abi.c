@@ -92,10 +92,10 @@ int main(int argc, char **argv) {
 	}
 
 	actual[0] = '\0';
-	append(actual, sizeof(actual), "upd9002_state.size", sizeof(I286STAT));
-	append(actual, sizeof(actual), "upd9002_state.align", ALIGNOF(I286STAT));
+	append(actual, sizeof(actual), "upd9002_state.size", sizeof(Upd9002RuntimeState));
+	append(actual, sizeof(actual), "upd9002_state.align", ALIGNOF(Upd9002RuntimeState));
 #define FIELD(name) append(actual, sizeof(actual), "upd9002_state.offset." #name, \
-												offsetof(I286STAT, name))
+												offsetof(Upd9002RuntimeState, name))
 	FIELD(r);
 	FIELD(es_base);
 	FIELD(cs_base);

@@ -20,36 +20,36 @@
 #define	MAX_PREFIX		8
 
 #define	NEXT_OPCODE												\
-		if (I286_REMCLOCK < 1) {								\
-			I286_BASECLOCK += (1 - I286_REMCLOCK);				\
-			I286_REMCLOCK = 1;									\
+		if (UPD9002_REMCLOCK < 1) {								\
+			UPD9002_BASECLOCK += (1 - UPD9002_REMCLOCK);				\
+			UPD9002_REMCLOCK = 1;									\
 		}
 
-#define V30_DMAP()		dmap_i286()
+#define V30_DMAP()		upd9002_dmap()
 
 typedef struct {
 	UINT	opnum;
-	I286OP	v30opcode;
+	UPD9002OP	v30opcode;
 } V30PATCH;
 
-static	I286OP		v30op[256];
-static	I286OP		v30op_repne[256];
-static	I286OP		v30op_repe[256];
-static	I286OP		v30op_repc[256];
-static	I286OPF6	v30ope0xf6_table[8];
-static	I286OPF6	v30ope0xf7_table[8];
+static	UPD9002OP		v30op[256];
+static	UPD9002OP		v30op_repne[256];
+static	UPD9002OP		v30op_repe[256];
+static	UPD9002OP		v30op_repc[256];
+static	UPD9002OPF6	v30ope0xf6_table[8];
+static	UPD9002OPF6	v30ope0xf7_table[8];
 static	BOOL		v30_dispatch_initialized;
 static	UINT16		v30_repc_ipbak;
 static	UINT16		v30_step_start_cs;
 static	UINT16		v30_step_start_ip;
 
 #if defined(VAEG_UPD9002_M46_TESTING)
-static	I286OP		v30op_snapshot[256];
-static	I286OP		v30op_repne_snapshot[256];
-static	I286OP		v30op_repe_snapshot[256];
-static	I286OP		v30op_repc_snapshot[256];
-static	I286OPF6	v30ope0xf6_snapshot[8];
-static	I286OPF6	v30ope0xf7_snapshot[8];
+static	UPD9002OP		v30op_snapshot[256];
+static	UPD9002OP		v30op_repne_snapshot[256];
+static	UPD9002OP		v30op_repe_snapshot[256];
+static	UPD9002OP		v30op_repc_snapshot[256];
+static	UPD9002OPF6	v30ope0xf6_snapshot[8];
+static	UPD9002OPF6	v30ope0xf7_snapshot[8];
 static	UINT		v30_dispatch_construction_count;
 static	UINT		v30_dispatch_rejected_count;
 
@@ -69,8 +69,8 @@ static void v30_dispatch_snapshot(void) {
 	}
 }
 
-static BOOL v30_dispatch_equal(const I286OP *live,
-								const I286OP *snapshot, UINT count) {
+static BOOL v30_dispatch_equal(const UPD9002OP *live,
+								const UPD9002OP *snapshot, UINT count) {
 
 	UINT	i;
 
@@ -82,8 +82,8 @@ static BOOL v30_dispatch_equal(const I286OP *live,
 	return(TRUE);
 }
 
-static BOOL v30_dispatch_f6_equal(const I286OPF6 *live,
-								const I286OPF6 *snapshot, UINT count) {
+static BOOL v30_dispatch_f6_equal(const UPD9002OPF6 *live,
+								const UPD9002OPF6 *snapshot, UINT count) {
 
 	UINT	i;
 
@@ -185,117 +185,117 @@ static const UINT8 shiftbase17[256] =
 				 2, 3, 4, 5, 6, 7, 8, 9,10,11,12,13,14,15,16,17};
 
 
-I286FN v30_reserved(void) {
+UPD9002FN v30_reserved(void) {
 
-	I286_WORKCLOCK(2);
+	UPD9002_WORKCLOCK(2);
 }
 
-I286FN v30segprefix_es(void) {				// 26: es:
+UPD9002FN v30segprefix_es(void) {				// 26: es:
 
 	SS_FIX = ES_BASE;
 	DS_FIX = ES_BASE;
-	I286_PREFIX++;
-	if (I286_PREFIX < MAX_PREFIX) {
+	UPD9002_PREFIX++;
+	if (UPD9002_PREFIX < MAX_PREFIX) {
 		UINT op;
 		GET_PCBYTE(op);
 		v30op[op]();
 		REMOVE_PREFIX
-		I286_PREFIX = 0;
+		UPD9002_PREFIX = 0;
 	}
 	else {
-		INT_NUM(6, I286_IP);
+		INT_NUM(6, UPD9002_IP);
 	}
 }
 
-I286FN v30segprefix_cs(void) {				// 2e: cs:
+UPD9002FN v30segprefix_cs(void) {				// 2e: cs:
 
 	SS_FIX = CS_BASE;
 	DS_FIX = CS_BASE;
-	I286_PREFIX++;
-	if (I286_PREFIX < MAX_PREFIX) {
+	UPD9002_PREFIX++;
+	if (UPD9002_PREFIX < MAX_PREFIX) {
 		UINT op;
 		GET_PCBYTE(op);
 		v30op[op]();
 		REMOVE_PREFIX
-		I286_PREFIX = 0;
+		UPD9002_PREFIX = 0;
 	}
 	else {
-		INT_NUM(6, I286_IP);
+		INT_NUM(6, UPD9002_IP);
 	}
 }
 
-I286FN v30segprefix_ss(void) {				// 36: ss:
+UPD9002FN v30segprefix_ss(void) {				// 36: ss:
 
 	SS_FIX = SS_BASE;
 	DS_FIX = SS_BASE;
-	I286_PREFIX++;
-	if (I286_PREFIX < MAX_PREFIX) {
+	UPD9002_PREFIX++;
+	if (UPD9002_PREFIX < MAX_PREFIX) {
 		UINT op;
 		GET_PCBYTE(op);
 		v30op[op]();
 		REMOVE_PREFIX
-		I286_PREFIX = 0;
+		UPD9002_PREFIX = 0;
 	}
 	else {
-		INT_NUM(6, I286_IP);
+		INT_NUM(6, UPD9002_IP);
 	}
 }
 
-I286FN v30segprefix_ds(void) {				// 3e: ds:
+UPD9002FN v30segprefix_ds(void) {				// 3e: ds:
 
 	SS_FIX = DS_BASE;
 	DS_FIX = DS_BASE;
-	I286_PREFIX++;
-	if (I286_PREFIX < MAX_PREFIX) {
+	UPD9002_PREFIX++;
+	if (UPD9002_PREFIX < MAX_PREFIX) {
 		UINT op;
 		GET_PCBYTE(op);
 		v30op[op]();
 		REMOVE_PREFIX
-		I286_PREFIX = 0;
+		UPD9002_PREFIX = 0;
 	}
 	else {
-		INT_NUM(6, I286_IP);
+		INT_NUM(6, UPD9002_IP);
 	}
 }
 
-I286FN v30push_sp(void) REGPUSH(I286_SP, 3)	// 54: push sp
+UPD9002FN v30push_sp(void) REGPUSH(UPD9002_SP, 3)	// 54: push sp
 
-I286FN v30mov_seg_ea(void) {				// 8E:	mov		segrem, EA
+UPD9002FN v30mov_seg_ea(void) {				// 8E:	mov		segrem, EA
 
 	UINT	op;
 	UINT	tmp;
 	UINT16	ipbak;
 
-	ipbak = I286_IP;
+	ipbak = UPD9002_IP;
 	GET_PCBYTE(op);
 	if (op >= 0xc0) {
-		I286_WORKCLOCK(2);
+		UPD9002_WORKCLOCK(2);
 		tmp = *(REG16_B20(op));
 	}
 	else {
-		I286_WORKCLOCK(5);
-		tmp = i286_memoryread_w(CALC_EA(op));
+		UPD9002_WORKCLOCK(5);
+		tmp = upd9002_memoryread_w(CALC_EA(op));
 	}
 	switch(op & 0x18) {
 		case 0x00:			// es
-			I286_ES = (UINT16)tmp;
+			UPD9002_ES = (UINT16)tmp;
 			ES_BASE = tmp << 4;
 			break;
 
 		case 0x08:			// cs
-			I286_CS = (UINT16)tmp;
+			UPD9002_CS = (UINT16)tmp;
 			CS_BASE = tmp << 4;
 			break;
 
 		case 0x10:			// ss
-			I286_SS = (UINT16)tmp;
+			UPD9002_SS = (UINT16)tmp;
 			SS_BASE = tmp << 4;
 			SS_FIX = SS_BASE;
 			NEXT_OPCODE
 			break;
 
 		case 0x18:			// ds
-			I286_DS = (UINT16)tmp;
+			UPD9002_DS = (UINT16)tmp;
 			DS_BASE = tmp << 4;
 			DS_FIX = DS_BASE;
 			break;
@@ -304,28 +304,28 @@ I286FN v30mov_seg_ea(void) {				// 8E:	mov		segrem, EA
 
 static UINT16 v30_materialize_pushf_image(void) {
 
-	return (UINT16)((I286_FLAG & (UINT16)~O_FLAG) |
-						(I286_OV ? O_FLAG : 0));
+	return (UINT16)((UPD9002_FLAG & (UINT16)~O_FLAG) |
+						(UPD9002_OV ? O_FLAG : 0));
 }
 
-I286FN v30_pushf(void) {					// 9C:	pushf
+UPD9002FN v30_pushf(void) {					// 9C:	pushf
 
-	I286_WORKCLOCK(3);
-	I286_SP -= 2;
-	i286_memorywrite_seg_w(SS_BASE, I286_SP, v30_materialize_pushf_image());
+	UPD9002_WORKCLOCK(3);
+	UPD9002_SP -= 2;
+	upd9002_memorywrite_seg_w(SS_BASE, UPD9002_SP, v30_materialize_pushf_image());
 }
 
-I286FN v30_popf(void) {						// 9D:	popf
+UPD9002FN v30_popf(void) {						// 9D:	popf
 
 	UINT	flag;
 
-	I286_WORKCLOCK(5);
+	UPD9002_WORKCLOCK(5);
 	REGPOP0(flag)
 	flag = (flag & 0x0ed5) | 0xf002;
-	I286_OV = flag & O_FLAG;
-	I286_FLAG = flag & (UINT16)~O_FLAG;
-	I286_TRAP = ((flag & 0x300) == 0x300);
-	I286IRQCHECKTERM
+	UPD9002_OV = flag & O_FLAG;
+	UPD9002_FLAG = flag & (UINT16)~O_FLAG;
+	UPD9002_TRAP = ((flag & 0x300) == 0x300);
+	UPD9002_IRQCHECKTERM
 }
 
 static UINT8 v30_ea8_read(UINT op, UINT32 *madr);
@@ -346,13 +346,13 @@ static UINT8 v30_shift8(UINT8 value, UINT count, UINT subform) {
 	case 6:
 		result = (count < 8) ? (UINT8)(value << count) : 0;
 		carry = (count <= 8) ? (UINT8)((value >> (8 - count)) & 1) : 0;
-		I286_OV = ((result >> 7) ^ carry) & 1;
+		UPD9002_OV = ((result >> 7) ^ carry) & 1;
 		break;
 
 	case 5:
 		result = (count < 8) ? (UINT8)(value >> count) : 0;
 		carry = (count <= 8) ? (UINT8)((value >> (count - 1)) & 1) : 0;
-		I286_OV = ((result >> 7) ^ (result >> 6)) & 1;
+		UPD9002_OV = ((result >> 7) ^ (result >> 6)) & 1;
 		break;
 
 	default:
@@ -367,10 +367,10 @@ static UINT8 v30_shift8(UINT8 value, UINT count, UINT subform) {
 		}
 		carry = (count <= 8) ? (UINT8)((value >> (count - 1)) & 1) :
 								(UINT8)((value >> 7) & 1);
-		I286_OV = 0;
+		UPD9002_OV = 0;
 		break;
 	}
-	I286_FLAGL = (UINT8)((I286_FLAGL & 0x02) | carry |
+	UPD9002_FLAGL = (UINT8)((UPD9002_FLAGL & 0x02) | carry |
 								BYTESZPF(result));
 	return result;
 }
@@ -389,14 +389,14 @@ static UINT16 v30_shift16(UINT16 value, UINT count, UINT subform) {
 		result = (count < 16) ? (UINT16)(value << count) : 0;
 		carry = (count <= 16) ?
 							(UINT8)((value >> (16 - count)) & 1) : 0;
-		I286_OV = ((result >> 15) ^ carry) & 1;
+		UPD9002_OV = ((result >> 15) ^ carry) & 1;
 		break;
 
 	case 5:
 		result = (count < 16) ? (UINT16)(value >> count) : 0;
 		carry = (count <= 16) ?
 							(UINT8)((value >> (count - 1)) & 1) : 0;
-		I286_OV = ((result >> 15) ^ (result >> 14)) & 1;
+		UPD9002_OV = ((result >> 15) ^ (result >> 14)) & 1;
 		break;
 
 	default:
@@ -412,15 +412,15 @@ static UINT16 v30_shift16(UINT16 value, UINT count, UINT subform) {
 		carry = (count <= 16) ?
 							(UINT8)((value >> (count - 1)) & 1) :
 							(UINT8)((value >> 15) & 1);
-		I286_OV = 0;
+		UPD9002_OV = 0;
 		break;
 	}
-	I286_FLAGL = (UINT8)((I286_FLAGL & 0x02) | carry |
+	UPD9002_FLAGL = (UINT8)((UPD9002_FLAGL & 0x02) | carry |
 								WORDSZPF(result));
 	return result;
 }
 
-I286FN v30shift_ea8_data8(void) {			// C0:	shift	EA8, DATA8
+UPD9002FN v30shift_ea8_data8(void) {			// C0:	shift	EA8, DATA8
 
 	UINT8	*out;
 	UINT	op;
@@ -431,10 +431,10 @@ I286FN v30shift_ea8_data8(void) {			// C0:	shift	EA8, DATA8
 	if (op & 0x20) {
 		UINT8	value;
 
-		I286_WORKCLOCK((op >= 0xc0) ? 5 : 8);
+		UPD9002_WORKCLOCK((op >= 0xc0) ? 5 : 8);
 		value = v30_ea8_read(op, &madr);
 		GET_PCBYTE(cl)
-		I286_WORKCLOCK(cl);
+		UPD9002_WORKCLOCK(cl);
 		if (cl) {
 			v30_ea8_write(op, madr,
 						v30_shift8(value, cl, (op >> 3) & 7));
@@ -442,13 +442,13 @@ I286FN v30shift_ea8_data8(void) {			// C0:	shift	EA8, DATA8
 		return;
 	}
 	if (op >= 0xc0) {
-		I286_WORKCLOCK(5);
+		UPD9002_WORKCLOCK(5);
 		out = REG8_B20(op);
 	}
 	else {
-		I286_WORKCLOCK(8);
+		UPD9002_WORKCLOCK(8);
 		madr = CALC_EA(op);
-		if (madr >= I286_MEMWRITEMAX) {
+		if (madr >= UPD9002_MEMWRITEMAX) {
 			GET_PCBYTE(cl)
 			if ((op & 0x30) == 0x10) {		// rotate with carry
 				cl = shiftbase09[cl];
@@ -456,7 +456,7 @@ I286FN v30shift_ea8_data8(void) {			// C0:	shift	EA8, DATA8
 			else {
 				cl = shiftbase16[cl];
 			}
-			I286_WORKCLOCK(cl);
+			UPD9002_WORKCLOCK(cl);
 			sft_e8cl_table[(op >> 3) & 7](madr, cl);
 			return;
 		}
@@ -469,11 +469,11 @@ I286FN v30shift_ea8_data8(void) {			// C0:	shift	EA8, DATA8
 	else {
 		cl = shiftbase16[cl];
 	}
-	I286_WORKCLOCK(cl);
+	UPD9002_WORKCLOCK(cl);
 	sft_r8cl_table[(op >> 3) & 7](out, cl);
 }
 
-I286FN v30shift_ea16_data8(void) {			// C1:	shift	EA16, DATA8
+UPD9002FN v30shift_ea16_data8(void) {			// C1:	shift	EA16, DATA8
 
 	UINT16	*out;
 	UINT	op;
@@ -484,10 +484,10 @@ I286FN v30shift_ea16_data8(void) {			// C1:	shift	EA16, DATA8
 	if (op & 0x20) {
 		UINT16	value;
 
-		I286_WORKCLOCK((op >= 0xc0) ? 5 : 8);
+		UPD9002_WORKCLOCK((op >= 0xc0) ? 5 : 8);
 		value = v30_ea16_read(op, &madr);
 		GET_PCBYTE(cl);
-		I286_WORKCLOCK(cl);
+		UPD9002_WORKCLOCK(cl);
 		if (cl) {
 			v30_ea16_write(op, madr,
 						v30_shift16(value, cl, (op >> 3) & 7));
@@ -495,11 +495,11 @@ I286FN v30shift_ea16_data8(void) {			// C1:	shift	EA16, DATA8
 		return;
 	}
 	if (op >= 0xc0) {
-		I286_WORKCLOCK(5);
+		UPD9002_WORKCLOCK(5);
 		out = REG16_B20(op);
 	}
 	else {
-		I286_WORKCLOCK(8);
+		UPD9002_WORKCLOCK(8);
 		madr = CALC_EA(op);
 		if (INHIBIT_WORDP(madr)) {
 			GET_PCBYTE(cl);
@@ -509,7 +509,7 @@ I286FN v30shift_ea16_data8(void) {			// C1:	shift	EA16, DATA8
 			else {
 				cl = shiftbase16[cl];
 			}
-			I286_WORKCLOCK(cl);
+			UPD9002_WORKCLOCK(cl);
 			sft_e16cl_table[(op >> 3) & 7](madr, cl);
 			return;
 		}
@@ -522,11 +522,11 @@ I286FN v30shift_ea16_data8(void) {			// C1:	shift	EA16, DATA8
 	else {
 		cl = shiftbase16[cl];
 	}
-	I286_WORKCLOCK(cl);
+	UPD9002_WORKCLOCK(cl);
 	sft_r16cl_table[(op >> 3) & 7](out, cl);
 }
 
-I286FN v30shift_ea8_cl(void) {				// D2:	shift EA8, cl
+UPD9002FN v30shift_ea8_cl(void) {				// D2:	shift EA8, cl
 
 	UINT8	*out;
 	UINT	op;
@@ -537,10 +537,10 @@ I286FN v30shift_ea8_cl(void) {				// D2:	shift EA8, cl
 	if (op & 0x20) {
 		UINT8	value;
 
-		I286_WORKCLOCK((op >= 0xc0) ? 5 : 8);
+		UPD9002_WORKCLOCK((op >= 0xc0) ? 5 : 8);
 		value = v30_ea8_read(op, &madr);
-		cl = I286_CL;
-		I286_WORKCLOCK(cl);
+		cl = UPD9002_CL;
+		UPD9002_WORKCLOCK(cl);
 		if (cl) {
 			v30_ea8_write(op, madr,
 						v30_shift8(value, cl, (op >> 3) & 7));
@@ -548,15 +548,15 @@ I286FN v30shift_ea8_cl(void) {				// D2:	shift EA8, cl
 		return;
 	}
 	if (op >= 0xc0) {
-		I286_WORKCLOCK(5);
+		UPD9002_WORKCLOCK(5);
 		out = REG8_B20(op);
 	}
 	else {
-		I286_WORKCLOCK(8);
+		UPD9002_WORKCLOCK(8);
 		madr = CALC_EA(op);
-		if (madr >= I286_MEMWRITEMAX) {
-			cl = I286_CL;
-			I286_WORKCLOCK(cl);
+		if (madr >= UPD9002_MEMWRITEMAX) {
+			cl = UPD9002_CL;
+			UPD9002_WORKCLOCK(cl);
 			if ((op & 0x30) == 0x10) {		// rotate with carry
 				cl = shiftbase09[cl];
 			}
@@ -568,8 +568,8 @@ I286FN v30shift_ea8_cl(void) {				// D2:	shift EA8, cl
 		}
 		out = mem + madr;
 	}
-	cl = I286_CL;
-	I286_WORKCLOCK(cl);
+	cl = UPD9002_CL;
+	UPD9002_WORKCLOCK(cl);
 	if ((op & 0x30) == 0x10) {		// rotate with carry
 		cl = shiftbase09[cl];
 	}
@@ -579,7 +579,7 @@ I286FN v30shift_ea8_cl(void) {				// D2:	shift EA8, cl
 	sft_r8cl_table[(op >> 3) & 7](out, cl);
 }
 
-I286FN v30shift_ea16_cl(void) {				// D3:	shift EA16, cl
+UPD9002FN v30shift_ea16_cl(void) {				// D3:	shift EA16, cl
 
 	UINT16	*out;
 	UINT	op;
@@ -590,10 +590,10 @@ I286FN v30shift_ea16_cl(void) {				// D3:	shift EA16, cl
 	if (op & 0x20) {
 		UINT16	value;
 
-		I286_WORKCLOCK((op >= 0xc0) ? 5 : 8);
+		UPD9002_WORKCLOCK((op >= 0xc0) ? 5 : 8);
 		value = v30_ea16_read(op, &madr);
-		cl = I286_CL;
-		I286_WORKCLOCK(cl);
+		cl = UPD9002_CL;
+		UPD9002_WORKCLOCK(cl);
 		if (cl) {
 			v30_ea16_write(op, madr,
 						v30_shift16(value, cl, (op >> 3) & 7));
@@ -601,15 +601,15 @@ I286FN v30shift_ea16_cl(void) {				// D3:	shift EA16, cl
 		return;
 	}
 	if (op >= 0xc0) {
-		I286_WORKCLOCK(5);
+		UPD9002_WORKCLOCK(5);
 		out = REG16_B20(op);
 	}
 	else {
-		I286_WORKCLOCK(8);
+		UPD9002_WORKCLOCK(8);
 		madr = CALC_EA(op);
 		if (INHIBIT_WORDP(madr)) {
-			cl = I286_CL;
-			I286_WORKCLOCK(cl);
+			cl = UPD9002_CL;
+			UPD9002_WORKCLOCK(cl);
 			if ((op & 0x30) == 0x10) {		// rotate with carry
 				cl = shiftbase17[cl];
 			}
@@ -621,8 +621,8 @@ I286FN v30shift_ea16_cl(void) {				// D3:	shift EA16, cl
 		}
 		out = (UINT16 *)(mem + madr);
 	}
-	cl = I286_CL;
-	I286_WORKCLOCK(cl);
+	cl = UPD9002_CL;
+	UPD9002_WORKCLOCK(cl);
 	if ((op & 0x30) == 0x10) {		// rotate with carry
 		cl = shiftbase17[cl];
 	}
@@ -635,159 +635,159 @@ I286FN v30shift_ea16_cl(void) {				// D3:	shift EA16, cl
 static void v30_adjust_flags(UINT8 value, BOOL adjust_low,
 							BOOL adjust_high, UINT overflow) {
 
-	I286_FLAGL = (UINT8)((I286_FLAGL & 0x02) |
+	UPD9002_FLAGL = (UINT8)((UPD9002_FLAGL & 0x02) |
 						(adjust_low ? A_FLAG : 0) |
 						(adjust_high ? C_FLAG : 0) |
 						BYTESZPF(value));
-	I286_OV = overflow;
+	UPD9002_OV = overflow;
 }
 
-I286FN v30_daa(void) {						// 27:	DAA
+UPD9002FN v30_daa(void) {						// 27:	DAA
 
-	const UINT8 value = I286_AL;
+	const UINT8 value = UPD9002_AL;
 	const BOOL adjust_low =
-				((I286_FLAGL & A_FLAG) || ((value & 0x0f) > 9));
+				((UPD9002_FLAGL & A_FLAG) || ((value & 0x0f) > 9));
 	const BOOL adjust_high =
-				((I286_FLAGL & C_FLAG) || (value > 0x9f) ||
-				 ((value > 0x99) && !(I286_FLAGL & A_FLAG)));
+				((UPD9002_FLAGL & C_FLAG) || (value > 0x9f) ||
+				 ((value > 0x99) && !(UPD9002_FLAGL & A_FLAG)));
 	const UINT8 delta = (UINT8)((adjust_low ? 6 : 0) +
 								(adjust_high ? 0x60 : 0));
 	const UINT8 result = (UINT8)(value + delta);
 
-	I286_WORKCLOCK(3);
-	I286_AL = result;
+	UPD9002_WORKCLOCK(3);
+	UPD9002_AL = result;
 	v30_adjust_flags(result, adjust_low, adjust_high,
 					(UINT)((~(value ^ delta) & (value ^ result)) & 0x80));
 }
 
-I286FN v30_das(void) {						// 2F:	DAS
+UPD9002FN v30_das(void) {						// 2F:	DAS
 
-	const UINT8 value = I286_AL;
+	const UINT8 value = UPD9002_AL;
 	const BOOL adjust_low =
-				((I286_FLAGL & A_FLAG) || ((value & 0x0f) > 9));
+				((UPD9002_FLAGL & A_FLAG) || ((value & 0x0f) > 9));
 	const BOOL adjust_high =
-				((I286_FLAGL & C_FLAG) || (value > 0x9f) ||
-				 ((value > 0x99) && !(I286_FLAGL & A_FLAG)));
+				((UPD9002_FLAGL & C_FLAG) || (value > 0x9f) ||
+				 ((value > 0x99) && !(UPD9002_FLAGL & A_FLAG)));
 	const UINT8 delta = (UINT8)((adjust_low ? 6 : 0) +
 								(adjust_high ? 0x60 : 0));
 	const UINT8 result = (UINT8)(value - delta);
 
-	I286_WORKCLOCK(3);
-	I286_AL = result;
+	UPD9002_WORKCLOCK(3);
+	UPD9002_AL = result;
 	v30_adjust_flags(result, adjust_low, adjust_high,
 					(UINT)(((value ^ delta) & (value ^ result)) & 0x80));
 }
 
-I286FN v30_aaa(void) {						// 37:	AAA
+UPD9002FN v30_aaa(void) {						// 37:	AAA
 
-	const UINT8 value = I286_AL;
+	const UINT8 value = UPD9002_AL;
 	const BOOL adjust =
-				((I286_FLAGL & A_FLAG) || ((value & 0x0f) > 9));
+				((UPD9002_FLAGL & A_FLAG) || ((value & 0x0f) > 9));
 	UINT8 result = value;
 
-	I286_WORKCLOCK(3);
+	UPD9002_WORKCLOCK(3);
 	if (adjust) {
 		result = (UINT8)(value + 6);
-		I286_AH++;
+		UPD9002_AH++;
 	}
-	I286_AL = result & 0x0f;
+	UPD9002_AL = result & 0x0f;
 	v30_adjust_flags(result, adjust, adjust,
 					(UINT)((~(value ^ 6) & (value ^ result)) & 0x80));
 }
 
-I286FN v30_aas(void) {						// 3F:	AAS
+UPD9002FN v30_aas(void) {						// 3F:	AAS
 
-	const UINT8 value = I286_AL;
+	const UINT8 value = UPD9002_AL;
 	const BOOL adjust =
-				((I286_FLAGL & A_FLAG) || ((value & 0x0f) > 9));
+				((UPD9002_FLAGL & A_FLAG) || ((value & 0x0f) > 9));
 	UINT8 result = value;
 
-	I286_WORKCLOCK(3);
+	UPD9002_WORKCLOCK(3);
 	if (adjust) {
 		result = (UINT8)(value - 6);
-		I286_AH--;
+		UPD9002_AH--;
 	}
-	I286_AL = result & 0x0f;
+	UPD9002_AL = result & 0x0f;
 	v30_adjust_flags(result, adjust, adjust,
 					(UINT)(((value ^ 6) & (value ^ result)) & 0x80));
 }
 
-I286FN v30_aam(void) {						// D4:	AAM
+UPD9002FN v30_aam(void) {						// D4:	AAM
 
 	UINT8	al;
 	UINT	radix;
 
-	I286_WORKCLOCK(16);
+	UPD9002_WORKCLOCK(16);
 	GET_PCBYTE(radix);
-	al = I286_AL;
+	al = UPD9002_AL;
 	if (radix) {
-		I286_AH = (UINT8)(al / radix);
-		I286_AL = (UINT8)(al % radix);
+		UPD9002_AH = (UINT8)(al / radix);
+		UPD9002_AL = (UINT8)(al % radix);
 	}
 	else {
-		I286_AH = 0xff;
+		UPD9002_AH = 0xff;
 	}
-	I286_FLAGL = (I286_FLAGL & 0x02) | BYTESZPF(I286_AL);
-	I286_OV = 0;
+	UPD9002_FLAGL = (UPD9002_FLAGL & 0x02) | BYTESZPF(UPD9002_AL);
+	UPD9002_OV = 0;
 }
 
-I286FN v30_aad(void) {						// D5:	AAD
+UPD9002FN v30_aad(void) {						// D5:	AAD
 
-	I286_WORKCLOCK(14);
-	I286_IP++;								// is 10
-	I286_AL += (UINT8)(I286_AH * 10);
-	I286_AH = 0;
-	I286_FLAGL &= ~(S_FLAG | Z_FLAG | P_FLAG);
-	I286_FLAGL |= BYTESZPF(I286_AL);
+	UPD9002_WORKCLOCK(14);
+	UPD9002_IP++;								// is 10
+	UPD9002_AL += (UINT8)(UPD9002_AH * 10);
+	UPD9002_AH = 0;
+	UPD9002_FLAGL &= ~(S_FLAG | Z_FLAG | P_FLAG);
+	UPD9002_FLAGL |= BYTESZPF(UPD9002_AL);
 }
 
-I286FN v30_xlat(void) {						// D6:	xlat
+UPD9002FN v30_xlat(void) {						// D6:	xlat
 
-	I286_WORKCLOCK(5);
-	I286_AL = i286_memoryread(LOW16(I286_AL + I286_BX) + DS_FIX);
+	UPD9002_WORKCLOCK(5);
+	UPD9002_AL = upd9002_memoryread(LOW16(UPD9002_AL + UPD9002_BX) + DS_FIX);
 }
 
-I286FN v30_loop(void) {						// E2:	loop
+UPD9002FN v30_loop(void) {						// E2:	loop
 
-	I286_CX--;
-	if (!I286_CX) JMPNOP(5) else JMPSHORT(17)
+	UPD9002_CX--;
+	if (!UPD9002_CX) JMPNOP(5) else JMPSHORT(17)
 }
 
-I286FN v30_repne(void) {					// F2:	repne
+UPD9002FN v30_repne(void) {					// F2:	repne
 
-	I286_PREFIX++;
-	if (I286_PREFIX < MAX_PREFIX) {
+	UPD9002_PREFIX++;
+	if (UPD9002_PREFIX < MAX_PREFIX) {
 		UINT op;
 		GET_PCBYTE(op);
 		v30op_repne[op]();
-		I286_PREFIX = 0;
+		UPD9002_PREFIX = 0;
 	}
 	else {
-		INT_NUM(6, I286_IP);
+		INT_NUM(6, UPD9002_IP);
 	}
 }
 
-I286FN v30_repe(void) {						// F3:	repe
+UPD9002FN v30_repe(void) {						// F3:	repe
 
-	I286_PREFIX++;
-	if (I286_PREFIX < MAX_PREFIX) {
+	UPD9002_PREFIX++;
+	if (UPD9002_PREFIX < MAX_PREFIX) {
 		UINT op;
 		GET_PCBYTE(op);
 		v30op_repe[op]();
-		I286_PREFIX = 0;
+		UPD9002_PREFIX = 0;
 	}
 	else {
-		INT_NUM(6, I286_IP);
+		INT_NUM(6, UPD9002_IP);
 	}
 }
 
-I286FN v30_repne_0f_diagnostic_stop(void) {
+UPD9002FN v30_repne_0f_diagnostic_stop(void) {
 
 	upd9002_diagnostic_raise_rep0f(0xf2, v30_step_start_cs,
 		v30_step_start_ip);
 }
 
-I286FN v30_repe_0f_diagnostic_stop(void) {
+UPD9002FN v30_repe_0f_diagnostic_stop(void) {
 
 	upd9002_diagnostic_raise_rep0f(0xf3, v30_step_start_cs,
 		v30_step_start_ip);
@@ -799,36 +799,36 @@ static UINT16 v30_div_read_ea16(UINT op) {
 	UINT32	segment;
 
 	offset = GET_EA(op, &segment);
-	return (UINT16)(i286_memoryread(segment + offset) |
-		(i286_memoryread(segment + LOW16(offset + 1)) << 8));
+	return (UINT16)(upd9002_memoryread(segment + offset) |
+		(upd9002_memoryread(segment + LOW16(offset + 1)) << 8));
 }
 
-I286_F6 v30_div_ea8(UINT op) {
+UPD9002_F6 v30_div_ea8(UINT op) {
 
 	UINT16	dividend;
 	UINT	flag_result;
 	UINT8	src;
 
 	if (op >= 0xc0) {
-		I286_WORKCLOCK(14);
+		UPD9002_WORKCLOCK(14);
 		src = *(REG8_B20(op));
 	}
 	else {
-		I286_WORKCLOCK(17);
-		src = i286_memoryread(CALC_EA(op));
+		UPD9002_WORKCLOCK(17);
+		src = upd9002_memoryread(CALC_EA(op));
 	}
-	dividend = I286_AX;
-	SUBBYTE(flag_result, I286_AH, src)
-	I286_FLAGL |= 0x02;
-	if (!src || (I286_AH >= src)) {
-		INT_NUM(0, I286_IP);									// V30
+	dividend = UPD9002_AX;
+	SUBBYTE(flag_result, UPD9002_AH, src)
+	UPD9002_FLAGL |= 0x02;
+	if (!src || (UPD9002_AH >= src)) {
+		INT_NUM(0, UPD9002_IP);									// V30
 		return;
 	}
-	I286_AL = dividend / src;
-	I286_AH = dividend % src;
+	UPD9002_AL = dividend / src;
+	UPD9002_AH = dividend % src;
 }
 
-I286_F6 v30_idiv_ea8(UINT op) {
+UPD9002_F6 v30_idiv_ea8(UINT op) {
 
 	SINT32	dividend;
 	SINT32	divisor;
@@ -840,38 +840,38 @@ I286_F6 v30_idiv_ea8(UINT op) {
 	UINT8	src;
 
 	if (op >= 0xc0) {
-		I286_WORKCLOCK(17);
+		UPD9002_WORKCLOCK(17);
 		src = *(REG8_B20(op));
 	}
 	else {
-		I286_WORKCLOCK(20);
-		src = i286_memoryread(CALC_EA(op));
+		UPD9002_WORKCLOCK(20);
+		src = upd9002_memoryread(CALC_EA(op));
 	}
-	dividend = (SINT16)I286_AX;
+	dividend = (SINT16)UPD9002_AX;
 	divisor = (SINT8)src;
 	dividend_magnitude = (UINT32)((dividend < 0) ? -dividend : dividend);
 	divisor_magnitude = (UINT32)((divisor < 0) ? -divisor : divisor);
 	SUBBYTE(flag_result, dividend_magnitude >> 8, divisor_magnitude)
-	I286_FLAGL |= 0x02;
+	UPD9002_FLAGL |= 0x02;
 	if (!divisor_magnitude ||
 		((dividend_magnitude >> 8) >= divisor_magnitude)) {
-		INT_NUM(0, I286_IP);									// V30
+		INT_NUM(0, UPD9002_IP);									// V30
 		return;
 	}
 	quotient = dividend_magnitude / divisor_magnitude;
 	remainder = dividend_magnitude % divisor_magnitude;
-	I286_OV = 0;
-	I286_FLAGL = BYTESZPF(quotient) | 0x02;
+	UPD9002_OV = 0;
+	UPD9002_FLAGL = BYTESZPF(quotient) | 0x02;
 	if (quotient >= 0x80) {
-		INT_NUM(0, I286_IP);									// V30
+		INT_NUM(0, UPD9002_IP);									// V30
 		return;
 	}
-	I286_AL = (UINT8)(((dividend < 0) != (divisor < 0)) ?
+	UPD9002_AL = (UINT8)(((dividend < 0) != (divisor < 0)) ?
 						(0U - quotient) : quotient);
-	I286_AH = (UINT8)((dividend < 0) ? (0U - remainder) : remainder);
+	UPD9002_AH = (UINT8)((dividend < 0) ? (0U - remainder) : remainder);
 }
 
-I286FN v30_ope0xf6(void) {					// F6:	
+UPD9002FN v30_ope0xf6(void) {					// F6:	
 
 	UINT	op;
 
@@ -879,32 +879,32 @@ I286FN v30_ope0xf6(void) {					// F6:
 	v30ope0xf6_table[(op >> 3) & 7](op);
 }
 
-I286_F6 v30_div_ea16(UINT op) {
+UPD9002_F6 v30_div_ea16(UINT op) {
 
 	UINT32	dividend;
 	UINT32	src;
 	UINT32	flag_result;
 
 	if (op >= 0xc0) {
-		I286_WORKCLOCK(22);
+		UPD9002_WORKCLOCK(22);
 		src = *(REG16_B20(op));
 	}
 	else {
-		I286_WORKCLOCK(25);
+		UPD9002_WORKCLOCK(25);
 		src = v30_div_read_ea16(op);
 	}
-	dividend = ((UINT32)I286_DX << 16) | I286_AX;
-	SUBWORD(flag_result, I286_DX, src)
-	I286_FLAGL |= 0x02;
-	if (!src || (I286_DX >= src)) {
-		INT_NUM(0, I286_IP);									// V30
+	dividend = ((UINT32)UPD9002_DX << 16) | UPD9002_AX;
+	SUBWORD(flag_result, UPD9002_DX, src)
+	UPD9002_FLAGL |= 0x02;
+	if (!src || (UPD9002_DX >= src)) {
+		INT_NUM(0, UPD9002_IP);									// V30
 		return;
 	}
-	I286_AX = dividend / src;
-	I286_DX = dividend % src;
+	UPD9002_AX = dividend / src;
+	UPD9002_DX = dividend % src;
 }
 
-I286_F6 v30_idiv_ea16(UINT op) {
+UPD9002_F6 v30_idiv_ea16(UINT op) {
 
 	SINT64	dividend;
 	SINT64	divisor;
@@ -916,38 +916,38 @@ I286_F6 v30_idiv_ea16(UINT op) {
 	UINT16	src;
 
 	if (op >= 0xc0) {
-		I286_WORKCLOCK(25);
+		UPD9002_WORKCLOCK(25);
 		src = *(REG16_B20(op));
 	}
 	else {
-		I286_WORKCLOCK(28);
+		UPD9002_WORKCLOCK(28);
 		src = v30_div_read_ea16(op);
 	}
-	dividend = (SINT32)(((UINT32)I286_DX << 16) | I286_AX);
+	dividend = (SINT32)(((UINT32)UPD9002_DX << 16) | UPD9002_AX);
 	divisor = (SINT16)src;
 	dividend_magnitude = (UINT64)((dividend < 0) ? -dividend : dividend);
 	divisor_magnitude = (UINT32)((divisor < 0) ? -divisor : divisor);
 	SUBWORD(flag_result, dividend_magnitude >> 16, divisor_magnitude)
-	I286_FLAGL |= 0x02;
+	UPD9002_FLAGL |= 0x02;
 	if (!divisor_magnitude ||
 		((dividend_magnitude >> 16) >= divisor_magnitude)) {
-		INT_NUM(0, I286_IP);									// V30
+		INT_NUM(0, UPD9002_IP);									// V30
 		return;
 	}
 	quotient = (UINT32)(dividend_magnitude / divisor_magnitude);
 	remainder = (UINT32)(dividend_magnitude % divisor_magnitude);
-	I286_OV = 0;
-	I286_FLAGL = WORDSZPF(quotient) | 0x02;
+	UPD9002_OV = 0;
+	UPD9002_FLAGL = WORDSZPF(quotient) | 0x02;
 	if (quotient >= 0x8000) {
-		INT_NUM(0, I286_IP);									// V30
+		INT_NUM(0, UPD9002_IP);									// V30
 		return;
 	}
-	I286_AX = (UINT16)(((dividend < 0) != (divisor < 0)) ?
+	UPD9002_AX = (UINT16)(((dividend < 0) != (divisor < 0)) ?
 						(0U - quotient) : quotient);
-	I286_DX = (UINT16)((dividend < 0) ? (0U - remainder) : remainder);
+	UPD9002_DX = (UINT16)((dividend < 0) ? (0U - remainder) : remainder);
 }
 
-I286FN v30_ope0xf7(void) {					// F7:	
+UPD9002FN v30_ope0xf7(void) {					// F7:	
 
 	UINT	op;
 
@@ -961,7 +961,7 @@ static UINT8 v30_ea8_read(UINT op, UINT32 *madr) {
 		return *REG8_B20(op);
 	}
 	*madr = CALC_EA(op);
-	return i286_memoryread(*madr);
+	return upd9002_memoryread(*madr);
 }
 
 static void v30_ea8_write(UINT op, UINT32 madr, UINT8 value) {
@@ -970,7 +970,7 @@ static void v30_ea8_write(UINT op, UINT32 madr, UINT8 value) {
 		*REG8_B20(op) = value;
 	}
 	else {
-		i286_memorywrite(madr, value);
+		upd9002_memorywrite(madr, value);
 	}
 }
 
@@ -980,7 +980,7 @@ static UINT16 v30_ea16_read(UINT op, UINT32 *madr) {
 		return *REG16_B20(op);
 	}
 	*madr = CALC_EA(op);
-	return i286_memoryread_w(*madr);
+	return upd9002_memoryread_w(*madr);
 }
 
 static void v30_ea16_write(UINT op, UINT32 madr, UINT16 value) {
@@ -989,11 +989,11 @@ static void v30_ea16_write(UINT op, UINT32 madr, UINT16 value) {
 		*REG16_B20(op) = value;
 	}
 	else {
-		i286_memorywrite_w(madr, value);
+		upd9002_memorywrite_w(madr, value);
 	}
 }
 
-I286FN v30_test1_ea8_cl(void) {				// 0F 10: test1 EA8, CL
+UPD9002FN v30_test1_ea8_cl(void) {				// 0F 10: test1 EA8, CL
 
 	UINT	op;
 	UINT32	madr = 0;
@@ -1001,14 +1001,14 @@ I286FN v30_test1_ea8_cl(void) {				// 0F 10: test1 EA8, CL
 	UINT8	mask;
 
 	GET_PCBYTE(op);
-	I286_WORKCLOCK((op >= 0xc0)?3:12);
+	UPD9002_WORKCLOCK((op >= 0xc0)?3:12);
 	value = v30_ea8_read(op, &madr);
-	mask = (UINT8)(1U << (I286_CL & 7));
-	I286_OV = 0;
-	I286_FLAGL = BYTESZPF(value & mask);
+	mask = (UINT8)(1U << (UPD9002_CL & 7));
+	UPD9002_OV = 0;
+	UPD9002_FLAGL = BYTESZPF(value & mask);
 }
 
-I286FN v30_test1_ea16_cl(void) {			// 0F 11: test1 EA16, CL
+UPD9002FN v30_test1_ea16_cl(void) {			// 0F 11: test1 EA16, CL
 
 	UINT	op;
 	UINT32	madr = 0;
@@ -1016,92 +1016,92 @@ I286FN v30_test1_ea16_cl(void) {			// 0F 11: test1 EA16, CL
 	UINT16	mask;
 
 	GET_PCBYTE(op);
-	I286_WORKCLOCK((op >= 0xc0)?3:12);
+	UPD9002_WORKCLOCK((op >= 0xc0)?3:12);
 	value = v30_ea16_read(op, &madr);
-	mask = (UINT16)(1U << (I286_CL & 15));
-	I286_OV = 0;
-	I286_FLAGL = WORDSZPF(value & mask);
+	mask = (UINT16)(1U << (UPD9002_CL & 15));
+	UPD9002_OV = 0;
+	UPD9002_FLAGL = WORDSZPF(value & mask);
 }
 
-I286FN v30_clr1_ea8_cl(void) {				// 0F 12: clr1 EA8, CL
+UPD9002FN v30_clr1_ea8_cl(void) {				// 0F 12: clr1 EA8, CL
 
 	UINT	op;
 	UINT32	madr = 0;
 	UINT8	value;
 
 	GET_PCBYTE(op);
-	I286_WORKCLOCK((op >= 0xc0)?5:14);
+	UPD9002_WORKCLOCK((op >= 0xc0)?5:14);
 	value = v30_ea8_read(op, &madr);
-	value &= (UINT8)~(1U << (I286_CL & 7));
+	value &= (UINT8)~(1U << (UPD9002_CL & 7));
 	v30_ea8_write(op, madr, value);
 }
 
-I286FN v30_clr1_ea16_cl(void) {			// 0F 13: clr1 EA16, CL
+UPD9002FN v30_clr1_ea16_cl(void) {			// 0F 13: clr1 EA16, CL
 
 	UINT	op;
 	UINT32	madr = 0;
 	UINT16	value;
 
 	GET_PCBYTE(op);
-	I286_WORKCLOCK((op >= 0xc0)?5:14);
+	UPD9002_WORKCLOCK((op >= 0xc0)?5:14);
 	value = v30_ea16_read(op, &madr);
-	value &= (UINT16)~(1U << (I286_CL & 15));
+	value &= (UINT16)~(1U << (UPD9002_CL & 15));
 	v30_ea16_write(op, madr, value);
 }
 
-I286FN v30_set1_ea8_cl(void) {				// 0F 14: set1 EA8, CL
+UPD9002FN v30_set1_ea8_cl(void) {				// 0F 14: set1 EA8, CL
 
 	UINT	op;
 	UINT32	madr = 0;
 	UINT8	value;
 
 	GET_PCBYTE(op);
-	I286_WORKCLOCK((op >= 0xc0)?4:13);
+	UPD9002_WORKCLOCK((op >= 0xc0)?4:13);
 	value = v30_ea8_read(op, &madr);
-	value |= (UINT8)(1U << (I286_CL & 7));
+	value |= (UINT8)(1U << (UPD9002_CL & 7));
 	v30_ea8_write(op, madr, value);
 }
 
-I286FN v30_set1_ea16_cl(void) {			// 0F 15: set1 EA16, CL
+UPD9002FN v30_set1_ea16_cl(void) {			// 0F 15: set1 EA16, CL
 
 	UINT	op;
 	UINT32	madr = 0;
 	UINT16	value;
 
 	GET_PCBYTE(op);
-	I286_WORKCLOCK((op >= 0xc0)?4:13);
+	UPD9002_WORKCLOCK((op >= 0xc0)?4:13);
 	value = v30_ea16_read(op, &madr);
-	value |= (UINT16)(1U << (I286_CL & 15));
+	value |= (UINT16)(1U << (UPD9002_CL & 15));
 	v30_ea16_write(op, madr, value);
 }
 
-I286FN v30_not1_ea8_cl(void) {				// 0F 16: not1 EA8, CL
+UPD9002FN v30_not1_ea8_cl(void) {				// 0F 16: not1 EA8, CL
 
 	UINT	op;
 	UINT32	madr = 0;
 	UINT8	value;
 
 	GET_PCBYTE(op);
-	I286_WORKCLOCK((op >= 0xc0)?4:13);
+	UPD9002_WORKCLOCK((op >= 0xc0)?4:13);
 	value = v30_ea8_read(op, &madr);
-	value ^= (UINT8)(1U << (I286_CL & 7));
+	value ^= (UINT8)(1U << (UPD9002_CL & 7));
 	v30_ea8_write(op, madr, value);
 }
 
-I286FN v30_not1_ea16_cl(void) {			// 0F 17: not1 EA16, CL
+UPD9002FN v30_not1_ea16_cl(void) {			// 0F 17: not1 EA16, CL
 
 	UINT	op;
 	UINT32	madr = 0;
 	UINT16	value;
 
 	GET_PCBYTE(op);
-	I286_WORKCLOCK((op >= 0xc0)?4:13);
+	UPD9002_WORKCLOCK((op >= 0xc0)?4:13);
 	value = v30_ea16_read(op, &madr);
-	value ^= (UINT16)(1U << (I286_CL & 15));
+	value ^= (UINT16)(1U << (UPD9002_CL & 15));
 	v30_ea16_write(op, madr, value);
 }
 
-I286FN v30_test1_ea8_i3(void) {				// 0F 18: test1 EA8, imm3
+UPD9002FN v30_test1_ea8_i3(void) {				// 0F 18: test1 EA8, imm3
 
 	UINT	op;
 	UINT	imm;
@@ -1110,15 +1110,15 @@ I286FN v30_test1_ea8_i3(void) {				// 0F 18: test1 EA8, imm3
 	UINT8	mask;
 
 	GET_PCBYTE(op);
-	I286_WORKCLOCK((op >= 0xc0)?4:13);
+	UPD9002_WORKCLOCK((op >= 0xc0)?4:13);
 	value = v30_ea8_read(op, &madr);
 	GET_PCBYTE(imm);
 	mask = (UINT8)(1U << (imm & 7));
-	I286_OV = 0;
-	I286_FLAGL = BYTESZPF(value & mask);
+	UPD9002_OV = 0;
+	UPD9002_FLAGL = BYTESZPF(value & mask);
 }
 
-I286FN v30_test1_ea16_i4(void) {			// 0F 19: test1 EA16, imm4
+UPD9002FN v30_test1_ea16_i4(void) {			// 0F 19: test1 EA16, imm4
 
 	UINT	op;
 	UINT	imm;
@@ -1127,15 +1127,15 @@ I286FN v30_test1_ea16_i4(void) {			// 0F 19: test1 EA16, imm4
 	UINT16	mask;
 
 	GET_PCBYTE(op);
-	I286_WORKCLOCK((op >= 0xc0)?4:13);
+	UPD9002_WORKCLOCK((op >= 0xc0)?4:13);
 	value = v30_ea16_read(op, &madr);
 	GET_PCBYTE(imm);
 	mask = (UINT16)(1U << (imm & 15));
-	I286_OV = 0;
-	I286_FLAGL = WORDSZPF(value & mask);
+	UPD9002_OV = 0;
+	UPD9002_FLAGL = WORDSZPF(value & mask);
 }
 
-I286FN v30_clr1_ea8_i3(void) {				// 0F 1A: clr1 EA8, imm3
+UPD9002FN v30_clr1_ea8_i3(void) {				// 0F 1A: clr1 EA8, imm3
 
 	UINT	op;
 	UINT	imm;
@@ -1143,14 +1143,14 @@ I286FN v30_clr1_ea8_i3(void) {				// 0F 1A: clr1 EA8, imm3
 	UINT8	value;
 
 	GET_PCBYTE(op);
-	I286_WORKCLOCK((op >= 0xc0)?6:15);
+	UPD9002_WORKCLOCK((op >= 0xc0)?6:15);
 	value = v30_ea8_read(op, &madr);
 	GET_PCBYTE(imm);
 	value &= (UINT8)~(1U << (imm & 7));
 	v30_ea8_write(op, madr, value);
 }
 
-I286FN v30_clr1_ea16_i4(void) {				// 0F 1B: clr1 EA16, imm4
+UPD9002FN v30_clr1_ea16_i4(void) {				// 0F 1B: clr1 EA16, imm4
 
 	UINT	op;
 	UINT	imm;
@@ -1158,14 +1158,14 @@ I286FN v30_clr1_ea16_i4(void) {				// 0F 1B: clr1 EA16, imm4
 	UINT16	value;
 
 	GET_PCBYTE(op);
-	I286_WORKCLOCK((op >= 0xc0)?6:15);
+	UPD9002_WORKCLOCK((op >= 0xc0)?6:15);
 	value = v30_ea16_read(op, &madr);
 	GET_PCBYTE(imm);
 	value &= (UINT16)~(1U << (imm & 15));
 	v30_ea16_write(op, madr, value);
 }
 
-I286FN v30_set1_ea8_i3(void) {				// 0F 1C: set1 EA8, imm3
+UPD9002FN v30_set1_ea8_i3(void) {				// 0F 1C: set1 EA8, imm3
 
 	UINT	op;
 	UINT	imm;
@@ -1173,14 +1173,14 @@ I286FN v30_set1_ea8_i3(void) {				// 0F 1C: set1 EA8, imm3
 	UINT8	value;
 
 	GET_PCBYTE(op);
-	I286_WORKCLOCK((op >= 0xc0)?5:14);
+	UPD9002_WORKCLOCK((op >= 0xc0)?5:14);
 	value = v30_ea8_read(op, &madr);
 	GET_PCBYTE(imm);
 	value |= (UINT8)(1U << (imm & 7));
 	v30_ea8_write(op, madr, value);
 }
 
-I286FN v30_set1_ea16_i4(void) {				// 0F 1D: set1 EA16, imm4
+UPD9002FN v30_set1_ea16_i4(void) {				// 0F 1D: set1 EA16, imm4
 
 	UINT	op;
 	UINT	imm;
@@ -1188,14 +1188,14 @@ I286FN v30_set1_ea16_i4(void) {				// 0F 1D: set1 EA16, imm4
 	UINT16	value;
 
 	GET_PCBYTE(op);
-	I286_WORKCLOCK((op >= 0xc0)?5:14);
+	UPD9002_WORKCLOCK((op >= 0xc0)?5:14);
 	value = v30_ea16_read(op, &madr);
 	GET_PCBYTE(imm);
 	value |= (UINT16)(1U << (imm & 15));
 	v30_ea16_write(op, madr, value);
 }
 
-I286FN v30_not1_ea8_i3(void) {				// 0F 1E: not1 EA8, imm3
+UPD9002FN v30_not1_ea8_i3(void) {				// 0F 1E: not1 EA8, imm3
 
 	UINT	op;
 	UINT	imm;
@@ -1203,14 +1203,14 @@ I286FN v30_not1_ea8_i3(void) {				// 0F 1E: not1 EA8, imm3
 	UINT8	value;
 
 	GET_PCBYTE(op);
-	I286_WORKCLOCK((op >= 0xc0)?5:14);
+	UPD9002_WORKCLOCK((op >= 0xc0)?5:14);
 	value = v30_ea8_read(op, &madr);
 	GET_PCBYTE(imm);
 	value ^= (UINT8)(1U << (imm & 7));
 	v30_ea8_write(op, madr, value);
 }
 
-I286FN v30_not1_ea16_i4(void) {			// 0F 1F: not1 EA16, imm4
+UPD9002FN v30_not1_ea16_i4(void) {			// 0F 1F: not1 EA16, imm4
 
 	UINT	op;
 	UINT	imm;
@@ -1218,7 +1218,7 @@ I286FN v30_not1_ea16_i4(void) {			// 0F 1F: not1 EA16, imm4
 	UINT16	value;
 
 	GET_PCBYTE(op);
-	I286_WORKCLOCK((op >= 0xc0)?5:14);
+	UPD9002_WORKCLOCK((op >= 0xc0)?5:14);
 	value = v30_ea16_read(op, &madr);
 	GET_PCBYTE(imm);
 	value ^= (UINT16)(1U << (imm & 15));
@@ -1275,7 +1275,7 @@ static UINT v30_addsub4s_extra_count(void) {
 
 	UINT8	count;
 
-	count = (UINT8)((I286_CL + 1) >> 1);
+	count = (UINT8)((UPD9002_CL + 1) >> 1);
 	count = (UINT8)(count - 1);
 	return count & 0x7f;
 }
@@ -1283,18 +1283,18 @@ static UINT v30_addsub4s_extra_count(void) {
 static void v30_addsub4s_finish(UINT8 flags) {
 
 	if (flags & C_FLAG) {
-		I286_FLAGL = 0x93;
+		UPD9002_FLAGL = 0x93;
 	}
 	else if (flags & Z_FLAG) {
-		I286_FLAGL = 0x46;
+		UPD9002_FLAGL = 0x46;
 	}
 	else {
-		I286_FLAGL = 0x02;
+		UPD9002_FLAGL = 0x02;
 	}
-	I286_OV = 0;
+	UPD9002_OV = 0;
 }
 
-I286FN v30_add4s(void) {					// 0F 20: add4s
+UPD9002FN v30_add4s(void) {					// 0F 20: add4s
 
 	UINT16	srcoffset;
 	UINT16	dstoffset;
@@ -1305,9 +1305,9 @@ I286FN v30_add4s(void) {					// 0F 20: add4s
 	UINT8	result;
 	BOOL	all_zero;
 
-	I286_WORKCLOCK(26);
-	srcoffset = I286_SI;
-	dstoffset = I286_DI;
+	UPD9002_WORKCLOCK(26);
+	srcoffset = UPD9002_SI;
+	dstoffset = UPD9002_DI;
 	flags = 0;
 	all_zero = TRUE;
 	for (count = v30_addsub4s_extra_count() + 1; count; count--) {
@@ -1316,16 +1316,16 @@ I286FN v30_add4s(void) {					// 0F 20: add4s
 		const UINT32 dstaddr =
 			(ES_BASE + dstoffset) & CPU_ADRSMASK;
 
-		src = i286_memoryread(srcaddr);
-		dst = i286_memoryread(dstaddr);
+		src = upd9002_memoryread(srcaddr);
+		dst = upd9002_memoryread(dstaddr);
 		flags = v30_add8_flag(dst, src, flags, &result);
 		result = v30_daa_local(result, flags, &flags);
-		i286_memorywrite(dstaddr, result);
+		upd9002_memorywrite(dstaddr, result);
 		all_zero = (BOOL)(all_zero && !result);
 		srcoffset++;
 		dstoffset++;
 		if (count > 1) {
-			I286_WORKCLOCK(19);
+			UPD9002_WORKCLOCK(19);
 		}
 	}
 	if (all_zero) {
@@ -1348,9 +1348,9 @@ static void v30_subcmp4s(BOOL compare_only) {
 	UINT8	result;
 	BOOL	all_zero;
 
-	I286_WORKCLOCK(26);
-	srcoffset = I286_SI;
-	dstoffset = I286_DI;
+	UPD9002_WORKCLOCK(26);
+	srcoffset = UPD9002_SI;
+	dstoffset = UPD9002_DI;
 	flags = 0;
 	all_zero = TRUE;
 	for (count = v30_addsub4s_extra_count() + 1; count; count--) {
@@ -1359,18 +1359,18 @@ static void v30_subcmp4s(BOOL compare_only) {
 		const UINT32 dstaddr =
 			(ES_BASE + dstoffset) & CPU_ADRSMASK;
 
-		src = i286_memoryread(srcaddr);
-		dst = i286_memoryread(dstaddr);
+		src = upd9002_memoryread(srcaddr);
+		dst = upd9002_memoryread(dstaddr);
 		flags = v30_sub8_flag(dst, src, flags, &result);
 		result = v30_das_local(result, flags, &flags);
 		if (!compare_only) {
-			i286_memorywrite(dstaddr, result);
+			upd9002_memorywrite(dstaddr, result);
 		}
 		all_zero = (BOOL)(all_zero && !result);
 		srcoffset++;
 		dstoffset++;
 		if (count > 1) {
-			I286_WORKCLOCK(19);
+			UPD9002_WORKCLOCK(19);
 		}
 	}
 	if (all_zero) {
@@ -1382,17 +1382,17 @@ static void v30_subcmp4s(BOOL compare_only) {
 	v30_addsub4s_finish(flags);
 }
 
-I286FN v30_sub4s(void) {					// 0F 22: sub4s
+UPD9002FN v30_sub4s(void) {					// 0F 22: sub4s
 
 	v30_subcmp4s(FALSE);
 }
 
-I286FN v30_cmp4s(void) {					// 0F 26: cmp4s
+UPD9002FN v30_cmp4s(void) {					// 0F 26: cmp4s
 
 	v30_subcmp4s(TRUE);
 }
 
-I286FN v30_rol4_ea8(void) {				// 0F 28: rol4 EA8
+UPD9002FN v30_rol4_ea8(void) {				// 0F 28: rol4 EA8
 
 	UINT	op;
 	UINT32	madr = 0;
@@ -1400,15 +1400,15 @@ I286FN v30_rol4_ea8(void) {				// 0F 28: rol4 EA8
 	UINT8	oldal;
 
 	GET_PCBYTE(op);
-	I286_WORKCLOCK(25);
+	UPD9002_WORKCLOCK(25);
 	value = v30_ea8_read(op, &madr);
-	oldal = I286_AL;
+	oldal = UPD9002_AL;
 	v30_ea8_write(op, madr,
 				(UINT8)((value << 4) | (oldal & 0x0f)));
-	I286_AL = (UINT8)((oldal << 4) | (value >> 4));
+	UPD9002_AL = (UINT8)((oldal << 4) | (value >> 4));
 }
 
-I286FN v30_ror4_ea8(void) {				// 0F 2A: ror4 EA8
+UPD9002FN v30_ror4_ea8(void) {				// 0F 2A: ror4 EA8
 
 	UINT	op;
 	UINT32	madr = 0;
@@ -1416,128 +1416,128 @@ I286FN v30_ror4_ea8(void) {				// 0F 2A: ror4 EA8
 	UINT8	oldal;
 
 	GET_PCBYTE(op);
-	I286_WORKCLOCK(25);
+	UPD9002_WORKCLOCK(25);
 	value = v30_ea8_read(op, &madr);
-	oldal = I286_AL;
+	oldal = UPD9002_AL;
 	v30_ea8_write(op, madr,
 				(UINT8)((value >> 4) | ((oldal & 0x0f) << 4)));
-	I286_AL = value;
+	UPD9002_AL = value;
 }
 
-I286FN v30_reserved_repc(void) {
+UPD9002FN v30_reserved_repc(void) {
 
-	I286_WORKCLOCK(2);
-	I286_IP = v30_repc_ipbak;
+	UPD9002_WORKCLOCK(2);
+	UPD9002_IP = v30_repc_ipbak;
 }
 
-I286FN v30_repc(void) {					// 65: repc
+UPD9002FN v30_repc(void) {					// 65: repc
 
-	I286_PREFIX++;
-	if (I286_PREFIX < MAX_PREFIX) {
+	UPD9002_PREFIX++;
+	if (UPD9002_PREFIX < MAX_PREFIX) {
 		UINT	op;
 
-		v30_repc_ipbak = (UINT16)(I286_IP - 1);
+		v30_repc_ipbak = (UINT16)(UPD9002_IP - 1);
 		GET_PCBYTE(op);
 		v30op_repc[op]();
 		REMOVE_PREFIX
-		I286_PREFIX = 0;
+		UPD9002_PREFIX = 0;
 	}
 	else {
-		INT_NUM(6, I286_IP);
+		INT_NUM(6, UPD9002_IP);
 	}
 }
 
-I286FN v30repc_segprefix_es(void) {
+UPD9002FN v30repc_segprefix_es(void) {
 
 	DS_FIX = ES_BASE;
 	SS_FIX = ES_BASE;
-	I286_PREFIX++;
-	if (I286_PREFIX < MAX_PREFIX) {
+	UPD9002_PREFIX++;
+	if (UPD9002_PREFIX < MAX_PREFIX) {
 		UINT	op;
 
 		GET_PCBYTE(op);
 		v30op_repc[op]();
 		REMOVE_PREFIX
-		I286_PREFIX = 0;
+		UPD9002_PREFIX = 0;
 	}
 	else {
-		INT_NUM(6, I286_IP);
+		INT_NUM(6, UPD9002_IP);
 	}
 }
 
-I286FN v30repc_segprefix_cs(void) {
+UPD9002FN v30repc_segprefix_cs(void) {
 
 	DS_FIX = CS_BASE;
 	SS_FIX = CS_BASE;
-	I286_PREFIX++;
-	if (I286_PREFIX < MAX_PREFIX) {
+	UPD9002_PREFIX++;
+	if (UPD9002_PREFIX < MAX_PREFIX) {
 		UINT	op;
 
 		GET_PCBYTE(op);
 		v30op_repc[op]();
 		REMOVE_PREFIX
-		I286_PREFIX = 0;
+		UPD9002_PREFIX = 0;
 	}
 	else {
-		INT_NUM(6, I286_IP);
+		INT_NUM(6, UPD9002_IP);
 	}
 }
 
-I286FN v30repc_segprefix_ss(void) {
+UPD9002FN v30repc_segprefix_ss(void) {
 
 	DS_FIX = SS_BASE;
 	SS_FIX = SS_BASE;
-	I286_PREFIX++;
-	if (I286_PREFIX < MAX_PREFIX) {
+	UPD9002_PREFIX++;
+	if (UPD9002_PREFIX < MAX_PREFIX) {
 		UINT	op;
 
 		GET_PCBYTE(op);
 		v30op_repc[op]();
 		REMOVE_PREFIX
-		I286_PREFIX = 0;
+		UPD9002_PREFIX = 0;
 	}
 	else {
-		INT_NUM(6, I286_IP);
+		INT_NUM(6, UPD9002_IP);
 	}
 }
 
-I286FN v30repc_segprefix_ds(void) {
+UPD9002FN v30repc_segprefix_ds(void) {
 
 	DS_FIX = DS_BASE;
 	SS_FIX = DS_BASE;
-	I286_PREFIX++;
-	if (I286_PREFIX < MAX_PREFIX) {
+	UPD9002_PREFIX++;
+	if (UPD9002_PREFIX < MAX_PREFIX) {
 		UINT	op;
 
 		GET_PCBYTE(op);
 		v30op_repc[op]();
 		REMOVE_PREFIX
-		I286_PREFIX = 0;
+		UPD9002_PREFIX = 0;
 	}
 	else {
-		INT_NUM(6, I286_IP);
+		INT_NUM(6, UPD9002_IP);
 	}
 }
 
-I286FN v30repc_xscasb(void) {				// 65 AE: repc scasb
+UPD9002FN v30repc_xscasb(void) {				// 65 AE: repc scasb
 
-	if (I286_CX) {
+	if (UPD9002_CX) {
 		UINT16	di;
 
-		di = I286_DI;
+		di = UPD9002_DI;
 		do {
 			UINT	src;
 			UINT	res;
 
-			I286_WORKCLOCK(8);
-			src = i286_memoryread(ES_BASE + di);
-			SUBBYTE(res, I286_AL, src);
+			UPD9002_WORKCLOCK(8);
+			src = upd9002_memoryread(ES_BASE + di);
+			SUBBYTE(res, UPD9002_AL, src);
 			di = (UINT16)(di + STRING_DIR);
-			I286_CX--;
-		} while((I286_CX) && (I286_FLAGL & C_FLAG));
-		I286_DI = di;
+			UPD9002_CX--;
+		} while((UPD9002_CX) && (UPD9002_FLAGL & C_FLAG));
+		UPD9002_DI = di;
 	}
-	I286_WORKCLOCK(5);
+	UPD9002_WORKCLOCK(5);
 }
 
 static const V30PATCH v30patch_repc[] = {
@@ -1547,30 +1547,30 @@ static const V30PATCH v30patch_repc[] = {
 			{0x3e, v30repc_segprefix_ds},	// 3E:	repc ds:
 			{0xae, v30repc_xscasb}};		// AE:	repc scasb
 
-I286FN v30_reserved_0x0f(void) {
+UPD9002FN v30_reserved_0x0f(void) {
 
-	I286_WORKCLOCK(2);
+	UPD9002_WORKCLOCK(2);
 }
 
-I286FN v30_iret(void) {					// CF: iret
+UPD9002FN v30_iret(void) {					// CF: iret
 
 	UINT	flag;
 
-	REGPOP0(I286_IP)
-	REGPOP0(I286_CS)
+	REGPOP0(UPD9002_IP)
+	REGPOP0(UPD9002_CS)
 	REGPOP0(flag)
-	CS_BASE = I286_CS << 4;
+	CS_BASE = UPD9002_CS << 4;
 	flag = (flag & 0x0fd7) | 0xf002;
-	I286_OV = flag & O_FLAG;
-	I286_FLAG = flag & (0xfff ^ O_FLAG);
-	I286_TRAP = ((flag & T_FLAG) != 0);
-	I286_WORKCLOCK(31);
-	if ((I286_TRAP) || ((flag & I_FLAG) && (PICEXISTINTR))) {
-		I286IRQCHECKTERM
+	UPD9002_OV = flag & O_FLAG;
+	UPD9002_FLAG = flag & (0xfff ^ O_FLAG);
+	UPD9002_TRAP = ((flag & T_FLAG) != 0);
+	UPD9002_WORKCLOCK(31);
+	if ((UPD9002_TRAP) || ((flag & I_FLAG) && (PICEXISTINTR))) {
+		UPD9002_IRQCHECKTERM
 	}
 }
 
-static const I286OP v30ope0x0f_table[64] = {
+static const UPD9002OP v30ope0x0f_table[64] = {
 			v30_reserved_0x0f,				// 00:
 			v30_reserved_0x0f,				// 01:
 			v30_reserved_0x0f,				// 02:
@@ -1639,16 +1639,16 @@ static const I286OP v30ope0x0f_table[64] = {
 			v30_reserved_0x0f,				// 3E:
 			v30_reserved_0x0f};				// 3F:
 
-I286FN v30_ope0x0f(void) {				// 0F:
+UPD9002FN v30_ope0x0f(void) {				// 0F:
 
 	UINT	op;
 
-	op = i286_memoryread(CS_BASE + I286_IP);
+	op = upd9002_memoryread(CS_BASE + UPD9002_IP);
 	if (op & 0xc0) {
 		v30_reserved_0x0f();
 		return;
 	}
-	I286_IP++;
+	UPD9002_IP++;
 	v30ope0x0f_table[op]();
 }
 
@@ -1688,71 +1688,71 @@ static const V30PATCH v30patch_op[] = {
 
 // ----------------------------------------------------------------- repe
 
-I286FN v30repe_segprefix_es(void) {
+UPD9002FN v30repe_segprefix_es(void) {
 
 	DS_FIX = ES_BASE;
 	SS_FIX = ES_BASE;
-	I286_PREFIX++;
-	if (I286_PREFIX < MAX_PREFIX) {
+	UPD9002_PREFIX++;
+	if (UPD9002_PREFIX < MAX_PREFIX) {
 		UINT op;
 		GET_PCBYTE(op);
 		v30op_repe[op]();
 		REMOVE_PREFIX
-		I286_PREFIX = 0;
+		UPD9002_PREFIX = 0;
 	}
 	else {
-		INT_NUM(6, I286_IP);
+		INT_NUM(6, UPD9002_IP);
 	}
 }
 
-I286FN v30repe_segprefix_cs(void) {
+UPD9002FN v30repe_segprefix_cs(void) {
 
 	DS_FIX = CS_BASE;
 	SS_FIX = CS_BASE;
-	I286_PREFIX++;
-	if (I286_PREFIX < MAX_PREFIX) {
+	UPD9002_PREFIX++;
+	if (UPD9002_PREFIX < MAX_PREFIX) {
 		UINT op;
 		GET_PCBYTE(op);
 		v30op_repe[op]();
 		REMOVE_PREFIX
-		I286_PREFIX = 0;
+		UPD9002_PREFIX = 0;
 	}
 	else {
-		INT_NUM(6, I286_IP);
+		INT_NUM(6, UPD9002_IP);
 	}
 }
 
-I286FN v30repe_segprefix_ss(void) {
+UPD9002FN v30repe_segprefix_ss(void) {
 
 	DS_FIX = SS_BASE;
 	SS_FIX = SS_BASE;
-	I286_PREFIX++;
-	if (I286_PREFIX < MAX_PREFIX) {
+	UPD9002_PREFIX++;
+	if (UPD9002_PREFIX < MAX_PREFIX) {
 		UINT op;
 		GET_PCBYTE(op);
 		v30op_repe[op]();
 		REMOVE_PREFIX
-		I286_PREFIX = 0;
+		UPD9002_PREFIX = 0;
 	}
 	else {
-		INT_NUM(6, I286_IP);
+		INT_NUM(6, UPD9002_IP);
 	}
 }
 
-I286FN v30repe_segprefix_ds(void) {
+UPD9002FN v30repe_segprefix_ds(void) {
 
 	DS_FIX = DS_BASE;
 	SS_FIX = DS_BASE;
-	I286_PREFIX++;
-	if (I286_PREFIX < MAX_PREFIX) {
+	UPD9002_PREFIX++;
+	if (UPD9002_PREFIX < MAX_PREFIX) {
 		UINT op;
 		GET_PCBYTE(op);
 		v30op_repe[op]();
 		REMOVE_PREFIX
-		I286_PREFIX = 0;
+		UPD9002_PREFIX = 0;
 	}
 	else {
-		INT_NUM(6, I286_IP);
+		INT_NUM(6, UPD9002_IP);
 	}
 }
 
@@ -1787,71 +1787,71 @@ static const V30PATCH v30patch_repe[] = {
 
 // ----------------------------------------------------------------- repne
 
-I286FN v30repne_segprefix_es(void) {
+UPD9002FN v30repne_segprefix_es(void) {
 
 	DS_FIX = ES_BASE;
 	SS_FIX = ES_BASE;
-	I286_PREFIX++;
-	if (I286_PREFIX < MAX_PREFIX) {
+	UPD9002_PREFIX++;
+	if (UPD9002_PREFIX < MAX_PREFIX) {
 		UINT op;
 		GET_PCBYTE(op);
 		v30op_repne[op]();
 		REMOVE_PREFIX
-		I286_PREFIX = 0;
+		UPD9002_PREFIX = 0;
 	}
 	else {
-		INT_NUM(6, I286_IP);
+		INT_NUM(6, UPD9002_IP);
 	}
 }
 
-I286FN v30repne_segprefix_cs(void) {
+UPD9002FN v30repne_segprefix_cs(void) {
 
 	DS_FIX = CS_BASE;
 	SS_FIX = CS_BASE;
-	I286_PREFIX++;
-	if (I286_PREFIX < MAX_PREFIX) {
+	UPD9002_PREFIX++;
+	if (UPD9002_PREFIX < MAX_PREFIX) {
 		UINT op;
 		GET_PCBYTE(op);
 		v30op_repne[op]();
 		REMOVE_PREFIX
-		I286_PREFIX = 0;
+		UPD9002_PREFIX = 0;
 	}
 	else {
-		INT_NUM(6, I286_IP);
+		INT_NUM(6, UPD9002_IP);
 	}
 }
 
-I286FN v30repne_segprefix_ss(void) {
+UPD9002FN v30repne_segprefix_ss(void) {
 
 	DS_FIX = SS_BASE;
 	SS_FIX = SS_BASE;
-	I286_PREFIX++;
-	if (I286_PREFIX < MAX_PREFIX) {
+	UPD9002_PREFIX++;
+	if (UPD9002_PREFIX < MAX_PREFIX) {
 		UINT op;
 		GET_PCBYTE(op);
 		v30op_repne[op]();
 		REMOVE_PREFIX
-		I286_PREFIX = 0;
+		UPD9002_PREFIX = 0;
 	}
 	else {
-		INT_NUM(6, I286_IP);
+		INT_NUM(6, UPD9002_IP);
 	}
 }
 
-I286FN v30repne_segprefix_ds(void) {
+UPD9002FN v30repne_segprefix_ds(void) {
 
 	DS_FIX = DS_BASE;
 	SS_FIX = DS_BASE;
-	I286_PREFIX++;
-	if (I286_PREFIX < MAX_PREFIX) {
+	UPD9002_PREFIX++;
+	if (UPD9002_PREFIX < MAX_PREFIX) {
 		UINT op;
 		GET_PCBYTE(op);
 		v30op_repne[op]();
 		REMOVE_PREFIX
-		I286_PREFIX = 0;
+		UPD9002_PREFIX = 0;
 	}
 	else {
-		INT_NUM(6, I286_IP);
+		INT_NUM(6, UPD9002_IP);
 	}
 }
 
@@ -1886,7 +1886,7 @@ static const V30PATCH v30patch_repne[] = {
 
 // ---------------------------------------------------------------------------
 
-static void v30patching(I286OP *op, const V30PATCH *patch, int cnt) {
+static void v30patching(UPD9002OP *op, const V30PATCH *patch, int cnt) {
 
 	do {
 		op[patch->opnum] = patch->v30opcode;
@@ -1907,11 +1907,11 @@ void upd9002_dispatch_initialize(void) {
 #endif
 		return;
 	}
-	CopyMemory(v30op, i286op, sizeof(v30op));
+	CopyMemory(v30op, upd9002op, sizeof(v30op));
 	V30PATCHING(v30op, v30patch_op);
-	CopyMemory(v30op_repne, i286op_repne, sizeof(v30op_repne));
+	CopyMemory(v30op_repne, upd9002op_repne, sizeof(v30op_repne));
 	V30PATCHING(v30op_repne, v30patch_repne);
-	CopyMemory(v30op_repe, i286op_repe, sizeof(v30op_repe));
+	CopyMemory(v30op_repe, upd9002op_repe, sizeof(v30op_repe));
 	V30PATCHING(v30op_repe, v30patch_repe);
 	CopyMemory(v30ope0xf6_table, c_ope0xf6_table, sizeof(v30ope0xf6_table));
 	v30ope0xf6_table[6] = v30_div_ea8;
@@ -1941,24 +1941,24 @@ void upd9002_core_step(void) {
 	}
 
 	upd9002_trace_step_begin();
-	v30_step_start_cs = I286_CS;
-	v30_step_start_ip = I286_IP;
-	opcode = i286_memoryread(CS_BASE + I286_IP);
+	v30_step_start_cs = UPD9002_CS;
+	v30_step_start_ip = UPD9002_IP;
+	opcode = upd9002_memoryread(CS_BASE + UPD9002_IP);
 	preserve_state = (opcode == 0x26) || (opcode == 0x2e) ||
 		(opcode == 0x36) || (opcode == 0x3e) ||
 		(opcode == 0xf2) || (opcode == 0xf3);
 	if (preserve_state) {
-		state_before = i286core.s;
+		state_before = upd9002_core_context.s;
 	}
-	I286_OV = I286_FLAG & O_FLAG;
-	I286_FLAG &= ~(O_FLAG);
+	UPD9002_OV = UPD9002_FLAG & O_FLAG;
+	UPD9002_FLAG &= ~(O_FLAG);
 
-	I286_IP++;
+	UPD9002_IP++;
 	v30op[opcode]();
 
-	I286_FLAG &= ~(O_FLAG);
-	if (I286_OV) {
-		I286_FLAG |= (O_FLAG);
+	UPD9002_FLAG &= ~(O_FLAG);
+	if (UPD9002_OV) {
+		UPD9002_FLAG |= (O_FLAG);
 	}
 	if (upd9002_diagnostic_pending()) {
 		/*
@@ -1967,10 +1967,10 @@ void upd9002_core_step(void) {
 		 * unresolved encoding has no architectural effect.
 		 */
 		if (preserve_state) {
-			i286core.s = state_before;
+			upd9002_core_context.s = state_before;
 		}
 		upd9002_trace_event(UPD9002_TRACE_ORIGIN_CPU,
-			"diagnostic-stop-rep0f", CS_BASE + I286_IP, opcode, 1);
+			"diagnostic-stop-rep0f", CS_BASE + UPD9002_IP, opcode, 1);
 		upd9002_trace_step_end();
 		return;
 	}

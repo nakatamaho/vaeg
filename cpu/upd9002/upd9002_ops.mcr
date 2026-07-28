@@ -4,9 +4,9 @@
 extern CLOCKSCALE pccore_cpu_scale;
 
 #if defined(X11) && (defined(i386) || defined(__i386__))
-#define	INHIBIT_WORDP(m)	((m) >= (I286_MEMWRITEMAX - 1))
+#define	INHIBIT_WORDP(m)	((m) >= (UPD9002_MEMWRITEMAX - 1))
 #elif (defined(ARM) || defined(X11)) && defined(BYTESEX_LITTLE)
-#define	INHIBIT_WORDP(m)	(((m) & 1) || ((m) >= I286_MEMWRITEMAX))
+#define	INHIBIT_WORDP(m)	(((m) & 1) || ((m) >= UPD9002_MEMWRITEMAX))
 #else
 #define	INHIBIT_WORDP(m)	(1)
 #endif
@@ -16,17 +16,17 @@ extern CLOCKSCALE pccore_cpu_scale;
 #define	WORD2LONG(src)	((SINT16)(src))
 
 
-#define	SEGMENTPTR(s)	(((UINT16 *)&I286_SEGREG) + (s))
+#define	SEGMENTPTR(s)	(((UINT16 *)&UPD9002_SEGREG) + (s))
 
-#define REAL_FLAGREG	(UINT16)((I286_FLAG & 0x7ff) | (I286_OV?O_FLAG:0))
+#define REAL_FLAGREG	(UINT16)((UPD9002_FLAG & 0x7ff) | (UPD9002_OV?O_FLAG:0))
 
-#define	STRING_DIR		((I286_FLAG & D_FLAG)?-1:1)
-#define	STRING_DIRx2	((I286_FLAG & D_FLAG)?-2:2)
+#define	STRING_DIR		((UPD9002_FLAG & D_FLAG)?-1:1)
+#define	STRING_DIRx2	((UPD9002_FLAG & D_FLAG)?-2:2)
 
 
 // ---- flags
 
-#if defined(I286C_TEST)
+#if defined(UPD9002_TEST)
 
 extern UINT8 BYTESZPF(UINT r);
 extern UINT8 BYTESZPCF(UINT r);
@@ -67,13 +67,13 @@ extern	UINT8	*_reg8_b20[256];
 #else
 #if defined(BYTESEX_LITTLE)
 #define	REG8_B53(op)		\
-				(((UINT8 *)&I286_REG) + (((op) >> 2) & 6) + (((op) >> 5) & 1))
+				(((UINT8 *)&UPD9002_REG) + (((op) >> 2) & 6) + (((op) >> 5) & 1))
 #define	REG8_B20(op)		\
-				(((UINT8 *)&I286_REG) + (((op) & 3) * 2) + (((op) >> 2) & 1))
+				(((UINT8 *)&UPD9002_REG) + (((op) & 3) * 2) + (((op) >> 2) & 1))
 #else
-#define	REG8_B53(op)		(((UINT8 *)&I286_REG) + (((op) >> 2) & 6) +	\
+#define	REG8_B53(op)		(((UINT8 *)&UPD9002_REG) + (((op) >> 2) & 6) +	\
 													((((op) >> 5) & 1) ^ 1))
-#define	REG8_B20(op)		(((UINT8 *)&I286_REG) + (((op) & 3) * 2) +	\
+#define	REG8_B20(op)		(((UINT8 *)&UPD9002_REG) + (((op) & 3) * 2) +	\
 													((((op) >> 2) & 1) ^ 1))
 #endif
 #endif
@@ -84,8 +84,8 @@ extern	UINT16	*_reg16_b20[256];
 #define	REG16_B53(op)		_reg16_b53[(op)]
 #define	REG16_B20(op)		_reg16_b20[(op)]
 #else
-#define	REG16_B53(op)		(((UINT16 *)&I286_REG) + (((op) >> 3) & 7))
-#define	REG16_B20(op)		(((UINT16 *)&I286_REG) + ((op) & 7))
+#define	REG16_B53(op)		(((UINT16 *)&UPD9002_REG) + (((op) >> 3) & 7))
+#define	REG16_B20(op)		(((UINT16 *)&UPD9002_REG) + ((op) & 7))
 #endif
 
 
@@ -126,10 +126,10 @@ extern UINT calc_a(UINT op, UINT32 *seg);
 	}
 
 
-#define	I286IRQCHECKTERM											\
-		if (I286_REMCLOCK > 0) {									\
-			I286_BASECLOCK -= I286_REMCLOCK;						\
-			I286_REMCLOCK = 0;										\
+#define	UPD9002_IRQCHECKTERM											\
+		if (UPD9002_REMCLOCK > 0) {									\
+			UPD9002_BASECLOCK -= UPD9002_REMCLOCK;						\
+			UPD9002_REMCLOCK = 0;										\
 		}
 
 
@@ -138,28 +138,28 @@ extern UINT calc_a(UINT op, UINT32 *seg);
 		DS_FIX = DS_BASE;
 
 
-#define	I286_WORKCLOCK(c)	I286_REMCLOCK -= (SINT32)clockscale_apply( \
+#define	UPD9002_WORKCLOCK(c)	UPD9002_REMCLOCK -= (SINT32)clockscale_apply( \
 											&pccore_cpu_scale, (UINT32)(c))
 
 
 #define	GET_PCBYTE(b)												\
-		(b) = i286_memoryread(CS_BASE + I286_IP);					\
-		I286_IP++;
+		(b) = upd9002_memoryread(CS_BASE + UPD9002_IP);					\
+		UPD9002_IP++;
 
 
 #define	GET_PCBYTES(b)												\
-		(b) = __CBW(i286_memoryread(CS_BASE + I286_IP));			\
-		I286_IP++;
+		(b) = __CBW(upd9002_memoryread(CS_BASE + UPD9002_IP));			\
+		UPD9002_IP++;
 
 
 #define	GET_PCBYTESD(b)												\
-		(b) = __CBD(i286_memoryread(CS_BASE + I286_IP));			\
-		I286_IP++;
+		(b) = __CBD(upd9002_memoryread(CS_BASE + UPD9002_IP));			\
+		UPD9002_IP++;
 
 
 #define	GET_PCWORD(b)												\
-		(b) = i286_memoryread_w(CS_BASE + I286_IP);					\
-		I286_IP += 2;
+		(b) = upd9002_memoryread_w(CS_BASE + UPD9002_IP);					\
+		UPD9002_IP += 2;
 
 
 #define	PREPART_EA_REG8(b, d_s)										\
@@ -185,12 +185,12 @@ extern UINT calc_a(UINT op, UINT32 *seg);
 #define PREPART_REG8_EA(b, s, d, regclk, memclk)					\
 		GET_PCBYTE((b))												\
 		if ((b) >= 0xc0) {											\
-			I286_WORKCLOCK(regclk);									\
+			UPD9002_WORKCLOCK(regclk);									\
 			(s) = *(REG8_B20(b));									\
 		}															\
 		else {														\
-			I286_WORKCLOCK(memclk);									\
-			(s) = i286_memoryread(CALC_EA(b));						\
+			UPD9002_WORKCLOCK(memclk);									\
+			(s) = upd9002_memoryread(CALC_EA(b));						\
 		}															\
 		(d) = REG8_B53(b);
 
@@ -198,150 +198,150 @@ extern UINT calc_a(UINT op, UINT32 *seg);
 #define	PREPART_REG16_EA(b, s, d, regclk, memclk)					\
 		GET_PCBYTE(b)												\
 		if (b >= 0xc0) {											\
-			I286_WORKCLOCK(regclk);									\
+			UPD9002_WORKCLOCK(regclk);									\
 			s = *(REG16_B20(b));									\
 		}															\
 		else {														\
-			I286_WORKCLOCK(memclk);									\
-			s = i286_memoryread_w(CALC_EA(b));						\
+			UPD9002_WORKCLOCK(memclk);									\
+			s = upd9002_memoryread_w(CALC_EA(b));						\
 		}															\
 		d = REG16_B53(b);
 
 
 #define	ADDBYTE(r, d, s)											\
 		(r) = (s) + (d);											\
-		I286_OV = ((r) ^ (s)) & ((r) ^ (d)) & 0x80;					\
-		I286_FLAGL = (BYTE)(((r) ^ (d) ^ (s)) & A_FLAG);			\
-		I286_FLAGL |= BYTESZPCF(r);
+		UPD9002_OV = ((r) ^ (s)) & ((r) ^ (d)) & 0x80;					\
+		UPD9002_FLAGL = (BYTE)(((r) ^ (d) ^ (s)) & A_FLAG);			\
+		UPD9002_FLAGL |= BYTESZPCF(r);
 
 #define	ADDWORD(r, d, s)											\
 		(r) = (s) + (d);											\
-		I286_OV = ((r) ^ (s)) & ((r) ^ (d)) & 0x8000;				\
-		I286_FLAGL = (UINT8)(((r) ^ (d) ^ (s)) & A_FLAG);			\
-		I286_FLAGL |= WORDSZPCF(r);
+		UPD9002_OV = ((r) ^ (s)) & ((r) ^ (d)) & 0x8000;				\
+		UPD9002_FLAGL = (UINT8)(((r) ^ (d) ^ (s)) & A_FLAG);			\
+		UPD9002_FLAGL |= WORDSZPCF(r);
 
 
 // flag no check
 #define	ORBYTE(d, s)												\
 		(d) |= (s);													\
-		I286_OV = 0;												\
-		I286_FLAGL = BYTESZPF(d);
+		UPD9002_OV = 0;												\
+		UPD9002_FLAGL = BYTESZPF(d);
 
 #define	ORWORD(d, s)												\
 		(d) |= (s);													\
-		I286_OV = 0;												\
-		I286_FLAGL = WORDSZPF(d);
+		UPD9002_OV = 0;												\
+		UPD9002_FLAGL = WORDSZPF(d);
 
 
 #define	ADCBYTE(r, d, s) 											\
-		(r) = (I286_FLAGL & 1) + (s) + (d);							\
-		I286_OV = ((r) ^ (s)) & ((r) ^ (d)) & 0x80;					\
-		I286_FLAGL = (UINT8)(((r) ^ (d) ^ (s)) & A_FLAG);			\
-		I286_FLAGL |= BYTESZPCF(r);
+		(r) = (UPD9002_FLAGL & 1) + (s) + (d);							\
+		UPD9002_OV = ((r) ^ (s)) & ((r) ^ (d)) & 0x80;					\
+		UPD9002_FLAGL = (UINT8)(((r) ^ (d) ^ (s)) & A_FLAG);			\
+		UPD9002_FLAGL |= BYTESZPCF(r);
 
 #define	ADCWORD(r, d, s) 											\
-		(r) = (I286_FLAGL & 1) + (s) + (d);							\
-		I286_OV = ((r) ^ (s)) & ((r) ^ (d)) & 0x8000;				\
-		I286_FLAGL = (UINT8)(((r) ^ (d) ^ (s)) & A_FLAG);			\
-		I286_FLAGL |= WORDSZPCF(r);
+		(r) = (UPD9002_FLAGL & 1) + (s) + (d);							\
+		UPD9002_OV = ((r) ^ (s)) & ((r) ^ (d)) & 0x8000;				\
+		UPD9002_FLAGL = (UINT8)(((r) ^ (d) ^ (s)) & A_FLAG);			\
+		UPD9002_FLAGL |= WORDSZPCF(r);
 
 
 // flag no check
 #define	SBBBYTE(r, d, s) 											\
-		(r) = (d) - (s) - (I286_FLAGL & 1);							\
-		I286_OV = ((d) ^ (r)) & ((d) ^ (s)) & 0x80;					\
-		I286_FLAGL = (UINT8)(((r) ^ (d) ^ (s)) & A_FLAG);			\
-		I286_FLAGL |= BYTESZPCF2(r);
+		(r) = (d) - (s) - (UPD9002_FLAGL & 1);							\
+		UPD9002_OV = ((d) ^ (r)) & ((d) ^ (s)) & 0x80;					\
+		UPD9002_FLAGL = (UINT8)(((r) ^ (d) ^ (s)) & A_FLAG);			\
+		UPD9002_FLAGL |= BYTESZPCF2(r);
 
 #define	SBBWORD(r, d, s) 											\
-		(r) = (d) - (s) - (I286_FLAGL & 1);							\
-		I286_OV = ((d) ^ (r)) & ((d) ^ (s)) & 0x8000;				\
-		I286_FLAGL = (UINT8)(((r) ^ (d) ^ (s)) & A_FLAG);			\
-		I286_FLAGL |= WORDSZPCF(r);
+		(r) = (d) - (s) - (UPD9002_FLAGL & 1);							\
+		UPD9002_OV = ((d) ^ (r)) & ((d) ^ (s)) & 0x8000;				\
+		UPD9002_FLAGL = (UINT8)(((r) ^ (d) ^ (s)) & A_FLAG);			\
+		UPD9002_FLAGL |= WORDSZPCF(r);
 
 
 // flag no check
 #define	ANDBYTE(d, s)												\
 		(d) &= (s);													\
-		I286_OV = 0;												\
-		I286_FLAGL = BYTESZPF(d);
+		UPD9002_OV = 0;												\
+		UPD9002_FLAGL = BYTESZPF(d);
 
 #define	ANDWORD(d, s)												\
 		(d) &= (s);													\
-		I286_OV = 0;												\
-		I286_FLAGL = WORDSZPF(d);
+		UPD9002_OV = 0;												\
+		UPD9002_FLAGL = WORDSZPF(d);
 
 
 // flag no check
 #define	SUBBYTE(r, d, s) 											\
 		(r) = (d) - (s);											\
-		I286_OV = ((d) ^ (r)) & ((d) ^ (s)) & 0x80;					\
-		I286_FLAGL = (UINT8)(((r) ^ (d) ^ (s)) & A_FLAG);			\
-		I286_FLAGL |= BYTESZPCF2(r);
+		UPD9002_OV = ((d) ^ (r)) & ((d) ^ (s)) & 0x80;					\
+		UPD9002_FLAGL = (UINT8)(((r) ^ (d) ^ (s)) & A_FLAG);			\
+		UPD9002_FLAGL |= BYTESZPCF2(r);
 
 #define	SUBWORD(r, d, s) 											\
 		(r) = (d) - (s);											\
-		I286_OV = ((d) ^ (r)) & ((d) ^ (s)) & 0x8000;				\
-		I286_FLAGL = ((r) ^ (d) ^ (s)) & A_FLAG;					\
-		I286_FLAGL |= WORDSZPCF(r);
+		UPD9002_OV = ((d) ^ (r)) & ((d) ^ (s)) & 0x8000;				\
+		UPD9002_FLAGL = ((r) ^ (d) ^ (s)) & A_FLAG;					\
+		UPD9002_FLAGL |= WORDSZPCF(r);
 
 
 // flag no check
 #define	XORBYTE(d, s)												\
 		(d) ^= s;													\
-		I286_OV = 0;												\
-		I286_FLAGL = BYTESZPF(d);
+		UPD9002_OV = 0;												\
+		UPD9002_FLAGL = BYTESZPF(d);
 
 #define	XORWORD(d, s)												\
 		(d) ^= (s);													\
-		I286_OV = 0;												\
-		I286_FLAGL = WORDSZPF(d);
+		UPD9002_OV = 0;												\
+		UPD9002_FLAGL = WORDSZPF(d);
 
 
 #define	NEGBYTE(d, s) 												\
 		(d) = 0 - (s);												\
-		I286_OV = ((d) & (s)) & 0x80;								\
-		I286_FLAGL = (UINT8)(((d) ^ (s)) & A_FLAG);					\
-		I286_FLAGL |= BYTESZPCF2(d);
+		UPD9002_OV = ((d) & (s)) & 0x80;								\
+		UPD9002_FLAGL = (UINT8)(((d) ^ (s)) & A_FLAG);					\
+		UPD9002_FLAGL |= BYTESZPCF2(d);
 
 #define	NEGWORD(d, s) 												\
 		(d) = 0 - (s);												\
-		I286_OV = ((d) & (s)) & 0x8000;								\
-		I286_FLAGL = (UINT8)(((d) ^ (s)) & A_FLAG);					\
-		I286_FLAGL |= WORDSZPCF(d);
+		UPD9002_OV = ((d) & (s)) & 0x8000;								\
+		UPD9002_FLAGL = (UINT8)(((d) ^ (s)) & A_FLAG);					\
+		UPD9002_FLAGL |= WORDSZPCF(d);
 
 
 #define	BYTE_MUL(r, d, s)											\
-		I286_FLAGL &= (Z_FLAG | S_FLAG | A_FLAG | P_FLAG);			\
+		UPD9002_FLAGL &= (Z_FLAG | S_FLAG | A_FLAG | P_FLAG);			\
 		(r) = (UINT8)(d) * (UINT8)(s);								\
-		I286_OV = (r) >> 8;											\
-		if (I286_OV) {												\
-			I286_FLAGL |= C_FLAG;									\
+		UPD9002_OV = (r) >> 8;											\
+		if (UPD9002_OV) {												\
+			UPD9002_FLAGL |= C_FLAG;									\
 		}
 
 #define	WORD_MUL(r, d, s)											\
-		I286_FLAGL &= (Z_FLAG | S_FLAG | A_FLAG | P_FLAG);			\
+		UPD9002_FLAGL &= (Z_FLAG | S_FLAG | A_FLAG | P_FLAG);			\
 		(r) = (UINT16)(d) * (UINT16)(s);							\
-		I286_OV = (r) >> 16;										\
-		if (I286_OV) {												\
-			I286_FLAGL |= C_FLAG;									\
+		UPD9002_OV = (r) >> 16;										\
+		if (UPD9002_OV) {												\
+			UPD9002_FLAGL |= C_FLAG;									\
 		}
 
 
 #define	BYTE_IMUL(r, d, s)											\
-		I286_FLAGL &= (Z_FLAG | S_FLAG | A_FLAG | P_FLAG);			\
+		UPD9002_FLAGL &= (Z_FLAG | S_FLAG | A_FLAG | P_FLAG);			\
 		(r) = (SINT8)(d) * (SINT8)(s);								\
-		I286_OV = ((r) + 0x80) & 0xffffff00;						\
-		if (I286_OV) {												\
-			I286_FLAGL |= C_FLAG;									\
+		UPD9002_OV = ((r) + 0x80) & 0xffffff00;						\
+		if (UPD9002_OV) {												\
+			UPD9002_FLAGL |= C_FLAG;									\
 		}
 
 #define	WORD_IMUL(r, d, s)											\
-		I286_FLAGL &= (Z_FLAG | S_FLAG | A_FLAG | P_FLAG);			\
+		UPD9002_FLAGL &= (Z_FLAG | S_FLAG | A_FLAG | P_FLAG);			\
 		(r) = (SINT16)(d) * (SINT16)(s);							\
-		I286_OV = ((r) + 0x8000) & 0xffff0000;						\
-		if (I286_OV) {												\
-			I286_FLAGL |= C_FLAG;									\
+		UPD9002_OV = ((r) + 0x8000) & 0xffff0000;						\
+		if (UPD9002_OV) {												\
+			UPD9002_FLAGL |= C_FLAG;									\
 		}
 
 
@@ -349,19 +349,19 @@ extern UINT calc_a(UINT op, UINT32 *seg);
 #define	INCBYTE(s) {												\
 		UINT b = (s);												\
 		(s)++;														\
-		I286_OV = (s) & (b ^ (s)) & 0x80;							\
-		I286_FLAGL &= C_FLAG;										\
-		I286_FLAGL |= (UINT8)((b ^ (s)) & A_FLAG);					\
-		I286_FLAGL |= BYTESZPF((UINT8)(s));							\
+		UPD9002_OV = (s) & (b ^ (s)) & 0x80;							\
+		UPD9002_FLAGL &= C_FLAG;										\
+		UPD9002_FLAGL |= (UINT8)((b ^ (s)) & A_FLAG);					\
+		UPD9002_FLAGL |= BYTESZPF((UINT8)(s));							\
 	}
 
 #define	INCWORD(s) {												\
 		UINT32 b = (s);												\
 		(s)++;														\
-		I286_OV = (s) & (b ^ (s)) & 0x8000;							\
-		I286_FLAGL &= C_FLAG;										\
-		I286_FLAGL |= (UINT8)((b ^ (s)) & A_FLAG);					\
-		I286_FLAGL |= WORDSZPF((UINT16)(s));						\
+		UPD9002_OV = (s) & (b ^ (s)) & 0x8000;							\
+		UPD9002_FLAGL &= C_FLAG;										\
+		UPD9002_FLAGL |= (UINT8)((b ^ (s)) & A_FLAG);					\
+		UPD9002_FLAGL |= WORDSZPF((UINT16)(s));						\
 	}
 
 
@@ -369,20 +369,20 @@ extern UINT calc_a(UINT op, UINT32 *seg);
 #define	DECBYTE(s) {												\
 		UINT b = (s);												\
 		b--;														\
-		I286_OV = (s) & (b ^ (s)) & 0x80;							\
-		I286_FLAGL &= C_FLAG;										\
-		I286_FLAGL |= (UINT8)((b ^ (s)) & A_FLAG);					\
-		I286_FLAGL |= BYTESZPF((UINT8)b);							\
+		UPD9002_OV = (s) & (b ^ (s)) & 0x80;							\
+		UPD9002_FLAGL &= C_FLAG;										\
+		UPD9002_FLAGL |= (UINT8)((b ^ (s)) & A_FLAG);					\
+		UPD9002_FLAGL |= BYTESZPF((UINT8)b);							\
 		(s) = b;													\
 	}
 
 #define	DECWORD(s) {												\
 		UINT32 b = (s);												\
 		b--;														\
-		I286_OV = (s) & (b ^ (s)) & 0x8000;							\
-		I286_FLAGL &= C_FLAG;										\
-		I286_FLAGL |= (UINT8)((b ^ (s)) & A_FLAG);					\
-		I286_FLAGL |= WORDSZPF((UINT16)b);							\
+		UPD9002_OV = (s) & (b ^ (s)) & 0x8000;							\
+		UPD9002_FLAGL &= C_FLAG;										\
+		UPD9002_FLAGL |= (UINT8)((b ^ (s)) & A_FLAG);					\
+		UPD9002_FLAGL |= WORDSZPF((UINT16)b);							\
 		(s) = b;													\
 	}
 
@@ -393,11 +393,11 @@ extern UINT calc_a(UINT op, UINT32 *seg);
 		REG16 d = (r);												\
 		d++;														\
 		(r) = (UINT16)d;											\
-		I286_OV = d & (d ^ s) & 0x8000;								\
-		I286_FLAGL &= C_FLAG;										\
-		I286_FLAGL |= (UINT8)((d ^ s) & A_FLAG);					\
-		I286_FLAGL |= WORDSZPF((UINT16)d);							\
-		I286_WORKCLOCK(clock);										\
+		UPD9002_OV = d & (d ^ s) & 0x8000;								\
+		UPD9002_FLAGL &= C_FLAG;										\
+		UPD9002_FLAGL |= (UINT8)((d ^ s) & A_FLAG);					\
+		UPD9002_FLAGL |= WORDSZPF((UINT16)d);							\
+		UPD9002_WORKCLOCK(clock);										\
 	}
 
 #define	DECWORD2(r, clock) {										\
@@ -405,33 +405,33 @@ extern UINT calc_a(UINT op, UINT32 *seg);
 		REG16 d = (r);												\
 		d--;														\
 		(r) = (UINT16)d;											\
-		I286_OV = s & (d ^ s) & 0x8000;								\
-		I286_FLAGL &= C_FLAG;										\
-		I286_FLAGL |= (UINT8)((d ^ s) & A_FLAG);					\
-		I286_FLAGL |= WORDSZPF((UINT16)d);							\
-		I286_WORKCLOCK(clock);										\
+		UPD9002_OV = s & (d ^ s) & 0x8000;								\
+		UPD9002_FLAGL &= C_FLAG;										\
+		UPD9002_FLAGL |= (UINT8)((d ^ s) & A_FLAG);					\
+		UPD9002_FLAGL |= WORDSZPF((UINT16)d);							\
+		UPD9002_WORKCLOCK(clock);										\
 	}
 
 
 // ---- stack
 
 #define	REGPUSH0(reg)												\
-		I286_SP -= 2;												\
-		i286_memorywrite_w(I286_SP + SS_BASE, reg);
+		UPD9002_SP -= 2;												\
+		upd9002_memorywrite_w(UPD9002_SP + SS_BASE, reg);
 
 #define	REGPOP0(reg) 												\
-		reg = i286_memoryread_w(I286_SP + SS_BASE);					\
-		I286_SP += 2;
+		reg = upd9002_memoryread_w(UPD9002_SP + SS_BASE);					\
+		UPD9002_SP += 2;
 
 #if (defined(ARM) || defined(X11)) && defined(BYTESEX_LITTLE)
 
 #define	REGPUSH(reg, clock)	{										\
 		UINT32 addr;												\
-		I286_WORKCLOCK(clock);										\
-		I286_SP -= 2;												\
-		addr = I286_SP + SS_BASE;									\
+		UPD9002_WORKCLOCK(clock);										\
+		UPD9002_SP -= 2;												\
+		addr = UPD9002_SP + SS_BASE;									\
 		if (INHIBIT_WORDP(addr)) {									\
-			i286_memorywrite_w(addr, reg);							\
+			upd9002_memorywrite_w(addr, reg);							\
 		}															\
 		else {														\
 			*(UINT16 *)(mem + addr) = (reg);						\
@@ -440,71 +440,71 @@ extern UINT calc_a(UINT op, UINT32 *seg);
 
 #define	REGPOP(reg, clock) {										\
 		UINT32 addr;												\
-		I286_WORKCLOCK(clock);										\
-		addr = I286_SP + SS_BASE;									\
+		UPD9002_WORKCLOCK(clock);										\
+		addr = UPD9002_SP + SS_BASE;									\
 		if (INHIBIT_WORDP(addr)) {									\
-			(reg) = i286_memoryread_w(addr);						\
+			(reg) = upd9002_memoryread_w(addr);						\
 		}															\
 		else {														\
 			(reg) = *(UINT16 *)(mem + addr);						\
 		}															\
-		I286_SP += 2;												\
+		UPD9002_SP += 2;												\
 	}
 
 #else
 
 #define	REGPUSH(reg, clock)	{										\
-		I286_WORKCLOCK(clock);										\
-		I286_SP -= 2;												\
-		i286_memorywrite_w(I286_SP + SS_BASE, reg);					\
+		UPD9002_WORKCLOCK(clock);										\
+		UPD9002_SP -= 2;												\
+		upd9002_memorywrite_w(UPD9002_SP + SS_BASE, reg);					\
 	}
 
 #define	REGPOP(reg, clock) {										\
-		I286_WORKCLOCK(clock);										\
-		reg = i286_memoryread_w(I286_SP + SS_BASE);					\
-		I286_SP += 2;												\
+		UPD9002_WORKCLOCK(clock);										\
+		reg = upd9002_memoryread_w(UPD9002_SP + SS_BASE);					\
+		UPD9002_SP += 2;												\
 	}
 
 #endif
 
 #define	SP_PUSH(reg, clock)	{										\
 		REG16 sp = (reg);											\
-		I286_SP -= 2;												\
-		i286_memorywrite_w(I286_SP + SS_BASE, sp);					\
-		I286_WORKCLOCK(clock);										\
+		UPD9002_SP -= 2;												\
+		upd9002_memorywrite_w(UPD9002_SP + SS_BASE, sp);					\
+		UPD9002_WORKCLOCK(clock);										\
 	}
 
 #define	SP_POP(reg, clock) {										\
-		I286_WORKCLOCK(clock);										\
-		reg = i286_memoryread_w(I286_SP + SS_BASE);					\
+		UPD9002_WORKCLOCK(clock);										\
+		reg = upd9002_memoryread_w(UPD9002_SP + SS_BASE);					\
 	}
 
 
 #define	JMPSHORT(clock) {											\
-		I286_WORKCLOCK(clock);										\
-		I286_IP += __CBW(i286_memoryread(CS_BASE + I286_IP));		\
-		I286_IP++;													\
+		UPD9002_WORKCLOCK(clock);										\
+		UPD9002_IP += __CBW(upd9002_memoryread(CS_BASE + UPD9002_IP));		\
+		UPD9002_IP++;													\
 	}
 
 
 #define	JMPNOP(clock) {												\
-		I286_WORKCLOCK(clock);										\
-		I286_IP++;													\
+		UPD9002_WORKCLOCK(clock);										\
+		UPD9002_IP++;													\
 	}
 
 
 #define	MOVIMM8(reg) {												\
-		I286_WORKCLOCK(2);											\
+		UPD9002_WORKCLOCK(2);											\
 		GET_PCBYTE(reg)												\
 	}
 
 
 #define	MOVIMM16(reg) {												\
-		I286_WORKCLOCK(2);											\
+		UPD9002_WORKCLOCK(2);											\
 		GET_PCWORD(reg)												\
 	}
 
 
-#define	SEGSELECT(c)	((I286_MSW & MSW_PE)?i286c_selector(c):((c) << 4))
+#define	SEGSELECT(c)	((UPD9002_MSW & MSW_PE)?upd9002_selector(c):((c) << 4))
 
-#define	INT_NUM(a, b)	i286c_intnum((a), (REG16)(b))
+#define	INT_NUM(a, b)	upd9002_intnum((a), (REG16)(b))

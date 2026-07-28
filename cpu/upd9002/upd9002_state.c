@@ -173,7 +173,7 @@ int upd9002_state_import(const void *payload, size_t size,
 
 	/* No CPU callback can run while statsave commits these two objects. */
 	upd9002_state_image = next_image;
-	i286core.s = next_runtime;
+	upd9002_core_context.s = next_runtime;
 	return SUCCESS;
 }
 
@@ -183,5 +183,5 @@ void upd9002_state_export(Upd9002StateImage *state) {
 		return;
 	}
 	memcpy(state, upd9002_state_image.bytes, sizeof(*state));
-	state_overlay_runtime(state, &i286core.s);
+	state_overlay_runtime(state, &upd9002_core_context.s);
 }
