@@ -16,6 +16,7 @@ M66 and M67 have not been started.
 - Branch: `topic/m65-residue-campaign`
 - Campaign protocol SHA: `302540c5dff776890f205059235d3710d53a1636`
 - M65m evaluated SHA: `a617889a0351918d081839beeb7f71a251e50f57`
+- Hosted CI validator SHA: `28e35bd096e6d17256d9bef9693628daffa0215c`
 - Evidence/final candidate SHA: supplied by final handoff after this evidence commit
 - Worker SHA-256: `26892c7321f68804c19989867323eb7496a9f21a30f45af4e2df860e37c53340`
 - Target policy: `upd9002-g64-37ae2b706a9cbbe2d36cf7c98372c0cae7ca4b8d90e4f738973bc0ed3248eed6`
@@ -94,6 +95,13 @@ Zero-coverage and evidence-backlog items are not claimed passing. BRKEM and BRKF
 - Direct G65-to-G65m transition equals the composed checkpoint transition state.
 - Native and repository validators are recorded in the final handoff.
 - Hosted CI is required for the final pushed candidate; the exact URL/result is supplied in the final handoff.
+- Corrective hosted-CI validation: run `30324791046` at
+  `2bf7db5e7c0d4626537ee5bd151585ba05cb3de6` failed only because the
+  external architectural CI ratchet was still bound to committed G64 evidence.
+  The validator-only SHA above retargets that hosted check to committed G65m
+  campaign evidence. Local direct and CTest `vaeg_upd9002_ssts_ci_external`
+  checks both produced `180,000 selected / 169,300 executed / 169,300 pass /
+  0 fail / 0 timeout / 0 crash`.
 
 Standalone M65a through M65d checkpoint validators intentionally encode the
 predecessor guard state that existed when each checkpoint was created. At the
