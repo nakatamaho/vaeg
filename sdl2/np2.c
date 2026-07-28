@@ -93,6 +93,9 @@
 #if defined(VAEG_UPD9002_M65D_TESTING)
 #include	"tests/upd9002/m65d_ff6.h"
 #endif
+#if defined(VAEG_UPD9002_M65E_TESTING)
+#include	"tests/upd9002/m65e_tail10.h"
+#endif
 #if defined(VAEG_UPD9002_SSTS_TESTING)
 #include	"tests/upd9002/ssts_worker.h"
 #endif
@@ -1499,6 +1502,11 @@ int main(int argc, char **argv) {
 #if defined(VAEG_UPD9002_M65D_TESTING)
 	if ((argc == 2) && !strcmp(argv[1], "--upd9002-m65d-ff6")) {
 		return upd9002_m65d_ff6_main();
+	}
+#endif
+#if defined(VAEG_UPD9002_M65E_TESTING)
+	if ((argc == 2) && !strcmp(argv[1], "--upd9002-m65e-tail10")) {
+		return upd9002_m65e_tail10_main();
 	}
 #endif
 #if defined(VAEG_UPD9002_SSTS_TESTING)

@@ -1424,7 +1424,24 @@ I286FN _calc_ea16_i16(void) {				// 81:	op		EA16, DATA16
 	}
 	else {
 		I286_WORKCLOCK(7);
-		madr = CALC_EA(op);
+		{
+			UINT32 seg;
+			UINT off;
+
+			off = GET_EA(op, &seg);
+			madr = seg + off;
+			if ((LOW16(off) == 0xffff) || INHIBIT_WORDP(madr)) {
+				UINT16 tmp;
+
+				GET_PCWORD(src);
+				tmp = i286_memoryread_seg_w(seg, off);
+				c_op8xreg16_table[(op >> 3) & 7](&tmp, src);
+				if (((op >> 3) & 7) != 7) {
+					i286_memorywrite_seg_w(seg, off, tmp);
+				}
+				return;
+			}
+		}
 		if (INHIBIT_WORDP(madr)) {
 			GET_PCWORD(src);
 			c_op8xext16_table[(op >> 3) & 7](madr, src);
@@ -1450,7 +1467,24 @@ I286FN _calc_ea16_i8(void) {				// 83:	op		EA16, DATA8
 	}
 	else {
 		I286_WORKCLOCK(7);
-		madr = CALC_EA(op);
+		{
+			UINT32 seg;
+			UINT off;
+
+			off = GET_EA(op, &seg);
+			madr = seg + off;
+			if ((LOW16(off) == 0xffff) || INHIBIT_WORDP(madr)) {
+				UINT16 tmp;
+
+				GET_PCBYTES(src);
+				tmp = i286_memoryread_seg_w(seg, off);
+				c_op8xreg16_table[(op >> 3) & 7](&tmp, src);
+				if (((op >> 3) & 7) != 7) {
+					i286_memorywrite_seg_w(seg, off, tmp);
+				}
+				return;
+			}
+		}
 		if (INHIBIT_WORDP(madr)) {
 			GET_PCBYTES(src);
 			c_op8xext16_table[(op >> 3) & 7](madr, src);
@@ -1848,8 +1882,8 @@ I286FN _movsw(void) {						// A5:	movsw
 	UINT16	tmp;
 
 	I286_WORKCLOCK(5);
-	tmp = i286_memoryread_w(I286_SI + DS_FIX);
-	i286_memorywrite_w(I286_DI + ES_BASE, tmp);
+	tmp = i286_memoryread_seg_w(DS_FIX, I286_SI);
+	i286_memorywrite_seg_w(ES_BASE, I286_DI, tmp);
 	I286_SI += STRING_DIRx2;
 	I286_DI += STRING_DIRx2;
 }
@@ -2057,8 +2091,8 @@ I286FN _les_r16_ea(void) {					// C4:	les		REG16, EA
 	GET_PCBYTE(op)
 	if (op < 0xc0) {
 		ad = GET_EA(op, &seg);
-		*(REG16_B53(op)) = i286_memoryread_w(seg + ad);
-		I286_ES = i286_memoryread_w(seg + LOW16(ad + 2));
+		*(REG16_B53(op)) = i286_memoryread_seg_w(seg, ad);
+		I286_ES = i286_memoryread_seg_w(seg, LOW16(ad + 2));
 		ES_BASE = SEGSELECT(I286_ES);
 	}
 	else {
@@ -2076,8 +2110,8 @@ I286FN _lds_r16_ea(void) {					// C5:	lds		REG16, EA
 	GET_PCBYTE(op)
 	if (op < 0xc0) {
 		ad = GET_EA(op, &seg);
-		*(REG16_B53(op)) = i286_memoryread_w(seg + ad);
-		I286_DS = i286_memoryread_w(seg + LOW16(ad + 2));
+		*(REG16_B53(op)) = i286_memoryread_seg_w(seg, ad);
+		I286_DS = i286_memoryread_seg_w(seg, LOW16(ad + 2));
 		DS_BASE = SEGSELECT(I286_DS);
 		DS_FIX = DS_BASE;
 	}
@@ -2158,11 +2192,11 @@ I286FN _enter(void) {						// C8:	enter	DATA16, DATA8
 				REG16 val;
 				bp -= 2;
 				I286_SP -= 2;
-				val = i286_memoryread_w(bp + SS_BASE);
-				i286_memorywrite_w(I286_SP + SS_BASE, val);
+				val = i286_memoryread_seg_w(SS_BASE, bp);
+				i286_memorywrite_seg_w(SS_BASE, I286_SP, val);
 #else
-				UINT16 val = i286_memoryread_w(bp + SS_BASE);
-				i286_memorywrite_w(I286_SP + SS_BASE, val);
+				UINT16 val = i286_memoryread_seg_w(SS_BASE, bp);
+				i286_memorywrite_seg_w(SS_BASE, I286_SP, val);
 				bp -= 2;
 				I286_SP -= 2;
 #endif
@@ -2287,7 +2321,21 @@ I286FN _shift_ea16_1(void) {			// D1:	shift EA16, 1
 	}
 	else {
 		I286_WORKCLOCK(7);
-		madr = CALC_EA(op);
+		{
+			UINT32 seg;
+			UINT off;
+
+			off = GET_EA(op, &seg);
+			madr = seg + off;
+			if ((LOW16(off) == 0xffff) || INHIBIT_WORDP(madr)) {
+				UINT16 tmp;
+
+				tmp = i286_memoryread_seg_w(seg, off);
+				sft_r16_table[(op >> 3) & 7](&tmp);
+				i286_memorywrite_seg_w(seg, off, tmp);
+				return;
+			}
+		}
 		if (INHIBIT_WORDP(madr)) {
 			sft_e16_table[(op >> 3) & 7](madr);
 			return;
