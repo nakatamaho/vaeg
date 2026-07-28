@@ -187,7 +187,9 @@ I286_F6 _not_ea16(UINT op) {
 		I286_WORKCLOCK(7);
 		madr = CALC_EA(op);
 		if (!(INHIBIT_WORDP(madr))) {
-			*(mem + madr) ^= 0xffff;
+			REG16 value = LOADINTELWORD(mem + madr);
+			value = (REG16)~value;
+			STOREINTELWORD(mem + madr, value);
 		}
 		else {
 			REG16 value = i286_memoryread_w(madr);
@@ -325,4 +327,3 @@ const I286OPF6 c_ope0xf7_table[] = {
 			_not_ea16,			_neg_ea16,
 			_mul_ea16,			_imul_ea16,
 			_div_ea16,			_idiv_ea16};
-
