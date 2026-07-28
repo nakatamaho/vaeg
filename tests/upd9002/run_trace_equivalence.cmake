@@ -78,9 +78,26 @@ foreach(current_line IN LISTS m60a_saved_flags_lines)
     string(REPLACE "${current_line}" "${baseline_line}"
         m42_compatible_trace "${m42_compatible_trace}")
 endforeach()
+set(m64_div_flags_lines
+    "end step=00000000 ax=0001 bx=0000 cx=0001 dx=007f si=0000 di=0000 bp=0000 sp=8000 es=0000 cs=0000 ss=0000 ds=0000 ip=2002 flags=f093 esbase=00000000 csbase=00000000 ssbase=00000000 dsbase=00000000 consumed=0000000e remain=000003da"
+    "end step=00000001 ax=0001 bx=0000 cx=0001 dx=007f si=0000 di=0000 bp=0000 sp=8000 es=0000 cs=0000 ss=0000 ds=0000 ip=2002 flags=f093 esbase=00000000 csbase=00000000 ssbase=00000000 dsbase=00000000 consumed=0000000e remain=000003da"
+    "end step=00000002 ax=0205 bx=0003 cx=0001 dx=007f si=0000 di=0000 bp=0000 sp=8000 es=0000 cs=0000 ss=0000 ds=0000 ip=2002 flags=f093 esbase=00000000 csbase=00000000 ssbase=00000000 dsbase=00000000 consumed=0000000e remain=000003da"
+    "end step=00000003 ax=0205 bx=0003 cx=0001 dx=007f si=0000 di=0000 bp=0000 sp=8000 es=0000 cs=0000 ss=0000 ds=0000 ip=2002 flags=f093 esbase=00000000 csbase=00000000 ssbase=00000000 dsbase=00000000 consumed=0000000e remain=000003da")
+foreach(current_line IN LISTS m64_div_flags_lines)
+    string(REGEX MATCHALL "${current_line}" matches "${m42_compatible_trace}")
+    list(LENGTH matches match_count)
+    if(NOT match_count EQUAL 1)
+        message(FATAL_ERROR
+            "approved M64 DIV/IDIV FLAGS trace transition is absent or duplicated")
+    endif()
+    string(REPLACE "flags=f093" "flags=f002"
+        baseline_line "${current_line}")
+    string(REPLACE "${current_line}" "${baseline_line}"
+        m42_compatible_trace "${m42_compatible_trace}")
+endforeach()
 if(NOT m42_compatible_trace STREQUAL golden)
     message(FATAL_ERROR
-        "canonical trace differs outside the approved M60a saved-FLAGS transition")
+        "canonical trace differs outside the approved M60a saved-FLAGS and M64 DIV/IDIV transitions")
 endif()
 
 execute_process(
@@ -97,4 +114,4 @@ if(NOT first_checkpoints STREQUAL untraced_error)
         "trace-enabled and trace-disabled final checkpoint streams differ")
 endif()
 
-message(STATUS "uPD9002 trace determinism, origin schema, M42 baseline plus M60a saved-FLAGS transition, and complete on/off checkpoint equivalence passed")
+message(STATUS "uPD9002 trace determinism, origin schema, M42 baseline plus exact M60a/M64 transitions, and complete on/off checkpoint equivalence passed")

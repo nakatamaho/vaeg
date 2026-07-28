@@ -84,6 +84,175 @@ M48_IDENTITIES = {
         "4f3fefe8cbfb20a03364a80a0b917e475d3d545cab8eda6bee8a22c66e2147ee",
 }
 
+M62_GRAPH_REMOVED = {
+    ("v30op", "0x27", "handler", "_daa"),
+    ("v30op", "0x2f", "handler", "_das"),
+    ("v30op", "0x37", "handler", "_aaa"),
+    ("v30op", "0x3f", "handler", "_aas"),
+    ("v30ope0x0f_table", "0x28", "handler", "v30_reserved_0x0f"),
+}
+
+M62_GRAPH_ADDED = {
+    ("v30op", "0x27", "handler", "v30_daa"),
+    ("v30op", "0x2f", "handler", "v30_das"),
+    ("v30op", "0x37", "handler", "v30_aaa"),
+    ("v30op", "0x3f", "handler", "v30_aas"),
+    ("v30ope0x0f_table", "0x28", "handler", "v30_rol4_ea8"),
+}
+
+M62_SUPPORT_REMOVED = {
+    ("v30op", "0x27", "-", "_daa", "implemented", "final-root-target"),
+    ("v30op", "0x2f", "-", "_das", "implemented", "final-root-target"),
+    ("v30op", "0x37", "-", "_aaa", "implemented", "final-root-target"),
+    ("v30op", "0x3f", "-", "_aas", "implemented", "final-root-target"),
+    (
+        "v30op_0f",
+        "0x0f",
+        "0x28",
+        "v30_reserved_0x0f",
+        "known_target_gap",
+        "second-byte-resolved",
+    ),
+}
+
+M62_SUPPORT_ADDED = {
+    ("v30op", "0x27", "-", "v30_daa", "implemented", "final-root-target"),
+    ("v30op", "0x2f", "-", "v30_das", "implemented", "final-root-target"),
+    ("v30op", "0x37", "-", "v30_aaa", "implemented", "final-root-target"),
+    ("v30op", "0x3f", "-", "v30_aas", "implemented", "final-root-target"),
+    (
+        "v30op_0f",
+        "0x0f",
+        "0x28",
+        "v30_rol4_ea8",
+        "implemented",
+        "second-byte-resolved",
+    ),
+}
+
+M64_GRAPH_REMOVED = M62_GRAPH_REMOVED | {
+    ("v30ope0x0f_table", opcode, "handler", "v30_reserved_0x0f")
+    for opcode in ("0x13", "0x15", "0x16", "0x17", "0x1e", "0x1f", "0x26")
+}
+
+M64_GRAPH_ADDED = M62_GRAPH_ADDED | {
+    ("v30ope0x0f_table", "0x13", "handler", "v30_clr1_ea16_cl"),
+    ("v30ope0x0f_table", "0x15", "handler", "v30_set1_ea16_cl"),
+    ("v30ope0x0f_table", "0x16", "handler", "v30_not1_ea8_cl"),
+    ("v30ope0x0f_table", "0x17", "handler", "v30_not1_ea16_cl"),
+    ("v30ope0x0f_table", "0x1e", "handler", "v30_not1_ea8_i3"),
+    ("v30ope0x0f_table", "0x1f", "handler", "v30_not1_ea16_i4"),
+    ("v30ope0x0f_table", "0x26", "handler", "v30_cmp4s"),
+}
+
+M64_SUPPORT_REMOVED = M62_SUPPORT_REMOVED | {
+    (
+        "v30op_0f",
+        "0x0f",
+        opcode,
+        "v30_reserved_0x0f",
+        "known_target_gap",
+        "second-byte-resolved",
+    )
+    for opcode in ("0x13", "0x15", "0x16", "0x17", "0x1e", "0x1f", "0x26")
+}
+
+M64_SUPPORT_ADDED = M62_SUPPORT_ADDED | {
+    ("v30op_0f", "0x0f", "0x13", "v30_clr1_ea16_cl", "implemented",
+     "second-byte-resolved"),
+    ("v30op_0f", "0x0f", "0x15", "v30_set1_ea16_cl", "implemented",
+     "second-byte-resolved"),
+    ("v30op_0f", "0x0f", "0x16", "v30_not1_ea8_cl", "implemented",
+     "second-byte-resolved"),
+    ("v30op_0f", "0x0f", "0x17", "v30_not1_ea16_cl", "implemented",
+     "second-byte-resolved"),
+    ("v30op_0f", "0x0f", "0x1e", "v30_not1_ea8_i3", "implemented",
+     "second-byte-resolved"),
+    ("v30op_0f", "0x0f", "0x1f", "v30_not1_ea16_i4", "implemented",
+     "second-byte-resolved"),
+    ("v30op_0f", "0x0f", "0x26", "v30_cmp4s", "implemented",
+     "second-byte-resolved"),
+}
+
+M65A_GRAPH_REMOVED = M64_GRAPH_REMOVED | {
+    ("c_ope0xff_table", "0x07", "handler", "_pop_ea16"),
+}
+
+M65A_GRAPH_ADDED = M64_GRAPH_ADDED | {
+    ("c_ope0xff_table", "0x07", "handler", "_push_ff7_ea16"),
+}
+
+M66B_REP_RENAMES = {
+    ("i286c_rep_insb", "upd9002_rep_insb"),
+    ("i286c_rep_insw", "upd9002_rep_insw"),
+    ("i286c_rep_outsb", "upd9002_rep_outsb"),
+    ("i286c_rep_movsb", "upd9002_rep_movsb"),
+    ("i286c_rep_movsw", "upd9002_rep_movsw"),
+    ("i286c_repe_cmpsb", "upd9002_repe_cmpsb"),
+    ("i286c_repe_cmpsw", "upd9002_repe_cmpsw"),
+    ("i286c_rep_stosb", "upd9002_rep_stosb"),
+    ("i286c_rep_stosw", "upd9002_rep_stosw"),
+    ("i286c_rep_lodsb", "upd9002_rep_lodsb"),
+    ("i286c_rep_lodsw", "upd9002_rep_lodsw"),
+    ("i286c_repe_scasb", "upd9002_repe_scasb"),
+    ("i286c_repe_scasw", "upd9002_repe_scasw"),
+    ("i286c_repne_cmpsb", "upd9002_repne_cmpsb"),
+    ("i286c_repne_cmpsw", "upd9002_repne_cmpsw"),
+    ("i286c_repne_scasb", "upd9002_repne_scasb"),
+    ("i286c_repne_scasw", "upd9002_repne_scasw"),
+}
+
+M66B_REP_ROWS = (
+    ("v30op_repe", "0x6c", "i286c_rep_insb", "upd9002_rep_insb"),
+    ("v30op_repe", "0x6d", "i286c_rep_insw", "upd9002_rep_insw"),
+    ("v30op_repe", "0x6e", "i286c_rep_outsb", "upd9002_rep_outsb"),
+    ("v30op_repe", "0x6f", "i286c_rep_outsb", "upd9002_rep_outsb"),
+    ("v30op_repe", "0xa4", "i286c_rep_movsb", "upd9002_rep_movsb"),
+    ("v30op_repe", "0xa5", "i286c_rep_movsw", "upd9002_rep_movsw"),
+    ("v30op_repe", "0xa6", "i286c_repe_cmpsb", "upd9002_repe_cmpsb"),
+    ("v30op_repe", "0xa7", "i286c_repe_cmpsw", "upd9002_repe_cmpsw"),
+    ("v30op_repe", "0xaa", "i286c_rep_stosb", "upd9002_rep_stosb"),
+    ("v30op_repe", "0xab", "i286c_rep_stosw", "upd9002_rep_stosw"),
+    ("v30op_repe", "0xac", "i286c_rep_lodsb", "upd9002_rep_lodsb"),
+    ("v30op_repe", "0xad", "i286c_rep_lodsw", "upd9002_rep_lodsw"),
+    ("v30op_repe", "0xae", "i286c_repe_scasb", "upd9002_repe_scasb"),
+    ("v30op_repe", "0xaf", "i286c_repe_scasw", "upd9002_repe_scasw"),
+    ("v30op_repne", "0x6c", "i286c_rep_insb", "upd9002_rep_insb"),
+    ("v30op_repne", "0x6d", "i286c_rep_insw", "upd9002_rep_insw"),
+    ("v30op_repne", "0x6e", "i286c_rep_outsb", "upd9002_rep_outsb"),
+    ("v30op_repne", "0x6f", "i286c_rep_outsb", "upd9002_rep_outsb"),
+    ("v30op_repne", "0xa4", "i286c_rep_movsb", "upd9002_rep_movsb"),
+    ("v30op_repne", "0xa5", "i286c_rep_movsw", "upd9002_rep_movsw"),
+    ("v30op_repne", "0xa6", "i286c_repne_cmpsb", "upd9002_repne_cmpsb"),
+    ("v30op_repne", "0xa7", "i286c_repne_cmpsw", "upd9002_repne_cmpsw"),
+    ("v30op_repne", "0xaa", "i286c_rep_stosb", "upd9002_rep_stosb"),
+    ("v30op_repne", "0xab", "i286c_rep_stosw", "upd9002_rep_stosw"),
+    ("v30op_repne", "0xac", "i286c_rep_lodsb", "upd9002_rep_lodsb"),
+    ("v30op_repne", "0xad", "i286c_rep_lodsw", "upd9002_rep_lodsw"),
+    ("v30op_repne", "0xae", "i286c_repne_scasb", "upd9002_repne_scasb"),
+    ("v30op_repne", "0xaf", "i286c_repne_scasw", "upd9002_repne_scasw"),
+)
+
+M66B_GRAPH_REMOVED = M65A_GRAPH_REMOVED | {
+    (table, opcode, "handler", old)
+    for table, opcode, old, _new in M66B_REP_ROWS
+}
+
+M66B_GRAPH_ADDED = M65A_GRAPH_ADDED | {
+    (table, opcode, "handler", new)
+    for table, opcode, _old, new in M66B_REP_ROWS
+}
+
+M66B_SUPPORT_REMOVED = M64_SUPPORT_REMOVED | {
+    (table, opcode, "-", old, "implemented", "final-root-target")
+    for table, opcode, old, _new in M66B_REP_ROWS
+}
+
+M66B_SUPPORT_ADDED = M64_SUPPORT_ADDED | {
+    (table, opcode, "-", new, "implemented", "final-root-target")
+    for table, opcode, _old, new in M66B_REP_ROWS
+}
+
 Row = Tuple[str, ...]
 
 
@@ -198,6 +367,102 @@ HARNESS_ADDED = {
      "patched-root"),
 }
 
+M62_HARNESS_REMOVED = {
+    (
+        "native-0f-28",
+        "v30ope0x0f_table",
+        "0x28",
+        "v30_reserved_0x0f",
+        "0f28c0000000000000",
+        "1",
+        "native-secondary",
+    ),
+}
+
+M62_HARNESS_ADDED = {
+    (
+        "native-0f-28",
+        "v30ope0x0f_table",
+        "0x28",
+        "v30_rol4_ea8",
+        "0f28c0000000000000",
+        "1",
+        "native-secondary",
+    ),
+    (
+        "patch-v30op-27",
+        "v30op",
+        "0x27",
+        "v30_daa",
+        "27c0000000000000",
+        "1",
+        "patched-root",
+    ),
+    (
+        "patch-v30op-2f",
+        "v30op",
+        "0x2f",
+        "v30_das",
+        "2fc0000000000000",
+        "1",
+        "patched-root",
+    ),
+    (
+        "patch-v30op-37",
+        "v30op",
+        "0x37",
+        "v30_aaa",
+        "37c0000000000000",
+        "1",
+        "patched-root",
+    ),
+    (
+        "patch-v30op-3f",
+        "v30op",
+        "0x3f",
+        "v30_aas",
+        "3fc0000000000000",
+        "1",
+        "patched-root",
+    ),
+}
+
+M64_NATIVE_HANDLERS = {
+    "13": "v30_clr1_ea16_cl",
+    "15": "v30_set1_ea16_cl",
+    "16": "v30_not1_ea8_cl",
+    "17": "v30_not1_ea16_cl",
+    "1e": "v30_not1_ea8_i3",
+    "1f": "v30_not1_ea16_i4",
+    "26": "v30_cmp4s",
+}
+
+M64_HARNESS_REMOVED = M62_HARNESS_REMOVED | {
+    (
+        "native-0f-{}".format(opcode),
+        "v30ope0x0f_table",
+        "0x{}".format(opcode),
+        "v30_reserved_0x0f",
+        "0f{}c0000000000000".format(opcode),
+        "1",
+        "native-secondary",
+    )
+    for opcode in M64_NATIVE_HANDLERS
+}
+
+M64_HARNESS_ADDED = M62_HARNESS_ADDED | {
+    (
+        "native-0f-{}".format(opcode),
+        "v30ope0x0f_table",
+        "0x{}".format(opcode),
+        handler,
+        "0f{}c0000000000000".format(opcode),
+        "1",
+        "native-secondary",
+    )
+    for opcode, handler in M64_NATIVE_HANDLERS.items()
+}
+
 
 def verify_source_policy(root: pathlib.Path) -> None:
     dispatch = (root / "cpu/upd9002/upd9002_dispatch.c").read_text(
@@ -212,12 +477,12 @@ def verify_source_policy(root: pathlib.Path) -> None:
             "{0x0f, v30_repne_0f_diagnostic_stop}") == 1,
         "REPE patch": dispatch.count(
             "{0x0f, v30_repe_0f_diagnostic_stop}") == 1,
-        "complete state restore": dispatch.count("i286core.s = state_before;") == 1,
+        "complete state restore": dispatch.count("upd9002_core_context.s = state_before;") == 1,
         "DMA bypass": "upd9002_diagnostic_pending()" in dispatch,
         "scheduler stop": pccore.count("upd9002_diagnostic_pending()") == 2,
         "MSW.PE preflight": state.count("state.MSW & MSW_PE") == 1,
         "512-case loop": "second < 256" in test,
-        "state atomic test": "memcmp(&state_before, &i286core.s" in test,
+        "state atomic test": "memcmp(&state_before, &upd9002_core_context.s" in test,
         "memory atomic test": "hash_before != memory_hash()" in test,
     }
     missing = [name for name, present in requirements.items() if not present]
@@ -236,7 +501,7 @@ def build_manifest(
     new_graph = rows(graph)
     new_provenance = rows(provenance)
     new_support = rows(support)
-    new_harness = rows(harness)
+    new_harness = old_harness | HARNESS_ADDED
 
     graph_removed = expected_graph_removed()
     require_exact_difference(
@@ -359,10 +624,30 @@ def verify(root: pathlib.Path, write: bool, selftest: bool) -> None:
     graph = (root / M48_PATHS["graph"]).read_text(encoding="utf-8")
     provenance = (root / M48_PATHS["provenance"]).read_text(encoding="utf-8")
     support = (root / M48_PATHS["support"]).read_text(encoding="utf-8")
-    if live_graph != graph:
-        raise TransitionError("live final graph differs from accepted M48 graph")
-    if live_support != support:
-        raise TransitionError("live support map differs from accepted M48 support")
+    require_exact_difference(
+        "post-M48 governed graph",
+        rows(graph),
+        rows(live_graph),
+        M66B_GRAPH_REMOVED,
+        M66B_GRAPH_ADDED,
+    )
+    require_exact_difference(
+        "post-M48 governed support",
+        rows(support),
+        rows(live_support),
+        M66B_SUPPORT_REMOVED,
+        M66B_SUPPORT_ADDED,
+    )
+    accepted_harness = (
+        file_rows(root, "tests/upd9002/harness_manifest.csv") | HARNESS_ADDED
+    )
+    require_exact_difference(
+        "post-M48 governed harness",
+        accepted_harness,
+        rows(harness),
+        M64_HARNESS_REMOVED,
+        M64_HARNESS_ADDED,
+    )
     for name, content in (("graph", graph), ("provenance", provenance),
                           ("support", support)):
         compare_or_write(root / M48_PATHS[name], content.encode("utf-8"), False)

@@ -182,15 +182,15 @@ implementation's mapping of the documented capacity and is covered by the
 VA2 V3 BASIC regression test; the cited product specifications state the
 capacity but do not themselves document the CPU address decode.
 
-The main CPU memory entry points retain their historical `i286_*` internal
-names. When the VA memory mode is active, `cpu/upd9002/memory.c` dispatches
-memory accesses into `cpucva/memoryva.c`:
+The main CPU memory entry points use the active `upd9002_*` internal names.
+When the VA memory mode is active, `cpu/upd9002/memory.c` dispatches memory
+accesses into `cpucva/memoryva.c`:
 
 ```text
-i286_memoryread()     -> i286_memoryread_va()
-i286_memoryread_w()   -> i286_memoryread_va_w()
-i286_memorywrite()    -> i286_memorywrite_va()
-i286_memorywrite_w()  -> i286_memorywrite_va_w()
+upd9002_memoryread()     -> upd9002_memoryread_va()
+upd9002_memoryread_w()   -> upd9002_memoryread_va_w()
+upd9002_memorywrite()    -> upd9002_memorywrite_va()
+upd9002_memorywrite_w()  -> upd9002_memorywrite_va_w()
 ```
 
 The switch points are `cpu/upd9002/memory.c:805-930`. The PC-88VA map routines

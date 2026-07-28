@@ -382,18 +382,18 @@ python3 tools/qa/milestone_ids.py --root . --selftest --discover --audit
 ## uPD9002 M45 native execution invariant
 
 M45 makes the proved build/runtime choice unconditional. All 13 supported
-CMake presets compile `i286c/i286c.c` and `i286c/v30patch.c`; the scheduler
-calls `v30c_step()` directly. There is no active CMake or header selector for
-an assembly core or per-instruction 80286 execution. Historical
-`USE_I286C=off`, `i286x_step()`, and `v30x_step()` configurations are frozen
-unsupported references and must not be offered as product build options.
+CMake presets compile the active `cpu/upd9002/` core; the scheduler calls
+`upd9002_core_step()` directly. There is no active CMake or header selector for
+an assembly core or per-instruction 80286 execution. Historical assembly-core
+configurations are frozen unsupported references and must not be offered as
+product build options.
 
 Normal initialization and reset always establish V30-compatible register
-state. The serialized `CPU286` `cpu_type` byte remains ABI-compatible and is
-validated by the M44 state adapter, but it does not control runtime execution.
-CPU_SHUT remains the sole documented initializer-level exception: it preserves
-the M42 286-style register-init fixture, including its upper-FLAGS anomaly,
-without selecting a 286 opcode dispatcher.
+state. Current save states use the `UPD9CPU` CPU section and reject obsolete
+CPU286 compatibility input before mutating machine state. CPU_SHUT remains the
+sole documented initializer-level exception: it preserves the M42
+register-init fixture, including its upper-FLAGS anomaly, without selecting a
+286 opcode dispatcher.
 
 Run the fail-closed source/build/reference map with:
 
@@ -401,8 +401,8 @@ Run the fail-closed source/build/reference map with:
 python3 tools/qa/upd9002_native_invariant.py --root .
 ```
 
-The check also requires the `i286c()` and `v30c()` block executors to remain
-until their separately owned M46 removal.
+The check also requires the historical block executor removal to remain
+complete after M46.
 
 ## Known Issues
 

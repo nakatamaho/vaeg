@@ -95,13 +95,13 @@ static void set_cpu(const UPD9002_HARNESS_CPU_STATE *state) {
 	CS_BASE = state->cs_base;
 	SS_BASE = state->ss_base;
 	DS_BASE = state->ds_base;
-	i286core.s.ss_fix = state->ss_base;
-	i286core.s.ds_fix = state->ds_base;
+	upd9002_core_context.s.ss_fix = state->ss_base;
+	upd9002_core_context.s.ds_fix = state->ds_base;
 	CPU_REMCLOCK = state->remain_clock;
 	CPU_BASECLOCK = state->base_clock;
 	CPU_CLOCK = state->clock;
 	CPU_ADRSMASK = 0xfffff;
-	i286core.s.cpu_type = CPUTYPE_V30;
+	upd9002_core_context.s.cpu_type = CPUTYPE_V30;
 }
 
 static void get_cpu(UPD9002_HARNESS_CPU_STATE *state) {
@@ -145,7 +145,7 @@ static uint32_t hash_ram(uint32_t address, uint32_t size) {
 int upd9002_harness_run(const UPD9002_HARNESS_INPUT *input,
 						UPD9002_HARNESS_RESULT *result) {
 
-	I286STAT saved_cpu;
+	Upd9002RuntimeState saved_cpu;
 	_DMAC saved_dmac;
 	uint8_t *saved_ram;
 	uint8_t saved_memmode;

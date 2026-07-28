@@ -2136,9 +2136,10 @@ def verify_git_unchanged(
         raise M60cError(f"{label} changed")
 
 
-def verify_protected_paths(root: pathlib.Path) -> None:
+def verify_protected_paths(
+    root: pathlib.Path, protected_evidence_only: bool = False
+) -> None:
     protected = [
-        "cpu/upd9002",
         "tests/ssts/approved_target_divergences.json",
         "tests/ssts/baseline",
         "tests/ssts/contracts",
@@ -2146,12 +2147,23 @@ def verify_protected_paths(root: pathlib.Path) -> None:
         "tests/ssts/evidence/g59",
         "tests/ssts/gap_taxonomy.json",
         "tests/ssts/hardware_pending.json",
-        "tests/ssts/target_policy",
         "tests/ssts/v20_dataset_manifest.json",
         "tests/ssts/authority/g60b",
-        SUPPORT_MAP_PATH.as_posix(),
         "tools/qa/upd9002_ssts.py",
     ]
+    if protected_evidence_only:
+        protected.extend(
+            path.relative_to(root).as_posix()
+            for path in (root / "tests/ssts/target_policy").glob("g60b*")
+        )
+    else:
+        protected.extend(
+            [
+                "tests/ssts/target_policy",
+                SUPPORT_MAP_PATH.as_posix(),
+                "cpu/upd9002",
+            ]
+        )
     verify_git_unchanged(
         root,
         protected,
@@ -2175,13 +2187,19 @@ def verify_protected_paths(root: pathlib.Path) -> None:
     )
 
 
-def verify_static(root: pathlib.Path) -> None:
+def verify_static(
+    root: pathlib.Path, protected_evidence_only: bool = False
+) -> None:
+    forward_milestone = (
+        root / "docs/agents/tasks/M62_upd9002_semantics_bundle.md"
+    ).is_file()
+    protected_evidence_only = protected_evidence_only or forward_milestone
     erratum.verify_static(root)
     try:
-        m60b.verify_static(root)
+        m60b.verify_static(root, protected_evidence_only)
     except m60b.M60bError as error:
         raise M60cError(str(error)) from error
-    verify_protected_paths(root)
+    verify_protected_paths(root, protected_evidence_only)
     family = [
         (root / AUTHORITY_ROOT / "manifest.json").is_file(),
         (root / TRANSITION_PATH).is_file(),
@@ -2191,10 +2209,12 @@ def verify_static(root: pathlib.Path) -> None:
         raise M60cError("G60c evidence family is incomplete")
     if all(family):
         validate_result_manifest(root)
-        print(
-            "m60c-static: protected evidence/policy/semantics and complete "
-            "G60c authority audit passed"
+        scope = (
+            "protected evidence/policy"
+            if protected_evidence_only
+            else "protected evidence/policy/semantics"
         )
+        print(f"m60c-static: {scope} and complete G60c authority audit passed")
     else:
         print(
             "m60c-static: implementation-only tree; protected evidence, "
@@ -2753,6 +2773,7 @@ def main() -> int:
     subparsers.add_parser("selftest")
     static = subparsers.add_parser("verify-static")
     static.add_argument("--root", type=pathlib.Path, default=pathlib.Path("."))
+    static.add_argument("--protected-evidence-only", action="store_true")
     generate = subparsers.add_parser("generate")
     generate.add_argument("--root", type=pathlib.Path, default=pathlib.Path("."))
     generate.add_argument("--output-root", type=pathlib.Path, required=True)
@@ -2774,7 +2795,9 @@ def main() -> int:
         if arguments.command == "selftest":
             selftest()
         elif arguments.command == "verify-static":
-            verify_static(arguments.root.resolve())
+            verify_static(
+                arguments.root.resolve(), arguments.protected_evidence_only
+            )
         elif arguments.command == "generate":
             root = arguments.root.resolve()
             output_root = arguments.output_root.resolve()

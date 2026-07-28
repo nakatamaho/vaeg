@@ -66,16 +66,16 @@ static void setup_state(const UINT8 *bytes, UINT size, UINT16 msw) {
 	CS_BASE = 0x00000000;
 	SS_BASE = 0x00003000;
 	DS_BASE = 0x00004000;
-	i286core.s.ss_fix = 0x00035550;
-	i286core.s.ds_fix = 0x00046660;
+	upd9002_core_context.s.ss_fix = 0x00035550;
+	upd9002_core_context.s.ds_fix = 0x00046660;
 	CPU_IP = 0x2000;
 	CPU_FLAG = 0xf8d7;
 	CPU_ADRSMASK = 0x000fffff;
 	CPU_REMCLOCK = 12345;
 	CPU_BASECLOCK = 23456;
 	CPU_CLOCK = 0x3456789a;
-	i286core.s.ovflag = 0x76543210;
-	i286core.s.MSW = msw;
+	upd9002_core_context.s.ovflag = 0x76543210;
+	upd9002_core_context.s.MSW = msw;
 	mem[0x1fff] = 0xa5;
 	CopyMemory(mem + 0x2000, bytes, size);
 	mem[0x2000 + size] = 0x5a;
@@ -117,7 +117,7 @@ static int run_diagnostic_case(UINT8 prefix, UINT8 second,
 	bytes[size++] = second;
 	bytes[size++] = 0x90;
 	setup_state(bytes, size, msw);
-	state_before = i286core.s;
+	state_before = upd9002_core_context.s;
 	hash_before = memory_hash();
 
 	upd9002_core_step();
@@ -125,7 +125,7 @@ static int run_diagnostic_case(UINT8 prefix, UINT8 second,
 		(diagnostic.reason != UPD9002_DIAGNOSTIC_REP0F) ||
 		(diagnostic.prefix != prefix) || (diagnostic.cs != 0x0200) ||
 		(diagnostic.ip != 0x2000) ||
-		memcmp(&state_before, &i286core.s, sizeof(state_before)) ||
+		memcmp(&state_before, &upd9002_core_context.s, sizeof(state_before)) ||
 		(hash_before != memory_hash())) {
 		fprintf(stderr,
 			"upd9002-rep0f-diagnostic: stop mismatch prefix=%02x "
@@ -135,7 +135,7 @@ static int run_diagnostic_case(UINT8 prefix, UINT8 second,
 
 	/* A latched stop must not execute on a subsequent scheduler call. */
 	upd9002_core_step();
-	if (memcmp(&state_before, &i286core.s, sizeof(state_before)) ||
+	if (memcmp(&state_before, &upd9002_core_context.s, sizeof(state_before)) ||
 		(hash_before != memory_hash())) {
 		fprintf(stderr,
 			"upd9002-rep0f-diagnostic: latched stop resumed execution\n");
