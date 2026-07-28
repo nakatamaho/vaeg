@@ -36,8 +36,11 @@ Repository: `github.com/nakatamaho/vaeg`
   `70b8e94e96aef4cb79eed72c7813c4148c5c0dd8`.
 - G68 is approved at
   `d1e0225c4edb716893fe5579283fbf0915db72b9`.
-- M69 is the next prospective gate. It corrects only the Boolean composition
-  of the IDP/TSP `0142H` status byte.
+- G69 is approved at
+  `680308a603b24341c5b9649657f01791b79002f7`.
+- M70 is the next prospective gate. It implements the maintainer-approved
+  `64H`/`65H` REPNC/REPC prefix plus string-instruction closure for the exact
+  canonical 19-group, 5,908-hash population.
 
 Codex executes one milestone or lettered submilestone per session and stops at its candidate gate.
 
@@ -140,6 +143,31 @@ them as retired applicable pass/failure sets, never as newly passing.
 
 Their presence is independent evidence. The absence of base opcodes `6C-6F` must not be generalized
 to deletion of REPC/REPNC or PREPARE/DISPOSE.
+
+M70 is a maintainer-approved project-target amendment for the exact
+SST-present `64H`/`65H` plus primary string-opcode population recorded by
+M65j and consolidated by G67:
+
+- selector groups: 19;
+- owned hashes: 5,908;
+- population digest:
+  `240e0bf76de968b310ad13ef53de8d044637b185e267e1cfb2540f32ab6571e5`.
+
+For this exact population, M70 supersedes the G67
+`known_target_gap/target_support_unverified` disposition with
+milestone-owned implementation authority. Terminal closure requires every
+owned hash to be selected, applicable, executed through production semantics,
+and architecturally passing under `upd9002-v20-architectural-v1`.
+
+This amendment does not authorize generic V20/V30 compatibility, i386 FS/GS
+interpretation of `64H`/`65H`, implementation of absent corpus selectors, or
+fingerprint diagnostics as architectural authority. `REPC + AE` is absent
+from the canonical population and receives no M70 conformance claim.
+
+M70 also preserves a negative-protection boundary for `64/65 + 6C-6F`. Those
+pairs remain governed by the approved target-absence/reserved-behavior
+authority and must not enter the string engine or INM/OUTM semantics without a
+later maintainer-approved policy amendment.
 
 ## 6. FPU/FPO evidence discipline
 
