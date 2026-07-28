@@ -39,11 +39,7 @@ The semantics campaign is shifted by +5 while preserving dependency order:
 | M55b / G55b | M60b / G60b | Synchronous interrupt frame |
 | M55c / G55c | M60c / G60c | IRET |
 | M56 / G56 | M61 / G61 | Canary/shared EA-decode primitive |
-| M57a / G57a | M62a / G62a | AAM |
-| M57b1 / G57b1 | M62b1 / G62b1 | 0F2A |
-| M57b2 / G57b2 | M62b2 / G62b2 | Conditional 0F28 |
-| M57c / G57c | M62c / G62c | BCD adjust family |
-| M58 / G58 | M63 / G63 | Shift family |
+| M57a / G57a through M58 / G58 | M62 / G62 | One-time consolidated AAM, 0F2A, mandatory 0F28, BCD-adjust, and shift bundle |
 | M59 / G59 | M64 / G64 | DIV/IDIV |
 | M60 / G60 | M65 / G65 | Residue re-plan |
 | M61a / G61a | M66a / G66a | Drop CPU286 state compatibility |

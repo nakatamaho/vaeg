@@ -37,26 +37,26 @@ class DispatchError(RuntimeError):
 
 
 POINTER_TYPES = {
-    "I286OP",
-    "I286OP8XREG8",
-    "I286OP8XEXT8",
-    "I286OP8XREG16",
-    "I286OP8XEXT16",
-    "I286OPSFTR8",
-    "I286OPSFTE8",
-    "I286OPSFTR16",
-    "I286OPSFTE16",
-    "I286OPSFTR8CL",
-    "I286OPSFTE8CL",
-    "I286OPSFTR16CL",
-    "I286OPSFTE16CL",
-    "I286OPF6",
+    "UPD9002OP",
+    "UPD9002OP8XREG8",
+    "UPD9002OP8XEXT8",
+    "UPD9002OP8XREG16",
+    "UPD9002OP8XEXT16",
+    "UPD9002OPSFTR8",
+    "UPD9002OPSFTE8",
+    "UPD9002OPSFTR16",
+    "UPD9002OPSFTE16",
+    "UPD9002OPSFTR8CL",
+    "UPD9002OPSFTE8CL",
+    "UPD9002OPSFTR16CL",
+    "UPD9002OPSFTE16CL",
+    "UPD9002OPF6",
 }
 
 EXPECTED_ARRAY_SIZES = {
-    "i286op": 256,
-    "i286op_repne": 256,
-    "i286op_repe": 256,
+    "upd9002op": 256,
+    "upd9002op_repne": 256,
+    "upd9002op_repe": 256,
     "v30ope0x0f_table": 64,
     "c_op8xreg8_table": 8,
     "c_op8xext8_table": 8,
@@ -211,14 +211,14 @@ def parse_patch_array(source: str, name: str) -> list[PatchEntry]:
 def extract_function_bodies(sources: dict[str, str]) -> dict[str, str]:
     functions: dict[str, str] = {}
     pattern = re.compile(
-        r"(?:I286FN|I286_8X|I286_SFT|I286_F6|I286EXT|"
+        r"(?:UPD9002FN|UPD9002_8X|UPD9002_SFT|UPD9002_F6|UPD9002EXT|"
         r"static\s+(?:void|REG8|REG16|UINT|UINT32)|void\s+CPUCALL)\s+"
         r"(?P<name>[A-Za-z_]\w*)\s*\([^;{}]*\)\s*\{"
     )
     for source_name in sorted(sources):
         text = strip_comments(sources[source_name])
         for declaration in re.finditer(
-            r"(?:I286FN|I286_8X|I286_SFT|I286_F6|I286EXT)\s+"
+            r"(?:UPD9002FN|UPD9002_8X|UPD9002_SFT|UPD9002_F6|UPD9002EXT)\s+"
             r"(?P<name>[A-Za-z_]\w*)\s*\(", text
         ):
             functions.setdefault(declaration.group("name"), "")
@@ -239,11 +239,11 @@ def extract_function_bodies(sources: dict[str, str]) -> dict[str, str]:
 def verify_constructor(source: str) -> None:
     text = strip_comments(source)
     required = (
-        "CopyMemory(v30op, i286op, sizeof(v30op))",
+        "CopyMemory(v30op, upd9002op, sizeof(v30op))",
         "V30PATCHING(v30op, v30patch_op)",
-        "CopyMemory(v30op_repne, i286op_repne, sizeof(v30op_repne))",
+        "CopyMemory(v30op_repne, upd9002op_repne, sizeof(v30op_repne))",
         "V30PATCHING(v30op_repne, v30patch_repne)",
-        "CopyMemory(v30op_repe, i286op_repe, sizeof(v30op_repe))",
+        "CopyMemory(v30op_repe, upd9002op_repe, sizeof(v30op_repe))",
         "V30PATCHING(v30op_repe, v30patch_repe)",
         "CopyMemory(v30ope0xf6_table, c_ope0xf6_table, sizeof(v30ope0xf6_table))",
         "v30ope0xf6_table[6] = v30_div_ea8",
@@ -266,12 +266,12 @@ def construct_roots(
 ) -> tuple[dict[str, list[str]], list[list[str]]]:
     verify_constructor(source)
     patches = {
-        "v30op": ("i286op", parse_patch_array(source, "v30patch_op")),
+        "v30op": ("upd9002op", parse_patch_array(source, "v30patch_op")),
         "v30op_repne": (
-            "i286op_repne", parse_patch_array(source, "v30patch_repne")
+            "upd9002op_repne", parse_patch_array(source, "v30patch_repne")
         ),
         "v30op_repe": (
-            "i286op_repe", parse_patch_array(source, "v30patch_repe")
+            "upd9002op_repe", parse_patch_array(source, "v30patch_repe")
         ),
         "v30op_repc": (
             "fill:v30_reserved_repc", parse_patch_array(source, "v30patch_repc")
@@ -483,21 +483,21 @@ def generate(root: Path) -> tuple[str, str, str, str]:
 
 
 def internal_selftest() -> None:
-    sample = "const I286OP i286op[] = {one, two};"
+    sample = "const UPD9002OP upd9002op[] = {one, two};"
     old = EXPECTED_ARRAY_SIZES.copy()
     try:
         EXPECTED_ARRAY_SIZES.clear()
-        EXPECTED_ARRAY_SIZES["i286op"] = 2
+        EXPECTED_ARRAY_SIZES["upd9002op"] = 2
         parsed = parse_arrays({"sample.c": sample})
-        assert parsed["i286op"] == ["one", "two"]
+        assert parsed["upd9002op"] == ["one", "two"]
         try:
-            parse_arrays({"sample.c": "const I286OP i286op[] = {one,};"})
+            parse_arrays({"sample.c": "const UPD9002OP upd9002op[] = {one,};"})
         except DispatchError:
             pass
         else:
             raise AssertionError("missing slot was accepted")
         try:
-            parse_arrays({"sample.c": "const I286OP i286op[] = {one, two, three};"})
+            parse_arrays({"sample.c": "const UPD9002OP upd9002op[] = {one, two, three};"})
         except DispatchError:
             pass
         else:

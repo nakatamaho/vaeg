@@ -41,10 +41,12 @@ Documentation must be in English.
 
 ## Scheduling
 
-Prerequisite: G66a explicitly approved and every production semantic family green.
-If the roadmap renumbers this task, use the approved identifier consistently.
+Prerequisite: the exact M66a internal checkpoint on the approved M66 bundle
+branch. M66a is technically validated but not independently approved. M66b is
+the terminal bundle closure and produces the only G66b candidate presented for
+human review. M67 starts only after approved G66b.
 
-Branch: `topic/m66b-upd9002-remove-i286-identity`
+Branch: `topic/m66-upd9002-remove-i286-compat`
 
 Commit prefix: `M66b:`
 

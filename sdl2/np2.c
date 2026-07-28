@@ -69,6 +69,33 @@
 #if defined(VAEG_UPD9002_M60A_TESTING)
 #include	"tests/upd9002/flags_materialization.h"
 #endif
+#if defined(VAEG_UPD9002_M60E_TESTING)
+#include	"tests/upd9002/iret_restoration.h"
+#endif
+#if defined(VAEG_UPD9002_M61_TESTING)
+#include	"tests/upd9002/mov_imm_register.h"
+#endif
+#if defined(VAEG_UPD9002_M62_TESTING)
+#include	"tests/upd9002/semantics_bundle.h"
+#endif
+#if defined(VAEG_UPD9002_M64_TESTING)
+#include	"tests/upd9002/m64_semantics.h"
+#endif
+#if defined(VAEG_UPD9002_M65A_TESTING)
+#include	"tests/upd9002/m65a_ff7.h"
+#endif
+#if defined(VAEG_UPD9002_M65B_TESTING)
+#include	"tests/upd9002/m65b_bound.h"
+#endif
+#if defined(VAEG_UPD9002_M65C_TESTING)
+#include	"tests/upd9002/m65c_f72.h"
+#endif
+#if defined(VAEG_UPD9002_M65D_TESTING)
+#include	"tests/upd9002/m65d_ff6.h"
+#endif
+#if defined(VAEG_UPD9002_M65E_TESTING)
+#include	"tests/upd9002/m65e_tail10.h"
+#endif
 #if defined(VAEG_UPD9002_SSTS_TESTING)
 #include	"tests/upd9002/ssts_worker.h"
 #endif
@@ -1432,6 +1459,54 @@ int main(int argc, char **argv) {
 	if ((argc == 2) &&
 		!strcmp(argv[1], "--upd9002-m60a-flags-materialization")) {
 		return upd9002_flags_materialization_main();
+	}
+#endif
+#if defined(VAEG_UPD9002_M60E_TESTING)
+	if ((argc == 2) &&
+		!strcmp(argv[1], "--upd9002-m60e-iret-restoration")) {
+		return upd9002_iret_restoration_main();
+	}
+#endif
+#if defined(VAEG_UPD9002_M61_TESTING)
+	if ((argc == 2) &&
+		!strcmp(argv[1], "--upd9002-m61-mov-imm-register")) {
+		return upd9002_mov_imm_register_main();
+	}
+#endif
+#if defined(VAEG_UPD9002_M62_TESTING)
+	if ((argc == 2) &&
+		!strcmp(argv[1], "--upd9002-m62-semantics-bundle")) {
+		return upd9002_semantics_bundle_main();
+	}
+#endif
+#if defined(VAEG_UPD9002_M64_TESTING)
+	if ((argc == 2) && !strcmp(argv[1], "--upd9002-m64-semantics")) {
+		return upd9002_m64_semantics_main();
+	}
+#endif
+#if defined(VAEG_UPD9002_M65A_TESTING)
+	if ((argc == 2) && !strcmp(argv[1], "--upd9002-m65a-ff7")) {
+		return upd9002_m65a_ff7_main();
+	}
+#endif
+#if defined(VAEG_UPD9002_M65B_TESTING)
+	if ((argc == 2) && !strcmp(argv[1], "--upd9002-m65b-bound")) {
+		return upd9002_m65b_bound_main();
+	}
+#endif
+#if defined(VAEG_UPD9002_M65C_TESTING)
+	if ((argc == 2) && !strcmp(argv[1], "--upd9002-m65c-f72")) {
+		return upd9002_m65c_f72_main();
+	}
+#endif
+#if defined(VAEG_UPD9002_M65D_TESTING)
+	if ((argc == 2) && !strcmp(argv[1], "--upd9002-m65d-ff6")) {
+		return upd9002_m65d_ff6_main();
+	}
+#endif
+#if defined(VAEG_UPD9002_M65E_TESTING)
+	if ((argc == 2) && !strcmp(argv[1], "--upd9002-m65e-tail10")) {
+		return upd9002_m65e_tail10_main();
 	}
 #endif
 #if defined(VAEG_UPD9002_SSTS_TESTING)

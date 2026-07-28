@@ -45,6 +45,10 @@ repository documentation must be in English.
 Prerequisite: G66b explicitly approved and the target-correct architectural full profile has zero
 applicable failures.
 
+Approved predecessor gate: `G66b`
+
+Approved predecessor SHA: `97f760e8da573888edf089c2875c623895a3c2c9`
+
 Branch: `topic/m67-upd9002-divergence-consolidation`
 
 Commit prefix: `M67:`
@@ -56,17 +60,71 @@ Gate: `G67`
 Publish the final minimal, content-addressed target inventory, approved divergences, and unresolved
 hardware questions without production semantic change.
 
+M67 records the current divergence-domain state in the canonical registry:
+
+`tests/ssts/divergence/g67/registry.json`
+
+Compatibility views such as approved-target-divergence, hardware-pending,
+evidence-backlog, zero-coverage, fingerprint-diagnostic, and
+state-compatibility-exception views are generated from that registry. They are
+not separate hand-edited current sources of truth.
+
+M67 must make an identity transition from approved G66b for CPU execution,
+target policy, classifications, gap kinds, selected/applicable sets,
+comparison contracts, SST corpus, fixtures, and architectural/fingerprint
+result identities. Any contradiction requiring a policy or classification
+change is a blocker for a later maintainer-approved corrective milestone, not
+part of M67.
+
 ## Required review
 
 - Verify every `expected_target_divergence` against exact primary target/hardware evidence.
 - Verify every remaining `target_support_unverified` hash has exact hardware-pending coverage.
-- Verify all `6C-6F` and `0F31/33/39/3B` records are exact documented-silicon-absent gaps and are
-  never reported as passes.
+- Verify all `6C-6F` and `0F31/33/39/3B` records preserve the approved
+  scope-limited target-absence authority and are never reported as passes.
 - Verify `0F28` is applicable and passing.
 - Reconcile active/reserved behavior for `6C-6F` with the final handler reachability decision.
 - Consolidate BRKFEM/BRKEM, RETEM/CALLN, MD/Z80 mode, and FPO2 questions.
 - State explicitly that generic FPO string absence is non-evidence.
 - Preserve the historical G43 1,204 OUTS gain as V20 evidence only.
+
+## Source precedence and conflicts
+
+Current source precedence is:
+
+1. exact approved target authority;
+2. approved content-addressed target evidence;
+3. approved monitor authority within its documented scope;
+4. approved corpus compatibility evidence;
+5. hardware-pending question;
+6. hypothesis.
+
+Monitor evidence must not be used outside its documented scope. Existing
+approved historical evidence remains immutable. Every discovered current
+divergence-domain source record must appear once in
+`tests/ssts/divergence/g67/source_migration.json`. Current-source conflicts are
+recorded in `tests/ssts/divergence/g67/conflicts.json`; any conflict that
+affects current semantics or gate behavior blocks G67 presentation.
+
+## Protected current domains
+
+- The M65j backlog remains 19 target-support-unverified selector groups,
+  5,908 hashes, digest
+  `240e0bf76de968b310ad13ef53de8d044637b185e267e1cfb2540f32ab6571e5`,
+  non-applicable, unimplemented, not officially executed, not claimed passing,
+  and nonblocking under its recorded amendment.
+- `6C-6F` remains documented target absence outside the blocking denominator;
+  production cleanup status and reserved-byte questions are separate records.
+- `66` and `67` remain upstream-nonblocking with monitor-disassembler target
+  absence only within monitor scope; complete silicon support remains
+  underdetermined and must not be recorded as documented silicon absence.
+- BRKEM (`0F FF imm8`) and BRKFEM (`0F FE imm8`) remain zero-coverage or
+  evidence-backlog records with no implementation or passing claim.
+- Fingerprint-only residue remains diagnostic and non-architectural-blocking.
+- The exact G66b state migration bridge
+  `CPU286 v0 + UPD9002 v0 -> UPD9CPU v1 + UPD9002 v0` remains a
+  state-compatibility exception only, with broader CPU286 compatibility
+  prohibited.
 
 ## Gate G67
 
@@ -76,5 +134,8 @@ hardware questions without production semantic change.
 - Unresolved FPO2/BRK/mode questions are minimal and explicit.
 - No active I286/i286c identity remains and historical artifacts are unchanged.
 - Report does not claim complete silicon validation.
+- Generated compatibility views match the canonical registry.
+- No CPU semantic, target-policy, classification, gap-kind, selected-set,
+  applicable-set, fixture, corpus, or comparison-contract change occurs.
 
 Write `docs/agents/reports/m67_upd9002_divergence_consolidation.md` and stop.

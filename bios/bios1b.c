@@ -240,7 +240,7 @@ static void b0patch(void) {
 			cnt = 0;
 			last = 0;
 			while(size--) {
-				c = i286_memoryread(addr++);
+				c = upd9002_memoryread(addr++);
 				cl = 0;
 				do {
 					REG8 now = c & 0x80;
@@ -267,10 +267,10 @@ static void b0patch(void) {
 			UINT32 addr;
 			REG8 c;
 			addr = ES_BASE + CPU_BP + (b0p.pos >> 3);
-			c = i286_memoryread(addr);
+			c = upd9002_memoryread(addr);
 			c ^= (1 << (b0p.pos & 7));
 			b0p.pos++;
-			i286_memorywrite(addr, c);
+			upd9002_memorywrite(addr, c);
 		}
 	}
 }

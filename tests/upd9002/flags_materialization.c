@@ -77,13 +77,13 @@ static void setup_state(const UINT8 *instruction, UINT instruction_size,
 	CS_BASE = (UINT32)CPU_CS << 4;
 	SS_BASE = (UINT32)CPU_SS << 4;
 	DS_BASE = (UINT32)CPU_DS << 4;
-	i286core.s.ss_fix = SS_BASE;
-	i286core.s.ds_fix = DS_BASE;
+	upd9002_core_context.s.ss_fix = SS_BASE;
+	upd9002_core_context.s.ds_fix = DS_BASE;
 	CPU_ADRSMASK = 0x000fffff;
 	CPU_REMCLOCK = 1000;
 	CPU_BASECLOCK = 1000;
 	CPU_CLOCK = 0;
-	i286core.s.cpu_type = CPUTYPE_V30;
+	upd9002_core_context.s.cpu_type = CPUTYPE_V30;
 	for (index = 0; index < instruction_size; index++) {
 		mem[(CS_BASE + CPU_IP + index) & 0x000fffff] = instruction[index];
 	}
@@ -380,9 +380,9 @@ static int test_pushf(void) {
 	wrapped_high = physical_address(0x3da8, 0x0000);
 	if ((CPU_SP != 0xffff) ||
 		(mem[physical_address(0x3da8, 0xffff)] != 0xd6) ||
-		(mem[linear_high] != 0xf0) || (mem[wrapped_high] != 0x00)) {
+		(mem[linear_high] != 0x00) || (mem[wrapped_high] != 0xf0)) {
 		return fail_case("PUSHF segment wrap",
-			"the approved boundary anomaly changed");
+			"the M65e segment-wrap stack image differs");
 	}
 	return SUCCESS;
 }

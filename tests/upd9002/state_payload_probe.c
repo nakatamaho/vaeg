@@ -37,7 +37,7 @@
 #define CPU_PAYLOAD_SIZE 112
 #define UPD9002_PAYLOAD_SIZE 16
 
-I286CORE i286core;
+Upd9002CoreContext upd9002_core_context;
 UPD9002_REGS upd9002_regs;
 
 static int hex_value(int ch) {
@@ -90,11 +90,11 @@ static int parse_payload(const char *line, const char *key, UINT8 *output,
 static int import_export_cpu(const UINT8 *input, UINT8 *output) {
 
 #if defined(VAEG_M44_RAW_COMPAT_PROBE)
-	memcpy(&i286core.s, input, sizeof(i286core.s));
-	memcpy(output, &i286core.s, sizeof(i286core.s));
+	memcpy(&upd9002_core_context.s, input, sizeof(upd9002_core_context.s));
+	memcpy(output, &upd9002_core_context.s, sizeof(upd9002_core_context.s));
 	return SUCCESS;
 #else
-	Cpu286StateCompat state;
+	Upd9002StateImage state;
 
 	if (upd9002_state_import(input, CPU_PAYLOAD_SIZE, NULL, 0) != SUCCESS) {
 		return FAILURE;
@@ -156,7 +156,7 @@ int main(int argc, char **argv) {
 	if (argc != 2) {
 		return 2;
 	}
-	if ((sizeof(i286core.s) != CPU_PAYLOAD_SIZE) ||
+	if ((sizeof(upd9002_core_context.s) != CPU_PAYLOAD_SIZE) ||
 		(sizeof(upd9002_regs) != UPD9002_PAYLOAD_SIZE)) {
 		return 3;
 	}

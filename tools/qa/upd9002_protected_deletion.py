@@ -57,21 +57,19 @@ M50_PROVENANCE = "tools/qa/golden/upd9002_dispatch_provenance_m50.csv"
 
 IMMUTABLE_FILES = {
     "cpu/upd9002/cpucore.h":
-        "78456e2de3a5903289f23382fa83863d6f092b9d86dbee055b576a2e24775196",
+        "f6e7e657cf706455c7f02d5434695e74be9d858f821d0c1ac6e21ea2213426c3",
     "cpu/upd9002/upd9002_state.c":
-        "09b1ffe22bab6d2a411f15e89ab72f82ee42195606bcefeb6740fd5e4f677505",
+        "72212d8a3b7bed6fcaf4a6670904187cdf268d5846195423ece5fdf3c05b318b",
     "cpu/upd9002/upd9002_state.h":
-        "a3ef33e7a9171c4cd14dda9759d929fe943d6e85ba5e2a7f04d6631ab6db4d80",
+        "07d23bc255b0f931d8576b44c333d6046126c6e4173e2ea31f042cf1de491e92",
     "cpu/upd9002/upd9002_core.c":
-        "658408730cd4fe7cc102a21b1262788abca877ea9e10d1d40929f96ab0bc9892",
-    "cpu/upd9002/upd9002_dispatch.c":
-        "e7b5d743d0e99d46f0ef114383dda25d130b35b436244fbc6c275566672d2502",
-    "cpu/upd9002/i286c_ea.c":
-        "f63a82a595028b05d7bbbc485e53186618fd844649f31f8b16822fbeb88d63d2",
-    "cpu/upd9002/i286c.mcr":
-        "4a68fe820cfcfb5c2f68e2d8370bc5aeec85bc96264a857443f3f8a62e245e88",
+        "fe9af107e7a2a97b08549033ad7dadca8229bef569bb92c9ea5d3c36d58ad03f",
+    "cpu/upd9002/upd9002_ea.c":
+        "64fd640d307540d85b7d1fd6932daf49e83d99f5dfe81efe5f2035fb23f36172",
+    "cpu/upd9002/upd9002_ops.mcr":
+        "dbfcc5b3ce7d3f0b4df493cd494b7fe297aa932e231904ddeb4b59411cd73183",
     "tests/upd9002/rep0f_diagnostic_stop.c":
-        "59baf7627310f73c6862b6f7e26d3704f2ed972c1f9e352dd1c04c571eee91e6",
+        "36bfcee12551eda40ab3e9e1875c9098dab72f4e45408b0dee176e59b3c87474",
     "tests/upd9002/state_fixtures_m42.txt":
         "c8ed4bcf1a7df2a88964d71d85b846a6d7881f60a9233d8c9b787d3d5076f4fb",
     "tools/qa/golden/upd9002_final_dispatch_graph_m48.csv":
@@ -82,6 +80,8 @@ IMMUTABLE_FILES = {
         "21dd037c3eb11e1674805ad456ef03663f17804affbd7382c8db77291ab25279",
     "tools/qa/golden/upd9002_rep0f_transition_manifest_m48.json":
         "4f3fefe8cbfb20a03364a80a0b917e475d3d545cab8eda6bee8a22c66e2147ee",
+    "tools/qa/golden/upd9002_dispatch_provenance_m50.csv":
+        "30246dbd2bbf95b406a6bb05a182d16ea04f56dba48dca73842f5d06b74aae2c",
 }
 
 M51_CANONICAL_REPLACEMENTS = {
@@ -125,8 +125,8 @@ M60A_CANONICAL_REPLACEMENTS = {
         (
             b"static UINT16 upd9002_materialize_interrupt_saved_flags(void) {\n"
             b"\n"
-            b"\treturn (UINT16)((I286_FLAG & (UINT16)~O_FLAG) |\n"
-            b"\t\t\t\t\t\t(I286_OV ? O_FLAG : 0));\n"
+            b"\treturn (UINT16)((UPD9002_FLAG & (UINT16)~O_FLAG) |\n"
+            b"\t\t\t\t\t\t(UPD9002_OV ? O_FLAG : 0));\n"
             b"}\n\n",
             b"",
             1,
@@ -178,6 +178,16 @@ M60A_CANONICAL_REPLACEMENTS = {
     ),
 }
 
+M60E_CANONICAL_REPLACEMENTS = {
+    "cpu/upd9002/upd9002_dispatch.c": (
+        (
+            b"\tflag = (flag & 0x0fd7) | 0xf002;",
+            b"\tflag = (flag & 0x0fff) | 0xf002;",
+            1,
+        ),
+    ),
+}
+
 DELETED_IDENTIFIERS = (
     "_arpl", "_mov_seg_ea", "i286c_cts", "cts0_table", "cts1_table",
     "_sldt", "_str", "_lldt", "_ltr", "_verr", "_verw", "_sgdt",
@@ -187,20 +197,300 @@ DELETED_IDENTIFIERS = (
 )
 
 PLACEHOLDERS = (
-    ("v30op", "i286op", 0x0F, "i286c_cts", "v30_ope0x0f"),
-    ("v30op_repe", "i286op_repe", 0x0F, "i286c_cts",
+    ("v30op", "upd9002op", 0x0F, "_reserved", "v30_ope0x0f"),
+    ("v30op_repe", "upd9002op_repe", 0x0F, "_reserved",
      "v30_repe_0f_diagnostic_stop"),
-    ("v30op_repne", "i286op_repne", 0x0F, "i286c_cts",
+    ("v30op_repne", "upd9002op_repne", 0x0F, "_reserved",
      "v30_repne_0f_diagnostic_stop"),
-    ("v30op", "i286op", 0x63, "_arpl", "v30_reserved"),
-    ("v30op_repe", "i286op_repe", 0x63, "_arpl", "v30_reserved"),
-    ("v30op_repne", "i286op_repne", 0x63, "_arpl", "v30_reserved"),
-    ("v30op", "i286op", 0x8E, "_mov_seg_ea", "v30mov_seg_ea"),
-    ("v30op_repe", "i286op_repe", 0x8E, "_mov_seg_ea",
+    ("v30op", "upd9002op", 0x63, "_reserved", "v30_reserved"),
+    ("v30op_repe", "upd9002op_repe", 0x63, "_reserved", "v30_reserved"),
+    ("v30op_repne", "upd9002op_repne", 0x63, "_reserved", "v30_reserved"),
+    ("v30op", "upd9002op", 0x8E, "_reserved", "v30mov_seg_ea"),
+    ("v30op_repe", "upd9002op_repe", 0x8E, "_reserved",
      "v30mov_seg_ea"),
-    ("v30op_repne", "i286op_repne", 0x8E, "_mov_seg_ea",
+    ("v30op_repne", "upd9002op_repne", 0x8E, "_reserved",
      "v30mov_seg_ea"),
 )
+
+M62_GRAPH_REMOVED = {
+    ("v30op", "0x27", "handler", "_daa"),
+    ("v30op", "0x2f", "handler", "_das"),
+    ("v30op", "0x37", "handler", "_aaa"),
+    ("v30op", "0x3f", "handler", "_aas"),
+    ("v30ope0x0f_table", "0x28", "handler", "v30_reserved_0x0f"),
+}
+
+M62_GRAPH_ADDED = {
+    ("v30op", "0x27", "handler", "v30_daa"),
+    ("v30op", "0x2f", "handler", "v30_das"),
+    ("v30op", "0x37", "handler", "v30_aaa"),
+    ("v30op", "0x3f", "handler", "v30_aas"),
+    ("v30ope0x0f_table", "0x28", "handler", "v30_rol4_ea8"),
+}
+
+M62_SUPPORT_REMOVED = {
+    ("v30op", "0x27", "-", "_daa", "implemented", "final-root-target"),
+    ("v30op", "0x2f", "-", "_das", "implemented", "final-root-target"),
+    ("v30op", "0x37", "-", "_aaa", "implemented", "final-root-target"),
+    ("v30op", "0x3f", "-", "_aas", "implemented", "final-root-target"),
+    (
+        "v30op_0f",
+        "0x0f",
+        "0x28",
+        "v30_reserved_0x0f",
+        "known_target_gap",
+        "second-byte-resolved",
+    ),
+}
+
+M62_SUPPORT_ADDED = {
+    ("v30op", "0x27", "-", "v30_daa", "implemented", "final-root-target"),
+    ("v30op", "0x2f", "-", "v30_das", "implemented", "final-root-target"),
+    ("v30op", "0x37", "-", "v30_aaa", "implemented", "final-root-target"),
+    ("v30op", "0x3f", "-", "v30_aas", "implemented", "final-root-target"),
+    (
+        "v30op_0f",
+        "0x0f",
+        "0x28",
+        "v30_rol4_ea8",
+        "implemented",
+        "second-byte-resolved",
+    ),
+}
+
+M64_GRAPH_REMOVED = M62_GRAPH_REMOVED | {
+    ("v30ope0x0f_table", opcode, "handler", "v30_reserved_0x0f")
+    for opcode in ("0x13", "0x15", "0x16", "0x17", "0x1e", "0x1f", "0x26")
+}
+
+M64_GRAPH_ADDED = M62_GRAPH_ADDED | {
+    ("v30ope0x0f_table", "0x13", "handler", "v30_clr1_ea16_cl"),
+    ("v30ope0x0f_table", "0x15", "handler", "v30_set1_ea16_cl"),
+    ("v30ope0x0f_table", "0x16", "handler", "v30_not1_ea8_cl"),
+    ("v30ope0x0f_table", "0x17", "handler", "v30_not1_ea16_cl"),
+    ("v30ope0x0f_table", "0x1e", "handler", "v30_not1_ea8_i3"),
+    ("v30ope0x0f_table", "0x1f", "handler", "v30_not1_ea16_i4"),
+    ("v30ope0x0f_table", "0x26", "handler", "v30_cmp4s"),
+}
+
+M64_SUPPORT_REMOVED = M62_SUPPORT_REMOVED | {
+    (
+        "v30op_0f",
+        "0x0f",
+        opcode,
+        "v30_reserved_0x0f",
+        "known_target_gap",
+        "second-byte-resolved",
+    )
+    for opcode in ("0x13", "0x15", "0x16", "0x17", "0x1e", "0x1f", "0x26")
+}
+
+M64_SUPPORT_ADDED = M62_SUPPORT_ADDED | {
+    ("v30op_0f", "0x0f", "0x13", "v30_clr1_ea16_cl", "implemented",
+     "second-byte-resolved"),
+    ("v30op_0f", "0x0f", "0x15", "v30_set1_ea16_cl", "implemented",
+     "second-byte-resolved"),
+    ("v30op_0f", "0x0f", "0x16", "v30_not1_ea8_cl", "implemented",
+     "second-byte-resolved"),
+    ("v30op_0f", "0x0f", "0x17", "v30_not1_ea16_cl", "implemented",
+     "second-byte-resolved"),
+    ("v30op_0f", "0x0f", "0x1e", "v30_not1_ea8_i3", "implemented",
+     "second-byte-resolved"),
+    ("v30op_0f", "0x0f", "0x1f", "v30_not1_ea16_i4", "implemented",
+     "second-byte-resolved"),
+    ("v30op_0f", "0x0f", "0x26", "v30_cmp4s", "implemented",
+     "second-byte-resolved"),
+}
+
+M65A_GRAPH_REMOVED = M64_GRAPH_REMOVED | {
+    ("c_ope0xff_table", "0x07", "handler", "_pop_ea16"),
+}
+
+M65A_GRAPH_ADDED = M64_GRAPH_ADDED | {
+    ("c_ope0xff_table", "0x07", "handler", "_push_ff7_ea16"),
+}
+
+M66B_REP_ROWS = (
+    ("v30op_repe", "0x6c", "i286c_rep_insb", "upd9002_rep_insb"),
+    ("v30op_repe", "0x6d", "i286c_rep_insw", "upd9002_rep_insw"),
+    ("v30op_repe", "0x6e", "i286c_rep_outsb", "upd9002_rep_outsb"),
+    ("v30op_repe", "0x6f", "i286c_rep_outsb", "upd9002_rep_outsb"),
+    ("v30op_repe", "0xa4", "i286c_rep_movsb", "upd9002_rep_movsb"),
+    ("v30op_repe", "0xa5", "i286c_rep_movsw", "upd9002_rep_movsw"),
+    ("v30op_repe", "0xa6", "i286c_repe_cmpsb", "upd9002_repe_cmpsb"),
+    ("v30op_repe", "0xa7", "i286c_repe_cmpsw", "upd9002_repe_cmpsw"),
+    ("v30op_repe", "0xaa", "i286c_rep_stosb", "upd9002_rep_stosb"),
+    ("v30op_repe", "0xab", "i286c_rep_stosw", "upd9002_rep_stosw"),
+    ("v30op_repe", "0xac", "i286c_rep_lodsb", "upd9002_rep_lodsb"),
+    ("v30op_repe", "0xad", "i286c_rep_lodsw", "upd9002_rep_lodsw"),
+    ("v30op_repe", "0xae", "i286c_repe_scasb", "upd9002_repe_scasb"),
+    ("v30op_repe", "0xaf", "i286c_repe_scasw", "upd9002_repe_scasw"),
+    ("v30op_repne", "0x6c", "i286c_rep_insb", "upd9002_rep_insb"),
+    ("v30op_repne", "0x6d", "i286c_rep_insw", "upd9002_rep_insw"),
+    ("v30op_repne", "0x6e", "i286c_rep_outsb", "upd9002_rep_outsb"),
+    ("v30op_repne", "0x6f", "i286c_rep_outsb", "upd9002_rep_outsb"),
+    ("v30op_repne", "0xa4", "i286c_rep_movsb", "upd9002_rep_movsb"),
+    ("v30op_repne", "0xa5", "i286c_rep_movsw", "upd9002_rep_movsw"),
+    ("v30op_repne", "0xa6", "i286c_repne_cmpsb", "upd9002_repne_cmpsb"),
+    ("v30op_repne", "0xa7", "i286c_repne_cmpsw", "upd9002_repne_cmpsw"),
+    ("v30op_repne", "0xaa", "i286c_rep_stosb", "upd9002_rep_stosb"),
+    ("v30op_repne", "0xab", "i286c_rep_stosw", "upd9002_rep_stosw"),
+    ("v30op_repne", "0xac", "i286c_rep_lodsb", "upd9002_rep_lodsb"),
+    ("v30op_repne", "0xad", "i286c_rep_lodsw", "upd9002_rep_lodsw"),
+    ("v30op_repne", "0xae", "i286c_repne_scasb", "upd9002_repne_scasb"),
+    ("v30op_repne", "0xaf", "i286c_repne_scasw", "upd9002_repne_scasw"),
+)
+
+M66B_GRAPH_REMOVED = M65A_GRAPH_REMOVED | {
+    (table, opcode, "handler", old)
+    for table, opcode, old, _new in M66B_REP_ROWS
+}
+
+M66B_GRAPH_ADDED = M65A_GRAPH_ADDED | {
+    (table, opcode, "handler", new)
+    for table, opcode, _old, new in M66B_REP_ROWS
+}
+
+M66B_SUPPORT_REMOVED = M64_SUPPORT_REMOVED | {
+    (table, opcode, "-", old, "implemented", "final-root-target")
+    for table, opcode, old, _new in M66B_REP_ROWS
+}
+
+M66B_SUPPORT_ADDED = M64_SUPPORT_ADDED | {
+    (table, opcode, "-", new, "implemented", "final-root-target")
+    for table, opcode, _old, new in M66B_REP_ROWS
+}
+
+M62_PROVENANCE_REMOVED = {
+    ("v30op", "0x27", "i286op", "_daa", "base", "_daa"),
+    ("v30op", "0x2f", "i286op", "_das", "base", "_das"),
+    ("v30op", "0x37", "i286op", "_aaa", "base", "_aaa"),
+    ("v30op", "0x3f", "i286op", "_aas", "base", "_aas"),
+}
+
+M62_PROVENANCE_ADDED = {
+    ("v30op", "0x27", "i286op", "_daa", "patch", "v30_daa"),
+    ("v30op", "0x2f", "i286op", "_das", "patch", "v30_das"),
+    ("v30op", "0x37", "i286op", "_aaa", "patch", "v30_aaa"),
+    ("v30op", "0x3f", "i286op", "_aas", "patch", "v30_aas"),
+}
+
+M48_HARNESS_ADDED = {
+    (
+        "patch-v30op_repe-0f",
+        "v30op_repe",
+        "0x0f",
+        "v30_repe_0f_diagnostic_stop",
+        "f30fc0000000000000",
+        "1",
+        "patched-root",
+    ),
+    (
+        "patch-v30op_repne-0f",
+        "v30op_repne",
+        "0x0f",
+        "v30_repne_0f_diagnostic_stop",
+        "f20fc0000000000000",
+        "1",
+        "patched-root",
+    ),
+}
+
+M62_HARNESS_REMOVED = {
+    (
+        "native-0f-28",
+        "v30ope0x0f_table",
+        "0x28",
+        "v30_reserved_0x0f",
+        "0f28c0000000000000",
+        "1",
+        "native-secondary",
+    ),
+}
+
+M62_HARNESS_ADDED = {
+    (
+        "native-0f-28",
+        "v30ope0x0f_table",
+        "0x28",
+        "v30_rol4_ea8",
+        "0f28c0000000000000",
+        "1",
+        "native-secondary",
+    ),
+    (
+        "patch-v30op-27",
+        "v30op",
+        "0x27",
+        "v30_daa",
+        "27c0000000000000",
+        "1",
+        "patched-root",
+    ),
+    (
+        "patch-v30op-2f",
+        "v30op",
+        "0x2f",
+        "v30_das",
+        "2fc0000000000000",
+        "1",
+        "patched-root",
+    ),
+    (
+        "patch-v30op-37",
+        "v30op",
+        "0x37",
+        "v30_aaa",
+        "37c0000000000000",
+        "1",
+        "patched-root",
+    ),
+    (
+        "patch-v30op-3f",
+        "v30op",
+        "0x3f",
+        "v30_aas",
+        "3fc0000000000000",
+        "1",
+        "patched-root",
+    ),
+}
+
+M64_NATIVE_HANDLERS = {
+    "13": "v30_clr1_ea16_cl",
+    "15": "v30_set1_ea16_cl",
+    "16": "v30_not1_ea8_cl",
+    "17": "v30_not1_ea16_cl",
+    "1e": "v30_not1_ea8_i3",
+    "1f": "v30_not1_ea16_i4",
+    "26": "v30_cmp4s",
+}
+
+M64_HARNESS_REMOVED = M62_HARNESS_REMOVED | {
+    (
+        "native-0f-{}".format(opcode),
+        "v30ope0x0f_table",
+        "0x{}".format(opcode),
+        "v30_reserved_0x0f",
+        "0f{}c0000000000000".format(opcode),
+        "1",
+        "native-secondary",
+    )
+    for opcode in M64_NATIVE_HANDLERS
+}
+
+M64_HARNESS_ADDED = M62_HARNESS_ADDED | {
+    (
+        "native-0f-{}".format(opcode),
+        "v30ope0x0f_table",
+        "0x{}".format(opcode),
+        handler,
+        "0f{}c0000000000000".format(opcode),
+        "1",
+        "native-secondary",
+    )
+    for opcode, handler in M64_NATIVE_HANDLERS.items()
+}
 
 MANIFEST_COLUMNS = (
     "candidate_id", "symbol_or_field", "kind", "defining_file",
@@ -224,6 +514,15 @@ def read_bytes(root: pathlib.Path, relative: str) -> bytes:
 def verify_immutable_files(root: pathlib.Path) -> None:
     for relative, expected in IMMUTABLE_FILES.items():
         data = read_bytes(root, relative)
+        for current, accepted, expected_count in (
+                M60E_CANONICAL_REPLACEMENTS.get(relative, ())):
+            actual_count = data.count(current)
+            if actual_count != expected_count:
+                raise DeletionError(
+                    "M60e semantic transition count changed: {} token={!r} "
+                    "expected={} actual={}".format(
+                        relative, current, expected_count, actual_count))
+            data = data.replace(current, accepted)
         for current, accepted, expected_count in (
                 M60A_CANONICAL_REPLACEMENTS.get(relative, ())):
             actual_count = data.count(current)
@@ -262,6 +561,45 @@ def load_dispatch_module(root: pathlib.Path):
 
 def csv_rows(text: str) -> Set[Row]:
     return {tuple(row) for row in csv.reader(io.StringIO(text))}
+
+
+M66B_PROVENANCE_TABLE_CANONICAL = {
+    "upd9002op": "i286op",
+    "upd9002op_repe": "i286op_repe",
+    "upd9002op_repne": "i286op_repne",
+}
+
+M66B_PROVENANCE_HANDLER_CANONICAL = {
+    new: old for _table, _opcode, old, new in M66B_REP_ROWS
+}
+
+
+def canonicalize_m66b_provenance(rows: Set[Row]) -> Set[Row]:
+    canonical: Set[Row] = set()
+    for row in rows:
+        fields = list(row)
+        if len(fields) >= 3:
+            fields[2] = M66B_PROVENANCE_TABLE_CANONICAL.get(
+                fields[2], fields[2])
+        if len(fields) >= 4:
+            fields[3] = M66B_PROVENANCE_HANDLER_CANONICAL.get(
+                fields[3], fields[3])
+        if len(fields) >= 6:
+            fields[5] = M66B_PROVENANCE_HANDLER_CANONICAL.get(
+                fields[5], fields[5])
+        canonical.add(tuple(fields))
+    return canonical
+
+
+def require_exact_difference(
+        name: str, old: Set[Row], new: Set[Row],
+        expected_removed: Set[Row], expected_added: Set[Row]) -> None:
+    removed = old - new
+    added = new - old
+    if removed != expected_removed or added != expected_added:
+        raise DeletionError(
+            "{} transition drifted: removed={} added={}".format(
+                name, sorted(removed), sorted(added)))
 
 
 def load_approved_rows(root: pathlib.Path) -> List[Dict[str, str]]:
@@ -383,43 +721,43 @@ def verify_dispatch(root: pathlib.Path, module, write: bool) -> Tuple[str, str]:
         root, "tools/qa/golden/upd9002_final_dispatch_graph_m48.csv")
     expected_support = read_bytes(
         root, "tools/qa/golden/upd9002_support_map_m48.csv")
-    if graph.encode("utf-8") != expected_graph:
-        raise DeletionError("M48 final dispatch graph changed")
-    if support.encode("utf-8") != expected_support:
-        raise DeletionError("M48 support map changed")
+    require_exact_difference(
+        "post-M48 governed graph",
+        csv_rows(expected_graph.decode("utf-8")),
+        csv_rows(graph),
+        M66B_GRAPH_REMOVED,
+        M66B_GRAPH_ADDED,
+    )
+    require_exact_difference(
+        "post-M48 governed support",
+        csv_rows(expected_support.decode("utf-8")),
+        csv_rows(support),
+        M66B_SUPPORT_REMOVED,
+        M66B_SUPPORT_ADDED,
+    )
 
-    old_provenance_text = read_bytes(
-        root, "tools/qa/golden/upd9002_dispatch_provenance_m48.csv"
-    ).decode("utf-8")
-    old_rows = csv_rows(old_provenance_text)
-    new_rows = csv_rows(provenance)
-    removed = set()
-    added = set()
-    for root_name, base_name, slot, old_target, final_target in PLACEHOLDERS:
-        slot_text = "0x{:02x}".format(slot)
-        removed.add((root_name, slot_text, base_name, old_target,
-                     "patch", final_target))
-        added.add((root_name, slot_text, base_name, "_reserved",
-                   "patch", final_target))
-    if old_rows - new_rows != removed or new_rows - old_rows != added:
-        raise DeletionError("M50 provenance transition exceeded nine placeholders")
+    accepted_m50_provenance = read_bytes(root, M50_PROVENANCE)
+    require_exact_difference(
+        "post-M50 governed provenance",
+        csv_rows(accepted_m50_provenance.decode("utf-8")),
+        canonicalize_m66b_provenance(csv_rows(provenance)),
+        M62_PROVENANCE_REMOVED,
+        M62_PROVENANCE_ADDED,
+    )
 
     old_harness = csv_rows(read_bytes(
         root, "tests/upd9002/harness_manifest.csv").decode("utf-8"))
     live_harness = csv_rows(harness)
-    harness_added = {
-        ("patch-v30op_repe-0f", "v30op_repe", "0x0f",
-         "v30_repe_0f_diagnostic_stop", "f30fc0000000000000", "1",
-         "patched-root"),
-        ("patch-v30op_repne-0f", "v30op_repne", "0x0f",
-         "v30_repne_0f_diagnostic_stop", "f20fc0000000000000", "1",
-         "patched-root"),
-    }
-    if old_harness - live_harness or live_harness - old_harness != harness_added:
-        raise DeletionError("direct harness transition changed")
+    accepted_m48_harness = old_harness | M48_HARNESS_ADDED
+    require_exact_difference(
+        "post-M48 governed harness",
+        accepted_m48_harness,
+        live_harness,
+        M64_HARNESS_REMOVED,
+        M64_HARNESS_ADDED,
+    )
 
-    compare_or_write(root / M50_PROVENANCE, provenance.encode("utf-8"), write)
-    return sha256(provenance.encode("utf-8")), sha256(graph.encode("utf-8"))
+    return sha256(accepted_m50_provenance), sha256(graph.encode("utf-8"))
 
 
 def compare_or_write(path: pathlib.Path, data: bytes, write: bool) -> None:

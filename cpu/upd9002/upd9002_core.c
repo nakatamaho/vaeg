@@ -1,6 +1,6 @@
 #include	"compiler.h"
 #include	"cpucore.h"
-#include	"i286c.h"
+#include	"upd9002_ops.h"
 #include	"upd9002_dispatch.h"
 #include	"pccore.h"
 #include	"iocore.h"
@@ -11,10 +11,10 @@
 #if defined(VAEG_UPD9002_SSTS_TESTING)
 #include	"tests/upd9002/direct_harness.h"
 #endif
-#include	"i286c.mcr"
+#include	"upd9002_ops.mcr"
 
 
-	I286CORE	i286core;
+	Upd9002CoreContext	upd9002_core_context;
 
 const UINT8 iflags[512] = {					// Z_FLAG, S_FLAG, P_FLAG
 			0x44, 0x00, 0x00, 0x04, 0x00, 0x04, 0x04, 0x00,
@@ -113,17 +113,17 @@ void upd9002_core_initialize(void) {
 		pos = ((i & 0x20)?0:1);
 #endif
 		pos += ((i >> 3) & 3) * 2;
-		_reg8_b53[i] = ((UINT8 *)&I286_REG) + pos;
+		_reg8_b53[i] = ((UINT8 *)&UPD9002_REG) + pos;
 #if defined(BYTESEX_LITTLE)
 		pos = ((i & 0x4)?1:0);
 #else
 		pos = ((i & 0x4)?0:1);
 #endif
 		pos += (i & 3) * 2;
-		_reg8_b20[i] = ((UINT8 *)&I286_REG) + pos;
+		_reg8_b20[i] = ((UINT8 *)&UPD9002_REG) + pos;
 #if !defined(MEMOPTIMIZE) || (MEMOPTIMIZE < 2)
-		_reg16_b53[i] = ((UINT16 *)&I286_REG) + ((i >> 3) & 7);
-		_reg16_b20[i] = ((UINT16 *)&I286_REG) + (i & 7);
+		_reg16_b53[i] = ((UINT16 *)&UPD9002_REG) + ((i >> 3) & 7);
+		_reg16_b20[i] = ((UINT16 *)&UPD9002_REG) + (i & 7);
 #endif
 	}
 #endif
@@ -148,13 +148,13 @@ void upd9002_core_initialize(void) {
 	}
 #endif
 #if !defined(MEMOPTIMIZE) || (MEMOPTIMIZE < 2)
-	i286cea_initialize();
+	upd9002_ea_initialize();
 #endif
 	upd9002_dispatch_initialize();
-	ZeroMemory(&i286core, sizeof(i286core));
+	ZeroMemory(&upd9002_core_context, sizeof(upd9002_core_context));
 	upd9002_diagnostic_clear();
 	upd9002_state_initialize();
-	i286core.s.cpu_type = CPUTYPE_V30;
+	upd9002_core_context.s.cpu_type = CPUTYPE_V30;
 }
 
 void upd9002_core_deinitialize(void) {
@@ -166,18 +166,18 @@ void upd9002_core_deinitialize(void) {
 	}
 }
 
-static void i286c_initreg(void) {
+static void upd9002_initreg(void) {
 
-	I286_CS = 0xf000;
+	UPD9002_CS = 0xf000;
 	CS_BASE = 0xf0000;
-	I286_IP = 0xfff0;
-	I286_ADRSMASK = 0xfffff;
+	UPD9002_IP = 0xfff0;
+	UPD9002_ADRSMASK = 0xfffff;
 }
 
 static void v30c_initreg(void) {
 
-	i286c_initreg();
-	I286_FLAG = 0xf002;
+	upd9002_initreg();
+	UPD9002_FLAG = 0xf002;
 }
 
 void upd9002_core_reset(void) {
@@ -185,8 +185,8 @@ void upd9002_core_reset(void) {
 #if defined(VAEG_UPD9002_M46_TESTING)
 	upd9002_dispatch_test_require_immutable();
 #endif
-	ZeroMemory(&i286core.s, sizeof(i286core.s));
-	i286core.s.cpu_type = CPUTYPE_V30;
+	ZeroMemory(&upd9002_core_context.s, sizeof(upd9002_core_context.s));
+	upd9002_core_context.s.cpu_type = CPUTYPE_V30;
 	upd9002_diagnostic_clear();
 	v30c_initreg();
 	upd9002_state_reset();
@@ -198,9 +198,9 @@ void upd9002_core_shut(void) {
 	 * ADR-0012 preserves this CPU_SHUT-only 286-style register result.
 	 * It is a regression fixture exception, not an 80286 execution mode.
 	 */
-	ZeroMemory(&i286core.s, offsetof(I286STAT, cpu_type));
+	ZeroMemory(&upd9002_core_context.s, offsetof(Upd9002RuntimeState, cpu_type));
 	upd9002_diagnostic_clear();
-	i286c_initreg();
+	upd9002_initreg();
 	upd9002_state_shut();
 }
 
@@ -219,10 +219,10 @@ void upd9002_core_set_ext_size(UINT32 size) {
 		}
 		CPU_EXTMEMSIZE = size;
 	}
-	i286core.e.ems[0] = mem + 0xc0000;
-	i286core.e.ems[1] = mem + 0xc4000;
-	i286core.e.ems[2] = mem + 0xc8000;
-	i286core.e.ems[3] = mem + 0xcc000;
+	upd9002_core_context.e.ems[0] = mem + 0xc0000;
+	upd9002_core_context.e.ems[1] = mem + 0xc4000;
+	upd9002_core_context.e.ems[2] = mem + 0xc8000;
+	upd9002_core_context.e.ems[3] = mem + 0xcc000;
 }
 
 void upd9002_core_set_emm(UINT frame, UINT32 addr) {
@@ -239,17 +239,17 @@ void upd9002_core_set_emm(UINT frame, UINT32 addr) {
 	else {
 		ptr = mem + 0xc0000 + (frame << 14);
 	}
-	i286core.e.ems[frame] = ptr;
+	upd9002_core_context.e.ems[frame] = ptr;
 }
 
 
 static UINT16 upd9002_materialize_interrupt_saved_flags(void) {
 
-	return (UINT16)((I286_FLAG & (UINT16)~O_FLAG) |
-						(I286_OV ? O_FLAG : 0));
+	return (UINT16)((UPD9002_FLAG & (UINT16)~O_FLAG) |
+						(UPD9002_OV ? O_FLAG : 0));
 }
 
-void CPUCALL i286c_intnum(UINT vect, REG16 IP) {
+void CPUCALL upd9002_intnum(UINT vect, REG16 IP) {
 
 	upd9002_trace_event(UPD9002_TRACE_ORIGIN_CPU, "exception",
 		(uint32_t)vect, (uint32_t)IP, 2);
@@ -260,48 +260,48 @@ void CPUCALL i286c_intnum(UINT vect, REG16 IP) {
 const BYTE	*ptr;
 
 	REGPUSH0(upd9002_materialize_interrupt_saved_flags())
-	REGPUSH0(I286_CS)
+	REGPUSH0(UPD9002_CS)
 	REGPUSH0(IP)
 
-	I286_FLAG &= ~(T_FLAG | I_FLAG);
-	I286_TRAP = 0;
+	UPD9002_FLAG &= ~(T_FLAG | I_FLAG);
+	UPD9002_TRAP = 0;
 
 	ptr = mem + (vect * 4);
-	I286_IP = LOADINTELWORD(ptr+0);				// real mode!
-	I286_CS = LOADINTELWORD(ptr+2);				// real mode!
-	CS_BASE = I286_CS << 4;
-	I286_WORKCLOCK(20);
+	UPD9002_IP = LOADINTELWORD(ptr+0);				// real mode!
+	UPD9002_CS = LOADINTELWORD(ptr+2);				// real mode!
+	CS_BASE = UPD9002_CS << 4;
+	UPD9002_WORKCLOCK(20);
 }
 
 void CPUCALL upd9002_core_interrupt(REG8 vect) {
 
 	upd9002_trace_event(UPD9002_TRACE_ORIGIN_DEVICE, "interrupt",
-		(uint32_t)vect, (uint32_t)I286_IP, 2);
+		(uint32_t)vect, (uint32_t)UPD9002_IP, 2);
 
 	UINT	op;
 const BYTE	*ptr;
 
-	op = i286_memoryread(I286_IP + CS_BASE);
+	op = upd9002_memoryread(UPD9002_IP + CS_BASE);
 	if (op == 0xf4) {							// hlt
-		I286_IP++;
+		UPD9002_IP++;
 	}
 	REGPUSH0(REAL_FLAGREG)						// ここV30で辻褄が合わない
-	REGPUSH0(I286_CS)
-	REGPUSH0(I286_IP)
+	REGPUSH0(UPD9002_CS)
+	REGPUSH0(UPD9002_IP)
 
-	I286_FLAG &= ~(T_FLAG | I_FLAG);
-	I286_TRAP = 0;
+	UPD9002_FLAG &= ~(T_FLAG | I_FLAG);
+	UPD9002_TRAP = 0;
 
 	ptr = mem + (vect * 4);
-	I286_IP = LOADINTELWORD(ptr + 0);			// real mode!
-	I286_CS = LOADINTELWORD(ptr + 2);			// real mode!
-	CS_BASE = I286_CS << 4;
-	I286_WORKCLOCK(20);
+	UPD9002_IP = LOADINTELWORD(ptr + 0);			// real mode!
+	UPD9002_CS = LOADINTELWORD(ptr + 2);			// real mode!
+	CS_BASE = UPD9002_CS << 4;
+	UPD9002_WORKCLOCK(20);
 }
 
 // ---- test
 
-#if defined(I286C_TEST)
+#if defined(UPD9002_TEST)
 BYTE BYTESZPF(UINT r) {
 
 	if (r & (~0xff)) {

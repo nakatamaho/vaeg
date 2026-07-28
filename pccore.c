@@ -437,8 +437,8 @@ void pccore_reset(void) {
 	cbuscore_reset();
 	fmboard_reset(pccore.sound);
 
-	i286_memorymap((pccore.model & PCMODEL_EPSON)?1:0);
-	i286_memorymap_va();
+	upd9002_memorymap((pccore.model & PCMODEL_EPSON)?1:0);
+	upd9002_memorymap_va();
 	iocore_build();
 	iocore_bind();
 	cbuscore_bind();

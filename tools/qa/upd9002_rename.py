@@ -78,43 +78,12 @@ REQUIRED_CORE_APIS = (
     "upd9002_dispatch_initialize",
 )
 
-# This is deliberately an exact list, not an i286c_* wildcard. The first 17
-# names are graph-bound; i286c_rep_outsw is the approved symmetric REP-helper
-# exception. Other retained compatibility identifiers are outside the retired
-# public lifecycle API pattern checked above.
-APPROVED_INTERNAL_EXCEPTIONS = (
-    "i286c_rep_insb",
-    "i286c_rep_insw",
-    "i286c_rep_outsb",
-    "i286c_rep_outsw",
-    "i286c_rep_movsb",
-    "i286c_rep_movsw",
-    "i286c_rep_lodsb",
-    "i286c_rep_lodsw",
-    "i286c_rep_stosb",
-    "i286c_rep_stosw",
-    "i286c_repe_cmpsb",
-    "i286c_repne_cmpsb",
-    "i286c_repe_cmpsw",
-    "i286c_repne_cmpsw",
-    "i286c_repe_scasb",
-    "i286c_repne_scasb",
-    "i286c_repe_scasw",
-    "i286c_repne_scasw",
-)
+# M51 allowed a small graph-bound internal compatibility exception list.
+# M66b removes those active inherited identifiers; the final exception set is
+# deliberately empty.
+APPROVED_INTERNAL_EXCEPTIONS: Tuple[str, ...] = ()
 
-EXCEPTION_PATHS: Mapping[str, Set[str]] = {
-    name: {
-        "cpu/upd9002/i286c.h",
-        "cpu/upd9002/i286c_mn.c",
-        "cpu/upd9002/i286c_rp.c",
-    }
-    for name in APPROVED_INTERNAL_EXCEPTIONS
-}
-EXCEPTION_PATHS["i286c_rep_outsw"] = {
-    "cpu/upd9002/i286c.h",
-    "cpu/upd9002/i286c_rp.c",
-}
+EXCEPTION_PATHS: Mapping[str, Set[str]] = {}
 
 ACTIVE_SOURCE_SUFFIXES = {
     ".c", ".cc", ".cpp", ".h", ".hpp", ".mcr", ".rc", ".tbl",
@@ -265,19 +234,33 @@ def verify(root: pathlib.Path) -> None:
     exception_files = [
         path for path in source_files if path.startswith("cpu/upd9002/")
     ]
-    exceptions = exact_word_matches(
-        root, exception_files, APPROVED_INTERNAL_EXCEPTIONS
-    )
-    if len(APPROVED_INTERNAL_EXCEPTIONS) != 18:
-        raise RenameError("internal exception list is not exactly 18 names")
-    for name in APPROVED_INTERNAL_EXCEPTIONS:
-        if exceptions[name] != EXCEPTION_PATHS[name]:
-            actual = ", ".join(sorted(exceptions[name])) or "<none>"
-            expected = ", ".join(sorted(EXCEPTION_PATHS[name]))
-            raise RenameError(
-                f"internal exception references changed for {name}: "
-                f"expected [{expected}], got [{actual}]"
-            )
+    retired_internal = exact_word_matches(root, exception_files, (
+        "i286c_rep_insb",
+        "i286c_rep_insw",
+        "i286c_rep_outsb",
+        "i286c_rep_outsw",
+        "i286c_rep_movsb",
+        "i286c_rep_movsw",
+        "i286c_rep_lodsb",
+        "i286c_rep_lodsw",
+        "i286c_rep_stosb",
+        "i286c_rep_stosw",
+        "i286c_repe_cmpsb",
+        "i286c_repne_cmpsb",
+        "i286c_repe_cmpsw",
+        "i286c_repne_cmpsw",
+        "i286c_repe_scasb",
+        "i286c_repne_scasb",
+        "i286c_repe_scasw",
+        "i286c_repne_scasw",
+    ))
+    retained = [
+        f"{name}: {', '.join(sorted(paths))}"
+        for name, paths in retired_internal.items() if paths
+    ]
+    if retained:
+        raise RenameError("retired internal compatibility identifiers remain:\n  "
+                          + "\n  ".join(retained))
 
     statsave = read_text(root, "statsave.tbl")
     if statsave.count('{"UPD9002"') != 1:
@@ -300,7 +283,7 @@ def main() -> int:
     print("  retired public core APIs: absent")
     print("  retired active paths: absent")
     print("  register-model owner: upd9002_regs")
-    print("  approved internal historical exceptions: 18")
+    print("  approved internal historical exceptions: 0")
     return 0
 
 
