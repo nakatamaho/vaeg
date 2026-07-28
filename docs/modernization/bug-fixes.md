@@ -171,7 +171,8 @@ separate parity correction or move it to Open Defects.
 
 ### uPD9002 segmented word helpers bypassed mapped-memory dispatch
 
-- **Status:** fixed in M68; G68 remains pending human review.
+- **Status:** fixed in M68; G68 approved at
+  `d1e0225c4edb716893fe5579283fbf0915db72b9`.
 - **Symptom:** PC-Engine/MS-DOS text output stopped scrolling normally after
   reaching the bottom row. New output repeatedly overwrote the last text row
   instead of moving existing lines upward.
@@ -194,6 +195,31 @@ separate parity correction or move it to Open Defects.
   and the maintainer reported the PC-Engine/MS-DOS manual gate passed.
 - **Evidence:** [M68 report](../agents/reports/m68_upd9002_segmented_word_mapped_dispatch.md).
 - **Commit:** [90258f26](https://github.com/nakatamaho/vaeg/commit/90258f26207b7ce7dc3473a5df2811da4bb0c19c).
+
+### IDP/TSP 0142H status reads erased stored status flags
+
+- **Status:** fixed in M69; G69 remains pending human review.
+- **Symptom:** reading the IDP/TSP `0142H` status port could return only
+  `00H` or `40H`. Stored flags such as BUSY at bit 2 were erased, and any
+  nonzero stored status falsely produced the VB bit.
+- **Root cause:** `tsp_i142()` used the expression
+  `tsp.status | (tsp.vsync) ? STATUS_VB : 0`. C parses that expression as
+  `(tsp.status | tsp.vsync) ? STATUS_VB : 0`, so the stored status was first
+  converted to a Boolean condition and then replaced by `STATUS_VB` or zero.
+- **Correction:** the `0142H` input path now starts from `tsp.status` and
+  orthogonally ORs `STATUS_VB` when `tsp.vsync` is active. No command timing,
+  parameter-port behavior, rendering, state format, or broader IDP/TSP status
+  semantics were changed.
+- **Verification:** M69 adds a registered-I/O-path regression test covering
+  the minimum BUSY/VB truth table, every non-VB single bit, representative
+  combinations, VB idempotence, word `IN 0142H`, observable BUSY during
+  `CMD_SYNC`, and exhaustive `256 x 2` stored-status/VB composition. The test
+  fails on the predecessor with 508 exhaustive row failures and passes after
+  the correction. Native non-external CTest, ASan/UBSan focused tests, MinGW
+  build, repository invariants, and maintainer PC-Engine/MS-DOS runtime
+  validation passed.
+- **Evidence:** [M69 report](../agents/reports/m69_upd9002_idp_0142_status_composition.md).
+- **Commit:** [6ef4f98e](https://github.com/nakatamaho/vaeg/commit/6ef4f98ec1be20054db2aeb9c4a44c6a3d2e36bf).
 
 ### State-load rejection feedback disappeared with the State menu
 
