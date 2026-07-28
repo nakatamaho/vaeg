@@ -35,10 +35,12 @@ typedef struct {
 static	UPD9002OP		v30op[256];
 static	UPD9002OP		v30op_repne[256];
 static	UPD9002OP		v30op_repe[256];
+static	UPD9002OP		v30op_repnc[256];
 static	UPD9002OP		v30op_repc[256];
 static	UPD9002OPF6	v30ope0xf6_table[8];
 static	UPD9002OPF6	v30ope0xf7_table[8];
 static	BOOL		v30_dispatch_initialized;
+static	UINT16		v30_repnc_ipbak;
 static	UINT16		v30_repc_ipbak;
 static	UINT16		v30_step_start_cs;
 static	UINT16		v30_step_start_ip;
@@ -47,6 +49,7 @@ static	UINT16		v30_step_start_ip;
 static	UPD9002OP		v30op_snapshot[256];
 static	UPD9002OP		v30op_repne_snapshot[256];
 static	UPD9002OP		v30op_repe_snapshot[256];
+static	UPD9002OP		v30op_repnc_snapshot[256];
 static	UPD9002OP		v30op_repc_snapshot[256];
 static	UPD9002OPF6	v30ope0xf6_snapshot[8];
 static	UPD9002OPF6	v30ope0xf7_snapshot[8];
@@ -61,6 +64,7 @@ static void v30_dispatch_snapshot(void) {
 		v30op_snapshot[i] = v30op[i];
 		v30op_repne_snapshot[i] = v30op_repne[i];
 		v30op_repe_snapshot[i] = v30op_repe[i];
+		v30op_repnc_snapshot[i] = v30op_repnc[i];
 		v30op_repc_snapshot[i] = v30op_repc[i];
 	}
 	for (i=0; i<8; i++) {
@@ -101,6 +105,7 @@ int upd9002_dispatch_test_verify(void) {
 		(!v30_dispatch_equal(v30op, v30op_snapshot, 256)) ||
 		(!v30_dispatch_equal(v30op_repne, v30op_repne_snapshot, 256)) ||
 		(!v30_dispatch_equal(v30op_repe, v30op_repe_snapshot, 256)) ||
+		(!v30_dispatch_equal(v30op_repnc, v30op_repnc_snapshot, 256)) ||
 		(!v30_dispatch_equal(v30op_repc, v30op_repc_snapshot, 256)) ||
 		(!v30_dispatch_f6_equal(v30ope0xf6_table,
 							v30ope0xf6_snapshot, 8)) ||
@@ -1430,6 +1435,29 @@ UPD9002FN v30_reserved_repc(void) {
 	UPD9002_IP = v30_repc_ipbak;
 }
 
+UPD9002FN v30_reserved_repnc(void) {
+
+	UPD9002_WORKCLOCK(2);
+	UPD9002_IP = v30_repnc_ipbak;
+}
+
+UPD9002FN v30_repnc(void) {					// 64: repnc
+
+	UPD9002_PREFIX++;
+	if (UPD9002_PREFIX < MAX_PREFIX) {
+		UINT	op;
+
+		v30_repnc_ipbak = (UINT16)(UPD9002_IP - 1);
+		GET_PCBYTE(op);
+		v30op_repnc[op]();
+		REMOVE_PREFIX
+		UPD9002_PREFIX = 0;
+	}
+	else {
+		INT_NUM(6, UPD9002_IP);
+	}
+}
+
 UPD9002FN v30_repc(void) {					// 65: repc
 
 	UPD9002_PREFIX++;
@@ -1439,6 +1467,78 @@ UPD9002FN v30_repc(void) {					// 65: repc
 		v30_repc_ipbak = (UINT16)(UPD9002_IP - 1);
 		GET_PCBYTE(op);
 		v30op_repc[op]();
+		REMOVE_PREFIX
+		UPD9002_PREFIX = 0;
+	}
+	else {
+		INT_NUM(6, UPD9002_IP);
+	}
+}
+
+UPD9002FN v30repnc_segprefix_es(void) {
+
+	DS_FIX = ES_BASE;
+	SS_FIX = ES_BASE;
+	UPD9002_PREFIX++;
+	if (UPD9002_PREFIX < MAX_PREFIX) {
+		UINT	op;
+
+		GET_PCBYTE(op);
+		v30op_repnc[op]();
+		REMOVE_PREFIX
+		UPD9002_PREFIX = 0;
+	}
+	else {
+		INT_NUM(6, UPD9002_IP);
+	}
+}
+
+UPD9002FN v30repnc_segprefix_cs(void) {
+
+	DS_FIX = CS_BASE;
+	SS_FIX = CS_BASE;
+	UPD9002_PREFIX++;
+	if (UPD9002_PREFIX < MAX_PREFIX) {
+		UINT	op;
+
+		GET_PCBYTE(op);
+		v30op_repnc[op]();
+		REMOVE_PREFIX
+		UPD9002_PREFIX = 0;
+	}
+	else {
+		INT_NUM(6, UPD9002_IP);
+	}
+}
+
+UPD9002FN v30repnc_segprefix_ss(void) {
+
+	DS_FIX = SS_BASE;
+	SS_FIX = SS_BASE;
+	UPD9002_PREFIX++;
+	if (UPD9002_PREFIX < MAX_PREFIX) {
+		UINT	op;
+
+		GET_PCBYTE(op);
+		v30op_repnc[op]();
+		REMOVE_PREFIX
+		UPD9002_PREFIX = 0;
+	}
+	else {
+		INT_NUM(6, UPD9002_IP);
+	}
+}
+
+UPD9002FN v30repnc_segprefix_ds(void) {
+
+	DS_FIX = DS_BASE;
+	SS_FIX = DS_BASE;
+	UPD9002_PREFIX++;
+	if (UPD9002_PREFIX < MAX_PREFIX) {
+		UINT	op;
+
+		GET_PCBYTE(op);
+		v30op_repnc[op]();
 		REMOVE_PREFIX
 		UPD9002_PREFIX = 0;
 	}
@@ -1519,33 +1619,41 @@ UPD9002FN v30repc_segprefix_ds(void) {
 	}
 }
 
-UPD9002FN v30repc_xscasb(void) {				// 65 AE: repc scasb
-
-	if (UPD9002_CX) {
-		UINT16	di;
-
-		di = UPD9002_DI;
-		do {
-			UINT	src;
-			UINT	res;
-
-			UPD9002_WORKCLOCK(8);
-			src = upd9002_memoryread(ES_BASE + di);
-			SUBBYTE(res, UPD9002_AL, src);
-			di = (UINT16)(di + STRING_DIR);
-			UPD9002_CX--;
-		} while((UPD9002_CX) && (UPD9002_FLAGL & C_FLAG));
-		UPD9002_DI = di;
-	}
-	UPD9002_WORKCLOCK(5);
-}
+static const V30PATCH v30patch_repnc[] = {
+			{0x26, v30repnc_segprefix_es},	// 26:	repnc es:
+			{0x2e, v30repnc_segprefix_cs},	// 2E:	repnc cs:
+			{0x36, v30repnc_segprefix_ss},	// 36:	repnc ss:
+			{0x3e, v30repnc_segprefix_ds},	// 3E:	repnc ds:
+			{0x64, v30_repnc},				// 64:	repnc
+			{0x65, v30_repc},				// 65:	repc
+			{0xa4, upd9002_repnc_movsb},	// A4:	repnc movsb
+			{0xa5, upd9002_repnc_movsw},	// A5:	repnc movsw
+			{0xa6, upd9002_repnc_cmpsb},	// A6:	repnc cmpsb
+			{0xa7, upd9002_repnc_cmpsw},	// A7:	repnc cmpsw
+			{0xaa, upd9002_repnc_stosb},	// AA:	repnc stosb
+			{0xab, upd9002_repnc_stosw},	// AB:	repnc stosw
+			{0xac, upd9002_repnc_lodsb},	// AC:	repnc lodsb
+			{0xad, upd9002_repnc_lodsw},	// AD:	repnc lodsw
+			{0xae, upd9002_repnc_scasb},	// AE:	repnc scasb
+			{0xaf, upd9002_repnc_scasw}};	// AF:	repnc scasw
 
 static const V30PATCH v30patch_repc[] = {
 			{0x26, v30repc_segprefix_es},	// 26:	repc es:
 			{0x2e, v30repc_segprefix_cs},	// 2E:	repc cs:
 			{0x36, v30repc_segprefix_ss},	// 36:	repc ss:
 			{0x3e, v30repc_segprefix_ds},	// 3E:	repc ds:
-			{0xae, v30repc_xscasb}};		// AE:	repc scasb
+			{0x64, v30_repnc},				// 64:	repnc
+			{0x65, v30_repc},				// 65:	repc
+			{0xa4, upd9002_repc_movsb},		// A4:	repc movsb
+			{0xa5, upd9002_repc_movsw},		// A5:	repc movsw
+			{0xa6, upd9002_repc_cmpsb},		// A6:	repc cmpsb
+			{0xa7, upd9002_repc_cmpsw},		// A7:	repc cmpsw
+			{0xaa, upd9002_repc_stosb},		// AA:	repc stosb
+			{0xab, upd9002_repc_stosw},		// AB:	repc stosw
+			{0xac, upd9002_repc_lodsb},		// AC:	repc lodsb
+			{0xad, upd9002_repc_lodsw},		// AD:	repc lodsw
+			{0xae, upd9002_repc_scasb},		// AE:	repc scasb
+			{0xaf, upd9002_repc_scasw}};	// AF:	repc scasw
 
 UPD9002FN v30_reserved_0x0f(void) {
 
@@ -1664,7 +1772,7 @@ static const V30PATCH v30patch_op[] = {
 			{0x3f, v30_aas},				// 3F:	aas
 			{0x54, v30push_sp},				// 54:	push	sp
 			{0x63, v30_reserved},			// 63:	reserved
-			{0x64, v30_reserved_0x0f},		// 64:	repnc
+			{0x64, v30_repnc},				// 64:	repnc
 			{0x65, v30_repc},				// 65:	repc
 			{0x66, v30_reserved},			// 66:	reserved
 			{0x67, v30_reserved},			// 67:	reserved
@@ -1920,8 +2028,10 @@ void upd9002_dispatch_initialize(void) {
 	v30ope0xf7_table[6] = v30_div_ea16;
 	v30ope0xf7_table[7] = v30_idiv_ea16;
 	for (i=0; i<0x100; i++) {
+		v30op_repnc[i] = v30_reserved_repnc;
 		v30op_repc[i] = v30_reserved_repc;
 	}
+	V30PATCHING(v30op_repnc, v30patch_repnc);
 	V30PATCHING(v30op_repc, v30patch_repc);
 #if defined(VAEG_UPD9002_M46_TESTING)
 	v30_dispatch_snapshot();
