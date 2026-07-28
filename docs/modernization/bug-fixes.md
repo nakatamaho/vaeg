@@ -145,6 +145,30 @@ separate parity correction or move it to Open Defects.
   [M65 expected/actual reconstruction report](../agents/reports/m65_campaign_expected_actual_reconstruction.md).
 - **Commit:** [5cfc3540](https://github.com/nakatamaho/vaeg/commit/5cfc3540b5f1d78a7aace699d51729d272529552).
 
+### uPD9002 wrapped segment-offset word accesses used contiguous linear bytes
+
+- **Status:** fixed in the M65 residue campaign; formal approval deferred to
+  terminal G65m.
+- **Symptom:** the exact ten-case M65e tail failed final architectural
+  comparison across `61`, `81 /6`, `FF /5`, `A5`, `9C`, `D1 /6`, `C8`, and
+  `C4` forms. The mismatches involved registers, FLAGS, or represented RAM
+  when a word operand crossed offset `0xffff`.
+- **Root cause:** several inherited word paths treated the second byte as the
+  next contiguous physical byte after `segment_base + 0xffff` rather than the
+  byte at the same segment base with offset `0x0000`.
+- **Correction:** M65e adds segment-offset word helpers and applies them only
+  to the proven tail paths: `POPA`, V30 `PUSHF`, wrapped memory word ALU and
+  shift operations, `MOVSW`, `LES`/`LDS`, far pointer fetches, and `ENTER`
+  frame-copy reads and writes. Generic stack macros remain protected.
+- **Verification:** the focused `vaeg_upd9002_m65e_tail10` test covers all
+  eight structural tail forms. The M65e replay ran the exact ten owned hashes
+  as `10 pass / 0 fail`; the original 7,511-hash G65 architectural residue
+  replayed as `7,511 pass / 0 fail`, with zero timeout/crash and all M65a
+  through M65d protected populations preserved.
+- **Evidence:** [M65e report](../agents/reports/m65e_upd9002_tail10.md) and
+  [M65 expected/actual reconstruction report](../agents/reports/m65_campaign_expected_actual_reconstruction.md).
+- **Commit:** [c7bb5ee2](https://github.com/nakatamaho/vaeg/commit/c7bb5ee274441d608096e4a33e2eca5a2d5af3a4).
+
 ### State-load rejection feedback disappeared with the State menu
 
 - **Status:** fixed; corrected G55 human gate passed on 2026-07-22.
