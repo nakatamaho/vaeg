@@ -969,17 +969,26 @@ REG8 MEMCALL meml_read8(UINT seg, UINT off) {
 	}
 }
 
-REG16 MEMCALL meml_read16(UINT seg, UINT off) {
+REG16 MEMCALL i286_memoryread_seg_w(UINT32 segment_base, UINT off) {
 
 	UINT32	address;
+	UINT32	high_address;
 
-	address = (seg << 4) + LOW16(off);
-	if (address < (I286_MEMREADMAX - 1)) {
+	address = segment_base + LOW16(off);
+	high_address = segment_base + LOW16(off + 1);
+	if ((high_address == (address + 1)) &&
+		(address < (I286_MEMREADMAX - 1))) {
 		return(LOADINTELWORD(mem + address));
 	}
 	else {
-		return(i286_memoryread_w(address));
+		return((REG16)(i286_memoryread(address) |
+			(i286_memoryread(high_address) << 8)));
 	}
+}
+
+REG16 MEMCALL meml_read16(UINT seg, UINT off) {
+
+	return(i286_memoryread_seg_w((UINT32)seg << 4, off));
 }
 
 void MEMCALL meml_write8(UINT seg, UINT off, REG8 value) {
@@ -995,17 +1004,26 @@ void MEMCALL meml_write8(UINT seg, UINT off, REG8 value) {
 	}
 }
 
-void MEMCALL meml_write16(UINT seg, UINT off, REG16 value) {
+void MEMCALL i286_memorywrite_seg_w(UINT32 segment_base, UINT off, REG16 value) {
 
 	UINT32	address;
+	UINT32	high_address;
 
-	address = (seg << 4) + LOW16(off);
-	if (address < (I286_MEMWRITEMAX - 1)) {
+	address = segment_base + LOW16(off);
+	high_address = segment_base + LOW16(off + 1);
+	if ((high_address == (address + 1)) &&
+		(address < (I286_MEMWRITEMAX - 1))) {
 		STOREINTELWORD(mem + address, value);
 	}
 	else {
-		i286_memorywrite_w(address, value);
+		i286_memorywrite(address, (REG8)value);
+		i286_memorywrite(high_address, (REG8)(value >> 8));
 	}
+}
+
+void MEMCALL meml_write16(UINT seg, UINT off, REG16 value) {
+
+	i286_memorywrite_seg_w((UINT32)seg << 4, off, value);
 }
 
 void MEMCALL meml_readstr(UINT seg, UINT off, void *dat, UINT leng) {

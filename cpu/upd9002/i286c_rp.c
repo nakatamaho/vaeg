@@ -118,8 +118,8 @@ I286EXT i286c_rep_movsw(void) {
 		r_si = I286_SI;
 		r_di = I286_DI;
 		while(1) {
-			REG16 dat = i286_memoryread_w(DS_FIX + r_si);
-			i286_memorywrite_w(ES_BASE + r_di, dat);
+			REG16 dat = i286_memoryread_seg_w(DS_FIX, r_si);
+			i286_memorywrite_seg_w(ES_BASE, r_di, dat);
 			r_si += stp;
 			r_di += stp;
 			I286_WORKCLOCK(4);
@@ -167,8 +167,8 @@ I286EXT i286c_rep_movsw(void) {
 	if (I286_CX) {
 		int stp = STRING_DIRx2;
 		while(1) {
-			REG16 dat = i286_memoryread_w(I286_SI + DS_FIX);
-			i286_memorywrite_w(I286_DI + ES_BASE, dat);
+			REG16 dat = i286_memoryread_seg_w(DS_FIX, I286_SI);
+			i286_memorywrite_seg_w(ES_BASE, I286_DI, dat);
 			I286_SI += stp;
 			I286_DI += stp;
 			I286_WORKCLOCK(4);
@@ -420,4 +420,3 @@ I286EXT i286c_repne_scasw(void) {
 		} while((I286_CX) && (!(I286_FLAGL & Z_FLAG)));
 	}
 }
-
