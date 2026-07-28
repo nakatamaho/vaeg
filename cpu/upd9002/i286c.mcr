@@ -417,23 +417,37 @@ extern UINT calc_a(UINT op, UINT32 *seg);
 
 #define	REGPUSH0(reg)												\
 		I286_SP -= 2;												\
-		i286_memorywrite_seg_w(SS_BASE, I286_SP, reg);
+		i286_memorywrite_w(I286_SP + SS_BASE, reg);
 
 #define	REGPOP0(reg) 												\
-		reg = i286_memoryread_seg_w(SS_BASE, I286_SP);				\
+		reg = i286_memoryread_w(I286_SP + SS_BASE);					\
 		I286_SP += 2;
 
 #if (defined(ARM) || defined(X11)) && defined(BYTESEX_LITTLE)
 
 #define	REGPUSH(reg, clock)	{										\
+		UINT32 addr;												\
 		I286_WORKCLOCK(clock);										\
 		I286_SP -= 2;												\
-		i286_memorywrite_seg_w(SS_BASE, I286_SP, reg);				\
+		addr = I286_SP + SS_BASE;									\
+		if (INHIBIT_WORDP(addr)) {									\
+			i286_memorywrite_w(addr, reg);							\
+		}															\
+		else {														\
+			*(UINT16 *)(mem + addr) = (reg);						\
+		}															\
 	}
 
 #define	REGPOP(reg, clock) {										\
+		UINT32 addr;												\
 		I286_WORKCLOCK(clock);										\
-		(reg) = i286_memoryread_seg_w(SS_BASE, I286_SP);			\
+		addr = I286_SP + SS_BASE;									\
+		if (INHIBIT_WORDP(addr)) {									\
+			(reg) = i286_memoryread_w(addr);						\
+		}															\
+		else {														\
+			(reg) = *(UINT16 *)(mem + addr);						\
+		}															\
 		I286_SP += 2;												\
 	}
 
@@ -456,13 +470,13 @@ extern UINT calc_a(UINT op, UINT32 *seg);
 #define	SP_PUSH(reg, clock)	{										\
 		REG16 sp = (reg);											\
 		I286_SP -= 2;												\
-		i286_memorywrite_seg_w(SS_BASE, I286_SP, sp);				\
+		i286_memorywrite_w(I286_SP + SS_BASE, sp);					\
 		I286_WORKCLOCK(clock);										\
 	}
 
 #define	SP_POP(reg, clock) {										\
 		I286_WORKCLOCK(clock);										\
-		reg = i286_memoryread_seg_w(SS_BASE, I286_SP);				\
+		reg = i286_memoryread_w(I286_SP + SS_BASE);					\
 	}
 
 

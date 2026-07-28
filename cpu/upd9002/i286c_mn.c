@@ -1136,14 +1136,21 @@ I286FN _popa(void) {						// 61:	popa
 	tmp = I286_SP + 16;
 	addr = tmp + SS_BASE;
 	if ((tmp >= 0x10000) || (INHIBIT_WORDP(addr))) {
-		REGPOP0(I286_DI);
-		REGPOP0(I286_SI);
-		REGPOP0(I286_BP);
+		I286_DI = i286_memoryread_seg_w(SS_BASE, I286_SP);
 		I286_SP += 2;
-		REGPOP0(I286_BX);
-		REGPOP0(I286_DX);
-		REGPOP0(I286_CX);
-		REGPOP0(I286_AX);
+		I286_SI = i286_memoryread_seg_w(SS_BASE, I286_SP);
+		I286_SP += 2;
+		I286_BP = i286_memoryread_seg_w(SS_BASE, I286_SP);
+		I286_SP += 2;
+		I286_SP += 2;
+		I286_BX = i286_memoryread_seg_w(SS_BASE, I286_SP);
+		I286_SP += 2;
+		I286_DX = i286_memoryread_seg_w(SS_BASE, I286_SP);
+		I286_SP += 2;
+		I286_CX = i286_memoryread_seg_w(SS_BASE, I286_SP);
+		I286_SP += 2;
+		I286_AX = i286_memoryread_seg_w(SS_BASE, I286_SP);
+		I286_SP += 2;
 	}
 	else {
 		I286_DI = *(UINT16 *)(mem + addr - 16);
@@ -1177,14 +1184,21 @@ I286FN _pusha(void) {						// 60:	pusha
 
 I286FN _popa(void) {						// 61:	popa
 
-	REGPOP0(I286_DI);
-	REGPOP0(I286_SI);
-	REGPOP0(I286_BP);
+	I286_DI = i286_memoryread_seg_w(SS_BASE, I286_SP);
 	I286_SP += 2;
-	REGPOP0(I286_BX);
-	REGPOP0(I286_DX);
-	REGPOP0(I286_CX);
-	REGPOP0(I286_AX);
+	I286_SI = i286_memoryread_seg_w(SS_BASE, I286_SP);
+	I286_SP += 2;
+	I286_BP = i286_memoryread_seg_w(SS_BASE, I286_SP);
+	I286_SP += 2;
+	I286_SP += 2;
+	I286_BX = i286_memoryread_seg_w(SS_BASE, I286_SP);
+	I286_SP += 2;
+	I286_DX = i286_memoryread_seg_w(SS_BASE, I286_SP);
+	I286_SP += 2;
+	I286_CX = i286_memoryread_seg_w(SS_BASE, I286_SP);
+	I286_SP += 2;
+	I286_AX = i286_memoryread_seg_w(SS_BASE, I286_SP);
+	I286_SP += 2;
 	I286_WORKCLOCK(19);
 }
 
@@ -1797,7 +1811,9 @@ I286FN _wait(void) {						// 9B:	wait
 
 I286FN _pushf(void) {						// 9C:	pushf
 
-	REGPUSH(REAL_FLAGREG, 3)
+	I286_WORKCLOCK(3);
+	I286_SP -= 2;
+	i286_memorywrite_seg_w(SS_BASE, I286_SP, REAL_FLAGREG);
 }
 
 I286FN _popf(void) {						// 9D:	popf
