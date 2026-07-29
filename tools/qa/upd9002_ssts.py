@@ -492,7 +492,11 @@ def resolve_dispatch(
         raise CorpusError(f"{form}: ModR/M reg does not match shard identity")
 
     family = support_table_family(support)
-    if repeat == "repnc" and opcode in M70_REPNC_STRING_OPCODES:
+    if (
+        repeat == "repnc"
+        and opcode in M70_REPNC_STRING_OPCODES
+        and (family["repnc"], opcode, "-") in support
+    ):
         support_key = (family["repnc"], opcode, "-")
     elif repeat == "repnc":
         support_key = (family["root"], 0x64, "-")
@@ -2025,14 +2029,14 @@ def selftest() -> None:
 
     for expected_mode, support_map in (
         (
-            "v30op_repnc",
+            "v30op",
             {
                 ("v30op", 0x00, "-"): {
                     "target": "_add_ea_r8",
                     "classification": "implemented",
                 },
-                ("v30op_repnc", 0xA4, "-"): {
-                    "target": "_movsb",
+                ("v30op", 0x64, "-"): {
+                    "target": "prefix_0x64",
                     "classification": "known_target_gap",
                 },
             },
