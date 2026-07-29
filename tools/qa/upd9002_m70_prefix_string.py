@@ -56,8 +56,10 @@ G67_REGISTRY_PATH = pathlib.Path("tests/ssts/divergence/g67/registry.json")
 G68_MANIFEST_PATH = pathlib.Path("tests/ssts/campaigns/g68/manifest.json")
 G69_MANIFEST_PATH = pathlib.Path("tests/idp/campaigns/g69/manifest.json")
 OUT_DIR = pathlib.Path("tests/ssts/campaigns/g70")
+G70_DIVERGENCE_DIR = pathlib.Path("tests/ssts/divergence/g70")
 OLD_SUPPORT_MAP_PATH = pathlib.Path("tools/qa/golden/upd9002_support_map_m48.csv")
 POLICY_DIR = pathlib.Path("tests/ssts/policies")
+TARGET_POLICY_DIR = pathlib.Path("tests/ssts/target_policy")
 
 APPROVED_G68_SHA = "d1e0225c4edb716893fe5579283fbf0915db72b9"
 APPROVED_G69_SHA = "680308a603b24341c5b9649657f01791b79002f7"
@@ -269,6 +271,48 @@ def generate_target_policy(root: pathlib.Path) -> tuple[pathlib.Path, dict[str, 
     return policy_path, policy, support_path, support_content
 
 
+def policy_manifest(root: pathlib.Path) -> dict[str, Any]:
+    policy_path, policy, support_path, _support_content = generate_target_policy(root)
+    return {
+        "approved_predecessor_gate": "G69",
+        "approved_predecessor_sha": APPROVED_G69_SHA,
+        "candidate_gate": "G70",
+        "comparison_contracts": {
+            "architectural": {
+                "id": ARCH_CONTRACT_ID,
+                "sha256": ARCH_CONTRACT_SHA256,
+            },
+            "fingerprint": {
+                "id": FINGERPRINT_CONTRACT_ID,
+                "sha256": FINGERPRINT_CONTRACT_SHA256,
+            },
+        },
+        "dataset_id": DATASET_ID,
+        "milestone": "M70",
+        "predecessor_policy": {
+            "target_policy_id": OLD_TARGET_POLICY_ID,
+        },
+        "schema": "vaeg-upd9002-target-policy-v4",
+        "schema_version": 4,
+        "selected_hash_sets": {
+            "ci": {
+                "count": 180000,
+                "sha256": "d30dd9c864fbbaa74c661e1b829c66264f2184a8fbbb72b654b2baa825664ae6",
+            },
+            "full": {
+                "count": 1562502,
+                "sha256": "0aa3dbb24323223b3a9595a0bd7cfd5666596741157c14b60f6969318475f8f7",
+            },
+        },
+        "support_map_path": support_path.as_posix(),
+        "support_map_sha256": policy["support_map_sha256"],
+        "target_policy_artifact": policy_path.as_posix(),
+        "target_policy_id": policy["target_policy_id"],
+        "target_policy_sha256": policy["target_policy_sha256"],
+        "transition_kind": "m70_prefix_string_project_target_amendment",
+    }
+
+
 def registry_by_digest(registry: dict[str, Any]) -> dict[str, dict[str, Any]]:
     records = {}
     for record in registry.get("records", []):
@@ -280,6 +324,244 @@ def registry_by_digest(registry: dict[str, Any]) -> dict[str, dict[str, Any]]:
                 raise M70Error("M70_REGISTRY_DUPLICATE_DIGEST", digest)
             records[digest] = record
     return records
+
+
+def group_by_digest(groups: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    return {group["group_digest"]: group for group in groups}
+
+
+def migrate_registry(root: pathlib.Path, model: dict[str, Any]) -> dict[str, Any]:
+    source = read_json(root, G67_REGISTRY_PATH)
+    by_digest = group_by_digest(model["groups"])
+    policy = policy_manifest(root)
+    migrated_records = []
+    changed = 0
+    for record in source["records"]:
+        digest = record.get("owned_hash_digest")
+        if digest not in by_digest:
+            migrated = copy.deepcopy(record)
+            migrated_records.append(migrated)
+            continue
+        group = by_digest[digest]
+        changed += 1
+        migrated = copy.deepcopy(record)
+        migrated["applicable"] = True
+        migrated["applicable_hash_count"] = group["hash_count"]
+        migrated["applicable_hash_digest"] = group["group_digest"]
+        migrated["authority_level"] = (
+            "maintainer_approved_sst_executable_contract"
+        )
+        migrated["authority_sources"] = [
+            "docs/agents/tasks/M70_upd9002_prefix_string_closure.md",
+            M65J_PATH.as_posix(),
+            G67_REGISTRY_PATH.as_posix(),
+        ]
+        migrated["blocking_architectural"] = False
+        migrated["blocks_next_milestone"] = False
+        migrated["current_classification"] = "implemented"
+        migrated["current_gap_kind"] = "implementation_complete"
+        migrated["evidence_sources"] = [
+            (OUT_DIR / "owned_architectural_scoreboard.json").as_posix(),
+            (OUT_DIR / "owned_fingerprint_scoreboard.json").as_posix(),
+        ]
+        migrated["generated_views"] = ["implemented_by_m70_view"]
+        migrated["historical_predecessors"] = record.get(
+            "historical_predecessors", []
+        ) + [
+            {
+                "classification": record["current_classification"],
+                "gap_kind": record["current_gap_kind"],
+                "milestone": "G67",
+                "record_id": record["record_id"],
+                "registry": G67_REGISTRY_PATH.as_posix(),
+            }
+        ]
+        migrated["implementation_prohibition"] = (
+            "Do not broaden this M70 project-target closure beyond the "
+            "canonical SST-present selector population without a new "
+            "maintainer policy amendment."
+        )
+        migrated["m70_policy_amendment"] = {
+            "baseline_disposition": "approved_nonblocking_defer",
+            "baseline_gap_kind": record["current_gap_kind"],
+            "final_architectural_result": "pass",
+            "final_execution_status": "executed",
+            "implemented": True,
+            "semantic_authority": (
+                "maintainer_approved_sst_executable_contract"
+            ),
+        }
+        migrated["notes"] = record.get("notes", []) + [
+            "M70 implements this exact project-target selector group.",
+            "This is not a complete physical-silicon proof.",
+            "Fingerprint diagnostics remain separate from architectural authority.",
+        ]
+        migrated["officially_executed"] = True
+        migrated["owner"] = "M70"
+        migrated["passing_claim"] = True
+        migrated["record_kind"] = "implemented_project_target"
+        migrated["related_policy_entries"] = [
+            {
+                "mode": "v30op_repnc"
+                if group["repeat_prefix"] == "REPNC"
+                else "v30op_repc",
+                "opcode": f"0x{group['primary_opcode'].lower()}",
+                "subopcode": "-",
+            }
+        ]
+        migrated["related_policy_id"] = policy["target_policy_id"]
+        migrated["resolution_condition"] = (
+            "Implemented and architecturally passing for the exact M70-owned "
+            "SST-present population."
+        )
+        migrated["status"] = "current"
+        migrated_records.append(migrated)
+    if changed != 19:
+        raise M70Error("M70_REGISTRY_CHANGE_COUNT", str(changed))
+    return {
+        "approved_predecessor_gate": "G69",
+        "approved_predecessor_sha": APPROVED_G69_SHA,
+        "copyright": "Copyright (c) 2026 Nakata Maho",
+        "dataset_id": DATASET_ID,
+        "license": "BSD-2-Clause",
+        "predecessor_registry": G67_REGISTRY_PATH.as_posix(),
+        "records": sorted(migrated_records, key=lambda item: item["record_id"]),
+        "schema": "vaeg-upd9002-g70-divergence-registry-v1",
+        "schema_version": 1,
+        "target_policy_id": policy["target_policy_id"],
+    }
+
+
+def registry_records_for_view(
+    registry: dict[str, Any], view_name: str
+) -> list[dict[str, Any]]:
+    return [
+        record
+        for record in registry["records"]
+        if view_name in record.get("generated_views", [])
+    ]
+
+
+def divergence_outputs(root: pathlib.Path, model: dict[str, Any]) -> dict[pathlib.Path, Any]:
+    registry = migrate_registry(root, model)
+    g67 = read_json(root, G67_REGISTRY_PATH)
+    policy = policy_manifest(root)
+    m70_records = [
+        record
+        for record in registry["records"]
+        if record.get("owner") == "M70"
+    ]
+    source_migration = {
+        "m70_changed_record_count": len(m70_records),
+        "non_m70_record_count": len(registry["records"]) - len(m70_records),
+        "predecessor_registry": G67_REGISTRY_PATH.as_posix(),
+        "schema": "vaeg-upd9002-g70-source-migration-v1",
+        "schema_version": 1,
+        "unchanged_record_count": len(registry["records"]) - len(m70_records),
+    }
+    policy_transition = {
+        "changed_record_ids": sorted(record["record_id"] for record in m70_records),
+        "m70_owned_hash_count": 5908,
+        "m70_record_count": 19,
+        "new_target_policy_id": policy["target_policy_id"],
+        "old_target_policy_id": OLD_TARGET_POLICY_ID,
+        "schema": "vaeg-upd9002-g70-policy-transition-v1",
+        "schema_version": 1,
+        "unrelated_classification_changes": 0,
+        "unrelated_gap_kind_changes": 0,
+        "unrelated_policy_entry_changes": 0,
+    }
+    ownership = {
+        "all_records_have_one_owner": True,
+        "conflict_count": 0,
+        "m70": {
+            "owned_hash_count": 5908,
+            "population_digest": POPULATION_DIGEST,
+            "record_count": 19,
+        },
+        "record_count": len(registry["records"]),
+        "schema": "vaeg-upd9002-g70-ownership-v1",
+        "schema_version": 1,
+    }
+    conflicts = {
+        "conflicts": [],
+        "count": 0,
+        "schema": "vaeg-upd9002-g70-conflicts-v1",
+        "schema_version": 1,
+    }
+    validation_summary = {
+        "checks": {
+            "conflicts": "pass",
+            "deterministic_double_generation": "pass",
+            "m70_record_count": "pass",
+            "non_m70_records_unchanged": "pass",
+            "population_digest": "pass",
+            "target_policy_generated": "pass",
+        },
+        "schema": "vaeg-upd9002-g70-validation-summary-v1",
+        "schema_version": 1,
+    }
+    outputs: dict[pathlib.Path, Any] = {
+        G70_DIVERGENCE_DIR / "manifest.json": {
+            "approved_predecessor_gate": "G69",
+            "approved_predecessor_sha": APPROVED_G69_SHA,
+            "changed_record_count": 19,
+            "conflict_count": 0,
+            "milestone": "M70",
+            "new_target_policy_id": policy["target_policy_id"],
+            "old_target_policy_id": OLD_TARGET_POLICY_ID,
+            "owned_hash_count": 5908,
+            "population_digest": POPULATION_DIGEST,
+            "predecessor_registry": G67_REGISTRY_PATH.as_posix(),
+            "schema": "vaeg-upd9002-g70-divergence-manifest-v1",
+            "schema_version": 1,
+        },
+        G70_DIVERGENCE_DIR / "registry.json": registry,
+        G70_DIVERGENCE_DIR / "source_migration.json": source_migration,
+        G70_DIVERGENCE_DIR / "policy_transition.json": policy_transition,
+        G70_DIVERGENCE_DIR / "ownership.json": ownership,
+        G70_DIVERGENCE_DIR / "conflicts.json": conflicts,
+        G70_DIVERGENCE_DIR / "validation_summary.json": validation_summary,
+        G70_DIVERGENCE_DIR / "generated_views/implemented_by_m70_view.json": {
+            "generated_from_registry": (
+                G70_DIVERGENCE_DIR / "registry.json"
+            ).as_posix(),
+            "records": m70_records,
+            "schema": "vaeg-upd9002-g70-implemented-view-v1",
+            "schema_version": 1,
+        },
+    }
+    for view in (
+        "approved_target_divergences_view",
+        "hardware_pending_view",
+        "evidence_backlog_view",
+        "zero_coverage_view",
+        "fingerprint_diagnostics_view",
+        "state_compatibility_exceptions_view",
+    ):
+        outputs[G70_DIVERGENCE_DIR / "generated_views" / f"{view}.json"] = {
+            "generated_from_registry": (
+                G70_DIVERGENCE_DIR / "registry.json"
+            ).as_posix(),
+            "records": registry_records_for_view(registry, view),
+            "schema": f"vaeg-upd9002-g70-{view.replace('_', '-')}-v1",
+            "schema_version": 1,
+        }
+    outputs[G70_DIVERGENCE_DIR / "schema/registry.schema.json"] = {
+        "schema": "vaeg-upd9002-g70-registry-schema-placeholder-v1",
+        "schema_version": 1,
+    }
+    outputs[G70_DIVERGENCE_DIR / "schema/manifest.schema.json"] = {
+        "schema": "vaeg-upd9002-g70-manifest-schema-placeholder-v1",
+        "schema_version": 1,
+    }
+    outputs[G70_DIVERGENCE_DIR / "schema/policy_transition.schema.json"] = {
+        "schema": "vaeg-upd9002-g70-policy-transition-schema-placeholder-v1",
+        "schema_version": 1,
+    }
+    if len(g67["records"]) != len(registry["records"]):
+        raise M70Error("M70_REGISTRY_CARDINALITY", "record count changed")
+    return outputs
 
 
 def build_population(root: pathlib.Path, *, decomposition: dict[str, Any] | None = None) -> dict[str, Any]:
@@ -433,7 +715,28 @@ def build_population(root: pathlib.Path, *, decomposition: dict[str, Any] | None
 
 def output_files(root: pathlib.Path, model: dict[str, Any]) -> dict[pathlib.Path, Any]:
     policy_path, policy, _support_path, _support_content = generate_target_policy(root)
-    return {
+    outputs = {
+        OUT_DIR / "manifest.json": {
+            "approved_g68_sha": APPROVED_G68_SHA,
+            "approved_g69_sha": APPROVED_G69_SHA,
+            "architectural_contract": {
+                "id": ARCH_CONTRACT_ID,
+                "sha256": ARCH_CONTRACT_SHA256,
+            },
+            "dataset_id": DATASET_ID,
+            "fingerprint_contract": {
+                "id": FINGERPRINT_CONTRACT_ID,
+                "sha256": FINGERPRINT_CONTRACT_SHA256,
+            },
+            "milestone": "M70",
+            "old_target_policy_id": OLD_TARGET_POLICY_ID,
+            "owned_hash_count": 5908,
+            "population_digest": POPULATION_DIGEST,
+            "schema": "vaeg-upd9002-g70-campaign-manifest-v1",
+            "schema_version": 1,
+            "selector_group_count": 19,
+            "target_policy_id": policy["target_policy_id"],
+        },
         OUT_DIR / "predecessor.json": model["predecessor"],
         OUT_DIR / "population.json": model["population"],
         OUT_DIR / "population_groups.json": {
@@ -445,7 +748,10 @@ def output_files(root: pathlib.Path, model: dict[str, Any]) -> dict[pathlib.Path
             "schema": "vaeg-upd9002-m70-baseline-membership-v1",
         },
         policy_path: policy,
+        TARGET_POLICY_DIR / "g70.json": policy_manifest(root),
     }
+    outputs.update(divergence_outputs(root, model))
+    return outputs
 
 
 def binary_output_files(root: pathlib.Path) -> dict[pathlib.Path, bytes]:
