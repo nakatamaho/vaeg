@@ -80,6 +80,7 @@ ROOTS = (
     "v30op",
     "v30op_repne",
     "v30op_repe",
+    "v30op_repnc",
     "v30op_repc",
     "v30ope0xf6_table",
     "v30ope0xf7_table",
@@ -222,6 +223,11 @@ def extract_function_bodies(sources: dict[str, str]) -> dict[str, str]:
             r"(?P<name>[A-Za-z_]\w*)\s*\(", text
         ):
             functions.setdefault(declaration.group("name"), "")
+        for declaration in re.finditer(
+            r"\bUPD9002_CARRY_REPEAT_WRAPPER\s*\(\s*"
+            r"(?P<name>[A-Za-z_]\w*)\s*,", text
+        ):
+            functions.setdefault(declaration.group("name"), "")
         for match in pattern.finditer(text):
             name = match.group("name")
             end = matching(text, match.end() - 1, "{", "}")
@@ -251,6 +257,8 @@ def verify_constructor(source: str) -> None:
         "CopyMemory(v30ope0xf7_table, c_ope0xf7_table, sizeof(v30ope0xf7_table))",
         "v30ope0xf7_table[6] = v30_div_ea16",
         "v30ope0xf7_table[7] = v30_idiv_ea16",
+        "v30op_repnc[i] = v30_reserved_repnc",
+        "V30PATCHING(v30op_repnc, v30patch_repnc)",
         "v30op_repc[i] = v30_reserved_repc",
         "V30PATCHING(v30op_repc, v30patch_repc)",
     )
@@ -272,6 +280,9 @@ def construct_roots(
         ),
         "v30op_repe": (
             "upd9002op_repe", parse_patch_array(source, "v30patch_repe")
+        ),
+        "v30op_repnc": (
+            "fill:v30_reserved_repnc", parse_patch_array(source, "v30patch_repnc")
         ),
         "v30op_repc": (
             "fill:v30_reserved_repc", parse_patch_array(source, "v30patch_repc")
@@ -347,7 +358,14 @@ def final_graph(
         entries = roots.get(table, arrays.get(table))
         if entries is None:
             raise DispatchError(f"unknown reachable table: {table}")
-        expected = 256 if table in ROOTS[:4] else 8 if table in ROOTS[4:] else EXPECTED_ARRAY_SIZES.get(table)
+        if table in {
+            "v30op", "v30op_repne", "v30op_repe", "v30op_repnc", "v30op_repc"
+        }:
+            expected = 256
+        elif table in {"v30ope0xf6_table", "v30ope0xf7_table"}:
+            expected = 8
+        else:
+            expected = EXPECTED_ARRAY_SIZES.get(table)
         if expected is None or len(entries) != expected:
             raise DispatchError(f"unexpected reachable-table cardinality: {table}")
         for slot, target in enumerate(entries):
@@ -383,6 +401,7 @@ def harness_rows(provenance: list[list[str]], arrays: dict[str, list[str]]) -> l
         "v30op": "",
         "v30op_repne": "f2",
         "v30op_repe": "f3",
+        "v30op_repnc": "64",
         "v30op_repc": "65",
     }
     for root, slot_text, _base, _base_target, operation, target in provenance:
@@ -430,7 +449,7 @@ def load_sources(root: Path) -> dict[str, str]:
 
 def support_rows(roots: dict[str, list[str]], arrays: dict[str, list[str]]) -> list[list[str]]:
     rows: list[list[str]] = []
-    for mode in ("v30op", "v30op_repne", "v30op_repe", "v30op_repc"):
+    for mode in ("v30op", "v30op_repne", "v30op_repe", "v30op_repnc", "v30op_repc"):
         for opcode, target in enumerate(roots[mode]):
             status = "known_target_gap" if "reserved" in target else "implemented"
             rows.append([

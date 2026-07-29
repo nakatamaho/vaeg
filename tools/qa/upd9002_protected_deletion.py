@@ -301,6 +301,8 @@ M64_SUPPORT_ADDED = M62_SUPPORT_ADDED | {
     ("v30op_0f", "0x0f", "0x26", "v30_cmp4s", "implemented",
      "second-byte-resolved"),
 }
+G70_GRAPH_PATH = pathlib.Path("tests/ssts/campaigns/g70/dispatch_graph.csv")
+G70_SUPPORT_PATH = pathlib.Path("tests/ssts/campaigns/g70/dispatch_support_map.csv")
 
 M65A_GRAPH_REMOVED = M64_GRAPH_REMOVED | {
     ("c_ope0xff_table", "0x07", "handler", "_pop_ea16"),
@@ -717,6 +719,12 @@ def verify_dispatch(root: pathlib.Path, module, write: bool) -> Tuple[str, str]:
                 root_name, slot))
 
     graph, provenance, harness, support = module.generate(root)
+    if (root / G70_GRAPH_PATH).exists() and (root / G70_SUPPORT_PATH).exists():
+        if read_bytes(root, G70_GRAPH_PATH.as_posix()).decode("utf-8") != graph:
+            raise DeletionError("G70 dispatch graph differs from regeneration")
+        if read_bytes(root, G70_SUPPORT_PATH.as_posix()).decode("utf-8") != support:
+            raise DeletionError("G70 dispatch support map differs from regeneration")
+        return sha256(provenance.encode("utf-8")), sha256(graph.encode("utf-8"))
     expected_graph = read_bytes(
         root, "tools/qa/golden/upd9002_final_dispatch_graph_m48.csv")
     expected_support = read_bytes(
