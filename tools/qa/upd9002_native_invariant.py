@@ -142,6 +142,8 @@ def tracked_active_files(root):
             continue
         if relative.startswith(FROZEN_OR_HISTORICAL_PREFIXES):
             continue
+        if not (root / relative).exists():
+            continue
         path = Path(relative)
         if (path.name != "CMakeLists.txt") and (path.suffix not in SCANNED_SUFFIXES):
             continue
@@ -173,8 +175,8 @@ def check_presets_and_core(root):
     sources = cmake_call(cmake, "set(VAEG_CORE_SOURCES")
     require("cpu/upd9002/upd9002_core.c" in sources,
             "uPD9002 core implementation is missing")
-    require("cpu/upd9002/upd9002_dispatch.c" in sources,
-            "uPD9002 dispatch source is missing")
+    require("cpu/upd9002/upd9002_dispatch.c" not in sources,
+            "retired uPD9002 dispatch source remains")
     require("i286x/" not in sources, "frozen assembly core entered active sources")
     return len(configured)
 
@@ -191,13 +193,13 @@ def check_native_lifecycle(root):
             "initialization does not establish the V30 compatibility byte")
     require("upd9002_core_context.s.cpu_type = CPUTYPE_V30;" in reset,
             "reset does not establish the V30 compatibility byte")
-    require(reset.count("v30c_initreg();") == 1,
+    require(reset.count("upd9002_core_initreg();") == 1,
             "reset does not select the native register initializer exactly once")
     require("upd9002_initreg();" not in reset,
             "normal reset still selects the 286-style initializer")
     require(shut.count("upd9002_initreg();") == 1,
             "CPU_SHUT no longer preserves the 286-style initializer")
-    require("v30c_initreg();" not in shut,
+    require("upd9002_core_initreg();" not in shut,
             "CPU_SHUT upper-FLAGS anomaly was normalized")
     require("ADR-0012" in shut and "not an 80286 execution mode" in shut,
             "CPU_SHUT exception is not linked to the ownership ADR")
@@ -208,9 +210,6 @@ def check_native_lifecycle(root):
 
     require("void upd9002_legacy_block_executor(void)" not in core,
             "retired block executor remains after M46")
-    dispatch = read_text(root, "cpu/upd9002/upd9002_dispatch.c")
-    require("void v30c(void)" not in dispatch,
-            "v30c block executor remains after M46")
     header = read_text(root, "cpu/upd9002/cpucore.h")
     require("void upd9002_legacy_block_executor(void)" not in header,
             "i286c block-executor declaration remains after M46")
@@ -283,7 +282,7 @@ def main():
     )
     print("upd9002-native-invariant: presets={} core=upd9002 selectors=absent".format(
         preset_count))
-    print("upd9002-native-invariant: reset=v30c_initreg "
+    print("upd9002-native-invariant: reset=upd9002_core_initreg "
           "step=upd9002_core_step "
           "shutdown=upd9002_initreg")
     print("upd9002-native-invariant: cpu_type={} control=state-validation-only".format(

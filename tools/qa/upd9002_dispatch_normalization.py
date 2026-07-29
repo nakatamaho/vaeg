@@ -21,67 +21,51 @@
 # OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
 # ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+"""Verify the folded uPD9002 dispatch tables after M71."""
+
+from __future__ import annotations
+
 import argparse
 from pathlib import Path
 import re
 import subprocess
 import sys
 
+import upd9002_dispatch
+
 
 ROOTS = {
-    "v30op": ("UPD9002OP", 256),
-    "v30op_repne": ("UPD9002OP", 256),
-    "v30op_repe": ("UPD9002OP", 256),
-    "v30op_repnc": ("UPD9002OP", 256),
-    "v30op_repc": ("UPD9002OP", 256),
-    "v30ope0xf6_table": ("UPD9002OPF6", 8),
-    "v30ope0xf7_table": ("UPD9002OPF6", 8),
+    "upd9002op": ("UPD9002OP", 256),
+    "upd9002op_repne": ("UPD9002OP", 256),
+    "upd9002op_repe": ("UPD9002OP", 256),
+    "upd9002op_repnc": ("UPD9002OP", 256),
+    "upd9002op_repc": ("UPD9002OP", 256),
+    "c_ope0xf6_table": ("UPD9002OPF6", 8),
+    "c_ope0xf7_table": ("UPD9002OPF6", 8),
 }
-SNAPSHOTS = {
-    "v30op": "v30op_snapshot",
-    "v30op_repne": "v30op_repne_snapshot",
-    "v30op_repe": "v30op_repe_snapshot",
-    "v30op_repnc": "v30op_repnc_snapshot",
-    "v30op_repc": "v30op_repc_snapshot",
-    "v30ope0xf6_table": "v30ope0xf6_snapshot",
-    "v30ope0xf7_table": "v30ope0xf7_snapshot",
-}
-CONSTRUCTION_OPERATIONS = (
-    "CopyMemory(v30op, upd9002op, sizeof(v30op));",
-    "V30PATCHING(v30op, v30patch_op);",
-    "CopyMemory(v30op_repne, upd9002op_repne, sizeof(v30op_repne));",
-    "V30PATCHING(v30op_repne, v30patch_repne);",
-    "CopyMemory(v30op_repe, upd9002op_repe, sizeof(v30op_repe));",
-    "V30PATCHING(v30op_repe, v30patch_repe);",
-    "CopyMemory(v30ope0xf6_table, c_ope0xf6_table, sizeof(v30ope0xf6_table));",
-    "v30ope0xf6_table[6] = v30_div_ea8;",
-    "v30ope0xf6_table[7] = v30_idiv_ea8;",
-    "CopyMemory(v30ope0xf7_table, c_ope0xf7_table, sizeof(v30ope0xf7_table));",
-    "v30ope0xf7_table[6] = v30_div_ea16;",
-    "v30ope0xf7_table[7] = v30_idiv_ea16;",
-    "v30op_repnc[i] = v30_reserved_repnc;",
-    "v30op_repc[i] = v30_reserved_repc;",
-    "V30PATCHING(v30op_repnc, v30patch_repnc);",
-    "V30PATCHING(v30op_repc, v30patch_repc);",
+
+REMOVED_FILES = (
+    "cpu/upd9002/upd9002_dispatch.c",
+    "cpu/upd9002/upd9002_dispatch.h",
 )
 
 
-class NormalizationError(Exception):
-    pass
+class NormalizationError(RuntimeError):
+    """A fail-closed M71 dispatch normalization verification error."""
 
 
-def require(condition, message):
+def require(condition: bool, message: str) -> None:
     if not condition:
         raise NormalizationError(message)
 
 
-def read_text(root, relative):
+def read_text(root: Path, relative: str) -> str:
     path = root / relative
     require(path.is_file(), "missing required file: {}".format(relative))
     return path.read_text(encoding="utf-8")
 
 
-def function_body(text, signature):
+def function_body(text: str, signature: str) -> str:
     start = text.find(signature)
     require(start >= 0, "missing function: {}".format(signature))
     brace = text.find("{", start + len(signature))
@@ -97,11 +81,7 @@ def function_body(text, signature):
     raise NormalizationError("unterminated function: {}".format(signature))
 
 
-def compact(text):
-    return re.sub(r"\s+", "", text)
-
-
-def tracked_production_sources(root):
+def tracked_production_sources(root: Path) -> list[str]:
     result = subprocess.run(
         ["git", "-C", str(root), "ls-files", "-z", "*.c", "*.h", "*.cpp"],
         check=False,
@@ -110,192 +90,110 @@ def tracked_production_sources(root):
     )
     require(result.returncode == 0, "git ls-files failed")
     excluded = ("docs/", "hlp/", "i286x/", "tests/", "win9x/")
-    return [
-        item.decode("utf-8") for item in result.stdout.split(b"\0")
-        if item and not item.decode("utf-8").startswith(excluded)
-    ]
+    sources: list[str] = []
+    for item in result.stdout.split(b"\0"):
+        if not item:
+            continue
+        relative = item.decode("utf-8")
+        if relative.startswith(excluded):
+            continue
+        if not (root / relative).exists():
+            continue
+        sources.append(relative)
+    return sources
 
 
-def check_constructor_references(root, core, dispatch, header):
-    references = {}
+def check_removed_dispatch_files(root: Path) -> None:
+    for relative in REMOVED_FILES:
+        require(not (root / relative).exists(),
+                "retired dispatch file still exists: {}".format(relative))
+    cmake = read_text(root, "CMakeLists.txt")
+    require("cpu/upd9002/upd9002_dispatch.c" not in cmake,
+            "retired dispatch source remains in CMake core sources")
+
+
+def check_constructor_absent(root: Path) -> None:
+    references: dict[str, int] = {}
     for relative in tracked_production_sources(root):
         count = len(re.findall(
             r"\bupd9002_dispatch_initialize\s*\(",
             read_text(root, relative)))
         if count:
             references[relative] = count
-    require(references == {
-        "cpu/upd9002/upd9002_core.c": 1,
-        "cpu/upd9002/upd9002_dispatch.c": 1,
-        "cpu/upd9002/upd9002_dispatch.h": 1,
-    }, "constructor reference map changed: {}".format(references))
-    require(header.count("void upd9002_dispatch_initialize(void);") == 1,
-            "constructor declaration is not unique")
-    require(dispatch.count("void upd9002_dispatch_initialize(void)") == 1,
-            "constructor definition is not unique")
-    initialize = function_body(core, "void upd9002_core_initialize(void)")
-    require(initialize.count("upd9002_dispatch_initialize();") == 1,
-            "production initialization does not invoke constructor once")
+    require(references == {},
+            "retired constructor references remain: {}".format(references))
 
 
-def check_roots_and_construction(dispatch):
-    for root, (pointer_type, size) in ROOTS.items():
-        pattern = (r"\bstatic\s+{}\s+{}\s*\[{}\]\s*;".format(
-            pointer_type, re.escape(root), size))
-        require(len(re.findall(pattern, dispatch)) == 1,
-                "root definition changed: {}".format(root))
-
-    body = function_body(dispatch, "void upd9002_dispatch_initialize(void)")
-    body_compact = compact(body)
-    cursor = 0
-    for operation in CONSTRUCTION_OPERATIONS:
-        normalized = compact(operation)
-        position = body_compact.find(normalized, cursor)
-        require(position >= cursor,
-                "constructor operation missing or reordered: {}".format(operation))
-        require(body_compact.count(normalized) == 1,
-                "constructor operation is not unique: {}".format(operation))
-        cursor = position + len(normalized)
-    require(body_compact.find("if(v30_dispatch_initialized)") <
-            body_compact.find(compact(CONSTRUCTION_OPERATIONS[0])),
-            "constructor re-entry guard does not precede table writes")
-    require(body_compact.find("v30_dispatch_snapshot();") > cursor,
-            "snapshot is not immediately after construction operations")
-    require(body_compact.find("v30_dispatch_initialized=TRUE;") >
-            body_compact.find("v30_dispatch_snapshot();"),
-            "constructor completion marker precedes the snapshot")
-
-    direct_expected = {
-        "v30op": 0,
-        "v30op_repne": 0,
-        "v30op_repe": 0,
-        "v30op_repnc": 1,
-        "v30op_repc": 1,
-        "v30ope0xf6_table": 2,
-        "v30ope0xf7_table": 2,
-    }
-    for root, expected in direct_expected.items():
-        assignments = re.findall(
-            r"\b{}\s*\[[^\]]+\]\s*=".format(re.escape(root)), dispatch)
-        require(len(assignments) == expected,
-                "unexpected direct live-table writes for {}: {}".format(
-                    root, len(assignments)))
-    patcher = function_body(dispatch,
-                            "static void v30patching(UPD9002OP *op, const V30PATCH *patch, int cnt)")
-    require(compact(patcher).count("op[patch->opnum]=patch->v30opcode;") == 1,
-            "patch helper write changed")
-    require(dispatch.count("#define\tV30PATCHING(a, b)\t") == 1,
-            "patch helper macro changed")
-    require(len(re.findall(r"\bV30PATCHING\s*\(", dispatch)) == 6,
-            "patch helper has an alternative call site")
-    copy_destinations = re.findall(
-        r"\bCopyMemory\s*\(\s*([A-Za-z_]\w*)", dispatch)
-    live_copy_destinations = [name for name in copy_destinations if name in ROOTS]
-    require(live_copy_destinations == [
-        "v30op", "v30op_repne", "v30op_repe",
-        "v30ope0xf6_table", "v30ope0xf7_table",
-    ], "live root copy destinations changed: {}".format(live_copy_destinations))
-
-    call_expected = {
-        "v30op": 5,
-        "v30op_repne": 5,
-        "v30op_repe": 5,
-        "v30op_repnc": 5,
-        "v30op_repc": 5,
-        "v30ope0xf6_table": 1,
-        "v30ope0xf7_table": 1,
-    }
-    for root, expected in call_expected.items():
-        calls = re.findall(
-            r"\b{}\s*\[[^\]]+\]\s*\(".format(re.escape(root)), dispatch)
-        require(len(calls) == expected,
-                "function-pointer call count changed for {}: {}".format(
-                    root, len(calls)))
+def check_folded_roots(root: Path) -> None:
+    core = read_text(root, "cpu/upd9002/upd9002_core.c")
+    mn = read_text(root, "cpu/upd9002/upd9002_mn.c")
+    f6 = read_text(root, "cpu/upd9002/upd9002_f6.c")
+    sources = upd9002_dispatch.load_sources(root)
+    arrays = upd9002_dispatch.parse_arrays(sources)
+    for name, (pointer_type, expected) in ROOTS.items():
+        require(name in arrays, "folded root definition missing: {}".format(name))
+        require(len(arrays[name]) == expected,
+                "folded root cardinality changed for {}: {}".format(
+                    name, len(arrays[name])))
+    combined = mn + "\n" + f6
+    require("static UPD9002OP v30op" not in combined,
+            "retired mutable v30op root remains")
+    require("V30PATCH" not in combined,
+            "retired dispatch patch structure remains")
+    require("V30PATCHING" not in combined,
+            "retired dispatch patch macro remains")
+    require("_div_ea8" in f6 and "_idiv_ea8" in f6,
+            "canonical F6 byte division handlers are missing")
+    require("_div_ea16" in f6 and "_idiv_ea16" in f6,
+            "canonical F7 word division handlers are missing")
+    step = function_body(core, "void upd9002_core_step(void)")
+    require("upd9002op[opcode]();" in step,
+            "core step does not dispatch through folded canonical root")
+    require("upd9002_dispatch_test_verify" in mn,
+            "M46 dispatch QA seam was not retained after folding")
 
 
-def check_snapshot_and_lifecycle(root, core, dispatch, header):
-    for live, snapshot in SNAPSHOTS.items():
-        pointer_type, size = ROOTS[live]
-        require(len(re.findall(
-            r"\bstatic\s+{}\s+{}\s*\[{}\]\s*;".format(
-                pointer_type, re.escape(snapshot), size), dispatch)) == 1,
-            "snapshot definition changed: {}".format(snapshot))
-        require(compact(dispatch).count(
-            "{}[i]={}[i];".format(snapshot, live)) == 1,
-            "snapshot assignment changed: {}".format(live))
-    require("memcmp" not in dispatch,
-            "function-pointer table code must not use memcmp")
-    equal = function_body(
-        dispatch,
-        "static BOOL v30_dispatch_equal(const UPD9002OP *live,")
-    f6_equal = function_body(
-        dispatch,
-        "static BOOL v30_dispatch_f6_equal(const UPD9002OPF6 *live,")
-    require(compact(equal).count("live[i]==snapshot[i]") == 1,
-            "UPD9002OP snapshots are not compared element-wise with ==")
-    require(compact(f6_equal).count("live[i]==snapshot[i]") == 1,
-            "UPD9002OPF6 snapshots are not compared element-wise with ==")
-    verify = compact(function_body(
-        dispatch, "int upd9002_dispatch_test_verify(void)"))
-    for live, snapshot in SNAPSHOTS.items():
-        require(live in verify and snapshot in verify,
-                "snapshot verifier omits {}".format(live))
-    require("VAEG_UPD9002_M46_TESTING" in header,
-            "test seam declarations are not target-local")
-
-    reset = function_body(core, "void upd9002_core_reset(void)")
-    require(reset.count("upd9002_dispatch_test_require_immutable();") == 1,
-            "ordinary reset lacks immutability verification")
-    selftest = read_text(root, "sdl2/selftest.c")
-    require(selftest.count("upd9002_dispatch_normalization_verify_live()") == 2,
-            "selftest/state-load verification count changed")
+def check_test_lifecycle(root: Path) -> None:
     dedicated = read_text(root, "tests/upd9002/dispatch_normalization.c")
     require(dedicated.count("upd9002_core_initialize();") == 1,
             "dedicated QA initialization count changed")
     require(dedicated.count("upd9002_core_reset();") == 1,
             "dedicated QA reset count changed")
-    require(dedicated.count("upd9002_dispatch_initialize();") == 1,
-            "dedicated QA lacks exactly one rejected re-entry attempt")
-    require("upd9002_dispatch_test_construction_count() != 1" in dedicated,
-            "dedicated QA does not enforce one construction")
-    require("upd9002_dispatch_test_rejected_count() != 1" in dedicated,
-            "dedicated QA does not enforce rejected re-entry")
-
-    cmake = read_text(root, "CMakeLists.txt")
-    require(cmake.count("VAEG_UPD9002_M46_TESTING=1") == 2,
-            "M46 instrumentation is not target-local to both test targets")
-    require(cmake.count("tests/upd9002/dispatch_normalization.c") == 1,
-            "dedicated QA source registration changed")
+    require("upd9002_dispatch_initialize" not in dedicated,
+            "dedicated QA still calls the retired constructor")
+    require("upd9002_dispatch_test_construction_count() != 0" in dedicated,
+            "dedicated QA does not enforce removed constructor count")
+    require("upd9002_dispatch_test_rejected_count() != 0" in dedicated,
+            "dedicated QA does not enforce removed re-entry count")
+    selftest = read_text(root, "sdl2/selftest.c")
+    require(selftest.count("upd9002_dispatch_normalization_verify_live()") == 2,
+            "selftest/state-load verification count changed")
     main = read_text(root, "sdl2/np2.c")
     require(main.count("--upd9002-m46-dispatch-qa") == 1,
             "dedicated QA entry point changed")
 
 
-def main():
+def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--root", type=Path, required=True)
     arguments = parser.parse_args()
     root = arguments.root.resolve()
     try:
-        core = read_text(root, "cpu/upd9002/upd9002_core.c")
-        dispatch = read_text(root, "cpu/upd9002/upd9002_dispatch.c")
-        header = read_text(root, "cpu/upd9002/upd9002_dispatch.h")
-        check_constructor_references(root, core, dispatch, header)
-        check_roots_and_construction(dispatch)
-        check_snapshot_and_lifecycle(root, core, dispatch, header)
+        check_removed_dispatch_files(root)
+        check_constructor_absent(root)
+        check_folded_roots(root)
+        check_test_lifecycle(root)
     except (NormalizationError, OSError, UnicodeError, ValueError) as error:
         print("upd9002-dispatch-normalization-static: FAIL: {}".format(error),
               file=sys.stderr)
         return 1
+    print("upd9002-dispatch-normalization-static: folded canonical roots verified")
     print("upd9002-dispatch-normalization-static: "
-          "constructor=upd9002_dispatch_initialize "
-          "production-calls=1 successful-constructions=1")
+          "retired dispatch source/header/constructor absent")
     print("upd9002-dispatch-normalization-static: roots="
-          "v30op:256,v30op_repne:256,v30op_repe:256,"
-          "v30op_repnc:256,v30op_repc:256,"
-          "v30ope0xf6_table:8,v30ope0xf7_table:8")
-    print("upd9002-dispatch-normalization-static: writes=constructor-only "
-          "snapshot=element-wise-equality reset=selftest=state-load=checked")
+          "upd9002op:256,upd9002op_repne:256,upd9002op_repe:256,"
+          "upd9002op_repnc:256,upd9002op_repc:256,"
+          "c_ope0xf6_table:8,c_ope0xf7_table:8")
     return 0
 
 

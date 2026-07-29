@@ -56,20 +56,14 @@ M50_MANIFEST = "tools/qa/golden/upd9002_286_deletion_manifest_m50.csv"
 M50_PROVENANCE = "tools/qa/golden/upd9002_dispatch_provenance_m50.csv"
 
 IMMUTABLE_FILES = {
-    "cpu/upd9002/cpucore.h":
-        "f6e7e657cf706455c7f02d5434695e74be9d858f821d0c1ac6e21ea2213426c3",
     "cpu/upd9002/upd9002_state.c":
         "72212d8a3b7bed6fcaf4a6670904187cdf268d5846195423ece5fdf3c05b318b",
     "cpu/upd9002/upd9002_state.h":
         "07d23bc255b0f931d8576b44c333d6046126c6e4173e2ea31f042cf1de491e92",
-    "cpu/upd9002/upd9002_core.c":
-        "fe9af107e7a2a97b08549033ad7dadca8229bef569bb92c9ea5d3c36d58ad03f",
     "cpu/upd9002/upd9002_ea.c":
         "64fd640d307540d85b7d1fd6932daf49e83d99f5dfe81efe5f2035fb23f36172",
     "cpu/upd9002/upd9002_ops.mcr":
         "dbfcc5b3ce7d3f0b4df493cd494b7fe297aa932e231904ddeb4b59411cd73183",
-    "tests/upd9002/rep0f_diagnostic_stop.c":
-        "36bfcee12551eda40ab3e9e1875c9098dab72f4e45408b0dee176e59b3c87474",
     "tests/upd9002/state_fixtures_m42.txt":
         "c8ed4bcf1a7df2a88964d71d85b846a6d7881f60a9233d8c9b787d3d5076f4fb",
     "tools/qa/golden/upd9002_final_dispatch_graph_m48.csv":
@@ -189,7 +183,7 @@ M60E_CANONICAL_REPLACEMENTS = {
 }
 
 DELETED_IDENTIFIERS = (
-    "_arpl", "_mov_seg_ea", "i286c_cts", "cts0_table", "cts1_table",
+    "_arpl", "i286c_cts", "cts0_table", "cts1_table",
     "_sldt", "_str", "_lldt", "_ltr", "_verr", "_verw", "_sgdt",
     "_sidt", "_lgdt", "_lidt", "_smsw", "_lmsw", "_loadall286",
     "I286_0F", "I286OP_0F", "I286_IDTR", "I286_LDTR", "I286_TR",
@@ -703,27 +697,46 @@ def verify_source_absence(root: pathlib.Path) -> None:
     if findings:
         raise DeletionError("deleted active identifiers remain: {}".format(
             ", ".join(findings)))
+    mn = (root / "cpu/upd9002/upd9002_mn.c").read_text(encoding="utf-8")
+    match = re.search(r"\bUPD9002FN\s+_mov_seg_ea\s*\([^)]*\)\s*\{(.*?)\n\}",
+                      mn, flags=re.S)
+    if not match:
+        raise DeletionError("canonical MOV segment handler is missing")
+    body = match.group(1)
+    forbidden = ("MSW_PE", "I286_PROTECT", "I286_TR", "I286_LDTR", "I286_GDTR")
+    present = [token for token in forbidden if token in body]
+    if present:
+        raise DeletionError(
+            "protected-mode MOV segment body reintroduced: {}".format(present))
 
 
 def verify_dispatch(root: pathlib.Path, module, write: bool) -> Tuple[str, str]:
     sources = module.load_sources(root)
     arrays = module.parse_arrays(sources)
-    roots, _provenance_rows = module.construct_roots(
-        arrays, sources["upd9002_dispatch.c"])
-    for root_name, base_name, slot, _old_target, final_target in PLACEHOLDERS:
-        if arrays[base_name][slot] != "_reserved":
-            raise DeletionError("base placeholder changed: {}[{:#04x}]".format(
-                base_name, slot))
-        if roots[root_name][slot] != final_target:
-            raise DeletionError("final dispatch changed: {}[{:#04x}]".format(
-                root_name, slot))
+    roots, _provenance_rows = module.construct_roots(arrays)
 
     graph, provenance, harness, support = module.generate(root)
     if (root / G70_GRAPH_PATH).exists() and (root / G70_SUPPORT_PATH).exists():
-        if read_bytes(root, G70_GRAPH_PATH.as_posix()).decode("utf-8") != graph:
-            raise DeletionError("G70 dispatch graph differs from regeneration")
-        if read_bytes(root, G70_SUPPORT_PATH.as_posix()).decode("utf-8") != support:
-            raise DeletionError("G70 dispatch support map differs from regeneration")
+        current_graph = read_bytes(
+            root, "tools/qa/golden/upd9002_final_dispatch_graph.csv"
+        ).decode("utf-8")
+        current_support = read_bytes(
+            root, "tools/qa/golden/upd9002_support_map_m42.csv"
+        ).decode("utf-8")
+        current_harness = read_bytes(
+            root, "tests/upd9002/harness_manifest.csv"
+        ).decode("utf-8")
+        current_provenance = read_bytes(
+            root, "tools/qa/golden/upd9002_dispatch_provenance_m42.csv"
+        ).decode("utf-8")
+        if current_graph != graph:
+            raise DeletionError("current dispatch graph differs from regeneration")
+        if current_support != support:
+            raise DeletionError("current dispatch support map differs from regeneration")
+        if current_harness != harness:
+            raise DeletionError("current dispatch harness differs from regeneration")
+        if current_provenance != provenance:
+            raise DeletionError("current dispatch provenance differs from regeneration")
         return sha256(provenance.encode("utf-8")), sha256(graph.encode("utf-8"))
     expected_graph = read_bytes(
         root, "tools/qa/golden/upd9002_final_dispatch_graph_m48.csv")
