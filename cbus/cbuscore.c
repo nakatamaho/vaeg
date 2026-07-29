@@ -4,7 +4,6 @@
 #include	"cbuscore.h"
 #include	"sasiio.h"
 #include	"scsiio.h"
-#include	"pc9861k.h"
 #include	"mpu98ii.h"
 #include	"bmsio.h"
 
@@ -14,9 +13,6 @@ static const IOCBFN resetfn[] = {
 #endif
 #if defined(SUPPORT_SCSI)
 			scsiio_reset,
-#endif
-#if defined(SUPPORT_PC9861K)
-			pc9861k_reset,
 #endif
 			mpu98ii_reset,
 #if defined(SUPPORT_BMS)
@@ -30,9 +26,6 @@ static const IOCBFN bindfn[] = {
 #endif
 #if defined(SUPPORT_SCSI)
 			scsiio_bind,
-#endif
-#if defined(SUPPORT_PC9861K)
-			pc9861k_bind,
 #endif
 			mpu98ii_bind,
 #if defined(SUPPORT_BMS)

@@ -36,10 +36,6 @@ static const PROCTBL evtproc[] = {
 #if defined(SUPPORT_SCSI)
 			{PROCID('e','s','c','s'), scsiioint},
 #endif
-#if defined(SUPPORT_PC9861K)
-			{PROCID('e','p','k','1'), pc9861ch1cb},
-			{PROCID('e','p','k','2'), pc9861ch2cb},
-#endif
 			{PROCID('e','s','0','V'), screendispva},
 			{PROCID('e','s','1','V'), screenvsyncva},
 //			{PROCID('e','s','2','V'), screenvsyncva2},
@@ -66,8 +62,6 @@ static const ENUMTBL evtnum[] = {
 			{PROCID('g','d','c','s'), NEVENT_GDCSLAVE},
 			{PROCID('f','d','b','b'), NEVENT_FDBIOSBUSY},
 			{PROCID('f','d','c','i'), NEVENT_FDCINT},
-			{PROCID('k','c','h','1'), NEVENT_PC9861CH1},
-			{PROCID('k','c','h','2'), NEVENT_PC9861CH2},
 			{PROCID('p','c','m','8'), NEVENT_86PCM},
 			{PROCID('s','a','s','i'), NEVENT_SASIIO},
 			{PROCID('s','c','s','i'), NEVENT_SCSIIO},
@@ -147,9 +141,6 @@ static const SFENTRY np2tbl[] = {
 #endif
 #if defined(SUPPORT_SCSI)
 	{"SCSI",		0,	STATFLAG_BIN,	&scsiio,		sizeof(scsiio)},
-#endif
-#if defined(SUPPORT_PC9861K)
-	{"PC9861K",		0,	STATFLAG_BIN,	&pc9861k,		sizeof(pc9861k)},
 #endif
 #if defined(SUPPORT_HOSTDRV)
 	{"HOSTDRV",		0,	STATFLAG_HDRV,	NULL,			0},

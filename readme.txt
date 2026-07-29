@@ -56,9 +56,6 @@
 　　　水平走査31.47kHzをサポートする
 　　　Fellowタイプはこれ
 
-　SUPPORT_PC9861K
-　　　PC-9861K(RS-232C拡張I/F)をサポート
-
 　SUPPORT_SASI
 　　　SASI HDDをサポート
 

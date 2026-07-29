@@ -30,7 +30,6 @@ enum {
 
 	PCSOUND_NONE		= 0x00,
 
-	PCCBUS_PC9861K		= 0x0001,
 	PCCBUS_MPU98		= 0x0002,
 
 	PCMODEL_NOTVA		= 0,
@@ -105,10 +104,6 @@ typedef struct {
 
 	UINT8	mpuenable;
 	UINT8	mpuopt;
-
-	UINT8	pc9861enable;
-	UINT8	pc9861sw[3];
-	UINT8	pc9861jmp[6];
 
 	UINT8	fddequip;
 	UINT8	MOTOR;
