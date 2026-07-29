@@ -41,11 +41,7 @@ static SINT16 axis_value(SINT64 *value, int clear) {
 	SINT64 scaled;
 	SINT16 result;
 
-#if defined(VAEG_FIX)
 	scaled = *value / 2;
-#else
-	scaled = *value;
-#endif
 	if (scaled > INT16_MAX) {
 		result = INT16_MAX;
 	}
@@ -56,11 +52,7 @@ static SINT16 axis_value(SINT64 *value, int clear) {
 		result = (SINT16)scaled;
 	}
 	if (clear) {
-#if defined(VAEG_FIX)
 		*value -= (SINT64)result * 2;
-#else
-		*value -= result;
-#endif
 	}
 	return result;
 }

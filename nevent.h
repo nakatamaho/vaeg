@@ -1,9 +1,5 @@
 
 enum {
-#if defined(VAEG_FIX)
-#else
-	NEVENT_MAXEVENTS	= 48,
-#endif
 	NEVENT_MAXCLOCK		= 0x400000,
 
 	NEVENT_FLAMES		= 0,
@@ -39,14 +35,10 @@ enum {
 #if defined(VAEG_EXT)
 	NEVENT_FDCSTEPWAIT	= 30,
 #endif
-#if defined(VAEG_FIX)
 	NEVENT_FDCSTATE		= 31,
-#endif
 
 	NEVENT_FLAMES2		= 47,
-#if defined(VAEG_FIX)
 	NEVENT_MAXEVENTS,
-#endif
 
 	NEVENT_ENABLE		= 0x0001,
 	NEVENT_SETEVENT		= 0x0002,

@@ -14,9 +14,7 @@
 #include	"fdd_mtr.h"
 #endif
 
-#if defined(VAEG_FIX)
 #include	"sysmng.h"
-#endif
 
 #if defined(VAEG_EXT)
 #include	"soundmng.h"
@@ -94,19 +92,15 @@ typedef struct {
 static FDCTRACE	fdctrace;
 static BOOL		fdctrace_stderr;
 
-#if defined(VAEG_FIX) || defined(VAEG_EXT)
 #define getnow() 	(CPU_CLOCK + CPU_BASECLOCK - CPU_REMCLOCK)
 
 		// neventから呼び出されるコールバックルーチンで、
 		// イベント発生時刻を知るにはgetnow_oneventを使う。
 		// getnowはCPUの時刻なので、getnow_oneventより進んでいる。
 #define getnow_onevent()	(CPU_CLOCK)
-#endif
 
-#if defined(VAEG_FIX)
 static void start_executionphase(void);
 static void stop_executionphase(void);
-#endif
 
 void fdc_trace_enable(BOOL enable) {
 
@@ -791,7 +785,6 @@ void fdc_stepwait(NEVENTITEM item) {
 // ----------------------------------------------------------------------
 // interrupt
 
-#if defined(VAEG_FIX)
 static void fdc_dointerrupt(void) {
 		fdc.intreq = TRUE;
 		TRACEOUT(("fdc: send interrupt request"));
@@ -809,30 +802,11 @@ static void fdc_dointerrupt(void) {
 			subsystem_irq(TRUE);
 		}
 }
-#endif
 
 void fdc_intwait(NEVENTITEM item) {
 
 	if (item->flag & NEVENT_SETEVENT) {
-#if defined(VAEG_FIX)
 		fdc_dointerrupt();
-#else
-		fdc.intreq = TRUE;
-		TRACEOUT(("fdc: send interrupt request"));
-		if (fdc.fddifmode) {
-			// DMA mode
-			if (fdc.chgreg & 1) {
-				pic_setirq(0x0b);
-			}
-			else {
-				pic_setirq(0x0a);
-			}
-		}
-		else {
-			// Intelligent mode
-			subsystem_irq(TRUE);
-		}
-#endif	/* defined(VAEG_FIX) */
 	}
 }
 
@@ -849,14 +823,12 @@ static BOOL fdc_isfdcinterrupt(void) {
 	return(fdc.intreq);
 }
 
-#if defined(VAEG_FIX)
 static void fdc_resetirq(void) {
 	if (!fdc.fddifmode) {
 		// Intelligent mode
 		subsystem_irq(FALSE);
 	}
 }
-#endif
 
 // ----------------------------------------------------------------------
 // DMA 
@@ -869,17 +841,11 @@ REG8 DMACCALL fdc_dmafunc(REG8 func) {
 			return(1);
 
 		case DMAEXT_END:				// TC
-#if defined(VAEG_FIX)
 			fdc.tcreserved = TRUE;		// 次のread/writeが終わった時点でTC実行
-#else
-			fdc.tc = 1;
-#endif
 			break;
 
-#if defined(VAEG_FIX)
 		case DMAEXT_DRQ: 
 			return fdc.rqm ? 0 : 1;
-#endif
 	}
 	return(0);
 }
@@ -908,11 +874,7 @@ static void fdc_dmaready(REG8 enable) {
 
 void fdcsend_error7(void) {
 
-#if defined(VAEG_FIX)
 	stop_executionphase();
-#else
-	fdc.tc = 0;
-#endif
 	fdc.event = FDCEVENT_BUFSEND;
 	fdc.bufp = 0;
 	fdc.bufcnt = 7;
@@ -944,11 +906,7 @@ void fdcsend_error7(void) {
 
 void fdcsend_success7(void) {
 
-#if defined(VAEG_FIX)
 	stop_executionphase();
-#else
-	fdc.tc = 0;
-#endif
 	fdc.event = FDCEVENT_BUFSEND;
 	fdc.bufp = 0;
 	fdc.bufcnt = 7;
@@ -1043,7 +1001,6 @@ static void get_eotgsldtl(void) {
 	fdc.dtl = fdc.cmds[7];
 }
 
-#if defined(VAEG_FIX)
 
 static BOOL inc_fdcR(void) {
 	BOOL	over;			// シリンダをまたがった
@@ -1067,7 +1024,6 @@ static BOOL inc_fdcR(void) {
 	}
 	return over;
 }
-#endif
 
 // --------------------------------------------------------------------------
 // Commands
@@ -1177,7 +1133,6 @@ static void FDC_SenseDeviceStatus(void) {				// cmd: 04
 	}
 }
 
-#if defined(VAEG_FIX)
 static void start_writesector(void) {
 	fdc.event = FDCEVENT_BUFRECV;
 	fdc.bufcnt = 128 << fdc.N;
@@ -1188,7 +1143,6 @@ static void start_writesector(void) {
 	reached_sector();
 #endif
 }
-#endif
 
 static BOOL writesector(void) {
 
@@ -1202,7 +1156,6 @@ static BOOL writesector(void) {
 		fdcsend_error7();
 		return(FAILURE);
 	}
-#if defined(VAEG_FIX)
 	fdc.event = FDCEVENT_STARTBUFRECV;
 	fdc.bufp = 0;				// TCの処理でチェックするので必要
 /*
@@ -1214,14 +1167,6 @@ static BOOL writesector(void) {
 		fdc.priampcnt = 0;
 	}
 */
-#else
-	fdc.event = FDCEVENT_BUFRECV;
-	fdc.bufcnt = 128 << fdc.N;
-	fdc.bufp = 0;
-	fdc.status = FDCSTAT_RQM | FDCSTAT_NDM | FDCSTAT_CB;
-	fdc_dmaready(1);
-	dmac_check();
-#endif
 	return(SUCCESS);
 }
 
@@ -1234,7 +1179,6 @@ static void FDC_WriteData(void) {						// cmd: 05
 			get_eotgsldtl();
 			fdc_trace_update_fields();
 			fdc_trace_set_request(fdc_trace_data_length());
-#if defined(VAEG_FIX)
 			fdc.stat[fdc.us] = (fdc.hd << 2) | fdc.us;
 			if (FDC_DriveCheck(TRUE)) {
 				fdc_play_head_load_sound(FALSE);
@@ -1252,31 +1196,7 @@ static void FDC_WriteData(void) {						// cmd: 05
 #endif
 			}
 			break;
-#else
-			fdc.stat[fdc.us] = (fdc.hd << 2) | fdc.us;
-			if (FDC_DriveCheck(TRUE)) {
-				fdc_play_head_load_sound(FALSE);
-#if defined(VAEG_EXT)
-				activate_head();
-#endif
-				fdc.event = FDCEVENT_BUFRECV;
-				fdc.bufcnt = 128 << fdc.N;
-				fdc.bufp = 0;
-#if 1															// ver0.27 ??
-				fdc.status = FDCSTAT_NDM | FDCSTAT_CB;
-				if (!(fdc.ctrlreg & 0x10)) {
-					fdc.status |= FDCSTAT_RQM;
-				}
-#else
-				fdc.status = FDCSTAT_RQM | FDCSTAT_NDM | FDCSTAT_CB;
-#endif
-				fdc_dmaready(1);
-				dmac_check();
-			}
-			break;
-#endif
 
-#if defined(VAEG_FIX)
 		case FDCEVENT_FIRSTSTARTBUFRECV:
 			start_writesector();
 			break;
@@ -1291,28 +1211,13 @@ static void FDC_WriteData(void) {						// cmd: 05
 				start_writesector();
 			}
 			break;
-#endif
 
 		case FDCEVENT_BUFRECV:
 			if (writesector()) {
 				return;
 			}
-#if defined(VAEG_FIX)
-#else
-			if (fdc.tc) {
-				fdcsend_success7();
-				return;
-			}
-			if (fdc.R++ == fdc.eot) {
-				fdc.stat[fdc.us] = fdc.us | (fdc.hd << 2) |
-													FDCRLT_IC0 | FDCRLT_EN;
-				fdcsend_error7();
-				break;
-			}
-#endif
 			break;
 
-#if defined(VAEG_FIX)
 		case FDCEVENT_TC:
 			if (fdc.bufp) {
 				// セクタの途中
@@ -1324,7 +1229,6 @@ static void FDC_WriteData(void) {						// cmd: 05
 			inc_fdcR();
 			fdcsend_success7();
 			break;
-#endif
 		default:
 			fdc.event = FDCEVENT_NEUTRAL;
 			fdc.status = FDCSTAT_RQM;
@@ -1352,19 +1256,6 @@ static void readsector(void) {
 	reached_sector();
 #endif
 
-#if defined(VAEG_FIX)
-#else
-#if 1															// ver0.27 ??
-	fdc.status = FDCSTAT_NDM | FDCSTAT_CB;
-	if (!(fdc.ctrlreg & 0x10)) {
-		fdc.status |= FDCSTAT_RQM | FDCSTAT_DIO;
-	}
-#else
-	fdc.status = FDCSTAT_RQM | FDCSTAT_DIO | FDCSTAT_NDM | FDCSTAT_CB;
-#endif
-	fdc_dmaready(1);
-	dmac_check();
-#endif	// defined(VAEG_FIX)
 }
 
 static void FDC_ReadData(void) {						// cmd: 06
@@ -1376,7 +1267,6 @@ static void FDC_ReadData(void) {						// cmd: 06
 			get_eotgsldtl();
 			fdc_trace_update_fields();
 			fdc_trace_set_request(fdc_trace_data_length());
-#if defined(VAEG_FIX)
 			fdc.stat[fdc.us] = (fdc.hd << 2) | fdc.us;
 			if (FDC_DriveCheck(FALSE)) {
 				fdc_play_head_load_sound(FALSE);
@@ -1398,24 +1288,14 @@ static void FDC_ReadData(void) {						// cmd: 06
 #endif
 			}
 			break;
-#else
-			readsector();
-			break;
-#endif
 
-#if defined(VAEG_FIX)
 		case FDCEVENT_FIRSTDATA:
 			readsector();
 			break;
-#endif
 
 		case FDCEVENT_NEXTDATA:
 			fdc.bufcnt = 0;
-#if defined(VAEG_FIX)
 			if (inc_fdcR()) {
-#else
-			if (fdc.R++ == fdc.eot) {
-#endif
 				fdc.stat[fdc.us] = fdc.us | (fdc.hd << 2) |
 													FDCRLT_IC0 | FDCRLT_EN;
 				fdcsend_error7();
@@ -1429,12 +1309,10 @@ static void FDC_ReadData(void) {						// cmd: 06
 			break;
 #endif
 
-#if defined(VAEG_FIX)
 		case FDCEVENT_TC:
 			inc_fdcR();
 			fdcsend_success7();
 			return;
-#endif
 		default:
 			fdc.event = FDCEVENT_NEUTRAL;
 			fdc.status = FDCSTAT_RQM;
@@ -1584,7 +1462,6 @@ static void FDC_WriteID(void) {							// cmd: 0d
 					break;
 				}
 				fdc_play_head_load_sound(FALSE);
-#if defined(VAEG_FIX)
 
 				start_executionphase();
 				fdc.event = FDCEVENT_FIRSTSTARTBUFRECV;
@@ -1599,32 +1476,10 @@ static void FDC_WriteID(void) {							// cmd: 0d
 				fdc.reach = FDD_HEADREACH_REACHED;
 #endif
 
-#else // defined(VAEG_FIX)
-				
-//				TRACE_("FDC_WriteID FDCEVENT_BUFRECV", 0);
-				fdc.event = FDCEVENT_BUFRECV;
-				fdc.bufcnt = 4;
-				fdc.bufp = 0;
-#if 1															// ver0.27 ??
-				fdc.status = FDCSTAT_NDM | FDCSTAT_CB;
-				if (!(fdc.ctrlreg & 0x10)) {
-					fdc.status |= FDCSTAT_RQM;
-				}
-#else
-				fdc.status = FDCSTAT_RQM | FDCSTAT_NDM | FDCSTAT_CB;
-#endif
-				fdc_dmaready(1);
-				dmac_check();
-#if defined(VAEG_EXT)
-				activate_head();
-#endif
-
-#endif // defined(VAEG_FIX)
 			}
 			break;
 
 
-#if defined(VAEG_FIX)
 		case FDCEVENT_FIRSTSTARTBUFRECV:
 		case FDCEVENT_STARTBUFRECV:
 			fdc.event = FDCEVENT_BUFRECV;
@@ -1633,7 +1488,6 @@ static void FDC_WriteID(void) {							// cmd: 0d
 			break;
 
 
-#endif
 
 
 		case FDCEVENT_BUFRECV:
@@ -1641,7 +1495,6 @@ static void FDC_WriteID(void) {							// cmd: 0d
 				fdcsend_error7();
 				break;
 			}
-#if defined(VAEG_FIX)
 			if (!fdd_isformating()) {
 				fdcsend_success7();
 				break;
@@ -1651,32 +1504,11 @@ static void FDC_WriteID(void) {							// cmd: 0d
 			fdc.bufp = 0;
 			break;
 
-#else
-
-			if ((fdc.tc) || (!fdd_isformating())) {
-				fdcsend_success7();
-				return;
-			}
-			fdc.event = FDCEVENT_BUFRECV;
-			fdc.bufcnt = 4;
-			fdc.bufp = 0;
-#if 1															// ver0.27 ??
-			fdc.status = FDCSTAT_NDM | FDCSTAT_CB;
-			if (!(fdc.ctrlreg & 0x10)) {
-				fdc.status |= FDCSTAT_RQM;
-			}
-#else
-			fdc.status = FDCSTAT_RQM | FDCSTAT_NDM | FDCSTAT_CB;
-#endif
-			break;
-#endif	/* VAEG_FIX */
 
 
-#if defined(VAEG_FIX)
 		case FDCEVENT_TC:
 			fdcsend_success7();
 			break;
-#endif
 
 		default:
 			fdc.event = FDCEVENT_NEUTRAL;
@@ -1789,7 +1621,6 @@ static const FDCOPE FDC_Ope[0x20] = {
 // --------------------------------------------------------------------------
 // RQM management
 
-#if defined(VAEG_FIX)
 
 static void setrqm(void) {
 	fdc.rqmlastclock += fdc.rqminterval;
@@ -1975,12 +1806,10 @@ static void update_executionphase(void) {
 	}
 }
 
-#endif
 
 // --------------------------------------------------------------------------
 // TC
 
-#if defined(VAEG_FIX)
 
 void settc(void) {
 	TRACEOUT(("fdc: tc"));
@@ -2002,7 +1831,6 @@ void settc(void) {
 	}
 }
 
-#endif
 
 // --------------------------------------------------------------------------
 // FDC data port read/write
@@ -2015,9 +1843,7 @@ static void fdcstatusreset(void) {
 
 void DMACCALL fdc_datawrite(REG8 data) {
 
-#if defined(VAEG_FIX)
 		fdc_resetirq();
-#endif
 
 //	if ((fdc.status & (FDCSTAT_RQM | FDCSTAT_DIO)) == FDCSTAT_RQM) {
 		switch(fdc.event) {
@@ -2027,7 +1853,6 @@ void DMACCALL fdc_datawrite(REG8 data) {
 				break;
 #endif
 			case FDCEVENT_BUFRECV:
-#if defined(VAEG_FIX)
 				if (fdc.rqm) {
 					resetrqm();
 					fdc.buf[fdc.bufp++] = data;
@@ -2037,16 +1862,6 @@ void DMACCALL fdc_datawrite(REG8 data) {
 					}
 				}
 				break;
-#else
-//				TRACE_("write", fdc.bufp);
-				fdc.buf[fdc.bufp++] = data;
-				fdc_trace_transfer_byte();
-				if ((!(--fdc.bufcnt)) || (fdc.tc)) {
-					fdc.status &= ~FDCSTAT_RQM;
-					FDC_Ope[fdc.cmd & 0x1f]();
-				}
-				break;
-#endif
 
 			case FDCEVENT_CMDRECV:
 				fdc.cmds[fdc.cmdp++] = data;
@@ -2075,19 +1890,15 @@ void DMACCALL fdc_datawrite(REG8 data) {
 				break;
 		}
 //	}
-#if defined(VAEG_FIX)
 	if (fdc.tcreserved) {
 		fdc.tcreserved = FALSE;
 		settc();
 	}
-#endif
 }
 
 REG8 DMACCALL fdc_dataread(void) {
 
-#if defined(VAEG_FIX)
 		fdc_resetirq();
-#endif
 
 //	if ((fdc.status & (FDCSTAT_RQM | FDCSTAT_DIO))
 //									== (FDCSTAT_RQM | FDCSTAT_DIO)) {
@@ -2100,7 +1911,6 @@ REG8 DMACCALL fdc_dataread(void) {
 				}
 				break;
 
-#if defined(VAEG_FIX)
 			case FDCEVENT_BUFSEND2:
 				if (fdc.rqm) {
 					resetrqm();
@@ -2121,43 +1931,15 @@ REG8 DMACCALL fdc_dataread(void) {
 					}
 				}
 				break;
-#else
-			case FDCEVENT_BUFSEND2:
-				if (fdc.bufcnt) {
-					fdc.lastdata = fdc.buf[fdc.bufp++];
-					fdc_trace_transfer_byte();
-					fdc.bufcnt--;
-				}
-				if (fdc.tc) {
-					if (!fdc.bufcnt) {						// ver0.26
-						fdc.R++;
-						if ((fdc.cmd & 0x80) && fdd_seeksector()) {
-							fdc.C += fdc.hd;
-							fdc.H = fdc.hd ^ 1;
-							fdc.R = 1;
-						}
-					}
-					fdcsend_success7();
-				}
-				if (!fdc.bufcnt) {
-					fdc.event = FDCEVENT_NEXTDATA;
-					fdc.status &= ~(FDCSTAT_RQM | FDCSTAT_NDM);
-					FDC_Ope[fdc.cmd & 0x1f]();
-				}
-				break;
-#endif /* VAEG_FIX */
 		}
 //	}
-#if defined(VAEG_FIX)
 	if (fdc.tcreserved) {
 		fdc.tcreserved = FALSE;
 		settc();
 	}
-#endif
 	return(fdc.lastdata);
 }
 
-#if defined(VAEG_FIX)
 // --------------------------------------------------------------------------
 // State watch timer
 
@@ -2181,7 +1963,6 @@ static void stop_statewatch(void) {
 	nevent_reset(NEVENT_FDCSTATE);
 }
 
-#endif
 
 // --------------------------------------------------------------------------
 // FDC timer
@@ -2363,15 +2144,11 @@ static void IOOUTCALL fdc_obe(UINT port, REG8 dat) {
 	fdc.chgreg = dat;
 	if (fdc.chgreg & 2) {
 		for (i = 0; i < 4; i++) CTRL_FDMEDIA[i] = DISKTYPE_2HD;
-#if defined(VAEG_FIX)
 		fdc.clock = CLOCK80;
-#endif
 	}
 	else {
 		for (i = 0; i < 4; i++) CTRL_FDMEDIA[i] = DISKTYPE_2DD;
-#if defined(VAEG_FIX)
 		fdc.clock = CLOCK48;
-#endif
 	}
 	(void)port;
 }
@@ -2410,7 +2187,6 @@ static void IOOUTCALL fdcva_o_dskctl(UINT port, REG8 dat) {
 			fdc.trackdensity[i] = FDD_48TPI;
 		}
 	}
-#if defined(VAEG_FIX)
 	if (dat & 0x20) {
 		// 8MHz
 		fdc.clock = CLOCK80;
@@ -2419,7 +2195,6 @@ static void IOOUTCALL fdcva_o_dskctl(UINT port, REG8 dat) {
 		// 4.8MHz
 		fdc.clock = CLOCK48;
 	}
-#endif
 	(void)port;
 }
 
@@ -2449,17 +2224,13 @@ static void IOOUTCALL fdcva_o_mtrctl(UINT port, REG8 dat) {
 		if (fdc.motor[0] == FDD_MOTOR_STOPPED) {
 			fdc.motor[0] = fdc.motor[1] = FDD_MOTOR_STARTING;
 			nevent_setbyms(NEVENT_FDDMOTOR, FDD_MOTORDELAY, fdc_fddmotor, NEVENT_ABSOLUTE);
-#if defined(VAEG_FIX)
 			start_statewatch();
-#endif
 		}
 	}
 	else {
 		if (fdc.motor[0] != FDD_MOTOR_STOPPED) {
 			fdc.motor[0] = fdc.motor[1] = FDD_MOTOR_STOPPED;
-#if defined(VAEG_FIX)
 			stop_statewatch();
-#endif
 		}
 	}
 }
@@ -2527,11 +2298,7 @@ void fdcsubsys_o_dskctl(BYTE dat) {
 }
 
 void fdcsubsys_o_tc(void) {
-#if defined(VAEG_FIX)
 	settc();
-#else
-	fdc.tc = 1;
-#endif
 }
 
 
@@ -2592,9 +2359,7 @@ void fdc_reset(void) {
 	}
 	fdc_trace_text("fddiftrace reset mode=%02x/%s",
 				   fdc_trace_mode_value(), fdc_trace_mode_name());
-#if defined(VAEG_FIX)
 	fdc.rqminterval = pccore.realclock / 100000;	// 10μsec
-#endif
 }
 
 void fdc_bind(void) {

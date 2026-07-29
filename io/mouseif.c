@@ -44,11 +44,7 @@ void mouseif_sync(void) {
 	mouseif.rx = mouseif.sx;
 	mouseif.ry = mouseif.sy;
 
-#if defined(VAEG_FIX)
 	mouseif.lastc = CPU_CLOCK + CPU_BASECLOCK - CPU_REMCLOCK;
-#else
-	mouseif.lastc = CPU_CLOCK + CPU_BASECLOCK + CPU_REMCLOCK;
-#endif
 }
 
 void calc_mousexy(void) {
@@ -61,11 +57,7 @@ void calc_mousexy(void) {
 	SINT32	diff;
 
 
-#if defined(VAEG_FIX)
 	clock = CPU_CLOCK + CPU_BASECLOCK - CPU_REMCLOCK;
-#else
-	clock = CPU_CLOCK + CPU_BASECLOCK + CPU_REMCLOCK;
-#endif
 
 	diff = clock - mouseif.lastc;
 	if (diff >= 2000) {
