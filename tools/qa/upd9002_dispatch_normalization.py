@@ -32,6 +32,7 @@ ROOTS = {
     "v30op": ("UPD9002OP", 256),
     "v30op_repne": ("UPD9002OP", 256),
     "v30op_repe": ("UPD9002OP", 256),
+    "v30op_repnc": ("UPD9002OP", 256),
     "v30op_repc": ("UPD9002OP", 256),
     "v30ope0xf6_table": ("UPD9002OPF6", 8),
     "v30ope0xf7_table": ("UPD9002OPF6", 8),
@@ -40,6 +41,7 @@ SNAPSHOTS = {
     "v30op": "v30op_snapshot",
     "v30op_repne": "v30op_repne_snapshot",
     "v30op_repe": "v30op_repe_snapshot",
+    "v30op_repnc": "v30op_repnc_snapshot",
     "v30op_repc": "v30op_repc_snapshot",
     "v30ope0xf6_table": "v30ope0xf6_snapshot",
     "v30ope0xf7_table": "v30ope0xf7_snapshot",
@@ -57,7 +59,9 @@ CONSTRUCTION_OPERATIONS = (
     "CopyMemory(v30ope0xf7_table, c_ope0xf7_table, sizeof(v30ope0xf7_table));",
     "v30ope0xf7_table[6] = v30_div_ea16;",
     "v30ope0xf7_table[7] = v30_idiv_ea16;",
+    "v30op_repnc[i] = v30_reserved_repnc;",
     "v30op_repc[i] = v30_reserved_repc;",
+    "V30PATCHING(v30op_repnc, v30patch_repnc);",
     "V30PATCHING(v30op_repc, v30patch_repc);",
 )
 
@@ -165,6 +169,7 @@ def check_roots_and_construction(dispatch):
         "v30op": 0,
         "v30op_repne": 0,
         "v30op_repe": 0,
+        "v30op_repnc": 1,
         "v30op_repc": 1,
         "v30ope0xf6_table": 2,
         "v30ope0xf7_table": 2,
@@ -181,7 +186,7 @@ def check_roots_and_construction(dispatch):
             "patch helper write changed")
     require(dispatch.count("#define\tV30PATCHING(a, b)\t") == 1,
             "patch helper macro changed")
-    require(len(re.findall(r"\bV30PATCHING\s*\(", dispatch)) == 5,
+    require(len(re.findall(r"\bV30PATCHING\s*\(", dispatch)) == 6,
             "patch helper has an alternative call site")
     copy_destinations = re.findall(
         r"\bCopyMemory\s*\(\s*([A-Za-z_]\w*)", dispatch)
@@ -195,6 +200,7 @@ def check_roots_and_construction(dispatch):
         "v30op": 5,
         "v30op_repne": 5,
         "v30op_repe": 5,
+        "v30op_repnc": 5,
         "v30op_repc": 5,
         "v30ope0xf6_table": 1,
         "v30ope0xf7_table": 1,
@@ -285,7 +291,8 @@ def main():
           "constructor=upd9002_dispatch_initialize "
           "production-calls=1 successful-constructions=1")
     print("upd9002-dispatch-normalization-static: roots="
-          "v30op:256,v30op_repne:256,v30op_repe:256,v30op_repc:256,"
+          "v30op:256,v30op_repne:256,v30op_repe:256,"
+          "v30op_repnc:256,v30op_repc:256,"
           "v30ope0xf6_table:8,v30ope0xf7_table:8")
     print("upd9002-dispatch-normalization-static: writes=constructor-only "
           "snapshot=element-wise-equality reset=selftest=state-load=checked")

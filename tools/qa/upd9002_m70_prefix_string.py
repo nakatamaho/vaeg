@@ -34,6 +34,8 @@ import sys
 import tempfile
 from typing import Any
 
+import upd9002_dispatch
+
 
 sys.dont_write_bytecode = True
 
@@ -448,7 +450,14 @@ def output_files(root: pathlib.Path, model: dict[str, Any]) -> dict[pathlib.Path
 
 def binary_output_files(root: pathlib.Path) -> dict[pathlib.Path, bytes]:
     _policy_path, _policy, support_path, support_content = generate_target_policy(root)
-    return {support_path: support_content}
+    graph, provenance, harness, support = upd9002_dispatch.generate(root)
+    return {
+        support_path: support_content,
+        OUT_DIR / "dispatch_graph.csv": graph.encode("utf-8"),
+        OUT_DIR / "dispatch_provenance.csv": provenance.encode("utf-8"),
+        OUT_DIR / "dispatch_harness.csv": harness.encode("utf-8"),
+        OUT_DIR / "dispatch_support_map.csv": support.encode("utf-8"),
+    }
 
 
 def write_outputs(root: pathlib.Path) -> None:
