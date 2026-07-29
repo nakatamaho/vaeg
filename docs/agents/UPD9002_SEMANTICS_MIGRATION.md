@@ -38,9 +38,11 @@ Repository: `github.com/nakatamaho/vaeg`
   `d1e0225c4edb716893fe5579283fbf0915db72b9`.
 - G69 is approved at
   `680308a603b24341c5b9649657f01791b79002f7`.
-- M70 is the next prospective gate. It implements the maintainer-approved
-  `64H`/`65H` REPNC/REPC prefix plus string-instruction closure for the exact
-  canonical 19-group, 5,908-hash population.
+- G70 is approved at
+  `53d47ed500baef247a1be5f3ccc18bdb0c00c0cc`.
+- M71 is the next prospective gate. It folds the obsolete standalone
+  uPD9002 dispatch translation unit into `upd9002_core.c` and removes current
+  `v30` dispatch/core naming without changing behavior.
 
 Codex executes one milestone or lettered submilestone per session and stops at its candidate gate.
 
