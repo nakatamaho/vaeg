@@ -75,9 +75,6 @@ static void bios_memclear(void) {
 	ZeroMemory(mem + VRAM0_E, 0x08000);
 	ZeroMemory(mem + VRAM1_B, 0x18000);
 	ZeroMemory(mem + VRAM1_E, 0x08000);
-#if defined(SUPPORT_PC9821)
-	ZeroMemory(vramex, sizeof(vramex));
-#endif
 }
 
 static void bios_reinitbyswitch(void) {
@@ -152,9 +149,6 @@ static void bios_reinitbyswitch(void) {
 
 #if defined(SUPPORT_CRT31KHZ)
 	mem[MEMB_CRT_BIOS] = 0x80;
-#endif
-#if defined(SUPPORT_PC9821)
-	mem[0x45c] = 0x40;
 #endif
 
 	// FDC
@@ -247,18 +241,6 @@ void bios_initialize(void) {
 		setbiosseed(mem + 0x0e8000, 0x10000, 0xb1f0);
 	}
 
-#if defined(SUPPORT_PC9821)
-	getbiospath(path, "bios9821.rom", sizeof(path));
-	fh = file_open_rb(path);
-	if (fh != FILEH_INVALID) {
-		if (file_read(fh, mem + 0x0d8000, 0x2000) == 0x2000) {
-			// IDE BIOSを潰す
-			TRACEOUT(("load bios9821.rom"));
-			STOREINTELWORD(mem + 0x0d8009, 0);
-		}
-		file_close(fh);
-	}
-#endif
 
 #if defined(BIOS_SIMULATE)
 	CopyMemory(mem + BIOS_BASE, biosfd80, sizeof(biosfd80));

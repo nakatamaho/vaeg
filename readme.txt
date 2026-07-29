@@ -70,11 +70,6 @@
 　　　水平走査31.47kHzをサポートする
 　　　Fellowタイプはこれ
 
-　SUPPORT_PC9821
-　　　PC-9821拡張のサポート
-　　　当然ですが 386必須です。
-　　　また SUPPORT_CRT31KHZも必要です(ハイレゾBIOSを使用する為)
-
 　SUPPORT_PC9861K
 　　　PC-9861K(RS-232C拡張I/F)をサポート
 
@@ -263,4 +258,3 @@ void sysmng_cpureset(void)
 
 void taskmng_exit(void)
   システムを終了する。
-

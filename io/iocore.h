@@ -31,7 +31,6 @@ typedef void (*IOCBFN)(void);
 #include	"nmiio.h"
 #include	"np2sysp.h"
 #include	"np2vasup.h"
-#include	"pcidev.h"
 #include	"pic.h"
 #include	"pit.h"
 #include	"printif.h"
@@ -67,9 +66,6 @@ extern	_RS232C		rs232c;
 extern	_SYSPORT	sysport;
 extern	_UPD4990	uPD4990;
 
-#if defined(SUPPORT_PC9821)
-extern	_PCIDEV		pcidev;
-#endif
 
 extern	UINT8		iomode_va;
 
@@ -118,4 +114,3 @@ UINT32 IOINPCALL iocore_inp32(UINT port);
 #ifdef __cplusplus
 }
 #endif
-

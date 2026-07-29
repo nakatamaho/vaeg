@@ -22,7 +22,6 @@
 #include	"maketext.h"
 #include	"maketgrp.h"
 #include	"makegrph.h"
-#include	"makegrex.h"
 #include	"sound.h"
 #include	"fmboard.h"
 #include	"beep.h"
@@ -523,14 +522,6 @@ static void drawscreen(void) {
 			if (gdcs.disp) {
 				bit <<= 1;
 			}
-#if defined(SUPPORT_PC9821)
-			if (gdc.analog & 2) {
-				grphfn = makegrphex;
-				if (gdc.analog & 4) {
-					bit = GDCSCRN_MAKE | (GDCSCRN_MAKE << 1);
-				}
-			}
-#endif
 			if (gdcs.grphdisp & bit) {
 				(*grphfn)(gdcs.disp, gdcs.grphdisp & bit & GDCSCRN_ALLDRAW2);
 				gdcs.grphdisp &= ~bit;

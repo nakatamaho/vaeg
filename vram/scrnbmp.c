@@ -7,11 +7,7 @@
 #include	"palettes.h"
 #include	"scrnbmp.h"
 
-#if defined(SUPPORT_PC9821)
-typedef	unsigned int	PALNUM;
-#else
 typedef	unsigned char	PALNUM;
-#endif
 
 typedef union {
 	UINT32	d;
@@ -69,21 +65,6 @@ static void screenmix3(PALNUM *dest, const BYTE *src1, const BYTE *src2) {
 	}
 }
 
-#if defined(SUPPORT_PC9821)
-static void screenmix4(PALNUM *dest, const BYTE *src1, const BYTE *src2) {
-
-	int		i;
-
-	for (i=0; i<(SURFACE_WIDTH * SURFACE_HEIGHT); i++) {
-		if (src1[i]) {
-			dest[i] = (src1[i] >> 4) + NP2PAL_TEXTEX;
-		}
-		else {
-			dest[i] = src2[i] + NP2PAL_GRPHEX;
-		}
-	}
-}
-#endif
 
 
 SCRNBMP scrnbmp(void) {
@@ -126,12 +107,6 @@ SCRNBMP scrnbmp(void) {
 	}
 	ZeroMemory(scrn, allocsize);
 
-#if defined(SUPPORT_PC9821)
-	if (gdc.analog & 2) {
-		mix = screenmix4;
-	}
-	else
-#endif
 	if (!(gdc.mode1 & 0x10)) {
 		mix = screenmix;
 	}
@@ -146,12 +121,6 @@ SCRNBMP scrnbmp(void) {
 		p = np2_tram;
 	}
 	if (gdcs.grphdisp & 0x80) {
-#if defined(SUPPORT_PC9821)
-		if ((gdc.analog & 6) == 6) {
-			q = np2_vram[0];
-		}
-		else
-#endif
 		q = np2_vram[gdcs.disp];
 	}
 	(*mix)(scrn, p, q);

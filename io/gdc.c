@@ -112,11 +112,6 @@ void gdc_setanalogpalall(const UINT16 *paltbl) {
 
 	for (c=0; c<16; c++) {
 		pal = *paltbl++;
-#if defined(SUPPORT_PC9821)
-		gdc.anareg[(c * 3) + 0] = (pal >> 8) & 15;
-		gdc.anareg[(c * 3) + 1] = (pal >> 4) & 15;
-		gdc.anareg[(c * 3) + 2] = (pal >> 0) & 15;
-#endif
 		gdc_setanalogpal(c, offsetof(RGB32, p.g), (REG8)((pal >> 8) & 15));
 		gdc_setanalogpal(c, offsetof(RGB32, p.r), (REG8)((pal >> 4) & 15));
 		gdc_setanalogpal(c, offsetof(RGB32, p.b), (REG8)((pal >> 0) & 15));
@@ -143,22 +138,6 @@ void gdc_paletteinit(void) {
 	gdcs.palchange = GDCSCRN_REDRAW;
 }
 
-#if defined(SUPPORT_PC9821)
-void gdc_analogext(BOOL extend) {
-
-	if (extend) {
-		gdc.analog |= (1 << GDCANALOG_256);
-		vramop.operate |= 0x20;
-	}
-	else {
-		gdc.analog &= ~(1 << (GDCANALOG_256));
-		vramop.operate &= ~0x20;
-	}
-	gdcs.palchange = GDCSCRN_REDRAW;
-	gdcs.grphdisp |= GDCSCRN_EXT | GDCSCRN_ALLDRAW2;
-	upd9002_vram_dispatch(vramop.operate);
-}
-#endif
 
 
 // --------------------------------------------------------------------------
@@ -521,27 +500,6 @@ static void IOOUTCALL gdc_o6a(UINT port, REG8 dat) {
 	}
 	else {
 		switch(dat) {
-#if defined(SUPPORT_PC9821)
-			case 0x20:
-				if (gdc.mode2 & 0x08) {
-					gdc_analogext(FALSE);
-				}
-				break;
-
-			case 0x21:
-				if (gdc.mode2 & 0x08) {
-					gdc_analogext(TRUE);
-				}
-				break;
-
-			case 0x68:
-				gdc.analog &= ~(1 << GDCANALOG_256E);
-				break;
-
-			case 0x69:
-				gdc.analog |= (1 << GDCANALOG_256E);
-				break;
-#endif
 			case 0x40:
 			case 0x80:					// EPSON?
 				gdc.display &= ~(1 << GDCDISP_PLAZMA);
@@ -821,17 +779,7 @@ static void IOOUTCALL gdc_oa8(UINT port, REG8 dat) {
 
 static void IOOUTCALL gdc_oaa(UINT port, REG8 dat) {
 
-#if defined(SUPPORT_PC9821)
-	if (gdc.analog & (1 << GDCANALOG_256)) {
-		gdcs.palchange = GDCSCRN_REDRAW;
-		gdc.anareg[(16 * 3) + (gdc.palnum * 4) + 0] = dat;
-	}
-	else
-#endif
 	if (gdc.analog & (1 << GDCANALOG_16)) {
-#if defined(SUPPORT_PC9821)
-		gdc.anareg[(gdc.palnum * 3) + 0] = dat;
-#endif
 		gdc_setanalogpal(gdc.palnum & 15, offsetof(RGB32, p.g), dat);
 	}
 	else {
@@ -842,17 +790,7 @@ static void IOOUTCALL gdc_oaa(UINT port, REG8 dat) {
 
 static void IOOUTCALL gdc_oac(UINT port, REG8 dat) {
 
-#if defined(SUPPORT_PC9821)
-	if (gdc.analog & (1 << GDCANALOG_256)) {
-		gdcs.palchange = GDCSCRN_REDRAW;
-		gdc.anareg[(16 * 3) + (gdc.palnum * 4) + 1] = dat;
-	}
-	else
-#endif
 	if (gdc.analog & (1 << GDCANALOG_16)) {
-#if defined(SUPPORT_PC9821)
-		gdc.anareg[(gdc.palnum * 3) + 1] = dat;
-#endif
 		gdc_setanalogpal(gdc.palnum & 15, offsetof(RGB32, p.r), dat);
 	}
 	else {
@@ -863,17 +801,7 @@ static void IOOUTCALL gdc_oac(UINT port, REG8 dat) {
 
 static void IOOUTCALL gdc_oae(UINT port, REG8 dat) {
 
-#if defined(SUPPORT_PC9821)
-	if (gdc.analog & (1 << GDCANALOG_256)) {
-		gdcs.palchange = GDCSCRN_REDRAW;
-		gdc.anareg[(16 * 3) + (gdc.palnum * 4) + 2] = dat;
-	}
-	else
-#endif
 	if (gdc.analog & (1 << GDCANALOG_16)) {
-#if defined(SUPPORT_PC9821)
-		gdc.anareg[(gdc.palnum * 3) + 2] = dat;
-#endif
 		gdc_setanalogpal(gdc.palnum & 15, offsetof(RGB32, p.b), dat);
 	}
 	else {
@@ -882,122 +810,10 @@ static void IOOUTCALL gdc_oae(UINT port, REG8 dat) {
 	(void)port;
 }
 
-#if defined(SUPPORT_PC9821)
-static REG8 IOINPCALL gdc_ia8(UINT port) {
-
-	if (gdc.analog & ((1 << GDCANALOG_256) + (1 << GDCANALOG_16))) {
-		return(gdc.palnum);
-	}
-	(void)port;
-	return(gdc.degpal[3]);
-}
-
-static REG8 IOINPCALL gdc_iaa(UINT port) {
-
-	if (gdc.analog & (1 << GDCANALOG_256)) {
-		return(gdc.anareg[(16 * 3) + (gdc.palnum * 4) + 0]);
-	}
-	if (gdc.analog & (1 << GDCANALOG_16)) {
-		return(gdc.anareg[(gdc.palnum * 3) + 0]);
-	}
-	(void)port;
-	return(gdc.degpal[1]);
-}
-
-static REG8 IOINPCALL gdc_iac(UINT port) {
-
-	if (gdc.analog & (1 << GDCANALOG_256)) {
-		return(gdc.anareg[(16 * 3) + (gdc.palnum * 4) + 1]);
-	}
-	if (gdc.analog & (1 << GDCANALOG_16)) {
-		return(gdc.anareg[(gdc.palnum * 3) + 1]);
-	}
-	(void)port;
-	return(gdc.degpal[2]);
-}
-
-static REG8 IOINPCALL gdc_iae(UINT port) {
-
-	if (gdc.analog & (1 << GDCANALOG_256)) {
-		return(gdc.anareg[(16 * 3) + (gdc.palnum * 4) + 2]);
-	}
-	if (gdc.analog & (1 << GDCANALOG_16)) {
-		return(gdc.anareg[(gdc.palnum * 3) + 2]);
-	}
-	(void)port;
-	return(gdc.degpal[0]);
-}
-#endif
 
 
 // ---- extend
 
-#if defined(SUPPORT_PC9821)
-static void IOOUTCALL gdc_o9a0(UINT port, REG8 dat) {
-
-	gdc.ff2 = dat;
-	(void)port;
-}
-
-static REG8 IOINPCALL gdc_i9a0(UINT port) {
-
-	REG8	ret;
-
-	ret = 0;
-	switch(gdc.ff2) {
-		case 0x00:
-			ret = 0xff;
-			break;
-
-		case 0x01:
-			ret = (gdc.mode1 >> 1) & 1;
-			break;
-
-		case 0x02:
-			ret = (gdc.mode1 >> 4) & 1;
-			break;
-
-		case 0x03:
-			ret = (gdc.mode1 >> 7) & 1;
-			break;
-
-		case 0x04:
-			ret = (gdc.mode2 >> 0) & 1;
-			break;
-
-		case 0x05:
-			ret = (gdc.display >> GDCDISP_PLAZMA) & 1;
-			break;
-
-		case 0x07:
-			ret = (gdc.mode2 >> 2) & 1;
-			break;
-
-		case 0x08:
-			ret = (gdc.mode2 >> 3) & 1;
-			break;
-
-		case 0x09:
-			ret = (gdc.clock >> 0) & 1;
-			break;
-
-		case 0x0a:
-			ret = (gdc.analog >> GDCANALOG_256) & 1;
-			break;
-
-		case 0x0b:
-			ret = 1;
-			break;
-
-		case 0x0d:
-			ret = (gdc.analog >> GDCANALOG_256E) & 1;
-			break;
-	}
-	ret |= (gdc.clock & 2);
-	(void)port;
-	return(ret);
-}
-#endif
 
 #if defined(SUPPORT_CRT31KHZ)
 static void IOOUTCALL gdc_o9a8(UINT port, REG8 dat) {
@@ -1031,24 +847,13 @@ static const IOINP gdci60[8] = {
 					gdc_i60,	gdc_i62,	NULL,		NULL,
 					gdc_i68,	gdc_i6a,	NULL,		NULL};
 
-#if defined(SUPPORT_PC9821)
-static const IOINP gdcia0[8] = {
-					gdc_ia0,	gdc_ia2,	gdc_ia4,	gdc_ia6,
-					gdc_ia8,	gdc_iaa,	gdc_iac,	gdc_iae};
-#else
 static const IOINP gdcia0[8] = {
 					gdc_ia0,	gdc_ia2,	gdc_ia4,	gdc_ia6,
 					NULL,		NULL,		NULL,		NULL};
-#endif
 
 
 void gdc_biosreset(void) {
 
-#if defined(SUPPORT_PC9821)
-	UINT	i, j;
-	UINT8	tmp;
-	UINT8	*pal;
-#endif
 
 	if (!(np2cfg.dipsw[0] & 0x01)) {
 		gdc.mode1 = 0x98;
@@ -1088,10 +893,6 @@ void gdc_biosreset(void) {
 	vramop.operate &= VOP_ACCESSMASK;
 	vramop.operate &= VOP_EGCMASK;
 	vramop.operate &= VOP_ANALOGMASK;
-#if defined(SUPPORT_PC9821)
-	gdc.analog &= ~(1 << (GDCANALOG_256));
-	vramop.operate &= ~0x20;
-#endif
 	upd9002_vram_dispatch(vramop.operate);
 
 	// palette
@@ -1099,22 +900,6 @@ void gdc_biosreset(void) {
 	if (gdc.display & (1 << GDCDISP_ANALOG)) {
 		gdc_setanalogpalall(defanapal);
 	}
-#if defined(SUPPORT_PC9821)
-	pal = gdc.anareg + (16 * 3);
-	for (i=0; i<256; i+=8) {
-		tmp = (UINT8)((i)?(i - 4):0);
-		pal[0] = tmp;
-		pal[1] = tmp;
-		pal[2] = tmp;
-		pal += 4;
-		for (j=1; j<8; j++) {
-			pal[0] = (UINT8)((i + 7) * ((j >> 2) & 1));
-			pal[1] = (UINT8)((i + 7) * ((j >> 1) & 1));
-			pal[2] = (UINT8)((i + 7) * ((j >> 0) & 1));
-			pal += 4;
-		}
-	}
-#endif
 	gdcs.textdisp = GDCSCRN_ALLDRAW2 | GDCSCRN_EXT;
 	gdcs.grphdisp = GDCSCRN_ALLDRAW2 | GDCSCRN_EXT;
 	gdcs.palchange = GDCSCRN_REDRAW;
@@ -1126,13 +911,9 @@ void gdc_reset(void) {
 	ZeroMemory(&gdc, sizeof(gdc));
 	ZeroMemory(&gdcs, sizeof(gdcs));
 
-#if defined(SUPPORT_PC9821)
-	gdc.display |= (1 << GDCDISP_ANALOG);
-#else
 	if (np2cfg.color16 & 1) {
 		gdc.display |= (1 << GDCDISP_ANALOG);
 	}
-#endif
 	if (!(np2cfg.dipsw[0] & 0x04)) {			// dipsw1-3 on
 		gdc.display |= (1 << GDCDISP_PLAZMA2);
 	}
@@ -1143,10 +924,6 @@ void gdc_bind(void) {
 	if (pccore.model_va == PCMODEL_NOTVA) {
 		gdc_updateclock();
 	}
-#if defined(SUPPORT_PC9821)
-	iocore_attachout(0x09a0, gdc_o9a0);
-	iocore_attachinp(0x09a0, gdc_i9a0);
-#endif
 #if defined(SUPPORT_CRT31KHZ)
 	iocore_attachout(0x09a8, gdc_o9a8);
 	iocore_attachinp(0x09a8, gdc_i9a8);

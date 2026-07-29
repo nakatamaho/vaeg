@@ -375,19 +375,11 @@ static REG8 IOINPCALL picva_i18a(UINT port) {
 
 // ---- I/F
 
-#if !defined(SUPPORT_PC9821)
 static const IOOUT pico00[2] = {
 					pic_o00,	pic_o02};
 
 static const IOINP pici00[2] = {
 					pic_i00,	pic_i02};
-#else
-static const IOOUT pico00[4] = {
-					pic_o00,	pic_o02,	NULL,	NULL};
-
-static const IOINP pici00[4] = {
-					pic_i00,	pic_i02,	NULL,	NULL};
-#endif
 
 void pic_reset(void) {
 
@@ -397,13 +389,8 @@ void pic_reset(void) {
 
 void pic_bind(void) {
 
-#if !defined(SUPPORT_PC9821)
 	iocore_attachsysoutex(0x0000, 0x0cf1, pico00, 2);
 	iocore_attachsysinpex(0x0000, 0x0cf1, pici00, 2);
-#else
-	iocore_attachsysoutex(0x0000, 0x0cf1, pico00, 4);
-	iocore_attachsysinpex(0x0000, 0x0cf1, pici00, 4);
-#endif
 
 	// slave
 	iocoreva_attachout(0x184, picva_o184);

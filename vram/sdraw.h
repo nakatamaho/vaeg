@@ -20,9 +20,6 @@ extern "C" {
 
 const SDRAWFN *sdraw_getproctbl(const SCRNSURF *surf);
 
-#if defined(SUPPORT_PC9821)
-const SDRAWFN *sdraw_getproctblex(const SCRNSURF *surf);
-#endif
 
 #ifdef __cplusplus
 }
