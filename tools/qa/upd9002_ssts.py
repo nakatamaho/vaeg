@@ -105,6 +105,28 @@ IGNORED_PREFIXES = {0xF0, 0xF1}
 M70_REPNC_STRING_OPCODES = {
     0xa4, 0xa5, 0xa6, 0xa7, 0xaa, 0xab, 0xac, 0xad, 0xae, 0xaf
 }
+SUPPORT_TABLE_FAMILIES = {
+    "upd9002": {
+        "root": "upd9002op",
+        "repc": "upd9002op_repc",
+        "repe": "upd9002op_repe",
+        "repne": "upd9002op_repne",
+        "repnc": "upd9002op_repnc",
+        "0f": "upd9002op_0f",
+        "f6": "c_ope0xf6_table",
+        "f7": "c_ope0xf7_table",
+    },
+    "v30": {
+        "root": "v30op",
+        "repc": "v30op_repc",
+        "repe": "v30op_repe",
+        "repne": "v30op_repne",
+        "repnc": "v30op_repnc",
+        "0f": "v30op_0f",
+        "f6": "v30ope0xf6_table",
+        "f7": "v30ope0xf7_table",
+    },
+}
 GROUP_FORMS = {
     "80",
     "81",
@@ -377,6 +399,18 @@ def load_support_map(path: pathlib.Path) -> dict[tuple[str, int, str], dict[str,
     return result
 
 
+def support_table_family(
+    support: dict[tuple[str, int, str], dict[str, str]],
+) -> dict[str, str]:
+    """Return the table-name family used by this support map generation."""
+
+    if ("upd9002op", 0x00, "-") in support:
+        return SUPPORT_TABLE_FAMILIES["upd9002"]
+    if ("v30op", 0x00, "-") in support:
+        return SUPPORT_TABLE_FAMILIES["v30"]
+    raise CorpusError("support map does not contain a recognized root table")
+
+
 def metadata_for_form(
     metadata: dict[str, Any], form: str
 ) -> tuple[dict[str, Any], dict[str, Any], str, str, int]:
@@ -457,22 +491,23 @@ def resolve_dispatch(
     if "." in form and modrm_reg != int(form.split(".", 1)[1]):
         raise CorpusError(f"{form}: ModR/M reg does not match shard identity")
 
+    family = support_table_family(support)
     if repeat == "repnc" and opcode in M70_REPNC_STRING_OPCODES:
-        support_key = ("upd9002op_repnc", opcode, "-")
+        support_key = (family["repnc"], opcode, "-")
     elif repeat == "repnc":
-        support_key = ("upd9002op", 0x64, "-")
+        support_key = (family["root"], 0x64, "-")
     else:
         mode = {
-            "none": "upd9002op",
-            "repc": "upd9002op_repc",
-            "repe": "upd9002op_repe",
-            "repne": "upd9002op_repne",
+            "none": family["root"],
+            "repc": family["repc"],
+            "repe": family["repe"],
+            "repne": family["repne"],
         }[repeat]
-        if mode == "upd9002op" and opcode == 0x0f:
-            support_key = ("upd9002op_0f", 0x0f, f"0x{second_byte:02x}")
-        elif mode == "upd9002op" and opcode in {0xf6, 0xf7}:
+        if mode == family["root"] and opcode == 0x0f:
+            support_key = (family["0f"], 0x0f, f"0x{second_byte:02x}")
+        elif mode == family["root"] and opcode in {0xf6, 0xf7}:
             support_key = (
-                f"c_ope0x{opcode:02x}_table", opcode, f"/{modrm_reg}"
+                family[f"{opcode:02x}"], opcode, f"/{modrm_reg}"
             )
         else:
             support_key = (mode, opcode, "-")
@@ -1947,13 +1982,86 @@ def selftest() -> None:
             "90",
             unclassified_record,
             {"opcodes": {"90": {"status": "normal", "arch": "86"}}},
-            {},
+            {
+                ("upd9002op", 0x00, "-"): {
+                    "target": "_add_ea_r8",
+                    "classification": "implemented",
+                },
+            },
         )
     except CorpusError as error:
         if "no M42 support-map row" not in str(error):
             raise
     else:
         raise CorpusError("unclassified dispatch form was silently accepted")
+
+    legacy_support = {
+        ("v30op", 0x00, "-"): {
+            "target": "_add_ea_r8",
+            "classification": "implemented",
+        },
+    }
+    folded_support = {
+        ("upd9002op", 0x00, "-"): {
+            "target": "_add_ea_r8",
+            "classification": "implemented",
+        },
+    }
+    for expected_mode, support_map in (
+        ("v30op", legacy_support),
+        ("upd9002op", folded_support),
+    ):
+        classified = classify_record(
+            "00",
+            {"bytes": [0x00], "initial": {"queue": []}},
+            {"opcodes": {"00": {"status": "normal", "arch": "86"}}},
+            support_map,
+        )
+        dispatch = classified.get("dispatch") or {}
+        if dispatch.get("support_mode") != expected_mode:
+            raise CorpusError(
+                f"support-map family resolver selected {dispatch.get('support_mode')}"
+            )
+
+    for expected_mode, support_map in (
+        (
+            "v30op_repnc",
+            {
+                ("v30op", 0x00, "-"): {
+                    "target": "_add_ea_r8",
+                    "classification": "implemented",
+                },
+                ("v30op_repnc", 0xA4, "-"): {
+                    "target": "_movsb",
+                    "classification": "known_target_gap",
+                },
+            },
+        ),
+        (
+            "upd9002op_repnc",
+            {
+                ("upd9002op", 0x00, "-"): {
+                    "target": "_add_ea_r8",
+                    "classification": "implemented",
+                },
+                ("upd9002op_repnc", 0xA4, "-"): {
+                    "target": "_movsb",
+                    "classification": "implemented",
+                },
+            },
+        ),
+    ):
+        classified = classify_record(
+            "A4",
+            {"bytes": [0x64, 0xA4], "initial": {"queue": []}},
+            {"opcodes": {"A4": {"status": "normal", "arch": "86"}}},
+            support_map,
+        )
+        dispatch = classified.get("dispatch") or {}
+        if dispatch.get("support_mode") != expected_mode:
+            raise CorpusError(
+                f"REPNC support-map family resolver selected {dispatch.get('support_mode')}"
+            )
 
     override_record = json.loads(json.dumps(record))
     override_record["name"] = "segment-overridden outsb"
