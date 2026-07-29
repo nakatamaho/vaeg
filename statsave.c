@@ -608,12 +608,8 @@ static int flagsave_epson(STFLAGH sfh, const SFENTRY *tbl) {
 
 	int		ret;
 
-	if (!(pccore.model & PCMODEL_EPSON)) {
-		return(STATFLAG_SUCCESS);
-	}
-	ret = statflag_write(sfh, &epsonio, sizeof(epsonio));
-	ret |= statflag_write(sfh, mem + 0x1c0000, 0x8000);
-	ret |= statflag_write(sfh, mem + 0x1e8000, 0x18000);
+	ret = STATFLAG_SUCCESS;
+	(void)sfh;
 	(void)tbl;
 	return(ret);
 }
@@ -1898,7 +1894,7 @@ const SFENTRY	*tblterm;
 	statflag_close(sffh);
 
 	// I/O作り直し
-	upd9002_memorymap((pccore.model & PCMODEL_EPSON)?1:0);
+	upd9002_memorymap(0);
 	upd9002_memorymap_va();
 	iocore_build();
 	iocore_bind();

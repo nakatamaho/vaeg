@@ -19,7 +19,6 @@ enum {
 	PCMODEL_VM			= 1,
 	PCMODEL_VX			= 2,
 	PCMODELMASK			= 0x3f,
-	PCMODEL_EPSON		= 0x80,
 
 	PCHDD_SASI			= 0x01,
 	PCHDD_SCSI			= 0x02,
