@@ -53,20 +53,32 @@ M72 owns:
    - Preserve the supported PC-88VA active behavior.
    - Keep only generic non-VA scaffolding required by current ROM-less tests
      or shared frontend initialization.
-5. Remove 98x1-only information from the SDL2 GUI About/More details.
+5. Audit and remove inactive `CPUCORE_IA32` branches.
+   - The active uPD9002 core rejects `CPUCORE_IA32`; do not preserve the
+     inactive IA32 CPU-core path as a build option.
+   - Keep the current portable C CPU and I/O behavior.
+6. Audit and remove inactive IDE I/O support controlled by `SUPPORT_IDEIO`.
+   - VAEG does not model a VA IDE interface.
+   - Do not remove SASI, SCSI, host FAT, or other current storage paths.
+7. Audit and remove PC-9861K expansion RS-232C support controlled by
+   `SUPPORT_PC9861K`.
+   - Preserve the built-in VA RS-232C path.
+   - Do not retain the PC-9861K two-channel expansion board UI, state, event,
+     or C-Bus registration paths as active VAEG code.
+8. Remove 98x1-only information from the SDL2 GUI About/More details.
    - Remove the `[98x1]` section and related PC-98-only fields from the
      `About -> More` output.
    - Keep VA model, VA ROM, sound, rhythm, screen, and other current VAEG
      information that remains useful.
    - Do not change emulator behavior to make the About dialog simpler.
-6. Audit `VAEG_EXT` and remove obsolete active-tree references only where the
+9. Audit `VAEG_EXT` and remove obsolete active-tree references only where the
    inactive-code audit proves they are unbuilt and not required by VAEG.
    - Do not blindly enable the former extension/debug/SCSI paths.
    - Preserve the current non-`VAEG_EXT` behavior unless a specific branch is
      proven to be the active intended behavior.
    - Do not change state-save format or SCSI/SASI behavior without explicit
      evidence and tests.
-7. Audit frontend asset embedding and font stubs only to classify future work.
+10. Audit frontend asset embedding and font stubs only to classify future work.
    - Do not remove embedded GUI assets in M72.
    - Do not modify ROM/font payloads.
    - Remove only a source stub if it is proven unused by the active build and
@@ -84,6 +96,9 @@ M72 must not:
 - remove embedded GUI font, splash, or icon assets without a separate
   maintainer-approved task;
 - enable `VAEG_EXT` globally;
+- preserve inactive `CPUCORE_IA32` as a supported build path;
+- implement or preserve VA IDE support without hardware evidence;
+- remove the built-in VA RS-232C path while removing PC-9861K expansion code;
 - implement PC-9821 support;
 - turn the active SDL2 frontend back into a general PC-98/98x1 frontend;
 - start any unrelated cleanup.
@@ -97,7 +112,7 @@ git status --short --branch
 git rev-parse HEAD
 git rev-parse origin/main
 git diff --check
-rg -n "VAEG_FIX|VAEG_EXT|SUPPORT_PC9821|PCMODEL_PC9821|PCMODEL_EPSON|PC-9821|PC9821|98x1" .
+rg -n "VAEG_FIX|VAEG_EXT|SUPPORT_PC9821|PCMODEL_PC9821|PCMODEL_EPSON|CPUCORE_IA32|SUPPORT_IDEIO|SUPPORT_PC9861K|PC-9861K|PC9861K|PC-9821|PC9821|98x1" .
 ```
 
 Confirm:
@@ -108,6 +123,8 @@ Confirm:
 - `VAEG_FIX` is currently defined by the active CMake build;
 - `VAEG_EXT` is not currently defined by the active CMake build;
 - `SUPPORT_PC9821` is not currently defined by the active CMake build.
+- `SUPPORT_IDEIO`, `SUPPORT_PC9861K`, and `CPUCORE_IA32` are not currently
+  defined by the active CMake build.
 
 Stop if an apparently dead conditional owns current guest-visible behavior.
 Stop if an item is only plausibly irrelevant but cannot be proven inactive
@@ -123,10 +140,13 @@ Keep one concern per commit:
 4. `VAEG_FIX` constant-fold;
 5. `SUPPORT_PC9821` removal, if proven inactive;
 6. `PCMODEL_EPSON` removal, if proven inactive;
-7. VAEG-relevance cleanup for items proven inactive;
-8. `VAEG_EXT` cleanup, if proven inactive;
-9. optional unused-source-stub cleanup, if proven inactive;
-10. report and evidence.
+7. `CPUCORE_IA32` removal, if proven inactive;
+8. `SUPPORT_IDEIO` removal, if proven inactive;
+9. PC-9861K expansion-board removal, if proven inactive;
+10. VAEG-relevance cleanup for items proven inactive;
+11. `VAEG_EXT` cleanup, if proven inactive;
+12. optional unused-source-stub cleanup, if proven inactive;
+13. report and evidence.
 
 For every removed conditional, document which side is retained and why.
 
