@@ -26,7 +26,6 @@
 #include "compiler.h"
 #include "cpucore.h"
 #include "upd9002_diagnostic.h"
-#include "upd9002_dispatch.h"
 #include "tests/upd9002/rep0f_diagnostic_stop.h"
 
 #include <stdio.h>
