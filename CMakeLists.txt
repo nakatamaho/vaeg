@@ -143,7 +143,6 @@ set(VAEG_CORE_SOURCES
     cpu/upd9002/upd9002_f6.c
     cpu/upd9002/upd9002_fe.c
     cpu/upd9002/upd9002_rp.c
-    cpu/upd9002/upd9002_dispatch.c
     cpu/upd9002/memory.c
     cpu/upd9002/egcmem.c
     cpu/upd9002/dmap.c
