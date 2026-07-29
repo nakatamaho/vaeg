@@ -47,20 +47,26 @@ M72 owns:
    - Do not preserve dead PC-9821 drawing, BIOS, PCI, GDC, FDC, palette or
      state-save branches as active code.
    - Preserve the supported PC-88VA active behavior.
-4. Remove 98x1-only information from the SDL2 GUI About/More details.
+4. Audit and remove inactive `PCMODEL_EPSON` / PC-286 model branches where the
+   audit proves they are not required by VAEG.
+   - Do not introduce EPSON PC compatibility.
+   - Preserve the supported PC-88VA active behavior.
+   - Keep only generic non-VA scaffolding required by current ROM-less tests
+     or shared frontend initialization.
+5. Remove 98x1-only information from the SDL2 GUI About/More details.
    - Remove the `[98x1]` section and related PC-98-only fields from the
      `About -> More` output.
    - Keep VA model, VA ROM, sound, rhythm, screen, and other current VAEG
      information that remains useful.
    - Do not change emulator behavior to make the About dialog simpler.
-5. Audit `VAEG_EXT` and remove obsolete active-tree references only where the
+6. Audit `VAEG_EXT` and remove obsolete active-tree references only where the
    inactive-code audit proves they are unbuilt and not required by VAEG.
    - Do not blindly enable the former extension/debug/SCSI paths.
    - Preserve the current non-`VAEG_EXT` behavior unless a specific branch is
      proven to be the active intended behavior.
    - Do not change state-save format or SCSI/SASI behavior without explicit
      evidence and tests.
-6. Audit frontend asset embedding and font stubs only to classify future work.
+7. Audit frontend asset embedding and font stubs only to classify future work.
    - Do not remove embedded GUI assets in M72.
    - Do not modify ROM/font payloads.
    - Remove only a source stub if it is proven unused by the active build and
@@ -91,7 +97,7 @@ git status --short --branch
 git rev-parse HEAD
 git rev-parse origin/main
 git diff --check
-rg -n "VAEG_FIX|VAEG_EXT|SUPPORT_PC9821|PCMODEL_PC9821|PC-9821|PC9821|98x1" .
+rg -n "VAEG_FIX|VAEG_EXT|SUPPORT_PC9821|PCMODEL_PC9821|PCMODEL_EPSON|PC-9821|PC9821|98x1" .
 ```
 
 Confirm:
@@ -116,10 +122,11 @@ Keep one concern per commit:
 3. About/More 98x1 information removal;
 4. `VAEG_FIX` constant-fold;
 5. `SUPPORT_PC9821` removal, if proven inactive;
-6. VAEG-relevance cleanup for items proven inactive;
-7. `VAEG_EXT` cleanup, if proven inactive;
-8. optional unused-source-stub cleanup, if proven inactive;
-9. report and evidence.
+6. `PCMODEL_EPSON` removal, if proven inactive;
+7. VAEG-relevance cleanup for items proven inactive;
+8. `VAEG_EXT` cleanup, if proven inactive;
+9. optional unused-source-stub cleanup, if proven inactive;
+10. report and evidence.
 
 For every removed conditional, document which side is retained and why.
 
@@ -167,6 +174,7 @@ Write `docs/agents/reports/m72_misc_compile_flag_cleanup.md` with:
 - inactive-code removals and deferred items;
 - About/More 98x1 removal result;
 - PC-9821 removal inventory;
+- EPSON model removal inventory;
 - `VAEG_EXT` disposition;
 - font/embed audit result;
 - validation commands and exit statuses;
