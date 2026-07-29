@@ -8,14 +8,12 @@ enum {
 	FDCEVENT_BUFSEND2,
 	FDCEVENT_NEXTDATA,
 	FDCEVENT_BUSY,
-#if defined(VAEG_FIX)
 	FDCEVENT_FIRSTDATA,
 	FDCEVENT_STARTBUFSEND2,
 	FDCEVENT_FIRSTSTARTBUFSEND2,
 	FDCEVENT_STARTBUFRECV,
 	FDCEVENT_FIRSTSTARTBUFRECV,
 	FDCEVENT_TC,
-#endif
 };
 
 enum {
@@ -87,11 +85,7 @@ typedef struct {
 	UINT8	status;
 	UINT8	intreq;
 	UINT8	lastdata;
-#if defined(VAEG_FIX)
 	UINT8	dummy;
-#else
-	UINT8	tc;
-#endif
 
 	UINT8	crcn;
 	UINT8	ctrlreg;
@@ -110,17 +104,13 @@ typedef struct {
 	int		bufp;
 	int		bufcnt;
 
-#if defined(VAEG_FIX)
 	UINT8	tcreserved;
 	UINT8	rqm;
 	SINT32	rqmlastclock;
 	SINT32	rqminterval;
 //	int		priampcnt;
-#endif
 	UINT8	reserved[128];
-#if defined(VAEG_FIX) || defined(VAEG_EXT)
 	UINT32	clock;				// 動作周波数(Hz)
-#endif
 	UINT8	motor[4];
 #if defined(VAEG_EXT)
 	SINT32	headlastclock;
@@ -167,9 +157,7 @@ void fdc_fddmotor(NEVENTITEM item);
 #if defined(VAEG_EXT)
 void fdc_stepwait(NEVENTITEM item);
 #endif
-#if defined(VAEG_FIX)
 void fdc_statewatch(NEVENTITEM item);
-#endif
 
 void fdc_interrupt(void);
 

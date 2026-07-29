@@ -7,10 +7,8 @@
 
 static const UINT8 irqtable[4] = {0x03, 0x0d, 0x0a, 0x0c};
 
-#if defined(VAEG_FIX)
 static void set_fmtimeraevent(BOOL absolute);
 static void set_fmtimerbevent(BOOL absolute);
-#endif
 
 void fmport_a(NEVENTITEM item) {
 
@@ -39,11 +37,9 @@ void fmport_a(NEVENTITEM item) {
 //		TRACE_("A: virbuf = ", pcm86.virbuf);
 //		TRACE_("A: fifosize = ", pcm86.fifosize);
 
-#if defined(VAEG_FIX)
 		set_fmtimeraevent(FALSE);
 			// 直前のイベント発生を基点に次のイベント発生時刻を指定するため、
 			// absoluteにはFALSEを指定
-#endif
 	
 	}
 }
@@ -83,11 +79,9 @@ void fmport_b(NEVENTITEM item) {
 //		TRACE_("B: virbuf = ", pcm86.virbuf);
 //		TRACE_("B: fifosize = ", pcm86.fifosize);
 
-#if defined(VAEG_FIX)
 		set_fmtimerbevent(FALSE);
 			// 直前のイベント発生を基点に次のイベント発生時刻を指定するため、
 			// absoluteにはFALSEを指定
-#endif
 
 	}
 }
@@ -197,9 +191,7 @@ void fmtimer_setreg(REG8 reg, REG8 value) {
 }
 
 
-#if defined(VAEG_FIX)
 /*
 	・タイマーが、オーバーフロー後停止していたのを修正し、
 	  オーバーフローと同時にプリセット値をロードして動作再開するように変更。
 */
-#endif

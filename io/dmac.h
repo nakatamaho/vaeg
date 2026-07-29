@@ -8,9 +8,7 @@ enum {
 	DMAEXT_START		= 0,
 	DMAEXT_END			= 1,
 	DMAEXT_BREAK		= 2,
-#if defined(VAEG_FIX) || defined(VAEG_EXT)
 	DMAEXT_DRQ			= 3,
-#endif
 
 	DMA_INITSIGNALONLY	= 1,
 
