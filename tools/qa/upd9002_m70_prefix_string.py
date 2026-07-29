@@ -35,6 +35,7 @@ import tempfile
 from typing import Any
 
 import upd9002_dispatch
+import upd9002_m64_expanded as m64
 
 
 sys.dont_write_bytecode = True
@@ -57,7 +58,6 @@ G68_MANIFEST_PATH = pathlib.Path("tests/ssts/campaigns/g68/manifest.json")
 G69_MANIFEST_PATH = pathlib.Path("tests/idp/campaigns/g69/manifest.json")
 OUT_DIR = pathlib.Path("tests/ssts/campaigns/g70")
 G70_DIVERGENCE_DIR = pathlib.Path("tests/ssts/divergence/g70")
-OLD_SUPPORT_MAP_PATH = pathlib.Path("tools/qa/golden/upd9002_support_map_m48.csv")
 POLICY_DIR = pathlib.Path("tests/ssts/policies")
 TARGET_POLICY_DIR = pathlib.Path("tests/ssts/target_policy")
 
@@ -102,7 +102,6 @@ STRING_TARGETS = {
     0xae: "scasb",
     0xaf: "scasw",
 }
-
 EXPECTED_GROUPS = {
     ("repc", "0xa4"): ("REPC", "65", "A4", "MOVSB", 309, "37320aacc63bf0fd2319a0ee580bd63d638a2634ecfb718138dcb575fe5d0faf"),
     ("repc", "0xa5"): ("REPC", "65", "A5", "MOVSW", 327, "b53f2ca185052fce976fe6b9ad81267d9042147ef54e48aeb29f3ef78563ef32"),
@@ -165,14 +164,14 @@ def read_json(root: pathlib.Path, rel: pathlib.Path) -> Any:
 
 
 def read_support_map(root: pathlib.Path) -> list[dict[str, str]]:
-    path = root / OLD_SUPPORT_MAP_PATH
     try:
-        with path.open("r", encoding="utf-8", newline="") as stream:
-            rows = list(csv.DictReader(stream))
+        with m64.support_map(root, "g64") as path:
+            with path.open("r", encoding="utf-8", newline="") as stream:
+                rows = list(csv.DictReader(stream))
     except OSError as exc:
-        raise M70Error("M70_MISSING_INPUT", OLD_SUPPORT_MAP_PATH.as_posix()) from exc
+        raise M70Error("M70_MISSING_INPUT", "G64 support map") from exc
     if not rows or list(rows[0]) != SUPPORT_FIELDS:
-        raise M70Error("M70_SUPPORT_SCHEMA", OLD_SUPPORT_MAP_PATH.as_posix())
+        raise M70Error("M70_SUPPORT_SCHEMA", "G64 support map")
     return rows
 
 

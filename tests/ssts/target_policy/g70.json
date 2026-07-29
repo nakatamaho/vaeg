@@ -29,10 +29,10 @@
       "sha256": "0aa3dbb24323223b3a9595a0bd7cfd5666596741157c14b60f6969318475f8f7"
     }
   },
-  "support_map_path": "tests/ssts/policies/upd9002-g70-12e3f0467cebc9ffa9ad70439794cd5b67272c7360d7ede205ebe4718ba288e6.csv",
-  "support_map_sha256": "12e3f0467cebc9ffa9ad70439794cd5b67272c7360d7ede205ebe4718ba288e6",
-  "target_policy_artifact": "tests/ssts/policies/upd9002-g70-12e3f0467cebc9ffa9ad70439794cd5b67272c7360d7ede205ebe4718ba288e6.json",
-  "target_policy_id": "upd9002-g70-12e3f0467cebc9ffa9ad70439794cd5b67272c7360d7ede205ebe4718ba288e6",
-  "target_policy_sha256": "12e3f0467cebc9ffa9ad70439794cd5b67272c7360d7ede205ebe4718ba288e6",
+  "support_map_path": "tests/ssts/policies/upd9002-g70-18a5606ad77ecc2e461b3fd56fa0105061831e685d7af430fc5026d0137bbb80.csv",
+  "support_map_sha256": "18a5606ad77ecc2e461b3fd56fa0105061831e685d7af430fc5026d0137bbb80",
+  "target_policy_artifact": "tests/ssts/policies/upd9002-g70-18a5606ad77ecc2e461b3fd56fa0105061831e685d7af430fc5026d0137bbb80.json",
+  "target_policy_id": "upd9002-g70-18a5606ad77ecc2e461b3fd56fa0105061831e685d7af430fc5026d0137bbb80",
+  "target_policy_sha256": "18a5606ad77ecc2e461b3fd56fa0105061831e685d7af430fc5026d0137bbb80",
   "transition_kind": "m70_prefix_string_project_target_amendment"
 }
