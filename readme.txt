@@ -59,13 +59,8 @@
 　SUPPORT_PC9861K
 　　　PC-9861K(RS-232C拡張I/F)をサポート
 
-　SUPPORT_IDEIO
-　　　IDEの I/Oレベルでのサポート
-　　　でも ATAのリード程度しかできない…
-
 　SUPPORT_SASI
 　　　SASI HDDをサポート
-　　　定義がなければ常時IDEとして作動します。
 
 　SUPPORT_SCSI
 　　　SCSI HDDをサポート…全然動かない
