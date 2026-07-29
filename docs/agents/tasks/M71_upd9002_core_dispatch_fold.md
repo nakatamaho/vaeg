@@ -53,9 +53,12 @@ M71 must:
 
 - remove `cpu/upd9002/upd9002_dispatch.c` as an independent compilation unit;
 - remove `cpu/upd9002/upd9002_dispatch.h`;
-- move the dispatch constructor, dispatch tables, prefix handlers, V30-era
-  replacement handlers, and `upd9002_core_step()` into
+- fold the dispatch constructor away, replace dispatch-era handlers in their
+  canonical handler translation units, and keep `upd9002_core_step()` in
   `cpu/upd9002/upd9002_core.c`;
+- keep folded root tables in the translation unit that can legally name their
+  static handlers without exposing those handlers across translation-unit
+  boundaries;
 - remove obsolete `v30` naming from current production symbols and current
   QA metadata, for example `v30_idiv_ea8` becomes `_idiv_ea8`;
 - keep externally consumed uPD9002 test seams available through existing

@@ -22,7 +22,8 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 -->
 # M71 - uPD9002 core dispatch fold report
 
-Status: in progress.
+Status: M71 implementation candidate prepared for G71 human review. G71 is not
+approved by this report.
 
 ## Starting point
 
@@ -31,16 +32,152 @@ Status: in progress.
 - Approved predecessor: G70 at
   `53d47ed500baef247a1be5f3ccc18bdb0c00c0cc`
 
-## Scope
+## Commit list
 
-M71 removes the obsolete standalone uPD9002 dispatch translation unit and
-folds its contents into `cpu/upd9002/upd9002_core.c`. It also removes current
-production `v30` handler/table naming from the folded dispatch path.
+- `1b8ba2a8` - `M71: define core dispatch fold cleanup`
+- `74423dd0` - `M71: fold dispatch tables into uPD9002 core`
+- `caed63de` - `M71: update folded dispatch validation`
 
-No instruction semantics, target policy, state format, memory mapping,
-TSP/IDP behavior, SST corpus record, or expected result is intentionally
-changed.
+The final evidence commit follows this report update.
 
-## Evidence
+## Files removed
 
-Final evidence will be recorded before the G71 human-review handoff.
+- `cpu/upd9002/upd9002_dispatch.c`
+- `cpu/upd9002/upd9002_dispatch.h`
+
+Both files are removed from the active tree. `CMakeLists.txt` no longer lists
+`cpu/upd9002/upd9002_dispatch.c` in `VAEG_CORE_SOURCES`.
+
+## Production fold
+
+The former dispatch translation unit is folded into the active uPD9002 core
+sources:
+
+- `upd9002_core_step()` now lives in `cpu/upd9002/upd9002_core.c`.
+- The canonical root tables now live in `cpu/upd9002/upd9002_mn.c`:
+  `upd9002op`, `upd9002op_repe`, `upd9002op_repne`,
+  `upd9002op_repc`, and `upd9002op_repnc`.
+- The canonical 0F table is `upd9002_ope0x0f_table`.
+- F6/F7 division tables remain in `cpu/upd9002/upd9002_f6.c` as
+  `c_ope0xf6_table` and `c_ope0xf7_table`.
+- The M46 dispatch immutability test seam remains available through
+  `cpu/upd9002/cpucore.h` and is implemented against the folded static tables.
+
+## Naming transition
+
+M71 replaces the dispatch-era `v30` handler/table names with canonical
+uPD9002 names in the current production path.
+
+Examples:
+
+- `v30_idiv_ea8` -> `_idiv_ea8`
+- `v30_div_ea8` -> `_div_ea8`
+- `v30_idiv_ea16` -> `_idiv_ea16`
+- `v30_div_ea16` -> `_div_ea16`
+- `v30_ope0x0f` -> `_ope0x0f`
+- `v30_repc` -> `_repc`
+- `v30_repnc` -> `_repnc`
+- `v30push_sp` -> `_push_sp`
+- `v30mov_seg_ea` -> `_mov_seg_ea`
+
+The old canonical implementations that collided with replacement handlers were
+not retained beside the new names. They were replaced by the uPD9002 production
+semantics that previously entered through the dispatch patch tables.
+
+The tables are intentionally not all placed in `upd9002_core.c`: the relevant
+handler macros expand to static functions in `upd9002_mn.c` and
+`upd9002_f6.c`. Keeping the tables in those translation units avoids exporting
+formerly static handler internals solely for the refactor.
+
+`CPUTYPE_V30` remains unchanged because it is the approved legacy serialized
+compatibility byte, not a runtime dispatch selector.
+
+## Current generated metadata
+
+The current dispatch generator now reads the folded static tables directly and
+emits canonical table and handler names:
+
+| Artifact | Rows including header | SHA-256 |
+| --- | ---: | --- |
+| `tools/qa/golden/upd9002_final_dispatch_graph.csv` | 1,514 | `3203d510afd11982460ad27704ca06d7cf8cf7a58d0abf05c437c5ef520e049c` |
+| `tools/qa/golden/upd9002_dispatch_provenance_m42.csv` | 1,297 | `0a615838c943305f629a97e608f3767fb47bacbdc2a843dd805ec68eab25d920` |
+| `tools/qa/golden/upd9002_support_map_m42.csv` | 1,553 | `2e0fb98a58cbfea483535fae451b4f632a806d0cde6c21bf5dd8737383950c1e` |
+| `tests/upd9002/harness_manifest.csv` | 194 | `1a1afd169ee75195e9c299589e3f3abff742a2f7de19aed887734f8ca199ed55` |
+
+Approved historical G70 artifacts were not rewritten. The M70 validator now
+accepts the historical G70 dispatch CSV family as approved evidence while
+checking that current folded dispatch regeneration matches the current golden
+counterparts.
+
+## Validation
+
+Commands run on macOS in this worktree:
+
+| Command | Exit | Result |
+| --- | ---: | --- |
+| `python3 tools/qa/upd9002_dispatch.py --root . --write --selftest` | 0 | Regenerated and verified folded graph, provenance, support map and harness manifest |
+| `python3 tools/qa/upd9002_dispatch_normalization.py --root .` | 0 | Folded canonical roots verified; retired dispatch source/header/constructor absent |
+| `python3 tools/qa/upd9002_native_invariant.py --root .` | 0 | Native lifecycle invariant passed with `upd9002_core_step` and folded reset initializer |
+| `python3 tools/qa/upd9002_rename.py --root .` | 0 | Retired public APIs and retired active dispatch paths absent |
+| `python3 tools/qa/upd9002_rep0f_transition.py --root . --selftest` | 0 | Folded REP+0F diagnostic-stop graph verified |
+| `python3 tools/qa/upd9002_protected_deletion.py --root . --selftest` | 0 | Protected M50 deletion evidence and current folded graph verified |
+| `python3 tools/qa/upd9002_m62_bundle.py verify-static --root .` | 0 | M62 static authority remained valid after folded names |
+| `python3 tools/qa/upd9002_m70_prefix_string.py selftest --root .` | 0 | M70 population validator selftest passed |
+| `python3 tools/qa/upd9002_m70_prefix_string.py verify --root .` | 0 | M70 approved artifacts verified with folded dispatch equivalence |
+| `cmake --build build/linux-ci-clang -j 4` | 0 | Test-enabled Clang build passed |
+| `ctest --test-dir build/linux-ci-clang --output-on-failure` | 0 | 73 passed, 1 skipped (`vaeg_upd9002_ssts_ci_external`), 0 failed |
+| `cmake --build build/linux-debug --target vaeg -j 4` | 0 | Normal debug build passed |
+| `git diff --check` | 0 | Whitespace check passed |
+
+Build artifact digests:
+
+- `build/linux-ci-clang/sdl2/vaeg`:
+  `98cda664ea2e97efe2e04c84e041b309f289ee77e0a0ed5db2f09da7ad737618`
+- `build/linux-debug/sdl2/vaeg`:
+  `3759ebabe03850a8ba35e3a980baa71616de26bc8e5d77712e8a00859eddbfa8`
+
+CTest protected results included:
+
+- M65a FF /7: pass
+- M65b BOUND: pass
+- M65c F7 /2: pass
+- M65d FF /6: pass
+- M65e tail10: pass
+- M68 segmented mapped-memory protection: pass
+- M69 IDP 0142H status composition protection: pass
+- M70 prefix/string protection: pass
+
+## Scope audit
+
+No intentional changes were made to:
+
+- target policy semantics;
+- SST corpus records;
+- state format or state compatibility schema;
+- memory mapping behavior;
+- TSP/IDP behavior;
+- Z80 behavior;
+- frontend behavior.
+
+The remaining `V30` spellings in active uPD9002 production files are limited
+to `CPUTYPE_V30` state-compatibility checks and messages. They are not current
+dispatch table names or handler names.
+
+## Remaining risks
+
+- The change is large because folding a translation unit necessarily moves many
+  static handlers and dispatch tables into one compilation boundary.
+- Hosted CI has not yet been run for the final M71 branch candidate in this
+  report snapshot.
+- MinGW was not rerun in this snapshot.
+
+## G71 human-review checklist
+
+- Build from a clean checkout of the final M71 branch.
+- Boot in V3 mode.
+- Run the bundled VA demo.
+- Boot PC-Engine/MS-DOS and verify `DIR A:`, `CHKDSK A:`, multi-screen text
+  output, `CLS`, save/load, and Sound Board II.
+- Confirm that `cpu/upd9002/upd9002_dispatch.c` and
+  `cpu/upd9002/upd9002_dispatch.h` are absent.
+- Confirm that G71 is approved only by the maintainer.
