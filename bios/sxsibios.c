@@ -223,17 +223,16 @@ REG8 sasibios_operate(void) {
 	UINT	type;
 	SXSIDEV	sxsi;
 
-	if (pccore.hddif & PCHDD_IDE) {
-		type = SXSIBIOS_IDE;
-	}
 #if defined(SUPPORT_SASI)
-	else if (pccore.hddif & PCHDD_SASI) {
+	if (pccore.hddif & PCHDD_SASI) {
 		type = SXSIBIOS_SASI;
 	}
-#endif
 	else {
 		return(0x60);
 	}
+#else
+	return(0x60);
+#endif
 	sxsi = sxsi_getptr(CPU_AL);
 	if (sxsi == NULL) {
 		return(0x60);
@@ -374,7 +373,7 @@ REG8 scsibios_operate(void) {
 
 // ---- np2sysp
 
-#if defined(SUPPORT_IDEIO) || defined(SUPPORT_SASI) || defined(SUPPORT_SCSI)
+#if defined(SUPPORT_SASI) || defined(SUPPORT_SCSI)
 typedef struct {
 	UINT16	ax;
 	UINT16	cx;
@@ -463,7 +462,7 @@ static void reg_store(UINT seg, UINT off) {
 }
 #endif
 
-#if defined(SUPPORT_IDEIO) || defined(SUPPORT_SASI)
+#if defined(SUPPORT_SASI)
 void np2sysp_sasi(const void *arg1, long arg2) {
 
 	UINT	seg;
@@ -535,4 +534,3 @@ void np2sysp_scsidev(const void *arg1, long arg2) {
 	(void)arg2;
 }
 #endif
-

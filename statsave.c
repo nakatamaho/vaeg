@@ -11,7 +11,6 @@
 #include	"iocore.h"
 #include	"gdc_sub.h"
 #include	"cbuscore.h"
-#include	"ideio.h"
 #include	"sasiio.h"
 #include	"scsiio.h"
 #include	"pc9861k.h"
