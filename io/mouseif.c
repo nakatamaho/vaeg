@@ -49,9 +49,6 @@ void mouseif_sync(void) {
 
 void calc_mousexy(void) {
 
-#if defined(VAEG_EXT)
-	static UINT32	rapidlastc;
-#endif
 
 	UINT32	clock;
 	SINT32	diff;
@@ -63,9 +60,7 @@ void calc_mousexy(void) {
 	if (diff >= 2000) {
 		SINT32 dx;
 		SINT32 dy;
-#if !defined(VAEG_EXT)
 		mouseif.rapid ^= 0xa0;
-#endif
 		diff /= 1000;
 		dx = mouseif.sx;
 		if (dx > 0) {
@@ -105,15 +100,6 @@ void calc_mousexy(void) {
 		mouseif.lastc += diff * 1000;
 	}
 
-#if defined(VAEG_EXT)
-	diff = clock - rapidlastc;
-	if (diff > 200000 || diff < 0) {
-		// 8MHzで20打/秒 くらい
-		// rapidlastcが凄く昔の場合にdiff < 0となることがある
-		mouseif.rapid ^= 0xa0;
-		rapidlastc = clock;
-	}
-#endif
 
 }
 

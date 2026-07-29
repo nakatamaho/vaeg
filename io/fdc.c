@@ -16,9 +16,6 @@
 
 #include	"sysmng.h"
 
-#if defined(VAEG_EXT)
-#include	"soundmng.h"
-#endif
 
 #include	"iocoreva.h"
 #include	"memoryva.h"
@@ -37,17 +34,6 @@ enum {
 	FDD_MOTOR_STARTING	= 1,
 	FDD_MOTOR_STABLE	= 2,
 
-#if defined(VAEG_EXT)
-	FDD_HEAD_UNLOADED	= 0,
-	FDD_HEAD_LOADING	= 1,
-	FDD_HEAD_STABLE		= 2,
-	FDD_HEAD_IDLE		= 3,
-
-	FDD_HEADREACH_IDLE		  = 0,		// ヘッドがロードされていない
-	FDD_HEADREACH_WAITINGLOAD = 1,		// ヘッドがロード完了するのを待っている
-	FDD_HEADREACH_REACHING    = 2,		// ヘッドがロードされており、セクタに到達するのを待っている
-	FDD_HEADREACH_REACHED     = 3,		// ヘッドがロードされており、目的のセクタに到達した
-#endif
 
 	FDD_48TPI			= 0,
 	FDD_96TPI			= 1,
@@ -394,7 +380,7 @@ static void fdc_trace_emit_status(UINT8 st0) {
 	fdc_trace_output(st0, 0xff, 0xff);
 }
 
-#if defined(SUPPORT_SWSEEKSND) && !defined(VAEG_EXT)
+#if defined(SUPPORT_SWSEEKSND)
 static void fdc_play_head_load_sound(BOOL one_track) {
 
 	if (np2cfg.MOTOR) {
@@ -435,352 +421,6 @@ static void fdc_play_seek_sound(int us, int ncn) {
 #endif
 
 
-#if defined(VAEG_EXT)
-
-static BOOL seek1sound = FALSE;	// 次にヘッドロード音を出すときは1シリンダシーク用の音を出す
-
-// ----------------------------------------------------------------------
-// head location management
-
-/*
-	直前のディスクアクセスがR==eot (これをそのトラックの最終セクタとみなす)で、
-	次のFDCコマンドによるアクセス要求が、
-	1. 同じシリンダのセクタ1の場合、
-	   直前のディスクアクセス終了から
-	   ポストアンプル+プリアンプル分の時間を待つ
-	2. 次のシリンダのセクタ1の場合、
-	   直前のディスクアクセス終了からポストアンプル+プリアンプル+1トラック分の時間を待つ
-	3. その他のシリンダのセクタ1の場合、
-	   直前のディスクアクセス終了から
-	   ポストアンプル+プリアンプル+半トラック分の時間を待つ
-	4. セクタ1以外の場合
-	   半トラック分の時間を待つ	   
-
-	直前のディスクアクセスから次のFDCコマンドによるアクセス要求までの間に
-	ヘッドがunloadされた場合は、常に上記4の扱いにする。
-
-	マルチトラックアクセス(1回のコマンドで最終セクタから次のトラックの先頭セクタをまたがって
-	アクセス)は考慮しない。VAのFDD BIOSはこの機能を使っていないから。
-*/
-
-static void reached_sector(void) {
-	fdc.reachlastus = fdc.us;
-	fdc.reachlastC = fdc.C;
-	fdc.reachlastR = fdc.R;
-	fdc.reachlastN = fdc.N;
-	fdc.reachlasteot = fdc.eot;
-	fdc.reachlastclock = getnow();
-}
-
-
-static void update_headreach(void) {
-
-	switch(fdc.reach) {
-	case FDD_HEADREACH_REACHING:
-		{
-			UINT32 now;
-			now = getnow();
-			if (now - fdc.reachlastclock >= fdc.reachtime) {
-				fdc.reach = FDD_HEADREACH_REACHED;
-			}
-		}
-		break;
-	case FDD_HEADREACH_WAITINGLOAD:
-		if (fdc.head == FDD_HEAD_STABLE) {
-			fdc.reach = FDD_HEADREACH_REACHING;
-			fdc.reachlastclock = getnow();
-		}
-		break;
-	}
-}
-
-static void want_sector(void) {
-	if (fdc.reach == FDD_HEADREACH_REACHED &&
-		fdc.us == fdc.reachlastus && 
-		fdc.R == 1 && 
-		fdc.reachlastR == fdc.reachlasteot) {
-		// 前回からの連続アクセスで、
-		// 前回と同じドライブで、
-		// 前回はトラックの最後のセクタで(EOT==Rなら最後のセクタと仮定)、
-		// 次にアクセスするのは最初のセクタで(セクタ1がトラック先頭と仮定)
-		// ある場合。
-		int datalen;
-		if (fdc.reachlastN < 8) {
-			datalen = 128 << fdc.reachlastN;
-		}
-		else {
-			datalen = 128 << 8;
-		}
-		fdc.reachtime = fdc.rqminterval * datalen;
-		if (fdc.C == fdc.reachlastC) {
-			// 前回と同じシリンダ
-			// プリアンプル、ポストアンプル分待つ
-			fdc.reachtime += fdc.amptime;
-		}
-		else if (fdc.C == fdc.reachlastC + 1) {
-			// 前回の次のシリンダ
-			// 1トラック待つ
-			fdc.reachtime += fdc.amptime + fdc.roundtime;
-		}
-		else {
-			// 半トラック待つ
-			fdc.reachtime += fdc.roundtime / 2;
-		}
-		fdc.reach = FDD_HEADREACH_REACHING;
-	}
-	else {
-		// 無条件に半トラック待つ
-		if (fdc.head == FDD_HEAD_STABLE) {
-			// ヘッドロードが完了している
-			fdc.reachlastclock = getnow();
-			fdc.reach = FDD_HEADREACH_REACHING;
-		}
-		else {
-			// ヘッドロードが完了していない
-			fdc.reach = FDD_HEADREACH_WAITINGLOAD;
-		}
-		// 現在から、または、ヘッドロード完了から半トラック待つ
-		fdc.reachtime = fdc.roundtime / 2;
-	}
-}
-
-
-// ----------------------------------------------------------------------
-// head status management
-
-// TODO: FDC_ReadDataなどで、エラー検出時でも、hltの時間を待って
-//       結果を返すようにする。
-
-static void head_load_sound(void) {
-	if (np2cfg.MOTOR) {
-		// ヘッドロード音
-		soundmng_pcmstop(SOUND_PCMHEADOFF);
-		if (seek1sound) {
-			soundmng_pcmstop(SOUND_PCMSEEK1);
-			soundmng_pcmplay(SOUND_PCMSEEK1, FALSE);
-			seek1sound = FALSE;
-		}
-		else {
-			soundmng_pcmstop(SOUND_PCMHEADON);
-			soundmng_pcmplay(SOUND_PCMHEADON, FALSE);
-		}
-	}
-}
-
-static void head_unload_sound(void) {
-	if (np2cfg.MOTOR) {
-		// ヘッドアンロード音
-		soundmng_pcmstop(SOUND_PCMHEADOFF);
-		soundmng_pcmplay(SOUND_PCMHEADOFF, FALSE);
-	}
-}
-
-static void update_head(void) {
-	SINT32 now;
-	SINT32 d;
-
-	now = getnow();
-
-	switch (fdc.head) {
-	case FDD_HEAD_LOADING:
-		d = (SINT32)((UINT64)pccore.realclock * 16000 * fdc.hlt / fdc.clock);
-		if (now - fdc.headlastclock > d) {
-			fdc.head = FDD_HEAD_STABLE;
-			fdc.headlastclock += d;
-		}
-		break;
-	case FDD_HEAD_IDLE:
-		d = (SINT32)((UINT64)pccore.realclock * 128000L * fdc.hut / fdc.clock);
-		if (now - fdc.headlastclock > d) {
-			fdc.head = FDD_HEAD_UNLOADED;
-			fdc.headlastclock += d;
-
-			fdc.reach = FDD_HEADREACH_IDLE;
-
-			head_unload_sound();
-		}
-		break;
-	}
-
-}
-
-static void activate_head(void) {
-	SINT32 now;
-
-	now = getnow();
-
-	if (fdc.headlastactive == fdc.us) {
-		switch (fdc.head) {
-		case FDD_HEAD_UNLOADED:
-			fdc.head = FDD_HEAD_LOADING;
-			fdc.headlastclock = now;
-			head_load_sound();
-			break;
-		case FDD_HEAD_IDLE:
-			fdc.head = FDD_HEAD_STABLE;
-			fdc.headlastclock = now;
-			break;
-		}
-	}
-	else {
-		fdc.headlastactive = fdc.us;
-		fdc.head = FDD_HEAD_LOADING;
-		fdc.headlastclock = now;
-		head_load_sound();
-	}
-}
-
-static void deactivate_head(void) {
-	SINT32 now;
-
-	now = getnow();
-
-	if (fdc.headlastactive == fdc.us) {
-		switch (fdc.head) {
-		case FDD_HEAD_STABLE:
-			fdc.head = FDD_HEAD_IDLE;
-			fdc.headlastclock = now;
-			break;
-
-		case FDD_HEAD_LOADING:
-			fdc.head = FDD_HEAD_UNLOADED;
-			fdc.headlastclock = now;
-
-			fdc.reach = FDD_HEADREACH_IDLE;
-
-			head_unload_sound();
-			break;
-
-		}
-	}
-	else {
-		fdc.headlastactive = fdc.us;
-		fdc.head = FDD_HEAD_UNLOADED;
-		fdc.headlastclock = now;
-
-		fdc.reach = FDD_HEADREACH_IDLE;
-
-		head_unload_sound();
-	}
-}
-
-static void unload_head_forcedly(void) {
-	fdc.head = FDD_HEAD_UNLOADED;
-	head_unload_sound();
-}
-
-// ----------------------------------------------------------------------
-// seek management
-
-static void fdc_stepwaitset(void) {
-	UINT32 srttime;
-
-	// SRTをFDCクロック数で表すと 8000 * (16 - fdc.srt);
-	// それをCPUクロック数で表すと、8000 * (16 - fdc.srt) * (pccore.realclock/fdc.clock);
-	srttime = (UINT32)((UINT64)pccore.realclock * 8000 * (16 - fdc.srt) / fdc.clock);
-
-	nevent_set(NEVENT_FDCSTEPWAIT, srttime, fdc_stepwait, NEVENT_ABSOLUTE);
-}
-
-static void succeed_seek(int us) {
-	fdc.us = us;
-	fdc.ncn = fdc.headpcn[us];
-	fdc.stat[fdc.us] = (fdc.hd << 2) | fdc.us;
-	fdc.stat[fdc.us] |= FDCRLT_SE;
-	fdd_seek();
-	fdc_interrupt();
-	fdc_trace_update_fields();
-	fdc_trace_emit_status((UINT8)fdc.stat[fdc.us]);
-}
-
-static void start_seek(int us, int ncn) {
-	int move;
-
-	if (fdc.headpcn[us] == ncn) {
-		succeed_seek(us);
-	}
-	else {
-		fdc.headncn[us] = ncn;
-		if (np2cfg.MOTOR) {
-			move = ncn - fdc.headpcn[us];
-			if (move < 0) {
-				move = 0 - move;
-			}
-			if (fdc.head != FDD_HEAD_UNLOADED && 
-				(ncn == fdc.headpcn[us] + 1 || ncn + 1 == fdc.headpcn[us])) {
-				seek1sound = TRUE;
-			}
-			else {
-				seek1sound = FALSE;
-			}
-			// シーク音
-#if defined(SUPPORT_SWSEEKSND)
-			fddmtrsnd_seek(seek1sound, (UINT)(move * 15));
-#else
-			soundmng_pcmstop(SOUND_PCMSEEK);
-			soundmng_pcmplay(SOUND_PCMSEEK, TRUE);
-#endif
-		}
-		unload_head_forcedly();
-		fdc_stepwaitset();
-	}
-}
-
-static UINT8 isseeking(void) {
-	int us;
-	UINT8 stat;
-
-	stat = 0;
-	for (us = 0; us < 4; us++) {
-		if (fdc.headncn[us] != fdc.headpcn[us]) {
-			stat |= (1 << us);
-		}
-	}
-	return stat;
-}
-
-static UINT8 fdbusybits(void) {
-	int us;
-	UINT8 stat;
-
-	stat = isseeking();
-	for (us = 0; us < 4; us++) {
-		if (fdc.stat[us] & FDCRLT_SE) {
-			stat |= (1 << us);
-		}
-	}
-	return stat;
-}
-
-void fdc_stepwait(NEVENTITEM item) {
-	int us;
-
-	for (us = 0; us < 4; us++) {
-		if (fdc.headncn[us] != fdc.headpcn[us]) {
-			if (fdc.headncn[us] < fdc.headpcn[us]) {
-				fdc.headpcn[us]--;
-			}
-			else if (fdc.headncn[us] > fdc.headpcn[us]) {
-				fdc.headpcn[us]++;
-			}
-			if (fdc.headncn[us] == fdc.headpcn[us]) {
-				// 目的のシリンダに到達
-				succeed_seek(us);
-
-				if (np2cfg.MOTOR) {
-					soundmng_pcmstop(SOUND_PCMSEEK);
-				}
-			}
-		}
-	}
-
-	if (isseeking()) {
-		fdc_stepwaitset();
-	}
-}
-
-
-#endif
 
 // ----------------------------------------------------------------------
 // interrupt
@@ -898,9 +538,6 @@ void fdcsend_error7(void) {
 
 	fdc_interrupt();
 
-#if defined(VAEG_EXT)
-	deactivate_head();
-#endif
 	fdc_play_head_unload_sound();
 }
 
@@ -930,9 +567,6 @@ void fdcsend_success7(void) {
 
 	fdc_interrupt();
 
-#if defined(VAEG_EXT)
-	deactivate_head();
-#endif
 	fdc_play_head_unload_sound();
 }
 
@@ -1087,9 +721,6 @@ static void FDC_SenseDeviceStatus(void) {				// cmd: 04
 			fdc.buf[0] = (fdc.hd << 2) | fdc.us;
 			fdc.stat[fdc.us] = (fdc.hd << 2) | fdc.us;
 			if (fdc.equip & (1 << fdc.us)) {
-#if defined(VAEG_EXT)
-				sysmng_fddaccess(fdc.us, CTRL_FDMEDIA[fdc.us] == DISKTYPE_2HD);
-#endif
 				if (pccore.model_va == PCMODEL_NOTVA) {
 					fdc.buf[0] |= 0x08;
 				}
@@ -1097,9 +728,6 @@ static void FDC_SenseDeviceStatus(void) {				// cmd: 04
 					fdc.buf[0] |= 0x10;
 				}
 				if (fddfile[fdc.us].fname[0]) {
-#if defined(VAEG_EXT)
-					if (fdc.motor[fdc.us] == FDD_MOTOR_STABLE) {
-#endif
 					fdc.buf[0] |= 0x20;
 					if (pccore.model_va != PCMODEL_NOTVA) {
 						fdc.buf[0] |= 0x08;
@@ -1107,9 +735,6 @@ static void FDC_SenseDeviceStatus(void) {				// cmd: 04
 								VAの場合、Ready=0ならTwo Side=0のようだ。
 							*/
 					}
-#if defined(VAEG_EXT)
-					}
-#endif
 				}
 				if (fddfile[fdc.us].protect) {
 					fdc.buf[0] |= 0x40;
@@ -1139,9 +764,6 @@ static void start_writesector(void) {
 	fdc.bufp = 0;
 	ZeroMemory(fdc.buf, fdc.bufcnt);
 
-#if defined(VAEG_EXT)
-	reached_sector();
-#endif
 }
 
 static BOOL writesector(void) {
@@ -1190,10 +812,6 @@ static void FDC_WriteData(void) {						// cmd: 05
 					fdc_dmaready(1);
 					dmac_check();
 				}
-#if defined(VAEG_EXT)
-				activate_head();
-				want_sector();
-#endif
 			}
 			break;
 
@@ -1252,9 +870,6 @@ static void readsector(void) {
 	fdc.event = FDCEVENT_BUFSEND2;
 	fdc.bufp = 0;
 
-#if defined(VAEG_EXT)
-	reached_sector();
-#endif
 
 }
 
@@ -1282,10 +897,6 @@ static void FDC_ReadData(void) {						// cmd: 06
 					dmac_check();
 				}
 				fdc.bufcnt = 0;
-#if defined(VAEG_EXT)
-				activate_head();
-				want_sector();
-#endif
 			}
 			break;
 
@@ -1324,26 +935,6 @@ static void FDC_Recalibrate(void) {						// cmd: 07
 
 	switch(fdc.event) {
 		case FDCEVENT_CMDRECV:
-#if defined(VAEG_EXT)
-			get_hdus();
-			fdc_trace_update_fields();
-			if (!(fdc.equip & (1 << fdc.us))) {
-				fdc.stat[fdc.us] = (fdc.hd << 2) | fdc.us;
-				fdc.stat[fdc.us] |= FDCRLT_SE | FDCRLT_NR | FDCRLT_IC0;
-				fdc_interrupt();
-				fdc_trace_emit_status((UINT8)fdc.stat[fdc.us]);
-			}
-			else if (!fddfile[fdc.us].fname[0]) {
-				fdc.stat[fdc.us] = (fdc.hd << 2) | fdc.us;
-				fdc.stat[fdc.us] |= FDCRLT_SE | FDCRLT_NR;
-				fdc_interrupt();
-				fdc_trace_emit_status((UINT8)fdc.stat[fdc.us]);
-			}
-			else {
-				start_seek(fdc.us, 0);
-			}
-			break;
-#else
 			get_hdus();
 			fdc_trace_update_fields();
 			fdc.ncn = 0;
@@ -1362,7 +953,6 @@ static void FDC_Recalibrate(void) {						// cmd: 07
 			fdc_interrupt();
 			fdc_trace_emit_status((UINT8)fdc.stat[fdc.us]);
 			break;
-#endif
 	}
 	fdc.event = FDCEVENT_NEUTRAL;
 	fdc.status = FDCSTAT_RQM;
@@ -1419,10 +1009,6 @@ static void FDC_ReadID(void) {							// cmd: 0a
 
 	switch(fdc.event) {
 		case FDCEVENT_CMDRECV:
-#if defined(VAEG_EXT)
-					// ToDo: 他と同じようにstart_executionphaseに対応しなくていいの？
-			activate_head();
-#endif
 			fdc.mf = fdc.cmd & 0x40;
 			get_hdus();
 			fdc_trace_update_fields();
@@ -1471,10 +1057,6 @@ static void FDC_WriteID(void) {							// cmd: 0d
 					fdc_dmaready(1);
 					dmac_check();
 				}
-#if defined(VAEG_EXT)
-				activate_head();
-				fdc.reach = FDD_HEADREACH_REACHED;
-#endif
 
 			}
 			break;
@@ -1521,27 +1103,6 @@ static void FDC_Seek(void) {							// cmd: 0f
 
 	switch(fdc.event) {
 		case FDCEVENT_CMDRECV:
-#if defined(VAEG_EXT)
-			get_hdus();
-			fdc_trace_update_fields();
-			if ((!(fdc.equip & (1 << fdc.us))) ||
-				(!fddfile[fdc.us].fname[0])) {
-				fdc.stat[fdc.us] = (fdc.hd << 2) | fdc.us;
-				fdc.stat[fdc.us] |= FDCRLT_SE;
-				fdc.stat[fdc.us] |= FDCRLT_NR | FDCRLT_IC0;
-				fdc_interrupt();
-				fdc_trace_emit_status((UINT8)fdc.stat[fdc.us]);
-			}
-			else {
-				if (fdc.trackdensity[fdc.us] == FDD_48TPI) {
-					start_seek(fdc.us, fdc.cmds[1] * 2);
-				}
-				else {
-					start_seek(fdc.us, fdc.cmds[1]);
-				}
-			}
-			break;
-#else
 			get_hdus();
 			fdc_trace_update_fields();
 			fdc.ncn = fdc.cmds[1];
@@ -1558,7 +1119,6 @@ static void FDC_Seek(void) {							// cmd: 0f
 			fdc_interrupt();
 			fdc_trace_emit_status((UINT8)fdc.stat[fdc.us]);
 			break;
-#endif
 	}
 	fdc.event = FDCEVENT_NEUTRAL;
 	fdc.status = FDCSTAT_RQM;
@@ -1693,10 +1253,6 @@ static void start_executionphase(void) {
 	fdc.rqmlastclock = getnow();
 	resetrqm();
 
-#if defined(VAEG_EXT)
-	fdc.roundtime = (UINT32)((UINT64)pccore.realclock * 60 / rpm);
-	fdc.amptime = fdc.roundtime - fdc.rqminterval * sectors * data;
-#endif
 }
 
 
@@ -1713,9 +1269,6 @@ static void update_executionphase_read(void){
 	d = now - fdc.rqmlastclock;
 	if (!fdc.rqm && d >= fdc.rqminterval) {
 
-#if defined(VAEG_EXT)
-		if (fdc.head == FDD_HEAD_STABLE && fdc.reach == FDD_HEADREACH_REACHED) {
-#endif
 			switch(fdc.event) {
 			case FDCEVENT_FIRSTSTARTBUFSEND2:
 				fdc.event = FDCEVENT_FIRSTDATA;
@@ -1739,12 +1292,6 @@ static void update_executionphase_read(void){
 			if (fdc.event == FDCEVENT_BUFSEND2) {
 				setrqm();
 			}
-#if defined(VAEG_EXT)
-		}
-		else {
-			fdc.rqmlastclock = now;
-		}
-#endif
 	}
 }
 
@@ -1757,9 +1304,6 @@ static void update_executionphase_write(void){
 	now = getnow_onevent();
 	d = now - fdc.rqmlastclock;
 	if (!fdc.rqm && d >= fdc.rqminterval) {
-#if defined(VAEG_EXT)
-		if (fdc.head == FDD_HEAD_STABLE && fdc.reach == FDD_HEADREACH_REACHED) {
-#endif
 			switch(fdc.event) {
 			case FDCEVENT_FIRSTSTARTBUFRECV:
 				FDC_Ope[fdc.cmd & 0x1f]();
@@ -1782,12 +1326,6 @@ static void update_executionphase_write(void){
 				setrqm();
 			}
 
-#if defined(VAEG_EXT)
-		}
-		else {
-			fdc.rqmlastclock = now;
-		}
-#endif
 	}
 }
 
@@ -1847,11 +1385,6 @@ void DMACCALL fdc_datawrite(REG8 data) {
 
 //	if ((fdc.status & (FDCSTAT_RQM | FDCSTAT_DIO)) == FDCSTAT_RQM) {
 		switch(fdc.event) {
-#if defined(VAEG_EXT)
-			case FDCEVENT_FIRSTSTARTBUFRECV:
-			case FDCEVENT_STARTBUFRECV:
-				break;
-#endif
 			case FDCEVENT_BUFRECV:
 				if (fdc.rqm) {
 					resetrqm();
@@ -1946,10 +1479,6 @@ REG8 DMACCALL fdc_dataread(void) {
 static void start_statewatch(void);
 
 void fdc_statewatch(NEVENTITEM item) {
-#if defined(VAEG_EXT)
-	update_head();
-	update_headreach();
-#endif
 	update_executionphase();
 	
 	start_statewatch();
@@ -2053,9 +1582,6 @@ static void IOOUTCALL fdcva_o_dskmisc(UINT port, REG8 dat) {
 
 
 static REG8 IOINPCALL fdc_i90(UINT port) {
-#if defined(VAEG_EXT)
-	fdc.status = fdc.status & 0xf0 | fdbusybits();
-#endif
 //	TRACEOUT(("fdc in %.2x %.2x [%.4x:%.4x]", port, fdc.status,
 //															CPU_CS, CPU_IP));
 
@@ -2098,9 +1624,6 @@ static REG8 IOINPCALL fdc_i94(UINT port) {
 
 
 static REG8 IOINPCALL fdcva_i_fdc0(UINT port) {
-#if defined(VAEG_EXT)
-	fdc.status = fdc.status & 0xf0 | fdbusybits();
-#endif
 
 //	TRACEOUT(("fdcva: in %.2x %.2x [%.4x:%.4x]", port, fdc.status,
 //															CPU_CS, CPU_IP));
@@ -2337,14 +1860,6 @@ void fdc_reset(void) {
 		fdc.trackdensity[0] = fdc.trackdensity[1] = fdc.trackdensity[2] = fdc.trackdensity[3] = trackdensity;
 	}
 	fdc.chgreg = 3;
-#if defined(VAEG_EXT)
-	fdc.headlastactive = -1;
-	fdc.reach = FDD_HEADREACH_IDLE;
-	fdc.clock = CLOCK48;
-
-	soundmng_pcmstop(SOUND_PCMSEEK);
-	seek1sound = FALSE;
-#endif
 	if (pccore.model_va == PCMODEL_NOTVA) {
 		// 98
 		fdc.fddifmode = 1;	// DMA mode

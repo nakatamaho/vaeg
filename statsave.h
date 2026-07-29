@@ -46,9 +46,6 @@ int statsave_load(const char *filename);
 /* Retains the current HOSTFAT mount state and read-only snapshot. */
 int statsave_load_hostfat_override(const char *filename);
 
-#if defined(VAEG_EXT)
-BOOL statsave_skipall(FILEH fh);
-#endif
 
 #if defined(SUPPORT_OPRECORD)
 typedef void (*STATSAVE_LOAD_DISK_HOOK)(int drv, char *path, UINT size, int *readonly);

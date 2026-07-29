@@ -73,11 +73,7 @@ const OEMCHAR np2version[] = OEMTEXT(NP2VER_CORE);
 				3, {0x0c, 0x0c, 0x08, 0x06, 0x03, 0x0c}, 64, 64, 64, 64, 64,
 				1, 0x82,
 				0, {0x17, 0x04, 0x1f}, {0x0c, 0x0c, 0x02, 0x10, 0x3f, 0x3f},
-#if defined(VAEG_EXT)
-				3, 1, 85, 0, 0,
-#else
 				3, 1, 80, 0, 0,
-#endif
 				0,
 				{OEMTEXT(""), OEMTEXT("")},
 #if defined(SUPPORT_SCSI)
@@ -909,9 +905,6 @@ void sysp4vsyncend(NEVENTITEM item) {
 // ---------------------------------------------------------------------------
 
 //@@@@@@
-#if defined(VAEG_EXT)
-#include	"breakpoint.h"
-#endif
 
 // ブレークポイント
 typedef struct {
@@ -933,41 +926,8 @@ enum {
 			{FALSE, 0xe000, 0xb577},
 		};
 
-#if defined(VAEG_EXT)
-		DEBUGCALLBACK	debugcallback;
-
-void pccore_debugsetcallback(DEBUGCALLBACK *callback) {
-	debugcallback = *callback;
-}
-
-void pccore_debugpause(BOOL pauseflag) {
-	stopexec = pauseflag;
-}
-
-BOOL pccore_getdebugpause(void) {
-	return stopexec;
-}
-
-void pccore_debugsinglestep(BOOL singlestepflag) {
-	singlestep = singlestepflag;
-}
-
-void pccore_debugioin(BOOL word, UINT port) {
-	if (breakpoint_check_ioin(port)) {
-		stopexec = TRUE;
-	}
-	else if (word && breakpoint_check_ioin(port+1)) {
-		stopexec = TRUE;
-	}
-}
-#endif
 
 void pccore_debugmem(UINT32 op, UINT32 addr, UINT16 data) {
-#if defined(VAEG_EXT)
-	if (breakpoint_check_memwrite(addr)) {
-		stopexec = TRUE;
-	}
-#endif
 /*
 	int	x = 0;
 
@@ -1119,38 +1079,6 @@ void pccore_exec(BOOL draw) {
 			trpos++;
 #endif
 //@@@@@@
-#if defined(VAEG_EXT)
-			if (!stopexec) {
-				if (singlestep) {
-					stopexec = TRUE;
-				}
-/*
-				else if (breakpointflag) {
-					int	i;
-					BREAKADDR *ba;
-
-					ba = breakaddrx;
-					for (i = 0; i < BREAKADDR_MAX; i++, ba++) {
-						if (ba->enabled) {
-							if (ba->seg == CPU_CS && ba->off == CPU_IP) {
-								stopexec = TRUE;
-							}
-						}
-					}
-				}
-*/
-				else if (breakpoint_check_step()) {
-					stopexec = TRUE;
-				}
-			}
-			
-			if (stopexec) {
-				debugcallback.onpause();
-				while (stopexec) {
-					debugcallback.wait();
-				}
-			}
-#endif
 //@@@@@@
 
 #if defined(TRACE) && defined(IPTRACE)	// Shinra

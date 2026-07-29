@@ -65,14 +65,8 @@
 
 typedef struct {
 	char	name[16];
-#if defined(VAEG_EXT)
-	char	vername[24];
-	UINT32	ver;
-	UINT32	size;
-#else
 	char	vername[28];
 	UINT32	ver;
-#endif
 } NP2FHDR;
 
 typedef struct {
@@ -190,9 +184,6 @@ static SFFILEH statflag_open(const char *filename, char *err, int errlen) {
 
 	FILEH	fh;
 	SFFILEH	ret;
-#if defined(VAEG_EXT)
-	NP2FHDR	_np2flagdef = np2flagdef;
-#endif
 
 	fh = file_open_rb(filename);
 	if (fh == FILEH_INVALID) {
@@ -203,12 +194,7 @@ static SFFILEH statflag_open(const char *filename, char *err, int errlen) {
 		goto sfo_err2;
 	}
 	if ((file_read(fh, &ret->f, sizeof(NP2FHDR)) == sizeof(NP2FHDR)) &&
-#if defined(VAEG_EXT)
-		((_np2flagdef.size = ret->f.size), TRUE) &&
-		(!memcmp(&ret->f, &_np2flagdef, sizeof(_np2flagdef)))) {
-#else
 		(!memcmp(&ret->f, &np2flagdef, sizeof(np2flagdef)))) {
-#endif
 		ZeroMemory(ret, sizeof(_SFFILEH));
 		ret->fh = fh;
 		ret->secpos = sizeof(NP2FHDR);
@@ -392,18 +378,9 @@ sfw_err1:
 }
 
 static void statflag_close(SFFILEH sffh) {
-#if defined(VAEG_EXT)
-	NP2FHDR	np2fhdr = np2flagdef;		
-#endif
 
 	if (sffh) {
 		statflag_closesection(sffh);
-#if defined(VAEG_EXT)
-		np2fhdr.size = sffh->secpos;
-		if (file_seek(sffh->fh, 0L, FSEEK_SET) == 0L) {
-			file_write(sffh->fh, &np2fhdr, sizeof(np2fhdr));
-		}
-#endif
 		file_close(sffh->fh);
 		_MFREE(sffh);
 	}
@@ -1955,20 +1932,6 @@ int statsave_load_hostfat_override(const char *filename) {
 	return(statsave_load_internal(filename, TRUE));
 }
 
-#if defined(VAEG_EXT)
-BOOL statsave_skipall(FILEH fh) {
-	NP2FHDR	np2fhdr;
-	long	pos;
-
-	if (file_read(fh, &np2fhdr, sizeof(NP2FHDR)) != sizeof(NP2FHDR)) {
-		// 失敗
-		return TRUE;
-	}
-	pos = np2fhdr.size - sizeof(NP2FHDR);
-	file_seek(fh, pos, FSEEK_CUR);
-	return FALSE;
-}
-#endif
 
 #if defined(SUPPORT_OPRECORD)
 void statsave_set_load_disk_hook(STATSAVE_LOAD_DISK_HOOK hook) {

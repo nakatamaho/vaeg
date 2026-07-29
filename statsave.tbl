@@ -46,11 +46,6 @@ static const PROCTBL evtproc[] = {
 			{PROCID('e','s','v','s'), sysp4vsyncstart},
 			{PROCID('e','s','v','e'), sysp4vsyncend},
 			{PROCID('e','s','v','i'), sysp4vsyncint},
-#if defined(VAEG_EXT)
-			{PROCID('e','f','t','m'), fdc_timer},
-			{PROCID('e','f','m','o'), fdc_fddmotor},
-			{PROCID('e','f','s','w'), fdc_stepwait},
-#endif
 			{PROCID('e','f','s','t'), fdc_statewatch},
 };
 
@@ -76,11 +71,6 @@ static const ENUMTBL evtnum[] = {
 			{PROCID('p','c','m','8'), NEVENT_86PCM},
 			{PROCID('s','a','s','i'), NEVENT_SASIIO},
 			{PROCID('s','c','s','i'), NEVENT_SCSIIO},
-#if defined(VAEG_EXT)
-			{PROCID('f','t','i','m'), NEVENT_FDCTIMER},
-			{PROCID('f','m','t','r'), NEVENT_FDDMOTOR},
-			{PROCID('f','s','t','p'), NEVENT_FDCSTEPWAIT},
-#endif
 			{PROCID('f','s','t','w'), NEVENT_FDCSTATE},
 			{PROCID('f','l','m','2'), NEVENT_FLAMES2},
 };
