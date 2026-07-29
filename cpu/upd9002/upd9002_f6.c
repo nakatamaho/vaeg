@@ -107,11 +107,10 @@ UPD9002_F6 _imul_ea8(UINT op) {
 
 UPD9002_F6 _div_ea8(UINT op) {
 
-	UINT16	tmp;
-	BYTE	src;
-	UINT16	ip;
+	UINT16	dividend;
+	UINT	flag_result;
+	UINT8	src;
 
-	ip = UPD9002_IP;
 	if (op >= 0xc0) {
 		UPD9002_WORKCLOCK(14);
 		src = *(REG8_B20(op));
@@ -120,23 +119,28 @@ UPD9002_F6 _div_ea8(UINT op) {
 		UPD9002_WORKCLOCK(17);
 		src = upd9002_memoryread(CALC_EA(op));
 	}
-	tmp = UPD9002_AX;
-	if ((src) && (tmp < ((UINT16)src << 8))) {
-		UPD9002_AL = tmp / src;
-		UPD9002_AH = tmp % src;
+	dividend = UPD9002_AX;
+	SUBBYTE(flag_result, UPD9002_AH, src)
+	UPD9002_FLAGL |= 0x02;
+	if (!src || (UPD9002_AH >= src)) {
+		INT_NUM(0, UPD9002_IP);									// uPD9002
+		return;
 	}
-	else {
-		INT_NUM(0, ip - 2);										// 80x86
-	}
+	UPD9002_AL = dividend / src;
+	UPD9002_AH = dividend % src;
 }
 
 UPD9002_F6 _idiv_ea8(UINT op) {
 
-	SINT16	tmp, r;
-	SINT8	src;
-	UINT16	ip;
+	SINT32	dividend;
+	SINT32	divisor;
+	UINT32	dividend_magnitude;
+	UINT32	divisor_magnitude;
+	UINT32	quotient;
+	UINT32	remainder;
+	UINT	flag_result;
+	UINT8	src;
 
-	ip = UPD9002_IP;
 	if (op >= 0xc0) {
 		UPD9002_WORKCLOCK(17);
 		src = *(REG8_B20(op));
@@ -145,16 +149,28 @@ UPD9002_F6 _idiv_ea8(UINT op) {
 		UPD9002_WORKCLOCK(20);
 		src = upd9002_memoryread(CALC_EA(op));
 	}
-	tmp = (SINT16)UPD9002_AX;
-	if (src) {
-		r = tmp / src;
-		if (!((r + 0x80) & 0xff00)) {
-			UPD9002_AL = (UINT8)r;
-			UPD9002_AH = tmp % src;
-			return;
-		}
+	dividend = (SINT16)UPD9002_AX;
+	divisor = (SINT8)src;
+	dividend_magnitude = (UINT32)((dividend < 0) ? -dividend : dividend);
+	divisor_magnitude = (UINT32)((divisor < 0) ? -divisor : divisor);
+	SUBBYTE(flag_result, dividend_magnitude >> 8, divisor_magnitude)
+	UPD9002_FLAGL |= 0x02;
+	if (!divisor_magnitude ||
+		((dividend_magnitude >> 8) >= divisor_magnitude)) {
+		INT_NUM(0, UPD9002_IP);									// uPD9002
+		return;
 	}
-	INT_NUM(0, ip - 2);											// 80x86
+	quotient = dividend_magnitude / divisor_magnitude;
+	remainder = dividend_magnitude % divisor_magnitude;
+	UPD9002_OV = 0;
+	UPD9002_FLAGL = BYTESZPF(quotient) | 0x02;
+	if (quotient >= 0x80) {
+		INT_NUM(0, UPD9002_IP);									// uPD9002
+		return;
+	}
+	UPD9002_AL = (UINT8)(((dividend < 0) != (divisor < 0)) ?
+						(0U - quotient) : quotient);
+	UPD9002_AH = (UINT8)((dividend < 0) ? (0U - remainder) : remainder);
 }
 
 
@@ -262,57 +278,82 @@ UPD9002_F6 _imul_ea16(UINT op) {
 	UPD9002_DX = (UINT16)(res >> 16);
 }
 
+static UINT16 _div_read_ea16(UINT op) {
+
+	UINT	offset;
+	UINT32	segment;
+
+	offset = GET_EA(op, &segment);
+	return (UINT16)(upd9002_memoryread(segment + offset) |
+		(upd9002_memoryread(segment + LOW16(offset + 1)) << 8));
+}
+
 UPD9002_F6 _div_ea16(UINT op) {
 
-	UINT32	tmp;
+	UINT32	dividend;
 	UINT32	src;
-	UINT16	ip;
+	UINT32	flag_result;
 
-	ip = UPD9002_IP;
 	if (op >= 0xc0) {
 		UPD9002_WORKCLOCK(22);
 		src = *(REG16_B20(op));
 	}
 	else {
 		UPD9002_WORKCLOCK(25);
-		src = upd9002_memoryread_w(CALC_EA(op));
+		src = _div_read_ea16(op);
 	}
-	tmp = (UPD9002_DX << 16) + UPD9002_AX;
-	if ((src) && (tmp < (src << 16))) {
-		UPD9002_AX = tmp / src;
-		UPD9002_DX = tmp % src;
+	dividend = ((UINT32)UPD9002_DX << 16) | UPD9002_AX;
+	SUBWORD(flag_result, UPD9002_DX, src)
+	UPD9002_FLAGL |= 0x02;
+	if (!src || (UPD9002_DX >= src)) {
+		INT_NUM(0, UPD9002_IP);									// uPD9002
+		return;
 	}
-	else {
-		INT_NUM(0, ip - 2);										// 80x86
-	}
+	UPD9002_AX = dividend / src;
+	UPD9002_DX = dividend % src;
 }
 
 UPD9002_F6 _idiv_ea16(UINT op) {
 
-	SINT32	tmp;
-	SINT32	r;
-	SINT16	src;
-	UINT16	ip;
+	SINT64	dividend;
+	SINT64	divisor;
+	UINT64	dividend_magnitude;
+	UINT32	divisor_magnitude;
+	UINT32	quotient;
+	UINT32	remainder;
+	UINT32	flag_result;
+	UINT16	src;
 
-	ip = UPD9002_IP;
 	if (op >= 0xc0) {
 		UPD9002_WORKCLOCK(25);
 		src = *(REG16_B20(op));
 	}
 	else {
 		UPD9002_WORKCLOCK(28);
-		src = upd9002_memoryread_w(CALC_EA(op));
+		src = _div_read_ea16(op);
 	}
-	tmp = (SINT32)((UPD9002_DX << 16) + UPD9002_AX);
-	if (src) {
-		r = tmp / src;
-		if (!((r + 0x8000) & 0xffff0000)) {
-			UPD9002_AX = (SINT16)r;
-			UPD9002_DX = tmp % src;
-			return;
-		}
+	dividend = (SINT32)(((UINT32)UPD9002_DX << 16) | UPD9002_AX);
+	divisor = (SINT16)src;
+	dividend_magnitude = (UINT64)((dividend < 0) ? -dividend : dividend);
+	divisor_magnitude = (UINT32)((divisor < 0) ? -divisor : divisor);
+	SUBWORD(flag_result, dividend_magnitude >> 16, divisor_magnitude)
+	UPD9002_FLAGL |= 0x02;
+	if (!divisor_magnitude ||
+		((dividend_magnitude >> 16) >= divisor_magnitude)) {
+		INT_NUM(0, UPD9002_IP);									// uPD9002
+		return;
 	}
-	INT_NUM(0, ip - 2);											// 80x86
+	quotient = (UINT32)(dividend_magnitude / divisor_magnitude);
+	remainder = (UINT32)(dividend_magnitude % divisor_magnitude);
+	UPD9002_OV = 0;
+	UPD9002_FLAGL = WORDSZPF(quotient) | 0x02;
+	if (quotient >= 0x8000) {
+		INT_NUM(0, UPD9002_IP);									// uPD9002
+		return;
+	}
+	UPD9002_AX = (UINT16)(((dividend < 0) != (divisor < 0)) ?
+						(0U - quotient) : quotient);
+	UPD9002_DX = (UINT16)((dividend < 0) ? (0U - remainder) : remainder);
 }
 
 

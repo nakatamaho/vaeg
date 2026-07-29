@@ -78,6 +78,10 @@ extern void upd9002_ea_initialize(void);
 extern const UPD9002OP upd9002op[];
 extern const UPD9002OP upd9002op_repe[];
 extern const UPD9002OP upd9002op_repne[];
+extern const UPD9002OP upd9002op_repnc[];
+extern const UPD9002OP upd9002op_repc[];
+extern UINT16 upd9002_step_start_cs;
+extern UINT16 upd9002_step_start_ip;
 
 #define	UPD9002_8X	static void CPUCALL
 typedef void (CPUCALL * UPD9002OP8XREG8)(UINT8 *p);

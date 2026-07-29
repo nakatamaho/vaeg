@@ -26,7 +26,6 @@
 #include "cpucore.h"
 #include "upd9002_state.h"
 #include "upd9002_regs.h"
-#include "upd9002_dispatch.h"
 #include "tests/upd9002/fixtures.h"
 
 #include <stddef.h>

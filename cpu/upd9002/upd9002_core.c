@@ -1,7 +1,6 @@
 #include	"compiler.h"
 #include	"cpucore.h"
 #include	"upd9002_ops.h"
-#include	"upd9002_dispatch.h"
 #include	"pccore.h"
 #include	"iocore.h"
 #include	"dmap.h"
@@ -15,6 +14,8 @@
 
 
 	Upd9002CoreContext	upd9002_core_context;
+	UINT16	upd9002_step_start_cs;
+	UINT16	upd9002_step_start_ip;
 
 const UINT8 iflags[512] = {					// Z_FLAG, S_FLAG, P_FLAG
 			0x44, 0x00, 0x00, 0x04, 0x00, 0x04, 0x04, 0x00,
@@ -150,7 +151,6 @@ void upd9002_core_initialize(void) {
 #if !defined(MEMOPTIMIZE) || (MEMOPTIMIZE < 2)
 	upd9002_ea_initialize();
 #endif
-	upd9002_dispatch_initialize();
 	ZeroMemory(&upd9002_core_context, sizeof(upd9002_core_context));
 	upd9002_diagnostic_clear();
 	upd9002_state_initialize();
@@ -174,10 +174,58 @@ static void upd9002_initreg(void) {
 	UPD9002_ADRSMASK = 0xfffff;
 }
 
-static void v30c_initreg(void) {
+static void upd9002_core_initreg(void) {
 
 	upd9002_initreg();
 	UPD9002_FLAG = 0xf002;
+}
+
+void upd9002_core_step(void) {
+
+	UINT	opcode;
+	BOOL	preserve_state;
+	Upd9002RuntimeState state_before;
+
+	if (upd9002_diagnostic_pending()) {
+		return;
+	}
+
+	upd9002_trace_step_begin();
+	upd9002_step_start_cs = UPD9002_CS;
+	upd9002_step_start_ip = UPD9002_IP;
+	opcode = upd9002_memoryread(CS_BASE + UPD9002_IP);
+	preserve_state = (opcode == 0x26) || (opcode == 0x2e) ||
+		(opcode == 0x36) || (opcode == 0x3e) ||
+		(opcode == 0xf2) || (opcode == 0xf3);
+	if (preserve_state) {
+		state_before = upd9002_core_context.s;
+	}
+	UPD9002_OV = UPD9002_FLAG & O_FLAG;
+	UPD9002_FLAG &= ~(O_FLAG);
+
+	UPD9002_IP++;
+	upd9002op[opcode]();
+
+	UPD9002_FLAG &= ~(O_FLAG);
+	if (UPD9002_OV) {
+		UPD9002_FLAG |= (O_FLAG);
+	}
+	if (upd9002_diagnostic_pending()) {
+		/*
+		 * Every active path to the diagnostic starts with one of the
+		 * prefixes above. Restore the complete runtime image so the
+		 * unresolved encoding has no architectural effect.
+		 */
+		if (preserve_state) {
+			upd9002_core_context.s = state_before;
+		}
+		upd9002_trace_event(UPD9002_TRACE_ORIGIN_CPU,
+			"diagnostic-stop-rep0f", CS_BASE + UPD9002_IP, opcode, 1);
+		upd9002_trace_step_end();
+		return;
+	}
+	upd9002_dmap();
+	upd9002_trace_step_end();
 }
 
 void upd9002_core_reset(void) {
@@ -188,7 +236,7 @@ void upd9002_core_reset(void) {
 	ZeroMemory(&upd9002_core_context.s, sizeof(upd9002_core_context.s));
 	upd9002_core_context.s.cpu_type = CPUTYPE_V30;
 	upd9002_diagnostic_clear();
-	v30c_initreg();
+	upd9002_core_initreg();
 	upd9002_state_reset();
 }
 
@@ -285,7 +333,7 @@ const BYTE	*ptr;
 	if (op == 0xf4) {							// hlt
 		UPD9002_IP++;
 	}
-	REGPUSH0(REAL_FLAGREG)						// ここV30で辻褄が合わない
+	REGPUSH0(REAL_FLAGREG)						// preserve legacy interrupt flags
 	REGPUSH0(UPD9002_CS)
 	REGPUSH0(UPD9002_IP)
 
