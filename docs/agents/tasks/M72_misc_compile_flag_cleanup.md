@@ -1,4 +1,4 @@
-# M72 - VAEG-specific legacy cleanup
+# M72 - Inactive code audit and VAEG-specific cleanup
 
 M72 starts from the formally approved and main-integrated G71 candidate:
 
@@ -19,25 +19,30 @@ declare G72 passed.
 
 ## Scope
 
-M72 is a behavior-preserving cleanup for code and UI surface that no longer
-belongs to the VAEG active product.
+M72 is an inactive-code audit milestone with narrowly scoped cleanup for code
+and UI surface that no longer belongs to the VAEG active product.
 
 M72 owns:
 
-1. Audit and remove code that is not relevant to the active VAEG target.
+1. Audit inactive code that is not relevant to the active VAEG target.
    - The active product is the PC-88VA emulator, not a general PC-98/98x1
      emulator.
    - Keep compatibility scaffolding only when the active VA boot path,
      shared portable frontend, ROM-less tests, or current build still require
      it.
+   - Classify each audited item as active-required, inactive-removable,
+     inactive-but-deferred, or blocked-by-evidence-gap.
    - For each retained legacy-looking file or branch, record the active VAEG
      dependency that prevents removal.
+   - Delete only code proven inactive by the audit and kept within this task's
+     explicitly listed cleanup scope.
 2. Fold `VAEG_FIX` as always enabled in the active CMake tree.
    - Remove the public compile definition from CMake targets.
    - Remove source `#if defined(VAEG_FIX)` conditionals by keeping the
      currently built active behavior.
    - Preserve the current runtime behavior and validation baselines.
-3. Remove inactive `SUPPORT_PC9821` guarded code from the active tree.
+3. Audit and remove inactive `SUPPORT_PC9821` guarded code from the active
+   tree where the audit proves it is unbuilt and not required by VAEG.
    - Do not introduce PC-9821 support.
    - Do not preserve dead PC-9821 drawing, BIOS, PCI, GDC, FDC, palette or
      state-save branches as active code.
@@ -48,7 +53,8 @@ M72 owns:
    - Keep VA model, VA ROM, sound, rhythm, screen, and other current VAEG
      information that remains useful.
    - Do not change emulator behavior to make the About dialog simpler.
-5. Audit `VAEG_EXT` and remove obsolete active-tree references where safe.
+5. Audit `VAEG_EXT` and remove obsolete active-tree references only where the
+   inactive-code audit proves they are unbuilt and not required by VAEG.
    - Do not blindly enable the former extension/debug/SCSI paths.
    - Preserve the current non-`VAEG_EXT` behavior unless a specific branch is
      proven to be the active intended behavior.
@@ -98,24 +104,30 @@ Confirm:
 - `SUPPORT_PC9821` is not currently defined by the active CMake build.
 
 Stop if an apparently dead conditional owns current guest-visible behavior.
+Stop if an item is only plausibly irrelevant but cannot be proven inactive
+from build, reference, runtime, or repository-policy evidence.
 
 ## Implementation rules
 
 Keep one concern per commit:
 
 1. task authority and roadmap update;
-2. About/More 98x1 information removal;
-3. `VAEG_FIX` constant-fold;
-4. `SUPPORT_PC9821` removal;
-5. VAEG-relevance audit and safe deletion of unrelated legacy code;
-6. `VAEG_EXT` cleanup, if safe;
-7. optional unused-source-stub cleanup, if proven safe;
-8. report and evidence.
+2. inactive-code audit tooling or inventory;
+3. About/More 98x1 information removal;
+4. `VAEG_FIX` constant-fold;
+5. `SUPPORT_PC9821` removal, if proven inactive;
+6. VAEG-relevance cleanup for items proven inactive;
+7. `VAEG_EXT` cleanup, if proven inactive;
+8. optional unused-source-stub cleanup, if proven inactive;
+9. report and evidence.
 
 For every removed conditional, document which side is retained and why.
 
 For every removed file or block, prove that the active build no longer
 references it.
+
+If an audit item cannot be removed safely, leave it in place and record the
+blocker in the report instead of broadening the milestone.
 
 Do not delete a binary payload.
 
@@ -151,7 +163,8 @@ Write `docs/agents/reports/m72_misc_compile_flag_cleanup.md` with:
 - removed compile definitions;
 - retained conditional sides;
 - files changed;
-- VAEG-relevance audit inventory;
+- inactive-code audit inventory;
+- inactive-code removals and deferred items;
 - About/More 98x1 removal result;
 - PC-9821 removal inventory;
 - `VAEG_EXT` disposition;
