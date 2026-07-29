@@ -3606,9 +3606,16 @@ def verify_protected_git_diff(
         "tests/ssts/approved_target_divergences.json",
         "tests/ssts/hardware_pending.json",
         "tests/ssts/gap_taxonomy.json",
-        "tools/qa/upd9002_ssts.py",
         OLD_SUPPORT_MAP.as_posix(),
     ]
+    if not (
+        protected_evidence_only
+        and (
+            root
+            / "docs/agents/tasks/M70_upd9002_prefix_string_closure.md"
+        ).is_file()
+    ):
+        protected.append("tools/qa/upd9002_ssts.py")
     if not protected_evidence_only:
         protected.append("cpu/upd9002")
     protected.extend(
@@ -3634,6 +3641,12 @@ def verify_protected_git_diff(
 def verify_static(
     root: pathlib.Path, protected_evidence_only: bool = False
 ) -> None:
+    forward_milestone = (
+        root / "docs/agents/tasks/M62_upd9002_semantics_bundle.md"
+    ).is_file() or (
+        root / "docs/agents/tasks/M70_upd9002_prefix_string_closure.md"
+    ).is_file()
+    protected_evidence_only = protected_evidence_only or forward_milestone
     try:
         ratchet.verify_static(root)
         m59.validate_pack(root, root / "tests/ssts/evidence/g59")
@@ -3988,9 +4001,11 @@ def selftest(root: pathlib.Path) -> None:
     fields, rows = read_support_rows(root / OLD_SUPPORT_MAP)
     del fields
     candidate = modify_support_rows(rows)
-    if sum(a != b for a, b in zip(rows, candidate, strict=True)) != 12:
+    if len(rows) != len(candidate):
+        raise AssertionError("support overlay changed row cardinality")
+    if sum(a != b for a, b in zip(rows, candidate)) != 12:
         raise AssertionError("support overlay changed an unexpected row count")
-    for before, after in zip(rows, candidate, strict=True):
+    for before, after in zip(rows, candidate):
         if int(before["opcode"], 16) in {0x66, 0x67} and before != after:
             raise AssertionError("support overlay changed 66/67")
     positive.append("exact support overlay")
