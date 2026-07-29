@@ -178,7 +178,6 @@ set(VAEG_CORE_SOURCES
     cbus/sasiio.c
     cbus/scsiio.c
     cbus/scsicmd.c
-    cbus/pc9861k.c
     cbus/mpu98ii.c
     cbus/board14.c
     cbus/board26k.c

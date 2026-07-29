@@ -113,65 +113,6 @@ static void setjumpery(const DIPBMP *dipbmp, int x, int y) {
 }
 
 
-// ---- pc-9861k
-
-static void setdip9861(const DIPBMP *dipbmp, const DIP9861 *pos, BYTE cfg) {
-
-	int		x;
-	UINT	c;
-	int		y;
-	int		l;
-
-	x = (pos->x * 9) + 1;
-	c = pos->cnt;
-	do {
-		y = pos->y * 9 + ((cfg & 0x01)?5:9);
-		l = 0;
-		do {
-			line4x(dipbmp, x, y + l, 7, 0);
-		} while(++l < 3);
-		x += 9;
-		cfg >>= 1;
-	} while(--c);
-}
-
-static void setjmp9861(const DIPBMP *dipbmp, const DIP9861 *pos, BYTE cfg) {
-
-	int		x;
-	int		y;
-	UINT	c;
-
-	x = pos->x;
-	y = pos->y;
-	c = pos->cnt;
-	do {
-		if (cfg & 0x01) {
-			setjumpery(dipbmp, x, y);
-		}
-		x++;
-		cfg >>= 1;
-	} while(--c);
-}
-
-BYTE *dipswbmp_get9861(const BYTE *s, const BYTE *j) {
-
-	BYTE	*ret;
-	DIPBMP	dipbmp;
-	int		i;
-
-	ret = getbmp(bmp9861, &dipbmp);
-	if (ret) {
-		for (i=0; i<3; i++) {
-			setdip9861(&dipbmp, dip9861s + i, s[i]);
-		}
-		for (i=0; i<6; i++) {
-			setjmp9861(&dipbmp, dip9861j + i, j[i]);
-		}
-	}
-	return(ret);
-}
-
-
 // ---- sound
 
 static void setsnd26io(const DIPBMP *dipbmp, int px, int py, BYTE cfg) {
