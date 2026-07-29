@@ -18,10 +18,6 @@ typedef struct {
 	BYTE	data[0x10000];
 	BYTE	bios[2][0x2000];
 
-#if defined(VAEG_EXT)
-	UINT	nextphase;
-	BYTE	nextstatus;
-#endif
 } _SCSIIO, *SCSIIO;
 
 

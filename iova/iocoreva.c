@@ -204,9 +204,6 @@ REG8 IOINPCALL iocoreva_inp8(UINT port) {
 	IOFUNC	iof;
 	REG8	ret;
 
-#if defined(VAEG_EXT)
-	pccore_debugioin(FALSE, port);
-#endif
 
 	CPU_REMCLOCK -= iocore.busclock;
 	iof = iocore.base[(port >> 8) & 0xff];
@@ -233,9 +230,6 @@ REG16 IOINPCALL iocoreva_inp16(UINT port) {
 	IOFUNC	iof;
 	REG16	ret;
 
-#if defined(VAEG_EXT)
-	pccore_debugioin(TRUE, port);
-#endif
 
 	CPU_REMCLOCK -= iocore.busclock;
 

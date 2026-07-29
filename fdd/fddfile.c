@@ -169,11 +169,7 @@ BOOL fdd_read(void) {
 
 	FDDFILE		fdd;
 
-#if defined(VAEG_EXT)
-	sysmng_fddaccess(fdc.us, CTRL_FDMEDIA[fdc.us] == DISKTYPE_2HD);
-#else
 	sysmng_fddaccess(fdc.us);
-#endif
 	fdd = fddfile + fdc.us;
 	switch(fdd->type) {
 		case DISKTYPE_BETA:
@@ -189,11 +185,7 @@ BOOL fdd_write(void) {
 
 	FDDFILE		fdd;
 
-#if defined(VAEG_EXT)
-	sysmng_fddaccess(fdc.us, CTRL_FDMEDIA[fdc.us] == DISKTYPE_2HD);
-#else
 	sysmng_fddaccess(fdc.us);
-#endif
 	fdd = fddfile + fdc.us;
 	switch(fdd->type) {
 		case DISKTYPE_BETA:
@@ -209,11 +201,7 @@ BOOL fdd_readid(void) {
 
 	FDDFILE		fdd;
 
-#if defined(VAEG_EXT)
-	sysmng_fddaccess(fdc.us, CTRL_FDMEDIA[fdc.us] == DISKTYPE_2HD);
-#else
 	sysmng_fddaccess(fdc.us);
-#endif
 	fdd = fddfile + fdc.us;
 	switch(fdd->type) {
 		case DISKTYPE_BETA:
@@ -235,11 +223,7 @@ BOOL fdd_formatinit(void) {
 
 BOOL fdd_formating(const BYTE *ID) {
 
-#if defined(VAEG_EXT)
-	sysmng_fddaccess(fdc.us, CTRL_FDMEDIA[fdc.us] == DISKTYPE_2HD);
-#else
 	sysmng_fddaccess(fdc.us);
-#endif
 	if (fddfile[fdc.us].type == DISKTYPE_D88) {
 		return(fdd_formating_d88(ID));
 	}

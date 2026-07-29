@@ -112,28 +112,6 @@ typedef struct {
 	UINT8	reserved[128];
 	UINT32	clock;				// 動作周波数(Hz)
 	UINT8	motor[4];
-#if defined(VAEG_EXT)
-	SINT32	headlastclock;
-	UINT8	head;				// ヘッドの状態
-	UINT8	headlastactive;		// 最後に使用した
-								// (ヘッド状態の管理対象となった)
-								// ドライブの番号
-	UINT8	headpcn[4];			// ヘッドがどのシリンダにあるか
-	UINT8	headncn[4];			// ヘッドの移動先のシリンダ
-
-								// ヘッドのセクタ位置管理
-	UINT8	reachlastus;
-	UINT8	reachlastC;
-	UINT8	reachlastR;
-	UINT8	reachlastN;
-	UINT8	reachlasteot;
-	UINT8	reach;				// FDD_HEADREACH_*
-	UINT32	reachlastclock;
-	UINT32	reachtime;
-
-	UINT32	roundtime;			// ディスクが1回転する時間
-	UINT32	amptime;			// プリアンプル、ポストアンプルのアクセス時間
-#endif
 	UINT8	fddifmode;			// 1B0h FDDインタフェースモード
 								//      0..インテリジェント 1..DMA
 
@@ -154,9 +132,6 @@ extern "C" {
 void fdc_intwait(NEVENTITEM item);
 void fdc_timer(NEVENTITEM item);
 void fdc_fddmotor(NEVENTITEM item);
-#if defined(VAEG_EXT)
-void fdc_stepwait(NEVENTITEM item);
-#endif
 void fdc_statewatch(NEVENTITEM item);
 
 void fdc_interrupt(void);
