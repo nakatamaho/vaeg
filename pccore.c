@@ -9,7 +9,6 @@
 #include	"iocore.h"
 #include	"gdc_sub.h"
 #include	"cbuscore.h"
-#include	"pc9861k.h"
 #include	"mpu98ii.h"
 #include	"amd98.h"
 #include	"bios.h"
@@ -72,7 +71,6 @@ const OEMCHAR np2version[] = OEMTEXT(NP2VER_CORE);
 				{0, 0, 0}, 0xd1, 0x7f, 0xd1, 0, 0, 1,
 				3, {0x0c, 0x0c, 0x08, 0x06, 0x03, 0x0c}, 64, 64, 64, 64, 64,
 				1, 0x82,
-				0, {0x17, 0x04, 0x1f}, {0x0c, 0x0c, 0x02, 0x10, 0x3f, 0x3f},
 				3, 1, 80, 0, 0,
 				0,
 				{OEMTEXT(""), OEMTEXT("")},
@@ -205,9 +203,6 @@ static void pccore_set(void) {
 
 	// その他CBUSの接続
 	pccore.device = 0;
-	if (np2cfg.pc9861enable) {
-		pccore.device |= PCCBUS_PC9861K;
-	}
 	if (np2cfg.mpuenable) {
 		pccore.device |= PCCBUS_MPU98;
 	}
@@ -284,7 +279,6 @@ void pccore_init(void) {
 
 	rs232c_construct();
 	mpu98ii_construct();
-	pc9861k_initialize();
 
 	iocore_create();
 
@@ -310,7 +304,6 @@ void pccore_term(void) {
 
 	iocore_destroy();
 
-	pc9861k_deinitialize();
 	mpu98ii_destruct();
 	rs232c_destruct();
 

@@ -449,9 +449,6 @@ static const INITBL iniitem[] = {
 	{"LCD_MODE", INITYPE_UINT8,		&np2cfg.LCD_MODE,		0},
 	{"BG_COLOR", INITYPE_HEX32,		&np2cfg.BG_COLOR,		0},
 	{"FG_COLOR", INITYPE_HEX32,		&np2cfg.FG_COLOR,		0},
-	{"pc9861_e", INITYPE_BOOL,		&np2cfg.pc9861enable,	0},
-	{"pc9861_s", INITYPE_BYTEARG,	np2cfg.pc9861sw,		3},
-	{"pc9861_j", INITYPE_BYTEARG,	np2cfg.pc9861jmp,		6},
 	{"calendar", INITYPE_BOOL,		&np2cfg.calendar,		0},
 	{"USE144FD", INITYPE_BOOL,		&np2cfg.usefd144,		0},
 

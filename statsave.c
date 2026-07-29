@@ -13,7 +13,6 @@
 #include	"cbuscore.h"
 #include	"sasiio.h"
 #include	"scsiio.h"
-#include	"pc9861k.h"
 #include	"mpu98ii.h"
 #include	"board14.h"
 #include	"amd98.h"
@@ -1763,7 +1762,6 @@ const SFENTRY	*tblterm;
 	soundmng_stop();
 	rs232c_midipanic();
 	mpu98ii_midipanic();
-	pc9861k_midipanic();
 	sxsi_trash();
 
 	ret |= flagload_common(&sffh->sfh, np2tbl);
