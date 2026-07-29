@@ -19,7 +19,6 @@ enum {
 	PCMODEL_VM			= 1,
 	PCMODEL_VX			= 2,
 	PCMODELMASK			= 0x3f,
-	PCMODEL_PC9821		= 0x40,
 	PCMODEL_EPSON		= 0x80,
 
 	PCHDD_SASI			= 0x01,
@@ -30,7 +29,6 @@ enum {
 	PCROM_SOUND			= 0x02,
 	PCROM_SASI			= 0x04,
 	PCROM_SCSI			= 0x08,
-	PCROM_BIOS9821		= 0x10,
 
 	PCSOUND_NONE		= 0x00,
 

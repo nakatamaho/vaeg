@@ -301,17 +301,6 @@ const CRTDATA	*p;
 		return(0);
 	}
 	if ((scrn & 0x30) == 0x30) {				// 640x480
-#if defined(SUPPORT_PC9821)
-		if (rate & 4) {
-			gdc_analogext(TRUE);
-			mem[MEMB_PRXDUPD] |= 0x80;
-			crt = 4;
-			master = 3 + (scrn & 3);
-			slave = 1;
-			gdc.analog |= (1 << GDCANALOG_256E);
-		}
-		else
-#endif
 		return(0);
 	}
 	else {
@@ -336,13 +325,6 @@ const CRTDATA	*p;
 		if ((scrn & 0x20) && (mem[MEMB_PRXDUPD] & 0x04)) {
 			slave += 1;
 		}
-#if defined(SUPPORT_PC9821)
-		else {
-			gdc_analogext(FALSE);
-			mem[MEMB_PRXDUPD] &= ~0x80;
-		}
-		gdc.analog &= ~(1 << (GDCANALOG_256E));
-#endif
 	}
 	crt += (scrn & 3);
 
@@ -728,30 +710,6 @@ static void bios0x18_49(void) {
 }
 
 
-// ---- PC-9821
-
-#if defined(SUPPORT_PC9821)
-static void bios0x18_4d(REG8 mode) {
-
-	if ((mem[0x45c] & 0x40) &&
-		((mem[MEMB_CRT_BIOS] & 3) == 2)) {
-		if (mode == 0) {
-			gdc_analogext(FALSE);
-			mem[MEMB_PRXDUPD] &= ~0x7f;
-			mem[MEMB_PRXDUPD] |= 0x04;
-		}
-		else if (mode == 1) {
-			gdc_analogext(TRUE);
-			mem[MEMB_PRXDUPD] |= 0x80;
-		}
-		else {
-			mem[MEMB_PRXDUPD] |= 0x04;
-		}
-	}
-}
-#endif
-
-
 // ----
 
 void bios0x18(void) {
@@ -1005,11 +963,5 @@ void bios0x18(void) {
 				}
 			}
 			break;
-#if defined(SUPPORT_PC9821)
-		case 0x4d:
-			bios0x18_4d(CPU_CH);
-			break;
-#endif
 	}
 }
-
