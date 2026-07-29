@@ -65,20 +65,25 @@ M72 owns:
    - Preserve the built-in VA RS-232C path.
    - Do not retain the PC-9861K two-channel expansion board UI, state, event,
      or C-Bus registration paths as active VAEG code.
-8. Remove 98x1-only information from the SDL2 GUI About/More details.
+8. Audit and remove `DISABLE_SOUND` branches.
+   - The active VAEG target includes VA sound hardware.
+   - Preserve the current sound-enabled behavior and state-save coverage.
+   - Do not remove sound devices, sound output, MIDI, seek sounds, or sound
+     configuration; remove only the inactive no-sound compile-time path.
+9. Remove 98x1-only information from the SDL2 GUI About/More details.
    - Remove the `[98x1]` section and related PC-98-only fields from the
      `About -> More` output.
    - Keep VA model, VA ROM, sound, rhythm, screen, and other current VAEG
      information that remains useful.
    - Do not change emulator behavior to make the About dialog simpler.
-9. Audit `VAEG_EXT` and remove obsolete active-tree references only where the
+10. Audit `VAEG_EXT` and remove obsolete active-tree references only where the
    inactive-code audit proves they are unbuilt and not required by VAEG.
    - Do not blindly enable the former extension/debug/SCSI paths.
    - Preserve the current non-`VAEG_EXT` behavior unless a specific branch is
      proven to be the active intended behavior.
    - Do not change state-save format or SCSI/SASI behavior without explicit
      evidence and tests.
-10. Audit frontend asset embedding and font stubs only to classify future work.
+11. Audit frontend asset embedding and font stubs only to classify future work.
    - Do not remove embedded GUI assets in M72.
    - Do not modify ROM/font payloads.
    - Remove only a source stub if it is proven unused by the active build and
@@ -99,6 +104,8 @@ M72 must not:
 - preserve inactive `CPUCORE_IA32` as a supported build path;
 - implement or preserve VA IDE support without hardware evidence;
 - remove the built-in VA RS-232C path while removing PC-9861K expansion code;
+- remove VA sound hardware or sound state while removing the inactive
+  `DISABLE_SOUND` path;
 - implement PC-9821 support;
 - turn the active SDL2 frontend back into a general PC-98/98x1 frontend;
 - start any unrelated cleanup.
@@ -112,7 +119,7 @@ git status --short --branch
 git rev-parse HEAD
 git rev-parse origin/main
 git diff --check
-rg -n "VAEG_FIX|VAEG_EXT|SUPPORT_PC9821|PCMODEL_PC9821|PCMODEL_EPSON|CPUCORE_IA32|SUPPORT_IDEIO|SUPPORT_PC9861K|PC-9861K|PC9861K|PC-9821|PC9821|98x1" .
+rg -n "VAEG_FIX|VAEG_EXT|SUPPORT_PC9821|PCMODEL_PC9821|PCMODEL_EPSON|CPUCORE_IA32|SUPPORT_IDEIO|SUPPORT_PC9861K|DISABLE_SOUND|PC-9861K|PC9861K|PC-9821|PC9821|98x1" .
 ```
 
 Confirm:
@@ -125,6 +132,7 @@ Confirm:
 - `SUPPORT_PC9821` is not currently defined by the active CMake build.
 - `SUPPORT_IDEIO`, `SUPPORT_PC9861K`, and `CPUCORE_IA32` are not currently
   defined by the active CMake build.
+- `DISABLE_SOUND` is not currently defined by the active CMake build.
 
 Stop if an apparently dead conditional owns current guest-visible behavior.
 Stop if an item is only plausibly irrelevant but cannot be proven inactive
@@ -143,10 +151,11 @@ Keep one concern per commit:
 7. `CPUCORE_IA32` removal, if proven inactive;
 8. `SUPPORT_IDEIO` removal, if proven inactive;
 9. PC-9861K expansion-board removal, if proven inactive;
-10. VAEG-relevance cleanup for items proven inactive;
-11. `VAEG_EXT` cleanup, if proven inactive;
-12. optional unused-source-stub cleanup, if proven inactive;
-13. report and evidence.
+10. `DISABLE_SOUND` removal, if proven inactive;
+11. VAEG-relevance cleanup for items proven inactive;
+12. `VAEG_EXT` cleanup, if proven inactive;
+13. optional unused-source-stub cleanup, if proven inactive;
+14. report and evidence.
 
 For every removed conditional, document which side is retained and why.
 
