@@ -72,6 +72,9 @@ M48_PATHS = {
     "support": "tools/qa/golden/upd9002_support_map_m48.csv",
     "manifest": "tools/qa/golden/upd9002_rep0f_transition_manifest_m48.json",
 }
+G70_GRAPH_PATH = pathlib.Path("tests/ssts/campaigns/g70/dispatch_graph.csv")
+G70_HARNESS_PATH = pathlib.Path("tests/ssts/campaigns/g70/dispatch_harness.csv")
+G70_SUPPORT_PATH = pathlib.Path("tests/ssts/campaigns/g70/dispatch_support_map.csv")
 
 M48_IDENTITIES = {
     M48_PATHS["graph"]:
@@ -621,6 +624,19 @@ def verify(root: pathlib.Path, write: bool, selftest: bool) -> None:
     if selftest:
         module.internal_selftest()
     live_graph, _live_provenance, harness, live_support = module.generate(root)
+    if (
+        (root / G70_GRAPH_PATH).exists() and
+        (root / G70_HARNESS_PATH).exists() and
+        (root / G70_SUPPORT_PATH).exists()
+    ):
+        if (root / G70_GRAPH_PATH).read_text(encoding="utf-8") != live_graph:
+            raise TransitionError("G70 dispatch graph differs from regeneration")
+        if (root / G70_HARNESS_PATH).read_text(encoding="utf-8") != harness:
+            raise TransitionError("G70 dispatch harness differs from regeneration")
+        if (root / G70_SUPPORT_PATH).read_text(encoding="utf-8") != live_support:
+            raise TransitionError("G70 dispatch support map differs from regeneration")
+        print("rep0f-transition: G70 dispatch artifacts verified")
+        return
     graph = (root / M48_PATHS["graph"]).read_text(encoding="utf-8")
     provenance = (root / M48_PATHS["provenance"]).read_text(encoding="utf-8")
     support = (root / M48_PATHS["support"]).read_text(encoding="utf-8")
