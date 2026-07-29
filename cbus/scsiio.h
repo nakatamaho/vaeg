@@ -1,6 +1,4 @@
 
-#if defined(SUPPORT_SCSI)
-
 typedef struct {
 	UINT	port;
 	UINT	phase;
@@ -35,6 +33,3 @@ void scsiio_bind(void);
 #ifdef __cplusplus
 }
 #endif
-
-#endif
-

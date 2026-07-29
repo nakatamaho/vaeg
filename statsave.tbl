@@ -31,9 +31,7 @@ static const PROCTBL evtproc[] = {
 #if defined(SUPPORT_SASI)
 			{PROCID('e','s','a','s'), sasiioint},
 #endif
-#if defined(SUPPORT_SCSI)
 			{PROCID('e','s','c','s'), scsiioint},
-#endif
 			{PROCID('e','s','0','V'), screendispva},
 			{PROCID('e','s','1','V'), screenvsyncva},
 //			{PROCID('e','s','2','V'), screenvsyncva2},
@@ -133,17 +131,9 @@ static const SFENTRY np2tbl[] = {
 #if defined(SUPPORT_SASI)
 	{"SASI",		0,	STATFLAG_BIN,	&sasiio,		sizeof(sasiio)},
 #endif
-#if defined(SUPPORT_SCSI)
 	{"SCSI",		0,	STATFLAG_BIN,	&scsiio,		sizeof(scsiio)},
-#endif
-#if defined(SUPPORT_HOSTDRV)
-	{"HOSTDRV",		0,	STATFLAG_HDRV,	NULL,			0},
-#endif
-
-#if defined(SUPPORT_BMS)
 	{"BMSMEM",		0,	STATFLAG_BMS,	NULL,			0},
 	{"BMSIO",		0,	STATFLAG_BIN,	&bmsio,			sizeof(bmsio)},
-#endif
 	{"TVRAMVA",		0,	STATFLAG_BIN,	textmem,		sizeof(textmem)},
 	{"GVRAMVA",		0,	STATFLAG_BIN,	grphmem,		sizeof(grphmem)},
 	{"BKUPMEMVA",	0,	STATFLAG_BIN,	backupmem,		sizeof(backupmem)},

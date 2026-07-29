@@ -243,8 +243,6 @@ REG8 sasibios_operate(void) {
 
 // ---- scsi
 
-#if defined(SUPPORT_SCSI)
-
 static void scsibios_set(REG8 drv, REG8 sectors, REG8 surfaces,
 									REG16 cylinders, REG16 size, BOOL hwsec) {
 
@@ -368,12 +366,10 @@ REG8 scsibios_operate(void) {
 
 
 // あとで scsicmdから移動
-#endif
 
 
 // ---- np2sysp
 
-#if defined(SUPPORT_SASI) || defined(SUPPORT_SCSI)
 typedef struct {
 	UINT16	ax;
 	UINT16	cx;
@@ -460,7 +456,6 @@ static void reg_store(UINT seg, UINT off) {
 	MEML_WRITESTR(seg, off, &r, sizeof(r));
 	MEML_WRITE8(seg, off + 0x16, CPU_FLAGL);
 }
-#endif
 
 #if defined(SUPPORT_SASI)
 void np2sysp_sasi(const void *arg1, long arg2) {
@@ -489,7 +484,6 @@ void np2sysp_sasi(const void *arg1, long arg2) {
 }
 #endif
 
-#if defined(SUPPORT_SCSI)
 void np2sysp_scsi(const void *arg1, long arg2) {
 
 	UINT	seg;
@@ -533,4 +527,3 @@ void np2sysp_scsidev(const void *arg1, long arg2) {
 	(void)arg1;
 	(void)arg2;
 }
-#endif

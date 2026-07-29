@@ -61,15 +61,6 @@ void textout_write(void *hdl, const char *string) {
 	else {
 		while(*string) {
 			c = *string++;
-#if defined(OSLINEBREAK_CR)
-			if (c == '\n') {
-				c = '\r';
-			}
-#elif defined(OSLINEBREAK_CRLF)
-			if (c == '\n') {
-				writechar(to, '\r');
-			}
-#endif
 			writechar(to, c);
 		}
 	}
@@ -88,4 +79,3 @@ void textout_close(void *hdl) {
 		_MFREE(to);
 	}
 }
-

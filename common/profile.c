@@ -405,12 +405,7 @@ BOOL profile_write(const char *app, const char *key,
 	}
 	if (!pfp.apphit) {
 		newsize = pfp.applen + 2;
-#if defined(OSLINEBREAK_CR) || defined(OSLINEBREAK_CRLF)
 		newsize++;
-#endif
-#if defined(OSLINEBREAK_LF) || defined(OSLINEBREAK_CRLF)
-		newsize++;
-#endif
 		if (replace(hdl, pfp.pos, 0, newsize) != SUCCESS) {
 			return(FAILURE);
 		}
@@ -419,22 +414,12 @@ BOOL profile_write(const char *app, const char *key,
 		CopyMemory(buf, app, pfp.applen);
 		buf += pfp.applen;
 		*buf++ = ']';
-#if defined(OSLINEBREAK_CR) || defined(OSLINEBREAK_CRLF)
-		*buf++ = '\r';
-#endif
-#if defined(OSLINEBREAK_LF) || defined(OSLINEBREAK_CRLF)
 		*buf++ = '\n';
-#endif
 		pfp.pos += newsize;
 	}
 	datalen = strlen(data);
 	newsize = pfp.keylen + 1 + datalen;
-#if defined(OSLINEBREAK_CR) || defined(OSLINEBREAK_CRLF)
 	newsize++;
-#endif
-#if defined(OSLINEBREAK_LF) || defined(OSLINEBREAK_CRLF)
-	newsize++;
-#endif
 	if (replace(hdl, pfp.pos, pfp.size, newsize) != SUCCESS) {
 		return(FAILURE);
 	}
@@ -444,12 +429,7 @@ BOOL profile_write(const char *app, const char *key,
 	*buf++ = '=';
 	CopyMemory(buf, data, datalen);
 	buf += datalen;
-#if defined(OSLINEBREAK_CR) || defined(OSLINEBREAK_CRLF)
-	*buf++ = '\r';
-#endif
-#if defined(OSLINEBREAK_LF) || defined(OSLINEBREAK_CRLF)
 	*buf++ = '\n';
-#endif
 	return(SUCCESS);
 }
 

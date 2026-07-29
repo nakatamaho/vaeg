@@ -1,7 +1,5 @@
 #include	"compiler.h"
 
-#if defined(SUPPORT_SCSI)
-
 #include	"dosio.h"
 #include	"cpucore.h"
 #include	"pccore.h"
@@ -262,6 +260,3 @@ void scsiio_bind(void) {
 		iocoreva_attachinp(0x0cc4, scsiio_icc4);
 	}
 }
-
-#endif
-

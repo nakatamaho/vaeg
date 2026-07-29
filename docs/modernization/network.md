@@ -135,9 +135,10 @@ The active CMake/SDL2 tree has no Ethernet adapter or host network backend.
 There is no DP8390/NE2000 device, packet RAM, pcap/TAP adapter, or user-mode NAT
 backend in the active source list.
 
-`generic/hostdrv.c` contains an old comment referring to a network interface,
-but `hostdrv` is a DOS host-shared-drive service reached through the NP2 system
-port. It is not Ethernet emulation and cannot satisfy a DOS packet driver.
+The removed legacy HOSTDRV code was a DOS host-shared-drive service reached
+through the NP2 system port. It was not Ethernet emulation and could not
+satisfy a DOS packet driver. The current host-folder feature is the separate
+read-only HOSTFAT path.
 
 The existing infrastructure that could host a future adapter is:
 

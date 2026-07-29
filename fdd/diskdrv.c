@@ -34,14 +34,12 @@ void diskdrv_sethdd(REG8 drv, const char *fname) {
 			leng = sizeof(np2cfg.sasihdd[0]);
 		}
 	}
-#if defined(SUPPORT_SCSI)
 	else {							// SCSI
 		if (num < 4) {
 			p = np2cfg.scsihdd[num];
 			leng = sizeof(np2cfg.scsihdd[0]);
 		}
 	}
-#endif
 	if (p) {
 		if (fname) {
 			file_cpyname(p, fname, leng);
@@ -91,4 +89,3 @@ void diskdrv_callback(void) {
 		}
 	}
 }
-

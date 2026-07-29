@@ -1,6 +1,4 @@
 
-#if defined(SUPPORT_SCSI)
-
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -16,6 +14,3 @@ void scsicmd_bios(void);
 #ifdef __cplusplus
 }
 #endif
-
-#endif
-
