@@ -47,9 +47,7 @@ static REG8 IOINPCALL emsio_i08e9(UINT port) {
 void emsio_reset(void) {
 
 	ZeroMemory(&emsio, sizeof(emsio));
-#if 1 || !defined(CPUCORE_IA32)
 	emsio.maxmem = pccore.extmem;
-#endif
 	emsio.addr[0] = 0xc0000;
 	emsio.addr[1] = 0xc4000;
 	emsio.addr[2] = 0xc8000;

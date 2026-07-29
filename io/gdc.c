@@ -9,9 +9,7 @@
 #include	"palettes.h"
 #include	"timing.h"
 
-#if !defined(CPUCORE_IA32)
 #define	SEARCH_SYNC
-#endif
 #define	TURE_SYNC
 
 typedef struct {

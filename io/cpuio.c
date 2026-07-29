@@ -53,41 +53,10 @@ static REG8 IOINPCALL cpuio_if2(UINT port) {
 }
 
 
-#if defined(CPUCORE_IA32)
-static void IOOUTCALL cpuio_of6(UINT port, REG8 dat) {
-
-	switch(dat) {
-		case 0x02:
-			CPU_A20EN(TRUE);
-			break;
-
-		case 0x03:
-			CPU_A20EN(FALSE);
-			break;
-	}
-	(void)port;
-}
-
-static REG8 IOINPCALL cpuio_if6(UINT port) {
-
-	REG8	ret;
-
-	ret = 0x00;
-	if (!(CPU_ADRSMASK & (1 << 20))) {
-		ret |= 0x01;
-	}
-	if (nmiio.enable) {
-		ret |= 0x02;
-	}
-	(void)port;
-	return(ret);
-}
-#endif
 
 
 // ---- I/F
 
-#if !defined(CPUCORE_IA32)
 static const IOOUT cpuioof0[8] = {
 					cpuio_of0,	cpuio_of2,	NULL,		NULL,
 					NULL,		NULL,		NULL,		NULL};
@@ -95,15 +64,6 @@ static const IOOUT cpuioof0[8] = {
 static const IOINP cpuioif0[8] = {
 					cpuio_if0,	cpuio_if2,	NULL,		NULL,
 					NULL,		NULL,		NULL,		NULL};
-#else
-static const IOOUT cpuioof0[8] = {
-					cpuio_of0,	cpuio_of2,	NULL,		cpuio_of6,
-					NULL,		NULL,		NULL,		NULL};
-
-static const IOINP cpuioif0[8] = {
-					cpuio_if0,	cpuio_if2,	NULL,		cpuio_if6,
-					NULL,		NULL,		NULL,		NULL};
-#endif
 
 void cpuio_bind(void) {
 
