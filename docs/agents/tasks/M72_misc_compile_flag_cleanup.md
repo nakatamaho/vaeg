@@ -88,6 +88,25 @@ M72 owns:
    - Do not modify ROM/font payloads.
    - Remove only a source stub if it is proven unused by the active build and
      does not affect guest font ROM loading, GUI font loading, or packaging.
+12. Fold the active build to UTF-8 / LF text handling.
+   - Remove inactive `OSLANG_SJIS`, `OSLANG_EUC`, `OSLINEBREAK_CR`, and
+     `OSLINEBREAK_CRLF` branches.
+   - Remove inactive `SUPPORT_EUC` and `SUPPORT_ANK` string backends after
+     proving the active `milstr_*` path is UTF-8.
+   - Preserve the current `OSLANG_UTF8` and `OSLINEBREAK_LF` behavior.
+13. Fold `BEEPCOUNTEREX` as always enabled.
+   - Preserve the currently built BEEP idle-counter extension behavior.
+14. Treat SCSI HDD support as required for the active VAEG tree.
+   - Fold SCSI conditional code to the enabled side.
+   - Remove `SUPPORT_SCSI` as a compile-time switch after the fold.
+   - Preserve SASI and HOSTFAT support.
+15. Remove legacy HOSTDRV.
+   - `HOSTDRV` is the old NP2 DOS host-shared-drive system-port service, not
+     the current VAEG HOSTFAT read-only host-folder feature.
+   - Remove HOSTDRV implementation, state-save section, system-port commands,
+     and legacy tool sources.
+   - Preserve `io/hostfat.c`, `sdl2/hostfat_*`, HOSTFAT configuration,
+     HOSTFAT state identity checks, and HOSTFAT guest-driver support.
 
 ## Non-goals
 
@@ -95,7 +114,7 @@ M72 must not:
 
 - modify uPD9002 instruction semantics, SST policies, or generated evidence;
 - modify M68, M69, M70, or M71 approved artifacts in place;
-- change guest-visible FDD, SASI, SCSI, GDC, BIOS, TVRAM, audio, keyboard,
+- change guest-visible FDD, SASI, GDC, BIOS, TVRAM, audio, keyboard,
   mouse, save-state, or display behavior;
 - remove ROM or font payloads;
 - remove embedded GUI font, splash, or icon assets without a separate
@@ -106,6 +125,7 @@ M72 must not:
 - remove the built-in VA RS-232C path while removing PC-9861K expansion code;
 - remove VA sound hardware or sound state while removing the inactive
   `DISABLE_SOUND` path;
+- remove or weaken HOSTFAT while removing legacy HOSTDRV;
 - implement PC-9821 support;
 - turn the active SDL2 frontend back into a general PC-98/98x1 frontend;
 - start any unrelated cleanup.
@@ -152,10 +172,13 @@ Keep one concern per commit:
 8. `SUPPORT_IDEIO` removal, if proven inactive;
 9. PC-9861K expansion-board removal, if proven inactive;
 10. `DISABLE_SOUND` removal, if proven inactive;
-11. VAEG-relevance cleanup for items proven inactive;
-12. `VAEG_EXT` cleanup, if proven inactive;
-13. optional unused-source-stub cleanup, if proven inactive;
-14. report and evidence.
+11. UTF-8/LF and BEEP conditional folding;
+12. SCSI enable-side folding;
+13. legacy HOSTDRV removal while preserving HOSTFAT;
+14. VAEG-relevance cleanup for items proven inactive;
+15. `VAEG_EXT` cleanup, if proven inactive;
+16. optional unused-source-stub cleanup, if proven inactive;
+17. report and evidence.
 
 For every removed conditional, document which side is retained and why.
 

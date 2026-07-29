@@ -1,6 +1,5 @@
 #include	"compiler.h"
 #include	"strres.h"
-#include	"codecnv.h"
 #include	"dosio.h"
 #include	"soundmng.h"
 #include	"pccore.h"
@@ -20,25 +19,7 @@ enum {
 	DID_FILTER
 };
 
-#if !defined(RESOURCE_US) && (!defined(CHARSET_OEM) || defined(OSLANG_SJIS))
-static const char str_dirname[] =				// ファイルの場所
-			"\203\164\203\100\203\103\203\213\202\314\217\352\217\212";
-static const char str_filename[] =				// ファイル名
-			"\203\164\203\100\203\103\203\213\226\274";
-static const char str_filetype[] =				// ファイルの種類
-			"\203\164\203\100\203\103\203\213\202\314\216\355\227\336";
-static const char str_open[] =					// 開く
-			"\212\112\202\255";
-#elif defined(OSLANG_EUC) && !defined(RESOURCE_US)
-static const char str_dirname[] =				// ファイルの場所
-			"\245\325\245\241\245\244\245\353\244\316\276\354\275\352";
-static const char str_filename[] =				// ファイル名
-			"\245\325\245\241\245\244\245\353\314\276";
-static const char str_filetype[] =				// ファイルの種類
-			"\245\325\245\241\245\244\245\353\244\316\274\357\316\340";
-static const char str_open[] =					// 開く
-			"\263\253\244\257";
-#elif defined(OSLANG_UTF8) && !defined(RESOURCE_US)
+#if defined(OSLANG_UTF8) && !defined(RESOURCE_US)
 static const char str_dirname[] =				// ファイルの場所
 			"\343\203\225\343\202\241\343\202\244\343\203\253\343\201\256" \
 			"\345\240\264\346\211\200";
@@ -212,23 +193,10 @@ static void dlgsetlist(void) {
 	BOOL		append;
 	FLIST		fl;
 	ITEMEXPRM	prm;
-#if defined(OSLANG_EUC) || defined(OSLANG_UTF8)
-	char		sjis[MAX_PATH];
-#endif
 
 	menudlg_itemreset(DID_FLIST);
 
-#if defined(OSLANG_EUC)
-	codecnv_euc2sjis(sjis, sizeof(sjis),
-									file_getname(filesel.path), (UINT)-1);
-	menudlg_settext(DID_FOLDER, sjis);
-#elif defined(OSLANG_UTF8)
-	oemtext_oem2sjis(sjis, sizeof(sjis),
-									file_getname(filesel.path), (UINT)-1);
-	menudlg_settext(DID_FOLDER, sjis);
-#else
 	menudlg_settext(DID_FOLDER, file_getname(filesel.path));
-#endif
 	listarray_destroy(filesel.flist);
 	flist = listarray_new(sizeof(_FLIST), 64);
 	filesel.flist = flist;
@@ -256,15 +224,7 @@ static void dlgsetlist(void) {
 	while(fl) {
 		menudlg_itemappend(DID_FLIST, NULL);
 		prm.icon = (fl->isdir)?MICON_FOLDER:MICON_FILE;
-#if defined(OSLANG_EUC)
-		codecnv_euc2sjis(sjis, sizeof(sjis), fl->name, (UINT)-1);
-		prm.str = sjis;
-#elif defined(OSLANG_UTF8)
-		oemtext_oem2sjis(sjis, sizeof(sjis), fl->name, (UINT)-1);
-		prm.str = sjis;
-#else
 		prm.str = fl->name;
-#endif
 		menudlg_itemsetex(DID_FLIST, &prm);
 		fl = fl->next;
 		prm.pos++;
@@ -273,23 +233,9 @@ static void dlgsetlist(void) {
 
 static void dlginit(void) {
 
-#if defined(OSLANG_EUC) || defined(OSLANG_UTF8)
-	char	sjis[MAX_PATH];
-#endif
-
 	menudlg_appends(res_fs, sizeof(res_fs)/sizeof(MENUPRM));
 	menudlg_seticon(DID_PARENT, MICON_FOLDERPARENT);
-#if defined(OSLANG_EUC)
-	codecnv_euc2sjis(sjis, sizeof(sjis),
-									file_getname(filesel.path), (UINT)-1);
-	menudlg_settext(DID_FILE, sjis);
-#elif defined(OSLANG_UTF8)
-	oemtext_oem2sjis(sjis, sizeof(sjis),
-									file_getname(filesel.path), (UINT)-1);
-	menudlg_settext(DID_FILE, sjis);
-#else
 	menudlg_settext(DID_FILE, file_getname(filesel.path));
-#endif
 	menudlg_settext(DID_FILTER, filesel.filter);
 	file_cutname(filesel.path);
 	file_cutseparator(filesel.path);
@@ -320,21 +266,10 @@ static BOOL dlgupdate(void) {
 static void dlgflist(void) {
 
 	FLIST	fl;
-#if defined(OSLANG_EUC) || defined(OSLANG_UTF8)
-	char	sjis[MAX_PATH];
-#endif
 
 	fl = getflist(menudlg_getval(DID_FLIST));
 	if ((fl != NULL) && (!fl->isdir)) {
-#if defined(OSLANG_EUC)
-		codecnv_euc2sjis(sjis, sizeof(sjis), fl->name, (UINT)-1);
-		menudlg_settext(DID_FILE, sjis);
-#elif defined(OSLANG_UTF8)
-		oemtext_oem2sjis(sjis, sizeof(sjis), fl->name, (UINT)-1);
-		menudlg_settext(DID_FILE, sjis);
-#else
 		menudlg_settext(DID_FILE, fl->name);
-#endif
 	}
 }
 
@@ -434,10 +369,8 @@ static const char sasiext[] = "thd\0nhd\0hdi\0";
 static const FSELPRM fddprm = {fddtitle, diskfilter, fddext};
 static const FSELPRM sasiprm = {hddtitle, diskfilter, sasiext};
 
-#if defined(SUPPORT_SCSI)
 static const char scsiext[] = "hdd\0";
 static const FSELPRM scsiprm = {hddtitle, diskfilter, scsiext};
-#endif
 
 
 void filesel_fdd(REG8 drv) {
@@ -467,16 +400,13 @@ const FSELPRM	*prm;
 			prm = &sasiprm;
 		}
 	}
-#if defined(SUPPORT_SCSI)
 	else {						// SCSI
 		if (num < 4) {
 			p = np2cfg.scsihdd[num];
 			prm = &scsiprm;
 		}
 	}
-#endif
 	if ((prm) && (selectfile(prm, path, sizeof(path), p))) {
 		diskdrv_sethdd(drv, path);
 	}
 }
-

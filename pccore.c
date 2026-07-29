@@ -30,9 +30,6 @@
 #include	"fddfile.h"
 #include	"fdd_mtr.h"
 #include	"sxsi.h"
-#if defined(SUPPORT_HOSTDRV)
-#include	"hostdrv.h"
-#endif
 #include	"np2ver.h"
 #include	"calendar.h"
 #include	"timing.h"
@@ -74,9 +71,7 @@ const OEMCHAR np2version[] = OEMTEXT(NP2VER_CORE);
 				3, 1, 80, 0, 0,
 				0,
 				{OEMTEXT(""), OEMTEXT("")},
-#if defined(SUPPORT_SCSI)
 				{OEMTEXT(""), OEMTEXT(""), OEMTEXT(""), OEMTEXT("")},
-#endif
 				OEMTEXT(""), OEMTEXT(""), OEMTEXT("")};
 
 	PCCORE	pccore = {	PCBASECLOCK25, PCBASEMULTIPLE,
@@ -278,16 +273,9 @@ void pccore_init(void) {
 
 	iocore_create();
 
-#if defined(SUPPORT_HOSTDRV)
-	hostdrv_initialize();
-#endif
 }
 
 void pccore_term(void) {
-
-#if defined(SUPPORT_HOSTDRV)
-	hostdrv_deinitialize();
-#endif
 
 	sound_term();
 
@@ -357,9 +345,7 @@ void pccore_reset(void) {
 
 	pccore_set();
 	sgp_configure_speed();
-#if defined(SUPPORT_BMS)
 	bmsio_set();
-#endif
 	if (pccore.model_va != PCMODEL_NOTVA) {
 		keystat_setlockedkey(np2cfg.lockedkey);
 	}
@@ -378,12 +364,10 @@ void pccore_reset(void) {
 		TRACEOUT(("supported SASI"));
 	}
 #endif
-#if defined(SUPPORT_SCSI)
 	if (sxsi_isscsi()) {
 		pccore.hddif |= PCHDD_SCSI;
 		TRACEOUT(("supported SCSI"));
 	}
-#endif
 
 	sound_changeclock();
 	beep_changeclock();
@@ -421,10 +405,6 @@ void pccore_reset(void) {
 
 	CPU_CLEARPREFETCH();
 	sysmng_cpureset();
-
-#if defined(SUPPORT_HOSTDRV)
-	hostdrv_reset();
-#endif
 
 	timing_reset();
 	soundmng_play();

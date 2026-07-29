@@ -11,13 +11,7 @@ extern const OEMCHAR str_cr[];
 extern const OEMCHAR str_crlf[];
 #define	str_lf	(str_crlf + 1)
 
-#if defined(OSLINEBREAK_CR)
-#define	str_oscr	str_cr
-#elif defined(OSLINEBREAK_CRLF)
-#define	str_oscr	str_crlf
-#else
 #define	str_oscr	str_lf
-#endif
 
 extern const OEMCHAR str_ini[];
 extern const OEMCHAR str_cfg[];
@@ -66,4 +60,3 @@ extern const OEMCHAR str_scsirom[];
 #ifdef __cplusplus
 }
 #endif
-

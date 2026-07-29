@@ -10,18 +10,14 @@ extern "C" {
 
 REG8 sasibios_operate(void);
 
-#if defined(SUPPORT_SCSI)
 REG8 scsibios_operate(void);
-#endif
 
 #if defined(SUPPORT_SASI)
 void np2sysp_sasi(const void *arg1, long arg2);
 #endif
 
-#if defined(SUPPORT_SCSI)
 void np2sysp_scsi(const void *arg1, long arg2);
 void np2sysp_scsidev(const void *arg1, long arg2);
-#endif
 
 #ifdef __cplusplus
 }

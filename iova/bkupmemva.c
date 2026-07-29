@@ -44,13 +44,7 @@ static void bkupmemva_statepath(char *path, int size) {
 		file_cpyname(path, bkupmemva_path, size);
 		return;
 	}
-#if defined(OSLANG_SJIS)
-	getbiospath(path, VABKUPMEM, size);
-#elif defined(OSLANG_UTF8)
 	file_getstatepath(path, size, VABKUPMEM);
-#else
-	getbiospath(path, VABKUPMEM, size);
-#endif
 }
 
 void bkupmemva_load(void) {

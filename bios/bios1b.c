@@ -873,7 +873,6 @@ void bios0x1b(void) {
 	REG8	ret_ah;
 	REG8	flag;
 
-#if defined(SUPPORT_SCSI)
 	if ((CPU_AL & 0xf0) == 0xc0) {
 		TRACEOUT(("%.4x:%.4x AX=%.4x BX=%.4x CX=%.4x DX=%.4 ES=%.4x BP=%.4x",
 							MEML_READ16(CPU_SS, CPU_SP+2),
@@ -882,7 +881,6 @@ void bios0x1b(void) {
 		scsicmd_bios();
 		return;
 	}
-#endif
 
 #if 1			// bypass to disk bios
 {
@@ -951,12 +949,10 @@ void bios0x1b(void) {
 			ret_ah = sasibios_operate();
 			break;
 
-#if defined(SUPPORT_SCSI)
 		case 0x20:
 		case 0xa0:
 			ret_ah = scsibios_operate();
 			break;
-#endif
 
 		default:
 			ret_ah = 0x40;
@@ -1008,4 +1004,3 @@ UINT bios0x1b_wait(void) {
 	CPU_IP--;
 	return(1);
 }
-

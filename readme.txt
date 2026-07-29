@@ -20,13 +20,8 @@
 　　　いずれも値をセットする側が0fillし、参照側は0fillしたものと見なします。
 
 
-  OSの言語の選択
-    OSLANG_SJIS … Shift-JISの漢字コードを解釈する
-    OSLANG_EUC  … EUCの漢字コードを解釈する
-
-    OSLINEBREAK_CR   … MacOS   "\r"
-    OSLINEBREAK_LF   … Unix    "\n"
-    OSLINEBREAK_CRLF … Windows "\r\n"
+  OS文字コード・改行
+    VAEGの現行ビルドは UTF-8 / LF に固定しています。
 
       ※現在は以下のソースコード内で個別に設定しています。
         (Windowsが APIによって \r\nの場合と\nの場合があるので…)
@@ -34,13 +29,7 @@
         ・debugsub.c
         ・statsave.c
 
-    (milstr.h選択用)
-    SUPPORT_ANK      … ANK文字列操作関数をリンクする
-    SUPPORT_SJIS     … SJIS文字列操作関数をリンクする
-    SUPPORT_EUC      … EUC文字列操作関数をリンクする
-
-      ※現在milstr.hですべて定義されたままになっています。
-        ver0.73でmilstr.hの定義を外し compiler.hで指定した物となります。
+    milstr.hはUTF-8文字列操作を使用します。
 
   CPUSTRUC_MEMWAIT
 　　　cpucore構造体にメモリウェイト値を移動する(vramop)
@@ -59,8 +48,8 @@
 　SUPPORT_SASI
 　　　SASI HDDをサポート
 
-　SUPPORT_SCSI
-　　　SCSI HDDをサポート…全然動かない
+　SASI/SCSI/BMS
+　　　現行VAEGビルドでは常時サポート
 
 　SUPPORT_S98
 　　　S98ログを取得

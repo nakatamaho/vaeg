@@ -11,26 +11,18 @@ static const IOCBFN resetfn[] = {
 #if defined(SUPPORT_SASI)
 			sasiio_reset,
 #endif
-#if defined(SUPPORT_SCSI)
 			scsiio_reset,
-#endif
 			mpu98ii_reset,
-#if defined(SUPPORT_BMS)
 			bmsio_reset,
-#endif
 	};
 
 static const IOCBFN bindfn[] = {
 #if defined(SUPPORT_SASI)
 			sasiio_bind,
 #endif
-#if defined(SUPPORT_SCSI)
 			scsiio_bind,
-#endif
 			mpu98ii_bind,
-#if defined(SUPPORT_BMS)
 			bmsio_bind,
-#endif
 	};
 
 

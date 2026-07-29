@@ -13,9 +13,6 @@
 #include	"iocoreva.h"
 #include	"upd9002_regs.h"
 
-#define	BEEPCOUNTEREX					// BEEPアイドル時のカウンタをα倍に
-
-
 // --- Common
 /*
 CPU供給クロック÷タイマ供給クロック を取得する
@@ -76,7 +73,6 @@ void systimer(NEVENTITEM item) {
 
 // --- Beep
 
-#if defined(BEEPCOUNTEREX)
 static void setbeepeventex(UINT32 cnt, BOOL absolute) {
 
 	if (cnt > 2) {
@@ -89,18 +85,6 @@ static void setbeepeventex(UINT32 cnt, BOOL absolute) {
 		cnt <<= 1;
 	}
 	nevent_set(NEVENT_BEEP, (SINT32)cnt, beeponeshot, absolute);
-}
-#endif
-
-static void setbeepevent(UINT32 cnt, BOOL absolute) {
-
-	if (cnt > 2) {
-		cnt *= timermultiple();
-	}
-	else {
-		cnt = timermultiple() << 16;
-	}
-	nevent_set(NEVENT_BEEP, cnt, beeponeshot, absolute);
 }
 
 void beeponeshot(NEVENTITEM item) {
@@ -118,11 +102,7 @@ void beeponeshot(NEVENTITEM item) {
 		if (pitch->ctrl & 0x02)
 #endif
 		{
-#if defined(BEEPCOUNTEREX)
 			setbeepeventex(pitch->value, NEVENT_RELATIVE);
-#else
-			setbeepevent(pitch->value, NEVENT_RELATIVE);
-#endif
 		}
 	}
 }
@@ -181,7 +161,6 @@ static UINT getcount(const _PITCH *pitch) {
 #endif
 			}
 			clock = nevent_getremain(NEVENT_BEEP);
-#if defined(BEEPCOUNTEREX)
 			if (clock >= 0) {
 				clock /= timermultiple();
 				if (pitch->value > 2) {
@@ -192,9 +171,6 @@ static UINT getcount(const _PITCH *pitch) {
 				}
 				return(clock);
 			}
-#else
-			break;
-#endif
 
 		case 2:
 			clock = nevent_getremain(NEVENT_RS232C);
@@ -356,7 +332,7 @@ static void IOOUTCALL pit_o73(UINT port, REG8 dat) {
 	if (pit_setcount(pitch, dat)) {
 		return;
 	}
-	setbeepevent(pitch->value, NEVENT_ABSOLUTE);
+	setbeepeventex(pitch->value, NEVENT_ABSOLUTE);
 	beep_lheventset(1);												// ver0.79
 	if (pitch->ctrl & 0x0c) {
 		beep_hzset(pitch->value, pccore.realclock / timermultiple());

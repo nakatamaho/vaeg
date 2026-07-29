@@ -1,7 +1,5 @@
 #include	"compiler.h"
 
-#if defined(SUPPORT_SCSI)
-
 #include	"dosio.h"
 #include	"cpucore.h"
 #include	"pccore.h"
@@ -276,5 +274,3 @@ void scsicmd_bios(void) {
 	CPU_AH = ret;
 	MEML_WRITE8(CPU_SS, CPU_SP + 4, flag);
 }
-#endif
-

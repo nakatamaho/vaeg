@@ -115,7 +115,7 @@ M36–M41 archive status.
 | M69 | tasks/M69_upd9002_idp_0142_status_composition.md | Correct only the IDP/TSP `0142H` status-bit Boolean composition, preserving stored flags while adding dynamic VB | **G69 passed at `680308a603b24341c5b9649657f01791b79002f7`** |
 | M70 | tasks/M70_upd9002_prefix_string_closure.md | Implement the maintainer-approved `64H`/`65H` REPNC/REPC prefix plus string-instruction closure for the exact 19-group, 5,908-hash population, with negative protection for prefixed `6C`-`6F` | **G70 passed at `53d47ed500baef247a1be5f3ccc18bdb0c00c0cc`** |
 | M71 | tasks/M71_upd9002_core_dispatch_fold.md | Fold the obsolete standalone uPD9002 dispatch translation unit into `upd9002_core.c` and remove current `v30` dispatch/core naming without changing behavior | **G71 passed at `24950894eca79e308afae8d574d43c8f393bb483`** |
-| M72 | tasks/M72_misc_compile_flag_cleanup.md | Audit inactive VAEG-irrelevant code, remove only proven-safe inactive cleanup targets, remove About/More 98x1 UI details, fold always-enabled `VAEG_FIX`, and audit inactive PC-9821/EPSON/`CPUCORE_IA32`/IDE/PC-9861K/`DISABLE_SOUND`/`VAEG_EXT`/font/embed boundaries without changing active behavior | **G72 human; do not declare passed** |
+| M72 | tasks/M72_misc_compile_flag_cleanup.md | Audit inactive VAEG-irrelevant code, remove only proven-safe inactive cleanup targets, remove About/More 98x1 UI details, fold always-enabled `VAEG_FIX`, keep required SCSI/HOSTFAT paths, remove legacy HOSTDRV, and audit inactive PC-9821/EPSON/`CPUCORE_IA32`/IDE/PC-9861K/`DISABLE_SOUND`/`VAEG_EXT`/font/embed boundaries without changing active behavior outside the explicitly approved cleanup | **G72 human; do not declare passed** |
 
 Phase 2 dependencies: M7 → M8 → {M9, M10 parallel} → M11 → M12 → M13.
 Post-phase dependency: M13 → M14 → M15 → M16 → M17 → M18 → M19 → M20 → M21 → M22 → M23 → M24 → M25 → M26 → M27 → M28 → M29 → M30 → M31 → M32. The required Z80 migration sequence M34 → M35 → M36 → M37 → M38 → M39 → M40 → M41 is complete. The separately authorized uPD9002 preparation sequence passed G42 through G51. M52–M56 were consumed by unrelated work and retain their historical meanings. The renumbered semantics campaign passed G57 at exactly `72322d5c9b8e40e4a988312aebe163a8190e2aa5`, G58 at exactly `bc8a55c6da1082b85b794068e0d933e31fe46b13`, G59 at exactly `e7f2325bc81310532091a8ca82914030fdb8b6ba`, G60a at exactly `ba2b7d3f5c76646b30d63fd8951f4a1964817b15`, G60b at exactly `4e5d74d0d9f675df2342353b8bfdbb2e5cded768`, G61 at exactly `829f314bb0d363ec5b6e9aa738e948b1a3adb365`, G62 at exactly `70b8e94e96aef4cb79eed72c7813c4148c5c0dd8`, G64 at exactly `9b151923f9468555043152ffe8651c97b9ecac5b`, terminal G65m at exactly `81887aae14f718d7d4d0f2a7bd3fe05d5ea80630`, G66b at exactly `97f760e8da573888edf089c2875c623895a3c2c9`, G67 at exactly `f8f350e1aadec4b6c79c20192d14c50bd39934be`, G68 at exactly `d1e0225c4edb716893fe5579283fbf0915db72b9`, G69 at exactly `680308a603b24341c5b9649657f01791b79002f7`, G70 at exactly `53d47ed500baef247a1be5f3ccc18bdb0c00c0cc`, and G71 at exactly `24950894eca79e308afae8d574d43c8f393bb483`. M72 starts from the approved and main-integrated G71 candidate and owns only behavior-preserving inactive-code audit plus proven-safe VAEG-specific cleanup of obsolete active-tree compile-time feature controls, VAEG-irrelevant legacy code, and stale 98x1 UI information. The broader IDP timing and buffer semantics remain deferred. See [`UPD9002_SEMANTICS_MIGRATION.md`](UPD9002_SEMANTICS_MIGRATION.md).
@@ -378,9 +378,10 @@ assignment.
   true. M72 folds the always-enabled `VAEG_FIX` behavior, removes inactive
   PC-9821 and EPSON guarded/model code plus stale 98x1 About/More UI details,
   audits inactive IA32 CPU-core, IDE I/O, PC-9861K expansion serial,
-  no-sound, and other VAEG-irrelevant legacy code, and treats `VAEG_EXT` as
-  obsolete active-tree cleanup rather than a feature to enable blindly when
-  audit evidence proves the target is inactive.
+  no-sound, and other VAEG-irrelevant legacy code, keeps required SCSI and
+  HOSTFAT paths, removes the separate legacy HOSTDRV path, and treats
+  `VAEG_EXT` as obsolete active-tree cleanup rather than a feature to enable
+  blindly when audit evidence proves the target is inactive.
 - **Selectable OPN/OPNA synthesis (M17).** ADR-0009 keeps NP2 as a
   compatibility option and selects the BSD-3-Clause ymfm YM2203/YM2608
   implementation as the default FM-operator backend. NP2 retains timer/IRQ,
