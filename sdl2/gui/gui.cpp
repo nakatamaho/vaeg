@@ -108,16 +108,7 @@ constexpr const char kAboutInfoTemplate[] =
 	"ROM TYPE: %ROMTPVA%\n"
 	"ROM(Main): %BIOSVA%\n"
 	"ROM(VupB): %BIOS91%\n"
-	"ROM(Sub): %BIOSSUB%\n"
-	"\n"
-	"[98x1]\n"
-	"MEM: %MEM1%\n"
-	"GDC: %GDC%\n"
-	"     %GDC2%\n"
-	"TEXT: %TEXT%\n"
-	"GRPH: %GRPH%\n"
-	"\n"
-	"BIOS: %BIOS%";
+	"ROM(Sub): %BIOSSUB%";
 namespace fs = std::filesystem;
 
 struct SasiImageChoice {
