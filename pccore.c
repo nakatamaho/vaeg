@@ -175,9 +175,6 @@ static void pccore_set(void) {
 	if (!milstr_cmp(np2cfg.model, str_VM)) {
 		model = PCMODEL_VM;
 	}
-	else if (!milstr_cmp(np2cfg.model, str_EPSON)) {
-		model = PCMODEL_EPSON | PCMODEL_VM;
-	}
 	pccore.model = model;
 
 	if (np2cfg.baseclock >= ((PCBASECLOCK40 + PCBASECLOCK25) / 2)) {
@@ -393,10 +390,6 @@ void pccore_reset(void) {
 	CPU_RESET();
 	CPU_SETEXTSIZE((UINT32)pccore.extmem);
 
-	if (pccore.model & PCMODEL_EPSON) {			// RAM ctrl
-		CPU_RAM_D000 = 0xffff;
-	}
-
 	// HDDセット
 	sxsi_open();
 #if defined(SUPPORT_SASI)
@@ -425,7 +418,7 @@ void pccore_reset(void) {
 	cbuscore_reset();
 	fmboard_reset(pccore.sound);
 
-	upd9002_memorymap((pccore.model & PCMODEL_EPSON)?1:0);
+	upd9002_memorymap(0);
 	upd9002_memorymap_va();
 	iocore_build();
 	iocore_bind();

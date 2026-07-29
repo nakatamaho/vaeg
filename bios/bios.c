@@ -233,7 +233,7 @@ void bios_initialize(void) {
 	}
 	else {
 		CopyMemory(mem + 0x0e8000, nosyscode, sizeof(nosyscode));
-		if ((!biosrom) && (!(pccore.model & PCMODEL_EPSON))) {
+		if (!biosrom) {
 			CopyMemory(mem + 0xe8dd8, neccheck, 0x25);
 			pos = LOADINTELWORD(itfrom + 2);
 			CopyMemory(mem + 0xf538e, itfrom + pos, 0x27);
@@ -267,10 +267,7 @@ void bios_initialize(void) {
 	CopyMemory(mem + ITF_ADRS, itfrom, sizeof(itfrom));
 	mem[ITF_ADRS + 0x7ff0] = 0xea;
 	STOREINTELDWORD(mem + ITF_ADRS + 0x7ff1, 0xf8000000);
-	if (pccore.model & PCMODEL_EPSON) {
-		mem[ITF_ADRS + 0x7ff1] = 0x04;
-	}
-	else if ((pccore.model & PCMODELMASK) == PCMODEL_VM) {
+	if ((pccore.model & PCMODELMASK) == PCMODEL_VM) {
 		mem[ITF_ADRS + 0x7ff1] = 0x08;
 	}
 	setbiosseed(mem + 0x0f8000, 0x08000, 0x7ffe);
@@ -483,4 +480,3 @@ UINT MEMCALL biosfunc(UINT32 adrs) {
 	}
 	return(0);
 }
-

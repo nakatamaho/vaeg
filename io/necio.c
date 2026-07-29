@@ -37,9 +37,5 @@ void necio_reset(void) {
 void necio_bind(void) {
 
 	iocore_attachout(0x0439, necio_o0439);
-
-	if (!(pccore.model & PCMODEL_EPSON)) {
-		iocore_attachout(0x043d, necio_o043d);
-	}
+	iocore_attachout(0x043d, necio_o043d);
 }
-
