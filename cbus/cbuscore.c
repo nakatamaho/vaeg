@@ -2,7 +2,6 @@
 #include	"pccore.h"
 #include	"iocore.h"
 #include	"cbuscore.h"
-#include	"ideio.h"
 #include	"sasiio.h"
 #include	"scsiio.h"
 #include	"pc9861k.h"
@@ -10,9 +9,6 @@
 #include	"bmsio.h"
 
 static const IOCBFN resetfn[] = {
-#if defined(SUPPORT_IDEIO)
-			ideio_reset,
-#endif
 #if defined(SUPPORT_SASI)
 			sasiio_reset,
 #endif
@@ -29,9 +25,6 @@ static const IOCBFN resetfn[] = {
 	};
 
 static const IOCBFN bindfn[] = {
-#if defined(SUPPORT_IDEIO)
-			ideio_bind,
-#endif
 #if defined(SUPPORT_SASI)
 			sasiio_bind,
 #endif
@@ -77,4 +70,3 @@ void cbuscore_attachsndex(UINT port, const IOOUT *out, const IOINP *inp) {
 		port += 2;
 	}
 }
-

@@ -192,11 +192,6 @@ static void pccore_set(void) {
 	}
 	pccore_clockrestore();
 
-	// HDDの接続 (I/Oの使用状態が変わるので..
-	if (np2cfg.dipsw[1] & 0x20) {
-		pccore.hddif |= PCHDD_IDE;
-	}
-
 	// 拡張メモリ
 	extsize = 0;
 	if (!(np2cfg.dipsw[2] & 0x80)) {
@@ -394,7 +389,6 @@ void pccore_reset(void) {
 	sxsi_open();
 #if defined(SUPPORT_SASI)
 	if (sxsi_issasi()) {
-		pccore.hddif &= ~PCHDD_IDE;
 		pccore.hddif |= PCHDD_SASI;
 		TRACEOUT(("supported SASI"));
 	}

@@ -152,12 +152,6 @@ static void bios_reinitbyswitch(void) {
 		mem[MEMB_F144_SUP] |= fdc.equip;
 	}
 
-	// IDE initialize
-	if (pccore.hddif & PCHDD_IDE) {
-		mem[MEMB_SYS_TYPE] |= 0x80;		// IDE
-		CPU_AX = 0x8300;
-		sasibios_operate();
-	}
 }
 
 static void bios_vectorset(void) {

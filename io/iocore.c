@@ -5,7 +5,6 @@
 #include	"cbuscore.h"
 #include	"sound.h"
 #include	"fmboard.h"
-#include	"ideio.h"
 #include	"cs4231io.h"
 #include	"iocore16.tbl"
 
@@ -594,12 +593,6 @@ void IOOUTCALL iocore_out16(UINT port, REG16 dat) {
 
 //	TRACEOUT(("iocore_out16(%.4x, %.4x)", port, dat));
 	CPU_REMCLOCK -= iocore.busclock;
-#if defined(SUPPORT_IDEIO)
-	if (port == 0x0640) {
-		ideio_w16(port, dat);
-		return;
-	}
-#endif
 	if ((port & 0xfff1) == 0x04a0) {
 		egc_w16(port, dat);
 		return;
@@ -645,11 +638,6 @@ REG16 IOINPCALL iocore_inp16(UINT port) {
 	}
 
 	CPU_REMCLOCK -= iocore.busclock;
-#if defined(SUPPORT_IDEIO)
-	if (port == 0x0640) {
-		return(ideio_r16(port));
-	}
-#endif
 	if ((port & 0xfffc) == 0x005c) {
 		return(artic_r16(port));
 	}

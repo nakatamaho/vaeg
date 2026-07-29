@@ -22,7 +22,6 @@ enum {
 
 	PCHDD_SASI			= 0x01,
 	PCHDD_SCSI			= 0x02,
-	PCHDD_IDE			= 0x04,
 
 	PCROM_BIOS			= 0x01,
 	PCROM_SOUND			= 0x02,
