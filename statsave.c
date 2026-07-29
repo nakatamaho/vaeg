@@ -28,7 +28,6 @@
 #include	"fdd_mtr.h"
 #include	"sxsi.h"
 #include	"keydisp.h"
-#include	"hostdrv.h"
 #include	"hostfat.h"
 #include	"calendar.h"
 #include	"keystat.h"
@@ -89,13 +88,8 @@ enum {
 	STATFLAG_EXT,
 	STATFLAG_FM,
 	STATFLAG_GIJ,
-#if defined(SUPPORT_HOSTDRV)
-	STATFLAG_HDRV,
-#endif
 	STATFLAG_MEM,
-#if defined(SUPPORT_BMS)
 	STATFLAG_BMS,
-#endif
 	STATFLAG_SUBCPU,
 	STATFLAG_HOSTFAT,
 };
@@ -1284,8 +1278,6 @@ flcom_err1:
 
 // ---- bms
 
-#if defined(SUPPORT_BMS)
-
 static int flagsave_bms(STFLAGH sfh, const SFENTRY *tbl) {
 
 	int		ret;
@@ -1309,8 +1301,6 @@ static int flagload_bms(STFLAGH sfh, const SFENTRY *tbl) {
 	(void)tbl;
 	return(ret);
 }
-
-#endif
 
 // ---- FD sub system CPU
 
@@ -1572,21 +1562,13 @@ const SFENTRY	*tblterm;
 				ret |= flagsave_gij(&sffh->sfh, tbl);
 				break;
 
-#if defined(SUPPORT_HOSTDRV)
-				case STATFLAG_HDRV:
-				ret |= hostdrv_sfsave(&sffh->sfh, tbl);
-				break;
-#endif
-
 			case STATFLAG_MEM:
 				ret |= flagsave_mem(&sffh->sfh, tbl);
 				break;
 
-#if defined(SUPPORT_BMS)
 			case STATFLAG_BMS:
 				ret |= flagsave_bms(&sffh->sfh, tbl);
 				break;
-#endif
 
 			case STATFLAG_SUBCPU:
 				ret |= flagsave_subsystemcpu(&sffh->sfh, tbl);
@@ -1669,12 +1651,7 @@ const SFENTRY	*tblterm;
 				case STATFLAG_EXT:
 				case STATFLAG_GIJ:
 				case STATFLAG_FM:
-#if defined(SUPPORT_HOSTDRV)
-				case STATFLAG_HDRV:
-#endif
-#if defined(SUPPORT_BMS)
 				case STATFLAG_BMS:
-#endif
 				case STATFLAG_SUBCPU:
 					ret |= flagcheck_veronly(&sffh->sfh, tbl);
 					break;
@@ -1842,21 +1819,13 @@ const SFENTRY	*tblterm;
 					ret |= flagload_gij(&sffh->sfh, tbl);
 					break;
 
-#if defined(SUPPORT_HOSTDRV)
-				case STATFLAG_HDRV:
-					ret |= hostdrv_sfload(&sffh->sfh, tbl);
-					break;
-#endif
-
 				case STATFLAG_MEM:
 					ret |= flagload_mem(&sffh->sfh, tbl);
 					break;
 
-#if defined(SUPPORT_BMS)
 				case STATFLAG_BMS:
 					ret |= flagload_bms(&sffh->sfh, tbl);
 					break;
-#endif
 
 				case STATFLAG_SUBCPU:
 					ret |= flagload_subsystemcpu(&sffh->sfh, tbl);

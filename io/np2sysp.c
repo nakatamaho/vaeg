@@ -7,9 +7,6 @@
 #include	"iocoreva.h"
 #include	"hostfat.h"
 #include	"sxsibios.h"
-#if defined(SUPPORT_HOSTDRV)
-#include	"hostdrv.h"
-#endif
 
 
 #define		NP2SYSP_VER			"C"
@@ -103,10 +100,6 @@ static const char str_hwreset[] = "hardwarereset";
 static const char str_sasibios[] = "sasibios";
 static const char str_scsibios[] = "scsibios";
 static const char str_scsidev[] = "scsi_dev";
-static const char str_hdrvcheck[] = "check_hostdrv";
-static const char str_hdrvopen[] = "open_hostdrv";
-static const char str_hdrvclose[] = "close_hostdrv";
-static const char str_hdrvintr[] = "intr_hostdrv";
 static const char str_hostfatcheck[] = "check_hostfat";
 static const char str_hostfatread[] = "read_hostfat1";
 
@@ -160,17 +153,9 @@ static const SYSPCMD np2spcmd[] = {
 #if defined(SUPPORT_SASI)
 			{str_sasibios,	np2sysp_sasi,		NULL,			0},
 #endif
-#if defined(SUPPORT_SCSI)
 			{str_scsibios,	np2sysp_scsi,		NULL,			0},
 			{str_scsidev,	np2sysp_scsidev,	NULL,			0},
-#endif
 
-#if defined(SUPPORT_HOSTDRV)
-			{str_hdrvcheck,	np2sysp_outstr,		"0.74",			0},
-			{str_hdrvopen,	hostdrv_mount,		NULL,			0},
-			{str_hdrvclose,	hostdrv_unmount,	NULL,			0},
-			{str_hdrvintr,	hostdrv_intr,		NULL,			0},
-#endif
 			{str_hostfatcheck, np2sysp_hostfatcheck, NULL,		0},
 			{str_hostfatread,	np2sysp_hostfatread,	NULL,		0},
 };

@@ -44,35 +44,7 @@ typedef struct {
 
 static MENUSYS	menusys;
 
-#if !defined(RESOURCE_US) && (!defined(CHARSET_OEM) || defined(OSLANG_SJIS))
-static const char str_sysr[] = 				// 元のサイズに戻す
-			"\214\263\202\314\203\124\203\103\203\131\202\311" \
-			"\226\337\202\267";
-static const char str_sysm[] =				// 移動
-			"\210\332\223\256";
-static const char str_syss[] =				// サイズ変更
-			"\203\124\203\103\203\131\225\317\215\130";
-static const char str_sysn[] =				// 最小化
-			"\215\305\217\254\211\273";
-static const char str_sysx[] =				// 最大化
-			"\215\305\221\345\211\273";
-static const char str_sysc[] =				// 閉じる
-			"\225\302\202\266\202\351";
-#elif defined(OSLANG_EUC) && !defined(RESOURCE_US)
-static const char str_sysr[] = 				// 元のサイズに戻す
-			"\270\265\244\316\245\265\245\244\245\272\244\313" \
-			"\314\341\244\271";
-static const char str_sysm[] =				// 移動
-			"\260\334\306\260";
-static const char str_syss[] =				// サイズ変更
-			"\245\265\245\244\245\272\312\321\271\271";
-static const char str_sysn[] =				// 最小化
-			"\272\307\276\256\262\275";
-static const char str_sysx[] =				// 最大化
-			"\272\307\302\347\262\275";
-static const char str_sysc[] =				// 閉じる
-			"\312\304\244\270\244\353";
-#elif defined(OSLANG_UTF8) && !defined(RESOURCE_US)
+#if defined(OSLANG_UTF8) && !defined(RESOURCE_US)
 static const char str_sysr[] = 				// 元のサイズに戻す
 			"\345\205\203\343\201\256\343\202\265\343\202\244\343\202\272" \
 			"\343\201\253\346\210\273\343\201\231";
@@ -1176,4 +1148,3 @@ void menusys_setstyle(UINT16 style) {
 
 	menusys.style = style;
 }
-

@@ -3,37 +3,7 @@
 #include	"menubase.h"
 
 
-#if !defined(RESOURCE_US) && (!defined(CHARSET_OEM) || defined(OSLANG_SJIS))
-const char mstr_fontcheck[] = " ";
-const char mstr_ok[] = "OK";
-			// キャンセル
-const char mstr_cancel[] = "\267\254\335\276\331";
-			// 中止
-const char mstr_abort[] = "\222\206\216\176";
-			// 再試行
-const char mstr_retry[] = "\215\304\216\216\215\163";
-			// 無視
-const char mstr_ignore[] = "\226\263\216\213";
-			// はい
-const char mstr_yes[] = "\202\315\202\242";
-			// いいえ
-const char mstr_no[] = "\202\242\202\242\202\246";
-#elif defined(OSLANG_EUC) && !defined(RESOURCE_US)
-const char mstr_fontcheck[] = " ";
-const char mstr_ok[] = "OK";
-			// キャンセル
-const char mstr_cancel[] = "\216\267\216\254\216\335\216\276\216\331";
-			// 中止
-const char mstr_abort[] = "\303\346\273\337";
-			// 再試行
-const char mstr_retry[] = "\272\306\273\356\271\324";
-			// 無視
-const char mstr_ignore[] = "\314\265\273\353";
-			// はい
-const char mstr_yes[] = "\244\317\244\244";
-			// いいえ
-const char mstr_no[] = "\244\244\244\244\244\250";
-#elif defined(OSLANG_UTF8) && !defined(RESOURCE_US)
+#if defined(OSLANG_UTF8) && !defined(RESOURCE_US)
 const char mstr_fontcheck[] = " ";
 const char mstr_ok[] = "OK";
 			// キャンセル
@@ -340,4 +310,3 @@ const UINT16 menures_sldpos[3][12] = {
 		{  0,  21,  42,  61,  80, 100, 120, 132, 144, 153, 163, 176},
 		{189, 221, 257, 286, 320, 351, 386, 404, 424, 440, 457, 478},
 		{499, 553, 615, 665, 723, 776, 837, 879, 926, 961,1000,1047}};
-

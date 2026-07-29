@@ -71,13 +71,11 @@ SXSIDEV sxsi_getptr(REG8 drv) {
 			return(sxsi_dev + num);
 		}
 	}
-#if defined(SUPPORT_SCSI)
 	else {
 		if (num < SCSIHDD_MAX) {			// SCSI
 			return(sxsi_dev + SASIHDD_MAX + num);
 		}
 	}
-#endif
 	return(NULL);
 }
 
@@ -244,14 +242,12 @@ void sxsi_open(void) {
 			drv++;
 		}
 	}
-#if defined(SUPPORT_SCSI)
 	drv = 0x20;
 	for (i=0; i<4; i++) {
 		if (sxsi_hddopen(drv, np2cfg.scsihdd[i]) == SUCCESS) {
 			drv++;
 		}
 	}
-#endif
 }
 
 void sxsi_flash(void) {

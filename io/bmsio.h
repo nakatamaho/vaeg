@@ -38,11 +38,9 @@ typedef struct {			// memory.x86内の構造体に影響
 extern "C" {
 #endif
 
-#if defined(SUPPORT_BMS)
 extern	_BMSIOCFG	bmsiocfg;
 extern	_BMSIO		bmsio;
 extern	_BMSIOWORK	bmsiowork;
-#endif
 
 void bmsio_set(void);
 void bmsio_reset(void);

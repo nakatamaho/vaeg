@@ -114,9 +114,7 @@ typedef struct {
 	UINT8	lockedkey;
 
 	OEMCHAR	sasihdd[2][MAX_PATH];									// ver0.74
-#if defined(SUPPORT_SCSI)
 	OEMCHAR	scsihdd[4][MAX_PATH];									// ver0.74
-#endif
 	OEMCHAR	fontfile[MAX_PATH];
 	OEMCHAR	biospath[MAX_PATH];
 	OEMCHAR	hdrvroot[MAX_PATH];
