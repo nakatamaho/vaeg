@@ -1204,11 +1204,9 @@ static int flagload_disk(STFLAGH sfh, const SFENTRY *tbl) {
 			fdd_set(i, st.path, FTYPE_NONE, st.readonly);
 #endif
 		}
-#if defined(VAEG_FIX)
 		else {
 			fdd_eject(i);
 		}
-#endif
 	}
 	for (i=0x00; i<0x02; i++) {
 		ret |= statflag_read(sfh, &st, sizeof(st));

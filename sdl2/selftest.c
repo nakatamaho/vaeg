@@ -1890,11 +1890,7 @@ static int test_mouse_state(void) {
 	vaeg_mouse_state_set_active(&state, TRUE);
 	vaeg_mouse_state_motion(&state, 3, -5);
 	buttons = vaeg_mouse_state_getstat(&state, &x, &y, 0);
-#if defined(VAEG_FIX)
 	if ((x != 1) || (y != -2)) {
-#else
-	if ((x != 3) || (y != -5)) {
-#endif
 		return(fail("mouse", "relative movement scaling failed"));
 	}
 	vaeg_mouse_state_getstat(&state, &x, &y, 1);
@@ -1927,11 +1923,7 @@ static int test_mouse_state(void) {
 		return(fail("mouse", "large movement was not clamped"));
 	}
 	vaeg_mouse_state_getstat(&state, &x, &y, 1);
-#if defined(VAEG_FIX)
 	if (x != 1) {
-#else
-	if (x != INT16_MAX) {
-#endif
 		return(fail("mouse", "clamped movement remainder was lost"));
 	}
 	state.x = INT64_MAX - 1;

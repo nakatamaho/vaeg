@@ -393,17 +393,10 @@ void pccore_reset(void) {
 	}
 	nevent_allreset();
 
-#if defined(VAEG_FIX)
 	//後ろに移動
-#else
-	CPU_RESET();
-	CPU_SETEXTSIZE((UINT32)pccore.extmem);
-#endif
 
-#if defined(VAEG_FIX)
 	CPU_RESET();
 	CPU_SETEXTSIZE((UINT32)pccore.extmem);
-#endif
 
 	if (pccore.model & PCMODEL_EPSON) {			// RAM ctrl
 		CPU_RAM_D000 = 0xffff;
