@@ -1821,10 +1821,10 @@ def verify_static(root: pathlib.Path, protected_only: bool) -> None:
     verify_predecessor(root)
     if not protected_only:
         verify_consolidation(root)
-    source = (root / "cpu/upd9002/upd9002_dispatch.c").read_text(
-        encoding="utf-8"
-    )
-    require("v30_aam" in source and "v30_aad" in source, "d4-d5-scope", "handlers")
+    source = (root / "cpu/upd9002/upd9002_mn.c").read_text(encoding="utf-8")
+    require("UPD9002FN _aam(void)" in source and
+            "UPD9002FN _aad(void)" in source,
+            "d4-d5-scope", "handlers")
     require(
         sha256_file(root / G60B_AUTHORITY_MANIFEST_PATH)
         == G60B_AUTHORITY_MANIFEST_SHA256,

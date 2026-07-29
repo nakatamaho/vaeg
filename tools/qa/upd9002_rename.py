@@ -40,8 +40,6 @@ class RenameError(RuntimeError):
 
 REQUIRED_PATHS = (
     "cpu/upd9002/upd9002_core.c",
-    "cpu/upd9002/upd9002_dispatch.c",
-    "cpu/upd9002/upd9002_dispatch.h",
     "iova/upd9002_regs.c",
     "iova/upd9002_regs.h",
     "cpucva/memoryva.h",
@@ -75,7 +73,24 @@ REQUIRED_CORE_APIS = (
     "upd9002_core_set_emm",
     "upd9002_core_interrupt",
     "upd9002_core_step",
+)
+
+M71_RETIRED_PATHS = (
+    "cpu/upd9002/upd9002_dispatch.c",
+    "cpu/upd9002/upd9002_dispatch.h",
+)
+
+M71_RETIRED_DISPATCH_TOKENS = (
     "upd9002_dispatch_initialize",
+    "V30PATCH",
+    "V30PATCHING",
+    "v30op",
+    "v30op_repe",
+    "v30op_repne",
+    "v30op_repc",
+    "v30op_repnc",
+    "v30ope0xf6_table",
+    "v30ope0xf7_table",
 )
 
 # M51 allowed a small graph-bound internal compatibility exception list.
@@ -151,11 +166,14 @@ def verify(root: pathlib.Path) -> None:
     if missing:
         raise RenameError("required M51 paths missing: " + ", ".join(missing))
 
-    stale_paths = sorted(path for path in RETIRED_PATHS if path in file_set)
+    stale_paths = sorted(path for path in RETIRED_PATHS + M71_RETIRED_PATHS
+                         if path in file_set and (root / path).exists())
     if stale_paths:
         raise RenameError("retired M51 paths remain: " + ", ".join(stale_paths))
 
-    source_files = list(active_sources(files))
+    source_files = [
+        path for path in active_sources(files) if (root / path).exists()
+    ]
     retired = exact_word_matches(root, source_files, RETIRED_CORE_APIS)
     retired_hits = [
         f"{name}: {', '.join(sorted(paths))}"
@@ -170,9 +188,11 @@ def verify(root: pathlib.Path) -> None:
         "${CMAKE_CURRENT_SOURCE_DIR}/cpu/upd9002",
         "${CMAKE_CURRENT_SOURCE_DIR}/cpucva",
         "cpu/upd9002/upd9002_core.c",
-        "cpu/upd9002/upd9002_dispatch.c",
         "iova/upd9002_regs.c",
     ), "CMakeLists.txt")
+    if "cpu/upd9002/upd9002_dispatch.c" in cmake:
+        raise RenameError(
+            "CMakeLists.txt: retired dispatch source remains after M71")
     obsolete_cmake = (
         "${CMAKE_CURRENT_SOURCE_DIR}/i286c",
         "${CMAKE_CURRENT_SOURCE_DIR}/cpuxva",
@@ -186,10 +206,8 @@ def verify(root: pathlib.Path) -> None:
 
     core_header = read_text(root, "cpu/upd9002/cpucore.h")
     core_source = read_text(root, "cpu/upd9002/upd9002_core.c")
-    dispatch_header = read_text(root, "cpu/upd9002/upd9002_dispatch.h")
-    dispatch_source = read_text(root, "cpu/upd9002/upd9002_dispatch.c")
-    declaration_text = core_header + dispatch_header
-    definition_text = core_source + dispatch_source
+    declaration_text = core_header
+    definition_text = core_source
     for name in REQUIRED_CORE_APIS:
         word = re.compile(r"(?<![A-Za-z0-9_])" + re.escape(name)
                           + r"(?![A-Za-z0-9_])")
@@ -197,6 +215,14 @@ def verify(root: pathlib.Path) -> None:
             raise RenameError(f"public declaration missing: {name}")
         if not word.search(definition_text):
             raise RenameError(f"public definition missing: {name}")
+    active_text = "\n".join(read_text(root, relative)
+                            for relative in source_files
+                            if relative.startswith("cpu/upd9002/"))
+    for name in M71_RETIRED_DISPATCH_TOKENS:
+        word = re.compile(r"(?<![A-Za-z0-9_])" + re.escape(name)
+                          + r"(?![A-Za-z0-9_])")
+        if word.search(active_text):
+            raise RenameError(f"retired dispatch token remains: {name}")
 
     register_header = read_text(root, "iova/upd9002_regs.h")
     register_source = read_text(root, "iova/upd9002_regs.c")

@@ -27,7 +27,6 @@
 #include "nevent.h"
 #include "iocore.h"
 #include "upd9002_trace.h"
-#include "upd9002_dispatch.h"
 #include "tests/upd9002/direct_harness.h"
 
 #include <stdio.h>
@@ -363,8 +362,8 @@ int upd9002_harness_run_manifest(const char *path) {
 		count++;
 	}
 	fclose(stream);
-	if (count != 156) {
-		fprintf(stderr, "upd9002-harness: expected 156 cases, got %u\n", count);
+	if (count != 193) {
+		fprintf(stderr, "upd9002-harness: expected 193 cases, got %u\n", count);
 		return FAILURE;
 	}
 	fprintf(stderr, "upd9002-harness: %u manifest-derived cases passed\n", count);

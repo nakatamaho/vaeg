@@ -458,21 +458,21 @@ def resolve_dispatch(
         raise CorpusError(f"{form}: ModR/M reg does not match shard identity")
 
     if repeat == "repnc" and opcode in M70_REPNC_STRING_OPCODES:
-        support_key = ("v30op_repnc", opcode, "-")
+        support_key = ("upd9002op_repnc", opcode, "-")
     elif repeat == "repnc":
-        support_key = ("v30op", 0x64, "-")
+        support_key = ("upd9002op", 0x64, "-")
     else:
         mode = {
-            "none": "v30op",
-            "repc": "v30op_repc",
-            "repe": "v30op_repe",
-            "repne": "v30op_repne",
+            "none": "upd9002op",
+            "repc": "upd9002op_repc",
+            "repe": "upd9002op_repe",
+            "repne": "upd9002op_repne",
         }[repeat]
-        if mode == "v30op" and opcode == 0x0f:
-            support_key = ("v30op_0f", 0x0f, f"0x{second_byte:02x}")
-        elif mode == "v30op" and opcode in {0xf6, 0xf7}:
+        if mode == "upd9002op" and opcode == 0x0f:
+            support_key = ("upd9002op_0f", 0x0f, f"0x{second_byte:02x}")
+        elif mode == "upd9002op" and opcode in {0xf6, 0xf7}:
             support_key = (
-                f"v30ope0x{opcode:02x}_table", opcode, f"/{modrm_reg}"
+                f"c_ope0x{opcode:02x}_table", opcode, f"/{modrm_reg}"
             )
         else:
             support_key = (mode, opcode, "-")

@@ -25,7 +25,6 @@
 
 #include "compiler.h"
 #include "cpucore.h"
-#include "upd9002_dispatch.h"
 #include "tests/upd9002/dispatch_normalization.h"
 
 #include <stdio.h>
@@ -33,7 +32,7 @@
 
 int upd9002_dispatch_normalization_verify_live(void) {
 
-	if ((upd9002_dispatch_test_construction_count() != 1) ||
+	if ((upd9002_dispatch_test_construction_count() != 0) ||
 		(upd9002_dispatch_test_rejected_count() != 0) ||
 		(upd9002_dispatch_test_verify() != SUCCESS)) {
 		return(FAILURE);
@@ -50,19 +49,12 @@ int upd9002_dispatch_normalization_main(void) {
 	}
 	upd9002_core_reset();
 	if (upd9002_dispatch_normalization_verify_live() != SUCCESS) {
-		fprintf(stderr, "upd9002-dispatch-normalization: reset rebuilt or changed tables\n");
-		return(EXIT_FAILURE);
-	}
-	upd9002_dispatch_initialize();
-	if ((upd9002_dispatch_test_construction_count() != 1) ||
-		(upd9002_dispatch_test_rejected_count() != 1) ||
-		(upd9002_dispatch_test_verify() != SUCCESS)) {
-		fprintf(stderr, "upd9002-dispatch-normalization: re-entry was not rejected\n");
+		fprintf(stderr, "upd9002-dispatch-normalization: reset changed folded tables\n");
 		return(EXIT_FAILURE);
 	}
 	upd9002_core_deinitialize();
 	fprintf(stderr,
-		"upd9002-dispatch-normalization: constructed=1 rejected=1 "
-		"roots=256,256,256,256,8,8 immutable\n");
+		"upd9002-dispatch-normalization: constructor=removed rejected=0 "
+		"folded roots immutable\n");
 	return(EXIT_SUCCESS);
 }

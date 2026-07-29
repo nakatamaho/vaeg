@@ -28,7 +28,6 @@ import csv
 import io
 import re
 import sys
-from dataclasses import dataclass
 from pathlib import Path
 
 
@@ -57,7 +56,9 @@ EXPECTED_ARRAY_SIZES = {
     "upd9002op": 256,
     "upd9002op_repne": 256,
     "upd9002op_repe": 256,
-    "v30ope0x0f_table": 64,
+    "upd9002op_repnc": 256,
+    "upd9002op_repc": 256,
+    "upd9002_ope0x0f_table": 64,
     "c_op8xreg8_table": 8,
     "c_op8xext8_table": 8,
     "c_op8xreg16_table": 8,
@@ -77,20 +78,14 @@ EXPECTED_ARRAY_SIZES = {
 }
 
 ROOTS = (
-    "v30op",
-    "v30op_repne",
-    "v30op_repe",
-    "v30op_repnc",
-    "v30op_repc",
-    "v30ope0xf6_table",
-    "v30ope0xf7_table",
+    "upd9002op",
+    "upd9002op_repne",
+    "upd9002op_repe",
+    "upd9002op_repnc",
+    "upd9002op_repc",
+    "c_ope0xf6_table",
+    "c_ope0xf7_table",
 )
-
-
-@dataclass(frozen=True)
-class PatchEntry:
-    slot: int
-    target: str
 
 
 def strip_comments(text: str) -> str:
@@ -176,39 +171,6 @@ def parse_arrays(sources: dict[str, str]) -> dict[str, list[str]]:
     return arrays
 
 
-def parse_patch_array(source: str, name: str) -> list[PatchEntry]:
-    text = strip_comments(source)
-    match = re.search(
-        rf"\bstatic\s+const\s+V30PATCH\s+{re.escape(name)}\s*\[\s*\]"
-        rf"\s*=\s*\{{",
-        text,
-    )
-    if match is None:
-        raise DispatchError(f"required patch array was not parsed: {name}")
-    end = matching(text, match.end() - 1, "{", "}")
-    patches: list[PatchEntry] = []
-    seen: set[int] = set()
-    for entry in split_top_level(text[match.end():end]):
-        if not (entry.startswith("{") and entry.endswith("}")):
-            raise DispatchError(f"unparsed patch entry in {name}: {entry!r}")
-        values = split_top_level(entry[1:-1])
-        if len(values) != 2 or not re.fullmatch(r"[A-Za-z_]\w*", values[1]):
-            raise DispatchError(f"unparsed patch entry in {name}: {entry!r}")
-        try:
-            slot = int(values[0], 0)
-        except ValueError as error:
-            raise DispatchError(f"invalid patch slot in {name}: {values[0]}") from error
-        if not 0 <= slot < 256:
-            raise DispatchError(f"patch slot outside byte range in {name}: {slot}")
-        if slot in seen:
-            raise DispatchError(f"duplicate patch slot in {name}: {slot:#04x}")
-        seen.add(slot)
-        patches.append(PatchEntry(slot, values[1]))
-    if not patches:
-        raise DispatchError(f"empty patch array: {name}")
-    return patches
-
-
 def extract_function_bodies(sources: dict[str, str]) -> dict[str, str]:
     functions: dict[str, str] = {}
     pattern = re.compile(
@@ -242,94 +204,21 @@ def extract_function_bodies(sources: dict[str, str]) -> dict[str, str]:
     return functions
 
 
-def verify_constructor(source: str) -> None:
-    text = strip_comments(source)
-    required = (
-        "CopyMemory(v30op, upd9002op, sizeof(v30op))",
-        "V30PATCHING(v30op, v30patch_op)",
-        "CopyMemory(v30op_repne, upd9002op_repne, sizeof(v30op_repne))",
-        "V30PATCHING(v30op_repne, v30patch_repne)",
-        "CopyMemory(v30op_repe, upd9002op_repe, sizeof(v30op_repe))",
-        "V30PATCHING(v30op_repe, v30patch_repe)",
-        "CopyMemory(v30ope0xf6_table, c_ope0xf6_table, sizeof(v30ope0xf6_table))",
-        "v30ope0xf6_table[6] = v30_div_ea8",
-        "v30ope0xf6_table[7] = v30_idiv_ea8",
-        "CopyMemory(v30ope0xf7_table, c_ope0xf7_table, sizeof(v30ope0xf7_table))",
-        "v30ope0xf7_table[6] = v30_div_ea16",
-        "v30ope0xf7_table[7] = v30_idiv_ea16",
-        "v30op_repnc[i] = v30_reserved_repnc",
-        "V30PATCHING(v30op_repnc, v30patch_repnc)",
-        "v30op_repc[i] = v30_reserved_repc",
-        "V30PATCHING(v30op_repc, v30patch_repc)",
-    )
-    compact = re.sub(r"\s+", "", text)
-    for statement in required:
-        if re.sub(r"\s+", "", statement) not in compact:
-            raise DispatchError(
-                f"unparsed upd9002_dispatch_initialize operation: {statement}")
-
-
 def construct_roots(
-    arrays: dict[str, list[str]], source: str
+    arrays: dict[str, list[str]], _source: str | None = None
 ) -> tuple[dict[str, list[str]], list[list[str]]]:
-    verify_constructor(source)
-    patches = {
-        "v30op": ("upd9002op", parse_patch_array(source, "v30patch_op")),
-        "v30op_repne": (
-            "upd9002op_repne", parse_patch_array(source, "v30patch_repne")
-        ),
-        "v30op_repe": (
-            "upd9002op_repe", parse_patch_array(source, "v30patch_repe")
-        ),
-        "v30op_repnc": (
-            "fill:v30_reserved_repnc", parse_patch_array(source, "v30patch_repnc")
-        ),
-        "v30op_repc": (
-            "fill:v30_reserved_repc", parse_patch_array(source, "v30patch_repc")
-        ),
-    }
     roots: dict[str, list[str]] = {}
     provenance: list[list[str]] = []
-    for root, (base_name, patch_entries) in patches.items():
-        if base_name.startswith("fill:"):
-            base_target = base_name.split(":", 1)[1]
-            final = [base_target] * 256
-        else:
-            final = list(arrays[base_name])
-        patch_by_slot = {patch.slot: patch.target for patch in patch_entries}
-        for slot in range(256):
-            base_target = final[slot]
-            operation = "base"
-            if slot in patch_by_slot:
-                final[slot] = patch_by_slot[slot]
-                operation = "patch"
-            provenance.append(
-                [root, f"0x{slot:02x}", base_name, base_target,
-                 operation, final[slot]]
-            )
-        roots[root] = final
-    for root, base_name, replacements in (
-        ("v30ope0xf6_table", "c_ope0xf6_table",
-         {6: "v30_div_ea8", 7: "v30_idiv_ea8"}),
-        ("v30ope0xf7_table", "c_ope0xf7_table",
-         {6: "v30_div_ea16", 7: "v30_idiv_ea16"}),
-    ):
-        final = list(arrays[base_name])
-        for slot in range(8):
-            base_target = final[slot]
-            operation = "base"
-            if slot in replacements:
-                final[slot] = replacements[slot]
-                operation = "explicit-replacement"
-            provenance.append(
-                [root, f"0x{slot:02x}", base_name, base_target,
-                 operation, final[slot]]
-            )
-        roots[root] = final
-    if tuple(roots) != ROOTS:
-        raise DispatchError("root construction order changed")
+    for root in ROOTS:
+        if root not in arrays:
+            raise DispatchError(f"required folded root was not parsed: {root}")
+        roots[root] = list(arrays[root])
+        for slot, target in enumerate(roots[root]):
+            provenance.append([
+                root, f"0x{slot:02x}", root, target,
+                "folded-static", target,
+            ])
     return roots, provenance
-
 
 def called_tables(body: str, known_tables: set[str]) -> set[str]:
     calls = set(re.findall(r"\b([A-Za-z_]\w*)\s*\[[^;\n]*?\]\s*\(", body))
@@ -359,10 +248,11 @@ def final_graph(
         if entries is None:
             raise DispatchError(f"unknown reachable table: {table}")
         if table in {
-            "v30op", "v30op_repne", "v30op_repe", "v30op_repnc", "v30op_repc"
+            "upd9002op", "upd9002op_repne", "upd9002op_repe",
+            "upd9002op_repnc", "upd9002op_repc"
         }:
             expected = 256
-        elif table in {"v30ope0xf6_table", "v30ope0xf7_table"}:
+        elif table in {"c_ope0xf6_table", "c_ope0xf7_table"}:
             expected = 8
         else:
             expected = EXPECTED_ARRAY_SIZES.get(table)
@@ -391,54 +281,85 @@ def write_csv(path: Path | None, header: list[str], rows: list[list[str]]) -> st
     text = output.getvalue()
     if path is not None:
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(text, encoding="utf-8", newline="")
+        with path.open("w", encoding="utf-8", newline="") as handle:
+            handle.write(text)
     return text
 
 
 def harness_rows(provenance: list[list[str]], arrays: dict[str, list[str]]) -> list[list[str]]:
     rows: list[list[str]] = []
     prefixes = {
-        "v30op": "",
-        "v30op_repne": "f2",
-        "v30op_repe": "f3",
-        "v30op_repnc": "64",
-        "v30op_repc": "65",
+        "upd9002op": "",
+        "upd9002op_repne": "f2",
+        "upd9002op_repe": "f3",
+        "upd9002op_repnc": "64",
+        "upd9002op_repc": "65",
     }
-    for root, slot_text, _base, _base_target, operation, target in provenance:
-        if operation == "base":
-            continue
+    folded_root_slots = {
+        "upd9002op": {
+            0x0f, 0x26, 0x27, 0x2e, 0x2f, 0x36, 0x37, 0x3e,
+            0x3f, 0x54, 0x63, 0x64, 0x65, 0x66, 0x67, 0x8e,
+            0x9c, 0x9d, 0xc0, 0xc1, 0xcf, 0xd2, 0xd3, 0xd4,
+            0xd5, 0xd6, 0xe2, 0xf2, 0xf3, 0xf6, 0xf7,
+        },
+        "upd9002op_repne": {
+            0x0f, 0x26, 0x2e, 0x36, 0x3e, 0x54, 0x63, 0x64,
+            0x65, 0x66, 0x67, 0x8e, 0x9c, 0x9d, 0xc0, 0xc1,
+            0xcf, 0xd2, 0xd3, 0xd4, 0xd5, 0xd6, 0xf2, 0xf3,
+            0xf6, 0xf7,
+        },
+        "upd9002op_repe": {
+            0x0f, 0x26, 0x2e, 0x36, 0x3e, 0x54, 0x63, 0x64,
+            0x65, 0x66, 0x67, 0x8e, 0x9c, 0x9d, 0xc0, 0xc1,
+            0xcf, 0xd2, 0xd3, 0xd4, 0xd5, 0xd6, 0xf2, 0xf3,
+            0xf6, 0xf7,
+        },
+        "upd9002op_repnc": {
+            0x26, 0x2e, 0x36, 0x3e, 0x64, 0x65, 0xf2, 0xf3,
+            0xa4, 0xa5, 0xa6, 0xa7, 0xaa, 0xab, 0xac, 0xad,
+            0xae, 0xaf,
+        },
+        "upd9002op_repc": {
+            0x26, 0x2e, 0x36, 0x3e, 0x64, 0x65, 0xf2, 0xf3,
+            0xa4, 0xa5, 0xa6, 0xa7, 0xaa, 0xab, 0xac, 0xad,
+            0xae, 0xaf,
+        },
+    }
+    for root, slot_text, _base, _base_target, _operation, target in provenance:
         slot = int(slot_text, 16)
-        if root in prefixes:
+        if root in prefixes and slot in folded_root_slots[root]:
             program = prefixes[root] + f"{slot:02x}" + "c0000000000000"
-        elif root == "v30ope0xf6_table":
+            coverage = "folded-root"
+        elif root == "c_ope0xf6_table" and slot in {6, 7}:
             program = "f6" + ("f0" if slot == 6 else "f8") + "00000000"
-        elif root == "v30ope0xf7_table":
+            coverage = "folded-modrm"
+        elif root == "c_ope0xf7_table" and slot in {6, 7}:
             program = "f7" + ("f0" if slot == 6 else "f8") + "00000000"
+            coverage = "folded-modrm"
         else:
-            raise DispatchError(f"unhandled harness root: {root}")
+            continue
         rows.append([
-            f"patch-{root}-{slot:02x}", root, slot_text, target, program, "1",
-            "patched-root",
+            f"folded-{root}-{slot:02x}", root, slot_text, target,
+            program, "1", coverage,
         ])
-    for slot, target in enumerate(arrays["v30ope0x0f_table"]):
+    for slot, target in enumerate(arrays["upd9002_ope0x0f_table"]):
         rows.append([
-            f"native-0f-{slot:02x}", "v30ope0x0f_table", f"0x{slot:02x}",
+            f"native-0f-{slot:02x}", "upd9002_ope0x0f_table", f"0x{slot:02x}",
             target, f"0f{slot:02x}c0000000000000", "1", "native-secondary",
         ])
     rows.extend([
-        ["div8-normal", "v30ope0xf6_table", "0x06", "v30_div_ea8",
+        ["div8-normal", "c_ope0xf6_table", "0x06", "_div_ea8",
          "f6f300000000", "1", "boundary"],
-        ["div8-fault", "v30ope0xf6_table", "0x06", "v30_div_ea8",
+        ["div8-fault", "c_ope0xf6_table", "0x06", "_div_ea8",
          "f6f000000000", "1", "fault"],
-        ["idiv16-normal", "v30ope0xf7_table", "0x07", "v30_idiv_ea16",
+        ["idiv16-normal", "c_ope0xf7_table", "0x07", "_idiv_ea16",
          "f7fb00000000", "1", "boundary"],
-        ["io-out", "v30op", "0xe6", "_out_data8_al", "e67f00000000", "1", "io"],
-        ["memory-write", "v30op", "0xa2", "_mov_mem_al", "a20030000000", "1", "memory"],
-        ["overflow-step", "v30op", "0x90", "_nop", "900000000000", "1", "overflow"],
+        ["io-out", "upd9002op", "0xe6", "_out_data8_al", "e67f00000000", "1", "io"],
+        ["memory-write", "upd9002op", "0xa2", "_mov_mem_al", "a20030000000", "1", "memory"],
+        ["overflow-step", "upd9002op", "0x90", "_nop", "900000000000", "1", "overflow"],
     ])
-    rows.sort(key=lambda row: row[0])
+    rows.sort(key=lambda row: (row[0].startswith("folded-"), row[0]))
     return rows
-
 
 def load_sources(root: Path) -> dict[str, str]:
     paths = sorted((root / "cpu/upd9002").glob("*.c"))
@@ -449,21 +370,23 @@ def load_sources(root: Path) -> dict[str, str]:
 
 def support_rows(roots: dict[str, list[str]], arrays: dict[str, list[str]]) -> list[list[str]]:
     rows: list[list[str]] = []
-    for mode in ("v30op", "v30op_repne", "v30op_repe", "v30op_repnc", "v30op_repc"):
+    for mode in ("upd9002op", "upd9002op_repne", "upd9002op_repe",
+                 "upd9002op_repnc", "upd9002op_repc"):
         for opcode, target in enumerate(roots[mode]):
             status = "known_target_gap" if "reserved" in target else "implemented"
             rows.append([
                 mode, f"0x{opcode:02x}", "-", target, status,
-                "final-root-target",
+                "folded-root-target",
             ])
     for second in range(256):
-        target = arrays["v30ope0x0f_table"][second] if second < 64 else "v30_reserved_0x0f"
+        target = (arrays["upd9002_ope0x0f_table"][second]
+                  if second < 64 else "_reserved_0x0f")
         status = "known_target_gap" if "reserved" in target else "implemented"
         rows.append([
-            "v30op_0f", "0x0f", f"0x{second:02x}", target, status,
+            "upd9002op_0f", "0x0f", f"0x{second:02x}", target, status,
             "second-byte-resolved",
         ])
-    for mode in ("v30ope0xf6_table", "v30ope0xf7_table"):
+    for mode in ("c_ope0xf6_table", "c_ope0xf7_table"):
         for group, target in enumerate(roots[mode]):
             rows.append([
                 mode, "0xf6" if "f6" in mode else "0xf7", f"/{group}",
@@ -472,14 +395,10 @@ def support_rows(roots: dict[str, list[str]], arrays: dict[str, list[str]]) -> l
     rows.sort(key=lambda row: tuple(row))
     return rows
 
-
 def generate(root: Path) -> tuple[str, str, str, str]:
     sources = load_sources(root)
     arrays = parse_arrays(sources)
-    v30source = sources.get("upd9002_dispatch.c")
-    if v30source is None:
-        raise DispatchError("upd9002_dispatch.c is absent")
-    roots, provenance = construct_roots(arrays, v30source)
+    roots, provenance = construct_roots(arrays)
     functions = extract_function_bodies(sources)
     graph = final_graph(roots, arrays, functions)
     graph_text = write_csv(None, ["table", "slot", "entry_kind", "target"], graph)
@@ -533,13 +452,12 @@ def internal_selftest() -> None:
             pass
         else:
             raise AssertionError("unknown edge was accepted")
-        patch_source = "static const V30PATCH p[]={{0x01,a},{0x01,b}};"
         try:
-            parse_patch_array(patch_source, "p")
+            construct_roots({"upd9002op": ["one", "two"]})
         except DispatchError:
             pass
         else:
-            raise AssertionError("duplicate patch slot was accepted")
+            raise AssertionError("incomplete folded roots were accepted")
     finally:
         EXPECTED_ARRAY_SIZES.clear()
         EXPECTED_ARRAY_SIZES.update(old)
@@ -548,7 +466,8 @@ def internal_selftest() -> None:
 def compare_or_write(path: Path, content: str, write: bool) -> None:
     if write:
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(content, encoding="utf-8", newline="")
+        with path.open("w", encoding="utf-8", newline="") as handle:
+            handle.write(content)
         return
     if not path.exists():
         raise DispatchError(f"golden is absent: {path}")
