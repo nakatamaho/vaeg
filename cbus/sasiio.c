@@ -85,16 +85,9 @@ static void sasidmac(void) {
 
 	REG8	en;
 
-#if !defined(VAEG_EXT)
 	if ((sasiio.ocr & SASIOCR_DMAE) &&
 		((sasiio.phase == SASIPHASE_READ)
 			|| (sasiio.phase == SASIPHASE_WRITE))) {
-#else
-	if ((sasiio.ocr & SASIOCR_DMAE) &&
-		((sasiio.phase == SASIPHASE_READ)
-			|| (sasiio.phase == SASIPHASE_WRITE) 
-			|| (sasiio.phase == SASIPHASE_SENSE) )) {
-#endif
 		en = TRUE;
 	}
 	else {
@@ -165,9 +158,6 @@ static void checkcmd(void) {
 			sasiio.sens[3] = (BYTE)sasiio.sector;
 			sasiio.error = 0x00;
 			sasiio.stat = 0x00;
-#if defined(VAEG_EXT)
-			sasidmac();
-#endif
 			break;
 
 		case 0x04:		// Format Drive
@@ -283,15 +273,6 @@ REG8 DMACCALL sasi_dataread(void) {
 			}
 		}
 	}
-#if defined(VAEG_EXT)
-	else if (sasiio.phase == SASIPHASE_SENSE) {
-		ret = sasiio.sens[sasiio.senspos];
-		sasiio.senspos++;
-		if (sasiio.senspos >= 4) {
-			sasisetstat(0x00);
-		}
-	}
-#endif
 	else {
 		ret = 0;
 	}
