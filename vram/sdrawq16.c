@@ -5,7 +5,7 @@
 #include	"palettes.h"
 
 
-#if defined(SIZE_QVGA) && !defined(SIZE_VGATEST) && defined(SUPPORT_16BPP)
+#if defined(SIZE_QVGA) && !defined(SIZE_VGATEST)
 
 // vram off
 static void SCRNCALL qvga16p_0(SDRAW sdraw, int maxy) {
@@ -303,4 +303,3 @@ const SDRAWFN *sdraw_getproctbl(const SCRNSURF *surf) {
 }
 
 #endif
-

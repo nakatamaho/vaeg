@@ -40,19 +40,6 @@ void cmndraw_fill(const CMNVRAM *vram, int x, int y,
 	p = vram->ptr + (x * vram->xalign) + (y * vram->yalign);
 	dalign = vram->yalign - (vram->xalign * cx);
 	switch(vram->bpp) {
-#if defined(SUPPORT_8BPP)
-		case 8:
-			do {
-				r = cx;
-				do {
-					*p = fg.pal8;
-					p += vram->xalign;
-				} while(--r);
-				p += dalign;
-			} while(--cy);
-			break;
-#endif
-#if defined(SUPPORT_16BPP)
 		case 16:
 			do {
 				r = cx;
@@ -63,33 +50,6 @@ void cmndraw_fill(const CMNVRAM *vram, int x, int y,
 				p += dalign;
 			} while(--cy);
 			break;
-#endif
-#if defined(SUPPORT_24BPP)
-		case 24:
-			do {
-				r = cx;
-				do {
-					p[RGB24_R] = fg.pal32.p.r;
-					p[RGB24_G] = fg.pal32.p.g;
-					p[RGB24_B] = fg.pal32.p.b;
-					p += vram->xalign;
-				} while(--r);
-				p += dalign;
-			} while(--cy);
-			break;
-#endif
-#if defined(SUPPORT_32BPP)
-		case 32:
-			do {
-				r = cx;
-				do {
-					*(UINT32 *)p = fg.pal32.d;
-					p += vram->xalign;
-				} while(--r);
-				p += dalign;
-			} while(--cy);
-			break;
-#endif
 	}
 }
 
@@ -116,22 +76,6 @@ const BYTE	*p;
 		bit = 0;
 		c = 0;
 		switch(vram->bpp) {
-#if defined(SUPPORT_8BPP)
-			case 8:
-				do {
-					if (!bit) {
-						bit = 0x80;
-						c = *p++;
-					}
-					if (c & bit) {
-						*q = fg.pal8;
-					}
-					bit >>= 1;
-					q += vram->xalign;
-				} while(--cx);
-				break;
-#endif
-#if defined(SUPPORT_16BPP)
 			case 16:
 				do {
 					if (!bit) {
@@ -145,39 +89,6 @@ const BYTE	*p;
 					q += vram->xalign;
 				} while(--cx);
 				break;
-#endif
-#if defined(SUPPORT_24BPP)
-			case 24:
-				do {
-					if (!bit) {
-						bit = 0x80;
-						c = *p++;
-					}
-					if (c & bit) {
-						q[RGB24_R] = fg.pal32.p.r;
-						q[RGB24_G] = fg.pal32.p.g;
-						q[RGB24_B] = fg.pal32.p.b;
-					}
-					bit >>= 1;
-					q += vram->xalign;
-				} while(--cx);
-				break;
-#endif
-#if defined(SUPPORT_32BPP)
-			case 32:
-				do {
-					if (!bit) {
-						bit = 0x80;
-						c = *p++;
-					}
-					if (c & bit) {
-						*(UINT32 *)q = fg.pal32.d;
-					}
-					bit >>= 1;
-					q += vram->xalign;
-				} while(--cx);
-				break;
-#endif
 		}
 		q += dalign;
 	} while(--cy);
@@ -203,25 +114,6 @@ const BYTE	*p;
 		bit = 0;
 		c = 0;
 		switch(vram->bpp) {
-#if defined(SUPPORT_8BPP)
-			case 8:
-				do {
-					if (!bit) {
-						bit = 0x80;
-						c = *p++;
-					}
-					if (c & bit) {
-						*q = fg.pal8;
-					}
-					else {
-						*q = bg.pal8;
-					}
-					bit >>= 1;
-					q += vram->xalign;
-				} while(--cx);
-				break;
-#endif
-#if defined(SUPPORT_16BPP)
 			case 16:
 				do {
 					if (!bit) {
@@ -238,47 +130,6 @@ const BYTE	*p;
 					q += vram->xalign;
 				} while(--cx);
 				break;
-#endif
-#if defined(SUPPORT_24BPP)
-			case 24:
-				do {
-					if (!bit) {
-						bit = 0x80;
-						c = *p++;
-					}
-					if (c & bit) {
-						q[RGB24_R] = fg.pal32.p.r;
-						q[RGB24_G] = fg.pal32.p.g;
-						q[RGB24_B] = fg.pal32.p.b;
-					}
-					else {
-						q[RGB24_R] = bg.pal32.p.r;
-						q[RGB24_G] = bg.pal32.p.g;
-						q[RGB24_B] = bg.pal32.p.b;
-					}
-					bit >>= 1;
-					q += vram->xalign;
-				} while(--cx);
-				break;
-#endif
-#if defined(SUPPORT_32BPP)
-			case 32:
-				do {
-					if (!bit) {
-						bit = 0x80;
-						c = *p++;
-					}
-					if (c & bit) {
-						*(UINT32 *)q = fg.pal32.d;
-					}
-					else {
-						*(UINT32 *)q = bg.pal32.d;
-					}
-					bit >>= 1;
-					q += vram->xalign;
-				} while(--cx);
-				break;
-#endif
 		}
 		q += dalign;
 	} while(--cy);
@@ -407,21 +258,6 @@ void cmndraw_bmp16(CMNVRAM *vram, const void *ptr, CMNPALCNV cnv, UINT flag) {
 	yalign = vram->yalign - (bmp.width * vram->xalign);
 	for (y=0; y<bmp.height; y++) {
 		switch(vram->bpp) {
-#if defined(SUPPORT_8BPP)
-			case 8:
-				for (x=0; x<bmp.width; x++) {
-					if (!(x & 1)) {
-						c = src[x >> 1] >> 4;
-					}
-					else {
-						c = src[x >> 1] & 15;
-					}
-					*dst = pal[c].pal8;
-					dst += vram->xalign;
-				}
-				break;
-#endif
-#if defined(SUPPORT_16BPP)
 			case 16:
 				for (x=0; x<bmp.width; x++) {
 					if (!(x & 1)) {
@@ -434,37 +270,6 @@ void cmndraw_bmp16(CMNVRAM *vram, const void *ptr, CMNPALCNV cnv, UINT flag) {
 					dst += vram->xalign;
 				}
 				break;
-#endif
-#if defined(SUPPORT_24BPP)
-			case 24:
-				for (x=0; x<bmp.width; x++) {
-					if (!(x & 1)) {
-						c = src[x >> 1] >> 4;
-					}
-					else {
-						c = src[x >> 1] & 15;
-					}
-					dst[RGB24_R] = pal[c].pal32.p.r;
-					dst[RGB24_G] = pal[c].pal32.p.g;
-					dst[RGB24_B] = pal[c].pal32.p.b;
-					dst += vram->xalign;
-				}
-				break;
-#endif
-#if defined(SUPPORT_32BPP)
-			case 32:
-				for (x=0; x<bmp.width; x++) {
-					if (!(x & 1)) {
-						c = src[x >> 1] >> 4;
-					}
-					else {
-						c = src[x >> 1] & 15;
-					}
-					*(UINT32 *)dst = pal[c].pal32.d;
-					dst += vram->xalign;
-				}
-				break;
-#endif
 		}
 		src += bmp.align;
 		dst += yalign;
