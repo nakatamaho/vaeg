@@ -122,7 +122,6 @@ family names:
 - `v30op_repe`
 - `v30op_repne`
 - `v30op_repc`
-- `v30op_repnc`
 - `v30op_0f`
 - `v30ope0xf6_table`
 - `v30ope0xf7_table`
@@ -136,11 +135,21 @@ fail closed with:
 g65m-ci-error: 00: no M42 support-map row for ('upd9002op', 0, '-')
 ```
 
+The first compatibility fix also exposed that the G64 map does not contain a
+historical `v30op_repnc` table. For the G64 policy, `64 A4` and related
+pre-M70 REPNC string forms must therefore resolve to the historical root
+prefix row for opcode `64`, not to a nonexistent repeat-string table:
+
+```text
+g65m-ci-error: A4: no M42 support-map row for ('v30op_repnc', 164, '-')
+```
+
 M71 now resolves the support-map table family from the actual support map
-passed to `tools/qa/upd9002_ssts.py`. Current folded maps still resolve through
-the `upd9002op` family, while G64 predecessor maps resolve through the
-historical `v30op` family. This keeps historical target-policy replay
-compatible without restoring production V30 dispatch names.
+passed to `tools/qa/upd9002_ssts.py`. Current folded maps resolve through the
+`upd9002op` family and use `upd9002op_repnc` when present. G64 predecessor maps
+resolve through the historical `v30op` family and fall back to the opcode-`64`
+prefix row when no REPNC table exists. This keeps historical target-policy
+replay compatible without restoring production V30 dispatch names.
 
 ## Validation
 
@@ -149,7 +158,7 @@ Commands run on macOS in this worktree:
 | Command | Exit | Result |
 | --- | ---: | --- |
 | `python3 tools/qa/upd9002_ssts.py selftest` | 0 | SST resolver selftest passed for current folded and historical G64 table families |
-| Focused G64 support-map dispatch probe for form `00` | 0 | Resolved the G64 support row through `v30op` instead of `upd9002op` |
+| Focused G64 support-map dispatch probe for forms `00` and `64 A4` | 0 | Resolved `00` through `v30op` and `64 A4` through the G64 opcode-`64` prefix row |
 | `ctest --test-dir build/linux-ci-clang -R 'vaeg_upd9002_ssts_selftest\|vaeg_upd9002_ssts_ci_baseline\|vaeg_upd9002_ssts_full_baseline\|vaeg_upd9002_m70_prefix_string_selftest\|vaeg_upd9002_m70_prefix_string_static' --output-on-failure` | 0 | 5 focused tests passed |
 | `python3 tools/qa/upd9002_dispatch.py --root . --write --selftest` | 0 | Regenerated and verified folded graph, provenance, support map and harness manifest |
 | `python3 tools/qa/upd9002_dispatch_normalization.py --root .` | 0 | Folded canonical roots verified; retired dispatch source/header/constructor absent |
