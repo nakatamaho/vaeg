@@ -11,11 +11,9 @@ VRAMHDL vram_create(int width, int height, BOOL alpha, int bpp) {
 	int		alphasize;
 	VRAMHDL	ret;
 
-#if defined(SCREEN_BPP)
 	if (bpp == DEFAULT_BPP) {
-		bpp = SCREEN_BPP;
+		bpp = 16;
 	}
-#endif
 	size = width * height;
 	xalign = (bpp + 7) >> 3;
 	if ((width <= 0) || (size <= 0) || (size > 0x1000000) ||
@@ -135,12 +133,7 @@ void vram_fill(VRAMHDL hdl, const RECT_T *rect, UINT32 color, BYTE alpha) {
 	int		pos;
 	int		remain;
 	BYTE	*p;
-#ifdef SUPPORT_16BPP
 	UINT	c16;
-#endif
-#ifdef SUPPORT_24BPP
-	BYTE	c24[3];
-#endif
 
 	if (hdl == NULL) {
 		return;
@@ -154,7 +147,6 @@ void vram_fill(VRAMHDL hdl, const RECT_T *rect, UINT32 color, BYTE alpha) {
 					*p++ = (BYTE)color;
 				} while(--remain);
 				break;
-#ifdef SUPPORT_16BPP
 			case 16:
 				c16 = MAKE16PAL(color);
 				do {
@@ -162,20 +154,6 @@ void vram_fill(VRAMHDL hdl, const RECT_T *rect, UINT32 color, BYTE alpha) {
 					p += 2;
 				} while(--remain);
 				break;
-#endif
-#ifdef SUPPORT_24BPP
-			case 24:
-				c24[0] = (BYTE)color;
-				c24[1] = (BYTE)(color >> 8);
-				c24[2] = (BYTE)(color >> 16);
-				do {
-					p[0] = c24[0];
-					p[1] = c24[1];
-					p[2] = c24[2];
-					p += 3;
-				} while(--remain);
-				break;
-#endif
 			default:
 				TRACEOUT(("vram_fill: unsupport %dbpp", hdl->bpp));
 				break;
@@ -205,7 +183,6 @@ void vram_fill(VRAMHDL hdl, const RECT_T *rect, UINT32 color, BYTE alpha) {
 						p += hdl->yalign - width;
 					} while(--remain);
 					break;
-#ifdef SUPPORT_16BPP
 				case 16:
 					c16 = MAKE16PAL(color);
 					remain = height;
@@ -218,25 +195,6 @@ void vram_fill(VRAMHDL hdl, const RECT_T *rect, UINT32 color, BYTE alpha) {
 						p += hdl->yalign - (width * 2);
 					} while(--remain);
 					break;
-#endif
-#ifdef SUPPORT_24BPP
-				case 24:
-					c24[0] = (BYTE)color;
-					c24[1] = (BYTE)(color >> 8);
-					c24[2] = (BYTE)(color >> 16);
-					remain = height;
-					do {
-						int r = width;
-						do {
-							p[0] = c24[0];
-							p[1] = c24[1];
-							p[2] = c24[2];
-							p += 3;
-						} while(--r);
-						p += hdl->yalign - (width * 3);
-					} while(--remain);
-					break;
-#endif
 				default:
 					TRACEOUT(("vram_fill: unsupport %dbpp", hdl->bpp));
 					break;
@@ -261,12 +219,7 @@ void vram_filldat(VRAMHDL hdl, const RECT_T *rect, UINT32 color) {
 	int		pos;
 	int		remain;
 	BYTE	*p;
-#ifdef SUPPORT_16BPP
 	UINT	c16;
-#endif
-#ifdef SUPPORT_24BPP
-	BYTE	c24[3];
-#endif
 
 	if (hdl == NULL) {
 		return;
@@ -280,7 +233,6 @@ void vram_filldat(VRAMHDL hdl, const RECT_T *rect, UINT32 color) {
 					*p++ = (BYTE)color;
 				} while(--remain);
 				break;
-#ifdef SUPPORT_16BPP
 			case 16:
 				c16 = MAKE16PAL(color);
 				do {
@@ -288,20 +240,6 @@ void vram_filldat(VRAMHDL hdl, const RECT_T *rect, UINT32 color) {
 					p += 2;
 				} while(--remain);
 				break;
-#endif
-#ifdef SUPPORT_24BPP
-			case 24:
-				c24[0] = (BYTE)color;
-				c24[1] = (BYTE)(color >> 8);
-				c24[2] = (BYTE)(color >> 16);
-				do {
-					p[0] = c24[0];
-					p[1] = c24[1];
-					p[2] = c24[2];
-					p += 3;
-				} while(--remain);
-				break;
-#endif
 			default:
 				TRACEOUT(("vram_filldat: unsupport %dbpp", hdl->bpp));
 				break;
@@ -328,7 +266,6 @@ void vram_filldat(VRAMHDL hdl, const RECT_T *rect, UINT32 color) {
 						p += hdl->yalign - width;
 					} while(--remain);
 					break;
-#ifdef SUPPORT_16BPP
 				case 16:
 					c16 = MAKE16PAL(color);
 					remain = height;
@@ -341,25 +278,6 @@ void vram_filldat(VRAMHDL hdl, const RECT_T *rect, UINT32 color) {
 						p += hdl->yalign - (width * 2);
 					} while(--remain);
 					break;
-#endif
-#ifdef SUPPORT_24BPP
-				case 24:
-					c24[0] = (BYTE)color;
-					c24[1] = (BYTE)(color >> 8);
-					c24[2] = (BYTE)(color >> 16);
-					remain = height;
-					do {
-						int r = width;
-						do {
-							p[0] = c24[0];
-							p[1] = c24[1];
-							p[2] = c24[2];
-							p += 3;
-						} while(--r);
-						p += hdl->yalign - (width * 3);
-					} while(--remain);
-					break;
-#endif
 				default:
 					TRACEOUT(("vram_filldat: unsupport %dbpp", hdl->bpp));
 					break;
@@ -411,13 +329,8 @@ void vram_fillex(VRAMHDL hdl, const RECT_T *rect, UINT32 color, BYTE alpha) {
 	int		pos;
 	int		remain;
 	BYTE	*p;
-#ifdef SUPPORT_16BPP
 	int		tmp;
 	int		c16[3];
-#endif
-#ifdef SUPPORT_24BPP
-	int		c24[3];
-#endif
 
 	if (hdl == NULL) {
 		return;
@@ -426,7 +339,6 @@ void vram_fillex(VRAMHDL hdl, const RECT_T *rect, UINT32 color, BYTE alpha) {
 		p = hdl->ptr;
 		remain = hdl->scrnsize;
 		switch(hdl->bpp) {
-#ifdef SUPPORT_16BPP
 			case 16:
 				tmp = MAKE16PAL(color);
 				c16[0] = tmp & B16MASK;
@@ -443,20 +355,6 @@ void vram_fillex(VRAMHDL hdl, const RECT_T *rect, UINT32 color, BYTE alpha) {
 					p += 2;
 				} while(--remain);
 				break;
-#endif
-#ifdef SUPPORT_24BPP
-			case 24:
-				c24[0] = color & 0xff;
-				c24[1] = (color >> 8) & 0xff;
-				c24[2] = (color >> 16) & 0xff;
-				do {
-					p[0] = (BYTE)MAKEALPHA24(p[0], c24[0], alpha, 6);
-					p[1] = (BYTE)MAKEALPHA24(p[1], c24[1], alpha, 6);
-					p[2] = (BYTE)MAKEALPHA24(p[2], c24[2], alpha, 6);
-					p += 3;
-				} while(--remain);
-				break;
-#endif
 			default:
 				TRACEOUT(("vram_fillex: unsupport %dbpp", hdl->bpp));
 				break;
@@ -473,7 +371,6 @@ void vram_fillex(VRAMHDL hdl, const RECT_T *rect, UINT32 color, BYTE alpha) {
 			p = hdl->ptr;
 			p += ptr * hdl->xalign;
 			switch(hdl->bpp) {
-#ifdef SUPPORT_16BPP
 				case 16:
 					tmp = MAKE16PAL(color);
 					c16[0] = tmp & B16MASK;
@@ -495,25 +392,6 @@ void vram_fillex(VRAMHDL hdl, const RECT_T *rect, UINT32 color, BYTE alpha) {
 						p += hdl->yalign - (width * 2);
 					} while(--remain);
 					break;
-#endif
-#ifdef SUPPORT_24BPP
-				case 24:
-					remain = height;
-					c24[0] = color & 0xff;
-					c24[1] = (color >> 8) & 0xff;
-					c24[2] = (color >> 16) & 0xff;
-					do {
-						int r = width;
-						do {
-							p[0] = (BYTE)MAKEALPHA24(p[0], c24[0], alpha, 6);
-							p[1] = (BYTE)MAKEALPHA24(p[1], c24[1], alpha, 6);
-							p[2] = (BYTE)MAKEALPHA24(p[2], c24[2], alpha, 6);
-							p += 3;
-						} while(--r);
-						p += hdl->yalign - (width * 3);
-					} while(--remain);
-					break;
-#endif
 				default:
 					TRACEOUT(("vram_fillex: unsupport %dbpp", hdl->bpp));
 					break;
@@ -646,4 +524,3 @@ BOOL vram_cliprectex(RECT_T *clip, const VRAMHDL vram, const RECT_T *rct) {
 	}
 	return(SUCCESS);
 }
-

@@ -188,14 +188,11 @@ static INLINE UINT32 vaeg_gettick(void) {
 #define SUPPORT_SJIS
 #define SUPPORT_UTF8
 
-#define SUPPORT_16BPP
 #define MEMOPTIMIZE 2
 
 #define SOUNDRESERVE 100
 
 #define SUPPORT_CRT15KHZ
 #define SUPPORT_SWSEEKSND
-
-#define SCREEN_BPP 16
 
 #endif

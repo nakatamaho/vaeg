@@ -19,13 +19,8 @@ enum {
 
 		WORD	vabitmap[SURFACE_SIZE];		// 画面合成結果(VA 16bit/pixel)
 
-#if defined(SUPPORT_24BPP) || defined(SUPPORT_32BPP)
-		RGB32		drawcolor32[COLORCODES];
-#endif
 
-#if defined(SUPPORT_16BPP)
 		RGB16		drawcolor16[COLORCODES];
-#endif
 
 static	WORD rgb8to16[256];					// VA 8bit RGB→16bit RGB
 
@@ -69,13 +64,6 @@ static void scrndrawva_makedrawcolor(void) {
 	}
 
 	for (c = 0; c < COLORCODES; c++) {
-#if defined(SUPPORT_24BPP) || defined(SUPPORT_32BPP)
-		drawcolor32[c].d = RGB32D(
-						colorlevel5[(c & 0x03e0) >> 5], 
-						colorlevel6[(c & 0xfc00) >> 10],
-						colorlevel5[c & 0x1f]);
-#endif
-#if defined(SUPPORT_16BPP)
 		{
 			RGB32 rgb32;
 			rgb32.d = RGB32D(
@@ -84,17 +72,7 @@ static void scrndrawva_makedrawcolor(void) {
 							colorlevel5[c & 0x1f]);
 			drawcolor16[c] = scrnmng_makepal16(rgb32);
 		}
-#endif
 	}
-}
-
-RGB32 scrndrawva_drawcolor32(WORD colorva16) {
-#if defined(SUPPORT_24BPP) || defined(SUPPORT_32BPP)
-	return drawcolor32[colorva16];
-#else
-	RGB32	rgb;
-	return rgb;		// ToDo:
-#endif
 }
 
 BYTE scrndrawva_draw(BYTE redraw) {
