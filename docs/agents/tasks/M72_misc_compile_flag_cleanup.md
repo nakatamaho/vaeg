@@ -1,4 +1,4 @@
-# M72 - Miscellaneous compile-flag cleanup
+# M72 - VAEG-specific legacy cleanup
 
 M72 starts from the formally approved and main-integrated G71 candidate:
 
@@ -19,28 +19,42 @@ declare G72 passed.
 
 ## Scope
 
-M72 is a behavior-preserving cleanup for obsolete active-tree compile-time
-feature controls.
+M72 is a behavior-preserving cleanup for code and UI surface that no longer
+belongs to the VAEG active product.
 
 M72 owns:
 
-1. Fold `VAEG_FIX` as always enabled in the active CMake tree.
+1. Audit and remove code that is not relevant to the active VAEG target.
+   - The active product is the PC-88VA emulator, not a general PC-98/98x1
+     emulator.
+   - Keep compatibility scaffolding only when the active VA boot path,
+     shared portable frontend, ROM-less tests, or current build still require
+     it.
+   - For each retained legacy-looking file or branch, record the active VAEG
+     dependency that prevents removal.
+2. Fold `VAEG_FIX` as always enabled in the active CMake tree.
    - Remove the public compile definition from CMake targets.
    - Remove source `#if defined(VAEG_FIX)` conditionals by keeping the
      currently built active behavior.
    - Preserve the current runtime behavior and validation baselines.
-2. Remove inactive `SUPPORT_PC9821` guarded code from the active tree.
+3. Remove inactive `SUPPORT_PC9821` guarded code from the active tree.
    - Do not introduce PC-9821 support.
    - Do not preserve dead PC-9821 drawing, BIOS, PCI, GDC, FDC, palette or
      state-save branches as active code.
    - Preserve the supported PC-88VA active behavior.
-3. Audit `VAEG_EXT` and remove obsolete active-tree references where safe.
+4. Remove 98x1-only information from the SDL2 GUI About/More details.
+   - Remove the `[98x1]` section and related PC-98-only fields from the
+     `About -> More` output.
+   - Keep VA model, VA ROM, sound, rhythm, screen, and other current VAEG
+     information that remains useful.
+   - Do not change emulator behavior to make the About dialog simpler.
+5. Audit `VAEG_EXT` and remove obsolete active-tree references where safe.
    - Do not blindly enable the former extension/debug/SCSI paths.
    - Preserve the current non-`VAEG_EXT` behavior unless a specific branch is
      proven to be the active intended behavior.
    - Do not change state-save format or SCSI/SASI behavior without explicit
      evidence and tests.
-4. Audit frontend asset embedding and font stubs only to classify future work.
+6. Audit frontend asset embedding and font stubs only to classify future work.
    - Do not remove embedded GUI assets in M72.
    - Do not modify ROM/font payloads.
    - Remove only a source stub if it is proven unused by the active build and
@@ -59,6 +73,7 @@ M72 must not:
   maintainer-approved task;
 - enable `VAEG_EXT` globally;
 - implement PC-9821 support;
+- turn the active SDL2 frontend back into a general PC-98/98x1 frontend;
 - start any unrelated cleanup.
 
 ## Required startup audit
@@ -70,7 +85,7 @@ git status --short --branch
 git rev-parse HEAD
 git rev-parse origin/main
 git diff --check
-rg -n "VAEG_FIX|VAEG_EXT|SUPPORT_PC9821|PCMODEL_PC9821|PC-9821|PC9821" .
+rg -n "VAEG_FIX|VAEG_EXT|SUPPORT_PC9821|PCMODEL_PC9821|PC-9821|PC9821|98x1" .
 ```
 
 Confirm:
@@ -89,11 +104,13 @@ Stop if an apparently dead conditional owns current guest-visible behavior.
 Keep one concern per commit:
 
 1. task authority and roadmap update;
-2. `VAEG_FIX` constant-fold;
-3. `SUPPORT_PC9821` removal;
-4. `VAEG_EXT` cleanup, if safe;
-5. optional unused-source-stub cleanup, if proven safe;
-6. report and evidence.
+2. About/More 98x1 information removal;
+3. `VAEG_FIX` constant-fold;
+4. `SUPPORT_PC9821` removal;
+5. VAEG-relevance audit and safe deletion of unrelated legacy code;
+6. `VAEG_EXT` cleanup, if safe;
+7. optional unused-source-stub cleanup, if proven safe;
+8. report and evidence.
 
 For every removed conditional, document which side is retained and why.
 
@@ -134,6 +151,8 @@ Write `docs/agents/reports/m72_misc_compile_flag_cleanup.md` with:
 - removed compile definitions;
 - retained conditional sides;
 - files changed;
+- VAEG-relevance audit inventory;
+- About/More 98x1 removal result;
 - PC-9821 removal inventory;
 - `VAEG_EXT` disposition;
 - font/embed audit result;
