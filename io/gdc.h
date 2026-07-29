@@ -40,9 +40,6 @@ typedef struct {
 	UINT32		hclock;
 	UINT32		vclock;
 
-#if defined(SUPPORT_PC9821)
-	UINT8		anareg[16*3 + 256*4];
-#endif
 } _GDC, *GDC;
 
 typedef struct {
@@ -100,9 +97,6 @@ void gdc_setdegpalpack(int color, REG8 value);
 void gdc_setanalogpal(int color, int rgb, REG8 value);
 void gdc_setanalogpalall(const UINT16 *paltbl);
 
-#if defined(SUPPORT_PC9821)
-void gdc_analogext(BOOL extend);
-#endif
 
 void gdc_biosreset(void);
 void gdc_updateclock(void);

@@ -42,9 +42,6 @@
 	_SYSPORT	sysport;
 	_UPD4990	uPD4990;
 
-#if defined(SUPPORT_PC9821)
-	_PCIDEV		pcidev;
-#endif
 
 
 // ----
@@ -458,9 +455,6 @@ static const IOCBFN resetfn[] = {
 			// extend
 			artic_reset,		egc_reset,			np2sysp_reset,
 			necio_reset,		epsonio_reset,		emsio_reset,
-#if defined(SUPPORT_PC9821)
-			pcidev_reset,
-#endif
 			memctrlva_reset,
 			np2vasup_reset,
 			tsp_reset,
@@ -489,9 +483,6 @@ static const IOCBFN bindfn[] = {
 			// extend
 			artic_bind,			egc_bind,			np2sysp_bind,
 			necio_bind,			epsonio_bind,		emsio_bind,
-#if defined(SUPPORT_PC9821)
-			pcidev_bind,
-#endif
 			memctrlva_bind,
 			np2vasup_bind,
 			tsp_bind,
@@ -693,12 +684,6 @@ REG16 IOINPCALL iocore_inp16(UINT port) {
 void IOOUTCALL iocore_out32(UINT port, UINT32 dat) {
 
 	CPU_REMCLOCK -= iocore.busclock;
-#if defined(SUPPORT_PC9821)
-	if ((port & 0xfffb) == 0x0cf8) {
-		pcidev_w32(port, dat);
-		return;
-	}
-#endif
 	iocore_out16(port, (UINT16)dat);
 	iocore_out16(port+2, (UINT16)(dat >> 16));
 }
@@ -708,11 +693,6 @@ UINT32 IOINPCALL iocore_inp32(UINT port) {
 	UINT32	ret;
 
 	CPU_REMCLOCK -= iocore.busclock;
-#if defined(SUPPORT_PC9821)
-	if ((port & 0xfffb) == 0x0cf8) {
-		return(pcidev_r32(port));
-	}
-#endif
 	ret = iocore_inp16(port);
 	return(ret + (iocore_inp16(port+2) << 16));
 }

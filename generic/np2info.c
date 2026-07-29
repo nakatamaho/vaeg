@@ -31,9 +31,6 @@ static const char str_model[] =
 						"PC-9801VX\0"				\
 						"";
 
-static const char str_model_9821[] =
-						"PC-9821";
-
 static const char str_model_epson[] =
 						"PC-286";
 
@@ -123,10 +120,7 @@ static void info_ver(char *str, int maxlen, NP2INFOEX *ex) {
 
 static void info_model(char *str, int maxlen, NP2INFOEX *ex) {
 	if (pccore.model_va == PCMODEL_NOTVA) {
-		if (pccore.model & PCMODEL_PC9821) {
-			milstr_ncpy(str, str_model_9821, maxlen);
-		}
-		else if (pccore.model & PCMODEL_EPSON) {
+		if (pccore.model & PCMODEL_EPSON) {
 			milstr_ncpy(str, str_model_epson, maxlen);
 		}
 		else {
@@ -280,14 +274,6 @@ const char	*p;
 	else {
 		md = (gdc.analog & (1 << GDCANALOG_16))?1:0;
 		pg = gdcs.access;
-#if defined(SUPPORT_PC9821)
-		if (gdc.analog & (1 << (GDCANALOG_256))) {
-			md = 2;
-			if (gdc.analog & (1 << (GDCANALOG_256E))) {
-				pg = 2;
-			}
-		}
-#endif
 		milstr_ncpy(grphstr, milstr_list(str_vrammode, md), sizeof(grphstr));
 		milstr_ncat(grphstr, milstr_list(str_vrampage, pg), sizeof(grphstr));
 		p = grphstr;

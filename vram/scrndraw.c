@@ -144,12 +144,6 @@ const SDRAWFN	*sdrawfn;
 	if (surf == NULL) {
 		goto sddr_exit1;
 	}
-#if defined(SUPPORT_PC9821)
-	if (gdc.analog & 2) {
-		sdrawfn = sdraw_getproctblex(surf);
-	}
-	else
-#endif
 	sdrawfn = sdraw_getproctbl(surf);
 	if (sdrawfn == NULL) {
 		goto sddr_exit2;
@@ -157,12 +151,6 @@ const SDRAWFN	*sdrawfn;
 
 	bit = 0;
 	if (gdc.mode1 & 0x80) {						// ver0.28
-#if defined(SUPPORT_PC9821)
-		if ((gdc.analog & 6) == 6) {
-			bit |= 0x01;
-		}
-		else
-#endif
 		if (gdcs.grphdisp & 0x80) {
 			bit |= (1 << gdcs.disp);
 		}
@@ -182,11 +170,6 @@ const SDRAWFN	*sdrawfn;
 	}
 	height = surf->height;
 	do {
-#if defined(SUPPORT_PC9821)
-		if (gdc.analog & 2) {
-			break;
-		}
-#endif
 #if defined(SUPPORT_CRT15KHZ)
 		if (gdc.crt15khz & 2) {
 			sdrawfn += 12;

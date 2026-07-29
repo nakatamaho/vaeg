@@ -9,11 +9,7 @@
 #include	"scrnsave.h"
 
 
-#if defined(SUPPORT_PC9821)
-typedef	unsigned short	PALNUM;
-#else
 typedef	unsigned char	PALNUM;
-#endif
 
 typedef union {
 	UINT32	d;
@@ -80,21 +76,6 @@ static void screenmix3(PALNUM *dest, const BYTE *src1, const BYTE *src2) {
 	}
 }
 
-#if defined(SUPPORT_PC9821)
-static void screenmix4(PALNUM *dest, const BYTE *src1, const BYTE *src2) {
-
-	int		i;
-
-	for (i=0; i<(SURFACE_WIDTH * SURFACE_HEIGHT); i++) {
-		if (src1[i]) {
-			dest[i] = (src1[i] >> 4) + NP2PAL_TEXTEX;
-		}
-		else {
-			dest[i] = src2[i] + NP2PAL_GRPHEX;
-		}
-	}
-}
-#endif
 
 
 // ----
@@ -140,20 +121,8 @@ SCRNSAVE scrnsave_get(void) {
 		datatext = np2_tram;
 	}
 	if (gdcs.grphdisp & 0x80) {
-#if defined(SUPPORT_PC9821)
-		if ((gdc.analog & 6) == 6) {
-			datagrph = np2_vram[0];
-		}
-		else
-#endif
 		datagrph = np2_vram[gdcs.disp];
 	}
-#if defined(SUPPORT_PC9821)
-	if (gdc.analog & 2) {
-		mix = screenmix4;
-	}
-	else
-#endif
 	if (!(gdc.mode1 & 0x10)) {
 		mix = screenmix;
 	}
