@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import argparse
 import copy
+import csv
 import hashlib
 import json
 import pathlib
@@ -53,6 +54,8 @@ G67_REGISTRY_PATH = pathlib.Path("tests/ssts/divergence/g67/registry.json")
 G68_MANIFEST_PATH = pathlib.Path("tests/ssts/campaigns/g68/manifest.json")
 G69_MANIFEST_PATH = pathlib.Path("tests/idp/campaigns/g69/manifest.json")
 OUT_DIR = pathlib.Path("tests/ssts/campaigns/g70")
+OLD_SUPPORT_MAP_PATH = pathlib.Path("tools/qa/golden/upd9002_support_map_m48.csv")
+POLICY_DIR = pathlib.Path("tests/ssts/policies")
 
 APPROVED_G68_SHA = "d1e0225c4edb716893fe5579283fbf0915db72b9"
 APPROVED_G69_SHA = "680308a603b24341c5b9649657f01791b79002f7"
@@ -72,6 +75,29 @@ OLD_TARGET_POLICY_ID = (
     "upd9002-g64-37ae2b706a9cbbe2d36cf7c98372c0cae7ca4b8d90e4f738973bc0ed3248eed6"
 )
 POPULATION_DIGEST = "240e0bf76de968b310ad13ef53de8d044637b185e267e1cfb2540f32ab6571e5"
+SUPPORT_FIELDS = ["mode", "opcode", "subopcode", "target", "classification", "basis"]
+REPEAT_PREFIX_TARGETS = {
+    0x26: "segprefix_es",
+    0x2e: "segprefix_cs",
+    0x36: "segprefix_ss",
+    0x3e: "segprefix_ds",
+    0x64: "v30_repnc",
+    0x65: "v30_repc",
+    0xf2: "v30_repne",
+    0xf3: "v30_repe",
+}
+STRING_TARGETS = {
+    0xa4: "movsb",
+    0xa5: "movsw",
+    0xa6: "cmpsb",
+    0xa7: "cmpsw",
+    0xaa: "stosb",
+    0xab: "stosw",
+    0xac: "lodsb",
+    0xad: "lodsw",
+    0xae: "scasb",
+    0xaf: "scasw",
+}
 
 EXPECTED_GROUPS = {
     ("repc", "0xa4"): ("REPC", "65", "A4", "MOVSB", 309, "37320aacc63bf0fd2319a0ee580bd63d638a2634ecfb718138dcb575fe5d0faf"),
@@ -106,6 +132,16 @@ def pretty_bytes(value: Any) -> bytes:
     return (json.dumps(value, ensure_ascii=False, indent=2, sort_keys=True) + "\n").encode("utf-8")
 
 
+def csv_bytes(rows: list[dict[str, str]]) -> bytes:
+    import io
+
+    output = io.StringIO()
+    writer = csv.DictWriter(output, fieldnames=SUPPORT_FIELDS, lineterminator="\n")
+    writer.writeheader()
+    writer.writerows(rows)
+    return output.getvalue().encode("utf-8")
+
+
 def sha256_bytes(value: bytes) -> str:
     return hashlib.sha256(value).hexdigest()
 
@@ -122,6 +158,113 @@ def read_json(root: pathlib.Path, rel: pathlib.Path) -> Any:
         return json.loads((root / rel).read_text(encoding="utf-8"))
     except FileNotFoundError as exc:
         raise M70Error("M70_MISSING_INPUT", rel.as_posix()) from exc
+
+
+def read_support_map(root: pathlib.Path) -> list[dict[str, str]]:
+    path = root / OLD_SUPPORT_MAP_PATH
+    try:
+        with path.open("r", encoding="utf-8", newline="") as stream:
+            rows = list(csv.DictReader(stream))
+    except OSError as exc:
+        raise M70Error("M70_MISSING_INPUT", OLD_SUPPORT_MAP_PATH.as_posix()) from exc
+    if not rows or list(rows[0]) != SUPPORT_FIELDS:
+        raise M70Error("M70_SUPPORT_SCHEMA", OLD_SUPPORT_MAP_PATH.as_posix())
+    return rows
+
+
+def repeat_row(mode: str, opcode: int, prefix_name: str) -> dict[str, str]:
+    if opcode in REPEAT_PREFIX_TARGETS:
+        target = REPEAT_PREFIX_TARGETS[opcode]
+        if target.startswith("segprefix_"):
+            target = f"{mode.replace('v30op_', 'v30')}_{target}"
+        classification = "implemented"
+    elif opcode in STRING_TARGETS:
+        repeat = mode.removeprefix("v30op_")
+        target = f"upd9002_{repeat}_{STRING_TARGETS[opcode]}"
+        classification = "implemented"
+    else:
+        target = f"v30_reserved_{prefix_name}"
+        classification = "known_target_gap"
+    return {
+        "basis": "m70-prefix-string-policy",
+        "classification": classification,
+        "mode": mode,
+        "opcode": f"0x{opcode:02x}",
+        "subopcode": "-",
+        "target": target,
+    }
+
+
+def generate_support_map(root: pathlib.Path) -> tuple[str, bytes, list[dict[str, str]]]:
+    base_rows = read_support_map(root)
+    rows: list[dict[str, str]] = []
+    repc_owned_opcodes = {
+        int(opcode, 16) for repeat, opcode in EXPECTED_GROUPS if repeat == "repc"
+    }
+    for row in base_rows:
+        mode = row["mode"]
+        opcode = int(row["opcode"], 16)
+        new_row = dict(row)
+        if mode == "v30op_repc" and opcode in repc_owned_opcodes:
+            new_row.update(
+                {
+                    "basis": "m70-prefix-string-policy",
+                    "classification": "implemented",
+                    "target": f"upd9002_repc_{STRING_TARGETS[opcode]}",
+                }
+            )
+        rows.append(new_row)
+    for opcode in range(256):
+        rows.append(repeat_row("v30op_repnc", opcode, "repnc"))
+    rows.sort(key=lambda item: (item["mode"], int(item["opcode"], 16), item["subopcode"]))
+    content = csv_bytes(rows)
+    digest = sha256_bytes(content)
+    return digest, content, rows
+
+
+def generate_target_policy(root: pathlib.Path) -> tuple[pathlib.Path, dict[str, Any], pathlib.Path, bytes]:
+    support_sha256, support_content, support_rows = generate_support_map(root)
+    policy_id = f"upd9002-g70-{support_sha256}"
+    support_path = POLICY_DIR / f"{policy_id}.csv"
+    policy_path = POLICY_DIR / f"{policy_id}.json"
+    implemented_owned = [
+        {
+            "opcode": opcode,
+            "repeat_prefix": repeat,
+            "target": f"upd9002_{repeat}_{name.lower()}",
+        }
+        for (repeat, opcode), (_label, _prefix, _primary, name, _count, _digest)
+        in sorted(EXPECTED_GROUPS.items())
+    ]
+    policy = {
+        "architectural_contract": {
+            "id": ARCH_CONTRACT_ID,
+            "sha256": ARCH_CONTRACT_SHA256,
+        },
+        "dataset_id": DATASET_ID,
+        "fingerprint_contract": {
+            "id": FINGERPRINT_CONTRACT_ID,
+            "sha256": FINGERPRINT_CONTRACT_SHA256,
+        },
+        "implemented_owned_selectors": implemented_owned,
+        "milestone": "M70",
+        "negative_protection": {
+            "prefixed_6c_6f": {
+                "executed_as_inm_outm": 0,
+                "owned_hash_count": 0,
+                "reserved_behavior": "evidence_pending",
+            }
+        },
+        "old_target_policy_id": OLD_TARGET_POLICY_ID,
+        "schema": "vaeg-upd9002-m70-target-policy-v1",
+        "schema_version": 1,
+        "support_map_path": support_path.as_posix(),
+        "support_map_row_count": len(support_rows),
+        "support_map_sha256": support_sha256,
+        "target_policy_id": policy_id,
+        "target_policy_sha256": support_sha256,
+    }
+    return policy_path, policy, support_path, support_content
 
 
 def registry_by_digest(registry: dict[str, Any]) -> dict[str, dict[str, Any]]:
@@ -286,7 +429,8 @@ def build_population(root: pathlib.Path, *, decomposition: dict[str, Any] | None
     }
 
 
-def output_files(model: dict[str, Any]) -> dict[pathlib.Path, Any]:
+def output_files(root: pathlib.Path, model: dict[str, Any]) -> dict[pathlib.Path, Any]:
+    policy_path, policy, _support_path, _support_content = generate_target_policy(root)
     return {
         OUT_DIR / "predecessor.json": model["predecessor"],
         OUT_DIR / "population.json": model["population"],
@@ -298,20 +442,30 @@ def output_files(model: dict[str, Any]) -> dict[pathlib.Path, Any]:
             "entries": model["baseline_membership"],
             "schema": "vaeg-upd9002-m70-baseline-membership-v1",
         },
+        policy_path: policy,
     }
+
+
+def binary_output_files(root: pathlib.Path) -> dict[pathlib.Path, bytes]:
+    _policy_path, _policy, support_path, support_content = generate_target_policy(root)
+    return {support_path: support_content}
 
 
 def write_outputs(root: pathlib.Path) -> None:
     model = build_population(root)
-    for rel, value in output_files(model).items():
+    for rel, value in output_files(root, model).items():
         path = root / rel
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(pretty_bytes(value))
+    for rel, value in binary_output_files(root).items():
+        path = root / rel
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(value)
 
 
 def verify_outputs(root: pathlib.Path) -> None:
     model = build_population(root)
-    expected = output_files(model)
+    expected = output_files(root, model)
     for rel, value in expected.items():
         path = root / rel
         if not path.exists():
@@ -319,6 +473,12 @@ def verify_outputs(root: pathlib.Path) -> None:
         actual = path.read_bytes()
         wanted = pretty_bytes(value)
         if actual != wanted:
+            raise M70Error("M70_OUTPUT_DRIFT", rel.as_posix())
+    for rel, wanted in binary_output_files(root).items():
+        path = root / rel
+        if not path.exists():
+            raise M70Error("M70_MISSING_OUTPUT", rel.as_posix())
+        if path.read_bytes() != wanted:
             raise M70Error("M70_OUTPUT_DRIFT", rel.as_posix())
 
 
@@ -347,12 +507,19 @@ def selftest() -> None:
         raise M70Error("M70_SELFTEST", "hash-list mutation was accepted")
     with tempfile.TemporaryDirectory(prefix="vaeg-m70-population-") as tmp:
         tmp_root = pathlib.Path(tmp)
-        for rel, value in output_files(model).items():
+        for rel, value in output_files(ROOT, model).items():
             path = tmp_root / rel
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_bytes(pretty_bytes(value))
-        for rel, value in output_files(model).items():
+        for rel, value in binary_output_files(ROOT).items():
+            path = tmp_root / rel
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(value)
+        for rel, value in output_files(ROOT, model).items():
             if (tmp_root / rel).read_bytes() != pretty_bytes(value):
+                raise M70Error("M70_SELFTEST", f"nondeterministic output {rel}")
+        for rel, value in binary_output_files(ROOT).items():
+            if (tmp_root / rel).read_bytes() != value:
                 raise M70Error("M70_SELFTEST", f"nondeterministic output {rel}")
 
 

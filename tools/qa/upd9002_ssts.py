@@ -102,6 +102,9 @@ REPEAT_PREFIXES = {
     0xF3: "repe",
 }
 IGNORED_PREFIXES = {0xF0, 0xF1}
+M70_REPNC_STRING_OPCODES = {
+    0xa4, 0xa5, 0xa6, 0xa7, 0xaa, 0xab, 0xac, 0xad, 0xae, 0xaf
+}
 GROUP_FORMS = {
     "80",
     "81",
@@ -367,8 +370,10 @@ def load_support_map(path: pathlib.Path) -> dict[tuple[str, int, str], dict[str,
         if key in result:
             raise CorpusError(f"{path}: duplicate support-map key {key!r}")
         result[key] = row
-    if len(result) != 1296:
-        raise CorpusError(f"{path}: expected 1296 support rows, got {len(result)}")
+    if len(result) not in {1296, 1552}:
+        raise CorpusError(
+            f"{path}: expected 1296 or 1552 support rows, got {len(result)}"
+        )
     return result
 
 
@@ -452,7 +457,9 @@ def resolve_dispatch(
     if "." in form and modrm_reg != int(form.split(".", 1)[1]):
         raise CorpusError(f"{form}: ModR/M reg does not match shard identity")
 
-    if repeat == "repnc":
+    if repeat == "repnc" and opcode in M70_REPNC_STRING_OPCODES:
+        support_key = ("v30op_repnc", opcode, "-")
+    elif repeat == "repnc":
         support_key = ("v30op", 0x64, "-")
     else:
         mode = {
@@ -1886,7 +1893,7 @@ def write_json(path: pathlib.Path, value: Any, compact: bool = False) -> None:
         )
     else:
         content = json.dumps(value, ensure_ascii=True, indent=2, sort_keys=True)
-    path.write_text(content + "\n", encoding="utf-8", newline="\n")
+    path.write_text(content + "\n", encoding="utf-8")
 
 
 def selftest() -> None:
