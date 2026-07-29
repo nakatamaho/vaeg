@@ -38,14 +38,7 @@ static REG8 IOINPCALL prt_i42(UINT port) {
 	if (np2cfg.dipsw[0] & 0x80) {
 		ret |= 0x08;
 	}
-	if (!(pccore.model & PCMODEL_EPSON)) {
-		ret |= 0x02;
-	}
-	else {
-		if (np2cfg.dipsw[2] & 0x80) {
-			ret |= 0x02;
-		}
-	}
+	ret |= 0x02;
 	(void)port;
 	return(ret);
 }

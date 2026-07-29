@@ -31,9 +31,6 @@ static const char str_model[] =
 						"PC-9801VX\0"				\
 						"";
 
-static const char str_model_epson[] =
-						"PC-286";
-
 static const char str_model_88va[] =
 						"\0"						\
 						"PC-88VA1\0"				\
@@ -120,12 +117,7 @@ static void info_ver(char *str, int maxlen, NP2INFOEX *ex) {
 
 static void info_model(char *str, int maxlen, NP2INFOEX *ex) {
 	if (pccore.model_va == PCMODEL_NOTVA) {
-		if (pccore.model & PCMODEL_EPSON) {
-			milstr_ncpy(str, str_model_epson, maxlen);
-		}
-		else {
-			milstr_ncpy(str, milstr_list(str_model, pccore.model), maxlen);
-		}
+		milstr_ncpy(str, milstr_list(str_model, pccore.model), maxlen);
 	}
 	else {
 		milstr_ncpy(str, milstr_list(str_model_88va, pccore.model_va), maxlen);
