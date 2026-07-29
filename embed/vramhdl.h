@@ -4,7 +4,6 @@
 #define MAKEPALETTE(r, g, b)	(((r) << 16) | ((g) << 8) | (b))
 
 
-#ifdef SUPPORT_16BPP
 enum {
 	B16MASK		= 0x001f,
 	G16MASK		= 0x07e0,
@@ -26,12 +25,7 @@ enum {
 #define MAKEALPHA16s(d, s, m, a, b)	(((d) +									\
 									((((int)((s) & (m)) - (int)(d))			\
 									* (a)) >> (b))) & (m))
-#endif
 
-#ifdef SUPPORT_24BPP
-#define MAKEALPHA24(d, s, a, b)		((d) +									\
-									((((int)(s) - (int)(d)) * (a)) >> (b)))
-#endif
 
 
 typedef struct {

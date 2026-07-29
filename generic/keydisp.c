@@ -652,26 +652,9 @@ static void clearrect(CMNVRAM *vram, int x, int y, int cx, int cy) {
 	CMNPAL	col;
 
 	switch(vram->bpp) {
-#if defined(SUPPORT_8BPP)
-		case 8:
-			col.pal8 = keydisp.pal8[KEYDISP_PALBG];
-			break;
-#endif
-#if defined(SUPPORT_16BPP)
 		case 16:
 			col.pal16 = keydisp.pal16[KEYDISP_LEVEL];
 			break;
-#endif
-#if defined(SUPPORT_24BPP)
-		case 24:
-#endif
-#if defined(SUPPORT_32BPP)
-		case 32:
-#endif
-#if defined(SUPPORT_24BPP) || defined(SUPPORT_32BPP)
-			col.pal32 = keydisp.pal32[KEYDISP_LEVEL];
-			break;
-#endif
 		default:
 			return;
 	}
@@ -685,30 +668,10 @@ static void drawkeybg(CMNVRAM *vram) {
 	int		i;
 
 	switch(vram->bpp) {
-#if defined(SUPPORT_8BPP)
-		case 8:
-			bg.pal8 = keydisp.pal8[KEYDISP_PALBG];
-			fg.pal8 = keydisp.pal8[KEYDISP_PALFG];
-			break;
-#endif
-#if defined(SUPPORT_16BPP)
 		case 16:
 			bg.pal16 = keydisp.pal16[KEYDISP_LEVEL];
 			fg.pal16 = keydisp.pal16[0];
 			break;
-#endif
-#if defined(SUPPORT_24BPP)
-		case 24:
-			bg.pal32 = keydisp.pal32[KEYDISP_LEVEL];
-			fg.pal32 = keydisp.pal32[0];
-			break;
-#endif
-#if defined(SUPPORT_32BPP)
-		case 32:
-			bg.pal32 = keydisp.pal32[KEYDISP_LEVEL];
-			fg.pal32 = keydisp.pal32[0];
-			break;
-#endif
 		default:
 			return;
 	}
@@ -727,33 +690,9 @@ static BOOL draw1key(CMNVRAM *vram, KDCHANNEL *kdch, UINT n) {
 	pos = keydisp.keypos + (kdch->k[n] & 0x7f);
 	pal = kdch->r[n] & 0x7f;
 	switch(vram->bpp) {
-#if defined(SUPPORT_8BPP)
-		case 8:
-			if (pal != (KEYDISP_LEVEL - 1)) {
-				fg.pal8 = keydisp.pal8[
-									(pos->pals)?KEYDISP_PALBG:KEYDISP_PALFG];
-				cmndraw_setfg(vram, pos->data, pos->posx, 0, fg);
-				kdch->r[n] = 0;
-				return(TRUE);
-			}
-			fg.pal8 = keydisp.pal8[KEYDISP_PALHIT];
-			break;
-#endif
-#if defined(SUPPORT_16BPP)
 		case 16:
 			fg.pal16 = keydisp.pal16[pal + pos->pals];
 			break;
-#endif
-#if defined(SUPPORT_24BPP)
-		case 24:
-			fg.pal32 = keydisp.pal32[pal + pos->pals];
-			break;
-#endif
-#if defined(SUPPORT_32BPP)
-		case 32:
-			fg.pal32 = keydisp.pal32[pal + pos->pals];
-			break;
-#endif
 		default:
 			return(FALSE);
 	}
@@ -959,4 +898,3 @@ kdpnt_exit:
 	return(draw);
 }
 #endif
-

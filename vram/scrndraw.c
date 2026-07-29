@@ -37,12 +37,6 @@ void scrndraw_initialize(void) {
 
 void scrndraw_changepalette(void) {
 
-#if defined(SUPPORT_8BPP)
-	if (scrnmng_getbpp() == 8) {
-		scrnmng_palchanged();
-		return;
-	}
-#endif
 	updateallline(0x80808080);
 }
 
@@ -79,9 +73,7 @@ static BYTE rasterdraw(SDRAWFN sdrawfn, SDRAW sdraw, int maxy) {
 			}
 			if (np2cfg.skipline) {
 				np2_pal32[0].d = np2_pal32[NP2PAL_SKIP].d;
-#if defined(SUPPORT_16BPP)
 				np2_pal16[0] = np2_pal16[NP2PAL_SKIP];
-#endif
 			}
 			(*sdrawfn)(sdraw, y);
 			nextupdate = y;
@@ -105,9 +97,7 @@ static BYTE rasterdraw(SDRAWFN sdrawfn, SDRAW sdraw, int maxy) {
 		}
 		if (np2cfg.skipline) {
 			np2_pal32[0].d = np2_pal32[NP2PAL_SKIP].d;
-#if defined(SUPPORT_16BPP)
 			np2_pal16[0] = np2_pal16[NP2PAL_SKIP];
-#endif
 		}
 		(*sdrawfn)(sdraw, maxy);
 	}

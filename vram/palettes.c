@@ -7,9 +7,7 @@
 
 
 		RGB32		np2_pal32[NP2PAL_NORMAL];
-#if defined(SUPPORT_16BPP)
 		RGB16		np2_pal16[NP2PAL_NORMAL];
-#endif
 
 		PALEVENT	palevent;
 static	RGB32		degpal1[8];
@@ -131,7 +129,6 @@ void pal_makeanalog(RGB32 *pal, UINT16 bit) {
 			}
 		}
 	}
-#if defined(SUPPORT_16BPP)
 	if (scrnmng_getbpp() == 16) {
 		for (i=0; i<NP2PALS_GRPH; i++) {
 			if (bit & (1 << i)) {
@@ -142,7 +139,6 @@ void pal_makeanalog(RGB32 *pal, UINT16 bit) {
 			}
 		}
 	}
-#endif
 }
 
 static void pal_makedegital(const BYTE *paltbl) {
@@ -165,7 +161,6 @@ static void pal_makedegital(const BYTE *paltbl) {
 									degpal2[paltbl[i] & 7].d;
 		}
 	}
-#if defined(SUPPORT_16BPP)
 	if (scrnmng_getbpp() == 16) {
 		for (i=0; i<4; i++) {
 			np2_pal16[i+NP2PAL_GRPH+ 0] =
@@ -186,7 +181,6 @@ static void pal_makedegital(const BYTE *paltbl) {
 			}
 		}
 	}
-#endif
 }
 
 void pal_makeanalog_lcd(RGB32 *pal, UINT16 bit) {
@@ -203,7 +197,6 @@ void pal_makeanalog_lcd(RGB32 *pal, UINT16 bit) {
 			np2_pal32[i+NP2PAL_GRPH].d = lcdpal[lcdtbl[j]].d;
 		}
 	}
-#if defined(SUPPORT_16BPP)
 	if (scrnmng_getbpp() == 16) {
 		for (i=0; i<NP2PALS_GRPH; i++) {
 			if (bit & (1 << i)) {
@@ -213,16 +206,13 @@ void pal_makeanalog_lcd(RGB32 *pal, UINT16 bit) {
 			}
 		}
 	}
-#endif
 }
 
 static void pal_makedegital_lcd(const BYTE *paltbl) {
 
 	UINT	i;
 	UINT32	pal32;
-#if defined(SUPPORT_16BPP)
 	RGB16	pal16;
-#endif
 
 	for (i=0; i<4; i++) {
 		pal32 = lcdpal[(paltbl[i] >> 3) & 14].d;
@@ -240,7 +230,6 @@ static void pal_makedegital_lcd(const BYTE *paltbl) {
 			np2_pal32[i+NP2PAL_SKIP+12].d = pal32;
 		}
 	}
-#if defined(SUPPORT_16BPP)
 	if (scrnmng_getbpp() == 16) {
 		for (i=0; i<4; i++) {
 			pal16 = scrnmng_makepal16(np2_pal32[i+NP2PAL_GRPH+0]);
@@ -261,7 +250,6 @@ static void pal_makedegital_lcd(const BYTE *paltbl) {
 			}
 		}
 	}
-#endif
 }
 
 static void pal_maketext(void) {
@@ -269,9 +257,7 @@ static void pal_maketext(void) {
 	UINT	i;
 	UINT	j;
 	UINT	k;
-#if defined(SUPPORT_16BPP)
 	RGB16	pal16;
-#endif
 
 	k = NP2PAL_TEXT2;
 	for (i=0; i<8; i++) {
@@ -282,7 +268,6 @@ static void pal_maketext(void) {
 		}
 	}
 	np2_pal32[NP2PAL_TEXT3] = np2_pal32[NP2PAL_TEXT3 + 1];
-#if defined(SUPPORT_16BPP)
 	if (scrnmng_getbpp() == 16) {
 		k = NP2PAL_TEXT2;
 		for (i=0; i<8; i++) {
@@ -295,7 +280,6 @@ static void pal_maketext(void) {
 		}
 		np2_pal16[NP2PAL_TEXT3] = np2_pal16[NP2PAL_TEXT3 + 1];
 	}
-#endif
 }
 
 static void pal_maketext_lcd(void) {
@@ -303,9 +287,7 @@ static void pal_maketext_lcd(void) {
 	UINT	i;
 	UINT	j;
 	UINT	k;
-#if defined(SUPPORT_16BPP)
 	RGB16	pal16;
-#endif
 
 	k = NP2PAL_TEXT2;
 	for (i=0; i<8; i++) {
@@ -316,7 +298,6 @@ static void pal_maketext_lcd(void) {
 		}
 	}
 	np2_pal32[NP2PAL_TEXT3] = np2_pal32[NP2PAL_TEXT3 + 1];
-#if defined(SUPPORT_16BPP)
 	if (scrnmng_getbpp() == 16) {
 		k = NP2PAL_TEXT2;
 		for (i=0; i<8; i++) {
@@ -329,7 +310,6 @@ static void pal_maketext_lcd(void) {
 		}
 		np2_pal16[NP2PAL_TEXT3] = np2_pal16[NP2PAL_TEXT3 + 1];
 	}
-#endif
 }
 
 
@@ -364,9 +344,7 @@ void pal_change(BYTE textpalset) {
 			pal_maketext_lcd();
 		}
 		np2_pal32[NP2PAL_TEXT].d = np2_pal32[NP2PAL_TEXT2].d;
-#if defined(SUPPORT_16BPP)
 		np2_pal16[NP2PAL_TEXT] = np2_pal16[NP2PAL_TEXT2];
-#endif
 	}
 	if (!(np2cfg.LCD_MODE & 1)) {
 		if (gdc.mode1 & 2) {
@@ -398,9 +376,7 @@ void pal_change(BYTE textpalset) {
 	}
 	if (np2cfg.skipline) {
 		np2_pal32[NP2PAL_TEXT].d = np2_pal32[NP2PAL_SKIP].d;
-#if defined(SUPPORT_16BPP)
 		np2_pal16[NP2PAL_TEXT] = np2_pal16[NP2PAL_SKIP];
-#endif
 	}
 	scrndraw_changepalette();
 }

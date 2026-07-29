@@ -5,15 +5,7 @@ extern "C" {
 extern	WORD	vabitmap[];
 //extern	BYTE	colorlevel5[];
 //extern	BYTE	colorlevel6[];
-#if defined(SUPPORT_24BPP) || defined(SUPPORT_32BPP)
-extern	RGB32	drawcolor32[];
-#endif
-#if defined(SUPPORT_16BPP)
 extern	RGB16	drawcolor16[];
-#endif
-
-
-RGB32 scrndrawva_drawcolor32(WORD colorva16);
 
 BYTE scrndrawva_draw(BYTE redraw);
 BYTE scrndrawva_redraw(void);

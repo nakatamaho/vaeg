@@ -107,6 +107,12 @@ M72 owns:
      and legacy tool sources.
    - Preserve `io/hostfat.c`, `sdl2/hostfat_*`, HOSTFAT configuration,
      HOSTFAT state identity checks, and HOSTFAT guest-driver support.
+16. Fold the active display output to the SDL2 RGB565 path.
+   - Remove inactive `SUPPORT_8BPP`, `SUPPORT_24BPP`, `SUPPORT_32BPP`, and
+     `SUPPORT_NORMALDISP` branches.
+   - Remove `SUPPORT_16BPP` and `SCREEN_BPP` as compile-time switches after
+     folding the active 16bpp path.
+   - Preserve VA guest 16-bit color composition and SDL2 `RGB565` output.
 
 ## Non-goals
 
@@ -175,9 +181,10 @@ Keep one concern per commit:
 11. UTF-8/LF and BEEP conditional folding;
 12. SCSI enable-side folding;
 13. legacy HOSTDRV removal while preserving HOSTFAT;
-14. VAEG-relevance cleanup for items proven inactive;
-15. `VAEG_EXT` cleanup, if proven inactive;
-16. optional unused-source-stub cleanup, if proven inactive;
+14. display BPP cleanup;
+15. VAEG-relevance cleanup for items proven inactive;
+16. `VAEG_EXT` cleanup, if proven inactive;
+17. optional unused-source-stub cleanup, if proven inactive;
 17. report and evidence.
 
 For every removed conditional, document which side is retained and why.

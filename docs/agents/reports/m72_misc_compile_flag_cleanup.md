@@ -56,6 +56,12 @@ The M72 task and ROADMAP were updated to record this distinction.
 | `SUPPORT_HOSTDRV` | Removed; not added to CMake. |
 | `HOSTFAT` | Preserved in `io/hostfat.c`, `sdl2/hostfat_*`, `io/np2sysp.c`, `statsave.c`, `sdl2/ini.c`, and GUI paths. |
 | Legacy `HOSTDRV` implementation | Removed from active source and legacy tool roots. |
+| `SUPPORT_16BPP` | Folded to the active SDL2 RGB565 path and removed as a compile-time switch. |
+| `SCREEN_BPP` | Removed; default offscreen VRAM creation now resolves directly to 16bpp. |
+| `SUPPORT_8BPP` | Removed inactive display-output branch. |
+| `SUPPORT_24BPP` | Removed inactive display/offscreen helper branch; 24-to-16 icon resizing remains covered by `resize.c`. |
+| `SUPPORT_32BPP` | Removed inactive display-output branch. |
+| `SUPPORT_NORMALDISP` | Removed inactive extended/normal display split; SDL2 reports no extended surface. |
 
 ## Files removed in this update
 
@@ -124,7 +130,12 @@ milestone checks as required by the task.
 - The non-document, non-test tree no longer contains `SUPPORT_BMS`,
   `SUPPORT_SCSI`, `SUPPORT_HOSTDRV`, `OSLANG_SJIS`, `OSLANG_EUC`,
   `OSLINEBREAK_CR`, `OSLINEBREAK_CRLF`, `SUPPORT_EUC`, `SUPPORT_ANK`,
-  `milank_*`, `mileuc_*`, or `BEEPCOUNTEREX` references.
+  `milank_*`, `mileuc_*`, `SUPPORT_8BPP`, `SUPPORT_16BPP`,
+  `SUPPORT_24BPP`, `SUPPORT_32BPP`, `SUPPORT_NORMALDISP`, `SCREEN_BPP`,
+  or `BEEPCOUNTEREX` references.
+- Display output remains the existing SDL2 `RGB565` path. This cleanup removes
+  compile-time alternatives; it does not change the VA guest-side color
+  composition model.
 - HOSTDRV state-save support was removed with the legacy HOSTDRV
   implementation. HOSTFAT state identity support is unchanged.
 - Historical reports and old milestone tasks that mention HOSTDRV were not
