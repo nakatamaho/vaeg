@@ -14,9 +14,6 @@
 #include	"upd9002_regs.h"
 
 #define	BEEPCOUNTEREX					// BEEPアイドル時のカウンタをα倍に
-#if defined(CPUCORE_IA32)
-#define	uPD71054
-#endif
 
 
 // --- Common

@@ -11,9 +11,6 @@
 
 #include "memory.h"
 
-#if defined(CPUCORE_IA32)
-#error : not support CPUCORE_IA32
-#endif
 
 #if !defined(CPUDEBUG)
 enum {
