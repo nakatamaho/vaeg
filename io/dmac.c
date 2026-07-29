@@ -204,12 +204,8 @@ static void IOOUTCALL dmac_o21(UINT port, REG8 dat) {
 
 	fdc_trace_text("dmatrace port=%03x val=%02x", port, dat);
 	dmach = dmac.dmach + (((port >> 1) + 1) & 3);
-#if defined(CPUCORE_IA32)
-	dmach->adrs.b[DMA32_HIGH + DMA16_LOW] = dat;
-#else
 	// IA16では ver0.75で無効、ver0.76で修正
 	dmach->adrs.b[DMA32_HIGH + DMA16_LOW] = dat & 0x0f;
-#endif
 }
 
 static void IOOUTCALL dmac_o29(UINT port, REG8 dat) {
