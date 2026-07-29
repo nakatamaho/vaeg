@@ -37,8 +37,11 @@ approved by this report.
 - `1b8ba2a8` - `M71: define core dispatch fold cleanup`
 - `74423dd0` - `M71: fold dispatch tables into uPD9002 core`
 - `caed63de` - `M71: update folded dispatch validation`
+- `f3bb9398` - `M71: close core dispatch fold evidence`
+- `d08f0917` - `M71: support legacy SST support maps after dispatch fold`
 
-The final evidence commit follows this report update.
+The final branch head is reported in the handoff after the report-update
+commit.
 
 ## Files removed
 
@@ -109,12 +112,45 @@ accepts the historical G70 dispatch CSV family as approved evidence while
 checking that current folded dispatch regeneration matches the current golden
 counterparts.
 
+## Post-push G65m CI support-map compatibility
+
+The hosted G65m CI entry point intentionally runs against the G64 target policy
+support map. That generated G64 map still uses the historical dispatch table
+family names:
+
+- `v30op`
+- `v30op_repe`
+- `v30op_repne`
+- `v30op_repc`
+- `v30op_repnc`
+- `v30op_0f`
+- `v30ope0xf6_table`
+- `v30ope0xf7_table`
+
+The first M71 candidate normalized the SST dispatch resolver to the current
+folded `upd9002op`/`c_ope...` table family unconditionally. That made the G65m
+CI classifier look up current table names in a predecessor G64 support map and
+fail closed with:
+
+```text
+g65m-ci-error: 00: no M42 support-map row for ('upd9002op', 0, '-')
+```
+
+M71 now resolves the support-map table family from the actual support map
+passed to `tools/qa/upd9002_ssts.py`. Current folded maps still resolve through
+the `upd9002op` family, while G64 predecessor maps resolve through the
+historical `v30op` family. This keeps historical target-policy replay
+compatible without restoring production V30 dispatch names.
+
 ## Validation
 
 Commands run on macOS in this worktree:
 
 | Command | Exit | Result |
 | --- | ---: | --- |
+| `python3 tools/qa/upd9002_ssts.py selftest` | 0 | SST resolver selftest passed for current folded and historical G64 table families |
+| Focused G64 support-map dispatch probe for form `00` | 0 | Resolved the G64 support row through `v30op` instead of `upd9002op` |
+| `ctest --test-dir build/linux-ci-clang -R 'vaeg_upd9002_ssts_selftest\|vaeg_upd9002_ssts_ci_baseline\|vaeg_upd9002_ssts_full_baseline\|vaeg_upd9002_m70_prefix_string_selftest\|vaeg_upd9002_m70_prefix_string_static' --output-on-failure` | 0 | 5 focused tests passed |
 | `python3 tools/qa/upd9002_dispatch.py --root . --write --selftest` | 0 | Regenerated and verified folded graph, provenance, support map and harness manifest |
 | `python3 tools/qa/upd9002_dispatch_normalization.py --root .` | 0 | Folded canonical roots verified; retired dispatch source/header/constructor absent |
 | `python3 tools/qa/upd9002_native_invariant.py --root .` | 0 | Native lifecycle invariant passed with `upd9002_core_step` and folded reset initializer |
@@ -126,6 +162,7 @@ Commands run on macOS in this worktree:
 | `python3 tools/qa/upd9002_m70_prefix_string.py verify --root .` | 0 | M70 approved artifacts verified with folded dispatch equivalence |
 | `cmake --build build/linux-ci-clang -j 4` | 0 | Test-enabled Clang build passed |
 | `ctest --test-dir build/linux-ci-clang --output-on-failure` | 0 | 73 passed, 1 skipped (`vaeg_upd9002_ssts_ci_external`), 0 failed |
+| `ctest --test-dir build/linux-ci-clang --output-on-failure` after G65m compatibility fix | 0 | 73 passed, 1 skipped (`vaeg_upd9002_ssts_ci_external`), 0 failed |
 | `cmake --build build/linux-debug --target vaeg -j 4` | 0 | Normal debug build passed |
 | `git diff --check` | 0 | Whitespace check passed |
 
