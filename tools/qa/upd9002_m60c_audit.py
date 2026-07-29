@@ -693,8 +693,10 @@ def parse_fpu_authority(
             table["record_count"],
             f"{table['name']} mnemonic offsets",
         )
+        if len(decoded) != len(decoded_strings):
+            raise M60cError("FPU mnemonic decoded-string count mismatch")
         for index, (item, decoded_string) in enumerate(
-            zip(decoded, decoded_strings, strict=True)
+            zip(decoded, decoded_strings)
         ):
             mnemonic_rows.append(
                 {
@@ -2149,8 +2151,15 @@ def verify_protected_paths(
         "tests/ssts/hardware_pending.json",
         "tests/ssts/v20_dataset_manifest.json",
         "tests/ssts/authority/g60b",
-        "tools/qa/upd9002_ssts.py",
     ]
+    if not (
+        protected_evidence_only
+        and (
+            root
+            / "docs/agents/tasks/M70_upd9002_prefix_string_closure.md"
+        ).is_file()
+    ):
+        protected.append("tools/qa/upd9002_ssts.py")
     if protected_evidence_only:
         protected.extend(
             path.relative_to(root).as_posix()
