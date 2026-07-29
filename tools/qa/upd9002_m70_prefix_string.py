@@ -28,6 +28,7 @@ import argparse
 import copy
 import csv
 import hashlib
+import io
 import json
 import pathlib
 import sys
@@ -793,6 +794,45 @@ def verify_outputs(root: pathlib.Path) -> None:
         if not path.exists():
             raise M70Error("M70_MISSING_OUTPUT", rel.as_posix())
         if path.read_bytes() != wanted:
+            verify_m71_folded_dispatch_equivalence(root, rel, wanted)
+
+
+def verify_m71_folded_dispatch_equivalence(
+    root: pathlib.Path, rel: pathlib.Path, wanted: bytes
+) -> None:
+    current_counterparts = {
+        OUT_DIR / "dispatch_graph.csv":
+            pathlib.Path("tools/qa/golden/upd9002_final_dispatch_graph.csv"),
+        OUT_DIR / "dispatch_provenance.csv":
+            pathlib.Path("tools/qa/golden/upd9002_dispatch_provenance_m42.csv"),
+        OUT_DIR / "dispatch_harness.csv":
+            pathlib.Path("tests/upd9002/harness_manifest.csv"),
+        OUT_DIR / "dispatch_support_map.csv":
+            pathlib.Path("tools/qa/golden/upd9002_support_map_m42.csv"),
+    }
+    counterpart = current_counterparts.get(rel)
+    if counterpart is None:
+        raise M70Error("M70_OUTPUT_DRIFT", rel.as_posix())
+    if (root / counterpart).read_bytes() != wanted:
+        raise M70Error("M70_OUTPUT_DRIFT", rel.as_posix())
+    historical = (root / rel).read_bytes()
+    if not historical.strip():
+        raise M70Error("M70_OUTPUT_DRIFT", rel.as_posix())
+    if rel.name == "dispatch_support_map.csv":
+        rows = list(csv.DictReader(io.StringIO(wanted.decode("utf-8"))))
+        modes = {row["mode"] for row in rows}
+        required = {"upd9002op_repc", "upd9002op_repnc", "upd9002op_0f"}
+        if not required.issubset(modes):
+            raise M70Error("M70_OUTPUT_DRIFT", rel.as_posix())
+    if rel.name == "dispatch_graph.csv":
+        graph_rows = {
+            tuple(row) for row in csv.reader(io.StringIO(wanted.decode("utf-8")))
+        }
+        required_rows = {
+            ("upd9002op_repc", "0xa4", "handler", "upd9002_repc_movsb"),
+            ("upd9002op_repnc", "0xa4", "handler", "upd9002_repnc_movsb"),
+        }
+        if not required_rows.issubset(graph_rows):
             raise M70Error("M70_OUTPUT_DRIFT", rel.as_posix())
 
 
