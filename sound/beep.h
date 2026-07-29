@@ -1,5 +1,4 @@
 
-#if !defined(DISABLE_SOUND)
 
 enum {
 	BEEPEVENT_MAXBIT	= 8,
@@ -59,16 +58,3 @@ void SOUNDCALL beep_getpcm(BEEP bp, SINT32 *pcm, UINT count);
 #ifdef __cplusplus
 }
 #endif
-
-#else
-
-#define beep_setvol(v)
-#define beep_changeclock()
-#define beep_hzset(c,clock)
-#define beep_modeset()
-#define beep_eventreset()
-#define beep_lheventset(b)
-#define beep_oneventset()
-
-#endif
-
