@@ -442,6 +442,20 @@ static BOOL upd9002_carry_repeat_continue(BOOL repeat_on_carry) {
 	return(((UPD9002_FLAGL & C_FLAG) != 0) == repeat_on_carry);
 }
 
+static BOOL upd9002_carry_string_uses_carry(UPD9002_CARRY_STRING_OP op) {
+
+	switch(op) {
+		case UPD9002_CARRY_STRING_CMPSB:
+		case UPD9002_CARRY_STRING_CMPSW:
+		case UPD9002_CARRY_STRING_SCASB:
+		case UPD9002_CARRY_STRING_SCASW:
+			return(TRUE);
+
+		default:
+			return(FALSE);
+	}
+}
+
 static int upd9002_carry_string_start_clock(UPD9002_CARRY_STRING_OP op) {
 
 	switch(op) {
@@ -573,7 +587,8 @@ static void upd9002_repeat_carry_string(UPD9002_CARRY_STRING_OP op,
 			if (!UPD9002_CX) {
 				break;
 			}
-			if (!upd9002_carry_repeat_continue(repeat_on_carry)) {
+			if (upd9002_carry_string_uses_carry(op) &&
+					!upd9002_carry_repeat_continue(repeat_on_carry)) {
 				break;
 			}
 			if (UPD9002_REMCLOCK <= 0) {
