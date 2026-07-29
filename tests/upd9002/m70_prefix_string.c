@@ -229,6 +229,52 @@ static int test_repc_movsw_repeats_with_set_carry(void) {
 	return SUCCESS;
 }
 
+static int test_repnc_movsb_repeats_with_set_carry(void) {
+
+	static const UINT8 instruction[] = {0x64, 0xa4};
+
+	setup_instruction(instruction, NELEMENTS(instruction),
+		(UINT16)(M70_NORMAL_BASE >> 4), 0x0118,
+		(UINT16)(M70_ES_NORMAL_BASE >> 4), 0x0218,
+		2, 0x1111, TRUE, FALSE);
+	mem[phys(M70_NORMAL_BASE, 0x0118)] = 0x5a;
+	mem[phys(M70_NORMAL_BASE, 0x0119)] = 0xa5;
+	upd9002_core_step();
+	if ((check_byte("REPNC MOVSB CF=1 first byte",
+			mem[phys(M70_ES_NORMAL_BASE, 0x0218)], 0x5a) != SUCCESS) ||
+		(check_byte("REPNC MOVSB CF=1 second byte",
+			mem[phys(M70_ES_NORMAL_BASE, 0x0219)], 0xa5) != SUCCESS) ||
+		(check_word("REPNC MOVSB CF=1 CX", CPU_CX, 0) != SUCCESS) ||
+		(check_true("REPNC MOVSB preserves carry",
+			(CPU_FLAG & C_FLAG) != 0) != SUCCESS)) {
+		return FAILURE;
+	}
+	return SUCCESS;
+}
+
+static int test_repc_movsw_repeats_with_clear_carry(void) {
+
+	static const UINT8 instruction[] = {0x65, 0xa5};
+
+	setup_instruction(instruction, NELEMENTS(instruction),
+		(UINT16)(M70_NORMAL_BASE >> 4), 0x011c,
+		(UINT16)(M70_ES_NORMAL_BASE >> 4), 0x021c,
+		2, 0x1111, FALSE, FALSE);
+	put_flat_word(phys(M70_NORMAL_BASE, 0x011c), 0x1357);
+	put_flat_word(phys(M70_NORMAL_BASE, 0x011e), 0x2468);
+	upd9002_core_step();
+	if ((check_word("REPC MOVSW CF=0 first word",
+			flat_word(phys(M70_ES_NORMAL_BASE, 0x021c)), 0x1357) != SUCCESS) ||
+		(check_word("REPC MOVSW CF=0 second word",
+			flat_word(phys(M70_ES_NORMAL_BASE, 0x021e)), 0x2468) != SUCCESS) ||
+		(check_word("REPC MOVSW CF=0 CX", CPU_CX, 0) != SUCCESS) ||
+		(check_true("REPC MOVSW preserves clear carry",
+			(CPU_FLAG & C_FLAG) == 0) != SUCCESS)) {
+		return FAILURE;
+	}
+	return SUCCESS;
+}
+
 static int test_repnc_cmpsb_stops_when_carry_set(void) {
 
 	static const UINT8 instruction[] = {0x64, 0xa6};
@@ -505,6 +551,8 @@ int upd9002_m70_prefix_string_main(void) {
 	static const M70CASE cases[] = {
 		{"REPNC MOVSB repeats with CF=0", test_repnc_movsb_repeats_with_clear_carry},
 		{"REPC MOVSW repeats with CF=1", test_repc_movsw_repeats_with_set_carry},
+		{"REPNC MOVSB repeats with CF=1", test_repnc_movsb_repeats_with_set_carry},
+		{"REPC MOVSW repeats with CF=0", test_repc_movsw_repeats_with_clear_carry},
 		{"REPNC CMPSB stops when CF becomes 1", test_repnc_cmpsb_stops_when_carry_set},
 		{"REPC SCASW stops when CF becomes 0", test_repc_scasw_stops_when_carry_clear},
 		{"REPC STOSW DF=1", test_repc_stosw_direction_decrement},
