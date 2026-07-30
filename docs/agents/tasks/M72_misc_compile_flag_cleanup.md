@@ -86,8 +86,13 @@ M72 owns:
 11. Audit frontend asset embedding and font stubs only to classify future work.
    - Do not remove embedded GUI assets in M72.
    - Do not modify ROM/font payloads.
+   - Remove the legacy `embed/` menu-source directory when proven unused by
+     the active SDL2/ImGui frontend.
+   - Do not remove `cmake/embed_binary.cmake`; it is the active build-time
+     asset embedding helper for the splash, GUI font, and application icon.
    - Remove only a source stub if it is proven unused by the active build and
-     does not affect guest font ROM loading, GUI font loading, or packaging.
+     does not affect guest font ROM loading, GUI font loading, asset
+     embedding, or packaging.
 12. Fold the active build to UTF-8 / LF text handling.
    - Remove inactive `OSLANG_SJIS`, `OSLANG_EUC`, `OSLINEBREAK_CR`, and
      `OSLINEBREAK_CRLF` branches.
