@@ -48,8 +48,6 @@ extern const OEMCHAR str_resume[];
 
 extern const OEMCHAR str_VM[];
 extern const OEMCHAR str_VX[];
-extern const OEMCHAR str_EPSON[];
-
 extern const OEMCHAR str_VA1[];
 extern const OEMCHAR str_VA2[];
 

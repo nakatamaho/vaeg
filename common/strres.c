@@ -44,12 +44,9 @@ const OEMCHAR str_resume[] = OEMTEXT("Resume");
 
 const OEMCHAR str_VM[] = OEMTEXT("VM");
 const OEMCHAR str_VX[] = OEMTEXT("VX");
-const OEMCHAR str_EPSON[] = OEMTEXT("EPSON");
-
 const OEMCHAR str_VA1[] = OEMTEXT("88VA1");
 const OEMCHAR str_VA2[] = OEMTEXT("88VA2");
 
 const OEMCHAR str_biosrom[] = OEMTEXT("bios.rom");
 const OEMCHAR str_sasirom[] = OEMTEXT("sasi.rom");
 const OEMCHAR str_scsirom[] = OEMTEXT("scsi.rom");
-
