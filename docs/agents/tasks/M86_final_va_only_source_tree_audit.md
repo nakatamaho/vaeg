@@ -1,25 +1,25 @@
-# M85 - Final VA-only source-tree audit
+# M86 - Final VA-only source-tree audit
 
-M85 performs the final audit of the VA-only active source tree after the SCSI,
-I/O, BIOS, FDC subsystem CPU, `cpucva`, state-save, machine-core relocation,
-legacy tool/ROM regeneration, and `lio/` disposition milestones.
+M86 performs the final audit of the VA-only active source tree after the BASIC,
+SCSI, I/O, BIOS, FDC subsystem CPU, `cpucva`, state-save, machine-core
+relocation, legacy tool/ROM regeneration, and `lio/` disposition milestones.
 
-Predecessor: approved G84.
+Predecessor: approved G85.
 
-Branch: `topic/m85-final-va-only-source-tree-audit`
+Branch: `topic/m86-final-va-only-source-tree-audit`
 
-Commit prefix: `M85:`
+Commit prefix: `M86:`
 
-Candidate gate: `G85`
+Candidate gate: `G86`
 
-Report: `docs/agents/reports/m85_final_va_only_source_tree_audit.md`
+Report: `docs/agents/reports/m86_final_va_only_source_tree_audit.md`
 
-Do not start M86. Do not merge M85 to `main` before G85 approval. Do not
-declare G85 passed.
+Do not start M87. Do not merge M86 to `main` before G86 approval. Do not
+declare G86 passed.
 
 ## Scope
 
-M85 must:
+M86 must:
 
 - prove the active tree is organized around PC-88VA, not general PC-98/98x1
   compatibility;
@@ -30,14 +30,14 @@ M85 must:
 - verify that `cpu/upd9002/` and `cpu/upd780/` have clear ownership;
 - verify that `machine/` has clear ownership for reset, events, timing,
   calendar, keyboard state, and state save/load;
-- verify that the M84 `lio/` disposition is reflected in the active tree as
+- verify that the M85 `lio/` disposition is reflected in the active tree as
   either a justified retained compatibility path or a completed removal;
 - verify that state-save, HOSTFAT, SASI/SCSI, FDD, display, sound, keyboard,
   mouse, and manual runtime gates still pass.
 
 ## Non-goals
 
-M85 must not implement new hardware behavior. Any remaining evidence gap must
+M86 must not implement new hardware behavior. Any remaining evidence gap must
 be reported as backlog rather than silently removed.
 
 ## Validation

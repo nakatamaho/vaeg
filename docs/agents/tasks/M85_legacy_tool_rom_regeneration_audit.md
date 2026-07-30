@@ -1,25 +1,25 @@
-# M84 - Legacy tool and ROM regeneration audit
+# M85 - Legacy tool and ROM regeneration audit
 
-M84 audits remaining legacy tool sources, ROM/resource regeneration flows, and
+M85 audits remaining legacy tool sources, ROM/resource regeneration flows, and
 the `lio/` BIOS/LIO compatibility path after active machine-core sources have
 moved out of the repository root.
 
-Predecessor: approved G83.
+Predecessor: approved G84.
 
-Branch: `topic/m84-legacy-tool-rom-regeneration-audit`
+Branch: `topic/m85-legacy-tool-rom-regeneration-audit`
 
-Commit prefix: `M84:`
+Commit prefix: `M85:`
 
-Candidate gate: `G84`
+Candidate gate: `G85`
 
-Report: `docs/agents/reports/m84_legacy_tool_rom_regeneration_audit.md`
+Report: `docs/agents/reports/m85_legacy_tool_rom_regeneration_audit.md`
 
-Do not start M85. Do not merge M84 to `main` before G84 approval. Do not
-declare G84 passed.
+Do not start M86. Do not merge M85 to `main` before G85 approval. Do not
+declare G85 passed.
 
 ## Scope
 
-M84 must audit:
+M85 must audit:
 
 - `accessories/`, including `bin2txt`, `lzxpack`, and `textout`;
 - `np2tool/` legacy assembly utilities;
@@ -40,13 +40,13 @@ manual gate depends on the legacy tools.
 directory. The audit must account for its current active CMake inclusion, the
 `BIOS_SIMULATE` initialization path, the `0xf9950` to `0xf9990` BIOS/LIO
 entry hook, the generated `lio.res` payload, and any guest-visible LIO/N88-BASIC
-compatibility expectation. M84 may remove it only if the active VA gate and
+compatibility expectation. M85 may remove it only if the active VA gate and
 documented compatibility scope prove it unnecessary; otherwise it must record
 whether it is retained or deferred to the VA BIOS cleanup sequence.
 
 ## Non-goals
 
-M84 must not modify binary payloads, ROM images, guest ROM contents, fonts,
+M85 must not modify binary payloads, ROM images, guest ROM contents, fonts,
 icons, splash assets, or approved historical evidence. It must not replace
 ROM generation tooling with a new unapproved ROM build pipeline.
 
