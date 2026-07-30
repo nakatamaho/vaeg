@@ -25,11 +25,11 @@ static const char str_exist[] = "exist";
 static const char str_ok[] = "OK";
 static const char str_ng[] = "NG";
 
-static const char str_model_va1[] = "PC-88VA1";
+static const char str_model_va1[] = "PC-88VA";
 static const char str_model_va2[] = "PC-88VA2";
 
 static const char str_romtype_88va[] =
-						"PC-88VA1\0"				\
+						"PC-88VA\0"					\
 						"PC-88VA2/3\0"				\
 						"Unknown";
 
