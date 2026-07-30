@@ -12,16 +12,6 @@ GETSND getsnd_create(void *datptr, UINT datsize) {
 
 	ZeroMemory(&snd, sizeof(snd));
 	r = getwave_open(&snd, (BYTE *)datptr, datsize);
-#if defined(SUPPORT_MP3)
-	if (r == FAILURE) {
-		r = getmp3_open(&snd, (BYTE *)datptr, datsize);
-	}
-#endif
-#if defined(SUPPORT_OGG)
-	if (r == FAILURE) {
-		r = getogg_open(&snd, (BYTE *)datptr, datsize);
-	}
-#endif
 	if (r == FAILURE) {
 		goto gscre_err0;
 	}

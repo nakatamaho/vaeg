@@ -439,9 +439,6 @@ imaopn_err:
 
 // ---- MP3
 
-#if defined(SUPPORT_MP3)
-extern BOOL __mp3_open(GETSND snd, BYTE *ptr, UINT size);
-#endif
 
 
 // ----
@@ -546,15 +543,7 @@ BOOL getwave_open(GETSND snd, BYTE *ptr, UINT size) {
 			r = ima_open(snd);
 			break;
 
-#if defined(SUPPORT_MP3)
-		case 0x55:
-			return(__mp3_open(snd, ptr, size));
-#endif
 
-#if defined(SUPPORT_OGG)
-		case 0x6751:
-			return(getogg_open(snd, ptr, size));
-#endif
 
 		default:
 			r = FAILURE;

@@ -2,7 +2,6 @@
 #include	<math.h>
 #include	"sound.h"
 #include	"psggen.h"
-#include	"keydisp.h"
 
 
 	PSGGENCFG	psggencfg;
@@ -120,7 +119,6 @@ void psggen_setreg(PSGGEN psg, REG8 reg, REG8 value) {
 			break;
 
 		case 7:
-			keydisp_psgmix(psg);
 			psg->mixer = ~value;
 			psg->puchicount = psggencfg.puchidec;
 //			TRACEOUT(("psg %x 7 %d", (long)psg, value));
@@ -130,7 +128,6 @@ void psggen_setreg(PSGGEN psg, REG8 reg, REG8 value) {
 		case 9:
 		case 10:
 			ch = reg - 8;
-			keydisp_psgvol(psg, (UINT8)ch);
 			if (value & 0x10) {
 				psg->tone[ch].pvol = &psg->evol;
 			}
@@ -171,4 +168,3 @@ void psggen_setpan(PSGGEN psg, UINT ch, REG8 pan) {
 		psg->tone[ch].pan = pan;
 	}
 }
-

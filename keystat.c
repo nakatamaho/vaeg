@@ -5,7 +5,6 @@
 #include	"iocore.h"
 #include	"keystat.h"
 #include	"keystat.tbl"
-#include	"softkbd.h"
 
 
 typedef struct {
@@ -195,9 +194,6 @@ static void reloadled(void) {
 
 	keyctrl.kanaref = keystat.ref[0x72];
 	keyctrl.capsref = keystat.ref[0x71];
-#if defined(SUPPORT_SOFTKBD)
-	softkbd_led(getledstat());
-#endif
 }
 
 void keystat_ctrlreset(void) {
@@ -205,9 +201,6 @@ void keystat_ctrlreset(void) {
 	keyctrl.reqparam = 0;
 	keystat.ref[0x72] = keyctrl.kanaref;
 	keystat.ref[0x71] = keyctrl.capsref;
-#if defined(SUPPORT_SOFTKBD)
-	softkbd_led(getledstat());
-#endif
 }
 
 void keystat_ctrlsend(REG8 dat) {
@@ -215,22 +208,12 @@ void keystat_ctrlsend(REG8 dat) {
 	if (!keyctrl.reqparam) {
 		keyctrl.mode = dat;
 		switch(dat) {
-#if defined(SUPPORT_PC9801_119)
-			case 0x95:
-#endif
 			case 0x9c:
 			case 0x9d:
 				keyctrl.reqparam = 1;
 				keyboard_ctrl(0xfa);
 				break;
 
-#if defined(SUPPORT_PC9801_119)
-			case 0x96:
-				keyboard_ctrl(0xfa);
-				keyboard_ctrl(0xa0);
-				keyboard_ctrl(0x83);
-				break;
-#endif
 
 			case 0x9f:
 				keyboard_ctrl(0xfa);
@@ -245,12 +228,6 @@ void keystat_ctrlsend(REG8 dat) {
 	}
 	else {
 		switch(keyctrl.mode) {
-#if defined(SUPPORT_PC9801_119)
-			case 0x95:
-				keyctrl.kbdtype = dat;
-				keyboard_ctrl(0xfa);
-				break;
-#endif
 			case 0x9c:
 				keyboard_ctrl(0xfa);
 				break;
@@ -292,9 +269,6 @@ void keystat_down(const UINT8 *key, REG8 keys, REG8 ref) {
 			keystat.ref[keycode] = ref;
 		}
 		else {
-#if defined(SUPPORT_PC9801_119)
-			if (keyctrl.kbdtype != 0x03)
-#endif
 			{
 				if (keycode == 0x7d) {
 					keycode = 0x70;
@@ -348,9 +322,6 @@ void keystat_up(const UINT8 *key, REG8 keys, REG8 ref) {
 			}
 		}
 		else {
-#if defined(SUPPORT_PC9801_119)
-			if (keyctrl.kbdtype != 0x03)
-#endif
 			{
 				if (keycode == 0x7d) {
 					keycode = 0x70;
@@ -606,4 +577,3 @@ void keystat_forcerelease(REG8 data) {
 	keycode = cnvnewcode((REG8)(data & 0x7f));
 	keystat_releasekey(keycode);
 }
-

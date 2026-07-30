@@ -14,10 +14,10 @@ Starting predecessor:
 24950894eca79e308afae8d574d43c8f393bb483
 ```
 
-Current pre-report HEAD before this update:
+Current HEAD before inactive media/debug cleanup:
 
 ```text
-dc670c32a27ec2b841dcbecc7ea88b72cd1d9606
+2c193def7cd4a292f9fb4113619468986c9c525c
 ```
 
 G72 has not been declared passed.
@@ -61,12 +61,19 @@ The M72 task and ROADMAP were updated to record this distinction.
 | `SCREEN_BPP` | Removed; default offscreen VRAM creation now resolves directly to 16bpp. |
 | `SUPPORT_CRT15KHZ` | Folded to the enabled side and removed as a compile-time switch. |
 | `SUPPORT_SWSEEKSND` | Folded to the enabled side and removed as a compile-time switch. |
+| `SUPPORT_CRT31KHZ` | Removed inactive Fellow-style 31kHz CRT branch. |
 | `SUPPORT_8BPP` | Removed inactive display-output branch. |
 | `SUPPORT_24BPP` | Removed inactive display/offscreen helper branch; 24-to-16 icon resizing remains covered by `resize.c`. |
 | `SUPPORT_32BPP` | Removed inactive display-output branch. |
 | `SUPPORT_NORMALDISP` | Removed inactive extended/normal display split; SDL2 reports no extended surface. |
+| `SUPPORT_MP3` | Removed inactive optional MP3 sample decoder branch. WAV sample loading remains. |
+| `SUPPORT_OGG` | Removed inactive optional OGG sample decoder branch. WAV sample loading remains. |
+| `SUPPORT_S98` | Removed inactive S98 sound-register logging, including no-op init/sync calls. |
+| `SUPPORT_KEYDISP` | Removed inactive key-display overlay and no-op instrumentation calls from sound/MIDI paths. |
+| `SUPPORT_SOFTKBD` | Removed inactive software-keyboard overlay and LED callbacks. |
+| `SUPPORT_PC9801_119` | Removed inactive PC-9801-119 software-keyboard alternate branch. |
 
-## Files removed in this update
+## Files removed by completed cleanup commits
 
 ```text
 generic/hostdrv.c
@@ -74,8 +81,21 @@ generic/hostdrv.h
 generic/hostdrv.tbl
 generic/hostdrvs.c
 generic/hostdrvs.h
+generic/keydisp.c
+generic/keydisp.h
+generic/keydisp.res
+generic/softkbd.c
+generic/softkbd.h
+generic/softkbd.res
+generic/softkbd1.res
+generic/softkbd2.res
+generic/softkbd3.res
 np2tool/hostdrv.asm
 np2tool/hostdrv.inc
+sound/getsnd/getmp3.c
+sound/getsnd/getogg.c
+sound/s98.c
+sound/s98.h
 ```
 
 The `np2tool/makefile.w32` `hostdrv.com` target was removed with the tool
@@ -106,6 +126,25 @@ cmake --build --preset linux-debug
 exit: 0
 notes: existing warnings remain; HOSTFAT.SYS and R2FPROBE.COM guest-driver
 targets were disabled because NASM was not found.
+```
+
+```text
+git diff --cached --check
+exit: 0
+```
+
+```text
+python3 tools/repo/check_encoding.py
+python3 tools/repo/check_eol.py
+python3 tools/repo/check_case.py
+exit: 0
+output: 0 finding(s)
+```
+
+```text
+ctest --test-dir build/linux-debug --output-on-failure
+exit: 0
+output: No tests were found!!!
 ```
 
 ## Remaining validation
@@ -142,5 +181,12 @@ milestone checks as required by the task.
   composition model.
 - HOSTDRV state-save support was removed with the legacy HOSTDRV
   implementation. HOSTFAT state identity support is unchanged.
+- S98 was sound-register logging, not sound playback. Removing it deletes
+  inactive logging hooks and no-op calls while preserving VA sound generation
+  and output.
+- MP3 and OGG were inactive optional sample decoder branches. WAV sample
+  loading through `sound/getsnd/getwave.c` remains active.
+- KEYDISP and SOFTKBD were inactive overlays. Removing them deletes overlay
+  instrumentation/no-op calls without changing active VA keyboard input.
 - Historical reports and old milestone tasks that mention HOSTDRV were not
   rewritten.

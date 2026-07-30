@@ -228,7 +228,6 @@ set(VAEG_CORE_SOURCES
     sound/cs4231c.c
     sound/cs4231g.c
     sound/soundrom.c
-    sound/s98.c
     vram/vram.c
     vram/scrndraw.c
     vram/sdraw.c

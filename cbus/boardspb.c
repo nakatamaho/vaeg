@@ -5,7 +5,6 @@
 #include	"boardspb.h"
 #include	"sound.h"
 #include	"fmboard.h"
-#include	"s98.h"
 
 
 static void IOOUTCALL spb_o188(UINT port, REG8 dat) {
@@ -16,7 +15,6 @@ static void IOOUTCALL spb_o188(UINT port, REG8 dat) {
 
 static void IOOUTCALL spb_o18a(UINT port, REG8 dat) {
 
-	S98_put(NORMAL2608, opn.opnreg, dat);
 	if (opn.opnreg < 0x10) {
 		if (opn.opnreg != 0x0e) {
 			psggen_setreg(&psg1, opn.opnreg, dat);
@@ -57,7 +55,6 @@ static void IOOUTCALL spb_o18c(UINT port, REG8 dat) {
 
 static void IOOUTCALL spb_o18e(UINT port, REG8 dat) {
 
-	S98_put(EXTEND2608, opn.extreg, dat);
 	opn.reg[opn.extreg + 0x100] = dat;
 	if (opn.extreg >= 0x30) {
 		opngen_setreg(3, opn.extreg, dat);
@@ -236,4 +233,3 @@ void boardspr_bind(void) {
 	cbuscore_attachsndex(0x188 - opn.base, spb_o, spb_i);
 	cbuscore_attachsndex(0x588 - opn.base, spr_o, spr_i);
 }
-

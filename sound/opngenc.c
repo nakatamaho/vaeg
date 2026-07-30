@@ -4,7 +4,6 @@
 #include	"iocore.h"
 #include	"sound.h"
 #include	"fmboard.h"
-#include	"keydisp.h"
 #include	"ymfmbridge.h"
 
 
@@ -663,7 +662,6 @@ void opngen_keyon(UINT chnum, REG8 value) {
 		slot++;
 		bit <<= 1;
 	}
-	keydisp_fmkeyon((UINT8)chnum, value);
 	ymfm_opn_keyon(chnum, value);
 }
 

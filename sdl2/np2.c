@@ -38,7 +38,6 @@
 #include	"ini.h"
 #include	"pccore.h"
 #include	"scrndraw.h"
-#include	"s98.h"
 #include	"sgp.h"
 #include	"diskdrv.h"
 #include	"sxsi.h"
@@ -1725,7 +1724,6 @@ int main(int argc, char **argv) {
 	taskmng_initialize();
 	pccore_init();
 	bkupmemva_load();
-	S98_init();
 	if (splash_visible) {
 		wait_startup_splash(splash_started);
 	}
@@ -1749,7 +1747,6 @@ int main(int argc, char **argv) {
 	pccore_term();
 	hostfat_manager_shutdown();
 	dropmedia_shutdown();
-	S98_trash();
 	soundmng_deinitialize();
 	mousemng_shutdown();
 	gui_shutdown();

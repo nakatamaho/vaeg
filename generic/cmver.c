@@ -7,7 +7,6 @@
 
 #include	"sound.h"
 #include	"vermouth.h"
-#include	"keydisp.h"
 
 #define MIDIOUTS(a, b, c)	(((c) << 16) + (b << 8) + (a))
 #define MIDIOUTS2(a)		((a)[0] + ((a)[1] << 8))
@@ -106,7 +105,6 @@ static void midireset(CMMIDI midi) {
 	work[1] = 0x7b;
 	work[2] = 0x00;
 	for (work[0]=0xb0; work[0]<0xc0; work[0]++) {
-		keydisp_midi(work);
 		sound_sync();
 		midiout_shortmsg(midi->midihdl, MIDIOUTS3(work));
 	}
@@ -238,7 +236,6 @@ static UINT midiwrite(COMMNG self, BYTE data) {
 						mch->prog = midi->buffer[1];
 						break;
 				}
-				keydisp_midi(midi->buffer);
 				sound_sync();
 				midiout_shortmsg(midi->midihdl, MIDIOUTS2(midi->buffer));
 				midi->midictrl = MIDICTRL_READY;
@@ -273,7 +270,6 @@ static UINT midiwrite(COMMNG self, BYTE data) {
 						mch->bend = LOADINTELWORD(midi->buffer + 1);
 						break;
 				}
-				keydisp_midi(midi->buffer);
 				sound_sync();
 				midiout_shortmsg(midi->midihdl, MIDIOUTS3(midi->buffer));
 				midi->midictrl = MIDICTRL_READY;
