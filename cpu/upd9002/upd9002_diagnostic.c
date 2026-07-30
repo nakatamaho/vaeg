@@ -25,27 +25,22 @@
 #include "compiler.h"
 #include "upd9002_diagnostic.h"
 
-static UPD9002_DIAGNOSTIC diagnostic_state;
+UPD9002_DIAGNOSTIC upd9002_diagnostic_state;
 
 void upd9002_diagnostic_clear(void) {
 
-	ZeroMemory(&diagnostic_state, sizeof(diagnostic_state));
+	ZeroMemory(&upd9002_diagnostic_state, sizeof(upd9002_diagnostic_state));
 }
 
 void upd9002_diagnostic_raise_rep0f(UINT8 prefix, UINT16 cs, UINT16 ip) {
 
-	if (diagnostic_state.reason != UPD9002_DIAGNOSTIC_NONE) {
+	if (upd9002_diagnostic_state.reason != UPD9002_DIAGNOSTIC_NONE) {
 		return;
 	}
-	diagnostic_state.reason = UPD9002_DIAGNOSTIC_REP0F;
-	diagnostic_state.prefix = prefix;
-	diagnostic_state.cs = cs;
-	diagnostic_state.ip = ip;
-}
-
-BOOL upd9002_diagnostic_pending(void) {
-
-	return diagnostic_state.reason != UPD9002_DIAGNOSTIC_NONE;
+	upd9002_diagnostic_state.reason = UPD9002_DIAGNOSTIC_REP0F;
+	upd9002_diagnostic_state.prefix = prefix;
+	upd9002_diagnostic_state.cs = cs;
+	upd9002_diagnostic_state.ip = ip;
 }
 
 int upd9002_diagnostic_get(UPD9002_DIAGNOSTIC *diagnostic) {
@@ -53,6 +48,6 @@ int upd9002_diagnostic_get(UPD9002_DIAGNOSTIC *diagnostic) {
 	if ((diagnostic == NULL) || !upd9002_diagnostic_pending()) {
 		return FAILURE;
 	}
-	*diagnostic = diagnostic_state;
+	*diagnostic = upd9002_diagnostic_state;
 	return SUCCESS;
 }
