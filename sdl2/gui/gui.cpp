@@ -99,10 +99,8 @@ constexpr int kSoundBufferPresets[] = {40, 100, 200, 500, 1000};
 constexpr const char kAboutInfoTemplate[] =
 	"CPU: %CPU% %CLOCK%\n"
 	"MODEL: %MODEL%\n"
-	"SOUND: %EXSND%\n"
+	"SOUND: %SND%\n"
 	"RHYTHM: %RHYTHM%\n"
-	"\n"
-	"SCREEN: %DISP%\n"
 	"\n"
 	"[88VA]\n"
 	"ROM TYPE: %ROMTPVA%\n"
