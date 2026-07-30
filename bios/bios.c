@@ -143,9 +143,6 @@ static void bios_reinitbyswitch(void) {
 	mem[MEMB_F2HD_MODE] = 0xff;
 	mem[MEMB_F2DD_MODE] = 0xff;
 
-#if defined(SUPPORT_CRT31KHZ)
-	mem[MEMB_CRT_BIOS] = 0x80;
-#endif
 
 	// FDC
 	if (fdc.support144) {

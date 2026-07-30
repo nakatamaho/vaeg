@@ -55,7 +55,6 @@
 #include	"profile.h"
 #include	"romcheck.h"
 #include	"romankana.h"
-#include	"s98.h"
 #include	"sgp.h"
 #include	"sxsi.h"
 #include	"scrndraw.h"
@@ -1540,11 +1539,9 @@ static int test_statsave(void) {
 	soundmng_initialize();
 	commng_initialize();
 	pccore_init();
-	S98_init();
 	pccore_reset();
 #if defined(VAEG_UPD9002_M46_TESTING)
 	if (upd9002_dispatch_normalization_verify_live() != SUCCESS) {
-		S98_trash();
 		pccore_term();
 		soundmng_deinitialize();
 		return fail("dispatch normalization", "initialization/reset changed tables");
@@ -1554,7 +1551,6 @@ static int test_statsave(void) {
 #if defined(VAEG_UPD9002_M44_TESTING)
 	if (upd9002_state_scenario_requested()) {
 		ret = upd9002_state_scenario_run();
-		S98_trash();
 		pccore_term();
 		soundmng_deinitialize();
 		return (ret == SUCCESS) ? SUCCESS :
@@ -1690,7 +1686,6 @@ static int test_statsave(void) {
 	if (ret == STATFLAG_SUCCESS) {
 		ret = statsave_save(path2);
 	}
-	S98_trash();
 	pccore_term();
 	soundmng_deinitialize();
 	hostfat_unmount();

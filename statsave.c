@@ -27,7 +27,6 @@
 #include	"fddfile.h"
 #include	"fdd_mtr.h"
 #include	"sxsi.h"
-#include	"keydisp.h"
 #include	"hostfat.h"
 #include	"calendar.h"
 #include	"keystat.h"

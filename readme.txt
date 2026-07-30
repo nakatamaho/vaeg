@@ -38,15 +38,8 @@
 　　　cgwindowにフォントポインタを持たせる
 　　　現状、あまり意味を持ちません
 
-　SUPPORT_CRT31KHZ
-　　　水平走査31.47kHzをサポートする
-　　　Fellowタイプはこれ
-
 　SASI/SCSI/BMS
 　　　現行VAEGビルドでは常時サポート
-
-　SUPPORT_S98
-　　　S98ログを取得
 
 　SUPPORT_WAVEREC
 　　Soundレベルで waveファイルの書き出し関数をサポート

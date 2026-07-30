@@ -120,6 +120,15 @@ M72 owns:
 17. Fold FDD seek sound support to the enabled side.
    - Remove `SUPPORT_SWSEEKSND` as a compile-time switch.
    - Preserve the active seek-sound behavior.
+18. Remove inactive media, logging, and input-overlay support.
+   - Remove `SUPPORT_CRT31KHZ` as an inactive Fellow-style 31kHz CRT branch.
+   - Remove inactive MP3 and OGG sample decoders controlled by `SUPPORT_MP3`
+     and `SUPPORT_OGG`.
+   - Remove inactive S98 sound-register logging controlled by `SUPPORT_S98`.
+   - Remove inactive key display and software keyboard overlays controlled by
+     `SUPPORT_KEYDISP`, `SUPPORT_SOFTKBD`, and `SUPPORT_PC9801_119`.
+   - Preserve active VA sound output, VA keyboard input, WAV sample loading,
+     and SDL2 display behavior.
 
 ## Non-goals
 
@@ -139,6 +148,9 @@ M72 must not:
 - remove VA sound hardware or sound state while removing the inactive
   `DISABLE_SOUND` path;
 - remove or weaken HOSTFAT while removing legacy HOSTDRV;
+- remove VA sound output while removing S98 logging or optional compressed
+  sample decoders;
+- remove active VA keyboard input while removing inactive keyboard overlays;
 - implement PC-9821 support;
 - turn the active SDL2 frontend back into a general PC-98/98x1 frontend;
 - start any unrelated cleanup.
@@ -189,10 +201,11 @@ Keep one concern per commit:
 12. SCSI enable-side folding;
 13. legacy HOSTDRV removal while preserving HOSTFAT;
 14. display BPP cleanup;
-15. VAEG-relevance cleanup for items proven inactive;
-16. `VAEG_EXT` cleanup, if proven inactive;
-17. optional unused-source-stub cleanup, if proven inactive;
-17. report and evidence.
+15. inactive media, logging, and input-overlay cleanup;
+16. VAEG-relevance cleanup for items proven inactive;
+17. `VAEG_EXT` cleanup, if proven inactive;
+18. optional unused-source-stub cleanup, if proven inactive;
+19. report and evidence.
 
 For every removed conditional, document which side is retained and why.
 

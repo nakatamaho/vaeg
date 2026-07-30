@@ -38,10 +38,6 @@ static const UINT8 defsyncs15[8] = {0x06,0x26,0x03,0x11,0x86,0x0f,0xc8,0x94};
 static const UINT8 defsyncm24[8] = {0x10,0x4e,0x07,0x25,0x07,0x07,0x90,0x65};
 static const UINT8 defsyncs24[8] = {0x06,0x26,0x03,0x11,0x83,0x07,0x90,0x65};
 
-static const UINT8 defsyncm31[8] = {0x10,0x4e,0x47,0x0c,0x07,0x0d,0x90,0x89};
-static const UINT8 defsyncs31[8] = {0x06,0x26,0x41,0x0c,0x83,0x0d,0x90,0x89};
-
-
 static const UINT8 defdegpal[4] = {0x04,0x15,0x26,0x37};
 static const UINT16 defanapal[16] = {
 				0x000,0x007,0x070,0x077,0x700,0x707,0x770,0x777,
@@ -351,12 +347,6 @@ const GDCCLK	*clk;
 	y = lf + vfbs;
 //	TRACEOUT(("h %d:%d / v %d:%d", cr, x, lf, y));
 
-#if defined(SUPPORT_CRT31KHZ)
-	if (gdc.display & (1 << GDCDISP_31)) {
-		clk = gdcclk + 2;
-	}
-	else
-#endif
 	if (!(gdc.crt15khz & 2)) {							// 24.83±300Hz
 		clk = gdcclk + 1;
 	}
@@ -813,22 +803,6 @@ static void IOOUTCALL gdc_oae(UINT port, REG8 dat) {
 // ---- extend
 
 
-#if defined(SUPPORT_CRT31KHZ)
-static void IOOUTCALL gdc_o9a8(UINT port, REG8 dat) {
-
-	if ((gdc.display ^ (dat << GDCDISP_31)) & (1 << GDCDISP_31)) {
-		gdc.display ^= (1 << GDCDISP_31);
-		gdcs.textdisp |= GDCSCRN_EXT;
-	}
-	(void)port;
-}
-
-static REG8 IOINPCALL gdc_i9a8(UINT port) {
-
-	(void)port;
-	return((gdc.display >> GDCDISP_31) & 1);
-}
-#endif
 
 
 // ---- I/F
@@ -922,13 +896,8 @@ void gdc_bind(void) {
 	if (pccore.model_va == PCMODEL_NOTVA) {
 		gdc_updateclock();
 	}
-#if defined(SUPPORT_CRT31KHZ)
-	iocore_attachout(0x09a8, gdc_o9a8);
-	iocore_attachinp(0x09a8, gdc_i9a8);
-#endif
 	iocore_attachsysoutex(0x0060, 0x0cf1, gdco60, 8);
 	iocore_attachsysinpex(0x0060, 0x0cf1, gdci60, 8);
 	iocore_attachsysoutex(0x00a0, 0x0cf1, gdcoa0, 8);
 	iocore_attachsysinpex(0x00a0, 0x0cf1, gdcia0, 8);
 }
-
