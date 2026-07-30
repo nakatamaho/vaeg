@@ -137,6 +137,19 @@ M72 owns:
    - Preserve active VA sound output, VA keyboard input, WAV sample loading,
      and SDL2 display behavior.
 
+Explicitly deferred from M72:
+
+- `SUPPORT_WAVEREC` remains out of scope for M72. Audio recording is not part
+  of the current inactive-cleanup closure and must be audited in a later
+  task before deletion or folding.
+- `SUPPORT_OPRECORD` remains out of scope for M72. Operation-record support
+  has state-save and device-observation hooks and must be audited in a later
+  task before deletion.
+- `io/fdd320.c` and `io/fdd320.h` remain out of scope for M72 deletion.
+  They are legacy-looking, but 5-inch 2D behavior may still be relevant to
+  the PC-88 side of the VA environment. Future I/O cleanup must audit that
+  dependency before any removal.
+
 ## Non-goals
 
 M72 must not:
@@ -157,7 +170,9 @@ M72 must not:
 - remove or weaken HOSTFAT while removing legacy HOSTDRV;
 - remove VA sound output while removing S98 logging or optional compressed
   sample decoders;
+- remove `SUPPORT_WAVEREC` or `SUPPORT_OPRECORD`;
 - remove active VA keyboard input while removing inactive keyboard overlays;
+- remove `io/fdd320.c` or `io/fdd320.h`;
 - implement PC-9821 support;
 - turn the active SDL2 frontend back into a general PC-98/98x1 frontend;
 - start any unrelated cleanup.

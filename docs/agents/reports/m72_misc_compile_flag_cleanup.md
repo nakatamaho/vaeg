@@ -74,6 +74,9 @@ The M72 task and ROADMAP were updated to record this distinction.
 | `SUPPORT_SOFTKBD` | Removed inactive software-keyboard overlay and LED callbacks. |
 | `SUPPORT_PC9801_119` | Removed inactive PC-9801-119 software-keyboard alternate branch. |
 | Legacy `embed/` menu directory | Removed. It was not in the active CMake source list and is separate from the active `cmake/embed_binary.cmake` asset embedding helper. |
+| `SUPPORT_WAVEREC` | Deferred from M72 by maintainer direction. WAV recording remains for a later dedicated audit. |
+| `SUPPORT_OPRECORD` | Deferred from M72 by maintainer direction. Operation recording remains for a later dedicated audit because it has state-save and device-observation hooks. |
+| `io/fdd320.c` / `io/fdd320.h` | Retained. FDD320 is legacy-looking, but 5-inch 2D behavior may still be relevant to the PC-88 side of the VA environment and needs a later focused audit before removal. |
 
 ## Files removed by completed cleanup commits
 
@@ -229,5 +232,10 @@ milestone checks as required by the task.
   It is not the active asset embedding system. `cmake/embed_binary.cmake`,
   `assets/vaeg.bmp`, `assets/NotoSansJP-Regular.ttf`, and `assets/vaeg.ico`
   remain unchanged.
+- `SUPPORT_WAVEREC` and `SUPPORT_OPRECORD` are intentionally not M72
+  removals. They remain present and require a later dedicated audit.
+- `io/fdd320.c` and `io/fdd320.h` remain present. They are not treated as
+  M72 inactive-removable code because 5-inch 2D behavior may still matter for
+  the PC-88 side of the VA environment.
 - Historical reports and old milestone tasks that mention HOSTDRV were not
   rewritten.
