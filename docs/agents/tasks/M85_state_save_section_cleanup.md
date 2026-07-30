@@ -1,24 +1,24 @@
-# M84 - State-save section cleanup and compatibility report
+# M85 - State-save section cleanup and compatibility report
 
-M84 audits and cleans state-save sections after the VA-only source-tree
+M85 audits and cleans state-save sections after the VA-only source-tree
 consolidation milestones have closed active dependencies.
 
-Predecessor: approved G83.
+Predecessor: approved G84.
 
-Branch: `topic/m84-state-save-section-cleanup`
+Branch: `topic/m85-state-save-section-cleanup`
 
-Commit prefix: `M84:`
+Commit prefix: `M85:`
 
-Candidate gate: `G84`
+Candidate gate: `G85`
 
-Report: `docs/agents/reports/m84_state_save_section_cleanup.md`
+Report: `docs/agents/reports/m85_state_save_section_cleanup.md`
 
-Do not start M85. Do not merge M84 to `main` before G84 approval. Do not
-declare G84 passed.
+Do not start M86. Do not merge M85 to `main` before G85 approval. Do not
+declare G85 passed.
 
 ## Scope
 
-M84 must:
+M85 must:
 
 - inventory every state-save section remaining from retired 98-only code;
 - preserve required VA sections;
@@ -29,7 +29,7 @@ M84 must:
 
 ## Non-goals
 
-M84 must not use state cleanup to hide behavior changes from earlier
+M85 must not use state cleanup to hide behavior changes from earlier
 milestones.
 
 ## Validation

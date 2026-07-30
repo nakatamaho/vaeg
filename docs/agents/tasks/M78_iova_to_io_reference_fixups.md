@@ -1,24 +1,24 @@
-# M77 - Normalize references after the VA I/O move
+# M78 - Normalize references after the VA I/O move
 
-M77 normalizes include paths, CMake entries, documentation references, and
-repository-local path assumptions after M76 moves `iova/*` into `io/`.
+M78 normalizes include paths, CMake entries, documentation references, and
+repository-local path assumptions after M77 moves `iova/*` into `io/`.
 
-Predecessor: approved G76.
+Predecessor: approved G77.
 
-Branch: `topic/m77-iova-io-reference-fixups`
+Branch: `topic/m78-iova-io-reference-fixups`
 
-Commit prefix: `M77:`
+Commit prefix: `M78:`
 
-Candidate gate: `G77`
+Candidate gate: `G78`
 
-Report: `docs/agents/reports/m77_iova_io_reference_fixups.md`
+Report: `docs/agents/reports/m78_iova_io_reference_fixups.md`
 
-Do not start M78. Do not merge M77 to `main` before G77 approval. Do not
-declare G77 passed.
+Do not start M79. Do not merge M78 to `main` before G78 approval. Do not
+declare G78 passed.
 
 ## Scope
 
-M77 owns only reference normalization after the move:
+M78 owns only reference normalization after the move:
 
 - update include paths and build lists to the new `io/` locations;
 - update current task/report references that describe active paths;
@@ -28,7 +28,7 @@ M77 owns only reference normalization after the move:
 
 ## Non-goals
 
-M77 must not integrate the dispatcher, delete legacy devices, or rename
+M78 must not integrate the dispatcher, delete legacy devices, or rename
 production symbols beyond path-derived include guards when required.
 
 ## Validation
