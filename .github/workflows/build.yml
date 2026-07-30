@@ -231,6 +231,55 @@ jobs:
           name: vaeg-windows-mingw64-z80
           path: build/mingw-ci/artifact/
 
+  windows-release:
+    name: windows msys2 mingw64 release artifact
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: true
+          # Keep the package list aligned with the Windows test job. This job
+          # intentionally uses mingw-release so the uploaded executable is the
+          # runtime/manual-test build, not the tests-and-trace CI binary.
+          install: >-
+            git
+            mingw-w64-x86_64-cmake
+            mingw-w64-x86_64-ninja
+            mingw-w64-x86_64-gcc
+            mingw-w64-x86_64-pkgconf
+      - name: Configure
+        run: cmake --preset mingw-release
+      - name: Build
+        run: cmake --build --preset mingw-release
+      - name: Smoke
+        run: SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy ./build/mingw-release/sdl2/vaeg.exe --smoke
+      - name: Verify Windows runtime imports
+        run: |
+          objdump -p build/mingw-release/sdl2/vaeg.exe | grep 'DLL Name'
+          if objdump -p build/mingw-release/sdl2/vaeg.exe | grep -E 'SDL2\.dll|libgcc_s_seh-1\.dll|libstdc\+\+-6\.dll|libwinpthread-1\.dll'; then
+            echo "unexpected SDL2 or MinGW runtime DLL import" >&2
+            exit 1
+          fi
+      - name: Stage release artifact
+        run: |
+          # This is the manual-runtime Windows release artifact. Unlike
+          # mingw-ci, this build keeps VAEG_ENABLE_TESTS and
+          # VAEG_Z80_INTEGRATION_TRACE disabled.
+          mkdir -p build/mingw-release/artifact
+          cp build/mingw-release/sdl2/vaeg.exe build/mingw-release/artifact/
+      - name: Upload release artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: vaeg-windows-mingw64-release
+          path: build/mingw-release/artifact/
+
   macos:
     name: macos fetch-sdl2 z80
     runs-on: macos-latest
