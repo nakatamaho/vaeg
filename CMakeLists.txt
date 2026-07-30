@@ -478,7 +478,6 @@ add_library(vaeg_core STATIC ${VAEG_CORE_SOURCES})
 target_include_directories(vaeg_core PUBLIC ${VAEG_INCLUDE_DIRS})
 target_link_libraries(vaeg_core PUBLIC vaeg_common)
 target_compile_definitions(vaeg_core PUBLIC
-    SUPPORT_SASI
     SUPPORT_V30ORIGINAL)
 if(VAEG_ENABLE_TESTS)
     target_compile_definitions(vaeg_core PRIVATE
@@ -852,7 +851,7 @@ if(VAEG_ENABLE_TESTS)
     add_executable(vaeg_upd9002_abi tests/upd9002/abi.c)
     target_include_directories(vaeg_upd9002_abi PRIVATE ${VAEG_INCLUDE_DIRS})
     target_compile_definitions(vaeg_upd9002_abi PRIVATE
-        SUPPORT_SASI SUPPORT_V30ORIGINAL)
+        SUPPORT_V30ORIGINAL)
     target_compile_options(vaeg_upd9002_abi PRIVATE -Wall -fsigned-char)
     add_test(NAME vaeg_upd9002_abi
         COMMAND vaeg_upd9002_abi
@@ -866,7 +865,7 @@ if(VAEG_ENABLE_TESTS)
     target_include_directories(vaeg_upd9002_state_boundary PRIVATE
         ${VAEG_INCLUDE_DIRS})
     target_compile_definitions(vaeg_upd9002_state_boundary PRIVATE
-        SUPPORT_SASI SUPPORT_V30ORIGINAL)
+        SUPPORT_V30ORIGINAL)
     target_compile_options(vaeg_upd9002_state_boundary PRIVATE
         -Wall -fsigned-char)
     add_test(NAME vaeg_upd9002_state_boundary
@@ -880,7 +879,7 @@ if(VAEG_ENABLE_TESTS)
     target_include_directories(vaeg_upd9002_state_payload_probe PRIVATE
         ${VAEG_INCLUDE_DIRS})
     target_compile_definitions(vaeg_upd9002_state_payload_probe PRIVATE
-        SUPPORT_SASI SUPPORT_V30ORIGINAL)
+        SUPPORT_V30ORIGINAL)
     target_compile_options(vaeg_upd9002_state_payload_probe PRIVATE
         -Wall -fsigned-char)
     add_test(NAME vaeg_upd9002_state_payload_probe

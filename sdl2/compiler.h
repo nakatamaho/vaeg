@@ -192,7 +192,4 @@ static INLINE UINT32 vaeg_gettick(void) {
 
 #define SOUNDRESERVE 100
 
-#define SUPPORT_CRT15KHZ
-#define SUPPORT_SWSEEKSND
-
 #endif

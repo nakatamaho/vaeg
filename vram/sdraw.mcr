@@ -294,7 +294,6 @@ const BYTE	*q;
 	sdraw->y = y;
 }
 
-#if defined(SUPPORT_CRT15KHZ)
 // text or grph 1プレーン(15kHz)
 static void SCRNCALL SDSYM(p_1d)(SDRAW sdraw, int maxy) {
 
@@ -364,13 +363,10 @@ const BYTE	*q;
 	sdraw->dst = r;
 	sdraw->y = y;
 }
-#endif
 
 static const SDRAWFN SDSYM(p)[] = {
 		SDSYM(p_0),		SDSYM(p_1),		SDSYM(p_1),		SDSYM(p_2),
 		SDSYM(p_0),		SDSYM(p_ti),	SDSYM(p_gi),	SDSYM(p_2i),
 		SDSYM(p_0),		SDSYM(p_ti),	SDSYM(p_gie),	SDSYM(p_2ie),
-#if defined(SUPPORT_CRT15KHZ)
 		SDSYM(p_0),		SDSYM(p_1d),	SDSYM(p_1d),	SDSYM(p_2d),
-#endif
 	};

@@ -2,12 +2,9 @@
 #include	"soundmng.h"
 #include	"pccore.h"
 #include	"fdd_mtr.h"
-#if defined(SUPPORT_SWSEEKSND)
 #include	"sound.h"
-#endif
 
 
-#if defined(SUPPORT_SWSEEKSND)
 
 enum {
 	FDDMTRSND_SEEK		= 0,
@@ -113,7 +110,6 @@ static void fddmtrsnd_play(UINT num, BOOL play) {
 		}
 	}
 }
-#endif
 
 
 // ----
@@ -129,7 +125,6 @@ enum {
 
 static void fddmtr_event(void);
 
-#if defined(SUPPORT_SWSEEKSND)
 void fddmtrsnd_stop(void) {
 
 	UINT	i;
@@ -185,17 +180,12 @@ void fddmtrsnd_headunload(void) {
 		mtrsnd.headoffevent = GETTICK() + HEADUNLOAD_MS;
 	}
 }
-#endif
 
 static void fddmtr_event(void) {
 
 	switch(fddmtr.curevent) {
 		case 100:
-#if defined(SUPPORT_SWSEEKSND)
 			fddmtrsnd_play(FDDMTRSND_SEEK, FALSE);
-#else
-			soundmng_pcmstop(SOUND_PCMSEEK);
-#endif
 			fddmtr.curevent = 0;
 			break;
 
@@ -207,11 +197,7 @@ static void fddmtr_event(void) {
 
 void fddmtr_initialize(void) {
 
-#if defined(SUPPORT_SWSEEKSND)
 	fddmtrsnd_stop();
-#else
-	soundmng_pcmstop(SOUND_PCMSEEK);
-#endif
 	ZeroMemory(&fddmtr, sizeof(fddmtr));
 	FillMemory(fddmtr.head, sizeof(fddmtr.head), 42);
 }
@@ -221,7 +207,6 @@ void fddmtr_callback(UINT time) {
 	if ((fddmtr.curevent) && (time >= fddmtr.nextevent)) {
 		fddmtr_event();
 	}
-#if defined(SUPPORT_SWSEEKSND)
 	if ((mtrsnd.headloaded) && (mtrsnd.headoffevent) &&
 		(time >= mtrsnd.headoffevent)) {
 		fddmtrsnd_play(FDDMTRSND_HEADOFF, FALSE);
@@ -229,7 +214,6 @@ void fddmtr_callback(UINT time) {
 		mtrsnd.headloaded = FALSE;
 		mtrsnd.headoffevent = 0;
 	}
-#endif
 }
 
 void fdbiosout(NEVENTITEM item) {
@@ -263,11 +247,7 @@ void fddmtr_seek(REG8 drv, REG8 c, UINT size) {
 	if (regmove == 1) {
 		if (fddmtr.curevent < 80) {
 			fddmtr_event();
-#if defined(SUPPORT_SWSEEKSND)
 			fddmtrsnd_play(FDDMTRSND_SEEK1, TRUE);
-#else
-			soundmng_pcmplay(SOUND_PCMSEEK1, FALSE);
-#endif
 			fddmtr.curevent = 80;
 			fddmtr.nextevent = GETTICK() + MOVEMOTOR1_MS;
 		}
@@ -275,11 +255,7 @@ void fddmtr_seek(REG8 drv, REG8 c, UINT size) {
 	else if (regmove) {
 		if (fddmtr.curevent < 100) {
 			fddmtr_event();
-#if defined(SUPPORT_SWSEEKSND)
 			fddmtrsnd_play(FDDMTRSND_SEEK, TRUE);
-#else
-			soundmng_pcmplay(SOUND_PCMSEEK, TRUE);
-#endif
 			fddmtr.curevent = 100;
 			fddmtr.nextevent = GETTICK() + (regmove * MOVE1TCK_MS);
 		}
