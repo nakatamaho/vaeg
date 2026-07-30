@@ -1,33 +1,33 @@
-# M75 - uPD9002 uPD780 emulation-mode authority audit
+# M76 - uPD9002 uPD780 emulation-mode authority audit
 
-M75 audits the uPD9002 main-CPU uPD780 emulation-mode evidence and decides the
+M76 audits the uPD9002 main-CPU uPD780 emulation-mode evidence and decides the
 safe implementation authority before the later I/O and BIOS restructuring
 milestones.
 
-Predecessor: approved G74.
+Predecessor: approved G75.
 
-Branch: `topic/m75-upd9002-upd780-emulation-mode-authority`
+Branch: `topic/m76-upd9002-upd780-emulation-mode-authority`
 
-Commit prefix: `M75:`
+Commit prefix: `M76:`
 
-Candidate gate: `G75`
+Candidate gate: `G76`
 
-Report: `docs/agents/reports/m75_upd9002_upd780_emulation_mode_authority.md`
+Report: `docs/agents/reports/m76_upd9002_upd780_emulation_mode_authority.md`
 
-Do not start M76. Do not merge M75 to `main` before G75 approval. Do not
-declare G75 passed.
+Do not start M77. Do not merge M76 to `main` before G76 approval. Do not
+declare G76 passed.
 
 ## Scope
 
-M75 owns the authority boundary for the uPD9002 main CPU's uPD780
+M76 owns the authority boundary for the uPD9002 main CPU's uPD780
 emulation-mode mechanism. This is separate from the FDC subsystem
 uPD780-compatible CPU currently wrapped through `cpucva/z80_core.cpp`.
 
-M75 must:
+M76 must:
 
 - audit `docs/modernization/upd9002-upd780-mode.md` and current uPD9002 mode
   state, decode, trace, interrupt, and state-save boundaries;
-- use M73 VA1 BASIC command-hang evidence and retired VA1 diagnostic investigation SCSI evidence as inputs
+- use retired VA1 diagnostic investigation VA1 BASIC command-hang evidence and M75 SCSI evidence as inputs
   when available;
 - audit the CP/M emulator `.cpv` hard-emulation path as a transition-mechanism
   exerciser when the source and binary identity are available;
@@ -42,7 +42,7 @@ M75 must:
 
 ## Non-goals
 
-M75 must not:
+M76 must not:
 
 - implement broad generic V20, V30, i286, i386, 8080, or Z80 compatibility;
 - conflate the main uPD9002 emulation-mode mechanism with the FDC subsystem
@@ -54,13 +54,13 @@ M75 must not:
 - claim complete physical uPD9002 silicon proof while the repair/test hardware
   remains unavailable.
 
-If M75 proves that emulation-mode implementation is required and sufficiently
+If M76 proves that emulation-mode implementation is required and sufficiently
 bounded, it must still close with a clear authority report unless the approved
 task is explicitly amended to include implementation.
 
 ## CP/M emulator transition evidence
 
-M75 must treat the CP/M emulator `.cpv` path as evidence for the V30-style
+M76 must treat the CP/M emulator `.cpv` path as evidence for the V30-style
 mode-transition mechanism only, not as evidence for the VA uPD780/Z80
 instruction set.
 
@@ -70,7 +70,7 @@ The CP/M emulator retrieval source to audit is:
 https://www.vector.co.jp/soft/win95/util/se378130.html
 ```
 
-M75 must record the downloaded archive identity, source-file identity, binary
+M76 must record the downloaded archive identity, source-file identity, binary
 identity, and any redistribution or archival limitations before committing
 derived evidence.
 

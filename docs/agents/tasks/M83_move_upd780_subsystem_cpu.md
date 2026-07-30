@@ -1,25 +1,25 @@
-# M82 - Move the FDC subsystem CPU to cpu/upd780
+# M83 - Move the FDC subsystem CPU to cpu/upd780
 
-M82 creates `cpu/upd780/` and moves the FDC subsystem uPD780-compatible CPU
+M83 creates `cpu/upd780/` and moves the FDC subsystem uPD780-compatible CPU
 wrapper/backend there.
 
-Predecessor: approved G81.
+Predecessor: approved G82.
 
-Branch: `topic/m82-move-upd780-subsystem-cpu`
+Branch: `topic/m83-move-upd780-subsystem-cpu`
 
-Commit prefix: `M82:`
+Commit prefix: `M83:`
 
-Candidate gate: `G82`
+Candidate gate: `G83`
 
-Report: `docs/agents/reports/m82_move_upd780_subsystem_cpu.md`
+Report: `docs/agents/reports/m83_move_upd780_subsystem_cpu.md`
 
-Do not start M83. Do not merge M82 to `main` before G82 approval. Do not
-declare G82 passed.
+Do not start M84. Do not merge M83 to `main` before G83 approval. Do not
+declare G83 passed.
 
 ## Scope
 
-M82 owns the move from `cpucva/` to `cpu/upd780/` for the FDC subsystem CPU
-files identified by M81.
+M83 owns the move from `cpucva/` to `cpu/upd780/` for the FDC subsystem CPU
+files identified by M82.
 
 Use rename-only commits for moves and separate reference-fixup commits.
 
@@ -32,7 +32,7 @@ cpu/upd780/    FDC subsystem uPD780-compatible CPU wrapper/backend
 
 ## Non-goals
 
-M82 must not implement a new CPU core, change FDC semantics, move unrelated
+M83 must not implement a new CPU core, change FDC semantics, move unrelated
 VA memory code, or rename the FDC subsystem protocol beyond path-accurate
 documentation.
 

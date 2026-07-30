@@ -42,8 +42,12 @@ Repository: `github.com/nakatamaho/vaeg`
   `53d47ed500baef247a1be5f3ccc18bdb0c00c0cc`.
 - G71 is approved at
   `24950894eca79e308afae8d574d43c8f393bb483`.
-- M75 is reserved for uPD9002 main-CPU uPD780 emulation-mode authority after
-  M73 BASIC and retired VA1 diagnostic investigation SCSI evidence, and before the I/O source-tree
+- G72 is approved at
+  `643d9f7289d817c67f343bf01be368b546bc1438`.
+- M73 is reserved for the post-M49 runtime performance regression observed
+  between approved M49 and M50 checkpoints.
+- M76 is reserved for uPD9002 main-CPU uPD780 emulation-mode authority after
+  retired VA1 diagnostic investigation BASIC and M75 SCSI evidence, and before the I/O source-tree
   reorganization. This is separate from the FDC subsystem uPD780-compatible
   CPU cleanup planned later in the VA-only source-tree sequence.
 
