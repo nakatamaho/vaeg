@@ -1,26 +1,26 @@
-# M87 - Final VA-only source-tree audit
+# M88 - Final VA-only source-tree audit
 
-M87 performs the final audit of the VA-only active source tree after the BASIC,
+M88 performs the final audit of the VA-only active source tree after the BASIC,
 SCSI, uPD9002 emulation-mode authority, I/O, BIOS, FDC subsystem CPU,
 `cpucva`, state-save, machine-core relocation, legacy tool/ROM regeneration,
 and `lio/` disposition milestones.
 
-Predecessor: approved G86.
+Predecessor: approved G87.
 
-Branch: `topic/m87-final-va-only-source-tree-audit`
+Branch: `topic/m88-final-va-only-source-tree-audit`
 
-Commit prefix: `M87:`
+Commit prefix: `M88:`
 
-Candidate gate: `G87`
+Candidate gate: `G88`
 
-Report: `docs/agents/reports/m87_final_va_only_source_tree_audit.md`
+Report: `docs/agents/reports/m88_final_va_only_source_tree_audit.md`
 
-Do not start M88. Do not merge M87 to `main` before G87 approval. Do not
-declare G87 passed.
+Do not start M89. Do not merge M88 to `main` before G88 approval. Do not
+declare G88 passed.
 
 ## Scope
 
-M87 must:
+M88 must:
 
 - prove the active tree is organized around PC-88VA, not general PC-98/98x1
   compatibility;
@@ -29,7 +29,7 @@ M87 must:
 - verify that `cbus/` retains only VA-supported expansion-board paths or
   explicitly deferred evidence gaps;
 - verify that `cpu/upd9002/` and `cpu/upd780/` have clear ownership;
-- verify that the M75 uPD9002 emulation-mode authority conclusion and the FDC
+- verify that the M76 uPD9002 emulation-mode authority conclusion and the FDC
   subsystem uPD780-compatible CPU ownership remain distinct;
 - verify that `machine/` has clear ownership for reset, events, timing,
   calendar, keyboard state, and state save/load;
@@ -40,7 +40,7 @@ M87 must:
 
 ## Non-goals
 
-M87 must not implement new hardware behavior. Any remaining evidence gap must
+M88 must not implement new hardware behavior. Any remaining evidence gap must
 be reported as backlog rather than silently removed.
 
 ## Validation

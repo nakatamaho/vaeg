@@ -1,25 +1,25 @@
-# M73 - VA1 N88 BASIC V3 command hang investigation
+# M74 - VA1 N88 BASIC V3 command hang investigation
 
-M73 investigates and, if evidence permits, corrects the inherited VA1 N88
+M74 investigates and, if evidence permits, corrects the inherited VA1 N88
 BASIC V3 command hang before the later I/O, BIOS, and source-tree
 reorganization milestones.
 
-Predecessor: approved G72.
+Predecessor: approved G73.
 
-Branch: `topic/m73-va1-basic-command-hang`
+Branch: `topic/m74-va1-basic-command-hang`
 
-Commit prefix: `M73:`
+Commit prefix: `M74:`
 
-Candidate gate: `G73`
+Candidate gate: `G74`
 
-Report: `docs/agents/reports/m73_va1_basic_command_hang.md`
+Report: `docs/agents/reports/m74_va1_basic_command_hang.md`
 
-Do not start M74. Do not merge M73 to `main` before G73 approval. Do not
-declare G73 passed.
+Do not start M75. Do not merge M74 to `main` before G74 approval. Do not
+declare G74 passed.
 
 ## Scope
 
-M73 owns only the already documented VA1 N88 BASIC V3 command hang.
+M74 owns only the already documented VA1 N88 BASIC V3 command hang.
 
 Required reproductions include:
 
@@ -30,7 +30,7 @@ Required reproductions include:
   path is available;
 - record whether the guest is halted or executing a repeated path.
 
-M73 must capture enough evidence to distinguish at least:
+M74 must capture enough evidence to distinguish at least:
 
 - FDC Sense Interrupt Status polling or another FDC wait condition;
 - BIOS entry or BIOS simulation hooks;
@@ -40,7 +40,7 @@ M73 must capture enough evidence to distinguish at least:
 
 ## Non-goals
 
-M73 must not:
+M74 must not:
 
 - implement SCSI support;
 - move `iova/*`;
@@ -51,7 +51,7 @@ M73 must not:
 - change state-save format unless a directly proven BASIC fix requires a
   separately documented compatibility decision.
 
-If the root cause is outside M73's safe correction scope, M73 may close with a
+If the root cause is outside M74's safe correction scope, M74 may close with a
 bounded reproducer, trace evidence, and a follow-on task recommendation instead
 of a production fix.
 

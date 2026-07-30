@@ -1,26 +1,26 @@
-# M74 - SCSI support cleanup and validation
+# M75 - SCSI support cleanup and validation
 
-M74 is reserved for SCSI support cleanup, validation, and VA integration.
+M75 is reserved for SCSI support cleanup, validation, and VA integration.
 
-Predecessor: approved G73.
+Predecessor: approved G74.
 
-Branch: `topic/m74-scsi-support`
+Branch: `topic/m75-scsi-support`
 
-Commit prefix: `M74:`
+Commit prefix: `M75:`
 
-Candidate gate: `G74`
+Candidate gate: `G75`
 
-Report: `docs/agents/reports/m74_scsi_support.md`
+Report: `docs/agents/reports/m75_scsi_support.md`
 
-Do not start M75. Do not merge M74 to `main` before G74 approval. Do not
-declare G74 passed.
+Do not start M76. Do not merge M75 to `main` before G75 approval. Do not
+declare G75 passed.
 
 ## Scope
 
-M74 owns the active SCSI support path after M72 folds `SUPPORT_SCSI` to the
+M75 owns the active SCSI support path after M72 folds `SUPPORT_SCSI` to the
 enabled side.
 
-M74 must:
+M75 must:
 
 - audit `cbus/scsiio.c`, `cbus/scsicmd.c`, BIOS SxSI helpers, SDL2 media UI,
   configuration, save-state entries, and ROM-less tests;
@@ -35,7 +35,7 @@ M74 must:
 
 ## Non-goals
 
-M74 must not:
+M75 must not:
 
 - move `iova/` sources;
 - delete 98-only `io/` devices;
@@ -53,4 +53,4 @@ checks with exact blocker details.
 
 The final report must include the audited SCSI dependency graph, retained and
 removed code paths if any, validation commands and exit statuses, manual gate
-results, and a G74 human-review checklist.
+results, and a G75 human-review checklist.
