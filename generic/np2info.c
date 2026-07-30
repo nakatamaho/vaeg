@@ -25,16 +25,8 @@ static const char str_exist[] = "exist";
 static const char str_ok[] = "OK";
 static const char str_ng[] = "NG";
 
-static const char str_model[] =
-						"PC-9801VF\0"				\
-						"PC-9801VM\0"				\
-						"PC-9801VX\0"				\
-						"";
-
-static const char str_model_88va[] =
-						"\0"						\
-						"PC-88VA1\0"				\
-						"PC-88VA2";
+static const char str_model_va1[] = "PC-88VA1";
+static const char str_model_va2[] = "PC-88VA2";
 
 static const char str_romtype_88va[] =
 						"PC-88VA1\0"				\
@@ -47,14 +39,7 @@ static const char str_88va_rom1[]  = "1";
 static const char str_88va_dic[]   = "DIC";
 static const char str_88va_font[]  = "FONT";
 
-static const char str_cpu[] =
-						"8086-2\0"					\
-						"70116\0"					\
-						"80286\0"					\
-						"80386\0"					\
-						"80486\0"					\
-						"Pentium\0"					\
-						"PentiumPro";
+static const char str_cpu[] = "uPD9002";
 static const char str_winclr[] =
 						"256-colors\0"				\
 						"65536-colors\0"			\
@@ -116,26 +101,16 @@ static void info_ver(char *str, int maxlen, NP2INFOEX *ex) {
 }
 
 static void info_model(char *str, int maxlen, NP2INFOEX *ex) {
-	if (pccore.model_va == PCMODEL_NOTVA) {
-		milstr_ncpy(str, milstr_list(str_model, pccore.model), maxlen);
-	}
-	else {
-		milstr_ncpy(str, milstr_list(str_model_88va, pccore.model_va), maxlen);
-	}
+	milstr_ncpy(str,
+				(pccore.model_va == PCMODEL_VA2) ? str_model_va2 : str_model_va1,
+				maxlen);
 	(void)ex;
 }
 
 
 static void info_cpu(char *str, int maxlen, NP2INFOEX *ex) {
 
-	UINT	family;
-
-#if defined(CPU_FAMILY)
-	family = min(CPU_FAMILY, 6);
-#else
-	family = 1;
-#endif
-	milstr_ncpy(str, milstr_list(str_cpu, family), maxlen);
+	milstr_ncpy(str, str_cpu, maxlen);
 	(void)ex;
 }
 
