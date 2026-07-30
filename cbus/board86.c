@@ -6,7 +6,6 @@
 #include	"pcm86io.h"
 #include	"sound.h"
 #include	"fmboard.h"
-#include	"s98.h"
 
 
 static void IOOUTCALL opna_o188(UINT port, REG8 dat) {
@@ -17,7 +16,6 @@ static void IOOUTCALL opna_o188(UINT port, REG8 dat) {
 
 static void IOOUTCALL opna_o18a(UINT port, REG8 dat) {
 
-	S98_put(NORMAL2608, opn.opnreg, dat);
 	if (opn.opnreg < 0x10) {
 		if (opn.opnreg != 0x0e) {
 			psggen_setreg(&psg1, opn.opnreg, dat);
@@ -60,7 +58,6 @@ static void IOOUTCALL opna_o18c(UINT port, REG8 dat) {
 
 static void IOOUTCALL opna_o18e(UINT port, REG8 dat) {
 
-	S98_put(EXTEND2608, opn.extreg, dat);
 	opn.reg[opn.extreg + 0x100] = dat;
 	if (opn.extreg >= 0x30) {
 		opngen_setreg(3, opn.extreg, dat);
@@ -166,7 +163,6 @@ void board86_bind(void) {
 
 static void IOOUTCALL opnac_o18e(UINT port, REG8 dat) {
 
-	S98_put(EXTEND2608, opn.extreg, dat);
 	opn.reg[opn.extreg + 0x100] = dat;
 	if (opn.extreg >= 0x30) {
 		opngen_setreg(3, opn.extreg, dat);
@@ -221,4 +217,3 @@ void board86c_bind(void) {
 	pcm86io_bind();
 	cbuscore_attachsndex(0x188 + opn.base, opnac_o, opnac_i);
 }
-

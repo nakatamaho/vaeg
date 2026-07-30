@@ -17,7 +17,6 @@
 #include	"sound.h"
 #include	"fmboard.h"
 #include	"beep.h"
-#include	"keydisp.h"
 #include	"keystat.h"
 
 #include	"boardsb2.h"
@@ -114,11 +113,8 @@ static void setfmregs(BYTE *reg) {
 
 void fmboard_reset(UINT32 type) {
 
-	BYTE	cross;
-
 	soundrom_reset();
 	beep_reset();												// ver0.27a
-	cross = np2cfg.snd_x;										// ver0.30
 
 	extfn = NULL;
 	ZeroMemory(&opn, sizeof(opn));
@@ -172,12 +168,10 @@ void fmboard_reset(UINT32 type) {
 
 		case 0x20:
 			boardspb_reset();
-			cross ^= np2cfg.spb_x;
 			break;
 
 		case 0x40:
 			boardspr_reset();
-			cross ^= np2cfg.spb_x;
 			break;
 
 		case 0x80:
@@ -197,8 +191,6 @@ void fmboard_reset(UINT32 type) {
 			break;
 	}
 	usesound = type;
-	soundmng_setreverse(cross);
-	keydisp_setfmboard(type);
 	opngen_setVR(np2cfg.spb_vrc, np2cfg.spb_vrl);
 }
 

@@ -11,7 +11,6 @@
 #include	"boardsb2.h"
 #include	"sound.h"
 #include	"fmboard.h"
-#include	"s98.h"
 
 
 	_BOARDSB2	boardsb2;
@@ -68,7 +67,6 @@ static void IOOUTCALL sb2_o044(UINT port, REG8 dat) {
 static void IOOUTCALL sb2_o045(UINT port, REG8 dat) {
 
 	//TRACEOUT(("sb2: o045 (%02x) <- %02x %.4x:%.4x", opn.opnreg, dat, CPU_CS, CPU_IP));
-	S98_put(NORMAL2608, opn.opnreg, dat);
 	if (opn.opnreg < 0x10) {
 		if (opn.opnreg != 0x0e) {
 			psggen_setreg(&psg1, opn.opnreg, dat);
@@ -120,7 +118,6 @@ static void IOOUTCALL sb2_o046(UINT port, REG8 dat) {
 static void IOOUTCALL sb2_o047(UINT port, REG8 dat) {
 
 	//TRACEOUT(("sb2: o047 (%02x) <- %02x %.4x:%.4x", opn.extreg, dat, CPU_CS, CPU_IP));
-	S98_put(EXTEND2608, opn.extreg, dat);
 	opn.reg[opn.extreg + 0x100] = dat;
 	if (opn.extreg >= 0x30) {
 		opngen_setreg(3, opn.extreg, dat);

@@ -6,7 +6,6 @@
 #include	"cs4231io.h"
 #include	"sound.h"
 #include	"fmboard.h"
-#include	"s98.h"
 
 
 static void IOOUTCALL ymf_o188(UINT port, REG8 dat) {
@@ -17,7 +16,6 @@ static void IOOUTCALL ymf_o188(UINT port, REG8 dat) {
 
 static void IOOUTCALL ymf_o18a(UINT port, REG8 dat) {
 
-	S98_put(NORMAL2608, opn.opnreg, dat);
 	if (opn.opnreg < 0x10) {
 		if (opn.opnreg != 0x0e) {
 			psggen_setreg(&psg1, opn.opnreg, dat);
@@ -58,7 +56,6 @@ static void IOOUTCALL ymf_o18c(UINT port, REG8 dat) {
 
 static void IOOUTCALL ymf_o18e(UINT port, REG8 dat) {
 
-	S98_put(EXTEND2608, opn.extreg, dat);
 	opn.reg[opn.extreg + 0x100] = dat;
 	if (opn.extreg >= 0x30) {
 		opngen_setreg(3, opn.extreg, dat);
@@ -169,4 +166,3 @@ void board118_bind(void) {
 	iocore_attachout(0xa460, ymf_oa460);
 	iocore_attachinp(0xa460, ymf_ia460);
 }
-

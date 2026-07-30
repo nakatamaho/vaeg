@@ -5,7 +5,6 @@
 #include	"board26k.h"
 #include	"sound.h"
 #include	"fmboard.h"
-#include	"s98.h"
 
 
 static void IOOUTCALL opn_o188(UINT port, REG8 dat) {
@@ -16,7 +15,6 @@ static void IOOUTCALL opn_o188(UINT port, REG8 dat) {
 
 static void IOOUTCALL opn_o18a(UINT port, REG8 dat) {
 
-	S98_put(NORMAL2608, opn.opnreg, dat);
 	if (opn.opnreg < 0x10) {
 		if (opn.opnreg != 0x0e) {
 			psggen_setreg(&psg1, opn.opnreg, dat);
@@ -90,4 +88,3 @@ void board26k_bind(void) {
 	sound_streamregist(&psg1, (SOUNDCB)psggen_getpcm);
 	cbuscore_attachsndex(0x188 - opn.base, opn_o, opn_i);
 }
-

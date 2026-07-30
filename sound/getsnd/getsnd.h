@@ -1,8 +1,4 @@
 
-// #define	SUPPORT_MP3
-// #define	SUPPORT_OGG
-
-
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -16,8 +12,6 @@ typedef void (*GSDECEND)(GETSND self);
 typedef void *(*GSCNV)(GETSND self, void *buf, void *bufterm);
 
 BOOL getwave_open(GETSND snd, BYTE *ptr, UINT size);
-BOOL getmp3_open(GETSND snd, BYTE *ptr, UINT size);
-BOOL getogg_open(GETSND snd, BYTE *ptr, UINT size);
 BOOL getsnd_setmixproc(GETSND snd, UINT samprate, UINT channles);
 
 struct _getsnd {
@@ -54,4 +48,3 @@ UINT getsnd_getpcmbyleng(GETSND hdl, void *pcm, UINT leng);
 #ifdef __cplusplus
 }
 #endif
-

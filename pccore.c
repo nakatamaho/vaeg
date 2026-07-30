@@ -24,7 +24,6 @@
 #include	"sound.h"
 #include	"fmboard.h"
 #include	"beep.h"
-#include	"s98.h"
 #include	"font.h"
 #include	"diskdrv.h"
 #include	"fddfile.h"
@@ -1062,7 +1061,6 @@ void pccore_exec(BOOL draw) {
 	mpu98ii_callback();
 	diskdrv_callback();
 	calendar_inc();
-	S98_sync();
 	sound_sync();													// happy!
 
 	if (hardwarereset) {
