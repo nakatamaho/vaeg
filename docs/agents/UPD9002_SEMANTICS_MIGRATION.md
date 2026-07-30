@@ -40,9 +40,12 @@ Repository: `github.com/nakatamaho/vaeg`
   `680308a603b24341c5b9649657f01791b79002f7`.
 - G70 is approved at
   `53d47ed500baef247a1be5f3ccc18bdb0c00c0cc`.
-- M71 is the next prospective gate. It folds the obsolete standalone
-  uPD9002 dispatch translation unit into `upd9002_core.c` and removes current
-  `v30` dispatch/core naming without changing behavior.
+- G71 is approved at
+  `24950894eca79e308afae8d574d43c8f393bb483`.
+- M75 is reserved for uPD9002 main-CPU uPD780 emulation-mode authority after
+  M73 BASIC and retired VA1 diagnostic investigation SCSI evidence, and before the I/O source-tree
+  reorganization. This is separate from the FDC subsystem uPD780-compatible
+  CPU cleanup planned later in the VA-only source-tree sequence.
 
 Codex executes one milestone or lettered submilestone per session and stops at its candidate gate.
 
