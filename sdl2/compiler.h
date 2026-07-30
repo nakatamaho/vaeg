@@ -186,7 +186,6 @@ static INLINE UINT32 vaeg_gettick(void) {
 #define VERMOUTH_LIB
 
 #define SUPPORT_SJIS
-#define SUPPORT_UTF8
 
 #define MEMOPTIMIZE 2
 
