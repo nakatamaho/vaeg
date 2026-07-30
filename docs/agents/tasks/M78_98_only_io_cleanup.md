@@ -1,24 +1,24 @@
-# M77 - Audit and remove 98-only io implementations
+# M78 - Audit and remove 98-only io implementations
 
-M77 audits and removes 98-only `io/` implementations after the VA dispatcher
+M78 audits and removes 98-only `io/` implementations after the VA dispatcher
 has been consolidated.
 
-Predecessor: approved G76.
+Predecessor: approved G77.
 
-Branch: `topic/m77-98-only-io-cleanup`
+Branch: `topic/m78-98-only-io-cleanup`
 
-Commit prefix: `M77:`
+Commit prefix: `M78:`
 
-Candidate gate: `G77`
+Candidate gate: `G78`
 
-Report: `docs/agents/reports/m77_98_only_io_cleanup.md`
+Report: `docs/agents/reports/m78_98_only_io_cleanup.md`
 
-Do not start M78. Do not merge M77 to `main` before G77 approval. Do not
-declare G77 passed.
+Do not start M79. Do not merge M78 to `main` before G78 approval. Do not
+declare G78 passed.
 
 ## Scope
 
-M77 may remove only implementations proven unreachable or irrelevant to the
+M78 may remove only implementations proven unreachable or irrelevant to the
 active VA product.
 
 Initial audit candidates include:
@@ -30,7 +30,7 @@ Initial audit candidates include:
 - `necio`;
 - `artic`, only if its callback and state-save role are proven inactive.
 
-`fdd320` is not an M77 default deletion target. It must be audited separately
+`fdd320` is not an M78 default deletion target. It must be audited separately
 because 5-inch 2D behavior may still be relevant to the PC-88 side of the VA
 environment.
 

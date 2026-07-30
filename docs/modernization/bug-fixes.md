@@ -1039,8 +1039,10 @@ separate parity correction or move it to Open Defects.
 - **Current evidence:** the CPU remains active and repeated FDC Sense Interrupt
   Status polling has been observed, but the exact guest wait condition is not
   yet demonstrated.
-- **Next step:** capture a bounded post-command CPU/register trace and compare
-  the decisive VA1 and VA2/VA3 control flow before changing FDC or memory code.
+- **Next step:** M73 is reserved to capture a bounded post-command
+  CPU/register/I/O trace, compare the decisive VA1 and VA2/VA3 control flow,
+  and correct the defect if the root cause is proven within the milestone
+  scope.
 - **Evidence:** [M21 diagnostic record](../agents/tasks/M21_sdl2_display_effects.md),
   [build and runtime notes](BUILD.md), and
   [M30 BMS investigation result](../agents/tasks/M30_va_bms_window.md).

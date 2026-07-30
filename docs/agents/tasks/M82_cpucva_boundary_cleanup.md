@@ -1,24 +1,24 @@
-# M81 - Clean up the remaining cpucva boundary
+# M82 - Clean up the remaining cpucva boundary
 
-M81 cleans up the remaining `cpucva/` boundary after the FDC subsystem CPU has
+M82 cleans up the remaining `cpucva/` boundary after the FDC subsystem CPU has
 moved to `cpu/upd780/`.
 
-Predecessor: approved G80.
+Predecessor: approved G81.
 
-Branch: `topic/m81-cpucva-boundary-cleanup`
+Branch: `topic/m82-cpucva-boundary-cleanup`
 
-Commit prefix: `M81:`
+Commit prefix: `M82:`
 
-Candidate gate: `G81`
+Candidate gate: `G82`
 
-Report: `docs/agents/reports/m81_cpucva_boundary_cleanup.md`
+Report: `docs/agents/reports/m82_cpucva_boundary_cleanup.md`
 
-Do not start M82. Do not merge M81 to `main` before G81 approval. Do not
-declare G81 passed.
+Do not start M83. Do not merge M82 to `main` before G82 approval. Do not
+declare G82 passed.
 
 ## Scope
 
-M81 must:
+M82 must:
 
 - audit remaining `cpucva/` contents;
 - decide whether VA memory belongs under a future `memory/`, `va/`, or other
@@ -30,7 +30,7 @@ M81 must:
 
 ## Non-goals
 
-M81 must not change uPD9002 instruction semantics, FDC uPD780 behavior, I/O
+M82 must not change uPD9002 instruction semantics, FDC uPD780 behavior, I/O
 dispatcher behavior, or state-save compatibility without a focused approval.
 
 ## Validation

@@ -1,24 +1,24 @@
-# M76 - Consolidate the VA I/O dispatcher
+# M77 - Consolidate the VA I/O dispatcher
 
-M76 makes the VA I/O dispatcher the canonical active I/O dispatcher and
+M77 makes the VA I/O dispatcher the canonical active I/O dispatcher and
 removes the unnecessary `iocore` / `iocoreva` split where evidence permits.
 
-Predecessor: approved G75.
+Predecessor: approved G76.
 
-Branch: `topic/m76-va-io-dispatcher-consolidation`
+Branch: `topic/m77-va-io-dispatcher-consolidation`
 
-Commit prefix: `M76:`
+Commit prefix: `M77:`
 
-Candidate gate: `G76`
+Candidate gate: `G77`
 
-Report: `docs/agents/reports/m76_va_io_dispatcher_consolidation.md`
+Report: `docs/agents/reports/m77_va_io_dispatcher_consolidation.md`
 
-Do not start M77. Do not merge M76 to `main` before G76 approval. Do not
-declare G76 passed.
+Do not start M78. Do not merge M77 to `main` before G77 approval. Do not
+declare G77 passed.
 
 ## Scope
 
-M76 owns dispatcher structure only:
+M77 owns dispatcher structure only:
 
 - audit `iomode_va`, `iocore_*`, and the moved VA port table;
 - make the active VA I/O routing canonical;
@@ -28,8 +28,8 @@ M76 owns dispatcher structure only:
 
 ## Non-goals
 
-M76 must not delete 98-only device implementations merely because they remain
-compiled. That cleanup is M77.
+M77 must not delete 98-only device implementations merely because they remain
+compiled. That cleanup is M78.
 
 ## Validation
 
