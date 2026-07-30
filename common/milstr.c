@@ -166,7 +166,6 @@ char *milsjis_chr(const char *str, int c) {
 
 // ---- UTF8
 
-#if defined(SUPPORT_UTF8)
 int milutf8_charsize(const char *str) {
 
 	if (str[0] == '\0') {
@@ -302,7 +301,6 @@ char *milutf8_chr(const char *str, int c) {
 	}
 	return(NULL);
 }
-#endif
 
 
 // ---- other

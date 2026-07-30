@@ -93,6 +93,8 @@ M72 owns:
      `OSLINEBREAK_CRLF` branches.
    - Remove inactive `SUPPORT_EUC` and `SUPPORT_ANK` string backends after
      proving the active `milstr_*` path is UTF-8.
+   - Fold `SUPPORT_UTF8` to the enabled side and remove it as a compile-time
+     switch.
    - Preserve the current `OSLANG_UTF8` and `OSLINEBREAK_LF` behavior.
 13. Fold `BEEPCOUNTEREX` as always enabled.
    - Preserve the currently built BEEP idle-counter extension behavior.
