@@ -125,7 +125,9 @@ M36–M41 archive status.
 | M80 | tasks/M80_move_upd780_subsystem_cpu.md | Create `cpu/upd780/` and move the FDC subsystem uPD780-compatible CPU wrapper/backend there | **G80 human; planned** |
 | M81 | tasks/M81_cpucva_boundary_cleanup.md | Clean up the remaining `cpucva/` boundary while keeping uPD9002 instruction execution and VA memory ownership separate | **G81 human; planned** |
 | M82 | tasks/M82_state_save_section_cleanup.md | Audit retired state-save sections, remove only approved obsolete sections, and document compatibility behavior | **G82 human; planned** |
-| M83 | tasks/M83_final_va_only_source_tree_audit.md | Final VA-only active source-tree audit after SCSI, I/O, BIOS, uPD780, `cpucva`, and state-save cleanup | **G83 human; planned** |
+| M83 | tasks/M83_machine_core_relocation.md | Move active root machine-core sources such as `pccore`, `nevent`, `timing`, `calendar`, `keystat`, `statsave`, `debugsub`, and `clockscale` under `machine/` without behavior change | **G83 human; planned** |
+| M84 | tasks/M84_legacy_tool_rom_regeneration_audit.md | Audit remaining legacy tools, ROM/resource regeneration flows, and `lio/` BIOS/LIO compatibility hooks before the final VA-only source-tree audit | **G84 human; planned** |
+| M85 | tasks/M85_final_va_only_source_tree_audit.md | Final VA-only active source-tree audit after SCSI, I/O, BIOS, uPD780, `cpucva`, state-save, machine-core relocation, legacy tool cleanup, and `lio/` disposition | **G85 human; planned** |
 
 Phase 2 dependencies: M7 → M8 → {M9, M10 parallel} → M11 → M12 → M13.
 Post-phase dependency: M13 → M14 → M15 → M16 → M17 → M18 → M19 → M20 → M21 → M22 → M23 → M24 → M25 → M26 → M27 → M28 → M29 → M30 → M31 → M32. The required Z80 migration sequence M34 → M35 → M36 → M37 → M38 → M39 → M40 → M41 is complete. The separately authorized uPD9002 preparation sequence passed G42 through G51. M52–M56 were consumed by unrelated work and retain their historical meanings. The renumbered semantics campaign passed G57 at exactly `72322d5c9b8e40e4a988312aebe163a8190e2aa5`, G58 at exactly `bc8a55c6da1082b85b794068e0d933e31fe46b13`, G59 at exactly `e7f2325bc81310532091a8ca82914030fdb8b6ba`, G60a at exactly `ba2b7d3f5c76646b30d63fd8951f4a1964817b15`, G60b at exactly `4e5d74d0d9f675df2342353b8bfdbb2e5cded768`, G61 at exactly `829f314bb0d363ec5b6e9aa738e948b1a3adb365`, G62 at exactly `70b8e94e96aef4cb79eed72c7813c4148c5c0dd8`, G64 at exactly `9b151923f9468555043152ffe8651c97b9ecac5b`, terminal G65m at exactly `81887aae14f718d7d4d0f2a7bd3fe05d5ea80630`, G66b at exactly `97f760e8da573888edf089c2875c623895a3c2c9`, G67 at exactly `f8f350e1aadec4b6c79c20192d14c50bd39934be`, G68 at exactly `d1e0225c4edb716893fe5579283fbf0915db72b9`, G69 at exactly `680308a603b24341c5b9649657f01791b79002f7`, G70 at exactly `53d47ed500baef247a1be5f3ccc18bdb0c00c0cc`, and G71 at exactly `24950894eca79e308afae8d574d43c8f393bb483`. M72 starts from the approved and main-integrated G71 candidate and owns only behavior-preserving inactive-code audit plus proven-safe VAEG-specific cleanup of obsolete active-tree compile-time feature controls, VAEG-irrelevant legacy code, and stale 98x1 UI information. The broader IDP timing and buffer semantics remain deferred. See [`UPD9002_SEMANTICS_MIGRATION.md`](UPD9002_SEMANTICS_MIGRATION.md).
@@ -134,13 +136,16 @@ the PC-98 scaffold).
 
 M72 is closing the inactive compile-flag cleanup while intentionally leaving
 `SUPPORT_WAVEREC`, `SUPPORT_OPRECORD`, and FDD320 for later focused audits.
-M73 is reserved for SCSI support. retired VA1 diagnostic investigation-M83 define the planned VA-only
+M73 is reserved for SCSI support. retired VA1 diagnostic investigation-M85 define the planned VA-only
 source-tree consolidation sequence: move VA I/O into `io/`, normalize
 references, consolidate the VA I/O dispatcher, remove only proven 98-only I/O,
 audit VA BIOS reachability, document and move the FDC subsystem
 uPD780-compatible CPU into `cpu/upd780/`, clean the remaining `cpucva/`
-boundary, clean state-save sections with compatibility evidence, and finish
-with a full VA-only source-tree audit. `cbus/` is not treated as 98-only;
+boundary, clean state-save sections with compatibility evidence, move active
+root machine-core sources under `machine/`, audit legacy tool and
+ROM/resource regeneration flows such as `accessories/`, resolve the `lio/`
+BIOS/LIO compatibility-hook disposition, and finish with a full VA-only
+source-tree audit. `cbus/` is not treated as 98-only;
 VA-supported expansion boards remain in scope for retention.
 
 M14 is complete. The SDL2 frontend now has a named VA key inventory,
