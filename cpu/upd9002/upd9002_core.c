@@ -7,6 +7,7 @@
 #include	"upd9002_diagnostic.h"
 #include	"upd9002_state.h"
 #include	"upd9002_trace.h"
+#include	"upd9002_perf.h"
 #if defined(VAEG_UPD9002_SSTS_TESTING)
 #include	"tests/upd9002/direct_harness.h"
 #endif
@@ -194,6 +195,8 @@ void upd9002_core_step(void) {
 	upd9002_step_start_cs = UPD9002_CS;
 	upd9002_step_start_ip = UPD9002_IP;
 	opcode = upd9002_memoryread(CS_BASE + UPD9002_IP);
+	upd9002_perf_record_step(CS_BASE, UPD9002_IP, (UINT8)opcode,
+		mem[(CS_BASE + (UINT16)(UPD9002_IP + 1)) & UPD9002_ADRSMASK]);
 	preserve_state = (opcode == 0x26) || (opcode == 0x2e) ||
 		(opcode == 0x36) || (opcode == 0x3e) ||
 		(opcode == 0xf2) || (opcode == 0xf3);
@@ -299,6 +302,7 @@ static UINT16 upd9002_materialize_interrupt_saved_flags(void) {
 
 void CPUCALL upd9002_intnum(UINT vect, REG16 IP) {
 
+	upd9002_perf_record_exception((UINT8)vect);
 	upd9002_trace_event(UPD9002_TRACE_ORIGIN_CPU, "exception",
 		(uint32_t)vect, (uint32_t)IP, 2);
 #if defined(VAEG_UPD9002_SSTS_TESTING)
@@ -323,6 +327,7 @@ const BYTE	*ptr;
 
 void CPUCALL upd9002_core_interrupt(REG8 vect) {
 
+	upd9002_perf_record_interrupt(vect);
 	upd9002_trace_event(UPD9002_TRACE_ORIGIN_DEVICE, "interrupt",
 		(uint32_t)vect, (uint32_t)UPD9002_IP, 2);
 
