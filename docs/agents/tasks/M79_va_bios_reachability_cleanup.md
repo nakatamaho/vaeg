@@ -1,24 +1,24 @@
-# M78 - Audit VA BIOS reachability and remove 98-only BIOS handlers
+# M79 - Audit VA BIOS reachability and remove 98-only BIOS handlers
 
-M78 audits `bios/` and related VA BIOS hooks, then removes only BIOS handlers
+M79 audits `bios/` and related VA BIOS hooks, then removes only BIOS handlers
 that are proven 98-only and unreachable in the active VA product.
 
-Predecessor: approved G77.
+Predecessor: approved G78.
 
-Branch: `topic/m78-va-bios-reachability-cleanup`
+Branch: `topic/m79-va-bios-reachability-cleanup`
 
-Commit prefix: `M78:`
+Commit prefix: `M79:`
 
-Candidate gate: `G78`
+Candidate gate: `G79`
 
-Report: `docs/agents/reports/m78_va_bios_reachability_cleanup.md`
+Report: `docs/agents/reports/m79_va_bios_reachability_cleanup.md`
 
-Do not start M79. Do not merge M78 to `main` before G78 approval. Do not
-declare G78 passed.
+Do not start M80. Do not merge M79 to `main` before G79 approval. Do not
+declare G79 passed.
 
 ## Scope
 
-M78 must:
+M79 must:
 
 - audit BIOS entry points reached by PC-88VA boot, DOS, demo/game software,
   FDC, SASI/SCSI, HOSTFAT, display, sound, keyboard, mouse, and save/load;
@@ -28,7 +28,7 @@ M78 must:
 
 ## Non-goals
 
-M78 must not change CPU instruction semantics, I/O dispatcher structure, or
+M79 must not change CPU instruction semantics, I/O dispatcher structure, or
 FDC subsystem CPU organization.
 
 ## Validation
