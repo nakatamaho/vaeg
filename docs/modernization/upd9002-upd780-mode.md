@@ -58,7 +58,7 @@ levels, and every error found so far lived on exactly that boundary.
 | `[VA-TEKU]` | 「てくまに」 — the *88VA Technical Manual* compiled independently by members of the PC-VAN "88VA Users Club" SIG and circulated as `TEKUMANI.LZH`. **Not** the BNN book: separately authored, community-edited, and its own distribution page notes that errors have been reported in it. | Implement, but treat as weaker than `[VA-TM]`. Corroborate against the manual scan or the ROM wherever possible. |
 | `[VA-WIKI]` | *Inside PC-88VA* wiki, §1.5 CPU. Documents what the てくまに omits and carries its errata. Its I/O-trap section is CoBit's original 1992 post reproduced verbatim; its instruction-set section cites *Micom* Aug 1987. | Implement; note that CoBit's own caveat (ROM analysis plus experiment, possibly incomplete) applies to §9. |
 | `[ROM]` | Extracted from PC-88VA ROM images: opcode tables, string pools, and disassembly. | Reliable for what the firmware *does*. A disassembler table is **not** proof that silicon executes something. |
-| `[SRC]` | Period source or binaries that shipped and worked: CPMVA (Makichan, 1989), 98IOE/IOTRAP (CoBit, 1992). | Reliable. |
+| `[SRC]` | Period source or binaries that shipped and worked: CPMVA (Makichan, 1989), 98IOE/IOTRAP (CoBit, 1992), and the CP/M emulator `.cpv` V30 path. | Reliable for the path each program actually executes. |
 | `[DERIVED]` | Logically forced by the above; the derivation is stated inline. | Implement with a citing comment. |
 | `[UNKNOWN]` | Not determined by anything in hand. | Do not guess. Register in §15. |
 
@@ -1995,6 +1995,102 @@ recorded them as one shared vector; that is wrong and not even
 self-consistent, since the same address cannot be both a native routine
 and Z80 code.
 
+### 10.1 CP/M emulator — a minimal V30 hard-emulation exerciser
+
+`[SRC]` The CP/M emulator distributed as [18a] is a useful transition
+test asset because its hard path is narrower than CPMVA's. It uses the
+V30 hard 8080 emulation mode only for `.cpv` programs, and only after its
+runtime V30 probe succeeds. `.cpm` and `.com` use the software emulator
+path instead.
+
+The probe is intentionally small:
+
+```
+mov ax,100h
+db  0D5h,0      ; AAD 0
+jz  soft_emu
+```
+
+The program depends on V30 `D5 imm8` behaviour: with `AX=0100h`,
+`D5 00` produces `AX=000Ah` and clears the zero result path. If this
+probe is wrong, the `.cpv` hard path silently falls back to software
+emulation and never executes `BRKEM` at all. For vaeg this makes `D5 00`
+a necessary preflight for any CP/M-emulator transition test, but it does
+not by itself prove `D4`/`AAM` semantics.
+
+The hard path uses only three transition instructions:
+
+```
+BRKEM imm8   0F FF imm8
+CALLN imm8   ED ED imm8
+RETEM        ED FD
+```
+
+The default vectors are `0F1h`, `0F2h` and `0F3h`, but the source makes
+them movable through `V$START`. The program installs ordinary IVT entries:
+`0F1h` points to the CP/M TPA at `_DATA:0100h`, `0F2h` to the native BDOS
+handler, and `0F3h` to the native BIOS handler. `[DERIVED]` This is a
+second independent worked example that `CALLN imm8` and `BRKEM imm8`
+use normal interrupt-vector table entries. The immediate byte is not a
+fixed CPU service number.
+
+The execution shape is:
+
+```
+native:
+  DS = _DATA
+  BP = bdoscall - 2       ; the 8080 SP
+  BRKEM 0F1h             ; PS:PC = _DATA:0100h
+
+compatible:
+  0005h  JP 0FE00h
+  FE00h  CALLN 0F2h
+         RET             ; C9
+
+  FF00h  BIOS jump table
+  FF77h  CALLN 0F3h
+         RET             ; C9
+
+  cold/warm boot:
+         RETEM
+
+native:
+  resumes after BRKEM
+```
+
+Two implementation consequences are stronger here than in CPMVA because
+the BDOS/BIOS glue is smaller:
+
+1. **`CALLN` uses the native stack, not the emulated stack.** The native
+   BIOS handler reads the compatible return address with an explicit
+   `ds:[bp]` load. That value must be the return address pushed by the
+   preceding compatible-mode `CALL 0FF77h`. If `CALLN` had pushed a
+   `PSW`/`PS`/`PC` frame to `DS0:BP`, that load would see the transition
+   frame instead and the BIOS dispatch index would be wrong. Therefore
+   `BP`, the 8080 stack pointer, is preserved across `CALLN`; the
+   transition frame belongs on native `SS:SP`.
+2. **The native handler's return frame is interrupt-shaped.** The same
+   far native handler can be shared by the software-emulation path through
+   `pushf` plus far call plus `iret`. The hard `CALLN` path must therefore
+   present the same `FLAGS`, `CS`, `IP` frame shape to the handler.
+
+`[DERIVED]` These observations agree with 98IOE/IOTRAP's convention of
+saving `BP` before treating native `SP` as a handler frame pointer, and
+with CPMVA's `CALLN`/`iret` usage. They are transition-boundary evidence,
+not a license to merge native and compatible stacks.
+
+The CP/M emulator is deliberately **not** evidence for the VA-compatible
+instruction set. Its documentation limits `.cpv` to programs known to use
+only 8080 instructions. The VA's compatible mode is Z80-class by Debug
+8800 and CPMVA evidence (§2.4, §4.4), so this program is useful for
+`BRKEM`/`CALLN`/`RETEM` bring-up and for the V30 `D5 00` probe, but not
+for `IX`, `IY`, alternate registers, `JR`, or `ED` block semantics.
+
+Two harness caveats are worth recording before repeated automated use:
+`restor_vct` restores the BDOS vector twice and leaves the BIOS vector
+unrestored, and an unused `incsp` macro encodes `3Eh` even though 8080
+`INC SP` is `33h`.
+
 ---
 
 # Part III — Implementation notes
@@ -3192,7 +3288,7 @@ reasoning states rather than sources and have no entry here.
 | `[VA-TEKU]` | [6] |
 | `[VA-WIKI]` | [7], reproducing [8] and citing [9] |
 | `[ROM]` | [10] [11] [12] [13] [14] [15] |
-| `[SRC]` | [16] [17] [18] |
+| `[SRC]` | [16] [17] [18] [18a] |
 | *(no tag defined)* | [19] [20] — schematics and operator observation; see the tag note in Appendix D.3 |
 | *(not a source)* | [21] [22] [23] [24] |
 
@@ -3311,6 +3407,12 @@ The reference implementation behind §9.1–§9.6. *In hand.*
 PC-8801 and a real PC-88VA2 after booting N88-DISK-BASIC and typing
 `mon`. Reproduced in §17.2; the evidence that closes `alt-regs` and
 `ix-shares-si`.
+
+**[18a]** CP/M emulator for MS-DOS. Vector software page:
+<https://www.vector.co.jp/soft/win95/util/se378130.html>. — source of the
+`.cpv` V30 hard-emulation path discussed in §10.1. M75 must record the
+downloaded archive identity, source identity and binary identity before
+using it as executable evidence.
 
 ## Schematics and field observation — *(no tag defined)*
 
