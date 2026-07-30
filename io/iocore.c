@@ -24,7 +24,6 @@
 	_CRTC		crtc;
 	_DMAC		dmac;
 	_EGC		egc;
-	_EPSONIO	epsonio;
 	_EMSIO		emsio;
 	_FDC		fdc;
 	_GDC		gdc;
@@ -449,7 +448,7 @@ static const IOCBFN resetfn[] = {
 
 			// extend
 			artic_reset,		egc_reset,			np2sysp_reset,
-			necio_reset,		epsonio_reset,		emsio_reset,
+			necio_reset,		emsio_reset,
 			memctrlva_reset,
 			np2vasup_reset,
 			tsp_reset,
@@ -477,7 +476,7 @@ static const IOCBFN bindfn[] = {
 
 			// extend
 			artic_bind,			egc_bind,			np2sysp_bind,
-			necio_bind,			epsonio_bind,		emsio_bind,
+			necio_bind,			emsio_bind,
 			memctrlva_bind,
 			np2vasup_bind,
 			tsp_bind,

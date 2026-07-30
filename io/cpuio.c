@@ -13,7 +13,6 @@ static void IOOUTCALL cpuio_of0(UINT port, REG8 dat) {
 		TRACEOUT(("80286 ProtectMode Disable"));
 	}
 #endif
-	epsonio.cpumode = (CPU_MSW & 1)?'P':'R';
 	CPU_A20EN(FALSE);
 	CPU_RESETREQ = 1;
 	nevent_forceexit();
@@ -70,4 +69,3 @@ void cpuio_bind(void) {
 	iocore_attachsysoutex(0x00f0, 0x0cf1, cpuioof0, 8);
 	iocore_attachsysinpex(0x00f0, 0x0cf1, cpuioif0, 8);
 }
-

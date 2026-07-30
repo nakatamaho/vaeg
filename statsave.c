@@ -82,7 +82,6 @@ enum {
 	STATFLAG_DISK,
 	STATFLAG_DMA,
 	STATFLAG_EGC,
-	STATFLAG_EPSON,
 	STATFLAG_EVT,
 	STATFLAG_EXT,
 	STATFLAG_FM,
@@ -588,30 +587,6 @@ static int flagload_egc(STFLAGH sfh, const SFENTRY *tbl) {
 	ret = statflag_read(sfh, &egc, sizeof(egc));
 	egc.inptr = egc.buf + (VAEG_INTPTR)egc.inptr;
 	egc.outptr = egc.buf + (VAEG_INTPTR)egc.outptr;
-	(void)tbl;
-	return(ret);
-}
-
-
-// ---- epson
-
-static int flagsave_epson(STFLAGH sfh, const SFENTRY *tbl) {
-
-	int		ret;
-
-	ret = STATFLAG_SUCCESS;
-	(void)sfh;
-	(void)tbl;
-	return(ret);
-}
-
-static int flagload_epson(STFLAGH sfh, const SFENTRY *tbl) {
-
-	int		ret;
-
-	ret = statflag_read(sfh, &epsonio, sizeof(epsonio));
-	ret |= statflag_read(sfh, mem + 0x1c0000, 0x8000);
-	ret |= statflag_read(sfh, mem + 0x1e8000, 0x18000);
 	(void)tbl;
 	return(ret);
 }
@@ -1541,10 +1516,6 @@ const SFENTRY	*tblterm;
 				ret |= flagsave_egc(&sffh->sfh, tbl);
 				break;
 
-			case STATFLAG_EPSON:
-				ret |= flagsave_epson(&sffh->sfh, tbl);
-				break;
-
 			case STATFLAG_EVT:
 				ret |= flagsave_evt(&sffh->sfh, tbl);
 				break;
@@ -1645,7 +1616,6 @@ const SFENTRY	*tblterm;
 				case STATFLAG_COM:
 				case STATFLAG_DMA:
 				case STATFLAG_EGC:
-				case STATFLAG_EPSON:
 				case STATFLAG_EVT:
 				case STATFLAG_EXT:
 				case STATFLAG_GIJ:
@@ -1796,10 +1766,6 @@ const SFENTRY	*tblterm;
 
 				case STATFLAG_EGC:
 					ret |= flagload_egc(&sffh->sfh, tbl);
-					break;
-
-				case STATFLAG_EPSON:
-					ret |= flagload_epson(&sffh->sfh, tbl);
 					break;
 
 				case STATFLAG_EVT:

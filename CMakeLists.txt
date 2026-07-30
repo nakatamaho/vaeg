@@ -155,7 +155,6 @@ set(VAEG_CORE_SOURCES
     io/dipsw.c
     io/dmac.c
     io/egc.c
-    io/epsonio.c
     io/emsio.c
     io/fdc.c
     io/fdd320.c
