@@ -445,6 +445,32 @@ separate parity correction or move it to Open Defects.
 - **Commits:** [bc00b370](https://github.com/nakatamaho/vaeg/commit/bc00b370480283dbf7f7529fc6345def87a7dc75)
   and [9924b85c](https://github.com/nakatamaho/vaeg/commit/9924b85ca13a87610571392968ca63bd74e85321).
 
+### The M48 diagnostic-stop poll slowed active uPD9002 runtime execution
+
+- **Status:** fixed in M73; G73 human review pending.
+- **Symptom:** maintainer runtime testing found that older CI binaries through
+  approved G43 remained fast, while the approved G48 binary was slow on the
+  same notebook workload. The slowdown was host-runtime visible and did not
+  require an SST semantic mismatch.
+- **Root cause:** M48 correctly added fail-closed REP-prefixed `0F`
+  diagnostics, but the scheduler hot loop tested the diagnostic latch through
+  an out-of-line `upd9002_diagnostic_pending()` function after every
+  `v30c_step()`. For ordinary execution the result is almost always false, so
+  this became a high-frequency call overhead on every uPD9002 instruction.
+- **Correction:** the diagnostic state remains a single shared latch, but the
+  pending test is now an inline macro reading the latch reason directly. The
+  REP+0F fail-closed behavior, message, state atomicity, and diagnostic getter
+  remain unchanged.
+- **Verification:** the focused M48 diagnostic, M68 mapped-memory, M69 status,
+  M70 prefix/string, full ROM-less CTest suite, normal macOS build, and MinGW
+  cross build passed. The MinGW executable
+  `/tmp/vaeg-m73-inline-diagnostic.exe` had SHA-256
+  `cd3cd52fc5b83b9831acebfd7a2b1178b4ad7c18e657f2bd0bbd3e47cc547221`; the
+  maintainer reported it was fast.
+- **Evidence:** [M73 task](../agents/tasks/M73_upd9002_post_m49_performance_regression.md)
+  and [M73 report](../agents/reports/m73_upd9002_post_m49_performance_regression.md).
+- **Commit:** [e7ac7e93](https://github.com/nakatamaho/vaeg/commit/e7ac7e930c685e565bff131a42fe48f08c799990).
+
 ### Invalid CPU286 state payloads could partially alter the machine
 
 - **Status:** fixed in M44 implementation; G44 human review pending.
@@ -1039,7 +1065,7 @@ separate parity correction or move it to Open Defects.
 - **Current evidence:** the CPU remains active and repeated FDC Sense Interrupt
   Status polling has been observed, but the exact guest wait condition is not
   yet demonstrated.
-- **Next step:** M73 is reserved to capture a bounded post-command
+- **Next step:** retired VA1 diagnostic investigation is reserved to capture a bounded post-command
   CPU/register/I/O trace, compare the decisive VA1 and VA2/VA3 control flow,
   and correct the defect if the root cause is proven within the milestone
   scope.
