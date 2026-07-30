@@ -60,63 +60,12 @@ levels, and every error found so far lived on exactly that boundary.
 | `[ROM]` | Extracted from PC-88VA ROM images: opcode tables, string pools, and disassembly. | Reliable for what the firmware *does*. A disassembler table is **not** proof that silicon executes something. |
 | `[SRC]` | Period source or binaries that shipped and worked: CPMVA (Makichan, 1989), 98IOE/IOTRAP (CoBit, 1992). | Reliable. |
 | `[DERIVED]` | Logically forced by the above; the derivation is stated inline. | Implement with a citing comment. |
-| `[UNKNOWN]` | Not determined by anything in hand. | Do not guess. Register in §14. |
+| `[UNKNOWN]` | Not determined by anything in hand. | Do not guess. Register in §15. |
 
-### 0.1 Sources
-
-**In hand.**
-
-- NEC *16-bit V Series Instruction Manual*, `U11301EJ5V0UMJ1` —
-  `BRKEM`/`CALLN` operation, flag tables, instruction classification,
-  register and segment encodings.
-  <https://datasheets.chipdb.org/NEC/V20-V30/U11301EJ5V0UMJ1.PDF>
-- NEC *V20/V30 User's Manual* (Oct 1986), **Chapter 8 complete** — mode
-  shifting, register and flag correspondence, segment usage, interrupt /
-  `RESET` / `HALT` behaviour, nesting prohibition, `PS3` indication.
-- *PC-88VA Technical Manual* — BNN, first edition 25 Jun 1987,
-  ISBN 4-89369-024-8, ¥5500, long out of print. Page 12 gives the two CPU
-  modes, compatible-mode instruction coverage, `CALLN 91h`, `CALLN 95h`
-  and `RETEM`. OCR is noisy; typography and register notation are
-  normalised against the page image.
-  <https://archive.org/details/PC88VA/page/12/mode/2up>
-- NEC *V40HL/V50HL* data sheet `U13225EJ4V0DS00` — family analogy for the
-  on-chip peripheral model only.
-  <https://datasheets.chipdb.org/NEC/V40-V50/>
-- 「てくまに」 / `TEKUMANI.LZH` (249 KiB, LHA) — a PC-88VA technical
-  manual written independently by members of the PC-VAN "88VA Users
-  Club" SIG. Covers system overview, memory, I/O, display, hardware
-  control and BIOS. **Distinct from the BNN manual above**, and the
-  distribution page states that bugs have been reported in it — hence
-  the separate, weaker tag.
-  <http://www.iris.dti.ne.jp/~nano/88va/tekumani.html>
-- *Inside PC-88VA* wiki (Shinra, PukiWiki, 2005–2011), **§1.5 CPU** —
-  device overview, V30-mode instruction set (citing *Micom* Aug 1987),
-  built-in peripheral control with the VA2 configuration bytes, and the
-  I/O trap. The I/O-trap section reproduces CoBit's original post to the
-  VA Club "PC実験室" board, #4016, 31 Mar 1992 — i.e. it is the primary
-  source for everything in §9, including the sample program 98IOE.
-  <http://www.pc88.gr.jp/inside88va/wiki/index.php?CPU>
-- ROM images: `varom00.rom` (VA), `varom00_va2.rom` (VA2), `varom1.rom`,
-  `varom08.rom`. See Appendix C.
-- CPMVA 1.3 (Makichan, 1989) — pc88.gr.jp software library,
-  <http://www.pc88.gr.jp/softlib/?action=list_file&anum=2&gnum=424> —
-  `CPMVA.ASM`, `CPMVA.H`, `CPMBIOS.MAC`,
-  `V30.MAC`, `EXIT.MAC`, `CHARDEV.ASM`, `CRTOUT.ASM`, `BLOCKDEV.ASM`,
-  `MAKEFILE`, `CPMVA.DOC`; binaries `CPMVA.EXE`, `CPMBIOS.COM`,
-  `EXIT.COM`, `DO.COM`, `FCONV.COM`.
-- 98IOE 2.4 (CoBit, 1992) — the I/O-trap test referenced from the
-  *Inside PC-88VA* wiki `CPU` page — `98IOE.ASM`, `IOTRAP.ASM`, `IOTRAP.INC`,
-  `INIT.ASM`, `STD.INC`, `DEBUG_C.ASM`, `98IOE.DOC`, makefiles;
-  binary `98IOE.COM`.
-- MAME NEC V20/V30 core — implementation comparison point (§12).
-
-**Not in hand.**
-
-- A μPD9002 device manual. Nothing tagged `[VA-TM]` or `[VA-TEKU]`
-  should be mistaken for one.
-- `CPM.SYS` (CCP + BDOS + BIOS image that `CPMVA.EXE` loads).
-- The V1/V2 sub-ROM / disk BIOS.
-- Remaining PC-88VA ROM images beyond those listed.
+**Sources.** Every source this document rests on, what it licenses, and
+whether it is in hand, are collected in the **References** at the end.
+The tags above are not one-to-one with works: several sources can share a
+tag, and the mapping is given there explicitly.
 
 ---
 
@@ -166,7 +115,7 @@ project documents:
 flag outside a native call made from compatible mode. `[DERIVED]` So MD
 is not an ordinary writable flag bit: there is a write-enable condition
 around it. Model it as a latch with its own write rule, not as bit 15 of
-a plain flags word (§12 for how MAME splits this into two fields).
+a plain flags word (§13 for how MAME splits this into two fields).
 
 ### 2.2 Mode-transition instructions
 
@@ -174,7 +123,7 @@ Notation: `push(x)` is `SP ← SP − 2; (SS:SP) ← x`. `vec(n)` is the
 real-mode interrupt vector table entry `n` — offset at physical `n×4`,
 segment at `n×4+2`.
 
-#### BRKEM imm8 — `0F FF imm8` — enter compatible mode
+#### 2.2.1 BRKEM imm8 — `0F FF imm8` — enter compatible mode
 
 ```
 Executed : native mode
@@ -202,7 +151,7 @@ Operation:
 CP/M-80 on real hardware. Earlier literature claiming the μPD9002 has no
 `BRKEM` is wrong.
 
-#### BRKEM2 imm8 — `0F FE imm8` — the VA firmware's entry
+#### 2.2.2 BRKEM2 imm8 — `0F FE imm8` — the VA firmware's entry
 
 ```
 Executed : native mode
@@ -245,13 +194,20 @@ other Z80 is therefore *not* supported. What distinguishes them is
 - They differ in nothing architecturally, and the VA firmware simply
   uses the VA-specific opcode by convention.
 
+`[ROM]` `[VA-TM]` **The first candidate is dead.** Machine-level state is
+not switched by either instruction: the system memory mode is port `153H`
+bit 6, and the firmware writes it with an ordinary `OUT` four instructions
+before `BRKEM2` and again in the resume block (§8.2). Whatever
+distinguishes `BRKEM2` from `BRKEM`, it is not that one of them carries
+the machine along with it.
+
 `[UNKNOWN]` Until this is settled, implement `BRKEM2` as a documented
-default with a single flip point (§14).
+default with a single flip point (§15).
 
 Note for tooling: a general x86 disassembler will decode `0F FE` as an
 MMX instruction. In PC-88VA context it is `BRKEM2`.
 
-#### CALLN imm8 — `ED ED imm8` — call a native routine
+#### 2.2.3 CALLN imm8 — `ED ED imm8` — call a native routine
 
 ```
 Executed : compatible mode
@@ -280,7 +236,7 @@ encoding space. This is also why neither can be a native-mode
 instruction — `ED` in native mode is `IN AW, DW`, which NEC would not
 have broken.
 
-#### RETEM — `ED FD` — leave compatible mode
+#### 2.2.4 RETEM — `ED FD` — leave compatible mode
 
 ```
 Executed : compatible mode          <-- note
@@ -315,7 +271,12 @@ Two structural points:
 `RETEM` has **one** return target. `[ROM]` The `1000:C003` destination
 sometimes attributed to `RETEM` is not part of the instruction: it is an
 explicit `jmp 1000h:c003h` in the native code that runs *after* `RETEM`
-has returned and V3 re-initialisation has completed (§8).
+has returned and V3 re-initialisation has completed (§8). `[VA-TM]` The
+attribution is not anyone's invention — the technical manual describes it
+under `RETEM` itself, saying that on a return from V1/V2 mode to V3 mode
+the machine jumps to `1000H:C003H` after V3-mode initialisation. That is
+an accurate description of what the machine does and a misleading one of
+what the instruction does; see Appendix A item 16 and §8.1.
 
 ### 2.3 Transition summary
 
@@ -402,8 +363,8 @@ Z80    V30 (NEC / x86)         Z80    V30
 A   ↔  AL                      BC  ↔  CW / CX
 B   ↔  CH                      DE  ↔  DW / DX
 C   ↔  CL                      HL  ↔  BW / BX
-D   ↔  DH                      IX  ↔  IX / SI   [UNKNOWN — §14]
-E   ↔  DL                      IY  ↔  IY / DI   [UNKNOWN — §14]
+D   ↔  DH                      IX  ↔  IX / SI   [UNKNOWN — §15]
+E   ↔  DL                      IY  ↔  IY / DI   [UNKNOWN — §15]
 H   ↔  BH                      SP  ↔  BP        <- BP, not SP
 L   ↔  BL                      PC  ↔  PC / IP
 ```
@@ -433,6 +394,21 @@ them except `AH` and the native `SP`. That leaves at most three bytes of
 visible register file, which cannot hold the eight bytes of
 `AF'/BC'/DE'/HL'`. Either the alternate set has storage invisible to
 native mode, or it does not exist.
+
+`[SRC]` **It exists.** A register dump from a real PC-88VA settles it
+(§17.2): the main and alternate sets hold *different* values in all four
+pairs at once — `A=00` against `A'=FF`, `B=0000` against `B'=FFFF`,
+`D=EDCC` against `D'=FF7B`, `H=0001` against `H'=0911`. Debug 8800 can
+only capture the alternates by executing `EX AF,AF'` and `EXX`, so if
+those were no-ops on a machine without alternate storage the monitor would
+have captured the main set twice and displayed identical pairs.
+
+`[DERIVED]` Combined with the counting argument, that is a statement about
+the silicon: **the μPD9002 carries eight bytes of register storage that
+native mode cannot address.** It is not a V30 register file with a Z80
+decoder bolted on. `IX`/`IY` are *not* part of that extra storage — they
+alias `SI`/`DI`, which the same dump shows (§17.2) — so the hidden
+storage is exactly `AF'`, `BC'`, `DE'` and `HL'`.
 
 ### 3.2 Flags
 
@@ -484,7 +460,7 @@ should discard the handler's carry. Either the μPD9002's `CALLN`/`RETI`
 pair has flag semantics that are not a plain PSW restore, or the
 convention never worked and callers relied on the error code in `A`
 (also documented, and sufficient). **This is the cheapest experiment that
-settles the flag model** — see §16.7.
+settles the flag model** — see §17.6.
 
 ### 3.3 Address space and segments
 
@@ -525,6 +501,16 @@ functions work as they do natively. `BUSLOCK` and `POLL` are
 `[UNKNOWN]` How Z80 `IN`/`OUT` port numbers map to the V30 I/O space. The
 bus cycles being identical suggests a direct mapping of the 8-bit (or
 `BC`-supplied 16-bit) port number, but nothing in hand states it.
+
+`[DERIVED]` What the port number *is* may be a different question from
+what it *reaches* — but the reason is simpler than the bus. The I/O map
+the machine presents follows the **system memory mode**, port `153H`
+bit 6, which software sets independently of the CPU's execution mode
+(§8.2). CPMVA never writes it, which is why it never executes a Z80 `IN`
+or `OUT` at all and routes every device operation natively through
+`CALLN` (§10): its compatible-mode code is running with the V3 map
+underneath it. An earlier revision of this paragraph attributed that to
+`PS3`-driven decoding; the register is the documented mechanism.
 
 ### 3.4 Stacks
 
@@ -568,6 +554,16 @@ mode and **the emulation in progress is aborted** — there is no return.
   compatible mode with `RETI`.
 - If standby was entered from native mode, `RESET`, `NMI` or `INT`
   resumes native mode regardless of the interrupt-enable state.
+
+`[ROM]` **This is not academic, and NEC treated it as a real problem.**
+The VA's copy of Debug 8800 differs from a real PC-8801mkIISR's in exactly
+one respect: **every `HALT` on the memory-test path has been removed**,
+two of them replaced by `JR $` spin loops and one deleted outright (§4.5).
+Nothing else in the 8 KiB bank was touched. `[DERIVED]` The rule above is
+the reason to expect that: a `HALT` executed in compatible mode enters
+standby, and an `INT` taken with interrupts enabled resumes in **native**
+mode — which for V1/V2 code is not a recoverable event. Porting the
+monitor to the VA meant getting rid of the `HALT`s.
 
 `[UNKNOWN]` Whether the μPD780 superset adds Z80-style interrupt handling
 on top — `IM 0`/`IM 1`/`IM 2`, the `I` register, `IFF1`/`IFF2`, `EI`/`DI`
@@ -695,7 +691,7 @@ Three data structures in this region matter:
   `NOP`, `PUSH`, `POP`, `EX`. Intel 8080 — `MOV`, `MVI`, `LXI`, `JMP`,
   `STA`, `LDA`, `XCHG`, `XTHL`, `SPHL`, `PCHL`, `RST`, `DAD`, `RLC`.
   So its `a` and `l` commands handle Z80 source directly; the tests in
-  §16 can be typed as mnemonics rather than hexadecimal.
+  §17 can be typed as mnemonics rather than hexadecimal.
 
 `[DERIVED]` The handler addresses, the internal `JP 7E8Bh` and the banner
 offset are mutually consistent with *Z80 address = ROM offset − `0x18000`*
@@ -733,7 +729,137 @@ proven-executable compatible-mode code. In particular:
 - `[DERIVED]` The same command handles `IX`/`IY`, requiring the `DD`/`FD`
   prefix spaces.
 
-§16.0 turns these into a ten-minute confirmation.
+§17.3 turns these into a ten-minute confirmation.
+
+### 4.5 The VA's Debug 8800 is a patched 8801 ROM
+
+`[ROM]` A real PC-8801mkIISR `n80.rom` is now in hand, and its top 8 KiB
+is the same Debug 8800 bank the VA carries. Comparing that against
+`varom00_va2.rom[0x1E000:0x20000]`:
+
+- **52 bytes differ, all inside Z80 `7357h`–`73C4h`** — a 110-byte window.
+  The other 8082 bytes of the bank are byte-identical.
+- The byte `76h` occurs **24 times in the 8801 copy and 21 times in the
+  VA's**. Every one of the three missing occurrences is an executed
+  `HALT`.
+
+The three sites, with the surrounding code:
+
+```
+        8801mkIISR                     PC-88VA
+7381    10 E9    DJNZ 736C             10 E9    DJNZ 736C
+7383    76       HALT                  --       (deleted)
+        3E 21    LD A,21h              3E 21    LD A,21h
+        D3 40    OUT (40h),A           D3 40    OUT (40h),A
+7388    76       HALT                  18 FE    JR $
+        3E 02    LD A,02h              3E 02    LD A,02h
+        D3 31    OUT (31h),A           D3 31    OUT (31h),A
+
+7398    C2 3C C0 JP NZ,C03Ch           20 2B    JR NZ,+2Bh
+        ...      (JR displacements adjusted by one)
+
+73C4    76       HALT                  18 FE    JR $
+        3E 04    LD A,04h              3E 04    LD A,04h
+        D3 31    OUT (31h),A           D3 31    OUT (31h),A
+```
+
+`[DERIVED]` The patch is **byte-budget neutral**: deleting one `HALT`
+frees a byte, `JP nn` → `JR d` frees another, and the two `JR $`
+replacements spend them. Every address outside the window is preserved,
+which is exactly how you patch a ROM you do not want to relink. The
+adjusted `JR` displacements (`F7`→`F8`, `EF`→`F0`) confirm the shift was
+tracked deliberately rather than being an independent reassembly.
+
+`[DERIVED]` **Why `HALT` had to go** is §3.5: in compatible mode `HALT`
+enters standby, and the exit path depends on the interrupt state — an
+`INT` with interrupts enabled leaves standby in *native* mode. A monitor
+that halts waiting for a keypress would, on the μPD9002, be one interrupt
+away from dropping V1/V2 code on the floor. The replacement is a spin
+loop, which has no such property.
+
+`[DERIVED]` Three consequences for this document:
+
+1. **The `HALT` divergence is confirmed by NEC's own workaround**, not
+   just by the V-series manual — it is evidenced by the silicon vendor
+   changing code to accommodate it. §4.6 now diffs the whole V1/V2 ROM
+   set the same way, and these three `HALT`s remain the **only**
+   CPU-level change in any of it.
+2. **Test payloads must not end in `76`.** §17.5 has been changed
+   to `18 FE` accordingly.
+3. **This is a patch target for emulation fidelity.** A vaeg that runs
+   the VA's ROM will never execute those `HALT`s; one that runs a stock
+   8801 ROM image will, and will then need the standby semantics right.
+
+### 4.6 The VA's N88-BASIC is the 8801mkIISR's, with additions
+
+`[ROM]` A real PC-8801mkIISR `n88.rom`, its four extension banks and its
+`disk.rom` are now in hand. Diffed against the VA's copies — which live at
+`varom1.rom` `0x10000` and `0x18000`–`0x1FFFF` (Appendix C):
+
+| bank | bytes differing | windows | of those, landing where the real ROM has `00` |
+|---|---|---|---|
+| `n88.rom` (32 KiB) | 225 | 31 | 59% |
+| `n88_0.rom` | 21 | 8 | 0% |
+| `n88_1.rom` | 4340 | 165 | 2% |
+| `n88_2.rom` | 80 | 12 | 85% |
+| `n88_3.rom` | 192 | 19 | 37% |
+
+`[DERIVED]` **The VA did not rewrite N88-BASIC; it added to it.** Most
+changes fall in zero-filled gaps the 8801 ROM left unused — in
+`n88_2.rom`, 85% of them. Bank 1 is the apparent exception at 53% of the
+bank, and it is not one: from Z80 `7000h` up, the VA's content is the
+8801's **displaced by about five bytes**, and the dispatch entries in the
+bank's first bucket are adjusted by `+5` to match. An insertion early in
+the bank shifted everything after it. The other banks had room and did
+not need shifting.
+
+`[ROM]` **What was added is peripheral support, not CPU workaround.** The
+largest single addition is 92 bytes at Z80 `3C08h`–`3C63h` in `n88.rom`,
+where the 8801 has nothing but zeros:
+
+```
+3C08  DB 21        IN A,(21h)          ; 8251 status
+      E6 05 / FE 05 / C9
+      01 04 04     LD BC,0404h
+      07 07 07 07 / 0F                 ; rotate a nibble into place
+      D3 10        OUT (10h),A         ; calendar-clock data
+      F5 / CD 27 3C / F1 / 10 F6       ; bit-bang loop, four bits
+      3E 07 / D3 10 / 0E 02 / C9
+3C27  F3           DI
+      3A C1 E6     LD A,(0E6C1h)       ; shadow of port 40h
+      E6 F9 / B1 / D3 40               ; strobe the clock line
+      E6 F9 / D3 40
+      32 C1 E6     LD (0E6C1h),A
+      FB / C9
+```
+
+and two hooks in the low ROM — at `01B7h` and `01D7h`, again in
+zero-fill — of which the second is `PUSH AF / CALL 3C56h / POP AF /
+LD (HL),C / INC HL / LD (HL),B / RET`, calling into the block above.
+`[DERIVED]` Ports `10h`, `21h` and `40h` with a shadow byte at `E6C1h`
+is calendar-clock and serial handling: the VA wired those differently
+from an 8801 and taught the BASIC ROM about it.
+
+`[DERIVED]` **This closes a loop with Appendix C.** The single byte
+separating the VA1 and VA2 Z80 halves is in `n88_0.rom`, in twelve-hour
+clock arithmetic — and `n88_0.rom` is precisely the bank whose changes do
+*not* land in zero-fill, i.e. the one NEC edited rather than extended.
+The RTC support is a VA addition, VA1 shipped it with the `ADD HL,HL`
+bug, and VA2 fixed it. Two findings arrived at independently and they
+agree.
+
+`[ROM]` **No `HALT` was removed anywhere in the BASIC.** The count of
+byte `76h` is identical between the real ROM and the VA's copy in every
+bank except bank 1, where it differs by `+2` — accounted for by the
+displacement above, not by a patch. `[DERIVED]` So across the machine's
+entire 8801-mode ROM complement, NEC found exactly **one** thing that had
+to change for the CPU: the three `HALT`s in Debug 8800 (§4.5). Everything
+else they touched was peripherals. That is a strong statement about how
+close μPD9002 compatible mode is to a real Z80 — one instruction, in one
+monitor.
+
+`[ROM]` `disk.rom` differs between the two machines as well, but it is the
+FDD sub-CPU's ROM and out of scope (§0).
 
 ## 5. On-chip peripherals
 
@@ -750,9 +876,6 @@ and timer functions analogous to the V50 family.
 | On-chip CG, WCU, REFU, TCU, SCU, ICU, DMAU blocks. | Matches the kind of block the VA notes describe for μPD9002. |
 | 1 MiB memory space, 64 KiB I/O space. | Matches the address-space assumptions in the VA ROM setup code. |
 | Internal peripherals mapped into a system I/O area. | Supports reading VA ROM writes to `FFF0h`–`FFFFh` as CPU-internal control setup. |
-
-`[DERIVED]` The I/O trap control ports at `FFE0h`–`FFEFh` (§9) sit in the
-same high I/O region. Treat `FFE0h`–`FFFFh` as μPD9002-internal.
 
 `[VA-WIKI]` §1.5 gives the μPD9002's own list, "as in the V50":
 DMA controller, interrupt controller, timer, serial interface; a
@@ -775,8 +898,465 @@ FFFA   88
 FFF9   A0
 ```
 
-(VA1 not investigated.) `[UNKNOWN]` What each byte means; the V50 data
-sheet is the obvious cross-reference and has not yet been applied.
+(VA1's values are in §5.8; they differ in two bytes.) The rest of §5 decodes
+those eleven bytes against the μPD70216 data sheet, which is now in hand.
+Every one of them reads, and the result is self-consistent on six
+independent checks (§5.4).
+
+### 5.1 The V50 system I/O area
+
+`[V30-MAN]` μPD70216 data sheet, "System I/O Area" and figures 11–18.
+The V50 reserves **the whole of `FF00h`–`FFFFh`** as the system I/O area
+and populates twelve registers in it. **Byte I/O instructions must be
+used.**
+
+| Addr | Reg | Function | Reset |
+|---|---|---|---|
+| `FFFF` | — | reserved | — |
+| `FFFE` | OPCN | on-chip peripheral connection — pin multiplexing (PF), ICU `INT1`/`INT2` source (IRSW) | `----0000` |
+| `FFFD` | OPSEL | on-chip peripheral select — enable/disable DMAU, ICU, TCU, SCU | `----0000` |
+| `FFFC` | OPHA | peripheral high address `A15`–`A8`, common to all four | **not initialised** |
+| `FFFB` | DULA | DMAU low address | **not initialised** |
+| `FFFA` | IULA | ICU low address | **not initialised** |
+| `FFF9` | TULA | TCU low address | **not initialised** |
+| `FFF8` | SULA | SCU low address | **not initialised** |
+| `FFF7` | — | reserved | — |
+| `FFF6` | WCY2 | wait cycles — DMA and refresh | `----1111` |
+| `FFF5` | WCY1 | wait cycles — three memory partitions and I/O | `11111111` |
+| `FFF4` | WMB | wait-state memory boundary — partition sizes | `-111-111` |
+| `FFF3` | — | reserved | — |
+| `FFF2` | RFC | refresh control — enable and interval | RE unaffected, RTM `01000` |
+| `FFF1` | — | reserved | — |
+| `FFF0` | TCKS | timer clock selection — source and prescaler | `---00000` |
+
+`[V30-MAN]` The data sheet is explicit that devices absent from the reset
+table "are not initialized on reset and must be initialized by software".
+**The five relocation registers are therefore necessarily
+firmware-written**, which is what makes the Explicit? column of §5.2
+possible: some bytes prove intent and some cannot.
+
+**Field encodings**, reproduced so this section stands without the PDF:
+
+```
+OPCN   b3-b2 IRSW   00 INT1=INTP1 pin, INT2=INTP2 pin
+                    01 INT1=SCU,       INT2=INTP2 pin
+                    10 INT1=INTP1 pin, INT2=TOUT1
+                    11 INT1=SCU,       INT2=TOUT1
+       b1-b0 PF     DMARQ3/RxD  DMAAK3/TxD  INTAK/TOUT1/SRDY
+                    00  DMARQ3      DMAAK3      INTAK
+                    01  DMARQ3      DMAAK3      TOUT1
+                    10  RxD         TxD         INTAK
+                    11  RxD         TxD         SRDY
+OPSEL  b3 SS(SCU)  b2 TS(TCU)  b1 IS(ICU)  b0 DS(DMAU)   1 = enabled
+OPHA   b7-b0 = A15-A8, so the block sits at (OPHA x 256)
+DULA   b7-b4 = A7-A4          ; DMAU uses A3-A0 to select 16 registers
+IULA   b7-b3 = A7-A3, b0 = A0 ; ICU uses A1
+TULA   b7-b3 = A7-A3, b0 = A0 ; TCU uses A2,A1 -> TCT0/TCT1/TCT2/TMD
+SULA   b7-b3 = A7-A3, b0 = A0 ; SCU uses A2,A1
+WCY1   b7-b6 IOW  b5-b4 UMW  b3-b2 MMW  b1-b0 LMW  00..11 = 0..3 waits
+WCY2   b3-b2 DMAW b1-b0 RFW                        00..11 = 0..3 waits
+WMB    b6-b4 LMB  b2-b0 UMB
+       000=32K 001=64K 010=96K 011=128K 100=192K 101=256K 110=384K 111=512K
+       middle partition = whatever is left between them
+RFC    b7 RE (1 = refresh enabled)   b4-b0 RTM
+       RTM 00000..00011 -> N = 17,18,19,20 ; 00100..11111 -> N = 5..32
+       refresh interval = 8 x N x tCYK
+TCKS   b4,b3,b2 = CS2,CS1,CS0 (0 = internal clock, 1 = TCLK pin)
+       b1-b0 PS: 00 = /2, 01 = /4, 10 = /8, 11 = /16  (of CLKOUT)
+```
+
+`[DERIVED]` Three consequences bear on the rest of this document:
+
+1. **No VA peripheral, internal or external, may live in `FF00h`–`FFFFh`.**
+   The V50 reserves the region wholesale.
+2. **The μPD9002's I/O-trap registers at `FFE0h`–`FFEFh` (§9.1) occupy
+   space the V50 reserved and left unpopulated.** NEC added the trap
+   without displacing a single V50 register and without breaking the V50
+   programming model — a much cheaper design story than the alternative,
+   and consistent with `FFE0h`–`FFFFh` being exempt from trapping (§9.1).
+   This replaces the vaguer earlier statement that the trap ports merely
+   "sit in the same high I/O region".
+3. **Access width is per register, not per region.** The V50 requires
+   byte I/O throughout the system I/O area, yet CoBit's code writes
+   `FFE0h`/`FFE2h`/`FFE4h`/`FFE6h` as words (§9.1) — correctly, since
+   those hold 16-bit port numbers. The byte-only rule is a V50 rule about
+   V50 registers; the 9002 additions need not obey it. Implement the
+   width register by register.
+
+`[VA-TM]` **The manual's own I/O port block map confirms the first two.**
+Its §2.2 divides the 64 KiB I/O space as:
+
+```
+0000H - 00FFH   system area 0    (88MH/FH compatible)
+0100H - 01FFH   system area 1
+0200H - 02FFH   frame buffer control
+0300H - 04FFH   colour palette control
+0500H - 05FFH   GVRAM control
+0600H - 0FFFH   system area 2    (reserved)
+1000H - FEFFH   user area
+FF00H - FFFFH   system area 3    (CPU internal use)
+```
+
+`[DERIVED]` `FF00h`–`FFFFh` is labelled **CPU internal use** — the V50's
+system I/O area, reserved at the VA level exactly as consequence 1
+inferred, and therefore the space into which the μPD9002's I/O-trap
+registers were added without displacing anything (consequence 2).
+`0100h`–`01FFh` is a documented **system** area, which is where OPHA puts
+the on-chip peripherals (§5.2), so that placement is architectural rather
+than a free choice by the firmware. And the `0000h`–`00FFh` row names the
+8-bit compatible space that §5.4 check 3 rests on.
+
+### 5.2 The PC-88VA2 configuration decoded
+
+`[VA-WIKI]` supplies the bytes. `[V30-MAN]` supplies the layouts.
+`[DERIVED]` is the reading, and it is sound only if the μPD9002 kept the
+V50 layout — §5.4 is the evidence that it did.
+
+**Reset** is the V50 power-on value; **Explicit?** follows from it, since
+where the two differ the firmware demonstrably wrote the byte.
+
+| Addr | Reg | Val | Reset | Explicit? | Bit decode | Reading |
+|---|---|---|---|---|---|---|
+| `FFFE` | OPCN | `11` | `00` | yes | `0001 0001` → IRSW=`00`, PF=`01`, **b4=1 (undefined on V50)** | `INT1` ← `INTP1` pin, `INT2` ← `INTP2` pin. DMA ch3 pins carry `DMARQ3`/`DMAAK3`; the `INTAK/TOUT1/SRDY` pin outputs **`TOUT1`** |
+| `FFFD` | OPSEL | `07` | `00` | yes | SS=0, TS=1, IS=1, DS=1 | **SCU disabled**; TCU, ICU, DMAU enabled |
+| `FFFC` | OPHA | `01` | uninit | yes | `A15`–`A8` = `01h` | internal peripheral block at I/O **`0100h`–`01FFh`** |
+| `FFFB` | DULA | `60` | uninit | yes | `A7`–`A4` = `0110` | **DMAU = `0160h`–`016Fh`** (`A3`–`A0` select the register) |
+| `FFFA` | IULA | `88` | uninit | yes | `A7`–`A3` = `10001`, `A0`=0 | **ICU = `0188h` / `018Ah`** (`A1` selects) |
+| `FFF9` | TULA | `A0` | uninit | yes | `A7`–`A3` = `10100`, `A0`=0 | **TCU = `01A0h`/`01A2h`/`01A4h`/`01A6h`** = TCT0/TCT1/TCT2/TMD |
+| `FFF8` | SULA | *unwritten* | uninit | — | — | consistent with SS=0 |
+| `FFF6` | WCY2 | `08` | `0F` | yes | DMAW=`10`, RFW=`00` | DMA cycles 2 waits; refresh cycles 0 waits |
+| `FFF5` | WCY1 | `80` | `FF` | yes | IOW=`10`, UMW=`00`, MMW=`00`, LMW=`00` | **I/O 2 waits; all three memory partitions 0 waits** |
+| `FFF4` | WMB | `53` | `77` | yes | LMB=`101`, UMB=`011` | lower 256 KiB (`00000`–`3FFFF`), upper 128 KiB (**`E0000`–`FFFFF`**), middle = the remainder |
+| `FFF2` | RFC | `08` | RE unaffected, RTM=`01000` | yes — §5.7 | RE=0, RTM=`01000` (N=9) | **internal DRAM refresh disabled**; RTM left at its reset value |
+| `FFF0` | TCKS | `00` | `00` | yes — §5.7 | CS2=CS1=CS0=0, PS=`00` | all three counters take the internal clock, prescaled ÷2 |
+
+`[ROM]` These are the VA2's values. VA1 differs in two bytes only —
+WCY2 and WCY1 — and is otherwise identical; see §5.8.
+
+`[ROM]` **All eleven are explicit.** Nine can be shown so from the reset
+values alone, and the boot ROM's initialisation table settles the
+remaining two independently: it writes `FFF2h` and `FFF0h` as well, whose
+values merely happen to coincide with their reset state. See §5.7. An
+earlier version of this section warned that those two might never have
+been written; that caveat is withdrawn.
+
+### 5.3 The resulting configuration
+
+`[DERIVED]` The machine state those eleven bytes describe, in the form an
+implementation needs.
+
+**I/O map.** Internal peripherals occupy `0100h`–`01FFh`:
+
+```
+0160h - 016Fh   DMAU   (16 registers, A3-A0)
+0188h / 018Ah   ICU    (A1 selects; see the alias note below)
+01A0h / 01A2h   TCU    TCT0 / TCT1
+01A4h / 01A6h   TCU    TCT2 / TMD
+   (SCU absent)
+```
+
+`[DERIVED]` **ICU aliasing.** IULA stores `A7`–`A3` and `A0`; the ICU
+itself uses `A1`. `A2` is neither stored nor used, so it cannot take part
+in the compare, and the ICU must also answer at `018Ch`/`018Eh`. The same
+reasoning gives the TCU no alias, since it uses both `A2` and `A1`.
+Confirm before relying on it — §15.2 `icu-alias`.
+
+**Clocking.** CLKOUT = 15.9744 MHz crystal ÷ 2 = 7.9872 MHz (§12), so
+`tCYK` ≈ 125.2 ns. The TCU takes CLKOUT ÷ 2 = **3.9936 MHz** on all three
+counters.
+
+**Pins.** `TOUT1` is exported on the `INTAK/TOUT1/SRDY` pin, so the CPU's
+`INTAK` is **not available** — see §5.4 check 6 for what that implies.
+`DMARQ3`/`DMAAK3` are real DMA lines, not `RxD`/`TxD`.
+
+**Waits.** Memory 0, I/O 2, DMA 2, refresh 0. `[V30-MAN]` The WCU inserts
+the programmed count unconditionally and *then* honours `READY`, so zero
+programmed memory waits means **the VA gates memory timing entirely with
+external `READY`**. Any future cycle-accuracy work must model the external
+logic, not this register. §11 item 10 still applies: do not copy timing
+from another emulator.
+
+**Memory partitions.** `00000`–`3FFFF` lower, `E0000`–`FFFFF` upper,
+`40000`–`DFFFF` middle. With all three wait counts at zero the boundaries
+are presently inert; they are set up as if for a configuration that uses
+them.
+
+**Refresh.** The on-chip RCU is off. Something else must refresh VA DRAM
+— §5.5(b).
+
+### 5.4 Why the V50 layout is the right key
+
+`[DERIVED]` Seven checks, none of which was an input to the decode.
+Checks 1–4 are internal to §5.2; 5 and 6 come from the IC78 pin scan
+(§12, Appendix D) and are independent of the data sheet entirely; 7
+comes from the boot ROM and is independent of both.
+
+1. **Address accounting closes.** The eleven-byte list has exactly five
+   gaps in `FFF0h`–`FFFFh`, and all five are explained without appeal:
+   `FFFFh`, `FFF7h`, `FFF3h` and `FFF1h` are reserved on the V50, and
+   `FFF8h` (SULA) is unwritten because OPSEL sets SS=0. A byte list keyed
+   to some other register map would not have holes in exactly those five
+   places.
+2. **WMB reproduces the VA memory map.** The upper partition decodes to
+   128 KiB, i.e. `E0000h`–`FFFFFh` — the ROM window, exactly. The lower
+   decodes to 256 KiB of base RAM. Neither was an input to the arithmetic.
+3. **OPHA puts the peripherals above the 8-bit I/O space.** V1/V2 mode
+   addresses ports `00h`–`FFh`; placing the internal block at `01xxh` is
+   what coexistence with compatible mode requires. This is the same design
+   pressure that produced the I/O trap (§9). `[VA-TM]` The manual makes
+   this one documented rather than inferred: `0000h`–`00FFh` is
+   "system area 0 (88MH/FH compatible)" and `0100h`–`01FFh` is
+   "system area 1" (§5.1).
+4. **TCKS, OPCN and OPSEL tell one story.** SCU off + `TOUT1` on the pin +
+   counters at 3.9936 MHz is external-USART baud generation and nothing
+   else. The arithmetic is exact: 3.9936 MHz ÷ 26 = 153.6 kHz = 9600 × 16,
+   ÷ 13 = 19200 × 16. Three registers written by three separate firmware
+   `OUT`s land on a single coherent configuration.
+5. **`IC78` has an `XDMAK3` pin (39).** That pin can only be fed by the
+   CPU's `DMAAK3` output, which exists only when PF is `00` or `01` — with
+   PF `10`/`11` the CPU pin is `TxD` and there is no `DMAAK3` in the
+   machine. The decode says `01`. This does not distinguish `01` from
+   `00`, but it eliminates half the field from the hardware side.
+6. **`IC78` carries `RXRDY` (45) and `DCD` (74), and the CPU has given up
+   `INTAK`.** An external asynchronous serial controller therefore exists,
+   which is exactly what OPSEL SS=0 requires, and `TOUT1` is its baud
+   clock — that is check 4 confirmed at the connector. It also explains
+   the otherwise odd choice of PF=`01` over `00`: `01` trades `INTAK` away
+   for `TOUT1`, which is only survivable if the interrupt acknowledge is
+   generated elsewhere. `IC78` has `XAITAK` (68), `XPIC` (61), `PICINT`
+   (51) and `IR3`/`IR5`/`IR7`, i.e. it sits between the CPU and the
+   external μPD8259A of p.248 and is the obvious source. Pin directions
+   are not in the scan, so treat the last step as a lead.
+
+7. **The firmware exercises every decoded address.** The same boot ROM
+   that writes the eleven bytes then writes an eight-step ICU
+   initialisation to `0188h`/`018Ah`, a mode-and-count sequence to
+   `01A6h`/`01A2h`, and a DMA-unit reset to `0160h` — the exact addresses
+   the relocation registers decode to, with values that are meaningful
+   only there. This is the strongest of the seven; see §5.7.
+
+`[DERIVED]` Conclusion: **the μPD9002 keeps the V50 system I/O area
+essentially unchanged.** With check 7 the on-chip peripheral map is no
+longer an inference at all — the firmware uses the decoded addresses, so
+the decode is confirmed by the machine rather than merely consistent with
+it (§16). What remains open is one undefined bit (§5.5(a)) and who owns
+refresh (§5.5(b)), neither of which touches the map.
+
+### 5.5 Anomalies and loose ends
+
+**(a) OPCN bit 4 is set, and the V50 defines bits 7–4 as unused.**
+`[DERIVED]` OPCN resets to `00h`, so `11h` is a deliberate firmware write
+*including* that bit — it is not a leftover. `[ROM]` And `11h` is a
+**literal byte in the boot ROM's initialisation table** (§5.7), so the
+wiki did not mistranscribe it and the value is not computed at run time.
+Two candidates remain: a μPD9002 extension — the obvious guesses being
+mode- or trap-related pin control, given what else the 9002 added in this
+region — or a bit the firmware sets and the silicon ignores. One
+discriminator is left, and it is cheap: write `11h` to `FFFEh` and read it
+back; a stored 1 proves an extension. §15.2 `opcn-bit4`.
+
+**(b) RFC RE=0 — the on-chip refresh unit is disabled, deliberately.**
+`[ROM]` The boot ROM writes `08h` to `FFF2h` explicitly (§5.7). RE is
+"unaffected by RESET", so before that write was found this value was
+equally consistent with a bit that powered up clear and was never
+touched; it no longer is. **NEC chose to disable the on-chip refresh
+unit**, which means the VA refreshes DRAM externally — GAL-1 or the
+display subsystem are the candidates. The cheap check is on the
+schematics already in hand: **trace the μPD9002 `REFRQ` pin**. `[ROM]`
+Done — and it is not wired at all: neither p.248 nor p.250 carries a
+single label containing `REF` (§12). So the CPU contributes nothing to
+refresh, by two independent decisions: the unit is disabled in software
+and its output goes nowhere in hardware. What *does* refresh VA DRAM is
+still open, but it is now a question about the memory and display sheets,
+not about the CPU. §15.2 `refresh-owner`.
+
+**(c) The firmware writer, located.** `[ROM]` It is a table walked at
+reset in **`varom1_va2.rom`**, not in `varom00_va2.rom`. §5.7 gives the
+tables, the walker and the full ordered write list.
+
+`[ROM]` Recorded so the search is not repeated: `varom00_va2.rom` was
+scanned in full and contains **no write to `FFF0h`–`FFFEh` by any
+addressing route** — no `mov dx,imm16` with an immediate ≥ `FFF0h`, no
+split `dh`/`dl` load, no port table in any plausible layout, no
+occurrence of the distinctive value run `53 80 08`, and only two windows
+in the whole 512 KiB holding four or more of the nine configuration
+values as `mov al,imm8`, both of which disassemble to unrelated dispatch
+code. Its last 32 bytes are `FFh`, so it does not carry the reset entry
+either. That image is not the boot ROM; see Appendix C.
+
+### 5.6 Implementation note
+
+`[DERIVED]` For vaeg the operative facts are the three peripheral base
+addresses (`0160h`, `0188h`, `01A0h`), the absent SCU, the 3.9936 MHz
+timer clock, and `TOUT1` leaving the chip. Implement the relocation
+registers rather than hardcoding the addresses — they are software-set,
+VA1 has not been checked, and a V3-mode program is free to move them. See
+§11 item 11.
+
+`[DERIVED]` §5.7 is also a ready-made bring-up test. The reset path
+programs the peripherals from a table in a fixed, known order, so an
+emulator that boots this ROM can be checked write-for-write against it
+before anything else in the machine has to work — and the ordering hazard
+noted at the end of §5.7 is exactly the kind of thing a naive
+implementation gets wrong silently.
+
+### 5.7 The reset-time initialisation sequence
+
+`[ROM]` From `varom1_va2.rom` (Appendix C). The reset vector at image
+offset `0xFFF0` is `EA 00 00 00 F0` — `jmp F000:0000` — and offset 0 is a
+near jump to **`0x12B8`**, the reset entry. Twelve instructions later the
+CPU programs its own peripherals, from two tables with two different
+formats and two separate walkers.
+
+**Table A — `0x0F20`, walked at `0x12ED`.** Variable-length descriptors,
+`count, port_word, value[count]`, ports written **descending** from
+`port_word`, byte `OUT` only, terminated by a zero count:
+
+```
+        mov  si,0F20h
+grp:    mov  cl,cs:[si]        ; count
+        and  cx,cx
+        je   done              ; 0 = end of table
+        inc  si
+        mov  dx,cs:[si]        ; first port
+        inc  si
+        inc  si
+val:    mov  al,cs:[si]
+        out  dx,al             ; byte OUT
+        dec  dx                ; next port, descending
+        inc  si
+        loop val
+        jmp  grp
+```
+
+Its five descriptors, expanded:
+
+| Descriptor | Ports | Writes |
+|---|---|---|
+| `06 FE FF` | `FFFE`→`FFF9` | OPCN `11`, OPSEL `07`, OPHA `01`, DULA `60`, IULA `88`, TULA `A0` |
+| `03 F6 FF` | `FFF6`→`FFF4` | WCY2 `08`, WCY1 `80`, WMB `53` |
+| `01 F2 FF` | `FFF2` | RFC `08` |
+| `01 F0 FF` | `FFF0` | TCKS `00` |
+| `08 E7 FF` | `FFE7`→`FFE0` | I/O trap ranges — §9.1 |
+
+`[ROM]` **This is the source of the eleven bytes in §5.2**, and it
+reproduces the wiki's list exactly. Three things follow that the byte list
+alone could not give:
+
+1. **The group boundaries land on the reserved addresses.** The firmware
+   skips `FFFFh`, `FFF8h` (SULA), `FFF7h`, `FFF3h` and `FFF1h` by
+   *construction* — the descriptors stop and restart around them. §5.4
+   check 1 was an inference from a byte list; it is now the firmware's own
+   structure.
+2. **All eleven writes are explicit**, `FFF2h` and `FFF0h` included.
+3. **`11h` is a literal in the image**, so OPCN bit 4 is not a
+   transcription error (§5.5(a)).
+
+**Table B — `0x0F43`, walked at `0x1307`.** Nine fixed records of
+`port_word, value`, byte `OUT`, no descending run — a plain
+`mov dx,cs:[si] / mov al,cs:[si] / out dx,al` loop with `cx = 9`:
+
+| # | Port | Value | Register | Meaning |
+|---|---|---|---|---|
+| 1 | `01A6` | `76` | TCU TMD | SC=`01` → TCT1; RWM=`11` → low byte then high; CMODE=`011` → **mode 3, square wave**; BD=0 → binary |
+| 2 | `01A2` | `82` | TCU TCT1 | count, low byte |
+| 3 | `01A2` | `06` | TCU TCT1 | count, high byte → **`0682h` = 1666** |
+| 4 | `0188` | `11` | ICU IIW1 | D4=1 as the format requires; LEV=0 → edge-triggered; SNGL=0 → **slaves present**; I14=1 → IIW4 follows |
+| 5 | `018A` | `00` | ICU IIW2 | vector base bits `V7`–`V3` |
+| 6 | `018A` | `80` | ICU IIW3 | **`INT7` is a slave input** |
+| 7 | `018A` | `03` | ICU IIW4 | bit 0 required; SFI=1 → self-finish mode; EXTN=0 → normal nesting |
+| 8 | `018A` | `7F` | ICU IMKW | interrupt mask — **only `INT7` unmasked** |
+| 9 | `0160` | `01` | DMAU DICM | RES=1 → software reset of the DMA unit |
+
+`[DERIVED]` **Table B is the decisive confirmation of §5.2.** Every base
+address the relocation registers decode to is exercised, and every value
+is meaningful *only* at the address it is written to. An eight-step
+μPD71059-style initialisation — IIW1 at `A1=0`, then IIW2, IIW3, IIW4 and
+finally IMKW at `A1=1` — does not land by accident on a particular pair of
+ports, and `DICM` with `RES` set is exactly what one writes first to a
+DMAU at register offset 0. The `0188h`/`018Ah` split independently
+confirms the `A1` decode of §5.3, and the slave-on-`INT7` cascade confirms
+the external μPD8259A of §12. `[ROM]` Other routines in the same image
+use `0188h`/`018Ah` (five and four sites) and `01A2h`/`01A4h`/`01A6h`, so
+this is not a one-off.
+
+`[DERIVED]` **Mode 3 on TCT1 closes §5.4 check 4.** The μPD70216 data
+sheet notes that driving a baud-rate clock requires the TCU in mode 3 with
+a square-wave output; that is exactly what the firmware programs, on the
+one counter whose output OPCN routes off-chip. `[UNKNOWN]` The count
+`0682h` = 1666 gives 3.9936 MHz ÷ 1666 ≈ 2.397 kHz, which is not a
+recognisable baud multiple on its own. The external USART's own divisor is
+not in this document, and a serial driver would presumably reprogram the
+count when a port is opened.
+
+`[DERIVED]` **One ordering hazard, worth knowing before implementing.**
+OPSEL (`FFFDh` ← `07`) enables the DMAU, ICU and TCU **four writes before**
+OPHA, DULA, IULA and TULA place them — and those four relocation registers
+are *not* reset-initialised (§5.1). For four `OUT`s the three peripherals
+are therefore enabled at indeterminate I/O addresses. Nothing performs I/O
+in that window, so it is benign on hardware. But an emulator must not
+assume a peripheral is unreachable before it is relocated, and the
+plausible-looking "relocate first, then enable" ordering — which an earlier
+version of this section recommended — is **not** what the machine does.
+
+### 5.8 VA1 versus VA2
+
+`[ROM]` The VA1 boot ROM `varom1.rom` carries the same two tables with the
+same two walkers, at different offsets: reset entry `0x0A6F`, table A at
+`0x0930` walked at `0x0A7D`, table B at `0x0953` walked at `0x0A97`. The
+two images are **different builds**, not one build with different data —
+48.8% of their bytes differ and every offset has moved.
+
+**System I/O area: exactly two bytes differ.**
+
+| Port | Reg | VA1 | VA2 | |
+|---|---|---|---|---|
+| `FFFE` | OPCN | `11` | `11` | |
+| `FFFD` | OPSEL | `07` | `07` | |
+| `FFFC` | OPHA | `01` | `01` | |
+| `FFFB` | DULA | `60` | `60` | |
+| `FFFA` | IULA | `88` | `88` | |
+| `FFF9` | TULA | `A0` | `A0` | |
+| `FFF6` | WCY2 | **`05`** | **`08`** | VA1 DMA 1 wait, refresh 1; VA2 DMA 2 waits, refresh 0 |
+| `FFF5` | WCY1 | **`84`** | **`80`** | VA1 middle memory block **1 wait**; VA2 none. I/O 2 waits, lower and upper blocks 0, on both |
+| `FFF4` | WMB | `53` | `53` | |
+| `FFF2` | RFC | `08` | `08` | |
+| `FFF0` | TCKS | `00` | `00` | |
+| `FFE0`–`FFE7` | trap ranges | `50`–`5B` / `60`–`6F` | identical | |
+
+`[DERIVED]` So the peripheral map, the pin multiplexing, the memory
+partition boundaries, the timer clock, the refresh decision and the
+I/O-trap windows are **identical across the two machines**. All of §5.2
+and §5.3 applies to VA1 unchanged apart from the wait counts, and the only
+memory-timing difference is the middle partition `40000h`–`DFFFFh`, where
+VA1 inserts one wait state and VA2 none. RFW is inert on both, since RE=0
+means no refresh cycles ever occur — and the two machines disagreeing
+about a field that never applies is a small further sign that RE=0 is
+deliberate rather than incidental (§5.5(b)).
+
+**Internal peripheral initialisation: VA1 does more.** VA1's table B holds
+fourteen records (`mov cx,0Eh`), VA2's nine (`mov cx,9`). The first nine
+are byte-identical — the TCU, ICU and DMAU-reset sequence of §5.7. VA1
+adds five, all in the DMAU block:
+
+| Port | Value | Register | Meaning |
+|---|---|---|---|
+| `0161` | `01` | DMAU DCH | select **channel 1**, base and current |
+| `016A` | `C0` | DMAU DMD | TMODE=`11` → **cascade mode**; increment; no autoinitialise; verify; byte |
+| `0168` | `00` | DMAU DDC low | DMA enabled, fixed priority, normal write |
+| `0169` | `02` | DMAU DDC high | bus release mode, wait enabled during verify |
+| `016F` | `0D` | DMAU DMK | mask — **only channel 1 unmasked** |
+
+`[DERIVED]` VA1 therefore brings up **DMA channel 1 as a cascade channel**
+— that is, with a slave μPD71071 behind it — at reset. VA2 resets the
+DMAU and stops. This is also a sixth confirmation of the DMAU base
+address: five further registers in the `0160h`–`016Fh` block, each
+decoding sensibly in the μPD71071 register model that the DMAU is
+compatible with.
+
+`[UNKNOWN]` Whether VA2 lacks the slave controller, or configures it later
+from code not on the reset path. Worth settling before any DMA work,
+because it is a machine-model difference rather than a timing tweak.
 
 ---
 
@@ -788,20 +1368,33 @@ rather than in the CPU model.
 
 ## 6. Interrupt vector table
 
-`[ROM]` The vector installer at `VAROM1.ROM:0x13ED`, called from
-`0x1364`, fills the IVT with safe defaults and then applies an override
-table at `0x0F5E`. The entries that matter here:
+`[ROM]` **Provenance note.** The offsets in this section and in §8 are
+those of **`varom1_va2.rom`**, the VA2 boot ROM, although earlier drafts
+labelled them `VAROM1.ROM`. The VA1 image in hand does not have them —
+see Appendix A item 27. VA1's counterparts are given alongside below.
+
+`[ROM]` The vector installer at `0x13ED`, called from `0x1364`, fills the
+IVT with safe defaults and then applies an override table at `0x0F5E`
+(VA1: table at `0x097D`). The entries that matter here:
 
 ```
-7C -> F000:1944      I/O trap, IN
-7D -> F000:1944      I/O trap, OUT   (same handler as 7C)
-7E -> F000:1920
-90 -> 1000:0000      BRKEM2 target — V1/V2 entry
-91 -> F000:24B0      CALLN 91h service
-95 -> 1000:E000      CALLN 95h service
+        VA2 (varom1_va2.rom)   VA1 (varom1.rom)
+7C  ->  F000:1944              F000:1024   I/O trap, IN
+7D  ->  F000:1944              F000:1024   I/O trap, OUT  (same handler as 7C)
+7E  ->  F000:1920              F000:1000
+90  ->  1000:0000              1000:0000   BRKEM2 target — V1/V2 entry
+91  ->  F000:24B0              F000:1640   CALLN 91h service
+95  ->  1000:E000              1000:E000   CALLN 95h service
 ```
 
-Three independent confirmations fall out of this table:
+`[DERIVED]` The comparison is worth more than either column alone. The two
+vectors whose targets are **ABI conventions** — `90h` and `95h` — are
+*identical* on both machines, while all four that point into ROM code
+moved with the build. That is direct evidence that `1000:0000` and
+`1000:E000` are contracts rather than accidents of layout, which is what
+§7.2 asserts about `CALLN 95h`.
+
+Three further confirmations fall out of the table:
 
 - `[DERIVED]` `7Ch` and `7Dh` point at **one shared handler**, exactly as
   98IOE's own installer does (§9.5). The handler distinguishes IN from
@@ -851,6 +1444,12 @@ the documented ABI.
 
 ## 8. The V1/V2 handoff in VAROM1.ROM
 
+`[ROM]` **Provenance note.** As in §6, the offsets below are
+`varom1_va2.rom`'s. The VA1 image has the same code at different
+addresses: reset entry `0x0A6F`, `0F FE 90` at **`0x0B15`**, the `cli` it
+returns to at `0x0B18`, and `ljmp 1000h:c003h` at `0x0B31` — the same
+shape, so nothing in the argument below depends on which image is read.
+
 `[ROM]` One branch precedes the handoff. After installing vectors, the
 ROM tests port `000Dh` bit 2 through the helper at `0x13E6`:
 
@@ -881,9 +1480,59 @@ The handoff itself:
 strong: the surrounding stream is valid 16-bit V30 setup code, the bytes
 sit at an instruction boundary after `mov es,ax`, `0F FE nn` is the
 VA-specific encoding, and the ROM has just installed vector `90h` as
-`1000:0000`. `[UNKNOWN]` Whether every boot configuration reaches this
-instruction — the `000Dh` branch can skip the block, so a CS:IP trace is
-still the way to prove execution for a given ROM/configuration pair.
+`1000:0000`.
+
+`[ROM]` **It is not reached in every configuration, and one bit decides.**
+The full branch, disassembled:
+
+```asm
+1364: e8 86 00     call 13EDh          ; install vectors
+1367: e8 7c 00     call 13E6h          ; mov dx,000Dh / in al,dx / and al,04h / ret
+136a: 74 66        jz   13D2h          ; bit 2 clear -> V3 path, no BRKEM2
+136c: e4 40        in   al,40h         ; secondary test, inside the V1/V2 path
+136e: 24 08        and  al,08h
+1370: 75 03        jnz  1375h
+1372: e8 1b 0c     call 1F90h
+1375: e8 6f 05     call 18E7h          ; enable the I/O trap
+1378: b8 00 80     mov  ax,8000h       ; ... on to the handoff at 13A8/13B1
+
+13d2: c6 06 07 2f 01  mov byte [2F07h],1
+13d7: b0 91           mov al,91h
+13d9: e6 ff           out 0FFh,al
+13db: b8 00 30        mov ax,3000h
+13de: 8e d0           mov ss,ax
+13e0: e8 2d 0e        call 2210h       ; the shared initialiser
+13e3: e9 6b ee        jmp  0251h       ; back into the ROM — 13B1 never executes
+```
+
+`[DERIVED]` So `doc-boot-cover` is answered: **no.** Whether the machine
+enters compatible mode at all is decided by **port `000Dh` bit 2**, read
+once, immediately after the vectors are installed. Clear takes the V3
+path, which sets `[2F07h]`, writes `91h` to port `FFh`, moves the stack to
+`3000:`, runs the same initialiser the resume block calls (§8's `0x2210`)
+and re-enters the ROM at `0251h` — never touching `BRKEM2`. Set takes the
+V1/V2 path, which brackets the handoff with the I/O trap.
+
+`[VA-TM]` **The manual's own boot flowchart carries the same branch, and
+it names a segment.** §1.4「システム起動プロセス」 draws three
+destinations. `PC` key on → `V3 INIT` / `BIOS Set Up`. `PC` key off and
+`SW7` off — or `SW7` on with no V3 IPL on the disk — → `IDP V1/V2` and
+`I/O trap ON` → `Jmp V1/V2` → `N88-BASIC (ROM / Disk)`. `SW7` on with a
+V3 IPL → `Load IPL`, one sector to `3000:0` → `V3 INIT` / `BIOS INIT` →
+`Jmp IPL` with `CS:IP = 3000H:0` and `SS:SP` around `3000H:FFFEH` → DOS
+boot.
+
+`[DERIVED]` **`3000h` is the join.** The zero path at `0x13D2` sets
+`SS = 3000h` before it calls the shared initialiser, and the flowchart's
+IPL path loads to `3000:0` and enters with the stack in the same segment.
+A shared constant is not proof — `3000:` is a plausible V3 stack wherever
+it turns up — but it is the only segment either account fixes, and they
+fix the same one. Read that way, `0x13D2` is the flowchart's **right-hand
+column** rather than its `PC`-key column, which makes port `000Dh` bit 2
+the **V1/V2-boot versus V3-IPL-boot** selector and puts the `PC`-key test
+somewhere ahead of `0x1364`. `[UNKNOWN]` Which line actually drives the
+bit is still open — `bootsel-000d` in §15.2, with a test in §17.1 that
+needs no instrument.
 
 **The resume block.** `[ROM]` The bytes after the handoff disassemble as
 ordinary V30 code:
@@ -893,7 +1542,7 @@ ordinary V30 code:
 13b5: call 18eeh       ; writes 00h to FFEFh — disable I/O trap
 13bd: mov dx,0152h
 13c0: in  ax,dx
-13c1: or  ax,4000h
+13c1: or  ax,4000h     ; system memory mode -> V3   (see §8.2)
 13c4: out dx,ax
 13cd: jmp 1000h:c003h
 ```
@@ -910,11 +1559,241 @@ offset in the V1/V2 window, i.e. RAM from the CPU's point of view, not
 destination the technical manual describes, and it is reached by an
 explicit `jmp`, **not** by any special `RETEM` behaviour.
 
-`[UNKNOWN]` What prepares the code at `1000:C003`. The static ROM search
-found the byte pattern only once in `VAROM1.ROM` and no direct copy loop
-in this region. The leading hypothesis is that the compatible-mode path
-entered by `BRKEM2 90h` prepares it — another reason the missing
-compatible-mode implementation matters.
+`[UNKNOWN]` What prepares the code at `1000:C003` — but the question has
+been narrowed hard, and it turns out not to be a question on its own. See
+§8.1.
+
+### 8.1 Nothing in these ROMs ends the compatible-mode session
+
+`[ROM]` Three searches across `varom1.rom`, `varom1_va2.rom` and
+`varom00_va2.rom`:
+
+1. **The native side does not prepare `1000:C003`.** In each boot ROM the
+   immediate `1000h` is loaded exactly twice: once at the handoff, where
+   it becomes `DS` for compatible mode, and once as a parameter to a
+   bank-select call (`0x1348`/`0x1C71`, which passes `1000h` or `2800h`
+   in `AX` and writes neither). No copy loop targets segment `1000h`, and
+   the immediate `C003h` appears nowhere in any image except inside the
+   `ljmp` itself.
+2. **No image contains `ED FD`.** Not the VA1 boot ROM, not the VA2 boot
+   ROM, not `varom00_va2.rom`, and not any of the seven PC-8801-mode ROMs
+   — `n88.rom`, the four N88 extension banks, `n80.rom` or `disk.rom`
+   (Appendix C). **Ten images, zero occurrences** of the `RETEM` encoding.
+   The `ED ED` hits are the `CALL 0EDEDh` false positives already recorded
+   in Appendix A item 14; they reappear in `n88_0.rom` at `0x31C` and
+   `n88_1.rom` at `0xB90`, which is simply the same two sites seen through
+   the per-bank dumps.
+
+   `[DERIVED]` This is now close to exhaustive for the machine's ROM
+   complement. The compatible-mode code the VA can execute without a disk
+   is N88-BASIC, its four extension banks, N-BASIC and Debug 8800, and
+   **none of it can leave compatible mode.**
+3. **The code entered by `BRKEM2 90h` is an ordinary N88-BASIC cold
+   start.** Vector `90h` is `1000:0000`, and both images hold
+   `F3 31 A0 E1 C3 E5 3B` — `DI` / `LD SP,0E1A0h` / `JP 3BE5h` — at the
+   ROM offset that maps there. VA1 additionally pre-loads `BP` (the
+   compatible-mode `SP`) with `0E1A0h` at `0x0B09` before the handoff,
+   duplicating what the Z80 code does for itself; VA2 dropped that
+   instruction.
+
+`[DERIVED]` Put together: **the resume block at `0x13B4` / `0x0B18` is
+unreachable from anything in these images.** `RETEM` is the only
+instruction that ends a `BRKEM`-shaped session (§2.2), no ROM in hand
+contains one, and the code the handoff enters is BASIC. On a plain V1/V2
+boot the machine therefore goes into N88-BASIC and stays there — which is
+exactly what a PC-8801 does — and the V3 resume path never runs.
+
+`[VA-TM]` **The manual's boot flowchart draws no return either.** §1.4
+ends the V1/V2 branch at `N88-BASIC (ROM / Disk)` with a dashed arrow and
+no path back, exactly as it ends the DOS branch. That is corroboration
+rather than proof — a boot diagram is not obliged to show what loaded
+software does afterwards — but the same manual documents the post-`RETEM`
+sequence under `RETEM` (§8.1.1), so BNN had the resume block in view and
+still drew the boot path as one-way.
+
+`[DERIVED]` So `doc-c003` and "who executes the `RETEM`" are **the same
+question with the same answer**. Both artifacts live in the V1/V2 window,
+neither is in ROM, and both are needed by the same transition. Appendix C
+already lists the likely source under "not located in any supplied image":
+the **V1/V2 sub-ROM / disk BIOS**. That gives the missing image a concrete
+signature — it must contain an `ED FD`, and it must write to `1000:C003`
+— and it makes the resume block a *session* bracket rather than a step in
+the boot sequence: loaded software hands control back to V3, and the
+trap-enable/trap-disable pair around it (§9) brackets exactly that.
+
+`[UNKNOWN]` Two escapes from this reasoning remain open. The `RETEM`
+could be built at run time by self-modifying code, in which case no static
+search would ever find it; or `BRKEM2` could have an exit that `BRKEM`
+does not, which would fold this into `doc-brkem2` (§2.2). Neither is
+supported by anything in hand, and neither changes the practical
+conclusion: an emulator cannot exercise the resume path from ROM alone.
+
+#### 8.1.1 What the technical manual settles, and what it does not
+
+`[VA-TM]` The same page already cited in the References ([5]) for
+`CALLN 91h`, `CALLN 95h` and `RETEM` also documents the `C003` jump.
+Its two relevant entries:
+
+- **`CALLN 95h`** calls a user native routine prepared at `1000H:E000H`.
+  The manual is explicit that this address corresponds to `E000H` as seen
+  from V1/V2 mode, that the caller **prepares the native program in V1/V2
+  mode first** and only then uses the function, and that the native
+  program returns to μPD780 mode with `IRET`.
+- **`RETEM`** returns to V30 mode; on a return from V1/V2 mode to V3 mode,
+  after V3-mode initialisation, the machine **jumps to `1000H:C003H`**.
+
+`[DERIVED]` Three things follow.
+
+1. **The resume block is documented behaviour, not vestigial code.** "After
+   V3-mode initialisation" is a precise description of what §8 disassembles:
+   `RETEM` lands at `0x13B4`/`0x0B18`, the block disables the I/O trap,
+   restores the port `0152h` state, sets `SS`, calls the initialiser at
+   `0x2210`/`0x18B0`, and only then jumps. The "left over from a design
+   change" hypothesis is dead.
+2. **`C003` is documented as a destination, never as a preparation duty**
+   — and the contrast with `E000` on the same page is the evidence. For
+   `95h` the manual spells out that the caller supplies the code; for
+   `RETEM` it says only where control goes. Two readings survive, and the
+   manual does not choose between them: either `C003` is the mirror image
+   of `E000`, a caller-supplied contract the manual simply did not spell
+   out twice, or the V1/V2 environment installs a standard stub there when
+   it is set up, so that an application never has to think about it. The
+   second reading is the one that makes the manual's wording exactly right
+   from an application's point of view.
+3. **It is not a search problem.** Under either reading, nothing in the
+   ROMs prepares `C003`, which is what §8.1's scans found. The remaining
+   discriminator is unchanged and unchanged in target: whether the V1/V2
+   sub-ROM / disk BIOS contains an `ED FD` and a writer for `1000:C003`.
+
+`[DERIVED]` Note also what the manual's phrasing costs. Documenting the
+jump *under `RETEM`* is what makes it natural to read `1000:C003` as a
+property of the instruction, which is the error Appendix A item 16
+records. Mechanically the instruction pops `PS`, `PC` and `PSW` and does
+nothing else.
+
+### 8.2 The machine's mode is a separate, software-set register
+
+`[VA-TM]` §3.3 of the technical manual: the memory map registers are
+**ports `152H` and `153H`**, and
+
+```
+PORT 153H  bit 6   system memory mode
+             0     V1/V2 mode
+             1     V3 mode   (reset state)
+```
+
+`[ROM]` That is what the otherwise cryptic port-`152h` accesses around the
+handoff are doing, and the two are exactly symmetric. Word access to
+`152h` puts `153H` bit 6 at bit 14 of `AX`:
+
+```asm
+        ; immediately before BRKEM2 — VA2 0x13A0, VA1 0x0B01
+13a0: ba 52 01     mov dx,0152h
+13a3: ed           in  ax,dx
+13a4: 25 ff bf     and ax,0BFFFh      ; bit 14 clear -> V1/V2 mode
+13a7: ef           out dx,ax
+13a8: b8 00 10     mov ax,1000h       ; DS0 for compatible mode
+...
+13b1: 0f fe 90     BRKEM2 90h
+
+        ; in the resume block after RETEM — VA2 0x13BD, VA1 0x0B21
+13bd: ba 52 01     mov dx,0152h
+13c0: ed           in  ax,dx
+13c1: 0d 00 40     or  ax,4000h       ; bit 14 set -> V3 mode
+13c4: ef           out dx,ax
+```
+
+Both machines do it identically, and both use read-modify-write on the
+full word so the rest of the memory-map register survives.
+
+`[DERIVED]` **The machine-level mode and the CPU's execution mode are two
+different things, set by two different mechanisms.**
+
+| | what it is | how it changes |
+|---|---|---|
+| CPU execution mode | `MD`, PSW bit 15 (§2.1) | `BRKEM`/`BRKEM2` and `RETEM`/`RETI` |
+| system memory mode | port `153H` bit 6 | an ordinary `OUT`, by software |
+
+`[VA-TM]` **The manual's boot flowchart separates them too.** §1.4 draws
+`IDP V1/V2` + `I/O trap ON` and `Jmp V1/V2` as two consecutive boxes, and
+gives the second the same granularity as `Jmp IPL` on the DOS branch —
+an ordinary far jump. Whoever drew it treated the memory-mode and
+I/O-trap setup as the firmware's work and `BRKEM2` as the control
+transfer alone. That is BNN corroborating the disassembly above,
+arrived at independently of it. (The `[UNKNOWN]` expansion of `IDP` is
+worth chasing in the てくまに, but the box's position carries the
+argument whatever it stands for.)
+
+Three things follow, and they tidy up questions this document had left
+tangled.
+
+1. **It kills the leading `BRKEM2` hypothesis.** §2.2's first candidate
+   was that `BRKEM2` additionally switches machine-level state where
+   `BRKEM` only switches the decoder. It does not: the machine-level
+   switch is an `OUT` four instructions earlier, in code that can be read.
+   Neither instruction touches it.
+2. **It explains CPMVA exactly, and more simply than §3.3 did.** CPMVA
+   issues `BRKEM` and never writes `153H`, so the machine stays in **V3**
+   memory mode while the CPU decodes Z80. That is precisely why it must
+   allocate its own 64 KiB window — there is no V1/V2 memory map to run
+   in — and why every device operation goes native through `CALLN`:
+   there is no 8801 I/O map either. No appeal to `PS3` is needed.
+3. **It reframes `ps3-decode`.** The machine does not have to infer the
+   mode from the bus, because software tells it. Whatever IC78 does with
+   its `PS3` pin (§12) is therefore something narrower than "switch the
+   machine mode" — qualifying bus cycles, or cross-checking the register.
+   The pin is still there and still deliberate; its job is now more open,
+   not less.
+
+`[DERIVED]` One further constraint on `doc-c003`: the resume block
+restores V3 memory mode **before** the far jump, so `1000:C003` is fetched
+under the V3 map. Whatever prepares that code has to leave it visible at
+physical `0x1C003` in V3 mode, not merely at Z80 `C003h` under the V1/V2
+map. If the two maps differ there, "the compatible-mode program writes it"
+becomes harder, not easier.
+
+#### 8.2.1 Why the path is documented but not taken
+
+`[DERIVED]` **Commercial V1/V2 software cannot use it, and would not want
+to.** A PC-8801 game is 8801 software: `ED FD` is an undefined opcode on a
+real Z80, and its authors had no reason to emit one and no knowledge that
+the PC-88VA would ever exist. The return path is therefore not a
+compatibility feature at all — it is only reachable by software written
+*for the VA* that chooses to run in compatible mode. That is a much
+smaller population than "V1/V2 software", and it may be empty.
+
+`[DERIVED]` **Operation makes it smaller still.** Returning to V3 means
+returning to an environment that needs its own medium; a machine that has
+been running a V1/V2 title from that title's own disk cannot simply resume
+V3 without a disk change. In practice a V1/V2 session ends at the power
+switch or the reset button. (This premise is an operator observation, not
+a documented fact — §0 has no tag for that; see the tag note in
+Appendix D.3.) It is consistent with the port `000Dh` branch in §8, which
+reads as a one-way selection made once at boot rather than as a state the
+machine moves in and out of.
+
+`[DERIVED]` So `1000:C003` is **live by the manual and dead in the
+field**: documented behaviour, correctly implemented in ROM, and — on the
+evidence available — never exercised. That is a different status from
+either "vestigial" or "unknown", and it is the right one to record.
+
+`[SRC]` **The pattern is not hypothetical, though. One shipped example is
+already in this document: CPMVA (§10).** It is a V3-side program that uses
+compatible mode as a subroutine and returns from it — the same shape as
+the firmware path, with every fixed part replaced:
+
+| | entry | window | return lands at |
+|---|---|---|---|
+| CPMVA, shipped 1989 | `BRKEM 0E1h`, its own IVT entry | wherever DOS allocated `emu_seg` | the instruction after `BRKEM` |
+| firmware path, documented | `BRKEM2 90h`, vector installed by ROM | `1000:` fixed | `1000:C003` fixed |
+
+`[DERIVED]` The comparison also explains why CPMVA did not simply use the
+firmware path: a DOS program needs its own 64 KiB window and its own
+vectors, and the firmware path hardcodes both. `[DERIVED]` And it changes
+what `doc-c003` is actually asking. The question is not "which image holds
+the writer" — §8.1 has shown none of them does — but "was software ever
+shipped that takes this route at all". Absence of such software would
+explain every observation in this section at once.
 
 `[ROM]` The shared post-handoff initialiser at `0x2210` and its
 subroutines (`0x2220` port table, `0x0E84` 51-vector install, `0x2233`
@@ -965,6 +1844,36 @@ Interrupt vectors: `7Ch` for IN traps, `7Dh` for OUT traps.
 
 `[VA-WIKI]` The I/O-trap ports occupy `FFE0h`–`FFE7h` plus `FFEFh`, and
 **ports `FFE0h`–`FFFFh` must not themselves be trapped.**
+
+`[ROM]` The VA2 boot ROM programs the ranges at reset, in table A's last
+descriptor (§5.7): **block 1 = `0050h`–`005Bh`, block 2 =
+`0060h`–`006Fh`**, written as eight byte `OUT`s from `FFE7h` down to
+`FFE0h`. Three consequences:
+
+- **Byte access to the range registers works.** CoBit's word `OUT`s
+  (`[SRC]`, above) work as well, so both widths are usable. The V50's
+  byte-only rule for the system I/O area (§5.1) is evidently a rule about
+  V50 registers, not about the 9002's additions.
+- **The hardware windows are wider than the emulated port list.** The
+  introduction to §9 gives `50h`–`53h`, `60h`–`68h` and `6Eh`–`6Fh`; the
+  ROM opens `50h`–`5Bh` and `60h`–`6Fh`. Two blocks is all the hardware
+  has, so the narrower list describes the ports the *handler* acts on, not
+  the ports that trap. Anything in the wider windows takes the trap
+  penalty of §9.4 whether or not the handler does anything with it.
+- **`FFEFh` is not written by this table.** The ranges are programmed once
+  at reset and the enable is applied later, around the V1/V2 handoff
+  (§8) — which is the ordering §9.5 describes, done by the firmware itself.
+
+`[VA-TM]` **The trap windows sit inside "system area 0", the 88MH/FH
+compatible block** (§5.1). `[DERIVED]` That bounds what the trap is for:
+it patches ports in the 8-bit compatible space and nothing else. Not every
+V1/V2-only port is trapped, either — the manual documents `0034h` and
+`0035h`, the GVRAM control ports, as **V1/V2 mode only**, and they fall
+outside both windows, so the VA implements them in hardware rather than in
+the trap handler. `[UNKNOWN]` Where the line between hardware-implemented
+and trap-emulated V1/V2 ports actually falls is a question for the
+machine-level document, not this one; the two windows read out of the ROM
+(§5.7) are the only part of it established here.
 
 ### 9.2 Trap semantics
 
@@ -1107,9 +2016,14 @@ implementation; it is not a design document.
    disjoint (one Z80, one x86); there is no shared front end to build.
    `ED FD` and `ED ED` belong to the **compatible-mode** table only; the
    native table needs no `ED` special case.
-4. **One register file.** Compatible mode reads and writes the same
-   storage under the aliases in §3.1. No separate Z80 register struct.
-   `SP` maps to the V30 `BP` slot — do not reflexively use the x86 `SP`.
+4. **One register file, plus eight bytes that are not in it.** Compatible
+   mode reads and writes the same storage under the aliases in §3.1 — no
+   separate Z80 register struct for the main set, and `SP` maps to the
+   V30 `BP` slot, not the x86 `SP`. The **alternate set is the exception**
+   and needs its own storage, invisible to native mode: hardware confirms
+   `AF'/BC'/DE'/HL'` are distinct from the main set (§3.1, §17.2), and
+   the V30 file has no room for them. `IX`/`IY` are *not* an exception —
+   they alias `SI`/`DI`.
 5. **One flag byte.** Do not convert at transitions. Make flag
    *computation* mode-aware: bit 2 is `P` natively and `P/V` in
    compatible mode, and bits 1/3/5 carry `N`/`F3`/`F5` (§3.2).
@@ -1127,8 +2041,151 @@ implementation; it is not a design document.
    decision.
 10. **Separate functional correctness from cycle accuracy.** Do not copy
     timing from another emulator.
+11. **Model the peripheral relocation registers, not the addresses they
+    currently hold.** `FFF0h`–`FFFEh` decode fully (§5.2), but the
+    resulting I/O map is firmware state: OPHA/DULA/IULA/TULA place the
+    blocks, OPSEL gates them, and only VA2 has been read. Hardcoding
+    `0160h`/`0188h`/`01A0h` will work until it does not. Honour the OPSEL
+    enables — a disabled peripheral must not answer — and keep this with
+    the CPU model rather than in `iova/`, since it is CPU-internal state
+    and not a VA device. For calibration: nothing in the 512 KiB of
+    `varom00_va2.rom` writes those registers at all (§5.5(c)), so runtime
+    relocation is a correctness concern, not an observed behaviour.
 
-## 12. MAME V20/V30 comparison
+## 12. What the VA1 schematics show
+
+`[ROM]` From the I/O Magazine Aug 1987 full VA1 schematics (pp. 241–264),
+two sheets matter here.
+
+**p.248「CPU割り込み周辺」** carries `IC83 = D9002` — the μPD9002 itself —
+together with `IC38 = D8259A`, an **external** interrupt controller
+alongside the CPU's built-in one (§5). The sheet exports two distinct
+address paths off-page: the **latched** `SA0`–`SA19` (through `LS373`
+latches and `ALS245` buffers) and, separately, the **unlatched** high
+address/status lines, `XUBE`, the bus-status lines `BS0`–`BS2` and the
+raw multiplexed `AD0`–`AD15`.
+
+**p.250「PC-88V1/V2モード・エミュレータ」** carries **`IC78 = PCZ80-27`**,
+the 88-mode emulator gate array — a 100-pin device — with
+`IC36 = μPD7811` as the keyboard controller.
+
+### 12.1 The `PS3` pin
+
+`[ROM]` A pin-numbered magnification of IC78's pin box is now in hand and
+is transcribed in full in Appendix D. The CPU-side pins are:
+
+| Pin | Name | |
+|---|---|---|
+| **32** | **`PS3`** | **the CPU mode line** |
+| 33 | `XUBE` | upper byte enable |
+| 34, 35, 36 | `BS2`, `BS1`, `BS0` | bus status |
+| 31–16 | `AD15`–`AD0` | multiplexed address/data (pin = 16 + *n*) |
+| 39, 38, 37 | `XDMAK3`, `XDMAK2`, `XDMAK0` | DMA acknowledge 3, 2, 0 |
+| 63 | `X8BMOD` | reads as "8-bit mode" |
+
+**The gate array has a pin its own designers named `PS3`.** That is a
+categorically better fact than the previous reading of this section,
+which listed `AB19` and `AB18` among IC78's inputs: **there is no `AB18`
+or `AB19` pin on IC78 at all.** The earlier reading took net labels from
+p.248 for pin names on p.250 and, in doing so, understated its own case
+— an address line admits the innocent explanation that it is there for
+decoding above 256 KiB, whereas a pin named `PS3` does not. See
+Appendix A item 22.
+
+`[DERIVED]` So the 88-mode emulator watches the **raw, unlatched** CPU bus
+including the status phase, and it takes exactly one status line: `PS3`,
+which on a V30-class part is high during a compatible-mode bus cycle and
+low in native mode (§2.3). `PS0`–`PS2` are not routed to it. There is no
+second reason to bring that one line, and only that one line, into the
+V1/V2 emulator.
+
+`[DERIVED]` `X8BMOD` (63) looks like the output side of the same
+decision — an "8-bit mode" signal for the rest of the machine. Pin
+directions are not marked in the scan, so this is a reading of the name,
+not of the schematic; §15.2 `ic78-direction`.
+
+This resolves the routing half of the old `ps3-decode` question, which is
+now `ps3-routed` in §15.4. What the gate array *does* with the pin is
+still inferential and stays in §15.2. Two consequences are recorded
+elsewhere: the effect on `BRKEM` vs `BRKEM2` (§2.2) and on how Z80
+`IN`/`OUT` reaches the I/O space (§3.3).
+
+### 12.2 Pins bearing on the on-chip peripheral configuration
+
+`[DERIVED]` Three of IC78's pins independently corroborate the §5.2
+decode, and the argument is given there as checks 5 and 6 of §5.4:
+`XDMAK3` (39) requires OPCN PF ∈ {`00`,`01`}; `RXRDY` (45) and `DCD` (74)
+require the external serial controller that OPSEL SS=0 implies; and
+`XAITAK` (68) alongside `XPIC` (61) and `PICINT` (51) is the obvious
+source of the interrupt acknowledge that PF=`01` costs the CPU.
+
+### 12.3 What a 600 dpi re-read settles
+
+`[ROM]` p.248 and p.250 have since been re-read at scan resolution, with
+the net and pin labels recovered by OCR rather than by eye. Four results.
+
+**`REFRQ` is not on either sheet.** A full-page word scan of p.248 returns
+355 labels and **not one contains the string `REF`**; the same holds for
+p.250. The μPD9002's refresh-request output is not wired to anything on
+the CPU sheet or the emulator sheet. `[DERIVED]` Together with the
+firmware writing RE=0 (§5.7), that is the whole answer to `refresh-owner`
+that a schematic can give: **the CPU does not participate in DRAM refresh
+at all** — not through a disabled unit whose pin still feeds decode
+logic, but not at all. Whatever refreshes VA DRAM does so without a signal
+from the CPU. (A pin left unconnected is often simply not drawn, so this
+is "not connected here", which is exactly the question that was asked.)
+
+**`BRATE` is confirmed.** It reads at 92% confidence in p.248's left-edge
+connector column, next to `TMROUT`. `[DERIVED]` It does **not** appear
+anywhere on p.250, so it does not go to IC78 — consistent with it being
+the clock for the RS-232C circuit rather than anything in the V1/V2
+emulator. The OCR-grade lead in the previous revision of this section can
+now be stated plainly.
+
+**`AB18` leaves IC83 and does not reach IC78.** It reads as a pin name in
+IC83's own pin band on p.248, and appears nowhere on p.250. `[DERIVED]`
+That closes `ab18-dest` from the other side: whatever consumes it is on a
+sheet not in hand, and it is certainly not the 88-mode emulator. This is
+the same conclusion Appendix A item 27 reached from IC78's pin list,
+reached independently from IC83's.
+
+**Two IC83 pin names corroborate §5.2 directly.** The chip's own pin band
+carries **`TOUT1`** and **`DMARQ3`** — not `SRDY`/`INTAK`, and not `TxD`.
+`[DERIVED]` NEC drew those pins under the function the machine actually
+uses, and both are only available under OPCN PF=`01`: `DMARQ3` requires
+PF ∈ {`00`,`01`} and `TOUT1` on the multiplexed pin requires exactly `01`.
+That is §5.4 checks 5 and 6 confirmed a second time, from the CPU side
+rather than the gate-array side, and it pins PF to `01` where the IC78
+evidence alone left `00` open. The sheet also carries `TOUT2` as a
+separate pin, as the V50 pinout requires.
+
+### 12.4 Which IC78 signals leave the sheet
+
+`[ROM]` Cross-referencing the two pages by label:
+
+| signal | on p.250 | on p.248 | reading |
+|---|---|---|---|
+| `XAITAK` | IC78 pin, **and** a sheet-edge connector | in the connector column | crosses to the CPU/μPD8259A sheet |
+| `XPIC` | IC78 pin | in the connector column | crosses |
+| `PICINT` | IC78 pin, and a second occurrence | in the connector column | crosses |
+| `X8BMOD` | IC78 pin only | **absent** | stays on p.250 |
+| `BRATE`, `TMROUT` | absent | connector column | never reach IC78 |
+
+`[DERIVED]` The interrupt trio crossing to p.248 is the strongest reading
+available without arrowheads: IC83 cannot supply `INTAK` while PF=`01`
+(§5.3), p.248 carries the external μPD8259A, and IC78 is the only part
+with an `XAITAK` pin. `X8BMOD` staying on p.250 fits its reading as a
+local "8-bit mode" decode rather than a signal the rest of the machine
+consumes — though a second occurrence below the OCR confidence floor
+cannot be excluded, so this one is weaker than the others.
+
+`[UNKNOWN]` **The arrowheads themselves are still unread.** The off-page
+connector symbols are legible as glyphs at 600 dpi but not reliably
+resolvable into direction at the individual-pin level, so `ic78-direction`
+stays open as originally posed. What replaces it in practice is the
+topology above, which answers the question the direction was wanted for.
+
+## 13. MAME V20/V30 comparison
 
 MAME already models the standard V30 emulation path and is a useful
 implementation reference — but it does **not** implement `BRKEM2` as a
@@ -1141,11 +2198,11 @@ compatible-mode entry, so it is not a drop-in answer.
 | Mode state | Keeps a decode selector (`m_MF`) **and** a separate latch-like state (`m_em`) affecting whether restored flags may leave emulation mode. | Matches the write-enable rule in §2.1. Two fields, not one. |
 | Entry stack frame | `nec_brk()` clears the native flag, pushes flags/`PS`/post-immediate `IP`, loads `PS:IP` from `IVT[nn]`. | The working `BRKEM2 90h` model: save `IP = 13B4h`, load `PS:IP` from `vec(90h) = 1000:0000`. |
 | Decoder switch | Chooses the native table when the mode flag is set, the 8080 table when clear. | The main CPU needs its own compatible-mode decoder. |
-| Return | `RETEM` lives in the 8080-mode table as `ED FD`; `CALLN` as `ED ED nn`. | Confirms the table placement in §11.3. |
-| Prefetch | Control-transfer macro clears prefetch state on `BRKEM`, `RETEM`, calls, jumps, returns. | §11.7. |
-| Timing | Assigns a concrete cycle cost to `BRKEM`; source comments treat some prefetch details as approximate. | §11.10. |
+| Return | `RETEM` lives in the 8080-mode table as `ED FD`; `CALLN` as `ED ED nn`. | Confirms the table placement in §11 item 3. |
+| Prefetch | Control-transfer macro clears prefetch state on `BRKEM`, `RETEM`, calls, jumps, returns. | §11 item 7. |
+| Timing | Assigns a concrete cycle cost to `BRKEM`; source comments treat some prefetch details as approximate. | §11 item 10. |
 
-## 13. Current vaeg status
+## 14. Current vaeg status
 
 - The FDD subsystem Z80 is implemented separately — historically
   `cpucva/z80c.cpp`, currently `cpucva/z80_core.cpp`, with
@@ -1160,35 +2217,82 @@ compatible-mode entry, so it is not a drop-in answer.
 
 # Part IV — Open questions and tests
 
-## 14. Open questions
+## 15. Open questions
 
-### 14.1 Resolvable from documents not yet obtained
+### 15.1 Resolvable from documents not yet obtained
 
 | id | question | where the answer is |
 |---|---|---|
 | `doc-9002-man` | A device-level μPD9002 specification: exact saved frame, mode-latch write protection, prefetch, interrupt interaction, cycle timing | a μPD9002 manual, if one exists |
-| `doc-brkem2` | What distinguishes `BRKEM2` from `BRKEM` | μPD9002 manual, or the `PS3` trace in §14.2 |
-| `doc-c003` | What prepares the code at `1000:C003` | execution trace, or the V1/V2 sub-ROM |
-| `doc-boot-cover` | Whether every boot configuration reaches `0x13B1` | CS:IP trace per ROM/configuration |
+| `doc-brkem2` | What distinguishes `BRKEM2` from `BRKEM`. Two candidates survive: a different saved frame or mode-latch write rule, or nothing architectural at all. The machine-state candidate is dead twice over — the port `153H` `OUT` four instructions earlier, and the manual's own flowchart drawing setup and jump as separate boxes (both §8.2) | μPD9002 manual; the `PS3` routing in §12 and the `[VA-TM]` flowchart have each narrowed it further — see §2.2 |
+| `doc-c003` | What prepares the code at `1000:C003`. **Not a ROM-search problem**: the manual documents `C003` as a destination and never as a preparation duty, and §8.1's scans confirm no ROM prepares it. The open half is whether it is caller-supplied like `1000:E000` or installed by the V1/V2 environment — and possibly neither, if no software ever took the route (§8.1) | the V1/V2 sub-ROM / disk BIOS, which should contain an `ED FD`; or a live execution trace; or a single example of VA-aware V1/V2 software that returns to V3. A negative result here is informative and should be recorded as one |
 
-### 14.2 Requires hardware or the schematics
+### 15.2 Requires hardware or the schematics
 
 | id | question | default to assume | test |
 |---|---|---|---|
-| `ps3-decode` | Does the "88-mode emulator" gate array switch the I/O map on `PS3`? | unknown | trace the μPD9002 `PS3` pin on the VA1 schematics — cheapest high-value check available |
-| `brkem2-target` | What mode/state does `0F FE imm8` establish? | trap and halt | §16.1 |
-| `alt-regs` | Do `AF'/BC'/DE'/HL'` exist? | probably yes (§4.4) | §16.0 |
-| `ix-iy-share` | Do `IX`/`IY` physically share `SI`/`DI`? | shared | §16.3 |
-| `ed-block` | Do `LDIR`/`CPIR`/`INIR`/`OTIR` exist? | probably yes (§4.4) | §16.0 |
-| `cb-dd-fd` | `CB`/`DD`/`FD` prefix spaces; half-index registers | `DD`/`FD` probably yes; `CB` and half-index unknown | §16.0, §16.4 |
-| `ir-regs` | Do `I`/`R` exist? What does `LD A,R` return? | unknown | §16.5 |
-| `undoc-flags` | Do `F3`/`F5` behave as on a real Z80? | unknown | §16.6 |
-| `flag-callback` | Are flags set by a `CALLN`-invoked native routine visible after `RETI`? | no (plain PSW restore) | §16.7 |
+| `ps3-decode` | What IC78 *does* with `PS3`. It is no longer "switch the I/O map" — that follows port `153H` bit 6, set by software (§8.2) — so the pin's job is narrower and now genuinely open | qualifying bus cycles, or cross-checking the mode register | hardware, or gate-array-level analysis |
+| `brkem2-target` | What mode/state does `0F FE imm8` establish? | trap and halt | §17.4 |
+| `bootsel-000d` | What drives port `000Dh` bit 2. The `3000h` shared between the `0x13D2` branch and the manual's IPL path reads it as the V1/V2-versus-V3-IPL selector rather than the `PC` key (§8) | V1/V2-boot versus V3-IPL-boot selector; the `PC` key tested elsewhere | §17.1, Tier 1 — a boot matrix over `PC` key / `SW7` / V3-IPL disk. No instrument |
+| `ix-iy-share` | `IX` shares `SI` — confirmed on hardware (§17.2). Open only for `IY`/`DI` | shared | §17.5.2, which now has a predicted value to check |
+| `ed-block` | Do `LDIR`/`CPIR`/`INIR`/`OTIR` exist? | probably yes (§4.4) | §17.3 |
+| `cb-dd-fd` | `CB`/`DD`/`FD` prefix spaces; half-index registers | `DD`/`FD` probably yes; `CB` and half-index unknown | §17.3, §17.5.3 |
+| `ir-regs` | Do `I`/`R` exist? What does `LD A,R` return? | unknown | §17.5.4 |
+| `undoc-flags` | Do `F3`/`F5` behave as on a real Z80? | unknown | §17.5.5 |
+| `flag-callback` | Are flags set by a `CALLN`-invoked native routine visible after `RETI`? | no (plain PSW restore) | §17.6 |
 | `z80-int-model` | Does the superset add `IM 0/1/2`, `I`, `IFF1/2`, `RETN`? | V30 behaviour only (§3.5) | hardware |
 | `io-port-map` | How do Z80 `IN`/`OUT` ports reach the V30 I/O space? | direct | hardware |
 | `iotrap-exempt` | Are `FFE0h`–`FFFFh` exempt from trapping? | exempt | program a range covering `FFEFh`, observe |
+| `opcn-bit4` | What is OPCN bit 4 on the μPD9002? The V50 leaves bits 7–4 undefined; the VA2 boot ROM writes it set, as a literal in its table | unknown; implement as ignored but keep the bit in the stored value | write `11h` to `FFFEh`, read back — §5.5(a). This is now the only remaining discriminator |
+| `refresh-owner` | What refreshes VA DRAM? The CPU is now ruled out twice over — unit disabled in firmware, `REFRQ` unwired (§12) | GAL-1 or the display subsystem | the memory and display sheets, pp. 241/249 — not the CPU sheet |
+| `icu-alias` | Does the ICU also answer at `018Ch`/`018Eh`, `A2` being neither stored in IULA nor used by the ICU? | aliased | read an ICU register at both addresses — §5.3 |
+| `ic78-direction` | Pin directions on IC78. The p.250 arrowheads are still unread at 600 dpi; the inter-sheet topology in §12 answers what the question was wanted for | `XAITAK`/`XPIC` outputs toward p.248, `X8BMOD` local | a cleaner scan, or continuity on hardware |
+| `ab18-dest` | Where the unlatched `AB18` lands. Confirmed to leave IC83 and confirmed absent from p.250, so not the emulator (§12) | memory decode | a sheet not in hand |
 
-### 14.3 Resolved
+### 15.3 What a minimal CPMVA bring-up still lacks
+
+`[DERIVED]` CPMVA is the only shipped workload in hand that exercises the
+full mode round trip (§17.7), which makes it this document's acceptance
+target. It is also by some distance the cheapest such workload to
+specify: its compatible-mode code is an 8080 subset plus `JR` and
+`CALLN`, and it touches neither the alternate registers, nor the index
+registers, nor the `ED` block instructions, nor the I/O trap, nor
+`BRKEM2`. What stands between that and a running trace is short — and
+most of it is not CPU work.
+
+| id | what is missing | consequence | how it closes |
+|---|---|---|---|
+| `cpm-sys` | `CPM.SYS`, the CCP + BDOS image `CPMVA.EXE` reads before it issues `BRKEM` (References, "Not in hand") | the unmodified program stops short of §17.7 step 2 — it never reaches the mode switch at all | obtain it, or stub the load |
+| `cpm-stub-reach` | a stub does **not** buy the whole trace. `nBIOSentry` copies the CCP and BDOS out of the loaded image and `c$boot` then does `jp CCPTOP`; with a stub, control enters garbage there. §17.7 step 4 is driven by a CCP console call and step 5 by CCP loading and running `EXIT.COM` — both need a real CP/M above the BIOS | a stub reaches steps 1–3 only | a real `CPM.SYS`; or test steps 4 and 5 separately — `CPMBIOS.COM` is in hand and its `c$const: ld a,2 / jr execbios` can be entered directly, and a bare `ED FD` is a one-instruction payload (§17.5). Neither substitutes for the integration, which is the reason to use CPMVA at all |
+| `dos-v3` | MS-DOS running in V3 mode: the boot path at `0x13D2` (§8) through to `Jmp IPL`, plus the `INT 21h` services `CPMVA.ASM` uses — `SETBLOCK`, vector get/set (`AH=35h`/`AH=25h`), file open and read, and `AH=4Ch` (§10) | nothing in the trace runs | emulator work. This is the largest of the three and it is why §17.3–§17.6 remain the cheaper first tests |
+
+`[DERIVED]` **What CPMVA does not need, and can therefore be deferred
+past it.** Each of these is established elsewhere in the document, and
+listing them is what makes the target *minimal* rather than merely
+first:
+
+- **The alternate register set, `IX`/`IY`, the `ED` block instructions
+  and the `CB`/`DD`/`FD` prefix spaces.** `CPMBIOS.MAC` uses none of them
+  (§3.1). So `alt-regs`, `ix-iy-share`, `ed-block`, `cb-dd-fd` and
+  `ir-regs` are all off this path — including the two that are now
+  answered.
+- **`BRKEM2`.** CPMVA enters with `BRKEM` (§2.2.1), so `doc-brkem2` and
+  `brkem2-target` do not gate it.
+- **The whole of §9.** CPMVA never writes `153H` and never executes a
+  Z80 `IN` or `OUT`; every device operation goes native through `CALLN`
+  (§3.3, §8.2). The I/O trap and `io-port-map` are both off this path.
+- **`1000:C003` and the firmware resume block.** CPMVA returns to the
+  instruction after `BRKEM`, not to a fixed address (§8.2.1), so
+  `doc-c003` does not gate it either.
+
+`[DERIVED]` **What it does need on the CPU side** is then exactly: the
+`MD` latch and the four interrupt-shaped transitions (§2.2); the 8080
+subset plus `JR`, `JR cc` and `DJNZ` (§2.4); `SP` mapped to `BP` (§3.4);
+`DS0` for data *and* stack (§3.3); the register aliases of §3.1; one
+flag byte with mode-aware computation (§3.2); and a prefetch flush on
+every mode-changing transfer (§11 item 7). Nothing in that list is open.
+
+### 15.4 Resolved
 
 | id | resolution |
 |---|---|
@@ -1200,8 +2304,26 @@ compatible-mode entry, so it is not a drop-in answer.
 | `calln-services` | `91h`/`95h` are IVT entries, not CPU behaviour — §6 |
 | `retem-c003` | `1000:C003` is reached by an explicit `jmp` after `RETEM` — §8 |
 | `v1v2-on-9002` | V1/V2 mode executes on the μPD9002 in compatible mode — §4.4 |
+| `c003-not-in-rom` | Neither the code at `1000:C003` nor any `RETEM` exists in `varom1.rom`, `varom1_va2.rom` or `varom00_va2.rom`; the V3 resume path cannot be reached from ROM alone — §8.1 |
+| `alt-regs` | **The alternate set exists on the μPD9002** and is distinct from the main set: a real-machine dump shows all four pairs differing at once, which `EX AF,AF'`/`EXX` as no-ops cannot produce. The chip therefore carries eight bytes of register storage native mode cannot address — §3.1, §17.2 |
+| `ix-shares-si` | `IX` aliases `SI`: the observed `IX:0F7C` is exactly the `SI` the VA2 boot ROM's vector installer leaves behind — §17.2 |
+| `refrq-unwired` | The μPD9002's `REFRQ` is not connected on either the CPU sheet or the emulator sheet — no label containing `REF` exists on p.248 or p.250 — §12 |
+| `machine-mode-reg` | The machine's V1/V2-versus-V3 state is **port `153H` bit 6**, set by an ordinary `OUT`, orthogonal to the CPU's `MD` flag. The firmware clears it four instructions before `BRKEM2` and sets it again in the resume block, identically on VA1 and VA2 — §8.2 |
+| `halt-diverges` | `HALT` is a real compatible-mode divergence on the μPD9002: NEC removed all three from the VA's Debug 8800 and substituted `JR $`, leaving the rest of the 8 KiB bank byte-identical to a real 8801mkIISR's — §3.5, §4.5 |
+| `doc-8801-n88` | The VA's N88-BASIC is the 8801mkIISR's with additions, mostly written into the 8801 ROM's zero-fill; the additions are calendar-clock and serial support, and **not one `HALT` was removed** anywhere in the BASIC — §4.6 |
+| `doc-boot-cover` | `0x13B1` is **not** reached in every configuration: port `000Dh` bit 2, tested at `0x136A`, selects between the V1/V2 handoff and a V3 path that never executes `BRKEM2`. The manual's §1.4 flowchart shows the same multi-destination boot, and its IPL path shares the `0x13D2` branch's `3000h` — §8 |
+| `va2-dma-cascade` | VA2 does configure the DMAU, just not at reset. Its boot ROM never touches `0160h`–`016Fh` beyond the `DICM` reset, but `varom00_va2.rom` has 43 `mov dx,016xh` sites — `0161`, `0162`, `0164`, `0166`, `0168`/`0169`, `016A`, `016D`, `016E`, `016F` — in three driver-shaped clusters around `0x5675x`, `0x57F3x` and `0x5CE2x`, plus a separate user of `016D`/`016E` near `0x2BAD0`–`0x2C5B0`. The reset-time difference from VA1 (§5.8) is one of scheduling, not of hardware — §5.8 |
+| `no-n80-mode` | The VA carries no N-BASIC, so V1/V2 mode does not extend to N80 mode. Absent from every VA image, and confirmed on hardware: `NEW ON 1` answers `Feature not available` on VA, VA2 and VA3 — Appendix C |
+| `pf01-from-schematic` | IC83's own pin band names `TOUT1` and `DMARQ3`, which together are available only under OPCN PF=`01`; the schematic therefore fixes PF independently of the firmware table — §12, §5.4 |
+| `ps3-routed` | The CPU mode line reaches the 88-mode emulator gate array: `IC78` pin 32 is named `PS3`, and `PS0`–`PS2` are not routed to it — §12, Appendix D |
+| `ic78-id` | `IC78` is `PCZ80-27`, a 100-pin gate array, not `PC226B-27` — §12, Appendix D |
+| `periph-io-map` | Decoded from the μPD70216 data sheet and then **confirmed by the firmware**, which initialises the ICU, TCU and DMAU at exactly those addresses: DMAU `0160h`–`016Fh`, ICU `0188h`/`018Ah`, TCU `01A0h`–`01A6h`, SCU disabled, timer clock 3.9936 MHz, `TOUT1` exported — §5.2, §5.3, §5.7 |
+| `periph-init-source` | The `FFF0h`–`FFFEh` setup is a descriptor table at `0x0F20` in the VA2 boot ROM, walked at `0x12ED` on the reset path; VA1's is at `0x0930`, walked at `0x0A7D` — §5.7, §5.8 |
+| `va1-periph` | VA1's configuration differs from VA2's in **two bytes only**, WCY2 (`05` vs `08`) and WCY1 (`84` vs `80`); the peripheral map, pin multiplexing, partitioning, timer clock, refresh setting and trap windows are identical. VA1 additionally brings up DMA channel 1 in cascade mode — §5.8 |
+| `iotrap-width` | Both widths reach the `FFE0h`–`FFE7h` trap range registers: the boot ROM writes them as eight byte `OUT`s, 98IOE as four word `OUT`s — §9.1 |
+| `iotrap-ranges` | The firmware's trap windows are `50h`–`5Bh` and `60h`–`6Fh`, wider than the emulated port list — §9.1, §5.7 |
 
-## 15. Confidence summary
+## 16. Confidence summary
 
 | Item | Confidence | Reason |
 |---|---|---|
@@ -1214,10 +2336,26 @@ compatible-mode entry, so it is not a drop-in answer.
 | Runtime path coverage of `0x13B1` | Medium-high | The `000Dh` branch can skip the block |
 | I/O trap mechanics | High | Full working reference implementation with source |
 | I/O trap port list | Medium | `[VA-TEKU]`; the ROM's bracketing use is consistent but does not enumerate ports |
-| `1000:C003` preparation | Medium | Target confirmed; no copy loop found; needs a trace |
-| On-chip peripheral map | Low | Family analogy only |
+| `1000:C003` preparation | Medium | Target confirmed by the manual and by the ROM's own `ljmp`; no copy loop and no `RETEM` in any image, so the preparer is provably outside the ROMs in hand. Which of the two remaining owners it is, is open — §8.1 |
+| The resume block is live code | High | The manual describes the post-`RETEM` sequence, including V3 re-initialisation before the jump, and it matches the disassembly step for step — §8, §8.1 |
+| The resume path is unexercised in the field | Medium-high | Commercial 88 titles cannot emit `ED FD`, returning to V3 needs a disk change, no example is known, and ten ROM images — the machine's entire ROM complement — contain no `RETEM` at all. Still an absence claim — §8.1, Appendix C |
+| Alternate register set exists | High | A real-machine dump in which all four main/alternate pairs differ; no-op `EXX` cannot produce that — §3.1, §17.2 |
+| `IX` aliases `SI` | High | The observed value is the exact `SI` a known ROM loop leaves; a chance match is 1 in 65536 and the address is meaningful — §17.2 |
+| `IY` aliases `DI` | Low | Unresolved: the observed `IY` does not match `DI` at the point `IX` matched `SI` — §17.2 |
+| On-chip peripheral map | High | Every VA2 configuration byte decodes against the μPD70216 data sheet, and the boot ROM then initialises the ICU, TCU and DMAU at exactly the decoded addresses with values meaningful only there (§5.4 check 7, §5.7) |
+| Peripheral init sequence | High | Read directly out of the boot ROM: two tables, two walkers, on the reset path — §5.7 |
+| VA1 vs VA2 configuration | High | Both boot ROMs parsed with the same walker semantics; the two differing bytes are isolated — §5.8 |
+| OPCN bit 4, refresh ownership | Low | One firmware-written bit is undefined on the V50; RE=0 has no documented owner (§5.5) |
+| `PS3` reaches IC78 | High | A pin-numbered scan; the transcription is arithmetically self-checking (Appendix D) |
+| What IC78 does with `PS3` | Low | A dedicated pin and a plausibly-named output, but the obvious job — switching the machine mode — turns out to belong to a software register (§8.2), so the pin's purpose is now less constrained than before |
+| Machine mode is a software register | High | `[VA-TM]` documents port `153H` bit 6, and both boot ROMs write it symmetrically around the handoff — §8.2 |
+| OPCN PF = `01` | High | Two independent routes: the firmware table (§5.7) and IC83's own pin names `TOUT1` + `DMARQ3` on p.248 (§12) |
+| The CPU does not drive refresh | High | `REFRQ` unwired on both sheets, and the firmware writes RE=0 — §5.5(b), §12 |
+| `HALT` diverges in compatible mode | High | NEC patched it out of the VA's own monitor; the diff is 52 bytes in one window against a real 8801mkIISR ROM — §4.5 |
+| `HALT` is the *only* CPU-level patch | Medium-high | The whole 8801-mode ROM set has now been diffed and everything else NEC changed is peripheral support. Strong, but an absence over ~57 KiB of ROM — §4.6 |
+| VA has no N80 mode | High | Absent from all three VA images, and the machine reports it: `NEW ON 1` → `Feature not available` on VA, VA2 and VA3 — Appendix C |
 
-## 16. Real-hardware test procedures
+## 17. Real-hardware test procedures
 
 Two on-board instruments, dividing the work:
 
@@ -1231,14 +2369,98 @@ Two on-board instruments, dividing the work:
   It prints no banner, so it looks like "the usual monitor"; the
   `Debug 8800 version 1.0` string and the `Peeping Tom` message next to
   it are embedded text aimed at whoever dumps the ROM, not startup
-  output. Four independent checks identify it (§16.-1). A Z80 monitor with an
+  output. Four independent checks identify it (§17.2). A Z80 monitor with an
   assembler (`a`), disassembler (`l`), memory dump/fill/move/edit, `g`
   with two breakpoints, port `i`/`o`, and an `x` command covering the
   full Z80 register set **including `IX`, `IY` and the alternates**.
   Where a test is about Z80 semantics rather than mode transition, this
   is the better instrument.
 
-### 16.-1 Confirming that the V1/V2 `MON` monitor is Debug 8800
+### 17.1 Where to start
+
+Ordered by cost, not by section number. The sections below are reference
+material; this is the running order.
+
+**Already answered — do not spend machine time on these.**
+
+| id | why it is closed |
+|---|---|
+| `ed-block` | Debug 8800's own bank entry shim executes `LDIR` before the monitor runs (§4.4). Reaching the `h]` prompt is the proof |
+| `cb-dd-fd`, `DD`/`FD` half | `x` displays and edits `IX`/`IY`, which needs both prefix spaces (§17.2) |
+| `alt-regs` | The boot dump shows all four main/alternate pairs differing (§3.1, §17.2) |
+| `ix-iy-share`, `IX` half | Same dump: `IX:0F7C` is the boot ROM's leftover `SI` (§17.2) |
+
+**Tier 1 — from the `h]` prompt or the boot switches; seconds, no risk.**
+
+1. **`I` round-trip.** Write `I:3C` with `x`, re-issue `x`. Closes the
+   first half of `ir-regs` at essentially zero cost, since you are already
+   at the prompt.
+2. **Cold-boot from a different disk and re-take `x`.** If `IX` comes up
+   `0F7C` again, the V3-residue reading in §17.2 is confirmed against a
+   second boot; if it comes up different, the residue has another source
+   and that reading needs revisiting.
+3. **The boot matrix — `bootsel-000d`.** No instrument and no typing:
+   vary the `PC` key, `SW7` and whether the disk carries a V3 IPL, and
+   record which of the three destinations in §8 the machine reaches. One row
+   in which the `PC` key is on and the machine still lands in N88-BASIC
+   rules the `PC` key out as the driver of port `000Dh` bit 2; one in
+   which `SW7` and the disk alone move it between N88-BASIC and DOS
+   confirms the reading in §8. Reading `000Dh` back is the
+   *confirmation*, not the discriminator — and reading it from V1/V2 mode
+   is entangled with `io-port-map`, so take the observation first.
+
+**Tier 2 — a few bytes typed in, minutes.**
+
+4. **The 16-bit port probe. The highest-value single test here.**
+
+   ```
+   01 FE FF     LD BC,0FFFEh     ; OPCN, already holding 11h (§5.7)
+   ED 78        IN A,(C)
+   ```
+
+   Break, then read `A` with `x`. All three outcomes are informative:
+
+   | `A` | what it means |
+   |---|---|
+   | `11` | 16-bit port numbers reach the V3 I/O space unchanged **and** OPCN bit 4 is real storage → `opcn-bit4` closes as a μPD9002 extension, `io-port-map` closes as a direct mapping |
+   | `01` | Ports reach, bit 4 is not retained → `opcn-bit4` closes as set-and-ignored |
+   | `FF` | Compatible-mode I/O does not reach the system I/O area → `io-port-map` closes the other way, and that is itself a reason for the I/O trap to exist (§9) |
+
+   Read-only, no side effects — the firmware has already written the value
+   being read. **Terminate with a breakpoint under `g`, or with `18 FE`
+   (`JR $`) — never with `76` (`HALT`).** That is not caution: NEC removed
+   every `HALT` from the VA's own copy of this monitor and put `JR $` in
+   their place (§4.5), because standby's exit path can leave compatible
+   mode altogether (§3.5).
+
+5. **If 4 says the ports reach, read the rest.** All eleven of
+   `FFF0h`–`FFFEh` against the §5.2 table; `0188h` and `018Ch` compared
+   for `icu-alias` (§5.3); `01A2h` twice for whether the TCU is actually
+   counting.
+6. **`undoc-flags` (§17.5.5).** The one thing `x` can never show, because
+   the flag notation table hardcodes `--` at bits 5 and 3 (§17.2).
+   `3E 28 / C6 00 / F5 / E1`, then read `L`: `28h` means the μPD9002
+   reproduces a real Z80's `F3`/`F5`; `02h` or `00h` means it does not.
+7. **`CB` prefix (§17.5.3).** `3E 01 / CB 27` → `A = 2` if `SLA A` works.
+8. **`ir-regs`, second half (§17.5.4).** `ED 5F` twice with differing gaps.
+   `[DERIVED]` There is a prediction attached: §5.7 shows the on-chip
+   refresh unit is deliberately disabled, so if `R` exists at all it
+   cannot be refresh-driven and must be a counter imitation. A divergence
+   from real-Z80 `R` behaviour is expected, and that is the reason.
+
+**Tier 3 — needs entry from the V3 side by `BRKEM`; set-up required.**
+
+`IY`/`DI` (§17.5.2), `flag-callback` (§17.6), `brkem2-target` (§17.4). Per
+§8.1 a plain V1/V2 boot cannot return to V3, so these have to be entered
+from the PC-Engine monitor. Worth doing, but not first.
+
+**Tier 4 — no machine needed at all.**
+
+`refresh-owner` (trace `REFRQ` on IC83), `ic78-direction` (read the p.250
+arrowheads at higher magnification), `ab18-dest`. These are schematic
+work, so they fill the time when the machine is not available.
+
+### 17.2 Confirming that the V1/V2 `MON` monitor is Debug 8800
 
 `[ROM]` `[DERIVED]` The identification rests on four things:
 
@@ -1255,6 +2477,69 @@ Two on-board instruments, dividing the work:
 4. The dispatch table at `0x1E0F5` gives exactly sixteen commands:
    `A L T R W V B M E I O G F X D S`.
 
+**Reference output.** `[SRC]` The `x` command prints, on a real PC-8801
+and on a real PC-88VA respectively, after booting N88-DISK-BASIC and
+typing `mon`:
+
+```
+8801  A :00 F :PZ---E-- B :0000 D :EDCC H :0001 A':FF F':MZ-H-ENC B':FFFF D':FF7B
+      H':0911 IX:FFFF IY:FFFF I :F3 PC:0000 SP:E5F9
+
+VA    A :00 F :PZ---E-- B :0000 D :EDCC H :0001 A':FF F':MZ-H-ENC B':FFFF D':FF7B
+      H':0911 IX:0F7C IY:0101 I :F3 PC:0000 SP:E5F9
+```
+
+`[DERIVED]` **The two differ in `IX` and `IY` and in nothing else.** Every
+other field — including all five alternate-register fields and `I` —
+matches to the character, which is what one expects of a deterministic
+boot path through the same monitor, and which makes the two that differ
+worth reading closely.
+
+**`IX:0F7C` is the V3 firmware's leftover `SI`.** `[ROM]` The VA2 boot
+ROM's vector installer walks the override table with `SI`:
+`mov si,0F5Eh`, `mov cx,6`, and each iteration advances `SI` by 1+2+2 = 5
+bytes (§6). Six iterations leave `SI = 0F5E + 30 = 0F7Ch` — the observed
+value exactly. `[DERIVED]` So `IX` aliases `SI`, `SI` survived from the
+installer through to the `BRKEM2` handoff, and the compatible-mode code
+that ran afterwards never touched `IX`. Three independent things follow:
+`ix-iy-share` is answered for `IX`; the machine dumped was running the
+**VA2** boot ROM, since VA1's table ends at `0x099B`; and `CPMVA.H`'s
+`_IX equ si` (§3.1), which CPMVA never actually exercised, was right.
+
+`[UNKNOWN]` `IY:0101` does not match `DI` at the installer's exit, which
+is `0060h` — the fill loop leaves it there (`mov di,20h`, eight entries,
+then eight more). Plenty of code runs between the installer and the
+handoff, so `DI` may simply have moved on where `SI` did not; or `IY` may
+not alias `DI`. The §17.5.2 payload still settles it, and it now has a
+predicted value to check against rather than an open question.
+
+`[DERIVED]` **The alternate set exists**, and this dump alone proves it —
+see §3.1. `A'`, `B'`, `D'` and `H'` all differ from their main-set
+counterparts, which cannot happen if `EX AF,AF'` and `EXX` are no-ops.
+Note that the VA's alternate values are *identical to the 8801's*, so on
+this path the μPD9002's alternate set holds the same content a real Z80's
+does.
+
+This confirms the ROM tables read out of `varom00.rom` (§4.4) exactly:
+main `A F B D H`, alternates `A' F' B' D' H'`, then `IX`, `IY`, `I`,
+`PC`, `SP`. The flag field decodes against the `PM-Z---H--OE-N-C` table
+as eight two-character pairs where **the first character means clear and
+the second means set**:
+
+```
+pair   PM   -Z   --   -H   --   OE   -N   -C
+bit     7    6    5    4    3    2    1    0
+flag    S    Z   (F5)  H  (F3)  P/V   N    C
+```
+
+so `PZ---E--` is `S=0, Z=1, H=0, P/V=1(even), N=0, C=0` and
+`MZ-H-ENC` is all of `S Z H P/V N C` set.
+
+`[DERIVED]` **A limitation worth knowing before planning tests:** bits 5
+and 3 are hardcoded as `--` in the table, so `x` can *never* display
+`F3`/`F5` whatever their real values. The `undoc-flags` question cannot
+be answered with `x`; it needs the `PUSH AF` / `POP HL` route in §17.5.5.
+
 At the prompt, three quick discriminators:
 
 - `x` — should display `IX`, `IY` and the primed registers
@@ -1267,19 +2552,53 @@ If those match, no further setup is needed: V1/V2-mode code is already
 compatible-mode code, so **no `BRKEM` or `BRKEM2` is required** to run
 the tests below. You are inside the mode under test.
 
-### 16.0 Z80 feature coverage — `alt-regs`, `ed-block`, `cb-dd-fd`
+### 17.3 Z80 feature coverage — `alt-regs`, `ed-block`, `cb-dd-fd`
 
 Debug 8800 does most of this for free:
 
-1. Enter Debug 8800 in V1/V2 mode and issue `x`. If `IX`, `IY` and the
-   primed registers display and edit correctly, `alt-regs` and the
-   `DD`/`FD` part of `cb-dd-fd` are answered — the monitor cannot reach
-   the alternate set except by executing `EX AF,AF'` and `EXX`.
+1. Enter Debug 8800 in V1/V2 mode and issue `x`. Worth capturing the
+   fresh-boot output verbatim before touching anything — §17.2 has a
+   real PC-8801's for comparison, and a VA's costs nothing to record.
+
+   **Display alone is not the test.** A fresh machine shows `FFFF`/`FF`
+   in the alternates and index registers either way, and those values are
+   indistinguishable from "no storage, reads float high". The test has two
+   halves, and the second is the one that is easy to leave out:
+
+   **(a) Round-trip.** Use `x` to write values that cannot be confused
+   with a floating read — `A'=5A`, `B'=1234`, `D'=5678`, `H'=9ABC`,
+   `IX=A55A`, `IY=C33C`, `I=3C`; avoid `FF` and `00` patterns — then
+   re-issue `x` and check they read back. Round-tripping proves storage
+   exists, since the monitor cannot reach the alternate set except by
+   executing `EX AF,AF'` and `EXX`, nor `IX`/`IY` without the `DD`/`FD`
+   prefixes. That answers `alt-regs` and the `DD`/`FD` part of
+   `cb-dd-fd`, and — for `I` — the first half of `ir-regs`.
+
+   **(b) Check the main set survives it.** Set `A=11` and `A'=22`, then
+   re-read *both*. `A=11, A'=22` means separate storage. `A=22` means
+   `EX AF,AF'` is a no-op and the monitor's "alternate" write went
+   straight to the main register — a machine with no alternate set at all
+   would pass (a) and fail (b), because the value would round-trip
+   through the register it was aliased onto. Repeat for `BC`/`BC'`.
+   Without (b) the round-trip is not conclusive.
+
+   `[SRC]` **In the event, a plain boot dump did (b) for free** and
+   `alt-regs` is answered: on the real VA the main and alternate sets
+   already differ in all four pairs before anything is written (§17.2).
+   The write test remains the way to confirm it deliberately, but it is no
+   longer the thing standing between this document and an answer.
+
+   `[DERIVED]` For `ix-iy-share`, **do not use this route.** Earlier
+   revisions said to write `IX` here, leave V1/V2 mode, and read `SI`
+   from the V3-mode monitor — but §8.1 established that a plain V1/V2
+   boot cannot be left except by reset, which clobbers what the test
+   wrote. Any test that has to come back must be entered from the V3
+   side instead; see the note at the head of §17.5.
 2. `l` a region known to contain `ED B0` — Z80 `6E5Fh` in the Debug 8800
    bank — and single-step it with `g`. That answers `ed-block`.
 3. Assemble `SLA A` with `a` and step it. That answers the `CB` part.
 
-### 16.1 `0F FE` target — `brkem2-target`
+### 17.4 `0F FE` target — `brkem2-target`
 
 Do **not** use `LDIR` as the discriminator; a negative result would be
 ambiguous. Use a Z80-only, single-opcode instruction outside the `ED`
@@ -1301,22 +2620,41 @@ Then the more interesting half: check whether `BRKEM2` also changed
 machine state that `BRKEM` does not — read a V1/V2-only port before and
 after each entry, and watch `PS3` if a probe is available.
 
-### 16.2–16.6 Z80 feature payloads
+### 17.5 Z80 feature payloads
+
+`[DERIVED]` **Which side to enter from.** A payload that reports its
+answer in a compatible-mode register, and is read back with Debug 8800's
+`x`, can be run from a plain V1/V2 boot. A payload whose answer has to be
+read *natively* — §17.5.2 is the only one — cannot: §8.1 established there
+is no way back to V3 from a V1/V2 boot short of a reset, which destroys
+the result. Enter those from the **V3 side**: the PC-Engine monitor
+assembles `BRKEM`, so install a vector, `BRKEM` into the payload, end it
+with `RETEM`, and read the native register when control returns. That is
+the CPMVA shape (§8.1), and it is the only round trip actually available
+on the machine.
+
+`[ROM]` **Do not terminate a payload with `76` (`HALT`).** NEC removed
+every `HALT` from the VA's own copy of Debug 8800 and replaced them with
+`JR $` (§4.5); the standby exit path can leave compatible mode entirely
+(§3.5). Use a breakpoint under `g`, or `18 FE` as shown.
 
 ```
-16.2  alt-regs      3E AA / 08 / 3E 55 / 08 / 76        ; A back to AAh?
-                    01 34 12 / D9 / 01 78 56 / D9 / 76  ; BC back to 1234h?
-16.3  ix-iy-share   DD 21 CD AB / 76   then RETEM and read SI natively
-                    FD 21 .. .. / 76   then read DI
-16.4  cb-dd-fd      3E 01 / CB 27 / 76                  ; A = 2 if SLA works
-16.5  ir-regs       ED 5F / 76         ; LD A,R, twice with differing gaps
-                    ED 47 / ED 57      ; LD I,A / LD A,I round-trip
-16.6  undoc-flags   3E 28 / C6 00 / F5 / E1 / 76        ; F -> L, check bits 3,5
+17.5.1  alt-regs      3E AA / 08 / 3E 55 / 08 / 18 FE        ; A back to AAh?
+                      01 34 12 / D9 / 01 78 56 / D9 / 18 FE  ; BC back to 1234h?
+17.5.2  ix-iy-share   DD 21 CD AB / ED FD    ; enter by BRKEM from V3,
+                      FD 21 .. .. / ED FD    ; then read SI / DI natively
+17.5.3  cb-dd-fd      3E 01 / CB 27 / 18 FE                  ; A = 2 if SLA works
+17.5.4  ir-regs       ED 5F / 18 FE      ; LD A,R, twice with differing gaps
+                      ED 47 / ED 57      ; LD I,A / LD A,I round-trip
+17.5.5  undoc-flags   3E 28 / C6 00 / F5 / E1 / 18 FE        ; F -> L, check bits 3,5
 ```
 
 Test `CB` before `DD`/`FD`, since the index prefixes act on `CB` too.
+`[V30-MAN]` For §17.5.2, note that `IX`/`IY` are documented as unreachable
+from emulation mode on the plain V20/V30 (§3.1), so a negative result
+there is a statement about the μPD9002's divergence, not a bug.
 
-### 16.7 Flag propagation across `CALLN`/`RETI` — `flag-callback`
+### 17.6 Flag propagation across `CALLN`/`RETI` — `flag-callback`
 
 The most valuable single test: it settles the flag model and explains or
 refutes the CPMVA anomaly in §3.2.
@@ -1334,6 +2672,42 @@ compatible-mode caller:
 
 Report the answer into a register, `RETEM`, read it natively.
 
+### 17.7 Mode round-trip — CPMVA as the acceptance workload
+
+`[DERIVED]` The firmware's own round trip cannot be used as a bring-up
+milestone: §8.1 shows the resume path is unreachable from ROM, so an
+emulator that never lands at `0x13B4`/`0x0B18` is behaving correctly. The
+round trip still has to be tested, and **CPMVA is the only shipped
+workload in hand that exercises it end to end** — `BRKEM` in, `CALLN` out
+and back repeatedly, `RETEM` home.
+
+Use §10 as the acceptance trace. It is ordered so that failures localise:
+
+1. `SETBLOCK`, vector install, BIOS image copied to `emu_seg:0FA00h`,
+   `DS = emu_seg` — all native, no mode change yet.
+2. `brkem 0E1h` → `PS = DS0 = emu_seg`, `PC = 0FA00h`, and the first
+   compatible-mode instruction is `ld sp,CCPTOP` landing in **`BP`**, not
+   `SP` (§3.4). Getting this backwards is the "boots, then desyncs"
+   failure — check it here, not later.
+3. `calln 0E0h` → native `nBIOSentry`, which reads the function number as
+   `AL`, and returns with `iret`.
+4. `JR` executes correctly on the BIOS dispatch path (§2.4) — the cheapest
+   proof the decoder is Z80 and not 8080.
+5. `EXIT.COM`'s bare `retem` returns to the instruction after `brkem`.
+
+`[UNKNOWN]` The gate: `CPM.SYS` is not in hand (References, "Not in
+hand"), and `CPMVA.EXE` reads it before issuing `BRKEM`, so the
+unmodified program stops short of step 2. Either obtain `CPM.SYS`, or
+stub the load — but **a stub reaches steps 1–3 only.** Steps 4 and 5 run
+under the CCP, which comes out of the loaded image: step 4 needs a
+console call to reach the BIOS dispatch path, and step 5 needs the CCP to
+load and run `EXIT.COM`. An earlier revision of this paragraph claimed
+all of steps 2–5 were independent of the image's contents; that was
+wrong, and §15.3 records what a stub does and does not buy. Note also
+that this test needs MS-DOS running in V3 mode, so it is downstream of a
+good deal of other work; §17.3 through §17.6 remain the cheaper first
+tests.
+
 ---
 
 # Appendices
@@ -1343,7 +2717,7 @@ Report the answer into a register, `RETEM`, read it natively.
 Recorded so the errors are not reintroduced.
 
 1. **`RETEM` executes in native mode; `ED FD` must be added to the native
-   decode table.** Wrong on both counts. → §2.2, §11.3.
+   decode table.** Wrong on both counts. → §2.2, §11 item 3.
 2. **A `CALLN`-invoked native routine returns via `RETEM`.** It returns
    via `RETI`/`IRET`. → §2.2.
 3. **Flags must be converted at each transition.** The low PSW byte *is*
@@ -1376,10 +2750,14 @@ Recorded so the errors are not reintroduced.
     `CALLN` services are IVT entries. → §6.
 15. **`CALLN 91h`/`95h` are fixed CPU services requiring dispatch on the
     immediate.** They are ordinary IVT entries; `CALLN` is uniformly
-    "call `vec(imm8)`". → §6, §11.8.
+    "call `vec(imm8)`". → §6, §11 item 8.
 16. **`RETEM` has a context-dependent return target of `1000:C003`.** It
     has one return target; `1000:C003` is reached by an explicit `jmp`
-    in the native resume block. → §2.2, §8.
+    in the native resume block. The error has a respectable source: the
+    technical manual documents the `C003` jump in its `RETEM` entry, so
+    anyone reading the manual alone will reach it. Keep the distinction
+    between what the machine does and what the instruction does. →
+    §2.2, §8, §8.1.
 17. **`BRKEM` does not exist on the μPD9002.** It does — CPMVA uses it.
     The VA *firmware* uses `BRKEM2` instead. → §2.2.
 18. **"Neither ROM contains Z80 mnemonics."** Wrong as stated. The
@@ -1393,7 +2771,47 @@ Recorded so the errors are not reintroduced.
     two independent sources. → §9.
 20. **Debug 8800 must be reached somehow.** It is the monitor `MON`
     already gives you in V1/V2 mode; it simply prints no banner.
-    → §16.-1.
+    → §17.2.
+21. **`IC78 = PC226B-27`.** The part is **`PCZ80-27`**. → §12,
+    Appendix D.
+22. **IC78's input list includes `AB19` and `AB18`.** It includes
+    neither; IC78 has no such pins. Pin 32 is named **`PS3`** and
+    `PS0`–`PS2` are not routed to the part at all. The earlier reading
+    took net labels from p.248 for pin names on p.250, and in doing so
+    understated its own conclusion — it then hedged that "the scan
+    resolution does not permit reading the individual pin numbers",
+    which is no longer true either. → §12, Appendix D.
+23. **The meaning of the `FFF0h`–`FFFEh` bytes is unknown.** Not an
+    error, but no longer true: all eleven decode against the μPD70216
+    data sheet. → §5.1–§5.6.
+24. **`FFF2h` and `FFF0h` carry no evidence of an explicit write.** True
+    of the reset values in isolation, false of the machine: the boot
+    ROM's table writes both. → §5.2, §5.7.
+25. **"The relocation registers should be written first, since OPSEL
+    enables the peripherals."** A plausible-sounding recommendation in an
+    earlier draft of §5.5(c), and the opposite of what the firmware does
+    — OPSEL is written four `OUT`s *before* OPHA/DULA/IULA/TULA. →
+    §5.7.
+26. **"The VA1 and VA2 boot ROMs are structurally aligned / the same
+    build."** Written one revision ago on the strength of
+    `varom1_va2.rom` matching the offsets this document attributed to
+    VA1. They are **different builds**: 48.8% of their bytes differ and
+    every offset has moved. → §5.8, Appendix C.
+27. **The `VAROM1.ROM` offsets in §6 and §8 are VA1's.** They are
+    `varom1_va2.rom`'s. In the VA1 image the `BRKEM2` handoff is at
+    `0x0B15`, not `0x13B1`; the configuration table is at `0x0930`, not
+    `0x0F20`; the vector override table is at `0x097D`, not `0x0F5E`. The
+    error was inherited from earlier project notes that did not
+    distinguish the two boot ROMs, and it is harmless to the arguments —
+    the same code is present in both — but it makes every offset in §6
+    and §8 wrong for the image whose name they carry. → §6, §8,
+    Appendix C.
+28. **"Stubbing `CPM.SYS` buys steps 2–5 of the CPMVA trace."** It buys
+    steps 1–3. Steps 4 and 5 are driven by the CCP, which is loaded from
+    the image being stubbed: step 4 by a console call reaching the BIOS
+    dispatch path, step 5 by the CCP loading `EXIT.COM`. The two can be
+    exercised separately from hand-entered payloads, but not as part of
+    the workload. → §15.3, §17.7.
 
 ## Appendix B. NEC / Intel mnemonic correspondence
 
@@ -1430,11 +2848,24 @@ the mode flag.
 and internal address cross-checks. **Nothing is compressed**; every image
 found so far is stored plain.
 
-### `varom1.rom` — 128 KiB
+### C.1 `varom1.rom` — 128 KiB
+
+The **PC-88VA1** boot ROM. A different build from `varom1_va2.rom`, not a
+variant of it: 48.8% of the bytes differ and every offset has moved. Its
+own landmarks:
+
+| Offset | Content |
+|---|---|
+| `0x00000` | `E9` near jump to `0x0A6F`, the reset entry |
+| `0x00930` | peripheral configuration table A — walker at `0x0A7D` (§5.7, §5.8) |
+| `0x00953` | peripheral configuration table B, **fourteen** records — walker at `0x0A97` |
+| `0x0097D` | IVT override table, six entries, consumed at `0x0B76` (§6) |
+| `0x00B15` | `0F FE 90` — the `BRKEM2` handoff; `cli` at `0x0B18`, `ljmp 1000h:c003h` at `0x0B31` (§8) |
+| `0x0FFF0` | `EA 00 00 00 F0` — `jmp F000:0000` |
 
 | Offset | Size | Content |
 |---|---|---|
-| `0x00000`–`0x0FFFF` | 64 KiB | x86 (V3-side firmware). Opens with an `E9 disp16` near-jump table. Contains the vector installer and the `BRKEM2` handoff (§6, §8). |
+| `0x00000`–`0x0FFFF` | 64 KiB | x86 (V3-side firmware). Opens with an `E9 disp16` near-jump table. Contains the vector installer and the `BRKEM2` handoff — but **not** at the offsets §6 and §8 quote, which are the VA2 image's (Appendix A item 27). |
 | `0x10000`–`0x17FFF` | 32 KiB | **Z80. NEC N-88 BASIC Version 1.9**, banner at `0x179C7`, "Copyright (C) 1981 by Microsoft". Maps to Z80 `0000h`–`7FFFh`. |
 | `0x18000`–`0x1FFFF` | 32 KiB | **Z80. NEC N-88 BASIC Version 2.4**, banner at `0x1CF97`. BASIC error strings at `0x1C000`; `C3 nnnn` entry-vector table at `0x1E000`. |
 
@@ -1443,7 +2874,7 @@ taken from a real PC-8801 running N88-BASIC 1.93 byte for byte —
 `F3 31 A0 E1` (`DI` / `LD SP,0E1A0h`), `C3 E5 3B` at `0004h`,
 `C3 69 E6` at `0038h` (the `IM 1` vector).
 
-### `varom00.rom` — 512 KiB
+### C.2 `varom00.rom` — 512 KiB
 
 Predominantly x86 V3 firmware. Exactly one Z80 region:
 
@@ -1454,17 +2885,477 @@ Predominantly x86 V3 firmware. Exactly one Z80 region:
 The V3-mode PC-Engine monitor, with its NEC-mnemonic assembler and
 disassembler tables, is at `0x5CC80`–`0x5D1A0`.
 
-### `varom00_va2.rom` — 512 KiB
+### C.3 `varom00_va2.rom` — 512 KiB
 
 The PC-88VA2 counterpart. Same structure; the `0F` extension table is at
-`0x66AAF` and names `0F FE` as `BRKFEM`.
+`0x66AAF` and names `0F FE` as `BRKFEM`. Code starts at offset 0 with an
+`E9` near jump, and there is a second `E9`/`EB` jump table at `0x70000`.
+No 8 KiB block in the image is blank.
 
-### `varom08.rom` — 128 KiB
+`[ROM]` **It carries Debug 8800 too, at byte-identical offsets to
+`varom00.rom`**: bank signature `DB` at `0x1E000`, command dispatch table
+at `0x1E0F5`, flag notation table at `0x1E3C8`, banner at `0x1F058`,
+`Peeping Tom` at `0x1F0D3`, memory-test strings at `0x1F3E7`. So the
+§17.2 identification and the §17.3 tests apply unchanged on a VA2 — the
+`MON` monitor is the same one. Block profiling puts Z80-dense regions at
+`0x10000`, `0x1E000` and `0x6E000`; only `0x1E000` has been identified.
+
+`[ROM]` Two negative results from a full scan, recorded so the work is
+not repeated:
+
+- It contains **no write to the system I/O area** `FFF0h`–`FFFEh`, by any
+  addressing route — the method and the five checks are in §5.5(c).
+- Its last 32 bytes are `FFh`, so it does not carry the reset entry at
+  `FFFF0h`.
+
+**This is not the boot ROM.** The `varom1`-class image is.
+
+### C.4 `varom1_va2.rom` — 128 KiB
+
+The PC-88VA2 boot ROM, and **the image that initialises the CPU's on-chip
+peripherals** (§5.7). Structurally aligned with `varom1.rom` throughout:
+
+| Offset | Content |
+|---|---|
+| `0x00000` | `E9` near jump to `0x12B8`, the reset entry |
+| `0x00F20` | peripheral configuration table A — `FFFEh`…`FFE0h` (§5.7) |
+| `0x00F43` | peripheral configuration table B — ICU, TCU, DMAU (§5.7) |
+| `0x00F5E` | IVT override table (§6) |
+| `0x012B8` | reset entry; table A walker at `0x12ED`, table B walker at `0x1307` |
+| `0x013B1` | `0F FE 90` — the `BRKEM2` handoff, at the **same offset** as in `varom1.rom` (§8) |
+| `0x013ED` | vector installer, called from `0x1364` (§6) |
+| `0x0FFF0` | `EA 00 00 00 F0` — `jmp F000:0000`, the reset vector |
+| `0x10000` | Z80. N-88 BASIC, banner at `0x179C2`; opens `F3 31 A0 E1` = `DI` / `LD SP,0E1A0h` |
+| `0x18000` | Z80. N-88 BASIC, second banner at `0x1CF92` |
+
+`[ROM]` **This is the image §6 and §8 actually describe.** Their `0x13B1`,
+`0x13B5`, `0x13ED`, `0x1364` and `0x0F5E` all match here and none of them
+matches `varom1.rom`, whose reset entry is `0x0A6F`, whose handoff is at
+`0x0B15`, and whose override table is at `0x097D` — consumed at `0x0B76`
+with `cx = 6`, which is exactly the six entries listed in §6. See
+Appendix A item 27.
+
+`[ROM]` The two images share their Z80 halves almost exactly — both carry
+the N-88 BASIC banners at `0x179C2` and `0x1CF92`, and the whole
+`0x10000`–`0x1FFFF` range is byte-identical apart from **one byte**
+(Appendix C.5 below). Their x86 halves are independently built.
+
+### C.5 The PC-8801-mode ROM set
+
+`[ROM]` Seven further images, dumped in the PC-8801 emulator naming
+convention. Six of them place exactly, by byte-identical match, inside the
+boot ROMs already described:
+
+| file | size | where it sits | Z80 window |
+|---|---|---|---|
+| `n88.rom` | 32 KiB | `varom1.rom` **and** `varom1_va2.rom` @ `0x10000` | `0000`–`7FFF` — N88-BASIC, banner `N-88 BASIC Version 1.9` at its `0x79C2` |
+| `n88_0.rom` | 8 KiB | `varom1.rom` @ `0x18000` (VA1 only — see below) | `6000`–`7FFF`, extension bank 0 |
+| `n88_1.rom` | 8 KiB | both @ `0x1A000` | extension bank 1 |
+| `n88_2.rom` | 8 KiB | both @ `0x1C000` | extension bank 2, banner `N-88 BASIC Version 2.4` at its `0x0F92` |
+| `n88_3.rom` | 8 KiB | both @ `0x1E000` | extension bank 3 |
+| `n80.rom` (VA's) | 32 KiB | nothing matches — see the note below | — |
+| `disk.rom` | 8 KiB | no match in any image | FDD sub-CPU ROM — **out of scope** (§0) |
+
+`[ROM]` **The Z80 halves of the two boot ROMs differ by exactly one
+byte.** Every 8 KiB bank from `0x10000` to `0x1FFFF` is byte-identical
+between `varom1.rom` and `varom1_va2.rom` except extension bank 0, which
+differs in a single position: image offset `0x19377`, i.e. **Z80 address
+`7377h`**, where VA1 has `29h` and VA2 has `19h`. This supersedes the
+looser statement in the `varom1_va2.rom` entry above; the x86 halves are
+independently built, the Z80 halves are the same ROM with one byte
+changed.
+
+`[DERIVED]` That byte is an opcode, and the change is a repair:
+
+```
+        B7          OR A
+        ED 52       SBC HL,DE
+        30 04       JR NC,skip
+        11 C0 A8    LD DE,0A8C0h
+        29 / 19     ADD HL,HL   (VA1)  /  ADD HL,DE   (VA2)
+skip:   11 2C 01    LD DE,012Ch
+        E5          PUSH HL
+```
+
+`0A8C0h` is 43200 — the number of seconds in twelve hours — and the
+surrounding shape is a modular wrap after a subtraction went negative.
+`ADD HL,DE` applies the constant just loaded; `ADD HL,HL` doubles `HL` and
+leaves the `LD DE` pointless. **VA1 has the bug and VA2 has the fix**, in
+what is almost certainly twelve-hour clock arithmetic. The identification
+of the constant is inference; the opcode difference and its context are
+not.
+
+`[ROM]` The set is from a **PC-88VA1**; the register dump in §17.2 came
+from a VA2 belonging to someone else, which is why `n88_0.rom` matches
+`varom1.rom` and not `varom1_va2.rom`. The two differ by the single byte
+described above, so nothing else in this appendix is affected.
+
+`[ROM]` The VA's `n80.rom` is **not** an N-BASIC ROM despite the name, and
+the reason is now established. Its lower 24 KiB is x86 code carrying
+`SCL v1.` and `(C) 1987 NEC Corp.`, and that string is present in
+`varom00_va2.rom` at `0x2E409` — i.e. it is **V3 main-ROM content showing
+through the N80 window**, which is empty on the VA because there is no
+N-BASIC (below). The exact 24 KiB block does not match `varom00_va2.rom`
+only because the VA1 and VA2 main ROMs differ and the VA1's is not in
+hand. `[DERIVED]` The dump tool read the N80 mode window, found nothing
+mapped, and captured whatever lay underneath.
+
+`[ROM]` The **top** 8 KiB of that file is a different matter and is
+genuine: it is the Debug 8800 bank, byte-identical to
+`varom00_va2.rom[0x1E000:0x20000]` (§4.5). The VA implements the
+`6000h`–`7FFF` bank window even though it has no N-BASIC below it — which
+is why §4.5's comparison against a real 8801mkIISR was possible at all.
+
+### C.6 A real PC-8801mkIISR `n80.rom`, for comparison
+
+`[ROM]` A genuine 8801mkIISR N-BASIC ROM is also in hand — 32 KiB, opening
+`F3 31 FF FF C3 3B 00` (`DI` / `LD SP,0FFFFh` / `JP 003Bh`), banner
+`NEC PC-8001 BASIC Ver 1.5 / Copyright 1979 (C) by Microsoft` at `0x1838`,
+and carrying **Debug 8800 in its top 8 KiB** at `0x6000`–`0x7FFF`, banner
+at `0x7058`. `[ROM]` That bank is not equal to any of `n88_0.rom` through
+`n88_3.rom` — Debug 8800 is a **fifth** bank, distinct from the four N88
+extension banks, appearing in the same `6000h`–`7FFF` window.
+
+`[ROM]` **The 24 KiB / 8 KiB split in that file is an architectural
+boundary, not a dump artefact.** N-BASIC fills `0000h`–`5FFFh` to the last
+byte — `0x5FF0`–`0x5FFF` is dense code and there is no padding anywhere
+below `0x6000` — and `0x6000` begins abruptly with the `DB` bank
+signature. 24 KiB is the PC-8001's ROM complement; `6000h`–`7FFF` is
+space the PC-8801 added on top of it. `[DERIVED]` That is why the VA's
+`n80.rom` divides exactly there: the VA has no PC-8001 ROM, so
+`0000h`–`5FFFh` reads through to whatever lies beneath, while
+`6000h`–`7FFF` is a bank window the VA does implement.
+
+`[ROM]` The PC-8001 lineage is still visible inside: `JP 5C66h` occurs at
+`0x5D0F`, `0x5DAB` and `0x5DDB`, and `0x5C66` opens
+`LD SP,(0FF36h) / CALL 5FCAh` — a warm start that restores the stack
+pointer. The 8801 replaced the cold entry (`0x0000` is
+`DI / LD SP,0FFFFh / JP 003Bh`) but kept `5C66h` as an internal entry. Two results follow from comparing it with the VA:
+
+- **The VA's Debug 8800 is a patched version of it** — 52 bytes, three
+  `HALT`s, one 110-byte window. See §4.5, which is the substantive
+  finding.
+- **The PC-88VA carries no N-BASIC.** The banner
+  `NEC PC-8001 BASIC Ver 1.5` appears in none of `varom1.rom`,
+  `varom1_va2.rom` or `varom00_va2.rom`, and neither does any part of the
+  real ROM's lower 24 KiB. `[DERIVED]` The VA therefore implements V1/V2
+  (N88-BASIC) mode but **not** N80 / PC-8001 mode.
+
+  **Confirmed on hardware.** `NEW ON 1` — the N88-BASIC command that
+  switches to N-BASIC — answers `Feature not available` on the VA, and
+  the same holds for VA2 and VA3. (Operator report; §0 has no tag for
+  that, see the tag note in Appendix D.3.) The absence argument above is
+  therefore not load-bearing: the machine says so itself, on all three
+  models, which also covers `varom00.rom` not being in hand.
+
+  `[ROM]` The message has two independent homes, so either mode can raise
+  it: the V1/V2 BASIC keeps it in extension bank 2 at Z80 `6206h`
+  (`n88_2.rom` `0x206`, `varom1*.rom` `0x1C206`), and the V3-side ROM
+  keeps its own copy at `varom00_va2.rom:0x70377` — surrounded by code
+  that shares no 256-byte run with any N88 bank, so it is a separate
+  message table rather than a second copy of the BASIC. Which one the
+  report came from is not determined and does not matter to the
+  conclusion.
+
+### C.7 `varom08.rom` — 128 KiB
 
 Entirely `0xFF`. Unpopulated.
 
-### Not located in any supplied image
+### C.8 Not located in any supplied image
 
 - Any genuine `CALLN` instruction (all `ED ED` hits are false positives).
-- The V1/V2 sub-ROM / disk BIOS.
-- Whatever prepares `1000:C003`.
+- **Any `RETEM` at all.** `ED FD` occurs zero times across **all ten
+  images** — the four VA images and the seven PC-8801-mode ROMs above,
+  including `n88.rom`, all four extension banks and `disk.rom` (§8.1).
+  Since `RETEM` is the only exit from a `BRKEM`-shaped session, nothing in
+  any ROM this machine contains can return it to V3 mode.
+- The V1/V2 sub-ROM / disk BIOS. §8.1 gives it a signature: it should
+  contain an `ED FD` and a writer for `1000:C003`.
+- Whatever prepares `1000:C003` — the same artifact, on the same path.
+- **Any V1/V2 software that returns to V3 at all.** Not a ROM image and
+  possibly not a thing that exists; §8.1 argues that commercial 88 titles
+  cannot be it. One example would settle `doc-c003` outright.
+
+
+## Appendix D. `IC78` — `PCZ80-27` pin list
+
+`[ROM]` Transcribed from a pin-numbered magnification of the IC78 pin box
+on VA1 schematic p.250. 100-pin device. **The transcription is
+arithmetically self-checking**: the 48 upper-row names and the 48
+lower-row names between them account for pins 1–100 with no gap and no
+duplicate, and `VDD` (15, 65, 66) and `VSS` (40, 89, 90) take three pins
+each. A misread digit would almost certainly have produced a duplicate
+and a hole. The *names* carry no such check — see Appendix D.3.
+
+Pin directions are **not** marked in the scan. Nothing here says which
+pins are inputs.
+
+```
+  1 XPSTB      21 AD5        41 S18OCLK    61 XPIC       81 XMNRST
+  2 PBUSY      22 AD6        42 MINT6      62 XIDP       82 CPCLK
+  3 CLDI       23 AD7        43 APSGIR     63 X8BMOD     83 CPCLK2
+  4 CLD0       24 AD8        44 INTRO      64 XAIORD     84 DLCLK
+  5 CLC2       25 AD9        45 RXRDY      65 VDD        85 XRESET
+  6 CLC1       26 AD10       46 VRTC       66 VDD        86 KREQ
+  7 CLC0       27 AD11       47 IR3        67 XAIOWR     87 XKDTWR
+  8 CLCLK      28 AD12       48 CPCLK3     68 XAITAK     88 KALE
+  9 CLSTB      29 AD13       49 IR5        69 XIOWIT     89 VSS
+ 10 AVC2       30 AD14       50 IR7        70 XNMIO      90 VSS
+ 11 AVC1       31 AD15       51 PICINT     71 NMI1       91 KBINT
+ 12 FBEEP      32 PS3        52 PSGINT     72 XIOCHK     92 XKGMRD
+ 13 BEEP       33 XUBE       53 XFPCI      73 XIFDSL     93 KD0
+ 14 JOPI       34 BS2        54 XFPC0      74 DCD        94 KD1
+ 15 VDD        35 BS1        55 XFPO2      75 CRTMD      95 KD2
+ 16 AD0        36 BS0        56 XPPORT     76 X82        96 KD3
+ 17 AD1        37 XDMAK0     57 XSOUND     77 X81        97 KD4
+ 18 AD2        38 XDMAK2     58 XEHSND     78 XTEST1     98 KD5
+ 19 AD3        39 XDMAK3     59 XPRINT     79 XTEST0     99 KD6
+ 20 AD4        40 VSS        60 XSPORT     80 XPWRST    100 KD7
+```
+
+### D.1 Pins that matter elsewhere in this document
+
+| Pin | Name | Bears on |
+|---|---|---|
+| 32 | `PS3` | §12, §2.2, §3.3 — the CPU mode line, the whole point of this appendix |
+| 33 | `XUBE` | §12 — upper byte enable |
+| 34–36 | `BS2`–`BS0` | §12 — bus status; the gate array watches the status phase |
+| 16–31 | `AD0`–`AD15` | §12 — pin = 16 + *n* |
+| 37, 38, 39 | `XDMAK0`, `XDMAK2`, `XDMAK3` | §5.4 check 5 — `XDMAK3` requires OPCN PF ∈ {`00`,`01`}. Channel 1 is **not** routed here |
+| 45, 74 | `RXRDY`, `DCD` | §5.4 check 6 — an external asynchronous serial controller exists, as OPSEL SS=0 requires |
+| 51, 61, 68 | `PICINT`, `XPIC`, `XAITAK` | §5.4 check 6 — the interrupt-acknowledge path that PF=`01` costs the CPU |
+| 63 | `X8BMOD` | §12 — reads as "8-bit mode"; the plausible output side of the `PS3` decode |
+| 47, 49, 50 | `IR3`, `IR5`, `IR7` | interrupt request lines toward the external μPD8259A of p.248 |
+| 69 | `XIOWIT` | reads as an I/O wait output; note that WCY1 programs only 2 I/O waits and leaves the rest to external `READY` (§5.3) |
+
+### D.2 Functional groups
+
+- **Keyboard** (to `IC36 = μPD7811`): `KD7`–`KD0` (100–93), `KALE` (88),
+  `KBINT` (91), `XKGMRD` (92), `XKDTWR` (87), `KREQ` (86).
+- **Sound**: `BEEP` (13), `FBEEP` (12), `XSOUND` (57), `PSGINT` (52),
+  `APSGIR` (43), `AVC2`/`AVC1` (10, 11).
+- **Printer**: `XPRINT` (59), `XPPORT` (56), `XPSTB` (1), `PBUSY` (2).
+- **Calendar clock**: `CLD0` (4), `CLDI` (3), `CLC2`–`CLC0` (5–7),
+  `CLCLK` (8), `CLSTB` (9).
+- **Display**: `DLCLK` (84), `VRTC` (46), `CRTMD` (75).
+- **FDD / disk**: `XFPC0` (54), `XFPCI` (53), `XFPO2` (55),
+  `XIFDSL` (73), `XEHSND` (58).
+- **Reset and clocks**: `XRESET` (85), `XPWRST` (80), `XMNRST` (81),
+  `CPCLK` (82), `CPCLK2` (83), `CPCLK3` (48), `X81` (77), `X82` (76),
+  `S18OCLK` (41).
+- **Bus control toward the 88-side**: `XAIORD` (64), `XAIOWR` (67),
+  `XAITAK` (68), `XIOCHK` (72), `XIDP` (62), `XSPORT` (60).
+- **Interrupts**: `XNMIO` (70), `NMI1` (71), `MINT6` (42), `INTRO` (44).
+- **Test**: `XTEST0` (79), `XTEST1` (78).
+
+### D.3 Caveats
+
+- **Names are OCR-grade, but a second independent read now agrees.** The
+  pin *numbers* are cross-checked by the 1–100 accounting above. The
+  *names* have since been re-read from a 600 dpi scan by OCR (§12),
+  which independently returned `PCZ80-27`, `XTEST0`, `BS2`, `BS0`,
+  `XUBE`, `PS3`, `AD15`–`AD0`, `KALE`, `XKDTWR`, `KREQ`, `KBINT`,
+  `XRESET`, `XFPC2`, `BEEP`, `XAIOWR`, `XAITAK`, `XPWRST`, `XMNRST`,
+  `XDMAK2`, `XDMAK0`, `XPIC`, `XSPORT`, `XPRINT`, `XSOUND`, `XPPORT`,
+  `XIOCHK`, `RXRDY`, `IR3`, `IR5`, `PICINT`, `PSGINT`, `PBUSY`,
+  `APSGIR`, `VSS` — matching the table above. Three provisional readings
+  are resolved by it: `INTRO` is **`INTR0`**, `CLD0` is **`CLD0`**, and
+  `XIFDSL` is confirmed. Still provisional and still carrying no
+  argument: `XKGMRD`, `S18OCLK`, `XNMIO` (probably `XNMI0`), `X81`/`X82`,
+  `AVC1`/`AVC2`.
+- The pins the arguments rest on — `PS3`, `XUBE`, `BS2`–`BS0`,
+  `AD15`–`AD0`, `XDMAK3`, `RXRDY`, `DCD`, `X8BMOD` — are unambiguous
+  readings and sit in positionally coherent groups.
+- **Tag note.** §0 has no tag for schematics. §12 and this appendix use
+  `[ROM]` for them, which stretches its definition past breaking. Two
+  other places rest on how the machine behaves or is operated in
+  practice, which is neither a document nor a binary: §8.1 on how a V1/V2
+  session actually ends, and Appendix C on `NEW ON 1` answering
+  `Feature not available`. If §0 ever grows a `[SCH]` tag for schematics
+  and something like `[FIELD]` for operator observation, those are the
+  places to retag — and until then, each is flagged inline where it
+  occurs.
+
+---
+
+# References
+
+Sources are grouped by the provenance tag (§0) each one licenses. The
+tags are not one-to-one with works — several sources share a tag — so the
+mapping is given explicitly below. `[DERIVED]` and `[UNKNOWN]` are
+reasoning states rather than sources and have no entry here.
+
+| Tag | Entries |
+|---|---|
+| `[V30-MAN]` | [1] [2] [3] [4] |
+| `[VA-TM]` | [5] |
+| `[VA-TEKU]` | [6] |
+| `[VA-WIKI]` | [7], reproducing [8] and citing [9] |
+| `[ROM]` | [10] [11] [12] [13] [14] [15] |
+| `[SRC]` | [16] [17] [18] |
+| *(no tag defined)* | [19] [20] — schematics and operator observation; see the tag note in Appendix D.3 |
+| *(not a source)* | [21] [22] [23] [24] |
+
+## NEC device documentation — `[V30-MAN]`
+
+**[1]** NEC Corporation. *16-bit V Series Instruction Manual*. Document
+`U11301EJ5V0UMJ1`. — `BRKEM` and `CALLN` operation, flag tables,
+instruction classification, register and segment encodings.
+<https://datasheets.chipdb.org/NEC/V20-V30/U11301EJ5V0UMJ1.PDF>
+*In hand.*
+
+**[2]** NEC Corporation. *V20/V30 User's Manual*. October 1986.
+**Chapter 8 complete.** — mode shifting, register and flag
+correspondence, segment usage, interrupt / `RESET` / `HALT` behaviour,
+the nesting prohibition, and `PS3` indication. Its Figure 8-1 and
+Figure 8-2 are cited by number in §3.1 and §3.2. *In hand.*
+
+**[3]** NEC Corporation. *μPD70216 (V50) Data Sheet*. Document 50008
+(NECEL-419) — the original V50 sheet, not the later HL variant. Carries
+the **system I/O area register map** (`FFF0h`–`FFFFh`), the bit layouts
+and reset values of OPCN, OPSEL, OPHA, DULA, IULA, TULA, SULA, WCY1,
+WCY2, WMB, RFC and TCKS (its figures 11–18), and the register models of
+the TCU, SCU, ICU and DMAU. §5.2 decodes the PC-88VA2 configuration
+bytes against it. *In hand.*
+
+**[4]** NEC Corporation. *V40HL/V50HL Data Sheet*
+(`μPD70208H`/`μPD70216H`). Document `U13225EJ4V0DS00`. — family analogy
+for the on-chip peripheral model only.
+<https://datasheets.chipdb.org/NEC/V40-V50/> *In hand.*
+
+## PC-88VA manufacturer documentation — `[VA-TM]`
+
+**[5]** *PC-88VA テクニカルマニュアル* [*PC-88VA Technical Manual*]. BNN,
+first edition 25 June 1987. ISBN 4-89369-024-8, ¥5,500. Long out of
+print. — page 12 gives the two CPU modes, compatible-mode instruction
+coverage, `CALLN 91h`, `CALLN 95h` and `RETEM`; its own §2.2 gives the
+I/O port block map quoted in §5.1, and its own §3.3 the memory-map
+registers `152H`/`153H` quoted in §8.2, and its own §1.4 the system
+boot-process flowchart used in §8, §8.1 and §8.2. OCR of the scan is
+noisy;
+typography and register notation are normalised against the page image.
+<https://archive.org/details/PC88VA/page/12/mode/2up> *Scan in hand.*
+
+## Community documentation — `[VA-TEKU]`, `[VA-WIKI]`
+
+**[6]** 「てくまに」 / `TEKUMANI.LZH` (249 KiB, LHA). A PC-88VA technical
+manual written independently by members of the PC-VAN "88VA Users Club"
+SIG — system overview, memory, I/O, display, hardware control and BIOS.
+**Distinct from [5]**: separately authored, community-edited, and its own
+distribution page states that bugs have been reported in it. Hence the
+weaker tag.
+<http://www.iris.dti.ne.jp/~nano/88va/tekumani.html> *In hand.*
+
+**[7]** Shinra (ed.). *Inside PC-88VA* wiki. PukiWiki, 2005–2011.
+**§1.5 CPU.** — device overview, V30-mode instruction set, built-in
+peripheral control including the VA2 configuration bytes, and the I/O
+trap. Documents what [6] omits and carries its errata.
+<http://www.pc88.gr.jp/inside88va/wiki/index.php?CPU> — the query-string
+URL does not fetch reliably; read manually.
+
+**[8]** CoBit. Post #4016 to the PC-VAN "88VA Users Club" SIG board
+「PC実験室」, 31 March 1992. Reproduced verbatim in [7]. — the sole source
+for the whole of §9, including the control-register names
+(`_IOTrap1S` and the rest), which are CoBit's own coinage and not NEC's.
+CoBit states plainly that the description comes from ROM analysis and
+experiment and may contain errors or omissions.
+
+**[9]** *マイコン* [*Micom*], August 1987. — cited by [7] as the source
+for the four deleted instructions (§4.2). *Not in hand; reached only
+through [7].*
+
+## Firmware and ROM images — `[ROM]`
+
+**[10]** PC-88VA and PC-88VA2 ROM images: `varom00.rom`,
+`varom00_va2.rom`, `varom1.rom`, `varom1_va2.rom`, `varom08.rom`.
+Contents, offsets, landmarks and the identification of each are in
+Appendix C. *In hand.*
+
+**[11]** The PC-88VA PC-8801-mode ROM set, dumped from a **PC-88VA1** in
+the PC-8801 emulator naming convention: `n88.rom`, `n88_0.rom` through
+`n88_3.rom`, `n80.rom`, `disk.rom`. Placement and analysis in
+Appendix C.5. *In hand.*
+
+**[12]** A real PC-8801mkIISR `n88.rom` with its four N88 extension banks
+and its `disk.rom`. — the comparison baseline for §4.6. *In hand.*
+
+**[13]** A real PC-8801mkIISR `n80.rom` — 32 KiB, N-BASIC in the lower
+24 KiB and Debug 8800 in the top 8 KiB. The comparison baseline for §4.5
+and the subject of Appendix C.6. *In hand.*
+
+**[14]** A `0000h`–`00FFh` dump taken from a real PC-8801 running
+N88-BASIC 1.93. — the byte-for-byte check on `varom1.rom:0x10000` in
+Appendix C.1.
+
+**[15]** *Debug 8800 version 1.0.* NEC, 11 December 1981. A PC-8801-era
+Z80 monitor carried inside [10] and [13]; the corpus of
+proven-executable compatible-mode Z80 code analysed in §4.4 and §4.5, and
+the instrument for most of §17.
+
+## Period source and binaries — `[SRC]`
+
+**[16]** CPMVA 1.3. Makichan, 1989. pc88.gr.jp software library,
+<http://www.pc88.gr.jp/softlib/?action=list_file&anum=2&gnum=424> —
+sources `CPMVA.ASM`, `CPMVA.H`, `CPMBIOS.MAC`, `V30.MAC`, `EXIT.MAC`,
+`CHARDEV.ASM`, `CRTOUT.ASM`, `BLOCKDEV.ASM`, `MAKEFILE`, `CPMVA.DOC`;
+binaries `CPMVA.EXE`, `CPMBIOS.COM`, `EXIT.COM`, `DO.COM`, `FCONV.COM`.
+The worked V3-side transition example of §10, and the shipped binary that
+proves compatible mode is Z80 (§2.4). *In hand.*
+
+**[17]** 98IOE 2.4. CoBit, 1992. The I/O-trap sample program referenced
+from [7] — `98IOE.ASM`, `IOTRAP.ASM`, `IOTRAP.INC`, `INIT.ASM`,
+`STD.INC`, `DEBUG_C.ASM`, `98IOE.DOC`, makefiles; binary `98IOE.COM`.
+The reference implementation behind §9.1–§9.6. *In hand.*
+
+**[18]** Debug 8800 `x`-command register dumps, taken from a real
+PC-8801 and a real PC-88VA2 after booting N88-DISK-BASIC and typing
+`mon`. Reproduced in §17.2; the evidence that closes `alt-regs` and
+`ix-shares-si`.
+
+## Schematics and field observation — *(no tag defined)*
+
+§0 defines no tag for either of these. §12 and Appendix D use `[ROM]` for
+schematics, which stretches its definition; the operator observations are
+flagged inline where they occur. See the tag note in Appendix D.3.
+
+**[19]** *I/O* magazine, August 1987, pp. 241–264 — the full PC-88VA1
+schematic set. p.248「CPU割り込み周辺」 carries `IC83 = D9002` and the
+external `IC38 = D8259A`; p.250「PC-88V1/V2モード・エミュレータ」 carries
+`IC78 = PCZ80-27` and `IC36 = μPD7811`. A pin-numbered magnification of
+IC78's pin box, and a 600 dpi OCR re-read of both sheets, are the basis
+of §12 and of the transcription in Appendix D. *In hand.*
+
+**[20]** Operator observation on real hardware. Two claims rest on it and
+on nothing else: how a V1/V2 session actually ends in practice (§8.2.1),
+and `NEW ON 1` answering `Feature not available` on VA, VA2 and VA3
+(Appendix C.6).
+
+## Implementation comparison — *(not a source for silicon behaviour)*
+
+**[21]** MAME, NEC V20/V30 CPU core. — the implementation comparison
+point of §13. It models the standard V30 emulation path and does not
+implement `BRKEM2`.
+
+## Project documents
+
+**[22]** `pc88va-boot-sequence.md` — the general PC-88VA boot trace. Only
+the parts bearing on mode transition are repeated here.
+
+**[23]** `docs/agents/reports/m9_v30_map.md` — records the main CPU's
+compatible mode as an explicit future item (§14).
+
+**[24]** `upd9002-z80-emulation.md`, and the earlier provenance-tagged
+hardware reference. **Both superseded by this document**, which is their
+merge. Errors carried over from them are listed in Appendix A.
+
+## Not in hand
+
+- **A μPD9002 device manual.** Nothing tagged `[VA-TM]` or `[VA-TEKU]`
+  should be mistaken for one. This is the single largest gap; §15.1 lists
+  what it would settle.
+- **`CPM.SYS`** — the CCP + BDOS + BIOS image that `CPMVA.EXE` loads
+  ([16]). Its absence is the gate on the §17.7 acceptance test.
+- **The V1/V2 sub-ROM / disk BIOS.** §8.1 gives it a signature: it should
+  contain an `ED FD` and a writer for `1000:C003`.
+- **Remaining PC-88VA ROM images** beyond those listed in [10].
+- *マイコン* August 1987 ([9]) in the original.
