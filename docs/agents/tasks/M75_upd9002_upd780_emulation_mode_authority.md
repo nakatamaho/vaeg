@@ -64,6 +64,16 @@ M75 must treat the CP/M emulator `.cpv` path as evidence for the V30-style
 mode-transition mechanism only, not as evidence for the VA uPD780/Z80
 instruction set.
 
+The CP/M emulator retrieval source to audit is:
+
+```text
+https://www.vector.co.jp/soft/win95/util/se378130.html
+```
+
+M75 must record the downloaded archive identity, source-file identity, binary
+identity, and any redistribution or archival limitations before committing
+derived evidence.
+
 The audit must verify and record:
 
 - whether `cpm.exe` enters the hard-emulation path only for `.cpv` programs
