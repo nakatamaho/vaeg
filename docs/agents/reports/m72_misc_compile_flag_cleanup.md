@@ -49,6 +49,7 @@ The M72 task and ROADMAP were updated to record this distinction.
 | `OSLINEBREAK_LF` | Preserved as the active newline behavior. |
 | `SUPPORT_EUC` | Removed inactive EUC string backend. |
 | `SUPPORT_ANK` | Removed inactive ANK string backend. |
+| `SUPPORT_UTF8` | Folded to the active side and removed as a compile-time switch. |
 | `milstr_*` dispatch | Folded to the active UTF-8 backend. |
 | `BEEPCOUNTEREX` | Folded as always enabled in `io/pit.c`. |
 | `SUPPORT_BMS` | Folded to the enabled side and removed as a compile-time switch. |
@@ -173,7 +174,7 @@ milestone checks as required by the task.
 - The non-document, non-test tree no longer contains `SUPPORT_BMS`,
   `SUPPORT_SCSI`, `SUPPORT_SASI`, `SUPPORT_HOSTDRV`, `OSLANG_SJIS`,
   `OSLANG_EUC`, `OSLINEBREAK_CR`, `OSLINEBREAK_CRLF`, `SUPPORT_EUC`,
-  `SUPPORT_ANK`, `milank_*`, `mileuc_*`, `SUPPORT_8BPP`, `SUPPORT_16BPP`,
+  `SUPPORT_ANK`, `SUPPORT_UTF8`, `milank_*`, `mileuc_*`, `SUPPORT_8BPP`, `SUPPORT_16BPP`,
   `SUPPORT_24BPP`, `SUPPORT_32BPP`, `SUPPORT_NORMALDISP`, `SCREEN_BPP`,
   `SUPPORT_CRT15KHZ`, `SUPPORT_SWSEEKSND`, or `BEEPCOUNTEREX` references.
 - Display output remains the existing SDL2 `RGB565` path. This cleanup removes
