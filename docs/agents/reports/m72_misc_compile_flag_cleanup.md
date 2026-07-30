@@ -73,6 +73,7 @@ The M72 task and ROADMAP were updated to record this distinction.
 | `SUPPORT_KEYDISP` | Removed inactive key-display overlay and no-op instrumentation calls from sound/MIDI paths. |
 | `SUPPORT_SOFTKBD` | Removed inactive software-keyboard overlay and LED callbacks. |
 | `SUPPORT_PC9801_119` | Removed inactive PC-9801-119 software-keyboard alternate branch. |
+| Legacy `embed/` menu directory | Removed. It was not in the active CMake source list and is separate from the active `cmake/embed_binary.cmake` asset embedding helper. |
 
 ## Files removed by completed cleanup commits
 
@@ -97,6 +98,41 @@ sound/getsnd/getmp3.c
 sound/getsnd/getogg.c
 sound/s98.c
 sound/s98.h
+```
+
+The legacy `embed/` menu-source directory was also removed:
+
+```text
+embed/menu/dlgabout.c
+embed/menu/dlgabout.h
+embed/menu/dlgcfg.c
+embed/menu/dlgcfg.h
+embed/menu/dlgscr.c
+embed/menu/dlgscr.h
+embed/menu/filesel.c
+embed/menu/filesel.h
+embed/menu/menustr.c
+embed/menu/menustr.h
+embed/menubase/menubase.c
+embed/menubase/menubase.h
+embed/menubase/menudeco.inc
+embed/menubase/menudlg.c
+embed/menubase/menudlg.h
+embed/menubase/menuicon.c
+embed/menubase/menuicon.h
+embed/menubase/menumbox.c
+embed/menubase/menumbox.h
+embed/menubase/menures.c
+embed/menubase/menures.h
+embed/menubase/menusys.c
+embed/menubase/menusys.h
+embed/menubase/menuvram.c
+embed/menubase/menuvram.h
+embed/readme.txt
+embed/vramhdl.c
+embed/vramhdl.h
+embed/vrammix.c
+embed/vrammix.h
 ```
 
 The `np2tool/makefile.w32` `hostdrv.com` target was removed with the tool
@@ -189,5 +225,9 @@ milestone checks as required by the task.
   loading through `sound/getsnd/getwave.c` remains active.
 - KEYDISP and SOFTKBD were inactive overlays. Removing them deletes overlay
   instrumentation/no-op calls without changing active VA keyboard input.
+- The removed `embed/` directory was the legacy embedded-menu source tree.
+  It is not the active asset embedding system. `cmake/embed_binary.cmake`,
+  `assets/vaeg.bmp`, `assets/NotoSansJP-Regular.ttf`, and `assets/vaeg.ico`
+  remain unchanged.
 - Historical reports and old milestone tasks that mention HOSTDRV were not
   rewritten.
