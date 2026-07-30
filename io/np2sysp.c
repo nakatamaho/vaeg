@@ -150,9 +150,7 @@ static const SYSPCMD np2spcmd[] = {
 			{str_hwreset,	np2sysp_hwreset,	NULL,			0},
 
 // extension
-#if defined(SUPPORT_SASI)
 			{str_sasibios,	np2sysp_sasi,		NULL,			0},
-#endif
 			{str_scsibios,	np2sysp_scsi,		NULL,			0},
 			{str_scsidev,	np2sysp_scsidev,	NULL,			0},
 

@@ -1,6 +1,5 @@
 #include	"compiler.h"
 
-#if defined(SUPPORT_SASI)
 
 #include	"dosio.h"
 #include	"cpucore.h"
@@ -498,5 +497,4 @@ void sasiio_bind(void) {
 		iocoreva_attachinp(0x0082, sasiio_i82);
 	}
 }
-#endif
 
