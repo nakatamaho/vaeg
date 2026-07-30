@@ -39,13 +39,17 @@ typedef struct {
 	UINT16 ip;
 } UPD9002_DIAGNOSTIC;
 
+extern UPD9002_DIAGNOSTIC upd9002_diagnostic_state;
+
+#define upd9002_diagnostic_pending() \
+	((BOOL)(upd9002_diagnostic_state.reason != UPD9002_DIAGNOSTIC_NONE))
+
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 void upd9002_diagnostic_clear(void);
 void upd9002_diagnostic_raise_rep0f(UINT8 prefix, UINT16 cs, UINT16 ip);
-BOOL upd9002_diagnostic_pending(void);
 int upd9002_diagnostic_get(UPD9002_DIAGNOSTIC *diagnostic);
 
 #ifdef __cplusplus
