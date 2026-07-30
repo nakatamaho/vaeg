@@ -49,6 +49,7 @@
 #include	"romcheck.h"
 #include	"selftest.h"
 #include	"upd9002_trace.h"
+#include	"upd9002_perf.h"
 #include	"upd9002_diagnostic.h"
 #include	"dropmedia.h"
 #include	"hostfat_manager.h"
@@ -1570,8 +1571,10 @@ int main(int argc, char **argv) {
 	if (options.trace_cpu != 0) {
 		upd9002_trace_start(stderr, options.trace_cpu);
 	}
+	upd9002_perf_start_from_env();
 	if (options.selftest) {
 		run_ok = vaeg_selftest_run();
+		upd9002_perf_stop();
 		upd9002_trace_stop();
 		SDL_Quit();
 		dosio_term();
@@ -1752,6 +1755,7 @@ int main(int argc, char **argv) {
 	gui_shutdown();
 	scrnmng_destroy();
 	TRACETERM();
+	upd9002_perf_stop();
 	upd9002_trace_stop();
 	SDL_Quit();
 	dosio_term();
@@ -1764,6 +1768,7 @@ np2main_err3:
 np2main_err2:
 	hostfat_manager_shutdown();
 	TRACETERM();
+	upd9002_perf_stop();
 	upd9002_trace_stop();
 	SDL_Quit();
 	dosio_term();

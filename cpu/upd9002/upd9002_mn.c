@@ -5,6 +5,7 @@
 #include	"iocore.h"
 #include	"bios.h"
 #include	"upd9002_trace.h"
+#include	"upd9002_perf.h"
 #include	"upd9002_diagnostic.h"
 #include	"dmap.h"
 #include	"upd9002_ops.mcr"
@@ -2890,6 +2891,7 @@ UPD9002FN _ope0xff(void) {						// FF:
 
 UPD9002FN _reserved_no_int(void) {
 
+	upd9002_perf_record_reserved(UPD9002_PERF_RESERVED_PLAIN);
 	UPD9002_WORKCLOCK(2);
 }
 UPD9002FN _mov_seg_ea(void) {				// 8E:	mov		segrem, EA
@@ -3031,11 +3033,13 @@ static void _adjust_flags(UINT8 value, BOOL adjust_low,
 }
 UPD9002FN _repne_0f_diagnostic_stop(void) {
 
+	upd9002_perf_record_reserved(UPD9002_PERF_RESERVED_REP0F_DIAGNOSTIC);
 	upd9002_diagnostic_raise_rep0f(0xf2, upd9002_step_start_cs,
 		upd9002_step_start_ip);
 }
 UPD9002FN _repe_0f_diagnostic_stop(void) {
 
+	upd9002_perf_record_reserved(UPD9002_PERF_RESERVED_REP0F_DIAGNOSTIC);
 	upd9002_diagnostic_raise_rep0f(0xf3, upd9002_step_start_cs,
 		upd9002_step_start_ip);
 }
@@ -3444,11 +3448,13 @@ UPD9002FN _ror4_ea8(void) {				// 0F 2A: ror4 EA8
 }
 UPD9002FN _reserved_repc(void) {
 
+	upd9002_perf_record_reserved(UPD9002_PERF_RESERVED_REPC);
 	UPD9002_WORKCLOCK(2);
 	UPD9002_IP = upd9002_repc_ipbak;
 }
 UPD9002FN _reserved_repnc(void) {
 
+	upd9002_perf_record_reserved(UPD9002_PERF_RESERVED_REPNC);
 	UPD9002_WORKCLOCK(2);
 	UPD9002_IP = upd9002_repnc_ipbak;
 }
@@ -3622,6 +3628,7 @@ UPD9002FN _repc_segprefix_ds(void) {
 }
 UPD9002FN _reserved_0x0f(void) {
 
+	upd9002_perf_record_reserved(UPD9002_PERF_RESERVED_0F);
 	UPD9002_WORKCLOCK(2);
 }
 static const UPD9002OP upd9002_ope0x0f_table[64] = {
@@ -3736,6 +3743,7 @@ UPD9002FN _ope0x0f(void) {				// 0F:
 	UINT	op;
 
 	op = upd9002_memoryread(CS_BASE + UPD9002_IP);
+	upd9002_perf_record_0f((UINT8)op);
 	if (op & 0xc0) {
 		_reserved_0x0f();
 		return;

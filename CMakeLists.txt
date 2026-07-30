@@ -35,6 +35,8 @@ option(VAEG_FETCH_LIBARCHIVE
     "Fetch pinned static archive dependencies instead of using system LibArchive" OFF)
 option(VAEG_Z80_INTEGRATION_TRACE
     "Compile deterministic subsystem Z80/FDD integration tracing" OFF)
+option(VAEG_UPD9002_PERF_DIAGNOSTIC
+    "Compile disabled-by-default uPD9002 runtime performance diagnostics" OFF)
 set(VAEG_ZEX_ARTIFACT_DIR "" CACHE PATH
     "Offline directory containing the five hash-verified ZEX artifacts")
 
@@ -471,6 +473,9 @@ endif()
 if(VAEG_Z80_INTEGRATION_TRACE)
     list(APPEND VAEG_CORE_SOURCES cpu/upd9002/upd9002_trace.c)
 endif()
+if(VAEG_UPD9002_PERF_DIAGNOSTIC)
+    list(APPEND VAEG_CORE_SOURCES cpu/upd9002/upd9002_perf.c)
+endif()
 
 add_library(vaeg_core STATIC ${VAEG_CORE_SOURCES})
 target_include_directories(vaeg_core PUBLIC ${VAEG_INCLUDE_DIRS})
@@ -486,6 +491,10 @@ endif()
 if(VAEG_Z80_INTEGRATION_TRACE)
     target_compile_definitions(vaeg_core PRIVATE
         VAEG_Z80_INTEGRATION_TRACE=1)
+endif()
+if(VAEG_UPD9002_PERF_DIAGNOSTIC)
+    target_compile_definitions(vaeg_core PUBLIC
+        VAEG_UPD9002_PERF_DIAGNOSTIC=1)
 endif()
 target_compile_options(vaeg_core PRIVATE -Wall -fsigned-char)
 if(VAEG_WERROR)
