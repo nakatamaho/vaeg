@@ -1,5 +1,4 @@
 
-#if defined(SUPPORT_SASI)
 
 typedef struct {
 	UINT8	phase;
@@ -38,6 +37,3 @@ void sasiio_bind(void);
 #ifdef __cplusplus
 }
 #endif
-
-#endif
-

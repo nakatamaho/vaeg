@@ -34,11 +34,7 @@ static const DMAPROC dmaproc[] = {
 		{dma_dummyout,		dma_dummyin,		dma_dummyproc},		// NONE
 		{fdc_datawrite,		fdc_dataread,		fdc_dmafunc},		// 2HD
 		{fdc_datawrite,		fdc_dataread,		fdc_dmafunc},		// 2DD
-#if defined(SUPPORT_SASI)
 		{sasi_datawrite,	sasi_dataread,		sasi_dmafunc},		// SASI
-#else
-		{dma_dummyout,		dma_dummyin,		dma_dummyproc},		// SASI
-#endif
 		{dma_dummyout,		dma_dummyin,		dma_dummyproc},		// SCSI
 		{dma_dummyout,		dma_dummyin,		cs4231dmafunc},		// CS4231
 };

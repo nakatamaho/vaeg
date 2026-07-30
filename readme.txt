@@ -38,15 +38,9 @@
 　　　cgwindowにフォントポインタを持たせる
 　　　現状、あまり意味を持ちません
 
-　SUPPORT_CRT15KHZ
-　　　水平走査15.98kHzをサポートする(DIPSW1-1)
-
 　SUPPORT_CRT31KHZ
 　　　水平走査31.47kHzをサポートする
 　　　Fellowタイプはこれ
-
-　SUPPORT_SASI
-　　　SASI HDDをサポート
 
 　SASI/SCSI/BMS
 　　　現行VAEGビルドでは常時サポート

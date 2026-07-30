@@ -223,16 +223,12 @@ REG8 sasibios_operate(void) {
 	UINT	type;
 	SXSIDEV	sxsi;
 
-#if defined(SUPPORT_SASI)
 	if (pccore.hddif & PCHDD_SASI) {
 		type = SXSIBIOS_SASI;
 	}
 	else {
 		return(0x60);
 	}
-#else
-	return(0x60);
-#endif
 	sxsi = sxsi_getptr(CPU_AL);
 	if (sxsi == NULL) {
 		return(0x60);
@@ -457,7 +453,6 @@ static void reg_store(UINT seg, UINT off) {
 	MEML_WRITE8(seg, off + 0x16, CPU_FLAGL);
 }
 
-#if defined(SUPPORT_SASI)
 void np2sysp_sasi(const void *arg1, long arg2) {
 
 	UINT	seg;
@@ -482,7 +477,6 @@ void np2sysp_sasi(const void *arg1, long arg2) {
 	(void)arg1;
 	(void)arg2;
 }
-#endif
 
 void np2sysp_scsi(const void *arg1, long arg2) {
 

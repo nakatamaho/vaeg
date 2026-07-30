@@ -10,9 +10,7 @@
 #include	"iocore.h"
 #include	"fddfile.h"
 
-#if defined(SUPPORT_SWSEEKSND)
 #include	"fdd_mtr.h"
-#endif
 
 #include	"sysmng.h"
 
@@ -380,7 +378,6 @@ static void fdc_trace_emit_status(UINT8 st0) {
 	fdc_trace_output(st0, 0xff, 0xff);
 }
 
-#if defined(SUPPORT_SWSEEKSND)
 static void fdc_play_head_load_sound(BOOL one_track) {
 
 	if (np2cfg.MOTOR) {
@@ -394,12 +391,7 @@ static void fdc_play_head_unload_sound(void) {
 		fddmtrsnd_headunload();
 	}
 }
-#else
-#define fdc_play_head_load_sound(o)
-#define fdc_play_head_unload_sound()
-#endif
 
-#if defined(SUPPORT_SWSEEKSND)
 static void fdc_play_seek_sound(int us, int ncn) {
 
 	int	move;
@@ -416,9 +408,6 @@ static void fdc_play_seek_sound(int us, int ncn) {
 		fdc_play_head_unload_sound();
 	}
 }
-#else
-#define fdc_play_seek_sound(u, n)
-#endif
 
 
 

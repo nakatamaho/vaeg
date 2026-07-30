@@ -8,18 +8,14 @@
 #include	"bmsio.h"
 
 static const IOCBFN resetfn[] = {
-#if defined(SUPPORT_SASI)
 			sasiio_reset,
-#endif
 			scsiio_reset,
 			mpu98ii_reset,
 			bmsio_reset,
 	};
 
 static const IOCBFN bindfn[] = {
-#if defined(SUPPORT_SASI)
 			sasiio_bind,
-#endif
 			scsiio_bind,
 			mpu98ii_bind,
 			bmsio_bind,

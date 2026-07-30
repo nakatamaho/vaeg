@@ -358,12 +358,10 @@ void pccore_reset(void) {
 
 	// HDDセット
 	sxsi_open();
-#if defined(SUPPORT_SASI)
 	if (sxsi_issasi()) {
 		pccore.hddif |= PCHDD_SASI;
 		TRACEOUT(("supported SASI"));
 	}
-#endif
 	if (sxsi_isscsi()) {
 		pccore.hddif |= PCHDD_SCSI;
 		TRACEOUT(("supported SCSI"));

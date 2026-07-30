@@ -103,12 +103,10 @@ BOOL dispsync_renewalvertical(void) {
 	grphymax = ((grphymax - 1) & 0x3ff) + 1;
 	grphymax += grph_vbp;
 
-#if defined(SUPPORT_CRT15KHZ)
 	if (gdc.crt15khz & 2) {
 		textymax *= 2;
 		grphymax *= 2;
 	}
-#endif
 	if (textymax > SURFACE_HEIGHT) {
 		textymax = SURFACE_HEIGHT;
 	}

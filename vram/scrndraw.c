@@ -160,13 +160,11 @@ const SDRAWFN	*sdrawfn;
 	}
 	height = surf->height;
 	do {
-#if defined(SUPPORT_CRT15KHZ)
 		if (gdc.crt15khz & 2) {
 			sdrawfn += 12;
 			height >>= 1;
 			break;
 		}
-#endif
 		if (gdc.mode1 & 0x10) {
 			sdrawfn += 4;
 			if (np2cfg.skipline) {

@@ -99,7 +99,9 @@ M72 owns:
 14. Treat SCSI HDD support as required for the active VAEG tree.
    - Fold SCSI conditional code to the enabled side.
    - Remove `SUPPORT_SCSI` as a compile-time switch after the fold.
-   - Preserve SASI and HOSTFAT support.
+   - Fold SASI conditional code to the enabled side and remove
+     `SUPPORT_SASI` as a compile-time switch.
+   - Preserve HOSTFAT support.
 15. Remove legacy HOSTDRV.
    - `HOSTDRV` is the old NP2 DOS host-shared-drive system-port service, not
      the current VAEG HOSTFAT read-only host-folder feature.
@@ -112,7 +114,12 @@ M72 owns:
      `SUPPORT_NORMALDISP` branches.
    - Remove `SUPPORT_16BPP` and `SCREEN_BPP` as compile-time switches after
      folding the active 16bpp path.
+   - Fold `SUPPORT_CRT15KHZ` to the enabled side; the inactive 31kHz branch
+     remains separately audited.
    - Preserve VA guest 16-bit color composition and SDL2 `RGB565` output.
+17. Fold FDD seek sound support to the enabled side.
+   - Remove `SUPPORT_SWSEEKSND` as a compile-time switch.
+   - Preserve the active seek-sound behavior.
 
 ## Non-goals
 
