@@ -145,11 +145,22 @@ Maintainer result:
 vaeg-m73-inline-diagnostic.exe was fast.
 ```
 
+The Windows CI test artifact from GitHub Actions is intentionally not the
+manual runtime-performance artifact. The `windows msys2 mingw64 z80` job uses
+the `mingw-ci` preset, which enables `VAEG_ENABLE_TESTS`,
+`VAEG_Z80_INTEGRATION_TRACE`, and the Windows console subsystem for validation.
+
+M73 therefore adds a separate hosted release artifact job using the
+`mingw-release` preset. Manual gate, runtime-performance, and pre-distribution
+checks should use the `vaeg-windows-mingw64-release` artifact, while
+`vaeg-windows-mingw64-z80` remains the tests-and-trace CI artifact.
+
 ## Scope audit
 
 Changed files from the M73 starting SHA:
 
 ```text
+.github/workflows/build.yml
 CMakeLists.txt
 cpu/upd9002/upd9002_core.c
 cpu/upd9002/upd9002_diagnostic.c
@@ -170,6 +181,11 @@ contracts.
 
 The optional performance diagnostic code is disabled by default behind
 `VAEG_UPD9002_PERF_DIAGNOSTIC`.
+
+The workflow update does not alter the existing Windows CI test job. It adds a
+separate `mingw-release` artifact so the downloadable Windows executable used
+for human runtime testing is built with tests and Z80 integration trace
+disabled.
 
 ## Hosted CI
 
