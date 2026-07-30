@@ -1,24 +1,24 @@
-# M75 - Move VA I/O sources into io
+# M76 - Move VA I/O sources into io
 
-M75 moves the VA I/O source files from `iova/` to `io/` with rename-only
+M76 moves the VA I/O source files from `iova/` to `io/` with rename-only
 semantics wherever possible.
 
-Predecessor: approved G74.
+Predecessor: approved G75.
 
-Branch: `topic/m75-iova-to-io-rename`
+Branch: `topic/m76-iova-to-io-rename`
 
-Commit prefix: `M75:`
+Commit prefix: `M76:`
 
-Candidate gate: `G75`
+Candidate gate: `G76`
 
-Report: `docs/agents/reports/m75_iova_to_io_rename.md`
+Report: `docs/agents/reports/m76_iova_to_io_rename.md`
 
-Do not start M76. Do not merge M75 to `main` before G75 approval. Do not
-declare G75 passed.
+Do not start M77. Do not merge M76 to `main` before G76 approval. Do not
+declare G76 passed.
 
 ## Scope
 
-M75 owns the path move only:
+M76 owns the path move only:
 
 - move active `iova/*` sources and headers into `io/`;
 - preserve file contents except for the minimum path comments needed to keep

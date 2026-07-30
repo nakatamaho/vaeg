@@ -1,24 +1,24 @@
-# M84 - Move root machine-core sources under machine
+# M85 - Move root machine-core sources under machine
 
-M84 relocates active machine-core sources that still live in the repository
+M85 relocates active machine-core sources that still live in the repository
 root into a dedicated `machine/` directory.
 
-Predecessor: approved G83.
+Predecessor: approved G84.
 
-Branch: `topic/m84-machine-core-relocation`
+Branch: `topic/m85-machine-core-relocation`
 
-Commit prefix: `M84:`
+Commit prefix: `M85:`
 
-Candidate gate: `G84`
+Candidate gate: `G85`
 
-Report: `docs/agents/reports/m84_machine_core_relocation.md`
+Report: `docs/agents/reports/m85_machine_core_relocation.md`
 
-Do not start M85. Do not merge M84 to `main` before G84 approval. Do not
-declare G84 passed.
+Do not start M86. Do not merge M85 to `main` before G85 approval. Do not
+declare G85 passed.
 
 ## Scope
 
-M84 owns source-tree layout only. It should move active root machine-core
+M85 owns source-tree layout only. It should move active root machine-core
 files such as:
 
 - `pccore.c` / `pccore.h`;
@@ -35,7 +35,7 @@ include-path, documentation, and validation fixups.
 
 ## Deferred files
 
-Do not move these files in M84 unless a focused audit proves the move is safe
+Do not move these files in M85 unless a focused audit proves the move is safe
 and the maintainer explicitly keeps them in scope:
 
 - `common.h`, because it is a broad project-wide type and macro boundary;
@@ -46,7 +46,7 @@ and the maintainer explicitly keeps them in scope:
 
 ## Non-goals
 
-M84 must not change machine behavior, state-save payloads, timing semantics,
+M85 must not change machine behavior, state-save payloads, timing semantics,
 keyboard behavior, event scheduling, or uPD9002 instruction semantics.
 
 ## Validation
