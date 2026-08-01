@@ -27,7 +27,15 @@ static BOOL scsi_trace_transfer_active;
 static UINT scsi_trace_transfer_phase;
 static UINT scsi_trace_transfer_count;
 static UINT scsi_trace_transfer_ar19_accesses;
+static UINT scsi_trace_transfer_ar19_reads;
+static UINT scsi_trace_transfer_ar19_writes;
 static UINT scsi_trace_transfer_data_port_accesses;
+static UINT scsi_trace_transfer_irq_requests;
+static UINT scsi_trace_transfer_irq_assertions;
+static BOOL scsi_trace_transfer_result_pending;
+static REG8 scsi_trace_transfer_result_status;
+static UINT scsi_trace_transfer_cdb_length;
+static BYTE scsi_trace_transfer_cdb[12];
 static const char *scsi_trace_transfer_source;
 
 static void scsi_tracef(const char *fmt, ...);
@@ -74,19 +82,33 @@ static void scsi_trace_transfer_start(UINT phase, UINT count,
 	}
 	if (scsi_trace_transfer_active) {
 		scsi_tracef("scsitrace transfer-abandoned phase=%02x direction=%s "
-				"tc=%06x ar19_accesses=%u data_port_accesses=%u source=%s",
+				"tc=%06x ar19_accesses=%u ar19_reads=%u ar19_writes=%u "
+				"data_port_accesses=%u irq_requests=%u irq_assertions=%u "
+				"source=%s",
 				scsi_trace_transfer_phase,
 				scsi_trace_phase_direction(scsi_trace_transfer_phase),
 				scsi_trace_transfer_count,
 				scsi_trace_transfer_ar19_accesses,
+				scsi_trace_transfer_ar19_reads,
+				scsi_trace_transfer_ar19_writes,
 				scsi_trace_transfer_data_port_accesses,
+				scsi_trace_transfer_irq_requests,
+				scsi_trace_transfer_irq_assertions,
 				scsi_trace_transfer_source);
 	}
 	scsi_trace_transfer_active = TRUE;
 	scsi_trace_transfer_phase = phase;
 	scsi_trace_transfer_count = count;
 	scsi_trace_transfer_ar19_accesses = 0;
+	scsi_trace_transfer_ar19_reads = 0;
+	scsi_trace_transfer_ar19_writes = 0;
 	scsi_trace_transfer_data_port_accesses = 0;
+	scsi_trace_transfer_irq_requests = 0;
+	scsi_trace_transfer_irq_assertions = 0;
+	scsi_trace_transfer_result_pending = FALSE;
+	scsi_trace_transfer_result_status = 0;
+	scsi_trace_transfer_cdb_length = 0;
+	ZeroMemory(scsi_trace_transfer_cdb, sizeof(scsi_trace_transfer_cdb));
 	scsi_trace_transfer_source = source;
 	scsi_tracef("scsitrace transfer-start phase=%02x direction=%s tc=%06x "
 			"source=%s cs=%04x ip=%04x",
@@ -94,10 +116,16 @@ static void scsi_trace_transfer_start(UINT phase, UINT count,
 			CPU_CS, CPU_IP);
 }
 
-static void scsi_trace_transfer_ar19_access(void) {
+static void scsi_trace_transfer_ar19_access(BOOL write) {
 
 	if (scsi_trace_transfer_active) {
 		scsi_trace_transfer_ar19_accesses++;
+		if (write) {
+			scsi_trace_transfer_ar19_writes++;
+		}
+		else {
+			scsi_trace_transfer_ar19_reads++;
+		}
 	}
 }
 
@@ -113,16 +141,51 @@ static void scsi_trace_transfer_result(REG8 status) {
 	if (!scsi_trace_transfer_active) {
 		return;
 	}
+	scsi_trace_transfer_result_pending = TRUE;
+	scsi_trace_transfer_result_status = status;
+	scsi_trace_transfer_irq_requests++;
+	if (scsi_trace_transfer_phase == SCSIPH_COMMAND) {
+		scsi_trace_transfer_cdb_length = min(scsiio.wrdatpos,
+				(UINT)sizeof(scsi_trace_transfer_cdb));
+		if (scsi_trace_transfer_cdb_length) {
+			CopyMemory(scsi_trace_transfer_cdb, scsiio.cmd,
+					scsi_trace_transfer_cdb_length);
+		}
+	}
+}
+
+static void scsi_trace_transfer_event_result(void) {
+
+	if (!scsi_trace_transfer_active ||
+			!scsi_trace_transfer_result_pending) {
+		return;
+	}
 	scsi_tracef("scsitrace transfer-result phase=%02x direction=%s "
-			"tc=%06x ar19_accesses=%u data_port_accesses=%u csr=%02x "
-			"source=%s cs=%04x ip=%04x",
+			"tc=%06x ar19_accesses=%u ar19_reads=%u ar19_writes=%u "
+			"data_port_accesses=%u irq_requests=%u irq_assertions=%u "
+			"csr=%02x source=%s cdb_len=%u cdb0=%02x cdb1=%02x "
+			"cdb2=%02x cdb3=%02x cdb4=%02x cdb5=%02x cdb6=%02x "
+			"cdb7=%02x cdb8=%02x cdb9=%02x cdb10=%02x cdb11=%02x",
 			scsi_trace_transfer_phase,
 			scsi_trace_phase_direction(scsi_trace_transfer_phase),
 			scsi_trace_transfer_count,
 			scsi_trace_transfer_ar19_accesses,
+			scsi_trace_transfer_ar19_reads,
+			scsi_trace_transfer_ar19_writes,
 			scsi_trace_transfer_data_port_accesses,
-			status, scsi_trace_transfer_source, CPU_CS, CPU_IP);
+			scsi_trace_transfer_irq_requests,
+			scsi_trace_transfer_irq_assertions,
+			scsi_trace_transfer_result_status,
+			scsi_trace_transfer_source,
+			scsi_trace_transfer_cdb_length,
+			scsi_trace_transfer_cdb[0], scsi_trace_transfer_cdb[1],
+			scsi_trace_transfer_cdb[2], scsi_trace_transfer_cdb[3],
+			scsi_trace_transfer_cdb[4], scsi_trace_transfer_cdb[5],
+			scsi_trace_transfer_cdb[6], scsi_trace_transfer_cdb[7],
+			scsi_trace_transfer_cdb[8], scsi_trace_transfer_cdb[9],
+			scsi_trace_transfer_cdb[10], scsi_trace_transfer_cdb[11]);
 	scsi_trace_transfer_active = FALSE;
+	scsi_trace_transfer_result_pending = FALSE;
 }
 
 static void scsi_tracef(const char *fmt, ...) {
@@ -175,7 +238,7 @@ static void scsiio_data_write(REG8 dat) {
 	 * polled I/O; the target-side transfer completes immediately after the
 	 * host byte is accepted, so DBR is ready again for the next byte.
 	 */
-	scsi_trace_transfer_ar19_access();
+	scsi_trace_transfer_ar19_access(TRUE);
 	if (!(scsiio.auxstatus & SCSI_AUX_DBR)) {
 		SCSITRACEOUT(("scsitrace warning DATA write while DBR=0 data=%02x "
 				"cs=%04x ip=%04x", dat, CPU_CS, CPU_IP));
@@ -210,7 +273,7 @@ static REG8 scsiio_data_read(void) {
 
 	REG8 ret;
 
-	scsi_trace_transfer_ar19_access();
+	scsi_trace_transfer_ar19_access(FALSE);
 	if (!(scsiio.auxstatus & SCSI_AUX_DBR)) {
 		SCSITRACEOUT(("scsitrace warning DATA read while DBR=0 "
 				"cs=%04x ip=%04x", CPU_CS, CPU_IP));
@@ -252,9 +315,14 @@ void scsiioint(NEVENTITEM item) {
 				scsiio.membank));
 	TRACEOUT(("scsiioint"));
 	if (scsiio.membank & 4) {
+		if (scsi_trace_transfer_active &&
+				scsi_trace_transfer_result_pending) {
+			scsi_trace_transfer_irq_assertions++;
+		}
 		pic_setirq(scsiirq[(scsiio.resent >> 3) & 7]);
 		TRACEOUT(("scsi intr"));
 	}
+	scsi_trace_transfer_event_result();
 	(void)item;
 
 }
@@ -608,7 +676,15 @@ void scsiio_reset(void) {
 	scsi_trace_transfer_phase = 0;
 	scsi_trace_transfer_count = 0;
 	scsi_trace_transfer_ar19_accesses = 0;
+	scsi_trace_transfer_ar19_reads = 0;
+	scsi_trace_transfer_ar19_writes = 0;
 	scsi_trace_transfer_data_port_accesses = 0;
+	scsi_trace_transfer_irq_requests = 0;
+	scsi_trace_transfer_irq_assertions = 0;
+	scsi_trace_transfer_result_pending = FALSE;
+	scsi_trace_transfer_result_status = 0;
+	scsi_trace_transfer_cdb_length = 0;
+	ZeroMemory(scsi_trace_transfer_cdb, sizeof(scsi_trace_transfer_cdb));
 	scsi_trace_transfer_source = NULL;
 	if (pccore.hddif & PCHDD_SCSI) {
 		/* INT2/IRQ6 is the VA bus choice that does not collide with SASI. */
