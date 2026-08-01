@@ -48,6 +48,11 @@ static void scsicmd(REG8 cmd) {
 	id = scsiio.reg[SCSICTR_DSTID] & 7;
 	switch(cmd) {
 		case SCSICMD_RESET:
+			scsiio.phase = 0;
+			scsiio.data_len = 0;
+			scsiio.cmdpos = 0;
+			scsiio.rddatpos = 0;
+			scsiio.wrdatpos = 0;
 			scsiintr(SCSISTAT_RESET);
 			break;
 
@@ -60,7 +65,6 @@ static void scsicmd(REG8 cmd) {
 			ret = scsicmd_select(id);
 			if (ret & 0x80) {
 				scsiintr(0x11);
-				// で retはどーやって割り込みさせるの？
 			}
 			else {
 				scsiintr(ret);
@@ -146,6 +150,11 @@ static void IOOUTCALL scsiio_occ6(UINT port, REG8 dat) {
 
 	scsiio.data[scsiio.wrdatpos & 0x7fff] = dat;
 	scsiio.wrdatpos++;
+	if ((scsiio.phase == SCSIPH_DATAOUT) &&
+		(scsiio.wrdatpos >= scsiio.data_len)) {
+		scsiio.phase = SCSIPH_STATUS;
+		scsiintr(0x8b);
+	}
 	(void)port;
 }
 
@@ -207,6 +216,7 @@ static REG8 IOINPCALL scsiio_icc6(UINT port) {
 	if ((scsiio.phase == SCSIPH_DATAIN) &&
 		(scsiio.rddatpos >= scsiio.data_len)) {
 		scsiio.phase = SCSIPH_STATUS;
+		scsiintr(0x8b);
 	}
 	(void)port;
 	return(ret);
