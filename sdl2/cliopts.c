@@ -478,6 +478,19 @@ BOOL vaeg_cli_parse(int argc, char **argv, VAEG_CLI_OPTIONS *options,
 			}
 			options->hostfat_path = value;
 		}
+		else if (!strcmp(argument, "--roms")) {
+			value = option_value(argc, argv, &position, argument, error,
+													error_size);
+			if ((value == NULL) || (value[0] == '\0')) {
+				return(set_error(error, error_size,
+						"--roms requires a non-empty path", value));
+			}
+			if (strlen(value) >= MAX_PATH) {
+				return(set_error(error, error_size,
+						"ROM directory path is too long", value));
+			}
+			options->roms_path = value;
+		}
 		else if (argument[0] == '-') {
 			return(set_error(error, error_size, "unknown option", argument));
 		}

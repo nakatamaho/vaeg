@@ -154,7 +154,7 @@ static int test_cli_options(void) {
 		"--sasi1", "disk.hdi", "--sasi2", "NONE",
 		"--scsi1", "disk.hdd", "--scsi2", "none",
 		"--scsi3", "none", "--scsi4", "none",
-		"--hostfat-dir", "host-root",
+		"--hostfat-dir", "host-root", "--roms", "rom-root",
 		"--cpumult", "32", "--sgp", "16", "--nowait",
 		"--frameskip", "4", "--fullscreen", "--effect", "crt-lite",
 		"--scaling", "fit-8dot", "--controller", "mouse",
@@ -195,6 +195,8 @@ static int test_cli_options(void) {
 		(options.scsi_mode[3] != VAEG_CLI_MEDIA_NONE) ||
 		(options.hostfat_path == NULL) ||
 		strcmp(options.hostfat_path, "host-root") ||
+		(options.roms_path == NULL) ||
+		strcmp(options.roms_path, "rom-root") ||
 		(options.cpu_multiplier != 32) ||
 		(options.sgp_mode != VAEG_CLI_SGP_CUSTOM) ||
 		(options.sgp_multiplier != 16) || !options.nowait ||
