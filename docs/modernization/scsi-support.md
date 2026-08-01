@@ -165,6 +165,12 @@ the memory-bank register's IRE1 bit (bit 2), while the internal CSR latch is
 preserved when that system IRQ gate is closed.  LCI (bit 6) and PE (bit 1) of
 Auxiliary Status are currently defined as zero/unmodeled.
 
+M75c1 now separates SELECT completion from the target COMMAND-phase request:
+the `11h` CSR is read first, then `8Ah` is delivered as a second service
+event.  The first observed host transfer count is `000006h`, followed by
+`AR=18h <- 20h`; Transfer Info remains deliberately held at that boundary
+until M75c2 implements the AR=19h PIO byte pump.
+
 VAEG's built-in software SCSI BIOS helper and the C-Bus phase engine remain
 different paths. The former is used by the existing BIOS compatibility calls;
 the latter now models SELECT, TRANSFER INFO, data/status/message phases, and
