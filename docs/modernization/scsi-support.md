@@ -32,9 +32,12 @@ binaries.
 
 ## Preservation Scope
 
-VAEG does not currently emulate the PC-9801-55-compatible SCSI interface.
-This work adds no SCSI hardware emulation and does not claim that the
-generated disk can use a SCSI target under the current emulator.
+VAEG models the PC-9801-55-compatible SCSI control and data interface needed
+by the PCPLUS/SCHD software path. The board firmware ROM is deliberately
+disconnected by default. This follows `SCSI55.TXT`, which states that the
+board ROM may be disconnected without affecting operation on a PC-88VA.
+VAEG therefore does not claim that the board ROM window is part of the VA
+guest memory map.
 
 The purpose is preservation: record the public package locations and exact
 download identities, retain an independently written English setup procedure,
@@ -50,7 +53,9 @@ The primary setup note is the PC88.gr.jp forum topic
 packages are:
 
 - [PCPLUS 1.08][pcplus], which supplies the PC-9801-55-compatible SCSI BIOS
-  service used by the other software.
+  service (`$SCSIBIOS`) used by the other software. `PCPLUS.SYS` is the
+  software SCSI BIOS layer; it is not dependent on VAEG mapping a board ROM
+  window.
 - [The PCPLUS 1.08 correction][pcplus-patch], which fixes its DMA-mask setup.
 - [BDIFF/BUPDATE 1.28][bdiff], used only on the host under DOSBox to apply
   that correction reproducibly.
@@ -165,8 +170,9 @@ board. Its PC-88VA-specific guidance includes these points:
   only bus-master transfer is unlikely to work.
 - The board ROM normally occupies `0DC000h-0DCFFFh`. The PCPLUS note says
   that this range is otherwise unused on a PC-88VA, but it must not overlap
-  an EMS page frame. Disabling the board ROM is supported, and the forum
-  note recommends doing so when practical.
+  an EMS page frame. Disabling the board ROM is supported and is the VAEG
+  default. VAEG does not copy an embedded or host `scsi.rom` image into
+  `D2000h` or another VA system-memory window.
 
 These are software-configuration notes, not electrical-installation
 instructions. Follow the interface board and target-device manuals for
