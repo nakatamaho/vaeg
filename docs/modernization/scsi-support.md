@@ -74,6 +74,49 @@ The package manuals remain the authority for command details, hardware
 limitations, and redistribution conditions. The generated disk retains the
 relevant original manuals under `A:\DOC`.
 
+## Port and SCSIBIOS Evidence
+
+The supplied `SCSI55.TXT` is explicit about the PC-88VA board configuration:
+the standard board I/O addresses are `0CC0h`, `0CC2h`, and `0CC4h`. It does
+not document `0CC6h`. The older NP2 C-Bus model retained in
+`cbus/scsiio.c` has a `0CC6h` byte-stream handler, but that is legacy
+PC-9801/NP2 model code and is not, by itself, evidence that a PC-88VA
+PCPLUS/SCHD installation uses that port. The VA registration therefore must
+not be expanded to `0CC6h` without a PCPLUS/SCHD I/O trace or a stronger
+hardware/software source.
+
+The supplied `SETDMA.ASM` provides a separate and important distinction:
+`0CCh` is the software interrupt number for the `$SCSIBIOS` service, not the
+`0CC6h` I/O port. `SETDMA.COM` first calls DOS `INT 21h/AH=35h, AL=0CCh`,
+then compares six bytes at the returned handler's `ES:000Ah` against
+`PCPLUS`. If PCPLUS is installed it calls:
+
+```asm
+MOV AX,82C0h
+MOV BL,01h
+INT 0CCh
+```
+
+to request SCSIBIOS DMA mode. The utility does not program a DMA channel and
+does not access `0CC6h` directly. This confirms that normal PCPLUS operation
+is programmed-I/O (PIO); DMA is an optional mode requested through the
+PCPLUS software service. The VA guidance identifies only DMA channels 0 and
+3 as expansion-slot choices and warns that SASI and 2TD consume them.
+
+The emulator must therefore keep the following claims separate:
+
+- `0CC0h/0CC2h/0CC4h`: documented VA board configuration ports;
+- `INT 0CCh`: PCPLUS-provided software SCSIBIOS entry point;
+- `0CC6h`: legacy NP2 model data-port behavior, not yet proven as a VA
+  PCPLUS port;
+- DMA: optional PCPLUS mode, not the default PIO path.
+
+VAEG's current built-in SCSI BIOS helper and the old C-Bus port model are
+different paths. The former transfers through the SCSI BIOS/memory helpers;
+the latter contains the inherited `0CC6h` byte-stream handler. Until a guest
+trace establishes which path PCPLUS/SCHD takes on VA, the two paths must not
+be treated as interchangeable.
+
 ## Building the Disk
 
 [`tools/pc88va/scsi-support.sh`](../../tools/pc88va/scsi-support.sh) takes a
