@@ -86,6 +86,14 @@ status bits.  AR `19h` is a fixed DATA window.  CDB registers `03h`-`0Eh`
 are ordinary sequential registers, and the NEC extension range `30h`-`35h`
 must not be collapsed into the ordinary `00h`-`1Fh` file.
 
+The primary register reference for this boundary is the
+[WD33C93A data sheet and application notes](http://www.bitsavers.org/components/westernDigital/WD33C93A_Data_Sheet_and_Application_Notes_Nov1990.pdf).
+Its indirect-addressing rules explicitly exclude Auxiliary Status, DATA, and
+COMMAND from address auto-increment.  Its Control register table defines
+DMA mode `000b` as polled I/O, where the host polls DBR before each DATA
+access.  The M75b2 implementation follows this PIO contract and does not
+invent DMA-channel behavior.
+
 For the low-level SELECT path, the host-visible completion sequence is
 expected to be event-driven:
 
@@ -138,6 +146,14 @@ The emulator must therefore keep the following claims separate:
 - `0CC6h`: M75's phase-engine byte stream, retained as a compatibility path
   while guest-level evidence is collected;
 - DMA: optional PCPLUS mode, not the default PIO path.
+
+M75b2 records `0CC4h <- 02h` as the DMER reset strobe.  TCIR, TCMR, TCMS,
+and DMES remain hardware-pending; unsupported strobes produce a diagnostic
+warning rather than changing transfer state.  Reading `0CC0h` does not clear
+the device interrupt latch.  Only reading AR `17h` consumes the latched SCSI
+status; an 8259 EOI is a separate PIC operation.  AR `32h`, `34h`, and `35h`
+remain explicit unsupported/open-register reads and writes until PCPLUS/SCHD
+or board documentation supplies evidence for their NEC-specific behavior.
 
 VAEG's built-in software SCSI BIOS helper and the C-Bus phase engine remain
 different paths. The former is used by the existing BIOS compatibility calls;
