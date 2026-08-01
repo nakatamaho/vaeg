@@ -47,6 +47,21 @@ def validate(root: pathlib.Path) -> None:
     for phase in ("SCSIPH_COMMAND", "SCSIPH_DATAIN", "SCSIPH_DATAOUT",
                   "SCSIPH_STATUS", "SCSIPH_MSGIN"):
         require(scsicmd, f"case {phase}", f"{phase} transition")
+    for phase, status, direction in (
+            ("SCSIPH_DATAOUT", "0x88", "TRUE"),
+            ("SCSIPH_DATAIN", "0x89", "FALSE"),
+            ("SCSIPH_COMMAND", "0x8a", "TRUE"),
+            ("SCSIPH_STATUS", "0x8b", "FALSE"),
+            ("SCSIPH_INFOOUT", "0x8c", "TRUE"),
+            ("SCSIPH_INFOIN", "0x8d", "FALSE"),
+            ("SCSIPH_MSGOUT", "0x8e", "TRUE"),
+            ("SCSIPH_MSGIN", "0x8f", "FALSE")):
+        require(scsicmd, f"{{{phase}, {status}, {direction}}}",
+                f"single-source phase contract {phase}")
+    require(scsicmd, "REG8 scsicmd_phase_service_status(UINT phase)",
+            "phase service-status lookup")
+    require(scsicmd, "BOOL scsicmd_phase_host_to_spc(UINT phase)",
+            "phase direction lookup")
     require(scsicmd, "REG8 scsicmd_transinfo(REG8 id)",
             "phase-aware transfer entry")
     require(scsicmd, "scsicmd_putbe32", "big-endian response encoding")
@@ -95,7 +110,7 @@ def validate(root: pathlib.Path) -> None:
             "host-programmed Transfer Count state")
     require(scsiio, "M75c2 accumulates CDB through DATA window",
             "M75c2 CDB accumulation boundary")
-    require(scsiio, "scsiintr(0x1a)",
+    require(scsiio, "scsiintr_transfer_complete(0x1a)",
             "Transfer Info COMMAND completion CSR")
     require(scsiio, "scsitrace transfer-start",
             "M75c3 transfer phase trace")
