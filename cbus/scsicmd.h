@@ -6,8 +6,11 @@ extern "C" {
 REG8 scsicmd_negate(REG8 id);
 REG8 scsicmd_select(REG8 id);
 REG8 scsicmd_transfer(REG8 id, BYTE *cdb);
+REG8 scsicmd_command(REG8 id);
 REG8 scsicmd_transinfo(REG8 id);
 BOOL scsicmd_send(void);
+REG8 scsicmd_phase_service_status(UINT phase);
+BOOL scsicmd_phase_host_to_spc(UINT phase);
 
 
 void scsicmd_bios(void);
