@@ -22,6 +22,7 @@ static REG8 scsi_csr_event_status;
 static BOOL scsi_csr_pending;
 static REG8 scsi_csr_pending_status;
 static BOOL scsi_command_phase_pending;
+static UINT scsi_transfer_remaining;
 
 /* WD33C93 auxiliary-status bits.  The DATA window is PIO-only in M75. */
 #define SCSI_AUX_INT	0x80
@@ -37,6 +38,8 @@ static BOOL scsi_command_phase_pending;
 #define SCSI_C4_TCIR	0x10
 #define SCSI_C4_DMER	0x02
 #define SCSI_C4_DMES	0x01
+
+static void scsiintr(REG8 status);
 
 static void scsi_tracef(const char *fmt, ...) {
 
@@ -73,6 +76,13 @@ static void scsiio_warn_reserved_register(const char *direction) {
 			CPU_CS, CPU_IP));
 }
 
+static UINT scsiio_transfer_count(void) {
+
+	return ((UINT)scsiio.reg[SCSICTR_TRANSCNT + 0] << 16) |
+			((UINT)scsiio.reg[SCSICTR_TRANSCNT + 1] << 8) |
+			(UINT)scsiio.reg[SCSICTR_TRANSCNT + 2];
+}
+
 static void scsiio_data_write(REG8 dat) {
 
 	/*
@@ -87,6 +97,24 @@ static void scsiio_data_write(REG8 dat) {
 		return;
 	}
 	scsiio.auxstatus &= (REG8)~SCSI_AUX_DBR;
+	if (scsiio.phase == SCSIPH_COMMAND) {
+		/* M75c2 accumulates CDB through DATA window. */
+		if (scsiio.wrdatpos < sizeof(scsiio.cmd)) {
+			scsiio.cmd[scsiio.wrdatpos] = dat;
+		}
+		scsiio.wrdatpos++;
+		if (scsi_transfer_remaining) {
+			scsi_transfer_remaining--;
+		}
+		if (scsi_transfer_remaining == 0) {
+			SCSITRACEOUT(("scsitrace M75c2 CDB transfer complete "
+					"count=%u", scsiio.wrdatpos));
+			scsiintr(0x1a);
+			return;
+		}
+		scsiio.auxstatus |= SCSI_AUX_DBR;
+		return;
+	}
 	if (scsiio.wrdatpos < sizeof(scsiio.data)) {
 		scsiio.data[scsiio.wrdatpos++] = dat;
 	}
@@ -183,6 +211,7 @@ static void scsicmd(REG8 cmd) {
 			scsiio.wrdatpos = 0;
 			scsiio.auxstatus = 0;
 			scsi_command_phase_pending = FALSE;
+			scsi_transfer_remaining = 0;
 			scsiintr(SCSISTAT_RESET);
 			break;
 
@@ -214,12 +243,19 @@ static void scsicmd(REG8 cmd) {
 		case SCSICMD_TRANS_INFO:
 			scsiio.auxstatus |= (SCSI_AUX_BSY | SCSI_AUX_DBR);
 			if (scsiio.phase == SCSIPH_COMMAND) {
-				/* M75c1 holds Transfer Info at COMMAND phase. */
-				/* M75c1 exposes the request boundary only; M75c2 pumps DATA. */
-				SCSITRACEOUT(("scsitrace M75c1 holds Transfer Info at COMMAND "
-						"phase"));
-				scsiio.auxstatus &= (REG8)~(SCSI_AUX_BSY | SCSI_AUX_CIP |
-						SCSI_AUX_DBR);
+				scsi_transfer_remaining = scsiio_transfer_count();
+				scsiio.wrdatpos = 0;
+				if (scsi_transfer_remaining == 0) {
+					SCSITRACEOUT(("scsitrace warning M75c2 Transfer Info "
+							"with TC=0 hardware-pending"));
+					scsiio.auxstatus &= (REG8)~(SCSI_AUX_BSY |
+							SCSI_AUX_CIP | SCSI_AUX_DBR);
+					break;
+				}
+				/* M75c2 accumulates CDB through the fixed DATA window. */
+				SCSITRACEOUT(("scsitrace M75c2 accumulates CDB through DATA "
+						"window count=%u", scsi_transfer_remaining));
+				scsiio.auxstatus &= (REG8)~SCSI_AUX_CIP;
 				break;
 			}
 			ret = scsicmd_transinfo(id);
