@@ -23,6 +23,14 @@ static BOOL scsi_csr_pending;
 static REG8 scsi_csr_pending_status;
 static BOOL scsi_command_phase_pending;
 static UINT scsi_transfer_remaining;
+static BOOL scsi_trace_transfer_active;
+static UINT scsi_trace_transfer_phase;
+static UINT scsi_trace_transfer_count;
+static UINT scsi_trace_transfer_ar19_accesses;
+static UINT scsi_trace_transfer_data_port_accesses;
+static const char *scsi_trace_transfer_source;
+
+static void scsi_tracef(const char *fmt, ...);
 
 /* WD33C93 auxiliary-status bits.  The DATA window is PIO-only in M75. */
 #define SCSI_AUX_INT	0x80
@@ -40,6 +48,82 @@ static UINT scsi_transfer_remaining;
 #define SCSI_C4_DMES	0x01
 
 static void scsiintr(REG8 status);
+
+static const char *scsi_trace_phase_direction(UINT phase) {
+
+	switch (phase) {
+		case SCSIPH_COMMAND:
+		case SCSIPH_DATAOUT:
+		case SCSIPH_INFOOUT:
+		case SCSIPH_MSGOUT:
+			return "host-to-spc";
+		case SCSIPH_DATAIN:
+		case SCSIPH_STATUS:
+		case SCSIPH_INFOIN:
+		case SCSIPH_MSGIN:
+			return "spc-to-host";
+	}
+	return "unknown";
+}
+
+static void scsi_trace_transfer_start(UINT phase, UINT count,
+		const char *source) {
+
+	if (!scsi_trace_enabled) {
+		return;
+	}
+	if (scsi_trace_transfer_active) {
+		scsi_tracef("scsitrace transfer-abandoned phase=%02x direction=%s "
+				"tc=%06x ar19_accesses=%u data_port_accesses=%u source=%s",
+				scsi_trace_transfer_phase,
+				scsi_trace_phase_direction(scsi_trace_transfer_phase),
+				scsi_trace_transfer_count,
+				scsi_trace_transfer_ar19_accesses,
+				scsi_trace_transfer_data_port_accesses,
+				scsi_trace_transfer_source);
+	}
+	scsi_trace_transfer_active = TRUE;
+	scsi_trace_transfer_phase = phase;
+	scsi_trace_transfer_count = count;
+	scsi_trace_transfer_ar19_accesses = 0;
+	scsi_trace_transfer_data_port_accesses = 0;
+	scsi_trace_transfer_source = source;
+	scsi_tracef("scsitrace transfer-start phase=%02x direction=%s tc=%06x "
+			"source=%s cs=%04x ip=%04x",
+			phase, scsi_trace_phase_direction(phase), count, source,
+			CPU_CS, CPU_IP);
+}
+
+static void scsi_trace_transfer_ar19_access(void) {
+
+	if (scsi_trace_transfer_active) {
+		scsi_trace_transfer_ar19_accesses++;
+	}
+}
+
+static void scsi_trace_transfer_data_port_access(void) {
+
+	if (scsi_trace_transfer_active) {
+		scsi_trace_transfer_data_port_accesses++;
+	}
+}
+
+static void scsi_trace_transfer_result(REG8 status) {
+
+	if (!scsi_trace_transfer_active) {
+		return;
+	}
+	scsi_tracef("scsitrace transfer-result phase=%02x direction=%s "
+			"tc=%06x ar19_accesses=%u data_port_accesses=%u csr=%02x "
+			"source=%s cs=%04x ip=%04x",
+			scsi_trace_transfer_phase,
+			scsi_trace_phase_direction(scsi_trace_transfer_phase),
+			scsi_trace_transfer_count,
+			scsi_trace_transfer_ar19_accesses,
+			scsi_trace_transfer_data_port_accesses,
+			status, scsi_trace_transfer_source, CPU_CS, CPU_IP);
+	scsi_trace_transfer_active = FALSE;
+}
 
 static void scsi_tracef(const char *fmt, ...) {
 
@@ -91,6 +175,7 @@ static void scsiio_data_write(REG8 dat) {
 	 * polled I/O; the target-side transfer completes immediately after the
 	 * host byte is accepted, so DBR is ready again for the next byte.
 	 */
+	scsi_trace_transfer_ar19_access();
 	if (!(scsiio.auxstatus & SCSI_AUX_DBR)) {
 		SCSITRACEOUT(("scsitrace warning DATA write while DBR=0 data=%02x "
 				"cs=%04x ip=%04x", dat, CPU_CS, CPU_IP));
@@ -125,6 +210,7 @@ static REG8 scsiio_data_read(void) {
 
 	REG8 ret;
 
+	scsi_trace_transfer_ar19_access();
 	if (!(scsiio.auxstatus & SCSI_AUX_DBR)) {
 		SCSITRACEOUT(("scsitrace warning DATA read while DBR=0 "
 				"cs=%04x ip=%04x", CPU_CS, CPU_IP));
@@ -175,6 +261,8 @@ void scsiioint(NEVENTITEM item) {
 
 
 static void scsiintr(REG8 status) {
+
+	scsi_trace_transfer_result(status);
 
 	if (!scsi_csr_event_active && !scsi_csr_latched) {
 		scsi_csr_event_active = TRUE;
@@ -241,6 +329,10 @@ static void scsicmd(REG8 cmd) {
 			break;
 
 		case SCSICMD_TRANS_INFO:
+			scsi_trace_transfer_start(scsiio.phase,
+					scsiio_transfer_count(),
+				scsiio.phase == SCSIPH_COMMAND ?
+					"m75c2-ar19-pio" : "legacy-scsi-phase-engine");
 			scsiio.auxstatus |= (SCSI_AUX_BSY | SCSI_AUX_DBR);
 			if (scsiio.phase == SCSIPH_COMMAND) {
 				scsi_transfer_remaining = scsiio_transfer_count();
@@ -373,6 +465,8 @@ static void IOOUTCALL scsiio_occ4(UINT port, REG8 dat) {
 
 static void IOOUTCALL scsiio_occ6(UINT port, REG8 dat) {
 
+	scsi_trace_transfer_data_port_access();
+
 	SCSITRACEOUT(("scsitrace out port=0cc6 data=%02x ar=%02x cs=%04x ip=%04x",
 			dat, scsiio.port, CPU_CS, CPU_IP));
 	scsiio.data[scsiio.wrdatpos & 0x7fff] = dat;
@@ -484,6 +578,7 @@ static REG8 IOINPCALL scsiio_icc6(UINT port) {
 
 	REG8	ret;
 
+	scsi_trace_transfer_data_port_access();
 	ret = scsiio.data[scsiio.rddatpos & 0x7fff];
 	SCSITRACEOUT(("scsitrace in port=0cc6 data=%02x ar=%02x cs=%04x ip=%04x",
 			ret, scsiio.port, CPU_CS, CPU_IP));
@@ -509,6 +604,12 @@ void scsiio_reset(void) {
 	scsi_csr_pending = FALSE;
 	scsi_csr_pending_status = 0;
 	scsi_command_phase_pending = FALSE;
+	scsi_trace_transfer_active = FALSE;
+	scsi_trace_transfer_phase = 0;
+	scsi_trace_transfer_count = 0;
+	scsi_trace_transfer_ar19_accesses = 0;
+	scsi_trace_transfer_data_port_accesses = 0;
+	scsi_trace_transfer_source = NULL;
 	if (pccore.hddif & PCHDD_SCSI) {
 		/* INT2/IRQ6 is the VA bus choice that does not collide with SASI. */
 		scsiio.resent = (2 << 3) + (7 << 0);
