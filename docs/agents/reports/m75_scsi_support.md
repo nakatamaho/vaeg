@@ -407,6 +407,34 @@ tc=000008 -> ar19_accesses=8,  csr=1Ah
 data_port_accesses=0 in the classified records
 ```
 
+The direction and interrupt columns are now explicit. For the same records,
+all AR=19h accesses were writes (`ar19_reads=0`, `ar19_writes=TC`), and each
+transfer produced exactly one CSR event request and one VA IRQ6 assertion:
+
+```text
+tc=000024 ar19_reads=0 ar19_writes=36 irq_requests=1 irq_assertions=1
+tc=000008 ar19_reads=0 ar19_writes=8  irq_requests=1 irq_assertions=1
+```
+
+There were no per-byte IRQs; the single assertion occurred at transfer
+completion. This is the concrete M75c3 load test for the depth-one CSR latch
+and back-pressure boundary.
+
+The captured CDB bytes resolve the command sequence without inference:
+
+```text
+tc=000006 cdb=12 00 00 00 24 00
+tc=000024 cdb=00 00 00 00 00 00 00 00 00 00 00 00
+tc=00000a cdb=25 00 00 00 00 00 00 00 00 00
+tc=000008 cdb=00 00 00 00 00 00 00 00
+tc=000006 cdb=1a 00 04 00 24 00
+```
+
+Thus `12h` with allocation length `24h` and `25h` followed by length `08h`
+are confirmed. The `24h` and `08h` records themselves contain response
+bytes treated as COMMAND data, proving the (b) result: the low-level path has
+not yet transitioned to DATA IN.
+
 The `24h` and `08h` values are therefore not evidence that DATA IN is already
 implemented in the current branch. They are host-programmed counts consumed
 by the still-COMMAND M75c2 path. Their lengths are consistent with an
@@ -416,7 +444,9 @@ IN/STATUS/MESSAGE phases. This is a demonstrated contract gap, not a reason
 to weaken the M75c2 scope statement.
 
 The trace also proves that the 0CC6h legacy data path is not the source of
-these records. The next implementation checkpoint must connect completed
+these records. It is classified as unused by the supplied PCPLUS/SCHD path,
+while the compatibility mapping remains retained for now. The next
+implementation checkpoint must connect completed
 COMMAND CDBs to the existing command helper only through a general phase
 transition, then verify DATA IN with distinct CSR `19h`, followed by STATUS
 and MESSAGE IN transfers with TC=1.

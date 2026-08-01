@@ -143,8 +143,8 @@ The emulator must therefore keep the following claims separate:
 
 - `0CC0h/0CC2h/0CC4h`: documented VA board configuration ports;
 - `INT 0CCh`: PCPLUS-provided software SCSIBIOS entry point;
-- `0CC6h`: M75's phase-engine byte stream, retained as a compatibility path
-  while guest-level evidence is collected;
+- `0CC6h`: retained compatibility byte stream; the supplied PCPLUS/SCHD trace
+  confirms it is unused by the active low-level path;
 - DMA: optional PCPLUS mode, not the default PIO path.
 
 M75b2 records `0CC4h <- 02h` as the DMER reset strobe.  TCIR, TCMR, TCMS,
