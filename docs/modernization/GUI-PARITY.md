@@ -72,8 +72,8 @@ snapshot; that tier is absent from the current tree.
 | Emulate | Reset; Configure; NewDisk; Font; Exit | Reset, CPU/SGP/host-pacing Configure, and Exit `done`; others `later` | M20 Configure covers CPU/SGP speed; M53 adds non-blocking host pacing. M28 places sampling rate and sound buffer under Sound. Resize, MMX, confirm, and resume remain later. Font selection is not the ImGui Japanese font decision. |
 | Edit | Copy; Paste | ASCII host-to-guest Paste `done`; guest-to-host Copy `later` | M24 uses SDL clipboard UTF-8 input but emits only paced VA guest keyboard make/break events. Japanese/IME paste is later. |
 | FDD dynamic menu | FDD1-FDD4 Open/Eject | FDD1/FDD2 `done`; FDD3/FDD4 `later` | FDD1/FDD2 are required for G10. |
-| HardDisk | New SASI image; SASI1/SASI2 Open/Remove | SASI HDI create and SASI1/SASI2 Open/Remove `done`; SCSI/IDE `later` | M16 restores SASI through `HDD1FILE`/`HDD2FILE`; reset is the reliable apply point after changing images. |
-| SCSI dynamic menu | SCSI0-SCSI3 Open/Remove | `later` | Added dynamically when SCSI support is compiled. |
+| HardDisk | New SASI image; SASI1/SASI2 Open/Remove | SASI HDI create, SASI1/SASI2 Open/Remove, and SCSI VHD create `done`; IDE `later` | M16 restores SASI through `HDD1FILE`/`HDD2FILE`; M75 adds SCSI image creation and reset remains the reliable apply point after changing images. |
+| SCSI dynamic menu | SCSI #1-#4 Open/Remove | `done` | SDL2 maps these slots to `SCSIHDD0` through `SCSIHDD3`; reset rebuilds the SCSI open/bind path. |
 | Screen | Window; FullScreen; rotation; display vsync; real palettes; no wait; frame skip; frame display; screen option | Resize, immediate Windowed/current-desktop Exclusive, effects, scale/aspect, No Wait, frame skip, and measured frame display `done`; Borderless, detailed mode selection, rotation, and advanced screen options `later` | M27 restores the original approximately two-second `drawcount` FPS measurement in the native title. The simplified M21 UI needs no separate Apply step. Procedural Unfiltered/Linear/Scanline/CRT Lite effects remain available. M20 host pacing remains unchanged. |
 | Device / Keyboard | Keyboard/JoyKey modes; mechanical SHIFT/CTRL/GRPH; F12 mapping; Alt-right mapping; host-layout mapping mode | Host-layout mapping and binding table `done`; mechanical key options `later` | M14 implements JIS/US/custom SDL scancode mapping, Kana modes, and Roman-Kana helper. Mechanical SHIFT/CTRL/GRPH mode options remain later. |
 | Device / Sound | Beep level; disable boards; VA Sound Board 2; PC-9801 boards; JAST; seek sound | Sound on/off, VA OPN/OPNA hardware, backend, output rate/buffer, ymfm fidelity, volume, and seek sound `done`; rest `later` | Hardware selection is model-aware. M28 output settings rebuild both backends; fidelity affects only ymfm FM synthesis. Detailed jumper pages remain later. |
@@ -89,8 +89,8 @@ snapshot; that tier is absent from the current tree.
 | Dialog/resource | Implementation | Function summary | Status |
 |---|---|---|---|
 | `IDD_CONFIG` | `win9x/dialog/d_config.cpp` | Base clock, multiplier, model, sampling rate, sound buffer, resize, MMX, confirm, resume | CPU/SGP speed, host pacing, and Sound-menu sampling/buffer controls `done`; remaining fields `later` |
-| `IDD_NEWDISK`, `IDD_NEWDISK2`, `IDD_NEWHDDDISK`, `IDD_NEWSASI` | `win9x/dialog/d_disk.cpp` | Create floppy/HDD image files | Formatted FAT12 D88/IMG and SASI HDI creation `done`; THD/NHD and SCSI creation `later` |
-| FDD/HDD file selectors | `win9x/dialog/d_disk.cpp` | Open FDD, SASI/IDE, SCSI images | FDD1/FDD2 and SASI1/SASI2 `done`; SCSI/IDE `later` |
+| `IDD_NEWDISK`, `IDD_NEWDISK2`, `IDD_NEWHDDDISK`, `IDD_NEWSASI` | `win9x/dialog/d_disk.cpp` | Create floppy/HDD image files | Formatted FAT12 D88/IMG, SASI HDI, and SDL2 SCSI VHD creation `done`; THD/NHD `later` |
+| FDD/HDD file selectors | `win9x/dialog/d_disk.cpp` | Open FDD, SASI/IDE, SCSI images | FDD1/FDD2, SASI1/SASI2, and SDL2 SCSI #1-#4 `done`; IDE `later` |
 | `IDD_SCROPT1` | `win9x/dialog/d_screen.cpp` | LCD mode, skipline, skiplight | `later` |
 | `IDD_SCROPT2` | `win9x/dialog/d_screen.cpp` | GDC chip, GRCG/EGC, PC-9801-24 color | `later` |
 | `IDD_SCROPT3` | `win9x/dialog/d_screen.cpp` | Wait-state and real palette tuning | `later` |
