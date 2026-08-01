@@ -97,6 +97,16 @@ def validate(root: pathlib.Path) -> None:
             "M75c2 CDB accumulation boundary")
     require(scsiio, "scsiintr(0x1a)",
             "Transfer Info COMMAND completion CSR")
+    require(scsiio, "scsitrace transfer-start",
+            "M75c3 transfer phase trace")
+    require(scsiio, "scsitrace transfer-result",
+            "M75c3 transfer completion trace")
+    require(scsiio, "ar19_accesses",
+            "M75c3 AR19 access accounting")
+    require(scsiio, "data_port_accesses",
+            "M75c3 legacy data-port accounting")
+    require(scsiio, "legacy-scsi-phase-engine",
+            "M75c3 legacy-path attribution")
     require(scsiio, "SCSI_AUX_LCI | SCSI_AUX_BSY",
             "LCI and BSY auxiliary-status definitions")
     require(scsiio, "SCSI_AUX_PE | SCSI_AUX_DBR",
