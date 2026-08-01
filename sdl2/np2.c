@@ -266,6 +266,7 @@ static void usage(const char *progname) {
 	printf("\t--keyboard-layout jis|us|custom\n");
 	printf("Diagnostics:\n");
 	printf("\t--smoke --selftest --debug --fdctrace --scsitrace --pacelog\n");
+	printf("\t--scsitrace-limit 1..1000000\n");
 	printf("\t--trace-cpu 1..1000000\n");
 	printf("\t--version --help [-h]\n");
 }
@@ -1413,6 +1414,10 @@ static BOOL runloop(BOOL smoke, BOOL pacelog_enabled, BOOL detect_screen) {
 		UINT effective_drawskip;
 
 		taskmng_rol();
+		if (scsiio_trace_stop_requested()) {
+			taskmng_exit();
+			break;
+		}
 		if ((np2oscfg.pacing_ms != 0) &&
 			((SINT32)(next_guest_tick - SDL_GetTicks()) > 0)) {
 			render_host_ui_only();
@@ -1784,6 +1789,7 @@ int main(int argc, char **argv) {
 	TRACEINIT();
 	fdc_trace_enable(options.fdctrace);
 	scsiio_trace_enable(options.scsitrace);
+	scsiio_trace_limit(options.scsitrace_limit);
 	sdlkbd_initialize();
 	inputmng_init();
 	keystat_initialize();

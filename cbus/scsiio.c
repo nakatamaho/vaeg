@@ -16,6 +16,9 @@
 
 static const UINT8 scsiirq[] = {0x03, 0x05, 0x06, 0x09, 0x0c, 0x0d, 3, 3};
 static BOOL scsi_trace_enabled;
+static UINT scsi_trace_completion_limit;
+static UINT scsi_trace_completion_count;
+static BOOL scsi_trace_stop;
 static BOOL scsi_csr_latched;
 static BOOL scsi_csr_event_active;
 static REG8 scsi_csr_event_status;
@@ -186,6 +189,12 @@ static void scsi_trace_transfer_event_result(void) {
 			scsi_trace_transfer_cdb[10], scsi_trace_transfer_cdb[11]);
 	scsi_trace_transfer_active = FALSE;
 	scsi_trace_transfer_result_pending = FALSE;
+	if (scsi_trace_completion_limit != 0) {
+		scsi_trace_completion_count++;
+		if (scsi_trace_completion_count >= scsi_trace_completion_limit) {
+			scsi_trace_stop = TRUE;
+		}
+	}
 }
 
 static void scsi_tracef(const char *fmt, ...) {
@@ -290,6 +299,18 @@ static REG8 scsiio_data_read(void) {
 void scsiio_trace_enable(BOOL enabled) {
 
 	scsi_trace_enabled = enabled;
+}
+
+void scsiio_trace_limit(UINT limit) {
+
+	scsi_trace_completion_limit = limit;
+	scsi_trace_completion_count = 0;
+	scsi_trace_stop = FALSE;
+}
+
+BOOL scsiio_trace_stop_requested(void) {
+
+	return scsi_trace_stop;
 }
 
 void scsiio_trace_pic_irq(REG8 irq, BOOL asserted) {
