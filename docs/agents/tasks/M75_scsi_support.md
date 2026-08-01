@@ -134,6 +134,26 @@ be treated as a PC-9801-55 specification port without guest or primary-source
 evidence; if no evidence is found it is a pending/open-bus compatibility
 question, not a reason to alter the documented `0CC0h`/`0CC2h`/`0CC4h` path.
 
+The M75b1 register-value evidence must retain these observed inputs:
+
+```text
+AR=00h <- 07h
+AR=01h <- 08h
+AR=02h <- 80h, readback 80h
+AR=11h <- 00h
+AR=15h <- 07h, later 00h
+AR=16h <- 00h
+AR=18h <- 00h (RESET), later 07h (SELECT)
+AR=30h read 00h, write 04h
+AR=33h read 17h
+0CC4h <- 02h (DMER reset; PIO selected)
+```
+
+The complete M75a trace also contains a reset command and must not be
+described as a SELECT-only initialization.  A repeated run is accepted only
+when the filtered `scsitrace` records are byte-identical and the no-access
+interval after EOI is explicitly recorded.
+
 M75c is complete only when the post-`8Ah` trace contains the controller's
 transfer count writes at AR `12h`-`14h`, AR `18h`=`20h`, and the actual CDB
 source (PIO DATA-window/DBR or an explicitly evidenced DMA path), followed by
