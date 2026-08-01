@@ -365,6 +365,14 @@ acf588f M75c2: pump PIO CDB bytes through DATA window
 bffa7cf M75c2: validate PIO CDB completion
 ```
 
+M75c3 commits:
+
+```text
+da3f469 M75c3: trace transfer phase classification
+4047f58 M75c3: validate transfer phase tracing
+1260764 M75c3: document transfer phase classification
+```
+
 ## Existing command-helper coverage (not active low-level AR=19h execution)
 
 | CDB | Existing `scsicmd_cmd()` helper | Active low-level path |
@@ -430,6 +438,12 @@ python3 tools/qa/m75_scsi_controller.py --root .                      pass
 SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy vaeg --selftest            pass
 vaeg --model va2 --roms docs/roms --scsi1 /tmp/m75-headless40/scsi40.hdd \
   --smoke --nowait --mute                                               pass
+SDL_VIDEODRIVER=dummy gtimeout -k 2 12 build/linux-debug/sdl2/vaeg \
+  --model va2 --roms /Users/maho/vaeg/docs/roms \
+  --fdd1 /Users/maho/vaeg/pcengine110-scsi-support.d88 \
+  --scsi1 /tmp/m75-scsi40.hdd --scsitrace --nowait --mute              exit=124;
+                                                                          required M75c3
+                                                                          transfer records present
 ```
 
 The ROM override was added so validation can use the maintained local ROM
