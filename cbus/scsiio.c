@@ -65,6 +65,13 @@ static REG8 scsiio_auxstatus(void) {
 	return ret;
 }
 
+static void scsiio_warn_reserved_register(const char *direction) {
+
+	SCSITRACEOUT(("scsitrace warning reserved register range ar=%02x %s "
+			"hardware-pending cs=%04x ip=%04x", scsiio.port, direction,
+			CPU_CS, CPU_IP));
+}
+
 static void scsiio_data_write(REG8 dat) {
 
 	/*
@@ -286,6 +293,13 @@ static void IOOUTCALL scsiio_occ2(UINT port, REG8 dat) {
 					}
 				}
 				break;
+
+			default:
+				/* Undefined AR values are held, not auto-incremented. */
+				if (scsiio.port >= 0x1a && scsiio.port < 0x30) {
+					scsiio_warn_reserved_register("write");
+				}
+				break;
 		}
 	}
 	(void)port;
@@ -385,6 +399,9 @@ static REG8 IOINPCALL scsiio_icc2(UINT port) {
 
 		case 0x36:
 			return(0);					// ２枚刺しとか…
+	}
+	if (scsiio.port >= 0x1a && scsiio.port < 0x30) {
+		scsiio_warn_reserved_register("read");
 	}
 	if (scsiio.port <= 0x19) {
 		ret = scsiio.reg[scsiio.port];
