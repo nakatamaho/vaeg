@@ -170,6 +170,36 @@ each and byte-identical filtered output (`cmp` exit 0).  This makes the
 M75b1 baseline deterministic and proves that the stop is an interrupt-wait
 state, not a noisy polling loop.
 
+## M75b1 single-depth CSR checkpoint
+
+M75b1 adds a runtime-only CSR latch and one pending event slot without changing
+the serialized `_SCSIIO` image. A new event is scheduled only when no CSR is
+latched or in flight. While the CSR is unread, one successor is retained;
+additional events are rejected at the admission boundary for the bus layer to
+back-pressure rather than overwriting the visible CSR. Reading AR `17h`
+consumes the latch and admits the single pending event. 8259 EOI handling is
+not used to consume this latch.
+
+M75b1 commits:
+
+```text
+821edef M75b1: add single-depth WD33C93 CSR latch
+0fabeb3 M75b1: validate single-depth CSR latch
+```
+
+Validation:
+
+```text
+cmake --build build/linux-debug --target vaeg_sdl2 -j2       pass
+python3 tools/qa/m75_scsi_controller.py --root .           pass
+vaeg --selftest                                             pass
+two filtered --scsitrace runs: 71 records each, cmp exit 0
+M75a baseline vs M75b1 filtered trace: cmp exit 0
+```
+
+The bus-side phase back-pressure and guest-visible 17h/EOI semantics are not
+yet claimed complete; those remain the M75b2/M75c implementation scope.
+
 ## CDB coverage
 
 | CDB | Current behavior | Data source |
