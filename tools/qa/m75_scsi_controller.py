@@ -103,8 +103,18 @@ def validate(root: pathlib.Path) -> None:
             "M75c3 transfer completion trace")
     require(scsiio, "ar19_accesses",
             "M75c3 AR19 access accounting")
+    require(scsiio, "ar19_reads",
+            "M75c3 AR19 read accounting")
+    require(scsiio, "ar19_writes",
+            "M75c3 AR19 write accounting")
     require(scsiio, "data_port_accesses",
             "M75c3 legacy data-port accounting")
+    require(scsiio, "irq_requests",
+            "M75c3 transfer IRQ request accounting")
+    require(scsiio, "irq_assertions",
+            "M75c3 transfer IRQ assertion accounting")
+    require(scsiio, "cdb0",
+            "M75c3 CDB opcode capture")
     require(scsiio, "legacy-scsi-phase-engine",
             "M75c3 legacy-path attribution")
     require(scsiio, "SCSI_AUX_LCI | SCSI_AUX_BSY",
