@@ -169,6 +169,17 @@ BOOL vaeg_cli_parse(int argc, char **argv, VAEG_CLI_OPTIONS *options,
 		else if (!strcmp(argument, "--scsitrace")) {
 			options->scsitrace = TRUE;
 		}
+		else if (!strcmp(argument, "--scsitrace-limit")) {
+			value = option_value(argc, argv, &position, argument, error,
+													error_size);
+			if ((value == NULL) || (parse_uint(value, &number) != SUCCESS) ||
+				(number == 0) || (number > 1000000)) {
+				return(set_error(error, error_size,
+						"--scsitrace-limit accepts 1 through 1000000 transfers",
+						value));
+			}
+			options->scsitrace_limit = number;
+		}
 		else if (!strcmp(argument, "--pacelog")) {
 			options->pacelog = TRUE;
 		}
