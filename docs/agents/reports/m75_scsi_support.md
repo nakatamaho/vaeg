@@ -327,6 +327,44 @@ the AR `18h` boundary (`exit=124`); the trace prefix through that boundary is
 the acceptance evidence.  M75c2 must replace this bounded stop with a
 deterministic transfer-count termination.
 
+## M75c2 PIO CDB transfer checkpoint
+
+M75c2 replaces the former immediate CDB copy for the low-level COMMAND phase.
+When the host writes `AR=18h <- 20h`, the three transfer-count registers are
+read as one 24-bit value and become the only active byte count.  Each AR `19h`
+write is accepted only while DBR is set, is appended to the CDB buffer, and
+leaves AR at `19h`.  The opcode/group is not decoded early and the count is
+not inferred from the first byte.
+
+When the host count reaches zero, the controller emits CSR `1Ah` (successful
+Transfer Info completion in the COMMAND phase).  M75c2 does not yet advance
+to DATA IN/OUT, STATUS, or MESSAGE IN and does not claim CDB command
+execution.  A zero transfer count remains `hardware-pending` and is not
+treated as a successful transfer.
+
+The first deterministic PCPLUS trace now contains:
+
+```text
+CSR 8Ah
+AR 12h/13h/14h <- 00h/00h/06h
+AR 18h <- 20h
+AR 19h <- six CDB bytes
+CSR 1Ah
+```
+
+The same trace shows later host-programmed counts such as `24h`, `0Ah`, and
+`08h`; this is why a fixed six-byte CDB assumption would be incorrect.  The
+bounded run remains `exit=124`, but the required AR=19h and CSR=1Ah boundary
+is now observable before timeout.
+
+M75c2 commits:
+
+```text
+d04747f M75c2: add PIO transfer boundary tests
+acf588f M75c2: pump PIO CDB bytes through DATA window
+bffa7cf M75c2: validate PIO CDB completion
+```
+
 ## CDB coverage
 
 | CDB | Current behavior | Data source |
