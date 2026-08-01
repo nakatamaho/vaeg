@@ -27,16 +27,17 @@ M75 therefore keeps the board ROM disconnected by default and does not claim
 the historical `DC000h-DCFFFh` board-ROM window or a substitute `D2000h`
 window in the VA guest map.
 
-The supplied `SCSI55.TXT` identifies only `0CC0h`, `0CC2h`, and `0CC4h` as
-the board I/O addresses. The inherited NP2 `cbus/scsiio.c` `0CC6h`
-byte-stream handler is not sufficient evidence for VA hardware behavior and
-must remain unclaimed until PCPLUS/SCHD tracing or authoritative documentation
+The supplied `SCSI55.TXT` identifies `0CC0h`, `0CC2h`, and `0CC4h` as the
+documented board I/O addresses. The inherited `0CC6h` byte stream is retained
+as the controller data leg in M75, but its independent hardware designation
+remains unclaimed until PCPLUS/SCHD tracing or authoritative documentation
 establishes it. The supplied `SETDMA.ASM` additionally proves that `0CCh` is
 the software `$SCSIBIOS` interrupt: `SETDMA.COM` locates the `INT 0CCh`
 handler, checks the `PCPLUS` signature at offset `000Ah`, and requests DMA
 mode with `AX=82C0h`, `BL=01h`. It does not access `0CC6h` or program a DMA
-channel. M75's default target is therefore the documented VA PIO path; DMA
-and any `0CC6h` VA claim require separate evidence.
+channel. M75's default target is therefore the documented VA PIO path; the
+`0CC6h` handler is a compatibility implementation rather than a new hardware
+claim.
 
 The supplied `SCHD.SYS`/`SCHD.DOC`/`SCHD.LOG`/`SCHD.TXT` are the PC-88VA DOS
 block-driver evidence for this milestone. `PCPLUS.SYS` must precede `SCHD.SYS`;
@@ -44,9 +45,8 @@ block-driver evidence for this milestone. `PCPLUS.SYS` must precede `SCHD.SYS`;
 geometry, buffer, and removable-media options. A byte scan of the supplied
 driver finds five `INT 0CCh` call sites and no `CD 1Bh` or literal direct
 `0CC0h`-`0CC6h` port setup. This supports the documented PCPLUS software
-SCSIBIOS boundary but does not prove that the legacy NP2 `0CC6h` handler is a
-VA port. M75 must trace or otherwise validate the `INT 0CCh` path before
-expanding the VA I/O map.
+SCSIBIOS boundary; M75's `0CC6h` registration is therefore kept as a
+compatibility data path and remains subject to guest-level validation.
 
 The standard local validation artifact names are:
 
