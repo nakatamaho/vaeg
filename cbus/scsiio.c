@@ -21,6 +21,7 @@ static BOOL scsi_csr_event_active;
 static REG8 scsi_csr_event_status;
 static BOOL scsi_csr_pending;
 static REG8 scsi_csr_pending_status;
+static BOOL scsi_command_phase_pending;
 
 /* WD33C93 auxiliary-status bits.  The DATA window is PIO-only in M75. */
 #define SCSI_AUX_INT	0x80
@@ -181,6 +182,7 @@ static void scsicmd(REG8 cmd) {
 			scsiio.rddatpos = 0;
 			scsiio.wrdatpos = 0;
 			scsiio.auxstatus = 0;
+			scsi_command_phase_pending = FALSE;
 			scsiintr(SCSISTAT_RESET);
 			break;
 
@@ -194,6 +196,7 @@ static void scsicmd(REG8 cmd) {
 			scsiio.auxstatus |= SCSI_AUX_BSY;
 			ret = scsicmd_select(id);
 			if (ret & 0x80) {
+				scsi_command_phase_pending = TRUE;
 				scsiintr(0x11);
 			}
 			else {
@@ -210,6 +213,15 @@ static void scsicmd(REG8 cmd) {
 
 		case SCSICMD_TRANS_INFO:
 			scsiio.auxstatus |= (SCSI_AUX_BSY | SCSI_AUX_DBR);
+			if (scsiio.phase == SCSIPH_COMMAND) {
+				/* M75c1 holds Transfer Info at COMMAND phase. */
+				/* M75c1 exposes the request boundary only; M75c2 pumps DATA. */
+				SCSITRACEOUT(("scsitrace M75c1 holds Transfer Info at COMMAND "
+						"phase"));
+				scsiio.auxstatus &= (REG8)~(SCSI_AUX_BSY | SCSI_AUX_CIP |
+						SCSI_AUX_DBR);
+				break;
+			}
 			ret = scsicmd_transinfo(id);
 			if (scsiio.phase == 0) {
 				scsiio.auxstatus &= (REG8)~(SCSI_AUX_BSY | SCSI_AUX_DBR);
@@ -364,6 +376,11 @@ static REG8 IOINPCALL scsiio_icc2(UINT port) {
 					nevent_set(NEVENT_SCSIIO, 4000, scsiioint,
 							NEVENT_ABSOLUTE);
 				}
+				else if (scsi_command_phase_pending) {
+					/* The target's COMMAND REQ is held until CSR=11h is read. */
+					scsi_command_phase_pending = FALSE;
+					scsiintr(0x8a);
+				}
 			}
 			SCSITRACEOUT(("scsitrace in port=0cc2 ar=%02x status=%02x cs=%04x ip=%04x",
 					scsiio.port, scsiio.scsistatus, CPU_CS, CPU_IP));
@@ -455,6 +472,7 @@ void scsiio_reset(void) {
 	scsi_csr_event_status = 0;
 	scsi_csr_pending = FALSE;
 	scsi_csr_pending_status = 0;
+	scsi_command_phase_pending = FALSE;
 	if (pccore.hddif & PCHDD_SCSI) {
 		/* INT2/IRQ6 is the VA bus choice that does not collide with SASI. */
 		scsiio.resent = (2 << 3) + (7 << 0);
