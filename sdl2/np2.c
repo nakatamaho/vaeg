@@ -223,6 +223,9 @@ typedef struct {
 	BOOL sasi[2];
 	char saved_sasi[2][MAX_PATH];
 	char applied_sasi[2][MAX_PATH];
+	BOOL scsi[4];
+	char saved_scsi[4][MAX_PATH];
+	char applied_scsi[4][MAX_PATH];
 } CLI_SAVED_CONFIG;
 
 static	UINT	framecnt;
@@ -244,6 +247,8 @@ static void usage(const char *progname) {
 	printf("Media (session only; use none for an empty drive):\n");
 	printf("\t--fdd1 path|none    --fdd2 path|none\n");
 	printf("\t--sasi1 path|none   --sasi2 path|none\n");
+	printf("\t--scsi1 path|none   --scsi2 path|none\n");
+	printf("\t--scsi3 path|none   --scsi4 path|none\n");
 	printf("\t--hostfat-dir path  read-only PC-Engine HOSTFAT snapshot\n");
 	printf("Execution (session only):\n");
 	printf("\t--cpumult 1..32\n");
@@ -728,6 +733,30 @@ static BOOL check_sasi_image(const char *path, int drive) {
 	return(SUCCESS);
 }
 
+static BOOL check_scsi_image(const char *path, int drive) {
+
+	short attr;
+
+	attr = file_attr(path);
+	if (attr == (short)-1) {
+		fprintf(stderr, "Error: SCSI #%d image not found: %s\n", drive + 1,
+																path);
+		return(FAILURE);
+	}
+	if (attr & FILEATTR_DIRECTORY) {
+		fprintf(stderr, "Error: SCSI #%d image is a directory: %s\n",
+																 drive + 1, path);
+		return(FAILURE);
+	}
+	if (sxsi_hddvalidate_scsi(path) != SUCCESS) {
+		fprintf(stderr,
+			"Error: SCSI #%d image has an unsupported format or geometry: %s\n",
+																 drive + 1, path);
+		return(FAILURE);
+	}
+	return(SUCCESS);
+}
+
 static BOOL validate_cli_options(const VAEG_CLI_OPTIONS *options) {
 
 	const char *model;
@@ -753,6 +782,12 @@ static BOOL validate_cli_options(const VAEG_CLI_OPTIONS *options) {
 		}
 		if ((options->sasi_mode[drive] == VAEG_CLI_MEDIA_PATH) &&
 			(check_sasi_image(options->sasi_path[drive], drive) != SUCCESS)) {
+			return(FAILURE);
+		}
+	}
+	for (drive=0; drive<4; drive++) {
+		if ((options->scsi_mode[drive] == VAEG_CLI_MEDIA_PATH) &&
+			(check_scsi_image(options->scsi_path[drive], drive) != SUCCESS)) {
 			return(FAILURE);
 		}
 	}
@@ -826,6 +861,14 @@ static void save_cli_config(const VAEG_CLI_OPTIONS *options,
 		if (saved->sasi[drive]) {
 			file_cpyname(saved->saved_sasi[drive], np2cfg.sasihdd[drive],
 											sizeof(saved->saved_sasi[drive]));
+		}
+	}
+	for (drive=0; drive<4; drive++) {
+		saved->scsi[drive] =
+				options->scsi_mode[drive] != VAEG_CLI_MEDIA_UNSET;
+		if (saved->scsi[drive]) {
+			file_cpyname(saved->saved_scsi[drive], np2cfg.scsihdd[drive],
+								 sizeof(saved->saved_scsi[drive]));
 		}
 	}
 }
@@ -927,6 +970,19 @@ static void apply_cli_config(const VAEG_CLI_OPTIONS *options,
 			}
 			file_cpyname(saved->applied_sasi[drive], np2cfg.sasihdd[drive],
 											sizeof(saved->applied_sasi[drive]));
+		}
+	}
+	for (drive=0; drive<4; drive++) {
+		if (saved->scsi[drive]) {
+			if (options->scsi_mode[drive] == VAEG_CLI_MEDIA_PATH) {
+				file_cpyname(np2cfg.scsihdd[drive], options->scsi_path[drive],
+											sizeof(np2cfg.scsihdd[drive]));
+			}
+			else {
+				np2cfg.scsihdd[drive][0] = '\0';
+			}
+			file_cpyname(saved->applied_scsi[drive], np2cfg.scsihdd[drive],
+											sizeof(saved->applied_scsi[drive]));
 		}
 	}
 }
@@ -1038,6 +1094,13 @@ static void restore_cli_config(const VAEG_CLI_OPTIONS *options,
 											sizeof(np2cfg.sasihdd[drive]));
 		}
 	}
+	for (drive=0; drive<4; drive++) {
+		if (saved->scsi[drive] &&
+			!strcmp(np2cfg.scsihdd[drive], saved->applied_scsi[drive])) {
+			file_cpyname(np2cfg.scsihdd[drive], saved->saved_scsi[drive],
+											sizeof(np2cfg.scsihdd[drive]));
+		}
+	}
 }
 
 BOOL np2_cli_override_selftest(void) {
@@ -1069,7 +1132,15 @@ BOOL np2_cli_override_selftest(void) {
 	file_cpyname(np2cfg.sasihdd[0], "saved1.hdi",
 											sizeof(np2cfg.sasihdd[0]));
 	file_cpyname(np2cfg.sasihdd[1], "saved2.hdi",
-											sizeof(np2cfg.sasihdd[1]));
+								 sizeof(np2cfg.sasihdd[1]));
+	file_cpyname(np2cfg.scsihdd[0], "saved0.hdd",
+								 sizeof(np2cfg.scsihdd[0]));
+	file_cpyname(np2cfg.scsihdd[1], "saved1.hdd",
+								 sizeof(np2cfg.scsihdd[1]));
+	file_cpyname(np2cfg.scsihdd[2], "saved2.hdd",
+								 sizeof(np2cfg.scsihdd[2]));
+	file_cpyname(np2cfg.scsihdd[3], "saved3.hdd",
+								 sizeof(np2cfg.scsihdd[3]));
 	milstr_ncpy(np2oscfg.opn_backend, "ymfm",
 											sizeof(np2oscfg.opn_backend));
 	milstr_ncpy(np2oscfg.ymfm_fidelity, "minimum",
@@ -1120,6 +1191,11 @@ BOOL np2_cli_override_selftest(void) {
 	options.sasi_mode[0] = VAEG_CLI_MEDIA_PATH;
 	options.sasi_path[0] = "cli1.hdi";
 	options.sasi_mode[1] = VAEG_CLI_MEDIA_NONE;
+	options.scsi_mode[0] = VAEG_CLI_MEDIA_PATH;
+	options.scsi_path[0] = "cli0.hdd";
+	options.scsi_mode[1] = VAEG_CLI_MEDIA_NONE;
+	options.scsi_mode[2] = VAEG_CLI_MEDIA_UNSET;
+	options.scsi_mode[3] = VAEG_CLI_MEDIA_UNSET;
 	save_cli_config(&options, &saved);
 	file_cpyname(np2cfg.model, str_VA1, sizeof(np2cfg.model));
 	apply_cli_config(&options, &saved);
@@ -1140,7 +1216,11 @@ BOOL np2_cli_override_selftest(void) {
 		!strcmp(np2oscfg.fdd_image[0], "cli1.d88") &&
 		(np2oscfg.fdd_image[1][0] == '\0') &&
 		!strcmp(np2cfg.sasihdd[0], "cli1.hdi") &&
-		(np2cfg.sasihdd[1][0] == '\0');
+		(np2cfg.sasihdd[1][0] == '\0') &&
+		!strcmp(np2cfg.scsihdd[0], "cli0.hdd") &&
+		(np2cfg.scsihdd[1][0] == '\0') &&
+		!strcmp(np2cfg.scsihdd[2], "saved2.hdd") &&
+		!strcmp(np2cfg.scsihdd[3], "saved3.hdd");
 	restore_cli_config(&options, &saved);
 	result = result && !memcmp(&np2cfg, &baseline_cfg, sizeof(np2cfg)) &&
 		!memcmp(&np2oscfg, &baseline_oscfg, sizeof(np2oscfg)) &&
@@ -1671,9 +1751,12 @@ int main(int argc, char **argv) {
 				np2cfg.samplingrate, np2cfg.delayms, np2cfg.sgp_speed_mode,
 				np2cfg.sgp_multiplier);
 		fprintf(stderr,
-				"INFO: Media config: FDD1=%s FDD2=%s SASI1=%s SASI2=%s\n",
+				"INFO: Media config: FDD1=%s FDD2=%s SASI1=%s SASI2=%s "
+				"SCSI1=%s SCSI2=%s SCSI3=%s SCSI4=%s\n",
 				np2oscfg.fdd_image[0], np2oscfg.fdd_image[1],
-				np2cfg.sasihdd[0], np2cfg.sasihdd[1]);
+				np2cfg.sasihdd[0], np2cfg.sasihdd[1],
+				np2cfg.scsihdd[0], np2cfg.scsihdd[1],
+				np2cfg.scsihdd[2], np2cfg.scsihdd[3]);
 	}
 	if (options.smoke) {
 		np2oscfg.NOWAIT = 1;
