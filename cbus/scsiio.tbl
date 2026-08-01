@@ -21,7 +21,10 @@ enum {
 	SCSICTR_DATA		= 0x19,
 	SCSICTR_MEMBANK		= 0x30,
 	SCSICTR_MEMWND		= 0x31,
+	SCSICTR_PKGID		= 0x32,
 	SCSICTR_RESENT		= 0x33,
+	SCSICTR_FIFO_CTRL	= 0x34,
+	SCSICTR_FIFO_STATUS	= 0x35,
 
 	SCSICTR_CDB			= 0x03
 };
@@ -142,4 +145,3 @@ static const char *scsictr[0x40] = {
 		scsictr_nec,				// 3f
 };
 #endif
-
