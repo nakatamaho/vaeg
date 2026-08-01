@@ -49,7 +49,6 @@ static void scsicmd(REG8 cmd) {
 	switch(cmd) {
 		case SCSICMD_RESET:
 			scsiio.phase = 0;
-			scsiio.data_len = 0;
 			scsiio.cmdpos = 0;
 			scsiio.rddatpos = 0;
 			scsiio.wrdatpos = 0;
@@ -151,7 +150,7 @@ static void IOOUTCALL scsiio_occ6(UINT port, REG8 dat) {
 	scsiio.data[scsiio.wrdatpos & 0x7fff] = dat;
 	scsiio.wrdatpos++;
 	if ((scsiio.phase == SCSIPH_DATAOUT) &&
-		(scsiio.wrdatpos >= scsiio.data_len)) {
+		(scsiio.wrdatpos >= scsiio.cmdpos)) {
 		scsiio.phase = SCSIPH_STATUS;
 		scsiintr(0x8b);
 	}
@@ -214,7 +213,7 @@ static REG8 IOINPCALL scsiio_icc6(UINT port) {
 	ret = scsiio.data[scsiio.rddatpos & 0x7fff];
 	scsiio.rddatpos++;
 	if ((scsiio.phase == SCSIPH_DATAIN) &&
-		(scsiio.rddatpos >= scsiio.data_len)) {
+		(scsiio.rddatpos >= scsiio.cmdpos)) {
 		scsiio.phase = SCSIPH_STATUS;
 		scsiintr(0x8b);
 	}

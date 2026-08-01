@@ -41,7 +41,7 @@ static UINT scsicmd_datain(SXSIDEV sxsi, BYTE *cdb) {
 	UINT32	last_lba;
 
 	ZeroMemory(scsiio.data, sizeof(scsiio.data));
-	scsiio.data_len = 0;
+	scsiio.cmdpos = 0;
 	switch(cdb[0]) {
 		case 0x12:				// Inquiry
 			TRACEOUT(("Inquiry"));
@@ -53,7 +53,7 @@ static UINT scsicmd_datain(SXSIDEV sxsi, BYTE *cdb) {
 			if (copylen) {
 				CopyMemory(scsiio.data, hdd_inquiry, copylen);
 			}
-			scsiio.data_len = copylen;
+			scsiio.cmdpos = copylen;
 			break;
 
 		case 0x25:				// Read Capacity (10)
@@ -61,7 +61,7 @@ static UINT scsicmd_datain(SXSIDEV sxsi, BYTE *cdb) {
 			last_lba = (sxsi->totals > 0) ? (UINT32)(sxsi->totals - 1) : 0;
 			scsicmd_putbe32(scsiio.data + 0, last_lba);
 			scsicmd_putbe32(scsiio.data + 4, sxsi->size);
-			scsiio.data_len = 8;
+			scsiio.cmdpos = 8;
 			break;
 
 		case 0x1a:				// Mode Sense (6)
@@ -75,8 +75,6 @@ static UINT scsicmd_datain(SXSIDEV sxsi, BYTE *cdb) {
 			scsiio.data[1] = 0x00;
 			scsiio.data[2] = 0x00;
 			scsiio.data[3] = 0x08;
-			scsicmd_putbe32(scsiio.data + 4,
-				(sxsi->totals > 0) ? (UINT32)sxsi->totals : 0);
 			scsiio.data[4] = 0;
 			scsiio.data[5] = (BYTE)(sxsi->totals >> 16);
 			scsiio.data[6] = (BYTE)(sxsi->totals >> 8);
@@ -86,13 +84,13 @@ static UINT scsicmd_datain(SXSIDEV sxsi, BYTE *cdb) {
 			scsiio.data[10] = (BYTE)sxsi->size;
 			copylen = min(length, (UINT)12);
 			scsiio.data[0] = (copylen > 0) ? (BYTE)(copylen - 1) : 0;
-			scsiio.data_len = copylen;
+			scsiio.cmdpos = copylen;
 			break;
 
 		default:
 			break;
 	}
-	return(scsiio.data_len);
+	return(scsiio.cmdpos);
 }
 
 
@@ -208,13 +206,13 @@ REG8 scsicmd_transinfo(REG8 id) {
 			return(ret);
 
 		case SCSIPH_DATAIN:
-			if (scsiio.rddatpos >= scsiio.data_len) {
+			if (scsiio.rddatpos >= scsiio.cmdpos) {
 				scsiio.phase = SCSIPH_STATUS;
 				return(0x8b);			}
 			return(0x89);			// Transfer Data request remains active.
 
 		case SCSIPH_DATAOUT:
-			if (scsiio.wrdatpos >= scsiio.data_len) {
+			if (scsiio.cmdpos && (scsiio.wrdatpos >= scsiio.cmdpos)) {
 				scsiio.phase = SCSIPH_STATUS;
 				return(0x8b);
 			}
