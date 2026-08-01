@@ -180,11 +180,12 @@ share the single terminal G75 gate:
 1. **M75c1 — Service Required generation:** expose target COMMAND-phase
    `8Ah` only after the unread `11h` CSR has been consumed, then stop after
    the host writes AR `12h`-`14h` and AR `18h`=`20h`.  The transfer count is
-   evidence, not a hard-coded CDB length.
+   evidence, not a hard-coded CDB length.  M75c1 is implemented and its
+   bounded trace reaches this exact stop.
 2. **M75c2 — Transfer Info PIO:** pump bytes through fixed AR `19h` using
    DBR until the host-programmed transfer count reaches zero, then expose
    CSR `1Ah` and the next phase request.  Decode the CDB only after the
-   transfer count completes.
+   transfer count completes.  M75c2 is not started by the M75c1 checkpoint.
 
 Neither checkpoint is independently approvable or a new milestone gate.
 
