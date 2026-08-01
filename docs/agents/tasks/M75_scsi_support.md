@@ -165,6 +165,32 @@ ports.  The controller must instead reproduce the WD33C93 register and
 interrupt contract that PCPLUS/SCHD observe.  NP2's simplified SCSI model is
 not a specification source for this checkpoint.
 
+The WD33C93A data sheet is the primary register authority for this milestone:
+
+`http://www.bitsavers.org/components/westernDigital/WD33C93A_Data_Sheet_and_Application_Notes_Nov1990.pdf`
+
+It specifies that indirect-register address auto-increment excludes the
+Auxiliary Status, DATA, and COMMAND registers.  It also specifies that
+Control DMA mode `000b` is polled I/O, with the host polling DBR before each
+DATA access.  M75b2 implements only this PIO register boundary.  The 0CC4h
+DMER reset observed from PCPLUS is evidence that DMA is disabled; TCIR, TCMR,
+TCMS, and DMES remain hardware-pending and must not be emulated speculatively.
+
+M75b2 also requires:
+
+- AR `19h` DATA and AR `18h` COMMAND fixed-window accesses with no AR advance;
+- Auxiliary Status composition with INT, LCI, BSY, CIP, PE, and DBR bits;
+- AR `17h` as the only device-side CSR-latch consume operation;
+- 8259 EOI not consuming or overwriting a WD33C93 CSR;
+- AR `32h`, `34h`, and `35h` to remain explicit unsupported/hardware-pending
+  accesses until PCPLUS/SCHD or board documentation proves their behavior;
+- no DMA transfer path, DMA-channel synthesis, or 0CC6h hardware claim.
+
+M75b1 and M75b2 are implementation checkpoints, not separate human gates.
+The single terminal G75 review remains the only approval boundary.  M75c must
+still demonstrate the post-8Ah transfer-count writes, AR `18h`=`20h`, actual
+AR `19h` CDB transfer, CSR `1Ah`, and the subsequent phase sequence.
+
 ## Non-goals
 
 M75 must not:
