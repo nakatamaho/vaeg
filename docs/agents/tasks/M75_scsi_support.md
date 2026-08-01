@@ -185,7 +185,9 @@ share the single terminal G75 gate:
 2. **M75c2 — Transfer Info PIO:** pump bytes through fixed AR `19h` using
    DBR until the host-programmed transfer count reaches zero, then expose
    CSR `1Ah` and the next phase request.  Decode the CDB only after the
-   transfer count completes.  M75c2 is not started by the M75c1 checkpoint.
+   transfer count completes.  M75c2 now reaches the AR `19h` CDB transfer
+   and CSR `1Ah` boundary, but does not yet execute the decoded CDB or advance
+   DATA/STATUS/MESSAGE phases.
 
 Neither checkpoint is independently approvable or a new milestone gate.
 

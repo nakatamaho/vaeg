@@ -171,6 +171,11 @@ event.  The first observed host transfer count is `000006h`, followed by
 `AR=18h <- 20h`; Transfer Info remains deliberately held at that boundary
 until M75c2 implements the AR=19h PIO byte pump.
 
+M75c2 now accepts the host-programmed 24-bit transfer count and pumps CDB
+bytes through fixed AR `19h` with DBR.  Count exhaustion emits CSR `1Ah` and
+stops before CDB decoding or later DATA/STATUS/MESSAGE phases.  This keeps
+the remaining phase-engine work isolated from the proven PIO byte boundary.
+
 VAEG's built-in software SCSI BIOS helper and the C-Bus phase engine remain
 different paths. The former is used by the existing BIOS compatibility calls;
 the latter now models SELECT, TRANSFER INFO, data/status/message phases, and
