@@ -100,6 +100,7 @@ SXSIDEV sxsi_getptr(REG8 drv);
 const char *sxsi_getname(REG8 drv);
 BOOL sxsi_hddopen(REG8 drv, const char *file);
 BOOL sxsi_hddvalidate_sasi(const char *file);
+BOOL sxsi_hddvalidate_scsi(const char *file);
 
 void sxsi_open(void);
 void sxsi_flash(void);

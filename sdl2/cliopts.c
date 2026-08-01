@@ -434,9 +434,14 @@ BOOL vaeg_cli_parse(int argc, char **argv, VAEG_CLI_OPTIONS *options,
 		else if ((!strcmp(argument, "--fdd1")) ||
 				 (!strcmp(argument, "--fdd2")) ||
 				 (!strcmp(argument, "--sasi1")) ||
-				 (!strcmp(argument, "--sasi2"))) {
+				 (!strcmp(argument, "--sasi2")) ||
+				 (!strcmp(argument, "--scsi1")) ||
+				 (!strcmp(argument, "--scsi2")) ||
+				 (!strcmp(argument, "--scsi3")) ||
+				 (!strcmp(argument, "--scsi4"))) {
 			const int drive = argument[strlen(argument) - 1] - '1';
 			const BOOL fdd = !strncmp(argument, "--fdd", 5);
+			const BOOL scsi = !strncmp(argument, "--scsi", 6);
 
 			value = option_value(argc, argv, &position, argument, error,
 														error_size);
@@ -446,6 +451,12 @@ BOOL vaeg_cli_parse(int argc, char **argv, VAEG_CLI_OPTIONS *options,
 			if (fdd) {
 				if (parse_media(argument, value, &options->fdd_mode[drive],
 						&options->fdd_path[drive], error, error_size) != SUCCESS) {
+					return(FAILURE);
+				}
+			}
+			else if (scsi) {
+				if (parse_media(argument, value, &options->scsi_mode[drive],
+						&options->scsi_path[drive], error, error_size) != SUCCESS) {
 					return(FAILURE);
 				}
 			}
