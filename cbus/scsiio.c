@@ -16,6 +16,11 @@
 
 static const UINT8 scsiirq[] = {0x03, 0x05, 0x06, 0x09, 0x0c, 0x0d, 3, 3};
 static BOOL scsi_trace_enabled;
+static BOOL scsi_csr_latched;
+static BOOL scsi_csr_event_active;
+static REG8 scsi_csr_event_status;
+static BOOL scsi_csr_pending;
+static REG8 scsi_csr_pending_status;
 
 static void scsi_tracef(const char *fmt, ...) {
 
@@ -50,6 +55,9 @@ void scsiio_trace_pic_irq(REG8 irq, BOOL asserted) {
 
 void scsiioint(NEVENTITEM item) {
 
+	scsi_csr_event_active = FALSE;
+	scsiio.scsistatus = scsi_csr_event_status;
+	scsi_csr_latched = TRUE;
 	SCSITRACEOUT(("scsitrace event irq=%u cs=%04x ip=%04x aux=%02x "
 				"status=%02x phase=%02x membank=%02x",
 				scsiirq[(scsiio.resent >> 3) & 7], CPU_CS, CPU_IP,
@@ -68,10 +76,21 @@ void scsiioint(NEVENTITEM item) {
 
 static void scsiintr(REG8 status) {
 
-	scsiio.scsistatus = status;
+	if (!scsi_csr_event_active && !scsi_csr_latched) {
+		scsi_csr_event_active = TRUE;
+		scsi_csr_event_status = status;
+		nevent_set(NEVENT_SCSIIO, 4000, scsiioint, NEVENT_ABSOLUTE);
+	}
+	else if (!scsi_csr_pending) {
+		scsi_csr_pending = TRUE;
+		scsi_csr_pending_status = status;
+	}
+	else {
+		/* The bus layer must back-pressure before reaching this case. */
+		return;
+	}
 	SCSITRACEOUT(("scsitrace request status=%02x phase=%02x cs=%04x ip=%04x",
 			status, scsiio.phase, CPU_CS, CPU_IP));
-	nevent_set(NEVENT_SCSIIO, 4000, scsiioint, NEVENT_ABSOLUTE);
 	TRACEOUT(("scsi schedule intr"));
 }
 
@@ -223,6 +242,16 @@ static REG8 IOINPCALL scsiio_icc2(UINT port) {
 
 	switch(scsiio.port) {
 		case SCSICTR_STATUS:
+			if (scsi_csr_latched) {
+				scsi_csr_latched = FALSE;
+				if (scsi_csr_pending) {
+					scsi_csr_event_active = TRUE;
+					scsi_csr_event_status = scsi_csr_pending_status;
+					scsi_csr_pending = FALSE;
+					nevent_set(NEVENT_SCSIIO, 4000, scsiioint,
+							NEVENT_ABSOLUTE);
+				}
+			}
 			SCSITRACEOUT(("scsitrace in port=0cc2 ar=%02x status=%02x cs=%04x ip=%04x",
 					scsiio.port, scsiio.scsistatus, CPU_CS, CPU_IP));
 			scsiio.port++;
@@ -293,6 +322,11 @@ static REG8 IOINPCALL scsiio_icc6(UINT port) {
 void scsiio_reset(void) {
 
 	ZeroMemory(&scsiio, sizeof(scsiio));
+	scsi_csr_latched = FALSE;
+	scsi_csr_event_active = FALSE;
+	scsi_csr_event_status = 0;
+	scsi_csr_pending = FALSE;
+	scsi_csr_pending_status = 0;
 	if (pccore.hddif & PCHDD_SCSI) {
 		/* INT2/IRQ6 is the VA bus choice that does not collide with SASI. */
 		scsiio.resent = (2 << 3) + (7 << 0);
