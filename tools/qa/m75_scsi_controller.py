@@ -77,9 +77,9 @@ def validate(root: pathlib.Path) -> None:
             "unsupported NEC register warning")
     require(scsiio, "case SCSICTR_DATA:",
             "AR19 fixed DATA window")
-    require(scsiio, "case 0x32:", "AR32 package-id audit")
-    require(scsiio, "case 0x34:", "AR34 FIFO audit")
-    require(scsiio, "case 0x35:", "AR35 FIFO audit")
+    require(scsiio, "case SCSICTR_PKGID:", "AR32 package-id audit")
+    require(scsiio, "case SCSICTR_FIFO_CTRL:", "AR34 FIFO audit")
+    require(scsiio, "case SCSICTR_FIFO_STATUS:", "AR35 FIFO audit")
     for field in ("scsi_csr_latched", "scsi_csr_event_active",
                   "scsi_csr_pending", "scsi_csr_pending_status"):
         require(scsiio, field, f"single-depth CSR latch field {field}")
