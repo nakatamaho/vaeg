@@ -78,12 +78,11 @@ relevant original manuals under `A:\DOC`.
 
 The supplied `SCSI55.TXT` is explicit about the PC-88VA board configuration:
 the standard board I/O addresses are `0CC0h`, `0CC2h`, and `0CC4h`. It does
-not document `0CC6h`. The older NP2 C-Bus model retained in
-`cbus/scsiio.c` has a `0CC6h` byte-stream handler, but that is legacy
-PC-9801/NP2 model code and is not, by itself, evidence that a PC-88VA
-PCPLUS/SCHD installation uses that port. The VA registration therefore must
-not be expanded to `0CC6h` without a PCPLUS/SCHD I/O trace or a stronger
-hardware/software source.
+not independently document `0CC6h`. M75 retains the inherited `0CC6h`
+byte-stream handler as the data-transfer leg of the controller phase engine
+and registers that leg in the VA I/O map. This is an implementation boundary,
+not a claim that `0CC6h` is separately specified by `SCSI55.TXT`; its guest
+use remains subject to PCPLUS/SCHD validation.
 
 The supplied `SETDMA.ASM` provides a separate and important distinction:
 `0CCh` is the software interrupt number for the `$SCSIBIOS` service, not the
@@ -107,15 +106,15 @@ The emulator must therefore keep the following claims separate:
 
 - `0CC0h/0CC2h/0CC4h`: documented VA board configuration ports;
 - `INT 0CCh`: PCPLUS-provided software SCSIBIOS entry point;
-- `0CC6h`: legacy NP2 model data-port behavior, not yet proven as a VA
-  PCPLUS port;
+- `0CC6h`: M75's phase-engine byte stream, retained as a compatibility path
+  while guest-level evidence is collected;
 - DMA: optional PCPLUS mode, not the default PIO path.
 
-VAEG's current built-in SCSI BIOS helper and the old C-Bus port model are
-different paths. The former transfers through the SCSI BIOS/memory helpers;
-the latter contains the inherited `0CC6h` byte-stream handler. Until a guest
-trace establishes which path PCPLUS/SCHD takes on VA, the two paths must not
-be treated as interchangeable.
+VAEG's built-in software SCSI BIOS helper and the C-Bus phase engine remain
+different paths. The former is used by the existing BIOS compatibility calls;
+the latter now models SELECT, TRANSFER INFO, data/status/message phases, and
+the image geometry needed by the PCPLUS/SCHD contract. A guest trace is still
+required before claiming complete PCPLUS/SCHD registration compatibility.
 
 ## SCHD Driver Evidence
 
@@ -340,10 +339,11 @@ The historical setup has these important limitations:
 ## Verification
 
 The builder verifies downloads, the patched PCPLUS result, the source
-PC-Engine 1.1 filesystem layout, and the generated FAT12 structure. Current
-VAEG cannot perform the functional checks below because it has no SCSI
-interface emulation. They require real PC-88VA hardware or a future
-SCSI-capable implementation:
+PC-Engine 1.1 filesystem layout, and the generated FAT12 structure. The
+current VAEG build additionally validates SCSI image attachment, ROM-backed
+startup, and the controller phase contract. The following guest-level checks
+remain the manual M75 gate because they require the PC-Engine support disk and
+an observation of the PCPLUS/SCHD software path:
 
 1. Boot the generated disk in V3 mode.
 2. Confirm that PCPLUS loads before SCHD and that SCHD reports the intended
