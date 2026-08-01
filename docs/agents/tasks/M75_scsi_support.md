@@ -174,7 +174,7 @@ Before M75c implementation, the following M75b2 invariants are mandatory:
 - Auxiliary Status LCI bit 6 and PE bit 1 are defined as zero/unmodeled until
   direct PCPLUS/SCHD evidence requires more behavior.
 
-M75c is internally divided into two implementation checkpoints, but they
+M75c is internally divided into three implementation checkpoints, but they
 share the single terminal G75 gate:
 
 1. **M75c1 — Service Required generation:** expose target COMMAND-phase
@@ -184,12 +184,17 @@ share the single terminal G75 gate:
    bounded trace reaches this exact stop.
 2. **M75c2 — Transfer Info PIO:** pump bytes through fixed AR `19h` using
    DBR until the host-programmed transfer count reaches zero, then expose
-   CSR `1Ah` and the next phase request.  Decode the CDB only after the
-   transfer count completes.  M75c2 now reaches the AR `19h` CDB transfer
-   and CSR `1Ah` boundary, but does not yet execute the decoded CDB or advance
-   DATA/STATUS/MESSAGE phases.
+   CSR `1Ah`.  Decode the CDB only after the transfer count completes.
+   M75c2 reaches the AR `19h` CDB transfer and CSR `1Ah` boundary, but does
+   not execute the decoded CDB or advance DATA/STATUS/MESSAGE phases.
+3. **M75c3 — transfer classification trace:** record the phase, direction,
+   host count, AR `19h` access count, legacy `0CC6h` access count, source
+   path, and completion CSR for each TRANSFER INFO.  This checkpoint is
+   trace-only and distinguishes an active DATA IN path from the current
+   still-COMMAND path before CDB execution is connected.
 
-Neither checkpoint is independently approvable or a new milestone gate.
+None of these checkpoints is independently approvable or a new milestone
+gate.
 
 M75 does not claim that the physical REQ/ACK wires must be exposed as guest
 ports.  The controller must instead reproduce the WD33C93 register and
@@ -217,7 +222,8 @@ M75b2 also requires:
   accesses until PCPLUS/SCHD or board documentation proves their behavior;
 - no DMA transfer path, DMA-channel synthesis, or 0CC6h hardware claim.
 
-M75b1 and M75b2 are implementation checkpoints, not separate human gates.
+M75b1, M75b2, and M75c1-c3 are implementation checkpoints, not separate
+human gates.
 The single terminal G75 review remains the only approval boundary.  M75c must
 still demonstrate the post-8Ah transfer-count writes, AR `18h`=`20h`, actual
 AR `19h` CDB transfer, CSR `1Ah`, and the subsequent phase sequence.

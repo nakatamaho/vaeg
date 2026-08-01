@@ -171,16 +171,20 @@ event.  The first observed host transfer count is `000006h`, followed by
 `AR=18h <- 20h`; Transfer Info remains deliberately held at that boundary
 until M75c2 implements the AR=19h PIO byte pump.
 
-M75c2 now accepts the host-programmed 24-bit transfer count and pumps CDB
-bytes through fixed AR `19h` with DBR.  Count exhaustion emits CSR `1Ah` and
-stops before CDB decoding or later DATA/STATUS/MESSAGE phases.  This keeps
-the remaining phase-engine work isolated from the proven PIO byte boundary.
+M75c2 now accepts the host-programmed 24-bit transfer count and pumps bytes
+through fixed AR `19h` with DBR.  Count exhaustion emits CSR `1Ah` and leaves
+the controller in COMMAND; it does not decode the CDB or generate later
+DATA/STATUS/MESSAGE phases.  M75c3 adds trace-only transfer classification to
+record whether each observed count is consumed by this COMMAND path or by
+the legacy `0CC6h` path.  Current evidence classifies the observed `000024h`
+and `000008h` transfers as COMMAND/AR=19h, not as implemented DATA IN.
 
 VAEG's built-in software SCSI BIOS helper and the C-Bus phase engine remain
 different paths. The former is used by the existing BIOS compatibility calls;
-the latter now models SELECT, TRANSFER INFO, data/status/message phases, and
-the image geometry needed by the PCPLUS/SCHD contract. A guest trace is still
-required before claiming complete PCPLUS/SCHD registration compatibility.
+the latter currently models SELECT and the PIO COMMAND boundary, while
+DATA/STATUS/MESSAGE phases remain to be connected through a general CDB
+execution transition. A guest trace is still required before claiming
+complete PCPLUS/SCHD registration compatibility.
 
 ## SCHD Driver Evidence
 
