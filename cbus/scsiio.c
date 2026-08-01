@@ -25,6 +25,8 @@ static REG8 scsi_csr_event_status;
 static BOOL scsi_csr_pending;
 static REG8 scsi_csr_pending_status;
 static BOOL scsi_command_phase_pending;
+static BOOL scsi_transfer_phase_pending;
+static REG8 scsi_transfer_phase_status;
 static UINT scsi_transfer_remaining;
 static BOOL scsi_trace_transfer_active;
 static UINT scsi_trace_transfer_phase;
@@ -59,22 +61,15 @@ static void scsi_tracef(const char *fmt, ...);
 #define SCSI_C4_DMES	0x01
 
 static void scsiintr(REG8 status);
+static void scsiintr_immediate(REG8 status);
+static void scsiintr_transfer_complete(REG8 status);
 
 static const char *scsi_trace_phase_direction(UINT phase) {
 
-	switch (phase) {
-		case SCSIPH_COMMAND:
-		case SCSIPH_DATAOUT:
-		case SCSIPH_INFOOUT:
-		case SCSIPH_MSGOUT:
-			return "host-to-spc";
-		case SCSIPH_DATAIN:
-		case SCSIPH_STATUS:
-		case SCSIPH_INFOIN:
-		case SCSIPH_MSGIN:
-			return "spc-to-host";
+	if (scsicmd_phase_service_status(phase) == 0x42) {
+		return "unknown";
 	}
-	return "unknown";
+	return scsicmd_phase_host_to_spc(phase) ? "host-to-spc" : "spc-to-host";
 }
 
 static void scsi_trace_transfer_start(UINT phase, UINT count,
@@ -137,6 +132,12 @@ static void scsi_trace_transfer_data_port_access(void) {
 	if (scsi_trace_transfer_active) {
 		scsi_trace_transfer_data_port_accesses++;
 	}
+}
+
+static void scsiio_schedule_transfer_phase(REG8 status) {
+
+	scsi_transfer_phase_pending = TRUE;
+	scsi_transfer_phase_status = status;
 }
 
 static void scsi_trace_transfer_result(REG8 status) {
@@ -239,6 +240,22 @@ static UINT scsiio_transfer_count(void) {
 			(UINT)scsiio.reg[SCSICTR_TRANSCNT + 2];
 }
 
+static void scsiio_decrement_transfer_count(void) {
+
+	if (scsiio.reg[SCSICTR_TRANSCNT + 2]) {
+		scsiio.reg[SCSICTR_TRANSCNT + 2]--;
+	}
+	else if (scsiio.reg[SCSICTR_TRANSCNT + 1]) {
+		scsiio.reg[SCSICTR_TRANSCNT + 1]--;
+		scsiio.reg[SCSICTR_TRANSCNT + 2] = 0xff;
+	}
+	else if (scsiio.reg[SCSICTR_TRANSCNT + 0]) {
+		scsiio.reg[SCSICTR_TRANSCNT + 0]--;
+		scsiio.reg[SCSICTR_TRANSCNT + 1] = 0xff;
+		scsiio.reg[SCSICTR_TRANSCNT + 2] = 0xff;
+	}
+}
+
 static void scsiio_data_write(REG8 dat) {
 
 	/*
@@ -260,13 +277,18 @@ static void scsiio_data_write(REG8 dat) {
 			scsiio.cmd[scsiio.wrdatpos] = dat;
 		}
 		scsiio.wrdatpos++;
+		scsiio_decrement_transfer_count();
 		if (scsi_transfer_remaining) {
 			scsi_transfer_remaining--;
 		}
 		if (scsi_transfer_remaining == 0) {
+			REG8 next_status;
+
 			SCSITRACEOUT(("scsitrace M75c2 CDB transfer complete "
 					"count=%u", scsiio.wrdatpos));
-			scsiintr(0x1a);
+			next_status = scsicmd_command(scsiio.reg[SCSICTR_DSTID] & 7);
+			scsiio_schedule_transfer_phase(next_status);
+			scsiintr_transfer_complete(0x1a);
 			return;
 		}
 		scsiio.auxstatus |= SCSI_AUX_DBR;
@@ -274,6 +296,20 @@ static void scsiio_data_write(REG8 dat) {
 	}
 	if (scsiio.wrdatpos < sizeof(scsiio.data)) {
 		scsiio.data[scsiio.wrdatpos++] = dat;
+	}
+	scsiio_decrement_transfer_count();
+	if (scsi_transfer_remaining) {
+		scsi_transfer_remaining--;
+	}
+	if (scsi_transfer_remaining == 0) {
+		REG8 completed_phase;
+		REG8 next_status;
+
+		completed_phase = scsiio.phase;
+		next_status = scsicmd_transinfo(scsiio.reg[SCSICTR_DSTID] & 7);
+		scsiio_schedule_transfer_phase(next_status);
+		scsiintr_transfer_complete((REG8)(0x10 | completed_phase));
+		return;
 	}
 	scsiio.auxstatus |= SCSI_AUX_DBR;
 }
@@ -291,6 +327,20 @@ static REG8 scsiio_data_read(void) {
 	scsiio.auxstatus &= (REG8)~SCSI_AUX_DBR;
 	ret = scsiio.data[scsiio.rddatpos & 0xffff];
 	scsiio.rddatpos++;
+	scsiio_decrement_transfer_count();
+	if (scsi_transfer_remaining) {
+		scsi_transfer_remaining--;
+	}
+	if (scsi_transfer_remaining == 0) {
+		REG8 completed_phase;
+		REG8 next_status;
+
+		completed_phase = scsiio.phase;
+		next_status = scsicmd_transinfo(scsiio.reg[SCSICTR_DSTID] & 7);
+		scsiio_schedule_transfer_phase(next_status);
+		scsiintr_transfer_complete((REG8)(0x10 | completed_phase));
+		return ret;
+	}
 	/* The emulated target produces the next byte without a host-visible wait. */
 	scsiio.auxstatus |= SCSI_AUX_DBR;
 	return ret;
@@ -329,6 +379,11 @@ void scsiioint(NEVENTITEM item) {
 	scsiio.scsistatus = scsi_csr_event_status;
 	scsi_csr_latched = TRUE;
 	scsiio.auxstatus &= (REG8)~SCSI_AUX_CIP;
+	if ((scsi_csr_event_status & 0x80) &&
+			!scsicmd_phase_host_to_spc(scsiio.phase)) {
+		/* DBR is asserted only after the service request is visible. */
+		scsiio.auxstatus |= SCSI_AUX_DBR;
+	}
 	SCSITRACEOUT(("scsitrace event irq=%u cs=%04x ip=%04x aux=%02x "
 				"status=%02x phase=%02x membank=%02x",
 				scsiirq[(scsiio.resent >> 3) & 7], CPU_CS, CPU_IP,
@@ -346,6 +401,27 @@ void scsiioint(NEVENTITEM item) {
 	scsi_trace_transfer_event_result();
 	(void)item;
 
+}
+
+static void scsiintr_transfer_complete(REG8 status) {
+
+	scsi_trace_transfer_result(status);
+	scsiintr_immediate(status);
+}
+
+static void scsiintr_immediate(REG8 status) {
+
+	if (!scsi_csr_event_active && !scsi_csr_latched) {
+		scsi_csr_event_active = TRUE;
+		scsi_csr_event_status = status;
+		/* A short event preserves the guest interrupt boundary without
+		 * re-entering the handler that consumed the previous CSR. */
+		nevent_set(NEVENT_SCSIIO, 100, scsiioint, NEVENT_ABSOLUTE);
+	}
+	else if (!scsi_csr_pending) {
+		scsi_csr_pending = TRUE;
+		scsi_csr_pending_status = status;
+	}
 }
 
 
@@ -439,11 +515,25 @@ static void scsicmd(REG8 cmd) {
 				scsiio.auxstatus &= (REG8)~SCSI_AUX_CIP;
 				break;
 			}
-			ret = scsicmd_transinfo(id);
-			if (scsiio.phase == 0) {
-				scsiio.auxstatus &= (REG8)~(SCSI_AUX_BSY | SCSI_AUX_DBR);
+			scsi_transfer_remaining = scsiio_transfer_count();
+			scsiio.rddatpos = 0;
+			if (scsiio.phase == SCSIPH_STATUS) {
+				/* SCSI status is GOOD for the supported commands. */
+				scsiio.data[0] = scsiio.reg[SCSICTR_STATUS];
 			}
-			scsiintr(ret);
+			else if (scsiio.phase == SCSIPH_MSGIN) {
+				/* COMMAND COMPLETE message. */
+				scsiio.data[0] = 0x00;
+			}
+			if (scsi_transfer_remaining == 0) {
+				SCSITRACEOUT(("scsitrace warning Transfer Info with TC=0 "
+						"phase=%02x hardware-pending", scsiio.phase));
+				scsiio.auxstatus &= (REG8)~(SCSI_AUX_BSY |
+						SCSI_AUX_CIP | SCSI_AUX_DBR);
+				break;
+			}
+			/* The target owns the phase; the PIO pump only consumes TC. */
+			scsiio.auxstatus &= (REG8)~SCSI_AUX_CIP;
 			break;
 
 	}
@@ -600,6 +690,10 @@ static REG8 IOINPCALL scsiio_icc2(UINT port) {
 					scsi_command_phase_pending = FALSE;
 					scsiintr(0x8a);
 				}
+				else if (scsi_transfer_phase_pending) {
+					scsi_transfer_phase_pending = FALSE;
+					scsiintr_immediate(scsi_transfer_phase_status);
+				}
 			}
 			SCSITRACEOUT(("scsitrace in port=0cc2 ar=%02x status=%02x cs=%04x ip=%04x",
 					scsiio.port, scsiio.scsistatus, CPU_CS, CPU_IP));
@@ -693,6 +787,8 @@ void scsiio_reset(void) {
 	scsi_csr_pending = FALSE;
 	scsi_csr_pending_status = 0;
 	scsi_command_phase_pending = FALSE;
+	scsi_transfer_phase_pending = FALSE;
+	scsi_transfer_phase_status = 0;
 	scsi_trace_transfer_active = FALSE;
 	scsi_trace_transfer_phase = 0;
 	scsi_trace_transfer_count = 0;
