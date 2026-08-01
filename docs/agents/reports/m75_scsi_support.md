@@ -138,6 +138,38 @@ trace.  M75b/c must separate that from the WD33C93 device-INT latch: reading
 AR `17h` must consume the CSR, while EOI alone must not clear the device
 event or overwrite a pending second event.
 
+### Register values from the complete trace
+
+The value-bearing trace fixes the initial contract inputs as follows:
+
+| AR/port | access | value | interpretation at this checkpoint |
+|---|---|---:|---|
+| `33h` | read | `17h` | controller-provided RESET/INT/ID value |
+| `02h` | write/read | `80h` | timeout value is written and read back |
+| `17h` | read | `00h` | reset status is consumed |
+| `0CC4h` | write | `02h` | DMER reset; DMA is explicitly disabled |
+| `30h` | read/write | `00h`/`04h` | memory-bank register is probed and enabled |
+| `00h` | write | `07h` | controller own ID |
+| `18h` | write | `00h` | explicit controller RESET |
+| `01h` | write | `08h` | PIO mode (`DmaModeSelect=000b`) with ending-disconnect policy set |
+| `11h` | write | `00h` | synchronous-transfer setup |
+| `15h` | write | `07h`, then `00h` | controller setup, then target ID 0 SELECT |
+| `16h` | write | `00h` | source ID setup |
+| `18h` | write | `07h` | SELECT without ATN |
+
+The `18h <- 00h` RESET was present in the complete trace; it was omitted from
+the earlier abbreviated report.  The `01h`, `02h`, `30h`, and `33h` values are
+now recorded as evidence rather than inferred defaults.  The current emulator
+maps the observed `33h=17h`/INT2 choice to VA IRQ6; the permanent
+implementation must derive that mapping from one controller configuration
+source instead of maintaining independent constants.
+
+After the final EOI/IRQ clear, no further SCSI port access occurs before the
+run timeout.  Two independent six-second runs produced 71 `scsitrace` records
+each and byte-identical filtered output (`cmp` exit 0).  This makes the
+M75b1 baseline deterministic and proves that the stop is an interrupt-wait
+state, not a noisy polling loop.
+
 ## CDB coverage
 
 | CDB | Current behavior | Data source |
