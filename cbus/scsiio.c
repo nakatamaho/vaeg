@@ -74,6 +74,11 @@ static void scsicmd(REG8 cmd) {
 			}
 			break;
 
+		case SCSICMD_TRANS_INFO:
+			ret = scsicmd_transinfo(id);
+			scsiintr(ret);
+			break;
+
 	}
 }
 
@@ -199,6 +204,10 @@ static REG8 IOINPCALL scsiio_icc6(UINT port) {
 
 	ret = scsiio.data[scsiio.rddatpos & 0x7fff];
 	scsiio.rddatpos++;
+	if ((scsiio.phase == SCSIPH_DATAIN) &&
+		(scsiio.rddatpos >= scsiio.data_len)) {
+		scsiio.phase = SCSIPH_STATUS;
+	}
 	(void)port;
 	return(ret);
 }
@@ -210,7 +219,8 @@ void scsiio_reset(void) {
 
 	ZeroMemory(&scsiio, sizeof(scsiio));
 	if (pccore.hddif & PCHDD_SCSI) {
-		scsiio.resent = (3 << 3) + (7 << 0);
+		/* INT2/IRQ6 is the VA bus choice that does not collide with SASI. */
+		scsiio.resent = (2 << 3) + (7 << 0);
 		/*
 		 * PCPLUS.SYS supplies the $SCSIBIOS service through the board I/O
 		 * interface.  The PC-88VA SCSI55 guidance permits the board ROM to
@@ -234,8 +244,10 @@ void scsiio_bind(void) {
 		iocoreva_attachout(0x0cc0, scsiio_occ0);
 		iocoreva_attachout(0x0cc2, scsiio_occ2);
 		iocoreva_attachout(0x0cc4, scsiio_occ4);
+		iocoreva_attachout(0x0cc6, scsiio_occ6);
 		iocoreva_attachinp(0x0cc0, scsiio_icc0);
 		iocoreva_attachinp(0x0cc2, scsiio_icc2);
 		iocoreva_attachinp(0x0cc4, scsiio_icc4);
+		iocoreva_attachinp(0x0cc6, scsiio_icc6);
 	}
 }
