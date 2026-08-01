@@ -89,8 +89,8 @@ def validate(root: pathlib.Path) -> None:
             "SELECT completion CSR")
     require(scsiio, "scsiintr(0x8a)",
             "deferred COMMAND-phase CSR")
-    require(scsiio, "M75c1 holds Transfer Info at COMMAND phase",
-            "M75c1 Transfer Info boundary")
+    require(scsiio, "M75c2 accumulates CDB through DATA window",
+            "M75c2 Transfer Info boundary")
     require(scsiio, "scsi_transfer_remaining",
             "host-programmed Transfer Count state")
     require(scsiio, "M75c2 accumulates CDB through DATA window",
