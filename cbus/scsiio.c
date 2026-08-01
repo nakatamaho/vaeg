@@ -22,6 +22,21 @@ static REG8 scsi_csr_event_status;
 static BOOL scsi_csr_pending;
 static REG8 scsi_csr_pending_status;
 
+/* WD33C93 auxiliary-status bits.  The DATA window is PIO-only in M75. */
+#define SCSI_AUX_INT	0x80
+#define SCSI_AUX_LCI	0x40
+#define SCSI_AUX_BSY	0x20
+#define SCSI_AUX_CIP	0x10
+#define SCSI_AUX_PE	0x02
+#define SCSI_AUX_DBR	0x01
+
+/* 0CC4h uses set/reset strobes for the controller transfer controls. */
+#define SCSI_C4_TCMS	0x04
+#define SCSI_C4_TCMR	0x08
+#define SCSI_C4_TCIR	0x10
+#define SCSI_C4_DMER	0x02
+#define SCSI_C4_DMES	0x01
+
 static void scsi_tracef(const char *fmt, ...) {
 
 	va_list ap;
@@ -37,6 +52,55 @@ static void scsi_tracef(const char *fmt, ...) {
 		scsi_tracef arg; \
 	} \
 } while (0)
+
+static REG8 scsiio_auxstatus(void) {
+
+	REG8 ret;
+
+	ret = scsiio.auxstatus & (SCSI_AUX_LCI | SCSI_AUX_BSY |
+			SCSI_AUX_CIP | SCSI_AUX_PE | SCSI_AUX_DBR);
+	if (scsi_csr_latched) {
+		ret |= SCSI_AUX_INT;
+	}
+	return ret;
+}
+
+static void scsiio_data_write(REG8 dat) {
+
+	/*
+	 * AR=19h is the WD33C93 DATA register.  It is a fixed window, not a
+	 * byte in the auto-incremented register file.  The current M75 path is
+	 * polled I/O; the target-side transfer completes immediately after the
+	 * host byte is accepted, so DBR is ready again for the next byte.
+	 */
+	if (!(scsiio.auxstatus & SCSI_AUX_DBR)) {
+		SCSITRACEOUT(("scsitrace warning DATA write while DBR=0 data=%02x "
+				"cs=%04x ip=%04x", dat, CPU_CS, CPU_IP));
+		return;
+	}
+	scsiio.auxstatus &= (REG8)~SCSI_AUX_DBR;
+	if (scsiio.wrdatpos < sizeof(scsiio.data)) {
+		scsiio.data[scsiio.wrdatpos++] = dat;
+	}
+	scsiio.auxstatus |= SCSI_AUX_DBR;
+}
+
+static REG8 scsiio_data_read(void) {
+
+	REG8 ret;
+
+	if (!(scsiio.auxstatus & SCSI_AUX_DBR)) {
+		SCSITRACEOUT(("scsitrace warning DATA read while DBR=0 "
+				"cs=%04x ip=%04x", CPU_CS, CPU_IP));
+		return 0xff;
+	}
+	scsiio.auxstatus &= (REG8)~SCSI_AUX_DBR;
+	ret = scsiio.data[scsiio.rddatpos & 0xffff];
+	scsiio.rddatpos++;
+	/* The emulated target produces the next byte without a host-visible wait. */
+	scsiio.auxstatus |= SCSI_AUX_DBR;
+	return ret;
+}
 
 void scsiio_trace_enable(BOOL enabled) {
 
@@ -58,6 +122,7 @@ void scsiioint(NEVENTITEM item) {
 	scsi_csr_event_active = FALSE;
 	scsiio.scsistatus = scsi_csr_event_status;
 	scsi_csr_latched = TRUE;
+	scsiio.auxstatus &= (REG8)~SCSI_AUX_CIP;
 	SCSITRACEOUT(("scsitrace event irq=%u cs=%04x ip=%04x aux=%02x "
 				"status=%02x phase=%02x membank=%02x",
 				scsiirq[(scsiio.resent >> 3) & 7], CPU_CS, CPU_IP,
@@ -68,7 +133,6 @@ void scsiioint(NEVENTITEM item) {
 		pic_setirq(scsiirq[(scsiio.resent >> 3) & 7]);
 		TRACEOUT(("scsi intr"));
 	}
-	scsiio.auxstatus = 0x80;
 	(void)item;
 
 }
@@ -109,15 +173,18 @@ static void scsicmd(REG8 cmd) {
 			scsiio.cmdpos = 0;
 			scsiio.rddatpos = 0;
 			scsiio.wrdatpos = 0;
+			scsiio.auxstatus = 0;
 			scsiintr(SCSISTAT_RESET);
 			break;
 
 		case SCSICMD_NEGATE:
 			ret = scsicmd_negate(id);
+			scsiio.auxstatus &= (REG8)~(SCSI_AUX_BSY | SCSI_AUX_DBR);
 			scsiintr(ret);
 			break;
 
 		case SCSICMD_SEL:
+			scsiio.auxstatus |= SCSI_AUX_BSY;
 			ret = scsicmd_select(id);
 			if (ret & 0x80) {
 				scsiintr(0x11);
@@ -135,7 +202,11 @@ static void scsicmd(REG8 cmd) {
 			break;
 
 		case SCSICMD_TRANS_INFO:
+			scsiio.auxstatus |= (SCSI_AUX_BSY | SCSI_AUX_DBR);
 			ret = scsicmd_transinfo(id);
+			if (scsiio.phase == 0) {
+				scsiio.auxstatus &= (REG8)~(SCSI_AUX_BSY | SCSI_AUX_DBR);
+			}
 			scsiintr(ret);
 			break;
 
@@ -164,12 +235,20 @@ static void IOOUTCALL scsiio_occ2(UINT port, REG8 dat) {
 				scsiio.port, dat, CPU_CS, CPU_IP));
 		TRACEOUT(("scsi ctrl write %s(%.2x) %.2x", scsictr[scsiio.port], scsiio.port, dat));
 	}
+	if (scsiio.port == SCSICTR_DATA) {
+		scsiio_data_write(dat);
+		return;
+	}
 	if (scsiio.port <= 0x19) {
 		scsiio.reg[scsiio.port] = dat;
 		if (scsiio.port == SCSICTR_CMD) {
+			scsiio.auxstatus |= SCSI_AUX_CIP;
 			scsicmd(dat);
 		}
-	scsiio.port++;
+		/* COMMAND and DATA are fixed windows; all other registers advance. */
+		if (scsiio.port != SCSICTR_CMD && scsiio.port != SCSICTR_DATA) {
+			scsiio.port++;
+		}
 	}
 	else {
 		SCSITRACEOUT(("scsitrace out port=0cc2 ar=%02x data=%02x cs=%04x ip=%04x",
@@ -177,6 +256,17 @@ static void IOOUTCALL scsiio_occ2(UINT port, REG8 dat) {
 		switch(scsiio.port) {
 			case SCSICTR_MEMBANK:
 				scsiio.membank = dat;
+				break;
+			case SCSICTR_MEMWND:
+				scsiio.memwnd = dat;
+				break;
+			case SCSICTR_PKGID:
+			case SCSICTR_RESENT:
+			case SCSICTR_FIFO_CTRL:
+			case SCSICTR_FIFO_STATUS:
+			SCSITRACEOUT(("scsitrace warning AR=%02x write is hardware-pending "
+					"data=%02x cs=%04x ip=%04x", scsiio.port, dat,
+					CPU_CS, CPU_IP));
 				break;
 
 			case 0x3f:
@@ -206,8 +296,17 @@ static void IOOUTCALL scsiio_occ4(UINT port, REG8 dat) {
 	SCSITRACEOUT(("scsitrace out port=0cc4 data=%02x cs=%04x ip=%04x",
 			dat, CPU_CS, CPU_IP));
 	TRACEOUT(("scsiio_occ4 %.2x", dat));
+	if (dat & SCSI_C4_DMER) {
+		/* PCPLUS selects polled I/O; DMA remains deliberately disabled. */
+		SCSITRACEOUT(("scsitrace 0cc4 DMER reset (PIO-only)"));
+	}
+	if (dat & (SCSI_C4_TCMS | SCSI_C4_TCMR | SCSI_C4_TCIR |
+			SCSI_C4_DMES)) {
+		SCSITRACEOUT(("scsitrace warning 0cc4 bits=%02x hardware-pending",
+				dat & (SCSI_C4_TCMS | SCSI_C4_TCMR | SCSI_C4_TCIR |
+					SCSI_C4_DMES)));
+	}
 	(void)port;
-	(void)dat;
 }
 
 static void IOOUTCALL scsiio_occ6(UINT port, REG8 dat) {
@@ -228,10 +327,9 @@ static REG8 IOINPCALL scsiio_icc0(UINT port) {
 
 	REG8	ret;
 
-	ret = scsiio.auxstatus;
+	ret = scsiio_auxstatus();
 	SCSITRACEOUT(("scsitrace in port=0cc0 aux=%02x ar=%02x cs=%04x ip=%04x",
 			ret, scsiio.port, CPU_CS, CPU_IP));
-	scsiio.auxstatus = 0;
 	(void)port;
 	return(ret);
 }
@@ -244,6 +342,7 @@ static REG8 IOINPCALL scsiio_icc2(UINT port) {
 		case SCSICTR_STATUS:
 			if (scsi_csr_latched) {
 				scsi_csr_latched = FALSE;
+				scsiio.auxstatus &= (REG8)~SCSI_AUX_INT;
 				if (scsi_csr_pending) {
 					scsi_csr_event_active = TRUE;
 					scsi_csr_event_status = scsi_csr_pending_status;
@@ -256,6 +355,11 @@ static REG8 IOINPCALL scsiio_icc2(UINT port) {
 					scsiio.port, scsiio.scsistatus, CPU_CS, CPU_IP));
 			scsiio.port++;
 			return(scsiio.scsistatus);
+
+		case SCSICTR_DATA:
+			SCSITRACEOUT(("scsitrace in port=0cc2 ar=%02x data-window "
+					"cs=%04x ip=%04x", scsiio.port, CPU_CS, CPU_IP));
+			return scsiio_data_read();
 
 		case SCSICTR_MEMBANK:
 			SCSITRACEOUT(("scsitrace in port=0cc2 ar=%02x data=%02x cs=%04x ip=%04x",
@@ -271,6 +375,13 @@ static REG8 IOINPCALL scsiio_icc2(UINT port) {
 			SCSITRACEOUT(("scsitrace in port=0cc2 ar=%02x data=%02x cs=%04x ip=%04x",
 					scsiio.port, scsiio.resent, CPU_CS, CPU_IP));
 			return(scsiio.resent);
+
+		case SCSICTR_PKGID:
+		case SCSICTR_FIFO_CTRL:
+		case SCSICTR_FIFO_STATUS:
+			SCSITRACEOUT(("scsitrace warning AR=%02x read is hardware-pending "
+					"cs=%04x ip=%04x", scsiio.port, CPU_CS, CPU_IP));
+			return(0xff);
 
 		case 0x36:
 			return(0);					// ２枚刺しとか…
