@@ -50,10 +50,12 @@ def validate(root: pathlib.Path) -> None:
     require(scsicmd, "REG8 scsicmd_transinfo(REG8 id)",
             "phase-aware transfer entry")
     require(scsicmd, "scsicmd_putbe32", "big-endian response encoding")
-    require(scsiio_h, "UINT\tdata_len;", "transfer length state")
+    require(scsiio_h, "UINT\tcmdpos;", "transfer length state slot")
+    require(scsiio_h, "BYTE\treserved[2][0x2000];",
+            "serialized board-ROM padding")
     require(scsiio, "case SCSICMD_TRANS_INFO:",
             "controller TRANSFER INFO dispatch")
-    require(scsiio, "scsiio.rddatpos >= scsiio.data_len",
+    require(scsiio, "scsiio.rddatpos >= scsiio.cmdpos",
             "REQ/ACK data completion")
     require(scsiio, "scsiio.resent = (2 << 3)", "VA IRQ6 default")
     require(scsiio, "iocoreva_attachinp(0x0cc6, scsiio_icc6)",
