@@ -166,6 +166,9 @@ BOOL vaeg_cli_parse(int argc, char **argv, VAEG_CLI_OPTIONS *options,
 		else if (!strcmp(argument, "--fdctrace")) {
 			options->fdctrace = TRUE;
 		}
+		else if (!strcmp(argument, "--scsitrace")) {
+			options->scsitrace = TRUE;
+		}
 		else if (!strcmp(argument, "--pacelog")) {
 			options->pacelog = TRUE;
 		}
