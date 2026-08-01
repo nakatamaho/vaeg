@@ -185,9 +185,11 @@ HDD2FILE=
 The SDL2 GUI also exposes HardDisk -> New SASI image plus SASI-1/SASI-2
 Open and Remove, and SCSI #1 through SCSI #4 Open and Remove. New SASI
 image creates HDI images using the existing 5/10/15/20/30/40 MB SASI
-geometry table and refuses to overwrite an existing file. SCSI mounting
-updates `SCSIHDD0` through `SCSIHDD3`; SCSI image creation remains outside
-the GUI and uses the documented PC-Engine support-disk assembly flow.
+geometry table and refuses to overwrite an existing file. HardDisk -> New
+SCSI image creates VHD-format `.hdd` images in 5/10/20/40/80/160 MB sizes
+and can assign the new image to SCSI #1 through SCSI #4. SCSI mounting
+updates `SCSIHDD0` through `SCSIHDD3`; bootable PC-Engine support-disk
+assembly remains a separate documented flow.
 After changing a SASI or SCSI image, reset the guest so the existing
 SxSI/SASI/SCSI open and bind path is rebuilt. IDE GUI mounting is not
 implemented.
