@@ -93,6 +93,7 @@ constexpr float kGuiFontSize = 16.0f;
 constexpr int kStateSlots = 10;
 constexpr int kMasterVolumeMax = 128;
 constexpr int kSasiImageCount = 6;
+constexpr int kScsiImageCount = 6;
 constexpr int kCpuPresets[] = {1, 2, 4, 5, 6, 8, 10, 12, 16, 20};
 constexpr int kSgpPresets[] = {1, 2, 4, 8, 16};
 constexpr int kSoundBufferPresets[] = {40, 100, 200, 500, 1000};
@@ -121,6 +122,20 @@ static const SasiImageChoice kSasiImageChoices[kSasiImageCount] = {
 	{"20 MB", 4},
 	{"30 MB", 5},
 	{"40 MB", 6},
+};
+
+struct ScsiImageChoice {
+	const char *label;
+	UINT size_mb;
+};
+
+static const ScsiImageChoice kScsiImageChoices[kScsiImageCount] = {
+	{"5 MB", 5},
+	{"10 MB", 10},
+	{"20 MB", 20},
+	{"40 MB", 40},
+	{"80 MB", 80},
+	{"160 MB", 160},
 };
 
 static void reset_guest(void);
@@ -179,6 +194,12 @@ struct GuiState {
 	int new_sasi_choice = 3;
 	bool new_sasi_open_after_create = true;
 	char new_sasi_path[MAX_PATH] = {};
+	bool new_scsi_open = false;
+	bool new_scsi_refresh = false;
+	int new_scsi_drive = 0;
+	int new_scsi_choice = 3;
+	bool new_scsi_open_after_create = true;
+	char new_scsi_path[MAX_PATH] = {};
 	std::string state_status;
 	bool state_error_open = false;
 	bool state_error_request = false;
@@ -1212,6 +1233,29 @@ static void open_new_sasi_dialog(int drive) {
 	g_gui.hdd_browser_open = false;
 }
 
+static void open_new_scsi_dialog(int drive) {
+
+	std::string start_dir;
+	std::string path;
+
+	g_gui.new_scsi_drive = std::clamp(drive, 0, 3);
+	if ((np2oscfg.gui_hdd_dir[0] != '\0') &&
+		is_directory(np2oscfg.gui_hdd_dir)) {
+		start_dir = np2oscfg.gui_hdd_dir;
+	}
+	if (start_dir.empty()) {
+		start_dir = home_dir();
+	}
+	g_gui.hdd_browser_dir = absolute_path(start_dir);
+	path = join_path(g_gui.hdd_browser_dir, "newdisk.hdd");
+	copy_path(g_gui.new_scsi_path, sizeof(g_gui.new_scsi_path), path);
+	g_gui.new_scsi_choice = 3;
+	g_gui.new_scsi_open_after_create = true;
+	g_gui.new_scsi_open = true;
+	g_gui.new_scsi_refresh = true;
+	g_gui.hdd_browser_open = false;
+}
+
 static const char *new_fdd_default_name(int format, int container) {
 
 	if (container == NEWDISK_FDD_CONTAINER_RAW) {
@@ -1331,6 +1375,26 @@ static std::string hdi_path(const char *path) {
 		result = p.u8string();
 	}
 	return result;
+}
+
+static std::string scsi_image_path(const char *path) {
+
+	std::string result;
+
+	if (path != nullptr) {
+		result = path;
+	}
+	if (result.empty()) {
+		return result;
+	}
+	fs::path p = fs::u8path(result);
+	if (p.extension().empty()) {
+		p += ".hdd";
+	}
+	else if (p.extension() != ".hdd") {
+		p.replace_extension(".hdd");
+	}
+	return p.u8string();
 }
 
 static std::string fdd_image_path(const char *path, int container) {
@@ -1453,6 +1517,51 @@ static void create_new_sasi_image(void) {
 		g_gui.hdd_status += path;
 	}
 	g_gui.new_sasi_open = false;
+}
+
+static void create_new_scsi_image(void) {
+
+	int drive;
+	int choice;
+	std::string path;
+	short attr;
+
+	drive = std::clamp(g_gui.new_scsi_drive, 0, 3);
+	choice = std::clamp(g_gui.new_scsi_choice, 0, kScsiImageCount - 1);
+	path = scsi_image_path(g_gui.new_scsi_path);
+	if (path.empty()) {
+		g_gui.hdd_status = "New SCSI image failed: path is empty.";
+		return;
+	}
+	path = absolute_path(path);
+	attr = file_attr(path.c_str());
+	if (attr != static_cast<short>(-1)) {
+		g_gui.hdd_status = "New SCSI image failed: file already exists.";
+		return;
+	}
+	if (!is_directory(parent_dir(path))) {
+		g_gui.hdd_status = "New SCSI image failed: parent directory not found.";
+		return;
+	}
+	newdisk_vhd(path.c_str(), kScsiImageChoices[choice].size_mb);
+	attr = file_attr(path.c_str());
+	if ((attr == static_cast<short>(-1)) ||
+		((attr & FILEATTR_DIRECTORY) != 0)) {
+		g_gui.hdd_status = "New SCSI image failed: create failed.";
+		return;
+	}
+	copy_path(g_gui.new_scsi_path, sizeof(g_gui.new_scsi_path), path);
+	persist_hdd_dir(parent_dir(path));
+	if (g_gui.new_scsi_open_after_create) {
+		diskdrv_sethdd(static_cast<REG8>(0x20 | drive), path.c_str());
+		set_hdd_status(0x20 | drive,
+				"created and configured; reset to apply", path.c_str());
+	}
+	else {
+		g_gui.hdd_status = "New SCSI image created: ";
+		g_gui.hdd_status += path;
+	}
+	g_gui.new_scsi_open = false;
 }
 
 static void eject_fdd(int drive) {
@@ -1683,6 +1792,88 @@ static void draw_new_sasi_dialog(void) {
 		ImGui::SameLine();
 		if (ImGui::Button("Cancel")) {
 			g_gui.new_sasi_open = false;
+		}
+		if (!g_gui.hdd_status.empty()) {
+			ImGui::Separator();
+			ImGui::TextWrapped("%s", g_gui.hdd_status.c_str());
+		}
+	}
+	ImGui::End();
+}
+
+static void draw_new_scsi_dialog(void) {
+
+	if (!g_gui.new_scsi_open) {
+		return;
+	}
+	if (g_gui.new_scsi_refresh) {
+		refresh_hdd_browser();
+		g_gui.new_scsi_refresh = false;
+	}
+	ImGui::SetNextWindowSize(ImVec2(620.0f, 500.0f),
+							 ImGuiCond_FirstUseEver);
+	if (ImGui::Begin("Create SCSI HDD image", &g_gui.new_scsi_open)) {
+		ImGui::Text("Target directory");
+		ImGui::TextWrapped("%s", g_gui.hdd_browser_dir.c_str());
+		if (ImGui::Button("Home")) {
+			g_gui.hdd_browser_dir = home_dir();
+			g_gui.new_scsi_refresh = true;
+		}
+		ImGui::SameLine();
+		if (ImGui::Button("Up")) {
+			g_gui.hdd_browser_dir = parent_dir(g_gui.hdd_browser_dir);
+			g_gui.new_scsi_refresh = true;
+		}
+		ImGui::Separator();
+		if (ImGui::BeginChild("new-scsi-browser-list",
+							  ImVec2(0, 170.0f), ImGuiChildFlags_Borders)) {
+			for (const auto &entry : g_gui.hdd_entries) {
+				std::string label = entry.is_dir ? "[D] " : "    ";
+				label += entry.name;
+				if (ImGui::Selectable(label.c_str())) {
+					if (entry.is_dir) {
+						g_gui.hdd_browser_dir = entry.path;
+						copy_path(g_gui.new_scsi_path,
+								  sizeof(g_gui.new_scsi_path),
+								  join_path(entry.path, "newdisk.hdd"));
+						g_gui.new_scsi_refresh = true;
+					}
+					else {
+						copy_path(g_gui.new_scsi_path,
+								  sizeof(g_gui.new_scsi_path), entry.path);
+					}
+				}
+			}
+		}
+		ImGui::EndChild();
+		ImGui::SetNextItemWidth(-1.0f);
+		ImGui::InputText("##new-scsi-path", g_gui.new_scsi_path,
+						 sizeof(g_gui.new_scsi_path));
+		ImGui::Text("Image size");
+		for (int i = 0; i < kScsiImageCount; i++) {
+			if (i > 0) {
+				ImGui::SameLine();
+			}
+			ImGui::RadioButton(kScsiImageChoices[i].label,
+							   &g_gui.new_scsi_choice, i);
+		}
+		ImGui::Text("Configure after create");
+		for (int drive = 0; drive < 4; drive++) {
+			if (drive > 0) {
+				ImGui::SameLine();
+			}
+			std::string label = "SCSI #";
+			label += static_cast<char>('1' + drive);
+			ImGui::RadioButton(label.c_str(), &g_gui.new_scsi_drive, drive);
+		}
+		ImGui::Checkbox("Set HDD file after create",
+						&g_gui.new_scsi_open_after_create);
+		if (ImGui::Button("Create")) {
+			create_new_scsi_image();
+		}
+		ImGui::SameLine();
+		if (ImGui::Button("Cancel")) {
+			g_gui.new_scsi_open = false;
 		}
 		if (!g_gui.hdd_status.empty()) {
 			ImGui::Separator();
@@ -1969,6 +2160,9 @@ static void draw_harddisk_menu(void) {
 			}
 		}
 		ImGui::Separator();
+		if (ImGui::MenuItem("New SCSI image...")) {
+			open_new_scsi_dialog(0);
+		}
 		if (ImGui::MenuItem("New SASI image...")) {
 			open_new_sasi_dialog(0);
 		}
@@ -2990,7 +3184,7 @@ BOOL gui_guest_keyboard_blocked(void) {
 	}
 	return (g_gui.fdd_browser_open || g_gui.hdd_browser_open ||
 			g_gui.hostfat_browser_open ||
-			g_gui.new_fdd_open || g_gui.new_sasi_open ||
+			g_gui.new_fdd_open || g_gui.new_sasi_open || g_gui.new_scsi_open ||
 			g_gui.keyboard_config_open || g_gui.configure_open ||
 			g_gui.bms_config_open ||
 			g_gui.custom_size_open || g_gui.state_error_open ||
@@ -3008,7 +3202,7 @@ BOOL gui_guest_mouse_blocked(void) {
 	}
 	return (g_gui.fdd_browser_open || g_gui.hdd_browser_open ||
 			g_gui.hostfat_browser_open ||
-			g_gui.new_fdd_open || g_gui.new_sasi_open ||
+			g_gui.new_fdd_open || g_gui.new_sasi_open || g_gui.new_scsi_open ||
 			g_gui.keyboard_config_open || g_gui.configure_open ||
 			g_gui.bms_config_open ||
 			g_gui.custom_size_open || g_gui.state_error_open ||
@@ -3066,6 +3260,7 @@ void gui_draw(void) {
 	draw_hdd_browser();
 	draw_new_fdd_dialog();
 	draw_new_sasi_dialog();
+	draw_new_scsi_dialog();
 	draw_keyboard_config();
 	draw_configure_dialog();
 	draw_bms_config_dialog();
