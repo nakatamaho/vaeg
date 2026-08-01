@@ -14,7 +14,6 @@ typedef struct {
 	UINT	rddatpos;
 	BYTE	cmd[12];
 	BYTE	data[0x10000];
-	BYTE	bios[2][0x2000];
 
 } _SCSIIO, *SCSIIO;
 
