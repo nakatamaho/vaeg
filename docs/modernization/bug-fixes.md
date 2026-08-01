@@ -218,6 +218,35 @@ separate parity correction or move it to Open Defects.
   the correction. Native non-external CTest, ASan/UBSan focused tests, MinGW
   build, repository invariants, and maintainer PC-Engine/MS-DOS runtime
   validation passed.
+
+### WD33C93 PIO register access advanced the DATA/COMMAND windows
+
+- **Status:** open; M75b2 fixes the demonstrated register-boundary defect,
+  while the post-SELECT phase engine remains in progress.
+- **Symptom:** the PCPLUS/SCHD low-level `07h Select without ATN` path
+  stopped after CSR `11h`/COMMAND request.  The controller model treated the
+  selected register as an ordinary auto-incremented byte file, cleared
+  Auxiliary Status on `0CC0h` reads, and had no explicit DBR/CIP/BSY
+  composition.  This could not reproduce the WD33C93 PIO host contract for
+  the fixed DATA window or distinguish device CSR consumption from an 8259
+  EOI.
+- **Root cause:** the active C-Bus implementation conflated the WD33C93
+  register address counter with the fixed COMMAND/DATA windows and used the
+  emulated PIC path as the only observable interrupt state.  The complete
+  M75a trace separately proves PIO mode (`Control=08h`, `0CC4h=02h`) and a
+  missing post-`8Ah` transfer sequence; no DMA behavior is implicated.
+- **Correction:** M75b2 adds fixed AR `18h`/`19h` windows, composes Auxiliary
+  Status from DBR/CIP/BSY/PE plus the depth-one CSR latch, consumes the device
+  CSR only through AR `17h`, and records unsupported 0CC4h DMA strobes and
+  NEC AR `32h`/`34h`/`35h` accesses as hardware-pending.  DMA and 0CC6h
+  hardware claims remain outside this checkpoint.
+- **Verification:** `tools/qa/m75_scsi_controller.py`, the Linux debug
+  build, and `vaeg --selftest` pass after the correction.  The guest trace
+  still stops before AR `12h`-`14h`, AR `18h=20h`, and AR `19h` CDB transfer;
+  the remaining phase-engine gap is tracked by M75c.
+- **Evidence:** [M75 report](../agents/reports/m75_scsi_support.md) and
+  [M75 task](../agents/tasks/M75_scsi_support.md).
+- **Commit:** [7b5672b](https://github.com/nakatamaho/vaeg/commit/7b5672b9f6823d92f86b17592878f928c133e76b).
 - **Evidence:** [M69 report](../agents/reports/m69_upd9002_idp_0142_status_composition.md).
 - **Commit:** [6ef4f98e](https://github.com/nakatamaho/vaeg/commit/6ef4f98ec1be20054db2aeb9c4a44c6a3d2e36bf).
 
