@@ -814,6 +814,13 @@ if(VAEG_ENABLE_TESTS)
     set_tests_properties(vaeg_idp_m69_status_composition PROPERTIES
 		LABELS "romless;idp;tsp;m69")
 
+    add_test(NAME vaeg_m75_scsi_controller
+		COMMAND "${Python3_EXECUTABLE}"
+			"${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/m75_scsi_controller.py"
+			--root "${CMAKE_CURRENT_SOURCE_DIR}")
+    set_tests_properties(vaeg_m75_scsi_controller PROPERTIES
+		LABELS "romless;scsi;m75")
+
     add_test(NAME vaeg_upd9002_m70_prefix_string
 		COMMAND vaeg_sdl2 --upd9002-m70-prefix-string)
     set_tests_properties(vaeg_upd9002_m70_prefix_string PROPERTIES
