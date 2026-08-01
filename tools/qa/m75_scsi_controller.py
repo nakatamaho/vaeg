@@ -57,6 +57,17 @@ def validate(root: pathlib.Path) -> None:
             "controller TRANSFER INFO dispatch")
     require(scsiio, "scsiio.rddatpos >= scsiio.cmdpos",
             "REQ/ACK data completion")
+    for field in ("scsi_csr_latched", "scsi_csr_event_active",
+                  "scsi_csr_pending", "scsi_csr_pending_status"):
+        require(scsiio, field, f"single-depth CSR latch field {field}")
+    require(scsiio, "if (!scsi_csr_event_active && !scsi_csr_latched)",
+            "CSR event admission")
+    require(scsiio, "else if (!scsi_csr_pending)",
+            "one-entry CSR pending slot")
+    require(scsiio, "if (scsi_csr_latched)",
+            "CSR consume on status read")
+    require(scsiio, "scsi_csr_latched = FALSE",
+            "CSR latch release")
     require(scsiio, "scsiio.resent = (2 << 3)", "VA IRQ6 default")
     require(scsiio, "iocoreva_attachinp(0x0cc6, scsiio_icc6)",
             "VA data-port input mapping")
