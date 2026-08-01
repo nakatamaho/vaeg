@@ -129,10 +129,11 @@ SELECT must return `11h` only for a configured target ID.  Other IDs return
 `42h` (select/reselect timeout), with the timeout policy derived from AR
 `02h` rather than treating every ID as present.
 
-The source of the inherited `0CC6h` handler remains unresolved.  It must not
-be treated as a PC-9801-55 specification port without guest or primary-source
-evidence; if no evidence is found it is a pending/open-bus compatibility
-question, not a reason to alter the documented `0CC0h`/`0CC2h`/`0CC4h` path.
+The supplied PCPLUS/SCHD trace records no `0CC6h` access in the active
+low-level path.  Keep the inherited handler as a compatibility mapping, but
+classify it as unused by this guest path rather than as a required WD33C93
+port.  It must not be treated as a PC-9801-55 specification port without
+separate guest or primary-source evidence.
 
 The M75b1 register-value evidence must retain these observed inputs:
 
@@ -187,11 +188,12 @@ share the single terminal G75 gate:
    CSR `1Ah`.  Decode the CDB only after the transfer count completes.
    M75c2 reaches the AR `19h` CDB transfer and CSR `1Ah` boundary, but does
    not execute the decoded CDB or advance DATA/STATUS/MESSAGE phases.
-3. **M75c3 — transfer classification trace:** record the phase, direction,
-   host count, AR `19h` access count, legacy `0CC6h` access count, source
-   path, and completion CSR for each TRANSFER INFO.  This checkpoint is
-   trace-only and distinguishes an active DATA IN path from the current
-   still-COMMAND path before CDB execution is connected.
+3. **M75c3 — transfer classification trace:** record the phase, protocol
+   direction, AR `19h` read/write counts, host count, legacy `0CC6h` access
+   count, source path, IRQ request/assertion counts, completion CSR, and the
+   captured CDB bytes for each TRANSFER INFO.  This checkpoint is trace-only
+   and distinguishes an active DATA IN path from the current still-COMMAND
+   path before CDB execution is connected.
 
 None of these checkpoints is independently approvable or a new milestone
 gate.
