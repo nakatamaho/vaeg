@@ -2,6 +2,7 @@
 #include	"cpucore.h"
 #include	"pccore.h"
 #include	"iocore.h"
+#include	"scsiio.h"
 
 #include	"iocoreva.h"
 
@@ -223,6 +224,7 @@ void pic_setirq(REG8 irq) {
 	else {
 		pi[1].irr |= bit;
 	}
+	scsiio_trace_pic_irq(irq, TRUE);
 }
 
 void pic_resetirq(REG8 irq) {
@@ -264,6 +266,8 @@ static void IOOUTCALL pic_o00(UINT port, REG8 dat) {
 			}
 			if (dat & PIC_OCW2_EOI) {
 				picp->isr &= ~(1 << level);
+				scsiio_trace_pic_irq((REG8)(((port >> 3) & 1) * 8 + level),
+						FALSE);
 			}
 			nevent_forceexit();				// mainloop exit
 			break;

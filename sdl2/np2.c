@@ -42,6 +42,7 @@
 #include	"diskdrv.h"
 #include	"sxsi.h"
 #include	"fdc.h"
+#include	"scsiio.h"
 #include	"timing.h"
 #include	"keystat.h"
 #include	"bkupmemva.h"
@@ -264,7 +265,7 @@ static void usage(const char *progname) {
 	printf("\t--controller joystick|mouse\n");
 	printf("\t--keyboard-layout jis|us|custom\n");
 	printf("Diagnostics:\n");
-	printf("\t--smoke --selftest --debug --fdctrace --pacelog\n");
+	printf("\t--smoke --selftest --debug --fdctrace --scsitrace --pacelog\n");
 	printf("\t--trace-cpu 1..1000000\n");
 	printf("\t--version --help [-h]\n");
 }
@@ -1782,6 +1783,7 @@ int main(int argc, char **argv) {
 
 	TRACEINIT();
 	fdc_trace_enable(options.fdctrace);
+	scsiio_trace_enable(options.scsitrace);
 	sdlkbd_initialize();
 	inputmng_init();
 	keystat_initialize();
