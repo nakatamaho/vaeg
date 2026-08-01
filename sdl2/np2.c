@@ -120,6 +120,7 @@ static const UINT smoke_timeout_frames = 600;
 static const UINT startup_splash_ms = 1500;
 static const UINT max_catchup_frames = 15;
 static const char backup_memory_file[] = "vabkupmem.dat";
+static const char *rompath_override;
 typedef struct {
 	const char *name;
 	UINT32 size;
@@ -250,6 +251,7 @@ static void usage(const char *progname) {
 	printf("\t--scsi1 path|none   --scsi2 path|none\n");
 	printf("\t--scsi3 path|none   --scsi4 path|none\n");
 	printf("\t--hostfat-dir path  read-only PC-Engine HOSTFAT snapshot\n");
+	printf("\t--roms path         ROM directory override\n");
 	printf("Execution (session only):\n");
 	printf("\t--cpumult 1..32\n");
 	printf("\t--sgp model|follow-cpu|1..16\n");
@@ -491,6 +493,20 @@ static BOOL resolve_model_rompath(char *missing, int missing_size) {
 	primary_missing[0] = '\0';
 	fallback_missing[0] = '\0';
 	primary_available = FALSE;
+	if ((rompath_override != NULL) && (rompath_override[0] != '\0')) {
+		if (romset_complete(rompath_override, np2cfg.model,
+												primary_missing, sizeof(primary_missing)) == SUCCESS) {
+			file_cpyname(np2cfg.biospath, rompath_override,
+													 sizeof(np2cfg.biospath));
+			verify_romset(rompath_override, np2cfg.model);
+			missing[0] = '\0';
+			return(SUCCESS);
+		}
+		file_cpyname(np2cfg.biospath, rompath_override,
+												 sizeof(np2cfg.biospath));
+		file_cpyname(missing, primary_missing, missing_size);
+		return(FAILURE);
+	}
 	base = SDL_GetBasePath();
 	if (base != NULL) {
 		file_cpyname(primary, base, sizeof(primary));
@@ -1648,6 +1664,7 @@ int main(int argc, char **argv) {
 
 	dosio_init();
 	file_setcd("./");
+	rompath_override = options.roms_path;
 	if (options.trace_cpu != 0) {
 		upd9002_trace_start(stderr, options.trace_cpu);
 	}
