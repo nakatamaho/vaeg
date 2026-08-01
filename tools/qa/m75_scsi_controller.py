@@ -83,6 +83,12 @@ def validate(root: pathlib.Path) -> None:
             "AR17 auto-increment to COMMAND")
     require(scsiio, "scsiio.membank & 4",
             "IRE1 IRQ gate")
+    require(scsiio, "scsi_command_phase_pending",
+            "post-SELECT COMMAND request latch")
+    require(scsiio, "scsiintr(0x11)",
+            "SELECT completion CSR")
+    require(scsiio, "scsiintr(0x8a)",
+            "deferred COMMAND-phase CSR")
     require(scsiio, "SCSI_AUX_LCI | SCSI_AUX_BSY",
             "LCI and BSY auxiliary-status definitions")
     require(scsiio, "SCSI_AUX_PE | SCSI_AUX_DBR",
