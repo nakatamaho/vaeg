@@ -289,6 +289,44 @@ generated in the same simulation call.  CDB decoding must wait until the
 host-programmed transfer count reaches zero; no command-group length is
 allowed to substitute for that observed count.
 
+## M75c1 Service Required checkpoint
+
+M75c1 now records a successful SELECT as two distinct controller events.  The
+first event exposes CSR `11h` and latches a pending COMMAND-phase request.
+That request is not generated in the same call.  Only after the host reads
+AR `17h` (which advances AR to `18h`) is CSR `8Ah` scheduled and delivered.
+This is the single-depth latch/back-pressure boundary required by the
+WD33C93 initiator contract.
+
+The deterministic guest trace reaches:
+
+```text
+CSR 11h read
+CSR 8Ah delivered and read
+AR 12h <- 00h, AR 13h <- 00h, AR 14h <- 06h
+AR 18h <- 20h
+M75c1 holds Transfer Info at COMMAND phase
+```
+
+The transfer count (`000006h` in this first observed command) is recorded as
+evidence only; M75c2 must consume the host-programmed count rather than
+assuming a six-byte CDB.  The predecessor's immediate CDB-copy path is
+explicitly disabled at this checkpoint, so no `8Bh`, STATUS transition, or
+AR `19h` access is produced by M75c1.
+
+M75c1 commits:
+
+```text
+8df28c7 M75c1: add deferred command-request tests
+99222f4 M75c1: protect Transfer Info boundary
+9b4376d M75c1: defer command phase service request
+```
+
+The run is intentionally terminated by the bounded wall-clock harness after
+the AR `18h` boundary (`exit=124`); the trace prefix through that boundary is
+the acceptance evidence.  M75c2 must replace this bounded stop with a
+deterministic transfer-count termination.
+
 ## CDB coverage
 
 | CDB | Current behavior | Data source |
