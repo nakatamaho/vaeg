@@ -8,7 +8,6 @@
 #include	"scsiio.h"
 #include	"scsiio.tbl"
 #include	"scsicmd.h"
-#include	"scsibios.res"
 
 #include	"iocoreva.h"
 
@@ -107,12 +106,6 @@ static void IOOUTCALL scsiio_occ2(UINT port, REG8 dat) {
 		switch(scsiio.port) {
 			case SCSICTR_MEMBANK:
 				scsiio.membank = dat;
-				if (!(dat & 0x40)) {
-					CopyMemory(mem + 0xd2000, scsiio.bios[0], 0x2000);
-				}
-				else {
-					CopyMemory(mem + 0xd2000, scsiio.bios[1], 0x2000);
-				}
 				break;
 
 			case 0x3f:
@@ -215,29 +208,15 @@ static REG8 IOINPCALL scsiio_icc6(UINT port) {
 
 void scsiio_reset(void) {
 
-	FILEH	fh;
-	UINT	r;
-
 	ZeroMemory(&scsiio, sizeof(scsiio));
 	if (pccore.hddif & PCHDD_SCSI) {
-		scsiio.memwnd = (0xd200 & 0x0e00) >> 9;
 		scsiio.resent = (3 << 3) + (7 << 0);
-		CPU_RAM_D000 |= (3 << 2);				// ramにする
-		fh = file_open_rb_c("scsi.rom");
-		r = 0;
-		if (fh != FILEH_INVALID) {
-			r = file_read(fh, scsiio.bios, 0x4000);
-			file_close(fh);
-		}
-		if (r == 0x4000) {
-			TRACEOUT(("load scsi.rom"));
-		}
-		else {
-			ZeroMemory(mem + 0xd2000, 0x4000);
-			CopyMemory(scsiio.bios, scsibios, sizeof(scsibios));
-			TRACEOUT(("use simulate scsi.rom"));
-		}
-		CopyMemory(mem + 0xd2000, scsiio.bios[0], 0x2000);
+		/*
+		 * PCPLUS.SYS supplies the $SCSIBIOS service through the board I/O
+		 * interface.  The PC-88VA SCSI55 guidance permits the board ROM to
+		 * be disconnected, so do not claim a VA system-memory window for it.
+		 */
+		TRACEOUT(("SCSI board ROM detached; use PCPLUS $SCSIBIOS"));
 	}
 }
 
