@@ -77,6 +77,18 @@ def validate(root: pathlib.Path) -> None:
             "unsupported NEC register warning")
     require(scsiio, "case SCSICTR_DATA:",
             "AR19 fixed DATA window")
+    require(scsiio, "case SCSICTR_STATUS:",
+            "AR17 status access")
+    require(scsiio, "scsiio.port++;\n\t\t\treturn(scsiio.scsistatus)",
+            "AR17 auto-increment to COMMAND")
+    require(scsiio, "scsiio.membank & 4",
+            "IRE1 IRQ gate")
+    require(scsiio, "SCSI_AUX_LCI | SCSI_AUX_BSY",
+            "LCI and BSY auxiliary-status definitions")
+    require(scsiio, "SCSI_AUX_PE | SCSI_AUX_DBR",
+            "PE and DBR auxiliary-status definitions")
+    require(scsiio, "reserved register range",
+            "undefined register warning")
     require(scsiio, "case SCSICTR_PKGID:", "AR32 package-id audit")
     require(scsiio, "case SCSICTR_FIFO_CTRL:", "AR34 FIFO audit")
     require(scsiio, "case SCSICTR_FIFO_STATUS:", "AR35 FIFO audit")
