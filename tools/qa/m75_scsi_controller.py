@@ -91,6 +91,12 @@ def validate(root: pathlib.Path) -> None:
             "deferred COMMAND-phase CSR")
     require(scsiio, "M75c1 holds Transfer Info at COMMAND phase",
             "M75c1 Transfer Info boundary")
+    require(scsiio, "scsi_transfer_remaining",
+            "host-programmed Transfer Count state")
+    require(scsiio, "M75c2 accumulates CDB through DATA window",
+            "M75c2 CDB accumulation boundary")
+    require(scsiio, "scsiintr(0x1a)",
+            "Transfer Info COMMAND completion CSR")
     require(scsiio, "SCSI_AUX_LCI | SCSI_AUX_BSY",
             "LCI and BSY auxiliary-status definitions")
     require(scsiio, "SCSI_AUX_PE | SCSI_AUX_DBR",
