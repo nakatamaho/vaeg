@@ -110,6 +110,36 @@ implementation.  The trace-only M75a checkpoint must record every `0CC0h`,
 `0CC2h`, `0CC4h`, and `0CC6h` access with AR, value, `CS:IP`, auxiliary
 status, SCSI status, phase, and interrupt assertion/clear events.
 
+The observed PCPLUS path is specifically the low-level `07h Select without
+ATN` followed by `20h Transfer Info` path.  It does not send MESSAGE OUT or
+IDENTIFY.  The target LUN must therefore be obtained from the incoming CDB
+where the protocol requires it; an unconditional IDENTIFY or intermediate
+disconnect is not permitted.  `85h` is reserved for command completion and
+bus-free handling unless the Control register explicitly authorizes another
+disconnect interrupt.
+
+The controller status register is a depth-one latch.  A second target event
+must remain pending while the current status is unread.  Reading `17h`
+consumes the latched status and permits the next pending event to assert INT.
+An 8259 EOI is not the WD33C93 device-INT clear operation.  M75b/c tests must
+cover ordered delivery of two events and must prove that an unread status is
+not overwritten or cleared by EOI.
+
+SELECT must return `11h` only for a configured target ID.  Other IDs return
+`42h` (select/reselect timeout), with the timeout policy derived from AR
+`02h` rather than treating every ID as present.
+
+The source of the inherited `0CC6h` handler remains unresolved.  It must not
+be treated as a PC-9801-55 specification port without guest or primary-source
+evidence; if no evidence is found it is a pending/open-bus compatibility
+question, not a reason to alter the documented `0CC0h`/`0CC2h`/`0CC4h` path.
+
+M75c is complete only when the post-`8Ah` trace contains the controller's
+transfer count writes at AR `12h`-`14h`, AR `18h`=`20h`, and the actual CDB
+source (PIO DATA-window/DBR or an explicitly evidenced DMA path), followed by
+CSR `1Ah` and a second interrupt.  PCPLUS merely progressing is not a
+semantic acceptance criterion.
+
 M75 does not claim that the physical REQ/ACK wires must be exposed as guest
 ports.  The controller must instead reproduce the WD33C93 register and
 interrupt contract that PCPLUS/SCHD observe.  NP2's simplified SCSI model is

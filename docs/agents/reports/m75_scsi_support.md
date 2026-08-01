@@ -98,6 +98,46 @@ This proves the current stopping point without claiming that a delayed timer
 is a valid fix.  The next M75 checkpoint must determine why the target phase
 request is not being exposed through the WD33C93 command/DBR contract.
 
+### Full boot-to-SELECT access audit
+
+The trace was rerun from emulator startup through the first SELECT, without
+an output window or event filter.  It captured all accesses made through the
+registered `0CC0h`/`0CC2h` callbacks.  The observed AR sequence includes:
+
+```text
+33(read) 02(write/read) 17(read) 33(read) 30(read/write)
+33(read) 00(write) 18(write) 33(read) 17(read) 16(read)
+01(write) 02(write) 11(write) 15(write) 16(write)
+33(read) 33(read) 15(write) 18(write) 33(read) 17(read) 16(read)
+33(read)
+```
+
+The trace seam therefore does not filter out the extended AR range: AR `30h`
+and AR `33h` are visible.  No access to AR `31h`, `32h`, `34h`, or `35h` was
+made by this PCPLUS initialization path before SELECT.  AR `00h`, `01h`, and
+`02h` were observed, so their absence from an earlier excerpt was a window
+selection issue rather than an untraceable register path.
+
+The first low-level command is:
+
+```text
+AR=15h <- 00h
+AR=18h <- 07h
+CSR=11h, phase=COMMAND, IRQ6 asserted
+PCPLUS reads Aux Status, then AR=17h and AR=16h
+EOI clears the emulated PIC request
+```
+
+No AR `19h` CDB byte, DBR polling sequence, or AR `12h`-`14h` transfer count
+appears after this point.  This confirms that the missing boundary is between
+the target's COMMAND-phase request and the WD33C93 host-visible event; it is
+not yet evidence about DATA, STATUS, or MESSAGE IN handling.
+
+The observed `EOI` is an 8259-side request clear in the current emulator
+trace.  M75b/c must separate that from the WD33C93 device-INT latch: reading
+AR `17h` must consume the CSR, while EOI alone must not clear the device
+event or overwrite a pending second event.
+
 ## CDB coverage
 
 | CDB | Current behavior | Data source |
