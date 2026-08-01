@@ -198,7 +198,66 @@ M75a baseline vs M75b1 filtered trace: cmp exit 0
 ```
 
 The bus-side phase back-pressure and guest-visible 17h/EOI semantics are not
-yet claimed complete; those remain the M75b2/M75c implementation scope.
+yet claimed complete; phase back-pressure and the post-8Ah command/data
+sequence remain the M75c implementation scope.
+
+## M75b2 WD33C93 PIO register checkpoint
+
+The WD33C93A primary data sheet defines indirect-register auto-increment with
+three exceptions: Auxiliary Status, DATA, and COMMAND.  M75b2 applies those
+exceptions to the active 0CC0h/0CC2h path.  AR `19h` is now a fixed DATA
+window, and AR `18h` is a fixed COMMAND window.  DATA reads and writes use
+the existing controller buffer positions and do not advance the selected AR.
+
+The Auxiliary Status value is composed from the serialized controller status
+plus the runtime CSR latch:
+
+```text
+bit 7 INT:  set while a CSR is latched; cleared only by reading AR=17h
+bit 6 LCI:  retained stored status bit (currently zero unless raised later)
+bit 5 BSY:  level-II controller operation is active
+bit 4 CIP:  the last command is being interpreted
+bit 1 PE:   parity-error state (currently zero)
+bit 0 DBR:  PIO DATA window is ready
+```
+
+Reading 0CC0h no longer clears Auxiliary Status.  In particular, an 8259
+EOI only clears the emulated PIC request; it does not consume the WD33C93 CSR
+latch.  AR `17h` consumption is the device-side clear and admits the single
+pending CSR event recorded by M75b1.
+
+The observed `0CC4h <- 02h` is recorded as the DMER reset strobe.  M75 remains
+PIO-only: TCIR, TCMR, TCMS, and DMES are not implemented, and a trace warning
+marks any such unsupported strobe as `hardware-pending`.  No DMA path or DMA
+channel is synthesized.
+
+AR `30h` and `31h` retain the existing memory-bank/window state.  AR `32h`,
+`34h`, and `35h` return the documented open/unsupported value (`FFh`) and
+emit a `hardware-pending` trace warning; no speculative package or FIFO
+behavior is added.  AR `33h` remains the read-only controller RESET/INT/ID
+value used by the observed VA IRQ6 setup.
+
+M75b2 commits:
+
+```text
+82c65ee M75b2: add WD33C93 register contract tests
+7b5672b M75b2: implement WD33C93 PIO register windows
+96419fa M75b2: validate WD33C93 register windows
+```
+
+Validation after M75b2:
+
+```text
+cmake --build build/linux-debug --target vaeg_sdl2 -j2       pass
+python3 tools/qa/m75_scsi_controller.py --root .           pass
+vaeg --selftest                                             pass
+scsitrace boot through SELECT                                 pass
+```
+
+The post-SELECT trace still stops before AR `12h`-`14h`, AR `18h`=`20h`, and
+AR `19h` CDB bytes.  Therefore M75b2 proves the register-window and
+Auxiliary-Status boundary but does not claim the target phase request or
+full PCPLUS/SCHD command progression.  Those remain M75c evidence.
 
 ## CDB coverage
 
@@ -260,6 +319,9 @@ c246e71 M75: document command-line SCSI attachment
 54f65c7 M75: preserve SCSI state layout for transfer length
 d2001aa M75: align SCSI validator with state layout
 602f6ab M75: document SCSI phase implementation progress
+82c65ee M75b2: add WD33C93 register contract tests
+7b5672b M75b2: implement WD33C93 PIO register windows
+96419fa M75b2: validate WD33C93 register windows
 ```
 
 ## Remaining M75 gate
