@@ -37,6 +37,12 @@ SCSI55 document independently specifies `0CC0h`, `0CC2h`, and `0CC4h`, while
 guest-level evidence for a separate `0CC6h` hardware designation remains
 pending.
 
+The transfer-length counter uses the pre-existing serialized `cmdpos` slot.
+The removed board-ROM storage is represented by reserved padding of the same
+size, so `_SCSIIO` retains its historical serialized size while no longer
+owning or mapping board firmware bytes. This is a state-layout preservation,
+not a new save-state field or compatibility format.
+
 The default expansion interrupt selection is INT2/IRQ6, avoiding the SASI
 INT3/IRQ9 collision described by the supplied PC-88VA documentation.
 
@@ -66,6 +72,7 @@ cmake --build build/m75-tests --target vaeg_sdl2 -j2                   pass
 python3 tools/qa/m75_scsi_controller.py --root .                      pass
 ctest --test-dir build/m75-tests -R vaeg_m75_scsi_controller \
   --output-on-failure                                                  pass
+python3 tools/qa/m75_scsi_controller.py --root .                      pass
 SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy vaeg --selftest            pass
 vaeg --model va2 --roms docs/roms --scsi1 /tmp/m75-headless40/scsi40.hdd \
   --smoke --nowait --mute                                               pass
@@ -96,6 +103,9 @@ c246e71 M75: document command-line SCSI attachment
 7166336 M75: signal SCSI phase completion interrupts
 1a82af6 M75: add explicit ROM directory override
 9d6ecdb M75: document explicit ROM directory validation
+54f65c7 M75: preserve SCSI state layout for transfer length
+d2001aa M75: align SCSI validator with state layout
+602f6ab M75: document SCSI phase implementation progress
 ```
 
 ## Remaining M75 gate
