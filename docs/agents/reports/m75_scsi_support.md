@@ -519,3 +519,60 @@ SASI, HOSTFAT, and the existing non-SCSI disk paths must remain unchanged.
 
 G75 remains a human gate. This report does not declare G75 passed and does
 not start M76.
+
+## M75d1 phase-contract checkpoint
+
+The M75c3 trace classified the apparent 36-byte and 8-byte DATA transfers as
+host-to-controller writes while the controller still reported COMMAND
+(`1Ah`).  The captured CDBs were `12 00 00 00 24 00` and `25 00 00 00 00
+00 00 00 00 00`, so the host is following the reported phase rather than
+inventing a direction.  M75d1 therefore makes the target's next phase the
+single source of the service-request code, direction, and transfer pump
+selection.
+
+The phase contract table is:
+
+| internal phase | service request | direction |
+|---|---:|---|
+| DATA OUT (`18h`) | `88h` | host to controller |
+| DATA IN (`19h`) | `89h` | controller to host |
+| COMMAND (`1Ah`) | `8Ah` | host to controller |
+| STATUS (`1Bh`) | `8Bh` | controller to host |
+| INFORMATION OUT (`1Ch`) | `8Ch` | host to controller |
+| INFORMATION IN (`1Dh`) | `8Dh` | controller to host |
+| MESSAGE OUT (`1Eh`) | `8Eh` | host to controller |
+| MESSAGE IN (`1Fh`) | `8Fh` | controller to host |
+
+The table is shared by the phase decoder and transfer trace; no second
+direction switch is used.  CDB completion now invokes the existing target
+command helper, records the next service request behind the CSR latch, and
+keeps the pump phase-neutral.  DATA IN, STATUS, and MESSAGE IN transfers use
+the same fixed AR `19h` PIO path, with completion CSRs `19h`, `1Bh`, and
+`1Fh` respectively.  A command-complete message byte is `00h`; bus-free is
+`85h` only when Control bit 3 permits the ending-disconnect interrupt.
+
+The implementation checkpoint is not yet a terminal acceptance.  The first
+guest run reaches the corrected `8Bh` STATUS request after TUR, but the
+PCPLUS handler does not yet issue the expected one-byte STATUS Transfer Info
+sequence; it reads the transfer-count bytes and stops.  This is recorded as
+an M75d1 integration blocker, not as a passing DATA/STATUS result.  The
+phase table and the AR19 byte-pump path are covered by the static validator,
+but the required INQUIRY DATA IN golden (`CSR=19h`, AR19 read x36) has not
+yet been observed.
+
+The deterministic trace option is now `--scsitrace-limit N`.  It requests
+termination after N completed transfer records (the run-loop observes the
+request at a frame boundary, so a final frame may contain additional records).
+The old wall-clock timeout remains useful as a safety bound only; it is not
+evidence of a completed phase sequence.
+
+M75d1 local result:
+
+```text
+phase-contract validator: pass (all 8 phases)
+Linux debug SDL2 build: pass
+focused M75 CTest: pass
+bounded PCPLUS/SCHD run: blocked after TUR STATUS request
+INQUIRY DATA IN golden: not observed
+G75: not eligible
+```

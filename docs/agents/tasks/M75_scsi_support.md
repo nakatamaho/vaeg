@@ -230,6 +230,31 @@ The single terminal G75 review remains the only approval boundary.  M75c must
 still demonstrate the post-8Ah transfer-count writes, AR `18h`=`20h`, actual
 AR `19h` CDB transfer, CSR `1Ah`, and the subsequent phase sequence.
 
+### M75d1 — CDB decode and next-phase derivation
+
+M75d1 uses one shared phase contract for the internal phase, WD33C93 service
+request (`88h` through `8Fh`), and transfer direction.  The target command
+helper owns CDB execution and selects the next phase; the AR `19h` PIO pump
+only consumes the host-programmed transfer count and never selects a phase.
+
+The required golden sequence for INQUIRY is:
+
+```text
+COMMAND 8Ah -> TC=6 -> AR19 write x6 (12 00 00 00 24 00) -> CSR=1Ah
+DATA IN  89h -> TC=36 -> AR19 read x36 -> CSR=19h
+STATUS   8Bh -> TC=1 -> AR19 read x1 -> CSR=1Bh
+MESSAGE  8Fh -> TC=1 -> AR19 read x1 (00h) -> CSR=1Fh
+BUS FREE 85h only when Control bit 3 permits it
+```
+
+M75d1 is not complete until the `DATA IN` row is observed with zero AR19
+writes and CSR `19h`.  The first integration run reaches the corrected
+`8Bh` request after TUR but the supplied PCPLUS path stops while inspecting
+the transfer-count registers; this remains a blocking evidence item for the
+single G75 gate.  The `--scsitrace-limit N` option is the deterministic
+transfer-count termination control for bounded diagnostic runs; wall-clock
+timeouts remain safety bounds only.
+
 ## Non-goals
 
 M75 must not:
