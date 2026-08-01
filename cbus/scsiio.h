@@ -12,6 +12,7 @@ typedef struct {
 	UINT	cmdpos;
 	UINT	wrdatpos;
 	UINT	rddatpos;
+	UINT	data_len;
 	BYTE	cmd[12];
 	BYTE	data[0x10000];
 
