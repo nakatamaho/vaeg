@@ -12,9 +12,10 @@ typedef struct {
 	UINT	cmdpos;
 	UINT	wrdatpos;
 	UINT	rddatpos;
-	UINT	data_len;
 	BYTE	cmd[12];
 	BYTE	data[0x10000];
+	/* Keep the historical serialized image size without owning board ROM. */
+	BYTE	reserved[2][0x2000];
 
 } _SCSIIO, *SCSIIO;
 
