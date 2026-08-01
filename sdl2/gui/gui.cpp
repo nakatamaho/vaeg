@@ -167,7 +167,7 @@ struct GuiState {
 	bool new_fdd_mount_after_create = true;
 	char new_fdd_path[MAX_PATH] = {};
 	int hdd_dialog_drive = -1;
-	char hdd_path[2][MAX_PATH] = {};
+	char hdd_path[4][MAX_PATH] = {};
 	bool hdd_browser_open = false;
 	bool hdd_browser_refresh = false;
 	std::string hdd_browser_dir;
@@ -1005,20 +1005,44 @@ static bool hdd_file_is_mountable(const char *path, std::string *error) {
 	short attr;
 
 	if ((path == nullptr) || (path[0] == '\0')) {
-		*error = "SASI HDD image path is empty.";
+		*error = "HDD image path is empty.";
 		return false;
 	}
 	attr = file_attr(path);
 	if (attr == static_cast<short>(-1)) {
-		*error = "SASI HDD image not found.";
+		*error = "HDD image not found.";
 		return false;
 	}
 	if ((attr & FILEATTR_DIRECTORY) != 0) {
-		*error = "SASI HDD image path is a directory.";
+		*error = "HDD image path is a directory.";
 		return false;
 	}
 	error->clear();
 	return true;
+}
+
+static bool hdd_is_scsi(int drive) {
+
+	return((drive & 0x20) != 0);
+}
+
+static int hdd_slot(int drive) {
+
+	return(drive & 3);
+}
+
+static const char *hdd_config_path(int drive) {
+
+	int slot;
+
+	slot = hdd_slot(drive);
+	return(hdd_is_scsi(drive) ? np2cfg.scsihdd[slot] :
+			np2cfg.sasihdd[slot]);
+}
+
+static const char *hdd_interface_name(int drive) {
+
+	return(hdd_is_scsi(drive) ? "SCSI #" : "SASI-");
 }
 
 static void set_fdd_status(int drive, const char *action, const char *path) {
@@ -1035,8 +1059,8 @@ static void set_fdd_status(int drive, const char *action, const char *path) {
 
 static void set_hdd_status(int drive, const char *action, const char *path) {
 
-	g_gui.hdd_status = "SASI-";
-	g_gui.hdd_status += static_cast<char>('1' + drive);
+	g_gui.hdd_status = hdd_interface_name(drive);
+	g_gui.hdd_status += static_cast<char>('1' + hdd_slot(drive));
 	g_gui.hdd_status += ' ';
 	g_gui.hdd_status += action;
 	if ((path != nullptr) && (path[0] != '\0')) {
@@ -1143,14 +1167,14 @@ static void open_hdd_dialog(int drive) {
 	std::string start_dir;
 
 	g_gui.hdd_dialog_drive = drive;
-	current = np2cfg.sasihdd[drive];
+	current = hdd_config_path(drive);
 	if ((current != nullptr) && (current[0] != '\0')) {
-		milstr_ncpy(g_gui.hdd_path[drive], current,
-					sizeof(g_gui.hdd_path[drive]));
+		milstr_ncpy(g_gui.hdd_path[hdd_slot(drive)], current,
+					sizeof(g_gui.hdd_path[hdd_slot(drive)]));
 		start_dir = parent_dir(current);
 	}
 	else {
-		g_gui.hdd_path[drive][0] = '\0';
+		g_gui.hdd_path[hdd_slot(drive)][0] = '\0';
 	}
 	if (start_dir.empty() &&
 		(np2oscfg.gui_hdd_dir[0] != '\0') &&
@@ -1268,17 +1292,19 @@ static void mount_fdd_from_dialog(void) {
 static void mount_hdd_from_dialog(void) {
 
 	int drive;
+	int slot;
 	const char *path;
 	std::string error;
 
 	drive = g_gui.hdd_dialog_drive;
-	if ((drive < 0) || (drive >= 2)) {
+	slot = hdd_slot(drive);
+	if ((drive < 0) || (slot < 0) || (slot >= 4)) {
 		return;
 	}
-	path = g_gui.hdd_path[drive];
+	path = g_gui.hdd_path[slot];
 	if (!hdd_file_is_mountable(path, &error)) {
-		g_gui.hdd_status = "SASI-";
-		g_gui.hdd_status += static_cast<char>('1' + drive);
+		g_gui.hdd_status = hdd_interface_name(drive);
+		g_gui.hdd_status += static_cast<char>('1' + slot);
 		g_gui.hdd_status += " open failed: ";
 		g_gui.hdd_status += error;
 		return;
@@ -1441,7 +1467,12 @@ static void remove_hdd(int drive) {
 
 	diskdrv_sethdd(static_cast<REG8>(drive), nullptr);
 	sxsi_open();
-	if (!sxsi_issasi()) {
+	if (hdd_is_scsi(drive)) {
+		if (!sxsi_isscsi()) {
+			pccore.hddif &= ~PCHDD_SCSI;
+		}
+	}
+	else if (!sxsi_issasi()) {
 		pccore.hddif &= ~PCHDD_SASI;
 	}
 	set_hdd_status(drive, "removed; reset to apply", nullptr);
@@ -1517,12 +1548,14 @@ static void draw_fdd_browser(void) {
 static void draw_hdd_browser(void) {
 
 	int drive;
+	int slot;
 
 	if (!g_gui.hdd_browser_open) {
 		return;
 	}
 	drive = g_gui.hdd_dialog_drive;
-	if ((drive < 0) || (drive >= 2)) {
+	slot = hdd_slot(drive);
+	if ((drive < 0) || (slot < 0) || (slot >= 4)) {
 		g_gui.hdd_browser_open = false;
 		return;
 	}
@@ -1531,8 +1564,8 @@ static void draw_hdd_browser(void) {
 	}
 	ImGui::SetNextWindowSize(ImVec2(620.0f, 420.0f),
 							 ImGuiCond_FirstUseEver);
-	if (ImGui::Begin("Open SASI HDD image", &g_gui.hdd_browser_open)) {
-		ImGui::Text("SASI-%d directory", drive + 1);
+	if (ImGui::Begin("Open HDD image", &g_gui.hdd_browser_open)) {
+		ImGui::Text("%s%d directory", hdd_interface_name(drive), slot + 1);
 		ImGui::TextWrapped("%s", g_gui.hdd_browser_dir.c_str());
 		if (ImGui::Button("Home")) {
 			g_gui.hdd_browser_dir = home_dir();
@@ -1555,8 +1588,8 @@ static void draw_hdd_browser(void) {
 						g_gui.hdd_browser_refresh = true;
 					}
 					else {
-						copy_path(g_gui.hdd_path[drive],
-								  sizeof(g_gui.hdd_path[drive]),
+						copy_path(g_gui.hdd_path[slot],
+								  sizeof(g_gui.hdd_path[slot]),
 								  entry.path);
 					}
 				}
@@ -1564,8 +1597,8 @@ static void draw_hdd_browser(void) {
 		}
 		ImGui::EndChild();
 		ImGui::SetNextItemWidth(-1.0f);
-		ImGui::InputText("##hdd-path", g_gui.hdd_path[drive],
-						 sizeof(g_gui.hdd_path[drive]));
+		ImGui::InputText("##hdd-path", g_gui.hdd_path[slot],
+						 sizeof(g_gui.hdd_path[slot]));
 		if (ImGui::Button("Open")) {
 			mount_hdd_from_dialog();
 		}
@@ -1844,13 +1877,15 @@ static void draw_hdd_mount_state(int drive) {
 
 	const char *path;
 
-	path = np2cfg.sasihdd[drive];
+	path = hdd_config_path(drive);
 	if ((path == nullptr) || (path[0] == '\0')) {
-		ImGui::TextDisabled("SASI-%d: Empty", drive + 1);
+		ImGui::TextDisabled("%s%d: Empty", hdd_interface_name(drive),
+				hdd_slot(drive) + 1);
 		return;
 	}
 	const std::string name = fs::u8path(path).filename().u8string();
-	ImGui::Text("SASI-%d: %s", drive + 1, name.c_str());
+	ImGui::Text("%s%d: %s", hdd_interface_name(drive), hdd_slot(drive) + 1,
+			name.c_str());
 	if (ImGui::IsItemHovered()) {
 		ImGui::SetTooltip("%s", path);
 	}
@@ -1915,6 +1950,24 @@ static void draw_harddisk_menu(void) {
 			remove_hdd(1);
 		}
 		draw_hdd_mount_state(1);
+		ImGui::Separator();
+		for (int drive = 0; drive < 4; drive++) {
+			int encoded;
+
+			encoded = 0x20 | drive;
+			if (ImGui::MenuItem((std::string("SCSI #") +
+					static_cast<char>('1' + drive) + " Open...").c_str())) {
+				open_hdd_dialog(encoded);
+			}
+			if (ImGui::MenuItem((std::string("SCSI #") +
+					static_cast<char>('1' + drive) + " Remove").c_str())) {
+				remove_hdd(encoded);
+			}
+			draw_hdd_mount_state(encoded);
+			if (drive != 3) {
+				ImGui::Separator();
+			}
+		}
 		ImGui::Separator();
 		if (ImGui::MenuItem("New SASI image...")) {
 			open_new_sasi_dialog(0);
