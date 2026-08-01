@@ -160,6 +160,34 @@ source (PIO DATA-window/DBR or an explicitly evidenced DMA path), followed by
 CSR `1Ah` and a second interrupt.  PCPLUS merely progressing is not a
 semantic acceptance criterion.
 
+Before M75c implementation, the following M75b2 invariants are mandatory:
+
+- reading AR `17h` advances AR to `18h`; the next write reaches COMMAND;
+- three writes selected at AR `12h` reach `12h`, `13h`, and `14h`;
+- repeated writes at AR `18h` remain COMMAND writes;
+- repeated writes at AR `19h` remain DATA-window writes;
+- AR `1Ah`-`2Fh` is held and reported as undefined/hardware-pending, with no
+  invented wrap behavior;
+- IRQ delivery is gated by `30h` IRE1 (membank bit 2), while the device CSR
+  latch remains independent of the PIC wire;
+- AR `31h` is the implemented memory-window register;
+- Auxiliary Status LCI bit 6 and PE bit 1 are defined as zero/unmodeled until
+  direct PCPLUS/SCHD evidence requires more behavior.
+
+M75c is internally divided into two implementation checkpoints, but they
+share the single terminal G75 gate:
+
+1. **M75c1 — Service Required generation:** expose target COMMAND-phase
+   `8Ah` only after the unread `11h` CSR has been consumed, then stop after
+   the host writes AR `12h`-`14h` and AR `18h`=`20h`.  The transfer count is
+   evidence, not a hard-coded CDB length.
+2. **M75c2 — Transfer Info PIO:** pump bytes through fixed AR `19h` using
+   DBR until the host-programmed transfer count reaches zero, then expose
+   CSR `1Ah` and the next phase request.  Decode the CDB only after the
+   transfer count completes.
+
+Neither checkpoint is independently approvable or a new milestone gate.
+
 M75 does not claim that the physical REQ/ACK wires must be exposed as guest
 ports.  The controller must instead reproduce the WD33C93 register and
 interrupt contract that PCPLUS/SCHD observe.  NP2's simplified SCSI model is

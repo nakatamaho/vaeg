@@ -155,6 +155,16 @@ status; an 8259 EOI is a separate PIC operation.  AR `32h`, `34h`, and `35h`
 remain explicit unsupported/open-register reads and writes until PCPLUS/SCHD
 or board documentation supplies evidence for their NEC-specific behavior.
 
+The register progression is part of the contract: AR `17h` is an ordinary
+auto-incremented status register, so a status read leaves AR at `18h` for the
+next COMMAND write.  AR `18h` and `19h` themselves are fixed windows.  AR
+`12h`-`14h` consequently accept a three-byte transfer count without special
+address handling.  Undefined AR `1Ah`-`2Fh` values are held and warned about;
+no wrap or speculative register is exposed.  The VA IRQ request is gated by
+the memory-bank register's IRE1 bit (bit 2), while the internal CSR latch is
+preserved when that system IRQ gate is closed.  LCI (bit 6) and PE (bit 1) of
+Auxiliary Status are currently defined as zero/unmodeled.
+
 VAEG's built-in software SCSI BIOS helper and the C-Bus phase engine remain
 different paths. The former is used by the existing BIOS compatibility calls;
 the latter now models SELECT, TRANSFER INFO, data/status/message phases, and
