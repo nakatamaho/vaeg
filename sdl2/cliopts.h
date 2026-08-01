@@ -140,6 +140,8 @@ typedef struct {
 	const char *fdd_path[2];
 	UINT sasi_mode[2];
 	const char *sasi_path[2];
+	UINT scsi_mode[4];
+	const char *scsi_path[4];
 	const char *hostfat_path;
 } VAEG_CLI_OPTIONS;
 

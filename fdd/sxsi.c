@@ -230,6 +230,29 @@ BOOL sxsi_hddvalidate_sasi(const char *file) {
 	return(result);
 }
 
+BOOL sxsi_hddvalidate_scsi(const char *file) {
+
+	_SXSIDEV candidate;
+	UINT64 expected_size;
+	BOOL result;
+
+	ZeroMemory(&candidate, sizeof(candidate));
+	candidate.fh = FILEH_INVALID;
+	if (sxsi_hddopen_device(0x20, file, &candidate) != SUCCESS) {
+		return(FAILURE);
+	}
+	expected_size = (UINT64)candidate.headersize +
+						((UINT64)candidate.totals * candidate.size);
+	result = (((candidate.type & SXSITYPE_IFMASK) == SXSITYPE_SCSI) &&
+				(candidate.totals > 0) &&
+				((UINT64)file_getsize(candidate.fh) >= expected_size)) ?
+										SUCCESS : FAILURE;
+	if (candidate.fh != FILEH_INVALID) {
+		file_close(candidate.fh);
+	}
+	return(result);
+}
+
 void sxsi_open(void) {
 
 	int		i;
