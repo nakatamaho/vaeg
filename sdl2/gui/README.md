@@ -110,13 +110,16 @@ HardDisk -> SASI-1/SASI-2 Open updates `HDD1FILE` / `HDD2FILE` in
 `vaeg.cfg` through the existing `diskdrv_sethdd()` path. HardDisk -> SCSI
 #1 through SCSI #4 Open updates `SCSIHDD0` through `SCSIHDD3` through the
 same path. The corresponding Remove command clears the selected entry.
+HardDisk -> New SCSI image creates a VHD-format `.hdd` image using the
+existing `newdisk_vhd()` helper, with 5/10/20/40/80/160 MB choices, and can
+configure it for SCSI #1 through SCSI #4 immediately.
 Reset the guest after changing a SASI or SCSI image; reset is the reliable
 point where `sxsi_open()`, `PCHDD_SASI`/`PCHDD_SCSI`, and the board binding
 are rebuilt for the guest. The configured image paths are retained across
 the GUI Reset command. The HardDisk menu shows the live mounted basename
-below each Remove command and exposes its full path on hover. SCSI image
-creation remains outside the GUI; use the documented support-disk assembly
-flow for `pcengine110-scsi-support.d88`.
+below each Remove command and exposes its full path on hover. The separate
+PC-Engine support-disk assembly flow remains available for bootable media
+such as `pcengine110-scsi-support.d88`.
 
 ## Sound Menu
 
