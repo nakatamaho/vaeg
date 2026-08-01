@@ -57,6 +57,29 @@ def validate(root: pathlib.Path) -> None:
             "controller TRANSFER INFO dispatch")
     require(scsiio, "scsiio.rddatpos >= scsiio.cmdpos",
             "REQ/ACK data completion")
+    require(scsiio, "static REG8 scsiio_auxstatus(void)",
+            "WD33C93 auxiliary-status composition")
+    require(scsiio, "static void scsiio_data_write(REG8 dat)",
+            "fixed DATA-window write helper")
+    require(scsiio, "static REG8 scsiio_data_read(void)",
+            "fixed DATA-window read helper")
+    require(scsiio, "scsiio.port != SCSICTR_CMD && scsiio.port != SCSICTR_DATA",
+            "COMMAND/DATA fixed-window address behavior")
+    require(scsiio, "SCSI_AUX_DBR",
+            "DBR auxiliary-status bit")
+    require(scsiio, "SCSI_AUX_CIP",
+            "CIP auxiliary-status bit")
+    require(scsiio, "SCSI_AUX_BSY",
+            "BSY auxiliary-status bit")
+    require(scsiio, "SCSI_C4_DMER",
+            "DMER set/reset definition")
+    require(scsiio, "hardware-pending",
+            "unsupported NEC register warning")
+    require(scsiio, "case SCSICTR_DATA:",
+            "AR19 fixed DATA window")
+    require(scsiio, "case 0x32:", "AR32 package-id audit")
+    require(scsiio, "case 0x34:", "AR34 FIFO audit")
+    require(scsiio, "case 0x35:", "AR35 FIFO audit")
     for field in ("scsi_csr_latched", "scsi_csr_event_active",
                   "scsi_csr_pending", "scsi_csr_pending_status"):
         require(scsiio, field, f"single-depth CSR latch field {field}")
