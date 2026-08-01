@@ -76,6 +76,35 @@ relevant original manuals under `A:\DOC`.
 
 ## Port and SCSIBIOS Evidence
 
+### WD33C93 host contract
+
+The PC-9801-55-compatible controller uses the WD33C93-family two-stage host
+interface: `0CC0h` selects the controller register and `0CC2h` accesses the
+selected register.  Reading `0CC0h` returns auxiliary status.  For PIO, DBR
+is the data-ready handshake; CBSY, CIP, and INT are separate controller
+status bits.  AR `19h` is a fixed DATA window.  CDB registers `03h`-`0Eh`
+are ordinary sequential registers, and the NEC extension range `30h`-`35h`
+must not be collapsed into the ordinary `00h`-`1Fh` file.
+
+For the low-level SELECT path, the host-visible completion sequence is
+expected to be event-driven:
+
+```text
+11h SELECT complete -> 8Ah COMMAND request -> 89h/88h DATA request
+-> 8Bh STATUS request -> 8Fh MESSAGE IN request -> 85h disconnect
+```
+
+This is a register/interrupt contract.  The physical REQ/ACK wire protocol
+is handled by the controller and need not be exposed as a separate guest
+port.  A timer-based injection of `8Ah` is not equivalent to a target phase
+event and is not an acceptable correction.  NP2's simplified implementation
+is useful only as historical context, not as the WD33C93 specification.
+
+M75a provides a disabled-by-default `--scsitrace` diagnostic that records
+every access to `0CC0h`-`0CC6h`, selected AR, data, `CS:IP`, controller phase
+and status, auxiliary status, and SCSI IRQ assertion/EOI clear.  The raw
+trace remains a local diagnostic artifact and is not committed.
+
 The supplied `SCSI55.TXT` is explicit about the PC-88VA board configuration:
 the standard board I/O addresses are `0CC0h`, `0CC2h`, and `0CC4h`. It does
 not independently document `0CC6h`. M75 retains the inherited `0CC6h`

@@ -81,6 +81,40 @@ The implementation checkpoints are:
 5. validate the support disk, SCFORM, and SCHD registration while retaining
    SASI and HOSTFAT behavior.
 
+## WD33C93 host-contract checkpoints
+
+M75 treats the PC-9801-55-compatible controller as a WD33C93-family
+register interface, not as a freely designed SCSI state machine.  The
+controller's host-visible contract is the authority for this milestone.
+
+The host selects a register through `0CC0h` and accesses it through `0CC2h`.
+`0CC0h` reads the auxiliary status; the documented PIO handshake is the
+DBR bit, together with the controller-busy and command-in-progress bits.
+Register `19h` is the fixed DATA window.  The CDB registers (`03h` through
+`0Eh`) retain the normal address progression, and the NEC extension range
+`30h` through `35h` must be audited before the phase engine is changed.
+
+The required low-level sequence is event-driven:
+
+```text
+SELECT -> SCSI status 11h -> COMMAND request 8Ah
+TRANSFER INFO/CDB -> DATA request 89h or 88h
+DATA complete -> STATUS request 8Bh
+STATUS complete -> MESSAGE IN request 8Fh
+MESSAGE complete -> disconnect 85h
+```
+
+The `8Ah` request must be derived from the target/controller phase event.  A
+wall-clock delay that happens to expose `8Ah` is not an acceptable
+implementation.  The trace-only M75a checkpoint must record every `0CC0h`,
+`0CC2h`, `0CC4h`, and `0CC6h` access with AR, value, `CS:IP`, auxiliary
+status, SCSI status, phase, and interrupt assertion/clear events.
+
+M75 does not claim that the physical REQ/ACK wires must be exposed as guest
+ports.  The controller must instead reproduce the WD33C93 register and
+interrupt contract that PCPLUS/SCHD observe.  NP2's simplified SCSI model is
+not a specification source for this checkpoint.
+
 ## Non-goals
 
 M75 must not:
