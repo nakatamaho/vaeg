@@ -46,6 +46,58 @@ not a new save-state field or compatibility format.
 The default expansion interrupt selection is INT2/IRQ6, avoiding the SASI
 INT3/IRQ9 collision described by the supplied PC-88VA documentation.
 
+## M75a WD33C93 trace checkpoint
+
+The M75a correction is that the active controller is a WD33C93-family host
+interface.  The specification boundary is therefore the register and
+interrupt contract at `0CC0h`/`0CC2h`, not an independently invented physical
+REQ/ACK state machine.  The auxiliary status DBR bit is the PIO data-ready
+handshake; CBSY, CIP, and INT are also host-visible status.  AR `19h` is a
+fixed DATA window, while the CDB registers `03h`-`0Eh` and NEC extension
+registers `30h`-`35h` remain addressable controller registers.
+
+The event-driven status sequence required for the low-level SELECT path is:
+
+```text
+SELECT complete  11h
+COMMAND request  8Ah
+DATA request     89h/88h
+STATUS request   8Bh
+MESSAGE request  8Fh
+disconnect       85h
+```
+
+The temporary delayed-`8Ah` experiment was discarded before M75a.  It was a
+diagnostic probe only and is not part of the production state machine.
+
+The trace-only implementation is commit `9deafb3` and adds the disabled-by-
+default `--scsitrace` option.  It records AR selection, `0CC2h` register
+accesses, `0CC4h` and `0CC6h` accesses, `CS:IP`, controller status/phase,
+auxiliary status, and the configured SCSI IRQ assertion/EOI clear.  It does
+not alter guest state or timing when the option is absent.
+
+Trace command used:
+
+```text
+SDL_VIDEODRIVER=dummy gtimeout -k 1 8 build/linux-debug/sdl2/vaeg \
+  --model va2 --roms docs/roms \
+  --fdd1 pcengine110-scsi-support.d88 \
+  --scsi1 /tmp/m75-schd-40mb-512.hdd --scsitrace --nowait --mute
+```
+
+Observed predecessor boundary:
+
+```text
+AR=15h/18h, SELECT without ATN
+SCSI status 11h, phase COMMAND, IRQ6 asserted
+PCPLUS reads auxiliary status and status register, then clears IRQ6 by EOI
+no CDB DATA-window access follows before the run timeout
+```
+
+This proves the current stopping point without claiming that a delayed timer
+is a valid fix.  The next M75 checkpoint must determine why the target phase
+request is not being exposed through the WD33C93 command/DBR contract.
+
 ## CDB coverage
 
 | CDB | Current behavior | Data source |
