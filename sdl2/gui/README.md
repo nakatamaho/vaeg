@@ -113,6 +113,10 @@ same path. The corresponding Remove command clears the selected entry.
 HardDisk -> New SCSI image creates a VHD-format `.hdd` image using the
 existing `newdisk_vhd()` helper, with 5/10/20/40/80/160 MB choices, and can
 configure it for SCSI #1 through SCSI #4 immediately.
+Headless or scripted runs can attach the same images with `--scsi1` through
+`--scsi4`, using `none` to clear a slot. The command-line path validates the
+VHD geometry before startup and shares the `SCSIHDD0` through `SCSIHDD3`
+configuration entries with the GUI.
 Reset the guest after changing a SASI or SCSI image; reset is the reliable
 point where `sxsi_open()`, `PCHDD_SASI`/`PCHDD_SCSI`, and the board binding
 are rebuilt for the guest. The configured image paths are retained across

@@ -58,7 +58,7 @@ the pinned SDL2 release recorded in ADR-0006.
 |------|---------|
 | Machine | `--model va|va2` |
 | Sound | `--fmbackend np2|ymfm`, `--fmsound opn|opna`, `--ymfm-fidelity minimum|medium|maximum`, `--samplerate 11025|22050|44100`, `--soundbuffer 40..1000`, `--mute` |
-| Media | `--fdd1 path|none`, `--fdd2 path|none`, `--sasi1 path|none`, `--sasi2 path|none`, `--hostfat-dir path` |
+| Media | `--fdd1 path|none`, `--fdd2 path|none`, `--sasi1 path|none`, `--sasi2 path|none`, `--scsi1 path|none` through `--scsi4 path|none`, `--hostfat-dir path` |
 | Execution | `--cpumult 1..32`, `--sgp model|follow-cpu|1..16`, `--nowait`, `--frameskip auto|full|2|3|4` |
 | Display/input | `--fullscreen`, `--windowed`, `--effect unfiltered|linear|scanline|crt-lite`, `--scaling native|fit|fit-8dot|integer|stretch`, `--controller joystick|mouse`, `--keyboard-layout jis|us|custom` |
 | Diagnostics/information | `--smoke`, `--selftest`, `--debug`, `--fdctrace`, `--pacelog`, `--trace-cpu N`, `--version`, `--help`, `-h` |
@@ -190,6 +190,10 @@ SCSI image creates VHD-format `.hdd` images in 5/10/20/40/80/160 MB sizes
 and can assign the new image to SCSI #1 through SCSI #4. SCSI mounting
 updates `SCSIHDD0` through `SCSIHDD3`; bootable PC-Engine support-disk
 assembly remains a separate documented flow.
+The same SCSI images can be attached without opening the GUI, for example
+with `--scsi1 disk.hdd --scsi2 none --scsi3 none --scsi4 none`. The command
+line validates the VHD geometry before starting the guest and applies the
+paths to the same `SCSIHDD0` through `SCSIHDD3` configuration entries.
 After changing a SASI or SCSI image, reset the guest so the existing
 SxSI/SASI/SCSI open and bind path is rebuilt. IDE GUI mounting is not
 implemented.
