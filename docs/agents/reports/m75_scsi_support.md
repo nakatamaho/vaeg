@@ -28,14 +28,14 @@ The board ROM remains detached by default. The active SCSI path is split into:
 2. the C-Bus controller register/data path;
 3. the existing SxSI image backend.
 
-The controller now retains target-controlled phase state after SELECT. A
-TRANSFER INFO command consumes the current CDB, exposes data-in/data-out
-completion, then advances through STATUS and MESSAGE IN before disconnecting.
-The VA I/O registration includes the inherited `0CC6h` byte stream as the
-data leg of this phase engine. This is retained as a compatibility path; the
-SCSI55 document independently specifies `0CC0h`, `0CC2h`, and `0CC4h`, while
-guest-level evidence for a separate `0CC6h` hardware designation remains
-pending.
+The controller now retains the target-controlled phase state after SELECT and
+implements the WD33C93 register/PIO boundary through the COMMAND transfer
+completion point. The active low-level AR=18h/19h path does not yet decode
+the CDB or advance to DATA IN/OUT, STATUS, or MESSAGE IN. The VA I/O
+registration includes the inherited `0CC6h` byte stream as a legacy
+compatibility path; the SCSI55 document independently specifies `0CC0h`,
+`0CC2h`, and `0CC4h`, while guest-level evidence for a separate `0CC6h`
+hardware designation remains pending.
 
 The transfer-length counter uses the pre-existing serialized `cmdpos` slot.
 The removed board-ROM storage is represented by reserved padding of the same
@@ -281,7 +281,7 @@ M75c1: expose the target COMMAND-phase Service Required event (8Ah) only.
        DoD ends after AR=12h-14h and AR=18h <- 20h are observed.
 
 M75c2: implement Transfer Info PIO byte pumping through fixed AR=19h.
-       DoD observes AR=19h CDB bytes, CSR=1Ah, and the next phase request.
+       DoD observes AR=19h bytes and CSR=1Ah; later phases are not yet active.
 ```
 
 The 8Ah event must be back-pressured behind the unread 11h CSR rather than
@@ -353,9 +353,9 @@ CSR 1Ah
 ```
 
 The same trace shows later host-programmed counts such as `24h`, `0Ah`, and
-`08h`; this is why a fixed six-byte CDB assumption would be incorrect.  The
-bounded run remains `exit=124`, but the required AR=19h and CSR=1Ah boundary
-is now observable before timeout.
+`08h`; this is why a fixed six-byte CDB assumption would be incorrect. The
+M75c3 trace-only classification below establishes whether these are DATA IN
+transfers or are incorrectly being consumed by the COMMAND path.
 
 M75c2 commits:
 
@@ -365,18 +365,53 @@ acf588f M75c2: pump PIO CDB bytes through DATA window
 bffa7cf M75c2: validate PIO CDB completion
 ```
 
-## CDB coverage
+## Existing command-helper coverage (not active low-level AR=19h execution)
 
-| CDB | Current behavior | Data source |
+| CDB | Existing `scsicmd_cmd()` helper | Active low-level path |
 |---|---|---|
-| `00h` TEST UNIT READY | successful status when a SCSI image is mounted | SxSI presence |
-| `12h` INQUIRY | fixed direct-access HDD identification, allocation-length bounded | controller response buffer |
-| `25h` READ CAPACITY (10) | big-endian last LBA and logical block length | SxSI totals and sector size |
-| `1Ah` MODE SENSE (6) | direct-access header and one block descriptor, allocation-length bounded | SxSI totals and sector size |
+| `00h` TEST UNIT READY | successful status when a SCSI image is mounted | not reached from M75c2 |
+| `12h` INQUIRY | fixed direct-access HDD identification, allocation-length bounded | not reached from M75c2 |
+| `25h` READ CAPACITY (10) | big-endian last LBA and logical block length | not reached from M75c2 |
+| `1Ah` MODE SENSE (6) | direct-access header and one block descriptor, allocation-length bounded | not reached from M75c2 |
 
-Data transfer positions are reset at each data phase. Completing the final
-byte raises the phase-completion request, so the next controller observation
-sees STATUS rather than stale DATA IN. RESET clears phase and transfer state.
+The helper table is retained for the existing BIOS compatibility path. The
+active low-level controller path currently leaves `scsiio.phase` at COMMAND,
+does not call `scsicmd_cmd()`, and reports CSR `1Ah` after every host-counted
+AR=19h transfer. DATA IN/STATUS/MESSAGE behavior is therefore not claimed.
+
+## M75c3 transfer-phase classification checkpoint
+
+M75c3 adds trace-only accounting; it does not change guest behavior. Each
+`18h <- 20h` TRANSFER INFO records the controller phase, direction, host
+transfer count, source path, the number of AR=19h accesses, the number of
+legacy 0CC6h data-port accesses, and the resulting CSR. A bounded run with
+the PC-Engine 1.1 SCSI support disk produced:
+
+```text
+exit=124 (bounded wall-clock stop)
+phase=1Ah (COMMAND) for every observed transfer
+direction=host-to-spc for every observed transfer
+source=m75c2-ar19-pio for every observed transfer
+tc=000006 -> ar19_accesses=6,  csr=1Ah
+tc=000024 -> ar19_accesses=36, csr=1Ah
+tc=00000A -> ar19_accesses=10, csr=1Ah
+tc=000008 -> ar19_accesses=8,  csr=1Ah
+data_port_accesses=0 in the classified records
+```
+
+The `24h` and `08h` values are therefore not evidence that DATA IN is already
+implemented in the current branch. They are host-programmed counts consumed
+by the still-COMMAND M75c2 path. Their lengths are consistent with an
+INQUIRY response and READ CAPACITY response in the guest command sequence,
+but the active controller has not decoded those CDBs or generated the DATA
+IN/STATUS/MESSAGE phases. This is a demonstrated contract gap, not a reason
+to weaken the M75c2 scope statement.
+
+The trace also proves that the 0CC6h legacy data path is not the source of
+these records. The next implementation checkpoint must connect completed
+COMMAND CDBs to the existing command helper only through a general phase
+transition, then verify DATA IN with distinct CSR `19h`, followed by STATUS
+and MESSAGE IN transfers with TC=1.
 
 ## Validation performed
 
