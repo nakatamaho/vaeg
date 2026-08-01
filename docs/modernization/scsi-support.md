@@ -117,6 +117,36 @@ the latter contains the inherited `0CC6h` byte-stream handler. Until a guest
 trace establishes which path PCPLUS/SCHD takes on VA, the two paths must not
 be treated as interchangeable.
 
+## SCHD Driver Evidence
+
+The supplied `SCHD.SYS`, `SCHD.DOC`, `SCHD.LOG`, and `SCHD.TXT` identify
+`SCHD` as a DOS block-device driver for PC-88VA, PC-88VA2/3, and PC-Engine
+systems. `PCPLUS.SYS` must be loaded before `SCHD.SYS`; the driver then
+registers SCSI hard-disk or magneto-optical media as a DOS block device. The
+documented `-I0` through `-I7` option selects the SCSI target ID. `-C` and
+`-S` override geometry, `-B` selects the larger sector buffer, and `-X`
+changes the removable-media policy. These options are guest-driver policy,
+not additional emulator I/O ports.
+
+The revision log records that SCHD's SCSIBIOS interface was split from the
+driver, that packet/address transfers were changed to word accesses, and that
+an earlier `REP MOVSW`/`REP STOSW` implementation error was corrected. A
+byte-level inspection of the supplied `SCHD.SYS` contains five `CD CC`
+(`INT 0CCh`) call sites and no `CD 1Bh` calls. It also contains no literal
+`MOV DX,0CC0h/0CC2h/0CC4h/0CC6h` setup sequence. This is consistent with the
+documented architecture: SCHD calls the PCPLUS software SCSIBIOS entry point
+and does not establish a separate direct `0CC6h` VA contract. The byte scan is
+evidence of the call boundary, not a substitute for a complete disassembly of
+the proprietary driver.
+
+Accordingly, a VA SCSI implementation must first make the `INT 0CCh`
+PCPLUS/SCSIBIOS path observable and correct. Direct registration of the
+legacy NP2 `0CC6h` stream remains unsupported unless a guest trace or an
+authoritative VA board document demonstrates that SCHD uses it. Normal PIO is
+the expected path; `SETDMA.COM` can request optional PCPLUS DMA mode after the
+software BIOS has been installed, but SCHD's presence alone does not require
+DMA emulation.
+
 ## Building the Disk
 
 [`tools/pc88va/scsi-support.sh`](../../tools/pc88va/scsi-support.sh) takes a
