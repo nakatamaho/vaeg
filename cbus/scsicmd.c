@@ -18,6 +18,47 @@ extern void iptrace_out(void);
 #define	SCSICMD_ERR
 #endif
 
+typedef struct {
+	UINT phase;
+	REG8 service_status;
+	BOOL host_to_spc;
+} SCSIPHASECONTRACT;
+
+/* One table owns the target phase and the WD33C93 service-request code. */
+static const SCSIPHASECONTRACT scsi_phase_contract[] = {
+	{SCSIPH_DATAOUT, 0x88, TRUE},
+	{SCSIPH_DATAIN, 0x89, FALSE},
+	{SCSIPH_COMMAND, 0x8a, TRUE},
+	{SCSIPH_STATUS, 0x8b, FALSE},
+	{SCSIPH_INFOOUT, 0x8c, TRUE},
+	{SCSIPH_INFOIN, 0x8d, FALSE},
+	{SCSIPH_MSGOUT, 0x8e, TRUE},
+	{SCSIPH_MSGIN, 0x8f, FALSE}
+};
+
+REG8 scsicmd_phase_service_status(UINT phase) {
+	UINT i;
+
+	for (i = 0; i < (UINT)(sizeof(scsi_phase_contract) /
+			sizeof(scsi_phase_contract[0])); i++) {
+		if (scsi_phase_contract[i].phase == phase) {
+			return scsi_phase_contract[i].service_status;
+		}
+	}
+	return 0x42;
+}
+
+BOOL scsicmd_phase_host_to_spc(UINT phase) {
+	UINT i;
+
+	for (i = 0; i < (UINT)(sizeof(scsi_phase_contract) /
+			sizeof(scsi_phase_contract[0])); i++) {
+		if (scsi_phase_contract[i].phase == phase) {
+			return scsi_phase_contract[i].host_to_spc;
+		}
+	}
+	return FALSE;
+}
 
 static const BYTE hdd_inquiry[0x20] = {
 			0x00,0x00,0x02,0x02,0x1c,0x00,0x00,0x18,
@@ -154,7 +195,7 @@ REG8 scsicmd_transfer(REG8 id, BYTE *cdb) {
 }
 
 
-static REG8 scsicmd_cmd(REG8 id) {
+REG8 scsicmd_command(REG8 id) {
 
 	SXSIDEV	sxsi;
 
@@ -166,10 +207,11 @@ static REG8 scsicmd_cmd(REG8 id) {
 	if ((sxsi == NULL) || (sxsi->type == 0)) {
 		return(0x42);
 	}
+	scsiio.reg[SCSICTR_STATUS] = 0x00;
 	switch(scsiio.cmd[0]) {
 		case 0x00:
 			scsiio.phase = SCSIPH_STATUS;
-			return(0x8b);		// Transfer Status要求
+			return(scsicmd_phase_service_status(SCSIPH_STATUS));
 
 		case 0x12:				// inquiry
 		case 0x1a:				// Mode Sense (6)
@@ -177,11 +219,16 @@ static REG8 scsicmd_cmd(REG8 id) {
 			scsicmd_datain(sxsi, scsiio.cmd);
 			scsiio.phase = SCSIPH_DATAIN;
 			scsiio.rddatpos = 0;
-			return(0x89);		// Transfer Data要求
+			return(scsicmd_phase_service_status(SCSIPH_DATAIN));
 	}
 
 	SCSICMD_ERR
-	return(0xff);
+	/* Unknown commands use CHECK CONDITION rather than hanging the bus. */
+	scsiio.reg[SCSICTR_STATUS] = 0x02;
+	scsiio.data[0] = 0x02;
+	scsiio.cmdpos = 1;
+	scsiio.phase = SCSIPH_STATUS;
+	return(scsicmd_phase_service_status(SCSIPH_STATUS));
 }
 
 BOOL scsicmd_send(void) {
@@ -202,30 +249,31 @@ REG8 scsicmd_transinfo(REG8 id) {
 		case SCSIPH_COMMAND:
 			CopyMemory(scsiio.cmd, scsiio.reg + SCSICTR_CDB,
 																	 sizeof(scsiio.cmd));
-			ret = scsicmd_cmd(id);
+			ret = scsicmd_command(id);
 			return(ret);
 
 		case SCSIPH_DATAIN:
 			if (scsiio.rddatpos >= scsiio.cmdpos) {
 				scsiio.phase = SCSIPH_STATUS;
-				return(0x8b);			}
-			return(0x89);			// Transfer Data request remains active.
+				return(scsicmd_phase_service_status(SCSIPH_STATUS));
+			}
+			return(scsicmd_phase_service_status(SCSIPH_DATAIN));
 
 		case SCSIPH_DATAOUT:
 			if (scsiio.cmdpos && (scsiio.wrdatpos >= scsiio.cmdpos)) {
 				scsiio.phase = SCSIPH_STATUS;
-				return(0x8b);
+				return(scsicmd_phase_service_status(SCSIPH_STATUS));
 			}
-			return(0x88);			// Transfer Data Out request.
+			return(scsicmd_phase_service_status(SCSIPH_DATAOUT));
 
 		case SCSIPH_STATUS:
 			scsiio.reg[SCSICTR_STATUS] = 0x00;
 			scsiio.phase = SCSIPH_MSGIN;
-			return(0x8f);			// Transfer Message request.
+			return(scsicmd_phase_service_status(SCSIPH_MSGIN));
 
 		case SCSIPH_MSGIN:
 			scsiio.phase = 0;
-			return(0x80);			// Disconnect.
+			return((scsiio.reg[SCSICTR_CONTROL] & 0x08) ? 0x85 : 0x80);
 	}
 	return(0x42);
 }
@@ -319,7 +367,7 @@ void scsicmd_bios(void) {
 
 				case 0x1a:		// Transfer command
 					MEML_READSTR(CPU_ES, CPU_BX, scsiio.cmd, 12);
-					stat = scsicmd_cmd(dstid);
+					stat = scsicmd_command(dstid);
 					break;
 
 				case 0x1b:		// Status In
