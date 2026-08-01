@@ -259,6 +259,36 @@ AR `19h` CDB bytes.  Therefore M75b2 proves the register-window and
 Auxiliary-Status boundary but does not claim the target phase request or
 full PCPLUS/SCHD command progression.  Those remain M75c evidence.
 
+The register progression is intentional and tested: reading AR `17h`
+increments the selected address to AR `18h`, while a subsequent write lands
+on the fixed COMMAND window.  AR `12h`-`14h` therefore accept three
+successive transfer-count bytes; AR `18h` and AR `19h` do not advance.  AR
+values `1Ah`-`2Fh` are held and produce a `hardware-pending` warning rather
+than an invented wrap or increment rule.
+
+The existing `scsiioint()` path gates delivery to the VA IRQ line on
+`membank bit 2` (IRE1).  The CSR latch is still updated internally when IRE1
+is clear, but no PIC request is asserted; this keeps device state and the
+system interrupt wire separate.  AR `31h` remains the implemented memory
+window register.  Auxiliary Status LCI (bit 6) and PE (bit 1) are defined but
+currently return zero; neither speculative command-ignore nor parity behavior
+is claimed by M75b2.
+
+The M75c work is split without creating additional human gates:
+
+```text
+M75c1: expose the target COMMAND-phase Service Required event (8Ah) only.
+       DoD ends after AR=12h-14h and AR=18h <- 20h are observed.
+
+M75c2: implement Transfer Info PIO byte pumping through fixed AR=19h.
+       DoD observes AR=19h CDB bytes, CSR=1Ah, and the next phase request.
+```
+
+The 8Ah event must be back-pressured behind the unread 11h CSR rather than
+generated in the same simulation call.  CDB decoding must wait until the
+host-programmed transfer count reaches zero; no command-group length is
+allowed to substitute for that observed count.
+
 ## CDB coverage
 
 | CDB | Current behavior | Data source |
