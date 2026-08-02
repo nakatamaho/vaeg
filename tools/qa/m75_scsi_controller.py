@@ -92,6 +92,14 @@ def validate(root: pathlib.Path) -> None:
             "fixed DATA-window write helper")
     require(scsiio, "static REG8 scsiio_data_read(void)",
             "fixed DATA-window read helper")
+    data_write = scsiio.split("static void scsiio_data_write(REG8 dat)", 1)[1]
+    data_write = data_write.split("\n}\n", 1)[0]
+    data_read = scsiio.split("static REG8 scsiio_data_read(void)", 1)[1]
+    data_read = data_read.split("\n}\n", 1)[0]
+    for helper, body in (("DATA write", data_write), ("DATA read", data_read)):
+        if "nevent_set(" in body or "CPU_REMCLOCK" in body:
+            raise AssertionError(
+                f"{helper} byte pump must remain synchronous to the PIO access")
     require(scsiio, "scsiio.port != SCSICTR_CMD && scsiio.port != SCSICTR_DATA",
             "COMMAND/DATA fixed-window address behavior")
     require(scsiio, "SCSI_AUX_DBR",
