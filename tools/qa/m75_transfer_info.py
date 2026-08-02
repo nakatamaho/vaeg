@@ -161,6 +161,16 @@ def test_transfer_info_waits_for_req() -> None:
     assert t.state is State.BYTE_PENDING and t.dbr
 
 
+def test_transfer_info_accepts_already_asserted_req() -> None:
+    t = Transfer(req=True)
+    assert t.command_write(1)
+    assert t.state is State.BYTE_PENDING
+    assert t.bsy and t.dbr and t.req
+    t.transfer_byte("spc-to-host")
+    assert t.state is State.WAIT_FOR_POST_COUNT_REQ
+    assert t.bytes == 1 and t.ack_count == 1
+
+
 def test_transfer_info_does_not_raise_service_required_while_active() -> None:
     t = Transfer()
     assert t.command_write(1)
