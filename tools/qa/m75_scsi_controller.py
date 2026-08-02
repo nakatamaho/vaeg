@@ -65,6 +65,8 @@ def validate(root: pathlib.Path) -> None:
             "phase direction lookup")
     require(scsicmd, "REG8 scsicmd_transinfo(REG8 id)",
             "phase-aware transfer entry")
+    require(scsicmd, "The next phase starts a fresh PIO data window.",
+            "phase-boundary PIO cursor reset")
     require(scsicmd, "hdd_sense", "REQUEST SENSE response")
     require(scsicmd, "case 0x03", "REQUEST SENSE command execution")
     require(scsicmd, "scsicmd_putbe32", "big-endian response encoding")
