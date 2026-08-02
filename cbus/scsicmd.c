@@ -203,7 +203,7 @@ static UINT scsicmd_datain(SXSIDEV sxsi, BYTE *cdb) {
 				scsiio.data[4] = 0;
 				scsicmd_putbe24(scsiio.data + 5,
 						(UINT32)sxsi->totals);
-				scsicmd_putbe24(scsiio.data + 8,
+				scsicmd_putbe24(scsiio.data + 9,
 						(UINT32)sxsi->size);
 			}
 			if (page != 0x00) {

@@ -128,6 +128,8 @@ def validate(root: pathlib.Path) -> None:
             "transfer-count high-byte decode")
     require(scsiio, "scsiio.reg[SCSICTR_TRANSCNT + 0] = 0xff",
             "transfer-count low-byte borrow")
+    require(scsicmd, "scsicmd_putbe24(scsiio.data + 9",
+            "MODE SENSE block-length offset")
     require(scsiio, "scsiio.rddatpos >= scsiio.cmdpos",
             "REQ/ACK data completion")
     command_function = scsiio.split("static void scsicmd(REG8 cmd)", 1)[1]

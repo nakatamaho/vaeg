@@ -1273,3 +1273,12 @@ separate parity correction or move it to Open Defects.
 - **Evidence:** [M75 report](../agents/reports/m75_scsi_support.md) and
   [M75 task](../agents/tasks/M75_scsi_support.md).
 - **Commit:** [9f11430](https://github.com/nakatamaho/vaeg/commit/9f11430a52e7d660c18cb0cfad3bef448f6c157c).
+
+### MODE SENSE block length was written at the reserved-byte offset
+
+- **Status:** corrected in M75d1; SCHD/SCFORM manual confirmation remains pending.
+- **Symptom:** after INQUIRY completed and SCHD reported direct-access fixed-media mode, the driver halted during MODE SENSE geometry processing.
+- **Demonstrated root cause:** the six-byte MODE SENSE block descriptor places the three-byte block length at response bytes 9--11.  `scsicmd_datain()` wrote it at byte 8, overwriting the reserved byte and shifting the value read by SCHD.
+- **Correction:** write the mounted `SXSIDEV` block size at `scsiio.data + 9`; no device-specific or guest-address workaround was added.
+- **Verification:** M75 QA, Linux SDL2 build, focused CTest, and SDL selftest pass.  The corrected MinGW/manual SCFORM run is still required to confirm SCHD registration and format completion.
+- **Evidence:** [M75 report](../agents/reports/m75_scsi_support.md) and [M75 task](../agents/tasks/M75_scsi_support.md).

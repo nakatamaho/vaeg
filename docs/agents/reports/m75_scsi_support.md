@@ -1297,3 +1297,23 @@ It is a PE32+ x86-64 executable; SHA-256 is
 The copy was verified byte-identical to
 `build/mingw-cross/sdl2/vaeg.exe`.  Windows execution is not available on this
 host, so SCHD/SCFORM acceptance remains a manual Windows gate.
+
+### M75d1 MODE SENSE block-descriptor correction (2026-08-02)
+
+The corrected run now passes the SENSE transfer and reaches SCHD's INQUIRY
+summary: device code 0, response-data format 0, and fixed-media mode.  These
+messages are informational and show that INQUIRY completed; the subsequent
+halt is in the MODE SENSE/geometry step.
+
+Static comparison with SCHD's documented request (`1A 00 04 00 24 00`) found a
+second controller-contract defect.  In a MODE SENSE(6) block descriptor, the
+block length occupies response bytes 9--11 (header bytes 0--3, descriptor
+bytes 4--11).  VAEG wrote the three-byte block length at byte 8, overwriting
+the reserved byte and leaving a shifted value (for example, 256 appeared as
+`01 00 00` when SCHD reads bytes 9--11).  The correction writes at byte 9;
+mounted `SXSIDEV` geometry remains the sole source of the value.
+
+The static M75 QA validator now protects this offset.  Linux build, focused
+CTest, M75 QA, and SDL selftest pass after the correction.  A corrected MinGW
+artifact must still be run through SCHD registration and SCFORM to confirm the
+manual symptom is cleared; G75 remains open.
