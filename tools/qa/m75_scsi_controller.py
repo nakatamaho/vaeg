@@ -131,6 +131,8 @@ def validate(root: pathlib.Path) -> None:
             "M75c3 transfer phase trace")
     require(scsiio, "scsitrace transfer-result",
             "M75c3 transfer completion trace")
+    require(scsiio, "scsitrace data-read ar=19",
+            "PIO data-byte trace")
     require(scsiio, "ar19_accesses",
             "M75c3 AR19 access accounting")
     require(scsiio, "ar19_reads",
