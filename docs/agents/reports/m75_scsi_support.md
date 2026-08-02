@@ -1303,3 +1303,51 @@ restores the original high/middle/low decode and borrow order.  The MODE SENSE
 block-length-at-byte-9 correction remains in effect.  The corrected MinGW
 artifact was rebuilt; its SHA-256 is
 `d17a62569568d51ddfda1a8739824e52922772f9be870dfa98780d3abf4eac25`.
+
+### M75d1 CSR provenance trace (2026-08-02)
+
+The synchronized starting SHA for this diagnostic checkpoint was
+`afd3dabe19dcca670847f7e397ead67c7cf38e33` on
+`topic/m75-scsi-support`, matching the remote branch before the change.
+Trace-only commit
+[ad9c99b](https://github.com/nakatamaho/vaeg/commit/ad9c99b2d36a810793a57b1162fc195229b009a3)
+adds provenance to the existing CSR latch/pending path.  It is not a
+production correction.
+
+The new records are: `csr-request` (monotonic sequence, raw CSR, origin),
+`csr-latch`, `csr-hostread`, `csr-promote`, `csr-overrun`, and `csr-drop`.
+Each includes the request origin and sequence plus event-active, latched, and
+pending status/sequence/origin, phase, selected AR, auxiliary status,
+transfer/command pending state, target readiness, and `CS:IP`.  The trace is
+opt-in through `--scsitrace`; compact mode retains these records.  No guest
+state, CSR behavior, event clocks, IRQ behavior, or PIO behavior changes when
+tracing is disabled.
+
+The normal-speed VA1 run used the standard support-disk/SCSI-image command
+with `--scsitrace --scsitrace-no-guest --scsitrace-compact
+--scsitrace-limit 7`.  It timed out at the external 30-second safety bound
+(exit 124), after the complete TUR sequence and the second
+SELECT/COMMAND request.  The trace contained 11 CSR requests, 11 latches,
+and 10 host reads at the cutoff; every request that became visible followed
+request -> latch -> hostread.  Counts for `csr-promote`, `csr-overrun`, and
+`csr-drop` were all zero.  A separate semantic-limit run exited 0 and showed
+the same ordered prefix.  Thus this run does not reproduce the stale `11h`
+followed by late `1Ah` sequence reported from the older WSLg binary.  The
+trace is evidence that the current run did not overflow the pending slot, not
+proof that the older report was impossible.
+
+Focused validation and build results:
+
+```text
+python3 tools/qa/m75_scsi_controller.py --root .                         PASS
+cmake --build build/linux-ci-clang --target vaeg_sdl2 -j2                  PASS
+cmake --build build/m75-tests --target vaeg_sdl2 -j2                      PASS
+ctest --test-dir build/m75-tests -R vaeg_m75_scsi_controller --output-on-failure  PASS
+SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy build/m75-tests/sdl2/vaeg --selftest  PASS
+```
+
+The evaluated Linux SDL2 executable SHA-256 is
+`5e55a19ecc2eeca505fa0bde0923cfdb9ce7781b65343ddadedc39035efec76d`.
+No production-fix SHA is claimed by this checkpoint.  G75 remains pending;
+normal-speed INQUIRY DATA IN accounting, SCHD/SCFORM/reboot/file-operation
+acceptance, and SASI/HOSTFAT/non-SCSI regression evidence are still open.
