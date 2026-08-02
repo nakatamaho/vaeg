@@ -178,6 +178,11 @@ BOOL vaeg_cli_parse(int argc, char **argv, VAEG_CLI_OPTIONS *options,
 			options->scsitrace = TRUE;
 			options->scsitrace_compact = TRUE;
 		}
+		else if (!strcmp(argument, "--scsitrace-cmdreq-windows")) {
+			options->scsitrace = TRUE;
+			options->scsitrace_guest = TRUE;
+			options->scsitrace_cmdreq_windows = TRUE;
+		}
 		else if (!strcmp(argument, "--scsitrace-limit")) {
 			value = option_value(argc, argv, &position, argument, error,
 													error_size);

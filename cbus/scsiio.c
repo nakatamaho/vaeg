@@ -10,6 +10,7 @@
 #include	"scsicmd.h"
 
 #include	"iocoreva.h"
+#include	"upd9002_trace.h"
 
 
 	_SCSIIO		scsiio;
@@ -457,6 +458,7 @@ void scsiioint(NEVENTITEM item) {
 
 	scsi_csr_event_active = FALSE;
 	scsiio.scsistatus = scsi_csr_event_status;
+	upd9002_guest_trace_scsi_status(scsi_csr_event_status);
 	scsi_csr_latched = TRUE;
 	scsiio.auxstatus &= (REG8)~SCSI_AUX_CIP;
 	if ((scsi_csr_event_status & 0x80) &&

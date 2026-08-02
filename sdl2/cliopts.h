@@ -120,6 +120,7 @@ typedef struct {
 	BOOL scsitrace;
 	BOOL scsitrace_guest;
 	BOOL scsitrace_compact;
+	BOOL scsitrace_cmdreq_windows;
 	BOOL pacelog;
 	BOOL mute;
 	BOOL nowait;

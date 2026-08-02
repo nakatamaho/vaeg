@@ -39,6 +39,10 @@ def validate(root: pathlib.Path) -> None:
     scsicmd = (root / "cbus" / "scsicmd.c").read_text(encoding="utf-8")
     scsiio = (root / "cbus" / "scsiio.c").read_text(encoding="utf-8")
     scsiio_h = (root / "cbus" / "scsiio.h").read_text(encoding="utf-8")
+    trace = (root / "cpu" / "upd9002" / "upd9002_trace.c").read_text(encoding="utf-8")
+    trace_h = (root / "cpu" / "upd9002" / "upd9002_trace.h").read_text(encoding="utf-8")
+    cliopts = (root / "sdl2" / "cliopts.c").read_text(encoding="utf-8")
+    np2 = (root / "sdl2" / "np2.c").read_text(encoding="utf-8")
 
     inquiry_match = re.search(
         r"static const BYTE hdd_inquiry\[0x[0-9a-fA-F]+\]\s*=\s*\{(.*?)\};",
@@ -194,6 +198,29 @@ def validate(root: pathlib.Path) -> None:
             "emulated-clock delay before the first DBR assertion")
     require(scsiio, "scsiio_target_phase_ready_event",
             "target phase readiness event")
+    require(scsiio, "upd9002_guest_trace_scsi_status",
+            "raw CSR trace notification")
+    require(trace_h, "upd9002_guest_trace_start_cmdreq_windows",
+            "command-request window trace API")
+    require(trace_h, "upd9002_guest_trace_scsi_status",
+            "CSR presentation trace API")
+    require(trace, "scsi-cmdreq-windows-v1",
+            "command-request window trace format")
+    require(trace, "scsi-cmdreq-window-summary",
+            "command-request window summary")
+    require(trace, "presentation_instruction",
+            "CSR presentation instruction timestamp")
+    require(trace, "presentation_clock",
+            "CSR presentation clock timestamp")
+    require(trace, "ba_instruction", "047Eh write instruction timestamp")
+    require(trace, "raw=8a", "COMMAND request presentation record")
+    require(trace, "raw=%02x", "non-COMMAND CSR presentation record")
+    require(trace, "0x1cbd", "foreground wait-point watch")
+    require(trace, "0x1791", "main-pump exit watch")
+    require(cliopts, "--scsitrace-cmdreq-windows",
+            "command-request window CLI option")
+    require(np2, "upd9002_guest_trace_start_cmdreq_windows",
+            "command-request window CLI wiring")
     require(scsiio, "status == 0x85) || (status == 0x80",
             "bus-free status release after MESSAGE IN")
     require(scsiio, "target-phase-wait",
