@@ -1293,3 +1293,12 @@ separate parity correction or move it to Open Defects.
 - **Evidence:** [M75 report](../agents/reports/m75_scsi_support.md) and
   [M75 task](../agents/tasks/M75_scsi_support.md).
 - **Commit:** [ccb0666](https://github.com/nakatamaho/vaeg/commit/ccb066695907456314783cc3bb9a28dfad279c55).
+
+### DATA IN TC=1 was incorrectly treated as a phase end
+
+- **Status:** corrected in M75d1; fresh SCFORM/SCHD acceptance remains pending.
+- **Symptom:** the WSLg SCFORM/SCHD trace completed TUR and selected ID0, but an INQUIRY DATA IN request programmed `TC=1` after an initial `TC=36`.  The emulator moved to STATUS after the first byte, so SCHD saw an incomplete INQUIRY response and reported that no device was connected.
+- **Demonstrated root cause:** `scsiio_data_read()` changed `SCSIPH_DATAIN` to STATUS whenever the host count reached zero, even while `rddatpos < cmdpos`.  PCPLUS uses repeated one-byte TRANSFER INFO requests within the same DATA IN phase.
+- **Correction:** keep DATA IN active and call the phase-aware transfer path for the next byte; transition to STATUS only when the target response cursor is exhausted.  No guest address, CDB-order, image-name, or fixed-length workaround was added.
+- **Verification:** M75 controller QA, focused CTest, SDL selftest, and MinGW cross-build pass.  The corrected binary requires a new manual SCFORM/SCHD run.
+- **Evidence:** [M75 report](../agents/reports/m75_scsi_support.md), [M75 task](../agents/tasks/M75_scsi_support.md), and [84bc2ef](https://github.com/nakatamaho/vaeg/commit/84bc2efe1de9e5661fd28d31ba087a304f1a82ac).
