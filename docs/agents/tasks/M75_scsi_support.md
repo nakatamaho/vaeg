@@ -309,6 +309,22 @@ Run the repository invariant checks, the normal CMake build, available native
 tests, and focused SCSI/SASI/HOSTFAT smoke checks. Record unavailable platform
 checks with exact blocker details.
 
+### Current diagnostic checkpoint (2026-08-02)
+
+The trace-enabled `linux-ci-clang` CMake configuration and `vaeg_sdl2` target
+build both complete successfully. The resulting worker is
+`build/linux-ci-clang/sdl2/vaeg` (SHA-256
+`d69b11ad7b9bc3427042d808d3d06c4a3900e50a6427b15032f0f51b43c58836`).
+
+A dummy-SDL run using the complete VA2 ROM directory,
+`pcengine110-scsi-support.d88`, and a temporary 40 MB VHD target reaches the
+real PCPLUS/SCSI path and records `CSR=11h`, `CSR=8Ah`, six AR19 CDB writes,
+`CSR=1Ah`, and then `CSR=8Bh` on IRQ6. It records one transfer IRQ request
+and one assertion, with no AR19 reads. An eight-second external safety bound
+ends the run with status 137 before DATA IN, STATUS, or MESSAGE IN. This is
+diagnostic evidence only: it reproduces the current handoff blocker and does
+not satisfy the M75d1 golden sequence or the G75 gate.
+
 ## Closure
 
 The final report must include the audited SCSI dependency graph, retained and
