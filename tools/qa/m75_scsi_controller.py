@@ -122,12 +122,12 @@ def validate(root: pathlib.Path) -> None:
             "serialized board-ROM padding")
     require(scsiio, "case SCSICMD_TRANS_INFO:",
             "controller TRANSFER INFO dispatch")
-    require(scsiio, "WD33C93 exposes Transfer Count as low, middle, high",
+    require(scsiio, "WD33C93 exposes Transfer Count as high, middle, low",
             "WD33C93 transfer-count byte order")
-    require(scsiio, "scsiio.reg[SCSICTR_TRANSCNT + 2] << 16",
+    require(scsiio, "scsiio.reg[SCSICTR_TRANSCNT + 0] << 16",
             "transfer-count high-byte decode")
-    require(scsiio, "scsiio.reg[SCSICTR_TRANSCNT + 0] = 0xff",
-            "transfer-count low-byte borrow")
+    require(scsiio, "scsiio.reg[SCSICTR_TRANSCNT + 2] = 0xff",
+            "transfer-count low-byte decrement")
     require(scsicmd, "scsicmd_putbe24(scsiio.data + 9",
             "MODE SENSE block-length offset")
     require(scsiio, "scsiio.rddatpos >= scsiio.cmdpos",
