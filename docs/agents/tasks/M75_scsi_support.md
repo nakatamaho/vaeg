@@ -511,3 +511,32 @@ area remain space padded.  The response remains a 32-byte table with byte4
 The M75 controller QA validator now rejects a response table whose revision is
 not `1.00`.  This is an identification change only and does not constitute
 normal-speed INQUIRY DATA IN acceptance.
+
+
+### M75d1 Phase A — raw command-request windows
+
+Before changing any production timing, use the trace-only option
+`--scsitrace-cmdreq-windows`.  Window numbering is assigned by VAEG when raw
+`CSR=8Ah` is presented; a guest `1D67h` write of `BAh` is recorded inside the
+window and is not the window boundary.  Raw `11h` SELECT completion and `85h`
+bus-free are recorded as surrounding events, along with the existing
+`AR=18h <- 07h`/`AR=18h <- 20h` controller trace.
+
+The seam uses the same emulated CPU clock as `nevent_set(...,
+NEVENT_ABSOLUTE)`.  It records the first two `8Ah` windows, guest instruction
+and clock timestamps, `CS:[047Eh]` before/after, `1CBDh`, `1CCDh`,
+`1742h/1747h`, `1791h`, `1972h`, `19A7h/19BBh`, and `1C32h`.  It remains
+completely disabled unless explicitly requested and must not alter guest
+state, IRQ timing, CSR values, or PIO behavior.
+
+Phase A is accepted only when the paired normal-speed trace distinguishes:
+
+- first `1CCDh`, second `1747h`: early target phase presentation;
+- both `1CCDh`: early-arrival hypothesis rejected;
+- both `1747h`: the prior first-window interpretation is invalid; stop and
+  reassess;
+- no second raw `8Ah`: phase was not presented.
+
+The trace-only change itself must preserve the existing `--scsitrace` output
+when the new option is absent.  No delay constant or phase engine correction
+may be implemented until this comparison is recorded.
