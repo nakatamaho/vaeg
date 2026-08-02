@@ -332,6 +332,8 @@ static REG8 scsiio_data_read(void) {
 	}
 	scsiio.auxstatus &= (REG8)~SCSI_AUX_DBR;
 	ret = scsiio.data[scsiio.rddatpos & 0xffff];
+	SCSITRACEOUT(("scsitrace data-read ar=19 data=%02x index=%u cs=%04x ip=%04x",
+			ret, scsiio.rddatpos, CPU_CS, CPU_IP));
 	scsiio.rddatpos++;
 	scsiio_decrement_transfer_count();
 	if (scsi_transfer_remaining) {
