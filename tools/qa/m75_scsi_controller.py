@@ -206,6 +206,8 @@ def validate(root: pathlib.Path) -> None:
             "short DATA IN 48h-4Fh status")
     require(data_read, "scsiio.rddatpos < scsiio.cmdpos",
             "allocation-short DATA IN handling")
+    require(data_read, "Keep DATA IN active; PCPLUS uses TC=1",
+            "repeated short DATA IN transfer handling")
     require(trans_info,
             "scsiio.auxstatus &= (REG8)~SCSI_AUX_DBR",
             "DBR held low from TRANSFER INFO until target readiness")
