@@ -589,10 +589,13 @@ static REG8 scsiio_data_read(void) {
 		completed_phase = scsiio.phase;
 		if ((scsiio.phase == SCSIPH_DATAIN) &&
 				scsiio.rddatpos < scsiio.cmdpos) {
-			/* The allocation ended first; discard the unrequested suffix. */
-			scsiio.phase = SCSIPH_STATUS;
-			scsiio.rddatpos = 0;
-			next_status = scsicmd_phase_service_status(SCSIPH_STATUS);
+			/*
+			 * This TRANSFER INFO request ended before the target response.
+			 * Keep DATA IN active; PCPLUS uses TC=1 and requests the next
+			 * byte with another TRANSFER INFO instead of ending the SCSI
+			 * phase after one byte.
+			 */
+			next_status = scsicmd_transinfo(scsiio.reg[SCSICTR_DSTID] & 7);
 		}
 		else {
 			next_status = scsicmd_transinfo(scsiio.reg[SCSICTR_DSTID] & 7);
