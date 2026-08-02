@@ -54,8 +54,8 @@ static void scsi_tracef(const char *fmt, ...);
 #define SCSI_AUX_PE	0x02
 #define SCSI_AUX_DBR	0x01
 
-/* Target command processing is a controller event, not an ISR delay. */
-#define SCSI_TARGET_PROCESSING_CLOCKS	4000
+/* Target processing is a controller event, not a guest-tuned ISR delay. */
+#define SCSI_TARGET_PROCESSING_CLOCKS	100
 
 /* 0CC4h uses set/reset strobes for the controller transfer controls. */
 #define SCSI_C4_TCMS	0x04
