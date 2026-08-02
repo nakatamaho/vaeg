@@ -1252,3 +1252,48 @@ The normal-speed real-ROM command was attempted with
 macOS host's SDL Cocoa backend raised `NSInternalInconsistencyException`
 while initializing `SystemAppearance`.  This is an environment failure, not a
 SCSI result.  No first/second raw-`8Ah` classification is claimed yet.
+
+### M75d1 transfer-count byte-order correction (2026-08-02)
+
+The manual SCFORM run now boots the support environment but stops during the
+format/SENSE path and briefly reports that `SCHD.SYS` is not connected.  The
+controller trace exposed a concrete register-contract defect before that
+message: PCPLUS programs one-byte transfers as `AR12=01h`, `AR13=00h`,
+`AR14=00h`, while the VAEG decoder treated AR12 as the most-significant byte
+and calculated `TC=010000h` (65536).  This explains the apparent SENSE hang and
+is independent of the SCSI data payload.
+
+Commit [9f11430](https://github.com/nakatamaho/vaeg/commit/9f11430a52e7d660c18cb0cfad3bef448f6c157c)
+corrects both transfer-count decoding and decrement/borrow logic to the
+WD33C93 low/middle/high order (AR12/AR13/AR14).  It is a general controller
+fix; no SCFORM, SCHD, CDB, guest-address, or timing special case was added.
+The static QA validator now protects the byte order.
+
+Validation after the correction:
+
+```text
+cmake --build build/linux-ci-clang --target vaeg_sdl2 -j2       PASS
+cmake --build build/m75-tests --target vaeg_sdl2 -j2            PASS
+python3 tools/qa/m75_scsi_controller.py --root .               PASS
+ctest --test-dir build/m75-tests -R vaeg_m75_scsi_controller   PASS
+SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
+  build/linux-ci-clang/sdl2/vaeg --selftest                    PASS
+```
+
+The corrected MinGW artifact must be rerun with PC-Engine 1.1 and the SCSI
+support disk.  Required follow-up evidence is `TC=1` STATUS/MESSAGE/SENSE
+completion, successful SCHD registration, and SCFORM initialization.  G75
+remains open; this result is not manual-gate approval.
+
+The corrected MinGW cross-build completed with exit status 0:
+
+```text
+cmake --build build/mingw-cross --target vaeg_sdl2 -j2       PASS
+```
+
+The artifact copied for the next manual run is `/tmp/vaeg-m75-cmdreq-mingw.exe`.
+It is a PE32+ x86-64 executable; SHA-256 is
+`4c7ab88c7616ff08b767a81db303957174829333ada2ead5b7981112226cc078`.
+The copy was verified byte-identical to
+`build/mingw-cross/sdl2/vaeg.exe`.  Windows execution is not available on this
+host, so SCHD/SCFORM acceptance remains a manual Windows gate.
