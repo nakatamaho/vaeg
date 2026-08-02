@@ -630,3 +630,35 @@ The evaluated executable was `build/linux-ci-clang/sdl2/vaeg`, SHA-256
 G75 remains pending: the normal-speed INQUIRY DATA IN acceptance, SCHD
 registration, SCFORM, reboot, file operations, and SASI/HOSTFAT/non-SCSI
 regressions still require their respective evidence.
+
+
+## M75d1 CSR admission and diagnostic invariants
+
+The provenance detector is committed before the production correction:
+[23b2752](https://github.com/nakatamaho/vaeg/commit/23b2752c6bc0f02c32eabf22c2b6a98c9383334a).
+Its pre-correction evidence includes a transfer-completion request arriving
+while a SELECT-completion event was still active and a one-slot `pending`
+state was already occupied.  The correction is
+[ccb0666](https://github.com/nakatamaho/vaeg/commit/ccb066695907456314783cc3bb9a28dfad279c55).
+
+The correction removes the CSR pending field rather than increasing queue
+capacity.  Target-origin events are represented as target state and pulled
+after AR17 consumes the visible CSR; host-synchronous transfer completion is
+serialized by the host's TRANSFER INFO/data access.  Overlap is fail-closed
+and trace-visible.  `NEVENT_SCSIWATCHDOG` reports unread CSR, stalled target
+phase delay, and DATA IN decisions that do not become `CSR=89h` requests.
+
+The diagnostic-only seeded jitter options are:
+
+```text
+--scsitrace-jitter-seed N --scsitrace-jitter-span N
+```
+
+The seed and effective samples are logged.  Fixed processing-clock stress at
+4000 and 40000, plus five seeded runs at span 200, produced no CSR overrun,
+drop, or invariant records.  A watchdog report in a bounded run remains a
+real open progress observation and is not a pass.
+
+M75d1 remains incomplete until normal-speed INQUIRY DATA IN, SCHD/SCFORM,
+reboot/file operations, and required SASI, HOSTFAT, and non-SCSI regressions
+are evidenced.  Do not declare G75 passed.
