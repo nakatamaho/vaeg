@@ -626,3 +626,53 @@ next diagnostic must monitor the internal status byte written by the handler
 and the first subsequent dispatcher read, while preserving the exact AR13,
 AR14, and AR16 values above. No DATA IN, STATUS Transfer Info, or MESSAGE IN
 acceptance is claimed until that handoff is observed.
+
+## Static PCPLUS CSR acceptance set and handoff narrowing
+
+The PCPLUS interrupt path was rechecked against the normalized status
+dispatch table. Raw `8Ah` and `8Bh` both normalize to service-request dispatch
+key `11h` and enter `1972h`. The successful `8Ah` path therefore proves that
+the common interrupt/status handoff is alive. The next diagnostic boundary is
+the phase comparison at `19BBh`, followed by the `1B60h`/`1BA1h` choice,
+`1C14h` transfer setup, and the `1C32h` `AR=18h <- 20h` command.
+
+The apparent `1C0Eh` branch is rejected by the disassembly. `1C0Eh` reads
+`CS:[047Eh]` and returns; it does not branch to `1C32h`. `1C05h` calls
+`1C95h` to read AR `13h`/`14h`, adjusts the residual count, reads `047Eh`, and
+returns. `1C14h` is a separate function called by `1B60h` and `1BA1h`; its
+`1C32h` path emits the Transfer Info command. Seeing AR `13h`/`14h` after
+`8Bh` therefore proves entry into the residual-count path, but does not by
+itself prove that `1C32h` was reached.
+
+The canonical raw CSR values accepted by the PCPLUS contract and their static
+dispatch destinations are:
+
+| raw CSR | normalized/status key | static destination |
+|---|---:|---:|
+| `11h` | `01h` | `186Ch` |
+| `16h` | `06h` | `1884h` |
+| `18h` | `08h` | `1893h` |
+| `19h`-`1Bh` | `09h`-`0Bh` | `1818h` |
+| `1Fh` | `0Fh` | `1818h` |
+| `42h` | `02h` | `1878h` |
+| `48h` | `08h` | `1893h` |
+| `49h`-`4Fh` | `09h`-`0Fh` | `1818h` |
+| `85h` | `15h`, dispatch key `10h` | `1935h` |
+| `88h`-`8Fh` | `18h`-`1Fh`, dispatch key `11h` | `1972h` |
+
+This table is the M75 reference for which controller-generated statuses may
+be emitted by the active PCPLUS/SCHD path. It is a host-contract table, not
+a claim of complete WD33C93 silicon coverage.
+
+The disassembly does not support labeling `00h`, `01h`, `10h`, `41h`,
+`43h`-`47h`, `80h`-`84h`, `86h`, or `87h` as silently rejected: those values
+also normalize into dispatch-table entries. Their semantic meaning remains
+unverified. The validator must therefore enforce that VAEG-generated
+statuses stay within the canonical set above, while treating other
+dispatchable values as unverified rather than as proven no-op or rejection
+cases.
+
+No production behavior was changed by this extraction. The remaining
+trace-only observation points are `19BBh` (comparison value and result), the
+selected `1B60h`/`1BA1h` path, `1C14h` entry/exit, `1C32h` command emission,
+and all relevant `047Eh` reads/writes.
