@@ -276,26 +276,26 @@ static void scsiio_warn_reserved_register(const char *direction) {
 
 static UINT scsiio_transfer_count(void) {
 
-	return ((UINT)scsiio.reg[SCSICTR_TRANSCNT + 0] << 16) |
+	/* WD33C93 exposes Transfer Count as low, middle, high (12h-14h). */
+	return ((UINT)scsiio.reg[SCSICTR_TRANSCNT + 2] << 16) |
 			((UINT)scsiio.reg[SCSICTR_TRANSCNT + 1] << 8) |
-			(UINT)scsiio.reg[SCSICTR_TRANSCNT + 2];
+			(UINT)scsiio.reg[SCSICTR_TRANSCNT + 0];
 }
 
 static void scsiio_decrement_transfer_count(void) {
-
-	if (scsiio.reg[SCSICTR_TRANSCNT + 2]) {
-		scsiio.reg[SCSICTR_TRANSCNT + 2]--;
+	if (scsiio.reg[SCSICTR_TRANSCNT + 0]) {
+		scsiio.reg[SCSICTR_TRANSCNT + 0]--;
 	}
 	else if (scsiio.reg[SCSICTR_TRANSCNT + 1]) {
 		scsiio.reg[SCSICTR_TRANSCNT + 1]--;
-		scsiio.reg[SCSICTR_TRANSCNT + 2] = 0xff;
+		scsiio.reg[SCSICTR_TRANSCNT + 0] = 0xff;
 	}
-	else if (scsiio.reg[SCSICTR_TRANSCNT + 0]) {
-		scsiio.reg[SCSICTR_TRANSCNT + 0]--;
+	else if (scsiio.reg[SCSICTR_TRANSCNT + 2]) {
+		scsiio.reg[SCSICTR_TRANSCNT + 2]--;
 		scsiio.reg[SCSICTR_TRANSCNT + 1] = 0xff;
-		scsiio.reg[SCSICTR_TRANSCNT + 2] = 0xff;
+		scsiio.reg[SCSICTR_TRANSCNT + 0] = 0xff;
 	}
-}
+	}
 
 static void scsiio_data_write(REG8 dat) {
 
