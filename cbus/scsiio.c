@@ -27,6 +27,7 @@ static REG8 scsi_csr_pending_status;
 static BOOL scsi_command_phase_pending;
 static BOOL scsi_transfer_phase_pending;
 static REG8 scsi_transfer_phase_status;
+static BOOL scsi_target_phase_ready;
 static UINT scsi_transfer_remaining;
 static BOOL scsi_trace_transfer_active;
 static UINT scsi_trace_transfer_phase;
@@ -53,6 +54,9 @@ static void scsi_tracef(const char *fmt, ...);
 #define SCSI_AUX_PE	0x02
 #define SCSI_AUX_DBR	0x01
 
+/* Target command processing is a controller event, not an ISR delay. */
+#define SCSI_TARGET_PROCESSING_CLOCKS	4000
+
 /* 0CC4h uses set/reset strobes for the controller transfer controls. */
 #define SCSI_C4_TCMS	0x04
 #define SCSI_C4_TCMR	0x08
@@ -63,6 +67,7 @@ static void scsi_tracef(const char *fmt, ...);
 static void scsiintr(REG8 status);
 static void scsiintr_immediate(REG8 status);
 static void scsiintr_transfer_complete(REG8 status);
+static void scsiio_target_phase_ready_event(NEVENTITEM item);
 
 static const char *scsi_trace_phase_direction(UINT phase) {
 
@@ -138,6 +143,7 @@ static void scsiio_schedule_transfer_phase(REG8 status) {
 
 	scsi_transfer_phase_pending = TRUE;
 	scsi_transfer_phase_status = status;
+	scsi_target_phase_ready = FALSE;
 }
 
 static void scsi_trace_transfer_result(REG8 status) {
@@ -403,6 +409,18 @@ void scsiioint(NEVENTITEM item) {
 
 }
 
+static void scsiio_target_phase_ready_event(NEVENTITEM item) {
+
+	scsi_target_phase_ready = TRUE;
+	if (scsi_transfer_phase_pending &&
+			!scsi_csr_event_active && !scsi_csr_latched) {
+		scsi_transfer_phase_pending = FALSE;
+		scsi_target_phase_ready = FALSE;
+		scsiintr_immediate(scsi_transfer_phase_status);
+	}
+	(void)item;
+}
+
 static void scsiintr_transfer_complete(REG8 status) {
 
 	scsi_trace_transfer_result(status);
@@ -517,6 +535,19 @@ static void scsicmd(REG8 cmd) {
 			}
 			scsi_transfer_remaining = scsiio_transfer_count();
 			scsiio.rddatpos = 0;
+			if (scsi_transfer_phase_pending && !scsi_target_phase_ready) {
+				/*
+				 * The target has selected the next phase but has not yet
+				 * presented its REQ.  Keep DBR low while the host waits for
+				 * that service request; do not enter the legacy bulk pump.
+				 */
+				SCSITRACEOUT(("scsitrace target-phase-wait phase=%02x tc=%06x",
+						scsiio.phase, scsi_transfer_remaining));
+				scsiio.auxstatus &= (REG8)~SCSI_AUX_DBR;
+				nevent_set(NEVENT_SCSIIO, SCSI_TARGET_PROCESSING_CLOCKS,
+						scsiio_target_phase_ready_event, NEVENT_ABSOLUTE);
+				return;
+			}
 			if (scsiio.phase == SCSIPH_STATUS) {
 				/* SCSI status is GOOD for the supported commands. */
 				scsiio.data[0] = scsiio.reg[SCSICTR_STATUS];
@@ -690,8 +721,10 @@ static REG8 IOINPCALL scsiio_icc2(UINT port) {
 					scsi_command_phase_pending = FALSE;
 					scsiintr(0x8a);
 				}
-				else if (scsi_transfer_phase_pending) {
+				else if (scsi_transfer_phase_pending &&
+						scsi_target_phase_ready) {
 					scsi_transfer_phase_pending = FALSE;
+					scsi_target_phase_ready = FALSE;
 					scsiintr_immediate(scsi_transfer_phase_status);
 				}
 			}
@@ -789,6 +822,7 @@ void scsiio_reset(void) {
 	scsi_command_phase_pending = FALSE;
 	scsi_transfer_phase_pending = FALSE;
 	scsi_transfer_phase_status = 0;
+	scsi_target_phase_ready = FALSE;
 	scsi_trace_transfer_active = FALSE;
 	scsi_trace_transfer_phase = 0;
 	scsi_trace_transfer_count = 0;
