@@ -576,3 +576,229 @@ bounded PCPLUS/SCHD run: blocked after TUR STATUS request
 INQUIRY DATA IN golden: not observed
 G75: not eligible
 ```
+
+#### Evidence reconciliation
+
+An earlier intermediate handoff incorrectly described the current branch as
+having no production changes after the M75c3 evidence and therefore mixed two
+different execution states. The branch advanced through the following
+commits before the current documentation checkpoint:
+
+```text
+00e1dba M75d1: derive SCSI phases from decoded commands
+5abba93 M75d1: validate the shared SCSI phase table
+c526872 M75d1: document phase integration blocker
+```
+
+The first two commits are production/validation changes, not merely report
+edits. They connect COMMAND completion to `scsicmd_command()`, derive the
+next target phase from the shared contract, and queue the next service
+request behind the CSR latch. Consequently, the post-TUR `8Bh` records belong
+to the post-`00e1dba` implementation state; the earlier M75c3 records, which
+showed only COMMAND/`1Ah`, remain valid predecessor evidence.
+
+The post-TUR diagnostic records are exact at the register boundary:
+
+```text
+event: CSR=8Bh, internal phase=1Bh, IRQ6 asserted
+AR=17h read: 8Bh
+AR=16h read: 00h
+AR=13h read: 00h
+AR=14h read: 00h
+AR=18h write: absent
+```
+
+A separate diagnostic changed only the phase-transfer setup count to one;
+that run returned `AR=13h=00h`, `AR=14h=01h` and still produced no
+`AR=18h <- 20h`. The experiment was reverted and is not part of the current
+source tree. It therefore does not establish that a count value alone is
+the missing contract.
+
+The `AR=16h` value is not an unobserved reset default in this path: the
+complete initialization sequence writes `AR=16h <- 00h` before SELECT, and
+the handler reads it after each service request. PCPLUS's status handler
+tests the upper `ER/ES` bits of this register; the observed zero follows its
+normal path and is not evidence that the service request was rejected.
+
+The remaining blocker is therefore the handoff from the interrupt/status
+handler to the PCPLUS phase dispatcher, not proof that `8Bh` was absent. The
+next diagnostic must monitor the internal status byte written by the handler
+and the first subsequent dispatcher read, while preserving the exact AR13,
+AR14, and AR16 values above. No DATA IN, STATUS Transfer Info, or MESSAGE IN
+acceptance is claimed until that handoff is observed.
+
+
+## G75 Transfer Info state-machine implementation
+
+The previous M75d1 trace was used once to classify the defect, then the
+production controller was changed in the same work item as required by the
+G75 task authority.  The synchronized starting SHA for this implementation
+was `c526872a5a26e9548ba9e6b7c65cc1a9bfd14200`.  Diagnostic logs remain local
+and untracked; only the semantic results are recorded here.
+
+### Root cause
+
+The old path represented Transfer Info with scattered flags and allowed the
+target phase request to become a second asynchronous event while the prior
+CSR was still being consumed.  It could therefore abandon a programmed
+Transfer Info and expose an idle Service Required result (`89h`) instead of
+letting the accepted Level-II command consume the target REQ.  The same
+implicit path also allowed an unread CSR/event to be treated as replaceable.
+The defect was event ownership and lifecycle state, not the 32-byte INQUIRY
+payload.
+
+### Implemented lifecycle
+
+`cbus/scsiio.c` now has one explicit Transfer Info state:
+
+```text
+idle
+wait_for_req
+transfer_byte_pending
+wait_for_post_count_req
+completed_or_terminated
+```
+
+The AR `18h <- 20h` write records the complete controller pre-state
+(INT/LCI/BSY/CIP/DBR/CSR pending/REQ/ACK/MSG/C-D/I-O/TC).  An INT-pending
+write is ignored, sets LCI, and leaves the active command, transfer count,
+and CSR latch unchanged.  Otherwise the Level-II command is accepted, BSY
+is held for its lifetime, CIP is limited to command decode, DBR is reset, and
+an absent target REQ enters `wait_for_req` instead of being discarded.
+
+While a Level-II command is active, a target REQ is consumed by that command;
+no `89h` Service Required CSR is generated.  Service Required is emitted only
+for a connected idle initiator with REQ asserted, no active Level-II command,
+and no pending CSR.  The CSR remains a depth-one latch and is never
+overwritten while INT is pending.  No CSR or `89h` queue was added.
+
+Each accepted byte is traced as REQ assertion, data latch, DBR clear, ACK
+assert/negate, and TC decrement.  The count is decremented only after the
+byte handshake.  A phase change with TC remaining emits the corresponding
+`4MCI` terminated status.  When TC reaches zero, the state enters
+`wait_for_post_count_req`; the distinct post-count REQ determines the
+successful completion MCI (`19h` for DATA IN, `1Bh` for STATUS, `1Fh` for
+MESSAGE IN).  The post-count REQ is assigned its own sequence number and is
+consumed by the completion handshake.
+
+The INQUIRY table remains the existing 32-byte payload.  No PCPLUS address,
+CDB ordering, transfer-count, or payload special case was added.
+
+### Before/after integration evidence
+
+The predecessor run showed the old behavior: after COMMAND completion, a
+`phase=STATUS` Transfer Info was abandoned while waiting and a later idle
+Service Required `8Bh`/retry path supplied the one-byte STATUS transfer.
+
+The current implementation run shows the corrected ownership sequence:
+
+```text
+CSR=1Ah read
+ target-req-scheduled status=8Bh
+ AR=18h <- 20h, TC=00010000
+ command-accepted state=wait_for_req phase=STATUS
+ target-req-ready status=8Bh state=wait_for_req
+ req-assert kind=active (no Service Required CSR)
+ command-active state=transfer_byte_pending
+```
+
+There is no `89h` generated while that Level-II command is active, and no CSR
+overwrite or CSR-drop was observed.  The supplied PCPLUS guest then writes to
+AR `19h` while the advertised phase is STATUS, so the direction guard records
+`phase-direction-mismatch` and the guest does not reach a valid STATUS read.
+This is an integration FAIL, not a reason to weaken the WD33C93 state machine:
+the controller-side contract is now explicit and the remaining guest trace is
+an invalid host-direction path under that contract.
+
+The current run therefore does not claim the INQUIRY DATA IN golden sequence.
+In particular, no `89h` DATA IN request, 36-byte AR19 read sequence, or
+`CSR=19h` has been observed on the real PCPLUS path after this correction.
+
+### Automated validation
+
+The following focused tests pass:
+
+```text
+python3 tools/qa/m75_transfer_info.py --selftest
+  M75_TRANSFER_INFO_OK tests=9
+python3 tools/qa/m75_scsi_controller.py --root .
+  M75_SCSI_CONTROLLER_OK
+ctest --test-dir build/m75-tests \
+  -R 'vaeg_m75_scsi_controller|vaeg_m75_transfer_info' --output-on-failure
+  2/2 passed
+SDL2 --selftest
+  exit=0, all tests passed
+```
+
+The focused model covers wait-for-REQ, active-command suppression of Service
+Required, 4MCI phase termination, post-count REQ completion, CSR stability,
+INT-pending command ignore/LCI, BSY/DBR/TC accounting, and REQ/ACK counts.
+
+### G75 status
+
+| Acceptance item | Result |
+|---|---|
+| Explicit Transfer Info state machine and CSR single latch | PASS (source and focused tests) |
+| PCPLUS TUR STATUS/MESSAGE integration | FAIL: guest writes STATUS direction after active TI |
+| INQUIRY DATA IN (`89h`, AR19 reads, `CSR=19h`) | NOT OBSERVED |
+| SCHD registration / SCFORM / file create-read-delete | NOT PASSED |
+| SASI, HOSTFAT, non-SCSI regression gates | Pending final validation |
+| G75 | **NOT PASSED** |
+
+This report intentionally does not self-approve G75 and does not begin M76.
+
+
+### G75 post-count compliance update
+
+The production implementation is `6104843a02db0e61947fc650f1b348c9f6c1943a`
+(`M75d1: implement Transfer Info command lifecycle`).  Completion no longer
+raises a completion CSR immediately when TC reaches zero.  It records the
+completion MCI, enters `wait_for_post_count_req`, schedules a distinct target
+REQ, and latches the completion only after that REQ.  The status-read path
+then returns the controller to `idle` before scheduling the next service
+request; MESSAGE IN completion schedules BUS FREE (`85h`) without creating a
+phase-service REQ.
+
+The post-count portion of the bounded PCPLUS trace is:
+
+```text
+command-accepted command=20 state=wait_for_req tc=000006 phase=COMMAND
+post-count-wait completion=1a next=8b state=wait_for_post_count_req tc=000000
+target-req-ready status=8b state=wait_for_post_count_req
+req-assert kind=post-count status=8b
+post-count-req status=8b completion=1a
+csr-latch status=1a state=completed_or_terminated
+csr-read status=1a
+target-req-scheduled status=8b
+command-accepted command=20 state=wait_for_req tc=010000 phase=STATUS
+target-req-ready status=8b state=wait_for_req
+req-assert kind=active status=8b
+command-active state=transfer_byte_pending phase=STATUS
+```
+
+No `89h` Service Required event is generated while the second Transfer Info
+is active, and no pending CSR is overwritten.  The guest then executes OUT
+accesses to AR19 while the controller advertises STATUS (a controller-to-host
+phase); the direction guard records `phase-direction-mismatch`, so the guest
+does not produce the required STATUS AR19 read.  The same run therefore does
+not reach MESSAGE IN or INQUIRY DATA IN.  This is an integration failure of
+the supplied PCPLUS path under the documented phase direction, not a reason
+to add a PCPLUS-specific exception or to weaken the WD33C93A lifecycle.
+
+Validation after the implementation commit:
+
+```text
+python3 tools/qa/m75_transfer_info.py --selftest  -> M75_TRANSFER_INFO_OK tests=9
+python3 tools/qa/m75_scsi_controller.py --root . -> M75_SCSI_CONTROLLER_OK
+ctest (vaeg_m75_scsi_controller|vaeg_m75_transfer_info) -> 2/2 passed
+SDL2 --selftest -> exit=0, all tests passed
+linux-ci-clang vaeg_sdl2 build -> exit=0
+repository case check -> 0 finding(s)
+```
+
+The Linux SDL2 executable used for the final local validation has SHA-256
+`c43570e65553d8fe7e814d1d2614b2183ecf2cba81cc6348f1c778235ef754eb`.  The
+bounded real-ROM run used an external timeout only as a safety bound; its
+semantic stop was the SCSI trace limit.  G75 remains **NOT PASSED** because
+the required PCPLUS STATUS read, INQUIRY DATA IN, SCHD registration, SCFORM,
+and manual file-operation gates are not complete.
