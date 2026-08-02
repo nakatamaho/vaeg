@@ -441,3 +441,15 @@ is still a G75 blocker.  The current source response table is intentionally
 exercise the short-transfer `4Bh`/residual-TC contract for a 36-byte request.
 No ANSI level, vendor string, or padding change is authorized without guest
 branch evidence.
+
+
+### M75d1 post-short-transfer run requirement
+
+The short-transfer implementation is source-validated, but guest acceptance
+requires a normal-speed run to observe either the full DATA IN completion or
+`4Bh` with the residual count.  A bounded full trace reached TUR BUS FREE and
+then a second SELECT/COMMAND request before its safety bound; it did not yet
+reach the second CDB transfer.  Accelerated CPU multiplier runs may be used
+only to inspect later CDB order and never satisfy the terminal G75 evidence.
+SCHD registration, SCFORM, reboot, and file operations remain manual
+acceptance requirements.
