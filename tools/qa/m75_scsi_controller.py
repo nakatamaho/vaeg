@@ -78,7 +78,11 @@ def validate(root: pathlib.Path) -> None:
             "fixed DATA-window write helper")
     require(scsiio, "static REG8 scsiio_data_read(void)",
             "fixed DATA-window read helper")
-    require(scsiio, "scsiio.port != SCSICTR_CMD && scsiio.port != SCSICTR_DATA",
+    require(scsiio, "if (scsiio.port == SCSICTR_DATA)",
+            "AR19 fixed-window write dispatch")
+    require(scsiio, "if (scsiio.port == SCSICTR_CMD)",
+            "AR18 fixed-window command dispatch")
+    require(scsiio, "COMMAND and DATA are fixed windows",
             "COMMAND/DATA fixed-window address behavior")
     require(scsiio, "SCSI_AUX_DBR",
             "DBR auxiliary-status bit")
@@ -102,16 +106,18 @@ def validate(root: pathlib.Path) -> None:
             "post-SELECT COMMAND request latch")
     require(scsiio, "scsiintr(0x11)",
             "SELECT completion CSR")
-    require(scsiio, "scsiintr(0x8a)",
-            "deferred COMMAND-phase CSR")
+    require(scsiio, "scsiio_schedule_target_req(0x8a)",
+            "deferred COMMAND-phase request")
     require(scsiio, "M75c2 accumulates CDB through DATA window",
             "M75c2 Transfer Info boundary")
     require(scsiio, "scsi_transfer_remaining",
             "host-programmed Transfer Count state")
     require(scsiio, "M75c2 accumulates CDB through DATA window",
             "M75c2 CDB accumulation boundary")
-    require(scsiio, "scsiintr_transfer_complete(0x1a)",
-            "Transfer Info COMMAND completion CSR")
+    require(scsiio, "scsiio_wait_for_post_count_req(0x1a",
+            "Transfer Info COMMAND completion waits for post-count REQ")
+    require(scsiio, "scsi_transfer_completion_status",
+            "post-count completion CSR state")
     require(scsiio, "scsitrace transfer-start",
             "M75c3 transfer phase trace")
     require(scsiio, "scsitrace transfer-result",
@@ -130,8 +136,10 @@ def validate(root: pathlib.Path) -> None:
             "M75c3 transfer IRQ assertion accounting")
     require(scsiio, "cdb0",
             "M75c3 CDB opcode capture")
-    require(scsiio, "legacy-scsi-phase-engine",
-            "M75c3 legacy-path attribution")
+    require(scsiio, "level2-transfer-info",
+            "Level-II Transfer Info attribution")
+    if "legacy-scsi-phase-engine" in scsiio:
+        raise AssertionError("legacy SCSI phase engine must not own Transfer Info")
     require(scsiio, "SCSI_AUX_LCI | SCSI_AUX_BSY",
             "LCI and BSY auxiliary-status definitions")
     require(scsiio, "SCSI_AUX_PE | SCSI_AUX_DBR",
@@ -141,13 +149,25 @@ def validate(root: pathlib.Path) -> None:
     require(scsiio, "case SCSICTR_PKGID:", "AR32 package-id audit")
     require(scsiio, "case SCSICTR_FIFO_CTRL:", "AR34 FIFO audit")
     require(scsiio, "case SCSICTR_FIFO_STATUS:", "AR35 FIFO audit")
-    for field in ("scsi_csr_latched", "scsi_csr_event_active",
-                  "scsi_csr_pending", "scsi_csr_pending_status"):
-        require(scsiio, field, f"single-depth CSR latch field {field}")
-    require(scsiio, "if (!scsi_csr_event_active && !scsi_csr_latched)",
-            "CSR event admission")
-    require(scsiio, "else if (!scsi_csr_pending)",
-            "one-entry CSR pending slot")
+    require(scsiio, "scsi_csr_latched", "single-depth CSR latch")
+    require(scsiio, "scsi_csr_event_active", "CSR event lifecycle")
+    require(scsiio, "SCSITRANSFERSTATE", "explicit Transfer Info state")
+    for state in ("SCSI_TRANSFER_IDLE", "SCSI_TRANSFER_WAIT_FOR_REQ",
+                  "SCSI_TRANSFER_BYTE_PENDING",
+                  "SCSI_TRANSFER_WAIT_FOR_POST_COUNT_REQ",
+                  "SCSI_TRANSFER_COMPLETED_OR_TERMINATED"):
+        require(scsiio, state, f"Transfer Info state {state}")
+    require(scsiio, "scsiio_command_write", "AR18 command lifecycle")
+    require(scsiio, "command-ignored", "ignored command trace")
+    require(scsiio, "command-accepted", "accepted command trace")
+    require(scsiio, "csr-drop", "CSR overwrite protection")
+    require(scsiio, "req-assert", "REQ sequence trace")
+    require(scsiio, "ack-assert", "ACK sequence trace")
+    require(scsiio, "ack-negate", "ACK completion trace")
+    require(scsiio, "data-latched", "data-latch trace")
+    require(scsiio, "post-count", "post-count REQ lifecycle")
+    if "scsi_csr_pending" in scsiio or "scsi_csr_pending_status" in scsiio:
+        raise AssertionError("Transfer Info must not use a CSR pending queue")
     require(scsiio, "if (scsi_csr_latched)",
             "CSR consume on status read")
     require(scsiio, "scsi_csr_latched = FALSE",
