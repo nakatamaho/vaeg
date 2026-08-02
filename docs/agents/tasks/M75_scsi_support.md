@@ -278,3 +278,40 @@ checks with exact blocker details.
 The final report must include the audited SCSI dependency graph, retained and
 removed code paths if any, validation commands and exit statuses, manual gate
 results, and a G75 human-review checklist.
+
+
+## G75 Transfer Info implementation extension
+
+G75 permits the diagnostic trace and the production correction in one
+bounded work item.  The AR `18h <- 20h` Transfer Info path must use an
+explicit Level-II lifecycle with the states `idle`, `wait_for_req`,
+`transfer_byte_pending`, `wait_for_post_count_req`, and
+`completed_or_terminated`.  An INT-pending command is ignored with LCI and
+cannot change an active command, TC, or CSR latch.  An accepted command waits
+for a target REQ without being discarded; an active command consumes that REQ
+and must not generate an `8MCI` Service Required event.
+
+The controller must account for REQ/ACK byte handshakes, DBR transitions, and
+TC decrement only after the handshake.  A phase change before TC zero emits a
+`4MCI` terminated interrupt.  TC zero waits for a distinct post-count REQ,
+whose information phase selects the successful completion MCI.  CSR is a
+single stable interrupt latch: a pending CSR is not overwritten, and no
+additional CSR or `89h` queue is permitted.  INQUIRY payload bytes are outside
+this correction and remain unchanged.
+
+The required focused validator is `tools/qa/m75_transfer_info.py`, registered
+as `vaeg_m75_transfer_info`; the source-contract validator must continue to
+reject the discarded CSR-pending queue and legacy phase-engine ownership.
+G75 acceptance additionally requires a before/after PCPLUS trace showing the
+Transfer Info lifecycle, followed by the real TUR/INQUIRY sequence.  A
+controller-only test pass does not approve G75; manual SCFORM, SCHD, file,
+SASI, HOSTFAT, and non-SCSI gates remain separate acceptance items.
+
+
+### G75 implementation checkpoint
+
+The Transfer Info lifecycle implementation and focused tests are in commit
+`6104843a02db0e61947fc650f1b348c9f6c1943a`.  It includes the required
+post-count REQ before completion MCI.  Controller-level validation passes;
+PCPLUS integration remains a G75 blocker until the STATUS read and subsequent
+INQUIRY DATA IN sequence are observed.
