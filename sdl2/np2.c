@@ -266,6 +266,7 @@ static void usage(const char *progname) {
 	printf("\t--keyboard-layout jis|us|custom\n");
 	printf("Diagnostics:\n");
 	printf("\t--smoke --selftest --debug --fdctrace --scsitrace --pacelog\n");
+	printf("\t--scsitrace-no-guest\n");
 	printf("\t--scsitrace-limit 1..1000000\n");
 	printf("\t--trace-cpu 1..1000000\n");
 	printf("\t--version --help [-h]\n");
@@ -1674,7 +1675,7 @@ int main(int argc, char **argv) {
 	if (options.trace_cpu != 0) {
 		upd9002_trace_start(stderr, options.trace_cpu);
 	}
-	if (options.scsitrace) {
+	if (options.scsitrace && options.scsitrace_guest) {
 		upd9002_guest_trace_start(stderr);
 	}
 	upd9002_perf_start_from_env();
