@@ -31,6 +31,7 @@ void scsiioint(NEVENTITEM item);
 void scsiio_reset(void);
 void scsiio_bind(void);
 void scsiio_trace_enable(BOOL enabled);
+void scsiio_trace_compact(BOOL compact);
 void scsiio_trace_limit(UINT limit);
 BOOL scsiio_trace_stop_requested(void);
 void scsiio_trace_pic_irq(REG8 irq, BOOL asserted);

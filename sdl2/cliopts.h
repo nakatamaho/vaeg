@@ -119,6 +119,7 @@ typedef struct {
 	BOOL fdctrace;
 	BOOL scsitrace;
 	BOOL scsitrace_guest;
+	BOOL scsitrace_compact;
 	BOOL pacelog;
 	BOOL mute;
 	BOOL nowait;
