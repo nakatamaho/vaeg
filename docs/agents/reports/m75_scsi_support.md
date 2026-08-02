@@ -1356,7 +1356,7 @@ acceptance, and SASI/HOSTFAT/non-SCSI regression evidence are still open.
 ### M75d1 CSR admission correction: pull-model target gating (2026-08-02)
 
 The provenance detector was committed first in
-[23b2752](https://github.com/nakatamaho/vaeg/commit/23b2752c6bc0f02c32eabf22c2b6a98c9383334a).
+[23b2752](https://github.com/nakatamaho/vaeg/commit/23b2752f36bc0571a705fecc3f25c964caf1d410).
 The maintainer-provided pre-correction WSLg trace contains the decisive
 collision: `seq=13`, `CSR=1Ah`, was requested while `seq=12`, `CSR=11h`, was
 still the active scheduled event; the trace then records `pending=1` and later
@@ -1469,3 +1469,80 @@ selftest passed.  Its SHA-256 is
 `f6c2758a7fe5576fdeadca9c7d5876a557174105bebaaa174cc3b3d82c2e3bf5`.
 This is machine validation only; the corrected MinGW binary still requires
 the manual WSLg SCFORM/SCHD run.
+
+### M75d1 explicit WD33C93A Transfer Info lifecycle (2026-08-03)
+
+The bounded trace was taken before the production change.  It classified the
+old path as an accepted `AR18=20h` transfer that could remain in a legacy
+phase-wait/abandon path instead of being represented as a Level-II command.
+The correction is in [f0b14d7](https://github.com/nakatamaho/vaeg/commit/f0b14d71a2015b9469c92ea51abe2b9ebf964b43)
+and the follow-up already-asserted-REQ fix is in
+[9827d09](https://github.com/nakatamaho/vaeg/commit/9827d09756779943d46b0973436f26f32142dced).
+The trace-only provenance checkpoint is
+[23b2752](https://github.com/nakatamaho/vaeg/commit/23b2752f36bc0571a705fecc3f25c964caf1d410).
+The synchronized branch start was `6442f06a98b51f67068bc56d5f61621df4e43d2c`;
+[790b737](https://github.com/nakatamaho/vaeg/commit/790b737) records the
+fast-forward synchronization in this worktree.
+
+The Transfer Info lifecycle is now explicit:
+
+```text
+idle
+  -> wait_for_req                 AR18=20h accepted, REQ absent
+  -> transfer_byte_pending        REQ asserted (or already asserted)
+  -> transfer_byte_pending        one completed REQ/ACK byte, TC decremented
+  -> wait_for_post_count_req      TC becomes zero
+  -> completed_or_terminated      distinct post-count REQ or 4MCI phase change
+```
+
+`INT=1` rejects the command, sets LCI, and preserves the active command, TC,
+and CSR latch.  `89h` is rejected while a Level-II command is active.  DATA
+register reads/writes require a pending REQ and DBR; TC is decremented only
+after the byte handshake.  A phase change before TC zero produces the
+phase-derived `4MCI` status.  TC zero waits for a separate post-count REQ
+before producing `19h`, `1Bh`, or `1Fh`.  CSR remains depth one and is not
+overwritten while INT is pending.
+
+The decisive after-change trace is:
+
+```text
+command-write-pre command=20 int=0 ... tc=000006 state=idle
+command-accepted command=20 tc=000006
+transfer-start phase=1a direction=host-to-spc tc=000006
+post-count-wait completion=1a next=8b state=wait_for_post_count_req tc=000000
+req-assert seq=7 kind=post-count status=8b
+csr-request/latch/hostread seq=4 status=1a
+command-write-pre command=20 int=0 ... tc=010000 state=idle
+command-accepted command=20 tc=010000
+transfer-start phase=1b direction=spc-to-host tc=010000
+target-phase-wait phase=1b tc=010000 state=wait_for_req
+req-assert seq=8 kind=active status=8b
+```
+
+The earlier pre-correction trace showed `transfer-abandoned` and the
+single-byte recovery path.  The new trace instead keeps the command active
+while REQ is absent and does not synthesize `89h` from that active state.  A
+Transfer Info issued while REQ is already asserted now starts the byte state
+immediately; this is covered by the follow-up test.
+
+Validation at the evaluated Linux SDL2 build:
+
+```text
+cmake --build build/linux-ci-clang --target vaeg_sdl2 -j4              PASS
+python3 tools/qa/m75_transfer_info.py --selftest                       PASS (10 tests)
+python3 tools/qa/m75_scsi_controller.py --root .                     PASS
+ctest --test-dir build/linux-ci-clang -R 'vaeg_m75_(scsi_controller|transfer_info)' --output-on-failure  PASS (2/2)
+SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy build/linux-ci-clang/sdl2/vaeg --selftest  PASS
+MinGW cross build                                                         UNAVAILABLE (build/mingw-cross is not configured)
+```
+
+The evaluated executable SHA-256 is
+`24b78da6b70e28e865f54fed642c1ce5bdbbd347c66d76a81a20ba6487eb74ef`.
+A real-ROM bounded run exited `124` at the external safety timeout.  It
+reached TUR CDB transfer and the STATUS Transfer Info wait, but did not reach
+the complete INQUIRY DATA IN golden sequence.  The trace contains repeated
+phase-direction-mismatch writes from the guest while the strict active
+Transfer Info state was waiting for a STATUS REQ; no PCPLUS-address special
+case or payload change was added.  Consequently SCHD registration, SCFORM,
+reboot, file operations, SASI, HOSTFAT, and non-SCSI manual gates remain
+unverified.  G75 is not passed.

@@ -1302,3 +1302,29 @@ separate parity correction or move it to Open Defects.
 - **Correction:** keep DATA IN active and call the phase-aware transfer path for the next byte; transition to STATUS only when the target response cursor is exhausted.  No guest address, CDB-order, image-name, or fixed-length workaround was added.
 - **Verification:** M75 controller QA, focused CTest, SDL selftest, and MinGW cross-build pass.  The corrected binary requires a new manual SCFORM/SCHD run.
 - **Evidence:** [M75 report](../agents/reports/m75_scsi_support.md), [M75 task](../agents/tasks/M75_scsi_support.md), and [84bc2ef](https://github.com/nakatamaho/vaeg/commit/84bc2efe1de9e5661fd28d31ba087a304f1a82ac).
+
+### Transfer Info was not represented as an active Level-II lifecycle
+
+- **Status:** corrected in M75d1; PCPLUS/SCHD integration remains open.
+- **Symptom:** after `AR18=20h`, the emulator could treat a REQ-waiting
+  Transfer Info as an abandoned legacy phase transfer, causing the guest to
+  fall back to single-byte recovery and fail to complete device discovery.
+- **Demonstrated root cause:** the Transfer Info path had no single explicit
+  lifecycle distinguishing command acceptance, REQ wait, byte pending, and
+  post-count REQ.  Service Required could therefore be considered while the
+  command was still active, and completion could be emitted without a
+  distinct post-count REQ.
+- **Correction:** add the explicit lifecycle in `cbus/scsiio.c`; reject
+  commands while INT/CSR is pending, preserve active state while waiting for
+  REQ, enforce REQ/DBR/ACK byte accounting, emit `4MCI` for early phase
+  changes, and emit successful MCI only after the post-count REQ.  An already
+  asserted REQ starts transfer immediately.  No guest-address or payload
+  workaround was added.
+- **Verification:** M75 Transfer Info selftest (10 tests), controller QA,
+  focused CTest, Linux SDL2 build, and SDL selftest pass.  The bounded real-ROM
+  run still times out before INQUIRY DATA IN, so manual SCHD/SCFORM acceptance
+  remains open.
+- **Evidence:** [M75 report](../agents/reports/m75_scsi_support.md),
+  [M75 task](../agents/tasks/M75_scsi_support.md),
+  [f0b14d7](https://github.com/nakatamaho/vaeg/commit/f0b14d71a2015b9469c92ea51abe2b9ebf964b43),
+  [9827d09](https://github.com/nakatamaho/vaeg/commit/9827d09756779943d46b0973436f26f32142dced).
