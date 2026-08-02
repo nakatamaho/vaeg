@@ -1149,3 +1149,43 @@ separate parity correction or move it to Open Defects.
   formats. A double-step adjustment did not pass the human gate and is not
   treated as a completed fix.
 - **Evidence:** [M23 formatted FDD task](../agents/tasks/M23_formatted_fdd_images.md).
+
+
+### PCPLUS bus-free completion was left pending after MESSAGE IN
+
+- **Status:** corrected in M75d1; full G75 acceptance remains pending.
+- **Symptom:** after PCPLUS consumed `CSR=1Fh` and the MESSAGE IN byte, the
+  controller did not deliver the configured ending-disconnect `CSR=85h`.
+  The guest could continue without a visible bus-free completion, and the
+  terminal controller sequence was incomplete.
+- **Demonstrated root cause:** the target-phase helper assumed every phase
+  transition would be followed by a host `TRANSFER INFO`.  Bus free has no
+  such request, so the pending `85h` status remained not-ready and was never
+  scheduled after the `1Fh` CSR was consumed.
+- **Correction:** mark only `85h`/`80h` bus-free results target-ready at the
+  MESSAGE IN boundary.  The existing depth-one CSR latch, AR17 consumption,
+  DBR gating, and processing event for data-bearing transitions are unchanged.
+- **Verification:** the normal-speed full trace now shows MESSAGE `00h`,
+  `CSR=1Fh`, then IRQ6 `CSR=85h`, `AR17=85h`, and `AR16=00h`.  The focused
+  M75 validator and Linux SDL2 build pass.
+- **Evidence:** [M75 report](../agents/reports/m75_scsi_support.md) and
+  [M75 task](../agents/tasks/M75_scsi_support.md).
+- **Commit:** [bc29d9e7](https://github.com/nakatamaho/vaeg/commit/bc29d9e7cecc426c4da22cbc628ab95f8c7efe8f).
+
+### Accelerated CPU-multiplier SCSI traces do not reproduce normal guest ordering
+
+- **Status:** open; root cause not demonstrated and no timing workaround is
+  authorized.
+- **Symptom:** `--cpumult 8`/`32` reaches later CDBs but may request only a
+  prefix of a DATA IN response before issuing another command.  These runs are
+  diagnostic-only and are excluded from M75 acceptance evidence.
+- **Current evidence:** the AR19 read/write helpers are synchronous and do not
+  schedule events or alter `CPU_REMCLOCK`; phase readiness and interrupt events
+  use emulated CPU-clock scheduling.  The symptom therefore cannot yet be
+  attributed to a controller byte-pump defect.
+- **Next step:** capture a deterministic normal-speed versus multiplier trace
+  at the guest phase boundary, then correct only a demonstrated general timing
+  defect.  Do not add a CPU-multiplier-specific delay or PCPLUS shortcut.
+- **Evidence:** [M75 report](../agents/reports/m75_scsi_support.md) and the
+  synchronous PIO guard in
+  [0c80c447](https://github.com/nakatamaho/vaeg/commit/0c80c447b6b655b81b3d08e5b67c8a1457d5be91).
