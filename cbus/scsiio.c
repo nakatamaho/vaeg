@@ -16,6 +16,7 @@
 
 static const UINT8 scsiirq[] = {0x03, 0x05, 0x06, 0x09, 0x0c, 0x0d, 3, 3};
 static BOOL scsi_trace_enabled;
+static BOOL scsi_trace_compact;
 static UINT scsi_trace_completion_limit;
 static UINT scsi_trace_completion_count;
 static BOOL scsi_trace_stop;
@@ -212,10 +213,25 @@ static void scsi_trace_transfer_event_result(void) {
 	}
 }
 
+static BOOL scsi_trace_compact_line(const char *fmt) {
+
+	if (!scsi_trace_compact) {
+		return(TRUE);
+	}
+	return(strncmp(fmt, "scsitrace transfer-", 19) == 0 ||
+			strncmp(fmt, "scsitrace data-read", 19) == 0 ||
+			strncmp(fmt, "scsitrace target-phase-wait", 27) == 0 ||
+			strncmp(fmt, "scsitrace M75c2", 15) == 0 ||
+			strncmp(fmt, "scsitrace warning", 17) == 0);
+}
+
 static void scsi_tracef(const char *fmt, ...) {
 
 	va_list ap;
 
+	if (!scsi_trace_compact_line(fmt)) {
+		return;
+	}
 	va_start(ap, fmt);
 	vfprintf(stderr, fmt, ap);
 	va_end(ap);
@@ -365,6 +381,11 @@ static REG8 scsiio_data_read(void) {
 void scsiio_trace_enable(BOOL enabled) {
 
 	scsi_trace_enabled = enabled;
+}
+
+void scsiio_trace_compact(BOOL compact) {
+
+	scsi_trace_compact = compact;
 }
 
 void scsiio_trace_limit(UINT limit) {

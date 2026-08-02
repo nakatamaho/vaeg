@@ -267,6 +267,7 @@ static void usage(const char *progname) {
 	printf("Diagnostics:\n");
 	printf("\t--smoke --selftest --debug --fdctrace --scsitrace --pacelog\n");
 	printf("\t--scsitrace-no-guest\n");
+	printf("\t--scsitrace-compact\n");
 	printf("\t--scsitrace-limit 1..1000000\n");
 	printf("\t--trace-cpu 1..1000000\n");
 	printf("\t--version --help [-h]\n");
@@ -1794,6 +1795,7 @@ int main(int argc, char **argv) {
 	TRACEINIT();
 	fdc_trace_enable(options.fdctrace);
 	scsiio_trace_enable(options.scsitrace);
+	scsiio_trace_compact(options.scsitrace_compact);
 	scsiio_trace_limit(options.scsitrace_limit);
 	sdlkbd_initialize();
 	inputmng_init();
