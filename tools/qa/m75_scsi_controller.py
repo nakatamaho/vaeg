@@ -177,7 +177,7 @@ def validate(root: pathlib.Path) -> None:
             "IRE1 IRQ gate")
     require(scsiio, "scsi_command_phase_pending",
             "post-SELECT COMMAND request latch")
-    require(scsiio, "scsiintr(\"select-complete\", 0x11)",
+    require(scsiio, "scsiintr_controller_event(\"select-complete\", 0x11)",
             "SELECT completion CSR")
     require(scsiio, "scsiintr(\"select-command-phase\", 0x8a)",
             "deferred COMMAND-phase CSR")
