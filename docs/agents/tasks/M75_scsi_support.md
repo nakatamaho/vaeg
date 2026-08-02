@@ -485,3 +485,19 @@ keeps the timing mismatch open.  The next step is a paired consumer trace for
 the second SELECT/COMMAND event: `1CCDh` is the intended wait consumer and
 `1742h`/`1747h` indicate the main event pump.  No production delay change is
 authorized until that evidence is collected.
+
+### Timing follow-up record (2026-08-02)
+
+The restored production build (`SCSI_TARGET_PROCESSING_CLOCKS=100`) confirms
+that the timing mismatch is still open, not closed.  Normal speed reaches TUR
+and a later SELECT/COMMAND request in low-overhead tracing, but no later CDB
+transfer within the bounded run.  `--cpumult 8` reaches the MODE SENSE CDB and
+`phase=19h, TC=24h` DATA IN requests within the 60-second bound; the 24-byte
+request is abandoned before any AR19 byte and later one-byte requests complete.
+This is not complete DATA IN evidence.
+
+A 4000-clock target-delay experiment was run only diagnostically and reverted;
+it did not advance normal speed beyond TUR.  Do not commit a delay change
+without the paired second-`8Ah` consumer trace showing a general controller
+contract defect.  G75 remains blocked on normal-speed INQUIRY/MODE SENSE
+transfer accounting and the manual SCHD/SCFORM/file-operation checks.
