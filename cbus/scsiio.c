@@ -139,11 +139,19 @@ static void scsi_trace_transfer_data_port_access(void) {
 	}
 }
 
-static void scsiio_schedule_transfer_phase(REG8 status) {
+static void scsiio_schedule_transfer_phase(REG8 status,
+		UINT completed_phase) {
 
-	scsi_transfer_phase_pending = TRUE;
 	scsi_transfer_phase_status = status;
-	scsi_target_phase_ready = FALSE;
+	if (scsiio.phase == completed_phase) {
+		/* REQ continues within the current phase; DBR may remain available. */
+		scsi_transfer_phase_pending = FALSE;
+		scsi_target_phase_ready = TRUE;
+	}
+	else {
+		scsi_transfer_phase_pending = TRUE;
+		scsi_target_phase_ready = FALSE;
+	}
 }
 
 static void scsi_trace_transfer_result(REG8 status) {
@@ -293,7 +301,7 @@ static void scsiio_data_write(REG8 dat) {
 			SCSITRACEOUT(("scsitrace M75c2 CDB transfer complete "
 					"count=%u", scsiio.wrdatpos));
 			next_status = scsicmd_command(scsiio.reg[SCSICTR_DSTID] & 7);
-			scsiio_schedule_transfer_phase(next_status);
+			scsiio_schedule_transfer_phase(next_status, SCSIPH_COMMAND);
 			scsiintr_transfer_complete(0x1a);
 			return;
 		}
@@ -313,7 +321,7 @@ static void scsiio_data_write(REG8 dat) {
 
 		completed_phase = scsiio.phase;
 		next_status = scsicmd_transinfo(scsiio.reg[SCSICTR_DSTID] & 7);
-		scsiio_schedule_transfer_phase(next_status);
+		scsiio_schedule_transfer_phase(next_status, completed_phase);
 		scsiintr_transfer_complete((REG8)(0x10 | completed_phase));
 		return;
 	}
@@ -345,7 +353,7 @@ static REG8 scsiio_data_read(void) {
 
 		completed_phase = scsiio.phase;
 		next_status = scsicmd_transinfo(scsiio.reg[SCSICTR_DSTID] & 7);
-		scsiio_schedule_transfer_phase(next_status);
+		scsiio_schedule_transfer_phase(next_status, completed_phase);
 		scsiintr_transfer_complete((REG8)(0x10 | completed_phase));
 		return ret;
 	}
