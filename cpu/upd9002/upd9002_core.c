@@ -191,6 +191,7 @@ void upd9002_core_step(void) {
 		return;
 	}
 
+	upd9002_guest_trace_step_begin();
 	upd9002_trace_step_begin();
 	upd9002_step_start_cs = UPD9002_CS;
 	upd9002_step_start_ip = UPD9002_IP;
@@ -222,12 +223,14 @@ void upd9002_core_step(void) {
 		if (preserve_state) {
 			upd9002_core_context.s = state_before;
 		}
+		upd9002_guest_trace_step_end();
 		upd9002_trace_event(UPD9002_TRACE_ORIGIN_CPU,
 			"diagnostic-stop-rep0f", CS_BASE + UPD9002_IP, opcode, 1);
 		upd9002_trace_step_end();
 		return;
 	}
 	upd9002_dmap();
+	upd9002_guest_trace_step_end();
 	upd9002_trace_step_end();
 }
 

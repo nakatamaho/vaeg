@@ -10,6 +10,7 @@ REG8 scsicmd_command(REG8 id);
 REG8 scsicmd_transinfo(REG8 id);
 BOOL scsicmd_send(void);
 REG8 scsicmd_phase_service_status(UINT phase);
+REG8 scsicmd_phase_unexpected_status(UINT phase);
 BOOL scsicmd_phase_host_to_spc(UINT phase);
 
 

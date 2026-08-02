@@ -168,6 +168,43 @@ BOOL vaeg_cli_parse(int argc, char **argv, VAEG_CLI_OPTIONS *options,
 		}
 		else if (!strcmp(argument, "--scsitrace")) {
 			options->scsitrace = TRUE;
+			options->scsitrace_guest = TRUE;
+		}
+		else if (!strcmp(argument, "--scsitrace-no-guest")) {
+			options->scsitrace = TRUE;
+			options->scsitrace_guest = FALSE;
+		}
+		else if (!strcmp(argument, "--scsitrace-compact")) {
+			options->scsitrace = TRUE;
+			options->scsitrace_compact = TRUE;
+		}
+		else if (!strcmp(argument, "--scsitrace-cmdreq-windows")) {
+			options->scsitrace = TRUE;
+			options->scsitrace_guest = TRUE;
+			options->scsitrace_cmdreq_windows = TRUE;
+		}
+		else if (!strcmp(argument, "--scsitrace-jitter-seed")) {
+			value = option_value(argc, argv, &position, argument, error,
+										error_size);
+			if ((value == NULL) || (parse_uint(value, &number) != SUCCESS)) {
+				return(set_error(error, error_size,
+						"--scsitrace-jitter-seed accepts an unsigned seed", value));
+			}
+			options->scsitrace = TRUE;
+			options->scsitrace_jitter = TRUE;
+			options->scsitrace_jitter_seed = number;
+		}
+		else if (!strcmp(argument, "--scsitrace-jitter-span")) {
+			value = option_value(argc, argv, &position, argument, error,
+										error_size);
+			if ((value == NULL) || (parse_uint(value, &number) != SUCCESS) ||
+					(number > 100000)) {
+				return(set_error(error, error_size,
+						"--scsitrace-jitter-span accepts 0 through 100000 clocks", value));
+			}
+			options->scsitrace = TRUE;
+			options->scsitrace_jitter = TRUE;
+			options->scsitrace_jitter_span = number;
 		}
 		else if (!strcmp(argument, "--scsitrace-limit")) {
 			value = option_value(argc, argv, &position, argument, error,

@@ -250,6 +250,44 @@ separate parity correction or move it to Open Defects.
 - **Evidence:** [M69 report](../agents/reports/m69_upd9002_idp_0142_status_composition.md).
 - **Commit:** [6ef4f98e](https://github.com/nakatamaho/vaeg/commit/6ef4f98ec1be20054db2aeb9c4a44c6a3d2e36bf).
 
+### PCPLUS STATUS requests were exposed before target phase readiness
+
+- **Status:** corrected in M75d1; full G75 acceptance remains pending.
+- **Symptom:** the PCPLUS/SCHD low-level `07h Select without ATN` path received
+  `CSR=8Bh`, but its phase handoff was consumed by the main event pump before
+  the foreground transfer setup returned. The guest then did not issue the
+  STATUS `AR=18h <- 20h` request.
+- **Root cause:** the controller released a pending target phase as soon as
+  the preceding CSR was consumed by `AR=17h`. CSR-latch consumption and target
+  readiness are separate gates. The raw `8Bh` was normalized correctly; the
+  event was simply visible while the previous completion path was still active.
+- **Correction:** pending phase requests now hold DBR low until a general
+  controller processing event exposes the target REQ. Same-phase PIO
+  continuation does not incur a phase-transition event. No guest address,
+  CDB, filename, or transfer-count special case was added. REQUEST SENSE is
+  implemented with a fixed no-sense DATA IN response because it is observed in
+  the PCPLUS probe before INQUIRY.
+- **Verification:** the real PCPLUS trace now shows `CSR=8Bh` at the guest
+  `1B67h` wait path, `CS:[047Eh]=3Bh` after consumption, `1BA1h -> 1C14h ->
+  1C32h`, STATUS data `00h` with `CSR=1Bh`, MESSAGE data `00h` with `CSR=1Fh`,
+  and REQUEST SENSE DATA IN beginning with `70h`. Static M75 validation,
+  focused CTest, Linux SDL2 build, and `--selftest` pass. The bounded trace
+  did not yet reach the later 36-byte INQUIRY golden, so this entry remains
+  separate from terminal G75 approval.
+- **Evidence:** [M75 report](../agents/reports/m75_scsi_support.md) and
+  [M75 task](../agents/tasks/M75_scsi_support.md).
+- **Commits:** [1cd3edb](https://github.com/nakatamaho/vaeg/commit/1cd3edb2b3bcde572f00b8a1131bd05f66ee3bff),
+  [e56a16e](https://github.com/nakatamaho/vaeg/commit/e56a16edf18985f95d78868fed73031a77514e88),
+  [9e6919f](https://github.com/nakatamaho/vaeg/commit/9e6919fdb5aa04b2a8d100ace89747c73a5059fc),
+  [07c1074](https://github.com/nakatamaho/vaeg/commit/07c1074a2c664e4b88bf4c8731cbcf4c5c4ad666).
+
+- **Follow-up:** [4ab457b](https://github.com/nakatamaho/vaeg/commit/4ab457bd8361bed27fd8e09eaa25bbbe97644ed0)
+  preserves DATA IN cursor state across repeated one-byte PIO requests, and
+  [dafeae0](https://github.com/nakatamaho/vaeg/commit/dafeae0da3b4657371a6181b72c40874db30905c) resets that
+  cursor only at actual phase boundaries.  Compact diagnostic controls are
+  provided by [dca6090](https://github.com/nakatamaho/vaeg/commit/dca6090a01076f244697be157f2aa4d80eec3d20) and
+  [52f9788](https://github.com/nakatamaho/vaeg/commit/52f9788a5c7d2c86beadddea3e4a135e7536046c).
+
 ### State-load rejection feedback disappeared with the State menu
 
 - **Status:** fixed; corrected G55 human gate passed on 2026-07-22.
@@ -1061,6 +1099,26 @@ separate parity correction or move it to Open Defects.
   [M64 report](../agents/reports/m64_upd9002_div_idiv.md).
 - **Commit:** [99c6388d](https://github.com/nakatamaho/vaeg/commit/99c6388df903dfc69432730cc9fa908a83946774).
 
+
+### SCSI DATA IN ended without reporting an early phase change
+
+- **Status:** corrected in M75d1; terminal G75 acceptance remains pending.
+- **Symptom:** when a host allocation exceeded the target response, the AR19
+  pump continued until the host count reached zero and never exposed the
+  target's STATUS phase with the residual transfer count.
+- **Demonstrated root cause:** DATA IN completion was tested only against the
+  host-programmed remaining count; `cmdpos` exhaustion was not converted into
+  the WD33C93 unexpected-information-phase status.
+- **Correction:** [ca29efb](https://github.com/nakatamaho/vaeg/commit/ca29efb)
+  preserves residual TC and emits `0x48 | (phase & 7)` (4Bh for STATUS) when
+  response data ends first.  When TC ends first, the unrequested suffix is
+  discarded and normal completion advances to STATUS.
+- **Verification:** focused M75 QA, Linux SDL2 build, and
+  `vaeg_m75_scsi_controller` CTest pass.  Normal-speed guest evidence for
+  the short INQUIRY path is still outstanding.
+- **Evidence:** [M75 report](../agents/reports/m75_scsi_support.md) and
+  [M75 task](../agents/tasks/M75_scsi_support.md).
+
 ## Open Defects
 
 ### Legacy Z80 reset leaves saved undocumented flag bits uninitialized
@@ -1111,3 +1169,136 @@ separate parity correction or move it to Open Defects.
   formats. A double-step adjustment did not pass the human gate and is not
   treated as a completed fix.
 - **Evidence:** [M23 formatted FDD task](../agents/tasks/M23_formatted_fdd_images.md).
+
+
+### PCPLUS bus-free completion was left pending after MESSAGE IN
+
+- **Status:** corrected in M75d1; full G75 acceptance remains pending.
+- **Symptom:** after PCPLUS consumed `CSR=1Fh` and the MESSAGE IN byte, the
+  controller did not deliver the configured ending-disconnect `CSR=85h`.
+  The guest could continue without a visible bus-free completion, and the
+  terminal controller sequence was incomplete.
+- **Demonstrated root cause:** the target-phase helper assumed every phase
+  transition would be followed by a host `TRANSFER INFO`.  Bus free has no
+  such request, so the pending `85h` status remained not-ready and was never
+  scheduled after the `1Fh` CSR was consumed.
+- **Correction:** mark only `85h`/`80h` bus-free results target-ready at the
+  MESSAGE IN boundary.  The existing depth-one CSR latch, AR17 consumption,
+  DBR gating, and processing event for data-bearing transitions are unchanged.
+- **Verification:** the normal-speed full trace now shows MESSAGE `00h`,
+  `CSR=1Fh`, then IRQ6 `CSR=85h`, `AR17=85h`, and `AR16=00h`.  The focused
+  M75 validator and Linux SDL2 build pass.
+- **Evidence:** [M75 report](../agents/reports/m75_scsi_support.md) and
+  [M75 task](../agents/tasks/M75_scsi_support.md).
+- **Commit:** [bc29d9e7](https://github.com/nakatamaho/vaeg/commit/bc29d9e7cecc426c4da22cbc628ab95f8c7efe8f).
+
+### INQUIRY response payload has not been guest-validated
+
+- **Status:** open; no payload-field change is authorized from static
+  inspection alone.
+- **Symptom:** the current direct-access response table is 32 bytes while the
+  observed INQUIRY allocation is 36 bytes.  This requires the corrected short
+  transfer contract, not forced padding.
+- **Demonstrated state:** byte4 is now `1Bh`, equal to the 32-byte table length
+  minus five, enforced by [4eeacda](https://github.com/nakatamaho/vaeg/commit/4eeacda).
+- **Next step:** observe the normal-speed guest branch after the short `4Bh`
+  response, then decide whether ANSI level, vendor/product text, or response
+  length needs a separately evidenced change.
+- **Evidence:** [M75 report](../agents/reports/m75_scsi_support.md) and
+  [M75 task](../agents/tasks/M75_scsi_support.md).
+
+### CPU-multiplier SCSI timing mismatch
+
+- **Status:** reopened in M75d1; the prior `f406b86` closure is superseded.
+- **Symptom:** the normal-speed run (the intended CPU/device ratio) reaches
+  TUR completion but does not reach the later MODE SENSE DATA IN within the
+  180-second bounded run, while the diagnostic `--cpumult 8` run reaches
+  INQUIRY, READ CAPACITY, and MODE SENSE but exhibits partial DATA IN.
+- **Demonstrated state:** the source audit proves that phase readiness and
+  interrupt delivery use emulated-clock events and that AR19 byte access is
+  synchronous.  It does not prove that the chosen target-processing quantum
+  is long enough for the normal-speed guest to return to its intended wait
+  consumer.  Progress under an artificial multiplier therefore cannot be
+  classified as expected behavior.
+- **Correction:** none yet.  Compare the normal-speed and `--cpumult 8`
+  consumer paths for the second SELECT/COMMAND event (`1CCDh` wait path
+  versus `1742h`/`1747h` main-pump path), then derive any processing delay from
+  the emulated device contract rather than tuning to PCPLUS.
+- **Verification:** controller QA, builds, CTest, and selftest pass, but the
+  timing defect and normal-speed INQUIRY/MODE SENSE evidence remain open.
+- **Evidence:** [M75 report](../agents/reports/m75_scsi_support.md),
+  [0c80c447](https://github.com/nakatamaho/vaeg/commit/0c80c447b6b655b81b3d08e5b67c8a1457d5be91),
+  and [df2981e](https://github.com/nakatamaho/vaeg/commit/df2981e).
+
+
+### MODE SENSE page-04 geometry was omitted from the SCSI target
+
+- **Status:** corrected in M75d1; normal-speed SCHD registration remains open.
+- **Symptom:** PCPLUS/SCHD issued `1A 00 04 00 24 00` but the target ignored
+  the page code and returned only a 12-byte mode header and block descriptor,
+  omitting the rigid-disk cylinder/head geometry.
+- **Demonstrated root cause:** `scsicmd_datain()` treated every MODE SENSE(6)
+  request as the descriptor-only case and capped the response at 12 bytes.
+- **Correction:** decode page `04h` and `3Fh`, emit the allocation-bounded
+  page-04 geometry with mounted `SXSIDEV` values, validate the geometry
+  product, and return CHECK CONDITION/ILLEGAL REQUEST for unsupported pages or
+  inconsistent geometry.  REQUEST SENSE exposes and then clears the sense
+  data.
+- **Verification:** M75 controller QA, Linux SDL2 build, focused CTest, and
+  SDL selftest pass; the accelerated real-ROM trace reaches the MODE SENSE
+  DATA IN phase.  Normal-speed SCHD registration is not yet demonstrated.
+- **Evidence:** [M75 report](../agents/reports/m75_scsi_support.md) and
+  [M75 task](../agents/tasks/M75_scsi_support.md).
+- **Commit:** [03d4cd765](https://github.com/nakatamaho/vaeg/commit/03d4cd76541a3058cf32b0c239b499e0c0431627).
+
+### WD33C93 transfer count byte-order hypothesis (superseded)
+
+- **Status:** superseded in M75d1; no low/middle/high production correction is retained.
+- **Observed symptom:** the intermediate MinGW run with the low/middle/high experiment produced `TC=060000` for a six-byte CDB, `TC=010000` for a one-byte transfer, and `TC=0a0000` for a ten-byte CDB.
+- **Demonstrated correction:** the WSLg `scsitrace` proves PCPLUS/WD33C93 uses AR12/AR13/AR14 as high, middle, low: the expected counts are 6, 1, and 10, while the experiment multiplied them by 65536. The original high/middle/low decode and decrement order is restored.
+- **Follow-up commit:** [c959453](https://github.com/nakatamaho/vaeg/commit/c959453a0a482994ac25ab6db0b33e425306a0e9).
+- **Evidence:** [M75 report](../agents/reports/m75_scsi_support.md) and [M75 task](../agents/tasks/M75_scsi_support.md).
+### MODE SENSE block length was written at the reserved-byte offset
+
+- **Status:** corrected in M75d1; SCHD/SCFORM manual confirmation remains pending.
+- **Symptom:** after INQUIRY completed and SCHD reported direct-access fixed-media mode, the driver halted during MODE SENSE geometry processing.
+- **Demonstrated root cause:** the six-byte MODE SENSE block descriptor places the three-byte block length at response bytes 9--11.  `scsicmd_datain()` wrote it at byte 8, overwriting the reserved byte and shifting the value read by SCHD.
+- **Correction:** write the mounted `SXSIDEV` block size at `scsiio.data + 9`; no device-specific or guest-address workaround was added.
+- **Verification:** M75 QA, Linux SDL2 build, focused CTest, and SDL selftest pass.  The corrected MinGW/manual SCFORM run is still required to confirm SCHD registration and format completion.
+- **Evidence:** [M75 report](../agents/reports/m75_scsi_support.md) and [M75 task](../agents/tasks/M75_scsi_support.md).
+
+
+### CSR pending queue admitted target events ahead of the host consumer
+
+- **Status:** corrected in M75d1; later normal-speed guest progress remains open.
+- **Symptom:** a target transfer-completion CSR could be requested while the
+  previous SELECT/command CSR was still active, filling the runtime pending
+  slot and later causing overrun/drop and wrong event ordering.
+- **Demonstrated root cause:** the old implementation let target state advance
+  on scheduled time while the WD33C93 CSR latch was unread, so the runtime
+  state contained an active event, a visible latch, and a successor pending
+  event.  The pre-correction WSLg trace records the active `CSR=11h`, a
+  concurrent `CSR=1Ah`, `pending=1`, and subsequent `csr-overrun` records.
+- **Correction:** remove the CSR pending slot.  Target-origin events are
+  pulled from persistent target state only after AR17 consumes the visible
+  CSR; host-synchronous transfer-completion events remain serialized by the
+  host I/O boundary.  Overlap is fail-closed and trace-visible.  Add a
+  deterministic watchdog for unread CSR, stalled target delay, and missing
+  DATA IN request handoff.
+- **Verification:** fixed 4000/40000-clock stress and five seeded jitter runs
+  produced zero `csr-overrun`, `csr-drop`, and `invariant` records.  QA,
+  focused CTest, and SDL selftest pass.  A normal-speed bounded run still
+  reports an unread later `CSR=8Ah`, so SCHD registration and G75 acceptance
+  remain open.
+- **Evidence:** [M75 report](../agents/reports/m75_scsi_support.md) and
+  [M75 task](../agents/tasks/M75_scsi_support.md).
+- **Commit:** [ccb0666](https://github.com/nakatamaho/vaeg/commit/ccb066695907456314783cc3bb9a28dfad279c55).
+
+### DATA IN TC=1 was incorrectly treated as a phase end
+
+- **Status:** corrected in M75d1; fresh SCFORM/SCHD acceptance remains pending.
+- **Symptom:** the WSLg SCFORM/SCHD trace completed TUR and selected ID0, but an INQUIRY DATA IN request programmed `TC=1` after an initial `TC=36`.  The emulator moved to STATUS after the first byte, so SCHD saw an incomplete INQUIRY response and reported that no device was connected.
+- **Demonstrated root cause:** `scsiio_data_read()` changed `SCSIPH_DATAIN` to STATUS whenever the host count reached zero, even while `rddatpos < cmdpos`.  PCPLUS uses repeated one-byte TRANSFER INFO requests within the same DATA IN phase.
+- **Correction:** keep DATA IN active and call the phase-aware transfer path for the next byte; transition to STATUS only when the target response cursor is exhausted.  No guest address, CDB-order, image-name, or fixed-length workaround was added.
+- **Verification:** M75 controller QA, focused CTest, SDL selftest, and MinGW cross-build pass.  The corrected binary requires a new manual SCFORM/SCHD run.
+- **Evidence:** [M75 report](../agents/reports/m75_scsi_support.md), [M75 task](../agents/tasks/M75_scsi_support.md), and [84bc2ef](https://github.com/nakatamaho/vaeg/commit/84bc2efe1de9e5661fd28d31ba087a304f1a82ac).
