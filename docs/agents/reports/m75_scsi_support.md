@@ -1233,3 +1233,22 @@ The Phase A code and validator checks build successfully and the focused M75
 CTest/selftest pass.  The current macOS Cocoa SDL environment aborts during
 window initialization before guest execution, so no real-ROM window result is
 claimed from this host.  G75 remains open.
+
+
+Phase A trace-only commit: `3667ed08701ba3e1863d659dfd47ddc954e25183`.
+Validation at that commit completed with exit status 0 for:
+
+```text
+cmake --build build/linux-ci-clang --target vaeg_sdl2 -j2
+cmake --build build/m75-tests --target vaeg_sdl2 -j2
+SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy build/m75-tests/sdl2/vaeg --selftest
+python3 tools/qa/m75_scsi_controller.py --root .
+ctest --test-dir build/m75-tests -R vaeg_m75_scsi_controller --output-on-failure
+```
+
+The normal-speed real-ROM command was attempted with
+`--scsitrace-cmdreq-windows`, `--scsitrace-compact`, and
+`--scsitrace-limit 7`; it exited 134 before guest execution because this
+macOS host's SDL Cocoa backend raised `NSInternalInconsistencyException`
+while initializing `SystemAppearance`.  This is an environment failure, not a
+SCSI result.  No first/second raw-`8Ah` classification is claimed yet.

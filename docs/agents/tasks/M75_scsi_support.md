@@ -540,3 +540,10 @@ Phase A is accepted only when the paired normal-speed trace distinguishes:
 The trace-only change itself must preserve the existing `--scsitrace` output
 when the new option is absent.  No delay constant or phase engine correction
 may be implemented until this comparison is recorded.
+
+
+Phase A trace-only implementation is committed at
+`3667ed08701ba3e1863d659dfd47ddc954e25183`.  Local build, selftest, M75
+validator, and focused CTest pass.  The real-ROM paired run remains pending
+because the current macOS SDL Cocoa environment aborts during window
+initialization before guest execution; this does not change the gate status.
