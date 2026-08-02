@@ -1172,20 +1172,24 @@ separate parity correction or move it to Open Defects.
   [M75 task](../agents/tasks/M75_scsi_support.md).
 - **Commit:** [bc29d9e7](https://github.com/nakatamaho/vaeg/commit/bc29d9e7cecc426c4da22cbc628ab95f8c7efe8f).
 
-### Accelerated CPU-multiplier SCSI traces do not reproduce normal guest ordering
+### Accelerated CPU-multiplier SCSI traces use a different timing ratio
 
-- **Status:** open; root cause not demonstrated and no timing workaround is
-  authorized.
+- **Status:** closed as expected timing behavior; not a production defect.
 - **Symptom:** `--cpumult 8`/`32` reaches later CDBs but may request only a
-  prefix of a DATA IN response before issuing another command.  These runs are
-  diagnostic-only and are excluded from M75 acceptance evidence.
-- **Current evidence:** the AR19 read/write helpers are synchronous and do not
-  schedule events or alter `CPU_REMCLOCK`; phase readiness and interrupt events
-  use emulated CPU-clock scheduling.  The symptom therefore cannot yet be
-  attributed to a controller byte-pump defect.
-- **Next step:** capture a deterministic normal-speed versus multiplier trace
-  at the guest phase boundary, then correct only a demonstrated general timing
-  defect.  Do not add a CPU-multiplier-specific delay or PCPLUS shortcut.
-- **Evidence:** [M75 report](../agents/reports/m75_scsi_support.md) and the
-  synchronous PIO guard in
-  [0c80c447](https://github.com/nakatamaho/vaeg/commit/0c80c447b6b655b81b3d08e5b67c8a1457d5be91).
+  prefix of a DATA IN response before issuing another command.  These runs
+  are diagnostic-only and are excluded from M75 acceptance evidence.
+- **Demonstrated cause:** phase readiness, AR18-to-DBR startup, and interrupt
+  delivery use emulated CPU-clock events, while `UPD9002_WORKCLOCK()` scales
+  guest instruction consumption.  The synchronous AR19 helpers do not schedule
+  events or alter `CPU_REMCLOCK`; the accelerated mode intentionally changes
+  the guest CPU/device time ratio.
+- **Correction:** none.  No CPU-multiplier-specific delay, guest shortcut, or
+  PCPLUS address-dependent behavior was added.  The AR18-to-first-DBR and
+  synchronous-byte invariants are guarded by
+  [df2981e](https://github.com/nakatamaho/vaeg/commit/df2981e).
+- **Verification:** source unit audit and the focused M75 controller validator
+  pass.  Normal-speed 36-byte INQUIRY evidence remains a separate open G75
+  blocker.
+- **Evidence:** [M75 report](../agents/reports/m75_scsi_support.md),
+  [0c80c447](https://github.com/nakatamaho/vaeg/commit/0c80c447b6b655b81b3d08e5b67c8a1457d5be91),
+  and [df2981e](https://github.com/nakatamaho/vaeg/commit/df2981e).

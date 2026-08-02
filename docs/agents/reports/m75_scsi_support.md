@@ -907,9 +907,52 @@ interrupt delivery use `nevent_set()`, whose absolute clock is expressed in
 emulated CPU-clock units.  The focused validator now rejects any future
 asynchronous byte-pump regression in [0c80c44](https://github.com/nakatamaho/vaeg/commit/0c80c447b6b655b81b3d08e5b67c8a1457d5be91).
 
-The accelerated guest-level ordering mismatch therefore remains an open
-investigation item; no unsupported production timing workaround was added.
-Normal-speed evidence is the only evidence eligible for the INQUIRY golden.
+The accelerated guest-level ordering mismatch is classified as an expected
+CPU/device timing-ratio observation; no unsupported production timing
+workaround was added.  Normal-speed evidence is the only evidence eligible
+for the INQUIRY golden.
+
+### CPU multiplier timing-unit closure (2026-08-02)
+
+The accelerated `--cpumult 8` and `--cpumult 32` runs are closed as a
+timing-mode observation, not as a demonstrated SCSI defect.  The unit audit
+covered all three relevant boundaries:
+
+- `scsiio_schedule_transfer_phase()` and the AR18=`20h` TRANSFER INFO path
+  schedule `SCSI_TARGET_PROCESSING_CLOCKS` with `nevent_set(...,
+  NEVENT_ABSOLUTE)`.
+- `scsiintr_immediate()` and `scsiintr()` also schedule their delivery in
+  the same emulated CPU-clock domain.
+- `nevent_set()` converts absolute event clocks against `CPU_REMCLOCK`; it
+  does not use wall-clock seconds or a guest-instruction counter.
+- `scsiio_data_read()` and `scsiio_data_write()` perform one synchronous
+  byte operation per AR19 access and neither schedule an event nor modify
+  `CPU_REMCLOCK`.
+- `UPD9002_WORKCLOCK()` applies the requested CPU multiplier to guest
+  instruction consumption, while `iocoreva` retains the standard bus access
+  clock.  Therefore `--cpumult 8/32` intentionally changes the guest
+  CPU/device time ratio.
+
+A finite guest polling budget can consequently expire before a device event
+that is still pending in emulated time.  The partial accelerated DATA IN
+traces are therefore not acceptance evidence and do not authorize a
+CPU-multiplier-specific delay or guest shortcut.  The synchronous-PIO
+validator was extended in [df2981e](https://github.com/nakatamaho/vaeg/commit/df2981e)
+to require both the AR18-to-first-DBR target-processing event and the DBR-low
+interval in the TRANSFER INFO path.
+
+This closes the cpumult item as `guest timing assumption violation, not a
+production defect`.  Normal-speed execution remains the only valid source for
+the 36-byte INQUIRY golden.  The current release worker still has not produced
+a normal-speed `CSR=19h` / AR19-read-x36 record within the available bounded
+runs, so that evidence and all manual SCFORM/SCHD/file-operation checks remain
+open.
+
+The source pre-check also records that the current `hdd_inquiry` table is a
+32-byte response while the observed CDB requests allocation length `24h`
+(36 bytes).  No ANSI level, vendor string, or padding change is made from
+this observation alone; the payload contract must be resolved and tested when
+the normal-speed INQUIRY path is reached.
 
 ### SASI predecessor comparison
 
