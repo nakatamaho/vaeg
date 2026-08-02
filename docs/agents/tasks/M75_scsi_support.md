@@ -373,3 +373,26 @@ that requirement.
 The historical M75a worker digest in the earlier diagnostic checkpoint is
 retained as provenance.  The current post-cursor worker digest is recorded in
 the report addendum and must be used for any new evaluation.
+
+
+## M75d1 follow-up: bus-free and multiplier evidence
+
+The MESSAGE IN completion path must expose ending disconnect without requiring
+a further `TRANSFER INFO` command.  For Control `08h`, the required terminal
+status is `85h`; when ending disconnect is disabled, the corresponding bus-free
+status is `80h`.  The implementation must keep the pending bus-free status
+ready when `CSR=1Fh` is consumed, while retaining the processing gate for all
+data-bearing phase changes.
+
+PIO byte access remains synchronous with each AR19 access.  The byte helpers
+must not schedule events or manipulate the CPU remaining-clock budget.  The
+`--cpumult` diagnostic runs are not acceptance evidence until a normal-speed
+36-byte INQUIRY record is observed.  Any accelerated partial-transfer symptom
+must be investigated without adding a guest-tuned delay or a hard-coded CDB
+path.
+
+A clean build at predecessor `11cb0026ad646cff16237adef95e324fcedd40d9`
+reproduced the same SASI unsupported-format/geometry rejection as the current
+branch; this is not an M75 regression.  The terminal manual requirements remain
+SCFORM initialization, SCHD registration, reboot, file create/read/delete,
+and normal-speed INQUIRY DATA IN.
