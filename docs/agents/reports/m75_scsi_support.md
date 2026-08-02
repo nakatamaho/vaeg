@@ -1351,3 +1351,76 @@ The evaluated Linux SDL2 executable SHA-256 is
 No production-fix SHA is claimed by this checkpoint.  G75 remains pending;
 normal-speed INQUIRY DATA IN accounting, SCHD/SCFORM/reboot/file-operation
 acceptance, and SASI/HOSTFAT/non-SCSI regression evidence are still open.
+
+
+### M75d1 CSR admission correction: pull-model target gating (2026-08-02)
+
+The provenance detector was committed first in
+[23b2752](https://github.com/nakatamaho/vaeg/commit/23b2752c6bc0f02c32eabf22c2b6a98c9383334a).
+The maintainer-provided pre-correction WSLg trace contains the decisive
+collision: `seq=13`, `CSR=1Ah`, was requested while `seq=12`, `CSR=11h`, was
+still the active scheduled event; the trace then records `pending=1` and later
+`csr-overrun` records.  This is the detector evidence for the old two-stage
+CSR path.  A separate replay of the pre-correction source did not reach that
+collision within its shorter safety bound, so the replay is not claimed as a
+second reproduction.
+
+The production correction is
+[ccb0666](https://github.com/nakatamaho/vaeg/commit/ccb066695907456314783cc3bb9a28dfad279c55).
+The CSR pending slot and its promotion path were removed.  Target-origin
+selection, command-request, phase-ready, and bus-free events now remain as
+persistent target state and are pulled only after AR17 consumes the visible
+CSR.  A target-processing event is then scheduled; host-synchronous transfer
+completion (`1Ah`, `1Bh`, `1Fh`, and short-transfer `48h`--`4Fh`) remains
+serialized by the host I/O access and is not put through the target queue.
+The one-device CSR latch remains independent of 8259 EOI.  A second CSR is
+never silently queued or overwrites the visible latch; the trace records an
+`invariant ...-overlap`, `csr-overrun`, and `csr-drop` if a producer violates
+that admission boundary.
+
+A deterministic watchdog event (`NEVENT_SCSIWATCHDOG`) reports an unread CSR,
+a target phase-delay that does not complete, or an internal DATA IN decision
+for which no `CSR=89h` request appears within the watchdog interval.  The
+latter includes a monotonic missing-request count and the guest `CS:IP` at the
+observation.  These diagnostics are opt-in with `--scsitrace` and do not alter
+guest state or the controller contract.
+
+The target processing quantum remains the emulated-clock constant
+`SCSI_TARGET_PROCESSING_CLOCKS=100`; it was not tuned to the guest.  A
+trace-only seeded jitter facility is available with
+`--scsitrace-jitter-seed N --scsitrace-jitter-span N`; it varies only target
+processing event clocks, records the seed/span/effective samples, and is
+reproducible.  Five seeds (1 through 5, span 200) produced zero
+`csr-overrun`, `csr-drop`, and `invariant` records.  Seed 2 additionally
+reported the watchdog's unconsumed `CSR=8Ah` at the bounded-run cutoff; this
+is retained as an open guest-progress observation, not hidden as a pass.
+
+Fixed-clock stress runs at 4000 and 40000 target-processing clocks likewise
+produced zero overrun/drop/invariant records.  The 40000 run reached the
+second TUR, INQUIRY, READ CAPACITY, and MODE SENSE CDB boundaries; the 4000
+run exposed a different incomplete guest transfer pattern but no CSR
+admission violation.  These are structural stress results, not G75
+acceptance evidence.
+
+The final normal-speed bounded run (`exit=124` safety bound) completed the
+TUR STATUS and MESSAGE IN phases and reached the second SELECT/COMMAND
+request, then the watchdog reported an unread `CSR=8Ah` before the run ended.
+It did not produce the normal-speed INQUIRY DATA IN golden sequence.  Thus the
+pull-model correction removes the old CSR queue collision, but it does not yet
+prove that the guest consumes the later command request or that SCHD registers
+the device.
+
+Focused validation for [ccb0666](https://github.com/nakatamaho/vaeg/commit/ccb066695907456314783cc3bb9a28dfad279c55):
+
+```text
+cmake --build build/m75-tests --target vaeg_sdl2 -j2                         PASS
+python3 tools/qa/m75_scsi_controller.py --root .                           PASS
+ctest --test-dir build/m75-tests -R vaeg_m75_scsi_controller --output-on-failure PASS
+SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy build/m75-tests/sdl2/vaeg --selftest PASS
+```
+
+The evaluated executable was `build/m75-tests/sdl2/vaeg`, SHA-256
+`5c417772db1385e65c8aaea65d03ce43c4d84574fb0cff59a990151b3565532b`.
+The current M75 gate remains open: normal-speed INQUIRY DATA IN, SCHD
+registration, SCFORM, reboot, file operations, SASI, HOSTFAT, and non-SCSI
+regressions still require evidence.  G75 is not approved.

@@ -1266,3 +1266,30 @@ separate parity correction or move it to Open Defects.
 - **Correction:** write the mounted `SXSIDEV` block size at `scsiio.data + 9`; no device-specific or guest-address workaround was added.
 - **Verification:** M75 QA, Linux SDL2 build, focused CTest, and SDL selftest pass.  The corrected MinGW/manual SCFORM run is still required to confirm SCHD registration and format completion.
 - **Evidence:** [M75 report](../agents/reports/m75_scsi_support.md) and [M75 task](../agents/tasks/M75_scsi_support.md).
+
+
+### CSR pending queue admitted target events ahead of the host consumer
+
+- **Status:** corrected in M75d1; later normal-speed guest progress remains open.
+- **Symptom:** a target transfer-completion CSR could be requested while the
+  previous SELECT/command CSR was still active, filling the runtime pending
+  slot and later causing overrun/drop and wrong event ordering.
+- **Demonstrated root cause:** the old implementation let target state advance
+  on scheduled time while the WD33C93 CSR latch was unread, so the runtime
+  state contained an active event, a visible latch, and a successor pending
+  event.  The pre-correction WSLg trace records the active `CSR=11h`, a
+  concurrent `CSR=1Ah`, `pending=1`, and subsequent `csr-overrun` records.
+- **Correction:** remove the CSR pending slot.  Target-origin events are
+  pulled from persistent target state only after AR17 consumes the visible
+  CSR; host-synchronous transfer-completion events remain serialized by the
+  host I/O boundary.  Overlap is fail-closed and trace-visible.  Add a
+  deterministic watchdog for unread CSR, stalled target delay, and missing
+  DATA IN request handoff.
+- **Verification:** fixed 4000/40000-clock stress and five seeded jitter runs
+  produced zero `csr-overrun`, `csr-drop`, and `invariant` records.  QA,
+  focused CTest, and SDL selftest pass.  A normal-speed bounded run still
+  reports an unread later `CSR=8Ah`, so SCHD registration and G75 acceptance
+  remain open.
+- **Evidence:** [M75 report](../agents/reports/m75_scsi_support.md) and
+  [M75 task](../agents/tasks/M75_scsi_support.md).
+- **Commit:** [ccb0666](https://github.com/nakatamaho/vaeg/commit/ccb066695907456314783cc3bb9a28dfad279c55).
