@@ -1061,10 +1061,11 @@ block descriptor.  That could not provide the cylinder/head geometry needed by
 SCHD registration.
 
 Commit [03d4cd7](https://github.com/nakatamaho/vaeg/commit/03d4cd76541a3058cf32b0c239b499e0c0431627)
-now derives the response from the mounted `SXSIDEV` and supports page `04h`
-and the supported-pages request `3Fh`.  With DBD clear, the response is 36
-bytes: a four-byte mode header, an eight-byte big-endian block descriptor, and
-a 24-byte page-04 payload.  With DBD set, the descriptor is omitted and the
+now derives the response from the mounted `SXSIDEV` and supports empty page `00h`,
+rigid-disk page `04h`, and the all-pages request `3Fh` (page 00h followed by
+page 04h).  With DBD clear, the page-04 response is 36 bytes: a four-byte
+mode header, an eight-byte big-endian block descriptor, and a 24-byte page-04
+payload.  With DBD set, the descriptor is omitted and the
 response is 28 bytes.  The mode data length reports the available response
 length minus one, while the transfer length remains bounded by the host
 allocation count.  Cylinder count, head count, block count, and block length
@@ -1108,3 +1109,15 @@ G75 remains open.  Normal-speed INQUIRY/MODE SENSE DATA IN accounting,
 PCPLUS/SCHD registration, SCFORM initialization, reboot, and SCSI file
 create/read/delete operations still require evidence.  No G75 approval is
 claimed.
+
+
+### M75d1 page-00/all-pages follow-up (2026-08-02)
+
+The task contract also requires MODE SENSE page `00h` and a real all-pages
+response for page `3Fh`.  Follow-up commit
+[56848c0](https://github.com/nakatamaho/vaeg/commit/56848c0f68cbe2b4381003343bf753e1c61d930b)
+adds the empty page-00 response and composes page 00h followed by page 04h for
+3Fh.  The response remains allocation-bounded and uses the same DBD-dependent
+header and descriptor layout.  Unsupported pages still return CHECK CONDITION
+with ILLEGAL REQUEST.  The rebuilt worker after this follow-up has SHA-256
+`51aae76205dcb71f5bc447cbdbf7ac8f33d220bad6852cd594a11d61b40ec3df`.
