@@ -453,3 +453,21 @@ reach the second CDB transfer.  Accelerated CPU multiplier runs may be used
 only to inspect later CDB order and never satisfy the terminal G75 evidence.
 SCHD registration, SCFORM, reboot, and file operations remain manual
 acceptance requirements.
+
+
+## M75d1 continuation — MODE SENSE geometry
+
+The SCHD probe uses MODE SENSE(6) CDB `1A 00 04 00 24 00`.  The controller
+must decode page `04h`, not silently return only the mode header and block
+descriptor.  Commit
+[03d4cd7](https://github.com/nakatamaho/vaeg/commit/03d4cd76541a3058cf32b0c239b499e0c0431627)
+implements the page-04 rigid-disk geometry response, page `3Fh` as the
+supported-pages request, DBD-dependent response layout, allocation-bounded
+transfer, and CHECK CONDITION/ILLEGAL REQUEST for unsupported pages or
+contradictory mounted geometry.  All counts and lengths derive from
+`SXSIDEV`; fixed geometry values are prohibited.
+
+The correction is source-validated and the accelerated diagnostic sequence
+reaches MODE SENSE as DATA IN.  Normal-speed SCHD registration remains a
+required evidence item and this continuation does not alter the G75 human
+gate.
