@@ -1250,3 +1250,26 @@ separate parity correction or move it to Open Defects.
 - **Evidence:** [M75 report](../agents/reports/m75_scsi_support.md) and
   [M75 task](../agents/tasks/M75_scsi_support.md).
 - **Commit:** [03d4cd765](https://github.com/nakatamaho/vaeg/commit/03d4cd76541a3058cf32b0c239b499e0c0431627).
+
+### WD33C93 transfer count was decoded in the wrong byte order
+
+- **Status:** corrected in M75d1; manual SCFORM/SCHD acceptance remains pending.
+- **Symptom:** one-byte STATUS/MESSAGE transfers were interpreted as `TC=010000`
+  instead of `TC=1`.  The guest could continue far enough to show rapid
+  `SCHD.SYS` connection/format diagnostics, but the SENSE path could not
+  complete reliably.
+- **Demonstrated root cause:** PCPLUS writes the WD33C93 transfer count in
+  AR `12h`, `13h`, `14h` order as low, middle, high.  `scsiio_transfer_count()`
+  treated AR `12h` as the high byte, while the decrement path borrowed in the
+  opposite direction.  A count of one therefore became `0x010000`; counts such
+  as `0x24` were less visibly affected because the high bytes were zero.
+- **Correction:** decode AR12-14 as low/middle/high and decrement with the same
+  ordering.  No CDB, guest-address, timing, or filename-specific workaround was
+  added.
+- **Verification:** M75 controller QA, Linux SDL2 build, focused CTest, and
+  SDL selftest pass after the correction.  The existing trace explicitly shows
+  the pre-fix `AR12=01, AR13=00, AR14=00` sequence and `TC=010000`; a new
+  MinGW/manual SCFORM run is still required for guest acceptance.
+- **Evidence:** [M75 report](../agents/reports/m75_scsi_support.md) and
+  [M75 task](../agents/tasks/M75_scsi_support.md).
+- **Commit:** [9f11430](https://github.com/nakatamaho/vaeg/commit/9f11430a52e7d660c18cb0cfad3bef448f6c157c).

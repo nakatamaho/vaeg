@@ -547,3 +547,25 @@ Phase A trace-only implementation is committed at
 validator, and focused CTest pass.  The real-ROM paired run remains pending
 because the current macOS SDL Cocoa environment aborts during window
 initialization before guest execution; this does not change the gate status.
+
+### M75d1 transfer-count byte-order correction (2026-08-02)
+
+Manual progress reached boot and SCFORM, but the format/SENSE path stopped and
+reported that `SCHD.SYS` was not connected.  Existing trace evidence showed
+that PCPLUS writes one-byte transfer counts as AR12/AR13/AR14 = low/middle/high
+(`01 00 00`), while the controller decoded them as high/middle/low and exposed
+`TC=010000h`.  This is a concrete WD33C93 register-contract defect, not a
+payload or queue hypothesis.
+
+Commit [9f11430](https://github.com/nakatamaho/vaeg/commit/9f11430a52e7d660c18cb0cfad3bef448f6c157c)
+fixes decode and decrement borrow order and adds static QA coverage.  Linux
+build, focused CTest, M75 QA, and SDL selftest pass.  The next human check is
+to rerun the corrected MinGW binary and record the full SENSE completion,
+SCHD registration, and SCFORM result.  G75 remains open.
+
+The corrected MinGW cross-build completed with exit status 0.  The manual
+artifact is `/tmp/vaeg-m75-cmdreq-mingw.exe`, copied byte-identically from
+`build/mingw-cross/sdl2/vaeg.exe`, PE32+ x86-64, SHA-256
+`4c7ab88c7616ff08b767a81db303957174829333ada2ead5b7981112226cc078`.
+Windows execution is unavailable on the development host; rerun the support
+disk and record SENSE completion, SCHD registration, and SCFORM before G75.
