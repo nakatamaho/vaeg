@@ -255,6 +255,42 @@ single G75 gate.  The `--scsitrace-limit N` option is the deterministic
 transfer-count termination control for bounded diagnostic runs; wall-clock
 timeouts remain safety bounds only.
 
+### PCPLUS raw CSR acceptance set
+
+The PCPLUS interrupt normalizer and dispatch table define the following
+canonical raw CSR values for the active PCPLUS/SCHD path:
+
+| raw CSR | normalized/status key | static destination |
+|---|---:|---:|
+| `11h` | `01h` | `186Ch` |
+| `16h` | `06h` | `1884h` |
+| `18h` | `08h` | `1893h` |
+| `19h`-`1Bh` | `09h`-`0Bh` | `1818h` |
+| `1Fh` | `0Fh` | `1818h` |
+| `42h` | `02h` | `1878h` |
+| `48h` | `08h` | `1893h` |
+| `49h`-`4Fh` | `09h`-`0Fh` | `1818h` |
+| `85h` | `15h`, dispatch key `10h` | `1935h` |
+| `88h`-`8Fh` | `18h`-`1Fh`, dispatch key `11h` | `1972h` |
+
+This is a host-contract set, not complete WD33C93 silicon coverage. VAEG
+generated controller statuses must remain within this canonical set. The
+disassembly does not prove that `00h`, `01h`, `10h`, `41h`, `43h`-`47h`,
+`80h`-`84h`, `86h`, or `87h` are silently rejected; they also normalize into
+dispatch-table entries and remain semantically unverified. Validators must
+not classify those values as proven no-op or rejection cases without new
+PCPLUS/SCHD evidence.
+
+For the current integration blocker, `1C0Eh` is a `CS:[047Eh]` read followed
+by return, not a branch to `1C32h`. The relevant trace-only path is:
+
+```text
+19BBh phase comparison
+  -> 1B60h or 1BA1h
+  -> 1C14h transfer setup
+  -> 1C32h AR=18h <- 20h
+```
+
 ## Non-goals
 
 M75 must not:
