@@ -90,6 +90,24 @@ def validate(root: pathlib.Path) -> None:
     require(scsicmd, "hdd_sense", "REQUEST SENSE response")
     require(scsicmd, "case 0x03", "REQUEST SENSE command execution")
     require(scsicmd, "scsicmd_putbe32", "big-endian response encoding")
+    require(scsicmd, "scsicmd_putbe24", "24-bit geometry encoding")
+    require(scsicmd, "scsicmd_geometry_valid", "geometry consistency validation")
+    require(scsicmd, "(UINT64)sxsi->cylinders * sxsi->surfaces * sxsi->sectors",
+            "cylinder/head/sector geometry invariant")
+    require(scsicmd, "page = cdb[2] & 0x3f",
+            "MODE SENSE page-code decode")
+    require(scsicmd, "page != 0x04", "MODE SENSE rigid-disk page")
+    require(scsicmd, "page != 0x3f", "MODE SENSE all-pages request")
+    require(scsicmd, "page_offset = dbd ? 4 : 12",
+            "MODE SENSE DBD layout")
+    require(scsicmd, "scsiio.data[page_offset + 1] = 0x16",
+            "MODE SENSE page-04 length")
+    require(scsicmd, "response_length = page_offset + 24",
+            "MODE SENSE response length")
+    require(scsicmd, "scsicmd_set_sense(0x05, 0x24, 0x00)",
+            "MODE SENSE invalid-field CHECK CONDITION")
+    require(scsicmd, "if (!scsicmd_check_condition)",
+            "CHECK CONDITION phase selection")
     require(scsiio_h, "UINT\tcmdpos;", "transfer length state slot")
     require(scsiio_h, "BYTE\treserved[2][0x2000];",
             "serialized board-ROM padding")
