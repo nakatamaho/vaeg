@@ -425,11 +425,13 @@ all SCSI delays in source:
 - guest instruction work is scaled by `UPD9002_WORKCLOCK`, while VA I/O
   keeps the standard bus clock.
 
-If this audit remains true, `--cpumult` partial DATA IN is classified as a
-guest timing-assumption violation, not a production defect.  Do not add a
-multiplier-specific delay or PCPLUS shortcut.  Normal-speed release runs with
-compact/no-guest tracing and a generous external safety bound are required for
-INQUIRY acceptance.
+The audit establishes timing units but does not by itself classify the
+behavior.  Because the normal-speed run currently stops before later DATA IN
+while `--cpumult 8` reaches later CDBs, the timing mismatch remains an open
+defect candidate.  Do not add a multiplier-specific delay or PCPLUS shortcut.
+Compare the normal-speed and accelerated consumer paths first; normal-speed
+release runs with compact/no-guest tracing and a generous external safety bound
+remain required for INQUIRY acceptance.
 
 The focused validator must also protect the interval from AR18=`20h` receipt
 to the first DBR assertion: DBR is held low while the target-processing event
@@ -472,3 +474,14 @@ The correction is source-validated and the accelerated diagnostic sequence
 reaches MODE SENSE as DATA IN.  Normal-speed SCHD registration remains a
 required evidence item and this continuation does not alter the G75 human
 gate.
+
+
+### M75d1 timing classification correction
+
+The earlier cpumult closure is superseded.  Normal speed currently reaches
+TUR but not the later MODE SENSE DATA IN within the bounded run, whereas
+`--cpumult 8` reaches INQUIRY, READ CAPACITY, and MODE SENSE.  This asymmetry
+keeps the timing mismatch open.  The next step is a paired consumer trace for
+the second SELECT/COMMAND event: `1CCDh` is the intended wait consumer and
+`1742h`/`1747h` indicate the main event pump.  No production delay change is
+authorized until that evidence is collected.

@@ -1207,24 +1207,25 @@ separate parity correction or move it to Open Defects.
 - **Evidence:** [M75 report](../agents/reports/m75_scsi_support.md) and
   [M75 task](../agents/tasks/M75_scsi_support.md).
 
-### Accelerated CPU-multiplier SCSI traces use a different timing ratio
+### CPU-multiplier SCSI timing mismatch
 
-- **Status:** closed as expected timing behavior; not a production defect.
-- **Symptom:** `--cpumult 8`/`32` reaches later CDBs but may request only a
-  prefix of a DATA IN response before issuing another command.  These runs
-  are diagnostic-only and are excluded from M75 acceptance evidence.
-- **Demonstrated cause:** phase readiness, AR18-to-DBR startup, and interrupt
-  delivery use emulated CPU-clock events, while `UPD9002_WORKCLOCK()` scales
-  guest instruction consumption.  The synchronous AR19 helpers do not schedule
-  events or alter `CPU_REMCLOCK`; the accelerated mode intentionally changes
-  the guest CPU/device time ratio.
-- **Correction:** none.  No CPU-multiplier-specific delay, guest shortcut, or
-  PCPLUS address-dependent behavior was added.  The AR18-to-first-DBR and
-  synchronous-byte invariants are guarded by
-  [df2981e](https://github.com/nakatamaho/vaeg/commit/df2981e).
-- **Verification:** source unit audit and the focused M75 controller validator
-  pass.  Normal-speed 36-byte INQUIRY evidence remains a separate open G75
-  blocker.
+- **Status:** reopened in M75d1; the prior `f406b86` closure is superseded.
+- **Symptom:** the normal-speed run (the intended CPU/device ratio) reaches
+  TUR completion but does not reach the later MODE SENSE DATA IN within the
+  180-second bounded run, while the diagnostic `--cpumult 8` run reaches
+  INQUIRY, READ CAPACITY, and MODE SENSE but exhibits partial DATA IN.
+- **Demonstrated state:** the source audit proves that phase readiness and
+  interrupt delivery use emulated-clock events and that AR19 byte access is
+  synchronous.  It does not prove that the chosen target-processing quantum
+  is long enough for the normal-speed guest to return to its intended wait
+  consumer.  Progress under an artificial multiplier therefore cannot be
+  classified as expected behavior.
+- **Correction:** none yet.  Compare the normal-speed and `--cpumult 8`
+  consumer paths for the second SELECT/COMMAND event (`1CCDh` wait path
+  versus `1742h`/`1747h` main-pump path), then derive any processing delay from
+  the emulated device contract rather than tuning to PCPLUS.
+- **Verification:** controller QA, builds, CTest, and selftest pass, but the
+  timing defect and normal-speed INQUIRY/MODE SENSE evidence remain open.
 - **Evidence:** [M75 report](../agents/reports/m75_scsi_support.md),
   [0c80c447](https://github.com/nakatamaho/vaeg/commit/0c80c447b6b655b81b3d08e5b67c8a1457d5be91),
   and [df2981e](https://github.com/nakatamaho/vaeg/commit/df2981e).

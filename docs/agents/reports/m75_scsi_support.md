@@ -912,10 +912,12 @@ CPU/device timing-ratio observation; no unsupported production timing
 workaround was added.  Normal-speed evidence is the only evidence eligible
 for the INQUIRY golden.
 
-### CPU multiplier timing-unit closure (2026-08-02)
+### CPU multiplier timing-unit assessment (superseded, 2026-08-02)
 
-The accelerated `--cpumult 8` and `--cpumult 32` runs are closed as a
-timing-mode observation, not as a demonstrated SCSI defect.  The unit audit
+The earlier assessment closed the accelerated `--cpumult 8` and `--cpumult 32`
+runs as timing-mode observations.  That closure is superseded by the later
+normal-speed comparison below; the unit audit alone did not establish that the
+chosen device-processing quantum is correct.  The unit audit
 covered all three relevant boundaries:
 
 - `scsiio_schedule_transfer_phase()` and the AR18=`20h` TRANSFER INFO path
@@ -941,12 +943,13 @@ validator was extended in [df2981e](https://github.com/nakatamaho/vaeg/commit/df
 to require both the AR18-to-first-DBR target-processing event and the DBR-low
 interval in the TRANSFER INFO path.
 
-This closes the cpumult item as `guest timing assumption violation, not a
-production defect`.  Normal-speed execution remains the only valid source for
-the 36-byte INQUIRY golden.  The current release worker still has not produced
-a normal-speed `CSR=19h` / AR19-read-x36 record within the available bounded
-runs, so that evidence and all manual SCFORM/SCHD/file-operation checks remain
-open.
+At the time of this checkpoint the cpumult item was recorded as `guest timing
+assumption violation, not a production defect`; that classification is now
+superseded by the normal-speed comparison in the later correction section.
+Normal-speed execution remains the only valid source for the 36-byte INQUIRY
+golden.  The current release worker still has not produced a normal-speed
+`CSR=19h` / AR19-read-x36 record within the available bounded runs, so that
+evidence and all manual SCFORM/SCHD/file-operation checks remain open.
 
 The source pre-check also records that the current `hdd_inquiry` table is a
 32-byte response while the observed CDB requests allocation length `24h`
@@ -1121,3 +1124,36 @@ adds the empty page-00 response and composes page 00h followed by page 04h for
 header and descriptor layout.  Unsupported pages still return CHECK CONDITION
 with ILLEGAL REQUEST.  The rebuilt worker after this follow-up has SHA-256
 `51aae76205dcb71f5bc447cbdbf7ac8f33d220bad6852cd594a11d61b40ec3df`.
+
+
+### M75d1 timing classification correction (2026-08-02)
+
+The CPU-multiplier classification is reopened.  The normal-speed run uses the
+intended CPU/device ratio but, in the 180-second bounded run, produced only the
+TUR transfer results and no later MODE SENSE DATA IN.  The diagnostic
+`--cpumult 8` run reached the later CDBs, including:
+
+```text
+INQUIRY      12 00 00 00 24 00
+READ CAPACITY 25 00 00 00 00 00 00 00 00 00
+MODE SENSE   1A 00 04 00 24 00
+DATA IN      phase=19h, allocation TC=24h
+```
+
+The accelerated run is not acceptance evidence because its DATA IN transfers
+are partial, but progress under an artificial ratio means the previous
+`f406b86` conclusion (`guest timing assumption violation, not a production
+defect`) is no longer valid.  The current evidence supports an open timing
+mismatch: the normal-speed device event may arrive before the guest has
+returned to the intended `1CCDh` wait consumer, while the accelerated ratio
+happens to provide more processing margin.  This mechanism is not yet proven
+by a paired consumer trace.
+
+No delay constant has been changed in response.  The next diagnostic must
+compare the second SELECT/COMMAND event at normal speed and `--cpumult 8`:
+`1CCDh` is the expected wait consumer, whereas `1742h`/`1747h` identify the
+main event-pump path.  Only after that comparison may a general device-time
+correction be considered; PCPLUS addresses, CDB ordering, and multiplier-
+specific workarounds remain prohibited.
+
+This correction changes the ledger classification but does not approve G75.
