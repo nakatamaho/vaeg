@@ -271,6 +271,8 @@ REG8 scsicmd_transinfo(REG8 id) {
 		case SCSIPH_DATAIN:
 			if (scsiio.rddatpos >= scsiio.cmdpos) {
 				scsiio.phase = SCSIPH_STATUS;
+				/* The next phase starts a fresh PIO data window. */
+				scsiio.rddatpos = 0;
 				return(scsicmd_phase_service_status(SCSIPH_STATUS));
 			}
 			return(scsicmd_phase_service_status(SCSIPH_DATAIN));
@@ -278,6 +280,8 @@ REG8 scsicmd_transinfo(REG8 id) {
 		case SCSIPH_DATAOUT:
 			if (scsiio.cmdpos && (scsiio.wrdatpos >= scsiio.cmdpos)) {
 				scsiio.phase = SCSIPH_STATUS;
+				/* The next phase starts a fresh PIO data window. */
+				scsiio.rddatpos = 0;
 				return(scsicmd_phase_service_status(SCSIPH_STATUS));
 			}
 			return(scsicmd_phase_service_status(SCSIPH_DATAOUT));
@@ -285,10 +289,13 @@ REG8 scsicmd_transinfo(REG8 id) {
 		case SCSIPH_STATUS:
 			scsiio.reg[SCSICTR_STATUS] = 0x00;
 			scsiio.phase = SCSIPH_MSGIN;
+			/* The next phase starts a fresh PIO data window. */
+			scsiio.rddatpos = 0;
 			return(scsicmd_phase_service_status(SCSIPH_MSGIN));
 
 		case SCSIPH_MSGIN:
 			scsiio.phase = 0;
+			scsiio.rddatpos = 0;
 			return((scsiio.reg[SCSICTR_CONTROL] & 0x08) ? 0x85 : 0x80);
 	}
 	return(0x42);
