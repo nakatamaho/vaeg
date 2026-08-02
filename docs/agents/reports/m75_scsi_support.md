@@ -676,3 +676,58 @@ No production behavior was changed by this extraction. The remaining
 trace-only observation points are `19BBh` (comparison value and result), the
 selected `1B60h`/`1BA1h` path, `1C14h` entry/exit, `1C32h` command emission,
 and all relevant `047Eh` reads/writes.
+
+## Latest headless integration check
+
+After the diagnostic trace additions, the M75 branch was configured and built
+with the trace-enabled `linux-ci-clang` preset. The build completed with exit
+status 0 and produced:
+
+```text
+build/linux-ci-clang/sdl2/vaeg
+SHA-256 d69b11ad7b9bc3427042d808d3d06c4a3900e50a6427b15032f0f51b43c58836
+```
+
+The headless run used the complete VA2 ROM directory and the user-provided
+PC-Engine 1.1 SCSI support disk. A temporary 40 MB VHD-format target was
+created outside the repository at `/private/tmp/m75-scsi-40mb.hdd` solely for
+this check:
+
+```text
+SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \\
+  build/linux-ci-clang/sdl2/vaeg \\
+  --model va2 \\
+  --roms /Users/maho/vaeg/docs/roms \\
+  --fdd1 /Users/maho/vaeg/pcengine110-scsi-support.d88 \\
+  --scsi1 /private/tmp/m75-scsi-40mb.hdd \\
+  --scsi2 none --scsi3 none --scsi4 none \\
+  --scsitrace --scsitrace-limit 2 --nowait --mute
+```
+
+The executable started with the complete VA2 ROM set and reached the active
+PCPLUS/SCSI path. The observed sequence was:
+
+```text
+SELECT             CSR=11h, IRQ6
+COMMAND request    CSR=8Ah, IRQ6
+Transfer Info      TC=6, AR=19h write x6
+CDB completion     CSR=1Ah
+next service       CSR=8Bh, IRQ6
+```
+
+The transfer accounting was:
+
+```text
+AR19 accesses       6
+AR19 reads          0
+AR19 writes         6
+transfer IRQs       requested=1, asserted=1
+```
+
+The run did not reach DATA IN (`CSR=19h`), STATUS, or MESSAGE IN. It was
+terminated by the external eight-second safety timeout with exit status 137;
+this is a bounded diagnostic stop, not an emulator crash or a passing result.
+The current M75 blocker is therefore reproduced: CDB PIO and the subsequent
+`8Bh` service request are observable, but the PCPLUS phase handoff does not
+yet emit the next `AR=18h <- 20h` Transfer Info command. G75 remains
+ineligible.
