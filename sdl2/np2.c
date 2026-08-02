@@ -266,7 +266,11 @@ static void usage(const char *progname) {
 	printf("\t--keyboard-layout jis|us|custom\n");
 	printf("Diagnostics:\n");
 	printf("\t--smoke --selftest --debug --fdctrace --scsitrace --pacelog\n");
+	printf("\t--scsitrace-no-guest\n");
+	printf("\t--scsitrace-compact\n");
+	printf("\t--scsitrace-cmdreq-windows\n");
 	printf("\t--scsitrace-limit 1..1000000\n");
+	printf("\t--scsitrace-jitter-seed N [--scsitrace-jitter-span N]\n");
 	printf("\t--trace-cpu 1..1000000\n");
 	printf("\t--version --help [-h]\n");
 }
@@ -1674,10 +1678,19 @@ int main(int argc, char **argv) {
 	if (options.trace_cpu != 0) {
 		upd9002_trace_start(stderr, options.trace_cpu);
 	}
+	if (options.scsitrace && options.scsitrace_guest) {
+		if (options.scsitrace_cmdreq_windows) {
+			upd9002_guest_trace_start_cmdreq_windows(stderr);
+		}
+		else {
+			upd9002_guest_trace_start(stderr);
+		}
+	}
 	upd9002_perf_start_from_env();
 	if (options.selftest) {
 		run_ok = vaeg_selftest_run();
 		upd9002_perf_stop();
+		upd9002_guest_trace_stop();
 		upd9002_trace_stop();
 		SDL_Quit();
 		dosio_term();
@@ -1789,7 +1802,10 @@ int main(int argc, char **argv) {
 	TRACEINIT();
 	fdc_trace_enable(options.fdctrace);
 	scsiio_trace_enable(options.scsitrace);
+	scsiio_trace_compact(options.scsitrace_compact);
 	scsiio_trace_limit(options.scsitrace_limit);
+	scsiio_trace_jitter(options.scsitrace_jitter,
+			options.scsitrace_jitter_seed, options.scsitrace_jitter_span);
 	sdlkbd_initialize();
 	inputmng_init();
 	keystat_initialize();
@@ -1865,6 +1881,7 @@ int main(int argc, char **argv) {
 	TRACETERM();
 	upd9002_perf_stop();
 	upd9002_trace_stop();
+	upd9002_guest_trace_stop();
 	SDL_Quit();
 	dosio_term();
 	return(run_ok);
@@ -1878,6 +1895,7 @@ np2main_err2:
 	TRACETERM();
 	upd9002_perf_stop();
 	upd9002_trace_stop();
+	upd9002_guest_trace_stop();
 	SDL_Quit();
 	dosio_term();
 	return(FAILURE);

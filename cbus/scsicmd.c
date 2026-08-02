@@ -48,6 +48,12 @@ REG8 scsicmd_phase_service_status(UINT phase) {
 	return 0x42;
 }
 
+REG8 scsicmd_phase_unexpected_status(UINT phase) {
+
+	/* 48h-4Fh reports an information-phase change before TC expires. */
+	return (REG8)(0x48 | (phase & 7));
+}
+
 BOOL scsicmd_phase_host_to_spc(UINT phase) {
 	UINT i;
 
@@ -61,10 +67,17 @@ BOOL scsicmd_phase_host_to_spc(UINT phase) {
 }
 
 static const BYTE hdd_inquiry[0x20] = {
-			0x00,0x00,0x02,0x02,0x1c,0x00,0x00,0x18,
+			0x00,0x00,0x02,0x02,0x1b,0x00,0x00,0x18,
 			'N', 'E', 'C', 0x20,0x20,0x20,0x20,0x20,
 			'N', 'P', '2', '-', 'H', 'D', 'D', 0x20,
-			0x20,0x20,0x20,0x20,0x20,0x20,0x20,0x20};
+			'1', '.', '0', '0', 0x20,0x20,0x20,0x20};
+
+static BYTE hdd_sense[18] = {
+			0x70, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0a,
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00};
+
+static BOOL scsicmd_check_condition;
 
 
 static void scsicmd_putbe32(BYTE *dst, UINT32 value) {
@@ -75,15 +88,62 @@ static void scsicmd_putbe32(BYTE *dst, UINT32 value) {
 	dst[3] = (BYTE)value;
 }
 
+static void scsicmd_putbe24(BYTE *dst, UINT32 value) {
+
+	dst[0] = (BYTE)(value >> 16);
+	dst[1] = (BYTE)(value >> 8);
+	dst[2] = (BYTE)value;
+}
+
+static BOOL scsicmd_geometry_valid(SXSIDEV sxsi) {
+
+	UINT64 expected;
+
+	if ((sxsi == NULL) || (sxsi->totals <= 0) ||
+			(sxsi->cylinders == 0) || (sxsi->surfaces == 0) ||
+			(sxsi->sectors == 0) || (sxsi->size == 0)) {
+		return FALSE;
+	}
+	expected = (UINT64)sxsi->cylinders * sxsi->surfaces * sxsi->sectors;
+	return expected == (UINT64)sxsi->totals;
+}
+
+static void scsicmd_set_sense(BYTE key, BYTE asc, BYTE ascq) {
+
+	hdd_sense[2] = key;
+	hdd_sense[12] = asc;
+	hdd_sense[13] = ascq;
+}
+
 static UINT scsicmd_datain(SXSIDEV sxsi, BYTE *cdb) {
 
 	UINT	length;
 	UINT	copylen;
 	UINT32	last_lba;
+	UINT	page;
+	UINT	page_offset;
+	UINT	response_length;
+	UINT	geometry_offset;
+	BOOL	dbd;
 
 	ZeroMemory(scsiio.data, sizeof(scsiio.data));
 	scsiio.cmdpos = 0;
+	if (cdb[0] != 0x03) {
+		scsicmd_check_condition = FALSE;
+	}
 	switch(cdb[0]) {
+		case 0x03:				// Request Sense
+			TRACEOUT(("Request Sense"));
+			length = cdb[4];
+			copylen = min(length, (UINT)sizeof(hdd_sense));
+			if (copylen) {
+				CopyMemory(scsiio.data, hdd_sense, copylen);
+			}
+			scsiio.cmdpos = copylen;
+			scsicmd_set_sense(0x00, 0x00, 0x00);
+			scsicmd_check_condition = FALSE;
+			break;
+
 		case 0x12:				// Inquiry
 			TRACEOUT(("Inquiry"));
 			// Logical unit number = cdb[1] >> 5.
@@ -107,28 +167,64 @@ static UINT scsicmd_datain(SXSIDEV sxsi, BYTE *cdb) {
 
 		case 0x1a:				// Mode Sense (6)
 			TRACEOUT(("Mode Sense (6)"));
+			page = cdb[2] & 0x3f;
+			if ((page != 0x00) && (page != 0x04) && (page != 0x3f)) {
+				/* Invalid page code: CHECK CONDITION / ILLEGAL REQUEST. */
+				scsicmd_set_sense(0x05, 0x24, 0x00);
+				scsicmd_check_condition = TRUE;
+				break;
+			}
+			if (!scsicmd_geometry_valid(sxsi)) {
+				/* A contradictory image geometry is not a usable target. */
+				scsicmd_set_sense(0x05, 0x24, 0x00);
+				scsicmd_check_condition = TRUE;
+				break;
+			}
 			/*
-			 * Return one direct-access block descriptor.  The device
-			 * geometry comes from the mounted SCSI image, while the
-			 * caller's allocation length controls the visible prefix.
+			 * Page 04h is the rigid-disk geometry page.  Page 00h is
+			 * the supported empty page, and page 3fh returns both pages.
+			 * The DBD bit selects the optional descriptor.
 			 */
+			dbd = (cdb[1] & 0x08) != 0;
+			page_offset = dbd ? 4 : 12;
+			geometry_offset = page_offset;
+			if (page == 0x3f) {
+				scsiio.data[page_offset + 0] = 0x00;
+				scsiio.data[page_offset + 1] = 0x00;
+				geometry_offset += 2;
+			}
+			response_length = geometry_offset +
+					((page == 0x00) ? 2 : 24);
 			length = cdb[4];
 			scsiio.data[1] = 0x00;
 			scsiio.data[2] = 0x00;
-			scsiio.data[3] = 0x08;
-			scsiio.data[4] = 0;
-			scsiio.data[5] = (BYTE)(sxsi->totals >> 16);
-			scsiio.data[6] = (BYTE)(sxsi->totals >> 8);
-			scsiio.data[7] = (BYTE)sxsi->totals;
-			scsiio.data[8] = (BYTE)(sxsi->size >> 16);
-			scsiio.data[9] = (BYTE)(sxsi->size >> 8);
-			scsiio.data[10] = (BYTE)sxsi->size;
-			copylen = min(length, (UINT)12);
-			scsiio.data[0] = (copylen > 0) ? (BYTE)(copylen - 1) : 0;
+			scsiio.data[3] = dbd ? 0 : 8;
+			if (!dbd) {
+				scsiio.data[4] = 0;
+				scsicmd_putbe24(scsiio.data + 5,
+						(UINT32)sxsi->totals);
+				scsicmd_putbe24(scsiio.data + 9,
+						(UINT32)sxsi->size);
+			}
+			if (page != 0x00) {
+				scsiio.data[geometry_offset + 0] = 0x04;
+				scsiio.data[geometry_offset + 1] = 0x16;
+				scsicmd_putbe24(scsiio.data + geometry_offset + 2,
+						(UINT32)sxsi->cylinders);
+				scsiio.data[geometry_offset + 5] = sxsi->surfaces;
+				/* Write-precomp, reduced-current, step-rate, RPL and
+				 * rotational fields remain zero for the emulated disk. */
+				scsicmd_putbe24(scsiio.data + geometry_offset + 14,
+						(UINT32)sxsi->cylinders);
+			}
+			copylen = min(length, response_length);
+			scsiio.data[0] = (BYTE)(response_length - 1);
 			scsiio.cmdpos = copylen;
 			break;
 
 		default:
+			scsicmd_set_sense(0x05, 0x20, 0x00);
+			scsicmd_check_condition = TRUE;
 			break;
 	}
 	return(scsiio.cmdpos);
@@ -208,22 +304,36 @@ REG8 scsicmd_command(REG8 id) {
 		return(0x42);
 	}
 	scsiio.reg[SCSICTR_STATUS] = 0x00;
+	if (scsiio.cmd[0] != 0x03) {
+		scsicmd_check_condition = FALSE;
+	}
 	switch(scsiio.cmd[0]) {
 		case 0x00:
 			scsiio.phase = SCSIPH_STATUS;
 			return(scsicmd_phase_service_status(SCSIPH_STATUS));
 
+		case 0x03:				// Request Sense
 		case 0x12:				// inquiry
 		case 0x1a:				// Mode Sense (6)
 		case 0x25:				// Read Capacity (10)
 			scsicmd_datain(sxsi, scsiio.cmd);
-			scsiio.phase = SCSIPH_DATAIN;
+			if (!scsicmd_check_condition) {
+				scsiio.phase = SCSIPH_DATAIN;
+				scsiio.rddatpos = 0;
+				return(scsicmd_phase_service_status(SCSIPH_DATAIN));
+			}
+			/* Data-command validation failures complete in STATUS. */
+			scsiio.reg[SCSICTR_STATUS] = 0x02;
+			scsiio.data[0] = 0x02;
+			scsiio.cmdpos = 1;
 			scsiio.rddatpos = 0;
-			return(scsicmd_phase_service_status(SCSIPH_DATAIN));
+			scsiio.phase = SCSIPH_STATUS;
+			return(scsicmd_phase_service_status(SCSIPH_STATUS));
 	}
 
 	SCSICMD_ERR
 	/* Unknown commands use CHECK CONDITION rather than hanging the bus. */
+	scsicmd_set_sense(0x05, 0x20, 0x00);
 	scsiio.reg[SCSICTR_STATUS] = 0x02;
 	scsiio.data[0] = 0x02;
 	scsiio.cmdpos = 1;
@@ -255,6 +365,8 @@ REG8 scsicmd_transinfo(REG8 id) {
 		case SCSIPH_DATAIN:
 			if (scsiio.rddatpos >= scsiio.cmdpos) {
 				scsiio.phase = SCSIPH_STATUS;
+				/* The next phase starts a fresh PIO data window. */
+				scsiio.rddatpos = 0;
 				return(scsicmd_phase_service_status(SCSIPH_STATUS));
 			}
 			return(scsicmd_phase_service_status(SCSIPH_DATAIN));
@@ -262,6 +374,8 @@ REG8 scsicmd_transinfo(REG8 id) {
 		case SCSIPH_DATAOUT:
 			if (scsiio.cmdpos && (scsiio.wrdatpos >= scsiio.cmdpos)) {
 				scsiio.phase = SCSIPH_STATUS;
+				/* The next phase starts a fresh PIO data window. */
+				scsiio.rddatpos = 0;
 				return(scsicmd_phase_service_status(SCSIPH_STATUS));
 			}
 			return(scsicmd_phase_service_status(SCSIPH_DATAOUT));
@@ -269,10 +383,13 @@ REG8 scsicmd_transinfo(REG8 id) {
 		case SCSIPH_STATUS:
 			scsiio.reg[SCSICTR_STATUS] = 0x00;
 			scsiio.phase = SCSIPH_MSGIN;
+			/* The next phase starts a fresh PIO data window. */
+			scsiio.rddatpos = 0;
 			return(scsicmd_phase_service_status(SCSIPH_MSGIN));
 
 		case SCSIPH_MSGIN:
 			scsiio.phase = 0;
+			scsiio.rddatpos = 0;
 			return((scsiio.reg[SCSICTR_CONTROL] & 0x08) ? 0x85 : 0x80);
 	}
 	return(0x42);

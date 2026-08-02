@@ -627,178 +627,845 @@ and the first subsequent dispatcher read, while preserving the exact AR13,
 AR14, and AR16 values above. No DATA IN, STATUS Transfer Info, or MESSAGE IN
 acceptance is claimed until that handoff is observed.
 
+## Static PCPLUS CSR acceptance set and handoff narrowing
 
-## G75 Transfer Info state-machine implementation
+The PCPLUS interrupt path was rechecked against the normalized status
+dispatch table. Raw `8Ah` and `8Bh` both normalize to service-request dispatch
+key `11h` and enter `1972h`. The successful `8Ah` path therefore proves that
+the common interrupt/status handoff is alive. The next diagnostic boundary is
+the phase comparison at `19BBh`, followed by the `1B60h`/`1BA1h` choice,
+`1C14h` transfer setup, and the `1C32h` `AR=18h <- 20h` command.
 
-The previous M75d1 trace was used once to classify the defect, then the
-production controller was changed in the same work item as required by the
-G75 task authority.  The synchronized starting SHA for this implementation
-was `c526872a5a26e9548ba9e6b7c65cc1a9bfd14200`.  Diagnostic logs remain local
-and untracked; only the semantic results are recorded here.
+The apparent `1C0Eh` branch is rejected by the disassembly. `1C0Eh` reads
+`CS:[047Eh]` and returns; it does not branch to `1C32h`. `1C05h` calls
+`1C95h` to read AR `13h`/`14h`, adjusts the residual count, reads `047Eh`, and
+returns. `1C14h` is a separate function called by `1B60h` and `1BA1h`; its
+`1C32h` path emits the Transfer Info command. Seeing AR `13h`/`14h` after
+`8Bh` therefore proves entry into the residual-count path, but does not by
+itself prove that `1C32h` was reached.
 
-### Root cause
+The canonical raw CSR values accepted by the PCPLUS contract and their static
+dispatch destinations are:
 
-The old path represented Transfer Info with scattered flags and allowed the
-target phase request to become a second asynchronous event while the prior
-CSR was still being consumed.  It could therefore abandon a programmed
-Transfer Info and expose an idle Service Required result (`89h`) instead of
-letting the accepted Level-II command consume the target REQ.  The same
-implicit path also allowed an unread CSR/event to be treated as replaceable.
-The defect was event ownership and lifecycle state, not the 32-byte INQUIRY
-payload.
+| raw CSR | normalized/status key | static destination |
+|---|---:|---:|
+| `11h` | `01h` | `186Ch` |
+| `16h` | `06h` | `1884h` |
+| `18h` | `08h` | `1893h` |
+| `19h`-`1Bh` | `09h`-`0Bh` | `1818h` |
+| `1Fh` | `0Fh` | `1818h` |
+| `42h` | `02h` | `1878h` |
+| `48h` | `08h` | `1893h` |
+| `49h`-`4Fh` | `09h`-`0Fh` | `1818h` |
+| `85h` | `15h`, dispatch key `10h` | `1935h` |
+| `88h`-`8Fh` | `18h`-`1Fh`, dispatch key `11h` | `1972h` |
 
-### Implemented lifecycle
+This table is the M75 reference for which controller-generated statuses may
+be emitted by the active PCPLUS/SCHD path. It is a host-contract table, not
+a claim of complete WD33C93 silicon coverage.
 
-`cbus/scsiio.c` now has one explicit Transfer Info state:
+The disassembly does not support labeling `00h`, `01h`, `10h`, `41h`,
+`43h`-`47h`, `80h`-`84h`, `86h`, or `87h` as silently rejected: those values
+also normalize into dispatch-table entries. Their semantic meaning remains
+unverified. The validator must therefore enforce that VAEG-generated
+statuses stay within the canonical set above, while treating other
+dispatchable values as unverified rather than as proven no-op or rejection
+cases.
+
+No production behavior was changed by this extraction. The remaining
+trace-only observation points are `19BBh` (comparison value and result), the
+selected `1B60h`/`1BA1h` path, `1C14h` entry/exit, `1C32h` command emission,
+and all relevant `047Eh` reads/writes.
+
+## Latest headless integration check
+
+After the diagnostic trace additions, the M75 branch was configured and built
+with the trace-enabled `linux-ci-clang` preset. The build completed with exit
+status 0 and produced:
 
 ```text
-idle
-wait_for_req
-transfer_byte_pending
-wait_for_post_count_req
-completed_or_terminated
+build/linux-ci-clang/sdl2/vaeg
+SHA-256 d69b11ad7b9bc3427042d808d3d06c4a3900e50a6427b15032f0f51b43c58836
 ```
 
-The AR `18h <- 20h` write records the complete controller pre-state
-(INT/LCI/BSY/CIP/DBR/CSR pending/REQ/ACK/MSG/C-D/I-O/TC).  An INT-pending
-write is ignored, sets LCI, and leaves the active command, transfer count,
-and CSR latch unchanged.  Otherwise the Level-II command is accepted, BSY
-is held for its lifetime, CIP is limited to command decode, DBR is reset, and
-an absent target REQ enters `wait_for_req` instead of being discarded.
-
-While a Level-II command is active, a target REQ is consumed by that command;
-no `89h` Service Required CSR is generated.  Service Required is emitted only
-for a connected idle initiator with REQ asserted, no active Level-II command,
-and no pending CSR.  The CSR remains a depth-one latch and is never
-overwritten while INT is pending.  No CSR or `89h` queue was added.
-
-Each accepted byte is traced as REQ assertion, data latch, DBR clear, ACK
-assert/negate, and TC decrement.  The count is decremented only after the
-byte handshake.  A phase change with TC remaining emits the corresponding
-`4MCI` terminated status.  When TC reaches zero, the state enters
-`wait_for_post_count_req`; the distinct post-count REQ determines the
-successful completion MCI (`19h` for DATA IN, `1Bh` for STATUS, `1Fh` for
-MESSAGE IN).  The post-count REQ is assigned its own sequence number and is
-consumed by the completion handshake.
-
-The INQUIRY table remains the existing 32-byte payload.  No PCPLUS address,
-CDB ordering, transfer-count, or payload special case was added.
-
-### Before/after integration evidence
-
-The predecessor run showed the old behavior: after COMMAND completion, a
-`phase=STATUS` Transfer Info was abandoned while waiting and a later idle
-Service Required `8Bh`/retry path supplied the one-byte STATUS transfer.
-
-The current implementation run shows the corrected ownership sequence:
+The headless run used the complete VA2 ROM directory and the user-provided
+PC-Engine 1.1 SCSI support disk. A temporary 40 MB VHD-format target was
+created outside the repository at `/private/tmp/m75-scsi-40mb.hdd` solely for
+this check:
 
 ```text
-CSR=1Ah read
- target-req-scheduled status=8Bh
- AR=18h <- 20h, TC=00010000
- command-accepted state=wait_for_req phase=STATUS
- target-req-ready status=8Bh state=wait_for_req
- req-assert kind=active (no Service Required CSR)
- command-active state=transfer_byte_pending
+SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \\
+  build/linux-ci-clang/sdl2/vaeg \\
+  --model va2 \\
+  --roms /Users/maho/vaeg/docs/roms \\
+  --fdd1 /Users/maho/vaeg/pcengine110-scsi-support.d88 \\
+  --scsi1 /private/tmp/m75-scsi-40mb.hdd \\
+  --scsi2 none --scsi3 none --scsi4 none \\
+  --scsitrace --scsitrace-limit 2 --nowait --mute
 ```
 
-There is no `89h` generated while that Level-II command is active, and no CSR
-overwrite or CSR-drop was observed.  The supplied PCPLUS guest then writes to
-AR `19h` while the advertised phase is STATUS, so the direction guard records
-`phase-direction-mismatch` and the guest does not reach a valid STATUS read.
-This is an integration FAIL, not a reason to weaken the WD33C93 state machine:
-the controller-side contract is now explicit and the remaining guest trace is
-an invalid host-direction path under that contract.
-
-The current run therefore does not claim the INQUIRY DATA IN golden sequence.
-In particular, no `89h` DATA IN request, 36-byte AR19 read sequence, or
-`CSR=19h` has been observed on the real PCPLUS path after this correction.
-
-### Automated validation
-
-The following focused tests pass:
+The executable started with the complete VA2 ROM set and reached the active
+PCPLUS/SCSI path. The observed sequence was:
 
 ```text
-python3 tools/qa/m75_transfer_info.py --selftest
-  M75_TRANSFER_INFO_OK tests=9
+SELECT             CSR=11h, IRQ6
+COMMAND request    CSR=8Ah, IRQ6
+Transfer Info      TC=6, AR=19h write x6
+CDB completion     CSR=1Ah
+next service       CSR=8Bh, IRQ6
+```
+
+The transfer accounting was:
+
+```text
+AR19 accesses       6
+AR19 reads          0
+AR19 writes         6
+transfer IRQs       requested=1, asserted=1
+```
+
+The run did not reach DATA IN (`CSR=19h`), STATUS, or MESSAGE IN. It was
+terminated by the external eight-second safety timeout with exit status 137;
+this is a bounded diagnostic stop, not an emulator crash or a passing result.
+The current M75 blocker is therefore reproduced: CDB PIO and the subsequent
+`8Bh` service request are observable, but the PCPLUS phase handoff does not
+yet emit the next `AR=18h <- 20h` Transfer Info command. G75 remains
+ineligible.
+
+
+## M75d1 target-phase readiness correction (current implementation)
+
+The previous handoff diagnosis is now resolved at the controller boundary. The
+raw `8Bh` value was normalized correctly by PCPLUS, but the controller exposed
+the next target phase as soon as the previous CSR was consumed. The foreground
+was still completing the preceding transfer, so the `8Bh` interrupt was picked
+up by the main event pump (`1742h`/`1747h`) instead of the transfer wait path.
+`1747h` clears memory `CS:[047Eh]` from `BBh` to `3Bh` and `1791h` branches
+using the copied value; it does not reread the cleared byte.
+
+The production correction is general and has no PCPLUS-address or CDB shortcut:
+
+1. A completed transfer records the target's next phase as a pending event.
+2. The host-visible `CSR` latch is still consumed only by an `AR=17h` read.
+3. When the host issues `AR=18h <- 20h` for that pending phase, DBR is held
+   low and a controller processing event is scheduled.
+4. The event then exposes the service request. The event quantum is the
+   existing 100-clock PIO controller event quantum; it is not a guest-tuned
+   timer or an injected CSR.
+5. If the target remains in the same phase, no processing event is inserted;
+   the next PIO byte remains available. A phase transition alone requires the
+   processing event.
+
+The disassembly establishes that the command/status foreground wait is
+`1B67h`/`1B73h`; `1CBDh` is a separate helper used by another transfer path and
+is not claimed as the observed wait point. The corrected trace is:
+
+```text
+CDB 00 00 00 00 00 00
+  CSR=1Ah, AR19 writes=6
+  target-phase-wait phase=1Bh, TC=010000 (DBR held low)
+  CSR=8Bh delivered at guest IP=1B67h
+  AR17=8Bh, AR16=00h, AR13=00h, AR14=00h
+  CS:[047Eh] after normalization/consumption = 3Bh
+  1BA1h -> 1C14h -> 1C32h, AR18=20h
+  AR19 read=00h, CSR=1Bh
+  target-phase-wait phase=1Fh
+  CSR=8Fh delivered at guest IP=1BB7h
+  AR19 read=00h, CSR=1Fh
+```
+
+The same run then reaches the PCPLUS REQUEST SENSE command (`03 00 00 00
+0D 00`). Its fixed no-sense response begins with `70h`, and the first DATA IN
+transfer is observed as `CSR=19h`, AR19 read, data `70h`. The bounded trace did
+not reach the later INQUIRY CDB (`12h`) before the safety limit; therefore the
+INQUIRY 36-byte golden remains unclaimed. This is an evidence boundary, not a
+claim that INQUIRY is unsupported.
+
+Commits for this checkpoint are:
+
+```text
+dffa008 M75d1: add phase handoff regression checks
+1cd3edb M75d1: gate target phase requests behind PIO readiness
+e56a16e M75d1: implement request sense data phase
+efb19cb M75d1: use controller phase processing quantum
+07c1074 M75d1: record PIO data bytes in SCSI trace
+0527db6 M75d1: validate PIO byte evidence
+9e6919f M75d1: keep same-phase PIO requests ready
+```
+
+Validation after the correction:
+
+```text
+python3 tools/qa/m75_scsi_controller.py --root .       PASS
+cmake --build build/linux-ci-clang --target vaeg_sdl2 -j2  PASS
+cmake -S . -B build/m75-tests -DCMAKE_BUILD_TYPE=Debug \
+  -DVAEG_ENABLE_TESTS=ON -DVAEG_Z80_INTEGRATION_TRACE=ON  PASS
+cmake --build build/m75-tests --target vaeg_sdl2 -j2      PASS
+ctest --test-dir build/m75-tests -R vaeg_m75_scsi_controller \
+  --output-on-failure                                      PASS
+SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
+  build/linux-ci-clang/sdl2/vaeg --selftest                PASS
+```
+
+The current Linux worker digest after the trace-byte rebuild is
+`ae3930bd2738b7685621b5722a5e6699990fa75abaf1881cef82267b693f7f5e`.
+The real-ROM bounded run with `--scsitrace-limit 6` exited 0 at the diagnostic
+completion limit and observed TUR STATUS/MESSAGE plus REQUEST SENSE DATA IN;
+the longer `--scsitrace-limit 20` run was externally bounded with exit 124
+before INQUIRY. Neither result is a G75 approval. Manual SCFORM, SCHD
+registration, file operations, SASI, HOSTFAT, and non-SCSI regression gates
+remain outstanding.
+
+
+## M75d1 post-cursor evidence (current implementation)
+
+The first corrected real-ROM run exposed a second general PIO state defect.  The
+PCPLUS path programs `TC=1` for each byte of a DATA IN response.  Resetting
+`rddatpos` at every `TRANSFER INFO` request therefore returned the first byte
+(`70h`) repeatedly for REQUEST SENSE.  Commit `4ab457b` preserves the target
+DATA cursor across repeated requests and resets it only when a new command or a
+new phase starts.  The subsequent phase-boundary reset is committed as
+`dafeae0`.
+
+The low-overhead diagnostic options are now explicit and disabled by default:
+`--scsitrace-no-guest` keeps SCSI register/transfer evidence without the
+UPD9002 guest observation seam, and `--scsitrace-compact` keeps only transfer,
+data-byte, phase-wait, and warning records.  These options do not change SCSI
+state or guest timing; they only reduce diagnostic output overhead.
+
+With the current worker (`ae3930bd2738b7685621b5722a5e6699990fa75abaf1881cef82267b693f7f5e`),
+normal-speed compact tracing records the corrected cursor sequence:
+
+```text
+REQUEST SENSE DATA IN: data=70 index=0, CSR=19h
+REQUEST SENSE DATA IN: data=00 index=1, CSR=19h
+```
+
+The 30-second bounded run still ended with the external safety status 124
+before the full REQUEST SENSE allocation and later INQUIRY command.  A longer
+normal-speed compact run produced no additional DATA bytes before it was
+stopped; it likewise did not reach INQUIRY.  Diagnostic `--cpumult 8/32` runs
+reach INQUIRY and later CDBs, but change emulated timing and produce incomplete
+DATA transfers; they are not counted as M75 acceptance evidence.
+
+Current local regression checks:
+
+```text
+python3 tools/qa/m75_scsi_controller.py --root .                       PASS
+cmake --build build/linux-ci-clang --target vaeg_sdl2 -j2             PASS
+cmake --build build/m75-tests --target vaeg_sdl2 -j2                  PASS
+ctest --test-dir build/m75-tests -R vaeg_m75_scsi_controller            PASS
+SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
+  build/linux-ci-clang/sdl2/vaeg --selftest                            PASS
+```
+
+Session-only smoke checks using the maintained ROM directory passed for the
+non-SCSI path, a SCSI image, and an empty HOSTFAT snapshot.  SASI could not be
+run because every available temporary HDD image was rejected by the existing
+validator with `unsupported format or geometry`; no SASI result is claimed.
+SCFORM, SCHD registration, reboot, and file create/read/delete remain manual
+PC-Engine guest checks and were not run by this headless session.
+
+The normal-speed INQUIRY allocation/response contract has not yet been
+observed.  M75d1 and G75 therefore remain open; no G75 approval is claimed.
+
+
+## M75d1 bus-free completion and CPU-multiplier evidence (2026-08-02)
+
+The full normal-speed trace now includes the terminal bus-free event.  After
+MESSAGE IN DATA `00h` and completion `CSR=1Fh`, the controller raises
+`CSR=85h` with `phase=00h`; PCPLUS reads `AR=17h -> 85h` and `AR=16h -> 00h`.
+This was corrected by [bc29d9e](https://github.com/nakatamaho/vaeg/commit/bc29d9e7cecc426c4da22cbc628ab95f8c7efe8f).
+The correction is general: bus-free has no following `TRANSFER INFO`, so the
+pending ending-disconnect status is marked target-ready when MESSAGE IN
+completes.  Data-bearing phase changes retain the controller processing
+quantum and DBR gate.
+
+The resulting TUR sequence is now:
+
+```text
+COMMAND request  8Ah; AR19 write x6; completion 1Ah
+STATUS request   8Bh; AR19 read x1 = 00h; completion 1Bh
+MESSAGE request  8Fh; AR19 read x1 = 00h; completion 1Fh
+BUS FREE         85h; AR17 read = 85h; AR16 read = 00h
+```
+
+The same trace proceeds to a later SELECT/COMMAND request.  It does not yet
+provide a normal-speed INQUIRY DATA IN record before the bounded run ends,
+so G75 remains open.  No `CSR=19h` or short-transfer `CSR=4Bh` INQUIRY record
+is claimed here.
+
+### CPU multiplier diagnostic
+
+The `--cpumult 8` and `--cpumult 32` runs reach later CDBs, including the
+INQUIRY CDB `12 00 00 00 24 00`, but the guest requests only partial DATA IN
+transfers before issuing later commands.  These accelerated traces are not
+acceptance evidence.  Source inspection confirms that the PIO byte pump is
+synchronous: `scsiio_data_read()` and `scsiio_data_write()` contain no event
+scheduling or direct `CPU_REMCLOCK` manipulation.  Only phase readiness and
+interrupt delivery use `nevent_set()`, whose absolute clock is expressed in
+emulated CPU-clock units.  The focused validator now rejects any future
+asynchronous byte-pump regression in [0c80c44](https://github.com/nakatamaho/vaeg/commit/0c80c447b6b655b81b3d08e5b67c8a1457d5be91).
+
+The accelerated guest-level ordering mismatch is classified as an expected
+CPU/device timing-ratio observation; no unsupported production timing
+workaround was added.  Normal-speed evidence is the only evidence eligible
+for the INQUIRY golden.
+
+### CPU multiplier timing-unit assessment (superseded, 2026-08-02)
+
+The earlier assessment closed the accelerated `--cpumult 8` and `--cpumult 32`
+runs as timing-mode observations.  That closure is superseded by the later
+normal-speed comparison below; the unit audit alone did not establish that the
+chosen device-processing quantum is correct.  The unit audit
+covered all three relevant boundaries:
+
+- `scsiio_schedule_transfer_phase()` and the AR18=`20h` TRANSFER INFO path
+  schedule `SCSI_TARGET_PROCESSING_CLOCKS` with `nevent_set(...,
+  NEVENT_ABSOLUTE)`.
+- `scsiintr_immediate()` and `scsiintr()` also schedule their delivery in
+  the same emulated CPU-clock domain.
+- `nevent_set()` converts absolute event clocks against `CPU_REMCLOCK`; it
+  does not use wall-clock seconds or a guest-instruction counter.
+- `scsiio_data_read()` and `scsiio_data_write()` perform one synchronous
+  byte operation per AR19 access and neither schedule an event nor modify
+  `CPU_REMCLOCK`.
+- `UPD9002_WORKCLOCK()` applies the requested CPU multiplier to guest
+  instruction consumption, while `iocoreva` retains the standard bus access
+  clock.  Therefore `--cpumult 8/32` intentionally changes the guest
+  CPU/device time ratio.
+
+A finite guest polling budget can consequently expire before a device event
+that is still pending in emulated time.  The partial accelerated DATA IN
+traces are therefore not acceptance evidence and do not authorize a
+CPU-multiplier-specific delay or guest shortcut.  The synchronous-PIO
+validator was extended in [df2981e](https://github.com/nakatamaho/vaeg/commit/df2981e)
+to require both the AR18-to-first-DBR target-processing event and the DBR-low
+interval in the TRANSFER INFO path.
+
+At the time of this checkpoint the cpumult item was recorded as `guest timing
+assumption violation, not a production defect`; that classification is now
+superseded by the normal-speed comparison in the later correction section.
+Normal-speed execution remains the only valid source for the 36-byte INQUIRY
+golden.  The current release worker still has not produced a normal-speed
+`CSR=19h` / AR19-read-x36 record within the available bounded runs, so that
+evidence and all manual SCFORM/SCHD/file-operation checks remain open.
+
+The source pre-check also records that the current `hdd_inquiry` table is a
+32-byte response while the observed CDB requests allocation length `24h`
+(36 bytes).  No ANSI level, vendor string, or padding change is made from
+this observation alone; the payload contract must be resolved and tested when
+the normal-speed INQUIRY path is reached.
+
+### M75d1 short-transfer contract (2026-08-02)
+
+The current INQUIRY response table contains 32 bytes, while the observed CDB
+requests allocation length `24h` (36 bytes).  This is not itself a protocol
+violation: SCSI transfers `min(allocation length, response length)` and changes
+phase when the response is exhausted.  The missing controller behavior was the
+short-transfer completion contract.
+
+Commit [ca29efb](https://github.com/nakatamaho/vaeg/commit/ca29efb) now handles
+the two allocation cases generally:
+
+- response shorter than the host allocation: after the last real AR19 DATA IN
+  byte, residual TC is preserved, STATUS becomes the target phase, and the
+  controller emits `0x48 | (STATUS & 7)` = `4Bh`;
+- host allocation shorter than the response: TC reaches zero, the unrequested
+  response suffix is discarded, and normal DATA IN completion `19h` advances
+  to STATUS.
+
+The residual count is not fabricated and no INQUIRY-specific branch is used.
+The response metadata invariant was corrected and guarded in
+[4eeacda](https://github.com/nakatamaho/vaeg/commit/4eeacda): byte4 of the
+32-byte table is `1Bh`, equal to table length minus five.  The QA validator
+parses the table and rejects any future length/additional-length mismatch.
+
+A normal-speed guest trace proving either the short `4Bh` path or a full
+`19h` path remains outstanding; this implementation and its source checks do
+not constitute G75 approval.
+
+### SASI predecessor comparison
+
+The same temporary SASI image that is rejected by the current branch was tested
+with a clean binary built at the synchronized M75 predecessor
+`11cb0026ad646cff16237adef95e324fcedd40d9`.  Both runs return exit status 1
+with `unsupported format or geometry`.  This rejection predates the M75d1
+controller changes and is not counted as an M75 regression.  No SASI pass is
+claimed.
+
+### Current evidence digest
+
+The evaluated Linux SDL2 worker after the bus-free correction is:
+
+```text
+build/linux-ci-clang/sdl2/vaeg
+SHA-256: 706b1d6a7bebc2f7a2270e49e0e55c4d79e458515d01fc4c7bc183b9af534d8a
+```
+
+The focused checks are:
+
+```text
+python3 tools/qa/m75_scsi_controller.py --root .             PASS
+cmake --build build/linux-ci-clang --target vaeg_sdl2 -j2    PASS
+```
+
+The existing debug CTest, SDL selftest, repository invariant checks, SCSI
+smoke, and HOSTFAT smoke remain green as recorded above.  The predecessor SASI
+comparison is recorded as `exit=1` with the same pre-existing geometry error.
+SCFORM, SCHD registration/reboot, create/read/delete file operations, and the
+36-byte normal-speed INQUIRY golden remain manual or unobserved.  G75 is not
+self-approved.
+
+
+### M75d1 post-short-transfer integration evidence (2026-08-02)
+
+After the shortened DATA IN correction, a normal-speed full `scsitrace` run
+was externally bounded at 45 seconds.  It proved the complete TUR controller
+sequence, including `CSR=85h`, and then reached a second SELECT/COMMAND
+request (`CSR=11h` followed by `CSR=8Ah`).  The bounded run ended before the
+second CDB's AR19 transfer; this is a progress boundary, not a registration
+result.
+
+A longer normal-speed compact run remained in the TUR sequence before its
+external safety bound.  The compact filter omits the bus-free and indirect
+register records, so it is not used to claim that `85h` was absent.
+
+A diagnostic-only `--cpumult 8` run reached these later CDBs:
+
+```text
+INQUIRY      12 00 00 00 24 00
+READ CAPACITY 25 00 00 00 00 00 00 00 00 00
+MODE SENSE   1A 00 04 00 24 00
+```
+
+Those accelerated records show the guest progressing but request partial DATA
+IN transfers under a deliberately changed CPU/device timing ratio.  They do
+not establish the normal-speed short `4Bh` path, SCHD registration, SCFORM, or
+file operations.
+
+The evaluated worker after the short-transfer and metadata corrections is:
+
+```text
+build/linux-ci-clang/sdl2/vaeg
+SHA-256: 6dd5469a751dd0ba15d86fd1dc2b3d42ab0c5241c2efa98b52cfee28a1ef2df9
+```
+
+The SCSI QA, Linux SDL2 build, focused CTest, and existing selftest remain
+passing.  G75 remains open.
+
+
+### M75d1 MODE SENSE page-04 geometry correction (2026-08-02)
+
+The observed SCHD CDB `1A 00 04 00 24 00` requests MODE SENSE(6), page
+`04h` (Rigid Disk Drive Geometry), with a 36-byte allocation.  The previous
+implementation ignored the page code and returned only a 12-byte header and
+block descriptor.  That could not provide the cylinder/head geometry needed by
+SCHD registration.
+
+Commit [03d4cd7](https://github.com/nakatamaho/vaeg/commit/03d4cd76541a3058cf32b0c239b499e0c0431627)
+now derives the response from the mounted `SXSIDEV` and supports empty page `00h`,
+rigid-disk page `04h`, and the all-pages request `3Fh` (page 00h followed by
+page 04h).  With DBD clear, the page-04 response is 36 bytes: a four-byte
+mode header, an eight-byte big-endian block descriptor, and a 24-byte page-04
+payload.  With DBD set, the descriptor is omitted and the
+response is 28 bytes.  The mode data length reports the available response
+length minus one, while the transfer length remains bounded by the host
+allocation count.  Cylinder count, head count, block count, and block length
+are encoded from the mounted image; the geometry invariant is checked as
+`totals == cylinders * surfaces * sectors`.
+
+Unsupported page codes and contradictory image geometry now return CHECK
+CONDITION with ILLEGAL REQUEST (`sense key=05h`, `ASC=24h`).  The existing
+REQUEST SENSE path returns that sense data and clears it after delivery.  No
+fixed 40 MB geometry or PCPLUS-specific branch was introduced.
+
+The accelerated diagnostic trace reaches the later CDB sequence and confirms
+that MODE SENSE is now classified as DATA IN:
+
+```text
+INQUIRY    12 00 00 00 24 00
+READ CAPACITY 25 00 00 00 00 00 00 00 00 00 00
+MODE SENSE 1A 00 04 00 24 00
+MODE DATA IN request: phase=19h, allocation TC=24h
+```
+
+The `--cpumult 8` run remains diagnostic-only and shows partial transfers due
+to the intentionally changed CPU/device timing ratio.  It is not used as
+acceptance evidence.  A normal-speed 180-second compact run still completed
+only the TUR sequence before its external safety bound (`exit=124`); it did
+not reach the later MODE SENSE transfer.  Therefore SCHD registration has not
+been demonstrated.
+
+Validation after this commit:
+
+```text
+python3 tools/qa/m75_scsi_controller.py --root .                 PASS
+cmake --build build/linux-ci-clang --target vaeg_sdl2 -j2        PASS
+cmake --build build/m75-tests --target vaeg_sdl2 -j2             PASS
+ctest --test-dir build/m75-tests -R vaeg_m75_scsi_controller    PASS
+SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy vaeg --selftest       PASS
+worker SHA-256: 88454f0e1176c3a2f1b82573e9ca7170373cd17f21e4b6253855e879e1344b4d
+```
+
+G75 remains open.  Normal-speed INQUIRY/MODE SENSE DATA IN accounting,
+PCPLUS/SCHD registration, SCFORM initialization, reboot, and SCSI file
+create/read/delete operations still require evidence.  No G75 approval is
+claimed.
+
+
+### M75d1 page-00/all-pages follow-up (2026-08-02)
+
+The task contract also requires MODE SENSE page `00h` and a real all-pages
+response for page `3Fh`.  Follow-up commit
+[56848c0](https://github.com/nakatamaho/vaeg/commit/56848c0f68cbe2b4381003343bf753e1c61d930b)
+adds the empty page-00 response and composes page 00h followed by page 04h for
+3Fh.  The response remains allocation-bounded and uses the same DBD-dependent
+header and descriptor layout.  Unsupported pages still return CHECK CONDITION
+with ILLEGAL REQUEST.  The rebuilt worker after this follow-up has SHA-256
+`51aae76205dcb71f5bc447cbdbf7ac8f33d220bad6852cd594a11d61b40ec3df`.
+
+
+### M75d1 timing classification correction (2026-08-02)
+
+The CPU-multiplier classification is reopened.  The normal-speed run uses the
+intended CPU/device ratio but, in the 180-second bounded run, produced only the
+TUR transfer results and no later MODE SENSE DATA IN.  The diagnostic
+`--cpumult 8` run reached the later CDBs, including:
+
+```text
+INQUIRY      12 00 00 00 24 00
+READ CAPACITY 25 00 00 00 00 00 00 00 00 00
+MODE SENSE   1A 00 04 00 24 00
+DATA IN      phase=19h, allocation TC=24h
+```
+
+The accelerated run is not acceptance evidence because its DATA IN transfers
+are partial, but progress under an artificial ratio means the previous
+`f406b86` conclusion (`guest timing assumption violation, not a production
+defect`) is no longer valid.  The current evidence supports an open timing
+mismatch: the normal-speed device event may arrive before the guest has
+returned to the intended `1CCDh` wait consumer, while the accelerated ratio
+happens to provide more processing margin.  This mechanism is not yet proven
+by a paired consumer trace.
+
+No delay constant has been changed in response.  The next diagnostic must
+compare the second SELECT/COMMAND event at normal speed and `--cpumult 8`:
+`1CCDh` is the expected wait consumer, whereas `1742h`/`1747h` identify the
+main event-pump path.  Only after that comparison may a general device-time
+correction be considered; PCPLUS addresses, CDB ordering, and multiplier-
+specific workarounds remain prohibited.
+
+This correction changes the ledger classification but does not approve G75.
+
+### M75d1 timing follow-up: normal versus accelerated DATA IN (2026-08-02)
+
+A paired bounded run was repeated after restoring the production constant
+`SCSI_TARGET_PROCESSING_CLOCKS=100`; the temporary 4000-clock experiment was
+not retained.  The worker used for this check is the rebuilt source at
+`02d5ed802e086860a8907e76e5fa4a9da315f384` with SHA-256
+`51aae76205dcb71f5bc447cbdbf7ac8f33d220bad6852cd594a11d61b40ec3df`.
+
+At normal speed, a 120-second compact guest-trace run produced the complete
+TUR sequence and no `cdb0=12`, `cdb0=1a`, or MODE SENSE DATA IN transfer.  A
+normal-speed compact run without guest tracing reached the second SELECT
+(`CSR=11h`) and COMMAND request (`CSR=8Ah`) after the TUR bus-free event, but
+no subsequent CDB transfer was observed before the safety bound.  The external
+`exit=124` is only the safety timeout and is not a semantic completion result.
+
+With `--cpumult 8`, a 60-second no-guest compact run reached the MODE SENSE
+CDB `1A 00 04 00 24 00` and issued DATA IN requests with `phase=19h` and
+`TC=24h`.  The first 24-byte request was abandoned with zero AR19 accesses;
+subsequent one-byte `phase=19h` requests completed.  Thus the accelerated run
+proves later command reachability, but not a complete MODE SENSE payload
+transfer or SCHD registration.  It remains diagnostic-only.
+
+A temporary, uncommitted change from 100 to 4000 target-processing clocks was
+also tested at normal speed for 60 seconds.  It produced only the TUR results
+and no later CDB, so it is not an evidence-backed correction.  The source was
+restored to 100 and rebuilt; no production timing change was committed.
+
+The consumer-path comparison remains incomplete: the normal-speed second
+`8Ah` was observed only in the low-overhead controller trace, while the
+full guest trace did not reach that point within its tracing bound.  Therefore
+it is not yet proven whether `1CCDh` or `1742h/1747h` consumes that event at
+normal speed.  G75 remains open and no delay tuning is authorized.
+
+### INQUIRY revision identification (2026-08-02)
+
+The INQUIRY response revision field (bytes 24-27) now returns the fixed
+ASCII revision `1.00`; the remaining four bytes of the eight-byte revision
+area remain space padded.  The response remains a 32-byte table with byte4
+`1Bh`; this does not change the allocation-length or short-transfer contract.
+The M75 controller QA validator now rejects a response table whose revision is
+not `1.00`.  This is an identification change only and does not constitute
+normal-speed INQUIRY DATA IN acceptance.
+
+
+### M75d1 Phase A command-request window trace (2026-08-02)
+
+The next diagnostic is trace-only and does not change SCSI production
+behavior.  The option `--scsitrace-cmdreq-windows` numbers windows from VAEG's
+raw `CSR=8Ah` presentation, not from a guest-side `CS:[047Eh]=BAh` write.
+Therefore a window with no `BAh` write is still represented and is evidence of
+non-presentation or an incomplete handoff.
+
+Each window records the preceding and following raw CSR presentation events,
+including `11h` SELECT completion and `85h` bus-free, the guest instruction
+counter, and the same emulated clock used by the SCSI event queue.  Within each
+`8Ah` window the disabled-by-default seam records the `1D67h` `047Eh` write,
+`1CBDh` wait-point entry, `1CCDh` wait-loop consumption,
+`1742h/1747h` main-pump consumption, `1791h` exit, the `1972h` phase path,
+`19A7h/19BBh` comparisons, and `1C32h` Transfer Info reachability.  Summary
+records preserve the presentation, `BAh` write, and consumer timestamps plus
+their instruction/clock deltas.
+
+The seam is wired through a no-op trace API from `scsiioint`; it does not alter
+CSR state, IRQ state, guest memory, registers, FLAGS, timing, or the PIO pump.
+The option is OFF by default.  Existing `--scsitrace` uses the original guest
+trace path when the option is absent.  A paired normal-speed run is required:
+`1CCDh` for the first and `1747h` for the second indicates early phase
+presentation; two `1CCDh` consumers rejects that hypothesis; and an absent
+second raw `8Ah` identifies non-presentation instead.  No production delay or
+phase change is authorized until this evidence exists.
+
+The Phase A code and validator checks build successfully and the focused M75
+CTest/selftest pass.  The current macOS Cocoa SDL environment aborts during
+window initialization before guest execution, so no real-ROM window result is
+claimed from this host.  G75 remains open.
+
+
+Phase A trace-only commit: `3667ed08701ba3e1863d659dfd47ddc954e25183`.
+Validation at that commit completed with exit status 0 for:
+
+```text
+cmake --build build/linux-ci-clang --target vaeg_sdl2 -j2
+cmake --build build/m75-tests --target vaeg_sdl2 -j2
+SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy build/m75-tests/sdl2/vaeg --selftest
 python3 tools/qa/m75_scsi_controller.py --root .
-  M75_SCSI_CONTROLLER_OK
-ctest --test-dir build/m75-tests \
-  -R 'vaeg_m75_scsi_controller|vaeg_m75_transfer_info' --output-on-failure
-  2/2 passed
-SDL2 --selftest
-  exit=0, all tests passed
+ctest --test-dir build/m75-tests -R vaeg_m75_scsi_controller --output-on-failure
 ```
 
-The focused model covers wait-for-REQ, active-command suppression of Service
-Required, 4MCI phase termination, post-count REQ completion, CSR stability,
-INT-pending command ignore/LCI, BSY/DBR/TC accounting, and REQ/ACK counts.
+The normal-speed real-ROM command was attempted with
+`--scsitrace-cmdreq-windows`, `--scsitrace-compact`, and
+`--scsitrace-limit 7`; it exited 134 before guest execution because this
+macOS host's SDL Cocoa backend raised `NSInternalInconsistencyException`
+while initializing `SystemAppearance`.  This is an environment failure, not a
+SCSI result.  No first/second raw-`8Ah` classification is claimed yet.
 
-### G75 status
+### M75d1 transfer-count byte-order experiment (superseded)
 
-| Acceptance item | Result |
-|---|---|
-| Explicit Transfer Info state machine and CSR single latch | PASS (source and focused tests) |
-| PCPLUS TUR STATUS/MESSAGE integration | FAIL: guest writes STATUS direction after active TI |
-| INQUIRY DATA IN (`89h`, AR19 reads, `CSR=19h`) | NOT OBSERVED |
-| SCHD registration / SCFORM / file create-read-delete | NOT PASSED |
-| SASI, HOSTFAT, non-SCSI regression gates | Pending final validation |
-| G75 | **NOT PASSED** |
+An initial interpretation attributed the SCFORM/SENSE stop to a transfer-count
+byte-order defect and tested a low/middle/high decode.  That experiment is
+retained only as history.  Its WSLg trace later showed `TC=060000` for a
+six-byte CDB and `TC=010000` for a one-byte transfer, so it multiplied the
+expected counts by 65536.  No acceptance result is based on that experiment.
 
-This report intentionally does not self-approve G75 and does not begin M76.
+The original high/middle/low implementation is restored by
+[c959453](https://github.com/nakatamaho/vaeg/commit/c959453a0a482994ac25ab6db0b33e425306a0e9).
+The separate MODE SENSE block-length correction remains under evaluation.
+The local Linux/MinGW builds, M75 QA, focused CTest, and SDL selftest pass;
+manual SCHD/SCFORM acceptance remains open.
 
+### M75d1 MODE SENSE block-descriptor correction (2026-08-02)
 
-### G75 post-count compliance update
+The corrected run now passes the SENSE transfer and reaches SCHD's INQUIRY
+summary: device code 0, response-data format 0, and fixed-media mode.  These
+messages are informational and show that INQUIRY completed; the subsequent
+halt is in the MODE SENSE/geometry step.
 
-The production implementation is `6104843a02db0e61947fc650f1b348c9f6c1943a`
-(`M75d1: implement Transfer Info command lifecycle`).  Completion no longer
-raises a completion CSR immediately when TC reaches zero.  It records the
-completion MCI, enters `wait_for_post_count_req`, schedules a distinct target
-REQ, and latches the completion only after that REQ.  The status-read path
-then returns the controller to `idle` before scheduling the next service
-request; MESSAGE IN completion schedules BUS FREE (`85h`) without creating a
-phase-service REQ.
+Static comparison with SCHD's documented request (`1A 00 04 00 24 00`) found a
+second controller-contract defect.  In a MODE SENSE(6) block descriptor, the
+block length occupies response bytes 9--11 (header bytes 0--3, descriptor
+bytes 4--11).  VAEG wrote the three-byte block length at byte 8, overwriting
+the reserved byte and leaving a shifted value (for example, 256 appeared as
+`01 00 00` when SCHD reads bytes 9--11).  The correction writes at byte 9;
+mounted `SXSIDEV` geometry remains the sole source of the value.
 
-The post-count portion of the bounded PCPLUS trace is:
+The static M75 QA validator now protects this offset.  Linux build, focused
+CTest, M75 QA, and SDL selftest pass after the correction.  A corrected MinGW
+artifact must still be run through SCHD registration and SCFORM to confirm the
+manual symptom is cleared; G75 remains open.
+
+### M75d1 transfer-count order correction from WSLg trace (2026-08-02)
+
+The WSLg MinGW trace disproved the earlier low/middle/high interpretation.  In
+one run the controller reported `TC=060000` and attempted 393216 CDB bytes for
+`CDB=00`; the following one-byte STATUS request reported `TC=010000`.  The same
+trace showed READ CAPACITY `TC=0a0000` with `CDB=25` and DATA IN `TC=080000`.
+These values are exactly the expected 6/1/10/8 counts multiplied by 65536.
+The trace therefore proves that PCPLUS writes AR12/AR13/AR14 as high/middle/low.
+
+The low/middle/high experiment from [9f11430](https://github.com/nakatamaho/vaeg/commit/9f11430a52e7d660c18cb0cfad3bef448f6c157c)
+is superseded without rewriting history.  Commit
+[c959453](https://github.com/nakatamaho/vaeg/commit/c959453a0a482994ac25ab6db0b33e425306a0e9)
+restores the original high/middle/low decode and borrow order.  The MODE SENSE
+block-length-at-byte-9 correction remains in effect.  The corrected MinGW
+artifact was rebuilt; its SHA-256 is
+`d17a62569568d51ddfda1a8739824e52922772f9be870dfa98780d3abf4eac25`.
+
+### M75d1 CSR provenance trace (2026-08-02)
+
+The synchronized starting SHA for this diagnostic checkpoint was
+`afd3dabe19dcca670847f7e397ead67c7cf38e33` on
+`topic/m75-scsi-support`, matching the remote branch before the change.
+Trace-only commit
+[ad9c99b](https://github.com/nakatamaho/vaeg/commit/ad9c99b2d36a810793a57b1162fc195229b009a3)
+adds provenance to the existing CSR latch/pending path.  It is not a
+production correction.
+
+The new records are: `csr-request` (monotonic sequence, raw CSR, origin),
+`csr-latch`, `csr-hostread`, `csr-promote`, `csr-overrun`, and `csr-drop`.
+Each includes the request origin and sequence plus event-active, latched, and
+pending status/sequence/origin, phase, selected AR, auxiliary status,
+transfer/command pending state, target readiness, and `CS:IP`.  The trace is
+opt-in through `--scsitrace`; compact mode retains these records.  No guest
+state, CSR behavior, event clocks, IRQ behavior, or PIO behavior changes when
+tracing is disabled.
+
+The normal-speed VA1 run used the standard support-disk/SCSI-image command
+with `--scsitrace --scsitrace-no-guest --scsitrace-compact
+--scsitrace-limit 7`.  It timed out at the external 30-second safety bound
+(exit 124), after the complete TUR sequence and the second
+SELECT/COMMAND request.  The trace contained 11 CSR requests, 11 latches,
+and 10 host reads at the cutoff; every request that became visible followed
+request -> latch -> hostread.  Counts for `csr-promote`, `csr-overrun`, and
+`csr-drop` were all zero.  A separate semantic-limit run exited 0 and showed
+the same ordered prefix.  Thus this run does not reproduce the stale `11h`
+followed by late `1Ah` sequence reported from the older WSLg binary.  The
+trace is evidence that the current run did not overflow the pending slot, not
+proof that the older report was impossible.
+
+Focused validation and build results:
 
 ```text
-command-accepted command=20 state=wait_for_req tc=000006 phase=COMMAND
-post-count-wait completion=1a next=8b state=wait_for_post_count_req tc=000000
-target-req-ready status=8b state=wait_for_post_count_req
-req-assert kind=post-count status=8b
-post-count-req status=8b completion=1a
-csr-latch status=1a state=completed_or_terminated
-csr-read status=1a
-target-req-scheduled status=8b
-command-accepted command=20 state=wait_for_req tc=010000 phase=STATUS
-target-req-ready status=8b state=wait_for_req
-req-assert kind=active status=8b
-command-active state=transfer_byte_pending phase=STATUS
+python3 tools/qa/m75_scsi_controller.py --root .                         PASS
+cmake --build build/linux-ci-clang --target vaeg_sdl2 -j2                  PASS
+cmake --build build/m75-tests --target vaeg_sdl2 -j2                      PASS
+ctest --test-dir build/m75-tests -R vaeg_m75_scsi_controller --output-on-failure  PASS
+SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy build/m75-tests/sdl2/vaeg --selftest  PASS
 ```
 
-No `89h` Service Required event is generated while the second Transfer Info
-is active, and no pending CSR is overwritten.  The guest then executes OUT
-accesses to AR19 while the controller advertises STATUS (a controller-to-host
-phase); the direction guard records `phase-direction-mismatch`, so the guest
-does not produce the required STATUS AR19 read.  The same run therefore does
-not reach MESSAGE IN or INQUIRY DATA IN.  This is an integration failure of
-the supplied PCPLUS path under the documented phase direction, not a reason
-to add a PCPLUS-specific exception or to weaken the WD33C93A lifecycle.
+The evaluated Linux SDL2 executable SHA-256 is
+`5e55a19ecc2eeca505fa0bde0923cfdb9ce7781b65343ddadedc39035efec76d`.
+No production-fix SHA is claimed by this checkpoint.  G75 remains pending;
+normal-speed INQUIRY DATA IN accounting, SCHD/SCFORM/reboot/file-operation
+acceptance, and SASI/HOSTFAT/non-SCSI regression evidence are still open.
 
-Validation after the implementation commit:
+
+### M75d1 CSR admission correction: pull-model target gating (2026-08-02)
+
+The provenance detector was committed first in
+[23b2752](https://github.com/nakatamaho/vaeg/commit/23b2752c6bc0f02c32eabf22c2b6a98c9383334a).
+The maintainer-provided pre-correction WSLg trace contains the decisive
+collision: `seq=13`, `CSR=1Ah`, was requested while `seq=12`, `CSR=11h`, was
+still the active scheduled event; the trace then records `pending=1` and later
+`csr-overrun` records.  This is the detector evidence for the old two-stage
+CSR path.  A separate replay of the pre-correction source did not reach that
+collision within its shorter safety bound, so the replay is not claimed as a
+second reproduction.
+
+The production correction is
+[ccb0666](https://github.com/nakatamaho/vaeg/commit/ccb066695907456314783cc3bb9a28dfad279c55).
+The CSR pending slot and its promotion path were removed.  Target-origin
+selection, command-request, phase-ready, and bus-free events now remain as
+persistent target state and are pulled only after AR17 consumes the visible
+CSR.  A target-processing event is then scheduled; host-synchronous transfer
+completion (`1Ah`, `1Bh`, `1Fh`, and short-transfer `48h`--`4Fh`) remains
+serialized by the host I/O access and is not put through the target queue.
+The one-device CSR latch remains independent of 8259 EOI.  A second CSR is
+never silently queued or overwrites the visible latch; the trace records an
+`invariant ...-overlap`, `csr-overrun`, and `csr-drop` if a producer violates
+that admission boundary.
+
+A deterministic watchdog event (`NEVENT_SCSIWATCHDOG`) reports an unread CSR,
+a target phase-delay that does not complete, or an internal DATA IN decision
+for which no `CSR=89h` request appears within the watchdog interval.  The
+latter includes a monotonic missing-request count and the guest `CS:IP` at the
+observation.  These diagnostics are opt-in with `--scsitrace` and do not alter
+guest state or the controller contract.
+
+The target processing quantum remains the emulated-clock constant
+`SCSI_TARGET_PROCESSING_CLOCKS=100`; it was not tuned to the guest.  A
+trace-only seeded jitter facility is available with
+`--scsitrace-jitter-seed N --scsitrace-jitter-span N`; it varies only target
+processing event clocks, records the seed/span/effective samples, and is
+reproducible.  Five seeds (1 through 5, span 200) produced zero
+`csr-overrun`, `csr-drop`, and `invariant` records.  Seed 2 additionally
+reported the watchdog's unconsumed `CSR=8Ah` at the bounded-run cutoff; this
+is retained as an open guest-progress observation, not hidden as a pass.
+
+Fixed-clock stress runs at 4000 and 40000 target-processing clocks likewise
+produced zero overrun/drop/invariant records.  The 40000 run reached the
+second TUR, INQUIRY, READ CAPACITY, and MODE SENSE CDB boundaries; the 4000
+run exposed a different incomplete guest transfer pattern but no CSR
+admission violation.  These are structural stress results, not G75
+acceptance evidence.
+
+The final normal-speed bounded run (`exit=124` safety bound) completed the
+TUR STATUS and MESSAGE IN phases and reached the second SELECT/COMMAND
+request, then the watchdog reported an unread `CSR=8Ah` before the run ended.
+It did not produce the normal-speed INQUIRY DATA IN golden sequence.  Thus the
+pull-model correction removes the old CSR queue collision, but it does not yet
+prove that the guest consumes the later command request or that SCHD registers
+the device.
+
+Focused validation for [ccb0666](https://github.com/nakatamaho/vaeg/commit/ccb066695907456314783cc3bb9a28dfad279c55):
 
 ```text
-python3 tools/qa/m75_transfer_info.py --selftest  -> M75_TRANSFER_INFO_OK tests=9
-python3 tools/qa/m75_scsi_controller.py --root . -> M75_SCSI_CONTROLLER_OK
-ctest (vaeg_m75_scsi_controller|vaeg_m75_transfer_info) -> 2/2 passed
-SDL2 --selftest -> exit=0, all tests passed
-linux-ci-clang vaeg_sdl2 build -> exit=0
-repository case check -> 0 finding(s)
+cmake --build build/m75-tests --target vaeg_sdl2 -j2                         PASS
+python3 tools/qa/m75_scsi_controller.py --root .                           PASS
+ctest --test-dir build/m75-tests -R vaeg_m75_scsi_controller --output-on-failure PASS
+SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy build/m75-tests/sdl2/vaeg --selftest PASS
 ```
 
-The Linux SDL2 executable used for the final local validation has SHA-256
-`c43570e65553d8fe7e814d1d2614b2183ecf2cba81cc6348f1c778235ef754eb`.  The
-bounded real-ROM run used an external timeout only as a safety bound; its
-semantic stop was the SCSI trace limit.  G75 remains **NOT PASSED** because
-the required PCPLUS STATUS read, INQUIRY DATA IN, SCHD registration, SCFORM,
-and manual file-operation gates are not complete.
+The evaluated executable was `build/m75-tests/sdl2/vaeg`, SHA-256
+`5c417772db1385e65c8aaea65d03ce43c4d84574fb0cff59a990151b3565532b`.
+The current M75 gate remains open: normal-speed INQUIRY DATA IN, SCHD
+registration, SCFORM, reboot, file operations, SASI, HOSTFAT, and non-SCSI
+regressions still require evidence.  G75 is not approved.
+
+### M75d1 DATA IN repeated-TC correction (2026-08-02)
+
+The WSLg SCFORM/SCHD run reached ID0 and completed TEST UNIT READY through
+STATUS, MESSAGE IN, and bus free.  ID0 INQUIRY also reached the DATA IN request,
+but the trace showed the PCPLUS access pattern explicitly: it first programmed
+`TC=0024h`, then, after consuming `CSR=89h`, reprogrammed `TC=0001h` and issued
+TRANSFER INFO for each byte.  The old DATA IN completion branch treated the
+first `TC=1` completion as allocation exhaustion, changed the target phase to
+STATUS, and emitted `CSR=19h` after one byte.  SCHD therefore saw only one
+INQUIRY byte, rejected ID0, and continued with `42h` select timeouts for the
+other IDs.  The run did not hang, but the device was not registered.
+
+This is a general WD33C93 PIO contract defect, not a PCPLUS-address or disk
+image workaround.  Commit
+[84bc2ef](https://github.com/nakatamaho/vaeg/commit/84bc2efe1de9e5661fd28d31ba087a304f1a82ac)
+keeps `SCSIPH_DATAIN` active when the host-programmed count reaches zero while
+`rddatpos < cmdpos`; the next `TRANSFER INFO` then pumps the next byte.  The
+phase changes to STATUS only after the target response cursor is exhausted.
+The static QA validator now requires this repeated-short-transfer invariant.
+The preceding trace-only cursor-state instrumentation is in
+[d2da983](https://github.com/nakatamaho/vaeg/commit/d2da9835149d5d8dd4fb560c20bfd407db2719cc).
+
+Validation for the correction:
+
+```text
+python3 tools/qa/m75_scsi_controller.py --root .                         PASS
+ctest --test-dir build/m75-tests -R vaeg_m75_scsi_controller --output-on-failure PASS
+SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy build/m75-tests/sdl2/vaeg --selftest PASS
+CCACHE_DISABLE=1 cmake --build build/mingw-cross --target vaeg_sdl2 -j2 PASS
+```
+
+The diagnostic MinGW executable copied to `/tmp/vaeg-m75-datain-repeat.exe`
+has SHA-256
+`1327093c303f08a7fda7f55499ef4d85ced878e932b578db81e5f26dee066dc2`.
+The supplied pre-correction WSLg run is not acceptance evidence for the fixed
+binary; a new run must show repeated DATA IN reads, then the complete INQUIRY
+STATUS/MESSAGE sequence, before SCHD registration is reconsidered.  G75
+remains open and no M76 work is authorized.
+
+The post-correction focused test build was rebuilt from `d345d96` and the
+selftest passed.  Its SHA-256 is
+`f6c2758a7fe5576fdeadca9c7d5876a557174105bebaaa174cc3b3d82c2e3bf5`.
+This is machine validation only; the corrected MinGW binary still requires
+the manual WSLg SCFORM/SCHD run.
