@@ -118,6 +118,7 @@ typedef struct {
 	BOOL debug;
 	BOOL fdctrace;
 	BOOL scsitrace;
+	BOOL scsitrace_guest;
 	BOOL pacelog;
 	BOOL mute;
 	BOOL nowait;
