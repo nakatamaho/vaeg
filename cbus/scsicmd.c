@@ -66,6 +66,11 @@ static const BYTE hdd_inquiry[0x20] = {
 			'N', 'P', '2', '-', 'H', 'D', 'D', 0x20,
 			0x20,0x20,0x20,0x20,0x20,0x20,0x20,0x20};
 
+static const BYTE hdd_sense[18] = {
+			0x70, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0a,
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00};
+
 
 static void scsicmd_putbe32(BYTE *dst, UINT32 value) {
 
@@ -84,6 +89,16 @@ static UINT scsicmd_datain(SXSIDEV sxsi, BYTE *cdb) {
 	ZeroMemory(scsiio.data, sizeof(scsiio.data));
 	scsiio.cmdpos = 0;
 	switch(cdb[0]) {
+		case 0x03:				// Request Sense
+			TRACEOUT(("Request Sense"));
+			length = cdb[4];
+			copylen = min(length, (UINT)sizeof(hdd_sense));
+			if (copylen) {
+				CopyMemory(scsiio.data, hdd_sense, copylen);
+			}
+			scsiio.cmdpos = copylen;
+			break;
+
 		case 0x12:				// Inquiry
 			TRACEOUT(("Inquiry"));
 			// Logical unit number = cdb[1] >> 5.
@@ -213,6 +228,7 @@ REG8 scsicmd_command(REG8 id) {
 			scsiio.phase = SCSIPH_STATUS;
 			return(scsicmd_phase_service_status(SCSIPH_STATUS));
 
+		case 0x03:				// Request Sense
 		case 0x12:				// inquiry
 		case 0x1a:				// Mode Sense (6)
 		case 0x25:				// Read Capacity (10)
