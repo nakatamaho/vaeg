@@ -330,3 +330,46 @@ not satisfy the M75d1 golden sequence or the G75 gate.
 The final report must include the audited SCSI dependency graph, retained and
 removed code paths if any, validation commands and exit statuses, manual gate
 results, and a G75 human-review checklist.
+
+
+## M75d1 addendum — target phase readiness
+
+The handoff blocker is classified as a controller timing/state-boundary defect,
+not an incorrect `8Bh` normalization. The next target phase was released when
+AR17 consumed the previous CSR, while the PCPLUS foreground was still in its
+completion path. The fix must keep CSR consumption and target phase readiness
+as separate gates, hold DBR low until the controller processing event, and
+avoid delaying same-phase PIO continuation. It must remain independent of
+PCPLUS addresses, CDB order, filenames, and guest timing.
+
+The corrected TUR evidence must show `8Ah`, six CDB writes, `1Ah`, deferred
+`8Bh`, one STATUS byte `00h` with `1Bh`, one MESSAGE byte `00h` with `1Fh`,
+and optional `85h` only when Control bit 3 enables ending disconnect. REQUEST
+SENSE (`03h`) is part of the observed PCPLUS probe and therefore has a fixed
+no-sense DATA IN response. The later INQUIRY (`12h`, 36-byte DATA IN) remains a
+required M75d1 evidence item and is not complete until observed with zero
+AR19 writes and CSR `19h`.
+
+The only terminal approval remains G75. This addendum does not approve G75 and
+does not begin M76.
+
+
+### M75d1 post-cursor and bounded-trace addendum
+
+PCPLUS may issue one-byte `TRANSFER INFO` requests while a DATA IN response
+still has bytes remaining.  The target DATA cursor must survive those request
+boundaries and reset only at command entry or a real phase boundary.  The
+controller must not make the first response byte repeat indefinitely.
+
+For long diagnostic runs, `--scsitrace-no-guest` suppresses only the disabled-by-
+default UPD9002 guest observation seam, and `--scsitrace-compact` suppresses
+per-port records while retaining transfer results, DATA bytes, phase waits, and
+warnings.  These are diagnostic-output controls, not guest or controller
+behavior.  INQUIRY acceptance still requires the normal-speed 36-byte DATA IN
+sequence; accelerated `--cpumult` runs are diagnostic only and cannot satisfy
+that requirement.
+
+
+The historical M75a worker digest in the earlier diagnostic checkpoint is
+retained as provenance.  The current post-cursor worker digest is recorded in
+the report addendum and must be used for any new evaluation.

@@ -250,6 +250,44 @@ separate parity correction or move it to Open Defects.
 - **Evidence:** [M69 report](../agents/reports/m69_upd9002_idp_0142_status_composition.md).
 - **Commit:** [6ef4f98e](https://github.com/nakatamaho/vaeg/commit/6ef4f98ec1be20054db2aeb9c4a44c6a3d2e36bf).
 
+### PCPLUS STATUS requests were exposed before target phase readiness
+
+- **Status:** corrected in M75d1; full G75 acceptance remains pending.
+- **Symptom:** the PCPLUS/SCHD low-level `07h Select without ATN` path received
+  `CSR=8Bh`, but its phase handoff was consumed by the main event pump before
+  the foreground transfer setup returned. The guest then did not issue the
+  STATUS `AR=18h <- 20h` request.
+- **Root cause:** the controller released a pending target phase as soon as
+  the preceding CSR was consumed by `AR=17h`. CSR-latch consumption and target
+  readiness are separate gates. The raw `8Bh` was normalized correctly; the
+  event was simply visible while the previous completion path was still active.
+- **Correction:** pending phase requests now hold DBR low until a general
+  controller processing event exposes the target REQ. Same-phase PIO
+  continuation does not incur a phase-transition event. No guest address,
+  CDB, filename, or transfer-count special case was added. REQUEST SENSE is
+  implemented with a fixed no-sense DATA IN response because it is observed in
+  the PCPLUS probe before INQUIRY.
+- **Verification:** the real PCPLUS trace now shows `CSR=8Bh` at the guest
+  `1B67h` wait path, `CS:[047Eh]=3Bh` after consumption, `1BA1h -> 1C14h ->
+  1C32h`, STATUS data `00h` with `CSR=1Bh`, MESSAGE data `00h` with `CSR=1Fh`,
+  and REQUEST SENSE DATA IN beginning with `70h`. Static M75 validation,
+  focused CTest, Linux SDL2 build, and `--selftest` pass. The bounded trace
+  did not yet reach the later 36-byte INQUIRY golden, so this entry remains
+  separate from terminal G75 approval.
+- **Evidence:** [M75 report](../agents/reports/m75_scsi_support.md) and
+  [M75 task](../agents/tasks/M75_scsi_support.md).
+- **Commits:** [1cd3edb](https://github.com/nakatamaho/vaeg/commit/1cd3edb2b3bcde572f00b8a1131bd05f66ee3bff),
+  [e56a16e](https://github.com/nakatamaho/vaeg/commit/e56a16edf18985f95d78868fed73031a77514e88),
+  [9e6919f](https://github.com/nakatamaho/vaeg/commit/9e6919fdb5aa04b2a8d100ace89747c73a5059fc),
+  [07c1074](https://github.com/nakatamaho/vaeg/commit/07c1074a2c664e4b88bf4c8731cbcf4c5c4ad666).
+
+- **Follow-up:** [4ab457b](https://github.com/nakatamaho/vaeg/commit/4ab457bd8361bed27fd8e09eaa25bbbe97644ed0)
+  preserves DATA IN cursor state across repeated one-byte PIO requests, and
+  [dafeae0](https://github.com/nakatamaho/vaeg/commit/dafeae0da3b4657371a6181b72c40874db30905c) resets that
+  cursor only at actual phase boundaries.  Compact diagnostic controls are
+  provided by [dca6090](https://github.com/nakatamaho/vaeg/commit/dca6090a01076f244697be157f2aa4d80eec3d20) and
+  [52f9788](https://github.com/nakatamaho/vaeg/commit/52f9788a5c7d2c86beadddea3e4a135e7536046c).
+
 ### State-load rejection feedback disappeared with the State menu
 
 - **Status:** fixed; corrected G55 human gate passed on 2026-07-22.
