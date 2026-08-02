@@ -75,6 +75,15 @@ def validate(root: pathlib.Path) -> None:
             "controller TRANSFER INFO dispatch")
     require(scsiio, "scsiio.rddatpos >= scsiio.cmdpos",
             "REQ/ACK data completion")
+    command_function = scsiio.split("static void scsicmd(REG8 cmd)", 1)[1]
+    trans_info = command_function.split("case SCSICMD_TRANS_INFO:", 1)[1]
+    trans_info = trans_info.split("\n\t}\n}\n", 1)[0]
+    require(command_function.split("case SCSICMD_TRANS_INFO:", 1)[0],
+            "scsiio.rddatpos = 0",
+            "DATA IN cursor reset on command entry")
+    if "scsiio.rddatpos = 0" in trans_info:
+        raise AssertionError(
+            "DATA IN cursor must survive repeated TRANSFER INFO requests")
     require(scsiio, "static REG8 scsiio_auxstatus(void)",
             "WD33C93 auxiliary-status composition")
     require(scsiio, "static void scsiio_data_write(REG8 dat)",
