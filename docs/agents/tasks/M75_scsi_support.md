@@ -396,3 +396,33 @@ reproduced the same SASI unsupported-format/geometry rejection as the current
 branch; this is not an M75 regression.  The terminal manual requirements remain
 SCFORM initialization, SCHD registration, reboot, file create/read/delete,
 and normal-speed INQUIRY DATA IN.
+
+
+### M75d1 timing-unit audit and cpumult disposition
+
+The CPU multiplier is a diagnostic timing mode, not an acceptance-speed
+control.  Before treating accelerated partial transfers as a defect, audit
+all SCSI delays in source:
+
+- phase readiness and AR18=`20h` startup use
+  `nevent_set(..., NEVENT_ABSOLUTE)` with emulated CPU-clock values;
+- interrupt delivery uses the same emulated-clock event queue;
+- AR19 PIO byte reads and writes remain synchronous to the individual I/O
+  access;
+- guest instruction work is scaled by `UPD9002_WORKCLOCK`, while VA I/O
+  keeps the standard bus clock.
+
+If this audit remains true, `--cpumult` partial DATA IN is classified as a
+guest timing-assumption violation, not a production defect.  Do not add a
+multiplier-specific delay or PCPLUS shortcut.  Normal-speed release runs with
+compact/no-guest tracing and a generous external safety bound are required for
+INQUIRY acceptance.
+
+The focused validator must also protect the interval from AR18=`20h` receipt
+to the first DBR assertion: DBR is held low while the target-processing event
+is pending, and that event is expressed in emulated CPU clocks.
+
+The normal-speed 36-byte INQUIRY sequence remains unobserved and is still a
+G75 blocker.  The current source response table is 32 bytes despite the
+observed 36-byte allocation request; no payload-field change is authorized
+without the guest branch and response contract being resolved.
