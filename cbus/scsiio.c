@@ -33,6 +33,13 @@ static UINT scsi_csr_pending_sequence;
 static const char *scsi_csr_pending_origin;
 static UINT scsi_csr_latched_sequence;
 static const char *scsi_csr_latched_origin;
+static UINT32 scsi_csr_event_clock;
+static UINT32 scsi_csr_latched_clock;
+static UINT32 scsi_trace_data_phase_decision_clock;
+static BOOL scsi_trace_data_phase_pending;
+static BOOL scsi_trace_event_watchdog_reported;
+static BOOL scsi_trace_latched_watchdog_reported;
+static BOOL scsi_trace_data_phase_watchdog_reported;
 static BOOL scsi_command_phase_pending;
 static BOOL scsi_transfer_phase_pending;
 static REG8 scsi_transfer_phase_status;
@@ -54,7 +61,9 @@ static BYTE scsi_trace_transfer_cdb[12];
 static const char *scsi_trace_transfer_source;
 
 static void scsi_tracef(const char *fmt, ...);
+static UINT32 scsi_trace_clock(void);
 static REG8 scsiio_auxstatus(void);
+static void scsi_trace_watchdog(void);
 
 /* WD33C93 auxiliary-status bits.  The DATA window is PIO-only in M75. */
 #define SCSI_AUX_INT	0x80
@@ -66,6 +75,7 @@ static REG8 scsiio_auxstatus(void);
 
 /* Target processing is a controller event, not a guest-tuned ISR delay. */
 #define SCSI_TARGET_PROCESSING_CLOCKS	100
+#define SCSI_TRACE_WATCHDOG_CLOCKS 0x4000
 
 /* 0CC4h uses set/reset strobes for the controller transfer controls. */
 #define SCSI_C4_TCMS	0x04
@@ -154,6 +164,14 @@ static void scsiio_schedule_transfer_phase(REG8 status,
 		UINT completed_phase) {
 
 	scsi_transfer_phase_status = status;
+	if (status == 0x89 && scsi_trace_enabled) {
+		scsi_trace_data_phase_pending = TRUE;
+		scsi_trace_data_phase_decision_clock = scsi_trace_clock();
+		scsi_tracef("scsitrace data-phase-decision status=89 phase=%02x "
+				"clock=%u cs=%04x ip=%04x",
+				scsiio.phase, scsi_trace_data_phase_decision_clock,
+				CPU_CS, CPU_IP);
+	}
 	/*
 	 * Bus free has no following TRANSFER INFO command.  Mark the target
 	 * ready when MESSAGE IN completes so that the CSR=1Fh read can release
@@ -243,7 +261,10 @@ static BOOL scsi_trace_compact_line(const char *fmt) {
 			strncmp(fmt, "scsitrace data-read", 19) == 0 ||
 			strncmp(fmt, "scsitrace target-phase-wait", 27) == 0 ||
 			strncmp(fmt, "scsitrace M75c2", 15) == 0 ||
-			strncmp(fmt, "scsitrace warning", 17) == 0);
+			strncmp(fmt, "scsitrace warning", 17) == 0 ||
+			strncmp(fmt, "scsitrace data-phase-", 21) == 0 ||
+			strncmp(fmt, "scsitrace watchdog", 18) == 0 ||
+			strncmp(fmt, "scsitrace invariant", 18) == 0);
 }
 
 static void scsi_tracef(const char *fmt, ...) {
@@ -264,6 +285,48 @@ static void scsi_tracef(const char *fmt, ...) {
 		scsi_tracef arg; \
 	} \
 } while (0)
+static UINT32 scsi_trace_clock(void) {
+
+	return (UINT32)(CPU_CLOCK + CPU_BASECLOCK - CPU_REMCLOCK);
+}
+
+static void scsi_trace_watchdog(void) {
+
+	UINT32 now;
+
+	if (!scsi_trace_enabled) {
+		return;
+	}
+	now = scsi_trace_clock();
+	if (scsi_csr_event_active && !scsi_trace_event_watchdog_reported &&
+			(UINT32)(now - scsi_csr_event_clock) >=
+			SCSI_TRACE_WATCHDOG_CLOCKS) {
+		scsi_trace_event_watchdog_reported = TRUE;
+		SCSITRACEOUT(("scsitrace watchdog scheduled-unpublished status=%02x "
+				"seq=%u clocks=%u cs=%04x ip=%04x",
+				scsi_csr_event_status, scsi_csr_event_sequence,
+				(UINT32)(now - scsi_csr_event_clock), CPU_CS, CPU_IP));
+	}
+	if (scsi_csr_latched && !scsi_trace_latched_watchdog_reported &&
+			(UINT32)(now - scsi_csr_latched_clock) >=
+			SCSI_TRACE_WATCHDOG_CLOCKS) {
+		scsi_trace_latched_watchdog_reported = TRUE;
+		SCSITRACEOUT(("scsitrace watchdog unconsumed-csr status=%02x "
+				"seq=%u clocks=%u cs=%04x ip=%04x",
+				scsiio.scsistatus, scsi_csr_latched_sequence,
+				(UINT32)(now - scsi_csr_latched_clock), CPU_CS, CPU_IP));
+	}
+	if (scsi_trace_data_phase_pending &&
+			!scsi_trace_data_phase_watchdog_reported &&
+			(UINT32)(now - scsi_trace_data_phase_decision_clock) >=
+			SCSI_TRACE_WATCHDOG_CLOCKS) {
+		scsi_trace_data_phase_watchdog_reported = TRUE;
+		SCSITRACEOUT(("scsitrace watchdog data-phase-request-missing "
+				"status=89 clocks=%u cs=%04x ip=%04x",
+				(UINT32)(now - scsi_trace_data_phase_decision_clock),
+				CPU_CS, CPU_IP));
+	}
+}
 
 static void scsi_trace_csr_record(const char *event, UINT sequence,
 		REG8 status, const char *origin) {
@@ -495,11 +558,14 @@ void scsiio_trace_pic_irq(REG8 irq, BOOL asserted) {
 void scsiioint(NEVENTITEM item) {
 
 	scsi_csr_event_active = FALSE;
+	scsi_trace_watchdog();
 	scsiio.scsistatus = scsi_csr_event_status;
 	scsi_csr_latched_sequence = scsi_csr_event_sequence;
 	scsi_csr_latched_origin = scsi_csr_event_origin;
 	upd9002_guest_trace_scsi_status(scsi_csr_event_status);
 	scsi_csr_latched = TRUE;
+	scsi_csr_latched_clock = scsi_trace_clock();
+	scsi_trace_latched_watchdog_reported = FALSE;
 	scsi_trace_csr_record("latch", scsi_csr_latched_sequence,
 			scsiio.scsistatus, scsi_csr_latched_origin);
 	scsiio.auxstatus &= (REG8)~SCSI_AUX_CIP;
@@ -542,6 +608,15 @@ static void scsiio_target_phase_ready_event(NEVENTITEM item) {
 static void scsiintr_enqueue(const char *origin, REG8 status,
 		UINT clocks, BOOL record_transfer_result) {
 	UINT sequence;
+	scsi_trace_watchdog();
+	if (status == 0x89 && scsi_trace_data_phase_pending) {
+		SCSITRACEOUT(("scsitrace data-phase-request status=89 delta=%u "
+				"cs=%04x ip=%04x",
+				(UINT32)(scsi_trace_clock() -
+					scsi_trace_data_phase_decision_clock),
+				CPU_CS, CPU_IP));
+		scsi_trace_data_phase_pending = FALSE;
+	}
 
 	if (record_transfer_result) {
 		scsi_trace_transfer_result(status);
@@ -550,12 +625,21 @@ static void scsiintr_enqueue(const char *origin, REG8 status,
 	scsi_trace_csr_record("request", sequence, status, origin);
 	if (scsi_csr_event_active || scsi_csr_latched || scsi_csr_pending) {
 		scsi_trace_csr_record("overrun", sequence, status, origin);
+		if (scsi_csr_event_active) {
+			SCSITRACEOUT(("scsitrace invariant scheduled-overlap "
+					"seq=%u status=%02x active_seq=%u active_status=%02x "
+					"cs=%04x ip=%04x",
+					sequence, status, scsi_csr_event_sequence,
+					scsi_csr_event_status, CPU_CS, CPU_IP));
+		}
 	}
 	if (!scsi_csr_event_active && !scsi_csr_latched) {
 		scsi_csr_event_active = TRUE;
 		scsi_csr_event_status = status;
 		scsi_csr_event_sequence = sequence;
 		scsi_csr_event_origin = origin;
+		scsi_csr_event_clock = scsi_trace_clock();
+		scsi_trace_event_watchdog_reported = FALSE;
 		nevent_set(NEVENT_SCSIIO, clocks, scsiioint, NEVENT_ABSOLUTE);
 	}
 	else if (!scsi_csr_pending) {
@@ -712,6 +796,7 @@ static void scsicmd(REG8 cmd) {
 
 static void IOOUTCALL scsiio_occ0(UINT port, REG8 dat) {
 
+	scsi_trace_watchdog();
 	scsiio.port = dat;
 	SCSITRACEOUT(("scsitrace out port=0cc0 ar=%02x cs=%04x ip=%04x",
 			dat, CPU_CS, CPU_IP));
@@ -720,6 +805,7 @@ static void IOOUTCALL scsiio_occ0(UINT port, REG8 dat) {
 
 static void IOOUTCALL scsiio_occ2(UINT port, REG8 dat) {
 
+	scsi_trace_watchdog();
 	UINT8	bit;
 
 	if (scsiio.port < 0x40) {
@@ -826,6 +912,7 @@ static void IOOUTCALL scsiio_occ6(UINT port, REG8 dat) {
 
 static REG8 IOINPCALL scsiio_icc0(UINT port) {
 
+	scsi_trace_watchdog();
 	REG8	ret;
 
 	ret = scsiio_auxstatus();
@@ -837,6 +924,7 @@ static REG8 IOINPCALL scsiio_icc0(UINT port) {
 
 static REG8 IOINPCALL scsiio_icc2(UINT port) {
 
+	scsi_trace_watchdog();
 	REG8	ret;
 
 	switch(scsiio.port) {
@@ -845,6 +933,7 @@ static REG8 IOINPCALL scsiio_icc2(UINT port) {
 				scsi_trace_csr_record("hostread", scsi_csr_latched_sequence,
 						scsiio.scsistatus, scsi_csr_latched_origin);
 				scsi_csr_latched = FALSE;
+				scsi_trace_latched_watchdog_reported = FALSE;
 				scsiio.auxstatus &= (REG8)~SCSI_AUX_INT;
 				if (scsi_csr_pending) {
 					scsi_csr_event_active = TRUE;
@@ -958,6 +1047,13 @@ void scsiio_reset(void) {
 	scsi_csr_latched = FALSE;
 	scsi_csr_event_active = FALSE;
 	scsi_csr_event_status = 0;
+	scsi_csr_event_clock = 0;
+	scsi_csr_latched_clock = 0;
+	scsi_trace_data_phase_decision_clock = 0;
+	scsi_trace_data_phase_pending = FALSE;
+	scsi_trace_event_watchdog_reported = FALSE;
+	scsi_trace_latched_watchdog_reported = FALSE;
+	scsi_trace_data_phase_watchdog_reported = FALSE;
 	scsi_csr_pending = FALSE;
 	scsi_csr_pending_status = 0;
 	scsi_trace_csr_sequence = 0;
