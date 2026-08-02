@@ -869,3 +869,76 @@ PC-Engine guest checks and were not run by this headless session.
 The 36-byte INQUIRY golden sequence has not yet been observed at normal
 emulation speed.  M75d1 and G75 therefore remain open; no G75 approval is
 claimed.
+
+
+## M75d1 bus-free completion and CPU-multiplier evidence (2026-08-02)
+
+The full normal-speed trace now includes the terminal bus-free event.  After
+MESSAGE IN DATA `00h` and completion `CSR=1Fh`, the controller raises
+`CSR=85h` with `phase=00h`; PCPLUS reads `AR=17h -> 85h` and `AR=16h -> 00h`.
+This was corrected by [bc29d9e](https://github.com/nakatamaho/vaeg/commit/bc29d9e7cecc426c4da22cbc628ab95f8c7efe8f).
+The correction is general: bus-free has no following `TRANSFER INFO`, so the
+pending ending-disconnect status is marked target-ready when MESSAGE IN
+completes.  Data-bearing phase changes retain the controller processing
+quantum and DBR gate.
+
+The resulting TUR sequence is now:
+
+```text
+COMMAND request  8Ah; AR19 write x6; completion 1Ah
+STATUS request   8Bh; AR19 read x1 = 00h; completion 1Bh
+MESSAGE request  8Fh; AR19 read x1 = 00h; completion 1Fh
+BUS FREE         85h; AR17 read = 85h; AR16 read = 00h
+```
+
+The same trace proceeds to a later SELECT/COMMAND request.  It does not yet
+provide a normal-speed 36-byte INQUIRY DATA IN record before the bounded run
+ends, so G75 remains open.  No `CSR=19h` INQUIRY record is claimed here.
+
+### CPU multiplier diagnostic
+
+The `--cpumult 8` and `--cpumult 32` runs reach later CDBs, including the
+INQUIRY CDB `12 00 00 00 24 00`, but the guest requests only partial DATA IN
+transfers before issuing later commands.  These accelerated traces are not
+acceptance evidence.  Source inspection confirms that the PIO byte pump is
+synchronous: `scsiio_data_read()` and `scsiio_data_write()` contain no event
+scheduling or direct `CPU_REMCLOCK` manipulation.  Only phase readiness and
+interrupt delivery use `nevent_set()`, whose absolute clock is expressed in
+emulated CPU-clock units.  The focused validator now rejects any future
+asynchronous byte-pump regression in [0c80c44](https://github.com/nakatamaho/vaeg/commit/0c80c447b6b655b81b3d08e5b67c8a1457d5be91).
+
+The accelerated guest-level ordering mismatch therefore remains an open
+investigation item; no unsupported production timing workaround was added.
+Normal-speed evidence is the only evidence eligible for the INQUIRY golden.
+
+### SASI predecessor comparison
+
+The same temporary SASI image that is rejected by the current branch was tested
+with a clean binary built at the synchronized M75 predecessor
+`11cb0026ad646cff16237adef95e324fcedd40d9`.  Both runs return exit status 1
+with `unsupported format or geometry`.  This rejection predates the M75d1
+controller changes and is not counted as an M75 regression.  No SASI pass is
+claimed.
+
+### Current evidence digest
+
+The evaluated Linux SDL2 worker after the bus-free correction is:
+
+```text
+build/linux-ci-clang/sdl2/vaeg
+SHA-256: 706b1d6a7bebc2f7a2270e49e0e55c4d79e458515d01fc4c7bc183b9af534d8a
+```
+
+The focused checks are:
+
+```text
+python3 tools/qa/m75_scsi_controller.py --root .             PASS
+cmake --build build/linux-ci-clang --target vaeg_sdl2 -j2    PASS
+```
+
+The existing debug CTest, SDL selftest, repository invariant checks, SCSI
+smoke, and HOSTFAT smoke remain green as recorded above.  The predecessor SASI
+comparison is recorded as `exit=1` with the same pre-existing geometry error.
+SCFORM, SCHD registration/reboot, create/read/delete file operations, and the
+36-byte normal-speed INQUIRY golden remain manual or unobserved.  G75 is not
+self-approved.
