@@ -1015,7 +1015,8 @@ static void scsicmd(REG8 cmd) {
 						"window count=%u", scsi_transfer_remaining));
 			}
 			else {
-				if (scsi_transfer_phase_pending && !scsi_target_phase_ready) {
+				if (scsi_transfer_phase_pending && !scsi_target_phase_ready &&
+						!scsi_transfer_req_asserted) {
 					SCSITRACEOUT(("scsitrace target-phase-wait phase=%02x tc=%06x "
 							"state=%s", scsiio.phase, scsi_transfer_remaining,
 							scsi_transfer_state_name()));
