@@ -78,12 +78,14 @@ static const char *guest_trace_label(UINT16 ip) {
 
 	switch (ip) {
 		case 0x19bb:
+		case 0x19c6:
 			return("phase-compare");
 		case 0x1b60:
 			return("transfer-path-1");
 		case 0x1ba1:
 			return("transfer-path-2");
 		case 0x1c14:
+		case 0x1c37:
 			return("transfer-setup");
 		case 0x1c32:
 		case 0x1c34:
