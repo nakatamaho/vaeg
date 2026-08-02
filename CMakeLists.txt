@@ -1440,4 +1440,9 @@ if(VAEG_ENABLE_TESTS)
     set_tests_properties(vaeg_romless_tests PROPERTIES
         WORKING_DIRECTORY "$<TARGET_FILE_DIR:vaeg_sdl2>"
         ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+    add_test(NAME vaeg_m75_transfer_info_compiled COMMAND vaeg_sdl2 --selftest)
+    set_tests_properties(vaeg_m75_transfer_info_compiled PROPERTIES
+        WORKING_DIRECTORY "$<TARGET_FILE_DIR:vaeg_sdl2>"
+        ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
+        LABELS "m75;scsi;compiled")
 endif()

@@ -134,8 +134,11 @@ def validate(root: pathlib.Path) -> None:
     require(scsiio, "command-ignored reason=int-pending",
             "INT-pending command rejection")
     require(scsiio, "command-accepted", "accepted Level-II command trace")
-    require(scsiio, "scsiio_req_assert", "REQ sequence trace")
-    require(scsiio, "scsiio_ack_complete", "ACK completion boundary")
+    require(scsiio, "scsiio_target_assert_req", "REQ sequence trace")
+    require(scsiio, "scsiio_target_negate_req", "target REQ transition")
+    require(scsiio, "scsiio_initiator_assert_ack", "initiator ACK assertion")
+    require(scsiio, "scsiio_initiator_negate_ack", "initiator ACK negation")
+    require(scsiio, "scsiio_complete_byte_handshake", "ACK completion boundary")
     require(scsiio, "post-count-wait", "post-count REQ wait")
     require(scsiio, "WD33C93 exposes Transfer Count as high, middle, low",
             "WD33C93 transfer-count byte order")
@@ -214,9 +217,10 @@ def validate(root: pathlib.Path) -> None:
             "target command processing event quantum")
     require(scsicmd, "REG8 scsicmd_phase_unexpected_status(UINT phase)",
             "short-transfer status encoding")
-    require(data_read,
-            "scsiio.rddatpos >= scsiio.cmdpos &&\n\t\t\tscsi_transfer_remaining",
+    require(data_read, "scsiio.rddatpos >= scsiio.cmdpos",
             "short DATA IN transfer detection")
+    require(data_read, "scsi_transfer_remaining != 0",
+            "short DATA IN residual count detection")
     require(data_read, "scsicmd_phase_unexpected_status(scsiio.phase)",
             "short DATA IN 48h-4Fh status")
     require(data_read, "scsiio.rddatpos >= scsiio.cmdpos",
@@ -277,8 +281,10 @@ def validate(root: pathlib.Path) -> None:
             "CSR release after target readiness")
     require(scsiio, "M75c2 accumulates CDB through DATA",
             "M75c2 CDB accumulation boundary")
-    require(scsiio, "scsiio_post_count_wait(0x1a",
-            "Transfer Info COMMAND completion CSR")
+    require(scsiio, "scsiio_success_status_from_service",
+            "phase-derived successful completion CSR")
+    if "scsiio_post_count_wait(0x1a" in scsiio:
+        raise AssertionError("post-count completion must not use a hard-coded 1Ah")
     require(scsiio, "scsi_transfer_completion_status",
             "post-count completion status state")
     require(scsiio, "scsitrace csr-%s",
