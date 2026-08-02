@@ -635,7 +635,7 @@ regressions still require their respective evidence.
 ## M75d1 CSR admission and diagnostic invariants
 
 The provenance detector is committed before the production correction:
-[23b2752](https://github.com/nakatamaho/vaeg/commit/23b2752c6bc0f02c32eabf22c2b6a98c9383334a).
+[23b2752](https://github.com/nakatamaho/vaeg/commit/23b2752f36bc0571a705fecc3f25c964caf1d410).
 Its pre-correction evidence includes a transfer-completion request arriving
 while a SELECT-completion event was still active and a one-slot `pending`
 state was already occupied.  The correction is
@@ -679,3 +679,30 @@ trace-only state capture is [d2da983](https://github.com/nakatamaho/vaeg/commit/
 The QA validator, focused CTest, SDL selftest, and MinGW cross-build passed.
 A fresh SCFORM/SCHD run with the corrected executable is still required.
 G75 remains pending; do not start M76.
+
+## M75d1 current implementation result (2026-08-03)
+
+The required trace was captured once, then the WD33C93A Transfer Info path was
+changed in production.  Commits [f0b14d7](https://github.com/nakatamaho/vaeg/commit/f0b14d71a2015b9469c92ea51abe2b9ebf964b43)
+and [9827d09](https://github.com/nakatamaho/vaeg/commit/9827d09756779943d46b0973436f26f32142dced)
+add an explicit Level-II lifecycle and the already-asserted-REQ case.  The
+states are `idle`, `wait_for_req`, `transfer_byte_pending`,
+`wait_for_post_count_req`, and `completed_or_terminated`.
+
+The implementation rejects commands with INT pending (sets LCI without
+changing the CSR/active command), keeps BSY for the active Level-II command,
+requires REQ+DBR for byte transfer, decrements TC only after ACK completion,
+terminates early phase changes with `4MCI`, and waits for a distinct
+post-count REQ before successful completion.  `89h` is not generated while a
+Transfer Info command is active, and the CSR latch remains depth one.
+
+Machine validation is complete: the Transfer Info model reports 10 passing
+tests, the controller validator passes, focused M75 CTest passes 2/2, the
+Linux SDL2 build passes, and SDL selftest passes.  The evaluated executable
+SHA-256 is
+`24b78da6b70e28e865f54fed642c1ce5bdbbd347c66d76a81a20ba6487eb74ef`.
+The MinGW cross build was unavailable because `build/mingw-cross` is not
+configured.  Real-ROM integration remains open: bounded execution exited
+`124` at the safety timeout after reaching STATUS Transfer Info wait, without
+the INQUIRY DATA IN golden sequence.  SCHD/SCFORM, reboot/file operations,
+SASI, HOSTFAT, and non-SCSI regression gates are therefore not passed.
