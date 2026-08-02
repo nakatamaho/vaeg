@@ -706,3 +706,20 @@ configured.  Real-ROM integration remains open: bounded execution exited
 `124` at the safety timeout after reaching STATUS Transfer Info wait, without
 the INQUIRY DATA IN golden sequence.  SCHD/SCFORM, reboot/file operations,
 SASI, HOSTFAT, and non-SCSI regression gates are therefore not passed.
+
+
+## M75d1/G75 corrective implementation (2026-08-03)
+
+The corrective implementation was completed from base `bfaced3fe6e3d59b067d5fc8e514ff4cc1cf4084`; it is recorded in [4e17c6f](https://github.com/nakatamaho/vaeg/commit/4e17c6f3fee67642ca69329147808cd18c71c9a7).  The prior trace identified concrete Transfer Info defects, so this change is production code plus compiled controller-path tests, not trace-only work.
+
+`cbus/scsiio.c` now represents Transfer Info with the explicit lifecycle `idle`, `wait_for_req`, `transfer_byte_pending`, `wait_for_post_count_req`, and `completed_or_terminated`.  Successful completion is derived from the next service status (`0x18 | (service_status & 7)`): COMMAND-to-STATUS produces `1Bh`, DATA IN produces `19h`, STATUS-to-MESSAGE IN produces `1Fh`, and COMMAND produces `1Ah`.  The post-count REQ remains asserted with ACK clear and is retained across CSR read; the next Transfer Info consumes the same request sequence and does not generate a duplicate `8MCI`.
+
+REQ and ACK transitions are separate operations.  Byte TC is decremented only after the byte handshake.  Message-In consumes the retained REQ, latches `20h`, negates target REQ while retaining ACK, and waits for Level-I Negate ACK; Negate ACK clears ACK and does not directly fabricate `85h`.  Commands with a pending CSR are ignored with LCI, while Level-I commands remain admissible when a Level-II command is active.  Transfer-count writes are traced in WD33C93 high/middle/low order; SBT single-byte semantics are explicit and no `010000h` compatibility exception exists.
+
+Compiled tests are production C paths exposed by `--selftest` and registered as `vaeg_m75_transfer_info_compiled`; they cover successful CSR encoding, retained REQ identity, ACK/REQ transitions, message completion, Negate ACK, Level-I admission, CSR stability, LCI, count order, and SBT.  The existing controller validator remains part of the validation.
+
+The real-ROM bounded run at semantic `--scsitrace-limit 30` exited 0 (semantic limit, not an external timeout) and showed: TUR COMMAND completion `1Bh` with retained STATUS REQ, STATUS completion `1Fh` with retained MESSAGE-IN REQ, MESSAGE-IN completion `20h` with ACK held, and later bus-free `85h`.  INQUIRY `12 00 00 00 24 00` transferred 32 response bytes from a TC=36 request and correctly returned `4Bh` with residual TC=4; the existing 32-byte payload was intentionally not changed.  READ CAPACITY, MODE SENSE, and READ paths also reached their protocol completions.  The trace showed no `010000h` count, no direction mismatch, no CSR overrun/drop, and no `0CC6h` access in this path.
+
+Validation performed: `cmake --preset linux-ci-clang`; Linux SDL2 build; `python3 tools/qa/m75_scsi_controller.py --root .`; `python3 tools/qa/m75_transfer_info.py --selftest`; SDL selftest; focused CTest (`vaeg_m75_transfer_info_compiled` and `vaeg_romless_tests`, 2/2); and configured MinGW cross-build (`cmake --preset mingw-cross`, `vaeg_sdl2`, compiler `x86_64-w64-mingw32-gcc`).  The evaluated Linux executable digest was `SHA-256 01388de8ec1fe2a0e7df87d38f8607a734b6454688f7cb82471730e7c8cfca1d`.
+
+G75 remains **FAIL/pending**: PCPLUS/SCHD registration, SCFORM, reboot, create/read/delete file operations, manual SASI/HOSTFAT regression, and the existing non-SCSI disk-path gate still require the manual integration run.  Do not start M76 or declare G75 passed.

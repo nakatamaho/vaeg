@@ -1119,6 +1119,16 @@ separate parity correction or move it to Open Defects.
 - **Evidence:** [M75 report](../agents/reports/m75_scsi_support.md) and
   [M75 task](../agents/tasks/M75_scsi_support.md).
 
+### Transfer Info completion encoded the wrong phase and consumed post-count requests
+
+- **Status:** corrected in M75d1; G75 manual acceptance remains pending.
+- **Symptom:** TUR completion was logged as `1Ah` while the next request was STATUS (`8Bh`), and the following STATUS/MESSAGE-IN request could be consumed or regenerated instead of remaining available for the next Transfer Info.  Message-In completion and Negate ACK also produced the wrong lifecycle.
+- **Demonstrated root cause:** successful completion used `0x10 | MCI` instead of the WD33C93A `1MCI` encoding; REQ and ACK were coupled; the post-count REQ was not an independent retained bus state; Message-In was treated like a normal post-count phase; and command admission rejected Level-I Negate ACK solely because a Level-II state was active.
+- **Correction:** derive completion from the next service status (`0x18 | (service_status & 7)`), retain the post-count REQ with its sequence/phase/direction across CSR read, split target REQ and initiator ACK transitions, return `20h` after the Message-In byte while holding ACK, and make Negate ACK clear ACK without directly generating bus-free status.  Transfer-count writes are traced and SBT semantics are explicit.
+- **Verification:** compiled controller-path selftest (21 named cases), focused CTest, controller QA, Linux SDL2 selftest/build, MinGW cross-build, and semantic-limit real-ROM trace.  The real trace now shows `1Bh` for TUR STATUS, retained request IDs across `1Fh`, `20h`, and later `85h`, INQUIRY DATA IN with 32 reads and `4Bh` residual completion, and no unexplained `010000h`.
+- **Evidence:** [M75 report](../agents/reports/m75_scsi_support.md) and [M75 task](../agents/tasks/M75_scsi_support.md).
+- **Commit:** [4e17c6f](https://github.com/nakatamaho/vaeg/commit/4e17c6f3fee67642ca69329147808cd18c71c9a7).
+
 ## Open Defects
 
 ### Legacy Z80 reset leaves saved undocumented flag bits uninitialized
