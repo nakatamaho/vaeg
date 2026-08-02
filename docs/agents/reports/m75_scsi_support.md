@@ -1013,3 +1013,40 @@ comparison is recorded as `exit=1` with the same pre-existing geometry error.
 SCFORM, SCHD registration/reboot, create/read/delete file operations, and the
 36-byte normal-speed INQUIRY golden remain manual or unobserved.  G75 is not
 self-approved.
+
+
+### M75d1 post-short-transfer integration evidence (2026-08-02)
+
+After the shortened DATA IN correction, a normal-speed full `scsitrace` run
+was externally bounded at 45 seconds.  It proved the complete TUR controller
+sequence, including `CSR=85h`, and then reached a second SELECT/COMMAND
+request (`CSR=11h` followed by `CSR=8Ah`).  The bounded run ended before the
+second CDB's AR19 transfer; this is a progress boundary, not a registration
+result.
+
+A longer normal-speed compact run remained in the TUR sequence before its
+external safety bound.  The compact filter omits the bus-free and indirect
+register records, so it is not used to claim that `85h` was absent.
+
+A diagnostic-only `--cpumult 8` run reached these later CDBs:
+
+```text
+INQUIRY      12 00 00 00 24 00
+READ CAPACITY 25 00 00 00 00 00 00 00 00 00
+MODE SENSE   1A 00 04 00 24 00
+```
+
+Those accelerated records show the guest progressing but request partial DATA
+IN transfers under a deliberately changed CPU/device timing ratio.  They do
+not establish the normal-speed short `4Bh` path, SCHD registration, SCFORM, or
+file operations.
+
+The evaluated worker after the short-transfer and metadata corrections is:
+
+```text
+build/linux-ci-clang/sdl2/vaeg
+SHA-256: 6dd5469a751dd0ba15d86fd1dc2b3d42ab0c5241c2efa98b52cfee28a1ef2df9
+```
+
+The SCSI QA, Linux SDL2 build, focused CTest, and existing selftest remain
+passing.  G75 remains open.
