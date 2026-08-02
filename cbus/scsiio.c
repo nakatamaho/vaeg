@@ -76,6 +76,7 @@ static REG8 scsiio_auxstatus(void);
 
 static void scsiintr(const char *origin, REG8 status);
 static void scsiintr_immediate(const char *origin, REG8 status);
+static void scsiintr_controller_event(const char *origin, REG8 status);
 static void scsiintr_transfer_complete(REG8 status);
 static void scsiio_target_phase_ready_event(NEVENTITEM item);
 
@@ -583,6 +584,12 @@ static void scsiintr_immediate(const char *origin, REG8 status) {
 	scsiintr_enqueue(origin, status, 100, FALSE);
 }
 
+static void scsiintr_controller_event(const char *origin, REG8 status) {
+
+	/* Bus selection completes on the controller processing quantum. */
+	scsiintr_enqueue(origin, status, SCSI_TARGET_PROCESSING_CLOCKS, FALSE);
+}
+
 static void scsiintr(const char *origin, REG8 status) {
 
 	scsiintr_enqueue(origin, status, 4000, TRUE);
@@ -620,7 +627,7 @@ static void scsicmd(REG8 cmd) {
 			ret = scsicmd_select(id);
 			if (ret & 0x80) {
 				scsi_command_phase_pending = TRUE;
-				scsiintr("select-complete", 0x11);
+				scsiintr_controller_event("select-complete", 0x11);
 			}
 			else {
 				scsiintr("select-error", ret);
