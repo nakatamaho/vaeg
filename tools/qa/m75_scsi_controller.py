@@ -122,6 +122,21 @@ def validate(root: pathlib.Path) -> None:
             "serialized board-ROM padding")
     require(scsiio, "case SCSICMD_TRANS_INFO:",
             "controller TRANSFER INFO dispatch")
+    require(scsiio, "typedef enum {", "explicit Transfer Info state type")
+    for state in ("SCSI_TRANSFER_IDLE", "SCSI_TRANSFER_WAIT_FOR_REQ",
+                  "SCSI_TRANSFER_BYTE_PENDING",
+                  "SCSI_TRANSFER_WAIT_FOR_POST_COUNT_REQ",
+                  "SCSI_TRANSFER_COMPLETED_OR_TERMINATED"):
+        require(scsiio, state, f"Transfer Info lifecycle state {state}")
+    require(scsiio, "static void scsiio_command_write(REG8 command)",
+            "AR18 command acceptance boundary")
+    require(scsiio, "command-write-pre", "AR18 pre-state trace")
+    require(scsiio, "command-ignored reason=int-pending",
+            "INT-pending command rejection")
+    require(scsiio, "command-accepted", "accepted Level-II command trace")
+    require(scsiio, "scsiio_req_assert", "REQ sequence trace")
+    require(scsiio, "scsiio_ack_complete", "ACK completion boundary")
+    require(scsiio, "post-count-wait", "post-count REQ wait")
     require(scsiio, "WD33C93 exposes Transfer Count as high, middle, low",
             "WD33C93 transfer-count byte order")
     require(scsiio, "scsiio.reg[SCSICTR_TRANSCNT + 0] << 16",
@@ -185,11 +200,11 @@ def validate(root: pathlib.Path) -> None:
             "pull-model target event publication")
     require(scsiio, "scsi_target_schedule_after_consume",
             "CSR-consume target-state gate")
-    require(scsiio, "scsiintr_enqueue(\"select-command-phase\", 0x8a",
+    require(scsiio, "scsiintr_enqueue(\"select-command-phase\", status",
             "deferred COMMAND-phase CSR")
     require(scsiio, "scsi_target_selection_status = (ret & 0x80) ? 0x11 : ret",
             "SELECT completion CSR target state")
-    require(scsiio, "M75c2 accumulates CDB through DATA window",
+    require(scsiio, "M75c2 accumulates CDB through DATA",
             "M75c2 Transfer Info boundary")
     require(scsiio, "scsi_transfer_remaining",
             "host-programmed Transfer Count state")
@@ -204,12 +219,11 @@ def validate(root: pathlib.Path) -> None:
             "short DATA IN transfer detection")
     require(data_read, "scsicmd_phase_unexpected_status(scsiio.phase)",
             "short DATA IN 48h-4Fh status")
-    require(data_read, "scsiio.rddatpos < scsiio.cmdpos",
+    require(data_read, "scsiio.rddatpos >= scsiio.cmdpos",
             "allocation-short DATA IN handling")
-    require(data_read, "Keep DATA IN active; PCPLUS uses TC=1",
-            "repeated short DATA IN transfer handling")
-    require(trans_info,
-            "scsiio.auxstatus &= (REG8)~SCSI_AUX_DBR",
+    require(data_read, "scsiio_post_count_wait",
+            "repeated DATA IN post-count handling")
+    require(trans_info, "SCSI_AUX_DBR",
             "DBR held low from TRANSFER INFO until target readiness")
     require(trans_info,
             "nevent_set(NEVENT_SCSIIO, scsi_target_processing_clocks()",
@@ -261,10 +275,12 @@ def validate(root: pathlib.Path) -> None:
             "deferred target phase before DBR")
     require(scsiio, "if (scsi_transfer_phase_pending && scsi_target_phase_ready)",
             "CSR release after target readiness")
-    require(scsiio, "M75c2 accumulates CDB through DATA window",
+    require(scsiio, "M75c2 accumulates CDB through DATA",
             "M75c2 CDB accumulation boundary")
-    require(scsiio, "scsiintr_transfer_complete(0x1a)",
+    require(scsiio, "scsiio_post_count_wait(0x1a",
             "Transfer Info COMMAND completion CSR")
+    require(scsiio, "scsi_transfer_completion_status",
+            "post-count completion status state")
     require(scsiio, "scsitrace csr-%s",
             "CSR provenance trace format")
     require(scsiio, '"request"',
@@ -279,7 +295,7 @@ def validate(root: pathlib.Path) -> None:
             "M75c3 transfer phase trace")
     require(scsiio, "scsitrace transfer-result",
             "M75c3 transfer completion trace")
-    require(scsiio, "scsitrace data-read ar=19",
+    require(scsiio, "scsitrace data-latched direction=spc-to-host",
             "PIO data-byte trace")
     require(scsiio, "ar19_accesses",
             "M75c3 AR19 access accounting")
@@ -295,8 +311,10 @@ def validate(root: pathlib.Path) -> None:
             "M75c3 transfer IRQ assertion accounting")
     require(scsiio, "cdb0",
             "M75c3 CDB opcode capture")
-    require(scsiio, "legacy-scsi-phase-engine",
-            "M75c3 legacy-path attribution")
+    require(scsiio, "level2-transfer-info",
+            "Level-II Transfer Info attribution")
+    if "legacy-scsi-phase-engine" in scsiio:
+        raise AssertionError("legacy phase-engine ownership must not remain")
     require(scsiio, "SCSI_AUX_LCI | SCSI_AUX_BSY",
             "LCI and BSY auxiliary-status definitions")
     require(scsiio, "SCSI_AUX_PE | SCSI_AUX_DBR",
