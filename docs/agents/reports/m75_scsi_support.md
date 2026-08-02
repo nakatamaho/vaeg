@@ -576,3 +576,53 @@ bounded PCPLUS/SCHD run: blocked after TUR STATUS request
 INQUIRY DATA IN golden: not observed
 G75: not eligible
 ```
+
+#### Evidence reconciliation
+
+An earlier intermediate handoff incorrectly described the current branch as
+having no production changes after the M75c3 evidence and therefore mixed two
+different execution states. The branch advanced through the following
+commits before the current documentation checkpoint:
+
+```text
+00e1dba M75d1: derive SCSI phases from decoded commands
+5abba93 M75d1: validate the shared SCSI phase table
+c526872 M75d1: document phase integration blocker
+```
+
+The first two commits are production/validation changes, not merely report
+edits. They connect COMMAND completion to `scsicmd_command()`, derive the
+next target phase from the shared contract, and queue the next service
+request behind the CSR latch. Consequently, the post-TUR `8Bh` records belong
+to the post-`00e1dba` implementation state; the earlier M75c3 records, which
+showed only COMMAND/`1Ah`, remain valid predecessor evidence.
+
+The post-TUR diagnostic records are exact at the register boundary:
+
+```text
+event: CSR=8Bh, internal phase=1Bh, IRQ6 asserted
+AR=17h read: 8Bh
+AR=16h read: 00h
+AR=13h read: 00h
+AR=14h read: 00h
+AR=18h write: absent
+```
+
+A separate diagnostic changed only the phase-transfer setup count to one;
+that run returned `AR=13h=00h`, `AR=14h=01h` and still produced no
+`AR=18h <- 20h`. The experiment was reverted and is not part of the current
+source tree. It therefore does not establish that a count value alone is
+the missing contract.
+
+The `AR=16h` value is not an unobserved reset default in this path: the
+complete initialization sequence writes `AR=16h <- 00h` before SELECT, and
+the handler reads it after each service request. PCPLUS's status handler
+tests the upper `ER/ES` bits of this register; the observed zero follows its
+normal path and is not evidence that the service request was rejected.
+
+The remaining blocker is therefore the handoff from the interrupt/status
+handler to the PCPLUS phase dispatcher, not proof that `8Bh` was absent. The
+next diagnostic must monitor the internal status byte written by the handler
+and the first subsequent dispatcher read, while preserving the exact AR13,
+AR14, and AR16 values above. No DATA IN, STATUS Transfer Info, or MESSAGE IN
+acceptance is claimed until that handoff is observed.
