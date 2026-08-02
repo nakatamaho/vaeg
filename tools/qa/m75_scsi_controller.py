@@ -40,6 +40,7 @@ def validate(root: pathlib.Path) -> None:
     scsiio_h = (root / "cbus" / "scsiio.h").read_text(encoding="utf-8")
 
     for opcode, name in (("0x00", "TEST UNIT READY"),
+                         ("0x03", "REQUEST SENSE"),
                          ("0x12", "INQUIRY"),
                          ("0x25", "READ CAPACITY"),
                          ("0x1a", "MODE SENSE")):
@@ -64,6 +65,8 @@ def validate(root: pathlib.Path) -> None:
             "phase direction lookup")
     require(scsicmd, "REG8 scsicmd_transinfo(REG8 id)",
             "phase-aware transfer entry")
+    require(scsicmd, "hdd_sense", "REQUEST SENSE response")
+    require(scsicmd, "case 0x03", "REQUEST SENSE command execution")
     require(scsicmd, "scsicmd_putbe32", "big-endian response encoding")
     require(scsiio_h, "UINT\tcmdpos;", "transfer length state slot")
     require(scsiio_h, "BYTE\treserved[2][0x2000];",
@@ -108,6 +111,18 @@ def validate(root: pathlib.Path) -> None:
             "M75c2 Transfer Info boundary")
     require(scsiio, "scsi_transfer_remaining",
             "host-programmed Transfer Count state")
+    require(scsiio, "scsi_target_phase_ready",
+            "target-side phase readiness gate")
+    require(scsiio, "SCSI_TARGET_PROCESSING_CLOCKS",
+            "target command processing event quantum")
+    require(scsiio, "scsiio_target_phase_ready_event",
+            "target phase readiness event")
+    require(scsiio, "target-phase-wait",
+            "DBR-gated target phase wait")
+    require(scsiio, "scsi_transfer_phase_pending && !scsi_target_phase_ready",
+            "deferred target phase before DBR")
+    require(scsiio, "scsi_transfer_phase_pending &&\n\t\t\t\t\t\tscsi_target_phase_ready",
+            "CSR release after target readiness")
     require(scsiio, "M75c2 accumulates CDB through DATA window",
             "M75c2 CDB accumulation boundary")
     require(scsiio, "scsiintr_transfer_complete(0x1a)",
