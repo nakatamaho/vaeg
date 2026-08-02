@@ -866,9 +866,8 @@ validator with `unsupported format or geometry`; no SASI result is claimed.
 SCFORM, SCHD registration, reboot, and file create/read/delete remain manual
 PC-Engine guest checks and were not run by this headless session.
 
-The 36-byte INQUIRY golden sequence has not yet been observed at normal
-emulation speed.  M75d1 and G75 therefore remain open; no G75 approval is
-claimed.
+The normal-speed INQUIRY allocation/response contract has not yet been
+observed.  M75d1 and G75 therefore remain open; no G75 approval is claimed.
 
 
 ## M75d1 bus-free completion and CPU-multiplier evidence (2026-08-02)
@@ -892,8 +891,9 @@ BUS FREE         85h; AR17 read = 85h; AR16 read = 00h
 ```
 
 The same trace proceeds to a later SELECT/COMMAND request.  It does not yet
-provide a normal-speed 36-byte INQUIRY DATA IN record before the bounded run
-ends, so G75 remains open.  No `CSR=19h` INQUIRY record is claimed here.
+provide a normal-speed INQUIRY DATA IN record before the bounded run ends,
+so G75 remains open.  No `CSR=19h` or short-transfer `CSR=4Bh` INQUIRY record
+is claimed here.
 
 ### CPU multiplier diagnostic
 
@@ -953,6 +953,34 @@ The source pre-check also records that the current `hdd_inquiry` table is a
 (36 bytes).  No ANSI level, vendor string, or padding change is made from
 this observation alone; the payload contract must be resolved and tested when
 the normal-speed INQUIRY path is reached.
+
+### M75d1 short-transfer contract (2026-08-02)
+
+The current INQUIRY response table contains 32 bytes, while the observed CDB
+requests allocation length `24h` (36 bytes).  This is not itself a protocol
+violation: SCSI transfers `min(allocation length, response length)` and changes
+phase when the response is exhausted.  The missing controller behavior was the
+short-transfer completion contract.
+
+Commit [ca29efb](https://github.com/nakatamaho/vaeg/commit/ca29efb) now handles
+the two allocation cases generally:
+
+- response shorter than the host allocation: after the last real AR19 DATA IN
+  byte, residual TC is preserved, STATUS becomes the target phase, and the
+  controller emits `0x48 | (STATUS & 7)` = `4Bh`;
+- host allocation shorter than the response: TC reaches zero, the unrequested
+  response suffix is discarded, and normal DATA IN completion `19h` advances
+  to STATUS.
+
+The residual count is not fabricated and no INQUIRY-specific branch is used.
+The response metadata invariant was corrected and guarded in
+[4eeacda](https://github.com/nakatamaho/vaeg/commit/4eeacda): byte4 of the
+32-byte table is `1Bh`, equal to table length minus five.  The QA validator
+parses the table and rejects any future length/additional-length mismatch.
+
+A normal-speed guest trace proving either the short `4Bh` path or a full
+`19h` path remains outstanding; this implementation and its source checks do
+not constitute G75 approval.
 
 ### SASI predecessor comparison
 

@@ -237,18 +237,29 @@ request (`88h` through `8Fh`), and transfer direction.  The target command
 helper owns CDB execution and selects the next phase; the AR `19h` PIO pump
 only consumes the host-programmed transfer count and never selects a phase.
 
-The required golden sequence for INQUIRY is:
+The INQUIRY acceptance sequence is allocation-length aware:
 
 ```text
 COMMAND 8Ah -> TC=6 -> AR19 write x6 (12 00 00 00 24 00) -> CSR=1Ah
 DATA IN  89h -> TC=36 -> AR19 read x36 -> CSR=19h
+```
+
+When the target response is shorter than the allocation, the target must stop
+at the real response length and report the early phase change:
+
+```text
+DATA IN  89h -> TC=36 -> AR19 read x32
+short transfer -> CSR=4Bh, residual TC=4
 STATUS   8Bh -> TC=1 -> AR19 read x1 -> CSR=1Bh
 MESSAGE  8Fh -> TC=1 -> AR19 read x1 (00h) -> CSR=1Fh
 BUS FREE 85h only when Control bit 3 permits it
 ```
 
-M75d1 is not complete until the `DATA IN` row is observed with zero AR19
-writes and CSR `19h`.  The first integration run reaches the corrected
+When the allocation is shorter than the target response, TC reaches zero,
+the unrequested suffix is discarded, and normal DATA IN completion `CSR=19h`
+leads to STATUS. M75d1 is not complete until one of these two contract paths
+is observed with zero AR19 writes during DATA IN and the correct residual TC.
+The first integration run reaches the corrected
 `8Bh` request after TUR but the supplied PCPLUS path stops while inspecting
 the transfer-count registers; this remains a blocking evidence item for the
 single G75 gate.  The `--scsitrace-limit N` option is the deterministic
@@ -346,9 +357,10 @@ The corrected TUR evidence must show `8Ah`, six CDB writes, `1Ah`, deferred
 `8Bh`, one STATUS byte `00h` with `1Bh`, one MESSAGE byte `00h` with `1Fh`,
 and optional `85h` only when Control bit 3 enables ending disconnect. REQUEST
 SENSE (`03h`) is part of the observed PCPLUS probe and therefore has a fixed
-no-sense DATA IN response. The later INQUIRY (`12h`, 36-byte DATA IN) remains a
-required M75d1 evidence item and is not complete until observed with zero
-AR19 writes and CSR `19h`.
+no-sense DATA IN response. The later INQUIRY (`12h`) remains a required
+M75d1 evidence item and is not complete until its allocation-length contract
+is observed: either the full DATA IN response with CSR `19h`, or a short
+response with `0x48 | STATUS` and the correct residual TC.
 
 The only terminal approval remains G75. This addendum does not approve G75 and
 does not begin M76.
@@ -365,9 +377,10 @@ For long diagnostic runs, `--scsitrace-no-guest` suppresses only the disabled-by
 default UPD9002 guest observation seam, and `--scsitrace-compact` suppresses
 per-port records while retaining transfer results, DATA bytes, phase waits, and
 warnings.  These are diagnostic-output controls, not guest or controller
-behavior.  INQUIRY acceptance still requires the normal-speed 36-byte DATA IN
-sequence; accelerated `--cpumult` runs are diagnostic only and cannot satisfy
-that requirement.
+behavior.  INQUIRY acceptance requires the normal-speed allocation/response
+contract, including `4Bh` and residual-TC handling when the response is
+shorter than the allocation.  Accelerated `--cpumult` runs are diagnostic
+only and cannot satisfy that requirement.
 
 
 The historical M75a worker digest in the earlier diagnostic checkpoint is
@@ -422,7 +435,9 @@ The focused validator must also protect the interval from AR18=`20h` receipt
 to the first DBR assertion: DBR is held low while the target-processing event
 is pending, and that event is expressed in emulated CPU clocks.
 
-The normal-speed 36-byte INQUIRY sequence remains unobserved and is still a
-G75 blocker.  The current source response table is 32 bytes despite the
-observed 36-byte allocation request; no payload-field change is authorized
-without the guest branch and response contract being resolved.
+The normal-speed INQUIRY allocation/response sequence remains unobserved and
+is still a G75 blocker.  The current source response table is intentionally
+32 bytes; byte4 is `1Bh` (32 minus five), and the controller must therefore
+exercise the short-transfer `4Bh`/residual-TC contract for a 36-byte request.
+No ANSI level, vendor string, or padding change is authorized without guest
+branch evidence.
