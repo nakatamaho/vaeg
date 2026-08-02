@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import argparse
 import pathlib
+import re
 import sys
 
 
@@ -38,6 +39,25 @@ def validate(root: pathlib.Path) -> None:
     scsicmd = (root / "cbus" / "scsicmd.c").read_text(encoding="utf-8")
     scsiio = (root / "cbus" / "scsiio.c").read_text(encoding="utf-8")
     scsiio_h = (root / "cbus" / "scsiio.h").read_text(encoding="utf-8")
+
+    inquiry_match = re.search(
+        r"static const BYTE hdd_inquiry\[0x[0-9a-fA-F]+\]\s*=\s*\{(.*?)\};",
+        scsicmd, re.DOTALL)
+    if inquiry_match is None:
+        raise AssertionError("missing INQUIRY response table")
+    inquiry_tokens = re.findall(
+        r"0x[0-9a-fA-F]+|'(?:\\.|[^'])'", inquiry_match.group(1))
+    inquiry_values = []
+    for token in inquiry_tokens:
+        if token.startswith("0x"):
+            inquiry_values.append(int(token, 16))
+        else:
+            inquiry_values.append(ord(token[1]))
+    if len(inquiry_values) < 5:
+        raise AssertionError("INQUIRY response table is too short")
+    if inquiry_values[4] != len(inquiry_values) - 5:
+        raise AssertionError(
+            "INQUIRY additional length must equal table length minus five")
 
     for opcode, name in (("0x00", "TEST UNIT READY"),
                          ("0x03", "REQUEST SENSE"),
