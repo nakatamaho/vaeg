@@ -48,6 +48,12 @@ REG8 scsicmd_phase_service_status(UINT phase) {
 	return 0x42;
 }
 
+REG8 scsicmd_phase_unexpected_status(UINT phase) {
+
+	/* 48h-4Fh reports an information-phase change before TC expires. */
+	return (REG8)(0x48 | (phase & 7));
+}
+
 BOOL scsicmd_phase_host_to_spc(UINT phase) {
 	UINT i;
 
