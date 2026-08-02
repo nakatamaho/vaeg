@@ -160,7 +160,8 @@ static int test_cli_options(void) {
 		"--scaling", "fit-8dot", "--controller", "mouse",
 		"--keyboard-layout", "custom", "--debug", "--fdctrace",
 		"--pacelog", "--trace-cpu", "17",
-		"--scsitrace-cmdreq-windows", "--smoke"
+		"--scsitrace-cmdreq-windows", "--scsitrace-jitter-seed", "1234",
+		"--scsitrace-jitter-span", "200", "--smoke"
 	};
 	char *positional[] = {"vaeg", "boot.d88"};
 	char *invalid_model[] = {"vaeg", "--model", "va3"};
@@ -209,7 +210,9 @@ static int test_cli_options(void) {
 		(options.keyboard_layout != VAEG_CLI_KEYBOARD_CUSTOM) ||
 		(options.trace_cpu != 17) ||
 		!options.debug || !options.fdctrace || !options.pacelog ||
-		!options.scsitrace_cmdreq_windows || !options.smoke) {
+		!options.scsitrace_cmdreq_windows || !options.scsitrace_jitter ||
+		(options.scsitrace_jitter_seed != 1234) ||
+		(options.scsitrace_jitter_span != 200) || !options.smoke) {
 		return(fail("CLI options", "accepted values were parsed incorrectly"));
 	}
 	if ((vaeg_cli_parse((int)NELEMENTS(hostfat_disabled), hostfat_disabled,
