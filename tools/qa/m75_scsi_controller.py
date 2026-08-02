@@ -177,9 +177,9 @@ def validate(root: pathlib.Path) -> None:
             "IRE1 IRQ gate")
     require(scsiio, "scsi_command_phase_pending",
             "post-SELECT COMMAND request latch")
-    require(scsiio, "scsiintr(0x11)",
+    require(scsiio, "scsiintr(\"select-complete\", 0x11)",
             "SELECT completion CSR")
-    require(scsiio, "scsiintr(0x8a)",
+    require(scsiio, "scsiintr(\"select-command-phase\", 0x8a)",
             "deferred COMMAND-phase CSR")
     require(scsiio, "M75c2 accumulates CDB through DATA window",
             "M75c2 Transfer Info boundary")
@@ -241,6 +241,16 @@ def validate(root: pathlib.Path) -> None:
             "M75c2 CDB accumulation boundary")
     require(scsiio, "scsiintr_transfer_complete(0x1a)",
             "Transfer Info COMMAND completion CSR")
+    require(scsiio, "scsitrace csr-%s",
+            "CSR provenance trace format")
+    require(scsiio, '"request"',
+            "CSR request provenance event")
+    require(scsiio, '"latch"',
+            "CSR latch provenance event")
+    require(scsiio, '"hostread"',
+            "CSR host-read provenance event")
+    require(scsiio, '"overrun"',
+            "CSR overrun assertion event")
     require(scsiio, "scsitrace transfer-start",
             "M75c3 transfer phase trace")
     require(scsiio, "scsitrace transfer-result",

@@ -26,6 +26,13 @@ static BOOL scsi_csr_event_active;
 static REG8 scsi_csr_event_status;
 static BOOL scsi_csr_pending;
 static REG8 scsi_csr_pending_status;
+static UINT scsi_trace_csr_sequence;
+static UINT scsi_csr_event_sequence;
+static const char *scsi_csr_event_origin;
+static UINT scsi_csr_pending_sequence;
+static const char *scsi_csr_pending_origin;
+static UINT scsi_csr_latched_sequence;
+static const char *scsi_csr_latched_origin;
 static BOOL scsi_command_phase_pending;
 static BOOL scsi_transfer_phase_pending;
 static REG8 scsi_transfer_phase_status;
@@ -47,6 +54,7 @@ static BYTE scsi_trace_transfer_cdb[12];
 static const char *scsi_trace_transfer_source;
 
 static void scsi_tracef(const char *fmt, ...);
+static REG8 scsiio_auxstatus(void);
 
 /* WD33C93 auxiliary-status bits.  The DATA window is PIO-only in M75. */
 #define SCSI_AUX_INT	0x80
@@ -66,8 +74,8 @@ static void scsi_tracef(const char *fmt, ...);
 #define SCSI_C4_DMER	0x02
 #define SCSI_C4_DMES	0x01
 
-static void scsiintr(REG8 status);
-static void scsiintr_immediate(REG8 status);
+static void scsiintr(const char *origin, REG8 status);
+static void scsiintr_immediate(const char *origin, REG8 status);
 static void scsiintr_transfer_complete(REG8 status);
 static void scsiio_target_phase_ready_event(NEVENTITEM item);
 
@@ -230,6 +238,7 @@ static BOOL scsi_trace_compact_line(const char *fmt) {
 		return(TRUE);
 	}
 	return(strncmp(fmt, "scsitrace transfer-", 19) == 0 ||
+			strncmp(fmt, "scsitrace csr-", 14) == 0 ||
 			strncmp(fmt, "scsitrace data-read", 19) == 0 ||
 			strncmp(fmt, "scsitrace target-phase-wait", 27) == 0 ||
 			strncmp(fmt, "scsitrace M75c2", 15) == 0 ||
@@ -254,6 +263,34 @@ static void scsi_tracef(const char *fmt, ...) {
 		scsi_tracef arg; \
 	} \
 } while (0)
+
+static void scsi_trace_csr_record(const char *event, UINT sequence,
+		REG8 status, const char *origin) {
+
+	if (!scsi_trace_enabled) {
+		return;
+	}
+	SCSITRACEOUT(("scsitrace csr-%s seq=%u status=%02x origin=%s "
+			"phase=%02x ar=%02x aux=%02x membank=%02x "
+			"event_active=%u event_status=%02x event_seq=%u event_origin=%s "
+			"latched=%u latched_status=%02x latched_seq=%u latched_origin=%s "
+			"pending=%u pending_status=%02x pending_seq=%u pending_origin=%s "
+			"command_pending=%u transfer_pending=%u transfer_status=%02x "
+			"target_ready=%u cs=%04x ip=%04x",
+			event, sequence, status, origin ? origin : "none",
+			scsiio.phase, scsiio.port, scsiio_auxstatus(), scsiio.membank,
+			scsi_csr_event_active, scsi_csr_event_status,
+			scsi_csr_event_sequence,
+			scsi_csr_event_origin ? scsi_csr_event_origin : "none",
+			scsi_csr_latched, scsiio.scsistatus, scsi_csr_latched_sequence,
+			scsi_csr_latched_origin ? scsi_csr_latched_origin : "none",
+			scsi_csr_pending, scsi_csr_pending_status,
+			scsi_csr_pending_sequence,
+			scsi_csr_pending_origin ? scsi_csr_pending_origin : "none",
+			scsi_command_phase_pending, scsi_transfer_phase_pending,
+			scsi_transfer_phase_status, scsi_target_phase_ready,
+			CPU_CS, CPU_IP));
+}
 
 static REG8 scsiio_auxstatus(void) {
 
@@ -458,8 +495,12 @@ void scsiioint(NEVENTITEM item) {
 
 	scsi_csr_event_active = FALSE;
 	scsiio.scsistatus = scsi_csr_event_status;
+	scsi_csr_latched_sequence = scsi_csr_event_sequence;
+	scsi_csr_latched_origin = scsi_csr_event_origin;
 	upd9002_guest_trace_scsi_status(scsi_csr_event_status);
 	scsi_csr_latched = TRUE;
+	scsi_trace_csr_record("latch", scsi_csr_latched_sequence,
+			scsiio.scsistatus, scsi_csr_latched_origin);
 	scsiio.auxstatus &= (REG8)~SCSI_AUX_CIP;
 	if ((scsi_csr_event_status & 0x80) &&
 			!scsicmd_phase_host_to_spc(scsiio.phase)) {
@@ -492,53 +533,59 @@ static void scsiio_target_phase_ready_event(NEVENTITEM item) {
 			!scsi_csr_event_active && !scsi_csr_latched) {
 		scsi_transfer_phase_pending = FALSE;
 		scsi_target_phase_ready = FALSE;
-		scsiintr_immediate(scsi_transfer_phase_status);
+		scsiintr_immediate("target-phase-ready", scsi_transfer_phase_status);
 	}
 	(void)item;
 }
 
-static void scsiintr_transfer_complete(REG8 status) {
+static void scsiintr_enqueue(const char *origin, REG8 status,
+		UINT clocks, BOOL record_transfer_result) {
+	UINT sequence;
 
-	scsi_trace_transfer_result(status);
-	scsiintr_immediate(status);
-}
-
-static void scsiintr_immediate(REG8 status) {
-
+	if (record_transfer_result) {
+		scsi_trace_transfer_result(status);
+	}
+	sequence = scsi_trace_enabled ? ++scsi_trace_csr_sequence : 0;
+	scsi_trace_csr_record("request", sequence, status, origin);
+	if (scsi_csr_event_active || scsi_csr_latched || scsi_csr_pending) {
+		scsi_trace_csr_record("overrun", sequence, status, origin);
+	}
 	if (!scsi_csr_event_active && !scsi_csr_latched) {
 		scsi_csr_event_active = TRUE;
 		scsi_csr_event_status = status;
-		/* A short event preserves the guest interrupt boundary without
-		 * re-entering the handler that consumed the previous CSR. */
-		nevent_set(NEVENT_SCSIIO, 100, scsiioint, NEVENT_ABSOLUTE);
+		scsi_csr_event_sequence = sequence;
+		scsi_csr_event_origin = origin;
+		nevent_set(NEVENT_SCSIIO, clocks, scsiioint, NEVENT_ABSOLUTE);
 	}
 	else if (!scsi_csr_pending) {
 		scsi_csr_pending = TRUE;
 		scsi_csr_pending_status = status;
-	}
-}
-
-
-static void scsiintr(REG8 status) {
-
-	scsi_trace_transfer_result(status);
-
-	if (!scsi_csr_event_active && !scsi_csr_latched) {
-		scsi_csr_event_active = TRUE;
-		scsi_csr_event_status = status;
-		nevent_set(NEVENT_SCSIIO, 4000, scsiioint, NEVENT_ABSOLUTE);
-	}
-	else if (!scsi_csr_pending) {
-		scsi_csr_pending = TRUE;
-		scsi_csr_pending_status = status;
+		scsi_csr_pending_sequence = sequence;
+		scsi_csr_pending_origin = origin;
 	}
 	else {
+		scsi_trace_csr_record("drop", sequence, status, origin);
 		/* The bus layer must back-pressure before reaching this case. */
 		return;
 	}
 	SCSITRACEOUT(("scsitrace request status=%02x phase=%02x cs=%04x ip=%04x",
 			status, scsiio.phase, CPU_CS, CPU_IP));
 	TRACEOUT(("scsi schedule intr"));
+}
+
+static void scsiintr_transfer_complete(REG8 status) {
+
+	scsiintr_enqueue("transfer-complete", status, 100, TRUE);
+}
+
+static void scsiintr_immediate(const char *origin, REG8 status) {
+
+	scsiintr_enqueue(origin, status, 100, FALSE);
+}
+
+static void scsiintr(const char *origin, REG8 status) {
+
+	scsiintr_enqueue(origin, status, 4000, TRUE);
 }
 
 
@@ -559,13 +606,13 @@ static void scsicmd(REG8 cmd) {
 			scsiio.auxstatus = 0;
 			scsi_command_phase_pending = FALSE;
 			scsi_transfer_remaining = 0;
-			scsiintr(SCSISTAT_RESET);
+			scsiintr("reset", SCSISTAT_RESET);
 			break;
 
 		case SCSICMD_NEGATE:
 			ret = scsicmd_negate(id);
 			scsiio.auxstatus &= (REG8)~(SCSI_AUX_BSY | SCSI_AUX_DBR);
-			scsiintr(ret);
+			scsiintr("negate", ret);
 			break;
 
 		case SCSICMD_SEL:
@@ -573,17 +620,17 @@ static void scsicmd(REG8 cmd) {
 			ret = scsicmd_select(id);
 			if (ret & 0x80) {
 				scsi_command_phase_pending = TRUE;
-				scsiintr(0x11);
+				scsiintr("select-complete", 0x11);
 			}
 			else {
-				scsiintr(ret);
+				scsiintr("select-error", ret);
 			}
 			break;
 
 		case SCSICMD_SEL_TR:
 			ret = scsicmd_transfer(id, scsiio.reg + SCSICTR_CDB);
 			if (ret != 0xff) {
-				scsiintr(ret);
+				scsiintr("select-transfer", ret);
 			}
 			break;
 
@@ -765,7 +812,7 @@ static void IOOUTCALL scsiio_occ6(UINT port, REG8 dat) {
 	if ((scsiio.phase == SCSIPH_DATAOUT) &&
 		(scsiio.wrdatpos >= scsiio.cmdpos)) {
 		scsiio.phase = SCSIPH_STATUS;
-		scsiintr(0x8b);
+		scsiintr("legacy-data-complete", 0x8b);
 	}
 	(void)port;
 }
@@ -788,11 +835,17 @@ static REG8 IOINPCALL scsiio_icc2(UINT port) {
 	switch(scsiio.port) {
 		case SCSICTR_STATUS:
 			if (scsi_csr_latched) {
+				scsi_trace_csr_record("hostread", scsi_csr_latched_sequence,
+						scsiio.scsistatus, scsi_csr_latched_origin);
 				scsi_csr_latched = FALSE;
 				scsiio.auxstatus &= (REG8)~SCSI_AUX_INT;
 				if (scsi_csr_pending) {
 					scsi_csr_event_active = TRUE;
 					scsi_csr_event_status = scsi_csr_pending_status;
+					scsi_csr_event_sequence = scsi_csr_pending_sequence;
+					scsi_csr_event_origin = scsi_csr_pending_origin;
+					scsi_trace_csr_record("promote", scsi_csr_event_sequence,
+							scsi_csr_event_status, scsi_csr_event_origin);
 					scsi_csr_pending = FALSE;
 					nevent_set(NEVENT_SCSIIO, 4000, scsiioint,
 							NEVENT_ABSOLUTE);
@@ -800,13 +853,13 @@ static REG8 IOINPCALL scsiio_icc2(UINT port) {
 				else if (scsi_command_phase_pending) {
 					/* The target's COMMAND REQ is held until CSR=11h is read. */
 					scsi_command_phase_pending = FALSE;
-					scsiintr(0x8a);
+					scsiintr("select-command-phase", 0x8a);
 				}
 				else if (scsi_transfer_phase_pending &&
 						scsi_target_phase_ready) {
 					scsi_transfer_phase_pending = FALSE;
 					scsi_target_phase_ready = FALSE;
-					scsiintr_immediate(scsi_transfer_phase_status);
+					scsiintr_immediate("target-phase-ready", scsi_transfer_phase_status);
 				}
 			}
 			SCSITRACEOUT(("scsitrace in port=0cc2 ar=%02x status=%02x cs=%04x ip=%04x",
@@ -883,7 +936,7 @@ static REG8 IOINPCALL scsiio_icc6(UINT port) {
 	if ((scsiio.phase == SCSIPH_DATAIN) &&
 		(scsiio.rddatpos >= scsiio.cmdpos)) {
 		scsiio.phase = SCSIPH_STATUS;
-		scsiintr(0x8b);
+		scsiintr("legacy-data-complete", 0x8b);
 	}
 	(void)port;
 	return(ret);
@@ -900,6 +953,13 @@ void scsiio_reset(void) {
 	scsi_csr_event_status = 0;
 	scsi_csr_pending = FALSE;
 	scsi_csr_pending_status = 0;
+	scsi_trace_csr_sequence = 0;
+	scsi_csr_event_sequence = 0;
+	scsi_csr_event_origin = NULL;
+	scsi_csr_pending_sequence = 0;
+	scsi_csr_pending_origin = NULL;
+	scsi_csr_latched_sequence = 0;
+	scsi_csr_latched_origin = NULL;
 	scsi_command_phase_pending = FALSE;
 	scsi_transfer_phase_pending = FALSE;
 	scsi_transfer_phase_status = 0;
