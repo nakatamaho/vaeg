@@ -1674,10 +1674,14 @@ int main(int argc, char **argv) {
 	if (options.trace_cpu != 0) {
 		upd9002_trace_start(stderr, options.trace_cpu);
 	}
+	if (options.scsitrace) {
+		upd9002_guest_trace_start(stderr);
+	}
 	upd9002_perf_start_from_env();
 	if (options.selftest) {
 		run_ok = vaeg_selftest_run();
 		upd9002_perf_stop();
+		upd9002_guest_trace_stop();
 		upd9002_trace_stop();
 		SDL_Quit();
 		dosio_term();
@@ -1865,6 +1869,7 @@ int main(int argc, char **argv) {
 	TRACETERM();
 	upd9002_perf_stop();
 	upd9002_trace_stop();
+	upd9002_guest_trace_stop();
 	SDL_Quit();
 	dosio_term();
 	return(run_ok);
@@ -1878,6 +1883,7 @@ np2main_err2:
 	TRACETERM();
 	upd9002_perf_stop();
 	upd9002_trace_stop();
+	upd9002_guest_trace_stop();
 	SDL_Quit();
 	dosio_term();
 	return(FAILURE);
