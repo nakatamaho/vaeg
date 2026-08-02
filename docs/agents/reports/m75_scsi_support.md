@@ -1463,3 +1463,9 @@ The supplied pre-correction WSLg run is not acceptance evidence for the fixed
 binary; a new run must show repeated DATA IN reads, then the complete INQUIRY
 STATUS/MESSAGE sequence, before SCHD registration is reconsidered.  G75
 remains open and no M76 work is authorized.
+
+The post-correction focused test build was rebuilt from `d345d96` and the
+selftest passed.  Its SHA-256 is
+`f6c2758a7fe5576fdeadca9c7d5876a557174105bebaaa174cc3b3d82c2e3bf5`.
+This is machine validation only; the corrected MinGW binary still requires
+the manual WSLg SCFORM/SCHD run.
