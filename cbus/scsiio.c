@@ -503,6 +503,11 @@ static void scsiio_data_write(REG8 dat) {
 			SCSITRACEOUT(("scsitrace M75c2 CDB transfer complete "
 					"count=%u", scsiio.wrdatpos));
 			next_status = scsicmd_command(scsiio.reg[SCSICTR_DSTID] & 7);
+			SCSITRACEOUT(("scsitrace command-response opcode=%02x "
+						"response_len=%u rddatpos=%u next_status=%02x "
+						"phase=%02x cs=%04x ip=%04x",
+						scsiio.cmd[0], scsiio.cmdpos, scsiio.rddatpos,
+						next_status, scsiio.phase, CPU_CS, CPU_IP));
 			scsiio_schedule_transfer_phase(next_status, SCSIPH_COMMAND);
 			scsiintr_transfer_complete(0x1a);
 			return;
@@ -545,6 +550,10 @@ static REG8 scsiio_data_read(void) {
 	SCSITRACEOUT(("scsitrace data-read ar=19 data=%02x index=%u cs=%04x ip=%04x",
 			ret, scsiio.rddatpos, CPU_CS, CPU_IP));
 	scsiio.rddatpos++;
+	SCSITRACEOUT(("scsitrace data-read-state rddatpos=%u cmdpos=%u "
+			"remaining=%u phase=%02x cs=%04x ip=%04x",
+			scsiio.rddatpos, scsiio.cmdpos, scsi_transfer_remaining,
+			scsiio.phase, CPU_CS, CPU_IP));
 	scsiio_decrement_transfer_count();
 	if (scsi_transfer_remaining) {
 		scsi_transfer_remaining--;
@@ -588,6 +597,10 @@ static REG8 scsiio_data_read(void) {
 		else {
 			next_status = scsicmd_transinfo(scsiio.reg[SCSICTR_DSTID] & 7);
 		}
+		SCSITRACEOUT(("scsitrace data-read-next rddatpos=%u cmdpos=%u "
+				"remaining=%u next_status=%02x phase=%02x cs=%04x ip=%04x",
+				scsiio.rddatpos, scsiio.cmdpos, scsi_transfer_remaining,
+				next_status, scsiio.phase, CPU_CS, CPU_IP));
 		scsiio_schedule_transfer_phase(next_status, completed_phase);
 		scsiintr_transfer_complete((REG8)(0x10 | completed_phase));
 		return ret;
