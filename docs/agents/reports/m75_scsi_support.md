@@ -1253,50 +1253,19 @@ macOS host's SDL Cocoa backend raised `NSInternalInconsistencyException`
 while initializing `SystemAppearance`.  This is an environment failure, not a
 SCSI result.  No first/second raw-`8Ah` classification is claimed yet.
 
-### M75d1 transfer-count byte-order correction (2026-08-02)
+### M75d1 transfer-count byte-order experiment (superseded)
 
-The manual SCFORM run now boots the support environment but stops during the
-format/SENSE path and briefly reports that `SCHD.SYS` is not connected.  The
-controller trace exposed a concrete register-contract defect before that
-message: PCPLUS programs one-byte transfers as `AR12=01h`, `AR13=00h`,
-`AR14=00h`, while the VAEG decoder treated AR12 as the most-significant byte
-and calculated `TC=010000h` (65536).  This explains the apparent SENSE hang and
-is independent of the SCSI data payload.
+An initial interpretation attributed the SCFORM/SENSE stop to a transfer-count
+byte-order defect and tested a low/middle/high decode.  That experiment is
+retained only as history.  Its WSLg trace later showed `TC=060000` for a
+six-byte CDB and `TC=010000` for a one-byte transfer, so it multiplied the
+expected counts by 65536.  No acceptance result is based on that experiment.
 
-Commit [9f11430](https://github.com/nakatamaho/vaeg/commit/9f11430a52e7d660c18cb0cfad3bef448f6c157c)
-corrects both transfer-count decoding and decrement/borrow logic to the
-WD33C93 low/middle/high order (AR12/AR13/AR14).  It is a general controller
-fix; no SCFORM, SCHD, CDB, guest-address, or timing special case was added.
-The static QA validator now protects the byte order.
-
-Validation after the correction:
-
-```text
-cmake --build build/linux-ci-clang --target vaeg_sdl2 -j2       PASS
-cmake --build build/m75-tests --target vaeg_sdl2 -j2            PASS
-python3 tools/qa/m75_scsi_controller.py --root .               PASS
-ctest --test-dir build/m75-tests -R vaeg_m75_scsi_controller   PASS
-SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
-  build/linux-ci-clang/sdl2/vaeg --selftest                    PASS
-```
-
-The corrected MinGW artifact must be rerun with PC-Engine 1.1 and the SCSI
-support disk.  Required follow-up evidence is `TC=1` STATUS/MESSAGE/SENSE
-completion, successful SCHD registration, and SCFORM initialization.  G75
-remains open; this result is not manual-gate approval.
-
-The corrected MinGW cross-build completed with exit status 0:
-
-```text
-cmake --build build/mingw-cross --target vaeg_sdl2 -j2       PASS
-```
-
-The artifact copied for the next manual run is `/tmp/vaeg-m75-cmdreq-mingw.exe`.
-It is a PE32+ x86-64 executable; SHA-256 is
-`4c7ab88c7616ff08b767a81db303957174829333ada2ead5b7981112226cc078`.
-The copy was verified byte-identical to
-`build/mingw-cross/sdl2/vaeg.exe`.  Windows execution is not available on this
-host, so SCHD/SCFORM acceptance remains a manual Windows gate.
+The original high/middle/low implementation is restored by
+[c959453](https://github.com/nakatamaho/vaeg/commit/c959453a0a482994ac25ab6db0b33e425306a0e9).
+The separate MODE SENSE block-length correction remains under evaluation.
+The local Linux/MinGW builds, M75 QA, focused CTest, and SDL selftest pass;
+manual SCHD/SCFORM acceptance remains open.
 
 ### M75d1 MODE SENSE block-descriptor correction (2026-08-02)
 
@@ -1317,3 +1286,20 @@ The static M75 QA validator now protects this offset.  Linux build, focused
 CTest, M75 QA, and SDL selftest pass after the correction.  A corrected MinGW
 artifact must still be run through SCHD registration and SCFORM to confirm the
 manual symptom is cleared; G75 remains open.
+
+### M75d1 transfer-count order correction from WSLg trace (2026-08-02)
+
+The WSLg MinGW trace disproved the earlier low/middle/high interpretation.  In
+one run the controller reported `TC=060000` and attempted 393216 CDB bytes for
+`CDB=00`; the following one-byte STATUS request reported `TC=010000`.  The same
+trace showed READ CAPACITY `TC=0a0000` with `CDB=25` and DATA IN `TC=080000`.
+These values are exactly the expected 6/1/10/8 counts multiplied by 65536.
+The trace therefore proves that PCPLUS writes AR12/AR13/AR14 as high/middle/low.
+
+The low/middle/high experiment from [9f11430](https://github.com/nakatamaho/vaeg/commit/9f11430a52e7d660c18cb0cfad3bef448f6c157c)
+is superseded without rewriting history.  Commit
+[c959453](https://github.com/nakatamaho/vaeg/commit/c959453a0a482994ac25ab6db0b33e425306a0e9)
+restores the original high/middle/low decode and borrow order.  The MODE SENSE
+block-length-at-byte-9 correction remains in effect.  The corrected MinGW
+artifact was rebuilt; its SHA-256 is
+`d17a62569568d51ddfda1a8739824e52922772f9be870dfa98780d3abf4eac25`.
