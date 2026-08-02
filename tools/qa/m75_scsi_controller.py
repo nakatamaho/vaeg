@@ -177,10 +177,18 @@ def validate(root: pathlib.Path) -> None:
             "IRE1 IRQ gate")
     require(scsiio, "scsi_command_phase_pending",
             "post-SELECT COMMAND request latch")
-    require(scsiio, "scsiintr_controller_event(\"select-complete\", 0x11)",
-            "SELECT completion CSR")
-    require(scsiio, "scsiintr(\"select-command-phase\", 0x8a)",
+    if "scsi_csr_pending" in scsiio:
+        raise AssertionError("CSR event pending slot must be removed")
+    require(scsiio, "scsi_target_selection_pending",
+            "pull-model SELECT target state")
+    require(scsiio, "scsi_target_publish",
+            "pull-model target event publication")
+    require(scsiio, "scsi_target_schedule_after_consume",
+            "CSR-consume target-state gate")
+    require(scsiio, "scsiintr_enqueue(\"select-command-phase\", 0x8a",
             "deferred COMMAND-phase CSR")
+    require(scsiio, "scsi_target_selection_status = (ret & 0x80) ? 0x11 : ret",
+            "SELECT completion CSR target state")
     require(scsiio, "M75c2 accumulates CDB through DATA window",
             "M75c2 Transfer Info boundary")
     require(scsiio, "scsi_transfer_remaining",
@@ -202,10 +210,24 @@ def validate(root: pathlib.Path) -> None:
             "scsiio.auxstatus &= (REG8)~SCSI_AUX_DBR",
             "DBR held low from TRANSFER INFO until target readiness")
     require(trans_info,
-            "nevent_set(NEVENT_SCSIIO, SCSI_TARGET_PROCESSING_CLOCKS",
+            "nevent_set(NEVENT_SCSIIO, scsi_target_processing_clocks()",
             "emulated-clock delay before the first DBR assertion")
+    require(scsiio, "scsiio_trace_jitter",
+            "seeded diagnostic timing jitter API")
+    require(cliopts, "--scsitrace-jitter-seed",
+            "seeded SCSI timing jitter option")
+    require(cliopts, "--scsitrace-jitter-span",
+            "bounded SCSI timing jitter option")
+    require(scsiio, "scsi_trace_data_phase_request_missing_count",
+            "DATA IN request boundary counter")
+    require(scsiio, "target-phase-delay",
+            "target delay watchdog")
     require(scsiio, "scsiio_target_phase_ready_event",
             "target phase readiness event")
+    require(scsiio, "scsi_trace_watchdog_schedule",
+            "deterministic SCSI watchdog")
+    require(scsiio, "NEVENT_SCSIWATCHDOG",
+            "dedicated SCSI watchdog event")
     require(scsiio, "upd9002_guest_trace_scsi_status",
             "raw CSR trace notification")
     require(trace_h, "upd9002_guest_trace_start_cmdreq_windows",
@@ -235,7 +257,7 @@ def validate(root: pathlib.Path) -> None:
             "DBR-gated target phase wait")
     require(scsiio, "scsi_transfer_phase_pending && !scsi_target_phase_ready",
             "deferred target phase before DBR")
-    require(scsiio, "scsi_transfer_phase_pending &&\n\t\t\t\t\t\tscsi_target_phase_ready",
+    require(scsiio, "if (scsi_transfer_phase_pending && scsi_target_phase_ready)",
             "CSR release after target readiness")
     require(scsiio, "M75c2 accumulates CDB through DATA window",
             "M75c2 CDB accumulation boundary")
@@ -283,12 +305,12 @@ def validate(root: pathlib.Path) -> None:
     require(scsiio, "case SCSICTR_FIFO_CTRL:", "AR34 FIFO audit")
     require(scsiio, "case SCSICTR_FIFO_STATUS:", "AR35 FIFO audit")
     for field in ("scsi_csr_latched", "scsi_csr_event_active",
-                  "scsi_csr_pending", "scsi_csr_pending_status"):
-        require(scsiio, field, f"single-depth CSR latch field {field}")
-    require(scsiio, "if (!scsi_csr_event_active && !scsi_csr_latched)",
+                  "scsi_target_selection_pending", "scsi_target_phase_delay_pending"):
+        require(scsiio, field, f"single-depth CSR target state field {field}")
+    if "scsi_csr_pending" in scsiio:
+        raise AssertionError("one-entry pending CSR slot must not return")
+    require(scsiio, "if (scsi_csr_event_active || scsi_csr_latched)",
             "CSR event admission")
-    require(scsiio, "else if (!scsi_csr_pending)",
-            "one-entry CSR pending slot")
     require(scsiio, "if (scsi_csr_latched)",
             "CSR consume on status read")
     require(scsiio, "scsi_csr_latched = FALSE",

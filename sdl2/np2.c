@@ -270,6 +270,7 @@ static void usage(const char *progname) {
 	printf("\t--scsitrace-compact\n");
 	printf("\t--scsitrace-cmdreq-windows\n");
 	printf("\t--scsitrace-limit 1..1000000\n");
+	printf("\t--scsitrace-jitter-seed N [--scsitrace-jitter-span N]\n");
 	printf("\t--trace-cpu 1..1000000\n");
 	printf("\t--version --help [-h]\n");
 }
@@ -1803,6 +1804,8 @@ int main(int argc, char **argv) {
 	scsiio_trace_enable(options.scsitrace);
 	scsiio_trace_compact(options.scsitrace_compact);
 	scsiio_trace_limit(options.scsitrace_limit);
+	scsiio_trace_jitter(options.scsitrace_jitter,
+			options.scsitrace_jitter_seed, options.scsitrace_jitter_span);
 	sdlkbd_initialize();
 	inputmng_init();
 	keystat_initialize();
