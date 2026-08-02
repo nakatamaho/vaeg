@@ -544,7 +544,12 @@ static void scsicmd(REG8 cmd) {
 				break;
 			}
 			scsi_transfer_remaining = scsiio_transfer_count();
-			scsiio.rddatpos = 0;
+			/*
+			 * Keep the target DATA cursor across repeated one-byte
+			 * TRANSFER INFO requests.  PCPLUS may issue TC=1 for each
+			 * PIO byte; the cursor is reset when the command enters
+			 * DATA IN, not at every request boundary.
+			 */
 			if (scsi_transfer_phase_pending && !scsi_target_phase_ready) {
 				/*
 				 * The target has selected the next phase but has not yet
