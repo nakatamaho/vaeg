@@ -118,11 +118,17 @@ typedef struct {
 	BOOL debug;
 	BOOL fdctrace;
 	BOOL scsitrace;
+	BOOL scsitrace_guest;
+	BOOL scsitrace_compact;
+	BOOL scsitrace_cmdreq_windows;
+	BOOL scsitrace_jitter;
 	BOOL pacelog;
 	BOOL mute;
 	BOOL nowait;
 	UINT trace_cpu;
 	UINT scsitrace_limit;
+	UINT scsitrace_jitter_seed;
+	UINT scsitrace_jitter_span;
 	UINT model;
 	UINT fm_backend;
 	UINT fm_sound;

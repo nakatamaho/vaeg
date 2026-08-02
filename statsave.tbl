@@ -30,6 +30,7 @@ static const PROCTBL evtproc[] = {
 			{PROCID('e','a','m','d'), amd98int},
 			{PROCID('e','s','a','s'), sasiioint},
 			{PROCID('e','s','c','s'), scsiioint},
+			{PROCID('e','s','c','w'), scsiio_watchdog_event},
 			{PROCID('e','s','0','V'), screendispva},
 			{PROCID('e','s','1','V'), screenvsyncva},
 //			{PROCID('e','s','2','V'), screenvsyncva2},
@@ -59,6 +60,7 @@ static const ENUMTBL evtnum[] = {
 			{PROCID('p','c','m','8'), NEVENT_86PCM},
 			{PROCID('s','a','s','i'), NEVENT_SASIIO},
 			{PROCID('s','c','s','i'), NEVENT_SCSIIO},
+			{PROCID('s','c','s','w'), NEVENT_SCSIWATCHDOG},
 			{PROCID('f','s','t','w'), NEVENT_FDCSTATE},
 			{PROCID('f','l','m','2'), NEVENT_FLAMES2},
 };
