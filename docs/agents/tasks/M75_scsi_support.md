@@ -501,3 +501,13 @@ it did not advance normal speed beyond TUR.  Do not commit a delay change
 without the paired second-`8Ah` consumer trace showing a general controller
 contract defect.  G75 remains blocked on normal-speed INQUIRY/MODE SENSE
 transfer accounting and the manual SCHD/SCFORM/file-operation checks.
+
+### INQUIRY revision identification (2026-08-02)
+
+The INQUIRY response revision field (bytes 24-27) now returns the fixed
+ASCII revision `1.00`; the remaining four bytes of the eight-byte revision
+area remain space padded.  The response remains a 32-byte table with byte4
+`1Bh`; this does not change the allocation-length or short-transfer contract.
+The M75 controller QA validator now rejects a response table whose revision is
+not `1.00`.  This is an identification change only and does not constitute
+normal-speed INQUIRY DATA IN acceptance.
