@@ -548,27 +548,15 @@ validator, and focused CTest pass.  The real-ROM paired run remains pending
 because the current macOS SDL Cocoa environment aborts during window
 initialization before guest execution; this does not change the gate status.
 
-### M75d1 transfer-count byte-order correction (2026-08-02)
+### M75d1 transfer-count byte-order experiment (superseded)
 
-Manual progress reached boot and SCFORM, but the format/SENSE path stopped and
-reported that `SCHD.SYS` was not connected.  Existing trace evidence showed
-that PCPLUS writes one-byte transfer counts as AR12/AR13/AR14 = low/middle/high
-(`01 00 00`), while the controller decoded them as high/middle/low and exposed
-`TC=010000h`.  This is a concrete WD33C93 register-contract defect, not a
-payload or queue hypothesis.
-
-Commit [9f11430](https://github.com/nakatamaho/vaeg/commit/9f11430a52e7d660c18cb0cfad3bef448f6c157c)
-fixes decode and decrement borrow order and adds static QA coverage.  Linux
-build, focused CTest, M75 QA, and SDL selftest pass.  The next human check is
-to rerun the corrected MinGW binary and record the full SENSE completion,
-SCHD registration, and SCFORM result.  G75 remains open.
-
-The corrected MinGW cross-build completed with exit status 0.  The manual
-artifact is `/tmp/vaeg-m75-cmdreq-mingw.exe`, copied byte-identically from
-`build/mingw-cross/sdl2/vaeg.exe`, PE32+ x86-64, SHA-256
-`4c7ab88c7616ff08b767a81db303957174829333ada2ead5b7981112226cc078`.
-Windows execution is unavailable on the development host; rerun the support
-disk and record SENSE completion, SCHD registration, and SCFORM before G75.
+An initial low/middle/high transfer-count experiment is superseded.  The WSLg
+trace showed that it converted six-, one-, ten-, and eight-byte requests into
+`TC=060000`, `TC=010000`, `TC=0a0000`, and `TC=080000`.  The original
+high/middle/low order is restored by
+[c959453](https://github.com/nakatamaho/vaeg/commit/c959453a0a482994ac25ab6db0b33e425306a0e9).
+The MODE SENSE block-length offset correction remains.  Manual SCHD/SCFORM
+acceptance and G75 are still open.
 
 ### M75d1 MODE SENSE block-descriptor correction (2026-08-02)
 
@@ -584,3 +572,17 @@ reserved byte at 8 and deriving the value from the mounted image geometry.  QA
 now checks the source-level offset.  Local build, focused CTest, M75 QA, and
 SDL selftest pass; MinGW/SCFORM manual confirmation remains required and G75
 is still open.
+
+### M75d1 transfer-count order correction from WSLg trace (2026-08-02)
+
+The WSLg MinGW trace showed `TC=060000`/393216 CDB writes for a six-byte TUR,
+`TC=010000` for one-byte STATUS, and `TC=0a0000`/`TC=080000` for READ CAPACITY
+command/data.  These are the expected 6/1/10/8 values shifted by 16 bits and
+prove the PCPLUS register order is high/middle/low (AR12/AR13/AR14).
+
+The earlier low/middle/high experiment is superseded by
+[c959453](https://github.com/nakatamaho/vaeg/commit/c959453a0a482994ac25ab6db0b33e425306a0e9).
+The MODE SENSE block-length offset correction remains.  The rebuilt MinGW
+artifact SHA-256 is
+`d17a62569568d51ddfda1a8739824e52922772f9be870dfa98780d3abf4eac25`.
+G75 remains open pending a new manual run.

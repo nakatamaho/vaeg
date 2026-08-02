@@ -1251,29 +1251,13 @@ separate parity correction or move it to Open Defects.
   [M75 task](../agents/tasks/M75_scsi_support.md).
 - **Commit:** [03d4cd765](https://github.com/nakatamaho/vaeg/commit/03d4cd76541a3058cf32b0c239b499e0c0431627).
 
-### WD33C93 transfer count was decoded in the wrong byte order
+### WD33C93 transfer count byte-order hypothesis (superseded)
 
-- **Status:** corrected in M75d1; manual SCFORM/SCHD acceptance remains pending.
-- **Symptom:** one-byte STATUS/MESSAGE transfers were interpreted as `TC=010000`
-  instead of `TC=1`.  The guest could continue far enough to show rapid
-  `SCHD.SYS` connection/format diagnostics, but the SENSE path could not
-  complete reliably.
-- **Demonstrated root cause:** PCPLUS writes the WD33C93 transfer count in
-  AR `12h`, `13h`, `14h` order as low, middle, high.  `scsiio_transfer_count()`
-  treated AR `12h` as the high byte, while the decrement path borrowed in the
-  opposite direction.  A count of one therefore became `0x010000`; counts such
-  as `0x24` were less visibly affected because the high bytes were zero.
-- **Correction:** decode AR12-14 as low/middle/high and decrement with the same
-  ordering.  No CDB, guest-address, timing, or filename-specific workaround was
-  added.
-- **Verification:** M75 controller QA, Linux SDL2 build, focused CTest, and
-  SDL selftest pass after the correction.  The existing trace explicitly shows
-  the pre-fix `AR12=01, AR13=00, AR14=00` sequence and `TC=010000`; a new
-  MinGW/manual SCFORM run is still required for guest acceptance.
-- **Evidence:** [M75 report](../agents/reports/m75_scsi_support.md) and
-  [M75 task](../agents/tasks/M75_scsi_support.md).
-- **Commit:** [9f11430](https://github.com/nakatamaho/vaeg/commit/9f11430a52e7d660c18cb0cfad3bef448f6c157c).
-
+- **Status:** superseded in M75d1; no low/middle/high production correction is retained.
+- **Observed symptom:** the intermediate MinGW run with the low/middle/high experiment produced `TC=060000` for a six-byte CDB, `TC=010000` for a one-byte transfer, and `TC=0a0000` for a ten-byte CDB.
+- **Demonstrated correction:** the WSLg `scsitrace` proves PCPLUS/WD33C93 uses AR12/AR13/AR14 as high, middle, low: the expected counts are 6, 1, and 10, while the experiment multiplied them by 65536. The original high/middle/low decode and decrement order is restored.
+- **Follow-up commit:** [c959453](https://github.com/nakatamaho/vaeg/commit/c959453a0a482994ac25ab6db0b33e425306a0e9).
+- **Evidence:** [M75 report](../agents/reports/m75_scsi_support.md) and [M75 task](../agents/tasks/M75_scsi_support.md).
 ### MODE SENSE block length was written at the reserved-byte offset
 
 - **Status:** corrected in M75d1; SCHD/SCFORM manual confirmation remains pending.
