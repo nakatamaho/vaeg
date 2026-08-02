@@ -373,12 +373,45 @@ static REG8 scsiio_data_read(void) {
 	if (scsi_transfer_remaining) {
 		scsi_transfer_remaining--;
 	}
+	if ((scsiio.phase == SCSIPH_DATAIN) &&
+			scsiio.rddatpos >= scsiio.cmdpos &&
+			scsi_transfer_remaining) {
+		REG8 completed_phase;
+		REG8 next_status;
+		REG8 short_status;
+		UINT transferred;
+
+		/*
+		 * The target exhausted its response before the host-programmed
+		 * allocation count.  Preserve the residual TC and report the
+		 * information-phase change; the host then starts STATUS normally.
+		 */
+		completed_phase = scsiio.phase;
+		transferred = scsiio.rddatpos;
+		next_status = scsicmd_transinfo(scsiio.reg[SCSICTR_DSTID] & 7);
+		short_status = scsicmd_phase_unexpected_status(scsiio.phase);
+		scsiio_schedule_transfer_phase(next_status, completed_phase);
+		SCSITRACEOUT(("scsitrace short-data-phase completed=%u residual=%u "
+				"status=%02x", transferred, scsi_transfer_remaining,
+				short_status));
+		scsiintr_transfer_complete(short_status);
+		return ret;
+	}
 	if (scsi_transfer_remaining == 0) {
 		REG8 completed_phase;
 		REG8 next_status;
 
 		completed_phase = scsiio.phase;
-		next_status = scsicmd_transinfo(scsiio.reg[SCSICTR_DSTID] & 7);
+		if ((scsiio.phase == SCSIPH_DATAIN) &&
+				scsiio.rddatpos < scsiio.cmdpos) {
+			/* The allocation ended first; discard the unrequested suffix. */
+			scsiio.phase = SCSIPH_STATUS;
+			scsiio.rddatpos = 0;
+			next_status = scsicmd_phase_service_status(SCSIPH_STATUS);
+		}
+		else {
+			next_status = scsicmd_transinfo(scsiio.reg[SCSICTR_DSTID] & 7);
+		}
 		scsiio_schedule_transfer_phase(next_status, completed_phase);
 		scsiintr_transfer_complete((REG8)(0x10 | completed_phase));
 		return ret;

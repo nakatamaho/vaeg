@@ -134,6 +134,15 @@ def validate(root: pathlib.Path) -> None:
             "target-side phase readiness gate")
     require(scsiio, "SCSI_TARGET_PROCESSING_CLOCKS",
             "target command processing event quantum")
+    require(scsicmd, "REG8 scsicmd_phase_unexpected_status(UINT phase)",
+            "short-transfer status encoding")
+    require(data_read,
+            "scsiio.rddatpos >= scsiio.cmdpos &&\n\t\t\tscsi_transfer_remaining",
+            "short DATA IN transfer detection")
+    require(data_read, "scsicmd_phase_unexpected_status(scsiio.phase)",
+            "short DATA IN 48h-4Fh status")
+    require(data_read, "scsiio.rddatpos < scsiio.cmdpos",
+            "allocation-short DATA IN handling")
     require(trans_info,
             "scsiio.auxstatus &= (REG8)~SCSI_AUX_DBR",
             "DBR held low from TRANSFER INFO until target readiness")
