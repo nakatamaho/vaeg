@@ -37,6 +37,7 @@ void scsiio_trace_limit(UINT limit);
 void scsiio_trace_jitter(BOOL enabled, UINT seed, UINT span);
 BOOL scsiio_trace_stop_requested(void);
 void scsiio_trace_pic_irq(REG8 irq, BOOL asserted);
+BOOL scsiio_transfer_selftest(void);
 
 #ifdef __cplusplus
 }
