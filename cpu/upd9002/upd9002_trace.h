@@ -42,7 +42,9 @@ int upd9002_trace_active(void);
 void upd9002_trace_step_begin(void);
 void upd9002_trace_step_end(void);
 void upd9002_guest_trace_start(FILE *stream);
+void upd9002_guest_trace_start_cmdreq_windows(FILE *stream);
 void upd9002_guest_trace_stop(void);
+void upd9002_guest_trace_scsi_status(uint8_t status);
 void upd9002_guest_trace_step_begin(void);
 void upd9002_guest_trace_step_end(void);
 void upd9002_trace_event(uint32_t origin, const char *kind,
@@ -56,7 +58,9 @@ void upd9002_trace_event(uint32_t origin, const char *kind,
 #define upd9002_trace_step_begin() ((void)0)
 #define upd9002_trace_step_end() ((void)0)
 #define upd9002_guest_trace_start(stream) ((void)(stream))
+#define upd9002_guest_trace_start_cmdreq_windows(stream) ((void)(stream))
 #define upd9002_guest_trace_stop() ((void)0)
+#define upd9002_guest_trace_scsi_status(status) ((void)(status))
 #define upd9002_guest_trace_step_begin() ((void)0)
 #define upd9002_guest_trace_step_end() ((void)0)
 #define upd9002_trace_event(origin, kind, address, value, width) \

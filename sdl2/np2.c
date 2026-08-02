@@ -268,6 +268,7 @@ static void usage(const char *progname) {
 	printf("\t--smoke --selftest --debug --fdctrace --scsitrace --pacelog\n");
 	printf("\t--scsitrace-no-guest\n");
 	printf("\t--scsitrace-compact\n");
+	printf("\t--scsitrace-cmdreq-windows\n");
 	printf("\t--scsitrace-limit 1..1000000\n");
 	printf("\t--trace-cpu 1..1000000\n");
 	printf("\t--version --help [-h]\n");
@@ -1677,7 +1678,12 @@ int main(int argc, char **argv) {
 		upd9002_trace_start(stderr, options.trace_cpu);
 	}
 	if (options.scsitrace && options.scsitrace_guest) {
-		upd9002_guest_trace_start(stderr);
+		if (options.scsitrace_cmdreq_windows) {
+			upd9002_guest_trace_start_cmdreq_windows(stderr);
+		}
+		else {
+			upd9002_guest_trace_start(stderr);
+		}
 	}
 	upd9002_perf_start_from_env();
 	if (options.selftest) {

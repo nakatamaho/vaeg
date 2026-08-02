@@ -1200,3 +1200,36 @@ area remain space padded.  The response remains a 32-byte table with byte4
 The M75 controller QA validator now rejects a response table whose revision is
 not `1.00`.  This is an identification change only and does not constitute
 normal-speed INQUIRY DATA IN acceptance.
+
+
+### M75d1 Phase A command-request window trace (2026-08-02)
+
+The next diagnostic is trace-only and does not change SCSI production
+behavior.  The option `--scsitrace-cmdreq-windows` numbers windows from VAEG's
+raw `CSR=8Ah` presentation, not from a guest-side `CS:[047Eh]=BAh` write.
+Therefore a window with no `BAh` write is still represented and is evidence of
+non-presentation or an incomplete handoff.
+
+Each window records the preceding and following raw CSR presentation events,
+including `11h` SELECT completion and `85h` bus-free, the guest instruction
+counter, and the same emulated clock used by the SCSI event queue.  Within each
+`8Ah` window the disabled-by-default seam records the `1D67h` `047Eh` write,
+`1CBDh` wait-point entry, `1CCDh` wait-loop consumption,
+`1742h/1747h` main-pump consumption, `1791h` exit, the `1972h` phase path,
+`19A7h/19BBh` comparisons, and `1C32h` Transfer Info reachability.  Summary
+records preserve the presentation, `BAh` write, and consumer timestamps plus
+their instruction/clock deltas.
+
+The seam is wired through a no-op trace API from `scsiioint`; it does not alter
+CSR state, IRQ state, guest memory, registers, FLAGS, timing, or the PIO pump.
+The option is OFF by default.  Existing `--scsitrace` uses the original guest
+trace path when the option is absent.  A paired normal-speed run is required:
+`1CCDh` for the first and `1747h` for the second indicates early phase
+presentation; two `1CCDh` consumers rejects that hypothesis; and an absent
+second raw `8Ah` identifies non-presentation instead.  No production delay or
+phase change is authorized until this evidence exists.
+
+The Phase A code and validator checks build successfully and the focused M75
+CTest/selftest pass.  The current macOS Cocoa SDL environment aborts during
+window initialization before guest execution, so no real-ROM window result is
+claimed from this host.  G75 remains open.
