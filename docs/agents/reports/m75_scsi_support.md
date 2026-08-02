@@ -1157,3 +1157,36 @@ correction be considered; PCPLUS addresses, CDB ordering, and multiplier-
 specific workarounds remain prohibited.
 
 This correction changes the ledger classification but does not approve G75.
+
+### M75d1 timing follow-up: normal versus accelerated DATA IN (2026-08-02)
+
+A paired bounded run was repeated after restoring the production constant
+`SCSI_TARGET_PROCESSING_CLOCKS=100`; the temporary 4000-clock experiment was
+not retained.  The worker used for this check is the rebuilt source at
+`02d5ed802e086860a8907e76e5fa4a9da315f384` with SHA-256
+`51aae76205dcb71f5bc447cbdbf7ac8f33d220bad6852cd594a11d61b40ec3df`.
+
+At normal speed, a 120-second compact guest-trace run produced the complete
+TUR sequence and no `cdb0=12`, `cdb0=1a`, or MODE SENSE DATA IN transfer.  A
+normal-speed compact run without guest tracing reached the second SELECT
+(`CSR=11h`) and COMMAND request (`CSR=8Ah`) after the TUR bus-free event, but
+no subsequent CDB transfer was observed before the safety bound.  The external
+`exit=124` is only the safety timeout and is not a semantic completion result.
+
+With `--cpumult 8`, a 60-second no-guest compact run reached the MODE SENSE
+CDB `1A 00 04 00 24 00` and issued DATA IN requests with `phase=19h` and
+`TC=24h`.  The first 24-byte request was abandoned with zero AR19 accesses;
+subsequent one-byte `phase=19h` requests completed.  Thus the accelerated run
+proves later command reachability, but not a complete MODE SENSE payload
+transfer or SCHD registration.  It remains diagnostic-only.
+
+A temporary, uncommitted change from 100 to 4000 target-processing clocks was
+also tested at normal speed for 60 seconds.  It produced only the TUR results
+and no later CDB, so it is not an evidence-backed correction.  The source was
+restored to 100 and rebuilt; no production timing change was committed.
+
+The consumer-path comparison remains incomplete: the normal-speed second
+`8Ah` was observed only in the low-overhead controller trace, while the
+full guest trace did not reach that point within its tracing bound.  Therefore
+it is not yet proven whether `1CCDh` or `1742h/1747h` consumes that event at
+normal speed.  G75 remains open and no delay tuning is authorized.
