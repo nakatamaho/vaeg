@@ -1099,6 +1099,26 @@ separate parity correction or move it to Open Defects.
   [M64 report](../agents/reports/m64_upd9002_div_idiv.md).
 - **Commit:** [99c6388d](https://github.com/nakatamaho/vaeg/commit/99c6388df903dfc69432730cc9fa908a83946774).
 
+
+### SCSI DATA IN ended without reporting an early phase change
+
+- **Status:** corrected in M75d1; terminal G75 acceptance remains pending.
+- **Symptom:** when a host allocation exceeded the target response, the AR19
+  pump continued until the host count reached zero and never exposed the
+  target's STATUS phase with the residual transfer count.
+- **Demonstrated root cause:** DATA IN completion was tested only against the
+  host-programmed remaining count; `cmdpos` exhaustion was not converted into
+  the WD33C93 unexpected-information-phase status.
+- **Correction:** [ca29efb](https://github.com/nakatamaho/vaeg/commit/ca29efb)
+  preserves residual TC and emits `0x48 | (phase & 7)` (4Bh for STATUS) when
+  response data ends first.  When TC ends first, the unrequested suffix is
+  discarded and normal completion advances to STATUS.
+- **Verification:** focused M75 QA, Linux SDL2 build, and
+  `vaeg_m75_scsi_controller` CTest pass.  Normal-speed guest evidence for
+  the short INQUIRY path is still outstanding.
+- **Evidence:** [M75 report](../agents/reports/m75_scsi_support.md) and
+  [M75 task](../agents/tasks/M75_scsi_support.md).
+
 ## Open Defects
 
 ### Legacy Z80 reset leaves saved undocumented flag bits uninitialized
@@ -1171,6 +1191,21 @@ separate parity correction or move it to Open Defects.
 - **Evidence:** [M75 report](../agents/reports/m75_scsi_support.md) and
   [M75 task](../agents/tasks/M75_scsi_support.md).
 - **Commit:** [bc29d9e7](https://github.com/nakatamaho/vaeg/commit/bc29d9e7cecc426c4da22cbc628ab95f8c7efe8f).
+
+### INQUIRY response payload has not been guest-validated
+
+- **Status:** open; no payload-field change is authorized from static
+  inspection alone.
+- **Symptom:** the current direct-access response table is 32 bytes while the
+  observed INQUIRY allocation is 36 bytes.  This requires the corrected short
+  transfer contract, not forced padding.
+- **Demonstrated state:** byte4 is now `1Bh`, equal to the 32-byte table length
+  minus five, enforced by [4eeacda](https://github.com/nakatamaho/vaeg/commit/4eeacda).
+- **Next step:** observe the normal-speed guest branch after the short `4Bh`
+  response, then decide whether ANSI level, vendor/product text, or response
+  length needs a separately evidenced change.
+- **Evidence:** [M75 report](../agents/reports/m75_scsi_support.md) and
+  [M75 task](../agents/tasks/M75_scsi_support.md).
 
 ### Accelerated CPU-multiplier SCSI traces use a different timing ratio
 
