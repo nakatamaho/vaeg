@@ -122,6 +122,12 @@ def validate(root: pathlib.Path) -> None:
             "serialized board-ROM padding")
     require(scsiio, "case SCSICMD_TRANS_INFO:",
             "controller TRANSFER INFO dispatch")
+    require(scsiio, "WD33C93 exposes Transfer Count as low, middle, high",
+            "WD33C93 transfer-count byte order")
+    require(scsiio, "scsiio.reg[SCSICTR_TRANSCNT + 2] << 16",
+            "transfer-count high-byte decode")
+    require(scsiio, "scsiio.reg[SCSICTR_TRANSCNT + 0] = 0xff",
+            "transfer-count low-byte borrow")
     require(scsiio, "scsiio.rddatpos >= scsiio.cmdpos",
             "REQ/ACK data completion")
     command_function = scsiio.split("static void scsicmd(REG8 cmd)", 1)[1]
