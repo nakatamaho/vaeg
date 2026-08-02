@@ -1546,3 +1546,29 @@ Transfer Info state was waiting for a STATUS REQ; no PCPLUS-address special
 case or payload change was added.  Consequently SCHD registration, SCFORM,
 reboot, file operations, SASI, HOSTFAT, and non-SCSI manual gates remain
 unverified.  G75 is not passed.
+
+
+## G75 corrective implementation result (2026-08-03)
+
+Starting/base SHA: `bfaced3fe6e3d59b067d5fc8e514ff4cc1cf4084` (local and remote before this work).
+Production/test commit: [4e17c6f](https://github.com/nakatamaho/vaeg/commit/4e17c6f3fee67642ca69329147808cd18c71c9a7).
+
+### Root causes and correction
+
+The concrete defects were: successful Transfer Info completion used the wrong `0x10 | MCI` encoding (so next STATUS `8Bh` became invalid `1Ah`); the post-count target REQ was consumed or re-requested instead of retained; REQ and ACK were coupled; Message-In Transfer Info returned the previous-phase completion instead of `20h`; and the generic active-Level-II rejection blocked Level-I Negate ACK.  Transfer-count evidence was also ambiguous until every AR12/AR13/AR14 write was traced; the corrected trace shows normal high/middle/low programming and no unexplained `010000h`.
+
+The fix in `cbus/scsiio.c` uses an explicit Transfer Info state machine.  `scsiio_success_status_from_service()` derives `19h/1Bh/1Fh/1Ah`; `scsiio_target_assert_req()`, `scsiio_target_negate_req()`, `scsiio_initiator_assert_ack()`, `scsiio_initiator_negate_ack()`, and `scsiio_complete_byte_handshake()` separate ownership.  A retained post-count request stores its sequence, phase, and direction.  CSR read clears INT only.  Message-In latches `20h` with ACK retained; Negate ACK only negates ACK and schedules the later target bus-free event.  Transfer-count writes are logged with before/after values and SBT.
+
+### Compiled validation
+
+The compiled C controller selftest is called from `sdl2/selftest.c` and registered in `CMakeLists.txt` as `vaeg_m75_transfer_info_compiled`.  All 21 named Transfer Info tests passed, including `success_status_encodes_19_1b_1f`, `post_count_req_survives_completion_interrupt`, `next_transfer_uses_same_req_id`, `message_in_transfer_returns_20`, `message_in_holds_ack_until_negate_ack`, `negate_ack_clears_ack_without_direct_interrupt`, `command_during_int_pending_is_ignored`, `ignored_command_sets_lci`, `transfer_count_register_order`, and `single_byte_transfer_command_semantics`.  The controller validator and the 10-case Python model check also passed.  Focused CTest passed 2/2 (`vaeg_m75_transfer_info_compiled`, `vaeg_romless_tests`).
+
+### Before/after real-ROM evidence
+
+Before the correction, TUR logged `post-count-wait completion=1a next=8b` and lost the target request.  After the correction the semantic trace contains: `post-count-retained req=7 phase=1b`, CSR `1Bh` read with the same retained request; STATUS Transfer Info reads one byte and latches `1Fh`; `post-count-retained req=8 phase=1f`; MESSAGE-IN Transfer Info reads one byte and latches `20h`; CSR `20h` read shows `req=0 retained=0 ack=1`; Negate ACK then clears ACK and a later target bus-free event latches `85h`.  The request sequence IDs are preserved across each completion CSR.  No duplicate `8Bh` is generated for the retained STATUS request.
+
+The same run reached INQUIRY: CDB `12 00 00 00 24 00`, DATA IN TC=36, 32 AR19 reads, and phase-change completion `4Bh` with residual TC=4, followed by STATUS/MESSAGE-IN completion.  No direction mismatch, CSR overrun/drop, unexplained `010000h`, or `0CC6h` access was observed.  The existing 32-byte INQUIRY payload remains unchanged.  The bounded command used semantic `--scsitrace-limit 30` and exited 0; that exit is not a claim that the full guest run completed.
+
+Linux executable SHA-256: `01388de8ec1fe2a0e7df87d38f8607a734b6454688f7cb82471730e7c8cfca1d`.  MinGW cross configuration and build passed with `x86_64-w64-mingw32-gcc`; the Windows executable was not run on this host.  SASI/HOSTFAT selftest coverage passed, but the manual SASI/HOSTFAT gate and non-SCSI disk-path gate remain unverified.
+
+G75 status: **FAIL/pending**.  Remaining gates are PCPLUS loaded before SCHD, SCHD registration, SCFORM initialization, reboot, create/read/delete file test, manual SASI and HOSTFAT regression, and existing non-SCSI disk-path regression.  No G75 PASS declaration and no M76 work.
