@@ -37,9 +37,97 @@ typedef struct {
 } UPD9002_TRACE_STATE;
 
 static UPD9002_TRACE_STATE trace_state;
+typedef struct {
+	FILE *stream;
+	BOOL active;
+	UINT16 start_ip;
+	UINT8 before_047e;
+} UPD9002_GUEST_TRACE_STATE;
+
+static UPD9002_GUEST_TRACE_STATE guest_trace_state;
+
+static BOOL guest_trace_watch_ip(UINT16 ip) {
+
+	switch (ip) {
+		case 0x1742:
+		case 0x1747:
+		case 0x1972:
+		case 0x1975:
+		case 0x19a7:
+		case 0x19bb:
+		case 0x19c6:
+		case 0x19c8:
+		case 0x1b60:
+		case 0x1ba1:
+		case 0x1bfc:
+		case 0x1c05:
+		case 0x1c0e:
+		case 0x1c14:
+		case 0x1c32:
+		case 0x1c34:
+		case 0x1c37:
+		case 0x1ccd:
+		case 0x1d67:
+			return(TRUE);
+		default:
+			return(FALSE);
+	}
+}
+
+static const char *guest_trace_label(UINT16 ip) {
+
+	switch (ip) {
+		case 0x19bb:
+			return("phase-compare");
+		case 0x1b60:
+			return("transfer-path-1");
+		case 0x1ba1:
+			return("transfer-path-2");
+		case 0x1c14:
+			return("transfer-setup");
+		case 0x1c32:
+		case 0x1c34:
+			return("transfer-info-command");
+		case 0x1742:
+		case 0x1747:
+		case 0x19a7:
+		case 0x1bfc:
+		case 0x1c05:
+		case 0x1c0e:
+		case 0x1ccd:
+		case 0x1d67:
+			return("status-047e");
+		default:
+			return("handoff");
+	}
+}
+
+static BOOL guest_trace_047e_writer(UINT16 ip) {
+
+	return (ip == 0x1747) || (ip == 0x1bfc) ||
+		(ip == 0x1ccd) || (ip == 0x1d67);
+}
+
+static void guest_trace_log(const char *event, UINT16 ip,
+		UINT16 next_ip, UINT8 before_047e, UINT8 after_047e) {
+
+	if (guest_trace_state.stream == NULL) {
+		return;
+	}
+	fprintf(guest_trace_state.stream,
+		"scsi-guest-trace event=%s label=%s ip=%04x next_ip=%04x "
+		"cs=%04x phys=%05x 047e_before=%02x 047e_after=%02x "
+		"ax=%04x bx=%04x cx=%04x dx=%04x si=%04x di=%04x "
+		"bp=%04x sp=%04x flags=%04x\n",
+
+		event, guest_trace_label(ip), ip, next_ip, CPU_CS,
+		(unsigned)((CS_BASE + 0x047e) & CPU_ADRSMASK),
+		before_047e, after_047e,
+		CPU_AX, CPU_BX, CPU_CX, CPU_DX, CPU_SI, CPU_DI,
+		CPU_BP, CPU_SP, CPU_FLAG);
+}
 
 static const char *origin_name(uint32_t origin) {
-
 	switch (origin) {
 	case UPD9002_TRACE_ORIGIN_CPU:
 		return "cpu";
@@ -70,6 +158,50 @@ void upd9002_trace_stop(void) {
 	ZeroMemory(&trace_state, sizeof(trace_state));
 }
 
+void upd9002_guest_trace_start(FILE *stream) {
+
+	ZeroMemory(&guest_trace_state, sizeof(guest_trace_state));
+	if (stream != NULL) {
+		guest_trace_state.stream = stream;
+		fprintf(stream, "scsi-guest-trace-v1\n");
+	}
+}
+
+void upd9002_guest_trace_stop(void) {
+
+	if (guest_trace_state.stream != NULL) {
+		fflush(guest_trace_state.stream);
+	}
+	ZeroMemory(&guest_trace_state, sizeof(guest_trace_state));
+}
+
+void upd9002_guest_trace_step_begin(void) {
+	UINT8 value;
+
+	guest_trace_state.active = FALSE;
+	if ((guest_trace_state.stream == NULL) ||
+		!guest_trace_watch_ip(CPU_IP)) {
+		return;
+	}
+	value = mem[(CS_BASE + 0x047e) & CPU_ADRSMASK];
+	guest_trace_state.active = TRUE;
+	guest_trace_state.start_ip = CPU_IP;
+	guest_trace_state.before_047e = value;
+	guest_trace_log("entry", CPU_IP, CPU_IP, value, value);
+}
+
+void upd9002_guest_trace_step_end(void) {
+	UINT8 after_047e;
+
+	if (!guest_trace_state.active) {
+		return;
+	}
+	after_047e = mem[(CS_BASE + 0x047e) & CPU_ADRSMASK];
+	guest_trace_log(guest_trace_047e_writer(guest_trace_state.start_ip) ?
+		"047e-write" : "exit", guest_trace_state.start_ip, CPU_IP,
+		guest_trace_state.before_047e, after_047e);
+	guest_trace_state.active = FALSE;
+}
 int upd9002_trace_active(void) {
 
 	return (trace_state.stream != NULL) && (trace_state.remaining != 0);

@@ -41,6 +41,10 @@ void upd9002_trace_stop(void);
 int upd9002_trace_active(void);
 void upd9002_trace_step_begin(void);
 void upd9002_trace_step_end(void);
+void upd9002_guest_trace_start(FILE *stream);
+void upd9002_guest_trace_stop(void);
+void upd9002_guest_trace_step_begin(void);
+void upd9002_guest_trace_step_end(void);
 void upd9002_trace_event(uint32_t origin, const char *kind,
 						uint32_t address, uint32_t value, uint32_t width);
 
@@ -51,6 +55,10 @@ void upd9002_trace_event(uint32_t origin, const char *kind,
 #define upd9002_trace_active() 0
 #define upd9002_trace_step_begin() ((void)0)
 #define upd9002_trace_step_end() ((void)0)
+#define upd9002_guest_trace_start(stream) ((void)(stream))
+#define upd9002_guest_trace_stop() ((void)0)
+#define upd9002_guest_trace_step_begin() ((void)0)
+#define upd9002_guest_trace_step_end() ((void)0)
 #define upd9002_trace_event(origin, kind, address, value, width) \
 	((void)(origin), (void)(kind), (void)(address), (void)(value), (void)(width))
 
