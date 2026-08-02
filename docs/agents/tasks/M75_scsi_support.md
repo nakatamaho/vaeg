@@ -662,3 +662,20 @@ real open progress observation and is not a pass.
 M75d1 remains incomplete until normal-speed INQUIRY DATA IN, SCHD/SCFORM,
 reboot/file operations, and required SASI, HOSTFAT, and non-SCSI regressions
 are evidenced.  Do not declare G75 passed.
+
+### M75d1 current stop and correction
+
+The latest SCFORM/SCHD WSLg trace reached ID0.  TUR completed through STATUS,
+MESSAGE IN, and `85h` bus free.  INQUIRY CDB `12 00 00 00 24 00` and DATA IN
+`89h` were accepted, but PCPLUS reprogrammed `TC=1` after an initial `TC=36`
+setup.  The previous implementation moved to STATUS after the first byte,
+so SCHD saw only one INQUIRY byte and reported that no device was connected.
+
+Commit [84bc2ef](https://github.com/nakatamaho/vaeg/commit/84bc2efe1de9e5661fd28d31ba087a304f1a82ac)
+keeps DATA IN active across those repeated one-byte Transfer Info requests;
+STATUS is selected only after the target response cursor is exhausted.  The
+trace-only state capture is [d2da983](https://github.com/nakatamaho/vaeg/commit/d2da9835149d5d8dd4fb560c20bfd407db2719cc).
+
+The QA validator, focused CTest, SDL selftest, and MinGW cross-build passed.
+A fresh SCFORM/SCHD run with the corrected executable is still required.
+G75 remains pending; do not start M76.

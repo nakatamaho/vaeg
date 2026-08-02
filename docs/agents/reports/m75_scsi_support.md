@@ -1424,3 +1424,42 @@ The evaluated executable was `build/m75-tests/sdl2/vaeg`, SHA-256
 The current M75 gate remains open: normal-speed INQUIRY DATA IN, SCHD
 registration, SCFORM, reboot, file operations, SASI, HOSTFAT, and non-SCSI
 regressions still require evidence.  G75 is not approved.
+
+### M75d1 DATA IN repeated-TC correction (2026-08-02)
+
+The WSLg SCFORM/SCHD run reached ID0 and completed TEST UNIT READY through
+STATUS, MESSAGE IN, and bus free.  ID0 INQUIRY also reached the DATA IN request,
+but the trace showed the PCPLUS access pattern explicitly: it first programmed
+`TC=0024h`, then, after consuming `CSR=89h`, reprogrammed `TC=0001h` and issued
+TRANSFER INFO for each byte.  The old DATA IN completion branch treated the
+first `TC=1` completion as allocation exhaustion, changed the target phase to
+STATUS, and emitted `CSR=19h` after one byte.  SCHD therefore saw only one
+INQUIRY byte, rejected ID0, and continued with `42h` select timeouts for the
+other IDs.  The run did not hang, but the device was not registered.
+
+This is a general WD33C93 PIO contract defect, not a PCPLUS-address or disk
+image workaround.  Commit
+[84bc2ef](https://github.com/nakatamaho/vaeg/commit/84bc2efe1de9e5661fd28d31ba087a304f1a82ac)
+keeps `SCSIPH_DATAIN` active when the host-programmed count reaches zero while
+`rddatpos < cmdpos`; the next `TRANSFER INFO` then pumps the next byte.  The
+phase changes to STATUS only after the target response cursor is exhausted.
+The static QA validator now requires this repeated-short-transfer invariant.
+The preceding trace-only cursor-state instrumentation is in
+[d2da983](https://github.com/nakatamaho/vaeg/commit/d2da9835149d5d8dd4fb560c20bfd407db2719cc).
+
+Validation for the correction:
+
+```text
+python3 tools/qa/m75_scsi_controller.py --root .                         PASS
+ctest --test-dir build/m75-tests -R vaeg_m75_scsi_controller --output-on-failure PASS
+SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy build/m75-tests/sdl2/vaeg --selftest PASS
+CCACHE_DISABLE=1 cmake --build build/mingw-cross --target vaeg_sdl2 -j2 PASS
+```
+
+The diagnostic MinGW executable copied to `/tmp/vaeg-m75-datain-repeat.exe`
+has SHA-256
+`1327093c303f08a7fda7f55499ef4d85ced878e932b578db81e5f26dee066dc2`.
+The supplied pre-correction WSLg run is not acceptance evidence for the fixed
+binary; a new run must show repeated DATA IN reads, then the complete INQUIRY
+STATUS/MESSAGE sequence, before SCHD registration is reconsidered.  G75
+remains open and no M76 work is authorized.
