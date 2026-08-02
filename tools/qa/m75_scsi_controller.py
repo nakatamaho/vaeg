@@ -128,6 +128,8 @@ def validate(root: pathlib.Path) -> None:
             "target command processing event quantum")
     require(scsiio, "scsiio_target_phase_ready_event",
             "target phase readiness event")
+    require(scsiio, "status == 0x85) || (status == 0x80",
+            "bus-free status release after MESSAGE IN")
     require(scsiio, "target-phase-wait",
             "DBR-gated target phase wait")
     require(scsiio, "scsi_transfer_phase_pending && !scsi_target_phase_ready",

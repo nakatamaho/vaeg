@@ -144,7 +144,17 @@ static void scsiio_schedule_transfer_phase(REG8 status,
 		UINT completed_phase) {
 
 	scsi_transfer_phase_status = status;
-	if (scsiio.phase == completed_phase) {
+	/*
+	 * Bus free has no following TRANSFER INFO command.  Mark the target
+	 * ready when MESSAGE IN completes so that the CSR=1Fh read can release
+	 * the pending ending-disconnect status (85h/80h).  All data-bearing
+	 * phase changes remain gated by the target-processing event below.
+	 */
+	if ((status == 0x85) || (status == 0x80)) {
+		scsi_transfer_phase_pending = TRUE;
+		scsi_target_phase_ready = TRUE;
+	}
+	else if (scsiio.phase == completed_phase) {
 		/* REQ continues within the current phase; DBR may remain available. */
 		scsi_transfer_phase_pending = FALSE;
 		scsi_target_phase_ready = TRUE;
