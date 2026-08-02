@@ -57,6 +57,7 @@
 #include	"romankana.h"
 #include	"sgp.h"
 #include	"sxsi.h"
+#include	"scsiio.h"
 #include	"scrndraw.h"
 #include	"scrnmng.h"
 #include	"scrndrawva.h"
@@ -2131,6 +2132,9 @@ int vaeg_selftest_run(void) {
 	}
 #endif
 
+	if (scsiio_transfer_selftest() != SUCCESS) {
+		return(fail("SCSI Transfer Info", "compiled controller-path tests failed"));
+	}
 	if (test_codecnv() != SUCCESS) {
 		return(FAILURE);
 	}
