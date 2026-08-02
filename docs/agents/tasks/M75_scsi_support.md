@@ -569,3 +569,18 @@ artifact is `/tmp/vaeg-m75-cmdreq-mingw.exe`, copied byte-identically from
 `4c7ab88c7616ff08b767a81db303957174829333ada2ead5b7981112226cc078`.
 Windows execution is unavailable on the development host; rerun the support
 disk and record SENSE completion, SCHD registration, and SCFORM before G75.
+
+### M75d1 MODE SENSE block-descriptor correction (2026-08-02)
+
+After the transfer-count correction, the guest reached SCHD's INQUIRY summary
+(device code 0, response-data format 0, fixed-media mode) and then halted in
+the following geometry path.  SCHD requests MODE SENSE(6) page 04h with
+allocation length 24h.  The SCSI block descriptor stores block length in
+response bytes 9--11, but VAEG had written it at byte 8.  This shifted the
+reported block size and could make SCHD reject the geometry.
+
+The production correction writes the block length at byte 9, preserving the
+reserved byte at 8 and deriving the value from the mounted image geometry.  QA
+now checks the source-level offset.  Local build, focused CTest, M75 QA, and
+SDL selftest pass; MinGW/SCFORM manual confirmation remains required and G75
+is still open.
