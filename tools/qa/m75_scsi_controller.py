@@ -134,6 +134,12 @@ def validate(root: pathlib.Path) -> None:
             "target-side phase readiness gate")
     require(scsiio, "SCSI_TARGET_PROCESSING_CLOCKS",
             "target command processing event quantum")
+    require(trans_info,
+            "scsiio.auxstatus &= (REG8)~SCSI_AUX_DBR",
+            "DBR held low from TRANSFER INFO until target readiness")
+    require(trans_info,
+            "nevent_set(NEVENT_SCSIIO, SCSI_TARGET_PROCESSING_CLOCKS",
+            "emulated-clock delay before the first DBR assertion")
     require(scsiio, "scsiio_target_phase_ready_event",
             "target phase readiness event")
     require(scsiio, "status == 0x85) || (status == 0x80",
