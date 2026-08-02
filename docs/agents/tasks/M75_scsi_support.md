@@ -586,3 +586,47 @@ The MODE SENSE block-length offset correction remains.  The rebuilt MinGW
 artifact SHA-256 is
 `d17a62569568d51ddfda1a8739824e52922772f9be870dfa98780d3abf4eac25`.
 G75 remains open pending a new manual run.
+
+### M75d1 CSR provenance trace (2026-08-02)
+
+The trace-only CSR queue diagnosis is committed at
+[ad9c99b](https://github.com/nakatamaho/vaeg/commit/ad9c99b2d36a810793a57b1162fc195229b009a3).
+The synchronized starting SHA for this checkpoint was
+`afd3dabe19dcca670847f7e397ead67c7cf38e33`; the upstream branch pointed to
+the same SHA before the trace commit.  The change does not alter CSR admission,
+event delay, guest memory, register state, IRQ timing, or PIO behavior.
+
+Each CSR request now receives a trace-only sequence number and origin.  The
+trace records `csr-request`, `csr-latch`, `csr-hostread`, `csr-promote`,
+`csr-overrun`, and `csr-drop`, together with the event/latch/pending state,
+raw status, phase, AR, auxiliary status, target-readiness flags, and `CS:IP`.
+The sequence metadata is reset with the controller and is emitted only when
+`--scsitrace` is enabled.  The existing pending slot is intentionally
+unchanged until the provenance evidence distinguishes duplicate production
+requests from a delayed host read.
+
+A normal-speed VA1 bounded run with the standard SCSI support disk and a 40 MB
+SCSI image produced request sequences 1 through 11.  Every observed event had
+the order request -> latch -> hostread; no `csr-overrun`, `csr-drop`, or
+`csr-promote` record was emitted in that run.  The run reached the second
+SELECT/COMMAND request but did not reach a second CDB transfer before the
+30-second external safety bound (`exit=124`).  A shorter semantic-limit run
+exited 0 after the diagnostic stop and showed the same ordered prefix.  This
+does not reproduce the older WSLg stale-`11h` report and does not justify a
+production queue or delay change.
+
+Validation for this trace-only checkpoint passed:
+
+```text
+python3 tools/qa/m75_scsi_controller.py --root .                         PASS
+cmake --build build/linux-ci-clang --target vaeg_sdl2 -j2                  PASS
+cmake --build build/m75-tests --target vaeg_sdl2 -j2                      PASS
+ctest --test-dir build/m75-tests -R vaeg_m75_scsi_controller               PASS
+SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy build/m75-tests/sdl2/vaeg --selftest  PASS
+```
+
+The evaluated executable was `build/linux-ci-clang/sdl2/vaeg`, SHA-256
+`5e55a19ecc2eeca505fa0bde0923cfdb9ce7781b65343ddadedc39035efec76d`.
+G75 remains pending: the normal-speed INQUIRY DATA IN acceptance, SCHD
+registration, SCFORM, reboot, file operations, and SASI/HOSTFAT/non-SCSI
+regressions still require their respective evidence.
