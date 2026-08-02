@@ -1050,3 +1050,61 @@ SHA-256: 6dd5469a751dd0ba15d86fd1dc2b3d42ab0c5241c2efa98b52cfee28a1ef2df9
 
 The SCSI QA, Linux SDL2 build, focused CTest, and existing selftest remain
 passing.  G75 remains open.
+
+
+### M75d1 MODE SENSE page-04 geometry correction (2026-08-02)
+
+The observed SCHD CDB `1A 00 04 00 24 00` requests MODE SENSE(6), page
+`04h` (Rigid Disk Drive Geometry), with a 36-byte allocation.  The previous
+implementation ignored the page code and returned only a 12-byte header and
+block descriptor.  That could not provide the cylinder/head geometry needed by
+SCHD registration.
+
+Commit [03d4cd7](https://github.com/nakatamaho/vaeg/commit/03d4cd76541a3058cf32b0c239b499e0c0431627)
+now derives the response from the mounted `SXSIDEV` and supports page `04h`
+and the supported-pages request `3Fh`.  With DBD clear, the response is 36
+bytes: a four-byte mode header, an eight-byte big-endian block descriptor, and
+a 24-byte page-04 payload.  With DBD set, the descriptor is omitted and the
+response is 28 bytes.  The mode data length reports the available response
+length minus one, while the transfer length remains bounded by the host
+allocation count.  Cylinder count, head count, block count, and block length
+are encoded from the mounted image; the geometry invariant is checked as
+`totals == cylinders * surfaces * sectors`.
+
+Unsupported page codes and contradictory image geometry now return CHECK
+CONDITION with ILLEGAL REQUEST (`sense key=05h`, `ASC=24h`).  The existing
+REQUEST SENSE path returns that sense data and clears it after delivery.  No
+fixed 40 MB geometry or PCPLUS-specific branch was introduced.
+
+The accelerated diagnostic trace reaches the later CDB sequence and confirms
+that MODE SENSE is now classified as DATA IN:
+
+```text
+INQUIRY    12 00 00 00 24 00
+READ CAPACITY 25 00 00 00 00 00 00 00 00 00 00
+MODE SENSE 1A 00 04 00 24 00
+MODE DATA IN request: phase=19h, allocation TC=24h
+```
+
+The `--cpumult 8` run remains diagnostic-only and shows partial transfers due
+to the intentionally changed CPU/device timing ratio.  It is not used as
+acceptance evidence.  A normal-speed 180-second compact run still completed
+only the TUR sequence before its external safety bound (`exit=124`); it did
+not reach the later MODE SENSE transfer.  Therefore SCHD registration has not
+been demonstrated.
+
+Validation after this commit:
+
+```text
+python3 tools/qa/m75_scsi_controller.py --root .                 PASS
+cmake --build build/linux-ci-clang --target vaeg_sdl2 -j2        PASS
+cmake --build build/m75-tests --target vaeg_sdl2 -j2             PASS
+ctest --test-dir build/m75-tests -R vaeg_m75_scsi_controller    PASS
+SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy vaeg --selftest       PASS
+worker SHA-256: 88454f0e1176c3a2f1b82573e9ca7170373cd17f21e4b6253855e879e1344b4d
+```
+
+G75 remains open.  Normal-speed INQUIRY/MODE SENSE DATA IN accounting,
+PCPLUS/SCHD registration, SCFORM initialization, reboot, and SCSI file
+create/read/delete operations still require evidence.  No G75 approval is
+claimed.

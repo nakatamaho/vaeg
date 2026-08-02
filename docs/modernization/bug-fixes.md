@@ -1228,3 +1228,24 @@ separate parity correction or move it to Open Defects.
 - **Evidence:** [M75 report](../agents/reports/m75_scsi_support.md),
   [0c80c447](https://github.com/nakatamaho/vaeg/commit/0c80c447b6b655b81b3d08e5b67c8a1457d5be91),
   and [df2981e](https://github.com/nakatamaho/vaeg/commit/df2981e).
+
+
+### MODE SENSE page-04 geometry was omitted from the SCSI target
+
+- **Status:** corrected in M75d1; normal-speed SCHD registration remains open.
+- **Symptom:** PCPLUS/SCHD issued `1A 00 04 00 24 00` but the target ignored
+  the page code and returned only a 12-byte mode header and block descriptor,
+  omitting the rigid-disk cylinder/head geometry.
+- **Demonstrated root cause:** `scsicmd_datain()` treated every MODE SENSE(6)
+  request as the descriptor-only case and capped the response at 12 bytes.
+- **Correction:** decode page `04h` and `3Fh`, emit the allocation-bounded
+  page-04 geometry with mounted `SXSIDEV` values, validate the geometry
+  product, and return CHECK CONDITION/ILLEGAL REQUEST for unsupported pages or
+  inconsistent geometry.  REQUEST SENSE exposes and then clears the sense
+  data.
+- **Verification:** M75 controller QA, Linux SDL2 build, focused CTest, and
+  SDL selftest pass; the accelerated real-ROM trace reaches the MODE SENSE
+  DATA IN phase.  Normal-speed SCHD registration is not yet demonstrated.
+- **Evidence:** [M75 report](../agents/reports/m75_scsi_support.md) and
+  [M75 task](../agents/tasks/M75_scsi_support.md).
+- **Commit:** [03d4cd765](https://github.com/nakatamaho/vaeg/commit/03d4cd76541a3058cf32b0c239b499e0c0431627).
