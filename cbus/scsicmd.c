@@ -123,6 +123,7 @@ static UINT scsicmd_datain(SXSIDEV sxsi, BYTE *cdb) {
 	UINT	page;
 	UINT	page_offset;
 	UINT	response_length;
+	UINT	geometry_offset;
 	BOOL	dbd;
 
 	ZeroMemory(scsiio.data, sizeof(scsiio.data));
@@ -167,7 +168,7 @@ static UINT scsicmd_datain(SXSIDEV sxsi, BYTE *cdb) {
 		case 0x1a:				// Mode Sense (6)
 			TRACEOUT(("Mode Sense (6)"));
 			page = cdb[2] & 0x3f;
-			if ((page != 0x04) && (page != 0x3f)) {
+			if ((page != 0x00) && (page != 0x04) && (page != 0x3f)) {
 				/* Invalid page code: CHECK CONDITION / ILLEGAL REQUEST. */
 				scsicmd_set_sense(0x05, 0x24, 0x00);
 				scsicmd_check_condition = TRUE;
@@ -180,13 +181,20 @@ static UINT scsicmd_datain(SXSIDEV sxsi, BYTE *cdb) {
 				break;
 			}
 			/*
-			 * Page 04h is the rigid-disk geometry page.  Page 3fh is
-			 * the supported-pages request and currently expands to this
-			 * single page.  The DBD bit selects the optional descriptor.
+			 * Page 04h is the rigid-disk geometry page.  Page 00h is
+			 * the supported empty page, and page 3fh returns both pages.
+			 * The DBD bit selects the optional descriptor.
 			 */
 			dbd = (cdb[1] & 0x08) != 0;
 			page_offset = dbd ? 4 : 12;
-			response_length = page_offset + 24;
+			geometry_offset = page_offset;
+			if (page == 0x3f) {
+				scsiio.data[page_offset + 0] = 0x00;
+				scsiio.data[page_offset + 1] = 0x00;
+				geometry_offset += 2;
+			}
+			response_length = geometry_offset +
+					((page == 0x00) ? 2 : 24);
 			length = cdb[4];
 			scsiio.data[1] = 0x00;
 			scsiio.data[2] = 0x00;
@@ -198,15 +206,17 @@ static UINT scsicmd_datain(SXSIDEV sxsi, BYTE *cdb) {
 				scsicmd_putbe24(scsiio.data + 8,
 						(UINT32)sxsi->size);
 			}
-			scsiio.data[page_offset + 0] = 0x04;
-			scsiio.data[page_offset + 1] = 0x16;
-			scsicmd_putbe24(scsiio.data + page_offset + 2,
-					(UINT32)sxsi->cylinders);
-			scsiio.data[page_offset + 5] = sxsi->surfaces;
-			/* Write-precomp, reduced-current, step-rate, RPL and
-			 * rotational fields remain zero for the emulated disk. */
-			scsicmd_putbe24(scsiio.data + page_offset + 14,
-					(UINT32)sxsi->cylinders);
+			if (page != 0x00) {
+				scsiio.data[geometry_offset + 0] = 0x04;
+				scsiio.data[geometry_offset + 1] = 0x16;
+				scsicmd_putbe24(scsiio.data + geometry_offset + 2,
+						(UINT32)sxsi->cylinders);
+				scsiio.data[geometry_offset + 5] = sxsi->surfaces;
+				/* Write-precomp, reduced-current, step-rate, RPL and
+				 * rotational fields remain zero for the emulated disk. */
+				scsicmd_putbe24(scsiio.data + geometry_offset + 14,
+						(UINT32)sxsi->cylinders);
+			}
 			copylen = min(length, response_length);
 			scsiio.data[0] = (BYTE)(response_length - 1);
 			scsiio.cmdpos = copylen;
