@@ -58,6 +58,8 @@ def validate(root: pathlib.Path) -> None:
     if inquiry_values[4] != len(inquiry_values) - 5:
         raise AssertionError(
             "INQUIRY additional length must equal table length minus five")
+    if inquiry_values[24:28] != [ord("1"), ord("."), ord("0"), ord("0")]:
+        raise AssertionError("INQUIRY revision must be 1.00")
 
     for opcode, name in (("0x00", "TEST UNIT READY"),
                          ("0x03", "REQUEST SENSE"),

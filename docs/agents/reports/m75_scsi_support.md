@@ -1190,3 +1190,13 @@ The consumer-path comparison remains incomplete: the normal-speed second
 full guest trace did not reach that point within its tracing bound.  Therefore
 it is not yet proven whether `1CCDh` or `1742h/1747h` consumes that event at
 normal speed.  G75 remains open and no delay tuning is authorized.
+
+### INQUIRY revision identification (2026-08-02)
+
+The INQUIRY response revision field (bytes 24-27) now returns the fixed
+ASCII revision `1.00`; the remaining four bytes of the eight-byte revision
+area remain space padded.  The response remains a 32-byte table with byte4
+`1Bh`; this does not change the allocation-length or short-transfer contract.
+The M75 controller QA validator now rejects a response table whose revision is
+not `1.00`.  This is an identification change only and does not constitute
+normal-speed INQUIRY DATA IN acceptance.
