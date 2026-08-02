@@ -731,3 +731,141 @@ The current M75 blocker is therefore reproduced: CDB PIO and the subsequent
 `8Bh` service request are observable, but the PCPLUS phase handoff does not
 yet emit the next `AR=18h <- 20h` Transfer Info command. G75 remains
 ineligible.
+
+
+## M75d1 target-phase readiness correction (current implementation)
+
+The previous handoff diagnosis is now resolved at the controller boundary. The
+raw `8Bh` value was normalized correctly by PCPLUS, but the controller exposed
+the next target phase as soon as the previous CSR was consumed. The foreground
+was still completing the preceding transfer, so the `8Bh` interrupt was picked
+up by the main event pump (`1742h`/`1747h`) instead of the transfer wait path.
+`1747h` clears memory `CS:[047Eh]` from `BBh` to `3Bh` and `1791h` branches
+using the copied value; it does not reread the cleared byte.
+
+The production correction is general and has no PCPLUS-address or CDB shortcut:
+
+1. A completed transfer records the target's next phase as a pending event.
+2. The host-visible `CSR` latch is still consumed only by an `AR=17h` read.
+3. When the host issues `AR=18h <- 20h` for that pending phase, DBR is held
+   low and a controller processing event is scheduled.
+4. The event then exposes the service request. The event quantum is the
+   existing 100-clock PIO controller event quantum; it is not a guest-tuned
+   timer or an injected CSR.
+5. If the target remains in the same phase, no processing event is inserted;
+   the next PIO byte remains available. A phase transition alone requires the
+   processing event.
+
+The disassembly establishes that the command/status foreground wait is
+`1B67h`/`1B73h`; `1CBDh` is a separate helper used by another transfer path and
+is not claimed as the observed wait point. The corrected trace is:
+
+```text
+CDB 00 00 00 00 00 00
+  CSR=1Ah, AR19 writes=6
+  target-phase-wait phase=1Bh, TC=010000 (DBR held low)
+  CSR=8Bh delivered at guest IP=1B67h
+  AR17=8Bh, AR16=00h, AR13=00h, AR14=00h
+  CS:[047Eh] after normalization/consumption = 3Bh
+  1BA1h -> 1C14h -> 1C32h, AR18=20h
+  AR19 read=00h, CSR=1Bh
+  target-phase-wait phase=1Fh
+  CSR=8Fh delivered at guest IP=1BB7h
+  AR19 read=00h, CSR=1Fh
+```
+
+The same run then reaches the PCPLUS REQUEST SENSE command (`03 00 00 00
+0D 00`). Its fixed no-sense response begins with `70h`, and the first DATA IN
+transfer is observed as `CSR=19h`, AR19 read, data `70h`. The bounded trace did
+not reach the later INQUIRY CDB (`12h`) before the safety limit; therefore the
+INQUIRY 36-byte golden remains unclaimed. This is an evidence boundary, not a
+claim that INQUIRY is unsupported.
+
+Commits for this checkpoint are:
+
+```text
+dffa008 M75d1: add phase handoff regression checks
+1cd3edb M75d1: gate target phase requests behind PIO readiness
+e56a16e M75d1: implement request sense data phase
+efb19cb M75d1: use controller phase processing quantum
+07c1074 M75d1: record PIO data bytes in SCSI trace
+0527db6 M75d1: validate PIO byte evidence
+9e6919f M75d1: keep same-phase PIO requests ready
+```
+
+Validation after the correction:
+
+```text
+python3 tools/qa/m75_scsi_controller.py --root .       PASS
+cmake --build build/linux-ci-clang --target vaeg_sdl2 -j2  PASS
+cmake -S . -B build/m75-tests -DCMAKE_BUILD_TYPE=Debug \
+  -DVAEG_ENABLE_TESTS=ON -DVAEG_Z80_INTEGRATION_TRACE=ON  PASS
+cmake --build build/m75-tests --target vaeg_sdl2 -j2      PASS
+ctest --test-dir build/m75-tests -R vaeg_m75_scsi_controller \
+  --output-on-failure                                      PASS
+SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
+  build/linux-ci-clang/sdl2/vaeg --selftest                PASS
+```
+
+The current Linux worker digest after the trace-byte rebuild is
+`ae3930bd2738b7685621b5722a5e6699990fa75abaf1881cef82267b693f7f5e`.
+The real-ROM bounded run with `--scsitrace-limit 6` exited 0 at the diagnostic
+completion limit and observed TUR STATUS/MESSAGE plus REQUEST SENSE DATA IN;
+the longer `--scsitrace-limit 20` run was externally bounded with exit 124
+before INQUIRY. Neither result is a G75 approval. Manual SCFORM, SCHD
+registration, file operations, SASI, HOSTFAT, and non-SCSI regression gates
+remain outstanding.
+
+
+## M75d1 post-cursor evidence (current implementation)
+
+The first corrected real-ROM run exposed a second general PIO state defect.  The
+PCPLUS path programs `TC=1` for each byte of a DATA IN response.  Resetting
+`rddatpos` at every `TRANSFER INFO` request therefore returned the first byte
+(`70h`) repeatedly for REQUEST SENSE.  Commit `4ab457b` preserves the target
+DATA cursor across repeated requests and resets it only when a new command or a
+new phase starts.  The subsequent phase-boundary reset is committed as
+`dafeae0`.
+
+The low-overhead diagnostic options are now explicit and disabled by default:
+`--scsitrace-no-guest` keeps SCSI register/transfer evidence without the
+UPD9002 guest observation seam, and `--scsitrace-compact` keeps only transfer,
+data-byte, phase-wait, and warning records.  These options do not change SCSI
+state or guest timing; they only reduce diagnostic output overhead.
+
+With the current worker (`ae3930bd2738b7685621b5722a5e6699990fa75abaf1881cef82267b693f7f5e`),
+normal-speed compact tracing records the corrected cursor sequence:
+
+```text
+REQUEST SENSE DATA IN: data=70 index=0, CSR=19h
+REQUEST SENSE DATA IN: data=00 index=1, CSR=19h
+```
+
+The 30-second bounded run still ended with the external safety status 124
+before the full REQUEST SENSE allocation and later INQUIRY command.  A longer
+normal-speed compact run produced no additional DATA bytes before it was
+stopped; it likewise did not reach INQUIRY.  Diagnostic `--cpumult 8/32` runs
+reach INQUIRY and later CDBs, but change emulated timing and produce incomplete
+DATA transfers; they are not counted as M75 acceptance evidence.
+
+Current local regression checks:
+
+```text
+python3 tools/qa/m75_scsi_controller.py --root .                       PASS
+cmake --build build/linux-ci-clang --target vaeg_sdl2 -j2             PASS
+cmake --build build/m75-tests --target vaeg_sdl2 -j2                  PASS
+ctest --test-dir build/m75-tests -R vaeg_m75_scsi_controller            PASS
+SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
+  build/linux-ci-clang/sdl2/vaeg --selftest                            PASS
+```
+
+Session-only smoke checks using the maintained ROM directory passed for the
+non-SCSI path, a SCSI image, and an empty HOSTFAT snapshot.  SASI could not be
+run because every available temporary HDD image was rejected by the existing
+validator with `unsupported format or geometry`; no SASI result is claimed.
+SCFORM, SCHD registration, reboot, and file create/read/delete remain manual
+PC-Engine guest checks and were not run by this headless session.
+
+The 36-byte INQUIRY golden sequence has not yet been observed at normal
+emulation speed.  M75d1 and G75 therefore remain open; no G75 approval is
+claimed.
