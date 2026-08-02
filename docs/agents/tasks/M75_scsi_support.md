@@ -461,9 +461,10 @@ The SCHD probe uses MODE SENSE(6) CDB `1A 00 04 00 24 00`.  The controller
 must decode page `04h`, not silently return only the mode header and block
 descriptor.  Commit
 [03d4cd7](https://github.com/nakatamaho/vaeg/commit/03d4cd76541a3058cf32b0c239b499e0c0431627)
-implements the page-04 rigid-disk geometry response, page `3Fh` as the
-supported-pages request, DBD-dependent response layout, allocation-bounded
-transfer, and CHECK CONDITION/ILLEGAL REQUEST for unsupported pages or
+implements the empty page-00 response, page-04 rigid-disk geometry response,
+page `3Fh` as the page-00 plus page-04 all-pages request, DBD-dependent
+response layout, allocation-bounded transfer, and CHECK CONDITION/ILLEGAL REQUEST
+for unsupported pages or
 contradictory mounted geometry.  All counts and lengths derive from
 `SXSIDEV`; fixed geometry values are prohibited.
 
