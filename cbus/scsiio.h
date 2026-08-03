@@ -43,6 +43,14 @@ void scsiio_trace_cdb_result(UINT target_id, UINT target_lun, UINT cdb_lun,
 		UINT selected_index, const BYTE *cdb, UINT cdb_length,
 		REG8 inquiry_byte0, UINT response_length, REG8 status,
 		REG8 sense_key, REG8 asc, REG8 ascq);
+void scsiio_trace_block_start(UINT sequence, UINT target_id, UINT target_lun,
+		UINT cdb_lun, const BYTE *cdb, UINT32 lba, UINT32 block_count,
+		UINT sector_size, UINT32 byte_count, UINT backend_index,
+		BOOL backend_read_only);
+void scsiio_trace_block_complete(UINT sequence, REG8 opcode,
+		UINT32 transferred_bytes, UINT32 residual_bytes,
+		UINT32 backend_blocks, REG8 backend_result, REG8 status,
+		REG8 sense_key, REG8 asc, REG8 ascq, UINT commit_count);
 BOOL scsiio_transfer_selftest(void);
 
 #ifdef __cplusplus

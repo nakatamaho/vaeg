@@ -281,6 +281,7 @@ static BOOL scsi_trace_compact_line(const char *fmt) {
 			strncmp(fmt, "scsitrace command-", 18) == 0 ||
 			strncmp(fmt, "scsitrace target-selection", 25) == 0 ||
 			strncmp(fmt, "scsitrace cdb-result", 20) == 0 ||
+			strncmp(fmt, "scsitrace block-", 16) == 0 ||
 			strncmp(fmt, "scsitrace req-", 14) == 0 ||
 			strncmp(fmt, "scsitrace ack-", 14) == 0 ||
 			strncmp(fmt, "scsitrace data-latched", 22) == 0 ||
@@ -659,6 +660,16 @@ static void scsiio_data_write(REG8 dat) {
 	if (scsi_transfer_remaining) {
 		scsi_transfer_remaining--;
 	}
+	if ((scsiio.phase == SCSIPH_DATAOUT) &&
+			scsi_transfer_remaining != 0 && scsicmd_block_dataout_ready()) {
+		next_status = scsicmd_transinfo(scsiio.reg[SCSICTR_DSTID] & 7);
+		if (next_status == scsicmd_phase_service_status(SCSIPH_DATAOUT)) {
+			scsi_transfer_state = SCSI_TRANSFER_BYTE_PENDING;
+			scsiio.auxstatus |= SCSI_AUX_DBR;
+			scsiio_target_assert_req("chunk", next_status);
+			return;
+		}
+	}
 	if (scsi_transfer_remaining != 0) {
 		scsi_transfer_state = SCSI_TRANSFER_BYTE_PENDING;
 		scsiio.auxstatus |= SCSI_AUX_DBR;
@@ -736,14 +747,38 @@ static REG8 scsiio_data_read(void) {
 				scsiio.rddatpos >= scsiio.cmdpos &&
 				scsi_transfer_remaining != 0) {
 		REG8 short_status;
-		scsiio_complete_byte_handshake();
-		if (!scsi_transfer_single_byte) {
-			scsiio_decrement_transfer_count();
+		BOOL chunk_handshake = FALSE;
+		if (scsicmd_block_data_available()) {
+			scsiio_complete_byte_handshake();
+			if (!scsi_transfer_single_byte) {
+				scsiio_decrement_transfer_count();
+			}
+			if (scsi_transfer_remaining) {
+				scsi_transfer_remaining--;
+			}
+			chunk_handshake = TRUE;
+			next_status = scsicmd_transinfo(scsiio.reg[SCSICTR_DSTID] & 7);
+			if (next_status == scsicmd_phase_service_status(SCSIPH_DATAIN)) {
+				scsi_transfer_state = SCSI_TRANSFER_BYTE_PENDING;
+				scsiio.auxstatus |= SCSI_AUX_DBR;
+				scsiio_target_assert_req("chunk", next_status);
+				return ret;
+			}
 		}
-		if (scsi_transfer_remaining) {
-			scsi_transfer_remaining--;
+		if (!chunk_handshake) {
+			scsiio_complete_byte_handshake();
+			if (!scsi_transfer_single_byte) {
+				scsiio_decrement_transfer_count();
+			}
+			if (scsi_transfer_remaining) {
+				scsi_transfer_remaining--;
+			}
+			next_status = scsicmd_transinfo(scsiio.reg[SCSICTR_DSTID] & 7);
 		}
-		next_status = scsicmd_transinfo(scsiio.reg[SCSICTR_DSTID] & 7);
+		if (scsi_transfer_remaining == 0) {
+			scsiio_post_count_wait(next_status);
+			return ret;
+		}
 		short_status = scsicmd_phase_unexpected_status(scsiio.phase);
 		/* A terminated Transfer Info exposes the new phase REQ to the
 		 * host with the 4MCI.  It is retained for the next Transfer Info;
@@ -863,6 +898,36 @@ void scsiio_trace_cdb_result(UINT target_id, UINT target_lun, UINT cdb_lun,
 			cdb[2], cdb[3], cdb[4], cdb[5], cdb[6], cdb[7], cdb[8], cdb[9],
 			cdb[10], cdb[11], selected_index, inquiry_byte0, response_length,
 			status, sense_key, asc, ascq));
+}
+
+
+void scsiio_trace_block_start(UINT sequence, UINT target_id, UINT target_lun,
+		UINT cdb_lun, const BYTE *cdb, UINT32 lba, UINT32 block_count,
+		UINT sector_size, UINT32 byte_count, UINT backend_index,
+		BOOL backend_read_only) {
+
+	SCSITRACEOUT(("scsitrace block-start sequence=%u target_id=%u "
+			"wd_target_lun=%u cdb_lun=%u opcode=%02x cdb0=%02x cdb1=%02x "
+			"cdb2=%02x cdb3=%02x cdb4=%02x cdb5=%02x cdb6=%02x cdb7=%02x "
+			"cdb8=%02x cdb9=%02x cdb10=%02x cdb11=%02x lba=%u block_count=%u sector_size=%u "
+			"byte_count=%u backend_device=%u backend_read_only=%u",
+			sequence, target_id, target_lun, cdb_lun, cdb[0], cdb[0], cdb[1],
+			cdb[2], cdb[3], cdb[4], cdb[5], cdb[6], cdb[7], cdb[8], cdb[9],
+			cdb[10], cdb[11], lba, block_count, sector_size, byte_count, backend_index,
+			backend_read_only ? 1 : 0));
+}
+
+void scsiio_trace_block_complete(UINT sequence, REG8 opcode,
+		UINT32 transferred_bytes, UINT32 residual_bytes,
+		UINT32 backend_blocks, REG8 backend_result, REG8 status,
+		REG8 sense_key, REG8 asc, REG8 ascq, UINT commit_count) {
+
+	SCSITRACEOUT(("scsitrace block-complete sequence=%u opcode=%02x "
+			"transferred_bytes=%u residual_bytes=%u backend_blocks=%u "
+			"backend_result=%02x status=%02x sense=%02x asc=%02x ascq=%02x "
+			"commit_count=%u", sequence, opcode, transferred_bytes,
+			residual_bytes, backend_blocks, backend_result, status, sense_key,
+			asc, ascq, commit_count));
 }
 
 
@@ -1594,6 +1659,7 @@ void scsiio_reset(void) {
 	nevent_reset(NEVENT_SCSIWATCHDOG);
 	scsi_trace_watchdog_scheduled = FALSE;
 	ZeroMemory(&scsiio, sizeof(scsiio));
+	scsicmd_block_reset_state();
 	scsi_csr_latched = FALSE;
 	scsi_csr_event_active = FALSE;
 	scsi_csr_event_status = 0;
