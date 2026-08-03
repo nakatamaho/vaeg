@@ -1431,3 +1431,12 @@ separate parity correction or move it to Open Defects.
 - **Verification:** nine generated inspector tests pass.  No FAT free-cluster
   count or post-fix SCFORM result is claimed from these truncated artifacts.
 - **Evidence:** [M75 report](../agents/reports/m75_scsi_support.md).
+
+### SCSI VHD creator left declared capacity truncated
+
+- **Status:** corrected in M75; guest SCFORM and filesystem acceptance remain open.
+- **Symptom:** VHD1.00 headers declared 163840 256-byte blocks, but newly created backing files ended after the header/initial IPL and SXSIDEV could read past the actual EOF.
+- **Demonstrated root cause:** the image creator wrote the header and boot bytes without setting the logical file length; the production `VHDHDR` is 220 bytes, so validation must use `sizeof(VHDHDR)` rather than an inferred 256-byte header.
+- **Correction:** `newdisk_vhd_create()` performs checked geometry arithmetic, writes a complete 220-byte-header image through a temporary path, sets the exact sparse logical length, flushes and atomically renames it.  SCSI open/read/write paths now reject incomplete or overlong stores and propagate short I/O/flush failures.
+- **Verification:** production selftests cover exact size, sparse zero reads, first/middle/last block boundaries, persistence after reopen, out-of-range rejection, truncated-image rejection, and no-overwrite behavior.  The generated 40 MiB image is recorded in the M75 report.
+- **Evidence:** [M75 report](../agents/reports/m75_scsi_support.md).
