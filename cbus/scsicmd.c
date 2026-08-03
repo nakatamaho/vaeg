@@ -822,6 +822,7 @@ BOOL scsicmd_backend_selftest(void) {
 	BYTE saved_cmd[12];
 	BYTE saved_data[36];
 	BYTE saved_sense[sizeof(hdd_sense)];
+	char saved_test_fname[MAX_PATH];
 	UINT saved_phase;
 	UINT saved_cmdpos;
 	UINT saved_rddatpos;
@@ -838,6 +839,7 @@ BOOL scsicmd_backend_selftest(void) {
 	BOOL ok = TRUE;
 	static BYTE test_media[512 * 256];
 	BYTE readback[256];
+	BYTE legacy_readback[256];
 	BYTE readback_multi[512];
 	FILEH test_fh;
 	const char *test_path = "m75-scsi-block-selftest.raw";
@@ -1007,6 +1009,7 @@ BOOL scsicmd_backend_selftest(void) {
 		file_close(test_fh);
 	}
 	file_cpyname(slot->fname, test_path, sizeof(slot->fname));
+	file_cpyname(saved_test_fname, slot->fname, sizeof(saved_test_fname));
 	slot->fh = FILEH_INVALID;
 	slot->headersize = 0;
 	slot->totals = 512;
@@ -1090,6 +1093,49 @@ BOOL scsicmd_backend_selftest(void) {
 	SCMD_SELFTEST_CHECK("write_backend_commit_occurs_once",
 			scsi_block.commit_count == 1);
 
+	/* Exercise the compatibility 0CC6h DATA OUT path.  It must feed the
+	 * same block completion routine instead of fabricating STATUS. */
+	ZeroMemory(cdb, sizeof(cdb));
+	cdb[0] = 0x2a; cdb[5] = 7; cdb[7] = 0; cdb[8] = 1;
+	SCMD_SELFTEST_COMMAND(cdb);
+	for (test_i = 0; test_i < 256; test_i++) {
+		scsiio_legacy_dataout_selftest_byte((BYTE)(0x50 + test_i));
+	}
+	SCMD_SELFTEST_CHECK("legacy_0cc6_write_reaches_backend_commit",
+		scsi_block.commit_count == 1 &&
+		scsiio.reg[SCSICTR_STATUS] == 0x00 &&
+		sxsi_read(0x20, 7, legacy_readback, sizeof(legacy_readback)) == 0 &&
+		legacy_readback[0] == 0x50 && legacy_readback[255] == 0x4f);
+	SCMD_SELFTEST_CHECK("legacy_0cc6_does_not_directly_complete_status",
+		scsiio.phase == SCSIPH_STATUS && scsi_block.commit_count == 1);
+
+	/* A backend failure must remain CHECK CONDITION through STATUS. */
+	ZeroMemory(cdb, sizeof(cdb));
+	cdb[0] = 0x2a; cdb[5] = 9; cdb[7] = 0; cdb[8] = 1;
+	SCMD_SELFTEST_COMMAND(cdb);
+	for (test_i = 0; test_i < 256; test_i++) {
+		scsiio.data[test_i] = (BYTE)(0x70 + test_i);
+	}
+	if (slot->fh != FILEH_INVALID) {
+		file_close(slot->fh);
+		slot->fh = FILEH_INVALID;
+	}
+	file_cpyname(slot->fname, "m75-missing-write-backend.raw",
+		sizeof(slot->fname));
+	scsiio.wrdatpos = scsiio.cmdpos;
+	service = scsicmd_transinfo(0);
+	SCMD_SELFTEST_CHECK("failed_backend_write_does_not_return_good",
+		service == scsicmd_phase_service_status(SCSIPH_STATUS) &&
+			scsiio.reg[SCSICTR_STATUS] == 0x02 &&
+			hdd_sense[2] == 0x03 && hdd_sense[12] == 0x0c);
+	service = scsicmd_transinfo(0);
+	SCMD_SELFTEST_CHECK("check_condition_survives_status_transfer",
+		service == scsicmd_phase_service_status(SCSIPH_MSGIN) &&
+			scsiio.reg[SCSICTR_STATUS] == 0x02 &&
+			hdd_sense[2] == 0x03 && hdd_sense[12] == 0x0c);
+	file_cpyname(slot->fname, saved_test_fname, sizeof(slot->fname));
+	slot->fh = FILEH_INVALID;
+
 	ZeroMemory(cdb, sizeof(cdb));
 	cdb[0] = 0x2a; cdb[5] = 20; cdb[7] = 0; cdb[8] = 2;
 	SCMD_SELFTEST_COMMAND(cdb);
@@ -1144,7 +1190,7 @@ BOOL scsicmd_backend_selftest(void) {
 	SCMD_SELFTEST_COMMAND(cdb);
 	SCMD_SELFTEST_CHECK("read6_decodes_21_bit_lba",
 			service == scsicmd_phase_service_status(SCSIPH_DATAIN) &&
-				scsi_block.lba == 8 && scsiio.data[0] == test_media[7 * 256]);
+				scsi_block.lba == 8 && scsiio.data[0] == 0x50);
 
 	ZeroMemory(cdb, sizeof(cdb));
 	cdb[0] = 0x08; cdb[1] = 0; cdb[2] = 0; cdb[3] = 0; cdb[4] = 0;
@@ -1278,7 +1324,9 @@ REG8 scsicmd_transinfo(REG8 id) {
 			return(scsicmd_phase_service_status(SCSIPH_DATAOUT));
 
 		case SCSIPH_STATUS:
-			scsiio.reg[SCSICTR_STATUS] = 0x00;
+			/* Preserve the command result selected by the target command
+			 * layer.  A failed DATA OUT backend must remain CHECK CONDITION
+			 * through STATUS transfer. */
 			scsiio.phase = SCSIPH_MSGIN;
 			/* The next phase starts a fresh PIO data window. */
 			scsiio.rddatpos = 0;

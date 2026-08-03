@@ -52,6 +52,7 @@ void scsiio_trace_block_complete(UINT sequence, REG8 opcode,
 		UINT32 backend_blocks, REG8 backend_result, REG8 status,
 		REG8 sense_key, REG8 asc, REG8 ascq, UINT commit_count);
 BOOL scsiio_transfer_selftest(void);
+void scsiio_legacy_dataout_selftest_byte(REG8 dat);
 
 #ifdef __cplusplus
 }
