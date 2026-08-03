@@ -1408,7 +1408,26 @@ separate parity correction or move it to Open Defects.
   clusters, inspects root-directory entries, and reports changed physical-LBA
   ranges.  Generated fixtures reject duplicated/reordered four-block metadata
   and zero-free or mismatched FAT tables.
-- **Verification:** seven generated unittest cases and the focused CTest pass.
-  Original user images were not modified; host access returned
-  `Operation not permitted`, so no disk corruption root cause is asserted.
+- **Verification:** the initial seven generated unittest cases and focused CTest
+  pass.  At that time the original user images were inaccessible; the later
+  read-only copies and their truncation evidence are recorded in the
+  superseding forensic entry below.
+- **Evidence:** [M75 report](../agents/reports/m75_scsi_support.md).
+
+
+### Supplied SCFORM images were truncated before FAT validation
+
+- **Status:** evidence limitation recorded in M75; G75 remains open.
+- **Symptom:** the supplied `scsi40_formatted.hdd` was expected to explain the
+  guest's zero-free-space report, but no valid FAT16 BPB could be decoded.
+- **Demonstrated finding:** both supplied VHD1.00 headers report a 40 MiB
+  image with 163,840 256-byte blocks, while the actual files contain only 3
+  and 651 complete data blocks (plus 220-byte tails).  The formatted artifact
+  has early IPL/formatter data and partial writes, not a complete filesystem
+  image.
+- **Correction:** the inspector now reports file size, complete block count,
+  truncation, and changed partial tails; it never fabricates missing blocks.
+  Original files were opened read-only.
+- **Verification:** nine generated inspector tests pass.  No FAT free-cluster
+  count or post-fix SCFORM result is claimed from these truncated artifacts.
 - **Evidence:** [M75 report](../agents/reports/m75_scsi_support.md).

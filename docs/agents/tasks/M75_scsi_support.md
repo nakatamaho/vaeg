@@ -813,3 +813,16 @@ it assembles 1024-byte logical sectors from four 256-byte physical blocks and
 reports BPB, FAT1/FAT2, free clusters, root-directory state, and changed
 physical-LBA ranges.  The original image directory was inaccessible in the
 current sandbox, so no FAT result is claimed until those copies are exposed.
+
+
+### Accessible image evidence correction (2026-08-03)
+
+The previously inaccessible image paths are now readable under
+`/Users/maho/vaeg`.  The supplied `scsi40.hdd` and
+`scsi40_formatted.hdd` are VHD1.00 files with 256-byte blocks and headers that
+report 163,840 blocks (40 MiB), but their actual lengths contain only 3 and
+651 complete data blocks respectively, plus 220-byte tails.  The read-only
+inspector reports no valid FAT16 BPB candidate and cannot safely derive FAT or
+root-directory state.  Their exact hashes, changed ranges, and truncation are
+recorded in the M75 report.  Do not treat these partial artifacts as a valid
+formatted-volume result or declare G75.

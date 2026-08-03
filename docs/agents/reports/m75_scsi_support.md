@@ -1795,13 +1795,11 @@ Generated fixtures cover header and partition offsets, four-block BPB
 assembly, healthy and full FAT16 tables, mismatched FAT copies, unused root
 entries, and changed-LBA reporting.
 
-The supplied source and previously formatted images could not be opened from
-this sandbox: the initial `ls` command returned `Operation not permitted` for
-both `/Users/maho/88VA/images/scsi40.hdd` and
-`/Users/maho/88VA/images/scsi40_formatted.hdd`.  Neither original was copied
-or modified.  Therefore their SHA-256 values, changed-LBA ranges, BPB, FAT,
-and root-directory state remain unreported rather than guessed.  The inspector
-is ready to run against private copies when the host exposes them.
+At the initial inspection attempt the source and previously formatted images
+under `/Users/maho/88VA/images` were inaccessible (`Operation not permitted`),
+so no values were guessed.  A later user-provided copy under `/Users/maho/vaeg`
+was inspected read-only; the resulting truncation and hash evidence supersedes
+that earlier access limitation and is recorded below.
 
 The previously available disposable VHD evidence remains separate: its valid
 40MB VHD header reports 256-byte physical blocks and 163840 blocks, but its
@@ -1821,3 +1819,56 @@ was inaccessible and GUI guest automation is not available in this execution
 sandbox.  G75 remains FAIL; the remaining sub-gate is to run SCFORM on a fresh
 copy, inspect it with the new tool, and prove positive free clusters plus
 reopen persistence before file-operation acceptance.
+
+
+### Supplied `scsi40` image inspection (2026-08-03)
+
+The user-provided files are now accessible at `/Users/maho/vaeg/scsi40.hdd`
+and `/Users/maho/vaeg/scsi40_formatted.hdd`.  They were opened read-only and
+were not modified.  Python `hashlib.sha256` was used because the sandboxed
+`shasum` Perl runtime is unavailable.
+
+| image | file size | SHA-256 |
+|---|---:|---|
+| `scsi40.hdd` | 1,244 bytes | `47ee49ebe280ff69d28a5f57e018e3d34da1f579ddb95ad7316222309980976a` |
+| `scsi40_formatted.hdd` | 167,132 bytes | `c0b9d419638077e9e02b18854aabfcb978d35be5d091dff3fda5a3193754c60c` |
+
+Both files have a `VHD1.00` header of 256 bytes.  The header reports 256-byte
+physical blocks, 163,840 physical blocks, 40 MiB, and geometry
+`sectors=32`, `surfaces=8`, `cylinders=640`.  The actual files are truncated:
+`scsi40.hdd` contains only 3 complete data blocks plus 220 trailing bytes, and
+`scsi40_formatted.hdd` contains 651 complete data blocks plus 220 trailing
+bytes.  They therefore do not contain the reported 40 MiB data area.
+
+The inspector was run as follows (exit 1 is the intentional structural-error
+result, not a crash):
+
+```text
+python3 tools/inspect_vaeg_fat.py \
+  --image /Users/maho/vaeg/scsi40_formatted.hdd \
+  --physical-block-size 256 \
+  --compare /Users/maho/vaeg/scsi40.hdd \
+  --json
+exit=1
+```
+
+It found zero structurally valid FAT16 BPB candidates.  Consequently no
+partition start, BPB, FAT1/FAT2 equality, free-cluster count, or root-directory
+classification can be derived from these truncated artifacts without guessing.
+The formatted file does contain early non-FAT/formatter data: physical block 0
+contains the PC-88VA IPL/partition area, and later available blocks contain
+partial formatter patterns.  This is not sufficient evidence for a complete
+filesystem.
+
+Among the available complete physical blocks, the formatted file differs from
+the source at LBA 0 and at LBA 3--650 (649 changed complete blocks).  The
+220-byte partial tail at physical LBA 651 also differs; the source tail is
+zero-filled while the formatted tail contains nonzero bytes.  The comparison
+therefore reports `compared_blocks=651`, `changed_blocks=649`, and a separate
+changed partial tail rather than treating missing blocks as zero-filled media.
+
+No post-fix SCFORM image was generated from these files: the source artifact is
+truncated and cannot be used as a complete disposable 40 MiB target.  G75
+remains FAIL.  A complete image (or a fresh run whose full sparse-file length is
+preserved) is required before FAT16 metadata and persistent free-space/file
+operations can be accepted.
