@@ -37,6 +37,12 @@ void scsiio_trace_limit(UINT limit);
 void scsiio_trace_jitter(BOOL enabled, UINT seed, UINT span);
 BOOL scsiio_trace_stop_requested(void);
 void scsiio_trace_pic_irq(REG8 irq, BOOL asserted);
+void scsiio_trace_target_selection(UINT target_id, UINT target_lun,
+		UINT selected_index, REG8 status);
+void scsiio_trace_cdb_result(UINT target_id, UINT target_lun, UINT cdb_lun,
+		UINT selected_index, const BYTE *cdb, UINT cdb_length,
+		REG8 inquiry_byte0, UINT response_length, REG8 status,
+		REG8 sense_key, REG8 asc, REG8 ascq);
 BOOL scsiio_transfer_selftest(void);
 
 #ifdef __cplusplus

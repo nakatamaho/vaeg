@@ -58,6 +58,7 @@
 #include	"sgp.h"
 #include	"sxsi.h"
 #include	"scsiio.h"
+#include	"scsicmd.h"
 #include	"scrndraw.h"
 #include	"scrnmng.h"
 #include	"scrndrawva.h"
@@ -2132,6 +2133,9 @@ int vaeg_selftest_run(void) {
 	}
 #endif
 
+	if (scsicmd_backend_selftest() != SUCCESS) {
+		return(fail("SCSI backend", "compiled LUN/INQUIRY tests failed"));
+	}
 	if (scsiio_transfer_selftest() != SUCCESS) {
 		return(fail("SCSI Transfer Info", "compiled controller-path tests failed"));
 	}
