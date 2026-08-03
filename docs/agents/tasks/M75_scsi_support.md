@@ -772,3 +772,22 @@ therefore SCHD registration and SCFORM have not been accepted yet.
 G75 remains FAIL/pending.  Do not run SCFORM until a normal SCHD enumeration
 run demonstrates exactly one configured disk; reboot/file operations, manual
 SASI/HOSTFAT, and the non-SCSI disk-path gate remain open.
+
+
+## G75 block I/O corrective implementation (2026-08-03)
+
+The production correction is [a4d21e9](https://github.com/nakatamaho/vaeg/commit/a4d21e943be7a5c401fb2f36f57f1fca3a20c0f4), based on the synchronized branch head `1c5aeb75932b5eb73ce4fffc2650bd6c311a18eb`.  The target-side discovery path was already reaching READ(10); the concrete reason the guest later reported that C: had no sectors was that opcode `28h` (and the corresponding WRITE opcodes) fell through to CHECK CONDITION `05/20/00`.
+
+`cbus/scsicmd.c` now decodes READ/WRITE(6) and READ/WRITE(10) in one common block path.  READ/WRITE(6) uses the 21-bit LBA and maps a zero transfer length to 256 blocks.  READ/WRITE(10) uses big-endian 32-bit LBA and 16-bit block count; zero means a successful no-data command.  Range validation uses `lba >= total || blocks > total - lba` semantics without unsigned wrap.  The byte count is checked against the WD 24-bit transfer representation.
+
+The implementation reuses the existing SXSIDEV backend APIs `sxsi_read()` and `sxsi_write()` from `fdd/sxsi.c`; no direct host-file I/O was added to the SCSI command layer.  Reads stage at most the controller data buffer and continue as internal chunks while preserving LBA order and one final STATUS phase.  Writes collect complete DATA OUT chunks, call `sxsi_write()` only after a complete chunk, and count each backend commit once.  Incomplete, aborted, out-of-range, or read-only writes do not return GOOD.  Sense mappings are `05/21/00` for range errors, `07/27/00` for CD-ROM/read-only writes, and the existing medium-error convention for backend failures.
+
+The compact block trace records the sequence, target ID, WD Target LUN, CDB LUN, all 12 CDB bytes, LBA, block count, sector size, byte count, backend index, and read-only flag at start.  Completion records transferred and residual bytes, backend block count/result, status, sense, and write commit count.
+
+Compiled production selftests now cover READ(10) LBA/count decoding, zero-count semantics, last valid block and range errors; READ/WRITE(6) decoding including zero-length=256; one- and multi-block write persistence; out-of-range and read-only writes; no commit before complete DATA OUT; chunk-boundary read/write continuity; backend round trips; and unsupported-LUN isolation.  All block and pre-existing Transfer Info/LUN/INQUIRY tests pass through `--selftest`.
+
+The normal-speed real-ROM trace after this correction shows target 0/LUN 0, READ(10) `28 00 00 00 00 00 00 00 01 00`, block-start LBA 0/count 1/sector 256, 256 DATA IN reads, backend block count 1, residual 0, GOOD status, then STATUS/MESSAGE IN and bus free.  This proves the previous `READ(10) unsupported -> CHECK CONDITION` defect is corrected.  The earlier eight-or-more-device report still lacks a complete guest registration matrix; no target-ID/LUN alias class is claimed from that report.
+
+Validation after the implementation: Linux SDL2 build, MinGW cross-build, macOS SDL2 build, SDL selftests, focused M75 CTest, and `tools/qa/m75_scsi_controller.py` all pass.  The bounded normal-speed integration command reached and completed READ(10), but its external safety bound ended before a full SCFORM/filesystem run; that exit is not semantic success.  Final executable SHA-256 values are Linux `ec92e9e44b3ca2464e1861127b951d74f3945715d856f47086b4334adf15d7c4`, MinGW `ca0ff10048223f081d5a0c6b3836a48adba40186d72ca589085126214200b18c`, and macOS `f10f2a7b505f92633d27d0c1bbae7bc74717a82547ed4a034aab4cecbcaa5991`.
+
+G75 remains **FAIL**.  Remaining acceptance gates are exact guest-visible one-disk SCHD registration, SCFORM against a disposable image, persisted sector changes, reboot and file create/read/compare/delete, manual SASI/HOSTFAT checks, and the existing non-SCSI disk-path regression.  Do not declare G75 passed or start M76.
