@@ -101,6 +101,13 @@ static REG8 scsi_trace_transfer_result_status;
 static UINT scsi_trace_transfer_cdb_length;
 static BYTE scsi_trace_transfer_cdb[12];
 static const char *scsi_trace_transfer_source;
+static BOOL scsi_trace_block_active;
+static UINT32 scsi_trace_block_backend_bytes;
+static UINT32 scsi_trace_block_staging_bytes;
+static UINT32 scsi_trace_block_delivered_bytes;
+static UINT32 scsi_trace_block_backend_digest;
+static UINT32 scsi_trace_block_staging_digest;
+static UINT32 scsi_trace_block_delivered_digest;
 
 static void scsi_tracef(const char *fmt, ...);
 static UINT32 scsi_trace_clock(void);
@@ -460,7 +467,7 @@ static void scsiio_warn_reserved_register(const char *direction) {
 			CPU_CS, CPU_IP));
 }
 
-static UINT scsiio_transfer_count(void) {
+UINT scsiio_transfer_count(void) {
 
 	/* WD33C93 exposes Transfer Count as high, middle, low (12h-14h). */
 	return ((UINT)scsiio.reg[SCSICTR_TRANSCNT + 0] << 16) |
@@ -578,6 +585,12 @@ static void scsiio_dataout_store_byte(REG8 dat, const char *source) {
 	if (scsiio.wrdatpos < sizeof(scsiio.data)) {
 		scsiio.data[scsiio.wrdatpos] = dat;
 	}
+	else {
+		SCSITRACEOUT(("scsitrace invariant data-write-window-overrun "
+				"index=%u capacity=%u phase=%02x source=%s",
+				scsiio.wrdatpos, (UINT)sizeof(scsiio.data), scsiio.phase, source));
+	}
+	scsiio_trace_block_staging_data(&dat, 1);
 	SCSITRACEOUT(("scsitrace dataout-accept source=%s index=%u data=%02x",
 		source, scsiio.wrdatpos, dat));
 	scsiio.wrdatpos++;
@@ -737,7 +750,14 @@ static REG8 scsiio_data_read(void) {
 	}
 	scsiio.auxstatus &= (REG8)~SCSI_AUX_DBR;
 	scsiio_initiator_assert_ack();
-	ret = scsiio.data[scsiio.rddatpos & 0xffff];
+	if (scsiio.rddatpos >= sizeof(scsiio.data)) {
+		SCSITRACEOUT(("scsitrace invariant data-read-window-overrun "
+				"index=%u capacity=%u phase=%02x",
+				scsiio.rddatpos, (UINT)sizeof(scsiio.data), scsiio.phase));
+		return 0xff;
+	}
+	ret = scsiio.data[scsiio.rddatpos];
+	scsiio_trace_block_delivered_byte(ret);
 	SCSITRACEOUT(("scsitrace data-read ar=19 data=%02x index=%u cs=%04x ip=%04x",
 			ret, scsiio.rddatpos, CPU_CS, CPU_IP));
 	SCSITRACEOUT(("scsitrace data-latched direction=spc-to-host "
@@ -929,10 +949,72 @@ void scsiio_trace_cdb_result(UINT target_id, UINT target_lun, UINT cdb_lun,
 }
 
 
+static UINT32 scsi_trace_digest_update(UINT32 digest, const BYTE *data, UINT32 count) {
+	UINT32 i;
+
+	for (i = 0; i < count; i++) {
+		digest ^= data[i];
+		digest *= 16777619U;
+	}
+	return digest;
+}
+
+void scsiio_trace_block_program(UINT sequence, REG8 opcode,
+		UINT32 cdb_transfer_length, UINT32 decoded_blocks, UINT32 decoded_bytes,
+		REG8 ar12, REG8 ar13, REG8 ar14, UINT32 transfer_count) {
+	SCSITRACEOUT(("scsitrace block-transfer-program sequence=%u "
+			"opcode=%02x cdb_transfer_length=%u decoded_blocks=%u "
+			"decoded_bytes=%u ar12=%02x ar13=%02x ar14=%02x tc=%06x",
+			sequence, opcode, cdb_transfer_length, decoded_blocks, decoded_bytes,
+			ar12, ar13, ar14, transfer_count));
+}
+
+void scsiio_trace_block_chunk(UINT sequence, UINT chunk_index, UINT32 lba,
+		UINT32 block_count, UINT32 byte_offset, UINT32 byte_count) {
+	SCSITRACEOUT(("scsitrace block-chunk sequence=%u chunk=%u lba=%u "
+			"block_count=%u byte_offset=%u byte_count=%u", sequence,
+			chunk_index, lba, block_count, byte_offset, byte_count));
+}
+
+void scsiio_trace_block_backend_data(const BYTE *data, UINT32 count) {
+	if (!scsi_trace_block_active || (data == NULL)) {
+		return;
+	}
+	scsi_trace_block_backend_digest = scsi_trace_digest_update(
+			scsi_trace_block_backend_digest, data, count);
+	scsi_trace_block_backend_bytes += count;
+}
+
+void scsiio_trace_block_staging_data(const BYTE *data, UINT32 count) {
+	if (!scsi_trace_block_active || (data == NULL)) {
+		return;
+	}
+	scsi_trace_block_staging_digest = scsi_trace_digest_update(
+			scsi_trace_block_staging_digest, data, count);
+	scsi_trace_block_staging_bytes += count;
+}
+
+void scsiio_trace_block_delivered_byte(REG8 data) {
+	if (!scsi_trace_block_active) {
+		return;
+	}
+	scsi_trace_block_delivered_digest = scsi_trace_digest_update(
+			scsi_trace_block_delivered_digest, &data, 1);
+	scsi_trace_block_delivered_bytes++;
+}
+
 void scsiio_trace_block_start(UINT sequence, UINT target_id, UINT target_lun,
 		UINT cdb_lun, const BYTE *cdb, UINT32 lba, UINT32 block_count,
 		UINT sector_size, UINT32 byte_count, UINT backend_index,
 		BOOL backend_read_only) {
+
+	scsi_trace_block_active = scsi_trace_enabled;
+	scsi_trace_block_backend_bytes = 0;
+	scsi_trace_block_staging_bytes = 0;
+	scsi_trace_block_delivered_bytes = 0;
+	scsi_trace_block_backend_digest = 2166136261U;
+	scsi_trace_block_staging_digest = 2166136261U;
+	scsi_trace_block_delivered_digest = 2166136261U;
 
 	SCSITRACEOUT(("scsitrace block-start sequence=%u target_id=%u "
 			"wd_target_lun=%u cdb_lun=%u opcode=%02x cdb0=%02x cdb1=%02x "
@@ -949,14 +1031,27 @@ void scsiio_trace_block_complete(UINT sequence, REG8 opcode,
 		UINT32 transferred_bytes, UINT32 residual_bytes,
 		UINT32 backend_blocks, REG8 backend_result, REG8 status,
 		REG8 sense_key, REG8 asc, REG8 ascq, UINT commit_count) {
+	BOOL equal;
 
+	equal = ((opcode == 0x08) || (opcode == 0x28)) &&
+			(scsi_trace_block_backend_bytes == scsi_trace_block_staging_bytes) &&
+			(scsi_trace_block_staging_bytes == scsi_trace_block_delivered_bytes) &&
+			(scsi_trace_block_backend_digest == scsi_trace_block_staging_digest) &&
+			(scsi_trace_block_staging_digest == scsi_trace_block_delivered_digest);
 	SCSITRACEOUT(("scsitrace block-complete sequence=%u opcode=%02x "
 			"transferred_bytes=%u residual_bytes=%u backend_blocks=%u "
 			"backend_result=%02x status=%02x sense=%02x asc=%02x ascq=%02x "
-			"commit_count=%u", sequence, opcode, transferred_bytes,
-			residual_bytes, backend_blocks, backend_result, status, sense_key,
-			asc, ascq, commit_count));
+			"commit_count=%u backend_bytes=%u staging_bytes=%u delivered_bytes=%u "
+			"backend_digest=%08x staging_digest=%08x delivered_digest=%08x "
+			"digest_equal=%u", sequence, opcode, transferred_bytes, residual_bytes,
+			backend_blocks, backend_result, status, sense_key, asc, ascq,
+			commit_count, scsi_trace_block_backend_bytes,
+			scsi_trace_block_staging_bytes, scsi_trace_block_delivered_bytes,
+			scsi_trace_block_backend_digest, scsi_trace_block_staging_digest,
+			scsi_trace_block_delivered_digest, equal ? 1 : 0));
+	scsi_trace_block_active = FALSE;
 }
+
 
 
 static void scsi_target_publish(void) {
@@ -1667,7 +1762,14 @@ static REG8 IOINPCALL scsiio_icc6(UINT port) {
 	REG8	ret;
 
 	scsi_trace_transfer_data_port_access();
-	ret = scsiio.data[scsiio.rddatpos & 0x7fff];
+	if (scsiio.rddatpos >= sizeof(scsiio.data)) {
+		SCSITRACEOUT(("scsitrace invariant data-read-window-overrun "
+				"source=0cc6 index=%u capacity=%u phase=%02x",
+				scsiio.rddatpos, (UINT)sizeof(scsiio.data), scsiio.phase));
+		return 0xff;
+	}
+	ret = scsiio.data[scsiio.rddatpos];
+	scsiio_trace_block_delivered_byte(ret);
 	SCSITRACEOUT(("scsitrace in port=0cc6 data=%02x ar=%02x cs=%04x ip=%04x",
 			ret, scsiio.port, CPU_CS, CPU_IP));
 	scsiio.rddatpos++;
@@ -1763,6 +1865,8 @@ BOOL scsiio_transfer_selftest(void) {
 	REG8 value;
 	UINT retained_sequence;
 	UINT latch_count;
+	UINT index;
+	BYTE boundary_value;
 	BOOL ok = TRUE;
 
 #define SCSI_SELFTEST_CHECK(name, expression) do { \
@@ -1792,6 +1896,56 @@ BOOL scsiio_transfer_selftest(void) {
 			 scsiio.reg[SCSICTR_TRANSCNT + 1] = 0x02,
 			 scsiio.reg[SCSICTR_TRANSCNT + 2] = 0x03,
 			 scsiio_transfer_count() == 0x010203));
+
+	/* The PIO window is exactly 64 KiB.  Keep 65535 and 65536 valid,
+	 * and reject an attempted access at 65537 instead of wrapping. */
+	SCSI_SELFTEST_RESET();
+	scsiio.phase = SCSIPH_DATAIN;
+	scsiio.cmdpos = 65535;
+	scsiio.rddatpos = 65534;
+	scsiio.data[65534] = 0x5e;
+	scsi_transfer_state = SCSI_TRANSFER_BYTE_PENDING;
+	scsi_transfer_remaining = 1;
+	scsi_transfer_req_asserted = TRUE;
+	scsiio.auxstatus |= SCSI_AUX_DBR;
+	boundary_value = scsiio_data_read();
+	SCSI_SELFTEST_CHECK("read_65535_bytes_boundary",
+			boundary_value == 0x5e &&
+			scsi_transfer_selftest_transferred_bytes == 1 &&
+			scsi_transfer_state == SCSI_TRANSFER_WAIT_FOR_POST_COUNT_REQ);
+
+	SCSI_SELFTEST_RESET();
+	scsiio.phase = SCSIPH_DATAIN;
+	scsiio.cmdpos = sizeof(scsiio.data);
+	scsiio.rddatpos = 0;
+	for (index = 0; index < sizeof(scsiio.data); index++) {
+		scsiio.data[index] = (BYTE)((index + (index >> 8) + 0x17) & 0xff);
+	}
+	scsi_transfer_state = SCSI_TRANSFER_BYTE_PENDING;
+	scsi_transfer_remaining = sizeof(scsiio.data);
+	scsi_transfer_req_asserted = TRUE;
+	scsiio.auxstatus |= SCSI_AUX_DBR;
+	boundary_value = 0;
+	for (index = 0; index < sizeof(scsiio.data); index++) {
+		boundary_value = scsiio_data_read();
+	}
+	SCSI_SELFTEST_CHECK("read_65536_bytes_boundary",
+			scsi_transfer_selftest_transferred_bytes == sizeof(scsiio.data) &&
+			boundary_value == scsiio.data[sizeof(scsiio.data) - 1]);
+
+	SCSI_SELFTEST_RESET();
+	scsiio.phase = SCSIPH_DATAIN;
+	scsiio.cmdpos = sizeof(scsiio.data) + 1;
+	scsiio.rddatpos = sizeof(scsiio.data);
+	scsi_transfer_state = SCSI_TRANSFER_BYTE_PENDING;
+	scsi_transfer_remaining = 1;
+	scsi_transfer_req_asserted = TRUE;
+	scsiio.auxstatus |= SCSI_AUX_DBR;
+	boundary_value = scsiio_data_read();
+	SCSI_SELFTEST_CHECK("read_65537_bytes_boundary",
+			boundary_value == 0xff &&
+			scsiio.rddatpos == sizeof(scsiio.data) &&
+			scsi_transfer_selftest_transferred_bytes == 0);
 
 	SCSI_SELFTEST_RESET();
 	scsiio.phase = SCSIPH_STATUS;

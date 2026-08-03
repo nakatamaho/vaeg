@@ -36,7 +36,7 @@ TOTAL_LOGICAL = 9990
 FAT_SECTORS = 20
 
 
-def make_image(path: Path, corrupt_fat=False, mismatch_fat=False):
+def make_image(path: Path, corrupt_fat=False, mismatch_fat=False, nonzero_padding=False):
     data = bytearray(HEADER + TOTAL_PHYSICAL * PHYSICAL)
     data[:7] = b"VHD1.00"
     struct.pack_into("<H", data, 0x8C, 40)
@@ -67,6 +67,13 @@ def make_image(path: Path, corrupt_fat=False, mismatch_fat=False):
     if corrupt_fat:
         for off in range(4, fat_size, 2):
             struct.pack_into("<H", fat, off, 0xFFFF)
+    if nonzero_padding:
+        # Leave valid data-cluster entries free, but mark only the FAT
+        # capacity padding.  The inspector must not count these entries.
+        cluster_count = (TOTAL_LOGICAL - (1 + 2 * FAT_SECTORS + 1))
+        first_padding = 2 + cluster_count
+        for entry in range(first_padding, fat_size // 2):
+            struct.pack_into("<H", fat, entry * 2, 0xFFFF)
     fat1_off = HEADER + (PARTITION_LBA + 4) * PHYSICAL
     fat2_off = HEADER + (PARTITION_LBA + 4 + FAT_SECTORS * BLOCKS_PER_LOGICAL) * PHYSICAL
     data[fat1_off:fat1_off + fat_size] = fat
@@ -94,8 +101,23 @@ class FatInspectionTests(unittest.TestCase):
             path = Path(td) / "healthy.hdd"
             make_image(path)
             result = MODULE.inspect(path, PHYSICAL)
-            self.assertGreater(result["fat"]["copies"][0]["free_entries"], 0)
+            copy = result["fat"]["copies"][0]
+            self.assertGreater(copy["free_entries"], 0)
+            self.assertEqual(copy["valid_data_cluster_entries"], result["selected"]["cluster_count"])
+            self.assertEqual(copy["free_entries"], result["selected"]["cluster_count"])
+            self.assertEqual(copy["padding_entries"],
+                             copy["fat_entry_capacity"] - 2 - result["selected"]["cluster_count"])
             self.assertTrue(result["fat"]["equal"])
+
+    def test_fat16_free_count_excludes_padding_entries(self):
+        with tempfile.TemporaryDirectory() as td:
+            path = Path(td) / "padding.hdd"
+            make_image(path, nonzero_padding=True)
+            result = MODULE.inspect(path, PHYSICAL)
+            copy = result["fat"]["copies"][0]
+            self.assertEqual(copy["free_entries"], result["selected"]["cluster_count"])
+            self.assertEqual(copy["allocated_entries"], 0)
+            self.assertGreater(copy["nonzero_padding_entries"], 0)
 
     def test_fat16_full_disk_reports_zero_free_clusters(self):
         with tempfile.TemporaryDirectory() as td:
@@ -103,6 +125,8 @@ class FatInspectionTests(unittest.TestCase):
             make_image(path, corrupt_fat=True)
             result = MODULE.inspect(path, PHYSICAL)
             self.assertEqual(result["fat"]["copies"][0]["free_entries"], 0)
+            self.assertEqual(result["fat"]["copies"][0]["valid_data_cluster_entries"],
+                             result["selected"]["cluster_count"])
 
     def test_fat16_fat_copies_must_match(self):
         with tempfile.TemporaryDirectory() as td:
