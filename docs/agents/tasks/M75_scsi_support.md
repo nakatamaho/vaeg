@@ -791,3 +791,14 @@ The normal-speed real-ROM trace after this correction shows target 0/LUN 0, READ
 Validation after the implementation: Linux SDL2 build, MinGW cross-build, macOS SDL2 build, SDL selftests, focused M75 CTest, and `tools/qa/m75_scsi_controller.py` all pass.  The bounded normal-speed integration command reached and completed READ(10), but its external safety bound ended before a full SCFORM/filesystem run; that exit is not semantic success.  Final executable SHA-256 values are Linux `ec92e9e44b3ca2464e1861127b951d74f3945715d856f47086b4334adf15d7c4`, MinGW `ca0ff10048223f081d5a0c6b3836a48adba40186d72ca589085126214200b18c`, and macOS `f10f2a7b505f92633d27d0c1bbae7bc74717a82547ed4a034aab4cecbcaa5991`.
 
 G75 remains **FAIL**.  Remaining acceptance gates are exact guest-visible one-disk SCHD registration, SCFORM against a disposable image, persisted sector changes, reboot and file create/read/compare/delete, manual SASI/HOSTFAT checks, and the existing non-SCSI disk-path regression.  Do not declare G75 passed or start M76.
+
+
+## G75 FAT free-space / DATA OUT corrective follow-up
+
+The current production correction is [d284468](https://github.com/nakatamaho/vaeg/commit/d284468fd256598489e07307fda58fbd1a0aa302).
+The compatibility 0CC6h DATA OUT path now shares payload accounting and
+backend completion with the AR19 path; it does not fabricate STATUS.  Failed
+backend writes preserve CHECK CONDITION through STATUS.  The remaining gate
+is an evidence-backed fresh SCFORM/FAT run using the exact support-disk
+configuration (`PCPLUS.SYS`, `SCHD.SYS -I0`) and a new 256-byte-block image.
+Do not infer FAT type or free-space state from the guest message alone.
