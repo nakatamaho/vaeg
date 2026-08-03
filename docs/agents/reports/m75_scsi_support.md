@@ -1572,3 +1572,84 @@ The same run reached INQUIRY: CDB `12 00 00 00 24 00`, DATA IN TC=36, 32 AR19 re
 Linux executable SHA-256: `01388de8ec1fe2a0e7df87d38f8607a734b6454688f7cb82471730e7c8cfca1d`.  MinGW cross configuration and build passed with `x86_64-w64-mingw32-gcc`; the Windows executable was not run on this host.  SASI/HOSTFAT selftest coverage passed, but the manual SASI/HOSTFAT gate and non-SCSI disk-path gate remain unverified.
 
 G75 status: **FAIL/pending**.  Remaining gates are PCPLUS loaded before SCHD, SCHD registration, SCFORM initialization, reboot, create/read/delete file test, manual SASI and HOSTFAT regression, and existing non-SCSI disk-path regression.  No G75 PASS declaration and no M76 work.
+
+
+## G75 LUN enumeration and INQUIRY correction (2026-08-03)
+
+The implementation/test commit is
+[103d59e](https://github.com/nakatamaho/vaeg/commit/103d59e), based on
+`1f2099eed524411113dda6db1a7bf8a77820c319`.
+
+### Root cause and correction
+
+The backend previously exposed the mounted target without a centralized CDB
+LUN check, allowing discovery behavior to be interpreted as multiple logical
+units.  The normal INQUIRY response was also a 32-byte table with additional
+length `1Bh`; SCHD therefore read beyond the response when it displayed the
+four-byte revision.  The correction requires both the WD Target LUN register
+and CDB LUN to be zero for the mounted SXSIDEV.  Unsupported LUN INQUIRY is a
+GOOD 36-byte `7Fh` response, while other unsupported-LUN commands return
+CHECK CONDITION with `05/25/00`.  The normal response is exactly 36 bytes,
+with `1Fh` additional length, `NEC     `, `NP2-HDD         `, and `1.00` at
+the mandated fixed-width offsets.  No LUN aliases or guest-address special
+cases were added.
+
+### Enumeration evidence
+
+The compact trace records each selection and completed CDB as:
+
+```text
+target_id target_lun cdb_lun opcode cdb selected_index inquiry0 response_length status sense asc ascq
+```
+
+The bounded after-run matrix was:
+
+| target ID | target LUN | CDB LUN | observed CDBs | selected backend | INQUIRY byte 0 | result |
+|---:|---:|---:|---|---:|---:|---|
+| 0 | 0 | 0 | 00, 12, 25, 1A, 28, 03 | 2 | 00h for INQUIRY (36 bytes) | selected / GOOD for supported metadata |
+
+No target-ID >0 or CDB LUN >0 record appeared in the bounded after-run.
+The prior approximately-eight-device report predates this matrix, so it is
+not sufficient to classify the aliases as LUN aliases versus target-ID
+aliases.  The current trace proves only one configured target/LUN identity.
+The later READ(10) (`28h`) is currently reported as CHECK CONDITION `05/20/00`,
+which is a separate remaining backend command-coverage gate.
+
+### INQUIRY bytes
+
+Before correction the table was 32 bytes:
+
+```text
+00 00 02 02 1B 00 00 18 4E 45 43 20 20 20 20 20
+4E 50 32 2D 48 44 44 20 31 2E 30 30 20 20 20 20
+```
+
+After correction the exact 36-byte response is:
+
+```text
+00 00 02 02 1F 00 00 18 4E 45 43 20 20 20 20 20
+4E 50 32 2D 48 44 44 20 20 20 20 20 20 20 20 20
+31 2E 30 30
+```
+
+### Validation
+
+```text
+python3 tools/qa/m75_scsi_controller.py --root .                 PASS
+python3 tools/qa/m75_transfer_info.py --selftest                  PASS (10)
+SDL ... build/linux-ci-clang/sdl2/vaeg --selftest                  PASS
+ctest ... -R 'vaeg_m75_transfer_info_compiled|vaeg_romless_tests'  PASS (2/2)
+cmake --build build/linux-ci-clang --target vaeg_sdl2 -j4         PASS
+cmake --build build/mingw-cross --target vaeg_sdl2 -j4            PASS
+python3 tools/repo/check_case.py                                   PASS
+python3 tools/repo/check_encoding.py                               PASS
+python3 tools/repo/check_eol.py                                    PASS
+```
+
+The MinGW executable is `build/mingw-cross/sdl2/vaeg.exe`.  Linux SHA-256 is
+`75546b9b75df995cfe93c8dbb332baa6e4360f52bc7a072ac120e0d866d0f3f8` and
+MinGW SHA-256 is
+`2b070c348d9bdc789842cfb937ed4c93243dffcf2e7f05853988d418d03595ca`.  SCFORM was intentionally
+not rerun: the current bounded run still encounters unsupported READ(10)
+after metadata discovery, so the exact-one-disk SCHD gate is not yet proven.
+G75 remains FAIL/pending; no G75 PASS or M76 work is claimed.
