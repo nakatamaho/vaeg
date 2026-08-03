@@ -196,6 +196,7 @@ typedef struct {
 	UINT32 transferred_bytes;
 	UINT32 backend_blocks;
 	UINT32 commit_count;
+	UINT32 chunk_index;
 	BOOL active;
 	REG8 backend_status;
 } SCSIBLOCKTRANSFER;
@@ -271,6 +272,9 @@ static BOOL scsicmd_block_prepare_read(void) {
 	}
 	scsi_block.chunk_blocks = blocks;
 	scsi_block.chunk_bytes = blocks * scsi_block.sxsi->size;
+	scsiio_trace_block_chunk(scsi_block_sequence, scsi_block.chunk_index++,
+			scsi_block.lba, blocks, scsi_block.transferred_bytes,
+			scsi_block.chunk_bytes);
 	ret = sxsi_read((REG8)(0x20 + scsi_block.id),
 			(long)scsi_block.lba, scsiio.data, scsi_block.chunk_bytes);
 	if (ret != 0) {
@@ -280,6 +284,8 @@ static BOOL scsicmd_block_prepare_read(void) {
 		scsi_block.active = FALSE;
 		return FALSE;
 	}
+	scsiio_trace_block_backend_data(scsiio.data, scsi_block.chunk_bytes);
+	scsiio_trace_block_staging_data(scsiio.data, scsi_block.chunk_bytes);
 	ZeroMemory(scsiio.data + scsi_block.chunk_bytes,
 			sizeof(scsiio.data) - scsi_block.chunk_bytes);
 	scsi_block.remaining_blocks -= blocks;
@@ -306,6 +312,9 @@ static BOOL scsicmd_block_prepare_write(void) {
 	}
 	scsi_block.chunk_blocks = blocks;
 	scsi_block.chunk_bytes = blocks * scsi_block.sxsi->size;
+	scsiio_trace_block_chunk(scsi_block_sequence, scsi_block.chunk_index++,
+			scsi_block.lba, blocks, scsi_block.transferred_bytes,
+			scsi_block.chunk_bytes);
 	ZeroMemory(scsiio.data, scsi_block.chunk_bytes);
 	scsiio.cmdpos = scsi_block.chunk_bytes;
 	scsiio.wrdatpos = 0;
@@ -409,12 +418,25 @@ BOOL scsicmd_block_dataout_ready(void) {
 
 static void scsicmd_trace_block_start(REG8 id, const BYTE *cdb,
 		UINT32 lba, UINT32 blocks, UINT32 bytes, SXSIDEV sxsi) {
+	UINT32 cdb_transfer_length;
 
+	if ((cdb[0] == 0x08) || (cdb[0] == 0x0a)) {
+		cdb_transfer_length = cdb[4];
+	}
+	else {
+		cdb_transfer_length = ((UINT32)cdb[7] << 8) | cdb[8];
+	}
 	scsiio_trace_block_start(++scsi_block_sequence, id,
 			scsicmd_target_lun(), scsicmd_cdb_lun(cdb), cdb,
 			lba, blocks, sxsi ? sxsi->size : 0,
 			bytes, scsicmd_backend_index(id),
 			sxsi ? ((sxsi->type & SXSITYPE_DEVMASK) == SXSITYPE_CDROM) : FALSE);
+	scsiio_trace_block_program(scsi_block_sequence, cdb[0],
+			cdb_transfer_length, blocks, bytes,
+			scsiio.reg[SCSICTR_TRANSCNT + 0],
+			scsiio.reg[SCSICTR_TRANSCNT + 1],
+			scsiio.reg[SCSICTR_TRANSCNT + 2],
+			scsiio_transfer_count());
 }
 
 static void scsicmd_trace_block_complete(REG8 opcode, REG8 status) {
@@ -466,6 +488,7 @@ static REG8 scsicmd_block_start(REG8 id, SXSIDEV sxsi, BYTE *cdb) {
 	scsi_block.lba = lba;
 	scsi_block.remaining_blocks = blocks;
 	scsi_block.total_blocks = blocks;
+	scsi_block.chunk_index = 0;
 	scsi_block.active = FALSE;
 	scsi_block.backend_status = 0;
 	is_read = (cdb[0] == 0x08 || cdb[0] == 0x28);
@@ -1198,9 +1221,43 @@ BOOL scsicmd_backend_selftest(void) {
 	SCMD_SELFTEST_CHECK("read6_zero_transfer_length_means_256",
 			service == scsicmd_phase_service_status(SCSIPH_DATAIN) &&
 				scsiio.cmdpos == sizeof(scsiio.data));
+	SCMD_SELFTEST_CHECK("read6_256_blocks_programs_tc_010000",
+			scsi_block.total_blocks == 256 &&
+			scsi_block.chunk_bytes == 65536 &&
+			scsiio.cmdpos == 65536 &&
+			scsiio.data[0] == test_media[0] &&
+			scsiio.data[65535] == test_media[65535]);
 
 	ZeroMemory(cdb, sizeof(cdb));
 	cdb[0] = 0x0a; cdb[1] = 0; cdb[2] = 0; cdb[3] = 9; cdb[4] = 0;
+	ZeroMemory(cdb, sizeof(cdb));
+	cdb[0] = 0x28; cdb[7] = 1; cdb[8] = 0;
+	SCMD_SELFTEST_COMMAND(cdb);
+	SCMD_SELFTEST_CHECK("read10_256_blocks_exact_65536",
+			service == scsicmd_phase_service_status(SCSIPH_DATAIN) &&
+			scsi_block.total_blocks == 256 && scsi_block.chunk_bytes == 65536 &&
+			scsiio.cmdpos == 65536 &&
+			scsiio.data[65535] == test_media[65535]);
+	SCMD_SELFTEST_CHECK("read_65536_backend_staging_match",
+			scsiio.data[0] == test_media[0] &&
+			scsiio.data[65535] != scsiio.data[0]);
+
+	ZeroMemory(cdb, sizeof(cdb));
+	cdb[0] = 0x28; cdb[7] = 1; cdb[8] = 1;
+	SCMD_SELFTEST_COMMAND(cdb);
+	SCMD_SELFTEST_CHECK("read10_65537_chunk_boundary",
+			service == scsicmd_phase_service_status(SCSIPH_DATAIN) &&
+			scsi_block.total_blocks == 257 && scsiio.cmdpos == 65536);
+	if (service == scsicmd_phase_service_status(SCSIPH_DATAIN)) {
+		service = scsicmd_block_datain_complete();
+	}
+	SCMD_SELFTEST_CHECK("read10_65537_second_chunk",
+			service == scsicmd_phase_service_status(SCSIPH_DATAIN) &&
+			scsi_block.chunk_bytes == 256 && scsi_block.lba == 257 &&
+			scsiio.cmdpos == 256);
+
+	ZeroMemory(cdb, sizeof(cdb));
+	cdb[0] = 0x0a; cdb[5] = 6; cdb[7] = 0; cdb[8] = 0;
 	SCMD_SELFTEST_COMMAND(cdb);
 	SCMD_SELFTEST_CHECK("write6_zero_transfer_length_means_256",
 			service == scsicmd_phase_service_status(SCSIPH_DATAOUT) &&
