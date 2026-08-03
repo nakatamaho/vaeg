@@ -1361,3 +1361,14 @@ separate parity correction or move it to Open Defects.
 - **Evidence:** [M75 report](../agents/reports/m75_scsi_support.md) and
   [M75 task](../agents/tasks/M75_scsi_support.md).
 - **Commit:** [103d59e](https://github.com/nakatamaho/vaeg/commit/103d59e).
+
+
+### SCSI block commands were missing from the target backend
+
+- **Status:** corrected in M75d2; guest enumeration and persistent filesystem gates remain open.
+- **Symptom:** SCHD reached READ(10) during discovery, received CHECK CONDITION `05/20/00`, and later reported that the registered C: drive had no sectors.  The earlier multi-device report is not classified because it lacked a target/LUN/registration matrix.
+- **Demonstrated root cause:** `cbus/scsicmd.c` had no common READ/WRITE(6/10) command path, so no SXSIDEV media operation occurred for block access.
+- **Correction:** add shared 6-/10-byte LBA/count decoding, overflow-safe range validation, SXSIDEV-backed chunked PIO DATA IN/OUT, complete-write commit accounting, and fixed sense mappings for range, write-protect, and backend errors.  The implementation reuses `sxsi_read()`/`sxsi_write()` and does not special-case SCHD, SCFORM, target IDs, or guest addresses.
+- **Verification:** compiled production selftests cover zero-count semantics, 6-/10-byte decoding, range and sense handling, read/write persistence, incomplete writes, chunk boundaries, and LUN isolation.  Normal-speed real-ROM trace now shows READ(10) LBA 0 with 256 DATA IN bytes, one backend block, zero residual, and GOOD status, followed by STATUS/MESSAGE IN.
+- **Evidence:** [M75 report](../agents/reports/m75_scsi_support.md), [M75 task](../agents/tasks/M75_scsi_support.md), and [a4d21e9](https://github.com/nakatamaho/vaeg/commit/a4d21e943be7a5c401fb2f36f57f1fca3a20c0f4).
+- **Commit:** [a4d21e9](https://github.com/nakatamaho/vaeg/commit/a4d21e943be7a5c401fb2f36f57f1fca3a20c0f4).

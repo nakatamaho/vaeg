@@ -1612,8 +1612,9 @@ No target-ID >0 or CDB LUN >0 record appeared in the bounded after-run.
 The prior approximately-eight-device report predates this matrix, so it is
 not sufficient to classify the aliases as LUN aliases versus target-ID
 aliases.  The current trace proves only one configured target/LUN identity.
-The later READ(10) (`28h`) is currently reported as CHECK CONDITION `05/20/00`,
-which is a separate remaining backend command-coverage gate.
+At the time of that pre-block-I/O checkpoint, the later READ(10) (`28h`) was
+reported as CHECK CONDITION `05/20/00`; the separate block-I/O correction is
+recorded in the later G75 section below.
 
 ### INQUIRY bytes
 
@@ -1649,7 +1650,53 @@ python3 tools/repo/check_eol.py                                    PASS
 The MinGW executable is `build/mingw-cross/sdl2/vaeg.exe`.  Linux SHA-256 is
 `75546b9b75df995cfe93c8dbb332baa6e4360f52bc7a072ac120e0d866d0f3f8` and
 MinGW SHA-256 is
-`2b070c348d9bdc789842cfb937ed4c93243dffcf2e7f05853988d418d03595ca`.  SCFORM was intentionally
-not rerun: the current bounded run still encounters unsupported READ(10)
-after metadata discovery, so the exact-one-disk SCHD gate is not yet proven.
+`2b070c348d9bdc789842cfb937ed4c93243dffcf2e7f05853988d418d03595ca`.  SCFORM was intentionally not rerun at that pre-block-I/O checkpoint because
+metadata discovery still encountered unsupported READ(10); the later block-I/O
+run corrected that command path, but the exact-one-disk SCHD gate is still not
+proven.
 G75 remains FAIL/pending; no G75 PASS or M76 work is claimed.
+
+
+## G75 block I/O corrective implementation (2026-08-03)
+
+### Root cause and correction
+
+The guest-visible “C: has no sectors” result was caused by missing target command coverage, not by the Transfer Info controller state machine: SCHD reached READ(10) (`28h`), but the command layer returned CHECK CONDITION `05/20/00` because READ/WRITE block commands were unsupported.  The correction is [a4d21e9](https://github.com/nakatamaho/vaeg/commit/a4d21e943be7a5c401fb2f36f57f1fca3a20c0f4).
+
+`cbus/scsicmd.c` now has one common SXSIDEV-backed implementation for READ(6), WRITE(6), READ(10), and WRITE(10).  The reused backend functions are `sxsi_read()` and `sxsi_write()` in `fdd/sxsi.c`; the SCSI layer does not open or seek host files directly.  READ/WRITE(6) decodes the 21-bit LBA and maps zero length to 256 blocks.  READ/WRITE(10) decodes big-endian LBA/count and treats zero count as a successful no-data command.  Range checks are overflow-safe and return `05/21/00`; read-only media returns `07/27/00` for writes.
+
+Reads stage and stream controller-sized chunks through the existing PIO/Transfer Info DATA IN path.  Writes collect complete DATA OUT chunks and commit with `sxsi_write()` only after the expected bytes arrive; commit count is traced and incomplete writes cannot report GOOD.  Chunk-boundary tests cover continuity without duplicate or missing bytes.
+
+### Before/after evidence
+
+Before the correction the normal discovery trace reached READ(10) and returned unsupported-command CHECK CONDITION `05/20/00`; no backend block was read.  After the correction the same path records:
+
+```text
+target_id=0 wd_target_lun=0 cdb_lun=0
+CDB=28 00 00 00 00 00 00 00 01 00
+LBA=0 block_count=1 sector_size=256 byte_count=256
+DATA IN reads=256 backend_blocks=1 residual_bytes=0 status=00
+STATUS/MESSAGE IN completion and bus free follow
+```
+
+The earlier “approximately eight devices” report did not include enough target/LUN/registration records to classify duplicates as LUN aliases, target-ID aliases, retries, or guest slots.  The corrected bounded path observes only target ID 0/LUN 0; a complete SCHD registration matrix is still required.
+
+### Tests and validation
+
+Production C selftests pass for READ/WRITE(6/10), zero-count rules, range/sense handling, persistent one- and multi-block writes, read-only protection, incomplete DATA OUT, chunking, read-after-write, and unsupported-LUN non-aliasing.  Existing Transfer Info, LUN, INQUIRY, SDL, and HOSTFAT/SASI selftest coverage remains green.
+
+Passed commands:
+
+```text
+cmake --build build/linux-ci-clang --target vaeg_sdl2 -j2
+cmake --build build/mingw-cross --target vaeg_sdl2 -j2
+cmake --build build/macos-release --target vaeg_sdl2 -j2
+SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy build/linux-ci-clang/sdl2/vaeg --selftest
+SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy build/macos-release/sdl2/vaeg --selftest
+ctest --test-dir build/m75-tests -R vaeg_m75_scsi_controller --output-on-failure
+python3 tools/qa/m75_scsi_controller.py --root .
+```
+
+The real-ROM bounded run reached the corrected READ(10) DATA IN and completed 256 bytes with GOOD status.  A safety timeout later ended the run before SCFORM/filesystem acceptance; it is not reported as a semantic pass.  Final executable SHA-256 values are Linux `ec92e9e44b3ca2464e1861127b951d74f3945715d856f47086b4334adf15d7c4`, MinGW `ca0ff10048223f081d5a0c6b3836a48adba40186d72ca589085126214200b18c`, and macOS `f10f2a7b505f92633d27d0c1bbae7bc74717a82547ed4a034aab4cecbcaa5991`.
+
+G75 is **FAIL/pending**.  Exact one-disk guest registration, SCFORM persistence, reboot/file round trip, manual SASI/HOSTFAT, and non-SCSI disk-path gates remain open.
