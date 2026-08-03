@@ -1780,3 +1780,44 @@ fresh 40 MB SCFORM run must still prove the BPB, both FAT copies, nonzero free
 clusters, persistent one-byte file creation/read/delete, and reboot
 persistence.  The 160 MB multi-partition check and manual SASI/HOSTFAT and
 non-SCSI gates also remain open.
+
+
+## G75 FAT16 forensic inspection (2026-08-03)
+
+A reusable read-only inspector was added as `tools/inspect_vaeg_fat.py`.  It
+recognizes the VAEG `VHD1.00` container using the same 256-byte header layout
+as `fdd/sxsi.c`, reports physical geometry, searches for structurally valid
+FAT16 BPBs without silently selecting an ambiguous candidate, assembles
+1024-byte logical sectors from four 256-byte physical blocks, reports FAT1 /
+FAT2 equality and free-cluster counts, inspects the fixed root directory, and
+compares changed physical-LBA ranges.  `--json` and `--compare` are supported.
+Generated fixtures cover header and partition offsets, four-block BPB
+assembly, healthy and full FAT16 tables, mismatched FAT copies, unused root
+entries, and changed-LBA reporting.
+
+The supplied source and previously formatted images could not be opened from
+this sandbox: the initial `ls` command returned `Operation not permitted` for
+both `/Users/maho/88VA/images/scsi40.hdd` and
+`/Users/maho/88VA/images/scsi40_formatted.hdd`.  Neither original was copied
+or modified.  Therefore their SHA-256 values, changed-LBA ranges, BPB, FAT,
+and root-directory state remain unreported rather than guessed.  The inspector
+is ready to run against private copies when the host exposes them.
+
+The previously available disposable VHD evidence remains separate: its valid
+40MB VHD header reports 256-byte physical blocks and 163840 blocks, but its
+data area is all zero bytes and contains no FAT BPB.  It is not used as
+formatted-volume evidence.
+
+Validation:
+
+```text
+PYTHONPYCACHEPREFIX=/tmp/vaeg-m75-fat-analysis/pycache \
+  python3 -m unittest tools/qa/test_inspect_vaeg_fat.py -v       PASS (7)
+ctest --test-dir build/m75-tests -R vaeg_m75_fat_inspection       PASS
+```
+
+A post-fix SCFORM image was not generated because the supplied image directory
+was inaccessible and GUI guest automation is not available in this execution
+sandbox.  G75 remains FAIL; the remaining sub-gate is to run SCFORM on a fresh
+copy, inspect it with the new tool, and prove positive free clusters plus
+reopen persistence before file-operation acceptance.
