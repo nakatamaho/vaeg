@@ -723,3 +723,52 @@ The real-ROM bounded run at semantic `--scsitrace-limit 30` exited 0 (semantic l
 Validation performed: `cmake --preset linux-ci-clang`; Linux SDL2 build; `python3 tools/qa/m75_scsi_controller.py --root .`; `python3 tools/qa/m75_transfer_info.py --selftest`; SDL selftest; focused CTest (`vaeg_m75_transfer_info_compiled` and `vaeg_romless_tests`, 2/2); and configured MinGW cross-build (`cmake --preset mingw-cross`, `vaeg_sdl2`, compiler `x86_64-w64-mingw32-gcc`).  The evaluated Linux executable digest was `SHA-256 01388de8ec1fe2a0e7df87d38f8607a734b6454688f7cb82471730e7c8cfca1d`.
 
 G75 remains **FAIL/pending**: PCPLUS/SCHD registration, SCFORM, reboot, create/read/delete file operations, manual SASI/HOSTFAT regression, and the existing non-SCSI disk-path gate still require the manual integration run.  Do not start M76 or declare G75 passed.
+
+
+### G75 LUN enumeration and INQUIRY correction (2026-08-03)
+
+Starting from `1f2099eed524411113dda6db1a7bf8a77820c319`, the target backend was
+corrected in commit
+[103d59e](https://github.com/nakatamaho/vaeg/commit/103d59e).  The implementation
+now has one central LUN predicate: the WD Target LUN register and the CDB LUN
+must both be zero.  It is used by PIO and Select-and-Transfer paths for TUR,
+REQUEST SENSE, INQUIRY, MODE SENSE, READ CAPACITY, and the common unsupported
+command path.  Unsupported-LUN INQUIRY is GOOD with a 36-byte response whose
+byte 0 is `7Fh`; other unsupported-LUN commands return CHECK CONDITION with
+sense `05/25/00`.  No synthetic LUN devices are created.
+
+The normal INQUIRY table is now exactly 36 bytes:
+
+```text
+00 00 02 02 1F 00 00 18 4E 45 43 20 20 20 20 20
+4E 50 32 2D 48 44 44 20 20 20 20 20 20 20 20 20
+31 2E 30 30
+```
+
+The additional length is `1Fh`, vendor is eight-byte `NEC` padding, product is
+sixteen-byte `NP2-HDD` padding, and revision occupies offsets `20h--23h`.
+Allocation length still truncates the response without changing byte 4.
+
+The new compact selection/CDB-result trace records target ID, WD Target LUN,
+CDB LUN, opcode/CDB bytes, selected backend index, INQUIRY byte 0, response
+length, status, and sense fields.  The bounded normal-speed run observed only
+`target_id=0`, `target_lun=0`, `cdb_lun=0`, and `selected_index=2`; normal
+INQUIRY returned byte 0 `00h`, response length 36, and GOOD status.  No
+LUN-1--7 or target-ID alias was observed in this run.  The earlier report of
+approximately eight devices did not contain the new LUN/target matrix, so its
+alias class is not retroactively claimed; the after-run evidence is
+single-target/LUN0 only.
+
+Compiled production-path selftests now cover all required normal and
+unsupported-LUN cases, including Select-and-Transfer admission and the exact
+36-byte fields.  Linux SDL selftest, the M75 controller validator, the
+Transfer Info model check, focused CTest, Linux SDL2 build, MinGW cross-build,
+and repository case/encoding/EOL checks pass.  The real-ROM bounded trace
+also shows TUR, INQUIRY, READ CAPACITY, and MODE SENSE on target 0/LUN 0 with
+the corrected 36-byte INQUIRY.  It subsequently issues READ(10), which is
+outside the currently implemented command subset and returns CHECK CONDITION;
+therefore SCHD registration and SCFORM have not been accepted yet.
+
+G75 remains FAIL/pending.  Do not run SCFORM until a normal SCHD enumeration
+run demonstrates exactly one configured disk; reboot/file operations, manual
+SASI/HOSTFAT, and the non-SCSI disk-path gate remain open.
