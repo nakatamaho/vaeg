@@ -1372,3 +1372,26 @@ separate parity correction or move it to Open Defects.
 - **Verification:** compiled production selftests cover zero-count semantics, 6-/10-byte decoding, range and sense handling, read/write persistence, incomplete writes, chunk boundaries, and LUN isolation.  Normal-speed real-ROM trace now shows READ(10) LBA 0 with 256 DATA IN bytes, one backend block, zero residual, and GOOD status, followed by STATUS/MESSAGE IN.
 - **Evidence:** [M75 report](../agents/reports/m75_scsi_support.md), [M75 task](../agents/tasks/M75_scsi_support.md), and [a4d21e9](https://github.com/nakatamaho/vaeg/commit/a4d21e9a5e0a3b31818cc1dfcd8b281b3b62a67d).
 - **Commit:** [a4d21e9](https://github.com/nakatamaho/vaeg/commit/a4d21e9a5e0a3b31818cc1dfcd8b281b3b62a67d).
+
+
+### Legacy SCSI DATA OUT bypassed the backend commit and erased CHECK CONDITION
+
+- **Status:** corrected in M75; fresh SCFORM/FAT persistence remains open.
+- **Symptom:** a legacy SCSI DATA OUT request could fill the staging buffer,
+  switch directly to STATUS, and report completion without proving that the
+  mounted image had been updated.  A backend write failure could also be
+  replaced by GOOD during STATUS transfer.
+- **Demonstrated root cause:** `cbus/scsiio.c`'s 0CC6h handler wrote the
+  buffer directly and emitted `8Bh` without calling the common
+  `scsicmd_transinfo()`/`scsicmd_block_dataout_complete()` lifecycle.  The
+  STATUS branch in `cbus/scsicmd.c` unconditionally assigned `00h`.
+- **Correction:** AR19 and 0CC6h now share DATA OUT payload accounting;
+  complete chunks call the common command layer, which alone invokes
+  `sxsi_write()`, advances chunks, and selects status.  STATUS preserves the
+  command-layer result.  No SCFORM, FAT, target-ID, or guest-address special
+  case was added.
+- **Verification:** SDL production selftest covers successful 0CC6h commit,
+  no direct STATUS completion, failed backend write, and CHECK CONDITION
+  persistence; Linux build, SDL selftest, focused CTest, and M75 QA pass.
+- **Evidence:** [M75 report](../agents/reports/m75_scsi_support.md) and
+  [d284468](https://github.com/nakatamaho/vaeg/commit/d284468fd256598489e07307fda58fbd1a0aa302).

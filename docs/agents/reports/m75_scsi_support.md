@@ -1700,3 +1700,83 @@ python3 tools/qa/m75_scsi_controller.py --root .
 The real-ROM bounded run reached the corrected READ(10) DATA IN and completed 256 bytes with GOOD status.  A safety timeout later ended the run before SCFORM/filesystem acceptance; it is not reported as a semantic pass.  Final executable SHA-256 values are Linux `ec92e9e44b3ca2464e1861127b951d74f3945715d856f47086b4334adf15d7c4`, MinGW `ca0ff10048223f081d5a0c6b3836a48adba40186d72ca589085126214200b18c`, and macOS `f10f2a7b505f92633d27d0c1bbae7bc74717a82547ed4a034aab4cecbcaa5991`.
 
 G75 is **FAIL/pending**.  Exact one-disk guest registration, SCFORM persistence, reboot/file round trip, manual SASI/HOSTFAT, and non-SCSI disk-path gates remain open.
+
+
+## G75 FAT free-space / DATA OUT follow-up (2026-08-03)
+
+The synchronized implementation head before this correction was
+`02db38627d33612669043cd9b2146382170d9cbc`.  The successful support-disk
+configuration extracted from the supplied D88 is:
+
+```text
+DEVICE = A:\PCPLUS.SYS
+DEVICE = A:\SCHD.SYS -I0
+```
+
+That image does not contain a `-S256` option.  The bundled strings identify
+PCPLUS as v1.08, SCHD as revision 1.55, SCFORM as revision 1.24, and the
+PC-Engine as 1.10.  The `-S256` setting therefore remains a separate
+configuration choice and was not silently inferred for this run.
+
+### Production correction
+
+The prior compatibility `0CC6h` output handler wrote directly into the DATA
+buffer and, when the staging count was reached, fabricated STATUS/`8Bh`
+without invoking the block command completion path.  This bypassed
+`scsicmd_block_dataout_complete()` and `sxsi_write()`, so a legacy DATA OUT
+request could report completion without a persistent backend commit.  The
+correction is [d284468](https://github.com/nakatamaho/vaeg/commit/d284468fd256598489e07307fda58fbd1a0aa302).
+
+`cbus/scsiio.c` now routes AR19 and legacy 0CC6h DATA OUT bytes through the
+same payload accounting helper.  The 0CC6h path calls
+`scsicmd_transinfo()` at a complete chunk; backend commit, chunk continuation,
+status selection, and error propagation remain in the common command layer.
+It no longer changes to STATUS or emits `8Bh` merely because a buffer offset
+reached the expected count.  The data source is recorded as `ar19` or
+`0cc6` in the trace, and `sxsi_write()` remains the sole media write API.
+
+`scsicmd_transinfo()` also no longer overwrites a selected CHECK CONDITION
+with GOOD when STATUS is transferred.  A failed `sxsi_write()` remains
+`02h` through the STATUS phase and its sense data remains available to
+REQUEST SENSE.
+
+### Compiled verification
+
+The production SDL selftest now includes:
+
+```text
+legacy_0cc6_write_reaches_backend_commit       PASS
+legacy_0cc6_does_not_directly_complete_status   PASS
+failed_backend_write_does_not_return_good      PASS
+check_condition_survives_status_transfer       PASS
+```
+
+The existing READ/WRITE, chunking, LUN, INQUIRY, Transfer Info, SDL, and
+focused controller tests remain green:
+
+```text
+cmake --build build/linux-ci-clang --target vaeg_sdl2 -j2             PASS
+SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy .../sdl2/vaeg --selftest   PASS
+ctest --test-dir build/m75-tests -R vaeg_m75_scsi_controller          PASS
+python3 tools/qa/m75_scsi_controller.py --root .                   PASS
+```
+
+### FAT evidence status
+
+The available disposable 40 MB artifact
+`/private/tmp/m75-scsi-40mb.hdd` has a 256-byte VHD header, 256-byte physical
+blocks, 163840 physical blocks, and SHA-256
+`b0e9ac0be0ddf010676ca8edcaddd650460bb988da00a081b191786fd15831c8`.
+Its payload is all zero bytes and therefore contains no post-SCFORM BPB, FAT,
+or root directory to parse.  The similarly named `m75-schd-40mb.hdd` has an
+inconsistent legacy header and an all-zero payload; it is not used as FAT
+acceptance evidence.  No fresh post-SCFORM guest trace or metadata image was
+present in this checkout, so the zero-free-cluster result cannot be assigned
+to a specific BPB/FAT byte here.  The exact first incorrect disk byte and the
+AR19-versus-0CC6 classification remain open for the next WSLg run.
+
+G75 remains **FAIL**.  The correction is committed and machine-tested, but a
+fresh 40 MB SCFORM run must still prove the BPB, both FAT copies, nonzero free
+clusters, persistent one-byte file creation/read/delete, and reboot
+persistence.  The 160 MB multi-partition check and manual SASI/HOSTFAT and
+non-SCSI gates also remain open.
