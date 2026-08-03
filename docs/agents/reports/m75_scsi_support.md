@@ -1661,7 +1661,7 @@ G75 remains FAIL/pending; no G75 PASS or M76 work is claimed.
 
 ### Root cause and correction
 
-The guest-visible “C: has no sectors” result was caused by missing target command coverage, not by the Transfer Info controller state machine: SCHD reached READ(10) (`28h`), but the command layer returned CHECK CONDITION `05/20/00` because READ/WRITE block commands were unsupported.  The correction is [a4d21e9](https://github.com/nakatamaho/vaeg/commit/a4d21e943be7a5c401fb2f36f57f1fca3a20c0f4).
+The guest-visible “C: has no sectors” result was caused by missing target command coverage, not by the Transfer Info controller state machine: SCHD reached READ(10) (`28h`), but the command layer returned CHECK CONDITION `05/20/00` because READ/WRITE block commands were unsupported.  The correction is [a4d21e9](https://github.com/nakatamaho/vaeg/commit/a4d21e9a5e0a3b31818cc1dfcd8b281b3b62a67d).
 
 `cbus/scsicmd.c` now has one common SXSIDEV-backed implementation for READ(6), WRITE(6), READ(10), and WRITE(10).  The reused backend functions are `sxsi_read()` and `sxsi_write()` in `fdd/sxsi.c`; the SCSI layer does not open or seek host files directly.  READ/WRITE(6) decodes the 21-bit LBA and maps zero length to 256 blocks.  READ/WRITE(10) decodes big-endian LBA/count and treats zero count as a successful no-data command.  Range checks are overflow-safe and return `05/21/00`; read-only media returns `07/27/00` for writes.
 
