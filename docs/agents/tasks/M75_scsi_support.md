@@ -802,3 +802,14 @@ backend writes preserve CHECK CONDITION through STATUS.  The remaining gate
 is an evidence-backed fresh SCFORM/FAT run using the exact support-disk
 configuration (`PCPLUS.SYS`, `SCHD.SYS -I0`) and a new 256-byte-block image.
 Do not infer FAT type or free-space state from the guest message alone.
+
+
+## G75 FAT16 forensic tool
+
+`tools/inspect_vaeg_fat.py` and `tools/qa/test_inspect_vaeg_fat.py` provide
+read-only VHD/FAT16 inspection and generated regression fixtures.  The tool
+must be run on private copies of the supplied source and old-formatted images;
+it assembles 1024-byte logical sectors from four 256-byte physical blocks and
+reports BPB, FAT1/FAT2, free clusters, root-directory state, and changed
+physical-LBA ranges.  The original image directory was inaccessible in the
+current sandbox, so no FAT result is claimed until those copies are exposed.
