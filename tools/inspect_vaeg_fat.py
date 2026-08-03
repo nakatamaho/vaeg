@@ -224,11 +224,14 @@ def fat_report(path: Path, info: Dict[str, int | str | bool], bpb: Dict[str, obj
     fat_bytes = fatsz * bps
     reports = []
     with path.open("rb") as fh:
+        valid_cluster_count = int(bpb["cluster_count"])
         for copy_index in range(int(bpb["number_of_fats"])):
             lba = start + (int(bpb["first_fat_sector"]) + copy_index * fatsz) * bpl
             data = read_physical(fh, info, lba, fat_bytes // psize)
             entries = [u16(data, off) for off in range(0, len(data) - 1, 2)]
             from_cluster2 = entries[2:]
+            valid_entries = from_cluster2[:valid_cluster_count]
+            padding_entries = from_cluster2[valid_cluster_count:]
             reports.append({
                 "index": copy_index + 1,
                 "physical_lba_start": lba,
@@ -236,11 +239,16 @@ def fat_report(path: Path, info: Dict[str, int | str | bool], bpb: Dict[str, obj
                 "sha256": sha256(data),
                 "first_64_bytes": data[:64].hex(),
                 "first_32_entries": [f"{x:04x}" for x in entries[:32]],
-                "free_entries": sum(x == 0 for x in from_cluster2),
-                "allocated_entries": sum(x not in (0, 0xFFF7) and x < 0xFFF8 for x in from_cluster2),
-                "bad_clusters": sum(x == 0xFFF7 for x in from_cluster2),
-                "end_of_chain_entries": sum(0xFFF8 <= x <= 0xFFFF for x in from_cluster2),
-                "entry_count": len(from_cluster2),
+                "fat_entry_capacity": len(entries),
+                "valid_data_cluster_entries": len(valid_entries),
+                "padding_entries": len(padding_entries),
+                "free_entries": sum(x == 0 for x in valid_entries),
+                "allocated_entries": sum(x not in (0, 0xFFF7) and x < 0xFFF8 for x in valid_entries),
+                "bad_clusters": sum(x == 0xFFF7 for x in valid_entries),
+                "end_of_chain_entries": sum(0xFFF8 <= x <= 0xFFFF for x in valid_entries),
+                "reserved_entries": sum(x != 0 and (x == 0xfff7 or x >= 0xfff8) for x in entries[:2]),
+                "nonzero_padding_entries": sum(x != 0 for x in padding_entries),
+                "entry_count": len(valid_entries),
             })
     return {"copies": reports, "equal": len(reports) <= 1 or len({r["sha256"] for r in reports}) == 1}
 
@@ -410,7 +418,15 @@ def main(argv: Optional[Iterable[str]] = None) -> int:
             print(f"FAT type: {s['fat_type']} clusters={s['cluster_count']}")
             fat = result["fat"]
             print(f"FAT1/FAT2 equal: {fat['equal']}")
-            print(f"free clusters: {fat['copies'][0]['free_entries']}")
+            copy = fat["copies"][0]
+            print(f"FAT entry capacity: {copy['fat_entry_capacity']}")
+            print(f"valid data-cluster entries: {copy['valid_data_cluster_entries']}")
+            print(f"padding entries: {copy['padding_entries']}")
+            print(f"free valid clusters: {copy['free_entries']}")
+            print(f"allocated valid clusters: {copy['allocated_entries']}")
+            print(f"bad valid clusters: {copy['bad_clusters']}")
+            print(f"reserved valid entries: {copy['reserved_entries']}")
+            print(f"nonzero padding entries: {copy['nonzero_padding_entries']}")
             print(f"root first unused entry: {result['root_directory']['first_unused_entry']}")
         for error in result.get("structural_errors", []):
             print(f"structural error: {error}")

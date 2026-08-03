@@ -47,6 +47,17 @@ void scsiio_trace_block_start(UINT sequence, UINT target_id, UINT target_lun,
 		UINT cdb_lun, const BYTE *cdb, UINT32 lba, UINT32 block_count,
 		UINT sector_size, UINT32 byte_count, UINT backend_index,
 		BOOL backend_read_only);
+UINT scsiio_transfer_count(void);
+
+void scsiio_trace_block_program(UINT sequence, REG8 opcode,
+		UINT32 cdb_transfer_length, UINT32 decoded_blocks, UINT32 decoded_bytes,
+		REG8 ar12, REG8 ar13, REG8 ar14, UINT32 transfer_count);
+
+void scsiio_trace_block_chunk(UINT sequence, UINT chunk_index, UINT32 lba,
+		UINT32 block_count, UINT32 byte_offset, UINT32 byte_count);
+void scsiio_trace_block_backend_data(const BYTE *data, UINT32 count);
+void scsiio_trace_block_staging_data(const BYTE *data, UINT32 count);
+void scsiio_trace_block_delivered_byte(REG8 data);
 void scsiio_trace_block_complete(UINT sequence, REG8 opcode,
 		UINT32 transferred_bytes, UINT32 residual_bytes,
 		UINT32 backend_blocks, REG8 backend_result, REG8 status,

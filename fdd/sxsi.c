@@ -13,6 +13,36 @@
 const char sig_vhd[8] = "VHD1.00";
 const char sig_nhd[15] = "T98HDDIMAGE.R0";
 
+static UINT32 sxsi_fingerprint_update(UINT32 digest, const BYTE *data, UINT count) {
+	UINT i;
+
+	for (i = 0; i < count; i++) {
+		digest ^= data[i];
+		digest *= 16777619U;
+	}
+	return digest;
+}
+
+static UINT32 sxsi_file_fingerprint(FILEH fh, UINT32 headersize, UINT32 size) {
+	BYTE sample[256];
+	UINT count;
+	UINT32 digest;
+
+	digest = 2166136261U;
+	count = min(headersize, (UINT32)sizeof(sample));
+	if (file_seek(fh, 0, FSEEK_SET) != 0 ||
+			file_read(fh, sample, count) != count) {
+		return 0;
+	}
+	digest = sxsi_fingerprint_update(digest, sample, count);
+	count = min(size, (UINT32)sizeof(sample));
+	if (file_seek(fh, (long)headersize, FSEEK_SET) != (long)headersize ||
+			file_read(fh, sample, count) != count) {
+		return 0;
+	}
+	return sxsi_fingerprint_update(digest, sample, count);
+}
+
 const SASIHDD sasihdd[7] = {
 				{33, 4, 153},			// 5MB
 				{33, 4, 310},			// 10MB
@@ -216,6 +246,14 @@ const char	*ext;
 	sxsi->headersize = headersize;
 	sxsi->fh = fh;
 	file_cpyname(sxsi->fname, file, sizeof(sxsi->fname));
+	if (type & SXSITYPE_SCSI) {
+		BOOL read_only = ((type & SXSITYPE_DEVMASK) == SXSITYPE_CDROM);
+		fprintf(stderr, "INFO: SCSI mount path=%s size=%llu header=%u "
+				"block_size=%u blocks=%ld read_only=%u fingerprint=%08x\n",
+				file, (unsigned long long)file_getsize64(fh), headersize, size,
+				totals, read_only ? 1U : 0U,
+				sxsi_file_fingerprint(fh, headersize, size));
+	}
 	if (type == (SXSITYPE_IDE | SXSITYPE_HDD)) {
 		sasihddcheck(sxsi);
 	}
