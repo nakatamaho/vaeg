@@ -45,7 +45,7 @@ def validate(root: pathlib.Path) -> None:
     np2 = (root / "sdl2" / "np2.c").read_text(encoding="utf-8")
 
     inquiry_match = re.search(
-        r"static const BYTE hdd_inquiry\[0x[0-9a-fA-F]+\]\s*=\s*\{(.*?)\};",
+        r"static const BYTE hdd_inquiry\[[^\]]+\]\s*=\s*\{(.*?)\};",
         scsicmd, re.DOTALL)
     if inquiry_match is None:
         raise AssertionError("missing INQUIRY response table")
@@ -57,13 +57,32 @@ def validate(root: pathlib.Path) -> None:
             inquiry_values.append(int(token, 16))
         else:
             inquiry_values.append(ord(token[1]))
+    if len(inquiry_values) != 36:
+        raise AssertionError("INQUIRY response table must contain 36 bytes")
     if len(inquiry_values) < 5:
         raise AssertionError("INQUIRY response table is too short")
     if inquiry_values[4] != len(inquiry_values) - 5:
         raise AssertionError(
             "INQUIRY additional length must equal table length minus five")
-    if inquiry_values[24:28] != [ord("1"), ord("."), ord("0"), ord("0")]:
+    if inquiry_values[4] != 0x1f:
+        raise AssertionError("INQUIRY additional length must be 1f")
+    if inquiry_values[8:16] != [ord(c) for c in "NEC     "]:
+        raise AssertionError("INQUIRY vendor field must be NEC padded to 8 bytes")
+    if inquiry_values[16:32] != [ord(c) for c in "NP2-HDD         "]:
+        raise AssertionError("INQUIRY product field must be 16 bytes")
+    if inquiry_values[32:36] != [ord("1"), ord("."), ord("0"), ord("0")]:
         raise AssertionError("INQUIRY revision must be 1.00")
+    require(scsicmd, "hdd_inquiry_unsupported_lun[36]",
+            "unsupported-LUN INQUIRY response table")
+    require(scsicmd, "0x7f,0x00,0x02,0x02,0x1f",
+            "unsupported-LUN INQUIRY qualifier")
+    for helper, label in (("scsicmd_cdb_lun", "CDB LUN extraction"),
+                          ("scsicmd_target_lun", "WD Target LUN extraction"),
+                          ("scsicmd_lun_supported", "central LUN validation"),
+                          ("scsicmd_trace_cdb_result", "CDB result enumeration trace"),
+                          ("scsiio_trace_target_selection", "selection enumeration trace"),
+                          ("scsicmd_backend_selftest", "compiled LUN/INQUIRY tests")):
+        require(scsicmd, helper, label)
 
     for opcode, name in (("0x00", "TEST UNIT READY"),
                          ("0x03", "REQUEST SENSE"),

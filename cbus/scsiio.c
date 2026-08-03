@@ -279,6 +279,8 @@ static BOOL scsi_trace_compact_line(const char *fmt) {
 			strncmp(fmt, "scsitrace M75c2", 15) == 0 ||
 			strncmp(fmt, "scsitrace warning", 17) == 0 ||
 			strncmp(fmt, "scsitrace command-", 18) == 0 ||
+			strncmp(fmt, "scsitrace target-selection", 25) == 0 ||
+			strncmp(fmt, "scsitrace cdb-result", 20) == 0 ||
 			strncmp(fmt, "scsitrace req-", 14) == 0 ||
 			strncmp(fmt, "scsitrace ack-", 14) == 0 ||
 			strncmp(fmt, "scsitrace data-latched", 22) == 0 ||
@@ -836,6 +838,31 @@ void scsiio_trace_pic_irq(REG8 irq, BOOL asserted) {
 		SCSITRACEOUT(("scsitrace irq-%s line=%u cs=%04x ip=%04x",
 				asserted ? "assert" : "clear", irq, CPU_CS, CPU_IP));
 	}
+}
+
+void scsiio_trace_target_selection(UINT target_id, UINT target_lun,
+		UINT selected_index, REG8 status) {
+
+	SCSITRACEOUT(("scsitrace target-selection target_id=%u target_lun=%u "
+			"selected_index=%u status=%02x", target_id, target_lun,
+			selected_index, status));
+}
+
+void scsiio_trace_cdb_result(UINT target_id, UINT target_lun, UINT cdb_lun,
+		UINT selected_index, const BYTE *cdb, UINT cdb_length,
+		REG8 inquiry_byte0, UINT response_length, REG8 status,
+		REG8 sense_key, REG8 asc, REG8 ascq) {
+
+	SCSITRACEOUT(("scsitrace cdb-result target_id=%u target_lun=%u cdb_lun=%u "
+			"opcode=%02x cdb_len=%u cdb0=%02x cdb1=%02x cdb2=%02x "
+			"cdb3=%02x cdb4=%02x cdb5=%02x cdb6=%02x cdb7=%02x "
+			"cdb8=%02x cdb9=%02x cdb10=%02x cdb11=%02x "
+			"selected_index=%u inquiry0=%02x response_length=%u "
+			"status=%02x sense=%02x asc=%02x ascq=%02x",
+			target_id, target_lun, cdb_lun, cdb[0], cdb_length, cdb[0], cdb[1],
+			cdb[2], cdb[3], cdb[4], cdb[5], cdb[6], cdb[7], cdb[8], cdb[9],
+			cdb[10], cdb[11], selected_index, inquiry_byte0, response_length,
+			status, sense_key, asc, ascq));
 }
 
 
