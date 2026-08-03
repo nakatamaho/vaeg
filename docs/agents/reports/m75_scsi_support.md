@@ -1951,3 +1951,49 @@ G75 remains **FAIL**.  The complete backing-store sub-gate is now machine
 verified, but SCFORM on the new disposable image, FAT16 free-space evidence,
 reboot persistence, file create/read/compare/delete, manual SASI/HOSTFAT, and
 the non-SCSI disk-path gate remain to be performed.
+
+
+## Guest-visible FAT accounting and exact-64KiB READ correction (2026-08-03)
+
+Implementation commit: [a7d244d](https://github.com/nakatamaho/vaeg/commit/a7d244d61d93eedaf8498185ec55f8e8ac743926), based on the synchronized branch SHA `0a701ec65aed67f7f5df98c5a8d36f46c04ccf7a`.
+
+The formatted VHD evidence is structurally valid and is not changed by this
+correction.  Its decoded FAT16 geometry is: 1024-byte logical sectors, two
+logical sectors per cluster, one reserved sector, two FATs, 39 sectors per
+FAT, 640 root entries, partition start at physical LBA 256, and 19,918 valid
+data clusters.  Each FAT has capacity for 19,968 entries; the 48 entries
+after cluster `ClusterCount + 1` are padding and are not part of the data
+cluster count.  FAT1 and FAT2 are equal, all 19,918 valid data-cluster entries
+are free, and the root directory begins with an unused entry.  The inspector
+and its generated tests now report valid-cluster, padding, reserved, bad, and
+nonzero-padding counts separately.
+
+The controller's 64KiB data window had two silent wrap hazards: AR19 DATA IN
+used a 16-bit mask and the compatibility 0CC6h DATA IN path used a 15-bit
+mask.  A 65,536-byte READ(6) (`cdb[4]=00h`, 256 blocks at 256 bytes) could
+therefore repeat or address the wrong window.  Both paths now use checked
+32-bit positions and report a trace invariant instead of wrapping.  Transfer
+count programming is also recorded with the CDB transfer-length field, decoded
+block/byte count, AR12/AR13/AR14 and reconstructed TC; `010000h` is treated as
+65,536 bytes, not as one byte.  Backend, staging and delivered DATA IN bytes
+now have per-command FNV digests and counts; matching READs report
+`digest_equal=1`.
+
+The SXSIDEV mount trace records the canonical image path, logical size, header
+size, block size, declared block count, read-only classification and a stable
+header/data fingerprint.  In the bounded normal-speed run against the valid
+formatted image, READ(10) LBA 0, LBA 1 and LBA 256 each transferred one
+256-byte block with zero residual and GOOD status; backend, staging and AR19
+digests matched for all three commands.  TUR, 36-byte INQUIRY, READ CAPACITY,
+and 36-byte MODE SENSE also completed.  The bounded run exited on its external
+time limit before the guest reached the full CHKDSK/free-space sequence, so no
+positive guest free-space or file-lifecycle acceptance is claimed.
+
+Compiled production selftests cover the 65,535-byte, exact-65,536-byte and
+out-of-window boundaries, READ(6) zero length as 256 blocks, READ(10) 256
+blocks, a 65,537-byte chunk transition, transfer-count register order, and
+backend/staging persistence.  The FAT inspector has ten passing generated
+tests, including a fixture with nonzero FAT padding that must not inflate the
+free-cluster count.  G75 remains **FAIL** pending bounded CHKDSK evidence,
+nonzero guest free space, and persistent file create/read/compare/delete after
+reopen.
