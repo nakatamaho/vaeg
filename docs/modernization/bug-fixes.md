@@ -1395,3 +1395,20 @@ separate parity correction or move it to Open Defects.
   persistence; Linux build, SDL selftest, focused CTest, and M75 QA pass.
 - **Evidence:** [M75 report](../agents/reports/m75_scsi_support.md) and
   [d284468](https://github.com/nakatamaho/vaeg/commit/d284468fd256598489e07307fda58fbd1a0aa302).
+
+
+### Added VHD/FAT16 forensic inspection for the G75 free-space failure
+
+- **Status:** diagnostic tooling added; guest FAT acceptance remains open.
+- **Symptom:** freshly formatted guest volumes report no free disk space, but
+  the first incorrect on-disk byte was not available in the current sandbox.
+- **Correction:** add `tools/inspect_vaeg_fat.py`, which matches the VAEG
+  VHD header, respects physical/header offsets, assembles four-block logical
+  sectors, validates FAT16 BPB geometry, compares FAT copies, counts free
+  clusters, inspects root-directory entries, and reports changed physical-LBA
+  ranges.  Generated fixtures reject duplicated/reordered four-block metadata
+  and zero-free or mismatched FAT tables.
+- **Verification:** seven generated unittest cases and the focused CTest pass.
+  Original user images were not modified; host access returned
+  `Operation not permitted`, so no disk corruption root cause is asserted.
+- **Evidence:** [M75 report](../agents/reports/m75_scsi_support.md).
