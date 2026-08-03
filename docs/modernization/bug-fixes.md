@@ -1338,3 +1338,26 @@ separate parity correction or move it to Open Defects.
   [M75 task](../agents/tasks/M75_scsi_support.md),
   [f0b14d7](https://github.com/nakatamaho/vaeg/commit/f0b14d71a2015b9469c92ea51abe2b9ebf964b43),
   [9827d09](https://github.com/nakatamaho/vaeg/commit/9827d09756779943d46b0973436f26f32142dced).
+
+
+### SCSI target LUN isolation and malformed INQUIRY response
+
+- **Status:** corrected in M75d1; SCHD/SCFORM registration remains open.
+- **Symptom:** one configured SCSI image could be interpreted through multiple
+  logical-unit discovery paths, and the 32-byte INQUIRY response left SCHD
+  reading stale bytes for Product Revision.
+- **Demonstrated root cause:** the backend did not centrally require both the
+  WD Target LUN register and CDB LUN to be zero, and `hdd_inquiry` advertised
+  `1Bh` additional length in a 32-byte table with revision bytes in the wrong
+  fixed-width offsets.
+- **Correction:** centralize LUN0 validation for PIO and Select-and-Transfer;
+  return GOOD/36-byte byte-`7Fh` INQUIRY for unsupported LUNs and
+  CHECK CONDITION `05/25/00` for other unsupported-LUN commands; replace the
+  normal response with the exact 36-byte `NEC`/`NP2-HDD`/`1.00` layout.
+- **Verification:** compiled production selftests, M75 QA, focused CTest,
+  Linux SDL2, MinGW cross-build, and bounded target/LUN trace pass.  SCHD
+  still issues unsupported READ(10), so SCFORM and manual registration are
+  not claimed.
+- **Evidence:** [M75 report](../agents/reports/m75_scsi_support.md) and
+  [M75 task](../agents/tasks/M75_scsi_support.md).
+- **Commit:** [103d59e](https://github.com/nakatamaho/vaeg/commit/103d59e).
