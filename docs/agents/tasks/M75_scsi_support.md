@@ -776,7 +776,7 @@ SASI/HOSTFAT, and the non-SCSI disk-path gate remain open.
 
 ## G75 block I/O corrective implementation (2026-08-03)
 
-The production correction is [a4d21e9](https://github.com/nakatamaho/vaeg/commit/a4d21e943be7a5c401fb2f36f57f1fca3a20c0f4), based on the synchronized branch head `1c5aeb75932b5eb73ce4fffc2650bd6c311a18eb`.  The target-side discovery path was already reaching READ(10); the concrete reason the guest later reported that C: had no sectors was that opcode `28h` (and the corresponding WRITE opcodes) fell through to CHECK CONDITION `05/20/00`.
+The production correction is [a4d21e9](https://github.com/nakatamaho/vaeg/commit/a4d21e9a5e0a3b31818cc1dfcd8b281b3b62a67d), based on the synchronized branch head `1c5aeb75932b5eb73ce4fffc2650bd6c311a18eb`.  The target-side discovery path was already reaching READ(10); the concrete reason the guest later reported that C: had no sectors was that opcode `28h` (and the corresponding WRITE opcodes) fell through to CHECK CONDITION `05/20/00`.
 
 `cbus/scsicmd.c` now decodes READ/WRITE(6) and READ/WRITE(10) in one common block path.  READ/WRITE(6) uses the 21-bit LBA and maps a zero transfer length to 256 blocks.  READ/WRITE(10) uses big-endian 32-bit LBA and 16-bit block count; zero means a successful no-data command.  Range validation uses `lba >= total || blocks > total - lba` semantics without unsigned wrap.  The byte count is checked against the WD 24-bit transfer representation.
 
