@@ -571,6 +571,34 @@ static void scsiio_complete_byte_handshake(void) {
 	}
 }
 
+/* Store payload bytes independently of the physical compatibility port.
+ * AR19 owns REQ/ACK and WD transfer-count accounting; 0CC6 is a legacy
+ * byte stream, but both paths must feed the same DATA OUT command state. */
+static void scsiio_dataout_store_byte(REG8 dat, const char *source) {
+	if (scsiio.wrdatpos < sizeof(scsiio.data)) {
+		scsiio.data[scsiio.wrdatpos] = dat;
+	}
+	SCSITRACEOUT(("scsitrace dataout-accept source=%s index=%u data=%02x",
+		source, scsiio.wrdatpos, dat));
+	scsiio.wrdatpos++;
+}
+
+static void scsiio_legacy_dataout_complete(void) {
+	REG8 next_status;
+
+	if ((scsiio.phase != SCSIPH_DATAOUT) ||
+			(scsiio.wrdatpos < scsiio.cmdpos)) {
+		return;
+	}
+	next_status = scsicmd_transinfo(scsiio.reg[SCSICTR_DSTID] & 7);
+	if (next_status == scsicmd_phase_service_status(SCSIPH_DATAOUT)) {
+		/* The command layer prepared another chunk and remains in DATA OUT. */
+		return;
+	}
+	/* Backend commit and status selection are owned by transinfo(). */
+	scsiintr("legacy-data-complete", next_status);
+}
+
 static void scsiio_start_transfer(void) {
 	if (scsi_transfer_state != SCSI_TRANSFER_WAIT_FOR_REQ) {
 		return;
@@ -651,8 +679,8 @@ static void scsiio_data_write(REG8 dat) {
 		}
 		scsiio.wrdatpos++;
 	}
-	else if (scsiio.wrdatpos < sizeof(scsiio.data)) {
-		scsiio.data[scsiio.wrdatpos++] = dat;
+	else {
+		scsiio_dataout_store_byte(dat, "ar19");
 	}
 	if (!scsi_transfer_single_byte) {
 		scsiio_decrement_transfer_count();
@@ -1518,14 +1546,15 @@ static void IOOUTCALL scsiio_occ6(UINT port, REG8 dat) {
 
 	SCSITRACEOUT(("scsitrace out port=0cc6 data=%02x ar=%02x cs=%04x ip=%04x",
 			dat, scsiio.port, CPU_CS, CPU_IP));
-	scsiio.data[scsiio.wrdatpos & 0x7fff] = dat;
-	scsiio.wrdatpos++;
-	if ((scsiio.phase == SCSIPH_DATAOUT) &&
-		(scsiio.wrdatpos >= scsiio.cmdpos)) {
-		scsiio.phase = SCSIPH_STATUS;
-		scsiintr("legacy-data-complete", 0x8b);
+	if (scsiio.phase == SCSIPH_DATAOUT) {
+		scsiio_dataout_store_byte(dat, "0cc6");
+		scsiio_legacy_dataout_complete();
 	}
 	(void)port;
+}
+
+void scsiio_legacy_dataout_selftest_byte(REG8 dat) {
+	scsiio_occ6(0, dat);
 }
 
 static REG8 IOINPCALL scsiio_icc0(UINT port) {
