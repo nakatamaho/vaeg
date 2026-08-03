@@ -1440,3 +1440,24 @@ separate parity correction or move it to Open Defects.
 - **Correction:** `newdisk_vhd_create()` performs checked geometry arithmetic, writes a complete 220-byte-header image through a temporary path, sets the exact sparse logical length, flushes and atomically renames it.  SCSI open/read/write paths now reject incomplete or overlong stores and propagate short I/O/flush failures.
 - **Verification:** production selftests cover exact size, sparse zero reads, first/middle/last block boundaries, persistence after reopen, out-of-range rejection, truncated-image rejection, and no-overwrite behavior.  The generated 40 MiB image is recorded in the M75 report.
 - **Evidence:** [M75 report](../agents/reports/m75_scsi_support.md).
+
+
+### FAT padding was counted as usable free space and 64KiB PIO positions wrapped
+
+- **Status:** corrected in M75; guest CHKDSK and file lifecycle remain open.
+- **Symptom:** FAT inspection reported free entries beyond the valid data-cluster
+  range, while exact 64KiB READ(6) transfers could address a repeated data
+  window at the 64KiB boundary.
+- **Demonstrated root cause:** the inspector counted the physical FAT entry
+  capacity rather than `FAT[2]..FAT[ClusterCount+1]`; AR19 and 0CC6h DATA IN
+  indexing masked the 32-bit data position with 16-bit and 15-bit masks.
+- **Correction:** derive valid cluster and padding ranges from the BPB, and use
+  checked unmasked positions for both PIO data paths.  Transfer traces now
+  compare backend, staging and delivered bytes, and record TC `010000h` as a
+  valid 65,536-byte count.
+- **Verification:** compiled SDL selftests cover 65,535/65,536/65,537-byte
+  boundaries, READ(6) 256-block semantics and READ(10) exact 64KiB/chunked
+  reads; ten FAT-inspector tests pass; the bounded formatted-image run shows
+  equal backend/staging/AR19 digests for its first three block reads.
+- **Evidence:** [M75 report](../agents/reports/m75_scsi_support.md) and
+  [a7d244d](https://github.com/nakatamaho/vaeg/commit/a7d244d61d93eedaf8498185ec55f8e8ac743926).
