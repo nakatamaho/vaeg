@@ -819,10 +819,29 @@ current sandbox, so no FAT result is claimed until those copies are exposed.
 
 The previously inaccessible image paths are now readable under
 `/Users/maho/vaeg`.  The supplied `scsi40.hdd` and
-`scsi40_formatted.hdd` are VHD1.00 files with 256-byte blocks and headers that
-report 163,840 blocks (40 MiB), but their actual lengths contain only 3 and
-651 complete data blocks respectively, plus 220-byte tails.  The read-only
+`scsi40_formatted.hdd` are VHD1.00 files with 256-byte blocks and the production 220-byte header.  The
+header reports 163,840 blocks (40 MiB), but their actual lengths contain only
+4 and 652 complete data blocks respectively; there is no partial data-block
+tail under the production layout.  The read-only
 inspector reports no valid FAT16 BPB candidate and cannot safely derive FAT or
 root-directory state.  Their exact hashes, changed ranges, and truncation are
 recorded in the M75 report.  Do not treat these partial artifacts as a valid
 formatted-volume result or declare G75.
+
+## Complete SCSI image backing follow-up (2026-08-03)
+
+Implementation commit: [e862711](https://github.com/nakatamaho/vaeg/commit/e862711).
+
+The production VHD1.00 layout is authoritative in `fdd/sxsi.h`: `VHDHDR` is
+220 bytes, data begins at offset 220, and the 40 MiB/256-byte geometry has
+163840 physical blocks.  The expected logical file size is therefore
+`220 + 163840 * 256 = 41943260` bytes.  The earlier 256-byte-header wording
+in this task was corrected after verifying the production struct.
+
+The creator and validator correction is implemented in [the M75 report](../reports/m75_scsi_support.md): complete sparse logical length,
+atomic temporary creation, strict open-time size validation, checked aligned
+SXSIDEV I/O, and generated creator/inspection tests.  The supplied images
+remain untouched and are still rejected as truncated against their declared
+capacity.  A complete fresh image and disposable SCFORM preparation copy are
+under `/tmp/vaeg-m75-image-create/`; G75 remains FAIL until guest SCFORM and
+persistent filesystem operations are completed.
