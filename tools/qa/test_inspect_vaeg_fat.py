@@ -126,6 +126,28 @@ class FatInspectionTests(unittest.TestCase):
             self.assertEqual(result["container"]["header_size"], HEADER)
             self.assertEqual(result["selected"]["partition_start_physical_lba"], PARTITION_LBA)
 
+    def test_compare_reports_partial_tail_separately(self):
+        with tempfile.TemporaryDirectory() as td:
+            first = Path(td) / "first.hdd"
+            second = Path(td) / "second.hdd"
+            make_image(first)
+            make_image(second)
+            second.write_bytes(second.read_bytes()[:HEADER + 3 * PHYSICAL + 7])
+            result = MODULE.changed_ranges(first, second, PHYSICAL)
+            self.assertIsNotNone(result["partial_tail"])
+            self.assertTrue(result["partial_tail"]["different"])
+
+    def test_vhd_truncation_is_reported_without_fabricating_blocks(self):
+        with tempfile.TemporaryDirectory() as td:
+            path = Path(td) / "truncated.hdd"
+            make_image(path)
+            original = path.read_bytes()
+            path.write_bytes(original[:HEADER + 3 * PHYSICAL + 17])
+            info = MODULE.detect_container(path, PHYSICAL)
+            self.assertTrue(info["truncated"])
+            self.assertEqual(info["complete_physical_blocks"], 3)
+            self.assertEqual(info["trailing_data_bytes"], 17)
+
     def test_fat16_compare_reports_changed_physical_lbas(self):
         with tempfile.TemporaryDirectory() as td:
             before = Path(td) / "before.hdd"
