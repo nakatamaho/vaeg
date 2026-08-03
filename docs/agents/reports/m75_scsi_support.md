@@ -1785,7 +1785,7 @@ non-SCSI gates also remain open.
 ## G75 FAT16 forensic inspection (2026-08-03)
 
 A reusable read-only inspector was added as `tools/inspect_vaeg_fat.py`.  It
-recognizes the VAEG `VHD1.00` container using the same 256-byte header layout
+recognizes the VAEG `VHD1.00` container using the same 220-byte header layout
 as `fdd/sxsi.c`, reports physical geometry, searches for structurally valid
 FAT16 BPBs without silently selecting an ambiguous candidate, assembles
 1024-byte logical sectors from four 256-byte physical blocks, reports FAT1 /
@@ -1833,12 +1833,12 @@ were not modified.  Python `hashlib.sha256` was used because the sandboxed
 | `scsi40.hdd` | 1,244 bytes | `47ee49ebe280ff69d28a5f57e018e3d34da1f579ddb95ad7316222309980976a` |
 | `scsi40_formatted.hdd` | 167,132 bytes | `c0b9d419638077e9e02b18854aabfcb978d35be5d091dff3fda5a3193754c60c` |
 
-Both files have a `VHD1.00` header of 256 bytes.  The header reports 256-byte
-physical blocks, 163,840 physical blocks, 40 MiB, and geometry
-`sectors=32`, `surfaces=8`, `cylinders=640`.  The actual files are truncated:
-`scsi40.hdd` contains only 3 complete data blocks plus 220 trailing bytes, and
-`scsi40_formatted.hdd` contains 651 complete data blocks plus 220 trailing
-bytes.  They therefore do not contain the reported 40 MiB data area.
+Both files have a `VHD1.00` header of 220 bytes (`sizeof(VHDHDR)` in
+`fdd/sxsi.h`).  The header reports 256-byte physical blocks, 163,840
+physical blocks, 40 MiB, and geometry `sectors=32`, `surfaces=8`,
+`cylinders=640`.  The actual files are truncated: `scsi40.hdd` contains only
+4 complete data blocks and `scsi40_formatted.hdd` contains 652 complete data
+blocks.  They therefore do not contain the reported 40 MiB data area.
 
 The inspector was run as follows (exit 1 is the intentional structural-error
 result, not a crash):
@@ -1872,3 +1872,82 @@ truncated and cannot be used as a complete disposable 40 MiB target.  G75
 remains FAIL.  A complete image (or a fresh run whose full sparse-file length is
 preserved) is required before FAT16 metadata and persistent free-space/file
 operations can be accepted.
+
+## G75 complete SCSI image backing correction (2026-08-03)
+
+Implementation commit: [e862711](https://github.com/nakatamaho/vaeg/commit/e862711) based on synchronized starting SHA `dcdb8797dd2eda76b5adf883d07157532401462f`.
+
+The production source defines the VHD1.00 header as `VHDHDR` in
+`fdd/sxsi.h`; its size is 220 bytes, not 256.  The canonical layout is:
+
+```text
+header             = sizeof(VHDHDR) = 220 bytes
+data offset        = 220
+physical block     = header.sectorsize (256 for the M75 image)
+physical blocks    = header.totals (163840 for 40 MiB)
+logical file size  = 220 + 163840 * 256 = 41943260 bytes
+```
+
+The previous creator wrote the header and IPL but never extended the backing
+file to the declared logical length.  The new `newdisk_vhd_create()` path uses
+checked 64-bit geometry arithmetic, writes the complete header, sets the exact
+logical length with `ftruncate` (POSIX) or `_chsize_s` (Windows), flushes, and
+renames a temporary `.hdd` file atomically.  Existing destinations are not
+overwritten unless `--force` is explicitly supplied.  The SCSI open path now
+rejects truncated or overlong files and reports declared blocks, block size,
+expected bytes, actual bytes, and missing bytes.  `sxsi_read()` and
+`sxsi_write()` enforce aligned in-range requests; short host I/O and flush
+failures remain backend errors.
+
+The native creation interface is available as:
+
+```text
+vaeg --create-scsi-hdd --output PATH --size-mib 40 --block-size 256
+```
+
+and the repository wrapper is `tools/create_vaeg_scsi_hdd.py`.  The inspection
+tool now uses the same 220-byte production header, reports declared/actual
+logical lengths, complete blocks, missing bytes and classification, and does
+not attempt FAT decoding after a truncated image unless `--forensic-partial`
+is requested.
+
+The supplied images were not modified.  With the corrected production header,
+`scsi40.hdd` is 1244 bytes = 220 + 4*256 and
+`scsi40_formatted.hdd` is 167132 bytes = 220 + 652*256; both remain truncated
+against their declared 163840 blocks and are rejected by the production open
+path.  The inspector reports no FAT candidate for either artifact.
+
+A fresh complete image was generated outside the repository:
+
+```text
+path        /tmp/vaeg-m75-image-create/scsi40_full.hdd
+logical     41943260 bytes
+allocated   4096 bytes (sparse)
+SHA-256     79cbf423942f258454700666e56fa0a4a4d9d7027222cd1a40d67d4acb57bd5e
+classification valid complete image
+```
+
+A disposable SCFORM preparation copy is
+`/tmp/vaeg-m75-image-create/scsi40-scform-test.hdd`; no guest SCFORM was
+performed in this run.  The production selftest covers first, middle and last
+LBA reads, deterministic first/last block write/read persistence after reopen,
+out-of-range and misaligned requests, exact file length, truncated-image
+rejection, and refusal to overwrite an existing destination.  Linux and macOS
+selftests pass.  The MinGW cross-build passes with `CCACHE_DISABLE=1`; the
+initial ccache attempt was blocked by the sandbox's inaccessible host ccache
+temporary directory.
+
+Validation commands and results:
+
+```text
+cmake --build build/linux-ci-clang --target vaeg_sdl2 -j2             PASS
+SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy build/linux-ci-clang/sdl2/vaeg --selftest PASS
+SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy build/macos-release/sdl2/vaeg --selftest PASS
+CCACHE_DISABLE=1 cmake --build build/mingw-cross --target vaeg_sdl2 -j2 PASS
+PYTHONPYCACHEPREFIX=/tmp/vaeg-m75-image-create/pycache python3 -m unittest tools/qa/test_inspect_vaeg_fat.py -v PASS (9)
+```
+
+G75 remains **FAIL**.  The complete backing-store sub-gate is now machine
+verified, but SCFORM on the new disposable image, FAT16 free-space evidence,
+reboot persistence, file create/read/compare/delete, manual SASI/HOSTFAT, and
+the non-SCSI disk-path gate remain to be performed.
