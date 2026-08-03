@@ -49,23 +49,38 @@ def detect_container(path: Path, physical_block_size: int) -> Dict[str, int | st
         totals = u32(header, 0x94)
         if not sector_size or not totals:
             raise ValueError("VHD header has zero sector size or total blocks")
+        file_size = path.stat().st_size
+        data_bytes = max(0, file_size - VHD_HEADER_SIZE)
+        complete_blocks = data_bytes // sector_size
+        trailing_bytes = data_bytes % sector_size
+        expected_bytes = totals * sector_size
         return {
             "format": "VHD1.00",
             "header_size": VHD_HEADER_SIZE,
+            "file_size": file_size,
             "physical_block_size": sector_size,
             "total_physical_blocks": totals,
-            "reported_capacity": totals * sector_size,
+            "complete_physical_blocks": complete_blocks,
+            "trailing_data_bytes": trailing_bytes,
+            "truncated": data_bytes < expected_bytes,
+            "reported_capacity": expected_bytes,
             "mb_size": u16(header, 0x8C),
             "sectors": header[0x90],
             "surfaces": header[0x91],
             "cylinders": u16(header, 0x92),
         }
+    file_size = path.stat().st_size
+    complete_blocks, trailing_bytes = divmod(file_size, physical_block_size)
     return {
         "format": "headerless",
         "header_size": 0,
+        "file_size": file_size,
         "physical_block_size": physical_block_size,
-        "total_physical_blocks": path.stat().st_size // physical_block_size,
-        "reported_capacity": path.stat().st_size,
+        "total_physical_blocks": complete_blocks,
+        "complete_physical_blocks": complete_blocks,
+        "trailing_data_bytes": trailing_bytes,
+        "truncated": False,
+        "reported_capacity": file_size,
     }
 
 
@@ -156,7 +171,7 @@ def parse_bpb(sector: bytes, partition_lba: int, info: Dict[str, int | str | boo
 
 def find_candidates(path: Path, info: Dict[str, int | str | bool]) -> List[Dict[str, object]]:
     psize = int(info["physical_block_size"])
-    max_lba = int(info["total_physical_blocks"])
+    max_lba = int(info.get("complete_physical_blocks", info["total_physical_blocks"]))
     candidates: List[Dict[str, object]] = []
     with path.open("rb") as fh:
         for lba in range(max_lba):
@@ -270,9 +285,12 @@ def changed_ranges(first: Path, second: Path, physical_block_size: int) -> Dict[
     if a["physical_block_size"] != b["physical_block_size"]:
         raise ValueError("images use different physical block sizes")
     size = int(a["physical_block_size"])
-    first_blocks = int(a["total_physical_blocks"])
-    second_blocks = int(b["total_physical_blocks"])
-    count = min(first_blocks, second_blocks)
+    first_blocks = int(a.get("complete_physical_blocks", a["total_physical_blocks"]))
+    second_blocks = int(b.get("complete_physical_blocks", b["total_physical_blocks"]))
+    # Compare all blocks present in either file.  A truncated image therefore
+    # reports the physical range that exists only on the other side instead
+    # of silently treating the missing tail as zero-filled media.
+    count = max(first_blocks, second_blocks)
     ranges: List[Dict[str, object]] = []
     start = None
     with first.open("rb") as af, second.open("rb") as bf:
@@ -287,7 +305,37 @@ def changed_ranges(first: Path, second: Path, physical_block_size: int) -> Dict[
                 start = None
         if start is not None:
             ranges.append(_range_report(af, a, bf, b, start, count - 1, size))
-    return {"first": str(first), "second": str(second), "changed_blocks": sum(r["block_count"] for r in ranges), "ranges": ranges, "headers_equal": _read_header(first) == _read_header(second)}
+    def tail_bytes(path: Path, info: Dict[str, object], complete: int) -> bytes:
+        with path.open("rb") as fh:
+            fh.seek(int(info["header_size"]) + complete * size)
+            return fh.read()
+
+    first_tail = tail_bytes(first, a, first_blocks)
+    second_tail = tail_bytes(second, b, second_blocks)
+    partial_tail: Optional[Dict[str, object]] = None
+    if first_tail or second_tail:
+        partial_tail = {
+            "physical_lba": max(first_blocks, second_blocks),
+            "first_bytes": len(first_tail),
+            "second_bytes": len(second_tail),
+            "first_sha256": sha256(first_tail),
+            "second_sha256": sha256(second_tail),
+            "different": first_tail != second_tail,
+        }
+
+    return {
+        "first": str(first),
+        "second": str(second),
+        "compared_blocks": count,
+        "first_complete_blocks": first_blocks,
+        "second_complete_blocks": second_blocks,
+        "changed_blocks": sum(r["block_count"] for r in ranges),
+        "ranges": ranges,
+        "partial_tail": partial_tail,
+        "headers_equal": _read_header(first) == _read_header(second),
+        "first_truncated": bool(a.get("truncated", False)),
+        "second_truncated": bool(b.get("truncated", False)),
+    }
 
 
 def _read_header(path: Path) -> bytes:
@@ -320,8 +368,11 @@ def main(argv: Optional[Iterable[str]] = None) -> int:
     else:
         c = result["container"]
         print(f"image header size: {c['header_size']}")
+        print(f"file size: {c['file_size']}")
         print(f"physical block size: {c['physical_block_size']}")
-        print(f"total physical blocks: {c['total_physical_blocks']}")
+        print(f"complete physical blocks: {c['complete_physical_blocks']}")
+        print(f"header physical blocks: {c['total_physical_blocks']}")
+        print(f"truncated: {c['truncated']}")
         print(f"FAT candidates: {len(result['candidates'])}")
         if "selected" in result:
             s = result["selected"]
@@ -336,9 +387,14 @@ def main(argv: Optional[Iterable[str]] = None) -> int:
             print(f"structural error: {error}")
         if "compare" in result:
             comp = result["compare"]
+            print(f"compared physical blocks: {comp['compared_blocks']}")
             print(f"changed physical blocks: {comp['changed_blocks']}")
+            print(f"first truncated: {comp['first_truncated']}; second truncated: {comp['second_truncated']}")
             for r in comp["ranges"]:
                 print(f"changed range: {r['first_physical_lba']}-{r['last_physical_lba']} ({r['block_count']} blocks)")
+            if comp.get("partial_tail") and comp["partial_tail"]["different"]:
+                tail = comp["partial_tail"]
+                print(f"changed trailing bytes at physical LBA {tail['physical_lba']}: {tail['first_bytes']} vs {tail['second_bytes']} bytes")
     return 0 if "selected" in result and not result.get("structural_errors") else 1
 
 
