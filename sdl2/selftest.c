@@ -2133,6 +2133,9 @@ int vaeg_selftest_run(void) {
 	}
 #endif
 
+	if (sxsi_image_selftest() != SUCCESS) {
+		return(fail("SCSI image backing", "creation or boundary tests failed"));
+	}
 	if (scsicmd_backend_selftest() != SUCCESS) {
 		return(fail("SCSI backend", "compiled LUN/INQUIRY tests failed"));
 	}

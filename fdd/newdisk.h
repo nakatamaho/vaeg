@@ -23,6 +23,8 @@ BOOL newdisk_fdd_msdos_ex(const char *fname, UINT format, UINT container);
 void newdisk_thd(const char *fname, UINT hddsize);
 void newdisk_nhd(const char *fname, UINT hddsize);
 void newdisk_hdi(const char *fname, UINT hddtype);
+BOOL newdisk_vhd_create(const char *fname, UINT64 block_count,
+						UINT16 block_size, BOOL force);
 void newdisk_vhd(const char *fname, UINT hddsize);
 
 #ifdef __cplusplus

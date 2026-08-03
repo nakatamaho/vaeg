@@ -25,7 +25,7 @@ import sys
 from pathlib import Path
 from typing import BinaryIO, Dict, Iterable, List, Optional, Tuple
 
-VHD_HEADER_SIZE = 256
+VHD_HEADER_SIZE = 220
 VHD_SIGNATURE = b"VHD"
 
 
@@ -54,6 +54,14 @@ def detect_container(path: Path, physical_block_size: int) -> Dict[str, int | st
         complete_blocks = data_bytes // sector_size
         trailing_bytes = data_bytes % sector_size
         expected_bytes = totals * sector_size
+        if data_bytes < expected_bytes:
+            classification = "truncated image"
+        elif data_bytes > expected_bytes:
+            classification = "overlong image"
+        elif trailing_bytes:
+            classification = "partial final block"
+        else:
+            classification = "valid complete image"
         return {
             "format": "VHD1.00",
             "header_size": VHD_HEADER_SIZE,
@@ -63,6 +71,11 @@ def detect_container(path: Path, physical_block_size: int) -> Dict[str, int | st
             "complete_physical_blocks": complete_blocks,
             "trailing_data_bytes": trailing_bytes,
             "truncated": data_bytes < expected_bytes,
+            "overlong": data_bytes > expected_bytes,
+            "validation_classification": classification,
+            "declared_logical_size": expected_bytes + VHD_HEADER_SIZE,
+            "actual_logical_size": file_size,
+            "missing_bytes": max(0, expected_bytes - data_bytes),
             "reported_capacity": expected_bytes,
             "mb_size": u16(header, 0x8C),
             "sectors": header[0x90],
@@ -80,6 +93,11 @@ def detect_container(path: Path, physical_block_size: int) -> Dict[str, int | st
         "complete_physical_blocks": complete_blocks,
         "trailing_data_bytes": trailing_bytes,
         "truncated": False,
+        "overlong": False,
+        "validation_classification": "valid complete image",
+        "declared_logical_size": file_size,
+        "actual_logical_size": file_size,
+        "missing_bytes": 0,
         "reported_capacity": file_size,
     }
 
@@ -263,10 +281,14 @@ def root_report(path: Path, info: Dict[str, int | str | bool], bpb: Dict[str, ob
     }
 
 
-def inspect(path: Path, physical_block_size: int) -> Dict[str, object]:
+def inspect(path: Path, physical_block_size: int, forensic_partial: bool = False) -> Dict[str, object]:
     info = detect_container(path, physical_block_size)
-    candidates = find_candidates(path, info)
+    complete = info.get("validation_classification") == "valid complete image"
+    candidates = find_candidates(path, info) if (complete or forensic_partial) else []
     result: Dict[str, object] = {"image": str(path), "container": info, "candidates": candidates, "structural_errors": []}
+    if not complete and not forensic_partial:
+        result["structural_errors"] = [str(info["validation_classification"])]
+        return result
     valid = [c for c in candidates if c["valid"]]
     if len(valid) == 1:
         result["selected"] = valid[0]
@@ -355,9 +377,11 @@ def main(argv: Optional[Iterable[str]] = None) -> int:
     parser.add_argument("--physical-block-size", type=int, default=256)
     parser.add_argument("--compare", type=Path)
     parser.add_argument("--json", action="store_true")
+    parser.add_argument("--forensic-partial", action="store_true",
+                        help="inspect FAT candidates despite incomplete backing storage")
     args = parser.parse_args(argv)
     try:
-        result = inspect(args.image, args.physical_block_size)
+        result = inspect(args.image, args.physical_block_size, args.forensic_partial)
         if args.compare:
             result["compare"] = changed_ranges(args.image, args.compare, args.physical_block_size)
     except (OSError, ValueError, struct.error) as exc:
@@ -369,10 +393,15 @@ def main(argv: Optional[Iterable[str]] = None) -> int:
         c = result["container"]
         print(f"image header size: {c['header_size']}")
         print(f"file size: {c['file_size']}")
+        print(f"declared logical size: {c['declared_logical_size']}")
+        print(f"actual logical size: {c['actual_logical_size']}")
+        print(f"missing bytes: {c['missing_bytes']}")
         print(f"physical block size: {c['physical_block_size']}")
         print(f"complete physical blocks: {c['complete_physical_blocks']}")
         print(f"header physical blocks: {c['total_physical_blocks']}")
         print(f"truncated: {c['truncated']}")
+        print(f"validation classification: {c['validation_classification']}")
+        print(f"partial-tail bytes: {c['trailing_data_bytes']}")
         print(f"FAT candidates: {len(result['candidates'])}")
         if "selected" in result:
             s = result["selected"]

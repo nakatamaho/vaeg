@@ -4,6 +4,8 @@
 #include	"fddfile.h"
 #include	"sxsi.h"
 #include	"hddboot.res"
+#include	<stdio.h>
+#include	<limits.h>
 
 
 // ---- fdd
@@ -226,6 +228,90 @@ static BOOL writehddipl(FILEH fh, UINT ssize, UINT32 tsize) {
 	return(SUCCESS);
 }
 
+BOOL newdisk_vhd_create(const char *fname, UINT64 block_count,
+						UINT16 block_size, BOOL force) {
+
+	VHDHDR	vhd;
+	FILEH	fh;
+	char	temp[MAX_PATH];
+	UINT64	max_u64;
+	UINT64	capacity;
+	UINT64	expected_size;
+	UINT64	mb_size;
+	UINT64	cylinders;
+	UINT32	totals;
+	BOOL	ok;
+
+	max_u64 = (UINT64)-1;
+	if ((fname == NULL) || (fname[0] == '\0') ||
+		(block_count == 0) || (block_size == 0) ||
+		(block_count > (max_u64 / block_size)) ||
+		(block_count > 0xffffffffULL) ||
+		(block_size > 1024) || ((block_size & (block_size - 1)) != 0) ||
+		(block_size != 256 && block_size != 512 && block_size != 1024) ||
+		(block_count % (32 * 8) != 0)) {
+		return(FAILURE);
+	}
+	capacity = block_count * block_size;
+	if ((capacity == 0) || (capacity % (1024ULL * 1024ULL) != 0)) {
+		return(FAILURE);
+	}
+	mb_size = capacity / (1024ULL * 1024ULL);
+	cylinders = block_count / (32 * 8);
+	if ((mb_size > 0xffffULL) || (cylinders == 0) ||
+		(cylinders > 0xffffULL) ||
+		(capacity > max_u64 - sizeof(VHDHDR))) {
+		return(FAILURE);
+	}
+	expected_size = sizeof(VHDHDR) + capacity;
+	if (file_attr(fname) != (short)-1 && !force) {
+		return(FAILURE);
+	}
+	if (snprintf(temp, sizeof(temp), "%s.tmp.hdd", fname) >=
+		(int)sizeof(temp)) {
+		return(FAILURE);
+	}
+	if (file_attr(temp) != (short)-1) {
+		return(FAILURE);
+	}
+	fh = file_create(temp);
+	if (fh == FILEH_INVALID) {
+		return(FAILURE);
+	}
+	ZeroMemory(&vhd, sizeof(vhd));
+	CopyMemory(&vhd.sig, sig_vhd, 7);
+	STOREINTELWORD(vhd.mbsize, (UINT16)mb_size);
+	STOREINTELWORD(vhd.sectorsize, block_size);
+	vhd.sectors = 32;
+	vhd.surfaces = 8;
+	STOREINTELWORD(vhd.cylinders, (UINT16)cylinders);
+	totals = (UINT32)block_count;
+	STOREINTELDWORD(vhd.totals, totals);
+	ok = (sizeof(vhd) == 220) &&
+		(file_write(fh, &vhd, sizeof(vhd)) == sizeof(vhd)) &&
+		(writehddipl(fh, block_size, 0) == SUCCESS) &&
+		(file_setsize(fh, expected_size) == 0) &&
+		(file_flush(fh) == 0);
+	file_close(fh);
+	if (!ok || (sxsi_hddvalidate_scsi(temp) != SUCCESS)) {
+		file_delete(temp);
+		return(FAILURE);
+	}
+	if (!force && (file_attr(fname) != (short)-1)) {
+		file_delete(temp);
+		return(FAILURE);
+	}
+	if (file_rename_atomic(temp, fname, force) != 0) {
+		file_delete(temp);
+		return(FAILURE);
+	}
+	if (sxsi_hddvalidate_scsi(fname) != SUCCESS) {
+		file_delete(fname);
+		return(FAILURE);
+	}
+	return(SUCCESS);
+}
+
 void newdisk_thd(const char *fname, UINT hddsize) {
 
 	FILEH	fh;
@@ -328,35 +414,11 @@ ndhdi_err:
 
 void newdisk_vhd(const char *fname, UINT hddsize) {
 
-	FILEH	fh;
-	VHDHDR	vhd;
-	UINT	tmp;
-	BOOL	r;
+	UINT64 block_count;
 
-	if ((fname == NULL) || (hddsize < 2) || (hddsize > 512)) {
-		goto ndvhd_err;
+	if ((hddsize < 2) || (hddsize > 512)) {
+		return;
 	}
-	fh = file_create(fname);
-	if (fh == FILEH_INVALID) {
-		goto ndvhd_err;
-	}
-	ZeroMemory(&vhd, sizeof(vhd));
-	CopyMemory(&vhd.sig, sig_vhd, 7);
-	STOREINTELWORD(vhd.mbsize, (UINT16)hddsize);
-	STOREINTELWORD(vhd.sectorsize, 256);
-	vhd.sectors = 32;
-	vhd.surfaces = 8;
-	tmp = hddsize *	16;		// = * 1024 * 1024 / (8 * 32 * 256);
-	STOREINTELWORD(vhd.cylinders, (UINT16)tmp);
-	tmp *= 8 * 32;
-	STOREINTELDWORD(vhd.totals, tmp);
-	r = (file_write(fh, &vhd, sizeof(vhd)) != sizeof(vhd));
-	r |= writehddipl(fh, 256, 0);
-	file_close(fh);
-	if (r) {
-		file_delete(fname);
-	}
-
-ndvhd_err:
-	return;
+	block_count = ((UINT64)hddsize * 1024ULL * 1024ULL) / 256ULL;
+	(void)newdisk_vhd_create(fname, block_count, 256, FALSE);
 }

@@ -27,7 +27,7 @@ SPEC.loader.exec_module(MODULE)
 
 
 PHYSICAL = 256
-HEADER = 256
+HEADER = 220
 TOTAL_PHYSICAL = 40000
 PARTITION_LBA = 8
 BYTES_PER_SECTOR = 1024
@@ -147,6 +147,11 @@ class FatInspectionTests(unittest.TestCase):
             self.assertTrue(info["truncated"])
             self.assertEqual(info["complete_physical_blocks"], 3)
             self.assertEqual(info["trailing_data_bytes"], 17)
+            result = MODULE.inspect(path, PHYSICAL)
+            self.assertEqual(result["candidates"], [])
+            self.assertEqual(result["structural_errors"], ["truncated image"])
+            forensic = MODULE.inspect(path, PHYSICAL, forensic_partial=True)
+            self.assertEqual(len(forensic["candidates"]), 0)
 
     def test_fat16_compare_reports_changed_physical_lbas(self):
         with tempfile.TemporaryDirectory() as td:
