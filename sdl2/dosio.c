@@ -25,16 +25,15 @@
 #include	"compiler.h"
 #include	<sys/stat.h>
 #include	<time.h>
+#include	<limits.h>
 #include	"dosio.h"
 #if defined(WIN32)
 #include	<direct.h>
+#include	<io.h>
 #include	"winutf.h"
 #else
 #include	<dirent.h>
-#endif
-#if 0
-#include <sys/param.h>
-#include <unistd.h>
+#include	<unistd.h>
 #endif
 
 static	char	curpath[MAX_PATH];
@@ -283,6 +282,43 @@ UINT file_write(FILEH handle, const void *data, UINT length) {
 	return((UINT)fwrite(data, 1, length, handle));
 }
 
+short file_flush(FILEH handle) {
+
+	if ((handle == FILEH_INVALID) || (fflush(handle) != 0)) {
+		return(-1);
+	}
+#if defined(WIN32)
+	if (FlushFileBuffers((HANDLE)_get_osfhandle(_fileno(handle))) == 0) {
+		return(-1);
+	}
+#else
+	if (fsync(fileno(handle)) != 0) {
+		return(-1);
+	}
+#endif
+	return(0);
+}
+
+short file_setsize(FILEH handle, UINT64 size) {
+
+	if ((handle == FILEH_INVALID) || (size > (UINT64)LLONG_MAX)) {
+		return(-1);
+	}
+	if (fflush(handle) != 0) {
+		return(-1);
+	}
+#if defined(WIN32)
+	if (_chsize_s(_fileno(handle), (__int64)size) != 0) {
+		return(-1);
+	}
+#else
+	if (ftruncate(fileno(handle), (off_t)size) != 0) {
+		return(-1);
+	}
+#endif
+	return(0);
+}
+
 short file_close(FILEH handle) {
 
 	fclose(handle);
@@ -290,13 +326,45 @@ short file_close(FILEH handle) {
 }
 
 UINT file_getsize(FILEH handle) {
+	UINT64 size = file_getsize64(handle);
+	return((size > UINT_MAX) ? 0 : (UINT)size);
+}
+
+UINT64 file_getsize64(FILEH handle) {
 
 	struct stat sb;
 
 	if (fstat(fileno(handle), &sb) == 0) {
-		return(sb.st_size);
+		return((UINT64)sb.st_size);
 	}
 	return(0);
+}
+
+short file_rename_atomic(const char *source, const char *destination,
+							BOOL replace) {
+#if defined(WIN32)
+	wchar_t *wsource;
+	wchar_t *wdestination;
+	DWORD flags = MOVEFILE_WRITE_THROUGH;
+	BOOL result;
+	wsource = winutf_from_utf8(source);
+	wdestination = winutf_from_utf8(destination);
+	if ((wsource == NULL) || (wdestination == NULL)) {
+		winutf_free(wsource);
+		winutf_free(wdestination);
+		return(-1);
+	}
+	if (replace) {
+		flags |= MOVEFILE_REPLACE_EXISTING;
+	}
+	result = MoveFileExW(wsource, wdestination, flags);
+	winutf_free(wsource);
+	winutf_free(wdestination);
+	return(result ? 0 : -1);
+#else
+	(void)replace;
+	return(rename(source, destination));
+#endif
 }
 
 short file_attr(const char *path) {

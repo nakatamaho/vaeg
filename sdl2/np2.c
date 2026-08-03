@@ -41,6 +41,7 @@
 #include	"sgp.h"
 #include	"diskdrv.h"
 #include	"sxsi.h"
+#include	"newdisk.h"
 #include	"fdc.h"
 #include	"scsiio.h"
 #include	"timing.h"
@@ -59,6 +60,7 @@
 #include	"mousemng.h"
 #include	"mouseifva.h"
 #include	"sound.h"
+#include	<stdlib.h>
 #include	"opngen.h"
 #include	"ymfmbridge.h"
 #if defined(VAEG_UPD9002_M46_TESTING)
@@ -273,6 +275,97 @@ static void usage(const char *progname) {
 	printf("\t--scsitrace-jitter-seed N [--scsitrace-jitter-span N]\n");
 	printf("\t--trace-cpu 1..1000000\n");
 	printf("\t--version --help [-h]\n");
+	printf("Create image (no SDL session):\n");
+	printf("\t--create-scsi-hdd --output path [--size-mib N | --block-count N]\n");
+	printf("\t\t[--block-size 256|512|1024] [--force]\n");
+}
+
+static int create_scsi_hdd_cli(int argc, char **argv) {
+
+	const char *output = NULL;
+	UINT64 size_mib = 40;
+	UINT64 block_count = 0;
+	UINT64 block_size = 256;
+	BOOL block_count_set = FALSE;
+	BOOL size_set = FALSE;
+	BOOL force = FALSE;
+	int i;
+
+	for (i = 2; i < argc; i++) {
+		const char *arg = argv[i];
+		const char *value;
+		char *endp;
+		UINT64 number;
+		if (!strcmp(arg, "--force")) {
+			force = TRUE;
+			continue;
+		}
+		if (!strcmp(arg, "--help")) {
+			printf("Usage: %s --create-scsi-hdd --output path \n\t[--size-mib N | --block-count N] [--block-size 256|512|1024] [--force]\n", argv[0]);
+			return(SUCCESS);
+		}
+		if ((i + 1 >= argc) ||
+			(strcmp(arg, "--output") && strcmp(arg, "--size-mib") &&
+			 strcmp(arg, "--block-count") && strcmp(arg, "--block-size"))) {
+			fprintf(stderr, "Error: unknown or incomplete image-creation option: %s\n", arg);
+			return(FAILURE);
+		}
+		value = argv[++i];
+		if (!strcmp(arg, "--output")) {
+			output = value;
+			continue;
+		}
+		number = strtoull(value, &endp, 0);
+		if ((endp == value) || (*endp != '\0')) {
+			fprintf(stderr, "Error: invalid numeric image-creation value: %s\n", value);
+			return(FAILURE);
+		}
+		if (!strcmp(arg, "--size-mib")) {
+			size_mib = number;
+			size_set = TRUE;
+		}
+		else if (!strcmp(arg, "--block-count")) {
+			block_count = number;
+			block_count_set = TRUE;
+		}
+		else {
+			block_size = number;
+		}
+	}
+	if (output == NULL || output[0] == '\0' || (size_set && block_count_set)) {
+		fprintf(stderr, "Error: output and exactly one size form are required\n");
+		return(FAILURE);
+	}
+	if (!block_count_set) {
+		if ((block_size == 0) ||
+			(size_mib > ((UINT64)-1) / (1024ULL * 1024ULL)) ||
+			((size_mib * 1024ULL * 1024ULL) % block_size) != 0) {
+			fprintf(stderr, "Error: size is not representable by block size\n");
+			return(FAILURE);
+		}
+		block_count = (size_mib * 1024ULL * 1024ULL) / block_size;
+	}
+	dosio_init();
+	file_setcd("./");
+	if (newdisk_vhd_create(output, block_count, (UINT16)block_size, force) != SUCCESS) {
+		fprintf(stderr, "Error: SCSI image creation failed: %s\n", output);
+		dosio_term();
+		return(FAILURE);
+	}
+	{
+		FILEH fh = file_open_rb(output);
+		UINT64 logical_size = (fh != FILEH_INVALID) ? file_getsize64(fh) : 0;
+		if (fh != FILEH_INVALID) {
+			file_close(fh);
+		}
+		printf("created=%s\nheader_size=%u\nblock_size=%llu\nblock_count=%llu\nlogical_size=%llu\nsparse=platform-dependent\n",
+			output, (unsigned)sizeof(VHDHDR),
+			(unsigned long long)block_size,
+			(unsigned long long)block_count,
+			(unsigned long long)logical_size);
+	}
+	dosio_term();
+	return(SUCCESS);
 }
 
 static void smoke_configure_va(const char *model) {
@@ -1644,6 +1737,10 @@ int main(int argc, char **argv) {
 		return upd9002_ssts_worker_main(argc - 1, argv + 1);
 	}
 #endif
+
+	if ((argc > 1) && !strcmp(argv[1], "--create-scsi-hdd")) {
+		return(create_scsi_hdd_cli(argc, argv));
+	}
 
 	smoke_detect_screen = FALSE;
 	splash_visible = FALSE;

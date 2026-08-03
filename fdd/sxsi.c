@@ -5,6 +5,9 @@
 #include	"cpucore.h"
 #include	"pccore.h"
 #include	"sxsi.h"
+#include	"newdisk.h"
+#include	<stdio.h>
+#include	<limits.h>
 
 
 const char sig_vhd[8] = "VHD1.00";
@@ -169,15 +172,38 @@ const char	*ext;
 	if ((surfaces == 0) || (surfaces >= 256) ||
 		(cylinders == 0) || (cylinders >= 65536) ||
 		(sectors == 0) || (sectors >= 256) ||
-		(size == 0) || ((size & (size - 1)) != 0)) {
+		(size == 0) || ((size & (size - 1)) != 0) ||
+		(totals <= 0)) {
 		goto sxsiope_err2;
 	}
 	if (!(drv & 0x20)) {
 		type |= SXSITYPE_IDE;
 	}
 	else {
+		UINT64 expected_size;
+		UINT64 actual_size;
+
 		type |= SXSITYPE_SCSI;
 		if (!(size & 0x700)) {			// not 256,512,1024
+			goto sxsiope_err2;
+		}
+		expected_size = (UINT64)headersize +
+				((UINT64)totals * (UINT64)size);
+		actual_size = file_getsize64(fh);
+		if (actual_size != expected_size) {
+			if (actual_size < expected_size) {
+				fprintf(stderr,
+					"Error: SCSI image truncated: %s declared_blocks=%ld block_size=%u expected_bytes=%llu actual_bytes=%llu missing_bytes=%llu\n",
+					file, totals, size, (unsigned long long)expected_size,
+					(unsigned long long)actual_size,
+					(unsigned long long)(expected_size - actual_size));
+			}
+			else {
+				fprintf(stderr,
+					"Error: SCSI image overlong: %s declared_blocks=%ld block_size=%u expected_bytes=%llu actual_bytes=%llu\n",
+					file, totals, size, (unsigned long long)expected_size,
+					(unsigned long long)actual_size);
+			}
 			goto sxsiope_err2;
 		}
 	}
@@ -245,7 +271,7 @@ BOOL sxsi_hddvalidate_scsi(const char *file) {
 						((UINT64)candidate.totals * candidate.size);
 	result = (((candidate.type & SXSITYPE_IFMASK) == SXSITYPE_SCSI) &&
 				(candidate.totals > 0) &&
-				((UINT64)file_getsize(candidate.fh) >= expected_size)) ?
+				(file_getsize64(candidate.fh) == expected_size)) ?
 										SUCCESS : FAILURE;
 	if (candidate.fh != FILEH_INVALID) {
 		file_close(candidate.fh);
@@ -380,6 +406,8 @@ BOOL sxsi_iside(void) {
 REG8 sxsi_read(REG8 drv, long pos, BYTE *buf, UINT size) {
 
 const _SXSIDEV	*sxsi;
+	UINT64		blocks;
+	UINT64		offset;
 	long		r;
 	UINT		rsize;
 
@@ -387,12 +415,22 @@ const _SXSIDEV	*sxsi;
 	if (sxsi == NULL) {
 		return(0x60);
 	}
-	if ((pos < 0) || (pos >= sxsi->totals)) {
+	if ((pos < 0) || (sxsi->size == 0) ||
+		(size % sxsi->size) != 0) {
 		return(0x40);
 	}
-	pos = pos * sxsi->size + sxsi->headersize;
-	r = file_seek(sxsi->fh, pos, FSEEK_SET);
-	if (pos != r) {
+	blocks = size / sxsi->size;
+	if (((UINT64)pos >= (UINT64)sxsi->totals) ||
+		(blocks > ((UINT64)sxsi->totals - (UINT64)pos))) {
+		return(0x40);
+	}
+	offset = (UINT64)sxsi->headersize +
+			((UINT64)pos * (UINT64)sxsi->size);
+	if (offset > (UINT64)LONG_MAX) {
+		return(0xd0);
+	}
+	r = file_seek(sxsi->fh, (long)offset, FSEEK_SET);
+	if ((UINT64)r != offset) {
 		return(0xd0);
 	}
 	while(size) {
@@ -410,6 +448,8 @@ const _SXSIDEV	*sxsi;
 REG8 sxsi_write(REG8 drv, long pos, const BYTE *buf, UINT size) {
 
 const _SXSIDEV	*sxsi;
+	UINT64		blocks;
+	UINT64		offset;
 	long		r;
 	UINT		wsize;
 
@@ -417,12 +457,22 @@ const _SXSIDEV	*sxsi;
 	if (sxsi == NULL) {
 		return(0x60);
 	}
-	if ((pos < 0) || (pos >= sxsi->totals)) {
+	if ((pos < 0) || (sxsi->size == 0) ||
+		(size % sxsi->size) != 0) {
 		return(0x40);
 	}
-	pos = pos * sxsi->size + sxsi->headersize;
-	r = file_seek(sxsi->fh, pos, FSEEK_SET);
-	if (pos != r) {
+	blocks = size / sxsi->size;
+	if (((UINT64)pos >= (UINT64)sxsi->totals) ||
+		(blocks > ((UINT64)sxsi->totals - (UINT64)pos))) {
+		return(0x40);
+	}
+	offset = (UINT64)sxsi->headersize +
+			((UINT64)pos * (UINT64)sxsi->size);
+	if (offset > (UINT64)LONG_MAX) {
+		return(0xd0);
+	}
+	r = file_seek(sxsi->fh, (long)offset, FSEEK_SET);
+	if ((UINT64)r != offset) {
 		return(0xd0);
 	}
 	while(size) {
@@ -433,6 +483,9 @@ const _SXSIDEV	*sxsi;
 		}
 		buf += wsize;
 		size -= wsize;
+	}
+	if (file_flush(sxsi->fh) != 0) {
+		return(0x70);
 	}
 	return(0x00);
 }
@@ -450,8 +503,15 @@ const _SXSIDEV	*sxsi;
 	if (sxsi == NULL) {
 		return(0x60);
 	}
-	if ((pos < 0) || (pos >= sxsi->totals)) {
+	if ((pos < 0) || (sxsi->size == 0) ||
+		((UINT64)pos >= (UINT64)sxsi->totals) ||
+		((UINT64)sxsi->sectors >
+		 ((UINT64)sxsi->totals - (UINT64)pos))) {
 		return(0x40);
+	}
+	if (((UINT64)sxsi->headersize +
+		((UINT64)pos * (UINT64)sxsi->size)) > (UINT64)LONG_MAX) {
+		return(0xd0);
 	}
 	pos = pos * sxsi->size + sxsi->headersize;
 	r = file_seek(sxsi->fh, pos, FSEEK_SET);
@@ -470,5 +530,135 @@ const _SXSIDEV	*sxsi;
 			}
 		}
 	}
+	if (file_flush(sxsi->fh) != 0) {
+		return(0x70);
+	}
 	return(0x00);
+}
+
+int sxsi_image_selftest(void) {
+
+	_SXSIDEV saved_slots[SCSIHDD_MAX];
+	SXSIDEV slot;
+	BYTE pattern[256];
+	BYTE readback[256];
+	BYTE zeroes[256];
+	FILEH fh;
+	UINT64 expected_size;
+	UINT id;
+	UINT i;
+	long saved_remclock;
+	BOOL ok = TRUE;
+	const char *path = "m75-sxsi-image-selftest.hdd";
+
+	for (id = 0; id < SCSIHDD_MAX; id++) {
+		slot = sxsi_getptr((REG8)(0x20 + id));
+		saved_slots[id] = *slot;
+	}
+	if (file_attr(path) != (short)-1) {
+		return(FAILURE);
+	}
+	saved_remclock = CPU_REMCLOCK;
+	if (newdisk_vhd_create(path, 163840, 256, FALSE) != SUCCESS) {
+		ok = FALSE;
+		goto image_selftest_cleanup;
+	}
+	expected_size = (UINT64)sizeof(VHDHDR) + 163840ULL * 256ULL;
+	fh = file_open_rb(path);
+	ok = (fh != FILEH_INVALID) &&
+		(file_getsize64(fh) == expected_size);
+	if (fh != FILEH_INVALID) {
+		file_close(fh);
+	}
+	if (!ok || (sxsi_hddvalidate_scsi(path) != SUCCESS)) {
+		goto image_selftest_cleanup;
+	}
+	if (newdisk_vhd_create(path, 163840, 256, FALSE) == SUCCESS) {
+		ok = FALSE;
+		goto image_selftest_cleanup;
+	}
+	slot = sxsi_getptr(0x20);
+	ZeroMemory(slot, sizeof(*slot));
+	slot->fh = FILEH_INVALID;
+	if (sxsi_hddopen(0x20, path) != SUCCESS) {
+		ok = FALSE;
+		goto image_selftest_cleanup;
+	}
+	ZeroMemory(zeroes, sizeof(zeroes));
+	for (i = 1; i < 3; i++) {
+		if ((sxsi_read(0x20, (long)(i * 1000), readback, sizeof(readback)) != 0) ||
+			(memcmp(readback, zeroes, sizeof(readback)) != 0)) {
+			ok = FALSE;
+		}
+	}
+	if (sxsi_read(0x20, 163840 - 1, readback, sizeof(readback)) != 0 ||
+		memcmp(readback, zeroes, sizeof(readback)) != 0) {
+		ok = FALSE;
+	}
+	for (i = 0; i < sizeof(pattern); i++) {
+		pattern[i] = (BYTE)(i ^ 0x5a);
+	}
+	if ((sxsi_write(0x20, 0, pattern, sizeof(pattern)) != 0) ||
+		(sxsi_read(0x20, 0, readback, sizeof(readback)) != 0) ||
+		(memcmp(pattern, readback, sizeof(pattern)) != 0) ||
+		(sxsi_write(0x20, 163840 - 1, pattern, sizeof(pattern)) != 0) ||
+		(sxsi_read(0x20, 163840 - 1, readback, sizeof(readback)) != 0) ||
+		(memcmp(pattern, readback, sizeof(pattern)) != 0) ||
+		(sxsi_read(0x20, 163840, readback, sizeof(readback)) != 0x40) ||
+		(sxsi_write(0x20, 163840, pattern, sizeof(pattern)) != 0x40) ||
+		(sxsi_read(0x20, 163839, readback, 255) != 0x40) ||
+		(file_getsize64(slot->fh) != expected_size)) {
+		ok = FALSE;
+	}
+	file_close(slot->fh);
+	slot->fh = FILEH_INVALID;
+	if (sxsi_hddopen(0x20, path) != SUCCESS ||
+		sxsi_read(0x20, 0, readback, sizeof(readback)) != 0 ||
+		memcmp(pattern, readback, sizeof(pattern)) != 0 ||
+		sxsi_read(0x20, 163839, readback, sizeof(readback)) != 0 ||
+		memcmp(pattern, readback, sizeof(pattern)) != 0) {
+		ok = FALSE;
+	}
+	if (slot->fh != FILEH_INVALID) {
+		file_close(slot->fh);
+		slot->fh = FILEH_INVALID;
+	}
+	{
+		const char *truncated = "m75-sxsi-image-selftest-truncated.hdd";
+		if (file_attr(truncated) == (short)-1) {
+			if (newdisk_vhd_create(truncated, 163840, 256, FALSE) == SUCCESS) {
+				fh = file_open(truncated);
+				if ((fh == FILEH_INVALID) ||
+					(file_setsize(fh, expected_size - 1) != 0)) {
+					ok = FALSE;
+				}
+				if (fh != FILEH_INVALID) {
+					file_close(fh);
+				}
+				if (sxsi_hddvalidate_scsi(truncated) == SUCCESS) {
+					ok = FALSE;
+				}
+				file_delete(truncated);
+			}
+			else {
+				ok = FALSE;
+			}
+		}
+	}
+
+image_selftest_cleanup:
+	for (id = 0; id < SCSIHDD_MAX; id++) {
+		slot = sxsi_getptr((REG8)(0x20 + id));
+		if (slot->fh != FILEH_INVALID &&
+			slot->fh != saved_slots[id].fh) {
+			file_close(slot->fh);
+		}
+		*slot = saved_slots[id];
+	}
+	file_delete(path);
+	CPU_REMCLOCK = saved_remclock;
+	if (ok) {
+		fprintf(stderr, "selftest: SCSI image creation/backing validation ok\n");
+	}
+	return(ok ? SUCCESS : FAILURE);
 }
