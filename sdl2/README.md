@@ -86,11 +86,11 @@ snapshot. The M55 geometry uses 1024-byte sectors and 16 KiB clusters: its
 DOS-visible size is 63.830078125 MiB and up to 63.71875 MiB of cluster payload is
 allocatable before directory and per-file rounding. Valid unique ASCII 8.3
 names are retained (and folded to uppercase); longer, spaced, or Unicode UTF-8
-names receive deterministic 8.3 aliases. Invalid UTF-8, descendant links,
-special files, excessive depth/count, and content that does not fit are
-rejected rather than omitted. On Windows, the selected root may be a
-junction/reparse point; its canonical directory is snapshotted, while links
-inside that root remain rejected.
+names receive deterministic 8.3 aliases. Invalid UTF-8, links/reparse points
+that escape the selected root, special files, excessive depth/count, and
+content that does not fit are rejected rather than omitted. On Windows, the
+selected root and contained links/reparse points are canonicalized when they
+remain inside the selected root.
 
 Unpatched PC-Engine reports HOSTFAT free space as if every free FAT entry were
 2 KiB, so `DIR` shows approximately 8 MiB even though 16 KiB cluster reads are

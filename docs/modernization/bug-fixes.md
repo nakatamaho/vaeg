@@ -1518,8 +1518,8 @@ separate parity correction or move it to Open Defects.
 
 ### HOSTFAT rejected a Windows Dropbox root path
 
-- **Status:** fixed in M75; descendant links, special files, and containment
-  checks remain unchanged.
+- **Status:** fixed in M75; links that escape the selected root, special files,
+  and containment checks remain rejected.
 - **Symptom:** a Windows HOSTFAT directory selected under a Dropbox tree could
   be treated as unavailable when the selected root was exposed as a junction or
   directory reparse point. Paths copied with surrounding quotes were also
@@ -1528,11 +1528,11 @@ separate parity correction or move it to Open Defects.
   HOSTFAT paths, and the builder rejected a Windows root reparse point before
   canonicalizing it.
 - **Correction:** normalize whitespace/quotes, use `USERPROFILE` for the
-  Windows browser start directory, allow the selected Windows root to be
-  canonicalized, and continue rejecting links/reparse points discovered
-  inside the snapshot tree.
-- **Verification:** HOSTFAT snapshot selftest now covers a quoted path; the
-  Windows-only production selftest covers a directory reparse root when the
-  host permits creating one. Linux debug and MinGW cross builds pass.
+  Windows browser start directory, canonicalize the selected Windows root and
+  contained links/reparse points, and reject links that escape the snapshot
+  tree.
+- **Verification:** HOSTFAT snapshot selftest now covers a quoted path and,
+  on Windows when permitted, both a root reparse point and a contained
+  reparse-point directory. Linux debug and MinGW cross builds pass.
 - **Evidence:** [M75 report](../agents/reports/m75_scsi_support.md).
 - **Commit:** [1ec024b](https://github.com/nakatamaho/vaeg/commit/1ec024b)
