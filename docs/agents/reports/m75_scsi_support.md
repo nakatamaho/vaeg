@@ -2091,4 +2091,6 @@ The HOSTFAT snapshot selftest covers quoted paths on all platforms and covers a
 Windows directory-reparse root plus a contained reparse-point directory when
 the host allows the temporary test links.
 Linux debug and MinGW cross builds were run after the change. The
-implementation is in [1ec024b](https://github.com/nakatamaho/vaeg/commit/1ec024b).
+implementation is in [1ec024b](https://github.com/nakatamaho/vaeg/commit/1ec024b),
+with contained reparse-point support in
+[7e6ede7](https://github.com/nakatamaho/vaeg/commit/7e6ede7).
