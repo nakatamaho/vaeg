@@ -2103,4 +2103,6 @@ red, preserving the detailed builder message such as FAT12 capacity, entry
 limit, depth, or unsupported-file errors. A failed asynchronous rebuild also
 reopens the Configure dialog automatically. The stale `127.44 MiB` label was
 corrected to the actual `63.72 MiB` usable payload limit. The implementation
-is in [55800c6](https://github.com/nakatamaho/vaeg/commit/55800c6).
+is in [55800c6](https://github.com/nakatamaho/vaeg/commit/55800c6), with
+automatic Configure reopening in
+[2515598](https://github.com/nakatamaho/vaeg/commit/2515598).
