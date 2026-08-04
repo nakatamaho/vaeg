@@ -1556,3 +1556,4 @@ separate parity correction or move it to Open Defects.
 - **Evidence:** [M75 report](../agents/reports/m75_scsi_support.md).
 - **Commit:** [55800c6](https://github.com/nakatamaho/vaeg/commit/55800c6)
 - **Follow-up:** [2515598](https://github.com/nakatamaho/vaeg/commit/2515598)
+- **Follow-up:** [eb65a14](https://github.com/nakatamaho/vaeg/commit/eb65a14)
