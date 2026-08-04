@@ -61,6 +61,7 @@
 #include	"mouseifva.h"
 #include	"sound.h"
 #include	"g75_screen.h"
+#include	"headless_input.h"
 #include	<stdlib.h>
 #include	"opngen.h"
 #include	"ymfmbridge.h"
@@ -276,6 +277,7 @@ static void usage(const char *progname) {
 	printf("\t--scsitrace-limit 1..1000000\n");
 	printf("\t--scsitrace-jitter-seed N [--scsitrace-jitter-span N]\n");
 	printf("\t--trace-cpu 1..1000000\n");
+	printf("\t--headless-input-script path\n");
 	printf("\t--version --help [-h]\n");
 	printf("Create image (no SDL session):\n");
 	printf("\t--create-scsi-hdd --output path [--size-mib N | --block-count N]\n");
@@ -1474,11 +1476,18 @@ static void render_host_ui_only(void) {
 	scrnmng_present_end();
 }
 
-static BOOL smoke_after_frame(BOOL smoke, UINT frames, BOOL detect_screen) {
+static BOOL smoke_after_frame(BOOL smoke, UINT frames, BOOL detect_screen,
+							BOOL headless_input,
+							HEADLESS_INPUT_SCRIPT *input_script) {
 
 	BOOL	done;
 	BOOL	ret;
 
+	if (headless_input &&
+		(headless_input_script_after_frame(input_script, frames) != SUCCESS)) {
+		taskmng_exit();
+		return(FAILURE);
+	}
 	if (!smoke) {
 		return(SUCCESS);
 	}
@@ -1496,7 +1505,9 @@ static BOOL smoke_after_frame(BOOL smoke, UINT frames, BOOL detect_screen) {
 	return(SUCCESS);
 }
 
-static BOOL runloop(BOOL smoke, BOOL pacelog_enabled, BOOL detect_screen) {
+static BOOL runloop(BOOL smoke, BOOL pacelog_enabled, BOOL detect_screen,
+					BOOL headless_input,
+					HEADLESS_INPUT_SCRIPT *input_script) {
 
 	UINT	frames;
 	PACELOG	pacelog;
@@ -1510,6 +1521,9 @@ static BOOL runloop(BOOL smoke, BOOL pacelog_enabled, BOOL detect_screen) {
 	next_guest_tick = 0;
 	harness_started = SDL_GetTicks();
 	pacelog_initialize(&pacelog);
+	if (headless_input) {
+		headless_input_script_initialize(input_script);
+	}
 	while(taskmng_isavail()) {
 		BOOL effective_nowait;
 		UINT effective_drawskip;
@@ -1537,14 +1551,14 @@ static BOOL runloop(BOOL smoke, BOOL pacelog_enabled, BOOL detect_screen) {
 		if (effective_nowait) {
 			BOOL	draw;
 
-			draw = (framecnt == 0);
+			draw = headless_input ? FALSE : (framecnt == 0);
 			if (run_guest_frame(draw) != SUCCESS) {
 				return FAILURE;
 			}
 			next_guest_tick = SDL_GetTicks() + np2oscfg.pacing_ms;
 			frames++;
 			pacelog_update(&pacelog, pacelog_enabled, 1, draw ? 0 : 1, 0);
-			if (smoke_after_frame(smoke, frames, detect_screen) != SUCCESS) {
+			if (smoke_after_frame(smoke, frames, detect_screen, headless_input, input_script) != SUCCESS) {
 				return(FAILURE);
 			}
 			if (effective_drawskip) {
@@ -1568,7 +1582,7 @@ static BOOL runloop(BOOL smoke, BOOL pacelog_enabled, BOOL detect_screen) {
 			if (framecnt < effective_drawskip) {
 				BOOL	draw;
 
-				draw = (framecnt == 0);
+				draw = headless_input ? FALSE : (framecnt == 0);
 				if (run_guest_frame(draw) != SUCCESS) {
 					return FAILURE;
 				}
@@ -1576,7 +1590,7 @@ static BOOL runloop(BOOL smoke, BOOL pacelog_enabled, BOOL detect_screen) {
 				frames++;
 				pacelog_update(&pacelog, pacelog_enabled, 1,
 							   draw ? 0 : 1, 0);
-				if (smoke_after_frame(smoke, frames, detect_screen)
+				if (smoke_after_frame(smoke, frames, detect_screen, headless_input, input_script)
 															!= SUCCESS) {
 					return(FAILURE);
 				}
@@ -1592,7 +1606,7 @@ static BOOL runloop(BOOL smoke, BOOL pacelog_enabled, BOOL detect_screen) {
 				BOOL	draw;
 				UINT	cnt;
 
-				draw = (framecnt == 0);
+				draw = headless_input ? FALSE : (framecnt == 0);
 				if (run_guest_frame(draw) != SUCCESS) {
 					return FAILURE;
 				}
@@ -1600,7 +1614,7 @@ static BOOL runloop(BOOL smoke, BOOL pacelog_enabled, BOOL detect_screen) {
 				frames++;
 				pacelog_update(&pacelog, pacelog_enabled, 1,
 							   draw ? 0 : 1, 0);
-				if (smoke_after_frame(smoke, frames, detect_screen)
+				if (smoke_after_frame(smoke, frames, detect_screen, headless_input, input_script)
 															!= SUCCESS) {
 					return(FAILURE);
 				}
@@ -1657,6 +1671,7 @@ int main(int argc, char **argv) {
 	BOOL	splash_visible;
 	BOOL	run_ok;
 	UINT32	splash_started;
+	HEADLESS_INPUT_SCRIPT input_script;
 	VAEG_CLI_OPTIONS options;
 	CLI_SAVED_CONFIG saved_cli;
 	char cli_error[256];
@@ -1756,6 +1771,7 @@ int main(int argc, char **argv) {
 	run_ok = SUCCESS;
 	splash_started = 0;
 	cli_model = NULL;
+	ZeroMemory(&input_script, sizeof(input_script));
 	if (vaeg_cli_parse(argc, argv, &options, cli_error,
 											sizeof(cli_error)) != SUCCESS) {
 		fprintf(stderr, "Error: %s\n", cli_error);
@@ -1769,6 +1785,13 @@ int main(int argc, char **argv) {
 	if (options.version) {
 		printf("88VA Eternal Grafx %s (%s)\n", VAEGREL_CORE, NP2VER_CORE);
 		return(SUCCESS);
+	}
+	if (options.headless_input_script != NULL) {
+		options.mute = TRUE;
+		options.nowait = TRUE;
+		SDL_setenv("SDL_VIDEODRIVER", "dummy", 1);
+		SDL_setenv("SDL_AUDIODRIVER", "dummy", 1);
+		SDL_SetHint(SDL_HINT_RENDER_DRIVER, "software");
 	}
 	np2_debug = options.debug;
 
@@ -1808,9 +1831,17 @@ int main(int argc, char **argv) {
 		dosio_term();
 		return(FAILURE);
 	}
+	if ((options.headless_input_script != NULL) &&
+		(headless_input_script_load(&input_script,
+			options.headless_input_script) != SUCCESS)) {
+		SDL_Quit();
+		dosio_term();
+		return(FAILURE);
+	}
 	if (hostfat_manager_initialize() != SUCCESS) {
 		fprintf(stderr, "Error: cannot initialize HOSTFAT manager: %s\n",
 			SDL_GetError());
+		headless_input_script_clear(&input_script);
 		SDL_Quit();
 		dosio_term();
 		return(FAILURE);
@@ -1843,6 +1874,7 @@ int main(int argc, char **argv) {
 					hostfat_error);
 			if (!hostfat_configured) {
 				hostfat_manager_shutdown();
+				headless_input_script_clear(&input_script);
 				SDL_Quit();
 				dosio_term();
 				return(FAILURE);
@@ -1985,10 +2017,12 @@ int main(int argc, char **argv) {
 		scrndraw_redraw();
 		mount_configured_fdd_images();
 		dropmedia_prune_storage();
-		run_ok = runloop(options.smoke, options.pacelog, smoke_detect_screen);
+		run_ok = runloop(options.smoke, options.pacelog, smoke_detect_screen,
+				options.headless_input_script != NULL, &input_script);
 		g75_screen_capture();
 	}
 
+	headless_input_script_clear(&input_script);
 	pccore_cfgupdate();
 	restore_cli_config(&options, &saved_cli);
 	if ((!options.smoke) &&
@@ -2017,6 +2051,7 @@ np2main_err3:
 	scrnmng_destroy();
 
 np2main_err2:
+	headless_input_script_clear(&input_script);
 	hostfat_manager_shutdown();
 	TRACETERM();
 	upd9002_perf_stop();

@@ -154,6 +154,7 @@ typedef struct {
 	const char *scsi_path[4];
 	const char *hostfat_path;
 	const char *roms_path;
+	const char *headless_input_script;
 } VAEG_CLI_OPTIONS;
 
 #ifdef __cplusplus

@@ -61,11 +61,19 @@ the pinned SDL2 release recorded in ADR-0006.
 | Media | `--fdd1 path|none`, `--fdd2 path|none`, `--sasi1 path|none`, `--sasi2 path|none`, `--scsi1 path|none` through `--scsi4 path|none`, `--hostfat-dir path`, `--roms path` |
 | Execution | `--cpumult 1..32`, `--sgp model|follow-cpu|1..16`, `--nowait`, `--frameskip auto|full|2|3|4` |
 | Display/input | `--fullscreen`, `--windowed`, `--effect unfiltered|linear|scanline|crt-lite`, `--scaling native|fit|fit-8dot|integer|stretch`, `--controller joystick|mouse`, `--keyboard-layout jis|us|custom` |
-| Diagnostics/information | `--smoke`, `--selftest`, `--debug`, `--fdctrace`, `--pacelog`, `--trace-cpu N`, `--version`, `--help`, `-h` |
+| Diagnostics/information | `--smoke`, `--selftest`, `--debug`, `--fdctrace`, `--scsitrace`, `--pacelog`, `--trace-cpu N`, `--headless-input-script path`, `--version`, `--help`, `-h` |
 
 Run `vaeg --help` for the built-in list. Enum values are ASCII
 case-insensitive, and the last occurrence wins when an option is repeated.
 Positional FDD arguments have been removed; use `--fdd1` and `--fdd2`.
+
+`--headless-input-script path` starts the emulator with dummy SDL video/audio
+drivers and injects commands through the normal guest keyboard path. Each
+nonempty script line is submitted with Return appended; blank lines and lines
+whose first non-whitespace character is `#` are ignored. `@enter` submits a
+bare Return, and `@wait N` waits N guest frames before continuing. The option
+does not terminate the emulator; combine it with `VAEG_SCREEN_EXIT_MS` and
+`VAEG_SCREEN_DUMP` for a bounded screen-capture run.
 
 `--model va` selects `88VA1` and its unsuffixed ROM set. `--model va2` selects
 the `88VA2` compatibility model and its `*_va2.rom` set. The effective model
