@@ -62,6 +62,15 @@ class StorageFixtureTest(unittest.TestCase):
                      MODULE.SASI_HEADER_SIZE + len(MODULE.SASI_MARKER)],
                 MODULE.SASI_MARKER)
 
+    def test_g75_input_scripts(self):
+        self.assertEqual(MODULE.sasi_format_input_lines()[1], "HDFORM C:")
+        self.assertIn("G75TEST.COM", MODULE.scsi_create_input_lines()[1])
+        self.assertIn("G75BACK.COM", MODULE.scsi_readback_input_lines()[3])
+        self.assertIn("G75TEST.COM", MODULE.scsi_delete_input_lines()[1])
+
+    def test_scsi_image_helpers(self):
+        self.assertEqual(MODULE.SCSI_TEST_FILE, "G75TEST.COM")
+        self.assertEqual(MODULE.SCSI_BACKUP_FILE, "G75BACK.COM")
 
 if __name__ == "__main__":
     unittest.main()
