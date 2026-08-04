@@ -438,6 +438,9 @@ static void draw_configure_dialog(void) {
 			hostfat_manager_status.state != HOSTFAT_MANAGER_BUILDING;
 		const bool valid = cpu_valid && sgp_mode_valid && sgp_multiplier_valid &&
 			hostfat_valid && hostfat_idle;
+		const bool hostfat_action_error =
+			(g_gui.hostfat_status.rfind("HOSTFAT rebuild failed", 0) == 0) ||
+			(g_gui.hostfat_status.rfind("HOSTFAT unmount failed", 0) == 0);
 
 		if (ImGui::BeginChild("cpu-config", ImVec2(0.0f, 145.0f), true,
 												ImGuiWindowFlags_NoScrollbar)) {
@@ -524,6 +527,12 @@ static void draw_configure_dialog(void) {
 			}
 			ImGui::SameLine();
 			ImGui::TextDisabled("FAT12 max: 63.72 MiB usable");
+			if (hostfat_action_error) {
+				ImGui::PushStyleColor(ImGuiCol_Text,
+					ImVec4(1.0f, 0.25f, 0.25f, 1.0f));
+				ImGui::TextWrapped("%s", g_gui.hostfat_status.c_str());
+				ImGui::PopStyleColor();
+			}
 			if (hostfat_manager_status.state == HOSTFAT_MANAGER_BUILDING) {
 				const float fraction = (hostfat_manager_status.total != 0) ?
 					static_cast<float>(static_cast<double>(
@@ -532,7 +541,8 @@ static void draw_configure_dialog(void) {
 				ImGui::ProgressBar(std::clamp(fraction, 0.0f, 1.0f),
 					ImVec2(-1.0f, 0.0f), hostfat_manager_status.phase);
 			}
-			else if (hostfat_manager_status.message[0] != '\0') {
+			else if (!hostfat_action_error &&
+					hostfat_manager_status.message[0] != '\0') {
 				if (hostfat_manager_status.state == HOSTFAT_MANAGER_ERROR) {
 					ImGui::PushStyleColor(ImGuiCol_Text,
 						ImVec4(1.0f, 0.25f, 0.25f, 1.0f));

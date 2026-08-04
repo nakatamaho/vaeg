@@ -1548,8 +1548,9 @@ separate parity correction or move it to Open Defects.
 - **Root cause:** the GUI retained a stale capacity label and rendered the
   manager error message with the normal text style.
 - **Correction:** display the actual 63.72 MiB limit, render
-  `HOSTFAT_MANAGER_ERROR` messages in red with their detailed reason, and
-  reopen Configure automatically after an asynchronous failure.
+  `HOSTFAT_MANAGER_ERROR` messages in red directly below the rebuild button
+  with their detailed reason, and reopen Configure automatically after an
+  asynchronous failure.
 - **Verification:** Linux selftest, Linux/macOS/MinGW builds, M75 QA, and
   repository encoding/EOL/case checks passed.
 - **Evidence:** [M75 report](../agents/reports/m75_scsi_support.md).
