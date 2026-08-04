@@ -76,6 +76,13 @@ OK builds a complete replacement image on a worker thread. The previous image
 stays mounted while the progress indicator advances. A successful commit is
 atomic and resets the guest so PC-Engine and `HOSTFAT.SYS` re-read the BPB.
 A failed build leaves the old image mounted and reports the precise error.
+
+The GUI does not persist a changed `HOSTFATDIR` until the replacement image
+has been built and mounted successfully. Closing vaeg while a rebuild is in
+progress therefore leaves the previous configuration and snapshot intact.
+If a persisted HOSTFAT directory is empty or cannot be rebuilt at startup,
+vaeg reports a warning, disables HOSTFAT in `vaeg.cfg`, and continues booting.
+The directory path is retained so it can be corrected and re-enabled later.
 Disable HOSTFAT to unmount and reset.
 
 Snapshots never change while mounted. Additions, removals, and modifications

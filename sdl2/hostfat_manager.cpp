@@ -317,7 +317,7 @@ extern "C" BOOL hostfat_manager_selftest(void) {
 				sizeof(error)) != SUCCESS) {
 			throw std::runtime_error(error);
 		}
-		const UINT32 started = SDL_GetTicks();
+		UINT32 started = SDL_GetTicks();
 		unsigned polls = 0;
 		UINT event = HOSTFAT_MANAGER_EVENT_NONE;
 		while ((event == HOSTFAT_MANAGER_EVENT_NONE) &&
@@ -330,9 +330,30 @@ extern "C" BOOL hostfat_manager_selftest(void) {
 		hostfat_manager_get_status(&status);
 		if ((event != HOSTFAT_MANAGER_EVENT_MOUNTED) || (polls < 2) ||
 			(status.state != HOSTFAT_MANAGER_MOUNTED) || !status.mounted ||
-			(status.info.files != 1) ||
+			(status.info.files != 1)) {
+			throw std::runtime_error("asynchronous commit failed");
+		}
+		const UINT32 mounted_digest = hostfat_image_digest();
+		const std::string missing_path = (root / "missing").u8string();
+		if (hostfat_manager_rebuild_async(missing_path.c_str(), error,
+				sizeof(error)) != SUCCESS) {
+			throw std::runtime_error(error);
+		}
+		started = SDL_GetTicks();
+		polls = 0;
+		event = HOSTFAT_MANAGER_EVENT_NONE;
+		while ((event == HOSTFAT_MANAGER_EVENT_NONE) &&
+			((SDL_GetTicks() - started) < 30000)) {
+			event = hostfat_manager_poll();
+			polls++;
+			SDL_Delay(1);
+		}
+		hostfat_manager_get_status(&status);
+		if ((event != HOSTFAT_MANAGER_EVENT_FAILED) ||
+			(status.state != HOSTFAT_MANAGER_ERROR) || !status.mounted ||
+			(hostfat_image_digest() != mounted_digest) ||
 			(hostfat_manager_unmount(error, sizeof(error)) != SUCCESS)) {
-			throw std::runtime_error("asynchronous commit or unmount failed");
+			throw std::runtime_error("failed rebuild discarded mounted snapshot");
 		}
 		result = SUCCESS;
 	}
