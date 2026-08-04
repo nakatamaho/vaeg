@@ -228,6 +228,15 @@ BOOL vaeg_cli_parse(int argc, char **argv, VAEG_CLI_OPTIONS *options,
 			}
 			options->scsitrace_limit = number;
 		}
+		else if (!strcmp(argument, "--headless-input-script")) {
+			value = option_value(argc, argv, &position, argument, error,
+										error_size);
+			if ((value == NULL) || (value[0] == '\0')) {
+				return(set_error(error, error_size,
+						"--headless-input-script requires a path", value));
+			}
+			options->headless_input_script = value;
+		}
 		else if (!strcmp(argument, "--pacelog")) {
 			options->pacelog = TRUE;
 		}

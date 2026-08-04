@@ -162,6 +162,7 @@ static int test_cli_options(void) {
 		"--scaling", "fit-8dot", "--controller", "mouse",
 		"--keyboard-layout", "custom", "--debug", "--fdctrace",
 		"--pacelog", "--trace-cpu", "17",
+		"--headless-input-script", "input.txt",
 		"--scsitrace-cmdreq-windows", "--scsitrace-jitter-seed", "1234",
 		"--scsitrace-jitter-span", "200", "--smoke"
 	};
@@ -211,6 +212,8 @@ static int test_cli_options(void) {
 		(options.controller != VAEG_CLI_CONTROLLER_MOUSE) ||
 		(options.keyboard_layout != VAEG_CLI_KEYBOARD_CUSTOM) ||
 		(options.trace_cpu != 17) ||
+		(options.headless_input_script == NULL) ||
+		strcmp(options.headless_input_script, "input.txt") ||
 		!options.debug || !options.fdctrace || !options.pacelog ||
 		!options.scsitrace_cmdreq_windows || !options.scsitrace_jitter ||
 		(options.scsitrace_jitter_seed != 1234) ||
