@@ -1535,3 +1535,4 @@ separate parity correction or move it to Open Defects.
   Windows-only production selftest covers a directory reparse root when the
   host permits creating one. Linux debug and MinGW cross builds pass.
 - **Evidence:** [M75 report](../agents/reports/m75_scsi_support.md).
+- **Commit:** [1ec024b](https://github.com/nakatamaho/vaeg/commit/1ec024b)
