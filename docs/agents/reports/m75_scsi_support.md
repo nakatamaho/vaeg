@@ -2122,3 +2122,32 @@ notification path. The implementation is in
 
 Verification: Linux debug `--selftest`, `M75_SCSI_CONTROLLER_OK`, Linux
 release, macOS release, and MinGW cross builds passed.
+
+
+## G75 disposable storage automation
+
+The storage regression harness now covers the guest-level disposable flows
+without modifying the source D88, ROM directory, or HOSTFAT source tree.
+
+- --sasi-format boots a copy of the supplied PC-Engine 1.1 D88, executes
+  its HDFORM.COM with HDFORM C: and confirmation input, and requires the
+  completed-format screen with positive available capacity.
+- --g75-scsi creates a blank 40MiB, 256-byte-block VHD through the native
+  image creator, runs SCFORM, validates the FAT16 geometry and both FAT
+  copies, then runs separate guest processes for create, close/reopen
+  readback, and delete.
+- The readback step copies the SCSI file to the disposable A: disk and
+  compares its bytes with the source file. The delete step checks both the
+  guest screen and the backing FAT/root directory.
+- --full-g75 composes the SASI and SCSI flows. Every guest step retains a
+  same-run screen/trace pair and its headless input script.
+
+The normal-speed run completed the SASI format flow and the full SCSI flow:
+SCFORM created one G75TEST.COM file, the next process copied identical
+bytes to G75BACK.COM on A:, and the following process deleted the SCSI
+file. The final SCSI root directory was empty and the FAT inspector reported
+positive free clusters in both copies.
+
+This is machine evidence for the disposable storage paths. It does not
+approve the remaining M75 human gates, including non-SCSI disk regression,
+GUI reset interaction, and any real-hardware comparison.

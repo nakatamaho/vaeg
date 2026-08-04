@@ -208,20 +208,9 @@ After changing a SASI or SCSI image, reset the guest so the existing
 SxSI/SASI/SCSI open and bind path is rebuilt. IDE GUI mounting is not
 implemented.
 
-For a disposable guest-level SASI/HOSTFAT regression, the M75 harness creates
-a valid 40MB HDI and a small host directory, mounts both at startup, and
-retains the same-run screen and trace pair:
-
-```sh
-python3 tools/qa/m75_storage_regression.py \
-  --worker build/linux-debug/sdl2/vaeg \
-  --support-d88 /path/to/pcengine-support-hostfat.d88 \
-  --roms /path/to/roms --exit-ms 30000
-```
-
-For the guest I/O gate, run two disposable boots automatically: `TYPE` must
-show the fixture contents, then `DEL` must be rejected and a following `DIR`
-must still show the file:
+For disposable guest-level storage checks, the M75 harness retains a
+same-run screen and trace pair. The existing SASI/HOSTFAT smoke and HOSTFAT
+read-only file-I/O checks are:
 
 ```sh
 python3 tools/qa/m75_storage_regression.py --guest-io \
@@ -230,25 +219,53 @@ python3 tools/qa/m75_storage_regression.py --guest-io \
   --roms /path/to/roms --hostfat-drive D --exit-ms 40000
 ```
 
-The support D88 must contain `HOSTFAT.SYS` in `CONFIG.SYS`. The script
-creates the headless input files, validates the final screen and same-run
-trace, and verifies that the SASI image and HOSTFAT source directory are
-unchanged. The fixtures and captures are disposable unless `--output-dir` is
-supplied.
+The SASI format check uses the actual `HDFORM.COM` from the supplied
+PC-Engine 1.1 D88. It copies that D88 to the output directory, runs
+`HDFORM C:` and confirms the 40MB SASI image and the positive free-space
+screen result:
+
+```sh
+python3 tools/qa/m75_storage_regression.py --sasi-format \
+  --worker build/linux-debug/sdl2/vaeg \
+  --support-d88 /path/to/pcengine-support-hostfat.d88 \
+  --sasi-source "/path/to/PC-Engine 1.1(83U10).d88" \
+  --roms /path/to/roms --output-dir /tmp/m75-sasi-format
+```
+
+The SCSI G75 check creates a disposable blank 40MiB VHD through the native
+image-creation path, runs SCFORM, then performs separate guest boots for
+create, close/reopen readback, and delete:
+
+```sh
+python3 tools/qa/m75_storage_regression.py --g75-scsi \
+  --worker build/linux-debug/sdl2/vaeg \
+  --support-d88 /path/to/pcengine-support-hostfat.d88 \
+  --roms /path/to/roms --output-dir /tmp/m75-g75-scsi
+```
+
+Use `--full-g75` with `--sasi-source` to run both disposable flows. The
+support D88, ROM directory, and source D88 are never modified. For SCSI,
+the script compares the read-back `G75BACK.COM` bytes with the source
+`SCFORM.COM`, validates both FAT copies and positive free clusters, and
+checks that the deleted file is absent from both the guest screen and the
+backing image.
+
+The support D88 must contain `HOSTFAT.SYS` in `CONFIG.SYS` for `--guest-io`;
+the SCSI flow does not require HOSTFAT to be mounted. The script creates all
+headless input files, validates screen/trace identity and process-exit
+termination, and stores disposable captures under `--output-dir`.
 
 The storage script divides the checks as follows:
 
 | Automated by `m75_storage_regression.py` | Remains a human/environment gate |
 |---|---|
-| Temporary valid SASI HDI creation and startup mount | Supplying the owned ROM set and support D88 |
-| HOSTFAT snapshot creation and startup mount | Choosing the correct model and HOSTFAT drive letter when a nonstandard CONFIG.SYS is used |
-| Headless `TYPE` read and screen-content assertion | Reviewing the captured screen/trace pair when accepting a release |
-| Headless `DEL` rejection and post-delete `DIR` file-presence assertion | GUI Configure / Rebuild + reset interaction |
-| SASI image and HOSTFAT source manifest before/after comparison | Full G75 create/read/delete/reopen persistence and non-SCSI regression gates |
-| Same-run screen/trace identity, process-exit termination, and timeout failure | Formatting a newly created disk and any hardware-specific human gate |
+| SASI HDI creation, `HDFORM.COM` execution, and positive free-space screen | Supplying the owned ROM set and correct source/support D88 |
+| SCSI blank 40MiB VHD creation, SCFORM initialization, FAT validation | Reviewing screen/trace captures when accepting a release |
+| SCSI file creation and `G75TEST.COM` root/FAT verification | GUI Configure / Rebuild + reset interaction |
+| Separate-process close/reopen readback and host byte comparison | Non-SCSI disk regression gates |
+| Separate-process delete and backing-image absence check | Real hardware comparison and any manual multi-disk gate |
+| HOSTFAT `TYPE` success and read-only `DEL` rejection | None of the disposable guest steps is a substitute for release review |
 
-The script never modifies the source D88, ROMs, or the original HOSTFAT
-folder; it creates disposable fixtures under the output directory.
 
 ## ROM Placement
 
