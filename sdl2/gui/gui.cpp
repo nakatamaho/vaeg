@@ -162,6 +162,7 @@ struct BrowserEntry {
 
 struct GuiState {
 	bool initialized = false;
+	bool text_input_active = false;
 	SDL_Renderer *renderer = nullptr;
 	SDL_Texture *about_texture = nullptr;
 	int about_texture_width = 0;
@@ -244,6 +245,25 @@ struct GuiState {
 };
 
 GuiState g_gui;
+
+static void update_text_input_state(void) {
+
+	if (!g_gui.initialized) {
+		return;
+	}
+	ImGuiIO &io = ImGui::GetIO();
+	const bool wanted = io.WantTextInput;
+	if (wanted == g_gui.text_input_active) {
+		return;
+	}
+	if (wanted) {
+		SDL_StartTextInput();
+	}
+	else {
+		SDL_StopTextInput();
+	}
+	g_gui.text_input_active = wanted;
+}
 
 static SDL_Texture *load_about_texture(SDL_Renderer *renderer,
 										int *width, int *height) {
@@ -3110,6 +3130,10 @@ void gui_shutdown(void) {
 		return;
 	}
 	mousemng_setguiblocked(TRUE);
+	if (g_gui.text_input_active) {
+		SDL_StopTextInput();
+		g_gui.text_input_active = false;
+	}
 	if (g_gui.about_texture != nullptr) {
 		SDL_DestroyTexture(g_gui.about_texture);
 		g_gui.about_texture = nullptr;
@@ -3275,6 +3299,7 @@ void gui_render(void) {
 		return;
 	}
 	ImGui::Render();
+	update_text_input_state();
 	ImGui_ImplSDLRenderer2_RenderDrawData(ImGui::GetDrawData(),
 										  g_gui.renderer);
 }
