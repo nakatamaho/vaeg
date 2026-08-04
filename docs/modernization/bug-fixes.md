@@ -1537,3 +1537,18 @@ separate parity correction or move it to Open Defects.
 - **Evidence:** [M75 report](../agents/reports/m75_scsi_support.md).
 - **Commit:** [1ec024b](https://github.com/nakatamaho/vaeg/commit/1ec024b)
 - **Follow-up:** [7e6ede7](https://github.com/nakatamaho/vaeg/commit/7e6ede7)
+
+
+### HOSTFAT GUI hid rebuild failures and overstated capacity
+
+- **Status:** fixed in M75.
+- **Symptom:** Configure displayed `127.44 MiB usable` although the current
+  PC-Engine FAT12 geometry provides about 63.72 MiB, and asynchronous rebuild
+  errors were not visually distinguished from normal status text.
+- **Root cause:** the GUI retained a stale capacity label and rendered the
+  manager error message with the normal text style.
+- **Correction:** display the actual 63.72 MiB limit and render
+  `HOSTFAT_MANAGER_ERROR` messages in red with their detailed reason.
+- **Verification:** Linux selftest, Linux/macOS/MinGW builds, M75 QA, and
+  repository encoding/EOL/case checks passed.
+- **Evidence:** [M75 report](../agents/reports/m75_scsi_support.md).

@@ -2094,3 +2094,11 @@ Linux debug and MinGW cross builds were run after the change. The
 implementation is in [1ec024b](https://github.com/nakatamaho/vaeg/commit/1ec024b),
 with contained reparse-point support in
 [7e6ede7](https://github.com/nakatamaho/vaeg/commit/7e6ede7).
+
+
+## HOSTFAT rebuild error visibility (2026-08-04)
+
+The Configure dialog now displays asynchronous HOSTFAT rebuild failures in
+red, preserving the detailed builder message such as FAT12 capacity, entry
+limit, depth, or unsupported-file errors. The stale `127.44 MiB` label was
+corrected to the actual `63.72 MiB` usable payload limit.
