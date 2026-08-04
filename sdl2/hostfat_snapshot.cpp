@@ -52,6 +52,7 @@
 #endif
 
 #include "compiler.h"
+#include "hostfat_path.h"
 #include "hostfat_snapshot.h"
 #include "hostfat.h"
 
@@ -874,16 +875,18 @@ bool build_image(const fs::path &root_path, std::vector<unsigned char> &image,
 		BuildState &state) {
 
 	std::error_code error;
-	const fs::file_status root_status = fs::symlink_status(root_path, error);
-	if (error || fs::is_symlink(root_status)) {
-		state.error = "HOSTFAT root must not be a symbolic link";
-		return false;
-	}
 	const fs::path canonical = fs::canonical(root_path, error);
 	if (error || !fs::is_directory(canonical, error) || error) {
 		state.error = "HOSTFAT root is not a readable directory";
 		return false;
 	}
+#if !defined(_WIN32)
+	const fs::file_status root_status = fs::symlink_status(root_path, error);
+	if (error || fs::is_symlink(root_status)) {
+		state.error = "HOSTFAT root must not be a symbolic link";
+		return false;
+	}
+#endif
 	state.canonical_root = canonical;
 	Node root;
 	root.path = canonical;
@@ -1150,7 +1153,9 @@ extern "C" BOOL hostfat_snapshot_build_directory(const char *path,
 	if (candidate != nullptr) {
 		*candidate = nullptr;
 	}
-	if ((candidate == nullptr) || (path == nullptr) || (path[0] == '\0')) {
+	const std::string normalized_path = (path != nullptr) ?
+		vaeg_hostfat::normalize_path(path) : std::string();
+	if ((candidate == nullptr) || normalized_path.empty()) {
 		set_error(error, error_size, "HOSTFAT directory path is empty");
 		return FAILURE;
 	}
@@ -1164,7 +1169,8 @@ extern "C" BOOL hostfat_snapshot_build_directory(const char *path,
 			set_error(error, error_size, "cannot allocate HOSTFAT candidate");
 			return FAILURE;
 		}
-		if (!build_image(fs::u8path(path), result->image, state)) {
+		if (!build_image(vaeg_hostfat::path_from_utf8(normalized_path),
+				result->image, state)) {
 			set_error(error, error_size, state.error);
 			return FAILURE;
 		}
@@ -1271,6 +1277,32 @@ extern "C" BOOL hostfat_snapshot_selftest(void) {
 			(first.source_bytes != 13) || !verify_test_image(root)) {
 			throw std::runtime_error("valid snapshot check failed");
 		}
+		const std::string quoted_root = "\"" + root.u8string() + "\"";
+		HOSTFAT_SNAPSHOT_INFO quoted{};
+		if ((hostfat_snapshot_mount_directory(quoted_root.c_str(), &quoted,
+				message, sizeof(message)) != SUCCESS) ||
+			(quoted.digest != first.digest)) {
+			throw std::runtime_error("quoted snapshot path was not accepted");
+		}
+#if defined(_WIN32)
+		const fs::path root_link = root.parent_path() /
+			("vaeg-hostfat-selftest-link-" + std::to_string(nonce));
+		error.clear();
+		fs::create_directory_symlink(root, root_link, error);
+		if (!error) {
+			HOSTFAT_SNAPSHOT_INFO linked{};
+			if ((hostfat_snapshot_mount_directory(root_link.u8string().c_str(),
+					&linked, message, sizeof(message)) != SUCCESS) ||
+				(linked.digest != first.digest)) {
+				throw std::runtime_error("Windows root reparse path was rejected");
+			}
+			error.clear();
+			fs::remove(root_link, error);
+			if (error) {
+				throw std::runtime_error("temporary root-link cleanup failed");
+			}
+		}
+#endif
 		if ((hostfat_snapshot_mount_directory(root.u8string().c_str(), &second,
 				message, sizeof(message)) != SUCCESS) ||
 			(first.digest != second.digest)) {

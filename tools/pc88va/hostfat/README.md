@@ -103,12 +103,16 @@ earlier odd seconds are therefore displayed rounded down. Values outside
 FAT's representable range clamp to `1980-01-01 00:00:00` or
 `2107-12-31 23:59:58`.
 
-The snapshot accepts at most 1024 entries and eight directory levels. A valid,
-unique ASCII 8.3 name using letters, digits, `_`, and `-` is retained after
-uppercase folding. Other valid UTF-8 host names receive deterministic 8.3
-aliases; duplicate aliases are resolved deterministically. DOS device names,
-invalid UTF-8, links/reparse points, special files, containment escapes, and
-files whose identity or size changes while copied reject the whole rebuild.
+On Windows, the selected HOSTFAT root may be a junction or another directory
+reparse point such as a redirected Dropbox folder; vaeg canonicalizes that
+selected root before taking the immutable snapshot. Links and reparse points
+inside the selected root remain rejected. The snapshot accepts at most 1024
+entries and eight directory levels. A valid, unique ASCII 8.3 name using
+letters, digits, `_`, and `-` is retained after uppercase folding. Other valid
+UTF-8 host names receive deterministic 8.3 aliases; duplicate aliases are
+resolved deterministically. DOS device names, invalid UTF-8, descendant
+links/reparse points, special files, containment escapes, and files whose
+identity or size changes while copied reject the whole rebuild.
 The backing snapshot is fixed at 64 MiB. The driver advertises 65,362 logical
 sectors of 1024 bytes (63.830078125 MiB) with 16 sectors per cluster. PC-Engine
 therefore counts 4084 data clusters and selects FAT12 rather than FAT16. The

@@ -1506,3 +1506,32 @@ separate parity correction or move it to Open Defects.
   configured HOSTFAT rebuild as fatal.
 - **Correction:** retain pending GUI values until successful mount, commit the
   path only at the mount event, and disable invalid configured HOSTFAT on
+  startup while retaining the path so the emulator can boot and the setting
+  can be corrected later.
+- **Verification:** Linux SDL selftest, HOSTFAT manager failed-rebuild
+  retention selftest, invalid configured-directory startup recovery probe,
+  `M75_SCSI_CONTROLLER_OK`, all required local builds, and `git diff --check`
+  passed.
+- **Evidence:** [M75 report](../agents/reports/m75_scsi_support.md).
+- **Commit:** [bc51051](https://github.com/nakatamaho/vaeg/commit/bc510511326b9fdb3f61018d751dfc598159512a)
+
+
+### HOSTFAT rejected a Windows Dropbox root path
+
+- **Status:** fixed in M75; descendant links, special files, and containment
+  checks remain unchanged.
+- **Symptom:** a Windows HOSTFAT directory selected under a Dropbox tree could
+  be treated as unavailable when the selected root was exposed as a junction or
+  directory reparse point. Paths copied with surrounding quotes were also
+  passed to filesystem validation literally.
+- **Root cause:** the GUI and snapshot builder did not normalize user-entered
+  HOSTFAT paths, and the builder rejected a Windows root reparse point before
+  canonicalizing it.
+- **Correction:** normalize whitespace/quotes, use `USERPROFILE` for the
+  Windows browser start directory, allow the selected Windows root to be
+  canonicalized, and continue rejecting links/reparse points discovered
+  inside the snapshot tree.
+- **Verification:** HOSTFAT snapshot selftest now covers a quoted path; the
+  Windows-only production selftest covers a directory reparse root when the
+  host permits creating one. Linux debug and MinGW cross builds pass.
+- **Evidence:** [M75 report](../agents/reports/m75_scsi_support.md).
