@@ -2089,4 +2089,5 @@ contents and containment checks.
 
 The HOSTFAT snapshot selftest covers quoted paths on all platforms and covers a
 Windows directory-reparse root when the host allows the temporary test link.
-Linux debug and MinGW cross builds were run after the change.
+Linux debug and MinGW cross builds were run after the change. The
+implementation is in [1ec024b](https://github.com/nakatamaho/vaeg/commit/1ec024b).
