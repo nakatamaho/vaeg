@@ -1461,3 +1461,33 @@ separate parity correction or move it to Open Defects.
   equal backend/staging/AR19 digests for its first three block reads.
 - **Evidence:** [M75 report](../agents/reports/m75_scsi_support.md) and
   [a7d244d](https://github.com/nakatamaho/vaeg/commit/a7d244d61d93eedaf8498185ec55f8e8ac743926).
+
+
+### Direct Select-and-Transfer WRITE committed before guest DATA OUT
+
+- **Status:** fixed; G75 remains open for the independent SASI, HOSTFAT, and
+  non-SCSI regression gates.
+- **Symptom:** PC-Engine issued a successful WRITE(10), but the guest's
+  subsequent AR19 DATA OUT bytes arrived after the controller had already
+  committed the stale staging buffer. The first write could therefore update
+  the image with the preceding command's data and reject the actual DATA OUT
+  phase.
+- **Root cause:** the direct Select-and-Transfer WRITE path called the
+  backend write at command acceptance, before the guest drained the DATA OUT
+  window. This was demonstrated by the first WRITE trace: 1024 bytes were
+  reported as backend-written before the first guest DATA OUT byte, followed
+  by phase-direction-mismatch warnings.
+- **Correction:** direct WRITE commands now remain active in DATA OUT, accept
+  bytes through AR19, and call the backend write only after the programmed
+  byte count is complete. The trace digest equality predicate covers both READ
+  and WRITE data paths.
+- **Verification:** the isolated guest creation run completed a WRITE(10) at
+  LBA 572 for four 256-byte blocks with TC `000400`, AR15h `00h`, AR19 DATA
+  OUT, GOOD status, residual zero, commit_count one, and equal backend,
+  staging, and delivered digests. The guest read/reopen/delete run printed
+  `G75 READ-REOPEN-DELETE OK`; a second boot printed `G75 DELETE PERSISTED`.
+  The focused Python tests, `M75_SCSI_CONTROLLER_OK`, Linux build, and
+  `git diff --check` passed.
+- **Evidence:** `docs/agents/reports/m75_scsi_support.md`, G75b screen and
+  trace artifacts retained outside the repository.
+- **Commit:** recorded when the corrective work is committed.

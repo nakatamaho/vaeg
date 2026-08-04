@@ -60,6 +60,7 @@
 #include	"mousemng.h"
 #include	"mouseifva.h"
 #include	"sound.h"
+#include	"g75_screen.h"
 #include	<stdlib.h>
 #include	"opngen.h"
 #include	"ymfmbridge.h"
@@ -270,6 +271,7 @@ static void usage(const char *progname) {
 	printf("\t--smoke --selftest --debug --fdctrace --scsitrace --pacelog\n");
 	printf("\t--scsitrace-no-guest\n");
 	printf("\t--scsitrace-compact\n");
+	printf("\t--scsitrace-census [--scsitrace-census-only]\n");
 	printf("\t--scsitrace-cmdreq-windows\n");
 	printf("\t--scsitrace-limit 1..1000000\n");
 	printf("\t--scsitrace-jitter-seed N [--scsitrace-jitter-span N]\n");
@@ -1499,18 +1501,25 @@ static BOOL runloop(BOOL smoke, BOOL pacelog_enabled, BOOL detect_screen) {
 	UINT	frames;
 	PACELOG	pacelog;
 	UINT32 next_guest_tick;
+	UINT32 harness_started;
 
 	frames = 0;
 	framecnt = 0;
 	waitcnt = 0;
 	framemax = 1;
 	next_guest_tick = 0;
+	harness_started = SDL_GetTicks();
 	pacelog_initialize(&pacelog);
 	while(taskmng_isavail()) {
 		BOOL effective_nowait;
 		UINT effective_drawskip;
 
 		taskmng_rol();
+		if (g75_screen_harness_exit_requested(
+				SDL_GetTicks() - harness_started)) {
+			taskmng_exit();
+			break;
+		}
 		if (scsiio_trace_stop_requested()) {
 			taskmng_exit();
 			break;
@@ -1900,6 +1909,7 @@ int main(int argc, char **argv) {
 	fdc_trace_enable(options.fdctrace);
 	scsiio_trace_enable(options.scsitrace);
 	scsiio_trace_compact(options.scsitrace_compact);
+	scsiio_trace_census_only(options.scsitrace_census_only);
 	scsiio_trace_limit(options.scsitrace_limit);
 	scsiio_trace_jitter(options.scsitrace_jitter,
 			options.scsitrace_jitter_seed, options.scsitrace_jitter_span);
@@ -1959,6 +1969,7 @@ int main(int argc, char **argv) {
 		mount_configured_fdd_images();
 		dropmedia_prune_storage();
 		run_ok = runloop(options.smoke, options.pacelog, smoke_detect_screen);
+		g75_screen_capture();
 	}
 
 	pccore_cfgupdate();
@@ -1969,6 +1980,7 @@ int main(int argc, char **argv) {
 	}
 	bkupmemva_save();
 	pccore_term();
+	scsiio_trace_census_report();
 	hostfat_manager_shutdown();
 	dropmedia_shutdown();
 	soundmng_deinitialize();

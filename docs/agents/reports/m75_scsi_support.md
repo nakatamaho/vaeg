@@ -1997,3 +1997,66 @@ tests, including a fixture with nonzero FAT padding that must not inflate the
 free-cluster count.  G75 remains **FAIL** pending bounded CHKDSK evidence,
 nonzero guest free space, and persistent file create/read/compare/delete after
 reopen.
+
+
+## G75b WRITE path and standard screen capture (2026-08-04)
+
+The guest-visible capacity gate is MET on the same-run text-plane capture. The
+four CHKDSK lines are:
+
+```text
+  40792064 バイト : 全ディスク容量
+  40792064 バイト : 使用可能ディスク容量
+    524288 バイト : 全メモリ
+    380144 バイト : 使用可能メモリ
+```
+
+The BPB arithmetic is `39,936 - 1 - 78 - 20 = 39,837` physical blocks,
+`39,837 / 2 = 19,918` valid data clusters, and
+`19,918 x 2,048 = 40,792,064` bytes. `CHKDSK completes` and `positive
+available capacity` are MET. The capture format stores the run ID in both the
+binary screen dump and the trace, so the decoded screen and controller trace
+are proven to be from the same run.
+
+The standard QA harness now sets `VAEG_SCREEN_DUMP` and
+`VAEG_SCREEN_RUN_ID`, captures the text plane at scenario exit, decodes the
+JIS character cells using the PC-Engine text-table geometry, and requires the
+same run ID in the trace. Its focused decoder tests cover ASCII and JIS cells.
+
+The first isolated guest file-creation WRITE was a WRITE(10):
+
+```text
+CDB       2a000000023c000004002b00
+LBA       572
+blocks    4
+bytes     1024
+TC        000400 (AR12=00h, AR13=04h, AR14=00h)
+AR15h     00h (DataDirection bit 6 clear)
+DATA      AR19, 1024 bytes
+STATUS    GOOD; residual 0; commit_count 1
+```
+
+The former path committed the backend before the guest's AR19 DATA OUT
+window was consumed, so the backend received stale bytes and the following
+DATA OUT was rejected by the phase-direction check. The corrected path keeps
+the direct WRITE active in DATA OUT, accepts every AR19 byte, and commits only
+after the final byte. The completed trace reports equal backend, staging and
+delivered byte counts and digests. The image changed on disk: the root entry
+for `G75.TST` points to cluster 2, its size is one byte, cluster 2 contains
+`X`, and both FAT copies agree with one valid cluster consumed.
+
+The guest lifecycle scenarios also pass with screen output as the primary
+result:
+
+```text
+G75 READ-REOPEN-DELETE OK
+G75 DELETE PERSISTED
+```
+
+The first line verifies one-byte readback, close/reopen readback, and delete
+in one boot. The second is a separate boot against the resulting image and
+verifies that deletion persisted. After deletion the FAT inspector reports
+19,918 free valid clusters, equal FAT1/FAT2, and an unused first root entry.
+
+G75 remains open for the required SASI, HOSTFAT, and non-SCSI disk-path
+regressions. The implementation and evidence do not claim those gates.
