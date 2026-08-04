@@ -1816,16 +1816,22 @@ int main(int argc, char **argv) {
 		return(FAILURE);
 	}
 	const char *hostfat_path = options.hostfat_path;
+	const BOOL hostfat_configured = (hostfat_path == NULL) &&
+		(np2oscfg.hostfat_enabled != 0);
 	if ((hostfat_path == NULL) && np2oscfg.hostfat_enabled) {
 		if (np2oscfg.hostfat_dir[0] == '\0') {
 			fprintf(stderr,
-				"Error: HOSTFAT is enabled but HOSTFATDIR is empty\n");
-			hostfat_manager_shutdown();
-			SDL_Quit();
-			dosio_term();
-			return(FAILURE);
+				"Warning: HOSTFAT is enabled but HOSTFATDIR is empty; "
+				"disabling HOSTFAT for recovery\n");
+			np2oscfg.hostfat_enabled = 0;
+			sysmng_update(SYS_UPDATEOSCFG);
+			if (!options.smoke) {
+				initsave();
+			}
 		}
-		hostfat_path = np2oscfg.hostfat_dir;
+		else {
+			hostfat_path = np2oscfg.hostfat_dir;
+		}
 	}
 	if (hostfat_path != NULL) {
 		HOSTFAT_SNAPSHOT_INFO hostfat_info;
@@ -1835,17 +1841,28 @@ int main(int argc, char **argv) {
 				&hostfat_info, hostfat_error, sizeof(hostfat_error)) != SUCCESS) {
 			fprintf(stderr, "Error: cannot create HOSTFAT snapshot: %s\n",
 					hostfat_error);
-			hostfat_manager_shutdown();
-			SDL_Quit();
-			dosio_term();
-			return(FAILURE);
+			if (!hostfat_configured) {
+				hostfat_manager_shutdown();
+				SDL_Quit();
+				dosio_term();
+				return(FAILURE);
+			}
+			np2oscfg.hostfat_enabled = 0;
+			sysmng_update(SYS_UPDATEOSCFG);
+			if (!options.smoke) {
+				initsave();
+			}
+			fprintf(stderr,
+				"Warning: disabling HOSTFAT in configuration for recovery\n");
 		}
-		fprintf(stderr,
-			"HOSTFAT: read-only snapshot ready: %u files, %u directories, "
-			"%llu source bytes, digest %08x\n",
-			hostfat_info.files, hostfat_info.directories,
-			(unsigned long long)hostfat_info.source_bytes,
-			hostfat_info.digest);
+		else {
+			fprintf(stderr,
+				"HOSTFAT: read-only snapshot ready: %u files, %u directories, "
+				"%llu source bytes, digest %08x\n",
+				hostfat_info.files, hostfat_info.directories,
+				(unsigned long long)hostfat_info.source_bytes,
+				hostfat_info.digest);
+		}
 	}
 	save_cli_config(&options, &saved_cli);
 	dropmedia_initialize();

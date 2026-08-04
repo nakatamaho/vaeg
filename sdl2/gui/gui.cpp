@@ -220,6 +220,7 @@ struct GuiState {
 	char pending_hostfat_dir[MAX_PATH] = {};
 	bool pending_hostfat_rebuild = false;
 	bool hostfat_reset_after_build = false;
+	std::string hostfat_rebuild_dir;
 	bool hostfat_browser_open = false;
 	bool hostfat_browser_request = false;
 	bool hostfat_browser_refresh = false;
@@ -369,14 +370,11 @@ static void apply_configure_dialog(void) {
 		reset_done = true;
 	}
 	if (hostfat_changed || g_gui.pending_hostfat_rebuild) {
-		np2oscfg.hostfat_enabled = g_gui.pending_hostfat_enabled ? 1 : 0;
-		milstr_ncpy(np2oscfg.hostfat_dir, g_gui.pending_hostfat_dir,
-			sizeof(np2oscfg.hostfat_dir));
-		sysmng_update(SYS_UPDATEOSCFG);
 		char error[256]{};
 		if (g_gui.pending_hostfat_enabled) {
 			if (hostfat_manager_rebuild_async(g_gui.pending_hostfat_dir, error,
 					sizeof(error)) == SUCCESS) {
+				g_gui.hostfat_rebuild_dir = g_gui.pending_hostfat_dir;
 				g_gui.hostfat_status = "Building immutable HOSTFAT snapshot...";
 				g_gui.hostfat_reset_after_build = true;
 			}
@@ -386,6 +384,9 @@ static void apply_configure_dialog(void) {
 			}
 		}
 		else if (hostfat_manager_unmount(error, sizeof(error)) == SUCCESS) {
+			np2oscfg.hostfat_enabled = 0;
+			np2oscfg.hostfat_dir[0] = '\0';
+			sysmng_update(SYS_UPDATEOSCFG);
 			g_gui.hostfat_status = "HOSTFAT unmounted.";
 			if (!reset_done) {
 				reset_guest();
@@ -3256,6 +3257,11 @@ void gui_draw(void) {
 		hostfat_manager_get_status(&status);
 		g_gui.hostfat_status = status.message;
 		if (g_gui.hostfat_reset_after_build) {
+			np2oscfg.hostfat_enabled = 1;
+			milstr_ncpy(np2oscfg.hostfat_dir, g_gui.hostfat_rebuild_dir.c_str(),
+				sizeof(np2oscfg.hostfat_dir));
+			sysmng_update(SYS_UPDATEOSCFG);
+			g_gui.hostfat_rebuild_dir.clear();
 			g_gui.hostfat_reset_after_build = false;
 			reset_guest();
 		}
@@ -3265,6 +3271,7 @@ void gui_draw(void) {
 		hostfat_manager_get_status(&status);
 		g_gui.hostfat_status = "HOSTFAT rebuild failed: ";
 		g_gui.hostfat_status += status.message;
+		g_gui.hostfat_rebuild_dir.clear();
 		g_gui.hostfat_reset_after_build = false;
 	}
 	if (ImGui::BeginMainMenuBar()) {
