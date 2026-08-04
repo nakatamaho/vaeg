@@ -1536,3 +1536,4 @@ separate parity correction or move it to Open Defects.
   reparse-point directory. Linux debug and MinGW cross builds pass.
 - **Evidence:** [M75 report](../agents/reports/m75_scsi_support.md).
 - **Commit:** [1ec024b](https://github.com/nakatamaho/vaeg/commit/1ec024b)
+- **Follow-up:** [7e6ede7](https://github.com/nakatamaho/vaeg/commit/7e6ede7)
