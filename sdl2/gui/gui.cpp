@@ -523,7 +523,7 @@ static void draw_configure_dialog(void) {
 				g_gui.pending_hostfat_rebuild = true;
 			}
 			ImGui::SameLine();
-			ImGui::TextDisabled("FAT12 max: 127.44 MiB usable");
+			ImGui::TextDisabled("FAT12 max: 63.72 MiB usable");
 			if (hostfat_manager_status.state == HOSTFAT_MANAGER_BUILDING) {
 				const float fraction = (hostfat_manager_status.total != 0) ?
 					static_cast<float>(static_cast<double>(
@@ -533,7 +533,16 @@ static void draw_configure_dialog(void) {
 					ImVec2(-1.0f, 0.0f), hostfat_manager_status.phase);
 			}
 			else if (hostfat_manager_status.message[0] != '\0') {
-				ImGui::TextWrapped("%s", hostfat_manager_status.message);
+				if (hostfat_manager_status.state == HOSTFAT_MANAGER_ERROR) {
+					ImGui::PushStyleColor(ImGuiCol_Text,
+						ImVec4(1.0f, 0.25f, 0.25f, 1.0f));
+					ImGui::TextWrapped("Error: %s",
+						hostfat_manager_status.message);
+					ImGui::PopStyleColor();
+				}
+				else {
+					ImGui::TextWrapped("%s", hostfat_manager_status.message);
+				}
 			}
 			else {
 				ImGui::TextDisabled("%s", hostfat_manager_status.phase);
