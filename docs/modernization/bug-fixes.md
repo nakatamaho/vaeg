@@ -1490,4 +1490,4 @@ separate parity correction or move it to Open Defects.
   `git diff --check` passed.
 - **Evidence:** `docs/agents/reports/m75_scsi_support.md`, G75b screen and
   trace artifacts retained outside the repository.
-- **Commit:** recorded when the corrective work is committed.
+- **Commit:** [13c978b](https://github.com/nakatamaho/vaeg/commit/13c978b)
