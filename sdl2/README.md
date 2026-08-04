@@ -219,9 +219,36 @@ python3 tools/qa/m75_storage_regression.py \
   --roms /path/to/roms --exit-ms 30000
 ```
 
-The support D88 must contain `HOSTFAT.SYS` in `CONFIG.SYS`; use
-`--headless-input-script` when the scenario also needs DOS commands. The
-fixtures and captures are disposable unless `--output-dir` is supplied.
+For the guest I/O gate, run two disposable boots automatically: `TYPE` must
+show the fixture contents, then `DEL` must be rejected and a following `DIR`
+must still show the file:
+
+```sh
+python3 tools/qa/m75_storage_regression.py --guest-io \
+  --worker build/linux-debug/sdl2/vaeg \
+  --support-d88 /path/to/pcengine-support-hostfat.d88 \
+  --roms /path/to/roms --hostfat-drive D --exit-ms 40000
+```
+
+The support D88 must contain `HOSTFAT.SYS` in `CONFIG.SYS`. The script
+creates the headless input files, validates the final screen and same-run
+trace, and verifies that the SASI image and HOSTFAT source directory are
+unchanged. The fixtures and captures are disposable unless `--output-dir` is
+supplied.
+
+The storage script divides the checks as follows:
+
+| Automated by `m75_storage_regression.py` | Remains a human/environment gate |
+|---|---|
+| Temporary valid SASI HDI creation and startup mount | Supplying the owned ROM set and support D88 |
+| HOSTFAT snapshot creation and startup mount | Choosing the correct model and HOSTFAT drive letter when a nonstandard CONFIG.SYS is used |
+| Headless `TYPE` read and screen-content assertion | Reviewing the captured screen/trace pair when accepting a release |
+| Headless `DEL` rejection and post-delete `DIR` file-presence assertion | GUI Configure / Rebuild + reset interaction |
+| SASI image and HOSTFAT source manifest before/after comparison | Full G75 create/read/delete/reopen persistence and non-SCSI regression gates |
+| Same-run screen/trace identity, process-exit termination, and timeout failure | Formatting a newly created disk and any hardware-specific human gate |
+
+The script never modifies the source D88, ROMs, or the original HOSTFAT
+folder; it creates disposable fixtures under the output directory.
 
 ## ROM Placement
 

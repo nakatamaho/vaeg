@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Prepare and run the M75 SASI/HOSTFAT storage regression scenario."""
+"""Run the disposable M75 SASI/HOSTFAT storage regressions."""
 
 # Copyright (c) 2026 Nakata Maho
 #
@@ -45,6 +45,8 @@ SASI_BLOCK_COUNT = SASI_CYLINDERS * SASI_SURFACES * SASI_SECTORS
 SASI_DATA_SIZE = SASI_BLOCK_COUNT * SASI_SECTOR_SIZE
 SASI_FILE_SIZE = SASI_HEADER_SIZE + SASI_DATA_SIZE
 SASI_MARKER = b"M75 SASI REGRESSION\n"
+HOSTFAT_FILE = "REGRESS.TXT"
+HOSTFAT_CONTENT = "M75 STORAGE REGRESSION\n"
 
 
 def sha256(path: Path) -> str:
@@ -53,6 +55,28 @@ def sha256(path: Path) -> str:
         for block in iter(lambda: stream.read(1024 * 1024), b""):
             digest.update(block)
     return digest.hexdigest()
+
+
+def directory_manifest(path: Path) -> dict[str, object]:
+    entries = []
+    for item in sorted(path.rglob("*")):
+        relative = item.relative_to(path).as_posix()
+        if item.is_dir():
+            entries.append({"path": relative, "type": "directory"})
+        elif item.is_file():
+            entries.append({
+                "path": relative,
+                "type": "file",
+                "size": item.stat().st_size,
+                "sha256": sha256(item),
+            })
+        else:
+            raise AssertionError(f"unexpected HOSTFAT fixture entry: {item}")
+    encoded = json.dumps(entries, sort_keys=True, separators=(",", ":"))
+    return {
+        "entries": entries,
+        "sha256": hashlib.sha256(encoded.encode("utf-8")).hexdigest(),
+    }
 
 
 def create_sasi_image(path: Path) -> dict[str, int | str]:
@@ -78,20 +102,49 @@ def create_sasi_image(path: Path) -> dict[str, int | str]:
     }
 
 
-def create_hostfat_root(path: Path) -> dict[str, int | str]:
+def create_hostfat_root(path: Path) -> dict[str, int | str | object]:
     path.mkdir(parents=True, exist_ok=True)
-    (path / "REGRESS.TXT").write_text(
-        "M75 STORAGE REGRESSION\n", encoding="ascii")
+    (path / HOSTFAT_FILE).write_text(HOSTFAT_CONTENT, encoding="ascii")
     (path / "SUBDIR").mkdir()
     (path / "SUBDIR" / "DATA.BIN").write_bytes(bytes(range(32)))
     files = sorted(item for item in path.rglob("*") if item.is_file())
     directories = sorted(item for item in path.rglob("*") if item.is_dir())
+    manifest = directory_manifest(path)
     return {
         "path": str(path),
         "files": len(files),
         "directories": len(directories),
         "source_bytes": sum(item.stat().st_size for item in files),
+        "manifest": manifest,
     }
+
+
+def guest_input_lines(command: str, drive: str) -> list[str]:
+    drive = drive.upper()
+    if not re.fullmatch(r"[A-Z]", drive):
+        raise ValueError(f"invalid HOSTFAT drive letter: {drive}")
+    return [
+        "@wait 600",
+        f"{command} {drive}:\\{HOSTFAT_FILE}",
+        "@wait 120",
+    ]
+
+
+def delete_input_lines(drive: str) -> list[str]:
+    drive = drive.upper()
+    if not re.fullmatch(r"[A-Z]", drive):
+        raise ValueError(f"invalid HOSTFAT drive letter: {drive}")
+    return [
+        "@wait 600",
+        f"DEL {drive}:\\{HOSTFAT_FILE}",
+        "@wait 120",
+        f"DIR {drive}:",
+        "@wait 120",
+    ]
+
+
+def write_guest_input(path: Path, lines: list[str]) -> None:
+    path.write_text("\n".join(lines) + "\n", encoding="ascii")
 
 
 def fixture_selftest() -> dict[str, object]:
@@ -106,17 +159,17 @@ def fixture_selftest() -> dict[str, object]:
             raise AssertionError("SASI marker was not written")
         if (root / "sasi.hdi").stat().st_size != SASI_FILE_SIZE:
             raise AssertionError("SASI image size is not deterministic")
-        if hostfat != {
-                "path": str(root / "hostfat"),
-                "files": 2,
-                "directories": 1,
-                "source_bytes": 55,
-        }:
+        if hostfat["files"] != 2 or hostfat["directories"] != 1:
             raise AssertionError(f"unexpected HOSTFAT fixture: {hostfat}")
+        if guest_input_lines("TYPE", "D") != [
+                "@wait 600", "TYPE D:\\REGRESS.TXT", "@wait 120"]:
+            raise AssertionError("read input script is not deterministic")
+        if delete_input_lines("D")[-2] != "DIR D:":
+            raise AssertionError("delete input script lacks post-delete DIR")
         return {"sasi": sasi, "hostfat": hostfat}
 
 
-def run_guest(args: argparse.Namespace) -> dict[str, object]:
+def validate_guest_inputs(args: argparse.Namespace) -> None:
     if not Path(args.worker).is_file():
         raise FileNotFoundError(f"worker not found: {args.worker}")
     for label, value in (("support D88", args.support_d88),
@@ -128,18 +181,26 @@ def run_guest(args: argparse.Namespace) -> dict[str, object]:
         raise RuntimeError(
             "support D88 does not contain HOSTFAT.SYS; provide the "
             "PC-Engine support disk with DEVICE=HOSTFAT.SYS")
+    if not re.fullmatch(r"[A-Za-z]", args.hostfat_drive):
+        raise ValueError("--hostfat-drive must be one ASCII drive letter")
 
-    harness = Path(__file__).with_name("m75_scsi_harness.py")
-    output_root = (Path(args.output_dir).resolve()
-                   if args.output_dir else
-                   Path(tempfile.mkdtemp(prefix="m75-storage-regression-")))
+
+def run_guest(args: argparse.Namespace, output_root: Path,
+              input_lines: list[str] | None = None,
+              expected_screen: tuple[str, ...] = ()) -> dict[str, object]:
     output_root.mkdir(parents=True, exist_ok=True)
+    harness = Path(__file__).with_name("m75_scsi_harness.py")
     sasi_path = output_root / "sasi.hdi"
     hostfat_path = output_root / "hostfat"
     screen_path = output_root / "screen.bin"
     trace_path = output_root / "trace.log"
+    input_path = output_root / "headless-input.txt"
     sasi = create_sasi_image(sasi_path)
     hostfat = create_hostfat_root(hostfat_path)
+    sasi_before = sasi["sha256"]
+    hostfat_before = hostfat["manifest"]["sha256"]
+    if input_lines is not None:
+        write_guest_input(input_path, input_lines)
 
     worker_args = [
         "--model", args.model,
@@ -151,7 +212,9 @@ def run_guest(args: argparse.Namespace) -> dict[str, object]:
         "--hostfat-dir", str(hostfat_path),
         "--nowait", "--mute",
     ]
-    if args.headless_input_script:
+    if input_lines is not None:
+        worker_args.extend(["--headless-input-script", str(input_path)])
+    elif args.headless_input_script:
         worker_args.extend(["--headless-input-script",
                             str(Path(args.headless_input_script).resolve())])
     command = [
@@ -190,29 +253,82 @@ def run_guest(args: argparse.Namespace) -> dict[str, object]:
             f"{completed.stderr.strip()}")
     if not screen_path.exists():
         raise RuntimeError("storage scenario produced no screen capture")
-    return {
+    screen = harness_result.get("screen", {})
+    screen_lines = screen.get("lines", [])
+    run_id = harness_result.get("run_id")
+    if not run_id or screen.get("run_id") != run_id or run_id not in trace:
+        raise AssertionError("screen and trace are not from the same run")
+    if harness_result.get("termination") != "process-exit":
+        raise AssertionError("scenario did not end by process exit")
+    for expected in expected_screen:
+        if not any(expected in line for line in screen_lines):
+            raise AssertionError(
+                f"screen is missing expected text {expected!r}: {screen_lines}")
+    sasi_after = sha256(sasi_path)
+    hostfat_after = directory_manifest(hostfat_path)["sha256"]
+    if sasi_after != sasi_before:
+        raise AssertionError("SASI image changed during read-only scenario")
+    if hostfat_after != hostfat_before:
+        raise AssertionError("HOSTFAT source directory changed during scenario")
+    result = {
         "command": command,
         "output_dir": str(output_root),
-        "sasi": sasi,
-        "hostfat": hostfat,
+        "input_script": str(input_path) if input_lines is not None else None,
+        "input_lines": input_lines,
+        "sasi": {**sasi, "sha256_before": sasi_before,
+                 "sha256_after": sasi_after},
+        "hostfat": {**hostfat, "manifest_sha256_before": hostfat_before,
+                    "manifest_sha256_after": hostfat_after},
+        "screen_lines": screen_lines,
         "harness": harness_result,
         "trace_sha256": sha256(trace_path),
         "screen_sha256": sha256(screen_path),
+    }
+    return result
+
+
+def run_guest_io(args: argparse.Namespace) -> dict[str, object]:
+    base = (Path(args.output_dir).resolve()
+            if args.output_dir else
+            Path(tempfile.mkdtemp(prefix="m75-storage-guest-io-")))
+    base.mkdir(parents=True, exist_ok=True)
+    read_root = base / "read"
+    delete_root = base / "delete-rejected"
+    if read_root.exists() or delete_root.exists():
+        raise FileExistsError(
+            f"guest-io output already contains read/delete directories: {base}")
+    drive = args.hostfat_drive.upper()
+    read = run_guest(
+        args, read_root, guest_input_lines("TYPE", drive),
+        (f"TYPE {drive}:\\{HOSTFAT_FILE}", HOSTFAT_CONTENT.rstrip("\n")))
+    delete = run_guest(
+        args, delete_root, delete_input_lines(drive),
+        (f"DEL {drive}:\\{HOSTFAT_FILE}", "削除できません", HOSTFAT_FILE))
+    return {
+        "mode": "guest-io",
+        "output_dir": str(base),
+        "hostfat_drive": drive,
+        "read": read,
+        "delete_rejected": delete,
     }
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
-        description="Run the disposable M75 SASI/HOSTFAT regression.")
+        description="Run the disposable M75 SASI/HOSTFAT storage regressions.")
     parser.add_argument("--selftest", action="store_true",
-                        help="validate only the generated disposable fixtures")
+                        help="validate generated fixtures and input scripts")
+    parser.add_argument("--guest-io", action="store_true",
+                        help="run TYPE success and DEL rejection guest scenarios")
     parser.add_argument("--worker")
     parser.add_argument("--support-d88")
     parser.add_argument("--roms")
     parser.add_argument("--model", default="va2", choices=("va", "va2"))
     parser.add_argument("--output-dir",
-                        help="retain fixtures and same-run screen/trace here")
+                        help="retain fixtures and same-run screen/trace pairs")
     parser.add_argument("--headless-input-script")
+    parser.add_argument("--hostfat-drive", default="D",
+                        help="DOS drive letter assigned to HOSTFAT (default: D)")
     parser.add_argument("--timeout", type=float, default=180.0)
     parser.add_argument("--exit-ms", type=int, default=30000,
                         help="guest screen-harness exit delay (default: 30000)")
@@ -224,14 +340,24 @@ def main(argv: list[str] | None = None) -> int:
                if getattr(args, name[2:].replace("-", "_")) is None]
     if missing:
         parser.error("guest run requires " + ", ".join(missing))
-    print(json.dumps(run_guest(args), ensure_ascii=False, indent=2,
-                         sort_keys=True))
+    validate_guest_inputs(args)
+    if args.guest_io:
+        if args.headless_input_script:
+            parser.error("--guest-io generates its own headless input scripts")
+        result = run_guest_io(args)
+    else:
+        output_root = (Path(args.output_dir).resolve()
+                       if args.output_dir else
+                       Path(tempfile.mkdtemp(prefix="m75-storage-regression-")))
+        result = run_guest(args, output_root)
+    print(json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True))
     return 0
 
 
 if __name__ == "__main__":
     try:
         raise SystemExit(main())
-    except (AssertionError, FileNotFoundError, RuntimeError) as error:
+    except (AssertionError, FileExistsError, FileNotFoundError,
+            RuntimeError, ValueError) as error:
         print(f"M75_STORAGE_REGRESSION_FAIL: {error}", file=sys.stderr)
         raise SystemExit(1)

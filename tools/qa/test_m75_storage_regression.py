@@ -42,6 +42,15 @@ class StorageFixtureTest(unittest.TestCase):
         self.assertEqual(result["hostfat"]["files"], 2)
         self.assertEqual(result["hostfat"]["directories"], 1)
 
+    def test_guest_input_scripts(self):
+        self.assertEqual(
+            MODULE.guest_input_lines("TYPE", "D"),
+            ["@wait 600", "TYPE D:\\REGRESS.TXT", "@wait 120"])
+        self.assertEqual(
+            MODULE.delete_input_lines("D"),
+            ["@wait 600", "DEL D:\\REGRESS.TXT", "@wait 120",
+             "DIR D:", "@wait 120"])
+
     def test_sasi_header_and_marker(self):
         with tempfile.TemporaryDirectory() as temporary:
             path = Path(temporary) / "sasi.hdi"
