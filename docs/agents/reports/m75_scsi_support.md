@@ -2109,3 +2109,16 @@ automatic Configure reopening in
 [2515598](https://github.com/nakatamaho/vaeg/commit/2515598), with the error
 positioned below the rebuild button in
 [eb65a14](https://github.com/nakatamaho/vaeg/commit/eb65a14).
+
+## HOSTFAT rebuild error dialog (2026-08-04)
+
+A failed `Rebuild + reset on OK` operation now opens an explicit red
+`HOSTFAT error` modal immediately after the asynchronous worker reports
+its failure. The detailed failure text remains visible below the rebuild
+button after the modal is dismissed, and the Configure dialog is reopened
+for correction. Synchronous failure to start the rebuild uses the same
+notification path. The implementation is in
+[024855e](https://github.com/nakatamaho/vaeg/commit/024855e799750d762be0526cb10ada43a573f30d).
+
+Verification: Linux debug `--selftest`, `M75_SCSI_CONTROLLER_OK`, Linux
+release, macOS release, and MinGW cross builds passed.

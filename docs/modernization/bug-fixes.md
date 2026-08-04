@@ -1557,3 +1557,22 @@ separate parity correction or move it to Open Defects.
 - **Commit:** [55800c6](https://github.com/nakatamaho/vaeg/commit/55800c6)
 - **Follow-up:** [2515598](https://github.com/nakatamaho/vaeg/commit/2515598)
 - **Follow-up:** [eb65a14](https://github.com/nakatamaho/vaeg/commit/eb65a14)
+
+
+### HOSTFAT rebuild failure was not explicit after OK
+
+- **Status:** fixed in M75.
+- **Symptom:** after pressing `Rebuild + reset on OK` and then `OK`, a
+  failed asynchronous rebuild could leave the user without an immediately
+  obvious error notification.
+- **Root cause:** the detailed error was retained in the Configure dialog,
+  but there was no dedicated failure notification at the moment the worker
+  reported failure.
+- **Correction:** show a red `HOSTFAT error` modal for both asynchronous
+  worker failures and synchronous rebuild-start failures. After dismissal,
+  keep the detailed error directly below the rebuild button and reopen
+  Configure for correction.
+- **Verification:** Linux debug selftest, `M75_SCSI_CONTROLLER_OK`, Linux
+  release, macOS release, MinGW cross build, and `git diff --check` passed.
+- **Evidence:** [M75 report](../agents/reports/m75_scsi_support.md).
+- **Commit:** [024855e](https://github.com/nakatamaho/vaeg/commit/024855e799750d762be0526cb10ada43a573f30d)
