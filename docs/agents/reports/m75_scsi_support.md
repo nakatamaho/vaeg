@@ -2060,3 +2060,19 @@ verifies that deletion persisted. After deletion the FAT inspector reports
 
 G75 remains open for the required SASI, HOSTFAT, and non-SCSI disk-path
 regressions. The implementation and evidence do not claim those gates.
+
+## HOSTFAT configuration recovery (2026-08-04)
+
+The GUI now keeps a changed `HOSTFATDIR` pending until the asynchronous
+replacement snapshot has been built and mounted successfully. Only then does
+it persist `HOSTFAT`/`HOSTFATDIR` and reset the guest. A failed rebuild or
+an emulator exit while the worker is active therefore preserves the previous
+configuration and mounted snapshot.
+
+At startup, an empty or unbuildable HOSTFAT directory loaded from the saved
+configuration is treated as recoverable: vaeg reports the failure, writes
+`HOSTFAT=false` while retaining the path, and continues boot without
+HOSTFAT. An explicit `--hostfat-dir` failure remains fatal so command-line
+automation does not silently lose its requested media.
+
+Verification: Linux SDL selftest, HOSTFAT manager failed-rebuild retention
