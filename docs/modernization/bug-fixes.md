@@ -1554,3 +1554,4 @@ separate parity correction or move it to Open Defects.
   repository encoding/EOL/case checks passed.
 - **Evidence:** [M75 report](../agents/reports/m75_scsi_support.md).
 - **Commit:** [55800c6](https://github.com/nakatamaho/vaeg/commit/55800c6)
+- **Follow-up:** [2515598](https://github.com/nakatamaho/vaeg/commit/2515598)
