@@ -2106,4 +2106,6 @@ automatically. The stale `127.44 MiB` label was
 corrected to the actual `63.72 MiB` usable payload limit. The implementation
 is in [55800c6](https://github.com/nakatamaho/vaeg/commit/55800c6), with
 automatic Configure reopening in
-[2515598](https://github.com/nakatamaho/vaeg/commit/2515598).
+[2515598](https://github.com/nakatamaho/vaeg/commit/2515598), with the error
+positioned below the rebuild button in
+[eb65a14](https://github.com/nakatamaho/vaeg/commit/eb65a14).
