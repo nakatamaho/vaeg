@@ -1491,3 +1491,18 @@ separate parity correction or move it to Open Defects.
 - **Evidence:** `docs/agents/reports/m75_scsi_support.md`, G75b screen and
   trace artifacts retained outside the repository.
 - **Commit:** [13c978b](https://github.com/nakatamaho/vaeg/commit/13c978b)
+
+### HOSTFAT configuration could make startup unrecoverable
+
+- **Status:** fixed in M75; HOSTFAT remains read-only and its guest
+  filesystem contract is unchanged.
+- **Symptom:** changing `HOSTFATDIR` and closing vaeg before the asynchronous
+  rebuild/reset completed could leave the configuration pointing at a new
+  path while the old snapshot remained mounted. A later startup could then
+  fail before the emulator window appeared; deleting the configuration was
+  required to recover.
+- **Root cause:** the GUI persisted `HOSTFAT`/`HOSTFATDIR` before the worker
+  had built and mounted the replacement image, and startup treated a failed
+  configured HOSTFAT rebuild as fatal.
+- **Correction:** retain pending GUI values until successful mount, commit the
+  path only at the mount event, and disable invalid configured HOSTFAT on
