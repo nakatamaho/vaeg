@@ -208,6 +208,21 @@ After changing a SASI or SCSI image, reset the guest so the existing
 SxSI/SASI/SCSI open and bind path is rebuilt. IDE GUI mounting is not
 implemented.
 
+For a disposable guest-level SASI/HOSTFAT regression, the M75 harness creates
+a valid 40MB HDI and a small host directory, mounts both at startup, and
+retains the same-run screen and trace pair:
+
+```sh
+python3 tools/qa/m75_storage_regression.py \
+  --worker build/linux-debug/sdl2/vaeg \
+  --support-d88 /path/to/pcengine-support-hostfat.d88 \
+  --roms /path/to/roms --exit-ms 30000
+```
+
+The support D88 must contain `HOSTFAT.SYS` in `CONFIG.SYS`; use
+`--headless-input-script` when the scenario also needs DOS commands. The
+fixtures and captures are disposable unless `--output-dir` is supplied.
+
 ## ROM Placement
 
 ROMs are not included and must be extracted from hardware you own. Place the
