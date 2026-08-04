@@ -45,6 +45,7 @@
 #include "dosio.h"
 #include "dropmedia.h"
 #include "hostfat_manager.h"
+#include "hostfat_path.h"
 #include "fddfile.h"
 #include "keystat.h"
 #include "newdisk.h"
@@ -372,9 +373,11 @@ static void apply_configure_dialog(void) {
 	if (hostfat_changed || g_gui.pending_hostfat_rebuild) {
 		char error[256]{};
 		if (g_gui.pending_hostfat_enabled) {
-			if (hostfat_manager_rebuild_async(g_gui.pending_hostfat_dir, error,
+			const std::string hostfat_dir = vaeg_hostfat::normalize_path(
+				g_gui.pending_hostfat_dir);
+			if (hostfat_manager_rebuild_async(hostfat_dir.c_str(), error,
 					sizeof(error)) == SUCCESS) {
-				g_gui.hostfat_rebuild_dir = g_gui.pending_hostfat_dir;
+				g_gui.hostfat_rebuild_dir = hostfat_dir;
 				g_gui.hostfat_status = "Building immutable HOSTFAT snapshot...";
 				g_gui.hostfat_reset_after_build = true;
 			}
@@ -792,7 +795,22 @@ static std::string home_dir(void) {
 
 	const char *home;
 
+#if defined(WIN32)
+	home = std::getenv("USERPROFILE");
+	if ((home == nullptr) || (home[0] == '\0')) {
+		home = std::getenv("HOME");
+	}
+	if ((home == nullptr) || (home[0] == '\0')) {
+		const char *drive = std::getenv("HOMEDRIVE");
+		const char *path = std::getenv("HOMEPATH");
+		if ((drive != nullptr) && (drive[0] != '\0') &&
+			(path != nullptr) && (path[0] != '\0')) {
+			return std::string(drive) + path;
+		}
+	}
+#else
 	home = std::getenv("HOME");
+#endif
 	if ((home != nullptr) && (home[0] != '\0')) {
 		return home;
 	}
@@ -802,13 +820,13 @@ static std::string home_dir(void) {
 static bool is_directory(const std::string &path) {
 
 	std::error_code ec;
-	return fs::is_directory(fs::u8path(path), ec);
+	return fs::is_directory(vaeg_hostfat::path_from_utf8(path), ec);
 }
 
 static std::string absolute_path(const std::string &path) {
 
 	std::error_code ec;
-	fs::path abs = fs::absolute(fs::u8path(path), ec);
+	fs::path abs = fs::absolute(vaeg_hostfat::path_from_utf8(path), ec);
 	if (ec) {
 		return path;
 	}
@@ -818,9 +836,9 @@ static std::string absolute_path(const std::string &path) {
 static std::string parent_dir(const std::string &path) {
 
 	std::error_code ec;
-	fs::path p = fs::absolute(fs::u8path(path), ec);
+	fs::path p = fs::absolute(vaeg_hostfat::path_from_utf8(path), ec);
 	if (ec) {
-		p = fs::u8path(path);
+		p = vaeg_hostfat::path_from_utf8(path);
 	}
 	p = p.parent_path();
 	if (p.empty()) {
@@ -914,13 +932,14 @@ static void refresh_hostfat_browser(void) {
 		g_gui.hostfat_browser_dir = home_dir();
 	}
 	for (const auto &entry :
-		 fs::directory_iterator(fs::u8path(g_gui.hostfat_browser_dir), ec)) {
+		 fs::directory_iterator(
+			vaeg_hostfat::path_from_utf8(g_gui.hostfat_browser_dir), ec)) {
 		if (ec) {
 			break;
 		}
 		std::error_code status_error;
-		const fs::file_status status = entry.symlink_status(status_error);
-		if (status_error || fs::is_symlink(status) || !fs::is_directory(status)) {
+		const bool is_dir = entry.is_directory(status_error);
+		if (status_error || !is_dir) {
 			continue;
 		}
 		BrowserEntry item;
