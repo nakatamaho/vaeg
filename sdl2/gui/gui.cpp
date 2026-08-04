@@ -3301,6 +3301,8 @@ void gui_draw(void) {
 		g_gui.hostfat_status += status.message;
 		g_gui.hostfat_rebuild_dir.clear();
 		g_gui.hostfat_reset_after_build = false;
+		g_gui.configure_open = true;
+		g_gui.configure_request = true;
 	}
 	if (ImGui::BeginMainMenuBar()) {
 		draw_emulate_menu();
