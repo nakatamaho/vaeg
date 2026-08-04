@@ -2077,17 +2077,18 @@ automation does not silently lose its requested media.
 
 Verification: Linux SDL selftest, HOSTFAT manager failed-rebuild retention selftest, invalid configured-directory startup recovery probe, and `git diff --check` passed. The change is committed in [bc51051](https://github.com/nakatamaho/vaeg/commit/bc510511326b9fdb3f61018d751dfc598159512a).
 
-## HOSTFAT Windows Dropbox-root compatibility (2026-08-05)
+## HOSTFAT Windows Dropbox-root compatibility (2026-08-04)
 
 The HOSTFAT GUI and snapshot builder now trim surrounding whitespace and
 quotes from a selected path. On Windows the folder browser falls back to
 `USERPROFILE` when `HOME` is not defined. A selected Windows root that is a
 junction or directory reparse point is canonicalized before the immutable
-snapshot is built; links and reparse points discovered inside that root remain
-rejected. This supports redirected Dropbox roots without weakening the
-contents and containment checks.
+snapshot is built; contained links and reparse points are canonicalized, while
+links that escape the root remain rejected. This supports redirected Dropbox
+roots without weakening the contents and containment checks.
 
 The HOSTFAT snapshot selftest covers quoted paths on all platforms and covers a
-Windows directory-reparse root when the host allows the temporary test link.
+Windows directory-reparse root plus a contained reparse-point directory when
+the host allows the temporary test links.
 Linux debug and MinGW cross builds were run after the change. The
 implementation is in [1ec024b](https://github.com/nakatamaho/vaeg/commit/1ec024b).

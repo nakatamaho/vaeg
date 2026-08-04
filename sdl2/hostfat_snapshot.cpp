@@ -588,12 +588,16 @@ bool scan_directory(Node &node, unsigned depth, BuildState &state) {
 			state.error = "cannot inspect host entry: " + error.message();
 			return false;
 		}
-		if (fs::is_symlink(status)) {
+		const bool linked = fs::is_symlink(status);
+#if !defined(_WIN32)
+		if (linked) {
 			state.error = "symbolic links are not supported: " +
 				item.path().filename().u8string();
 			return false;
 		}
-		if (!fs::is_directory(status) && !fs::is_regular_file(status)) {
+#endif
+		if (!linked && !fs::is_directory(status) &&
+			!fs::is_regular_file(status)) {
 			state.error = "special files are not supported: " +
 				item.path().filename().u8string();
 			return false;
@@ -614,11 +618,17 @@ bool scan_directory(Node &node, unsigned depth, BuildState &state) {
 			state.error = "host entry escapes the canonical HOSTFAT root: " + name;
 			return false;
 		}
+		const fs::file_status canonical_status = fs::status(canonical, error);
+		if (error || (!fs::is_directory(canonical_status) &&
+			!fs::is_regular_file(canonical_status))) {
+			state.error = "special files are not supported: " + name;
+			return false;
+		}
 		auto child = std::make_unique<Node>();
 		child->path = canonical;
 		child->source_name = name;
 		child->parent = &node;
-		child->directory = fs::is_directory(status);
+		child->directory = fs::is_directory(canonical_status);
 		if (!capture_timestamp(*child, name, state) ||
 			!capture_identity(*child, name, state)) {
 			return false;
@@ -1301,6 +1311,32 @@ extern "C" BOOL hostfat_snapshot_selftest(void) {
 			if (error) {
 				throw std::runtime_error("temporary root-link cleanup failed");
 			}
+		}
+		const fs::path nested_target = root / "empty";
+		const fs::path nested_link = root / "empty-link";
+		error.clear();
+		fs::create_directory(nested_target, error);
+		if (!error) {
+			error.clear();
+			fs::create_directory_symlink(nested_target, nested_link, error);
+		}
+		if (!error) {
+			HOSTFAT_SNAPSHOT_INFO nested{};
+			if ((hostfat_snapshot_mount_directory(root.u8string().c_str(),
+					&nested, message, sizeof(message)) != SUCCESS) ||
+				(nested.digest == first.digest)) {
+				throw std::runtime_error("Windows contained reparse path was not included");
+			}
+			error.clear();
+			fs::remove(nested_link, error);
+			if (error) {
+				throw std::runtime_error("temporary nested-link cleanup failed");
+			}
+		}
+		error.clear();
+		fs::remove(nested_target, error);
+		if (error) {
+			throw std::runtime_error("temporary nested-target cleanup failed");
 		}
 #endif
 		if ((hostfat_snapshot_mount_directory(root.u8string().c_str(), &second,
