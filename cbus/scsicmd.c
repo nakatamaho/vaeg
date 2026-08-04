@@ -86,6 +86,9 @@ static BYTE hdd_sense[18] = {
 			0x00, 0x00};
 
 static BOOL scsicmd_check_condition;
+static REG8 scsicmd_last_request_sense_key;
+static REG8 scsicmd_last_request_sense_asc;
+static REG8 scsicmd_last_request_sense_ascq;
 
 
 static void scsicmd_putbe32(BYTE *dst, UINT32 value) {
@@ -144,8 +147,17 @@ static UINT scsicmd_cdb_length(const BYTE *cdb) {
 static void scsicmd_trace_cdb_result(UINT id, const BYTE *cdb,
 		SXSIDEV sxsi, REG8 status) {
 	REG8 inquiry_byte0;
+	REG8 sense_key;
+	REG8 asc;
+	REG8 ascq;
 	UINT selected_index;
 
+	sense_key = (cdb && cdb[0] == 0x03) ?
+		scsicmd_last_request_sense_key : hdd_sense[2];
+	asc = (cdb && cdb[0] == 0x03) ?
+		scsicmd_last_request_sense_asc : hdd_sense[12];
+	ascq = (cdb && cdb[0] == 0x03) ?
+		scsicmd_last_request_sense_ascq : hdd_sense[13];
 	inquiry_byte0 = (cdb && cdb[0] == 0x12 && scsiio.cmdpos) ?
 			scsiio.data[0] : 0xff;
 	selected_index = (sxsi && scsicmd_lun_supported(cdb)) ?
@@ -153,7 +165,14 @@ static void scsicmd_trace_cdb_result(UINT id, const BYTE *cdb,
 	scsiio_trace_cdb_result(id, scsicmd_target_lun(),
 			scsicmd_cdb_lun(cdb),
 			selected_index, cdb, scsicmd_cdb_length(cdb), inquiry_byte0,
-			scsiio.cmdpos, status, hdd_sense[2], hdd_sense[12], hdd_sense[13]);
+			scsiio.cmdpos, status, sense_key, asc, ascq);
+	scsiio_trace_census_command(id, scsicmd_target_lun(), scsicmd_cdb_lun(cdb),
+			cdb, scsicmd_cdb_length(cdb), 0, 0, scsiio.cmdpos,
+			(cdb[0] == 0x03 || cdb[0] == 0x12 || cdb[0] == 0x1a ||
+			 cdb[0] == 0x25) ? "IN" : "none", 0, scsiio.cmdpos, 0,
+			status, sense_key, asc, ascq, "none",
+			(status == 0x02) && (sense_key == 0x05) &&
+			(asc == 0x20));
 }
 
 static BOOL scsicmd_geometry_valid(SXSIDEV sxsi) {
@@ -193,10 +212,13 @@ typedef struct {
 	UINT32 chunk_blocks;
 	UINT32 chunk_bytes;
 	UINT32 total_blocks;
+	UINT32 start_lba;
 	UINT32 transferred_bytes;
 	UINT32 backend_blocks;
 	UINT32 commit_count;
 	UINT32 chunk_index;
+	BYTE cdb[12];
+	UINT cdb_length;
 	BOOL active;
 	REG8 backend_status;
 } SCSIBLOCKTRANSFER;
@@ -426,6 +448,8 @@ static void scsicmd_trace_block_start(REG8 id, const BYTE *cdb,
 	else {
 		cdb_transfer_length = ((UINT32)cdb[7] << 8) | cdb[8];
 	}
+	CopyMemory(scsi_block.cdb, cdb, sizeof(scsi_block.cdb));
+	scsi_block.cdb_length = scsicmd_cdb_length(cdb);
 	scsiio_trace_block_start(++scsi_block_sequence, id,
 			scsicmd_target_lun(), scsicmd_cdb_lun(cdb), cdb,
 			lba, blocks, sxsi ? sxsi->size : 0,
@@ -455,6 +479,15 @@ static void scsicmd_trace_block_complete(REG8 opcode, REG8 status) {
 		scsi_block.transferred_bytes, residual_bytes,
 		scsi_block.backend_blocks, scsi_block.backend_status, status,
 		hdd_sense[2], hdd_sense[12], hdd_sense[13], scsi_block.commit_count);
+	scsiio_trace_census_command(scsi_block.id, scsicmd_target_lun(),
+			scsicmd_cdb_lun(scsi_block.cdb), scsi_block.cdb,
+			scsi_block.cdb_length, scsi_block.start_lba,
+			scsi_block.total_blocks,
+			scsi_block.total_blocks * (scsi_block.sxsi ? scsi_block.sxsi->size : 0),
+			(scsi_block.kind == SCSIBLOCK_READ) ? "IN" : "OUT",
+			scsi_block.backend_status, scsi_block.transferred_bytes,
+			residual_bytes, status, hdd_sense[2], hdd_sense[12], hdd_sense[13],
+			"AR19", FALSE);
 }
 
 static REG8 scsicmd_block_status_phase(REG8 id, REG8 status) {
@@ -486,6 +519,7 @@ static REG8 scsicmd_block_start(REG8 id, SXSIDEV sxsi, BYTE *cdb) {
 	scsi_block.opcode = cdb[0];
 	scsi_block.sxsi = sxsi;
 	scsi_block.lba = lba;
+	scsi_block.start_lba = lba;
 	scsi_block.remaining_blocks = blocks;
 	scsi_block.total_blocks = blocks;
 	scsi_block.chunk_index = 0;
@@ -540,6 +574,106 @@ static REG8 scsicmd_block_start(REG8 id, SXSIDEV sxsi, BYTE *cdb) {
 	return scsicmd_phase_service_status(SCSIPH_DATAOUT);
 }
 
+static REG8 scsicmd_direct_block_transfer(REG8 id, SXSIDEV sxsi, BYTE *cdb,
+		UINT transfer_bytes) {
+	UINT32 lba;
+	UINT32 blocks;
+	UINT32 byte_count;
+	UINT64 total_bytes;
+	BOOL is_read;
+	REG8 ret;
+
+	scsicmd_check_condition = FALSE;
+	if (!scsicmd_block_decode(cdb, &lba, &blocks)) {
+		scsicmd_set_sense(0x05, 0x20, 0x00);
+		scsiio.reg[SCSICTR_STATUS] = 0x02;
+		scsicmd_check_condition = TRUE;
+		return 0x16;
+	}
+	scsicmd_block_reset_state();
+	scsi_block.id = id;
+	scsi_block.opcode = cdb[0];
+	scsi_block.sxsi = sxsi;
+	scsi_block.lba = lba;
+	scsi_block.start_lba = lba;
+	scsi_block.remaining_blocks = blocks;
+	scsi_block.total_blocks = blocks;
+	scsi_block.kind = (cdb[0] == 0x08 || cdb[0] == 0x28) ?
+		SCSIBLOCK_READ : SCSIBLOCK_WRITE;
+	is_read = (scsi_block.kind == SCSIBLOCK_READ);
+	total_bytes = (UINT64)blocks * sxsi->size;
+	byte_count = ((total_bytes <= 0xffffffffU) &&
+			(total_bytes <= 0xffffffU) &&
+			(total_bytes <= sizeof(scsiio.data))) ? (UINT32)total_bytes : 0;
+	scsicmd_trace_block_start(id, cdb, lba, blocks, byte_count, sxsi);
+	if ((byte_count == 0 && blocks != 0) || (transfer_bytes != byte_count)) {
+		scsicmd_set_sense(0x05, 0x24, 0x00);
+		goto fail;
+	}
+	/* READ/WRITE(10) zero length is a successful no-data command. */
+	if ((blocks == 0) && ((cdb[0] == 0x28) || (cdb[0] == 0x2a))) {
+		if ((UINT64)lba > (UINT64)(UINT32)sxsi->totals) {
+			scsicmd_set_sense(0x05, 0x21, 0x00);
+			goto fail;
+		}
+		scsiio.reg[SCSICTR_STATUS] = 0x00;
+		scsicmd_trace_block_complete(cdb[0], 0x00);
+		return 0x16;
+	}
+	if (!scsicmd_block_range_valid(sxsi, lba, blocks)) {
+		scsicmd_set_sense(0x05, 0x21, 0x00);
+		goto fail;
+	}
+	if (!is_read && ((sxsi->type & SXSITYPE_DEVMASK) == SXSITYPE_CDROM)) {
+		scsicmd_set_sense(0x07, 0x27, 0x00);
+		goto fail;
+	}
+	scsi_block.active = TRUE;
+	scsi_block.chunk_blocks = blocks;
+	scsi_block.chunk_bytes = byte_count;
+	scsiio_trace_block_chunk(scsi_block_sequence, 0, lba, blocks, 0,
+			byte_count);
+	if (is_read) {
+		ret = sxsi_read((REG8)(0x20 + id), (long)lba, scsiio.data,
+				byte_count);
+		if (ret != 0) {
+			scsi_block.backend_status = ret;
+			scsicmd_set_sense(0x03, 0x11, 0x00);
+			goto fail;
+		}
+		scsiio_trace_block_backend_data(scsiio.data, byte_count);
+		scsiio_trace_block_staging_data(scsiio.data, byte_count);
+		scsi_block.backend_blocks = blocks;
+		scsi_block.transferred_bytes = byte_count;
+		scsi_block.remaining_blocks = 0;
+		scsiio.cmdpos = byte_count;
+		scsiio.rddatpos = 0;
+		scsi_block.active = TRUE;
+		scsiio.phase = SCSIPH_DATAIN;
+		scsiio.reg[SCSICTR_STATUS] = 0x00;
+		return 0x16;
+	}
+	/* Select-and-transfer WRITE exposes the command-completion result before
+	 * the guest drains its DATA OUT window.  Keep the command active until
+	 * every byte has arrived; committing scsiio.data here would commit stale
+	 * data from the preceding command. */
+	scsiio.phase = SCSIPH_DATAOUT;
+	scsiio.cmdpos = byte_count;
+	scsiio.wrdatpos = 0;
+	scsiio.rddatpos = 0;
+	scsi_block.active = TRUE;
+	scsiio.reg[SCSICTR_STATUS] = 0x00;
+	return 0x16;
+
+fail:
+	scsiio.reg[SCSICTR_STATUS] = 0x02;
+	scsicmd_check_condition = TRUE;
+	scsi_block.active = FALSE;
+	scsicmd_trace_block_complete(cdb[0], 0x02);
+	return 0x16;
+}
+
+
 static UINT scsicmd_datain(SXSIDEV sxsi, BYTE *cdb) {
 
 	UINT	length;
@@ -566,6 +700,9 @@ static UINT scsicmd_datain(SXSIDEV sxsi, BYTE *cdb) {
 	switch(cdb[0]) {
 		case 0x03:				// Request Sense
 			TRACEOUT(("Request Sense"));
+			scsicmd_last_request_sense_key = hdd_sense[2];
+			scsicmd_last_request_sense_asc = hdd_sense[12];
+			scsicmd_last_request_sense_ascq = hdd_sense[13];
 			length = cdb[4];
 			copylen = min(length, (UINT)sizeof(hdd_sense));
 			if (copylen) {
@@ -743,12 +880,67 @@ REG8 scsicmd_transfer(REG8 id, BYTE *cdb) {
 				(scsicmd_lun_supported(cdb) ? sxsi : NULL),
 				scsiio.reg[SCSICTR_STATUS]);
 			return status = 0x16;
+		case 0x08:
+		case 0x0a:
+		case 0x28:
+		case 0x2a:
+			return scsicmd_direct_block_transfer(id, sxsi, cdb, scsiio_transfer_count());
 	}
 
 	scsicmd_set_sense(0x05, 0x20, 0x00);
 	scsiio.reg[SCSICTR_STATUS] = 0x02;
 	scsicmd_trace_cdb_result(id, cdb, NULL, scsiio.reg[SCSICTR_STATUS]);
 	return 0x16;
+}
+
+BOOL scsicmd_direct_data_available(void) {
+	return (scsi_block.active && (scsi_block.kind == SCSIBLOCK_READ) &&
+			(scsiio.phase == SCSIPH_DATAIN) &&
+			(scsiio.rddatpos < scsiio.cmdpos));
+}
+
+void scsicmd_direct_data_complete(void) {
+	if ((scsi_block.kind == SCSIBLOCK_READ) &&
+			(scsiio.reg[SCSICTR_STATUS] == 0x00)) {
+		scsi_block.active = FALSE;
+		scsicmd_trace_block_complete(scsi_block.opcode, 0x00);
+	}
+}
+
+BOOL scsicmd_direct_dataout_available(void) {
+	return (scsi_block.active && (scsi_block.kind == SCSIBLOCK_WRITE) &&
+			(scsiio.phase == SCSIPH_DATAOUT) &&
+			(scsiio.wrdatpos < scsiio.cmdpos));
+}
+
+void scsicmd_direct_dataout_complete(void) {
+	REG8 ret;
+
+	if (!scsi_block.active || (scsi_block.kind != SCSIBLOCK_WRITE) ||
+			(scsiio.phase != SCSIPH_DATAOUT) ||
+			(scsiio.wrdatpos < scsiio.cmdpos)) {
+		return;
+	}
+	ret = sxsi_write((REG8)(0x20 + scsi_block.id),
+			(long)scsi_block.start_lba, scsiio.data, scsi_block.chunk_bytes);
+	if (ret != 0) {
+		scsi_block.backend_status = ret;
+		scsicmd_set_sense((ret == 0x70) ? 0x07 : 0x03,
+				(ret == 0x70) ? 0x27 : 0x0c,
+				(ret == 0x70) ? 0x00 : 0x02);
+		scsiio.reg[SCSICTR_STATUS] = 0x02;
+		scsi_block.active = FALSE;
+		scsicmd_trace_block_complete(scsi_block.opcode, 0x02);
+		return;
+	}
+	scsiio_trace_block_backend_data(scsiio.data, scsi_block.chunk_bytes);
+	scsi_block.backend_blocks = scsi_block.total_blocks;
+	scsi_block.transferred_bytes = scsi_block.chunk_bytes;
+	scsi_block.remaining_blocks = 0;
+	scsi_block.commit_count = 1;
+	scsi_block.active = FALSE;
+	scsiio.reg[SCSICTR_STATUS] = 0x00;
+	scsicmd_trace_block_complete(scsi_block.opcode, 0x00);
 }
 
 REG8 scsicmd_command(REG8 id) {
@@ -1413,12 +1605,15 @@ static REG8 bios1bc_seltrans(REG8 id) {
 
 	MEML_READSTR(CPU_DS, CPU_DX, cdb, 16);
 	scsiio.reg[SCSICTR_TARGETLUN] = cdb[0];
+	scsiio_trace_bios_select_transfer(id, cdb[0], cdb[1], cdb[4], cdb[5],
+			CPU_CX);
 	if ((cdb[1] & 0x0c) == 0x08) {			// OUT
 		MEML_READSTR(CPU_ES, CPU_BX, scsiio.data, CPU_CX);
 	}
 	ret = scsicmd_transfer(id, cdb + 4);
 	if ((cdb[1] & 0x0c) == 0x04) {			// IN
 		MEML_WRITESTR(CPU_ES, CPU_BX, scsiio.data, CPU_CX);
+		scsicmd_direct_data_complete();
 	}
 	return(ret);
 }

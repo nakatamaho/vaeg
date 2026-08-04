@@ -215,6 +215,41 @@ def find_candidates(path: Path, info: Dict[str, int | str | bool]) -> List[Dict[
     return candidates
 
 
+def expected_manifest(path: Path, info: Dict[str, int | str | bool],
+                     bpb: Dict[str, object]) -> List[Dict[str, object]]:
+    physical_size = int(info["physical_block_size"])
+    blocks_per_logical = int(bpb["blocks_per_logical_sector"])
+    partition_start = int(bpb["partition_start_physical_lba"])
+    fat_size = int(bpb["sectors_per_fat"]) * blocks_per_logical
+    root_size = int(bpb["root_dir_sectors"]) * blocks_per_logical
+    data_start = partition_start + int(bpb["first_data_sector"]) * blocks_per_logical
+    ranges = [
+        ("boot sector", partition_start, blocks_per_logical),
+        ("FAT1", partition_start + int(bpb["first_fat_sector"]) * blocks_per_logical, fat_size),
+        ("FAT2", partition_start + (int(bpb["first_fat_sector"]) +
+                                    int(bpb["sectors_per_fat"])) * blocks_per_logical, fat_size),
+        ("root directory", partition_start + int(bpb["first_root_dir_sector"]) * blocks_per_logical, root_size),
+        ("first data cluster", data_start, int(bpb["sectors_per_cluster"]) * blocks_per_logical),
+    ]
+    manifest = []
+    with path.open("rb") as fh:
+        for name, first_lba, block_count in ranges:
+            data = read_physical(fh, info, first_lba, block_count)
+            expected_bytes = block_count * physical_size
+            if len(data) != expected_bytes:
+                raise ValueError(f"{name} range is incomplete")
+            manifest.append({
+                "range_name": name,
+                "first_physical_lba": first_lba,
+                "physical_block_count": block_count,
+                "byte_count": len(data),
+                "sha256": sha256(data),
+                "first_64_bytes": data[:64].hex(),
+                "last_64_bytes": data[-64:].hex(),
+            })
+    return manifest
+
+
 def fat_report(path: Path, info: Dict[str, int | str | bool], bpb: Dict[str, object]) -> Dict[str, object]:
     psize = int(info["physical_block_size"])
     start = int(bpb["partition_start_physical_lba"])
@@ -238,6 +273,7 @@ def fat_report(path: Path, info: Dict[str, int | str | bool], bpb: Dict[str, obj
                 "physical_lba_end": lba + len(data) // psize - 1,
                 "sha256": sha256(data),
                 "first_64_bytes": data[:64].hex(),
+                "last_64_bytes": data[-64:].hex(),
                 "first_32_entries": [f"{x:04x}" for x in entries[:32]],
                 "fat_entry_capacity": len(entries),
                 "valid_data_cluster_entries": len(valid_entries),
@@ -302,6 +338,7 @@ def inspect(path: Path, physical_block_size: int, forensic_partial: bool = False
         result["selected"] = valid[0]
         result["fat"] = fat_report(path, info, valid[0])
         result["root_directory"] = root_report(path, info, valid[0])
+        result["expected_manifest"] = expected_manifest(path, info, valid[0])
     elif len(valid) > 1:
         result["structural_errors"] = ["multiple valid FAT candidates; selection is ambiguous"]
     else:
@@ -428,6 +465,8 @@ def main(argv: Optional[Iterable[str]] = None) -> int:
             print(f"reserved valid entries: {copy['reserved_entries']}")
             print(f"nonzero padding entries: {copy['nonzero_padding_entries']}")
             print(f"root first unused entry: {result['root_directory']['first_unused_entry']}")
+            for item in result["expected_manifest"]:
+                print(f"expected range: {item['range_name']} LBA {item['first_physical_lba']} blocks={item['physical_block_count']} bytes={item['byte_count']} sha256={item['sha256']}")
         for error in result.get("structural_errors", []):
             print(f"structural error: {error}")
         if "compare" in result:

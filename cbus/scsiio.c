@@ -18,6 +18,7 @@
 static const UINT8 scsiirq[] = {0x03, 0x05, 0x06, 0x09, 0x0c, 0x0d, 3, 3};
 static BOOL scsi_trace_enabled;
 static BOOL scsi_trace_compact;
+static BOOL scsi_trace_census_only;
 static UINT scsi_trace_completion_limit;
 static UINT scsi_trace_completion_count;
 static BOOL scsi_trace_stop;
@@ -108,6 +109,48 @@ static UINT32 scsi_trace_block_delivered_bytes;
 static UINT32 scsi_trace_block_backend_digest;
 static UINT32 scsi_trace_block_staging_digest;
 static UINT32 scsi_trace_block_delivered_digest;
+
+#define SCSI_CENSUS_RING_SIZE 32
+
+typedef struct {
+	UINT sequence;
+	UINT target_id;
+	UINT target_lun;
+	UINT cdb_lun;
+	BYTE cdb[12];
+	UINT cdb_length;
+	UINT32 lba;
+	UINT32 block_count;
+	UINT32 byte_count;
+	char direction[12];
+	REG8 backend_result;
+	UINT32 transferred_bytes;
+	UINT32 residual_bytes;
+	REG8 status;
+	REG8 sense_key;
+	REG8 asc;
+	REG8 ascq;
+	char data_path[8];
+	BOOL unsupported;
+} SCSICENSUSRECORD;
+
+static SCSICENSUSRECORD scsi_census_ring[SCSI_CENSUS_RING_SIZE];
+static UINT scsi_census_ring_count;
+static UINT scsi_census_ring_next;
+static UINT scsi_census_sequence;
+static UINT scsi_census_opcode_count[256];
+static UINT scsi_census_good_count[256];
+static UINT scsi_census_check_count[256];
+static UINT scsi_census_first_failure_sequence_by_opcode[256];
+static UINT scsi_census_first_failure_sequence;
+static REG8 scsi_census_first_failure_key;
+static REG8 scsi_census_first_failure_asc;
+static REG8 scsi_census_first_failure_ascq;
+static UINT scsi_census_first_unsupported_sequence;
+static UINT scsi_census_first_short_sequence;
+static UINT scsi_census_first_residual_sequence;
+static UINT scsi_census_pending_failure_sequence;
+static BOOL scsi_census_reported_ring;
 
 static void scsi_tracef(const char *fmt, ...);
 static UINT32 scsi_trace_clock(void);
@@ -288,6 +331,8 @@ static BOOL scsi_trace_compact_line(const char *fmt) {
 			strncmp(fmt, "scsitrace command-", 18) == 0 ||
 			strncmp(fmt, "scsitrace target-selection", 25) == 0 ||
 			strncmp(fmt, "scsitrace cdb-result", 20) == 0 ||
+			strncmp(fmt, "scsitrace census", 16) == 0 ||
+			strncmp(fmt, "scsitrace census-", 17) == 0 ||
 			strncmp(fmt, "scsitrace block-", 16) == 0 ||
 			strncmp(fmt, "scsitrace req-", 14) == 0 ||
 			strncmp(fmt, "scsitrace ack-", 14) == 0 ||
@@ -303,6 +348,11 @@ static void scsi_tracef(const char *fmt, ...) {
 
 	va_list ap;
 
+	if (scsi_trace_census_only &&
+			(strncmp(fmt, "scsitrace census", 16) != 0) &&
+			(strncmp(fmt, "scsitrace census-", 17) != 0)) {
+		return;
+	}
 	if (!scsi_trace_compact_line(fmt)) {
 		return;
 	}
@@ -665,6 +715,14 @@ static void scsiio_data_write(REG8 dat) {
 	REG8 next_status;
 
 	scsi_trace_transfer_ar19_access(TRUE);
+	if (scsicmd_direct_dataout_available()) {
+		scsiio_dataout_store_byte(dat, "ar19-direct");
+		scsiio_trace_block_delivered_byte(dat);
+		SCSITRACEOUT(("scsitrace direct-data-write ar=19 data=%02x index=%u",
+				dat, scsiio.wrdatpos - 1));
+		scsicmd_direct_dataout_complete();
+		return;
+	}
 	if (!scsicmd_phase_host_to_spc(scsiio.phase)) {
 		SCSITRACEOUT(("scsitrace warning DATA write phase-direction-mismatch "
 				"phase=%02x cs=%04x ip=%04x", scsiio.phase, CPU_CS, CPU_IP));
@@ -734,6 +792,26 @@ static REG8 scsiio_data_read(void) {
 	REG8 next_status;
 
 	scsi_trace_transfer_ar19_access(FALSE);
+	/* Select-and-transfer READs use the raw AR19 data window.  They do not
+	 * create the Level-II REQ/ACK state used by TRANSFER INFO. */
+	if (scsicmd_direct_data_available()) {
+		if (scsiio.rddatpos >= sizeof(scsiio.data)) {
+			SCSITRACEOUT(("scsitrace invariant direct-data-window-overrun "
+					"index=%u capacity=%u", scsiio.rddatpos,
+					(UINT)sizeof(scsiio.data)));
+			return 0xff;
+		}
+		ret = scsiio.data[scsiio.rddatpos++];
+		scsiio_trace_block_delivered_byte(ret);
+		SCSITRACEOUT(("scsitrace direct-data-read ar=19 data=%02x index=%u",
+				ret, scsiio.rddatpos - 1));
+		if (scsiio.rddatpos >= scsiio.cmdpos) {
+			/* Select-and-transfer reports completion through its existing 16h
+			 * result; the next CDB owns the controller phase reset. */
+			scsicmd_direct_data_complete();
+		}
+		return ret;
+	}
 	if (scsicmd_phase_host_to_spc(scsiio.phase)) {
 		SCSITRACEOUT(("scsitrace warning DATA read phase-direction-mismatch "
 				"phase=%02x cs=%04x ip=%04x", scsiio.phase, CPU_CS, CPU_IP));
@@ -890,6 +968,11 @@ void scsiio_trace_compact(BOOL compact) {
 	scsi_trace_compact = compact;
 }
 
+void scsiio_trace_census_only(BOOL census_only) {
+
+	scsi_trace_census_only = census_only;
+}
+
 void scsiio_trace_limit(UINT limit) {
 
 	scsi_trace_completion_limit = limit;
@@ -929,6 +1012,155 @@ void scsiio_trace_target_selection(UINT target_id, UINT target_lun,
 	SCSITRACEOUT(("scsitrace target-selection target_id=%u target_lun=%u "
 			"selected_index=%u status=%02x", target_id, target_lun,
 			selected_index, status));
+}
+
+void scsiio_trace_bios_select_transfer(UINT target_id, UINT packet_lun,
+		REG8 flags, REG8 cdb_opcode, REG8 cdb1, UINT transfer_bytes) {
+	SCSITRACEOUT(("scsitrace bios-select-transfer target_id=%u packet_lun=%u "
+			"flags=%02x cdb_opcode=%02x cdb1=%02x transfer_bytes=%u "
+			"direction=%s", target_id, packet_lun, flags, cdb_opcode, cdb1,
+			transfer_bytes, ((flags & 0x0c) == 0x08) ? "OUT" :
+			((flags & 0x0c) == 0x04) ? "IN" : "none"));
+}
+
+static void scsiio_trace_census_record(const SCSICENSUSRECORD *record) {
+	SCSITRACEOUT(("scsitrace census sequence=%u opcode=%02x cdb_len=%u "
+			"cdb=%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x "
+			"target_id=%u wd_target_lun=%u cdb_lun=%u lba=%u block_count=%u "
+			"byte_count=%u direction=%s backend_result=%02x transferred=%u "
+			"residual=%u STATUS=%02x sense_key=%02x ASC=%02x ASCQ=%02x "
+			"data_path=%s", record->sequence, record->cdb[0], record->cdb_length,
+			record->cdb[0], record->cdb[1], record->cdb[2], record->cdb[3],
+			record->cdb[4], record->cdb[5], record->cdb[6], record->cdb[7],
+			record->cdb[8], record->cdb[9], record->cdb[10], record->cdb[11],
+			record->target_id, record->target_lun, record->cdb_lun,
+			record->lba, record->block_count, record->byte_count,
+			record->direction, record->backend_result, record->transferred_bytes,
+			record->residual_bytes, record->status, record->sense_key,
+			record->asc, record->ascq, record->data_path));
+}
+
+static void scsiio_trace_census_marker(const char *kind,
+		const SCSICENSUSRECORD *record) {
+	SCSITRACEOUT(("scsitrace census-%s sequence=%u opcode=%02x STATUS=%02x "
+			"sense_key=%02x ASC=%02x ASCQ=%02x", kind, record->sequence,
+			record->cdb[0], record->status, record->sense_key, record->asc,
+			record->ascq));
+}
+
+void scsiio_trace_census_command(UINT target_id, UINT target_lun,
+		UINT cdb_lun, const BYTE *cdb, UINT cdb_length, UINT32 lba,
+		UINT32 block_count, UINT32 byte_count, const char *direction,
+		REG8 backend_result, UINT32 transferred_bytes, UINT32 residual_bytes,
+		REG8 status, REG8 sense_key, REG8 asc, REG8 ascq,
+		const char *data_path, BOOL unsupported) {
+	SCSICENSUSRECORD record;
+	UINT i;
+	UINT ring_index;
+	BOOL check;
+
+	if (!scsi_trace_enabled || (cdb == NULL)) {
+		return;
+	}
+	ZeroMemory(&record, sizeof(record));
+	record.sequence = ++scsi_census_sequence;
+	record.target_id = target_id;
+	record.target_lun = target_lun;
+	record.cdb_lun = cdb_lun;
+	record.cdb_length = min(cdb_length, (UINT)sizeof(record.cdb));
+	CopyMemory(record.cdb, cdb, sizeof(record.cdb));
+	record.lba = lba;
+	record.block_count = block_count;
+	record.byte_count = byte_count;
+	strncpy(record.direction, direction ? direction : "none",
+			sizeof(record.direction) - 1);
+	strncpy(record.data_path, data_path ? data_path : "none",
+			sizeof(record.data_path) - 1);
+	record.backend_result = backend_result;
+	record.transferred_bytes = transferred_bytes;
+	record.residual_bytes = residual_bytes;
+	record.status = status;
+	record.sense_key = sense_key;
+	record.asc = asc;
+	record.ascq = ascq;
+	record.unsupported = unsupported;
+	check = status != 0x00;
+	scsi_census_opcode_count[record.cdb[0]]++;
+	if (check) {
+		scsi_census_check_count[record.cdb[0]]++;
+		if (scsi_census_first_failure_sequence_by_opcode[record.cdb[0]] == 0) {
+			scsi_census_first_failure_sequence_by_opcode[record.cdb[0]] =
+				record.sequence;
+		}
+	}
+	else {
+		scsi_census_good_count[record.cdb[0]]++;
+	}
+	if (unsupported && (scsi_census_first_unsupported_sequence == 0)) {
+		scsi_census_first_unsupported_sequence = record.sequence;
+		scsiio_trace_census_marker("first-unsupported", &record);
+	}
+	if (check && (scsi_census_first_failure_sequence == 0)) {
+		scsi_census_first_failure_sequence = record.sequence;
+		scsi_census_first_failure_key = record.sense_key;
+		scsi_census_first_failure_asc = record.asc;
+		scsi_census_first_failure_ascq = record.ascq;
+		scsi_census_pending_failure_sequence = record.sequence;
+		scsiio_trace_census_marker("first-non-good", &record);
+		if (!scsi_census_reported_ring) {
+			for (i = 0; i < scsi_census_ring_count; i++) {
+				ring_index = (scsi_census_ring_next + SCSI_CENSUS_RING_SIZE -
+						scsi_census_ring_count + i) % SCSI_CENSUS_RING_SIZE;
+				scsiio_trace_census_record(&scsi_census_ring[ring_index]);
+			}
+			scsi_census_reported_ring = TRUE;
+		}
+	}
+	if ((residual_bytes != 0) && (scsi_census_first_residual_sequence == 0)) {
+		scsi_census_first_residual_sequence = record.sequence;
+		scsiio_trace_census_marker("first-nonzero-residual", &record);
+	}
+	if (((residual_bytes != 0) || (transferred_bytes < byte_count)) &&
+			(scsi_census_first_short_sequence == 0)) {
+		scsi_census_first_short_sequence = record.sequence;
+		scsiio_trace_census_marker("first-short-transfer", &record);
+	}
+	if ((record.cdb[0] == 0x03) && (scsi_census_pending_failure_sequence != 0)) {
+		SCSITRACEOUT(("scsitrace sense-correlation failing_sequence=%u "
+				"request_sense_sequence=%u sense_key=%02x ASC=%02x ASCQ=%02x",
+				scsi_census_pending_failure_sequence, record.sequence,
+				scsi_census_first_failure_key, scsi_census_first_failure_asc,
+				scsi_census_first_failure_ascq));
+		scsi_census_pending_failure_sequence = 0;
+	}
+	scsiio_trace_census_record(&record);
+	CopyMemory(&scsi_census_ring[scsi_census_ring_next], &record, sizeof(record));
+	scsi_census_ring_next = (scsi_census_ring_next + 1) % SCSI_CENSUS_RING_SIZE;
+	if (scsi_census_ring_count < SCSI_CENSUS_RING_SIZE) {
+		scsi_census_ring_count++;
+	}
+}
+
+void scsiio_trace_census_report(void) {
+	UINT opcode;
+
+	if (!scsi_trace_enabled) {
+		return;
+	}
+	for (opcode = 0; opcode < 256; opcode++) {
+		if (scsi_census_opcode_count[opcode]) {
+			SCSITRACEOUT(("scsitrace census-histogram opcode=%02x count=%u "
+					"GOOD=%u CHECK_CONDITION=%u first_failing_sequence=%u",
+					opcode, scsi_census_opcode_count[opcode],
+					scsi_census_good_count[opcode], scsi_census_check_count[opcode],
+					scsi_census_first_failure_sequence_by_opcode[opcode]));
+		}
+	}
+	SCSITRACEOUT(("scsitrace census-summary first-unsupported-sequence=%u "
+			"first-non-good-sequence=%u first-short-sequence=%u "
+			"first-nonzero-residual-sequence=%u", scsi_census_first_unsupported_sequence,
+			scsi_census_first_failure_sequence, scsi_census_first_short_sequence,
+			scsi_census_first_residual_sequence));
 }
 
 void scsiio_trace_cdb_result(UINT target_id, UINT target_lun, UINT cdb_lun,
@@ -994,6 +1226,15 @@ void scsiio_trace_block_staging_data(const BYTE *data, UINT32 count) {
 	scsi_trace_block_staging_bytes += count;
 }
 
+void scsiio_trace_block_delivered_data(const BYTE *data, UINT32 count) {
+	if (!scsi_trace_block_active || (data == NULL)) {
+		return;
+	}
+	scsi_trace_block_delivered_digest = scsi_trace_digest_update(
+			scsi_trace_block_delivered_digest, data, count);
+	scsi_trace_block_delivered_bytes += count;
+}
+
 void scsiio_trace_block_delivered_byte(REG8 data) {
 	if (!scsi_trace_block_active) {
 		return;
@@ -1033,8 +1274,7 @@ void scsiio_trace_block_complete(UINT sequence, REG8 opcode,
 		REG8 sense_key, REG8 asc, REG8 ascq, UINT commit_count) {
 	BOOL equal;
 
-	equal = ((opcode == 0x08) || (opcode == 0x28)) &&
-			(scsi_trace_block_backend_bytes == scsi_trace_block_staging_bytes) &&
+	equal = (scsi_trace_block_backend_bytes == scsi_trace_block_staging_bytes) &&
 			(scsi_trace_block_staging_bytes == scsi_trace_block_delivered_bytes) &&
 			(scsi_trace_block_backend_digest == scsi_trace_block_staging_digest) &&
 			(scsi_trace_block_staging_digest == scsi_trace_block_delivered_digest);
