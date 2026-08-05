@@ -20,10 +20,10 @@ WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
 OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
 OF THE POSSIBILITY OF SUCH DAMAGE.
 -->
-# Z80 disassembly
+# uPD780C disassembly
 
 The production subsystem uses the independently authored vaeg decoder in
-`cpucva/z80_disasm.cpp`. It reads instruction memory through a function
+`cpucva/upd780_disasm.cpp`. It reads instruction memory through a function
 pointer, writes within an explicit destination capacity, and returns the
 16-bit next PC, exact byte length, and a status. It does not execute the CPU
 or mutate CPU state.
@@ -48,7 +48,7 @@ machine cross-check.
 
 ## Public contract
 
-`VaegZ80Disassemble()` accepts a 16-bit PC, a destination and 32-bit capacity,
+`VaegUpd780Disassemble()` accepts a 16-bit PC, a destination and 32-bit capacity,
 a fixed-width memory-reader callback, and opaque context. The result contains:
 
 - `next_pc`, with 16-bit wrapping;
@@ -77,7 +77,7 @@ mnemonic; the final DD/FD selects IX or IY. Reserved ED encodings use a
 deterministic `db 0xed, ...` representation and retain the exact consumed
 length. A memory image containing only DD/FD prefixes has no finite Z80
 instruction boundary, so the decoder stops after 32 index prefixes, returns
-`VAEG_Z80_DISASM_PREFIX_LIMIT`, length zero, the original PC, and
+`VAEG_UPD780_DISASM_PREFIX_LIMIT`, length zero, the original PC, and
 `<invalid-prefix-sequence>` rather than inventing a boundary.
 
 ## Tests
@@ -85,9 +85,9 @@ instruction boundary, so the decoder stops after 32 index prefixes, returns
 With `VAEG_ENABLE_TESTS=ON`, build and run:
 
 ```sh
-cmake --build build/linux-ci-gcc --target vaeg_z80_disasm
+cmake --build build/linux-ci-gcc --target vaeg_upd780_disasm
 ctest --test-dir build/linux-ci-gcc --output-on-failure \
-  -R '^vaeg_z80_disasm$'
+  -R '^vaeg_upd780_disasm$'
 ```
 
 The deterministic corpus covers all 256 bytes of each base/CB/ED/DD/FD page,

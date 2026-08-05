@@ -34,7 +34,7 @@ The M39 procedure below is historical dual-core evidence. It built separate
 trees from the same commit with `VAEG_Z80_CORE=legacy` and
 `VAEG_Z80_CORE=suzukiplan`. Current M41 production has no selector. Run the
 current single-core build uninstrumented first; repeat a relevant case with
-`VAEG_Z80_INTEGRATION_TRACE=ON` and `--fdctrace` only when event evidence is
+`VAEG_COMPAT_INTEGRATION_TRACE=ON` and `--fdctrace` only when event evidence is
 needed.
 
 ## Test definitions

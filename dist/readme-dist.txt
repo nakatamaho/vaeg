@@ -60,7 +60,7 @@ Keep this relative layout after unpacking:
 - README-dist.txt
 
 The Dear ImGui Japanese font, historical VAEG startup graphic, historical
-VAEG application icon, and MIT-licensed suzukiplan Z80 core are embedded in
+VAEG application icon, and MIT-licensed suzukiplan compatibility core are embedded in
 the executable. OFL.txt, NOTICE.md, and licenses/suzukiplan-z80.txt document
 their licenses and provenance and must stay with the package.
 

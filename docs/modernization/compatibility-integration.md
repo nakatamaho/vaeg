@@ -20,7 +20,7 @@ WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
 OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
 OF THE POSSIBILITY OF SUCH DAMAGE.
 -->
-# Z80 production integration
+# CPU compatibility production integration
 
 The production subsystem unconditionally uses the suzukiplan-backed vaeg
 wrapper. There is no build-time or runtime core selector:
@@ -31,17 +31,17 @@ cmake --build --preset linux-ci-gcc
 ctest --test-dir build/linux-ci-gcc --output-on-failure
 ```
 
-The production `vaeg_va` target compiles `cpucva/z80_core.cpp`,
-`cpucva/z80_legacy_state.cpp`, and `cpucva/z80_disasm.cpp`. Standalone
+The production `vaeg_va` target compiles `cpucva/compat_cpu.cpp`,
+`cpucva/compat_state.cpp`, and `cpucva/upd780_disasm.cpp`. Standalone
 conformance, state, disassembler, ZEX, and M38-derived regression targets
 remain available.
 
-The wrapper keeps the existing consumer-facing `Z80C` signatures and C
-bridge in `iova/subsystem.cpp`. Third-party and STL types do not cross that
-seam. Every wrapper I/O callback masks the external port to eight bits, IRQ
+The common wrapper exposes `CompatCpu`: `UPD70008C` is the main CPU adapter,
+and `UPD780C` is the FDC seam and C bridge in
+`iova/subsystem.cpp`. Third-party and STL types do not cross that seam. Every wrapper I/O callback masks the external port to eight bits, IRQ$
 remains a level, and the acknowledge port is read only when the core accepts a
 maskable interrupt. The independently authored BSD-2-Clause decoder in
-`cpucva/z80_disasm.cpp` is the only production Z80 disassembler.
+`cpucva/upd780_disasm.cpp` is the only production uPD780C disassembler.
 
 ## ROM-less integration evidence
 
@@ -76,7 +76,7 @@ case cannot prove the actual firmware path.
 
 ## State boundary and error handling
 
-The production save boundary remains after `Z80C::Exec()` returns. No callback
+The production save boundary remains after `CompatCpu::Exec()` returns. No callback
 or partial instruction is serialized. The revision-1 image remains 68 bytes
 and represents architectural state, HALT, external WAIT, external level IRQ,
 `remainclock`, and `lastclock`; new-core bit 2 retains frame-boundary EI
@@ -85,8 +85,8 @@ wake diagnostics; the core's restored state remains authoritative.
 
 `subsystem_savecpustatus()` and `subsystem_loadcpustatus()` now return success
 or failure. `statsave.c` propagates a codec rejection instead of continuing as
-if an unsupported Z80 revision had loaded successfully. The ROM-less test
-copies a valid state, changes only the embedded Z80 revision, and requires the
+if an unsupported compatibility-state revision had loaded successfully. The ROM-less test
+copies a valid state, changes only the embedded compatibility-state revision, and requires the
 top-level load to fail before loading the valid state again.
 
 ## Optional private trace
@@ -95,13 +95,13 @@ Trace instrumentation is disabled and absent from normal builds. Enable it
 only in a separate diagnostic tree:
 
 ```sh
-cmake -S . -B build/z80-private-trace -G Ninja \
-  -DVAEG_Z80_INTEGRATION_TRACE=ON
-cmake --build build/z80-private-trace
-./build/z80-private-trace/sdl2/vaeg --fdctrace
+cmake -S . -B build/compat-private-trace -G Ninja \
+  -DVAEG_COMPAT_INTEGRATION_TRACE=ON
+cmake --build build/compat-private-trace
+./build/compat-private-trace/sdl2/vaeg --fdctrace
 ```
 
-The existing FDC trace stream then adds deterministic Z80 `Exec()` entry and
+The existing FDC trace stream then adds deterministic compatibility-CPU `Exec()` entry and
 return, live/public PC, IRQ level, acceptance byte, masked IN/OUT, WAIT
 assertion/release, and state-boundary records. It contains no host pointer or
 timestamp. Formatting and file I/O can perturb host wall-clock scheduling, so
@@ -115,7 +115,7 @@ stay outside Git. Tracked records use neutral stable identifiers only.
 M38's exact `0xf4` reproducer remains applicable: corrected JR timing can move
 an otherwise identical FDD output to a later `Exec()` slice. M39 adds no
 legacy per-opcode cycle emulation. The
-[private integration manifest](z80-private-integration.md) passed under both
+[private integration manifest](compatibility-private-integration.md) passed under both
 production selections. Boot, read/write, representative and timing-sensitive
 loaders, SLEEP_HACK, WAIT wake, and state-load behavior converged without a
 guest-visible failure.

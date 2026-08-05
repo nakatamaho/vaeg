@@ -99,14 +99,14 @@ minimize consumer edits, but no M88 comments, layout, macro collection, or
 implementation structure may be copied. Use these vaeg-owned component names:
 
 ```text
-cpucva/z80_bus.h
-cpucva/z80_registers.h
-cpucva/z80_legacy_state.h
-cpucva/z80_legacy_state.cpp
-cpucva/z80_core.h
-cpucva/z80_core.cpp
-cpucva/z80_disasm.h
-cpucva/z80_disasm.cpp
+cpucva/compat_bus.h
+cpucva/compat_registers.h
+cpucva/compat_state.h
+cpucva/compat_state.cpp
+cpucva/compat_cpu.h
+cpucva/compat_cpu.cpp
+cpucva/upd780_disasm.h
+cpucva/upd780_disasm.cpp
 ```
 
 `z80_bus.h` owns fixed-width memory, eight-bit external I/O, clock, and clock-
@@ -348,7 +348,7 @@ subject to the M39 private-system gate.
 M39 adds one build-time CMake cache selection with exactly
 `VAEG_Z80_CORE=legacy|suzukiplan`; `legacy` remains the default. The
 production `vaeg_va` target compiles `cpucva/z80c.cpp` only for `legacy`, or
-`cpucva/z80_core.cpp` plus `cpucva/z80_legacy_state.cpp` only for
+`cpucva/compat_cpu.cpp` plus `cpucva/compat_state.cpp` only for
 `suzukiplan`. It never links both `Z80C` implementations, and there is no
 runtime toggle. The vendored tree and approved M35 patch remain byte-unchanged.
 
@@ -420,7 +420,7 @@ filenames, absolute paths, hashes, screenshots, raw traces, saves, and media.
 M40 selects an independently authored vaeg decoder rather than adding an
 upstream-derived API. The approved vendored suzukiplan revision has
 execution-time debug strings but no public side-effect-free decoding API.
-`cpucva/z80_disasm.h` and `cpucva/z80_disasm.cpp` therefore implement the Z80
+`cpucva/upd780_disasm.h` and `cpucva/upd780_disasm.cpp` therefore implement the Z80
 encoding structure directly as new BSD-2-Clause vaeg code, Copyright (c) 2026
 Nakata Maho. No M88/cisc implementation or opcode table, GPL opcode table, or
 other disassembler implementation/table was copied or adapted. No vendored
@@ -456,14 +456,14 @@ zero, one-byte, exact, truncated, large, null-reader, and prefix-limit output.
 Production subsystem disassembly no longer calls `Z80C::GetDiag()` and no
 active subsystem/debugger source includes `z80diag.h`, `z80if.h`, `z80.h`, or
 `types.h`. The M39 `z80diag_bridge` is removed. M41 removed the legacy CPU and
-its diagnostic object; `cpucva/z80_disasm.cpp` is now the only production Z80
+its diagnostic object; `cpucva/upd780_disasm.cpp` is now the only production Z80
 decoder.
 
 ## M41 final production design
 
 The production `vaeg_va` target unconditionally compiles
-`cpucva/z80_core.cpp`, `cpucva/z80_legacy_state.cpp`, and
-`cpucva/z80_disasm.cpp`. `VAEG_Z80_CORE` is removed; there is no compatibility
+`cpucva/compat_cpu.cpp`, `cpucva/compat_state.cpp`, and
+`cpucva/upd780_disasm.cpp`. `VAEG_Z80_CORE` is removed; there is no compatibility
 alias, hidden fallback, or runtime switch. The same standalone header,
 interrupt, wrapper, revision-1, ZEX, disassembler, and M38-derived regression
 tests remain permanent.

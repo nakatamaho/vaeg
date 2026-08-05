@@ -21,11 +21,11 @@ declare G76 passed.
 
 M76 owns the authority boundary for the uPD9002 main CPU's uPD780
 emulation-mode mechanism. This is separate from the FDC subsystem
-uPD780-compatible CPU currently wrapped through `cpucva/z80_core.cpp`.
+uPD780-compatible CPU currently wrapped through `cpucva/compat_cpu.cpp`.
 
 M76 must:
 
-- audit `docs/modernization/upd9002-upd780-mode.md` and current uPD9002 mode
+- audit `docs/modernization/upd9002-upd70008-mode.md` and current uPD9002 mode
   state, decode, trace, interrupt, and state-save boundaries;
 - use M74 VA1 BASIC command-hang evidence and M75 SCSI evidence as inputs
   when available;

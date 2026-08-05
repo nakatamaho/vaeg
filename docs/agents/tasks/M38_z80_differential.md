@@ -57,7 +57,7 @@ or unresolved. An allowlist requires a minimal input, first event, affected
 state, evidence, safety rationale, and issue link where applicable. ZEX alone
 does not classify a divergence.
 
-Create `docs/modernization/z80-cycle-deltas.md`, recording scenario deltas and
+Create `docs/modernization/compat-cycle-deltas.md`, recording scenario deltas and
 whether they change event order, FDD behavior, interrupts, WAIT, HALT, or a
 guest-visible result. G38 blocks on lost, duplicated, reordered, or
 permanently divergent external effects. A slice-boundary shift caused by a

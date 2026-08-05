@@ -265,16 +265,18 @@ frontend boot script. The current working model is:
    uPD9002 control ports, I/O traps, PIT, PIC, and DMAC.
 7. The visible V2S/mode-lamp phase is expected around the system-port and
    mode-switch updates in this early V30 setup.
-8. A likely BRKEM2 handoff path enters the uPD9002 uPD780/Z80-compatible
-   mode through `0F FE 90`.
+8. A likely BRKEM2 handoff path enters the uPD9002 uPD70008-compatible
+   mode (historically uPD780/Z80-compatible) through `0F FE 90`.
 9. ROM-side BIOS/device initialization continues and eventually reaches
    boot media access.
 ```
 
 The exact BRKEM2 return path and the producer of the later RAM code at
-`1000:C003` remain open investigation items. The emulator currently has a
-Z80 core for the FDD subsystem (`cpucva/z80_core.cpp`), but it does not yet
-emulate the main CPU's uPD780/Z80-compatible mode entered by BRKEM2.
+`1000:C003` remain open investigation items.
+The emulator currently has a
+shared compatibility backend for the FDD uPD780C subsystem
+(`cpucva/compat_cpu.cpp`), but it does not yet emulate the main CPU's
+uPD70008-compatible mode entered by BRKEM2.
 
 ## Practical Consequences
 

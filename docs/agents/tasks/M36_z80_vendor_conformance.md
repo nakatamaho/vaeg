@@ -65,7 +65,7 @@ supported default callback configuration; focused tests are required in both
 callback configurations. The approved baseline limitation for legacy tests
 under forced `Z80_NO_FUNCTIONAL` remains unchanged.
 
-Add a deterministic headless CP/M-style runner under `tests/z80/`: 64 KiB,
+Add a deterministic headless CP/M-style runner under `tests/compat/`: 64 KiB,
 load address `0x0100`, sufficient BDOS CALL-5 output handling, bounded clock
 and wall time, clear pass/fail parsing, and diagnostic state on failure. Run
 ZEXDOC and ZEXALL from immutable raw URLs at the approved upstream base. The

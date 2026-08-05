@@ -23,8 +23,8 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef TESTS_Z80_DIFFERENTIAL_TRACE_BACKEND_H
-#define TESTS_Z80_DIFFERENTIAL_TRACE_BACKEND_H
+#ifndef TESTS_COMPAT_DIFFERENTIAL_TRACE_BACKEND_H
+#define TESTS_COMPAT_DIFFERENTIAL_TRACE_BACKEND_H
 
 #include "trace_common.h"
 
@@ -34,7 +34,7 @@
 #include <utility>
 #include <vector>
 
-namespace vaeg::z80::differential {
+namespace vaeg::compat::differential {
 
 template <typename Cpu>
 class TraceBackend final : public Backend {
@@ -248,6 +248,6 @@ private:
     std::vector<Event> events_;
 };
 
-} // namespace vaeg::z80::differential
+} // namespace vaeg::compat::differential
 
 #endif

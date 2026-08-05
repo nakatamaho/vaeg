@@ -23,8 +23,8 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef TESTS_Z80_DIFFERENTIAL_TRACE_COMMON_H
-#define TESTS_Z80_DIFFERENTIAL_TRACE_COMMON_H
+#ifndef TESTS_COMPAT_DIFFERENTIAL_TRACE_COMMON_H
+#define TESTS_COMPAT_DIFFERENTIAL_TRACE_COMMON_H
 
 #include <array>
 #include <cstdint>
@@ -33,11 +33,11 @@
 #include <string>
 #include <vector>
 
-namespace vaeg::z80::differential {
+namespace vaeg::compat::differential {
 
 constexpr std::size_t kMemorySize = 65536;
 constexpr std::size_t kStatusSize = 68;
-constexpr const char *kTraceSchema = "vaeg-z80-trace-v1";
+constexpr const char *kTraceSchema = "vaeg-compat-trace-v1";
 
 struct Registers {
     std::uint16_t af = 0;
@@ -155,6 +155,6 @@ std::uint64_t HashMemory(const std::array<std::uint8_t, kMemorySize> &memory,
 int RunTraceMain(int argc, char **argv, const std::string &backend_name,
                  const BackendFactory &factory);
 
-} // namespace vaeg::z80::differential
+} // namespace vaeg::compat::differential
 
 #endif

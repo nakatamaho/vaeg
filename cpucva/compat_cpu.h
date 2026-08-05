@@ -23,18 +23,18 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef CPUCVA_Z80_CORE_H
-#define CPUCVA_Z80_CORE_H
+#ifndef CPUCVA_COMPAT_CPU_H
+#define CPUCVA_COMPAT_CPU_H
 
-#include "z80_bus.h"
-#include "z80_registers.h"
+#include "compat_bus.h"
+#include "compat_registers.h"
 
 #include <cstdint>
 
-class Z80C {
+class CompatCpu {
 public:
-    Z80C();
-    ~Z80C();
+    CompatCpu();
+    ~CompatCpu();
 
     bool Init(IMemoryAccess *memory, IIOAccess *bus, IClock *clock,
               IClockCounter *clockcounter, int interrupt_acknowledge_port);
@@ -52,10 +52,10 @@ public:
 
     std::uint32_t GetPC();
     void SetPC(std::uint32_t new_pc);
-    void SetReg(const Z80Reg &reg);
-    void SetMainReg(const Z80Reg &reg);
+    void SetReg(const CompatReg &reg);
+    void SetMainReg(const CompatReg &reg);
     void SetMemoryBases(std::uint32_t code_base, std::uint32_t data_base);
-    const Z80Reg *GetReg();
+    const CompatReg *GetReg();
 
 private:
     struct Impl;
@@ -75,8 +75,8 @@ private:
     std::uint32_t TranslateCodeAddress(std::uint16_t address) const;
     std::uint32_t TranslateDataAddress(std::uint16_t address) const;
 
-    Z80C(const Z80C &) = delete;
-    Z80C &operator=(const Z80C &) = delete;
+    CompatCpu(const CompatCpu &) = delete;
+    CompatCpu &operator=(const CompatCpu &) = delete;
 
     Impl *impl_;
     IMemoryAccess *memory_;
@@ -96,9 +96,10 @@ private:
     bool materialize_r_flags_after_instruction_;
     std::uint32_t code_base_;
     std::uint32_t data_base_;
-    Z80Reg public_registers_;
+    CompatReg public_registers_;
 };
 
-using UPD780C = Z80C;
+using UPD70008C = CompatCpu;
+using UPD780C = CompatCpu;
 
 #endif
