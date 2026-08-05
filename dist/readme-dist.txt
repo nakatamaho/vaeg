@@ -21,7 +21,7 @@ STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING
 IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE.
 
-88VA Eternal Grafx Rel.260713 distribution README
+88VA Eternal Grafx Rel.260805 distribution README
 ================================================
 
 This archive contains the portable SDL2/Dear ImGui build of 88VA
@@ -35,10 +35,25 @@ included and must be extracted from hardware you own.
 Files supplied by the release package
 -------------------------------------
 
+Setup guides
+------------
+
+The release notes are in `CHANGES.20260805.md`. User setup guides are
+available in the tagged source tree:
+
+- SCSI support: https://github.com/nakatamaho/vaeg/blob/rel-260805/docs/modernization/scsi-support.md
+- HOSTFAT: https://github.com/nakatamaho/vaeg/blob/rel-260805/docs/modernization/hostfat.md
+
+The SCSI guide covers support-D88 preparation, target IDs, image attachment,
+and SCFORM. The HOSTFAT guide covers `DEVICE=HOSTFAT.SYS`, the
+`--hostfat-dir` option, GUI rebuild/reset, and read-only behavior.
+
+
 Keep this relative layout after unpacking:
 
 - vaeg or vaeg.exe
-- CHANGES.20260713.md
+- HOSTFAT.SYS
+- CHANGES.20260805.md
 - assets/OFL.txt
 - assets/NOTICE.md
 - licenses/suzukiplan-z80.txt
@@ -49,6 +64,11 @@ VAEG application icon, and MIT-licensed suzukiplan Z80 core are embedded in
 the executable. OFL.txt, NOTICE.md, and licenses/suzukiplan-z80.txt document
 their licenses and provenance and must stay with the package.
 
+HOSTFAT.SYS is the PC-Engine read-only host-folder block driver generated
+from the clean-room source in the VAEG repository. Configure it with
+`DEVICE=HOSTFAT.SYS`; the emulator must be started with `--hostfat-dir` or
+the equivalent GUI setting for a host-folder snapshot to be available.
+
 Additional platform runtime files:
 
 - Windows: SDL2, LibArchive, compression libraries, and the MinGW GCC,
@@ -56,7 +76,7 @@ Additional platform runtime files:
   The GUI font, startup image, and application icon are embedded. No
   companion DLL or frontend asset file is required.
 - Linux: SDL2 and LibArchive are system dependencies. Install your
-  distribution's SDL2 and LibArchive runtime packages. Rel.260713 is built
+  distribution's SDL2 and LibArchive runtime packages. Rel.260805 is built
   and tested on the GitHub Actions ubuntu-latest runner using the
   linux-ci-gcc preset, libsdl2-dev, and libarchive-dev. Frontend assets are
   embedded; no system-wide desktop entry is installed.
@@ -132,7 +152,7 @@ The macOS command-line binary is not code-signed. If Finder or Gatekeeper
 adds quarantine metadata after download, remove it from the unpacked
 release directory before running:
 
-    xattr -dr com.apple.quarantine vaeg-rel260713-macos-arm64
+    xattr -dr com.apple.quarantine vaeg-rel260805-macos-arm64
 
 You can also remove it from just the binary:
 

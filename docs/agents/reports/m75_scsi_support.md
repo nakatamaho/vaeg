@@ -1997,3 +1997,221 @@ tests, including a fixture with nonzero FAT padding that must not inflate the
 free-cluster count.  G75 remains **FAIL** pending bounded CHKDSK evidence,
 nonzero guest free space, and persistent file create/read/compare/delete after
 reopen.
+
+
+## G75b WRITE path and standard screen capture (2026-08-04)
+
+The guest-visible capacity gate is MET on the same-run text-plane capture. The
+four CHKDSK lines are:
+
+```text
+  40792064 バイト : 全ディスク容量
+  40792064 バイト : 使用可能ディスク容量
+    524288 バイト : 全メモリ
+    380144 バイト : 使用可能メモリ
+```
+
+The BPB arithmetic is `39,936 - 1 - 78 - 20 = 39,837` physical blocks,
+`39,837 / 2 = 19,918` valid data clusters, and
+`19,918 x 2,048 = 40,792,064` bytes. `CHKDSK completes` and `positive
+available capacity` are MET. The capture format stores the run ID in both the
+binary screen dump and the trace, so the decoded screen and controller trace
+are proven to be from the same run.
+
+The standard QA harness now sets `VAEG_SCREEN_DUMP` and
+`VAEG_SCREEN_RUN_ID`, captures the text plane at scenario exit, decodes the
+JIS character cells using the PC-Engine text-table geometry, and requires the
+same run ID in the trace. Its focused decoder tests cover ASCII and JIS cells.
+
+The first isolated guest file-creation WRITE was a WRITE(10):
+
+```text
+CDB       2a000000023c000004002b00
+LBA       572
+blocks    4
+bytes     1024
+TC        000400 (AR12=00h, AR13=04h, AR14=00h)
+AR15h     00h (DataDirection bit 6 clear)
+DATA      AR19, 1024 bytes
+STATUS    GOOD; residual 0; commit_count 1
+```
+
+The former path committed the backend before the guest's AR19 DATA OUT
+window was consumed, so the backend received stale bytes and the following
+DATA OUT was rejected by the phase-direction check. The corrected path keeps
+the direct WRITE active in DATA OUT, accepts every AR19 byte, and commits only
+after the final byte. The completed trace reports equal backend, staging and
+delivered byte counts and digests. The image changed on disk: the root entry
+for `G75.TST` points to cluster 2, its size is one byte, cluster 2 contains
+`X`, and both FAT copies agree with one valid cluster consumed.
+
+The guest lifecycle scenarios also pass with screen output as the primary
+result:
+
+```text
+G75 READ-REOPEN-DELETE OK
+G75 DELETE PERSISTED
+```
+
+The first line verifies one-byte readback, close/reopen readback, and delete
+in one boot. The second is a separate boot against the resulting image and
+verifies that deletion persisted. After deletion the FAT inspector reports
+19,918 free valid clusters, equal FAT1/FAT2, and an unused first root entry.
+
+G75 remains open for the required SASI, HOSTFAT, and non-SCSI disk-path
+regressions. The implementation and evidence do not claim those gates.
+
+## HOSTFAT configuration recovery (2026-08-04)
+
+The GUI now keeps a changed `HOSTFATDIR` pending until the asynchronous
+replacement snapshot has been built and mounted successfully. Only then does
+it persist `HOSTFAT`/`HOSTFATDIR` and reset the guest. A failed rebuild or
+an emulator exit while the worker is active therefore preserves the previous
+configuration and mounted snapshot.
+
+At startup, an empty or unbuildable HOSTFAT directory loaded from the saved
+configuration is treated as recoverable: vaeg reports the failure, writes
+`HOSTFAT=false` while retaining the path, and continues boot without
+HOSTFAT. An explicit `--hostfat-dir` failure remains fatal so command-line
+automation does not silently lose its requested media.
+
+Verification: Linux SDL selftest, HOSTFAT manager failed-rebuild retention selftest, invalid configured-directory startup recovery probe, and `git diff --check` passed. The change is committed in [bc51051](https://github.com/nakatamaho/vaeg/commit/bc510511326b9fdb3f61018d751dfc598159512a).
+
+## HOSTFAT Windows Dropbox-root compatibility (2026-08-04)
+
+The HOSTFAT GUI and snapshot builder now trim surrounding whitespace and
+quotes from a selected path. On Windows the folder browser falls back to
+`USERPROFILE` when `HOME` is not defined. A selected Windows root that is a
+junction or directory reparse point is canonicalized before the immutable
+snapshot is built; contained links and reparse points are canonicalized, while
+links that escape the root remain rejected. This supports redirected Dropbox
+roots without weakening the contents and containment checks.
+
+The HOSTFAT snapshot selftest covers quoted paths on all platforms and covers a
+Windows directory-reparse root plus a contained reparse-point directory when
+the host allows the temporary test links.
+Linux debug and MinGW cross builds were run after the change. The
+implementation is in [1ec024b](https://github.com/nakatamaho/vaeg/commit/1ec024b),
+with contained reparse-point support in
+[7e6ede7](https://github.com/nakatamaho/vaeg/commit/7e6ede7).
+
+
+## HOSTFAT rebuild error visibility (2026-08-04)
+
+The Configure dialog now displays asynchronous HOSTFAT rebuild failures in
+red directly below the `Rebuild + reset on OK` button, preserving the detailed
+builder message such as FAT12 capacity, entry limit, depth, or unsupported-file
+errors. A failed asynchronous rebuild also reopens the Configure dialog
+automatically. The stale `127.44 MiB` label was
+corrected to the actual `63.72 MiB` usable payload limit. The implementation
+is in [55800c6](https://github.com/nakatamaho/vaeg/commit/55800c6), with
+automatic Configure reopening in
+[2515598](https://github.com/nakatamaho/vaeg/commit/2515598), with the error
+positioned below the rebuild button in
+[eb65a14](https://github.com/nakatamaho/vaeg/commit/eb65a14).
+
+## HOSTFAT rebuild error dialog (2026-08-04)
+
+A failed `Rebuild + reset on OK` operation now opens an explicit red
+`HOSTFAT error` modal immediately after the asynchronous worker reports
+its failure. The detailed failure text remains visible below the rebuild
+button after the modal is dismissed, and the Configure dialog is reopened
+for correction. Synchronous failure to start the rebuild uses the same
+notification path. The implementation is in
+[024855e](https://github.com/nakatamaho/vaeg/commit/024855e799750d762be0526cb10ada43a573f30d).
+
+Verification: Linux debug `--selftest`, `M75_SCSI_CONTROLLER_OK`, Linux
+release, macOS release, and MinGW cross builds passed.
+
+
+## G75 disposable storage automation
+
+The storage regression harness now covers the guest-level disposable flows
+without modifying the source D88, ROM directory, or HOSTFAT source tree.
+
+- --sasi-format boots a copy of the supplied PC-Engine 1.1 D88, executes
+  its HDFORM.COM with HDFORM C: and confirmation input, and requires the
+  completed-format screen with positive available capacity. It then runs
+  separate guest processes for file creation, close/reopen readback to A:,
+  and deletion, comparing the readback bytes with HDFORM.COM and checking
+  the final SASI root directory.
+- --g75-scsi creates a blank 40MiB, 256-byte-block VHD through the native
+  image creator, runs SCFORM, validates the FAT16 geometry and both FAT
+  copies, then runs separate guest processes for create, close/reopen
+  readback, and delete.
+- The readback step copies the SCSI file to the disposable A: disk and
+  compares its bytes with the source file. The delete step checks both the
+  guest screen and the backing FAT/root directory.
+- --g75-scsi-two creates a disposable two-target boot copy with both SCHD
+  target IDs, formats both images, and tests ID 0/C: and ID 1/D: separately.
+- --full-g75 composes the SASI, one-disk SCSI, and two-target SCSI flows.
+  Every guest step retains a same-run screen/trace pair and its headless
+  input script.
+
+The script's guest modes are mutually exclusive. `--selftest` checks only
+fixture generation and input-script construction. All booting modes require
+`--worker`, `--support-d88`, and `--roms`; `--sasi-format` and `--full-g75`
+also require a source D88 containing `HDFORM.COM`. Each guest step is
+performed by `tools/qa/m75_scsi_harness.py` with generated input and records
+`screen.bin`, `trace.log`, and `headless-input.txt`. The runner rejects a
+missing screen/trace pair, a mismatched run ID, or a termination other than
+`process-exit`. The JSON emitted on stdout is the machine-readable result;
+raw disposable evidence remains outside Git.
+
+The normal-speed run completed the SASI lifecycle and the full SCSI flow:
+HDFORM created the SASI filesystem, a separate process created G75SASI.COM,
+a further process copied it after close/reopen to G75SASB.COM on A: with
+identical bytes, and a final process deleted G75SASI.COM. The final SASI
+screen reported no matching file and positive free space. SCFORM likewise
+created one G75TEST.COM file, the next process copied identical bytes to
+G75BACK.COM on A:, and the following process deleted the SCSI file. The
+final SCSI root directory was empty and the FAT inspector reported positive
+free clusters in both copies.
+
+This is machine evidence for the disposable storage paths. It does not
+approve the remaining M75 human gates, including non-SCSI disk regression,
+GUI reset interaction, and any real-hardware comparison.
+
+## M75 human gate checklist
+
+The manual gate uses the normal frontend and keyboard path with disposable
+copies of the support D88 and media images. Use the MinGW artifact at
+`build/mingw-cross/sdl2/vaeg.exe` relative to the checkout. For the dual-SCSI
+case, the boot D88 must load both `SCHD.SYS -I0` and `SCHD.SYS -I1`, yielding
+C: for SCSI ID 0 and D: for SCSI ID 1.
+
+The reviewer must record the final screen after each restart and verify:
+
+- SASI: `HDFORM C:`, create `G75SASI.COM`, reset/reopen, copy it to A: as
+  `G75SASB.COM`, compare bytes with `HDFORM.COM`, delete it, and confirm it
+  is absent from the final `DIR C:` with positive free capacity.
+- SCSI ID 0 and ID 1: format each target, create a file, reset/reopen,
+  read it back to A:, compare bytes, delete it, and confirm the final root
+  directory and free-cluster state.
+- HOSTFAT: `TYPE` succeeds for the snapshot file and `DEL` is rejected.
+- GUI recovery: a valid `Rebuild + reset on OK` changes the mounted HOSTFAT
+  directory after reboot; an invalid directory shows the red error and
+  leaves the emulator restartable without manually deleting `vaeg.cfg`.
+- Non-SCSI disk operation and the bundled VA demo still work independently.
+
+Any failed row keeps G75 at FAIL until the exact screen, configuration, and
+writable disposable media copy have been retained for diagnosis. The
+automated harness does not replace this frontend, GUI, non-SCSI, or real-
+hardware review.
+
+
+## G75 two-target SCSI automation
+
+The disposable storage harness now also creates a boot-disk copy with both
+`DEVICE = A:\SCHD.SYS -I0` and `DEVICE = A:\SCHD.SYS -I1`. It formats both
+targets using SCFORM and verifies the normal PC-Engine drive assignment:
+SCSI ID 0 is C: and SCSI ID 1 is D:.
+
+For both targets, separate guest processes perform file creation, close/reopen
+readback to the A: disk, and deletion. The host-side verifier compares each
+readback byte-for-byte with `A:\BIN\SCFORM.COM`, checks both FAT copies, and
+requires empty root directories and positive free-cluster counts after delete.
+The source/support D88 remains unchanged; the generated two-target D88 and
+images are disposable evidence. The normal-speed two-target run completed
+create, close/reopen readback, and delete for both IDs. Both final root
+directories were empty and both FAT copies reported 19,918 free clusters.

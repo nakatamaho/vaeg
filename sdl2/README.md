@@ -61,11 +61,19 @@ the pinned SDL2 release recorded in ADR-0006.
 | Media | `--fdd1 path|none`, `--fdd2 path|none`, `--sasi1 path|none`, `--sasi2 path|none`, `--scsi1 path|none` through `--scsi4 path|none`, `--hostfat-dir path`, `--roms path` |
 | Execution | `--cpumult 1..32`, `--sgp model|follow-cpu|1..16`, `--nowait`, `--frameskip auto|full|2|3|4` |
 | Display/input | `--fullscreen`, `--windowed`, `--effect unfiltered|linear|scanline|crt-lite`, `--scaling native|fit|fit-8dot|integer|stretch`, `--controller joystick|mouse`, `--keyboard-layout jis|us|custom` |
-| Diagnostics/information | `--smoke`, `--selftest`, `--debug`, `--fdctrace`, `--pacelog`, `--trace-cpu N`, `--version`, `--help`, `-h` |
+| Diagnostics/information | `--smoke`, `--selftest`, `--debug`, `--fdctrace`, `--scsitrace`, `--pacelog`, `--trace-cpu N`, `--headless-input-script path`, `--version`, `--help`, `-h` |
 
 Run `vaeg --help` for the built-in list. Enum values are ASCII
 case-insensitive, and the last occurrence wins when an option is repeated.
 Positional FDD arguments have been removed; use `--fdd1` and `--fdd2`.
+
+`--headless-input-script path` starts the emulator with dummy SDL video/audio
+drivers and injects commands through the normal guest keyboard path. Each
+nonempty script line is submitted with Return appended; blank lines and lines
+whose first non-whitespace character is `#` are ignored. `@enter` submits a
+bare Return, and `@wait N` waits N guest frames before continuing. The option
+does not terminate the emulator; combine it with `VAEG_SCREEN_EXIT_MS` and
+`VAEG_SCREEN_DUMP` for a bounded screen-capture run.
 
 `--model va` selects `88VA1` and its unsuffixed ROM set. `--model va2` selects
 the `88VA2` compatibility model and its `*_va2.rom` set. The effective model
@@ -86,9 +94,11 @@ snapshot. The M55 geometry uses 1024-byte sectors and 16 KiB clusters: its
 DOS-visible size is 63.830078125 MiB and up to 63.71875 MiB of cluster payload is
 allocatable before directory and per-file rounding. Valid unique ASCII 8.3
 names are retained (and folded to uppercase); longer, spaced, or Unicode UTF-8
-names receive deterministic 8.3 aliases. Invalid UTF-8, links, special files,
-excessive depth/count, and content that does not fit are rejected rather than
-omitted.
+names receive deterministic 8.3 aliases. Invalid UTF-8, links/reparse points
+that escape the selected root, special files, excessive depth/count, and
+content that does not fit are rejected rather than omitted. On Windows, the
+selected root and contained links/reparse points are canonicalized when they
+remain inside the selected root.
 
 Unpatched PC-Engine reports HOSTFAT free space as if every free FAT entry were
 2 KiB, so `DIR` shows approximately 8 MiB even though 16 KiB cluster reads are
@@ -197,6 +207,187 @@ paths to the same `SCSIHDD0` through `SCSIHDD3` configuration entries.
 After changing a SASI or SCSI image, reset the guest so the existing
 SxSI/SASI/SCSI open and bind path is rebuilt. IDE GUI mounting is not
 implemented.
+
+For disposable guest-level storage checks, the M75 harness retains a
+same-run screen and trace pair. The existing SASI/HOSTFAT smoke and HOSTFAT
+read-only file-I/O checks are:
+
+```sh
+python3 tools/qa/m75_storage_regression.py --guest-io \
+  --worker build/linux-debug/sdl2/vaeg \
+  --support-d88 /path/to/pcengine-support-hostfat.d88 \
+  --roms /path/to/roms --hostfat-drive D --exit-ms 40000
+```
+
+The SASI lifecycle check uses the actual `HDFORM.COM` from the supplied
+PC-Engine 1.1 D88. It copies that D88 to the output directory, runs
+`HDFORM C:`, then boots separate guest processes to create a file, close and
+reopen the SASI image for byte-exact readback to A:, and delete the file. It
+also confirms the 40MB SASI image and the positive free-space screen result:
+
+```sh
+python3 tools/qa/m75_storage_regression.py --sasi-format \
+  --worker build/linux-debug/sdl2/vaeg \
+  --support-d88 /path/to/pcengine-support-hostfat.d88 \
+  --sasi-source "/path/to/PC-Engine 1.1.d88" \
+  --roms /path/to/roms --output-dir /tmp/m75-sasi-format
+```
+
+The SCSI G75 check creates a disposable blank 40MiB VHD through the native
+image-creation path, runs SCFORM, then performs separate guest boots for
+create, close/reopen readback, and delete:
+
+```sh
+python3 tools/qa/m75_storage_regression.py --g75-scsi \
+  --worker build/linux-debug/sdl2/vaeg \
+  --support-d88 /path/to/pcengine-support-hostfat.d88 \
+  --roms /path/to/roms --output-dir /tmp/m75-g75-scsi
+```
+
+The two-target regression uses a disposable D88 whose `CONFIG.SYS` contains
+both `SCHD.SYS -I0` and `SCHD.SYS -I1`. It formats both targets, then tests
+create, close/reopen readback, and delete on C: (SCSI ID 0) and D: (SCSI ID 1):
+
+```sh
+python3 tools/qa/m75_storage_regression.py --g75-scsi-two \
+  --worker build/linux-debug/sdl2/vaeg \
+  --support-d88 /path/to/pcengine-support-hostfat.d88 \
+  --roms /path/to/roms --output-dir /tmp/m75-g75-scsi-two
+```
+
+Use `--full-g75` with `--sasi-source` to run SASI HDFORM, the one-disk SCSI
+flow, and the two-target SCSI flow. The support D88, ROM directory, and
+source D88 are never modified. For SCSI, the script compares read-back file
+bytes with the source `SCFORM.COM`, validates both FAT copies and positive
+free clusters, and checks that deleted files are absent from both guest
+screens and backing images.
+
+The support D88 must contain `HOSTFAT.SYS` in `CONFIG.SYS` for `--guest-io`;
+the SCSI flow does not require HOSTFAT to be mounted. The script creates all
+headless input files, validates screen/trace identity and process-exit
+termination, and stores disposable captures under `--output-dir`.
+
+The storage script divides the checks as follows:
+
+| Automated by `m75_storage_regression.py` | Remains a human/environment gate |
+|---|---|
+| SASI HDFORM, create/readback/delete, and positive free-space screen | Supplying the owned ROM set and correct source/support D88 |
+| SCSI blank 40MiB VHD creation, SCFORM initialization, FAT validation | Reviewing screen/trace captures when accepting a release |
+| One-disk SCSI file creation and `G75TEST.COM` root/FAT verification | GUI Configure / Rebuild + reset interaction |
+| Two-target SCSI ID 0/1 formatting and file-operation verification | Non-SCSI disk regression gates |
+| Separate-process close/reopen readback and host byte comparison | Real hardware comparison |
+| Separate-process delete and backing-image absence check | Manual hardware multi-disk comparison |
+| HOSTFAT `TYPE` success and read-only `DEL` rejection | None of the disposable guest steps is a substitute for release review |
+
+### Storage harness operation and artifacts
+
+The harness is `tools/qa/m75_storage_regression.py`. It accepts exactly one
+storage mode per invocation. `--selftest` is fixture-only and does not boot
+the emulator. The guest modes require a worker executable, the support D88,
+and a ROM directory; SASI modes additionally require a source D88 containing
+`HDFORM.COM`.
+
+Each guest step is run by `tools/qa/m75_scsi_harness.py` with a generated
+headless-input script. The harness checks a zero worker exit, a `process-exit`
+termination, and a matching run ID in the screen and trace pair. With
+`--output-dir OUT`, the disposable evidence is arranged as follows:
+
+```text
+OUT/
+  sasi-format/
+    boot.d88  sasi.hdi
+    guest/    format screen/trace/input
+    create/   create screen/trace/input
+    readback/ readback screen/trace/input
+    delete/   delete screen/trace/input
+  g75-scsi/          one-target SCSI lifecycle
+  g75-scsi-two/      SCSI ID 0 and ID 1 lifecycle
+```
+
+`screen.bin` is the decoded text-plane capture, `trace.log` is the
+same-run emulator trace, and `headless-input.txt` records the exact DOS
+commands and waits. The JSON result on standard output includes the
+per-step screen/trace digests, image digests, and byte-comparison result.
+The output directory is disposable; the source D88, support D88, and ROM
+files are read-only inputs.
+
+Typical verification order is:
+
+```sh
+python3 tools/qa/m75_storage_regression.py --selftest
+python3 tools/qa/test_m75_storage_regression.py -v
+python3 tools/qa/m75_storage_regression.py --full-g75 \
+  --worker build/linux-debug/sdl2/vaeg \
+  --support-d88 /path/to/pcengine-support-hostfat.d88 \
+  --sasi-source "/path/to/PC-Engine 1.1.d88" \
+  --roms /path/to/roms --output-dir /tmp/m75-full-g75
+```
+
+Use `--sasi-format`, `--g75-scsi`, or `--g75-scsi-two` to rerun only one
+media family. Use `--guest-io` separately for HOSTFAT `TYPE` success and
+read-only delete rejection; it is intentionally not part of `--full-g75`.
+
+## M75 Human Gate: guest storage
+
+The automated harness is evidence for the disposable path. The M75 human
+gate confirms the same operations through the normal PC-Engine frontend and
+keyboard path. Run this gate with disposable copies of every D88 and disk
+image; never use the source support D88 as the writable test disk.
+
+### Preparation
+
+1. Use the MinGW executable produced by the cross build:
+   `build/mingw-cross/sdl2/vaeg.exe` relative to the checkout.
+2. Prepare a support D88 containing `PCPLUS.SYS` and `SCHD.SYS`. For the
+   two-target check, `CONFIG.SYS` must load both `SCHD.SYS -I0` and
+   `SCHD.SYS -I1`. Keep `HOSTFAT.SYS` present when testing HOSTFAT.
+3. Create disposable blank SASI and SCSI images with the GUI, or copy the
+   images created by the automation into a temporary test directory.
+4. Record the executable, D88/image copies, model, and configuration before
+   booting. A failed test must leave the source media untouched.
+
+### Guest storage sequence
+
+Perform the following sequence and record the final screen after each
+reset or process restart:
+
+| Area | Operation | Pass condition |
+|---|---|---|
+| SASI | Run `HDFORM C:` and confirm the format | Format completes and reports positive free capacity |
+| SASI | `COPY A:\HDFORM.COM C:\G75SASI.COM` | The file is listed with size 6706 bytes |
+| SASI | Reset/reopen, then `COPY C:\G75SASI.COM A:\G75SASB.COM` | The A: copy is byte-identical to `HDFORM.COM` |
+| SASI | `DEL C:\G75SASI.COM`, then `DIR C:` | The file is absent and free capacity increases |
+| SCSI ID 0 | Format C:, create/read back/delete one file | Create, byte-identical readback, delete, and persistence succeed |
+| SCSI ID 1 | Format D:, create/read back/delete one file | The second target is visible and has the same successful lifecycle |
+| HOSTFAT | `TYPE D:\REGRESS.TXT` | The expected text is displayed |
+| HOSTFAT | `DEL D:\REGRESS.TXT` | Delete is rejected for the read-only snapshot |
+
+For SCSI, use `C:` for target ID 0 and `D:` for target ID 1. After creating
+each file, close/reopen or reset before the readback step. Compare the
+readback on the A: disk with the original source file on the host. Repeat
+the final `DIR` after deletion and confirm that no stale directory entry is
+shown.
+
+### GUI reset and non-SCSI checks
+
+Also verify the frontend path used by normal users:
+
+- Configure a valid HOSTFAT directory and press `Rebuild + reset on OK`.
+  The guest resets and the new directory is visible after reboot.
+- Configure an invalid or unsupported directory. The operation reports a
+  red error beside the rebuild control or in the visible status area, and
+  the emulator remains restartable without deleting `vaeg.cfg` manually.
+- Boot the existing non-SCSI disk path, run its normal format/read/write or
+  simple file operation, and confirm that its image is unchanged by the
+  SCSI/SASI tests.
+- Boot the bundled VA demo and perform the standard simple OS operation
+  required by the project human gate.
+
+The human gate passes only when every row succeeds, both SCSI target IDs
+remain usable after reset, and no source D88/image or configuration recovery
+is required. Attach the final screen or a short recording, the tested
+binary/configuration identity, and any failing image copy to the review.
+
 
 ## ROM Placement
 

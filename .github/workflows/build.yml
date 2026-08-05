@@ -211,7 +211,27 @@ jobs:
       - name: Smoke
         run: SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy ./build/mingw-ci/sdl2/vaeg.exe --smoke
       - name: Unit tests
-        run: ctest --test-dir build/mingw-ci --output-on-failure
+        run: |
+          set +e
+          ctest --test-dir build/mingw-ci --output-on-failure 2>&1 | tee ctest.log
+          status=${PIPESTATUS[0]}
+          if [ "${status}" -ne 0 ]; then
+            failed_tests="$(cat build/mingw-ci/Testing/Temporary/LastTestsFailed.log 2>/dev/null | tr '\n' ' ')"
+            echo "CTest failed tests: ${failed_tests}" >&2
+            echo "::error title=CTest failed tests::${failed_tests}"
+            failure_tail="$(tail -n 160 ctest.log | tr '\r\n' ' ')"
+            echo "::error title=CTest failure tail::${failure_tail}"
+            failed_names="$(sed -n 's/^[0-9][0-9]*:\([^ ]*\).*/\1/p' build/mingw-ci/Testing/Temporary/LastTestsFailed.log 2>/dev/null)"
+            for failed_name in ${failed_names}; do
+              start_line="$(grep -n "Start .*: ${failed_name}" ctest.log | head -n 1 | cut -d: -f1)"
+              if [ -n "${start_line}" ]; then
+                end_line=$((start_line + 80))
+                echo "CTest failed test output: ${failed_name}" >&2
+                sed -n "${start_line},${end_line}p" ctest.log | tail -n 80 >&2
+              fi
+            done
+          fi
+          exit "${status}"
       - name: Verify Windows runtime imports
         run: |
           objdump -p build/mingw-ci/sdl2/vaeg.exe | grep 'DLL Name'
