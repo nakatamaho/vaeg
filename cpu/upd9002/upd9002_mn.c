@@ -2406,15 +2406,21 @@ UPD9002FN _into(void) {						// CE:	into
 UPD9002FN _iret(void) {					// CF: iret
 
 	UINT	flag;
+	BOOL	return_compat;
 
 	REGPOP0(UPD9002_IP)
 	REGPOP0(UPD9002_CS)
 	REGPOP0(flag)
+	return_compat = (CPU_COMPAT_RETURN_PENDING != 0);
+	CPU_COMPAT_RETURN_PENDING = 0;
 	CS_BASE = UPD9002_CS << 4;
 	flag = (flag & 0x0fd7) | 0xf002;
 	UPD9002_OV = flag & O_FLAG;
 	UPD9002_FLAG = flag & (0xfff ^ O_FLAG);
 	UPD9002_TRAP = ((flag & T_FLAG) != 0);
+	if (return_compat) {
+		upd9002_core_compat_iret_resume();
+	}
 	UPD9002_WORKCLOCK(31);
 	if ((UPD9002_TRAP) || ((flag & I_FLAG) && (PICEXISTINTR))) {
 		UPD9002_IRQCHECKTERM
@@ -3741,9 +3747,17 @@ static void _ea16_write(UINT op, UINT32 madr, UINT16 value) {
 UPD9002FN _ope0x0f(void) {				// 0F:
 
 	UINT	op;
+	UINT8	vector;
 
 	op = upd9002_memoryread(CS_BASE + UPD9002_IP);
 	upd9002_perf_record_0f((UINT8)op);
+	if (op == 0xff) {
+		UPD9002_IP++;
+		vector = upd9002_memoryread(CS_BASE + UPD9002_IP);
+		UPD9002_IP++;
+		upd9002_core_brkem(vector);
+		return;
+	}
 	if (op & 0xc0) {
 		_reserved_0x0f();
 		return;

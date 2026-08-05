@@ -272,7 +272,8 @@ set(VAEG_CORE_SOURCES
 set(VAEG_Z80_PRODUCTION_SOURCES
     cpucva/z80_disasm.cpp
     cpucva/z80_core.cpp
-    cpucva/z80_legacy_state.cpp)
+    cpucva/z80_legacy_state.cpp
+    cpucva/upd9002_z80.cpp)
 message(STATUS "Production Z80 core: suzukiplan")
 
 set(VAEG_VA_SOURCES
@@ -356,6 +357,7 @@ if(VAEG_ENABLE_TESTS)
         tests/idp/m69_status_composition.c
         tests/z80/subsystem_integration.cpp
         tests/upd9002/direct_harness.c
+        tests/upd9002/brkem_z80.c
 		tests/upd9002/dispatch_normalization.c
         tests/upd9002/flags_materialization.c
         tests/upd9002/iret_restoration.c
@@ -507,6 +509,9 @@ add_library(vaeg_va STATIC ${VAEG_VA_SOURCES})
 target_include_directories(vaeg_va PUBLIC ${VAEG_INCLUDE_DIRS})
 target_link_libraries(vaeg_va PUBLIC vaeg_core vaeg_common)
 target_compile_options(vaeg_va PRIVATE -Wall -fsigned-char)
+if(VAEG_ENABLE_TESTS)
+    target_compile_definitions(vaeg_va PRIVATE VAEG_UPD9002_M76_TESTING=1)
+endif()
 target_include_directories(vaeg_va PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}/external/suzukiplan-z80")
 target_compile_definitions(vaeg_va PRIVATE
@@ -545,6 +550,7 @@ target_link_libraries(vaeg_sdl2 PRIVATE vaeg_core vaeg_va vaeg_common
 if(VAEG_ENABLE_TESTS)
     target_compile_definitions(vaeg_sdl2 PRIVATE
         VAEG_UPD9002_M42_TESTING=1
+        VAEG_UPD9002_M76_TESTING=1
         VAEG_UPD9002_M44_TESTING=1
 		VAEG_UPD9002_M46_TESTING=1
         VAEG_UPD9002_M48_TESTING=1
@@ -766,6 +772,11 @@ if(VAEG_ENABLE_TESTS)
 		COMMAND vaeg_sdl2 --upd9002-m60e-iret-restoration)
     set_tests_properties(vaeg_upd9002_iret_restoration PROPERTIES
 		LABELS "romless;upd9002;flags;iret;semantics")
+
+    add_test(NAME vaeg_upd9002_brkem_z80
+        COMMAND vaeg_sdl2 --upd9002-brkem-z80)
+    set_tests_properties(vaeg_upd9002_brkem_z80 PROPERTIES
+        LABELS "romless;upd9002;z80;compatibility;transitions")
 
     add_test(NAME vaeg_upd9002_mov_imm_register
 		COMMAND vaeg_sdl2 --upd9002-m61-mov-imm-register)

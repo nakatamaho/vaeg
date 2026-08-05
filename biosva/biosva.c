@@ -12,6 +12,7 @@
 #include	"memoryva.h"
 #include	"biosva.h"
 #include	"subsystem.h"
+#include "cpucva/upd9002_z80.h"
 
 
 #define VAFONTROM "vafont.rom"
@@ -90,5 +91,5 @@ void biosva_initialize(void) {
 		file_close(fh);
 	}
 
-
+	upd9002_z80_register();
 }
