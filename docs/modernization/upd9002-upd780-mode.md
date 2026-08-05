@@ -34,7 +34,7 @@ reference. Supersedes both.
 instructions and signals that move between them, the PC-88VA firmware
 conventions layered on top, and what a correct emulation must contain.
 
-**Not in scope.** The FDD subsystem Z80. That is a separate physical
+**Not in scope.** The FDD subsystem uPD780-compatible CPU. That is a separate physical
 device with its own register file and ROM (`VASUBSYS.ROM`), reached in
 vaeg through `cpucva/z80_core.cpp` and `iova/subsystem.cpp`. It has
 nothing to do with μPD780 mode, and the two must not share code or
@@ -2153,7 +2153,7 @@ implementation; it is not a design document.
    `1000:` window placement, and `1000:C003` are IVT and BIOS
    conventions (§6, §7, §8) — not CPU behaviour. Do not special-case
    them in the instruction core.
-9. **Never route any of this to the FDD subsystem Z80.** Separate
+9. **Never route any of this to the FDD subsystem uPD780-compatible CPU.** Separate
    device, separate state, no shared code without an explicit later
    decision.
 10. **Separate functional correctness from cycle accuracy.** Do not copy
@@ -2321,7 +2321,7 @@ compatible-mode entry, so it is not a drop-in answer.
 
 ## 14. Current vaeg status
 
-- The FDD subsystem Z80 is implemented separately — historically
+- The FDD subsystem uPD780-compatible CPU is implemented separately — historically
   `cpucva/z80c.cpp`, currently `cpucva/z80_core.cpp`, with
   `iova/subsystem.cpp` and `VASUBSYS.ROM`.
 - The main CPU uPD70008-compatible mode now has a bounded Stage 1 implementation in

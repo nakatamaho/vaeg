@@ -355,7 +355,7 @@ set(VAEG_SDL2_SOURCES
 if(VAEG_ENABLE_TESTS)
     list(APPEND VAEG_SDL2_SOURCES
         tests/idp/m69_status_composition.c
-        tests/z80/subsystem_integration.cpp
+        tests/upd780/subsystem_integration.cpp
         tests/upd9002/direct_harness.c
         tests/upd9002/brkem_upd70008.c
 		tests/upd9002/dispatch_normalization.c
@@ -526,7 +526,7 @@ if(VAEG_Z80_INTEGRATION_TRACE)
 endif()
 if(VAEG_ENABLE_TESTS)
     target_compile_definitions(vaeg_va PUBLIC
-        VAEG_Z80_INTEGRATION_TESTING=1)
+        VAEG_UPD780_INTEGRATION_TESTING=1)
 endif()
 if(VAEG_WERROR)
     target_compile_options(vaeg_va PRIVATE -Werror)

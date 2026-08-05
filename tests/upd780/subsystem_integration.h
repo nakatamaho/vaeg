@@ -23,14 +23,14 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef TESTS_Z80_SUBSYSTEM_INTEGRATION_H
-#define TESTS_Z80_SUBSYSTEM_INTEGRATION_H
+#ifndef TESTS_UPD780_SUBSYSTEM_INTEGRATION_H
+#define TESTS_UPD780_SUBSYSTEM_INTEGRATION_H
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-int vaeg_z80_subsystem_integration_test(void);
+int vaeg_upd780_subsystem_integration_test(void);
 
 #ifdef __cplusplus
 }
