@@ -39,7 +39,7 @@ permissions:
 
 env:
   RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag_name || github.ref_name }}
-  RELEASE_NOTES: CHANGES.20260713.md
+  RELEASE_NOTES: CHANGES.20260805.md
 
 jobs:
   linux:
@@ -49,10 +49,11 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag_name || github.ref }}
+          fetch-depth: 0
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y cmake ninja-build pkg-config libsdl2-dev libarchive-dev gcc g++
+          sudo apt-get install -y cmake ninja-build pkg-config libsdl2-dev libarchive-dev gcc g++ nasm
       - name: Configure
         run: cmake --preset linux-ci-gcc
       - name: Build
@@ -71,11 +72,13 @@ jobs:
           mkdir -p "dist-package/${package}/assets" \
             "dist-package/${package}/licenses"
           install -m 755 build/linux-ci-gcc/sdl2/vaeg "dist-package/${package}/vaeg"
+          install -m 644 build/linux-ci-gcc/guest/hostfat.sys \
+            "dist-package/${package}/HOSTFAT.SYS"
           install -m 644 assets/OFL.txt "dist-package/${package}/assets/"
           install -m 644 assets/NOTICE.md "dist-package/${package}/assets/"
           install -m 644 external/suzukiplan-z80/LICENSE.txt \
             "dist-package/${package}/licenses/suzukiplan-z80.txt"
-          install -m 644 CHANGES.20260713.md "dist-package/${package}/"
+          install -m 644 CHANGES.20260805.md "dist-package/${package}/"
           install -m 644 dist/readme-dist.txt "dist-package/${package}/README-dist.txt"
           tar -C dist-package -czf "${asset}" "${package}"
           tar -tzf "${asset}"
@@ -116,6 +119,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag_name || github.ref }}
+          fetch-depth: 0
       - uses: msys2/setup-msys2@v2
         with:
           msystem: MINGW64
@@ -126,6 +130,7 @@ jobs:
             mingw-w64-x86_64-ninja
             mingw-w64-x86_64-gcc
             mingw-w64-x86_64-pkgconf
+            nasm
       - name: Configure
         run: cmake --preset mingw-ci
       - name: Build
@@ -133,7 +138,33 @@ jobs:
       - name: Smoke
         run: SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy ./build/mingw-ci/sdl2/vaeg.exe --smoke
       - name: Unit tests
-        run: ctest --test-dir build/mingw-ci --output-on-failure
+        run: |
+          set +e
+          ctest --test-dir build/mingw-ci --output-on-failure 2>&1 | tee ctest.log
+          status=${PIPESTATUS[0]}
+          if [ "${status}" -ne 0 ]; then
+            failed_tests="$(cat build/mingw-ci/Testing/Temporary/LastTestsFailed.log 2>/dev/null | tr '\n' ' ')"
+            if [ -z "${failed_tests}" ]; then
+              failed_tests="$(grep -E '\*\*\*Failed' ctest.log | tr '\n' ' ')"
+            fi
+            echo "CTest failed tests: ${failed_tests}" >&2
+            failure_markers="$(grep -E 'FAIL|failed|CMake Error|Error:' ctest.log | tr '\r\n' ' ')"
+            echo "CTest failure markers: ${failure_markers}" >&2
+            echo "::error title=CTest failure markers::${failure_markers}"
+            failed_names="$(sed -n 's/^[0-9][0-9]*:\([^ ]*\).*/\1/p' build/mingw-ci/Testing/Temporary/LastTestsFailed.log 2>/dev/null)"
+            for failed_name in ${failed_names}; do
+              start_line="$(grep -n "Start .*: ${failed_name}" ctest.log | head -n 1 | cut -d: -f1)"
+              if [ -n "${start_line}" ]; then
+                end_line=$((start_line + 80))
+                failed_section="$(sed -n "${start_line},${end_line}p" ctest.log | tail -n 80 | tr '\r\n' ' ')"
+                failed_section="${failed_section//%/%25}"
+                failed_section="${failed_section//$'\r'/}"
+                echo "CTest failed test output: ${failed_section}" >&2
+                echo "::error title=CTest failed test output::${failed_section}"
+              fi
+            done
+          fi
+          exit "${status}"
       - name: Verify Windows runtime imports
         run: |
           set -euo pipefail
@@ -164,11 +195,12 @@ jobs:
           rm -rf dist-package
           mkdir -p "dist-package/${package}/assets" "dist-package/${package}/licenses"
           cp build/mingw-ci/sdl2/vaeg.exe "dist-package/${package}/"
+          cp build/mingw-ci/guest/hostfat.sys "dist-package/${package}/HOSTFAT.SYS"
           cp assets/OFL.txt "dist-package/${package}/assets/"
           cp assets/NOTICE.md "dist-package/${package}/assets/"
           cp external/suzukiplan-z80/LICENSE.txt \
             "dist-package/${package}/licenses/suzukiplan-z80.txt"
-          cp CHANGES.20260713.md "dist-package/${package}/"
+          cp CHANGES.20260805.md "dist-package/${package}/"
           cp dist/readme-dist.txt "dist-package/${package}/README-dist.txt"
           find "dist-package/${package}" -type f | sort
       - name: Zip package
@@ -198,8 +230,9 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag_name || github.ref }}
+          fetch-depth: 0
       - name: Install build tools
-        run: brew install cmake ninja
+        run: brew install cmake ninja nasm
       - name: Configure
         run: cmake --preset macos-ci
       - name: Build
@@ -220,11 +253,13 @@ jobs:
           mkdir -p "dist-package/${package}/assets" \
             "dist-package/${package}/licenses"
           install -m 755 build/macos-ci/sdl2/vaeg "dist-package/${package}/vaeg"
+          install -m 644 build/macos-ci/guest/hostfat.sys \
+            "dist-package/${package}/HOSTFAT.SYS"
           install -m 644 assets/OFL.txt "dist-package/${package}/assets/"
           install -m 644 assets/NOTICE.md "dist-package/${package}/assets/"
           install -m 644 external/suzukiplan-z80/LICENSE.txt \
             "dist-package/${package}/licenses/suzukiplan-z80.txt"
-          install -m 644 CHANGES.20260713.md "dist-package/${package}/"
+          install -m 644 CHANGES.20260805.md "dist-package/${package}/"
           install -m 644 dist/readme-dist.txt "dist-package/${package}/README-dist.txt"
 
           if otool -L "dist-package/${package}/vaeg" | grep -E 'libSDL2.*dylib'; then

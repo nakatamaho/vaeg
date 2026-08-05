@@ -46,6 +46,114 @@ downloads or a verified local cache remain available. A generated disk also
 keeps the original package manuals together for use with real PC-88VA
 hardware or a future SCSI-capable implementation.
 
+## Current VAEG setup (Rel.260805)
+
+The following is the supported user workflow for the current VAEG release.
+The historical register and package notes below are retained as preservation
+evidence; they are not required to attach a disk in VAEG.
+
+### 1. Prepare the support disk
+
+VAEG does not redistribute PC-Engine ROMs, `PCPLUS.SYS`, `SCHD.SYS`,
+`SCFORM.COM`, or other proprietary guest files. Start with a PC-Engine 1.1
+system D88 obtained from a lawful source and build a disposable SCSI support
+disk:
+
+```sh
+sudo apt-get install curl dosbox lhasa python3 coreutils
+
+tools/pc88va/scsi-support.sh \
+  --source /path/to/pcengine-1.1.d88 \
+  --output /path/to/pcengine-scsi.d88
+```
+
+The command downloads or reuses the checksum-verified support packages,
+patches PCPLUS as required by the documented workflow, and writes a new D88.
+It never modifies the source D88. Use `--scsi-id 0` through `--scsi-id 7` to
+choose the default target ID written to `CONFIG.SYS`.
+
+For two SCSI targets, add both driver lines to the generated disk's
+`CONFIG.SYS` before booting it:
+
+```dos
+DEVICE = A:\PCPLUS.SYS
+DEVICE = A:\SCHD.SYS -I0
+DEVICE = A:\SCHD.SYS -I1
+```
+
+`-I0` and `-I1` select SCSI target IDs 0 and 1. The supported target-ID
+range is 0 through 7; the driver line must exist for each target that should
+be registered. Keep a backup before running `SCFORM`, because formatting
+initializes the selected target.
+
+### 2. Create and attach a VAEG SCSI image
+
+The GUI creates VHD-format SCSI images. Choose **HardDisk -> New SCSI
+image...**, select a size, and assign it to **SCSI #1** through **SCSI #4**.
+The usual first two targets are SCSI #1 (ID 0) and SCSI #2 (ID 1). Existing
+images can be attached through the corresponding **Open** menu item. Reset
+the guest after changing an attachment so PCPLUS/SCHD re-enumerates it.
+
+The same operation can be prepared from a shell:
+
+```sh
+# Existing images; slots correspond to SCSI target IDs 0 through 3.
+./vaeg --scsi1 /path/to/scsi-id0.hdd \
+       --scsi2 /path/to/scsi-id1.hdd \
+       --scsi3 none --scsi4 none
+```
+
+From a VAEG source checkout, a blank image can also be created with:
+
+```sh
+python3 tools/create_vaeg_scsi_hdd.py \
+  --output /path/to/scsi-id0.hdd --size-mib 40 --executable ./vaeg
+```
+
+The image creator refuses to overwrite an existing file. SCSI images use the
+`.hdd` extension and 256-byte physical blocks; SASI images are a separate
+`.hdi` format and must be created through the SASI workflow.
+
+### 3. Format the target in the guest
+
+Boot the generated support D88 as the floppy drive. Confirm that PCPLUS is
+loaded before SCHD and that each intended SCSI ID receives a drive letter.
+Run `SCFORM` only against a disposable or backed-up target:
+
+```dos
+SCFORM
+```
+
+For a partition requiring 2048-byte logical sectors, first update the boot
+disk buffer and reboot:
+
+```dos
+VBUFF -D1 -B11
+SCFORM /S
+```
+
+`VBUFF -D1` selects drive A. The `/S` option belongs to SCFORM and exposes
+its logical-sector-size choices; it is unrelated to SCHD's `-S` geometry
+override. Leave the generated floppy as the boot medium: this workflow does
+not make the SCSI target bootable.
+
+After formatting, reboot once and check the new drive with `DIR`. Create a
+small test file, read it back, delete it, and reboot again before putting
+important data on the image. The VAEG automated G75 checks cover this
+lifecycle for one target and for target IDs 0 and 1.
+
+### 4. Troubleshooting
+
+- A second disk appearing in `SCFORM` but not in DOS normally means that its
+  `SCHD.SYS -I<n>` line is missing from `CONFIG.SYS`.
+- Reset after adding, removing, or formatting an image. A reset rebuilds the
+  guest SCSI/SxSI registration path.
+- Use the exact SCSI ID configured in the `-I` option. VAEG does not silently
+  remap an incorrect initiator ID.
+- Keep the support D88 and ROMs outside the VAEG release archive. The support
+  disk builder and the release executable are separate from those guest
+  assets.
+
 ## Sources and Software
 
 The primary setup note is the PC88.gr.jp forum topic
@@ -179,12 +287,13 @@ record whether each observed count is consumed by this COMMAND path or by
 the legacy `0CC6h` path.  Current evidence classifies the observed `000024h`
 and `000008h` transfers as COMMAND/AR=19h, not as implemented DATA IN.
 
-VAEG's built-in software SCSI BIOS helper and the C-Bus phase engine remain
-different paths. The former is used by the existing BIOS compatibility calls;
-the latter currently models SELECT and the PIO COMMAND boundary, while
-DATA/STATUS/MESSAGE phases remain to be connected through a general CDB
-execution transition. A guest trace is still required before claiming
-complete PCPLUS/SCHD registration compatibility.
+VAEG's built-in software SCSI BIOS helper and the C-Bus phase engine are
+different internal layers. Rel.260805 has passed the G75 guest lifecycle
+gate for SCSI image creation, FAT visibility, file creation, readback,
+deletion, close/reopen persistence, and the two-target ID 0/1 path. The
+remaining low-level notes in this section document the preserved controller
+boundary and are useful when investigating new hardware or guest-driver
+compatibility; they are not a prerequisite for the setup procedure above.
 
 ## SCHD Driver Evidence
 

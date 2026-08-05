@@ -1461,3 +1461,118 @@ separate parity correction or move it to Open Defects.
   equal backend/staging/AR19 digests for its first three block reads.
 - **Evidence:** [M75 report](../agents/reports/m75_scsi_support.md) and
   [a7d244d](https://github.com/nakatamaho/vaeg/commit/a7d244d61d93eedaf8498185ec55f8e8ac743926).
+
+
+### Direct Select-and-Transfer WRITE committed before guest DATA OUT
+
+- **Status:** fixed; G75 remains open for the independent SASI, HOSTFAT, and
+  non-SCSI regression gates.
+- **Symptom:** PC-Engine issued a successful WRITE(10), but the guest's
+  subsequent AR19 DATA OUT bytes arrived after the controller had already
+  committed the stale staging buffer. The first write could therefore update
+  the image with the preceding command's data and reject the actual DATA OUT
+  phase.
+- **Root cause:** the direct Select-and-Transfer WRITE path called the
+  backend write at command acceptance, before the guest drained the DATA OUT
+  window. This was demonstrated by the first WRITE trace: 1024 bytes were
+  reported as backend-written before the first guest DATA OUT byte, followed
+  by phase-direction-mismatch warnings.
+- **Correction:** direct WRITE commands now remain active in DATA OUT, accept
+  bytes through AR19, and call the backend write only after the programmed
+  byte count is complete. The trace digest equality predicate covers both READ
+  and WRITE data paths.
+- **Verification:** the isolated guest creation run completed a WRITE(10) at
+  LBA 572 for four 256-byte blocks with TC `000400`, AR15h `00h`, AR19 DATA
+  OUT, GOOD status, residual zero, commit_count one, and equal backend,
+  staging, and delivered digests. The guest read/reopen/delete run printed
+  `G75 READ-REOPEN-DELETE OK`; a second boot printed `G75 DELETE PERSISTED`.
+  The focused Python tests, `M75_SCSI_CONTROLLER_OK`, Linux build, and
+  `git diff --check` passed.
+- **Evidence:** `docs/agents/reports/m75_scsi_support.md`, G75b screen and
+  trace artifacts retained outside the repository.
+- **Commit:** [13c978b](https://github.com/nakatamaho/vaeg/commit/13c978b)
+
+### HOSTFAT configuration could make startup unrecoverable
+
+- **Status:** fixed in M75; HOSTFAT remains read-only and its guest
+  filesystem contract is unchanged.
+- **Symptom:** changing `HOSTFATDIR` and closing vaeg before the asynchronous
+  rebuild/reset completed could leave the configuration pointing at a new
+  path while the old snapshot remained mounted. A later startup could then
+  fail before the emulator window appeared; deleting the configuration was
+  required to recover.
+- **Root cause:** the GUI persisted `HOSTFAT`/`HOSTFATDIR` before the worker
+  had built and mounted the replacement image, and startup treated a failed
+  configured HOSTFAT rebuild as fatal.
+- **Correction:** retain pending GUI values until successful mount, commit the
+  path only at the mount event, and disable invalid configured HOSTFAT on
+  startup while retaining the path so the emulator can boot and the setting
+  can be corrected later.
+- **Verification:** Linux SDL selftest, HOSTFAT manager failed-rebuild
+  retention selftest, invalid configured-directory startup recovery probe,
+  `M75_SCSI_CONTROLLER_OK`, all required local builds, and `git diff --check`
+  passed.
+- **Evidence:** [M75 report](../agents/reports/m75_scsi_support.md).
+- **Commit:** [bc51051](https://github.com/nakatamaho/vaeg/commit/bc510511326b9fdb3f61018d751dfc598159512a)
+
+
+### HOSTFAT rejected a Windows Dropbox root path
+
+- **Status:** fixed in M75; links that escape the selected root, special files,
+  and containment checks remain rejected.
+- **Symptom:** a Windows HOSTFAT directory selected under a Dropbox tree could
+  be treated as unavailable when the selected root was exposed as a junction or
+  directory reparse point. Paths copied with surrounding quotes were also
+  passed to filesystem validation literally.
+- **Root cause:** the GUI and snapshot builder did not normalize user-entered
+  HOSTFAT paths, and the builder rejected a Windows root reparse point before
+  canonicalizing it.
+- **Correction:** normalize whitespace/quotes, use `USERPROFILE` for the
+  Windows browser start directory, canonicalize the selected Windows root and
+  contained links/reparse points, and reject links that escape the snapshot
+  tree.
+- **Verification:** HOSTFAT snapshot selftest now covers a quoted path and,
+  on Windows when permitted, both a root reparse point and a contained
+  reparse-point directory. Linux debug and MinGW cross builds pass.
+- **Evidence:** [M75 report](../agents/reports/m75_scsi_support.md).
+- **Commit:** [1ec024b](https://github.com/nakatamaho/vaeg/commit/1ec024b)
+- **Follow-up:** [7e6ede7](https://github.com/nakatamaho/vaeg/commit/7e6ede7)
+
+
+### HOSTFAT GUI hid rebuild failures and overstated capacity
+
+- **Status:** fixed in M75.
+- **Symptom:** Configure displayed `127.44 MiB usable` although the current
+  PC-Engine FAT12 geometry provides about 63.72 MiB, and asynchronous rebuild
+  errors were not visually distinguished from normal status text.
+- **Root cause:** the GUI retained a stale capacity label and rendered the
+  manager error message with the normal text style.
+- **Correction:** display the actual 63.72 MiB limit, render
+  `HOSTFAT_MANAGER_ERROR` messages in red directly below the rebuild button
+  with their detailed reason, and reopen Configure automatically after an
+  asynchronous failure.
+- **Verification:** Linux selftest, Linux/macOS/MinGW builds, M75 QA, and
+  repository encoding/EOL/case checks passed.
+- **Evidence:** [M75 report](../agents/reports/m75_scsi_support.md).
+- **Commit:** [55800c6](https://github.com/nakatamaho/vaeg/commit/55800c6)
+- **Follow-up:** [2515598](https://github.com/nakatamaho/vaeg/commit/2515598)
+- **Follow-up:** [eb65a14](https://github.com/nakatamaho/vaeg/commit/eb65a14)
+
+
+### HOSTFAT rebuild failure was not explicit after OK
+
+- **Status:** fixed in M75.
+- **Symptom:** after pressing `Rebuild + reset on OK` and then `OK`, a
+  failed asynchronous rebuild could leave the user without an immediately
+  obvious error notification.
+- **Root cause:** the detailed error was retained in the Configure dialog,
+  but there was no dedicated failure notification at the moment the worker
+  reported failure.
+- **Correction:** show a red `HOSTFAT error` modal for both asynchronous
+  worker failures and synchronous rebuild-start failures. After dismissal,
+  keep the detailed error directly below the rebuild button and reopen
+  Configure for correction.
+- **Verification:** Linux debug selftest, `M75_SCSI_CONTROLLER_OK`, Linux
+  release, macOS release, MinGW cross build, and `git diff --check` passed.
+- **Evidence:** [M75 report](../agents/reports/m75_scsi_support.md).
+- **Commit:** [024855e](https://github.com/nakatamaho/vaeg/commit/024855e799750d762be0526cb10ada43a573f30d)
