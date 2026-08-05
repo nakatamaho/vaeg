@@ -243,12 +243,23 @@ python3 tools/qa/m75_storage_regression.py --g75-scsi \
   --roms /path/to/roms --output-dir /tmp/m75-g75-scsi
 ```
 
-Use `--full-g75` with `--sasi-source` to run both disposable flows. The
-support D88, ROM directory, and source D88 are never modified. For SCSI,
-the script compares the read-back `G75BACK.COM` bytes with the source
-`SCFORM.COM`, validates both FAT copies and positive free clusters, and
-checks that the deleted file is absent from both the guest screen and the
-backing image.
+The two-target regression uses a disposable D88 whose `CONFIG.SYS` contains
+both `SCHD.SYS -I0` and `SCHD.SYS -I1`. It formats both targets, then tests
+create, close/reopen readback, and delete on C: (SCSI ID 0) and D: (SCSI ID 1):
+
+```sh
+python3 tools/qa/m75_storage_regression.py --g75-scsi-two \
+  --worker build/linux-debug/sdl2/vaeg \
+  --support-d88 /path/to/pcengine-support-hostfat.d88 \
+  --roms /path/to/roms --output-dir /tmp/m75-g75-scsi-two
+```
+
+Use `--full-g75` with `--sasi-source` to run SASI HDFORM, the one-disk SCSI
+flow, and the two-target SCSI flow. The support D88, ROM directory, and
+source D88 are never modified. For SCSI, the script compares read-back file
+bytes with the source `SCFORM.COM`, validates both FAT copies and positive
+free clusters, and checks that deleted files are absent from both guest
+screens and backing images.
 
 The support D88 must contain `HOSTFAT.SYS` in `CONFIG.SYS` for `--guest-io`;
 the SCSI flow does not require HOSTFAT to be mounted. The script creates all
@@ -261,9 +272,10 @@ The storage script divides the checks as follows:
 |---|---|
 | SASI HDI creation, `HDFORM.COM` execution, and positive free-space screen | Supplying the owned ROM set and correct source/support D88 |
 | SCSI blank 40MiB VHD creation, SCFORM initialization, FAT validation | Reviewing screen/trace captures when accepting a release |
-| SCSI file creation and `G75TEST.COM` root/FAT verification | GUI Configure / Rebuild + reset interaction |
-| Separate-process close/reopen readback and host byte comparison | Non-SCSI disk regression gates |
-| Separate-process delete and backing-image absence check | Real hardware comparison and any manual multi-disk gate |
+| One-disk SCSI file creation and `G75TEST.COM` root/FAT verification | GUI Configure / Rebuild + reset interaction |
+| Two-target SCSI ID 0/1 formatting and file-operation verification | Non-SCSI disk regression gates |
+| Separate-process close/reopen readback and host byte comparison | Real hardware comparison |
+| Separate-process delete and backing-image absence check | Manual hardware multi-disk comparison |
 | HOSTFAT `TYPE` success and read-only `DEL` rejection | None of the disposable guest steps is a substitute for release review |
 
 

@@ -67,10 +67,23 @@ class StorageFixtureTest(unittest.TestCase):
         self.assertIn("G75TEST.COM", MODULE.scsi_create_input_lines()[1])
         self.assertIn("G75BACK.COM", MODULE.scsi_readback_input_lines()[3])
         self.assertIn("G75TEST.COM", MODULE.scsi_delete_input_lines()[1])
+        self.assertEqual(MODULE.scsi_format_input_lines(1)[1], "1")
+        self.assertIn(
+            "G75ID0.COM",
+            MODULE.scsi_two_disk_create_input_lines("C", "G75ID0.COM")[1])
+        self.assertIn(
+            "G75ID1.COM",
+            MODULE.scsi_two_disk_create_input_lines("D", "G75ID1.COM")[1])
+        self.assertIn(
+            "G75I1BK.COM",
+            MODULE.scsi_two_disk_readback_input_lines(
+                "D", "G75ID1.COM", "G75I1BK.COM")[3])
 
     def test_scsi_image_helpers(self):
         self.assertEqual(MODULE.SCSI_TEST_FILE, "G75TEST.COM")
         self.assertEqual(MODULE.SCSI_BACKUP_FILE, "G75BACK.COM")
+        self.assertEqual(MODULE.SCSI_ID0_FILE, "G75ID0.COM")
+        self.assertEqual(MODULE.SCSI_ID1_FILE, "G75ID1.COM")
 
 if __name__ == "__main__":
     unittest.main()
