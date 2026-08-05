@@ -79,9 +79,9 @@
 #if defined(VAEG_UPD9002_M46_TESTING)
 #include	"tests/upd9002/dispatch_normalization.h"
 #endif
-#if defined(VAEG_Z80_INTEGRATION_TESTING)
+#if defined(VAEG_UPD780_INTEGRATION_TESTING)
 #include	"iova/subsystem.h"
-#include	"tests/z80/subsystem_integration.h"
+#include	"tests/upd780/subsystem_integration.h"
 #endif
 
 static int fail(const char *name, const char *detail) {
@@ -1541,9 +1541,9 @@ static int test_statsave(void) {
 	UINT16	identity_ip;
 	BYTE	identity_memory;
 	int		ret;
-#if defined(VAEG_Z80_INTEGRATION_TESTING)
+#if defined(VAEG_UPD780_INTEGRATION_TESTING)
 	static const UINT8 f4_program[] = {0xaf, 0x3e, 0x5a, 0xd3, 0xf4, 0x00};
-	VAEG_Z80_INTEGRATION_TRACE_STATE z80trace;
+	VAEG_UPD780_INTEGRATION_TRACE_STATE upd780trace;
 #endif
 
 	SPRINTF(path1, "vaeg-selftest-%lu-1.sts", (unsigned long)getpid());
@@ -1593,15 +1593,15 @@ static int test_statsave(void) {
 	}
 #endif
 
-#if defined(VAEG_Z80_INTEGRATION_TESTING)
+#if defined(VAEG_UPD780_INTEGRATION_TESTING)
 	if (ret == STATFLAG_SUCCESS) {
-		subsystem_z80_test_reset();
-		subsystem_z80_test_install(0, f4_program, sizeof(f4_program));
-		subsystem_z80_test_set_pc(0);
-		subsystem_z80_test_set_clock(22);
+		subsystem_upd780_test_reset();
+		subsystem_upd780_test_install(0, f4_program, sizeof(f4_program));
+		subsystem_upd780_test_set_pc(0);
+		subsystem_upd780_test_set_clock(22);
 		subsystem_exec();
-		subsystem_z80_test_get_trace(&z80trace);
-		if ((z80trace.f4_count != 1) || (z80trace.f4_last_value != 0x5a)) {
+		subsystem_upd780_test_get_trace(&upd780trace);
+		if ((upd780trace.f4_count != 1) || (upd780trace.f4_last_value != 0x5a)) {
 			ret = STATFLAG_FAILURE;
 		}
 	}
@@ -1693,10 +1693,10 @@ static int test_statsave(void) {
 		ret = STATFLAG_FAILURE;
 	}
 #endif
-#if defined(VAEG_Z80_INTEGRATION_TESTING)
+#if defined(VAEG_UPD780_INTEGRATION_TESTING)
 	if (ret == STATFLAG_SUCCESS) {
-		subsystem_z80_test_get_trace(&z80trace);
-		if ((z80trace.f4_count != 1) || (z80trace.f4_last_value != 0x5a)) {
+		subsystem_upd780_test_get_trace(&upd780trace);
+		if ((upd780trace.f4_count != 1) || (upd780trace.f4_last_value != 0x5a)) {
 			ret = STATFLAG_FAILURE;
 		}
 	}
@@ -2219,9 +2219,9 @@ int vaeg_selftest_run(void) {
 	if (test_hostfat_transport() != SUCCESS) {
 		return(FAILURE);
 	}
-#if defined(VAEG_Z80_INTEGRATION_TESTING)
-	if (vaeg_z80_subsystem_integration_test() != SUCCESS) {
-		return(fail("Z80 subsystem integration", "production seam test failed"));
+#if defined(VAEG_UPD780_INTEGRATION_TESTING)
+	if (vaeg_upd780_subsystem_integration_test() != SUCCESS) {
+		return(fail("uPD780 subsystem integration", "production seam test failed"));
 	}
 #endif
 	fprintf(stderr, "selftest: all tests passed\n");

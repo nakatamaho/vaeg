@@ -37,7 +37,7 @@ void subsystem_businportc(BYTE dat);
 void subsystem_reset(void);
 void subsystem_irq(BOOL irq);
 
-#if defined(VAEG_Z80_INTEGRATION_TESTING)
+#if defined(VAEG_UPD780_INTEGRATION_TESTING)
 typedef struct {
 	UINT	f4_count;
 	BYTE	f4_last_value;
@@ -51,7 +51,7 @@ typedef struct {
 	BYTE	sleep_port_value;
 	BYTE	sleep_memory_value;
 	BOOL	wait_active;
-} VAEG_Z80_INTEGRATION_TRACE_STATE;
+} VAEG_UPD780_INTEGRATION_TRACE_STATE;
 
 typedef struct {
 	UINT16	af;
@@ -65,16 +65,16 @@ typedef struct {
 	UINT8	wait_flags;
 	SINT32	remainclock;
 	SINT32	lastclock;
-} VAEG_Z80_INTEGRATION_CPU_STATE;
+} VAEG_UPD780_INTEGRATION_CPU_STATE;
 
-void subsystem_z80_test_reset(void);
-void subsystem_z80_test_install(WORD address, const UINT8 *data, UINT size);
-void subsystem_z80_test_set_pc(WORD pc);
-void subsystem_z80_test_set_clock(UINT32 now);
-void subsystem_z80_test_set_wait(BOOL wait);
-void subsystem_z80_test_reset_trace(void);
-void subsystem_z80_test_get_trace(VAEG_Z80_INTEGRATION_TRACE_STATE *trace);
-BOOL subsystem_z80_test_get_state(VAEG_Z80_INTEGRATION_CPU_STATE *state);
+void subsystem_upd780_test_reset(void);
+void subsystem_upd780_test_install(WORD address, const UINT8 *data, UINT size);
+void subsystem_upd780_test_set_pc(WORD pc);
+void subsystem_upd780_test_set_clock(UINT32 now);
+void subsystem_upd780_test_set_wait(BOOL wait);
+void subsystem_upd780_test_reset_trace(void);
+void subsystem_upd780_test_get_trace(VAEG_UPD780_INTEGRATION_TRACE_STATE *trace);
+BOOL subsystem_upd780_test_get_state(VAEG_UPD780_INTEGRATION_CPU_STATE *state);
 #endif
 
 
