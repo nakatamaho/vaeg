@@ -18,6 +18,24 @@ The vaeg wrapper, revision-1 codec, and disassembler are independently
 authored BSD-2-Clause code. The removed historical M88/cisc-derived Z80 files
 were not relicensed; Git history was not rewritten.
 
+## CPU-role naming
+
+The active tree distinguishes the emulated hardware role from the shared
+instruction implementation:
+
+- `cpucva/upd9002_upd70008.*` is the uPD9002 main-CPU adapter's
+  uPD70008-compatible mode.
+- `iova/subsystem.cpp` uses the shared implementation for the FDC's
+  `UPD780C`-named CPU instance.
+- `cpucva/z80_core.*`, `z80_bus.h`, `z80_registers.h`, `z80_disasm.*`, and
+  `z80_legacy_state.*` remain common Z80-compatible backend and compatibility
+  files. The `z80` in these filenames describes the suzukiplan instruction
+  backend, not an additional FDC device or a claim that the FDC is a generic
+  Z80. The FDC-facing API and diagnostics use the uPD780 name.
+
+The `UPD9Z80` save-state section identifier is retained intentionally so that
+states created before the M76 naming clarification remain loadable.
+
 ## External V20 comparison data
 
 The uPD9002 comparison infrastructure can use the SingleStepTests V20
