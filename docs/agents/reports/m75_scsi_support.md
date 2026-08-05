@@ -2172,6 +2172,33 @@ This is machine evidence for the disposable storage paths. It does not
 approve the remaining M75 human gates, including non-SCSI disk regression,
 GUI reset interaction, and any real-hardware comparison.
 
+## M75 human gate checklist
+
+The manual gate uses the normal frontend and keyboard path with disposable
+copies of the support D88 and media images. Use the MinGW artifact at
+`build/mingw-cross/sdl2/vaeg.exe` relative to the checkout. For the dual-SCSI
+case, the boot D88 must load both `SCHD.SYS -I0` and `SCHD.SYS -I1`, yielding
+C: for SCSI ID 0 and D: for SCSI ID 1.
+
+The reviewer must record the final screen after each restart and verify:
+
+- SASI: `HDFORM C:`, create `G75SASI.COM`, reset/reopen, copy it to A: as
+  `G75SASB.COM`, compare bytes with `HDFORM.COM`, delete it, and confirm it
+  is absent from the final `DIR C:` with positive free capacity.
+- SCSI ID 0 and ID 1: format each target, create a file, reset/reopen,
+  read it back to A:, compare bytes, delete it, and confirm the final root
+  directory and free-cluster state.
+- HOSTFAT: `TYPE` succeeds for the snapshot file and `DEL` is rejected.
+- GUI recovery: a valid `Rebuild + reset on OK` changes the mounted HOSTFAT
+  directory after reboot; an invalid directory shows the red error and
+  leaves the emulator restartable without manually deleting `vaeg.cfg`.
+- Non-SCSI disk operation and the bundled VA demo still work independently.
+
+Any failed row keeps G75 at FAIL until the exact screen, configuration, and
+writable disposable media copy have been retained for diagnosis. The
+automated harness does not replace this frontend, GUI, non-SCSI, or real-
+hardware review.
+
 
 ## G75 two-target SCSI automation
 
