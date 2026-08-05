@@ -23,19 +23,19 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 #include "compiler.h"
-#include "tests/upd9002/brkem_z80.h"
-#include "cpucva/upd9002_z80.h"
+#include "tests/upd9002/brkem_upd70008.h"
+#include "cpucva/upd9002_upd70008.h"
 
 #include <stdio.h>
 
-int upd9002_brkem_z80_main(void) {
+int upd9002_brkem_upd70008_main(void) {
 #if defined(VAEG_UPD9002_M76_TESTING)
-	if (upd9002_z80_compat_selftest() != SUCCESS) {
-		fprintf(stderr, "upd9002-brkem-z80: production Z80 bridge failed\n");
+	if (upd9002_upd70008_compat_selftest() != SUCCESS) {
+		fprintf(stderr, "upd9002-brkem-upd70008: production uPD70008-compatible bridge failed\n");
 		return FAILURE;
 	}
 	fprintf(stderr,
-		"upd9002-brkem-z80: BRKEM, Z80 JR/IX/IY, CALLN/IRET, LD HL, RETEM passed\n");
+		"upd9002-brkem-upd70008: BRKEM, Z80 JR/IX/IY, CALLN/IRET, LD HL, RETEM passed\n");
 	return SUCCESS;
 #else
 	return FAILURE;

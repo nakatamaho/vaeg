@@ -78,7 +78,7 @@
 #include	"tests/upd9002/iret_restoration.h"
 #endif
 #if defined(VAEG_UPD9002_M76_TESTING)
-#include	"tests/upd9002/brkem_z80.h"
+#include	"tests/upd9002/brkem_upd70008.h"
 #endif
 #if defined(VAEG_UPD9002_M61_TESTING)
 #include	"tests/upd9002/mov_imm_register.h"
@@ -1703,8 +1703,8 @@ int main(int argc, char **argv) {
 	}
 #endif
 #if defined(VAEG_UPD9002_M76_TESTING)
-	if ((argc == 2) && !strcmp(argv[1], "--upd9002-brkem-z80")) {
-		return upd9002_brkem_z80_main();
+	if ((argc == 2) && !strcmp(argv[1], "--upd9002-brkem-upd70008")) {
+		return upd9002_brkem_upd70008_main();
 	}
 #endif
 #if defined(VAEG_UPD9002_M61_TESTING)

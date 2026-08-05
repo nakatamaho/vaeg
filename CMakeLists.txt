@@ -273,8 +273,8 @@ set(VAEG_Z80_PRODUCTION_SOURCES
     cpucva/z80_disasm.cpp
     cpucva/z80_core.cpp
     cpucva/z80_legacy_state.cpp
-    cpucva/upd9002_z80.cpp)
-message(STATUS "Production Z80 core: suzukiplan")
+    cpucva/upd9002_upd70008.cpp)
+message(STATUS "Production uPD70008-compatible core: suzukiplan Z80")
 
 set(VAEG_VA_SOURCES
     biosva/biosva.c
@@ -357,7 +357,7 @@ if(VAEG_ENABLE_TESTS)
         tests/idp/m69_status_composition.c
         tests/z80/subsystem_integration.cpp
         tests/upd9002/direct_harness.c
-        tests/upd9002/brkem_z80.c
+        tests/upd9002/brkem_upd70008.c
 		tests/upd9002/dispatch_normalization.c
         tests/upd9002/flags_materialization.c
         tests/upd9002/iret_restoration.c
@@ -773,9 +773,9 @@ if(VAEG_ENABLE_TESTS)
     set_tests_properties(vaeg_upd9002_iret_restoration PROPERTIES
 		LABELS "romless;upd9002;flags;iret;semantics")
 
-    add_test(NAME vaeg_upd9002_brkem_z80
-        COMMAND vaeg_sdl2 --upd9002-brkem-z80)
-    set_tests_properties(vaeg_upd9002_brkem_z80 PROPERTIES
+    add_test(NAME vaeg_upd9002_brkem_upd70008
+        COMMAND vaeg_sdl2 --upd9002-brkem-upd70008)
+    set_tests_properties(vaeg_upd9002_brkem_upd70008 PROPERTIES
         LABELS "romless;upd9002;z80;compatibility;transitions")
 
     add_test(NAME vaeg_upd9002_mov_imm_register
