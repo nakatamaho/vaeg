@@ -279,6 +279,54 @@ The storage script divides the checks as follows:
 | Separate-process delete and backing-image absence check | Manual hardware multi-disk comparison |
 | HOSTFAT `TYPE` success and read-only `DEL` rejection | None of the disposable guest steps is a substitute for release review |
 
+### Storage harness operation and artifacts
+
+The harness is `tools/qa/m75_storage_regression.py`. It accepts exactly one
+storage mode per invocation. `--selftest` is fixture-only and does not boot
+the emulator. The guest modes require a worker executable, the support D88,
+and a ROM directory; SASI modes additionally require a source D88 containing
+`HDFORM.COM`.
+
+Each guest step is run by `tools/qa/m75_scsi_harness.py` with a generated
+headless-input script. The harness checks a zero worker exit, a `process-exit`
+termination, and a matching run ID in the screen and trace pair. With
+`--output-dir OUT`, the disposable evidence is arranged as follows:
+
+```text
+OUT/
+  sasi-format/
+    boot.d88  sasi.hdi
+    guest/    format screen/trace/input
+    create/   create screen/trace/input
+    readback/ readback screen/trace/input
+    delete/   delete screen/trace/input
+  g75-scsi/          one-target SCSI lifecycle
+  g75-scsi-two/      SCSI ID 0 and ID 1 lifecycle
+```
+
+`screen.bin` is the decoded text-plane capture, `trace.log` is the
+same-run emulator trace, and `headless-input.txt` records the exact DOS
+commands and waits. The JSON result on standard output includes the
+per-step screen/trace digests, image digests, and byte-comparison result.
+The output directory is disposable; the source D88, support D88, and ROM
+files are read-only inputs.
+
+Typical verification order is:
+
+```sh
+python3 tools/qa/m75_storage_regression.py --selftest
+python3 tools/qa/test_m75_storage_regression.py -v
+python3 tools/qa/m75_storage_regression.py --full-g75 \
+  --worker build/linux-debug/sdl2/vaeg \
+  --support-d88 /path/to/pcengine-support-hostfat.d88 \
+  --sasi-source "/path/to/PC-Engine 1.1(83U10).d88" \
+  --roms /path/to/roms --output-dir /tmp/m75-full-g75
+```
+
+Use `--sasi-format`, `--g75-scsi`, or `--g75-scsi-two` to rerun only one
+media family. Use `--guest-io` separately for HOSTFAT `TYPE` success and
+read-only delete rejection; it is intentionally not part of `--full-g75`.
+
 
 ## ROM Placement
 
