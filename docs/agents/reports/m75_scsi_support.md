@@ -2148,6 +2148,16 @@ without modifying the source D88, ROM directory, or HOSTFAT source tree.
   Every guest step retains a same-run screen/trace pair and its headless
   input script.
 
+The script's guest modes are mutually exclusive. `--selftest` checks only
+fixture generation and input-script construction. All booting modes require
+`--worker`, `--support-d88`, and `--roms`; `--sasi-format` and `--full-g75`
+also require a source D88 containing `HDFORM.COM`. Each guest step is
+performed by `tools/qa/m75_scsi_harness.py` with generated input and records
+`screen.bin`, `trace.log`, and `headless-input.txt`. The runner rejects a
+missing screen/trace pair, a mismatched run ID, or a termination other than
+`process-exit`. The JSON emitted on stdout is the machine-readable result;
+raw disposable evidence remains outside Git.
+
 The normal-speed run completed the SASI lifecycle and the full SCSI flow:
 HDFORM created the SASI filesystem, a separate process created G75SASI.COM,
 a further process copied it after close/reopen to G75SASB.COM on A: with
