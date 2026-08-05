@@ -58,7 +58,7 @@ levels, and every error found so far lived on exactly that boundary.
 | `[VA-TEKU]` | 「てくまに」 — the *88VA Technical Manual* compiled independently by members of the PC-VAN "88VA Users Club" SIG and circulated as `TEKUMANI.LZH`. **Not** the BNN book: separately authored, community-edited, and its own distribution page notes that errors have been reported in it. | Implement, but treat as weaker than `[VA-TM]`. Corroborate against the manual scan or the ROM wherever possible. |
 | `[VA-WIKI]` | *Inside PC-88VA* wiki, §1.5 CPU. Documents what the てくまに omits and carries its errata. Its I/O-trap section is CoBit's original 1992 post reproduced verbatim; its instruction-set section cites *Micom* Aug 1987. | Implement; note that CoBit's own caveat (ROM analysis plus experiment, possibly incomplete) applies to §9. |
 | `[ROM]` | Extracted from PC-88VA ROM images: opcode tables, string pools, and disassembly. | Reliable for what the firmware *does*. A disassembler table is **not** proof that silicon executes something. |
-| `[SRC]` | Period source or binaries that shipped and worked: CPMVA (Makichan, 1989), 98IOE/IOTRAP (CoBit, 1992), and the CP/M emulator `.cpv` V30 path. | Reliable for the path each program actually executes. |
+| `[SRC]` | Period source or binaries that shipped and worked: CPMVA (Makichan, 1989), 98IOE/IOTRAP (CoBit, 1992), and the MS-DOS CP/M emulator v0.8 `.cpv` V30 path audited in M76. | Reliable for the path each program actually executes. |
 | `[DERIVED]` | Logically forced by the above; the derivation is stated inline. | Implement with a citing comment. |
 | `[UNKNOWN]` | Not determined by anything in hand. | Do not guess. Register in §15. |
 
@@ -1997,11 +1997,22 @@ and Z80 code.
 
 ### 10.1 CP/M emulator — a minimal V30 hard-emulation exerciser
 
-`[SRC]` The CP/M emulator distributed as [18a] is a useful transition
+`[SRC]` The MS-DOS CP/M emulator v0.8 distributed as [18a] is a useful transition
 test asset because its hard path is narrower than CPMVA's. It uses the
 V30 hard 8080 emulation mode only for `.cpv` programs, and only after its
 runtime V30 probe succeeds. `.cpm` and `.com` use the software emulator
-path instead.
+path instead. This is the artifact meant by the `.cpv` evidence; the
+separate Vector Win32 v0.4 package is not interchangeable and does not
+contain this `.cpv`/`BRKEM` path.
+
+M76 identity: cpm08.zip SHA-256
+691e51dda202ab97b7c8c947ca7c9bf2d93d822f3e315362fcc7840199b8d6f7,
+CPM.ASM SHA-256
+1172892475ed0852dc00795ef0af117c9ba120bc31d339c4b65e08631c5115f0,
+CPM.EXE SHA-256
+d9e8ba8e5322bd037186ef11da4f980c4d5999affce3ad4201221ca721947040.
+The source was CP932 and was converted to UTF-8 only for the audit; no
+CP932 source is added to the repository.
 
 The probe is intentionally small:
 
@@ -2090,6 +2101,16 @@ Two harness caveats are worth recording before repeated automated use:
 `restor_vct` restores the BDOS vector twice and leaves the BIOS vector
 unrestored, and an unused `incsp` macro encodes `3Eh` even though 8080
 `INC SP` is `33h`.
+
+The hard-path source-level boundary is precise: after opening `.cpv`,
+CPM.ASM executes D5 00 with AX=0100h and falls back when the V30 result
+is not observed; it installs F1/F2/F3 through DOS vector services, emits
+0F FF F1, and its generated compatible image contains ED ED F2, ED ED F3,
+and ED FD. This proves that a working V30 can use the 8080 emulation mode
+and that these three encodings form a transition contract. It does not prove
+the VA's 0F FE BRKEM2, the uPD780/Z80 instruction superset, or uPD9002
+specific frame and interrupt details.
+
 
 ---
 
@@ -3408,11 +3429,14 @@ PC-8801 and a real PC-88VA2 after booting N88-DISK-BASIC and typing
 `mon`. Reproduced in §17.2; the evidence that closes `alt-regs` and
 `ix-shares-si`.
 
-**[18a]** CP/M emulator for MS-DOS. Vector software page:
-<https://www.vector.co.jp/soft/win95/util/se378130.html>. — source of the
-`.cpv` V30 hard-emulation path discussed in §10.1. M75 must record the
-downloaded archive identity, source identity and binary identity before
-using it as executable evidence.
+**[18a]** CP/M emulator for MS-DOS, version 0.8. Vector software page:
+<https://www.vector.co.jp/soft/dos/util/se000015.html>; archive
+<https://ftp.vector.co.jp/58/06/545/cpm08.zip>. Archive SHA-256
+691e51dda202ab97b7c8c947ca7c9bf2d93d822f3e315362fcc7840199b8d6f7.
+`CPM.ASM` and `CPM.EXE` identities are recorded in §10.1. This is the
+`.cpv` V30 hard-emulation path discussed in §10.1. The separate Win32
+package page <https://www.vector.co.jp/soft/win95/util/se378130.html>
+describes a different v0.4 artifact and is not its source.
 
 ## Schematics and field observation — *(no tag defined)*
 
