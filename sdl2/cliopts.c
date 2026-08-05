@@ -178,6 +178,17 @@ BOOL vaeg_cli_parse(int argc, char **argv, VAEG_CLI_OPTIONS *options,
 			options->scsitrace = TRUE;
 			options->scsitrace_compact = TRUE;
 		}
+		else if (!strcmp(argument, "--scsitrace-census")) {
+			options->scsitrace = TRUE;
+			options->scsitrace_compact = TRUE;
+			options->scsitrace_census = TRUE;
+		}
+		else if (!strcmp(argument, "--scsitrace-census-only")) {
+			options->scsitrace = TRUE;
+			options->scsitrace_compact = TRUE;
+			options->scsitrace_census = TRUE;
+			options->scsitrace_census_only = TRUE;
+		}
 		else if (!strcmp(argument, "--scsitrace-cmdreq-windows")) {
 			options->scsitrace = TRUE;
 			options->scsitrace_guest = TRUE;
@@ -216,6 +227,15 @@ BOOL vaeg_cli_parse(int argc, char **argv, VAEG_CLI_OPTIONS *options,
 						value));
 			}
 			options->scsitrace_limit = number;
+		}
+		else if (!strcmp(argument, "--headless-input-script")) {
+			value = option_value(argc, argv, &position, argument, error,
+										error_size);
+			if ((value == NULL) || (value[0] == '\0')) {
+				return(set_error(error, error_size,
+						"--headless-input-script requires a path", value));
+			}
+			options->headless_input_script = value;
 		}
 		else if (!strcmp(argument, "--pacelog")) {
 			options->pacelog = TRUE;

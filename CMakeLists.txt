@@ -316,6 +316,8 @@ set(VAEG_SDL2_SOURCES
     external/ymfm/src/ymfm_opn.cpp
     external/ymfm/src/ymfm_ssg.cpp
     sdl2/np2.c
+    sdl2/headless_input.c
+    sdl2/g75_screen.c
     sdl2/cliopts.c
     sdl2/dosio.c
     sdl2/ini.c
@@ -834,6 +836,13 @@ if(VAEG_ENABLE_TESTS)
             -v)
     set_tests_properties(vaeg_m75_fat_inspection PROPERTIES
         LABELS "romless;scsi;m75;fat")
+
+    add_test(NAME vaeg_m75_storage_regression_fixtures
+        COMMAND "${Python3_EXECUTABLE}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/m75_storage_regression.py"
+            --selftest)
+    set_tests_properties(vaeg_m75_storage_regression_fixtures PROPERTIES
+        LABELS "romless;sasi;hostfat;m75;storage")
 
     add_test(NAME vaeg_upd9002_m70_prefix_string
 		COMMAND vaeg_sdl2 --upd9002-m70-prefix-string)
