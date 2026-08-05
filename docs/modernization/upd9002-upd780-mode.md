@@ -2324,11 +2324,32 @@ compatible-mode entry, so it is not a drop-in answer.
 - The FDD subsystem Z80 is implemented separately — historically
   `cpucva/z80c.cpp`, currently `cpucva/z80_core.cpp`, with
   `iova/subsystem.cpp` and `VASUBSYS.ROM`.
-- **The main CPU's compatible mode is not implemented.**
-  `docs/agents/reports/m9_v30_map.md` records it as an explicit future
-  item.
-- `BRKEM`/`BRKEM2` must be modelled as mode-changing control transfers,
-  not ordinary software interrupts.
+- The main CPU compatible mode now has a bounded Stage 1 implementation in
+  `cpucva/upd9002_z80.cpp`, using the vendored suzukiplan Z80 core. It is
+  installed through the uPD9002 core hook boundary and does not share the FDD
+  instance or its state.
+- `0F FF imm8` (`BRKEM`), `ED ED imm8` (`CALLN`), `ED FD` (`RETEM`), and
+  native `IRET` return are implemented with the documented native
+  `SS:SP` transition frame. Compatible `SP` maps to native `BP`, `IX`/`IY`
+  map to native `SI`/`DI`, and the compatible Z80 state is saved in a
+  versioned 68-byte `UPD9Z80` section.
+- `0F FE imm8` (`BRKEM2`), full VA I/O-trap semantics, and silicon-specific
+  interrupt/timing behavior remain outside this Stage 1 implementation.
+- `BRKEM`/`BRKEM2` are modelled as mode-changing control transfers, not
+  ordinary software interrupts.
+
+### 14.1 Stage 1 implementation boundary
+
+The production-path ROMless regression
+`vaeg_upd9002_brkem_z80` executes a native `BRKEM`, Z80 `JR`, `IX` and `IY`
+loads, `CALLN` into native code, native `IRET`, `LD HL`, and `RETEM`. The
+transition test uses the same C dispatch path as the main CPU and the same
+Z80 wrapper used by the FDD, but owns an independent instance and state
+section.
+
+The MAME NEC V20/V30 core is used only as a comparison for the standard
+V30 transition frame and opcode placement; its 8080 emulation decoder is
+not used as the compatible decoder.
 
 ---
 
