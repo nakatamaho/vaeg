@@ -239,12 +239,38 @@ extern "C" {
 extern	Upd9002CoreContext	upd9002_core_context;
 extern	const UINT8	iflags[];
 
+typedef struct {
+	void (*reset)(void);
+	void (*enter)(void);
+	void (*step)(void);
+	void (*sync_to_native)(void);
+	void (*leave)(void);
+	void (*resume)(void);
+	int (*state_save)(UINT8 *buffer, UINT size);
+	int (*state_load)(const UINT8 *buffer, UINT size);
+} Upd9002CompatHooks;
+
+enum {
+	UPD9002_COMPAT_NATIVE = 0,
+	UPD9002_COMPAT_Z80 = 1
+};
+
+#define UPD9002_COMPAT_STATE_SIZE 68
+#define UPD9002_COMPAT_STATE_SECTION "UPD9Z80"
+
 void upd9002_core_initialize(void);
 void upd9002_core_deinitialize(void);
 void upd9002_core_reset(void);
 void upd9002_core_shut(void);
 void upd9002_core_set_ext_size(UINT32 size);
 void upd9002_core_set_emm(UINT frame, UINT32 addr);
+void upd9002_core_set_compat_hooks(const Upd9002CompatHooks *hooks);
+void CPUCALL upd9002_core_brkem(REG8 vect);
+void CPUCALL upd9002_core_compat_calln(REG8 vect, REG16 return_ip);
+void CPUCALL upd9002_core_compat_retem(void);
+void CPUCALL upd9002_core_compat_iret_resume(void);
+int upd9002_core_compat_state_save(UINT8 *buffer, UINT size);
+int upd9002_core_compat_state_load(const UINT8 *buffer, UINT size);
 
 void CPUCALL upd9002_core_interrupt(REG8 vect);
 
@@ -308,6 +334,8 @@ UINT upd9002_dispatch_test_rejected_count(void);
 #define	CPU_EXTMEM		upd9002_core_context.e.ext
 #define	CPU_EXTMEMSIZE	upd9002_core_context.e.extsize
 #define	CPU_INPADRS		upd9002_core_context.e.inport
+#define	CPU_COMPAT_MODE	upd9002_core_context.s.padding[0]
+#define	CPU_COMPAT_RETURN_PENDING	upd9002_core_context.s.padding[1]
 #define	CPU_EMSPTR		upd9002_core_context.e.ems
 
 #if defined(CPUSTRUC_MEMWAIT)

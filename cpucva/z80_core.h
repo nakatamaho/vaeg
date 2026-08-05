@@ -39,6 +39,7 @@ public:
     bool Init(IMemoryAccess *memory, IIOAccess *bus, IClock *clock,
               IClockCounter *clockcounter, int interrupt_acknowledge_port);
     void Exec();
+    void ExecOne();
 
     void IOCALL Reset(std::uint32_t = 0, std::uint32_t = 0);
     void IOCALL IRQ(std::uint32_t, std::uint32_t asserted);
@@ -51,6 +52,9 @@ public:
 
     std::uint32_t GetPC();
     void SetPC(std::uint32_t new_pc);
+    void SetReg(const Z80Reg &reg);
+    void SetMainReg(const Z80Reg &reg);
+    void SetMemoryBases(std::uint32_t code_base, std::uint32_t data_base);
     const Z80Reg *GetReg();
 
 private:
@@ -67,6 +71,9 @@ private:
 
     void SynchronizePublicMirror();
     void ApplyInstructionCorrections();
+    void ExecuteOne();
+    std::uint32_t TranslateCodeAddress(std::uint16_t address) const;
+    std::uint32_t TranslateDataAddress(std::uint16_t address) const;
 
     Z80C(const Z80C &) = delete;
     Z80C &operator=(const Z80C &) = delete;
@@ -87,6 +94,8 @@ private:
     bool restore_iff1_after_instruction_;
     bool materialize_i_flags_after_instruction_;
     bool materialize_r_flags_after_instruction_;
+    std::uint32_t code_base_;
+    std::uint32_t data_base_;
     Z80Reg public_registers_;
 };
 

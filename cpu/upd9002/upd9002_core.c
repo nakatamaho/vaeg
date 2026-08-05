@@ -17,6 +17,7 @@
 	Upd9002CoreContext	upd9002_core_context;
 	UINT16	upd9002_step_start_cs;
 	UINT16	upd9002_step_start_ip;
+static Upd9002CompatHooks upd9002_compat_hooks;
 
 const UINT8 iflags[512] = {					// Z_FLAG, S_FLAG, P_FLAG
 			0x44, 0x00, 0x00, 0x04, 0x00, 0x04, 0x04, 0x00,
@@ -183,6 +184,13 @@ static void upd9002_core_initreg(void) {
 
 void upd9002_core_step(void) {
 
+	if (CPU_COMPAT_MODE == UPD9002_COMPAT_Z80) {
+		if (upd9002_compat_hooks.step != NULL) {
+			upd9002_compat_hooks.step();
+		}
+		return;
+	}
+
 	UINT	opcode;
 	BOOL	preserve_state;
 	Upd9002RuntimeState state_before;
@@ -244,6 +252,11 @@ void upd9002_core_reset(void) {
 	upd9002_diagnostic_clear();
 	upd9002_core_initreg();
 	upd9002_state_reset();
+	CPU_COMPAT_MODE = UPD9002_COMPAT_NATIVE;
+	CPU_COMPAT_RETURN_PENDING = 0;
+	if (upd9002_compat_hooks.reset != NULL) {
+		upd9002_compat_hooks.reset();
+	}
 }
 
 void upd9002_core_shut(void) {
@@ -303,6 +316,113 @@ static UINT16 upd9002_materialize_interrupt_saved_flags(void) {
 						(UPD9002_OV ? O_FLAG : 0));
 }
 
+void upd9002_core_set_compat_hooks(const Upd9002CompatHooks *hooks) {
+	if (hooks == NULL) {
+		ZeroMemory(&upd9002_compat_hooks, sizeof(upd9002_compat_hooks));
+	}
+	else {
+		upd9002_compat_hooks = *hooks;
+	}
+}
+
+int upd9002_core_compat_state_save(UINT8 *buffer, UINT size) {
+	if ((buffer == NULL) || (size != UPD9002_COMPAT_STATE_SIZE)) {
+		return FAILURE;
+	}
+	ZeroMemory(buffer, size);
+	if (((CPU_COMPAT_MODE == UPD9002_COMPAT_Z80) ||
+			(CPU_COMPAT_RETURN_PENDING != 0)) &&
+			(upd9002_compat_hooks.state_save != NULL)) {
+		return upd9002_compat_hooks.state_save(buffer, size);
+	}
+	return SUCCESS;
+}
+
+int upd9002_core_compat_state_load(const UINT8 *buffer, UINT size) {
+	if ((buffer == NULL) || (size != UPD9002_COMPAT_STATE_SIZE)) {
+		return FAILURE;
+	}
+	if (((CPU_COMPAT_MODE == UPD9002_COMPAT_Z80) ||
+			(CPU_COMPAT_RETURN_PENDING != 0)) &&
+			(upd9002_compat_hooks.state_load != NULL)) {
+		return upd9002_compat_hooks.state_load(buffer, size);
+	}
+	return SUCCESS;
+}
+
+static UINT16 upd9002_vector_offset(REG8 vect) {
+	return LOADINTELWORD(mem + ((UINT)vect << 2));
+}
+
+static UINT16 upd9002_vector_segment(REG8 vect) {
+	return LOADINTELWORD(mem + ((UINT)vect << 2) + 2);
+}
+
+void CPUCALL upd9002_core_brkem(REG8 vect) {
+	UINT16 return_ip;
+
+	if (CPU_COMPAT_MODE != UPD9002_COMPAT_NATIVE) {
+		return;
+	}
+	return_ip = UPD9002_IP;
+	REGPUSH0(upd9002_materialize_interrupt_saved_flags())
+	REGPUSH0(UPD9002_CS)
+	UPD9002_CS = upd9002_vector_segment(vect);
+	CS_BASE = UPD9002_CS << 4;
+	REGPUSH0(return_ip)
+	UPD9002_IP = upd9002_vector_offset(vect);
+	CPU_COMPAT_MODE = UPD9002_COMPAT_Z80;
+	CPU_COMPAT_RETURN_PENDING = 0;
+	UPD9002_WORKCLOCK(20);
+	if (upd9002_compat_hooks.enter != NULL) {
+		upd9002_compat_hooks.enter();
+	}
+}
+
+void CPUCALL upd9002_core_compat_calln(REG8 vect, REG16 return_ip) {
+	if (CPU_COMPAT_MODE != UPD9002_COMPAT_Z80) {
+		return;
+	}
+	REGPUSH0(upd9002_materialize_interrupt_saved_flags())
+	REGPUSH0(UPD9002_CS)
+	UPD9002_CS = upd9002_vector_segment(vect);
+	CS_BASE = UPD9002_CS << 4;
+	REGPUSH0(return_ip)
+	UPD9002_IP = upd9002_vector_offset(vect);
+	CPU_COMPAT_MODE = UPD9002_COMPAT_NATIVE;
+	CPU_COMPAT_RETURN_PENDING = 1;
+	UPD9002_WORKCLOCK(20);
+}
+
+void CPUCALL upd9002_core_compat_retem(void) {
+	UINT16 flag;
+
+	if (CPU_COMPAT_MODE != UPD9002_COMPAT_Z80) {
+		return;
+	}
+	REGPOP0(UPD9002_IP)
+	REGPOP0(UPD9002_CS)
+	REGPOP0(flag)
+	CS_BASE = UPD9002_CS << 4;
+	flag = (flag & 0x0fd7) | 0xf002;
+	UPD9002_OV = flag & O_FLAG;
+	UPD9002_FLAG = flag & (0xfff ^ O_FLAG);
+	UPD9002_TRAP = ((flag & T_FLAG) != 0);
+	CPU_COMPAT_MODE = UPD9002_COMPAT_NATIVE;
+	CPU_COMPAT_RETURN_PENDING = 0;
+	UPD9002_WORKCLOCK(31);
+	if (upd9002_compat_hooks.leave != NULL) {
+		upd9002_compat_hooks.leave();
+	}
+}
+
+void CPUCALL upd9002_core_compat_iret_resume(void) {
+	CPU_COMPAT_MODE = UPD9002_COMPAT_Z80;
+	if (upd9002_compat_hooks.resume != NULL) {
+		upd9002_compat_hooks.resume();
+	}
+}
+
 void CPUCALL upd9002_intnum(UINT vect, REG16 IP) {
 
 	upd9002_perf_record_exception((UINT8)vect);
@@ -336,6 +456,25 @@ void CPUCALL upd9002_core_interrupt(REG8 vect) {
 
 	UINT	op;
 const BYTE	*ptr;
+
+	if (CPU_COMPAT_MODE == UPD9002_COMPAT_Z80) {
+		if (upd9002_compat_hooks.sync_to_native != NULL) {
+			upd9002_compat_hooks.sync_to_native();
+		}
+		REGPUSH0(upd9002_materialize_interrupt_saved_flags())
+		REGPUSH0(UPD9002_CS)
+		REGPUSH0(UPD9002_IP)
+		UPD9002_FLAG &= ~(T_FLAG | I_FLAG);
+		UPD9002_TRAP = 0;
+		ptr = mem + (vect * 4);
+		UPD9002_IP = LOADINTELWORD(ptr + 0);
+		UPD9002_CS = LOADINTELWORD(ptr + 2);
+		CS_BASE = UPD9002_CS << 4;
+		CPU_COMPAT_MODE = UPD9002_COMPAT_NATIVE;
+		CPU_COMPAT_RETURN_PENDING = 1;
+		UPD9002_WORKCLOCK(20);
+		return;
+	}
 
 	op = upd9002_memoryread(UPD9002_IP + CS_BASE);
 	if (op == 0xf4) {							// hlt
