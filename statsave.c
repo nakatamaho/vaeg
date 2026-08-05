@@ -481,7 +481,7 @@ static int flagload_upd9002_compat(STFLAGH sfh, const SFENTRY *tbl) {
 
 	if ((sfh->hdr.ver != tbl->ver) || (sfh->hdr.size != tbl->arg2) ||
 			(statflag_read(sfh, state, sizeof(state)) != STATFLAG_SUCCESS)) {
-		statflag_seterr(sfh, "uPD9002 Z80 payload is invalid or truncated");
+		statflag_seterr(sfh, "uPD9002 uPD70008-compatible payload is invalid or truncated");
 		return STATFLAG_FAILURE;
 	}
 	return upd9002_core_compat_state_load(state, sizeof(state)) == SUCCESS

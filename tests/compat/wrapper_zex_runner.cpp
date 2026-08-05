@@ -23,8 +23,8 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "cpucva/z80_core.h"
-#include "cpucva/z80_legacy_state.h"
+#include "cpucva/compat_cpu.h"
+#include "cpucva/compat_state.h"
 
 #include <algorithm>
 #include <array>
@@ -51,7 +51,7 @@ class Machine final : public IMemoryAccess,
                       public IClockCounter {
 public:
     std::array<std::uint8_t, 65536> memory{};
-    Z80C cpu;
+    CompatCpu cpu;
     std::string line;
     std::string recent_output;
     std::uint32_t current_clock = 0;
@@ -63,7 +63,7 @@ public:
 
     Machine() {
         if (!cpu.Init(this, this, this, this, 0x102)) {
-            std::cerr << "zex-wrapper: Z80C::Init failed\n";
+            std::cerr << "zex-wrapper: CompatCpu::Init failed\n";
             std::exit(1);
         }
     }
@@ -173,10 +173,10 @@ public:
     }
 
     bool IsHalted() {
-        std::array<std::uint8_t, vaeg::z80::kRevision1Size> status{};
+        std::array<std::uint8_t, vaeg::compat::kRevision1Size> status{};
         return cpu.SaveStatus(status.data()) &&
-               (status[vaeg::z80::kOffsetWait] &
-                vaeg::z80::kWaitHalt) != 0;
+               (status[vaeg::compat::kOffsetWait] &
+                vaeg::compat::kWaitHalt) != 0;
     }
 };
 
@@ -191,7 +191,7 @@ bool ParseUnsigned(const char *text, std::uint64_t *value) {
 }
 
 void DumpFailure(Machine *machine, const std::string &reason) {
-    const Z80Reg *reg = machine->cpu.GetReg();
+    const CompatReg *reg = machine->cpu.GetReg();
     std::cerr << "zex-wrapper: " << reason << '\n'
               << std::hex << std::setfill('0')
               << "zex-wrapper: PC=" << std::setw(4) << reg->pc

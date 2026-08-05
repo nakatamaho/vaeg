@@ -55,7 +55,7 @@ at actual acceptance. Do not change `0x1732` or `0x700e` unless trace evidence
 proves preservation impossible; any correction needs focused tests and the
 bug-fix ledger.
 
-Create `docs/modernization/z80-integration.md` with selection commands,
+Create `docs/modernization/compatibility-integration.md` with selection commands,
 normalized old/new traces, state results, clock deltas, sleep evidence, and
 unresolved differences. Never commit private ROM/disk data or logs containing
 it.
@@ -89,7 +89,7 @@ single independent job because those targets do not use the production
 selection.
 
 The private manifest is
-[`docs/modernization/z80-private-integration.md`](../../modernization/z80-private-integration.md).
+[`docs/modernization/compatibility-private-integration.md`](../../modernization/compatibility-private-integration.md).
 All 15 cases were executed with maintainer-authorized assets under neutral
 tracked identifiers. Both production selections passed boot, FDD read/write,
 loaders, SLEEP_HACK, WAIT wake, and applicable state cases. Private filenames,

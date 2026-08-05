@@ -37,8 +37,8 @@ uses the VA2 ROM set and `PCMODEL_VA2` behavior for the VA2/VA3 selection;
 that implementation policy is not proof that VA3 firmware behavior is
 identical.
 
-Detailed uPD9002 `BRKEM2`, `CALLN`, `RETEM`, and uPD780-compatible-mode
-analysis is kept in [upd9002-upd780-mode.md](upd9002-upd780-mode.md).
+Detailed uPD9002 `BRKEM2`, `CALLN`, `RETEM`, and uPD70008-compatible-mode
+analysis is kept in [upd9002-upd70008-mode.md](upd9002-upd70008-mode.md).
 
 ## Sources And Evidence Levels
 
@@ -300,8 +300,8 @@ SW7 OFF and unsuccessful V3-IPL search both converge at `0AF8h`:
 This confirms the manual's separation between display-processor setup and
 uPD9002 I/O-trap enable. They are adjacent boot operations, but they are not
 one hardware block. `BRKEM2 90h` then transfers the main uPD9002 into its
-uPD780/Z80-compatible execution mode. It must not be routed to the separate
-FDD subsystem Z80.
+uPD70008-compatible execution mode (historically uPD780/Z80-compatible). It must not be routed to the separate
+FDD subsystem uPD780C.
 
 ### Original-VA Emulator Gap: SW7
 
@@ -373,7 +373,7 @@ FFE3=00 FFE2=5B FFE1=00 FFE0=50
 
 These values match the VA2-specific settings summarized from the local
 technical notes in
-[upd9002-upd780-mode.md](upd9002-upd780-mode.md). A complete public
+[upd9002-upd70008-mode.md](upd9002-upd70008-mode.md). A complete public
 uPD9002 register manual has not been located. Public V40/V50 documentation is
 only a family analogy for the integrated DMA, interrupt, timer, serial, and
 wait-control model.
@@ -428,12 +428,12 @@ On the non-PC branch, the ROM can enable I/O traps and reaches:
 
 The vector setup and instruction boundary make the opcode identity high
 confidence. By the documented uPD9002 model transition and V30 analogy, the
-working interpretation is that `BRKEM2 90h` enters main-CPU uPD780-compatible
+working interpretation is that `BRKEM2 90h` enters main-CPU uPD70008-compatible
 code at `1000:0000` and saves `13B4h` as the native return address.
 
 The exact saved frame, mode-latch protection, interrupt interaction, prefetch
 behavior, and cycle timing remain unverified. See
-[upd9002-upd780-mode.md](upd9002-upd780-mode.md) for the detailed boundary.
+[upd9002-upd70008-mode.md](upd9002-upd70008-mode.md) for the detailed boundary.
 
 ### VA2 Native Resume And Later Initialization
 
@@ -478,7 +478,7 @@ draws and waits at that prompt has not yet been traced.
 - Complete PC-held setup path after the `13D2h` branch.
 - Exact no-media prompt routine and wait loop.
 - Runtime producer of RAM code at `1000:C003`.
-- Main-CPU uPD780-compatible-mode execution and precise mode transitions.
+- Main-CPU uPD70008-compatible-mode execution and precise mode transitions.
 - Any VA3-specific firmware, device, or no-media differences.
 
 ## Cross-Model Comparison

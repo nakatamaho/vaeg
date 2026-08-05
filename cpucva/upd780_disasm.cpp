@@ -23,7 +23,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "z80_disasm.h"
+#include "upd780_disasm.h"
 
 #include <algorithm>
 #include <array>
@@ -134,9 +134,9 @@ std::string AluOperation(unsigned operation, const std::string &operand) {
 
 class Decoder {
 public:
-    Decoder(std::uint16_t pc, VaegZ80DisasmRead read, void *opaque)
+    Decoder(std::uint16_t pc, VaegUpd780DisasmRead read, void *opaque)
         : start_(pc), cursor_(pc), read_(read), opaque_(opaque),
-          byte_count_(0), status_(VAEG_Z80_DISASM_OK) {
+          byte_count_(0), status_(VAEG_UPD780_DISASM_OK) {
     }
 
     std::string Decode() {
@@ -150,7 +150,7 @@ public:
             opcode = Read();
             if (prefix_count == kMaximumIndexPrefixes &&
                 (opcode == 0xdd || opcode == 0xfd)) {
-                status_ = VAEG_Z80_DISASM_PREFIX_LIMIT;
+                status_ = VAEG_UPD780_DISASM_PREFIX_LIMIT;
                 return "<invalid-prefix-sequence>";
             }
         }
@@ -168,8 +168,8 @@ public:
         return DecodeBase(opcode, index);
     }
 
-    VaegZ80DisasmResult Result() const {
-        if (status_ != VAEG_Z80_DISASM_OK) {
+    VaegUpd780DisasmResult Result() const {
+        if (status_ != VAEG_UPD780_DISASM_OK) {
             return {start_, 0, status_};
         }
         return {cursor_, static_cast<std::uint8_t>(byte_count_), status_};
@@ -487,7 +487,7 @@ private:
 
     std::uint16_t start_;
     std::uint16_t cursor_;
-    VaegZ80DisasmRead read_;
+    VaegUpd780DisasmRead read_;
     void *opaque_;
     std::array<std::uint8_t, kMaximumIndexPrefixes + 8> bytes_{};
     std::size_t byte_count_;
@@ -509,12 +509,12 @@ void CopyOutput(const std::string &text, char *destination,
 
 } // namespace
 
-VaegZ80DisasmResult VaegZ80Disassemble(
+VaegUpd780DisasmResult VaegUpd780Disassemble(
     std::uint16_t pc, char *destination, std::uint32_t capacity,
-    VaegZ80DisasmRead read, void *opaque) {
+    VaegUpd780DisasmRead read, void *opaque) {
     if (read == nullptr) {
         CopyOutput("<invalid-reader>", destination, capacity);
-        return {pc, 0, VAEG_Z80_DISASM_INVALID_READER};
+        return {pc, 0, VAEG_UPD780_DISASM_INVALID_READER};
     }
     Decoder decoder(pc, read, opaque);
     const std::string text = decoder.Decode();

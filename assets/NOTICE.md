@@ -1,6 +1,6 @@
 # Bundled Asset Notice
 
-## Z80 CPU core
+## Shared CPU compatibility core
 
 The production PC-88VA subsystem includes the pinned `suzukiplan/z80` header
 under the MIT License, Copyright (c) 2019 Yoji Suzuki.
@@ -27,9 +27,9 @@ instruction implementation:
   uPD70008-compatible mode.
 - `iova/subsystem.cpp` uses the shared implementation for the FDC's
   `UPD780C`-named CPU instance.
-- `cpucva/z80_core.*`, `z80_bus.h`, `z80_registers.h`, `z80_disasm.*`, and
-  `z80_legacy_state.*` remain common Z80-compatible backend and compatibility
-  files. The `z80` in these filenames describes the suzukiplan instruction
+- `cpucva/compat_cpu.*`, `compat_bus.h`, `compat_registers.h`, `upd780_disasm.*`, and
+  `compat_state.*` remain common CPU compatibility backend and compatibility
+  files. The remaining Z80 terminology describes the suzukiplan instruction
   backend, not an additional FDC device or a claim that the FDC is a generic
   Z80. The FDC-facing API and diagnostics use the uPD780 name.
 

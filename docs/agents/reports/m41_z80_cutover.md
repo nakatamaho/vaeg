@@ -70,9 +70,9 @@ Production Z80 core: suzukiplan
 The production `vaeg_va` Z80 sources are:
 
 ```text
-cpucva/z80_core.cpp
-cpucva/z80_legacy_state.cpp
-cpucva/z80_disasm.cpp
+cpucva/compat_cpu.cpp
+cpucva/compat_state.cpp
+cpucva/upd780_disasm.cpp
 ```
 
 with the independently authored public contracts in `z80_core.h`,
@@ -114,8 +114,8 @@ Changed tracked paths are `.github/workflows/build.yml`,
 `dist/readme-dist.txt`, the M41/ADR/roadmap/master and modernization documents,
 `iova/subsystem.cpp`, the archive checker, retained Z80 trace sources/scripts,
 the revision-1 fixture target, and the subsystem integration test. The only
-rename is `tests/z80/differential/legacy_trace.cpp` to
-`tests/z80/differential/reference_trace.cpp`.
+rename is `tests/compat/differential/legacy_trace.cpp` to
+`tests/compat/differential/reference_trace.cpp`.
 
 ## API and state preservation
 
@@ -240,10 +240,10 @@ is Wine execution, not native Windows.
 
 ```sh
 git archive --format=tar.gz --output=build/vaeg-m41-source.tar.gz HEAD
-python3 tests/z80/check_zex_archive.py build/vaeg-m41-source.tar.gz
+python3 tests/compat/check_zex_archive.py build/vaeg-m41-source.tar.gz
 tar -C build/m41-release -czf build/vaeg-m41-linux-x86_64.tar.gz \
   vaeg-m41-local-linux-x86_64
-python3 tests/z80/check_zex_archive.py \
+python3 tests/compat/check_zex_archive.py \
   build/vaeg-m41-linux-x86_64.tar.gz
 tar -tzf build/vaeg-m41-linux-x86_64.tar.gz
 ```

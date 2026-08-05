@@ -23,28 +23,28 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef CPUCVA_Z80_DISASM_H
-#define CPUCVA_Z80_DISASM_H
+#ifndef CPUCVA_UPD780_DISASM_H
+#define CPUCVA_UPD780_DISASM_H
 
 #include <cstdint>
 
-using VaegZ80DisasmRead = std::uint8_t (*)(void *opaque,
+using VaegUpd780DisasmRead = std::uint8_t (*)(void *opaque,
                                            std::uint16_t address);
 
-enum VaegZ80DisasmStatus : std::uint8_t {
-    VAEG_Z80_DISASM_OK = 0,
-    VAEG_Z80_DISASM_INVALID_READER = 1,
-    VAEG_Z80_DISASM_PREFIX_LIMIT = 2
+enum VaegUpd780DisasmStatus : std::uint8_t {
+    VAEG_UPD780_DISASM_OK = 0,
+    VAEG_UPD780_DISASM_INVALID_READER = 1,
+    VAEG_UPD780_DISASM_PREFIX_LIMIT = 2
 };
 
-struct VaegZ80DisasmResult {
+struct VaegUpd780DisasmResult {
     std::uint16_t next_pc;
     std::uint8_t length;
     std::uint8_t status;
 };
 
-VaegZ80DisasmResult VaegZ80Disassemble(
+VaegUpd780DisasmResult VaegUpd780Disassemble(
     std::uint16_t pc, char *destination, std::uint32_t capacity,
-    VaegZ80DisasmRead read, void *opaque);
+    VaegUpd780DisasmRead read, void *opaque);
 
 #endif

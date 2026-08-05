@@ -27,7 +27,7 @@
 #include "cpucore.h"
 #include "io/iocore.h"
 #include "cpucva/upd9002_upd70008.h"
-#include "cpucva/z80_core.h"
+#include "cpucva/compat_cpu.h"
 
 #include <cstdint>
 
@@ -62,9 +62,9 @@ class Upd9002Upd70008Compat final : public IMemoryAccess, public IIOAccess {
 public:
     void Reset() {
         if (initialized_) {
-            z80_.Reset();
+            upd70008_.Reset();
         }
-        z80_.SetMemoryBases(0, 0);
+        upd70008_.SetMemoryBases(0, 0);
         initialized_ = false;
         have_compatible_state_ = false;
         counter_.SetRemainclock(0);
@@ -72,13 +72,13 @@ public:
 
     void Enter() {
         if (!initialized_) {
-            initialized_ = z80_.Init(this, this, &clock_, &counter_, 0);
+            initialized_ = upd70008_.Init(this, this, &clock_, &counter_, 0);
             if (!initialized_) {
                 return;
             }
         }
         SetMemoryBases();
-        Z80Reg state = *z80_.GetReg();
+        UPD70008Reg state = *upd70008_.GetReg();
         state.af = static_cast<std::uint16_t>(
             (static_cast<std::uint16_t>(CPU_AL) << 8) |
             (CPU_FLAG & 0xff));
@@ -92,10 +92,10 @@ public:
         state.iff1 = (CPU_FLAG & I_FLAG) != 0;
         state.iff2 = state.iff1;
         if (have_compatible_state_) {
-            z80_.SetMainReg(state);
+            upd70008_.SetMainReg(state);
         }
         else {
-            z80_.SetReg(state);
+            upd70008_.SetReg(state);
             have_compatible_state_ = true;
         }
         counter_.SetRemainclock(CPU_REMCLOCK);
@@ -106,7 +106,7 @@ public:
             return;
         }
         counter_.SetRemainclock(CPU_REMCLOCK);
-        const std::uint16_t pc = static_cast<std::uint16_t>(z80_.GetPC());
+        const std::uint16_t pc = static_cast<std::uint16_t>(upd70008_.GetPC());
         const std::uint32_t code_address = (CPU_CS << 4) + pc;
         const std::uint8_t op0 = static_cast<std::uint8_t>(
             upd9002_memoryread(code_address));
@@ -116,27 +116,27 @@ public:
         if ((op0 == 0xed) && (op1 == 0xed)) {
             const std::uint8_t vector = static_cast<std::uint8_t>(
                 upd9002_memoryread(code_address + 2));
-            z80_.SetPC(static_cast<std::uint16_t>(pc + 3));
+            upd70008_.SetPC(static_cast<std::uint16_t>(pc + 3));
             SyncToNative();
             upd9002_core_compat_calln(vector, static_cast<REG16>(pc + 3));
             counter_.SetRemainclock(CPU_REMCLOCK);
             return;
         }
         if ((op0 == 0xed) && (op1 == 0xfd)) {
-            z80_.SetPC(static_cast<std::uint16_t>(pc + 2));
+            upd70008_.SetPC(static_cast<std::uint16_t>(pc + 2));
             SyncToNative();
             upd9002_core_compat_retem();
             counter_.SetRemainclock(CPU_REMCLOCK);
             return;
         }
 
-        z80_.ExecOne();
+        upd70008_.ExecOne();
         SyncToNative();
         CPU_REMCLOCK = counter_.GetRemainclock();
     }
 
     void SyncToNative() {
-        const Z80Reg *state = z80_.GetReg();
+        const UPD70008Reg *state = upd70008_.GetReg();
         CPU_AL = static_cast<UINT8>(state->af >> 8);
         CPU_FLAG = static_cast<UINT16>((CPU_FLAG & 0xfc00) |
                                        (state->af & 0xff) |
@@ -152,7 +152,7 @@ public:
 
     void Resume() {
         SetMemoryBases();
-        Z80Reg state = *z80_.GetReg();
+        UPD70008Reg state = *upd70008_.GetReg();
         state.af = static_cast<std::uint16_t>(
             (static_cast<std::uint16_t>(CPU_AL) << 8) |
             (CPU_FLAG & 0xff));
@@ -165,7 +165,7 @@ public:
         state.pc = CPU_IP;
         state.iff1 = (CPU_FLAG & I_FLAG) != 0;
         state.iff2 = state.iff1;
-        z80_.SetMainReg(state);
+        upd70008_.SetMainReg(state);
         counter_.SetRemainclock(CPU_REMCLOCK);
     }
 
@@ -175,7 +175,7 @@ public:
             return FAILURE;
         }
         counter_.SetRemainclock(CPU_REMCLOCK);
-        return z80_.SaveStatus(buffer) ? SUCCESS : FAILURE;
+        return upd70008_.SaveStatus(buffer) ? SUCCESS : FAILURE;
     }
 
     int StateLoad(const UINT8 *buffer, UINT size) {
@@ -183,12 +183,12 @@ public:
             return FAILURE;
         }
         if (!initialized_) {
-            initialized_ = z80_.Init(this, this, &clock_, &counter_, 0);
+            initialized_ = upd70008_.Init(this, this, &clock_, &counter_, 0);
             if (!initialized_) {
                 return FAILURE;
             }
         }
-        if (!z80_.LoadStatus(buffer)) {
+        if (!upd70008_.LoadStatus(buffer)) {
             return FAILURE;
         }
         SetMemoryBases();
@@ -228,11 +228,11 @@ public:
 
 private:
     void SetMemoryBases() {
-        z80_.SetMemoryBases(static_cast<std::uint32_t>(CPU_CS) << 4,
+        upd70008_.SetMemoryBases(static_cast<std::uint32_t>(CPU_CS) << 4,
                             static_cast<std::uint32_t>(CPU_DS) << 4);
     }
 
-    Z80C z80_;
+    UPD70008C upd70008_;
     CompatCounter counter_;
     CompatClock clock_;
     bool initialized_ = false;

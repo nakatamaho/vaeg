@@ -23,7 +23,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "cpucva/z80_disasm.h"
+#include "cpucva/upd780_disasm.h"
 
 #include <array>
 #include <cstdint>
@@ -35,8 +35,8 @@
 #include <string>
 #include <vector>
 
-#ifndef VAEG_Z80_DISASM_GOLDEN_PATH
-#error VAEG_Z80_DISASM_GOLDEN_PATH must name the reviewed golden file
+#ifndef VAEG_UPD780_DISASM_GOLDEN_PATH
+#error VAEG_UPD780_DISASM_GOLDEN_PATH must name the reviewed golden file
 #endif
 
 namespace {
@@ -44,7 +44,7 @@ namespace {
 constexpr std::uint32_t kCpuStateCookie = UINT32_C(0x4d343044);
 
 [[noreturn]] void Fail(const std::string &message) {
-    std::fprintf(stderr, "z80-disasm: %s\n", message.c_str());
+    std::fprintf(stderr, "upd780-disasm: %s\n", message.c_str());
     std::exit(1);
 }
 
@@ -187,10 +187,10 @@ std::string RunCase(const std::string &name, std::uint16_t pc,
     guarded.fill(static_cast<char>(0x5a));
     char *const destination = guarded.data() + 2;
     memory.reads.clear();
-    const VaegZ80DisasmResult result = VaegZ80Disassemble(
+    const VaegUpd780DisasmResult result = VaegUpd780Disassemble(
         pc, destination, 64, &Memory::Read, &memory);
 
-    Require(result.status == VAEG_Z80_DISASM_OK,
+    Require(result.status == VAEG_UPD780_DISASM_OK,
             name + ": decoder returned an error status");
     Require(result.length == expected_length,
             name + ": instruction length mismatch");
@@ -214,7 +214,7 @@ std::string RunCase(const std::string &name, std::uint16_t pc,
     const std::string first(destination);
     std::array<char, 64> repeated{};
     memory.reads.clear();
-    const VaegZ80DisasmResult second = VaegZ80Disassemble(
+    const VaegUpd780DisasmResult second = VaegUpd780Disassemble(
         pc, repeated.data(), static_cast<std::uint32_t>(repeated.size()),
         &Memory::Read, &memory);
     Require(second.next_pc == result.next_pc && second.length == result.length &&
@@ -261,7 +261,7 @@ void TestExhaustivePages() {
     cases += 4;
 
     Require(cases == 3844, "exhaustive corpus case count changed");
-    std::printf("z80-disasm: exhaustive pages passed (%zu cases)\n", cases);
+    std::printf("upd780-disasm: exhaustive pages passed (%zu cases)\n", cases);
 }
 
 unsigned ParseHex(const std::string &text) {
@@ -286,7 +286,7 @@ std::vector<std::uint8_t> ParseBytes(const std::string &text) {
 }
 
 void TestGoldenOutput() {
-    std::ifstream input{VAEG_Z80_DISASM_GOLDEN_PATH};
+    std::ifstream input{VAEG_UPD780_DISASM_GOLDEN_PATH};
     Require(input.good(), "could not open reviewed golden file");
     std::string line;
     unsigned line_number = 0;
@@ -323,7 +323,7 @@ void TestGoldenOutput() {
         ++cases;
     }
     Require(cases >= 30, "golden corpus is unexpectedly small");
-    std::printf("z80-disasm: reviewed golden output passed (%u cases)\n",
+    std::printf("upd780-disasm: reviewed golden output passed (%u cases)\n",
                 cases);
 }
 
@@ -332,22 +332,22 @@ void TestBufferAndMalformedInputs() {
     memory.Install(0x4000, {0xdd, 0x36, 0xfe, 0x7f});
 
     char untouched = 'Q';
-    const VaegZ80DisasmResult zero = VaegZ80Disassemble(
+    const VaegUpd780DisasmResult zero = VaegUpd780Disassemble(
         0x4000, &untouched, 0, &Memory::Read, &memory);
     Require(untouched == 'Q' && zero.length == 4,
             "zero-capacity output was written or decoded incorrectly");
 
     std::array<char, 2> one{{'Q', 'Q'}};
-    VaegZ80Disassemble(0x4000, one.data(), 1, &Memory::Read, &memory);
+    VaegUpd780Disassemble(0x4000, one.data(), 1, &Memory::Read, &memory);
     Require(one[0] == '\0' && one[1] == 'Q',
             "one-byte output did not remain bounded");
 
     std::array<char, 64> full{};
-    VaegZ80Disassemble(0x4000, full.data(), full.size(), &Memory::Read,
+    VaegUpd780Disassemble(0x4000, full.data(), full.size(), &Memory::Read,
                        &memory);
     const std::size_t exact_capacity = std::strlen(full.data()) + 1;
     std::vector<char> exact(exact_capacity + 1, 'Q');
-    VaegZ80Disassemble(0x4000, exact.data(),
+    VaegUpd780Disassemble(0x4000, exact.data(),
                        static_cast<std::uint32_t>(exact_capacity),
                        &Memory::Read, &memory);
     Require(std::strcmp(exact.data(), full.data()) == 0 &&
@@ -355,21 +355,21 @@ void TestBufferAndMalformedInputs() {
             "exact-capacity output was truncated or overrun");
 
     std::array<char, 6> truncated{{'Q', 'Q', 'Q', 'Q', 'Q', 'Q'}};
-    VaegZ80Disassemble(0x4000, truncated.data(), 5, &Memory::Read, &memory);
+    VaegUpd780Disassemble(0x4000, truncated.data(), 5, &Memory::Read, &memory);
     Require(std::strcmp(truncated.data(), "ld (") == 0 &&
                 truncated[5] == 'Q',
             "truncated output was not terminated within capacity");
 
     std::array<char, 4096> large{};
-    VaegZ80Disassemble(0x4000, large.data(), large.size(), &Memory::Read,
+    VaegUpd780Disassemble(0x4000, large.data(), large.size(), &Memory::Read,
                        &memory);
     Require(std::strcmp(large.data(), full.data()) == 0,
             "large-capacity output changed the result");
 
     std::array<char, 32> invalid{};
-    const VaegZ80DisasmResult invalid_reader = VaegZ80Disassemble(
+    const VaegUpd780DisasmResult invalid_reader = VaegUpd780Disassemble(
         0x1234, invalid.data(), invalid.size(), nullptr, nullptr);
-    Require(invalid_reader.status == VAEG_Z80_DISASM_INVALID_READER &&
+    Require(invalid_reader.status == VAEG_UPD780_DISASM_INVALID_READER &&
                 invalid_reader.length == 0 &&
                 invalid_reader.next_pc == 0x1234 &&
                 std::strcmp(invalid.data(), "<invalid-reader>") == 0,
@@ -378,10 +378,10 @@ void TestBufferAndMalformedInputs() {
     Memory prefixes;
     prefixes.bytes.fill(0xdd);
     std::array<char, 64> prefix_text{};
-    const VaegZ80DisasmResult prefix_result = VaegZ80Disassemble(
+    const VaegUpd780DisasmResult prefix_result = VaegUpd780Disassemble(
         0xfff0, prefix_text.data(), prefix_text.size(), &Memory::Read,
         &prefixes);
-    Require(prefix_result.status == VAEG_Z80_DISASM_PREFIX_LIMIT &&
+    Require(prefix_result.status == VAEG_UPD780_DISASM_PREFIX_LIMIT &&
                 prefix_result.length == 0 &&
                 prefix_result.next_pc == 0xfff0 &&
                 prefixes.reads.size() == 33 &&
@@ -389,7 +389,7 @@ void TestBufferAndMalformedInputs() {
                             "<invalid-prefix-sequence>") == 0,
             "unbounded prefix stream was not rejected deterministically");
 
-    std::printf("z80-disasm: buffer and malformed-input tests passed\n");
+    std::printf("upd780-disasm: buffer and malformed-input tests passed\n");
 }
 
 } // namespace
@@ -398,6 +398,6 @@ int main() {
     TestExhaustivePages();
     TestGoldenOutput();
     TestBufferAndMalformedInputs();
-    std::printf("z80-disasm: all tests passed\n");
+    std::printf("upd780-disasm: all tests passed\n");
     return 0;
 }

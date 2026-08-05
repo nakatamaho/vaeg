@@ -54,14 +54,14 @@ The exact independently authored vaeg-side map is:
 
 | File | Responsibility |
 |---|---|
-| `cpucva/z80_bus.h` | fixed-width memory, I/O, clock, and clock-counter interfaces |
-| `cpucva/z80_registers.h` | consumer-visible `Z80Reg` mirror |
-| `cpucva/z80_legacy_state.h` | revision-1 constants and decoded state value |
-| `cpucva/z80_legacy_state.cpp` | explicit revision-1 field encoding and decoding |
-| `cpucva/z80_core.h` | consumer-visible `Z80C` declaration with opaque implementation |
-| `cpucva/z80_core.cpp` | core adapter, bus callbacks, execution, IRQ/NMI, and state transfer |
-| `tests/z80/wrapper.cpp` | deterministic wrapper, mirror, interrupt, and state tests |
-| `tests/z80/wrapper_zex_runner.cpp` | CP/M-style ZEX runner through `Z80C` |
+| `cpucva/compat_bus.h` | fixed-width memory, I/O, clock, and clock-counter interfaces |
+| `cpucva/compat_registers.h` | consumer-visible `Z80Reg` mirror |
+| `cpucva/compat_state.h` | revision-1 constants and decoded state value |
+| `cpucva/compat_state.cpp` | explicit revision-1 field encoding and decoding |
+| `cpucva/compat_cpu.h` | consumer-visible `Z80C` declaration with opaque implementation |
+| `cpucva/compat_cpu.cpp` | core adapter, bus callbacks, execution, IRQ/NMI, and state transfer |
+| `tests/compat/wrapper.cpp` | deterministic wrapper, mirror, interrupt, and state tests |
+| `tests/compat/wrapper_zex_runner.cpp` | CP/M-style ZEX runner through `Z80C` |
 
 All new vaeg-authored files use the repository BSD-2-Clause header. No
 M88/cisc comment, declaration layout, helper macro collection, instruction
@@ -159,7 +159,7 @@ loop, wall timeout, and failure diagnostics. It uses the existing immutable,
 hash-verified external ZEX cache policy; no ZEX input is tracked.
 
 `VAEG_CORE_SOURCES` still names `cpucva/z80c.cpp` and not
-`cpucva/z80_core.cpp`. `iova/subsystem.cpp`, production state save,
+`cpucva/compat_cpu.cpp`. `iova/subsystem.cpp`, production state save,
 SLEEP_HACK constants, the disassembler, frozen reference tier, and all seven
 approved deletion-list files are unchanged. Vendored files and the approved
 M35 patch have no diff from the G36 starting commit.
@@ -168,7 +168,7 @@ M35 patch have no diff from the G36 starting commit.
 
 | Exact command | Result |
 |---|---|
-| `g++ -std=c++17 -Wall -fsigned-char -DZ80_NO_FUNCTIONAL -DZ80_DISABLE_DEBUG -DZ80_DISABLE_BREAKPOINT -DZ80_DISABLE_NESTCHECK -DZ80_NO_EXCEPTION -DZ80_UNSUPPORT_16BIT_PORT -I. -Iexternal/suzukiplan-z80 cpucva/z80_core.cpp cpucva/z80_legacy_state.cpp tests/z80/wrapper.cpp -o /tmp/vaeg-z80-wrapper-test && /tmp/vaeg-z80-wrapper-test` | PASS; all 10 grouped wrapper tests |
+| `g++ -std=c++17 -Wall -fsigned-char -DZ80_NO_FUNCTIONAL -DZ80_DISABLE_DEBUG -DZ80_DISABLE_BREAKPOINT -DZ80_DISABLE_NESTCHECK -DZ80_NO_EXCEPTION -DZ80_UNSUPPORT_16BIT_PORT -I. -Iexternal/suzukiplan-z80 cpucva/compat_cpu.cpp cpucva/compat_state.cpp tests/compat/wrapper.cpp -o /tmp/vaeg-z80-wrapper-test && /tmp/vaeg-z80-wrapper-test` | PASS; all 10 grouped wrapper tests |
 | same command without `-DZ80_NO_FUNCTIONAL`, output `/tmp/vaeg-z80-wrapper-default` | PASS; all 10 grouped wrapper tests |
 | `cmake --preset linux-ci-gcc -DVAEG_ZEX_ARTIFACT_DIR=/tmp/vaeg-m36-z80.7UocP2/zex-cache` | PASS; all five M36 hashes reverified at configure |
 | `cmake --build --preset linux-ci-gcc` | PASS |
@@ -188,7 +188,7 @@ M35 patch have no diff from the G36 starting commit.
 | `python3 tools/repo/find_unreferenced.py` | PASS, 69 existing paths; no M37 path |
 | `git diff --check` | PASS |
 | `python3 -c 'import pathlib, yaml; [yaml.safe_load(pathlib.Path(p).read_text(encoding="utf-8")) for p in (".github/workflows/build.yml", ".github/workflows/release.yml")]; print("workflow YAML: PASS")'` | PASS |
-| `git archive --format=tar.gz --output=/tmp/vaeg-m37-source-d13119a.tar.gz HEAD && python3 tests/z80/check_zex_archive.py /tmp/vaeg-m37-source-d13119a.tar.gz` | PASS; 977 files, no ZEX artifact |
+| `git archive --format=tar.gz --output=/tmp/vaeg-m37-source-d13119a.tar.gz HEAD && python3 tests/compat/check_zex_archive.py /tmp/vaeg-m37-source-d13119a.tar.gz` | PASS; 977 files, no ZEX artifact |
 | staged five-file Linux runtime layout, `tar -C /tmp/vaeg-m37-release -czf /tmp/vaeg-m37-linux-x86_64.tar.gz vaeg-m37-linux-x86_64`, then archive checker | PASS; 5 files, no ZEX artifact |
 
 The integrity command

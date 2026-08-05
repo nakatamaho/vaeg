@@ -22,7 +22,7 @@ extern	_SUBSYSTEM subsystem;
 void subsystem_initialize(void);
 void subsystem_exec(void);
 BYTE subsystem_readmem(WORD addr);
-const struct Z80Reg *subsystem_getcpureg(void);
+const struct UPD780Reg *subsystem_getcpureg(void);
 enum { SUBSYSTEM_DISASSEMBLY_CAPACITY = 64 };
 WORD subsystem_disassemble_bounded(WORD pc, char *str, UINT capacity);
 WORD subsystem_disassemble(WORD pc, char *str);

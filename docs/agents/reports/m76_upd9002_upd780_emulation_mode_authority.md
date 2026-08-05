@@ -117,7 +117,7 @@ contract.
 | save state | upd9002_state.h:32–39 fixes a 112-byte version 1; state.c:135–187 accepts V30 and rejects protected mode | no compatible state |
 | trace | upd9002_trace.h:39–51 has step/event tracing but no mode, decoder, frame, or compatible-interrupt fields | later trace contract |
 
-The separate FDD Z80 wrapper in cpucva/z80_core.cpp is not main-CPU
+The separate FDD Z80 wrapper in cpucva/compat_cpu.cpp is not main-CPU
 compatible-mode support and must not be reused as a hidden implementation.
 
 ## VA target evidence and V20/V30 limits

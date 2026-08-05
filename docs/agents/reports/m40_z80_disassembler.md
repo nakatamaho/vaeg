@@ -49,7 +49,7 @@ It did not delete any of the seven approved legacy files or begin M41.
 
 The selected strategy is an independently authored vaeg decoder based on the
 documented Z80 `x/y/z/p/q` encoding and prefix rules. The new
-`cpucva/z80_disasm.h` and `cpucva/z80_disasm.cpp` are BSD-2-Clause vaeg code,
+`cpucva/upd780_disasm.h` and `cpucva/upd780_disasm.cpp` are BSD-2-Clause vaeg code,
 Copyright (c) 2026 Nakata Maho. No M88/cisc implementation or opcode table,
 GPL opcode table, or other disassembler implementation/table was copied or
 adapted.
@@ -84,7 +84,7 @@ with explicit prefix-limit status, length zero, unchanged next PC, and
 
 ## Corpus and review
 
-`tests/z80/disasm.cpp` implements a test-side encoding classifier independent
+`tests/upd780/disasm.cpp` implements a test-side encoding classifier independent
 of the decoder's returned length. The 3,844 exhaustive cases are:
 
 - all 256 base bytes;
@@ -117,14 +117,14 @@ The exact production source proof was:
 
 ```text
 legacy:
-cpucva/z80_disasm.cpp
+cpucva/upd780_disasm.cpp
 cpucva/z80c.cpp
 cpucva/z80diag.cpp
 
 suzukiplan:
-cpucva/z80_core.cpp
-cpucva/z80_disasm.cpp
-cpucva/z80_legacy_state.cpp
+cpucva/compat_cpu.cpp
+cpucva/upd780_disasm.cpp
+cpucva/compat_state.cpp
 ```
 
 The legacy diagnostic source remains only because the still-selectable legacy
@@ -246,7 +246,7 @@ ROM-less smoke. Wine is execution evidence, not native hosted Windows.
 The acquisition command was:
 
 ```sh
-python3 tests/z80/fetch_zex.py --output-dir /tmp/vaeg-m40-zex
+python3 tests/compat/fetch_zex.py --output-dir /tmp/vaeg-m40-zex
 ```
 
 It verified all five approved SHA-256 values. The exact test commands were:
@@ -311,7 +311,7 @@ git archive --format=tar.gz \
 tar -czf /tmp/vaeg-m40-runtime-5286c5c.tar.gz \
   build/m40-gcc-legacy/sdl2/vaeg assets/OFL.txt assets/NOTICE.md \
   CHANGES.20260713.md dist/readme-dist.txt
-python3 tests/z80/check_zex_archive.py \
+python3 tests/compat/check_zex_archive.py \
   /tmp/vaeg-m40-source-5286c5c.tar.gz \
   /tmp/vaeg-m40-runtime-5286c5c.tar.gz
 ```
