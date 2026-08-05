@@ -327,6 +327,67 @@ Use `--sasi-format`, `--g75-scsi`, or `--g75-scsi-two` to rerun only one
 media family. Use `--guest-io` separately for HOSTFAT `TYPE` success and
 read-only delete rejection; it is intentionally not part of `--full-g75`.
 
+## M75 Human Gate: guest storage
+
+The automated harness is evidence for the disposable path. The M75 human
+gate confirms the same operations through the normal PC-Engine frontend and
+keyboard path. Run this gate with disposable copies of every D88 and disk
+image; never use the source support D88 as the writable test disk.
+
+### Preparation
+
+1. Use the MinGW executable produced by the cross build:
+   `build/mingw-cross/sdl2/vaeg.exe` relative to the checkout.
+2. Prepare a support D88 containing `PCPLUS.SYS` and `SCHD.SYS`. For the
+   two-target check, `CONFIG.SYS` must load both `SCHD.SYS -I0` and
+   `SCHD.SYS -I1`. Keep `HOSTFAT.SYS` present when testing HOSTFAT.
+3. Create disposable blank SASI and SCSI images with the GUI, or copy the
+   images created by the automation into a temporary test directory.
+4. Record the executable, D88/image copies, model, and configuration before
+   booting. A failed test must leave the source media untouched.
+
+### Guest storage sequence
+
+Perform the following sequence and record the final screen after each
+reset or process restart:
+
+| Area | Operation | Pass condition |
+|---|---|---|
+| SASI | Run `HDFORM C:` and confirm the format | Format completes and reports positive free capacity |
+| SASI | `COPY A:\HDFORM.COM C:\G75SASI.COM` | The file is listed with size 6706 bytes |
+| SASI | Reset/reopen, then `COPY C:\G75SASI.COM A:\G75SASB.COM` | The A: copy is byte-identical to `HDFORM.COM` |
+| SASI | `DEL C:\G75SASI.COM`, then `DIR C:` | The file is absent and free capacity increases |
+| SCSI ID 0 | Format C:, create/read back/delete one file | Create, byte-identical readback, delete, and persistence succeed |
+| SCSI ID 1 | Format D:, create/read back/delete one file | The second target is visible and has the same successful lifecycle |
+| HOSTFAT | `TYPE D:\REGRESS.TXT` | The expected text is displayed |
+| HOSTFAT | `DEL D:\REGRESS.TXT` | Delete is rejected for the read-only snapshot |
+
+For SCSI, use `C:` for target ID 0 and `D:` for target ID 1. After creating
+each file, close/reopen or reset before the readback step. Compare the
+readback on the A: disk with the original source file on the host. Repeat
+the final `DIR` after deletion and confirm that no stale directory entry is
+shown.
+
+### GUI reset and non-SCSI checks
+
+Also verify the frontend path used by normal users:
+
+- Configure a valid HOSTFAT directory and press `Rebuild + reset on OK`.
+  The guest resets and the new directory is visible after reboot.
+- Configure an invalid or unsupported directory. The operation reports a
+  red error beside the rebuild control or in the visible status area, and
+  the emulator remains restartable without deleting `vaeg.cfg` manually.
+- Boot the existing non-SCSI disk path, run its normal format/read/write or
+  simple file operation, and confirm that its image is unchanged by the
+  SCSI/SASI tests.
+- Boot the bundled VA demo and perform the standard simple OS operation
+  required by the project human gate.
+
+The human gate passes only when every row succeeds, both SCSI target IDs
+remain usable after reset, and no source D88/image or configuration recovery
+is required. Attach the final screen or a short recording, the tested
+binary/configuration identity, and any failing image copy to the review.
+
 
 ## ROM Placement
 
