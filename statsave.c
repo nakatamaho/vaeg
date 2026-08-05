@@ -74,6 +74,7 @@ typedef struct {
 enum {
 	STATFLAG_BIN			= 0,
 	STATFLAG_UPD9002_CPU,
+	STATFLAG_UPD9002_COMPAT,
 	STATFLAG_TERM,
 #if defined(CGWND_FONTPTR)
 	STATFLAG_CGW,
@@ -462,6 +463,29 @@ static int flagload_upd9002_cpu(STFLAGH sfh, const SFENTRY *tbl) {
 
 	return(flagload_upd9002_state_image(sfh, tbl->ver, tbl->arg2,
 		"uPD9002 payload is truncated"));
+}
+
+static int flagsave_upd9002_compat(STFLAGH sfh, const SFENTRY *tbl) {
+
+	UINT8 state[UPD9002_COMPAT_STATE_SIZE];
+
+	if (upd9002_core_compat_state_save(state, sizeof(state)) != SUCCESS) {
+		return STATFLAG_FAILURE;
+	}
+	return statflag_write(sfh, state, tbl->arg2);
+}
+
+static int flagload_upd9002_compat(STFLAGH sfh, const SFENTRY *tbl) {
+
+	UINT8 state[UPD9002_COMPAT_STATE_SIZE];
+
+	if ((sfh->hdr.ver != tbl->ver) || (sfh->hdr.size != tbl->arg2) ||
+			(statflag_read(sfh, state, sizeof(state)) != STATFLAG_SUCCESS)) {
+		statflag_seterr(sfh, "uPD9002 Z80 payload is invalid or truncated");
+		return STATFLAG_FAILURE;
+	}
+	return upd9002_core_compat_state_load(state, sizeof(state)) == SUCCESS
+		? STATFLAG_SUCCESS : STATFLAG_FAILURE;
 }
 
 static int flagload_legacy_cpu_state(STFLAGH sfh) {
@@ -1494,6 +1518,10 @@ const SFENTRY	*tblterm;
 				ret |= flagsave_upd9002_cpu(&sffh->sfh, tbl);
 				break;
 
+			case STATFLAG_UPD9002_COMPAT:
+				ret |= flagsave_upd9002_compat(&sffh->sfh, tbl);
+				break;
+
 #if defined(CGWND_FONTPTR)
 			case STATFLAG_CGW:
 				ret |= flagsave_cgwnd(&sffh->sfh, tbl);
@@ -1601,6 +1629,10 @@ const SFENTRY	*tblterm;
 
 				case STATFLAG_UPD9002_CPU:
 					ret |= flagcheck_upd9002_cpu(&sffh->sfh, tbl);
+					break;
+
+				case STATFLAG_UPD9002_COMPAT:
+					ret |= flagcheck_versize(&sffh->sfh, tbl);
 					break;
 
 				case STATFLAG_HOSTFAT:
@@ -1740,6 +1772,10 @@ const SFENTRY	*tblterm;
 
 				case STATFLAG_UPD9002_CPU:
 					ret |= flagload_upd9002_cpu(&sffh->sfh, tbl);
+					break;
+
+				case STATFLAG_UPD9002_COMPAT:
+					ret |= flagload_upd9002_compat(&sffh->sfh, tbl);
 					break;
 
 				case STATFLAG_TERM:
