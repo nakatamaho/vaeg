@@ -142,6 +142,33 @@ class FatInspectionTests(unittest.TestCase):
             result = MODULE.inspect(path, PHYSICAL)
             self.assertEqual(result["root_directory"]["first_unused_entry"], 0)
 
+    def test_expected_manifest_is_derived_from_bpb(self):
+        with tempfile.TemporaryDirectory() as td:
+            path = Path(td) / "healthy.hdd"
+            make_image(path)
+            result = MODULE.inspect(path, PHYSICAL)
+            manifest = result["expected_manifest"]
+            self.assertEqual(
+                [(item["range_name"], item["first_physical_lba"],
+                  item["physical_block_count"], item["byte_count"])
+                 for item in manifest],
+                [
+                    ("boot sector", PARTITION_LBA, 4, 1024),
+                    ("FAT1", PARTITION_LBA + 4, FAT_SECTORS * 4,
+                     FAT_SECTORS * BYTES_PER_SECTOR),
+                    ("FAT2", PARTITION_LBA + 4 + FAT_SECTORS * 4,
+                     FAT_SECTORS * 4, FAT_SECTORS * BYTES_PER_SECTOR),
+                    ("root directory",
+                     PARTITION_LBA + (1 + 2 * FAT_SECTORS) * 4, 4, 1024),
+                    ("first data cluster",
+                     PARTITION_LBA + (1 + 2 * FAT_SECTORS + 1) * 4, 4, 1024),
+                ],
+            )
+            for item in manifest:
+                self.assertEqual(len(item["first_64_bytes"]), 128)
+                self.assertEqual(len(item["last_64_bytes"]), 128)
+                self.assertEqual(len(item["sha256"]), 64)
+
     def test_fat16_partition_offset_and_header_offset_are_respected(self):
         with tempfile.TemporaryDirectory() as td:
             path = Path(td) / "healthy.hdd"
