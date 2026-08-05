@@ -25,13 +25,14 @@ POSSIBILITY OF SUCH DAMAGE.
 
 # M76 — uPD9002/uPD780 emulation-mode authority audit
 
-Status: diagnosis and authority decision only. No production CPU, FDC, SCSI,
-or state-format implementation was made in M76. G76 is not passed; the human
-gate must authorize a later implementation milestone.
+Status: G76-approved Stage 1 implementation. The original audit was
+expanded by explicit user approval to implement the uPD9002 compatible mode
+as Z80, while excluding BRKEM2, full VA I/O-trap semantics, and FDC/SCSI
+changes.
 
-Evaluated branch: topic/m76-upd9002-upd780-emulation-mode-authority
+Evaluated branch: topic/m76-brkem-z80-emulation
 
-Evaluated base: 4ddba36f28dbfbe35a52117964b99b5685fdaa3d
+Evaluated base: ec829cd02bb11202d9172ae9066d37c14c46202c
 
 ## Decision
 
@@ -39,14 +40,13 @@ The user-facing statement is correct: a V30 can use its 8080 emulation mode.
 The correct CP/M evidence is Vector's separate MS-DOS CP/M emulator v0.8,
 whose .cpv path performs a V30 probe and emits BRKEM, CALLN, and RETEM; the
 earlier Vector Win32 v0.4 package was the wrong artifact. This establishes a
-bounded V30 transition contract, not the VA's full uPD780/Z80 mode. The
-active vaeg main-CPU implementation currently has no mode latch, compatible
-register state, compatible decoder, or transition support. VA ROM evidence
-reaches 0F FE 90 (BRKEM2) and project evidence shows Z80-class compatible
-code, but the exact BRKEM2 frame, mode-latch rule, interrupt behavior, I/O
-boundary, and compatible instruction details remain unverified. Therefore
-implementation belongs in a separately approved later milestone with
-hardware-backed flip points; it is not authorized by this audit.
+bounded V30 transition contract, not the VA's full uPD780/Z80 mode. At the
+evaluated pre-implementation base the active main CPU had no mode latch,
+compatible register state, decoder, or transition support. G76 approval then
+amended this work to a bounded Z80 Stage 1 implementation. VA ROM evidence
+still reaches 0F FE 90 (BRKEM2), and the exact BRKEM2 frame, mode-latch rule,
+interrupt behavior, I/O boundary, and silicon-specific timing remain
+unverified. Those items stay outside Stage 1 and require separate evidence.
 
 ## CP/M v0.8 identity and limits
 
@@ -144,24 +144,24 @@ V1/V2 I/O-port translation, or uPD9002 timing.
 | question | decision | action |
 |---|---|---|
 | V30 8080 hard-emulation path exists? | proven by CP/M v0.8 .cpv | use as transition exerciser |
-| active vaeg main CPU implements it? | no | later implementation milestone |
+| active vaeg main CPU implements Stage 1? | yes, on this branch | review Stage 2 gaps below |
 | VA firmware attempts compatible entry? | yes, ROM 0F FE 90 evidence | BRKEM2 tests after mode state |
-| VA compatible decoder is Z80-class? | strong target evidence, not current-core proof | preserve ROM/Debug 8800 obligations |
+| VA compatible decoder is Z80-class? | strong target evidence plus Stage 1 Z80 execution | preserve ROM/Debug 8800 obligations |
 | exact uPD9002/BRKEM2 semantics known? | no | hardware/manual flip points |
-| broad generic V20/V30/Z80 implementation authorized? | no | prohibited by M76 |
+| broad generic V20/V30/Z80 implementation authorized? | no | this is bounded Z80 Stage 1 only |
 
-Disposition: later, hardware-bounded implementation. The standard V30
-transition is sufficiently bounded for a future task, but the VA-specific
-entry and compatible semantics are not ready for generic implementation.
+Disposition: the approved Stage 1 transition boundary is implemented. The
+remaining VA-specific behavior stays hardware-bounded and is not treated as
+complete Z80 silicon emulation.
 
-## Later implementation obligations
+## Remaining implementation obligations
 
-1. Add an explicit MD mode latch and decoder selector; keep it separate from
-   the FDD Z80 and from a single boolean.
-2. Add compatible register aliases/alternate registers and flags, preserving
-   BP/emulated SP separately from native SS:SP.
-3. Implement/test 0F FF imm8, ED ED imm8, and ED FD: IVT lookup, native
-   FLAGS/CS/IP frame, post-immediate return IP, IRET/RETI, and return.
+1. Extend the explicit MD mode latch and decoder selector only as required by
+   additional proven VA behavior; keep it separate from the FDD Z80.
+2. Extend compatible register aliases, alternate registers, and flags only
+   where the target software or hardware evidence requires it.
+3. Add further tests for the implemented BRKEM/CALLN/RETEM frame and for
+   save/import while native code has suspended compatible state.
 4. Keep 0F FE imm8 BRKEM2 behind an authority decision until its frame/latch
    behavior is established; do not silently alias it to BRKEM.
 5. Specify compatible interrupt, NMI, RESET, HALT, nesting, and prefetch
@@ -176,9 +176,40 @@ entry and compatible semantics are not ready for generic implementation.
    BRKEM2, interrupt/HALT/RESET, save/import, and ROMless tests. Use .cpv as
    a transition fixture, not a Z80/VA instruction oracle.
 
+## G76-approved Stage 1 implementation
+
+The user approved G76 and then amended the implementation target from the
+V30-style 8080 boundary to the VA's Z80-compatible mode. The implementation
+uses the existing suzukiplan Z80 core through an independent main-CPU adapter
+under `cpucva/`; it does not reuse the FDD CPU instance.
+
+Implemented production boundaries:
+
+- `0F FF imm8` enters compatible mode and pushes PSW, PS, and the
+  post-instruction PC on native `SS:SP`.
+- Compatible execution uses suzukiplan Z80 instructions, including tested
+  `JR`, `IX`, and `IY`; the main-register aliases are synchronized at the
+  existing uPD9002 boundary.
+- `ED ED imm8` enters native code, and native `IRET` resumes the suspended
+  compatible instance. `ED FD` restores the native frame.
+- The compatible core state is persisted in the versioned 68-byte `UPD9Z80`
+  save-state section.
+- Native `IRET` does not use PSW bit 15 as a software marker; a separate
+  runtime pending flag avoids confusing the architectural native PSW with a
+  compatibility return.
+
+The ROMless production-path regression
+`vaeg_upd9002_brkem_z80` passed and covers BRKEM, Z80 JR/IX/IY execution,
+CALLN/IRET, RETEM, register aliases, and stack restoration. Existing uPD9002
+IRET, state-boundary, state-payload, FDD-Z80 wrapper, and differential Z80
+regressions also passed after the change.
+
+Explicitly not implemented in this stage: `0F FE imm8` (`BRKEM2`), complete
+VA-compatible I/O-trap behavior, silicon-specific interrupt/timing details,
+and any FDC/SCSI behavior change.
+
 ## Gate
 
-M76 changed no production source and added no ROM, disk image, or raw trace.
-Only the authority report and provenance documentation were changed. G76 is
-a human authority gate. Do not start M77 or merge this branch to main until
-the later implementation boundary is approved.
+G76 approval authorizes this Stage 1 implementation. The branch must still
+pass the repository checks and the standard human gate before it is merged to
+`main`. Do not start M77.
