@@ -66,6 +66,10 @@ HOSTFAT_FILE = "REGRESS.TXT"
 HOSTFAT_CONTENT = "M75 STORAGE REGRESSION\n"
 SCSI_TEST_FILE = "G75TEST.COM"
 SCSI_BACKUP_FILE = "G75BACK.COM"
+SCSI_ID0_FILE = "G75ID0.COM"
+SCSI_ID0_BACKUP_FILE = "G75I0BK.COM"
+SCSI_ID1_FILE = "G75ID1.COM"
+SCSI_ID1_BACKUP_FILE = "G75I1BK.COM"
 SCSI_FORMAT_SCREEN = ("装置初期化", "領域確保", "ACTIVE", "PC-Engine")
 
 
@@ -177,10 +181,12 @@ def sasi_format_input_lines() -> list[str]:
     ]
 
 
-def scsi_format_input_lines() -> list[str]:
+def scsi_format_input_lines(target_id: int = 0) -> list[str]:
+    if not 0 <= target_id <= 7:
+        raise ValueError(f"invalid SCSI target ID: {target_id}")
     return [
         "@wait 1200",
-        "0",
+        str(target_id),
         "@wait 3600",
         "1",
         "@wait 6000",
@@ -231,6 +237,48 @@ def scsi_delete_input_lines() -> list[str]:
     ]
 
 
+def scsi_two_disk_create_input_lines(drive: str, name: str) -> list[str]:
+    drive = drive.upper()
+    if not re.fullmatch(r"[A-Z]", drive):
+        raise ValueError(f"invalid SCSI drive letter: {drive}")
+    return [
+        "@wait 1200",
+        f"COPY A:\\BIN\\SCFORM.COM {drive}:\\{name}",
+        "@wait 2400",
+        f"DIR {drive}:",
+        "@wait 1200",
+    ]
+
+
+def scsi_two_disk_readback_input_lines(drive: str, name: str,
+                                       backup: str) -> list[str]:
+    drive = drive.upper()
+    if not re.fullmatch(r"[A-Z]", drive):
+        raise ValueError(f"invalid SCSI drive letter: {drive}")
+    return [
+        "@wait 1200",
+        f"DIR {drive}:",
+        "@wait 1800",
+        f"COPY {drive}:\\{name} A:\\{backup}",
+        "@wait 2400",
+        "DIR A:",
+        "@wait 1200",
+    ]
+
+
+def scsi_two_disk_delete_input_lines(drive: str, name: str) -> list[str]:
+    drive = drive.upper()
+    if not re.fullmatch(r"[A-Z]", drive):
+        raise ValueError(f"invalid SCSI drive letter: {drive}")
+    return [
+        "@wait 1200",
+        f"DEL {drive}:\\{name}",
+        "@wait 2400",
+        f"DIR {drive}:",
+        "@wait 1200",
+    ]
+
+
 def d88_find_file(image: Path, path: str) -> bytes:
     """Read one file from a disposable PC-Engine 1.1 D88 image."""
     module = pcengine_disk_module()
@@ -277,6 +325,45 @@ def make_scsi_format_disk(source: Path, destination: Path) -> None:
             b"PATH A:\\BIN\r\nSET COMSPEC=A:\\PCENGINE.COM\r\n"
             b"SCFORM\r\n")
         module.add_file(disk, disk.root, payload)
+    disk.flush()
+    destination.write_bytes(disk.image)
+
+
+def make_scsi_two_disk(source: Path, destination: Path,
+                       run_scform: bool = False) -> None:
+    """Make a disposable boot disk with SCHD target IDs 0 and 1."""
+    module = pcengine_disk_module()
+    destination.write_bytes(source.read_bytes())
+    disk = module.PcEngineDisk(
+        destination.read_bytes(), require_system_files=False)
+    config = d88_find_file(source, "CONFIG.SYS")
+    config_lines = config.splitlines(keepends=True)
+    schd0_index = None
+    has_schd1 = False
+    for index, line in enumerate(config_lines):
+        normalized = line.decode("ascii").strip().upper()
+        if normalized == r"DEVICE = A:\SCHD.SYS -I0":
+            schd0_index = index
+        if normalized == r"DEVICE = A:\SCHD.SYS -I1":
+            has_schd1 = True
+    if schd0_index is None:
+        raise RuntimeError("two-disk support D88 lacks SCHD -I0")
+    if not has_schd1:
+        ending = b"\r\n" if b"\r\n" in config else b"\n"
+        config_lines.insert(
+            schd0_index + 1,
+            b"DEVICE = A:\\SCHD.SYS -I1" + ending)
+    config_payload = b"".join(config_lines)
+    with tempfile.TemporaryDirectory(prefix="m75-scsi-two-disk-") as temporary:
+        config_path = Path(temporary) / "CONFIG.SYS"
+        config_path.write_bytes(config_payload)
+        module.add_file(disk, disk.root, config_path)
+        if run_scform:
+            autoexec_path = Path(temporary) / "AUTOEXEC.BAT"
+            autoexec_path.write_bytes(
+                b"PATH A:\\BIN\r\nSET COMSPEC=A:\\PCENGINE.COM\r\n"
+                b"SCFORM\r\n")
+            module.add_file(disk, disk.root, autoexec_path)
     disk.flush()
     destination.write_bytes(disk.image)
 
@@ -426,6 +513,12 @@ def fixture_selftest() -> dict[str, object]:
             raise AssertionError("SCSI readback script lacks host copy")
         if "G75TEST.COM" not in scsi_delete_input_lines()[1]:
             raise AssertionError("SCSI delete script lacks test file")
+        if scsi_format_input_lines(1)[1] != "1":
+            raise AssertionError("SCSI ID 1 format script is not deterministic")
+        if "G75ID0.COM" not in scsi_two_disk_create_input_lines("C", SCSI_ID0_FILE)[1]:
+            raise AssertionError("SCSI ID 0 create script lacks test file")
+        if "G75ID1.COM" not in scsi_two_disk_create_input_lines("D", SCSI_ID1_FILE)[1]:
+            raise AssertionError("SCSI ID 1 create script lacks test file")
         return {
             "sasi": sasi,
             "hostfat": hostfat,
@@ -557,7 +650,9 @@ def run_guest(args: argparse.Namespace, output_root: Path,
 def run_media_guest(args: argparse.Namespace, output_root: Path,
                      fdd_path: Path, media_option: str, media_path: Path,
                      input_lines: list[str], expected_screen: tuple[str, ...],
-                     exit_ms: int) -> dict[str, object]:
+                     exit_ms: int,
+                     additional_media: dict[str, Path] | None = None
+                     ) -> dict[str, object]:
     output_root.mkdir(parents=True, exist_ok=True)
     harness = Path(__file__).with_name("m75_scsi_harness.py")
     screen_path = output_root / "screen.bin"
@@ -570,11 +665,15 @@ def run_media_guest(args: argparse.Namespace, output_root: Path,
         "--fdd1", str(fdd_path.resolve()),
         "--fdd2", "none",
     ]
+    media_paths = {media_option: media_path}
+    if additional_media:
+        media_paths.update(additional_media)
     for option in ("--sasi1", "--sasi2", "--scsi1", "--scsi2",
                    "--scsi3", "--scsi4"):
         worker_args.extend([
             option,
-            str(media_path.resolve()) if option == media_option else "none",
+            str(media_paths[option].resolve()) if option in media_paths
+            else "none",
         ])
     worker_args.extend([
         "--nowait", "--mute",
@@ -732,6 +831,147 @@ def run_g75_scsi(args: argparse.Namespace) -> dict[str, object]:
     }
 
 
+def dos_display_name(name: str) -> str:
+    base, extension = name.upper().split(".", 1)
+    return f"{base:<8}.{extension}"
+
+
+def run_g75_scsi_two(args: argparse.Namespace) -> dict[str, object]:
+    base = (Path(args.output_dir).resolve() / "g75-scsi-two"
+            if args.output_dir else
+            Path(tempfile.mkdtemp(prefix="m75-g75-scsi-two-")))
+    base.mkdir(parents=True, exist_ok=True)
+    if any((base / name).exists() for name in
+           ("scsi-id0.hdd", "scsi-id1.hdd", "format-boot.d88",
+            "boot.d88")):
+        raise FileExistsError(f"SCSI two-disk output already exists: {base}")
+    support = Path(args.support_d88).resolve()
+    format_boot = base / "format-boot.d88"
+    boot = base / "boot.d88"
+    image0 = base / "scsi-id0.hdd"
+    image1 = base / "scsi-id1.hdd"
+    make_scsi_two_disk(support, format_boot, run_scform=True)
+    make_scsi_two_disk(support, boot)
+    created0 = create_scsi_image(Path(args.worker).resolve(), image0)
+    created1 = create_scsi_image(Path(args.worker).resolve(), image1)
+    both = {"--scsi2": image1}
+    format0 = run_media_guest(
+        args, base / "format-id0", format_boot, "--scsi1", image0,
+        scsi_format_input_lines(0), SCSI_FORMAT_SCREEN, args.g75_exit_ms,
+        both)
+    format1 = run_media_guest(
+        args, base / "format-id1", format_boot, "--scsi1", image0,
+        scsi_format_input_lines(1), SCSI_FORMAT_SCREEN, args.g75_exit_ms,
+        both)
+    fat0 = inspect_scsi_fat(image0)
+    fat1 = inspect_scsi_fat(image1)
+    expected = d88_find_file(support, "BIN/SCFORM.COM")
+    files_before = {
+        "C": scsi_root_files(image0, fat0),
+        "D": scsi_root_files(image1, fat1),
+    }
+    if files_before["C"] or files_before["D"]:
+        raise AssertionError("fresh two-disk SCSI images are not empty")
+
+    disks = (
+        {"id": 0, "drive": "C", "image": image0, "fat": fat0,
+         "name": SCSI_ID0_FILE, "backup": SCSI_ID0_BACKUP_FILE},
+        {"id": 1, "drive": "D", "image": image1, "fat": fat1,
+         "name": SCSI_ID1_FILE, "backup": SCSI_ID1_BACKUP_FILE},
+    )
+    create_results = {}
+    image_hashes = {"C": sha256(image0), "D": sha256(image1)}
+    for disk in disks:
+        display = dos_display_name(disk["name"])
+        result = run_media_guest(
+            args, base / f"create-id{disk['id']}", boot, "--scsi1", image0,
+            scsi_two_disk_create_input_lines(disk["drive"], disk["name"]),
+            (display,), args.g75_io_exit_ms, both)
+        payload = scsi_file_bytes(disk["image"], disk["fat"], disk["name"])
+        if payload != expected:
+            raise AssertionError(
+                f"SCSI ID {disk['id']} create payload differs from SCFORM.COM")
+        other = "D" if disk["drive"] == "C" else "C"
+        if sha256(image1 if other == "D" else image0) != image_hashes[other]:
+            raise AssertionError(
+                f"SCSI ID {disk['id']} write changed the other disk")
+        image_hashes[disk["drive"]] = sha256(disk["image"])
+        create_results[str(disk["id"])] = result
+
+    readback_results = {}
+    for disk in disks:
+        display = dos_display_name(disk["backup"])
+        result = run_media_guest(
+            args, base / f"readback-id{disk['id']}", boot, "--scsi1", image0,
+            scsi_two_disk_readback_input_lines(
+                disk["drive"], disk["name"], disk["backup"]),
+            (display,), args.g75_io_exit_ms, both)
+        backup = d88_find_file(boot, disk["backup"])
+        if backup != expected:
+            raise AssertionError(
+                f"SCSI ID {disk['id']} readback differs from SCFORM.COM")
+        readback_results[str(disk["id"])] = result
+
+    delete_results = {}
+    for disk in disks:
+        display = dos_display_name(disk["name"])
+        result = run_media_guest(
+            args, base / f"delete-id{disk['id']}", boot, "--scsi1", image0,
+            scsi_two_disk_delete_input_lines(disk["drive"], disk["name"]),
+            (f"DEL {disk['drive']}:\\{disk['name']}",
+             "該当するファイルはありません"),
+            args.g75_io_exit_ms, both)
+        if any(display in line for line in result["screen_lines"]):
+            raise AssertionError(
+                f"SCSI ID {disk['id']} file remains in guest DIR")
+        if scsi_file_bytes(disk["image"], disk["fat"], disk["name"]) is not None:
+            raise AssertionError(
+                f"SCSI ID {disk['id']} file remains in the image")
+        delete_results[str(disk["id"])] = result
+
+    final0 = inspect_scsi_fat(image0)
+    final1 = inspect_scsi_fat(image1)
+    remaining0 = scsi_root_files(image0, final0)
+    remaining1 = scsi_root_files(image1, final1)
+    if remaining0 or remaining1:
+        raise AssertionError("two-disk SCSI root directories are not empty")
+    for label, info in (("SCSI ID 0", final0), ("SCSI ID 1", final1)):
+        copies = info["fat"]["copies"]
+        if copies[0]["free_entries"] != copies[1]["free_entries"]:
+            raise AssertionError(f"{label} FAT copies disagree after delete")
+        if copies[0]["free_entries"] <= 0:
+            raise AssertionError(f"{label} has no free clusters after delete")
+    return {
+        "mode": "g75-scsi-two",
+        "support_d88": str(support),
+        "config_schd": ["-I0", "-I1"],
+        "source_file": "A:\\BIN\\SCFORM.COM",
+        "source_file_sha256": hashlib.sha256(expected).hexdigest(),
+        "created_images": {"id0": created0, "id1": created1},
+        "format": {"id0": format0, "id1": format1},
+        "create": create_results,
+        "readback_after_reopen": readback_results,
+        "delete_after_reopen": delete_results,
+        "fat_after_delete": {
+            "id0": {
+                "fat_type": final0["selected"]["fat_type"],
+                "cluster_count": final0["selected"]["cluster_count"],
+                "free_clusters_fat1": final0["fat"]["copies"][0]["free_entries"],
+                "free_clusters_fat2": final0["fat"]["copies"][1]["free_entries"],
+            },
+            "id1": {
+                "fat_type": final1["selected"]["fat_type"],
+                "cluster_count": final1["selected"]["cluster_count"],
+                "free_clusters_fat1": final1["fat"]["copies"][0]["free_entries"],
+                "free_clusters_fat2": final1["fat"]["copies"][1]["free_entries"],
+            },
+        },
+        "remaining_files": {"id0": remaining0, "id1": remaining1},
+        "boot_d88": str(boot),
+        "images": {"id0": str(image0), "id1": str(image1)},
+    }
+
+
 def run_guest_io(args: argparse.Namespace) -> dict[str, object]:
     base = (Path(args.output_dir).resolve()
             if args.output_dir else
@@ -769,8 +1009,10 @@ def main(argv: list[str] | None = None) -> int:
                         help="run HDFORM.COM from the supplied PC-Engine 1.1 D88")
     parser.add_argument("--g75-scsi", action="store_true",
                         help="format a blank 40MiB SCSI image and run G75 lifecycle")
+    parser.add_argument("--g75-scsi-two", action="store_true",
+                        help="run create/readback/delete on SCSI IDs 0 and 1")
     parser.add_argument("--full-g75", action="store_true",
-                        help="run SASI HDFORM and the full SCSI G75 lifecycle")
+                        help="run SASI HDFORM and one- and two-disk SCSI lifecycles")
     parser.add_argument("--worker")
     parser.add_argument("--support-d88")
     parser.add_argument("--sasi-source",
@@ -794,7 +1036,8 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps(fixture_selftest(), indent=2, sort_keys=True))
         return 0
     modes = sum(bool(value) for value in (
-        args.guest_io, args.sasi_format, args.g75_scsi, args.full_g75))
+        args.guest_io, args.sasi_format, args.g75_scsi,
+        args.g75_scsi_two, args.full_g75))
     if modes > 1:
         parser.error("guest regression modes are mutually exclusive")
     missing = [name for name in ("--worker", "--support-d88", "--roms")
@@ -815,6 +1058,8 @@ def main(argv: list[str] | None = None) -> int:
         result = run_sasi_format(args)
     elif args.g75_scsi:
         result = run_g75_scsi(args)
+    elif args.g75_scsi_two:
+        result = run_g75_scsi_two(args)
     elif args.full_g75:
         root = (Path(args.output_dir).resolve()
                 if args.output_dir else
@@ -827,12 +1072,15 @@ def main(argv: list[str] | None = None) -> int:
         sasi_result = run_sasi_format(args)
         args.output_dir = str(root)
         scsi_result = run_g75_scsi(args)
+        args.output_dir = str(root)
+        scsi_two_result = run_g75_scsi_two(args)
         args.output_dir = original
         result = {
             "mode": "full-g75",
             "output_dir": str(root),
             "sasi": sasi_result,
             "scsi": scsi_result,
+            "scsi_two": scsi_two_result,
         }
     else:
         output_root = (Path(args.output_dir).resolve()

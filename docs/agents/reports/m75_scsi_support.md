@@ -2139,8 +2139,11 @@ without modifying the source D88, ROM directory, or HOSTFAT source tree.
 - The readback step copies the SCSI file to the disposable A: disk and
   compares its bytes with the source file. The delete step checks both the
   guest screen and the backing FAT/root directory.
-- --full-g75 composes the SASI and SCSI flows. Every guest step retains a
-  same-run screen/trace pair and its headless input script.
+- --g75-scsi-two creates a disposable two-target boot copy with both SCHD
+  target IDs, formats both images, and tests ID 0/C: and ID 1/D: separately.
+- --full-g75 composes the SASI, one-disk SCSI, and two-target SCSI flows.
+  Every guest step retains a same-run screen/trace pair and its headless
+  input script.
 
 The normal-speed run completed the SASI format flow and the full SCSI flow:
 SCFORM created one G75TEST.COM file, the next process copied identical
@@ -2151,3 +2154,20 @@ positive free clusters in both copies.
 This is machine evidence for the disposable storage paths. It does not
 approve the remaining M75 human gates, including non-SCSI disk regression,
 GUI reset interaction, and any real-hardware comparison.
+
+
+## G75 two-target SCSI automation
+
+The disposable storage harness now also creates a boot-disk copy with both
+`DEVICE = A:\SCHD.SYS -I0` and `DEVICE = A:\SCHD.SYS -I1`. It formats both
+targets using SCFORM and verifies the normal PC-Engine drive assignment:
+SCSI ID 0 is C: and SCSI ID 1 is D:.
+
+For both targets, separate guest processes perform file creation, close/reopen
+readback to the A: disk, and deletion. The host-side verifier compares each
+readback byte-for-byte with `A:\BIN\SCFORM.COM`, checks both FAT copies, and
+requires empty root directories and positive free-cluster counts after delete.
+The source/support D88 remains unchanged; the generated two-target D88 and
+images are disposable evidence. The normal-speed two-target run completed
+create, close/reopen readback, and delete for both IDs. Both final root
+directories were empty and both FAT copies reported 19,918 free clusters.
