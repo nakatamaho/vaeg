@@ -64,6 +64,12 @@ class StorageFixtureTest(unittest.TestCase):
 
     def test_g75_input_scripts(self):
         self.assertEqual(MODULE.sasi_format_input_lines()[1], "HDFORM C:")
+        self.assertIn(MODULE.SASI_TEST_FILE,
+                      MODULE.sasi_create_input_lines()[1])
+        self.assertIn(MODULE.SASI_BACKUP_FILE,
+                      MODULE.sasi_readback_input_lines()[3])
+        self.assertIn(MODULE.SASI_TEST_FILE,
+                      MODULE.sasi_delete_input_lines()[1])
         self.assertIn("G75TEST.COM", MODULE.scsi_create_input_lines()[1])
         self.assertIn("G75BACK.COM", MODULE.scsi_readback_input_lines()[3])
         self.assertIn("G75TEST.COM", MODULE.scsi_delete_input_lines()[1])

@@ -219,10 +219,11 @@ python3 tools/qa/m75_storage_regression.py --guest-io \
   --roms /path/to/roms --hostfat-drive D --exit-ms 40000
 ```
 
-The SASI format check uses the actual `HDFORM.COM` from the supplied
+The SASI lifecycle check uses the actual `HDFORM.COM` from the supplied
 PC-Engine 1.1 D88. It copies that D88 to the output directory, runs
-`HDFORM C:` and confirms the 40MB SASI image and the positive free-space
-screen result:
+`HDFORM C:`, then boots separate guest processes to create a file, close and
+reopen the SASI image for byte-exact readback to A:, and delete the file. It
+also confirms the 40MB SASI image and the positive free-space screen result:
 
 ```sh
 python3 tools/qa/m75_storage_regression.py --sasi-format \
@@ -270,7 +271,7 @@ The storage script divides the checks as follows:
 
 | Automated by `m75_storage_regression.py` | Remains a human/environment gate |
 |---|---|
-| SASI HDI creation, `HDFORM.COM` execution, and positive free-space screen | Supplying the owned ROM set and correct source/support D88 |
+| SASI HDFORM, create/readback/delete, and positive free-space screen | Supplying the owned ROM set and correct source/support D88 |
 | SCSI blank 40MiB VHD creation, SCFORM initialization, FAT validation | Reviewing screen/trace captures when accepting a release |
 | One-disk SCSI file creation and `G75TEST.COM` root/FAT verification | GUI Configure / Rebuild + reset interaction |
 | Two-target SCSI ID 0/1 formatting and file-operation verification | Non-SCSI disk regression gates |

@@ -62,6 +62,8 @@ SASI_BLOCK_COUNT = SASI_CYLINDERS * SASI_SURFACES * SASI_SECTORS
 SASI_DATA_SIZE = SASI_BLOCK_COUNT * SASI_SECTOR_SIZE
 SASI_FILE_SIZE = SASI_HEADER_SIZE + SASI_DATA_SIZE
 SASI_MARKER = b"M75 SASI REGRESSION\n"
+SASI_TEST_FILE = "G75SASI.COM"
+SASI_BACKUP_FILE = "G75SASB.COM"
 HOSTFAT_FILE = "REGRESS.TXT"
 HOSTFAT_CONTENT = "M75 STORAGE REGRESSION\n"
 SCSI_TEST_FILE = "G75TEST.COM"
@@ -178,6 +180,38 @@ def sasi_format_input_lines() -> list[str]:
         "@wait 600",
         "Y",
         "@wait 2400",
+    ]
+
+
+def sasi_create_input_lines() -> list[str]:
+    return [
+        "@wait 1200",
+        f"COPY A:\HDFORM.COM C:\{SASI_TEST_FILE}",
+        "@wait 2400",
+        "DIR C:",
+        "@wait 1200",
+    ]
+
+
+def sasi_readback_input_lines() -> list[str]:
+    return [
+        "@wait 1200",
+        "DIR C:",
+        "@wait 1800",
+        f"COPY C:\{SASI_TEST_FILE} A:\{SASI_BACKUP_FILE}",
+        "@wait 2400",
+        "DIR A:",
+        "@wait 1200",
+    ]
+
+
+def sasi_delete_input_lines() -> list[str]:
+    return [
+        "@wait 1200",
+        f"DEL C:\{SASI_TEST_FILE}",
+        "@wait 2400",
+        "DIR C:",
+        "@wait 1200",
     ]
 
 
@@ -486,6 +520,34 @@ def scsi_file_bytes(path: Path, info: dict[str, object],
     return bytes(data[:entry["size"]])
 
 
+def sasi_root_file_entry(path: Path, name: str) -> dict[str, int] | None:
+    """Find a DOS 8.3 entry in the formatted SASI image.
+
+    HDI has a 4096-byte container header and the PC-Engine SASI formatter
+    keeps directory entries on 32-byte boundaries in the guest-visible data.
+    This intentionally validates the directory entry only; payload equality is
+    checked independently against the source D88 file and the A: readback.
+    """
+    base, extension = name.upper().split(".", 1)
+    raw_name = base.ljust(8).encode("ascii") + extension.ljust(3).encode("ascii")
+    data = path.read_bytes()
+    matches = []
+    for offset in range(SASI_HEADER_SIZE, len(data) - 31, 32):
+        entry = data[offset:offset + 32]
+        if entry[:11] != raw_name or entry[0] in (0x00, 0xE5):
+            continue
+        if entry[11] & 0x08:
+            continue
+        matches.append({
+            "offset": offset,
+            "cluster": int.from_bytes(entry[26:28], "little"),
+            "size": int.from_bytes(entry[28:32], "little"),
+        })
+    if len(matches) > 1:
+        raise AssertionError(f"SASI directory contains duplicate {name}")
+    return matches[0] if matches else None
+
+
 def fixture_selftest() -> dict[str, object]:
     with tempfile.TemporaryDirectory(prefix="m75-storage-fixture-") as temporary:
         root = Path(temporary)
@@ -507,6 +569,12 @@ def fixture_selftest() -> dict[str, object]:
             raise AssertionError("delete input script lacks post-delete DIR")
         if sasi_format_input_lines()[1] != "HDFORM C:":
             raise AssertionError("SASI format script does not target C:")
+        if SASI_TEST_FILE not in sasi_create_input_lines()[1]:
+            raise AssertionError("SASI create script lacks test file")
+        if SASI_BACKUP_FILE not in sasi_readback_input_lines()[3]:
+            raise AssertionError("SASI readback script lacks host copy")
+        if SASI_TEST_FILE not in sasi_delete_input_lines()[1]:
+            raise AssertionError("SASI delete script lacks test file")
         if "G75TEST.COM" not in scsi_create_input_lines()[1]:
             raise AssertionError("SCSI create script lacks test file")
         if "G75BACK.COM" not in scsi_readback_input_lines()[3]:
@@ -753,13 +821,55 @@ def run_sasi_format(args: argparse.Namespace) -> dict[str, object]:
         raise AssertionError("HDFORM did not change the SASI image")
     if "HDFORM C:" not in result["screen_lines"]:
         raise AssertionError("SASI screen lacks the HDFORM command")
+    formatted_sha = after
+    if sasi_root_file_entry(image, SASI_TEST_FILE) is not None:
+        raise AssertionError("fresh formatted SASI image already has test file")
+
+    create_result = run_media_guest(
+        args, base / "create", boot, "--sasi1", image,
+        sasi_create_input_lines(), ("G75SASI .COM",), args.g75_io_exit_ms)
+    created_sha = sha256(image)
+    if created_sha == formatted_sha:
+        raise AssertionError("SASI create did not change the backing image")
+    created_entry = sasi_root_file_entry(image, SASI_TEST_FILE)
+    if created_entry is None:
+        raise AssertionError("SASI create did not create the root entry")
+    if created_entry["size"] != len(hform):
+        raise AssertionError(
+            f"SASI created size {created_entry['size']} != {len(hform)}")
+    if image.read_bytes().find(hform, SASI_HEADER_SIZE) < 0:
+        raise AssertionError("SASI backing image lacks created file payload")
+
+    readback_before = sha256(image)
+    readback_result = run_media_guest(
+        args, base / "readback", boot, "--sasi1", image,
+        sasi_readback_input_lines(), ("G75SASB .COM",), args.g75_io_exit_ms)
+    if sha256(image) != readback_before:
+        raise AssertionError("SASI readback changed the backing image")
+    readback = d88_find_file(boot, SASI_BACKUP_FILE)
+    if readback != hform:
+        raise AssertionError("SASI close/reopen readback differs from HDFORM")
+
+    delete_result = run_media_guest(
+        args, base / "delete", boot, "--sasi1", image,
+        sasi_delete_input_lines(),
+        (f"DEL C:\\{SASI_TEST_FILE}", "該当するファイルはありません"),
+        args.g75_io_exit_ms)
+    deleted_sha = sha256(image)
+    if sasi_root_file_entry(image, SASI_TEST_FILE) is not None:
+        raise AssertionError("SASI delete left the test root entry")
     return {
-        "mode": "sasi-format",
+        "mode": "sasi-lifecycle",
         "source_d88": str(source),
         "hform_size": len(hform),
         "hform_sha256": hashlib.sha256(hform).hexdigest(),
-        "image": {**before, "sha256_after": after},
-        "guest": result,
+        "image": {**before, "sha256_after_format": after,
+                  "sha256_after_create": created_sha,
+                  "sha256_after_delete": deleted_sha},
+        "format": result,
+        "create": create_result,
+        "readback": {**readback_result, "source_equal": True},
+        "delete": delete_result,
     }
 
 
