@@ -23,8 +23,8 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "cpucva/compat_cpu.h"
-#include "cpucva/compat_state.h"
+#include "cpucva/z80_compat_cpu.h"
+#include "cpucva/z80_compat_state.h"
 
 #include <array>
 #include <cstddef>
@@ -35,7 +35,7 @@
 
 namespace {
 
-using Status = std::array<std::uint8_t, vaeg::compat::kRevision1Size>;
+using Status = std::array<std::uint8_t, vaeg::z80_compat::kRevision1Size>;
 
 struct Fixture {
     const char *name;
@@ -77,7 +77,7 @@ std::uint8_t HexDigit(char digit) {
 
 Status Parse(const char *hex) {
     const std::string text(hex);
-    if (text.size() != vaeg::compat::kRevision1Size * 2) {
+    if (text.size() != vaeg::z80_compat::kRevision1Size * 2) {
         Fail("retained fixture has an invalid encoded length");
     }
     Status status{};
@@ -89,7 +89,7 @@ Status Parse(const char *hex) {
     return status;
 }
 
-bool SameRegisters(const CompatReg &left, const CompatReg &right) {
+bool SameRegisters(const Z80CompatReg &left, const Z80CompatReg &right) {
     return left.af == right.af && left.hl == right.hl &&
            left.de == right.de && left.bc == right.bc &&
            left.ix == right.ix && left.iy == right.iy &&
@@ -102,8 +102,8 @@ bool SameRegisters(const CompatReg &left, const CompatReg &right) {
            left.iff2 == right.iff2;
 }
 
-bool SameState(const vaeg::compat::LegacyState &left,
-               const vaeg::compat::LegacyState &right) {
+bool SameState(const vaeg::z80_compat::LegacyState &left,
+               const vaeg::z80_compat::LegacyState &right) {
     return SameRegisters(left.registers, right.registers) &&
            left.halted == right.halted &&
            left.external_wait == right.external_wait &&
@@ -144,14 +144,14 @@ private:
 
 void VerifyFixture(const Fixture &fixture) {
     const Status input = Parse(fixture.hex);
-    if ((input[vaeg::compat::kOffsetWait] &
-         vaeg::compat::kWaitEiInhibited) != 0) {
+    if ((input[vaeg::z80_compat::kOffsetWait] &
+         vaeg::z80_compat::kWaitEiInhibited) != 0) {
         Fail(std::string(fixture.name) +
              " unexpectedly uses reserved revision-1 wait bit 2");
     }
 
-    vaeg::compat::LegacyState decoded;
-    if (!vaeg::compat::DecodeRevision1(input.data(), &decoded)) {
+    vaeg::z80_compat::LegacyState decoded;
+    if (!vaeg::z80_compat::DecodeRevision1(input.data(), &decoded)) {
         Fail(std::string(fixture.name) + " codec decode failed");
     }
 
@@ -159,9 +159,9 @@ void VerifyFixture(const Fixture &fixture) {
     IO io;
     Clock clock;
     ClockCounter counter;
-    CompatCpu cpu;
+    Z80CompatCpu cpu;
     if (!cpu.Init(&memory, &io, &clock, &counter, 0x102) ||
-        cpu.GetStatusSize() != vaeg::compat::kRevision1Size ||
+        cpu.GetStatusSize() != vaeg::z80_compat::kRevision1Size ||
         !cpu.LoadStatus(input.data())) {
         Fail(std::string(fixture.name) + " production wrapper load failed");
     }
@@ -170,8 +170,8 @@ void VerifyFixture(const Fixture &fixture) {
     if (!cpu.SaveStatus(output.data())) {
         Fail(std::string(fixture.name) + " production wrapper save failed");
     }
-    vaeg::compat::LegacyState round_trip;
-    if (!vaeg::compat::DecodeRevision1(output.data(), &round_trip) ||
+    vaeg::z80_compat::LegacyState round_trip;
+    if (!vaeg::z80_compat::DecodeRevision1(output.data(), &round_trip) ||
         !SameState(decoded, round_trip)) {
         Fail(std::string(fixture.name) +
              " decoded state changed across wrapper load/save");
@@ -182,14 +182,14 @@ void VerifyFixture(const Fixture &fixture) {
 } // namespace
 
 int main() {
-    static_assert(vaeg::compat::kRevision1Size == 68,
+    static_assert(vaeg::z80_compat::kRevision1Size == 68,
                   "revision-1 status size changed");
-    static_assert(vaeg::compat::kOffsetAf == 0 &&
-                      vaeg::compat::kOffsetPc == 44 &&
-                      vaeg::compat::kOffsetWait == 57 &&
-                      vaeg::compat::kOffsetRevision == 59 &&
-                      vaeg::compat::kOffsetRemainClock == 60 &&
-                      vaeg::compat::kOffsetLastClock == 64,
+    static_assert(vaeg::z80_compat::kOffsetAf == 0 &&
+                      vaeg::z80_compat::kOffsetPc == 44 &&
+                      vaeg::z80_compat::kOffsetWait == 57 &&
+                      vaeg::z80_compat::kOffsetRevision == 59 &&
+                      vaeg::z80_compat::kOffsetRemainClock == 60 &&
+                      vaeg::z80_compat::kOffsetLastClock == 64,
                   "revision-1 field offsets changed");
 
     for (const Fixture &fixture : kFixtures) {
@@ -197,20 +197,20 @@ int main() {
     }
 
     Status unsupported{};
-    unsupported[vaeg::compat::kOffsetRevision] = 2;
-    vaeg::compat::LegacyState decoded;
-    if (vaeg::compat::DecodeRevision1(unsupported.data(), &decoded)) {
+    unsupported[vaeg::z80_compat::kOffsetRevision] = 2;
+    vaeg::z80_compat::LegacyState decoded;
+    if (vaeg::z80_compat::DecodeRevision1(unsupported.data(), &decoded)) {
         Fail("unsupported revision was accepted");
     }
 
-    std::printf("sizeof.compat_status=%zu\n", vaeg::compat::kRevision1Size);
-    std::printf("offset.af=%zu\n", vaeg::compat::kOffsetAf);
-    std::printf("offset.pc=%zu\n", vaeg::compat::kOffsetPc);
-    std::printf("offset.wait=%zu\n", vaeg::compat::kOffsetWait);
-    std::printf("offset.revision=%zu\n", vaeg::compat::kOffsetRevision);
+    std::printf("sizeof.compat_status=%zu\n", vaeg::z80_compat::kRevision1Size);
+    std::printf("offset.af=%zu\n", vaeg::z80_compat::kOffsetAf);
+    std::printf("offset.pc=%zu\n", vaeg::z80_compat::kOffsetPc);
+    std::printf("offset.wait=%zu\n", vaeg::z80_compat::kOffsetWait);
+    std::printf("offset.revision=%zu\n", vaeg::z80_compat::kOffsetRevision);
     std::printf("offset.remainclock=%zu\n",
-                vaeg::compat::kOffsetRemainClock);
-    std::printf("offset.lastclock=%zu\n", vaeg::compat::kOffsetLastClock);
+                vaeg::z80_compat::kOffsetRemainClock);
+    std::printf("offset.lastclock=%zu\n", vaeg::z80_compat::kOffsetLastClock);
     std::printf("legacy-contract: %zu retained fixtures passed\n",
                 sizeof(kFixtures) / sizeof(kFixtures[0]));
     return 0;

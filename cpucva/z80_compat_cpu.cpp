@@ -23,9 +23,9 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "compat_cpu.h"
+#include "z80_compat_cpu.h"
 
-#include "compat_state.h"
+#include "z80_compat_state.h"
 #include "z80.hpp"
 
 #include <cstring>
@@ -67,8 +67,8 @@ std::int32_t AddClockDelta(std::int32_t balance, std::uint32_t delta) {
     return SignedFromBits(static_cast<std::uint32_t>(balance) + delta);
 }
 
-CompatReg ExportRegisters(const Z80::Register &source) {
-    CompatReg result{};
+Z80CompatReg ExportRegisters(const Z80::Register &source) {
+    Z80CompatReg result{};
     result.af = MakeWord(source.pair.A, source.pair.F);
     result.hl = MakeWord(source.pair.H, source.pair.L);
     result.de = MakeWord(source.pair.D, source.pair.E);
@@ -90,7 +90,7 @@ CompatReg ExportRegisters(const Z80::Register &source) {
     return result;
 }
 
-void ImportRegisters(const CompatReg &source, bool halted,
+void ImportRegisters(const Z80CompatReg &source, bool halted,
                      bool ei_inhibited, Z80::Register *destination) {
     std::memset(destination, 0, sizeof(*destination));
     SplitWord(source.af, &destination->pair.A, &destination->pair.F);
@@ -119,18 +119,18 @@ void ImportRegisters(const CompatReg &source, bool halted,
 
 } // namespace
 
-struct CompatCpu::Impl {
-    explicit Impl(CompatCpu *owner)
-        : cpu(&CompatCpu::ReadMemory, &CompatCpu::WriteMemory, &CompatCpu::Input,
-              &CompatCpu::Output, owner, false) {
-        cpu.setConsumeClockCallback(&CompatCpu::ConsumeClock);
-        cpu.setInterruptAcknowledgeCallback(&CompatCpu::Acknowledge);
+struct Z80CompatCpu::Impl {
+    explicit Impl(Z80CompatCpu *owner)
+        : cpu(&Z80CompatCpu::ReadMemory, &Z80CompatCpu::WriteMemory, &Z80CompatCpu::Input,
+              &Z80CompatCpu::Output, owner, false) {
+        cpu.setConsumeClockCallback(&Z80CompatCpu::ConsumeClock);
+        cpu.setInterruptAcknowledgeCallback(&Z80CompatCpu::Acknowledge);
     }
 
     Z80 cpu;
 };
 
-CompatCpu::CompatCpu()
+Z80CompatCpu::Z80CompatCpu()
     : impl_(nullptr), memory_(nullptr), bus_(nullptr), clock_(nullptr),
       clockcounter_(nullptr), lastclock_(0), acknowledge_port_(0),
       external_wait_(false), irq_asserted_(false),
@@ -142,11 +142,11 @@ CompatCpu::CompatCpu()
       data_base_(0), public_registers_{} {
 }
 
-CompatCpu::~CompatCpu() {
+Z80CompatCpu::~Z80CompatCpu() {
     delete impl_;
 }
 
-bool CompatCpu::Init(IMemoryAccess *memory, IIOAccess *bus, IClock *clock,
+bool Z80CompatCpu::Init(IMemoryAccess *memory, IIOAccess *bus, IClock *clock,
                 IClockCounter *clockcounter,
                 int interrupt_acknowledge_port) {
     if (memory == nullptr || bus == nullptr || clock == nullptr ||
@@ -169,7 +169,7 @@ bool CompatCpu::Init(IMemoryAccess *memory, IIOAccess *bus, IClock *clock,
     return true;
 }
 
-void CompatCpu::Exec() {
+void Z80CompatCpu::Exec() {
     if (impl_ == nullptr || clock_ == nullptr || clockcounter_ == nullptr) {
         return;
     }
@@ -195,7 +195,7 @@ void CompatCpu::Exec() {
     lastclock_ = SignedFromBits(now);
 }
 
-void CompatCpu::ExecOne() {
+void Z80CompatCpu::ExecOne() {
     if (impl_ == nullptr || clockcounter_ == nullptr) {
         return;
     }
@@ -210,9 +210,9 @@ void CompatCpu::ExecOne() {
     SynchronizePublicMirror();
 }
 
-void IOCALL CompatCpu::Reset(std::uint32_t, std::uint32_t) {
+void IOCALL Z80CompatCpu::Reset(std::uint32_t, std::uint32_t) {
     if (impl_ == nullptr) {
-        public_registers_ = CompatReg{};
+        public_registers_ = Z80CompatReg{};
         return;
     }
 
@@ -227,14 +227,14 @@ void IOCALL CompatCpu::Reset(std::uint32_t, std::uint32_t) {
     SynchronizePublicMirror();
 }
 
-void IOCALL CompatCpu::IRQ(std::uint32_t, std::uint32_t asserted) {
+void IOCALL Z80CompatCpu::IRQ(std::uint32_t, std::uint32_t asserted) {
     irq_asserted_ = asserted != 0;
     if (impl_ != nullptr) {
         impl_->cpu.setIRQLine(irq_asserted_);
     }
 }
 
-void IOCALL CompatCpu::NMI(std::uint32_t, std::uint32_t) {
+void IOCALL Z80CompatCpu::NMI(std::uint32_t, std::uint32_t) {
     if (impl_ == nullptr || memory_ == nullptr || clockcounter_ == nullptr) {
         return;
     }
@@ -263,20 +263,20 @@ void IOCALL CompatCpu::NMI(std::uint32_t, std::uint32_t) {
     public_registers_.pc = mirrored_pc;
 }
 
-void CompatCpu::Wait(bool asserted) {
+void Z80CompatCpu::Wait(bool asserted) {
     external_wait_ = asserted;
 }
 
-std::uint32_t IFCALL CompatCpu::GetStatusSize() {
-    return static_cast<std::uint32_t>(vaeg::compat::kRevision1Size);
+std::uint32_t IFCALL Z80CompatCpu::GetStatusSize() {
+    return static_cast<std::uint32_t>(vaeg::z80_compat::kRevision1Size);
 }
 
-bool IFCALL CompatCpu::SaveStatus(std::uint8_t *status) {
+bool IFCALL Z80CompatCpu::SaveStatus(std::uint8_t *status) {
     if (impl_ == nullptr || clockcounter_ == nullptr || status == nullptr) {
         return false;
     }
 
-    vaeg::compat::LegacyState state;
+    vaeg::z80_compat::LegacyState state;
     state.registers = ExportRegisters(impl_->cpu.reg);
     state.halted = (impl_->cpu.reg.IFF & kIffHalt) != 0;
     state.external_wait = external_wait_;
@@ -284,17 +284,17 @@ bool IFCALL CompatCpu::SaveStatus(std::uint8_t *status) {
     state.ei_inhibited = impl_->cpu.reg.execEI != 0;
     state.remainclock = clockcounter_->GetRemainclock();
     state.lastclock = lastclock_;
-    vaeg::compat::EncodeRevision1(state, status);
+    vaeg::z80_compat::EncodeRevision1(state, status);
     return true;
 }
 
-bool IFCALL CompatCpu::LoadStatus(const std::uint8_t *status) {
+bool IFCALL Z80CompatCpu::LoadStatus(const std::uint8_t *status) {
     if (impl_ == nullptr || clockcounter_ == nullptr || status == nullptr) {
         return false;
     }
 
-    vaeg::compat::LegacyState state;
-    if (!vaeg::compat::DecodeRevision1(status, &state)) {
+    vaeg::z80_compat::LegacyState state;
+    if (!vaeg::z80_compat::DecodeRevision1(status, &state)) {
         return false;
     }
 
@@ -309,11 +309,11 @@ bool IFCALL CompatCpu::LoadStatus(const std::uint8_t *status) {
     return true;
 }
 
-std::uint32_t CompatCpu::GetPC() {
+std::uint32_t Z80CompatCpu::GetPC() {
     return impl_ != nullptr ? impl_->cpu.reg.PC : 0;
 }
 
-void CompatCpu::SetPC(std::uint32_t new_pc) {
+void Z80CompatCpu::SetPC(std::uint32_t new_pc) {
     const std::uint16_t pc = static_cast<std::uint16_t>(new_pc);
     if (impl_ != nullptr) {
         impl_->cpu.reg.PC = pc;
@@ -321,7 +321,7 @@ void CompatCpu::SetPC(std::uint32_t new_pc) {
     public_registers_.pc = pc;
 }
 
-void CompatCpu::SetReg(const CompatReg &source) {
+void Z80CompatCpu::SetReg(const Z80CompatReg &source) {
     if (impl_ == nullptr) {
         public_registers_ = source;
         return;
@@ -331,7 +331,7 @@ void CompatCpu::SetReg(const CompatReg &source) {
     SynchronizePublicMirror();
 }
 
-void CompatCpu::SetMainReg(const CompatReg &source) {
+void Z80CompatCpu::SetMainReg(const Z80CompatReg &source) {
     if (impl_ == nullptr) {
         return;
     }
@@ -353,18 +353,18 @@ void CompatCpu::SetMainReg(const CompatReg &source) {
     SynchronizePublicMirror();
 }
 
-void CompatCpu::SetMemoryBases(std::uint32_t code_base,
+void Z80CompatCpu::SetMemoryBases(std::uint32_t code_base,
                           std::uint32_t data_base) {
     code_base_ = code_base;
     data_base_ = data_base;
 }
 
-const CompatReg *CompatCpu::GetReg() {
+const Z80CompatReg *Z80CompatCpu::GetReg() {
     return &public_registers_;
 }
 
-std::uint8_t CompatCpu::ReadMemory(void *opaque, std::uint16_t address) {
-    CompatCpu *cpu = static_cast<CompatCpu *>(opaque);
+std::uint8_t Z80CompatCpu::ReadMemory(void *opaque, std::uint16_t address) {
+    Z80CompatCpu *cpu = static_cast<Z80CompatCpu *>(opaque);
     const std::uint32_t translated = cpu->instruction_fetch_started_
         ? cpu->TranslateDataAddress(address)
         : cpu->TranslateCodeAddress(address);
@@ -398,29 +398,29 @@ std::uint8_t CompatCpu::ReadMemory(void *opaque, std::uint16_t address) {
     return value;
 }
 
-void CompatCpu::WriteMemory(void *opaque, std::uint16_t address,
+void Z80CompatCpu::WriteMemory(void *opaque, std::uint16_t address,
                        std::uint8_t data) {
-    CompatCpu *cpu = static_cast<CompatCpu *>(opaque);
+    Z80CompatCpu *cpu = static_cast<Z80CompatCpu *>(opaque);
     cpu->memory_->Write8(cpu->TranslateDataAddress(address), data);
 }
 
-std::uint8_t CompatCpu::Input(void *opaque, std::uint16_t port) {
-    CompatCpu *cpu = static_cast<CompatCpu *>(opaque);
+std::uint8_t Z80CompatCpu::Input(void *opaque, std::uint16_t port) {
+    Z80CompatCpu *cpu = static_cast<Z80CompatCpu *>(opaque);
     return static_cast<std::uint8_t>(cpu->bus_->In(port & 0xffU));
 }
 
-void CompatCpu::Output(void *opaque, std::uint16_t port, std::uint8_t data) {
-    CompatCpu *cpu = static_cast<CompatCpu *>(opaque);
+void Z80CompatCpu::Output(void *opaque, std::uint16_t port, std::uint8_t data) {
+    Z80CompatCpu *cpu = static_cast<Z80CompatCpu *>(opaque);
     cpu->bus_->Out(port & 0xffU, data);
 }
 
-void CompatCpu::ConsumeClock(void *opaque, int clocks) {
-    CompatCpu *cpu = static_cast<CompatCpu *>(opaque);
+void Z80CompatCpu::ConsumeClock(void *opaque, int clocks) {
+    Z80CompatCpu *cpu = static_cast<Z80CompatCpu *>(opaque);
     cpu->clockcounter_->past(static_cast<std::int32_t>(clocks));
 }
 
-std::uint8_t CompatCpu::Acknowledge(void *opaque) {
-    CompatCpu *cpu = static_cast<CompatCpu *>(opaque);
+std::uint8_t Z80CompatCpu::Acknowledge(void *opaque) {
+    Z80CompatCpu *cpu = static_cast<Z80CompatCpu *>(opaque);
     const std::uint8_t value = static_cast<std::uint8_t>(cpu->bus_->In(
         static_cast<std::uint32_t>(cpu->acknowledge_port_)));
     if (IsOpcodePrefix(value)) {
@@ -432,7 +432,7 @@ std::uint8_t CompatCpu::Acknowledge(void *opaque) {
     return value;
 }
 
-void CompatCpu::ExecuteOne() {
+void Z80CompatCpu::ExecuteOne() {
     instruction_fetch_started_ = false;
     prefix_fetch_pending_ = false;
     first_opcode_ = 0;
@@ -449,15 +449,15 @@ void CompatCpu::ExecuteOne() {
     ApplyInstructionCorrections();
 }
 
-std::uint32_t CompatCpu::TranslateCodeAddress(std::uint16_t address) const {
+std::uint32_t Z80CompatCpu::TranslateCodeAddress(std::uint16_t address) const {
     return code_base_ + address;
 }
 
-std::uint32_t CompatCpu::TranslateDataAddress(std::uint16_t address) const {
+std::uint32_t Z80CompatCpu::TranslateDataAddress(std::uint16_t address) const {
     return data_base_ + address;
 }
 
-void CompatCpu::ApplyInstructionCorrections() {
+void Z80CompatCpu::ApplyInstructionCorrections() {
     if (impl_ == nullptr) {
         return;
     }
@@ -487,7 +487,7 @@ void CompatCpu::ApplyInstructionCorrections() {
         ((reg.IFF & kIff2) != 0 ? kParityOverflow : 0));
 }
 
-void CompatCpu::SynchronizePublicMirror() {
+void Z80CompatCpu::SynchronizePublicMirror() {
     if (impl_ != nullptr) {
         public_registers_ = ExportRegisters(impl_->cpu.reg);
     }

@@ -274,8 +274,8 @@ frontend boot script. The current working model is:
 The exact BRKEM2 return path and the producer of the later RAM code at
 `1000:C003` remain open investigation items.
 The emulator currently has a
-shared compatibility backend for the FDD uPD780C subsystem
-(`cpucva/compat_cpu.cpp`), but it does not yet emulate the main CPU's
+shared Z80 compatibility backend for the FDD uPD780C subsystem
+(`cpucva/z80_compat_cpu.cpp`), but it does not yet emulate the main CPU's
 uPD70008-compatible mode entered by BRKEM2.
 
 ## Practical Consequences

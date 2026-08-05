@@ -122,9 +122,9 @@ cpucva/z80c.cpp
 cpucva/z80diag.cpp
 
 suzukiplan:
-cpucva/compat_cpu.cpp
+cpucva/z80_compat_cpu.cpp
 cpucva/upd780_disasm.cpp
-cpucva/compat_state.cpp
+cpucva/z80_compat_state.cpp
 ```
 
 The legacy diagnostic source remains only because the still-selectable legacy
@@ -246,7 +246,7 @@ ROM-less smoke. Wine is execution evidence, not native hosted Windows.
 The acquisition command was:
 
 ```sh
-python3 tests/compat/fetch_zex.py --output-dir /tmp/vaeg-m40-zex
+python3 tests/z80_compat/fetch_zex.py --output-dir /tmp/vaeg-m40-zex
 ```
 
 It verified all five approved SHA-256 values. The exact test commands were:
@@ -311,7 +311,7 @@ git archive --format=tar.gz \
 tar -czf /tmp/vaeg-m40-runtime-5286c5c.tar.gz \
   build/m40-gcc-legacy/sdl2/vaeg assets/OFL.txt assets/NOTICE.md \
   CHANGES.20260713.md dist/readme-dist.txt
-python3 tests/compat/check_zex_archive.py \
+python3 tests/z80_compat/check_zex_archive.py \
   /tmp/vaeg-m40-source-5286c5c.tar.gz \
   /tmp/vaeg-m40-runtime-5286c5c.tar.gz
 ```

@@ -23,14 +23,14 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "cpucva/compat_cpu.h"
+#include "cpucva/z80_compat_cpu.h"
 #include "trace_backend.h"
 
 int main(int argc, char **argv) {
-    using vaeg::compat::differential::Backend;
-    using vaeg::compat::differential::RunTraceMain;
-    using vaeg::compat::differential::TraceBackend;
+    using vaeg::z80_compat::differential::Backend;
+    using vaeg::z80_compat::differential::RunTraceMain;
+    using vaeg::z80_compat::differential::TraceBackend;
     return RunTraceMain(argc, argv, "repeat", []() {
-        return std::unique_ptr<Backend>(new TraceBackend<CompatCpu>());
+        return std::unique_ptr<Backend>(new TraceBackend<Z80CompatCpu>());
     });
 }

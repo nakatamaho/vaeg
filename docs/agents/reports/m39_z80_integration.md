@@ -62,7 +62,7 @@ definitions identify the selected implementation. There is no runtime toggle.
 | Selection | Production `vaeg_va` Z80 sources |
 |---|---|
 | `legacy` | `cpucva/z80c.cpp`, `cpucva/z80diag.cpp` |
-| `suzukiplan` | `cpucva/compat_cpu.cpp`, `cpucva/compat_state.cpp`, `cpucva/z80diag.cpp`, `cpucva/z80diag_bridge.cpp` |
+| `suzukiplan` | `cpucva/z80_compat_cpu.cpp`, `cpucva/z80_compat_state.cpp`, `cpucva/z80diag.cpp`, `cpucva/z80diag_bridge.cpp` |
 
 The two `Z80C` implementations are never linked into the same production
 target. The existing disassembler is retained for both selections; the new
@@ -170,7 +170,7 @@ d8624085139ef4e7b400b918b2b498e79bea1af4a1942e4ac935545846e746a4  docs/agents/re
 The ZEX inputs were obtained outside the tree with:
 
 ```sh
-python3 tests/compat/fetch_zex.py --output-dir /tmp/vaeg-m39-zex
+python3 tests/z80_compat/fetch_zex.py --output-dir /tmp/vaeg-m39-zex
 ```
 
 All five immutable artifacts passed their recorded SHA-256 checks.
@@ -304,7 +304,7 @@ git archive --format=tar.gz \
 tar -czf /tmp/vaeg-m39-runtime-386a310.tar.gz \
   build/m39-gcc-legacy/sdl2/vaeg assets/OFL.txt assets/NOTICE.md \
   CHANGES.20260713.md dist/readme-dist.txt
-python3 tests/compat/check_zex_archive.py \
+python3 tests/z80_compat/check_zex_archive.py \
   /tmp/vaeg-m39-source-386a310.tar.gz \
   /tmp/vaeg-m39-runtime-386a310.tar.gz
 ```
@@ -354,10 +354,10 @@ Added:
 ```text
 cpucva/z80diag_bridge.cpp
 cpucva/z80diag_bridge.h
-docs/modernization/compatibility-integration.md
-docs/modernization/compatibility-private-integration.md
-tests/compat/subsystem_integration.cpp
-tests/compat/subsystem_integration.h
+docs/modernization/z80-compatibility-integration.md
+docs/modernization/z80-compatibility-private-integration.md
+tests/z80_compat/subsystem_integration.cpp
+tests/z80_compat/subsystem_integration.h
 ```
 
 Modified:
@@ -369,7 +369,7 @@ docs/agents/DECISIONS/ADR-0011-z80-migration.md
 docs/agents/tasks/M39_z80_integration.md
 docs/modernization/BUILD.md
 docs/modernization/bug-fixes.md
-docs/modernization/compat-cycle-deltas.md
+docs/modernization/z80-compat-cycle-deltas.md
 iova/subsystem.cpp
 iova/subsystem.h
 sdl2/selftest.c
@@ -383,7 +383,7 @@ unchanged.
 ## Private system validation
 
 The committed
-[`z80-private-integration.md`](../../modernization/compatibility-private-integration.md)
+[`z80-private-integration.md`](../../modernization/z80-compatibility-private-integration.md)
 records all 15 cases with neutral identifiers. Private filenames, absolute
 paths, hashes, screenshots, raw logs, traces, state files, and writable media
 copies remain outside Git. Originals were not mounted writable. The four

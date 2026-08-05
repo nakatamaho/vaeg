@@ -34,7 +34,7 @@
 #include <utility>
 #include <vector>
 
-namespace vaeg::compat::differential {
+namespace vaeg::z80_compat::differential {
 
 template <typename Cpu>
 class TraceBackend final : public Backend {
@@ -248,6 +248,6 @@ private:
     std::vector<Event> events_;
 };
 
-} // namespace vaeg::compat::differential
+} // namespace vaeg::z80_compat::differential
 
 #endif
