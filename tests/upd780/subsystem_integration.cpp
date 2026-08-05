@@ -46,7 +46,7 @@ constexpr std::size_t kLastClockOffset = 64;
 constexpr std::uint8_t kWaitHalt = 0x01;
 constexpr std::uint8_t kWaitExternal = 0x02;
 constexpr std::uint8_t kWaitEi = 0x04;
-constexpr const char *kCoreName = "suzukiplan";
+constexpr const char *kCoreName = "uPD780/suzukiplan";
 
 using Status = std::array<std::uint8_t, kStatusSize>;
 
@@ -105,16 +105,16 @@ void Put32(Status *status, std::size_t offset, std::int32_t value) {
 
 void Install(std::uint16_t address,
              std::initializer_list<std::uint8_t> bytes) {
-    subsystem_z80_test_install(address, bytes.begin(),
+    subsystem_upd780_test_install(address, bytes.begin(),
                                static_cast<UINT>(bytes.size()));
 }
 
 void Reset() {
-    subsystem_z80_test_reset();
+    subsystem_upd780_test_reset();
 }
 
 void ExecAt(std::uint32_t now) {
-    subsystem_z80_test_set_clock(now);
+    subsystem_upd780_test_set_clock(now);
     subsystem_exec();
 }
 
@@ -127,16 +127,16 @@ Status Save() {
     return result;
 }
 
-VAEG_Z80_INTEGRATION_CPU_STATE State() {
-    VAEG_Z80_INTEGRATION_CPU_STATE result{};
-    Require(subsystem_z80_test_get_state(&result) != FALSE,
+VAEG_UPD780_INTEGRATION_CPU_STATE State() {
+    VAEG_UPD780_INTEGRATION_CPU_STATE result{};
+    Require(subsystem_upd780_test_get_state(&result) != FALSE,
             "production state inspection failed");
     return result;
 }
 
-VAEG_Z80_INTEGRATION_TRACE_STATE Trace() {
-    VAEG_Z80_INTEGRATION_TRACE_STATE result{};
-    subsystem_z80_test_get_trace(&result);
+VAEG_UPD780_INTEGRATION_TRACE_STATE Trace() {
+    VAEG_UPD780_INTEGRATION_TRACE_STATE result{};
+    subsystem_upd780_test_get_trace(&result);
     return result;
 }
 
@@ -153,15 +153,15 @@ void TestOrdinaryAndStateBridge() {
     Require(subsystem_disassemble(0x0000, diagnostic) == 0x0001 &&
                 std::strcmp(diagnostic, "xor a") == 0,
             "production disassembler compatibility adapter failed");
-    subsystem_z80_test_set_pc(0x0000);
+    subsystem_upd780_test_set_pc(0x0000);
     ExecAt(11);
-    const VAEG_Z80_INTEGRATION_CPU_STATE executed = State();
+    const VAEG_UPD780_INTEGRATION_CPU_STATE executed = State();
     Require((executed.af >> 8) == 0x42 && executed.live_pc == 0x0003 &&
                 executed.public_pc == 0x0003 && executed.remainclock == 0,
             "ordinary production execution or public mirror failed");
 
     const Status saved = Save();
-    subsystem_z80_test_set_pc(0x1234);
+    subsystem_upd780_test_set_pc(0x1234);
     Require(subsystem_loadcpustatus(saved.data()) != FALSE,
             "new-to-same-core production load failed");
     Require(State().live_pc == 0x0003 && Save() == saved,
@@ -197,9 +197,9 @@ void TestClockStateAndWait() {
 
     Reset();
     Install(0x0000, {0x00});
-    subsystem_z80_test_set_wait(TRUE);
+    subsystem_upd780_test_set_wait(TRUE);
     ExecAt(8);
-    VAEG_Z80_INTEGRATION_CPU_STATE waiting = State();
+    VAEG_UPD780_INTEGRATION_CPU_STATE waiting = State();
     Require(waiting.live_pc == 0 && waiting.remainclock == 0 &&
                 (waiting.wait_flags & kWaitExternal) != 0,
             "external WAIT did not drain without execution");
@@ -214,7 +214,7 @@ void TestClockStateAndWait() {
     ExecAt(12);
     Require(State().live_pc == 0,
             "restored external WAIT executed an instruction");
-    subsystem_z80_test_set_wait(FALSE);
+    subsystem_upd780_test_set_wait(FALSE);
     ExecAt(16);
     Require(State().live_pc == 1,
             "execution did not resume after restored WAIT release");
@@ -260,7 +260,7 @@ void TestProductionIrqAcknowledge() {
     Require(subsystem_loadcpustatus(enabled.data()) != FALSE,
             "DI setup state did not load");
     ExecAt(4);
-    subsystem_z80_test_reset_trace();
+    subsystem_upd780_test_reset_trace();
     subsystem_irq(TRUE);
     Require(Trace().acknowledge_count == 0,
             "IRQ acknowledge was read speculatively");
@@ -287,11 +287,11 @@ void TestSleepPath(std::uint16_t pc, std::uint8_t expected_path,
     if (needs_memory_marker) {
         Install(0x7f67, {0xff});
     }
-    subsystem_z80_test_set_pc(pc);
+    subsystem_upd780_test_set_pc(pc);
     ExecAt(0);
     ExecAt(11);
-    VAEG_Z80_INTEGRATION_TRACE_STATE trace = Trace();
-    VAEG_Z80_INTEGRATION_CPU_STATE state = State();
+    VAEG_UPD780_INTEGRATION_TRACE_STATE trace = Trace();
+    VAEG_UPD780_INTEGRATION_CPU_STATE state = State();
     std::fprintf(stderr,
                  "subsystem-integration[%s]: sleep path=%u expected=%u "
                  "port=%02x memory=%02x live=%04x public=%04x "
@@ -337,10 +337,10 @@ void TestEiBeforeSleepHypothesis() {
     Reset();
     Install(0x1731, {0xfb, 0xdb, 0xfe});
     Install(0x7f67, {0xff});
-    subsystem_z80_test_set_pc(0x1731);
+    subsystem_upd780_test_set_pc(0x1731);
     ExecAt(1);
     ExecAt(5);
-    const VAEG_Z80_INTEGRATION_TRACE_STATE trace = Trace();
+    const VAEG_UPD780_INTEGRATION_TRACE_STATE trace = Trace();
     Require(trace.fe_read_count == 1 && trace.sleep_path == 1 &&
                 trace.sleep_public_pc == 0x1732 &&
                 trace.wait_active != FALSE,
@@ -350,9 +350,9 @@ void TestEiBeforeSleepHypothesis() {
 void TestFddBoundary() {
     Reset();
     Install(0x0000, {0xaf, 0x3e, 0x5a, 0xd3, 0xf4, 0x00});
-    subsystem_z80_test_set_pc(0x0000);
+    subsystem_upd780_test_set_pc(0x0000);
     ExecAt(22);
-    VAEG_Z80_INTEGRATION_TRACE_STATE trace = Trace();
+    VAEG_UPD780_INTEGRATION_TRACE_STATE trace = Trace();
     Require(trace.f4_count == 1 && trace.f4_last_value == 0x5a,
             "production FDD control event was missing or duplicated");
     const Status between_calls = Save();
@@ -388,7 +388,7 @@ void TestEiStateBoundary() {
     Install(0x0000, {0xfb, 0x3c});
     Require(subsystem_loadcpustatus(inhibited.data()) != FALSE,
             "production EI inhibition did not restore");
-    subsystem_z80_test_reset_trace();
+    subsystem_upd780_test_reset_trace();
     ExecAt(8);
     Require(Trace().acknowledge_count == 1 &&
                 (State().af >> 8) == 1 &&
@@ -398,7 +398,7 @@ void TestEiStateBoundary() {
 
 } // namespace
 
-extern "C" int vaeg_z80_subsystem_integration_test(void) {
+extern "C" int vaeg_upd780_subsystem_integration_test(void) {
     subsystem_initialize();
     TestOrdinaryAndStateBridge();
     TestClockStateAndWait();

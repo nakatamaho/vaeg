@@ -99,4 +99,6 @@ private:
     Z80Reg public_registers_;
 };
 
+using UPD780C = Z80C;
+
 #endif
