@@ -370,6 +370,12 @@ extern "C" int upd9002_z80_compat_selftest(void) {
         upd9002_core_deinitialize();
         return FAILURE;
     }
+    UINT8 saved_compat[UPD9002_COMPAT_STATE_SIZE];
+    if (upd9002_core_compat_state_save(saved_compat, sizeof(saved_compat)) !=
+            SUCCESS) {
+        upd9002_core_deinitialize();
+        return FAILURE;
+    }
     upd9002_core_step();
     if ((CPU_COMPAT_MODE != UPD9002_COMPAT_NATIVE) ||
             (CPU_IP != native_offset) || (CPU_SP != 0x00f4)) {
@@ -388,11 +394,40 @@ extern "C" int upd9002_z80_compat_selftest(void) {
         return FAILURE;
     }
     upd9002_core_step();
-    const int passed = (CPU_COMPAT_MODE == UPD9002_COMPAT_NATIVE) &&
+    int passed = (CPU_COMPAT_MODE == UPD9002_COMPAT_NATIVE) &&
         (CPU_CS == code_segment) && (CPU_IP == code_offset + 3) &&
         (CPU_SP == 0x0100) && (CPU_AL == 0x42) &&
         (CPU_BX == 0x1234) && (CPU_SI == 0x5678) &&
         (CPU_DI == 0x9abc);
+    if (passed) {
+        upd9002_core_reset();
+        CPU_CS = code_segment;
+        CPU_DS = code_segment;
+        CPU_SS = native_stack_segment;
+        CPU_SP = 0x00fa;
+        CPU_BP = 0x0200;
+        CPU_FLAG = 0xf202;
+        CS_BASE = code_base;
+        DS_BASE = code_base;
+        SS_BASE = native_stack_base;
+        CPU_REMCLOCK = 100000;
+        CPU_BASECLOCK = 100000;
+        CPU_COMPAT_RETURN_PENDING = 1;
+        if (upd9002_core_compat_state_load(saved_compat,
+                    sizeof(saved_compat)) != SUCCESS) {
+            passed = 0;
+        }
+        else {
+            CPU_COMPAT_MODE = UPD9002_COMPAT_Z80;
+            upd9002_core_step();
+            passed = (CPU_COMPAT_MODE == UPD9002_COMPAT_NATIVE) &&
+                (CPU_IP == native_offset) && (CPU_SP == 0x00f4);
+            upd9002_core_step();
+            passed = passed &&
+                (CPU_COMPAT_MODE == UPD9002_COMPAT_Z80) &&
+                (CPU_IP == compatible_offset + 18);
+        }
+    }
     upd9002_core_deinitialize();
     return passed ? SUCCESS : FAILURE;
 }
