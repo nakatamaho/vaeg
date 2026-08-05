@@ -33,16 +33,16 @@ option(VAEG_ENABLE_ARCHIVE_DROP
     "Enable archive disk-image drag and drop when LibArchive is available" ON)
 option(VAEG_FETCH_LIBARCHIVE
     "Fetch pinned static archive dependencies instead of using system LibArchive" OFF)
-option(VAEG_COMPAT_INTEGRATION_TRACE
+option(VAEG_Z80_COMPAT_INTEGRATION_TRACE
     "Compile deterministic subsystem compatibility/FDD integration tracing" OFF)
 option(VAEG_UPD9002_PERF_DIAGNOSTIC
     "Compile disabled-by-default uPD9002 runtime performance diagnostics" OFF)
 set(VAEG_ZEX_ARTIFACT_DIR "" CACHE PATH
     "Offline directory containing the five hash-verified ZEX artifacts")
 
-if(VAEG_ENABLE_TESTS AND NOT VAEG_COMPAT_INTEGRATION_TRACE)
+if(VAEG_ENABLE_TESTS AND NOT VAEG_Z80_COMPAT_INTEGRATION_TRACE)
     message(FATAL_ERROR
-        "VAEG_ENABLE_TESTS requires VAEG_COMPAT_INTEGRATION_TRACE=ON; "
+        "VAEG_ENABLE_TESTS requires VAEG_Z80_COMPAT_INTEGRATION_TRACE=ON; "
         "the trace-equivalence test cannot use an uninstrumented executable")
 endif()
 
@@ -269,18 +269,18 @@ set(VAEG_CORE_SOURCES
     statsave.c
     debugsub.c)
 
-set(VAEG_COMPAT_PRODUCTION_SOURCES
+set(VAEG_Z80_COMPAT_PRODUCTION_SOURCES
     cpucva/upd780_disasm.cpp
-    cpucva/compat_cpu.cpp
-    cpucva/compat_state.cpp
+    cpucva/z80_compat_cpu.cpp
+    cpucva/z80_compat_state.cpp
     cpucva/upd9002_upd70008.cpp)
-message(STATUS "Production uPD70008-compatible core: shared compatibility backend")
+message(STATUS "Production uPD70008-compatible core: shared Z80 compatibility backend")
 
 set(VAEG_VA_SOURCES
     biosva/biosva.c
     cpucva/gvramva.c
     cpucva/memoryva.c
-    ${VAEG_COMPAT_PRODUCTION_SOURCES}
+    ${VAEG_Z80_COMPAT_PRODUCTION_SOURCES}
     iova/bkupmemva.c
     iova/boardsb2.c
     iova/cgromva.c
@@ -474,7 +474,7 @@ if(VAEG_WERROR)
     target_compile_options(vaeg_common PRIVATE -Werror)
 endif()
 
-if(VAEG_COMPAT_INTEGRATION_TRACE)
+if(VAEG_Z80_COMPAT_INTEGRATION_TRACE)
     list(APPEND VAEG_CORE_SOURCES cpu/upd9002/upd9002_trace.c)
 endif()
 if(VAEG_UPD9002_PERF_DIAGNOSTIC)
@@ -492,9 +492,9 @@ if(VAEG_ENABLE_TESTS)
 		VAEG_UPD9002_M46_TESTING=1
         VAEG_UPD9002_SSTS_TESTING=1)
 endif()
-if(VAEG_COMPAT_INTEGRATION_TRACE)
+if(VAEG_Z80_COMPAT_INTEGRATION_TRACE)
     target_compile_definitions(vaeg_core PRIVATE
-        VAEG_COMPAT_INTEGRATION_TRACE=1)
+        VAEG_Z80_COMPAT_INTEGRATION_TRACE=1)
 endif()
 if(VAEG_UPD9002_PERF_DIAGNOSTIC)
     target_compile_definitions(vaeg_core PUBLIC
@@ -520,9 +520,9 @@ target_compile_definitions(vaeg_va PRIVATE
     Z80_DISABLE_NESTCHECK
     Z80_NO_EXCEPTION
     Z80_UNSUPPORT_16BIT_PORT)
-if(VAEG_COMPAT_INTEGRATION_TRACE)
+if(VAEG_Z80_COMPAT_INTEGRATION_TRACE)
     target_compile_definitions(vaeg_va PRIVATE
-        VAEG_COMPAT_INTEGRATION_TRACE=1)
+        VAEG_Z80_COMPAT_INTEGRATION_TRACE=1)
 endif()
 if(VAEG_ENABLE_TESTS)
     target_compile_definitions(vaeg_va PUBLIC
@@ -571,9 +571,9 @@ if(VAEG_ENABLE_TESTS)
         "VAEG_UPD9002_HARNESS_MANIFEST_PATH=\"${CMAKE_CURRENT_SOURCE_DIR}/tests/upd9002/harness_manifest.csv\""
         "VAEG_UPD9002_FIXTURE_PATH=\"${CMAKE_CURRENT_SOURCE_DIR}/tests/upd9002/state_fixtures_m42.txt\"")
 endif()
-if(VAEG_COMPAT_INTEGRATION_TRACE)
+if(VAEG_Z80_COMPAT_INTEGRATION_TRACE)
     target_compile_definitions(vaeg_sdl2 PRIVATE
-        VAEG_COMPAT_INTEGRATION_TRACE=1)
+        VAEG_Z80_COMPAT_INTEGRATION_TRACE=1)
 endif()
 if(VAEG_ENABLE_ARCHIVE_DROP)
     if(MINGW OR VAEG_FETCH_LIBARCHIVE)
@@ -1220,7 +1220,7 @@ if(VAEG_ENABLE_TESTS)
             SKIP_RETURN_CODE 77)
     endif()
 
-    function(vaeg_configure_compat_standalone_target target)
+    function(vaeg_configure_z80_compat_standalone_target target)
         target_include_directories(${target} PRIVATE
             "${CMAKE_CURRENT_SOURCE_DIR}/external/suzukiplan-z80")
         target_compile_options(${target} PRIVATE -Wall -fsigned-char)
@@ -1229,48 +1229,48 @@ if(VAEG_ENABLE_TESTS)
         endif()
     endfunction()
 
-    set(VAEG_COMPAT_HEADER_COMPILE_SOURCE tests/compat/header_compile.cpp)
-    add_executable(vaeg_compat_header_default
-        ${VAEG_COMPAT_HEADER_COMPILE_SOURCE})
-    vaeg_configure_compat_standalone_target(vaeg_compat_header_default)
+    set(VAEG_Z80_COMPAT_HEADER_COMPILE_SOURCE tests/z80_compat/header_compile.cpp)
+    add_executable(vaeg_z80_compat_header_default
+        ${VAEG_Z80_COMPAT_HEADER_COMPILE_SOURCE})
+    vaeg_configure_z80_compat_standalone_target(vaeg_z80_compat_header_default)
 
-    add_executable(vaeg_compat_header_no_functional
-        ${VAEG_COMPAT_HEADER_COMPILE_SOURCE})
-    vaeg_configure_compat_standalone_target(vaeg_compat_header_no_functional)
-    target_compile_definitions(vaeg_compat_header_no_functional PRIVATE
+    add_executable(vaeg_z80_compat_header_no_functional
+        ${VAEG_Z80_COMPAT_HEADER_COMPILE_SOURCE})
+    vaeg_configure_z80_compat_standalone_target(vaeg_z80_compat_header_no_functional)
+    target_compile_definitions(vaeg_z80_compat_header_no_functional PRIVATE
         Z80_NO_FUNCTIONAL)
 
-    add_executable(vaeg_compat_header_debug_default
-        ${VAEG_COMPAT_HEADER_COMPILE_SOURCE})
-    vaeg_configure_compat_standalone_target(vaeg_compat_header_debug_default)
-    target_compile_definitions(vaeg_compat_header_debug_default PRIVATE
-        VAEG_COMPAT_REQUIRE_DEBUG)
+    add_executable(vaeg_z80_compat_header_debug_default
+        ${VAEG_Z80_COMPAT_HEADER_COMPILE_SOURCE})
+    vaeg_configure_z80_compat_standalone_target(vaeg_z80_compat_header_debug_default)
+    target_compile_definitions(vaeg_z80_compat_header_debug_default PRIVATE
+        VAEG_Z80_COMPAT_REQUIRE_DEBUG)
 
-    add_executable(vaeg_compat_header_release
-        ${VAEG_COMPAT_HEADER_COMPILE_SOURCE})
-    vaeg_configure_compat_standalone_target(vaeg_compat_header_release)
-    target_compile_definitions(vaeg_compat_header_release PRIVATE
-        VAEG_COMPAT_REQUIRE_RELEASE
+    add_executable(vaeg_z80_compat_header_release
+        ${VAEG_Z80_COMPAT_HEADER_COMPILE_SOURCE})
+    vaeg_configure_z80_compat_standalone_target(vaeg_z80_compat_header_release)
+    target_compile_definitions(vaeg_z80_compat_header_release PRIVATE
+        VAEG_Z80_COMPAT_REQUIRE_RELEASE
         Z80_DISABLE_DEBUG
         Z80_DISABLE_BREAKPOINT
         Z80_DISABLE_NESTCHECK
         Z80_NO_EXCEPTION)
 
-    add_executable(vaeg_compat_interrupt_default
+    add_executable(vaeg_z80_compat_interrupt_default
         external/suzukiplan-z80/test/test-interrupt-extension.cpp)
-    vaeg_configure_compat_standalone_target(vaeg_compat_interrupt_default)
+    vaeg_configure_z80_compat_standalone_target(vaeg_z80_compat_interrupt_default)
 
-    add_executable(vaeg_compat_interrupt_no_functional
+    add_executable(vaeg_z80_compat_interrupt_no_functional
         external/suzukiplan-z80/test/test-interrupt-extension.cpp)
-    vaeg_configure_compat_standalone_target(
-        vaeg_compat_interrupt_no_functional)
-    target_compile_definitions(vaeg_compat_interrupt_no_functional PRIVATE
+    vaeg_configure_z80_compat_standalone_target(
+        vaeg_z80_compat_interrupt_no_functional)
+    target_compile_definitions(vaeg_z80_compat_interrupt_no_functional PRIVATE
         Z80_NO_FUNCTIONAL)
 
-    function(vaeg_add_compat_wrapper_library target)
+    function(vaeg_add_z80_compat_wrapper_library target)
         add_library(${target} STATIC
-            cpucva/compat_cpu.cpp
-            cpucva/compat_state.cpp)
+            cpucva/z80_compat_cpu.cpp
+            cpucva/z80_compat_state.cpp)
         target_include_directories(${target}
             PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}"
             PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/external/suzukiplan-z80")
@@ -1287,28 +1287,28 @@ if(VAEG_ENABLE_TESTS)
         endif()
     endfunction()
 
-    vaeg_add_compat_wrapper_library(vaeg_compat_wrapper)
-    vaeg_add_compat_wrapper_library(vaeg_compat_wrapper_no_functional)
-    target_compile_definitions(vaeg_compat_wrapper_no_functional PRIVATE
+    vaeg_add_z80_compat_wrapper_library(vaeg_z80_compat_wrapper)
+    vaeg_add_z80_compat_wrapper_library(vaeg_z80_compat_wrapper_no_functional)
+    target_compile_definitions(vaeg_z80_compat_wrapper_no_functional PRIVATE
         Z80_NO_FUNCTIONAL)
 
-    add_executable(vaeg_compat_wrapper_default tests/compat/wrapper.cpp)
-    target_link_libraries(vaeg_compat_wrapper_default PRIVATE vaeg_compat_wrapper)
-    target_compile_options(vaeg_compat_wrapper_default PRIVATE
+    add_executable(vaeg_z80_compat_wrapper_default tests/z80_compat/wrapper.cpp)
+    target_link_libraries(vaeg_z80_compat_wrapper_default PRIVATE vaeg_z80_compat_wrapper)
+    target_compile_options(vaeg_z80_compat_wrapper_default PRIVATE
         -Wall -fsigned-char)
 
-    add_executable(vaeg_compat_wrapper_no_functional_test
-        tests/compat/wrapper.cpp)
-    target_link_libraries(vaeg_compat_wrapper_no_functional_test PRIVATE
-        vaeg_compat_wrapper_no_functional)
-    target_compile_options(vaeg_compat_wrapper_no_functional_test PRIVATE
+    add_executable(vaeg_z80_compat_wrapper_no_functional_test
+        tests/z80_compat/wrapper.cpp)
+    target_link_libraries(vaeg_z80_compat_wrapper_no_functional_test PRIVATE
+        vaeg_z80_compat_wrapper_no_functional)
+    target_compile_options(vaeg_z80_compat_wrapper_no_functional_test PRIVATE
         -Wall -fsigned-char)
 
-    add_executable(vaeg_compat_wrapper_zex_runner
-        tests/compat/wrapper_zex_runner.cpp)
-    target_link_libraries(vaeg_compat_wrapper_zex_runner PRIVATE
-        vaeg_compat_wrapper_no_functional)
-    target_compile_options(vaeg_compat_wrapper_zex_runner PRIVATE
+    add_executable(vaeg_z80_compat_wrapper_zex_runner
+        tests/z80_compat/wrapper_zex_runner.cpp)
+    target_link_libraries(vaeg_z80_compat_wrapper_zex_runner PRIVATE
+        vaeg_z80_compat_wrapper_no_functional)
+    target_compile_options(vaeg_z80_compat_wrapper_zex_runner PRIVATE
         -Wall -fsigned-char)
 
     add_executable(vaeg_upd780_disasm
@@ -1324,96 +1324,96 @@ if(VAEG_ENABLE_TESTS)
         target_compile_options(vaeg_upd780_disasm PRIVATE -Werror)
     endif()
 
-    add_executable(vaeg_compat_zex_runner tests/compat/zex_runner.cpp)
-    vaeg_configure_compat_standalone_target(vaeg_compat_zex_runner)
-    target_compile_definitions(vaeg_compat_zex_runner PRIVATE
+    add_executable(vaeg_z80_compat_zex_runner tests/z80_compat/zex_runner.cpp)
+    vaeg_configure_z80_compat_standalone_target(vaeg_z80_compat_zex_runner)
+    target_compile_definitions(vaeg_z80_compat_zex_runner PRIVATE
         Z80_CALLBACK_PER_INSTRUCTION
         Z80_DISABLE_DEBUG
         Z80_DISABLE_NESTCHECK
         Z80_NO_FUNCTIONAL
         Z80_UNSUPPORT_16BIT_PORT)
 
-    add_executable(vaeg_compat_legacy_contract
-        tests/compat/legacy_contract.cpp)
-    target_link_libraries(vaeg_compat_legacy_contract PRIVATE
-        vaeg_compat_wrapper_no_functional)
-    target_compile_options(vaeg_compat_legacy_contract PRIVATE
+    add_executable(vaeg_z80_compat_legacy_contract
+        tests/z80_compat/legacy_contract.cpp)
+    target_link_libraries(vaeg_z80_compat_legacy_contract PRIVATE
+        vaeg_z80_compat_wrapper_no_functional)
+    target_compile_options(vaeg_z80_compat_legacy_contract PRIVATE
         -Wall -fsigned-char)
     if(VAEG_WERROR)
-        target_compile_options(vaeg_compat_legacy_contract PRIVATE -Werror)
+        target_compile_options(vaeg_z80_compat_legacy_contract PRIVATE -Werror)
     endif()
 
-    add_library(vaeg_compat_trace_common STATIC
-        tests/compat/differential/trace_common.cpp)
-    target_include_directories(vaeg_compat_trace_common PUBLIC
+    add_library(vaeg_z80_compat_trace_common STATIC
+        tests/z80_compat/differential/trace_common.cpp)
+    target_include_directories(vaeg_z80_compat_trace_common PUBLIC
         "${CMAKE_CURRENT_SOURCE_DIR}"
-        "${CMAKE_CURRENT_SOURCE_DIR}/tests/compat/differential")
-    target_compile_features(vaeg_compat_trace_common PUBLIC cxx_std_17)
-    target_compile_options(vaeg_compat_trace_common PRIVATE
+        "${CMAKE_CURRENT_SOURCE_DIR}/tests/z80_compat/differential")
+    target_compile_features(vaeg_z80_compat_trace_common PUBLIC cxx_std_17)
+    target_compile_options(vaeg_z80_compat_trace_common PRIVATE
         -Wall -fsigned-char)
 
-    add_executable(vaeg_compat_trace_reference
-        tests/compat/differential/reference_trace.cpp)
-    target_link_libraries(vaeg_compat_trace_reference PRIVATE
-        vaeg_compat_trace_common vaeg_compat_wrapper_no_functional)
-    target_compile_options(vaeg_compat_trace_reference PRIVATE
+    add_executable(vaeg_z80_compat_trace_reference
+        tests/z80_compat/differential/reference_trace.cpp)
+    target_link_libraries(vaeg_z80_compat_trace_reference PRIVATE
+        vaeg_z80_compat_trace_common vaeg_z80_compat_wrapper_no_functional)
+    target_compile_options(vaeg_z80_compat_trace_reference PRIVATE
         -Wall -fsigned-char)
 
-    add_executable(vaeg_compat_trace_repeat
-        tests/compat/differential/new_trace.cpp)
-    target_link_libraries(vaeg_compat_trace_repeat PRIVATE
-        vaeg_compat_trace_common vaeg_compat_wrapper_no_functional)
-    target_compile_options(vaeg_compat_trace_repeat PRIVATE
+    add_executable(vaeg_z80_compat_trace_repeat
+        tests/z80_compat/differential/new_trace.cpp)
+    target_link_libraries(vaeg_z80_compat_trace_repeat PRIVATE
+        vaeg_z80_compat_trace_common vaeg_z80_compat_wrapper_no_functional)
+    target_compile_options(vaeg_z80_compat_trace_repeat PRIVATE
         -Wall -fsigned-char)
 
-    add_executable(vaeg_compat_trace_compare
-        tests/compat/differential/trace_compare.cpp)
-    target_include_directories(vaeg_compat_trace_compare PRIVATE
-        "${CMAKE_CURRENT_SOURCE_DIR}/tests/compat/differential")
-    target_compile_features(vaeg_compat_trace_compare PRIVATE cxx_std_17)
-    target_compile_options(vaeg_compat_trace_compare PRIVATE
+    add_executable(vaeg_z80_compat_trace_compare
+        tests/z80_compat/differential/trace_compare.cpp)
+    target_include_directories(vaeg_z80_compat_trace_compare PRIVATE
+        "${CMAKE_CURRENT_SOURCE_DIR}/tests/z80_compat/differential")
+    target_compile_features(vaeg_z80_compat_trace_compare PRIVATE cxx_std_17)
+    target_compile_options(vaeg_z80_compat_trace_compare PRIVATE
         -Wall -fsigned-char)
 
     if(VAEG_WERROR)
-        foreach(target vaeg_compat_trace_common vaeg_compat_trace_reference
-                       vaeg_compat_trace_repeat
-                       vaeg_compat_trace_compare)
+        foreach(target vaeg_z80_compat_trace_common vaeg_z80_compat_trace_reference
+                       vaeg_z80_compat_trace_repeat
+                       vaeg_z80_compat_trace_compare)
             target_compile_options(${target} PRIVATE -Werror)
         endforeach()
     endif()
 
-    add_test(NAME vaeg_compat_legacy_contract
-        COMMAND vaeg_compat_legacy_contract)
-    add_test(NAME vaeg_compat_header_default
-        COMMAND vaeg_compat_header_default)
-    add_test(NAME vaeg_compat_header_no_functional
-        COMMAND vaeg_compat_header_no_functional)
-    add_test(NAME vaeg_compat_header_debug_default
-        COMMAND vaeg_compat_header_debug_default)
-    add_test(NAME vaeg_compat_header_release
-        COMMAND vaeg_compat_header_release)
-    add_test(NAME vaeg_compat_interrupt_default
-        COMMAND vaeg_compat_interrupt_default)
-    add_test(NAME vaeg_compat_interrupt_no_functional
-        COMMAND vaeg_compat_interrupt_no_functional)
-    add_test(NAME vaeg_compat_wrapper_default
-        COMMAND vaeg_compat_wrapper_default)
-    add_test(NAME vaeg_compat_wrapper_no_functional
-        COMMAND vaeg_compat_wrapper_no_functional_test)
+    add_test(NAME vaeg_z80_compat_legacy_contract
+        COMMAND vaeg_z80_compat_legacy_contract)
+    add_test(NAME vaeg_z80_compat_header_default
+        COMMAND vaeg_z80_compat_header_default)
+    add_test(NAME vaeg_z80_compat_header_no_functional
+        COMMAND vaeg_z80_compat_header_no_functional)
+    add_test(NAME vaeg_z80_compat_header_debug_default
+        COMMAND vaeg_z80_compat_header_debug_default)
+    add_test(NAME vaeg_z80_compat_header_release
+        COMMAND vaeg_z80_compat_header_release)
+    add_test(NAME vaeg_z80_compat_interrupt_default
+        COMMAND vaeg_z80_compat_interrupt_default)
+    add_test(NAME vaeg_z80_compat_interrupt_no_functional
+        COMMAND vaeg_z80_compat_interrupt_no_functional)
+    add_test(NAME vaeg_z80_compat_wrapper_default
+        COMMAND vaeg_z80_compat_wrapper_default)
+    add_test(NAME vaeg_z80_compat_wrapper_no_functional
+        COMMAND vaeg_z80_compat_wrapper_no_functional_test)
     add_test(NAME vaeg_upd780_disasm COMMAND vaeg_upd780_disasm)
     set_tests_properties(vaeg_upd780_disasm PROPERTIES
         LABELS "romless;upd780;disasm" TIMEOUT 120)
     foreach(regression_suite directed state generated convergence)
-        add_test(NAME vaeg_compat_regression_${regression_suite}
+        add_test(NAME vaeg_z80_compat_regression_${regression_suite}
             COMMAND "${CMAKE_COMMAND}"
-                "-DREFERENCE_RUNNER=$<TARGET_FILE:vaeg_compat_trace_reference>"
-                "-DREPEAT_RUNNER=$<TARGET_FILE:vaeg_compat_trace_repeat>"
-                "-DCOMPARATOR=$<TARGET_FILE:vaeg_compat_trace_compare>"
+                "-DREFERENCE_RUNNER=$<TARGET_FILE:vaeg_z80_compat_trace_reference>"
+                "-DREPEAT_RUNNER=$<TARGET_FILE:vaeg_z80_compat_trace_repeat>"
+                "-DCOMPARATOR=$<TARGET_FILE:vaeg_z80_compat_trace_compare>"
                 "-DSUITE=${regression_suite}"
                 "-DCASES=128"
                 "-DOUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR}/compat-regression"
-                -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/compat/differential/run_differential.cmake")
-        set_tests_properties(vaeg_compat_regression_${regression_suite}
+                -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/z80_compat/differential/run_differential.cmake")
+        set_tests_properties(vaeg_z80_compat_regression_${regression_suite}
             PROPERTIES LABELS "romless;compatibility;regression" TIMEOUT 120)
     endforeach()
     if(VAEG_ZEX_ARTIFACT_DIR)
@@ -1443,23 +1443,23 @@ if(VAEG_ENABLE_TESTS)
         vaeg_verify_zex_artifact(zex-license.txt
             e57f1c320b8cf8798a7d2ff83a6f9e06a33a03585f6e065fea97f1d86db84052)
 
-        add_test(NAME vaeg_compat_zexdoc
-            COMMAND vaeg_compat_zex_runner
+        add_test(NAME vaeg_z80_compat_zexdoc
+            COMMAND vaeg_z80_compat_zex_runner
                 "${VAEG_ZEX_ARTIFACT_DIR_ABSOLUTE}/zexdoc.cim")
-        add_test(NAME vaeg_compat_zexall
-            COMMAND vaeg_compat_zex_runner
+        add_test(NAME vaeg_z80_compat_zexall
+            COMMAND vaeg_z80_compat_zex_runner
                 "${VAEG_ZEX_ARTIFACT_DIR_ABSOLUTE}/zexall.cim")
-        add_test(NAME vaeg_compat_wrapper_zexdoc
-            COMMAND vaeg_compat_wrapper_zex_runner
+        add_test(NAME vaeg_z80_compat_wrapper_zexdoc
+            COMMAND vaeg_z80_compat_wrapper_zex_runner
                 "${VAEG_ZEX_ARTIFACT_DIR_ABSOLUTE}/zexdoc.cim")
-        add_test(NAME vaeg_compat_wrapper_zexall
-            COMMAND vaeg_compat_wrapper_zex_runner
+        add_test(NAME vaeg_z80_compat_wrapper_zexall
+            COMMAND vaeg_z80_compat_wrapper_zex_runner
                 "${VAEG_ZEX_ARTIFACT_DIR_ABSOLUTE}/zexall.cim")
-        set_tests_properties(vaeg_compat_zexdoc vaeg_compat_zexall PROPERTIES
+        set_tests_properties(vaeg_z80_compat_zexdoc vaeg_z80_compat_zexall PROPERTIES
             LABELS "romless;compatibility;zex"
             TIMEOUT 900)
         set_tests_properties(
-            vaeg_compat_wrapper_zexdoc vaeg_compat_wrapper_zexall PROPERTIES
+            vaeg_z80_compat_wrapper_zexdoc vaeg_z80_compat_wrapper_zexall PROPERTIES
             LABELS "romless;compatibility;zex;wrapper"
             TIMEOUT 900)
     endif()

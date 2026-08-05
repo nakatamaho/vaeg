@@ -33,7 +33,7 @@
 #include <string>
 #include <vector>
 
-namespace vaeg::compat::differential {
+namespace vaeg::z80_compat::differential {
 
 constexpr std::size_t kMemorySize = 65536;
 constexpr std::size_t kStatusSize = 68;
@@ -155,6 +155,6 @@ std::uint64_t HashMemory(const std::array<std::uint8_t, kMemorySize> &memory,
 int RunTraceMain(int argc, char **argv, const std::string &backend_name,
                  const BackendFactory &factory);
 
-} // namespace vaeg::compat::differential
+} // namespace vaeg::z80_compat::differential
 
 #endif

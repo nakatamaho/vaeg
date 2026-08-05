@@ -20,7 +20,7 @@ WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
 OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
 OF THE POSSIBILITY OF SUCH DAMAGE.
 -->
-# CPU compatibility production integration
+# Z80 compatibility production integration
 
 The production subsystem unconditionally uses the suzukiplan-backed vaeg
 wrapper. There is no build-time or runtime core selector:
@@ -31,14 +31,14 @@ cmake --build --preset linux-ci-gcc
 ctest --test-dir build/linux-ci-gcc --output-on-failure
 ```
 
-The production `vaeg_va` target compiles `cpucva/compat_cpu.cpp`,
-`cpucva/compat_state.cpp`, and `cpucva/upd780_disasm.cpp`. Standalone
+The production `vaeg_va` target compiles `cpucva/z80_compat_cpu.cpp`,
+`cpucva/z80_compat_state.cpp`, and `cpucva/upd780_disasm.cpp`. Standalone
 conformance, state, disassembler, ZEX, and M38-derived regression targets
 remain available.
 
-The common wrapper exposes `CompatCpu`: `UPD70008C` is the main CPU adapter,
+The common wrapper exposes `Z80CompatCpu`: `UPD70008C` is the main CPU adapter,
 and `UPD780C` is the FDC seam and C bridge in
-`iova/subsystem.cpp`. Third-party and STL types do not cross that seam. Every wrapper I/O callback masks the external port to eight bits, IRQ$
+`iova/subsystem.cpp`. Third-party and STL types do not cross that seam. Every wrapper I/O callback masks the external port to eight bits, IRQ
 remains a level, and the acknowledge port is read only when the core accepts a
 maskable interrupt. The independently authored BSD-2-Clause decoder in
 `cpucva/upd780_disasm.cpp` is the only production uPD780C disassembler.
@@ -76,7 +76,7 @@ case cannot prove the actual firmware path.
 
 ## State boundary and error handling
 
-The production save boundary remains after `CompatCpu::Exec()` returns. No callback
+The production save boundary remains after `Z80CompatCpu::Exec()` returns. No callback
 or partial instruction is serialized. The revision-1 image remains 68 bytes
 and represents architectural state, HALT, external WAIT, external level IRQ,
 `remainclock`, and `lastclock`; new-core bit 2 retains frame-boundary EI
@@ -95,10 +95,10 @@ Trace instrumentation is disabled and absent from normal builds. Enable it
 only in a separate diagnostic tree:
 
 ```sh
-cmake -S . -B build/compat-private-trace -G Ninja \
-  -DVAEG_COMPAT_INTEGRATION_TRACE=ON
-cmake --build build/compat-private-trace
-./build/compat-private-trace/sdl2/vaeg --fdctrace
+cmake -S . -B build/z80-compat-private-trace -G Ninja \
+  -DVAEG_Z80_COMPAT_INTEGRATION_TRACE=ON
+cmake --build build/z80-compat-private-trace
+./build/z80-compat-private-trace/sdl2/vaeg --fdctrace
 ```
 
 The existing FDC trace stream then adds deterministic compatibility-CPU `Exec()` entry and
@@ -115,7 +115,7 @@ stay outside Git. Tracked records use neutral stable identifiers only.
 M38's exact `0xf4` reproducer remains applicable: corrected JR timing can move
 an otherwise identical FDD output to a later `Exec()` slice. M39 adds no
 legacy per-opcode cycle emulation. The
-[private integration manifest](compatibility-private-integration.md) passed under both
+[private integration manifest](z80-compatibility-private-integration.md) passed under both
 production selections. Boot, read/write, representative and timing-sensitive
 loaders, SLEEP_HACK, WAIT wake, and state-load behavior converged without a
 guest-visible failure.

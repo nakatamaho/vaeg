@@ -9,7 +9,7 @@ uses `cpu/upd9002/` for the main CPU instruction core, the built-in CPU
 register model in `iova/upd9002_regs.*`, the uPD70008-compatible main-CPU
 adapter in `cpucva/upd9002_upd70008.*`, the uPD780-compatible FDC instance in
 `iova/subsystem.cpp`, the shared suzukiplan-backed instruction implementation
-in `cpucva/compat_*`, `sound/opngenc.c` for OPN generation (never define
+in `cpucva/z80_compat_*`, `sound/opngenc.c` for OPN generation (never define
 `OPNGENX86`), and `cpucva/memoryva.c` for the VA memory layer.
 
 ## CPU role and file naming
@@ -19,13 +19,13 @@ The hardware-facing names are deliberately distinct:
 - `cpucva/upd9002_upd70008.*` is the uPD9002 main-CPU adapter's uPD70008-
   compatible mode. It is not the FDC CPU.
 - `iova/subsystem.cpp` owns the FDC CPU and exposes it as `UPD780C`.
-- `cpucva/compat_cpu.*`, `compat_bus.h`, `compat_registers.h`, `upd780_disasm.*`, and
-  `compat_state.*` are the common CPU compatibility implementation and
+- `cpucva/z80_compat_cpu.*`, `z80_compat_bus.h`, `z80_compat_registers.h`, `upd780_disasm.*`, and
+  `z80_compat_state.*` are the common Z80 compatibility implementation and
   compatibility layer shared by those two adapters. The remaining Z80 terminology
   refers only to instruction-set, vendor, and historical save-state compatibility;
   it does not identify a separate FDC device.
 
-Keep the shared `compat_*` backend separate from the hardware-specific uPD780C and
+Keep the shared `z80_compat_*` backend separate from the hardware-specific uPD780C and
 uPD70008 layers. When changing hardware-facing code, use the role-specific
 uPD70008/uPD780 names above. The stable `UPD9Z80` save-state section name is
 also retained for existing state-file compatibility.

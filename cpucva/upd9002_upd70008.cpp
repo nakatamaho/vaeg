@@ -27,7 +27,7 @@
 #include "cpucore.h"
 #include "io/iocore.h"
 #include "cpucva/upd9002_upd70008.h"
-#include "cpucva/compat_cpu.h"
+#include "cpucva/z80_compat_cpu.h"
 
 #include <cstdint>
 

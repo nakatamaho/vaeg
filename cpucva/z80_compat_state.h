@@ -23,15 +23,15 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef CPUCVA_COMPAT_STATE_H
-#define CPUCVA_COMPAT_STATE_H
+#ifndef CPUCVA_Z80_COMPAT_STATE_H
+#define CPUCVA_Z80_COMPAT_STATE_H
 
-#include "compat_registers.h"
+#include "z80_compat_registers.h"
 
 #include <cstddef>
 #include <cstdint>
 
-namespace vaeg::compat {
+namespace vaeg::z80_compat {
 
 constexpr std::size_t kRevision1Size = 68;
 constexpr std::uint8_t kRevision1 = 1;
@@ -66,7 +66,7 @@ constexpr std::uint8_t kWaitExternal = 0x02;
 constexpr std::uint8_t kWaitEiInhibited = 0x04;
 
 struct LegacyState {
-    CompatReg registers{};
+    Z80CompatReg registers{};
     bool halted = false;
     bool external_wait = false;
     bool irq_asserted = false;
@@ -78,6 +78,6 @@ struct LegacyState {
 bool DecodeRevision1(const std::uint8_t *image, LegacyState *state);
 void EncodeRevision1(const LegacyState &state, std::uint8_t *image);
 
-} // namespace vaeg::compat
+} // namespace vaeg::z80_compat
 
 #endif

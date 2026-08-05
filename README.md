@@ -26,11 +26,11 @@ User setup instructions: [SCSI support](docs/modernization/scsi-support.md),
 [HOSTFAT](docs/modernization/hostfat.md), and the complete
 [Rel.260805 changes](CHANGES.20260805.md).
 
-### 2026-07-15 - CPU compatibility migration
+### 2026-07-15 - Z80 compatibility migration
 
 The active PC-88VA subsystem now uses the pinned MIT-licensed
 `suzukiplan/z80` core through vaeg's BSD-2-Clause compatibility wrapper.
-The shared compatibility backend serves both the uPD70008-compatible main
+The shared Z80 compatibility backend serves both the uPD70008-compatible main
 CPU mode and the uPD780C FDD subsystem. The independently authored
 BSD-2-Clause disassembler is the production FDC disassembler. The former
 M88/cisc-derived Z80 implementation has been removed from the current tree

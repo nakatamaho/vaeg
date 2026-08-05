@@ -99,12 +99,12 @@ minimize consumer edits, but no M88 comments, layout, macro collection, or
 implementation structure may be copied. Use these vaeg-owned component names:
 
 ```text
-cpucva/compat_bus.h
-cpucva/compat_registers.h
-cpucva/compat_state.h
-cpucva/compat_state.cpp
-cpucva/compat_cpu.h
-cpucva/compat_cpu.cpp
+cpucva/z80_compat_bus.h
+cpucva/z80_compat_registers.h
+cpucva/z80_compat_state.h
+cpucva/z80_compat_state.cpp
+cpucva/z80_compat_cpu.h
+cpucva/z80_compat_cpu.cpp
 cpucva/upd780_disasm.h
 cpucva/upd780_disasm.cpp
 ```
@@ -348,7 +348,7 @@ subject to the M39 private-system gate.
 M39 adds one build-time CMake cache selection with exactly
 `VAEG_Z80_CORE=legacy|suzukiplan`; `legacy` remains the default. The
 production `vaeg_va` target compiles `cpucva/z80c.cpp` only for `legacy`, or
-`cpucva/compat_cpu.cpp` plus `cpucva/compat_state.cpp` only for
+`cpucva/z80_compat_cpu.cpp` plus `cpucva/z80_compat_state.cpp` only for
 `suzukiplan`. It never links both `Z80C` implementations, and there is no
 runtime toggle. The vendored tree and approved M35 patch remain byte-unchanged.
 
@@ -462,7 +462,7 @@ decoder.
 ## M41 final production design
 
 The production `vaeg_va` target unconditionally compiles
-`cpucva/compat_cpu.cpp`, `cpucva/compat_state.cpp`, and
+`cpucva/z80_compat_cpu.cpp`, `cpucva/z80_compat_state.cpp`, and
 `cpucva/upd780_disasm.cpp`. `VAEG_Z80_CORE` is removed; there is no compatibility
 alias, hidden fallback, or runtime switch. The same standalone header,
 interrupt, wrapper, revision-1, ZEX, disassembler, and M38-derived regression

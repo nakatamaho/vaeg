@@ -34,7 +34,7 @@
 #include <sstream>
 #include <stdexcept>
 
-namespace vaeg::compat::differential {
+namespace vaeg::z80_compat::differential {
 namespace {
 
 constexpr std::size_t kOffsetAf = 0;
@@ -942,4 +942,4 @@ int RunTraceMain(int argc, char **argv, const std::string &backend_name,
     return 0;
 }
 
-} // namespace vaeg::compat::differential
+} // namespace vaeg::z80_compat::differential

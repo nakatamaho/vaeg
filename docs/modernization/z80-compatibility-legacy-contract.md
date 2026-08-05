@@ -181,7 +181,7 @@ disproved for production `Exec()`; zero and negative debt are reachable.
 
 ## Revision-1 ABI and retained fixtures
 
-`tests/compat/legacy_contract.cpp` is a ROM-less, test-only probe. It uses
+`tests/z80_compat/legacy_contract.cpp` is a ROM-less, test-only probe. It uses
 hand-assembled instructions, exercises save/load at returned execution
 boundaries, and embeds the expected bytes so drift fails CTest. It first
 executes `XOR A` to avoid depending on uninitialized `xf`.
