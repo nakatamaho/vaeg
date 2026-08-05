@@ -294,10 +294,22 @@ extern "C" BOOL hostfat_manager_selftest(void) {
 
 	std::error_code filesystem_error;
 	const auto nonce = std::chrono::steady_clock::now().time_since_epoch().count();
-	const fs::path root = fs::temp_directory_path(filesystem_error) /
-		("vaeg-hostfat-manager-selftest-" + std::to_string(nonce));
-	if (filesystem_error || !fs::create_directory(root, filesystem_error) ||
-		filesystem_error) {
+	const fs::path temp = fs::temp_directory_path(filesystem_error);
+	fs::path root;
+	bool root_created = false;
+	for (unsigned attempt = 0; !root_created && (attempt < 100); attempt++) {
+		root = temp / ("vaeg-hostfat-manager-selftest-" +
+			std::to_string(nonce) + "-" + std::to_string(attempt));
+		filesystem_error.clear();
+		if (fs::create_directory(root, filesystem_error)) {
+			root_created = true;
+		}
+		else if (filesystem_error == std::errc::file_exists) {
+			filesystem_error.clear();
+		}
+	}
+	if (filesystem_error || !root_created) {
+		std::fprintf(stderr, "HOSTFAT manager selftest setup failed path=%s error=%s\\n", root.u8string().c_str(), filesystem_error.message().c_str());
 		return FAILURE;
 	}
 	BOOL result = FAILURE;
@@ -317,7 +329,7 @@ extern "C" BOOL hostfat_manager_selftest(void) {
 				sizeof(error)) != SUCCESS) {
 			throw std::runtime_error(error);
 		}
-		const UINT32 started = SDL_GetTicks();
+		UINT32 started = SDL_GetTicks();
 		unsigned polls = 0;
 		UINT event = HOSTFAT_MANAGER_EVENT_NONE;
 		while ((event == HOSTFAT_MANAGER_EVENT_NONE) &&
@@ -330,13 +342,40 @@ extern "C" BOOL hostfat_manager_selftest(void) {
 		hostfat_manager_get_status(&status);
 		if ((event != HOSTFAT_MANAGER_EVENT_MOUNTED) || (polls < 2) ||
 			(status.state != HOSTFAT_MANAGER_MOUNTED) || !status.mounted ||
-			(status.info.files != 1) ||
+			(status.info.files != 1)) {
+			std::fprintf(stderr,
+				"HOSTFAT manager selftest detail: mount event=%u polls=%u "
+				"state=%u mounted=%d files=%u message=%s\\n", event, polls,
+				status.state, status.mounted, status.info.files, status.message);
+			throw std::runtime_error("asynchronous commit failed");
+		}
+		const UINT32 mounted_digest = hostfat_image_digest();
+		const std::string missing_path = (root / "missing").u8string();
+		if (hostfat_manager_rebuild_async(missing_path.c_str(), error,
+				sizeof(error)) != SUCCESS) {
+			throw std::runtime_error(error);
+		}
+		started = SDL_GetTicks();
+		polls = 0;
+		event = HOSTFAT_MANAGER_EVENT_NONE;
+		while ((event == HOSTFAT_MANAGER_EVENT_NONE) &&
+			((SDL_GetTicks() - started) < 30000)) {
+			event = hostfat_manager_poll();
+			polls++;
+			SDL_Delay(1);
+		}
+		hostfat_manager_get_status(&status);
+		if ((event != HOSTFAT_MANAGER_EVENT_FAILED) ||
+			(status.state != HOSTFAT_MANAGER_ERROR) || !status.mounted ||
+			(hostfat_image_digest() != mounted_digest) ||
 			(hostfat_manager_unmount(error, sizeof(error)) != SUCCESS)) {
-			throw std::runtime_error("asynchronous commit or unmount failed");
+			std::fprintf(stderr, "HOSTFAT manager selftest failed rebuild event=%u polls=%u state=%u mounted=%d digest=%08x expected=%08x message=%s error=%s\\n", event, polls, status.state, status.mounted, hostfat_image_digest(), mounted_digest, status.message, error);
+			throw std::runtime_error("failed rebuild discarded mounted snapshot");
 		}
 		result = SUCCESS;
 	}
 	catch (...) {
+		std::fprintf(stderr, "HOSTFAT manager selftest unknown failure\\n");
 		result = FAILURE;
 	}
 	hostfat_manager_shutdown();
