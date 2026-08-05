@@ -34,7 +34,7 @@ enum {
 	UPD9002_TRACE_ORIGIN_DEVICE
 };
 
-#ifdef VAEG_COMPAT_INTEGRATION_TRACE
+#ifdef VAEG_Z80_COMPAT_INTEGRATION_TRACE
 
 void upd9002_trace_start(FILE *stream, uint32_t steps);
 void upd9002_trace_stop(void);

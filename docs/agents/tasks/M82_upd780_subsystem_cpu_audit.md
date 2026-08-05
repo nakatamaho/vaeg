@@ -1,7 +1,7 @@
 # M82 - Audit the FDC subsystem uPD780-compatible CPU
 
 M82 audits the FDC subsystem CPU path and documents the replacement boundary
-for `cpucva/compat_cpu.cpp` as a uPD780-compatible FDC subsystem CPU, not as a
+for `cpucva/z80_compat_cpu.cpp` as a uPD780-compatible FDC subsystem CPU, not as a
 generic Z80 core.
 
 Predecessor: approved G81.
@@ -21,7 +21,7 @@ declare G82 passed.
 
 M82 must:
 
-- audit `cpucva/compat_cpu.cpp`, `cpucva/upd780_disasm.cpp`, legacy-state codec,
+- audit `cpucva/z80_compat_cpu.cpp`, `cpucva/upd780_disasm.cpp`, legacy-state codec,
   `subsystem`, `subsystemif`, and `fdsubsys` consumers;
 - identify the current FDC uPD780-compatible CPU contract;
 - distinguish FDC subsystem uPD780 behavior from any future main-CPU

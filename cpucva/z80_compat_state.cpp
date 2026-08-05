@@ -23,13 +23,13 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "compat_state.h"
+#include "z80_compat_state.h"
 
 #include <climits>
 #include <cstring>
 #include <limits>
 
-namespace vaeg::compat {
+namespace vaeg::z80_compat {
 namespace {
 
 static_assert(CHAR_BIT == 8, "revision-1 requires eight-bit bytes");
@@ -163,4 +163,4 @@ void EncodeRevision1(const LegacyState &state, std::uint8_t *image) {
     WriteSigned(image, kOffsetLastClock, state.lastclock);
 }
 
-} // namespace vaeg::compat
+} // namespace vaeg::z80_compat

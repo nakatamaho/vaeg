@@ -119,17 +119,17 @@ Windows, and macOS runtime archive for prohibited ZEX names and content hashes.
 
 ## ZEX runner and acquisition
 
-`tests/compat/zex_runner.cpp` owns deterministic 64 KiB memory, loads at `0x0100`,
+`tests/z80_compat/zex_runner.cpp` owns deterministic 64 KiB memory, loads at `0x0100`,
 implements CP/M CALL 5 functions 2 and 9 through a small in-memory BDOS shim,
 and recognizes the warm-boot halt. Default limits are 60,000,000,000 emulated
 clocks and 600 wall seconds. Failure output includes register state, total
 clocks, and the most recent 2 KiB of guest output.
 
-`tests/compat/fetch_zex.py` pins the approved upstream base and verifies all five
+`tests/z80_compat/fetch_zex.py` pins the approved upstream base and verifies all five
 M34 hashes. Its offline reproduction command passed:
 
 ```sh
-python3 tests/compat/fetch_zex.py \
+python3 tests/z80_compat/fetch_zex.py \
   --source-dir /tmp/vaeg-m36-z80.7UocP2/deterministic-am/test-ex \
   --output-dir /tmp/vaeg-m36-z80.7UocP2/zex-cache
 ```

@@ -23,8 +23,8 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef CPUCVA_COMPAT_REGISTERS_H
-#define CPUCVA_COMPAT_REGISTERS_H
+#ifndef CPUCVA_Z80_COMPAT_REGISTERS_H
+#define CPUCVA_Z80_COMPAT_REGISTERS_H
 
 #include <cstdint>
 
@@ -49,7 +49,7 @@ struct UPD780Reg {
     bool iff2;
 };
 
-using CompatReg = UPD780Reg;
+using Z80CompatReg = UPD780Reg;
 using UPD70008Reg = UPD780Reg;
 
 #endif

@@ -10,7 +10,7 @@
 #include	<cstdint>
 
 #include	"cpucva/upd780_disasm.h"
-#include	"cpucva/compat_cpu.h"
+#include	"cpucva/z80_compat_cpu.h"
 #include	"i8255.h"
 #include	"subsystemif.h"
 #include	"fdc.h"
@@ -24,7 +24,7 @@
 #define TRACEOUT(arg)
 #endif
 
-#if defined(VAEG_COMPAT_INTEGRATION_TRACE)
+#if defined(VAEG_Z80_COMPAT_INTEGRATION_TRACE)
 #define UPD780TRACE(arg)	fdc_trace_text arg
 #else
 #define UPD780TRACE(arg)

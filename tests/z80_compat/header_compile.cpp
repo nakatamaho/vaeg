@@ -28,11 +28,11 @@
 #include <array>
 #include <cstdint>
 
-#if defined(VAEG_COMPAT_REQUIRE_DEBUG) && defined(Z80_DISABLE_DEBUG)
+#if defined(VAEG_Z80_COMPAT_REQUIRE_DEBUG) && defined(Z80_DISABLE_DEBUG)
 #error "the debug/default compile target must retain the debug API"
 #endif
 
-#if defined(VAEG_COMPAT_REQUIRE_RELEASE) && !defined(Z80_DISABLE_DEBUG)
+#if defined(VAEG_Z80_COMPAT_REQUIRE_RELEASE) && !defined(Z80_DISABLE_DEBUG)
 #error "the release compile target must disable the debug API"
 #endif
 

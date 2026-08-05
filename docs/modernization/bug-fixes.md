@@ -877,7 +877,7 @@ separate parity correction or move it to Open Defects.
   requires top-level `statsave_load()` failure under both `legacy` and
   `suzukiplan`; the original image then loads and re-saves successfully.
 - **Evidence:** [M39 integration task](../agents/tasks/M39_z80_integration.md)
-  and [M39 integration contract](compatibility-integration.md#state-boundary-and-error-handling).
+  and [M39 integration contract](z80-compatibility-integration.md#state-boundary-and-error-handling).
 - **Commit:** [23b7071](https://github.com/nakatamaho/vaeg/commit/23b70711b84deb027a1c8dbf11e6284b65d0d4fe).
 
 ### uPD9002 guest-visible FLAGS images lost or loaded reserved bits
@@ -1147,7 +1147,7 @@ separate parity correction or move it to Open Defects.
 - **Next step:** decide in a separately authorized correctness milestone
   whether to initialize `xf` in the legacy path or correct it only at the M41
   replacement cutover, then add a reset/save regression test and human gate.
-- **Evidence:** [M34 legacy Z80 contract](compatibility-legacy-contract.md#verified-legacy-execution-behavior)
+- **Evidence:** [M34 legacy Z80 contract](z80-compatibility-legacy-contract.md#verified-legacy-execution-behavior)
   and [ADR-0011](../agents/DECISIONS/ADR-0011-z80-migration.md#consequences-and-unresolved-risks).
 
 ### VA1 N88 BASIC V3.0 commands can enter an apparent hang
