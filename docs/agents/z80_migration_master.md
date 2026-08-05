@@ -487,14 +487,14 @@ layer and a pinned MIT third-party backend.
 Preferred new files, subject to M34 dependency findings:
 
 ```text
-cpucva/z80_bus.h
-cpucva/z80_registers.h
-cpucva/z80_legacy_state.h
-cpucva/z80_legacy_state.cpp
-cpucva/z80_core.h
-cpucva/z80_core.cpp
-cpucva/z80_disasm.h
-cpucva/z80_disasm.cpp
+cpucva/compat_bus.h
+cpucva/compat_registers.h
+cpucva/compat_state.h
+cpucva/compat_state.cpp
+cpucva/compat_cpu.h
+cpucva/compat_cpu.cpp
+cpucva/upd780_disasm.h
+cpucva/upd780_disasm.cpp
 ```
 
 Names may be adjusted once in M34, but after the contract gate they must remain
@@ -649,7 +649,7 @@ analysis prove it.
 Create an evidence document such as:
 
 ```text
-docs/modernization/z80-legacy-contract.md
+docs/modernization/compatibility-legacy-contract.md
 ```
 
 Include exact source references for:
@@ -1105,7 +1105,7 @@ These tests must not depend on vaeg's old core.
 
 ### 8.5 ZEX runner
 
-Add a headless CP/M-style runner under `tests/z80/`.
+Add a headless CP/M-style runner under `tests/compat/`.
 
 Requirements:
 
@@ -1549,7 +1549,7 @@ is an old-core defect.
 Generate:
 
 ```text
-docs/modernization/z80-cycle-deltas.md
+docs/modernization/compat-cycle-deltas.md
 ```
 
 Record cycle deltas by opcode/scenario.
@@ -1711,7 +1711,7 @@ identifiers only where legally appropriate.
 Create or update:
 
 ```text
-docs/modernization/z80-integration.md
+docs/modernization/compatibility-integration.md
 ```
 
 Include:
@@ -2261,8 +2261,8 @@ The migration is complete only when all of the following are true:
 ## M41 implementation status
 
 M41 removed the build selector and exactly the seven approved M88/cisc-derived
-Z80 files. Current production unconditionally uses `cpucva/z80_core.cpp`,
-`cpucva/z80_legacy_state.cpp`, and `cpucva/z80_disasm.cpp`; the vendored MIT
+Z80 files. Current production unconditionally uses `cpucva/compat_cpu.cpp`,
+`cpucva/compat_state.cpp`, and `cpucva/upd780_disasm.cpp`; the vendored MIT
 source is unchanged. Historical old/new procedures and filename references in
 this master and milestone evidence remain historical, not active build or
 packaging inputs. G41 public, private, archive, and hosted validation passed;

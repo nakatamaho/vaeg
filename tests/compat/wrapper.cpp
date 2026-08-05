@@ -23,8 +23,8 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "cpucva/z80_core.h"
-#include "cpucva/z80_legacy_state.h"
+#include "cpucva/compat_cpu.h"
+#include "cpucva/compat_state.h"
 
 #include <algorithm>
 #include <array>
@@ -38,7 +38,7 @@
 namespace {
 
 constexpr std::uint32_t kAcknowledgePort = 0x102;
-using Status = std::array<std::uint8_t, vaeg::z80::kRevision1Size>;
+using Status = std::array<std::uint8_t, vaeg::compat::kRevision1Size>;
 
 struct Event {
     char kind;
@@ -52,7 +52,7 @@ struct Event {
 };
 
 [[noreturn]] void Fail(const std::string &message) {
-    std::fprintf(stderr, "z80-wrapper: %s\n", message.c_str());
+    std::fprintf(stderr, "compat-wrapper: %s\n", message.c_str());
     std::exit(1);
 }
 
@@ -69,7 +69,7 @@ class Harness final : public IMemoryAccess,
 public:
     std::array<std::uint8_t, 65536> memory{};
     std::vector<Event> events;
-    Z80C cpu;
+    CompatCpu cpu;
     std::uint32_t clock_value = 0;
     std::int32_t remain = 0;
     std::int32_t multiplier = 1;
@@ -167,15 +167,15 @@ public:
     void Load(const Status &status) {
         Require(cpu.LoadStatus(status.data()), "LoadStatus failed");
         clock_value = static_cast<std::uint32_t>(
-            static_cast<std::uint32_t>(status[vaeg::z80::kOffsetLastClock]) |
+            static_cast<std::uint32_t>(status[vaeg::compat::kOffsetLastClock]) |
             (static_cast<std::uint32_t>(
-                 status[vaeg::z80::kOffsetLastClock + 1])
+                 status[vaeg::compat::kOffsetLastClock + 1])
              << 8) |
             (static_cast<std::uint32_t>(
-                 status[vaeg::z80::kOffsetLastClock + 2])
+                 status[vaeg::compat::kOffsetLastClock + 2])
              << 16) |
             (static_cast<std::uint32_t>(
-                 status[vaeg::z80::kOffsetLastClock + 3])
+                 status[vaeg::compat::kOffsetLastClock + 3])
              << 24));
     }
 
@@ -187,15 +187,15 @@ public:
     }
 };
 
-vaeg::z80::LegacyState BasicState() {
-    vaeg::z80::LegacyState state;
+vaeg::compat::LegacyState BasicState() {
+    vaeg::compat::LegacyState state;
     state.registers.sp = 0xf000;
     return state;
 }
 
-Status Encode(const vaeg::z80::LegacyState &state) {
+Status Encode(const vaeg::compat::LegacyState &state) {
     Status status{};
-    vaeg::z80::EncodeRevision1(state, status.data());
+    vaeg::compat::EncodeRevision1(state, status.data());
     return status;
 }
 
@@ -209,7 +209,7 @@ std::uint8_t A(Harness &harness) {
 
 void TestResetAndDeterministicSave() {
     Harness harness;
-    Require(harness.cpu.GetStatusSize() == vaeg::z80::kRevision1Size,
+    Require(harness.cpu.GetStatusSize() == vaeg::compat::kRevision1Size,
             "revision-1 size is not 68 bytes");
     Require(harness.cpu.GetPC() == 0 && harness.cpu.GetReg()->pc == 0,
             "reset PC is not zero");
@@ -222,7 +222,7 @@ void TestResetAndDeterministicSave() {
     Require(first == second, "reset save image is not deterministic");
     for (std::size_t index = 0; index < first.size(); ++index) {
         const std::uint8_t expected =
-            index == vaeg::z80::kOffsetRevision ? 1 : 0;
+            index == vaeg::compat::kOffsetRevision ? 1 : 0;
         Require(first[index] == expected,
                 "reset save image contains unexpected data");
     }
@@ -266,7 +266,7 @@ void TestIoMasking() {
             "immediate I/O port was not masked to eight bits");
 
     Harness c_port;
-    vaeg::z80::LegacyState state = BasicState();
+    vaeg::compat::LegacyState state = BasicState();
     state.registers.bc = 0x12ab;
     state.registers.af = 0x7700;
     c_port.Load(Encode(state));
@@ -335,8 +335,8 @@ void TestClockAndWaitContract() {
     Require(waiting.cpu.GetPC() == 0 && waiting.remain == -5,
             "external WAIT did not drain without execution");
     const Status wait_status = waiting.Save();
-    Require((wait_status[vaeg::z80::kOffsetWait] &
-             vaeg::z80::kWaitExternal) != 0,
+    Require((wait_status[vaeg::compat::kOffsetWait] &
+             vaeg::compat::kWaitExternal) != 0,
             "external WAIT was not serialized");
     waiting.cpu.Wait(false);
     waiting.Advance(9);
@@ -358,9 +358,9 @@ void TestLiveAndMirrorPc() {
             "public mirror was not refreshed when Exec returned");
 }
 
-vaeg::z80::LegacyState InterruptState(std::uint8_t mode,
+vaeg::compat::LegacyState InterruptState(std::uint8_t mode,
                                       bool enabled = true) {
-    vaeg::z80::LegacyState state = BasicState();
+    vaeg::compat::LegacyState state = BasicState();
     state.registers.intmode = mode;
     state.registers.iff1 = enabled;
     state.registers.iff2 = enabled;
@@ -384,15 +384,15 @@ void TestInterruptLevelAndEi() {
     ei.Advance(4);
     const Status inhibited = ei.Save();
     Require(ei.AcknowledgeCount() == 0 && ei.cpu.GetPC() == 1 &&
-                (inhibited[vaeg::z80::kOffsetWait] &
-                 vaeg::z80::kWaitEiInhibited) != 0,
+                (inhibited[vaeg::compat::kOffsetWait] &
+                 vaeg::compat::kWaitEiInhibited) != 0,
             "EI inhibition was not retained at the instruction boundary");
     ei.Advance(4);
     Require(ei.AcknowledgeCount() == 1 && ei.cpu.GetPC() == 0x0038,
             "IRQ was not accepted after the instruction following EI");
 
     Harness changed_ack;
-    vaeg::z80::LegacyState changed_state = InterruptState(0, false);
+    vaeg::compat::LegacyState changed_state = InterruptState(0, false);
     changed_state.registers.af = 0xcf00;
     changed_ack.Load(Encode(changed_state));
     changed_ack.Install(0, {0xfb, 0xd3, 0xf0});
@@ -451,7 +451,7 @@ void TestIm0RawOpcodes() {
     {
         Harness harness;
         ConfigureIm0(&harness, 0x7f);
-        vaeg::z80::LegacyState state = InterruptState(0);
+        vaeg::compat::LegacyState state = InterruptState(0);
         state.registers.af = 0x5a00;
         harness.Load(Encode(state));
         harness.cpu.IRQ(0, 1);
@@ -483,7 +483,7 @@ void TestIm0RawOpcodes() {
     {
         Harness harness;
         ConfigureIm0(&harness, 0xcb);
-        vaeg::z80::LegacyState state = InterruptState(0);
+        vaeg::compat::LegacyState state = InterruptState(0);
         state.registers.bc = 0x8100;
         harness.Load(Encode(state));
         harness.acknowledge = 0xcb;
@@ -498,7 +498,7 @@ void TestIm0RawOpcodes() {
     {
         Harness harness;
         ConfigureIm0(&harness, 0xed);
-        vaeg::z80::LegacyState state = InterruptState(0);
+        vaeg::compat::LegacyState state = InterruptState(0);
         state.registers.af = 0x0100;
         harness.Load(Encode(state));
         harness.acknowledge = 0xed;
@@ -529,7 +529,7 @@ void TestIm0RawOpcodes() {
     {
         Harness harness;
         ConfigureIm0(&harness, 0xdd);
-        vaeg::z80::LegacyState state = InterruptState(0);
+        vaeg::compat::LegacyState state = InterruptState(0);
         state.registers.ix = 0x2000;
         harness.Load(Encode(state));
         harness.acknowledge = 0xdd;
@@ -543,7 +543,7 @@ void TestIm0RawOpcodes() {
     {
         Harness harness;
         ConfigureIm0(&harness, 0xfd);
-        vaeg::z80::LegacyState state = InterruptState(0);
+        vaeg::compat::LegacyState state = InterruptState(0);
         state.registers.iy = 0x2100;
         harness.Load(Encode(state));
         harness.acknowledge = 0xfd;
@@ -567,7 +567,7 @@ void TestIm1Im2HaltAndNmi() {
             "IM1 did not acknowledge once and dispatch to 0038");
 
     Harness im2;
-    vaeg::z80::LegacyState im2_state = InterruptState(2);
+    vaeg::compat::LegacyState im2_state = InterruptState(2);
     im2_state.registers.ireg = 0x20;
     im2.Load(Encode(im2_state));
     im2.acknowledge = 0x34;
@@ -597,9 +597,9 @@ void TestIm1Im2HaltAndNmi() {
     halted.Advance(4);
     Status halt_status = halted.Save();
     Require(halted.cpu.GetPC() == 1 &&
-                (halt_status[vaeg::z80::kOffsetWait] &
-                 vaeg::z80::kWaitHalt) != 0 &&
-                halt_status[vaeg::z80::kOffsetPc] == 0,
+                (halt_status[vaeg::compat::kOffsetWait] &
+                 vaeg::compat::kWaitHalt) != 0 &&
+                halt_status[vaeg::compat::kOffsetPc] == 0,
             "HALT entry or legacy opcode-PC translation failed");
     const std::uint64_t clocks_before_idle = halted.consumed;
     halted.Advance(4);
@@ -611,12 +611,12 @@ void TestIm1Im2HaltAndNmi() {
     halted.Advance(4);
     Require(halted.AcknowledgeCount() == 1 &&
                 halted.cpu.GetPC() == 0x0038 &&
-                (halted.Save()[vaeg::z80::kOffsetWait] &
-                 vaeg::z80::kWaitHalt) == 0,
+                (halted.Save()[vaeg::compat::kOffsetWait] &
+                 vaeg::compat::kWaitHalt) == 0,
             "maskable interrupt did not wake HALT");
 
     Harness nmi;
-    vaeg::z80::LegacyState nmi_state = InterruptState(1);
+    vaeg::compat::LegacyState nmi_state = InterruptState(1);
     nmi_state.registers.iff2 = false;
     nmi_state.registers.rreg = 0x7f;
     nmi.Load(Encode(nmi_state));
@@ -631,7 +631,7 @@ void TestIm1Im2HaltAndNmi() {
             "NMI state, legacy mirror, R, or acknowledge isolation failed");
 
     Harness refresh;
-    vaeg::z80::LegacyState r_state = BasicState();
+    vaeg::compat::LegacyState r_state = BasicState();
     r_state.registers.rreg = 0x7f;
     r_state.registers.rreg7 = 0x80;
     refresh.Load(Encode(r_state));
@@ -642,7 +642,7 @@ void TestIm1Im2HaltAndNmi() {
             "R refresh counter did not count both prefix M1 fetches");
 
     Harness load_r;
-    vaeg::z80::LegacyState load_r_state = BasicState();
+    vaeg::compat::LegacyState load_r_state = BasicState();
     load_r_state.registers.af = 0x0001;
     load_r_state.registers.rreg = 0x7f;
     load_r_state.registers.rreg7 = 0x80;
@@ -654,7 +654,7 @@ void TestIm1Im2HaltAndNmi() {
             "LD A,R did not materialize architectural flags");
 
     Harness reti;
-    vaeg::z80::LegacyState reti_state = BasicState();
+    vaeg::compat::LegacyState reti_state = BasicState();
     reti_state.registers.iff2 = true;
     reti.Load(Encode(reti_state));
     reti.memory[0xf000] = 0x34;
@@ -677,7 +677,7 @@ std::uint8_t HexNibble(char value) {
 
 Status ParseStatus(const char *hex) {
     const std::string text(hex);
-    Require(text.size() == vaeg::z80::kRevision1Size * 2,
+    Require(text.size() == vaeg::compat::kRevision1Size * 2,
             "retained fixture has an invalid encoded length");
     Status result{};
     for (std::size_t index = 0; index < result.size(); ++index) {
@@ -714,23 +714,23 @@ constexpr RetainedFixture kRetainedFixtures[] = {
 void TestRetainedFixturesAndCodec() {
     for (const RetainedFixture &fixture : kRetainedFixtures) {
         const Status input = ParseStatus(fixture.hex);
-        Require((input[vaeg::z80::kOffsetWait] &
-                 vaeg::z80::kWaitEiInhibited) == 0,
+        Require((input[vaeg::compat::kOffsetWait] &
+                 vaeg::compat::kWaitEiInhibited) == 0,
                 std::string(fixture.name) +
                     " unexpectedly uses reserved wait bit 2");
         Harness restored;
         restored.Load(input);
         const Status output = restored.Save();
         Status normalized = input;
-        normalized[vaeg::z80::kOffsetXf] =
-            static_cast<std::uint8_t>(input[vaeg::z80::kOffsetAf] & 0x28);
+        normalized[vaeg::compat::kOffsetXf] =
+            static_cast<std::uint8_t>(input[vaeg::compat::kOffsetAf] & 0x28);
         Require(output == normalized,
                 std::string(fixture.name) +
                     " failed revision-1 load/save normalization");
     }
 
     Harness round_trip;
-    vaeg::z80::LegacyState state = BasicState();
+    vaeg::compat::LegacyState state = BasicState();
     state.registers.af = 0x1234;
     state.registers.hl = 0x2345;
     state.registers.de = 0x3456;
@@ -756,7 +756,7 @@ void TestRetainedFixturesAndCodec() {
     state.remainclock = 17;
     state.lastclock = -23;
     const Status encoded = Encode(state);
-    Require((encoded[vaeg::z80::kOffsetWait] & 0x07) == 0x07,
+    Require((encoded[vaeg::compat::kOffsetWait] & 0x07) == 0x07,
             "HALT, external WAIT, and EI bits conflict");
     round_trip.Load(encoded);
     Require(round_trip.Save() == encoded &&
@@ -766,27 +766,27 @@ void TestRetainedFixturesAndCodec() {
 
     const Status before = round_trip.Save();
     Status unsupported = before;
-    unsupported[vaeg::z80::kOffsetRevision] = 2;
+    unsupported[vaeg::compat::kOffsetRevision] = 2;
     Require(!round_trip.cpu.LoadStatus(unsupported.data()) &&
                 round_trip.Save() == before,
             "unsupported revision was not rejected without mutation");
 
     Harness irq_restore;
-    vaeg::z80::LegacyState irq_state = InterruptState(1);
+    vaeg::compat::LegacyState irq_state = InterruptState(1);
     irq_state.irq_asserted = true;
     irq_restore.Load(Encode(irq_state));
-    Require(irq_restore.Save()[vaeg::z80::kOffsetIrq] == 1,
+    Require(irq_restore.Save()[vaeg::compat::kOffsetIrq] == 1,
             "restored level-sensitive IRQ was not inspectable");
     irq_restore.Install(0, {0x00});
     irq_restore.Advance(4);
     Require(irq_restore.AcknowledgeCount() == 1,
             "restored level-sensitive IRQ was not accepted");
     irq_restore.cpu.IRQ(0, 0);
-    Require(irq_restore.Save()[vaeg::z80::kOffsetIrq] == 0,
+    Require(irq_restore.Save()[vaeg::compat::kOffsetIrq] == 0,
             "deasserted level-sensitive IRQ remained serialized");
 
     Harness halt_restore;
-    vaeg::z80::LegacyState halt_state = InterruptState(1);
+    vaeg::compat::LegacyState halt_state = InterruptState(1);
     halt_state.registers.pc = 1;
     halt_state.halted = true;
     halt_state.irq_asserted = true;
@@ -797,7 +797,7 @@ void TestRetainedFixturesAndCodec() {
             "restored HALT state did not wake on restored IRQ level");
 
     Harness wait_restore;
-    vaeg::z80::LegacyState wait_state = BasicState();
+    vaeg::compat::LegacyState wait_state = BasicState();
     wait_state.external_wait = true;
     wait_restore.Load(Encode(wait_state));
     wait_restore.Install(0, {0x00});
@@ -817,8 +817,8 @@ void TestEiSaveBoundary() {
     baseline.cpu.IRQ(0, 1);
     baseline.Advance(4);
     const Status boundary = baseline.Save();
-    Require((boundary[vaeg::z80::kOffsetWait] &
-             vaeg::z80::kWaitEiInhibited) != 0,
+    Require((boundary[vaeg::compat::kOffsetWait] &
+             vaeg::compat::kWaitEiInhibited) != 0,
             "new EI boundary save did not record reserved bit 2");
 
     Harness restored;
@@ -862,6 +862,6 @@ int main() {
         test.run();
         std::printf("PASS: %s\n", test.name);
     }
-    std::puts("All vaeg Z80 wrapper tests passed");
+    std::puts("All vaeg compatibility wrapper tests passed");
     return 0;
 }

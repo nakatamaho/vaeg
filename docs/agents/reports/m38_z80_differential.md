@@ -176,7 +176,7 @@ not an observed M38 result.
 
 ## Cycle evidence and eventual convergence
 
-The generated [cycle report](../../modernization/z80-cycle-deltas.md) lists
+The generated [cycle report](../../modernization/compat-cycle-deltas.md) lists
 30 normalized checkpoints with a nonzero consumed/balance delta, including
 the convergence checkpoint. The generated corpus has zero cycle-delta groups.
 Examples include taken JR legacy/new `7/12`, RET `4/10`, repeated block I/O

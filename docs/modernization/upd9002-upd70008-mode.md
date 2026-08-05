@@ -23,21 +23,23 @@ IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE.
 -->
 
-# μPD9002 μPD780 (Z80-Compatible) Mode
+# μPD9002 uPD70008-Compatible Mode
 
 Reference for the PC-88VA main CPU's non-native execution mode.
 
 Merged from `upd9002-z80-emulation.md` and the provenance-tagged hardware
 reference. Supersedes both.
 
+**Active terminology.** Historical sources and the sections below use μPD780 or Z80-compatible for this main-CPU mode. The active implementation names it uPD70008-compatible. The separate FDD processor is uPD780C and remains an independent subsystem CPU.
+
 **Scope.** The μPD9002 main CPU: its two execution modes, the
 instructions and signals that move between them, the PC-88VA firmware
 conventions layered on top, and what a correct emulation must contain.
 
-**Not in scope.** The FDD subsystem uPD780-compatible CPU. That is a separate physical
+**Not in scope.** The FDD subsystem uPD780C CPU. That is a separate physical
 device with its own register file and ROM (`VASUBSYS.ROM`), reached in
-vaeg through `cpucva/z80_core.cpp` and `iova/subsystem.cpp`. It has
-nothing to do with μPD780 mode, and the two must not share code or
+vaeg through `cpucva/compat_cpu.cpp` and `iova/subsystem.cpp`. It has
+nothing to do with the main-CPU uPD70008-compatible mode, and the two must not share code or
 state. The general PC-88VA boot trace lives in
 `pc88va-boot-sequence.md`; only the parts bearing on mode transition are
 repeated here.
@@ -78,7 +80,7 @@ The μPD9002 is a PC-88VA-specific CPU with two execution modes.
 | Mode | Role |
 |---|---|
 | **V30 mode** (native) | 16-bit execution; a V30 instruction set with VA-specific differences. |
-| **μPD780 mode** (compatible) | μPD780/Z80-compatible execution, used by V1/V2 compatibility software. |
+| **uPD70008-compatible mode** (historically μPD780/Z80-compatible) | Compatible execution used by V1/V2 software. |
 
 `[VA-TM]` `[VA-WIKI]` Both state that the relationship between the two
 modes is the same as the V30's native and 8080-emulation modes, and that
@@ -2322,7 +2324,7 @@ compatible-mode entry, so it is not a drop-in answer.
 ## 14. Current vaeg status
 
 - The FDD subsystem uPD780-compatible CPU is implemented separately — historically
-  `cpucva/z80c.cpp`, currently `cpucva/z80_core.cpp`, with
+  `cpucva/z80c.cpp`, currently `cpucva/compat_cpu.cpp`, with
   `iova/subsystem.cpp` and `VASUBSYS.ROM`.
 - The main CPU uPD70008-compatible mode now has a bounded Stage 1 implementation in
   `cpucva/upd9002_upd70008.cpp`, using the vendored suzukiplan Z80 core. The stable save-state section remains UPD9Z80 for compatibility. It is

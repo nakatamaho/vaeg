@@ -19,7 +19,7 @@ that existed at that gate:
 
 - Active tree: CMake/C/SDL2/Dear ImGui; main CPU in `cpu/upd9002/`; VA memory
   in `cpucva/memoryva.c`; Z80 side in the suzukiplan-backed
-  `cpucva/z80_core.cpp` wrapper with `cpucva/z80_disasm.cpp`.
+  `cpucva/compat_cpu.cpp` wrapper with `cpucva/upd780_disasm.cpp`.
 - Then-frozen reference tier: `win9x/`, `i286x/`,
   `cpuxva/memoryva.x86`, and `hlp/`. The v141 build was decisive in the G9
   defect chain: differential FDC traces, the V30 DMA pump comparison, and

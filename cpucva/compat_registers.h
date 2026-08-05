@@ -23,12 +23,12 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef CPUCVA_Z80_REGISTERS_H
-#define CPUCVA_Z80_REGISTERS_H
+#ifndef CPUCVA_COMPAT_REGISTERS_H
+#define CPUCVA_COMPAT_REGISTERS_H
 
 #include <cstdint>
 
-struct Z80Reg {
+struct UPD780Reg {
     std::uint16_t af;
     std::uint16_t hl;
     std::uint16_t de;
@@ -48,5 +48,8 @@ struct Z80Reg {
     bool iff1;
     bool iff2;
 };
+
+using CompatReg = UPD780Reg;
+using UPD70008Reg = UPD780Reg;
 
 #endif

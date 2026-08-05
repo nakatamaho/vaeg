@@ -79,7 +79,7 @@ jobs:
           -R '^vaeg_upd9002_(ssts_(selftest|ratchet_selftest|ratchet_static|evidence_selftest|evidence_static|worker_selftest|ci_external)|m60a_evidence_(selftest|static)|m60b_authority_(selftest|static)|m60c_(erratum|audit)_(selftest|static)|m60d_frame_(selftest|static))$'
 
   linux:
-    name: ubuntu ${{ matrix.compiler }} z80
+    name: ubuntu ${{ matrix.compiler }} compatibility
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -108,11 +108,11 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: vaeg-linux-${{ matrix.compiler }}-z80
+          name: vaeg-linux-${{ matrix.compiler }}-compat
           path: build/${{ matrix.preset }}/sdl2/vaeg
 
-  z80-conformance:
-    name: standalone z80 conformance
+  compat-conformance:
+    name: standalone compatibility conformance
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -126,7 +126,7 @@ jobs:
           path: build/zex-cache
           key: zex-e3926769-b3015112-fbb1bb5d
       - name: Acquire and verify external ZEX inputs
-        run: python3 tests/z80/fetch_zex.py --output-dir build/zex-cache
+        run: python3 tests/compat/fetch_zex.py --output-dir build/zex-cache
       - name: Configure standalone conformance
         run: >-
           cmake --preset linux-ci-gcc
@@ -134,30 +134,30 @@ jobs:
       - name: Build standalone conformance
         run: >-
           cmake --build --preset linux-ci-gcc --target
-          vaeg_z80_header_default
-          vaeg_z80_header_no_functional
-          vaeg_z80_header_debug_default
-          vaeg_z80_header_release
-          vaeg_z80_interrupt_default
-          vaeg_z80_interrupt_no_functional
-          vaeg_z80_zex_runner
-          vaeg_z80_wrapper_default
-          vaeg_z80_wrapper_no_functional_test
-          vaeg_z80_wrapper_zex_runner
-          vaeg_z80_trace_reference
-          vaeg_z80_trace_repeat
-          vaeg_z80_trace_compare
+          vaeg_compat_header_default
+          vaeg_compat_header_no_functional
+          vaeg_compat_header_debug_default
+          vaeg_compat_header_release
+          vaeg_compat_interrupt_default
+          vaeg_compat_interrupt_no_functional
+          vaeg_compat_zex_runner
+          vaeg_compat_wrapper_default
+          vaeg_compat_wrapper_no_functional_test
+          vaeg_compat_wrapper_zex_runner
+          vaeg_compat_trace_reference
+          vaeg_compat_trace_repeat
+          vaeg_compat_trace_compare
       - name: Run standalone conformance
         run: >-
           ctest --test-dir build/linux-ci-gcc --output-on-failure
-          -R '^vaeg_z80_(header|interrupt|wrapper|zex|regression)'
+          -R '^vaeg_compat_(header|interrupt|wrapper|zex|regression)'
       - name: Verify source archive excludes external ZEX inputs
         run: |
           git archive --format=tar.gz --output=/tmp/vaeg-source.tar.gz HEAD
-          python3 tests/z80/check_zex_archive.py /tmp/vaeg-source.tar.gz
+          python3 tests/compat/check_zex_archive.py /tmp/vaeg-source.tar.gz
 
   linux-asan:
-    name: ubuntu asan z80
+    name: ubuntu asan compatibility
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -183,7 +183,7 @@ jobs:
             ctest --test-dir build/linux-ci-asan --output-on-failure
 
   windows:
-    name: windows msys2 mingw64 z80
+    name: windows msys2 mingw64 compatibility
     runs-on: windows-latest
     defaults:
       run:
@@ -248,7 +248,7 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: vaeg-windows-mingw64-z80
+          name: vaeg-windows-mingw64-compat
           path: build/mingw-ci/artifact/
 
   windows-release:
@@ -291,7 +291,7 @@ jobs:
         run: |
           # This is the manual-runtime Windows release artifact. Unlike
           # mingw-ci, this build keeps VAEG_ENABLE_TESTS and
-          # VAEG_Z80_INTEGRATION_TRACE disabled.
+          # VAEG_COMPAT_INTEGRATION_TRACE disabled.
           mkdir -p build/mingw-release/artifact
           cp build/mingw-release/sdl2/vaeg.exe build/mingw-release/artifact/
       - name: Upload release artifact
@@ -301,7 +301,7 @@ jobs:
           path: build/mingw-release/artifact/
 
   macos:
-    name: macos fetch-sdl2 z80
+    name: macos fetch-sdl2 compatibility
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
@@ -335,5 +335,5 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: vaeg-macos-z80
+          name: vaeg-macos-compat
           path: build/macos-ci/sdl2/vaeg

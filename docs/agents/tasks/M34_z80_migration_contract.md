@@ -12,7 +12,7 @@ M34 evidence corrected one premise below: with the current positive subsystem
 clock multiplier, both normal execution and external WAIT return from
 `Z80C::Exec()` only after `remainclock` becomes zero or negative. A positive
 revision-1 field remains codec input coverage, but is not a proven production
-return state. See `docs/modernization/z80-legacy-contract.md` and ADR-0011.
+return state. See `docs/modernization/compatibility-legacy-contract.md` and ADR-0011.
 
 The accepted state import/export conclusion is that architectural state,
 HALT, and `execEI` are importable and exportable through the selected core's
@@ -335,7 +335,7 @@ Do not assume `iova/subsystem.cpp` is the only consumer without evidence.
 Create:
 
 ```text
-docs/modernization/z80-legacy-contract.md
+docs/modernization/compatibility-legacy-contract.md
 ```
 
 Record exact file and line references for:
@@ -561,7 +561,7 @@ At minimum:
 - updated `docs/agents/CONVENTIONS.md`;
 - updated `docs/agents/ROADMAP.md`;
 - migration decision/ADR;
-- `docs/modernization/z80-legacy-contract.md`;
+- `docs/modernization/compatibility-legacy-contract.md`;
 - complete consumer and provenance inventory;
 - frame-boundary save call-chain evidence;
 - ABI report and legal ROM-less fixtures;

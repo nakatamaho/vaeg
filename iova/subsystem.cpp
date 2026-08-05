@@ -9,8 +9,8 @@
 
 #include	<cstdint>
 
-#include	"cpucva/z80_disasm.h"
-#include	"cpucva/z80_core.h"
+#include	"cpucva/upd780_disasm.h"
+#include	"cpucva/compat_cpu.h"
 #include	"i8255.h"
 #include	"subsystemif.h"
 #include	"fdc.h"
@@ -24,7 +24,7 @@
 #define TRACEOUT(arg)
 #endif
 
-#if defined(VAEG_Z80_INTEGRATION_TRACE)
+#if defined(VAEG_COMPAT_INTEGRATION_TRACE)
 #define UPD780TRACE(arg)	fdc_trace_text arg
 #else
 #define UPD780TRACE(arg)
@@ -297,7 +297,7 @@ void Subsystem::TestSetClock(UINT32 now) {
 
 BOOL Subsystem::TestGetState(VAEG_UPD780_INTEGRATION_CPU_STATE *state) {
 	UINT8 status[68];
-	const Z80Reg *reg;
+	const UPD780Reg *reg;
 
 	if ((state == NULL) || (upd780->GetStatusSize() != sizeof(status)) ||
 			!upd780->SaveStatus(status)) {
@@ -538,7 +538,7 @@ BYTE subsystem_readmem(WORD addr) {
 	return subsystemobj.Read8(addr);
 }
 
-const struct Z80Reg *subsystem_getcpureg(void) {
+const struct UPD780Reg *subsystem_getcpureg(void) {
 	return subsystemobj.upd780->GetReg();
 }
 
@@ -549,7 +549,7 @@ static std::uint8_t subsystem_disasm_read(void *opaque,
 }
 
 WORD subsystem_disassemble_bounded(WORD pc, char *str, UINT capacity) {
-	const VaegZ80DisasmResult result = VaegZ80Disassemble(
+	const VaegUpd780DisasmResult result = VaegUpd780Disassemble(
 		static_cast<std::uint16_t>(pc), str,
 		static_cast<std::uint32_t>(capacity), subsystem_disasm_read,
 		&subsystemobj);

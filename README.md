@@ -26,14 +26,16 @@ User setup instructions: [SCSI support](docs/modernization/scsi-support.md),
 [HOSTFAT](docs/modernization/hostfat.md), and the complete
 [Rel.260805 changes](CHANGES.20260805.md).
 
-### 2026-07-15 - Z80 migration
+### 2026-07-15 - CPU compatibility migration
 
 The active PC-88VA subsystem now uses the pinned MIT-licensed
-`suzukiplan/z80` core through vaeg's BSD-2-Clause compatibility wrapper. The
-independently authored BSD-2-Clause disassembler is the only production Z80
-disassembler. The former M88/cisc-derived Z80 implementation has been removed
-from the current tree after wrapper, conformance, state, differential, public,
-and private-system gates; project history remains unchanged.
+`suzukiplan/z80` core through vaeg's BSD-2-Clause compatibility wrapper.
+The shared compatibility backend serves both the uPD70008-compatible main
+CPU mode and the uPD780C FDD subsystem. The independently authored
+BSD-2-Clause disassembler is the production FDC disassembler. The former
+M88/cisc-derived Z80 implementation has been removed from the current tree
+after wrapper, conformance, state, differential, public, and private-system
+gates; project history remains unchanged.
 
 ### 2026-07-13 - Rel.260713
 
@@ -150,10 +152,11 @@ vaeg distribution root/
 
 The VA2/VA3 names match MAME's `pc88va2` ROM set in
 `src/mame/nec/pc88va.cpp`; VA2 never falls back to the unsuffixed VA names.
-`vasubsys.rom` remains a vaeg extra because vaeg runs the Z80 FDD
-subsystem that MAME currently leaves unconnected. The frontend checks the
-executable directory first, then the current working directory as a
-development fallback. ROM files are intentionally absent from source and
+`vasubsys.rom` remains a vaeg extra because vaeg runs the uPD780C FDD
+subsystem that MAME currently leaves unconnected.
+The frontend checks the executable directory first, then the current working
+directory as a development fallback.
+ROM files are intentionally absent from source and
 binary artifacts. At startup, size, CRC32, and SHA-1 are compared with the
 MAME declarations, including MAME's disabled `vasubsys.rom` declaration;
 differences produce warnings but do not prevent startup.
@@ -210,10 +213,11 @@ Technical Manual. The manual mainly describes the first PC-88VA; its
 Music BIOS and ADPCM BIOS sections also cover VA2/VA3 and Sound Board II
 behavior.
 
-- Main CPU: V30/Z80-instruction-compatible CPU at 8 MHz. The manual
-  describes V1/V2 compatibility timing relative to the older uPD780/Z80
-  software environment, but does not name a separate main CPU package.
-- Disk subsystem CPU: Z80-equivalent 4 MHz sub CPU with 8 KB ROM and
+- Main CPU: uPD9002 at 8 MHz, with a uPD70008-compatible mode for V1/V2
+  software. The manual describes V1/V2 compatibility timing relative to
+  the older uPD780/Z80 software environment, but does not name a separate
+  main CPU package.
+- Disk subsystem CPU: uPD780C-compatible 4 MHz sub CPU with 8 KB ROM and
   16 KB RAM for intelligent FDD operation.
 - Interrupt control: uPD8214-equivalent 8-level mode for V1/V2
   compatibility, and uPD8259-equivalent 13-level mode for V3 operation.
