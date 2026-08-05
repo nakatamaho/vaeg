@@ -14,6 +14,18 @@ normal development targets the CMake/SDL2 tree.
 
 ## News
 
+### 2026-08-05 - Rel.260805
+
+[Rel.260805](https://github.com/nakatamaho/vaeg/releases/tag/rel-260805)
+adds the PC-9801-55-compatible SCSI workflow, two-target SCSI attachment,
+SCSI/SASI file lifecycle checks, and the read-only `HOSTFAT.SYS` host-folder
+drive. The release archive includes the matching `HOSTFAT.SYS`; the old
+`HOSTDRV.SYS` name is not used.
+
+User setup instructions: [SCSI support](docs/modernization/scsi-support.md),
+[HOSTFAT](docs/modernization/hostfat.md), and the complete
+[Rel.260805 changes](CHANGES.20260805.md).
+
 ### 2026-07-15 - Z80 migration
 
 The active PC-88VA subsystem now uses the pinned MIT-licensed
