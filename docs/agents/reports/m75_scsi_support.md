@@ -2131,7 +2131,10 @@ without modifying the source D88, ROM directory, or HOSTFAT source tree.
 
 - --sasi-format boots a copy of the supplied PC-Engine 1.1 D88, executes
   its HDFORM.COM with HDFORM C: and confirmation input, and requires the
-  completed-format screen with positive available capacity.
+  completed-format screen with positive available capacity. It then runs
+  separate guest processes for file creation, close/reopen readback to A:,
+  and deletion, comparing the readback bytes with HDFORM.COM and checking
+  the final SASI root directory.
 - --g75-scsi creates a blank 40MiB, 256-byte-block VHD through the native
   image creator, runs SCFORM, validates the FAT16 geometry and both FAT
   copies, then runs separate guest processes for create, close/reopen
@@ -2145,11 +2148,15 @@ without modifying the source D88, ROM directory, or HOSTFAT source tree.
   Every guest step retains a same-run screen/trace pair and its headless
   input script.
 
-The normal-speed run completed the SASI format flow and the full SCSI flow:
-SCFORM created one G75TEST.COM file, the next process copied identical
-bytes to G75BACK.COM on A:, and the following process deleted the SCSI
-file. The final SCSI root directory was empty and the FAT inspector reported
-positive free clusters in both copies.
+The normal-speed run completed the SASI lifecycle and the full SCSI flow:
+HDFORM created the SASI filesystem, a separate process created G75SASI.COM,
+a further process copied it after close/reopen to G75SASB.COM on A: with
+identical bytes, and a final process deleted G75SASI.COM. The final SASI
+screen reported no matching file and positive free space. SCFORM likewise
+created one G75TEST.COM file, the next process copied identical bytes to
+G75BACK.COM on A:, and the following process deleted the SCSI file. The
+final SCSI root directory was empty and the FAT inspector reported positive
+free clusters in both copies.
 
 This is machine evidence for the disposable storage paths. It does not
 approve the remaining M75 human gates, including non-SCSI disk regression,
