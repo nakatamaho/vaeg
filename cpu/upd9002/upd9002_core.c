@@ -184,7 +184,7 @@ static void upd9002_core_initreg(void) {
 
 void upd9002_core_step(void) {
 
-	if (CPU_COMPAT_MODE == UPD9002_COMPAT_Z80) {
+	if (CPU_COMPAT_MODE == UPD9002_COMPAT_UPD70008) {
 		if (upd9002_compat_hooks.step != NULL) {
 			upd9002_compat_hooks.step();
 		}
@@ -330,7 +330,7 @@ int upd9002_core_compat_state_save(UINT8 *buffer, UINT size) {
 		return FAILURE;
 	}
 	ZeroMemory(buffer, size);
-	if (((CPU_COMPAT_MODE == UPD9002_COMPAT_Z80) ||
+	if (((CPU_COMPAT_MODE == UPD9002_COMPAT_UPD70008) ||
 			(CPU_COMPAT_RETURN_PENDING != 0)) &&
 			(upd9002_compat_hooks.state_save != NULL)) {
 		return upd9002_compat_hooks.state_save(buffer, size);
@@ -342,7 +342,7 @@ int upd9002_core_compat_state_load(const UINT8 *buffer, UINT size) {
 	if ((buffer == NULL) || (size != UPD9002_COMPAT_STATE_SIZE)) {
 		return FAILURE;
 	}
-	if (((CPU_COMPAT_MODE == UPD9002_COMPAT_Z80) ||
+	if (((CPU_COMPAT_MODE == UPD9002_COMPAT_UPD70008) ||
 			(CPU_COMPAT_RETURN_PENDING != 0)) &&
 			(upd9002_compat_hooks.state_load != NULL)) {
 		return upd9002_compat_hooks.state_load(buffer, size);
@@ -371,7 +371,7 @@ void CPUCALL upd9002_core_brkem(REG8 vect) {
 	CS_BASE = UPD9002_CS << 4;
 	REGPUSH0(return_ip)
 	UPD9002_IP = upd9002_vector_offset(vect);
-	CPU_COMPAT_MODE = UPD9002_COMPAT_Z80;
+	CPU_COMPAT_MODE = UPD9002_COMPAT_UPD70008;
 	CPU_COMPAT_RETURN_PENDING = 0;
 	UPD9002_WORKCLOCK(20);
 	if (upd9002_compat_hooks.enter != NULL) {
@@ -380,7 +380,7 @@ void CPUCALL upd9002_core_brkem(REG8 vect) {
 }
 
 void CPUCALL upd9002_core_compat_calln(REG8 vect, REG16 return_ip) {
-	if (CPU_COMPAT_MODE != UPD9002_COMPAT_Z80) {
+	if (CPU_COMPAT_MODE != UPD9002_COMPAT_UPD70008) {
 		return;
 	}
 	REGPUSH0(upd9002_materialize_interrupt_saved_flags())
@@ -397,7 +397,7 @@ void CPUCALL upd9002_core_compat_calln(REG8 vect, REG16 return_ip) {
 void CPUCALL upd9002_core_compat_retem(void) {
 	UINT16 flag;
 
-	if (CPU_COMPAT_MODE != UPD9002_COMPAT_Z80) {
+	if (CPU_COMPAT_MODE != UPD9002_COMPAT_UPD70008) {
 		return;
 	}
 	REGPOP0(UPD9002_IP)
@@ -417,7 +417,7 @@ void CPUCALL upd9002_core_compat_retem(void) {
 }
 
 void CPUCALL upd9002_core_compat_iret_resume(void) {
-	CPU_COMPAT_MODE = UPD9002_COMPAT_Z80;
+	CPU_COMPAT_MODE = UPD9002_COMPAT_UPD70008;
 	if (upd9002_compat_hooks.resume != NULL) {
 		upd9002_compat_hooks.resume();
 	}
@@ -457,7 +457,7 @@ void CPUCALL upd9002_core_interrupt(REG8 vect) {
 	UINT	op;
 const BYTE	*ptr;
 
-	if (CPU_COMPAT_MODE == UPD9002_COMPAT_Z80) {
+	if (CPU_COMPAT_MODE == UPD9002_COMPAT_UPD70008) {
 		if (upd9002_compat_hooks.sync_to_native != NULL) {
 			upd9002_compat_hooks.sync_to_native();
 		}

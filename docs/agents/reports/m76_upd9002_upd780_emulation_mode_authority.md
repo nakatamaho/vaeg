@@ -199,7 +199,7 @@ Implemented production boundaries:
   compatibility return.
 
 The ROMless production-path regression
-`vaeg_upd9002_brkem_z80` passed and covers BRKEM, Z80 JR/IX/IY execution,
+`vaeg_upd9002_brkem_upd70008` passed and covers BRKEM, uPD70008-compatible JR/IX/IY execution,
 CALLN/IRET, RETEM, register aliases, and stack restoration. Existing uPD9002
 IRET, state-boundary, state-payload, FDD-Z80 wrapper, and differential Z80
 regressions also passed after the change.

@@ -26,7 +26,7 @@
 #include "pccore.h"
 #include "cpucore.h"
 #include "io/iocore.h"
-#include "cpucva/upd9002_z80.h"
+#include "cpucva/upd9002_upd70008.h"
 #include "cpucva/z80_core.h"
 
 #include <cstdint>
@@ -58,7 +58,7 @@ public:
     }
 };
 
-class Upd9002Z80Compat final : public IMemoryAccess, public IIOAccess {
+class Upd9002Upd70008Compat final : public IMemoryAccess, public IIOAccess {
 public:
     void Reset() {
         if (initialized_) {
@@ -239,7 +239,7 @@ private:
     bool have_compatible_state_ = false;
 };
 
-Upd9002Z80Compat compat;
+Upd9002Upd70008Compat compat;
 
 void compat_reset() { compat.Reset(); }
 void compat_enter() { compat.Enter(); }
@@ -256,7 +256,7 @@ int compat_state_load(const UINT8 *buffer, UINT size) {
 
 } // namespace
 
-extern "C" void upd9002_z80_register(void) {
+extern "C" void upd9002_upd70008_register(void) {
     static bool registered = false;
     if (registered) {
         return;
@@ -275,7 +275,7 @@ extern "C" void upd9002_z80_register(void) {
 }
 
 #if defined(VAEG_UPD9002_M76_TESTING)
-extern "C" int upd9002_z80_compat_selftest(void) {
+extern "C" int upd9002_upd70008_compat_selftest(void) {
     const UINT16 code_segment = 0x2000;
     const UINT16 native_stack_segment = 0x3000;
     const UINT16 code_offset = 0x0100;
@@ -289,7 +289,7 @@ extern "C" int upd9002_z80_compat_selftest(void) {
     upd9002_memorymap(0);
     memmode_va = 0;
     ZeroMemory(mem, 0x100000);
-    upd9002_z80_register();
+    upd9002_upd70008_register();
     upd9002_core_reset();
 
     CPU_CS = code_segment;
@@ -344,7 +344,7 @@ extern "C" int upd9002_z80_compat_selftest(void) {
     mem[code_base + native_offset] = 0xcf;
 
     upd9002_core_step();
-    if ((CPU_COMPAT_MODE != UPD9002_COMPAT_Z80) ||
+    if ((CPU_COMPAT_MODE != UPD9002_COMPAT_UPD70008) ||
             (CPU_CS != code_segment) || (CPU_IP != compatible_offset) ||
             (CPU_SP != 0x00fa)) {
         upd9002_core_deinitialize();
@@ -383,7 +383,7 @@ extern "C" int upd9002_z80_compat_selftest(void) {
         return FAILURE;
     }
     upd9002_core_step();
-    if ((CPU_COMPAT_MODE != UPD9002_COMPAT_Z80) ||
+    if ((CPU_COMPAT_MODE != UPD9002_COMPAT_UPD70008) ||
             (CPU_IP != compatible_offset + 18) || (CPU_SP != 0x00fa)) {
         upd9002_core_deinitialize();
         return FAILURE;
@@ -418,13 +418,13 @@ extern "C" int upd9002_z80_compat_selftest(void) {
             passed = 0;
         }
         else {
-            CPU_COMPAT_MODE = UPD9002_COMPAT_Z80;
+            CPU_COMPAT_MODE = UPD9002_COMPAT_UPD70008;
             upd9002_core_step();
             passed = (CPU_COMPAT_MODE == UPD9002_COMPAT_NATIVE) &&
                 (CPU_IP == native_offset) && (CPU_SP == 0x00f4);
             upd9002_core_step();
             passed = passed &&
-                (CPU_COMPAT_MODE == UPD9002_COMPAT_Z80) &&
+                (CPU_COMPAT_MODE == UPD9002_COMPAT_UPD70008) &&
                 (CPU_IP == compatible_offset + 18);
         }
     }
