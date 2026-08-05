@@ -34,6 +34,10 @@ function(run_trace output_variable)
     if(NOT result EQUAL 0)
         message(FATAL_ERROR "trace-enabled selftest failed (${result}):\n${stderr_text}")
     endif()
+    # MSYS2's C runtime may translate stderr lines to CRLF.  Canonical trace
+    # comparison is line-oriented, so make the captured stream platform
+    # independent before extracting records and checkpoints.
+    string(REPLACE "\r" "" stderr_text "${stderr_text}")
     string(REGEX MATCHALL
         "(upd9002-trace-v1|begin step=[^\n]*|event step=[^\n]*|end step=[^\n]*)"
         trace_lines "${stderr_text}")
@@ -45,16 +49,32 @@ function(run_trace output_variable)
     string(REGEX REPLACE
         "upd9002-trace-v1\n|begin step=[^\n]*\n|event step=[^\n]*\n|end step=[^\n]*\n"
         "" checkpoint_text "${stderr_text}")
+    # Selftest media names include the process ID to avoid collisions.  That
+    # runtime-only value must not make deterministic checkpoint comparison
+    # fail between otherwise identical runs.
+    string(REGEX REPLACE
+        "vaeg-selftest-[0-9]+"
+        "vaeg-selftest-PID"
+        checkpoint_text "${checkpoint_text}")
     set(${output_variable}_checkpoints "${checkpoint_text}" PARENT_SCOPE)
 endfunction()
 
 run_trace(first)
 run_trace(second)
 if(NOT first STREQUAL second)
-    message(FATAL_ERROR "two identical trace-enabled runs differ")
+    string(LENGTH first first_length)
+    string(LENGTH second second_length)
+    message(FATAL_ERROR
+        "two identical trace-enabled runs differ "
+        "(first_length=${first_length} second_length=${second_length})")
 endif()
 if(NOT first_checkpoints STREQUAL second_checkpoints)
-    message(FATAL_ERROR "two trace-enabled checkpoint streams differ")
+    string(LENGTH first_checkpoints first_checkpoint_length)
+    string(LENGTH second_checkpoints second_checkpoint_length)
+    message(FATAL_ERROR
+        "two trace-enabled checkpoint streams differ "
+        "(first_length=${first_checkpoint_length} "
+        "second_length=${second_checkpoint_length})")
 endif()
 foreach(origin cpu dma device)
     if(NOT first MATCHES "origin=${origin}")
@@ -109,6 +129,11 @@ execute_process(
 if(NOT untraced_result EQUAL 0)
     message(FATAL_ERROR "trace-disabled equivalence selftest failed: ${untraced_error}")
 endif()
+string(REPLACE "\r" "" untraced_error "${untraced_error}")
+string(REGEX REPLACE
+    "vaeg-selftest-[0-9]+"
+    "vaeg-selftest-PID"
+    untraced_error "${untraced_error}")
 if(NOT first_checkpoints STREQUAL untraced_error)
     message(FATAL_ERROR
         "trace-enabled and trace-disabled final checkpoint streams differ")
