@@ -57,6 +57,16 @@ CPM_DIRECTORY_SIZE = 0x1000
 CPM_BLOCK_SIZE = 2048
 CPM_MAX_BLOCK = 0x97
 CPM_DIRECTORY_ENTRIES = 128
+CPM_RECORD_SIZE = 128
+# CPMVA's CPMBIOS.MAC uses EXM=1. One directory entry therefore describes
+# two 128-record (16 KiB) sub-extents, up to 256 records (32 KiB) in total.
+# Keep this derived from the DPB's EXM value so the writer and reader cannot
+# silently fall back to the one-entry-per-16-KiB layout.
+CPM_EXTENT_MASK = 0x01
+CPM_SUBEXTENTS_PER_ENTRY = CPM_EXTENT_MASK + 1
+CPM_RECORDS_PER_SUBEXTENT = 128
+CPM_RECORDS_PER_ENTRY = CPM_SUBEXTENTS_PER_ENTRY * CPM_RECORDS_PER_SUBEXTENT
+CPM_BLOCKS_PER_ENTRY = (CPM_RECORDS_PER_ENTRY * CPM_RECORD_SIZE) // CPM_BLOCK_SIZE
 PCENGINE_SECTOR_SIZE = 1024
 MAX_MEMBER_SIZE = 4 * 1024 * 1024
 
@@ -863,16 +873,35 @@ def build_cpm_raw(files: dict[str, bytes]) -> tuple[bytes, dict]:
     for name in sorted(files):
         base, extension = cpm_name(name)
         data = files[name]
-        if len(data) % 128:
+        if len(data) % CPM_RECORD_SIZE:
             fail("CPM_RECORD_SIZE", f"{name} is not an exact 128-byte record length")
-        extent_count = max(1, (len(data) + 16384 - 1) // 16384)
-        for extent in range(extent_count):
+        if CPM_BLOCK_SIZE % CPM_RECORD_SIZE:
+            fail("CPM_GEOMETRY", "CP/M block size is not a multiple of the record size")
+        total_records = len(data) // CPM_RECORD_SIZE
+        entry_count = max(
+            1,
+            (total_records + CPM_RECORDS_PER_ENTRY - 1) // CPM_RECORDS_PER_ENTRY,
+        )
+        for entry_number in range(entry_count):
             if directory_index >= CPM_DIRECTORY_ENTRIES:
                 fail("CPM_DIRECTORY", "CP/M directory is full")
-            begin = extent * 16384
-            chunk = data[begin : begin + 16384]
-            record_count = (len(chunk) + 127) // 128
+            first_record = entry_number * CPM_RECORDS_PER_ENTRY
+            entry_records = min(
+                CPM_RECORDS_PER_ENTRY,
+                max(0, total_records - first_record),
+            )
+            begin = first_record * CPM_RECORD_SIZE
+            chunk = data[begin : begin + entry_records * CPM_RECORD_SIZE]
+            subextent = 1 if entry_records > CPM_RECORDS_PER_SUBEXTENT else 0
+            extent = entry_number * CPM_SUBEXTENTS_PER_ENTRY + subextent
+            record_count = entry_records - subextent * CPM_RECORDS_PER_SUBEXTENT
+            if record_count > CPM_RECORDS_PER_SUBEXTENT:
+                fail("CPM_EXTENT", "CP/M directory entry record count is out of range")
+            if extent > 0x1FFF:
+                fail("CPM_EXTENT", "CP/M extent number is out of range")
             block_count = (len(chunk) + CPM_BLOCK_SIZE - 1) // CPM_BLOCK_SIZE
+            if block_count > CPM_BLOCKS_PER_ENTRY:
+                fail("CPM_EXTENT", "CP/M directory entry needs too many allocation blocks")
             blocks = list(range(next_block, next_block + block_count))
             next_block += block_count
             if blocks and blocks[-1] > CPM_MAX_BLOCK:
@@ -896,7 +925,13 @@ def build_cpm_raw(files: dict[str, bytes]) -> tuple[bytes, dict]:
             entry_offset = CPM_DIRECTORY_OFFSET + directory_index * 32
             raw[entry_offset : entry_offset + 32] = entry
             directory_index += 1
-            records.setdefault(name, []).append({"extent": extent, "blocks": blocks})
+            records.setdefault(name, []).append(
+                {
+                    "extent": extent,
+                    "entry_records": entry_records,
+                    "blocks": blocks,
+                }
+            )
     return bytes(raw), {"directory_entries": directory_index, "allocated_blocks": sorted(used_blocks)}
 
 
@@ -905,7 +940,7 @@ def parse_cpm_raw(raw: bytes) -> dict[str, bytes]:
         fail("CPM_RAW_SIZE", "CP/M raw image is not exactly 327680 bytes")
     if raw[CPM_DIRECTORY_OFFSET : CPM_DIRECTORY_OFFSET + CPM_DIRECTORY_SIZE].count(0xE5) == 0:
         fail("CPM_DIRECTORY", "CP/M directory has no unused entries")
-    files: dict[str, list[tuple[int, bytes]]] = {}
+    files: dict[str, list[tuple[int, int, bytes]]] = {}
     allocated = set()
     for index in range(CPM_DIRECTORY_ENTRIES):
         entry = raw[CPM_DIRECTORY_OFFSET + index * 32 : CPM_DIRECTORY_OFFSET + (index + 1) * 32]
@@ -913,12 +948,20 @@ def parse_cpm_raw(raw: bytes) -> dict[str, bytes]:
             continue
         if entry[0] != 0:
             fail("CPM_USER", "only CP/M user area 0 is supported")
+        if entry[12] & 0xE0 or entry[13] != 0:
+            fail("CPM_EXTENT", "CP/M directory entry has invalid extent fields")
         name = entry[1:9].decode("ascii").rstrip()
         extension = entry[9:12].decode("ascii").rstrip()
         display = name + (f".{extension}" if extension else "")
         extent = entry[12] | (entry[14] << 5)
-        records = entry[15]
-        block_count = (records * 128 + CPM_BLOCK_SIZE - 1) // CPM_BLOCK_SIZE
+        group = extent // CPM_SUBEXTENTS_PER_ENTRY
+        subextent = extent & CPM_EXTENT_MASK
+        records = subextent * CPM_RECORDS_PER_SUBEXTENT + entry[15]
+        if records > CPM_RECORDS_PER_ENTRY:
+            fail("CPM_EXTENT", f"{display} has too many records in one directory entry")
+        block_count = (records * CPM_RECORD_SIZE + CPM_BLOCK_SIZE - 1) // CPM_BLOCK_SIZE
+        if block_count > CPM_BLOCKS_PER_ENTRY:
+            fail("CPM_EXTENT", f"{display} has too many allocation blocks in one directory entry")
         blocks = [entry[16 + block] for block in range(block_count)]
         if any(block < 2 or block > CPM_MAX_BLOCK for block in blocks):
             fail("CPM_ALLOCATOR", f"{display} references a reserved or invalid block")
@@ -929,11 +972,18 @@ def parse_cpm_raw(raw: bytes) -> dict[str, bytes]:
         for block in blocks:
             offset = CPM_DIRECTORY_OFFSET + block * CPM_BLOCK_SIZE
             content.extend(raw[offset : offset + CPM_BLOCK_SIZE])
-        content = content[: records * 128]
-        files.setdefault(display, []).append((extent, bytes(content)))
+        content = content[: records * CPM_RECORD_SIZE]
+        entries = files.setdefault(display, [])
+        if any(previous_group == group for previous_group, _, _ in entries):
+            fail("CPM_EXTENT_DUPLICATE", f"{display} has duplicate logical extent {group}")
+        entries.append((group, records, bytes(content)))
     result = {}
     for name, extents in files.items():
-        result[name] = b"".join(data for _, data in sorted(extents))
+        ordered = sorted(extents)
+        for expected_group, (group, _, _) in enumerate(ordered):
+            if group != expected_group:
+                fail("CPM_EXTENT_GAP", f"{name} has a missing logical extent before {group}")
+        result[name] = b"".join(data for _, _, data in ordered)
     return result
 
 

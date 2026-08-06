@@ -148,6 +148,14 @@ before accepting this composition.
 The tools, source, and development disks are deterministic PC-8801 2D D88
 images with 327680 raw bytes and a CP/M directory at `0x4000`. Every disk is
 unwrapped and parsed again before the output is written.
+The CP/MVA BIOS DPB uses `EXM=1`, not `EXM=0`. Therefore the writer groups
+two 16 KiB sub-extents into one directory entry. A file of 30,592 bytes is
+encoded as one entry with `EX=1`, `RC=111`, and 15 allocation blocks; a full
+32 KiB entry uses `EX=1`, `RC=128`. The validator applies the CP/M extent
+formula, rejects duplicate logical extents from the old one-entry-per-16-KiB
+layout, and rejects gaps before reconstructing a file. This is required for
+large programs such as `BACKGMMN.COM` and `CC2.COM`; changing the BIOS or
+emulator is not a substitute for matching its DPB.
 
 ## VAEG procedure
 
