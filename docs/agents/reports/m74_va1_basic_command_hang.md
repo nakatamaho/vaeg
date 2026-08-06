@@ -11,7 +11,7 @@ No production correction is claimed.
 | Starting SHA | `61d142b5d4a20e07675d669f8c0be21facb0be3d` |
 | Approved G73 predecessor | `766a132ff6d66e335fe9bb1d0082d777a4a8fe14` |
 | Task authority SHA | `976c33956d585560223561bf6694c6a26ee8cedd810cffed1b60a59189014ea1` |
-| Evaluated SHA | e49641b5c78bdacbec220bec74eb5a1e72cce014 |
+| Evaluated SHA | e49641b4412f3127e2dbe3535dddcf2a1799583e |
 | Production-fix SHA | None |
 
 The worktree already contained uncommitted M74 diagnostic changes when this
