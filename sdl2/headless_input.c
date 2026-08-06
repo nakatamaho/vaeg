@@ -27,6 +27,7 @@
 #include "kbdpaste.h"
 #include "headless_input.h"
 #include "fdd/diskdrv.h"
+#include "upd9002_trace.h"
 
 #include <errno.h>
 #include <stdio.h>
@@ -331,13 +332,14 @@ BOOL headless_input_script_after_frame(HEADLESS_INPUT_SCRIPT *script,
         script->next_frame = frames + HEADLESS_INPUT_COMMAND_DELAY_FRAMES;
         return SUCCESS;
     }
+    command_number = script->command_index;
+    upd9002_m74_trace_arm(command_number);
     if (!kbdpaste_start_text(command->text)) {
         fprintf(stderr,
             "Error: headless input script could not inject command %u\n",
             script->command_index);
         return FAILURE;
     }
-    command_number = script->command_index;
     script->next_frame = frames + HEADLESS_INPUT_COMMAND_DELAY_FRAMES;
     fprintf(stderr,
         "headless-input-script injected command=%u frame=%u\n",

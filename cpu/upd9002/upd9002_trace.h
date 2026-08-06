@@ -49,6 +49,14 @@ void upd9002_guest_trace_step_begin(void);
 void upd9002_guest_trace_step_end(void);
 void upd9002_trace_event(uint32_t origin, const char *kind,
 						uint32_t address, uint32_t value, uint32_t width);
+void upd9002_m74_trace_configure(FILE *stream);
+void upd9002_m74_trace_stop(void);
+void upd9002_m74_trace_arm(uint32_t command_number);
+void upd9002_m74_trace_step_begin(void);
+void upd9002_m74_trace_step_end(void);
+void upd9002_m74_trace_interrupt(uint8_t vector, uint8_t external);
+void upd9002_m74_trace_memory_write(uint32_t address, uint16_t value,
+		uint8_t width);
 
 #else
 
@@ -65,6 +73,15 @@ void upd9002_trace_event(uint32_t origin, const char *kind,
 #define upd9002_guest_trace_step_end() ((void)0)
 #define upd9002_trace_event(origin, kind, address, value, width) \
 	((void)(origin), (void)(kind), (void)(address), (void)(value), (void)(width))
+#define upd9002_m74_trace_configure(stream) ((void)(stream))
+#define upd9002_m74_trace_stop() ((void)0)
+#define upd9002_m74_trace_arm(command_number) ((void)(command_number))
+#define upd9002_m74_trace_step_begin() ((void)0)
+#define upd9002_m74_trace_step_end() ((void)0)
+#define upd9002_m74_trace_interrupt(vector, external) \
+	((void)(vector), (void)(external))
+#define upd9002_m74_trace_memory_write(address, value, width) \
+	((void)(address), (void)(value), (void)(width))
 
 #endif
 

@@ -1825,6 +1825,7 @@ int main(int argc, char **argv) {
 	if (options.trace_cpu != 0) {
 		upd9002_trace_start(stderr, options.trace_cpu);
 	}
+	upd9002_m74_trace_configure(stderr);
 	if (options.scsitrace && options.scsitrace_guest) {
 		if (options.scsitrace_cmdreq_windows) {
 			upd9002_guest_trace_start_cmdreq_windows(stderr);
@@ -1838,6 +1839,7 @@ int main(int argc, char **argv) {
 		run_ok = vaeg_selftest_run();
 		upd9002_perf_stop();
 		upd9002_guest_trace_stop();
+		upd9002_m74_trace_stop();
 		upd9002_trace_stop();
 		SDL_Quit();
 		dosio_term();
@@ -2058,6 +2060,7 @@ int main(int argc, char **argv) {
 	scrnmng_destroy();
 	TRACETERM();
 	upd9002_perf_stop();
+	upd9002_m74_trace_stop();
 	upd9002_trace_stop();
 	upd9002_guest_trace_stop();
 	SDL_Quit();
@@ -2073,6 +2076,7 @@ np2main_err2:
 	hostfat_manager_shutdown();
 	TRACETERM();
 	upd9002_perf_stop();
+	upd9002_m74_trace_stop();
 	upd9002_trace_stop();
 	upd9002_guest_trace_stop();
 	SDL_Quit();

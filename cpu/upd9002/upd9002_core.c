@@ -209,6 +209,7 @@ void upd9002_core_step(void) {
 
 	upd9002_guest_trace_step_begin();
 	upd9002_trace_step_begin();
+	upd9002_m74_trace_step_begin();
 	upd9002_step_start_cs = UPD9002_CS;
 	upd9002_step_start_ip = UPD9002_IP;
 	opcode = upd9002_memoryread(CS_BASE + UPD9002_IP);
@@ -240,6 +241,7 @@ void upd9002_core_step(void) {
 			upd9002_core_context.s = state_before;
 		}
 		upd9002_guest_trace_step_end();
+		upd9002_m74_trace_step_end();
 		upd9002_trace_event(UPD9002_TRACE_ORIGIN_CPU,
 			"diagnostic-stop-rep0f", CS_BASE + UPD9002_IP, opcode, 1);
 		upd9002_trace_step_end();
@@ -248,6 +250,7 @@ void upd9002_core_step(void) {
 	upd9002_dmap();
 	upd9002_guest_trace_step_end();
 	upd9002_trace_step_end();
+	upd9002_m74_trace_step_end();
 }
 
 void upd9002_core_reset(void) {
@@ -443,6 +446,7 @@ void CPUCALL upd9002_intnum(UINT vect, REG16 IP) {
 	upd9002_perf_record_exception((UINT8)vect);
 	upd9002_trace_event(UPD9002_TRACE_ORIGIN_CPU, "exception",
 		(uint32_t)vect, (uint32_t)IP, 2);
+	upd9002_m74_trace_interrupt((uint8_t)vect, 0);
 #if defined(VAEG_UPD9002_SSTS_TESTING)
 	upd9002_ssts_interrupt((uint8_t)vect);
 #endif
@@ -468,6 +472,7 @@ void CPUCALL upd9002_core_interrupt(REG8 vect) {
 	upd9002_perf_record_interrupt(vect);
 	upd9002_trace_event(UPD9002_TRACE_ORIGIN_DEVICE, "interrupt",
 		(uint32_t)vect, (uint32_t)UPD9002_IP, 2);
+	upd9002_m74_trace_interrupt(vect, 1);
 
 	UINT	op;
 const BYTE	*ptr;

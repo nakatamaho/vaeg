@@ -890,6 +890,7 @@ void MEMCALL upd9002_memorywrite(UINT32 address, REG8 value) {
 
 	upd9002_trace_event(UPD9002_TRACE_ORIGIN_CPU, "memory-write",
 		(uint32_t)address, (uint32_t)value, 1);
+	upd9002_m74_trace_memory_write((uint32_t)address, (uint16_t)value, 1);
 
 	if (memmode_va) {
 		upd9002_memorywrite_va(address, value);
@@ -923,6 +924,7 @@ void MEMCALL upd9002_memorywrite_w(UINT32 address, REG16 value) {
 
 	upd9002_trace_event(UPD9002_TRACE_ORIGIN_CPU, "memory-write",
 		(uint32_t)address, (uint32_t)value, 2);
+	upd9002_m74_trace_memory_write((uint32_t)address, (uint16_t)value, 2);
 
 	if (memmode_va) {
 		upd9002_memorywrite_va_w(address, value);

@@ -1,5 +1,6 @@
 
 #include	"clockscale.h"
+#include	"upd9002_trace.h"
 
 extern CLOCKSCALE pccore_cpu_scale;
 
@@ -434,6 +435,7 @@ extern UINT calc_a(UINT op, UINT32 *seg);
 			upd9002_memorywrite_w(addr, reg);							\
 		}															\
 		else {														\
+			upd9002_m74_trace_memory_write(addr, (reg), 2);\
 			*(UINT16 *)(mem + addr) = (reg);						\
 		}															\
 	}
