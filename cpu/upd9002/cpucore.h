@@ -267,6 +267,7 @@ void upd9002_core_set_emm(UINT frame, UINT32 addr);
 void upd9002_core_set_compat_hooks(const Upd9002CompatHooks *hooks);
 void CPUCALL upd9002_core_brkem(REG8 vect);
 void CPUCALL upd9002_core_compat_calln(REG8 vect, REG16 return_ip);
+BOOL CPUCALL upd9002_core_compat_iret_is_return(void);
 void CPUCALL upd9002_core_compat_retem(void);
 void CPUCALL upd9002_core_compat_iret_resume(void);
 int upd9002_core_compat_state_save(UINT8 *buffer, UINT size);
