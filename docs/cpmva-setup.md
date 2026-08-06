@@ -97,6 +97,12 @@ The CP/MVA disk images generated together by the installer must be used as a
 set. Do not manually rewrap them as another D88 geometry; the tested VAEG
 layout preserves the CP/M directory and sector mapping expected by the
 PC-88VA BIOS.
+The CP/MVA `CPMBIOS.MAC` DPB uses `EXM=1`, so the installer stores two
+16 KiB sub-extents in one directory entry. Large programs such as
+`BACKGMMN.COM` and `CC2.COM` must not be manually split into one entry per
+16 KiB; that legacy layout repeats the same logical extent and causes CP/MVA
+to load only the first part of the program. The installer validator rejects
+duplicate or gapped logical extents before emitting a disk.
 
 ## Headless runs
 

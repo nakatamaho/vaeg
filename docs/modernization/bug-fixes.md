@@ -50,6 +50,16 @@ separate parity correction or move it to Open Defects.
 
 ## Fixed Defects
 
+### CP/MVA EXM=1 directory grouping omitted large-program data
+
+- **Status:** fixed in the uncommitted M76 working tree; commit pending because this task prohibits commit and push.
+- **Symptom:** CP/MVA hung when running BACKGMMN.COM and CC2.COM; the guest loaded only the first approximately 16 KiB.
+- **Root cause:** the writer emitted one directory entry per 16 KiB, but CPMBIOS.MAC has EXM=1 and CP/M groups two 16 KiB sub-extents in one logical entry.
+- **Correction:** build_cpm_raw() now encodes grouped EX/RC entries, and parse_cpm_raw() rejects duplicate or gapped logical extents.
+- **Verification:** 17 focused installer tests pass; real-data tools and BDS C disks round-trip completely for 12 and 14 files.
+- **Evidence:** [CP/MVA installer](../../tools/cpmva/install_cpmva.py#L866), [focused tests](../../tools/cpmva/tests/test_install_cpmva.py#L260), and [setup guidance](../cpmva-setup.md#run-cpmva-in-vaeg).
+- **Commit:** pending; no commit or push was performed.
+
 ### uPD9002 FF /7 executed a POP-like operation instead of the observed stack push
 
 - **Status:** fixed in the M65 residue campaign; formal approval deferred to
