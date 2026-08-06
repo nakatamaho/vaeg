@@ -57,6 +57,8 @@ typedef struct {
 	BOOL			dirty;
 	BOOL			framedisp_enabled;
 	VAEG_FRAMEDISP	framedisp;
+	BOOL			rendered_capture_enabled;
+	SDL_Surface		*rendered_frame;
 } SCRNMNG;
 
 typedef struct {
@@ -73,6 +75,82 @@ enum {
 static	SCRNMNG		scrnmng;
 static	SCRNSTAT	scrnstat;
 static	SCRNSURF	scrnsurf;
+
+static BOOL scrnmng_calculate_viewport(VAEG_VIEWPORT *viewport);
+
+static void scrnmng_capture_dummy_frame(void) {
+	VAEG_VIEWPORT viewport;
+	SDL_Surface *source;
+	SDL_Rect dst;
+
+	if ((scrnmng.rendered_frame == NULL) || (scrnmng.shadow == NULL)) {
+		return;
+	}
+	source = SDL_CreateRGBSurfaceWithFormatFrom(
+		scrnmng.shadow + (SCRNMNG_SURFACE_GUARD_LEFT * 2),
+		scrnmng.width, scrnmng.height, 16, scrnmng.shadow_pitch,
+		SDL_PIXELFORMAT_RGB565);
+	if (source == NULL) {
+		fprintf(stderr,
+				"scsitrace rendered-screen-source-failed error=%s\n",
+				SDL_GetError());
+		return;
+	}
+	(void)SDL_FillRect(scrnmng.rendered_frame, NULL,
+				SDL_MapRGB(scrnmng.rendered_frame->format, 0, 0, 0));
+	if (scrnmng_calculate_viewport(&viewport) == SUCCESS) {
+		dst.x = viewport.x;
+		dst.y = viewport.y;
+		dst.w = viewport.width;
+		dst.h = viewport.height;
+		(void)SDL_BlitScaled(source, NULL, scrnmng.rendered_frame, &dst);
+	}
+	SDL_FreeSurface(source);
+}
+
+static void scrnmng_capture_rendered_frame(void) {
+	int width;
+	int height;
+
+	if (scrnmng.renderer == NULL) {
+		return;
+	}
+	if (SDL_GetRendererOutputSize(scrnmng.renderer, &width, &height) != 0 ||
+		(width <= 0) || (height <= 0)) {
+		fprintf(stderr, "scsitrace rendered-screen-size-failed error=%s\n",
+				SDL_GetError());
+		return;
+	}
+	if ((scrnmng.rendered_frame == NULL) ||
+		(scrnmng.rendered_frame->w != width) ||
+		(scrnmng.rendered_frame->h != height)) {
+		if (scrnmng.rendered_frame != NULL) {
+			SDL_FreeSurface(scrnmng.rendered_frame);
+			scrnmng.rendered_frame = NULL;
+		}
+		scrnmng.rendered_frame = SDL_CreateRGBSurfaceWithFormat(0, width, height,
+				32, SDL_PIXELFORMAT_ARGB8888);
+		if (scrnmng.rendered_frame == NULL) {
+			fprintf(stderr,
+					"scsitrace rendered-screen-surface-failed error=%s\n",
+					SDL_GetError());
+			return;
+		}
+	}
+	if ((SDL_GetCurrentVideoDriver() != NULL) &&
+		!strcmp(SDL_GetCurrentVideoDriver(), "dummy")) {
+		scrnmng_capture_dummy_frame();
+		return;
+	}
+	if (SDL_RenderReadPixels(scrnmng.renderer, NULL,
+			scrnmng.rendered_frame->format->format,
+			scrnmng.rendered_frame->pixels,
+			scrnmng.rendered_frame->pitch) != 0) {
+		fprintf(stderr,
+				"scsitrace rendered-screen-read-failed error=%s\n",
+				SDL_GetError());
+	}
+}
 
 static void scrnmng_update_title(void) {
 
@@ -321,6 +399,13 @@ BOOL scrnmng_create(int width, int height) {
 		(SCRNMNG_CANVAS_WIDTH + SCRNMNG_SURFACE_GUARD_LEFT) * 2;
 	scrnmng.shadow = (BYTE *)calloc(SCRNMNG_CANVAS_HEIGHT,
 									scrnmng.shadow_pitch);
+	{
+		const char *rendered_path;
+
+		rendered_path = getenv("VAEG_SCREEN_DUMP");
+		scrnmng.rendered_capture_enabled =
+			(rendered_path != NULL) && (rendered_path[0] != '\0');
+	}
 	if (scrnmng.shadow == NULL) {
 		fprintf(stderr, "Error: shadow framebuffer allocation failed\n");
 		scrnmng_destroy();
@@ -353,6 +438,10 @@ void scrnmng_destroy(void) {
 		scrnmng.shadow = NULL;
 	}
 	scrnmng.shadow_pitch = 0;
+	if (scrnmng.rendered_frame != NULL) {
+		SDL_FreeSurface(scrnmng.rendered_frame);
+		scrnmng.rendered_frame = NULL;
+	}
 	if (scrnmng.renderer) {
 		SDL_DestroyRenderer(scrnmng.renderer);
 		scrnmng.renderer = NULL;
@@ -805,7 +894,29 @@ void scrnmng_present_end(void) {
 	if ((!scrnmng.enable) || (scrnmng.renderer == NULL)) {
 		return;
 	}
+	if (scrnmng.rendered_capture_enabled) {
+		scrnmng_capture_rendered_frame();
+	}
 	SDL_RenderPresent(scrnmng.renderer);
+}
+
+BOOL scrnmng_save_rendered_frame(const char *path) {
+
+	if ((path == NULL) || (path[0] == '\0') ||
+		(scrnmng.renderer == NULL)) {
+		return(FAILURE);
+	}
+	scrnmng_capture_rendered_frame();
+	if (scrnmng.rendered_frame == NULL) {
+		return(FAILURE);
+	}
+	if (SDL_SaveBMP(scrnmng.rendered_frame, path) != 0) {
+		fprintf(stderr,
+				"scsitrace rendered-screen-save-failed path=%s error=%s\n",
+				path, SDL_GetError());
+		return(FAILURE);
+	}
+	return(SUCCESS);
 }
 
 void scrnmng_set_framedisp(BOOL enabled) {

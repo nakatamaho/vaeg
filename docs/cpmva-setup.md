@@ -75,6 +75,10 @@ archive is still checked against the lock file. See
 [`tools/cpmva/README.md`](../tools/cpmva/README.md) for source-lock and cache
 details.
 
+For automated runs, `--screen-dump PATH` saves the final rendered SDL screen as a BMP.
+Use `--screen-tvram-dump PATH` separately when the raw `VAEGSCN1` TVRAM diagnostic is
+needed; omitting both options preserves the normal display defaults.
+
 ## Run CP/MVA in VAEG
 
 1. Start VAEG and load `pcengine-boot-cpmva.d88` as the PC-Engine floppy

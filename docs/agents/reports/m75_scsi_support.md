@@ -2018,10 +2018,11 @@ available capacity` are MET. The capture format stores the run ID in both the
 binary screen dump and the trace, so the decoded screen and controller trace
 are proven to be from the same run.
 
-The standard QA harness now sets `VAEG_SCREEN_DUMP` and
+The standard QA harness now sets `VAEG_SCREEN_TVRAM_DUMP` and
 `VAEG_SCREEN_RUN_ID`, captures the text plane at scenario exit, decodes the
 JIS character cells using the PC-Engine text-table geometry, and requires the
 same run ID in the trace. Its focused decoder tests cover ASCII and JIS cells.
+The separate `VAEG_SCREEN_DUMP` path captures the rendered SDL target as a BMP.
 
 The first isolated guest file-creation WRITE was a WRITE(10):
 
