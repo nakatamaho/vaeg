@@ -237,6 +237,24 @@ BOOL vaeg_cli_parse(int argc, char **argv, VAEG_CLI_OPTIONS *options,
 			}
 			options->headless_input_script = value;
 		}
+		else if (!strcmp(argument, "--screen-dump")) {
+			value = option_value(argc, argv, &position, argument, error,
+												error_size);
+			if ((value == NULL) || (value[0] == '\0')) {
+				return(set_error(error, error_size,
+						"--screen-dump requires a path", value));
+			}
+			options->screen_dump_path = value;
+		}
+		else if (!strcmp(argument, "--screen-tvram-dump")) {
+			value = option_value(argc, argv, &position, argument, error,
+												error_size);
+			if ((value == NULL) || (value[0] == '\0')) {
+				return(set_error(error, error_size,
+						"--screen-tvram-dump requires a path", value));
+			}
+			options->screen_tvram_dump_path = value;
+		}
 		else if (!strcmp(argument, "--pacelog")) {
 			options->pacelog = TRUE;
 		}

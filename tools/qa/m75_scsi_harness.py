@@ -111,7 +111,10 @@ def decode_screen(path):
 def main(argv=None):
     parser = argparse.ArgumentParser()
     parser.add_argument("--worker", required=True)
-    parser.add_argument("--screen-out", required=True)
+    parser.add_argument("--screen-out", required=True,
+                        help="TVRAM dump output path")
+    parser.add_argument("--rendered-screen-out",
+                        help="SDL rendered BMP output path")
     parser.add_argument("--trace-out", required=True)
     parser.add_argument("--timeout", type=float, default=900.0)
     parser.add_argument("worker_args", nargs=argparse.REMAINDER)
@@ -122,16 +125,22 @@ def main(argv=None):
 
     run_id = f"{time.time_ns():x}"
     screen_path = Path(args.screen_out)
+    rendered_screen_path = (Path(args.rendered_screen_out)
+                            if args.rendered_screen_out else None)
     trace_path = Path(args.trace_out)
     screen_path.unlink(missing_ok=True)
+    if rendered_screen_path is not None:
+        rendered_screen_path.unlink(missing_ok=True)
     trace_path.unlink(missing_ok=True)
     environment = os.environ.copy()
     environment.update({
         "SDL_VIDEODRIVER": "dummy",
         "SDL_AUDIODRIVER": "dummy",
-        "VAEG_SCREEN_DUMP": str(screen_path),
+        "VAEG_SCREEN_TVRAM_DUMP": str(screen_path),
         "VAEG_SCREEN_RUN_ID": run_id,
     })
+    if rendered_screen_path is not None:
+        environment["VAEG_SCREEN_DUMP"] = str(rendered_screen_path)
     with trace_path.open("wb") as trace_file:
         try:
             completed = subprocess.run(
@@ -148,7 +157,10 @@ def main(argv=None):
             termination = "wall-clock-timeout"
             return_code = None
     if not screen_path.exists():
-        raise SystemExit("worker did not produce a screen capture")
+        raise SystemExit("worker did not produce a TVRAM screen capture")
+    if ((rendered_screen_path is not None) and
+            (not rendered_screen_path.exists())):
+        raise SystemExit("worker did not produce a rendered screen capture")
     screen = decode_screen(screen_path)
     trace_bytes = trace_path.read_bytes()
     trace_text = trace_bytes.decode("utf-8", errors="replace")
@@ -159,8 +171,13 @@ def main(argv=None):
         "return_code": return_code,
         "run_id": run_id,
         "screen_path": str(screen_path),
+        "rendered_screen_path": (str(rendered_screen_path)
+                                 if rendered_screen_path is not None else None),
         "trace_path": str(trace_path),
         "screen_sha256": screen["sha256"],
+        "rendered_screen_sha256": (
+            hashlib.sha256(rendered_screen_path.read_bytes()).hexdigest()
+            if rendered_screen_path is not None else None),
         "trace_sha256": hashlib.sha256(trace_bytes).hexdigest(),
         "screen": screen,
     }

@@ -1079,3 +1079,17 @@ void pccore_exec(BOOL draw) {
 	}
 #endif
 }
+
+void pccore_redraw(void) {
+	BOOL saved_drawframe;
+
+	saved_drawframe = drawframe;
+	drawframe = TRUE;
+	if (pccore.model_va != PCMODEL_NOTVA) {
+		drawscreenva();
+	}
+	else {
+		drawscreen();
+	}
+	drawframe = saved_drawframe;
+}

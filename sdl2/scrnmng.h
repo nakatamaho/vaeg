@@ -93,6 +93,7 @@ void scrnmng_log_geometry(const char *reason);
 BOOL scrnmng_texture_uniform(BOOL *uniform);
 void scrnmng_present_begin(void);
 void scrnmng_present_end(void);
+BOOL scrnmng_save_rendered_frame(const char *path);
 void scrnmng_set_framedisp(BOOL enabled);
 void scrnmng_framedisp_tick(UINT32 tick, UINT32 draws);
 

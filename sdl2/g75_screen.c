@@ -27,6 +27,8 @@
 
 #include "cpucva/memoryva.h"
 #include "iova/tsp.h"
+#include "pccore.h"
+#include "scrnmng.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -59,45 +61,76 @@ BOOL g75_screen_harness_exit_requested(UINT32 elapsed_ms) {
 }
 
 void g75_screen_capture(void) {
-    const char *path;
+    const char *tvram_path;
+    const char *rendered_path;
     const char *run_id;
     UINT32 run_id_length;
     FILE *fp;
 
-    path = getenv("VAEG_SCREEN_DUMP");
-    if ((path == NULL) || (path[0] == '\0')) {
+    tvram_path = getenv("VAEG_SCREEN_TVRAM_DUMP");
+    rendered_path = getenv("VAEG_SCREEN_DUMP");
+    if (((tvram_path == NULL) || (tvram_path[0] == '\0')) &&
+        ((rendered_path == NULL) || (rendered_path[0] == '\0'))) {
         return;
     }
-    run_id = getenv("VAEG_SCREEN_RUN_ID");
-    if (run_id == NULL) {
-        run_id = "";
-    }
-    run_id_length = (UINT32)strlen(run_id);
-    if (run_id_length > 4096) {
-        run_id_length = 4096;
-    }
+    if ((tvram_path != NULL) && (tvram_path[0] != '\0')) {
+        run_id = getenv("VAEG_SCREEN_RUN_ID");
+        if (run_id == NULL) {
+            run_id = "";
+        }
+        run_id_length = (UINT32)strlen(run_id);
+        if (run_id_length > 4096) {
+            run_id_length = 4096;
+        }
 
-    fp = fopen(path, "wb");
-    if (fp == NULL) {
-        fprintf(stderr, "scsitrace screen-dump-open-failed path=%s\n", path);
-        return;
+        fp = fopen(tvram_path, "wb");
+        if (fp == NULL) {
+            fprintf(stderr,
+                    "scsitrace tvram-screen-dump-open-failed path=%s\n",
+                    tvram_path);
+        }
+        else {
+            (void)fwrite("VAEGSCN1", 1, 8, fp);
+            write_u32(fp, 1);
+            write_u32(fp, run_id_length);
+            (void)fwrite(run_id, 1, run_id_length, fp);
+            write_u32(fp, tsp.texttable);
+            write_u32(fp, tsp.attroffset);
+            write_u32(fp, tsp.lineheight);
+            write_u32(fp, tsp.curn);
+            write_u32(fp, tsp.sprtable);
+            write_u32(fp, tsp.be);
+            write_u32(fp, sizeof(textmem));
+            (void)fwrite(textmem, 1, sizeof(textmem), fp);
+            if (fclose(fp) != 0) {
+                fprintf(stderr,
+                        "scsitrace tvram-screen-dump-close-failed "
+                        "path=%s\n", tvram_path);
+            }
+            else {
+                fprintf(stderr,
+                        "scsitrace tvram-screen-dump path=%s run_id=%.*s\n",
+                        tvram_path, (int)run_id_length, run_id);
+            }
+        }
     }
-    (void)fwrite("VAEGSCN1", 1, 8, fp);
-    write_u32(fp, 1);
-    write_u32(fp, run_id_length);
-    (void)fwrite(run_id, 1, run_id_length, fp);
-    write_u32(fp, tsp.texttable);
-    write_u32(fp, tsp.attroffset);
-    write_u32(fp, tsp.lineheight);
-    write_u32(fp, tsp.curn);
-    write_u32(fp, tsp.sprtable);
-    write_u32(fp, tsp.be);
-    write_u32(fp, sizeof(textmem));
-    (void)fwrite(textmem, 1, sizeof(textmem), fp);
-    if (fclose(fp) != 0) {
-        fprintf(stderr, "scsitrace screen-dump-close-failed path=%s\n", path);
-        return;
+    if ((rendered_path != NULL) && (rendered_path[0] != '\0')) {
+        /*
+         * A bounded headless run may finish between normal draw ticks.
+         * Refresh the current guest framebuffer, then send it through the
+         * SDL renderer so the capture includes the active viewport/effect.
+         */
+        pccore_redraw();
+        scrnmng_present_begin();
+        scrnmng_present_end();
+        if (scrnmng_save_rendered_frame(rendered_path) != SUCCESS) {
+            fprintf(stderr,
+                    "scsitrace rendered-screen-dump-failed path=%s\n",
+                    rendered_path);
+        }
+        else {
+            fprintf(stderr, "scsitrace rendered-screen-dump path=%s\n",
+                    rendered_path);
+        }
     }
-    fprintf(stderr, "scsitrace screen-dump path=%s run_id=%.*s\n",
-            path, (int)run_id_length, run_id);
 }

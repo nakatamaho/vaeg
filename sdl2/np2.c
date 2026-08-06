@@ -281,6 +281,8 @@ static void usage(const char *progname) {
 	printf("\t--scsitrace-jitter-seed N [--scsitrace-jitter-span N]\n");
 	printf("\t--trace-cpu 1..1000000\n");
 	printf("\t--headless-input-script path\n");
+	printf("\t--screen-dump path (rendered BMP)\n");
+	printf("\t--screen-tvram-dump path (raw TVRAM)\n");
 	printf("\t--version --help [-h]\n");
 	printf("Create image (no SDL session):\n");
 	printf("\t--create-scsi-hdd --output path [--size-mib N | --block-count N]\n");
@@ -1807,6 +1809,14 @@ int main(int argc, char **argv) {
 	if (SDL_Init(0) < 0) {
 		fprintf(stderr, "Error: SDL_Init: %s\n", SDL_GetError());
 		return(FAILURE);
+	}
+	if (options.screen_dump_path != NULL) {
+		(void)SDL_setenv("VAEG_SCREEN_DUMP",
+				options.screen_dump_path, 1);
+	}
+	if (options.screen_tvram_dump_path != NULL) {
+		(void)SDL_setenv("VAEG_SCREEN_TVRAM_DUMP",
+				options.screen_tvram_dump_path, 1);
 	}
 
 	dosio_init();

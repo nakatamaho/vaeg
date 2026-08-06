@@ -163,6 +163,8 @@ static int test_cli_options(void) {
 		"--keyboard-layout", "custom", "--debug", "--fdctrace",
 		"--pacelog", "--trace-cpu", "17",
 		"--headless-input-script", "input.txt",
+		"--screen-dump", "rendered.bmp",
+		"--screen-tvram-dump", "tvram.bin",
 		"--scsitrace-cmdreq-windows", "--scsitrace-jitter-seed", "1234",
 		"--scsitrace-jitter-span", "200", "--smoke"
 	};
@@ -214,6 +216,10 @@ static int test_cli_options(void) {
 		(options.trace_cpu != 17) ||
 		(options.headless_input_script == NULL) ||
 		strcmp(options.headless_input_script, "input.txt") ||
+		(options.screen_dump_path == NULL) ||
+		strcmp(options.screen_dump_path, "rendered.bmp") ||
+		(options.screen_tvram_dump_path == NULL) ||
+		strcmp(options.screen_tvram_dump_path, "tvram.bin") ||
 		!options.debug || !options.fdctrace || !options.pacelog ||
 		!options.scsitrace_cmdreq_windows || !options.scsitrace_jitter ||
 		(options.scsitrace_jitter_seed != 1234) ||

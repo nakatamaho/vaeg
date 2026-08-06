@@ -155,6 +155,8 @@ typedef struct {
 	const char *hostfat_path;
 	const char *roms_path;
 	const char *headless_input_script;
+	const char *screen_dump_path;
+	const char *screen_tvram_dump_path;
 } VAEG_CLI_OPTIONS;
 
 #ifdef __cplusplus
