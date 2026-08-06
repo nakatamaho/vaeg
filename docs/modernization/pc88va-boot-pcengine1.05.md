@@ -280,7 +280,7 @@ OPNA extended ports directly:
 
 Those ports are the Sound Board II extended address/status and data ports in
 the active implementation, as documented by
-[iova/boardsb2.c](../../iova/boardsb2.c). The `.SB2` body includes the related
+[io/boardsb2.c](../../io/boardsb2.c). The `.SB2` body includes the related
 rhythm, ADPCM, and recording-facing routines. This direct hardware access is
 the decisive evidence that `SB2` denotes Sound Board II.
 

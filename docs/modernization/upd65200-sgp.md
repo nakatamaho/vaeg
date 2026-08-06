@@ -119,8 +119,8 @@ NEC publication. Actual hardware takes precedence.
 vaeg evidence:
 
 - [repository](https://github.com/nakatamaho/vaeg)
-- [`iova/sgp.c`](../../iova/sgp.c)
-- [`iova/sgp.h`](../../iova/sgp.h)
+- [`io/sgp.c`](../../io/sgp.c)
+- [`io/sgp.h`](../../io/sgp.h)
 
 The local implementation contains BITBLT, PATBLT, LINE, CLS, dispatch,
 interrupts, and memory access. SCAN commands are TODOs; Kanji handlers and
@@ -979,8 +979,8 @@ treat vaeg or MAME as a hardware oracle.
 2. *PC-88VA Technical Manual, 88VA Users Club Edition*, beta 1.0,
    1992-01-20, historically distributed as `tekumani.lzh`.
    <http://www.iris.dti.ne.jp/~nano/88va/tekumani.html>
-3. vaeg repository and local [`iova/sgp.c`](../../iova/sgp.c) /
-   [`iova/sgp.h`](../../iova/sgp.h).
+3. vaeg repository and local [`io/sgp.c`](../../io/sgp.c) /
+   [`io/sgp.h`](../../io/sgp.h).
 4. MAME [`pc88va.cpp`](https://github.com/mamedev/mame/blob/master/src/mame/nec/pc88va.cpp).
 5. MAME [`pc88va_sgp.cpp`](https://github.com/mamedev/mame/blob/master/src/mame/nec/pc88va_sgp.cpp)
    and [`pc88va_sgp.h`](https://github.com/mamedev/mame/blob/master/src/mame/nec/pc88va_sgp.h).

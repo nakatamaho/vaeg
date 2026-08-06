@@ -281,24 +281,24 @@ set(VAEG_VA_SOURCES
     cpucva/gvramva.c
     cpucva/memoryva.c
     ${VAEG_Z80_COMPAT_PRODUCTION_SOURCES}
-    iova/bkupmemva.c
-    iova/boardsb2.c
-    iova/cgromva.c
-    iova/fdsubsys.c
-    iova/gactrlva.c
-    iova/i8255.c
-    iova/iocoreva.c
-    iova/memctrlva.c
-    iova/mouseifva.c
-    iova/sgp.c
-    iova/subsystem.cpp
-    iova/subsystemif.c
-    iova/subsystemmx.c
-    iova/sysportva.c
-    iova/tsp.c
-    iova/upd9002_regs.c
-    iova/va91.c
-    iova/videova.c
+    io/bkupmemva.c
+    io/boardsb2.c
+    io/cgromva.c
+    io/fdsubsys.c
+    io/gactrlva.c
+    io/i8255.c
+    io/iocoreva.c
+    io/memctrlva.c
+    io/mouseifva.c
+    io/sgp.c
+    io/subsystem.cpp
+    io/subsystemif.c
+    io/subsystemmx.c
+    io/sysportva.c
+    io/tsp.c
+    io/upd9002_regs.c
+    io/va91.c
+    io/videova.c
     vramva/makegrphva.c
     vramva/makesprva.c
     vramva/maketextva.c
