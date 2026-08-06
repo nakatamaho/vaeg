@@ -18,6 +18,12 @@
 	UINT16	upd9002_step_start_cs;
 	UINT16	upd9002_step_start_ip;
 static Upd9002CompatHooks upd9002_compat_hooks;
+/*
+ * A native CALLN can be interrupted before its final IRET.  Keep the
+ * native-stack position of the CALLN frame so an interrupt IRET cannot be
+ * mistaken for the compatibility return.
+ */
+static UINT16 upd9002_compat_return_sp;
 
 const UINT8 iflags[512] = {					// Z_FLAG, S_FLAG, P_FLAG
 			0x44, 0x00, 0x00, 0x04, 0x00, 0x04, 0x04, 0x00,
@@ -154,6 +160,7 @@ void upd9002_core_initialize(void) {
 	upd9002_ea_initialize();
 #endif
 	ZeroMemory(&upd9002_core_context, sizeof(upd9002_core_context));
+	upd9002_compat_return_sp = 0;
 	upd9002_diagnostic_clear();
 	upd9002_state_initialize();
 	upd9002_core_context.s.cpu_type = CPUTYPE_V30;
@@ -166,6 +173,7 @@ void upd9002_core_deinitialize(void) {
 		CPU_EXTMEM = NULL;
 		CPU_EXTMEMSIZE = 0;
 	}
+	upd9002_compat_return_sp = 0;
 }
 
 static void upd9002_initreg(void) {
@@ -254,6 +262,7 @@ void upd9002_core_reset(void) {
 	upd9002_state_reset();
 	CPU_COMPAT_MODE = UPD9002_COMPAT_NATIVE;
 	CPU_COMPAT_RETURN_PENDING = 0;
+	upd9002_compat_return_sp = 0;
 	if (upd9002_compat_hooks.reset != NULL) {
 		upd9002_compat_hooks.reset();
 	}
@@ -388,10 +397,16 @@ void CPUCALL upd9002_core_compat_calln(REG8 vect, REG16 return_ip) {
 	UPD9002_CS = upd9002_vector_segment(vect);
 	CS_BASE = UPD9002_CS << 4;
 	REGPUSH0(return_ip)
+	upd9002_compat_return_sp = UPD9002_SP;
 	UPD9002_IP = upd9002_vector_offset(vect);
 	CPU_COMPAT_MODE = UPD9002_COMPAT_NATIVE;
 	CPU_COMPAT_RETURN_PENDING = 1;
 	UPD9002_WORKCLOCK(20);
+}
+
+BOOL CPUCALL upd9002_core_compat_iret_is_return(void) {
+	return (CPU_COMPAT_RETURN_PENDING != 0) &&
+		(UPD9002_SP == upd9002_compat_return_sp);
 }
 
 void CPUCALL upd9002_core_compat_retem(void) {
@@ -464,6 +479,7 @@ const BYTE	*ptr;
 		REGPUSH0(upd9002_materialize_interrupt_saved_flags())
 		REGPUSH0(UPD9002_CS)
 		REGPUSH0(UPD9002_IP)
+		upd9002_compat_return_sp = UPD9002_SP;
 		UPD9002_FLAG &= ~(T_FLAG | I_FLAG);
 		UPD9002_TRAP = 0;
 		ptr = mem + (vect * 4);

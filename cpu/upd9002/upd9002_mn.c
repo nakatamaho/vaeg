@@ -2408,11 +2408,13 @@ UPD9002FN _iret(void) {					// CF: iret
 	UINT	flag;
 	BOOL	return_compat;
 
+	return_compat = upd9002_core_compat_iret_is_return();
 	REGPOP0(UPD9002_IP)
 	REGPOP0(UPD9002_CS)
 	REGPOP0(flag)
-	return_compat = (CPU_COMPAT_RETURN_PENDING != 0);
-	CPU_COMPAT_RETURN_PENDING = 0;
+	if (return_compat) {
+		CPU_COMPAT_RETURN_PENDING = 0;
+	}
 	CS_BASE = UPD9002_CS << 4;
 	flag = (flag & 0x0fd7) | 0xf002;
 	UPD9002_OV = flag & O_FLAG;

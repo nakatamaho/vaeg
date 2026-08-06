@@ -30,8 +30,57 @@
 #include "cpucva/z80_compat_cpu.h"
 
 #include <cstdint>
+#include <cstdio>
+#include <cstdlib>
 
 namespace {
+
+static std::uint32_t compat_trace_slot() {
+    static bool initialized = false;
+    static std::uint32_t limit = 0;
+    static std::uint32_t count = 0;
+    if (!initialized) {
+        const char *value = std::getenv("VAEG_UPD70008_TRACE");
+        if (value != nullptr && value[0] != '\0') {
+            char *end = nullptr;
+            unsigned long parsed = std::strtoul(value, &end, 10);
+            if (end != value && *end == '\0' && parsed != 0) {
+                limit = parsed > 1000000UL ? 1000000U :
+                    static_cast<std::uint32_t>(parsed);
+            }
+            else {
+                limit = 4096;
+            }
+        }
+        initialized = true;
+    }
+    if (count >= limit) {
+        return UINT32_MAX;
+    }
+    return count++;
+}
+
+static void compat_trace(const char *event, std::uint32_t slot,
+                         std::uint8_t op0, std::uint8_t op1) {
+    if (slot == UINT32_MAX) {
+        return;
+    }
+    std::fprintf(stderr,
+        "m76-compat-trace event=%s slot=%u cs=%04x ip=%04x "
+        "op=%02x/%02x af=%02x%02x bc=%04x de=%04x hl=%04x "
+        "ix=%04x iy=%04x sp=%04x nsp=%04x ss=%04x stk=%04x/%04x/%04x "
+        "flags=%04x rem=%d\n",
+        event, slot, CPU_CS, CPU_IP, op0, op1, CPU_AL,
+        static_cast<unsigned>(CPU_FLAG & 0xff), CPU_CX, CPU_DX, CPU_BX,
+        CPU_SI, CPU_DI, CPU_BP, CPU_SP, CPU_SS,
+        static_cast<unsigned>(mem[(SS_BASE + CPU_SP) & CPU_ADRSMASK]) |
+            (static_cast<unsigned>(mem[(SS_BASE + ((CPU_SP + 1) & 0xffff)) & CPU_ADRSMASK]) << 8),
+        static_cast<unsigned>(mem[(SS_BASE + ((CPU_SP + 2) & 0xffff)) & CPU_ADRSMASK]) |
+            (static_cast<unsigned>(mem[(SS_BASE + ((CPU_SP + 3) & 0xffff)) & CPU_ADRSMASK]) << 8),
+        static_cast<unsigned>(mem[(SS_BASE + ((CPU_SP + 4) & 0xffff)) & CPU_ADRSMASK]) |
+            (static_cast<unsigned>(mem[(SS_BASE + ((CPU_SP + 5) & 0xffff)) & CPU_ADRSMASK]) << 8),
+        CPU_FLAG, CPU_REMCLOCK);
+}
 
 class CompatCounter final : public IClockCounter {
 public:
@@ -99,6 +148,8 @@ public:
             have_compatible_state_ = true;
         }
         counter_.SetRemainclock(CPU_REMCLOCK);
+        const std::uint32_t trace_slot = compat_trace_slot();
+        compat_trace("enter", trace_slot, 0, 0);
     }
 
     void Step() {
@@ -112,6 +163,8 @@ public:
             upd9002_memoryread(code_address));
         const std::uint8_t op1 = static_cast<std::uint8_t>(
             upd9002_memoryread(code_address + 1));
+        const std::uint32_t trace_slot = compat_trace_slot();
+        compat_trace("before", trace_slot, op0, op1);
 
         if ((op0 == 0xed) && (op1 == 0xed)) {
             const std::uint8_t vector = static_cast<std::uint8_t>(
@@ -120,6 +173,7 @@ public:
             SyncToNative();
             upd9002_core_compat_calln(vector, static_cast<REG16>(pc + 3));
             counter_.SetRemainclock(CPU_REMCLOCK);
+            compat_trace("calln", trace_slot, op0, op1);
             return;
         }
         if ((op0 == 0xed) && (op1 == 0xfd)) {
@@ -127,12 +181,14 @@ public:
             SyncToNative();
             upd9002_core_compat_retem();
             counter_.SetRemainclock(CPU_REMCLOCK);
+            compat_trace("retem", trace_slot, op0, op1);
             return;
         }
 
         upd70008_.ExecOne();
         SyncToNative();
         CPU_REMCLOCK = counter_.GetRemainclock();
+        compat_trace("after", trace_slot, op0, op1);
     }
 
     void SyncToNative() {
@@ -246,7 +302,12 @@ void compat_enter() { compat.Enter(); }
 void compat_step() { compat.Step(); }
 void compat_sync_to_native() { compat.SyncToNative(); }
 void compat_leave() {}
-void compat_resume() { compat.Resume(); }
+void compat_resume() {
+    const std::uint32_t trace_slot = compat_trace_slot();
+    compat_trace("resume-before", trace_slot, 0, 0);
+    compat.Resume();
+    compat_trace("resume-after", trace_slot, 0, 0);
+}
 int compat_state_save(UINT8 *buffer, UINT size) {
     return compat.StateSave(buffer, size);
 }
@@ -314,6 +375,11 @@ extern "C" int upd9002_upd70008_compat_selftest(void) {
     mem[(0x00e0U * 4) + 1] = static_cast<UINT8>(native_offset >> 8);
     mem[(0x00e0U * 4) + 2] = static_cast<UINT8>(code_segment);
     mem[(0x00e0U * 4) + 3] = static_cast<UINT8>(code_segment >> 8);
+    const UINT16 native_interrupt_offset = 0x3100;
+    mem[(0x00e2U * 4) + 0] = static_cast<UINT8>(native_interrupt_offset);
+    mem[(0x00e2U * 4) + 1] = static_cast<UINT8>(native_interrupt_offset >> 8);
+    mem[(0x00e2U * 4) + 2] = static_cast<UINT8>(code_segment);
+    mem[(0x00e2U * 4) + 3] = static_cast<UINT8>(code_segment >> 8);
 
     mem[code_base + code_offset + 0] = 0x0f;
     mem[code_base + code_offset + 1] = 0xff;
@@ -342,6 +408,7 @@ extern "C" int upd9002_upd70008_compat_selftest(void) {
     mem[code_base + compatible_offset + 21] = 0xed;
     mem[code_base + compatible_offset + 22] = 0xfd;
     mem[code_base + native_offset] = 0xcf;
+    mem[code_base + native_interrupt_offset] = 0xcf;
 
     upd9002_core_step();
     if ((CPU_COMPAT_MODE != UPD9002_COMPAT_UPD70008) ||
@@ -379,6 +446,14 @@ extern "C" int upd9002_upd70008_compat_selftest(void) {
     upd9002_core_step();
     if ((CPU_COMPAT_MODE != UPD9002_COMPAT_NATIVE) ||
             (CPU_IP != native_offset) || (CPU_SP != 0x00f4)) {
+        upd9002_core_deinitialize();
+        return FAILURE;
+    }
+    upd9002_core_interrupt(0xe2);
+    upd9002_core_step();
+    if ((CPU_COMPAT_MODE != UPD9002_COMPAT_NATIVE) ||
+            (CPU_IP != native_offset) || (CPU_SP != 0x00f4) ||
+            (CPU_COMPAT_RETURN_PENDING == 0)) {
         upd9002_core_deinitialize();
         return FAILURE;
     }
