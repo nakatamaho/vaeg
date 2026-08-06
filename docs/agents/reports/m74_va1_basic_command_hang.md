@@ -357,3 +357,13 @@ lookup/allocation, and continuation ownership. It should also verify the
 runtime image/loader contract for `34C0` without changing CPU control-flow
 semantics.
 
+## Human G74 checklist
+
+- [x] Reproduced the VA1 BASIC default-assignment failure.
+- [x] Captured bounded control-flow and stack provenance.
+- [x] Distinguished immediate far pointer `9A` from stack-derived `RETF`.
+- [x] Rejected generic FDC, graphics/LIO, FPU-opcode, BCD, direct-word, ROM-bank, and `RETF` explanations as immediate causes.
+- [x] Preserved the existing worktree changes and did not modify ROM/disk assets.
+- [ ] Prove the higher-level producer/default-type or continuation ownership defect.
+- [ ] Add a focused regression for that proven defect.
+- [ ] Implement and validate the smallest production correction.
