@@ -29,7 +29,9 @@
 typedef struct {
     char *text;
     UINT wait_frames;
+    UINT disk_drive;
     BOOL wait;
+    BOOL disk_swap;
 } HEADLESS_INPUT_COMMAND;
 
 typedef struct {

@@ -71,9 +71,10 @@ Positional FDD arguments have been removed; use `--fdd1` and `--fdd2`.
 drivers and injects commands through the normal guest keyboard path. Each
 nonempty script line is submitted with Return appended; blank lines and lines
 whose first non-whitespace character is `#` are ignored. `@enter` submits a
-bare Return, and `@wait N` waits N guest frames before continuing. The option
-does not terminate the emulator; combine it with `VAEG_SCREEN_EXIT_MS` and
-`VAEG_SCREEN_DUMP` for a bounded screen-capture run.
+bare Return, `@wait N` waits N guest frames before continuing, and `@fdd1 PATH`
+or `@fdd2 PATH` performs a normal delayed floppy replacement on the selected
+drive. The option does not terminate the emulator; combine it with
+`VAEG_SCREEN_EXIT_MS` and `VAEG_SCREEN_DUMP` for a bounded screen-capture run.
 
 `--model va` selects `88VA1` and its unsuffixed ROM set. `--model va2` selects
 the `88VA2` compatibility model and its `*_va2.rom` set. The effective model
