@@ -26,8 +26,8 @@ See the [CP/MVA setup guide](docs/cpmva-setup.md) for the complete procedure.
 
 ![CP/MVA running under VAEG](docs/images/cpmva-running.png)
 
-*CP/MVA running under VAEG: the generated disk is mounted, `DIR` lists the
-CP/M tools, and `EXIT` returns to PC-Engine.*
+*Actual SDL-rendered VAEG capture from a headless CP/MVA run: the generated
+disk is mounted, `DIR` lists the CP/M tools, and `EXIT` returns to PC-Engine.*
 
 ### 2026-08-05 - Rel.260805
 

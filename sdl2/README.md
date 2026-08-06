@@ -61,7 +61,7 @@ the pinned SDL2 release recorded in ADR-0006.
 | Media | `--fdd1 path|none`, `--fdd2 path|none`, `--sasi1 path|none`, `--sasi2 path|none`, `--scsi1 path|none` through `--scsi4 path|none`, `--hostfat-dir path`, `--roms path` |
 | Execution | `--cpumult 1..32`, `--sgp model|follow-cpu|1..16`, `--nowait`, `--frameskip auto|full|2|3|4` |
 | Display/input | `--fullscreen`, `--windowed`, `--effect unfiltered|linear|scanline|crt-lite`, `--scaling native|fit|fit-8dot|integer|stretch`, `--controller joystick|mouse`, `--keyboard-layout jis|us|custom` |
-| Diagnostics/information | `--smoke`, `--selftest`, `--debug`, `--fdctrace`, `--scsitrace`, `--pacelog`, `--trace-cpu N`, `--headless-input-script path`, `--version`, `--help`, `-h` |
+| Diagnostics/information | `--smoke`, `--selftest`, `--debug`, `--fdctrace`, `--scsitrace`, `--pacelog`, `--trace-cpu N`, `--headless-input-script path`, `--screen-dump path`, `--screen-tvram-dump path`, `--version`, `--help`, `-h` |
 
 Run `vaeg --help` for the built-in list. Enum values are ASCII
 case-insensitive, and the last occurrence wins when an option is repeated.
@@ -74,7 +74,15 @@ whose first non-whitespace character is `#` are ignored. `@enter` submits a
 bare Return, `@wait N` waits N guest frames before continuing, and `@fdd1 PATH`
 or `@fdd2 PATH` performs a normal delayed floppy replacement on the selected
 drive. The option does not terminate the emulator; combine it with
-`VAEG_SCREEN_EXIT_MS` and `VAEG_SCREEN_DUMP` for a bounded screen-capture run.
+`VAEG_SCREEN_EXIT_MS` and `VAEG_SCREEN_TVRAM_DUMP` for a bounded TVRAM capture
+run.
+
+`--screen-dump PATH` or `VAEG_SCREEN_DUMP=PATH` captures the final SDL
+render-target image as a BMP after scaling, viewport, and display effects have
+been rendered. `--screen-tvram-dump PATH` or
+`VAEG_SCREEN_TVRAM_DUMP=PATH` retains the raw `VAEGSCN1` TVRAM diagnostic used
+by the QA decoder. If no capture option is supplied, the normal default
+window, scaling, and effect settings are unchanged.
 
 `--model va` selects `88VA1` and its unsuffixed ROM set. `--model va2` selects
 the `88VA2` compatibility model and its `*_va2.rom` set. The effective model
