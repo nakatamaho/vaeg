@@ -262,3 +262,98 @@ not populated or should not be entered
 | Hypothesis | Controlled experiment | Result | Conclusion |
 | --- | --- | --- | --- |
 | optimized direct word access corrupts the frame | disable the optimized direct-word path in a disposable diagnostic build | same `34C0:0005` transition | rejected as immediate cause |
+| `RETF` pops the wrong order or segment | compare source macro, source implementation, and complete frame trace | order, SP, SS, and CS base all match | rejected |
+| FPU opcode is failing | record every `D8h`--`DFh` opcode on the failing interval | none observed | rejected |
+| BCD opcode is failing | record the complete BCD opcode set on the failing interval | none observed | rejected |
+| continuation bytes are overwritten during `A=1` | watch source and target physical ranges | no writes; bytes remain zero | not a write-corruption defect |
+| FPU-presence flag selects the bad path | search and trace capability tests between the paths | no emulator capability test or flag source found | not supported |
+
+These experiments are diagnostic only. No production behavior was changed.
+
+## First incorrect state and root-cause status
+
+The first proven incorrect guest-visible state is the execution of a far
+return frame that points at `34C0:0005`, followed by execution of an
+unconstructed zero page. The CPU implementation consumes that frame correctly.
+
+The causal chain is currently bounded as:
+
+```text
+A=1 selects the unsuffixed/default assignment path
+        -> guest execution reaches the wrapper sequence
+        -> E000:34BD creates return IP 34C0
+        -> E000:3922 supplies DX=0005 above that return word
+        -> E000:01E4 correctly executes RETF to 34C0:0005
+        -> 34C0 continuation memory is zero/unconstructed
+        -> sequential zero execution reaches F0 9A ...
+        -> immediate CALL FAR transfers to 9819:E309
+        -> zero-filled execution follows
+```
+
+The first line after the assignment boundary is still a guest-state or
+runtime-image contract question: whether the `34C0` continuation should have
+been populated, whether the wrapper should have been entered, or whether a
+prior default-type dispatch value selected the wrong path. No safe production
+fix can be selected from the present evidence.
+
+## Regression and production correction
+
+No production regression test or production correction was added because the
+first incorrect higher-level producer is not proven. The bounded M74 CPU trace
+is the diagnostic regression artifact. Adding a `RETF`, `F0`, `9A`, mapping,
+FPU, or BCD correction would be speculative and is explicitly out of scope.
+
+## Validation
+
+| Command | Result |
+| --- | --- |
+| `cmake --build /private/tmp/m74-trace-build --target vaeg_sdl2 -j 4` | passed; linker emitted existing duplicate-library/alignment warnings |
+| `vaeg --selftest` | all selftests passed; CoreAudio emitted an existing host warning |
+| `vaeg --upd9002-m68-segmented-memory` | passed |
+| `vaeg --idp-m69-status-composition` | passed |
+| `vaeg --upd9002-m70-prefix-string` | passed |
+| `git diff --check` | passed |
+| `ctest -L romless` | 58 passed, 12 failed due protected-history/git-config checks against intentional diagnostic edits, 1 skipped external SST test; not a clean gate |
+
+The CTest failures are not presented as passing. Several repository checks
+invoke Git without the isolated configuration needed by this sandbox, and the
+protected-artifact checks intentionally reject the trace-only edits to CPU
+sources. The focused production build and uPD9002 M68--M70 checks pass.
+
+## Changed-file and scope audit
+
+The diagnostic-only working changes are limited to:
+
+```text
+cpu/upd9002/memory.c
+cpu/upd9002/upd9002_core.c
+cpu/upd9002/upd9002_ops.mcr
+cpu/upd9002/upd9002_trace.c
+cpu/upd9002/upd9002_trace.h
+sdl2/headless_input.c
+sdl2/np2.c
+docs/agents/reports/m74_va1_basic_command_hang.md
+```
+
+They add opt-in, bounded instruction/control-transfer/stack/memory-write
+diagnostics and this report. They do not modify ROMs, disk images, CPU
+instruction semantics, FDC behavior, timing, memory mapping policy, state
+serialization, or later milestone work.
+
+## Remaining risks and next boundary
+
+The remaining ranked hypotheses are:
+
+1. A guest-side default-type/variable-dispatch value selects the wrapper path
+   without constructing the continuation page.
+2. The PC-Engine runtime image or its loader contract expects a RAM/table or
+   continuation content not supplied by the current integration setup.
+3. A VA1-specific resident/BIOS state transition enters the wrapper with the
+   wrong continuation contract.
+
+The next investigation must compare the full semantic event stream for
+`A=1` and `A!=1` before `E000:34BD`, including default-type state, variable
+lookup/allocation, and continuation ownership. It should also verify the
+runtime image/loader contract for `34C0` without changing CPU control-flow
+semantics.
+
