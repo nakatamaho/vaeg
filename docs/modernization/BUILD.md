@@ -109,7 +109,12 @@ should be produced from the supported MSYS2 MINGW64 native configuration.
 Linux executables also contain the same icon data and set it through SDL for
 window-manager and task-switcher use. The project does not currently install
 a desktop entry or an icon-theme payload, so launchers do not receive a
-system-wide application icon from this unpacked-binary distribution.
+system-wide application icon from this unpacked-binary distribution. WSLg
+compositors that do not expose Wayland's toplevel-icon protocol receive the
+embedded runtime icon through XWayland instead. This fixes the WSLg taskbar
+icon, but WSLg 1.0.73.2 continues to use its default icon in the small Windows
+title-bar decoration even when `_NET_WM_ICON` and ICCCM `WM_HINTS` are present.
+Set `SDL_VIDEODRIVER=wayland` explicitly to override the WSLg-only fallback.
 
 ## GitHub Actions CI
 
