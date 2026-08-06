@@ -26,6 +26,7 @@
 #include "dosio.h"
 #include "kbdpaste.h"
 #include "headless_input.h"
+#include "fdd/diskdrv.h"
 
 #include <errno.h>
 #include <stdio.h>
@@ -111,6 +112,35 @@ static BOOL headless_input_script_add_text(HEADLESS_INPUT_SCRIPT *script,
     return SUCCESS;
 }
 
+static BOOL headless_input_script_add_disk_swap(
+        HEADLESS_INPUT_SCRIPT *script, UINT drive, const char *path,
+        UINT length) {
+    HEADLESS_INPUT_COMMAND *command;
+    char *text;
+
+    if ((length == 0) || (script->command_count >= HEADLESS_INPUT_COMMAND_MAX)) {
+        fprintf(stderr,
+            "Error: headless input disk swap needs a path and a free command slot\n");
+        return FAILURE;
+    }
+    if (headless_input_script_reserve(script) != SUCCESS) {
+        fprintf(stderr, "Error: could not allocate input script commands\n");
+        return FAILURE;
+    }
+    text = (char *)SDL_malloc((size_t)length + 1);
+    if (text == NULL) {
+        fprintf(stderr, "Error: could not allocate input script disk path\n");
+        return FAILURE;
+    }
+    CopyMemory(text, path, length);
+    text[length] = '\0';
+    command = &script->commands[script->command_count++];
+    command->text = text;
+    command->disk_drive = drive;
+    command->disk_swap = TRUE;
+    return SUCCESS;
+}
+
 static BOOL headless_input_script_add_wait(HEADLESS_INPUT_SCRIPT *script,
                                            UINT wait_frames) {
     HEADLESS_INPUT_COMMAND *command;
@@ -137,6 +167,13 @@ static BOOL headless_input_script_add_line(HEADLESS_INPUT_SCRIPT *script,
     char *end;
     unsigned long wait_frames;
 
+    if ((length >= 6) &&
+        ((memcmp(line, "@fdd1 ", 6) == 0) ||
+         (memcmp(line, "@fdd2 ", 6) == 0))) {
+        UINT drive = (line[4] == '1') ? 0 : 1;
+        return headless_input_script_add_disk_swap(
+            script, drive, line + 6, length - 6);
+    }
     if ((length >= 6) && (memcmp(line, "@wait ", 6) == 0)) {
         value = (char *)SDL_malloc((size_t)length - 5);
         if (value == NULL) {
@@ -284,6 +321,14 @@ BOOL headless_input_script_after_frame(HEADLESS_INPUT_SCRIPT *script,
     command = &script->commands[script->command_index++];
     if (command->wait) {
         script->next_frame = frames + command->wait_frames;
+        return SUCCESS;
+    }
+    if (command->disk_swap) {
+        diskdrv_setfdd((REG8)command->disk_drive, command->text, 0);
+        fprintf(stderr,
+            "headless-input-script swapped FD%u path=%s frame=%u\n",
+            command->disk_drive + 1, command->text, frames);
+        script->next_frame = frames + HEADLESS_INPUT_COMMAND_DELAY_FRAMES;
         return SUCCESS;
     }
     if (!kbdpaste_start_text(command->text)) {
