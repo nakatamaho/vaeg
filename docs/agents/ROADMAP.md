@@ -118,10 +118,10 @@ M36–M41 archive status.
 | M72 | tasks/M72_misc_compile_flag_cleanup.md | Audit inactive VAEG-irrelevant code, remove only proven-safe inactive cleanup targets, remove About/More 98x1 UI details, fold always-enabled `VAEG_FIX`, keep required SCSI/HOSTFAT paths, remove legacy HOSTDRV, and audit inactive PC-9821/EPSON/`CPUCORE_IA32`/IDE/PC-9861K/`DISABLE_SOUND`/`VAEG_EXT`/font/embed boundaries without changing active behavior outside the explicitly approved cleanup | **G72 passed at `643d9f7289d817c67f343bf01be368b546bc1438`** |
 | M73 | tasks/M73_upd9002_post_m49_performance_regression.md | Isolate and, if evidence permits, correct the runtime performance regression observed between the approved M49 and M50 checkpoints before later guest-behavior and source-tree restructuring work | **G73 human; planned** |
 | M74 | tasks/M74_va1_basic_command_hang.md | Investigate and, if evidence permits, correct the inherited VA1 N88 BASIC V3 command hang before later I/O and BIOS restructuring | **G74 human; planned** |
-| M75 | tasks/M75_scsi_support.md | Clean up, validate, and document active PC-9801-55-compatible VA SCSI support with the driver-installed support disk while preserving SASI and HOSTFAT | **G75 human; planned** |
-| M76 | tasks/M76_upd9002_upd780_emulation_mode_authority.md | Audit uPD9002 main-CPU uPD780 emulation-mode authority and decide whether a later production implementation is safe without repaired-hardware evidence | **G76 human; planned** |
-| M77 | tasks/M77_iova_to_io_rename.md | Move `iova/*` into `io/` with rename-only semantics and no behavior change | **G77 human; planned** |
-| M78 | tasks/M78_iova_to_io_reference_fixups.md | Normalize include paths, CMake source lists, and current documentation after the `iova` to `io` move | **G78 human; planned** |
+| M75 | tasks/M75_scsi_support.md | Clean up, validate, and document active PC-9801-55-compatible VA SCSI support with the driver-installed support disk while preserving SASI and HOSTFAT | **G75 passed at `4ddba36f28dbfbe35a52117964b99b5685fdaa3d`** |
+| M76 | tasks/M76_upd9002_upd780_emulation_mode_authority.md | Audit uPD9002 main-CPU uPD780 emulation-mode authority and decide whether a later production implementation is safe without repaired-hardware evidence | **G76 passed at `2ef9716d9628ce8eefdf61a1feedca0be5921077`** |
+| M77 | tasks/M77_iova_to_io_rename.md | Move `iova/*` into `io/` with rename-only semantics and no behavior change | **G77 passed at `630e8f27fc4f2d574daf7cdc630836964a4247dc`; merged to `main`** |
+| M78 | tasks/M78_iova_to_io_reference_fixups.md | Normalize include paths, CMake source lists, and current documentation after the `iova` to `io` move | **Folded into the G77 follow-up; no separate G78 approval claimed** |
 | M79 | tasks/M79_va_io_dispatcher_consolidation.md | Make the VA I/O dispatcher canonical and remove the `iocore` / `iocoreva` split where behavior-neutral | **G79 human; planned** |
 | M80 | tasks/M80_98_only_io_cleanup.md | Audit and remove proven 98-only `io/` implementations while retaining C-bus boards and deferring FDD320 until 5-inch 2D evidence is resolved | **G80 human; planned** |
 | M81 | tasks/M81_va_bios_reachability_cleanup.md | Audit VA BIOS reachability and remove only proven 98-only BIOS handlers | **G81 human; planned** |
@@ -138,27 +138,46 @@ Post-phase dependency: M13 → M14 → M15 → M16 → M17 → M18 → M19 → M
 M9 must pass before M11 (all three OSes must ship the VA machine, not
 the PC-98 scaffold).
 
+The current approved gate ledger is:
+
+- G75 passed at exactly
+  `4ddba36f28dbfbe35a52117964b99b5685fdaa3d`. This is the M75 integration
+  and release-documentation checkpoint for the PC-9801-55-compatible SCSI
+  path, including the validated SCSI/SASI/HOSTFAT storage workflows.
+- G76 passed at exactly
+  `2ef9716d9628ce8eefdf61a1feedca0be5921077`. This is the M76 Stage 1
+  uPD70008-compatible Z80 emulation-mode checkpoint, including the CP/MVA
+  validation evidence. BRKEM2, full Z80 compatibility, and FDC/SCSI changes
+  remain outside that approval.
+- G77 passed at exactly
+  `630e8f27fc4f2d574daf7cdc630836964a4247dc`. This is the M77 final
+  `iova/` to `io/` tree move plus the required build, include, CMake, QA, and
+  current-documentation reference updates. The commit is merged to `main`.
+
+M78's scoped reference normalization was delivered as the follow-up commit
+within the G77 candidate and is therefore not a separate approved gate. The
+M78 task file remains as historical scope documentation; no additional M78
+implementation is pending unless the scope is explicitly reopened.
+
 M72 closed the inactive compile-flag cleanup while intentionally leaving
 `SUPPORT_WAVEREC`, `SUPPORT_OPRECORD`, and FDD320 for later focused audits.
-M73 is reserved for the post-M49 runtime performance regression observed
+M73 remains reserved for the post-M49 runtime performance regression observed
 between approved M49 and M50 checkpoints, so the known slowdown is isolated
-before BASIC, I/O, BIOS, and source-tree restructuring. M74 is reserved for
-the inherited VA1 N88 BASIC V3 command-hang investigation so the known runtime
-defect is bounded before I/O and BIOS restructuring. M75 is reserved for
-PC-9801-55-compatible SCSI support using the documented driver-installed
-support disk flow. M76 is reserved for uPD9002 main-CPU
-uPD780 emulation-mode authority so the project target is decided before the
-source tree is reorganized; it is explicitly separate from the FDC subsystem
-uPD780-compatible CPU. M77-M88 define the planned VA-only source-tree
-consolidation sequence: move VA I/O into `io/`, normalize references,
-consolidate the VA I/O dispatcher, remove only proven 98-only I/O, audit VA
-BIOS reachability, document and move the FDC subsystem uPD780-compatible CPU
-into `cpu/upd780/`, clean the remaining `cpucva/` boundary, clean state-save
-sections with compatibility evidence, move active root machine-core sources
-under `machine/`, audit legacy tool and ROM/resource regeneration flows such
-as `accessories/`, resolve the `lio/` BIOS/LIO compatibility-hook disposition,
-and finish with a full VA-only source-tree audit. `cbus/` is not treated as 98-only;
-VA-supported expansion boards remain in scope for retention.
+before later guest-behavior and source-tree restructuring work. M74 remains
+reserved for the inherited VA1 N88 BASIC V3 command-hang investigation.
+M75, M76, and M77 are now completed with the approved G75, G76, and G77 SHAs
+listed above. M77's final tree is already on `main`; the next unstarted
+milestone is M79 because the M78 reference-fixup scope was folded into G77.
+M79-M88 define the remaining planned VA-only source-tree consolidation
+sequence: consolidate the VA I/O dispatcher, remove only proven 98-only I/O,
+audit VA BIOS reachability, document and move the FDC subsystem uPD780-
+compatible CPU into `cpu/upd780/`, clean the remaining `cpucva/` boundary,
+clean state-save sections with compatibility evidence, move active root
+machine-core sources under `machine/`, audit legacy tool and ROM/resource
+regeneration flows such as `accessories/`, resolve the `lio/` BIOS/LIO
+compatibility-hook disposition, and finish with a full VA-only source-tree
+audit. `cbus/` is not treated as 98-only; VA-supported expansion boards remain
+in scope for retention.
 
 M14 is complete. The SDL2 frontend now has a named VA key inventory,
 normal guest make/break injection for physical and synthetic input,
