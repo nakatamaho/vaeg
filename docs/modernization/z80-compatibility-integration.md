@@ -38,7 +38,7 @@ remain available.
 
 The common wrapper exposes `Z80CompatCpu`: `UPD70008C` is the main CPU adapter,
 and `UPD780C` is the FDC seam and C bridge in
-`iova/subsystem.cpp`. Third-party and STL types do not cross that seam. Every wrapper I/O callback masks the external port to eight bits, IRQ
+`io/subsystem.cpp`. Third-party and STL types do not cross that seam. Every wrapper I/O callback masks the external port to eight bits, IRQ
 remains a level, and the acknowledge port is read only when the core accepts a
 maskable interrupt. The independently authored BSD-2-Clause decoder in
 `cpucva/upd780_disasm.cpp` is the only production uPD780C disassembler.

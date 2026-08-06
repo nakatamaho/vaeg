@@ -93,7 +93,7 @@ compatibility switches rather than silently guessed.
 
 NEC names the uPD72022 an **Intelligent Display Processor (IDP)**. The active
 vaeg tree names the corresponding PC-88VA functional block the **Text Sprite
-Processor (TSP)** in `iova/tsp.c` and `iova/tsp.h`.
+Processor (TSP)** in `io/tsp.c` and `io/tsp.h`.
 
 These names describe substantially overlapping responsibilities:
 
@@ -160,8 +160,8 @@ machine-specific extensions, installed memory, and external composition.
 
 Implementation evidence comes from:
 
-- vaeg [`iova/tsp.c`](../../iova/tsp.c) and
-  [`iova/videova.c`](../../iova/videova.c);
+- vaeg [`io/tsp.c`](../../io/tsp.c) and
+  [`io/videova.c`](../../io/videova.c);
 - MAME
   [`pc88va.cpp`](https://github.com/mamedev/mame/blob/master/src/mame/nec/pc88va.cpp)
   and
@@ -1111,12 +1111,12 @@ The active implementation is divided as follows:
 
 | File | Current responsibility |
 |---|---|
-| [`iova/tsp.c`](../../iova/tsp.c) | Command/parameter ports, TSP state, SYNC decoding, raster timing |
-| [`iova/tsp.h`](../../iova/tsp.h) | TSP state shared with the display and renderer paths |
+| [`io/tsp.c`](../../io/tsp.c) | Command/parameter ports, TSP state, SYNC decoding, raster timing |
+| [`io/tsp.h`](../../io/tsp.h) | TSP state shared with the display and renderer paths |
 | [`vramva/maketextva.c`](../../vramva/maketextva.c) | Text and attribute rendering from `textmem` |
 | [`vramva/makesprva.c`](../../vramva/makesprva.c) | Sprite table interpretation and sprite rendering |
 | [`pccore.c`](../../pccore.c) | Display/VBlank event scheduling and blink progression |
-| [`iova/sysportva.c`](../../iova/sysportva.c) | System-port view of the display synchronization state |
+| [`io/sysportva.c`](../../io/sysportva.c) | System-port view of the display synchronization state |
 
 The guest-facing TSP and the host renderer are separate. SDL2 effects and
 window scaling must not alter TSP timing or guest display state.
@@ -1347,8 +1347,8 @@ retains priority where the two differ.
    [Internet Archive scan](https://archive.org/details/PC88VA/page/76/mode/2up).
 3. *PC-88VA Tekumani*, especially `2.TXT`, `4.TXT`, `604TEXT.TXT`, and
    `605SPR.TXT`.
-4. vaeg [`iova/tsp.c`](../../iova/tsp.c) and
-   [`iova/videova.c`](../../iova/videova.c).
+4. vaeg [`io/tsp.c`](../../io/tsp.c) and
+   [`io/videova.c`](../../io/videova.c).
 5. MAME [`pc88va.cpp`](https://github.com/mamedev/mame/blob/master/src/mame/nec/pc88va.cpp)
    and [`pc88va_v.cpp`](https://github.com/mamedev/mame/blob/master/src/mame/nec/pc88va_v.cpp).
 6. [Inside PC-88VA Wiki](http://www.pc88.gr.jp/inside88va/wiki/index.php?FrontPage).

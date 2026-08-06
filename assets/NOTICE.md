@@ -25,7 +25,7 @@ instruction implementation:
 
 - `cpucva/upd9002_upd70008.*` is the uPD9002 main-CPU adapter's
   uPD70008-compatible mode.
-- `iova/subsystem.cpp` uses the shared implementation for the FDC's
+- `io/subsystem.cpp` uses the shared implementation for the FDC's
   `UPD780C`-named CPU instance.
 - `cpucva/z80_compat_cpu.*`, `z80_compat_bus.h`, `z80_compat_registers.h`, `upd780_disasm.*`, and
   `z80_compat_state.*` remain common Z80 compatibility backend and compatibility

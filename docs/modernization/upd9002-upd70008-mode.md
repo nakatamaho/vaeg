@@ -38,7 +38,7 @@ conventions layered on top, and what a correct emulation must contain.
 
 **Not in scope.** The FDD subsystem uPD780C CPU. That is a separate physical
 device with its own register file and ROM (`VASUBSYS.ROM`), reached in
-vaeg through `cpucva/z80_compat_cpu.cpp` and `iova/subsystem.cpp`. It has
+vaeg through `cpucva/z80_compat_cpu.cpp` and `io/subsystem.cpp`. It has
 nothing to do with the main-CPU uPD70008-compatible mode, and the two must not share code or
 state. The general PC-88VA boot trace lives in
 `pc88va-boot-sequence.md`; only the parts bearing on mode transition are
@@ -2166,7 +2166,7 @@ implementation; it is not a design document.
     blocks, OPSEL gates them, and only VA2 has been read. Hardcoding
     `0160h`/`0188h`/`01A0h` will work until it does not. Honour the OPSEL
     enables — a disabled peripheral must not answer — and keep this with
-    the CPU model rather than in `iova/`, since it is CPU-internal state
+    the CPU model rather than in `io/`, since it is CPU-internal state
     and not a VA device. For calibration: nothing in the 512 KiB of
     `varom00_va2.rom` writes those registers at all (§5.5(c)), so runtime
     relocation is a correctness concern, not an observed behaviour.
@@ -2325,7 +2325,7 @@ compatible-mode entry, so it is not a drop-in answer.
 
 - The FDD subsystem uPD780-compatible CPU is implemented separately — historically
   `cpucva/z80c.cpp`, currently `cpucva/z80_compat_cpu.cpp`, with
-  `iova/subsystem.cpp` and `VASUBSYS.ROM`.
+  `io/subsystem.cpp` and `VASUBSYS.ROM`.
 - The main CPU uPD70008-compatible mode now has a bounded Stage 1 implementation in
   `cpucva/upd9002_upd70008.cpp`, using the vendored suzukiplan Z80 core. The stable save-state section remains UPD9Z80 for compatibility. It is
   installed through the uPD9002 core hook boundary and does not share the FDD

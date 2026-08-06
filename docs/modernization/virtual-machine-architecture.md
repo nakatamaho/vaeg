@@ -211,7 +211,7 @@ fmboard_bind()
 ```
 
 These calls are in `pccore.c:451-454`. The PC-88VA extended I/O table is
-implemented under `iova/`; `iova/iocoreva.c` provides the 16-bit decoded
+implemented under `io/`; `io/iocoreva.c` provides the 16-bit decoded
 VA port dispatcher and the default unhandled-port trace path.
 
 Sound-hardware configuration matters for PC-88VA boot. VA defaults to

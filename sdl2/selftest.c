@@ -80,7 +80,7 @@
 #include	"tests/upd9002/dispatch_normalization.h"
 #endif
 #if defined(VAEG_UPD780_INTEGRATION_TESTING)
-#include	"iova/subsystem.h"
+#include	"io/subsystem.h"
 #include	"tests/upd780/subsystem_integration.h"
 #endif
 

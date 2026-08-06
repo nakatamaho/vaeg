@@ -32,23 +32,23 @@ iova/tsp.c/.h             iova/upd9002_regs.c/.h
 iova/va91.c/.h            iova/videova.c/.h
 ```
 
-CMake source lists, include paths, and current documentation references are
-intentionally left for M78. No compatibility symlink is part of this branch.
+CMake source lists, include paths, and current documentation references were
+updated in the follow-up reference-fixup commit. No compatibility symlink is part of this branch.
 No M78, CPU, FDC, SDL, or behavior change was introduced.
 
 ## Validation
 
-The following checks passed for the rename-only change:
+The following checks passed for the rename and reference-fixup changes:
 
 - `git diff --check`.
 - Staged diff inspection: 36 `R100` renames, zero insertions/deletions.
 - Repository encoding, EOL, and case validators.
 
-The base `main` was independently configured and built successfully before
-the rename. The rename-only branch intentionally requires the M78 path
+The recreated M77 branch was configured and built successfully after
+the rename and reference fixups. The branch no longer requires the M78 path
 fixups before a normal build can use the moved files; an old `iova -> io`
 symlink must not be committed as a compatibility workaround.
 
 ## Gate status
 
-The rename-only candidate is ready for G77 review. G77 is not declared passed
+The rename and reference-fixup candidate is ready for G77 review. G77 is not declared passed; M78 must not start and M77 must not be merged to `main` until G77 approval.

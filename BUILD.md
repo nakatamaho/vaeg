@@ -30,7 +30,7 @@ instructions.
 
 The active main-CPU instruction core is under `cpu/upd9002/`; its public
 entry points use `upd9002_core_*` and `upd9002_dispatch_*`. The separate
-built-in register/port model is `iova/upd9002_regs.*` and uses
+built-in register/port model is `io/upd9002_regs.*` and uses
 `upd9002_regs_*`. The VA memory header is `cpucva/memoryva.h`.
 
 ## Linux
