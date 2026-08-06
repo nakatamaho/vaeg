@@ -14,6 +14,21 @@ normal development targets the CMake/SDL2 tree.
 
 ## News
 
+### 2026-08-06 - M76: uPD70008-compatible Z80 emulation and CP/MVA
+
+M76 brings the uPD70008-compatible Z80 emulation path to a working state.
+The pinned `suzukiplan/z80` backend now runs the CP/MVA path used by the
+PC-88VA environment, while the compatibility layer remains separate from the
+uPD780C FDD CPU path. CP/MVA reaches the CP/M `A>` prompt and can list and
+exit from the generated tools disk.
+
+See the [CP/MVA setup guide](docs/cpmva-setup.md) for the complete procedure.
+
+![CP/MVA running under VAEG](docs/images/cpmva-running.png)
+
+*CP/MVA running under VAEG: the generated disk is mounted, `DIR` lists the
+CP/M tools, and `EXIT` returns to PC-Engine.*
+
 ### 2026-08-05 - Rel.260805
 
 [Rel.260805](https://github.com/nakatamaho/vaeg/releases/tag/rel-260805)
