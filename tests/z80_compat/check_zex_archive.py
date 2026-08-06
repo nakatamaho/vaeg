@@ -67,7 +67,10 @@ PRIVATE_ASSET_SUFFIXES = {
     ".nhd", ".rom", ".sav",
 }
 APPROVED_EXTERNAL_ROOTS = {"imgui", "suzukiplan-z80", "ymfm"}
-APPROVED_PATCH = "docs/agents/reports/m35_suzukiplan_irq_extension.patch"
+APPROVED_PATCHES = {
+    "docs/agents/reports/m35_suzukiplan_irq_extension.patch",
+    "tools/cpmva/patches/cpm22-64k.patch",
+}
 
 
 def inspect_member(name: str, data: bytes, violations: List[str]) -> None:
@@ -93,8 +96,10 @@ def inspect_member(name: str, data: bytes, violations: List[str]) -> None:
             violations.append(f"unrecorded external source root: {name}")
     if basename.endswith((".orig", ".rej")):
         violations.append(f"patch-work artifact: {name}")
-    if basename.endswith(".patch") and not (
-        normalized == APPROVED_PATCH or normalized.endswith("/" + APPROVED_PATCH)
+    if basename.endswith(".patch") and not any(
+        normalized == approved_patch
+        or normalized.endswith("/" + approved_patch)
+        for approved_patch in APPROVED_PATCHES
     ):
         violations.append(f"unapproved patch artifact: {name}")
 
