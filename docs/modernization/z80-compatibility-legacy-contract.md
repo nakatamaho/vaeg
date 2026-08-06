@@ -32,7 +32,7 @@ from future hypotheses. Line references apply to that commit.
 corresponding implementations identify M88/cisc origins. A provenance search
 outside the frozen tier found exactly the seven files approved in ADR-0011.
 `CMakeLists.txt:263-281` puts `z80c.cpp`, `z80diag.cpp`, and
-`iova/subsystem.cpp` in `VAEG_VA_SOURCES`; Ninja's compiler dependency output
+`io/subsystem.cpp` in `VAEG_VA_SOURCES`; Ninja's compiler dependency output
 shows that `subsystem.cpp` directly includes `z80if.h` and `z80c.h`, with
 `types.h`, `z80.h`, and `z80diag.h` transitively included. The three objects
 are members of the production `libvaeg_va.a` archive.
@@ -153,7 +153,7 @@ The only active production `statsave_save` caller is the GUI state menu at
 for it to return before `gui_draw()` (`sdl2/np2.c:1192-1205`); `gui_draw()`
 opens the state menu (`gui.cpp:2590-2616`). During `pccore_exec()`, each VA
 slice calls `subsystemmx_exec()` (`pccore.c:1078-1217`), which calls the C
-bridge and then `Z80C::Exec()` (`iova/subsystemmx.c:48-53` and
+bridge and then `Z80C::Exec()` (`io/subsystemmx.c:48-53` and
 `subsystem.cpp:341-343`). All calls are synchronous on this path.
 
 The save path is:

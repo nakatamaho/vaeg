@@ -306,7 +306,7 @@ at these guest ports:
 | `019Ch` | Enable sound-board access wait |
 | `019Eh` | Disable sound-board access wait |
 
-The bindings are in [iova/boardsb2.c](../../iova/boardsb2.c). The normal VA
+The bindings are in [io/boardsb2.c](../../io/boardsb2.c). The normal VA
 OPN path binds only `0044h/0045h`; the Sound Board II OPNA path additionally
 binds `0046h/0047h`, restores six FM channels and rhythm state, and registers
 the ADPCM stream. [sound/fmboard.c](../../sound/fmboard.c) selects those paths

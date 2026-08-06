@@ -235,8 +235,8 @@ VA's cost structure.
 
 ### 7b. External references
 
-- VAEG SGP implementation: [`iova/sgp.c`](../../iova/sgp.c) and
-  [`iova/sgp.h`](../../iova/sgp.h)
+- VAEG SGP implementation: [`io/sgp.c`](../../io/sgp.c) and
+  [`io/sgp.h`](../../io/sgp.h)
 - PC-88VA Technical Manual (てくまに):
   <http://www.iris.dti.ne.jp/~nano/88va/tekumani.html>
 - Inside PC-88VA Wiki — グラフィック:

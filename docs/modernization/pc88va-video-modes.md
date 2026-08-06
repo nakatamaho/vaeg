@@ -570,9 +570,9 @@ monitor selection, and measured horizontal/vertical frequency.
 
 The active vaeg implementation provides the following evidence:
 
-- [`iova/videova.c`](../../iova/videova.c) binds `GRMODE`, `GRRES`, and four
+- [`io/videova.c`](../../io/videova.c) binds `GRMODE`, `GRRES`, and four
   framebuffer descriptor blocks and shows each writable bit mask;
-- [`iova/videova.h`](../../iova/videova.h) names the descriptor fields;
+- [`io/videova.h`](../../io/videova.h) names the descriptor fields;
 - [`vramva/makegrphva.c`](../../vramva/makegrphva.c) implements 320-dot
   horizontal duplication, `FBW` line stepping, `FBL` wrap, `DSH` height,
   `DSP` placement, and FB0/FB2/FB3 versus FB1 selection; and

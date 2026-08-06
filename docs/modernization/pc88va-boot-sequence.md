@@ -213,7 +213,7 @@ The held-PC path is:
 
 `18B0h` runs common V3/BIOS initialization. The dispatcher at `0209h` then
 far-calls `E000:B800`. The early port `0152h` setup has selected ROM0 bank 2,
-so this address maps through [iova/memctrlva.c](../../iova/memctrlva.c) to
+so this address maps through [io/memctrlva.c](../../io/memctrlva.c) to
 `varom00.rom` offset `2B800h`. That location jumps to `E000:C451`, where the
 ROM initializes the setup program. Nearby setup data contains entries for
 `SW7`, `FDD`, and `ROM` configuration.
@@ -305,7 +305,7 @@ FDD subsystem uPD780C.
 
 ### Original-VA Emulator Gap: SW7
 
-The active [iova/sysportva.c](../../iova/sysportva.c) labels port `40h` bit 3
+The active [io/sysportva.c](../../io/sysportva.c) labels port `40h` bit 3
 as SW7, but `sysp_i040()` does not currently include a configurable bit 3 in
 its return value. The emulated bit is therefore always zero, which is the
 original-VA SW7 ON state. The ROM always attempts V3 IPL detection and falls

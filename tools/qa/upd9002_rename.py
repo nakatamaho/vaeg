@@ -40,8 +40,8 @@ class RenameError(RuntimeError):
 
 REQUIRED_PATHS = (
     "cpu/upd9002/upd9002_core.c",
-    "iova/upd9002_regs.c",
-    "iova/upd9002_regs.h",
+    "io/upd9002_regs.c",
+    "io/upd9002_regs.h",
     "cpucva/memoryva.h",
 )
 
@@ -188,7 +188,7 @@ def verify(root: pathlib.Path) -> None:
         "${CMAKE_CURRENT_SOURCE_DIR}/cpu/upd9002",
         "${CMAKE_CURRENT_SOURCE_DIR}/cpucva",
         "cpu/upd9002/upd9002_core.c",
-        "iova/upd9002_regs.c",
+        "io/upd9002_regs.c",
     ), "CMakeLists.txt")
     if "cpu/upd9002/upd9002_dispatch.c" in cmake:
         raise RenameError(
@@ -224,19 +224,19 @@ def verify(root: pathlib.Path) -> None:
         if word.search(active_text):
             raise RenameError(f"retired dispatch token remains: {name}")
 
-    register_header = read_text(root, "iova/upd9002_regs.h")
-    register_source = read_text(root, "iova/upd9002_regs.c")
+    register_header = read_text(root, "io/upd9002_regs.h")
+    register_source = read_text(root, "io/upd9002_regs.c")
     require_fragments(register_header, (
         "UPD9002_REGS",
         "upd9002_regs",
         "upd9002_regs_reset",
         "upd9002_regs_bind",
-    ), "iova/upd9002_regs.h")
+    ), "io/upd9002_regs.h")
     require_fragments(register_source, (
         "UPD9002_REGS\tupd9002_regs",
         "void upd9002_regs_reset(void)",
         "void upd9002_regs_bind(void)",
-    ), "iova/upd9002_regs.c")
+    ), "io/upd9002_regs.c")
     retired_register_patterns = {
         "old register include": re.compile(r'[<\"]upd9002\.h[>\"]'),
         "old register reset API": re.compile(r"\bupd9002_reset\b"),

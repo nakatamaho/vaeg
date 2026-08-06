@@ -141,7 +141,7 @@ FDD layer.
 The current implementation models the standard VA 5.25-inch subsystem, not the
 VA3 2TD device:
 
-- `iova/fdsubsys.c` is explicitly a mock-up PC-88VA FD subsystem. It exposes
+- `io/fdsubsys.c` is explicitly a mock-up PC-88VA FD subsystem. It exposes
   two drives and implements a subset of the intelligent subsystem commands.
 - `io/fdc.c` and the global `fdc` state implement one uPD765A-style controller
   path for 2D, 2DD, and 2HD media.

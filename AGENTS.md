@@ -6,9 +6,9 @@ is abandoned; this fork is the living tree.
 The active tree is the portable CMake build: C core, SDL2 frontend under
 `sdl2/`, Dear ImGui GUI, and macOS / Linux / Windows-MinGW support. It
 uses `cpu/upd9002/` for the main CPU instruction core, the built-in CPU
-register model in `iova/upd9002_regs.*`, the uPD70008-compatible main-CPU
+register model in `io/upd9002_regs.*`, the uPD70008-compatible main-CPU
 adapter in `cpucva/upd9002_upd70008.*`, the uPD780-compatible FDC instance in
-`iova/subsystem.cpp`, the shared suzukiplan-backed instruction implementation
+`io/subsystem.cpp`, the shared suzukiplan-backed instruction implementation
 in `cpucva/z80_compat_*`, `sound/opngenc.c` for OPN generation (never define
 `OPNGENX86`), and `cpucva/memoryva.c` for the VA memory layer.
 
@@ -18,7 +18,7 @@ The hardware-facing names are deliberately distinct:
 
 - `cpucva/upd9002_upd70008.*` is the uPD9002 main-CPU adapter's uPD70008-
   compatible mode. It is not the FDC CPU.
-- `iova/subsystem.cpp` owns the FDC CPU and exposes it as `UPD780C`.
+- `io/subsystem.cpp` owns the FDC CPU and exposes it as `UPD780C`.
 - `cpucva/z80_compat_cpu.*`, `z80_compat_bus.h`, `z80_compat_registers.h`, `upd780_disasm.*`, and
   `z80_compat_state.*` are the common Z80 compatibility implementation and
   compatibility layer shared by those two adapters. The remaining Z80 terminology
