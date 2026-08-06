@@ -272,6 +272,64 @@ class InstallerTests(unittest.TestCase):
         self.assertEqual(image[track_two], 1)
         self.assertEqual(image[track_two + 1], 0)
 
+    def test_cpm_exm1_groups_large_com_in_one_directory_entry(self):
+        data = bytes(index & 0xFF for index in range(30592))
+        raw, metadata = self.installer.build_cpm_raw({"BACKGMMN.COM": data})
+        entry_offset = self.installer.CPM_DIRECTORY_OFFSET
+        entry = raw[entry_offset : entry_offset + 32]
+        self.assertEqual(metadata["directory_entries"], 1)
+        self.assertEqual(entry[12], 1)
+        self.assertEqual(entry[14], 0)
+        self.assertEqual(entry[15], 111)
+        self.assertEqual(list(entry[16:31]), list(range(2, 17)))
+        self.assertEqual(raw[entry_offset + 32], 0xE5)
+        self.assertEqual(self.installer.parse_cpm_raw(raw), {"BACKGMMN.COM": data})
+
+    def test_cpm_exm1_multiple_logical_extent_groups_round_trip(self):
+        data = bytes(index & 0xFF for index in range(49152))
+        raw, metadata = self.installer.build_cpm_raw({"BIG.COM": data})
+        directory = self.installer.CPM_DIRECTORY_OFFSET
+        first = raw[directory : directory + 32]
+        second = raw[directory + 32 : directory + 64]
+        self.assertEqual(metadata["directory_entries"], 2)
+        self.assertEqual((first[12], first[14], first[15]), (1, 0, 128))
+        self.assertEqual((second[12], second[14], second[15]), (2, 0, 128))
+        self.assertEqual(list(first[16:32]), list(range(2, 18)))
+        self.assertEqual(list(second[16:24]), list(range(18, 26)))
+        self.assertEqual(raw[directory + 64], 0xE5)
+        self.assertEqual(self.installer.parse_cpm_raw(raw), {"BIG.COM": data})
+
+    def test_cpm_exm1_partial_second_subextent_matches_cc2_shape(self):
+        data = b"C" * 17280
+        raw, metadata = self.installer.build_cpm_raw({"CC2.COM": data})
+        entry = raw[self.installer.CPM_DIRECTORY_OFFSET : self.installer.CPM_DIRECTORY_OFFSET + 32]
+        self.assertEqual(metadata["directory_entries"], 1)
+        self.assertEqual((entry[12], entry[14], entry[15]), (1, 0, 7))
+        self.assertEqual(list(entry[16:25]), list(range(2, 11)))
+        self.assertEqual(self.installer.parse_cpm_raw(raw), {"CC2.COM": data})
+
+    def test_cpm_legacy_one_entry_per_16k_layout_is_rejected(self):
+        data = bytes(index & 0xFF for index in range(30592))
+        raw, _ = self.installer.build_cpm_raw({"BIG.COM": data})
+        directory = self.installer.CPM_DIRECTORY_OFFSET
+        mutable = bytearray(raw)
+        mutable[directory + 32 : directory + 64] = mutable[directory : directory + 32]
+        for block_index, block in enumerate(range(17, 32)):
+            mutable[directory + 32 + 16 + block_index] = block
+        with self.assertRaises(self.installer.InstallerError) as raised:
+            self.installer.parse_cpm_raw(bytes(mutable))
+        self.assertEqual(raised.exception.code, "CPM_EXTENT_DUPLICATE")
+
+    def test_cpm_extent_gap_is_rejected(self):
+        data = bytes(index & 0xFF for index in range(49152))
+        raw, _ = self.installer.build_cpm_raw({"BIG.COM": data})
+        directory = self.installer.CPM_DIRECTORY_OFFSET
+        mutable = bytearray(raw)
+        mutable[directory + 32 + 12] = 4
+        with self.assertRaises(self.installer.InstallerError) as raised:
+            self.installer.parse_cpm_raw(bytes(mutable))
+        self.assertEqual(raised.exception.code, "CPM_EXTENT_GAP")
+
     def test_game_and_development_mappings_and_padding(self):
         all_game_members = set(self.installer.GAME_BINARY_MAPPING.values())
         all_game_members.update(self.installer.GAME_SOURCE_MAPPING.values())
