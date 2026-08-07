@@ -33,6 +33,7 @@ typedef struct {
     BOOL wait;
     BOOL wait_prompt;
     BOOL disk_swap;
+    BOOL exit;
 } HEADLESS_INPUT_COMMAND;
 
 typedef struct {
@@ -40,9 +41,13 @@ typedef struct {
     UINT command_count;
     UINT32 next_frame;
     UINT32 prompt_deadline;
+    UINT32 prompt_timeout_frames;
+    UINT32 prompt_signature;
+    UINT32 prompt_count;
     BOOL prompt_clear_observed;
     BOOL prompt_seen_once;
     BOOL completed;
+    BOOL exit_requested;
     HEADLESS_INPUT_COMMAND *commands;
 } HEADLESS_INPUT_SCRIPT;
 
@@ -56,6 +61,8 @@ void headless_input_script_clear(HEADLESS_INPUT_SCRIPT *script);
 void headless_input_script_initialize(HEADLESS_INPUT_SCRIPT *script);
 BOOL headless_input_script_after_frame(HEADLESS_INPUT_SCRIPT *script,
                                        UINT frames);
+BOOL headless_input_script_exit_requested(
+                                const HEADLESS_INPUT_SCRIPT *script);
 
 #ifdef __cplusplus
 }

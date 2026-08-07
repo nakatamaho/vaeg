@@ -541,6 +541,18 @@ typedef struct {
 } UPD9002_M74_TRACE_INTERRUPT;
 
 typedef struct {
+	BOOL first_touch_seen;
+	BOOL first_live_seen;
+	BOOL dirty;
+	uint16_t writer_cs;
+	uint16_t writer_ip;
+	uint32_t writer_physical;
+	uint16_t writer_value;
+	uint8_t writer_width;
+	uint8_t writer_instruction[8];
+} UPD9002_M74_VECTOR_WRITER;
+
+typedef struct {
 	FILE *stream;
 	UPD9002_M74_TRACE_RECORD *records;
 	UPD9002_M74_TRACE_INTERRUPT interrupts[256];
@@ -578,7 +590,10 @@ typedef struct {
 	uint32_t lifecycle_sequence;
 	BOOL lifecycle_memory_initialized;
 	BOOL lifecycle_memory_watch;
+	BOOL vector_watch;
+	BOOL cf_probe_active;
 	uint32_t lifecycle_memory_step;
+	UPD9002_M74_VECTOR_WRITER vector_writers[166];
 	uint8_t lifecycle_target[0x100];
 	uint8_t lifecycle_source[0x20];
 	BOOL thunk_active;
@@ -599,6 +614,258 @@ static UPD9002_M74_TRACE_STATE m74_trace_state;
 #define UPD9002_M74_TRACE_INTERRUPT_CAPACITY 256
 #define UPD9002_M74_TRACE_STABLE_COUNT 4096
 #define UPD9002_M74_TRACE_HISTORY_CAPACITY 256
+#define UPD9002_M74_VECTOR_SLOT_COUNT 166
+
+static uint16_t m74_trace_vector_offset(uint32_t slot) {
+
+	if (slot < 10) {
+		return (uint16_t)(0x0280 + slot * 5);
+	}
+	return (uint16_t)(0x0a00 + (slot - 10) * 5);
+}
+
+static const char *m74_trace_vector_table(uint32_t slot) {
+
+	return (slot < 10) ? "aux" : "main";
+}
+
+static uint32_t m74_trace_vector_index(uint32_t slot) {
+
+	return (slot < 10) ? slot : slot - 10;
+}
+
+static void m74_trace_read_bytes(uint32_t address, uint8_t *bytes,
+		uint32_t length) {
+	int32_t before_clock;
+
+	before_clock = CPU_REMCLOCK;
+	for (uint32_t index = 0; index < length; index++) {
+		bytes[index] = (uint8_t)upd9002_memoryread(
+			(address + index) & CPU_ADRSMASK);
+	}
+	CPU_REMCLOCK = before_clock;
+}
+
+static void m74_trace_current_instruction(uint8_t *bytes) {
+
+	m74_trace_read_bytes((CS_BASE + CPU_IP) & CPU_ADRSMASK, bytes, 8);
+}
+
+static const char *m74_trace_vector_class(const uint8_t *bytes) {
+
+	if (bytes[0] == 0xcb) {
+		return "STUB";
+	}
+	if (bytes[0] == 0xea) {
+		return "LIVE";
+	}
+	return "OTHER";
+}
+
+static void m74_trace_vector_snapshot(const char *label) {
+	uint32_t live;
+	uint32_t stub;
+	uint32_t other;
+
+	if (!m74_trace_state.configured || !m74_trace_state.vector_watch ||
+		(m74_trace_state.stream == NULL)) {
+		return;
+	}
+	live = 0;
+	stub = 0;
+	other = 0;
+	for (uint32_t slot = 0; slot < UPD9002_M74_VECTOR_SLOT_COUNT; slot++) {
+		uint8_t bytes[5];
+		uint16_t offset;
+		uint32_t physical;
+		const char *classification;
+
+		offset = m74_trace_vector_offset(slot);
+		physical = 0x10400U + offset;
+		m74_trace_read_bytes(physical, bytes, sizeof(bytes));
+		classification = m74_trace_vector_class(bytes);
+		if (bytes[0] == 0xea) {
+			live++;
+		}
+		else if (bytes[0] == 0xcb) {
+			stub++;
+		}
+		else {
+			other++;
+		}
+		fprintf(m74_trace_state.stream,
+			"m74-vector-slot stage=%s table=%s index=%u offset=%04x "
+			"physical=%05x class=%s bytes=%02x%02x%02x%02x%02x",
+			(label != NULL) ? label : "unknown",
+			m74_trace_vector_table(slot), m74_trace_vector_index(slot),
+			offset, physical, classification, bytes[0], bytes[1], bytes[2],
+			bytes[3], bytes[4]);
+		if (bytes[0] == 0xea) {
+			fprintf(m74_trace_state.stream, " target=%04x:%04x",
+				(uint16_t)(bytes[3] | ((uint16_t)bytes[4] << 8)),
+				(uint16_t)(bytes[1] | ((uint16_t)bytes[2] << 8)));
+		}
+		fputc('\n', m74_trace_state.stream);
+	}
+	fprintf(m74_trace_state.stream,
+		"m74-vector-summary stage=%s slots=%u live=%u stub=%u other=%u\n",
+		(label != NULL) ? label : "unknown",
+		UPD9002_M74_VECTOR_SLOT_COUNT, live, stub, other);
+	fflush(m74_trace_state.stream);
+}
+
+static void m74_trace_ea_write(uint32_t address, uint16_t value,
+		uint8_t width) {
+	uint8_t instruction[8];
+	uint32_t first_start;
+
+	first_start = (address + CPU_ADRSMASK + 1U - 4U) & CPU_ADRSMASK;
+	m74_trace_current_instruction(instruction);
+	for (uint32_t candidate_index = 0; candidate_index < width + 4U;
+		candidate_index++) {
+		uint8_t bytes[5];
+		uint32_t start;
+
+		start = (first_start + candidate_index) & CPU_ADRSMASK;
+		m74_trace_read_bytes(start, bytes, sizeof(bytes));
+		for (uint32_t changed = 0; changed < width; changed++) {
+			uint32_t changed_address;
+
+			changed_address = (address + changed) & CPU_ADRSMASK;
+			for (uint32_t byte = 0; byte < sizeof(bytes); byte++) {
+				if (((start + byte) & CPU_ADRSMASK) == changed_address) {
+					bytes[byte] = (uint8_t)(value >> (changed * 8));
+				}
+			}
+		}
+		if (bytes[0] != 0xea) {
+			continue;
+		}
+		fprintf(m74_trace_state.stream,
+			"m74-ea-sequence-write physical=%05x bytes="
+			"%02x%02x%02x%02x%02x target=%04x:%04x writer=%04x:%04x "
+			"instruction=%02x%02x%02x%02x%02x%02x%02x%02x\n",
+			start, bytes[0], bytes[1], bytes[2], bytes[3], bytes[4],
+			(uint16_t)(bytes[3] | ((uint16_t)bytes[4] << 8)),
+			(uint16_t)(bytes[1] | ((uint16_t)bytes[2] << 8)),
+			CPU_CS, CPU_IP, instruction[0], instruction[1], instruction[2],
+			instruction[3], instruction[4], instruction[5], instruction[6],
+			instruction[7]);
+	}
+}
+
+static void m74_trace_vector_write_prepare(uint32_t address, uint16_t value,
+		uint8_t width) {
+	uint32_t end;
+
+	if (!m74_trace_state.configured || !m74_trace_state.vector_watch) {
+		return;
+	}
+	address &= CPU_ADRSMASK;
+	end = address + width;
+	for (uint32_t slot = 0; slot < UPD9002_M74_VECTOR_SLOT_COUNT; slot++) {
+		UPD9002_M74_VECTOR_WRITER *writer;
+		uint32_t slot_start;
+		uint32_t slot_end;
+
+		slot_start = 0x10400U + m74_trace_vector_offset(slot);
+		slot_end = slot_start + 5;
+		if ((end <= slot_start) || (address >= slot_end)) {
+			continue;
+		}
+		writer = &m74_trace_state.vector_writers[slot];
+		writer->dirty = TRUE;
+		writer->writer_cs = CPU_CS;
+		writer->writer_ip = CPU_IP;
+		writer->writer_physical = address;
+		writer->writer_value = value;
+		writer->writer_width = width;
+		m74_trace_current_instruction(writer->writer_instruction);
+		if (!writer->first_touch_seen) {
+			writer->first_touch_seen = TRUE;
+			fprintf(m74_trace_state.stream,
+				"m74-vector-first-touch table=%s index=%u offset=%04x "
+				"slot_physical=%05x writer=%04x:%04x instruction="
+				"%02x%02x%02x%02x%02x%02x%02x%02x write_physical=%05x "
+				"value=%04x width=%u\n",
+				m74_trace_vector_table(slot), m74_trace_vector_index(slot),
+				m74_trace_vector_offset(slot), slot_start, CPU_CS, CPU_IP,
+				writer->writer_instruction[0], writer->writer_instruction[1],
+				writer->writer_instruction[2], writer->writer_instruction[3],
+				writer->writer_instruction[4], writer->writer_instruction[5],
+				writer->writer_instruction[6], writer->writer_instruction[7],
+				address, value, width);
+		}
+	}
+	m74_trace_ea_write(address, value, width);
+}
+
+static void m74_trace_vector_commit(void) {
+
+	if (!m74_trace_state.configured || !m74_trace_state.vector_watch) {
+		return;
+	}
+	for (uint32_t slot = 0; slot < UPD9002_M74_VECTOR_SLOT_COUNT; slot++) {
+		UPD9002_M74_VECTOR_WRITER *writer;
+		uint8_t bytes[5];
+		uint32_t physical;
+
+		writer = &m74_trace_state.vector_writers[slot];
+		if (!writer->dirty) {
+			continue;
+		}
+		writer->dirty = FALSE;
+		physical = 0x10400U + m74_trace_vector_offset(slot);
+		m74_trace_read_bytes(physical, bytes, sizeof(bytes));
+		if ((bytes[0] == 0xea) && !writer->first_live_seen) {
+			writer->first_live_seen = TRUE;
+			fprintf(m74_trace_state.stream,
+				"m74-vector-first-live table=%s index=%u offset=%04x "
+				"physical=%05x target=%04x:%04x bytes="
+				"%02x%02x%02x%02x%02x writer=%04x:%04x instruction="
+				"%02x%02x%02x%02x%02x%02x%02x%02x write_physical=%05x "
+				"value=%04x width=%u\n",
+				m74_trace_vector_table(slot), m74_trace_vector_index(slot),
+				m74_trace_vector_offset(slot), physical,
+				(uint16_t)(bytes[3] | ((uint16_t)bytes[4] << 8)),
+				(uint16_t)(bytes[1] | ((uint16_t)bytes[2] << 8)),
+				bytes[0], bytes[1], bytes[2], bytes[3], bytes[4],
+				writer->writer_cs, writer->writer_ip,
+				writer->writer_instruction[0], writer->writer_instruction[1],
+				writer->writer_instruction[2], writer->writer_instruction[3],
+				writer->writer_instruction[4], writer->writer_instruction[5],
+				writer->writer_instruction[6], writer->writer_instruction[7],
+				writer->writer_physical, writer->writer_value,
+				writer->writer_width);
+		}
+	}
+
+}
+
+static void m74_trace_vector_call(void) {
+	uint8_t bytes[8];
+	uint16_t offset;
+	uint8_t slot_bytes[5];
+
+	if (!m74_trace_state.configured || !m74_trace_state.vector_watch) {
+		return;
+	}
+	m74_trace_current_instruction(bytes);
+	if ((bytes[0] != 0x9a) || (bytes[3] != 0x40) ||
+		(bytes[4] != 0x10)) {
+		return;
+	}
+	offset = (uint16_t)(bytes[1] | ((uint16_t)bytes[2] << 8));
+	m74_trace_read_bytes(0x10400U + offset, slot_bytes, sizeof(slot_bytes));
+	fprintf(m74_trace_state.stream,
+		"m74-vector-call cs=%04x ip=%04x instruction="
+		"%02x%02x%02x%02x%02x offset=%04x slot_class=%s slot_bytes="
+		"%02x%02x%02x%02x%02x dx=%04x si=%04x sp=%04x flags=%04x\n",
+		CPU_CS, CPU_IP, bytes[0], bytes[1], bytes[2], bytes[3], bytes[4],
+		offset, m74_trace_vector_class(slot_bytes), slot_bytes[0],
+		slot_bytes[1], slot_bytes[2], slot_bytes[3], slot_bytes[4],
+		CPU_DX, CPU_SI, CPU_SP, CPU_FLAG);
+}
 
 static const char *m74_trace_control_class(uint8_t opcode) {
 
@@ -830,6 +1097,7 @@ void upd9002_m74_trace_configure(FILE *stream) {
 	const char *value;
 	const char *arm_value;
 	const char *watch_value;
+	const char *vector_value;
 	char *end;
 	unsigned long limit;
 	unsigned long arm_command;
@@ -838,6 +1106,7 @@ void upd9002_m74_trace_configure(FILE *stream) {
 	value = getenv("VAEG_M74_CPU_TRACE_LIMIT");
 	arm_value = getenv("VAEG_M74_CPU_TRACE_COMMAND");
 	watch_value = getenv("VAEG_M74_LIFECYCLE_WATCH");
+	vector_value = getenv("VAEG_M74_VECTOR_WATCH");
 	if ((stream == NULL) || (value == NULL) || (value[0] == '\0')) {
 		return;
 	}
@@ -863,6 +1132,9 @@ void upd9002_m74_trace_configure(FILE *stream) {
 	m74_trace_state.lifecycle_memory_watch =
 		(watch_value != NULL) && (watch_value[0] != '\0') &&
 		(strcmp(watch_value, "0") != 0);
+	m74_trace_state.vector_watch =
+		(vector_value != NULL) && (vector_value[0] != '\0') &&
+		(strcmp(vector_value, "0") != 0);
 	m74_trace_state.arm_command = 0;
 	if ((arm_value != NULL) && (arm_value[0] != '\0')) {
 		errno = 0;
@@ -881,8 +1153,9 @@ void upd9002_m74_trace_configure(FILE *stream) {
 	}
 	m74_trace_state.configured = TRUE;
 	fprintf(stream, "m74-cpu-trace configured limit=%u ring=%u "
-		"arm_command=%u\n", m74_trace_state.limit,
-		UPD9002_M74_TRACE_RECORD_CAPACITY, m74_trace_state.arm_command);
+		"arm_command=%u vector_watch=%u\n", m74_trace_state.limit,
+		UPD9002_M74_TRACE_RECORD_CAPACITY, m74_trace_state.arm_command,
+		m74_trace_state.vector_watch);
 }
 
 void upd9002_m74_trace_stop(void) {
@@ -967,6 +1240,11 @@ void upd9002_m74_trace_step_begin(void) {
 		m74_trace_state.lifecycle_memory_initialized = TRUE;
 	}
 
+	m74_trace_vector_call();
+	if (m74_trace_state.active && (CPU_CS == 0xe000) &&
+		(CPU_IP == 0x383a)) {
+		m74_trace_state.cf_probe_active = TRUE;
+	}
 	if (m74_trace_state.active && (CPU_CS == 0xe000) &&
 		(CPU_IP == 0x391d)) {
 		uint8_t stack[8];
@@ -1186,6 +1464,7 @@ static void m74_trace_lifecycle_memory_watch(void) {
 
 void upd9002_m74_trace_step_end(void) {
 	m74_trace_lifecycle_memory_watch();
+	m74_trace_vector_commit();
 
 	UPD9002_M74_TRACE_RECORD *record;
 
@@ -1204,6 +1483,31 @@ void upd9002_m74_trace_step_end(void) {
 		(SS_BASE + CPU_SP) & CPU_ADRSMASK;
 	m74_trace_stack(record->stack_after, record->post_stack_physical);
 	m74_trace_state.steps++;
+
+	if (m74_trace_state.cf_probe_active) {
+		fprintf(m74_trace_state.stream,
+			"m74-cf-probe seq=%u cs=%04x ip=%04x bytes="
+			"%02x%02x%02x%02x%02x%02x%02x%02x ax=%04x bx=%04x "
+			"cx=%04x dx=%04x si=%04x di=%04x sp=%04x flags=%04x "
+			"post_cs=%04x post_ip=%04x post_sp=%04x post_flags=%04x\n",
+			record->sequence, record->cs, record->ip,
+			record->bytes[0], record->bytes[1], record->bytes[2],
+			record->bytes[3], record->bytes[4], record->bytes[5],
+			record->bytes[6], record->bytes[7], record->ax, record->bx,
+			record->cx, record->dx, record->si, record->di, record->sp,
+			record->flags, record->post_cs, record->post_ip,
+			record->post_sp, record->post_flags);
+		if ((record->cs == 0xe000) && (record->ip == 0x3861)) {
+			m74_trace_state.cf_probe_active = FALSE;
+		}
+	}
+	if ((record->cs == 0xe000) && (record->ip == 0x397a)) {
+		fprintf(m74_trace_state.stream,
+			"m74-cf-decision seq=%u flags=%04x cf=%u post=%04x:%04x\n",
+			record->sequence, record->flags,
+			(record->flags & C_FLAG) ? 1U : 0U,
+			record->post_cs, record->post_ip);
+	}
 
 	if (m74_trace_state.thunk_active && (record->cs == 0xe000) &&
 		((record->ip == 0x3922) || (record->ip == 0x3923) ||
@@ -1350,6 +1654,7 @@ void upd9002_m74_trace_memory_write(uint32_t address, uint16_t value,
 	uint16_t old_value;
 	int32_t before_clock;
 
+	m74_trace_vector_write_prepare(address, value, width);
 	address &= CPU_ADRSMASK;
 	end = address + width;
 	if (m74_trace_state.configured &&
@@ -1414,6 +1719,29 @@ void upd9002_m74_trace_host_write(uint32_t address, const void *data,
 	if (end > (CPU_ADRSMASK + 1U)) {
 		end = CPU_ADRSMASK + 1U;
 	}
+	bytes = (const uint8_t *)data;
+	if (m74_trace_state.vector_watch && (length >= 5)) {
+		uint32_t available;
+
+		available = end - address;
+		for (uint32_t index = 0; index + 5 <= available; index++) {
+			if (bytes[index] != 0xea) {
+				continue;
+			}
+			fprintf(m74_trace_state.stream,
+				"m74-ea-sequence-host-write kind=%s physical=%05x "
+				"bytes=%02x%02x%02x%02x%02x target=%04x:%04x "
+				"writer=%04x:%04x\n",
+				(kind != NULL) ? kind : "unknown", address + index,
+				bytes[index], bytes[index + 1], bytes[index + 2],
+				bytes[index + 3], bytes[index + 4],
+				(uint16_t)(bytes[index + 3] |
+					((uint16_t)bytes[index + 4] << 8)),
+				(uint16_t)(bytes[index + 1] |
+					((uint16_t)bytes[index + 2] << 8)),
+				CPU_CS, CPU_IP);
+		}
+	}
 	overlap_start = max(address, 0x34c00U);
 	overlap_end = min(end, 0x34d00U);
 	if (overlap_start >= overlap_end) {
@@ -1423,7 +1751,6 @@ void upd9002_m74_trace_host_write(uint32_t address, const void *data,
 	if (overlap_start >= overlap_end) {
 		return;
 	}
-	bytes = (const uint8_t *)data;
 	offset = overlap_start - address;
 	count = overlap_end - overlap_start;
 	if (count > 32) {
@@ -1570,4 +1897,14 @@ static void m74_trace_lifecycle_snapshot(const char *label) {
 void upd9002_m74_trace_lifecycle(const char *label) {
 
 	m74_trace_lifecycle_snapshot(label);
+	m74_trace_vector_snapshot(label);
+	if (m74_trace_state.configured && (m74_trace_state.stream != NULL)) {
+		fprintf(m74_trace_state.stream,
+			"m74-lifecycle-checkpoint label=%s active=%u trace_steps=%u "
+			"cs=%04x ip=%04x\n",
+			(label != NULL) ? label : "unknown",
+			m74_trace_state.active ? 1U : 0U, m74_trace_state.steps,
+			CPU_CS, CPU_IP);
+		fflush(m74_trace_state.stream);
+	}
 }

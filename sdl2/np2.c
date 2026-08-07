@@ -1493,6 +1493,11 @@ static BOOL smoke_after_frame(BOOL smoke, UINT frames, BOOL detect_screen,
 		taskmng_exit();
 		return(FAILURE);
 	}
+	if (headless_input &&
+		headless_input_script_exit_requested(input_script)) {
+		taskmng_exit();
+		return(SUCCESS);
+	}
 	if (!smoke) {
 		return(SUCCESS);
 	}

@@ -145,26 +145,29 @@ static BOOL headless_input_script_add_disk_swap(
     return SUCCESS;
 }
 
-static BOOL headless_input_basic_prompt_present(void) {
+static UINT32 headless_input_basic_prompt_signature(UINT32 *count) {
     UINT32 table;
     UINT32 width;
     UINT32 text_start;
     UINT32 rows;
     UINT32 row;
+    UINT32 signature;
 
+    *count = 0;
     if (!tsp.dspon || (tsp.lineheight == 0)) {
-        return FALSE;
+        return 0;
     }
     table = tsp.texttable;
     if ((table + 0x1c) >= sizeof(textmem)) {
-        return FALSE;
+        return 0;
     }
     width = LOADINTELWORD(textmem + table + 0x08);
     text_start = LOADINTELWORD(textmem + table + 0x10);
     if ((width < 2) || (text_start >= sizeof(textmem)) ||
         ((text_start + width) > sizeof(textmem))) {
-        return FALSE;
+        return 0;
     }
+    signature = 2166136261U;
     rows = tsp.screenlines / tsp.lineheight;
     if (rows > 40) {
         rows = 40;
@@ -185,11 +188,15 @@ static BOOL headless_input_basic_prompt_present(void) {
             UINT16 second = LOADINTELWORD(
                 textmem + address + (column + 1) * 2);
             if ((first == 0x004f) && (second == 0x006b)) {
-                return TRUE;
+                signature ^= row;
+                signature *= 16777619U;
+                signature ^= column;
+                signature *= 16777619U;
+                (*count)++;
             }
         }
     }
-    return FALSE;
+    return (*count != 0) ? signature : 0;
 }
 
 static BOOL headless_input_script_add_prompt_wait(
@@ -231,6 +238,24 @@ static BOOL headless_input_script_add_wait(HEADLESS_INPUT_SCRIPT *script,
     return SUCCESS;
 }
 
+static BOOL headless_input_script_add_exit(HEADLESS_INPUT_SCRIPT *script) {
+    HEADLESS_INPUT_COMMAND *command;
+
+    if (script->command_count >= HEADLESS_INPUT_COMMAND_MAX) {
+        fprintf(stderr,
+            "Error: --headless-input-script has too many commands; max=%u\n",
+            HEADLESS_INPUT_COMMAND_MAX);
+        return FAILURE;
+    }
+    if (headless_input_script_reserve(script) != SUCCESS) {
+        fprintf(stderr, "Error: could not allocate input-script commands\n");
+        return FAILURE;
+    }
+    command = &script->commands[script->command_count++];
+    command->exit = TRUE;
+    return SUCCESS;
+}
+
 static BOOL headless_input_script_add_line(HEADLESS_INPUT_SCRIPT *script,
                                            const char *line, UINT length) {
     char *value;
@@ -247,6 +272,9 @@ static BOOL headless_input_script_add_line(HEADLESS_INPUT_SCRIPT *script,
     if (((length == 7) && (memcmp(line, "@prompt", 7) == 0)) ||
         ((length == 12) && (memcmp(line, "@wait-prompt", 12) == 0))) {
         return headless_input_script_add_prompt_wait(script);
+    }
+    if ((length == 5) && (memcmp(line, "@exit", 5) == 0)) {
+        return headless_input_script_add_exit(script);
     }
     if ((length >= 6) && (memcmp(line, "@wait ", 6) == 0)) {
         value = (char *)SDL_malloc((size_t)length - 5);
@@ -366,6 +394,9 @@ BOOL headless_input_script_load(HEADLESS_INPUT_SCRIPT *script,
 }
 
 void headless_input_script_initialize(HEADLESS_INPUT_SCRIPT *script) {
+    const char *timeout_value;
+    char *timeout_end;
+    unsigned long timeout_frames;
 
     if (script == NULL) {
         return;
@@ -374,16 +405,39 @@ void headless_input_script_initialize(HEADLESS_INPUT_SCRIPT *script) {
     script->next_frame = HEADLESS_INPUT_INITIAL_DELAY_FRAMES;
     script->completed = FALSE;
     script->prompt_deadline = 0;
+    script->prompt_timeout_frames = HEADLESS_INPUT_PROMPT_TIMEOUT_FRAMES;
+    timeout_value = getenv("VAEG_HEADLESS_PROMPT_TIMEOUT_FRAMES");
+    if ((timeout_value != NULL) && (timeout_value[0] != '\0')) {
+        errno = 0;
+        timeout_frames = strtoul(timeout_value, &timeout_end, 10);
+        if ((errno == 0) && (timeout_end != timeout_value) &&
+            (*timeout_end == '\0') && (timeout_frames >= 1) &&
+            (timeout_frames <= 0xffffffffUL)) {
+            script->prompt_timeout_frames = (UINT32)timeout_frames;
+        }
+        else {
+            fprintf(stderr,
+                "Warning: invalid VAEG_HEADLESS_PROMPT_TIMEOUT_FRAMES; "
+                "using %u\n", HEADLESS_INPUT_PROMPT_TIMEOUT_FRAMES);
+        }
+    }
+    script->prompt_signature = 0;
+    script->prompt_count = 0;
     script->prompt_clear_observed = FALSE;
+    script->prompt_seen_once = FALSE;
+    script->exit_requested = FALSE;
     fprintf(stderr,
-        "headless-input-script waiting %u frames before first input\n",
-        HEADLESS_INPUT_INITIAL_DELAY_FRAMES);
+        "headless-input-script waiting %u frames before first input; "
+        "prompt_timeout_frames=%u\n",
+        HEADLESS_INPUT_INITIAL_DELAY_FRAMES, script->prompt_timeout_frames);
 }
 
 BOOL headless_input_script_after_frame(HEADLESS_INPUT_SCRIPT *script,
                                        UINT frames) {
     HEADLESS_INPUT_COMMAND *command;
     UINT command_number;
+    UINT32 prompt_count;
+    UINT32 prompt_signature;
 
     if ((script == NULL) || script->completed ||
         (frames < script->next_frame) || kbdpaste_active()) {
@@ -397,40 +451,66 @@ BOOL headless_input_script_after_frame(HEADLESS_INPUT_SCRIPT *script,
     command = &script->commands[script->command_index++];
     if (command->wait_prompt) {
         if (script->prompt_deadline == 0) {
-            script->prompt_deadline = frames +
-                HEADLESS_INPUT_PROMPT_TIMEOUT_FRAMES;
+            script->prompt_deadline =
+                (script->prompt_timeout_frames > (0xffffffffU - frames)) ?
+                0xffffffffU : frames + script->prompt_timeout_frames;
             fprintf(stderr,
                 "headless-input-script waiting for BASIC Ok prompt "
                 "until frame=%u\n", script->prompt_deadline);
         }
+        prompt_signature = headless_input_basic_prompt_signature(
+            &prompt_count);
         if (!script->prompt_seen_once) {
-            if (headless_input_basic_prompt_present()) {
+            if (prompt_signature != 0) {
                 fprintf(stderr,
                     "headless-input-script observed BASIC Ok prompt "
-                    "frame=%u\n", frames);
+                    "frame=%u signature=%08x count=%u\n", frames,
+                    prompt_signature, prompt_count);
                 script->prompt_seen_once = TRUE;
+                script->prompt_signature = prompt_signature;
+                script->prompt_count = prompt_count;
                 script->prompt_deadline = 0;
                 script->prompt_clear_observed = FALSE;
+                upd9002_m74_trace_lifecycle("headless-prompt-observed");
                 script->next_frame = frames +
                     HEADLESS_INPUT_COMMAND_DELAY_FRAMES;
                 return SUCCESS;
             }
         }
         else if (!script->prompt_clear_observed) {
-            if (!headless_input_basic_prompt_present()) {
+            if (prompt_signature == 0) {
                 script->prompt_clear_observed = TRUE;
                 fprintf(stderr,
                     "headless-input-script observed BASIC Ok prompt "
                     "cleared frame=%u\n", frames);
             }
+            else if ((prompt_signature != script->prompt_signature) ||
+                (prompt_count != script->prompt_count)) {
+                fprintf(stderr,
+                    "headless-input-script observed new BASIC Ok prompt "
+                    "frame=%u signature=%08x count=%u\n", frames,
+                    prompt_signature, prompt_count);
+                script->prompt_signature = prompt_signature;
+                script->prompt_count = prompt_count;
+                script->prompt_deadline = 0;
+                script->prompt_clear_observed = FALSE;
+                upd9002_m74_trace_lifecycle("headless-prompt-observed");
+                script->next_frame = frames +
+                    HEADLESS_INPUT_COMMAND_DELAY_FRAMES;
+                return SUCCESS;
+            }
         }
-        else if (headless_input_basic_prompt_present()) {
+        else if (prompt_signature != 0) {
             fprintf(stderr,
                 "headless-input-script observed BASIC Ok prompt "
-                "frame=%u\n", frames);
+                "frame=%u signature=%08x count=%u\n", frames,
+                prompt_signature, prompt_count);
+            script->prompt_signature = prompt_signature;
+            script->prompt_count = prompt_count;
             script->prompt_deadline = 0;
             script->prompt_seen_once = TRUE;
             script->prompt_clear_observed = FALSE;
+            upd9002_m74_trace_lifecycle("headless-prompt-observed");
             script->next_frame = frames +
                 HEADLESS_INPUT_COMMAND_DELAY_FRAMES;
             return SUCCESS;
@@ -443,6 +523,14 @@ BOOL headless_input_script_after_frame(HEADLESS_INPUT_SCRIPT *script,
         }
         script->command_index--;
         script->next_frame = frames + 1;
+        return SUCCESS;
+    }
+    if (command->exit) {
+        script->completed = TRUE;
+        script->exit_requested = TRUE;
+        upd9002_m74_trace_lifecycle("headless-exit");
+        fprintf(stderr, "headless-input-script requested exit frame=%u\n",
+            frames);
         return SUCCESS;
     }
     if (command->wait) {
@@ -459,7 +547,13 @@ BOOL headless_input_script_after_frame(HEADLESS_INPUT_SCRIPT *script,
         return SUCCESS;
     }
     command_number = script->command_index;
-    upd9002_m74_trace_lifecycle("headless-before-command");
+    {
+        char label[64];
+
+        snprintf(label, sizeof(label), "headless-before-command-%u",
+            command_number);
+        upd9002_m74_trace_lifecycle(label);
+    }
     script->prompt_clear_observed = FALSE;
     upd9002_m74_trace_arm(command_number);
     if (!kbdpaste_start_text(command->text)) {
@@ -473,4 +567,10 @@ BOOL headless_input_script_after_frame(HEADLESS_INPUT_SCRIPT *script,
         "headless-input-script injected command=%u frame=%u\n",
         command_number, frames);
     return SUCCESS;
+}
+
+BOOL headless_input_script_exit_requested(
+        const HEADLESS_INPUT_SCRIPT *script) {
+
+    return ((script != NULL) && script->exit_requested) ? TRUE : FALSE;
 }
