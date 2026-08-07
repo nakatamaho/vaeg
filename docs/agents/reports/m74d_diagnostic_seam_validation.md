@@ -225,3 +225,42 @@ production correction is authorized by this static proof.
 
 Track A short prompt gate: PASS for N0, N1, and N2 on all three boot-only
 versions. Full A=1 N0/N1/N2 equivalence and B0 E000:3823 counting remain open.
+
+
+## M74f: full A=1 N0/N1/N2 equivalence
+
+The exact historical A0 executable remains unavailable. The comparison below therefore tests the reconstructed behavioral baseline, not binary identity. The common deterministic run contract was `--model va`, the trace-enabled build, `VAEG_HEADLESS_MAX_FRAMES=1500`, `VAEG_HEADLESS_PROMPT_TIMEOUT_FRAMES=300`, the existing `A=1` script, and `--nowait`. First `Ok` was observed at frame 720, input was injected at frame 840, and the second-prompt boundary was frame 1260. The nonzero process exit is the deliberate prompt-timeout result after the terminal signature; it is not a wall-clock classification.
+
+| image | worker | first Ok / injection / boundary | A0 vector | terminal event | TVRAM SHA-256 |
+|---|---|---|---|---|---|
+| 1.00 | N0 | 720 / 840 / 1260 | 391D=1, 3983=1, 3985=0, 002A=1, 01E4=1 | `34C0:0005`, 16 zero bytes | `55ec29212748fd80ad638d2980e271c790ae988116f72713a9c8917167339536` |
+| 1.00 | N1 disabled | 720 / 840 / 1260 | same terminal vector; diagnostics emit no summary | same | same |
+| 1.00 | N2 enabled | 720 / 840 / 1260 | same, plus `E000:3823=4` | same | same |
+| 1.05 | N0 | 720 / 840 / 1260 | 391D=1, 3983=1, 3985=0, 002A=1, 01E4=1 | `34C0:0005`, 16 zero bytes | `126908bee355934c5e357d1b5f7d210ca9d1ecb3d2ff25ca0cef02c3c4b5c5bc` |
+| 1.05 | N1 disabled | 720 / 840 / 1260 | same terminal vector; diagnostics emit no summary | same | same |
+| 1.05 | N2 enabled | 720 / 840 / 1260 | same, plus `E000:3823=4` | same | same |
+| 1.10 | N0 | 720 / 840 / 1260 | 391D=1, 3983=1, 3985=0, 002A=1, 01E4=1 | `34C0:0005`, 16 zero bytes | `f4cb0a0753a0e12079b9efbc6844fa9109da0d8de26a142844ee7686f2f75c60` |
+| 1.10 | N1 disabled | 720 / 840 / 1260 | same terminal vector; diagnostics emit no summary | same | same |
+| 1.10 | N2 enabled | 720 / 840 / 1260 | same, plus `E000:3823=4` | same | same |
+
+N0 is worker `e43d9af7d07de9ab48bfda0b86dada4e2085a5a83a1f5a234428a82e2ba0f1c2`. N1 and N2 are the same worker, `4844fee9833ec1a05bd119588132f53ea93816084e93b025ba05213671d9d5a1`; only the runtime diagnostic enable switch differs. The historical vector is reproduced exactly for all three images. N1 and N2 match N0 on every available deterministic observable. No guest-state digest exists, so that field remains an instrumentation gap rather than an invented prerequisite. The external runner did not preempt any of these short deterministic runs.
+
+## B0 gate and fixed-address measurement
+
+The full A=1 comparison opens B0: N0 reproduces the historical behavior, N1 matches N0, N2 matches N1, and no wall-clock containment classified a run. The B0 mechanism is only the existing fixed-address counter at `E000:3823` (`CD 97`); it does not decode the opcode or hook INT 97 dispatch.
+
+| image | `E000:3823` executions | first/last frame or sequence |
+|---|---:|---|
+| 1.00 | 4 | not captured by the counter seam |
+| 1.05 | 4 | not captured by the counter seam |
+| 1.10 | 4 | not captured by the counter seam |
+
+The missing first/last frame and guest-sequence fields are explicit gaps. The four executions are established by the fixed-address count and are sufficient for the B0 count; no general INT97 instrumentation was introduced.
+
+## Selector provenance and current boundary
+
+The final local selector is `E000:397A JC 3984`. The branch consumes CF from the preceding `E000:3976 CALL 383A` path for non-escape terminators; a clear carry reaches `397C`/`3983`, while carry set reaches the balanced `3985` side. The escape terminators `%`, `!`, `#`, `$`, and `(` bypass that helper and branch directly from `3948`--`395A` to `3985`. Thus the exact selector instruction and its immediate producer are proven, but the ultimate source of the helper CF is not yet isolated. B0 proves that all four lookup probe sites execute on A=1; it does not by itself establish their AX values or ABI meaning.
+
+The admissible A=1 versus typed-assignment comparison is: A=1 enters the generic `34BD` callsite, reaches the non-escape helper, and selects `3983`; `A%=1` reaches the same scanner callsite and takes the `%` escape to `3985` on both scanner invocations. A fixed-address count for A!=1 was not added in this run, so an exact first divergent architectural register state is not claimed.
+
+The stack contract remains: `34BD CALL` produces `34C0`, `3922` saves `0005`, `3923` saves `002A`, `3983 RET` consumes `002A`, and `01E4 RETF` consumes `0005`/`34C0`. This is a downstream, guest-ROM control-flow consequence, not a proven emulator defect. No first incorrect emulator-produced state is known; production fix: none. The first still-unproven link is the helper's ultimate CF/data provenance and why A=1 selects the non-escape continuation.
