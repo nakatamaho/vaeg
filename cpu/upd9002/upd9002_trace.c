@@ -614,6 +614,12 @@ typedef struct {
 	uint32_t reach_002a;
 	uint32_t reach_01e4;
 	uint32_t reach_int97;
+	uint32_t reach_3816;
+	uint32_t reach_3818;
+	uint32_t reach_3821;
+	uint32_t reach_3831;
+	uint32_t reach_3835;
+	uint32_t reach_3837;
 	uint16_t reach_entry_dx;
 	uint16_t reach_entry_si;
 	uint16_t reach_entry_ds;
@@ -1192,10 +1198,13 @@ void upd9002_m74_trace_stop(void) {
 
 	if (m74_trace_state.configured && m74_trace_state.reachability) {
 		fprintf(m74_trace_state.stream,
-			"m74-reachability counts 391d=%u 3983=%u 3985=%u 002a=%u 01e4=%u int97=%u\n",
+			"m74-reachability counts 391d=%u 3983=%u 3985=%u 002a=%u 01e4=%u int97=%u 3816=%u 3818=%u 3821=%u 3831=%u 3835=%u 3837=%u\n",
 			m74_trace_state.reach_391d, m74_trace_state.reach_3983,
 			m74_trace_state.reach_3985, m74_trace_state.reach_002a,
-			m74_trace_state.reach_01e4, m74_trace_state.reach_int97);
+			m74_trace_state.reach_01e4, m74_trace_state.reach_int97,
+			m74_trace_state.reach_3816, m74_trace_state.reach_3818,
+			m74_trace_state.reach_3821, m74_trace_state.reach_3831,
+			m74_trace_state.reach_3835, m74_trace_state.reach_3837);
 		fprintf(m74_trace_state.stream,
 			"m74-reachability entry dx=%04x si=%04x ds=%04x ss=%04x sp=%04x "
 			"caller=%04x:%04x exit_ss=%04x exit_sp=%04x exit_words=%04x,%04x "
@@ -1294,6 +1303,12 @@ void upd9002_m74_trace_step_begin(void) {
 
 	if (m74_trace_state.configured && m74_trace_state.reachability &&
 		m74_trace_state.reachability_armed) {
+		if ((CPU_CS == 0xe000) && (CPU_IP == 0x3816)) m74_trace_state.reach_3816++;
+		if ((CPU_CS == 0xe000) && (CPU_IP == 0x3818)) m74_trace_state.reach_3818++;
+		if ((CPU_CS == 0xe000) && (CPU_IP == 0x3821)) m74_trace_state.reach_3821++;
+		if ((CPU_CS == 0xe000) && (CPU_IP == 0x3831)) m74_trace_state.reach_3831++;
+		if ((CPU_CS == 0xe000) && (CPU_IP == 0x3835)) m74_trace_state.reach_3835++;
+		if ((CPU_CS == 0xe000) && (CPU_IP == 0x3837)) m74_trace_state.reach_3837++;
 		if ((CPU_CS == 0xe000) && (CPU_IP == 0x3823))
 			m74_trace_state.reach_int97++;
 		if ((CPU_CS == 0xe000) && (CPU_IP == 0x391d)) {
