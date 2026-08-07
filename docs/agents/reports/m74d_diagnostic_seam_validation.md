@@ -134,3 +134,94 @@ measurement code; no INT 97 vector/opcode hook was added. A future run must firs
 reproduce exact R1 or explain the build/invocation identity difference, then run
 R2 and R3 under a runner that does not classify external wall-clock interruption
 as guest termination.
+
+
+## Historical versus reconstructed baseline
+
+The historical exact worker remains unavailable. The clean reconstruction from
+ac86f33 is N0, worker SHA-256
+e43d9af7d07de9ab48bfda0b86dada4e2085a5a83a1f5a234428a82e2ba0f1c2. The current
+diagnostic-capable worker is N1/N2, SHA-256
+4844fee9833ec1a05bd119588132f53ea93816084e93b025ba05213671d9d5a1. N1 and N2
+are the same executable; only runtime diagnostic environment differs.
+
+The short deterministic prompt-only gate used VAEG_HEADLESS_MAX_FRAMES=900,
+model va, the same ROM root, the corresponding boot-only disk, --nowait, and
+BASIC / @prompt / @exit. It observed first Ok at frame 720 and exited at frame
+840 for every N0/N1/N2 run on 1.00, 1.05, and 1.10. The N2 fixed-address
+counter output before first Ok was 391D=0, 3983=0, 3985=0, 002A=0, 01E4=2,
+INT97=0 on the measured runs; the extra 01E4 events are startup activity and
+not the command-specific A0 arm.
+
+The 1.05 short-gate TVRAM digest was identical for N0, N1, and N2:
+c6ff29f6852e02e822ce3ea628817a0fbe15bbb832701d734b3d269ac43044b5.
+The 1.00 and 1.10 short-gate runs recorded the same prompt signature and frame
+result, but TVRAM files were not captured in that gate; that is an evidence gap,
+not an inferred equality. No stable full guest-state digest is available.
+
+This establishes a usable reconstructed behavioral baseline for the first-Ok
+boundary. It does not recreate the historical executable bit-for-bit and does
+not yet validate the longer A=1 diagnostic run.
+
+## Symbolic stack ledger
+
+Let S0 be SP immediately before E000:34BD CALL 391D. The admissible A0 trace
+has SS=7FE0 and SP=01F6 on entry to E000:391D, so S0=01F8. The stack ledger is:
+
+| Step | Instruction | SP after | Top words / provenance |
+|---|---|---:|---|
+| 1 | before CALL at 34BD | 01F8 | caller frame |
+| 2 | near CALL 391D | 01F6 | 34C0, produced by the near return address |
+| 3 | 3922 PUSH DX | 01F4 | 0005, then 34C0; DX was 0005 |
+| 4 | 3923 PUSH SI | 01F2 | 002A, 0005, 34C0; SI was 002A |
+| 5 | 3983 RET | 01F4 | consumes 002A as near IP; 0005, 34C0 remain |
+| 6 | 002A near JMP 0180 | 01F4 | no stack change |
+| 7 | 0180 prologue | 01EE | pushes ES, DS, DI; nested CALLs are balanced |
+| 8 | 01DA-01E3 epilogue | 01F4 | pops DI, saved DS/ES and restores the original depth |
+| 9 | 01E4 RETF | 01F8 | consumes IP=0005 at 01F4 and CS=34C0 at 01F6 |
+
+The bounded 002A-to-01E4 disassembly is:
+
+- 002A: E9 53 01, a near JMP to 0180;
+- 0180: STI, PUSH ES, PUSH DS, PUSH DI, setup/call sequence, then a common
+  epilogue at 01DA which restores all three saved words;
+- 01E4: CB RETF.
+
+No operation in this path reorders the two words left by 3983. Therefore 34C0
+becomes CS: the exact producer is the near CALL return address at 34BD, and the
+exact consumer is the CS pop performed by RETF at 01E4. This proves the observed
+stack contract; it does not prove that selecting 3983 for A=1 is semantically
+intended.
+
+## 3983 versus 3985 selector
+
+The local tail has two selector classes. Terminators %, !, #, $, and ( branch
+from 3948-395A to 3985, restoring SI and DX and returning CF=1. For a non-escape
+terminator the path reaches 3973/3976 and calls 383A. At 397A, JC 3984 consumes
+the helper carry result: carry set takes the balanced 3985-side return path;
+carry clear reaches 397C-3983, which consumes the remaining parser words and
+returns through the saved SI as a near IP. The immediate selector is therefore
+3948-395A for escape forms, or the CF produced by 383A for the non-escape form.
+The ultimate data source of that CF is not proven in this track; it is the next
+runtime B0/C investigation boundary.
+
+Existing admissible comparison remains: A=1 enters 34BD and reaches 3983;
+A%=1 enters the same generic callsite and takes the percent escape to 3985 on
+both observed scanner invocations. No new runtime data is synthesized for the
+second invocation's caller.
+
+## Revised causal chain and remaining gate
+
+Proven chain:
+
+34BD near CALL creates return IP 34C0 -> wrapper saves DX=0005 and SI=002A ->
+3983 RET consumes 002A -> 002A JMPs to 0180 -> the balanced 0180 path restores
+stack depth -> 01E4 RETF consumes IP=0005 and CS=34C0 -> execution enters
+34C0:0005, whose observed bytes are zero.
+
+The first still-unproven link is why the A=1 parser state selects the 3983
+continuation rather than returning through the normal 3985/caller path. No
+production correction is authorized by this static proof.
+
+Track A short prompt gate: PASS for N0, N1, and N2 on all three boot-only
+versions. Full A=1 N0/N1/N2 equivalence and B0 E000:3823 counting remain open.
