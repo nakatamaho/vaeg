@@ -275,6 +275,13 @@ The earlier project note assigning `0AC8` to `391D` was wrong; it conflated the
 separate `39AD` call. M74b's `0AC3` listing was correct. The VA2 parser at
 `E000:077A` also contains `9A C3 0A 40 10`.
 
+A historical diagnostic changed the original VA1 byte at `E000:39B3` from
+`80` to `C0`, changed the instruction length, and manufactured an artificial
+branch into the continuation chain. No M74c run contains that substitution:
+the final worker executed the original `0A 80 74 67` instruction bytes. The
+current `A=1` path reaches the recorded chain independently, so C1--C4 do not
+reuse continuation, screen, or zero-page evidence from the artificial run.
+
 ### VA2 census
 
 | Stage | LIVE | STUB | OTHER | `0AC3` |
