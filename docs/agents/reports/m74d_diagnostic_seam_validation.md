@@ -88,3 +88,49 @@ validation run is deferred until R1/R2/R3 has a reproducible runner and exact
 A0 worker artifact.
 
 G74 remains not approved.
+
+
+## Static analysis while runtime isolation is blocked
+
+### S1: post-3985 neighborhood
+
+The successful scanner return is a normal near return with CF=1. The caller
+continues through the code following E000:34C0; the failing A=1 path instead
+uses the 3983 RET, consumes the saved SI word as IP, and enters E000:002A.
+The existing trace proves the resulting tail E000:002A -> E000:0180 -> E000:01E4
+RETF. The 3985 path therefore returns to its caller; 3983 displaces that caller
+continuation. No static evidence here establishes whether the displaced path
+or the 3983 continuation is the intended BASIC semantic.
+
+### S2: E000:34A0-34BD provenance
+
+The real callsite is E000:34BD, encoded E8 5D 04, so the near CALL pushes
+post-CALL IP 34C0. Existing trace evidence records E000:3922 PUSH DX with
+DX=0005 and E000:3923 PUSH SI with SI=002A. SI=002A is loaded by E000:33BC;
+DX=0005 is already present before the wrapper and is preserved through the
+observed path. The final stack words are therefore guest-produced values, not
+RETF or far-CALL decoder artifacts.
+
+### S3: E000:33B0-33D0
+
+The relevant static producer is E000:33BC MOV SI,002A. Its direct effect is a
+literal SI value used by the later near RET path. The surrounding path preserves
+DX and reaches E000:34BD. The existing static callsite census identifies five
+real CALL 391D sites; only 34BD is dynamically exercised in the admissible A0
+runs. No production interpretation of 002A as a module owner is made.
+
+## Updated isolation conclusion
+
+R1/R2/R3 remain unresolved. The exact A0 executable is unavailable; the clean
+rebuild from ac86f33 produced e43d9af7d07de9ab48bfda0b86dada4e2085a5a83a1f5a234428a82e2ba0f1c2,
+not the recorded 34bfd64a... worker. Attempts using the current worker were
+interrupted by the external command wait before the guest deterministic bound;
+this is not classified as a guest result. No evidence currently proves disabled
+seam non-equivalence, enabled seam perturbation, seam cost, or a guest
+regression.
+
+B0 remains gated. The fixed-address E000:3823 counter is the only B0-specific
+measurement code; no INT 97 vector/opcode hook was added. A future run must first
+reproduce exact R1 or explain the build/invocation identity difference, then run
+R2 and R3 under a runner that does not classify external wall-clock interruption
+as guest termination.
