@@ -8,10 +8,11 @@ No production correction is claimed.
 | Item | Value |
 | --- | --- |
 | Branch | `topic/m74-va1-basic-command-hang` |
-| Starting SHA | `61d142b5d4a20e07675d669f8c0be21facb0be3d` |
+| Starting SHA | `87629924538836fd2ab29c4c8337f6bd41aac523` |
 | Approved G73 predecessor | `766a132ff6d66e335fe9bb1d0082d777a4a8fe14` |
 | Task authority SHA | `976c33956d585560223561bf6694c6a26ee8cedd810cffed1b60a59189014ea1` |
-| Evaluated SHA | e49641b4412f3127e2dbe3535dddcf2a1799583e |
+| Evaluated SHA | `db6534d56cf72a7ed4c911f5bca6a39b24e0dfb1` before the report commit |
+| Diagnostic commit SHA | `db6534d56cf72a7ed4c911f5bca6a39b24e0dfb1` |
 | Production-fix SHA | None |
 
 The worktree already contained uncommitted M74 diagnostic changes when this
@@ -161,8 +162,8 @@ SS:SP       bytes        value
 7FE0:01F6   C0 34        CS = 34C0
 ```
 
-The first architecturally invalid transition is this `RETF` to
-`34C0:0005`. The later `9A` is an immediate far pointer and does not read
+The first observed semantically unexpected continuation is this `RETF` to
+`34C0:0005`; the `RETF` itself is architecturally valid. The later `9A` is an immediate far pointer and does not read
 `9819:E309` from the stack. In the exact trace it is preceded by `F0` at
 `34C0:4D6D`; the `9A` decoder then transfers to `9819:E309`. This later
 transfer is a consequence of executing the unconstructed page, not proof of
@@ -251,7 +252,7 @@ The current strongest boundary is:
 
 ```text
 last proven-good: the guest's normal explicit-type completion path
-first proven-bad: E000:01E4 RETF consumes 0005:34C0
+first observed bad continuation: E000:01E4 RETF consumes 0005:34C0
 producer proven: E000:3922 PUSH DX and E000:34BD CALL 391D create the words
 producer still unresolved: the higher-level reason the 34C0 continuation is
 not populated or should not be entered
@@ -272,9 +273,10 @@ These experiments are diagnostic only. No production behavior was changed.
 
 ## First incorrect state and root-cause status
 
-The first proven incorrect guest-visible state is the execution of a far
-return frame that points at `34C0:0005`, followed by execution of an
-unconstructed zero page. The CPU implementation consumes that frame correctly.
+The first observed bad continuation is execution of a far return frame that
+points at `34C0:0005`, followed by execution of an unconstructed zero page.
+This is not yet a proven CPU architectural error: the CPU implementation
+consumes the frame correctly.
 
 The causal chain is currently bounded as:
 
@@ -313,7 +315,7 @@ FPU, or BCD correction would be speculative and is explicitly out of scope.
 | `vaeg --idp-m69-status-composition` | passed |
 | `vaeg --upd9002-m70-prefix-string` | passed |
 | `git diff --check` | passed |
-| `ctest -L romless` | 58 passed, 12 failed due protected-history/git-config checks against intentional diagnostic edits, 1 skipped external SST test; not a clean gate |
+| `ctest -L romless` with isolated Git environment | 68 passed, 2 failed, 1 skipped; only protected-deletion tests failed because the pre-existing M74 branch changes `cpu/upd9002/upd9002_ops.mcr`; no new diagnostic file was the cause |
 
 The CTest failures are not presented as passing. Several repository checks
 invoke Git without the isolated configuration needed by this sandbox, and the
@@ -338,7 +340,8 @@ docs/agents/reports/m74_va1_basic_command_hang.md
 They add opt-in, bounded instruction/control-transfer/stack/memory-write
 diagnostics and this report. They do not modify ROMs, disk images, CPU
 instruction semantics, FDC behavior, timing, memory mapping policy, state
-serialization, or later milestone work.
+serialization, or later milestone work. The current continuation does not
+modify `cpu/upd9002/upd9002_ops.mcr`; the protected-deletion failure is an\existing branch-state condition from earlier M74 work.
 
 ## Remaining risks and next boundary
 
@@ -356,6 +359,306 @@ The next investigation must compare the full semantic event stream for
 lookup/allocation, and continuation ownership. It should also verify the
 runtime image/loader contract for `34C0` without changing CPU control-flow
 semantics.
+
+
+## E000:391D static contract
+
+The complete routine from `E000:391D` through `E000:3988` is a parser/helper
+routine, not a CPU far-return primitive. Its relevant normal success path is:
+
+```text
+391D  CALL FAR 1040:0AC3
+3922  PUSH DX
+3923  PUSH SI
+3924  ... parser/helper loop ...
+3973  PUSH SI
+3976  CALL 383A
+3979  PUSH DS
+397A  JC 3984
+397C  POP CX
+397D  POP BX
+397E  POP AX
+397F  CLC
+3980  MOV AX,0081
+3983  RET
+```
+
+On the observed `A=1` path, `SI=002A` is pushed by `3923`, later survives
+as the word consumed by the intermediate near `RET`, and sends execution to
+`E000:002A`. `DX=0005` is pushed above the near-CALL return word and survives
+as the low word consumed by the final `RETF`. The near call at `E000:34BD`
+pushes `34C0`; that word remains below `0005` until `E000:01E4` consumes it
+as the final CS. The observed stack contract is therefore:
+
+```text
+before CALL 391D:       caller stack
+CALL 391D:              [34C0]
+PUSH DX:                [0005, 34C0]
+PUSH SI:                [002A, 0005, 34C0]
+intermediate RET:       consumes 002A, leaves [0005, 34C0]
+final RETF:             IP=0005, CS=34C0
+```
+
+This is a deliberate stack construction in the observed guest code. It does
+not prove that the resulting continuation is validly populated, nor that the
+`A=1` caller should have selected this success path.
+
+## E000:391D call-site cross-reference
+
+A real instruction-boundary scan of all eight relevant ROM banks found five
+near-call references to `E000:391D`. No data-only byte matches are included.
+
+| Caller | CALL bytes | post-CALL IP | observed setup/context | predicted thunk target | target status |
+| --- | --- | ---: | --- | --- | --- |
+| `E000:34BD` | `E8 5D 04` | `34C0` | `CALL 3705`; parser/error continuation | `34C0:DX` | observed `34C0:0005`, page zero |
+| `E000:43B2` | `E8 68 F5` | `43B5` | after `CALL 3ED2`; error retry path | `43B5:DX` | not dynamically exercised |
+| `E000:49F9` | `E8 21 EF` | `49FC` | after `CALL 3ED2`; error retry path | `49FC:DX` | not dynamically exercised |
+| `E000:75A8` | `E8 72 C3` | `75AB` | after `CALL 3ED2`; error retry path | `75AB:DX` | not dynamically exercised |
+| `E000:7F2A` | `E8 F0 B9` | `7F2D` | after `CALL 3753`; parser path | `7F2D:DX` | not dynamically exercised |
+
+The static scan supports a generic parser/error thunk interpretation. It does
+not support treating `34BD` as a BASIC-specific hard-coded entry.
+
+## Successful thunk invocations
+
+The trace-only entry hook recorded six invocations across six bounded command
+runs: two `A=1` runs, two `A!=1` runs, one `? 1` run, and one additional
+`A=1` writer-watch run. Every invocation entered at `E000:34BD`; no alternate
+static callsite was dynamically observed.
+
+The fully instrumented `A=1` invocation was:
+
+```text
+m74-thunk-entry seq=1110791 caller=e000:34bd return_ip=34c0
+  dx=0005 si=002a ss=7fe0 sp=01f6 stack_phys=7fff6
+  stack=c0342a00fd330000
+m74-thunk-stack-step seq=1110793 ip=3922 sp=01f6 post_sp=01f4
+  post=e000:3923 stack_after=0500c0342a00fd33
+m74-thunk-stack-step seq=1110794 ip=3923 sp=01f4 post_sp=01f2
+  post=e000:3924 stack_after=2a000500c0342a00
+m74-thunk-stack-step seq=1113600 ip=3983 sp=01f2 post_sp=01f4
+  post=e000:002a stack_before=2a000500c0342a00
+m74-thunk-helper-return seq=1113600 path=success post=e000:002a
+m74-thunk-retf seq=1113635 entry_seq=1110791 from=e000:01e4 to=34c0:0005
+  target_phys=34c05 target_bytes=00000000000000000000000000000000
+```
+
+The omitted intermediate parser pushes are present in the same trace: at
+`3973` the stack includes `0001,002A,0005,34C0`, and at `3979` it includes
+`E72A,2B00,0100,2A00`; they are consumed before the final trampoline return.
+The exact first producer of the intermediate parser-local word is not needed
+to establish the final `DX`/return-IP contract and remains outside the proven
+root-cause boundary.
+
+The `A!=1` comparison entered the same thunk with the same `DX=0005` and
+`SI=002A`, but returned through the failure path:
+
+```text
+m74-thunk-helper-return seq=1198929 path=failure post=e000:34c0
+  post_sp=01f8 flags=0245
+```
+
+It did not reach `3973`, `3983`, or the final `RETF`. This is evidence that
+the divergence occurs in the helper/parser success decision before the bad
+continuation, not in the CPU's final far-return operation.
+
+## 34C0 lifetime snapshots
+
+The lifecycle watcher sampled the complete logical 64 KiB segment and separately
+watched the translated continuation page. The exact available samples are:
+
+| Stage | Trace label | Segment FNV-1a64 | nonzero bytes | `34C0:0005` |
+| --- | --- | --- | ---: | --- |
+| T0 reset | `reset` | `eb05052ea5b62325` | 0 | all zero |
+| T1 after boot/BASIC entry, before first command | `headless-before-command` | `13cbad5468436587` | 85 | all zero |
+| T2 immediately before BASIC launch | not separately emitted | unavailable | unavailable | not separately emitted |
+| T3 after first stable prompt wait | `headless-before-wait` | `f9df67237b51f885` | 88 | all zero |
+| T4 immediately before `A=1` | `before-391d` | `f9df67237b51f885` | 88 | all zero |
+| T5 immediately before final `RETF` | `before-01e4` | `f9df67237b51f885` | 88 | all zero |
+| T6 after entering `34C0:0005` | post-RETF lifecycle sample | `f9df67237b51f885` | 88 | all zero |
+| T7 after late zero-filled execution | final `headless-before-wait` | `f9df67237b51f885` | 88 | all zero |
+
+T2 was not separately timestamped by the existing headless lifecycle hook;
+T1 is the first post-boot/pre-command sample and the subsequent samples are
+explicitly bounded. This is recorded as an instrumentation gap, not filled
+with an inferred digest. The `A!=1` run likewise retained a zero continuation
+page; its segment digest at the final pre-command boundary was
+`682a5dd0c2e806b5` with 92 nonzero bytes.
+
+## 34C0 nonzero-range map
+
+At T1 the nonzero ranges in logical segment `34C0` were:
+
+```text
+4d5c-4d60, 4d68-4d6b, 4d6d-4d79, 4d7b-4d7d,
+b3a4-b3a5, b3a7-b3a8, b3aa, b3ac-b3ae, b3b0-b3b1,
+b3b4-b3b5, b3b7-b3bc, b3be, b3c0, b3c2-b3c4,
+b3c6-b3ca, b3cc, b3ce-b3d0, b3d2-b3d4, b3d6-b3da,
+b3de-b3df, b3e2, b3e4, b3e6-b3e7, b3e9-b3ea,
+b3ec, b3ee, b3f1-b3f5, b3f7-b3fb.
+```
+
+The later sample also contains `516a-516b,516d`. The bytes at `4D6D` are
+`F0 9A 09 E3 19 98`, but offset `0005` is not in any nonzero range. Thus
+`34C0:0005` and `34C0:4D6D` are distinct evidence: one is an unpopulated
+continuation page and the other is pre-existing work-area content encountered
+only after the bad entry.
+
+## 34C0 first-writer provenance
+
+A bounded instruction-boundary watch and host-write watch covered the physical
+range for `34C0:0000`--`34C0:00FF` from reset through the available boot
+lifecycle. It recorded no write to physical `34C00`--`34CFF`, including the
+continuation offset `34C05`, from reset through the failure. The target range
+therefore remains zero rather than being cleared during `A=1`.
+
+The same watcher recorded writes in the distinct physical range corresponding
+to the later `4D6D` bytes, from guest BIOS/work-area instructions including
+`F000` and `E000` paths. Those writes explain the nonzero late bytes but do
+not populate `34C0:0005`. No DMA, disk transfer, host initialization, or
+bulk-copy writer to the `34C0` page was observed.
+
+## Continuation ownership
+
+No production source, loader table, overlay descriptor, resident-module table,
+or ROM-to-RAM copy descriptor in the repository identifies `34C0` as an owned
+runtime module. The PC-Engine boot documentation identifies other staged
+runtime locations and explicitly leaves the complete `PCENGINE.SYS` load/
+relocation path unresolved; it does not establish `34C0` ownership. The current
+answer is therefore `unknown/unresolved`, not “BASIC core” and not “CPU RAM
+that should be pre-filled.”
+
+## Expected-image/source search
+
+The local reference media was searched for address/table evidence and for a
+candidate block whose loader destination is `34C0`. No source descriptor or
+verified expected continuation image was found. Private reference asset names,
+paths, and digests are intentionally omitted from this repository report under
+the integration-asset policy. No ROM or disk bytes were copied into Git.
+
+No known-good repository revision with a reproducible VA1 `A=1` -> `Ok` result
+was identified. Consequently no historical build comparison or blind bisect
+was performed.
+
+## A=1 versus A!=1 pre-thunk divergence
+
+The two traces converge at the thunk entry:
+
+```text
+A=1:   E000:34BD -> 391D, DX=0005, SI=002A -> helper success -> 3983 -> 002A -> RETF
+A!=1:  E000:34BD -> 391D, DX=0005, SI=002A -> helper failure -> E000:34C0
+```
+
+The first proven semantic difference is the helper/parser success decision
+inside `E000:391D`, before the `3973`/`3976` success-only path. The current
+bounded traces do not identify the exact table index, variable descriptor, or
+source value that makes that decision differ. Therefore default-type dispatch
+remains a ranked hypothesis, not a proven producer defect.
+
+## DEFINT/DEFSNG/DEFDBL results
+
+The robust prompt-aware headless script was used so a stale initial `Ok` could
+not be mistaken for completion. `DEFINT A-Z` was echoed, but no cleared-and-
+reappeared `Ok` prompt was observed within the bounded wait; `A=1` was not
+injected after it. The decoded screen ended with:
+
+```text
+           88-                  v3.0
+Copyright (C) 1987 NEC Corporation
+336520 bytes free
+Ok
+DEFINT A-Z
+```
+
+The `DEFSNG A-Z` and `DEFDBL A-Z` runs likewise injected the declaration after
+the initial prompt but did not produce a second verified prompt before the
+bounded runs ended. No `A=1` result is claimed for either. These are unresolved
+observations, not evidence that the declarations themselves are incorrect.
+
+## Known-good revision comparison
+
+No earlier revision was demonstrated to pass the required external-asset
+criterion `VA1 N88 BASIC: A=1 returns to Ok`. The historical report and current
+branch provide diagnostic evidence but not a deterministic known-good endpoint.
+A source-level history comparison would therefore not distinguish an emulator
+regression from an unchanged integration/runtime-image contract.
+
+## Thunk hypothesis disposition
+
+```text
+E000:391D thunk hypothesis: PROVEN for the observed invocation contract.
+```
+
+The proof consists of the complete static stack path, six dynamic entries at
+the same generic callsite, the successful `A=1` invocation showing
+`CALL-return-IP=34C0`, `DX=0005`, and final `RETF 0005:34C0`, and the matching
+`A!=1` failure path before the final `RETF`. The result proves that the RETF
+transition is intentional guest stack construction and is architecturally
+correct in this execution. It does not prove that `34C0:0005` is supposed to
+contain executable continuation bytes or that `A=1` should select this path.
+
+## Updated first incorrect operation
+
+The first incorrect operation is not proven. The first observed bad
+continuation is `E000:01E4 RETF -> 34C0:0005`; the earliest unresolved producer
+boundary is the helper/parser success decision inside `E000:391D` or the
+missing runtime initialization/loader operation that would own `34C0:0005`.
+No production source operation can safely be named until one of those two
+boundaries is resolved.
+
+## Updated causal chain
+
+The strongest evidence-supported chain is:
+
+```text
+A=1 selects a helper/parser success path
+        -> E000:34BD CALL 391D intentionally contributes CS=34C0
+        -> DX=0005 is intentionally retained as the final IP
+        -> E000:01E4 correctly executes RETF to 34C0:0005
+        -> 34C0:0005 is zero from reset through failure
+        -> execution falls through unrelated pre-existing 34C0 data
+        -> F0 9A ... performs its encoded immediate far CALL
+        -> zero-filled execution follows at 9819:E309
+```
+
+The causal chain stops at the unresolved question whether the success-path
+selection is wrong or the continuation owner/loader is missing. A speculative
+CPU, RETF, LOCK, FPU, BCD, or mapper correction is not justified.
+
+## Next production boundary
+
+The next bounded task is to identify the helper/parser decision value and its
+producer on the `A=1` versus `A!=1` paths, then independently identify the
+owner and expected source of `34C0:0005`. Only a concrete failure at one of
+those production operations may receive a focused regression or correction.
+No regression and no production fix were added in this continuation.
+
+## Diagnostic artifacts and source scope
+
+The current trace-only continuation changes are in:
+
+```text
+cpu/upd9002/memory.c
+cpu/upd9002/upd9002_core.c
+cpu/upd9002/upd9002_trace.c
+cpu/upd9002/upd9002_trace.h
+sdl2/headless_input.c
+sdl2/headless_input.h
+```
+
+They are disabled unless the M74 diagnostic controls are armed, do not alter
+CPU behavior, and do not embed ROM/disk data. Diagnostic artifact hashes are:
+
+```text
+worker: 7e47c4da86a50e5013d481e186909e032bf37fd73632541730cffe390b5fdf98
+A=1 stack trace: b4b9eb8633870670fce7c441d3593f3229db069e6028ddf8bde1b5061a2f8d97
+A!=1 stack trace: 8f297ecc9809f0d8c59496e8d635c7e58aa896736759e4c0bec7d98b081708c6
+writer-watch trace: 6ecabd583bd94fe91b155e1650b7f83cc3c6ad6cdcaea59e068eec2bfefce1df
+DEFINT screen dump: 832c47900a1dac1d80287c8a9675fe08b6a6bd175b6030ff4c93f31dd74486cd
+```
+
+The raw traces and screen dump remain outside Git. The report records their
+hashes only as stable evidence identifiers.
 
 ## Human G74 checklist
 
