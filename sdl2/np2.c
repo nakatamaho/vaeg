@@ -1490,6 +1490,7 @@ static BOOL smoke_after_frame(BOOL smoke, UINT frames, BOOL detect_screen,
 
 	if (headless_input &&
 		(headless_input_script_after_frame(input_script, frames) != SUCCESS)) {
+		upd9002_m74_trace_stop();
 		taskmng_exit();
 		return(FAILURE);
 	}

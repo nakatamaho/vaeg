@@ -606,6 +606,30 @@ typedef struct {
 	uint16_t thunk_sp;
 	uint32_t thunk_stack_physical;
 	uint8_t thunk_stack[8];
+	BOOL reachability;
+	BOOL reachability_armed;
+	uint32_t reach_391d;
+	uint32_t reach_3983;
+	uint32_t reach_3985;
+	uint32_t reach_002a;
+	uint32_t reach_01e4;
+	uint16_t reach_entry_dx;
+	uint16_t reach_entry_si;
+	uint16_t reach_entry_ds;
+	uint16_t reach_entry_ss;
+	uint16_t reach_entry_sp;
+	uint16_t reach_entry_caller_cs;
+	uint16_t reach_entry_caller_ip;
+	uint16_t reach_exit_ss;
+	uint16_t reach_exit_sp;
+	uint16_t reach_exit_word0;
+	uint16_t reach_exit_word1;
+	uint16_t reach_retf_ip;
+	uint16_t reach_retf_cs;
+	uint8_t reach_retf_bytes[16];
+	BOOL reach_391d_captured;
+	BOOL reach_3983_captured;
+	BOOL reach_01e4_captured;
 } UPD9002_M74_TRACE_STATE;
 
 static UPD9002_M74_TRACE_STATE m74_trace_state;
@@ -1098,6 +1122,7 @@ void upd9002_m74_trace_configure(FILE *stream) {
 	const char *arm_value;
 	const char *watch_value;
 	const char *vector_value;
+	const char *reachability_value;
 	char *end;
 	unsigned long limit;
 	unsigned long arm_command;
@@ -1107,6 +1132,7 @@ void upd9002_m74_trace_configure(FILE *stream) {
 	arm_value = getenv("VAEG_M74_CPU_TRACE_COMMAND");
 	watch_value = getenv("VAEG_M74_LIFECYCLE_WATCH");
 	vector_value = getenv("VAEG_M74_VECTOR_WATCH");
+	reachability_value = getenv("VAEG_M74_REACHABILITY");
 	if ((stream == NULL) || (value == NULL) || (value[0] == '\0')) {
 		return;
 	}
@@ -1135,6 +1161,9 @@ void upd9002_m74_trace_configure(FILE *stream) {
 	m74_trace_state.vector_watch =
 		(vector_value != NULL) && (vector_value[0] != '\0') &&
 		(strcmp(vector_value, "0") != 0);
+	m74_trace_state.reachability =
+		(reachability_value != NULL) && (reachability_value[0] != '\0') &&
+		(strcmp(reachability_value, "0") != 0);
 	m74_trace_state.arm_command = 0;
 	if ((arm_value != NULL) && (arm_value[0] != '\0')) {
 		errno = 0;
@@ -1160,6 +1189,31 @@ void upd9002_m74_trace_configure(FILE *stream) {
 
 void upd9002_m74_trace_stop(void) {
 
+	if (m74_trace_state.configured && m74_trace_state.reachability) {
+		fprintf(m74_trace_state.stream,
+			"m74-reachability counts 391d=%u 3983=%u 3985=%u 002a=%u 01e4=%u\n",
+			m74_trace_state.reach_391d, m74_trace_state.reach_3983,
+			m74_trace_state.reach_3985, m74_trace_state.reach_002a,
+			m74_trace_state.reach_01e4);
+		fprintf(m74_trace_state.stream,
+			"m74-reachability entry dx=%04x si=%04x ds=%04x ss=%04x sp=%04x "
+			"caller=%04x:%04x exit_ss=%04x exit_sp=%04x exit_words=%04x,%04x "
+			"retf=%04x:%04x bytes=",
+			m74_trace_state.reach_entry_dx, m74_trace_state.reach_entry_si,
+			m74_trace_state.reach_entry_ds, m74_trace_state.reach_entry_ss,
+			m74_trace_state.reach_entry_sp,
+			m74_trace_state.reach_entry_caller_cs,
+			m74_trace_state.reach_entry_caller_ip,
+			m74_trace_state.reach_exit_ss,
+			m74_trace_state.reach_exit_sp,
+			m74_trace_state.reach_exit_word0,
+			m74_trace_state.reach_exit_word1,
+			m74_trace_state.reach_retf_cs,
+			m74_trace_state.reach_retf_ip);
+		for (uint32_t index = 0; index < sizeof(m74_trace_state.reach_retf_bytes); index++)
+			fprintf(m74_trace_state.stream, "%02x", m74_trace_state.reach_retf_bytes[index]);
+		fputc('\n', m74_trace_state.stream);
+	}
 	if (m74_trace_state.configured) {
 		if (m74_trace_state.active) {
 			m74_trace_dump("shutdown");
@@ -1201,6 +1255,19 @@ void upd9002_m74_trace_arm(uint32_t command_number) {
 	m74_trace_state.stable_loop_has_predecessor2 = FALSE;
 	m74_trace_state.stable_loop_count = 0;
 	m74_trace_state.thunk_active = FALSE;
+	if (m74_trace_state.reachability) {
+		m74_trace_state.reachability_armed = TRUE;
+		m74_trace_state.reach_391d = 0;
+		m74_trace_state.reach_3983 = 0;
+		m74_trace_state.reach_3985 = 0;
+		m74_trace_state.reach_002a = 0;
+		m74_trace_state.reach_01e4 = 0;
+		m74_trace_state.reach_391d_captured = FALSE;
+		m74_trace_state.reach_3983_captured = FALSE;
+		m74_trace_state.reach_01e4_captured = FALSE;
+		ZeroMemory(m74_trace_state.reach_retf_bytes,
+			sizeof(m74_trace_state.reach_retf_bytes));
+	}
 	fprintf(m74_trace_state.stream,
 		"m74-cpu-trace armed command=%u cs=%04x ip=%04x ss=%04x sp=%04x "
 		"stack_phys=%05x stack=", command_number, CPU_CS, CPU_IP,
@@ -1223,6 +1290,58 @@ void upd9002_m74_trace_step_begin(void) {
 	uint32_t index;
 	uint32_t address;
 	int32_t before_clock;
+
+	if (m74_trace_state.configured && m74_trace_state.reachability &&
+		m74_trace_state.reachability_armed) {
+		if ((CPU_CS == 0xe000) && (CPU_IP == 0x391d)) {
+			m74_trace_state.reach_391d++;
+			if (!m74_trace_state.reach_391d_captured) {
+				m74_trace_state.reach_391d_captured = TRUE;
+				m74_trace_state.reach_entry_dx = CPU_DX;
+				m74_trace_state.reach_entry_si = CPU_SI;
+				m74_trace_state.reach_entry_ds = CPU_DS;
+				m74_trace_state.reach_entry_ss = CPU_SS;
+				m74_trace_state.reach_entry_sp = CPU_SP;
+				m74_trace_state.reach_entry_caller_cs = CPU_CS;
+				m74_trace_state.reach_entry_caller_ip =
+					(uint16_t)(upd9002_memoryread(
+						(SS_BASE + CPU_SP) & CPU_ADRSMASK) |
+					(upd9002_memoryread(
+						((SS_BASE + CPU_SP) + 1) & CPU_ADRSMASK) << 8));
+			}
+		}
+		if ((CPU_CS == 0xe000) && (CPU_IP == 0x3983)) {
+			m74_trace_state.reach_3983++;
+			if (!m74_trace_state.reach_3983_captured) {
+				m74_trace_state.reach_3983_captured = TRUE;
+				m74_trace_state.reach_exit_ss = CPU_SS;
+				m74_trace_state.reach_exit_sp = CPU_SP;
+				m74_trace_state.reach_exit_word0 =
+					(uint16_t)(upd9002_memoryread(
+						(SS_BASE + CPU_SP) & CPU_ADRSMASK) |
+					(upd9002_memoryread(
+						((SS_BASE + CPU_SP) + 1) & CPU_ADRSMASK) << 8));
+				m74_trace_state.reach_exit_word1 =
+					(uint16_t)(upd9002_memoryread(
+						((SS_BASE + CPU_SP) + 2) & CPU_ADRSMASK) |
+					(upd9002_memoryread(
+						((SS_BASE + CPU_SP) + 3) & CPU_ADRSMASK) << 8));
+			}
+		}
+		if ((CPU_CS == 0xe000) && (CPU_IP == 0x3985)) m74_trace_state.reach_3985++;
+		if ((CPU_CS == 0xe000) && (CPU_IP == 0x002a)) m74_trace_state.reach_002a++;
+		if ((CPU_CS == 0xe000) && (CPU_IP == 0x01e4)) {
+			m74_trace_state.reach_01e4++;
+			if (!m74_trace_state.reach_01e4_captured) {
+				uint32_t physical = (SS_BASE + CPU_SP) & CPU_ADRSMASK;
+				m74_trace_state.reach_01e4_captured = TRUE;
+				m74_trace_state.reach_retf_ip = (uint16_t)(upd9002_memoryread(physical) | (upd9002_memoryread(physical + 1) << 8));
+				m74_trace_state.reach_retf_cs = (uint16_t)(upd9002_memoryread(physical + 2) | (upd9002_memoryread(physical + 3) << 8));
+				for (uint32_t index = 0; index < sizeof(m74_trace_state.reach_retf_bytes); index++)
+					m74_trace_state.reach_retf_bytes[index] = (uint8_t)upd9002_memoryread(((uint32_t)m74_trace_state.reach_retf_cs << 4) + m74_trace_state.reach_retf_ip + index);
+			}
+		}
+	}
 
 	if (m74_trace_state.configured &&
 		m74_trace_state.lifecycle_memory_watch &&
@@ -1657,7 +1776,7 @@ void upd9002_m74_trace_memory_write(uint32_t address, uint16_t value,
 	m74_trace_vector_write_prepare(address, value, width);
 	address &= CPU_ADRSMASK;
 	end = address + width;
-	if (m74_trace_state.configured &&
+	if (m74_trace_state.configured && m74_trace_state.lifecycle_memory_watch &&
 		(((end > 0x34c00) && (address < 0x34d00)) ||
 		 ((end > 0x39960) && (address < 0x39980)))) {
 		before_clock = CPU_REMCLOCK;
@@ -1896,6 +2015,10 @@ static void m74_trace_lifecycle_snapshot(const char *label) {
 
 void upd9002_m74_trace_lifecycle(const char *label) {
 
+	if (!m74_trace_state.lifecycle_memory_watch &&
+		!m74_trace_state.vector_watch) {
+		return;
+	}
 	m74_trace_lifecycle_snapshot(label);
 	m74_trace_vector_snapshot(label);
 	if (m74_trace_state.configured && (m74_trace_state.stream != NULL)) {
