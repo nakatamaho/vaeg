@@ -406,6 +406,17 @@ void headless_input_script_initialize(HEADLESS_INPUT_SCRIPT *script) {
     script->completed = FALSE;
     script->prompt_deadline = 0;
     script->prompt_timeout_frames = HEADLESS_INPUT_PROMPT_TIMEOUT_FRAMES;
+    script->max_frames = 0;
+    timeout_value = getenv("VAEG_HEADLESS_MAX_FRAMES");
+    if ((timeout_value != NULL) && (timeout_value[0] != '\0')) {
+        errno = 0;
+        timeout_frames = strtoul(timeout_value, &timeout_end, 10);
+        if ((errno == 0) && (timeout_end != timeout_value) &&
+            (*timeout_end == '\0') && (timeout_frames >= 1) &&
+            (timeout_frames <= 0xffffffffUL)) {
+            script->max_frames = (UINT32)timeout_frames;
+        }
+    }
     timeout_value = getenv("VAEG_HEADLESS_PROMPT_TIMEOUT_FRAMES");
     if ((timeout_value != NULL) && (timeout_value[0] != '\0')) {
         errno = 0;
@@ -428,8 +439,9 @@ void headless_input_script_initialize(HEADLESS_INPUT_SCRIPT *script) {
     script->exit_requested = FALSE;
     fprintf(stderr,
         "headless-input-script waiting %u frames before first input; "
-        "prompt_timeout_frames=%u\n",
-        HEADLESS_INPUT_INITIAL_DELAY_FRAMES, script->prompt_timeout_frames);
+        "prompt_timeout_frames=%u max_frames=%u\n",
+        HEADLESS_INPUT_INITIAL_DELAY_FRAMES, script->prompt_timeout_frames,
+        script->max_frames);
 }
 
 BOOL headless_input_script_after_frame(HEADLESS_INPUT_SCRIPT *script,
@@ -439,8 +451,15 @@ BOOL headless_input_script_after_frame(HEADLESS_INPUT_SCRIPT *script,
     UINT32 prompt_count;
     UINT32 prompt_signature;
 
-    if ((script == NULL) || script->completed ||
-        (frames < script->next_frame) || kbdpaste_active()) {
+    if ((script == NULL) || script->completed) {
+        return SUCCESS;
+    }
+    if ((script->max_frames != 0) && (frames >= script->max_frames)) {
+        fprintf(stderr, "Error: deterministic frame bound reached frame=%u max_frames=%u\n", frames, script->max_frames);
+        script->completed = TRUE;
+        return FAILURE;
+    }
+    if ((frames < script->next_frame) || kbdpaste_active()) {
         return SUCCESS;
     }
     if (script->command_index >= script->command_count) {

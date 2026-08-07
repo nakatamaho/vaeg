@@ -42,6 +42,7 @@ typedef struct {
     UINT32 next_frame;
     UINT32 prompt_deadline;
     UINT32 prompt_timeout_frames;
+    UINT32 max_frames;
     UINT32 prompt_signature;
     UINT32 prompt_count;
     BOOL prompt_clear_observed;
