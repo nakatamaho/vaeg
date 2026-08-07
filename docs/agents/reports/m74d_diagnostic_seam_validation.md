@@ -264,3 +264,159 @@ The final local selector is `E000:397A JC 3984`. The branch consumes CF from the
 The admissible A=1 versus typed-assignment comparison is: A=1 enters the generic `34BD` callsite, reaches the non-escape helper, and selects `3983`; `A%=1` reaches the same scanner callsite and takes the `%` escape to `3985` on both scanner invocations. A fixed-address count for A!=1 was not added in this run, so an exact first divergent architectural register state is not claimed.
 
 The stack contract remains: `34BD CALL` produces `34C0`, `3922` saves `0005`, `3923` saves `002A`, `3983 RET` consumes `002A`, and `01E4 RETF` consumes `0005`/`34C0`. This is a downstream, guest-ROM control-flow consequence, not a proven emulator defect. No first incorrect emulator-produced state is known; production fix: none. The first still-unproven link is the helper's ultimate CF/data provenance and why A=1 selects the non-escape continuation.
+
+
+## M74g: 391D continuation protocol and 383A provenance
+
+### Identity and scope
+
+This continuation starts at `754687bb53db9fff38f18f85056edc725364f5a4`. The
+worktree retains only the pre-existing untracked diagnostic backup files; no
+production source was changed. M74g uses the admissible M74c static census and
+the M74f fixed-address B0 result. It does not add an INT97, opcode, vector, or
+per-instruction hook.
+
+### All real CALL 391D sites
+
+The complete static census contains five real near calls. Each uses the same
+observable frame convention: the call's post-CALL IP is below the incoming DX,
+`391D` saves DX and SI, and the 3983 path can leave DX for the later far return.
+This is structural evidence for a continuation protocol, not a semantic name
+for that protocol.
+
+| callsite | bytes / post-CALL IP | DX setup | possible 3983 RETF target |
+|---|---|---|---|
+| `E000:34BD` | `E8 5D 04` / `34C0` | incoming DX survives `3705`; observed `0005` | `34C0:DX` |
+| `E000:43B2` | `E8 68 F5` / `43B5` | preserved across `3ED2` save/restore | `43B5:DX` |
+| `E000:49F9` | `E8 21 EF` / `49FC` | preserved across `3ED2` save/restore | `49FC:DX` |
+| `E000:75A8` | `E8 72 C3` / `75AB` | preserved across `3ED2` save/restore | `75AB:DX` |
+| `E000:7F2A` | `E8 F0 B9` / `7F2D` | incoming DX survives `3753` | `7F2D:DX` |
+
+The corresponding SI values are caller/parser inputs rather than fixed module
+constants; the observed `34BD` path has `SI=002A`. All five sites can enter the
+same terminal-reachable routine according to the static control-flow census.
+The repeated post-CALL-IP/DX/SI frame pattern supports H1: 3983 is structurally
+consistent with an intentional guest-ROM continuation/trampoline protocol. It
+does not prove that every caller intends to select it, nor that the target for a
+particular caller is populated.
+
+### 34C0:0005 mapping and provenance
+
+The segmented nominal address is `34C0h*10h+0005h = 34C05h`. The VA1 memory
+layer classifies this as ordinary VA RAM below the ROM windows; instruction
+fetch and data reads use the same canonical `upd9002_memoryread()` path. The
+observed bytes at `34C0:0005` are 16 zero bytes. The monitored physical page
+`34C00h--34CFFh` received no write from reset through the failing command,
+including no write to `34C05h`; the zero state is therefore initial/unconstructed
+in the measured run, not evidence of a clear operation. No repository loader
+or descriptor establishes this page as an owned runtime module, so ownership
+and expected initialization remain unresolved.
+
+The evidence answers the target questions conservatively:
+
+- Q1: mapped ordinary VA RAM, not a ROM window or proven banked region.
+- Q2: no write to the target page was observed before the transfer.
+- Q3: it is zero from the observed reset-to-failure lifecycle.
+- Q4: no successful VA1 model/revision is available that writes this page.
+- Q5: fetch and data access use the same canonical memory-read route; no
+  alternate instruction-fetch backing store was found.
+
+This does not establish that the page should be populated. It establishes only
+that the valid guest RETF reaches an unconstructed RAM page.
+
+### E000:383A CFG and final CF provenance
+
+The complete local CFG is:
+
+```text
+383A: CALL FAR 1040:0AAF       ; flag-neutral stub in the measured image
+383F: PUSH AX / PUSH BX / PUSH SI
+3842: BX=0; CALL 3806
+3848: JNC 385D                 ; CF=0 returns from 383A
+384A: BX=7; CALL 3806
+3850: JNC 385D                 ; CF=0 returns from 383A
+3852: CALL 37F3 (BX=5 -> 3806)
+3855: JNC 385D                 ; CF=0 returns from 383A
+3857: BX=4; CALL 3806
+385D: POP SI / POP BX / POP AX
+3860: CMC
+3861: RET
+```
+
+There is one syntactic return at `3861`, with four logical helper outcomes:
+
+| helper outcome | immediate source | effect at `383A` return |
+|---|---|---|
+| first `3806` returns CF=0 | `3806` reaches `3831 CLC` | `385D`, then `3860 CMC` makes CF=1 |
+| second returns CF=0 | same | `385D`, then CF=1 |
+| third returns CF=0 | same | `385D`, then CF=1 |
+| fourth returns CF=0 | same | `385D`, then CF=1 |
+| all four return CF=1 | final `3806` result | `3860 CMC` makes CF=0 |
+
+Inside `3806`, the four fixed logical selector calls are `BX=0`, `BX=7`,
+`BX=5`, and `BX=4`. `3823 CD 97` is reached only after the prelookup checks;
+`3825 CMP AX,FFFE` branches to `3833 STC`, `382D` handles `FFFF` via `F798`,
+and `3831 CLC` is the positive fall-through. The final CF is not the raw INT97
+CF: `3835 STC` or `3831 CLC` is composed by `3806`, then `3860 CMC` inverts
+the aggregate result.
+
+For A=1 the fixed address counter records four executions of `E000:3823` on
+each image. That count is not promoted to four dynamically identified semantic
+probes: no pre/post register snapshots were collected in M74f, so one-to-one
+probe mapping and AX values remain unmeasured. Existing admissible flag evidence
+nevertheless shows the relevant A=1 path reaches `3835 STC` and then `3860 CMC`,
+with `397A` seeing CF=0. The exact intermediate data returned by the service is
+not established here.
+
+### Successful non-escape and cross-model controls
+
+The closest same-callsite control, `A!=1`, returns through the scanner's early
+`3985` path and never reaches `3976`, `383A`, or `397A`; it is therefore not a
+same-semantic CF control. Typed assignments likewise take explicit escape
+branches. `DEFINT A-Z`, `DEFSNG A-Z`, and `DEFDBL A-Z` were echoed but did not
+produce a verified second prompt in the bounded runs, so none supplies a
+successful non-escape comparator.
+
+The VA2 control is also unavailable: the recorded VA2 launcher reaches the
+PC-Engine `Ready` state but rejects `BASIC` before an equivalent VA1 `A=1` path
+is established. No VA3 result is admissible in the current evidence. Thus no
+successful model/path comparator proves that the A=1 helper input should have
+returned CF=1.
+
+### H1/H2 disposition
+
+H1 is supported structurally, not fully proven semantically: all five real
+CALL 391D sites exhibit the same post-CALL-IP/DX continuation-frame pattern,
+and the measured `34BD` stack is consumed exactly by `3983 -> 002A -> 0180 ->
+01E4 RETF`. The RET/RETF operations are therefore intentional guest-ROM
+control flow in the observed execution. The unresolved question is whether the
+selected target is supposed to be initialized.
+
+H2 is not supported. No successful same-semantic comparator establishes that
+A=1 should produce the opposite helper result, and no incorrect emulator-produced
+architectural value has been proven. The first unresolved data boundary is the
+value/meaning returned by the four `3823` service calls and the corresponding
+name/table/runtime contract, not `397A`, `3983`, or `01E4`.
+
+The remaining FPU-presence hypothesis is unsupported in this chain: the
+established CF path is ordinary ROM logic (`3806`/`3835`/`3860`), and no proven
+capability flag is consumed by that path. This rejects the FPU-presence theory
+for the currently established failure chain, without reopening FPU opcode
+execution.
+
+### Revised causal chain and first incorrect state
+
+```text
+A=1 enters 391D
+  -> non-escape path calls 383A
+  -> 383A aggregates four 3806 results and returns through 3860 CMC
+  -> 397A sees CF=0
+  -> 3983 RET consumes saved SI=002A
+  -> 002A -> 0180 -> 01E4 RETF consumes IP=0005, CS=34C0
+  -> canonical VA1 RAM at 34C05 is zero/unconstructed
+```
+
+No first incorrect emulator-produced state is proven. The root cause remains
+unresolved between (a) the guest/runtime contract that legitimately selects this
+continuation and expects its target to exist, and (b) the unmeasured service
+result/table state that feeds the four `3806` calls. Production fix: none.
