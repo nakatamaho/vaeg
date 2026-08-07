@@ -897,6 +897,7 @@ void MEMCALL upd9002_memorywrite(UINT32 address, REG8 value) {
 		return;
 	}
 	if (address < UPD9002_MEMWRITEMAX) {
+		upd9002_m74_trace_host_write(address, &value, 1, "meml-write8");
 		mem[address] = (BYTE)value;
 	}
 #if defined(USE_HIMEM)
@@ -1088,9 +1089,13 @@ void MEMCALL meml_writestr(UINT seg, UINT off, const void *dat, UINT leng) {
 		if (leng) {
 			size = 0x10000 - off;
 			if (size >= leng) {
+				upd9002_m74_trace_host_write(adrs + off, out, leng,
+					"meml-writestr");
 				CopyMemory(mem + adrs + off, out, leng);
 				return;
 			}
+			upd9002_m74_trace_host_write(adrs + off, out, size,
+				"meml-writestr");
 			CopyMemory(mem + adrs + off, out, size);
 			out += size;
 			leng -= size;
@@ -1101,6 +1106,8 @@ void MEMCALL meml_writestr(UINT seg, UINT off, const void *dat, UINT leng) {
 			leng -= 0x10000;
 		}
 		if (leng) {
+			upd9002_m74_trace_host_write(adrs, out, leng,
+				"meml-writestr");
 			CopyMemory(mem + adrs, out, leng);
 		}
 	}
@@ -1136,11 +1143,14 @@ void MEMCALL meml_write(UINT32 address, const void *dat, UINT leng) {
 const BYTE	*out;
 
 	if ((address + leng) < UPD9002_MEMWRITEMAX) {
+		upd9002_m74_trace_host_write(address, dat, leng, "meml-write");
 		CopyMemory(mem + address, dat, leng);
 	}
 	else {
 		out = (BYTE *)dat;
 		if (address < UPD9002_MEMWRITEMAX) {
+			upd9002_m74_trace_host_write(address, out,
+				UPD9002_MEMWRITEMAX - address, "meml-write");
 			CopyMemory(mem + address, out, UPD9002_MEMWRITEMAX - address);
 			out += UPD9002_MEMWRITEMAX - address;
 			leng -= UPD9002_MEMWRITEMAX - address;

@@ -269,6 +269,7 @@ void upd9002_core_reset(void) {
 	if (upd9002_compat_hooks.reset != NULL) {
 		upd9002_compat_hooks.reset();
 	}
+	upd9002_m74_trace_lifecycle("reset");
 }
 
 void upd9002_core_shut(void) {

@@ -31,6 +31,7 @@ typedef struct {
     UINT wait_frames;
     UINT disk_drive;
     BOOL wait;
+    BOOL wait_prompt;
     BOOL disk_swap;
 } HEADLESS_INPUT_COMMAND;
 
@@ -38,6 +39,9 @@ typedef struct {
     UINT command_index;
     UINT command_count;
     UINT32 next_frame;
+    UINT32 prompt_deadline;
+    BOOL prompt_clear_observed;
+    BOOL prompt_seen_once;
     BOOL completed;
     HEADLESS_INPUT_COMMAND *commands;
 } HEADLESS_INPUT_SCRIPT;

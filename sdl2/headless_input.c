@@ -27,6 +27,8 @@
 #include "kbdpaste.h"
 #include "headless_input.h"
 #include "fdd/diskdrv.h"
+#include "cpucva/memoryva.h"
+#include "io/tsp.h"
 #include "upd9002_trace.h"
 
 #include <errno.h>
@@ -38,7 +40,8 @@ enum {
     HEADLESS_INPUT_INITIAL_DELAY_FRAMES = 600,
     HEADLESS_INPUT_COMMAND_DELAY_FRAMES = 120,
     HEADLESS_INPUT_COMMAND_MAX = 256,
-    HEADLESS_INPUT_FILE_MAX = 64 * 1024
+    HEADLESS_INPUT_FILE_MAX = 64 * 1024,
+    HEADLESS_INPUT_PROMPT_TIMEOUT_FRAMES = 12000
 };
 
 static void headless_input_command_clear(HEADLESS_INPUT_COMMAND *command) {
@@ -142,6 +145,72 @@ static BOOL headless_input_script_add_disk_swap(
     return SUCCESS;
 }
 
+static BOOL headless_input_basic_prompt_present(void) {
+    UINT32 table;
+    UINT32 width;
+    UINT32 text_start;
+    UINT32 rows;
+    UINT32 row;
+
+    if (!tsp.dspon || (tsp.lineheight == 0)) {
+        return FALSE;
+    }
+    table = tsp.texttable;
+    if ((table + 0x1c) >= sizeof(textmem)) {
+        return FALSE;
+    }
+    width = LOADINTELWORD(textmem + table + 0x08);
+    text_start = LOADINTELWORD(textmem + table + 0x10);
+    if ((width < 2) || (text_start >= sizeof(textmem)) ||
+        ((text_start + width) > sizeof(textmem))) {
+        return FALSE;
+    }
+    rows = tsp.screenlines / tsp.lineheight;
+    if (rows > 40) {
+        rows = 40;
+    }
+    for (row = 0; row < rows; row++) {
+        UINT32 address = text_start + row * width;
+        UINT32 columns = width / 2;
+        UINT32 column;
+
+        if ((address + width) > sizeof(textmem)) {
+            break;
+        }
+        if (columns > 80) {
+            columns = 80;
+        }
+        for (column = 0; column + 1 < columns; column++) {
+            UINT16 first = LOADINTELWORD(textmem + address + column * 2);
+            UINT16 second = LOADINTELWORD(
+                textmem + address + (column + 1) * 2);
+            if ((first == 0x004f) && (second == 0x006b)) {
+                return TRUE;
+            }
+        }
+    }
+    return FALSE;
+}
+
+static BOOL headless_input_script_add_prompt_wait(
+        HEADLESS_INPUT_SCRIPT *script) {
+    HEADLESS_INPUT_COMMAND *command;
+
+    if (script->command_count >= HEADLESS_INPUT_COMMAND_MAX) {
+        fprintf(stderr,
+            "Error: --headless-input-script has too many commands; max=%u\n",
+            HEADLESS_INPUT_COMMAND_MAX);
+        return FAILURE;
+    }
+    if (headless_input_script_reserve(script) != SUCCESS) {
+        fprintf(stderr, "Error: could not allocate input-script commands\n");
+        return FAILURE;
+    }
+    command = &script->commands[script->command_count++];
+    command->wait_prompt = TRUE;
+    return SUCCESS;
+}
+
 static BOOL headless_input_script_add_wait(HEADLESS_INPUT_SCRIPT *script,
                                            UINT wait_frames) {
     HEADLESS_INPUT_COMMAND *command;
@@ -174,6 +243,10 @@ static BOOL headless_input_script_add_line(HEADLESS_INPUT_SCRIPT *script,
         UINT drive = (line[4] == '1') ? 0 : 1;
         return headless_input_script_add_disk_swap(
             script, drive, line + 6, length - 6);
+    }
+    if (((length == 7) && (memcmp(line, "@prompt", 7) == 0)) ||
+        ((length == 12) && (memcmp(line, "@wait-prompt", 12) == 0))) {
+        return headless_input_script_add_prompt_wait(script);
     }
     if ((length >= 6) && (memcmp(line, "@wait ", 6) == 0)) {
         value = (char *)SDL_malloc((size_t)length - 5);
@@ -300,6 +373,8 @@ void headless_input_script_initialize(HEADLESS_INPUT_SCRIPT *script) {
     script->command_index = 0;
     script->next_frame = HEADLESS_INPUT_INITIAL_DELAY_FRAMES;
     script->completed = FALSE;
+    script->prompt_deadline = 0;
+    script->prompt_clear_observed = FALSE;
     fprintf(stderr,
         "headless-input-script waiting %u frames before first input\n",
         HEADLESS_INPUT_INITIAL_DELAY_FRAMES);
@@ -320,7 +395,58 @@ BOOL headless_input_script_after_frame(HEADLESS_INPUT_SCRIPT *script,
         return SUCCESS;
     }
     command = &script->commands[script->command_index++];
+    if (command->wait_prompt) {
+        if (script->prompt_deadline == 0) {
+            script->prompt_deadline = frames +
+                HEADLESS_INPUT_PROMPT_TIMEOUT_FRAMES;
+            fprintf(stderr,
+                "headless-input-script waiting for BASIC Ok prompt "
+                "until frame=%u\n", script->prompt_deadline);
+        }
+        if (!script->prompt_seen_once) {
+            if (headless_input_basic_prompt_present()) {
+                fprintf(stderr,
+                    "headless-input-script observed BASIC Ok prompt "
+                    "frame=%u\n", frames);
+                script->prompt_seen_once = TRUE;
+                script->prompt_deadline = 0;
+                script->prompt_clear_observed = FALSE;
+                script->next_frame = frames +
+                    HEADLESS_INPUT_COMMAND_DELAY_FRAMES;
+                return SUCCESS;
+            }
+        }
+        else if (!script->prompt_clear_observed) {
+            if (!headless_input_basic_prompt_present()) {
+                script->prompt_clear_observed = TRUE;
+                fprintf(stderr,
+                    "headless-input-script observed BASIC Ok prompt "
+                    "cleared frame=%u\n", frames);
+            }
+        }
+        else if (headless_input_basic_prompt_present()) {
+            fprintf(stderr,
+                "headless-input-script observed BASIC Ok prompt "
+                "frame=%u\n", frames);
+            script->prompt_deadline = 0;
+            script->prompt_seen_once = TRUE;
+            script->prompt_clear_observed = FALSE;
+            script->next_frame = frames +
+                HEADLESS_INPUT_COMMAND_DELAY_FRAMES;
+            return SUCCESS;
+        }
+        if (frames >= script->prompt_deadline) {
+            fprintf(stderr,
+                "Error: --headless-input-script BASIC Ok prompt "
+                "timeout at frame=%u\n", frames);
+            return FAILURE;
+        }
+        script->command_index--;
+        script->next_frame = frames + 1;
+        return SUCCESS;
+    }
     if (command->wait) {
+        upd9002_m74_trace_lifecycle("headless-before-wait");
         script->next_frame = frames + command->wait_frames;
         return SUCCESS;
     }
@@ -333,6 +459,8 @@ BOOL headless_input_script_after_frame(HEADLESS_INPUT_SCRIPT *script,
         return SUCCESS;
     }
     command_number = script->command_index;
+    upd9002_m74_trace_lifecycle("headless-before-command");
+    script->prompt_clear_observed = FALSE;
     upd9002_m74_trace_arm(command_number);
     if (!kbdpaste_start_text(command->text)) {
         fprintf(stderr,

@@ -575,6 +575,22 @@ typedef struct {
 	BOOL stable_loop_has_predecessor;
 	BOOL stable_loop_has_predecessor2;
 	uint32_t stable_loop_count;
+	uint32_t lifecycle_sequence;
+	BOOL lifecycle_memory_initialized;
+	BOOL lifecycle_memory_watch;
+	uint32_t lifecycle_memory_step;
+	uint8_t lifecycle_target[0x100];
+	uint8_t lifecycle_source[0x20];
+	BOOL thunk_active;
+	uint32_t thunk_entry_sequence;
+	uint16_t thunk_caller_cs;
+	uint16_t thunk_caller_ip;
+	uint16_t thunk_return_ip;
+	uint16_t thunk_dx;
+	uint16_t thunk_si;
+	uint16_t thunk_sp;
+	uint32_t thunk_stack_physical;
+	uint8_t thunk_stack[8];
 } UPD9002_M74_TRACE_STATE;
 
 static UPD9002_M74_TRACE_STATE m74_trace_state;
@@ -813,6 +829,7 @@ void upd9002_m74_trace_configure(FILE *stream) {
 
 	const char *value;
 	const char *arm_value;
+	const char *watch_value;
 	char *end;
 	unsigned long limit;
 	unsigned long arm_command;
@@ -820,6 +837,7 @@ void upd9002_m74_trace_configure(FILE *stream) {
 	ZeroMemory(&m74_trace_state, sizeof(m74_trace_state));
 	value = getenv("VAEG_M74_CPU_TRACE_LIMIT");
 	arm_value = getenv("VAEG_M74_CPU_TRACE_COMMAND");
+	watch_value = getenv("VAEG_M74_LIFECYCLE_WATCH");
 	if ((stream == NULL) || (value == NULL) || (value[0] == '\0')) {
 		return;
 	}
@@ -842,6 +860,9 @@ void upd9002_m74_trace_configure(FILE *stream) {
 	}
 	m74_trace_state.stream = stream;
 	m74_trace_state.limit = (uint32_t)limit;
+	m74_trace_state.lifecycle_memory_watch =
+		(watch_value != NULL) && (watch_value[0] != '\0') &&
+		(strcmp(watch_value, "0") != 0);
 	m74_trace_state.arm_command = 0;
 	if ((arm_value != NULL) && (arm_value[0] != '\0')) {
 		errno = 0;
@@ -906,6 +927,7 @@ void upd9002_m74_trace_arm(uint32_t command_number) {
 	m74_trace_state.stable_loop_has_predecessor = FALSE;
 	m74_trace_state.stable_loop_has_predecessor2 = FALSE;
 	m74_trace_state.stable_loop_count = 0;
+	m74_trace_state.thunk_active = FALSE;
 	fprintf(m74_trace_state.stream,
 		"m74-cpu-trace armed command=%u cs=%04x ip=%04x ss=%04x sp=%04x "
 		"stack_phys=%05x stack=", command_number, CPU_CS, CPU_IP,
@@ -929,6 +951,66 @@ void upd9002_m74_trace_step_begin(void) {
 	uint32_t address;
 	int32_t before_clock;
 
+	if (m74_trace_state.configured &&
+		m74_trace_state.lifecycle_memory_watch &&
+		!m74_trace_state.lifecycle_memory_initialized) {
+		for (uint32_t index = 0; index < sizeof(m74_trace_state.lifecycle_target);
+			index++) {
+			m74_trace_state.lifecycle_target[index] =
+				(uint8_t)upd9002_memoryread(0x34c00 + index);
+		}
+		for (uint32_t index = 0; index < sizeof(m74_trace_state.lifecycle_source);
+			index++) {
+			m74_trace_state.lifecycle_source[index] =
+				(uint8_t)upd9002_memoryread(0x39960 + index);
+		}
+		m74_trace_state.lifecycle_memory_initialized = TRUE;
+	}
+
+	if (m74_trace_state.active && (CPU_CS == 0xe000) &&
+		(CPU_IP == 0x391d)) {
+		uint8_t stack[8];
+		uint32_t index;
+
+		upd9002_m74_trace_lifecycle("before-391d");
+		m74_trace_stack(stack, (SS_BASE + CPU_SP) & CPU_ADRSMASK);
+		m74_trace_state.thunk_active = TRUE;
+		m74_trace_state.thunk_entry_sequence = m74_trace_state.steps;
+		m74_trace_state.thunk_caller_cs =
+			m74_trace_state.have_previous_record ?
+			m74_trace_state.previous_record.cs : 0;
+		m74_trace_state.thunk_caller_ip =
+			m74_trace_state.have_previous_record ?
+			m74_trace_state.previous_record.ip : 0;
+		m74_trace_state.thunk_return_ip =
+			(uint16_t)(stack[0] | ((uint16_t)stack[1] << 8));
+		m74_trace_state.thunk_dx = CPU_DX;
+		m74_trace_state.thunk_si = CPU_SI;
+		m74_trace_state.thunk_sp = CPU_SP;
+		m74_trace_state.thunk_stack_physical =
+			(SS_BASE + CPU_SP) & CPU_ADRSMASK;
+		for (index = 0; index < sizeof(stack); index++) {
+			m74_trace_state.thunk_stack[index] = stack[index];
+		}
+		fprintf(m74_trace_state.stream,
+			"m74-thunk-entry seq=%u caller=%04x:%04x return_ip=%04x "
+			"dx=%04x si=%04x ss=%04x sp=%04x stack_phys=%05x stack=",
+			m74_trace_state.thunk_entry_sequence,
+			m74_trace_state.thunk_caller_cs,
+			m74_trace_state.thunk_caller_ip,
+			m74_trace_state.thunk_return_ip,
+			m74_trace_state.thunk_dx, m74_trace_state.thunk_si,
+			CPU_SS, m74_trace_state.thunk_sp,
+			m74_trace_state.thunk_stack_physical);
+		for (index = 0; index < sizeof(stack); index++) {
+			fprintf(m74_trace_state.stream, "%02x", stack[index]);
+		}
+		fputc('\n', m74_trace_state.stream);
+	}
+	if (m74_trace_state.active && (CPU_CS == 0xe000) &&
+		(CPU_IP == 0x01e4)) {
+		upd9002_m74_trace_lifecycle("before-01e4");
+	}
 	if (!m74_trace_state.active) {
 		return;
 	}
@@ -1045,7 +1127,65 @@ static void m74_trace_address_update(
 	}
 }
 
+static void m74_trace_lifecycle_memory_watch(void) {
+	uint32_t lifecycle_step = m74_trace_state.lifecycle_memory_step++;
+
+	if (m74_trace_state.configured &&
+		m74_trace_state.lifecycle_memory_watch &&
+		m74_trace_state.lifecycle_memory_initialized) {
+		const uint32_t bases[] = {0x34c00, 0x39960};
+		uint8_t *previous[] = {m74_trace_state.lifecycle_target,
+			m74_trace_state.lifecycle_source};
+		const uint32_t lengths[] = {sizeof(m74_trace_state.lifecycle_target),
+			sizeof(m74_trace_state.lifecycle_source)};
+		int32_t before_clock = CPU_REMCLOCK;
+
+		for (uint32_t range = 0; range < 2; range++) {
+			uint32_t index = 0;
+			while (index < lengths[range]) {
+				uint8_t current = (uint8_t)upd9002_memoryread(
+					 bases[range] + index);
+				if (current == previous[range][index]) {
+					index++;
+					continue;
+				}
+				uint32_t start = index;
+				while (index < lengths[range]) {
+					current = (uint8_t)upd9002_memoryread(
+						bases[range] + index);
+					if (current == previous[range][index]) {
+						break;
+					}
+					index++;
+				}
+				fprintf(m74_trace_state.stream,
+					"m74-step-memory-change sequence=%u cs=%04x ip=%04x "
+					"physical=%05x length=%u old=",
+					lifecycle_step, CPU_CS, CPU_IP,
+					bases[range] + start, index - start);
+				for (uint32_t position = start; position < index; position++) {
+					fprintf(m74_trace_state.stream, "%02x",
+						previous[range][position]);
+				}
+				fputs(" new=", m74_trace_state.stream);
+				for (uint32_t position = start; position < index; position++) {
+					fprintf(m74_trace_state.stream, "%02x",
+						(uint8_t)upd9002_memoryread(
+							bases[range] + position));
+				}
+				fputc('\n', m74_trace_state.stream);
+			}
+			for (uint32_t position = 0; position < lengths[range]; position++) {
+				previous[range][position] = (uint8_t)upd9002_memoryread(
+					bases[range] + position);
+			}
+		}
+		CPU_REMCLOCK = before_clock;
+	}
+}
+
 void upd9002_m74_trace_step_end(void) {
+	m74_trace_lifecycle_memory_watch();
 
 	UPD9002_M74_TRACE_RECORD *record;
 
@@ -1064,6 +1204,78 @@ void upd9002_m74_trace_step_end(void) {
 		(SS_BASE + CPU_SP) & CPU_ADRSMASK;
 	m74_trace_stack(record->stack_after, record->post_stack_physical);
 	m74_trace_state.steps++;
+
+	if (m74_trace_state.thunk_active && (record->cs == 0xe000) &&
+		((record->ip == 0x3922) || (record->ip == 0x3923) ||
+		 (record->ip == 0x3973) || (record->ip == 0x3979) ||
+		 (record->ip == 0x3983))) {
+		fprintf(m74_trace_state.stream,
+			"m74-thunk-stack-step seq=%u ip=%04x sp=%04x post_sp=%04x "
+			"post=%04x:%04x stack_before=", record->sequence,
+			record->ip, record->sp, record->post_sp,
+			record->post_cs, record->post_ip);
+		for (uint32_t byte = 0; byte < sizeof(record->stack_before); byte++) {
+			fprintf(m74_trace_state.stream, "%02x", record->stack_before[byte]);
+		}
+		fputs(" stack_after=", m74_trace_state.stream);
+		for (uint32_t byte = 0; byte < sizeof(record->stack_after); byte++) {
+			fprintf(m74_trace_state.stream, "%02x", record->stack_after[byte]);
+		}
+		fputc('\n', m74_trace_state.stream);
+	}
+
+	if (m74_trace_state.thunk_active && (record->cs == 0xe000) &&
+		((record->ip == 0x3983) || (record->ip == 0x3988))) {
+		fprintf(m74_trace_state.stream,
+			"m74-thunk-helper-return seq=%u path=%s post=%04x:%04x "
+			"post_sp=%04x flags=%04x\n", record->sequence,
+			record->ip == 0x3983 ? "success" : "failure",
+			record->post_cs, record->post_ip, record->post_sp,
+			record->post_flags);
+		if (record->ip == 0x3988) {
+			m74_trace_state.thunk_active = FALSE;
+		}
+	}
+	if ((record->post_cs == 0x34c0) && (record->post_ip == 0x0005)) {
+		upd9002_m74_trace_lifecycle("after-34c0-0005");
+	}
+	if (m74_trace_state.thunk_active && (record->cs == 0xe000) &&
+		(record->ip == 0x01e4)) {
+		uint8_t target_bytes[16];
+		uint32_t target_phys;
+		uint32_t byte;
+		int32_t before_clock;
+
+		target_phys = (record->post_cs_base + record->post_ip) &
+			CPU_ADRSMASK;
+		before_clock = CPU_REMCLOCK;
+		for (byte = 0; byte < sizeof(target_bytes); byte++) {
+			target_bytes[byte] =
+				(uint8_t)upd9002_memoryread(target_phys + byte);
+		}
+		CPU_REMCLOCK = before_clock;
+		fprintf(m74_trace_state.stream,
+			"m74-thunk-retf seq=%u entry_seq=%u from=%04x:%04x "
+			"to=%04x:%04x target_phys=%05x entry_caller=%04x:%04x "
+			"return_ip=%04x dx=%04x si=%04x entry_sp=%04x "
+			"entry_stack_phys=%05x stack_before=",
+			record->sequence, m74_trace_state.thunk_entry_sequence,
+			record->cs, record->ip, record->post_cs, record->post_ip,
+			target_phys, m74_trace_state.thunk_caller_cs,
+			m74_trace_state.thunk_caller_ip,
+			m74_trace_state.thunk_return_ip, m74_trace_state.thunk_dx,
+			m74_trace_state.thunk_si, m74_trace_state.thunk_sp,
+			m74_trace_state.thunk_stack_physical);
+		for (byte = 0; byte < sizeof(record->stack_before); byte++) {
+			fprintf(m74_trace_state.stream, "%02x", record->stack_before[byte]);
+		}
+		fprintf(m74_trace_state.stream, " target_bytes=");
+		for (byte = 0; byte < sizeof(target_bytes); byte++) {
+			fprintf(m74_trace_state.stream, "%02x", target_bytes[byte]);
+		}
+		fputc('\n', m74_trace_state.stream);
+		m74_trace_state.thunk_active = FALSE;
+	}
 	if ((record->opcode >= 0xd8) && (record->opcode <= 0xdf)) {
 		fprintf(m74_trace_state.stream,
 			"m74-fpu-opcode seq=%u cs=%04x ip=%04x phys=%05x "
@@ -1135,6 +1347,24 @@ void upd9002_m74_trace_step_end(void) {
 void upd9002_m74_trace_memory_write(uint32_t address, uint16_t value,
 		uint8_t width) {
 	uint32_t end;
+	uint16_t old_value;
+	int32_t before_clock;
+
+	address &= CPU_ADRSMASK;
+	end = address + width;
+	if (m74_trace_state.configured &&
+		(((end > 0x34c00) && (address < 0x34d00)) ||
+		 ((end > 0x39960) && (address < 0x39980)))) {
+		before_clock = CPU_REMCLOCK;
+		old_value = (width == 1) ?
+			(uint16_t)upd9002_memoryread(address) :
+			(uint16_t)upd9002_memoryread_w(address);
+		CPU_REMCLOCK = before_clock;
+		fprintf(m74_trace_state.stream,
+			"m74-lifecycle-write cs=%04x ip=%04x physical=%05x "
+			"old=%04x new=%04x width=%u\n", CPU_CS, CPU_IP,
+			address, old_value, value, width);
+	}
 
 	if (!m74_trace_state.active) {
 		return;
@@ -1161,6 +1391,63 @@ void upd9002_m74_trace_memory_write(uint32_t address, uint16_t value,
 	}
 }
 
+
+void upd9002_m74_trace_host_write(uint32_t address, const void *data,
+		uint32_t length, const char *kind) {
+	const uint8_t *bytes;
+	uint32_t end;
+	uint32_t overlap_start;
+	uint32_t overlap_end;
+	uint32_t offset;
+	uint32_t count;
+	int32_t before_clock;
+
+	if (!m74_trace_state.configured ||
+		(m74_trace_state.stream == NULL) || (data == NULL) ||
+		(length == 0)) {
+		return;
+	}
+	end = address + length;
+	if ((end < address) || (address >= CPU_ADRSMASK + 1U)) {
+		return;
+	}
+	if (end > (CPU_ADRSMASK + 1U)) {
+		end = CPU_ADRSMASK + 1U;
+	}
+	overlap_start = max(address, 0x34c00U);
+	overlap_end = min(end, 0x34d00U);
+	if (overlap_start >= overlap_end) {
+		overlap_start = max(address, 0x39960U);
+		overlap_end = min(end, 0x39980U);
+	}
+	if (overlap_start >= overlap_end) {
+		return;
+	}
+	bytes = (const uint8_t *)data;
+	offset = overlap_start - address;
+	count = overlap_end - overlap_start;
+	if (count > 32) {
+		count = 32;
+	}
+	before_clock = CPU_REMCLOCK;
+	fprintf(m74_trace_state.stream,
+		"m74-host-write kind=%s cs=%04x ip=%04x physical=%05x "
+		"length=%u overlap=%05x-%05x old=",
+		(kind != NULL) ? kind : "unknown", CPU_CS, CPU_IP, address,
+		length, overlap_start, overlap_end - 1);
+	for (uint32_t index = 0; index < count; index++) {
+		fprintf(m74_trace_state.stream, "%02x",
+			(uint8_t)upd9002_memoryread(overlap_start + index));
+	}
+	fputs(" new=", m74_trace_state.stream);
+	for (uint32_t index = 0; index < count; index++) {
+		fprintf(m74_trace_state.stream, "%02x", bytes[offset + index]);
+	}
+	fputc('\n', m74_trace_state.stream);
+	CPU_REMCLOCK = before_clock;
+	fflush(m74_trace_state.stream);
+}
+
 void upd9002_m74_trace_interrupt(uint8_t vector, uint8_t external) {
 	uint32_t position;
 
@@ -1178,4 +1465,109 @@ void upd9002_m74_trace_interrupt(uint8_t vector, uint8_t external) {
 		UPD9002_M74_TRACE_INTERRUPT_CAPACITY) {
 		m74_trace_state.interrupt_count++;
 	}
+}
+
+static uint64_t m74_trace_fnv1a_update(uint64_t hash, uint8_t value) {
+
+	hash ^= value;
+	return hash * UINT64_C(1099511628211);
+}
+
+static void m74_trace_lifecycle_snapshot(const char *label) {
+	uint64_t hash;
+	uint32_t offset;
+	uint32_t nonzero_bytes;
+	uint32_t range_count;
+	uint32_t range_start[1024];
+	uint32_t range_end[1024];
+	uint32_t current_start;
+	uint8_t prefix[64];
+	uint8_t target_window[16];
+	BOOL in_range;
+	BOOL range_overflow;
+	int32_t before_clock;
+	uint8_t value;
+
+	if (!m74_trace_state.configured ||
+		m74_trace_state.stream == NULL) {
+		return;
+	}
+	before_clock = CPU_REMCLOCK;
+	hash = UINT64_C(14695981039346656037);
+	nonzero_bytes = 0;
+	range_count = 0;
+	in_range = FALSE;
+	range_overflow = FALSE;
+	current_start = 0;
+	for (offset = 0; offset < 0x10000; offset++) {
+		value = (uint8_t)upd9002_memoryread(0x34c00 + offset);
+		hash = m74_trace_fnv1a_update(hash, value);
+		if (offset < sizeof(prefix)) {
+			prefix[offset] = value;
+		}
+		if ((offset >= 0x4d60) && (offset < 0x4d70)) {
+			target_window[offset - 0x4d60] = value;
+		}
+		if (value != 0) {
+			nonzero_bytes++;
+			if (!in_range) {
+				current_start = offset;
+				in_range = TRUE;
+			}
+		}
+		else if (in_range) {
+			if (range_count < 1024) {
+				range_start[range_count] = current_start;
+				range_end[range_count] = offset - 1;
+				range_count++;
+			}
+			else {
+				range_overflow = TRUE;
+			}
+			in_range = FALSE;
+		}
+	}
+	if (in_range) {
+		if (range_count < 1024) {
+			range_start[range_count] = current_start;
+			range_end[range_count] = 0xffff;
+			range_count++;
+		}
+		else {
+			range_overflow = TRUE;
+		}
+	}
+	CPU_REMCLOCK = before_clock;
+	fprintf(m74_trace_state.stream,
+		"m74-lifecycle label=%s sequence=%u cs=%04x ip=%04x ss=%04x "
+		"sp=%04x base=34c00 size=10000 fnv1a=%016llx nonzero_bytes=%u "
+		"prefix=",
+		(label != NULL) ? label : "unknown", m74_trace_state.lifecycle_sequence++,
+		CPU_CS, CPU_IP, CPU_SS, CPU_SP, (unsigned long long)hash,
+		nonzero_bytes);
+	for (offset = 0; offset < sizeof(prefix); offset++) {
+		fprintf(m74_trace_state.stream, "%02x", prefix[offset]);
+	}
+	fprintf(m74_trace_state.stream, " target_4d60=");
+	for (offset = 0; offset < sizeof(target_window); offset++) {
+		fprintf(m74_trace_state.stream, "%02x", target_window[offset]);
+	}
+	fprintf(m74_trace_state.stream, " nonzero_ranges=");
+	for (offset = 0; offset < range_count; offset++) {
+		if (offset != 0) {
+			fputc(',', m74_trace_state.stream);
+		}
+		fprintf(m74_trace_state.stream, "%04x-%04x",
+			range_start[offset], range_end[offset]);
+	}
+	if (range_overflow) {
+		fputs(",OVERFLOW", m74_trace_state.stream);
+	}
+	fputc('\n', m74_trace_state.stream);
+	fflush(m74_trace_state.stream);
+}
+
+void upd9002_m74_trace_lifecycle(const char *label) {
+
+	m74_trace_lifecycle_snapshot(label);
 }
