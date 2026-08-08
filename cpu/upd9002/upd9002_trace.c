@@ -640,7 +640,9 @@ typedef struct {
 	uint16_t reach_exit_word1;
 	uint16_t reach_retf_ip;
 	uint16_t reach_retf_cs;
-	uint8_t reach_retf_bytes[16];
+	uint8_t reach_retf_bytes[256];
+	uint8_t reach_windows[4][256];
+	uint16_t reach_stack_words[8];
 	BOOL reach_391d_captured;
 	BOOL reach_3983_captured;
 	BOOL reach_3988_captured;
@@ -1224,6 +1226,16 @@ void upd9002_m74_trace_stop(void) {
 			m74_trace_state.reach_002d, m74_trace_state.reach_0030,
 			m74_trace_state.reach_0033, m74_trace_state.reach_0036,
 			m74_trace_state.reach_0180);
+		fprintf(m74_trace_state.stream, "m74-reachability stack8=");
+		for (uint32_t index = 0; index < 8; index++) fprintf(m74_trace_state.stream, "%s%04x", index ? "," : "", m74_trace_state.reach_stack_words[index]);
+		fprintf(m74_trace_state.stream, " target256=");
+		for (uint32_t index = 0; index < 256; index++) fprintf(m74_trace_state.stream, "%02x", m74_trace_state.reach_retf_bytes[index]);
+		fprintf(m74_trace_state.stream, "\n");
+		for (uint32_t window = 0; window < 4; window++) {
+			fprintf(m74_trace_state.stream, "m74-reachability window%u=", window);
+			for (uint32_t index = 0; index < 256; index++) fprintf(m74_trace_state.stream, "%02x", m74_trace_state.reach_windows[window][index]);
+			fprintf(m74_trace_state.stream, "\n");
+		}
 		fprintf(m74_trace_state.stream, "m74-reachability ret3988 ss=%04x sp=%04x words=%04x,%04x,%04x\n",
 			m74_trace_state.reach_3988_ss, m74_trace_state.reach_3988_sp,
 			m74_trace_state.reach_3988_word0, m74_trace_state.reach_3988_word1,
@@ -1316,6 +1328,8 @@ void upd9002_m74_trace_arm(uint32_t command_number) {
 		m74_trace_state.reach_01e4_captured = FALSE;
 		ZeroMemory(m74_trace_state.reach_retf_bytes,
 			sizeof(m74_trace_state.reach_retf_bytes));
+		ZeroMemory(m74_trace_state.reach_windows, sizeof(m74_trace_state.reach_windows));
+		ZeroMemory(m74_trace_state.reach_stack_words, sizeof(m74_trace_state.reach_stack_words));
 	}
 	fprintf(m74_trace_state.stream,
 		"m74-cpu-trace armed command=%u cs=%04x ip=%04x ss=%04x sp=%04x "
@@ -1423,7 +1437,13 @@ void upd9002_m74_trace_step_begin(void) {
 				m74_trace_state.reach_retf_ip = (uint16_t)(upd9002_memoryread(physical) | (upd9002_memoryread(physical + 1) << 8));
 				m74_trace_state.reach_retf_cs = (uint16_t)(upd9002_memoryread(physical + 2) | (upd9002_memoryread(physical + 3) << 8));
 				for (uint32_t index = 0; index < sizeof(m74_trace_state.reach_retf_bytes); index++)
-					m74_trace_state.reach_retf_bytes[index] = (uint8_t)upd9002_memoryread(((uint32_t)m74_trace_state.reach_retf_cs << 4) + m74_trace_state.reach_retf_ip + index);
+					m74_trace_state.reach_retf_bytes[index] = (uint8_t)upd9002_memoryread((((uint32_t)m74_trace_state.reach_retf_cs << 4) + m74_trace_state.reach_retf_ip + index) & CPU_ADRSMASK);
+				for (uint32_t index = 0; index < 8; index++)
+					m74_trace_state.reach_stack_words[index] = (uint16_t)(upd9002_memoryread((physical + index * 2) & CPU_ADRSMASK) | (upd9002_memoryread((physical + index * 2 + 1) & CPU_ADRSMASK) << 8));
+				const uint16_t window_segments[4] = {0x43b5, 0x49fc, 0x75ab, 0x7f2d};
+				for (uint32_t window = 0; window < 4; window++)
+					for (uint32_t index = 0; index < 256; index++)
+						m74_trace_state.reach_windows[window][index] = (uint8_t)upd9002_memoryread((((uint32_t)window_segments[window] << 4) + index) & CPU_ADRSMASK);
 			}
 		}
 	}
