@@ -565,6 +565,21 @@ typedef struct {
 } UPD9002_M74_INSTALLER_RECORD;
 
 typedef struct {
+	BOOL active;
+	BOOL source_captured;
+	BOOL scratch_captured;
+	BOOL nonzero_path;
+	BOOL returned_from_2730;
+	BOOL reached_01e4;
+	uint16_t source_ds;
+	uint16_t source_di;
+	uint16_t retf_ip;
+	uint16_t retf_cs;
+	uint8_t source[8];
+	uint8_t scratch[8];
+} UPD9002_M74_SERVICE_EVENT;
+
+typedef struct {
 	FILE *stream;
 	UPD9002_M74_TRACE_RECORD *records;
 	UPD9002_M74_TRACE_INTERRUPT interrupts[256];
@@ -627,6 +642,12 @@ typedef struct {
 	BOOL allocation_01f7_captured;
 	BOOL allocation_2730_captured;
 	BOOL allocation_020d_captured;
+	BOOL allocation_reset_page_captured;
+	BOOL allocation_first_ok_page_captured;
+	BOOL allocation_entry_page_captured;
+	BOOL allocation_pre_2730_page_captured;
+	BOOL allocation_post_2730_page_captured;
+	BOOL allocation_pre_01e4_page_captured;
 	BOOL installer_capture;
 	BOOL installer_code_captured;
 	uint16_t free_boundary_cs;
@@ -662,6 +683,7 @@ typedef struct {
 	uint16_t allocation_2730_far_ip;
 	uint16_t allocation_2730_far_cs;
 	uint8_t allocation_2730_control;
+	uint8_t allocation_2730_scratch[8];
 	uint16_t allocation_020d_ss;
 	uint16_t allocation_020d_sp;
 	uint16_t allocation_020d_ds;
@@ -676,9 +698,18 @@ typedef struct {
 	uint32_t allocation_2751_count;
 	uint32_t allocation_0338_count;
 	uint32_t allocation_03c2_count;
-	uint8_t allocation_service_page[0x100];
+	uint32_t allocation_0191_count;
+	uint8_t allocation_reset_page[0x100];
+	uint8_t allocation_first_ok_page[0x100];
+	uint8_t allocation_entry_page[0x100];
+	uint8_t allocation_pre_2730_page[0x100];
+	uint8_t allocation_post_2730_page[0x100];
+	uint8_t allocation_pre_01e4_page[0x100];
 	uint8_t allocation_work_area[0x100];
 	uint8_t allocation_band[16][0x100];
+	UPD9002_M74_SERVICE_EVENT startup_service[3];
+	uint32_t startup_service_count;
+	int32_t startup_service_active;
 	UPD9002_M74_INSTALLER_RECORD installer_records[512];
 	uint32_t installer_record_count;
 	uint32_t installer_record_total;
@@ -786,6 +817,36 @@ static uint16_t m74_trace_read_word(uint32_t address) {
 
 	m74_trace_read_bytes(address & CPU_ADRSMASK, bytes, sizeof(bytes));
 	return (uint16_t)(bytes[0] | ((uint16_t)bytes[1] << 8));
+}
+
+static void m74_trace_capture_service_page(uint8_t *bytes) {
+
+	m74_trace_read_bytes(0x03740U, bytes, 0x100);
+}
+
+static void m74_trace_startup_service_entry(void) {
+	UPD9002_M74_SERVICE_EVENT *event;
+	uint32_t source;
+
+	if (!m74_trace_state.allocation_capture ||
+		m74_trace_state.reachability_armed ||
+		(m74_trace_state.startup_service_active >= 0) ||
+		(m74_trace_state.startup_service_count >=
+			(sizeof(m74_trace_state.startup_service) /
+			 sizeof(m74_trace_state.startup_service[0])))) {
+		return;
+	}
+	event = &m74_trace_state.startup_service[
+		m74_trace_state.startup_service_count];
+	event->active = TRUE;
+	event->source_captured = TRUE;
+	event->source_ds = CPU_DS;
+	event->source_di = CPU_DI;
+	source = (DS_BASE + CPU_DI) & CPU_ADRSMASK;
+	m74_trace_read_bytes(source, event->source, sizeof(event->source));
+	m74_trace_state.startup_service_active = (int32_t)
+		m74_trace_state.startup_service_count;
+	m74_trace_state.startup_service_count++;
 }
 
 static void m74_trace_current_instruction(uint8_t *bytes) {
@@ -1280,6 +1341,19 @@ static void m74_trace_dump(const char *reason) {
 	m74_trace_state.dumped = TRUE;
 }
 
+static void m74_trace_print_bytes(const char *label, BOOL captured,
+		const uint8_t *bytes, uint32_t length) {
+
+	fprintf(m74_trace_state.stream, "%s captured=%u bytes=", label,
+		captured ? 1U : 0U);
+	if (captured) {
+		for (uint32_t index = 0; index < length; index++) {
+			fprintf(m74_trace_state.stream, "%02x", bytes[index]);
+		}
+	}
+	fputc('\n', m74_trace_state.stream);
+}
+
 void upd9002_m74_trace_configure(FILE *stream) {
 
 	const char *value;
@@ -1343,6 +1417,7 @@ void upd9002_m74_trace_configure(FILE *stream) {
 	m74_trace_state.installer_capture =
 		(installer_value != NULL) && (installer_value[0] != '\0') &&
 		(strcmp(installer_value, "0") != 0);
+	m74_trace_state.startup_service_active = -1;
 	m74_trace_state.arm_command = 0;
 	if ((arm_value != NULL) && (arm_value[0] != '\0')) {
 		errno = 0;
@@ -1397,7 +1472,9 @@ void upd9002_m74_trace_stop(void) {
 	}
 
 	if (m74_trace_state.configured && m74_trace_state.allocation_capture &&
-		m74_trace_state.reach_01e4_captured) {
+		(m74_trace_state.allocation_entry_captured ||
+		 m74_trace_state.allocation_reset_page_captured ||
+		 (m74_trace_state.startup_service_count != 0))) {
 		fprintf(m74_trace_state.stream,
 			"m74-allocation-context entry_ss=%04x entry_sp=%04x "
 			"entry_ds=%04x entry_es=%04x entry_di=%04x entry_source=",
@@ -1410,13 +1487,20 @@ void upd9002_m74_trace_stop(void) {
 			index < sizeof(m74_trace_state.allocation_entry_source); index++)
 			fprintf(m74_trace_state.stream, "%02x",
 				m74_trace_state.allocation_entry_source[index]);
+		fputs(" scratch=", m74_trace_state.stream);
+		for (uint32_t index = 0;
+			index < sizeof(m74_trace_state.allocation_2730_scratch); index++) {
+			fprintf(m74_trace_state.stream, "%02x",
+				m74_trace_state.allocation_2730_scratch[index]);
+		}
 		fprintf(m74_trace_state.stream,
 			" 01f7_count=%u 01f7_ss=%04x 01f7_sp=%04x "
 			"01f7_ds_si=%04x:%04x 01f7_es_di=%04x:%04x "
 			"01f7_far=%04x,%04x 2730_count=%u 2730_ss=%04x "
 			"2730_sp=%04x 2730_ds=%04x 2730_es=%04x 2730_di=%04x "
 			"2730_far=%04x,%04x 2730_control=%02x 2751_count=%u "
-			"0338_count=%u 03c2_count=%u 020d_count=%u 020d_ss=%04x "
+			"0338_count=%u 03c2_count=%u returned_0191_count=%u "
+			"020d_count=%u 020d_ss=%04x "
 			"020d_sp=%04x 020d_ds_si=%04x:%04x "
 			"020d_es_di=%04x:%04x 020d_far=%04x,%04x ds_at_retf=%04x\n",
 			m74_trace_state.allocation_01f7_count,
@@ -1440,6 +1524,7 @@ void upd9002_m74_trace_stop(void) {
 			m74_trace_state.allocation_2751_count,
 			m74_trace_state.allocation_0338_count,
 			m74_trace_state.allocation_03c2_count,
+			m74_trace_state.allocation_0191_count,
 			m74_trace_state.allocation_020d_count,
 			m74_trace_state.allocation_020d_ss,
 			m74_trace_state.allocation_020d_sp,
@@ -1450,12 +1535,56 @@ void upd9002_m74_trace_stop(void) {
 			m74_trace_state.allocation_020d_far_ip,
 			m74_trace_state.allocation_020d_far_cs,
 			m74_trace_state.allocation_ds);
-		fputs("m74-allocation-service0374=", m74_trace_state.stream);
-		for (uint32_t index = 0;
-			index < sizeof(m74_trace_state.allocation_service_page); index++)
-			fprintf(m74_trace_state.stream, "%02x",
-				m74_trace_state.allocation_service_page[index]);
-		fprintf(m74_trace_state.stream, "\nm74-allocation-workarea ds=%04x bytes=",
+		m74_trace_print_bytes("m74-service-page checkpoint=reset",
+			m74_trace_state.allocation_reset_page_captured,
+			m74_trace_state.allocation_reset_page,
+			sizeof(m74_trace_state.allocation_reset_page));
+		m74_trace_print_bytes("m74-service-page checkpoint=first-ok",
+			m74_trace_state.allocation_first_ok_page_captured,
+			m74_trace_state.allocation_first_ok_page,
+			sizeof(m74_trace_state.allocation_first_ok_page));
+		m74_trace_print_bytes("m74-service-page checkpoint=pre-copy",
+			m74_trace_state.allocation_entry_page_captured,
+			m74_trace_state.allocation_entry_page,
+			sizeof(m74_trace_state.allocation_entry_page));
+		m74_trace_print_bytes("m74-service-page checkpoint=pre-2730",
+			m74_trace_state.allocation_pre_2730_page_captured,
+			m74_trace_state.allocation_pre_2730_page,
+			sizeof(m74_trace_state.allocation_pre_2730_page));
+		m74_trace_print_bytes("m74-service-page checkpoint=post-2730",
+			m74_trace_state.allocation_post_2730_page_captured,
+			m74_trace_state.allocation_post_2730_page,
+			sizeof(m74_trace_state.allocation_post_2730_page));
+		m74_trace_print_bytes("m74-service-page checkpoint=pre-01e4",
+			m74_trace_state.allocation_pre_01e4_page_captured,
+			m74_trace_state.allocation_pre_01e4_page,
+			sizeof(m74_trace_state.allocation_pre_01e4_page));
+		for (uint32_t event_index = 0;
+			event_index < m74_trace_state.startup_service_count; event_index++) {
+			UPD9002_M74_SERVICE_EVENT *event =
+				&m74_trace_state.startup_service[event_index];
+			fprintf(m74_trace_state.stream,
+				"m74-startup-service index=%u source=%04x:%04x bytes=",
+				event_index, event->source_ds, event->source_di);
+			for (uint32_t index = 0; index < sizeof(event->source); index++) {
+				fprintf(m74_trace_state.stream, "%02x", event->source[index]);
+			}
+			fputs(" scratch=", m74_trace_state.stream);
+			if (event->scratch_captured) {
+				for (uint32_t index = 0; index < sizeof(event->scratch); index++) {
+					fprintf(m74_trace_state.stream, "%02x", event->scratch[index]);
+				}
+			}
+			fprintf(m74_trace_state.stream,
+				" scratch_captured=%u nonzero_path=%u returned_2730=%u "
+				"reached_01e4=%u retf=%04x:%04x\n",
+				event->scratch_captured ? 1U : 0U,
+				event->nonzero_path ? 1U : 0U,
+				event->returned_from_2730 ? 1U : 0U,
+				event->reached_01e4 ? 1U : 0U,
+				event->retf_cs, event->retf_ip);
+		}
+		fprintf(m74_trace_state.stream, "m74-allocation-workarea ds=%04x bytes=",
 			m74_trace_state.allocation_ds);
 		for (uint32_t index = 0;
 			index < sizeof(m74_trace_state.allocation_work_area); index++)
@@ -1649,6 +1778,11 @@ void upd9002_m74_trace_arm(uint32_t command_number) {
 		m74_trace_state.allocation_2751_count = 0;
 		m74_trace_state.allocation_0338_count = 0;
 		m74_trace_state.allocation_03c2_count = 0;
+		m74_trace_state.allocation_0191_count = 0;
+		m74_trace_state.allocation_entry_page_captured = FALSE;
+		m74_trace_state.allocation_pre_2730_page_captured = FALSE;
+		m74_trace_state.allocation_post_2730_page_captured = FALSE;
+		m74_trace_state.allocation_pre_01e4_page_captured = FALSE;
 		m74_trace_state.reach_391d_captured = FALSE;
 		m74_trace_state.reach_3983_captured = FALSE;
 		m74_trace_state.reach_3988_captured = FALSE;
@@ -1722,6 +1856,40 @@ void upd9002_m74_trace_step_begin(void) {
 		}
 	}
 
+	if (m74_trace_state.configured && m74_trace_state.allocation_capture &&
+		!m74_trace_state.reachability_armed && (CPU_CS == 0xe000)) {
+		UPD9002_M74_SERVICE_EVENT *event = NULL;
+
+		if (CPU_IP == 0x0180) {
+			m74_trace_startup_service_entry();
+		}
+		if ((m74_trace_state.startup_service_active >= 0) &&
+			((uint32_t)m74_trace_state.startup_service_active <
+			 m74_trace_state.startup_service_count)) {
+			event = &m74_trace_state.startup_service[
+				m74_trace_state.startup_service_active];
+			if ((CPU_IP == 0x2730) && !event->scratch_captured) {
+				event->scratch_captured = TRUE;
+				m74_trace_read_bytes((DS_BASE + 0x008f) & CPU_ADRSMASK,
+					event->scratch, sizeof(event->scratch));
+			}
+			if (CPU_IP == 0x2751) {
+				event->nonzero_path = TRUE;
+			}
+			if (CPU_IP == 0x0191) {
+				event->returned_from_2730 = TRUE;
+			}
+			if (CPU_IP == 0x01e4) {
+				uint32_t stack = (SS_BASE + CPU_SP) & CPU_ADRSMASK;
+				event->reached_01e4 = TRUE;
+				event->retf_ip = m74_trace_read_word(stack);
+				event->retf_cs = m74_trace_read_word(stack + 2);
+				event->active = FALSE;
+				m74_trace_state.startup_service_active = -1;
+			}
+		}
+	}
+
 	if (m74_trace_state.configured && m74_trace_state.reachability &&
 		m74_trace_state.reachability_armed) {
 		if ((CPU_CS == 0xe000) && (CPU_IP == 0x3816)) m74_trace_state.reach_3816++;
@@ -1749,6 +1917,11 @@ void upd9002_m74_trace_step_begin(void) {
 			m74_trace_state.reach_0180++;
 			if (m74_trace_state.allocation_capture &&
 				!m74_trace_state.allocation_entry_captured) {
+				if (!m74_trace_state.allocation_entry_page_captured) {
+					m74_trace_state.allocation_entry_page_captured = TRUE;
+					m74_trace_capture_service_page(
+						m74_trace_state.allocation_entry_page);
+				}
 				uint32_t source = (DS_BASE + CPU_DI) & CPU_ADRSMASK;
 				m74_trace_state.allocation_entry_captured = TRUE;
 				m74_trace_state.allocation_entry_ss = CPU_SS;
@@ -1797,6 +1970,22 @@ void upd9002_m74_trace_step_begin(void) {
 						m74_trace_read_word(stack + 10);
 					m74_trace_read_bytes((DS_BASE + 0x96) & CPU_ADRSMASK,
 						&m74_trace_state.allocation_2730_control, 1);
+					m74_trace_read_bytes((DS_BASE + 0x008f) & CPU_ADRSMASK,
+						m74_trace_state.allocation_2730_scratch,
+						sizeof(m74_trace_state.allocation_2730_scratch));
+					if (!m74_trace_state.allocation_pre_2730_page_captured) {
+						m74_trace_state.allocation_pre_2730_page_captured = TRUE;
+						m74_trace_capture_service_page(
+							m74_trace_state.allocation_pre_2730_page);
+					}
+				}
+			}
+			if (CPU_IP == 0x0191) {
+				m74_trace_state.allocation_0191_count++;
+				if (!m74_trace_state.allocation_post_2730_page_captured) {
+					m74_trace_state.allocation_post_2730_page_captured = TRUE;
+					m74_trace_capture_service_page(
+						m74_trace_state.allocation_post_2730_page);
 				}
 			}
 			if (CPU_IP == 0x020d) {
@@ -1897,9 +2086,9 @@ void upd9002_m74_trace_step_begin(void) {
 						m74_trace_state.reach_windows[window][index] = (uint8_t)upd9002_memoryread((((uint32_t)window_segments[window] << 4) + index) & CPU_ADRSMASK);
 				if (m74_trace_state.allocation_capture) {
 					m74_trace_state.allocation_ds = CPU_DS;
-					m74_trace_read_bytes(0x03740U,
-						m74_trace_state.allocation_service_page,
-						sizeof(m74_trace_state.allocation_service_page));
+					m74_trace_state.allocation_pre_01e4_page_captured = TRUE;
+					m74_trace_capture_service_page(
+						m74_trace_state.allocation_pre_01e4_page);
 					m74_trace_read_bytes(DS_BASE & CPU_ADRSMASK,
 						m74_trace_state.allocation_work_area,
 						sizeof(m74_trace_state.allocation_work_area));
@@ -2586,12 +2775,32 @@ static void m74_trace_lifecycle_snapshot(const char *label) {
 
 void upd9002_m74_trace_lifecycle(const char *label) {
 
+	if (m74_trace_state.configured && m74_trace_state.allocation_capture &&
+		(label != NULL)) {
+		if (!m74_trace_state.allocation_reset_page_captured &&
+			(strcmp(label, "reset") == 0)) {
+			m74_trace_state.allocation_reset_page_captured = TRUE;
+			m74_trace_capture_service_page(
+				m74_trace_state.allocation_reset_page);
+		}
+		if (!m74_trace_state.allocation_first_ok_page_captured &&
+			(strcmp(label, "headless-prompt-observed") == 0)) {
+			m74_trace_state.allocation_first_ok_page_captured = TRUE;
+			m74_trace_capture_service_page(
+				m74_trace_state.allocation_first_ok_page);
+		}
+	}
 	if (!m74_trace_state.lifecycle_memory_watch &&
-		!m74_trace_state.vector_watch) {
+		!m74_trace_state.vector_watch &&
+		!m74_trace_state.allocation_capture) {
 		return;
 	}
-	m74_trace_lifecycle_snapshot(label);
-	m74_trace_vector_snapshot(label);
+	if (m74_trace_state.lifecycle_memory_watch) {
+		m74_trace_lifecycle_snapshot(label);
+	}
+	if (m74_trace_state.vector_watch) {
+		m74_trace_vector_snapshot(label);
+	}
 	if (m74_trace_state.configured && (m74_trace_state.stream != NULL)) {
 		fprintf(m74_trace_state.stream,
 			"m74-lifecycle-checkpoint label=%s active=%u trace_steps=%u "
