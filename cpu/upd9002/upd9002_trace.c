@@ -754,6 +754,7 @@ typedef struct {
 	uint16_t reset_copy_es[2];
 	uint16_t reset_copy_di[2];
 	uint16_t reset_copy_return_ip[2];
+	uint16_t reset_copy_outer_return_ip[2];
 	uint8_t reset_copy_source[2][8];
 	uint8_t reset_copy_before[2][8];
 	uint8_t reset_copy_after[2][8];
@@ -1592,12 +1593,13 @@ void upd9002_m74_trace_stop(void) {
 		for (uint32_t event = 0; event < 2; event++) {
 			fprintf(m74_trace_state.stream,
 				"m74-reset-copy ordinal=%u total=%u source=%04x:%04x "
-				"es=%04x return_ip=%04x bytes=",
+				"es=%04x return_ip=%04x outer_return_ip=%04x bytes=",
 				event + 1, m74_trace_state.reset_copy_total,
 				m74_trace_state.reset_copy_ds[event],
 				m74_trace_state.reset_copy_di[event],
 				m74_trace_state.reset_copy_es[event],
-				m74_trace_state.reset_copy_return_ip[event]);
+				m74_trace_state.reset_copy_return_ip[event],
+				m74_trace_state.reset_copy_outer_return_ip[event]);
 			for (uint32_t index = 0; index < 8; index++)
 				fprintf(m74_trace_state.stream, "%02x",
 					m74_trace_state.reset_copy_source[event][index]);
@@ -2062,6 +2064,8 @@ void upd9002_m74_trace_step_begin(void) {
 				m74_trace_state.reset_copy_di[event] = CPU_DI;
 				m74_trace_state.reset_copy_return_ip[event] =
 					m74_trace_read_word(stack);
+				m74_trace_state.reset_copy_outer_return_ip[event] =
+					m74_trace_read_word(stack + 2);
 				m74_trace_read_bytes((DS_BASE + CPU_DI) & CPU_ADRSMASK,
 					m74_trace_state.reset_copy_source[event], 8);
 				m74_trace_read_bytes(0x037cfU,
