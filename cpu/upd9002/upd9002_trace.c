@@ -622,6 +622,10 @@ typedef struct {
 	uint32_t reach_3837;
 	uint32_t reach_3976;
 	uint32_t reach_397a;
+	uint32_t reach_call_34bd, reach_call_43b2, reach_call_49f9;
+	uint32_t reach_call_75a8, reach_call_7f2a;
+	uint32_t reach_0021, reach_0024, reach_0027, reach_002d;
+	uint32_t reach_0030, reach_0033, reach_0036, reach_0180;
 	uint16_t reach_entry_dx;
 	uint16_t reach_entry_si;
 	uint16_t reach_entry_ds;
@@ -1200,14 +1204,21 @@ void upd9002_m74_trace_stop(void) {
 
 	if (m74_trace_state.configured && m74_trace_state.reachability) {
 		fprintf(m74_trace_state.stream,
-			"m74-reachability counts 391d=%u 3983=%u 3985=%u 002a=%u 01e4=%u int97=%u 3816=%u 3818=%u 3821=%u 3831=%u 3835=%u 3837=%u 3976=%u 397a=%u\n",
+			"m74-reachability counts 391d=%u 3983=%u 3985=%u 002a=%u 01e4=%u int97=%u 3816=%u 3818=%u 3821=%u 3831=%u 3835=%u 3837=%u 3976=%u 397a=%u call34bd=%u call43b2=%u call49f9=%u call75a8=%u call7f2a=%u j0021=%u j0024=%u j0027=%u j002d=%u j0030=%u j0033=%u j0036=%u e0180=%u\n",
 			m74_trace_state.reach_391d, m74_trace_state.reach_3983,
 			m74_trace_state.reach_3985, m74_trace_state.reach_002a,
 			m74_trace_state.reach_01e4, m74_trace_state.reach_int97,
 			m74_trace_state.reach_3816, m74_trace_state.reach_3818,
 			m74_trace_state.reach_3821, m74_trace_state.reach_3831,
 			m74_trace_state.reach_3835, m74_trace_state.reach_3837,
-			m74_trace_state.reach_3976, m74_trace_state.reach_397a);
+			m74_trace_state.reach_3976, m74_trace_state.reach_397a,
+			m74_trace_state.reach_call_34bd, m74_trace_state.reach_call_43b2,
+			m74_trace_state.reach_call_49f9, m74_trace_state.reach_call_75a8,
+			m74_trace_state.reach_call_7f2a, m74_trace_state.reach_0021,
+			m74_trace_state.reach_0024, m74_trace_state.reach_0027,
+			m74_trace_state.reach_002d, m74_trace_state.reach_0030,
+			m74_trace_state.reach_0033, m74_trace_state.reach_0036,
+			m74_trace_state.reach_0180);
 		fprintf(m74_trace_state.stream,
 			"m74-reachability entry dx=%04x si=%04x ds=%04x ss=%04x sp=%04x "
 			"caller=%04x:%04x exit_ss=%04x exit_sp=%04x exit_words=%04x,%04x "
@@ -1275,6 +1286,19 @@ void upd9002_m74_trace_arm(uint32_t command_number) {
 		m74_trace_state.reach_3985 = 0;
 		m74_trace_state.reach_002a = 0;
 		m74_trace_state.reach_01e4 = 0;
+		m74_trace_state.reach_call_34bd = 0;
+		m74_trace_state.reach_call_43b2 = 0;
+		m74_trace_state.reach_call_49f9 = 0;
+		m74_trace_state.reach_call_75a8 = 0;
+		m74_trace_state.reach_call_7f2a = 0;
+		m74_trace_state.reach_0021 = 0;
+		m74_trace_state.reach_0024 = 0;
+		m74_trace_state.reach_0027 = 0;
+		m74_trace_state.reach_002d = 0;
+		m74_trace_state.reach_0030 = 0;
+		m74_trace_state.reach_0033 = 0;
+		m74_trace_state.reach_0036 = 0;
+		m74_trace_state.reach_0180 = 0;
 		m74_trace_state.reach_391d_captured = FALSE;
 		m74_trace_state.reach_3983_captured = FALSE;
 		m74_trace_state.reach_01e4_captured = FALSE;
@@ -1314,6 +1338,19 @@ void upd9002_m74_trace_step_begin(void) {
 		if ((CPU_CS == 0xe000) && (CPU_IP == 0x3837)) m74_trace_state.reach_3837++;
 		if ((CPU_CS == 0xe000) && (CPU_IP == 0x3976)) m74_trace_state.reach_3976++;
 		if ((CPU_CS == 0xe000) && (CPU_IP == 0x397a)) m74_trace_state.reach_397a++;
+		if ((CPU_CS == 0xe000) && (CPU_IP == 0x34bd)) m74_trace_state.reach_call_34bd++;
+		if ((CPU_CS == 0xe000) && (CPU_IP == 0x43b2)) m74_trace_state.reach_call_43b2++;
+		if ((CPU_CS == 0xe000) && (CPU_IP == 0x49f9)) m74_trace_state.reach_call_49f9++;
+		if ((CPU_CS == 0xe000) && (CPU_IP == 0x75a8)) m74_trace_state.reach_call_75a8++;
+		if ((CPU_CS == 0xe000) && (CPU_IP == 0x7f2a)) m74_trace_state.reach_call_7f2a++;
+		if ((CPU_CS == 0xe000) && (CPU_IP == 0x0021)) m74_trace_state.reach_0021++;
+		if ((CPU_CS == 0xe000) && (CPU_IP == 0x0024)) m74_trace_state.reach_0024++;
+		if ((CPU_CS == 0xe000) && (CPU_IP == 0x0027)) m74_trace_state.reach_0027++;
+		if ((CPU_CS == 0xe000) && (CPU_IP == 0x002d)) m74_trace_state.reach_002d++;
+		if ((CPU_CS == 0xe000) && (CPU_IP == 0x0030)) m74_trace_state.reach_0030++;
+		if ((CPU_CS == 0xe000) && (CPU_IP == 0x0033)) m74_trace_state.reach_0033++;
+		if ((CPU_CS == 0xe000) && (CPU_IP == 0x0036)) m74_trace_state.reach_0036++;
+		if ((CPU_CS == 0xe000) && (CPU_IP == 0x0180)) m74_trace_state.reach_0180++;
 		if ((CPU_CS == 0xe000) && (CPU_IP == 0x3823))
 			m74_trace_state.reach_int97++;
 		if ((CPU_CS == 0xe000) && (CPU_IP == 0x391d)) {
