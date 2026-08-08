@@ -748,6 +748,16 @@ typedef struct {
 	uint32_t reset_scratch_writer_counts[31];
 	uint32_t reset_first_ok_scratch_writer_counts[31];
 	uint32_t reset_injection_scratch_writer_counts[31];
+	uint32_t reset_copy_total;
+	int32_t reset_copy_active;
+	uint16_t reset_copy_ds[2];
+	uint16_t reset_copy_es[2];
+	uint16_t reset_copy_di[2];
+	uint16_t reset_copy_return_ip[2];
+	uint8_t reset_copy_source[2][8];
+	uint8_t reset_copy_before[2][8];
+	uint8_t reset_copy_after[2][8];
+	BOOL reset_copy_after_captured[2];
 	uint8_t allocation_reset_page[0x100];
 	uint8_t allocation_first_ok_page[0x100];
 	uint8_t allocation_entry_page[0x100];
@@ -1480,6 +1490,7 @@ void upd9002_m74_trace_configure(FILE *stream) {
 		(reset_arm_value != NULL) && (reset_arm_value[0] != '\0') &&
 		(strcmp(reset_arm_value, "0") != 0);
 	m74_trace_state.startup_service_active = -1;
+	m74_trace_state.reset_copy_active = -1;
 	m74_trace_state.arm_command = 0;
 	if ((arm_value != NULL) && (arm_value[0] != '\0')) {
 		errno = 0;
@@ -1578,6 +1589,29 @@ void upd9002_m74_trace_stop(void) {
 				m74_trace_state.reset_scratch_writer_counts[index]);
 		}
 		fputc('\n', m74_trace_state.stream);
+		for (uint32_t event = 0; event < 2; event++) {
+			fprintf(m74_trace_state.stream,
+				"m74-reset-copy ordinal=%u total=%u source=%04x:%04x "
+				"es=%04x return_ip=%04x bytes=",
+				event + 1, m74_trace_state.reset_copy_total,
+				m74_trace_state.reset_copy_ds[event],
+				m74_trace_state.reset_copy_di[event],
+				m74_trace_state.reset_copy_es[event],
+				m74_trace_state.reset_copy_return_ip[event]);
+			for (uint32_t index = 0; index < 8; index++)
+				fprintf(m74_trace_state.stream, "%02x",
+					m74_trace_state.reset_copy_source[event][index]);
+			fputs(" before=", m74_trace_state.stream);
+			for (uint32_t index = 0; index < 8; index++)
+				fprintf(m74_trace_state.stream, "%02x",
+					m74_trace_state.reset_copy_before[event][index]);
+			fputs(" after=", m74_trace_state.stream);
+			for (uint32_t index = 0; index < 8; index++)
+				fprintf(m74_trace_state.stream, "%02x",
+					m74_trace_state.reset_copy_after[event][index]);
+			fprintf(m74_trace_state.stream, " after_captured=%u\n",
+				m74_trace_state.reset_copy_after_captured[event] ? 1U : 0U);
+		}
 	}
 
 	if (m74_trace_state.configured && m74_trace_state.free_boundary &&
@@ -2017,6 +2051,30 @@ void upd9002_m74_trace_step_begin(void) {
 				m74_trace_read_bytes((DS_BASE + CPU_DI) & CPU_ADRSMASK,
 					m74_trace_state.reset_wrapper_source, 8);
 			}
+		}
+		if (CPU_IP == 0x01f7) {
+			uint32_t event = m74_trace_state.reset_copy_total++;
+			if (event < 2) {
+				uint32_t stack = (SS_BASE + CPU_SP) & CPU_ADRSMASK;
+				m74_trace_state.reset_copy_active = (int32_t)event;
+				m74_trace_state.reset_copy_ds[event] = CPU_DS;
+				m74_trace_state.reset_copy_es[event] = CPU_ES;
+				m74_trace_state.reset_copy_di[event] = CPU_DI;
+				m74_trace_state.reset_copy_return_ip[event] =
+					m74_trace_read_word(stack);
+				m74_trace_read_bytes((DS_BASE + CPU_DI) & CPU_ADRSMASK,
+					m74_trace_state.reset_copy_source[event], 8);
+				m74_trace_read_bytes(0x037cfU,
+					m74_trace_state.reset_copy_before[event], 8);
+			}
+		}
+		if ((CPU_IP == 0x0202) &&
+			(m74_trace_state.reset_copy_active >= 0)) {
+			uint32_t event = (uint32_t)m74_trace_state.reset_copy_active;
+			m74_trace_read_bytes(0x037cfU,
+				m74_trace_state.reset_copy_after[event], 8);
+			m74_trace_state.reset_copy_after_captured[event] = TRUE;
+			m74_trace_state.reset_copy_active = -1;
 		}
 		for (uint32_t writer = 0; writer < 31; writer++) {
 			if (CPU_IP == m74_trace_scratch_writer_ips[writer])
