@@ -611,6 +611,7 @@ typedef struct {
 	uint32_t reach_391d;
 	uint32_t reach_3983;
 	uint32_t reach_3985;
+	uint32_t reach_3988;
 	uint32_t reach_002a;
 	uint32_t reach_01e4;
 	uint32_t reach_int97;
@@ -642,6 +643,9 @@ typedef struct {
 	uint8_t reach_retf_bytes[16];
 	BOOL reach_391d_captured;
 	BOOL reach_3983_captured;
+	BOOL reach_3988_captured;
+	uint16_t reach_3988_ss, reach_3988_sp;
+	uint16_t reach_3988_word0, reach_3988_word1, reach_3988_word2;
 	BOOL reach_01e4_captured;
 } UPD9002_M74_TRACE_STATE;
 
@@ -1204,9 +1208,9 @@ void upd9002_m74_trace_stop(void) {
 
 	if (m74_trace_state.configured && m74_trace_state.reachability) {
 		fprintf(m74_trace_state.stream,
-			"m74-reachability counts 391d=%u 3983=%u 3985=%u 002a=%u 01e4=%u int97=%u 3816=%u 3818=%u 3821=%u 3831=%u 3835=%u 3837=%u 3976=%u 397a=%u call34bd=%u call34c0=%u call43b2=%u call49f9=%u call75a8=%u call7f2a=%u j0021=%u j0024=%u j0027=%u j002d=%u j0030=%u j0033=%u j0036=%u e0180=%u\n",
+			"m74-reachability counts 391d=%u 3983=%u 3985=%u 3988=%u 002a=%u 01e4=%u int97=%u 3816=%u 3818=%u 3821=%u 3831=%u 3835=%u 3837=%u 3976=%u 397a=%u call34bd=%u call34c0=%u call43b2=%u call49f9=%u call75a8=%u call7f2a=%u j0021=%u j0024=%u j0027=%u j002d=%u j0030=%u j0033=%u j0036=%u e0180=%u\n",
 			m74_trace_state.reach_391d, m74_trace_state.reach_3983,
-			m74_trace_state.reach_3985, m74_trace_state.reach_002a,
+			m74_trace_state.reach_3985, m74_trace_state.reach_3988, m74_trace_state.reach_002a,
 			m74_trace_state.reach_01e4, m74_trace_state.reach_int97,
 			m74_trace_state.reach_3816, m74_trace_state.reach_3818,
 			m74_trace_state.reach_3821, m74_trace_state.reach_3831,
@@ -1220,6 +1224,10 @@ void upd9002_m74_trace_stop(void) {
 			m74_trace_state.reach_002d, m74_trace_state.reach_0030,
 			m74_trace_state.reach_0033, m74_trace_state.reach_0036,
 			m74_trace_state.reach_0180);
+		fprintf(m74_trace_state.stream, "m74-reachability ret3988 ss=%04x sp=%04x words=%04x,%04x,%04x\n",
+			m74_trace_state.reach_3988_ss, m74_trace_state.reach_3988_sp,
+			m74_trace_state.reach_3988_word0, m74_trace_state.reach_3988_word1,
+			m74_trace_state.reach_3988_word2);
 		fprintf(m74_trace_state.stream,
 			"m74-reachability entry dx=%04x si=%04x ds=%04x ss=%04x sp=%04x "
 			"caller=%04x:%04x exit_ss=%04x exit_sp=%04x exit_words=%04x,%04x "
@@ -1284,6 +1292,7 @@ void upd9002_m74_trace_arm(uint32_t command_number) {
 		m74_trace_state.reachability_armed = TRUE;
 		m74_trace_state.reach_391d = 0;
 		m74_trace_state.reach_3983 = 0;
+		m74_trace_state.reach_3988 = 0;
 		m74_trace_state.reach_3985 = 0;
 		m74_trace_state.reach_002a = 0;
 		m74_trace_state.reach_01e4 = 0;
@@ -1303,6 +1312,7 @@ void upd9002_m74_trace_arm(uint32_t command_number) {
 		m74_trace_state.reach_0180 = 0;
 		m74_trace_state.reach_391d_captured = FALSE;
 		m74_trace_state.reach_3983_captured = FALSE;
+		m74_trace_state.reach_3988_captured = FALSE;
 		m74_trace_state.reach_01e4_captured = FALSE;
 		ZeroMemory(m74_trace_state.reach_retf_bytes,
 			sizeof(m74_trace_state.reach_retf_bytes));
@@ -1392,6 +1402,18 @@ void upd9002_m74_trace_step_begin(void) {
 			}
 		}
 		if ((CPU_CS == 0xe000) && (CPU_IP == 0x3985)) m74_trace_state.reach_3985++;
+		if ((CPU_CS == 0xe000) && (CPU_IP == 0x3988)) {
+			m74_trace_state.reach_3988++;
+			if (!m74_trace_state.reach_3988_captured) {
+				uint32_t physical = (SS_BASE + CPU_SP) & CPU_ADRSMASK;
+				m74_trace_state.reach_3988_captured = TRUE;
+				m74_trace_state.reach_3988_ss = CPU_SS;
+				m74_trace_state.reach_3988_sp = CPU_SP;
+				m74_trace_state.reach_3988_word0 = (uint16_t)(upd9002_memoryread(physical) | (upd9002_memoryread(physical + 1) << 8));
+				m74_trace_state.reach_3988_word1 = (uint16_t)(upd9002_memoryread(physical + 2) | (upd9002_memoryread(physical + 3) << 8));
+				m74_trace_state.reach_3988_word2 = (uint16_t)(upd9002_memoryread(physical + 4) | (upd9002_memoryread(physical + 5) << 8));
+			}
+		}
 		if ((CPU_CS == 0xe000) && (CPU_IP == 0x002a)) m74_trace_state.reach_002a++;
 		if ((CPU_CS == 0xe000) && (CPU_IP == 0x01e4)) {
 			m74_trace_state.reach_01e4++;
