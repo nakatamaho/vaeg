@@ -553,6 +553,18 @@ typedef struct {
 } UPD9002_M74_VECTOR_WRITER;
 
 typedef struct {
+	uint16_t ds;
+	uint16_t si;
+	uint16_t es;
+	uint16_t di;
+	uint16_t cx;
+	uint32_t source_physical;
+	uint32_t destination_physical;
+	uint8_t source[8];
+	uint8_t destination[8];
+} UPD9002_M74_INSTALLER_RECORD;
+
+typedef struct {
 	FILE *stream;
 	UPD9002_M74_TRACE_RECORD *records;
 	UPD9002_M74_TRACE_INTERRUPT interrupts[256];
@@ -610,6 +622,13 @@ typedef struct {
 	BOOL reachability_armed;
 	BOOL free_boundary;
 	BOOL free_boundary_captured;
+	BOOL allocation_capture;
+	BOOL allocation_entry_captured;
+	BOOL allocation_01f7_captured;
+	BOOL allocation_2730_captured;
+	BOOL allocation_020d_captured;
+	BOOL installer_capture;
+	BOOL installer_code_captured;
 	uint16_t free_boundary_cs;
 	uint16_t free_boundary_ds;
 	uint16_t free_boundary_bx;
@@ -620,6 +639,52 @@ typedef struct {
 	uint16_t free_boundary_writer_ip;
 	uint16_t free_boundary_writer_ax;
 	uint16_t free_boundary_writer_ds;
+	uint16_t allocation_ds;
+	uint16_t allocation_entry_ss;
+	uint16_t allocation_entry_sp;
+	uint16_t allocation_entry_ds;
+	uint16_t allocation_entry_es;
+	uint16_t allocation_entry_di;
+	uint8_t allocation_entry_source[8];
+	uint16_t allocation_01f7_ss;
+	uint16_t allocation_01f7_sp;
+	uint16_t allocation_01f7_ds;
+	uint16_t allocation_01f7_si;
+	uint16_t allocation_01f7_es;
+	uint16_t allocation_01f7_di;
+	uint16_t allocation_01f7_far_ip;
+	uint16_t allocation_01f7_far_cs;
+	uint16_t allocation_2730_ss;
+	uint16_t allocation_2730_sp;
+	uint16_t allocation_2730_ds;
+	uint16_t allocation_2730_es;
+	uint16_t allocation_2730_di;
+	uint16_t allocation_2730_far_ip;
+	uint16_t allocation_2730_far_cs;
+	uint8_t allocation_2730_control;
+	uint16_t allocation_020d_ss;
+	uint16_t allocation_020d_sp;
+	uint16_t allocation_020d_ds;
+	uint16_t allocation_020d_si;
+	uint16_t allocation_020d_es;
+	uint16_t allocation_020d_di;
+	uint16_t allocation_020d_far_ip;
+	uint16_t allocation_020d_far_cs;
+	uint32_t allocation_01f7_count;
+	uint32_t allocation_2730_count;
+	uint32_t allocation_020d_count;
+	uint32_t allocation_2751_count;
+	uint32_t allocation_0338_count;
+	uint32_t allocation_03c2_count;
+	uint8_t allocation_service_page[0x100];
+	uint8_t allocation_work_area[0x100];
+	uint8_t allocation_band[16][0x100];
+	UPD9002_M74_INSTALLER_RECORD installer_records[512];
+	uint32_t installer_record_count;
+	uint32_t installer_record_total;
+	uint16_t installer_code_cs;
+	uint16_t installer_code_ip;
+	uint8_t installer_code[0x100];
 	uint32_t reach_391d;
 	uint32_t reach_3983;
 	uint32_t reach_3985;
@@ -675,6 +740,16 @@ static UPD9002_M74_TRACE_STATE m74_trace_state;
 #define UPD9002_M74_TRACE_STABLE_COUNT 4096
 #define UPD9002_M74_TRACE_HISTORY_CAPACITY 256
 #define UPD9002_M74_VECTOR_SLOT_COUNT 166
+#define UPD9002_M74_ALLOCATION_BAND_COUNT 16
+#define UPD9002_M74_INSTALLER_RECORD_CAPACITY 512
+
+static const uint32_t m74_trace_allocation_bases[
+		UPD9002_M74_ALLOCATION_BAND_COUNT] = {
+	0x2e800U, 0x30000U, 0x31000U, 0x32000U,
+	0x33000U, 0x34000U, 0x34c00U, 0x35000U,
+	0x36000U, 0x38000U, 0x3a000U, 0x3c000U,
+	0x3e000U, 0x40000U, 0x41000U, 0x415a8U
+};
 
 static uint16_t m74_trace_vector_offset(uint32_t slot) {
 
@@ -706,9 +781,62 @@ static void m74_trace_read_bytes(uint32_t address, uint8_t *bytes,
 	CPU_REMCLOCK = before_clock;
 }
 
+static uint16_t m74_trace_read_word(uint32_t address) {
+	uint8_t bytes[2];
+
+	m74_trace_read_bytes(address & CPU_ADRSMASK, bytes, sizeof(bytes));
+	return (uint16_t)(bytes[0] | ((uint16_t)bytes[1] << 8));
+}
+
 static void m74_trace_current_instruction(uint8_t *bytes) {
 
 	m74_trace_read_bytes((CS_BASE + CPU_IP) & CPU_ADRSMASK, bytes, 8);
+}
+
+static BOOL m74_trace_installer_destination(uint32_t physical) {
+
+	return ((physical >= 0x10680U) && (physical < 0x106b2U)) ||
+		((physical >= 0x10e00U) && (physical < 0x1110cU));
+}
+
+static void m74_trace_installer_event(void) {
+	UPD9002_M74_INSTALLER_RECORD *record;
+	uint32_t source;
+	uint32_t destination;
+
+	if (!m74_trace_state.configured || !m74_trace_state.installer_capture ||
+		!(((CPU_CS == 0x19e3) && (CPU_IP == 0xc7eb)) ||
+		  ((CPU_CS == 0x1cc5) && (CPU_IP == 0xc6bb)))) {
+		return;
+	}
+	source = (DS_BASE + CPU_SI) & CPU_ADRSMASK;
+	destination = (ES_BASE + CPU_DI) & CPU_ADRSMASK;
+	m74_trace_state.installer_record_total++;
+	if (!m74_trace_state.installer_code_captured) {
+		m74_trace_state.installer_code_captured = TRUE;
+		m74_trace_state.installer_code_cs = CPU_CS;
+		m74_trace_state.installer_code_ip = (uint16_t)(CPU_IP - 0x80);
+		m74_trace_read_bytes((CS_BASE + m74_trace_state.installer_code_ip) &
+			CPU_ADRSMASK, m74_trace_state.installer_code,
+			sizeof(m74_trace_state.installer_code));
+	}
+	if (!m74_trace_installer_destination(destination) ||
+		(m74_trace_state.installer_record_count >=
+		 UPD9002_M74_INSTALLER_RECORD_CAPACITY)) {
+		return;
+	}
+	record = &m74_trace_state.installer_records[
+		m74_trace_state.installer_record_count++];
+	record->ds = CPU_DS;
+	record->si = CPU_SI;
+	record->es = CPU_ES;
+	record->di = CPU_DI;
+	record->cx = CPU_CX;
+	record->source_physical = source;
+	record->destination_physical = destination;
+	m74_trace_read_bytes(source, record->source, sizeof(record->source));
+	m74_trace_read_bytes(destination, record->destination,
+		sizeof(record->destination));
 }
 
 static const char *m74_trace_vector_class(const uint8_t *bytes) {
@@ -1160,6 +1288,8 @@ void upd9002_m74_trace_configure(FILE *stream) {
 	const char *vector_value;
 	const char *reachability_value;
 	const char *free_boundary_value;
+	const char *allocation_value;
+	const char *installer_value;
 	char *end;
 	unsigned long limit;
 	unsigned long arm_command;
@@ -1171,6 +1301,8 @@ void upd9002_m74_trace_configure(FILE *stream) {
 	vector_value = getenv("VAEG_M74_VECTOR_WATCH");
 	reachability_value = getenv("VAEG_M74_REACHABILITY");
 	free_boundary_value = getenv("VAEG_M74_FREE_BOUNDARY");
+	allocation_value = getenv("VAEG_M74_ALLOCATION_CAPTURE");
+	installer_value = getenv("VAEG_M74_INSTALLER_CAPTURE");
 	if ((stream == NULL) || (value == NULL) || (value[0] == '\0')) {
 		return;
 	}
@@ -1205,6 +1337,12 @@ void upd9002_m74_trace_configure(FILE *stream) {
 	m74_trace_state.free_boundary =
 		(free_boundary_value != NULL) && (free_boundary_value[0] != '\0') &&
 		(strcmp(free_boundary_value, "0") != 0);
+	m74_trace_state.allocation_capture =
+		(allocation_value != NULL) && (allocation_value[0] != '\0') &&
+		(strcmp(allocation_value, "0") != 0);
+	m74_trace_state.installer_capture =
+		(installer_value != NULL) && (installer_value[0] != '\0') &&
+		(strcmp(installer_value, "0") != 0);
 	m74_trace_state.arm_command = 0;
 	if ((arm_value != NULL) && (arm_value[0] != '\0')) {
 		errno = 0;
@@ -1223,9 +1361,11 @@ void upd9002_m74_trace_configure(FILE *stream) {
 	}
 	m74_trace_state.configured = TRUE;
 	fprintf(stream, "m74-cpu-trace configured limit=%u ring=%u "
-		"arm_command=%u vector_watch=%u\n", m74_trace_state.limit,
+		"arm_command=%u vector_watch=%u allocation_capture=%u "
+		"installer_capture=%u\n", m74_trace_state.limit,
 		UPD9002_M74_TRACE_RECORD_CAPACITY, m74_trace_state.arm_command,
-		m74_trace_state.vector_watch);
+		m74_trace_state.vector_watch, m74_trace_state.allocation_capture,
+		m74_trace_state.installer_capture);
 }
 
 void upd9002_m74_trace_stop(void) {
@@ -1254,6 +1394,124 @@ void upd9002_m74_trace_stop(void) {
 			m74_trace_state.free_boundary_writer_ip,
 			m74_trace_state.free_boundary_writer_ax,
 			m74_trace_state.free_boundary_writer_ds);
+	}
+
+	if (m74_trace_state.configured && m74_trace_state.allocation_capture &&
+		m74_trace_state.reach_01e4_captured) {
+		fprintf(m74_trace_state.stream,
+			"m74-allocation-context entry_ss=%04x entry_sp=%04x "
+			"entry_ds=%04x entry_es=%04x entry_di=%04x entry_source=",
+			m74_trace_state.allocation_entry_ss,
+			m74_trace_state.allocation_entry_sp,
+			m74_trace_state.allocation_entry_ds,
+			m74_trace_state.allocation_entry_es,
+			m74_trace_state.allocation_entry_di);
+		for (uint32_t index = 0;
+			index < sizeof(m74_trace_state.allocation_entry_source); index++)
+			fprintf(m74_trace_state.stream, "%02x",
+				m74_trace_state.allocation_entry_source[index]);
+		fprintf(m74_trace_state.stream,
+			" 01f7_count=%u 01f7_ss=%04x 01f7_sp=%04x "
+			"01f7_ds_si=%04x:%04x 01f7_es_di=%04x:%04x "
+			"01f7_far=%04x,%04x 2730_count=%u 2730_ss=%04x "
+			"2730_sp=%04x 2730_ds=%04x 2730_es=%04x 2730_di=%04x "
+			"2730_far=%04x,%04x 2730_control=%02x 2751_count=%u "
+			"0338_count=%u 03c2_count=%u 020d_count=%u 020d_ss=%04x "
+			"020d_sp=%04x 020d_ds_si=%04x:%04x "
+			"020d_es_di=%04x:%04x 020d_far=%04x,%04x ds_at_retf=%04x\n",
+			m74_trace_state.allocation_01f7_count,
+			m74_trace_state.allocation_01f7_ss,
+			m74_trace_state.allocation_01f7_sp,
+			m74_trace_state.allocation_01f7_ds,
+			m74_trace_state.allocation_01f7_si,
+			m74_trace_state.allocation_01f7_es,
+			m74_trace_state.allocation_01f7_di,
+			m74_trace_state.allocation_01f7_far_ip,
+			m74_trace_state.allocation_01f7_far_cs,
+			m74_trace_state.allocation_2730_count,
+			m74_trace_state.allocation_2730_ss,
+			m74_trace_state.allocation_2730_sp,
+			m74_trace_state.allocation_2730_ds,
+			m74_trace_state.allocation_2730_es,
+			m74_trace_state.allocation_2730_di,
+			m74_trace_state.allocation_2730_far_ip,
+			m74_trace_state.allocation_2730_far_cs,
+			m74_trace_state.allocation_2730_control,
+			m74_trace_state.allocation_2751_count,
+			m74_trace_state.allocation_0338_count,
+			m74_trace_state.allocation_03c2_count,
+			m74_trace_state.allocation_020d_count,
+			m74_trace_state.allocation_020d_ss,
+			m74_trace_state.allocation_020d_sp,
+			m74_trace_state.allocation_020d_ds,
+			m74_trace_state.allocation_020d_si,
+			m74_trace_state.allocation_020d_es,
+			m74_trace_state.allocation_020d_di,
+			m74_trace_state.allocation_020d_far_ip,
+			m74_trace_state.allocation_020d_far_cs,
+			m74_trace_state.allocation_ds);
+		fputs("m74-allocation-service0374=", m74_trace_state.stream);
+		for (uint32_t index = 0;
+			index < sizeof(m74_trace_state.allocation_service_page); index++)
+			fprintf(m74_trace_state.stream, "%02x",
+				m74_trace_state.allocation_service_page[index]);
+		fprintf(m74_trace_state.stream, "\nm74-allocation-workarea ds=%04x bytes=",
+			m74_trace_state.allocation_ds);
+		for (uint32_t index = 0;
+			index < sizeof(m74_trace_state.allocation_work_area); index++)
+			fprintf(m74_trace_state.stream, "%02x",
+				m74_trace_state.allocation_work_area[index]);
+		fputc('\n', m74_trace_state.stream);
+		for (uint32_t range = 0;
+			range < UPD9002_M74_ALLOCATION_BAND_COUNT; range++) {
+			fprintf(m74_trace_state.stream,
+				"m74-allocation-band address=%05x bytes=",
+				m74_trace_allocation_bases[range]);
+			for (uint32_t index = 0;
+				index < sizeof(m74_trace_state.allocation_band[range]); index++)
+				fprintf(m74_trace_state.stream, "%02x",
+					m74_trace_state.allocation_band[range][index]);
+			fputc('\n', m74_trace_state.stream);
+		}
+	}
+
+	if (m74_trace_state.configured && m74_trace_state.installer_capture) {
+		fprintf(m74_trace_state.stream,
+			"m74-installer-summary total_hits=%u table_hits=%u "
+			"capacity=%u code_captured=%u\n",
+			m74_trace_state.installer_record_total,
+			m74_trace_state.installer_record_count,
+			UPD9002_M74_INSTALLER_RECORD_CAPACITY,
+			m74_trace_state.installer_code_captured);
+		if (m74_trace_state.installer_code_captured) {
+			fprintf(m74_trace_state.stream,
+				"m74-installer-code cs=%04x ip=%04x bytes=",
+				m74_trace_state.installer_code_cs,
+				m74_trace_state.installer_code_ip);
+			for (uint32_t index = 0;
+				index < sizeof(m74_trace_state.installer_code); index++)
+				fprintf(m74_trace_state.stream, "%02x",
+					m74_trace_state.installer_code[index]);
+			fputc('\n', m74_trace_state.stream);
+		}
+		for (uint32_t index = 0;
+			index < m74_trace_state.installer_record_count; index++) {
+			UPD9002_M74_INSTALLER_RECORD *record =
+				&m74_trace_state.installer_records[index];
+			fprintf(m74_trace_state.stream,
+				"m74-installer-record index=%u ds_si=%04x:%04x "
+				"es_di=%04x:%04x cx=%04x source_phys=%05x "
+				"destination_phys=%05x source=", index, record->ds,
+				record->si, record->es, record->di, record->cx,
+				record->source_physical, record->destination_physical);
+			for (uint32_t byte = 0; byte < sizeof(record->source); byte++)
+				fprintf(m74_trace_state.stream, "%02x", record->source[byte]);
+			fputs(" destination=", m74_trace_state.stream);
+			for (uint32_t byte = 0; byte < sizeof(record->destination); byte++)
+				fprintf(m74_trace_state.stream, "%02x",
+					record->destination[byte]);
+			fputc('\n', m74_trace_state.stream);
+		}
 	}
 
 	if (m74_trace_state.configured && m74_trace_state.reachability) {
@@ -1381,6 +1639,16 @@ void upd9002_m74_trace_arm(uint32_t command_number) {
 		m74_trace_state.reach_0033 = 0;
 		m74_trace_state.reach_0036 = 0;
 		m74_trace_state.reach_0180 = 0;
+		m74_trace_state.allocation_entry_captured = FALSE;
+		m74_trace_state.allocation_01f7_captured = FALSE;
+		m74_trace_state.allocation_2730_captured = FALSE;
+		m74_trace_state.allocation_020d_captured = FALSE;
+		m74_trace_state.allocation_01f7_count = 0;
+		m74_trace_state.allocation_2730_count = 0;
+		m74_trace_state.allocation_020d_count = 0;
+		m74_trace_state.allocation_2751_count = 0;
+		m74_trace_state.allocation_0338_count = 0;
+		m74_trace_state.allocation_03c2_count = 0;
 		m74_trace_state.reach_391d_captured = FALSE;
 		m74_trace_state.reach_3983_captured = FALSE;
 		m74_trace_state.reach_3988_captured = FALSE;
@@ -1414,6 +1682,8 @@ void upd9002_m74_trace_step_begin(void) {
 	uint32_t index;
 	uint32_t address;
 	int32_t before_clock;
+
+	m74_trace_installer_event();
 
 	if (m74_trace_state.configured && m74_trace_state.free_boundary &&
 		(CPU_CS == 0xe000) &&
@@ -1475,7 +1745,80 @@ void upd9002_m74_trace_step_begin(void) {
 		if ((CPU_CS == 0xe000) && (CPU_IP == 0x0030)) m74_trace_state.reach_0030++;
 		if ((CPU_CS == 0xe000) && (CPU_IP == 0x0033)) m74_trace_state.reach_0033++;
 		if ((CPU_CS == 0xe000) && (CPU_IP == 0x0036)) m74_trace_state.reach_0036++;
-		if ((CPU_CS == 0xe000) && (CPU_IP == 0x0180)) m74_trace_state.reach_0180++;
+		if ((CPU_CS == 0xe000) && (CPU_IP == 0x0180)) {
+			m74_trace_state.reach_0180++;
+			if (m74_trace_state.allocation_capture &&
+				!m74_trace_state.allocation_entry_captured) {
+				uint32_t source = (DS_BASE + CPU_DI) & CPU_ADRSMASK;
+				m74_trace_state.allocation_entry_captured = TRUE;
+				m74_trace_state.allocation_entry_ss = CPU_SS;
+				m74_trace_state.allocation_entry_sp = CPU_SP;
+				m74_trace_state.allocation_entry_ds = CPU_DS;
+				m74_trace_state.allocation_entry_es = CPU_ES;
+				m74_trace_state.allocation_entry_di = CPU_DI;
+				m74_trace_read_bytes(source,
+					m74_trace_state.allocation_entry_source,
+					sizeof(m74_trace_state.allocation_entry_source));
+			}
+		}
+		if (m74_trace_state.allocation_capture &&
+			m74_trace_state.allocation_entry_captured &&
+			(CPU_CS == 0xe000)) {
+			uint32_t stack = (SS_BASE + CPU_SP) & CPU_ADRSMASK;
+
+			if (CPU_IP == 0x01f7) {
+				m74_trace_state.allocation_01f7_count++;
+				if (!m74_trace_state.allocation_01f7_captured) {
+					m74_trace_state.allocation_01f7_captured = TRUE;
+					m74_trace_state.allocation_01f7_ss = CPU_SS;
+					m74_trace_state.allocation_01f7_sp = CPU_SP;
+					m74_trace_state.allocation_01f7_ds = CPU_DS;
+					m74_trace_state.allocation_01f7_si = CPU_SI;
+					m74_trace_state.allocation_01f7_es = CPU_ES;
+					m74_trace_state.allocation_01f7_di = CPU_DI;
+					m74_trace_state.allocation_01f7_far_ip =
+						m74_trace_read_word(stack + 8);
+					m74_trace_state.allocation_01f7_far_cs =
+						m74_trace_read_word(stack + 10);
+				}
+			}
+			if (CPU_IP == 0x2730) {
+				m74_trace_state.allocation_2730_count++;
+				if (!m74_trace_state.allocation_2730_captured) {
+					m74_trace_state.allocation_2730_captured = TRUE;
+					m74_trace_state.allocation_2730_ss = CPU_SS;
+					m74_trace_state.allocation_2730_sp = CPU_SP;
+					m74_trace_state.allocation_2730_ds = CPU_DS;
+					m74_trace_state.allocation_2730_es = CPU_ES;
+					m74_trace_state.allocation_2730_di = CPU_DI;
+					m74_trace_state.allocation_2730_far_ip =
+						m74_trace_read_word(stack + 8);
+					m74_trace_state.allocation_2730_far_cs =
+						m74_trace_read_word(stack + 10);
+					m74_trace_read_bytes((DS_BASE + 0x96) & CPU_ADRSMASK,
+						&m74_trace_state.allocation_2730_control, 1);
+				}
+			}
+			if (CPU_IP == 0x020d) {
+				m74_trace_state.allocation_020d_count++;
+				if (!m74_trace_state.allocation_020d_captured) {
+					m74_trace_state.allocation_020d_captured = TRUE;
+					m74_trace_state.allocation_020d_ss = CPU_SS;
+					m74_trace_state.allocation_020d_sp = CPU_SP;
+					m74_trace_state.allocation_020d_ds = CPU_DS;
+					m74_trace_state.allocation_020d_si = CPU_SI;
+					m74_trace_state.allocation_020d_es = CPU_ES;
+					m74_trace_state.allocation_020d_di = CPU_DI;
+					m74_trace_state.allocation_020d_far_ip =
+						m74_trace_read_word(stack + 4);
+					m74_trace_state.allocation_020d_far_cs =
+						m74_trace_read_word(stack + 6);
+				}
+			}
+			if (CPU_IP == 0x2751) m74_trace_state.allocation_2751_count++;
+			if (CPU_IP == 0x0338) m74_trace_state.allocation_0338_count++;
+			if (CPU_IP == 0x03c2) m74_trace_state.allocation_03c2_count++;
+		}
 		if ((CPU_CS == 0xe000) && (CPU_IP == 0x3823))
 			m74_trace_state.reach_int97++;
 		if ((CPU_CS == 0xe000) && (CPU_IP == 0x391d)) {
@@ -1552,6 +1895,21 @@ void upd9002_m74_trace_step_begin(void) {
 				for (uint32_t window = 0; window < 4; window++)
 					for (uint32_t index = 0; index < 256; index++)
 						m74_trace_state.reach_windows[window][index] = (uint8_t)upd9002_memoryread((((uint32_t)window_segments[window] << 4) + index) & CPU_ADRSMASK);
+				if (m74_trace_state.allocation_capture) {
+					m74_trace_state.allocation_ds = CPU_DS;
+					m74_trace_read_bytes(0x03740U,
+						m74_trace_state.allocation_service_page,
+						sizeof(m74_trace_state.allocation_service_page));
+					m74_trace_read_bytes(DS_BASE & CPU_ADRSMASK,
+						m74_trace_state.allocation_work_area,
+						sizeof(m74_trace_state.allocation_work_area));
+					for (uint32_t range = 0;
+						range < UPD9002_M74_ALLOCATION_BAND_COUNT; range++) {
+						m74_trace_read_bytes(m74_trace_allocation_bases[range],
+							m74_trace_state.allocation_band[range],
+							sizeof(m74_trace_state.allocation_band[range]));
+					}
+				}
 			}
 		}
 	}

@@ -24,6 +24,9 @@ trace_limit=${VAEG_M74_CPU_TRACE_LIMIT:-1}
 trace_command=${VAEG_M74_CPU_TRACE_COMMAND:-3}
 reachability=${VAEG_M74_REACHABILITY:-1}
 free_boundary=${VAEG_M74_FREE_BOUNDARY:-0}
+allocation_capture=${VAEG_M74_ALLOCATION_CAPTURE:-0}
+installer_capture=${VAEG_M74_INSTALLER_CAPTURE:-0}
+vector_watch=${VAEG_M74_VECTOR_WATCH:-0}
 prompt_timeout=${VAEG_HEADLESS_PROMPT_TIMEOUT_FRAMES:-300}
 runner_path=$0
 repo_root=$(CDPATH= cd -- "$(dirname "$runner_path")/../.." && pwd)
@@ -49,6 +52,9 @@ repo_sha=$(GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$repo
     printf 'trace_command=%s\n' "$trace_command"
     printf 'reachability=%s\n' "$reachability"
     printf 'free_boundary=%s\n' "$free_boundary"
+    printf 'allocation_capture=%s\n' "$allocation_capture"
+    printf 'installer_capture=%s\n' "$installer_capture"
+    printf 'vector_watch=%s\n' "$vector_watch"
     printf 'prompt_timeout_frames=%s\n' "$prompt_timeout"
     printf 'working_directory=%s\n' "$(pwd)"
 } >"$output_path.identity"
@@ -57,6 +63,9 @@ VAEG_M74_CPU_TRACE_LIMIT="$trace_limit" \
 VAEG_M74_CPU_TRACE_COMMAND="$trace_command" \
 VAEG_M74_REACHABILITY="$reachability" \
 VAEG_M74_FREE_BOUNDARY="$free_boundary" \
+VAEG_M74_ALLOCATION_CAPTURE="$allocation_capture" \
+VAEG_M74_INSTALLER_CAPTURE="$installer_capture" \
+VAEG_M74_VECTOR_WATCH="$vector_watch" \
 VAEG_HEADLESS_MAX_FRAMES="$bound" \
 VAEG_HEADLESS_PROMPT_TIMEOUT_FRAMES="$prompt_timeout" \
 SDL_VIDEODRIVER=dummy \
