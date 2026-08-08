@@ -19,9 +19,48 @@ command=${4:?BASIC command}
 bound=${5:?guest frame bound}
 script_path=${6:?headless script path}
 output_path=${7:?output path}
+model=${VAEG_M74_MODEL:-va}
+trace_limit=${VAEG_M74_CPU_TRACE_LIMIT:-1}
+trace_command=${VAEG_M74_CPU_TRACE_COMMAND:-3}
+reachability=${VAEG_M74_REACHABILITY:-1}
+prompt_timeout=${VAEG_HEADLESS_PROMPT_TIMEOUT_FRAMES:-300}
+runner_path=$0
+repo_root=$(CDPATH= cd -- "$(dirname "$runner_path")/../.." && pwd)
 mkdir -p "$(dirname "$script_path")" "$(dirname "$output_path")"
 printf '%s\n' BASIC @prompt "$command" @prompt @exit >"$script_path"
-sha256sum "$worker" "$disk" >"$output_path.identity"
-printf 'worker=%s\n' "$worker" >>"$output_path.identity"
-printf 'rom_root=%s\ndisk=%s\ncommand=%s\nbound=%s\n' "$rom_root" "$disk" "$command" "$bound" >>"$output_path.identity"
-VAEG_M74_CPU_TRACE_LIMIT=${VAEG_M74_CPU_TRACE_LIMIT:-1} VAEG_M74_CPU_TRACE_COMMAND=3 VAEG_M74_REACHABILITY=1 VAEG_HEADLESS_MAX_FRAMES="$bound" VAEG_HEADLESS_PROMPT_TIMEOUT_FRAMES=300 SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy "$worker" --model va --roms "$rom_root" --fdd1 "$disk" --headless-input-script "$script_path" >"$output_path" 2>&1
+repo_sha=$(GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$repo_root" rev-parse HEAD)
+{
+    printf 'repository_source_sha=%s\n' "$repo_sha"
+    sha256sum "$worker"
+    sha256sum "$runner_path"
+    sha256sum "$disk"
+    if [ -f "$rom_root/varom00.rom" ]; then
+        sha256sum "$rom_root/varom00.rom"
+    fi
+    printf 'worker=%s\n' "$worker"
+    printf 'runner=%s\n' "$runner_path"
+    printf 'rom_root=%s\n' "$rom_root"
+    printf 'disk=%s\n' "$disk"
+    printf 'model=%s\n' "$model"
+    printf 'command=%s\n' "$command"
+    printf 'guest_frame_bound=%s\n' "$bound"
+    printf 'trace_limit=%s\n' "$trace_limit"
+    printf 'trace_command=%s\n' "$trace_command"
+    printf 'reachability=%s\n' "$reachability"
+    printf 'prompt_timeout_frames=%s\n' "$prompt_timeout"
+    printf 'working_directory=%s\n' "$(pwd)"
+} >"$output_path.identity"
+set +e
+VAEG_M74_CPU_TRACE_LIMIT="$trace_limit" \
+VAEG_M74_CPU_TRACE_COMMAND="$trace_command" \
+VAEG_M74_REACHABILITY="$reachability" \
+VAEG_HEADLESS_MAX_FRAMES="$bound" \
+VAEG_HEADLESS_PROMPT_TIMEOUT_FRAMES="$prompt_timeout" \
+SDL_VIDEODRIVER=dummy \
+SDL_AUDIODRIVER=dummy \
+"$worker" --model "$model" --roms "$rom_root" --fdd1 "$disk" \
+    --nowait --headless-input-script "$script_path" >"$output_path" 2>&1
+status=$?
+set -e
+printf 'emulator_exit_status=%s\n' "$status" >>"$output_path.identity"
+exit "$status"
