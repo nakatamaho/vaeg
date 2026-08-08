@@ -759,6 +759,14 @@ typedef struct {
 	uint8_t reset_copy_before[2][8];
 	uint8_t reset_copy_after[2][8];
 	BOOL reset_copy_after_captured[2];
+	uint32_t reset_13de_total;
+	int32_t reset_13de_active;
+	uint16_t reset_13de_ds[2];
+	uint16_t reset_13de_si[2];
+	uint16_t reset_13de_return_ip[2];
+	uint8_t reset_13de_source[2][9];
+	uint8_t reset_13de_after[2][8];
+	BOOL reset_13de_after_captured[2];
 	uint8_t allocation_reset_page[0x100];
 	uint8_t allocation_first_ok_page[0x100];
 	uint8_t allocation_entry_page[0x100];
@@ -1492,6 +1500,7 @@ void upd9002_m74_trace_configure(FILE *stream) {
 		(strcmp(reset_arm_value, "0") != 0);
 	m74_trace_state.startup_service_active = -1;
 	m74_trace_state.reset_copy_active = -1;
+	m74_trace_state.reset_13de_active = -1;
 	m74_trace_state.arm_command = 0;
 	if ((arm_value != NULL) && (arm_value[0] != '\0')) {
 		errno = 0;
@@ -1613,6 +1622,24 @@ void upd9002_m74_trace_stop(void) {
 					m74_trace_state.reset_copy_after[event][index]);
 			fprintf(m74_trace_state.stream, " after_captured=%u\n",
 				m74_trace_state.reset_copy_after_captured[event] ? 1U : 0U);
+		}
+		for (uint32_t event = 0; event < 2; event++) {
+			fprintf(m74_trace_state.stream,
+				"m74-reset-13de ordinal=%u total=%u source=%04x:%04x "
+				"return_ip=%04x bytes=",
+				event + 1, m74_trace_state.reset_13de_total,
+				m74_trace_state.reset_13de_ds[event],
+				m74_trace_state.reset_13de_si[event],
+				m74_trace_state.reset_13de_return_ip[event]);
+			for (uint32_t index = 0; index < 9; index++)
+				fprintf(m74_trace_state.stream, "%02x",
+					m74_trace_state.reset_13de_source[event][index]);
+			fputs(" object_after=", m74_trace_state.stream);
+			for (uint32_t index = 0; index < 8; index++)
+				fprintf(m74_trace_state.stream, "%02x",
+					m74_trace_state.reset_13de_after[event][index]);
+			fprintf(m74_trace_state.stream, " after_captured=%u\n",
+				m74_trace_state.reset_13de_after_captured[event] ? 1U : 0U);
 		}
 	}
 
@@ -2079,6 +2106,27 @@ void upd9002_m74_trace_step_begin(void) {
 				m74_trace_state.reset_copy_after[event], 8);
 			m74_trace_state.reset_copy_after_captured[event] = TRUE;
 			m74_trace_state.reset_copy_active = -1;
+		}
+		if (CPU_IP == 0x13de) {
+			uint32_t event = m74_trace_state.reset_13de_total++;
+			if (event < 2) {
+				uint32_t stack = (SS_BASE + CPU_SP) & CPU_ADRSMASK;
+				m74_trace_state.reset_13de_active = (int32_t)event;
+				m74_trace_state.reset_13de_ds[event] = CPU_DS;
+				m74_trace_state.reset_13de_si[event] = CPU_SI;
+				m74_trace_state.reset_13de_return_ip[event] =
+					m74_trace_read_word(stack);
+				m74_trace_read_bytes((DS_BASE + CPU_SI) & CPU_ADRSMASK,
+					m74_trace_state.reset_13de_source[event], 9);
+			}
+		}
+		if ((CPU_IP == 0x13e1) &&
+			(m74_trace_state.reset_13de_active >= 0)) {
+			uint32_t event = (uint32_t)m74_trace_state.reset_13de_active;
+			m74_trace_read_bytes(0x037cfU,
+				m74_trace_state.reset_13de_after[event], 8);
+			m74_trace_state.reset_13de_after_captured[event] = TRUE;
+			m74_trace_state.reset_13de_active = -1;
 		}
 		for (uint32_t writer = 0; writer < 31; writer++) {
 			if (CPU_IP == m74_trace_scratch_writer_ips[writer])
