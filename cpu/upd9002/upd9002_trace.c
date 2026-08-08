@@ -699,6 +699,12 @@ typedef struct {
 	uint32_t allocation_0338_count;
 	uint32_t allocation_03c2_count;
 	uint32_t allocation_0191_count;
+	uint32_t allocation_writer_03fd_count;
+	uint32_t allocation_writer_1309_count;
+	uint32_t allocation_writer_1350_count;
+	uint32_t allocation_writer_273d_count;
+	uint32_t allocation_writer_2748_count;
+	uint32_t allocation_writer_286d_count;
 	uint8_t allocation_reset_page[0x100];
 	uint8_t allocation_first_ok_page[0x100];
 	uint8_t allocation_entry_page[0x100];
@@ -1500,6 +1506,7 @@ void upd9002_m74_trace_stop(void) {
 			"2730_sp=%04x 2730_ds=%04x 2730_es=%04x 2730_di=%04x "
 			"2730_far=%04x,%04x 2730_control=%02x 2751_count=%u "
 			"0338_count=%u 03c2_count=%u returned_0191_count=%u "
+			"writers=03fd:%u,1309:%u,1350:%u,273d:%u,2748:%u,286d:%u "
 			"020d_count=%u 020d_ss=%04x "
 			"020d_sp=%04x 020d_ds_si=%04x:%04x "
 			"020d_es_di=%04x:%04x 020d_far=%04x,%04x ds_at_retf=%04x\n",
@@ -1525,6 +1532,12 @@ void upd9002_m74_trace_stop(void) {
 			m74_trace_state.allocation_0338_count,
 			m74_trace_state.allocation_03c2_count,
 			m74_trace_state.allocation_0191_count,
+			m74_trace_state.allocation_writer_03fd_count,
+			m74_trace_state.allocation_writer_1309_count,
+			m74_trace_state.allocation_writer_1350_count,
+			m74_trace_state.allocation_writer_273d_count,
+			m74_trace_state.allocation_writer_2748_count,
+			m74_trace_state.allocation_writer_286d_count,
 			m74_trace_state.allocation_020d_count,
 			m74_trace_state.allocation_020d_ss,
 			m74_trace_state.allocation_020d_sp,
@@ -1779,6 +1792,12 @@ void upd9002_m74_trace_arm(uint32_t command_number) {
 		m74_trace_state.allocation_0338_count = 0;
 		m74_trace_state.allocation_03c2_count = 0;
 		m74_trace_state.allocation_0191_count = 0;
+		m74_trace_state.allocation_writer_03fd_count = 0;
+		m74_trace_state.allocation_writer_1309_count = 0;
+		m74_trace_state.allocation_writer_1350_count = 0;
+		m74_trace_state.allocation_writer_273d_count = 0;
+		m74_trace_state.allocation_writer_2748_count = 0;
+		m74_trace_state.allocation_writer_286d_count = 0;
 		m74_trace_state.allocation_entry_page_captured = FALSE;
 		m74_trace_state.allocation_pre_2730_page_captured = FALSE;
 		m74_trace_state.allocation_post_2730_page_captured = FALSE;
@@ -2004,6 +2023,12 @@ void upd9002_m74_trace_step_begin(void) {
 						m74_trace_read_word(stack + 6);
 				}
 			}
+			if (CPU_IP == 0x03fd) m74_trace_state.allocation_writer_03fd_count++;
+			if (CPU_IP == 0x1309) m74_trace_state.allocation_writer_1309_count++;
+			if (CPU_IP == 0x1350) m74_trace_state.allocation_writer_1350_count++;
+			if (CPU_IP == 0x273d) m74_trace_state.allocation_writer_273d_count++;
+			if (CPU_IP == 0x2748) m74_trace_state.allocation_writer_2748_count++;
+			if (CPU_IP == 0x286d) m74_trace_state.allocation_writer_286d_count++;
 			if (CPU_IP == 0x2751) m74_trace_state.allocation_2751_count++;
 			if (CPU_IP == 0x0338) m74_trace_state.allocation_0338_count++;
 			if (CPU_IP == 0x03c2) m74_trace_state.allocation_03c2_count++;
