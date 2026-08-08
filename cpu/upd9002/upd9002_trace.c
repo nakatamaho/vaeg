@@ -745,6 +745,9 @@ typedef struct {
 	uint16_t reset_wrapper_ds;
 	uint16_t reset_wrapper_di;
 	uint8_t reset_wrapper_source[8];
+	uint32_t reset_scratch_writer_counts[31];
+	uint32_t reset_first_ok_scratch_writer_counts[31];
+	uint32_t reset_injection_scratch_writer_counts[31];
 	uint8_t allocation_reset_page[0x100];
 	uint8_t allocation_first_ok_page[0x100];
 	uint8_t allocation_entry_page[0x100];
@@ -826,6 +829,14 @@ static const uint32_t m74_trace_allocation_bases[
 	0x33000U, 0x34000U, 0x34c00U, 0x35000U,
 	0x36000U, 0x38000U, 0x3a000U, 0x3c000U,
 	0x3e000U, 0x40000U, 0x41000U, 0x415a8U
+};
+
+static const uint16_t m74_trace_scratch_writer_ips[31] = {
+	0x0200, 0x03fd, 0x091f, 0x092b, 0x0932, 0x1309, 0x1312,
+	0x1350, 0x1388, 0x13de, 0x1633, 0x16ab, 0x16d0, 0x1774,
+	0x17c7, 0x17d4, 0x1888, 0x188e, 0x1a84, 0x1aa6, 0x1ad1,
+	0x223b, 0x2340, 0x241b, 0x2446, 0x2466, 0x2479, 0x248e,
+	0x273d, 0x2748, 0x286d
 };
 
 static uint16_t m74_trace_vector_offset(uint32_t slot) {
@@ -1558,6 +1569,15 @@ void upd9002_m74_trace_stop(void) {
 			fprintf(m74_trace_state.stream, "%02x",
 				m74_trace_state.reset_wrapper_source[index]);
 		fputc('\n', m74_trace_state.stream);
+		fputs("m74-reset-scratch-writers", m74_trace_state.stream);
+		for (uint32_t index = 0; index < 31; index++) {
+			fprintf(m74_trace_state.stream, " %04x=%u/%u/%u",
+				m74_trace_scratch_writer_ips[index],
+				m74_trace_state.reset_first_ok_scratch_writer_counts[index],
+				m74_trace_state.reset_injection_scratch_writer_counts[index],
+				m74_trace_state.reset_scratch_writer_counts[index]);
+		}
+		fputc('\n', m74_trace_state.stream);
 	}
 
 	if (m74_trace_state.configured && m74_trace_state.free_boundary &&
@@ -1997,6 +2017,10 @@ void upd9002_m74_trace_step_begin(void) {
 				m74_trace_read_bytes((DS_BASE + CPU_DI) & CPU_ADRSMASK,
 					m74_trace_state.reset_wrapper_source, 8);
 			}
+		}
+		for (uint32_t writer = 0; writer < 31; writer++) {
+			if (CPU_IP == m74_trace_scratch_writer_ips[writer])
+				m74_trace_state.reset_scratch_writer_counts[writer]++;
 		}
 	}
 
@@ -2977,6 +3001,9 @@ void upd9002_m74_trace_lifecycle(const char *label) {
 				m74_trace_state.reset_0191_count;
 			m74_trace_state.reset_first_ok_01e4 =
 				m74_trace_state.reset_01e4_count;
+			memcpy(m74_trace_state.reset_first_ok_scratch_writer_counts,
+				m74_trace_state.reset_scratch_writer_counts,
+				sizeof(m74_trace_state.reset_scratch_writer_counts));
 		}
 		if (!m74_trace_state.reset_injection_captured &&
 			(strncmp(label, "headless-before-command-", 24) == 0)) {
@@ -2996,6 +3023,9 @@ void upd9002_m74_trace_lifecycle(const char *label) {
 					m74_trace_state.reset_0191_count;
 				m74_trace_state.reset_injection_01e4 =
 					m74_trace_state.reset_01e4_count;
+				memcpy(m74_trace_state.reset_injection_scratch_writer_counts,
+					m74_trace_state.reset_scratch_writer_counts,
+					sizeof(m74_trace_state.reset_scratch_writer_counts));
 			}
 		}
 	}
