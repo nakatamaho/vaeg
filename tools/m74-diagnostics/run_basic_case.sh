@@ -23,6 +23,7 @@ model=${VAEG_M74_MODEL:-va}
 trace_limit=${VAEG_M74_CPU_TRACE_LIMIT:-1}
 trace_command=${VAEG_M74_CPU_TRACE_COMMAND:-3}
 reachability=${VAEG_M74_REACHABILITY:-1}
+free_boundary=${VAEG_M74_FREE_BOUNDARY:-0}
 prompt_timeout=${VAEG_HEADLESS_PROMPT_TIMEOUT_FRAMES:-300}
 runner_path=$0
 repo_root=$(CDPATH= cd -- "$(dirname "$runner_path")/../.." && pwd)
@@ -47,6 +48,7 @@ repo_sha=$(GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$repo
     printf 'trace_limit=%s\n' "$trace_limit"
     printf 'trace_command=%s\n' "$trace_command"
     printf 'reachability=%s\n' "$reachability"
+    printf 'free_boundary=%s\n' "$free_boundary"
     printf 'prompt_timeout_frames=%s\n' "$prompt_timeout"
     printf 'working_directory=%s\n' "$(pwd)"
 } >"$output_path.identity"
@@ -54,6 +56,7 @@ set +e
 VAEG_M74_CPU_TRACE_LIMIT="$trace_limit" \
 VAEG_M74_CPU_TRACE_COMMAND="$trace_command" \
 VAEG_M74_REACHABILITY="$reachability" \
+VAEG_M74_FREE_BOUNDARY="$free_boundary" \
 VAEG_HEADLESS_MAX_FRAMES="$bound" \
 VAEG_HEADLESS_PROMPT_TIMEOUT_FRAMES="$prompt_timeout" \
 SDL_VIDEODRIVER=dummy \

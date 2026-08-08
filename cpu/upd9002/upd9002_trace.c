@@ -608,6 +608,18 @@ typedef struct {
 	uint8_t thunk_stack[8];
 	BOOL reachability;
 	BOOL reachability_armed;
+	BOOL free_boundary;
+	BOOL free_boundary_captured;
+	uint16_t free_boundary_cs;
+	uint16_t free_boundary_ds;
+	uint16_t free_boundary_bx;
+	uint16_t free_boundary_caller_ip;
+	uint16_t free_boundary_offset;
+	uint16_t free_boundary_base_segment;
+	uint16_t free_boundary_top_segment;
+	uint16_t free_boundary_writer_ip;
+	uint16_t free_boundary_writer_ax;
+	uint16_t free_boundary_writer_ds;
 	uint32_t reach_391d;
 	uint32_t reach_3983;
 	uint32_t reach_3985;
@@ -1147,6 +1159,7 @@ void upd9002_m74_trace_configure(FILE *stream) {
 	const char *watch_value;
 	const char *vector_value;
 	const char *reachability_value;
+	const char *free_boundary_value;
 	char *end;
 	unsigned long limit;
 	unsigned long arm_command;
@@ -1157,6 +1170,7 @@ void upd9002_m74_trace_configure(FILE *stream) {
 	watch_value = getenv("VAEG_M74_LIFECYCLE_WATCH");
 	vector_value = getenv("VAEG_M74_VECTOR_WATCH");
 	reachability_value = getenv("VAEG_M74_REACHABILITY");
+	free_boundary_value = getenv("VAEG_M74_FREE_BOUNDARY");
 	if ((stream == NULL) || (value == NULL) || (value[0] == '\0')) {
 		return;
 	}
@@ -1188,6 +1202,9 @@ void upd9002_m74_trace_configure(FILE *stream) {
 	m74_trace_state.reachability =
 		(reachability_value != NULL) && (reachability_value[0] != '\0') &&
 		(strcmp(reachability_value, "0") != 0);
+	m74_trace_state.free_boundary =
+		(free_boundary_value != NULL) && (free_boundary_value[0] != '\0') &&
+		(strcmp(free_boundary_value, "0") != 0);
 	m74_trace_state.arm_command = 0;
 	if ((arm_value != NULL) && (arm_value[0] != '\0')) {
 		errno = 0;
@@ -1212,6 +1229,32 @@ void upd9002_m74_trace_configure(FILE *stream) {
 }
 
 void upd9002_m74_trace_stop(void) {
+
+	if (m74_trace_state.configured && m74_trace_state.free_boundary &&
+		m74_trace_state.free_boundary_captured) {
+		uint32_t lower = ((uint32_t)m74_trace_state.free_boundary_base_segment << 4) +
+			m74_trace_state.free_boundary_offset + 1;
+		uint32_t upper = ((uint32_t)m74_trace_state.free_boundary_top_segment << 4) +
+			0x10000U;
+		fprintf(m74_trace_state.stream,
+			"m74-free-boundary print_at=%04x:f7b0 caller_ip=%04x "
+			"string_at=%04x:%04x ds=%04x offset=%04x "
+			"base_segment=%04x top_segment=%04x lower=%05x upper=%05x "
+			"free=%u offset_writer=%04x writer_ax=%04x writer_ds=%04x\n",
+			m74_trace_state.free_boundary_cs,
+			m74_trace_state.free_boundary_caller_ip,
+			m74_trace_state.free_boundary_cs,
+			m74_trace_state.free_boundary_bx,
+			m74_trace_state.free_boundary_ds,
+			m74_trace_state.free_boundary_offset,
+			m74_trace_state.free_boundary_base_segment,
+			m74_trace_state.free_boundary_top_segment,
+			lower & CPU_ADRSMASK, upper & CPU_ADRSMASK,
+			(unsigned)((upper - lower) & CPU_ADRSMASK),
+			m74_trace_state.free_boundary_writer_ip,
+			m74_trace_state.free_boundary_writer_ax,
+			m74_trace_state.free_boundary_writer_ds);
+	}
 
 	if (m74_trace_state.configured && m74_trace_state.reachability) {
 		fprintf(m74_trace_state.stream,
@@ -1371,6 +1414,43 @@ void upd9002_m74_trace_step_begin(void) {
 	uint32_t index;
 	uint32_t address;
 	int32_t before_clock;
+
+	if (m74_trace_state.configured && m74_trace_state.free_boundary &&
+		(CPU_CS == 0xe000) &&
+		((CPU_IP == 0x804b) || (CPU_IP == 0xe992))) {
+		m74_trace_state.free_boundary_writer_ip = CPU_IP;
+		m74_trace_state.free_boundary_writer_ax = CPU_AX;
+		m74_trace_state.free_boundary_writer_ds = CPU_DS;
+	}
+
+	if (m74_trace_state.configured && m74_trace_state.free_boundary &&
+		!m74_trace_state.free_boundary_captured &&
+		(CPU_IP == 0xf7b0)) {
+		static const uint8_t marker[] = " bytes free";
+		uint8_t candidate[sizeof(marker) - 1];
+		uint32_t base = DS_BASE & CPU_ADRSMASK;
+		uint32_t stack = (SS_BASE + CPU_SP) & CPU_ADRSMASK;
+		m74_trace_read_bytes((CS_BASE + CPU_BX) & CPU_ADRSMASK, candidate,
+			sizeof(candidate));
+		if (memcmp(candidate, marker, sizeof(candidate)) == 0) {
+			m74_trace_state.free_boundary_captured = TRUE;
+			m74_trace_state.free_boundary_cs = CPU_CS;
+			m74_trace_state.free_boundary_ds = CPU_DS;
+			m74_trace_state.free_boundary_bx = CPU_BX;
+			m74_trace_state.free_boundary_caller_ip = (uint16_t)(
+				upd9002_memoryread(stack) |
+				(upd9002_memoryread(stack + 1) << 8));
+		m74_trace_state.free_boundary_offset = (uint16_t)(
+			upd9002_memoryread(base + 0x0004) |
+			(upd9002_memoryread(base + 0x0005) << 8));
+		m74_trace_state.free_boundary_base_segment = (uint16_t)(
+			upd9002_memoryread(base + 0x0010) |
+			(upd9002_memoryread(base + 0x0011) << 8));
+			m74_trace_state.free_boundary_top_segment = (uint16_t)(
+				upd9002_memoryread(base + 0x001a) |
+				(upd9002_memoryread(base + 0x001b) << 8));
+		}
+	}
 
 	if (m74_trace_state.configured && m74_trace_state.reachability &&
 		m74_trace_state.reachability_armed) {
