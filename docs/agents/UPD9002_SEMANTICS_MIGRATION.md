@@ -47,9 +47,9 @@ Repository: `github.com/nakatamaho/vaeg`
 - M73 is reserved for the post-M49 runtime performance regression observed
   between approved M49 and M50 checkpoints.
 - M76 is reserved for uPD9002 main-CPU uPD780 emulation-mode authority after
-  retired VA1 diagnostic investigation BASIC and M75 SCSI evidence, and before the I/O source-tree
-  reorganization. This is separate from the FDC subsystem uPD780-compatible
-  CPU cleanup planned later in the VA-only source-tree sequence.
+  M75 SCSI evidence and before the I/O source-tree reorganization. This is
+  separate from the FDC subsystem uPD780-compatible CPU cleanup planned later
+  in the VA-only source-tree sequence.
 
 Codex executes one milestone or lettered submilestone per session and stops at its candidate gate.
 

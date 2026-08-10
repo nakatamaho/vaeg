@@ -15,8 +15,8 @@ Candidate gate: `G73`
 
 Report: `docs/agents/reports/m73_upd9002_post_m49_performance_regression.md`
 
-Do not start retired VA1 diagnostic investigation. Do not merge M73 to `main` before G73 approval. Do not
-declare G73 passed.
+Do not start a dependent follow-on milestone. Do not merge M73 to `main`
+before G73 approval. Do not declare G73 passed.
 
 ## Scope
 

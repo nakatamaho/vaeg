@@ -16,9 +16,9 @@ task-authority: 869b59f211ed7b9f3e87f3627a5ff769fe7ec2ff
 The historical M75 commits supplied for reference were inspected. The GUI
 SCSI slots, image creation, command-line attachment, ROM detachment, and
 documentation commits were reapplied as separate commits. The historical
-lightweight trace commit `6e1b65d` was not copied: it depends on discarded
-retired VA1 diagnostic investigation diagnostic interfaces and would have mixed an unrelated diagnostic seam
-into the clean M75 branch.
+lightweight trace commit `6e1b65d` was not copied because it depended on
+discarded branch-local diagnostic interfaces and would have mixed an unrelated
+diagnostic seam into the clean M75 branch.
 
 ## Implemented boundary
 

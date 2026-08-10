@@ -27,8 +27,8 @@ M76 must:
 
 - audit `docs/modernization/upd9002-upd70008-mode.md` and current uPD9002 mode
   state, decode, trace, interrupt, and state-save boundaries;
-- use retired VA1 diagnostic investigation VA1 BASIC command-hang evidence and M75 SCSI evidence as inputs
-  when available;
+- use public M75 SCSI evidence and independently reproducible main-CPU mode
+  evidence as inputs when available;
 - audit the CP/M emulator `.cpv` hard-emulation path as a transition-mechanism
   exerciser when the source and binary identity are available;
 - distinguish project-target software evidence from physical-silicon evidence;
