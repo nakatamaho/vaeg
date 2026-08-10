@@ -131,8 +131,7 @@ compatible-mode support and must not be reused as a hidden implementation.
   for a Z80-class compatible decoder, but private ROM/hardware execution is
   not independently rerunnable from this clean public clone.
 - M65g records zero executable BRKEM corpus cases and leaves BRKEM/RETEM/CALLN
-  untouched. The public retired VA1 diagnostic investigation VA1 report is absent in the evaluated tree; the
-  public M75 report is stale and concerns SCSI rather than main-CPU mode.
+  untouched. The public M75 report concerns SCSI rather than main-CPU mode.
 
 V20/V30 manuals and MAME are useful analogies for standard BRKEM/CALLN/RETEM
 frames, MD write-enable behavior, and separate decode tables. They do not

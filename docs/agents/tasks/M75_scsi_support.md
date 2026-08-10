@@ -2,7 +2,9 @@
 
 M75 is reserved for SCSI support cleanup, validation, and VA integration.
 
-Predecessor: approved G74.
+Predecessor: the M73 integration baseline. The redefined M74 debug-harness
+milestone is independent and is not a prerequisite for the completed G75
+evidence.
 
 Branch: `topic/m75-scsi-support`
 

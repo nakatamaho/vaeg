@@ -1,0 +1,97 @@
+<!--
+Copyright (c) 2026 Nakata Maho
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
+1. Redistributions of source code must retain the above copyright notice,
+   this list of conditions and the following disclaimer.
+2. Redistributions in binary form must reproduce the above copyright notice,
+   this list of conditions and the following disclaimer in the documentation
+   and/or other materials provided with the distribution.
+
+THIS SOFTWARE IS PROVIDED BY THE AUTHOR "AS IS" AND ANY EXPRESS OR IMPLIED
+WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO
+EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
+OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
+OF THE POSSIBILITY OF SUCH DAMAGE.
+-->
+
+# M74 - Deterministic emulator debug harness
+
+M74 builds reusable diagnostic infrastructure for bounded, deterministic
+emulator investigation without changing guest-visible behavior.
+
+Predecessor: current `main` after the approved G77 integration. M74 is
+independent of the already completed M75-M78 work.
+
+Branch: `topic/m74-debug-harness`
+
+Commit prefix: `M74:`
+
+Candidate gate: `G74`
+
+Report: `docs/agents/reports/m74_debug_harness.md`
+
+Do not start a dependent production-fix milestone. Do not merge M74 to `main`
+before G74 approval. Do not declare G74 passed.
+
+## Scope
+
+M74 owns diagnostic infrastructure only:
+
+- define a default-off fixed-address counter API;
+- define bounded one-shot and ordinal-selected capture APIs;
+- provide deterministic reset-, frame-, event-, and command-window snapshots;
+- isolate model-specific persistent diagnostic state;
+- provide stable machine-readable schemas for counter and capture output;
+- provide a reusable command runner that accepts only neutral test identifiers;
+- record source, worker, runner, model, guest-bound, and output identities;
+- add ROM-less tests for disabled equivalence, bounds, ordinal selection, and
+  schema stability;
+- document how private integration inputs remain outside Git and public logs.
+
+## Required invariants
+
+- Diagnostics are disabled by default.
+- Disabled diagnostics do not change deterministic guest-visible state.
+- Captures are bounded by explicit address, ordinal, event, and output limits.
+- The harness does not implement per-instruction session tracing.
+- The harness performs no guest-visible writes unless a separately authorized
+  disposable intervention explicitly requires them.
+- Private ROMs, disks, screenshots, save data, filenames, paths, and hashes are
+  never committed, uploaded, packaged, or emitted by default.
+- Public evidence uses neutral stable identifiers and synthetic or ROM-less
+  fixtures.
+- Diagnostic code remains separate from production mapping and execution
+  semantics wherever practical.
+
+## Non-goals
+
+M74 does not investigate or correct a particular guest-software failure. It
+does not change CPU, memory, I/O, storage, video, sound, ROM-loading, or
+persistence semantics. It does not import private integration evidence into
+the repository.
+
+## Deliverables
+
+- a documented diagnostic API and lifecycle;
+- a reusable deterministic runner;
+- bounded counter and capture schemas;
+- focused ROM-less tests and negative tests;
+- disabled-versus-enabled deterministic equivalence evidence;
+- a report containing no private integration identity or payload.
+
+## Validation
+
+Run repository encoding, EOL, case, and diff checks; the trace-enabled build;
+selftests; the ROM-less suite; focused counter/capture tests; disabled and
+enabled deterministic-equivalence tests with synthetic inputs; native builds;
+and the established MinGW/cross-build validation where available.
+
+G74 remains explicitly unapproved until the maintainer completes the required
+human gate.
