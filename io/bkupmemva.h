@@ -9,6 +9,7 @@ extern "C" {
 void bkupmemva_load(void);
 void bkupmemva_save(void);
 void bkupmemva_setpath(const char *path);
+void bkupmemva_setenabled(BOOL enabled);
 
 #ifdef __cplusplus
 }

@@ -62,6 +62,8 @@ void ini_write(const char *path, const char *title,
 
 void initload(void);
 void initsave(void);
+void initsetpath(const char *path);
+void initsetenabled(BOOL enabled);
 
 #ifdef __cplusplus
 }

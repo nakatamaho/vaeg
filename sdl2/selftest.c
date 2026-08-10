@@ -28,6 +28,7 @@
 #include	"commng.h"
 #include	"clockscale.h"
 #include	"bmsio.h"
+#include	"bkupmemva.h"
 #include	"cliopts.h"
 #include	"debug_harness.h"
 #include	"dosio.h"
@@ -170,7 +171,8 @@ static int test_cli_options(void) {
 		"--screen-dump", "rendered.bmp",
 		"--screen-tvram-dump", "tvram.bin",
 		"--scsitrace-cmdreq-windows", "--scsitrace-jitter-seed", "1234",
-		"--scsitrace-jitter-span", "200", "--smoke"
+		"--scsitrace-jitter-span", "200", "--cfg", "session.cfg",
+		"--bkupmem", "session.bak", "--smoke"
 	};
 	char *positional[] = {"vaeg", "boot.d88"};
 	char *invalid_model[] = {"vaeg", "--model", "va3"};
@@ -179,6 +181,11 @@ static int test_cli_options(void) {
 	char *invalid_sgp[] = {"vaeg", "--sgp", "17"};
 	char *invalid_scaling[] = {"vaeg", "--scaling", "nearest"};
 	char *missing_value[] = {"vaeg", "--fdd1"};
+	char *missing_config[] = {"vaeg", "--cfg"};
+	char *disabled_persistence[] = {"vaeg", "--no-cfg", "--no-bkupmem"};
+	char *config_conflict[] = {"vaeg", "--cfg", "test.cfg", "--no-cfg"};
+	char *bkupmem_conflict[] = {
+		"vaeg", "--bkupmem", "test.dat", "--no-bkupmem"};
 	char *hostfat_disabled[] = {"vaeg", "--smoke"};
 	VAEG_CLI_OPTIONS options;
 	char error[256];
@@ -228,6 +235,10 @@ static int test_cli_options(void) {
 		strcmp(options.screen_dump_path, "rendered.bmp") ||
 		(options.screen_tvram_dump_path == NULL) ||
 		strcmp(options.screen_tvram_dump_path, "tvram.bin") ||
+		(options.config_path == NULL) ||
+		strcmp(options.config_path, "session.cfg") ||
+		(options.bkupmem_path == NULL) ||
+		strcmp(options.bkupmem_path, "session.bak") ||
 		!options.debug || !options.fdctrace || !options.pacelog ||
 		!options.scsitrace_cmdreq_windows || !options.scsitrace_jitter ||
 		(options.scsitrace_jitter_seed != 1234) ||
@@ -238,6 +249,12 @@ static int test_cli_options(void) {
 			&options, error, sizeof(error)) != SUCCESS) ||
 		(options.hostfat_path != NULL) || options.scsitrace_cmdreq_windows) {
 		return(fail("CLI options", "HOSTFAT was not disabled by default"));
+	}
+	if ((vaeg_cli_parse((int)NELEMENTS(disabled_persistence),
+			disabled_persistence, &options, error, sizeof(error)) != SUCCESS) ||
+		!options.no_config || !options.no_bkupmem ||
+		(options.config_path != NULL) || (options.bkupmem_path != NULL)) {
+		return(fail("CLI options", "persistence disable flags were parsed incorrectly"));
 	}
 	if ((vaeg_cli_parse((int)NELEMENTS(positional), positional, &options,
 			error, sizeof(error)) == SUCCESS) ||
@@ -253,7 +270,13 @@ static int test_cli_options(void) {
 		(vaeg_cli_parse((int)NELEMENTS(invalid_scaling), invalid_scaling,
 			&options, error, sizeof(error)) == SUCCESS) ||
 		(vaeg_cli_parse((int)NELEMENTS(missing_value), missing_value, &options,
-			error, sizeof(error)) == SUCCESS)) {
+			error, sizeof(error)) == SUCCESS) ||
+		(vaeg_cli_parse((int)NELEMENTS(missing_config), missing_config, &options,
+			error, sizeof(error)) == SUCCESS) ||
+		(vaeg_cli_parse((int)NELEMENTS(config_conflict), config_conflict,
+			&options, error, sizeof(error)) == SUCCESS) ||
+		(vaeg_cli_parse((int)NELEMENTS(bkupmem_conflict), bkupmem_conflict,
+			&options, error, sizeof(error)) == SUCCESS)) {
 		return(fail("CLI options", "invalid input was accepted"));
 	}
 	fprintf(stderr, "selftest: CLI options ok\n");
@@ -984,6 +1007,58 @@ static int test_profile_ini(void) {
 		return(fail("ini", "BMS settings did not round-trip"));
 	}
 	fprintf(stderr, "selftest: ini ok\n");
+	return(SUCCESS);
+}
+
+static int test_persistence_controls(void) {
+
+	char config_path[MAX_PATH];
+	char backup_path[MAX_PATH];
+	const char *detail;
+
+	SPRINTF(config_path, "vaeg-selftest-%lu.cfg", (unsigned long)getpid());
+	SPRINTF(backup_path, "vaeg-selftest-%lu-bkup.dat",
+			(unsigned long)getpid());
+	file_delete(config_path);
+	file_delete(backup_path);
+	detail = NULL;
+
+	initsetpath(config_path);
+	initsetenabled(TRUE);
+	initsave();
+	if (file_attr(config_path) < 0) {
+		detail = "explicit configuration path was not written";
+	}
+	file_delete(config_path);
+	initsetenabled(FALSE);
+	initsave();
+	if ((detail == NULL) && (file_attr(config_path) >= 0)) {
+		detail = "disabled configuration persistence wrote a file";
+	}
+	initsetpath(NULL);
+	initsetenabled(TRUE);
+
+	bkupmemva_setpath(backup_path);
+	bkupmemva_setenabled(TRUE);
+	bkupmemva_save();
+	if ((detail == NULL) && (file_attr(backup_path) < 0)) {
+		detail = "explicit backup-memory path was not written";
+	}
+	file_delete(backup_path);
+	bkupmemva_setenabled(FALSE);
+	bkupmemva_save();
+	if ((detail == NULL) && (file_attr(backup_path) >= 0)) {
+		detail = "disabled backup-memory persistence wrote a file";
+	}
+	bkupmemva_setpath(NULL);
+	bkupmemva_setenabled(TRUE);
+	file_delete(config_path);
+	file_delete(backup_path);
+
+	if (detail != NULL) {
+		return(fail("persistence controls", detail));
+	}
+	fprintf(stderr, "selftest: persistence controls ok\n");
 	return(SUCCESS);
 }
 
@@ -2187,6 +2262,9 @@ int vaeg_selftest_run(void) {
 		return(FAILURE);
 	}
 	if (test_profile_ini() != SUCCESS) {
+		return(FAILURE);
+	}
+	if (test_persistence_controls() != SUCCESS) {
 		return(FAILURE);
 	}
 	if (test_framedisp() != SUCCESS) {

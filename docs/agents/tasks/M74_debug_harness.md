@@ -104,6 +104,24 @@ startup-only `--trace-cpu` interfaces remain compatible. The new integrated
 workflow uses `--debug-script` with `--debug-output-dir`; it may not be
 combined with startup-only `--trace-cpu`.
 
+## Accepted persistence isolation contract
+
+M74 isolates host persistence so deterministic runs do not accidentally share
+state across working directories or machine models:
+
+- `vaeg.cfg` is read and written in the process current working directory by
+  default;
+- VA backup memory defaults to `vabkupmem.dat`, while VA2/VA3 defaults to
+  `va2bkupmem.dat`;
+- `--cfg path` and `--bkupmem path` select exact files, with relative paths
+  resolved from the process current working directory;
+- `--no-cfg` and `--no-bkupmem` disable both reads and writes for that state;
+- explicit path and disable options for the same state are mutually exclusive;
+- no executable-directory or user-state fallback/migration is performed.
+
+A missing selected file starts from built-in/default state and is created by
+the existing normal save lifecycle.
+
 ## Required invariants
 
 - Diagnostics are disabled by default.
@@ -122,9 +140,9 @@ combined with startup-only `--trace-cpu`.
 ## Non-goals
 
 M74 does not investigate or correct a particular guest-software failure. It
-does not change CPU, memory, I/O, storage, video, sound, ROM-loading, or
-persistence semantics. It does not import private integration evidence into
-the repository.
+does not change CPU, memory, I/O, storage, video, sound, or ROM-loading
+semantics. Persistence changes are limited to the accepted isolation contract
+above. M74 does not import private integration evidence into the repository.
 
 ## Deliverables
 

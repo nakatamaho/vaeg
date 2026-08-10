@@ -282,6 +282,12 @@ BOOL vaeg_cli_parse(int argc, char **argv, VAEG_CLI_OPTIONS *options,
 		else if (!strcmp(argument, "--nowait")) {
 			options->nowait = TRUE;
 		}
+		else if (!strcmp(argument, "--no-cfg")) {
+			options->no_config = TRUE;
+		}
+		else if (!strcmp(argument, "--no-bkupmem")) {
+			options->no_bkupmem = TRUE;
+		}
 		else if (!strcmp(argument, "--trace-cpu")) {
 			value = option_value(argc, argv, &position, argument, error,
 														error_size);
@@ -598,6 +604,25 @@ BOOL vaeg_cli_parse(int argc, char **argv, VAEG_CLI_OPTIONS *options,
 			}
 			options->roms_path = value;
 		}
+		else if ((!strcmp(argument, "--cfg")) ||
+				 (!strcmp(argument, "--bkupmem"))) {
+			value = option_value(argc, argv, &position, argument, error,
+											error_size);
+			if ((value == NULL) || (value[0] == '\0')) {
+				return(set_error(error, error_size,
+						"persistence option requires a non-empty path", argument));
+			}
+			if (strlen(value) >= MAX_PATH) {
+				return(set_error(error, error_size,
+						"persistence path is too long", argument));
+			}
+			if (!strcmp(argument, "--cfg")) {
+				options->config_path = value;
+			}
+			else {
+				options->bkupmem_path = value;
+			}
+		}
 		else if (argument[0] == '-') {
 			return(set_error(error, error_size, "unknown option", argument));
 		}
@@ -606,6 +631,14 @@ BOOL vaeg_cli_parse(int argc, char **argv, VAEG_CLI_OPTIONS *options,
 					"positional FDD arguments were removed; use --fdd1 or --fdd2",
 					argument));
 		}
+	}
+	if (options->no_config && (options->config_path != NULL)) {
+		return(set_error(error, error_size,
+				"--cfg cannot be combined with --no-cfg", NULL));
+	}
+	if (options->no_bkupmem && (options->bkupmem_path != NULL)) {
+		return(set_error(error, error_size,
+				"--bkupmem cannot be combined with --no-bkupmem", NULL));
 	}
 	return(SUCCESS);
 }

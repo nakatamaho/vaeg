@@ -127,6 +127,8 @@ typedef struct {
 	BOOL pacelog;
 	BOOL mute;
 	BOOL nowait;
+	BOOL no_config;
+	BOOL no_bkupmem;
 	UINT trace_cpu;
 	UINT scsitrace_limit;
 	UINT scsitrace_jitter_seed;
@@ -154,6 +156,8 @@ typedef struct {
 	const char *scsi_path[4];
 	const char *hostfat_path;
 	const char *roms_path;
+	const char *config_path;
+	const char *bkupmem_path;
 	const char *headless_input_script;
 	const char *debug_script;
 	const char *debug_output_dir;

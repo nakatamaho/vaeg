@@ -129,7 +129,8 @@
 static const UINT smoke_timeout_frames = 600;
 static const UINT startup_splash_ms = 1500;
 static const UINT max_catchup_frames = 15;
-static const char backup_memory_file[] = "vabkupmem.dat";
+static const char va_backup_memory_file[] = "vabkupmem.dat";
+static const char va2_backup_memory_file[] = "va2bkupmem.dat";
 static const char *rompath_override;
 typedef struct {
 	const char *name;
@@ -262,6 +263,9 @@ static void usage(const char *progname) {
 	printf("\t--scsi3 path|none   --scsi4 path|none\n");
 	printf("\t--hostfat-dir path  read-only PC-Engine HOSTFAT snapshot\n");
 	printf("\t--roms path         ROM directory override\n");
+	printf("Persistence (paths are relative to the current directory):\n");
+	printf("\t--cfg path | --no-cfg\n");
+	printf("\t--bkupmem path | --no-bkupmem\n");
 	printf("Execution (session only):\n");
 	printf("\t--cpumult 1..32\n");
 	printf("\t--sgp model|follow-cpu|1..16\n");
@@ -522,27 +526,30 @@ static BOOL romset_complete(const char *dir, const char *model, char *missing,
 	return(SUCCESS);
 }
 
-static void select_backup_memory_path(void) {
+static const char *backup_memory_filename(const char *model) {
 
-	char	path[MAX_PATH];
-	char	*base;
-	short	attr;
+	return((milstr_cmp(model, str_VA1) == 0) ?
+			va_backup_memory_file : va2_backup_memory_file);
+}
 
-	base = SDL_GetBasePath();
-	if (base != NULL) {
-		file_cpyname(path, base, sizeof(path));
-		SDL_free(base);
-		file_catname(path, backup_memory_file, sizeof(path));
-		attr = file_attr(path);
-		if ((attr >= 0) && !(attr & FILEATTR_DIRECTORY)) {
-			bkupmemva_setpath(path);
-			SDL_Log("Backup memory: %s", path);
-			return;
+static void select_backup_memory_path(const VAEG_CLI_OPTIONS *options) {
+
+	const char *path;
+
+	if (options->no_bkupmem) {
+		bkupmemva_setenabled(FALSE);
+		if (np2_debug) {
+			SDL_Log("Backup memory persistence disabled");
 		}
+		return;
 	}
-	file_getstatepath(path, sizeof(path), backup_memory_file);
+	bkupmemva_setenabled(TRUE);
+	path = (options->bkupmem_path != NULL) ? options->bkupmem_path :
+			backup_memory_filename(np2cfg.model);
 	bkupmemva_setpath(path);
-	SDL_Log("Backup memory: %s", path);
+	if (np2_debug) {
+		SDL_Log("Backup memory: %s", path);
+	}
 }
 
 static void verify_rom(const char *dir, const char *source,
@@ -1327,7 +1334,9 @@ BOOL np2_cli_override_selftest(void) {
 	file_cpyname(np2cfg.model, str_VA1, sizeof(np2cfg.model));
 	apply_cli_config(&options, &saved);
 	update_applied_display(&saved);
-	result = (np2cfg.SOUND_SW == FMBOARD_VA_OPNA) &&
+	result = !strcmp(backup_memory_filename(str_VA1), "vabkupmem.dat") &&
+		!strcmp(backup_memory_filename(str_VA2), "va2bkupmem.dat") &&
+		(np2cfg.SOUND_SW == FMBOARD_VA_OPNA) &&
 		(opngen_getbackend() == OPN_BACKEND_NP2) &&
 		(ymfm_opn_getfidelity() == YMFMBRIDGE_FIDELITY_MAXIMUM) &&
 		(np2cfg.samplingrate == 44100) && (np2cfg.delayms == 40) &&
@@ -1858,6 +1867,8 @@ int main(int argc, char **argv) {
 
 	dosio_init();
 	file_setcd("./");
+	initsetpath(options.config_path);
+	initsetenabled(options.no_config ? FALSE : TRUE);
 	rompath_override = options.roms_path;
 	if (options.trace_cpu != 0) {
 		upd9002_trace_start(stderr, options.trace_cpu);
@@ -1965,7 +1976,6 @@ int main(int argc, char **argv) {
 	dropmedia_set_session_fdd_references(
 			saved_cli.fdd[0] ? saved_cli.saved_fdd[0] : NULL,
 			saved_cli.fdd[1] ? saved_cli.saved_fdd[1] : NULL);
-	select_backup_memory_path();
 	if (options.model != VAEG_CLI_MODEL_UNSET) {
 		cli_model = cli_model_name(options.model);
 	}
@@ -1992,6 +2002,7 @@ int main(int argc, char **argv) {
 		}
 		apply_cli_config(&options, &saved_cli);
 	}
+	select_backup_memory_path(&options);
 	warn_va_config_sanity();
 	if (np2_debug) {
 		fprintf(stderr,
