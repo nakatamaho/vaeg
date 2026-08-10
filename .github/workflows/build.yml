@@ -25,7 +25,16 @@ name: build
 
 on:
   push:
+    branches:
+      - '**'
+    tags:
+      - '**'
+      - '!archive/**'
   pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 # CI intentionally has no ROMs or disk images. The smoke test therefore
 # runs reduced-scope when ROMs are absent: SDL init, core loop, one GUI
