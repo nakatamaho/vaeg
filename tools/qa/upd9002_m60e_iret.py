@@ -50,7 +50,9 @@ import upd9002_ssts_ratchet as ratchet
 MILESTONE = "M60e"
 CANDIDATE_GATE = "G60e"
 APPROVED_PREDECESSOR_GATE = "G60d"
+# Evidence keeps the original identity; Git topology follows rewritten history.
 APPROVED_PREDECESSOR_SHA = "8736f8afe6d8eeb58e58c7afdaf5951e2306cb63"
+APPROVED_PREDECESSOR_GIT_SHA = "681a439f73695e18bd7571b1ef9561dfc509f267"
 G60D_EVALUATED_SHA = "ada55de79751c04e44d02abf7ecd6851b55c9763"
 G60D_CI_URL = "https://github.com/nakatamaho/vaeg/actions/runs/30155594048"
 TARGET_POLICY_ID = m60d.TARGET_POLICY_ID
@@ -1561,7 +1563,7 @@ def verify_protected_paths(root: pathlib.Path) -> None:
         ]
     )
     changed = git_diff_names(
-        root, f"{APPROVED_PREDECESSOR_SHA}...HEAD", protected
+        root, f"{APPROVED_PREDECESSOR_GIT_SHA}...HEAD", protected
     )
     require(
         not changed,
@@ -1579,7 +1581,7 @@ def verify_protected_paths(root: pathlib.Path) -> None:
     ]
     if fixture_paths:
         changed = git_diff_names(
-            root, f"{APPROVED_PREDECESSOR_SHA}...HEAD", fixture_paths
+            root, f"{APPROVED_PREDECESSOR_GIT_SHA}...HEAD", fixture_paths
         )
         require(not changed, "protected-artifact-mutation", repr(changed))
 
@@ -1587,7 +1589,7 @@ def verify_protected_paths(root: pathlib.Path) -> None:
 def verify_semantic_diff(root: pathlib.Path) -> None:
     changed = git_diff_names(
         root,
-        f"{APPROVED_PREDECESSOR_SHA}...HEAD",
+        f"{APPROVED_PREDECESSOR_GIT_SHA}...HEAD",
         ["cpu/upd9002/"],
     )
     require(
@@ -1601,7 +1603,7 @@ def verify_semantic_diff(root: pathlib.Path) -> None:
         [
             "git",
             "diff",
-            f"{APPROVED_PREDECESSOR_SHA}...HEAD",
+            f"{APPROVED_PREDECESSOR_GIT_SHA}...HEAD",
             "--",
             "cpu/upd9002/upd9002_dispatch.c",
         ],

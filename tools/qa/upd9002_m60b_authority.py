@@ -48,7 +48,9 @@ import upd9002_ssts_ratchet as ratchet
 MILESTONE = "M60b"
 CANDIDATE_GATE = "G60b"
 APPROVED_PREDECESSOR_GATE = "G60a"
+# Evidence keeps the original identity; Git topology follows rewritten history.
 APPROVED_PREDECESSOR_SHA = "ba2b7d3f5c76646b30d63fd8951f4a1964817b15"
+APPROVED_PREDECESSOR_GIT_SHA = "55db5075f2a942e6d377f74ce1ab908cc1982962"
 G60A_EVALUATED_SHA = "3d66d41f750048eb29d13c4b7b53ea757d1d1921"
 G60A_FULL_TRANSITION_SHA256 = (
     "86b05dba8b958eb731c89c016cd9898b18ac5ff91a53229c0ef3a3aa797e8c13"
@@ -3632,7 +3634,7 @@ def verify_protected_git_diff(
     )
     verify_git_paths_unchanged(
         root,
-        APPROVED_PREDECESSOR_SHA,
+        APPROVED_PREDECESSOR_GIT_SHA,
         protected,
         "protected evidence, fixture, contract, or production cpu/upd9002",
     )
