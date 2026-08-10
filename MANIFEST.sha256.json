@@ -4,24 +4,9 @@
   "task_file_count": 17,
   "files": [
     {
-      "path": "ALL_TASKS_CONCATENATED.md",
-      "size": 47582,
-      "sha256": "6b9c519aff925985302144bd512cc453b93ba0cbddc978a9066daaa1ecf04037"
-    },
-    {
-      "path": "MILESTONE_UPDATE_AFTER_G59.md",
-      "size": 1310,
-      "sha256": "58ec0f8c2479158a3b897c56f5f629a1a2b87ceccb3a14077a150caa17026752"
-    },
-    {
       "path": "README.md",
       "size": 3575,
       "sha256": "6740bb740cde536ffdc63576852e755cdd27dc5b180a69d0292b5b849cf7c162"
-    },
-    {
-      "path": "V5_TARGET_AUTHORITY_AND_FPO2_CHANGES.md",
-      "size": 2762,
-      "sha256": "53c02562b67d47841c7254c2b7eedf97f95e2c6e78af49873fd9b6d4ea38ef5d"
     },
     {
       "path": "docs/agents/UPD9002_SEMANTICS_MIGRATION.md",
