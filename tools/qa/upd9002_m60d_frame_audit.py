@@ -48,7 +48,9 @@ import upd9002_ssts_ratchet as ratchet
 MILESTONE = "M60d"
 CANDIDATE_GATE = "G60d"
 APPROVED_PREDECESSOR_GATE = "G60c"
+# Evidence keeps the original identity; Git topology follows rewritten history.
 APPROVED_PREDECESSOR_SHA = "e425e55fc17117000ba5178a796de4444d897234"
+APPROVED_PREDECESSOR_GIT_SHA = "ead6b2055fdd6ad0cd938f62dcd44187c5ce5ddf"
 G60C_EVALUATED_SHA = "a9dd78bded5c1072f0285f00cf7759654da8b7d8"
 G60C_CI_URL = "https://github.com/nakatamaho/vaeg/actions/runs/30148175007"
 TARGET_POLICY_ID = (
@@ -1646,7 +1648,7 @@ def verify_protected_paths(
             "git",
             "diff",
             "--exit-code",
-            f"{APPROVED_PREDECESSOR_SHA}...HEAD",
+            f"{APPROVED_PREDECESSOR_GIT_SHA}...HEAD",
             "--",
             *protected,
         ],
@@ -1671,7 +1673,7 @@ def verify_protected_paths(
                 "git",
                 "diff",
                 "--exit-code",
-                f"{APPROVED_PREDECESSOR_SHA}...HEAD",
+                f"{APPROVED_PREDECESSOR_GIT_SHA}...HEAD",
                 "--",
                 *scoreboards,
             ],
@@ -1694,7 +1696,7 @@ def verify_protected_paths(
                 "git",
                 "diff",
                 "--exit-code",
-                f"{APPROVED_PREDECESSOR_SHA}...HEAD",
+                f"{APPROVED_PREDECESSOR_GIT_SHA}...HEAD",
                 "--",
                 *transitions,
             ],
