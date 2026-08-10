@@ -49,7 +49,9 @@ import upd9002_ssts_ratchet as ratchet
 MILESTONE = "M61"
 CANDIDATE_GATE = "G61"
 APPROVED_PREDECESSOR_GATE = "G60e"
+# Evidence keeps the original identity; Git topology follows rewritten history.
 APPROVED_PREDECESSOR_SHA = "a3915e2bf77bb735bc45a21b05e1f66dc4eb6a5b"
+APPROVED_PREDECESSOR_GIT_SHA = "5dfbe4f4a5926579c04be18a45012f667054a4f8"
 G60E_EVALUATED_SHA = "7f815acb26f1be546bbcfd5de12972235dfd175c"
 G60E_CI_URL = "https://github.com/nakatamaho/vaeg/actions/runs/30184747721"
 DATASET_ID = m60e.DATASET_ID
@@ -1069,7 +1071,7 @@ def git_diff_names(root: pathlib.Path, paths: list[str]) -> list[str]:
             "git",
             "diff",
             "--name-only",
-            f"{APPROVED_PREDECESSOR_SHA}...HEAD",
+            f"{APPROVED_PREDECESSOR_GIT_SHA}...HEAD",
             "--",
             *paths,
         ],
@@ -1093,7 +1095,7 @@ def verify_semantic_diff(root: pathlib.Path) -> None:
         [
             "git",
             "diff",
-            f"{APPROVED_PREDECESSOR_SHA}...HEAD",
+            f"{APPROVED_PREDECESSOR_GIT_SHA}...HEAD",
             "--",
             "cpu/upd9002/i286c_mn.c",
         ],
