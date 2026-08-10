@@ -25,10 +25,14 @@
 #ifndef VAEG_G75_SCREEN_H
 #define VAEG_G75_SCREEN_H
 
+#include "compiler.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
 
+BOOL g75_screen_capture_to(const char *tvram_path, const char *rendered_path,
+		const char *run_id, BOOL report_paths);
 void g75_screen_capture(void);
 BOOL g75_screen_harness_exit_requested(UINT32 elapsed_ms);
 

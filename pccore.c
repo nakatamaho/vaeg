@@ -35,6 +35,7 @@
 #include	"keystat.h"
 #include	"debugsub.h"
 #include	"upd9002_diagnostic.h"
+#include	"diagnostics/upd9002_debug.h"
 
 #include	"bmsio.h"
 
@@ -88,6 +89,7 @@ const OEMCHAR np2version[] = OEMTEXT(NP2VER_CORE);
 	BOOL	drawframe;
 	UINT	drawcount = 0;
 	BOOL	hardwarereset = FALSE;
+	static BOOL pccore_debug_resume = FALSE;
 
 
 // ---------------------------------------------------------------------------
@@ -326,6 +328,7 @@ void pccore_reset(void) {
 
 	int		i;
 
+	pccore_debug_resume = FALSE;
 	soundmng_stop();
 	if (soundrenewal) {
 		soundrenewal = 0;
@@ -978,8 +981,12 @@ void upd9002_m42_process_cpu_reset_request(void) {
 
 void pccore_exec(BOOL draw) {
 
-	if (upd9002_diagnostic_pending()) {
+	if (upd9002_diagnostic_pending() || upd9002_debug_event_pending()) {
 		return;
+	}
+	if (pccore_debug_resume) {
+		pccore_debug_resume = FALSE;
+		goto debug_resume_cpu;
 	}
 
 	drawframe = draw;
@@ -1021,6 +1028,11 @@ void pccore_exec(BOOL draw) {
 		pccore_process_cpu_reset_request();
 
 		while(CPU_REMCLOCK > 0) {
+debug_resume_cpu:
+			if (upd9002_debug_step_begin()) {
+				pccore_debug_resume = TRUE;
+				return;
+			}
 #if defined(TRACE) && IPTRACE
 			treip[trpos & (IPTRACE - 1)] = (CPU_CS << 16) + CPU_IP;
 			trerom0bank[trpos & (IPTRACE - 1)] = memoryva.rom0_bank;

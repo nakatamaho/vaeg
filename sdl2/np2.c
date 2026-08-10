@@ -53,6 +53,7 @@
 #include	"upd9002_trace.h"
 #include	"upd9002_perf.h"
 #include	"upd9002_diagnostic.h"
+#include	"diagnostics/upd9002_debug.h"
 #include	"dropmedia.h"
 #include	"hostfat_manager.h"
 #include	"splash.h"
@@ -62,6 +63,7 @@
 #include	"sound.h"
 #include	"g75_screen.h"
 #include	"headless_input.h"
+#include	"debug_harness.h"
 #include	<stdlib.h>
 #include	"opngen.h"
 #include	"ymfmbridge.h"
@@ -281,6 +283,7 @@ static void usage(const char *progname) {
 	printf("\t--scsitrace-jitter-seed N [--scsitrace-jitter-span N]\n");
 	printf("\t--trace-cpu 1..1000000\n");
 	printf("\t--headless-input-script path\n");
+	printf("\t--debug-script path --debug-output-dir directory\n");
 	printf("\t--screen-dump path (rendered BMP)\n");
 	printf("\t--screen-tvram-dump path (raw TVRAM)\n");
 	printf("\t--version --help [-h]\n");
@@ -1447,21 +1450,35 @@ static void processwait(UINT cnt, PACELOG *pacelog, BOOL pacelog_enabled) {
 	soundmng_sync();
 }
 
-static BOOL run_guest_frame(BOOL draw) {
+static BOOL run_guest_frame(BOOL draw, UINT32 frames) {
 
 	UPD9002_DIAGNOSTIC diagnostic;
 
 	if (draw) {
 		gui_new_frame();
 	}
-	pccore_exec(draw);
-	if (upd9002_diagnostic_get(&diagnostic) == SUCCESS) {
-		fprintf(stderr,
-			"Error: uPD9002 fail-closed diagnostic stop at %04x:%04x: "
-			"%02x 0f was not executed because its semantics are unresolved\n",
-			diagnostic.cs, diagnostic.ip, diagnostic.prefix);
-		taskmng_exit();
-		return FAILURE;
+	for (;;) {
+		pccore_exec(draw);
+		if (upd9002_diagnostic_get(&diagnostic) == SUCCESS) {
+			fprintf(stderr,
+				"Error: uPD9002 fail-closed diagnostic stop at %04x:%04x: "
+				"%02x 0f was not executed because its semantics are unresolved\n",
+				diagnostic.cs, diagnostic.ip, diagnostic.prefix);
+			taskmng_exit();
+			return FAILURE;
+		}
+		if (!upd9002_debug_event_pending()) {
+			break;
+		}
+		if (debug_harness_handle_pc_event(frames) != SUCCESS) {
+			fprintf(stderr, "Error: debug PC-event action failed\n");
+			taskmng_exit();
+			return FAILURE;
+		}
+		if (debug_harness_exit_requested()) {
+			taskmng_exit();
+			break;
+		}
 	}
 	if (draw) {
 		gui_draw();
@@ -1492,6 +1509,15 @@ static BOOL smoke_after_frame(BOOL smoke, UINT frames, BOOL detect_screen,
 		(headless_input_script_after_frame(input_script, frames) != SUCCESS)) {
 		taskmng_exit();
 		return(FAILURE);
+	}
+	if (debug_harness_active() &&
+		(debug_harness_after_frame(frames) != SUCCESS)) {
+		fprintf(stderr, "Error: debug frame action failed\n");
+		taskmng_exit();
+		return(FAILURE);
+	}
+	if (debug_harness_exit_requested()) {
+		taskmng_exit();
 	}
 	if (!smoke) {
 		return(SUCCESS);
@@ -1557,7 +1583,7 @@ static BOOL runloop(BOOL smoke, BOOL pacelog_enabled, BOOL detect_screen,
 			BOOL	draw;
 
 			draw = headless_input ? FALSE : (framecnt == 0);
-			if (run_guest_frame(draw) != SUCCESS) {
+			if (run_guest_frame(draw, frames) != SUCCESS) {
 				return FAILURE;
 			}
 			next_guest_tick = SDL_GetTicks() + np2oscfg.pacing_ms;
@@ -1588,7 +1614,7 @@ static BOOL runloop(BOOL smoke, BOOL pacelog_enabled, BOOL detect_screen,
 				BOOL	draw;
 
 				draw = headless_input ? FALSE : (framecnt == 0);
-				if (run_guest_frame(draw) != SUCCESS) {
+				if (run_guest_frame(draw, frames) != SUCCESS) {
 					return FAILURE;
 				}
 				next_guest_tick = SDL_GetTicks() + np2oscfg.pacing_ms;
@@ -1612,7 +1638,7 @@ static BOOL runloop(BOOL smoke, BOOL pacelog_enabled, BOOL detect_screen,
 				UINT	cnt;
 
 				draw = headless_input ? FALSE : (framecnt == 0);
-				if (run_guest_frame(draw) != SUCCESS) {
+				if (run_guest_frame(draw, frames) != SUCCESS) {
 					return FAILURE;
 				}
 				next_guest_tick = SDL_GetTicks() + np2oscfg.pacing_ms;
@@ -1796,7 +1822,18 @@ int main(int argc, char **argv) {
 		printf("88VA Eternal Grafx %s (%s)\n", VAEGREL_CORE, NP2VER_CORE);
 		return(SUCCESS);
 	}
-	if (options.headless_input_script != NULL) {
+	if (((options.debug_script == NULL) !=
+		(options.debug_output_dir == NULL)) ||
+		((options.debug_script != NULL) &&
+		 ((options.trace_cpu != 0) ||
+		  (options.headless_input_script != NULL)))) {
+		fprintf(stderr,
+			"Error: --debug-script requires --debug-output-dir and cannot be "
+			"combined with --trace-cpu or --headless-input-script\n");
+		return(FAILURE);
+	}
+	if ((options.headless_input_script != NULL) ||
+		(options.debug_script != NULL)) {
 		options.mute = TRUE;
 		options.nowait = TRUE;
 		SDL_setenv("SDL_VIDEODRIVER", "dummy", 1);
@@ -1856,9 +1893,18 @@ int main(int argc, char **argv) {
 		dosio_term();
 		return(FAILURE);
 	}
+	if ((options.debug_script != NULL) &&
+		(debug_harness_load(options.debug_script,
+			options.debug_output_dir) != SUCCESS)) {
+		headless_input_script_clear(&input_script);
+		SDL_Quit();
+		dosio_term();
+		return(FAILURE);
+	}
 	if (hostfat_manager_initialize() != SUCCESS) {
 		fprintf(stderr, "Error: cannot initialize HOSTFAT manager: %s\n",
 			SDL_GetError());
+		debug_harness_clear();
 		headless_input_script_clear(&input_script);
 		SDL_Quit();
 		dosio_term();
@@ -2035,11 +2081,20 @@ int main(int argc, char **argv) {
 		scrndraw_redraw();
 		mount_configured_fdd_images();
 		dropmedia_prune_storage();
-		run_ok = runloop(options.smoke, options.pacelog, smoke_detect_screen,
+		if ((debug_harness_initialize() != SUCCESS) ||
+			(debug_harness_after_frame(0) != SUCCESS)) {
+			fprintf(stderr, "Error: debug initialization action failed\n");
+			run_ok = FAILURE;
+			taskmng_exit();
+		}
+		else {
+			run_ok = runloop(options.smoke, options.pacelog, smoke_detect_screen,
 				options.headless_input_script != NULL, &input_script);
+		}
 		g75_screen_capture();
 	}
 
+	debug_harness_clear();
 	headless_input_script_clear(&input_script);
 	pccore_cfgupdate();
 	restore_cli_config(&options, &saved_cli);
@@ -2069,6 +2124,7 @@ np2main_err3:
 	scrnmng_destroy();
 
 np2main_err2:
+	debug_harness_clear();
 	headless_input_script_clear(&input_script);
 	hostfat_manager_shutdown();
 	TRACETERM();
