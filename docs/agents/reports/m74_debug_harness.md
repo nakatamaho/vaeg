@@ -198,7 +198,7 @@ configuration was not changed.
 | MinGW configure | mingw-cross with trace and tests ON | PASS |
 | MinGW build | cmake --build --preset mingw-cross -j4 | PASS |
 | Tracked runner | synthetic neutral case at 4fa61415 | PASS |
-| Full ROM-less | isolated ctest -L romless -j4 | 68 PASS, 3 FAIL, 1 SKIP of 72 |
+| Full ROM-less before CI repair | isolated ctest -L romless -j4 | 68 PASS, 3 FAIL, 1 SKIP of 72 |
 
 The three full-suite failures are:
 
@@ -298,9 +298,9 @@ The new vaeg_m74_debug_harness test passed in the hosted Linux GCC, Linux
 Clang, Linux ASan, and macOS compatibility logs. No additional M74-attributable
 failure was observed.
 
-M74 does not modify the protected-history validators. Repairing their obsolete
-commit identities is a separate repository-history/validator concern and is
-outside this diagnostic-harness milestone.
+This was the pre-repair state. The CI repair integrated later in this branch
+updates only the rewritten protected-history topology identities and the
+serialization of two tests that share a mutable SCSI image.
 
 ## Persistence isolation extension
 
@@ -344,7 +344,7 @@ Current extension validation used process-local Git configuration isolation:
 | Trace-disabled configure/build | Release, trace OFF, tests OFF, `-j2` | PASS |
 | Trace-disabled behavior | plain script accepted; trace action rejected | PASS |
 | MinGW configure/build | mingw-cross, tests and trace ON, `-j2` | PASS |
-| Full ROM-less | `ctest -L romless -j1` | 66 PASS, 5 FAIL, 1 SKIP of 72 |
+| Full ROM-less before CI repair | `ctest -L romless -j1` | 66 PASS, 5 FAIL, 1 SKIP of 72 |
 
 The five current full-suite failures are
 `vaeg_upd9002_m60b_authority_static`,
@@ -364,10 +364,43 @@ after confirming that the canonical roadmap and task files remain. Historical
 SST inventories and reports were intentionally left unchanged because they
 record their evaluated snapshots.
 
-Hosted CI has not been rerun for the persistence extension. The hosted result
-above remains the latest run for the original M74 harness implementation.
+Hosted run 31369034095 evaluated persistence-report commit
+`51ed50cf33dac0f681f32eaf93e20fa01f0033d7` and reproduced the same five
+protected-history failures. No persistence or harness test failed.
+
+## CI repair integration
+
+The branch integrates the already validated CI repair from
+`hotfix/ci-rewritten-history-identities` as two separate commits:
+
+- `1ba7db1` updates the five protected-history validators to retain their
+  evidence identities while using the corresponding post-rewrite Git-topology
+  identities;
+- `f3cb274` serializes the two tests that mutate the same SCSI selftest image
+  with a CTest resource lock.
+
+The source hotfix was independently exercised by hosted run 31365516073 at
+`d87158a5553fe35395747f92b040532fbce572b8`; all nine jobs passed. After the
+two commits were integrated here, the current local validation is:
+
+| Check | Exact command or scope | Result |
+|---|---|---|
+| Encoding | `python3 tools/repo/check_encoding.py --expect utf8` | PASS, 0 violations |
+| EOL | `python3 tools/repo/check_eol.py` | PASS |
+| Case | `python3 tools/repo/check_case.py` | PASS, 0 findings |
+| Diff | `git diff --check` | PASS |
+| Native trace build | `cmake --build --preset macos-macports -j4` | PASS |
+| Selftest | `build/macos-macports/sdl2/vaeg --selftest` | PASS |
+| Full ROM-less | `ctest --test-dir build/macos-macports --output-on-failure -L romless -j4` | 71 PASS, 0 FAIL, 1 SKIP of 72 |
+| MinGW cross-build | `cmake --build --preset mingw-cross -j4` | PASS |
+
+The skipped test is the established external SST test and remains recorded as
+SKIP. No ROM, disk, generated worker, or private integration artifact is part
+of the CI repair.
 
 ## Gate status
 
-G74 is **NOT APPROVED**. The branch must not be merged to main until the
-maintainer performs and approves the human gate.
+G74 is **NOT SELF-APPROVED**. The maintainer subsequently gave an explicit
+instruction to merge this branch to `main` only after Hosted CI succeeds; that
+instruction is the merge authority and is not recorded as an agent gate
+approval.
