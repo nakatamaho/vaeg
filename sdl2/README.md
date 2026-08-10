@@ -61,7 +61,7 @@ the pinned SDL2 release recorded in ADR-0006.
 | Media | `--fdd1 path|none`, `--fdd2 path|none`, `--sasi1 path|none`, `--sasi2 path|none`, `--scsi1 path|none` through `--scsi4 path|none`, `--hostfat-dir path`, `--roms path` |
 | Execution | `--cpumult 1..32`, `--sgp model|follow-cpu|1..16`, `--nowait`, `--frameskip auto|full|2|3|4` |
 | Display/input | `--fullscreen`, `--windowed`, `--effect unfiltered|linear|scanline|crt-lite`, `--scaling native|fit|fit-8dot|integer|stretch`, `--controller joystick|mouse`, `--keyboard-layout jis|us|custom` |
-| Diagnostics/information | `--smoke`, `--selftest`, `--debug`, `--fdctrace`, `--scsitrace`, `--pacelog`, `--trace-cpu N`, `--headless-input-script path`, `--screen-dump path`, `--screen-tvram-dump path`, `--version`, `--help`, `-h` |
+| Diagnostics/information | `--smoke`, `--selftest`, `--debug`, `--fdctrace`, `--scsitrace`, `--pacelog`, `--trace-cpu N`, `--headless-input-script path`, `--debug-script path`, `--debug-output-dir directory`, `--screen-dump path`, `--screen-tvram-dump path`, `--version`, `--help`, `-h` |
 
 Run `vaeg --help` for the built-in list. Enum values are ASCII
 case-insensitive, and the last occurrence wins when an option is repeated.
@@ -76,6 +76,46 @@ or `@fdd2 PATH` performs a normal delayed floppy replacement on the selected
 drive. The option does not terminate the emulator; combine it with
 `VAEG_SCREEN_EXIT_MS` and `VAEG_SCREEN_TVRAM_DUMP` for a bounded TVRAM capture
 run.
+
+`--debug-script PATH --debug-output-dir DIRECTORY` runs the versioned M74
+sequential debug harness. The trace-enabled build is required when a script
+contains `trace`. The two options start dummy SDL video/audio and may not be
+combined with `--trace-cpu` or `--headless-input-script`. A minimal script is:
+
+```text
+debug-script 1
+limit-frame 3000
+resource boot ../../private-media/boot.d88
+counter service-entry e000:0180
+wait-frame 600
+enter
+wait-frame 720
+input-line basic
+mount-fdd 1 boot
+wait-pc e000:0180 1
+trace service-event 128
+capture service-event registers tvram screen
+exit
+```
+
+The required `limit-frame` declaration is an absolute deterministic guest-frame
+ceiling, including when a selected PC is never reached. `wait-frame` uses the
+absolute number of completed guest frames. `input-line`
+appends Return; `enter` sends Return alone. `wait-pc` counts the selected
+pre-instruction `CS:IP` after it is armed. On the selected ordinal, the CPU
+pauses without consuming the instruction or advancing the guest clock. A
+contiguous `trace` begins with that instruction, while `capture` writes the
+pre-instruction register state plus optional TVRAM and rendered BMP before the
+CPU resumes. `mount-fdd` accepts only a previously declared neutral resource
+identifier; `none` ejects the selected drive.
+
+Capture IDs become deterministic filenames under the output directory:
+`.registers.tsv`, `.tvram.bin`, `.screen.bmp`, and `.trace.log`. `events.tsv`
+contains event and final counter rows. The logs contain neutral IDs rather than
+resource paths. Keep scripts, media, ROMs, and generated captures outside Git.
+For repeatable local runs, `tools/m74-diagnostics/run_debug_case.sh` accepts one
+neutral case ID and resolves the worker, script directory, output root, model,
+and optional ROM directory from `VAEG_M74_*` environment variables.
 
 `--screen-dump PATH` or `VAEG_SCREEN_DUMP=PATH` captures the final SDL
 render-target image as a BMP after scaling, viewport, and display effects have

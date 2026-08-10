@@ -29,6 +29,7 @@
 #include	"clockscale.h"
 #include	"bmsio.h"
 #include	"cliopts.h"
+#include	"debug_harness.h"
 #include	"dosio.h"
 #include	"dropmedia.h"
 #include	"fddfile.h"
@@ -41,6 +42,7 @@
 #include	"ini.h"
 #include	"pccore.h"
 #include	"cpucore.h"
+#include	"diagnostics/upd9002_debug.h"
 #include	"iocore.h"
 #include	"iocoreva.h"
 #include	"kbdmap.h"
@@ -163,6 +165,8 @@ static int test_cli_options(void) {
 		"--keyboard-layout", "custom", "--debug", "--fdctrace",
 		"--pacelog", "--trace-cpu", "17",
 		"--headless-input-script", "input.txt",
+		"--debug-script", "debug.txt",
+		"--debug-output-dir", "debug-output",
 		"--screen-dump", "rendered.bmp",
 		"--screen-tvram-dump", "tvram.bin",
 		"--scsitrace-cmdreq-windows", "--scsitrace-jitter-seed", "1234",
@@ -216,6 +220,10 @@ static int test_cli_options(void) {
 		(options.trace_cpu != 17) ||
 		(options.headless_input_script == NULL) ||
 		strcmp(options.headless_input_script, "input.txt") ||
+		(options.debug_script == NULL) ||
+		strcmp(options.debug_script, "debug.txt") ||
+		(options.debug_output_dir == NULL) ||
+		strcmp(options.debug_output_dir, "debug-output") ||
 		(options.screen_dump_path == NULL) ||
 		strcmp(options.screen_dump_path, "rendered.bmp") ||
 		(options.screen_tvram_dump_path == NULL) ||
@@ -2163,6 +2171,11 @@ int vaeg_selftest_run(void) {
 	if (test_cli_options() != SUCCESS) {
 		return(FAILURE);
 	}
+	if ((upd9002_debug_selftest() != SUCCESS) ||
+		(debug_harness_selftest() != SUCCESS)) {
+		return(fail("debug harness", "counter, ordinal, or script test failed"));
+	}
+	fprintf(stderr, "selftest: debug harness ok\n");
 	if (test_hostfat_snapshot() != SUCCESS) {
 		return(FAILURE);
 	}

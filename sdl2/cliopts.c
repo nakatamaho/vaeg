@@ -237,6 +237,24 @@ BOOL vaeg_cli_parse(int argc, char **argv, VAEG_CLI_OPTIONS *options,
 			}
 			options->headless_input_script = value;
 		}
+		else if (!strcmp(argument, "--debug-script")) {
+			value = option_value(argc, argv, &position, argument, error,
+										error_size);
+			if ((value == NULL) || (value[0] == '\0')) {
+				return(set_error(error, error_size,
+						"--debug-script requires a path", value));
+			}
+			options->debug_script = value;
+		}
+		else if (!strcmp(argument, "--debug-output-dir")) {
+			value = option_value(argc, argv, &position, argument, error,
+										error_size);
+			if ((value == NULL) || (value[0] == '\0')) {
+				return(set_error(error, error_size,
+						"--debug-output-dir requires a path", value));
+			}
+			options->debug_output_dir = value;
+		}
 		else if (!strcmp(argument, "--screen-dump")) {
 			value = option_value(argc, argv, &position, argument, error,
 												error_size);

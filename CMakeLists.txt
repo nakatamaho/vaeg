@@ -137,6 +137,7 @@ set(VAEG_COMMON_SOURCES
 set(VAEG_CORE_SOURCES
     cpu/upd9002/upd9002_core.c
 	cpu/upd9002/upd9002_diagnostic.c
+	diagnostics/upd9002_debug.c
     cpu/upd9002/upd9002_state.c
     cpu/upd9002/upd9002_mn.c
     cpu/upd9002/upd9002_ea.c
@@ -318,6 +319,7 @@ set(VAEG_SDL2_SOURCES
     external/ymfm/src/ymfm_ssg.cpp
     sdl2/np2.c
     sdl2/headless_input.c
+    sdl2/debug_harness.c
     sdl2/g75_screen.c
     sdl2/cliopts.c
     sdl2/dosio.c
@@ -952,6 +954,15 @@ if(VAEG_ENABLE_TESTS)
         # This invokes the complete selftest three times.  The M55 64 MiB
         # snapshot identity checks are intentionally expensive under ASan.
         LABELS "romless;upd9002;trace;harness" TIMEOUT 420)
+
+    if(VAEG_Z80_COMPAT_INTEGRATION_TRACE)
+        add_test(NAME vaeg_m74_debug_harness
+            COMMAND "${CMAKE_COMMAND}"
+                "-DVAEG_EXECUTABLE=$<TARGET_FILE:vaeg_sdl2>"
+                -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/m74/run_debug_harness.cmake")
+        set_tests_properties(vaeg_m74_debug_harness PROPERTIES
+            LABELS "romless;upd9002;trace;harness;m74" TIMEOUT 60)
+    endif()
 
     add_test(NAME vaeg_upd9002_ssts_selftest
         COMMAND "${Python3_EXECUTABLE}"

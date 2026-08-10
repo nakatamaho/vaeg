@@ -60,21 +60,18 @@ BOOL g75_screen_harness_exit_requested(UINT32 elapsed_ms) {
     return (elapsed_ms >= (UINT32)limit) ? TRUE : FALSE;
 }
 
-void g75_screen_capture(void) {
-    const char *tvram_path;
-    const char *rendered_path;
-    const char *run_id;
+BOOL g75_screen_capture_to(const char *tvram_path, const char *rendered_path,
+        const char *run_id, BOOL report_paths) {
     UINT32 run_id_length;
     FILE *fp;
+    BOOL result;
 
-    tvram_path = getenv("VAEG_SCREEN_TVRAM_DUMP");
-    rendered_path = getenv("VAEG_SCREEN_DUMP");
     if (((tvram_path == NULL) || (tvram_path[0] == '\0')) &&
         ((rendered_path == NULL) || (rendered_path[0] == '\0'))) {
-        return;
+        return SUCCESS;
     }
+    result = SUCCESS;
     if ((tvram_path != NULL) && (tvram_path[0] != '\0')) {
-        run_id = getenv("VAEG_SCREEN_RUN_ID");
         if (run_id == NULL) {
             run_id = "";
         }
@@ -82,12 +79,14 @@ void g75_screen_capture(void) {
         if (run_id_length > 4096) {
             run_id_length = 4096;
         }
-
         fp = fopen(tvram_path, "wb");
         if (fp == NULL) {
-            fprintf(stderr,
-                    "scsitrace tvram-screen-dump-open-failed path=%s\n",
-                    tvram_path);
+            if (report_paths) {
+                fprintf(stderr,
+                        "scsitrace tvram-screen-dump-open-failed path=%s\n",
+                        tvram_path);
+            }
+            result = FAILURE;
         }
         else {
             (void)fwrite("VAEGSCN1", 1, 8, fp);
@@ -103,11 +102,14 @@ void g75_screen_capture(void) {
             write_u32(fp, sizeof(textmem));
             (void)fwrite(textmem, 1, sizeof(textmem), fp);
             if (fclose(fp) != 0) {
-                fprintf(stderr,
-                        "scsitrace tvram-screen-dump-close-failed "
-                        "path=%s\n", tvram_path);
+                if (report_paths) {
+                    fprintf(stderr,
+                            "scsitrace tvram-screen-dump-close-failed "
+                            "path=%s\n", tvram_path);
+                }
+                result = FAILURE;
             }
-            else {
+            else if (report_paths) {
                 fprintf(stderr,
                         "scsitrace tvram-screen-dump path=%s run_id=%.*s\n",
                         tvram_path, (int)run_id_length, run_id);
@@ -115,22 +117,32 @@ void g75_screen_capture(void) {
         }
     }
     if ((rendered_path != NULL) && (rendered_path[0] != '\0')) {
-        /*
-         * A bounded headless run may finish between normal draw ticks.
-         * Refresh the current guest framebuffer, then send it through the
-         * SDL renderer so the capture includes the active viewport/effect.
-         */
         pccore_redraw();
         scrnmng_present_begin();
         scrnmng_present_end();
         if (scrnmng_save_rendered_frame(rendered_path) != SUCCESS) {
-            fprintf(stderr,
-                    "scsitrace rendered-screen-dump-failed path=%s\n",
-                    rendered_path);
+            if (report_paths) {
+                fprintf(stderr,
+                        "scsitrace rendered-screen-dump-failed path=%s\n",
+                        rendered_path);
+            }
+            result = FAILURE;
         }
-        else {
+        else if (report_paths) {
             fprintf(stderr, "scsitrace rendered-screen-dump path=%s\n",
                     rendered_path);
         }
     }
+    return result;
+}
+
+void g75_screen_capture(void) {
+    const char *tvram_path;
+    const char *rendered_path;
+    const char *run_id;
+
+    tvram_path = getenv("VAEG_SCREEN_TVRAM_DUMP");
+    rendered_path = getenv("VAEG_SCREEN_DUMP");
+    run_id = getenv("VAEG_SCREEN_RUN_ID");
+    (void)g75_screen_capture_to(tvram_path, rendered_path, run_id, TRUE);
 }
