@@ -59,6 +59,7 @@ the pinned SDL2 release recorded in ADR-0006.
 | Machine | `--model va|va2` |
 | Sound | `--fmbackend np2|ymfm`, `--fmsound opn|opna`, `--ymfm-fidelity minimum|medium|maximum`, `--samplerate 11025|22050|44100`, `--soundbuffer 40..1000`, `--mute` |
 | Media | `--fdd1 path|none`, `--fdd2 path|none`, `--sasi1 path|none`, `--sasi2 path|none`, `--scsi1 path|none` through `--scsi4 path|none`, `--hostfat-dir path`, `--roms path` |
+| Persistence | `--cfg path`, `--no-cfg`, `--bkupmem path`, `--no-bkupmem` |
 | Execution | `--cpumult 1..32`, `--sgp model|follow-cpu|1..16`, `--nowait`, `--frameskip auto|full|2|3|4` |
 | Display/input | `--fullscreen`, `--windowed`, `--effect unfiltered|linear|scanline|crt-lite`, `--scaling native|fit|fit-8dot|integer|stretch`, `--controller joystick|mouse`, `--keyboard-layout jis|us|custom` |
 | Diagnostics/information | `--smoke`, `--selftest`, `--debug`, `--fdctrace`, `--scsitrace`, `--pacelog`, `--trace-cpu N`, `--headless-input-script path`, `--debug-script path`, `--debug-output-dir directory`, `--screen-dump path`, `--screen-tvram-dump path`, `--version`, `--help`, `-h` |
@@ -478,26 +479,24 @@ and SASI media.
 
 ## Configuration
 
-The configuration syntax is unchanged. The SDL2 frontend selects the first
-existing `vaeg.cfg` in this order:
+The configuration syntax is unchanged. By default, the SDL2 frontend reads and
+writes `vaeg.cfg` in the process current working directory. Relative paths are
+resolved from that same directory; there is no executable-directory or user
+state-directory fallback.
 
-1. `vaeg.cfg` beside the executable
-2. `vaeg.cfg` in the portable user state directory
+Use `--cfg path` to select a different configuration file. A missing selected
+file starts from built-in defaults and is created when settings are normally
+saved. Use `--no-cfg` to disable both configuration reads and writes for the
+session. `--cfg` and `--no-cfg` are mutually exclusive.
 
-If neither file exists, the frontend creates `vaeg.cfg` in the user state
-directory when settings are saved. The user state directory is
-`$XDG_CONFIG_HOME/vaeg` or `$HOME/.config/vaeg` on Linux,
-`%APPDATA%\vaeg` on Windows, and
-`~/Library/Application Support/vaeg` on macOS. If no platform user
-directory is available, it falls back to the current directory.
+Backup memory also defaults to the current working directory and is separated
+by boot model: VA uses `vabkupmem.dat`, while VA2/VA3 uses `va2bkupmem.dat`.
+Use `--bkupmem path` to override either model default, or `--no-bkupmem` to
+disable both backup-memory reads and writes. These two options are mutually
+exclusive. No implicit migration or fallback reads old user-state copies.
 
-Obsolete `np2.cfg`, `np2.ini`, and `vaeg.ini` files are not read.
-
-An existing `vabkupmem.dat` beside the executable takes priority over the
-user-state copy and is saved back in place. If no executable-local file
-exists, backup memory uses the user state directory. There is no ROM-path
-migration fallback. Fixed GUI save-state slots and keyboard sidecars
-remain in the user state directory.
+Obsolete `np2.cfg`, `np2.ini`, and `vaeg.ini` files are not read. Fixed GUI
+save-state slots and keyboard sidecars remain in the user state directory.
 
 ## Mouse Input
 

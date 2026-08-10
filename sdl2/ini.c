@@ -319,58 +319,30 @@ const INITBL	*pterm;
 static const char ini_title[] = "NekoProjectII";
 static const char config_file[] = "vaeg.cfg";
 static char active_config_path[MAX_PATH];
+static char configured_config_path[MAX_PATH];
+static BOOL config_enabled = TRUE;
 
-static BOOL config_exists(const char *path) {
+void initsetpath(const char *path) {
 
-	short attr;
-
-	attr = file_attr(path);
-	return((attr >= 0) && !(attr & FILEATTR_DIRECTORY));
-}
-
-static BOOL get_executable_config_path(char *path, int size,
-										const char *name) {
-
-	char *base;
-
-	base = SDL_GetBasePath();
-	if (base == NULL) {
-		path[0] = '\0';
-		return(FAILURE);
-	}
-	file_cpyname(path, base, size);
-	SDL_free(base);
-	file_catname(path, name, size);
-	return(SUCCESS);
-}
-
-static void get_user_config_path(char *path, int size, const char *name) {
-
-	file_getstatepath(path, size, name);
-}
-
-static void select_config_path(char *read_path, int size) {
-
-	char candidate[MAX_PATH];
-
+	file_cpyname(configured_config_path,
+			(path != NULL) ? path : "", sizeof(configured_config_path));
 	active_config_path[0] = '\0';
-	if ((get_executable_config_path(candidate, sizeof(candidate),
-						config_file) == SUCCESS) && config_exists(candidate)) {
-		file_cpyname(read_path, candidate, size);
-		file_cpyname(active_config_path, candidate,
-											sizeof(active_config_path));
-		return;
+}
+
+void initsetenabled(BOOL enabled) {
+
+	config_enabled = enabled ? TRUE : FALSE;
+	if (!config_enabled) {
+		active_config_path[0] = '\0';
 	}
-	get_user_config_path(candidate, sizeof(candidate), config_file);
-	if (config_exists(candidate)) {
-		file_cpyname(read_path, candidate, size);
-		file_cpyname(active_config_path, candidate,
-											sizeof(active_config_path));
-		return;
-	}
-	get_user_config_path(candidate, sizeof(candidate), config_file);
-	file_cpyname(read_path, candidate, size);
-	file_cpyname(active_config_path, candidate,
+}
+
+static void select_config_path(char *path, int size) {
+
+	file_cpyname(path,
+			(configured_config_path[0] != '\0') ? configured_config_path :
+			config_file, size);
+	file_cpyname(active_config_path, path,
 											sizeof(active_config_path));
 }
 
@@ -495,11 +467,16 @@ void initload(void) {
 
 	char	path[MAX_PATH];
 
-	select_config_path(path, sizeof(path));
-	if (np2_debug) {
-		SDL_Log("Config load: %s", path);
+	if (config_enabled) {
+		select_config_path(path, sizeof(path));
+		if (np2_debug) {
+			SDL_Log("Config load: %s", path);
+		}
+		ini_read(path, ini_title, iniitem, INIITEMS);
 	}
-	ini_read(path, ini_title, iniitem, INIITEMS);
+	else if (np2_debug) {
+		SDL_Log("Config persistence disabled");
+	}
 	if (np2oscfg.pacing_ms > VAEG_PACING_MS_MAX) {
 		SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION,
 				"Invalid PacingMs=%u; using %u",
@@ -614,9 +591,11 @@ void initload(void) {
 
 void initsave(void) {
 
+	if (!config_enabled) {
+		return;
+	}
 	if (active_config_path[0] == '\0') {
-		get_user_config_path(active_config_path,
-							sizeof(active_config_path), config_file);
+		select_config_path(active_config_path, sizeof(active_config_path));
 	}
 	ini_write(active_config_path, ini_title, iniitem, INIITEMS);
 }

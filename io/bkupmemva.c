@@ -18,10 +18,17 @@
 #define VABKUPMEM "vabkupmem.dat"
 
 static char bkupmemva_path[MAX_PATH];
+static BOOL bkupmemva_enabled = TRUE;
 
 void bkupmemva_setpath(const char *path) {
 
-	file_cpyname(bkupmemva_path, path, sizeof(bkupmemva_path));
+	file_cpyname(bkupmemva_path, (path != NULL) ? path : "",
+											sizeof(bkupmemva_path));
+}
+
+void bkupmemva_setenabled(BOOL enabled) {
+
+	bkupmemva_enabled = enabled ? TRUE : FALSE;
 }
 
 static BOOL bkupmemva_read(const char *path) {
@@ -44,12 +51,15 @@ static void bkupmemva_statepath(char *path, int size) {
 		file_cpyname(path, bkupmemva_path, size);
 		return;
 	}
-	file_getstatepath(path, size, VABKUPMEM);
+	file_cpyname(path, VABKUPMEM, size);
 }
 
 void bkupmemva_load(void) {
 	char	path[MAX_PATH];
 
+	if (!bkupmemva_enabled) {
+		return;
+	}
 	bkupmemva_statepath(path, sizeof(path));
 	(void)bkupmemva_read(path);
 }
@@ -58,6 +68,9 @@ void bkupmemva_save(void) {
 	char	path[MAX_PATH];
 	FILEH	fh;
 
+	if (!bkupmemva_enabled) {
+		return;
+	}
 	bkupmemva_statepath(path, sizeof(path));
 	fh = file_create(path);
 	if (fh != FILEH_INVALID) {
