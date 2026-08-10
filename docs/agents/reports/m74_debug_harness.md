@@ -244,11 +244,45 @@ infrastructure and does not correct guest-visible behavior.
 ## Worktree and hosted CI
 
 At implementation commit 4fa61415, the worktree was clean. This report is the
-only report-commit addition.
+only report-commit addition before the hosted result was recorded.
 
-Hosted CI was not run during iterative development. Local native, ROM-less,
-trace-equivalence, trace-disabled, and MinGW cross-build validation was
-completed first in accordance with repository policy.
+Hosted CI was run once after local native, ROM-less, trace-equivalence,
+trace-disabled, and MinGW cross-build validation was complete:
+
+- run: 31358987797
+- evaluated SHA: fc95c1a01477abf53f3d1d9f8bd92683ae9d5aa2
+- result: FAIL
+- successful jobs: repo invariants, standalone compatibility conformance,
+  and Windows release artifact
+- failed jobs: Ubuntu GCC, Ubuntu Clang, Ubuntu ASan, macOS compatibility,
+  Windows compatibility, and the uPD9002 architectural SST ratchet
+
+The five compatibility jobs report the same five protected-history failures:
+
+- vaeg_upd9002_m60b_authority_static
+- vaeg_upd9002_m60c_audit_static
+- vaeg_upd9002_m60d_frame_static
+- vaeg_upd9002_m60e_iret_static
+- vaeg_upd9002_m61_mov_imm_static
+
+The first three fail because protected-history object
+ba2b7d3f5c76646b30d63fd8951f4a1964817b15 is absent after the repository
+history reconstruction. The last two reject the unavailable symmetric
+difference rooted at 8736f8afe6d8eeb58e58c7afdaf5951e2306cb63. The focused
+SST-ratchet job runs the first three static checks and fails on the same
+missing protected-history object.
+
+This is an established starting-state CI failure, not an M74 regression.
+Hosted run 31356046763 evaluated the M74 starting SHA
+7f5a15b344b58b7136d553b6a21813fb0fea497a on main before the M74 branch run;
+it failed the same five compatibility tests and the same SST-ratchet subset.
+The new vaeg_m74_debug_harness test passed in the hosted Linux GCC, Linux
+Clang, Linux ASan, and macOS compatibility logs. No additional M74-attributable
+failure was observed.
+
+M74 does not modify the protected-history validators. Repairing their obsolete
+commit identities is a separate repository-history/validator concern and is
+outside this diagnostic-harness milestone.
 
 ## Gate status
 
