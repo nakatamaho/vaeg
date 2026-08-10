@@ -29,6 +29,15 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 - Starting SHA: 7f5a15b344b58b7136d553b6a21813fb0fea497a
 - Contract commit: a97f0f18
 - Implementation commit: 4fa61415
+- Obsolete-plan cleanup commit: 7e7b8050
+- Persistence isolation implementation commit:
+  433e6e31a89ed7af4cbff6a7a6a269c634913faa
+- Current trace-enabled macOS worker SHA-256:
+  336916dd61da0275ec3d7bba42420bd68b43617e8c987287c890553e01e14013
+- Current MinGW worker SHA-256:
+  e9ff4772bfb34d67f0a183606ead69cd6630bf096b26064d2e40c6b31d3715c2
+- Current trace-disabled macOS worker SHA-256:
+  9924d28ed59b0ffb7ad8b974b85d240f9f784934f3c8409373a22ab3282d5677
 - Trace-enabled macOS worker SHA-256:
   fb33080416cd073fa7e4f2d0542b698c4498cd994e6483094ac753cab2f34a43
 - MinGW worker SHA-256:
@@ -41,6 +50,9 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 The workers were built from the implementation commit. This report is a
 documentation-only successor.
+
+The three `Current` worker hashes above were built from persistence commit
+433e6e31a89ed7af4cbff6a7a6a269c634913faa.
 
 ## Outcome
 
@@ -241,6 +253,12 @@ The implementation:
 The permanent bug-fix ledger is unchanged because M74 adds diagnostic
 infrastructure and does not correct guest-visible behavior.
 
+
+That statement applies to the original harness implementation. The later
+persistence extension changes host file selection and is recorded in the
+permanent bug-fix ledger; it changes no CPU, memory, ROM, or device semantics
+and tracks no private persistence payload.
+
 ## Worktree and hosted CI
 
 At implementation commit 4fa61415, the worktree was clean. This report is the
@@ -283,6 +301,71 @@ failure was observed.
 M74 does not modify the protected-history validators. Repairing their obsolete
 commit identities is a separate repository-history/validator concern and is
 outside this diagnostic-harness milestone.
+
+## Persistence isolation extension
+
+Commit 433e6e31a89ed7af4cbff6a7a6a269c634913faa adds the accepted host-state
+isolation contract:
+
+- configuration defaults to `./vaeg.cfg`;
+- VA backup memory defaults to `./vabkupmem.dat`;
+- VA2/VA3 backup memory defaults to `./va2bkupmem.dat`;
+- `--cfg` and `--bkupmem` select exact paths, with relative paths resolved from
+  the process current working directory;
+- `--no-cfg` and `--no-bkupmem` suppress both reads and writes;
+- path and disable options for the same state are mutually exclusive;
+- executable-directory and per-user fallback lookup and implicit migration are
+  not performed.
+
+The final model is selected before the default backup filename is chosen. A
+missing selected file begins from built-in/default state and is created by the
+normal save lifecycle.
+
+The persistence selftest verified explicit config/backup writes and disabled
+non-writes. Fresh ROM-less smoke directories verified that VA creates only a
+16,384-byte `vabkupmem.dat`, VA2 creates only a 16,384-byte
+`va2bkupmem.dat`, an explicit `--bkupmem` path suppresses both defaults, and
+`--no-bkupmem` creates no backup file. Those smoke runs used `--no-cfg` so no
+configuration file could affect the model-selection result.
+
+Current extension validation used process-local Git configuration isolation:
+
+| Check | Exact command or scope | Result |
+|---|---|---|
+| Encoding | `python3 tools/repo/check_encoding.py --expect utf8` | PASS, 0 violations |
+| EOL | `python3 tools/repo/check_eol.py` | PASS |
+| Case | `python3 tools/repo/check_case.py` | PASS, 0 findings |
+| Diff | `git diff --check` | PASS |
+| Shell syntax | `sh -n tools/m74-diagnostics/run_debug_case.sh` | PASS |
+| Trace configure/build | macos-macports, tests and trace ON, `-j2` | PASS |
+| Selftest | current macOS worker `--selftest` | PASS, including persistence controls |
+| Persistence smoke | VA, VA2, explicit path, disabled mode | PASS |
+| M74/M68/M69/M70 | five focused canonical tests including trace equivalence | PASS, 5/5 |
+| Trace-disabled configure/build | Release, trace OFF, tests OFF, `-j2` | PASS |
+| Trace-disabled behavior | plain script accepted; trace action rejected | PASS |
+| MinGW configure/build | mingw-cross, tests and trace ON, `-j2` | PASS |
+| Full ROM-less | `ctest -L romless -j1` | 66 PASS, 5 FAIL, 1 SKIP of 72 |
+
+The five current full-suite failures are
+`vaeg_upd9002_m60b_authority_static`,
+`vaeg_upd9002_m60c_audit_static`,
+`vaeg_upd9002_m60d_frame_static`,
+`vaeg_upd9002_m60e_iret_static`, and
+`vaeg_upd9002_m61_mov_imm_static`. The first three reject unavailable
+protected-history object `ba2b7d3f5c76646b30d63fd8951f4a1964817b15`; the last
+two reject the unavailable symmetric-difference base
+`8736f8afe6d8eeb58e58c7afdaf5951e2306cb63`. These are the same five
+starting-state signatures documented by the pre-M74 hosted baseline and the
+prior M74 report. The persistence extension introduced no additional failing
+test. The external SST test is SKIP, not PASS.
+
+Commit 7e7b805 removes four obsolete transitional milestone planning bundles
+after confirming that the canonical roadmap and task files remain. Historical
+SST inventories and reports were intentionally left unchanged because they
+record their evaluated snapshots.
+
+Hosted CI has not been rerun for the persistence extension. The hosted result
+above remains the latest run for the original M74 harness implementation.
 
 ## Gate status
 

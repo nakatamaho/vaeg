@@ -655,7 +655,31 @@ separate parity correction or move it to Open Defects.
 - **Commits:** [06aaa90](https://github.com/nakatamaho/vaeg/commit/06aaa90a95952932d0f9aaebd2624d28f0863bfd) and
   [4d4f8a0](https://github.com/nakatamaho/vaeg/commit/4d4f8a01d4033f09898305d0d0353aedcb65bb10).
 
+
+### Configuration and backup memory silently shared host state
+
+- **Status:** fixed in M74.
+- **Symptom:** normal launches could silently read configuration and backup
+  memory from executable or per-user state directories, and VA and VA2 shared
+  one backup-memory filename. Deterministic runs in separate working
+  directories could therefore inherit unrelated host state or cross-model
+  backup contents.
+- **Root cause:** the SDL2 frontend retained executable/user-state fallback
+  lookup and selected one `vabkupmem.dat` path before the final boot model was
+  known.
+- **Correction:** configuration now defaults to `./vaeg.cfg`; backup memory
+  defaults to `./vabkupmem.dat` for VA and `./va2bkupmem.dat` for VA2/VA3;
+  `--cfg` and `--bkupmem` select exact paths; `--no-cfg` and `--no-bkupmem`
+  disable both reads and writes; and no fallback or implicit migration occurs.
+- **Verification:** CLI/parser and persistence selftests, ROM-less current-
+  directory smoke runs for both models, explicit-path and disabled-mode smoke
+  runs, native trace-enabled and trace-disabled builds, and the MinGW cross
+  build.
+- **Evidence:** [M74 deterministic debug harness report](../agents/reports/m74_debug_harness.md).
+- **Commit:** [433e6e3](https://github.com/nakatamaho/vaeg/commit/433e6e31a89ed7af4cbff6a7a6a269c634913faa).
+
 ### JIS Kana and punctuation scancodes produced incorrect guest keys
+
 
 - **Status:** fixed in M14.
 - **Symptom:** JIS Yen/pipe and related punctuation could be missing or mapped
