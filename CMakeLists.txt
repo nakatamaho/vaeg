@@ -203,11 +203,7 @@ set(VAEG_CORE_SOURCES
     bios/bios12.c
     bios/bios13.c
     bios/bios18.c
-    bios/bios19.c
-    bios/bios1a.c
     bios/bios1b.c
-    bios/bios1c.c
-    bios/bios1f.c
     bios/sxsibios.c
     sound/sound.c
     sound/sndcsec.c

@@ -28,9 +28,10 @@ POSSIBILITY OF SUCH DAMAGE.
 
 This is the M81 candidate report. The audit starts from the approved M80
 checkpoint at [`c44569bd8c47c87c19c6e59bfb735ce7431102bd`](https://github.com/nakatamaho/vaeg/commit/c44569bd8c47c87c19c6e59bfb735ce7431102bd).
-No BIOS handler was removed: the comparison identified entries that are not
-listed as the common INT09h-INT1Fh services in Tekumani, but did not prove
-that they are 98-only and unreachable in the active VA product. G81 remains
+The approved cleanup removes the VA-facing INT18h-INT1Fh common BIOS entries
+from the simulated vector table and source dispatcher. It retains the
+internal display helpers, FDD bootstrap/equipment helpers, the FDD wait hook,
+and the shared SCSI/SASI backend used by bootstrap and C-Bus paths. G81 remains
 pending.
 
 ## What Tekumani documents
@@ -57,19 +58,21 @@ that the implementations are ABI-compatible.
 | `BIOSOFST_0c` / `bios0x0c` | Common serial interrupt service | INT8Ah communication | Retain; not proven 98-only. |
 | `BIOSOFST_12` / `bios0x12` | FDC service/result path | INT80h FDD | Retain; FDC is an active VA dependency. |
 | `BIOSOFST_13` / `bios0x13` | FDC service/result path | INT80h FDD | Retain; FDC is an active VA dependency. |
-| `BIOSOFST_18` / `bios0x18` | Common text/graphics service | INT83h, INT87h, INT8Fh and related services | Retain; active LIO and display helpers depend on this compatibility layer. |
-| `BIOSOFST_19` / `bios0x19` | Common RS-232C service | INT8Ah communication | Retain; VA RS-232C has an active mapped path. |
-| `BIOSOFST_CMT` / `bios0x1a_cmt` | Cassette subentry | No corresponding Tekumani public CMT BIOS entry found | Retain; absence from the manual is not an unreachable proof. |
-| `BIOSOFST_PRT` / `bios0x1a_prt` | Common printer subentry | INT89h printer | Retain; VA printer-related ports and the common compatibility map both exist. |
-| `BIOSOFST_1b` / `bios0x1b` | Common disk dispatch, including SASI/SCSI | INT80h FDD and INT81h HDD | Retain; active SASI/SCSI support and FDD paths use this boundary. |
-| `BIOSOFST_1c` / `bios0x1c` | System and interval timer service | INT8Ch calendar-clock is related, but no INT1Ch counterpart is listed | Retain; no proof of VA unreachability. |
-| `BIOSOFST_1f` / `bios0x1f` | Extension/memory-move service | No corresponding Tekumani public INT1Fh entry found | Retain; the service is reachable through the common BIOS dispatcher. |
+| `BIOSOFST_18` / `bios0x18` | Common text/graphics dispatcher | VA1/VA2 final IVTs use a common default target for INT18h | Remove the dispatcher and vector entry; retain `bios0x18_*` display helpers used by active LIO and screen code. |
+| `BIOSOFST_19` / `bios0x19` | Common RS-232C dispatcher | VA1/VA2 final IVTs use a common default target for INT19h | Remove the unused dispatcher and source file; retain the separate active VA serial path. |
+| `BIOSOFST_CMT` / `bios0x1a_cmt` | Cassette subentry | VA1/VA2 final IVTs use a common default target for INT1Ah | Remove the unused cassette subentry. |
+| `BIOSOFST_PRT` / `bios0x1a_prt` | Common printer subentry | VA1/VA2 final IVTs use a common default target for INT1Ah | Remove the unused printer subentry. |
+| `BIOSOFST_1b` / `bios0x1b` | Common disk dispatcher | VA1/VA2 final IVTs use a common default target for INT1Bh | Remove the INT1Bh dispatcher and its legacy subdispatch; retain bootstrap, equipment, wait, and shared storage helpers. |
+| `BIOSOFST_1c` / `bios0x1c` | System and interval timer service | VA1/VA2 final IVTs use a common default target for INT1Ch | Remove the unused timer subentry. |
+| `BIOSOFST_1f` / `bios0x1f` | Extension/memory-move service | VA1/VA2 final IVTs use a common default target for INT1Fh | Remove the unused extension subentry. |
 
-Thus, in vector terms, the not-listed set is INT09h, INT0Ch, INT12h,
-INT13h, INT18h, INT19h, the INT1Ah cassette/printer subentries, INT1Bh,
-INT1Ch, and INT1Fh. The INT1Ah notation here follows the implementation
-names `bios0x1a_cmt` and `bios0x1a_prt`; these are simulated common BIOS
-subentries, not claims about a Tekumani VA vector number.
+Thus, the M81 cleanup set is INT18h-INT1Fh: the INT18h text/graphics
+dispatcher, INT19h serial dispatcher, INT1Ah cassette/printer subentries,
+INT1Bh disk dispatcher, INT1Ch timer subentry, and INT1Fh extension subentry.
+The INT1Ah notation follows the implementation names `bios0x1a_cmt` and
+`bios0x1a_prt`; these are simulated common BIOS subentries, not claims about a
+Tekumani VA vector number. INT09h, INT0Ch, INT12h, and INT13h remain outside
+this cleanup.
 
 ## Emulator-internal hooks also absent from the manual
 
@@ -89,22 +92,30 @@ must not be confused with the Tekumani text BIOS INT83h.
 
 ## Reachability decision
 
-`bios_initialize()` is part of the reset path for all active models, while
-VA reset additionally initializes the VA-specific BIOS ROM set and VA I/O
-map. The common and VA maps are selected at runtime, so a common BIOS helper
-cannot be removed merely because its closest public documentation is in a
-different VA vector family.
+The complete VA1 IVT dump at `0000:0000`-`0000:03FF` shows INT18h-INT1Fh
+(offsets `0x60`-`0x7F`) all pointing to `F000:19A5`; the supplied VA1 dump of
+that target begins with `CF` (`IRET`). The complete VA2 IVT dump shows the
+same eight entries all pointing to the common default target `F000:2329`. The active
+VA-specific services are in the separate INT80h-and-above map; the
+common INT18h-INT1Fh entries do not provide an active VA service in either
+final IVT.
 
-A read-only comparison of the available VA1 and VA2 ROM code also found call
-encodings for the common keyboard, serial, FDC, text/common, RS-232C, cassette,
-disk, timer, and extension services. This byte scan is lower-bound evidence
-only; it is not being used as a complete control-flow proof. Together with
-the active FDC, SASI/SCSI, RS-232C, display, and state-save dependencies, it
-does not establish any safe 98-only deletion candidate.
+The raw VA1/VA2 ROMs contain byte encodings that resemble calls to some of
+these legacy services. That is lower-bound byte-scan evidence, not proof
+that the final VA interrupt vectors reach them. The stronger runtime
+evidence here is the complete final IVT and the default IRET target. The
+user-approved correction therefore removes these eight common interrupt
+entries while retaining internal routines that have independent callers.
 
-Accordingly M81 makes no production-source deletion. Retaining the entries is
-the evidence-backed result; removing them would be speculative and would
-violate the task requirement to remove only proven 98-only inactive handlers.
+The simulated BIOS resource table in `bios/biosfd80.res` now maps all eight
+INT18h-INT1Fh slots to offset `0x015A`, whose handler is the default IRET
+stub. `biosfunc()` no longer dispatches these offsets. The removed source
+files are the standalone INT19h, INT1Ah, INT1Ch, and INT1Fh handlers. The
+INT18h dispatcher was removed from `bios18.c`, while its `bios0x18_*`
+helpers remain. In `bios1b.c`, only the INT1Bh dispatcher and its unreachable
+legacy subdispatch were removed; `fddbios_equip()`, `bootstrapload()`,
+`bios0x1b_wait()`, and `boot_hd()` remain. This keeps the shared storage
+backend used by bootstrap and C-Bus SCSI paths out of the cleanup.
 
 ## Source evidence
 
@@ -117,6 +128,8 @@ violate the task requirement to remove only proven 98-only inactive handlers.
 - [`io/fdc.c`](../../../io/fdc.c) contains the active VA FDC path.
 - [`bios/bios1b.c`](../../../bios/bios1b.c) and [`bios/sxsibios.c`](../../../bios/sxsibios.c)
   contain the active disk/SASI/SCSI boundary.
+- [`bios/biosfd80.res`](../../../bios/biosfd80.res) records the simulated
+  INT18h-INT1Fh vector targets.
 - [`io/serial.c`](../../../io/serial.c) contains the VA keyboard and RS-232C
   bindings.
 - [`bios/bios18.c`](../../../bios/bios18.c) contains the common display/text
@@ -127,7 +140,7 @@ violate the task requirement to remove only proven 98-only inactive handlers.
 
 ## Validation
 
-Repository checks are run on this report-only candidate:
+Repository checks run on the M81 source-cleanup candidate:
 
 ```text
 python3 tools/repo/check_encoding.py
@@ -141,12 +154,4 @@ build/linux-debug/sdl2/vaeg --selftest
 ctest --test-dir build/linux-debug --output-on-failure
 ```
 
-The M81 candidate Linux debug build completed successfully and
-`--selftest` ended with `selftest: all tests passed` and exit status 0.
-`ctest` reported that no tests were found. M81 changes are documentation
-and milestone-status metadata only; no production source or binary payload
-was changed. A
-macOS Cocoa VA smoke launch was attempted, but the headless environment
-failed before guest execution with the platform appearance error
-`SystemAppearance not found`; this is an environment limitation, not a BIOS
-pass. The required G81 human gate remains open.
+The Linux Debug source-cleanup build completed successfully. `build/linux-debug/sdl2/vaeg --selftest` exited 0 with `selftest: all tests passed`. `ctest --test-dir build/linux-debug --output-on-failure` exited 0 and reported no tests found. The repository encoding, EOL, case, uPD9002 rename, and diff checks all passed after the cleanup commit. The build emitted only pre-existing warnings and linker warnings. A macOS Cocoa VA smoke launch was previously attempted, but the headless environment failed before guest execution with the platform appearance error `SystemAppearance not found`; this is an environment limitation, not a BIOS pass. The required G81 human gate remains open.
