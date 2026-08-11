@@ -533,6 +533,8 @@ configuration files without these keys remain uncaptured in joystick mode.
 clipboard. Cmd+C is supported on macOS; Ctrl+Shift+C is supported on
 Linux/Windows. HCCODE ASCII, half-width kana, and JIS kanji are converted to
 UTF-8, with trailing line spaces removed.
+Copy uses the rendered 80-/40-column viewport rather than the frame's two
+horizontal guard cells, and collapses paired left/right HCCODE kanji cells.
 
 `Edit -> Paste` sends host clipboard text to the guest as paced keyboard
 make/break input. The shortcut is Command+V on macOS and Control+V on
