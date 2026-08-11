@@ -23,7 +23,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "cpucva/upd780_disasm.h"
+#include "cpu/upd780/upd780_disasm.h"
 
 #include <array>
 #include <cstdint>
