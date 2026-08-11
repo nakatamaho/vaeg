@@ -16,14 +16,11 @@ void fmport_a(NEVENTITEM item) {
 
 	if (item->flag & NEVENT_SETEVENT) {
 		opngen_timerover(0);
-		intreq = pcm86gen_intrq();
-		//if (intreq) TRACEOUT(("fmtimer: int-A (pcm86gen)"));
 		if (fmtimer.reg & 0x04) {
 			fmtimer.status |= 0x01;
 			intreq = TRUE;
 		}
 		if (intreq) {
-//			pcm86.write = 1;
 			if (!fmboard_getintmask()) {
 				//TRACEOUT(("fmtimer: int-A"));
 				pic_setirq(fmtimer.irq);
@@ -33,10 +30,6 @@ void fmport_a(NEVENTITEM item) {
 			}
 			//TRACEOUT(("fm int-A"));
 		}
-//		TRACE_("A: fifo = ", pcm86.fifo);
-//		TRACE_("A: virbuf = ", pcm86.virbuf);
-//		TRACE_("A: fifosize = ", pcm86.fifosize);
-
 		set_fmtimeraevent(FALSE);
 			// 直前のイベント発生を基点に次のイベント発生時刻を指定するため、
 			// absoluteにはFALSEを指定
@@ -50,22 +43,11 @@ void fmport_b(NEVENTITEM item) {
 
 	if (item->flag & NEVENT_SETEVENT) {
 		opngen_timerover(1);
-		intreq = pcm86gen_intrq();
-		//if (intreq) TRACEOUT(("fmtimer: int-B (pcm86gen)"));
 		if (fmtimer.reg & 0x08) {
 			fmtimer.status |= 0x02;
 			intreq = TRUE;
 		}
-#if 0
-		if (pcm86.fifo & 0x20) {
-			sound_sync();
-			if (pcm86.virbuf <= pcm86.fifosize) {
-				intreq = TRUE;
-			}
-		}
-#endif
 		if (intreq) {
-//			pcm86.write = 1;
 			if (!fmboard_getintmask()) {
 				pic_setirq(fmtimer.irq);
 				//TRACEOUT(("fmtimer: int-B"));
@@ -75,10 +57,6 @@ void fmport_b(NEVENTITEM item) {
 			}
 			//TRACEOUT(("fm int-B"));
 		}
-//		TRACE_("B: fifo = ", pcm86.fifo);
-//		TRACE_("B: virbuf = ", pcm86.virbuf);
-//		TRACE_("B: fifosize = ", pcm86.fifosize);
-
 		set_fmtimerbevent(FALSE);
 			// 直前のイベント発生を基点に次のイベント発生時刻を指定するため、
 			// absoluteにはFALSEを指定

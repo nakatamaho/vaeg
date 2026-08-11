@@ -405,7 +405,7 @@ UINT16 np2_default_sound_for_model(const char *model) {
 	if (milstr_cmp(model, str_VA2) == 0) {
 		return(FMBOARD_VA_OPNA);
 	}
-	return(0x0004);
+	return(FMBOARD_NONE);
 }
 
 BOOL np2_sound_hardware_valid(const char *model, UINT16 sound) {
@@ -417,7 +417,7 @@ BOOL np2_sound_hardware_valid(const char *model, UINT16 sound) {
 	if (milstr_cmp(model, str_VA2) == 0) {
 		return(sound == FMBOARD_VA_OPNA);
 	}
-	return(sound != FMBOARD_NONE);
+	return(sound == FMBOARD_NONE);
 }
 
 const char *np2_cli_boot_model(const char *value) {

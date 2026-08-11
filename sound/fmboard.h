@@ -7,8 +7,6 @@
 #include	"psggen.h"
 #include	"rhythm.h"
 #include	"adpcm.h"
-#include	"pcm86.h"
-#include	"cs4231.h"
 
 
 typedef struct {
@@ -23,12 +21,6 @@ typedef struct {
 	BYTE	padding;
 	UINT16	base;
 } OPN_T;
-
-typedef struct {
-	UINT16	port;
-	BYTE	psg3reg;
-	BYTE	rhythm;
-} AMD98;
 
 typedef struct {
 	BYTE	porta;
@@ -50,7 +42,6 @@ extern "C" {
 
 extern	UINT32		usesound;
 extern	OPN_T		opn;
-extern	AMD98		amd98;
 extern	MUSICGEN	musicgen;
 
 extern	_TMS3631	tms3631;
@@ -62,8 +53,6 @@ extern	_PSGGEN		psg2;
 extern	_PSGGEN		psg3;
 extern	_RHYTHM		rhythm;
 extern	_ADPCM		adpcm;
-extern	_PCM86		pcm86;
-extern	_CS4231		cs4231;
 
 extern	_FMBOARDVA	fmboardva;
 

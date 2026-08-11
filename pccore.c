@@ -10,7 +10,6 @@
 #include	"gdc_sub.h"
 #include	"cbuscore.h"
 #include	"mpu98ii.h"
-#include	"amd98.h"
 #include	"bios.h"
 #include	"biosva.h"
 #include	"biosmem.h"
@@ -229,16 +228,11 @@ static void sound_init(void) {
 	rhythm_setvol(np2cfg.vol_rhythm);
 	adpcm_initialize(rate);
 	adpcm_setvol(np2cfg.vol_adpcm);
-	pcm86gen_initialize(rate);
-	pcm86gen_setvol(np2cfg.vol_pcm);
-	cs4231_initialize(rate);
-	amd98_initialize(rate);
 }
 
 static void sound_term(void) {
 
 	soundmng_stop();
-	amd98_deinitialize();
 	rhythm_deinitialize();
 	beep_deinitialize();
 	fddmtrsnd_deinitialize();

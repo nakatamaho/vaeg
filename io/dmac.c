@@ -3,7 +3,6 @@
 #include	"pccore.h"
 #include	"iocore.h"
 #include	"sound.h"
-#include	"cs4231.h"
 #include	"sasiio.h"
 
 #include	"iocoreva.h"
@@ -36,7 +35,6 @@ static const DMAPROC dmaproc[] = {
 		{fdc_datawrite,		fdc_dataread,		fdc_dmafunc},		// 2DD
 		{sasi_datawrite,	sasi_dataread,		sasi_dmafunc},		// SASI
 		{dma_dummyout,		dma_dummyin,		dma_dummyproc},		// SCSI
-		{dma_dummyout,		dma_dummyin,		cs4231dmafunc},		// CS4231
 };
 
 

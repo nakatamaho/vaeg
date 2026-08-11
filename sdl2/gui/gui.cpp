@@ -68,7 +68,6 @@
 #include "mousemng.h"
 #include "mouseifva.h"
 #include "opngen.h"
-#include "pcm86.h"
 #include "psggen.h"
 #include "rhythm.h"
 #include "scrndraw.h"
@@ -948,7 +947,6 @@ static void apply_master_volume(int volume) {
 	np2cfg.vol_fm = mixer_volume;
 	np2cfg.vol_ssg = mixer_volume;
 	np2cfg.vol_adpcm = mixer_volume;
-	np2cfg.vol_pcm = mixer_volume;
 	np2cfg.vol_rhythm = mixer_volume;
 	opngen_setvol(np2cfg.vol_fm);
 	psggen_setvol(np2cfg.vol_ssg);
@@ -956,8 +954,6 @@ static void apply_master_volume(int volume) {
 	rhythm_update(&rhythm);
 	adpcm_setvol(np2cfg.vol_adpcm);
 	adpcm_update(&adpcm);
-	pcm86gen_setvol(np2cfg.vol_pcm);
-	pcm86gen_update();
 
 	np2cfg.BEEP_VOL = beep_volume;
 	beep_setvol(np2cfg.BEEP_VOL);

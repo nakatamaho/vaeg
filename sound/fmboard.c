@@ -6,14 +6,7 @@
 #include	"iocore.h"
 #include	"cbuscore.h"
 #include	"board14.h"
-#include	"board26k.h"
-#include	"board86.h"
-#include	"boardx2.h"
-#include	"board118.h"
 #include	"boardspb.h"
-#include	"amd98.h"
-#include	"pcm86io.h"
-#include	"cs4231io.h"
 #include	"sound.h"
 #include	"fmboard.h"
 #include	"beep.h"
@@ -23,7 +16,6 @@
 
 	UINT32		usesound;
 	OPN_T		opn;
-	AMD98		amd98;
 	MUSICGEN	musicgen;
 
 	_TMS3631	tms3631;
@@ -35,8 +27,6 @@
 	_PSGGEN		psg3;
 	_RHYTHM		rhythm;
 	_ADPCM		adpcm;
-	_PCM86		pcm86;
-	_CS4231		cs4231;
 
 	_FMBOARDVA	fmboardva;
 
@@ -127,7 +117,6 @@ void fmboard_reset(UINT32 type) {
 	opn.adpcmmask = (UINT8)~(0x1c);
 
 	ZeroMemory(&musicgen, sizeof(musicgen));
-	ZeroMemory(&amd98, sizeof(amd98));
 
 	tms3631_reset(&tms3631);
 	opngen_reset();
@@ -136,8 +125,6 @@ void fmboard_reset(UINT32 type) {
 	psggen_reset(&psg3);
 	rhythm_reset(&rhythm);
 	adpcm_reset(&adpcm);
-	pcm86_reset();
-	cs4231_reset();
 
 	fmboardva.sintm = 0;
 
@@ -146,36 +133,12 @@ void fmboard_reset(UINT32 type) {
 			board14_reset();
 			break;
 
-		case 0x02:
-			board26k_reset();
-			break;
-
-		case 0x04:
-			board86_reset();
-			break;
-
-		case 0x06:
-			boardx2_reset();
-			break;
-
-		case 0x08:
-			board118_reset();
-			break;
-
-		case 0x14:
-			board86_reset();
-			break;
-
 		case 0x20:
 			boardspb_reset();
 			break;
 
 		case 0x40:
 			boardspr_reset();
-			break;
-
-		case 0x80:
-//			amd98_reset();
 			break;
 
 		case FMBOARD_VA_OPN:
@@ -201,36 +164,12 @@ void fmboard_bind(void) {
 			board14_bind();
 			break;
 
-		case 0x02:
-			board26k_bind();
-			break;
-
-		case 0x04:
-			board86_bind();
-			break;
-
-		case 0x06:
-			boardx2_bind();
-			break;
-
-		case 0x08:
-			board118_bind();
-			break;
-
-		case 0x14:
-			board86c_bind();
-			break;
-
 		case 0x20:
 			boardspb_bind();
 			break;
 
 		case 0x40:
 			boardspr_bind();
-			break;
-
-		case 0x80:
-			amd98_bind();
 			break;
 
 		case FMBOARD_VA_OPN:

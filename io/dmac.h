@@ -16,8 +16,7 @@ enum {
 	DMADEV_2HD			= 1,
 	DMADEV_2DD			= 2,
 	DMADEV_SASI			= 3,
-	DMADEV_SCSI			= 4,
-	DMADEV_CS4231		= 5
+	DMADEV_SCSI			= 4
 };
 
 #if defined(BYTESEX_LITTLE)
