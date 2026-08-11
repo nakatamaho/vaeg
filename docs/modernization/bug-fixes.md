@@ -90,7 +90,7 @@ separate parity correction or move it to Open Defects.
   verifies unchanged CPU and memory state. Current save/load round-trip and
   HOSTFAT identity tests pass.
 - **Evidence:** [M85 state-save report](../agents/reports/m85_state_save_section_cleanup.md).
-- **Commit:** [a6493d2](https://github.com/nakatamaho/vaeg/commit/a6493d2e57b4f35a155eb1a2cfdca53ae21ad9b6).
+- **Commit:** [a6493d2](https://github.com/nakatamaho/vaeg/commit/a6493d2f481a3744f528d1a19d5ee3663df59e90).
 
 ### CP/MVA EXM=1 directory grouping omitted large-program data
 

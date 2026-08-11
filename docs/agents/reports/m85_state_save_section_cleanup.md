@@ -83,7 +83,7 @@ cannot be accepted by version alone.
 ## Verification
 
 The implementation is
-[a6493d2](https://github.com/nakatamaho/vaeg/commit/a6493d2e57b4f35a155eb1a2cfdca53ae21ad9b6).
+[a6493d2](https://github.com/nakatamaho/vaeg/commit/a6493d2f481a3744f528d1a19d5ee3663df59e90).
 The selftest creates a disposable current state, changes only the FMBOARD
 usesound word to retired value 0x0004, and requires:
 
