@@ -10,7 +10,7 @@ register model in `io/upd9002_regs.*`, the uPD70008-compatible main-CPU
 adapter in `cpucva/upd9002_upd70008.*`, the uPD780-compatible FDC instance in
 `io/subsystem.cpp`, the shared suzukiplan-backed instruction implementation
 in `cpucva/z80_compat_*`, `sound/opngenc.c` for OPN generation (never define
-`OPNGENX86`), and `cpucva/memoryva.c` for the VA memory layer.
+`OPNGENX86`), and `memoryva/memoryva.c` for the VA memory layer.
 
 ## CPU role and file naming
 

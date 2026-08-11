@@ -18,7 +18,7 @@ M13 closed phase 2 by removing retired paths and documenting the tier split
 that existed at that gate:
 
 - Active tree: CMake/C/SDL2/Dear ImGui; main CPU in `cpu/upd9002/`; VA memory
-  in `cpucva/memoryva.c`; Z80 side in the suzukiplan-backed
+  in `memoryva/memoryva.c`; Z80 side in the suzukiplan-backed
   `cpucva/z80_compat_cpu.cpp` wrapper with `cpu/upd780/upd780_disasm.cpp`.
 - Then-frozen reference tier: `win9x/`, `i286x/`,
   `cpuxva/memoryva.x86`, and `hlp/`. The v141 build was decisive in the G9
@@ -49,7 +49,7 @@ M36–M41 archive status.
 | M6  | tasks/M6_utf8.md           | UTF-8 without BOM sources; charset flags decided | **G6** human |
 | M7  | tasks/M7_cmake_core.md     | CMake skeleton; NP2 core libs compile with gcc+clang on Linux; portable `sdl2/compiler.h` | **G7** machine + review |
 | M8  | tasks/M8_sdl2_frontend.md  | `sdl2/` SDL2 frontend (video/audio/input/timer/main loop) runs the PC-98 core on Linux | **G8** human |
-| M9  | tasks/M9_va_portable.md    | `cpucva/memoryva.c`; VA machine builds and runs on i286c; V3 boot + VA demo on Linux | **G9** human (standard VA gate) |
+| M9  | tasks/M9_va_portable.md    | `memoryva/memoryva.c`; VA machine builds and runs on i286c; V3 boot + VA demo on Linux | **G9** human (standard VA gate) |
 | M10 | tasks/M10_imgui.md         | Dear ImGui GUI: mount/reset/state/display/sound/exit; GUI-PARITY.md | **G10** human |
 | M11 | tasks/M11_mingw_macos.md   | MinGW + macOS builds via CMake presets; UTF-8 path boundary on Windows | **G11** human per OS |
 | M12 | tasks/M12_ci.md            | GitHub Actions 3-OS matrix; ROM-less tests; repo invariant checks | **G12** machine |
@@ -468,7 +468,7 @@ assignment.
 ## Resolved decision points
 
 - **memoryva porting strategy (M9).** Faithful transliteration of
-  `cpuxva/memoryva.x86` into `cpucva/memoryva.c`.
+  `cpuxva/memoryva.x86` into `memoryva/memoryva.c`.
 - **ImGui rendering backend (M10).** ADR-0002 selected
   `imgui_impl_sdl2` + `imgui_impl_sdlrenderer2`.
 - **Japanese font for ImGui (M10).** ADR-0003 selected

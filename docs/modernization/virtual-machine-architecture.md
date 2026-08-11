@@ -184,7 +184,7 @@ capacity but do not themselves document the CPU address decode.
 
 The main CPU memory entry points use the active `upd9002_*` internal names.
 When the VA memory mode is active, `cpu/upd9002/memory.c` dispatches memory
-accesses into `cpucva/memoryva.c`:
+accesses into `memoryva/memoryva.c`:
 
 ```text
 upd9002_memoryread()     -> upd9002_memoryread_va()
@@ -194,7 +194,7 @@ upd9002_memorywrite_w()  -> upd9002_memorywrite_va_w()
 ```
 
 The switch points are `cpu/upd9002/memory.c:805-930`. The PC-88VA map routines
-are in `cpucva/memoryva.c:770-812`.
+are in `memoryva/memoryva.c:770-812`.
 
 This is why the reset vector at physical `0xFFFF0` reads from `VAROM1.ROM`
 for a VA machine.
