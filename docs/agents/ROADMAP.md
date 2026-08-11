@@ -197,7 +197,7 @@ The current approved gate ledger is:
   storage, HOSTFAT, subsystem, and shared-state boundaries. Its report is
   [m85_state_save_section_cleanup.md](reports/m85_state_save_section_cleanup.md).
   The implementation candidate is
-  [a6493d2e](https://github.com/nakatamaho/vaeg/commit/a6493d2e57b4f35a155eb1a2cfdca53ae21ad9b6).
+  [a6493d2e](https://github.com/nakatamaho/vaeg/commit/a6493d2f481a3744f528d1a19d5ee3663df59e90).
   M84-retired FMBOARD usesound values now fail closed during state preflight;
   current VA values and HOSTFAT identity checks remain unchanged. G85 remains
   the required human gate, and M86 has not started.
