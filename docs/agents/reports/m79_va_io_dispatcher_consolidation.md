@@ -62,3 +62,6 @@ Manual VA boot and device validation remains a required human G79 step and is
 not claimed by this report.
 
 ## Gate status
+G79 human gate passed on 2026-08-11. The maintainer confirmed the required
+manual VA boot and device validation, so the candidate is approved for
+fast-forward merge to `main`. M80 has not started.
