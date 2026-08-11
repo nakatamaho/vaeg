@@ -358,42 +358,6 @@ UINT MEMCALL biosfunc(UINT32 adrs) {
 			bios0x13();
 			return(1);
 
-		case BIOS_BASE + BIOSOFST_18:
-			CPU_REMCLOCK -= 200;
-			bios0x18();
-			return(1);
-
-		case BIOS_BASE + BIOSOFST_19:
-			CPU_REMCLOCK -= 200;
-			bios0x19();
-			return(1);
-
-		case BIOS_BASE + BIOSOFST_CMT:
-			CPU_REMCLOCK -= 200;
-			bios0x1a_cmt();
-			return(0);											// return(1);
-
-		case BIOS_BASE + BIOSOFST_PRT:
-			CPU_REMCLOCK -= 200;
-			bios0x1a_prt();
-			return(1);
-
-		case BIOS_BASE + BIOSOFST_1b:
-			CPU_STI;
-			CPU_REMCLOCK -= 200;
-			bios0x1b();
-			return(1);
-
-		case BIOS_BASE + BIOSOFST_1c:
-			CPU_REMCLOCK -= 200;
-			bios0x1c();
-			return(1);
-
-		case BIOS_BASE + BIOSOFST_1f:
-			CPU_REMCLOCK -= 200;
-			bios0x1f();
-			return(1);
-
 		case BIOS_BASE + BIOSOFST_WAIT:
 			CPU_STI;
 #if 1
