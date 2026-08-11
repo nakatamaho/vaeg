@@ -127,7 +127,7 @@ M36–M41 archive status.
 | M81 | tasks/M81_va_bios_reachability_cleanup.md | Audit VA BIOS reachability and remove only proven 98-only BIOS handlers | **G81 human gate passed; M81 closed at `094668edfe7c7c6a326b1e9b705eeb9a9141126f`** |
 | M82 | tasks/M82_upd780_subsystem_cpu_audit.md | Audit the FDC subsystem uPD780-compatible CPU boundary currently implemented through the suzukiplan-backed wrapper | **G82 human gate passed; M82 closed at `e2d6b9d05d0a20185486a0314717808b326006c8`** |
 | M83 | tasks/M83_move_upd780_subsystem_cpu.md | Create `cpu/upd780/` and move the FDC subsystem uPD780-compatible CPU wrapper/backend there | **G83 human gate passed; M83 closed at `d90c8721d6120af9994cedb63685e8a60546513e`; merged to main in `6a3412bd34c66d068b299a11edf13df45799f3b5`** |
-| M84 | tasks/M84_cpucva_boundary_cleanup.md | M84a: retire the approved non-VA C-bus sound-board dependency closure (`amd98`, `board26k`, `board86`, `board118`, `pcm86io`, and `cs4231io`); M84b: clean up the remaining `cpucva/` boundary while keeping uPD9002 instruction execution and VA memory ownership separate | **G84 human; M84a implementation checkpoint `bf553ce41602b9ff3a4a8879412c77d5a8e70f4a` complete, M84b in progress** |
+| M84 | tasks/M84_cpucva_boundary_cleanup.md | M84a: retire the approved non-VA C-bus sound-board dependency closure (`amd98`, `board26k`, `board86`, `board118`, `pcm86io`, and `cs4231io`); M84b: clean up the remaining `cpucva/` boundary while keeping uPD9002 instruction execution and VA memory ownership separate | **G84 human; M84a checkpoint `bf553ce41602b9ff3a4a8879412c77d5a8e70f4a` complete; M84b checkpoints `088dacf6c7aafa0d364a845ead94f0796583eadc` and `890996ecb28627ec77c332c7917c61af29e1c23a` complete; validation pending** |
 | M85 | tasks/M85_state_save_section_cleanup.md | Audit retired state-save sections, remove only approved obsolete sections, and document compatibility behavior | **G85 human; planned** |
 | M86 | tasks/M86_machine_core_relocation.md | Move active root machine-core sources such as `pccore`, `nevent`, `timing`, `calendar`, `keystat`, `statsave`, `debugsub`, and `clockscale` under `machine/` without behavior change | **G86 human; planned** |
 | M87 | tasks/M87_legacy_tool_rom_regeneration_audit.md | Audit remaining legacy tools and ROM/resource regeneration flows before the final VA-only source-tree audit; the `lio/` BIOS/LIO disposition was pulled forward into M81 | **G87 human; planned** |
@@ -184,6 +184,13 @@ The current approved gate ledger is:
   [`bf553ce41602b9ff3a4a8879412c77d5a8e70f4a`](https://github.com/nakatamaho/vaeg/commit/bf553ce41602b9ff3a4a8879412c77d5a8e70f4a).
   G84 remains pending until the subsequent M84b boundary cleanup and human
   validation are complete.
+- M84b completes the remaining `cpucva/` boundary cleanup. Its report is
+  [`m84_cpucva_boundary_cleanup.md`](reports/m84_cpucva_boundary_cleanup.md).
+  The rename-only checkpoint is
+  [`088dacf6c7aafa0d364a845ead94f0796583eadc`](https://github.com/nakatamaho/vaeg/commit/088dacf6c7aafa0d364a845ead94f0796583eadc),
+  followed by reference fixups at
+  [`890996ecb28627ec77c332c7917c61af29e1c23a`](https://github.com/nakatamaho/vaeg/commit/890996ecb28627ec77c332c7917c61af29e1c23a).
+  G84 human validation remains pending.
 
 
 M78 was explicitly reopened from the current `main` continuation on 2026-08-11.
@@ -195,8 +202,8 @@ M81 and M82 passed their human gates and were closed. M83 then passed G83
 after the uPD780 disassembler move, current-path reference fixups, Linux,
 MinGW, hosted CI, and the standard FDD human gate. M83 is merged to main at
 `6a3412bd34c66d068b299a11edf13df45799f3b5`. The exact records are listed in
-the approved gate ledger above; M84a is complete at
-`bf553ce41602b9ff3a4a8879412c77d5a8e70f4a` and M84b is in progress under G84.
+the approved gate ledger above; M84a and M84b implementation checkpoints are
+complete, and G84 human validation remains pending.
 
 
 M72 closed the inactive compile-flag cleanup while intentionally leaving
