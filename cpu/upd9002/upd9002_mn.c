@@ -2386,12 +2386,6 @@ UPD9002FN _int_data8(void) {					// CD:	int		DATA8
 
 	UPD9002_WORKCLOCK(3);
 	GET_PCBYTE(vect)
-#if 0 // defined(TRACE)
-	if ((vect >= 0xa0) && (vect < 0xb0)) {
-extern void lio_look(UINT vect);
-		lio_look(vect);
-	}
-#endif
 	INT_NUM(vect, UPD9002_IP);
 }
 

@@ -219,24 +219,24 @@ void systemportva_bind(void) {
 											// 順に実行されるため、このタイミングで
 											// LEDの表示を更新する。
 
-	iocoreva_attachout(0x010, sysp_o010);
-	iocoreva_attachout(0x032, sysp_o032);
-	iocoreva_attachinp(0x032, sysp_i032);
-	iocoreva_attachout(0x040, sysp_o040);
-	iocoreva_attachinp(0x040, sysp_i040);
+	iocore_attachvaout(0x010, sysp_o010);
+	iocore_attachvaout(0x032, sysp_o032);
+	iocore_attachvainp(0x032, sysp_i032);
+	iocore_attachvaout(0x040, sysp_o040);
+	iocore_attachvainp(0x040, sysp_i040);
 
-	iocoreva_attachinp(0x150, sysp_i150);
-	iocoreva_attachinp(0x151, sysp_i151);
+	iocore_attachvainp(0x150, sysp_i150);
+	iocore_attachvainp(0x151, sysp_i151);
 
-	iocoreva_attachout(0x190, sysp_o190);
-	iocoreva_attachinp(0x190, sysp_i190);
+	iocore_attachvaout(0x190, sysp_o190);
+	iocore_attachvainp(0x190, sysp_i190);
 
-	iocoreva_attachout(0x1c6, sysp_o1c6);
+	iocore_attachvaout(0x1c6, sysp_o1c6);
 
-	iocoreva_attachout(0x1cd, sysp_o1cd);
-	iocoreva_attachout(0x1cf, sysp_o1cf);
-	iocoreva_attachinp(0x1c9, sysp_i1c9);
-	iocoreva_attachinp(0x1cb, sysp_i1cb);
-	iocoreva_attachinp(0x1cd, sysp_i1cd);
+	iocore_attachvaout(0x1cd, sysp_o1cd);
+	iocore_attachvaout(0x1cf, sysp_o1cf);
+	iocore_attachvainp(0x1c9, sysp_i1c9);
+	iocore_attachvainp(0x1cb, sysp_i1cb);
+	iocore_attachvainp(0x1cd, sysp_i1cd);
 }
 

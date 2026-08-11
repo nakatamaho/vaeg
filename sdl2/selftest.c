@@ -157,8 +157,10 @@ static int test_cli_options(void) {
 		"--samplerate", "44100", "--soundbuffer", "40", "--mute",
 		"--fdd1", "boot.d88", "--fdd2", "none",
 		"--sasi1", "disk.hdi", "--sasi2", "NONE",
-		"--scsi1", "disk.hdd", "--scsi2", "none",
-		"--scsi3", "none", "--scsi4", "none",
+		"--scsi0", "disk.hdd", "--scsi1", "none",
+		"--scsi2", "none", "--scsi3", "none",
+		"--scsi4", "none", "--scsi5", "none",
+		"--scsi6", "disk6.hdi",
 		"--hostfat-dir", "host-root", "--roms", "rom-root",
 		"--cpumult", "32", "--sgp", "16", "--nowait",
 		"--frameskip", "4", "--fullscreen", "--effect", "crt-lite",
@@ -211,6 +213,10 @@ static int test_cli_options(void) {
 		(options.scsi_mode[1] != VAEG_CLI_MEDIA_NONE) ||
 		(options.scsi_mode[2] != VAEG_CLI_MEDIA_NONE) ||
 		(options.scsi_mode[3] != VAEG_CLI_MEDIA_NONE) ||
+		(options.scsi_mode[4] != VAEG_CLI_MEDIA_NONE) ||
+		(options.scsi_mode[5] != VAEG_CLI_MEDIA_NONE) ||
+		(options.scsi_mode[6] != VAEG_CLI_MEDIA_PATH) ||
+		strcmp(options.scsi_path[6], "disk6.hdi") ||
 		(options.hostfat_path == NULL) ||
 		strcmp(options.hostfat_path, "host-root") ||
 		(options.roms_path == NULL) ||
@@ -286,7 +292,7 @@ static int test_cli_options(void) {
 static void hostfat_send_string(const char *value) {
 
 	while (*value != '\0') {
-		iocoreva_out8(0x07ef, (REG8)*value++);
+		iocore_out8(0x07ef, (REG8)*value++);
 	}
 }
 
@@ -302,7 +308,7 @@ static void hostfat_send_far_pointer(UINT32 value) {
 	int index;
 
 	for (index=0; index<4; index++) {
-		iocoreva_out8(0x07ed, (REG8)value);
+		iocore_out8(0x07ed, (REG8)value);
 		value >>= 8;
 	}
 }
@@ -365,21 +371,22 @@ static int test_hostfat_transport(void) {
 	}
 	np2sysp_reset();
 	np2sysp_bind();
-	iocoreva_bind();
+	iocore_bind();
 	hostfat_send_string_generic("check_hostfat");
 	if ((iocore_inp8(0x07ef) != 'H') ||
 		(iocore_inp8(0x07ef) != '1')) {
 		goto transport_cleanup;
 	}
 	np2sysp_reset();
+	iomode_va = 0x02;
 	hostfat_send_string("check_hostfat");
-	if ((iocoreva_inp8(0x07ef) != 'H') ||
-		(iocoreva_inp8(0x07ef) != '1')) {
+	if ((iocore_inp8(0x07ef) != 'H') ||
+		(iocore_inp8(0x07ef) != '1')) {
 		goto transport_cleanup;
 	}
 	hostfat_send_far_pointer(request_pointer);
 	hostfat_send_string("read_hostfat1");
-	result = iocoreva_inp8(0x07ed);
+	result = iocore_inp8(0x07ed);
 	if (result != HOSTFAT_RESULT_OK) {
 		goto transport_cleanup;
 	}
@@ -394,7 +401,7 @@ static int test_hostfat_transport(void) {
 	MEML_WRITE(destination_address, unchanged, sizeof(unchanged));
 	hostfat_send_far_pointer(request_pointer);
 	hostfat_send_string("read_hostfat1");
-	result = iocoreva_inp8(0x07ed);
+	result = iocore_inp8(0x07ed);
 	if (result != HOSTFAT_RESULT_RANGE) {
 		goto transport_cleanup;
 	}
@@ -408,7 +415,7 @@ static int test_hostfat_transport(void) {
 	MEML_WRITE(packet_address, packet, sizeof(packet));
 	hostfat_send_far_pointer(request_pointer);
 	hostfat_send_string("read_hostfat1");
-	if (iocoreva_inp8(0x07ed) != HOSTFAT_RESULT_BAD_REQUEST) {
+	if (iocore_inp8(0x07ed) != HOSTFAT_RESULT_BAD_REQUEST) {
 		goto transport_cleanup;
 	}
 	packet[0] = sizeof(packet);
@@ -416,7 +423,7 @@ static int test_hostfat_transport(void) {
 	MEML_WRITE(packet_address, packet, sizeof(packet));
 	hostfat_send_far_pointer(request_pointer);
 	hostfat_send_string("read_hostfat1");
-	if (iocoreva_inp8(0x07ed) != HOSTFAT_RESULT_BAD_REQUEST) {
+	if (iocore_inp8(0x07ed) != HOSTFAT_RESULT_BAD_REQUEST) {
 		goto transport_cleanup;
 	}
 	packet[1] = 0;
@@ -424,7 +431,7 @@ static int test_hostfat_transport(void) {
 	MEML_WRITE(packet_address, packet, sizeof(packet));
 	hostfat_send_far_pointer(request_pointer);
 	hostfat_send_string("read_hostfat1");
-	if (iocoreva_inp8(0x07ed) != HOSTFAT_RESULT_BAD_REQUEST) {
+	if (iocore_inp8(0x07ed) != HOSTFAT_RESULT_BAD_REQUEST) {
 		goto transport_cleanup;
 	}
 	packet[2] = 4;
@@ -432,7 +439,7 @@ static int test_hostfat_transport(void) {
 	MEML_WRITE(packet_address, packet, sizeof(packet));
 	hostfat_send_far_pointer(request_pointer);
 	hostfat_send_string("read_hostfat1");
-	if (iocoreva_inp8(0x07ed) != HOSTFAT_RESULT_RANGE) {
+	if (iocore_inp8(0x07ed) != HOSTFAT_RESULT_RANGE) {
 		goto transport_cleanup;
 	}
 	STOREINTELWORD(packet + 18, 1);
@@ -441,7 +448,7 @@ static int test_hostfat_transport(void) {
 	MEML_WRITE(packet_address, packet, sizeof(packet));
 	hostfat_send_far_pointer(request_pointer);
 	hostfat_send_string("read_hostfat1");
-	if (iocoreva_inp8(0x07ed) != HOSTFAT_RESULT_RANGE) {
+	if (iocore_inp8(0x07ed) != HOSTFAT_RESULT_RANGE) {
 		goto transport_cleanup;
 	}
 	for (index=0; index<HOSTFAT_SECTOR_SIZE; index++) {
@@ -455,12 +462,12 @@ static int test_hostfat_transport(void) {
 	}
 	hostfat_unmount();
 	hostfat_send_string("check_hostfat");
-	if (iocoreva_inp8(0x07ef) != 0) {
+	if (iocore_inp8(0x07ef) != 0) {
 		goto transport_cleanup;
 	}
 	hostfat_send_far_pointer(request_pointer);
 	hostfat_send_string("read_hostfat1");
-	if (iocoreva_inp8(0x07ed) != HOSTFAT_RESULT_NOT_MOUNTED) {
+	if (iocore_inp8(0x07ed) != HOSTFAT_RESULT_NOT_MOUNTED) {
 		goto transport_cleanup;
 	}
 	for (index=0; index<HOSTFAT_SECTOR_SIZE; index++) {
@@ -471,6 +478,7 @@ static int test_hostfat_transport(void) {
 	status = SUCCESS;
 
 transport_cleanup:
+	iomode_va = 0;
 	iocore_destroy();
 	CPU_REMCLOCK = saved_remclock;
 	hostfat_unmount();

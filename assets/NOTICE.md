@@ -27,11 +27,12 @@ instruction implementation:
   uPD70008-compatible mode.
 - `io/subsystem.cpp` uses the shared implementation for the FDC's
   `UPD780C`-named CPU instance.
-- `cpucva/z80_compat_cpu.*`, `z80_compat_bus.h`, `z80_compat_registers.h`, `upd780_disasm.*`, and
-  `z80_compat_state.*` remain common Z80 compatibility backend and compatibility
-  files. The remaining Z80 terminology describes the suzukiplan instruction
-  backend, not an additional FDC device or a claim that the FDC is a generic
-  Z80. The FDC-facing API and diagnostics use the uPD780 name.
+- `cpucva/z80_compat_cpu.*`, `z80_compat_bus.h`, `z80_compat_registers.h`, and
+  `z80_compat_state.*` remain the common Z80 compatibility backend and
+  compatibility files. `cpu/upd780/upd780_disasm.*` is the FDC-facing uPD780
+  disassembler. The remaining Z80 terminology describes the suzukiplan
+  instruction backend, not an additional FDC device or a claim that the FDC is
+  a generic Z80. The FDC-facing API and diagnostics use the uPD780 name.
 
 The `UPD9Z80` save-state section identifier is retained intentionally so that
 states created before the M76 naming clarification remain loadable.

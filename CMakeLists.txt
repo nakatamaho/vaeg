@@ -112,10 +112,9 @@ set(VAEG_INCLUDE_DIRS
     "${CMAKE_CURRENT_SOURCE_DIR}/vram"
     "${CMAKE_CURRENT_SOURCE_DIR}/vramva"
     "${CMAKE_CURRENT_SOURCE_DIR}/fdd"
-    "${CMAKE_CURRENT_SOURCE_DIR}/lio"
     "${CMAKE_CURRENT_SOURCE_DIR}/font"
     "${CMAKE_CURRENT_SOURCE_DIR}/cpucva"
-    "${CMAKE_CURRENT_SOURCE_DIR}/iova"
+    "${CMAKE_CURRENT_SOURCE_DIR}/io"
     "${CMAKE_CURRENT_SOURCE_DIR}/generic")
 
 set(VAEG_COMMON_SOURCES
@@ -167,7 +166,6 @@ set(VAEG_CORE_SOURCES
     io/hostfat.c
     io/mouseif.c
     io/necio.c
-    io/nmiio.c
     io/np2sysp.c
     io/np2vasup.c
     io/pic.c
@@ -203,12 +201,7 @@ set(VAEG_CORE_SOURCES
     bios/bios0c.c
     bios/bios12.c
     bios/bios13.c
-    bios/bios18.c
-    bios/bios19.c
-    bios/bios1a.c
     bios/bios1b.c
-    bios/bios1c.c
-    bios/bios1f.c
     bios/sxsibios.c
     sound/sound.c
     sound/sndcsec.c
@@ -247,12 +240,6 @@ set(VAEG_CORE_SOURCES
     fdd/fdd_d88.c
     fdd/fdd_mtr.c
     fdd/sxsi.c
-    lio/lio.c
-    lio/gscreen.c
-    lio/gpset.c
-    lio/gline.c
-    lio/gcircle.c
-    lio/gput1.c
     font/font.c
     font/fontdata.c
     font/fontpc88.c
@@ -271,7 +258,7 @@ set(VAEG_CORE_SOURCES
     debugsub.c)
 
 set(VAEG_Z80_COMPAT_PRODUCTION_SOURCES
-    cpucva/upd780_disasm.cpp
+    cpu/upd780/upd780_disasm.cpp
     cpucva/z80_compat_cpu.cpp
     cpucva/z80_compat_state.cpp
     cpucva/upd9002_upd70008.cpp)
@@ -288,7 +275,6 @@ set(VAEG_VA_SOURCES
     io/fdsubsys.c
     io/gactrlva.c
     io/i8255.c
-    io/iocoreva.c
     io/memctrlva.c
     io/mouseifva.c
     io/sgp.c
@@ -1323,7 +1309,7 @@ if(VAEG_ENABLE_TESTS)
         -Wall -fsigned-char)
 
     add_executable(vaeg_upd780_disasm
-        cpucva/upd780_disasm.cpp
+        cpu/upd780/upd780_disasm.cpp
         tests/upd780/disasm.cpp)
     target_include_directories(vaeg_upd780_disasm PRIVATE
         "${CMAKE_CURRENT_SOURCE_DIR}")

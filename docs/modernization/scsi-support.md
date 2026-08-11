@@ -89,18 +89,19 @@ initializes the selected target.
 ### 2. Create and attach a VAEG SCSI image
 
 The GUI creates VHD-format SCSI images. Choose **HardDisk -> New SCSI
-image...**, select a size, and assign it to **SCSI #1** through **SCSI #4**.
-The usual first two targets are SCSI #1 (ID 0) and SCSI #2 (ID 1). Existing
+image...**, select a size, and assign it to **SCSI ID 0** through **SCSI ID 6**.
+The usual first two targets are SCSI ID 0 and SCSI ID 1. Existing
 images can be attached through the corresponding **Open** menu item. Reset
 the guest after changing an attachment so PCPLUS/SCHD re-enumerates it.
 
 The same operation can be prepared from a shell:
 
 ```sh
-# Existing images; slots correspond to SCSI target IDs 0 through 3.
-./vaeg --scsi1 /path/to/scsi-id0.hdd \
-       --scsi2 /path/to/scsi-id1.hdd \
-       --scsi3 none --scsi4 none
+# Existing images; options use the actual SCSI target IDs 0 through 6.
+./vaeg --scsi0 /path/to/scsi-id0.hdi \
+       --scsi1 /path/to/scsi-id1.hdi \
+       --scsi2 none --scsi3 none \
+       --scsi4 none --scsi5 none --scsi6 none
 ```
 
 From a VAEG source checkout, a blank image can also be created with:

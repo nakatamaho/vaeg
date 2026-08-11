@@ -267,10 +267,10 @@ void keyboard_bind(void) {
 	{
 		int i;
 		for (i = 0; i < 0x0f; i++) {
-			iocoreva_attachinp(i, keyboardva_i000);
+			iocore_attachvainp(i, keyboardva_i000);
 		}
-		iocoreva_attachinp(0x1c1, keyboard_i41);
-		iocoreva_attachout(0x197, keyboardva_o197);
+		iocore_attachvainp(0x1c1, keyboard_i41);
+		iocore_attachvaout(0x197, keyboardva_o197);
 	}
 }
 
@@ -517,9 +517,9 @@ void rs232c_bind(void) {
 	iocore_attachsysoutex(0x0030, 0x0cf1, rs232co30, 2);
 	iocore_attachsysinpex(0x0030, 0x0cf1, rs232ci30, 2);
 
-	iocoreva_attachout(0x020, rs232c_o30);
-	iocoreva_attachout(0x021, rs232c_o32);
-	iocoreva_attachinp(0x020, rs232c_i30);
-	iocoreva_attachinp(0x021, rs232c_i32);
+	iocore_attachvaout(0x020, rs232c_o30);
+	iocore_attachvaout(0x021, rs232c_o32);
+	iocore_attachvainp(0x020, rs232c_i30);
+	iocore_attachvainp(0x021, rs232c_i32);
 }
 

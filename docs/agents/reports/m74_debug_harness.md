@@ -400,7 +400,7 @@ of the CI repair.
 
 ## Gate status
 
-G74 is **NOT SELF-APPROVED**. The maintainer subsequently gave an explicit
-instruction to merge this branch to `main` only after Hosted CI succeeds; that
-instruction is the merge authority and is not recorded as an agent gate
-approval.
+The maintainer passed the required G74 human gate on 2026-08-11. M74 is
+closed at the final `topic/m74-debug-harness` SHA
+`3785cc115155c52928817b8c95d38b40268a7bde`. This is an explicit maintainer
+approval, not an agent self-approval.

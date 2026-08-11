@@ -375,7 +375,6 @@ void pccore_reset(void) {
 	fddmtrsnd_bind();
 
 	fddfile_reset2dmode();
-	bios0x18_16(0x20, 0xe1);
 
 	iocore_reset();								// サウンドでpicを呼ぶので…
 	cbuscore_reset();

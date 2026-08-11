@@ -99,7 +99,7 @@ done
 [[ ! -e ${output_d88} ]] || die 'output already exists; refusing to overwrite it'
 [[ -d ${output_d88%/*} || ${output_d88} != */* ]] || die 'output directory does not exist'
 
-for required_command in curl python3 sha256sum unzip; do
+for required_command in curl lha python3 sha256sum unzip; do
 	command -v "$required_command" >/dev/null 2>&1 ||
 		die "required host command is missing: $required_command"
 done
@@ -264,6 +264,9 @@ fetch_softlib_package BENCH003.LZH \
 fetch_package LSIC330C.LZH \
 	c8c4c49aed600fb2413cf5707ef01b2f4057de69196c3478d5226bf1b224081b \
 	'https://ftp.vector.co.jp/00/11/980/lsic330c.lzh'
+fetch_package X8MAP130.LZH \
+	fc5bba93771e0fff3c8aa3d9ef942b80f65afba51b632a6336638ab70a7648a7 \
+	'https://ftp.vector.co.jp/27/37/386/x8map130.lzh'
 fetch_prj_plus_archive
 fetch_package UNZ532X3.EXE \
 	cb55dee22473caf143353938da76e61d5574c5edead7b321c14b8900c0b493ce \
@@ -283,13 +286,18 @@ unzip -q "$cache_dir/UNZ532X3.EXE" \
 unzip -q "$cache_dir/ZIP22X.ZIP" \
 	zip.exe MANUAL README \
 	-d "$work_dir/infozip/zip"
+mkdir -p -- "$work_dir/x8map"
+lha xfw="$work_dir/x8map" "$cache_dir/X8MAP130.LZH" >/dev/null
+for file in X8MAP.COM X8MAP130.SMP X8MAP130.TXT; do
+	cp -- "$work_dir/x8map/$file" "$payload_dir/bin/$file"
+done
 
 for package in \
 	VBUFF102.LZH ALGO_VA.DOC ALGO_VA.LZH 2HCDRSRC.LZH \
 	EMACSVA.LZH EMACSVA.DOC CPMVA.LZH FDFRMSRC.LZH \
 	RDPCM001.LZH RDPCM001.DOC 2HCDRV.ZIP EMMVA15A.LZH \
 	JFPPAT.ZIP RDEMS152.LZH TDC10.LZH BENCH003.DOC BENCH003.LZH \
-	LSIC330C.LZH PRJVA.ZIP; do
+	LSIC330C.LZH X8MAP130.LZH PRJVA.ZIP; do
 	cp -- "$cache_dir/$package" "$payload_dir/archive/$package"
 done
 

@@ -58,7 +58,7 @@ the pinned SDL2 release recorded in ADR-0006.
 |------|---------|
 | Machine | `--model va|va2` |
 | Sound | `--fmbackend np2|ymfm`, `--fmsound opn|opna`, `--ymfm-fidelity minimum|medium|maximum`, `--samplerate 11025|22050|44100`, `--soundbuffer 40..1000`, `--mute` |
-| Media | `--fdd1 path|none`, `--fdd2 path|none`, `--sasi1 path|none`, `--sasi2 path|none`, `--scsi1 path|none` through `--scsi4 path|none`, `--hostfat-dir path`, `--roms path` |
+| Media | `--fdd1 path|none`, `--fdd2 path|none`, `--sasi1 path|none`, `--sasi2 path|none`, `--scsi0 path|none` through `--scsi6 path|none`, `--hostfat-dir path`, `--roms path` |
 | Persistence | `--cfg path`, `--no-cfg`, `--bkupmem path`, `--no-bkupmem` |
 | Execution | `--cpumult 1..32`, `--sgp model|follow-cpu|1..16`, `--nowait`, `--frameskip auto|full|2|3|4` |
 | Display/input | `--fullscreen`, `--windowed`, `--effect unfiltered|linear|scanline|crt-lite`, `--scaling native|fit|fit-8dot|integer|stretch`, `--controller joystick|mouse`, `--keyboard-layout jis|us|custom` |
@@ -243,17 +243,20 @@ HDD2FILE=
 ```
 
 The SDL2 GUI also exposes HardDisk -> New SASI image plus SASI-1/SASI-2
-Open and Remove, and SCSI #1 through SCSI #4 Open and Remove. New SASI
+Open and Remove, and SCSI ID 0 through SCSI ID 6 Open and Remove. New SASI
 image creates HDI images using the existing 5/10/15/20/30/40 MB SASI
-geometry table and refuses to overwrite an existing file. HardDisk -> New
-SCSI image creates VHD-format `.hdd` images in 5/10/20/40/80/160 MB sizes
-and can assign the new image to SCSI #1 through SCSI #4. SCSI mounting
-updates `SCSIHDD0` through `SCSIHDD3`; bootable PC-Engine support-disk
+geometry table and refuses to overwrite an existing file. Its default name is
+`new-sasi-hdd.hdd`. HardDisk -> New SCSI image creates VHD-format images in
+5/10/20/40/80/160 MB sizes and can assign the new image to SCSI ID 0 through
+SCSI ID 6. The default names are `new-scsi-hdd_id0.hdi` through
+`new-scsi-hdd_id6.hdi`; both `.hdi` and `.hdd` names are accepted for the
+corresponding VHD image. New SASI is listed above New SCSI. SCSI mounting
+updates `SCSIHDD0` through `SCSIHDD6`; bootable PC-Engine support-disk
 assembly remains a separate documented flow.
 The same SCSI images can be attached without opening the GUI, for example
-with `--scsi1 disk.hdd --scsi2 none --scsi3 none --scsi4 none`. The command
-line validates the VHD geometry before starting the guest and applies the
-paths to the same `SCSIHDD0` through `SCSIHDD3` configuration entries.
+with `--scsi0 disk.hdi --scsi1 none --scsi2 none --scsi3 none` and
+`--scsi4 none --scsi5 none --scsi6 none`. The command line validates the VHD geometry before starting the guest and applies the
+paths to the same `SCSIHDD0` through `SCSIHDD6` configuration entries.
 After changing a SASI or SCSI image, reset the guest so the existing
 SxSI/SASI/SCSI open and bind path is rebuilt. IDE GUI mounting is not
 implemented.
@@ -524,7 +527,14 @@ MS_RAPID=0
 `Mouse_VA=0` selects joystick and `Mouse_VA=1` selects mouse. Existing
 configuration files without these keys remain uncaptured in joystick mode.
 
-## Clipboard Paste
+## Clipboard Copy and Paste
+
+`Edit -> Copy screen text` copies the visible logical TVRAM text to the host
+clipboard. Cmd+C is supported on macOS; Ctrl+Shift+C is supported on
+Linux/Windows. HCCODE ASCII, half-width kana, and JIS kanji are converted to
+UTF-8, with trailing line spaces removed.
+Copy uses the rendered 80-/40-column viewport rather than the frame's two
+horizontal guard cells, and collapses paired left/right HCCODE kanji cells.
 
 `Edit -> Paste` sends host clipboard text to the guest as paced keyboard
 make/break input. The shortcut is Command+V on macOS and Control+V on
@@ -537,7 +547,7 @@ The queue finishes an in-flight key release, then pauses while Dear ImGui
 captures keyboard/text input or a modal is open. Reset, state load, focus
 loss, quit, and explicit Cancel Paste stop the queue and release synthetic
 keys. Paste does not access guest memory or text buffers. Japanese/IME paste
-and guest-to-host copy are not implemented.
+and guest-to-host copy is provided by Copy screen text.
 
 ## Display
 

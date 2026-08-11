@@ -35,6 +35,6 @@ void upd9002_regs_reset(void) {
 
 void upd9002_regs_bind(void) {
 
-	iocoreva_attachout(0xfff0, upd9002_offf0);
-	iocoreva_attachinp(0xfff0, upd9002_ifff0);
+	iocore_attachvaout(0xfff0, upd9002_offf0);
+	iocore_attachvainp(0xfff0, upd9002_ifff0);
 }

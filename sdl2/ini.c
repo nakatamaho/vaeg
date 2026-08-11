@@ -370,6 +370,9 @@ static const INITBL iniitem[] = {
 	{"SCSIHDD1", INITYPE_STR,		np2cfg.scsihdd[1],		MAX_PATH},
 	{"SCSIHDD2", INITYPE_STR,		np2cfg.scsihdd[2],		MAX_PATH},
 	{"SCSIHDD3", INITYPE_STR,		np2cfg.scsihdd[3],		MAX_PATH},
+	{"SCSIHDD4", INITYPE_STR,		np2cfg.scsihdd[4],		MAX_PATH},
+	{"SCSIHDD5", INITYPE_STR,		np2cfg.scsihdd[5],		MAX_PATH},
+	{"SCSIHDD6", INITYPE_STR,		np2cfg.scsihdd[6],		MAX_PATH},
 	{"fontfile", INITYPE_STR,		np2cfg.fontfile,		MAX_PATH},
 
 	{"SampleHz", INITYPE_UINT16,	&np2cfg.samplingrate,	0},
