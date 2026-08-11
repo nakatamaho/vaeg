@@ -258,7 +258,7 @@ set(VAEG_CORE_SOURCES
     debugsub.c)
 
 set(VAEG_Z80_COMPAT_PRODUCTION_SOURCES
-    cpucva/upd780_disasm.cpp
+    cpu/upd780/upd780_disasm.cpp
     cpucva/z80_compat_cpu.cpp
     cpucva/z80_compat_state.cpp
     cpucva/upd9002_upd70008.cpp)
@@ -1309,7 +1309,7 @@ if(VAEG_ENABLE_TESTS)
         -Wall -fsigned-char)
 
     add_executable(vaeg_upd780_disasm
-        cpucva/upd780_disasm.cpp
+        cpu/upd780/upd780_disasm.cpp
         tests/upd780/disasm.cpp)
     target_include_directories(vaeg_upd780_disasm PRIVATE
         "${CMAKE_CURRENT_SOURCE_DIR}")

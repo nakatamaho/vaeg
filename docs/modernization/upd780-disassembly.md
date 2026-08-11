@@ -23,7 +23,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 # uPD780C disassembly
 
 The production subsystem uses the independently authored vaeg decoder in
-`cpucva/upd780_disasm.cpp`. It reads instruction memory through a function
+`cpu/upd780/upd780_disasm.cpp`. It reads instruction memory through a function
 pointer, writes within an explicit destination capacity, and returns the
 16-bit next PC, exact byte length, and a status. It does not execute the CPU
 or mutate CPU state.
