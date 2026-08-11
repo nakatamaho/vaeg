@@ -38,6 +38,26 @@ land.
 For every new entry, record:
 
 - observed symptom and affected model/platform;
+### Screen-text Copy included horizontal guard cells and mispaired kanji
+
+- **Status:** fixed in the hotfix commit.
+- **Symptom:** copying a VA directory screen could append the next row's first
+  two characters at the right edge. Japanese text also became intermittently
+  displaced when half-width and kanji cells were mixed.
+- **Root cause:** the Copy path used the frame width value directly even though
+  the VA renderer adds two horizontal guard cells, and it treated the HCCODE
+  right-half marker independently instead of consuming a matching left/right
+  pair. Shift-JIS trail selection must use JIS row parity, not the screen
+  column parity.
+- **Correction:** Copy now limits rows to the rendered 80-/40-column viewport,
+  collapses matching HCCODE left/right pairs into one kanji, and retains the
+  JIS-row-parity Shift-JIS conversion.
+- **Verification:** MinGW cross-build completed successfully after the change;
+  the copy width and pair handling mirror `vramva/maketextva.c` and the
+  existing TVRAM diagnostic decoder's HCCODE pair contract.
+- **Evidence:** [Copy implementation](../../sdl2/gui/gui.cpp#L295).
+- **Commit:** [6bbb8429](https://github.com/nakatamaho/vaeg/commit/6bbb842990b0503601df5aa933557f28960da30b).
+
 - demonstrated root cause, clearly separated from rejected hypotheses;
 - correction and compatibility boundary;
 - automated and human verification actually performed;
