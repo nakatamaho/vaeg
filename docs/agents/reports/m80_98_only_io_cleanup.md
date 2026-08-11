@@ -26,11 +26,11 @@ POSSIBILITY OF SUCH DAMAGE.
 
 ## Status
 
-M80 is active on `topic/m80-98-only-io-cleanup`. The implementation
-checkpoint is
+M80 is closed after the G80 human gate passed on 2026-08-11. The
+implementation checkpoint is
 [`a1291121604af6ca27c690214bed337704976fbe`](https://github.com/nakatamaho/vaeg/commit/a1291121604af6ca27c690214bed337704976fbe).
-G80 remains pending. This report does not declare the human gate passed and
-M80 has not been merged to `main`.
+The candidate was approved at G80 and is merged to `main` by the
+gate-closure commit.
 
 The candidate starts from M79/`main` at
 [`1e19c4c539fd99dcc7dcd4a92770a51aef93aad1`](https://github.com/nakatamaho/vaeg/commit/1e19c4c539fd99dcc7dcd4a92770a51aef93aad1).
@@ -95,6 +95,8 @@ CCACHE_DISABLE=1 cmake --build --preset mingw-cross -j4 PASS
   SHA-256: 883c4b9ac8a92ae475efeb22114f6f3efbc91c80cc3ab25e6394cb41a97e2c65
 ```
 
-Manual VA device validation is still required at G80. In particular, the
-candidate has not yet received the required clean-checkout V3 boot, bundled
-VA demo, OS/device operation, and maintainer human review.
+## Gate status
+
+G80 human gate passed by the maintainer on 2026-08-11. The required
+clean-checkout V3 boot, bundled VA demo, OS/device operation, and human review
+were completed. The candidate is approved and merged to `main`.
