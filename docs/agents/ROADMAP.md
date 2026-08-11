@@ -117,7 +117,7 @@ M36–M41 archive status.
 | M71 | tasks/M71_upd9002_core_dispatch_fold.md | Fold the obsolete standalone uPD9002 dispatch translation unit into `upd9002_core.c` and remove current `v30` dispatch/core naming without changing behavior | **G71 passed at `24950894eca79e308afae8d574d43c8f393bb483`** |
 | M72 | tasks/M72_misc_compile_flag_cleanup.md | Audit inactive VAEG-irrelevant code, remove only proven-safe inactive cleanup targets, remove About/More 98x1 UI details, fold always-enabled `VAEG_FIX`, keep required SCSI/HOSTFAT paths, remove legacy HOSTDRV, and audit inactive PC-9821/EPSON/`CPUCORE_IA32`/IDE/PC-9861K/`DISABLE_SOUND`/`VAEG_EXT`/font/embed boundaries without changing active behavior outside the explicitly approved cleanup | **G72 passed at `643d9f7289d817c67f343bf01be368b546bc1438`** |
 | M73 | tasks/M73_upd9002_post_m49_performance_regression.md | Isolate and, if evidence permits, correct the runtime performance regression observed between the approved M49 and M50 checkpoints before later guest-behavior and source-tree restructuring work | **G73 human; planned** |
-| M74 | tasks/M74_debug_harness.md | Build a reusable, deterministic, default-off emulator debug harness with bounded captures and private-input isolation, without changing guest-visible behavior | **G74 human; planned** |
+| M74 | tasks/M74_debug_harness.md | Build a reusable, deterministic, default-off emulator debug harness with bounded captures and private-input isolation, without changing guest-visible behavior | **G74 human gate passed; M74 closed at `3785cc115155c52928817b8c95d38b40268a7bde`** |
 | M75 | tasks/M75_scsi_support.md | Clean up, validate, and document active PC-9801-55-compatible VA SCSI support with the driver-installed support disk while preserving SASI and HOSTFAT | **G75 passed at `4ddba36f28dbfbe35a52117964b99b5685fdaa3d`** |
 | M76 | tasks/M76_upd9002_upd780_emulation_mode_authority.md | Audit uPD9002 main-CPU uPD780 emulation-mode authority and decide whether a later production implementation is safe without repaired-hardware evidence | **G76 passed at `2ef9716d9628ce8eefdf61a1feedca0be5921077`** |
 | M77 | tasks/M77_iova_to_io_rename.md | Move `iova/*` into `io/` with rename-only semantics and no behavior change | **G77 passed at `630e8f27fc4f2d574daf7cdc630836964a4247dc`; merged to `main`** |
@@ -163,9 +163,11 @@ M72 closed the inactive compile-flag cleanup while intentionally leaving
 `SUPPORT_WAVEREC`, `SUPPORT_OPRECORD`, and FDD320 for later focused audits.
 M73 remains reserved for the post-M49 runtime performance regression observed
 between approved M49 and M50 checkpoints, so the known slowdown is isolated
-before later guest-behavior and source-tree restructuring work. M74 is a new,
+before later guest-behavior and source-tree restructuring work. M74 was a new,
 independent diagnostic-infrastructure milestone for a deterministic debug
-harness; it is not a predecessor of the already completed M75-M78 work.
+harness; the maintainer passed its human gate on 2026-08-11, and M74 is now
+closed at `3785cc115155c52928817b8c95d38b40268a7bde`. It is not a predecessor
+of the already completed M75-M78 work.
 M75, M76, and M77 are now completed with the approved G75, G76, and G77 SHAs
 listed above. M77's final tree is already on `main`; the next unstarted
 milestone is M79 because the M78 reference-fixup scope was folded into G77.
