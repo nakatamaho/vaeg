@@ -126,7 +126,7 @@ M36–M41 archive status.
 | M80 | tasks/M80_98_only_io_cleanup.md | Audit and remove proven 98-only `io/` implementations while retaining C-bus boards and deferring FDD320 until 5-inch 2D evidence is resolved | **G80 passed at `a1291121604af6ca27c690214bed337704976fbe`; merged to `main`** |
 | M81 | tasks/M81_va_bios_reachability_cleanup.md | Audit VA BIOS reachability and remove only proven 98-only BIOS handlers | **G81 human gate passed; M81 closed at `094668edfe7c7c6a326b1e9b705eeb9a9141126f`** |
 | M82 | tasks/M82_upd780_subsystem_cpu_audit.md | Audit the FDC subsystem uPD780-compatible CPU boundary currently implemented through the suzukiplan-backed wrapper | **G82 human gate passed; M82 closed at `e2d6b9d05d0a20185486a0314717808b326006c8`** |
-| M83 | tasks/M83_move_upd780_subsystem_cpu.md | Create `cpu/upd780/` and move the FDC subsystem uPD780-compatible CPU wrapper/backend there | **G83 human; in progress from G82** |
+| M83 | tasks/M83_move_upd780_subsystem_cpu.md | Create `cpu/upd780/` and move the FDC subsystem uPD780-compatible CPU wrapper/backend there | **G83 human; in progress** |
 | M84 | tasks/M84_cpucva_boundary_cleanup.md | Clean up the remaining `cpucva/` boundary while keeping uPD9002 instruction execution and VA memory ownership separate | **G84 human; planned** |
 | M85 | tasks/M85_state_save_section_cleanup.md | Audit retired state-save sections, remove only approved obsolete sections, and document compatibility behavior | **G85 human; planned** |
 | M86 | tasks/M86_machine_core_relocation.md | Move active root machine-core sources such as `pccore`, `nevent`, `timing`, `calendar`, `keystat`, `statsave`, `debugsub`, and `clockscale` under `machine/` without behavior change | **G86 human; planned** |
