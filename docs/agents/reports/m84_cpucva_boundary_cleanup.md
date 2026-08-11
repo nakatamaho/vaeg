@@ -16,7 +16,10 @@ modification, are permitted provided that the following conditions are met:
 M84b follows the M84a non-VA C-bus sound-board retirement. It completes the
 remaining `cpucva/` boundary cleanup without changing uPD9002 instruction
 semantics, FDC uPD780 behavior, I/O dispatch, or save-state formats. M84a and
-M84b remain under the single G84 human gate; this report is not a gate pass.
+M84b was under the single G84 human gate. G84 passed after human
+validation, and M84 closed at
+[`9aeb6512e59da7e794ffede50b7a184f601d137e`](https://github.com/nakatamaho/vaeg/commit/9aeb6512e59da7e794ffede50b7a184f601d137e),
+which was fast-forwarded to `main`.
 
 ## Boundary decision
 
@@ -79,4 +82,5 @@ SASI/SCSI, common DMA, and FDC paths remain retained.
 - M84b rename-only checkpoint: [`088dacf6c7aafa0d364a845ead94f0796583eadc`](https://github.com/nakatamaho/vaeg/commit/088dacf6c7aafa0d364a845ead94f0796583eadc).
 - M84b reference fixup: [`890996ecb28627ec77c332c7917c61af29e1c23a`](https://github.com/nakatamaho/vaeg/commit/890996ecb28627ec77c332c7917c61af29a).
 
-G84 human validation remains pending.
+G84 human validation passed; M84 is closed and merged to `main` at
+[`9aeb6512e59da7e794ffede50b7a184f601d137e`](https://github.com/nakatamaho/vaeg/commit/9aeb6512e59da7e794ffede50b7a184f601d137e).

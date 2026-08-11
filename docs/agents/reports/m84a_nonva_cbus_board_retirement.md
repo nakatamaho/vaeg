@@ -16,8 +16,10 @@ modification, are permitted provided that the following conditions are met:
 M84a is the first implementation checkpoint of M84. It retires the
 explicitly approved non-VA C-bus sound-board family and its dependency
 closure. M84b continues the remaining `cpucva/` boundary cleanup. Both
-checkpoints remain under the single G84 human gate; this report is not a gate
-pass.
+The checkpoints were under the single G84 human gate. G84 passed after
+human validation, and M84 closed at
+[`9aeb6512e59da7e794ffede50b7a184f601d137e`](https://github.com/nakatamaho/vaeg/commit/9aeb6512e59da7e794ffede50b7a184f601d137e),
+which was fast-forwarded to `main`.
 
 ## Deleted implementation closure
 
@@ -63,7 +65,8 @@ supported compatibility contract.
 
 The Linux CI-profile build passed after the M84a source deletion. The MinGW
 cross build also passed. Repository checks and focused state-save tests remain
-part of the final M84 handoff; the G84 human gate is still pending.
+part of the final M84 handoff; G84 human validation passed and M84 is closed
+at `9aeb6512e59da7e794ffede50b7a184f601d137e`, merged to `main`.
 
 ## Commit
 
