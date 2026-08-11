@@ -41,6 +41,8 @@
 
 #include "compiler.h"
 #include "gui/gui.h"
+#include "codecnv.h"
+#include "memoryva.h"
 #include "diskdrv.h"
 #include "dosio.h"
 #include "dropmedia.h"
@@ -54,6 +56,7 @@
 #include "np2ver.h"
 #include "sound.h"
 #include "adpcm.h"
+#include "tsp.h"
 #include "beep.h"
 #include "bmsio.h"
 #include "pccore.h"
@@ -252,6 +255,204 @@ struct GuiState {
 
 GuiState g_gui;
 
+
+struct CopyTextFrame {
+	UINT16 vw;
+	UINT8 mode;
+	UINT32 rsa;
+	UINT16 rh;
+	UINT16 rw;
+};
+
+static void copy_append_utf8(std::string *text, UINT32 codepoint) {
+
+	if (codepoint <= 0x7f) {
+		text->push_back(static_cast<char>(codepoint));
+	}
+	else if (codepoint <= 0x7ff) {
+		text->push_back(static_cast<char>(0xc0 | (codepoint >> 6)));
+		text->push_back(static_cast<char>(0x80 | (codepoint & 0x3f)));
+	}
+	else if (codepoint <= 0xffff) {
+		text->push_back(static_cast<char>(0xe0 | (codepoint >> 12)));
+		text->push_back(static_cast<char>(0x80 | ((codepoint >> 6) & 0x3f)));
+		text->push_back(static_cast<char>(0x80 | (codepoint & 0x3f)));
+	}
+	else {
+		text->push_back(static_cast<char>(0xf0 | (codepoint >> 18)));
+		text->push_back(static_cast<char>(0x80 | ((codepoint >> 12) & 0x3f)));
+		text->push_back(static_cast<char>(0x80 | ((codepoint >> 6) & 0x3f)));
+		text->push_back(static_cast<char>(0x80 | (codepoint & 0x3f)));
+	}
+}
+
+static void copy_append_replacement(std::string *text) {
+
+	copy_append_utf8(text, 0xfffd);
+}
+
+static void copy_append_hccode(std::string *text, UINT16 hccode) {
+
+	char sjis[3];
+	UINT16 utf[4];
+	UINT16 jis1;
+	UINT16 jis2;
+	UINT row;
+
+	if (hccode & 0x8000) {
+		return;
+	}
+	if ((hccode & 0xff00) == 0) {
+		if ((hccode == 0) || (hccode == 0x20)) {
+			text->push_back(' ');
+		}
+		else if ((hccode >= 0x21) && (hccode <= 0x7e)) {
+			text->push_back(static_cast<char>(hccode));
+		}
+		else if ((hccode >= 0xa1) && (hccode <= 0xdf)) {
+			sjis[0] = static_cast<char>(hccode);
+			sjis[1] = '\0';
+			ZeroMemory(utf, sizeof(utf));
+			codecnv_sjis2utf(utf, NELEMENTS(utf), sjis, 2);
+			if (utf[0] != 0) {
+				copy_append_utf8(text, utf[0]);
+			}
+			else {
+				copy_append_replacement(text);
+			}
+		}
+		else {
+			copy_append_replacement(text);
+		}
+		return;
+	}
+	jis1 = (hccode & 0x7f) + 0x20;
+	jis2 = (hccode >> 8) & 0x7f;
+	if ((jis1 < 0x21) || (jis1 > 0x7e) ||
+		(jis2 < 0x21) || (jis2 > 0x7e)) {
+		copy_append_replacement(text);
+		return;
+	}
+	row = jis1 - 0x21;
+	sjis[0] = static_cast<char>((row >> 1) + 0x81);
+	if ((static_cast<unsigned char>(sjis[0])) >= 0xa0) {
+		sjis[0] = static_cast<char>(sjis[0] + 0x40);
+	}
+	if (row & 1) {
+		sjis[1] = static_cast<char>(jis2 + 0x7e);
+	}
+	else {
+		sjis[1] = static_cast<char>(jis2 + 0x1f);
+		if (static_cast<unsigned char>(sjis[1]) >= 0x7f) {
+			sjis[1] = static_cast<char>(sjis[1] + 1);
+		}
+	}
+	sjis[2] = '\0';
+	ZeroMemory(utf, sizeof(utf));
+	codecnv_sjis2utf(utf, NELEMENTS(utf), sjis, 3);
+	if (utf[0] != 0) {
+		copy_append_utf8(text, utf[0]);
+	}
+	else {
+		copy_append_replacement(text);
+	}
+}
+
+static BOOL copy_screen_text(void) {
+
+	std::vector<std::string> lines;
+	const UINT32 tvram_size = 0x40000;
+	const UINT frame_count = 4;
+	const UINT lineheight = (tsp.lineheight != 0) ? tsp.lineheight : 1;
+	UINT32 raster_used = 0;
+	UINT frame_no;
+
+	for (frame_no = 0; frame_no < frame_count && raster_used < 0x1fe;
+			frame_no++) {
+		BYTE *entry = textmem + tsp.texttable + frame_no * 0x20;
+		CopyTextFrame frame;
+		UINT raster_count;
+		UINT rows;
+		UINT columns;
+		UINT row;
+
+		if ((tsp.texttable + frame_no * 0x20 + 0x1c) >= tvram_size) {
+			break;
+		}
+		frame.vw = LOADINTELWORD(entry + 0x08) & 0x03ff;
+		frame.mode = LOADINTELWORD(entry + 0x0a) & 0x07;
+		frame.rsa = LOADINTELWORD(entry + 0x10);
+		frame.rh = LOADINTELWORD(entry + 0x14) & 0x01fe;
+		frame.rw = LOADINTELWORD(entry + 0x16) & 0x03ff;
+		if (frame.rh == 0) {
+			frame.rh = 0x01fe;
+		}
+		raster_count = (frame_no == frame_count - 1) ?
+			0x1fe - raster_used : frame.rh;
+		if (raster_count > 0x1fe - raster_used) {
+			raster_count = 0x1fe - raster_used;
+		}
+		if (raster_count == 0) {
+			break;
+		}
+		rows = raster_count / lineheight;
+		columns = frame.rw / 8;
+		if (columns == 0) {
+			columns = 2;
+		}
+		if (columns > 128) {
+			columns = 128;
+		}
+		for (row = 0; row < rows; row++) {
+			std::string line;
+			UINT column;
+			UINT32 address = frame.rsa + frame.vw * row;
+
+			if ((address >= tvram_size) ||
+				((UINT64)address + columns * 2 > tvram_size)) {
+				break;
+			}
+			for (column = 0; column < columns; column++) {
+				BYTE *cell = textmem + address + column * 2;
+				BYTE attr = 0;
+
+				if ((UINT64)(cell - textmem) + tsp.attroffset <
+					tvram_size) {
+					attr = cell[tsp.attroffset];
+				}
+				if ((frame.mode == 1) && (attr & 0x01)) {
+					line.push_back(' ');
+				}
+				else {
+					copy_append_hccode(&line, LOADINTELWORD(cell));
+				}
+			}
+			while (!line.empty() && (line.back() == ' ')) {
+				line.pop_back();
+			}
+			lines.push_back(line);
+		}
+		raster_used += raster_count;
+	}
+	while (!lines.empty() && lines.back().empty()) {
+		lines.pop_back();
+	}
+	std::string clipboard;
+	for (frame_no = 0; frame_no < lines.size(); frame_no++) {
+		if (frame_no != 0) {
+			clipboard.push_back('\n');
+		}
+		clipboard += lines[frame_no];
+	}
+	if (SDL_SetClipboardText(clipboard.c_str()) != 0) {
+		g_gui.keyboard_status = "Copy failed: ";
+		g_gui.keyboard_status += SDL_GetError();
+		return(FAILURE);
+	}
+	g_gui.keyboard_status = "Copy complete.";
+	return(SUCCESS);
+}
+
 static void update_text_input_state(void) {
 
 	if (!g_gui.initialized) {
@@ -302,6 +503,28 @@ static std::string join_path(const std::string &base, const char *leaf) {
 		return base + leaf;
 	}
 	return base + "/" + leaf;
+}
+
+static const char *new_sasi_default_name(void) {
+
+	return "new-sasi-hdd.hdd";
+}
+
+static std::string new_scsi_default_name(int drive) {
+
+	std::string name = "new-scsi-hdd_id";
+
+	name += std::to_string(std::clamp(drive, 0, SCSIHDD_MAX - 1));
+	name += ".hdi";
+	return name;
+}
+
+static std::string new_scsi_default_path(const std::string &directory,
+										int drive) {
+
+	std::string name = new_scsi_default_name(drive);
+
+	return join_path(directory, name.c_str());
 }
 
 static void menu_item_not_implemented(const char *label) {
@@ -1118,7 +1341,7 @@ static bool hdd_is_scsi(int drive) {
 
 static int hdd_slot(int drive) {
 
-	return(drive & 3);
+	return(drive & 0x0f);
 }
 
 static const char *hdd_config_path(int drive) {
@@ -1132,7 +1355,7 @@ static const char *hdd_config_path(int drive) {
 
 static const char *hdd_interface_name(int drive) {
 
-	return(hdd_is_scsi(drive) ? "SCSI #" : "SASI-");
+	return(hdd_is_scsi(drive) ? "SCSI ID " : "SASI-");
 }
 
 static void set_fdd_status(int drive, const char *action, const char *path) {
@@ -1150,7 +1373,12 @@ static void set_fdd_status(int drive, const char *action, const char *path) {
 static void set_hdd_status(int drive, const char *action, const char *path) {
 
 	g_gui.hdd_status = hdd_interface_name(drive);
-	g_gui.hdd_status += static_cast<char>('1' + hdd_slot(drive));
+	if (hdd_is_scsi(drive)) {
+		g_gui.hdd_status += std::to_string(hdd_slot(drive));
+	}
+	else {
+		g_gui.hdd_status += static_cast<char>('1' + hdd_slot(drive));
+	}
 	g_gui.hdd_status += ' ';
 	g_gui.hdd_status += action;
 	if ((path != nullptr) && (path[0] != '\0')) {
@@ -1293,7 +1521,7 @@ static void open_new_sasi_dialog(int drive) {
 		start_dir = home_dir();
 	}
 	g_gui.hdd_browser_dir = absolute_path(start_dir);
-	path = join_path(g_gui.hdd_browser_dir, "newdisk.hdi");
+	path = join_path(g_gui.hdd_browser_dir, new_sasi_default_name());
 	copy_path(g_gui.new_sasi_path, sizeof(g_gui.new_sasi_path), path);
 	g_gui.new_sasi_choice = 3;
 	g_gui.new_sasi_open_after_create = true;
@@ -1307,7 +1535,7 @@ static void open_new_scsi_dialog(int drive) {
 	std::string start_dir;
 	std::string path;
 
-	g_gui.new_scsi_drive = std::clamp(drive, 0, 3);
+	g_gui.new_scsi_drive = std::clamp(drive, 0, SCSIHDD_MAX - 1);
 	if ((np2oscfg.gui_hdd_dir[0] != '\0') &&
 		is_directory(np2oscfg.gui_hdd_dir)) {
 		start_dir = np2oscfg.gui_hdd_dir;
@@ -1316,7 +1544,8 @@ static void open_new_scsi_dialog(int drive) {
 		start_dir = home_dir();
 	}
 	g_gui.hdd_browser_dir = absolute_path(start_dir);
-	path = join_path(g_gui.hdd_browser_dir, "newdisk.hdd");
+	path = new_scsi_default_path(g_gui.hdd_browser_dir,
+								g_gui.new_scsi_drive);
 	copy_path(g_gui.new_scsi_path, sizeof(g_gui.new_scsi_path), path);
 	g_gui.new_scsi_choice = 3;
 	g_gui.new_scsi_open_after_create = true;
@@ -1460,7 +1689,7 @@ static std::string scsi_image_path(const char *path) {
 	if (p.extension().empty()) {
 		p += ".hdd";
 	}
-	else if (p.extension() != ".hdd") {
+	else if ((p.extension() != ".hdd") && (p.extension() != ".hdi")) {
 		p.replace_extension(".hdd");
 	}
 	return p.u8string();
@@ -1595,7 +1824,7 @@ static void create_new_scsi_image(void) {
 	std::string path;
 	short attr;
 
-	drive = std::clamp(g_gui.new_scsi_drive, 0, 3);
+	drive = std::clamp(g_gui.new_scsi_drive, 0, SCSIHDD_MAX - 1);
 	choice = std::clamp(g_gui.new_scsi_choice, 0, kScsiImageCount - 1);
 	path = scsi_image_path(g_gui.new_scsi_path);
 	if (path.empty()) {
@@ -1826,7 +2055,8 @@ static void draw_new_sasi_dialog(void) {
 						g_gui.hdd_browser_dir = entry.path;
 						copy_path(g_gui.new_sasi_path,
 								  sizeof(g_gui.new_sasi_path),
-								  join_path(entry.path, "newdisk.hdi"));
+								  join_path(entry.path,
+											new_sasi_default_name()));
 						g_gui.new_sasi_refresh = true;
 					}
 					else {
@@ -1904,7 +2134,8 @@ static void draw_new_scsi_dialog(void) {
 						g_gui.hdd_browser_dir = entry.path;
 						copy_path(g_gui.new_scsi_path,
 								  sizeof(g_gui.new_scsi_path),
-								  join_path(entry.path, "newdisk.hdd"));
+								  new_scsi_default_path(entry.path,
+											g_gui.new_scsi_drive));
 						g_gui.new_scsi_refresh = true;
 					}
 					else {
@@ -1927,13 +2158,22 @@ static void draw_new_scsi_dialog(void) {
 							   &g_gui.new_scsi_choice, i);
 		}
 		ImGui::Text("Configure after create");
-		for (int drive = 0; drive < 4; drive++) {
+		for (int drive = 0; drive < SCSIHDD_MAX; drive++) {
+			int previous_drive = g_gui.new_scsi_drive;
+
 			if (drive > 0) {
 				ImGui::SameLine();
 			}
-			std::string label = "SCSI #";
-			label += static_cast<char>('1' + drive);
-			ImGui::RadioButton(label.c_str(), &g_gui.new_scsi_drive, drive);
+			std::string label = "SCSI ID ";
+			label += std::to_string(drive);
+			if (ImGui::RadioButton(label.c_str(), &g_gui.new_scsi_drive,
+								drive) &&
+				(std::string(g_gui.new_scsi_path) ==
+				 new_scsi_default_path(g_gui.hdd_browser_dir,
+										previous_drive))) {
+				copy_path(g_gui.new_scsi_path, sizeof(g_gui.new_scsi_path),
+						new_scsi_default_path(g_gui.hdd_browser_dir, drive));
+			}
 		}
 		ImGui::Checkbox("Set HDD file after create",
 						&g_gui.new_scsi_open_after_create);
@@ -2086,10 +2326,15 @@ static void draw_edit_menu(void) {
 
 	if (ImGui::BeginMenu("Edit / 編集")) {
 #if defined(__APPLE__)
+		const char *copy_shortcut = "Cmd+C";
 		const char *shortcut = "Cmd+V";
 #else
+		const char *copy_shortcut = "Ctrl+Shift+C";
 		const char *shortcut = "Ctrl+V";
 #endif
+		if (ImGui::MenuItem("Copy screen text", copy_shortcut)) {
+			copy_screen_text();
+		}
 		if (ImGui::MenuItem("Paste / 貼り付け", shortcut)) {
 			kbdpaste_start_clipboard();
 		}
@@ -2135,17 +2380,23 @@ static void draw_fdd_mount_state(int drive) {
 
 static void draw_hdd_mount_state(int drive) {
 
+	std::string label;
 	const char *path;
 
 	path = hdd_config_path(drive);
+	label = hdd_interface_name(drive);
+	if (hdd_is_scsi(drive)) {
+		label += std::to_string(hdd_slot(drive));
+	}
+	else {
+		label += static_cast<char>('1' + hdd_slot(drive));
+	}
 	if ((path == nullptr) || (path[0] == '\0')) {
-		ImGui::TextDisabled("%s%d: Empty", hdd_interface_name(drive),
-				hdd_slot(drive) + 1);
+		ImGui::TextDisabled("%s: Empty", label.c_str());
 		return;
 	}
 	const std::string name = fs::u8path(path).filename().u8string();
-	ImGui::Text("%s%d: %s", hdd_interface_name(drive), hdd_slot(drive) + 1,
-			name.c_str());
+	ImGui::Text("%s: %s", label.c_str(), name.c_str());
 	if (ImGui::IsItemHovered()) {
 		ImGui::SetTooltip("%s", path);
 	}
@@ -2211,29 +2462,29 @@ static void draw_harddisk_menu(void) {
 		}
 		draw_hdd_mount_state(1);
 		ImGui::Separator();
-		for (int drive = 0; drive < 4; drive++) {
+		for (int drive = 0; drive < SCSIHDD_MAX; drive++) {
 			int encoded;
 
 			encoded = 0x20 | drive;
-			if (ImGui::MenuItem((std::string("SCSI #") +
-					static_cast<char>('1' + drive) + " Open...").c_str())) {
+			if (ImGui::MenuItem((std::string("SCSI ID ") +
+					std::to_string(drive) + " Open...").c_str())) {
 				open_hdd_dialog(encoded);
 			}
-			if (ImGui::MenuItem((std::string("SCSI #") +
-					static_cast<char>('1' + drive) + " Remove").c_str())) {
+			if (ImGui::MenuItem((std::string("SCSI ID ") +
+					std::to_string(drive) + " Remove").c_str())) {
 				remove_hdd(encoded);
 			}
 			draw_hdd_mount_state(encoded);
-			if (drive != 3) {
+			if (drive != SCSIHDD_MAX - 1) {
 				ImGui::Separator();
 			}
 		}
 		ImGui::Separator();
-		if (ImGui::MenuItem("New SCSI image...")) {
-			open_new_scsi_dialog(0);
-		}
 		if (ImGui::MenuItem("New SASI image...")) {
 			open_new_sasi_dialog(0);
+		}
+		if (ImGui::MenuItem("New SCSI image...")) {
+			open_new_scsi_dialog(0);
 		}
 		ImGui::EndMenu();
 	}
@@ -3150,6 +3401,10 @@ static void draw_system_menu(void) {
 }
 
 } // namespace
+extern "C" BOOL gui_copy_screen_text(void) {
+
+	return copy_screen_text();
+}
 
 BOOL gui_initialize(void *window, void *renderer, const char *argv0) {
 

@@ -235,9 +235,9 @@ typedef struct {
 	BOOL sasi[2];
 	char saved_sasi[2][MAX_PATH];
 	char applied_sasi[2][MAX_PATH];
-	BOOL scsi[4];
-	char saved_scsi[4][MAX_PATH];
-	char applied_scsi[4][MAX_PATH];
+	BOOL scsi[7];
+	char saved_scsi[7][MAX_PATH];
+	char applied_scsi[7][MAX_PATH];
 } CLI_SAVED_CONFIG;
 
 static	UINT	framecnt;
@@ -259,8 +259,9 @@ static void usage(const char *progname) {
 	printf("Media (session only; use none for an empty drive):\n");
 	printf("\t--fdd1 path|none    --fdd2 path|none\n");
 	printf("\t--sasi1 path|none   --sasi2 path|none\n");
-	printf("\t--scsi1 path|none   --scsi2 path|none\n");
-	printf("\t--scsi3 path|none   --scsi4 path|none\n");
+	printf("\t--scsi0 path|none   --scsi1 path|none\n");
+	printf("\t--scsi2 path|none   --scsi3 path|none\n");
+	printf("\t--scsi4 path|none   --scsi5 path|none   --scsi6 path|none\n");
 	printf("\t--hostfat-dir path  read-only PC-Engine HOSTFAT snapshot\n");
 	printf("\t--roms path         ROM directory override\n");
 	printf("Persistence (paths are relative to the current directory):\n");
@@ -873,19 +874,19 @@ static BOOL check_scsi_image(const char *path, int drive) {
 
 	attr = file_attr(path);
 	if (attr == (short)-1) {
-		fprintf(stderr, "Error: SCSI #%d image not found: %s\n", drive + 1,
+		fprintf(stderr, "Error: SCSI ID %d image not found: %s\n", drive,
 																path);
 		return(FAILURE);
 	}
 	if (attr & FILEATTR_DIRECTORY) {
-		fprintf(stderr, "Error: SCSI #%d image is a directory: %s\n",
-																 drive + 1, path);
+		fprintf(stderr, "Error: SCSI ID %d image is a directory: %s\n",
+																 drive, path);
 		return(FAILURE);
 	}
 	if (sxsi_hddvalidate_scsi(path) != SUCCESS) {
 		fprintf(stderr,
-			"Error: SCSI #%d image has an unsupported format or geometry: %s\n",
-																 drive + 1, path);
+			"Error: SCSI ID %d image has an unsupported format or geometry: %s\n",
+																 drive, path);
 		return(FAILURE);
 	}
 	return(SUCCESS);
@@ -919,7 +920,7 @@ static BOOL validate_cli_options(const VAEG_CLI_OPTIONS *options) {
 			return(FAILURE);
 		}
 	}
-	for (drive=0; drive<4; drive++) {
+	for (drive=0; drive<7; drive++) {
 		if ((options->scsi_mode[drive] == VAEG_CLI_MEDIA_PATH) &&
 			(check_scsi_image(options->scsi_path[drive], drive) != SUCCESS)) {
 			return(FAILURE);
@@ -997,7 +998,7 @@ static void save_cli_config(const VAEG_CLI_OPTIONS *options,
 											sizeof(saved->saved_sasi[drive]));
 		}
 	}
-	for (drive=0; drive<4; drive++) {
+	for (drive=0; drive<7; drive++) {
 		saved->scsi[drive] =
 				options->scsi_mode[drive] != VAEG_CLI_MEDIA_UNSET;
 		if (saved->scsi[drive]) {
@@ -1106,7 +1107,7 @@ static void apply_cli_config(const VAEG_CLI_OPTIONS *options,
 											sizeof(saved->applied_sasi[drive]));
 		}
 	}
-	for (drive=0; drive<4; drive++) {
+	for (drive=0; drive<7; drive++) {
 		if (saved->scsi[drive]) {
 			if (options->scsi_mode[drive] == VAEG_CLI_MEDIA_PATH) {
 				file_cpyname(np2cfg.scsihdd[drive], options->scsi_path[drive],
@@ -1228,7 +1229,7 @@ static void restore_cli_config(const VAEG_CLI_OPTIONS *options,
 											sizeof(np2cfg.sasihdd[drive]));
 		}
 	}
-	for (drive=0; drive<4; drive++) {
+	for (drive=0; drive<7; drive++) {
 		if (saved->scsi[drive] &&
 			!strcmp(np2cfg.scsihdd[drive], saved->applied_scsi[drive])) {
 			file_cpyname(np2cfg.scsihdd[drive], saved->saved_scsi[drive],
@@ -1275,6 +1276,12 @@ BOOL np2_cli_override_selftest(void) {
 								 sizeof(np2cfg.scsihdd[2]));
 	file_cpyname(np2cfg.scsihdd[3], "saved3.hdd",
 								 sizeof(np2cfg.scsihdd[3]));
+	file_cpyname(np2cfg.scsihdd[4], "saved4.hdd",
+								 sizeof(np2cfg.scsihdd[4]));
+	file_cpyname(np2cfg.scsihdd[5], "saved5.hdd",
+								 sizeof(np2cfg.scsihdd[5]));
+	file_cpyname(np2cfg.scsihdd[6], "saved6.hdd",
+								 sizeof(np2cfg.scsihdd[6]));
 	milstr_ncpy(np2oscfg.opn_backend, "ymfm",
 											sizeof(np2oscfg.opn_backend));
 	milstr_ncpy(np2oscfg.ymfm_fidelity, "minimum",
@@ -1330,6 +1337,10 @@ BOOL np2_cli_override_selftest(void) {
 	options.scsi_mode[1] = VAEG_CLI_MEDIA_NONE;
 	options.scsi_mode[2] = VAEG_CLI_MEDIA_UNSET;
 	options.scsi_mode[3] = VAEG_CLI_MEDIA_UNSET;
+	options.scsi_mode[4] = VAEG_CLI_MEDIA_UNSET;
+	options.scsi_mode[5] = VAEG_CLI_MEDIA_UNSET;
+	options.scsi_mode[6] = VAEG_CLI_MEDIA_PATH;
+	options.scsi_path[6] = "cli6.hdd";
 	save_cli_config(&options, &saved);
 	file_cpyname(np2cfg.model, str_VA1, sizeof(np2cfg.model));
 	apply_cli_config(&options, &saved);
@@ -1356,7 +1367,10 @@ BOOL np2_cli_override_selftest(void) {
 		!strcmp(np2cfg.scsihdd[0], "cli0.hdd") &&
 		(np2cfg.scsihdd[1][0] == '\0') &&
 		!strcmp(np2cfg.scsihdd[2], "saved2.hdd") &&
-		!strcmp(np2cfg.scsihdd[3], "saved3.hdd");
+		!strcmp(np2cfg.scsihdd[3], "saved3.hdd") &&
+		!strcmp(np2cfg.scsihdd[4], "saved4.hdd") &&
+		!strcmp(np2cfg.scsihdd[5], "saved5.hdd") &&
+		!strcmp(np2cfg.scsihdd[6], "cli6.hdd");
 	restore_cli_config(&options, &saved);
 	result = result && !memcmp(&np2cfg, &baseline_cfg, sizeof(np2cfg)) &&
 		!memcmp(&np2oscfg, &baseline_oscfg, sizeof(np2oscfg)) &&
@@ -2018,11 +2032,13 @@ int main(int argc, char **argv) {
 				np2cfg.sgp_multiplier);
 		fprintf(stderr,
 				"INFO: Media config: FDD1=%s FDD2=%s SASI1=%s SASI2=%s "
-				"SCSI1=%s SCSI2=%s SCSI3=%s SCSI4=%s\n",
+				"SCSI0=%s SCSI1=%s SCSI2=%s SCSI3=%s "
+				"SCSI4=%s SCSI5=%s SCSI6=%s\n",
 				np2oscfg.fdd_image[0], np2oscfg.fdd_image[1],
 				np2cfg.sasihdd[0], np2cfg.sasihdd[1],
 				np2cfg.scsihdd[0], np2cfg.scsihdd[1],
-				np2cfg.scsihdd[2], np2cfg.scsihdd[3]);
+				np2cfg.scsihdd[2], np2cfg.scsihdd[3],
+				np2cfg.scsihdd[4], np2cfg.scsihdd[5], np2cfg.scsihdd[6]);
 	}
 	if (options.smoke) {
 		np2oscfg.NOWAIT = 1;

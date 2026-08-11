@@ -169,7 +169,8 @@ const char	*ext;
 		size = LOADINTELWORD(nhd.sectorsize);
 		totals = cylinders * sectors * surfaces;
 	}
-	else if ((!file_cmpname(ext, str_hdi)) && (!(drv & 0x20))) {
+	else if ((!file_cmpname(ext, str_hdi) ||
+				!file_cmpname(ext, str_hdd)) && (!(drv & 0x20))) {
 		HDIHDR hdi;						// ANEX86 HDD (SASI) thanx Mamiya
 		if (file_read(fh, &hdi, sizeof(hdi)) != sizeof(hdi)) {
 			goto sxsiope_err2;
@@ -181,7 +182,8 @@ const char	*ext;
 		size = LOADINTELDWORD(hdi.sectorsize);
 		totals = cylinders * sectors * surfaces;
 	}
-	else if ((!file_cmpname(ext, str_hdd)) && (drv & 0x20)) {
+	else if ((!file_cmpname(ext, str_hdd) ||
+				!file_cmpname(ext, str_hdi)) && (drv & 0x20)) {
 		VHDHDR vhd;						// Virtual98 HDD (SCSI)
 		if ((file_read(fh, &vhd, sizeof(vhd)) != sizeof(vhd)) ||
 			(memcmp(vhd.sig, sig_vhd, 5))) {
@@ -330,10 +332,8 @@ void sxsi_open(void) {
 		}
 	}
 	drv = 0x20;
-	for (i=0; i<4; i++) {
-		if (sxsi_hddopen(drv, np2cfg.scsihdd[i]) == SUCCESS) {
-			drv++;
-		}
+	for (i=0; i<SCSIHDD_MAX; i++) {
+		sxsi_hddopen((REG8)(0x20 + i), np2cfg.scsihdd[i]);
 	}
 }
 

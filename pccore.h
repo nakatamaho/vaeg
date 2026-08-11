@@ -114,7 +114,7 @@ typedef struct {
 	UINT8	lockedkey;
 
 	OEMCHAR	sasihdd[2][MAX_PATH];									// ver0.74
-	OEMCHAR	scsihdd[4][MAX_PATH];									// ver0.74
+	OEMCHAR	scsihdd[7][MAX_PATH];									// ver0.74
 	OEMCHAR	fontfile[MAX_PATH];
 	OEMCHAR	biospath[MAX_PATH];
 	OEMCHAR	hdrvroot[MAX_PATH];

@@ -1,7 +1,7 @@
 
 enum {
 	SASIHDD_MAX		= 2,
-	SCSIHDD_MAX		= 4
+	SCSIHDD_MAX		= 7
 };
 
 #include	"dosio.h"

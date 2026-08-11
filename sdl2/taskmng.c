@@ -38,6 +38,7 @@
 		BOOL	task_avail;
 	static VAEG_PACING_STATE task_pacing;
 	static BOOL paste_shortcut_down;
+	static BOOL copy_shortcut_down;
 	static BOOL middle_shortcut_down;
 
 static BOOL taskmng_paste_shortcut(const SDL_Event *event, BOOL captured) {
@@ -70,6 +71,41 @@ static BOOL taskmng_paste_shortcut(const SDL_Event *event, BOOL captured) {
 	paste_shortcut_down = TRUE;
 	if (!event->key.repeat) {
 		kbdpaste_start_clipboard();
+	}
+	return TRUE;
+}
+
+
+static BOOL taskmng_copy_shortcut(const SDL_Event *event, BOOL captured) {
+
+	UINT16 modifier;
+
+	if (event->type == SDL_KEYUP) {
+		if ((event->key.keysym.scancode == SDL_SCANCODE_C) &&
+			copy_shortcut_down) {
+			copy_shortcut_down = FALSE;
+			return TRUE;
+		}
+		return FALSE;
+	}
+	if ((event->type != SDL_KEYDOWN) ||
+		(event->key.keysym.scancode != SDL_SCANCODE_C)) {
+		return FALSE;
+	}
+	modifier = (UINT16)event->key.keysym.mod;
+#if defined(__APPLE__)
+	if (!(modifier & KMOD_GUI)) {
+#else
+	if (!(modifier & KMOD_CTRL) || !(modifier & KMOD_SHIFT)) {
+#endif
+		return FALSE;
+	}
+	if (captured) {
+		return FALSE;
+	}
+	copy_shortcut_down = TRUE;
+	if (!event->key.repeat) {
+		gui_copy_screen_text();
 	}
 	return TRUE;
 }
@@ -180,6 +216,7 @@ void taskmng_rol(void) {
 				 (e.window.event == SDL_WINDOWEVENT_FOCUS_LOST)) {
 			vaeg_pacing_reset(&task_pacing);
 			paste_shortcut_down = FALSE;
+			copy_shortcut_down = FALSE;
 			middle_shortcut_down = FALSE;
 			kbdpaste_cancel();
 			mousemng_setfocus(FALSE);
@@ -204,6 +241,7 @@ void taskmng_rol(void) {
 		else if (e.type == SDL_QUIT) {
 			vaeg_pacing_reset(&task_pacing);
 			paste_shortcut_down = FALSE;
+			copy_shortcut_down = FALSE;
 			middle_shortcut_down = FALSE;
 			kbdpaste_cancel();
 			mousemng_setfocus(FALSE);
@@ -214,6 +252,9 @@ void taskmng_rol(void) {
 			shortcut = TRUE;
 		}
 		if (taskmng_mouse_key_shortcut(&e, captured)) {
+			shortcut = TRUE;
+		}
+		if (taskmng_copy_shortcut(&e, captured)) {
 			shortcut = TRUE;
 		}
 		if (taskmng_mouse_button_shortcut(&e, captured)) {

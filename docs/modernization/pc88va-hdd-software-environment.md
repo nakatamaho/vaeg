@@ -66,6 +66,13 @@ Vector's BMS Driver:
 Vector describes it as `BMS Driver 1.50 Rev 0.20`, a Bank Memory Driver
 for PC-98x1/88VA. The archived download is `bms15020.tgz`.
 
+
+The archive disk also includes Vector's [Memory Mapper for PC
+1.3](https://www.vector.co.jp/soft/dos/hardware/se128128.html). Vector
+describes `X8MAP130.LZH` as a free MS-DOS utility for PC-98, PC-88VA, and
+AT-compatible machines that reports CPU and memory usage, including
+SYSTEM/EMS/XMS/UMB/BMS and VA-only SMM information. The published file is
+12,641 bytes and dated 2003-02-06.
 ## Core Components
 
 The article's baseline `CONFIG.SYS` is:
@@ -292,7 +299,8 @@ The complete build performs these operations:
    patch, BDIFF/BUPDATE 1.28, MSE 3.52a and the 3.52b patch, WSP 1.50,
    LHA 2.13, K-Launcher 1.30, TEEN 0.30p, VBUFF 1.02, FATMAP 1.1,
    FORG 2.03, the VA RAMDISK self-extracting archive, and the GNU File
-   Utilities 3.12 MS-DOS rev B executable archive.
+   Utilities 3.12 MS-DOS rev B executable archive, plus Vector's
+   `X8MAP130.LZH` Memory Mapper archive.
 3. Extract the packages with the host `lha`, `tar`, and `unzip` commands.
 4. Run the original DOS `WSP.COM` and `BUPDATE.EXE` under headless DOSBox to
    produce `MSE352B.COM`, the patched `PCPLUS.SYS`, and the PC-88VA
@@ -454,8 +462,8 @@ tools/pc88va/build-softlib-archive-disk.sh \
 The output must not already exist. The cache option is optional and follows
 the same verified-download behavior as the development-disk builder. The
 script pins every public file by SHA-256, rejects mismatched cache entries,
-and installs the Softlib and Vector archive bytes without running or
-extracting them.
+and installs the Softlib and Vector archive bytes without running them. The
+`X8MAP130.LZH` archive is also extracted into `A:\BIN`.
 
 The requested Softlib groups and files are:
 
@@ -474,7 +482,11 @@ The requested Softlib groups and files are:
 | [2-270](http://www.pc88.gr.jp/softlib/index.php?action=list_file&anum=2&gnum=270) | `RDEMS152.LZH` |
 | [2-201](http://www.pc88.gr.jp/softlib/index.php?action=list_file&anum=2&gnum=201) | `TDC10.LZH` |
 | [2-389](http://www.pc88.gr.jp/softlib/index.php?action=list_file&anum=2&gnum=389) | `BENCH003.DOC`, `BENCH003.LZH` |
+| [Vector se128128](https://www.vector.co.jp/soft/dos/hardware/se128128.html) | `X8MAP130.LZH` (Memory Mapper for PC 1.3) |
 
+For the Vector package, the disk therefore contains the original
+`A:\ARCHIVE\X8MAP130.LZH` plus `A:\BIN\X8MAP.COM`,
+`A:\BIN\X8MAP130.SMP`, and `A:\BIN\X8MAP130.TXT`.
 Group 2-306 appeared twice in the requested URL list and is intentionally
 stored once. The disk also contains the 409,884-byte `LSIC330C.LZH` archive
 from the [LSI C-86 3.30c trial-version page](https://www.vector.co.jp/soft/maker/lsi/se001169.html).
