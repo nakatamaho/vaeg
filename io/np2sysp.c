@@ -242,8 +242,8 @@ void np2sysp_bind(void) {
 	iocore_attachout(0x07ef, np2sysp_o7ef);
 	iocore_attachinp(0x07ed, np2sysp_i7ed);
 	iocore_attachinp(0x07ef, np2sysp_i7ef);
-	iocoreva_attachout(0x07ed, np2sysp_o7ed);
-	iocoreva_attachout(0x07ef, np2sysp_o7ef);
-	iocoreva_attachinp(0x07ed, np2sysp_i7ed);
-	iocoreva_attachinp(0x07ef, np2sysp_i7ef);
+	iocore_attachvaout(0x07ed, np2sysp_o7ed);
+	iocore_attachvaout(0x07ef, np2sysp_o7ef);
+	iocore_attachvainp(0x07ed, np2sysp_i7ed);
+	iocore_attachvainp(0x07ef, np2sysp_i7ef);
 }

@@ -46,14 +46,15 @@ enum {
 static void m69_prepare_io(void) {
 
 	pccore.model_va = PCMODEL_VA1;
+	iomode_va = 0x02;
 	pccore.multiple = 1;
 	CPU_REMCLOCK = 1000000;
-	iocoreva_create();
-	if (iocoreva_build() != SUCCESS) {
-		fprintf(stderr, "idp-m69-status: iocoreva_build failed\n");
+	iocore_create();
+	if (iocore_build() != SUCCESS) {
+		fprintf(stderr, "idp-m69-status: iocore_build failed\n");
 		return;
 	}
-	iocoreva_bind();
+	iocore_bind();
 	tsp_reset();
 	tsp_bind();
 }
@@ -71,7 +72,7 @@ static REG8 m69_read_status(REG8 stored, int vb) {
 	tsp.status = stored;
 	tsp.vsync = (UINT8)(vb ? M69_VSYNC_ACTIVE : 0);
 	CPU_REMCLOCK = 1000000;
-	return(iocoreva_inp8(M69_PORT_STATUS));
+	return(iocore_inp8(M69_PORT_STATUS));
 }
 
 static int m69_check_status_case(const char *group, REG8 stored, int vb) {
@@ -99,7 +100,7 @@ static int m69_check_word_access(REG8 stored, int vb) {
 	tsp.vsync = (UINT8)(vb ? M69_VSYNC_ACTIVE : 0);
 	CPU_REMCLOCK = 1000000;
 	expected = (REG16)((0xffU << 8) | m69_expected(stored, vb));
-	actual = iocoreva_inp16(M69_PORT_STATUS);
+	actual = iocore_inp16(M69_PORT_STATUS);
 	if (actual != expected) {
 		fprintf(stderr,
 			"idp-m69-status: word-in stored=%02x vb=%u expected=%04x actual=%04x\n",
@@ -152,8 +153,8 @@ static int m69_check_busy_lifecycle(void) {
 	failures = 0;
 	m69_prepare_io();
 	tsp.vsync = 0;
-	iocoreva_out8(M69_PORT_STATUS, M69_CMD_SYNC);
-	actual = iocoreva_inp8(M69_PORT_STATUS);
+	iocore_out8(M69_PORT_STATUS, M69_CMD_SYNC);
+	actual = iocore_inp8(M69_PORT_STATUS);
 	if (actual != M69_STATUS_BUSY) {
 		fprintf(stderr,
 			"idp-m69-status: busy-vb0 expected=%02x actual=%02x\n",
@@ -161,9 +162,9 @@ static int m69_check_busy_lifecycle(void) {
 		failures++;
 	}
 	for (i = 0; i < M69_SYNC_PARAM_COUNT; i++) {
-		iocoreva_out8(M69_PORT_PARAMETER, 0);
+		iocore_out8(M69_PORT_PARAMETER, 0);
 	}
-	actual = iocoreva_inp8(M69_PORT_STATUS);
+	actual = iocore_inp8(M69_PORT_STATUS);
 	if (actual != 0) {
 		fprintf(stderr,
 			"idp-m69-status: busy-clear-vb0 expected=00 actual=%02x\n",
@@ -173,8 +174,8 @@ static int m69_check_busy_lifecycle(void) {
 
 	m69_prepare_io();
 	tsp.vsync = M69_VSYNC_ACTIVE;
-	iocoreva_out8(M69_PORT_STATUS, M69_CMD_SYNC);
-	actual = iocoreva_inp8(M69_PORT_STATUS);
+	iocore_out8(M69_PORT_STATUS, M69_CMD_SYNC);
+	actual = iocore_inp8(M69_PORT_STATUS);
 	if (actual != (M69_STATUS_BUSY | M69_STATUS_VB)) {
 		fprintf(stderr,
 			"idp-m69-status: busy-vb1 expected=%02x actual=%02x\n",
@@ -182,9 +183,9 @@ static int m69_check_busy_lifecycle(void) {
 		failures++;
 	}
 	for (i = 0; i < M69_SYNC_PARAM_COUNT; i++) {
-		iocoreva_out8(M69_PORT_PARAMETER, 0);
+		iocore_out8(M69_PORT_PARAMETER, 0);
 	}
-	actual = iocoreva_inp8(M69_PORT_STATUS);
+	actual = iocore_inp8(M69_PORT_STATUS);
 	if (actual != M69_STATUS_VB) {
 		fprintf(stderr,
 			"idp-m69-status: busy-clear-vb1 expected=%02x actual=%02x\n",
@@ -217,7 +218,7 @@ int idp_m69_status_composition_main(void) {
 	failures += (unsigned int)m69_check_word_access(0x04, 0);
 	failures += (unsigned int)m69_check_word_access(0x04, 1);
 	failures += (unsigned int)m69_check_busy_lifecycle();
-	iocoreva_destroy();
+	iocore_destroy();
 
 	if (failures) {
 		fprintf(stderr,

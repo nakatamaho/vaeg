@@ -67,14 +67,14 @@ section	.table start=0x040
 		dw		sendeoi		; 16
 		dw		sendeoi		; 17
 
-		dw		vect18		; 18
-		dw		bios19		; 19
-		dw		vect1a		; 1a
-		dw		bios1b		; 1b
-		dw		bios1c		; 1c
+		dw		biosnop		; 18
+		dw		biosnop		; 19
+		dw		biosnop		; 1a
+		dw		biosnop		; 1b
+		dw		biosnop		; 1c
 		dw		biosnop		; 1d
-		dw		0			; 1e
-		dw		bios1f		; 1f
+		dw		biosnop		; 1e
+		dw		biosnop		; 1f
 
 
 section	.biosmain start=0x0080
@@ -103,36 +103,10 @@ bios12:			nop						; 90
 bios13:			nop						; 94
 				iret
 
-vect18:			sti
-				clc
-bios18:			nop						; 98
-				iret
+				; INT18h-INT1Fh are fixed default-IRET slots. Keep the
+				; reserved space so BIOSOFST_WAIT remains at 00b4.
+				times 0x1e nop
 
-				align	4
-bios19:			nop						; 9c
-				iret
-
-				align	4
-bios1a_cmt:		nop						; a0
-				ret
-
-				align	4
-bios1a_prt:		nop						; a4
-				ret
-
-				align	4
-bios1b:			nop						; a8
-				iret
-
-				align	4
-bios1c:			nop						; ac
-				iret
-
-				align	4
-bios1f:			nop						; b0
-				iret
-
-				align	4
 biosfdcwait:	nop						; b4
 				iret
 
@@ -142,8 +116,6 @@ biosfdcwait:	nop						; b4
 %include	'vect08.x86'
 %include	'vect09.x86'
 %include	'vect13.x86'
-%include	'vect1a.x86'
-%include	'vect1f.x86'
 
 	ends
 

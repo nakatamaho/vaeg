@@ -87,7 +87,7 @@ void bmsio_bind(void) {
 		iocore_attachout(bmsio.cfg.port, bmsio_o00ec);
 		iocore_attachinp(bmsio.cfg.port, bmsio_i00ec);
 
-		iocoreva_attachout(bmsio.cfg.port, bmsio_o00ec);
-		iocoreva_attachinp(bmsio.cfg.port, bmsio_i00ec);
+		iocore_attachvaout(bmsio.cfg.port, bmsio_o00ec);
+		iocore_attachvainp(bmsio.cfg.port, bmsio_i00ec);
 	}
 }

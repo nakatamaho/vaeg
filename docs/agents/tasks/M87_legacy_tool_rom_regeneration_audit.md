@@ -1,8 +1,9 @@
 # M87 - Legacy tool and ROM regeneration audit
 
-M87 audits remaining legacy tool sources, ROM/resource regeneration flows, and
-the `lio/` BIOS/LIO compatibility path after active machine-core sources have
-moved out of the repository root.
+M87 audits remaining legacy tool sources and ROM/resource regeneration flows
+after active machine-core sources have moved out of the repository root. The
+`lio/` BIOS/LIO compatibility path was resolved early in M81 and is not an M87
+open item.
 
 Predecessor: approved G86.
 
@@ -24,8 +25,6 @@ M87 must audit:
 - `accessories/`, including `bin2txt`, `lzxpack`, and `textout`;
 - `np2tool/` legacy assembly utilities;
 - `romimage/` regeneration makefiles and assembly sources;
-- `lio/`, including `lio/lio.res`, `lio_initialize()`, `bios_lio()`, and the
-  BIOS-simulation entry hook range in `bios/bios.c`;
 - current CMake asset embedding through `cmake/embed_binary.cmake`;
 - generated-asset consumers in the SDL2 frontend;
 - release packaging assumptions for assets and ROM-related files.
@@ -35,14 +34,6 @@ active CMake build and appears to serve only old ROM/resource generation
 flows. Any deletion must prove that active asset embedding uses
 `cmake/embed_binary.cmake` and that no current build, test, release, or
 manual gate depends on the legacy tools.
-
-`lio/` is a deletion candidate only after audit, not an assumed inactive
-directory. The audit must account for its current active CMake inclusion, the
-`BIOS_SIMULATE` initialization path, the `0xf9950` to `0xf9990` BIOS/LIO
-entry hook, the generated `lio.res` payload, and any guest-visible LIO/N88-BASIC
-compatibility expectation. M87 may remove it only if the active VA gate and
-documented compatibility scope prove it unnecessary; otherwise it must record
-whether it is retained or deferred to the VA BIOS cleanup sequence.
 
 ## Non-goals
 
@@ -58,6 +49,5 @@ ROM/resource regeneration references.
 
 ## Closure
 
-The final report must list each legacy tool, ROM-generation path, and `lio/`
-hook as active-required, inactive-removable, deferred, or blocked by evidence
-gap.
+The final report must list each legacy tool and ROM-generation path as
+active-required, inactive-removable, deferred, or blocked by an evidence gap.

@@ -159,10 +159,10 @@ void subsystemif_reset(void) {
 }
 
 void subsystemif_bind(void) {
-	iocoreva_attachout(0x0fd, subsystemif_o0fd);
-	iocoreva_attachout(0x0fe, subsystemif_o0fe);
-	iocoreva_attachout(0x0ff, subsystemif_o0ff);
+	iocore_attachvaout(0x0fd, subsystemif_o0fd);
+	iocore_attachvaout(0x0fe, subsystemif_o0fe);
+	iocore_attachvaout(0x0ff, subsystemif_o0ff);
 
-	iocoreva_attachinp(0x0fc, subsystemif_i0fc);
-	iocoreva_attachinp(0x0fe, subsystemif_i0fe);
+	iocore_attachvainp(0x0fc, subsystemif_i0fc);
+	iocore_attachvainp(0x0fe, subsystemif_i0fe);
 }

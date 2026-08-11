@@ -35,7 +35,7 @@ void diskdrv_sethdd(REG8 drv, const char *fname) {
 		}
 	}
 	else {							// SCSI
-		if (num < 4) {
+		if (num < 7) {
 			p = np2cfg.scsihdd[num];
 			leng = sizeof(np2cfg.scsihdd[0]);
 		}

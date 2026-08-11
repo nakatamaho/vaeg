@@ -19,11 +19,12 @@ The hardware-facing names are deliberately distinct:
 - `cpucva/upd9002_upd70008.*` is the uPD9002 main-CPU adapter's uPD70008-
   compatible mode. It is not the FDC CPU.
 - `io/subsystem.cpp` owns the FDC CPU and exposes it as `UPD780C`.
-- `cpucva/z80_compat_cpu.*`, `z80_compat_bus.h`, `z80_compat_registers.h`, `upd780_disasm.*`, and
+- `cpucva/z80_compat_cpu.*`, `z80_compat_bus.h`, `z80_compat_registers.h`, and
   `z80_compat_state.*` are the common Z80 compatibility implementation and
-  compatibility layer shared by those two adapters. The remaining Z80 terminology
-  refers only to instruction-set, vendor, and historical save-state compatibility;
-  it does not identify a separate FDC device.
+  compatibility layer shared by those two adapters. `cpu/upd780/upd780_disasm.*`
+  is the FDC-facing uPD780 disassembler. The remaining Z80 terminology refers
+  only to instruction-set, vendor, and historical save-state compatibility; it
+  does not identify a separate FDC device.
 
 Keep the shared `z80_compat_*` backend separate from the hardware-specific uPD780C and
 uPD70008 layers. When changing hardware-facing code, use the role-specific

@@ -32,7 +32,7 @@ ctest --test-dir build/linux-ci-gcc --output-on-failure
 ```
 
 The production `vaeg_va` target compiles `cpucva/z80_compat_cpu.cpp`,
-`cpucva/z80_compat_state.cpp`, and `cpucva/upd780_disasm.cpp`. Standalone
+`cpucva/z80_compat_state.cpp`, and `cpu/upd780/upd780_disasm.cpp`. Standalone
 conformance, state, disassembler, ZEX, and M38-derived regression targets
 remain available.
 
@@ -41,7 +41,7 @@ and `UPD780C` is the FDC seam and C bridge in
 `io/subsystem.cpp`. Third-party and STL types do not cross that seam. Every wrapper I/O callback masks the external port to eight bits, IRQ
 remains a level, and the acknowledge port is read only when the core accepts a
 maskable interrupt. The independently authored BSD-2-Clause decoder in
-`cpucva/upd780_disasm.cpp` is the only production uPD780C disassembler.
+`cpu/upd780/upd780_disasm.cpp` is the only production uPD780C disassembler.
 
 ## ROM-less integration evidence
 

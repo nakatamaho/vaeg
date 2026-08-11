@@ -397,14 +397,14 @@ void pic_bind(void) {
 	iocore_attachsysinpex(0x0000, 0x0cf1, pici00, 2);
 
 	// slave
-	iocoreva_attachout(0x184, picva_o184);
-	iocoreva_attachout(0x186, picva_o186);
-	iocoreva_attachinp(0x184, picva_i184);
-	iocoreva_attachinp(0x186, picva_i186);
+	iocore_attachvaout(0x184, picva_o184);
+	iocore_attachvaout(0x186, picva_o186);
+	iocore_attachvainp(0x184, picva_i184);
+	iocore_attachvainp(0x186, picva_i186);
 	// master
-	iocoreva_attachout(0x188, picva_o188);
-	iocoreva_attachout(0x18a, picva_o18a);
-	iocoreva_attachinp(0x188, picva_i188);
-	iocoreva_attachinp(0x18a, picva_i18a);
+	iocore_attachvaout(0x188, picva_o188);
+	iocore_attachvaout(0x18a, picva_o18a);
+	iocore_attachvainp(0x188, picva_i188);
+	iocore_attachvainp(0x18a, picva_i18a);
 }
 

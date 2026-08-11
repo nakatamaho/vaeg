@@ -1024,10 +1024,10 @@ void fdsubsys_reset(void) {
 }
 
 void fdsubsys_bind(void) {
-	iocoreva_attachout(0x0fd, fdsubsys_o0fd);
-	iocoreva_attachout(0x0fe, fdsubsys_o0fe);
-	iocoreva_attachout(0x0ff, fdsubsys_o0ff);
+	iocore_attachvaout(0x0fd, fdsubsys_o0fd);
+	iocore_attachvaout(0x0fe, fdsubsys_o0fe);
+	iocore_attachvaout(0x0ff, fdsubsys_o0ff);
 
-	iocoreva_attachinp(0x0fc, fdsubsys_i0fc);
-	iocoreva_attachinp(0x0fe, fdsubsys_i0fe);
+	iocore_attachvainp(0x0fc, fdsubsys_i0fc);
+	iocore_attachvainp(0x0fe, fdsubsys_i0fe);
 }

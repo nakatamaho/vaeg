@@ -386,15 +386,15 @@ void tsp_bind(void) {
 		tsp_updateclock();
 	}
 	/*
-	iocoreva_attachout(0x152, memctrlva_o152);
-	iocoreva_attachout(0x153, memctrlva_o153);
-	iocoreva_attachout(0x198, memctrlva_o198);
-	iocoreva_attachout(0x19a, memctrlva_o19a);
+	iocore_attachvaout(0x152, memctrlva_o152);
+	iocore_attachvaout(0x153, memctrlva_o153);
+	iocore_attachvaout(0x198, memctrlva_o198);
+	iocore_attachvaout(0x19a, memctrlva_o19a);
 	*/
-	iocoreva_attachinp(0x142, tsp_i142);
-	iocoreva_attachinp(0x143, tsp_i143);
-	iocoreva_attachout(0x142, tsp_o142);
-	iocoreva_attachout(0x146, tsp_o146);
+	iocore_attachvainp(0x142, tsp_i142);
+	iocore_attachvainp(0x143, tsp_i143);
+	iocore_attachvaout(0x142, tsp_o142);
+	iocore_attachvaout(0x146, tsp_o146);
 }
 
 // ---- 

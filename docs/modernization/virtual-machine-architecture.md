@@ -40,7 +40,7 @@ SDL2 frontend
   -> pccore reset/run
     -> CPU core: cpu/upd9002
     -> memory: uPD9002 memory dispatcher plus PC-88VA memoryva layer
-    -> I/O: iocore, iova, cbus, FDC, DMAC, sound boards
+    -> I/O: io, cbus, FDC, DMAC, sound boards
     -> video: vram, vramva, scrndraw/scrndrawva
     -> sound: fm/psg/adpcm/beep/FDD motor sources
     -> storage: FDD and SXSI/SASI/SCSI image layers
@@ -211,8 +211,11 @@ fmboard_bind()
 ```
 
 These calls are in `pccore.c:451-454`. The PC-88VA extended I/O table is
-implemented under `io/`; `io/iocoreva.c` provides the 16-bit decoded
-VA port dispatcher and the default unhandled-port trace path.
+implemented under `io/`; the common and VA registration maps are owned by
+`io/iocore.c`, whose canonical `iocore_out*`/`iocore_inp*` dispatcher selects
+the VA map through `iomode_va`. VA registrations use `iocore_attachvaout` and
+`iocore_attachvainp`; the two maps remain distinct because common and VA
+devices may share port numbers with different handlers.
 
 Sound-hardware configuration matters for PC-88VA boot. VA defaults to
 `SNDboard=100` (built-in OPN) and may select `200` for Sound Board II.

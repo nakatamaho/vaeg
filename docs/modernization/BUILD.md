@@ -251,7 +251,7 @@ M38-derived regression coverage.
 
 ## M40 production uPD780C disassembly
 
-Production compiles and uses the vaeg-owned `cpucva/upd780_disasm.cpp`. The
+Production compiles and uses the vaeg-owned `cpu/upd780/upd780_disasm.cpp`. The
 subsystem exposes the capacity-aware
 `subsystem_disassemble_bounded()` seam and retains the historical
 `subsystem_disassemble()` signature as a 64-byte compatibility adapter.
