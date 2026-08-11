@@ -1559,6 +1559,55 @@ static int make_statsave_with_unsupported_subcpu(const char *source,
 	return(ret);
 }
 
+static int make_statsave_with_retired_fmboard(const char *source,
+											const char *destination) {
+
+	BYTE	*data;
+	UINT	size;
+	UINT	pos;
+	BOOL	found;
+	FILEH	fh;
+	int		ret;
+
+	data = NULL;
+	if (read_whole_file(source, &data, &size) != SUCCESS) {
+		return(FAILURE);
+	}
+	found = FALSE;
+	pos = 0x30;
+	while((pos + 16) <= size) {
+		UINT body_size;
+		UINT padded;
+
+		body_size = LOADINTELDWORD(data + pos + 12);
+		padded = (body_size + 15) & ~15U;
+		if ((pos + 16 + padded) > size) {
+			break;
+		}
+		if (!memcmp(data + pos, "FMBOARD", 7) &&
+			(body_size >= sizeof(UINT32))) {
+			data[pos + 16] = 0x04;
+			data[pos + 17] = 0x00;
+			data[pos + 18] = 0x00;
+			data[pos + 19] = 0x00;
+			found = TRUE;
+			break;
+		}
+		pos += 16 + padded;
+	}
+	ret = FAILURE;
+	fh = file_create(destination);
+	if (found && (fh != FILEH_INVALID) &&
+		(file_write(fh, data, size) == size)) {
+		ret = SUCCESS;
+	}
+	if (fh != FILEH_INVALID) {
+		file_close(fh);
+	}
+	_MFREE(data);
+	return(ret);
+}
+
 static int compare_statsave_stable_sections(const char *left,
 													const char *right) {
 
@@ -1770,6 +1819,24 @@ static int test_statsave(void) {
 		hostfat_image[HOSTFAT_SECTOR_SIZE] ^= 0x5a;
 		if ((ret == STATFLAG_SUCCESS) &&
 			(hostfat_mount_image(hostfat_image, HOSTFAT_IMAGE_SIZE) != SUCCESS)) {
+			ret = STATFLAG_FAILURE;
+		}
+	}
+	if ((ret == STATFLAG_SUCCESS) &&
+		(make_statsave_with_retired_fmboard(path1, pathbad) != SUCCESS)) {
+		ret = STATFLAG_FAILURE;
+	}
+	if (ret == STATFLAG_SUCCESS) {
+		identity_ip = CPU_IP;
+		identity_memory = upd9002_memoryread(0x0400);
+		ZeroMemory(err, sizeof(err));
+		if ((statsave_check(pathbad, err, sizeof(err)) != STATFLAG_FAILURE) ||
+			(strstr(err, "retired sound hardware") == NULL) ||
+			(CPU_IP != identity_ip) ||
+			(upd9002_memoryread(0x0400) != identity_memory) ||
+			(statsave_load(pathbad) != STATFLAG_FAILURE) ||
+			(CPU_IP != identity_ip) ||
+			(upd9002_memoryread(0x0400) != identity_memory)) {
 			ret = STATFLAG_FAILURE;
 		}
 	}
