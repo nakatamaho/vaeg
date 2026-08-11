@@ -26,14 +26,14 @@ POSSIBILITY OF SUCH DAMAGE.
 
 ## Status
 
-This is the M81 candidate report. The audit starts from the approved M80
+This is the final M81 report. The audit starts from the approved M80
 checkpoint at [`c44569bd8c47c87c19c6e59bfb735ce7431102bd`](https://github.com/nakatamaho/vaeg/commit/c44569bd8c47c87c19c6e59bfb735ce7431102bd).
 The approved cleanup removes the VA-facing INT18h-INT1Fh common BIOS entries
 and the common GDC/LIO compatibility layer. VA display code is provided by
 `biosva/`, `vramva/`, and `videova/`; no active VA path requires
 `bios/bios18.c` or `lio/`. It retains the FDD bootstrap/equipment helpers, the
 FDD wait hook, and the shared SCSI/SASI backend used by bootstrap and C-Bus
-paths. G81 remains pending.
+paths. G81 human gate passed on 2026-08-11.
 
 ## What Tekumani documents
 
@@ -159,4 +159,4 @@ build/linux-debug/sdl2/vaeg --selftest
 ctest --test-dir build/linux-debug --output-on-failure
 ```
 
-The Linux Debug source-cleanup build completed successfully. `build/linux-debug/sdl2/vaeg --selftest` exited 0 with `selftest: all tests passed`. `ctest --test-dir build/linux-debug --output-on-failure` exited 0 and reported no tests found. The repository encoding, EOL, case, uPD9002 rename, and diff checks all passed after the cleanup commit. The build emitted only pre-existing warnings and linker warnings. A macOS Cocoa VA smoke launch was previously attempted, but the headless environment failed before guest execution with the platform appearance error `SystemAppearance not found`; this is an environment limitation, not a BIOS pass. The required G81 human gate remains open.
+The Linux Debug source-cleanup build completed successfully. `build/linux-debug/sdl2/vaeg --selftest` exited 0 with `selftest: all tests passed`. `ctest --test-dir build/linux-debug --output-on-failure` exited 0 and reported no tests found. The repository encoding, EOL, case, uPD9002 rename, and diff checks all passed after the cleanup commit. The build emitted only pre-existing warnings and linker warnings. A macOS Cocoa VA smoke launch was previously attempted, but the headless environment failed before guest execution with the platform appearance error `SystemAppearance not found`; this is an environment limitation, not a BIOS pass. The G81 human gate passed on 2026-08-11. M81 is closed.
