@@ -70,6 +70,13 @@ static BOOL set_error(char *error, UINT error_size, const char *message,
 	return(FAILURE);
 }
 
+static BOOL is_scsi_media_option(const char *argument) {
+
+	return((argument != NULL) && !strncmp(argument, "--scsi", 6) &&
+		(argument[6] >= '0') && (argument[6] <= '6') &&
+		(argument[7] == '\0'));
+}
+
 static const char *option_value(int argc, char **argv, int *position,
 									const char *option, char *error,
 									UINT error_size) {
@@ -548,13 +555,11 @@ BOOL vaeg_cli_parse(int argc, char **argv, VAEG_CLI_OPTIONS *options,
 				 (!strcmp(argument, "--fdd2")) ||
 				 (!strcmp(argument, "--sasi1")) ||
 				 (!strcmp(argument, "--sasi2")) ||
-				 (!strcmp(argument, "--scsi1")) ||
-				 (!strcmp(argument, "--scsi2")) ||
-				 (!strcmp(argument, "--scsi3")) ||
-				 (!strcmp(argument, "--scsi4"))) {
-			const int drive = argument[strlen(argument) - 1] - '1';
-			const BOOL fdd = !strncmp(argument, "--fdd", 5);
+				 is_scsi_media_option(argument)) {
 			const BOOL scsi = !strncmp(argument, "--scsi", 6);
+			const int drive = argument[strlen(argument) - 1] -
+				(scsi ? '0' : '1');
+			const BOOL fdd = !strncmp(argument, "--fdd", 5);
 
 			value = option_value(argc, argv, &position, argument, error,
 														error_size);

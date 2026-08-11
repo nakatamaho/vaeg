@@ -50,12 +50,12 @@ assigned KANA key controls guest kana mode: one press locks KANA, and the
 next press unlocks it. Roman-Kana consumes A-Z scancodes only while that
 KANA lock mirror is active.
 
-M24 adds `Edit -> Paste`, Command+V on macOS, and Control+V on Linux/Windows.
+M24 adds `Edit -> Paste`, and this hotfix restores `Edit -> Copy screen text`.
 Clipboard UTF-8 is filtered to printable ASCII and line breaks, converted to
 M14 guest key roles, and paced through `kbdinject`. ImGui keyboard/text capture
 prevents shortcut paste and pauses an active queue. Reset, state load, focus
 loss, and shutdown cancel the queue and release any synthetic key. No Unicode,
-IME text, or guest memory injection is used; guest-to-host copy remains later.
+IME text, or guest memory injection is used; Copy screen text handles guest-to-host text.
 
 M26 routes mouse events only while SDL relative mouse mode is active and
 ImGui does not want the mouse. The persistent capture request is independent
@@ -103,19 +103,23 @@ These are formatted data disks, not bootable MS-DOS system disks. 2D creation
 remains deferred pending a separate compatibility audit.
 
 HardDisk -> New SASI image creates HDI images through the existing
-`newdisk_hdi()` helper. It supports the legacy 5/10/15/20/30/40 MB SASI
-geometry choices and refuses to overwrite an existing file.
+`newdisk_hdi()` helper. Its default filename is `new-sasi-hdd.hdd`; the
+extension is only a descriptive filename choice and the image remains HDI
+format. It supports the legacy 5/10/15/20/30/40 MB SASI geometry choices and
+refuses to overwrite an existing file.
 
 HardDisk -> SASI-1/SASI-2 Open updates `HDD1FILE` / `HDD2FILE` in
 `vaeg.cfg` through the existing `diskdrv_sethdd()` path. HardDisk -> SCSI
-#1 through SCSI #4 Open updates `SCSIHDD0` through `SCSIHDD3` through the
+SCSI ID 0 through SCSI ID 6 Open updates `SCSIHDD0` through `SCSIHDD6` through the
 same path. The corresponding Remove command clears the selected entry.
-HardDisk -> New SCSI image creates a VHD-format `.hdd` image using the
-existing `newdisk_vhd()` helper, with 5/10/20/40/80/160 MB choices, and can
-configure it for SCSI #1 through SCSI #4 immediately.
-Headless or scripted runs can attach the same images with `--scsi1` through
-`--scsi4`, using `none` to clear a slot. The command-line path validates the
-VHD geometry before startup and shares the `SCSIHDD0` through `SCSIHDD3`
+HardDisk -> New SCSI image creates a VHD-format image using the existing
+`newdisk_vhd()` helper, with 5/10/20/40/80/160 MB choices, and can configure it
+for SCSI ID 0 through SCSI ID 6 immediately. The default filenames are
+`new-scsi-hdd_id0.hdi` through `new-scsi-hdd_id6.hdi`; both `.hdi` and `.hdd`
+names are accepted for the VHD image. New SASI is listed above New SCSI.
+Headless or scripted runs can attach the same images with `--scsi0` through
+`--scsi6`, using `none` to clear a slot. The command-line path validates the
+VHD geometry before startup and shares the `SCSIHDD0` through `SCSIHDD6`
 configuration entries with the GUI.
 Reset the guest after changing a SASI or SCSI image; reset is the reliable
 point where `sxsi_open()`, `PCHDD_SASI`/`PCHDD_SCSI`, and the board binding

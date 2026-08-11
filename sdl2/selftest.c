@@ -157,8 +157,10 @@ static int test_cli_options(void) {
 		"--samplerate", "44100", "--soundbuffer", "40", "--mute",
 		"--fdd1", "boot.d88", "--fdd2", "none",
 		"--sasi1", "disk.hdi", "--sasi2", "NONE",
-		"--scsi1", "disk.hdd", "--scsi2", "none",
-		"--scsi3", "none", "--scsi4", "none",
+		"--scsi0", "disk.hdd", "--scsi1", "none",
+		"--scsi2", "none", "--scsi3", "none",
+		"--scsi4", "none", "--scsi5", "none",
+		"--scsi6", "disk6.hdi",
 		"--hostfat-dir", "host-root", "--roms", "rom-root",
 		"--cpumult", "32", "--sgp", "16", "--nowait",
 		"--frameskip", "4", "--fullscreen", "--effect", "crt-lite",
@@ -211,6 +213,10 @@ static int test_cli_options(void) {
 		(options.scsi_mode[1] != VAEG_CLI_MEDIA_NONE) ||
 		(options.scsi_mode[2] != VAEG_CLI_MEDIA_NONE) ||
 		(options.scsi_mode[3] != VAEG_CLI_MEDIA_NONE) ||
+		(options.scsi_mode[4] != VAEG_CLI_MEDIA_NONE) ||
+		(options.scsi_mode[5] != VAEG_CLI_MEDIA_NONE) ||
+		(options.scsi_mode[6] != VAEG_CLI_MEDIA_PATH) ||
+		strcmp(options.scsi_path[6], "disk6.hdi") ||
 		(options.hostfat_path == NULL) ||
 		strcmp(options.hostfat_path, "host-root") ||
 		(options.roms_path == NULL) ||
