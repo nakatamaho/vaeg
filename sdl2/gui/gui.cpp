@@ -57,6 +57,7 @@
 #include "sound.h"
 #include "adpcm.h"
 #include "tsp.h"
+#include "videova.h"
 #include "beep.h"
 #include "bmsio.h"
 #include "pccore.h"
@@ -334,6 +335,7 @@ static void copy_append_hccode(std::string *text, UINT16 hccode) {
 		return;
 	}
 	row = jis1 - 0x21;
+	/* The JIS row parity selects the Shift-JIS trail-byte formula. */
 	sjis[0] = static_cast<char>((row >> 1) + 0x81);
 	if ((static_cast<unsigned char>(sjis[0])) >= 0xa0) {
 		sjis[0] = static_cast<char>(sjis[0] + 0x40);
@@ -364,6 +366,7 @@ static BOOL copy_screen_text(void) {
 	const UINT32 tvram_size = 0x40000;
 	const UINT frame_count = 4;
 	const UINT lineheight = (tsp.lineheight != 0) ? tsp.lineheight : 1;
+	const UINT visible_columns = (videova.txtmode8 & 0x01) ? (SURFACE_WIDTH / 8) : (SURFACE_WIDTH / 16);
 	UINT32 raster_used = 0;
 	UINT frame_no;
 
@@ -374,6 +377,7 @@ static BOOL copy_screen_text(void) {
 		UINT raster_count;
 		UINT rows;
 		UINT columns;
+		UINT frame_columns;
 		UINT row;
 
 		if ((tsp.texttable + frame_no * 0x20 + 0x1c) >= tvram_size) {
@@ -396,16 +400,13 @@ static BOOL copy_screen_text(void) {
 			break;
 		}
 		rows = raster_count / lineheight;
-		columns = frame.rw / 8;
-		if (columns == 0) {
-			columns = 2;
-		}
-		if (columns > 128) {
-			columns = 128;
-		}
+		frame_columns = frame.rw / 8 + 2;
+		columns = (frame_columns < visible_columns) ? frame_columns : visible_columns;
 		for (row = 0; row < rows; row++) {
 			std::string line;
 			UINT column;
+			UINT16 previous_hccode = 0;
+			BOOL have_previous_hccode = FALSE;
 			UINT32 address = frame.rsa + frame.vw * row;
 
 			if ((address >= tvram_size) ||
@@ -414,18 +415,26 @@ static BOOL copy_screen_text(void) {
 			}
 			for (column = 0; column < columns; column++) {
 				BYTE *cell = textmem + address + column * 2;
+				UINT16 hccode = LOADINTELWORD(cell);
 				BYTE attr = 0;
 
 				if ((UINT64)(cell - textmem) + tsp.attroffset <
 					tvram_size) {
 					attr = cell[tsp.attroffset];
 				}
+				if (have_previous_hccode &&
+					(hccode == (previous_hccode | 0x8000))) {
+					previous_hccode = hccode;
+					continue;
+				}
 				if ((frame.mode == 1) && (attr & 0x01)) {
 					line.push_back(' ');
 				}
 				else {
-					copy_append_hccode(&line, LOADINTELWORD(cell));
+					copy_append_hccode(&line, hccode);
 				}
+				previous_hccode = hccode;
+				have_previous_hccode = TRUE;
 			}
 			while (!line.empty() && (line.back() == ' ')) {
 				line.pop_back();
