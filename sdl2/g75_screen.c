@@ -25,7 +25,7 @@
 #include "compiler.h"
 #include "g75_screen.h"
 
-#include "cpucva/memoryva.h"
+#include "memoryva/memoryva.h"
 #include "io/tsp.h"
 #include "pccore.h"
 #include "scrnmng.h"

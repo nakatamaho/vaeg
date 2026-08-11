@@ -114,6 +114,7 @@ set(VAEG_INCLUDE_DIRS
     "${CMAKE_CURRENT_SOURCE_DIR}/fdd"
     "${CMAKE_CURRENT_SOURCE_DIR}/font"
     "${CMAKE_CURRENT_SOURCE_DIR}/cpucva"
+    "${CMAKE_CURRENT_SOURCE_DIR}/memoryva"
     "${CMAKE_CURRENT_SOURCE_DIR}/io"
     "${CMAKE_CURRENT_SOURCE_DIR}/generic")
 
@@ -255,8 +256,8 @@ message(STATUS "Production uPD70008-compatible core: shared Z80 compatibility ba
 
 set(VAEG_VA_SOURCES
     biosva/biosva.c
-    cpucva/gvramva.c
-    cpucva/memoryva.c
+    memoryva/gvramva.c
+    memoryva/memoryva.c
     ${VAEG_Z80_COMPAT_PRODUCTION_SOURCES}
     io/bkupmemva.c
     io/boardsb2.c

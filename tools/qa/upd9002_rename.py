@@ -42,7 +42,7 @@ REQUIRED_PATHS = (
     "cpu/upd9002/upd9002_core.c",
     "io/upd9002_regs.c",
     "io/upd9002_regs.h",
-    "cpucva/memoryva.h",
+    "memoryva/memoryva.h",
 )
 
 RETIRED_PATHS = (
