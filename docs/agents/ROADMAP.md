@@ -126,7 +126,7 @@ M36–M41 archive status.
 | M80 | tasks/M80_98_only_io_cleanup.md | Audit and remove proven 98-only `io/` implementations while retaining C-bus boards and deferring FDD320 until 5-inch 2D evidence is resolved | **G80 passed at `a1291121604af6ca27c690214bed337704976fbe`; merged to `main`** |
 | M81 | tasks/M81_va_bios_reachability_cleanup.md | Audit VA BIOS reachability and remove only proven 98-only BIOS handlers | **G81 human gate passed; M81 closed at `094668edfe7c7c6a326b1e9b705eeb9a9141126f`** |
 | M82 | tasks/M82_upd780_subsystem_cpu_audit.md | Audit the FDC subsystem uPD780-compatible CPU boundary currently implemented through the suzukiplan-backed wrapper | **G82 human gate passed; M82 closed at `e2d6b9d05d0a20185486a0314717808b326006c8`** |
-| M83 | tasks/M83_move_upd780_subsystem_cpu.md | Create `cpu/upd780/` and move the FDC subsystem uPD780-compatible CPU wrapper/backend there | **G83 human; planned** |
+| M83 | tasks/M83_move_upd780_subsystem_cpu.md | Create `cpu/upd780/` and move the FDC subsystem uPD780-compatible CPU wrapper/backend there | **G83 human; in progress from G82** |
 | M84 | tasks/M84_cpucva_boundary_cleanup.md | Clean up the remaining `cpucva/` boundary while keeping uPD9002 instruction execution and VA memory ownership separate | **G84 human; planned** |
 | M85 | tasks/M85_state_save_section_cleanup.md | Audit retired state-save sections, remove only approved obsolete sections, and document compatibility behavior | **G85 human; planned** |
 | M86 | tasks/M86_machine_core_relocation.md | Move active root machine-core sources such as `pccore`, `nevent`, `timing`, `calendar`, `keystat`, `statsave`, `debugsub`, and `clockscale` under `machine/` without behavior change | **G86 human; planned** |
@@ -134,7 +134,7 @@ M36–M41 archive status.
 | M88 | tasks/M88_final_va_only_source_tree_audit.md | Final VA-only active source-tree audit after performance, BASIC, SCSI, uPD9002 emulation-mode authority, I/O, BIOS, uPD780, `cpucva`, state-save, machine-core relocation, and legacy tool cleanup | **G88 human; planned** |
 
 Phase 2 dependencies: M7 → M8 → {M9, M10 parallel} → M11 → M12 → M13.
-Post-phase dependency: M13 → M14 → M15 → M16 → M17 → M18 → M19 → M20 → M21 → M22 → M23 → M24 → M25 → M26 → M27 → M28 → M29 → M30 → M31 → M32. The required Z80 migration sequence M34 → M35 → M36 → M37 → M38 → M39 → M40 → M41 is complete. The separately authorized uPD9002 preparation sequence passed G42 through G51. M52–M56 were consumed by unrelated work and retain their historical meanings. The renumbered semantics campaign passed G57 at exactly `72322d5c9b8e40e4a988312aebe163a8190e2aa5`, G58 at exactly `bc8a55c6da1082b85b794068e0d933e31fe46b13`, G59 at exactly `e7f2325bc81310532091a8ca82914030fdb8b6ba`, G60a at exactly `ba2b7d3f5c76646b30d63fd8951f4a1964817b15`, G60b at exactly `4e5d74d0d9f675df2342353b8bfdbb2e5cded768`, G61 at exactly `829f314bb0d363ec5b6e9aa738e948b1a3adb365`, G62 at exactly `70b8e94e96aef4cb79eed72c7813c4148c5c0dd8`, G64 at exactly `9b151923f9468555043152ffe8651c97b9ecac5b`, terminal G65m at exactly `81887aae14f718d7d4d0f2a7bd3fe05d5ea80630`, G66b at exactly `97f760e8da573888edf089c2875c623895a3c2c9`, G67 at exactly `f8f350e1aadec4b6c79c20192d14c50bd39934be`, G68 at exactly `d1e0225c4edb716893fe5579283fbf0915db72b9`, G69 at exactly `680308a603b24341c5b9649657f01791b79002f7`, G70 at exactly `53d47ed500baef247a1be5f3ccc18bdb0c00c0cc`, G71 at exactly `24950894eca79e308afae8d574d43c8f393bb483`, and G72 at exactly `643d9f7289d817c67f343bf01be368b546bc1438`. M73 starts from the approved and main-integrated G72 candidate and owns only the post-M49 runtime performance regression. The broader IDP timing and buffer semantics remain deferred. See [`UPD9002_SEMANTICS_MIGRATION.md`](UPD9002_SEMANTICS_MIGRATION.md).
+Post-phase dependency: M13 → M14 → M15 → M16 → M17 → M18 → M19 → M20 → M21 → M22 → M23 → M24 → M25 → M26 → M27 → M28 → M29 → M30 → M31 → M32. The required Z80 migration sequence M34 → M35 → M36 → M37 → M38 → M39 → M40 → M41 is complete. The separately authorized uPD9002 preparation sequence passed G42 through G51. M52–M56 were consumed by unrelated work and retain their historical meanings. The renumbered semantics campaign passed G57 at exactly `72322d5c9b8e40e4a988312aebe163a8190e2aa5`, G58 at exactly `bc8a55c6da1082b85b794068e0d933e31fe46b13`, G59 at exactly `e7f2325bc81310532091a8ca82914030fdb8b6ba`, G60a at exactly `ba2b7d3f5c76646b30d63fd8951f4a1964817b15`, G60b at exactly `4e5d74d0d9f675df2342353b8bfdbb2e5cded768`, G61 at exactly `829f314bb0d363ec5b6e9aa738e948b1a3adb365`, G62 at exactly `70b8e94e96aef4cb79eed72c7813c4148c5c0dd8`, G64 at exactly `9b151923f9468555043152ffe8651c97b9ecac5b`, terminal G65m at exactly `81887aae14f718d7d4d0f2a7bd3fe05d5ea80630`, G66b at exactly `97f760e8da573888edf089c2875c623895a3c2c9`, G67 at exactly `f8f350e1aadec4b6c79c20192d14c50bd39934be`, G68 at exactly `d1e0225c4edb716893fe5579283fbf0915db72b9`, G69 at exactly `680308a603b24341c5b9649657f01791b79002f7`, G70 at exactly `53d47ed500baef247a1be5f3ccc18bdb0c00c0cc`, G71 at exactly `24950894eca79e308afae8d574d43c8f393bb483`, and G72 at exactly `643d9f7289d817c67f343bf01be368b546bc1438`. M73 starts from the approved and main-integrated G72 candidate and owns only the post-M49 runtime performance regression. The broader IDP timing and buffer semantics remain deferred. See [`UPD9002_SEMANTICS_MIGRATION.md`](UPD9002_SEMANTICS_MIGRATION.md). M79, M80, M81, and M82 then completed the VA I/O dispatcher, 98-only I/O, VA BIOS reachability, and FDC uPD780 boundary work at the exact checkpoints listed below. After G82, pre-M83 CI baseline repair `0a2608351d4e301e9729d7d4ab25d662b98d8c74` restored the stale M69 test's current I/O API and VA mode selection; the full nine-job CI run `31496082527` passed. M83 now starts from that verified baseline.
 M9 must pass before M11 (all three OSes must ship the VA machine, not
 the PC-98 scaffold).
 
@@ -157,12 +157,29 @@ The current approved gate ledger is:
   `23e9f4673e2e122835a5ad2fb256e6961f860866`. The M78 implementation
   checkpoint was `a86365584ffd86973b618bdaf55c26214798a1f0`; the candidate was
   validated from the current `main` base and is merged to `main`.
+- G79 passed at exactly `70da1cee1ba947e7c5f671e4891b0301372422ea`. This is
+  the M79 canonical VA I/O dispatcher consolidation, merged to `main`.
+- G80 passed at exactly `a1291121604af6ca27c690214bed337704976fbe`. This is
+  the M80 proven 98-only I/O cleanup, merged to `main` while retaining the
+  VA-supported C-bus and storage paths.
+- G81 passed at the M81 implementation checkpoint
+  `094668edfe7c7c6a326b1e9b705eeb9a9141126f`; the human-gate close record
+  is `027cd761df98ce00fa1c24501d6233d7faaa0110`. This is the VA BIOS
+  reachability cleanup, including removal of the approved inactive GDC/LIO
+  paths.
+- G82 passed at the M82 implementation checkpoint
+  `e2d6b9d05d0a20185486a0314717808b326006c8`; the human-gate close record
+  is `788cd90aa07bf1619c47b2f130a2183d4fd7111c`. This is the FDC
+  uPD780 boundary audit and exact M83 move boundary.
 
 M78 was explicitly reopened from the current `main` continuation on 2026-08-11.
 Its current-tree path normalization was validated and G78 passed at
 `23e9f4673e2e122835a5ad2fb256e6961f860866` after the implementation checkpoint
 `a86365584ffd86973b618bdaf55c26214798a1f0`. The M78 candidate is merged to
-`main`; M79 may now start.
+`main`; M79 and M80 subsequently passed their gates and were merged, then
+M81 and M82 passed their human gates and were closed. The exact records are
+listed in the approved gate ledger above; M83 may now proceed from the
+verified post-G82 CI baseline.
 
 M72 closed the inactive compile-flag cleanup while intentionally leaving
 `SUPPORT_WAVEREC`, `SUPPORT_OPRECORD`, and FDD320 for later focused audits.
@@ -173,18 +190,22 @@ independent diagnostic-infrastructure milestone for a deterministic debug
 harness; the maintainer passed its human gate on 2026-08-11, and M74 is now
 closed at `3785cc115155c52928817b8c95d38b40268a7bde`. It is not a predecessor
 of the already completed M75-M78 work.
-M75, M76, and M77 are now completed with the approved G75, G76, and G77 SHAs
-listed above. The M77 final tree is already on `main`; M78 passed G78 and is
-merged to `main`; M79 passed G79 and is closed. M80 passed G80 and is closed.
-M79-M88 define the remaining planned VA-only source-tree consolidation
-sequence: consolidate the VA I/O dispatcher, remove only proven 98-only I/O,
-audit VA BIOS reachability, document and move the FDC subsystem uPD780-
-compatible CPU into `cpu/upd780/`, clean the remaining `cpucva/` boundary,
-clean state-save sections with compatibility evidence, move active root
-machine-core sources under `machine/`, audit legacy tool and ROM/resource
-regeneration flows such as `accessories/`, and finish with a full VA-only
-source-tree audit. `cbus/` is not treated as 98-only; VA-supported expansion boards remain
-in scope for retention.
+M75 and M76 are completed with the approved G75 and G76 records listed above.
+M77 and M78 completed the `iova/` to `io/` move and reference normalization
+and are merged to `main`. M79 passed G79 and is closed after canonical VA I/O
+dispatcher consolidation; M80 passed G80 and is closed after the approved
+98-only cleanup; M81 passed G81 and is closed after the VA BIOS reachability
+cleanup; and M82 passed G82 and is closed after the FDC uPD780 boundary audit.
+The M82 close record is `788cd90aa07bf1619c47b2f130a2183d4fd7111c`; the
+post-close CI baseline repair is `0a2608351d4e301e9729d7d4ab25d662b98d8c74`.
+M83-M88 define the remaining planned VA-only source-tree consolidation
+sequence: move the FDC subsystem uPD780-compatible CPU into `cpu/upd780/`,
+clean the remaining `cpucva/` boundary, clean state-save sections with
+compatibility evidence, move active root machine-core sources under
+`machine/`, audit legacy tool and ROM/resource regeneration flows such as
+`accessories/`, and finish with a full VA-only source-tree audit. `cbus/` is
+not treated as 98-only; VA-supported expansion boards remain in scope for
+retention.
 
 M14 is complete. The SDL2 frontend now has a named VA key inventory,
 normal guest make/break injection for physical and synthetic input,
