@@ -2344,13 +2344,13 @@ void scsiio_bind(void) {
 		iocore_attachinp(0x0cc2, scsiio_icc2);
 		iocore_attachinp(0x0cc4, scsiio_icc4);
 		iocore_attachinp(0x0cc6, scsiio_icc6);
-		iocoreva_attachout(0x0cc0, scsiio_occ0);
-		iocoreva_attachout(0x0cc2, scsiio_occ2);
-		iocoreva_attachout(0x0cc4, scsiio_occ4);
-		iocoreva_attachout(0x0cc6, scsiio_occ6);
-		iocoreva_attachinp(0x0cc0, scsiio_icc0);
-		iocoreva_attachinp(0x0cc2, scsiio_icc2);
-		iocoreva_attachinp(0x0cc4, scsiio_icc4);
-		iocoreva_attachinp(0x0cc6, scsiio_icc6);
+		iocore_attachvaout(0x0cc0, scsiio_occ0);
+		iocore_attachvaout(0x0cc2, scsiio_occ2);
+		iocore_attachvaout(0x0cc4, scsiio_occ4);
+		iocore_attachvaout(0x0cc6, scsiio_occ6);
+		iocore_attachvainp(0x0cc0, scsiio_icc0);
+		iocore_attachvainp(0x0cc2, scsiio_icc2);
+		iocore_attachvainp(0x0cc4, scsiio_icc4);
+		iocore_attachvainp(0x0cc6, scsiio_icc6);
 	}
 }

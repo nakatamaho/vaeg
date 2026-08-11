@@ -559,126 +559,126 @@ void videova_reset(void) {
 void videova_bind(void) {
 	int i;
 
-	iocoreva_attachout(0x030, videova_o030);
+	iocore_attachvaout(0x030, videova_o030);
 
-	iocoreva_attachinp(0x100, videova_i100);
-	iocoreva_attachinp(0x101, videova_i101);
-	iocoreva_attachout(0x100, videova_o100);
-	iocoreva_attachout(0x101, videova_o101);
+	iocore_attachvainp(0x100, videova_i100);
+	iocore_attachvainp(0x101, videova_i101);
+	iocore_attachvaout(0x100, videova_o100);
+	iocore_attachvaout(0x101, videova_o101);
 
-	iocoreva_attachinp(0x102, videova_i102);
-	iocoreva_attachinp(0x103, videova_i103);
-	iocoreva_attachout(0x102, videova_o102);
-	iocoreva_attachout(0x103, videova_o103);
+	iocore_attachvainp(0x102, videova_i102);
+	iocore_attachvainp(0x103, videova_i103);
+	iocore_attachvaout(0x102, videova_o102);
+	iocore_attachvaout(0x103, videova_o103);
 
-	iocoreva_attachout(0x106, videova_o106);
-	iocoreva_attachout(0x107, videova_o107);
-	iocoreva_attachout(0x108, videova_o108);
-	iocoreva_attachout(0x109, videova_o109);
+	iocore_attachvaout(0x106, videova_o106);
+	iocore_attachvaout(0x107, videova_o107);
+	iocore_attachvaout(0x108, videova_o108);
+	iocore_attachvaout(0x109, videova_o109);
 
-	iocoreva_attachout(0x10a, videova_o10a);
-	iocoreva_attachout(0x10b, videova_o10b);
+	iocore_attachvaout(0x10a, videova_o10a);
+	iocore_attachvaout(0x10b, videova_o10b);
 
-	iocoreva_attachinp(0x10c, videova_i10c);
-	iocoreva_attachinp(0x10d, videova_i10d);
-	iocoreva_attachout(0x10c, videova_o10c);
-	iocoreva_attachout(0x10d, videova_o10d);
+	iocore_attachvainp(0x10c, videova_i10c);
+	iocore_attachvainp(0x10d, videova_i10d);
+	iocore_attachvaout(0x10c, videova_o10c);
+	iocore_attachvaout(0x10d, videova_o10d);
 
-	iocoreva_attachout(0x10e, videova_o10e);
-	iocoreva_attachout(0x10f, videova_o10f);
+	iocore_attachvaout(0x10e, videova_o10e);
+	iocore_attachvaout(0x10f, videova_o10f);
 
-	iocoreva_attachout(0x110, videova_o110);
-	iocoreva_attachout(0x111, videova_o111);
+	iocore_attachvaout(0x110, videova_o110);
+	iocore_attachvaout(0x111, videova_o111);
 
-	iocoreva_attachout(0x124, videova_o124);
-	iocoreva_attachout(0x125, videova_o125);
-	iocoreva_attachout(0x126, videova_o126);
-	iocoreva_attachout(0x127, videova_o127);
-	iocoreva_attachout(0x12e, videova_o12e);
-	iocoreva_attachout(0x12f, videova_o12f);
+	iocore_attachvaout(0x124, videova_o124);
+	iocore_attachvaout(0x125, videova_o125);
+	iocore_attachvaout(0x126, videova_o126);
+	iocore_attachvaout(0x127, videova_o127);
+	iocore_attachvaout(0x12e, videova_o12e);
+	iocore_attachvaout(0x12f, videova_o12f);
 
-	iocoreva_attachout(0x130, videova_o130);
-	iocoreva_attachout(0x131, videova_o131);
-	iocoreva_attachout(0x132, videova_o132);
-	iocoreva_attachout(0x133, videova_o133);
-	iocoreva_attachout(0x134, videova_o134);
-	iocoreva_attachout(0x135, videova_o135);
-	iocoreva_attachout(0x136, videova_o136);
-	iocoreva_attachout(0x137, videova_o137);
+	iocore_attachvaout(0x130, videova_o130);
+	iocore_attachvaout(0x131, videova_o131);
+	iocore_attachvaout(0x132, videova_o132);
+	iocore_attachvaout(0x133, videova_o133);
+	iocore_attachvaout(0x134, videova_o134);
+	iocore_attachvaout(0x135, videova_o135);
+	iocore_attachvaout(0x136, videova_o136);
+	iocore_attachvaout(0x137, videova_o137);
 
-	iocoreva_attachout(0x148, videova_o148);
+	iocore_attachvaout(0x148, videova_o148);
 
 	for (i = 0; i < VIDEOVA_FRAMEBUFFERS; i++) {
 		int base;
 		base = PORT_FRAMEBUFFER + 0x20 * i;
 
-		iocoreva_attachout(base + 0x00, videova_o_fb_00);
-		iocoreva_attachout(base + 0x01, videova_o_fb_01);
-		iocoreva_attachout(base + 0x02, videova_o_fb_02);
-		iocoreva_attachout(base + 0x03, videova_o_fb_03);
+		iocore_attachvaout(base + 0x00, videova_o_fb_00);
+		iocore_attachvaout(base + 0x01, videova_o_fb_01);
+		iocore_attachvaout(base + 0x02, videova_o_fb_02);
+		iocore_attachvaout(base + 0x03, videova_o_fb_03);
 
-		iocoreva_attachout(base + 0x04, videova_o_fb_04);
-		iocoreva_attachout(base + 0x05, videova_o_fb_05);
+		iocore_attachvaout(base + 0x04, videova_o_fb_04);
+		iocore_attachvaout(base + 0x05, videova_o_fb_05);
 
-		iocoreva_attachout(base + 0x06, videova_o_fb_06);
-		iocoreva_attachout(base + 0x07, videova_o_fb_07);
+		iocore_attachvaout(base + 0x06, videova_o_fb_06);
+		iocore_attachvaout(base + 0x07, videova_o_fb_07);
 
-		iocoreva_attachout(base + 0x08, videova_o_fb_08);
-		iocoreva_attachout(base + 0x09, videova_o_fb_09);
+		iocore_attachvaout(base + 0x08, videova_o_fb_08);
+		iocore_attachvaout(base + 0x09, videova_o_fb_09);
 
-		iocoreva_attachout(base + 0x0a, videova_o_fb_0a);
-		iocoreva_attachout(base + 0x0b, videova_o_fb_0b);
+		iocore_attachvaout(base + 0x0a, videova_o_fb_0a);
+		iocore_attachvaout(base + 0x0b, videova_o_fb_0b);
 
-		iocoreva_attachout(base + 0x0c, videova_o_fb_0c);
-		iocoreva_attachout(base + 0x0d, videova_o_fb_0d);
+		iocore_attachvaout(base + 0x0c, videova_o_fb_0c);
+		iocore_attachvaout(base + 0x0d, videova_o_fb_0d);
 
-		iocoreva_attachout(base + 0x0e, videova_o_fb_0e);
-		iocoreva_attachout(base + 0x0f, videova_o_fb_0f);
-		iocoreva_attachout(base + 0x10, videova_o_fb_10);
-		iocoreva_attachout(base + 0x11, videova_o_fb_11);
+		iocore_attachvaout(base + 0x0e, videova_o_fb_0e);
+		iocore_attachvaout(base + 0x0f, videova_o_fb_0f);
+		iocore_attachvaout(base + 0x10, videova_o_fb_10);
+		iocore_attachvaout(base + 0x11, videova_o_fb_11);
 
-		iocoreva_attachout(base + 0x12, videova_o_fb_12);
-		iocoreva_attachout(base + 0x13, videova_o_fb_13);
+		iocore_attachvaout(base + 0x12, videova_o_fb_12);
+		iocore_attachvaout(base + 0x13, videova_o_fb_13);
 
-		iocoreva_attachout(base + 0x16, videova_o_fb_16);
-		iocoreva_attachout(base + 0x17, videova_o_fb_17);
+		iocore_attachvaout(base + 0x16, videova_o_fb_16);
+		iocore_attachvaout(base + 0x17, videova_o_fb_17);
 
 	
-		iocoreva_attachinp(base + 0x00, videova_i_fb_00);
-		iocoreva_attachinp(base + 0x01, videova_i_fb_01);
-		iocoreva_attachinp(base + 0x02, videova_i_fb_02);
-		iocoreva_attachinp(base + 0x03, videova_i_fb_03);
+		iocore_attachvainp(base + 0x00, videova_i_fb_00);
+		iocore_attachvainp(base + 0x01, videova_i_fb_01);
+		iocore_attachvainp(base + 0x02, videova_i_fb_02);
+		iocore_attachvainp(base + 0x03, videova_i_fb_03);
 
-		iocoreva_attachinp(base + 0x04, videova_i_fb_04);
-		iocoreva_attachinp(base + 0x05, videova_i_fb_05);
+		iocore_attachvainp(base + 0x04, videova_i_fb_04);
+		iocore_attachvainp(base + 0x05, videova_i_fb_05);
 
-		iocoreva_attachinp(base + 0x06, videova_i_fb_06);
-		iocoreva_attachinp(base + 0x07, videova_i_fb_07);
+		iocore_attachvainp(base + 0x06, videova_i_fb_06);
+		iocore_attachvainp(base + 0x07, videova_i_fb_07);
 
-		iocoreva_attachinp(base + 0x08, videova_i_fb_08);
-		iocoreva_attachinp(base + 0x09, videova_i_fb_09);
+		iocore_attachvainp(base + 0x08, videova_i_fb_08);
+		iocore_attachvainp(base + 0x09, videova_i_fb_09);
 
-		iocoreva_attachinp(base + 0x0a, videova_i_fb_0a);
-		iocoreva_attachinp(base + 0x0b, videova_i_fb_0b);
+		iocore_attachvainp(base + 0x0a, videova_i_fb_0a);
+		iocore_attachvainp(base + 0x0b, videova_i_fb_0b);
 
-		iocoreva_attachinp(base + 0x0c, videova_i_fb_0c);
-		iocoreva_attachinp(base + 0x0d, videova_i_fb_0d);
+		iocore_attachvainp(base + 0x0c, videova_i_fb_0c);
+		iocore_attachvainp(base + 0x0d, videova_i_fb_0d);
 
-		iocoreva_attachinp(base + 0x0e, videova_i_fb_0e);
-		iocoreva_attachinp(base + 0x0f, videova_i_fb_0f);
-		iocoreva_attachinp(base + 0x10, videova_i_fb_10);
-		iocoreva_attachinp(base + 0x11, videova_i_fb_11);
+		iocore_attachvainp(base + 0x0e, videova_i_fb_0e);
+		iocore_attachvainp(base + 0x0f, videova_i_fb_0f);
+		iocore_attachvainp(base + 0x10, videova_i_fb_10);
+		iocore_attachvainp(base + 0x11, videova_i_fb_11);
 
-		iocoreva_attachinp(base + 0x12, videova_i_fb_12);
-		iocoreva_attachinp(base + 0x13, videova_i_fb_13);
+		iocore_attachvainp(base + 0x12, videova_i_fb_12);
+		iocore_attachvainp(base + 0x13, videova_i_fb_13);
 
-		iocoreva_attachinp(base + 0x16, videova_i_fb_16);
-		iocoreva_attachinp(base + 0x17, videova_i_fb_17);
+		iocore_attachvainp(base + 0x16, videova_i_fb_16);
+		iocore_attachvainp(base + 0x17, videova_i_fb_17);
 	}
 
 	for (i = 0; i < VIDEOVA_PALETTES * 2; i+=2) {
-		iocoreva_attachout(PORT_PALETTE + i, videova_o_palette_l);
-		iocoreva_attachout(PORT_PALETTE + i+1, videova_o_palette_h);
+		iocore_attachvaout(PORT_PALETTE + i, videova_o_palette_l);
+		iocore_attachvaout(PORT_PALETTE + i+1, videova_o_palette_h);
 	}
 
 }

@@ -218,5 +218,5 @@ void mouseifva_reset(void) {
 
 void mouseifva_bind(void) {
 
-	iocoreva_attachout(0x1a8, mouseifva_o1a8);
+	iocore_attachvaout(0x1a8, mouseifva_o1a8);
 }

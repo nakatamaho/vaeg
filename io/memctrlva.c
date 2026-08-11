@@ -107,17 +107,17 @@ void memctrlva_reset(void) {
 }
 
 void memctrlva_bind(void) {
-	iocoreva_attachout(0x152, memctrlva_o152);
-	iocoreva_attachout(0x153, memctrlva_o153);
-	iocoreva_attachout(0x180, memctrlva_o180);
-	iocoreva_attachout(0x198, memctrlva_o198);
-	iocoreva_attachout(0x19a, memctrlva_o19a);
+	iocore_attachvaout(0x152, memctrlva_o152);
+	iocore_attachvaout(0x153, memctrlva_o153);
+	iocore_attachvaout(0x180, memctrlva_o180);
+	iocore_attachvaout(0x198, memctrlva_o198);
+	iocore_attachvaout(0x19a, memctrlva_o19a);
 
-	iocoreva_attachinp(0x152, memctrlva_i152);
-	iocoreva_attachinp(0x153, memctrlva_i153);
-	iocoreva_attachinp(0x156, memctrlva_i156);
-	iocoreva_attachinp(0x180, memctrlva_i180);
+	iocore_attachvainp(0x152, memctrlva_i152);
+	iocore_attachvainp(0x153, memctrlva_i153);
+	iocore_attachvainp(0x156, memctrlva_i156);
+	iocore_attachvainp(0x180, memctrlva_i180);
 
-	iocoreva_attachinp(0x030, memctrlva_i030);
-	iocoreva_attachinp(0x031, memctrlva_i031);
+	iocore_attachvainp(0x030, memctrlva_i030);
+	iocore_attachvainp(0x031, memctrlva_i031);
 }

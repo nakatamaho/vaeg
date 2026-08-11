@@ -491,10 +491,10 @@ void sasiio_bind(void) {
 		iocore_attachout(0x0082, sasiio_o82);
 		iocore_attachinp(0x0080, sasiio_i80);
 		iocore_attachinp(0x0082, sasiio_i82);
-		iocoreva_attachout(0x0080, sasiio_o80);
-		iocoreva_attachout(0x0082, sasiio_o82);
-		iocoreva_attachinp(0x0080, sasiio_i80);
-		iocoreva_attachinp(0x0082, sasiio_i82);
+		iocore_attachvaout(0x0080, sasiio_o80);
+		iocore_attachvaout(0x0082, sasiio_o82);
+		iocore_attachvainp(0x0080, sasiio_i80);
+		iocore_attachvainp(0x0082, sasiio_i82);
 	}
 }
 

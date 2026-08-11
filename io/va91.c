@@ -65,11 +65,11 @@ void va91_reset(void) {
 
 void va91_bind(void) {
 	if (va91.cfg.enabled) {
-		iocoreva_attachout(0xff2, va91_off2);
-		iocoreva_attachout(0xff3, va91_off3);
+		iocore_attachvaout(0xff2, va91_off2);
+		iocore_attachvaout(0xff3, va91_off3);
 
-		iocoreva_attachinp(0xff2, va91_iff2);
-		iocoreva_attachinp(0xff3, va91_iff3);
+		iocore_attachvainp(0xff2, va91_iff2);
+		iocore_attachvainp(0xff3, va91_iff3);
 	}
 }
 

@@ -561,27 +561,27 @@ void dmac_bind(void) {
 	iocore_attachsysinpex(0x0001, 0x0ce1, dmaci00, 16);
 	iocore_attachsysoutex(0x0021, 0x0cf1, dmaco21, 8);
 
-	iocoreva_attachout(0x160, dmacva_o160);
-	iocoreva_attachout(0x161, dmacva_o161);
-	iocoreva_attachinp(0x161, dmacva_i161);
+	iocore_attachvaout(0x160, dmacva_o160);
+	iocore_attachvaout(0x161, dmacva_o161);
+	iocore_attachvainp(0x161, dmacva_i161);
 
-	iocoreva_attachout(0x162, dmacva_o162);
-	iocoreva_attachinp(0x162, dmacva_i162);
-	iocoreva_attachout(0x163, dmacva_o163);
-	iocoreva_attachinp(0x163, dmacva_i163);
+	iocore_attachvaout(0x162, dmacva_o162);
+	iocore_attachvainp(0x162, dmacva_i162);
+	iocore_attachvaout(0x163, dmacva_o163);
+	iocore_attachvainp(0x163, dmacva_i163);
 
-	iocoreva_attachout(0x164, dmacva_o164);
-	iocoreva_attachinp(0x164, dmacva_i164);
-	iocoreva_attachout(0x165, dmacva_o164);
-	iocoreva_attachinp(0x165, dmacva_i164);
-	iocoreva_attachout(0x166, dmacva_o164);
-	iocoreva_attachinp(0x166, dmacva_i164);
+	iocore_attachvaout(0x164, dmacva_o164);
+	iocore_attachvainp(0x164, dmacva_i164);
+	iocore_attachvaout(0x165, dmacva_o164);
+	iocore_attachvainp(0x165, dmacva_i164);
+	iocore_attachvaout(0x166, dmacva_o164);
+	iocore_attachvainp(0x166, dmacva_i164);
 
-	iocoreva_attachout(0x16a, dmacva_o16a);
-	iocoreva_attachinp(0x16a, dmacva_i16a);
-	iocoreva_attachinp(0x16b, dmacva_i16b);
-	iocoreva_attachout(0x16f, dmacva_o16f);
-	iocoreva_attachinp(0x16f, dmacva_i16f);
+	iocore_attachvaout(0x16a, dmacva_o16a);
+	iocore_attachvainp(0x16a, dmacva_i16a);
+	iocore_attachvainp(0x16b, dmacva_i16b);
+	iocore_attachvaout(0x16f, dmacva_o16f);
+	iocore_attachvainp(0x16f, dmacva_i16f);
 
 }
 

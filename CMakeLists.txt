@@ -288,7 +288,6 @@ set(VAEG_VA_SOURCES
     io/fdsubsys.c
     io/gactrlva.c
     io/i8255.c
-    io/iocoreva.c
     io/memctrlva.c
     io/mouseifva.c
     io/sgp.c

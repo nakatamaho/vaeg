@@ -242,19 +242,19 @@ static void boardsb_bind(BOOL opna) {
 		sound_streamregist(&psg1, (SOUNDCB)psggen_getpcm);
 	}
 
-	iocoreva_attachinp(0x044, sb2_i044);
-	iocoreva_attachinp(0x045, sb2_i045);
-	iocoreva_attachout(0x044, sb2_o044);
-	iocoreva_attachout(0x045, sb2_o045);
+	iocore_attachvainp(0x044, sb2_i044);
+	iocore_attachvainp(0x045, sb2_i045);
+	iocore_attachvaout(0x044, sb2_o044);
+	iocore_attachvaout(0x045, sb2_o045);
 	if (opna) {
-		iocoreva_attachinp(0x046, sb2_i044);
-		iocoreva_attachinp(0x047, sb2_i047);
-		iocoreva_attachout(0x046, sb2_o046);
-		iocoreva_attachout(0x047, sb2_o047);
+		iocore_attachvainp(0x046, sb2_i044);
+		iocore_attachvainp(0x047, sb2_i047);
+		iocore_attachvaout(0x046, sb2_o046);
+		iocore_attachvaout(0x047, sb2_o047);
 	}
 
-	iocoreva_attachout(0x19c, sb2_o19c);
-	iocoreva_attachout(0x19e, sb2_o19e);
+	iocore_attachvaout(0x19c, sb2_o19c);
+	iocore_attachvaout(0x19e, sb2_o19e);
 }
 
 void boardopnva_bind(void) {
