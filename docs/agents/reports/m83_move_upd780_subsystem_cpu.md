@@ -25,9 +25,9 @@ OF SUCH DAMAGE.
 
 ## Status
 
-M83 has started from the approved G82 boundary. The evidence-backed source
-move and reference fixups are complete. G83 has not been passed: the manual
-FDD boot/access gate remains for maintainer verification.
+M83 is closed after the maintainer confirmed that the G83 human gate passed
+on 2026-08-11. The evidence-backed source move, reference fixups, Linux and
+MinGW builds, hosted CI, and manual FDD boot/access validation are complete.
 
 Evaluated branch: `topic/m83-move-upd780-subsystem-cpu`
 
@@ -63,6 +63,7 @@ The M83 start and ROADMAP correction are recorded in
 | `tools/qa/upd9002_rename.py` | PASS |
 | `git diff --check` | PASS |
 | `cmake --preset linux-ci-gcc` and `cmake --build --preset linux-ci-gcc -j4` | PASS |
+| `cmake --preset mingw-cross` and `CCACHE_DISABLE=1 cmake --build --preset mingw-cross -j4` | PASS |
 | focused wrapper/disassembler/FDC/save-load tests | 6/6 passed |
 | full `ctest --test-dir build/linux-ci-gcc --output-on-failure` | 83/83 passed; one external SST test skipped |
 
@@ -78,7 +79,7 @@ The M83 path-move candidate also triggered GitHub Actions run `31498223361`; all
 
 ## Gate disposition
 
-G83 is still pending. The maintainer must perform the standard human gate:
-build from a clean checkout, boot in V3 mode, run the bundled VA demo, boot an
-OS, and perform simple FDD operations. M83 must not be merged to `main` and
-M84 must not start before that approval.
+G83 human gate passed on 2026-08-11. The maintainer verified the standard
+clean-checkout build, V3 boot, bundled VA demo, OS boot, and basic FDD
+operations. M83 is closed; M84 may now start, but has not been merged to
+`main` and G84 remains pending.
