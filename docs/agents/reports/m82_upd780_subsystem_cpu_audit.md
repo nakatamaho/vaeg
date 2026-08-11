@@ -23,8 +23,8 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 # M82: FDC uPD780-compatible CPU audit
 
-Status: candidate report for G82. No production behavior or source path was
-changed by M82.
+Status: M82 is closed after the G82 human gate passed on 2026-08-11. No
+production behavior or source path was changed by M82.
 
 Evaluated branch: topic/m82-upd780-subsystem-cpu-audit
 
@@ -157,12 +157,12 @@ history. A complete CTest sweep was therefore not used as an M82 pass claim:
 the focused CPU/FDC tests and production builds above are the relevant
 results for this audit.
 
-The manual FDD boot/access gate has not been performed in this session.
-G82 remains pending human verification.
+The maintainer confirmed that the manual FDD boot/access gate passed as part
+of G82 on 2026-08-11. M82 is closed; M83 remains unstarted.
 
 ## M83 handoff
 
-M83 may begin only after G82 is approved. Its first commit should be the
+M83 may now begin as a separate milestone. Its first commit should be the
 rename-only move of the exact files above; its following commit should update
 references and CMake. M83 must rerun the focused wrapper, disassembler,
 subsystem, save/load, repository, and build checks before requesting G83.
