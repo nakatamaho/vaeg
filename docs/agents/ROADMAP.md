@@ -123,7 +123,7 @@ M36–M41 archive status.
 | M77 | tasks/M77_iova_to_io_rename.md | Move `iova/*` into `io/` with rename-only semantics and no behavior change | **G77 passed at `630e8f27fc4f2d574daf7cdc630836964a4247dc`; merged to `main`** |
 | M78 | tasks/M78_iova_to_io_reference_fixups.md | Normalize include paths, CMake source lists, and current documentation after the `iova` to `io` move | **G78 passed at `23e9f4673e2e122835a5ad2fb256e6961f860866`; merged to `main`** |
 | M79 | tasks/M79_va_io_dispatcher_consolidation.md | Make the VA I/O dispatcher canonical and remove the `iocore` / `iocoreva` split where behavior-neutral | **G79 passed at `70da1cee1ba947e7c5f671e4891b0301372422ea`; merged to `main`** |
-| M80 | tasks/M80_98_only_io_cleanup.md | Audit and remove proven 98-only `io/` implementations while retaining C-bus boards and deferring FDD320 until 5-inch 2D evidence is resolved | **G80 human; in progress** |
+| M80 | tasks/M80_98_only_io_cleanup.md | Audit and remove proven 98-only `io/` implementations while retaining C-bus boards and deferring FDD320 until 5-inch 2D evidence is resolved | **G80 passed at `a1291121604af6ca27c690214bed337704976fbe`; merged to `main`** |
 | M81 | tasks/M81_va_bios_reachability_cleanup.md | Audit VA BIOS reachability and remove only proven 98-only BIOS handlers | **G81 human; planned** |
 | M82 | tasks/M82_upd780_subsystem_cpu_audit.md | Audit the FDC subsystem uPD780-compatible CPU boundary currently implemented through the suzukiplan-backed wrapper | **G82 human; planned** |
 | M83 | tasks/M83_move_upd780_subsystem_cpu.md | Create `cpu/upd780/` and move the FDC subsystem uPD780-compatible CPU wrapper/backend there | **G83 human; planned** |
@@ -175,7 +175,7 @@ closed at `3785cc115155c52928817b8c95d38b40268a7bde`. It is not a predecessor
 of the already completed M75-M78 work.
 M75, M76, and M77 are now completed with the approved G75, G76, and G77 SHAs
 listed above. The M77 final tree is already on `main`; M78 passed G78 and is
-merged to `main`; M79 passed G79 and is closed. M80 is active; G80 remains pending.
+merged to `main`; M79 passed G79 and is closed. M80 passed G80 and is closed.
 M79-M88 define the remaining planned VA-only source-tree consolidation
 sequence: consolidate the VA I/O dispatcher, remove only proven 98-only I/O,
 audit VA BIOS reachability, document and move the FDC subsystem uPD780-
