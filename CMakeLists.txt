@@ -167,7 +167,6 @@ set(VAEG_CORE_SOURCES
     io/hostfat.c
     io/mouseif.c
     io/necio.c
-    io/nmiio.c
     io/np2sysp.c
     io/np2vasup.c
     io/pic.c

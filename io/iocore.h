@@ -27,7 +27,6 @@ typedef void (*IOCBFN)(void);
 #include	"gdc_cmd.h"
 #include	"mouseif.h"
 #include	"necio.h"
-#include	"nmiio.h"
 #include	"np2sysp.h"
 #include	"np2vasup.h"
 #include	"pic.h"
@@ -56,7 +55,6 @@ extern	_GRCG		grcg;
 extern	_KEYBRD		keybrd;
 extern	_MOUSEIF	mouseif;
 extern	_NECIO		necio;
-extern	_NMIIO		nmiio;
 extern	_NP2SYSP	np2sysp;
 extern	_PIC		pic;
 extern	_PIT		pit;
