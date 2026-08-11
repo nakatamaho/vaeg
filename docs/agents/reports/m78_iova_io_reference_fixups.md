@@ -15,8 +15,8 @@ Candidate gate: G78
 - `CMakeLists.txt` now adds `io/` to the active include search paths.
 - `docs/modernization/virtual-machine-architecture.md` now names the active
   I/O layer as `io`.
-- `docs/agents/ROADMAP.md` reopens M78 from the current `main` continuation
-  and keeps G78 and M79 status explicit.
+- `docs/agents/ROADMAP.md` records G78 approval and main integration while
+  keeping M79 and M80 status explicit.
 
 ## Deliberate exclusions
 
@@ -39,5 +39,7 @@ Validation completed on the current `main` candidate.
 
 ## Gate status
 
-G78 is a human gate and is not passed. M78 must not be merged to `main` and
-M79 must not start before explicit G78 approval.
+G78 human gate passed by the maintainer on 2026-08-11 for candidate
+`a86365584ffd86973b618bdaf55c26214798a1f0`. The candidate is merged to
+`main` by the gate-closure commit; M79 may now start and M80 remains
+unstarted.
