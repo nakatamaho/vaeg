@@ -135,43 +135,6 @@ static void setsnd26rom(const DIPBMP *dipbmp, int px, int py, BYTE cfg) {
 	setjumpery(dipbmp, px + cfg, py);
 }
 
-BYTE *dipswbmp_getsnd26(BYTE cfg) {
-
-	BYTE	*ret;
-	DIPBMP	dipbmp;
-
-	ret = getbmp(bmp26, &dipbmp);
-	if (ret) {
-		setsnd26io(&dipbmp, 15, 1, cfg);
-		setsnd26int(&dipbmp, 9, 1, cfg);
-		setsnd26rom(&dipbmp, 2, 1, cfg);
-	}
-	return(ret);
-}
-
-BYTE *dipswbmp_getsnd86(BYTE cfg) {
-
-	BYTE	*ret;
-	DIPBMP	dipbmp;
-	int		i;
-	int		x;
-	int		y;
-	int		l;
-
-	ret = getbmp(bmp86, &dipbmp);
-	if (ret) {
-		for (i=0; i<8; i++) {
-			x = i * 8 + 17;
-			y = (cfg & (1 << i))?16:9;
-			l = 0;
-			do {
-				line4x(&dipbmp, x, y + l, 6, 3);
-			} while(++l < 7);
-		}
-	}
-	return(ret);
-}
-
 BYTE *dipswbmp_getsndspb(BYTE cfg, BYTE vrc) {
 
 	BYTE	*ret;

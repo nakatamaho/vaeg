@@ -180,14 +180,7 @@ set(VAEG_CORE_SOURCES
     cbus/scsicmd.c
     cbus/mpu98ii.c
     cbus/board14.c
-    cbus/board26k.c
-    cbus/board86.c
-    cbus/boardx2.c
-    cbus/board118.c
     cbus/boardspb.c
-    cbus/amd98.c
-    cbus/pcm86io.c
-    cbus/cs4231io.c
     sound/vermouth/midiout.c
     sound/vermouth/midimod.c
     sound/vermouth/midinst.c
@@ -218,10 +211,6 @@ set(VAEG_CORE_SOURCES
     sound/rhythmc.c
     sound/adpcmc.c
     sound/adpcmg.c
-    sound/pcm86c.c
-    sound/pcm86g.c
-    sound/cs4231c.c
-    sound/cs4231g.c
     sound/soundrom.c
     vram/vram.c
     vram/scrndraw.c

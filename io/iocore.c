@@ -5,7 +5,6 @@
 #include	"cbuscore.h"
 #include	"sound.h"
 #include	"fmboard.h"
-#include	"cs4231io.h"
 #include	"iocore16.tbl"
 
 #include	"iocoreva.h"
@@ -77,10 +76,6 @@ static	UINT8		ioterminate[0x100];
 
 static void IOOUTCALL defout8(UINT port, REG8 dat) {
 
-	if ((port & 0xfff0) == cs4231.port) {
-		cs4231io_w8(port, dat);
-		return;
-	}
 	if ((port & 0xf0ff) == 0x801e) {
 		dipsw_w8(port, dat);
 		return;
@@ -90,9 +85,6 @@ static void IOOUTCALL defout8(UINT port, REG8 dat) {
 
 static REG8 IOINPCALL definp8(UINT port) {
 
-	if ((port & 0xfff0) == cs4231.port) {
-		return(cs4231io_r8(port));
-	}
 	if ((port & 0xf0ff) == 0x801e) {
 		return(dipsw_r8(port));
 	}

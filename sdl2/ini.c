@@ -386,8 +386,6 @@ static const INITBL iniitem[] = {
 
 	{"SND14vol", INITYPE_BYTEARG,	np2cfg.vol14,			6},
 //	{"opt14BRD", INITYPE_BYTEARG,	np2cfg.snd14opt,		3},
-	{"opt26BRD", INITYPE_HEX8,		&np2cfg.snd26opt,		0},
-	{"opt86BRD", INITYPE_HEX8,		&np2cfg.snd86opt,		0},
 	{"optSPBRD", INITYPE_HEX8,		&np2cfg.spbopt,			0},
 	{"optSPBVR", INITYPE_HEX8,		&np2cfg.spb_vrc,		0},
 	{"optSPBVL", INITYPE_UINT8,		&np2cfg.spb_vrl,		0},
@@ -397,7 +395,6 @@ static const INITBL iniitem[] = {
 	{"volume_F", INITYPE_UINT8,		&np2cfg.vol_fm,			0},
 	{"volume_S", INITYPE_UINT8,		&np2cfg.vol_ssg,		0},
 	{"volume_A", INITYPE_UINT8,		&np2cfg.vol_adpcm,		0},
-	{"volume_P", INITYPE_UINT8,		&np2cfg.vol_pcm,		0},
 	{"volume_R", INITYPE_UINT8,		&np2cfg.vol_rhythm,		0},
 
 	{"Seek_Snd", INITYPE_BOOL,		&np2cfg.MOTOR,			0},

@@ -21,11 +21,11 @@ enum {
 	NEVENT_MIDIINT		= 16,
 	NEVENT_PICMASK		= 17,
 	NEVENT_S98TIMER		= 18,
-	NEVENT_CS4231		= 19,
+	/* 19: retired CS4231 event; preserve subsequent event numbers. */
 	NEVENT_GDCSLAVE		= 20,
 	NEVENT_FDBIOSBUSY	= 21,
 	NEVENT_FDCINT		= 22,
-	NEVENT_86PCM		= 25,
+	/* 25: retired PCM86 event; preserve subsequent event numbers. */
 	NEVENT_SASIIO		= 26,
 	NEVENT_SCSIIO		= 27,
 	NEVENT_FDCTIMER		= 28,

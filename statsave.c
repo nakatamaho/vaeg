@@ -15,7 +15,6 @@
 #include	"scsiio.h"
 #include	"mpu98ii.h"
 #include	"board14.h"
-#include	"amd98.h"
 #include	"bios.h"
 #include	"vram.h"
 #include	"palettes.h"
@@ -808,8 +807,6 @@ enum {
 	FLAG_PSG3		= 0x0080,
 	FLAG_RHYTHM		= 0x0100,
 	FLAG_ADPCM		= 0x0200,
-	FLAG_PCM86		= 0x0400,
-	FLAG_CS4231		= 0x0800,
 	FLAG_FMBOARDVA	= 0x8000,
 };
 
@@ -829,30 +826,6 @@ static int flagsave_fm(STFLAGH sfh, const SFENTRY *tbl) {
 			saveflg = FLAG_MG;
 			break;
 
-		case 0x02:
-			saveflg = FLAG_FM1A | FLAG_PSG1;
-			break;
-
-		case 0x04:
-			saveflg = FLAG_FM1A | FLAG_FM1B | FLAG_PSG1 | FLAG_RHYTHM |
-										FLAG_PCM86;
-			break;
-
-		case 0x06:
-			saveflg = FLAG_FM1A | FLAG_FM1B | FLAG_FM2A | FLAG_PSG1 |
-										FLAG_PSG2 | FLAG_RHYTHM | FLAG_PCM86;
-			break;
-
-		case 0x08:
-			saveflg = FLAG_FM1A | FLAG_FM1B | FLAG_PSG1 | FLAG_RHYTHM |
-										FLAG_CS4231;
-			break;
-
-		case 0x14:
-			saveflg = FLAG_FM1A | FLAG_FM1B | FLAG_PSG1 | FLAG_RHYTHM |
-										FLAG_ADPCM | FLAG_PCM86;
-			break;
-
 		case 0x20:
 			saveflg = FLAG_FM1A | FLAG_FM1B | FLAG_PSG1 | FLAG_RHYTHM |
 										FLAG_ADPCM;
@@ -861,10 +834,6 @@ static int flagsave_fm(STFLAGH sfh, const SFENTRY *tbl) {
 		case 0x40:
 			saveflg = FLAG_FM1A | FLAG_FM1B | FLAG_FM2A | FLAG_FM2B |
 										FLAG_PSG1 | FLAG_RHYTHM | FLAG_ADPCM;
-			break;
-
-		case 0x80:
-			saveflg = FLAG_PSG1 | FLAG_PSG2 | FLAG_PSG3;
 			break;
 
 		case 0x0200:
@@ -903,12 +872,6 @@ static int flagsave_fm(STFLAGH sfh, const SFENTRY *tbl) {
 	if (saveflg & FLAG_ADPCM) {
 		ret |= statflag_write(sfh, &adpcm, sizeof(adpcm));
 	}
-	if (saveflg & FLAG_PCM86) {
-		ret |= statflag_write(sfh, &pcm86, sizeof(pcm86));
-	}
-	if (saveflg & FLAG_CS4231) {
-		ret |= statflag_write(sfh, &cs4231, sizeof(cs4231));
-	}
 	if (saveflg & FLAG_FMBOARDVA) {
 		ret |= statflag_write(sfh, &fmboardva, sizeof(fmboardva));
 	}
@@ -930,30 +893,6 @@ static int flagload_fm(STFLAGH sfh, const SFENTRY *t) {
 			saveflg = FLAG_MG;
 			break;
 
-		case 0x02:
-			saveflg = FLAG_FM1A | FLAG_PSG1;
-			break;
-
-		case 0x04:
-			saveflg = FLAG_FM1A | FLAG_FM1B | FLAG_PSG1 | FLAG_RHYTHM |
-										FLAG_PCM86;
-			break;
-
-		case 0x06:
-			saveflg = FLAG_FM1A | FLAG_FM1B | FLAG_FM2A | FLAG_PSG1 |
-										FLAG_PSG2 | FLAG_RHYTHM | FLAG_PCM86;
-			break;
-
-		case 0x08:
-			saveflg = FLAG_FM1A | FLAG_FM1B | FLAG_PSG1 | FLAG_RHYTHM |
-										FLAG_CS4231;
-			break;
-
-		case 0x14:
-			saveflg = FLAG_FM1A | FLAG_FM1B | FLAG_PSG1 | FLAG_RHYTHM |
-										FLAG_ADPCM | FLAG_PCM86;
-			break;
-
 		case 0x20:
 			saveflg = FLAG_FM1A | FLAG_FM1B | FLAG_PSG1 | FLAG_RHYTHM |
 										FLAG_ADPCM;
@@ -962,10 +901,6 @@ static int flagload_fm(STFLAGH sfh, const SFENTRY *t) {
 		case 0x40:
 			saveflg = FLAG_FM1A | FLAG_FM1B | FLAG_FM2A | FLAG_FM2B |
 										FLAG_PSG1 | FLAG_RHYTHM | FLAG_ADPCM;
-			break;
-
-		case 0x80:
-			saveflg = FLAG_PSG1 | FLAG_PSG2 | FLAG_PSG3;
 			break;
 
 		case 0x0200:
@@ -1005,25 +940,12 @@ static int flagload_fm(STFLAGH sfh, const SFENTRY *t) {
 	if (saveflg & FLAG_ADPCM) {
 		ret |= statflag_read(sfh, &adpcm, sizeof(adpcm));
 	}
-	if (saveflg & FLAG_PCM86) {
-		ret |= statflag_read(sfh, &pcm86, sizeof(pcm86));
-	}
-	if (saveflg & FLAG_CS4231) {
-		ret |= statflag_read(sfh, &cs4231, sizeof(cs4231));
-	}
 	if (saveflg & FLAG_FMBOARDVA) {
 		ret |= statflag_read(sfh, &fmboardva, sizeof(fmboardva));
 	}
 
 	// 復元。 これ移動すること！
 	adpcm_update(&adpcm);
-	pcm86gen_update();
-	if (saveflg & FLAG_PCM86) {
-		fmboard_extenable((REG8)(pcm86.extfunc & 1));
-	}
-	if (saveflg & FLAG_CS4231) {
-		fmboard_extenable((REG8)(cs4231.extfunc & 1));
-	}
 	(void)t;
 	return(ret);
 }

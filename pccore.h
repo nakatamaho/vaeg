@@ -87,8 +87,8 @@ typedef struct {
 	UINT8	snd_x;
 
 	UINT8	snd14opt[3];
-	UINT8	snd26opt;
-	UINT8	snd86opt;
+	UINT8	snd26opt;								// retired non-VA board state padding
+	UINT8	snd86opt;								// retired non-VA board state padding
 	UINT8	spbopt;
 	UINT8	spb_vrc;												// ver0.30
 	UINT8	spb_vrl;												// ver0.30
@@ -99,7 +99,7 @@ typedef struct {
 	UINT8	vol_fm;
 	UINT8	vol_ssg;
 	UINT8	vol_adpcm;
-	UINT8	vol_pcm;
+	UINT8	vol_pcm;								// retired non-VA PCM state padding
 	UINT8	vol_rhythm;
 
 	UINT8	mpuenable;
