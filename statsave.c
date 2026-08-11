@@ -815,6 +815,65 @@ typedef struct {
 	BYTE	extop[4];
 } OPNKEY;
 
+static UINT32 fm_state_size(UINT32 type) {
+
+	UINT32	size;
+
+	size = sizeof(type);
+	switch(type) {
+		case FMBOARD_NONE:
+		case FMBOARD_VA_OPN:
+			break;
+
+		case 0x01:
+			size += sizeof(musicgen);
+			break;
+
+		case 0x20:
+		case 0x40:
+			size += sizeof(fmtimer) + sizeof(opn) + sizeof(OPNKEY) +
+										sizeof(PSGREG) + sizeof(adpcm);
+			break;
+
+		case FMBOARD_VA_OPNA:
+			size += sizeof(fmtimer) + sizeof(opn) + sizeof(OPNKEY) +
+										sizeof(PSGREG) + sizeof(adpcm) +
+										sizeof(fmboardva);
+			break;
+
+		default:
+			size = 0;
+			break;
+	}
+	return(size);
+}
+
+static int flagcheck_fm(STFLAGH sfh, const SFENTRY *tbl) {
+
+	UINT32	type;
+	UINT32	expected;
+
+	if (sfh->hdr.ver != tbl->ver) {
+		statflag_seterr(sfh, "FMBOARD state version is unsupported");
+		return(STATFLAG_FAILURE);
+	}
+	if ((sfh->hdr.size < sizeof(type)) ||
+		(statflag_read(sfh, &type, sizeof(type)) != STATFLAG_SUCCESS)) {
+		statflag_seterr(sfh, "FMBOARD state is truncated");
+		return(STATFLAG_FAILURE);
+	}
+	expected = fm_state_size(type);
+	if (expected == 0) {
+		statflag_seterr(sfh, "FMBOARD state uses retired sound hardware");
+		return(STATFLAG_FAILURE);
+	}
+	if (sfh->hdr.size != expected) {
+		statflag_seterr(sfh, "FMBOARD state payload size is unsupported");
+		return(STATFLAG_FAILURE);
+	}
+	return(STATFLAG_SUCCESS);
+}
+
 static int flagsave_fm(STFLAGH sfh, const SFENTRY *tbl) {
 
 	int		ret;
@@ -1573,10 +1632,13 @@ const SFENTRY	*tblterm;
 				case STATFLAG_EVT:
 				case STATFLAG_EXT:
 				case STATFLAG_GIJ:
-				case STATFLAG_FM:
 				case STATFLAG_BMS:
 				case STATFLAG_SUBCPU:
 					ret |= flagcheck_veronly(&sffh->sfh, tbl);
+					break;
+
+				case STATFLAG_FM:
+					ret |= flagcheck_fm(&sffh->sfh, tbl);
 					break;
 
 				case STATFLAG_DISK:
