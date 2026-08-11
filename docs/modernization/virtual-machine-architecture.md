@@ -40,7 +40,7 @@ SDL2 frontend
   -> pccore reset/run
     -> CPU core: cpu/upd9002
     -> memory: uPD9002 memory dispatcher plus PC-88VA memoryva layer
-    -> I/O: iocore, iova, cbus, FDC, DMAC, sound boards
+    -> I/O: io, cbus, FDC, DMAC, sound boards
     -> video: vram, vramva, scrndraw/scrndrawva
     -> sound: fm/psg/adpcm/beep/FDD motor sources
     -> storage: FDD and SXSI/SASI/SCSI image layers
