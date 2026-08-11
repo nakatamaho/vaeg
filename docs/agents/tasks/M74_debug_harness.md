@@ -37,8 +37,8 @@ Candidate gate: `G74`
 
 Report: `docs/agents/reports/m74_debug_harness.md`
 
-Do not start a dependent production-fix milestone. Do not merge M74 to `main`
-before G74 approval. Do not declare G74 passed.
+Do not start a dependent production-fix milestone from this task. The
+maintainer passed the G74 human gate; M74 is closed.
 
 ## Scope
 
@@ -160,5 +160,4 @@ selftests; the ROM-less suite; focused counter/capture tests; disabled and
 enabled deterministic-equivalence tests with synthetic inputs; native builds;
 and the established MinGW/cross-build validation where available.
 
-G74 remains explicitly unapproved until the maintainer completes the required
-human gate.
+The maintainer passed the required human gate; G74 is closed.
