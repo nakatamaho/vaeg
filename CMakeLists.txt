@@ -112,7 +112,6 @@ set(VAEG_INCLUDE_DIRS
     "${CMAKE_CURRENT_SOURCE_DIR}/vram"
     "${CMAKE_CURRENT_SOURCE_DIR}/vramva"
     "${CMAKE_CURRENT_SOURCE_DIR}/fdd"
-    "${CMAKE_CURRENT_SOURCE_DIR}/lio"
     "${CMAKE_CURRENT_SOURCE_DIR}/font"
     "${CMAKE_CURRENT_SOURCE_DIR}/cpucva"
     "${CMAKE_CURRENT_SOURCE_DIR}/io"
@@ -202,7 +201,6 @@ set(VAEG_CORE_SOURCES
     bios/bios0c.c
     bios/bios12.c
     bios/bios13.c
-    bios/bios18.c
     bios/bios1b.c
     bios/sxsibios.c
     sound/sound.c
@@ -242,12 +240,6 @@ set(VAEG_CORE_SOURCES
     fdd/fdd_d88.c
     fdd/fdd_mtr.c
     fdd/sxsi.c
-    lio/lio.c
-    lio/gscreen.c
-    lio/gpset.c
-    lio/gline.c
-    lio/gcircle.c
-    lio/gput1.c
     font/font.c
     font/fontdata.c
     font/fontpc88.c

@@ -2,8 +2,8 @@
 
 M88 performs the final audit of the VA-only active source tree after the BASIC,
 SCSI, uPD9002 emulation-mode authority, I/O, BIOS, FDC subsystem CPU,
-`cpucva`, state-save, machine-core relocation, legacy tool/ROM regeneration,
-and `lio/` disposition milestones.
+`cpucva`, state-save, machine-core relocation, and legacy tool/ROM
+regeneration milestones. The M81 report records the completed LIO disposition.
 
 Predecessor: approved G87.
 
@@ -33,8 +33,6 @@ M88 must:
   subsystem uPD780-compatible CPU ownership remain distinct;
 - verify that `machine/` has clear ownership for reset, events, timing,
   calendar, keyboard state, and state save/load;
-- verify that the M86 `lio/` disposition is reflected in the active tree as
-  either a justified retained compatibility path or a completed removal;
 - verify that state-save, HOSTFAT, SASI/SCSI, FDD, display, sound, keyboard,
   mouse, and manual runtime gates still pass.
 
