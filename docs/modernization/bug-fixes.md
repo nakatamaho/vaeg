@@ -70,6 +70,28 @@ separate parity correction or move it to Open Defects.
 
 ## Fixed Defects
 
+### Retired FMBOARD state payloads were silently accepted
+
+- **Status:** fixed in M85; G85 human review pending.
+- **Symptom:** a state saved with a removed non-VA sound-board option could pass
+  the generic FMBOARD version check and report a successful load even though
+  the current tree no longer had the corresponding board or payload decoder.
+- **Root cause:** after M84 removed the old PCM86, CS4231, AMD98, and related
+  C-bus implementations, statsave_check() still used version-only validation
+  for FMBOARD. flagload_fm() mapped an unsupported usesound value to an empty
+  branch, so the obsolete payload could be skipped without an explicit
+  compatibility result.
+- **Correction:** M85 validates the usesound word and current payload size
+  during preflight. Current VA and retained sound values remain accepted;
+  M84-retired values fail before live-state mutation with an explicit
+  retired-hardware error.
+- **Verification:** the ROM-less selftest mutates a disposable state only at
+  the FMBOARD usesound word, requires both check and load failure, and
+  verifies unchanged CPU and memory state. Current save/load round-trip and
+  HOSTFAT identity tests pass.
+- **Evidence:** [M85 state-save report](../agents/reports/m85_state_save_section_cleanup.md).
+- **Commit:** [a6493d2](https://github.com/nakatamaho/vaeg/commit/a6493d2e57b4f35a155eb1a2cfdca53ae21ad9b6).
+
 ### CP/MVA EXM=1 directory grouping omitted large-program data
 
 - **Status:** fixed in the uncommitted M76 working tree; commit pending because this task prohibits commit and push.

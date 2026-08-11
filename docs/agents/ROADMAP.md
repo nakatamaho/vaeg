@@ -128,7 +128,7 @@ M36–M41 archive status.
 | M82 | tasks/M82_upd780_subsystem_cpu_audit.md | Audit the FDC subsystem uPD780-compatible CPU boundary currently implemented through the suzukiplan-backed wrapper | **G82 human gate passed; M82 closed at `e2d6b9d05d0a20185486a0314717808b326006c8`** |
 | M83 | tasks/M83_move_upd780_subsystem_cpu.md | Create `cpu/upd780/` and move the FDC subsystem uPD780-compatible CPU wrapper/backend there | **G83 human gate passed; M83 closed at `d90c8721d6120af9994cedb63685e8a60546513e`; merged to main in `6a3412bd34c66d068b299a11edf13df45799f3b5`** |
 | M84 | tasks/M84_cpucva_boundary_cleanup.md | M84a: retire the approved non-VA C-bus sound-board dependency closure (`amd98`, `board26k`, `board86`, `board118`, `pcm86io`, and `cs4231io`); M84b: clean up the remaining `cpucva/` boundary while keeping uPD9002 instruction execution and VA memory ownership separate | **G84 human gate passed; M84 closed at `9aeb6512e59da7e794ffede50b7a184f601d137e`; merged to `main`** |
-| M85 | tasks/M85_state_save_section_cleanup.md | Audit retired state-save sections, remove only approved obsolete sections, and document compatibility behavior | **G85 human; M85 in progress** |
+| M85 | tasks/M85_state_save_section_cleanup.md | Audit retired state-save sections, remove only approved obsolete sections, and document compatibility behavior | **G85 human; M85 candidate complete; awaiting gate** |
 | M86 | tasks/M86_machine_core_relocation.md | Move active root machine-core sources such as `pccore`, `nevent`, `timing`, `calendar`, `keystat`, `statsave`, `debugsub`, and `clockscale` under `machine/` without behavior change | **G86 human; planned** |
 | M87 | tasks/M87_legacy_tool_rom_regeneration_audit.md | Audit remaining legacy tools and ROM/resource regeneration flows before the final VA-only source-tree audit; the `lio/` BIOS/LIO disposition was pulled forward into M81 | **G87 human; planned** |
 | M88 | tasks/M88_final_va_only_source_tree_audit.md | Final VA-only active source-tree audit after performance, BASIC, SCSI, uPD9002 emulation-mode authority, I/O, BIOS, uPD780, `cpucva`, state-save, machine-core relocation, and legacy tool cleanup | **G88 human; planned** |
@@ -193,6 +193,14 @@ The current approved gate ledger is:
   [`890996ecb28627ec77c332c7917c61af29e1c23a`](https://github.com/nakatamaho/vaeg/commit/890996ecb28627ec77c332c7917c61af29e1c23a).
   G84 human validation passed; M84 closed at
   `9aeb6512e59da7e794ffede50b7a184f601d137e` and was merged to `main`.
+- M85 audits the current statsave.tbl inventory and preserves the VA,
+  storage, HOSTFAT, subsystem, and shared-state boundaries. Its report is
+  [m85_state_save_section_cleanup.md](reports/m85_state_save_section_cleanup.md).
+  The implementation candidate is
+  [a6493d2e](https://github.com/nakatamaho/vaeg/commit/a6493d2e57b4f35a155eb1a2cfdca53ae21ad9b6).
+  M84-retired FMBOARD usesound values now fail closed during state preflight;
+  current VA values and HOSTFAT identity checks remain unchanged. G85 remains
+  the required human gate, and M86 has not started.
 
 
 M78 was explicitly reopened from the current `main` continuation on 2026-08-11.
@@ -207,7 +215,8 @@ MinGW, hosted CI, and the standard FDD human gate. M83 is merged to main at
 the approved gate ledger above; M84a and M84b implementation checkpoints are
 complete, G84 human validation passed, and M84 is merged to `main` at
 `9aeb6512e59da7e794ffede50b7a184f601d137e`. M85 starts from that main
-continuation and does not begin M86.
+continuation. Its state-save candidate is complete on the topic branch, but
+G85 remains pending and M86 must not begin.
 
 
 M72 closed the inactive compile-flag cleanup while intentionally leaving
@@ -234,9 +243,11 @@ retires the explicitly approved non-VA C-bus sound-board dependency closure;
 M84b then continues the planned `cpucva/` boundary cleanup. M84a is recorded
 in [`reports/m84a_nonva_cbus_board_retirement.md`](reports/m84a_nonva_cbus_board_retirement.md);
 G84 passed after M84b and the human gate, and M84 is merged to `main` at
-`9aeb6512e59da7e794ffede50b7a184f601d137e`. M85-M88 define
-the remaining planned VA-only source-tree consolidation sequence: clean state-save
-sections with compatibility evidence, move active root machine-core sources
+`9aeb6512e59da7e794ffede50b7a184f601d137e`. M85 now has a candidate report
+and implementation for the state-save compatibility audit; G85 remains the
+human gate. M85-M88 define the remaining planned VA-only source-tree
+consolidation sequence: clean state-save sections with compatibility evidence,
+move active root machine-core sources
 under `machine/`, audit legacy tool and ROM/resource regeneration flows such
 as `accessories/`, and finish with a full VA-only source-tree audit. M84a
 retires only the approved non-VA sound-board closure; VA-supported C-bus and
