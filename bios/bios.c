@@ -7,7 +7,6 @@
 #include	"bios.h"
 #include	"biosmem.h"
 #include	"sxsibios.h"
-#include	"lio.h"
 #include	"vram.h"
 #include	"fddfile.h"
 #include	"fdd_mtr.h"
@@ -70,7 +69,6 @@ static void bios_memclear(void) {
 	if (CPU_EXTMEM) {
 		ZeroMemory(CPU_EXTMEM, CPU_EXTMEMSIZE);
 	}
-	bios0x18_16(0x20, 0xe1);
 	ZeroMemory(mem + VRAM0_B, 0x18000);
 	ZeroMemory(mem + VRAM0_E, 0x08000);
 	ZeroMemory(mem + VRAM1_B, 0x18000);
@@ -162,16 +160,6 @@ static void bios_vectorset(void) {
 	SETBIOSMEM32(0x1e*4, 0xe8000000);
 }
 
-static void bios_screeninit(void) {
-
-	REG8	al;
-
-	al = 4;
-	al += (np2cfg.dipsw[1] & 0x04) >> 1;
-	al += (np2cfg.dipsw[1] & 0x08) >> 3;
-	bios0x18_0a(al);
-}
-
 static void setbiosseed(UINT8 *ptr, UINT size, UINT seedpos) {
 
 	UINT8	x;
@@ -231,10 +219,6 @@ void bios_initialize(void) {
 
 #if defined(BIOS_SIMULATE)
 	CopyMemory(mem + BIOS_BASE, biosfd80, sizeof(biosfd80));
-	if (!biosrom) {
-		lio_initialize();
-	}
-
 	for (i=0; i<8; i+=2) {
 		STOREINTELWORD(mem + 0xfd800 + 0x1aaf + i, 0x1ab7);
 		STOREINTELWORD(mem + 0xfd800 + 0x1ad7 + i, 0x1adf);
@@ -284,7 +268,6 @@ static void bios_itfcall(void) {
 	bios_vectorset();
 	bios0x09_init();
 	bios_reinitbyswitch();
-	bios0x18_0c();
 
 	if (!np2cfg.ITF_WORK) {
 		for (i=0; i<8; i++) {
@@ -330,7 +313,6 @@ UINT MEMCALL biosfunc(UINT32 adrs) {
 #endif
 			bios_reinitbyswitch();
 			bios_vectorset();
-			bios_screeninit();
 			if (((pccore.model & PCMODELMASK) >= PCMODEL_VX) &&
 				(pccore.sound & 0x7e)) {
 				iocore_out8(0x188, 0x27);
@@ -401,16 +383,5 @@ UINT MEMCALL biosfunc(UINT32 adrs) {
 			return(0);
 	}
 
-	if ((adrs >= 0xf9950) && (adrs <= 0x0f9990) && (!(adrs & 3))) {
-		CPU_REMCLOCK -= 500;
-		bios_lio((REG8)((adrs - 0xf9950) >> 2));
-	}
-	else if (adrs == 0xf9994) {
-		if (nevent_iswork(NEVENT_GDCSLAVE)) {
-			CPU_IP--;
-			CPU_REMCLOCK = -1;
-			return(1);
-		}
-	}
 	return(0);
 }
