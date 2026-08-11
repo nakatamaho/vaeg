@@ -121,7 +121,7 @@ M36–M41 archive status.
 | M75 | tasks/M75_scsi_support.md | Clean up, validate, and document active PC-9801-55-compatible VA SCSI support with the driver-installed support disk while preserving SASI and HOSTFAT | **G75 passed at `4ddba36f28dbfbe35a52117964b99b5685fdaa3d`** |
 | M76 | tasks/M76_upd9002_upd780_emulation_mode_authority.md | Audit uPD9002 main-CPU uPD780 emulation-mode authority and decide whether a later production implementation is safe without repaired-hardware evidence | **G76 passed at `2ef9716d9628ce8eefdf61a1feedca0be5921077`** |
 | M77 | tasks/M77_iova_to_io_rename.md | Move `iova/*` into `io/` with rename-only semantics and no behavior change | **G77 passed at `630e8f27fc4f2d574daf7cdc630836964a4247dc`; merged to `main`** |
-| M78 | tasks/M78_iova_to_io_reference_fixups.md | Normalize include paths, CMake source lists, and current documentation after the `iova` to `io` move | **G78 folded into the preceding follow-up; separate approval not claimed** |
+| M78 | tasks/M78_iova_to_io_reference_fixups.md | Normalize include paths, CMake source lists, and current documentation after the `iova` to `io` move | **G78 human; in progress** |
 | M79 | tasks/M79_va_io_dispatcher_consolidation.md | Make the VA I/O dispatcher canonical and remove the `iocore` / `iocoreva` split where behavior-neutral | **G79 human; planned** |
 | M80 | tasks/M80_98_only_io_cleanup.md | Audit and remove proven 98-only `io/` implementations while retaining C-bus boards and deferring FDD320 until 5-inch 2D evidence is resolved | **G80 human; planned** |
 | M81 | tasks/M81_va_bios_reachability_cleanup.md | Audit VA BIOS reachability and remove only proven 98-only BIOS handlers | **G81 human; planned** |
@@ -154,10 +154,9 @@ The current approved gate ledger is:
   `iova/` to `io/` tree move plus the required build, include, CMake, QA, and
   current-documentation reference updates. The commit is merged to `main`.
 
-M78's scoped reference normalization was delivered as the follow-up commit
-within the G77 candidate and is therefore not a separate approved gate. The
-M78 task file remains as historical scope documentation; no additional M78
-implementation is pending unless the scope is explicitly reopened.
+M78 was explicitly reopened from the current `main` continuation on 2026-08-11.
+Its remaining current-tree path normalization is in progress and G78 is not
+passed. M79 must not start until G78 is approved.
 
 M72 closed the inactive compile-flag cleanup while intentionally leaving
 `SUPPORT_WAVEREC`, `SUPPORT_OPRECORD`, and FDD320 for later focused audits.
@@ -169,8 +168,8 @@ harness; the maintainer passed its human gate on 2026-08-11, and M74 is now
 closed at `3785cc115155c52928817b8c95d38b40268a7bde`. It is not a predecessor
 of the already completed M75-M78 work.
 M75, M76, and M77 are now completed with the approved G75, G76, and G77 SHAs
-listed above. M77's final tree is already on `main`; the next unstarted
-milestone is M79 because the M78 reference-fixup scope was folded into G77.
+listed above. The M77 final tree is already on `main`; M78 is active and M79
+must not start until G78 is approved.
 M79-M88 define the remaining planned VA-only source-tree consolidation
 sequence: consolidate the VA I/O dispatcher, remove only proven 98-only I/O,
 audit VA BIOS reachability, document and move the FDC subsystem uPD780-
