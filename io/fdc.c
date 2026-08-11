@@ -1876,12 +1876,12 @@ void fdc_bind(void) {
 	iocore_attachsysoutex(0x00be, 0x0cff, fdcobe, 1);
 	iocore_attachsysinpex(0x00be, 0x0cff, fdcibe, 1);
 
-	iocoreva_attachout(0x01b0, fdcva_o1b0);
-	iocoreva_attachout(0x01b2, fdcva_o1b2);
-	iocoreva_attachout(0x01b4, fdcva_o1b4);
-	iocoreva_attachout(0x01b6, fdcva_o1b6);
-	iocoreva_attachinp(0x01b6, fdcva_i1b6);
-	iocoreva_attachinp(0x01b8, fdcva_i1b8);
-	iocoreva_attachout(0x01ba, fdcva_o1ba);
-	iocoreva_attachinp(0x01ba, fdcva_i1ba);
+	iocore_attachvaout(0x01b0, fdcva_o1b0);
+	iocore_attachvaout(0x01b2, fdcva_o1b2);
+	iocore_attachvaout(0x01b4, fdcva_o1b4);
+	iocore_attachvaout(0x01b6, fdcva_o1b6);
+	iocore_attachvainp(0x01b6, fdcva_i1b6);
+	iocore_attachvainp(0x01b8, fdcva_i1b8);
+	iocore_attachvaout(0x01ba, fdcva_o1ba);
+	iocore_attachvainp(0x01ba, fdcva_i1ba);
 }

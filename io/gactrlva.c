@@ -413,52 +413,52 @@ void gactrlva_bind(void) {
 	int i;
 
 	for (i = 0x510; i < 0x600; i++) {
-		iocoreva_attachinp(i, gactrlva_i_notimpl);
+		iocore_attachvainp(i, gactrlva_i_notimpl);
 	}
 
-	iocoreva_attachout(0x510, gactrlva_o510);
-	iocoreva_attachinp(0x510, gactrlva_i510);
-	iocoreva_attachinp(0x511, gactrlva_i_high_m);
-	iocoreva_attachout(0x512, gactrlva_o512);
-	iocoreva_attachinp(0x512, gactrlva_i512);
-	iocoreva_attachinp(0x513, gactrlva_i_high_m);
-	iocoreva_attachout(0x514, gactrlva_o514);
-	iocoreva_attachinp(0x514, gactrlva_i514);
-	iocoreva_attachout(0x516, gactrlva_o516);
-	iocoreva_attachinp(0x516, gactrlva_i516);
-	iocoreva_attachout(0x518, gactrlva_o518);
-	iocoreva_attachinp(0x518, gactrlva_i518);
-	iocoreva_attachinp(0x519, gactrlva_i_high_m);
-	iocoreva_attachout(0x528, gactrlva_o528);
-	iocoreva_attachinp(0x528, gactrlva_i528);
-	iocoreva_attachout(0x550, gactrlva_o550);
-	iocoreva_attachinp(0x550, gactrlva_i550);
-	iocoreva_attachout(0x552, gactrlva_o552);
-	iocoreva_attachinp(0x552, gactrlva_i552);
+	iocore_attachvaout(0x510, gactrlva_o510);
+	iocore_attachvainp(0x510, gactrlva_i510);
+	iocore_attachvainp(0x511, gactrlva_i_high_m);
+	iocore_attachvaout(0x512, gactrlva_o512);
+	iocore_attachvainp(0x512, gactrlva_i512);
+	iocore_attachvainp(0x513, gactrlva_i_high_m);
+	iocore_attachvaout(0x514, gactrlva_o514);
+	iocore_attachvainp(0x514, gactrlva_i514);
+	iocore_attachvaout(0x516, gactrlva_o516);
+	iocore_attachvainp(0x516, gactrlva_i516);
+	iocore_attachvaout(0x518, gactrlva_o518);
+	iocore_attachvainp(0x518, gactrlva_i518);
+	iocore_attachvainp(0x519, gactrlva_i_high_m);
+	iocore_attachvaout(0x528, gactrlva_o528);
+	iocore_attachvainp(0x528, gactrlva_i528);
+	iocore_attachvaout(0x550, gactrlva_o550);
+	iocore_attachvainp(0x550, gactrlva_i550);
+	iocore_attachvaout(0x552, gactrlva_o552);
+	iocore_attachvainp(0x552, gactrlva_i552);
 	for (i = 0; i < 4; i++) {
-		iocoreva_attachout(0x520 + i * 2, gactrlva_o520);
-		iocoreva_attachout(0x530 + i * 2, gactrlva_o530);
-		iocoreva_attachout(0x540 + i * 2, gactrlva_o540);
-		iocoreva_attachout(0x560 + i * 2, gactrlva_o560);
+		iocore_attachvaout(0x520 + i * 2, gactrlva_o520);
+		iocore_attachvaout(0x530 + i * 2, gactrlva_o530);
+		iocore_attachvaout(0x540 + i * 2, gactrlva_o540);
+		iocore_attachvaout(0x560 + i * 2, gactrlva_o560);
 
-		iocoreva_attachinp(0x520 + i * 2, gactrlva_i520);
-		iocoreva_attachinp(0x521 + i * 2, gactrlva_i_high_m);
-		iocoreva_attachinp(0x530 + i * 2, gactrlva_i530);
-		iocoreva_attachinp(0x531 + i * 2, gactrlva_i_high_m);
-		iocoreva_attachinp(0x540 + i * 2, gactrlva_i540);
-		iocoreva_attachinp(0x541 + i * 2, gactrlva_i_high_m);
-		iocoreva_attachinp(0x560 + i * 2, gactrlva_i560);
-		iocoreva_attachinp(0x561 + i * 2, gactrlva_i_high_m);
+		iocore_attachvainp(0x520 + i * 2, gactrlva_i520);
+		iocore_attachvainp(0x521 + i * 2, gactrlva_i_high_m);
+		iocore_attachvainp(0x530 + i * 2, gactrlva_i530);
+		iocore_attachvainp(0x531 + i * 2, gactrlva_i_high_m);
+		iocore_attachvainp(0x540 + i * 2, gactrlva_i540);
+		iocore_attachvainp(0x541 + i * 2, gactrlva_i_high_m);
+		iocore_attachvainp(0x560 + i * 2, gactrlva_i560);
+		iocore_attachvainp(0x561 + i * 2, gactrlva_i_high_m);
 	}
-	iocoreva_attachout(0x580, gactrlva_o580);
-	iocoreva_attachinp(0x580, gactrlva_i580);
+	iocore_attachvaout(0x580, gactrlva_o580);
+	iocore_attachvainp(0x580, gactrlva_i580);
 	for (i = 0; i < 2; i++) {
-		iocoreva_attachout(0x590 + i * 2, gactrlva_o590);
-		iocoreva_attachout(0x591 + i * 2, gactrlva_o591);
-		iocoreva_attachout(0x5a0 + i * 2, gactrlva_o5a0);
+		iocore_attachvaout(0x590 + i * 2, gactrlva_o590);
+		iocore_attachvaout(0x591 + i * 2, gactrlva_o591);
+		iocore_attachvaout(0x5a0 + i * 2, gactrlva_o5a0);
 
-		iocoreva_attachinp(0x590 + i * 2, gactrlva_i590);
-		iocoreva_attachinp(0x591 + i * 2, gactrlva_i591);
-		iocoreva_attachinp(0x5a0 + i * 2, gactrlva_i5a0);
+		iocore_attachvainp(0x590 + i * 2, gactrlva_i590);
+		iocore_attachvainp(0x591 + i * 2, gactrlva_i591);
+		iocore_attachvainp(0x5a0 + i * 2, gactrlva_i5a0);
 	}
 }

@@ -266,10 +266,10 @@ void cgromva_reset(void) {
 }
 
 void cgromva_bind(void) {
-	iocoreva_attachout(0x14c, cgromva_o14c);
-	iocoreva_attachout(0x14d, cgromva_o14d);
-	iocoreva_attachout(0x14e, cgromva_o14e);
-	iocoreva_attachout(0x14f, cgromva_o14f);
+	iocore_attachvaout(0x14c, cgromva_o14c);
+	iocore_attachvaout(0x14d, cgromva_o14d);
+	iocore_attachvaout(0x14e, cgromva_o14e);
+	iocore_attachvaout(0x14f, cgromva_o14f);
 
-	iocoreva_attachinp(0x14e, cgromva_i14e);
+	iocore_attachvainp(0x14e, cgromva_i14e);
 }

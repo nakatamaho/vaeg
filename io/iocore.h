@@ -91,6 +91,8 @@ BOOL iocore_attachsndinp(UINT port, IOINP func);
 // 拡張I/O - 16bit decode
 BOOL iocore_attachout(UINT port, IOOUT func);
 BOOL iocore_attachinp(UINT port, IOINP func);
+BOOL iocore_attachvaout(UINT port, IOOUT func);
+BOOL iocore_attachvainp(UINT port, IOINP func);
 
 void iocore_create(void);
 void iocore_destroy(void);

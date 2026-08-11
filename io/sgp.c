@@ -1523,17 +1523,17 @@ void sgp_bind(void) {
 	int i;
 
 	for (i = 0x500; i < 0x510; i++) {
-		iocoreva_attachinp(i, sgp_i_notimpl);
+		iocore_attachvainp(i, sgp_i_notimpl);
 	}
 
 	for (i = 0x500; i < 0x504; i++) {
-		iocoreva_attachout(i, sgp_o500);
+		iocore_attachvaout(i, sgp_o500);
 	}
-	iocoreva_attachout(0x504, sgp_o504);
-	iocoreva_attachinp(0x504, sgp_i504);
+	iocore_attachvaout(0x504, sgp_o504);
+	iocore_attachvainp(0x504, sgp_i504);
 
-	iocoreva_attachout(0x506, sgp_o506);
-	iocoreva_attachinp(0x506, sgp_i506);
+	iocore_attachvaout(0x506, sgp_o506);
+	iocore_attachvainp(0x506, sgp_i506);
 
-	iocoreva_attachinp(0x508, sgp_i508);
+	iocore_attachvainp(0x508, sgp_i508);
 }

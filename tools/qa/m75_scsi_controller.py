@@ -361,9 +361,9 @@ def validate(root: pathlib.Path) -> None:
     require(scsiio, "scsi_csr_latched = FALSE",
             "CSR latch release")
     require(scsiio, "scsiio.resent = (2 << 3)", "VA IRQ6 default")
-    require(scsiio, "iocoreva_attachinp(0x0cc6, scsiio_icc6)",
+    require(scsiio, "iocore_attachvainp(0x0cc6, scsiio_icc6)",
             "VA data-port input mapping")
-    require(scsiio, "iocoreva_attachout(0x0cc6, scsiio_occ6)",
+    require(scsiio, "iocore_attachvaout(0x0cc6, scsiio_occ6)",
             "VA data-port output mapping")
     if "scsiio.bios" in scsiio or "mem + 0xd2000" in scsiio:
         raise AssertionError("SCSI board ROM must remain detached")

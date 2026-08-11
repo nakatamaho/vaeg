@@ -40,6 +40,6 @@ void np2vasup_bind(void) {
 	iocore_attachout(0xffd0, np2vasup_offd0);
 	iocore_attachinp(0xffd0, np2vasup_iffd0);
 
-	iocoreva_attachout(0xffd0, np2vasup_offd0);
-	iocoreva_attachinp(0xffd0, np2vasup_iffd0);
+	iocore_attachvaout(0xffd0, np2vasup_offd0);
+	iocore_attachvainp(0xffd0, np2vasup_iffd0);
 }
