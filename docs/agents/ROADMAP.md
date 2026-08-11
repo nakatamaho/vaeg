@@ -127,14 +127,14 @@ M36–M41 archive status.
 | M81 | tasks/M81_va_bios_reachability_cleanup.md | Audit VA BIOS reachability and remove only proven 98-only BIOS handlers | **G81 human gate passed; M81 closed at `094668edfe7c7c6a326b1e9b705eeb9a9141126f`** |
 | M82 | tasks/M82_upd780_subsystem_cpu_audit.md | Audit the FDC subsystem uPD780-compatible CPU boundary currently implemented through the suzukiplan-backed wrapper | **G82 human gate passed; M82 closed at `e2d6b9d05d0a20185486a0314717808b326006c8`** |
 | M83 | tasks/M83_move_upd780_subsystem_cpu.md | Create `cpu/upd780/` and move the FDC subsystem uPD780-compatible CPU wrapper/backend there | **G83 human gate passed; M83 closed at `d90c8721d6120af9994cedb63685e8a60546513e`; merged to main in `6a3412bd34c66d068b299a11edf13df45799f3b5`** |
-| M84 | tasks/M84_cpucva_boundary_cleanup.md | M84a: retire the approved non-VA C-bus sound-board dependency closure (`amd98`, `board26k`, `board86`, `board118`, `pcm86io`, and `cs4231io`); M84b: clean up the remaining `cpucva/` boundary while keeping uPD9002 instruction execution and VA memory ownership separate | **G84 human; M84a checkpoint `bf553ce41602b9ff3a4a8879412c77d5a8e70f4a` complete; M84b checkpoints `088dacf6c7aafa0d364a845ead94f0796583eadc` and `890996ecb28627ec77c332c7917c61af29e1c23a` complete; validation pending** |
-| M85 | tasks/M85_state_save_section_cleanup.md | Audit retired state-save sections, remove only approved obsolete sections, and document compatibility behavior | **G85 human; planned** |
+| M84 | tasks/M84_cpucva_boundary_cleanup.md | M84a: retire the approved non-VA C-bus sound-board dependency closure (`amd98`, `board26k`, `board86`, `board118`, `pcm86io`, and `cs4231io`); M84b: clean up the remaining `cpucva/` boundary while keeping uPD9002 instruction execution and VA memory ownership separate | **G84 human gate passed; M84 closed at `9aeb6512e59da7e794ffede50b7a184f601d137e`; merged to `main`** |
+| M85 | tasks/M85_state_save_section_cleanup.md | Audit retired state-save sections, remove only approved obsolete sections, and document compatibility behavior | **G85 human; M85 in progress** |
 | M86 | tasks/M86_machine_core_relocation.md | Move active root machine-core sources such as `pccore`, `nevent`, `timing`, `calendar`, `keystat`, `statsave`, `debugsub`, and `clockscale` under `machine/` without behavior change | **G86 human; planned** |
 | M87 | tasks/M87_legacy_tool_rom_regeneration_audit.md | Audit remaining legacy tools and ROM/resource regeneration flows before the final VA-only source-tree audit; the `lio/` BIOS/LIO disposition was pulled forward into M81 | **G87 human; planned** |
 | M88 | tasks/M88_final_va_only_source_tree_audit.md | Final VA-only active source-tree audit after performance, BASIC, SCSI, uPD9002 emulation-mode authority, I/O, BIOS, uPD780, `cpucva`, state-save, machine-core relocation, and legacy tool cleanup | **G88 human; planned** |
 
 Phase 2 dependencies: M7 → M8 → {M9, M10 parallel} → M11 → M12 → M13.
-Post-phase dependency: M13 → M14 → M15 → M16 → M17 → M18 → M19 → M20 → M21 → M22 → M23 → M24 → M25 → M26 → M27 → M28 → M29 → M30 → M31 → M32. The required Z80 migration sequence M34 → M35 → M36 → M37 → M38 → M39 → M40 → M41 is complete. The separately authorized uPD9002 preparation sequence passed G42 through G51. M52–M56 were consumed by unrelated work and retain their historical meanings. The renumbered semantics campaign passed G57 at exactly `72322d5c9b8e40e4a988312aebe163a8190e2aa5`, G58 at exactly `bc8a55c6da1082b85b794068e0d933e31fe46b13`, G59 at exactly `e7f2325bc81310532091a8ca82914030fdb8b6ba`, G60a at exactly `ba2b7d3f5c76646b30d63fd8951f4a1964817b15`, G60b at exactly `4e5d74d0d9f675df2342353b8bfdbb2e5cded768`, G61 at exactly `829f314bb0d363ec5b6e9aa738e948b1a3adb365`, G62 at exactly `70b8e94e96aef4cb79eed72c7813c4148c5c0dd8`, G64 at exactly `9b151923f9468555043152ffe8651c97b9ecac5b`, terminal G65m at exactly `81887aae14f718d7d4d0f2a7bd3fe05d5ea80630`, G66b at exactly `97f760e8da573888edf089c2875c623895a3c2c9`, G67 at exactly `f8f350e1aadec4b6c79c20192d14c50bd39934be`, G68 at exactly `d1e0225c4edb716893fe5579283fbf0915db72b9`, G69 at exactly `680308a603b24341c5b9649657f01791b79002f7`, G70 at exactly `53d47ed500baef247a1be5f3ccc18bdb0c00c0cc`, G71 at exactly `24950894eca79e308afae8d574d43c8f393bb483`, and G72 at exactly `643d9f7289d817c67f343bf01be368b546bc1438`. M73 starts from the approved and main-integrated G72 candidate and owns only the post-M49 runtime performance regression. The broader IDP timing and buffer semantics remain deferred. See [`UPD9002_SEMANTICS_MIGRATION.md`](UPD9002_SEMANTICS_MIGRATION.md). M79, M80, M81, and M82 then completed the VA I/O dispatcher, 98-only I/O, VA BIOS reachability, and FDC uPD780 boundary work at the exact checkpoints listed below. After G82, pre-M83 CI baseline repair `0a2608351d4e301e9729d7d4ab25d662b98d8c74` restored the stale M69 test's current I/O API and VA mode selection; the full nine-job CI run `31496082527` passed. M83 then moved the FDC-facing uPD780 disassembler to `cpu/upd780/`; its Linux, MinGW, hosted CI, and standard FDD validation passed, and the maintainer confirmed G83. M83 is merged to main at `6a3412bd34c66d068b299a11edf13df45799f3b5`. M84 is split into M84a, the approved non-VA C-bus sound-board retirement, followed by M84b, the remaining `cpucva/` boundary cleanup; both remain under the single G84 human gate.
+Post-phase dependency: M13 → M14 → M15 → M16 → M17 → M18 → M19 → M20 → M21 → M22 → M23 → M24 → M25 → M26 → M27 → M28 → M29 → M30 → M31 → M32. The required Z80 migration sequence M34 → M35 → M36 → M37 → M38 → M39 → M40 → M41 is complete. The separately authorized uPD9002 preparation sequence passed G42 through G51. M52–M56 were consumed by unrelated work and retain their historical meanings. The renumbered semantics campaign passed G57 at exactly `72322d5c9b8e40e4a988312aebe163a8190e2aa5`, G58 at exactly `bc8a55c6da1082b85b794068e0d933e31fe46b13`, G59 at exactly `e7f2325bc81310532091a8ca82914030fdb8b6ba`, G60a at exactly `ba2b7d3f5c76646b30d63fd8951f4a1964817b15`, G60b at exactly `4e5d74d0d9f675df2342353b8bfdbb2e5cded768`, G61 at exactly `829f314bb0d363ec5b6e9aa738e948b1a3adb365`, G62 at exactly `70b8e94e96aef4cb79eed72c7813c4148c5c0dd8`, G64 at exactly `9b151923f9468555043152ffe8651c97b9ecac5b`, terminal G65m at exactly `81887aae14f718d7d4d0f2a7bd3fe05d5ea80630`, G66b at exactly `97f760e8da573888edf089c2875c623895a3c2c9`, G67 at exactly `f8f350e1aadec4b6c79c20192d14c50bd39934be`, G68 at exactly `d1e0225c4edb716893fe5579283fbf0915db72b9`, G69 at exactly `680308a603b24341c5b9649657f01791b79002f7`, G70 at exactly `53d47ed500baef247a1be5f3ccc18bdb0c00c0cc`, G71 at exactly `24950894eca79e308afae8d574d43c8f393bb483`, and G72 at exactly `643d9f7289d817c67f343bf01be368b546bc1438`. M73 starts from the approved and main-integrated G72 candidate and owns only the post-M49 runtime performance regression. The broader IDP timing and buffer semantics remain deferred. See [`UPD9002_SEMANTICS_MIGRATION.md`](UPD9002_SEMANTICS_MIGRATION.md). M79, M80, M81, and M82 then completed the VA I/O dispatcher, 98-only I/O, VA BIOS reachability, and FDC uPD780 boundary work at the exact checkpoints listed below. After G82, pre-M83 CI baseline repair `0a2608351d4e301e9729d7d4ab25d662b98d8c74` restored the stale M69 test's current I/O API and VA mode selection; the full nine-job CI run `31496082527` passed. M83 then moved the FDC-facing uPD780 disassembler to `cpu/upd780/`; its Linux, MinGW, hosted CI, and standard FDD validation passed, and the maintainer confirmed G83. M83 is merged to main at `6a3412bd34c66d068b299a11edf13df45799f3b5`. M84 was split into M84a, the approved non-VA C-bus sound-board retirement, followed by M84b, the remaining `cpucva/` boundary cleanup. G84 passed after both checkpoints, and M84 was fast-forwarded to `main` at `9aeb6512e59da7e794ffede50b7a184f601d137e`. M85 now audits state-save sections and compatibility boundaries from that main continuation.
 M9 must pass before M11 (all three OSes must ship the VA machine, not
 the PC-98 scaffold).
 
@@ -182,15 +182,17 @@ The current approved gate ledger is:
   [`m84a_nonva_cbus_board_retirement.md`](reports/m84a_nonva_cbus_board_retirement.md).
   The implementation checkpoint is
   [`bf553ce41602b9ff3a4a8879412c77d5a8e70f4a`](https://github.com/nakatamaho/vaeg/commit/bf553ce41602b9ff3a4a8879412c77d5a8e70f4a).
-  G84 remains pending until the subsequent M84b boundary cleanup and human
-  validation are complete.
+  G84 passed after the subsequent M84b boundary cleanup and human
+  validation; M84 closed at `9aeb6512e59da7e794ffede50b7a184f601d137e` and
+  was merged to `main`.
 - M84b completes the remaining `cpucva/` boundary cleanup. Its report is
   [`m84_cpucva_boundary_cleanup.md`](reports/m84_cpucva_boundary_cleanup.md).
   The rename-only checkpoint is
   [`088dacf6c7aafa0d364a845ead94f0796583eadc`](https://github.com/nakatamaho/vaeg/commit/088dacf6c7aafa0d364a845ead94f0796583eadc),
   followed by reference fixups at
   [`890996ecb28627ec77c332c7917c61af29e1c23a`](https://github.com/nakatamaho/vaeg/commit/890996ecb28627ec77c332c7917c61af29e1c23a).
-  G84 human validation remains pending.
+  G84 human validation passed; M84 closed at
+  `9aeb6512e59da7e794ffede50b7a184f601d137e` and was merged to `main`.
 
 
 M78 was explicitly reopened from the current `main` continuation on 2026-08-11.
@@ -203,7 +205,9 @@ after the uPD780 disassembler move, current-path reference fixups, Linux,
 MinGW, hosted CI, and the standard FDD human gate. M83 is merged to main at
 `6a3412bd34c66d068b299a11edf13df45799f3b5`. The exact records are listed in
 the approved gate ledger above; M84a and M84b implementation checkpoints are
-complete, and G84 human validation remains pending.
+complete, G84 human validation passed, and M84 is merged to `main` at
+`9aeb6512e59da7e794ffede50b7a184f601d137e`. M85 starts from that main
+continuation and does not begin M86.
 
 
 M72 closed the inactive compile-flag cleanup while intentionally leaving
@@ -225,13 +229,12 @@ M83 passed G83 and is closed after moving the FDC-facing uPD780 disassembler
 into `cpu/upd780/`, updating current references, and completing the Linux,
 MinGW, hosted-CI, and human FDD validation. The M83 close/report checkpoint
 is `d90c8721d6120af9994cedb63685e8a60546513e`, and the M83 result is merged
-to `main` at `6a3412bd34c66d068b299a11edf13df45799f3b5`. M84 is split: M84a
+to `main` at `6a3412bd34c66d068b299a11edf13df45799f3b5`. M84 was split: M84a
 retires the explicitly approved non-VA C-bus sound-board dependency closure;
 M84b then continues the planned `cpucva/` boundary cleanup. M84a is recorded
 in [`reports/m84a_nonva_cbus_board_retirement.md`](reports/m84a_nonva_cbus_board_retirement.md);
-G84 remains pending until M84b and the human gate complete; M84a
-implementation is committed at
-`bf553ce41602b9ff3a4a8879412c77d5a8e70f4a`. M85-M88 define
+G84 passed after M84b and the human gate, and M84 is merged to `main` at
+`9aeb6512e59da7e794ffede50b7a184f601d137e`. M85-M88 define
 the remaining planned VA-only source-tree consolidation sequence: clean state-save
 sections with compatibility evidence, move active root machine-core sources
 under `machine/`, audit legacy tool and ROM/resource regeneration flows such
