@@ -15,9 +15,10 @@ modification, are permitted provided that the following conditions are met:
 
 M85 starts from the G84-approved M84 merge at
 [9aeb6512](https://github.com/nakatamaho/vaeg/commit/9aeb6512e59da7e794ffede50b7a184f601d137e).
-The implementation candidate is on
-topic/m85-state-save-section-cleanup. G85 human gate passed; M85 is closed
-on this topic branch. This report does not merge the branch to main.
+The implementation candidate was completed on
+topic/m85-state-save-section-cleanup. G85 human gate passed; M85 was closed
+and merged to `main` at
+[0b663304](https://github.com/nakatamaho/vaeg/commit/0b6633041e2fb8bae8de7efa1a1768dc6c3e5cba).
 
 The audit covers the current writer table in
 [statsave.tbl](../../../statsave.tbl), the preflight/load coordinator in
