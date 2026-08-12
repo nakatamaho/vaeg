@@ -26,10 +26,10 @@ POSSIBILITY OF SUCH DAMAGE.
 
 ## Status
 
-M89 is implemented on
-`topic/m89-merge-va-source-directories` through
-[f93bb9a](https://github.com/nakatamaho/vaeg/commit/f93bb9a95b1236f977c671bd994e8de2a6e67ff5).
-The candidate is not merged to `main`; G89 human validation is pending.
+M89 source candidate
+[665877a](https://github.com/nakatamaho/vaeg/commit/665877ab7e0961907a255796b30e7438115c6e51)
+completed the source-layout consolidation on `topic/m89-merge-va-source-directories`.
+The maintainer passed G89 human validation against this exact candidate.
 The predecessor M88 was merged to `main` at
 [b142bc3](https://github.com/nakatamaho/vaeg/commit/b142bc37c4fe0cc50381727eac5766a5b3843e71).
 
@@ -80,26 +80,25 @@ current operational documentation use the consolidated paths.
 | MinGW artifact | `build/mingw-cross/sdl2/vaeg.exe`; SHA-256 `c6e09122e5aa64b183c49a01988ffaea4a1fe27193bc19f74b8c4c0e27243c8a` |
 | Binary payload audit | PASS; no ROM, disk, font, icon, wave, or other binary payload was changed |
 | Current active-path audit | PASS; no retired `biosva/`, `vramva/`, or `cpucva/` path remains in active source, CMake, tests, or current operational documentation |
+| Hosted GitHub Actions | PASS; run [31577266904](https://github.com/nakatamaho/vaeg/actions/runs/31577266904), all 9 jobs successful against `665877ab7e0961907a255796b30e7438115c6e51` |
 
 The repository and Git helper checks were run with
 `GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null`, which is required
 in the restricted checkout environment. Historical evidence is intentionally
 not mass-rewritten by this layout move.
 
-Hosted GitHub Actions is intentionally run after this candidate is pushed;
-its result will be appended to this report without changing the source
-consolidation.
+Hosted GitHub Actions run
+[31577266904](https://github.com/nakatamaho/vaeg/actions/runs/31577266904)
+completed successfully: repository invariants, Ubuntu GCC/Clang/ASAN, macOS,
+both Windows MinGW jobs, standalone conformance, and the uPD9002 architectural
+SST ratchet all passed against the human-gate candidate.
 
 ## G89 human gate
 
-Pending maintainer validation from a clean checkout:
+The maintainer reported that the clean-checkout V3 boot, bundled VA demo, OS
+boot, simple FDD/SASI/SCSI/keyboard/display/state-save operations, Screen font
+loading, MPU98II path, and normal VA/VA2 operation all passed against
+candidate `665877ab7e0961907a255796b30e7438115c6e51`.
 
-- build the candidate and boot V3 mode;
-- run the bundled VA demo;
-- boot an OS and perform simple FDD, SASI/SCSI, keyboard, display, and
-  state-save operations;
-- verify Screen font loading and the retained MPU98II path;
-- confirm that the consolidated source layout does not alter normal VA/VA2
-  operation.
-
-M90 must not start and M89 must not be merged to `main` until G89 is passed.
+G89 passed on 2026-08-12. M89 is closed and authorized for fast-forward
+integration into `main`.
