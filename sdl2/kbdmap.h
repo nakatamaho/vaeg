@@ -164,7 +164,8 @@ extern "C" {
 #endif
 
 void kbdmap_initialize(void);
-BOOL kbdmap_keydown(UINT scancode, SDL_Keycode keycode, UINT16 mod);
+BOOL kbdmap_keydown(UINT scancode, SDL_Keycode keycode, UINT16 mod,
+					BOOL repeat);
 BOOL kbdmap_keyup(UINT scancode, SDL_Keycode keycode, UINT16 mod);
 BOOL kbdmap_textinput(const char *text);
 BYTE kbdmap_lookup(UINT scancode);

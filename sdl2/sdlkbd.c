@@ -36,11 +36,11 @@ void sdlkbd_initialize(void) {
 void sdlkbd_keydown(UINT scancode, SDL_Keycode keycode, UINT16 mod,
 					BOOL captured, BOOL repeat) {
 
-	if (captured || repeat) {
+	if (captured) {
 		kbdmap_trace_captured_key(scancode, keycode, mod, TRUE, repeat);
 		return;
 	}
-	kbdmap_keydown(scancode, keycode, mod);
+	kbdmap_keydown(scancode, keycode, mod, repeat);
 }
 
 void sdlkbd_keyup(UINT scancode, SDL_Keycode keycode, UINT16 mod,
