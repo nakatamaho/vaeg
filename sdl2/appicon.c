@@ -30,6 +30,58 @@
 extern const unsigned char vaeg_app_icon_ico[];
 extern const unsigned int vaeg_app_icon_ico_size;
 
+static BOOL appicon_value_present(const char *value) {
+
+	return((value != NULL) && (value[0] != '\0'));
+}
+
+#if defined(__linux__)
+static BOOL appicon_video_driver_available(const char *name) {
+
+	int	index;
+	int	count;
+
+	count = SDL_GetNumVideoDrivers();
+	for (index = 0; index < count; index++) {
+		if (SDL_strcmp(SDL_GetVideoDriver(index), name) == 0) {
+			return(TRUE);
+		}
+	}
+	return(FALSE);
+}
+#endif
+
+BOOL appicon_wslg_needs_x11(const char *video_driver, const char *display,
+				const char *wayland_display, const char *wsl_interop,
+				const char *wsl_distro_name) {
+
+	return(!appicon_value_present(video_driver) &&
+		appicon_value_present(display) &&
+		appicon_value_present(wayland_display) &&
+		(appicon_value_present(wsl_interop) ||
+		 appicon_value_present(wsl_distro_name)));
+}
+
+void appicon_prepare_video_driver(void) {
+
+#if defined(__linux__)
+	if (appicon_wslg_needs_x11(SDL_getenv("SDL_VIDEODRIVER"),
+			SDL_getenv("DISPLAY"), SDL_getenv("WAYLAND_DISPLAY"),
+			SDL_getenv("WSL_INTEROP"), SDL_getenv("WSL_DISTRO_NAME")) &&
+		appicon_video_driver_available("x11")) {
+		if (SDL_setenv("SDL_VIDEODRIVER", "x11", 0) == 0) {
+			fprintf(stderr,
+				"INFO: WSLg runtime icon: using XWayland icon support\n");
+		}
+		else {
+			fprintf(stderr,
+				"Warning: could not select XWayland for the WSLg icon: %s\n",
+				SDL_GetError());
+		}
+	}
+#endif
+}
+
 static UINT16 appicon_u16(const unsigned char *data) {
 
 	return((UINT16)(data[0] | ((UINT16)data[1] << 8)));
@@ -41,7 +93,7 @@ static UINT32 appicon_u32(const unsigned char *data) {
 			((UINT32)data[2] << 16) | ((UINT32)data[3] << 24));
 }
 
-static SDL_Surface *appicon_load_surface(void) {
+static SDL_Surface *appicon_load_surface(int preferred_size) {
 
 	const unsigned char	*icon;
 	const unsigned char	*entry;
@@ -50,6 +102,8 @@ static SDL_Surface *appicon_load_surface(void) {
 	SDL_Surface			*surface;
 	UINT32				best_area;
 	UINT32				area;
+	UINT32				difference;
+	UINT32				best_difference;
 	UINT32				offset;
 	UINT32				size;
 	UINT32				dib_size;
@@ -72,6 +126,7 @@ static SDL_Surface *appicon_load_surface(void) {
 	}
 	best_index = 0xffff;
 	best_area = 0;
+	best_difference = 0xffffffff;
 	for (index = 0; index < count; index++) {
 		entry = icon + 6 + (index * 16);
 		width = entry[0] ? entry[0] : 256;
@@ -95,8 +150,15 @@ static SDL_Surface *appicon_load_surface(void) {
 			continue;
 		}
 		area = (UINT32)(width * height);
-		if (area > best_area) {
+		difference = (preferred_size > 0) ?
+			(UINT32)(abs(width - preferred_size) +
+					abs(height - preferred_size)) : 0;
+		if (((preferred_size > 0) &&
+			((difference < best_difference) ||
+			 ((difference == best_difference) && (area > best_area)))) ||
+			((preferred_size <= 0) && (area > best_area))) {
 			best_area = area;
+			best_difference = difference;
 			best_index = index;
 		}
 	}
@@ -135,7 +197,7 @@ void appicon_set_window(void *window) {
 	if (window == NULL) {
 		return;
 	}
-	surface = appicon_load_surface();
+	surface = appicon_load_surface(0);
 	if (surface == NULL) {
 		fprintf(stderr, "Warning: embedded application icon is invalid: %s\n",
 				SDL_GetError());
