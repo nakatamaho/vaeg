@@ -72,7 +72,7 @@ separate parity correction or move it to Open Defects.
 
 ### Retired FMBOARD state payloads were silently accepted
 
-- **Status:** fixed in M85; G85 human review pending.
+- **Status:** fixed in M85; G85 human gate passed.
 - **Symptom:** a state saved with a removed non-VA sound-board option could pass
   the generic FMBOARD version check and report a successful load even though
   the current tree no longer had the corresponding board or payload decoder.
