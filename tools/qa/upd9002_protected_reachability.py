@@ -317,9 +317,9 @@ def verify_protected_source(root: pathlib.Path) -> None:
         "i286c/i286c.c": read_text(root, "i286c/i286c.c"),
         "i286c/upd9002_state.c": read_text(root, "i286c/upd9002_state.c"),
         "io/cpuio.c": read_text(root, "io/cpuio.c"),
-        "pccore.c": read_text(root, "pccore.c"),
-        "statsave.c": read_text(root, "statsave.c"),
-        "statsave.tbl": read_text(root, "statsave.tbl"),
+        "machine/pccore.c": read_text(root, "machine/pccore.c"),
+        "machine/statsave.c": read_text(root, "machine/statsave.c"),
+        "machine/statsave.tbl": read_text(root, "machine/statsave.tbl"),
     }
     joined = "\n".join(strip_comments(text) for text in sources.values())
     for token, expected in PROTECTED_TOKEN_COUNTS.items():
@@ -426,7 +426,7 @@ def verify_state(root: pathlib.Path) -> None:
 
 def verify_diagnostic(root: pathlib.Path) -> None:
     dispatch = strip_comments(read_text(root, "i286c/v30patch.c"))
-    pccore = strip_comments(read_text(root, "pccore.c"))
+    pccore = strip_comments(read_text(root, "machine/pccore.c"))
     state = strip_comments(read_text(root, "i286c/upd9002_state.c"))
     test = strip_comments(
         read_text(root, "tests/upd9002/rep0f_diagnostic_stop.c"))
@@ -507,7 +507,7 @@ def build_candidates() -> List[Dict[str, str]]:
          "active_native_required", "transactional state adapter and PE rejection"),
         ("file.cpuio", "io/cpuio.c", "active_native_required",
          "active reset-request I/O reads CPU_MSW"),
-        ("file.statsave", "statsave.c", "active_native_required",
+        ("file.statsave", "machine/statsave.c", "active_native_required",
          "CPU286 preflight, load, and save callbacks"),
         ("file.frozen_i286x", "i286x/", "frozen_reference_only",
          "unsupported frozen assembly/reference implementation"),
@@ -577,7 +577,7 @@ def build_candidates() -> List[Dict[str, str]]:
             defining = "i286c/v30patch.c"
             disposition = "active_native_required"
         elif name == "pccore_exec":
-            defining = "pccore.c"
+            defining = "machine/pccore.c"
             disposition = "active_native_required"
         rows.append(candidate(
             "diagnostic.function." + name, name, "function", defining,

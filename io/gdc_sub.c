@@ -3,7 +3,7 @@
 #include	<math.h>
 #endif
 #include	"cpucore.h"
-#include	"pccore.h"
+#include	"machine/pccore.h"
 #include	"iocore.h"
 #include	"gdc_sub.h"
 #include	"gdc_pset.h"

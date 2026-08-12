@@ -96,7 +96,7 @@ the runtime `pccore` model state:
 - DIP switches and memory size affect CPU mode, extension memory, and HDD
   interface selection.
 
-The conversion lives in `pccore.c:140-219`.
+The conversion lives in `machine/pccore.c:140-219`.
 
 ## Core Construction
 
@@ -110,7 +110,7 @@ guest reset:
 - FDD, SXSI, font, GDC, sound, serial, MIDI, PC-9861K, and I/O core
   construction.
 
-This is in `pccore.c:264-301`. It is mostly allocation and table setup;
+This is in `machine/pccore.c:264-301`. It is mostly allocation and table setup;
 it is not the hardware reset state yet.
 
 ## Reset and Hardware Binding
@@ -129,7 +129,7 @@ IP = FFF0h
 physical = 0xFFFF0
 ```
 
-The reset implementation is `pccore.c:360-480`.
+The reset implementation is `machine/pccore.c:360-480`.
 
 ## ROM and Memory
 
@@ -210,7 +210,7 @@ cbuscore_bind()
 fmboard_bind()
 ```
 
-These calls are in `pccore.c:451-454`. The PC-88VA extended I/O table is
+These calls are in `machine/pccore.c:451-454`. The PC-88VA extended I/O table is
 implemented under `io/`; the common and VA registration maps are owned by
 `io/iocore.c`, whose canonical `iocore_out*`/`iocore_inp*` dispatcher selects
 the VA map through `iomode_va`. VA registrations use `iocore_attachvaout` and
@@ -251,7 +251,7 @@ The V30/uPD9002 CPU model default is 7.9872 MHz for all three models. CPU
 multiplier changes do not alter the SGP default; Follow CPU and Custom SGP
 modes explicitly scale it.
 
-The key implementation is `pccore_exec()` in `pccore.c`.
+The key implementation is `pccore_exec()` in `machine/pccore.c`.
 
 ## PC-88VA Guest Boot Path
 

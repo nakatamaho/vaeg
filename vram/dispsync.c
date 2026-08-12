@@ -1,7 +1,7 @@
 #include	"compiler.h"
 #include	"scrnmng.h"
 #include	"memory.h"
-#include	"pccore.h"
+#include	"machine/pccore.h"
 #include	"iocore.h"
 #include	"scrndraw.h"
 #include	"dispsync.h"

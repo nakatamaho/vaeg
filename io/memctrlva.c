@@ -4,7 +4,7 @@
 
 #include	"compiler.h"
 #include	"cpucore.h"
-#include	"pccore.h"
+#include	"machine/pccore.h"
 #include	"iocore.h"
 #include	"iocoreva.h"
 #include	"memoryva.h"

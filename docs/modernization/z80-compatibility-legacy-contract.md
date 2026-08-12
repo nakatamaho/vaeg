@@ -54,7 +54,7 @@ are members of the production `libvaeg_va.a` archive.
 | four bus/clock interfaces | `z80if.h:29-62`; implemented only by `Clock`, `ClockCounter`, and `Subsystem` at `subsystem.cpp:34-121` | independently authored same-semantic contracts | M37/M39 |
 | `Z80C` | public surface `z80c.h:81-110`; owned and initialized at `subsystem.cpp:105,128-145` | source-compatible class and used methods | M37/M39 |
 | `Z80Diag` | `z80diag.h`; owned by `Z80C`; active bridge calls it at `subsystem.cpp:353-355` | temporary bridge, then independent disassembler | M40 |
-| save hooks | bridge `subsystem.cpp:357-367`; consumer `statsave.c:1273-1302` | same C-facing section operations | M37/M39 |
+| save hooks | bridge `subsystem.cpp:357-367`; consumer `machine/statsave.c:1273-1302` | same C-facing section operations | M37/M39 |
 | disassembly hook | declaration `subsystem.h:26`, definition `subsystem.cpp:353-355`; no active caller found | reauthor hook before legacy deletion | M40 |
 
 Repository-wide active searches found these used `Z80C` methods: constructor,
@@ -152,7 +152,7 @@ The only active production `statsave_save` caller is the GUI state menu at
 `sdl2/gui/gui.cpp:2352-2373`. The frame driver calls `pccore_exec()` and waits
 for it to return before `gui_draw()` (`sdl2/np2.c:1192-1205`); `gui_draw()`
 opens the state menu (`gui.cpp:2590-2616`). During `pccore_exec()`, each VA
-slice calls `subsystemmx_exec()` (`pccore.c:1078-1217`), which calls the C
+slice calls `subsystemmx_exec()` (`machine/pccore.c:1078-1217`), which calls the C
 bridge and then `Z80C::Exec()` (`io/subsystemmx.c:48-53` and
 `subsystem.cpp:341-343`). All calls are synchronous on this path.
 
@@ -164,14 +164,14 @@ run_guest_frame()
   -> gui_draw()
   -> draw_state_menu()
   -> statsave_save()
-  -> STATFLAG_SUBCPU (`statsave.tbl:195`)
+  -> STATFLAG_SUBCPU (`machine/statsave.tbl:195`)
   -> flagsave_subsystemcpu()
   -> subsystem_savecpustatus()
   -> Z80C::SaveStatus()
 ```
 
-`statsave.c:1327-1417` drives the section table;
-`statsave.c:1273-1287` allocates the exact Z80-reported size and invokes the
+`machine/statsave.c:1327-1417` drives the section table;
+`machine/statsave.c:1273-1287` allocates the exact Z80-reported size and invokes the
 bridge. Consequently `Exec()` and every synchronous Z80 callback have returned
 and the CPU is at the completed instruction boundary established by the loop.
 No instruction-, prefix-, bus-, or callback-internal microstate is reachable

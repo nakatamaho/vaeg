@@ -1,8 +1,8 @@
 #include	"compiler.h"
 #include	"timemng.h"
-#include	"pccore.h"
+#include	"machine/pccore.h"
 #include	"iocore.h"
-#include	"calendar.h"
+#include	"machine/calendar.h"
 
 
 // ---- I/O

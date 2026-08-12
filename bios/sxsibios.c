@@ -1,12 +1,12 @@
 #include	"compiler.h"
 #include	"cpucore.h"
-#include	"pccore.h"
+#include	"machine/pccore.h"
 #include	"bios.h"
 #include	"biosmem.h"
 #include	"sxsibios.h"
 #include	"scsicmd.h"
 #include	"sxsi.h"
-#include	"timing.h"
+#include	"machine/timing.h"
 
 
 typedef REG8 (*SXSIFUNC)(UINT type, SXSIDEV sxsi);

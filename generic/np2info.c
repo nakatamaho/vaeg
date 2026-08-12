@@ -1,7 +1,7 @@
 #include	"compiler.h"
 #include	"strres.h"
 #include	"cpucore.h"
-#include	"pccore.h"
+#include	"machine/pccore.h"
 #include	"sound.h"
 #include	"fmboard.h"
 #include	"np2info.h"

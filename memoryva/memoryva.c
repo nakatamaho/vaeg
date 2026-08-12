@@ -27,7 +27,7 @@
 
 #include	"compiler.h"
 #include	"cpucore.h"
-#include	"pccore.h"
+#include	"machine/pccore.h"
 #include	"memoryva.h"
 #include	"gvramva.h"
 #include	"va91.h"

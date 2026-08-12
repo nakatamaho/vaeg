@@ -3,7 +3,7 @@
 #include	"dosio.h"
 #include	"sysmng.h"
 #include	"cpucore.h"
-#include	"pccore.h"
+#include	"machine/pccore.h"
 #include	"sxsi.h"
 #include	"newdisk.h"
 #include	<stdio.h>

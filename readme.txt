@@ -26,8 +26,8 @@
       ※現在は以下のソースコード内で個別に設定しています。
         (Windowsが APIによって \r\nの場合と\nの場合があるので…)
         ・common/_memory.c
-        ・debugsub.c
-        ・statsave.c
+        ・machine/debugsub.c
+        ・machine/statsave.c
 
     milstr.hはUTF-8文字列操作を使用します。
 

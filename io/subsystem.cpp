@@ -5,7 +5,7 @@
 
 #include	"compiler.h"
 #include	"cpucore.h"
-#include	"pccore.h"
+#include	"machine/pccore.h"
 
 #include	<cstdint>
 

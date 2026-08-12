@@ -2,7 +2,7 @@
 #include	"strres.h"
 #include	"dosio.h"
 #include	"sysmng.h"
-#include	"pccore.h"
+#include	"machine/pccore.h"
 #include	"iocore.h"
 #include	"fddfile.h"
 #include	"fdd_xdf.h"

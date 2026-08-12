@@ -1,7 +1,7 @@
 #include	"compiler.h"
 #include	"commng.h"
 #include	"cpucore.h"
-#include	"pccore.h"
+#include	"machine/pccore.h"
 #include	"iocore.h"
 
 
