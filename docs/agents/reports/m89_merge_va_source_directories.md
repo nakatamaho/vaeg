@@ -30,6 +30,8 @@ M89 source candidate
 [665877a](https://github.com/nakatamaho/vaeg/commit/665877ab7e0961907a255796b30e7438115c6e51)
 completed the source-layout consolidation on `topic/m89-merge-va-source-directories`.
 The maintainer passed G89 human validation against this exact candidate.
+The approved topic history was fast-forwarded to `main` at
+[5b4a22b](https://github.com/nakatamaho/vaeg/commit/5b4a22ba4e8a4fc7ef44f3d2dfcfe4c1001cde97).
 The predecessor M88 was merged to `main` at
 [b142bc3](https://github.com/nakatamaho/vaeg/commit/b142bc37c4fe0cc50381727eac5766a5b3843e71).
 
@@ -100,5 +102,6 @@ boot, simple FDD/SASI/SCSI/keyboard/display/state-save operations, Screen font
 loading, MPU98II path, and normal VA/VA2 operation all passed against
 candidate `665877ab7e0961907a255796b30e7438115c6e51`.
 
-G89 passed on 2026-08-12. M89 is closed and authorized for fast-forward
-integration into `main`.
+G89 passed on 2026-08-12. M89 was fast-forwarded to `main` at
+[5b4a22b](https://github.com/nakatamaho/vaeg/commit/5b4a22ba4e8a4fc7ef44f3d2dfcfe4c1001cde97)
+and is closed.
