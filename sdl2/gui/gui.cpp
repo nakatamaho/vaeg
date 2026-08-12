@@ -1109,6 +1109,76 @@ static void copy_path(char *dst, size_t dst_size, const std::string &src) {
 	milstr_ncpy(dst, src.c_str(), static_cast<int>(dst_size));
 }
 
+static std::vector<std::string> host_drive_roots(void) {
+
+	std::vector<std::string> roots;
+
+#if defined(_WIN32)
+	for (char letter = 'A'; letter <= 'Z'; letter++) {
+		std::string root;
+
+		root += letter;
+		root += ":\\";
+		if (is_directory(root)) {
+			roots.push_back(root);
+		}
+	}
+#endif
+	return roots;
+}
+
+static bool drive_root_matches(const std::string &path,
+							const std::string &root) {
+
+	if ((path.size() < 2) || (root.size() < 2) ||
+		(path[1] != ':') || (root[1] != ':')) {
+		return false;
+	}
+	return static_cast<char>(std::toupper(static_cast<unsigned char>(path[0]))) ==
+		static_cast<char>(std::toupper(static_cast<unsigned char>(root[0])));
+}
+
+static bool draw_host_drive_selector(std::string &directory, bool &refresh,
+							const char *id) {
+
+	const std::vector<std::string> roots = host_drive_roots();
+	std::string preview = "Current";
+	bool changed = false;
+
+	if (roots.empty()) {
+		return false;
+	}
+	for (const std::string &root : roots) {
+		if (drive_root_matches(directory, root)) {
+			preview = root.substr(0, 2);
+			break;
+		}
+	}
+	std::string combo_id = "Drive##";
+	combo_id += id;
+	ImGui::SetNextItemWidth(110.0f);
+	if (ImGui::BeginCombo(combo_id.c_str(), preview.c_str())) {
+		for (const std::string &root : roots) {
+			const std::string label = root.substr(0, 2);
+			const bool selected = (label == preview);
+
+			if (ImGui::Selectable(label.c_str(), selected)) {
+				directory = absolute_path(root);
+				refresh = true;
+				changed = true;
+			}
+			if (selected) {
+				ImGui::SetItemDefaultFocus();
+			}
+		}
+		ImGui::EndCombo();
+	}
+	if (ImGui::IsItemHovered()) {
+		ImGui::SetTooltip("Select a host drive");
+	}
+	return changed;
+}
+
 static bool browser_entry_less(const BrowserEntry &a, const BrowserEntry &b) {
 
 	if (a.is_dir != b.is_dir) {
@@ -1243,6 +1313,9 @@ static void draw_hostfat_browser_popup(void) {
 		if (g_gui.hostfat_browser_refresh) {
 			refresh_hostfat_browser();
 		}
+		draw_host_drive_selector(g_gui.hostfat_browser_dir,
+			g_gui.hostfat_browser_refresh, "hostfat");
+		ImGui::Text("Target Dir");
 		ImGui::TextWrapped("%s", g_gui.hostfat_browser_dir.c_str());
 		if (ImGui::Button("Up")) {
 			g_gui.hostfat_browser_dir = parent_dir(g_gui.hostfat_browser_dir);
@@ -1908,7 +1981,11 @@ static void draw_fdd_browser(void) {
 	ImGui::SetNextWindowSize(ImVec2(620.0f, 420.0f),
 							 ImGuiCond_FirstUseEver);
 	if (ImGui::Begin("Mount FDD image or archive", &g_gui.fdd_browser_open)) {
-		ImGui::Text("FDD%d directory", drive + 1);
+		if (draw_host_drive_selector(g_gui.fdd_browser_dir,
+				g_gui.fdd_browser_refresh, "fdd-open")) {
+			g_gui.fdd_path[drive][0] = '\0';
+		}
+		ImGui::Text("Target Dir");
 		ImGui::TextWrapped("%s", g_gui.fdd_browser_dir.c_str());
 		if (ImGui::Button("Home")) {
 			g_gui.fdd_browser_dir = home_dir();
@@ -1977,7 +2054,11 @@ static void draw_hdd_browser(void) {
 	ImGui::SetNextWindowSize(ImVec2(620.0f, 420.0f),
 							 ImGuiCond_FirstUseEver);
 	if (ImGui::Begin("Open HDD image", &g_gui.hdd_browser_open)) {
-		ImGui::Text("%s%d directory", hdd_interface_name(drive), slot + 1);
+		if (draw_host_drive_selector(g_gui.hdd_browser_dir,
+				g_gui.hdd_browser_refresh, "hdd-open")) {
+			g_gui.hdd_path[slot][0] = '\0';
+		}
+		ImGui::Text("Target Dir");
 		ImGui::TextWrapped("%s", g_gui.hdd_browser_dir.c_str());
 		if (ImGui::Button("Home")) {
 			g_gui.hdd_browser_dir = home_dir();
@@ -2038,7 +2119,12 @@ static void draw_new_sasi_dialog(void) {
 	ImGui::SetNextWindowSize(ImVec2(620.0f, 500.0f),
 							 ImGuiCond_FirstUseEver);
 	if (ImGui::Begin("Create SASI HDD image", &g_gui.new_sasi_open)) {
-		ImGui::Text("Target directory");
+		if (draw_host_drive_selector(g_gui.hdd_browser_dir,
+				g_gui.new_sasi_refresh, "new-sasi")) {
+			copy_path(g_gui.new_sasi_path, sizeof(g_gui.new_sasi_path),
+					join_path(g_gui.hdd_browser_dir, new_sasi_default_name()));
+		}
+		ImGui::Text("Target Dir");
 		ImGui::TextWrapped("%s", g_gui.hdd_browser_dir.c_str());
 		if (ImGui::Button("Home")) {
 			g_gui.hdd_browser_dir = home_dir();
@@ -2117,7 +2203,13 @@ static void draw_new_scsi_dialog(void) {
 	ImGui::SetNextWindowSize(ImVec2(620.0f, 500.0f),
 							 ImGuiCond_FirstUseEver);
 	if (ImGui::Begin("Create SCSI HDD image", &g_gui.new_scsi_open)) {
-		ImGui::Text("Target directory");
+		if (draw_host_drive_selector(g_gui.hdd_browser_dir,
+				g_gui.new_scsi_refresh, "new-scsi")) {
+			copy_path(g_gui.new_scsi_path, sizeof(g_gui.new_scsi_path),
+					new_scsi_default_path(g_gui.hdd_browser_dir,
+							g_gui.new_scsi_drive));
+		}
+		ImGui::Text("Target Dir");
 		ImGui::TextWrapped("%s", g_gui.hdd_browser_dir.c_str());
 		if (ImGui::Button("Home")) {
 			g_gui.hdd_browser_dir = home_dir();
@@ -2209,7 +2301,13 @@ static void draw_new_fdd_dialog(void) {
 	ImGui::SetNextWindowSize(ImVec2(620.0f, 500.0f),
 							 ImGuiCond_FirstUseEver);
 	if (ImGui::Begin("New FDD image", &g_gui.new_fdd_open)) {
-		ImGui::Text("Target directory");
+		if (draw_host_drive_selector(g_gui.fdd_browser_dir,
+				g_gui.new_fdd_refresh, "new-fdd")) {
+			copy_path(g_gui.new_fdd_path, sizeof(g_gui.new_fdd_path),
+					join_path(g_gui.fdd_browser_dir, new_fdd_default_name(
+							g_gui.new_fdd_format, g_gui.new_fdd_container)));
+		}
+		ImGui::Text("Target Dir");
 		ImGui::TextWrapped("%s", g_gui.fdd_browser_dir.c_str());
 		if (ImGui::Button("Home##new-fdd")) {
 			g_gui.fdd_browser_dir = home_dir();
