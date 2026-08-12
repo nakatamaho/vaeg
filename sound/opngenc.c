@@ -1,6 +1,6 @@
 #include	"compiler.h"
 #include	<math.h>
-#include	"pccore.h"
+#include	"machine/pccore.h"
 #include	"iocore.h"
 #include	"sound.h"
 #include	"fmboard.h"

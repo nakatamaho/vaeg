@@ -1,6 +1,6 @@
 #include	"compiler.h"
 #include	"cpucore.h"
-#include	"pccore.h"
+#include	"machine/pccore.h"
 
 
 	_NEVENT		nevent;

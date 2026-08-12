@@ -27,7 +27,7 @@
 
 #include "memoryva/memoryva.h"
 #include "io/tsp.h"
-#include "pccore.h"
+#include "machine/pccore.h"
 #include "scrnmng.h"
 
 #include <stdio.h>

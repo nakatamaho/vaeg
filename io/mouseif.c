@@ -1,9 +1,9 @@
 #include	"compiler.h"
 #include	"mousemng.h"
 #include	"cpucore.h"
-#include	"pccore.h"
+#include	"machine/pccore.h"
 #include	"iocore.h"
-#include	"keystat.h"
+#include	"machine/keystat.h"
 
 
 // マウス ver0.28

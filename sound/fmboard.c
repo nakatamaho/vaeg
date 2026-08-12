@@ -2,7 +2,7 @@
 #include	"joymng.h"
 #include	"soundmng.h"
 #include	"cpucore.h"
-#include	"pccore.h"
+#include	"machine/pccore.h"
 #include	"iocore.h"
 #include	"cbuscore.h"
 #include	"board14.h"
@@ -10,7 +10,7 @@
 #include	"sound.h"
 #include	"fmboard.h"
 #include	"beep.h"
-#include	"keystat.h"
+#include	"machine/keystat.h"
 
 #include	"boardsb2.h"
 

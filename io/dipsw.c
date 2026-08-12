@@ -1,7 +1,7 @@
 #include	"compiler.h"
 #include	"sysmng.h"
 #include	"cpucore.h"
-#include	"pccore.h"
+#include	"machine/pccore.h"
 #include	"iocore.h"
 #include	"sound.h"
 #include	"beep.h"

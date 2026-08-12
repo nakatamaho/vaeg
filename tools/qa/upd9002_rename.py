@@ -288,7 +288,7 @@ def verify(root: pathlib.Path) -> None:
         raise RenameError("retired internal compatibility identifiers remain:\n  "
                           + "\n  ".join(retained))
 
-    statsave = read_text(root, "statsave.tbl")
+    statsave = read_text(root, "machine/statsave.tbl")
     if statsave.count('{"UPD9002"') != 1:
         raise RenameError("statsave.tbl: UPD9002 section tag is not unique")
     if "&upd9002_regs" not in statsave or "sizeof(upd9002_regs)" not in statsave:

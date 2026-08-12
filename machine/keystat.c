@@ -1,10 +1,10 @@
 #include	"compiler.h"
 #include	"dosio.h"
 #include	"textfile.h"
-#include	"pccore.h"
+#include	"machine/pccore.h"
 #include	"iocore.h"
-#include	"keystat.h"
-#include	"keystat.tbl"
+#include	"machine/keystat.h"
+#include	"machine/keystat.tbl"
 
 
 typedef struct {

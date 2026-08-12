@@ -51,7 +51,7 @@ guest keyboard protocol or writing directly into guest text buffers.
 - Use QUASI88 only as semantic naming reference for PC-8801-style key
   roles. Do not copy QUASI88 numeric `KEY88_*` values.
 - Prove VA guest key codes from this repository, primarily
-  `keystat.h`, `win9x/winkbd.cpp`, and `io/serial.c`.
+  `machine/keystat.h`, `win9x/winkbd.cpp`, and `io/serial.c`.
 - Route physical and synthetic input through `sdl2/kbdinject.c`, which
   wraps the existing `keystat_senddata()` and `keystat_forcerelease()`
   make/break path.

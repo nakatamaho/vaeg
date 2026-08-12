@@ -64,7 +64,7 @@ on SDL executable-path APIs.
 - Other portable `getbiospath()` users found in the audit are read-only
   ROM, WAV, font, dictionary, or key-map assets:
   `biosva/biosva.c`, `bios/bios.c`, `sound/soundrom.c`,
-  `sound/rhythmc.c`, `fdd/fdd_mtr.c`, `iova/va91.c`, and `keystat.c`.
+  `sound/rhythmc.c`, `fdd/fdd_mtr.c`, `iova/va91.c`, and `machine/keystat.c`.
 - Fixed GUI save-state slots (`state0.nps` through `state9.nps`) are
   writable state but were not using `getbiospath()`; M11 stores them in
   the same per-platform state directory.

@@ -1,6 +1,6 @@
 #include	"compiler.h"
 #include	"cpucore.h"
-#include	"pccore.h"
+#include	"machine/pccore.h"
 #include	"iocore.h"
 #include	"cbuscore.h"
 #include	"sound.h"

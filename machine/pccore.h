@@ -1,7 +1,7 @@
 
-#include	"nevent.h"
-#include	"statsave.h"
-#include	"clockscale.h"
+#include	"machine/nevent.h"
+#include	"machine/statsave.h"
+#include	"machine/clockscale.h"
 
 enum {
 	PCBASECLOCK40		= 3993600,

@@ -186,7 +186,7 @@ def check_native_lifecycle(root):
     initialize = function_body(core, "void upd9002_core_initialize(void)")
     reset = function_body(core, "void upd9002_core_reset(void)")
     shut = function_body(core, "void upd9002_core_shut(void)")
-    scheduler = function_body(read_text(root, "pccore.c"),
+    scheduler = function_body(read_text(root, "machine/pccore.c"),
                               "void pccore_exec(BOOL draw)")
 
     require("upd9002_core_context.s.cpu_type = CPUTYPE_V30;" in initialize,

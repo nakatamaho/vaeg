@@ -2,9 +2,9 @@
 #include	"strres.h"
 #include	"dosio.h"
 #include	"cpucore.h"
-#include	"pccore.h"
+#include	"machine/pccore.h"
 #include	"iocore.h"
-#include	"debugsub.h"
+#include	"machine/debugsub.h"
 
 
 #if defined(MACOS)

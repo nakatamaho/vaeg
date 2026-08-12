@@ -29,7 +29,7 @@
 #include	"np2.h"
 #include	"dosio.h"
 #include	"ini.h"
-#include	"pccore.h"
+#include	"machine/pccore.h"
 #include	"sound.h"
 #include	"soundopts.h"
 #include	"opngen.h"

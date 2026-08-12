@@ -23,7 +23,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 #include	"compiler.h"
-#include	"keystat.h"
+#include	"machine/keystat.h"
 #include	"kbdinject.h"
 
 void kbdinject_keydown(BYTE guest_code) {

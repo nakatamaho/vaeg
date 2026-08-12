@@ -52,8 +52,8 @@ ACTIVE_STATE_PATHS = {
     "cpu/upd9002/upd9002_state.c",
     "cpu/upd9002/upd9002_state.h",
     "cpu/upd9002/cpucore.h",
-    "statsave.c",
-    "statsave.tbl",
+    "machine/statsave.c",
+    "machine/statsave.tbl",
 }
 
 CURRENT_TEST_PATHS = {
@@ -117,7 +117,7 @@ def read_path(root: pathlib.Path, path: str, tree: str | None) -> bytes | None:
 
 def classify(path: str, line: str, term: str) -> str:
     if path in ACTIVE_STATE_PATHS:
-        if path == "statsave.c" and "statflag_index_equals" in line:
+        if path == "machine/statsave.c" and "statflag_index_equals" in line:
             return "negative_test"
         if term in {
             "cpu286",
@@ -219,8 +219,8 @@ def write_json(path: pathlib.Path, payload: dict[str, Any]) -> None:
 
 
 def verify_m66a(root: pathlib.Path) -> dict[str, Any]:
-    tbl = (root / "statsave.tbl").read_text(encoding="utf-8")
-    statsave = (root / "statsave.c").read_text(encoding="utf-8")
+    tbl = (root / "machine/statsave.tbl").read_text(encoding="utf-8")
+    statsave = (root / "machine/statsave.c").read_text(encoding="utf-8")
     state_h = (root / "cpu/upd9002/upd9002_state.h").read_text(encoding="utf-8")
     state_c = (root / "cpu/upd9002/upd9002_state.c").read_text(encoding="utf-8")
 

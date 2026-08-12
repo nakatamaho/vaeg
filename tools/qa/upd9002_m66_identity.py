@@ -101,9 +101,9 @@ ACTIVE_SOURCE_PREFIXES = (
 
 ACTIVE_ROOT_FILES = {
     "CMakeLists.txt",
-    "statsave.c",
-    "statsave.h",
-    "statsave.tbl",
+    "machine/statsave.c",
+    "machine/statsave.h",
+    "machine/statsave.tbl",
 }
 
 HISTORICAL_PREFIXES = (

@@ -1,13 +1,13 @@
 #include	"compiler.h"
 #include	"scrnmng.h"
 #include	"cpucore.h"
-#include	"pccore.h"
+#include	"machine/pccore.h"
 #include	"iocore.h"
 #include	"gdc_cmd.tbl"
 #include	"gdc_sub.h"
 #include	"vram.h"
 #include	"palettes.h"
-#include	"timing.h"
+#include	"machine/timing.h"
 
 #define	SEARCH_SYNC
 #define	TURE_SYNC

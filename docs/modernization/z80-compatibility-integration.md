@@ -84,7 +84,7 @@ inhibition. The subsystem mirrors restored external WAIT only for tracing and
 wake diagnostics; the core's restored state remains authoritative.
 
 `subsystem_savecpustatus()` and `subsystem_loadcpustatus()` now return success
-or failure. `statsave.c` propagates a codec rejection instead of continuing as
+or failure. `machine/statsave.c` propagates a codec rejection instead of continuing as
 if an unsupported compatibility-state revision had loaded successfully. The ROM-less test
 copies a valid state, changes only the embedded compatibility-state revision, and requires the
 top-level load to fail before loading the valid state again.
