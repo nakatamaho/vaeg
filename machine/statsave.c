@@ -14,7 +14,6 @@
 #include	"sasiio.h"
 #include	"scsiio.h"
 #include	"mpu98ii.h"
-#include	"board14.h"
 #include	"bios.h"
 #include	"vram.h"
 #include	"palettes.h"
@@ -797,7 +796,6 @@ static int flagload_gij(STFLAGH sfh, const SFENTRY *tbl) {
 
 
 enum {
-	FLAG_MG			= 0x0001,
 	FLAG_FM1A		= 0x0002,
 	FLAG_FM1B		= 0x0004,
 	FLAG_FM2A		= 0x0008,
@@ -823,16 +821,6 @@ static UINT32 fm_state_size(UINT32 type) {
 	switch(type) {
 		case FMBOARD_NONE:
 		case FMBOARD_VA_OPN:
-			break;
-
-		case 0x01:
-			size += sizeof(musicgen);
-			break;
-
-		case 0x20:
-		case 0x40:
-			size += sizeof(fmtimer) + sizeof(opn) + sizeof(OPNKEY) +
-										sizeof(PSGREG) + sizeof(adpcm);
 			break;
 
 		case FMBOARD_VA_OPNA:
@@ -881,20 +869,6 @@ static int flagsave_fm(STFLAGH sfh, const SFENTRY *tbl) {
 	OPNKEY	opnkey;
 
 	switch(usesound) {
-		case 0x01:
-			saveflg = FLAG_MG;
-			break;
-
-		case 0x20:
-			saveflg = FLAG_FM1A | FLAG_FM1B | FLAG_PSG1 | FLAG_RHYTHM |
-										FLAG_ADPCM;
-			break;
-
-		case 0x40:
-			saveflg = FLAG_FM1A | FLAG_FM1B | FLAG_FM2A | FLAG_FM2B |
-										FLAG_PSG1 | FLAG_RHYTHM | FLAG_ADPCM;
-			break;
-
 		case 0x0200:
 			saveflg = FLAG_FM1A | FLAG_FM1B | FLAG_PSG1 | FLAG_RHYTHM |
 										FLAG_ADPCM | FLAG_FMBOARDVA;
@@ -906,9 +880,6 @@ static int flagsave_fm(STFLAGH sfh, const SFENTRY *tbl) {
 	}
 
 	ret = statflag_write(sfh, &usesound, sizeof(usesound));
-	if (saveflg & FLAG_MG) {
-		ret |= statflag_write(sfh, &musicgen, sizeof(musicgen));
-	}
 	if (saveflg & FLAG_FM1A) {
 		ret |= statflag_write(sfh, &fmtimer, sizeof(fmtimer));
 		ret |= statflag_write(sfh, &opn, sizeof(opn));
@@ -948,20 +919,6 @@ static int flagload_fm(STFLAGH sfh, const SFENTRY *t) {
 	fmboard_reset(usesound);
 
 	switch(usesound) {
-		case 0x01:
-			saveflg = FLAG_MG;
-			break;
-
-		case 0x20:
-			saveflg = FLAG_FM1A | FLAG_FM1B | FLAG_PSG1 | FLAG_RHYTHM |
-										FLAG_ADPCM;
-			break;
-
-		case 0x40:
-			saveflg = FLAG_FM1A | FLAG_FM1B | FLAG_FM2A | FLAG_FM2B |
-										FLAG_PSG1 | FLAG_RHYTHM | FLAG_ADPCM;
-			break;
-
 		case 0x0200:
 			saveflg = FLAG_FM1A | FLAG_FM1B | FLAG_PSG1 | FLAG_RHYTHM |
 										FLAG_ADPCM | FLAG_FMBOARDVA;
@@ -970,11 +927,6 @@ static int flagload_fm(STFLAGH sfh, const SFENTRY *t) {
 		default:
 			saveflg = 0;
 			break;
-	}
-
-	if (saveflg & FLAG_MG) {
-		ret |= statflag_read(sfh, &musicgen, sizeof(musicgen));
-		board14_allkeymake();
 	}
 
 	if (saveflg & FLAG_FM1A) {

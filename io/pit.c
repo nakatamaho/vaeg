@@ -8,7 +8,6 @@
 #include	"iocore.h"
 #include	"sound.h"
 #include	"beep.h"
-#include	"board14.h"
 
 #include	"iocoreva.h"
 #include	"upd9002_regs.h"
@@ -175,9 +174,6 @@ static UINT getcount(const _PITCH *pitch) {
 		case 2:
 			clock = nevent_getremain(NEVENT_RS232C);
 			break;
-
-		case 3:
-			return(board14_pitcount());
 
 		default:
 			clock = 0;

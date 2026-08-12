@@ -218,8 +218,6 @@ static void sound_init(void) {
 	fddmtrsnd_initialize(rate);
 	beep_initialize(rate);
 	beep_setvol(np2cfg.BEEP_VOL);
-	tms3631_initialize(rate);
-	tms3631_setvol(np2cfg.vol14);
 	opngen_initialize(rate);
 	opngen_setvol(np2cfg.vol_fm);
 	psggen_initialize(rate);
