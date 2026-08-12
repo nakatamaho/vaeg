@@ -18,7 +18,7 @@ M86 starts from the G85-approved main continuation at
 The implementation candidate was merged to `main` at
 [74a5eac8](https://github.com/nakatamaho/vaeg/commit/74a5eac8bc0fa145fc0c4bf5ed66e3ff5368c0ae)
 after the rename, reference-fixup, and validation commits below.
-G86 human validation remains pending.
+G86 human validation passed on 2026-08-12.
 
 The implementation is deliberately split into the required layout commits:
 
@@ -91,9 +91,8 @@ speculatively in this layout milestone.
 
 ## Gate state
 
-M86 implementation and machine checks are complete, and the implementation
-was merged to `main` at
+M86 implementation, machine checks, and the standard G86 human gate are
+complete. The implementation was merged to `main` at
 [74a5eac8](https://github.com/nakatamaho/vaeg/commit/74a5eac8bc0fa145fc0c4bf5ed66e3ff5368c0ae)
-at the maintainer's explicit request. The standard G86 human gate has not been
-performed and remains required to close M86: use a clean checkout, boot V3
-mode, run the bundled VA demo, boot an OS, and perform simple guest operations.
+at the maintainer's explicit request; the maintainer subsequently confirmed
+that the clean-checkout V3/demo/OS/simple-operation gate passed.
