@@ -15,8 +15,9 @@ modification, are permitted provided that the following conditions are met:
 
 M86 starts from the G85-approved main continuation at
 [9d4ea365](https://github.com/nakatamaho/vaeg/commit/9d4ea3657ca1684ab852b625fb8dfffb4f4372a0).
-The implementation candidate is on
-`topic/m86-machine-core-relocation` and is not merged to `main`.
+The implementation candidate was merged to `main` at
+[74a5eac8](https://github.com/nakatamaho/vaeg/commit/74a5eac8bc0fa145fc0c4bf5ed66e3ff5368c0ae)
+after the rename, reference-fixup, and validation commits below.
 G86 human validation remains pending.
 
 The implementation is deliberately split into the required layout commits:
@@ -76,6 +77,10 @@ change.
 | `SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy ./build/linux-ci-gcc/sdl2/vaeg --selftest --model va` | PASS; all tests passed |
 | `cmake --preset mingw-cross` and MinGW build | PASS |
 | MinGW artifact | PE32+ `build/mingw-cross/sdl2/vaeg.exe`; SHA-256 `33e60f8e087332dbc4edd7aefa08c26ab56022b2a468ea55cf554d24cbcf9f37` |
+| Post-merge MinGW build at `74a5eac8` | PASS; PE32+ `build/mingw-cross/sdl2/vaeg.exe`; SHA-256 `cfa823a83ffe56099c046972566a3799cd5d2f6b2d2fdc65473d7f501a827753` |
+| Post-merge Linux-debug build at `74a5eac8` | PASS |
+| Post-merge VA selftest at `74a5eac8` | PASS; all tests passed, exit 0 |
+| Post-merge repository validators | PASS; case 0 findings, UTF-8 and LF checks clean |
 
 The standalone `upd9002_protected_reachability.py --root .` validator still
 reports `post-M48 graph differs from source regeneration` on both this
@@ -86,7 +91,9 @@ speculatively in this layout milestone.
 
 ## Gate state
 
-M86 implementation and machine checks are complete, but the standard G86 human
-gate has not been performed. The gate must use a clean checkout of this branch,
-boot V3 mode, run the bundled VA demo, boot an OS, and perform simple guest
-operations before M86 can be merged to `main`.
+M86 implementation and machine checks are complete, and the implementation
+was merged to `main` at
+[74a5eac8](https://github.com/nakatamaho/vaeg/commit/74a5eac8bc0fa145fc0c4bf5ed66e3ff5368c0ae)
+at the maintainer's explicit request. The standard G86 human gate has not been
+performed and remains required to close M86: use a clean checkout, boot V3
+mode, run the bundled VA demo, boot an OS, and perform simple guest operations.

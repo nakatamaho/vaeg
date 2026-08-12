@@ -184,6 +184,10 @@ The current approved gate ledger is:
 - G85 passed at exactly
   `0b6633041e2fb8bae8de7efa1a1768dc6c3e5cba`. This closes the state-save
   section cleanup and compatibility audit.
+- M86 implementation is merged to
+  [main at `74a5eac8`](https://github.com/nakatamaho/vaeg/commit/74a5eac8bc0fa145fc0c4bf5ed66e3ff5368c0ae)
+  after the rename-only, reference-fixup, and machine-validation commits
+  recorded in the M86 report. G86 human validation remains pending.
 
 M73 is closed after the post-M49 performance-regression investigation and
 its approved runtime correction. M74 is a separate diagnostic-infrastructure
