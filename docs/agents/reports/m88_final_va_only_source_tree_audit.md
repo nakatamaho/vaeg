@@ -29,7 +29,9 @@ POSSIBILITY OF SUCH DAMAGE.
 M88 source cleanup is recorded in
 [2fe49c944797ca8508c3cfc53ed39ffdef5014b0](https://github.com/nakatamaho/vaeg/commit/2fe49c944797ca8508c3cfc53ed39ffdef5014b0)
 on `topic/m88-final-va-only-source-tree-audit`. The candidate is not merged
-to `main`; G88 human validation is pending. M89 must not start before G88.
+to `main`; G88 human validation passed against candidate
+[98d7343df9c763354e0775bd04a7b6d8d9c6a291](https://github.com/nakatamaho/vaeg/commit/98d7343df9c763354e0775bd04a7b6d8d9c6a291). M88 is closed;
+main merge remains pending.
 
 This report records source/configuration cleanup only. No ROM, font, icon,
 disk-image, wave-data, or other binary payload was modified.
@@ -98,15 +100,16 @@ The hosted run did not establish a source-level failure: the Windows
 compatibility job stopped at the `Configure` step before compilation or
 tests, while the local MinGW cross build passed. Its unauthenticated job log
 was not available from the public API, so this report does not speculate about
-the Configure cause or rerun the unchanged hosted job. The standard human
-gate remains required before G88 can be approved. No correctness bug was
-introduced or fixed by this source-tree cleanup, so no entry was added to the
-permanent bug-fix ledger.
+the Configure cause or rerun the unchanged hosted job. The maintainer reported
+completion of the standard VA human gate against the candidate; G88 passed.
+No correctness bug was introduced or fixed by this source-tree cleanup, so no
+entry was added to the permanent bug-fix ledger.
 
-## G88 handoff
+## G88 result
 
 After a clean checkout of the candidate, perform the standard VA gate:
 boot V3 mode, run the bundled VA demo, boot an OS, and perform simple FDD,
 SASI/SCSI, keyboard, display, and state-save operations. Also verify that the
 Screen menu exposes only the retained font choices and that MPU98II remains
-selectable. G88 is not passed by this report.
+selectable. The maintainer reported that this gate passed for candidate
+`98d7343df9c763354e0775bd04a7b6d8d9c6a291`.
