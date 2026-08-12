@@ -84,8 +84,8 @@ separate parity correction or move it to Open Defects.
   guest-side
   KBEX_NONREP policy remains authoritative for non-repeat keys.
 - **Verification:** Linux CI build, normal and VA-model selftests, CTest 2/2,
-  and the MinGW cross-build passed. The keyboard-map selftest verifies that a
-  KANA/CAPS repeat does not toggle either lock state.
+  and the MinGW cross-build passed. The keyboard-map selftest covers KANA lock
+  behavior; both KANA and CAPS use the shared repeat-suppression branch.
 - **Evidence:** [SDL keyboard dispatch](../../sdl2/sdlkbd.c#L36) and
   [keyboard mapping](../../sdl2/kbdmap.c#L1106).
 - **Commit:** [813de6c](https://github.com/nakatamaho/vaeg/commit/813de6cb582fce1d4ae7d365d7aceb21acf078ab),
