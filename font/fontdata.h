@@ -32,6 +32,7 @@ extern const char pc88ankname[];
 extern const char pc88knj1name[];
 extern const char pc88knj2name[];
 extern const char pc98fontname[];
+extern const char pc98fontromname[];
 extern const char v98fontname[];
 extern const char fm7ankname[];
 extern const char fm7knjname[];
