@@ -86,6 +86,7 @@ shift; no GDC slave callback is registered.
 | MinGW artifact | `build/mingw-cross/sdl2/vaeg.exe`; SHA-256 `eb3327a77ad63ae31f7c508ab511aa6c31896af9ec5f2d669f8f93ebcbe43d2e` |
 | Binary payload audit | PASS; no binary payload changed |
 | Active reference scan | PASS; no current reference to deleted GDC/CRTC/rendering files or FM7/X1/X68K backends |
+| Hosted GitHub Actions | Run [31573711804](https://github.com/nakatamaho/vaeg/actions/runs/31573711804): 8 jobs passed; Windows MinGW compatibility failed during `Configure` (job [94041018759](https://github.com/nakatamaho/vaeg/actions/runs/31573711804/job/94041018759)); no compile or test step ran in that job |
 
 The first CTest invocation without the isolated Git environment produced
 false failures in existing Git-history validators because the sandbox denied
@@ -93,10 +94,14 @@ access to the maintainer's global Git configuration. Re-running the unchanged
 suite with `GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null` passed all
 83 tests. This is the recorded result.
 
-Hosted CI and the standard human gate remain required before G88 can be
-approved. No correctness bug was introduced or fixed by
-this source-tree cleanup, so no entry was added to the permanent bug-fix
-ledger.
+The hosted run did not establish a source-level failure: the Windows
+compatibility job stopped at the `Configure` step before compilation or
+tests, while the local MinGW cross build passed. Its unauthenticated job log
+was not available from the public API, so this report does not speculate about
+the Configure cause or rerun the unchanged hosted job. The standard human
+gate remains required before G88 can be approved. No correctness bug was
+introduced or fixed by this source-tree cleanup, so no entry was added to the
+permanent bug-fix ledger.
 
 ## G88 handoff
 
