@@ -29,7 +29,6 @@ enum {
 
 	PCCBUS_MPU98		= 0x0002,
 
-	PCMODEL_NOTVA		= 0,
 	PCMODEL_VA1			= 1,
 	PCMODEL_VA2			= 2,
 
@@ -41,7 +40,7 @@ enum {
 
 
 typedef struct {
-	// エミュレート中によく参照される奴
+	// Retired non-VA display configuration; kept only as struct padding.
 	UINT8	uPD72020;
 	UINT8	DISPSYNC;
 	UINT8	RASTER;
@@ -60,7 +59,7 @@ typedef struct {
 
 	UINT8	calendar;
 	UINT8	usefd144;
-	UINT8	wait[6];
+	UINT8	wait[6];							// retired non-VA timing padding
 
 	// リセット時とかあんまり参照されない奴
 	OEMCHAR	model[8];
@@ -73,8 +72,8 @@ typedef struct {
 
 	UINT8	ITF_WORK;
 	UINT8	EXTMEM;
-	UINT8	grcg;
-	UINT8	color16;
+	UINT8	grcg;								// retired non-VA display state padding
+	UINT8	color16;								// retired non-VA display state padding
 	UINT32	BG_COLOR;
 	UINT32	FG_COLOR;
 
@@ -161,8 +160,6 @@ extern	UINT	drawcount;
 extern	BOOL	hardwarereset;
 
 void getbiospath(OEMCHAR *path, const OEMCHAR *fname, int maxlen);
-void screendisp(NEVENTITEM item);
-void screenvsync(NEVENTITEM item);
 void screendispva(NEVENTITEM item);
 void screenvsyncva(NEVENTITEM item);
 //void screenvsyncva2(NEVENTITEM item);

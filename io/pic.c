@@ -217,7 +217,6 @@ void pic_setirq(REG8 irq) {
 		if (pi[0].isr & bit) {
 			if (bit & PIC_CRTV) {
 				pi[0].irr &= ~PIC_CRTV;
-				gdc.vsyncint = 1;
 			}
 		}
 	}

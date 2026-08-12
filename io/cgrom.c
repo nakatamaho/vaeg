@@ -16,9 +16,8 @@ static void cgwindowset(CGROM cr) {
 	if (grcg.chip >= 2) {
 		if (!(cr->code & 0xff00)) {
 			high = 0x80000 + (cr->code << 4);
-			if (!(gdc.mode1 & 8)) {
-				high += 0x2000;
-			}
+			/* The retired non-VA GDC mode register is no longer programmable. */
+			high += 0x2000;
 		}
 		else {
 			code = cr->code & 0x007f;

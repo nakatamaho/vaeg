@@ -197,16 +197,12 @@ set(VAEG_CORE_SOURCES
     io/bmsio.c
     io/cgrom.c
     io/cpuio.c
-    io/crtc.c
     io/dipsw.c
     io/dmac.c
     io/egc.c
     io/emsio.c
     io/fdc.c
     io/fdd320.c
-    io/gdc.c
-    io/gdc_sub.c
-    io/gdc_pset.c
     io/hostfat.c
     io/mouseif.c
     io/necio.c
@@ -253,15 +249,6 @@ set(VAEG_CORE_SOURCES
     sound/adpcmg.c
     sound/soundrom.c
     vram/vram.c
-    vram/scrndraw.c
-    vram/sdraw.c
-    vram/sdrawq16.c
-    vram/dispsync.c
-    vram/palettes.c
-    vram/maketext.c
-    vram/maketgrp.c
-    vram/makegrph.c
-    vram/scrnbmp.c
     fdd/diskdrv.c
     fdd/newdisk.c
     fdd/fddfile.c

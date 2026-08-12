@@ -6,7 +6,6 @@
 #include	"scrndraw.h"
 #include	"scrndrawva.h"
 #include	"sdrawva.h"
-#include	"dispsync.h"
 #include	"maketextva.h"
 #include	"makesprva.h"
 #include	"makegrphva.h"
@@ -119,7 +118,6 @@ sddr_exit1:
 void scrndrawva_redraw(void) {
 
 	scrnmng_allflash();
-	dispsync_renewalmode();
 	scrndrawva_makedrawcolor();
 	scrndrawva_draw(1);
 }

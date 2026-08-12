@@ -382,9 +382,7 @@ void tsp_reset(void) {
 }
 
 void tsp_bind(void) {
-	if (pccore.model_va != PCMODEL_NOTVA) {
-		tsp_updateclock();
-	}
+	tsp_updateclock();
 	/*
 	iocore_attachvaout(0x152, memctrlva_o152);
 	iocore_attachvaout(0x153, memctrlva_o153);
