@@ -26,10 +26,12 @@ POSSIBILITY OF SUCH DAMAGE.
 
 ## Status
 
-This is the M87 implementation-candidate report. The audit starts from the
-G86-approved `main` checkpoint and is being developed on
-`topic/m87-legacy-tool-rom-regeneration-audit`. G87 has not been passed and
-this branch has not been merged to `main`.
+This is the final M87 report. The audit started from the G86-approved `main`
+checkpoint and was developed on
+`topic/m87-legacy-tool-rom-regeneration-audit`. G87 human gate passed on
+2026-08-12 for candidate
+[d2d1a13167ccd094d0fae180c775ad5e1d7eb78e](https://github.com/nakatamaho/vaeg/commit/d2d1a13167ccd094d0fae180c775ad5e1d7eb78e).
+This branch has not been merged to `main`.
 
 The first M87 cleanup is recorded in
 [6838b4c2e2f27f5d39e5dc639f9d47b8e5d40db9](https://github.com/nakatamaho/vaeg/commit/6838b4c2e2f27f5d39e5dc639f9d47b8e5d40db9).
@@ -140,8 +142,7 @@ CTest with `GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null` passed all
 
 ## Gate state
 
-M87 machine validation is complete and the branch is ready for the G87 human
-gate. G87 has not been passed. The standard human gate is a clean-checkout
-build, V3-mode boot, bundled VA demo, OS boot, and simple guest operations. No
-human-gate result is inferred from this report or from the successful
-machine-only deletion/build checks.
+M87 machine validation and the G87 human gate are complete. G87 human gate
+passed on 2026-08-12 for the candidate identified above. M87 is closed at
+[d2d1a13167ccd094d0fae180c775ad5e1d7eb78e](https://github.com/nakatamaho/vaeg/commit/d2d1a13167ccd094d0fae180c775ad5e1d7eb78e).
+The branch remains separate from `main` pending the requested merge.
