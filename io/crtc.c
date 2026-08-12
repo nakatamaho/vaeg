@@ -1,6 +1,6 @@
 #include	"compiler.h"
 #include	"memory.h"
-#include	"pccore.h"
+#include	"machine/pccore.h"
 #include	"iocore.h"
 #include	"vram.h"
 

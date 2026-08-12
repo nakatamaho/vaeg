@@ -23,7 +23,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 #include "compiler.h"
-#include "pccore.h"
+#include "machine/pccore.h"
 #include "cpucore.h"
 #include "io/iocore.h"
 #include "cpucva/upd9002_upd70008.h"

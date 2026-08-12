@@ -28,7 +28,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "cliopts.h"
-#include "pccore.h"
+#include "machine/pccore.h"
 #include "sgp.h"
 #include "soundopts.h"
 

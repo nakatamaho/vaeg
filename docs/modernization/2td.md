@@ -151,7 +151,7 @@ VA3 2TD device:
   above 164.
 - `fdd/newdisk.c` creates only 77-cylinder 2HD and 80-cylinder 2DD MS-DOS
   images.
-- `pccore.h` distinguishes VA1 and VA2 only. The active frontend presents the
+- `machine/pccore.h` distinguishes VA1 and VA2 only. The active frontend presents the
   latter as `VA2/VA3`; there is no runtime `PCMODEL_VA3` hardware distinction.
 
 The standard subsystem uses ports `0FCh` through `0FFh` for its main/subsystem

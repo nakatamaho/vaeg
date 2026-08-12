@@ -7,7 +7,7 @@
 #include	"timemng.h"
 #include	"cpucore.h"
 #include	"upd9002_state.h"
-#include	"pccore.h"
+#include	"machine/pccore.h"
 #include	"iocore.h"
 #include	"gdc_sub.h"
 #include	"cbuscore.h"
@@ -27,8 +27,8 @@
 #include	"fdd_mtr.h"
 #include	"sxsi.h"
 #include	"hostfat.h"
-#include	"calendar.h"
-#include	"keystat.h"
+#include	"machine/calendar.h"
+#include	"machine/keystat.h"
 
 #include	"bmsio.h"
 
@@ -106,7 +106,7 @@ typedef struct {
 #define	PROC2NUM(a, b)		proc2num(&(a), (b), sizeof(b)/sizeof(PROCTBL))
 #define	NUM2PROC(a, b)		num2proc(&(a), (b), sizeof(b)/sizeof(PROCTBL))
 
-#include "statsave.tbl"
+#include "machine/statsave.tbl"
 
 
 extern	COMMNG	cm_mpu98;

@@ -5,7 +5,7 @@
 #include	"compiler.h"
 #include	"dosio.h"
 #include	"cpucore.h"
-#include	"nevent.h"
+#include	"machine/nevent.h"
 #include	"serial.h"
 #include	"np2ver.h"
 

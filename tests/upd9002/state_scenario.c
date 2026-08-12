@@ -24,7 +24,7 @@
  */
 #include "compiler.h"
 #include "cpucore.h"
-#include "statsave.h"
+#include "machine/statsave.h"
 #if !defined(VAEG_M44_RAW_UPD9002_STATE)
 #include "upd9002_state.h"
 #endif

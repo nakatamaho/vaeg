@@ -154,7 +154,7 @@ def verify_source_policy(root: pathlib.Path) -> None:
     mn = read_text(root, "cpu/upd9002/upd9002_mn.c")
     core = read_text(root, "cpu/upd9002/upd9002_core.c")
     state = read_text(root, "cpu/upd9002/upd9002_state.c")
-    pccore = read_text(root, "pccore.c")
+    pccore = read_text(root, "machine/pccore.c")
     test = read_text(root, "tests/upd9002/rep0f_diagnostic_stop.c")
     requirements = {
         "REPE folded root": "upd9002op_repe[0x0f] != _repe_0f_diagnostic_stop" in mn,

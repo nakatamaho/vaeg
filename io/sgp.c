@@ -3,9 +3,9 @@
  */
 
 #include	"compiler.h"
-#include	"clockscale.h"
+#include	"machine/clockscale.h"
 #include	"cpucore.h"
-#include	"pccore.h"
+#include	"machine/pccore.h"
 #include	"iocore.h"
 #include	"iocoreva.h"
 #include	"memoryva.h"

@@ -27,7 +27,7 @@
 #include	"scrnmng.h"
 #include	"np2.h"
 #include	"np2ver.h"
-#include	"pccore.h"
+#include	"machine/pccore.h"
 #include	"sgp.h"
 #include	"appicon.h"
 #include	"framedisp.h"

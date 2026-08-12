@@ -2,7 +2,7 @@
 #include	"strres.h"
 #include	"taskmng.h"
 #include	"cpucore.h"
-#include	"pccore.h"
+#include	"machine/pccore.h"
 #include	"iocore.h"
 #include	"iocoreva.h"
 #include	"hostfat.h"
