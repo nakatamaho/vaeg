@@ -17,10 +17,7 @@ enum {
 	FONTTYPE_NONE	= 0,
 	FONTTYPE_PC98,
 	FONTTYPE_V98,
-	FONTTYPE_PC88,
-	FONTTYPE_FM7,
-	FONTTYPE_X1,
-	FONTTYPE_X68
+	FONTTYPE_PC88
 };
 
 
@@ -34,12 +31,6 @@ extern const char pc88knj2name[];
 extern const char pc98fontname[];
 extern const char pc98fontromname[];
 extern const char v98fontname[];
-extern const char fm7ankname[];
-extern const char fm7knjname[];
-extern const char x1ank1name[];
-extern const char x1ank2name[];
-extern const char x1knjname[];
-extern const char x68kfontname[];
 
 extern const BYTE fontdata_8[256*8];
 extern const BYTE fontdata_16[3*32*16];
@@ -57,9 +48,6 @@ void fontdata_patchjis(void);
 BYTE fontpc88_read(const char *filename, BYTE loading);
 BYTE fontpc98_read(const char *filename, BYTE loading);
 BYTE fontv98_read(const char *filename, BYTE loading);
-BYTE fontfm7_read(const char *filename, BYTE loading);
-BYTE fontx1_read(const char *filename, BYTE loading);
-BYTE fontx68k_read(const char *filename, BYTE loading);
 
 #ifdef __cplusplus
 }

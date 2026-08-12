@@ -11,12 +11,6 @@ const char pc88knj2name[]	= "KANJI2.ROM";
 const char pc98fontname[]	= "FONT.BMP";
 const char pc98fontromname[]	= "98font.rom";
 const char v98fontname[]	= "FONT.ROM";
-const char fm7ankname[]		= "SUBSYS_C.ROM";
-const char fm7knjname[]		= "KANJI.ROM";
-const char x1ank1name[]		= "FNT0808.X1";
-const char x1ank2name[]		= "FNT0816.X1";
-const char x1knjname[]		= "FNT1616.X1";
-const char x68kfontname[]	= "CGROM.DAT";
 
 
 static void patch29(UINT jish, const BYTE *src) {

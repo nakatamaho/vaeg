@@ -60,18 +60,6 @@ const char	*p;
 		(!file_cmpname(p, pc88knj2name))) {
 		return(FONTTYPE_PC88);
 	}
-	if ((!file_cmpname(p, fm7ankname)) ||
-		(!file_cmpname(p, fm7knjname))) {
-		return(FONTTYPE_FM7);
-	}
-	if ((!file_cmpname(p, x1ank1name)) ||
-		(!file_cmpname(p, x1ank2name)) ||
-		(!file_cmpname(p, x1knjname))) {
-		return(FONTTYPE_X1);
-	}
-	if (!file_cmpname(p, x68kfontname)) {
-		return(FONTTYPE_X68);
-	}
 	return(FONTTYPE_NONE);
 }
 
@@ -128,18 +116,6 @@ const BYTE	*p;
 
 		case FONTTYPE_PC88:
 			loading = fontpc88_read(fname, loading);
-			break;
-
-		case FONTTYPE_FM7:
-			loading = fontfm7_read(fname, loading);
-			break;
-
-		case FONTTYPE_X1:
-			loading = fontx1_read(fname, loading);
-			break;
-
-		case FONTTYPE_X68:
-			loading = fontx68k_read(fname, loading);
 			break;
 	}
 	loading = fontpc98_read(file_getcd(pc98fontname), loading);

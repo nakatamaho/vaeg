@@ -274,9 +274,6 @@ set(VAEG_CORE_SOURCES
     font/fontpc88.c
     font/fontpc98.c
     font/fontv98.c
-    font/fontfm7.c
-    font/fontx1.c
-    font/fontx68k.c
     font/fontmake.c
     machine/pccore.c
     machine/nevent.c
