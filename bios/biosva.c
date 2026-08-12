@@ -14,7 +14,7 @@
 #include	"biosva.h"
 #include	"cgromva.h"
 #include	"subsystem.h"
-#include "cpucva/upd9002_upd70008.h"
+#include "cpu/upd9002_upd70008.h"
 
 
 #define VAFONTROM "vafont.rom"

@@ -189,14 +189,14 @@ rejects both known artifact names and the five pinned content hashes.
 The independently authored compatibility layer is the production Z80 seam;
 the standalone `vaeg_z80_compat_wrapper` and `vaeg_z80_compat_wrapper_no_functional`
 libraries remain permanent conformance targets. Their
-consumer-facing declarations are under `cpucva/`; third-party and STL types do
+consumer-facing declarations are under `cpu/`; third-party and STL types do
 not cross that interface. The corresponding `vaeg_z80_compat_wrapper_default` and
 `vaeg_z80_compat_wrapper_no_functional` tests cover the vaeg bus, clock, interrupt,
 public-register mirror, and revision-1 state contracts. When a verified ZEX
 cache is configured, `vaeg_z80_compat_wrapper_zexdoc` and
 `vaeg_z80_compat_wrapper_zexall` run the same external inputs through the wrapper.
 The production `vaeg_va` target unconditionally compiles
-`cpucva/z80_compat_cpu.cpp` and `cpucva/z80_compat_state.cpp`.
+`cpu/z80_compat_cpu.cpp` and `cpu/z80_compat_state.cpp`.
 
 The permanent M38-derived regression corpus uses two deterministic runs of the
 current wrapper and a canonical trace comparator. The ordinary CI corpus is

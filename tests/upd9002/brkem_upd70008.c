@@ -24,7 +24,7 @@
  */
 #include "compiler.h"
 #include "tests/upd9002/brkem_upd70008.h"
-#include "cpucva/upd9002_upd70008.h"
+#include "cpu/upd9002_upd70008.h"
 
 #include <stdio.h>
 

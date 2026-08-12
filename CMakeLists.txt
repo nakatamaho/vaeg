@@ -145,18 +145,16 @@ set(VAEG_INCLUDE_DIRS
     "${CMAKE_CURRENT_SOURCE_DIR}/machine"
     "${CMAKE_CURRENT_SOURCE_DIR}/common"
     "${CMAKE_CURRENT_SOURCE_DIR}/cpu/upd9002"
+    "${CMAKE_CURRENT_SOURCE_DIR}/cpu"
     "${CMAKE_CURRENT_SOURCE_DIR}/io"
     "${CMAKE_CURRENT_SOURCE_DIR}/cbus"
     "${CMAKE_CURRENT_SOURCE_DIR}/bios"
-    "${CMAKE_CURRENT_SOURCE_DIR}/biosva"
     "${CMAKE_CURRENT_SOURCE_DIR}/sound"
     "${CMAKE_CURRENT_SOURCE_DIR}/sound/vermouth"
     "${CMAKE_CURRENT_SOURCE_DIR}/sound/getsnd"
     "${CMAKE_CURRENT_SOURCE_DIR}/vram"
-    "${CMAKE_CURRENT_SOURCE_DIR}/vramva"
     "${CMAKE_CURRENT_SOURCE_DIR}/fdd"
     "${CMAKE_CURRENT_SOURCE_DIR}/font"
-    "${CMAKE_CURRENT_SOURCE_DIR}/cpucva"
     "${CMAKE_CURRENT_SOURCE_DIR}/memoryva"
     "${CMAKE_CURRENT_SOURCE_DIR}/io"
     "${CMAKE_CURRENT_SOURCE_DIR}/generic")
@@ -272,13 +270,13 @@ set(VAEG_CORE_SOURCES
 
 set(VAEG_Z80_COMPAT_PRODUCTION_SOURCES
     cpu/upd780/upd780_disasm.cpp
-    cpucva/z80_compat_cpu.cpp
-    cpucva/z80_compat_state.cpp
-    cpucva/upd9002_upd70008.cpp)
+    cpu/z80_compat_cpu.cpp
+    cpu/z80_compat_state.cpp
+    cpu/upd9002_upd70008.cpp)
 message(STATUS "Production uPD70008-compatible core: shared Z80 compatibility backend")
 
 set(VAEG_VA_SOURCES
-    biosva/biosva.c
+    bios/biosva.c
     memoryva/gvramva.c
     memoryva/memoryva.c
     ${VAEG_Z80_COMPAT_PRODUCTION_SOURCES}
@@ -299,12 +297,12 @@ set(VAEG_VA_SOURCES
     io/upd9002_regs.c
     io/va91.c
     io/videova.c
-    vramva/makegrphva.c
-    vramva/makesprva.c
-    vramva/maketextva.c
-    vramva/palettesva.c
-    vramva/scrndrawva.c
-    vramva/sdrawva.c)
+    vram/makegrphva.c
+    vram/makesprva.c
+    vram/maketextva.c
+    vram/palettesva.c
+    vram/scrndrawva.c
+    vram/sdrawva.c)
 
 set(VAEG_SDL2_SOURCES
     external/imgui/imgui.cpp
@@ -1279,8 +1277,8 @@ if(VAEG_ENABLE_TESTS)
 
     function(vaeg_add_z80_compat_wrapper_library target)
         add_library(${target} STATIC
-            cpucva/z80_compat_cpu.cpp
-            cpucva/z80_compat_state.cpp)
+            cpu/z80_compat_cpu.cpp
+            cpu/z80_compat_state.cpp)
         target_include_directories(${target}
             PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}"
             PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/external/suzukiplan-z80")

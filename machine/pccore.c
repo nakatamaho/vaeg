@@ -32,11 +32,11 @@
 
 #include	"bmsio.h"
 
-#include	"../vramva/maketextva.h"
-#include	"../vramva/makesprva.h"
-#include	"../vramva/makegrphva.h"
+#include	"../vram/maketextva.h"
+#include	"../vram/makesprva.h"
+#include	"../vram/makegrphva.h"
 #include	"scrnmng.h"
-#include	"../vramva/scrndrawva.h"
+#include	"../vram/scrndrawva.h"
 #include	"memoryva.h"
 #include	"tsp.h"
 #include	"sgp.h"

@@ -1113,8 +1113,8 @@ The active implementation is divided as follows:
 |---|---|
 | [`io/tsp.c`](../../io/tsp.c) | Command/parameter ports, TSP state, SYNC decoding, raster timing |
 | [`io/tsp.h`](../../io/tsp.h) | TSP state shared with the display and renderer paths |
-| [`vramva/maketextva.c`](../../vramva/maketextva.c) | Text and attribute rendering from `textmem` |
-| [`vramva/makesprva.c`](../../vramva/makesprva.c) | Sprite table interpretation and sprite rendering |
+| [`vram/maketextva.c`](../../vram/maketextva.c) | Text and attribute rendering from `textmem` |
+| [`vram/makesprva.c`](../../vram/makesprva.c) | Sprite table interpretation and sprite rendering |
 | [`machine/pccore.c`](../../machine/pccore.c) | Display/VBlank event scheduling and blink progression |
 | [`io/sysportva.c`](../../io/sysportva.c) | System-port view of the display synchronization state |
 
@@ -1182,7 +1182,7 @@ The local source at this revision has these concrete issues:
 3. `DSPDEF.PITCH` is commented out, and only the low 16 bits of signed 19-bit
    `ATROFF` are retained.
 4. Blink uses a heuristic shift rather than a verified hardware correction.
-5. `vramva/maketextva.c` lists modes 2 through 5, underline, and double width
+5. `vram/maketextva.c` lists modes 2 through 5, underline, and double width
    as TODOs; mode 3 cannot yet retain independent color and shape state.
 6. Screen rendering does not enforce the complete `VSA/VH` virtual-buffer
    contract.

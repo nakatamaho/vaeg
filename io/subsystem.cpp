@@ -10,7 +10,7 @@
 #include	<cstdint>
 
 #include	"cpu/upd780/upd780_disasm.h"
-#include	"cpucva/z80_compat_cpu.h"
+#include	"cpu/z80_compat_cpu.h"
 #include	"i8255.h"
 #include	"subsystemif.h"
 #include	"fdc.h"

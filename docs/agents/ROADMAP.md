@@ -223,7 +223,7 @@ M89 is now the active source-directory consolidation milestone.
 M72 closed the inactive compile-flag cleanup while intentionally leaving
 `SUPPORT_WAVEREC`, `SUPPORT_OPRECORD`, and FDD320 for later focused audits.
 M87-M88 define the final VA-only source-tree consolidation sequence: after
-the completed dispatcher, 98-only I/O, BIOS, uPD780, `cpucva/`, state-save,
+the completed dispatcher, 98-only I/O, BIOS, uPD780, `cpu/`, state-save,
 and machine-core work, M87 closed the legacy tool and ROM/resource
 regeneration audit while retaining deferred provenance boundaries. M88
 remains for the full VA-only source-tree audit and the final `lio/`
