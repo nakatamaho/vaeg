@@ -1103,7 +1103,8 @@ BYTE kbdmap_lookup(UINT scancode) {
 	return KBDMAP_NC;
 }
 
-BOOL kbdmap_keydown(UINT scancode, SDL_Keycode keycode, UINT16 mod) {
+BOOL kbdmap_keydown(UINT scancode, SDL_Keycode keycode, UINT16 mod,
+					BOOL repeat) {
 
 	BYTE	data;
 	int	role;
@@ -1119,24 +1120,29 @@ BOOL kbdmap_keydown(UINT scancode, SDL_Keycode keycode, UINT16 mod) {
 			action.key = data;
 			action.modifier = 0;
 			action.name = "F12 binding";
-			trace_key_event("down", scancode, keycode, mod, FALSE, FALSE,
+			trace_key_event("down", scancode, keycode, mod, FALSE, repeat,
 							&action, TRUE, "keydown");
 			return TRUE;
 		}
-		trace_key_event("down", scancode, keycode, mod, FALSE, FALSE,
+		trace_key_event("down", scancode, keycode, mod, FALSE, repeat,
 						NULL, FALSE, NULL);
 		return FALSE;
 	}
 	role = (scancode < SDL_NUM_SCANCODES) ? scancode_role[scancode] : -1;
 	if ((role >= 0) && (entries[role].role == KBDROLE_KANA)) {
-		kbdinject_press(entries[role].guest_code);
-		kana_mirror = kana_mirror ? FALSE : TRUE;
-		romankana_reset(&roman_state);
 		action.type = KBD_ACTION_GUEST_KEY;
 		action.key = entries[role].guest_code;
 		action.modifier = 0;
 		action.name = entries[role].label;
-		trace_key_event("down", scancode, keycode, mod, FALSE, FALSE,
+		if (repeat) {
+			trace_key_event("down", scancode, keycode, mod, FALSE, repeat,
+							&action, TRUE, "repeat-suppressed");
+			return TRUE;
+		}
+		kbdinject_press(entries[role].guest_code);
+		kana_mirror = kana_mirror ? FALSE : TRUE;
+		romankana_reset(&roman_state);
+		trace_key_event("down", scancode, keycode, mod, FALSE, repeat,
 						&action, TRUE, "press");
 		return TRUE;
 	}
@@ -1146,7 +1152,7 @@ BOOL kbdmap_keydown(UINT scancode, SDL_Keycode keycode, UINT16 mod) {
 		if (scancode < SDL_NUM_SCANCODES) {
 			tenkey_overlay_down[scancode] = TRUE;
 		}
-		trace_key_event("down", scancode, keycode, mod, FALSE, FALSE,
+		trace_key_event("down", scancode, keycode, mod, FALSE, repeat,
 						&action, TRUE, "tenkey-down");
 		return TRUE;
 	}
@@ -1157,7 +1163,7 @@ BOOL kbdmap_keydown(UINT scancode, SDL_Keycode keycode, UINT16 mod) {
 			if (scancode < SDL_NUM_SCANCODES) {
 				roman_scancode_down[scancode] = TRUE;
 			}
-			trace_key_event("down", scancode, keycode, mod, FALSE, FALSE,
+			trace_key_event("down", scancode, keycode, mod, FALSE, repeat,
 							NULL, TRUE, "roman-kana");
 			return TRUE;
 		}
@@ -1165,7 +1171,7 @@ BOOL kbdmap_keydown(UINT scancode, SDL_Keycode keycode, UINT16 mod) {
 			if (scancode < SDL_NUM_SCANCODES) {
 				roman_scancode_down[scancode] = TRUE;
 			}
-			trace_key_event("down", scancode, keycode, mod, FALSE, FALSE,
+			trace_key_event("down", scancode, keycode, mod, FALSE, repeat,
 							NULL, TRUE, "roman-kana");
 			return TRUE;
 		}
@@ -1174,7 +1180,7 @@ BOOL kbdmap_keydown(UINT scancode, SDL_Keycode keycode, UINT16 mod) {
 	if (resolve_us_keytop_action(scancode, mod, &action)) {
 		if (action.type == KBD_ACTION_PASS_THROUGH) {
 			kbdinject_keydown(action.key);
-			trace_key_event("down", scancode, keycode, mod, FALSE, FALSE,
+			trace_key_event("down", scancode, keycode, mod, FALSE, repeat,
 							&action, TRUE, "keydown");
 			return TRUE;
 		}
@@ -1184,11 +1190,11 @@ BOOL kbdmap_keydown(UINT scancode, SDL_Keycode keycode, UINT16 mod) {
 			if (scancode < SDL_NUM_SCANCODES) {
 				us_action_down[scancode] = TRUE;
 			}
-			trace_key_event("down", scancode, keycode, mod, FALSE, FALSE,
+			trace_key_event("down", scancode, keycode, mod, FALSE, repeat,
 							&action, TRUE, "tap");
 			return TRUE;
 		}
-		trace_key_event("down", scancode, keycode, mod, FALSE, FALSE,
+		trace_key_event("down", scancode, keycode, mod, FALSE, repeat,
 						&action, TRUE, "unresolved");
 		return TRUE;
 	}
@@ -1203,11 +1209,11 @@ BOOL kbdmap_keydown(UINT scancode, SDL_Keycode keycode, UINT16 mod) {
 		action.key = data;
 		action.modifier = 0;
 		action.name = (role >= 0) ? entries[role].label : "mapped";
-		trace_key_event("down", scancode, keycode, mod, FALSE, FALSE,
+		trace_key_event("down", scancode, keycode, mod, FALSE, repeat,
 						&action, TRUE, "keydown");
 		return TRUE;
 	}
-	trace_key_event("down", scancode, keycode, mod, FALSE, FALSE,
+	trace_key_event("down", scancode, keycode, mod, FALSE, repeat,
 					NULL, FALSE, NULL);
 	return FALSE;
 }
@@ -1582,6 +1588,27 @@ int kbdmap_selftest(void) {
 		(kbdmap_lookup(SDL_SCANCODE_NONUSHASH) != 0x33) ||
 		(kbdmap_lookup(SDL_SCANCODE_INTERNATIONAL3) != 0x0d)) {
 		KBDMAP_SELFTEST_FAIL("JIS Yen/RO underscore lookup");
+	}
+	set_config_string(np2oscfg.keyboard_kana_input,
+					  sizeof(np2oscfg.keyboard_kana_input), "roman");
+	kbdmap_apply_config();
+	{
+		BOOL kana_initial;
+		BOOL kana_repeat;
+
+		kana_initial = kbdmap_keydown(SDL_SCANCODE_RALT, 0, 0, FALSE) &&
+					kbdmap_textinput("repeat-probe");
+		kana_repeat = kbdmap_keydown(SDL_SCANCODE_RALT, 0, 0, TRUE) &&
+					kbdmap_textinput("repeat-probe");
+		kbdmap_keyup(SDL_SCANCODE_RALT, 0, 0);
+		kbdmap_reset_frontend_state();
+		kbdinject_forcerelease(kbdmap_guest_code(KBDROLE_KANA));
+		set_config_string(np2oscfg.keyboard_kana_input,
+					  sizeof(np2oscfg.keyboard_kana_input), "jis-kana");
+		kbdmap_apply_config();
+		if (!kana_initial || !kana_repeat) {
+			KBDMAP_SELFTEST_FAIL("KANA repeat toggled the lock state");
+		}
 	}
 	if ((roman_char_from_scancode(SDL_SCANCODE_A) != 'a') ||
 		(roman_char_from_scancode(SDL_SCANCODE_Z) != 'z') ||
