@@ -6,7 +6,7 @@ enum {
 	NEVENT_ITIMER		= 1,
 	NEVENT_BEEP			= 2,
 	NEVENT_RS232C		= 3,
-	NEVENT_MUSICGEN		= 4,
+	/* 4: retired music-generator event; preserve subsequent IDs. */
 	NEVENT_FMTIMERA		= 5,
 	NEVENT_FMTIMERB		= 6,
 		NEVENT_FMTIMER2A	= 7,

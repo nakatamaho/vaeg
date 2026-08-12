@@ -9,6 +9,7 @@ const char pc88ankname[]	= "PC88.FNT";
 const char pc88knj1name[]	= "KANJI1.ROM";
 const char pc88knj2name[]	= "KANJI2.ROM";
 const char pc98fontname[]	= "FONT.BMP";
+const char pc98fontromname[]	= "98font.rom";
 const char v98fontname[]	= "FONT.ROM";
 const char fm7ankname[]		= "SUBSYS_C.ROM";
 const char fm7knjname[]		= "KANJI.ROM";

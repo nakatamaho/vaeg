@@ -5,8 +5,6 @@
 #include	"machine/pccore.h"
 #include	"iocore.h"
 #include	"cbuscore.h"
-#include	"board14.h"
-#include	"boardspb.h"
 #include	"sound.h"
 #include	"fmboard.h"
 #include	"beep.h"
@@ -16,9 +14,6 @@
 
 	UINT32		usesound;
 	OPN_T		opn;
-	MUSICGEN	musicgen;
-
-	_TMS3631	tms3631;
 	_FMTIMER	fmtimer;
 	_OPNGEN		opngen;
 	OPNCH		opnch[OPNCH_MAX];
@@ -116,9 +111,6 @@ void fmboard_reset(UINT32 type) {
 	opn.channels = 3;
 	opn.adpcmmask = (UINT8)~(0x1c);
 
-	ZeroMemory(&musicgen, sizeof(musicgen));
-
-	tms3631_reset(&tms3631);
 	opngen_reset();
 	psggen_reset(&psg1);
 	psggen_reset(&psg2);
@@ -129,18 +121,6 @@ void fmboard_reset(UINT32 type) {
 	fmboardva.sintm = 0;
 
 	switch(type) {
-		case 0x01:
-			board14_reset();
-			break;
-
-		case 0x20:
-			boardspb_reset();
-			break;
-
-		case 0x40:
-			boardspr_reset();
-			break;
-
 		case FMBOARD_VA_OPN:
 			boardopnva_reset();
 			break;
@@ -160,18 +140,6 @@ void fmboard_reset(UINT32 type) {
 void fmboard_bind(void) {
 
 	switch(usesound) {
-		case 0x01:
-			board14_bind();
-			break;
-
-		case 0x20:
-			boardspb_bind();
-			break;
-
-		case 0x40:
-			boardspr_bind();
-			break;
-
 		case FMBOARD_VA_OPN:
 			boardopnva_bind();
 			break;

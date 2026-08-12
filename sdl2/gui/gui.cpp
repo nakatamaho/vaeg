@@ -49,6 +49,8 @@
 #include "hostfat_manager.h"
 #include "hostfat_path.h"
 #include "fddfile.h"
+#include "fontdata.h"
+#include "biosva.h"
 #include "machine/keystat.h"
 #include "newdisk.h"
 #include "np2.h"
@@ -81,7 +83,6 @@
 #include "sysmng.h"
 #include "taskmng.h"
 #include "ymfmbridge.h"
-#include "tms3631.h"
 
 extern "C" {
 extern _RHYTHM rhythm;
@@ -102,6 +103,7 @@ constexpr int kScsiImageCount = 6;
 constexpr int kCpuPresets[] = {1, 2, 4, 5, 6, 8, 10, 12, 16, 20};
 constexpr int kSgpPresets[] = {1, 2, 4, 8, 16};
 constexpr int kSoundBufferPresets[] = {40, 100, 200, 500, 1000};
+constexpr UINT kV98FontRomSize = 0x46800;
 constexpr const char kAboutInfoTemplate[] =
 	"CPU: %CPU% %CPUCLK%\n"
 	"SGP: %SGPCLK%\n"
@@ -184,6 +186,7 @@ struct GuiState {
 	std::string fdd_browser_dir;
 	std::vector<BrowserEntry> fdd_entries;
 	std::string fdd_status;
+	std::string font_status;
 	bool new_fdd_open = false;
 	bool new_fdd_refresh = false;
 	int new_fdd_format = NEWDISK_FDD_MSDOS_2HD;
@@ -945,7 +948,6 @@ static void apply_master_volume(int volume) {
 
 	const UINT8 mixer_volume = scale_master_volume(volume, 128);
 	const UINT8 beep_volume = scale_master_volume(volume, 3);
-	const UINT8 snd14_volume = scale_master_volume(volume, 15);
 	const UINT8 motor_volume = scale_master_volume(volume, 100);
 
 	np2cfg.vol_fm = mixer_volume;
@@ -961,10 +963,6 @@ static void apply_master_volume(int volume) {
 
 	np2cfg.BEEP_VOL = beep_volume;
 	beep_setvol(np2cfg.BEEP_VOL);
-	for (BYTE &volume14 : np2cfg.vol14) {
-		volume14 = snd14_volume;
-	}
-	tms3631_setvol(np2cfg.vol14);
 
 	np2cfg.MOTORVOL = motor_volume;
 	fddmtrsnd_volume(np2cfg.MOTORVOL);
@@ -2933,6 +2931,53 @@ static void draw_keyboard_config(void) {
 	ImGui::End();
 }
 
+static bool font_preset_path(const char *filename, char *path,
+		size_t path_size) {
+
+	short attr;
+
+	getbiospath(path, filename, static_cast<int>(path_size));
+	attr = file_attr(path);
+	return (attr != static_cast<short>(-1)) &&
+		((attr & FILEATTR_DIRECTORY) == 0);
+}
+
+static void load_font_preset(const char *filename) {
+
+	char path[MAX_PATH];
+	FILEH fh;
+	UINT size;
+
+	if (!font_preset_path(filename, path, sizeof(path))) {
+		g_gui.font_status = "Font not found: ";
+		g_gui.font_status += filename;
+		return;
+	}
+	fh = file_open_rb(path);
+	if (fh == FILEH_INVALID) {
+		g_gui.font_status = "Font open failed: ";
+		g_gui.font_status += filename;
+		return;
+	}
+	size = file_getsize(fh);
+	file_close(fh);
+	if (size != kV98FontRomSize) {
+		g_gui.font_status = "Font size mismatch: ";
+		g_gui.font_status += filename;
+		return;
+	}
+	if (!biosva_load_font(path)) {
+		g_gui.font_status = "Font load failed: ";
+		g_gui.font_status += filename;
+		return;
+	}
+	file_cpyname(np2cfg.fontfile, filename, sizeof(np2cfg.fontfile));
+	pccore_redraw();
+	sysmng_update(SYS_UPDATECFG);
+	g_gui.font_status = "Font loaded: ";
+	g_gui.font_status += filename;
+}
+
 static void draw_screen_menu(void) {
 
 	if (ImGui::BeginMenu("Screen / 画面")) {
@@ -3011,6 +3056,25 @@ static void draw_screen_menu(void) {
 		ImGui::Separator();
 		menu_item_not_implemented("Rotate left/right (not implemented)");
 		menu_item_not_implemented("Screen option... (not implemented)");
+		ImGui::Separator();
+		if (ImGui::BeginMenu("Font")) {
+			char path[MAX_PATH];
+			const bool available = (pccore.model_va != PCMODEL_NOTVA) &&
+					font_preset_path(pc98fontromname, path, sizeof(path));
+			if (ImGui::MenuItem("98font", nullptr, false, available)) {
+				load_font_preset(pc98fontromname);
+			}
+			if (pccore.model_va == PCMODEL_NOTVA) {
+				ImGui::TextDisabled("98font requires a PC-88VA model");
+			}
+			else if (!available) {
+				ImGui::TextDisabled("98font.rom not found in the ROM directory");
+			}
+			ImGui::EndMenu();
+		}
+		if (!g_gui.font_status.empty()) {
+			ImGui::TextDisabled("%s", g_gui.font_status.c_str());
+		}
 		ImGui::EndMenu();
 	}
 }
