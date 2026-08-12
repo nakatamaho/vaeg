@@ -31,6 +31,7 @@
 #include	"kbdmap.h"
 #include	"romankana.h"
 #include	<stdlib.h>
+#include	<stdio.h>
 
 #define	E(role, id, label, semantic, code, jis, us, status, evidence) \
 	{role, id, label, semantic, code, jis, us, status, evidence}
@@ -334,6 +335,7 @@ static BOOL guest_shift_down[2];
 static BOOL kana_mirror;
 static BOOL trace_init;
 static BOOL trace_enabled;
+static FILE *trace_file;
 
 static const char custom_map_file[] = "keyboard.map";
 static const char custom_map_file_prefix[] = "file:";
@@ -408,12 +410,28 @@ static BOOL tenkey_overlay_mode(void) {
 static BOOL trace_on(void) {
 
 	const char *env;
+	const char *path;
 
 	if (!trace_init) {
 		trace_init = TRUE;
 		env = getenv("VAEG_KBD_TRACE");
 		trace_enabled = ((env != NULL) && (env[0] != '\0') &&
 						 (env[0] != '0')) ? TRUE : FALSE;
+		if (trace_enabled) {
+			path = getenv("VAEG_KBD_TRACE_FILE");
+#if defined(_WIN32)
+			if ((path == NULL) || (path[0] == '\0')) {
+				path = "vaeg-kbd-trace.log";
+			}
+#endif
+			if ((path != NULL) && (path[0] != '\0')) {
+				trace_file = fopen(path, "wb");
+				if (trace_file == NULL) {
+					SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION,
+							"Keyboard trace file unavailable: %s", path);
+				}
+			}
+		}
 	}
 	return trace_enabled;
 }
@@ -460,19 +478,29 @@ static void trace_key_event(const char *phase, UINT scancode,
 	scname = SDL_GetScancodeName((SDL_Scancode)scancode);
 	keyname = SDL_GetKeyName(keycode);
 	describe_action(action, action_desc, sizeof(action_desc));
-	SDL_Log("kbdtrace phase=%s scancode=%s(%u) keycode=%s(%d) mod=0x%04x "
-			"layout=%s tenkey=%u captured=%u repeat=%u action=%s target=%s "
-			"consumed=%u sent=%s",
-			phase,
-			(scname != NULL) ? scname : "", scancode,
-			(keyname != NULL) ? keyname : "", (int)keycode,
-			mod, normal_layout(np2oscfg.keyboard_host_layout),
-			tenkey_overlay_mode() ? 1 : 0,
-			captured ? 1 : 0,
-			repeat ? 1 : 0,
-			(action != NULL) ? action_type_name(action->type) : "none",
-			action_desc, consumed ? 1 : 0,
-			(sent != NULL) ? sent : "-");
+	{
+		char line[512];
+
+		SPRINTF(line,
+				"kbdtrace phase=%s scancode=%s(%u) keycode=%s(%d) mod=0x%04x "
+				"layout=%s tenkey=%u captured=%u repeat=%u action=%s target=%s "
+				"consumed=%u sent=%s",
+				phase,
+				(scname != NULL) ? scname : "", scancode,
+				(keyname != NULL) ? keyname : "", (int)keycode,
+				mod, normal_layout(np2oscfg.keyboard_host_layout),
+				tenkey_overlay_mode() ? 1 : 0,
+				captured ? 1 : 0,
+				repeat ? 1 : 0,
+				(action != NULL) ? action_type_name(action->type) : "none",
+				action_desc, consumed ? 1 : 0,
+				(sent != NULL) ? sent : "-");
+		SDL_Log("%s", line);
+		if (trace_file != NULL) {
+			fprintf(trace_file, "%s\n", line);
+			fflush(trace_file);
+		}
+	}
 }
 
 static BOOL resolve_us_keytop_action(UINT scancode, UINT16 mod,
@@ -680,6 +708,7 @@ static void set_scancode_alias(SDL_Scancode scancode, KBDMAP_ROLE role) {
 static void apply_jis_aliases(void) {
 
 	set_scancode_alias(SDL_SCANCODE_NONUSHASH, KBDROLE_UNDERSCORE);
+	set_scancode_alias(SDL_SCANCODE_NONUSBACKSLASH, KBDROLE_UNDERSCORE);
 	set_scancode_alias(SDL_SCANCODE_INTERNATIONAL3, KBDROLE_YEN);
 	set_scancode_alias(SDL_SCANCODE_INTERNATIONAL2, KBDROLE_KANA);
 }
@@ -1592,6 +1621,7 @@ int kbdmap_selftest(void) {
 	}
 	if ((kbdmap_lookup(SDL_SCANCODE_INTERNATIONAL1) != 0x33) ||
 		(kbdmap_lookup(SDL_SCANCODE_NONUSHASH) != 0x33) ||
+		(kbdmap_lookup(SDL_SCANCODE_NONUSBACKSLASH) != 0x33) ||
 		(kbdmap_lookup(SDL_SCANCODE_INTERNATIONAL3) != 0x0d)) {
 		KBDMAP_SELFTEST_FAIL("JIS Yen/RO underscore lookup");
 	}
