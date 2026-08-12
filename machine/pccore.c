@@ -74,7 +74,7 @@ const OEMCHAR np2version[] = OEMTEXT(NP2VER_CORE);
 				OEMTEXT(""), OEMTEXT(""), OEMTEXT("")};
 
 	PCCORE	pccore = {	PCBASECLOCK25, PCBASEMULTIPLE,
-						0, PCMODEL_VX, 0, 0, {0x3e, 0x73, 0x7b}, 0,
+						0, PCMODEL_VA, 0, 0, {0x3e, 0x73, 0x7b}, 0,
 						0, 0,
 							PCBASECLOCK25 * PCBASEMULTIPLE};
 	CLOCKSCALE pccore_cpu_scale = {PCCORE_STANDARD_MULTIPLE,
@@ -152,21 +152,13 @@ static void pccore_set(void) {
 	UINT8	extsize;
 
 	ZeroMemory(&pccore, sizeof(pccore));
-	model = PCMODEL_VX;
+	model = PCMODEL_VA;
 
-	pccore.model_va = PCMODEL_NOTVA;
+	/* The active tree has only PC-88VA models.  Unknown legacy values
+	 * deliberately fall back to the VA2 configuration. */
+	pccore.model_va = PCMODEL_VA2;
 	if (!milstr_cmp(np2cfg.model, str_VA1)) {
-		model = PCMODEL_VM;
 		pccore.model_va = PCMODEL_VA1;
-	}
-	else if (!milstr_cmp(np2cfg.model, str_VA2)) {
-		model = PCMODEL_VM;
-		pccore.model_va = PCMODEL_VA2;
-	}
-	else
-
-	if (!milstr_cmp(np2cfg.model, str_VM)) {
-		model = PCMODEL_VM;
 	}
 	pccore.model = model;
 
