@@ -1,6 +1,6 @@
 #include	"compiler.h"
 #include	<math.h>
-#include	"pccore.h"
+#include	"machine/pccore.h"
 #include	"sound.h"
 #include	"rhythm.h"
 

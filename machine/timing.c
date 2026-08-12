@@ -1,8 +1,8 @@
 #include	"compiler.h"
-#include	"pccore.h"
+#include	"machine/pccore.h"
 #include	"diskdrv.h"
 #include	"fdd_mtr.h"
-#include	"timing.h"
+#include	"machine/timing.h"
 
 
 #define	MSSHIFT		16

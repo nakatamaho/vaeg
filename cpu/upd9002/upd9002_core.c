@@ -1,7 +1,7 @@
 #include	"compiler.h"
 #include	"cpucore.h"
 #include	"upd9002_ops.h"
-#include	"pccore.h"
+#include	"machine/pccore.h"
 #include	"iocore.h"
 #include	"dmap.h"
 #include	"upd9002_diagnostic.h"

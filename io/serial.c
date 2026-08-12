@@ -1,9 +1,9 @@
 #include	"compiler.h"
 #include	"cpucore.h"
 #include	"commng.h"
-#include	"pccore.h"
+#include	"machine/pccore.h"
 #include	"iocore.h"
-#include	"keystat.h"
+#include	"machine/keystat.h"
 
 #if defined(SUPPORT_OPRECORD)
 #include	"oprecord.h"

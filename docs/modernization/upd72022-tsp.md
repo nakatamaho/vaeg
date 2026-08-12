@@ -1115,7 +1115,7 @@ The active implementation is divided as follows:
 | [`io/tsp.h`](../../io/tsp.h) | TSP state shared with the display and renderer paths |
 | [`vramva/maketextva.c`](../../vramva/maketextva.c) | Text and attribute rendering from `textmem` |
 | [`vramva/makesprva.c`](../../vramva/makesprva.c) | Sprite table interpretation and sprite rendering |
-| [`pccore.c`](../../pccore.c) | Display/VBlank event scheduling and blink progression |
+| [`machine/pccore.c`](../../machine/pccore.c) | Display/VBlank event scheduling and blink progression |
 | [`io/sysportva.c`](../../io/sysportva.c) | System-port view of the display synchronization state |
 
 The guest-facing TSP and the host renderer are separate. SDL2 effects and
@@ -1196,7 +1196,7 @@ The local source at this revision has these concrete issues:
 `tsp_updateclock()` derives horizontal and vertical periods from the 14-byte
 `SYNC` parameter block. It uses VA-specific dot-clock values for the supported
 24.8kHz, 15.73kHz, and 15.98kHz modes, then schedules display and VBlank events
-through `pccore.c`.
+through `machine/pccore.c`.
 
 The implementation deliberately contains VA-specific behavior. Its horizontal
 width calculation states that left and right border fields appear on real

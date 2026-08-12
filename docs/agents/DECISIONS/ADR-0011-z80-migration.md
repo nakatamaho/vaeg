@@ -361,7 +361,7 @@ No M88 declaration, type, or disassembler object crosses the new wrapper's
 consumer-visible interface.
 
 The production state bridge now propagates `SaveStatus()` and `LoadStatus()`
-failure through `statsave.c`. A copied valid state with only embedded Z80
+failure through `machine/statsave.c`. A copied valid state with only embedded Z80
 revision changed to 2 is rejected by the top-level load path. Successful load
 also refreshes the subsystem's diagnostic WAIT mirror from revision-1 byte 57
 bit 1; the restored CPU state remains authoritative. The status size, offsets,

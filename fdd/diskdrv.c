@@ -3,7 +3,7 @@
 #include	"compiler.h"
 #include	"dosio.h"
 #include	"sysmng.h"
-#include	"pccore.h"
+#include	"machine/pccore.h"
 #include	"iocore.h"
 #include	"diskdrv.h"
 #include	"fddfile.h"

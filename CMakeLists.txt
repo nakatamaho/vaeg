@@ -142,6 +142,7 @@ set(VAEG_INCLUDE_DIRS
     "${CMAKE_CURRENT_BINARY_DIR}/generated"
     "${CMAKE_CURRENT_SOURCE_DIR}/sdl2"
     "${CMAKE_CURRENT_SOURCE_DIR}"
+    "${CMAKE_CURRENT_SOURCE_DIR}/machine"
     "${CMAKE_CURRENT_SOURCE_DIR}/common"
     "${CMAKE_CURRENT_SOURCE_DIR}/cpu/upd9002"
     "${CMAKE_CURRENT_SOURCE_DIR}/io"
@@ -281,13 +282,13 @@ set(VAEG_CORE_SOURCES
     font/fontx1.c
     font/fontx68k.c
     font/fontmake.c
-    pccore.c
-    nevent.c
-    calendar.c
-    timing.c
-    keystat.c
-    statsave.c
-    debugsub.c)
+    machine/pccore.c
+    machine/nevent.c
+    machine/calendar.c
+    machine/timing.c
+    machine/keystat.c
+    machine/statsave.c
+    machine/debugsub.c)
 
 set(VAEG_Z80_COMPAT_PRODUCTION_SOURCES
     cpu/upd780/upd780_disasm.cpp

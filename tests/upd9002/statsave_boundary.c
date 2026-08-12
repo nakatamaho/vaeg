@@ -26,7 +26,7 @@
 #include "dosio.h"
 #include "cpucore.h"
 #include "upd9002_state.h"
-#include "pccore.h"
+#include "machine/pccore.h"
 #include "upd9002_regs.h"
 #include "tests/upd9002/statsave_boundary.h"
 

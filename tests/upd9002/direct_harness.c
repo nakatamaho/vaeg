@@ -24,7 +24,7 @@
  */
 #include "compiler.h"
 #include "cpucore.h"
-#include "nevent.h"
+#include "machine/nevent.h"
 #include "iocore.h"
 #include "upd9002_trace.h"
 #include "tests/upd9002/direct_harness.h"

@@ -1,6 +1,6 @@
 #include	"compiler.h"
 #include	"soundmng.h"
-#include	"pccore.h"
+#include	"machine/pccore.h"
 #include	"fdd_mtr.h"
 #include	"sound.h"
 
