@@ -1129,16 +1129,22 @@ BOOL kbdmap_keydown(UINT scancode, SDL_Keycode keycode, UINT16 mod,
 		return FALSE;
 	}
 	role = (scancode < SDL_NUM_SCANCODES) ? scancode_role[scancode] : -1;
+	if ((role >= 0) && repeat &&
+		((entries[role].role == KBDROLE_KANA) ||
+		 (entries[role].role == KBDROLE_CAPS))) {
+		action.type = KBD_ACTION_GUEST_KEY;
+		action.key = entries[role].guest_code;
+		action.modifier = 0;
+		action.name = entries[role].label;
+		trace_key_event("down", scancode, keycode, mod, FALSE, repeat,
+						&action, TRUE, "repeat-suppressed");
+		return TRUE;
+	}
 	if ((role >= 0) && (entries[role].role == KBDROLE_KANA)) {
 		action.type = KBD_ACTION_GUEST_KEY;
 		action.key = entries[role].guest_code;
 		action.modifier = 0;
 		action.name = entries[role].label;
-		if (repeat) {
-			trace_key_event("down", scancode, keycode, mod, FALSE, repeat,
-							&action, TRUE, "repeat-suppressed");
-			return TRUE;
-		}
 		kbdinject_press(entries[role].guest_code);
 		kana_mirror = kana_mirror ? FALSE : TRUE;
 		romankana_reset(&roman_state);
