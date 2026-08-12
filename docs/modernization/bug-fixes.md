@@ -70,6 +70,25 @@ separate parity correction or move it to Open Defects.
 
 ## Fixed Defects
 
+### Windows JIS RO was not mapped to the guest underscore key
+
+- **Status:** fixed in the hotfix; Windows manual verification remains a
+  maintainer-side check.
+- **Symptom:** Shift+RO on a Windows JIS keyboard produced no guest underscore.
+- **Root cause:** the SDL2 Windows backend can report the JIS RO key as
+  `SDL_SCANCODE_NONUSBACKSLASH` through `VK_OEM_102`, while the JIS mapper only
+  recognized the other alias and `SDL_SCANCODE_INTERNATIONAL1`.
+- **Correction:** JIS now aliases both `NONUSHASH` and `NONUSBACKSLASH` to the
+  guest underscore code `0x33`. `VAEG_KBD_TRACE=1` also writes a Windows GUI
+  trace to `vaeg-kbd-trace.log`, or to `VAEG_KBD_TRACE_FILE` when specified.
+- **Verification:** Linux normal and VA-model selftests, CTest 2/2, repository
+  validators, and the MinGW PE32+ build passed. The keyboard-map selftest now
+  checks the `NONUSBACKSLASH` alias, and the trace-file path was exercised by
+  the selftest run.
+- **Evidence:** [JIS keyboard mapping](../../sdl2/kbdmap.c#L708) and
+  [keyboard trace instructions](../../sdl2/README.md#keyboard-mapping).
+- **Commit:** [0109944](https://github.com/nakatamaho/vaeg/commit/0109944756fd6049a20838fe340de565f6e061ba).
+
 ### SDL keyboard repeat events were discarded by the frontend
 
 - **Status:** fixed in the hotfix; Windows manual verification remains a
