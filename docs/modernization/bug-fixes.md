@@ -79,15 +79,17 @@ separate parity correction or move it to Open Defects.
 - **Root cause:** sdlkbd_keydown() treated every repeat event as captured and
   returned before the keyboard mapper, so no guest make event was generated.
 - **Correction:** repeat events now reach kbdmap_keydown() and use the existing
-  guest key/action path. KANA-lock repeats are intentionally suppressed so a
-  held KANA key cannot toggle the lock repeatedly; the existing guest-side
+  guest key/action path. KANA and CAPS Lock repeats are intentionally
+  suppressed so a held lock key cannot toggle the lock repeatedly; the existing
+  guest-side
   KBEX_NONREP policy remains authoritative for non-repeat keys.
 - **Verification:** Linux CI build, normal and VA-model selftests, CTest 2/2,
   and the MinGW cross-build passed. The keyboard-map selftest verifies that a
-  KANA repeat does not toggle the Roman-Kana lock state.
+  KANA/CAPS repeat does not toggle either lock state.
 - **Evidence:** [SDL keyboard dispatch](../../sdl2/sdlkbd.c#L36) and
   [keyboard mapping](../../sdl2/kbdmap.c#L1106).
-- **Commit:** [813de6c](https://github.com/nakatamaho/vaeg/commit/813de6cb582fce1d4ae7d365d7aceb21acf078ab).
+- **Commit:** [813de6c](https://github.com/nakatamaho/vaeg/commit/813de6cb582fce1d4ae7d365d7aceb21acf078ab),
+  [98c25da](https://github.com/nakatamaho/vaeg/commit/98c25dab5b8ffc901b01ed4a9475264492d11f05).
 
 ### Retired FMBOARD state payloads were silently accepted
 
