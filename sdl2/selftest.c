@@ -1189,6 +1189,7 @@ static int test_sgp_speed(void) {
 	UINT saved_sgp_speed_mode;
 	UINT saved_sgp_multiplier;
 	UINT saved_config_multiple;
+	UINT32 saved_baseclock;
 
 	if (!sgp_speed_mode_valid(SGP_SPEED_MODEL_DEFAULT) ||
 		!sgp_speed_mode_valid(SGP_SPEED_FOLLOW_CPU) ||
@@ -1232,12 +1233,18 @@ static int test_sgp_speed(void) {
 	saved_sgp_speed_mode = np2cfg.sgp_speed_mode;
 	saved_sgp_multiplier = np2cfg.sgp_multiplier;
 	saved_config_multiple = np2cfg.multiple;
+	saved_baseclock = pccore.baseclock;
+	pccore.baseclock = PCBASECLOCK40;
 	pccore.model_va = PCMODEL_VA1;
 	np2cfg.sgp_speed_mode = SGP_SPEED_MODEL_DEFAULT;
 	np2cfg.sgp_multiplier = 1;
 	np2cfg.multiple = PCCORE_STANDARD_MULTIPLE;
 	pccore_clockrestore();
 	sgp_configure_speed();
+	if ((pccore_cpu_clock() != PCBASECLOCK40 * PCCORE_STANDARD_MULTIPLE) ||
+		(sgp_effective_clock() != PCBASECLOCK40)) {
+		return(fail("sgp-speed", "effective default clocks are incorrect"));
+	}
 	if (sgp_scale_elapsed(20000) != 20000) {
 		return(fail("sgp-speed", "VA Model default timing changed"));
 	}
@@ -1249,6 +1256,13 @@ static int test_sgp_speed(void) {
 
 	np2cfg.sgp_speed_mode = SGP_SPEED_FOLLOW_CPU;
 	np2cfg.sgp_multiplier = 1;
+	np2cfg.multiple = 4;
+	pccore_clockrestore();
+	sgp_configure_speed();
+	if ((pccore_cpu_clock() != PCBASECLOCK40 * 4) ||
+		(sgp_effective_clock() != PCBASECLOCK40 * 4)) {
+		return(fail("sgp-speed", "full-speed clocks did not increase"));
+	}
 	np2cfg.multiple = 3;
 	pccore_clockrestore();
 	sgp_configure_speed();
@@ -1263,6 +1277,7 @@ static int test_sgp_speed(void) {
 	np2cfg.sgp_speed_mode = saved_sgp_speed_mode;
 	np2cfg.sgp_multiplier = saved_sgp_multiplier;
 	np2cfg.multiple = saved_config_multiple;
+	pccore.baseclock = saved_baseclock;
 	pccore_clockrestore();
 	sgp_configure_speed();
 	fprintf(stderr, "selftest: SGP speed ok\n");

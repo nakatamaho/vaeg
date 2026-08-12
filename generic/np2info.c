@@ -6,6 +6,7 @@
 #include	"fmboard.h"
 #include	"np2info.h"
 #include	"np2ver.h"
+#include	"sgp.h"
 
 #include	"memoryva.h"
 #include	"subsystem.h"
@@ -43,6 +44,7 @@ static const char str_sound_opn[] = "OPN";
 static const char str_sound_opna[] = "OPNA";
 
 static const char str_clockfmt[] = "%d.%1dMHz";
+static const char str_precise_clockfmt[] = "%u.%04uMHz";
 static const char str_memfmt[] = "%3uKB";
 static const char str_memfmt2[] = "%3uKB + %uKB";
 static const char str_memfmt3[] = "%d.%1dMB";
@@ -67,6 +69,36 @@ static void info_model(char *str, int maxlen, NP2INFOEX *ex) {
 	milstr_ncpy(str,
 				(pccore.model_va == PCMODEL_VA2) ? str_model_va2 : str_model_va1,
 				maxlen);
+	(void)ex;
+}
+
+static void info_precise_clock(char *str, int maxlen, UINT32 clock) {
+
+	char clockstr[16];
+
+	SPRINTF(clockstr, str_precise_clockfmt, clock / 1000000,
+			(clock % 1000000) / 100);
+	milstr_ncpy(str, clockstr, maxlen);
+}
+
+static void info_cpuclock(char *str, int maxlen, NP2INFOEX *ex) {
+
+	info_precise_clock(str, maxlen, pccore_cpu_clock());
+	(void)ex;
+}
+
+static void info_sgpclock(char *str, int maxlen, NP2INFOEX *ex) {
+
+	info_precise_clock(str, maxlen, sgp_effective_clock());
+	(void)ex;
+}
+
+static void info_frame(char *str, int maxlen, NP2INFOEX *ex) {
+
+	char framestr[16];
+
+	SPRINTF(framestr, "%u", drawcount);
+	milstr_ncpy(str, framestr, maxlen);
 	(void)ex;
 }
 
@@ -299,6 +331,9 @@ static const INFOPROC infoproc[] = {
 			{"BIOSSUB",		info_bios_88vasubsys},
 			{"VER",			info_ver},
 			{"COMMIT",		info_commit},
+			{"CPUCLK",		info_cpuclock},
+			{"SGPCLK",		info_sgpclock},
+			{"FRAME",		info_frame},
 			{"CPU",			info_cpu},
 			{"CLOCK",		info_clock},
 			{"BASE",		info_base},

@@ -102,7 +102,9 @@ constexpr int kCpuPresets[] = {1, 2, 4, 5, 6, 8, 10, 12, 16, 20};
 constexpr int kSgpPresets[] = {1, 2, 4, 8, 16};
 constexpr int kSoundBufferPresets[] = {40, 100, 200, 500, 1000};
 constexpr const char kAboutInfoTemplate[] =
-	"CPU: %CPU% %CLOCK%\n"
+	"CPU: %CPU% %CPUCLK%\n"
+	"SGP: %SGPCLK%\n"
+	"FRAME: %FRAME%\n"
 	"BUILD COMMIT: %COMMIT%\n"
 	"MODEL: %MODEL%\n"
 	"SOUND: %SND%\n"
