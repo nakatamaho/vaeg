@@ -1,7 +1,6 @@
 
 
 #include	"soundrom.h"
-#include	"tms3631.h"
 #include	"fmtimer.h"
 #include	"opngen.h"
 #include	"psggen.h"
@@ -23,16 +22,6 @@ typedef struct {
 } OPN_T;
 
 typedef struct {
-	BYTE	porta;
-	BYTE	portb;
-	BYTE	portc;
-	BYTE	mask;
-	BYTE	key[8];
-	int		sync;
-	int		ch;
-} MUSICGEN;
-
-typedef struct {
 	BYTE	sintm;			// bit7  0..割り込み許可  1..割り込み禁止
 } _FMBOARDVA;
 
@@ -42,9 +31,6 @@ extern "C" {
 
 extern	UINT32		usesound;
 extern	OPN_T		opn;
-extern	MUSICGEN	musicgen;
-
-extern	_TMS3631	tms3631;
 extern	_FMTIMER	fmtimer;
 extern	_OPNGEN		opngen;
 extern	OPNCH		opnch[OPNCH_MAX];
