@@ -4,6 +4,7 @@
 #include	"iocore.h"
 #include	"iocoreva.h"
 #include	"scrndraw.h"
+#include	"scrndrawva.h"
 #include	"sdrawva.h"
 #include	"dispsync.h"
 #include	"maketextva.h"
@@ -156,6 +157,26 @@ static	WORD	tspspr_raster[SURFACE_WIDTH];
 												// 1ラスタ分のピクセルデータ
 												// 各ピクセルはパレット番号(0～15)
 
+static BOOL layer_enabled[VAEG_VA_LAYER_COUNT] = {
+	TRUE, TRUE, TRUE, TRUE
+};
+
+void scrndrawva_set_layer_enabled(UINT layer, BOOL enabled) {
+
+	if (layer >= VAEG_VA_LAYER_COUNT) {
+		return;
+	}
+	layer_enabled[layer] = enabled ? TRUE : FALSE;
+}
+
+BOOL scrndrawva_layer_enabled(UINT layer) {
+
+	if (layer >= VAEG_VA_LAYER_COUNT) {
+		return FALSE;
+	}
+	return layer_enabled[layer];
+}
+
 
 void scrndrawva_compose_begin(void) {
 	work.bp = vabitmap;
@@ -240,15 +261,18 @@ void scrndrawva_compose_raster(void) {
 
 			switch (type) {
 			case VIDEOVA_TEXTSCREEN:
-				scrn->raster = tsptext_raster;
+				scrn->raster = layer_enabled[VAEG_VA_LAYER_TEXT] ?
+					tsptext_raster : NULL;
 				scrn->xpar = videova.xpar_txtspr | ((DWORD)videova.xpar_txtspr << 16);
 				break;
 			case VIDEOVA_SPRITESCREEN:
-				scrn->raster = tspspr_raster;
+				scrn->raster = layer_enabled[VAEG_VA_LAYER_SPRITE] ?
+					tspspr_raster : NULL;
 				scrn->xpar = videova.xpar_txtspr | ((DWORD)videova.xpar_txtspr << 16);
 				break;
 			case VIDEOVA_GRAPHICSCREEN0:
-				if (videova.grmode & 0x8000) {
+				if ((videova.grmode & 0x8000) &&
+					layer_enabled[VAEG_VA_LAYER_GRAPHICS0]) {
 					// GDEN0 = 1 (グラフィック表示イネーブル)
 					scrn->raster = (grph0_noraster) ? NULL : grph0_raster;
 					scrn->pixelmode = videova.grres & 0x0003;
@@ -266,7 +290,8 @@ void scrndrawva_compose_raster(void) {
 				}
 				break;
 			case VIDEOVA_GRAPHICSCREEN1:
-				if (videova.grmode & 0x8000) {
+				if ((videova.grmode & 0x8000) &&
+					layer_enabled[VAEG_VA_LAYER_GRAPHICS1]) {
 					// GDEN0 = 1 (グラフィック表示イネーブル)
 					scrn->raster = (grph1_noraster) ? NULL : grph1_raster;
 					scrn->pixelmode = (videova.grres >> 8) & 0x0003;
@@ -332,11 +357,13 @@ void scrndrawva_compose_raster(void) {
 				// GDEN0 = 1 (グラフィック表示イネーブル)
 				switch (type) {
 				case VIDEOVA_GRAPHICSCREEN0:
-					scrn->raster = (grph0_noraster) ? NULL : grph0_raster;
+					scrn->raster = layer_enabled[VAEG_VA_LAYER_GRAPHICS0] &&
+						!grph0_noraster ? grph0_raster : NULL;
 					scrn->pixelmode = videova.grres & 0x0003;
 					break;
 				case VIDEOVA_GRAPHICSCREEN1:
-					scrn->raster = (grph1_noraster) ? NULL : grph1_raster;
+					scrn->raster = layer_enabled[VAEG_VA_LAYER_GRAPHICS1] &&
+						!grph1_noraster ? grph1_raster : NULL;
 					scrn->pixelmode = (videova.grres >> 8) & 0x0003;
 					break;
 				}

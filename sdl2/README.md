@@ -612,13 +612,19 @@ No Wait and draw skip 16; releasing F11, losing focus, resetting, loading a
 state, or quitting clears the temporary mode. F11 is never sent to the guest
 and the saved No Wait/frame-skip/CPU/SGP values are not overwritten.
 
-`Screen -> Frame display` restores the original VAEG `Frame Disp` behavior.
-It samples actual guest framebuffer draws over approximately two seconds and
-appends `N.NFPS` to the native window title. It does not count ImGui-only
-presents and does not change frame skip or guest timing. The toggle is stored
-in the original `DspClock` bit 1 in `vaeg.cfg`. Frame display defaults to on
-when no saved `DspClock` value exists; an explicitly saved off setting remains
-off.
+`Info -> Show FPS`, `Show CPU clock`, `Show SGP clock`, and `Show frame`
+independently control the corresponding suffixes in the native window title.
+For a new configuration, CPU and SGP clock display are enabled while FPS and
+frame display are off; saved `DspClock` flags are preserved. The measured clocks
+are the configured effective clocks scaled by guest frames completed per host
+second relative to the nominal 60Hz guest frame rate, so No Wait and F11 show
+the actual extra throughput. The measurement uses guest frames rather than
+rendered frames and is refreshed approximately once per second; it does not
+change frame skip or guest timing. `Info -> Show text`, `Show sprite`, `Show
+graphics 0`, and `Show graphics 1` independently enable the four VA composition
+layers; graphics 0 and graphics 1 are the VA's two graphics planes. These layer
+switches are frontend display filters and do not modify guest VRAM or video
+registers. `Info -> About` opens the version and runtime information dialog.
 
 ## OPN/OPNA FM Backend
 

@@ -123,7 +123,8 @@ const char *sxsi_getname(REG8 drv) {
 	return(NULL);
 }
 
-static BOOL sxsi_hddopen_device(REG8 drv, const char *file, SXSIDEV sxsi) {
+static BOOL sxsi_hddopen_device(REG8 drv, const char *file, SXSIDEV sxsi,
+		BOOL log_mount) {
 
 	FILEH	fh;
 const char	*ext;
@@ -248,16 +249,34 @@ const char	*ext;
 	sxsi->headersize = headersize;
 	sxsi->fh = fh;
 	file_cpyname(sxsi->fname, file, sizeof(sxsi->fname));
-	if (type & SXSITYPE_SCSI) {
-		BOOL read_only = ((type & SXSITYPE_DEVMASK) == SXSITYPE_CDROM);
-		fprintf(stderr, "INFO: SCSI mount path=%s size=%llu header=%u "
-				"block_size=%u blocks=%ld read_only=%u fingerprint=%08x\n",
-				file, (unsigned long long)file_getsize64(fh), headersize, size,
-				totals, read_only ? 1U : 0U,
-				sxsi_file_fingerprint(fh, headersize, size));
-	}
 	if (type == (SXSITYPE_IDE | SXSITYPE_HDD)) {
 		sasihddcheck(sxsi);
+	}
+	if (log_mount) {
+		const char *interface_name;
+		UINT16 interface_type;
+		BOOL read_only;
+
+		interface_type = sxsi->type & SXSITYPE_IFMASK;
+		if (interface_type == SXSITYPE_SASI) {
+			interface_name = "SASI";
+		}
+		else if (interface_type == SXSITYPE_SCSI) {
+			interface_name = "SCSI";
+		}
+		else if (interface_type == SXSITYPE_IDE) {
+			interface_name = "IDE";
+		}
+		else {
+			interface_name = "HDD";
+		}
+		read_only = ((sxsi->type & SXSITYPE_DEVMASK) == SXSITYPE_CDROM);
+		fprintf(stderr, "INFO: %s mount id=%u path=%s size=%llu header=%u "
+				"block_size=%u blocks=%ld read_only=%u fingerprint=%08x\n",
+				interface_name, (unsigned int)(drv & 0x0f), file,
+				(unsigned long long)file_getsize64(fh), headersize, size,
+				totals, read_only ? 1U : 0U,
+				sxsi_file_fingerprint(fh, headersize, size));
 	}
 	return(SUCCESS);
 
@@ -270,7 +289,7 @@ sxsiope_err1:
 
 BOOL sxsi_hddopen(REG8 drv, const char *file) {
 
-	return(sxsi_hddopen_device(drv, file, sxsi_getptr(drv)));
+	return(sxsi_hddopen_device(drv, file, sxsi_getptr(drv), TRUE));
 }
 
 BOOL sxsi_hddvalidate_sasi(const char *file) {
@@ -281,7 +300,7 @@ BOOL sxsi_hddvalidate_sasi(const char *file) {
 
 	ZeroMemory(&candidate, sizeof(candidate));
 	candidate.fh = FILEH_INVALID;
-	if (sxsi_hddopen_device(0, file, &candidate) != SUCCESS) {
+	if (sxsi_hddopen_device(0, file, &candidate, FALSE) != SUCCESS) {
 		return(FAILURE);
 	}
 	expected_size = (UINT64)candidate.headersize +
@@ -304,7 +323,7 @@ BOOL sxsi_hddvalidate_scsi(const char *file) {
 
 	ZeroMemory(&candidate, sizeof(candidate));
 	candidate.fh = FILEH_INVALID;
-	if (sxsi_hddopen_device(0x20, file, &candidate) != SUCCESS) {
+	if (sxsi_hddopen_device(0x20, file, &candidate, FALSE) != SUCCESS) {
 		return(FAILURE);
 	}
 	expected_size = (UINT64)candidate.headersize +

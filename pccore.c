@@ -323,6 +323,8 @@ void pccore_reset(void) {
 	int		i;
 
 	pccore_debug_resume = FALSE;
+	drawcount = 0;
+	scrnmng_reset_metrics();
 	soundmng_stop();
 	if (soundrenewal) {
 		soundrenewal = 0;

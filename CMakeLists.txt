@@ -60,6 +60,7 @@ if(Git_FOUND)
         COMMAND "${CMAKE_COMMAND}" -E env
             "GIT_CONFIG_GLOBAL=${VAEG_GIT_CONFIG}"
             "GIT_CONFIG_SYSTEM=${VAEG_GIT_CONFIG}"
+            "TZ=Asia/Tokyo"
             "${GIT_EXECUTABLE}" show -s
             --date=format-local:%Y%m%d --format=%cd HEAD
         WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"

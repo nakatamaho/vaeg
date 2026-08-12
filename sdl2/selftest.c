@@ -870,7 +870,10 @@ static int test_sasi_image_validation(void) {
 	char valid_path[MAX_PATH];
 	char invalid_path[MAX_PATH];
 	FILEH fh;
+	SXSIDEV slot;
+	_SXSIDEV saved_slot;
 	HDIHDR valid_header;
+	BOOL slot_overridden = FALSE;
 	int result;
 
 	SPRINTF(valid_path, "vaeg-selftest-%lu-sasi.hdi", (unsigned long)getpid());
@@ -910,7 +913,26 @@ static int test_sasi_image_validation(void) {
 		result = fail("SASI image", "truncated SASI HDI was accepted");
 	}
 
+	slot = sxsi_getptr(0);
+	saved_slot = *slot;
+	ZeroMemory(slot, sizeof(*slot));
+	slot->fh = FILEH_INVALID;
+	slot_overridden = TRUE;
+	if ((result == SUCCESS) && (sxsi_hddopen(0, valid_path) != SUCCESS)) {
+		result = fail("SASI image", "valid HDI could not be mounted");
+	}
+	else if ((result == SUCCESS) &&
+			((slot->type & SXSITYPE_IFMASK) != SXSITYPE_SASI)) {
+		result = fail("SASI image", "mounted HDI was not classified as SASI");
+	}
+
 done:
+	if (slot_overridden) {
+		if (slot->fh != FILEH_INVALID) {
+			file_close(slot->fh);
+		}
+		*slot = saved_slot;
+	}
 	file_delete(valid_path);
 	file_delete(invalid_path);
 	if (result == SUCCESS) {
@@ -1070,6 +1092,35 @@ static int test_persistence_controls(void) {
 	return(SUCCESS);
 }
 
+static int test_va_layer_display(void) {
+
+	BOOL saved[VAEG_VA_LAYER_COUNT];
+	UINT layer;
+
+	for (layer = 0; layer < VAEG_VA_LAYER_COUNT; layer++) {
+		saved[layer] = scrndrawva_layer_enabled(layer);
+		if (!saved[layer]) {
+			return(fail("VA layer display", "default layer is disabled"));
+		}
+		scrndrawva_set_layer_enabled(layer, FALSE);
+		if (scrndrawva_layer_enabled(layer)) {
+			return(fail("VA layer display", "layer disable was ignored"));
+		}
+		scrndrawva_set_layer_enabled(layer, TRUE);
+		if (!scrndrawva_layer_enabled(layer)) {
+			return(fail("VA layer display", "layer enable was ignored"));
+		}
+	}
+	if (scrndrawva_layer_enabled(VAEG_VA_LAYER_COUNT)) {
+		return(fail("VA layer display", "invalid layer was accepted"));
+	}
+	for (layer = 0; layer < VAEG_VA_LAYER_COUNT; layer++) {
+		scrndrawva_set_layer_enabled(layer, saved[layer]);
+	}
+	fprintf(stderr, "selftest: VA layer display ok\n");
+	return(SUCCESS);
+}
+
 static int test_framedisp(void) {
 
 	VAEG_FRAMEDISP state;
@@ -1189,6 +1240,7 @@ static int test_sgp_speed(void) {
 	UINT saved_sgp_speed_mode;
 	UINT saved_sgp_multiplier;
 	UINT saved_config_multiple;
+	UINT32 saved_baseclock;
 
 	if (!sgp_speed_mode_valid(SGP_SPEED_MODEL_DEFAULT) ||
 		!sgp_speed_mode_valid(SGP_SPEED_FOLLOW_CPU) ||
@@ -1232,12 +1284,18 @@ static int test_sgp_speed(void) {
 	saved_sgp_speed_mode = np2cfg.sgp_speed_mode;
 	saved_sgp_multiplier = np2cfg.sgp_multiplier;
 	saved_config_multiple = np2cfg.multiple;
+	saved_baseclock = pccore.baseclock;
+	pccore.baseclock = PCBASECLOCK40;
 	pccore.model_va = PCMODEL_VA1;
 	np2cfg.sgp_speed_mode = SGP_SPEED_MODEL_DEFAULT;
 	np2cfg.sgp_multiplier = 1;
 	np2cfg.multiple = PCCORE_STANDARD_MULTIPLE;
 	pccore_clockrestore();
 	sgp_configure_speed();
+	if ((pccore_cpu_clock() != PCBASECLOCK40 * PCCORE_STANDARD_MULTIPLE) ||
+		(sgp_effective_clock() != PCBASECLOCK40)) {
+		return(fail("sgp-speed", "effective default clocks are incorrect"));
+	}
 	if (sgp_scale_elapsed(20000) != 20000) {
 		return(fail("sgp-speed", "VA Model default timing changed"));
 	}
@@ -1249,6 +1307,13 @@ static int test_sgp_speed(void) {
 
 	np2cfg.sgp_speed_mode = SGP_SPEED_FOLLOW_CPU;
 	np2cfg.sgp_multiplier = 1;
+	np2cfg.multiple = 4;
+	pccore_clockrestore();
+	sgp_configure_speed();
+	if ((pccore_cpu_clock() != PCBASECLOCK40 * 4) ||
+		(sgp_effective_clock() != PCBASECLOCK40 * 4)) {
+		return(fail("sgp-speed", "full-speed clocks did not increase"));
+	}
 	np2cfg.multiple = 3;
 	pccore_clockrestore();
 	sgp_configure_speed();
@@ -1263,6 +1328,7 @@ static int test_sgp_speed(void) {
 	np2cfg.sgp_speed_mode = saved_sgp_speed_mode;
 	np2cfg.sgp_multiplier = saved_sgp_multiplier;
 	np2cfg.multiple = saved_config_multiple;
+	pccore.baseclock = saved_baseclock;
 	pccore_clockrestore();
 	sgp_configure_speed();
 	fprintf(stderr, "selftest: SGP speed ok\n");
@@ -2340,6 +2406,9 @@ int vaeg_selftest_run(void) {
 		return(FAILURE);
 	}
 	if (test_persistence_controls() != SUCCESS) {
+		return(FAILURE);
+	}
+	if (test_va_layer_display() != SUCCESS) {
 		return(FAILURE);
 	}
 	if (test_framedisp() != SUCCESS) {
