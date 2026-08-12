@@ -16,8 +16,8 @@ modification, are permitted provided that the following conditions are met:
 M85 starts from the G84-approved M84 merge at
 [9aeb6512](https://github.com/nakatamaho/vaeg/commit/9aeb6512e59da7e794ffede50b7a184f601d137e).
 The implementation candidate is on
-topic/m85-state-save-section-cleanup. G85 remains a human gate and is not
-declared passed by this report.
+topic/m85-state-save-section-cleanup. G85 human gate passed; M85 is closed
+on this topic branch. This report does not merge the branch to main.
 
 The audit covers the current writer table in
 [statsave.tbl](../../../statsave.tbl), the preflight/load coordinator in
@@ -109,8 +109,8 @@ The following candidate checks passed:
 | MinGW artifact | PASS; PE32+ build/mingw-cross/sdl2/vaeg.exe; SHA-256 8ac93c914b719a7968e11b527f73ea5ab9311f543683eba9a8e9cc6937095872 |
 | M84/M85 source inventory and diff checks | PASS; no state payload binaries changed |
 
-Manual clean-checkout, V3/demo, OS, and save/load testing remain the G85
-human gate.
+G85 human gate passed; the maintainer confirmed the required manual
+clean-checkout, V3/demo, OS, and save/load validation.
 
 ## Non-goals and deferred items
 
