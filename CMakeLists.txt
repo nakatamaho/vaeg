@@ -40,6 +40,46 @@ option(VAEG_UPD9002_PERF_DIAGNOSTIC
 set(VAEG_ZEX_ARTIFACT_DIR "" CACHE PATH
     "Offline directory containing the five hash-verified ZEX artifacts")
 
+set(VAEG_BUILD_DATE "unknown")
+set(VAEG_BUILD_COMMIT "unknown")
+file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/generated")
+set(VAEG_GIT_CONFIG "${CMAKE_CURRENT_BINARY_DIR}/generated/git-empty-config")
+file(WRITE "${VAEG_GIT_CONFIG}" "")
+find_package(Git QUIET)
+if(Git_FOUND)
+    execute_process(
+        COMMAND "${CMAKE_COMMAND}" -E env
+            "GIT_CONFIG_GLOBAL=${VAEG_GIT_CONFIG}"
+            "GIT_CONFIG_SYSTEM=${VAEG_GIT_CONFIG}"
+            "${GIT_EXECUTABLE}" show -s --format=%H HEAD
+        WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+        RESULT_VARIABLE VAEG_BUILD_COMMIT_RESULT
+        OUTPUT_VARIABLE VAEG_BUILD_COMMIT_OUTPUT
+        OUTPUT_STRIP_TRAILING_WHITESPACE)
+    execute_process(
+        COMMAND "${CMAKE_COMMAND}" -E env
+            "GIT_CONFIG_GLOBAL=${VAEG_GIT_CONFIG}"
+            "GIT_CONFIG_SYSTEM=${VAEG_GIT_CONFIG}"
+            "${GIT_EXECUTABLE}" show -s
+            --date=format-local:%Y%m%d --format=%cd HEAD
+        WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+        RESULT_VARIABLE VAEG_BUILD_DATE_RESULT
+        OUTPUT_VARIABLE VAEG_BUILD_DATE_OUTPUT
+        OUTPUT_STRIP_TRAILING_WHITESPACE)
+    if(VAEG_BUILD_COMMIT_RESULT EQUAL 0
+            AND VAEG_BUILD_COMMIT_OUTPUT MATCHES "^[0-9a-f]+$")
+        set(VAEG_BUILD_COMMIT "${VAEG_BUILD_COMMIT_OUTPUT}")
+    endif()
+    if(VAEG_BUILD_DATE_RESULT EQUAL 0
+            AND VAEG_BUILD_DATE_OUTPUT MATCHES "^[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]$")
+        set(VAEG_BUILD_DATE "${VAEG_BUILD_DATE_OUTPUT}")
+    endif()
+endif()
+configure_file(
+    "${CMAKE_CURRENT_SOURCE_DIR}/cmake/vaeg_build_info.h.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/generated/vaeg_build_info.h"
+    @ONLY)
+
 if(VAEG_ENABLE_TESTS AND NOT VAEG_Z80_COMPAT_INTEGRATION_TRACE)
     message(FATAL_ERROR
         "VAEG_ENABLE_TESTS requires VAEG_Z80_COMPAT_INTEGRATION_TRACE=ON; "
@@ -98,6 +138,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
 set(VAEG_INCLUDE_DIRS
+    "${CMAKE_CURRENT_BINARY_DIR}/generated"
     "${CMAKE_CURRENT_SOURCE_DIR}/sdl2"
     "${CMAKE_CURRENT_SOURCE_DIR}"
     "${CMAKE_CURRENT_SOURCE_DIR}/common"

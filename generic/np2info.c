@@ -5,6 +5,7 @@
 #include	"sound.h"
 #include	"fmboard.h"
 #include	"np2info.h"
+#include	"np2ver.h"
 
 #include	"memoryva.h"
 #include	"subsystem.h"
@@ -53,6 +54,12 @@ static const char str_rhythm[] = "BSCHTR";
 static void info_ver(char *str, int maxlen, NP2INFOEX *ex) {
 
 	milstr_ncpy(str, np2version, maxlen);
+	(void)ex;
+}
+
+static void info_commit(char *str, int maxlen, NP2INFOEX *ex) {
+
+	milstr_ncpy(str, VAEG_BUILD_COMMIT, maxlen);
 	(void)ex;
 }
 
@@ -291,6 +298,7 @@ static const INFOPROC infoproc[] = {
 			{"BIOS91",		info_bios_88va91},
 			{"BIOSSUB",		info_bios_88vasubsys},
 			{"VER",			info_ver},
+			{"COMMIT",		info_commit},
 			{"CPU",			info_cpu},
 			{"CLOCK",		info_clock},
 			{"BASE",		info_base},
