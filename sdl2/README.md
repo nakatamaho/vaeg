@@ -698,7 +698,16 @@ guest keys or guest Shift chords that produce the intended ASCII symbol.
 The tenkey overlay is a game-oriented mode for tenkeyless keyboards and
 is independent of the host layout preset. No Unicode or text-buffer
 injection is used. Set `VAEG_KBD_TRACE=1` to log keyboard event routing
-and selected guest actions.
+and selected guest actions. On Windows GUI builds, the same trace is written
+to `vaeg-kbd-trace.log` in the current directory; set
+`VAEG_KBD_TRACE_FILE` to choose another path. For example, in PowerShell:
+
+```powershell
+$env:VAEG_KBD_TRACE = "1"
+$env:VAEG_KBD_TRACE_FILE = "$pwd\kbdtrace.txt"
+.\vaeg.exe
+Get-Content .\kbdtrace.txt
+```
 
 Roman Kana parses A-Z and apostrophe host scancodes and emits the same
 guest keyboard make/break sequence as physical keys. It never injects
