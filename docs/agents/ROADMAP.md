@@ -129,7 +129,7 @@ M36–M41 archive status.
 | M83 | tasks/M83_move_upd780_subsystem_cpu.md | Create `cpu/upd780/` and move the FDC subsystem uPD780-compatible CPU wrapper/backend there | **G83 human gate passed; M83 closed at `d90c8721d6120af9994cedb63685e8a60546513e`** |
 | M84 | tasks/M84_cpucva_boundary_cleanup.md | M84a: retire the approved non-VA C-bus sound-board dependency closure (`amd98`, `board26k`, `board86`, `board118`, `pcm86io`, and `cs4231io`); M84b: clean up the remaining `cpucva/` boundary while keeping uPD9002 instruction execution and VA memory ownership separate | **G84 human gate passed; M84 closed at `9aeb6512e59da7e794ffede50b7a184f601d137e`** |
 | M85 | tasks/M85_state_save_section_cleanup.md | Audit retired state-save sections, remove only approved obsolete sections, and document compatibility behavior | **G85 human gate passed; M85 closed at `0b6633041e2fb8bae8de7efa1a1768dc6c3e5cba`** |
-| M86 | tasks/M86_machine_core_relocation.md | Move active root machine-core sources such as `pccore`, `nevent`, `timing`, `calendar`, `keystat`, `statsave`, `debugsub`, and `clockscale` under `machine/` without behavior change | **Implementation merged to `main`; G86 human validation pending** |
+| M86 | tasks/M86_machine_core_relocation.md | Move active root machine-core sources such as `pccore`, `nevent`, `timing`, `calendar`, `keystat`, `statsave`, `debugsub`, and `clockscale` under `machine/` without behavior change | **G86 human gate passed; M86 closed at `74a5eac8bc0fa145fc0c4bf5ed66e3ff5368c0ae`** |
 | M87 | tasks/M87_legacy_tool_rom_regeneration_audit.md | Audit remaining legacy tools, ROM/resource regeneration flows, and `lio/` BIOS/LIO compatibility hooks before the final VA-only source-tree audit | **G87 human; planned** |
 | M88 | tasks/M88_final_va_only_source_tree_audit.md | Final VA-only active source-tree audit after performance, BASIC, SCSI, uPD9002 emulation-mode authority, I/O, BIOS, uPD780, `cpucva`, state-save, machine-core relocation, legacy tool cleanup, and `lio/` disposition | **G88 human; planned** |
 
@@ -184,23 +184,24 @@ The current approved gate ledger is:
 - G85 passed at exactly
   `0b6633041e2fb8bae8de7efa1a1768dc6c3e5cba`. This closes the state-save
   section cleanup and compatibility audit.
-- M86 implementation is merged to
-  [main at `74a5eac8`](https://github.com/nakatamaho/vaeg/commit/74a5eac8bc0fa145fc0c4bf5ed66e3ff5368c0ae)
-  after the rename-only, reference-fixup, and machine-validation commits
-  recorded in the M86 report. G86 human validation remains pending.
+- G86 human gate passed on 2026-08-12 after the clean-checkout V3/demo/OS/
+  simple-operation validation. M86 is closed at the implementation merge
+  [74a5eac8](https://github.com/nakatamaho/vaeg/commit/74a5eac8bc0fa145fc0c4bf5ed66e3ff5368c0ae);
+  rename-only, reference-fixup, and machine-validation details are recorded in
+  the M86 report.
 
 M73 is closed after the post-M49 performance-regression investigation and
 its approved runtime correction. M74 is a separate diagnostic-infrastructure
 milestone for a deterministic debug harness and is closed at
 `3785cc115155c52928817b8c95d38b40268a7bde`. M75 through M77 remain completed
 with their approved gate SHAs above. M78 through M85 are now also completed
-with the approved gate SHAs recorded above. M86 implementation is merged to
-`main`; G86 human validation remains pending. M87 and M88 remain later
-planned audits.
+with the approved gate SHAs recorded above. M86 is now closed after its
+implementation merge and G86 human gate. M87 and M88 remain later planned
+audits.
 
 M72 closed the inactive compile-flag cleanup while intentionally leaving
 `SUPPORT_WAVEREC`, `SUPPORT_OPRECORD`, and FDD320 for later focused audits.
-M86-M88 define the remaining planned VA-only source-tree consolidation
+M87-M88 define the remaining planned VA-only source-tree consolidation
 sequence: after the completed dispatcher, 98-only I/O, BIOS, uPD780,
 `cpucva/`, and state-save work, move active root machine-core sources under
 `machine/`, audit legacy tool and ROM/resource regeneration flows such as
