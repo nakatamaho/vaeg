@@ -203,6 +203,8 @@ The current approved gate ledger is:
   SASI/SCSI, FDD, HOSTFAT, and the shared CPU-memory compatibility layer.
   The detailed disposition and machine validation are in
   [`m88_final_va_only_source_tree_audit.md`](reports/m88_final_va_only_source_tree_audit.md);
+  hosted run [31573711804](https://github.com/nakatamaho/vaeg/actions/runs/31573711804)
+  passed all jobs except the Windows MinGW compatibility Configure step;
   G88 human validation is pending.
 
 M73 is closed after the post-M49 performance-regression investigation and
