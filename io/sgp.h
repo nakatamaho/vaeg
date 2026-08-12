@@ -83,6 +83,7 @@ BOOL sgp_speed_multiplier_valid(UINT multiple);
 BOOL sgp_speed_ratio(UINT mode, UINT custom_multiple, UINT cpu_multiple,
 							UINT32 *numerator, UINT32 *denominator);
 UINT32 sgp_model_clock(UINT model_va);
+UINT32 sgp_effective_clock(void);
 void sgp_configure_speed(void);
 UINT64 sgp_scale_elapsed(UINT32 elapsed);
 

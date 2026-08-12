@@ -82,6 +82,20 @@ UINT32 sgp_model_clock(UINT model_va) {
 	return(PCBASECLOCK40);
 }
 
+UINT32 sgp_effective_clock(void) {
+
+	UINT32 numerator;
+	UINT32 denominator;
+	UINT32 model_clock;
+
+	model_clock = sgp_model_clock(pccore.model_va);
+	if (sgp_speed_ratio(np2cfg.sgp_speed_mode, np2cfg.sgp_multiplier,
+				pccore_cpu_multiple(), &numerator, &denominator) != SUCCESS) {
+		return(model_clock);
+	}
+	return((UINT32)(((UINT64)model_clock * numerator) / denominator));
+}
+
 void sgp_configure_speed(void) {
 
 	UINT32 numerator;
