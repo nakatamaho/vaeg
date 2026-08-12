@@ -83,7 +83,6 @@
 #include "sysmng.h"
 #include "taskmng.h"
 #include "ymfmbridge.h"
-#include "tms3631.h"
 
 extern "C" {
 extern _RHYTHM rhythm;
@@ -949,7 +948,6 @@ static void apply_master_volume(int volume) {
 
 	const UINT8 mixer_volume = scale_master_volume(volume, 128);
 	const UINT8 beep_volume = scale_master_volume(volume, 3);
-	const UINT8 snd14_volume = scale_master_volume(volume, 15);
 	const UINT8 motor_volume = scale_master_volume(volume, 100);
 
 	np2cfg.vol_fm = mixer_volume;
@@ -965,10 +963,6 @@ static void apply_master_volume(int volume) {
 
 	np2cfg.BEEP_VOL = beep_volume;
 	beep_setvol(np2cfg.BEEP_VOL);
-	for (BYTE &volume14 : np2cfg.vol14) {
-		volume14 = snd14_volume;
-	}
-	tms3631_setvol(np2cfg.vol14);
 
 	np2cfg.MOTORVOL = motor_volume;
 	fddmtrsnd_volume(np2cfg.MOTORVOL);

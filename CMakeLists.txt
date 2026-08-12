@@ -223,8 +223,6 @@ set(VAEG_CORE_SOURCES
     cbus/scsiio.c
     cbus/scsicmd.c
     cbus/mpu98ii.c
-    cbus/board14.c
-    cbus/boardspb.c
     sound/vermouth/midiout.c
     sound/vermouth/midimod.c
     sound/vermouth/midinst.c
@@ -246,8 +244,6 @@ set(VAEG_CORE_SOURCES
     sound/fmtimer.c
     sound/beepc.c
     sound/beepg.c
-    sound/tms3631c.c
-    sound/tms3631g.c
     sound/opngenc.c
     sound/opngeng.c
     sound/psggenc.c
