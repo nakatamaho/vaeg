@@ -186,7 +186,7 @@ def verify(root: pathlib.Path) -> None:
     cmake = read_text(root, "CMakeLists.txt")
     require_fragments(cmake, (
         "${CMAKE_CURRENT_SOURCE_DIR}/cpu/upd9002",
-        "${CMAKE_CURRENT_SOURCE_DIR}/cpucva",
+        "${CMAKE_CURRENT_SOURCE_DIR}/cpu",
         "cpu/upd9002/upd9002_core.c",
         "io/upd9002_regs.c",
     ), "CMakeLists.txt")

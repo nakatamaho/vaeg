@@ -23,11 +23,11 @@ were not relicensed; Git history was not rewritten.
 The active tree distinguishes the emulated hardware role from the shared
 instruction implementation:
 
-- `cpucva/upd9002_upd70008.*` is the uPD9002 main-CPU adapter's
+- `cpu/upd9002_upd70008.*` is the uPD9002 main-CPU adapter's
   uPD70008-compatible mode.
 - `io/subsystem.cpp` uses the shared implementation for the FDC's
   `UPD780C`-named CPU instance.
-- `cpucva/z80_compat_cpu.*`, `z80_compat_bus.h`, `z80_compat_registers.h`, and
+- `cpu/z80_compat_cpu.*`, `z80_compat_bus.h`, `z80_compat_registers.h`, and
   `z80_compat_state.*` remain the common Z80 compatibility backend and
   compatibility files. `cpu/upd780/upd780_disasm.*` is the FDC-facing uPD780
   disassembler. The remaining Z80 terminology describes the suzukiplan

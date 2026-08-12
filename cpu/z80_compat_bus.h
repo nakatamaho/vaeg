@@ -23,8 +23,8 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef CPUCVA_Z80_COMPAT_BUS_H
-#define CPUCVA_Z80_COMPAT_BUS_H
+#ifndef CPU_Z80_COMPAT_BUS_H
+#define CPU_Z80_COMPAT_BUS_H
 
 #include <cstdint>
 

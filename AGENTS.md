@@ -7,19 +7,19 @@ The active tree is the portable CMake build: C core, SDL2 frontend under
 `sdl2/`, Dear ImGui GUI, and macOS / Linux / Windows-MinGW support. It
 uses `cpu/upd9002/` for the main CPU instruction core, the built-in CPU
 register model in `io/upd9002_regs.*`, the uPD70008-compatible main-CPU
-adapter in `cpucva/upd9002_upd70008.*`, the uPD780-compatible FDC instance in
+adapter in `cpu/upd9002_upd70008.*`, the uPD780-compatible FDC instance in
 `io/subsystem.cpp`, the shared suzukiplan-backed instruction implementation
-in `cpucva/z80_compat_*`, `sound/opngenc.c` for OPN generation (never define
+in `cpu/z80_compat_*`, `sound/opngenc.c` for OPN generation (never define
 `OPNGENX86`), and `memoryva/memoryva.c` for the VA memory layer.
 
 ## CPU role and file naming
 
 The hardware-facing names are deliberately distinct:
 
-- `cpucva/upd9002_upd70008.*` is the uPD9002 main-CPU adapter's uPD70008-
+- `cpu/upd9002_upd70008.*` is the uPD9002 main-CPU adapter's uPD70008-
   compatible mode. It is not the FDC CPU.
 - `io/subsystem.cpp` owns the FDC CPU and exposes it as `UPD780C`.
-- `cpucva/z80_compat_cpu.*`, `z80_compat_bus.h`, `z80_compat_registers.h`, and
+- `cpu/z80_compat_cpu.*`, `z80_compat_bus.h`, `z80_compat_registers.h`, and
   `z80_compat_state.*` are the common Z80 compatibility implementation and
   compatibility layer shared by those two adapters. `cpu/upd780/upd780_disasm.*`
   is the FDC-facing uPD780 disassembler. The remaining Z80 terminology refers
@@ -126,7 +126,7 @@ Release notes may summarize the ledger but do not replace it.
   `cpu/upd9002/`)
   stays C. C++17 is allowed under `sdl2/` (frontend + GUI) and, when an
   approved third-party CPU core requires it, for CPU backends and thin
-  compatibility adapters under `cpucva/`. C++ and STL types must not cross
+  compatibility adapters under `cpu/`. C++ and STL types must not cross
   existing C-facing subsystem or state-save interfaces. Other newly written
   emulator-core code remains C99 unless an ADR separately approves it.
 - Vendored third-party code lives under `external/` with the exact

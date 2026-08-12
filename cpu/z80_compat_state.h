@@ -23,8 +23,8 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef CPUCVA_Z80_COMPAT_STATE_H
-#define CPUCVA_Z80_COMPAT_STATE_H
+#ifndef CPU_Z80_COMPAT_STATE_H
+#define CPU_Z80_COMPAT_STATE_H
 
 #include "z80_compat_registers.h"
 

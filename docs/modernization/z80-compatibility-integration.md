@@ -31,8 +31,8 @@ cmake --build --preset linux-ci-gcc
 ctest --test-dir build/linux-ci-gcc --output-on-failure
 ```
 
-The production `vaeg_va` target compiles `cpucva/z80_compat_cpu.cpp`,
-`cpucva/z80_compat_state.cpp`, and `cpu/upd780/upd780_disasm.cpp`. Standalone
+The production `vaeg_va` target compiles `cpu/z80_compat_cpu.cpp`,
+`cpu/z80_compat_state.cpp`, and `cpu/upd780/upd780_disasm.cpp`. Standalone
 conformance, state, disassembler, ZEX, and M38-derived regression targets
 remain available.
 

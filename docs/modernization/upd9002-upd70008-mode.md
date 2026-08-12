@@ -38,7 +38,7 @@ conventions layered on top, and what a correct emulation must contain.
 
 **Not in scope.** The FDD subsystem uPD780C CPU. That is a separate physical
 device with its own register file and ROM (`VASUBSYS.ROM`), reached in
-vaeg through `cpucva/z80_compat_cpu.cpp` and `io/subsystem.cpp`. It has
+vaeg through `cpu/z80_compat_cpu.cpp` and `io/subsystem.cpp`. It has
 nothing to do with the main-CPU uPD70008-compatible mode, and the two must not share code or
 state. The general PC-88VA boot trace lives in
 `pc88va-boot-sequence.md`; only the parts bearing on mode transition are
@@ -2324,10 +2324,10 @@ compatible-mode entry, so it is not a drop-in answer.
 ## 14. Current vaeg status
 
 - The FDD subsystem uPD780-compatible CPU is implemented separately — historically
-  `cpucva/z80c.cpp`, currently `cpucva/z80_compat_cpu.cpp`, with
+  `cpucva/z80c.cpp`, currently `cpu/z80_compat_cpu.cpp`, with
   `io/subsystem.cpp` and `VASUBSYS.ROM`.
 - The main CPU uPD70008-compatible mode now has a bounded Stage 1 implementation in
-  `cpucva/upd9002_upd70008.cpp`, using the vendored suzukiplan Z80 core. The stable save-state section remains UPD9Z80 for compatibility. It is
+  `cpu/upd9002_upd70008.cpp`, using the vendored suzukiplan Z80 core. The stable save-state section remains UPD9Z80 for compatibility. It is
   installed through the uPD9002 core hook boundary and does not share the FDD
   instance or its state.
 - `0F FF imm8` (`BRKEM`), `ED ED imm8` (`CALLN`), `ED FD` (`RETEM`), and

@@ -151,7 +151,7 @@ prevents same-named but model-specific ROM data from being mixed. VA3 currently
 shares the VA2 ROM set and emulation path. `vasubsys.rom` is a separate vaeg
 extra shared by both models rather than one of MAME's five active model ROMs.
 
-The filename selection and loader are in `biosva/biosva.c:17-94`; the expected
+The filename selection and loader are in `bios/biosva.c:17-94`; the expected
 MAME CRC32/SHA-1 values are recorded in
 `docs/agents/tasks/M18_rom_layout.md`.
 
@@ -278,7 +278,7 @@ The exact BRKEM2 return path and the producer of the later RAM code at
 `1000:C003` remain open investigation items.
 The emulator currently has a
 shared Z80 compatibility backend for the FDD uPD780C subsystem
-(`cpucva/z80_compat_cpu.cpp`), but it does not yet emulate the main CPU's
+(`cpu/z80_compat_cpu.cpp`), but it does not yet emulate the main CPU's
 uPD70008-compatible mode entered by BRKEM2.
 
 ## Practical Consequences

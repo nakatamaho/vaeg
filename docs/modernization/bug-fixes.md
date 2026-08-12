@@ -53,7 +53,7 @@ For every new entry, record:
   collapses matching HCCODE left/right pairs into one kanji, and retains the
   JIS-row-parity Shift-JIS conversion.
 - **Verification:** MinGW cross-build completed successfully after the change;
-  the copy width and pair handling mirror `vramva/maketextva.c` and the
+  the copy width and pair handling mirror `vram/maketextva.c` and the
   existing TVRAM diagnostic decoder's HCCODE pair contract.
 - **Evidence:** [Copy implementation](../../sdl2/gui/gui.cpp#L295).
 - **Commit:** [6bbb8429](https://github.com/nakatamaho/vaeg/commit/6bbb842990b0503601df5aa933557f28960da30b).

@@ -23,8 +23,8 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "cpucva/z80_compat_cpu.h"
-#include "cpucva/z80_compat_state.h"
+#include "cpu/z80_compat_cpu.h"
+#include "cpu/z80_compat_state.h"
 
 #include <algorithm>
 #include <array>
