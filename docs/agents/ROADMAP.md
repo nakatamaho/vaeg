@@ -130,7 +130,7 @@ M36–M41 archive status.
 | M84 | tasks/M84_cpucva_boundary_cleanup.md | M84a: retire the approved non-VA C-bus sound-board dependency closure (`amd98`, `board26k`, `board86`, `board118`, `pcm86io`, and `cs4231io`); M84b: clean up the remaining `cpucva/` boundary while keeping uPD9002 instruction execution and VA memory ownership separate | **G84 human gate passed; M84 closed at `9aeb6512e59da7e794ffede50b7a184f601d137e`** |
 | M85 | tasks/M85_state_save_section_cleanup.md | Audit retired state-save sections, remove only approved obsolete sections, and document compatibility behavior | **G85 human gate passed; M85 closed at `0b6633041e2fb8bae8de7efa1a1768dc6c3e5cba`** |
 | M86 | tasks/M86_machine_core_relocation.md | Move active root machine-core sources such as `pccore`, `nevent`, `timing`, `calendar`, `keystat`, `statsave`, `debugsub`, and `clockscale` under `machine/` without behavior change | **G86 human gate passed; M86 closed at `74a5eac8bc0fa145fc0c4bf5ed66e3ff5368c0ae`** |
-| M87 | tasks/M87_legacy_tool_rom_regeneration_audit.md | Audit remaining legacy tools, ROM/resource regeneration flows, and `lio/` BIOS/LIO compatibility hooks before the final VA-only source-tree audit | **G87 human; planned** |
+| M87 | tasks/M87_legacy_tool_rom_regeneration_audit.md | Audit remaining legacy tools, ROM/resource regeneration flows, and `lio/` BIOS/LIO compatibility hooks before the final VA-only source-tree audit | **G87 human gate passed; M87 closed at `d2d1a13167ccd094d0fae180c775ad5e1d7eb78e`** |
 | M88 | tasks/M88_final_va_only_source_tree_audit.md | Final VA-only active source-tree audit after performance, BASIC, SCSI, uPD9002 emulation-mode authority, I/O, BIOS, uPD780, `cpucva`, state-save, machine-core relocation, legacy tool cleanup, and `lio/` disposition | **G88 human; planned** |
 
 Phase 2 dependencies: M7 → M8 → {M9, M10 parallel} → M11 → M12 → M13.
@@ -189,6 +189,11 @@ The current approved gate ledger is:
   [74a5eac8](https://github.com/nakatamaho/vaeg/commit/74a5eac8bc0fa145fc0c4bf5ed66e3ff5368c0ae);
   rename-only, reference-fixup, and machine-validation details are recorded in
   the M86 report.
+- G87 human gate passed on 2026-08-12 for the M87 candidate
+  [d2d1a13](https://github.com/nakatamaho/vaeg/commit/d2d1a13167ccd094d0fae180c775ad5e1d7eb78e).
+  This closes the legacy-tool and ROM/resource-regeneration audit; the
+  deletion, deferred-boundary, and machine-validation details are recorded in
+  the M87 report.
 
 M73 is closed after the post-M49 performance-regression investigation and
 its approved runtime correction. M74 is a separate diagnostic-infrastructure
@@ -196,17 +201,17 @@ milestone for a deterministic debug harness and is closed at
 `3785cc115155c52928817b8c95d38b40268a7bde`. M75 through M77 remain completed
 with their approved gate SHAs above. M78 through M85 are now also completed
 with the approved gate SHAs recorded above. M86 is now closed after its
-implementation merge and G86 human gate. M87 and M88 remain later planned
-audits.
+implementation merge and G86 human gate. M87 is now closed after G87 human
+validation; M88 remains the later planned final source-tree audit.
 
 M72 closed the inactive compile-flag cleanup while intentionally leaving
 `SUPPORT_WAVEREC`, `SUPPORT_OPRECORD`, and FDD320 for later focused audits.
-M87-M88 define the remaining planned VA-only source-tree consolidation
-sequence: after the completed dispatcher, 98-only I/O, BIOS, uPD780,
-`cpucva/`, and state-save work, move active root machine-core sources under
-`machine/`, audit legacy tool and ROM/resource regeneration flows such as
-`accessories/`, resolve the `lio/` BIOS/LIO compatibility-hook disposition,
-and finish with a full VA-only source-tree audit. `cbus/` is not treated as
+M87-M88 define the final VA-only source-tree consolidation sequence: after
+the completed dispatcher, 98-only I/O, BIOS, uPD780, `cpucva/`, state-save,
+and machine-core work, M87 closed the legacy tool and ROM/resource
+regeneration audit while retaining deferred provenance boundaries. M88
+remains for the full VA-only source-tree audit and the final `lio/`
+BIOS/LIO compatibility-hook disposition. `cbus/` is not treated as
 98-only; VA-supported expansion boards remain in scope for retention.
 
 M14 is complete. The SDL2 frontend now has a named VA key inventory,
