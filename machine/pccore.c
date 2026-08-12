@@ -31,6 +31,7 @@
 #include	"diagnostics/upd9002_debug.h"
 
 #include	"bmsio.h"
+#include	"emsio.h"
 
 #include	"../vram/maketextva.h"
 #include	"../vram/makesprva.h"
@@ -174,7 +175,7 @@ static void pccore_set(void) {
 	// 拡張メモリ
 	extsize = 0;
 	if (!(np2cfg.dipsw[2] & 0x80)) {
-		extsize = min(np2cfg.EXTMEM, 13);
+		extsize = min(np2cfg.EXTMEM, EMSIO_MAX_MEGABYTES);
 	}
 	pccore.extmem = extsize;
 	CopyMemory(pccore.dipsw, np2cfg.dipsw, 3);

@@ -38,6 +38,7 @@
 #include	"scrnmng.h"
 #include	"mouseifva.h"
 #include	"bmsio.h"
+#include	"emsio.h"
 
 
 typedef struct {
@@ -473,6 +474,13 @@ void initload(void) {
 				np2oscfg.pacing_ms, VAEG_PACING_MS_MAX);
 		np2oscfg.pacing_ms = VAEG_PACING_MS_MAX;
 	}
+	if (np2cfg.EXTMEM > EMSIO_MAX_MEGABYTES) {
+		SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION,
+				"Invalid ExMemory=%u; using %u",
+				np2cfg.EXTMEM, EMSIO_MAX_MEGABYTES);
+		np2cfg.EXTMEM = EMSIO_MAX_MEGABYTES;
+	}
+
 	bmsiocfg.enabled = bmsiocfg.enabled ? TRUE : FALSE;
 	if ((bmsiocfg.port != BMSIO_PORT_DEFAULT) &&
 		(bmsiocfg.port != BMSIO_PORT_COMPAT)) {
