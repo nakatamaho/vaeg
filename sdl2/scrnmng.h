@@ -95,7 +95,9 @@ void scrnmng_present_begin(void);
 void scrnmng_present_end(void);
 BOOL scrnmng_save_rendered_frame(const char *path);
 void scrnmng_set_framedisp(BOOL enabled);
-void scrnmng_framedisp_tick(UINT32 tick, UINT32 draws);
+void scrnmng_reset_metrics(void);
+void scrnmng_refresh_title(void);
+void scrnmng_framedisp_tick(UINT32 tick, UINT32 draws, UINT32 frames);
 
 typedef struct {
 	int		width;

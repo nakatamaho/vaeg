@@ -71,6 +71,7 @@
 #include "psggen.h"
 #include "rhythm.h"
 #include "scrndraw.h"
+#include "scrndrawva.h"
 #include "scrnmng.h"
 #include "sdlkbd.h"
 #include "sgp.h"
@@ -102,7 +103,9 @@ constexpr int kCpuPresets[] = {1, 2, 4, 5, 6, 8, 10, 12, 16, 20};
 constexpr int kSgpPresets[] = {1, 2, 4, 8, 16};
 constexpr int kSoundBufferPresets[] = {40, 100, 200, 500, 1000};
 constexpr const char kAboutInfoTemplate[] =
-	"CPU: %CPU% %CLOCK%\n"
+	"CPU: %CPU% %CPUCLK%\n"
+	"SGP: %SGPCLK%\n"
+	"FRAME: %FRAME%\n"
 	"BUILD COMMIT: %COMMIT%\n"
 	"MODEL: %MODEL%\n"
 	"SOUND: %SND%\n"
@@ -3005,12 +3008,6 @@ static void draw_screen_menu(void) {
 			}
 			ImGui::EndMenu();
 		}
-		bool framedisp = (np2oscfg.DISPCLK & 2) != 0;
-		if (ImGui::MenuItem("Frame display", nullptr, framedisp)) {
-			np2oscfg.DISPCLK ^= 2;
-			scrnmng_set_framedisp((np2oscfg.DISPCLK & 2) ? TRUE : FALSE);
-			sysmng_update(SYS_UPDATEOSCFG);
-		}
 		ImGui::Separator();
 		menu_item_not_implemented("Rotate left/right (not implemented)");
 		menu_item_not_implemented("Screen option... (not implemented)");
@@ -3241,13 +3238,74 @@ static void draw_device_menu(void) {
 	}
 }
 
-static void draw_about_menu(void) {
+static void open_about_dialog(void) {
 
-	if (ImGui::MenuItem("About")) {
-		g_gui.about_open = true;
-		g_gui.about_request = true;
-		g_gui.about_more = false;
-		g_gui.about_info[0] = '\0';
+	g_gui.about_open = true;
+	g_gui.about_request = true;
+	g_gui.about_more = false;
+	g_gui.about_info[0] = '\0';
+}
+
+static void set_info_layer(UINT layer, bool enabled) {
+
+	scrndrawva_set_layer_enabled(layer, enabled ? TRUE : FALSE);
+	pccore_redraw();
+}
+
+static void draw_info_menu(void) {
+
+	if (ImGui::BeginMenu("Info / 情報")) {
+		bool show_fps = (np2oscfg.DISPCLK & VAEG_DISPINFO_FPS) != 0;
+		if (ImGui::MenuItem("Show FPS", nullptr, show_fps)) {
+			np2oscfg.DISPCLK ^= VAEG_DISPINFO_FPS;
+			scrnmng_refresh_title();
+			sysmng_update(SYS_UPDATEOSCFG);
+		}
+		bool show_cpu_clock =
+			(np2oscfg.DISPCLK & VAEG_DISPINFO_CPU_CLOCK) != 0;
+		if (ImGui::MenuItem("Show CPU clock", nullptr, show_cpu_clock)) {
+			np2oscfg.DISPCLK ^= VAEG_DISPINFO_CPU_CLOCK;
+			scrnmng_refresh_title();
+			sysmng_update(SYS_UPDATEOSCFG);
+		}
+		bool show_sgp_clock =
+			(np2oscfg.DISPCLK & VAEG_DISPINFO_SGP_CLOCK) != 0;
+		if (ImGui::MenuItem("Show SGP clock", nullptr, show_sgp_clock)) {
+			np2oscfg.DISPCLK ^= VAEG_DISPINFO_SGP_CLOCK;
+			scrnmng_refresh_title();
+			sysmng_update(SYS_UPDATEOSCFG);
+		}
+		bool show_frame = (np2oscfg.DISPCLK & VAEG_DISPINFO_FRAME) != 0;
+		if (ImGui::MenuItem("Show frame", nullptr, show_frame)) {
+			np2oscfg.DISPCLK ^= VAEG_DISPINFO_FRAME;
+			scrnmng_set_framedisp((np2oscfg.DISPCLK &
+				VAEG_DISPINFO_FRAME) ? TRUE : FALSE);
+			sysmng_update(SYS_UPDATEOSCFG);
+		}
+		ImGui::Separator();
+		bool show_text = scrndrawva_layer_enabled(VAEG_VA_LAYER_TEXT) != FALSE;
+		if (ImGui::MenuItem("Show text", nullptr, show_text)) {
+			set_info_layer(VAEG_VA_LAYER_TEXT, !show_text);
+		}
+		bool show_sprite = scrndrawva_layer_enabled(VAEG_VA_LAYER_SPRITE) != FALSE;
+		if (ImGui::MenuItem("Show sprite", nullptr, show_sprite)) {
+			set_info_layer(VAEG_VA_LAYER_SPRITE, !show_sprite);
+		}
+		bool show_graphics0 =
+			scrndrawva_layer_enabled(VAEG_VA_LAYER_GRAPHICS0) != FALSE;
+		if (ImGui::MenuItem("Show graphics 0", nullptr, show_graphics0)) {
+			set_info_layer(VAEG_VA_LAYER_GRAPHICS0, !show_graphics0);
+		}
+		bool show_graphics1 =
+			scrndrawva_layer_enabled(VAEG_VA_LAYER_GRAPHICS1) != FALSE;
+		if (ImGui::MenuItem("Show graphics 1", nullptr, show_graphics1)) {
+			set_info_layer(VAEG_VA_LAYER_GRAPHICS1, !show_graphics1);
+		}
+		ImGui::Separator();
+		if (ImGui::MenuItem("About")) {
+			open_about_dialog();
+		}
+		ImGui::EndMenu();
 	}
 }
 
@@ -3719,7 +3777,7 @@ void gui_draw(void) {
 		draw_device_menu();
 		draw_state_menu();
 		draw_system_menu();
-		draw_about_menu();
+		draw_info_menu();
 		ImGui::EndMainMenuBar();
 	}
 	draw_state_error_dialog();

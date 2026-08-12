@@ -28,6 +28,7 @@
 #include	"np2.h"
 #include	"np2ver.h"
 #include	"pccore.h"
+#include	"sgp.h"
 #include	"appicon.h"
 #include	"framedisp.h"
 
@@ -66,7 +67,15 @@ typedef struct {
 	int		height;
 } SCRNSTAT;
 
+typedef struct {
+	BOOL	valid;
+	UINT32	tick;
+	UINT32	frames;
+	UINT32	fps_tenths;
+} VAEG_SPEEDMETER;
+
 static const char app_name[] = "88VA Eternal Grafx " VAEGREL_CORE;
+static const UINT32 vaeg_nominal_frame_rate = 60;
 enum {
 	SCRNMNG_CANVAS_WIDTH	= 640,
 	SCRNMNG_CANVAS_HEIGHT	= 400
@@ -75,6 +84,7 @@ enum {
 static	SCRNMNG		scrnmng;
 static	SCRNSTAT	scrnstat;
 static	SCRNSURF	scrnsurf;
+static	VAEG_SPEEDMETER speedmeter;
 
 static BOOL scrnmng_calculate_viewport(VAEG_VIEWPORT *viewport);
 
@@ -152,24 +162,87 @@ static void scrnmng_capture_rendered_frame(void) {
 	}
 }
 
+static UINT32 scrnmng_measured_clock(UINT32 configured_clock) {
+
+	UINT64 measured;
+
+	if (!speedmeter.valid || (speedmeter.fps_tenths == 0)) {
+		return configured_clock;
+	}
+	measured = (UINT64)configured_clock * speedmeter.fps_tenths;
+	measured /= (UINT64)vaeg_nominal_frame_rate * 10;
+	if (measured > 0xffffffffULL) {
+		return 0xffffffffU;
+	}
+	return (UINT32)measured;
+}
+
+static void scrnmng_update_speedmeter(UINT32 tick, UINT32 frames) {
+
+	UINT32 elapsed;
+	UINT32 frame_delta;
+	UINT64 fps_tenths;
+
+	if (!speedmeter.valid || (frames < speedmeter.frames)) {
+		speedmeter.valid = TRUE;
+		speedmeter.tick = tick;
+		speedmeter.frames = frames;
+		speedmeter.fps_tenths = 0;
+		return;
+	}
+	elapsed = tick - speedmeter.tick;
+	if (elapsed < 1000) {
+		return;
+	}
+	frame_delta = frames - speedmeter.frames;
+	fps_tenths = ((UINT64)frame_delta * 10000) / elapsed;
+	if (fps_tenths > 0xffffffffULL) {
+		fps_tenths = 0xffffffffULL;
+	}
+	speedmeter.tick = tick;
+	speedmeter.frames = frames;
+	speedmeter.fps_tenths = (UINT32)fps_tenths;
+}
+
 static void scrnmng_update_title(void) {
 
-	char	title[128];
+	char	title[192];
+	UINT32	cpu_clock;
+	UINT32	sgp_clock;
+	int	length;
 
 	if (scrnmng.window == NULL) {
 		return;
 	}
-	if (!scrnmng.framedisp_enabled) {
-		SDL_SetWindowTitle(scrnmng.window, app_name);
-		return;
+	cpu_clock = scrnmng_measured_clock(pccore_cpu_clock());
+	sgp_clock = scrnmng_measured_clock(sgp_effective_clock());
+	length = snprintf(title, sizeof(title), "%s", app_name);
+	if ((np2oscfg.DISPCLK & VAEG_DISPINFO_CPU_CLOCK) &&
+			(length >= 0) && ((size_t)length < sizeof(title))) {
+		length += snprintf(title + length, sizeof(title) - (size_t)length,
+				" - CPU %u.%04uMHz",
+				(unsigned int)(cpu_clock / 1000000),
+				(unsigned int)((cpu_clock % 1000000) / 100));
 	}
-	if (scrnmng.framedisp.fps_tenths != 0) {
-		snprintf(title, sizeof(title), "%s - %u.%1uFPS", app_name,
+	if ((np2oscfg.DISPCLK & VAEG_DISPINFO_SGP_CLOCK) &&
+			(length >= 0) && ((size_t)length < sizeof(title))) {
+		length += snprintf(title + length, sizeof(title) - (size_t)length,
+				" - SGP %u.%04uMHz",
+				(unsigned int)(sgp_clock / 1000000),
+				(unsigned int)((sgp_clock % 1000000) / 100));
+	}
+	if (scrnmng.framedisp_enabled && (length >= 0) &&
+			((size_t)length < sizeof(title))) {
+		length += snprintf(title + length, sizeof(title) - (size_t)length,
+				" - FRAME %u",
+				(unsigned int)drawcount);
+	}
+	if ((np2oscfg.DISPCLK & VAEG_DISPINFO_FPS) &&
+			(length >= 0) && ((size_t)length < sizeof(title))) {
+		(void)snprintf(title + length, sizeof(title) - (size_t)length,
+				" - %u.%1uFPS",
 				(unsigned int)(scrnmng.framedisp.fps_tenths / 10),
 				(unsigned int)(scrnmng.framedisp.fps_tenths % 10));
-	}
-	else {
-		snprintf(title, sizeof(title), "%s - 0FPS", app_name);
 	}
 	SDL_SetWindowTitle(scrnmng.window, title);
 }
@@ -922,16 +995,28 @@ BOOL scrnmng_save_rendered_frame(const char *path) {
 void scrnmng_set_framedisp(BOOL enabled) {
 
 	scrnmng.framedisp_enabled = enabled ? TRUE : FALSE;
+	scrnmng_reset_metrics();
+}
+
+void scrnmng_reset_metrics(void) {
+
 	vaeg_framedisp_reset(&scrnmng.framedisp, SDL_GetTicks(), drawcount);
+	speedmeter.valid = FALSE;
 	scrnmng_update_title();
 }
 
-void scrnmng_framedisp_tick(UINT32 tick, UINT32 draws) {
+void scrnmng_refresh_title(void) {
 
-	if (scrnmng.framedisp_enabled &&
-		vaeg_framedisp_update(&scrnmng.framedisp, tick, draws)) {
-		scrnmng_update_title();
+	scrnmng_update_title();
+}
+
+void scrnmng_framedisp_tick(UINT32 tick, UINT32 draws, UINT32 frames) {
+
+	if (scrnmng.framedisp_enabled) {
+		(void)vaeg_framedisp_update(&scrnmng.framedisp, tick, draws);
 	}
+	scrnmng_update_speedmeter(tick, frames);
+	scrnmng_update_title();
 }
 
 BOOL scrnmng_entermenu(SCRNMENU *smenu) {

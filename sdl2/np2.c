@@ -119,7 +119,9 @@
 #include	"tests/upd9002/ssts_worker.h"
 #endif
 
-		NP2OSCFG	np2oscfg = {0, 0, 2, 0, 0, 0, 1, 0, "", "", {"", ""},
+		NP2OSCFG	np2oscfg = {0, 0,
+						VAEG_DISPINFO_CPU_CLOCK | VAEG_DISPINFO_SGP_CLOCK,
+						0, 0, 0, 1, 0, "", "", {"", ""},
 								"", "", 0, 0, "", "ymfm", "minimum", 1,
 								VAEG_EFFECT_UNFILTERED, VAEG_SCALING_FIT,
 								640, 422, VAEG_DISPLAY_WINDOWED, 0, 0, 0, 0, 2, 0, 0,
@@ -1509,7 +1511,7 @@ static BOOL run_guest_frame(BOOL draw, UINT32 frames) {
 		gui_render();
 		scrnmng_present_end();
 	}
-	scrnmng_framedisp_tick(SDL_GetTicks(), drawcount);
+	scrnmng_framedisp_tick(SDL_GetTicks(), drawcount, frames);
 	return SUCCESS;
 }
 
@@ -2069,7 +2071,7 @@ int main(int argc, char **argv) {
 							np2oscfg.gui_window_height) != SUCCESS) {
 		goto np2main_err2;
 	}
-	scrnmng_set_framedisp((np2oscfg.DISPCLK & 2) ? TRUE : FALSE);
+	scrnmng_set_framedisp((np2oscfg.DISPCLK & VAEG_DISPINFO_FRAME) ? TRUE : FALSE);
 	if (gui_initialize(scrnmng_get_window(), scrnmng_get_renderer(),
 						   argv[0]) != SUCCESS) {
 		goto np2main_err3;

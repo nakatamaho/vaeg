@@ -7,8 +7,19 @@ extern	WORD	vabitmap[];
 //extern	BYTE	colorlevel6[];
 extern	RGB16	drawcolor16[];
 
+enum {
+	VAEG_VA_LAYER_TEXT = 0,
+	VAEG_VA_LAYER_SPRITE,
+	VAEG_VA_LAYER_GRAPHICS0,
+	VAEG_VA_LAYER_GRAPHICS1,
+	VAEG_VA_LAYER_COUNT
+};
+
 BYTE scrndrawva_draw(BYTE redraw);
-BYTE scrndrawva_redraw(void);
+void scrndrawva_redraw(void);
+
+void scrndrawva_set_layer_enabled(UINT layer, BOOL enabled);
+BOOL scrndrawva_layer_enabled(UINT layer);
 
 void scrndrawva_compose_begin(void);
 void scrndrawva_compose_raster(void);
