@@ -70,6 +70,25 @@ separate parity correction or move it to Open Defects.
 
 ## Fixed Defects
 
+### SDL keyboard repeat events were discarded by the frontend
+
+- **Status:** fixed in the hotfix; Windows manual verification remains a
+  maintainer-side check.
+- **Symptom:** holding a guest text or navigation key did not repeat on SDL2
+  hosts even though SDL generated repeat keydown events.
+- **Root cause:** sdlkbd_keydown() treated every repeat event as captured and
+  returned before the keyboard mapper, so no guest make event was generated.
+- **Correction:** repeat events now reach kbdmap_keydown() and use the existing
+  guest key/action path. KANA-lock repeats are intentionally suppressed so a
+  held KANA key cannot toggle the lock repeatedly; the existing guest-side
+  KBEX_NONREP policy remains authoritative for non-repeat keys.
+- **Verification:** Linux CI build, normal and VA-model selftests, CTest 2/2,
+  and the MinGW cross-build passed. The keyboard-map selftest verifies that a
+  KANA repeat does not toggle the Roman-Kana lock state.
+- **Evidence:** [SDL keyboard dispatch](../../sdl2/sdlkbd.c#L36) and
+  [keyboard mapping](../../sdl2/kbdmap.c#L1106).
+- **Commit:** [813de6c](https://github.com/nakatamaho/vaeg/commit/813de6cb582fce1d4ae7d365d7aceb21acf078ab).
+
 ### Retired FMBOARD state payloads were silently accepted
 
 - **Status:** fixed in M85; G85 human gate passed.
