@@ -31,7 +31,8 @@ checkpoint and was developed on
 `topic/m87-legacy-tool-rom-regeneration-audit`. G87 human gate passed on
 2026-08-12 for candidate
 [d2d1a13167ccd094d0fae180c775ad5e1d7eb78e](https://github.com/nakatamaho/vaeg/commit/d2d1a13167ccd094d0fae180c775ad5e1d7eb78e).
-This branch has not been merged to `main`.
+The resulting M87 implementation and hotfix chain was merged to `main`
+at [f876dbb](https://github.com/nakatamaho/vaeg/commit/f876dbbfe4e69f0a2ad2021b289962d15754812d).
 
 The first M87 cleanup is recorded in
 [6838b4c2e2f27f5d39e5dc639f9d47b8e5d40db9](https://github.com/nakatamaho/vaeg/commit/6838b4c2e2f27f5d39e5dc639f9d47b8e5d40db9).
@@ -145,4 +146,5 @@ CTest with `GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null` passed all
 M87 machine validation and the G87 human gate are complete. G87 human gate
 passed on 2026-08-12 for the candidate identified above. M87 is closed at
 [d2d1a13167ccd094d0fae180c775ad5e1d7eb78e](https://github.com/nakatamaho/vaeg/commit/d2d1a13167ccd094d0fae180c775ad5e1d7eb78e).
-The branch remains separate from `main` pending the requested merge.
+The M87 branch work is complete and represented on `main` by the merge
+commit above. M88 is the follow-on VA-only source-tree audit.
