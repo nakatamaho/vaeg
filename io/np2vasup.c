@@ -28,12 +28,7 @@ static REG8 IOINPCALL np2vasup_iffd0(UINT port) {
 // ---- I/F
 
 void np2vasup_reset(void) {
-	if (pccore.model_va == PCMODEL_NOTVA) {
-		np2vasup_offd0(0, 0);
-	}
-	else {
-		np2vasup_offd0(0, 0xff);
-	}
+	np2vasup_offd0(0, 0xff);
 }
 
 void np2vasup_bind(void) {

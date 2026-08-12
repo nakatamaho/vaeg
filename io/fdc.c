@@ -710,20 +710,15 @@ static void FDC_SenseDeviceStatus(void) {				// cmd: 04
 			fdc.buf[0] = (fdc.hd << 2) | fdc.us;
 			fdc.stat[fdc.us] = (fdc.hd << 2) | fdc.us;
 			if (fdc.equip & (1 << fdc.us)) {
-				if (pccore.model_va == PCMODEL_NOTVA) {
-					fdc.buf[0] |= 0x08;
-				}
 				if (!fdc.treg[fdc.us]) {
 					fdc.buf[0] |= 0x10;
 				}
 				if (fddfile[fdc.us].fname[0]) {
 					fdc.buf[0] |= 0x20;
-					if (pccore.model_va != PCMODEL_NOTVA) {
-						fdc.buf[0] |= 0x08;
-							/*
-								VAの場合、Ready=0ならTwo Side=0のようだ。
-							*/
-					}
+					fdc.buf[0] |= 0x08;
+					/*
+						VAの場合、Ready=0ならTwo Side=0のようだ。
+					*/
 				}
 				if (fddfile[fdc.us].protect) {
 					fdc.buf[0] |= 0x40;
@@ -1833,30 +1828,13 @@ void fdc_reset(void) {
 	dmac_attach(DMADEV_2HD, FDC_DMACH2HD);
 	dmac_attach(DMADEV_2DD, FDC_DMACH2DD);
 	{
-		UINT8 trackdensity;
-		UINT8 ctrlfd;
-		if (pccore.model_va == PCMODEL_NOTVA) {
-			// 98
-			ctrlfd = DISKTYPE_2HD;
-			trackdensity = FDD_96TPI; 
-		}
-		else {
-			// VA
-			ctrlfd = DISKTYPE_2DD;
-			trackdensity = FDD_48TPI; 
-		}
+		const UINT8 ctrlfd = DISKTYPE_2DD;
+		const UINT8 trackdensity = FDD_48TPI;
 		CTRL_FDMEDIA[0] = CTRL_FDMEDIA[1] = CTRL_FDMEDIA[2] = CTRL_FDMEDIA[3] = ctrlfd;
 		fdc.trackdensity[0] = fdc.trackdensity[1] = fdc.trackdensity[2] = fdc.trackdensity[3] = trackdensity;
 	}
 	fdc.chgreg = 3;
-	if (pccore.model_va == PCMODEL_NOTVA) {
-		// 98
-		fdc.fddifmode = 1;	// DMA mode
-	}
-	else {
-		// VA
-		fdc.fddifmode = 0;	// Intelligent mode
-	}
+	fdc.fddifmode = 0;	// VA intelligent mode
 	fdc_trace_text("fddiftrace reset mode=%02x/%s",
 				   fdc_trace_mode_value(), fdc_trace_mode_name());
 	fdc.rqminterval = pccore.realclock / 100000;	// 10μsec

@@ -97,34 +97,20 @@ static REG8 convertmodeldependent(REG8 data) {
 	REG8	code;
 
 	code = data & 0x7f;
-	if (pccore.model_va != PCMODEL_NOTVA) {
-		// VA
-		if (code >= 0x52) {
-			if (code < 0x58) {
-				return 0xff;
-			}
-			else if (code < 0x5c) {
-				code += 0x20;		// 右SFT, tenkey RET, PC, 全角
-			}
-			else if (code < 0x60) {
-				return 0xff;
-			}
-			else if (code < 0x75) {
-			}
-			else {
-				return 0xff;
-			}
-			data = (data & 0x80) | code; 
+	if (code >= 0x52) {
+		if (code < 0x58) {
+			return 0xff;
 		}
-	}
-	else {
-		// 98
-		// SHIFT右、tenkey RETを、SHIFT, RETに変換
-		if (code >= 0x58 && code <= 0x5b) {
-			static REG8 repl[4] = {0x70, 0x1c, 0xff, 0xff};
-			code = repl[code - 0x58];
-			data = (data & 0x80) | code;
+		else if (code < 0x5c) {
+			code += 0x20;		// 右SFT, tenkey RET, PC, 全角
 		}
+		else if (code < 0x60) {
+			return 0xff;
+		}
+		else if (code >= 0x75) {
+			return 0xff;
+		}
+		data = (data & 0x80) | code;
 	}
 	return data;
 }

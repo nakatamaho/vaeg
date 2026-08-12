@@ -31,13 +31,14 @@
 #include	"commng.h"
 #include	"inputmng.h"
 #include	"scrnmng.h"
+#include	"scrndraw.h"
+#include	"scrndrawva.h"
 #include	"soundmng.h"
 #include	"sysmng.h"
 #include	"taskmng.h"
 #include	"sdlkbd.h"
 #include	"ini.h"
 #include	"machine/pccore.h"
-#include	"scrndraw.h"
 #include	"sgp.h"
 #include	"diskdrv.h"
 #include	"sxsi.h"
@@ -2107,7 +2108,7 @@ int main(int argc, char **argv) {
 	if (taskmng_isavail()) {
 		pccore_reset();
 		sdlkbd_reset_state();
-		scrndraw_redraw();
+		scrndrawva_redraw();
 		mount_configured_fdd_images();
 		dropmedia_prune_storage();
 		if ((debug_harness_initialize() != SUCCESS) ||

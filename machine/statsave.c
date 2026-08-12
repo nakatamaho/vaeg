@@ -9,15 +9,12 @@
 #include	"upd9002_state.h"
 #include	"machine/pccore.h"
 #include	"iocore.h"
-#include	"gdc_sub.h"
 #include	"cbuscore.h"
 #include	"sasiio.h"
 #include	"scsiio.h"
 #include	"mpu98ii.h"
 #include	"bios.h"
 #include	"vram.h"
-#include	"palettes.h"
-#include	"maketext.h"
 #include	"sound.h"
 #include	"fmboard.h"
 #include	"beep.h"
@@ -74,17 +71,12 @@ enum {
 	STATFLAG_UPD9002_CPU,
 	STATFLAG_UPD9002_COMPAT,
 	STATFLAG_TERM,
-#if defined(CGWND_FONTPTR)
-	STATFLAG_CGW,
-#endif
 	STATFLAG_COM,
 	STATFLAG_DISK,
 	STATFLAG_DMA,
-	STATFLAG_EGC,
 	STATFLAG_EVT,
 	STATFLAG_EXT,
 	STATFLAG_FM,
-	STATFLAG_GIJ,
 	STATFLAG_MEM,
 	STATFLAG_BMS,
 	STATFLAG_SUBCPU,
@@ -517,33 +509,6 @@ static int flagload_mem(STFLAGH sfh, const SFENTRY *tbl) {
 }
 
 
-// ---- cg window
-
-#if defined(CGWND_FONTPTR)
-static int flagsave_cgwnd(STFLAGH sfh, const SFENTRY *tbl) {
-
-	_CGWINDOW	cgwnd;
-
-	cgwnd = cgwindow;
-	cgwnd.fontlow -= (long)fontrom;
-	cgwnd.fonthigh -= (long)fontrom;
-	(void)tbl;
-	return(statflag_write(sfh, &cgwindow, sizeof(cgwindow)));
-}
-
-static int flagload_cgwnd(STFLAGH sfh, const SFENTRY *tbl) {
-
-	int		ret;
-
-	ret = statflag_read(sfh, &cgwindow, sizeof(cgwindow));
-	cgwindow.fontlow += (long)fontrom;
-	cgwindow.fonthigh += (long)fontrom;
-	(void)tbl;
-	return(ret);
-}
-#endif
-
-
 // ---- dma
 
 static int flagsave_dma(STFLAGH sfh, const SFENTRY *tbl) {
@@ -584,31 +549,6 @@ static int flagload_dma(STFLAGH sfh, const SFENTRY *tbl) {
 			ret |= STATFLAG_WARNING;
 		}
 	}
-	(void)tbl;
-	return(ret);
-}
-
-
-// ---- egc
-
-static int flagsave_egc(STFLAGH sfh, const SFENTRY *tbl) {
-
-	_EGC	egcbak;
-
-	egcbak = egc;
-	egcbak.inptr = (BYTE *)(VAEG_INTPTR)(egcbak.inptr - egc.buf);
-	egcbak.outptr = (BYTE *)(VAEG_INTPTR)(egcbak.outptr - egc.buf);
-	(void)tbl;
-	return(statflag_write(sfh, &egcbak, sizeof(egcbak)));
-}
-
-static int flagload_egc(STFLAGH sfh, const SFENTRY *tbl) {
-
-	int		ret;
-
-	ret = statflag_read(sfh, &egc, sizeof(egc));
-	egc.inptr = egc.buf + (VAEG_INTPTR)egc.inptr;
-	egc.outptr = egc.buf + (VAEG_INTPTR)egc.outptr;
 	(void)tbl;
 	return(ret);
 }
@@ -745,47 +685,6 @@ static int flagload_ext(STFLAGH sfh, const SFENTRY *tbl) {
 	ret = STATFLAG_SUCCESS;
 	if (CPU_EXTMEM) {
 		ret = statflag_read(sfh, CPU_EXTMEM, CPU_EXTMEMSIZE);
-	}
-	(void)tbl;
-	return(ret);
-}
-
-
-// ---- gaiji
-
-static int flagsave_gij(STFLAGH sfh, const SFENTRY *tbl) {
-
-	int		ret;
-	int		i;
-	int		j;
-const BYTE	*fnt;
-
-	ret = STATFLAG_SUCCESS;
-	for (i=0; i<2; i++) {
-		fnt = fontrom + ((0x56 + (i << 7)) << 4);
-		for (j=0; j<0x80; j++) {
-			ret |= statflag_write(sfh, fnt, 32);
-			fnt += 0x1000;
-		}
-	}
-	(void)tbl;
-	return(ret);
-}
-
-static int flagload_gij(STFLAGH sfh, const SFENTRY *tbl) {
-
-	int		ret;
-	int		i;
-	int		j;
-	BYTE	*fnt;
-
-	ret = 0;
-	for (i=0; i<2; i++) {
-		fnt = fontrom + ((0x56 + (i << 7)) << 4);
-		for (j=0; j<0x80; j++) {
-			ret |= statflag_read(sfh, fnt, 32);
-			fnt += 0x1000;
-		}
 	}
 	(void)tbl;
 	return(ret);
@@ -1455,11 +1354,6 @@ const SFENTRY	*tblterm;
 				ret |= flagsave_upd9002_compat(&sffh->sfh, tbl);
 				break;
 
-#if defined(CGWND_FONTPTR)
-			case STATFLAG_CGW:
-				ret |= flagsave_cgwnd(&sffh->sfh, tbl);
-				break;
-#endif
 
 			case STATFLAG_COM:
 				ret |= flagsave_com(&sffh->sfh, tbl);
@@ -1473,10 +1367,6 @@ const SFENTRY	*tblterm;
 				ret |= flagsave_dma(&sffh->sfh, tbl);
 				break;
 
-			case STATFLAG_EGC:
-				ret |= flagsave_egc(&sffh->sfh, tbl);
-				break;
-
 			case STATFLAG_EVT:
 				ret |= flagsave_evt(&sffh->sfh, tbl);
 				break;
@@ -1487,10 +1377,6 @@ const SFENTRY	*tblterm;
 
 			case STATFLAG_FM:
 				ret |= flagsave_fm(&sffh->sfh, tbl);
-				break;
-
-			case STATFLAG_GIJ:
-				ret |= flagsave_gij(&sffh->sfh, tbl);
 				break;
 
 			case STATFLAG_MEM:
@@ -1553,9 +1439,6 @@ const SFENTRY	*tblterm;
 		if (tbl < tblterm) {
 			switch(tbl->type) {
 				case STATFLAG_BIN:
-#if defined(CGWND_FONTPTR)
-				case STATFLAG_CGW:
-#endif
 				case STATFLAG_MEM:
 					ret |= flagcheck_versize(&sffh->sfh, tbl);
 					break;
@@ -1580,10 +1463,8 @@ const SFENTRY	*tblterm;
 
 				case STATFLAG_COM:
 				case STATFLAG_DMA:
-				case STATFLAG_EGC:
 				case STATFLAG_EVT:
 				case STATFLAG_EXT:
-				case STATFLAG_GIJ:
 				case STATFLAG_BMS:
 				case STATFLAG_SUBCPU:
 					ret |= flagcheck_veronly(&sffh->sfh, tbl);
@@ -1718,11 +1599,6 @@ const SFENTRY	*tblterm;
 					done = TRUE;
 					break;
 
-#if defined(CGWND_FONTPTR)
-				case STATFLAG_CGW:
-					ret |= flagload_cgwnd(&sffh->sfh, tbl);
-					break;
-#endif
 
 				case STATFLAG_COM:
 					ret |= flagload_com(&sffh->sfh, tbl);
@@ -1736,10 +1612,6 @@ const SFENTRY	*tblterm;
 					ret |= flagload_dma(&sffh->sfh, tbl);
 					break;
 
-				case STATFLAG_EGC:
-					ret |= flagload_egc(&sffh->sfh, tbl);
-					break;
-
 				case STATFLAG_EVT:
 					ret |= flagload_evt(&sffh->sfh, tbl);
 					break;
@@ -1750,10 +1622,6 @@ const SFENTRY	*tblterm;
 
 				case STATFLAG_FM:
 					ret |= flagload_fm(&sffh->sfh, tbl);
-					break;
-
-				case STATFLAG_GIJ:
-					ret |= flagload_gij(&sffh->sfh, tbl);
 					break;
 
 				case STATFLAG_MEM:
@@ -1796,18 +1664,7 @@ const SFENTRY	*tblterm;
 	cbuscore_bind();
 	fmboard_bind();
 
-	gdcs.textdisp |= GDCSCRN_EXT;
-	gdcs.textdisp |= GDCSCRN_ALLDRAW2;
-	gdcs.grphdisp |= GDCSCRN_EXT;
-	gdcs.grphdisp |= GDCSCRN_ALLDRAW2;
-	gdcs.palchange = GDCSCRN_REDRAW;
-	tramflag.renewal = 1;
-	cgwindow.writable |= 0x80;
-#if defined(CPUSTRUC_FONTPTR)
-	FONTPTR_LOW = fontrom + cgwindow.low;
-	FONTPTR_HIGH = fontrom + cgwindow.high;
-#endif
-	upd9002_vram_dispatch(vramop.operate);
+
 	soundmng_play();
 
 	return(ret);

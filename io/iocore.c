@@ -20,12 +20,10 @@
 	_ARTIC		artic;
 	_CGROM		cgrom;
 	_CGWINDOW	cgwindow;
-	_CRTC		crtc;
 	_DMAC		dmac;
 	_EGC		egc;
 	_EMSIO		emsio;
 	_FDC		fdc;
-	_GDC		gdc;
 	_GDCS		gdcs;
 	_GRCG		grcg;
 	_KEYBRD		keybrd;
@@ -510,8 +508,7 @@ icbld_err:
 
 static const IOCBFN resetfn[] = {
 			// PC-9801 System...
-			cgrom_reset,							crtc_reset,
-			dmac_reset,			gdc_reset,			fdc_reset,
+			cgrom_reset,						dmac_reset,			fdc_reset,
 			keyboard_reset,		pic_reset,
 			printif_reset,		rs232c_reset,		systemport_reset,
 			uPD4990_reset,		fdd320_reset,
@@ -538,8 +535,7 @@ static const IOCBFN resetfn[] = {
 
 static const IOCBFN bindfn[] = {
 			// PC-9801 System...
-			cgrom_bind,			cpuio_bind,			crtc_bind,
-			dmac_bind,			gdc_bind,			fdc_bind,
+			cgrom_bind,				cpuio_bind,				dmac_bind,				fdc_bind,
 			keyboard_bind,			pic_bind,
 			printif_bind,		rs232c_bind,		systemport_bind,
 			uPD4990_bind,		fdd320_bind,

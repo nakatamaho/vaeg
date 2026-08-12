@@ -22,6 +22,7 @@ enum {
 	NEVENT_PICMASK		= 17,
 	NEVENT_S98TIMER		= 18,
 	/* 19: retired CS4231 event; preserve subsequent event numbers. */
+	/* 20: retired non-VA GDC slave event; preserve later IDs. */
 	NEVENT_GDCSLAVE		= 20,
 	NEVENT_FDBIOSBUSY	= 21,
 	NEVENT_FDCINT		= 22,

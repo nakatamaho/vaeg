@@ -72,9 +72,9 @@
 #include "opngen.h"
 #include "psggen.h"
 #include "rhythm.h"
-#include "scrndraw.h"
 #include "scrndrawva.h"
 #include "scrnmng.h"
+#include "scrndraw.h"
 #include "sdlkbd.h"
 #include "sgp.h"
 #include "soundmng.h"
@@ -1521,7 +1521,7 @@ static void reset_guest(void) {
 	restore_reset_fdd_mounts(fdd_paths);
 	sdlkbd_reset_state();
 	mousemng_reset();
-	scrndraw_redraw();
+	scrndrawva_redraw();
 }
 
 static void open_fdd_dialog(int drive) {
@@ -2418,7 +2418,6 @@ static void draw_emulate_menu(void) {
 			if (ImGui::MenuItem("Configure...")) {
 				open_configure_dialog();
 			}
-		menu_item_not_implemented("Font... (not implemented)");
 		ImGui::Separator();
 		if (ImGui::MenuItem("Exit / 終了")) {
 			taskmng_exit();
@@ -3059,15 +3058,12 @@ static void draw_screen_menu(void) {
 		ImGui::Separator();
 		if (ImGui::BeginMenu("Font")) {
 			char path[MAX_PATH];
-			const bool available = (pccore.model_va != PCMODEL_NOTVA) &&
+			const bool available =
 					font_preset_path(pc98fontromname, path, sizeof(path));
 			if (ImGui::MenuItem("98font", nullptr, false, available)) {
 				load_font_preset(pc98fontromname);
 			}
-			if (pccore.model_va == PCMODEL_NOTVA) {
-				ImGui::TextDisabled("98font requires a PC-88VA model");
-			}
-			else if (!available) {
+			if (!available) {
 				ImGui::TextDisabled("98font.rom not found in the ROM directory");
 			}
 			ImGui::EndMenu();
@@ -3433,7 +3429,7 @@ static void draw_about_dialog(void) {
 		}
 
 		if (g_gui.about_more) {
-			ImGui::SeparatorText("Running VM configuration");
+			ImGui::SeparatorText("Running VA configuration");
 			ImGui::InputTextMultiline("##runtime-info", g_gui.about_info,
 									sizeof(g_gui.about_info), ImVec2(-1.0f, -1.0f),
 									ImGuiInputTextFlags_ReadOnly);
@@ -3508,7 +3504,7 @@ static void draw_state_menu(void) {
 							statsave_load(path.c_str());
 							sdlkbd_reset_state();
 							mousemng_reset();
-							scrndraw_redraw();
+							scrndrawva_redraw();
 							g_gui.state_status = "State loaded: ";
 						g_gui.state_status += path;
 						if ((ret & STATFLAG_DISKCHG) != 0) {
@@ -3605,7 +3601,7 @@ static void draw_state_error_dialog(void) {
 		else {
 			sdlkbd_reset_state();
 			mousemng_reset();
-			scrndraw_redraw();
+			scrndrawva_redraw();
 			g_gui.state_status = "State loaded with HOSTFAT override: ";
 			g_gui.state_status += force_path;
 			if ((ret & STATFLAG_DISKCHG) != 0) {

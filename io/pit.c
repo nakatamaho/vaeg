@@ -17,12 +17,7 @@
 CPU供給クロック÷タイマ供給クロック を取得する
 */
 static UINT timermultiple(void) {
-	if (pccore.model_va == PCMODEL_NOTVA) {
-		return pccore.multiple;
-	}
-	else {
-		return pccore.multiple << (upd9002_regs.tcks & 3);
-	}
+	return pccore.multiple << (upd9002_regs.tcks & 3);
 }
 
 void pit_ontckschanged(void) {

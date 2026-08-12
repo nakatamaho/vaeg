@@ -19,7 +19,6 @@ static const char str_8MHz[] = "8MHz";
 static const char str_notexist[] = "not exist";
 static const char str_disable[] = "disable";
 
-static const char str_na[] = "N/A";
 static const char str_blank[] = " ";
 static const char str_exist[] = "exist";
 static const char str_ok[] = "OK";
@@ -226,16 +225,11 @@ static void info_bios(char *str, int maxlen, NP2INFOEX *ex) {
 }
 
 static void info_romtype_88va(char *str, int maxlen, NP2INFOEX *ex) {
-	if (pccore.model_va == PCMODEL_NOTVA) {
-		milstr_ncpy(str, str_na, maxlen);
-	}
-	else {
-		int romtype;
+	int romtype;
 
-		romtype = 0xffff - (rom1mem[0xffff] * 256 + rom1mem[0xfffe]);
-		if (romtype > 2) romtype = 2;
-		milstr_ncpy(str, milstr_list(str_romtype_88va, romtype), maxlen);
-	}
+	romtype = 0xffff - (rom1mem[0xffff] * 256 + rom1mem[0xfffe]);
+	if (romtype > 2) romtype = 2;
+	milstr_ncpy(str, milstr_list(str_romtype_88va, romtype), maxlen);
 }
 
 static void info_bios_88va(char *str, int maxlen, NP2INFOEX *ex) {

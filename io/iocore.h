@@ -16,15 +16,13 @@ typedef void (*IOCBFN)(void);
 #include	"artic.h"
 #include	"cgrom.h"
 #include	"cpuio.h"
-#include	"crtc.h"
 #include	"dipsw.h"
 #include	"dmac.h"
 #include	"egc.h"
 #include	"emsio.h"
 #include	"fdc.h"
 #include	"fdd320.h"
-#include	"gdc.h"
-#include	"gdc_cmd.h"
+#include	"vramcompat.h"
 #include	"mouseif.h"
 #include	"necio.h"
 #include	"np2sysp.h"
@@ -44,12 +42,10 @@ extern "C" {
 extern	_ARTIC		artic;
 extern	_CGROM		cgrom;
 extern	_CGWINDOW	cgwindow;
-extern	_CRTC		crtc;
 extern	_DMAC		dmac;
 extern	_EGC		egc;
 extern	_EMSIO		emsio;
 extern	_FDC		fdc;
-extern	_GDC		gdc;
 extern	_GDCS		gdcs;
 extern	_GRCG		grcg;
 extern	_KEYBRD		keybrd;

@@ -7,7 +7,6 @@
 #include	"cpucore.h"
 #include	"machine/pccore.h"
 #include	"iocore.h"
-#include	"gdc_sub.h"
 #include	"cbuscore.h"
 #include	"mpu98ii.h"
 #include	"bios.h"
@@ -15,11 +14,6 @@
 #include	"biosmem.h"
 #include	"vram.h"
 #include	"scrndraw.h"
-#include	"dispsync.h"
-#include	"palettes.h"
-#include	"maketext.h"
-#include	"maketgrp.h"
-#include	"makegrph.h"
 #include	"sound.h"
 #include	"fmboard.h"
 #include	"beep.h"
@@ -233,22 +227,15 @@ void pccore_init(void) {
 
 	CPU_INITIALIZE();
 
-	pal_initlcdtable();
-	pal_makelcdpal();
-	pal_makeskiptable();
-//	palva_maketable();
+// VA rendering owns its palette and raster conversion.
 	maketextva_initialize();
 	makesprva_initialize();
 	makegrphva_initialize();
 	subsystemmx_initialize();
-	dispsync_initialize();
 	sxsi_initialize();
 
 	font_initialize();
 	font_load(np2cfg.fontfile, TRUE);
-	maketext_initialize();
-	makegrph_initialize();
-	gdcsub_initialize();
 	fddfile_initialize();
 
 	sound_init();
@@ -295,12 +282,10 @@ void pccore_cfgupdate(void) {
 	{
 		UINT8 val;
 
-		if (pccore.model_va != PCMODEL_NOTVA) {
-			val = keystat_getlockedkey();
-			if (np2cfg.lockedkey != val) {
-				np2cfg.lockedkey = val;
-				renewal = TRUE;
-			}
+		val = keystat_getlockedkey();
+		if (np2cfg.lockedkey != val) {
+			np2cfg.lockedkey = val;
+			renewal = TRUE;
 		}
 	}
 	if (renewal) {
@@ -334,9 +319,7 @@ void pccore_reset(void) {
 	pccore_set();
 	sgp_configure_speed();
 	bmsio_set();
-	if (pccore.model_va != PCMODEL_NOTVA) {
-		keystat_setlockedkey(np2cfg.lockedkey);
-	}
+	keystat_setlockedkey(np2cfg.lockedkey);
 	nevent_allreset();
 
 	//後ろに移動
@@ -377,13 +360,10 @@ void pccore_reset(void) {
 	calendar_initialize();
 	vram_initialize();
 
-	pal_change(1);
 
 	bios_initialize();
-	if (pccore.model_va != PCMODEL_NOTVA) {
-		biosva_initialize();
-		va91_initialize();
-	}
+	biosva_initialize();
+	va91_initialize();
 	CS_BASE = 0xf0000;
 	CPU_CS = 0xf000;
 	CPU_IP = 0xfff0;
@@ -393,171 +373,6 @@ void pccore_reset(void) {
 
 	timing_reset();
 	soundmng_play();
-}
-
-
-static void drawscreen(void) {
-
-	UINT8	timing;
-	void	(VRAMCALL * grphfn)(int page, int alldraw);
-	UINT8	bit;
-
-	tramflag.timing++;
-	timing = ((LOADINTELWORD(gdc.m.para + GDC_CSRFORM + 1)) >> 5) & 0x3e;
-	if (!timing) {
-		timing = 0x40;
-	}
-	if (tramflag.timing >= timing) {
-		tramflag.timing = 0;
-		tramflag.count++;
-		tramflag.renewal |= (tramflag.count ^ 2) & 2;
-		tramflag.renewal |= 1;
-	}
-
-	if (gdcs.textdisp & GDCSCRN_EXT) {
-		gdc_updateclock();
-	}
-
-	if (!drawframe) {
-		return;
-	}
-	if ((gdcs.textdisp & GDCSCRN_EXT) || (gdcs.grphdisp & GDCSCRN_EXT)) {
-		if (dispsync_renewalvertical()) {
-			gdcs.textdisp |= GDCSCRN_ALLDRAW2;
-			gdcs.grphdisp |= GDCSCRN_ALLDRAW2;
-		}
-	}
-	if (gdcs.textdisp & GDCSCRN_EXT) {
-		gdcs.textdisp &= ~GDCSCRN_EXT;
-		dispsync_renewalhorizontal();
-		tramflag.renewal |= 1;
-		if (dispsync_renewalmode()) {
-			screenupdate |= 2;
-		}
-	}
-	if (gdcs.palchange) {
-		gdcs.palchange = 0;
-		pal_change(0);
-		screenupdate |= 1;
-	}
-	if (gdcs.grphdisp & GDCSCRN_EXT) {
-		gdcs.grphdisp &= ~GDCSCRN_EXT;
-		if (((gdc.clock & 0x80) && (gdc.clock != 0x83)) ||
-			(gdc.clock == 0x03)) {
-			gdc.clock ^= 0x80;
-			gdcs.grphdisp |= GDCSCRN_ALLDRAW2;
-		}
-	}
-	if (gdcs.grphdisp & GDCSCRN_ENABLE) {
-		if (!(gdc.mode1 & 2)) {
-			grphfn = makegrph;
-			bit = GDCSCRN_MAKE;
-			if (gdcs.disp) {
-				bit <<= 1;
-			}
-			if (gdcs.grphdisp & bit) {
-				(*grphfn)(gdcs.disp, gdcs.grphdisp & bit & GDCSCRN_ALLDRAW2);
-				gdcs.grphdisp &= ~bit;
-				screenupdate |= 1;
-			}
-		}
-		else if (gdcs.textdisp & GDCSCRN_ENABLE) {
-			if (!gdcs.disp) {
-				if ((gdcs.grphdisp & GDCSCRN_MAKE) ||
-					(gdcs.textdisp & GDCSCRN_MAKE)) {
-					if (!(gdc.mode1 & 0x4)) {
-						maketextgrph(0, gdcs.textdisp & GDCSCRN_ALLDRAW,
-								gdcs.grphdisp & GDCSCRN_ALLDRAW);
-					}
-					else {
-						maketextgrph40(0, gdcs.textdisp & GDCSCRN_ALLDRAW,
-								gdcs.grphdisp & GDCSCRN_ALLDRAW);
-					}
-					gdcs.grphdisp &= ~GDCSCRN_MAKE;
-					screenupdate |= 1;
-				}
-			}
-			else {
-				if ((gdcs.grphdisp & (GDCSCRN_MAKE << 1)) ||
-					(gdcs.textdisp & GDCSCRN_MAKE)) {
-					if (!(gdc.mode1 & 0x4)) {
-						maketextgrph(1, gdcs.textdisp & GDCSCRN_ALLDRAW,
-								gdcs.grphdisp & (GDCSCRN_ALLDRAW << 1));
-					}
-					else {
-						maketextgrph40(1, gdcs.textdisp & GDCSCRN_ALLDRAW,
-								gdcs.grphdisp & (GDCSCRN_ALLDRAW << 1));
-					}
-					gdcs.grphdisp &= ~(GDCSCRN_MAKE << 1);
-					screenupdate |= 1;
-				}
-			}
-		}
-	}
-	if (gdcs.textdisp & GDCSCRN_ENABLE) {
-		if (tramflag.renewal) {
-			gdcs.textdisp |= maketext_curblink();
-		}
-		if ((cgwindow.writable & 0x80) && (tramflag.gaiji)) {
-			gdcs.textdisp |= GDCSCRN_ALLDRAW;
-		}
-		cgwindow.writable &= ~0x80;
-		if (gdcs.textdisp & GDCSCRN_MAKE) {
-			if (!(gdc.mode1 & 0x4)) {
-				maketext(gdcs.textdisp & GDCSCRN_ALLDRAW);
-			}
-			else {
-				maketext40(gdcs.textdisp & GDCSCRN_ALLDRAW);
-			}
-			gdcs.textdisp &= ~GDCSCRN_MAKE;
-			screenupdate |= 1;
-		}
-	}
-	if (screenupdate) {
-		screenupdate = scrndraw_draw((BYTE)(screenupdate & 2));
-		drawcount++;
-	}
-}
-
-
-// 表示期間の開始
-void screendisp(NEVENTITEM item) {
-
-	PICITEM		pi;
-
-	gdc_work(GDCWORK_SLAVE);
-	gdc.vsync = 0;
-	screendispflag = 0;
-	if (!np2cfg.DISPSYNC) {
-		drawscreen();
-	}
-	pi = &pic.pi[0];
-	if (pi->irr & PIC_CRTV) {
-		pi->irr &= ~PIC_CRTV;
-		gdc.vsyncint = 1;
-	}
-	(void)item;
-}
-
-// VSYNC期間の開始
-void screenvsync(NEVENTITEM item) {
-
-	MEMWAIT_TRAM = np2cfg.wait[1];
-	MEMWAIT_VRAM = np2cfg.wait[3];
-	MEMWAIT_GRCG = np2cfg.wait[5];
-	gdc_work(GDCWORK_MASTER);
-	gdc.vsync = 0x20;
-	if (gdc.vsyncint) {
-		gdc.vsyncint = 0;
-		pic_setirq(2);
-	}
-	nevent_set(NEVENT_FLAMES, gdc.vsyncclock, screendisp, NEVENT_RELATIVE);
-
-	// drawscreenで pccore.vsyncclockが変更される可能性があります
-	if (np2cfg.DISPSYNC) {
-		drawscreen();
-	}
-	(void)item;
 }
 
 
@@ -583,7 +398,6 @@ static void drawscreenva(void) {
 
 	if ((tsp.flag & TSP_F_LINESCHANGED) && (videova.grmode & 0x1000)) {
 		// TSPの表示ライン数に変更あり、かつ、SYNCEN(水平同期信号出力)
-		/* dispsync_renewalvertical() */
 		scrnmng_setheight(0, lines);
 		tsp.flag &= ~TSP_F_LINESCHANGED;
 	}
@@ -742,19 +556,15 @@ void screendispva(NEVENTITEM item) {
 /*
 	PICITEM		pi;
 */
-//	gdc_work(GDCWORK_SLAVE);
 	tsp.vsync = 0;
 /*	sysp4vsyncstartに移動
 	screendispflag = 0;
 */
-	if (!np2cfg.DISPSYNC) {
-		drawscreenva();
-	}
+	drawscreenva();
 /*
 	pi = &pic.pi[0];
 	if (pi->irr & PIC_CRTV) {
 		pi->irr &= ~PIC_CRTV;
-//		gdc.vsyncint = 1;
 	}
 */
 	screendispva_setnevent();
@@ -762,11 +572,6 @@ void screendispva(NEVENTITEM item) {
 
 // VSYNC期間の開始
 void screenvsyncva(NEVENTITEM item) {
-
-//	MEMWAIT_TRAM = np2cfg.wait[1];
-//	MEMWAIT_VRAM = np2cfg.wait[3];
-//	MEMWAIT_GRCG = np2cfg.wait[5];
-//	gdc_work(GDCWORK_MASTER);
 
 //	tsp.vsync = 0x20;
 	tsp.vsync = 0x40;
@@ -777,10 +582,6 @@ void screenvsyncva(NEVENTITEM item) {
 		tsp.blinkcnt2++;
 	}
 #if 0
-	if (/*gdc.vsyncint ||*/ pccore.model_va != PCMODEL_NOTVA) {
-//		gdc.vsyncint = 0;
-		pic_setirq(2);
-	}
 	nevent_set(NEVENT_FLAMES, tsp.vsyncclock, screendispva, NEVENT_RELATIVE);
 #else
 /*
@@ -791,10 +592,6 @@ void screenvsyncva(NEVENTITEM item) {
 */
 	nevent_set(NEVENT_FLAMES, tsp.vsyncclock, screendispva, NEVENT_RELATIVE);
 #endif
-	// drawscreenで pccore.vsyncclockが変更される可能性があります
-	if (np2cfg.DISPSYNC) {
-		drawscreenva();
-	}
 }
 
 #if 1
@@ -978,32 +775,11 @@ void pccore_exec(BOOL draw) {
 //	keystat_sync();
 	soundmng_sync();
 	mouseif_sync();
-	pal_eventclear();
 
-	gdc.vsync = 0;
 	screendispflag = 1;
-	MEMWAIT_TRAM = np2cfg.wait[0];
-	MEMWAIT_VRAM = np2cfg.wait[2];
-	MEMWAIT_GRCG = np2cfg.wait[4];
-/*	screendispvaに移動
-	tsp.vsync = 0;
-*/
-	if (pccore.model_va == PCMODEL_NOTVA) {
-		nevent_set(NEVENT_FLAMES, gdc.dispclock, screenvsync, NEVENT_RELATIVE);
+	if (!nevent_iswork(NEVENT_FLAMES)) {
+		screendispva_setnevent();
 	}
-/*	screendispva_setneventに移動
-	else {
-		nevent_set(NEVENT_FLAMES, tsp.dispclock, screenvsyncva, NEVENT_RELATIVE);
-		nevent_set(NEVENT_FLAMES2, tsp.sysp4vsyncextension, sysp4vsyncend, NEVENT_RELATIVE);
-	}
-*/
-	else {
-		if (!nevent_iswork(NEVENT_FLAMES)) {
-			screendispva_setnevent();
-		}
-	}
-
-//	nevent_get1stevent();
 
 	while(screendispflag) {
 #if defined(TRACE)
@@ -1046,10 +822,8 @@ debug_resume_cpu:
 			if (upd9002_diagnostic_pending()) {
 				return;
 			}
-			if (pccore.model_va != PCMODEL_NOTVA) {
-				subsystemmx_exec();
-				sgp_step();
-			}
+			subsystemmx_exec();
+			sgp_step();
 		}
 
 		nevent_progress();
@@ -1082,11 +856,6 @@ void pccore_redraw(void) {
 
 	saved_drawframe = drawframe;
 	drawframe = TRUE;
-	if (pccore.model_va != PCMODEL_NOTVA) {
-		drawscreenva();
-	}
-	else {
-		drawscreen();
-	}
+	drawscreenva();
 	drawframe = saved_drawframe;
 }
