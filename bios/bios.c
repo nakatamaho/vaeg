@@ -238,7 +238,7 @@ void bios_initialize(void) {
 	CopyMemory(mem + ITF_ADRS, itfrom, sizeof(itfrom));
 	mem[ITF_ADRS + 0x7ff0] = 0xea;
 	STOREINTELDWORD(mem + ITF_ADRS + 0x7ff1, 0xf8000000);
-	if ((pccore.model & PCMODELMASK) == PCMODEL_VM) {
+	if (pccore.model == PCMODEL_VA) {
 		mem[ITF_ADRS + 0x7ff1] = 0x08;
 	}
 	setbiosseed(mem + 0x0f8000, 0x08000, 0x7ffe);
@@ -313,11 +313,6 @@ UINT MEMCALL biosfunc(UINT32 adrs) {
 #endif
 			bios_reinitbyswitch();
 			bios_vectorset();
-			if (((pccore.model & PCMODELMASK) >= PCMODEL_VX) &&
-				(pccore.sound & 0x7e)) {
-				iocore_out8(0x188, 0x27);
-				iocore_out8(0x18a, 0x3f);
-			}
 			return(1);
 
 		case BIOS_BASE + BIOSOFST_09:

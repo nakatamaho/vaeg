@@ -42,8 +42,6 @@ const OEMCHAR str_height[] = OEMTEXT("height");
 const OEMCHAR str_np2[] = OEMTEXT("Neko Project II");
 const OEMCHAR str_resume[] = OEMTEXT("Resume");
 
-const OEMCHAR str_VM[] = OEMTEXT("VM");
-const OEMCHAR str_VX[] = OEMTEXT("VX");
 const OEMCHAR str_VA1[] = OEMTEXT("88VA1");
 const OEMCHAR str_VA2[] = OEMTEXT("88VA2");
 
