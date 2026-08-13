@@ -27,10 +27,9 @@ set -euo pipefail
 
 program_name=${0##*/}
 script_dir=$(CDPATH= cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
-repo_root=$(CDPATH= cd -- "$script_dir/../.." && pwd)
 source_d88=
 output_d88=
-cache_dir=${VAEG_PC88VA_DEVDISK_CACHE:-$repo_root/docs/archives/pc88va-development-disk}
+cache_dir=${VAEG_PC88VA_DEVDISK_CACHE:-${XDG_CACHE_HOME:-${HOME}/.cache}/vaeg/pc88va-development-disk}
 work_dir=
 output_tmp=
 download_tmp=
@@ -39,8 +38,8 @@ usage() {
 	printf '%s\n' \
 		"Usage: $program_name --source SOURCE.d88 --output OUTPUT.d88 [--cache DIR]" \
 		'' \
-		'First create a vanilla PC-Engine 1.1 system disk, then add PCEPAT,' \
-		'BMS, MSE 3.52b, PCPLUS, network and disk tools, and K-Launcher.' \
+		'First create a vanilla PC-Engine 1.1 system disk, then add PCPLUS,' \
+		'SCHD, HOSTFAT, PCEPAT, MSE 3.52b, RDBMS, development tools, and K-Launcher.' \
 		'The source and generated D88 images are never added to the repository.'
 }
 
@@ -96,7 +95,7 @@ done
 [[ ! -e ${output_d88} ]] || die 'output already exists; refusing to overwrite it'
 [[ -d ${output_d88%/*} || ${output_d88} != */* ]] || die 'output directory does not exist'
 
-for required_command in curl dosbox lha python3 sha256sum tar unzip; do
+for required_command in curl dosbox lha nasm python3 sha256sum tar unzip; do
 	command -v "$required_command" >/dev/null 2>&1 ||
 		die "required host command is missing: $required_command"
 done
@@ -147,6 +146,12 @@ fetch_package pcp108.lzh \
 fetch_package pcp108p.lzh \
 	25f1d9432247c88667b880f4153966725a757b4dcd1a062c88497d32b0c8eef7 \
 	'http://www.pc88.gr.jp/softlib/index.php?action=download&anum=2&gnum=451&fname=PCP108P.LZH'
+fetch_package schd155t.lzh \
+	87aebcf7c9bc9c6170a40d0e6ddcce5afdcbb1fa55f1fdeeec815458f7ef065f \
+	'http://www.pc88.gr.jp/softlib/index.php?action=download&anum=2&gnum=448&fname=SCHD155T.LZH'
+fetch_package rdbms121.lzh \
+	bf198dbf104a9ddf4b0309f53b3f8e7266ac83f9810162cee51c735403e9559c \
+	'http://www.pc88.gr.jp/softlib/index.php?action=download&anum=2&gnum=80&fname=RDBMS121.LZH'
 fetch_package bdiff128.lzh \
 	0ba491ee4829a6f292cfbcad25371a98c2161c1a92d028b0d2fd5dd9d9011153 \
 	'http://www.pc88.gr.jp/softlib/index.php?action=download&anum=2&gnum=328&fname=BDIFF128.LZH'
@@ -159,9 +164,15 @@ fetch_package mse352bf.lzh \
 fetch_package wsp150.lzh \
 	e2c9ebfcf2aea495baab186cab7a1ac790027f7ea93e41650f1744c5ccb594b3 \
 	'https://ftp.vector.co.jp/00/08/531/wsp150.lzh'
-fetch_package lha213.exe \
-	7ff44c3c971e453c1db784c731471307b5d04248150ea246e52afdff1b378b6d \
-	'https://web.archive.org/web/20021020200442id_/http://archiver.wakusei.ne.jp:80/docs/lha213.exe'
+fetch_package lha255.exe \
+	70c9fb00d4d5e272662d1f25316ad59007c426894802ea30b61dd729706e715e \
+	'https://ftp.vector.co.jp/00/24/521/lha255.exe'
+fetch_package lha255b_.lzh \
+	f081e1203ad695a608a091a3c3c48422a8934f55e9c0c43ad12de6edd40d8f1e \
+	'https://ftp.vector.co.jp/00/24/521/lha255b_.lzh'
+fetch_package diet144.lzh \
+	e4012ca98f010d3120afc04deccb87b61e67e3c0428c7692c7850b86ce6299d9 \
+	'https://ftp.vector.co.jp/00/03/527/diet144.lzh'
 fetch_package kl130.lzh \
 	8b8e2b23d3da27cf4089e283f49d923e884611a11e213532afa77b5fb4246dfb \
 	'https://toroidj.github.io/dos/KL130.LZH'
@@ -183,12 +194,6 @@ fetch_package forg203.lzh \
 fetch_package ramdisk.com \
 	e0cf4510f4f54ee2825c866ee3a2b07fb2e5f60b7e8d10bfa34401a29e7e4b51 \
 	'http://www.pc88.gr.jp/softlib/index.php?action=download&anum=2&gnum=398&fname=RAMDISK.COM'
-fetch_package ramdisk.doc \
-	4f5e549bdbc75db6cf95ebd13dc722500891fa22265ed793b22e81585e94e461 \
-	'http://www.pc88.gr.jp/softlib/index.php?action=download&anum=2&gnum=398&fname=RAMDISK.DOC'
-fetch_package diet144.lzh \
-	e4012ca98f010d3120afc04deccb87b61e67e3c0428c7692c7850b86ce6299d9 \
-	'https://ftp.vector.co.jp/00/03/527/diet144.lzh'
 fetch_package fut312bx.zip \
 	49df5a5f68b91f64affc9f305a328f0925e07cbe88604e17687c653a523eabe5 \
 	'https://www.ibiblio.org/pub/micro/pc-stuff/freedos/mirrors/gnuish/dos_only/fut312bx.zip'
@@ -203,28 +208,51 @@ extract_archive() {
 	lha xfw="$destination" "$archive" >/dev/null
 }
 
+add_uppercase_aliases() {
+	local root=$1
+	local path
+	local parent
+	local name
+	local uppercase
+	local alias_path
+
+	while IFS= read -r -d '' path; do
+		parent=${path%/*}
+		name=${path##*/}
+		uppercase=$(printf '%s' "$name" | LC_ALL=C tr '[:lower:]' '[:upper:]')
+		[[ ${name} != "${uppercase}" ]] || continue
+		alias_path=$parent/$uppercase
+		[[ -e ${alias_path} ]] || ln -s -- "$name" "$alias_path"
+	done < <(find "$root" -depth -mindepth 1 -print0)
+}
+
 extract_archive "$cache_dir/pcepat.com" "$work_dir/pcepat"
 extract_archive "$cache_dir/pcp108.lzh" "$work_dir/pcp108"
 extract_archive "$cache_dir/pcp108p.lzh" "$work_dir/pcp108p"
+extract_archive "$cache_dir/schd155t.lzh" "$work_dir/schd"
+extract_archive "$cache_dir/rdbms121.lzh" "$work_dir/rdbms"
 extract_archive "$cache_dir/bdiff128.lzh" "$work_dir/bdiff"
 extract_archive "$cache_dir/mse352a.lzh" "$work_dir/mse352a"
 extract_archive "$cache_dir/mse352bf.lzh" "$work_dir/mse352bf"
 extract_archive "$cache_dir/wsp150.lzh" "$work_dir/wsp"
-extract_archive "$cache_dir/lha213.exe" "$work_dir/lha"
+extract_archive "$cache_dir/lha255.exe" "$work_dir/lha"
+extract_archive "$cache_dir/lha255b_.lzh" "$work_dir/lha_patch"
+extract_archive "$cache_dir/diet144.lzh" "$work_dir/diet"
 extract_archive "$cache_dir/kl130.lzh" "$work_dir/kl"
 extract_archive "$cache_dir/teen030p.lzh" "$work_dir/teen"
 extract_archive "$cache_dir/vbuff102.lzh" "$work_dir/vbuff"
 extract_archive "$cache_dir/fatmap11.lzh" "$work_dir/fatmap"
 extract_archive "$cache_dir/forg203.lzh" "$work_dir/forg"
-extract_archive "$cache_dir/diet144.lzh" "$work_dir/diet"
+extract_archive "$cache_dir/ramdisk.com" "$work_dir/ramdisk"
 mkdir -p -- "$work_dir/bms"
 tar -xzf "$cache_dir/bms15020.tgz" -C "$work_dir/bms"
 mkdir -p -- "$work_dir/fut312bx"
 unzip -q "$cache_dir/fut312bx.zip" 'BIN/*' -d "$work_dir/fut312bx"
+add_uppercase_aliases "$work_dir"
 
 stage_dir=$work_dir/stage
 mkdir -p -- "$stage_dir"
-cp -p -- "$work_dir/wsp/WSP.COM" "$stage_dir/"
+cp -p -- "$work_dir/wsp/wsp.com" "$stage_dir/WSP.COM"
 cp -p -- "$work_dir/mse352a/ALIAS.COM" "$stage_dir/"
 cp -p -- "$work_dir/mse352a/MSE350.DEF" "$stage_dir/"
 cp -p -- "$work_dir/mse352a/MSE352A.COM" "$stage_dir/"
@@ -237,6 +265,9 @@ cp -p -- "$work_dir/mse352bf/MSE352BF.WUP" "$stage_dir/"
 cp -p -- "$work_dir/bdiff/BUPDATE.EXE" "$stage_dir/"
 cp -p -- "$work_dir/pcp108/PCP108/PCPLUS.SYS" "$stage_dir/"
 cp -p -- "$work_dir/pcp108p/PCPLUS.BDF" "$stage_dir/"
+cp -p -- "$work_dir/lha/LHA.EXE" "$stage_dir/"
+cp -p -- "$work_dir/lha/HISTORY.DOC" "$stage_dir/"
+cp -p -- "$work_dir/lha_patch/LHA255B@.BDF" "$stage_dir/"
 cp -p -- "$work_dir/kl/KL.COM" "$stage_dir/"
 cp -p -- "$work_dir/kl/KLV.EXE" "$stage_dir/"
 cp -p -- "$work_dir/kl/KLCUST.EXE" "$stage_dir/"
@@ -256,10 +287,11 @@ printf '%s\n' \
 	'tandy=off' \
 	'disney=false' >"$dosbox_conf"
 
-printf '%s\n' 'Applying MSE, PCPLUS, and K-Launcher patches'
+printf '%s\n' 'Applying LHA, MSE, PCPLUS, and K-Launcher patches'
 SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy dosbox -conf "$dosbox_conf" -exit \
 	-c "mount c $stage_dir" \
 	-c 'c:' \
+	-c 'bupdate -x -i -o lha255b@ > lha255b.log' \
 	-c 'wsp -t -b mse352bf.wup > mse.log' \
 	-c 'bupdate -x -i -o pcplus.bdf > pcp.log' \
 	-c 'wsp -t -b klva.com > kl.log' \
@@ -280,22 +312,32 @@ verify_generated PCPLUS.SYS f86d03201a2fa6c0dab13345df55f3bb929f41ec3c7c6d03efb4
 verify_generated KLL.COM 752600dfb9809432310046047f6142b8edce47c25e25a14c1baa2d91bda87910
 verify_generated KLVA.EXE c6ad097435111398f1c1ebc90e9f35cd15caded6b5d6bed49d92c354ab7f3c43
 verify_generated KLCUST.EXE 72376b967fe51d4f40759f5d875762fa3b2b09a353afb1a9ea3c957f5a9c87bf
+verify_generated LHA.EXE 0794c20ce820c687687fe49285758f026765f4fad9ffb2ff4d78e6a46f7fb452
+
+hostfat_sys=$work_dir/HOSTFAT.SYS
+nasm -f bin -o "$hostfat_sys" "$script_dir/hostfat/hostfat.asm"
+python3 "$script_dir/hostfat/check_driver.py" --input "$hostfat_sys"
 
 payload_dir=$work_dir/payload
 mkdir -p -- "$payload_dir/root" "$payload_dir/bin" "$payload_dir/doc" \
-	"$payload_dir/tmp"
+	"$payload_dir/sys" "$payload_dir/tmp"
 
 copy_payload() {
 	cp -- "$1" "$payload_dir/$2"
 }
 
-copy_payload "$work_dir/pcepat/PCEPAT.SYS" root/PCEPAT.SYS
-copy_payload "$work_dir/bms/bmsdrva.com" root/BMSDRVA.COM
-copy_payload "$work_dir/bms/bmsaddva.com" root/BMSADDVA.COM
-copy_payload "$stage_dir/MSE352B.COM" root/MSE352B.COM
-copy_payload "$stage_dir/PCPLUS.SYS" root/PCPLUS.SYS
+copy_payload "$work_dir/bms/bmsdrva.com" bin/BMSDRVA.COM
+copy_payload "$work_dir/bms/bmsaddva.com" bin/BMSADDVA.COM
+copy_payload "$stage_dir/PCPLUS.SYS" sys/PCPLUS.SYS
+copy_payload "$work_dir/schd/SCHD.SYS" sys/SCHD.SYS
+copy_payload "$hostfat_sys" sys/HOSTFAT.SYS
+copy_payload "$work_dir/pcepat/PCEPAT.SYS" sys/PCEPAT.SYS
+copy_payload "$stage_dir/MSE352B.COM" sys/MSE352B.COM
+copy_payload "$work_dir/rdbms/RDBMS.SYS" sys/RDBMS.SYS
+copy_payload "$work_dir/ramdisk/RAMDISK.SYS" sys/RAMDISK.SYS
 
-copy_payload "$work_dir/lha/LHA.EXE" bin/LHA.EXE
+copy_payload "$stage_dir/LHA.EXE" bin/LHA.EXE
+copy_payload "$work_dir/diet/DIET.EXE" bin/DIET.EXE
 copy_payload "$work_dir/bdiff/BUPDATE.EXE" bin/BUPDATE.EXE
 copy_payload "$work_dir/wsp/WSP.COM" bin/WSP.COM
 copy_payload "$stage_dir/MSET.COM" bin/MSET.COM
@@ -319,7 +361,9 @@ copy_payload "$work_dir/fatmap/FATMAP.EXE" bin/FATMAP.EXE
 copy_payload "$work_dir/fatmap/FATMAP_E.COM" bin/FATMAP_E.COM
 copy_payload "$work_dir/forg/FORG.EXE" bin/FORG.EXE
 copy_payload "$work_dir/forg/FORG.DAT" bin/FORG.DAT
-copy_payload "$cache_dir/ramdisk.com" bin/RAMDISK.COM
+copy_payload "$work_dir/ramdisk/BIOSFREE.COM" bin/BIOSFREE.COM
+copy_payload "$work_dir/ramdisk/SETID.COM" bin/SETID.COM
+copy_payload "$work_dir/ramdisk/SETIPL.COM" bin/SETIPL.COM
 copy_payload "$work_dir/fut312bx/BIN/CHMOD.EXE" bin/CHMOD.EXE
 copy_payload "$work_dir/fut312bx/BIN/COPYING" bin/COPYING
 copy_payload "$work_dir/fut312bx/BIN/CP.EXE" bin/CP.EXE
@@ -336,6 +380,26 @@ copy_payload "$work_dir/fut312bx/BIN/RMD.EXE" bin/RMD.EXE
 copy_payload "$work_dir/fut312bx/BIN/TOUCH.EXE" bin/TOUCH.EXE
 copy_payload "$work_dir/fut312bx/BIN/VDIR.EXE" bin/VDIR.EXE
 
+copy_payload "$work_dir/teen/TEEN.DOC" doc/TEEN.DOC
+copy_payload "$work_dir/teen/TEENUPDT.DOC" doc/TEENUPDT.DOC
+copy_payload "$work_dir/teen/README.DOC" doc/TEENREAD.DOC
+copy_payload "$work_dir/teen/TLOG.DOC" doc/TLOG.DOC
+copy_payload "$work_dir/vbuff/VBUFF.DOC" doc/VBUFF.DOC
+copy_payload "$work_dir/vbuff/VBUFF.LOG" doc/VBUFF.LOG
+copy_payload "$work_dir/fatmap/FATMAP.MAN" doc/FATMAP.MAN
+copy_payload "$work_dir/fatmap/README.DOC" doc/FATMREAD.DOC
+copy_payload "$work_dir/forg/FORG.DOC" doc/FORG.DOC
+copy_payload "$work_dir/forg/README.DOC" doc/FORGREAD.DOC
+copy_payload "$work_dir/ramdisk/RAMDISK.DOC" doc/RAMDISK.DOC
+copy_payload "$work_dir/ramdisk/README" doc/RAMREAD.ME
+copy_payload "$work_dir/diet/DIET144.DOC" doc/DIET144.DOC
+copy_payload "$work_dir/diet/README.DOC" doc/DIETREAD.DOC
+copy_payload "$work_dir/schd/SCHD.DOC" doc/SCHD.DOC
+copy_payload "$work_dir/schd/SCHD.LOG" doc/SCHD.LOG
+copy_payload "$work_dir/schd/SCHD.TXT" doc/SCHD.TXT
+copy_payload "$work_dir/rdbms/RDBMS.DOC" doc/RDBMS.DOC
+
+printf '%s\n' 'Compressing BIN executables with DIET 1.44'
 diet_manifest=$work_dir/diet-before.tsv
 : > "$diet_manifest"
 for executable in "$payload_dir/bin"/*.EXE "$payload_dir/bin"/*.COM; do
@@ -345,13 +409,11 @@ for executable in "$payload_dir/bin"/*.EXE "$payload_dir/bin"/*.COM; do
 	printf '%s\t%s\n' "${executable##*/}" "$executable_size" >> "$diet_manifest"
 done
 
-printf '%s\n' 'Compressing A:\BIN executables with DIET 1.44'
 SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy dosbox -conf "$dosbox_conf" -exit \
 	-c "mount c $payload_dir/bin" \
-	-c "mount d $work_dir/diet" \
 	-c 'c:' \
-	-c 'd:\diet.exe -b *.exe > dietexe.log' \
-	-c 'd:\diet.exe -b -xc *.com > dietcom.log' \
+	-c 'diet -b *.exe > dietexe.log' \
+	-c 'diet -b -xc *.com > dietcom.log' \
 	-c 'exit' >/dev/null 2>&1
 
 [[ -f $payload_dir/bin/DIETEXE.LOG ]] ||
@@ -383,24 +445,15 @@ rm -- "$payload_dir/bin/DIETEXE.LOG" "$payload_dir/bin/DIETCOM.LOG"
 printf 'DIET processed %u executables and saved %u bytes\n' \
 	"$diet_processed" "$diet_saved"
 
-copy_payload "$work_dir/teen/TEEN.DOC" doc/TEEN.DOC
-copy_payload "$work_dir/teen/TEENUPDT.DOC" doc/TEENUPDT.DOC
-copy_payload "$work_dir/teen/README.DOC" doc/TEENREAD.DOC
-copy_payload "$work_dir/teen/TLOG.DOC" doc/TLOG.DOC
-copy_payload "$work_dir/vbuff/VBUFF.DOC" doc/VBUFF.DOC
-copy_payload "$work_dir/vbuff/VBUFF.LOG" doc/VBUFF.LOG
-copy_payload "$work_dir/fatmap/FATMAP.MAN" doc/FATMAP.MAN
-copy_payload "$work_dir/fatmap/README.DOC" doc/FATMREAD.DOC
-copy_payload "$work_dir/forg/FORG.DOC" doc/FORG.DOC
-copy_payload "$work_dir/forg/README.DOC" doc/FORGREAD.DOC
-copy_payload "$cache_dir/ramdisk.doc" doc/RAMDISK.DOC
-
 printf '%s\r\n' \
 	'FILES = 20' \
 	'BUFFERS = 30' \
-	'DEVICE = A:\PCEPAT.SYS' \
-	'DEVICE = A:\MSE352B.COM' \
-	'DEVICE = A:\PCPLUS.SYS' >"$payload_dir/root/CONFIG.SYS"
+	'DEVICE = A:\SYS\PCPLUS.SYS' \
+	'DEVICE = A:\SYS\SCHD.SYS -I0' \
+	'DEVICE = A:\SYS\HOSTFAT.SYS' \
+	'DEVICE = A:\SYS\PCEPAT.SYS' \
+	'DEVICE = A:\SYS\MSE352B.COM' \
+	'DEVICE = A:\SYS\RDBMS.SYS -P1D0 -S1' >"$payload_dir/root/CONFIG.SYS"
 
 printf '%s\r\n' \
 	'PATH A:\BIN' \

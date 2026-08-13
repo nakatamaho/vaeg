@@ -34,7 +34,7 @@ usage() {
 	printf '%s\n' \
 		"Usage: $program_name --source SOURCE.d88 --output OUTPUT.d88" \
 		'' \
-		'Create a FORMAT /S-like PC-Engine 1.1 boot disk.' \
+		'Create a FORMAT /S-like PC-Engine 1.05 or 1.1 boot disk.' \
 		'Only the IPL and four required PC-Engine system files are retained.'
 }
 
