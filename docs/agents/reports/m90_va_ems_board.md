@@ -27,7 +27,10 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 M90 is implementation-complete at candidate
 [`498b283`](https://github.com/nakatamaho/vaeg/commit/498b283b67bc0e68dcd6f507260e190974c07f9f)
-on `main`. G90 remains a human gate.
+on `main`. The maintainer passed G90 on 2026-08-13 against the final M90
+history at
+[`f16d6af`](https://github.com/nakatamaho/vaeg/commit/f16d6af14039359e5b617d757f906a47f45b1ad9),
+and M90 is closed.
 
 The predecessor is the G89-integrated `main` commit
 [`c65853c`](https://github.com/nakatamaho/vaeg/commit/c65853cfd2f5ff5318c1a11fec384961037bfdbb).
@@ -197,4 +200,6 @@ From a clean checkout and clean configuration:
 5. Enable I/O Bank Memory concurrently and verify both mechanisms.
 6. Disable EMS Board and verify normal V3/OS operation.
 
-G90 passes only when the maintainer explicitly reports that this gate passed.
+The maintainer explicitly reported G90 passed on 2026-08-13 against
+[`f16d6af`](https://github.com/nakatamaho/vaeg/commit/f16d6af14039359e5b617d757f906a47f45b1ad9).
+M90 is closed.
