@@ -66,6 +66,12 @@ Vector's BMS Driver:
 Vector describes it as `BMS Driver 1.50 Rev 0.20`, a Bank Memory Driver
 for PC-98x1/88VA. The archived download is `bms15020.tgz`.
 
+The development-disk builder uses Vector's
+[DIET 1.44](https://www.vector.co.jp/soft/dos/util/se000305.html) as a
+build-time executable compressor. Version 1.44 is the formally released
+package on Vector; the same page also lists the later 1.45f test build.
+The builder pins `diet144.lzh`, runs its original `DIET.EXE` under DOSBox,
+and does not install or redistribute DIET itself on the generated disk.
 
 The archive disk also includes Vector's [Memory Mapper for PC
 1.3](https://www.vector.co.jp/soft/dos/hardware/se128128.html). Vector
@@ -253,6 +259,7 @@ The recipe also needs DOS utilities, which run through MSE:
 - WSP for WUP diffs, including the MSE 3.52a-to-b patch.
 - K-Launcher as a two-pane file manager.
 - PMD and VA-specific generated PMD players for music playback tests.
+- DIET 1.44 as a build-time compressor for `A:\BIN` executables.
 
 The article explicitly warns that archive extraction is safer on the
 PC-88VA side than on Windows. The practical reason is timestamp
@@ -340,10 +347,11 @@ tools/pc88va/build-development-disk.sh \
   --output /path/to/pc88va-development.d88
 ```
 
-The destination must not already exist. Downloads are cached under the normal
-user cache directory by default; `--cache DIR` selects another cache. Every
-public input archive is pinned by SHA-256 in the script. An existing cache file
-with different contents is rejected rather than replaced.
+The destination must not already exist. Downloads are cached under
+`docs/archives/pc88va-development-disk/` by default. This local archive cache
+is excluded from Git; `--cache DIR` selects another cache. Every public input
+archive is pinned by SHA-256 in the script. An existing cache file with
+different contents is rejected rather than replaced.
 
 The complete build performs these operations:
 
@@ -352,16 +360,20 @@ The complete build performs these operations:
 2. Fetch and verify PCEPAT, BMS Driver 1.50 Rev 0.20, PCPLUS 1.08 and its
    patch, BDIFF/BUPDATE 1.28, MSE 3.52a and the 3.52b patch, WSP 1.50,
    LHA 2.13, K-Launcher 1.30, TEEN 0.30p, VBUFF 1.02, FATMAP 1.1,
-   FORG 2.03, the VA RAMDISK self-extracting archive, and the GNU File
-   Utilities 3.12 MS-DOS rev B executable archive, plus Vector's
+   FORG 2.03, the VA RAMDISK self-extracting archive, DIET 1.44, and the GNU
+   File Utilities 3.12 MS-DOS rev B executable archive, plus Vector's
    `X8MAP130.LZH` Memory Mapper archive.
 3. Extract the packages with the host `lha`, `tar`, and `unzip` commands.
 4. Run the original DOS `WSP.COM` and `BUPDATE.EXE` under headless DOSBox to
    produce `MSE352B.COM`, the patched `PCPLUS.SYS`, and the PC-88VA
    K-Launcher files `KLL.COM`, `KLVA.EXE`, and `KLCUST.EXE`.
-5. Verify those generated files against known public-package checksums.
-6. Add the root drivers, the `BIN` utilities, their `DOC` files, and an empty
-   `TMP` directory to the vanilla FAT12 filesystem.
+5. Run DIET 1.44 under the same headless DOSBox environment. It processes
+   only `A:\BIN\*.EXE` and `A:\BIN\*.COM`; `-B` selects byte-size comparison,
+   and `-XC` preserves COM format. Root and driver files, including
+   `MSE352B.COM`, are outside the compression directory and remain unchanged.
+6. Verify the generated files against known public-package checksums.
+7. Add the root drivers, the compressed `BIN` utilities, their `DOC` files,
+   and an empty `TMP` directory to the vanilla FAT12 filesystem.
 
 The PC-Engine disk has a valid FAT12 allocation structure but no conventional
 DOS BPB, so normal `mtools` commands reject it as non-DOS media. The builder
@@ -452,6 +464,17 @@ from `A:\TMP` when its contents are needed. The Softlib catalog records the
 standalone `RAMDISK.DOC` as 1,148 bytes, while its current download endpoint
 serves a 1,230-byte CRLF file. The builder pins the bytes actually served by
 the public endpoint.
+
+DIET keeps an executable unchanged when its self-extracting form would not
+reduce the byte size. Thus every `.EXE` and `.COM` in `A:\BIN` is offered to
+DIET, while very small or already packed programs can remain byte-identical.
+No file outside `A:\BIN` is offered to DIET; in particular, the generated
+`MSE352B.COM` driver is never compressed, whether the surrounding layout keeps
+it in the root or under `A:\SYS`. With the pinned inputs, 31 of 34 executable
+files shrink, reducing their total from 879,773 to 512,343 bytes; `KLL.COM`,
+`RAMDISK.COM`, and `VBUFF.COM` remain unchanged because DIET cannot make them
+smaller. The generated D88 is maintainer-local media, and redistribution
+remains subject to each included program's terms.
 
 The GNUish catalog identifies `fut312bx.zip` as the executable distribution of
 GNU File Utilities 3.12 for DOS. The builder extracts all 15 entries from its
