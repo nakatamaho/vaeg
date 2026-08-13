@@ -35,7 +35,7 @@ Commit prefix: `M90:`
 Candidate gate: `G90`
 
 Implementation candidate:
-[`624e74a6560effe324acb6d11c5422043547ba66`](https://github.com/nakatamaho/vaeg/commit/624e74a6560effe324acb6d11c5422043547ba66)
+[`ef699ead3a43b57e5b51f616e277beb9e536851f`](https://github.com/nakatamaho/vaeg/commit/ef699ead3a43b57e5b51f616e277beb9e536851f)
 
 Validation record:
 [`reports/m90_va_ems_board.md`](../reports/m90_va_ems_board.md)

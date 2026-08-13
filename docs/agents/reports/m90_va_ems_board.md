@@ -26,7 +26,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 ## Status
 
 M90 is implementation-complete at candidate
-[`624e74a`](https://github.com/nakatamaho/vaeg/commit/624e74a6560effe324acb6d11c5422043547ba66)
+[`ef699ea`](https://github.com/nakatamaho/vaeg/commit/ef699ead3a43b57e5b51f616e277beb9e536851f)
 on `main`. G90 remains a human gate.
 
 The predecessor is the G89-integrated `main` commit
@@ -45,8 +45,16 @@ The predecessor is the G89-integrated `main` commit
   target zero restores ordinary memory mapping.
 - EMS and I/O Bank Memory remain independent configuration mechanisms.
 - The supplemental-disk builder retains EMMVA15A and RDEMS152 archives,
-  installs the three redistributable SYS files, and installs their manuals.
-  A compatible EMM manager remains separately supplied by the user.
+  installs their three redistributable SYS files, builds the PC-88VA
+  `SQEMM98.SYS` manager with pinned Open Watcom, and installs the manuals and
+  licenses.
+- The generated root `CONFIG.SYS` loads `EMMVA01.SYS`, `SQEMM98.SYS`,
+  `EMMVA02.SYS`, and `RDEMS.SYS -P40 -A` in that order. The supplemental
+  media remains data-only, so this is an HDD-install template rather than a
+  claim that the D88 is bootable.
+- SQEMM98 initialization and diagnostic messages use PC-Engine Text BIOS
+  `INT 83H/AH=02H`. The generated binary contains no IBM video BIOS `INT 10H`
+  and no DOS `INT 21H/AH=09H` string-output path.
 
 ## Commit chain
 
@@ -58,6 +66,10 @@ The predecessor is the G89-integrated `main` commit
 3. [`624e74a`](https://github.com/nakatamaho/vaeg/commit/624e74a6560effe324acb6d11c5422043547ba66)
    installs EMMVA/RDEMS in the supplemental-disk workflow and documents the
    required guest stack.
+4. [`ef699ea`](https://github.com/nakatamaho/vaeg/commit/ef699ead3a43b57e5b51f616e277beb9e536851f)
+   adds the reproducible PC-88VA SQEMM98 build and validator, routes messages
+   through PC-Engine BIOS, and adds the complete stack and `CONFIG.SYS` to the
+   supplemental media workflow.
 
 ## Validation
 
@@ -71,8 +83,14 @@ The predecessor is the G89-integrated `main` commit
 | ROM-less `--selftest` | PASS; BMS and EMS lifecycle checks included; all tests passed |
 | ROM-less `--smoke` | PASS in documented reduced-scope mode |
 | MinGW cross configure/build | PASS; PE32+ x86-64 GUI executable |
+| SQEMM98 Open Watcom assembly/link | PASS; 13,258-byte `EMMXXXX0` character device |
+| SQEMM98 reproducibility | PASS; two independent builds have SHA-256 `8d76f4ca63444343cf75f6106037dbbc475abfde3c5f839ec56ccdfcf5383f46` |
+| SQEMM98 output-path validation | PASS; one `INT 83H`, no `INT 10H`, no DOS `AH=09H` output |
+| SQEMM98 validator negative check | PASS; injected `INT 10H` rejected as `SQEMM98_CHECK_IBM_VIDEO` |
 | Supplemental builder shell syntax | PASS |
-| Supplemental media generation | PASS; 35 files, 951,863 payload bytes, 324,608 bytes free |
+| Supplemental media generation | PASS; 39 files, 967,925 payload bytes, 306,176 bytes free |
+| Supplemental `CONFIG.SYS` | PASS; four expected CRLF lines extracted from the generated D88 |
+| Supplemental SQEMM98 identity | PASS; D88 copy matches the independently generated driver byte-for-byte |
 | Source-media protection | PASS; disposable source copy was unchanged before/after |
 | Reproducibility | PASS; two independently generated outputs were byte-identical |
 | Binary payload audit | PASS; no generated D88, ROM, font, or other binary payload is tracked |
@@ -85,8 +103,19 @@ SHA-256
 
 The generated supplemental media and all raw validation logs remain outside
 Git. The maintainer-supplied source media was used only through a disposable
-copy; its private identity is not recorded here. The builder creates a
-data-only supplemental disk and does not create or edit `CONFIG.SYS`.
+copy; its private identity is not recorded here. The canonical local output
+has SHA-256
+`0625f935e9ccaeadf88194cea1cbcf000e204284aa327a9b2878bafcb9ea7c12`.
+
+A bounded boot attempt used a disposable vanilla PC-Engine 1.1 system disk
+with the EMS stack and a small `INT 67H` allocation/map probe. It reached the
+PC-Engine prompt, but the probe reported that no EMM was installed. A control
+disk with the already validated HOSTFAT driver likewise reached the prompt
+without loading its root `CONFIG.SYS`. This demonstrates that the minimal
+vanilla-disk setup is not a valid runtime driver-loading oracle; it is not an
+SQEMM98 pass or failure. Guest-visible SQEMM98 messages and EMS/RDEMS operation
+therefore remain explicitly assigned to G90 on the maintainer's HDD software
+environment.
 
 ## G90 human gate
 
@@ -96,10 +125,10 @@ From a clean checkout and clean configuration:
    gate.
 2. Confirm EMS Board appears below I/O Bank Memory, defaults to 1MB, accepts
    1 through 13MB, persists, and resets only when applying a change.
-3. Supply a compatible EMM manager and load `EMMVA01.SYS`, that manager, then
-   `EMMVA02.SYS`; verify configured capacity and distinct data in multiple
-   16KB pages.
-4. Load `RDEMS.SYS` after the EMM stack and verify RAM-disk read/write.
+3. Copy the generated stack to the boot drive, merge the supplemental
+   `CONFIG.SYS`, and verify SQEMM98's PC-Engine BIOS messages, configured
+   capacity, and distinct data in multiple 16KB pages.
+4. Verify `RDEMS.SYS` loads after SQEMM98 and supports RAM-disk read/write.
 5. Enable I/O Bank Memory concurrently and verify both mechanisms.
 6. Disable EMS Board and verify normal V3/OS operation.
 
