@@ -121,8 +121,19 @@ tools/openwatcom/build-sqemm98.sh \
 
 ## CI relationship
 
-Canonical CI should download the same dated Open Watcom v2 host artifact,
-verify its SHA-256, and run the applicable 8086 static checks for each
-guest-driver consumer. The local image is a convenience for reproducing that
-toolchain under Colima; it is not a replacement for the Linux and MSYS2 CI
-jobs.
+The same redistributable pair can be generated locally as one distribution
+directory when NASM and the configured container engine are available:
+
+```sh
+tools/pc88va/build-guest-driver-bundle.sh \
+  --output build/pc88va-guest-drivers
+```
+
+Canonical CI builds the same pinned image, which downloads the dated Open
+Watcom v2 host artifact and verifies its SHA-256. A dedicated Linux job then
+builds and structurally validates `SQEMM98.SYS` together with `HOSTFAT.SYS`,
+checks their fixed output hashes, and publishes one guest-driver bundle. All
+normal Linux, Windows, and macOS build artifacts plus every tagged platform
+binary package consume that exact bundle together with its licenses,
+installation README, and `SHA256SUMS`. The local image remains the matching
+way to reproduce the toolchain under Colima.

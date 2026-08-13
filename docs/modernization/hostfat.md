@@ -35,6 +35,8 @@ not part of the current release.
 Unpack the VAEG release and place the executable, the model ROMs, and
 `HOSTFAT.SYS` where they can be found. The release archive already contains
 the matching `HOSTFAT.SYS`; do not copy a driver from an older VAEG build.
+`README-PC88VA-drivers.txt`, `licenses/HOSTFAT.txt`, and `SHA256SUMS` in the
+same archive describe and authenticate the bundled driver.
 
 HOSTFAT also needs a PC-Engine support disk with this line in `CONFIG.SYS`:
 
@@ -132,4 +134,3 @@ read-only disk identity.
   the emulator bootable and preserves the setting for later correction.
 - **A write or delete fails:** this is expected HOSTFAT behavior. Use a SCSI
   or SASI image when the guest needs writable storage.
-

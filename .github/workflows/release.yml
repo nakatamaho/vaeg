@@ -62,6 +62,16 @@ jobs:
         run: SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy ./build/linux-ci-gcc/sdl2/vaeg --smoke
       - name: Unit tests
         run: ctest --test-dir build/linux-ci-gcc --output-on-failure
+      - name: Build PC-88VA guest-driver bundle
+        run: >-
+          tools/pc88va/build-guest-driver-bundle.sh
+          --output build/pc88va-guest-drivers
+          --hostfat build/linux-ci-gcc/guest/hostfat.sys
+      - name: Upload PC-88VA guest-driver bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: vaeg-release-pc88va-guest-drivers
+          path: build/pc88va-guest-drivers/
       - name: Package
         run: |
           set -euo pipefail
@@ -72,8 +82,7 @@ jobs:
           mkdir -p "dist-package/${package}/assets" \
             "dist-package/${package}/licenses"
           install -m 755 build/linux-ci-gcc/sdl2/vaeg "dist-package/${package}/vaeg"
-          install -m 644 build/linux-ci-gcc/guest/hostfat.sys \
-            "dist-package/${package}/HOSTFAT.SYS"
+          cp -R build/pc88va-guest-drivers/. "dist-package/${package}/"
           install -m 644 assets/OFL.txt "dist-package/${package}/assets/"
           install -m 644 assets/NOTICE.md "dist-package/${package}/assets/"
           install -m 644 external/suzukiplan-z80/LICENSE.txt \
@@ -165,6 +174,15 @@ jobs:
             done
           fi
           exit "${status}"
+      - name: Download PC-88VA guest-driver bundle
+        uses: actions/download-artifact@v4
+        with:
+          name: vaeg-release-pc88va-guest-drivers
+          path: build/pc88va-guest-drivers
+      - name: Verify PC-88VA guest-driver bundle
+        run: |
+          cd build/pc88va-guest-drivers
+          sha256sum --check SHA256SUMS
       - name: Verify Windows runtime imports
         run: |
           set -euo pipefail
@@ -195,7 +213,7 @@ jobs:
           rm -rf dist-package
           mkdir -p "dist-package/${package}/assets" "dist-package/${package}/licenses"
           cp build/mingw-ci/sdl2/vaeg.exe "dist-package/${package}/"
-          cp build/mingw-ci/guest/hostfat.sys "dist-package/${package}/HOSTFAT.SYS"
+          cp -R build/pc88va-guest-drivers/. "dist-package/${package}/"
           cp assets/OFL.txt "dist-package/${package}/assets/"
           cp assets/NOTICE.md "dist-package/${package}/assets/"
           cp external/suzukiplan-z80/LICENSE.txt \
@@ -241,6 +259,15 @@ jobs:
         run: SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy ./build/macos-ci/sdl2/vaeg --smoke
       - name: Unit tests
         run: ctest --test-dir build/macos-ci --output-on-failure
+      - name: Download PC-88VA guest-driver bundle
+        uses: actions/download-artifact@v4
+        with:
+          name: vaeg-release-pc88va-guest-drivers
+          path: build/pc88va-guest-drivers
+      - name: Verify PC-88VA guest-driver bundle
+        run: |
+          cd build/pc88va-guest-drivers
+          shasum -a 256 --check SHA256SUMS
       - name: Package
         run: |
           set -euo pipefail
@@ -253,8 +280,7 @@ jobs:
           mkdir -p "dist-package/${package}/assets" \
             "dist-package/${package}/licenses"
           install -m 755 build/macos-ci/sdl2/vaeg "dist-package/${package}/vaeg"
-          install -m 644 build/macos-ci/guest/hostfat.sys \
-            "dist-package/${package}/HOSTFAT.SYS"
+          cp -R build/pc88va-guest-drivers/. "dist-package/${package}/"
           install -m 644 assets/OFL.txt "dist-package/${package}/assets/"
           install -m 644 assets/NOTICE.md "dist-package/${package}/assets/"
           install -m 644 external/suzukiplan-z80/LICENSE.txt \
