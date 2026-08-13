@@ -22,10 +22,10 @@
 # IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-FROM debian:bookworm-slim
+FROM debian:bookworm-slim@sha256:abd67ffcfa541b485a3dff59865ab629aa048a6c613e639d36e7456b0b229241
 
-ARG OW_URL=https://github.com/open-watcom/open-watcom-v2/releases/download/Current-build/open-watcom-2_0-c-linux-x64
-ARG OW_SHA256=8c80a8652070d1bcb97924f7937786a1abeccbdf51507299bb4348146b56ba91
+ARG OW_URL=https://github.com/open-watcom/open-watcom-v2/releases/download/2026-08-01-Build/open-watcom-2_0-c-linux-x64
+ARG OW_SHA256=e1bc4e88fa47191118f29e53731e7f4542803c7f4c503e15d72f1f571ac0832f
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends ca-certificates curl unzip \

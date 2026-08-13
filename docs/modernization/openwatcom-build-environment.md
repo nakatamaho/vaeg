@@ -25,7 +25,7 @@ POSSIBILITY OF SUCH DAMAGE.
 
 # Open Watcom build environment
 
-The VAEG guest-driver and SQEMM 8086/V30 builds use the Linux x64
+The VAEG guest-driver and SQEMM 8086/V30 builds use the 2026-08-01 Linux x64
 distribution of Open Watcom v2 and Open Watcom WASM in TASM-compatible mode.
 It does not require the proprietary Borland Turbo Assembler, and the image is
 kept generic so other 16-bit guest-driver builds can reuse it.
@@ -73,30 +73,56 @@ QEMU must be installed separately (for example, `sudo port install qemu`).
 
 ## Using the exported image
 
-Load the exported image into the selected engine:
+Load the exported image into the selected engine. The default tag records the
+pinned toolchain date:
 
 ```sh
 docker load --input docs/openwatcom-image.tar
+docker image inspect vaeg/openwatcom:2026-08-01
 ```
 
-Then mount the SQEMM checkout at `/src` and run the existing PC-98 build
-entry point. The source checkout is not copied into the image:
+The image only supplies the host toolchain. It does not bundle VAEG ROMs,
+disk images, guest drivers, or generated `.SYS` files.
+
+## Building SQEMM98 for PC-88VA
+
+[`tools/openwatcom/build-sqemm98.sh`](../../tools/openwatcom/build-sqemm98.sh)
+builds the M90 PC-88VA EMS manager. It fetches and verifies SQEMM 0.8 commit
+[`47a03a8903d11e0a748ad702574cb12c730e7966`](https://github.com/sqpat/SQEMM/commit/47a03a8903d11e0a748ad702574cb12c730e7966),
+prepares the source out of tree, overlays the PC-88VA hardware backend, and
+assembles the MAX driver with Open Watcom WASM:
 
 ```sh
-docker run --rm -v "$SQEMM_ROOT:/src" -w /src \
-  vaeg/openwatcom:current \
-  sh -c 'wasm -zcm=tasm ...'
+tools/openwatcom/build-sqemm98.sh \
+  --output /tmp/SQEMM98.SYS \
+  --license-output /tmp/SQEMM.LIC
 ```
 
-The exact SQEMM command remains defined by the checkout's make entry
-point, such as `makesq98` or `makesq98.bat`. This image only supplies the
-host toolchain; it does not bundle VAEG ROMs, disk images, proprietary EMM
-managers, or generated `.SYS` files.
+The PC-88VA backend maps the four 16KB EMS windows through ports `08E1H`,
+`08E3H`, `08E5H`, and `08E7H`, with the 1MB target selected through
+`08E9H`. It detects the configured 1 through 13MB capacity and exposes up to
+832 logical EMS pages. Initialization and diagnostic text uses the PC-Engine
+Text BIOS service `INT 83H/AH=02H`, with `DS:SI` addressing a NUL-terminated
+string and `DX=8000H`; it does not use IBM video BIOS `INT 10H` or DOS
+`AH=09H` string output.
+
+The build helper validates the DOS character-device name `EMMXXXX0`, the
+expected PC-Engine output path, the absence of IBM/DOS string-output calls,
+and the VA port-selection code. Generated objects, `SQEMM98.SYS`, and the
+combined upstream/port license remain outside Git. A pinned local SQEMM
+checkout can be used without downloading another source archive:
+
+```sh
+tools/openwatcom/build-sqemm98.sh \
+  --source /path/to/SQEMM \
+  --output /tmp/SQEMM98.SYS \
+  --license-output /tmp/SQEMM.LIC
+```
 
 ## CI relationship
 
-Canonical CI should download the same Open Watcom v2 host artifact, verify
-its SHA-256, and run the applicable 8086 static checks for each guest-driver
-consumer, including SQEMM98 MAX/MIN. The local
-image is a convenience for reproducing that toolchain under Colima; it is
-not a replacement for the Linux and MSYS2 CI jobs.
+Canonical CI should download the same dated Open Watcom v2 host artifact,
+verify its SHA-256, and run the applicable 8086 static checks for each
+guest-driver consumer. The local image is a convenience for reproducing that
+toolchain under Colima; it is not a replacement for the Linux and MSYS2 CI
+jobs.

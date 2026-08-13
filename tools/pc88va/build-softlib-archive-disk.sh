@@ -27,9 +27,12 @@ set -euo pipefail
 
 program_name=${0##*/}
 script_dir=$(CDPATH= cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
+repo_root=$(CDPATH= cd -- "$script_dir/../.." && pwd)
 source_d88=
 output_d88=
 cache_dir=${VAEG_PC88VA_SOFTLIB_CACHE:-${XDG_CACHE_HOME:-${HOME}/.cache}/vaeg/pc88va-softlib-archive-disk}
+sqemm_driver=
+sqemm_license=
 work_dir=
 prj_work_dir=
 output_tmp=
@@ -37,12 +40,17 @@ download_tmp=
 
 usage() {
 	printf '%s\n' \
-		"Usage: $program_name --source SOURCE.d88 --output OUTPUT.d88 [--cache DIR]" \
+		"Usage: $program_name --source SOURCE.d88 --output OUTPUT.d88 [options]" \
 		'' \
 		'Create a non-system PC-Engine data disk containing pinned PC-88VA' \
 		'Softlib downloads in A:\ARCHIVE, plus selected extracted tools.' \
-		'EMMVA/RDEMS drivers are installed in A:\SYS with manuals in A:\DOC.' \
-		'CONFIG.SYS is not created or modified by this builder.' \
+		'EMMVA/SQEMM98/RDEMS drivers are installed in A:\SYS. A root' \
+		'CONFIG.SYS records the required load order as an HDD-install template.' \
+		'' \
+		'Options:' \
+		'  --cache DIR             Select the public-package download cache.' \
+		'  --sqemm-driver FILE     Use an already built SQEMM98.SYS.' \
+		'  --sqemm-license FILE    Combined licenses paired with that driver.' \
 		'The source and generated D88 images are never added to the repository.'
 }
 
@@ -85,6 +93,16 @@ while (($#)); do
 		cache_dir=$2
 		shift 2
 		;;
+	--sqemm-driver)
+		(($# >= 2)) || die '--sqemm-driver requires a path'
+		sqemm_driver=$2
+		shift 2
+		;;
+	--sqemm-license)
+		(($# >= 2)) || die '--sqemm-license requires a path'
+		sqemm_license=$2
+		shift 2
+		;;
 	-h | --help)
 		usage
 		exit 0
@@ -100,6 +118,12 @@ done
 [[ -f ${source_d88} && -r ${source_d88} ]] || die 'source D88 is not a readable file'
 [[ ! -e ${output_d88} ]] || die 'output already exists; refusing to overwrite it'
 [[ -d ${output_d88%/*} || ${output_d88} != */* ]] || die 'output directory does not exist'
+if [[ -n ${sqemm_driver} || -n ${sqemm_license} ]]; then
+	[[ -n ${sqemm_driver} && -n ${sqemm_license} ]] ||
+		die '--sqemm-driver and --sqemm-license must be used together'
+	[[ -f ${sqemm_driver} && -r ${sqemm_driver} ]] || die 'SQEMM98 driver is not readable'
+	[[ -f ${sqemm_license} && -r ${sqemm_license} ]] || die 'SQEMM license is not readable'
+fi
 
 for required_command in curl lha python3 sha256sum unzip; do
 	command -v "$required_command" >/dev/null 2>&1 ||
@@ -279,7 +303,7 @@ fetch_package ZIP22X.ZIP \
 
 work_dir=$(mktemp -d "${TMPDIR:-/tmp}/vaeg-pc88va-softlib.XXXXXX")
 payload_dir=$work_dir/payload
-mkdir -p -- "$payload_dir/archive" "$payload_dir/bin" "$payload_dir/doc" \
+mkdir -p -- "$payload_dir/root" "$payload_dir/archive" "$payload_dir/bin" "$payload_dir/doc" \
 	"$payload_dir/sys" "$work_dir/emmva" "$work_dir/rdems" \
 	"$work_dir/infozip/unzip" "$work_dir/infozip/zip"
 
@@ -298,6 +322,35 @@ lha xfw="$work_dir/emmva" "$cache_dir/EMMVA15A.LZH" >/dev/null
 lha xfw="$work_dir/rdems" "$cache_dir/RDEMS152.LZH" >/dev/null
 cp -- "$work_dir/emmva/EMMVA01.SYS" "$work_dir/emmva/EMMVA02.SYS" "$payload_dir/sys/"
 cp -- "$work_dir/rdems/RDEMS.SYS" "$payload_dir/sys/RDEMS.SYS"
+
+if [[ -n ${sqemm_driver} ]]; then
+	python3 "$repo_root/tools/openwatcom/check-sqemm98.py" "$sqemm_driver"
+	cp -- "$sqemm_driver" "$payload_dir/sys/SQEMM98.SYS"
+	cp -- "$sqemm_license" "$payload_dir/doc/SQEMM.LIC"
+else
+	"$repo_root/tools/openwatcom/build-sqemm98.sh" \
+		--output "$payload_dir/sys/SQEMM98.SYS" \
+		--license-output "$payload_dir/doc/SQEMM.LIC" \
+		--cache "$cache_dir/sqemm98"
+fi
+
+printf '%s\r\n' \
+	'DEVICE=A:\SYS\EMMVA01.SYS' \
+	'DEVICE=A:\SYS\SQEMM98.SYS' \
+	'DEVICE=A:\SYS\EMMVA02.SYS' \
+	'DEVICE=A:\SYS\RDEMS.SYS -P40 -A' \
+	> "$payload_dir/root/CONFIG.SYS"
+
+printf '%s\r\n' \
+	'SQEMM98 MAX v0.8 for PC-88VA' \
+	'' \
+	'SQEMM98 is built from pinned SQEMM 0.8 source with Open Watcom.' \
+	'It drives the vaeg PC-88VA EMS board and reports initialization' \
+	'messages through the PC-Engine Text BIOS INT 83H/AH=02H service.' \
+	'' \
+	'This supplemental disk is data-only. Copy A:\SYS\*.SYS to the' \
+	'boot drive and merge the root CONFIG.SYS lines into that drive.' \
+	> "$payload_dir/doc/SQEMM98.TXT"
 
 for package in \
 	VBUFF102.LZH ALGO_VA.DOC ALGO_VA.LZH 2HCDRSRC.LZH \
