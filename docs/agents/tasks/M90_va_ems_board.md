@@ -35,7 +35,7 @@ Commit prefix: `M90:`
 Candidate gate: `G90`
 
 Implementation candidate:
-[`081a2bbffaa14e4bdcc7a9d5627f147bd00f9970`](https://github.com/nakatamaho/vaeg/commit/081a2bbffaa14e4bdcc7a9d5627f147bd00f9970)
+[`498b283b67bc0e68dcd6f507260e190974c07f9f`](https://github.com/nakatamaho/vaeg/commit/498b283b67bc0e68dcd6f507260e190974c07f9f)
 
 Validation record:
 [`reports/m90_va_ems_board.md`](../reports/m90_va_ems_board.md)
@@ -83,6 +83,9 @@ RDEMS load stack and `CONFIG.SYS` on a bootable PC-Engine 1.1 disk.
 - Document the hardware model, EMMVA/SQEMM98 installation order, RDEMS
   dependency, source links, Open Watcom build, and generated contents in
   `docs/modernization/pc88va-hdd-software-environment.md`.
+- Generate a redistributable HOSTFAT/SQEMM98 guest-driver bundle in CI and
+  include the same drivers, licenses, instructions, and checksums in every
+  normal binary artifact and tagged release package.
 
 ## Non-goals and invariants
 
@@ -105,6 +108,7 @@ RDEMS load stack and `CONFIG.SYS` on a bootable PC-Engine 1.1 disk.
 4. M90 validation record and gate handoff.
 5. SQEMM98 Open Watcom build, PC-Engine BIOS output, generated `CONFIG.SYS`,
    and refreshed validation record.
+6. HOSTFAT/SQEMM98 CI and release-package distribution.
 
 ## Automated validation
 
@@ -115,6 +119,9 @@ RDEMS load stack and `CONFIG.SYS` on a bootable PC-Engine 1.1 disk.
 - Build SQEMM98 twice, verify byte-for-byte reproducibility, and run the
   structural driver validator. Confirm one PC-Engine `INT 83H` output path,
   no IBM `INT 10H`, and no DOS `AH=09H` output path.
+- Build and validate the HOSTFAT/SQEMM98 distribution bundle from source, then
+  validate the staged Linux, macOS, and Windows artifact layouts and tagged
+  release-package layouts.
 - Run Linux Debug and CI builds/tests plus the MinGW cross-build.
 - Run repository invariant and diff checks.
 - Confirm commit scope/order and that no generated binary asset is tracked.

@@ -26,7 +26,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 ## Status
 
 M90 is implementation-complete at candidate
-[`081a2bb`](https://github.com/nakatamaho/vaeg/commit/081a2bbffaa14e4bdcc7a9d5627f147bd00f9970)
+[`498b283`](https://github.com/nakatamaho/vaeg/commit/498b283b67bc0e68dcd6f507260e190974c07f9f)
 on `main`. G90 remains a human gate.
 
 The predecessor is the G89-integrated `main` commit
@@ -58,6 +58,9 @@ The predecessor is the G89-integrated `main` commit
   and no DOS `INT 21H/AH=09H` string-output path. It preserves the PC-Engine
   loader's caller state and uses validated built-in defaults rather than
   interpreting the incompatible request-header command-tail field.
+- CI builds hash-pinned `HOSTFAT.SYS` and `SQEMM98.SYS` from source and adds
+  the same two drivers, licenses, instructions, and checksums to every normal
+  Linux, macOS, and Windows binary artifact and tagged release package.
 
 ## Commit chain
 
@@ -89,6 +92,11 @@ The predecessor is the G89-integrated `main` commit
 10. [`081a2bb`](https://github.com/nakatamaho/vaeg/commit/081a2bbffaa14e4bdcc7a9d5627f147bd00f9970)
     expands the EMS selftest to every logical page at the 13MB maximum while
     preserving the pre-test extended-memory allocation.
+11. [`5ace0a8`](https://github.com/nakatamaho/vaeg/commit/5ace0a82bde65b9db76c9687f128804a7e997a1a)
+    records the 13MB guest validation and stale-binary provenance finding.
+12. [`498b283`](https://github.com/nakatamaho/vaeg/commit/498b283b67bc0e68dcd6f507260e190974c07f9f)
+    builds and distributes the HOSTFAT/SQEMM98 pair through CI and release
+    packaging.
 
 ## Validation
 
@@ -99,7 +107,7 @@ The predecessor is the G89-integrated `main` commit
 | macOS MacPorts configure/build | PASS; `vaeg` built successfully |
 | Linux Debug configure/build | PASS |
 | Linux CI GCC configure/build and CTest | PASS; 81/81 tests passed, 1 expected external-SST skip |
-| Hosted CI | PASS; final 13MB sweep [run 31678186077](https://github.com/nakatamaho/vaeg/actions/runs/31678186077), all 9 jobs succeeded |
+| Hosted CI | PASS; final distribution [run 31679653128](https://github.com/nakatamaho/vaeg/actions/runs/31679653128), all 10 jobs succeeded |
 | ROM-less `--selftest` | PASS; all 832 logical EMS pages and four native VA page-frame windows passed at 13MB |
 | ROM-less `--smoke` | PASS in documented reduced-scope mode |
 | MinGW cross configure/build | PASS; PE32+ x86-64 GUI executable |
@@ -116,6 +124,10 @@ The predecessor is the G89-integrated `main` commit
 | Headless PC-Engine boot | PASS; 1MB stack validation passed, then VA1 and VA2 independently reached `Ready` at 13MB after SQEMM98 tested all 832 pages |
 | Headless RAM-disk operation | PASS; copied the 114-byte `CONFIG.SYS` to `C:` and read back all four lines |
 | 13MB RAM-disk operation | PASS on VA1 and VA2; `dir c:` reported 647,168 bytes available |
+| Guest-driver distribution build | PASS; clean NASM/Open Watcom builds produced the pinned HOSTFAT/SQEMM98 pair and six-file bundle |
+| Guest-driver bundle manifest | PASS; `HOSTFAT.SYS`, `SQEMM98.SYS`, instructions, both licenses, and `SHA256SUMS` validated |
+| Normal hosted artifact layouts | PASS; downloaded Linux GCC, Linux Clang, macOS, Windows release, and Windows compatibility artifacts contain the same validated bundle |
+| Tagged release workflow | NOT RUN; no release was published; YAML parsing and local staged Linux/macOS/Windows package-layout validation passed |
 | Binary payload audit | PASS; no generated D88, ROM, font, or other binary payload is tracked |
 
 The evaluated macOS executable has SHA-256
@@ -123,8 +135,11 @@ The evaluated macOS executable has SHA-256
 The evaluated MinGW executable at `build/mingw-cross/sdl2/vaeg.exe` has
 SHA-256
 `1eba1d061add6ee96b675732372d37c61850b15243747d2a17fa12d94ba990d4`.
-The Windows MSYS2 release artifact from hosted run `31678186077` has SHA-256
-`d7ce39475aaf00719b2a7b59298a46d69c76e690024ef0f7df4e010e6cfa755f`.
+The Windows MSYS2 release executable from final hosted run `31679653128` has
+SHA-256
+`0fde2feca9d6b3d442a8db00cb0469d57561c416bb96a43e21cba837a6c74766`.
+Its downloaded GitHub artifact ZIP has SHA-256
+`a6a0cd8abea301e304d5cb00d2cf64690b70e835ff44fd7f28989ee50cecd7fe`.
 
 The first hosted run after the bootable-media correction,
 [31674777821](https://github.com/nakatamaho/vaeg/actions/runs/31674777821),
@@ -132,15 +147,16 @@ exposed a test-fixture defect: the state-save selftest destroyed the global
 I/O tables, then the EMS selftest called `emsio_bind()` on their stale base
 pointers. Linux GCC/Clang segfaulted and ASan identified a heap-use-after-free
 in `getextiofunc`; Windows compatibility failed on the same unit-test step.
-The final candidate builds isolated I/O tables inside the EMS test and
-destroys them on cleanup. The three affected local CTests, the complete 81-test
-suite, a macOS ASan/UBSan selftest, and all nine jobs in the final hosted run
-passed after that correction.
+The corrected behavior candidate builds isolated I/O tables inside the EMS
+test and destroys them on cleanup. The three affected local CTests, the
+complete 81-test suite, a macOS ASan/UBSan selftest, and all nine jobs in the
+then-final hosted run passed after that correction.
 
 A later maintainer-side 13MB run reported the expected 832-page capacity but
 then failed SQEMM98's memory test. The reported executable identity did not
 match any retained M90 hosted Windows artifact examined. The same supplemental
-D88 and `ExMemory=13` configuration pass with candidate `081a2bb` on both VA1
+D88 and `ExMemory=13` configuration pass with behavior candidate `081a2bb` and
+its unchanged emulator code in distribution candidate `498b283` on both VA1
 and VA2, including a usable RDEMS `C:` drive. A controlled negative build that
 removed the native VA page-frame correction from `a4b6170` failed the ROM-less
 selftest with `native VA page-frame access did not map`. The observed report is
