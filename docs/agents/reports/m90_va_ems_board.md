@@ -26,7 +26,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 ## Status
 
 M90 is implementation-complete at candidate
-[`a4b6170`](https://github.com/nakatamaho/vaeg/commit/a4b6170824dbfb8d602ca1ade19c60778a6eff1c)
+[`34fb837`](https://github.com/nakatamaho/vaeg/commit/34fb8376f988b9c121ade3774f0b038b2d110fb4)
 on `main`. G90 remains a human gate.
 
 The predecessor is the G89-integrated `main` commit
@@ -81,6 +81,9 @@ The predecessor is the G89-integrated `main` commit
 7. [`a4b6170`](https://github.com/nakatamaho/vaeg/commit/a4b6170824dbfb8d602ca1ade19c60778a6eff1c)
    retains the boot-only PC-Engine layout, fixes native VA EMS page-frame
    access, and makes SQEMM98 safe for the PC-Engine device-loader contract.
+8. [`34fb837`](https://github.com/nakatamaho/vaeg/commit/34fb8376f988b9c121ade3774f0b038b2d110fb4)
+   gives the EMS selftest fresh I/O tables so it does not reuse tables that
+   the preceding state-save test destroyed.
 
 ## Validation
 
@@ -91,6 +94,7 @@ The predecessor is the G89-integrated `main` commit
 | macOS MacPorts configure/build | PASS; `vaeg` built successfully |
 | Linux Debug configure/build | PASS |
 | Linux CI GCC configure/build and CTest | PASS; 81/81 tests passed, 1 expected external-SST skip |
+| Hosted CI | PASS; [run 31675702844](https://github.com/nakatamaho/vaeg/actions/runs/31675702844), all 9 jobs succeeded |
 | ROM-less `--selftest` | PASS; BMS and EMS lifecycle checks included; all tests passed |
 | ROM-less `--smoke` | PASS in documented reduced-scope mode |
 | MinGW cross configure/build | PASS; PE32+ x86-64 GUI executable |
@@ -109,10 +113,21 @@ The predecessor is the G89-integrated `main` commit
 | Binary payload audit | PASS; no generated D88, ROM, font, or other binary payload is tracked |
 
 The evaluated macOS executable has SHA-256
-`51c2ff6a1f354ba2754241b99c16e98290f5538f896e3e208535e04c1c01a1d1`.
+`e8af96a4c746482ef8ca12a84e141d943bdc7bf4872ea1b6001fab350ad35478`.
 The evaluated MinGW executable at `build/mingw-cross/sdl2/vaeg.exe` has
 SHA-256
-`e33998cb6e5e68c2ff55aa1cd484bda49801d378a7e062ee80cdfe9822d7e3cf`.
+`ea040180b484fb2a1b7ec49f2a8571330d5aaa7cabeb1765aed2bc98391c7476`.
+
+The first hosted run after the bootable-media correction,
+[31674777821](https://github.com/nakatamaho/vaeg/actions/runs/31674777821),
+exposed a test-fixture defect: the state-save selftest destroyed the global
+I/O tables, then the EMS selftest called `emsio_bind()` on their stale base
+pointers. Linux GCC/Clang segfaulted and ASan identified a heap-use-after-free
+in `getextiofunc`; Windows compatibility failed on the same unit-test step.
+The final candidate builds isolated I/O tables inside the EMS test and
+destroys them on cleanup. The three affected local CTests, the complete 81-test
+suite, a macOS ASan/UBSan selftest, and all nine jobs in the final hosted run
+passed after that correction.
 
 The generated supplemental media and all raw validation logs remain outside
 Git. The maintainer-supplied source media was used only through a disposable
