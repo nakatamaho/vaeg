@@ -27,6 +27,7 @@ set -euo pipefail
 
 program_name=${0##*/}
 script_dir=$(CDPATH= cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
+repo_root=$(CDPATH= cd -- "$script_dir/../.." && pwd)
 source_d88=
 output_d88=
 cache_dir=${VAEG_PC88VA_DEVDISK_CACHE:-${XDG_CACHE_HOME:-${HOME}/.cache}/vaeg/pc88va-development-disk}
@@ -39,7 +40,8 @@ usage() {
 		"Usage: $program_name --source SOURCE.d88 --output OUTPUT.d88 [--cache DIR]" \
 		'' \
 		'First create a vanilla PC-Engine 1.1 system disk, then add PCPLUS,' \
-		'SCHD, HOSTFAT, PCEPAT, MSE 3.52b, RDBMS, development tools, and K-Launcher.' \
+		'SCHD, HOSTFAT, PCEPAT, MSE 3.52b, RDBMS, EMMVA/SQEMM98/RDEMS,' \
+		'development tools, X8MAP, and K-Launcher.' \
 		'The source and generated D88 images are never added to the repository.'
 }
 
@@ -173,6 +175,15 @@ fetch_package lha255b_.lzh \
 fetch_package diet144.lzh \
 	e4012ca98f010d3120afc04deccb87b61e67e3c0428c7692c7850b86ce6299d9 \
 	'https://ftp.vector.co.jp/00/03/527/diet144.lzh'
+fetch_package x8map130.lzh \
+	fc5bba93771e0fff3c8aa3d9ef942b80f65afba51b632a6336638ab70a7648a7 \
+	'https://ftp.vector.co.jp/27/37/386/x8map130.lzh'
+fetch_package emmva15a.lzh \
+	1ec9bb379291f1402475afc1f6e2784b5aeda922a8310bde230e29d18c2c493c \
+	'http://www.pc88.gr.jp/softlib/index.php?action=download&anum=2&gnum=351&fname=EMMVA15A.LZH'
+fetch_package rdems152.lzh \
+	0ba023a9f82defca085dc13d7103fe5b2a788ef9217d660686f2a20d8b0e70f9 \
+	'http://www.pc88.gr.jp/softlib/index.php?action=download&anum=2&gnum=270&fname=RDEMS152.LZH'
 fetch_package kl130.lzh \
 	8b8e2b23d3da27cf4089e283f49d923e884611a11e213532afa77b5fb4246dfb \
 	'https://toroidj.github.io/dos/KL130.LZH'
@@ -238,6 +249,9 @@ extract_archive "$cache_dir/wsp150.lzh" "$work_dir/wsp"
 extract_archive "$cache_dir/lha255.exe" "$work_dir/lha"
 extract_archive "$cache_dir/lha255b_.lzh" "$work_dir/lha_patch"
 extract_archive "$cache_dir/diet144.lzh" "$work_dir/diet"
+extract_archive "$cache_dir/x8map130.lzh" "$work_dir/x8map"
+extract_archive "$cache_dir/emmva15a.lzh" "$work_dir/emmva"
+extract_archive "$cache_dir/rdems152.lzh" "$work_dir/rdems"
 extract_archive "$cache_dir/kl130.lzh" "$work_dir/kl"
 extract_archive "$cache_dir/teen030p.lzh" "$work_dir/teen"
 extract_archive "$cache_dir/vbuff102.lzh" "$work_dir/vbuff"
@@ -335,6 +349,14 @@ copy_payload "$work_dir/pcepat/PCEPAT.SYS" sys/PCEPAT.SYS
 copy_payload "$stage_dir/MSE352B.COM" sys/MSE352B.COM
 copy_payload "$work_dir/rdbms/RDBMS.SYS" sys/RDBMS.SYS
 copy_payload "$work_dir/ramdisk/RAMDISK.SYS" sys/RAMDISK.SYS
+copy_payload "$work_dir/emmva/EMMVA01.SYS" sys/EMMVA01.SYS
+copy_payload "$work_dir/emmva/EMMVA02.SYS" sys/EMMVA02.SYS
+copy_payload "$work_dir/rdems/RDEMS.SYS" sys/RDEMS.SYS
+
+"$repo_root/tools/openwatcom/build-sqemm98.sh" \
+	--output "$payload_dir/sys/SQEMM98.SYS" \
+	--license-output "$payload_dir/doc/SQEMM.LIC" \
+	--cache "$cache_dir/sqemm98"
 
 copy_payload "$stage_dir/LHA.EXE" bin/LHA.EXE
 copy_payload "$work_dir/diet/DIET.EXE" bin/DIET.EXE
@@ -344,6 +366,7 @@ copy_payload "$stage_dir/MSET.COM" bin/MSET.COM
 copy_payload "$stage_dir/ALIAS.COM" bin/ALIAS.COM
 copy_payload "$stage_dir/MSECUST.COM" bin/MSECUST.COM
 copy_payload "$stage_dir/MSE350.DEF" bin/MSE350.DEF
+copy_payload "$work_dir/x8map/X8MAP.COM" bin/X8MAP.COM
 copy_payload "$stage_dir/KLL.COM" bin/KLL.COM
 copy_payload "$stage_dir/KLVA.EXE" bin/KLVA.EXE
 copy_payload "$stage_dir/KLCUST.EXE" bin/KLCUST.EXE
@@ -398,6 +421,18 @@ copy_payload "$work_dir/schd/SCHD.DOC" doc/SCHD.DOC
 copy_payload "$work_dir/schd/SCHD.LOG" doc/SCHD.LOG
 copy_payload "$work_dir/schd/SCHD.TXT" doc/SCHD.TXT
 copy_payload "$work_dir/rdbms/RDBMS.DOC" doc/RDBMS.DOC
+copy_payload "$work_dir/x8map/X8MAP130.SMP" doc/X8MAP130.SMP
+copy_payload "$work_dir/x8map/X8MAP130.TXT" doc/X8MAP130.TXT
+copy_payload "$work_dir/emmva/EMMVA150.DOC" doc/EMMVA150.DOC
+copy_payload "$work_dir/rdems/RDEMS152.MAN" doc/RDEMS152.MAN
+
+printf '%s\r\n' \
+	'SQEMM98 MAX v0.8 for PC-88VA' \
+	'' \
+	'SQEMM98 is built from pinned SQEMM 0.8 source with Open Watcom.' \
+	'It drives the vaeg PC-88VA EMS board and reports initialization' \
+	'messages through the PC-Engine Text BIOS INT 83H/AH=02H service.' \
+	> "$payload_dir/doc/SQEMM98.TXT"
 
 printf '%s\n' 'Compressing BIN executables with DIET 1.44'
 diet_manifest=$work_dir/diet-before.tsv
@@ -453,7 +488,11 @@ printf '%s\r\n' \
 	'DEVICE = A:\SYS\HOSTFAT.SYS' \
 	'DEVICE = A:\SYS\PCEPAT.SYS' \
 	'DEVICE = A:\SYS\MSE352B.COM' \
-	'DEVICE = A:\SYS\RDBMS.SYS -P1D0 -S1' >"$payload_dir/root/CONFIG.SYS"
+	'DEVICE = A:\SYS\RDBMS.SYS -P1D0 -S1' \
+	'DEVICE=A:\SYS\EMMVA01.SYS' \
+	'DEVICE=A:\SYS\SQEMM98.SYS' \
+	'DEVICE=A:\SYS\EMMVA02.SYS' \
+	'DEVICE=A:\SYS\RDEMS.SYS -P40 -A' >"$payload_dir/root/CONFIG.SYS"
 
 printf '%s\r\n' \
 	'PATH A:\BIN' \
