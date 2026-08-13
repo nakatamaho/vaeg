@@ -218,8 +218,11 @@ M90 instead provides `SQEMM98.SYS`, a PC-88VA port of the open-source SQEMM
 0.8 MAX driver. It is reproducibly built from pinned source with Open Watcom,
 drives vaeg's `08E1H` through `08E9H` EMS interface directly, and detects the
 configured 1 through 13MB capacity. Its startup, success, and error messages
-are displayed by the PC-Engine Text BIOS `INT 83H/AH=02H` service. The active
-stack is:
+are displayed by the PC-Engine Text BIOS `INT 83H/AH=02H` service. PC-Engine
+does not provide SQEMM's DOS request-header command-tail contract, so this
+port deliberately uses its validated defaults: 255 handles, all detected EMS
+pages, the fixed `C000H` page frame, zero page offset, and the startup memory
+test. The active stack is:
 
 ```dos
 DEVICE=A:\SYS\EMMVA01.SYS
@@ -245,10 +248,15 @@ DEVICE=A:\SYS\RDEMS.SYS -P40 -A
 The supplemental-disk builder keeps both original LZH archives and installs
 `EMMVA01.SYS`, `SQEMM98.SYS`, `EMMVA02.SYS`, and `RDEMS.SYS` in `A:\SYS`.
 It places the exact four-line stack above in root `CONFIG.SYS`, with the
-EMMVA/RDEMS manuals, SQEMM98 notes, and combined licenses in `A:\DOC`.
-Because this is a data-only supplemental disk, that `CONFIG.SYS` is an HDD
-installation template: copy the four drivers to the boot drive's `A:\SYS`
-directory and merge or copy the lines into the boot drive's `CONFIG.SYS`.
+EMMVA/RDEMS manuals, SQEMM98 notes, and combined licenses in `A:\DOC`. The
+source must be the verified `pcengine110-bootonly.d88`; the builder retains
+its IPL and fixed `ENGINEIO.SYS`, `PCENGINE.SYS`, `ADVGBIOS.SYS`, and
+`PCENGINE.COM` placement, then installs the supplemental payload around those
+files. The resulting D88 is therefore a PC-Engine 1.1 boot disk rather than a
+data-only installation template. In the validated 1MB configuration,
+RDEMS152 registers a 640KB RAM disk as `C:` (`B:` remains the second floppy
+drive); a headless boot copied root `CONFIG.SYS` to that RAM disk and read the
+114-byte copy back successfully.
 
 ## Support Tools
 
@@ -521,11 +529,11 @@ remain a PC-88VA/vaeg human boot check.
 ## Supplemental Softlib Archive Disk
 
 [`tools/pc88va/build-softlib-archive-disk.sh`](../../tools/pc88va/build-softlib-archive-disk.sh)
-creates a separate data-only D88 containing additional PC-88VA software
-archives.
-It validates a user-supplied PC-Engine 1.1 D88 as the media-layout template,
-clears the FAT, root directory, and data clusters, and does not retain any
-PC-Engine system files. The resulting disk is therefore not a system disk.
+creates a separate bootable PC-Engine 1.1 D88 containing additional PC-88VA
+software archives. It validates `pcengine110-bootonly.d88`, retains its IPL
+and four fixed system-file chains, clears every other FAT/root/data entry,
+and installs the supplemental payload in the remaining space. The source D88
+is opened read-only and the output must be a new path.
 
 Run it with:
 
@@ -599,12 +607,16 @@ their copying terms and primary manuals. The original `UNZ532X3.EXE` and
 `ZIP22X.ZIP` distributions remain in the verified host cache but are not
 duplicated on the D88.
 
-The generated disk contains 39 files totaling 967,925 bytes. File data uses
-989,184 bytes in 1024-byte FAT12 clusters; the four directories use one
-additional cluster each. The files are organized as follows:
+The supplemental payload contains 39 files totaling 967,920 bytes. Together
+with the four retained PC-Engine system files, the generated disk contains 43
+files. The files are organized as follows:
 
 ```text
 A:\
+  ENGINEIO.SYS
+  PCENGINE.SYS
+  ADVGBIOS.SYS
+  PCENGINE.COM
   CONFIG.SYS
 
   ARCHIVE\
@@ -654,7 +666,7 @@ A:\
     SQEMM98.SYS
 ```
 
-The resulting disk has 306,176 bytes (299 KiB) free. Two builds from the same
+The resulting disk has 222,208 bytes (217 KiB) free. Two builds from the same
 source and verified cache are byte-for-byte identical. A headless DOSBox check
 confirmed that the included 16-bit Info-ZIP executables can test and extract
 `PRJVA.ZIP` and create a valid ZIP archive.

@@ -35,7 +35,7 @@ Commit prefix: `M90:`
 Candidate gate: `G90`
 
 Implementation candidate:
-[`ef699ead3a43b57e5b51f616e277beb9e536851f`](https://github.com/nakatamaho/vaeg/commit/ef699ead3a43b57e5b51f616e277beb9e536851f)
+[`a4b6170824dbfb8d602ca1ade19c60778a6eff1c`](https://github.com/nakatamaho/vaeg/commit/a4b6170824dbfb8d602ca1ade19c60778a6eff1c)
 
 Validation record:
 [`reports/m90_va_ems_board.md`](../reports/m90_va_ems_board.md)
@@ -45,7 +45,7 @@ Validation record:
 Restore the retained EMS page-frame implementation as a configurable PC-88VA
 expansion board, provide a reproducible Open Watcom build of a PC-88VA SQEMM
 manager, and generate a supplemental disk with the complete EMMVA/SQEMM98/
-RDEMS load stack and `CONFIG.SYS` installation template.
+RDEMS load stack and `CONFIG.SYS` on a bootable PC-Engine 1.1 disk.
 
 ## Required behavior
 
@@ -75,7 +75,8 @@ RDEMS load stack and `CONFIG.SYS` installation template.
   DOS `INT 21H/AH=09H` for those messages.
 - Install `EMMVA01.SYS`, `SQEMM98.SYS`, `EMMVA02.SYS`, and `RDEMS.SYS` on
   the supplemental disk and create root `CONFIG.SYS` in that exact load
-  order. Document that the data-only disk supplies an HDD-install template.
+  order. Retain the source PC-Engine 1.1 IPL and four fixed system files so
+  that the generated supplemental disk remains bootable.
 - Build media only from a disposable copy of the maintainer-supplied
   PC-Engine 1.1 source D88; never modify or track the source D88 or generated
   media.
@@ -93,8 +94,8 @@ RDEMS load stack and `CONFIG.SYS` installation template.
   injection path.
 - Do not alter BMS numbering, main-memory capacity, binary payloads, CPU
   semantics, or unrelated storage and display behavior.
-- Do not claim that root `CONFIG.SYS` makes the supplemental data disk
-  bootable; the disk intentionally omits PC-Engine system files.
+- Do not synthesize or relocate PC-Engine system files. Preserve the verified
+  boot-only source layout and install the supplemental payload around it.
 
 ## Commit order
 
@@ -126,8 +127,8 @@ From a clean checkout and clean configuration:
    operations.
 2. Confirm EMS Board appears below I/O Bank Memory, defaults to 1MB, accepts
    1 through 13MB, persists, and resets only on applying a change.
-3. Copy the generated stack to the boot drive, merge the supplemental
-   `CONFIG.SYS`, and confirm that SQEMM98 messages appear through PC-Engine.
+3. Boot the generated supplemental disk and confirm that SQEMM98 messages
+   appear through PC-Engine.
    Confirm the configured capacity and distinct data in more than one 16KB
    page.
 4. Confirm RDEMS152 loads after SQEMM98 and supports RAM-disk read/write.
