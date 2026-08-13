@@ -703,6 +703,11 @@ static int test_va_ems_board(void) {
 	saved_high1 = mem[0x104000];
 	saved_ext = 0;
 	result = SUCCESS;
+	iocore_create();
+	if (iocore_build() != SUCCESS) {
+		result = fail("VA EMS", "could not build isolated I/O tables");
+		goto ems_test_cleanup;
+	}
 
 	if ((EMSIO_DEFAULT_MEGABYTES != 1) ||
 		(EMSIO_MIN_MEGABYTES != 1) ||
@@ -791,6 +796,7 @@ static int test_va_ems_board(void) {
 	}
 
 ems_test_cleanup:
+	iocore_destroy();
 	if ((CPU_EXTMEM != NULL) && (CPU_EXTMEMSIZE >= 0x100000)) {
 		CPU_EXTMEM[0x10000] = saved_ext;
 	}
