@@ -47,6 +47,18 @@ def main() -> int:
         fail("SQEMM98_CHECK_SIZE", f"unexpected size {len(data)}")
     if data[10:18] != b"EMMXXXX0":
         fail("SQEMM98_CHECK_DEVICE_NAME", "character-device name is missing")
+    if data[6:10] != b"\x14\x00\x1f\x00":
+        fail("SQEMM98_CHECK_DRIVER_ENTRY", "unexpected strategy/interrupt entry")
+    if data[0x1F:0x22] != b"\x9c\x53\x1e":
+        fail("SQEMM98_CHECK_CALLER_STATE", "interrupt entry does not save FLAGS/BX/DS")
+    init_return = (
+        b"\x1f\x5b\x1e\x06\x50\x51\x52\x53\x56\x57\x55"
+        b"\xe8\x08\x2f\x5d\x5f\x5e\x5b\x5a\x59\x58\x07\x1f\x9d\xcb"
+    )
+    if init_return not in data[:0x80]:
+        fail("SQEMM98_CHECK_CALLER_STATE", "init return does not restore registers")
+    if b"\x8e\x1e\x57\x02\x33\xff\x33\xdb\x8b\xd3\x33\xc0" not in data:
+        fail("SQEMM98_CHECK_MEMORY_TEST_OFFSET", "memory test does not clear DI")
     if data.count(b"\xcd\x83") != 1:
         fail("SQEMM98_CHECK_PCENGINE_OUTPUT", "expected one INT 83h instruction")
     if b"\xcd\x10" in data:

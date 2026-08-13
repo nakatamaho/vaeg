@@ -750,6 +750,14 @@ static int test_va_ems_board(void) {
 		result = fail("VA EMS", "page mapping failed above the 64KB boundary");
 		goto ems_test_cleanup;
 	}
+	memmode_va = 1;
+	upd9002_memorywrite(0x0c0000, 0x96);
+	if ((upd9002_memoryread(0x0c0000) != 0x96) ||
+		(CPU_EXTMEM[0x10000] != 0x96)) {
+		result = fail("VA EMS", "native VA page-frame access did not map");
+		goto ems_test_cleanup;
+	}
+	memmode_va = 0;
 
 	iomode_va = 0;
 	iocore_out8(0x08e9, 1);

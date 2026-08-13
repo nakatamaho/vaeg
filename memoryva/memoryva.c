@@ -32,6 +32,7 @@
 #include	"gvramva.h"
 #include	"va91.h"
 #include	"bmsio.h"
+#include	"emsio.h"
 
 
 void MEMCALL gvram_wt(UINT32 address, REG8 value);
@@ -275,6 +276,23 @@ static UINT sysm_bank(void) {
 	return(bank & 0x0f);
 }
 
+static BOOL ems_page_frame_active(UINT32 address) {
+
+	return((emsio.target != 0) && (emsio.target <= emsio.maxmem) &&
+										(address >= 0x0c0000) &&
+										(address < 0x0d0000));
+}
+
+static void ems_page_frame_write(UINT32 address, REG8 value) {
+
+	CPU_EMSPTR[(address >> 14) & 3][LOW14(address)] = (BYTE)value;
+}
+
+static REG8 ems_page_frame_read(UINT32 address) {
+
+	return(CPU_EMSPTR[(address >> 14) & 3][LOW14(address)]);
+}
+
 static UINT32 tvram_size(void) {
 
 	if (pccore.model_va == PCMODEL_VA1) {
@@ -376,6 +394,10 @@ static void MEMCALL bms_wt_va(UINT32 address, REG8 value) {
 
 static void MEMCALL sysm_wt(UINT32 address, REG8 value) {
 
+	if (ems_page_frame_active(address)) {
+		ems_page_frame_write(address, value);
+		return;
+	}
 	sysmbyte_write[sysm_bank()](address, value);
 }
 
@@ -467,6 +489,12 @@ static void MEMCALL bmsw_wt_va(UINT32 address, REG16 value) {
 
 static void MEMCALL sysmw_wt(UINT32 address, REG16 value) {
 
+	if (ems_page_frame_active(address) ||
+		ems_page_frame_active(address + 1)) {
+		sysm_wt(address, (REG8)value);
+		sysm_wt(address + 1, (REG8)(value >> 8));
+		return;
+	}
 	sysmword_write[sysm_bank()](address, value);
 }
 
@@ -542,6 +570,9 @@ static REG8 MEMCALL bms_rd_va(UINT32 address) {
 
 static REG8 MEMCALL sysm_rd(UINT32 address) {
 
+	if (ems_page_frame_active(address)) {
+		return(ems_page_frame_read(address));
+	}
 	return(sysmbyte_read[sysm_bank()](address));
 }
 
@@ -708,6 +739,11 @@ static REG16 MEMCALL bmsw_rd_va(UINT32 address) {
 
 static REG16 MEMCALL sysmw_rd(UINT32 address) {
 
+	if (ems_page_frame_active(address) ||
+		ems_page_frame_active(address + 1)) {
+		return((REG16)(sysm_rd(address) |
+										(sysm_rd(address + 1) << 8)));
+	}
 	return(sysmword_read[sysm_bank()](address));
 }
 
