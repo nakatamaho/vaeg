@@ -1,3 +1,12 @@
+#ifndef VAEG_IO_EMSIO_H
+#define VAEG_IO_EMSIO_H
+
+enum {
+	EMSIO_DEFAULT_MEGABYTES = 1,
+	EMSIO_MIN_MEGABYTES = 1,
+	EMSIO_MAX_MEGABYTES = 13
+};
+
 
 typedef struct {
 	UINT8	maxmem;
@@ -18,3 +27,4 @@ void emsio_bind(void);
 }
 #endif
 
+#endif

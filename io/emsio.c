@@ -2,6 +2,7 @@
 #include	"cpucore.h"
 #include	"machine/pccore.h"
 #include	"iocore.h"
+#include	"iocoreva.h"
 
 
 // ---- I/O
@@ -68,6 +69,13 @@ void emsio_bind(void) {
 		iocore_attachout(0x08e7, emsio_o08e1);
 		iocore_attachout(0x08e9, emsio_o08e9);
 		iocore_attachinp(0x08e9, emsio_i08e9);
+
+		iocore_attachvaout(0x08e1, emsio_o08e1);
+		iocore_attachvaout(0x08e3, emsio_o08e1);
+		iocore_attachvaout(0x08e5, emsio_o08e1);
+		iocore_attachvaout(0x08e7, emsio_o08e1);
+		iocore_attachvaout(0x08e9, emsio_o08e9);
+		iocore_attachvainp(0x08e9, emsio_i08e9);
 	}
 }
 
