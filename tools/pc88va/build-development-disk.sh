@@ -27,9 +27,10 @@ set -euo pipefail
 
 program_name=${0##*/}
 script_dir=$(CDPATH= cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
+repo_root=$(CDPATH= cd -- "$script_dir/../.." && pwd)
 source_d88=
 output_d88=
-cache_dir=${VAEG_PC88VA_DEVDISK_CACHE:-${XDG_CACHE_HOME:-${HOME}/.cache}/vaeg/pc88va-development-disk}
+cache_dir=${VAEG_PC88VA_DEVDISK_CACHE:-$repo_root/docs/archives/pc88va-development-disk}
 work_dir=
 output_tmp=
 download_tmp=
@@ -185,6 +186,9 @@ fetch_package ramdisk.com \
 fetch_package ramdisk.doc \
 	4f5e549bdbc75db6cf95ebd13dc722500891fa22265ed793b22e81585e94e461 \
 	'http://www.pc88.gr.jp/softlib/index.php?action=download&anum=2&gnum=398&fname=RAMDISK.DOC'
+fetch_package diet144.lzh \
+	e4012ca98f010d3120afc04deccb87b61e67e3c0428c7692c7850b86ce6299d9 \
+	'https://ftp.vector.co.jp/00/03/527/diet144.lzh'
 fetch_package fut312bx.zip \
 	49df5a5f68b91f64affc9f305a328f0925e07cbe88604e17687c653a523eabe5 \
 	'https://www.ibiblio.org/pub/micro/pc-stuff/freedos/mirrors/gnuish/dos_only/fut312bx.zip'
@@ -212,6 +216,7 @@ extract_archive "$cache_dir/teen030p.lzh" "$work_dir/teen"
 extract_archive "$cache_dir/vbuff102.lzh" "$work_dir/vbuff"
 extract_archive "$cache_dir/fatmap11.lzh" "$work_dir/fatmap"
 extract_archive "$cache_dir/forg203.lzh" "$work_dir/forg"
+extract_archive "$cache_dir/diet144.lzh" "$work_dir/diet"
 mkdir -p -- "$work_dir/bms"
 tar -xzf "$cache_dir/bms15020.tgz" -C "$work_dir/bms"
 mkdir -p -- "$work_dir/fut312bx"
@@ -330,6 +335,53 @@ copy_payload "$work_dir/fut312bx/BIN/RM.EXE" bin/RM.EXE
 copy_payload "$work_dir/fut312bx/BIN/RMD.EXE" bin/RMD.EXE
 copy_payload "$work_dir/fut312bx/BIN/TOUCH.EXE" bin/TOUCH.EXE
 copy_payload "$work_dir/fut312bx/BIN/VDIR.EXE" bin/VDIR.EXE
+
+diet_manifest=$work_dir/diet-before.tsv
+: > "$diet_manifest"
+for executable in "$payload_dir/bin"/*.EXE "$payload_dir/bin"/*.COM; do
+	[[ -f ${executable} ]] || continue
+	executable_size=$(wc -c < "$executable")
+	executable_size=${executable_size//[[:space:]]/}
+	printf '%s\t%s\n' "${executable##*/}" "$executable_size" >> "$diet_manifest"
+done
+
+printf '%s\n' 'Compressing A:\BIN executables with DIET 1.44'
+SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy dosbox -conf "$dosbox_conf" -exit \
+	-c "mount c $payload_dir/bin" \
+	-c "mount d $work_dir/diet" \
+	-c 'c:' \
+	-c 'd:\diet.exe -b *.exe > dietexe.log' \
+	-c 'd:\diet.exe -b -xc *.com > dietcom.log' \
+	-c 'exit' >/dev/null 2>&1
+
+[[ -f $payload_dir/bin/DIETEXE.LOG ]] ||
+	die 'DIET did not produce the EXE compression log'
+[[ -f $payload_dir/bin/DIETCOM.LOG ]] ||
+	die 'DIET did not produce the COM compression log'
+
+diet_processed=0
+diet_saved=0
+while IFS=$'\t' read -r executable_name before_size; do
+	executable_path=$payload_dir/bin/$executable_name
+	case $executable_name in
+	*.EXE) diet_log=$payload_dir/bin/DIETEXE.LOG ;;
+	*.COM) diet_log=$payload_dir/bin/DIETCOM.LOG ;;
+	*) die "internal DIET manifest error: $executable_name" ;;
+	esac
+	grep -Fq "Compress '$executable_name'" "$diet_log" ||
+		die "DIET did not process $executable_name"
+	after_size=$(wc -c < "$executable_path")
+	after_size=${after_size//[[:space:]]/}
+	((after_size <= before_size)) ||
+		die "DIET increased the size of $executable_name"
+	((diet_processed += 1))
+	((diet_saved += before_size - after_size))
+done < "$diet_manifest"
+((diet_processed > 0)) || die 'no BIN executables were available for DIET'
+
+rm -- "$payload_dir/bin/DIETEXE.LOG" "$payload_dir/bin/DIETCOM.LOG"
+printf 'DIET processed %u executables and saved %u bytes\n' \
+	"$diet_processed" "$diet_saved"
 
 copy_payload "$work_dir/teen/TEEN.DOC" doc/TEEN.DOC
 copy_payload "$work_dir/teen/TEENUPDT.DOC" doc/TEENUPDT.DOC
