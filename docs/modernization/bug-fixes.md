@@ -70,6 +70,30 @@ separate parity correction or move it to Open Defects.
 
 ## Fixed Defects
 
+### Bootable PC-Engine EMS media froze before reaching the prompt
+
+- **Status:** fixed in M90; G90 human gate remains pending.
+- **Symptom:** the generated EMS supplemental D88 was data-only and could not
+  boot. After retaining the PC-Engine 1.1 system files, SQEMM98 printed its
+  banner but froze before the prompt, and its page test initially failed in
+  native VA mode.
+- **Root cause:** native VA accesses to `C0000H` through `CFFFFH` bypassed the
+  retained EMS page pointers. SQEMM98 also inherited DOS assumptions that did
+  not hold for PC-Engine: its memory test used a stale `DI`, its interrupt
+  return did not preserve the loader's complete caller state, and it treated
+  an incompatible request-header field as a mutable DOS command tail.
+- **Correction:** native VA page-frame reads and writes now use the selected
+  EMS pages. The SQEMM98 preparation step clears `DI`, preserves caller
+  registers and flags, and uses validated built-in defaults. The media builder
+  now retains the PC-Engine 1.1 IPL and fixed system files.
+- **Verification:** ROM-less native VA mapping selftest, macOS/Linux/MinGW
+  builds, Linux CI CTest 81/81, reproducible driver/media generation, and the
+  structural validator passed. A disposable headless boot displayed the full
+  EMMVA/SQEMM98/RDEMS sequence, tested 1.0MB EMS successfully, registered a
+  640KB `C:` RAM disk, and copied/read back its 114-byte `CONFIG.SYS`.
+- **Evidence:** [M90 validation report](../agents/reports/m90_va_ems_board.md).
+- **Commit:** [a4b6170](https://github.com/nakatamaho/vaeg/commit/a4b6170824dbfb8d602ca1ade19c60778a6eff1c).
+
 ### Windows JIS RO was not mapped to the guest underscore key
 
 - **Status:** fixed in the hotfix; Windows manual verification remains a
