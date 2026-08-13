@@ -28,6 +28,7 @@
 #include	"commng.h"
 #include	"machine/clockscale.h"
 #include	"bmsio.h"
+#include	"emsio.h"
 #include	"bkupmemva.h"
 #include	"cliopts.h"
 #include	"debug_harness.h"
@@ -672,6 +673,139 @@ bms_test_cleanup:
 	return(result);
 }
 
+static int test_va_ems_board(void) {
+
+	_EMSIO		saved_emsio;
+	BYTE		*saved_ems[4];
+	UINT32		saved_extsize;
+	UINT8		saved_pccore_extmem;
+	UINT8		saved_iomode;
+	UINT8		saved_memmode;
+	SINT32		saved_remclock;
+	BYTE		saved_main;
+	BYTE		saved_high0;
+	BYTE		saved_high1;
+	BYTE		saved_ext;
+	UINT		i;
+	int		result;
+
+	saved_emsio = emsio;
+	for (i=0; i<4; i++) {
+		saved_ems[i] = CPU_EMSPTR[i];
+	}
+	saved_extsize = CPU_EXTMEMSIZE;
+	saved_pccore_extmem = pccore.extmem;
+	saved_iomode = iomode_va;
+	saved_memmode = memmode_va;
+	saved_remclock = CPU_REMCLOCK;
+	saved_main = mem[0xc0000];
+	saved_high0 = mem[0x100000];
+	saved_high1 = mem[0x104000];
+	saved_ext = 0;
+	result = SUCCESS;
+
+	if ((EMSIO_DEFAULT_MEGABYTES != 1) ||
+		(EMSIO_MIN_MEGABYTES != 1) ||
+		(EMSIO_MAX_MEGABYTES != 13)) {
+		result = fail("VA EMS", "unexpected capacity bounds");
+		goto ems_test_cleanup;
+	}
+	if (CPU_EXTMEMSIZE < 0x100000) {
+		CPU_SETEXTSIZE(1);
+		if ((CPU_EXTMEM == NULL) || (CPU_EXTMEMSIZE != 0x100000)) {
+			result = fail("VA EMS", "could not allocate test memory");
+			goto ems_test_cleanup;
+		}
+	}
+	saved_ext = CPU_EXTMEM[0x10000];
+
+	pccore.extmem = 1;
+	emsio_reset();
+	emsio_bind();
+	CPU_REMCLOCK = 0x100000;
+	iomode_va = 1;
+	iocore_out8(0x08e9, 1);
+	if ((iocore_inp8(0x08e9) != 0) || (emsio.target != 1)) {
+		result = fail("VA EMS", "VA target register was not reachable");
+		goto ems_test_cleanup;
+	}
+	iocore_out8(0x08e1, 0);
+	memmode_va = 0;
+	upd9002_memorywrite(0x0c0000, 0x5a);
+	if ((mem[0x100000] != 0x5a) || (emsio.addr[0] != 0x100000)) {
+		result = fail("VA EMS", "first 16KB page did not map");
+		goto ems_test_cleanup;
+	}
+	iocore_out8(0x08e1, 4);
+	upd9002_memorywrite(0x0c0000, 0xa5);
+	if ((mem[0x104000] != 0xa5) ||
+		(emsio.addr[0] != 0x104000) || (mem[0x100000] != 0x5a)) {
+		result = fail("VA EMS", "page selection did not preserve distinct data");
+		goto ems_test_cleanup;
+	}
+	iocore_out8(0x08e1, 0x10);
+	upd9002_memorywrite(0x0c0000, 0x3c);
+	if ((CPU_EXTMEM[0x10000] != 0x3c) ||
+		(emsio.addr[0] != 0x110000)) {
+		result = fail("VA EMS", "page mapping failed above the 64KB boundary");
+		goto ems_test_cleanup;
+	}
+
+	iomode_va = 0;
+	iocore_out8(0x08e9, 1);
+	if (iocore_inp8(0x08e9) != 0) {
+		result = fail("VA EMS", "compatibility target register was not reachable");
+		goto ems_test_cleanup;
+	}
+	iocore_out8(0x08e9, 2);
+	if (iocore_inp8(0x08e9) != 0xff) {
+		result = fail("VA EMS", "out-of-range target was accepted");
+		goto ems_test_cleanup;
+	}
+	iocore_out8(0x08e1, 8);
+	if (emsio.addr[0] != 0x110000) {
+		result = fail("VA EMS", "out-of-range target changed the page frame");
+		goto ems_test_cleanup;
+	}
+	iocore_out8(0x08e9, 0);
+	iocore_out8(0x08e1, 0);
+	if ((emsio.addr[0] != 0xc0000) || (CPU_EMSPTR[0] != mem + 0xc0000)) {
+		result = fail("VA EMS", "target zero did not restore ordinary memory");
+		goto ems_test_cleanup;
+	}
+
+	pccore.extmem = 0;
+	emsio_reset();
+	emsio_bind();
+	if ((emsio.maxmem != 0) || (emsio.target != 0) ||
+		(emsio.addr[0] != 0xc0000)) {
+		result = fail("VA EMS", "disabled reset retained an EMS target");
+	}
+
+ems_test_cleanup:
+	if ((CPU_EXTMEM != NULL) && (CPU_EXTMEMSIZE >= 0x100000)) {
+		CPU_EXTMEM[0x10000] = saved_ext;
+	}
+	if (CPU_EXTMEMSIZE != saved_extsize) {
+		CPU_SETEXTSIZE(saved_extsize >> 20);
+	}
+	mem[0xc0000] = saved_main;
+	pccore.extmem = saved_pccore_extmem;
+	mem[0x100000] = saved_high0;
+	mem[0x104000] = saved_high1;
+	emsio = saved_emsio;
+	for (i=0; i<4; i++) {
+		CPU_EMSPTR[i] = saved_ems[i];
+	}
+	iomode_va = saved_iomode;
+	memmode_va = saved_memmode;
+	CPU_REMCLOCK = saved_remclock;
+	if (result == SUCCESS) {
+		fprintf(stderr, "selftest: VA EMS board mapping/config lifecycle ok\n");
+	}
+	return(result);
+}
+
 typedef struct {
 	UINT	format;
 	UINT8	d88_type;
@@ -959,6 +1093,8 @@ static int test_profile_ini(void) {
 	UINT16	pacing_ms;
 	UINT16	read_pacing_ms;
 	_BMSIOCFG	write_bms;
+	UINT8	ems_megabytes;
+	UINT8	read_ems_megabytes;
 	_BMSIOCFG	read_bms;
 	PFTBL	write_tbl[] = {
 		{"name", PFTYPE_STR, name, sizeof(name)},
@@ -980,12 +1116,14 @@ static int test_profile_ini(void) {
 		{"Use_BMS_", INITYPE_BOOL, &write_bms.enabled, 0},
 		{"BMS_Port", INITYPE_HEX16, &write_bms.port, 0},
 		{"BMS_Size", INITYPE_UINT8, &write_bms.numbanks, 0},
+		{"ExMemory", INITYPE_UINT8, &ems_megabytes, 0},
 		{"PacingMs", INITYPE_UINT16, &pacing_ms, 0}
 	};
 	INITBL	read_bms_tbl[] = {
 		{"Use_BMS_", INITYPE_BOOL, &read_bms.enabled, 0},
 		{"BMS_Port", INITYPE_HEX16, &read_bms.port, 0},
 		{"BMS_Size", INITYPE_UINT8, &read_bms.numbanks, 0},
+		{"ExMemory", INITYPE_UINT8, &read_ems_megabytes, 0},
 		{"PacingMs", INITYPE_UINT16, &read_pacing_ms, 0}
 	};
 
@@ -1001,6 +1139,7 @@ static int test_profile_ini(void) {
 	window_width = 1280;
 	pacing_ms = 64;
 	ZeroMemory(read_name, sizeof(read_name));
+	ems_megabytes = 7;
 	read_flag = 0;
 	read_count = 0;
 	ZeroMemory(read_bytes, sizeof(read_bytes));
@@ -1008,6 +1147,7 @@ static int test_profile_ini(void) {
 	read_window_width = 0;
 	read_pacing_ms = 0;
 	write_bms.enabled = TRUE;
+	read_ems_megabytes = 0;
 	write_bms.port = BMSIO_PORT_COMPAT;
 	write_bms.portmask = BMSIO_PORT_MASK;
 	write_bms.numbanks = 32;
@@ -1033,8 +1173,9 @@ static int test_profile_ini(void) {
 	}
 	if ((read_bms.enabled != TRUE) ||
 		(read_bms.port != BMSIO_PORT_COMPAT) ||
-		(read_bms.numbanks != 32) || (read_pacing_ms != pacing_ms)) {
-		return(fail("ini", "BMS settings did not round-trip"));
+		(read_bms.numbanks != 32) || (read_pacing_ms != pacing_ms) ||
+		(read_ems_megabytes != ems_megabytes)) {
+		return(fail("ini", "BMS/EMS settings did not round-trip"));
 	}
 	fprintf(stderr, "selftest: ini ok\n");
 	return(SUCCESS);
@@ -2455,6 +2596,9 @@ int vaeg_selftest_run(void) {
 		return(FAILURE);
 	}
 	if (test_va_bms_window() != SUCCESS) {
+		return(FAILURE);
+	}
+	if (test_va_ems_board() != SUCCESS) {
 		return(FAILURE);
 	}
 	if (test_hostfat_transport() != SUCCESS) {

@@ -62,6 +62,7 @@
 #include "videova.h"
 #include "beep.h"
 #include "bmsio.h"
+#include "emsio.h"
 #include "machine/pccore.h"
 #include "sxsi.h"
 #include "fdd_mtr.h"
@@ -247,6 +248,10 @@ struct GuiState {
 	bool pending_bms_enabled = false;
 	int pending_bms_port = 0;
 	int pending_bms_banks = BMSIO_DEFAULT_BANKS;
+	bool ems_config_open = false;
+	bool ems_config_request = false;
+	bool pending_ems_enabled = false;
+	int pending_ems_megabytes = EMSIO_DEFAULT_MEGABYTES;
 	bool custom_size_open = false;
 	bool custom_size_request = false;
 	int pending_window_width = 640;
@@ -931,6 +936,90 @@ static void draw_bms_config_dialog(void) {
 		if (ImGui::Button("Cancel", ImVec2(button_width, 0.0f)) ||
 			ImGui::IsKeyPressed(ImGuiKey_Escape)) {
 			g_gui.bms_config_open = false;
+			ImGui::CloseCurrentPopup();
+		}
+		ImGui::EndPopup();
+	}
+}
+
+static void open_ems_config_dialog(void) {
+
+	g_gui.pending_ems_enabled = np2cfg.EXTMEM != 0;
+	g_gui.pending_ems_megabytes = (np2cfg.EXTMEM != 0) ?
+		np2cfg.EXTMEM : EMSIO_DEFAULT_MEGABYTES;
+	g_gui.ems_config_open = true;
+	g_gui.ems_config_request = true;
+}
+
+static void apply_ems_config_dialog(void) {
+
+	const UINT8 megabytes = g_gui.pending_ems_enabled ?
+		static_cast<UINT8>(g_gui.pending_ems_megabytes) : 0;
+	const bool changed = np2cfg.EXTMEM != megabytes;
+
+	if (changed) {
+		np2cfg.EXTMEM = megabytes;
+		sysmng_update(SYS_UPDATECFG);
+		reset_guest();
+	}
+	g_gui.ems_config_open = false;
+	ImGui::CloseCurrentPopup();
+}
+
+static void draw_ems_config_dialog(void) {
+
+	if (g_gui.ems_config_request) {
+		ImGui::OpenPopup("EMS Board##ems-config");
+		g_gui.ems_config_request = false;
+	}
+	if (!g_gui.ems_config_open) {
+		return;
+	}
+	const ImGuiViewport *viewport = ImGui::GetMainViewport();
+	ImGui::SetNextWindowPos(viewport->GetCenter(), ImGuiCond_Appearing,
+											ImVec2(0.5f, 0.5f));
+	ImGui::SetNextWindowSize(ImVec2(430.0f, 250.0f), ImGuiCond_Appearing);
+	if (ImGui::BeginPopupModal("EMS Board##ems-config",
+										&g_gui.ems_config_open,
+										ImGuiWindowFlags_NoResize |
+										ImGuiWindowFlags_NoCollapse)) {
+		const bool capacity_valid = !g_gui.pending_ems_enabled ||
+			((g_gui.pending_ems_megabytes >= EMSIO_MIN_MEGABYTES) &&
+			 (g_gui.pending_ems_megabytes <= EMSIO_MAX_MEGABYTES));
+
+		ImGui::Checkbox("Use EMS Board", &g_gui.pending_ems_enabled);
+		ImGui::BeginDisabled(!g_gui.pending_ems_enabled);
+		ImGui::SetNextItemWidth(120.0f);
+		ImGui::InputInt("Installed memory (MB)",
+					&g_gui.pending_ems_megabytes, 1, 1);
+		ImGui::EndDisabled();
+		if (capacity_valid && g_gui.pending_ems_enabled) {
+			ImGui::Text("Capacity: %dMB", g_gui.pending_ems_megabytes);
+		}
+		else if (!capacity_valid) {
+			ImGui::Text("Capacity must be between %dMB and %dMB.",
+					EMSIO_MIN_MEGABYTES, EMSIO_MAX_MEGABYTES);
+		}
+		else {
+			ImGui::TextUnformatted("Capacity: disabled");
+		}
+		ImGui::Separator();
+		ImGui::TextWrapped("Applying a change resets the guest and discards "
+			"current EMS contents. EMMVA also requires a compatible guest EMM "
+			"manager.");
+
+		const float button_width = 88.0f;
+		ImGui::SetCursorPosX(ImGui::GetWindowContentRegionMax().x -
+										(button_width * 2.0f + 8.0f));
+		ImGui::BeginDisabled(!capacity_valid);
+		if (ImGui::Button("OK", ImVec2(button_width, 0.0f))) {
+			apply_ems_config_dialog();
+		}
+		ImGui::EndDisabled();
+		ImGui::SameLine();
+		if (ImGui::Button("Cancel", ImVec2(button_width, 0.0f)) ||
+			ImGui::IsKeyPressed(ImGuiKey_Escape)) {
+			g_gui.ems_config_open = false;
 			ImGui::CloseCurrentPopup();
 		}
 		ImGui::EndPopup();
@@ -3262,6 +3351,10 @@ static void draw_device_menu(void) {
 										bmsiocfg.enabled != FALSE)) {
 			open_bms_config_dialog();
 		}
+		if (ImGui::MenuItem("EMS Board...", nullptr, np2cfg.EXTMEM != 0)) {
+			open_ems_config_dialog();
+		}
+
 		if (ImGui::BeginMenu("Mouse")) {
 			bool capture = np2oscfg.MOUSE_SW != 0;
 			const char *capture_shortcut = (np2oscfg.F12KEY == 0) ?
@@ -3850,6 +3943,7 @@ void gui_draw(void) {
 	draw_configure_dialog();
 	draw_hostfat_error_dialog();
 	draw_bms_config_dialog();
+	draw_ems_config_dialog();
 	draw_custom_size_dialog();
 	draw_sound_buffer_dialog();
 	draw_about_dialog();
