@@ -53,9 +53,14 @@ Keep this relative layout after unpacking:
 
 - vaeg or vaeg.exe
 - HOSTFAT.SYS
+- SQEMM98.SYS
+- README-PC88VA-drivers.txt
+- SHA256SUMS
 - CHANGES.20260805.md
 - assets/OFL.txt
 - assets/NOTICE.md
+- licenses/HOSTFAT.txt
+- licenses/SQEMM98.txt
 - licenses/suzukiplan-z80.txt
 - README-dist.txt
 
@@ -68,6 +73,13 @@ HOSTFAT.SYS is the PC-Engine read-only host-folder block driver generated
 from the clean-room source in the VAEG repository. Configure it with
 `DEVICE=HOSTFAT.SYS`; the emulator must be started with `--hostfat-dir` or
 the equivalent GUI setting for a host-folder snapshot to be available.
+
+SQEMM98.SYS is the Open Watcom-built PC-88VA EMS manager for vaeg's EMS
+Board. It loads between EMMVA01.SYS and EMMVA02.SYS; those adapter drivers
+and the optional RDEMS.SYS RAM-disk driver are supplied through the separate
+supplemental-disk workflow. README-PC88VA-drivers.txt gives the exact
+CONFIG.SYS order. The paired HOSTFAT and SQEMM98 licenses are under
+`licenses/`, and SHA256SUMS covers the complete guest-driver subset.
 
 Additional platform runtime files:
 
