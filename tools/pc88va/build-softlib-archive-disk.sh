@@ -40,7 +40,9 @@ usage() {
 		"Usage: $program_name --source SOURCE.d88 --output OUTPUT.d88 [--cache DIR]" \
 		'' \
 		'Create a non-system PC-Engine data disk containing pinned PC-88VA' \
-		'Softlib downloads in A:\ARCHIVE. The downloaded files are not extracted.' \
+		'Softlib downloads in A:\ARCHIVE, plus selected extracted tools.' \
+		'EMMVA/RDEMS drivers are installed in A:\SYS with manuals in A:\DOC.' \
+		'CONFIG.SYS is not created or modified by this builder.' \
 		'The source and generated D88 images are never added to the repository.'
 }
 
@@ -278,6 +280,7 @@ fetch_package ZIP22X.ZIP \
 work_dir=$(mktemp -d "${TMPDIR:-/tmp}/vaeg-pc88va-softlib.XXXXXX")
 payload_dir=$work_dir/payload
 mkdir -p -- "$payload_dir/archive" "$payload_dir/bin" "$payload_dir/doc" \
+	"$payload_dir/sys" "$work_dir/emmva" "$work_dir/rdems" \
 	"$work_dir/infozip/unzip" "$work_dir/infozip/zip"
 
 unzip -q "$cache_dir/UNZ532X3.EXE" \
@@ -291,6 +294,10 @@ lha xfw="$work_dir/x8map" "$cache_dir/X8MAP130.LZH" >/dev/null
 for file in X8MAP.COM X8MAP130.SMP X8MAP130.TXT; do
 	cp -- "$work_dir/x8map/$file" "$payload_dir/bin/$file"
 done
+lha xfw="$work_dir/emmva" "$cache_dir/EMMVA15A.LZH" >/dev/null
+lha xfw="$work_dir/rdems" "$cache_dir/RDEMS152.LZH" >/dev/null
+cp -- "$work_dir/emmva/EMMVA01.SYS" "$work_dir/emmva/EMMVA02.SYS" "$payload_dir/sys/"
+cp -- "$work_dir/rdems/RDEMS.SYS" "$payload_dir/sys/RDEMS.SYS"
 
 for package in \
 	VBUFF102.LZH ALGO_VA.DOC ALGO_VA.LZH 2HCDRSRC.LZH \
@@ -309,6 +316,9 @@ cp -- "$work_dir/infozip/unzip/README.DOS" "$payload_dir/doc/UNZDOS.TXT"
 cp -- "$work_dir/infozip/zip/MANUAL" "$payload_dir/doc/ZIP.DOC"
 cp -- "$work_dir/infozip/zip/README" "$payload_dir/doc/ZIPREAD.TXT"
 
+cp -- "$work_dir/emmva/EMMVA150.DOC" "$payload_dir/doc/EMMVA150.DOC"
+
+cp -- "$work_dir/rdems/RDEMS152.MAN" "$payload_dir/doc/RDEMS152.MAN"
 data_d88=$work_dir/data.d88
 python3 "$script_dir/pcengine_disk.py" data \
 	--source "$source_d88" \

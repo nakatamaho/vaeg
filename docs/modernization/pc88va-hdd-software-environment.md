@@ -190,6 +190,50 @@ on BMSDR. In practice, if an HDD image uses MSE `/A`, `/B`, or `/X`
 options, load or run the BMS driver before MSE. A minimal environment can
 omit BMS, but then those MSE features should not be enabled.
 
+## EMS Board, EMMVA, and RDEMS
+
+The [PC-88VA FAQ EMS article](http://www.pc88.gr.jp/vafaq/view.php/article/88va/vafaq/5)
+distinguishes EMS from I/O Bank Memory and states that the two mechanisms can
+coexist. EMS exposes expansion RAM through a page frame in the expansion-ROM
+area. M90 connects the retained four 16KB windows at `C0000H`, `C4000H`,
+`C8000H`, and `CC000H` to the active VA I/O dispatcher. In vaeg, select
+`Device / EMS Board...` immediately below I/O Bank Memory and install memory
+in 1MB units; zero disables the board and 1 through 13MB are supported.
+
+[EMMVA15A](http://www.pc88.gr.jp/softlib/?action=list_file&anum=2&gnum=351)
+is an adapter, not a complete EMM manager. Its included `EMMVA150.DOC` says
+version 1.5 uses `EMMVA01.SYS` and `EMMVA02.SYS` as a pair, adds the EMS
+open-handle compatibility operation, and includes a version-up-board
+dictionary-ROM collision workaround. A compatible EMM manager must be supplied
+separately and loaded between the pair. The FAQ gives EMM4J as this concrete
+example:
+
+```dos
+DEVICE=A:\SYS\EMMVA01.SYS
+DEVICE=A:\SYS\EMM4J.SYS /W=C0,C4,C8,CC,D0,D4 /A1 /A2 /J /NN /C0 /I
+DEVICE=A:\SYS\EMMVA02.SYS
+```
+
+EMM4J and MELEMM are commercial software and are neither downloaded nor
+redistributed by this repository. Preserve the option syntax required by the
+particular EMM-manager version; the line above records the FAQ example rather
+than defining a new vaeg-specific driver interface.
+
+[RDEMS152](http://www.pc88.gr.jp/softlib/?action=list_file&anum=2&gnum=270)
+is a PC-88VA EMS RAM-disk driver and must be loaded after the EMM stack.
+Its included manual requires EMM version 3.2 or later and documents 40 EMS
+pages, or 640KB, as the default. For example:
+
+```dos
+DEVICE=A:\SYS\RDEMS.SYS -P40 -A
+```
+
+The supplemental-disk builder keeps both original LZH archives and installs
+`EMMVA01.SYS`, `EMMVA02.SYS`, and `RDEMS.SYS` in `A:\SYS`, with
+
+`EMMVA150.DOC` and `RDEMS152.MAN` in `A:\DOC`. It deliberately does not
+edit `CONFIG.SYS`, because the EMM-manager path and options are local to the
+user's licensed software and machine configuration.
 ## Support Tools
 
 The recipe also needs DOS utilities, which run through MSE:
@@ -462,8 +506,10 @@ tools/pc88va/build-softlib-archive-disk.sh \
 The output must not already exist. The cache option is optional and follows
 the same verified-download behavior as the development-disk builder. The
 script pins every public file by SHA-256, rejects mismatched cache entries,
-and installs the Softlib and Vector archive bytes without running them. The
-`X8MAP130.LZH` archive is also extracted into `A:\BIN`.
+and installs all requested Softlib and Vector archives verbatim. It also
+extracts `X8MAP130.LZH` into `A:\BIN`, the EMMVA/RDEMS drivers into
+`A:\SYS`, and their included documentation into `A:\DOC`; it does not run
+or configure those guest programs.
 
 The requested Softlib groups and files are:
 
@@ -483,6 +529,12 @@ The requested Softlib groups and files are:
 | [2-201](http://www.pc88.gr.jp/softlib/index.php?action=list_file&anum=2&gnum=201) | `TDC10.LZH` |
 | [2-389](http://www.pc88.gr.jp/softlib/index.php?action=list_file&anum=2&gnum=389) | `BENCH003.DOC`, `BENCH003.LZH` |
 | [Vector se128128](https://www.vector.co.jp/soft/dos/hardware/se128128.html) | `X8MAP130.LZH` (Memory Mapper for PC 1.3) |
+
+The EMMVA and RDEMS archives are likewise retained verbatim. The builder also
+extracts `EMMVA01.SYS`, `EMMVA02.SYS`, and `RDEMS.SYS` into `A:\SYS`,
+and their included `EMMVA150.DOC` and `RDEMS152.MAN` into `A:\DOC`.
+This is an installed file layout, not a complete EMS stack: the compatible EMM
+manager required between EMMVA01 and EMMVA02 remains user-supplied.
 
 For the Vector package, the disk therefore contains the original
 `A:\ARCHIVE\X8MAP130.LZH` plus `A:\BIN\X8MAP.COM`,
@@ -511,8 +563,9 @@ their copying terms and primary manuals. The original `UNZ532X3.EXE` and
 `ZIP22X.ZIP` distributions remain in the verified host cache but are not
 duplicated on the D88.
 
-The 26 disk files contain 895,144 bytes and occupy 908,288 bytes in the
-1024-byte-cluster FAT12 filesystem. They are organized as follows:
+The generated disk contains 35 files totaling 951,863 bytes. File data uses
+970,752 bytes in 1024-byte FAT12 clusters; the four directories use one
+additional cluster each. The files are organized as follows:
 
 ```text
 A:\
@@ -536,23 +589,34 @@ A:\
     RDPCM001.LZH
     TDC10.LZH
     VBUFF102.LZH
+    X8MAP130.LZH
 
   BIN\
     UNZIP.EXE
+    X8MAP.COM
+    X8MAP130.SMP
+    X8MAP130.TXT
     ZIP.EXE
 
   DOC\
     COPYING
-    UNZIP.DOC
+    EMMVA150.DOC
+    RDEMS152.MAN
     UNZDOS.TXT
+    UNZIP.DOC
     ZIP.DOC
     ZIPREAD.TXT
+
+  SYS\
+    EMMVA01.SYS
+    EMMVA02.SYS
+    RDEMS.SYS
 ```
 
-The three directories use one additional cluster each, leaving 388,096 bytes
-(379 KiB) free. Two builds from the same source and verified cache are
-byte-for-byte identical. A headless DOSBox check confirmed that these 16-bit
-executables can test and extract `PRJVA.ZIP` and create a valid ZIP archive.
+The resulting disk has 324,608 bytes (317 KiB) free. Two builds from the same
+source and verified cache are byte-for-byte identical. A headless DOSBox check
+confirmed that the included 16-bit Info-ZIP executables can test and extract
+`PRJVA.ZIP` and create a valid ZIP archive.
 
 ## vaeg Implications
 
