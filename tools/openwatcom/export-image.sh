@@ -27,7 +27,7 @@ set -eu
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 REPO_ROOT=$(CDPATH= cd -- "$SCRIPT_DIR/../.." && pwd)
 ENGINE=${CONTAINER_ENGINE:-docker}
-IMAGE_TAG=${VAEG_OPENWATCOM_IMAGE_TAG:-vaeg/openwatcom:current}
+IMAGE_TAG=${VAEG_OPENWATCOM_IMAGE_TAG:-vaeg/openwatcom:2026-08-01}
 OUTPUT=${VAEG_OPENWATCOM_IMAGE_OUTPUT:-$REPO_ROOT/docs/openwatcom-image.tar}
 
 if ! command -v "$ENGINE" >/dev/null 2>&1; then

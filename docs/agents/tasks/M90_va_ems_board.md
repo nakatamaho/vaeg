@@ -43,8 +43,9 @@ Validation record:
 ## Goal
 
 Restore the retained EMS page-frame implementation as a configurable PC-88VA
-expansion board, and provide a reproducible supplemental disk containing the
-redistributable EMMVA adapter and RDEMS utility in extracted, usable form.
+expansion board, provide a reproducible Open Watcom build of a PC-88VA SQEMM
+manager, and generate a supplemental disk with the complete EMMVA/SQEMM98/
+RDEMS load stack and `CONFIG.SYS` installation template.
 
 ## Required behavior
 
@@ -66,23 +67,34 @@ redistributable EMMVA adapter and RDEMS utility in extracted, usable form.
 - Update `tools/pc88va/build-softlib-archive-disk.sh` to retain the verified
   EMMVA15A and RDEMS152 archives and extract their redistributable drivers and
   documentation to appropriate supplemental-disk directories.
+- Build SQEMM98 MAX from pinned upstream source with the pinned Open Watcom
+  image. Implement the VA target/page protocol, preserve 1 through 13MB
+  capacity detection, and validate the generated DOS character device.
+- Route all SQEMM98 initialization, success, and error messages through the
+  PC-Engine Text BIOS `INT 83H/AH=02H` service. Do not use IBM `INT 10H` or
+  DOS `INT 21H/AH=09H` for those messages.
+- Install `EMMVA01.SYS`, `SQEMM98.SYS`, `EMMVA02.SYS`, and `RDEMS.SYS` on
+  the supplemental disk and create root `CONFIG.SYS` in that exact load
+  order. Document that the data-only disk supplies an HDD-install template.
 - Build media only from a disposable copy of the maintainer-supplied
   PC-Engine 1.1 source D88; never modify or track the source D88 or generated
   media.
-- Document the hardware model, EMMVA installation order, RDEMS dependency,
-  source links, generated contents, and separately supplied EMM-manager
-  requirement in `docs/modernization/pc88va-hdd-software-environment.md`.
+- Document the hardware model, EMMVA/SQEMM98 installation order, RDEMS
+  dependency, source links, Open Watcom build, and generated contents in
+  `docs/modernization/pc88va-hdd-software-environment.md`.
 
 ## Non-goals and invariants
 
 - Do not add 128KB EMS-capacity increments; M90 uses 1MB units.
 - Do not bundle or download a commercial EMM manager such as EMM4J or MELEMM.
-  EMMVA is an adapter around such a driver, not a complete EMM manager.
+  EMMVA remains an adapter; the generated SQEMM98 driver fills the manager
+  position between its two components.
 - Do not add an emulator-private EMS API, BIOS service, or direct guest-memory
   injection path.
 - Do not alter BMS numbering, main-memory capacity, binary payloads, CPU
   semantics, or unrelated storage and display behavior.
-- Do not edit `CONFIG.SYS` automatically on the supplemental data disk.
+- Do not claim that root `CONFIG.SYS` makes the supplemental data disk
+  bootable; the disk intentionally omits PC-Engine system files.
 
 ## Commit order
 
@@ -90,12 +102,18 @@ redistributable EMMVA adapter and RDEMS utility in extracted, usable form.
 2. EMS core/VA-I/O connection, GUI/configuration, and automated tests.
 3. Supplemental-disk builder and EMS software-environment documentation.
 4. M90 validation record and gate handoff.
+5. SQEMM98 Open Watcom build, PC-Engine BIOS output, generated `CONFIG.SYS`,
+   and refreshed validation record.
 
 ## Automated validation
 
 - Run the ROM-less selftest and focused EMS configuration/mapping checks.
 - Generate the supplemental disk from a disposable source-D88 copy, validate
-  its FAT contents, and compare the source D88 before and after.
+  its FAT contents and extracted `CONFIG.SYS`, and compare the source D88
+  before and after.
+- Build SQEMM98 twice, verify byte-for-byte reproducibility, and run the
+  structural driver validator. Confirm one PC-Engine `INT 83H` output path,
+  no IBM `INT 10H`, and no DOS `AH=09H` output path.
 - Run Linux Debug and CI builds/tests plus the MinGW cross-build.
 - Run repository invariant and diff checks.
 - Confirm commit scope/order and that no generated binary asset is tracked.
@@ -108,10 +126,11 @@ From a clean checkout and clean configuration:
    operations.
 2. Confirm EMS Board appears below I/O Bank Memory, defaults to 1MB, accepts
    1 through 13MB, persists, and resets only on applying a change.
-3. With a separately supplied compatible EMM manager, load `EMMVA01.SYS`,
-   the EMM manager, then `EMMVA02.SYS`; confirm the configured capacity and
-   distinct data in more than one 16KB page.
-4. Load RDEMS152 and confirm RAM-disk read/write operation.
+3. Copy the generated stack to the boot drive, merge the supplemental
+   `CONFIG.SYS`, and confirm that SQEMM98 messages appear through PC-Engine.
+   Confirm the configured capacity and distinct data in more than one 16KB
+   page.
+4. Confirm RDEMS152 loads after SQEMM98 and supports RAM-disk read/write.
 5. Enable I/O Bank Memory concurrently and confirm both mechanisms work.
 6. Disable EMS Board and confirm normal V3/OS operation remains intact.
 

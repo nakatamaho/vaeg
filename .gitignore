@@ -2,3 +2,6 @@
 /build/
 /obj/
 /tools/qa/__pycache__/
+
+/docs/openwatcom-image.tar
+/docs/openwatcom-image.tar.sha256

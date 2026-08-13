@@ -205,19 +205,27 @@ is an adapter, not a complete EMM manager. Its included `EMMVA150.DOC` says
 version 1.5 uses `EMMVA01.SYS` and `EMMVA02.SYS` as a pair, adds the EMS
 open-handle compatibility operation, and includes a version-up-board
 dictionary-ROM collision workaround. A compatible EMM manager must be supplied
-separately and loaded between the pair. The FAQ gives EMM4J as this concrete
-example:
+and loaded between the pair. The historical FAQ gives commercial EMM4J as
+one example, but the M90 workflow does not use or distribute EMM4J.
+
+M90 instead provides `SQEMM98.SYS`, a PC-88VA port of the open-source SQEMM
+0.8 MAX driver. It is reproducibly built from pinned source with Open Watcom,
+drives vaeg's `08E1H` through `08E9H` EMS interface directly, and detects the
+configured 1 through 13MB capacity. Its startup, success, and error messages
+are displayed by the PC-Engine Text BIOS `INT 83H/AH=02H` service. The active
+stack is:
 
 ```dos
 DEVICE=A:\SYS\EMMVA01.SYS
-DEVICE=A:\SYS\EMM4J.SYS /W=C0,C4,C8,CC,D0,D4 /A1 /A2 /J /NN /C0 /I
+DEVICE=A:\SYS\SQEMM98.SYS
 DEVICE=A:\SYS\EMMVA02.SYS
+DEVICE=A:\SYS\RDEMS.SYS -P40 -A
 ```
 
-EMM4J and MELEMM are commercial software and are neither downloaded nor
-redistributed by this repository. Preserve the option syntax required by the
-particular EMM-manager version; the line above records the FAQ example rather
-than defining a new vaeg-specific driver interface.
+`SQEMM98.SYS` is the EMS manager created for this M90 workflow. `RDEMS.SYS`
+is not that manager: it is the existing third-party RAM-disk driver from the
+RDEMS152 package and consumes the EMS service after the EMMVA/SQEMM98 stack
+has initialized.
 
 [RDEMS152](http://www.pc88.gr.jp/softlib/?action=list_file&anum=2&gnum=270)
 is a PC-88VA EMS RAM-disk driver and must be loaded after the EMM stack.
@@ -229,11 +237,13 @@ DEVICE=A:\SYS\RDEMS.SYS -P40 -A
 ```
 
 The supplemental-disk builder keeps both original LZH archives and installs
-`EMMVA01.SYS`, `EMMVA02.SYS`, and `RDEMS.SYS` in `A:\SYS`, with
+`EMMVA01.SYS`, `SQEMM98.SYS`, `EMMVA02.SYS`, and `RDEMS.SYS` in `A:\SYS`.
+It places the exact four-line stack above in root `CONFIG.SYS`, with the
+EMMVA/RDEMS manuals, SQEMM98 notes, and combined licenses in `A:\DOC`.
+Because this is a data-only supplemental disk, that `CONFIG.SYS` is an HDD
+installation template: copy the four drivers to the boot drive's `A:\SYS`
+directory and merge or copy the lines into the boot drive's `CONFIG.SYS`.
 
-`EMMVA150.DOC` and `RDEMS152.MAN` in `A:\DOC`. It deliberately does not
-edit `CONFIG.SYS`, because the EMM-manager path and options are local to the
-user's licensed software and machine configuration.
 ## Support Tools
 
 The recipe also needs DOS utilities, which run through MSE:
@@ -507,9 +517,12 @@ The output must not already exist. The cache option is optional and follows
 the same verified-download behavior as the development-disk builder. The
 script pins every public file by SHA-256, rejects mismatched cache entries,
 and installs all requested Softlib and Vector archives verbatim. It also
-extracts `X8MAP130.LZH` into `A:\BIN`, the EMMVA/RDEMS drivers into
-`A:\SYS`, and their included documentation into `A:\DOC`; it does not run
-or configure those guest programs.
+extracts `X8MAP130.LZH` into `A:\BIN`, builds `SQEMM98.SYS` with the pinned
+Open Watcom image, installs the EMMVA/SQEMM98/RDEMS stack in `A:\SYS`, and
+writes its load order to root `CONFIG.SYS`. Docker or Podman is therefore
+required for the default build. A previously generated driver and its
+combined license can instead be supplied with `--sqemm-driver` and
+`--sqemm-license`.
 
 The requested Softlib groups and files are:
 
@@ -531,10 +544,10 @@ The requested Softlib groups and files are:
 | [Vector se128128](https://www.vector.co.jp/soft/dos/hardware/se128128.html) | `X8MAP130.LZH` (Memory Mapper for PC 1.3) |
 
 The EMMVA and RDEMS archives are likewise retained verbatim. The builder also
-extracts `EMMVA01.SYS`, `EMMVA02.SYS`, and `RDEMS.SYS` into `A:\SYS`,
-and their included `EMMVA150.DOC` and `RDEMS152.MAN` into `A:\DOC`.
-This is an installed file layout, not a complete EMS stack: the compatible EMM
-manager required between EMMVA01 and EMMVA02 remains user-supplied.
+extracts `EMMVA01.SYS`, `EMMVA02.SYS`, and `RDEMS.SYS`, adds the generated
+`SQEMM98.SYS`, and installs a complete EMS load stack without separately
+supplied EMM4J. It retains the upstream SQEMM MIT terms and the PC-88VA port's
+BSD terms together as `A:\DOC\SQEMM.LIC`.
 
 For the Vector package, the disk therefore contains the original
 `A:\ARCHIVE\X8MAP130.LZH` plus `A:\BIN\X8MAP.COM`,
@@ -563,12 +576,14 @@ their copying terms and primary manuals. The original `UNZ532X3.EXE` and
 `ZIP22X.ZIP` distributions remain in the verified host cache but are not
 duplicated on the D88.
 
-The generated disk contains 35 files totaling 951,863 bytes. File data uses
-970,752 bytes in 1024-byte FAT12 clusters; the four directories use one
+The generated disk contains 39 files totaling 967,925 bytes. File data uses
+989,184 bytes in 1024-byte FAT12 clusters; the four directories use one
 additional cluster each. The files are organized as follows:
 
 ```text
 A:\
+  CONFIG.SYS
+
   ARCHIVE\
     2HCDRSRC.LZH
     2HCDRV.ZIP
@@ -602,6 +617,8 @@ A:\
     COPYING
     EMMVA150.DOC
     RDEMS152.MAN
+    SQEMM.LIC
+    SQEMM98.TXT
     UNZDOS.TXT
     UNZIP.DOC
     ZIP.DOC
@@ -611,9 +628,10 @@ A:\
     EMMVA01.SYS
     EMMVA02.SYS
     RDEMS.SYS
+    SQEMM98.SYS
 ```
 
-The resulting disk has 324,608 bytes (317 KiB) free. Two builds from the same
+The resulting disk has 306,176 bytes (299 KiB) free. Two builds from the same
 source and verified cache are byte-for-byte identical. A headless DOSBox check
 confirmed that the included 16-bit Info-ZIP executables can test and extract
 `PRJVA.ZIP` and create a valid ZIP archive.
