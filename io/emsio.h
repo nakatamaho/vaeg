@@ -20,6 +20,8 @@ typedef struct {
 extern "C" {
 #endif
 
+extern _EMSIO emsio;
+
 void emsio_reset(void);
 void emsio_bind(void);
 

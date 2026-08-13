@@ -42,10 +42,10 @@ usage() {
 	printf '%s\n' \
 		"Usage: $program_name --source SOURCE.d88 --output OUTPUT.d88 [options]" \
 		'' \
-		'Create a non-system PC-Engine data disk containing pinned PC-88VA' \
+		'Create a bootable PC-Engine 1.1 disk containing pinned PC-88VA' \
 		'Softlib downloads in A:\ARCHIVE, plus selected extracted tools.' \
 		'EMMVA/SQEMM98/RDEMS drivers are installed in A:\SYS. A root' \
-		'CONFIG.SYS records the required load order as an HDD-install template.' \
+		'CONFIG.SYS records the required load order.' \
 		'' \
 		'Options:' \
 		'  --cache DIR             Select the public-package download cache.' \
@@ -348,8 +348,8 @@ printf '%s\r\n' \
 	'It drives the vaeg PC-88VA EMS board and reports initialization' \
 	'messages through the PC-Engine Text BIOS INT 83H/AH=02H service.' \
 	'' \
-	'This supplemental disk is data-only. Copy A:\SYS\*.SYS to the' \
-	'boot drive and merge the root CONFIG.SYS lines into that drive.' \
+	'This supplemental disk retains the PC-Engine 1.1 IPL and system' \
+	'files from its source image and is intended to boot directly.' \
 	> "$payload_dir/doc/SQEMM98.TXT"
 
 for package in \
@@ -372,13 +372,13 @@ cp -- "$work_dir/infozip/zip/README" "$payload_dir/doc/ZIPREAD.TXT"
 cp -- "$work_dir/emmva/EMMVA150.DOC" "$payload_dir/doc/EMMVA150.DOC"
 
 cp -- "$work_dir/rdems/RDEMS152.MAN" "$payload_dir/doc/RDEMS152.MAN"
-data_d88=$work_dir/data.d88
-python3 "$script_dir/pcengine_disk.py" data \
+system_d88=$work_dir/system.d88
+python3 "$script_dir/pcengine_disk.py" vanilla \
 	--source "$source_d88" \
-	--output "$data_d88"
+	--output "$system_d88"
 
 output_tmp=$(mktemp "$output_d88.tmp.XXXXXX")
-cp -- "$data_d88" "$output_tmp"
+cp -- "$system_d88" "$output_tmp"
 python3 "$script_dir/pcengine_disk.py" install \
 	--image "$output_tmp" \
 	--payload "$payload_dir"

@@ -527,6 +527,64 @@ def prepare_init_output(root: Path) -> None:
         "PRINTER_INSERT",
     )
 
+    text = replace_once(
+        text,
+        "do_init:\n"
+        "pop  ds\n"
+        "pop  bx\n"
+        "PUSHA_MACRO\n\n"
+        "call  DRIVER_INIT\n\n"
+        "POPA_MACRO\n"
+        "retf",
+        "do_init:\n"
+        "pop  ds\n"
+        "pop  bx\n"
+        "push ds\n"
+        "push es\n"
+        "PUSHA_MACRO\n\n"
+        "call  DRIVER_INIT\n\n"
+        "POPA_MACRO\n"
+        "pop  es\n"
+        "pop  ds\n"
+        "retf",
+        "INIT_SEGMENT_REGISTERS",
+    )
+
+    text = replace_once(
+        text,
+        "EMS_DRIVER_CALL:\npush  bx",
+        "EMS_DRIVER_CALL:\npushf\npush  bx",
+        "SAVE_CALLER_FLAGS",
+    )
+    text, flag_return_count = re.subn(
+        r"pop  ds\npop  bx\nretf",
+        "pop  ds\npop  bx\npopf\nretf",
+        text,
+    )
+    if flag_return_count != 2:
+        raise SystemExit(
+            "SQEMM98_PREPARE_RESTORE_CALLER_FLAGS: "
+            f"expected two ordinary returns, found {flag_return_count}"
+        )
+    text = replace_once(
+        text,
+        "POPA_MACRO\npop  es\npop  ds\nretf",
+        "POPA_MACRO\npop  es\npop  ds\npopf\nretf",
+        "RESTORE_INIT_FLAGS",
+    )
+
+    text = replace_once(
+        text,
+        "call  process_command_line\n"
+        'mov   ah, "Q" ; quiet mode?\n'
+        "call  parse_driver_params\n\n"
+        "jnc   quiet_mode_off\n\n\n"
+        "mov   byte ptr ds:[print_driver_param], RET_OPCODE\n\n",
+        "; PC-Engine request headers do not expose the DOS command-tail ABI.\n"
+        "; Keep the PC-88VA port on its validated built-in defaults.\n\n",
+        "PCENGINE_COMMAND_LINE",
+    )
+
     dos_print = re.compile(
         r"^(?P<indent>[ \t]*)mov[ \t]+ah,[ \t]*(?:9|09h)[^\n]*\n"
         r"(?P=indent)int[ \t]+021h[ \t]*$",
@@ -545,6 +603,15 @@ def prepare_init_output(root: Path) -> None:
         "   mov   ax, bx\n   call  print_ax_at_cursor\n\n",
         "",
         "PAGE_PROGRESS",
+    )
+    text = replace_once(
+        text,
+        "mov   ds, word ptr ds:[_RESIDENT_VARIABLE_page_frame_segment+1]\n\n"
+        "xor   bx, bx",
+        "mov   ds, word ptr ds:[_RESIDENT_VARIABLE_page_frame_segment+1]\n"
+        "xor   di, di\n\n"
+        "xor   bx, bx",
+        "MEMORY_TEST_OFFSET",
     )
     cursor_start = text.index("memory_good:\n") + len("memory_good:\n")
     cursor_end = text.index("; now lets test all four pages...", cursor_start)
