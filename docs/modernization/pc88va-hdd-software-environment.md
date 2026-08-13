@@ -86,6 +86,10 @@ DEVICE = A:\SYS\HOSTFAT.SYS
 DEVICE = A:\SYS\PCEPAT.SYS
 DEVICE = A:\SYS\MSE352B.COM
 DEVICE = A:\SYS\RDBMS.SYS -P1D0 -S1
+DEVICE=A:\SYS\EMMVA01.SYS
+DEVICE=A:\SYS\SQEMM98.SYS
+DEVICE=A:\SYS\EMMVA02.SYS
+DEVICE=A:\SYS\RDEMS.SYS -P40 -A
 ```
 
 Here `A:` is the booted VA environment. The exact drive letter can differ if
@@ -265,6 +269,8 @@ The recipe also needs DOS utilities, which run through MSE:
 - BDIFF/BUPDATE for BDF diffs.
 - WSP for WUP diffs, including the MSE 3.52a-to-b patch.
 - DIET 1.44 for executable compression on the generated development disk.
+- [Memory Mapper for PC 1.3](https://www.vector.co.jp/soft/dos/hardware/se128128.html)
+  as `X8MAP.COM`, for displaying SYSTEM/EMS/XMS/UMB/BMS and VA SMM usage.
 - K-Launcher as a two-pane file manager.
 - PMD and VA-specific generated PMD players for music playback tests.
 
@@ -338,6 +344,9 @@ On Debian or Ubuntu, install the host-side build dependencies with:
 sudo apt-get install curl lhasa dosbox nasm python3 coreutils tar unzip
 ```
 
+Docker or Podman is also required to build `SQEMM98.SYS` with the pinned Open
+Watcom environment. Select Podman by setting `CONTAINER_ENGINE=podman`.
+
 To create only the vanilla system disk, run:
 
 ```sh
@@ -359,6 +368,13 @@ user cache directory by default; `--cache DIR` selects another cache. Every
 public input archive is pinned by SHA-256 in the script. An existing cache file
 with different contents is rejected rather than replaced.
 
+For maintainer-local preservation, verified copies of the public inputs used
+for this image are stored under the Git-ignored
+`docs/archives/pc88va-development-disk/` directory. This includes the LHA
+2.55 executable and 2.55b patch, `X8MAP130.LZH`, `EMMVA15A.LZH`,
+`RDEMS152.LZH`, and the pinned SQEMM source archive. These archive copies and
+the generated D88 remain outside Git.
+
 The complete build performs these operations:
 
 1. Create the minimal vanilla system disk while retaining the IPL and the
@@ -366,22 +382,25 @@ The complete build performs these operations:
 2. Fetch and verify PCEPAT, BMS Driver 1.50 Rev 0.20, PCPLUS 1.08 and its
    patch, SCHD 1.55t, RDBMS 1.21, BDIFF/BUPDATE 1.28, MSE 3.52a and the
    3.52b patch, WSP 1.50, LHA 2.55 and its official 2.55b patch, DIET
-   1.44, K-Launcher 1.30, TEEN 0.30p, VBUFF 1.02, FATMAP 1.1, FORG
-   2.03, the VA RAMDISK self-extracting archive, and the GNU File
-   Utilities 3.12 MS-DOS rev B executable archive.
+   1.44, Memory Mapper for PC 1.3, EMMVA 1.5a, RDEMS 1.52, K-Launcher
+   1.30, TEEN 0.30p, VBUFF 1.02, FATMAP 1.1, FORG 2.03, the VA RAMDISK
+   self-extracting archive, and the GNU File Utilities 3.12 MS-DOS rev B
+   executable archive.
 3. Extract the packages with the host `lha`, `tar`, and `unzip` commands.
 4. Run the original DOS `WSP.COM` and `BUPDATE.EXE` under headless DOSBox to
    produce LHA 2.55b, `MSE352B.COM`, the patched `PCPLUS.SYS`, and the
    PC-88VA K-Launcher files `KLL.COM`, `KLVA.EXE`, and `KLCUST.EXE`.
 5. Assemble and validate the repository's clean-room `HOSTFAT.SYS` with NASM.
-6. Verify the generated files against known public-package checksums.
-7. Extract the RAMDISK self-extracting archive and stage its driver, helper
+6. Build and validate `SQEMM98.SYS` from pinned source with Open Watcom, then
+   install the complete EMMVA/SQEMM98/RDEMS driver stack.
+7. Verify the generated files against known public-package checksums.
+8. Extract the RAMDISK self-extracting archive and stage its driver, helper
    commands, and documentation separately.
-8. Run every `.EXE` and `.COM` under `BIN` through DIET 1.44. COM files retain
+9. Run every `.EXE` and `.COM` under `BIN` through DIET 1.44. COM files retain
    their COM form; files for which DIET cannot reduce byte size remain
    unchanged.
-9. Add the seven `SYS` drivers, the compressed `BIN` utilities, their `DOC`
-   files, and an empty `TMP` directory to the vanilla FAT12 filesystem.
+10. Add the eleven `SYS` drivers, the compressed `BIN` utilities, their `DOC`
+    files, and an empty `TMP` directory to the vanilla FAT12 filesystem.
 
 The PC-Engine disk has a valid FAT12 allocation structure but no conventional
 DOS BPB, so normal `mtools` commands reject it as non-DOS media. The builder
@@ -390,9 +409,9 @@ two-head, eight-sector, 1024-byte PC-Engine 1.1 layout. It never relocates the
 existing `ENGINEIO.SYS` or `PCENGINE.SYS` boot chains. The vanilla builder
 clears all unreferenced data clusters, and new directory entries use a fixed
 DOS date, so repeated builds from the same source are byte-for-byte
-reproducible. The validated image installs 72 payload files totaling 810,609
+reproducible. The validated image installs 83 payload files totaling 867,444
 bytes in addition to the four retained PC-Engine system files and leaves
-361,472 bytes free.
+297,984 bytes free.
 
 The development disk is organized as follows. `KLVA.EXE`, `KLCUST.EXE`,
 `KL.CFG`, and `KLJPN.HLP` are also kept in `BIN` because `KLL.COM` needs the
@@ -412,6 +431,10 @@ A:\SYS\
   MSE352B.COM
   RAMDISK.SYS
   RDBMS.SYS
+  EMMVA01.SYS
+  SQEMM98.SYS
+  EMMVA02.SYS
+  RDEMS.SYS
 
 A:\BIN\
   BIOSFREE.COM
@@ -424,6 +447,7 @@ A:\BIN\
   MSET.COM
   ALIAS.COM
   MSECUST.COM
+  X8MAP.COM
   KLL.COM
   KLVA.EXE
   KLCUST.EXE
@@ -479,6 +503,12 @@ A:\DOC\
   SCHD.LOG
   SCHD.TXT
   RDBMS.DOC
+  EMMVA150.DOC
+  RDEMS152.MAN
+  SQEMM.LIC
+  SQEMM98.TXT
+  X8MAP130.SMP
+  X8MAP130.TXT
 
 A:\TMP\
 ```
@@ -496,8 +526,9 @@ through DIET 1.44 with byte-size comparison enabled. `-XC` keeps compressed
 COM files in COM form. DIET leaves `BIOSFREE.COM`, `BMSADDVA.COM`, `DIET.EXE`,
 `KLL.COM`, `SETID.COM`, and `VBUFF.COM` unchanged because compression would
 not reduce their size; the remaining reducible executables are stored in DIET
-form. `DIET.EXE` and its primary documentation are included so these files can
-be inspected or restored in the guest.
+form. This includes reducing `X8MAP.COM` from 10,373 to 7,203 bytes.
+`DIET.EXE` and its primary documentation are included so these files can be
+inspected or restored in the guest.
 
 The GNUish catalog identifies `fut312bx.zip` as the executable distribution of
 GNU File Utilities 3.12 for DOS. The builder extracts all 15 entries from its
@@ -518,6 +549,10 @@ DEVICE = A:\SYS\HOSTFAT.SYS
 DEVICE = A:\SYS\PCEPAT.SYS
 DEVICE = A:\SYS\MSE352B.COM
 DEVICE = A:\SYS\RDBMS.SYS -P1D0 -S1
+DEVICE=A:\SYS\EMMVA01.SYS
+DEVICE=A:\SYS\SQEMM98.SYS
+DEVICE=A:\SYS\EMMVA02.SYS
+DEVICE=A:\SYS\RDEMS.SYS -P40 -A
 ```
 
 PCPLUS precedes the target-zero SCHD block driver. HOSTFAT is available when
@@ -525,9 +560,11 @@ vaeg has a read-only host folder configured. PCEPAT remains before MSE as its
 documentation requires, and MSE is loaded without `/A`, `/B`, or `/X`.
 RDBMS uses the PC-88VA I/O Bank Memory port `01D0H`, starts with bank 1, and
 uses its documented default bank count because no explicit count is supplied.
-The BMS VA programs remain available for later use but are not made resident
-by this baseline. `AUTOEXEC.BAT` uses neither `ECHO OFF` nor `PROMPT`; it only
-establishes the requested tool environment:
+The EMMVA adapter pair encloses the Open Watcom-built SQEMM98 manager, after
+which RDEMS allocates its default 40-page EMS RAM disk. The BMS VA programs
+remain available for later use but are not made resident by this baseline.
+`AUTOEXEC.BAT` uses neither `ECHO OFF` nor `PROMPT`; it only establishes the
+requested tool environment:
 
 ```dos
 PATH A:\BIN
@@ -543,9 +580,13 @@ used after making a backup as directed by its documentation.
 
 The resulting disk is intended for PC-Engine 1.1 on a PC-88VA2/VA3 or the
 corresponding upgraded VA environment. The script proves structural
-bootability by retaining the original IPL and fixed system-file placement;
-actual startup, driver messages, `DIR`, MSE utility execution, and K-Launcher
-remain a PC-88VA/vaeg human boot check.
+bootability by retaining the original IPL and fixed system-file placement. A
+bounded headless VA2 boot at 13MB EMS reached PC-Engine `Ready`, and `DIR D:`
+reported 647,168 bytes available, proving that RDEMS registered after the
+complete EMMVA/SQEMM98 stack. RDBMS occupies `C:` in this load order. Visual
+confirmation with the DIET-compressed `X8MAP.COM` reported the 40-page/640KB
+RDEMS handle, 832 total EMS pages, and 13,312KB total capacity. MSE utility
+execution and K-Launcher remain PC-88VA/vaeg human checks.
 
 ## Supplemental Softlib Archive Disk
 
