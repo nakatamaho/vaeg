@@ -38,12 +38,21 @@ LAST_DATA_CLUSTER = DATA_CLUSTER_COUNT + 1
 ROOT_START_LBA = 5
 ROOT_SECTORS = 6
 FIXED_DATE = ((2026 - 1980) << 9) | (1 << 5) | 1
-SYSTEM_FILES = {
-    "ENGINEIO.SYS": (2, 4096),
-    "PCENGINE.SYS": (6, 62347),
-    "ADVGBIOS.SYS": (67, 16364),
-    "PCENGINE.COM": (83, 5),
+SYSTEM_LAYOUTS = {
+    "1.05": {
+        "ENGINEIO.SYS": (2, 4096),
+        "PCENGINE.SYS": (6, 52090),
+        "ADVGBIOS.SYS": (58, 30956),
+        "PCENGINE.COM": (57, 5),
+    },
+    "1.1": {
+        "ENGINEIO.SYS": (2, 4096),
+        "PCENGINE.SYS": (6, 62347),
+        "ADVGBIOS.SYS": (67, 16364),
+        "PCENGINE.COM": (83, 5),
+    },
 }
+SYSTEM_FILES = tuple(next(iter(SYSTEM_LAYOUTS.values())))
 
 
 class DiskError(Exception):
@@ -150,8 +159,9 @@ class PcEngineDisk:
             raise DiskError("the two source FAT12 copies differ")
         if self.fat[:3] != b"\xfe\xff\xff":
             raise DiskError("source does not have the expected PC-Engine FAT12 header")
+        self.system_version = None
         if require_system_files:
-            self.validate_system_files()
+            self.system_version = self.validate_system_files()
 
     def _parse_sectors(self):
         track_offsets = struct.unpack_from("<164I", self.image, 0x20)
@@ -271,14 +281,20 @@ class PcEngineDisk:
         return free_clusters
 
     def validate_system_files(self):
-        for name, (expected_cluster, expected_size) in SYSTEM_FILES.items():
+        observed = {}
+        for name in SYSTEM_FILES:
             offset, exists = find_entry(self.root, short_name(name))
             if not exists:
-                raise DiskError(f"source is not PC-Engine 1.1: missing {name}")
+                raise DiskError(
+                    f"source is not a supported PC-Engine disk: missing {name}"
+                )
             cluster = struct.unpack_from("<H", self.root, offset + 26)[0]
             size = struct.unpack_from("<I", self.root, offset + 28)[0]
-            if (cluster, size) != (expected_cluster, expected_size):
-                raise DiskError(f"unexpected PC-Engine 1.1 layout: {name}")
+            observed[name] = (cluster, size)
+        for version, expected in SYSTEM_LAYOUTS.items():
+            if observed == expected:
+                return version
+        raise DiskError("unsupported PC-Engine 1.05/1.1 system-file layout")
 
     def flush(self):
         self.write_lbas(1, self.fat)
@@ -344,7 +360,7 @@ def create_vanilla(source, output):
             disk.write_cluster(cluster, zero_cluster)
     disk.flush()
     write_new_file(output, disk.image)
-    print(f"Created vanilla PC-Engine 1.1 system disk: {output}")
+    print(f"Created vanilla PC-Engine {disk.system_version} system disk: {output}")
     print(f"Remaining FAT12 space: {disk.free_bytes()} bytes")
 
 
@@ -441,7 +457,7 @@ def install_payload(image, payload_root):
     if existing_names not in (set(), allowed_root_names):
         raise DiskError(
             "install input is neither an empty data disk nor a vanilla "
-            "PC-Engine 1.1 system disk"
+            "PC-Engine 1.05/1.1 system disk"
         )
 
     installed_files = 0
@@ -508,7 +524,7 @@ def list_image(image):
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Manipulate the known PC-Engine 1.1 D88/FAT12 layout"
+        description="Manipulate the known PC-Engine 1.05/1.1 D88/FAT12 layout"
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
 

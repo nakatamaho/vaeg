@@ -66,12 +66,6 @@ Vector's BMS Driver:
 Vector describes it as `BMS Driver 1.50 Rev 0.20`, a Bank Memory Driver
 for PC-98x1/88VA. The archived download is `bms15020.tgz`.
 
-The development-disk builder uses Vector's
-[DIET 1.44](https://www.vector.co.jp/soft/dos/util/se000305.html) as a
-build-time executable compressor. Version 1.44 is the formally released
-package on Vector; the same page also lists the later 1.45f test build.
-The builder pins `diet144.lzh`, runs its original `DIET.EXE` under DOSBox,
-and does not install or redistribute DIET itself on the generated disk.
 
 The archive disk also includes Vector's [Memory Mapper for PC
 1.3](https://www.vector.co.jp/soft/dos/hardware/se128128.html). Vector
@@ -81,18 +75,21 @@ SYSTEM/EMS/XMS/UMB/BMS and VA-only SMM information. The published file is
 12,641 bytes and dated 2003-02-06.
 ## Core Components
 
-The article's baseline `CONFIG.SYS` is:
+The development environment assembled below uses this baseline `CONFIG.SYS`:
 
 ```dos
 FILES = 20
-BUFFERS = 20
-DEVICE = A:\PCEPAT.SYS
-DEVICE = A:\MSE352B.COM
-DEVICE = A:\PCPLUS.SYS
+BUFFERS = 30
+DEVICE = A:\SYS\PCPLUS.SYS
+DEVICE = A:\SYS\SCHD.SYS -I0
+DEVICE = A:\SYS\HOSTFAT.SYS
+DEVICE = A:\SYS\PCEPAT.SYS
+DEVICE = A:\SYS\MSE352B.COM
+DEVICE = A:\SYS\RDBMS.SYS -P1D0 -S1
 ```
 
-The drive letter in the article is the booted VA environment. The exact
-letter can differ if the HDD/FDD boot layout differs.
+Here `A:` is the booted VA environment. The exact drive letter can differ if
+the HDD/FDD boot layout differs.
 
 `PCEPAT.SYS` is produced by running `PCEPAT.COM` inside PC-Engine. The
 article describes it as a PC-Engine bug-fix and function-extension layer.
@@ -262,12 +259,14 @@ drive); a headless boot copied root `CONFIG.SYS` to that RAM disk and read the
 
 The recipe also needs DOS utilities, which run through MSE:
 
-- LHA 2.13 for LZH extraction.
+- [LHA 2.55b](https://www.vector.co.jp/soft/dos/util/se002413.html) for LZH
+  extraction. The builder applies Vector's official 2.55b BDF to the 2.55
+  executable with BUPDATE.
 - BDIFF/BUPDATE for BDF diffs.
 - WSP for WUP diffs, including the MSE 3.52a-to-b patch.
+- DIET 1.44 for executable compression on the generated development disk.
 - K-Launcher as a two-pane file manager.
 - PMD and VA-specific generated PMD players for music playback tests.
-- DIET 1.44 as a build-time compressor for `A:\BIN` executables.
 
 The article explicitly warns that archive extraction is safer on the
 PC-88VA side than on Windows. The practical reason is timestamp
@@ -284,13 +283,13 @@ A:\
   CONFIG.SYS
   AUTOEXEC.BAT
   PCEPAT.SYS
-  BMSDRVA.COM
-  BMSADDVA.COM
   MSE352B.COM
   PCPLUS.SYS
   PCENGINE.COM
 
 A:\BIN\
+  BMSDRVA.COM
+  BMSADDVA.COM
   LHA.EXE
   BUPDATE.EXE
   WSP.COM
@@ -336,7 +335,7 @@ source image's filename or checksum.
 On Debian or Ubuntu, install the host-side build dependencies with:
 
 ```sh
-sudo apt-get install curl lhasa dosbox python3 coreutils tar unzip
+sudo apt-get install curl lhasa dosbox nasm python3 coreutils tar unzip
 ```
 
 To create only the vanilla system disk, run:
@@ -355,33 +354,34 @@ tools/pc88va/build-development-disk.sh \
   --output /path/to/pc88va-development.d88
 ```
 
-The destination must not already exist. Downloads are cached under
-`docs/archives/pc88va-development-disk/` by default. This local archive cache
-is excluded from Git; `--cache DIR` selects another cache. Every public input
-archive is pinned by SHA-256 in the script. An existing cache file with
-different contents is rejected rather than replaced.
+The destination must not already exist. Downloads are cached under the normal
+user cache directory by default; `--cache DIR` selects another cache. Every
+public input archive is pinned by SHA-256 in the script. An existing cache file
+with different contents is rejected rather than replaced.
 
 The complete build performs these operations:
 
 1. Create the minimal vanilla system disk while retaining the IPL and the
    original fixed system-file chains.
 2. Fetch and verify PCEPAT, BMS Driver 1.50 Rev 0.20, PCPLUS 1.08 and its
-   patch, BDIFF/BUPDATE 1.28, MSE 3.52a and the 3.52b patch, WSP 1.50,
-   LHA 2.13, K-Launcher 1.30, TEEN 0.30p, VBUFF 1.02, FATMAP 1.1,
-   FORG 2.03, the VA RAMDISK self-extracting archive, DIET 1.44, and the GNU
-   File Utilities 3.12 MS-DOS rev B executable archive, plus Vector's
-   `X8MAP130.LZH` Memory Mapper archive.
+   patch, SCHD 1.55t, RDBMS 1.21, BDIFF/BUPDATE 1.28, MSE 3.52a and the
+   3.52b patch, WSP 1.50, LHA 2.55 and its official 2.55b patch, DIET
+   1.44, K-Launcher 1.30, TEEN 0.30p, VBUFF 1.02, FATMAP 1.1, FORG
+   2.03, the VA RAMDISK self-extracting archive, and the GNU File
+   Utilities 3.12 MS-DOS rev B executable archive.
 3. Extract the packages with the host `lha`, `tar`, and `unzip` commands.
 4. Run the original DOS `WSP.COM` and `BUPDATE.EXE` under headless DOSBox to
-   produce `MSE352B.COM`, the patched `PCPLUS.SYS`, and the PC-88VA
-   K-Launcher files `KLL.COM`, `KLVA.EXE`, and `KLCUST.EXE`.
-5. Run DIET 1.44 under the same headless DOSBox environment. It processes
-   only `A:\BIN\*.EXE` and `A:\BIN\*.COM`; `-B` selects byte-size comparison,
-   and `-XC` preserves COM format. Root and driver files, including
-   `MSE352B.COM`, are outside the compression directory and remain unchanged.
+   produce LHA 2.55b, `MSE352B.COM`, the patched `PCPLUS.SYS`, and the
+   PC-88VA K-Launcher files `KLL.COM`, `KLVA.EXE`, and `KLCUST.EXE`.
+5. Assemble and validate the repository's clean-room `HOSTFAT.SYS` with NASM.
 6. Verify the generated files against known public-package checksums.
-7. Add the root drivers, the compressed `BIN` utilities, their `DOC` files,
-   and an empty `TMP` directory to the vanilla FAT12 filesystem.
+7. Extract the RAMDISK self-extracting archive and stage its driver, helper
+   commands, and documentation separately.
+8. Run every `.EXE` and `.COM` under `BIN` through DIET 1.44. COM files retain
+   their COM form; files for which DIET cannot reduce byte size remain
+   unchanged.
+9. Add the seven `SYS` drivers, the compressed `BIN` utilities, their `DOC`
+   files, and an empty `TMP` directory to the vanilla FAT12 filesystem.
 
 The PC-Engine disk has a valid FAT12 allocation structure but no conventional
 DOS BPB, so normal `mtools` commands reject it as non-DOS media. The builder
@@ -390,7 +390,9 @@ two-head, eight-sector, 1024-byte PC-Engine 1.1 layout. It never relocates the
 existing `ENGINEIO.SYS` or `PCENGINE.SYS` boot chains. The vanilla builder
 clears all unreferenced data clusters, and new directory entries use a fixed
 DOS date, so repeated builds from the same source are byte-for-byte
-reproducible.
+reproducible. The validated image installs 72 payload files totaling 810,609
+bytes in addition to the four retained PC-Engine system files and leaves
+361,472 bytes free.
 
 The development disk is organized as follows. `KLVA.EXE`, `KLCUST.EXE`,
 `KL.CFG`, and `KLJPN.HLP` are also kept in `BIN` because `KLL.COM` needs the
@@ -400,15 +402,23 @@ VA-specific executable and configuration files.
 A:\
   CONFIG.SYS
   AUTOEXEC.BAT
-  PCEPAT.SYS
-  BMSDRVA.COM
-  BMSADDVA.COM
-  MSE352B.COM
-  PCPLUS.SYS
   PCENGINE.COM
 
+A:\SYS\
+  PCPLUS.SYS
+  SCHD.SYS
+  HOSTFAT.SYS
+  PCEPAT.SYS
+  MSE352B.COM
+  RAMDISK.SYS
+  RDBMS.SYS
+
 A:\BIN\
+  BIOSFREE.COM
+  BMSDRVA.COM
+  BMSADDVA.COM
   LHA.EXE
+  DIET.EXE
   BUPDATE.EXE
   WSP.COM
   MSET.COM
@@ -432,7 +442,8 @@ A:\BIN\
   FATMAP_E.COM
   FORG.EXE
   FORG.DAT
-  RAMDISK.COM
+  SETID.COM
+  SETIPL.COM
   CHMOD.EXE
   COPYING
   CP.EXE
@@ -450,6 +461,8 @@ A:\BIN\
   VDIR.EXE
 
 A:\DOC\
+  DIET144.DOC
+  DIETREAD.DOC
   TEEN.DOC
   TEENUPDT.DOC
   TEENREAD.DOC
@@ -461,28 +474,30 @@ A:\DOC\
   FORG.DOC
   FORGREAD.DOC
   RAMDISK.DOC
+  RAMREAD.ME
+  SCHD.DOC
+  SCHD.LOG
+  SCHD.TXT
+  RDBMS.DOC
 
 A:\TMP\
 ```
 
 The three archive `README.DOC` files are renamed to `TEENREAD.DOC`,
 `FATMREAD.DOC`, and `FORGREAD.DOC` to avoid collisions in the flat `DOC`
-directory. `RAMDISK.COM` remains the original self-extracting archive; run it
-from `A:\TMP` when its contents are needed. The Softlib catalog records the
-standalone `RAMDISK.DOC` as 1,148 bytes, while its current download endpoint
-serves a 1,230-byte CRLF file. The builder pins the bytes actually served by
-the public endpoint.
+directory. `RAMDISK.COM` is an LHA-compatible self-extracting archive rather
+than the driver itself. The builder expands it on the host and installs
+`RAMDISK.SYS` in `SYS`, `BIOSFREE.COM`, `SETID.COM`, and `SETIPL.COM` in
+`BIN`, and its `RAMDISK.DOC` and `README` as `RAMDISK.DOC` and `RAMREAD.ME`
+in `DOC`. The self-extracting archive is not copied onto the D88.
 
-DIET keeps an executable unchanged when its self-extracting form would not
-reduce the byte size. Thus every `.EXE` and `.COM` in `A:\BIN` is offered to
-DIET, while very small or already packed programs can remain byte-identical.
-No file outside `A:\BIN` is offered to DIET; in particular, the generated
-`MSE352B.COM` driver is never compressed, whether the surrounding layout keeps
-it in the root or under `A:\SYS`. With the pinned inputs, 31 of 34 executable
-files shrink, reducing their total from 879,773 to 512,343 bytes; `KLL.COM`,
-`RAMDISK.COM`, and `VBUFF.COM` remain unchanged because DIET cannot make them
-smaller. The generated D88 is maintainer-local media, and redistribution
-remains subject to each included program's terms.
+Every `.EXE` and `.COM` in `BIN`, including the two BMS utilities, is passed
+through DIET 1.44 with byte-size comparison enabled. `-XC` keeps compressed
+COM files in COM form. DIET leaves `BIOSFREE.COM`, `BMSADDVA.COM`, `DIET.EXE`,
+`KLL.COM`, `SETID.COM`, and `VBUFF.COM` unchanged because compression would
+not reduce their size; the remaining reducible executables are stored in DIET
+form. `DIET.EXE` and its primary documentation are included so these files can
+be inspected or restored in the guest.
 
 The GNUish catalog identifies `fut312bx.zip` as the executable distribution of
 GNU File Utilities 3.12 for DOS. The builder extracts all 15 entries from its
@@ -497,16 +512,22 @@ remain in the root as required for boot. `CONFIG.SYS` is:
 ```dos
 FILES = 20
 BUFFERS = 30
-DEVICE = A:\PCEPAT.SYS
-DEVICE = A:\MSE352B.COM
-DEVICE = A:\PCPLUS.SYS
+DEVICE = A:\SYS\PCPLUS.SYS
+DEVICE = A:\SYS\SCHD.SYS -I0
+DEVICE = A:\SYS\HOSTFAT.SYS
+DEVICE = A:\SYS\PCEPAT.SYS
+DEVICE = A:\SYS\MSE352B.COM
+DEVICE = A:\SYS\RDBMS.SYS -P1D0 -S1
 ```
 
-PCEPAT is deliberately first, as required by its documentation. `BUFFERS=30`
-uses the PCEPAT example's value; the referenced HDD article uses 20. MSE is
-loaded without `/A`, `/B`, or `/X`. The BMS VA programs are present for later
-use but are not made resident by this baseline. `AUTOEXEC.BAT` uses neither
-`ECHO OFF` nor `PROMPT`; it only establishes the requested tool environment:
+PCPLUS precedes the target-zero SCHD block driver. HOSTFAT is available when
+vaeg has a read-only host folder configured. PCEPAT remains before MSE as its
+documentation requires, and MSE is loaded without `/A`, `/B`, or `/X`.
+RDBMS uses the PC-88VA I/O Bank Memory port `01D0H`, starts with bank 1, and
+uses its documented default bank count because no explicit count is supplied.
+The BMS VA programs remain available for later use but are not made resident
+by this baseline. `AUTOEXEC.BAT` uses neither `ECHO OFF` nor `PROMPT`; it only
+establishes the requested tool environment:
 
 ```dos
 PATH A:\BIN
