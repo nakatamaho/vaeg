@@ -677,6 +677,7 @@ static int test_va_ems_board(void) {
 
 	_EMSIO		saved_emsio;
 	BYTE		*saved_ems[4];
+	BYTE		*saved_extmem;
 	UINT32		saved_extsize;
 	UINT8		saved_pccore_extmem;
 	UINT8		saved_iomode;
@@ -685,14 +686,22 @@ static int test_va_ems_board(void) {
 	BYTE		saved_main;
 	BYTE		saved_high0;
 	BYTE		saved_high1;
-	BYTE		saved_ext;
+	BYTE		*page_ptr;
+	BYTE		saved_page;
+	BYTE		pattern;
+	UINT32		page_addr;
+	UINT32		page_count;
+	UINT		frame;
 	UINT		i;
+	UINT		page_port;
+	UINT		target;
 	int		result;
 
 	saved_emsio = emsio;
 	for (i=0; i<4; i++) {
 		saved_ems[i] = CPU_EMSPTR[i];
 	}
+	saved_extmem = CPU_EXTMEM;
 	saved_extsize = CPU_EXTMEMSIZE;
 	saved_pccore_extmem = pccore.extmem;
 	saved_iomode = iomode_va;
@@ -701,7 +710,6 @@ static int test_va_ems_board(void) {
 	saved_main = mem[0xc0000];
 	saved_high0 = mem[0x100000];
 	saved_high1 = mem[0x104000];
-	saved_ext = 0;
 	result = SUCCESS;
 	iocore_create();
 	if (iocore_build() != SUCCESS) {
@@ -715,14 +723,14 @@ static int test_va_ems_board(void) {
 		result = fail("VA EMS", "unexpected capacity bounds");
 		goto ems_test_cleanup;
 	}
-	if (CPU_EXTMEMSIZE < 0x100000) {
-		CPU_SETEXTSIZE(1);
-		if ((CPU_EXTMEM == NULL) || (CPU_EXTMEMSIZE != 0x100000)) {
-			result = fail("VA EMS", "could not allocate test memory");
-			goto ems_test_cleanup;
-		}
+	CPU_EXTMEM = NULL;
+	CPU_EXTMEMSIZE = 0;
+	CPU_SETEXTSIZE(EMSIO_MAX_MEGABYTES);
+	if ((CPU_EXTMEM == NULL) ||
+		(CPU_EXTMEMSIZE != (EMSIO_MAX_MEGABYTES << 20))) {
+		result = fail("VA EMS", "could not allocate isolated test memory");
+		goto ems_test_cleanup;
 	}
-	saved_ext = CPU_EXTMEM[0x10000];
 
 	pccore.extmem = 1;
 	emsio_reset();
@@ -787,6 +795,50 @@ static int test_va_ems_board(void) {
 		goto ems_test_cleanup;
 	}
 
+	pccore.extmem = EMSIO_MAX_MEGABYTES;
+	emsio_reset();
+	emsio_bind();
+	iomode_va = 1;
+	memmode_va = 1;
+	page_count = EMSIO_MAX_MEGABYTES << 6;
+	for (i=0; i<page_count; i++) {
+		target = (i >> 6) + 1;
+		frame = i & 3;
+		page_port = 0x08e1 + (frame << 1);
+		page_addr = (target << 20) + ((i & 0x3f) << 14);
+		if (page_addr < USE_HIMEM) {
+			page_ptr = mem + page_addr;
+		}
+		else {
+			page_ptr = CPU_EXTMEM + page_addr - 0x100000;
+		}
+		iocore_out8(0x08e9, target);
+		iocore_out8(page_port, (i & 0x3f) << 2);
+		if ((iocore_inp8(0x08e9) != 0) ||
+			(emsio.addr[frame] != page_addr) ||
+			(CPU_EMSPTR[frame] != page_ptr)) {
+			result = fail("VA EMS", "13MB page table did not map completely");
+			goto ems_test_cleanup;
+		}
+		saved_page = *page_ptr;
+		pattern = (BYTE)(i ^ (i >> 8) ^ 0xa5);
+		if (pattern == saved_page) {
+			pattern ^= 0xff;
+		}
+		upd9002_memorywrite(0x0c0000 + (frame << 14), pattern);
+		if ((upd9002_memoryread(0x0c0000 + (frame << 14)) != pattern) ||
+			(*page_ptr != pattern)) {
+			*page_ptr = saved_page;
+			result = fail("VA EMS", "13MB native page-frame test failed");
+			goto ems_test_cleanup;
+		}
+		upd9002_memorywrite(0x0c0000 + (frame << 14), saved_page);
+		if (*page_ptr != saved_page) {
+			result = fail("VA EMS", "13MB page test did not restore memory");
+			goto ems_test_cleanup;
+		}
+	}
+
 	pccore.extmem = 0;
 	emsio_reset();
 	emsio_bind();
@@ -797,11 +849,12 @@ static int test_va_ems_board(void) {
 
 ems_test_cleanup:
 	iocore_destroy();
-	if ((CPU_EXTMEM != NULL) && (CPU_EXTMEMSIZE >= 0x100000)) {
-		CPU_EXTMEM[0x10000] = saved_ext;
-	}
-	if (CPU_EXTMEMSIZE != saved_extsize) {
-		CPU_SETEXTSIZE(saved_extsize >> 20);
+	if (CPU_EXTMEM != saved_extmem) {
+		if (CPU_EXTMEM != NULL) {
+			_MFREE(CPU_EXTMEM);
+		}
+		CPU_EXTMEM = saved_extmem;
+		CPU_EXTMEMSIZE = saved_extsize;
 	}
 	mem[0xc0000] = saved_main;
 	pccore.extmem = saved_pccore_extmem;
