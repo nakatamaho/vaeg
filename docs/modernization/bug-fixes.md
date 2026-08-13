@@ -88,11 +88,14 @@ separate parity correction or move it to Open Defects.
   now retains the PC-Engine 1.1 IPL and fixed system files.
 - **Verification:** ROM-less native VA mapping selftest, macOS/Linux/MinGW
   builds, Linux CI CTest 81/81, reproducible driver/media generation, and the
-  structural validator passed. A disposable headless boot displayed the full
-  EMMVA/SQEMM98/RDEMS sequence, tested 1.0MB EMS successfully, registered a
-  640KB `C:` RAM disk, and copied/read back its 114-byte `CONFIG.SYS`.
+  structural validator passed. The selftest now sweeps all 832 logical pages
+  and all four page-frame windows at 13MB; removing the native VA correction
+  makes that test fail. Disposable VA1 and VA2 headless boots both reached the
+  prompt at 13MB and reported a usable 647,168-byte RDEMS `C:` drive. The
+  earlier 1MB run also copied/read back its 114-byte `CONFIG.SYS`.
 - **Evidence:** [M90 validation report](../agents/reports/m90_va_ems_board.md).
 - **Commit:** [a4b6170](https://github.com/nakatamaho/vaeg/commit/a4b6170824dbfb8d602ca1ade19c60778a6eff1c).
+- **Regression coverage:** [081a2bb](https://github.com/nakatamaho/vaeg/commit/081a2bbffaa14e4bdcc7a9d5627f147bd00f9970).
 
 ### Windows JIS RO was not mapped to the guest underscore key
 

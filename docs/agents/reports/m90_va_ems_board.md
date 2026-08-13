@@ -26,7 +26,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 ## Status
 
 M90 is implementation-complete at candidate
-[`34fb837`](https://github.com/nakatamaho/vaeg/commit/34fb8376f988b9c121ade3774f0b038b2d110fb4)
+[`081a2bb`](https://github.com/nakatamaho/vaeg/commit/081a2bbffaa14e4bdcc7a9d5627f147bd00f9970)
 on `main`. G90 remains a human gate.
 
 The predecessor is the G89-integrated `main` commit
@@ -84,6 +84,11 @@ The predecessor is the G89-integrated `main` commit
 8. [`34fb837`](https://github.com/nakatamaho/vaeg/commit/34fb8376f988b9c121ade3774f0b038b2d110fb4)
    gives the EMS selftest fresh I/O tables so it does not reuse tables that
    the preceding state-save test destroyed.
+9. [`0cb4f22`](https://github.com/nakatamaho/vaeg/commit/0cb4f2247df839e3c40c6061d9d75bcc4f1a0187)
+   extends the separately generated PC-88VA development-disk environment.
+10. [`081a2bb`](https://github.com/nakatamaho/vaeg/commit/081a2bbffaa14e4bdcc7a9d5627f147bd00f9970)
+    expands the EMS selftest to every logical page at the 13MB maximum while
+    preserving the pre-test extended-memory allocation.
 
 ## Validation
 
@@ -94,8 +99,8 @@ The predecessor is the G89-integrated `main` commit
 | macOS MacPorts configure/build | PASS; `vaeg` built successfully |
 | Linux Debug configure/build | PASS |
 | Linux CI GCC configure/build and CTest | PASS; 81/81 tests passed, 1 expected external-SST skip |
-| Hosted CI | PASS; [run 31675702844](https://github.com/nakatamaho/vaeg/actions/runs/31675702844), all 9 jobs succeeded |
-| ROM-less `--selftest` | PASS; BMS and EMS lifecycle checks included; all tests passed |
+| Hosted CI | PASS; final 13MB sweep [run 31678186077](https://github.com/nakatamaho/vaeg/actions/runs/31678186077), all 9 jobs succeeded |
+| ROM-less `--selftest` | PASS; all 832 logical EMS pages and four native VA page-frame windows passed at 13MB |
 | ROM-less `--smoke` | PASS in documented reduced-scope mode |
 | MinGW cross configure/build | PASS; PE32+ x86-64 GUI executable |
 | SQEMM98 Open Watcom assembly/link | PASS; 13,253-byte `EMMXXXX0` character device |
@@ -108,15 +113,18 @@ The predecessor is the G89-integrated `main` commit
 | Supplemental SQEMM98 identity | PASS; D88 copy matches the independently generated driver byte-for-byte |
 | Source-media protection | PASS; disposable source copy was unchanged before/after |
 | Reproducibility | PASS; two independently generated outputs were byte-identical |
-| Headless PC-Engine boot | PASS; SQEMM98 tested all EMS pages, initialized 1.0MB, and RDEMS registered a 640KB `C:` drive |
+| Headless PC-Engine boot | PASS; 1MB stack validation passed, then VA1 and VA2 independently reached `Ready` at 13MB after SQEMM98 tested all 832 pages |
 | Headless RAM-disk operation | PASS; copied the 114-byte `CONFIG.SYS` to `C:` and read back all four lines |
+| 13MB RAM-disk operation | PASS on VA1 and VA2; `dir c:` reported 647,168 bytes available |
 | Binary payload audit | PASS; no generated D88, ROM, font, or other binary payload is tracked |
 
 The evaluated macOS executable has SHA-256
-`e8af96a4c746482ef8ca12a84e141d943bdc7bf4872ea1b6001fab350ad35478`.
+`87fe18cab0fd0063f07640656a5a78b997fe5dfb965e09dca053d773768874b0`.
 The evaluated MinGW executable at `build/mingw-cross/sdl2/vaeg.exe` has
 SHA-256
-`ea040180b484fb2a1b7ec49f2a8571330d5aaa7cabeb1765aed2bc98391c7476`.
+`1eba1d061add6ee96b675732372d37c61850b15243747d2a17fa12d94ba990d4`.
+The Windows MSYS2 release artifact from hosted run `31678186077` has SHA-256
+`d7ce39475aaf00719b2a7b59298a46d69c76e690024ef0f7df4e010e6cfa755f`.
 
 The first hosted run after the bootable-media correction,
 [31674777821](https://github.com/nakatamaho/vaeg/actions/runs/31674777821),
@@ -128,6 +136,17 @@ The final candidate builds isolated I/O tables inside the EMS test and
 destroys them on cleanup. The three affected local CTests, the complete 81-test
 suite, a macOS ASan/UBSan selftest, and all nine jobs in the final hosted run
 passed after that correction.
+
+A later maintainer-side 13MB run reported the expected 832-page capacity but
+then failed SQEMM98's memory test. The reported executable identity did not
+match any retained M90 hosted Windows artifact examined. The same supplemental
+D88 and `ExMemory=13` configuration pass with candidate `081a2bb` on both VA1
+and VA2, including a usable RDEMS `C:` drive. A controlled negative build that
+removed the native VA page-frame correction from `a4b6170` failed the ROM-less
+selftest with `native VA page-frame access did not map`. The observed report is
+therefore consistent with an executable that omits that correction; the exact
+provenance of the maintainer-side binary remains unresolved, and no new D88 or
+SQEMM98 defect was demonstrated.
 
 The generated supplemental media and all raw validation logs remain outside
 Git. The maintainer-supplied source media was used only through a disposable
@@ -142,6 +161,11 @@ successful full-page memory test and 1.0MB capacity. RDEMS registered its
 listed `C:`, copied root `CONFIG.SYS` to `C:\M90TEST.TXT`, listed the new
 114-byte file, and read all four driver lines back. The disposable D88 was
 unchanged after the run.
+
+The 13MB follow-up used two additional disposable copies, one each for VA1 and
+VA2. Both copies retained the canonical D88 identity after execution. Each
+guest reached `Ready`; `dir c:` then reported 647,168 bytes available, proving
+that RDEMS remained registered after SQEMM98's complete 832-page memory test.
 
 ## G90 human gate
 
