@@ -23,7 +23,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 # M90: Enable the VA EMS board
 
-Status: **implementation complete; G90 human gate pending**
+Status: **G90 human gate passed; M90 closed**
 
 Predecessor: G89 passed; M89 is integrated into `main` at
 `c65853cfd2f5ff5318c1a11fec384961037bfdbb`.
@@ -32,7 +32,8 @@ Branch: `topic/m90-va-ems-board`
 
 Commit prefix: `M90:`
 
-Candidate gate: `G90`
+Gate result: `G90` passed on 2026-08-13 at
+[`f16d6af14039359e5b617d757f906a47f45b1ad9`](https://github.com/nakatamaho/vaeg/commit/f16d6af14039359e5b617d757f906a47f45b1ad9).
 
 Implementation candidate:
 [`498b283b67bc0e68dcd6f507260e190974c07f9f`](https://github.com/nakatamaho/vaeg/commit/498b283b67bc0e68dcd6f507260e190974c07f9f)
@@ -142,4 +143,7 @@ From a clean checkout and clean configuration:
 5. Enable I/O Bank Memory concurrently and confirm both mechanisms work.
 6. Disable EMS Board and confirm normal V3/OS operation remains intact.
 
-G90 passes only when the maintainer explicitly says so.
+The maintainer explicitly reported G90 passed on 2026-08-13 against the final
+M90 history at
+[`f16d6af14039359e5b617d757f906a47f45b1ad9`](https://github.com/nakatamaho/vaeg/commit/f16d6af14039359e5b617d757f906a47f45b1ad9).
+M90 is closed.
