@@ -23,10 +23,10 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 # M90: Enable the VA EMS board
 
-Status: **implementation in progress; G90 human gate pending**
+Status: **implementation complete; G90 human gate pending**
 
 Predecessor: G89 passed; M89 is integrated into `main` at
-`5b4a22ba4e8a4fc7ef44f3d2dfcfe4c1001cde97`.
+`c65853cfd2f5ff5318c1a11fec384961037bfdbb`.
 
 Branch: `topic/m90-va-ems-board`
 
@@ -34,8 +34,8 @@ Commit prefix: `M90:`
 
 Candidate gate: `G90`
 
-The implementation candidate and final validation SHA are recorded in the
-validation handoff after the local checks pass.
+Implementation candidate:
+[`624e74a6560effe324acb6d11c5422043547ba66`](https://github.com/nakatamaho/vaeg/commit/624e74a6560effe324acb6d11c5422043547ba66)
 
 Validation record:
 [`reports/m90_va_ems_board.md`](../reports/m90_va_ems_board.md)
