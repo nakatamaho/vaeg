@@ -366,6 +366,8 @@ copy_payload "$stage_dir/MSET.COM" bin/MSET.COM
 copy_payload "$stage_dir/ALIAS.COM" bin/ALIAS.COM
 copy_payload "$stage_dir/MSECUST.COM" bin/MSECUST.COM
 copy_payload "$stage_dir/MSE350.DEF" bin/MSE350.DEF
+copy_payload "$work_dir/pcp108/PCP108/BIN/SMSTAT.COM" bin/SMSTAT.COM
+copy_payload "$work_dir/pcp108/PCP108/BIN/SETDMA.COM" bin/SETDMA.COM
 copy_payload "$work_dir/x8map/X8MAP.COM" bin/X8MAP.COM
 copy_payload "$stage_dir/KLL.COM" bin/KLL.COM
 copy_payload "$stage_dir/KLVA.EXE" bin/KLVA.EXE
@@ -421,6 +423,9 @@ copy_payload "$work_dir/schd/SCHD.DOC" doc/SCHD.DOC
 copy_payload "$work_dir/schd/SCHD.LOG" doc/SCHD.LOG
 copy_payload "$work_dir/schd/SCHD.TXT" doc/SCHD.TXT
 copy_payload "$work_dir/rdbms/RDBMS.DOC" doc/RDBMS.DOC
+copy_payload "$work_dir/pcp108/PCP108/PCPLUS.DOC" doc/PCPLUS.DOC
+copy_payload "$work_dir/pcp108/PCP108/PCPLUS.TXT" doc/PCPLUS.TXT
+copy_payload "$work_dir/pcp108/PCP108/SCSIVA/SCSI55.TXT" doc/SCSI55.TXT
 copy_payload "$work_dir/x8map/X8MAP130.SMP" doc/X8MAP130.SMP
 copy_payload "$work_dir/x8map/X8MAP130.TXT" doc/X8MAP130.TXT
 copy_payload "$work_dir/emmva/EMMVA150.DOC" doc/EMMVA150.DOC

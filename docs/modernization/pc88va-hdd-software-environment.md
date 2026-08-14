@@ -121,9 +121,20 @@ Useful MSE-side tools in the archived package include:
 - `MSECUST.COM`: embeds aliases and mode rules into an MSE executable.
 - `MSE350.DEF`: an example custom definition file.
 
-`PCPLUS.SYS` is built from the PCPLUS archives referenced by the article
-(`PCP108` plus its patch). The article treats it as another PC-Engine
-extension layer.
+`PCPLUS.SYS` is built from the PCPLUS archives referenced by the article:
+Softlib group 2-378 `PCP108.LZH` plus the group 2-451 `PCP108P.LZH` bug-fix
+patch. Group 2-451 describes the latter as a PCPLUS v1.08 bug fix, and the
+patched driver still identifies the overall package as v1.08. Its embedded
+`$INTTRG` service identifies itself as v1.09, while this patch advances the
+embedded `$SCSIBIOS` service from v1.07 to v1.08. The article treats PCPLUS
+as another PC-Engine extension layer.
+
+The development disk also installs the two commands supplied under
+`PCP108/BIN`: `SMSTAT.COM` reports Sound Memory Manager allocation, and
+`SETDMA.COM` supports the PC-9801-55-compatible SCSI DMA setup. Both pass
+through the same DIET stage as every other `.COM` file in `A:\BIN`. The
+PCPLUS redistribution terms, main manual, and SCSI notes are retained as
+`PCPLUS.DOC`, `PCPLUS.TXT`, and `SCSI55.TXT` in `A:\DOC`.
 
 ## PCEPAT PC-Engine Patch
 
@@ -372,20 +383,21 @@ For maintainer-local preservation, verified copies of the public inputs used
 for this image are stored under the Git-ignored
 `docs/archives/pc88va-development-disk/` directory. This includes the LHA
 2.55 executable and 2.55b patch, `X8MAP130.LZH`, `EMMVA15A.LZH`,
-`RDEMS152.LZH`, and the pinned SQEMM source archive. These archive copies and
-the generated D88 remain outside Git.
+`RDEMS152.LZH`, both `PCP108.LZH` and `PCP108P.LZH`, and the pinned SQEMM
+source archive. These archive copies and the generated D88 remain outside
+Git.
 
 The complete build performs these operations:
 
 1. Create the minimal vanilla system disk while retaining the IPL and the
    original fixed system-file chains.
 2. Fetch and verify PCEPAT, BMS Driver 1.50 Rev 0.20, PCPLUS 1.08 and its
-   patch, SCHD 1.55t, RDBMS 1.21, BDIFF/BUPDATE 1.28, MSE 3.52a and the
-   3.52b patch, WSP 1.50, LHA 2.55 and its official 2.55b patch, DIET
-   1.44, Memory Mapper for PC 1.3, EMMVA 1.5a, RDEMS 1.52, K-Launcher
-   1.30, TEEN 0.30p, VBUFF 1.02, FATMAP 1.1, FORG 2.03, the VA RAMDISK
-   self-extracting archive, and the GNU File Utilities 3.12 MS-DOS rev B
-   executable archive.
+   group 2-451 bug-fix patch, SCHD 1.55t, RDBMS 1.21, BDIFF/BUPDATE 1.28,
+   MSE 3.52a and the 3.52b patch, WSP 1.50, LHA 2.55 and its official 2.55b
+   patch, DIET 1.44, Memory Mapper for PC 1.3, EMMVA 1.5a, RDEMS 1.52,
+   K-Launcher 1.30, TEEN 0.30p, VBUFF 1.02, FATMAP 1.1, FORG 2.03, the VA
+   RAMDISK self-extracting archive, and the GNU File Utilities 3.12 MS-DOS
+   rev B executable archive.
 3. Extract the packages with the host `lha`, `tar`, and `unzip` commands.
 4. Run the original DOS `WSP.COM` and `BUPDATE.EXE` under headless DOSBox to
    produce LHA 2.55b, `MSE352B.COM`, the patched `PCPLUS.SYS`, and the
@@ -409,9 +421,9 @@ two-head, eight-sector, 1024-byte PC-Engine 1.1 layout. It never relocates the
 existing `ENGINEIO.SYS` or `PCENGINE.SYS` boot chains. The vanilla builder
 clears all unreferenced data clusters, and new directory entries use a fixed
 DOS date, so repeated builds from the same source are byte-for-byte
-reproducible. The validated image installs 83 payload files totaling 867,444
+reproducible. The validated image installs 88 payload files totaling 875,508
 bytes in addition to the four retained PC-Engine system files and leaves
-297,984 bytes free.
+286,720 bytes free.
 
 The development disk is organized as follows. `KLVA.EXE`, `KLCUST.EXE`,
 `KL.CFG`, and `KLJPN.HLP` are also kept in `BIN` because `KLL.COM` needs the
@@ -447,6 +459,8 @@ A:\BIN\
   MSET.COM
   ALIAS.COM
   MSECUST.COM
+  SMSTAT.COM
+  SETDMA.COM
   X8MAP.COM
   KLL.COM
   KLVA.EXE
@@ -503,6 +517,9 @@ A:\DOC\
   SCHD.LOG
   SCHD.TXT
   RDBMS.DOC
+  PCPLUS.DOC
+  PCPLUS.TXT
+  SCSI55.TXT
   EMMVA150.DOC
   RDEMS152.MAN
   SQEMM.LIC
@@ -524,9 +541,10 @@ in `DOC`. The self-extracting archive is not copied onto the D88.
 Every `.EXE` and `.COM` in `BIN`, including the two BMS utilities, is passed
 through DIET 1.44 with byte-size comparison enabled. `-XC` keeps compressed
 COM files in COM form. DIET leaves `BIOSFREE.COM`, `BMSADDVA.COM`, `DIET.EXE`,
-`KLL.COM`, `SETID.COM`, and `VBUFF.COM` unchanged because compression would
-not reduce their size; the remaining reducible executables are stored in DIET
-form. This includes reducing `X8MAP.COM` from 10,373 to 7,203 bytes.
+`KLL.COM`, `SETDMA.COM`, `SETID.COM`, and `VBUFF.COM` unchanged because
+compression would not reduce their size; the remaining reducible executables
+are stored in DIET form. This includes reducing `SMSTAT.COM` from 1,944 to
+1,725 bytes and `X8MAP.COM` from 10,373 to 7,203 bytes.
 `DIET.EXE` and its primary documentation are included so these files can be
 inspected or restored in the guest.
 
