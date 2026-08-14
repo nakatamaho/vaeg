@@ -307,6 +307,20 @@ on BMSDR. In practice, if an HDD image uses MSE `/A`, `/B`, or `/X`
 options, load or run the BMS driver before MSE. A minimal environment can
 omit BMS, but then those MSE features should not be enabled.
 
+VAEG models the PC-88VA BMS area as a separate 128KB aperture. Ordinary main
+memory ends at `7FFFFH` (512KB); the aperture is exactly `80000H-9FFFFH`.
+When BMS is disabled, CPU and SGP reads from the aperture return open-bus
+values (`FFH`/`FFFFH`) and writes are ignored. When it is enabled, selector
+values zero through N-1 map directly to N independent 128KB BMS banks. Bank
+zero is therefore BMS storage, not a conventional-memory pass-through.
+
+A clean VAEG configuration enables BMS with 128 banks (16MB) at the native
+PC-88VA `01D0H` port. The corresponding persisted values are
+`Use_BMS_=true`, `BMS_Port=01d0`, and `BMS_Size=128`; `BMS_Size` is a bank
+count, not a megabyte count. The `00ECH` PC-9801-compatible port and smaller
+capacities remain selectable. Explicit values in an existing `vaeg.cfg`,
+including an off setting, are preserved rather than migrated.
+
 ## EMS Board, EMMVA, and RDEMS
 
 The [PC-88VA FAQ EMS article](http://www.pc88.gr.jp/vafaq/view.php/article/88va/vafaq/5)
@@ -316,6 +330,9 @@ area. M90 connects the retained four 16KB windows at `C0000H`, `C4000H`,
 `C8000H`, and `CC000H` to the active VA I/O dispatcher. In vaeg, select
 `Device / EMS Board...` immediately below I/O Bank Memory and install memory
 in 1MB units; zero disables the board and 1 through 13MB are supported.
+Clean configurations use the full 13MB (`ExMemory=13`) by default. As with
+BMS, an explicitly saved capacity or disabled value in an existing
+configuration is preserved.
 
 [EMMVA15A](http://www.pc88.gr.jp/softlib/?action=list_file&anum=2&gnum=351)
 is an adapter, not a complete EMM manager. Its included `EMMVA150.DOC` says
