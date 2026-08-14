@@ -22,8 +22,8 @@
  * IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-#include	"compiler.h"
-#include	"upd9002_perf.h"
+#include "compiler.h"
+#include "upd9002_perf.h"
 
 #if defined(VAEG_UPD9002_PERF_DIAGNOSTIC)
 
@@ -32,27 +32,26 @@
 #include <string.h>
 
 typedef struct {
-	FILE	*stream;
-	UINT64	step_count;
-	UINT64	opcode[256];
-	UINT64	prefix_next[256][256];
-	UINT64	op0f[256];
-	UINT64	exception[256];
-	UINT64	interrupt[256];
-	UINT64	reserved[UPD9002_PERF_RESERVED_COUNT];
-	UINT32	start_cs_base;
-	UINT16	start_ip;
-	UINT8	start_opcode;
-	UINT8	start_next_byte;
-	int		start_seen;
-	int		owns_stream;
-	int		atexit_registered;
+	FILE *stream;
+	UINT64 step_count;
+	UINT64 opcode[256];
+	UINT64 prefix_next[256][256];
+	UINT64 op0f[256];
+	UINT64 exception[256];
+	UINT64 interrupt[256];
+	UINT64 reserved[UPD9002_PERF_RESERVED_COUNT];
+	UINT32 start_cs_base;
+	UINT16 start_ip;
+	UINT8 start_opcode;
+	UINT8 start_next_byte;
+	int start_seen;
+	int owns_stream;
+	int atexit_registered;
 } UPD9002_PERF_STATE;
 
 static UPD9002_PERF_STATE perf_state;
 
 static int is_prefix(UINT8 opcode) {
-
 	switch (opcode) {
 	case 0x26:
 	case 0x2e:
@@ -69,7 +68,6 @@ static int is_prefix(UINT8 opcode) {
 }
 
 static const char *reserved_name(UINT index) {
-
 	switch (index) {
 	case UPD9002_PERF_RESERVED_PLAIN:
 		return "plain";
@@ -87,22 +85,19 @@ static const char *reserved_name(UINT index) {
 }
 
 static void print_histogram_256(const char *kind, const UINT64 values[256]) {
-
-	UINT	i;
+	UINT i;
 
 	for (i = 0; i < 256; i++) {
 		if (values[i] != 0) {
-			fprintf(perf_state.stream,
-				"%s opcode=%02x count=%llu\n", kind, i,
-				(unsigned long long)values[i]);
+			fprintf(perf_state.stream, "%s opcode=%02x count=%llu\n", kind, i,
+			        (unsigned long long)values[i]);
 		}
 	}
 }
 
 static void print_prefix_next(void) {
-
-	UINT	prefix;
-	UINT	opcode;
+	UINT prefix;
+	UINT opcode;
 
 	for (prefix = 0; prefix < 256; prefix++) {
 		if (!is_prefix((UINT8)prefix)) {
@@ -110,30 +105,25 @@ static void print_prefix_next(void) {
 		}
 		for (opcode = 0; opcode < 256; opcode++) {
 			if (perf_state.prefix_next[prefix][opcode] != 0) {
-				fprintf(perf_state.stream,
-					"prefix-next prefix=%02x opcode=%02x count=%llu\n",
-					prefix, opcode,
-					(unsigned long long)perf_state.prefix_next[prefix][opcode]);
+				fprintf(perf_state.stream, "prefix-next prefix=%02x opcode=%02x count=%llu\n",
+				        prefix, opcode, (unsigned long long)perf_state.prefix_next[prefix][opcode]);
 			}
 		}
 	}
 }
 
 void upd9002_perf_stop(void) {
-
-	UINT	i;
+	UINT i;
 
 	if (perf_state.stream == NULL) {
 		return;
 	}
 	fprintf(perf_state.stream, "upd9002-perf-v1\n");
-	fprintf(perf_state.stream, "steps count=%llu\n",
-		(unsigned long long)perf_state.step_count);
+	fprintf(perf_state.stream, "steps count=%llu\n", (unsigned long long)perf_state.step_count);
 	if (perf_state.start_seen) {
-		fprintf(perf_state.stream,
-			"first cs_base=%08x ip=%04x opcode=%02x next=%02x\n",
-			perf_state.start_cs_base, perf_state.start_ip,
-			perf_state.start_opcode, perf_state.start_next_byte);
+		fprintf(perf_state.stream, "first cs_base=%08x ip=%04x opcode=%02x next=%02x\n",
+		        perf_state.start_cs_base, perf_state.start_ip, perf_state.start_opcode,
+		        perf_state.start_next_byte);
 	}
 	print_histogram_256("opcode", perf_state.opcode);
 	print_prefix_next();
@@ -142,9 +132,8 @@ void upd9002_perf_stop(void) {
 	print_histogram_256("interrupt", perf_state.interrupt);
 	for (i = 0; i < UPD9002_PERF_RESERVED_COUNT; i++) {
 		if (perf_state.reserved[i] != 0) {
-			fprintf(perf_state.stream,
-				"reserved kind=%s count=%llu\n",
-				reserved_name(i), (unsigned long long)perf_state.reserved[i]);
+			fprintf(perf_state.stream, "reserved kind=%s count=%llu\n", reserved_name(i),
+			        (unsigned long long)perf_state.reserved[i]);
 		}
 	}
 	fflush(perf_state.stream);
@@ -155,7 +144,6 @@ void upd9002_perf_stop(void) {
 }
 
 void upd9002_perf_start_from_env(void) {
-
 	const char *path;
 
 	if (perf_state.stream != NULL) {
@@ -168,8 +156,7 @@ void upd9002_perf_start_from_env(void) {
 	ZeroMemory(&perf_state, sizeof(perf_state));
 	if (strcmp(path, "-") == 0) {
 		perf_state.stream = stderr;
-	}
-	else {
+	} else {
 		perf_state.stream = fopen(path, "w");
 		if (perf_state.stream == NULL) {
 			fprintf(stderr, "VAEG_UPD9002_PERF_LOG: cannot open %s\n", path);
@@ -183,9 +170,7 @@ void upd9002_perf_start_from_env(void) {
 	}
 }
 
-void upd9002_perf_record_step(uint32_t cs_base, uint16_t ip, uint8_t opcode,
-								uint8_t next_byte) {
-
+void upd9002_perf_record_step(uint32_t cs_base, uint16_t ip, uint8_t opcode, uint8_t next_byte) {
 	if (perf_state.stream == NULL) {
 		return;
 	}
@@ -204,7 +189,6 @@ void upd9002_perf_record_step(uint32_t cs_base, uint16_t ip, uint8_t opcode,
 }
 
 void upd9002_perf_record_0f(uint8_t opcode) {
-
 	if (perf_state.stream == NULL) {
 		return;
 	}
@@ -212,16 +196,13 @@ void upd9002_perf_record_0f(uint8_t opcode) {
 }
 
 void upd9002_perf_record_reserved(uint32_t kind) {
-
-	if ((perf_state.stream == NULL) ||
-		(kind >= UPD9002_PERF_RESERVED_COUNT)) {
+	if ((perf_state.stream == NULL) || (kind >= UPD9002_PERF_RESERVED_COUNT)) {
 		return;
 	}
 	perf_state.reserved[kind]++;
 }
 
 void upd9002_perf_record_exception(uint8_t vect) {
-
 	if (perf_state.stream == NULL) {
 		return;
 	}
@@ -229,7 +210,6 @@ void upd9002_perf_record_exception(uint8_t vect) {
 }
 
 void upd9002_perf_record_interrupt(uint8_t vect) {
-
 	if (perf_state.stream == NULL) {
 		return;
 	}

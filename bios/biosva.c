@@ -4,37 +4,35 @@
  *		ファイル読み込み失敗時のエラー通知
  */
 
-#include	"compiler.h"
-#include	"dosio.h"
-#include	"cpucore.h"
-#include	"machine/pccore.h"
-#include	"iocore.h"
-#include	"memoryva.h"
-#include	"fontdata.h"
-#include	"biosva.h"
-#include	"cgromva.h"
-#include	"subsystem.h"
+#include "compiler.h"
+#include "dosio.h"
+#include "cpucore.h"
+#include "machine/pccore.h"
+#include "iocore.h"
+#include "memoryva.h"
+#include "fontdata.h"
+#include "biosva.h"
+#include "cgromva.h"
+#include "subsystem.h"
 #include "cpu/upd9002_upd70008.h"
 
-
 #define VAFONTROM "vafont.rom"
-#define VADICROM  "vadic.rom"
+#define VADICROM "vadic.rom"
 #define VAROM00ROM "varom00.rom"
 #define VAROM08ROM "varom08.rom"
-#define VAROM1ROM  "varom1.rom"
+#define VAROM1ROM "varom1.rom"
 #define VAFONTROM_VA2 "vafont_va2.rom"
-#define VADICROM_VA2  "vadic_va2.rom"
+#define VADICROM_VA2 "vadic_va2.rom"
 #define VAROM00ROM_VA2 "varom00_va2.rom"
 #define VAROM08ROM_VA2 "varom08_va2.rom"
-#define VAROM1ROM_VA2  "varom1_va2.rom"
+#define VAROM1ROM_VA2 "varom1_va2.rom"
 #define VASUBSYSROM "vasubsys.rom"
 
 #define V98FONTFILE_SIZE 0x46800
 
 /* VA2 names follow MAME's pc88va2 ROM set; do not fall back to VA names. */
 static const char *modelrom(const char *va, const char *va2) {
-
-	return((pccore.model_va == PCMODEL_VA2) ? va2 : va);
+	return ((pccore.model_va == PCMODEL_VA2) ? va2 : va);
 }
 
 BOOL biosva_load_font(const char *filename) {
@@ -50,21 +48,21 @@ BOOL biosva_load_font(const char *filename) {
 
 	fh = file_open_rb(filename);
 	if (fh == FILEH_INVALID) {
-		return(FALSE);
+		return (FALSE);
 	}
 	if (file_getsize(fh) != V98FONTFILE_SIZE) {
 		file_close(fh);
-		return(FALSE);
+		return (FALSE);
 	}
 	v98fnt = (BYTE *)_MALLOC(V98FONTFILE_SIZE, "va98font");
 	if (v98fnt == NULL) {
 		file_close(fh);
-		return(FALSE);
+		return (FALSE);
 	}
 	if (file_read(fh, v98fnt, V98FONTFILE_SIZE) != V98FONTFILE_SIZE) {
 		_MFREE(v98fnt);
 		file_close(fh);
-		return(FALSE);
+		return (FALSE);
 	}
 	file_close(fh);
 
@@ -79,8 +77,7 @@ BOOL biosva_load_font(const char *filename) {
 			hccode = (UINT16)((j + 0x20) << 8) | i;
 			left = cgromva_font(hccode);
 			right = cgromva_font(hccode | 0x8000);
-			src = v98fnt + 0x1800 + ((i - 1) * 0x0c00) +
-					(j * 0x20);
+			src = v98fnt + 0x1800 + ((i - 1) * 0x0c00) + (j * 0x20);
 			for (k = 0; k < 16; k++) {
 				left[k * 2] = src[k];
 				right[k * 2] = src[16 + k];
@@ -90,13 +87,13 @@ BOOL biosva_load_font(const char *filename) {
 
 	_MFREE(v98fnt);
 	memoryva.sysmromexist |= 0x300;
-	return(TRUE);
+	return (TRUE);
 }
 
 void biosva_initialize(void) {
-	char	path[MAX_PATH];
-	FILEH	fh;
-	BOOL	success;
+	char path[MAX_PATH];
+	FILEH fh;
+	BOOL success;
 
 	memoryva.rom0exist = 0;
 	memoryva.rom1exist = 0;
@@ -107,11 +104,11 @@ void biosva_initialize(void) {
 	fh = file_open_rb(path);
 	if (fh != FILEH_INVALID) {
 		success = (file_read(fh, fontmem, 0x50000) == 0x50000);
-		if (success) memoryva.sysmromexist |= 0x300;	// bank 8,9
+		if (success)
+			memoryva.sysmromexist |= 0x300; // bank 8,9
 		file_close(fh);
 	}
-	if (np2cfg.fontfile[0] &&
-		!file_cmpname(file_getname(np2cfg.fontfile), pc98fontromname)) {
+	if (np2cfg.fontfile[0] && !file_cmpname(file_getname(np2cfg.fontfile), pc98fontromname)) {
 		getbiospath(path, pc98fontromname, sizeof(path));
 		biosva_load_font(path);
 	}
@@ -120,7 +117,8 @@ void biosva_initialize(void) {
 	fh = file_open_rb(path);
 	if (fh != FILEH_INVALID) {
 		success = (file_read(fh, dicmem, 0x80000) == 0x80000);
-		if (success) memoryva.sysmromexist |= 0x3000;	// bank C,D
+		if (success)
+			memoryva.sysmromexist |= 0x3000; // bank C,D
 		file_close(fh);
 	}
 
@@ -128,7 +126,8 @@ void biosva_initialize(void) {
 	fh = file_open_rb(path);
 	if (fh != FILEH_INVALID) {
 		success = (file_read(fh, rom0mem, 0x80000) == 0x80000);
-		if (success) memoryva.rom0exist |= 0xff;		// bank 0-7
+		if (success)
+			memoryva.rom0exist |= 0xff; // bank 0-7
 		file_close(fh);
 	}
 
@@ -136,7 +135,8 @@ void biosva_initialize(void) {
 	fh = file_open_rb(path);
 	if (fh != FILEH_INVALID) {
 		success = (file_read(fh, rom0mem + 0x80000, 0x20000) == 0x20000);
-		if (success) memoryva.rom0exist |= 0x300;		// bank 8,9
+		if (success)
+			memoryva.rom0exist |= 0x300; // bank 8,9
 		file_close(fh);
 	}
 
@@ -144,7 +144,8 @@ void biosva_initialize(void) {
 	fh = file_open_rb(path);
 	if (fh != FILEH_INVALID) {
 		success = (file_read(fh, rom1mem, 0x20000) == 0x20000);
-		if (success) memoryva.rom1exist |= 0x03;		// bank 0,1
+		if (success)
+			memoryva.rom1exist |= 0x03; // bank 0,1
 		file_close(fh);
 	}
 
@@ -152,7 +153,8 @@ void biosva_initialize(void) {
 	fh = file_open_rb(path);
 	if (fh != FILEH_INVALID) {
 		success = (file_read(fh, subsystem.rom, 0x2000) == 0x2000);
-		if (success) subsystem.romexist = TRUE;
+		if (success)
+			subsystem.romexist = TRUE;
 		file_close(fh);
 	}
 

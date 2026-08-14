@@ -1,19 +1,17 @@
-#include	"compiler.h"
-#include	"dosio.h"
-#include	"newdisk.h"
-#include	"fddfile.h"
-#include	"sxsi.h"
-#include	"hddboot.res"
-#include	<stdio.h>
-#include	<limits.h>
-
+#include "compiler.h"
+#include "dosio.h"
+#include "newdisk.h"
+#include "fddfile.h"
+#include "sxsi.h"
+#include "hddboot.res"
+#include <stdio.h>
+#include <limits.h>
 
 // ---- fdd
 
 void newdisk_fdd(const char *fname, REG8 type, const char *label) {
-
-	_D88HEAD	d88head;
-	FILEH		fh;
+	_D88HEAD d88head;
+	FILEH fh;
 
 	ZeroMemory(&d88head, sizeof(d88head));
 	STOREINTELDWORD(d88head.fd_size, sizeof(d88head));
@@ -27,30 +25,25 @@ void newdisk_fdd(const char *fname, REG8 type, const char *label) {
 }
 
 typedef struct {
-	UINT8	cylinders;
-	UINT8	heads;
-	UINT8	sectors;
-	UINT8	sector_n;
-	UINT16	sector_size;
-	UINT8	d88_type;
-	UINT8	sectors_per_cluster;
-	UINT8	media;
-	UINT16	root_entries;
-	UINT16	fat_sectors;
+	UINT8 cylinders;
+	UINT8 heads;
+	UINT8 sectors;
+	UINT8 sector_n;
+	UINT16 sector_size;
+	UINT8 d88_type;
+	UINT8 sectors_per_cluster;
+	UINT8 media;
+	UINT16 root_entries;
+	UINT16 fat_sectors;
 } NEWDISKFDDMSDOS;
 
 static const NEWDISKFDDMSDOS newdisk_fdd_msdos_geometry[] = {
-	{77, 2, 8, 3, 1024, 0x20, 1, 0xfe, 192, 2},
-	{80, 2, 8, 2,  512, 0x10, 2, 0xfb, 112, 2}
-};
+    {77, 2, 8, 3, 1024, 0x20, 1, 0xfe, 192, 2}, {80, 2, 8, 2, 512, 0x10, 2, 0xfb, 112, 2}};
 
-static void newdisk_fdd_msdos_boot(BYTE *sector,
-							const NEWDISKFDDMSDOS *geometry) {
+static void newdisk_fdd_msdos_boot(BYTE *sector, const NEWDISKFDDMSDOS *geometry) {
+	UINT16 total_sectors;
 
-	UINT16	total_sectors;
-
-	total_sectors = geometry->cylinders * geometry->heads *
-											geometry->sectors;
+	total_sectors = geometry->cylinders * geometry->heads * geometry->sectors;
 	sector[0] = 0xeb;
 	sector[1] = 0x3c;
 	sector[2] = 0x90;
@@ -71,19 +64,16 @@ static void newdisk_fdd_msdos_boot(BYTE *sector,
 	sector[37] = 0;
 	sector[38] = 0x29;
 	STOREINTELDWORD(sector + 39,
-					0x56414547U ^ ((UINT32)total_sectors << 8) ^
-					geometry->sector_size);
+	                0x56414547U ^ ((UINT32)total_sectors << 8) ^ geometry->sector_size);
 	CopyMemory(sector + 43, "NO NAME    ", 11);
 	CopyMemory(sector + 54, "FAT12   ", 8);
 	sector[510] = 0x55;
 	sector[511] = 0xaa;
 }
 
-static BOOL newdisk_fdd_msdos_sector(FILEH fh,
-							const NEWDISKFDDMSDOS *geometry,
-							UINT32 logical_sector, BYTE *work) {
-
-	UINT32	second_fat;
+static BOOL newdisk_fdd_msdos_sector(FILEH fh, const NEWDISKFDDMSDOS *geometry,
+                                     UINT32 logical_sector, BYTE *work) {
+	UINT32 second_fat;
 
 	ZeroMemory(work, geometry->sector_size);
 	if (logical_sector == 0) {
@@ -95,42 +85,35 @@ static BOOL newdisk_fdd_msdos_sector(FILEH fh,
 		work[1] = 0xff;
 		work[2] = 0xff;
 	}
-	return(file_write(fh, work, geometry->sector_size) ==
-										geometry->sector_size);
+	return (file_write(fh, work, geometry->sector_size) == geometry->sector_size);
 }
 
 BOOL newdisk_fdd_msdos_ex(const char *fname, UINT format, UINT container) {
+	const NEWDISKFDDMSDOS *geometry;
+	_D88HEAD d88head;
+	_D88SEC d88sec;
+	FILEH fh;
+	BYTE work[1024];
+	UINT32 logical_sector;
+	UINT32 file_offset;
+	UINT32 track_size;
+	UINT32 total_sectors;
+	UINT track;
+	UINT sector;
+	BOOL result;
 
-	const NEWDISKFDDMSDOS	*geometry;
-	_D88HEAD				d88head;
-	_D88SEC				d88sec;
-	FILEH					fh;
-	BYTE					work[1024];
-	UINT32					logical_sector;
-	UINT32					file_offset;
-	UINT32					track_size;
-	UINT32					total_sectors;
-	UINT					track;
-	UINT					sector;
-	BOOL					result;
-
-	if ((fname == NULL) || (fname[0] == '\0') ||
-		(format >= NEWDISK_FDD_MSDOS_COUNT) ||
-		(container >= NEWDISK_FDD_CONTAINER_COUNT) ||
-		(file_attr(fname) != (short)-1)) {
-		return(FAILURE);
+	if ((fname == NULL) || (fname[0] == '\0') || (format >= NEWDISK_FDD_MSDOS_COUNT) ||
+	    (container >= NEWDISK_FDD_CONTAINER_COUNT) || (file_attr(fname) != (short)-1)) {
+		return (FAILURE);
 	}
 	geometry = newdisk_fdd_msdos_geometry + format;
-	total_sectors = geometry->cylinders * geometry->heads *
-											geometry->sectors;
-	track_size = geometry->sectors *
-							(sizeof(_D88SEC) + geometry->sector_size);
+	total_sectors = geometry->cylinders * geometry->heads * geometry->sectors;
+	track_size = geometry->sectors * (sizeof(_D88SEC) + geometry->sector_size);
 	file_offset = sizeof(d88head);
 	ZeroMemory(&d88head, sizeof(d88head));
 	CopyMemory(d88head.fd_name, "MS-DOS", 6);
 	d88head.fd_type = geometry->d88_type;
-	for (track=0; track<(UINT)(geometry->cylinders * geometry->heads);
-		 track++) {
+	for (track = 0; track < (UINT)(geometry->cylinders * geometry->heads); track++) {
 		STOREINTELDWORD(d88head.trackp[track], file_offset);
 		file_offset += track_size;
 	}
@@ -138,17 +121,15 @@ BOOL newdisk_fdd_msdos_ex(const char *fname, UINT format, UINT container) {
 
 	fh = file_create(fname);
 	if (fh == FILEH_INVALID) {
-		return(FAILURE);
+		return (FAILURE);
 	}
 	result = TRUE;
 	if (container == NEWDISK_FDD_CONTAINER_D88) {
-		result = (file_write(fh, &d88head, sizeof(d88head)) ==
-											sizeof(d88head));
+		result = (file_write(fh, &d88head, sizeof(d88head)) == sizeof(d88head));
 	}
 	logical_sector = 0;
-	for (track=0; result &&
-		 track<(UINT)(geometry->cylinders * geometry->heads); track++) {
-		for (sector=0; result && sector<geometry->sectors; sector++) {
+	for (track = 0; result && track < (UINT)(geometry->cylinders * geometry->heads); track++) {
+		for (sector = 0; result && sector < geometry->sectors; sector++) {
 			ZeroMemory(&d88sec, sizeof(d88sec));
 			d88sec.c = (BYTE)(track / geometry->heads);
 			d88sec.h = (BYTE)(track % geometry->heads);
@@ -157,12 +138,10 @@ BOOL newdisk_fdd_msdos_ex(const char *fname, UINT format, UINT container) {
 			STOREINTELWORD(d88sec.sectors, geometry->sectors);
 			STOREINTELWORD(d88sec.size, geometry->sector_size);
 			if (container == NEWDISK_FDD_CONTAINER_D88) {
-				result = (file_write(fh, &d88sec, sizeof(d88sec)) ==
-												sizeof(d88sec));
+				result = (file_write(fh, &d88sec, sizeof(d88sec)) == sizeof(d88sec));
 			}
 			if (result) {
-				result = newdisk_fdd_msdos_sector(fh, geometry,
-										logical_sector, work);
+				result = newdisk_fdd_msdos_sector(fh, geometry, logical_sector, work);
 			}
 			logical_sector++;
 		}
@@ -170,40 +149,35 @@ BOOL newdisk_fdd_msdos_ex(const char *fname, UINT format, UINT container) {
 	file_close(fh);
 	if ((!result) || (logical_sector != total_sectors)) {
 		file_delete(fname);
-		return(FAILURE);
+		return (FAILURE);
 	}
-	return(SUCCESS);
+	return (SUCCESS);
 }
 
 BOOL newdisk_fdd_msdos(const char *fname, UINT format) {
-
-	return(newdisk_fdd_msdos_ex(fname, format,
-								NEWDISK_FDD_CONTAINER_D88));
+	return (newdisk_fdd_msdos_ex(fname, format, NEWDISK_FDD_CONTAINER_D88));
 }
-
 
 // ---- hdd
 
 static BOOL writezero(FILEH fh, UINT size) {
-
-	BYTE	work[256];
-	UINT	wsize;
+	BYTE work[256];
+	UINT wsize;
 
 	ZeroMemory(work, sizeof(work));
-	while(size) {
+	while (size) {
 		wsize = min(size, sizeof(work));
 		if (file_write(fh, work, wsize) != wsize) {
-			return(FAILURE);
+			return (FAILURE);
 		}
 		size -= wsize;
 	}
-	return(SUCCESS);
+	return (SUCCESS);
 }
 
 static BOOL writehddipl(FILEH fh, UINT ssize, UINT32 tsize) {
-
-	BYTE	work[1024];
-	UINT	size;
+	BYTE work[1024];
+	UINT size;
 
 	ZeroMemory(work, sizeof(work));
 	CopyMemory(work, hdddiskboot, sizeof(hdddiskboot));
@@ -212,71 +186,65 @@ static BOOL writehddipl(FILEH fh, UINT ssize, UINT32 tsize) {
 		work[ssize - 1] = 0xaa;
 	}
 	if (file_write(fh, work, sizeof(work)) != sizeof(work)) {
-		return(FAILURE);
+		return (FAILURE);
 	}
 	if (tsize > sizeof(work)) {
 		tsize -= sizeof(work);
 		ZeroMemory(work, sizeof(work));
-		while(tsize) {
+		while (tsize) {
 			size = min(tsize, sizeof(work));
 			tsize -= size;
 			if (file_write(fh, work, size) != size) {
-				return(FAILURE);
+				return (FAILURE);
 			}
 		}
 	}
-	return(SUCCESS);
+	return (SUCCESS);
 }
 
-BOOL newdisk_vhd_create(const char *fname, UINT64 block_count,
-						UINT16 block_size, BOOL force) {
-
-	VHDHDR	vhd;
-	FILEH	fh;
-	char	temp[MAX_PATH];
-	UINT64	max_u64;
-	UINT64	capacity;
-	UINT64	expected_size;
-	UINT64	mb_size;
-	UINT64	cylinders;
-	UINT32	totals;
-	BOOL	ok;
+BOOL newdisk_vhd_create(const char *fname, UINT64 block_count, UINT16 block_size, BOOL force) {
+	VHDHDR vhd;
+	FILEH fh;
+	char temp[MAX_PATH];
+	UINT64 max_u64;
+	UINT64 capacity;
+	UINT64 expected_size;
+	UINT64 mb_size;
+	UINT64 cylinders;
+	UINT32 totals;
+	BOOL ok;
 
 	max_u64 = (UINT64)-1;
-	if ((fname == NULL) || (fname[0] == '\0') ||
-		(block_count == 0) || (block_size == 0) ||
-		(block_count > (max_u64 / block_size)) ||
-		(block_count > 0xffffffffULL) ||
-		(block_size > 1024) || ((block_size & (block_size - 1)) != 0) ||
-		(block_size != 256 && block_size != 512 && block_size != 1024) ||
-		(block_count % (32 * 8) != 0)) {
-		return(FAILURE);
+	if ((fname == NULL) || (fname[0] == '\0') || (block_count == 0) || (block_size == 0) ||
+	    (block_count > (max_u64 / block_size)) || (block_count > 0xffffffffULL) ||
+	    (block_size > 1024) || ((block_size & (block_size - 1)) != 0) ||
+	    (block_size != 256 && block_size != 512 && block_size != 1024) ||
+	    (block_count % (32 * 8) != 0)) {
+		return (FAILURE);
 	}
 	capacity = block_count * block_size;
 	if ((capacity == 0) || (capacity % (1024ULL * 1024ULL) != 0)) {
-		return(FAILURE);
+		return (FAILURE);
 	}
 	mb_size = capacity / (1024ULL * 1024ULL);
 	cylinders = block_count / (32 * 8);
-	if ((mb_size > 0xffffULL) || (cylinders == 0) ||
-		(cylinders > 0xffffULL) ||
-		(capacity > max_u64 - sizeof(VHDHDR))) {
-		return(FAILURE);
+	if ((mb_size > 0xffffULL) || (cylinders == 0) || (cylinders > 0xffffULL) ||
+	    (capacity > max_u64 - sizeof(VHDHDR))) {
+		return (FAILURE);
 	}
 	expected_size = sizeof(VHDHDR) + capacity;
 	if (file_attr(fname) != (short)-1 && !force) {
-		return(FAILURE);
+		return (FAILURE);
 	}
-	if (snprintf(temp, sizeof(temp), "%s.tmp.hdd", fname) >=
-		(int)sizeof(temp)) {
-		return(FAILURE);
+	if (snprintf(temp, sizeof(temp), "%s.tmp.hdd", fname) >= (int)sizeof(temp)) {
+		return (FAILURE);
 	}
 	if (file_attr(temp) != (short)-1) {
-		return(FAILURE);
+		return (FAILURE);
 	}
 	fh = file_create(temp);
 	if (fh == FILEH_INVALID) {
-		return(FAILURE);
+		return (FAILURE);
 	}
 	ZeroMemory(&vhd, sizeof(vhd));
 	CopyMemory(&vhd.sig, sig_vhd, 7);
@@ -287,37 +255,34 @@ BOOL newdisk_vhd_create(const char *fname, UINT64 block_count,
 	STOREINTELWORD(vhd.cylinders, (UINT16)cylinders);
 	totals = (UINT32)block_count;
 	STOREINTELDWORD(vhd.totals, totals);
-	ok = (sizeof(vhd) == 220) &&
-		(file_write(fh, &vhd, sizeof(vhd)) == sizeof(vhd)) &&
-		(writehddipl(fh, block_size, 0) == SUCCESS) &&
-		(file_setsize(fh, expected_size) == 0) &&
-		(file_flush(fh) == 0);
+	ok = (sizeof(vhd) == 220) && (file_write(fh, &vhd, sizeof(vhd)) == sizeof(vhd)) &&
+	     (writehddipl(fh, block_size, 0) == SUCCESS) && (file_setsize(fh, expected_size) == 0) &&
+	     (file_flush(fh) == 0);
 	file_close(fh);
 	if (!ok || (sxsi_hddvalidate_scsi(temp) != SUCCESS)) {
 		file_delete(temp);
-		return(FAILURE);
+		return (FAILURE);
 	}
 	if (!force && (file_attr(fname) != (short)-1)) {
 		file_delete(temp);
-		return(FAILURE);
+		return (FAILURE);
 	}
 	if (file_rename_atomic(temp, fname, force) != 0) {
 		file_delete(temp);
-		return(FAILURE);
+		return (FAILURE);
 	}
 	if (sxsi_hddvalidate_scsi(fname) != SUCCESS) {
 		file_delete(fname);
-		return(FAILURE);
+		return (FAILURE);
 	}
-	return(SUCCESS);
+	return (SUCCESS);
 }
 
 void newdisk_thd(const char *fname, UINT hddsize) {
-
-	FILEH	fh;
-	BYTE	work[256];
-	UINT	size;
-	BOOL	r;
+	FILEH fh;
+	BYTE work[256];
+	UINT size;
+	BOOL r;
 
 	if ((fname == NULL) || (hddsize < 5) || (hddsize > 256)) {
 		goto ndthd_err;
@@ -341,11 +306,10 @@ ndthd_err:
 }
 
 void newdisk_nhd(const char *fname, UINT hddsize) {
-
-	FILEH	fh;
-	NHDHDR	nhd;
-	UINT	size;
-	BOOL	r;
+	FILEH fh;
+	NHDHDR nhd;
+	UINT size;
+	BOOL r;
 
 	if ((fname == NULL) || (hddsize < 5) || (hddsize > 512)) {
 		goto ndnhd_err;
@@ -375,12 +339,11 @@ ndnhd_err:
 
 // hddtype = 0:5MB / 1:10MB / 2:15MB / 4:20MB / 5:30MB / 6:40MB
 void newdisk_hdi(const char *fname, UINT hddtype) {
-
-const SASIHDD	*sasi;
-	FILEH		fh;
-	HDIHDR		hdi;
-	UINT32		size;
-	BOOL		r;
+	const SASIHDD *sasi;
+	FILEH fh;
+	HDIHDR hdi;
+	UINT32 size;
+	BOOL r;
 
 	hddtype &= 7;
 	if ((fname == NULL) || (hddtype == 7)) {
@@ -393,7 +356,7 @@ const SASIHDD	*sasi;
 	}
 	ZeroMemory(&hdi, sizeof(hdi));
 	size = 256 * sasi->sectors * sasi->surfaces * sasi->cylinders;
-//	STOREINTELDWORD(hdi.hddtype, 0);
+	//	STOREINTELDWORD(hdi.hddtype, 0);
 	STOREINTELDWORD(hdi.headersize, 4096);
 	STOREINTELDWORD(hdi.hddsize, size);
 	STOREINTELDWORD(hdi.sectorsize, 256);
@@ -413,7 +376,6 @@ ndhdi_err:
 }
 
 void newdisk_vhd(const char *fname, UINT hddsize) {
-
 	UINT64 block_count;
 
 	if ((hddsize < 2) || (hddsize > 512)) {

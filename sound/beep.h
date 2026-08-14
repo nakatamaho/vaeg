@@ -1,44 +1,43 @@
 
 
 enum {
-	BEEPEVENT_MAXBIT	= 8,
-	BEEPEVENT_MAX		= (1 << BEEPEVENT_MAXBIT)
+	BEEPEVENT_MAXBIT = 8,
+	BEEPEVENT_MAX = (1 << BEEPEVENT_MAXBIT)
 };
 
 typedef struct {
-	SINT32	clock;
-	int		enable;
+	SINT32 clock;
+	int enable;
 } BPEVENT;
 
 typedef struct {
-	UINT16	cnt;
-	UINT16	hz;
-	int		buz;
-	int		__puchi;
-	BYTE	mode;
-	BYTE	padding[3];
+	UINT16 cnt;
+	UINT16 hz;
+	int buz;
+	int __puchi;
+	BYTE mode;
+	BYTE padding[3];
 
-	int		low;
-	int		enable;
-	int		lastenable;
-	SINT32	clock;
-	UINT	events;
-	BPEVENT	event[BEEPEVENT_MAX];
+	int low;
+	int enable;
+	int lastenable;
+	SINT32 clock;
+	UINT events;
+	BPEVENT event[BEEPEVENT_MAX];
 } _BEEP, *BEEP;
 
 typedef struct {
-	UINT	rate;
-	UINT	vol;
-	UINT	__puchibase;
-	UINT	samplebase;
+	UINT rate;
+	UINT vol;
+	UINT __puchibase;
+	UINT samplebase;
 } BEEPCFG;
-
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-extern	_BEEP		beep;
+extern _BEEP beep;
 
 void beep_initialize(UINT rate);
 void beep_deinitialize(void);

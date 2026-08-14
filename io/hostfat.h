@@ -50,8 +50,8 @@ extern "C" {
 #endif
 
 BOOL hostfat_mount_image(const void *image, UINT32 size);
-BOOL hostfat_prepare_image(const void *image, UINT32 size,
-		HOSTFAT_PREPARED_IMAGE **prepared, UINT32 *digest);
+BOOL hostfat_prepare_image(const void *image, UINT32 size, HOSTFAT_PREPARED_IMAGE **prepared,
+                           UINT32 *digest);
 BOOL hostfat_commit_prepared_image(HOSTFAT_PREPARED_IMAGE *prepared);
 void hostfat_destroy_prepared_image(HOSTFAT_PREPARED_IMAGE *prepared);
 void hostfat_unmount(void);

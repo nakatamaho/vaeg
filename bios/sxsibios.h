@@ -1,7 +1,7 @@
 
 enum {
-	SXSIBIOS_SASI		= 0,
-	SXSIBIOS_SCSI		= 2
+	SXSIBIOS_SASI = 0,
+	SXSIBIOS_SCSI = 2
 };
 
 #ifdef __cplusplus

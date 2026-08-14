@@ -2,25 +2,25 @@
  * makesprva.c: PC-88VA Sprite
  */
 
-#include	"compiler.h"
+#include "compiler.h"
 //#include	"cpucore.h"
 //#include	"machine/pccore.h"
 //#include	"iocore.h"
 //#include	"vram.h"
 //#include	"scrnmng.h"
-#include	"scrndraw.h"
+#include "scrndraw.h"
 //#include	"scrndrawva.h"
 //#include	"dispsync.h"
 
-#include	"memoryva.h"
-#include	"tsp.h"
-#include	"makesprva.h"
+#include "memoryva.h"
+#include "tsp.h"
+#include "makesprva.h"
 
 enum {
-	SPRVA_SPRS		= 0x20,
-	SPRVA_MAXWIDTH	= 0x400,
+	SPRVA_SPRS = 0x20,
+	SPRVA_MAXWIDTH = 0x400,
 
-	TEXTSPR_WIDTH	= SPRVA_MAXWIDTH,
+	TEXTSPR_WIDTH = SPRVA_MAXWIDTH,
 };
 
 /*
@@ -31,44 +31,42 @@ typedef struct {
 */
 
 typedef struct {
-	BOOL	sw;					// 表示スイッチ
-	UINT16	vlines;				// 垂直サイズ(ライン)
-	UINT16	yp;					// 垂直表示位置
+	BOOL sw;       // 表示スイッチ
+	UINT16 vlines; // 垂直サイズ(ライン)
+	UINT16 yp;     // 垂直表示位置
 
-	UINT32	spda;				// 次回表示データ(TVRAM先頭からの相対アドレス)
+	UINT32 spda; // 次回表示データ(TVRAM先頭からの相対アドレス)
 } _SPRVA, *SPRVA;
 
 typedef struct {
-	UINT	screeny;			// 現在処理中のラスタ(画面共通の座標系で)
-	UINT	y;					// 現在処理中のラスタ(スプライトの座標系で)
-	_SPRVA	_spr[SPRVA_SPRS];
+	UINT screeny; // 現在処理中のラスタ(画面共通の座標系で)
+	UINT y;       // 現在処理中のラスタ(スプライトの座標系で)
+	_SPRVA _spr[SPRVA_SPRS];
 } _SPRVAWORK;
 
 //static	_TSP	tsp;
-static	_SPRVAWORK	work;
+static _SPRVAWORK work;
 //		BYTE sprraster[SURFACE_WIDTH];
-		BYTE sprraster[TEXTSPR_WIDTH];
-											// 1ラスタ分のピクセルデータ
-											// 各ピクセルはパレット番号(0～15)
+BYTE sprraster[TEXTSPR_WIDTH];
+// 1ラスタ分のピクセルデータ
+// 各ピクセルはパレット番号(0～15)
 
 void makesprva_initialize(void) {
-/*
+	/*
 	tsp.sprtable = 0x7e00;
 */
 }
 
-
-
 static void drawraster(SPRVA s, BYTE *sprinfo) {
 	WORD d;
 	int bitcount;
-//	int bytecount;
-	UINT16	xbytes;		// スプライトの幅(バイト)
-	UINT16	xp;			// 水平座標
-	UINT8	fg;			// フォアグラウンドカラー
-	UINT8	bg;			// バックグラウンドカラー
-	BOOL	md;			// モノクロモード
-	BYTE	*sprdata;	// スプライトデータ
+	//	int bytecount;
+	UINT16 xbytes; // スプライトの幅(バイト)
+	UINT16 xp;     // 水平座標
+	UINT8 fg;      // フォアグラウンドカラー
+	UINT8 bg;      // バックグラウンドカラー
+	BOOL md;       // モノクロモード
+	BYTE *sprdata; // スプライトデータ
 
 	d = LOADINTELWORD(sprinfo + 2);
 	xbytes = ((d >> 11) + 1) * 4;
@@ -92,29 +90,30 @@ static void drawraster(SPRVA s, BYTE *sprinfo) {
 					xp = (xp + 1) & 0x3ff;
 				}
 			}
-		}
-		else {
+		} else {
 			// モノクロ 背景透明
 			for (; xbytes > 0; xbytes--) {
 				d = *sprdata;
 				sprdata++;
 				for (bitcount = 0; bitcount < 8; bitcount++) {
-					if (d & 0x80) sprraster[xp] = fg;
+					if (d & 0x80)
+						sprraster[xp] = fg;
 					d <<= 1;
 					xp = (xp + 1) & 0x3ff;
 				}
 			}
 		}
-	}
-	else {
+	} else {
 		// 16色
 		for (; xbytes > 0; xbytes--) {
 			d = *sprdata;
 			sprdata++;
 			// ToDo: 0以外の透明色の場合に重ねがきしないようにする
-			if (d & 0xf0) sprraster[xp] = d >> 4;
+			if (d & 0xf0)
+				sprraster[xp] = d >> 4;
 			xp = (xp + 1) & 0x3ff;
-			if (d &= 0x0f) sprraster[xp] = (BYTE)d;
+			if (d &= 0x0f)
+				sprraster[xp] = (BYTE)d;
 			xp = (xp + 1) & 0x3ff;
 		}
 	}
@@ -192,8 +191,10 @@ void makesprva_begin(void) {
 		d = LOADINTELWORD(sprinfo + 4);
 
 		// TSPアドレスをTVRAM先頭からの相対バイトアドレスに変換
-		if (d & 0x8000) d = (d << 1) + 0x8000;
-		else d <<= 1;
+		if (d & 0x8000)
+			d = (d << 1) + 0x8000;
+		else
+			d <<= 1;
 		work._spr[i].spda = d;
 
 		// カーソルの点滅
@@ -217,8 +218,7 @@ void makesprva_raster(void) {
 
 	mg = tsp.mg && !((tsp.syncparam[0] & 0xc0) == 0x40);
 
-	if (!mg || (work.screeny & 1) == 0) { 
-
+	if (!mg || (work.screeny & 1) == 0) {
 		ZeroMemory(sprraster, sizeof(sprraster));
 		sprinfo = textmem + tsp.sprtable + SPRVA_SPRS * 8;
 		s = &work._spr[SPRVA_SPRS];
@@ -226,15 +226,12 @@ void makesprva_raster(void) {
 			s--;
 			sprinfo -= 8;
 
-			if (s->sw && ((work.y - s->yp) & 0x01ff) < s->vlines ) {
-
+			if (s->sw && ((work.y - s->yp) & 0x01ff) < s->vlines) {
 				drawraster(s, sprinfo);
 			}
-		
 		}
 
 		work.y++;
 	}
 	work.screeny++;
-
 }

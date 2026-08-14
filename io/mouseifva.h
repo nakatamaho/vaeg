@@ -3,16 +3,16 @@
  */
 
 typedef struct {
-	UINT8	state;
-	UINT8	laststrobe;
+	UINT8 state;
+	UINT8 laststrobe;
 } _MOUSEIFVA, *MOUSEIFVA;
 
 typedef struct {
-	UINT8	device;				// マウスポートに接続されている装置
+	UINT8 device; // マウスポートに接続されている装置
 } _MOUSEIFVACFG, *MOUSEIFVACFG;
 
 enum {
-	MOUSEIFVA_JOYPAD	= 0,
+	MOUSEIFVA_JOYPAD = 0,
 	MOUSEIFVA_MOUSE,
 };
 
@@ -20,8 +20,8 @@ enum {
 extern "C" {
 #endif
 
-extern	_MOUSEIFVA		mouseifva;
-extern	_MOUSEIFVACFG	mouseifvacfg;
+extern _MOUSEIFVA mouseifva;
+extern _MOUSEIFVACFG mouseifvacfg;
 
 void mouseifva_reset(void);
 void mouseifva_bind(void);
@@ -33,8 +33,6 @@ void mouseva_outstrobe(UINT8 strobe);
 void mouseva_indata(UINT8 *data, UINT8 *button);
 void joypad_indata(UINT8 *data, UINT8 *button);
 
-
 #ifdef __cplusplus
 }
 #endif
-

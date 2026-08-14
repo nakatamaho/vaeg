@@ -21,7 +21,6 @@ REG8 scsicmd_phase_service_status(UINT phase);
 REG8 scsicmd_phase_unexpected_status(UINT phase);
 BOOL scsicmd_phase_host_to_spc(UINT phase);
 
-
 void scsicmd_bios(void);
 
 #ifdef __cplusplus

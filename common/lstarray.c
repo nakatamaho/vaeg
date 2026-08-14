@@ -1,10 +1,8 @@
-#include	"compiler.h"
-
+#include "compiler.h"
 
 LISTARRAY listarray_new(size_t listsize, UINT maxitems) {
-
-	LISTARRAY	laRet = NULL;
-	UINT		dwSize;
+	LISTARRAY laRet = NULL;
+	UINT dwSize;
 
 	listsize = (listsize + 3) & (~3);
 	dwSize = sizeof(_LISTARRAY);
@@ -24,22 +22,20 @@ LISTARRAY listarray_new(size_t listsize, UINT maxitems) {
 		laRet->maxitems = maxitems;
 		laRet->listsize = listsize;
 	}
-	return(laRet);
+	return (laRet);
 }
 
 void listarray_clr(LISTARRAY laHandle) {
-
-	while(laHandle) {
+	while (laHandle) {
 		laHandle->items = 0;
 		laHandle = laHandle->laNext;
 	}
 }
 
 void listarray_destroy(LISTARRAY laHandle) {
+	LISTARRAY laNext;
 
-	LISTARRAY	laNext;
-
-	while(laHandle) {
+	while (laHandle) {
 		laNext = laHandle->laNext;
 		_MFREE(laHandle);
 		laHandle = laNext;
@@ -47,27 +43,25 @@ void listarray_destroy(LISTARRAY laHandle) {
 }
 
 UINT listarray_getitems(LISTARRAY laHandle) {
-
-	UINT	dwRet;
+	UINT dwRet;
 
 	dwRet = 0;
-	while(laHandle) {
+	while (laHandle) {
 		dwRet += laHandle->items;
 		laHandle = laHandle->laNext;
 	}
-	return(dwRet);
+	return (dwRet);
 }
 
 void *listarray_append(LISTARRAY laHandle, const void *vpItem) {
-
-	LISTARRAY	laNext;
-	char		*p;
+	LISTARRAY laNext;
+	char *p;
 
 	if (laHandle == NULL) {
 		goto laapp_err;
 	}
 
-	while(laHandle->items >= laHandle->maxitems) {
+	while (laHandle->items >= laHandle->maxitems) {
 		laNext = laHandle->laNext;
 		if (laNext == NULL) {
 			laNext = listarray_new(laHandle->listsize, laHandle->maxitems);
@@ -82,63 +76,58 @@ void *listarray_append(LISTARRAY laHandle, const void *vpItem) {
 	p += laHandle->items * laHandle->listsize;
 	if (vpItem) {
 		CopyMemory(p, vpItem, laHandle->listsize);
-	}
-	else {
+	} else {
 		ZeroMemory(p, laHandle->listsize);
 	}
 	laHandle->items++;
-	return(p);
+	return (p);
 
 laapp_err:
-	return(NULL);
+	return (NULL);
 }
 
 void *listarray_getitem(LISTARRAY laHandle, UINT num) {
-
-	while(laHandle) {
+	while (laHandle) {
 		if (num < laHandle->items) {
-			return((char *)(laHandle + 1) + (laHandle->listsize * num));
+			return ((char *)(laHandle + 1) + (laHandle->listsize * num));
 		}
 		num -= laHandle->items;
 		laHandle = laHandle->laNext;
 	}
-	return(NULL);
+	return (NULL);
 }
 
 UINT listarray_getpos(LISTARRAY laHandle, void *vpItem) {
-
-	UINT	pos;
-	UINT	i;
+	UINT pos;
+	UINT i;
 
 	pos = 0;
-	while(laHandle) {
+	while (laHandle) {
 		char *p = (char *)(laHandle + 1);
-		for (i=0; i<laHandle->items; i++) {
+		for (i = 0; i < laHandle->items; i++) {
 			if (p == (char *)vpItem) {
-				return(pos + i);
+				return (pos + i);
 			}
 			p += laHandle->listsize;
 		}
 		pos += laHandle->items;
 		laHandle = laHandle->laNext;
 	}
-	return((UINT)-1);
+	return ((UINT)-1);
 }
 
-void *listarray_enum(LISTARRAY laHandle,
-				BOOL (*cbProc)(void *vpItem, void *vpArg), void *vpArg) {
-
-	UINT	i;
+void *listarray_enum(LISTARRAY laHandle, BOOL (*cbProc)(void *vpItem, void *vpArg), void *vpArg) {
+	UINT i;
 
 	if (cbProc == NULL) {
 		goto laenum_end;
 	}
 
-	while(laHandle) {
+	while (laHandle) {
 		char *p = (char *)(laHandle + 1);
-		for (i=0; i<laHandle->items; i++) {
+		for (i = 0; i < laHandle->items; i++) {
 			if (cbProc((void *)p, vpArg)) {
-				return((void *)p);
+				return ((void *)p);
 			}
 			p += laHandle->listsize;
 		}
@@ -146,5 +135,5 @@ void *listarray_enum(LISTARRAY laHandle,
 	}
 
 laenum_end:
-	return(NULL);
+	return (NULL);
 }

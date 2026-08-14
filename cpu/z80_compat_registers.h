@@ -29,24 +29,24 @@
 #include <cstdint>
 
 struct UPD780Reg {
-    std::uint16_t af;
-    std::uint16_t hl;
-    std::uint16_t de;
-    std::uint16_t bc;
-    std::uint16_t ix;
-    std::uint16_t iy;
-    std::uint16_t sp;
-    std::uint16_t r_af;
-    std::uint16_t r_hl;
-    std::uint16_t r_de;
-    std::uint16_t r_bc;
-    std::uint16_t pc;
-    std::uint8_t ireg;
-    std::uint8_t rreg;
-    std::uint8_t rreg7;
-    std::uint8_t intmode;
-    bool iff1;
-    bool iff2;
+	std::uint16_t af;
+	std::uint16_t hl;
+	std::uint16_t de;
+	std::uint16_t bc;
+	std::uint16_t ix;
+	std::uint16_t iy;
+	std::uint16_t sp;
+	std::uint16_t r_af;
+	std::uint16_t r_hl;
+	std::uint16_t r_de;
+	std::uint16_t r_bc;
+	std::uint16_t pc;
+	std::uint8_t ireg;
+	std::uint8_t rreg;
+	std::uint8_t rreg7;
+	std::uint8_t intmode;
+	bool iff1;
+	bool iff2;
 };
 
 using Z80CompatReg = UPD780Reg;

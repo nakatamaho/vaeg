@@ -1,76 +1,75 @@
 
 enum {
-	NEVENT_MAXCLOCK		= 0x400000,
+	NEVENT_MAXCLOCK = 0x400000,
 
-	NEVENT_FLAMES		= 0,
-	NEVENT_ITIMER		= 1,
-	NEVENT_BEEP			= 2,
-	NEVENT_RS232C		= 3,
+	NEVENT_FLAMES = 0,
+	NEVENT_ITIMER = 1,
+	NEVENT_BEEP = 2,
+	NEVENT_RS232C = 3,
 	/* 4: retired music-generator event; preserve subsequent IDs. */
-	NEVENT_FMTIMERA		= 5,
-	NEVENT_FMTIMERB		= 6,
-		NEVENT_FMTIMER2A	= 7,
-		NEVENT_FMTIMER2B	= 8,
-		NEVENT_FMTIMER3A	= 9,
-		NEVENT_FMTIMER3B	= 10,
-		NEVENT_FMTIMER4A	= 11,
-		NEVENT_FMTIMER4B	= 12,
-	NEVENT_MOUSE		= 13,
-	NEVENT_KEYBOARD		= 14,
-	NEVENT_MIDIWAIT		= 15,
-	NEVENT_MIDIINT		= 16,
-	NEVENT_PICMASK		= 17,
-	NEVENT_S98TIMER		= 18,
+	NEVENT_FMTIMERA = 5,
+	NEVENT_FMTIMERB = 6,
+	NEVENT_FMTIMER2A = 7,
+	NEVENT_FMTIMER2B = 8,
+	NEVENT_FMTIMER3A = 9,
+	NEVENT_FMTIMER3B = 10,
+	NEVENT_FMTIMER4A = 11,
+	NEVENT_FMTIMER4B = 12,
+	NEVENT_MOUSE = 13,
+	NEVENT_KEYBOARD = 14,
+	NEVENT_MIDIWAIT = 15,
+	NEVENT_MIDIINT = 16,
+	NEVENT_PICMASK = 17,
+	NEVENT_S98TIMER = 18,
 	/* 19: retired CS4231 event; preserve subsequent event numbers. */
 	/* 20: retired non-VA GDC slave event; preserve later IDs. */
-	NEVENT_GDCSLAVE		= 20,
-	NEVENT_FDBIOSBUSY	= 21,
-	NEVENT_FDCINT		= 22,
+	NEVENT_GDCSLAVE = 20,
+	NEVENT_FDBIOSBUSY = 21,
+	NEVENT_FDCINT = 22,
 	/* 25: retired PCM86 event; preserve subsequent event numbers. */
-	NEVENT_SASIIO		= 26,
-	NEVENT_SCSIIO		= 27,
-	NEVENT_FDCTIMER		= 28,
-	NEVENT_FDDMOTOR		= 29,
-	NEVENT_SCSIWATCHDOG	= 30,
-	NEVENT_FDCSTATE		= 31,
+	NEVENT_SASIIO = 26,
+	NEVENT_SCSIIO = 27,
+	NEVENT_FDCTIMER = 28,
+	NEVENT_FDDMOTOR = 29,
+	NEVENT_SCSIWATCHDOG = 30,
+	NEVENT_FDCSTATE = 31,
 
-	NEVENT_FLAMES2		= 47,
+	NEVENT_FLAMES2 = 47,
 	NEVENT_MAXEVENTS,
 
-	NEVENT_ENABLE		= 0x0001,
-	NEVENT_SETEVENT		= 0x0002,
-	NEVENT_WAIT			= 0x0004,
+	NEVENT_ENABLE = 0x0001,
+	NEVENT_SETEVENT = 0x0002,
+	NEVENT_WAIT = 0x0004,
 
-	NEVENT_RELATIVE		= 0,
-	NEVENT_ABSOLUTE		= 1
+	NEVENT_RELATIVE = 0,
+	NEVENT_ABSOLUTE = 1
 };
 
 struct _neventitem;
-typedef	struct _neventitem	_NEVENTITEM;
-typedef	struct _neventitem	*NEVENTITEM;
+typedef struct _neventitem _NEVENTITEM;
+typedef struct _neventitem *NEVENTITEM;
 typedef void (*NEVENTCB)(NEVENTITEM item);
 
 struct _neventitem {
-	SINT32		clock;
-	UINT32		flag;
-	NEVENTCB	proc;
-	UINT32		param;
+	SINT32 clock;
+	UINT32 flag;
+	NEVENTCB proc;
+	UINT32 param;
 };
 
 typedef struct {
-	UINT		readyevents;
-	UINT		waitevents;
-	UINT		level[NEVENT_MAXEVENTS];
-	UINT		waitevent[NEVENT_MAXEVENTS];
-	_NEVENTITEM	item[NEVENT_MAXEVENTS];
+	UINT readyevents;
+	UINT waitevents;
+	UINT level[NEVENT_MAXEVENTS];
+	UINT waitevent[NEVENT_MAXEVENTS];
+	_NEVENTITEM item[NEVENT_MAXEVENTS];
 } _NEVENT, *NEVENT;
-
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-extern	_NEVENT		nevent;
+extern _NEVENT nevent;
 
 // 初期化
 void nevent_allreset(void);

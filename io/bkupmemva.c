@@ -4,16 +4,13 @@
  *		ファイル読み書き失敗時のエラー通知
  */
 
-
-#include	"compiler.h"
-#include	"dosio.h"
-#include	"cpucore.h"
-#include	"machine/pccore.h"
-#include	"iocore.h"
-#include	"memoryva.h"
-#include	"bkupmemva.h"
-
-
+#include "compiler.h"
+#include "dosio.h"
+#include "cpucore.h"
+#include "machine/pccore.h"
+#include "iocore.h"
+#include "memoryva.h"
+#include "bkupmemva.h"
 
 #define VABKUPMEM "vabkupmem.dat"
 
@@ -21,32 +18,27 @@ static char bkupmemva_path[MAX_PATH];
 static BOOL bkupmemva_enabled = TRUE;
 
 void bkupmemva_setpath(const char *path) {
-
-	file_cpyname(bkupmemva_path, (path != NULL) ? path : "",
-											sizeof(bkupmemva_path));
+	file_cpyname(bkupmemva_path, (path != NULL) ? path : "", sizeof(bkupmemva_path));
 }
 
 void bkupmemva_setenabled(BOOL enabled) {
-
 	bkupmemva_enabled = enabled ? TRUE : FALSE;
 }
 
 static BOOL bkupmemva_read(const char *path) {
-
-	FILEH	fh;
-	BOOL	ret;
+	FILEH fh;
+	BOOL ret;
 
 	fh = file_open_rb(path);
 	if (fh != FILEH_INVALID) {
 		ret = (file_read(fh, backupmem, 0x04000) == 0x04000);
 		file_close(fh);
-		return(ret);
+		return (ret);
 	}
-	return(FAILURE);
+	return (FAILURE);
 }
 
 static void bkupmemva_statepath(char *path, int size) {
-
 	if (bkupmemva_path[0] != '\0') {
 		file_cpyname(path, bkupmemva_path, size);
 		return;
@@ -55,7 +47,7 @@ static void bkupmemva_statepath(char *path, int size) {
 }
 
 void bkupmemva_load(void) {
-	char	path[MAX_PATH];
+	char path[MAX_PATH];
 
 	if (!bkupmemva_enabled) {
 		return;
@@ -65,8 +57,8 @@ void bkupmemva_load(void) {
 }
 
 void bkupmemva_save(void) {
-	char	path[MAX_PATH];
-	FILEH	fh;
+	char path[MAX_PATH];
+	FILEH fh;
 
 	if (!bkupmemva_enabled) {
 		return;
@@ -77,5 +69,4 @@ void bkupmemva_save(void) {
 		(void)file_write(fh, backupmem, 0x04000);
 		file_close(fh);
 	}
-
 }

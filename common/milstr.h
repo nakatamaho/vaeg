@@ -37,7 +37,6 @@ void milutf8_ncat(char *dst, const char *src, int maxlen);
 char *milsjis_chr(const char *str, int c);
 char *milutf8_chr(const char *str, int c);
 
-
 // 0~9, A~Z のみを大文字小文字を同一視して比較
 // ret 0:一致
 int milstr_extendcmp(const OEMCHAR *str, const OEMCHAR *cmp);
@@ -61,14 +60,13 @@ OEMCHAR *milstr_list(const OEMCHAR *lststr, UINT pos);
 }
 #endif
 
-
 // ---- macros
 
-#define milstr_charsize(s)		milutf8_charsize(s)
-#define	milstr_cmp(s, c)		milutf8_cmp(s, c)
-#define	milstr_memcmp(s, c)		milutf8_memcmp(s, c)
-#define	milstr_kanji1st(s, p)	milutf8_kanji1st(s, p)
-#define	milstr_kanji2nd(s, p)	milutf8_kanji2nd(s, p)
-#define	milstr_ncpy(d, s, l)	milutf8_ncpy(d, s, l)
-#define	milstr_ncat(d, s, l)	milutf8_ncat(d, s, l)
-#define	milstr_chr(s, c)		milutf8_chr(s, c)
+#define milstr_charsize(s) milutf8_charsize(s)
+#define milstr_cmp(s, c) milutf8_cmp(s, c)
+#define milstr_memcmp(s, c) milutf8_memcmp(s, c)
+#define milstr_kanji1st(s, p) milutf8_kanji1st(s, p)
+#define milstr_kanji2nd(s, p) milutf8_kanji2nd(s, p)
+#define milstr_ncpy(d, s, l) milutf8_ncpy(d, s, l)
+#define milstr_ncat(d, s, l) milutf8_ncat(d, s, l)
+#define milstr_chr(s, c) milutf8_chr(s, c)

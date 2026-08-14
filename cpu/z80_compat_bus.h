@@ -45,24 +45,23 @@
 #endif
 
 struct IMemoryAccess {
-    virtual std::uint32_t IFCALL Read8(std::uint32_t address) = 0;
-    virtual void IFCALL Write8(std::uint32_t address,
-                               std::uint32_t data) = 0;
+	virtual std::uint32_t IFCALL Read8(std::uint32_t address) = 0;
+	virtual void IFCALL Write8(std::uint32_t address, std::uint32_t data) = 0;
 };
 
 struct IIOAccess {
-    virtual std::uint32_t IFCALL In(std::uint32_t port) = 0;
-    virtual void IFCALL Out(std::uint32_t port, std::uint32_t data) = 0;
+	virtual std::uint32_t IFCALL In(std::uint32_t port) = 0;
+	virtual void IFCALL Out(std::uint32_t port, std::uint32_t data) = 0;
 };
 
 struct IClock {
-    virtual std::uint32_t IFCALL now() = 0;
+	virtual std::uint32_t IFCALL now() = 0;
 };
 
 struct IClockCounter {
-    virtual void IFCALL past(std::int32_t clocks) = 0;
-    virtual std::int32_t IFCALL GetRemainclock() = 0;
-    virtual void IFCALL SetRemainclock(std::int32_t clocks) = 0;
+	virtual void IFCALL past(std::int32_t clocks) = 0;
+	virtual std::int32_t IFCALL GetRemainclock() = 0;
+	virtual void IFCALL SetRemainclock(std::int32_t clocks) = 0;
 };
 
 #endif

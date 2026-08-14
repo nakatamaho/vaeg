@@ -1,14 +1,13 @@
-#include	"compiler.h"
-#include	"dosio.h"
-#include	"machine/pccore.h"
-#include	"iocore.h"
-#include	"fddfile.h"
-#include	"fdd_xdf.h"
-
+#include "compiler.h"
+#include "dosio.h"
+#include "machine/pccore.h"
+#include "iocore.h"
+#include "fddfile.h"
+#include "fdd_xdf.h"
 
 static const _XDFINFO supportxdf[] = {
-			// 640KB, 512
-			{0, 160,  8, 2, DISKTYPE_2DD, 0},
+    // 640KB, 512
+    {0, 160, 8, 2, DISKTYPE_2DD, 0},
 #if 0
 			// 256
 			{0, 154, 26, 1, DISKTYPE_2HD, 0},
@@ -16,84 +15,81 @@ static const _XDFINFO supportxdf[] = {
 			{0, 154, 15, 2, DISKTYPE_2HD, 0},
 #endif
 #if 1
-			// 512
-			{0, 160, 15, 2, DISKTYPE_2HD, 0},
+    // 512
+    {0, 160, 15, 2, DISKTYPE_2HD, 0},
 #endif
-			// 1024
-			{0, 154,  8, 3, DISKTYPE_2HD, 0},
-			// 1.44MB
-			{0, 160, 18, 2, DISKTYPE_2HD, 1},
+    // 1024
+    {0, 154, 8, 3, DISKTYPE_2HD, 0},
+    // 1.44MB
+    {0, 160, 18, 2, DISKTYPE_2HD, 1},
 };
 
 typedef struct {
-	BYTE	dummy[4];
-	BYTE	fddtype[4];
-	BYTE	headersize[4];
-	BYTE	fddsize[4];
-	BYTE	sectorsize[4];
-	BYTE	sectors[4];
-	BYTE	surfaces[4];
-	BYTE	cylinders[4];
+	BYTE dummy[4];
+	BYTE fddtype[4];
+	BYTE headersize[4];
+	BYTE fddsize[4];
+	BYTE sectorsize[4];
+	BYTE sectors[4];
+	BYTE surfaces[4];
+	BYTE cylinders[4];
 } FDIHDR;
 
-
 BOOL fddxdf_set(FDDFILE fdd, const char *fname, int ro) {
-
-const _XDFINFO	*xdf;
-	short		attr;
-	FILEH		fh;
-	UINT32		fdsize;
-	UINT		size;
+	const _XDFINFO *xdf;
+	short attr;
+	FILEH fh;
+	UINT32 fdsize;
+	UINT size;
 
 	attr = file_attr(fname);
 	if (attr & 0x18) {
-		return(FAILURE);
+		return (FAILURE);
 	}
 	fh = file_open(fname);
 	if (fh == FILEH_INVALID) {
-		return(FAILURE);
+		return (FAILURE);
 	}
 	fdsize = file_getsize(fh);
 	file_close(fh);
 
 	xdf = supportxdf;
-	while(xdf < (supportxdf + (sizeof(supportxdf)/sizeof(_XDFINFO)))) {
+	while (xdf < (supportxdf + (sizeof(supportxdf) / sizeof(_XDFINFO)))) {
 		size = xdf->tracks;
 		size *= xdf->sectors;
 		size <<= (7 + xdf->n);
 		if (size == fdsize) {
 			file_cpyname(fdd->fname, fname, sizeof(fdd->fname));
 			fdd->type = DISKTYPE_BETA;
-			fdd->protect = ((attr & 1) || (ro))?TRUE:FALSE;
+			fdd->protect = ((attr & 1) || (ro)) ? TRUE : FALSE;
 			fdd->inf.xdf = *xdf;
-			return(SUCCESS);
+			return (SUCCESS);
 		}
 		xdf++;
 	}
-	return(FAILURE);
+	return (FAILURE);
 }
 
 // こっそり対応したりして
 BOOL fddxdf_setfdi(FDDFILE fdd, const char *fname, int ro) {
-
-	short	attr;
-	FILEH	fh;
-	UINT32	fdsize;
-	UINT	r;
-	FDIHDR	fdi;
-	UINT32	fddtype;
-	UINT32	headersize;
-	UINT32	size;
-	UINT32	sectors;
-	UINT32	surfaces;
-	UINT32	cylinders;
-	UINT8	n;
-	UINT8	disktype;
-	UINT8	rpm;
+	short attr;
+	FILEH fh;
+	UINT32 fdsize;
+	UINT r;
+	FDIHDR fdi;
+	UINT32 fddtype;
+	UINT32 headersize;
+	UINT32 size;
+	UINT32 sectors;
+	UINT32 surfaces;
+	UINT32 cylinders;
+	UINT8 n;
+	UINT8 disktype;
+	UINT8 rpm;
 
 	attr = file_attr(fname);
 	if (attr & 0x18) {
-		return(FAILURE);
+		return (FAILURE);
 	}
 	fdsize = 0;
 	r = 0;
@@ -104,7 +100,7 @@ BOOL fddxdf_setfdi(FDDFILE fdd, const char *fname, int ro) {
 		file_close(fh);
 	}
 	if (r != sizeof(fdi)) {
-		return(FAILURE);
+		return (FAILURE);
 	}
 	fddtype = LOADINTELDWORD(fdi.fddtype);
 	headersize = LOADINTELDWORD(fdi.headersize);
@@ -112,119 +108,106 @@ BOOL fddxdf_setfdi(FDDFILE fdd, const char *fname, int ro) {
 	sectors = LOADINTELDWORD(fdi.sectors);
 	surfaces = LOADINTELDWORD(fdi.surfaces);
 	cylinders = LOADINTELDWORD(fdi.cylinders);
-	if (((size & (size - 1)) != 0) || (!(size & 0x7f80)) ||
-		(sectors == 0) || (sectors >= 256) ||
-		(surfaces != 2) ||
-		(cylinders == 0) || (cylinders >= 128)) {
-		return(FAILURE);
+	if (((size & (size - 1)) != 0) || (!(size & 0x7f80)) || (sectors == 0) || (sectors >= 256) ||
+	    (surfaces != 2) || (cylinders == 0) || (cylinders >= 128)) {
+		return (FAILURE);
 	}
 	if (fdsize != (headersize + (size * sectors * surfaces * cylinders))) {
-		return(FAILURE);
+		return (FAILURE);
 	}
 	size >>= 8;
 	n = 0;
-	while(size) {
+	while (size) {
 		size >>= 1;
 		n++;
 	}
 	disktype = DISKTYPE_2HD;
 	rpm = 0;
-	switch(fddtype & 0xf0) {
-		case 0x10:				// 1MB/640KB - 2DD
-		case 0x70:				// 640KB - 2DD
-		case 0xf0:
-			disktype = DISKTYPE_2DD;
-			break;
+	switch (fddtype & 0xf0) {
+	case 0x10: // 1MB/640KB - 2DD
+	case 0x70: // 640KB - 2DD
+	case 0xf0:
+		disktype = DISKTYPE_2DD;
+		break;
 
-		case 0x30:				// 1.44MB - 2HD
-		case 0xb0:
-			rpm = 1;
-			break;
+	case 0x30: // 1.44MB - 2HD
+	case 0xb0:
+		rpm = 1;
+		break;
 
-		case 0x50:				// 320KB - 2D
-		case 0xd0:				// 
-			disktype = DISKTYPE_2D;
-			break;
+	case 0x50: // 320KB - 2D
+	case 0xd0: //
+		disktype = DISKTYPE_2D;
+		break;
 
-		case 0x90:				// 2HD
-			break;
+	case 0x90: // 2HD
+		break;
 
-		default:
-			return(FAILURE);
+	default:
+		return (FAILURE);
 	}
 	file_cpyname(fdd->fname, fname, sizeof(fdd->fname));
 	fdd->type = DISKTYPE_BETA;
-	fdd->protect = ((attr & 1) || (ro))?TRUE:FALSE;
+	fdd->protect = ((attr & 1) || (ro)) ? TRUE : FALSE;
 	fdd->inf.xdf.headersize = headersize;
 	fdd->inf.xdf.tracks = (UINT8)(cylinders * 2);
 	fdd->inf.xdf.sectors = (UINT8)sectors;
 	fdd->inf.xdf.n = n;
 	fdd->inf.xdf.disktype = disktype;
 	fdd->inf.xdf.rpm = rpm;
-	return(SUCCESS);
+	return (SUCCESS);
 }
 
 BOOL fddxdf_eject(FDDFILE fdd) {
-
 	fdd->fname[0] = '\0';
 	fdd->type = DISKTYPE_NOTREADY;
-	return(SUCCESS);
+	return (SUCCESS);
 }
 
-
 BOOL fddxdf_diskaccess(FDDFILE fdd) {
-
-	if ((fdd->type != DISKTYPE_BETA) ||
-		(CTRL_FDMEDIA[fdc.us] != fdd->inf.xdf.disktype)) {
-		return(FAILURE);
+	if ((fdd->type != DISKTYPE_BETA) || (CTRL_FDMEDIA[fdc.us] != fdd->inf.xdf.disktype)) {
+		return (FAILURE);
 	}
-	return(SUCCESS);
+	return (SUCCESS);
 }
 
 BOOL fddxdf_seek(FDDFILE fdd) {
-
-	if ((fdd->type != DISKTYPE_BETA) ||
-		(CTRL_FDMEDIA[fdc.us] != fdd->inf.xdf.disktype) ||
-		(fdc.rpm[fdc.us] != fdd->inf.xdf.rpm) ||
-		(fdc.ncn >= (fdd->inf.xdf.tracks >> 1))) {
-		return(FAILURE);
+	if ((fdd->type != DISKTYPE_BETA) || (CTRL_FDMEDIA[fdc.us] != fdd->inf.xdf.disktype) ||
+	    (fdc.rpm[fdc.us] != fdd->inf.xdf.rpm) || (fdc.ncn >= (fdd->inf.xdf.tracks >> 1))) {
+		return (FAILURE);
 	}
-	return(SUCCESS);
+	return (SUCCESS);
 }
 
 BOOL fddxdf_seeksector(FDDFILE fdd) {
-
-	if ((fdd->type != DISKTYPE_BETA) ||
-		(CTRL_FDMEDIA[fdc.us] != fdd->inf.xdf.disktype) ||
-		(fdc.rpm[fdc.us] != fdd->inf.xdf.rpm) ||
-		(fdc.treg[fdc.us] >= (fdd->inf.xdf.tracks >> 1))) {
+	if ((fdd->type != DISKTYPE_BETA) || (CTRL_FDMEDIA[fdc.us] != fdd->inf.xdf.disktype) ||
+	    (fdc.rpm[fdc.us] != fdd->inf.xdf.rpm) || (fdc.treg[fdc.us] >= (fdd->inf.xdf.tracks >> 1))) {
 		fddlasterror = 0xe0;
-		return(FAILURE);
+		return (FAILURE);
 	}
 	if ((!fdc.R) || (fdc.R > fdd->inf.xdf.sectors)) {
 		fddlasterror = 0xc0;
-		return(FAILURE);
+		return (FAILURE);
 	}
 	if ((fdc.mf != 0xff) && (fdc.mf != 0x40)) {
 		fddlasterror = 0xc0;
-		return(FAILURE);
+		return (FAILURE);
 	}
-	return(SUCCESS);
+	return (SUCCESS);
 }
 
 BOOL fddxdf_read(FDDFILE fdd) {
-
-	FILEH	hdl;
-	long	seekp;
-	UINT	secsize;
+	FILEH hdl;
+	long seekp;
+	UINT secsize;
 
 	fddlasterror = 0x00;
 	if (fddxdf_seeksector(fdd)) {
-		return(FAILURE);
+		return (FAILURE);
 	}
 	if (fdc.N != fdd->inf.xdf.n) {
 		fddlasterror = 0xc0;
-		return(FAILURE);
+		return (FAILURE);
 	}
 
 	seekp = (fdc.treg[fdc.us] << 1) + fdc.hd;
@@ -237,38 +220,37 @@ BOOL fddxdf_read(FDDFILE fdd) {
 	hdl = file_open_rb(fdd->fname);
 	if (hdl == FILEH_INVALID) {
 		fddlasterror = 0xe0;
-		return(FAILURE);
+		return (FAILURE);
 	}
 	if ((file_seek(hdl, seekp, FSEEK_SET) != seekp) ||
-		(file_read(hdl, fdc.buf, secsize) != secsize)) {
+	    (file_read(hdl, fdc.buf, secsize) != secsize)) {
 		file_close(hdl);
 		fddlasterror = 0xe0;
-		return(FAILURE);
+		return (FAILURE);
 	}
 	file_close(hdl);
 	fdc.bufcnt = secsize;
 	fddlasterror = 0x00;
-	return(SUCCESS);
+	return (SUCCESS);
 }
 
 BOOL fddxdf_write(FDDFILE fdd) {
-
-	FILEH	hdl;
-	long	seekp;
-	UINT	secsize;
+	FILEH hdl;
+	long seekp;
+	UINT secsize;
 
 	fddlasterror = 0x00;
 	if (fddxdf_seeksector(fdd)) {
 		fddlasterror = 0xe0;
-		return(FAILURE);
+		return (FAILURE);
 	}
 	if (fdd->protect) {
 		fddlasterror = 0x70;
-		return(FAILURE);
+		return (FAILURE);
 	}
 	if (fdc.N != fdd->inf.xdf.n) {
 		fddlasterror = 0xc0;
-		return(FAILURE);
+		return (FAILURE);
 	}
 
 	seekp = (fdc.treg[fdc.us] << 1) + fdc.hd;
@@ -281,32 +263,29 @@ BOOL fddxdf_write(FDDFILE fdd) {
 	hdl = file_open(fdd->fname);
 	if (hdl == FILEH_INVALID) {
 		fddlasterror = 0xc0;
-		return(FAILURE);
+		return (FAILURE);
 	}
 	if ((file_seek(hdl, seekp, FSEEK_SET) != seekp) ||
-		(file_write(hdl, fdc.buf, secsize) != secsize)) {
+	    (file_write(hdl, fdc.buf, secsize) != secsize)) {
 		file_close(hdl);
 		fddlasterror = 0xc0;
-		return(FAILURE);
+		return (FAILURE);
 	}
 	file_close(hdl);
 	fdc.bufcnt = secsize;
 	fddlasterror = 0x00;
-	return(SUCCESS);
+	return (SUCCESS);
 }
 
 BOOL fddxdf_readid(FDDFILE fdd) {
-
 	fddlasterror = 0x00;
-	if ((!fdc.mf) ||
-		(fdc.rpm[fdc.us] != fdd->inf.xdf.rpm) ||
-		(fdc.crcn >= fdd->inf.xdf.sectors)) {
+	if ((!fdc.mf) || (fdc.rpm[fdc.us] != fdd->inf.xdf.rpm) || (fdc.crcn >= fdd->inf.xdf.sectors)) {
 		fddlasterror = 0xe0;
-		return(FAILURE);
+		return (FAILURE);
 	}
 	fdc.C = fdc.treg[fdc.us];
 	fdc.H = fdc.hd;
 	fdc.R = ++fdc.crcn;
 	fdc.N = fdd->inf.xdf.n;
-	return(SUCCESS);
+	return (SUCCESS);
 }

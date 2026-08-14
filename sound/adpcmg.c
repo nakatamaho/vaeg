@@ -1,28 +1,24 @@
-#include	"compiler.h"
-#include	"sound.h"
-#include	"adpcm.h"
+#include "compiler.h"
+#include "sound.h"
+#include "adpcm.h"
 
-
-#define	ADPCM_NBR	0x80000000
+#define ADPCM_NBR 0x80000000
 
 static const UINT adpcmdeltatable[8] = {
-		//	0.89,	0.89,	0.89,	0.89,	1.2,	1.6,	2.0,	2.4
-			228,	228,	228,	228,	308,	408,	512,	612};
-
+    //	0.89,	0.89,	0.89,	0.89,	1.2,	1.6,	2.0,	2.4
+    228, 228, 228, 228, 308, 408, 512, 612};
 
 REG8 SOUNDCALL adpcm_readsample(ADPCM ad) {
-
-	UINT32	pos;
-	REG8	data;
-	REG8	ret;
+	UINT32 pos;
+	REG8 data;
+	REG8 ret;
 
 	if ((ad->reg.ctrl1 & 0x60) == 0x20) {
 		pos = ad->pos & 0x1fffff;
 		if (!(ad->reg.ctrl2 & 2)) {
 			data = ad->buf[pos >> 3];
 			pos += 8;
-		}
-		else {
+		} else {
 			const BYTE *ptr;
 			REG8 bit;
 			UINT tmp;
@@ -47,27 +43,24 @@ REG8 SOUNDCALL adpcm_readsample(ADPCM ad) {
 			pos = 0;
 		}
 		ad->pos = pos;
-	}
-	else {
+	} else {
 		data = 0;
 	}
 	pos = ad->fifopos;
 	ret = ad->fifo[ad->fifopos];
 	ad->fifo[ad->fifopos] = data;
 	ad->fifopos ^= 1;
-	return(ret);
+	return (ret);
 }
 
 void SOUNDCALL adpcm_datawrite(ADPCM ad, REG8 data) {
-
-	UINT32	pos;
+	UINT32 pos;
 
 	pos = ad->pos & 0x1fffff;
 	if (!(ad->reg.ctrl2 & 2)) {
 		ad->buf[pos >> 3] = data;
 		pos += 8;
-	}
-	else {
+	} else {
 		BYTE *ptr;
 		UINT8 bit;
 		UINT8 mask;
@@ -119,12 +112,11 @@ void SOUNDCALL adpcm_datawrite(ADPCM ad, REG8 data) {
 }
 
 static void SOUNDCALL getadpcmdata(ADPCM ad) {
-
-	UINT32	pos;
-	UINT	data;
-	UINT	dir;
-	SINT32	dlt;
-	SINT32	samp;
+	UINT32 pos;
+	UINT data;
+	UINT dir;
+	SINT32 dlt;
+	SINT32 samp;
 
 	pos = ad->pos;
 	if (!(ad->reg.ctrl2 & 2)) {
@@ -133,8 +125,7 @@ static void SOUNDCALL getadpcmdata(ADPCM ad) {
 			data >>= 4;
 		}
 		pos += ADPCM_NBR + 4;
-	}
-	else {
+	} else {
 		const BYTE *ptr;
 		REG8 bit;
 		UINT tmp;
@@ -147,8 +138,7 @@ static void SOUNDCALL getadpcmdata(ADPCM ad) {
 			tmp += (ptr[0x38000] & bit) << 3;
 			data = tmp >> (pos & 7);
 			pos += ADPCM_NBR;
-		}
-		else {
+		} else {
 			tmp = (ptr[0x00000] & bit);
 			tmp += (ptr[0x08000] & bit) << 1;
 			tmp += (ptr[0x10000] & bit) << 2;
@@ -163,8 +153,7 @@ static void SOUNDCALL getadpcmdata(ADPCM ad) {
 	dlt >>= 8;
 	if (dlt < 127) {
 		dlt = 127;
-	}
-	else if (dlt > 24000) {
+	} else if (dlt > 24000) {
 		dlt = 24000;
 	}
 	samp = ad->delta;
@@ -176,8 +165,7 @@ static void SOUNDCALL getadpcmdata(ADPCM ad) {
 		if (samp > 32767) {
 			samp = 32767;
 		}
-	}
-	else {
+	} else {
 		samp = ad->samp - samp;
 		if (samp < -32767) {
 			samp = -32767;
@@ -191,14 +179,12 @@ static void SOUNDCALL getadpcmdata(ADPCM ad) {
 				pos = ad->start;
 				ad->samp = 0;
 				ad->delta = 127;
-			}
-			else {
+			} else {
 				pos &= 0x1fffff;
 				ad->status |= 4;
 				ad->play = 0;
 			}
-		}
-		else if (pos >= ad->limit) {
+		} else if (pos >= ad->limit) {
 			pos = 0;
 		}
 	}
@@ -211,9 +197,8 @@ static void SOUNDCALL getadpcmdata(ADPCM ad) {
 }
 
 void SOUNDCALL adpcm_getpcm(ADPCM ad, SINT32 *pcm, UINT count) {
-
-	SINT32	remain;
-	SINT32	samp;
+	SINT32 remain;
+	SINT32 samp;
 
 	if ((count == 0) || (ad->play == 0)) {
 		return;
@@ -236,7 +221,7 @@ void SOUNDCALL adpcm_getpcm(ADPCM ad, SINT32 *pcm, UINT count) {
 							}
 							pcm += 2;
 							remain -= ad->step;
-						} while((remain > 0) && (--count));
+						} while ((remain > 0) && (--count));
 					}
 					goto adpcmstop;
 				}
@@ -251,9 +236,8 @@ void SOUNDCALL adpcm_getpcm(ADPCM ad, SINT32 *pcm, UINT count) {
 			}
 			pcm += 2;
 			remain -= ad->step;
-		} while(--count);
-	}
-	else {
+		} while (--count);
+	} else {
 		do {
 			if (remain > 0) {
 				samp = ad->out0 * (ADTIMING - remain);
@@ -264,9 +248,8 @@ void SOUNDCALL adpcm_getpcm(ADPCM ad, SINT32 *pcm, UINT count) {
 					}
 					samp += ad->out0 * min(remain, ad->pertim);
 					remain -= ad->pertim;
-				} while(remain > 0);
-			}
-			else {
+				} while (remain > 0);
+			} else {
 				samp = ad->out0 * ADTIMING;
 			}
 			remain += ADTIMING;
@@ -278,7 +261,7 @@ void SOUNDCALL adpcm_getpcm(ADPCM ad, SINT32 *pcm, UINT count) {
 				pcm[1] += samp;
 			}
 			pcm += 2;
-		} while(--count);
+		} while (--count);
 	}
 	ad->remain = remain;
 	return;
@@ -289,4 +272,3 @@ adpcmstop:
 	ad->fb = 0;
 	ad->remain = 0;
 }
-

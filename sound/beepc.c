@@ -1,28 +1,25 @@
-#include	"compiler.h"
-#include	"dosio.h"
-#include	"cpucore.h"
-#include	"machine/pccore.h"
-#include	"iocore.h"
-#include	"sound.h"
-#include	"fmboard.h"
-#include	"beep.h"
+#include "compiler.h"
+#include "dosio.h"
+#include "cpucore.h"
+#include "machine/pccore.h"
+#include "iocore.h"
+#include "sound.h"
+#include "fmboard.h"
+#include "beep.h"
 
-
-	_BEEP		beep;
-	BEEPCFG		beepcfg;
-
+_BEEP beep;
+BEEPCFG beepcfg;
 
 // #define	BEEPLOG
 
 #if defined(BEEPLOG)
 static struct {
-	FILEH	fh;
-	UINT	events;
-	UINT32	event[0x10000];
+	FILEH fh;
+	UINT events;
+	UINT32 event[0x10000];
 } bplog;
 
 static void beeplogflash(void) {
-
 	if ((bplog.fh != FILEH_INVALID) && (bplog.events)) {
 		file_write(bplog.fh, bplog.event, bplog.events * sizeof(UINT32));
 		bplog.events = 0;
@@ -30,9 +27,7 @@ static void beeplogflash(void) {
 }
 #endif
 
-
 void beep_initialize(UINT rate) {
-
 	beepcfg.rate = rate;
 	beepcfg.vol = 2;
 #if defined(BEEPLOG)
@@ -42,7 +37,6 @@ void beep_initialize(UINT rate) {
 }
 
 void beep_deinitialize(void) {
-
 #if defined(BEEPLOG)
 	beeplogflash();
 	if (bplog.fh != FILEH_INVALID) {
@@ -53,14 +47,12 @@ void beep_deinitialize(void) {
 }
 
 void beep_setvol(UINT vol) {
-
 	beepcfg.vol = vol & 3;
 }
 
 void beep_changeclock(void) {
-
-	UINT32	hz;
-	UINT	rate;
+	UINT32 hz;
+	UINT rate;
 
 	hz = pccore.realclock / 25;
 	rate = beepcfg.rate / 25;
@@ -68,15 +60,13 @@ void beep_changeclock(void) {
 }
 
 void beep_reset(void) {
-
 	beep_changeclock();
 	ZeroMemory(&beep, sizeof(beep));
 	beep.mode = 1;
 }
 
 void beep_hzset(UINT16 cnt, UINT beepclock) {
-
-	double	hz;
+	double hz;
 
 	sound_sync();
 	beep.hz = 0;
@@ -90,8 +80,7 @@ void beep_hzset(UINT16 cnt, UINT beepclock) {
 }
 
 void beep_modeset(void) {
-
-	UINT8	newmode;
+	UINT8 newmode;
 
 	newmode = (pit.ch[1].ctrl >> 2) & 3;
 	if (beep.mode != newmode) {
@@ -102,24 +91,22 @@ void beep_modeset(void) {
 }
 
 static void beep_eventset(void) {
-
-	BPEVENT	*evt;
-	int		enable;
-	SINT32	clock;
+	BPEVENT *evt;
+	int enable;
+	SINT32 clock;
 
 	enable = beep.low & beep.buz;
 	if (beep.enable != enable) {
 #if defined(BEEPLOG)
-		UINT32	tmp;
+		UINT32 tmp;
 		tmp = CPU_CLOCK + CPU_BASECLOCK - CPU_REMCLOCK;
 		if (enable) {
 			tmp |= 0x80000000;
-		}
-		else {
+		} else {
 			tmp &= ~0x80000000;
 		}
 		bplog.event[bplog.events++] = tmp;
-		if (bplog.events >= (sizeof(bplog.event)/sizeof(UINT32))) {
+		if (bplog.events >= (sizeof(bplog.event) / sizeof(UINT32))) {
 			beeplogflash();
 		}
 #endif
@@ -139,7 +126,6 @@ static void beep_eventset(void) {
 }
 
 void beep_eventinit(void) {
-
 	beep.low = 0;
 	beep.enable = 0;
 	beep.lastenable = 0;
@@ -148,14 +134,12 @@ void beep_eventinit(void) {
 }
 
 void beep_eventreset(void) {
-
 	beep.lastenable = beep.enable;
 	beep.clock = soundcfg.lastclock;
 	beep.events = 0;
 }
 
 void beep_lheventset(int low) {
-
 	if (beep.low != low) {
 		beep.low = low;
 		beep_eventset();
@@ -163,13 +147,11 @@ void beep_lheventset(int low) {
 }
 
 void beep_oneventset(void) {
+	int buz;
 
-	int		buz;
-
-	buz = (sysport.c & 8)?0:1;
+	buz = (sysport.c & 8) ? 0 : 1;
 	if (beep.buz != buz) {
 		beep.buz = buz;
 		beep_eventset();
 	}
 }
-

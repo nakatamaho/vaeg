@@ -10,9 +10,8 @@
  * access to this state.
  */
 void systemport_reset(void) {
-
-    sysport.c = 0xf9;
-    beep_oneventset();
+	sysport.c = 0xf9;
+	beep_oneventset();
 }
 
 void systemport_bind(void) {

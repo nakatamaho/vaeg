@@ -1,73 +1,72 @@
-#include	"compiler.h"
-#include	"strres.h"
-#include	"dosio.h"
-#include	"commng.h"
-#include	"scrnmng.h"
-#include	"soundmng.h"
-#include	"timemng.h"
-#include	"cpucore.h"
-#include	"upd9002_state.h"
-#include	"machine/pccore.h"
-#include	"iocore.h"
-#include	"cbuscore.h"
-#include	"sasiio.h"
-#include	"scsiio.h"
-#include	"mpu98ii.h"
-#include	"bios.h"
-#include	"vram.h"
-#include	"sound.h"
-#include	"fmboard.h"
-#include	"beep.h"
-#include	"font.h"
-#include	"fddfile.h"
-#include	"fdd_mtr.h"
-#include	"sxsi.h"
-#include	"hostfat.h"
-#include	"machine/calendar.h"
-#include	"machine/keystat.h"
+#include "compiler.h"
+#include "strres.h"
+#include "dosio.h"
+#include "commng.h"
+#include "scrnmng.h"
+#include "soundmng.h"
+#include "timemng.h"
+#include "cpucore.h"
+#include "upd9002_state.h"
+#include "machine/pccore.h"
+#include "iocore.h"
+#include "cbuscore.h"
+#include "sasiio.h"
+#include "scsiio.h"
+#include "mpu98ii.h"
+#include "bios.h"
+#include "vram.h"
+#include "sound.h"
+#include "fmboard.h"
+#include "beep.h"
+#include "font.h"
+#include "fddfile.h"
+#include "fdd_mtr.h"
+#include "sxsi.h"
+#include "hostfat.h"
+#include "machine/calendar.h"
+#include "machine/keystat.h"
 
-#include	"bmsio.h"
+#include "bmsio.h"
 
-#include	<string.h>
+#include <string.h>
 
-#include	"sysportva.h"
-#include	"memoryva.h"
-#include	"gvramva.h"
-#include	"videova.h"
-#include	"tsp.h"
-#include	"cgromva.h"
-#include	"gactrlva.h"
-#include	"sgp.h"
-#include	"mouseifva.h"
-#include	"subsystemif.h"
-#include	"subsystem.h"
-#include	"boardsb2.h"
-#include	"va91.h"
-#include	"upd9002_regs.h"
+#include "sysportva.h"
+#include "memoryva.h"
+#include "gvramva.h"
+#include "videova.h"
+#include "tsp.h"
+#include "cgromva.h"
+#include "gactrlva.h"
+#include "sgp.h"
+#include "mouseifva.h"
+#include "subsystemif.h"
+#include "subsystem.h"
+#include "boardsb2.h"
+#include "va91.h"
+#include "upd9002_regs.h"
 
 #if defined(MACOS)
-#define	CRCONST		str_cr
+#define CRCONST str_cr
 #elif defined(WIN32) || defined(X11) || defined(SLZAURUS)
-#define	CRCONST		str_lf
+#define CRCONST str_lf
 #else
-#define	CRCONST		str_crlf
+#define CRCONST str_crlf
 #endif
 
-
 typedef struct {
-	char	name[16];
-	char	vername[28];
-	UINT32	ver;
+	char name[16];
+	char vername[28];
+	UINT32 ver;
 } NP2FHDR;
 
 typedef struct {
-	char	index[10];
-	UINT16	ver;
-	UINT32	size;
+	char index[10];
+	UINT16 ver;
+	UINT32 size;
 } NP2FENT;
 
 enum {
-	STATFLAG_BIN			= 0,
+	STATFLAG_BIN = 0,
 	STATFLAG_UPD9002_CPU,
 	STATFLAG_UPD9002_COMPAT,
 	STATFLAG_TERM,
@@ -84,87 +83,81 @@ enum {
 };
 
 typedef struct {
-	UINT32	id;
-	void	*proc;
+	UINT32 id;
+	void *proc;
 } PROCTBL;
 
 typedef struct {
-	UINT32	id;
-	int		num;
+	UINT32 id;
+	int num;
 } ENUMTBL;
 
-#define	PROCID(a, b, c, d)	(((d) << 24) + ((c) << 16) + ((b) << 8) + (a))
-#define	PROC2NUM(a, b)		proc2num(&(a), (b), sizeof(b)/sizeof(PROCTBL))
-#define	NUM2PROC(a, b)		num2proc(&(a), (b), sizeof(b)/sizeof(PROCTBL))
+#define PROCID(a, b, c, d) (((d) << 24) + ((c) << 16) + ((b) << 8) + (a))
+#define PROC2NUM(a, b) proc2num(&(a), (b), sizeof(b) / sizeof(PROCTBL))
+#define NUM2PROC(a, b) num2proc(&(a), (b), sizeof(b) / sizeof(PROCTBL))
 
 #include "machine/statsave.tbl"
 
-
-extern	COMMNG	cm_mpu98;
-extern	COMMNG	cm_rs232c;
+extern COMMNG cm_mpu98;
+extern COMMNG cm_rs232c;
 
 typedef struct {
-	char	*buf;
-	int		remain;
+	char *buf;
+	int remain;
 } ERR_BUF;
-
 
 // ----
 
 // Replace a serialized callback pointer with its stable table identifier.
 static BOOL proc2num(void *func, const PROCTBL *tbl, int size) {
-
-	int		i;
-	VAEG_INTPTR	*slot;
+	int i;
+	VAEG_INTPTR *slot;
 
 	slot = (VAEG_INTPTR *)func;
-	for (i=0; i<size; i++) {
+	for (i = 0; i < size; i++) {
 		if (*slot == (VAEG_INTPTR)tbl->proc) {
 			*slot = (VAEG_INTPTR)tbl->id;
-			return(SUCCESS);
+			return (SUCCESS);
 		}
 		tbl++;
 	}
-	return(FAILURE);
+	return (FAILURE);
 }
 
 static BOOL num2proc(void *func, const PROCTBL *tbl, int size) {
-
-	int		i;
-	VAEG_INTPTR	*slot;
+	int i;
+	VAEG_INTPTR *slot;
 
 	slot = (VAEG_INTPTR *)func;
-	for (i=0; i<size; i++) {
+	for (i = 0; i < size; i++) {
 		if (*slot == (VAEG_INTPTR)tbl->id) {
 			*slot = (VAEG_INTPTR)tbl->proc;
-			return(SUCCESS);
+			return (SUCCESS);
 		}
 		tbl++;
 	}
-	return(FAILURE);
+	return (FAILURE);
 }
-
 
 // ----
 
 enum {
-	SFFILEH_WRITE	= 0x0001,
-	SFFILEH_BLOCK	= 0x0002,
-	SFFILEH_ERROR	= 0x0004
+	SFFILEH_WRITE = 0x0001,
+	SFFILEH_BLOCK = 0x0002,
+	SFFILEH_ERROR = 0x0004
 };
 
 typedef struct {
-	_STFLAGH	sfh;
-	UINT		stat;
-	FILEH		fh;
-	UINT		secpos;
-	NP2FHDR		f;
+	_STFLAGH sfh;
+	UINT stat;
+	FILEH fh;
+	UINT secpos;
+	NP2FHDR f;
 } _SFFILEH, *SFFILEH;
 
 static SFFILEH statflag_open(const char *filename, char *err, int errlen) {
-
-	FILEH	fh;
-	SFFILEH	ret;
+	FILEH fh;
+	SFFILEH ret;
 
 	fh = file_open_rb(filename);
 	if (fh == FILEH_INVALID) {
@@ -175,7 +168,7 @@ static SFFILEH statflag_open(const char *filename, char *err, int errlen) {
 		goto sfo_err2;
 	}
 	if ((file_read(fh, &ret->f, sizeof(NP2FHDR)) == sizeof(NP2FHDR)) &&
-		(!memcmp(&ret->f, &np2flagdef, sizeof(np2flagdef)))) {
+	    (!memcmp(&ret->f, &np2flagdef, sizeof(np2flagdef)))) {
 		ZeroMemory(ret, sizeof(_SFFILEH));
 		ret->fh = fh;
 		ret->secpos = sizeof(NP2FHDR);
@@ -184,7 +177,7 @@ static SFFILEH statflag_open(const char *filename, char *err, int errlen) {
 			ret->sfh.err = err;
 			ret->sfh.errlen = errlen;
 		}
-		return(ret);
+		return (ret);
 	}
 	_MFREE(ret);
 
@@ -192,13 +185,12 @@ sfo_err2:
 	file_close(fh);
 
 sfo_err1:
-	return(NULL);
+	return (NULL);
 }
 
 static int statflag_closesection(SFFILEH sffh) {
-
-	UINT	leng;
-	BYTE	zero[16];
+	UINT leng;
+	BYTE zero[16];
 
 	if (sffh == NULL) {
 		goto sfcs_err1;
@@ -211,54 +203,47 @@ static int statflag_closesection(SFFILEH sffh) {
 				goto sfcs_err2;
 			}
 		}
-		if ((file_seek(sffh->fh, (long)sffh->secpos, FSEEK_SET)
-												!= (long)sffh->secpos) ||
-			(file_write(sffh->fh, &sffh->sfh.hdr, sizeof(sffh->sfh.hdr))
-												!= sizeof(sffh->sfh.hdr))) {
+		if ((file_seek(sffh->fh, (long)sffh->secpos, FSEEK_SET) != (long)sffh->secpos) ||
+		    (file_write(sffh->fh, &sffh->sfh.hdr, sizeof(sffh->sfh.hdr)) !=
+		     sizeof(sffh->sfh.hdr))) {
 			goto sfcs_err2;
 		}
 	}
 	if (sffh->stat & SFFILEH_BLOCK) {
 		sffh->stat &= ~SFFILEH_BLOCK;
-		sffh->secpos += sizeof(sffh->sfh.hdr) +
-									((sffh->sfh.hdr.size + 15) & (~15));
-		if (file_seek(sffh->fh, (long)sffh->secpos, FSEEK_SET)
-												!= (long)sffh->secpos) {
+		sffh->secpos += sizeof(sffh->sfh.hdr) + ((sffh->sfh.hdr.size + 15) & (~15));
+		if (file_seek(sffh->fh, (long)sffh->secpos, FSEEK_SET) != (long)sffh->secpos) {
 			goto sfcs_err2;
 		}
 	}
-	return(STATFLAG_SUCCESS);
+	return (STATFLAG_SUCCESS);
 
 sfcs_err2:
 	sffh->stat = SFFILEH_ERROR;
 
 sfcs_err1:
-	return(STATFLAG_FAILURE);
+	return (STATFLAG_FAILURE);
 }
 
 static int statflag_readsection(SFFILEH sffh) {
-
-	int		ret;
+	int ret;
 
 	ret = statflag_closesection(sffh);
 	if (ret != STATFLAG_SUCCESS) {
-		return(ret);
+		return (ret);
 	}
 	if ((sffh->stat == 0) &&
-		(file_read(sffh->fh, &sffh->sfh.hdr, sizeof(sffh->sfh.hdr))
-												== sizeof(sffh->sfh.hdr))) {
+	    (file_read(sffh->fh, &sffh->sfh.hdr, sizeof(sffh->sfh.hdr)) == sizeof(sffh->sfh.hdr))) {
 		sffh->stat = SFFILEH_BLOCK;
 		sffh->sfh.pos = 0;
-		return(STATFLAG_SUCCESS);
+		return (STATFLAG_SUCCESS);
 	}
 	sffh->stat = SFFILEH_ERROR;
-	return(STATFLAG_FAILURE);
+	return (STATFLAG_FAILURE);
 }
 
 int statflag_read(STFLAGH sfh, void *buf, UINT size) {
-
-	if ((sfh == NULL) || (buf == NULL) ||
-		((sfh->pos + size) > sfh->hdr.size)) {
+	if ((sfh == NULL) || (buf == NULL) || ((sfh->pos + size) > sfh->hdr.size)) {
 		goto sfr_err;
 	}
 	if (size) {
@@ -267,16 +252,15 @@ int statflag_read(STFLAGH sfh, void *buf, UINT size) {
 		}
 		sfh->pos += size;
 	}
-	return(STATFLAG_SUCCESS);
+	return (STATFLAG_SUCCESS);
 
 sfr_err:
-	return(STATFLAG_FAILURE);
+	return (STATFLAG_FAILURE);
 }
 
 static SFFILEH statflag_create(const char *filename) {
-
-	SFFILEH	ret;
-	FILEH	fh;
+	SFFILEH ret;
+	FILEH fh;
 
 	ret = (SFFILEH)_MALLOC(sizeof(_SFFILEH), filename);
 	if (ret == NULL) {
@@ -291,7 +275,7 @@ static SFFILEH statflag_create(const char *filename) {
 		ret->stat = SFFILEH_WRITE;
 		ret->fh = fh;
 		ret->secpos = sizeof(NP2FHDR);
-		return(ret);
+		return (ret);
 	}
 	file_close(fh);
 	file_delete(filename);
@@ -300,30 +284,28 @@ sfc_err2:
 	_MFREE(ret);
 
 sfc_err1:
-	return(NULL);
+	return (NULL);
 }
 
 static int statflag_createsection(SFFILEH sffh, const SFENTRY *tbl) {
-
-	int		ret;
+	int ret;
 
 	ret = statflag_closesection(sffh);
 	if (ret != STATFLAG_SUCCESS) {
-		return(ret);
+		return (ret);
 	}
 	if (sffh->stat != SFFILEH_WRITE) {
 		sffh->stat = SFFILEH_ERROR;
-		return(STATFLAG_FAILURE);
+		return (STATFLAG_FAILURE);
 	}
 	CopyMemory(sffh->sfh.hdr.index, tbl->index, sizeof(sffh->sfh.hdr.index));
 	sffh->sfh.hdr.ver = tbl->ver;
 	sffh->sfh.hdr.size = 0;
-	return(STATFLAG_SUCCESS);
+	return (STATFLAG_SUCCESS);
 }
 
 int statflag_write(STFLAGH sfh, const void *buf, UINT size) {
-
-	SFFILEH	sffh;
+	SFFILEH sffh;
 
 	if (sfh == NULL) {
 		goto sfw_err1;
@@ -335,8 +317,7 @@ int statflag_write(STFLAGH sfh, const void *buf, UINT size) {
 	if (!(sffh->stat & SFFILEH_BLOCK)) {
 		sffh->stat |= SFFILEH_BLOCK;
 		sfh->pos = 0;
-		if (file_write(sffh->fh, &sfh->hdr, sizeof(sfh->hdr))
-														!= sizeof(sfh->hdr)) {
+		if (file_write(sffh->fh, &sfh->hdr, sizeof(sfh->hdr)) != sizeof(sfh->hdr)) {
 			goto sfw_err2;
 		}
 	}
@@ -349,17 +330,16 @@ int statflag_write(STFLAGH sfh, const void *buf, UINT size) {
 			sfh->hdr.size = sfh->pos;
 		}
 	}
-	return(STATFLAG_SUCCESS);
+	return (STATFLAG_SUCCESS);
 
 sfw_err2:
 	sffh->stat = SFFILEH_ERROR;
 
 sfw_err1:
-	return(STATFLAG_FAILURE);
+	return (STATFLAG_FAILURE);
 }
 
 static void statflag_close(SFFILEH sffh) {
-
 	if (sffh) {
 		statflag_closesection(sffh);
 		file_close(sffh->fh);
@@ -368,28 +348,23 @@ static void statflag_close(SFFILEH sffh) {
 }
 
 void statflag_seterr(STFLAGH sfh, const char *str) {
-
 	if ((sfh) && (sfh->errlen)) {
 		milstr_ncat(sfh->err, str, sfh->errlen);
 		milstr_ncat(sfh->err, CRCONST, sfh->errlen);
 	}
 }
 
-
 // ---- common
 
 static int flagsave_common(STFLAGH sfh, const SFENTRY *tbl) {
-
-	return(statflag_write(sfh, tbl->arg1, tbl->arg2));
+	return (statflag_write(sfh, tbl->arg1, tbl->arg2));
 }
 
 static int flagload_common(STFLAGH sfh, const SFENTRY *tbl) {
-
-	return(statflag_read(sfh, tbl->arg1, tbl->arg2));
+	return (statflag_read(sfh, tbl->arg1, tbl->arg2));
 }
 
 static BOOL statflag_index_equals(const char index[10], const char *name) {
-
 	char padded[10];
 	size_t length;
 
@@ -399,64 +374,54 @@ static BOOL statflag_index_equals(const char index[10], const char *name) {
 		length = sizeof(padded);
 	}
 	CopyMemory(padded, name, length);
-	return(!memcmp(index, padded, sizeof(padded)));
+	return (!memcmp(index, padded, sizeof(padded)));
 }
 
 static BOOL statflag_is_legacy_cpu_state(STFLAGH sfh) {
+	static const char legacy_cpu_state_section[] = {'C', 'P', 'U', '2', '8', '6', '\0'};
 
-	static const char legacy_cpu_state_section[] = {
-		'C', 'P', 'U', '2', '8', '6', '\0'
-	};
-
-	return(statflag_index_equals(sfh->hdr.index, legacy_cpu_state_section));
+	return (statflag_index_equals(sfh->hdr.index, legacy_cpu_state_section));
 }
 
 static BOOL statflag_is_upd9002_format_marker(STFLAGH sfh) {
-
-	return(statflag_index_equals(sfh->hdr.index, "UPD9002"));
+	return (statflag_index_equals(sfh->hdr.index, "UPD9002"));
 }
 
 static int flagsave_upd9002_cpu(STFLAGH sfh, const SFENTRY *tbl) {
-
 	Upd9002StateImage state;
 
 	upd9002_state_export(&state);
-	return(statflag_write(sfh, &state, tbl->arg2));
+	return (statflag_write(sfh, &state, tbl->arg2));
 }
 
-static int flagload_upd9002_state_image(STFLAGH sfh, UINT16 version,
-						UINT32 payload_size, const char *truncated_error) {
-
+static int flagload_upd9002_state_image(STFLAGH sfh, UINT16 version, UINT32 payload_size,
+                                        const char *truncated_error) {
 	Upd9002StateImage state;
 	char error[128];
 	int ret;
 
 	if ((sfh->hdr.ver != version) || (sfh->hdr.size != payload_size)) {
 		statflag_seterr(sfh, UPD9002_STATE_ERROR_SIZE);
-		return(STATFLAG_FAILURE);
+		return (STATFLAG_FAILURE);
 	}
 	ret = statflag_read(sfh, &state, sizeof(state));
 	if (ret != STATFLAG_SUCCESS) {
 		statflag_seterr(sfh, truncated_error);
-		return(STATFLAG_FAILURE);
+		return (STATFLAG_FAILURE);
 	}
 	error[0] = '\0';
-	if (upd9002_state_import(&state, sizeof(state), error,
-													sizeof(error)) != SUCCESS) {
+	if (upd9002_state_import(&state, sizeof(state), error, sizeof(error)) != SUCCESS) {
 		statflag_seterr(sfh, error);
-		return(STATFLAG_FAILURE);
+		return (STATFLAG_FAILURE);
 	}
-	return(STATFLAG_SUCCESS);
+	return (STATFLAG_SUCCESS);
 }
 
 static int flagload_upd9002_cpu(STFLAGH sfh, const SFENTRY *tbl) {
-
-	return(flagload_upd9002_state_image(sfh, tbl->ver, tbl->arg2,
-		"uPD9002 payload is truncated"));
+	return (flagload_upd9002_state_image(sfh, tbl->ver, tbl->arg2, "uPD9002 payload is truncated"));
 }
 
 static int flagsave_upd9002_compat(STFLAGH sfh, const SFENTRY *tbl) {
-
 	UINT8 state[UPD9002_COMPAT_STATE_SIZE];
 
 	if (upd9002_core_compat_state_save(state, sizeof(state)) != SUCCESS) {
@@ -466,76 +431,69 @@ static int flagsave_upd9002_compat(STFLAGH sfh, const SFENTRY *tbl) {
 }
 
 static int flagload_upd9002_compat(STFLAGH sfh, const SFENTRY *tbl) {
-
 	UINT8 state[UPD9002_COMPAT_STATE_SIZE];
 
 	if ((sfh->hdr.ver != tbl->ver) || (sfh->hdr.size != tbl->arg2) ||
-			(statflag_read(sfh, state, sizeof(state)) != STATFLAG_SUCCESS)) {
+	    (statflag_read(sfh, state, sizeof(state)) != STATFLAG_SUCCESS)) {
 		statflag_seterr(sfh, "uPD9002 uPD70008-compatible payload is invalid or truncated");
 		return STATFLAG_FAILURE;
 	}
-	return upd9002_core_compat_state_load(state, sizeof(state)) == SUCCESS
-		? STATFLAG_SUCCESS : STATFLAG_FAILURE;
+	return upd9002_core_compat_state_load(state, sizeof(state)) == SUCCESS ? STATFLAG_SUCCESS
+	                                                                       : STATFLAG_FAILURE;
 }
 
 static int flagload_legacy_cpu_state(STFLAGH sfh) {
-
-	return(flagload_upd9002_state_image(sfh, 0, UPD9002_STATE_PAYLOAD_SIZE,
-		"obsolete processor state section is truncated"));
+	return (flagload_upd9002_state_image(sfh, 0, UPD9002_STATE_PAYLOAD_SIZE,
+	                                     "obsolete processor state section is truncated"));
 }
 
 // ---- memory
 
 static int flagsave_mem(STFLAGH sfh, const SFENTRY *tbl) {
-
-	int		ret;
+	int ret;
 
 	ret = statflag_write(sfh, mem, 0x110000);
 	ret |= statflag_write(sfh, mem + VRAM1_B, 0x18000);
 	ret |= statflag_write(sfh, mem + VRAM1_E, 0x8000);
 	(void)tbl;
-	return(ret);
+	return (ret);
 }
 
 static int flagload_mem(STFLAGH sfh, const SFENTRY *tbl) {
-
-	int		ret;
+	int ret;
 
 	ret = statflag_read(sfh, mem, 0x110000);
 	ret |= statflag_read(sfh, mem + VRAM1_B, 0x18000);
 	ret |= statflag_read(sfh, mem + VRAM1_E, 0x8000);
 	(void)tbl;
-	return(ret);
+	return (ret);
 }
-
 
 // ---- dma
 
 static int flagsave_dma(STFLAGH sfh, const SFENTRY *tbl) {
-
-	int			i;
-	_DMAC		dmabak;
+	int i;
+	_DMAC dmabak;
 
 	dmabak = dmac;
-	for (i=0; i<4; i++) {
+	for (i = 0; i < 4; i++) {
 		if ((PROC2NUM(dmabak.dmach[i].proc.outproc, dmaproc)) ||
-			(PROC2NUM(dmabak.dmach[i].proc.inproc, dmaproc)) ||
-			(PROC2NUM(dmabak.dmach[i].proc.extproc, dmaproc))) {
-			return(STATFLAG_FAILURE);
+		    (PROC2NUM(dmabak.dmach[i].proc.inproc, dmaproc)) ||
+		    (PROC2NUM(dmabak.dmach[i].proc.extproc, dmaproc))) {
+			return (STATFLAG_FAILURE);
 		}
 	}
 	(void)tbl;
-	return(statflag_write(sfh, &dmabak, sizeof(dmabak)));
+	return (statflag_write(sfh, &dmabak, sizeof(dmabak)));
 }
 
 static int flagload_dma(STFLAGH sfh, const SFENTRY *tbl) {
-
-	int		ret;
-	int		i;
+	int ret;
+	int i;
 
 	ret = statflag_read(sfh, &dmac, sizeof(dmac));
 
-	for (i=0; i<4; i++) {
+	for (i = 0; i < 4; i++) {
 		if (NUM2PROC(dmac.dmach[i].proc.outproc, dmaproc)) {
 			dmac.dmach[i].proc.outproc = dma_dummyout;
 			ret |= STATFLAG_WARNING;
@@ -550,31 +508,29 @@ static int flagload_dma(STFLAGH sfh, const SFENTRY *tbl) {
 		}
 	}
 	(void)tbl;
-	return(ret);
+	return (ret);
 }
-
 
 // ---- event
 
 typedef struct {
-	UINT		readyevents;
-	UINT		waitevents;
+	UINT readyevents;
+	UINT waitevents;
 } NEVTSAVE;
 
 typedef struct {
-	UINT32		id;
-	SINT32		clock;
-	UINT32		flag;
-	NEVENTCB	proc;
+	UINT32 id;
+	SINT32 clock;
+	UINT32 flag;
+	NEVENTCB proc;
 } NEVTITEM;
 
 static int nevent_write(STFLAGH sfh, int num) {
-
-	NEVTITEM	nit;
-	UINT		i;
+	NEVTITEM nit;
+	UINT i;
 
 	ZeroMemory(&nit, sizeof(nit));
-	for (i=0; i<sizeof(evtnum)/sizeof(ENUMTBL); i++) {
+	for (i = 0; i < sizeof(evtnum) / sizeof(ENUMTBL); i++) {
 		if (evtnum[i].num == num) {
 			nit.id = evtnum[i].id;
 			break;
@@ -586,196 +542,181 @@ static int nevent_write(STFLAGH sfh, int num) {
 	if (PROC2NUM(nit.proc, evtproc)) {
 		nit.proc = NULL;
 	}
-	return(statflag_write(sfh, &nit, sizeof(nit)));
+	return (statflag_write(sfh, &nit, sizeof(nit)));
 }
 
 static int flagsave_evt(STFLAGH sfh, const SFENTRY *tbl) {
-
-	NEVTSAVE	nevt;
-	int			ret;
-	UINT		i;
+	NEVTSAVE nevt;
+	int ret;
+	UINT i;
 
 	nevt.readyevents = nevent.readyevents;
 	nevt.waitevents = nevent.waitevents;
 
 	ret = statflag_write(sfh, &nevt, sizeof(nevt));
-	for (i=0; i<nevt.readyevents; i++) {
+	for (i = 0; i < nevt.readyevents; i++) {
 		ret |= nevent_write(sfh, nevent.level[i]);
 	}
-	for (i=0; i<nevt.waitevents; i++) {
+	for (i = 0; i < nevt.waitevents; i++) {
 		ret |= nevent_write(sfh, nevent.waitevent[i]);
 	}
 	(void)tbl;
-	return(ret);
+	return (ret);
 }
 
 static int nevent_read(STFLAGH sfh, UINT *tbl, UINT *pos) {
-
-	int			ret;
-	NEVTITEM	nit;
-	UINT		i;
-	UINT		num;
+	int ret;
+	NEVTITEM nit;
+	UINT i;
+	UINT num;
 
 	ret = statflag_read(sfh, &nit, sizeof(nit));
 
-	for (i=0; i<sizeof(evtnum)/sizeof(ENUMTBL); i++) {
+	for (i = 0; i < sizeof(evtnum) / sizeof(ENUMTBL); i++) {
 		if (nit.id == evtnum[i].id) {
 			break;
 		}
 	}
-	if (i < (sizeof(evtnum)/sizeof(ENUMTBL))) {
+	if (i < (sizeof(evtnum) / sizeof(ENUMTBL))) {
 		num = evtnum[i].num;
 		nevent.item[num].clock = nit.clock;
 		nevent.item[num].flag = nit.flag;
 		nevent.item[num].proc = nit.proc;
 		if (NUM2PROC(nevent.item[num].proc, evtproc)) {
 			ret |= STATFLAG_WARNING;
-		}
-		else {
+		} else {
 			tbl[*pos] = num;
 			(*pos)++;
 		}
-	}
-	else {
+	} else {
 		ret |= STATFLAG_WARNING;
 	}
-	return(ret);
+	return (ret);
 }
 
 static int flagload_evt(STFLAGH sfh, const SFENTRY *tbl) {
-
-	int			ret;
-	NEVTSAVE	nevt;
-	UINT		i;
+	int ret;
+	NEVTSAVE nevt;
+	UINT i;
 
 	ret = statflag_read(sfh, &nevt, sizeof(nevt));
 
 	nevent.readyevents = 0;
 	nevent.waitevents = 0;
 
-	for (i=0; i<nevt.readyevents; i++) {
+	for (i = 0; i < nevt.readyevents; i++) {
 		ret |= nevent_read(sfh, nevent.level, &nevent.readyevents);
 	}
-	for (i=0; i<nevt.waitevents; i++) {
+	for (i = 0; i < nevt.waitevents; i++) {
 		ret |= nevent_read(sfh, nevent.waitevent, &nevent.waitevents);
 	}
 	(void)tbl;
-	return(ret);
+	return (ret);
 }
-
 
 // ---- extmem
 
 static int flagsave_ext(STFLAGH sfh, const SFENTRY *tbl) {
-
-	int		ret;
+	int ret;
 
 	ret = STATFLAG_SUCCESS;
 	if (CPU_EXTMEM) {
 		ret = statflag_write(sfh, CPU_EXTMEM, CPU_EXTMEMSIZE);
 	}
 	(void)tbl;
-	return(ret);
+	return (ret);
 }
 
 static int flagload_ext(STFLAGH sfh, const SFENTRY *tbl) {
-
-	int		ret;
+	int ret;
 
 	ret = STATFLAG_SUCCESS;
 	if (CPU_EXTMEM) {
 		ret = statflag_read(sfh, CPU_EXTMEM, CPU_EXTMEMSIZE);
 	}
 	(void)tbl;
-	return(ret);
+	return (ret);
 }
-
 
 // ---- FM
 
-
 enum {
-	FLAG_FM1A		= 0x0002,
-	FLAG_FM1B		= 0x0004,
-	FLAG_FM2A		= 0x0008,
-	FLAG_FM2B		= 0x0010,
-	FLAG_PSG1		= 0x0020,
-	FLAG_PSG2		= 0x0040,
-	FLAG_PSG3		= 0x0080,
-	FLAG_RHYTHM		= 0x0100,
-	FLAG_ADPCM		= 0x0200,
-	FLAG_FMBOARDVA	= 0x8000,
+	FLAG_FM1A = 0x0002,
+	FLAG_FM1B = 0x0004,
+	FLAG_FM2A = 0x0008,
+	FLAG_FM2B = 0x0010,
+	FLAG_PSG1 = 0x0020,
+	FLAG_PSG2 = 0x0040,
+	FLAG_PSG3 = 0x0080,
+	FLAG_RHYTHM = 0x0100,
+	FLAG_ADPCM = 0x0200,
+	FLAG_FMBOARDVA = 0x8000,
 };
 
 typedef struct {
-	BYTE	keyreg[OPNCH_MAX];
-	BYTE	extop[4];
+	BYTE keyreg[OPNCH_MAX];
+	BYTE extop[4];
 } OPNKEY;
 
 static UINT32 fm_state_size(UINT32 type) {
-
-	UINT32	size;
+	UINT32 size;
 
 	size = sizeof(type);
-	switch(type) {
-		case FMBOARD_NONE:
-		case FMBOARD_VA_OPN:
-			break;
+	switch (type) {
+	case FMBOARD_NONE:
+	case FMBOARD_VA_OPN:
+		break;
 
-		case FMBOARD_VA_OPNA:
-			size += sizeof(fmtimer) + sizeof(opn) + sizeof(OPNKEY) +
-										sizeof(PSGREG) + sizeof(adpcm) +
-										sizeof(fmboardva);
-			break;
+	case FMBOARD_VA_OPNA:
+		size += sizeof(fmtimer) + sizeof(opn) + sizeof(OPNKEY) + sizeof(PSGREG) + sizeof(adpcm) +
+		        sizeof(fmboardva);
+		break;
 
-		default:
-			size = 0;
-			break;
+	default:
+		size = 0;
+		break;
 	}
-	return(size);
+	return (size);
 }
 
 static int flagcheck_fm(STFLAGH sfh, const SFENTRY *tbl) {
-
-	UINT32	type;
-	UINT32	expected;
+	UINT32 type;
+	UINT32 expected;
 
 	if (sfh->hdr.ver != tbl->ver) {
 		statflag_seterr(sfh, "FMBOARD state version is unsupported");
-		return(STATFLAG_FAILURE);
+		return (STATFLAG_FAILURE);
 	}
 	if ((sfh->hdr.size < sizeof(type)) ||
-		(statflag_read(sfh, &type, sizeof(type)) != STATFLAG_SUCCESS)) {
+	    (statflag_read(sfh, &type, sizeof(type)) != STATFLAG_SUCCESS)) {
 		statflag_seterr(sfh, "FMBOARD state is truncated");
-		return(STATFLAG_FAILURE);
+		return (STATFLAG_FAILURE);
 	}
 	expected = fm_state_size(type);
 	if (expected == 0) {
 		statflag_seterr(sfh, "FMBOARD state uses retired sound hardware");
-		return(STATFLAG_FAILURE);
+		return (STATFLAG_FAILURE);
 	}
 	if (sfh->hdr.size != expected) {
 		statflag_seterr(sfh, "FMBOARD state payload size is unsupported");
-		return(STATFLAG_FAILURE);
+		return (STATFLAG_FAILURE);
 	}
-	return(STATFLAG_SUCCESS);
+	return (STATFLAG_SUCCESS);
 }
 
 static int flagsave_fm(STFLAGH sfh, const SFENTRY *tbl) {
+	int ret;
+	UINT saveflg;
+	OPNKEY opnkey;
 
-	int		ret;
-	UINT	saveflg;
-	OPNKEY	opnkey;
+	switch (usesound) {
+	case 0x0200:
+		saveflg = FLAG_FM1A | FLAG_FM1B | FLAG_PSG1 | FLAG_RHYTHM | FLAG_ADPCM | FLAG_FMBOARDVA;
+		break;
 
-	switch(usesound) {
-		case 0x0200:
-			saveflg = FLAG_FM1A | FLAG_FM1B | FLAG_PSG1 | FLAG_RHYTHM |
-										FLAG_ADPCM | FLAG_FMBOARDVA;
-			break;
-
-		default:
-			saveflg = 0;
-			break;
+	default:
+		saveflg = 0;
+		break;
 	}
 
 	ret = statflag_write(sfh, &usesound, sizeof(usesound));
@@ -805,27 +746,25 @@ static int flagsave_fm(STFLAGH sfh, const SFENTRY *tbl) {
 		ret |= statflag_write(sfh, &fmboardva, sizeof(fmboardva));
 	}
 	(void)tbl;
-	return(ret);
+	return (ret);
 }
 
 static int flagload_fm(STFLAGH sfh, const SFENTRY *t) {
-
-	int		ret;
-	UINT	saveflg;
-	OPNKEY	opnkey;
+	int ret;
+	UINT saveflg;
+	OPNKEY opnkey;
 
 	ret = statflag_read(sfh, &usesound, sizeof(usesound));
 	fmboard_reset(usesound);
 
-	switch(usesound) {
-		case 0x0200:
-			saveflg = FLAG_FM1A | FLAG_FM1B | FLAG_PSG1 | FLAG_RHYTHM |
-										FLAG_ADPCM | FLAG_FMBOARDVA;
-			break;
+	switch (usesound) {
+	case 0x0200:
+		saveflg = FLAG_FM1A | FLAG_FM1B | FLAG_PSG1 | FLAG_RHYTHM | FLAG_ADPCM | FLAG_FMBOARDVA;
+		break;
 
-		default:
-			saveflg = 0;
-			break;
+	default:
+		saveflg = 0;
+		break;
 	}
 
 	if (saveflg & FLAG_FM1A) {
@@ -857,17 +796,16 @@ static int flagload_fm(STFLAGH sfh, const SFENTRY *t) {
 	// Recompute ADPCM derived state after restoring its register image.
 	adpcm_update(&adpcm);
 	(void)t;
-	return(ret);
+	return (ret);
 }
-
 
 // ---- disk
 
 typedef struct {
-	char	path[MAX_PATH];
-	int		readonly;
-	DOSDATE	date;
-	DOSTIME	time;
+	char path[MAX_PATH];
+	int readonly;
+	DOSDATE date;
+	DOSTIME time;
 } STATDISK;
 
 static const char str_fddx[] = "FDD%u";
@@ -881,9 +819,8 @@ STATSAVE_LOAD_DISK_HOOK flagload_disk_hook = NULL;
 #endif
 
 static int disksave(STFLAGH sfh, const char *path, int readonly) {
-
-	STATDISK	st;
-	FILEH		fh;
+	STATDISK st;
+	FILEH fh;
 
 	ZeroMemory(&st, sizeof(st));
 	if ((path) && (path[0])) {
@@ -895,37 +832,35 @@ static int disksave(STFLAGH sfh, const char *path, int readonly) {
 			file_close(fh);
 		}
 	}
-	return(statflag_write(sfh, &st, sizeof(st)));
+	return (statflag_write(sfh, &st, sizeof(st)));
 }
 
 static int flagsave_disk(STFLAGH sfh, const SFENTRY *tbl) {
-
-	int		ret;
-	BYTE	i;
+	int ret;
+	BYTE i;
 
 	sxsi_flash();
 	ret = STATFLAG_SUCCESS;
-	for (i=0; i<4; i++) {
+	for (i = 0; i < 4; i++) {
 		ret |= disksave(sfh, fdd_diskname(i), fdd_diskprotect(i));
 	}
-	for (i=0x00; i<0x02; i++) {
+	for (i = 0x00; i < 0x02; i++) {
 		ret |= disksave(sfh, sxsi_getname(i), 0);
 	}
-	for (i=0x20; i<0x24; i++) {
+	for (i = 0x20; i < 0x24; i++) {
 		ret |= disksave(sfh, sxsi_getname(i), 0);
 	}
 	(void)tbl;
-	return(ret);
+	return (ret);
 }
 
 static int diskcheck(STFLAGH sfh, const char *name) {
-
-	int			ret;
-	FILEH		fh;
-	STATDISK	st;
-	char		buf[256];
-	DOSDATE		date;
-	DOSTIME		time;
+	int ret;
+	FILEH fh;
+	STATDISK st;
+	char buf[256];
+	DOSDATE date;
+	DOSTIME time;
 
 	ret = statflag_read(sfh, &st, sizeof(st));
 	if (st.path[0]) {
@@ -934,53 +869,50 @@ static int diskcheck(STFLAGH sfh, const char *name) {
 			file_getdatetime(fh, &date, &time);
 			file_close(fh);
 			if ((memcmp(&st.date, &date, sizeof(date))) ||
-				(memcmp(&st.time, &time, sizeof(time)))) {
+			    (memcmp(&st.time, &time, sizeof(time)))) {
 				ret |= STATFLAG_DISKCHG;
 				SPRINTF(buf, str_updated, name);
 				statflag_seterr(sfh, buf);
 			}
-		}
-		else {
+		} else {
 			ret |= STATFLAG_DISKCHG;
 			SPRINTF(buf, str_notfound, name);
 			statflag_seterr(sfh, buf);
 		}
 	}
-	return(ret);
+	return (ret);
 }
 
 static int flagcheck_disk(STFLAGH sfh, const SFENTRY *tbl) {
-
-	int		ret;
-	int		i;
-	char	buf[8];
+	int ret;
+	int i;
+	char buf[8];
 
 	ret = 0;
-	for (i=0; i<4; i++) {
-		SPRINTF(buf, str_fddx, i+1);
+	for (i = 0; i < 4; i++) {
+		SPRINTF(buf, str_fddx, i + 1);
 		ret |= diskcheck(sfh, buf);
 	}
 	sxsi_flash();
-	for (i=0; i<2; i++) {
-		SPRINTF(buf, str_sasix, i+1);
+	for (i = 0; i < 2; i++) {
+		SPRINTF(buf, str_sasix, i + 1);
 		ret |= diskcheck(sfh, buf);
 	}
-	for (i=0; i<4; i++) {
+	for (i = 0; i < 4; i++) {
 		SPRINTF(buf, str_scsix, i);
 		ret |= diskcheck(sfh, buf);
 	}
 	(void)tbl;
-	return(ret);
+	return (ret);
 }
 
 static int flagload_disk(STFLAGH sfh, const SFENTRY *tbl) {
-
-	int			ret;
-	UINT8		i;
-	STATDISK	st;
+	int ret;
+	UINT8 i;
+	STATDISK st;
 
 	ret = 0;
-	for (i=0; i<4; i++) {
+	for (i = 0; i < 4; i++) {
 		ret |= statflag_read(sfh, &st, sizeof(st));
 		if (st.path[0]) {
 #if defined(SUPPORT_OPRECORD)
@@ -989,57 +921,53 @@ static int flagload_disk(STFLAGH sfh, const SFENTRY *tbl) {
 			}
 			if (st.path[0]) {
 				fdd_set(i, st.path, FTYPE_NONE, st.readonly);
-			}
-			else {
+			} else {
 				fdd_eject(i);
 			}
 #else
 			fdd_set(i, st.path, FTYPE_NONE, st.readonly);
 #endif
-		}
-		else {
+		} else {
 			fdd_eject(i);
 		}
 	}
-	for (i=0x00; i<0x02; i++) {
+	for (i = 0x00; i < 0x02; i++) {
 		ret |= statflag_read(sfh, &st, sizeof(st));
 		if (st.path[0]) {
 			sxsi_hddopen(i, st.path);
 		}
 	}
-	for (i=0x20; i<0x24; i++) {
+	for (i = 0x20; i < 0x24; i++) {
 		ret |= statflag_read(sfh, &st, sizeof(st));
 		if (st.path[0]) {
 			sxsi_hddopen(i, st.path);
 		}
 	}
 	(void)tbl;
-	return(ret);
+	return (ret);
 }
-
 
 // ---- com
 
 static int flagsave_com(STFLAGH sfh, const SFENTRY *tbl) {
-
-	UINT	device;
-	COMMNG	cm;
-	int		ret;
-	COMFLAG	flag;
+	UINT device;
+	COMMNG cm;
+	int ret;
+	COMFLAG flag;
 
 	device = (UINT)(VAEG_INTPTR)tbl->arg1;
-	switch(device) {
-		case 0:
-			cm = cm_mpu98;
-			break;
+	switch (device) {
+	case 0:
+		cm = cm_mpu98;
+		break;
 
-		case 1:
-			cm = cm_rs232c;
-			break;
+	case 1:
+		cm = cm_rs232c;
+		break;
 
-		default:
-			cm = NULL;
-			break;
+	default:
+		cm = NULL;
+		break;
 	}
 	ret = STATFLAG_SUCCESS;
 	if (cm) {
@@ -1049,16 +977,15 @@ static int flagsave_com(STFLAGH sfh, const SFENTRY *tbl) {
 			_MFREE(flag);
 		}
 	}
-	return(ret);
+	return (ret);
 }
 
 static int flagload_com(STFLAGH sfh, const SFENTRY *tbl) {
-
-	UINT		device;
-	COMMNG		cm;
-	int			ret;
-	_COMFLAG	fhdr;
-	COMFLAG		flag;
+	UINT device;
+	COMMNG cm;
+	int ret;
+	_COMFLAG fhdr;
+	COMFLAG flag;
 
 	ret = statflag_read(sfh, &fhdr, sizeof(fhdr));
 	if (ret != STATFLAG_SUCCESS) {
@@ -1078,22 +1005,22 @@ static int flagload_com(STFLAGH sfh, const SFENTRY *tbl) {
 	}
 
 	device = (UINT)(VAEG_INTPTR)tbl->arg1;
-	switch(device) {
-		case 0:
-			commng_destroy(cm_mpu98);
-			cm = commng_create(COMCREATE_MPU98II);
-			cm_mpu98 = cm;
-			break;
+	switch (device) {
+	case 0:
+		commng_destroy(cm_mpu98);
+		cm = commng_create(COMCREATE_MPU98II);
+		cm_mpu98 = cm;
+		break;
 
-		case 1:
-			commng_destroy(cm_rs232c);
-			cm = commng_create(COMCREATE_SERIAL);
-			cm_rs232c = cm;
-			break;
+	case 1:
+		commng_destroy(cm_rs232c);
+		cm = commng_create(COMCREATE_SERIAL);
+		cm_rs232c = cm;
+		break;
 
-		default:
-			cm = NULL;
-			break;
+	default:
+		cm = NULL;
+		break;
 	}
 	if (cm) {
 		cm->msg(cm, COMMSG_SETFLAG, (VAEG_INTPTR)flag);
@@ -1103,37 +1030,34 @@ flcom_err2:
 	_MFREE(flag);
 
 flcom_err1:
-	return(ret);
+	return (ret);
 }
 
 // ---- bms
 
 static int flagsave_bms(STFLAGH sfh, const SFENTRY *tbl) {
-
-	int		ret;
+	int ret;
 
 	ret = STATFLAG_SUCCESS;
 	if (bmsiowork.bmsmem) {
 		ret = statflag_write(sfh, bmsiowork.bmsmem, bmsiowork.bmsmemsize);
 	}
 	(void)tbl;
-	return(ret);
+	return (ret);
 }
 
 static int flagload_bms(STFLAGH sfh, const SFENTRY *tbl) {
-
-	int		ret;
+	int ret;
 
 	ret = STATFLAG_SUCCESS;
 	if (bmsiowork.bmsmem) {
 		ret = statflag_read(sfh, bmsiowork.bmsmem, bmsiowork.bmsmemsize);
 	}
 	(void)tbl;
-	return(ret);
+	return (ret);
 }
 
 // ---- FD sub system CPU
-
 
 static int flagsave_subsystemcpu(STFLAGH sfh, const SFENTRY *tbl) {
 	UINT bufsize;
@@ -1142,17 +1066,17 @@ static int flagsave_subsystemcpu(STFLAGH sfh, const SFENTRY *tbl) {
 
 	bufsize = subsystem_getcpustatussize();
 	buf = (UINT8 *)_MALLOC(bufsize, "SUBCPUSTS");
-	if (!buf) return STATFLAG_FAILURE;
+	if (!buf)
+		return STATFLAG_FAILURE;
 
 	if (subsystem_savecpustatus(buf)) {
 		ret = statflag_write(sfh, buf, bufsize);
-	}
-	else {
+	} else {
 		ret = STATFLAG_FAILURE;
 	}
 	_MFREE(buf);
 
-	return(ret);
+	return (ret);
 }
 
 static int flagload_subsystemcpu(STFLAGH sfh, const SFENTRY *tbl) {
@@ -1162,7 +1086,8 @@ static int flagload_subsystemcpu(STFLAGH sfh, const SFENTRY *tbl) {
 
 	bufsize = subsystem_getcpustatussize();
 	buf = (UINT8 *)_MALLOC(bufsize, "SUBCPUSTS");
-	if (!buf) return STATFLAG_FAILURE;
+	if (!buf)
+		return STATFLAG_FAILURE;
 
 	ret = statflag_read(sfh, buf, bufsize);
 	if ((ret == STATFLAG_SUCCESS) && !subsystem_loadcpustatus(buf)) {
@@ -1170,9 +1095,8 @@ static int flagload_subsystemcpu(STFLAGH sfh, const SFENTRY *tbl) {
 	}
 	_MFREE(buf);
 
-	return(ret);
+	return (ret);
 }
-
 
 // ---- HOSTFAT immutable snapshot identity
 
@@ -1184,7 +1108,6 @@ enum {
 };
 
 static int flagsave_hostfat(STFLAGH sfh, const SFENTRY *tbl) {
-
 	BYTE payload[HOSTFAT_STATE_SIZE];
 
 	(void)tbl;
@@ -1193,229 +1116,209 @@ static int flagsave_hostfat(STFLAGH sfh, const SFENTRY *tbl) {
 	if (hostfat_is_mounted()) {
 		payload[1] = HOSTFAT_STATE_MOUNTED;
 		if (hostfat_snapshot_identity(payload + HOSTFAT_STATE_IDENTITY_OFFSET,
-				HOSTFAT_IDENTITY_SIZE) != SUCCESS) {
-			return(STATFLAG_FAILURE);
+		                              HOSTFAT_IDENTITY_SIZE) != SUCCESS) {
+			return (STATFLAG_FAILURE);
 		}
 	}
-	return(statflag_write(sfh, payload, sizeof(payload)));
+	return (statflag_write(sfh, payload, sizeof(payload)));
 }
 
-static int flagcheck_hostfat(STFLAGH sfh, const SFENTRY *tbl,
-		BOOL allow_identity_mismatch) {
-
+static int flagcheck_hostfat(STFLAGH sfh, const SFENTRY *tbl, BOOL allow_identity_mismatch) {
 	BYTE payload[HOSTFAT_STATE_SIZE];
 	BYTE current[HOSTFAT_IDENTITY_SIZE];
 	BOOL saved_mounted;
 	BOOL current_mounted;
 
-	if ((sfh->hdr.ver != tbl->ver) ||
-		(sfh->hdr.size != HOSTFAT_STATE_SIZE) ||
-		(tbl->arg2 != HOSTFAT_STATE_SIZE)) {
+	if ((sfh->hdr.ver != tbl->ver) || (sfh->hdr.size != HOSTFAT_STATE_SIZE) ||
+	    (tbl->arg2 != HOSTFAT_STATE_SIZE)) {
 		statflag_seterr(sfh, "HOSTFAT state identity format is unsupported");
-		return(STATFLAG_FAILURE);
+		return (STATFLAG_FAILURE);
 	}
 	if (statflag_read(sfh, payload, sizeof(payload)) != STATFLAG_SUCCESS) {
 		statflag_seterr(sfh, "HOSTFAT state identity is truncated");
-		return(STATFLAG_FAILURE);
+		return (STATFLAG_FAILURE);
 	}
-	if ((payload[0] != HOSTFAT_STATE_VERSION) ||
-		(payload[1] > HOSTFAT_STATE_MOUNTED) ||
-		(payload[2] != 0) || (payload[3] != 0)) {
+	if ((payload[0] != HOSTFAT_STATE_VERSION) || (payload[1] > HOSTFAT_STATE_MOUNTED) ||
+	    (payload[2] != 0) || (payload[3] != 0)) {
 		statflag_seterr(sfh, "HOSTFAT state identity is malformed");
-		return(STATFLAG_FAILURE);
+		return (STATFLAG_FAILURE);
 	}
 	saved_mounted = payload[1] ? TRUE : FALSE;
 	current_mounted = hostfat_is_mounted();
 	if (saved_mounted != current_mounted) {
 		if (allow_identity_mismatch) {
-			return(STATFLAG_SUCCESS);
+			return (STATFLAG_SUCCESS);
 		}
-		statflag_seterr(sfh,
-			"HOSTFAT snapshot is missing or differs from the saved state");
-		return(STATFLAG_FAILURE);
+		statflag_seterr(sfh, "HOSTFAT snapshot is missing or differs from the saved state");
+		return (STATFLAG_FAILURE);
 	}
 	if (saved_mounted) {
 		if ((hostfat_snapshot_identity(current, sizeof(current)) != SUCCESS) ||
-			memcmp(current, payload + HOSTFAT_STATE_IDENTITY_OFFSET,
-				HOSTFAT_IDENTITY_SIZE)) {
+		    memcmp(current, payload + HOSTFAT_STATE_IDENTITY_OFFSET, HOSTFAT_IDENTITY_SIZE)) {
 			if (allow_identity_mismatch) {
-				return(STATFLAG_SUCCESS);
+				return (STATFLAG_SUCCESS);
 			}
-			statflag_seterr(sfh,
-				"HOSTFAT snapshot is missing or differs from the saved state");
-			return(STATFLAG_FAILURE);
+			statflag_seterr(sfh, "HOSTFAT snapshot is missing or differs from the saved state");
+			return (STATFLAG_FAILURE);
 		}
 	}
-	return(STATFLAG_SUCCESS);
+	return (STATFLAG_SUCCESS);
 }
 
 static int flagload_hostfat(STFLAGH sfh, const SFENTRY *tbl) {
-
 	BYTE payload[HOSTFAT_STATE_SIZE];
 
 	(void)tbl;
-	return(statflag_read(sfh, payload, sizeof(payload)));
+	return (statflag_read(sfh, payload, sizeof(payload)));
 }
-
 
 // ----
 
 static int flagcheck_versize(STFLAGH sfh, const SFENTRY *tbl) {
-
 	if ((sfh->hdr.ver == tbl->ver) && (sfh->hdr.size == tbl->arg2)) {
-		return(STATFLAG_SUCCESS);
+		return (STATFLAG_SUCCESS);
 	}
-	return(STATFLAG_FAILURE);
+	return (STATFLAG_FAILURE);
 }
 
 static int flagcheck_veronly(STFLAGH sfh, const SFENTRY *tbl) {
-
 	if (sfh->hdr.ver == tbl->ver) {
-		return(STATFLAG_SUCCESS);
+		return (STATFLAG_SUCCESS);
 	}
-	return(STATFLAG_FAILURE);
+	return (STATFLAG_FAILURE);
 }
 
-static int flagcheck_upd9002_state_image(STFLAGH sfh, UINT16 version,
-						UINT32 payload_size, const char *version_error,
-						const char *truncated_error) {
-
+static int flagcheck_upd9002_state_image(STFLAGH sfh, UINT16 version, UINT32 payload_size,
+                                         const char *version_error, const char *truncated_error) {
 	Upd9002StateImage state;
 	char error[128];
 	int ret;
 
 	if (sfh->hdr.ver != version) {
 		statflag_seterr(sfh, version_error);
-		return(STATFLAG_FAILURE);
+		return (STATFLAG_FAILURE);
 	}
 	if (sfh->hdr.size != payload_size) {
 		statflag_seterr(sfh, UPD9002_STATE_ERROR_SIZE);
-		return(STATFLAG_FAILURE);
+		return (STATFLAG_FAILURE);
 	}
 	ret = statflag_read(sfh, &state, sizeof(state));
 	if (ret != STATFLAG_SUCCESS) {
 		statflag_seterr(sfh, truncated_error);
-		return(STATFLAG_FAILURE);
+		return (STATFLAG_FAILURE);
 	}
 	error[0] = '\0';
-	if (upd9002_state_validate(&state, sizeof(state), error,
-													sizeof(error)) != SUCCESS) {
+	if (upd9002_state_validate(&state, sizeof(state), error, sizeof(error)) != SUCCESS) {
 		statflag_seterr(sfh, error);
-		return(STATFLAG_FAILURE);
+		return (STATFLAG_FAILURE);
 	}
-	return(STATFLAG_SUCCESS);
+	return (STATFLAG_SUCCESS);
 }
 
 static int flagcheck_upd9002_cpu(STFLAGH sfh, const SFENTRY *tbl) {
-
-	return(flagcheck_upd9002_state_image(sfh, tbl->ver, tbl->arg2,
-		"uPD9002 payload version is unsupported",
-		"uPD9002 payload is truncated"));
+	return (flagcheck_upd9002_state_image(sfh, tbl->ver, tbl->arg2,
+	                                      "uPD9002 payload version is unsupported",
+	                                      "uPD9002 payload is truncated"));
 }
 
 static int flagcheck_legacy_cpu_state(STFLAGH sfh) {
-
-	return(flagcheck_upd9002_state_image(sfh, 0, UPD9002_STATE_PAYLOAD_SIZE,
-		UPD9002_STATE_ERROR_LEGACY_SECTION,
-		"obsolete processor state section is truncated"));
+	return (flagcheck_upd9002_state_image(sfh, 0, UPD9002_STATE_PAYLOAD_SIZE,
+	                                      UPD9002_STATE_ERROR_LEGACY_SECTION,
+	                                      "obsolete processor state section is truncated"));
 }
-
 
 // ----
 
 int statsave_save(const char *filename) {
-
-	SFFILEH		sffh;
-	int			ret;
-const SFENTRY	*tbl;
-const SFENTRY	*tblterm;
+	SFFILEH sffh;
+	int ret;
+	const SFENTRY *tbl;
+	const SFENTRY *tblterm;
 
 	sffh = statflag_create(filename);
 	if (sffh == NULL) {
-		return(STATFLAG_FAILURE);
+		return (STATFLAG_FAILURE);
 	}
 
 	ret = STATFLAG_SUCCESS;
 	tbl = np2tbl;
-	tblterm = tbl + (sizeof(np2tbl)/sizeof(SFENTRY));
-	while(tbl < tblterm) {
+	tblterm = tbl + (sizeof(np2tbl) / sizeof(SFENTRY));
+	while (tbl < tblterm) {
 		ret |= statflag_createsection(sffh, tbl);
-		switch(tbl->type) {
-			case STATFLAG_BIN:
-			case STATFLAG_TERM:
-				ret |= flagsave_common(&sffh->sfh, tbl);
-				break;
+		switch (tbl->type) {
+		case STATFLAG_BIN:
+		case STATFLAG_TERM:
+			ret |= flagsave_common(&sffh->sfh, tbl);
+			break;
 
-			case STATFLAG_UPD9002_CPU:
-				ret |= flagsave_upd9002_cpu(&sffh->sfh, tbl);
-				break;
+		case STATFLAG_UPD9002_CPU:
+			ret |= flagsave_upd9002_cpu(&sffh->sfh, tbl);
+			break;
 
-			case STATFLAG_UPD9002_COMPAT:
-				ret |= flagsave_upd9002_compat(&sffh->sfh, tbl);
-				break;
+		case STATFLAG_UPD9002_COMPAT:
+			ret |= flagsave_upd9002_compat(&sffh->sfh, tbl);
+			break;
 
+		case STATFLAG_COM:
+			ret |= flagsave_com(&sffh->sfh, tbl);
+			break;
 
-			case STATFLAG_COM:
-				ret |= flagsave_com(&sffh->sfh, tbl);
-				break;
+		case STATFLAG_DISK:
+			ret |= flagsave_disk(&sffh->sfh, tbl);
+			break;
 
-			case STATFLAG_DISK:
-				ret |= flagsave_disk(&sffh->sfh, tbl);
-				break;
+		case STATFLAG_DMA:
+			ret |= flagsave_dma(&sffh->sfh, tbl);
+			break;
 
-			case STATFLAG_DMA:
-				ret |= flagsave_dma(&sffh->sfh, tbl);
-				break;
+		case STATFLAG_EVT:
+			ret |= flagsave_evt(&sffh->sfh, tbl);
+			break;
 
-			case STATFLAG_EVT:
-				ret |= flagsave_evt(&sffh->sfh, tbl);
-				break;
+		case STATFLAG_EXT:
+			ret |= flagsave_ext(&sffh->sfh, tbl);
+			break;
 
-			case STATFLAG_EXT:
-				ret |= flagsave_ext(&sffh->sfh, tbl);
-				break;
+		case STATFLAG_FM:
+			ret |= flagsave_fm(&sffh->sfh, tbl);
+			break;
 
-			case STATFLAG_FM:
-				ret |= flagsave_fm(&sffh->sfh, tbl);
-				break;
+		case STATFLAG_MEM:
+			ret |= flagsave_mem(&sffh->sfh, tbl);
+			break;
 
-			case STATFLAG_MEM:
-				ret |= flagsave_mem(&sffh->sfh, tbl);
-				break;
+		case STATFLAG_BMS:
+			ret |= flagsave_bms(&sffh->sfh, tbl);
+			break;
 
-			case STATFLAG_BMS:
-				ret |= flagsave_bms(&sffh->sfh, tbl);
-				break;
+		case STATFLAG_SUBCPU:
+			ret |= flagsave_subsystemcpu(&sffh->sfh, tbl);
+			break;
 
-			case STATFLAG_SUBCPU:
-				ret |= flagsave_subsystemcpu(&sffh->sfh, tbl);
-				break;
-
-			case STATFLAG_HOSTFAT:
-				ret |= flagsave_hostfat(&sffh->sfh, tbl);
-				break;
+		case STATFLAG_HOSTFAT:
+			ret |= flagsave_hostfat(&sffh->sfh, tbl);
+			break;
 		}
 		tbl++;
 	}
 	statflag_close(sffh);
-	return(ret);
+	return (ret);
 }
 
 static int statsave_check_internal(const char *filename, char *buf, int size,
-		BOOL allow_hostfat_mismatch) {
-
-	SFFILEH		sffh;
-	int			ret;
-	BOOL		done;
-	BOOL		hostfat_seen;
-	BOOL		legacy_cpu_state_seen;
-	BOOL		upd9002_format_marker_seen;
-const SFENTRY	*tbl;
-const SFENTRY	*tblterm;
+                                   BOOL allow_hostfat_mismatch) {
+	SFFILEH sffh;
+	int ret;
+	BOOL done;
+	BOOL hostfat_seen;
+	BOOL legacy_cpu_state_seen;
+	BOOL upd9002_format_marker_seen;
+	const SFENTRY *tbl;
+	const SFENTRY *tblterm;
 
 	sffh = statflag_open(filename, buf, size);
 	if (sffh == NULL) {
-		return(STATFLAG_FAILURE);
+		return (STATFLAG_FAILURE);
 	}
 
 	done = FALSE;
@@ -1423,129 +1326,117 @@ const SFENTRY	*tblterm;
 	legacy_cpu_state_seen = FALSE;
 	upd9002_format_marker_seen = FALSE;
 	ret = STATFLAG_SUCCESS;
-	while((!done) && (ret != STATFLAG_FAILURE)) {
+	while ((!done) && (ret != STATFLAG_FAILURE)) {
 		ret |= statflag_readsection(sffh);
 		if (statflag_is_upd9002_format_marker(&sffh->sfh)) {
 			upd9002_format_marker_seen = TRUE;
 		}
 		tbl = np2tbl;
-		tblterm = tbl + (sizeof(np2tbl)/sizeof(SFENTRY));
-		while(tbl < tblterm) {
+		tblterm = tbl + (sizeof(np2tbl) / sizeof(SFENTRY));
+		while (tbl < tblterm) {
 			if (!memcmp(sffh->sfh.hdr.index, tbl->index, 10)) {
 				break;
 			}
 			tbl++;
 		}
 		if (tbl < tblterm) {
-			switch(tbl->type) {
-				case STATFLAG_BIN:
-				case STATFLAG_MEM:
-					ret |= flagcheck_versize(&sffh->sfh, tbl);
-					break;
+			switch (tbl->type) {
+			case STATFLAG_BIN:
+			case STATFLAG_MEM:
+				ret |= flagcheck_versize(&sffh->sfh, tbl);
+				break;
 
-				case STATFLAG_UPD9002_CPU:
-					ret |= flagcheck_upd9002_cpu(&sffh->sfh, tbl);
-					break;
+			case STATFLAG_UPD9002_CPU:
+				ret |= flagcheck_upd9002_cpu(&sffh->sfh, tbl);
+				break;
 
-				case STATFLAG_UPD9002_COMPAT:
-					ret |= flagcheck_versize(&sffh->sfh, tbl);
-					break;
+			case STATFLAG_UPD9002_COMPAT:
+				ret |= flagcheck_versize(&sffh->sfh, tbl);
+				break;
 
-				case STATFLAG_HOSTFAT:
-					hostfat_seen = TRUE;
-					ret |= flagcheck_hostfat(&sffh->sfh, tbl,
-						allow_hostfat_mismatch);
-					break;
+			case STATFLAG_HOSTFAT:
+				hostfat_seen = TRUE;
+				ret |= flagcheck_hostfat(&sffh->sfh, tbl, allow_hostfat_mismatch);
+				break;
 
-				case STATFLAG_TERM:
-					done = TRUE;
-					break;
+			case STATFLAG_TERM:
+				done = TRUE;
+				break;
 
-				case STATFLAG_COM:
-				case STATFLAG_DMA:
-				case STATFLAG_EVT:
-				case STATFLAG_EXT:
-				case STATFLAG_BMS:
-				case STATFLAG_SUBCPU:
-					ret |= flagcheck_veronly(&sffh->sfh, tbl);
-					break;
+			case STATFLAG_COM:
+			case STATFLAG_DMA:
+			case STATFLAG_EVT:
+			case STATFLAG_EXT:
+			case STATFLAG_BMS:
+			case STATFLAG_SUBCPU:
+				ret |= flagcheck_veronly(&sffh->sfh, tbl);
+				break;
 
-				case STATFLAG_FM:
-					ret |= flagcheck_fm(&sffh->sfh, tbl);
-					break;
+			case STATFLAG_FM:
+				ret |= flagcheck_fm(&sffh->sfh, tbl);
+				break;
 
-				case STATFLAG_DISK:
-					ret |= flagcheck_disk(&sffh->sfh, tbl);
-					break;
+			case STATFLAG_DISK:
+				ret |= flagcheck_disk(&sffh->sfh, tbl);
+				break;
 
-				default:
-					ret |= STATFLAG_WARNING;
-					break;
+			default:
+				ret |= STATFLAG_WARNING;
+				break;
 			}
-		}
-		else {
+		} else {
 			if (statflag_is_legacy_cpu_state(&sffh->sfh)) {
 				legacy_cpu_state_seen = TRUE;
 				ret |= flagcheck_legacy_cpu_state(&sffh->sfh);
-			}
-			else {
+			} else {
 				ret |= STATFLAG_WARNING;
 			}
 		}
 	}
-	if ((ret != STATFLAG_FAILURE) && legacy_cpu_state_seen &&
-									!upd9002_format_marker_seen) {
+	if ((ret != STATFLAG_FAILURE) && legacy_cpu_state_seen && !upd9002_format_marker_seen) {
 		statflag_seterr(&sffh->sfh, UPD9002_STATE_ERROR_LEGACY_MARKER);
 		ret = STATFLAG_FAILURE;
 	}
 	if ((ret != STATFLAG_FAILURE) && hostfat_is_mounted() && !hostfat_seen) {
-		statflag_seterr(&sffh->sfh,
-			"saved state has no HOSTFAT snapshot identity");
+		statflag_seterr(&sffh->sfh, "saved state has no HOSTFAT snapshot identity");
 		ret = STATFLAG_FAILURE;
 	}
 	statflag_close(sffh);
-	return(ret);
+	return (ret);
 }
 
 int statsave_check(const char *filename, char *buf, int size) {
-
-	return(statsave_check_internal(filename, buf, size, FALSE));
+	return (statsave_check_internal(filename, buf, size, FALSE));
 }
 
-int statsave_check_hostfat_override(const char *filename, char *buf,
-		int size) {
-
-	return(statsave_check_internal(filename, buf, size, TRUE));
+int statsave_check_hostfat_override(const char *filename, char *buf, int size) {
+	return (statsave_check_internal(filename, buf, size, TRUE));
 }
 
-static int statsave_load_internal(const char *filename,
-		BOOL allow_hostfat_mismatch) {
-
-	SFFILEH		sffh;
-	char		error[256];
-	int			ret;
-	BOOL		done;
-const SFENTRY	*tbl;
-const SFENTRY	*tblterm;
+static int statsave_load_internal(const char *filename, BOOL allow_hostfat_mismatch) {
+	SFFILEH sffh;
+	char error[256];
+	int ret;
+	BOOL done;
+	const SFENTRY *tbl;
+	const SFENTRY *tblterm;
 
 	error[0] = '\0';
-	ret = statsave_check_internal(filename, error, sizeof(error),
-		allow_hostfat_mismatch);
+	ret = statsave_check_internal(filename, error, sizeof(error), allow_hostfat_mismatch);
 	if (ret == STATFLAG_FAILURE) {
-		return(STATFLAG_FAILURE);
+		return (STATFLAG_FAILURE);
 	}
 
 	sffh = statflag_open(filename, NULL, 0);
 	if (sffh == NULL) {
-		return(STATFLAG_FAILURE);
+		return (STATFLAG_FAILURE);
 	}
 
 	// PCCORE read!
 	ret = statflag_readsection(sffh);
-	if ((ret != STATFLAG_SUCCESS) ||
-		(memcmp(sffh->sfh.hdr.index, np2tbl[0].index, 10))) {
+	if ((ret != STATFLAG_SUCCESS) || (memcmp(sffh->sfh.hdr.index, np2tbl[0].index, 10))) {
 		statflag_close(sffh);
-		return(STATFLAG_FAILURE);
+		return (STATFLAG_FAILURE);
 	}
 
 	soundmng_stop();
@@ -1566,90 +1457,87 @@ const SFENTRY	*tblterm;
 	sound_reset();
 	fddmtrsnd_bind();
 
-	iocore_reset();								// Sound-board reset calls the native PIC interface.
+	iocore_reset(); // Sound-board reset calls the native PIC interface.
 	cbuscore_reset();
 	fmboard_reset(pccore.sound);
 
 	done = FALSE;
-	while((!done) && (ret != STATFLAG_FAILURE)) {
+	while ((!done) && (ret != STATFLAG_FAILURE)) {
 		ret |= statflag_readsection(sffh);
 		tbl = np2tbl + 1;
-		tblterm = np2tbl + (sizeof(np2tbl)/sizeof(SFENTRY));
-		while(tbl < tblterm) {
+		tblterm = np2tbl + (sizeof(np2tbl) / sizeof(SFENTRY));
+		while (tbl < tblterm) {
 			if (!memcmp(sffh->sfh.hdr.index, tbl->index, 10)) {
 				break;
 			}
 			tbl++;
 		}
 		if (tbl < tblterm) {
-			switch(tbl->type) {
-				case STATFLAG_BIN:
-					ret |= flagload_common(&sffh->sfh, tbl);
-					break;
+			switch (tbl->type) {
+			case STATFLAG_BIN:
+				ret |= flagload_common(&sffh->sfh, tbl);
+				break;
 
-				case STATFLAG_UPD9002_CPU:
-					ret |= flagload_upd9002_cpu(&sffh->sfh, tbl);
-					break;
+			case STATFLAG_UPD9002_CPU:
+				ret |= flagload_upd9002_cpu(&sffh->sfh, tbl);
+				break;
 
-				case STATFLAG_UPD9002_COMPAT:
-					ret |= flagload_upd9002_compat(&sffh->sfh, tbl);
-					break;
+			case STATFLAG_UPD9002_COMPAT:
+				ret |= flagload_upd9002_compat(&sffh->sfh, tbl);
+				break;
 
-				case STATFLAG_TERM:
-					done = TRUE;
-					break;
+			case STATFLAG_TERM:
+				done = TRUE;
+				break;
 
+			case STATFLAG_COM:
+				ret |= flagload_com(&sffh->sfh, tbl);
+				break;
 
-				case STATFLAG_COM:
-					ret |= flagload_com(&sffh->sfh, tbl);
-					break;
+			case STATFLAG_DISK:
+				ret |= flagload_disk(&sffh->sfh, tbl);
+				break;
 
-				case STATFLAG_DISK:
-					ret |= flagload_disk(&sffh->sfh, tbl);
-					break;
+			case STATFLAG_DMA:
+				ret |= flagload_dma(&sffh->sfh, tbl);
+				break;
 
-				case STATFLAG_DMA:
-					ret |= flagload_dma(&sffh->sfh, tbl);
-					break;
+			case STATFLAG_EVT:
+				ret |= flagload_evt(&sffh->sfh, tbl);
+				break;
 
-				case STATFLAG_EVT:
-					ret |= flagload_evt(&sffh->sfh, tbl);
-					break;
+			case STATFLAG_EXT:
+				ret |= flagload_ext(&sffh->sfh, tbl);
+				break;
 
-				case STATFLAG_EXT:
-					ret |= flagload_ext(&sffh->sfh, tbl);
-					break;
+			case STATFLAG_FM:
+				ret |= flagload_fm(&sffh->sfh, tbl);
+				break;
 
-				case STATFLAG_FM:
-					ret |= flagload_fm(&sffh->sfh, tbl);
-					break;
+			case STATFLAG_MEM:
+				ret |= flagload_mem(&sffh->sfh, tbl);
+				break;
 
-				case STATFLAG_MEM:
-					ret |= flagload_mem(&sffh->sfh, tbl);
-					break;
+			case STATFLAG_BMS:
+				ret |= flagload_bms(&sffh->sfh, tbl);
+				break;
 
-				case STATFLAG_BMS:
-					ret |= flagload_bms(&sffh->sfh, tbl);
-					break;
+			case STATFLAG_SUBCPU:
+				ret |= flagload_subsystemcpu(&sffh->sfh, tbl);
+				break;
 
-				case STATFLAG_SUBCPU:
-					ret |= flagload_subsystemcpu(&sffh->sfh, tbl);
-					break;
+			case STATFLAG_HOSTFAT:
+				ret |= flagload_hostfat(&sffh->sfh, tbl);
+				break;
 
-				case STATFLAG_HOSTFAT:
-					ret |= flagload_hostfat(&sffh->sfh, tbl);
-					break;
-
-				default:
-					ret |= STATFLAG_WARNING;
-					break;
+			default:
+				ret |= STATFLAG_WARNING;
+				break;
 			}
-		}
-		else {
+		} else {
 			if (statflag_is_legacy_cpu_state(&sffh->sfh)) {
 				ret |= flagload_legacy_cpu_state(&sffh->sfh);
-			}
-			else {
+			} else {
 				ret |= STATFLAG_WARNING;
 			}
 		}
@@ -1663,22 +1551,18 @@ const SFENTRY	*tblterm;
 	cbuscore_bind();
 	fmboard_bind();
 
-
 	soundmng_play();
 
-	return(ret);
+	return (ret);
 }
 
 int statsave_load(const char *filename) {
-
-	return(statsave_load_internal(filename, FALSE));
+	return (statsave_load_internal(filename, FALSE));
 }
 
 int statsave_load_hostfat_override(const char *filename) {
-
-	return(statsave_load_internal(filename, TRUE));
+	return (statsave_load_internal(filename, TRUE));
 }
-
 
 #if defined(SUPPORT_OPRECORD)
 void statsave_set_load_disk_hook(STATSAVE_LOAD_DISK_HOOK hook) {

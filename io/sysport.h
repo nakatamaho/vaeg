@@ -1,8 +1,7 @@
 
 typedef struct {
-	UINT8	c;
+	UINT8 c;
 } _SYSPORT, *SYSPORT;
-
 
 #ifdef __cplusplus
 extern "C" {
@@ -14,4 +13,3 @@ void systemport_bind(void);
 #ifdef __cplusplus
 }
 #endif
-

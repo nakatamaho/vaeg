@@ -6,11 +6,11 @@
 extern "C" {
 #endif
 
-extern	WORD	grph0_raster[];
-extern	WORD	grph1_raster[];
+extern WORD grph0_raster[];
+extern WORD grph1_raster[];
 
-extern	BOOL	grph0_noraster;
-extern	BOOL	grph1_noraster;
+extern BOOL grph0_noraster;
+extern BOOL grph1_noraster;
 
 void makegrphva_initialize(void);
 

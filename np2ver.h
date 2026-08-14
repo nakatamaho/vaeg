@@ -1,5 +1,5 @@
 
-#define	NP2VER_CORE			"ver.0.80"
+#define NP2VER_CORE "ver.0.80"
 
 #include "vaeg_build_info.h"
 
@@ -10,4 +10,4 @@
 // #define	NP2VER_WINCE
 // #define	NP2VER_SDLZAU
 
-#define VAEGREL_CORE		"Rel." VAEG_BUILD_DATE
+#define VAEGREL_CORE "Rel." VAEG_BUILD_DATE

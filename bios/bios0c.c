@@ -1,28 +1,26 @@
-#include	"compiler.h"
-#include	"cpucore.h"
-#include	"machine/pccore.h"
-#include	"iocore.h"
-#include	"bios.h"
-#include	"biosmem.h"
-#include	"rsbios.h"
-
+#include "compiler.h"
+#include "cpucore.h"
+#include "machine/pccore.h"
+#include "iocore.h"
+#include "bios.h"
+#include "biosmem.h"
+#include "rsbios.h"
 
 void bios0x0c(void) {
-
-	UINT16	doff;
-	UINT16	dseg;
-	REG8	flag;
-	BYTE	data;
-	BYTE	stat;
-	REG16	pos;
-	REG16	cnt;
+	UINT16 doff;
+	UINT16 dseg;
+	REG8 flag;
+	BYTE data;
+	BYTE stat;
+	REG16 pos;
+	REG16 cnt;
 
 	doff = GETBIOSMEM16(MEMW_RS_CH0_OFST);
 	dseg = GETBIOSMEM16(MEMW_RS_CH0_SEG);
 
 	flag = MEML_READ8(dseg, doff + R_FLAG);
-	data = iocore_inp8(0x30);							// データ引き取り
-	stat = iocore_inp8(0x32) & 0xfc;					// ステータス
+	data = iocore_inp8(0x30);        // データ引き取り
+	stat = iocore_inp8(0x32) & 0xfc; // ステータス
 	stat |= (iocore_inp8(0x33) & 3);
 
 #if 0
@@ -37,17 +35,14 @@ void bios0x0c(void) {
 			if (data >= 0x20) {
 				if (mem[MEMB_RS_S_FLAG] & 0x10) {
 					data |= 0x80;
-				}
-				else {
+				} else {
 					data &= 0x7f;
 				}
-			}
-			else if (data == RSCODE_SO) {
+			} else if (data == RSCODE_SO) {
 				mem[MEMB_RS_S_FLAG] |= 0x10;
 				iocore_out8(0x00, 0x20);
 				return;
-			}
-			else if (data == RSCODE_SI) {
+			} else if (data == RSCODE_SI) {
 				mem[MEMB_RS_S_FLAG] &= ~0x10;
 				iocore_out8(0x00, 0x20);
 				return;
@@ -55,7 +50,7 @@ void bios0x0c(void) {
 		}
 
 		// DELコードの扱い
-		if (mem[MEMB_RS_D_FLAG] & 0x01) {					// CH0 -> bit0
+		if (mem[MEMB_RS_D_FLAG] & 0x01) { // CH0 -> bit0
 			if (((data & 0x7f) == 0x7f) && (mem[MEMB_MSW3] & 0x80)) {
 				data = 0;
 			}
@@ -82,18 +77,14 @@ void bios0x0c(void) {
 
 		// XOFFを送信？
 		if (((flag & (RFLAG_XON | RFLAG_XOFF)) == RFLAG_XON) &&
-			(cnt >= MEML_READ16(dseg, doff + R_XON))) {
+		    (cnt >= MEML_READ16(dseg, doff + R_XON))) {
 			iocore_out8(0x30, RSCODE_XOFF);
 			flag |= RFLAG_XOFF;
 		}
+	} else {
+		MEML_WRITE8(dseg, doff + R_CMD, (REG8)(MEML_READ8(dseg, doff + R_CMD) | RFLAG_BOVF));
 	}
-	else {
-		MEML_WRITE8(dseg, doff + R_CMD,
-						(REG8)(MEML_READ8(dseg, doff + R_CMD) | RFLAG_BOVF));
-	}
-	MEML_WRITE8(dseg, doff + R_INT,
-						(REG8)(MEML_READ8(dseg, doff + R_INT) | RINT_INT));
+	MEML_WRITE8(dseg, doff + R_INT, (REG8)(MEML_READ8(dseg, doff + R_INT) | RINT_INT));
 	MEML_WRITE8(dseg, doff + R_FLAG, flag);
 	iocore_out8(0x00, 0x20);
 }
-

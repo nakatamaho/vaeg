@@ -66,13 +66,13 @@ constexpr std::uint8_t kWaitExternal = 0x02;
 constexpr std::uint8_t kWaitEiInhibited = 0x04;
 
 struct LegacyState {
-    Z80CompatReg registers{};
-    bool halted = false;
-    bool external_wait = false;
-    bool irq_asserted = false;
-    bool ei_inhibited = false;
-    std::int32_t remainclock = 0;
-    std::int32_t lastclock = 0;
+	Z80CompatReg registers{};
+	bool halted = false;
+	bool external_wait = false;
+	bool irq_asserted = false;
+	bool ei_inhibited = false;
+	std::int32_t remainclock = 0;
+	std::int32_t lastclock = 0;
 };
 
 bool DecodeRevision1(const std::uint8_t *image, LegacyState *state);

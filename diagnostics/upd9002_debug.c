@@ -51,15 +51,13 @@ typedef struct {
 static UPD9002_DEBUG_STATE debug_state;
 
 void upd9002_debug_reset(void) {
-
 	ZeroMemory(&debug_state, sizeof(debug_state));
 }
 
 BOOL upd9002_debug_counter_add(UINT16 cs, UINT16 ip, UINT *index) {
 	UPD9002_DEBUG_COUNTER *counter;
 
-	if ((index == NULL) ||
-		(debug_state.counter_count >= UPD9002_DEBUG_COUNTER_MAX)) {
+	if ((index == NULL) || (debug_state.counter_count >= UPD9002_DEBUG_COUNTER_MAX)) {
 		return FAILURE;
 	}
 	counter = &debug_state.counters[debug_state.counter_count];
@@ -72,18 +70,14 @@ BOOL upd9002_debug_counter_add(UINT16 cs, UINT16 ip, UINT *index) {
 }
 
 UINT32 upd9002_debug_counter_value(UINT index) {
-
-	if ((index >= debug_state.counter_count) ||
-		!debug_state.counters[index].used) {
+	if ((index >= debug_state.counter_count) || !debug_state.counters[index].used) {
 		return 0;
 	}
 	return debug_state.counters[index].count;
 }
 
 BOOL upd9002_debug_wait_arm(UINT16 cs, UINT16 ip, UINT32 ordinal) {
-
-	if ((ordinal == 0) || debug_state.wait_armed ||
-		debug_state.event_pending) {
+	if ((ordinal == 0) || debug_state.wait_armed || debug_state.event_pending) {
 		return FAILURE;
 	}
 	debug_state.wait_armed = TRUE;
@@ -95,7 +89,6 @@ BOOL upd9002_debug_wait_arm(UINT16 cs, UINT16 ip, UINT32 ordinal) {
 }
 
 BOOL upd9002_debug_wait_armed(void) {
-
 	return debug_state.wait_armed;
 }
 
@@ -146,8 +139,7 @@ static BOOL upd9002_debug_observe(UINT16 cs, UINT16 ip, BOOL capture) {
 			counter->count++;
 		}
 	}
-	if (!debug_state.wait_armed ||
-		(debug_state.wait_cs != cs) || (debug_state.wait_ip != ip)) {
+	if (!debug_state.wait_armed || (debug_state.wait_cs != cs) || (debug_state.wait_ip != ip)) {
 		return FALSE;
 	}
 	debug_state.wait_hits++;
@@ -162,17 +154,14 @@ static BOOL upd9002_debug_observe(UINT16 cs, UINT16 ip, BOOL capture) {
 }
 
 BOOL upd9002_debug_step_begin(void) {
-
 	return upd9002_debug_observe(CPU_CS, CPU_IP, TRUE);
 }
 
 BOOL upd9002_debug_event_pending(void) {
-
 	return debug_state.event_pending;
 }
 
 BOOL upd9002_debug_event_snapshot(UPD9002_DEBUG_SNAPSHOT *snapshot) {
-
 	if (!debug_state.event_pending || (snapshot == NULL)) {
 		return FAILURE;
 	}
@@ -181,7 +170,6 @@ BOOL upd9002_debug_event_snapshot(UPD9002_DEBUG_SNAPSHOT *snapshot) {
 }
 
 void upd9002_debug_event_resume(void) {
-
 	if (!debug_state.event_pending) {
 		return;
 	}
@@ -207,30 +195,22 @@ BOOL upd9002_debug_selftest(void) {
 	CPU_CS = 0x1234;
 	CPU_IP = 0x5678;
 	CPU_AX = 0x9abc;
-	passed =
-		(upd9002_debug_counter_add(0x1234, 0x5678, &first) == SUCCESS) &&
-		(upd9002_debug_counter_add(0x1234, 0x5679, &second) == SUCCESS) &&
-		(upd9002_debug_wait_arm(0x1234, 0x5678, 2) == SUCCESS) &&
-		!upd9002_debug_observe(0x1234, 0x5679, FALSE) &&
-		!upd9002_debug_step_begin() &&
-		upd9002_debug_step_begin() &&
-		upd9002_debug_event_pending() &&
-		(upd9002_debug_event_snapshot(&snapshot) == SUCCESS) &&
-		(snapshot.cs == 0x1234) && (snapshot.ip == 0x5678) &&
-		(snapshot.ax == 0x9abc) && (snapshot.ordinal == 2) &&
-		(upd9002_debug_counter_value(first) == 2) &&
-		(upd9002_debug_counter_value(second) == 1);
-	passed = passed && upd9002_debug_step_begin() &&
-		(CPU_CS == 0x1234) && (CPU_IP == 0x5678) &&
-		(CPU_AX == 0x9abc) && upd9002_debug_event_pending();
+	passed = (upd9002_debug_counter_add(0x1234, 0x5678, &first) == SUCCESS) &&
+	         (upd9002_debug_counter_add(0x1234, 0x5679, &second) == SUCCESS) &&
+	         (upd9002_debug_wait_arm(0x1234, 0x5678, 2) == SUCCESS) &&
+	         !upd9002_debug_observe(0x1234, 0x5679, FALSE) && !upd9002_debug_step_begin() &&
+	         upd9002_debug_step_begin() && upd9002_debug_event_pending() &&
+	         (upd9002_debug_event_snapshot(&snapshot) == SUCCESS) && (snapshot.cs == 0x1234) &&
+	         (snapshot.ip == 0x5678) && (snapshot.ax == 0x9abc) && (snapshot.ordinal == 2) &&
+	         (upd9002_debug_counter_value(first) == 2) &&
+	         (upd9002_debug_counter_value(second) == 1);
+	passed = passed && upd9002_debug_step_begin() && (CPU_CS == 0x1234) && (CPU_IP == 0x5678) &&
+	         (CPU_AX == 0x9abc) && upd9002_debug_event_pending();
 	upd9002_debug_event_resume();
-	passed = passed && !upd9002_debug_event_pending() &&
-		!upd9002_debug_wait_armed() &&
-		!upd9002_debug_step_begin() &&
-		(upd9002_debug_counter_value(first) == 2) &&
-		!upd9002_debug_step_begin() &&
-		(upd9002_debug_counter_value(first) == 3) &&
-		(upd9002_debug_wait_arm(0, 0, 0) == FAILURE);
+	passed = passed && !upd9002_debug_event_pending() && !upd9002_debug_wait_armed() &&
+	         !upd9002_debug_step_begin() && (upd9002_debug_counter_value(first) == 2) &&
+	         !upd9002_debug_step_begin() && (upd9002_debug_counter_value(first) == 3) &&
+	         (upd9002_debug_wait_arm(0, 0, 0) == FAILURE);
 	upd9002_core_context = core_saved;
 	debug_state = saved;
 	return passed ? SUCCESS : FAILURE;

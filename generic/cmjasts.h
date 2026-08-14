@@ -10,4 +10,3 @@ COMMNG cmjasts_create(void);
 #ifdef __cplusplus
 }
 #endif
-

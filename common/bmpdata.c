@@ -1,36 +1,32 @@
-#include	"compiler.h"
-#include	"bmpdata.h"
-
+#include "compiler.h"
+#include "bmpdata.h"
 
 UINT bmpdata_getalign(const BMPINFO *bi) {
-
-	UINT	ret;
-	int		width;
-	int		bit;
+	UINT ret;
+	int width;
+	int bit;
 
 	width = LOADINTELDWORD(bi->biWidth);
 	bit = LOADINTELWORD(bi->biBitCount);
 	ret = ((width * bit) + 7) / 8;
 	ret = (ret + 3) & (~3);
-	return(ret);
+	return (ret);
 }
 
 UINT bmpdata_getdatasize(const BMPINFO *bi) {
-
-	int		height;
+	int height;
 
 	height = (SINT32)LOADINTELDWORD(bi->biHeight);
 	if (height < 0) {
 		height = 0 - height;
 	}
-	return(height * bmpdata_getalign(bi));
+	return (height * bmpdata_getalign(bi));
 }
 
 UINT bmpdata_sethead(BMPFILE *bf, const BMPINFO *bi) {
-
-	UINT	ret;
-	UINT	bit;
-	UINT	pal;
+	UINT ret;
+	UINT bit;
+	UINT pal;
 
 	ret = 0;
 	if (bi == NULL) {
@@ -52,13 +48,12 @@ UINT bmpdata_sethead(BMPFILE *bf, const BMPINFO *bi) {
 	ret += bmpdata_getdatasize(bi);
 
 bdsh_exit:
-	return(ret);
+	return (ret);
 }
 
 UINT bmpdata_setinfo(BMPINFO *bi, const BMPDATA *inf) {
-
-	UINT	ret;
-	UINT	tmp;
+	UINT ret;
+	UINT tmp;
 
 	ret = 0;
 	if ((bi == NULL) && (inf == NULL)) {
@@ -70,11 +65,11 @@ UINT bmpdata_setinfo(BMPINFO *bi, const BMPDATA *inf) {
 	STOREINTELDWORD(bi->biHeight, inf->height);
 	STOREINTELWORD(bi->biPlanes, 1);
 	STOREINTELWORD(bi->biBitCount, inf->bpp);
-//	STOREINTELDWORD(bi->biCompression, BI_RGB);
+	//	STOREINTELDWORD(bi->biCompression, BI_RGB);
 	ret = bmpdata_getdatasize(bi);
 	STOREINTELDWORD(bi->biSizeImage, ret);
-//	STOREINTELDWORD(bi->biXPelsPerMeter, 0);
-//	STOREINTELDWORD(bi->biYPelsPerMeter, 0);
+	//	STOREINTELDWORD(bi->biXPelsPerMeter, 0);
+	//	STOREINTELDWORD(bi->biYPelsPerMeter, 0);
 	if (inf->bpp <= 8) {
 		tmp = 1 << inf->bpp;
 		STOREINTELDWORD(bi->biClrUsed, tmp);
@@ -82,14 +77,13 @@ UINT bmpdata_setinfo(BMPINFO *bi, const BMPDATA *inf) {
 	}
 
 bdsi_exit:
-	return(ret);
+	return (ret);
 }
 
 BOOL bmpdata_getinfo(const BMPINFO *bi, BMPDATA *inf) {
-
-	UINT	tmp;
-	int		width;
-	int		height;
+	UINT tmp;
+	int width;
+	int height;
 
 	if ((bi == NULL) || (inf == NULL)) {
 		goto bdgi_err;
@@ -115,26 +109,25 @@ BOOL bmpdata_getinfo(const BMPINFO *bi, BMPDATA *inf) {
 	inf->width = width;
 	inf->height = height;
 	inf->bpp = LOADINTELWORD(bi->biBitCount);
-	return(SUCCESS);
+	return (SUCCESS);
 
 bdgi_err:
-	return(FAILURE);
+	return (FAILURE);
 }
 
 BYTE *bmpdata_lzx(int level, int dstsize, const BYTE *dat) {
-
-	BYTE	*ret;
-	BYTE	*ptr;
-	BYTE	ctrl;
-	BYTE	bit;
-	UINT	mask;
-	UINT	tmp;
-	int		pos;
-	int		leng;
+	BYTE *ret;
+	BYTE *ptr;
+	BYTE ctrl;
+	BYTE bit;
+	UINT mask;
+	UINT tmp;
+	int pos;
+	int leng;
 
 	ret = NULL;
 	if (dat == NULL) {
-		return(NULL);
+		return (NULL);
 	}
 	ret = (BYTE *)_MALLOC(dstsize, "res");
 	if (ret == NULL) {
@@ -145,7 +138,7 @@ BYTE *bmpdata_lzx(int level, int dstsize, const BYTE *dat) {
 	ctrl = 0;
 	bit = 0;
 	mask = (1 << level) - 1;
-	while(dstsize > 0) {
+	while (dstsize > 0) {
 		if (!bit) {
 			ctrl = *dat++;
 			bit = 0x80;
@@ -158,12 +151,11 @@ BYTE *bmpdata_lzx(int level, int dstsize, const BYTE *dat) {
 			leng = (tmp & mask) + 1;
 			leng = min(leng, dstsize);
 			dstsize -= leng;
-			while(leng--) {
+			while (leng--) {
 				*ptr = *(ptr + pos);
 				ptr++;
 			}
-		}
-		else {
+		} else {
 			*ptr++ = *dat++;
 			dstsize--;
 		}
@@ -171,17 +163,15 @@ BYTE *bmpdata_lzx(int level, int dstsize, const BYTE *dat) {
 	}
 
 lxz_err:
-	return(ret);
+	return (ret);
 }
 
 BYTE *bmpdata_solvedata(const BYTE *dat) {
-
-	int		dstsize;
+	int dstsize;
 
 	if (dat == NULL) {
-		return(NULL);
+		return (NULL);
 	}
 	dstsize = dat[0] + (dat[1] << 8) + (dat[2] << 16);
-	return(bmpdata_lzx(dat[3], dstsize, dat + 4));
+	return (bmpdata_lzx(dat[3], dstsize, dat + 4));
 }
-

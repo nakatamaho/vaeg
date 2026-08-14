@@ -1,34 +1,27 @@
-#include	"compiler.h"
-#include	"parts.h"
+#include "compiler.h"
+#include "parts.h"
 
-
-static	SINT32	randseed = 1;
-
+static SINT32 randseed = 1;
 
 void PARTSCALL rand_setseed(SINT32 seed) {
-
 	randseed = seed;
 }
 
 SINT32 PARTSCALL rand_get(void) {
-
 	randseed = (randseed * 0x343fd) + 0x269ec3;
-	return(randseed >> 16);
+	return (randseed >> 16);
 }
 
 BYTE PARTSCALL AdjustAfterMultiply(BYTE value) {
-
-	return((BYTE)(((value / 10) << 4) + (value % 10)));
+	return ((BYTE)(((value / 10) << 4) + (value % 10)));
 }
 
 BYTE PARTSCALL AdjustBeforeDivision(BYTE value) {
-
-	return((BYTE)(((value >> 4) * 10) + (value & 0xf)));
+	return ((BYTE)(((value >> 4) * 10) + (value & 0xf)));
 }
 
 UINT PARTSCALL sjis2jis(UINT sjis) {
-
-	UINT	ret;
+	UINT ret;
 
 	ret = sjis & 0xff;
 	ret -= (ret >> 7);
@@ -38,13 +31,12 @@ UINT PARTSCALL sjis2jis(UINT sjis) {
 	}
 	ret += 0x1f21;
 	ret += (sjis & 0x3f00) << 1;
-	return(ret);
+	return (ret);
 }
 
 UINT PARTSCALL jis2sjis(UINT jis) {
-
-	UINT	high;
-	UINT	low;
+	UINT high;
+	UINT low;
 
 	low = jis & 0x7f;
 	high = (jis >> 8) & 0x7f;
@@ -56,20 +48,18 @@ UINT PARTSCALL jis2sjis(UINT jis) {
 	low += 0x1f;
 	high >>= 1;
 	high ^= 0x20;
-	return((high << 8) | low);
+	return ((high << 8) | low);
 }
 
 void PARTSCALL satuation_s16(SINT16 *dst, const SINT32 *src, UINT size) {
-
-	SINT32	data;
+	SINT32 data;
 
 	size >>= 1;
-	while(size--) {
+	while (size--) {
 		data = *src++;
 		if (data > 32767) {
 			data = 32767;
-		}
-		else if (data < -32768) {
+		} else if (data < -32768) {
 			data = -32768;
 		}
 		*dst++ = (SINT16)data;
@@ -77,24 +67,21 @@ void PARTSCALL satuation_s16(SINT16 *dst, const SINT32 *src, UINT size) {
 }
 
 void PARTSCALL satuation_s16x(SINT16 *dst, const SINT32 *src, UINT size) {
-
-	SINT32	data;
+	SINT32 data;
 
 	size >>= 2;
-	while(size--) {
+	while (size--) {
 		data = src[0];
 		if (data > 32767) {
 			data = 32767;
-		}
-		else if (data < -32768) {
+		} else if (data < -32768) {
 			data = -32768;
 		}
 		dst[1] = (SINT16)data;
 		data = src[1];
 		if (data > 32767) {
 			data = 32767;
-		}
-		else if (data < -32768) {
+		} else if (data < -32768) {
 			data = -32768;
 		}
 		dst[0] = (SINT16)data;
@@ -102,4 +89,3 @@ void PARTSCALL satuation_s16x(SINT16 *dst, const SINT32 *src, UINT size) {
 		dst += 2;
 	}
 }
-

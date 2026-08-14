@@ -17,4 +17,3 @@ BOOL fddxdf_readid(FDDFILE fdd);
 #ifdef __cplusplus
 }
 #endif
-

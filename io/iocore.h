@@ -8,8 +8,8 @@
 #define IOINPCALL
 #endif
 
-typedef void (IOOUTCALL *IOOUT)(UINT port, REG8 val);
-typedef REG8 (IOINPCALL *IOINP)(UINT port);
+typedef void(IOOUTCALL *IOOUT)(UINT port, REG8 val);
+typedef REG8(IOINPCALL *IOINP)(UINT port);
 typedef void (*IOCBFN)(void);
 
 #include "lsidef.h"

@@ -6,8 +6,6 @@ extern "C" {
 void cbuscore_reset(void);
 void cbuscore_bind(void);
 
-
 #ifdef __cplusplus
 }
 #endif
-

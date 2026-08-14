@@ -1,33 +1,28 @@
-#include	"compiler.h"
-#include	"cpucore.h"
-#include	"machine/pccore.h"
-#include	"bios.h"
-#include	"biosmem.h"
-#include	"sxsibios.h"
-#include	"scsicmd.h"
-#include	"sxsi.h"
-#include	"machine/timing.h"
-
+#include "compiler.h"
+#include "cpucore.h"
+#include "machine/pccore.h"
+#include "bios.h"
+#include "biosmem.h"
+#include "sxsibios.h"
+#include "scsicmd.h"
+#include "sxsi.h"
+#include "machine/timing.h"
 
 typedef REG8 (*SXSIFUNC)(UINT type, SXSIDEV sxsi);
 
 static REG8 sxsi_pos(UINT type, SXSIDEV sxsi, long *ppos) {
-
-	REG8	ret;
-	long	pos;
+	REG8 ret;
+	long pos;
 
 	ret = 0;
 	pos = 0;
 	if (CPU_AL & 0x80) {
-		if ((CPU_DL >= sxsi->sectors) ||
-			(CPU_DH >= sxsi->surfaces) ||
-			(CPU_CX >= sxsi->cylinders)) {
+		if ((CPU_DL >= sxsi->sectors) || (CPU_DH >= sxsi->surfaces) ||
+		    (CPU_CX >= sxsi->cylinders)) {
 			ret = 0xd0;
 		}
-		pos = ((CPU_CX * sxsi->surfaces) + CPU_DH) * sxsi->sectors
-															+ CPU_DL;
-	}
-	else {
+		pos = ((CPU_CX * sxsi->surfaces) + CPU_DH) * sxsi->sectors + CPU_DL;
+	} else {
 		pos = (CPU_DL << 16) | CPU_CX;
 		if (type == SXSIBIOS_SASI) {
 			pos &= 0x1fffff;
@@ -41,17 +36,16 @@ static REG8 sxsi_pos(UINT type, SXSIDEV sxsi, long *ppos) {
 	if (sxsi->size > 1024) {
 		ret = 0xd0;
 	}
-	return(ret);
+	return (ret);
 }
 
 static REG8 sxsibios_write(UINT type, SXSIDEV sxsi) {
-
-	REG8	ret;
-	UINT	size;
-	long	pos;
-	UINT32	addr;
-	UINT	r;
-	BYTE	work[1024];
+	REG8 ret;
+	UINT size;
+	long pos;
+	UINT32 addr;
+	UINT r;
+	BYTE work[1024];
 
 	size = CPU_BX;
 	if (!size) {
@@ -60,7 +54,7 @@ static REG8 sxsibios_write(UINT type, SXSIDEV sxsi) {
 	ret = sxsi_pos(type, sxsi, &pos);
 	if (!ret) {
 		addr = (CPU_ES << 4) + CPU_BP;
-		while(size) {
+		while (size) {
 			r = min(size, sxsi->size);
 			MEML_READ(addr, work, r);
 			ret = sxsi_write(CPU_AL, pos, work, r);
@@ -72,17 +66,16 @@ static REG8 sxsibios_write(UINT type, SXSIDEV sxsi) {
 			pos++;
 		}
 	}
-	return(ret);
+	return (ret);
 }
 
 static REG8 sxsibios_read(UINT type, SXSIDEV sxsi) {
-
-	REG8	ret;
-	UINT	size;
-	long	pos;
-	UINT32	addr;
-	UINT	r;
-	BYTE	work[1024];
+	REG8 ret;
+	UINT size;
+	long pos;
+	UINT32 addr;
+	UINT r;
+	BYTE work[1024];
 
 	size = CPU_BX;
 	if (!size) {
@@ -91,7 +84,7 @@ static REG8 sxsibios_read(UINT type, SXSIDEV sxsi) {
 	ret = sxsi_pos(type, sxsi, &pos);
 	if (!ret) {
 		addr = (CPU_ES << 4) + CPU_BP;
-		while(size) {
+		while (size) {
 			r = min(size, sxsi->size);
 			ret = sxsi_read(CPU_AL, pos, work, r);
 			if (ret >= 0x20) {
@@ -103,76 +96,68 @@ static REG8 sxsibios_read(UINT type, SXSIDEV sxsi) {
 			pos++;
 		}
 	}
-	return(ret);
+	return (ret);
 }
 
 static REG8 sxsibios_format(UINT type, SXSIDEV sxsi) {
-
-	REG8	ret;
-	long	pos;
+	REG8 ret;
+	long pos;
 
 	if (CPU_AH & 0x80) {
-		if (type == SXSIBIOS_SCSI) {		// とりあえずSCSIのみ
+		if (type == SXSIBIOS_SCSI) { // とりあえずSCSIのみ
 			UINT count;
 			long posmax;
-			count = timing_getcount();			// 時間を止める
+			count = timing_getcount(); // 時間を止める
 			ret = 0;
 			pos = 0;
 			posmax = sxsi->surfaces * sxsi->cylinders;
-			while(pos < posmax) {
+			while (pos < posmax) {
 				ret = sxsi_format(CPU_AL, pos * sxsi->sectors);
 				if (ret) {
 					break;
 				}
 				pos++;
 			}
-			timing_setcount(count);							// 再開
-		}
-		else {
+			timing_setcount(count); // 再開
+		} else {
 			ret = 0xd0;
 		}
-	}
-	else {
+	} else {
 		if (CPU_DL) {
 			ret = 0x30;
-		}
-		else {
-//			i286_memstr_read(CPU_ES, CPU_BP, work, CPU_BX);
+		} else {
+			//			i286_memstr_read(CPU_ES, CPU_BP, work, CPU_BX);
 			ret = sxsi_pos(type, sxsi, &pos);
 			if (!ret) {
 				ret = sxsi_format(CPU_AL, pos);
 			}
 		}
 	}
-	return(ret);
+	return (ret);
 }
 
 static REG8 sxsibios_succeed(UINT type, SXSIDEV sxsi) {
-
 	(void)type;
 	(void)sxsi;
-	return(0x00);
+	return (0x00);
 }
 
 static REG8 sxsibios_failed(UINT type, SXSIDEV sxsi) {
-
 	(void)type;
 	(void)sxsi;
-	return(0x40);
+	return (0x40);
 }
-
 
 // ---- sasi & IDE
 
 static REG8 sasibios_init(UINT type, SXSIDEV sxsi) {
-
-	UINT16	diskequip;
-	UINT8	i;
-	UINT16	bit;
+	UINT16 diskequip;
+	UINT8 i;
+	UINT16 bit;
 
 	diskequip = GETBIOSMEM16(MEMW_DISK_EQUIP);
 	diskequip &= 0xf0ff;
-	for (i=0x00, bit=0x0100; i<0x02; i++, bit<<=1) {
+	for (i = 0x00, bit = 0x0100; i < 0x02; i++, bit <<= 1) {
 		sxsi = sxsi_getptr(i);
 		if ((sxsi) && (sxsi->fname[0])) {
 			diskequip |= bit;
@@ -181,69 +166,62 @@ static REG8 sasibios_init(UINT type, SXSIDEV sxsi) {
 	SETBIOSMEM16(MEMW_DISK_EQUIP, diskequip);
 
 	(void)type;
-	return(0x00);
+	return (0x00);
 }
 
 static REG8 sasibios_sense(UINT type, SXSIDEV sxsi) {
-
 	if (type == SXSIBIOS_SASI) {
-		return((REG8)((sxsi->type >> 8) & 7));
-	}
-	else {
+		return ((REG8)((sxsi->type >> 8) & 7));
+	} else {
 		if (CPU_AH == 0x84) {
 			CPU_BX = sxsi->size;
 			CPU_CX = sxsi->cylinders;
 			CPU_DH = sxsi->surfaces;
 			CPU_DL = sxsi->sectors;
 		}
-		return(0x0f);
+		return (0x0f);
 	}
 }
 
-static const SXSIFUNC sasifunc[16] = {
-			sxsibios_failed,		// SASI 0:
-			sxsibios_succeed,		// SASI 1: ベリファイ
-			sxsibios_failed,		// SASI 2:
-			sasibios_init,			// SASI 3: イニシャライズ
-			sasibios_sense,			// SASI 4: センス
-			sxsibios_write,			// SASI 5: データの書き込み
-			sxsibios_read,			// SASI 6: データの読み込み
-			sxsibios_succeed,		// SASI 7: リトラクト
-			sxsibios_failed,		// SASI 8:
-			sxsibios_failed,		// SASI 9:
-			sxsibios_failed,		// SASI a:
-			sxsibios_failed,		// SASI b:
-			sxsibios_failed,		// SASI c:
-			sxsibios_format,		// SASI d: フォーマット
-			sxsibios_failed,		// SASI e:
-			sxsibios_succeed};		// SASI f: リトラクト
+static const SXSIFUNC sasifunc[16] = {sxsibios_failed,   // SASI 0:
+                                      sxsibios_succeed,  // SASI 1: ベリファイ
+                                      sxsibios_failed,   // SASI 2:
+                                      sasibios_init,     // SASI 3: イニシャライズ
+                                      sasibios_sense,    // SASI 4: センス
+                                      sxsibios_write,    // SASI 5: データの書き込み
+                                      sxsibios_read,     // SASI 6: データの読み込み
+                                      sxsibios_succeed,  // SASI 7: リトラクト
+                                      sxsibios_failed,   // SASI 8:
+                                      sxsibios_failed,   // SASI 9:
+                                      sxsibios_failed,   // SASI a:
+                                      sxsibios_failed,   // SASI b:
+                                      sxsibios_failed,   // SASI c:
+                                      sxsibios_format,   // SASI d: フォーマット
+                                      sxsibios_failed,   // SASI e:
+                                      sxsibios_succeed}; // SASI f: リトラクト
 
 REG8 sasibios_operate(void) {
-
-	UINT	type;
-	SXSIDEV	sxsi;
+	UINT type;
+	SXSIDEV sxsi;
 
 	if (pccore.hddif & PCHDD_SASI) {
 		type = SXSIBIOS_SASI;
-	}
-	else {
-		return(0x60);
+	} else {
+		return (0x60);
 	}
 	sxsi = sxsi_getptr(CPU_AL);
 	if (sxsi == NULL) {
-		return(0x60);
+		return (0x60);
 	}
-	return((*sasifunc[CPU_AH & 0x0f])(type, sxsi));
+	return ((*sasifunc[CPU_AH & 0x0f])(type, sxsi));
 }
-
 
 // ---- scsi
 
-static void scsibios_set(REG8 drv, REG8 sectors, REG8 surfaces,
-									REG16 cylinders, REG16 size, BOOL hwsec) {
-
-	BYTE	*scsiinf;
-	UINT16	inf;
+static void scsibios_set(REG8 drv, REG8 sectors, REG8 surfaces, REG16 cylinders, REG16 size,
+                         BOOL hwsec) {
+	BYTE *scsiinf;
+	UINT16 inf;
 
 	scsiinf = mem + 0x00460 + ((drv & 7) * 4);
 	inf = 0;
@@ -255,8 +233,7 @@ static void scsibios_set(REG8 drv, REG8 sectors, REG8 surfaces,
 	}
 	if (size == 512) {
 		inf |= 0x1000;
-	}
-	else if (size == 1024) {
+	} else if (size == 1024) {
 		inf |= 0x2000;
 	}
 	if (hwsec) {
@@ -268,36 +245,31 @@ static void scsibios_set(REG8 drv, REG8 sectors, REG8 surfaces,
 }
 
 static REG8 scsibios_init(UINT type, SXSIDEV sxsi) {
-
-	UINT8	i;
-	UINT8	bit;
+	UINT8 i;
+	UINT8 bit;
 
 	mem[MEMB_DISK_EQUIPS] = 0;
 	ZeroMemory(&mem[0x00460], 0x20);
-	for (i=0, bit=1; i<4; i++, bit<<=1) {
+	for (i = 0, bit = 1; i < 4; i++, bit <<= 1) {
 		sxsi = sxsi_getptr((REG8)(0x20 + i));
 		if ((sxsi) && (sxsi->fname[0])) {
 			mem[MEMB_DISK_EQUIPS] |= bit;
-			scsibios_set(i, sxsi->sectors, sxsi->surfaces,
-							sxsi->cylinders, sxsi->size, TRUE);
+			scsibios_set(i, sxsi->sectors, sxsi->surfaces, sxsi->cylinders, sxsi->size, TRUE);
 		}
 	}
 	(void)type;
-	return(0x00);
+	return (0x00);
 }
 
 static REG8 scsibios_sense(UINT type, SXSIDEV sxsi) {
-
-	BYTE	*scsiinf;
+	BYTE *scsiinf;
 
 	scsiinf = mem + 0x00460 + ((CPU_AL & 7) * 4);
 	if (CPU_AH == 0x24) {
 		scsibios_set(CPU_AL, CPU_DL, CPU_DH, CPU_CX, CPU_BX, FALSE);
-	}
-	else if (CPU_AH == 0x44) {
-		CPU_BX = (scsiinf[3] & 0x80)?2:1;
-	}
-	else if (CPU_AH == 0x84) {
+	} else if (CPU_AH == 0x44) {
+		CPU_BX = (scsiinf[3] & 0x80) ? 2 : 1;
+	} else if (CPU_AH == 0x84) {
 		CPU_DL = scsiinf[0];
 		CPU_DH = scsiinf[1] & 0x0f;
 		CPU_CX = scsiinf[2] + ((scsiinf[3] & 0xf) << 8);
@@ -308,79 +280,72 @@ static REG8 scsibios_sense(UINT type, SXSIDEV sxsi) {
 	}
 	(void)type;
 	(void)sxsi;
-	return(0x00);
+	return (0x00);
 }
 
 static REG8 scsibios_setsec(UINT type, SXSIDEV sxsi) {
-
 	if (sxsi->size != (128 << (CPU_BH & 3))) {
-		return(0x40);
+		return (0x40);
 	}
 	(void)type;
-	return(0x00);
+	return (0x00);
 }
 
 static REG8 scsibios_chginf(UINT type, SXSIDEV sxsi) {
-
 	CPU_CX = 0;
 	(void)type;
 	(void)sxsi;
-	return(0x00);
+	return (0x00);
 }
 
-static const SXSIFUNC scsifunc[16] = {
-			sxsibios_failed,		// SCSI 0:
-			sxsibios_succeed,		// SCSI 1: ベリファイ
-			sxsibios_failed,		// SCSI 2:
-			scsibios_init,			// SCSI 3: イニシャライズ
-			scsibios_sense,			// SCSI 4: センス
-			sxsibios_write,			// SCSI 5: データの書き込み
-			sxsibios_read,			// SCSI 6: データの読み込み
-			sxsibios_succeed,		// SCSI 7: リトラクト
-			sxsibios_failed,		// SCSI 8:
-			sxsibios_failed,		// SCSI 9:
-			scsibios_setsec,		// SCSI a: セクタ長設定
-			sxsibios_failed,		// SCSI b:
-			scsibios_chginf,		// SCSI c: 代替情報取得
-			sxsibios_format,		// SCSI d: フォーマット
-			sxsibios_failed,		// SCSI e:
-			sxsibios_succeed};		// SCSI f: リトラクト
+static const SXSIFUNC scsifunc[16] = {sxsibios_failed,   // SCSI 0:
+                                      sxsibios_succeed,  // SCSI 1: ベリファイ
+                                      sxsibios_failed,   // SCSI 2:
+                                      scsibios_init,     // SCSI 3: イニシャライズ
+                                      scsibios_sense,    // SCSI 4: センス
+                                      sxsibios_write,    // SCSI 5: データの書き込み
+                                      sxsibios_read,     // SCSI 6: データの読み込み
+                                      sxsibios_succeed,  // SCSI 7: リトラクト
+                                      sxsibios_failed,   // SCSI 8:
+                                      sxsibios_failed,   // SCSI 9:
+                                      scsibios_setsec,   // SCSI a: セクタ長設定
+                                      sxsibios_failed,   // SCSI b:
+                                      scsibios_chginf,   // SCSI c: 代替情報取得
+                                      sxsibios_format,   // SCSI d: フォーマット
+                                      sxsibios_failed,   // SCSI e:
+                                      sxsibios_succeed}; // SCSI f: リトラクト
 
 REG8 scsibios_operate(void) {
-
-	SXSIDEV	sxsi;
+	SXSIDEV sxsi;
 
 	if (!(pccore.hddif & PCHDD_SCSI)) {
-		return(0x60);
+		return (0x60);
 	}
 	sxsi = sxsi_getptr(CPU_AL);
 	if (sxsi == NULL) {
-		return(0x60);
+		return (0x60);
 	}
-	return((*scsifunc[CPU_AH & 0x0f])(SXSIBIOS_SCSI, sxsi));
+	return ((*scsifunc[CPU_AH & 0x0f])(SXSIBIOS_SCSI, sxsi));
 }
 
-
 // あとで scsicmdから移動
-
 
 // ---- np2sysp
 
 typedef struct {
-	UINT16	ax;
-	UINT16	cx;
-	UINT16	dx;
-	UINT16	bx;
-	UINT16	bp;
-	UINT16	si;
-	UINT16	di;
-	UINT16	es;
-	UINT16	ds;
-	UINT16	flag;
+	UINT16 ax;
+	UINT16 cx;
+	UINT16 dx;
+	UINT16 bx;
+	UINT16 bp;
+	UINT16 si;
+	UINT16 di;
+	UINT16 es;
+	UINT16 ds;
+	UINT16 flag;
 } REGBAK;
 
 static void reg_push(REGBAK *r) {
-
 	r->ax = CPU_AX;
 	r->cx = CPU_CX;
 	r->dx = CPU_DX;
@@ -394,7 +359,6 @@ static void reg_push(REGBAK *r) {
 }
 
 static void reg_pop(const REGBAK *r) {
-
 	CPU_AX = r->ax;
 	CPU_CX = r->cx;
 	CPU_DX = r->dx;
@@ -408,20 +372,19 @@ static void reg_pop(const REGBAK *r) {
 }
 
 typedef struct {
-	BYTE	r_ax[2];
-	BYTE	r_bx[2];
-	BYTE	r_cx[2];
-	BYTE	r_dx[2];
-	BYTE	r_bp[2];
-	BYTE	r_es[2];
-	BYTE	r_di[2];
-	BYTE	r_si[2];
-	BYTE	r_ds[2];
+	BYTE r_ax[2];
+	BYTE r_bx[2];
+	BYTE r_cx[2];
+	BYTE r_dx[2];
+	BYTE r_bp[2];
+	BYTE r_es[2];
+	BYTE r_di[2];
+	BYTE r_si[2];
+	BYTE r_ds[2];
 } B1BREG;
 
 static void reg_load(UINT seg, UINT off) {
-
-	B1BREG	r;
+	B1BREG r;
 
 	MEML_READSTR(seg, off, &r, sizeof(r));
 	CPU_FLAGL = MEML_READ8(seg, off + 0x16);
@@ -437,8 +400,7 @@ static void reg_load(UINT seg, UINT off) {
 }
 
 static void reg_store(UINT seg, UINT off) {
-
-	B1BREG	r;
+	B1BREG r;
 
 	STOREINTELWORD(r.r_ax, CPU_AX);
 	STOREINTELWORD(r.r_bx, CPU_BX);
@@ -454,11 +416,10 @@ static void reg_store(UINT seg, UINT off) {
 }
 
 void np2sysp_sasi(const void *arg1, long arg2) {
-
-	UINT	seg;
-	UINT	off;
-	REGBAK	regbak;
-	REG8	ret;
+	UINT seg;
+	UINT off;
+	REGBAK regbak;
+	REG8 ret;
 
 	seg = CPU_SS;
 	off = CPU_BP;
@@ -479,11 +440,10 @@ void np2sysp_sasi(const void *arg1, long arg2) {
 }
 
 void np2sysp_scsi(const void *arg1, long arg2) {
-
-	UINT	seg;
-	UINT	off;
-	REGBAK	regbak;
-	REG8	ret;
+	UINT seg;
+	UINT off;
+	REGBAK regbak;
+	REG8 ret;
 
 	seg = CPU_SS;
 	off = CPU_BP;
@@ -504,10 +464,9 @@ void np2sysp_scsi(const void *arg1, long arg2) {
 }
 
 void np2sysp_scsidev(const void *arg1, long arg2) {
-
-	UINT	seg;
-	UINT	off;
-	REGBAK	regbak;
+	UINT seg;
+	UINT off;
+	REGBAK regbak;
 
 	seg = CPU_SS;
 	off = CPU_BP;

@@ -1,14 +1,12 @@
-#include	"compiler.h"
-#include	"getsnd.h"
-
+#include "compiler.h"
+#include "getsnd.h"
 
 GETSND getsnd_create(void *datptr, UINT datsize) {
-
-	_GETSND		snd;
-	BOOL		r;
-	UINT		size;
-	UINT		blkwork;
-	GETSND		ret;
+	_GETSND snd;
+	BOOL r;
+	UINT size;
+	UINT blkwork;
+	GETSND ret;
 
 	ZeroMemory(&snd, sizeof(snd));
 	r = getwave_open(&snd, (BYTE *)datptr, datsize);
@@ -35,7 +33,7 @@ GETSND getsnd_create(void *datptr, UINT datsize) {
 		TRACEOUT(("err"));
 		goto gscre_err1;
 	}
-	return(ret);
+	return (ret);
 
 gscre_err1:
 	if (snd.decend) {
@@ -43,12 +41,10 @@ gscre_err1:
 	}
 
 gscre_err0:
-	return(NULL);
+	return (NULL);
 }
 
-
 void getsnd_destroy(GETSND snd) {
-
 	if (snd == NULL) {
 		goto gsdes_end;
 	}
@@ -62,9 +58,8 @@ gsdes_end:
 }
 
 UINT getsnd_getpcmbyleng(GETSND snd, void *pcm, UINT leng) {
-
-	BYTE	*pcmp;
-	BYTE	*pcmterm;
+	BYTE *pcmp;
+	BYTE *pcmterm;
 
 	if (snd == NULL) {
 		goto gsgpl_err;
@@ -72,7 +67,7 @@ UINT getsnd_getpcmbyleng(GETSND snd, void *pcm, UINT leng) {
 
 	pcmp = (BYTE *)pcm;
 	pcmterm = pcmp + leng;
-	while(pcmp < pcmterm) {
+	while (pcmp < pcmterm) {
 		if (snd->remain != 0) {
 			pcmp = (BYTE *)(*snd->cnv)(snd, pcmp, pcmterm);
 		}
@@ -84,9 +79,8 @@ UINT getsnd_getpcmbyleng(GETSND snd, void *pcm, UINT leng) {
 			}
 		}
 	}
-	return(UINT)(pcmp - (BYTE *)pcm);
+	return (UINT)(pcmp - (BYTE *)pcm);
 
 gsgpl_err:
-	return(0);
+	return (0);
 }
-

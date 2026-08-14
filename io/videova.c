@@ -2,37 +2,37 @@
  * videova.c: PC-88VA Video Control
  */
 
-#include	"compiler.h"
-#include	"cpucore.h"
-#include	"machine/pccore.h"
-#include	"iocore.h"
-#include	"iocoreva.h"
-#include	"memoryva.h"
+#include "compiler.h"
+#include "cpucore.h"
+#include "machine/pccore.h"
+#include "iocore.h"
+#include "iocoreva.h"
+#include "memoryva.h"
 
-
-#define SETLOWBYTE(x, y) (x) = ( (x) & 0xff00 | (y) )
-#define SETHIGHBYTE(x, y) (x) = ( (x) & 0x00ff | ((WORD)(y) << 8) )
-#define LOWBYTE(x)  ( (BYTE)((x) & 0xff) )
-#define HIGHBYTE(x) ( (BYTE)(((x) >> 8) & 0xff) )
-#define HIGHWORD(x) ( (WORD)(((x) >> 16) & 0xffff) )
+#define SETLOWBYTE(x, y) (x) = ((x) & 0xff00 | (y))
+#define SETHIGHBYTE(x, y) (x) = ((x) & 0x00ff | ((WORD)(y) << 8))
+#define LOWBYTE(x) ((BYTE)((x) & 0xff))
+#define HIGHBYTE(x) ((BYTE)(((x) >> 8) & 0xff))
+#define HIGHWORD(x) ((WORD)(((x) >> 16) & 0xffff))
 
 enum {
 	PORT_FRAMEBUFFER = 0x200,
 	PORT_PALETTE = 0x300,
 };
 
-	_VIDEOVA	videova;
-
-
+_VIDEOVA videova;
 
 static int port2pal(UINT port) {
 	return (port - PORT_PALETTE) / 2;
 }
 
 static WORD adjustcolor12(WORD c) {
-	if (c & 0xf000) c |= 0x0c00;
-	if (c & 0x03c0) c |= 0x0020;
-	if (c & 0x001e) c |= 0x0001;
+	if (c & 0xf000)
+		c |= 0x0c00;
+	if (c & 0x03c0)
+		c |= 0x0020;
+	if (c & 0x001e)
+		c |= 0x0001;
 	return c;
 }
 
@@ -50,44 +50,44 @@ static void IOOUTCALL videova_o030(UINT port, REG8 dat) {
 // Display-screen control register.
 
 static REG8 IOINPCALL videova_i100(UINT port) {
-//	return videova.grmode & 0xff;
+	//	return videova.grmode & 0xff;
 	return LOWBYTE(videova.grmode);
 }
 
 static REG8 IOINPCALL videova_i101(UINT port) {
-//	return videova.grmode >> 8;
+	//	return videova.grmode >> 8;
 	return HIGHBYTE(videova.grmode);
 }
 
 static void IOOUTCALL videova_o100(UINT port, REG8 dat) {
-//	videova.grmode = videova.grmode & 0xff00 | dat;
+	//	videova.grmode = videova.grmode & 0xff00 | dat;
 	SETLOWBYTE(videova.grmode, dat);
 }
 
 static void IOOUTCALL videova_o101(UINT port, REG8 dat) {
-//	videova.grmode = videova.grmode & 0x00ff | ((WORD)dat << 8);
+	//	videova.grmode = videova.grmode & 0x00ff | ((WORD)dat << 8);
 	SETHIGHBYTE(videova.grmode, dat);
 }
 
 // Graphics-screen control register.
 
 static REG8 IOINPCALL videova_i102(UINT port) {
-//	return videova.grres & 0xff;
+	//	return videova.grres & 0xff;
 	return LOWBYTE(videova.grres);
 }
 
 static REG8 IOINPCALL videova_i103(UINT port) {
-//	return videova.grres >> 8;
+	//	return videova.grres >> 8;
 	return HIGHBYTE(videova.grres);
 }
 
 static void IOOUTCALL videova_o102(UINT port, REG8 dat) {
-//	videova.grres = videova.grres & 0xff00 | dat;
+	//	videova.grres = videova.grres & 0xff00 | dat;
 	SETLOWBYTE(videova.grres, dat);
 }
 
 static void IOOUTCALL videova_o103(UINT port, REG8 dat) {
-//	videova.grres = videova.grres & 0x00ff | ((WORD)dat << 8);
+	//	videova.grres = videova.grres & 0x00ff | ((WORD)dat << 8);
 	SETHIGHBYTE(videova.grres, dat);
 }
 
@@ -124,22 +124,22 @@ static void IOOUTCALL videova_o10b(UINT port, REG8 dat) {
 // Color-palette mode register.
 
 static REG8 IOINPCALL videova_i10c(UINT port) {
-//	return videova.palmode & 0xff;
+	//	return videova.palmode & 0xff;
 	return LOWBYTE(videova.palmode);
 }
 
 static REG8 IOINPCALL videova_i10d(UINT port) {
-//	return videova.palmode >> 8;
+	//	return videova.palmode >> 8;
 	return HIGHBYTE(videova.palmode);
 }
 
 static void IOOUTCALL videova_o10c(UINT port, REG8 dat) {
-//	videova.palmode = videova.palmode & 0xff00 | dat;
+	//	videova.palmode = videova.palmode & 0xff00 | dat;
 	SETLOWBYTE(videova.palmode, dat);
 }
 
 static void IOOUTCALL videova_o10d(UINT port, REG8 dat) {
-//	videova.palmode = videova.palmode & 0x00ff | ((WORD)dat << 8);
+	//	videova.palmode = videova.palmode & 0x00ff | ((WORD)dat << 8);
 	SETHIGHBYTE(videova.palmode, dat);
 }
 
@@ -168,7 +168,6 @@ static void IOOUTCALL videova_o110(UINT port, REG8 dat) {
 static void IOOUTCALL videova_o111(UINT port, REG8 dat) {
 	SETHIGHBYTE(videova.pagemsk, dat);
 }
-
 
 // Graphics-screen 0 transparent-color register.
 
@@ -249,7 +248,7 @@ static void IOOUTCALL videova_o148(UINT port, REG8 dat) {
 
 static void IOOUTCALL videova_o_palette_l(UINT port, REG8 dat) {
 	int n;
-	
+
 	n = port2pal(port);
 	videova.palette[n] = videova.palette[n] & 0xff00 | dat;
 	adjustpal(n);
@@ -257,42 +256,42 @@ static void IOOUTCALL videova_o_palette_l(UINT port, REG8 dat) {
 
 static void IOOUTCALL videova_o_palette_h(UINT port, REG8 dat) {
 	int n;
-	
+
 	n = port2pal(port);
 	videova.palette[n] = videova.palette[n] & 0x00ff | ((WORD)dat << 8);
 	adjustpal(n);
 }
 
-
 // Framebuffer control registers.
 
-#define fbno(x) ((x>>5) & 3)
+#define fbno(x) ((x >> 5) & 3)
 
 static void IOOUTCALL videova_o_fb_00(UINT port, REG8 dat) {
 	int n;
 
 	n = fbno(port);
-	if (n == 1) return;
-	videova.framebuffer[n].fsa =
-		videova.framebuffer[n].fsa & 0xffffff00L | (dat & 0xfc);
+	if (n == 1)
+		return;
+	videova.framebuffer[n].fsa = videova.framebuffer[n].fsa & 0xffffff00L | (dat & 0xfc);
 }
 
 static void IOOUTCALL videova_o_fb_01(UINT port, REG8 dat) {
 	int n;
 
 	n = fbno(port);
-	if (n == 1) return;
-	videova.framebuffer[n].fsa =
-		videova.framebuffer[n].fsa & 0xffff00ffL | ((DWORD)dat << 8);
+	if (n == 1)
+		return;
+	videova.framebuffer[n].fsa = videova.framebuffer[n].fsa & 0xffff00ffL | ((DWORD)dat << 8);
 }
 
 static void IOOUTCALL videova_o_fb_02(UINT port, REG8 dat) {
 	int n;
 
 	n = fbno(port);
-	if (n == 1) return;
+	if (n == 1)
+		return;
 	videova.framebuffer[n].fsa =
-		videova.framebuffer[n].fsa & 0xff00ffffL | (((DWORD)dat & 0x03) << 16);
+	    videova.framebuffer[n].fsa & 0xff00ffffL | (((DWORD)dat & 0x03) << 16);
 }
 
 static void IOOUTCALL videova_o_fb_03(UINT port, REG8 dat) {
@@ -302,37 +301,33 @@ static void IOOUTCALL videova_o_fb_04(UINT port, REG8 dat) {
 	int n;
 
 	n = fbno(port);
-	videova.framebuffer[n].fbw =
-		videova.framebuffer[n].fbw & 0xff00 | (dat & 0xfc);
+	videova.framebuffer[n].fbw = videova.framebuffer[n].fbw & 0xff00 | (dat & 0xfc);
 }
 
 static void IOOUTCALL videova_o_fb_05(UINT port, REG8 dat) {
 	int n;
 
 	n = fbno(port);
-	videova.framebuffer[n].fbw =
-		videova.framebuffer[n].fbw & 0x00ff | (((WORD)dat & 0x07) << 8);
+	videova.framebuffer[n].fbw = videova.framebuffer[n].fbw & 0x00ff | (((WORD)dat & 0x07) << 8);
 }
-
 
 static void IOOUTCALL videova_o_fb_06(UINT port, REG8 dat) {
 	int n;
 
 	n = fbno(port);
-	if (n == 1) return;
-	videova.framebuffer[n].fbl =
-		videova.framebuffer[n].fbl & 0xff00 | dat;
+	if (n == 1)
+		return;
+	videova.framebuffer[n].fbl = videova.framebuffer[n].fbl & 0xff00 | dat;
 }
 
 static void IOOUTCALL videova_o_fb_07(UINT port, REG8 dat) {
 	int n;
 
 	n = fbno(port);
-	if (n == 1) return;
-	videova.framebuffer[n].fbl =
-		videova.framebuffer[n].fbl & 0x00ff | (((WORD)dat & 0x03) << 8);
+	if (n == 1)
+		return;
+	videova.framebuffer[n].fbl = videova.framebuffer[n].fbl & 0x00ff | (((WORD)dat & 0x03) << 8);
 }
-
 
 static void IOOUTCALL videova_o_fb_08(UINT port, REG8 dat) {
 	int n;
@@ -344,61 +339,54 @@ static void IOOUTCALL videova_o_fb_08(UINT port, REG8 dat) {
 static void IOOUTCALL videova_o_fb_09(UINT port, REG8 dat) {
 }
 
-
 static void IOOUTCALL videova_o_fb_0a(UINT port, REG8 dat) {
 	int n;
 
 	n = fbno(port);
-	if (n == 1) return;
-	videova.framebuffer[n].ofx =
-		videova.framebuffer[n].ofx & 0xff00 | (dat & 0xfc);
+	if (n == 1)
+		return;
+	videova.framebuffer[n].ofx = videova.framebuffer[n].ofx & 0xff00 | (dat & 0xfc);
 }
 
 static void IOOUTCALL videova_o_fb_0b(UINT port, REG8 dat) {
 	int n;
 
 	n = fbno(port);
-	if (n == 1) return;
-	videova.framebuffer[n].ofx =
-		videova.framebuffer[n].ofx & 0x00ff | (((WORD)dat & 0x07) << 8);
+	if (n == 1)
+		return;
+	videova.framebuffer[n].ofx = videova.framebuffer[n].ofx & 0x00ff | (((WORD)dat & 0x07) << 8);
 }
-
-
 
 static void IOOUTCALL videova_o_fb_0c(UINT port, REG8 dat) {
 	int n;
 
 	n = fbno(port);
-	if (n == 1) return;
-	videova.framebuffer[n].ofy =
-		videova.framebuffer[n].ofy & 0xff00 | dat;
+	if (n == 1)
+		return;
+	videova.framebuffer[n].ofy = videova.framebuffer[n].ofy & 0xff00 | dat;
 }
 
 static void IOOUTCALL videova_o_fb_0d(UINT port, REG8 dat) {
 	int n;
 
 	n = fbno(port);
-	if (n == 1) return;
-	videova.framebuffer[n].ofy =
-		videova.framebuffer[n].ofy & 0x00ff | (((WORD)dat & 0x03) << 8);
+	if (n == 1)
+		return;
+	videova.framebuffer[n].ofy = videova.framebuffer[n].ofy & 0x00ff | (((WORD)dat & 0x03) << 8);
 }
-
-
 
 static void IOOUTCALL videova_o_fb_0e(UINT port, REG8 dat) {
 	int n;
 
 	n = fbno(port);
-	videova.framebuffer[n].dsa =
-		videova.framebuffer[n].dsa & 0xffffff00L | (dat & 0xfc);
+	videova.framebuffer[n].dsa = videova.framebuffer[n].dsa & 0xffffff00L | (dat & 0xfc);
 }
 
 static void IOOUTCALL videova_o_fb_0f(UINT port, REG8 dat) {
 	int n;
 
 	n = fbno(port);
-	videova.framebuffer[n].dsa =
-		videova.framebuffer[n].dsa & 0xffff00ffL | ((DWORD)dat << 8);
+	videova.framebuffer[n].dsa = videova.framebuffer[n].dsa & 0xffff00ffL | ((DWORD)dat << 8);
 }
 
 static void IOOUTCALL videova_o_fb_10(UINT port, REG8 dat) {
@@ -406,47 +394,39 @@ static void IOOUTCALL videova_o_fb_10(UINT port, REG8 dat) {
 
 	n = fbno(port);
 	videova.framebuffer[n].dsa =
-		videova.framebuffer[n].dsa & 0xff00ffffL | (((DWORD)dat & 0x03) << 16);
+	    videova.framebuffer[n].dsa & 0xff00ffffL | (((DWORD)dat & 0x03) << 16);
 }
 
 static void IOOUTCALL videova_o_fb_11(UINT port, REG8 dat) {
 }
 
-
-
 static void IOOUTCALL videova_o_fb_12(UINT port, REG8 dat) {
 	int n;
 
 	n = fbno(port);
-	videova.framebuffer[n].dsh =
-		videova.framebuffer[n].dsh & 0xff00 | dat;
+	videova.framebuffer[n].dsh = videova.framebuffer[n].dsh & 0xff00 | dat;
 }
 
 static void IOOUTCALL videova_o_fb_13(UINT port, REG8 dat) {
 	int n;
 
 	n = fbno(port);
-	videova.framebuffer[n].dsh =
-		videova.framebuffer[n].dsh & 0x00ff | (((WORD)dat & 0x01) << 8);
+	videova.framebuffer[n].dsh = videova.framebuffer[n].dsh & 0x00ff | (((WORD)dat & 0x01) << 8);
 }
-
 
 static void IOOUTCALL videova_o_fb_16(UINT port, REG8 dat) {
 	int n;
 
 	n = fbno(port);
-	videova.framebuffer[n].dsp =
-		videova.framebuffer[n].dsp & 0xff00 | dat;
+	videova.framebuffer[n].dsp = videova.framebuffer[n].dsp & 0xff00 | dat;
 }
 
 static void IOOUTCALL videova_o_fb_17(UINT port, REG8 dat) {
 	int n;
 
 	n = fbno(port);
-	videova.framebuffer[n].dsp =
-		videova.framebuffer[n].dsp & 0x00ff | (((WORD)dat & 0x01) << 8);
+	videova.framebuffer[n].dsp = videova.framebuffer[n].dsp & 0x00ff | (((WORD)dat & 0x01) << 8);
 }
-
 
 static REG8 IOINPCALL videova_i_fb_00(UINT port) {
 	return LOWBYTE(videova.framebuffer[fbno(port)].fsa);
@@ -504,7 +484,6 @@ static REG8 IOINPCALL videova_i_fb_0d(UINT port) {
 	return HIGHBYTE(videova.framebuffer[fbno(port)].ofy);
 }
 
-
 static REG8 IOINPCALL videova_i_fb_0e(UINT port) {
 	return LOWBYTE(videova.framebuffer[fbno(port)].dsa);
 }
@@ -536,8 +515,6 @@ static REG8 IOINPCALL videova_i_fb_16(UINT port) {
 static REG8 IOINPCALL videova_i_fb_17(UINT port) {
 	return HIGHBYTE(videova.framebuffer[fbno(port)].dsp);
 }
-
-
 
 // ---- I/F
 
@@ -643,7 +620,6 @@ void videova_bind(void) {
 		iocore_attachout(base + 0x16, videova_o_fb_16);
 		iocore_attachout(base + 0x17, videova_o_fb_17);
 
-	
 		iocore_attachinp(base + 0x00, videova_i_fb_00);
 		iocore_attachinp(base + 0x01, videova_i_fb_01);
 		iocore_attachinp(base + 0x02, videova_i_fb_02);
@@ -676,13 +652,11 @@ void videova_bind(void) {
 		iocore_attachinp(base + 0x17, videova_i_fb_17);
 	}
 
-	for (i = 0; i < VIDEOVA_PALETTES * 2; i+=2) {
+	for (i = 0; i < VIDEOVA_PALETTES * 2; i += 2) {
 		iocore_attachout(PORT_PALETTE + i, videova_o_palette_l);
-		iocore_attachout(PORT_PALETTE + i+1, videova_o_palette_h);
+		iocore_attachout(PORT_PALETTE + i + 1, videova_o_palette_h);
 	}
-
 }
-
 
 int videova_hsyncmode(void) {
 	int ret;
@@ -692,19 +666,16 @@ int videova_hsyncmode(void) {
 		if (videova.grmode & 0x0080) {
 			// Interlaced mode.
 			ret = VIDEOVA_15_73KHZ;
-		}
-		else {
+		} else {
 			// Non-interlaced mode.
 			ret = VIDEOVA_24_8KHZ;
 		}
-	}
-	else {
+	} else {
 		// 15.7 kHz display selected.
 		if (videova.grmode & 0x0080) {
 			// Interlaced mode.
 			ret = VIDEOVA_15_73KHZ;
-		}
-		else {
+		} else {
 			// Non-interlaced mode.
 			ret = VIDEOVA_15_98KHZ;
 		}

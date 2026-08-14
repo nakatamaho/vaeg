@@ -2,23 +2,22 @@
  * sgp.c: PC-88VA Super Graphic Processor
  */
 
-#include	"compiler.h"
-#include	"machine/clockscale.h"
-#include	"cpucore.h"
-#include	"machine/pccore.h"
-#include	"iocore.h"
-#include	"iocoreva.h"
-#include	"memoryva.h"
-#include	"gvramva.h"
-#include	"sgp.h"
-#include	"bmsio.h"
+#include "compiler.h"
+#include "machine/clockscale.h"
+#include "cpucore.h"
+#include "machine/pccore.h"
+#include "iocore.h"
+#include "iocoreva.h"
+#include "memoryva.h"
+#include "gvramva.h"
+#include "sgp.h"
+#include "bmsio.h"
 
-
-#define		SWAPWORD(x)	( ((x) << 8) | ((x) >> 8) )
+#define SWAPWORD(x) (((x) << 8) | ((x) >> 8))
 
 enum {
 	// func
-	FUNC_FETCH_COMMAND		= 0,
+	FUNC_FETCH_COMMAND = 0,
 	FUNC_EXEC_BITBLT,
 	FUNC_EXEC_BITBLT_HD,
 	FUNC_EXEC_CLS,
@@ -26,84 +25,77 @@ enum {
 	FUNC_EXEC_LINE_Y,
 };
 
-	_SGP	sgp;
-	static CLOCKSCALE sgp_clock_scale = {1, 1, 0};
+_SGP sgp;
+static CLOCKSCALE sgp_clock_scale = {1, 1, 0};
 
 BOOL sgp_speed_mode_valid(UINT mode) {
-
-	return(mode < SGP_SPEED_MODE_COUNT);
+	return (mode < SGP_SPEED_MODE_COUNT);
 }
 
 BOOL sgp_speed_multiplier_valid(UINT multiple) {
-
-	return((multiple >= 1) && (multiple <= SGP_SPEED_MULTIPLIER_MAX));
+	return ((multiple >= 1) && (multiple <= SGP_SPEED_MULTIPLIER_MAX));
 }
 
-BOOL sgp_speed_ratio(UINT mode, UINT custom_multiple, UINT cpu_multiple,
-							UINT32 *numerator, UINT32 *denominator) {
-
-	if ((numerator == NULL) || (denominator == NULL) ||
-		!sgp_speed_mode_valid(mode)) {
-		return(FAILURE);
+BOOL sgp_speed_ratio(UINT mode, UINT custom_multiple, UINT cpu_multiple, UINT32 *numerator,
+                     UINT32 *denominator) {
+	if ((numerator == NULL) || (denominator == NULL) || !sgp_speed_mode_valid(mode)) {
+		return (FAILURE);
 	}
-	switch(mode) {
-		case SGP_SPEED_MODEL_DEFAULT:
-			*numerator = 1;
-			*denominator = 1;
-			break;
+	switch (mode) {
+	case SGP_SPEED_MODEL_DEFAULT:
+		*numerator = 1;
+		*denominator = 1;
+		break;
 
-		case SGP_SPEED_FOLLOW_CPU:
-			if (!pccore_cpu_multiple_valid(cpu_multiple)) {
-				return(FAILURE);
-			}
-			*numerator = cpu_multiple;
-			*denominator = PCCORE_STANDARD_MULTIPLE;
-			break;
+	case SGP_SPEED_FOLLOW_CPU:
+		if (!pccore_cpu_multiple_valid(cpu_multiple)) {
+			return (FAILURE);
+		}
+		*numerator = cpu_multiple;
+		*denominator = PCCORE_STANDARD_MULTIPLE;
+		break;
 
-		case SGP_SPEED_CUSTOM:
-			if (!sgp_speed_multiplier_valid(custom_multiple)) {
-				return(FAILURE);
-			}
-			*numerator = custom_multiple;
-			*denominator = 1;
-			break;
+	case SGP_SPEED_CUSTOM:
+		if (!sgp_speed_multiplier_valid(custom_multiple)) {
+			return (FAILURE);
+		}
+		*numerator = custom_multiple;
+		*denominator = 1;
+		break;
 
-		default:
-			return(FAILURE);
+	default:
+		return (FAILURE);
 	}
-	return(SUCCESS);
+	return (SUCCESS);
 }
 
 UINT32 sgp_model_clock(UINT model_va) {
-
 	if (model_va == PCMODEL_VA2) {
-		return(PCBASECLOCK40 * 2);
+		return (PCBASECLOCK40 * 2);
 	}
-	return(PCBASECLOCK40);
+	return (PCBASECLOCK40);
 }
 
 UINT32 sgp_effective_clock(void) {
-
 	UINT32 numerator;
 	UINT32 denominator;
 	UINT32 model_clock;
 
 	model_clock = sgp_model_clock(pccore.model_va);
-	if (sgp_speed_ratio(np2cfg.sgp_speed_mode, np2cfg.sgp_multiplier,
-				pccore_cpu_multiple(), &numerator, &denominator) != SUCCESS) {
-		return(model_clock);
+	if (sgp_speed_ratio(np2cfg.sgp_speed_mode, np2cfg.sgp_multiplier, pccore_cpu_multiple(),
+	                    &numerator, &denominator) != SUCCESS) {
+		return (model_clock);
 	}
-	return((UINT32)(((UINT64)model_clock * numerator) / denominator));
+	return ((UINT32)(((UINT64)model_clock * numerator) / denominator));
 }
 
 void sgp_configure_speed(void) {
-
 	UINT32 numerator;
 	UINT32 denominator;
 	UINT32 model_multiple;
 
-	if (sgp_speed_ratio(np2cfg.sgp_speed_mode, np2cfg.sgp_multiplier,
-				pccore_cpu_multiple(), &numerator, &denominator) != SUCCESS) {
+	if (sgp_speed_ratio(np2cfg.sgp_speed_mode, np2cfg.sgp_multiplier, pccore_cpu_multiple(),
+	                    &numerator, &denominator) != SUCCESS) {
 		np2cfg.sgp_speed_mode = SGP_SPEED_MODEL_DEFAULT;
 		np2cfg.sgp_multiplier = 1;
 		numerator = 1;
@@ -115,12 +107,10 @@ void sgp_configure_speed(void) {
 }
 
 UINT64 sgp_scale_elapsed(UINT32 elapsed) {
-
-	return(clockscale_apply(&sgp_clock_scale, elapsed));
+	return (clockscale_apply(&sgp_clock_scale, elapsed));
 }
 
-
-// ---- 
+// ----
 
 static REG16 MEMCALL mainw_rd(UINT32 address) {
 	return *(REG16 *)(mem + address);
@@ -138,11 +128,9 @@ static REG16 MEMCALL bmsw_rd(UINT32 address) {
 	}
 	address -= 0x080000L;
 	offset = ((UINT32)(bmsio.bank - 1) << 17) + address;
-	if (!bmsio.nomem && (bmsiowork.bmsmem != NULL) &&
-		(offset + 1 < bmsiowork.bmsmemsize)) {
+	if (!bmsio.nomem && (bmsiowork.bmsmem != NULL) && (offset + 1 < bmsiowork.bmsmemsize)) {
 		return *(REG16 *)(bmsiowork.bmsmem + offset);
-	}
-	else {
+	} else {
 		return 0xffff;
 	}
 }
@@ -156,8 +144,7 @@ static void MEMCALL bmsw_wt(UINT32 address, REG16 value) {
 	}
 	address -= 0x080000L;
 	offset = ((UINT32)(bmsio.bank - 1) << 17) + address;
-	if (!bmsio.nomem && (bmsiowork.bmsmem != NULL) &&
-		(offset + 1 < bmsiowork.bmsmemsize)) {
+	if (!bmsio.nomem && (bmsiowork.bmsmem != NULL) && (offset + 1 < bmsiowork.bmsmemsize)) {
 		*(REG16 *)(bmsiowork.bmsmem + offset) = value;
 	}
 }
@@ -203,150 +190,148 @@ static REG16 MEMCALL nonw_rd(UINT32 address) {
 static void MEMCALL nonw_wt(UINT32 address, REG16 value) {
 }
 
-
-typedef void (MEMCALL * MEM16WRITE)(UINT32 address, REG16 value);
-typedef REG16 (MEMCALL * MEM16READ)(UINT32 address);
+typedef void(MEMCALL *MEM16WRITE)(UINT32 address, REG16 value);
+typedef REG16(MEMCALL *MEM16READ)(UINT32 address);
 
 static MEM16READ rd16[0x40] = {
-	mainw_rd,	// 00xxxx
-	mainw_rd,	// 01xxxx
-	mainw_rd,	// 02xxxx
-	mainw_rd,	// 03xxxx
-	mainw_rd,	// 04xxxx
-	mainw_rd,	// 05xxxx
-	mainw_rd,	// 06xxxx
-	mainw_rd,	// 07xxxx
-	bmsw_rd,	// 08xxxx
-	bmsw_rd,	// 09xxxx
-	nonw_rd,	// 0axxxx	ToDo
-	nonw_rd,	// 0bxxxx	ToDo
-	nonw_rd,	// 0cxxxx	ToDo
-	nonw_rd,	// 0dxxxx	ToDo
-	nonw_rd,	// 0exxxx	ToDo
-	nonw_rd,	// 0fxxxx	ToDo
+    mainw_rd, // 00xxxx
+    mainw_rd, // 01xxxx
+    mainw_rd, // 02xxxx
+    mainw_rd, // 03xxxx
+    mainw_rd, // 04xxxx
+    mainw_rd, // 05xxxx
+    mainw_rd, // 06xxxx
+    mainw_rd, // 07xxxx
+    bmsw_rd,  // 08xxxx
+    bmsw_rd,  // 09xxxx
+    nonw_rd,  // 0axxxx	ToDo
+    nonw_rd,  // 0bxxxx	ToDo
+    nonw_rd,  // 0cxxxx	ToDo
+    nonw_rd,  // 0dxxxx	ToDo
+    nonw_rd,  // 0exxxx	ToDo
+    nonw_rd,  // 0fxxxx	ToDo
 
-	knj1w_rd,	// 10xxxx
-	knj1w_rd,	// 11xxxx
-	knj1w_rd,	// 12xxxx
-	knj1w_rd,	// 13xxxx
-	knj2w_rd,	// 14xxxx
-	knj2w_rd,	// 15xxxx
-	knj2w_rd,	// 16xxxx
-	knj2w_rd,	// 17xxxx
-	tvramw_rd,	// 18xxxx
-	tvramw_rd,	// 19xxxx	
-	tvramw_rd,	// 1axxxx	
-	tvramw_rd,	// 1bxxxx	
-	nonw_rd,	// 1cxxxx
-	nonw_rd,	// 1dxxxx
-	nonw_rd,	// 1exxxx
-	nonw_rd,	// 1fxxxx
+    knj1w_rd,  // 10xxxx
+    knj1w_rd,  // 11xxxx
+    knj1w_rd,  // 12xxxx
+    knj1w_rd,  // 13xxxx
+    knj2w_rd,  // 14xxxx
+    knj2w_rd,  // 15xxxx
+    knj2w_rd,  // 16xxxx
+    knj2w_rd,  // 17xxxx
+    tvramw_rd, // 18xxxx
+    tvramw_rd, // 19xxxx
+    tvramw_rd, // 1axxxx
+    tvramw_rd, // 1bxxxx
+    nonw_rd,   // 1cxxxx
+    nonw_rd,   // 1dxxxx
+    nonw_rd,   // 1exxxx
+    nonw_rd,   // 1fxxxx
 
-	gvramw_rd,	// 20xxxx
-	gvramw_rd,	// 21xxxx
-	gvramw_rd,	// 22xxxx
-	gvramw_rd,	// 23xxxx
-	nonw_rd,	// 24xxxx
-	nonw_rd,	// 25xxxx
-	nonw_rd,	// 26xxxx
-	nonw_rd,	// 27xxxx
-	nonw_rd,	// 28xxxx
-	nonw_rd,	// 29xxxx
-	nonw_rd,	// 2axxxx
-	nonw_rd,	// 2bxxxx
-	nonw_rd,	// 2cxxxx
-	nonw_rd,	// 2dxxxx
-	nonw_rd,	// 2exxxx
-	nonw_rd,	// 2fxxxx
+    gvramw_rd, // 20xxxx
+    gvramw_rd, // 21xxxx
+    gvramw_rd, // 22xxxx
+    gvramw_rd, // 23xxxx
+    nonw_rd,   // 24xxxx
+    nonw_rd,   // 25xxxx
+    nonw_rd,   // 26xxxx
+    nonw_rd,   // 27xxxx
+    nonw_rd,   // 28xxxx
+    nonw_rd,   // 29xxxx
+    nonw_rd,   // 2axxxx
+    nonw_rd,   // 2bxxxx
+    nonw_rd,   // 2cxxxx
+    nonw_rd,   // 2dxxxx
+    nonw_rd,   // 2exxxx
+    nonw_rd,   // 2fxxxx
 
-	nonw_rd,	// 30xxxx
-	nonw_rd,	// 31xxxx
-	nonw_rd,	// 32xxxx
-	nonw_rd,	// 33xxxx
-	nonw_rd,	// 34xxxx
-	nonw_rd,	// 35xxxx
-	nonw_rd,	// 36xxxx
-	nonw_rd,	// 37xxxx
-	nonw_rd,	// 38xxxx
-	nonw_rd,	// 39xxxx
-	nonw_rd,	// 3axxxx
-	nonw_rd,	// 3bxxxx
-	nonw_rd,	// 3cxxxx
-	nonw_rd,	// 3dxxxx
-	nonw_rd,	// 3exxxx
-	nonw_rd,	// 3fxxxx
+    nonw_rd, // 30xxxx
+    nonw_rd, // 31xxxx
+    nonw_rd, // 32xxxx
+    nonw_rd, // 33xxxx
+    nonw_rd, // 34xxxx
+    nonw_rd, // 35xxxx
+    nonw_rd, // 36xxxx
+    nonw_rd, // 37xxxx
+    nonw_rd, // 38xxxx
+    nonw_rd, // 39xxxx
+    nonw_rd, // 3axxxx
+    nonw_rd, // 3bxxxx
+    nonw_rd, // 3cxxxx
+    nonw_rd, // 3dxxxx
+    nonw_rd, // 3exxxx
+    nonw_rd, // 3fxxxx
 
 };
 
-
 static MEM16WRITE wt16[0x40] = {
-	mainw_wt,	// 00xxxx
-	mainw_wt,	// 01xxxx
-	mainw_wt,	// 02xxxx
-	mainw_wt,	// 03xxxx
-	mainw_wt,	// 04xxxx
-	mainw_wt,	// 05xxxx
-	mainw_wt,	// 06xxxx
-	mainw_wt,	// 07xxxx
-	bmsw_wt,	// 08xxxx
-	bmsw_wt,	// 09xxxx
-	nonw_wt,	// 0axxxx	ToDo
-	nonw_wt,	// 0bxxxx	ToDo
-	nonw_wt,	// 0cxxxx	ToDo
-	nonw_wt,	// 0dxxxx	ToDo
-	nonw_wt,	// 0exxxx	ToDo
-	nonw_wt,	// 0fxxxx	ToDo
+    mainw_wt, // 00xxxx
+    mainw_wt, // 01xxxx
+    mainw_wt, // 02xxxx
+    mainw_wt, // 03xxxx
+    mainw_wt, // 04xxxx
+    mainw_wt, // 05xxxx
+    mainw_wt, // 06xxxx
+    mainw_wt, // 07xxxx
+    bmsw_wt,  // 08xxxx
+    bmsw_wt,  // 09xxxx
+    nonw_wt,  // 0axxxx	ToDo
+    nonw_wt,  // 0bxxxx	ToDo
+    nonw_wt,  // 0cxxxx	ToDo
+    nonw_wt,  // 0dxxxx	ToDo
+    nonw_wt,  // 0exxxx	ToDo
+    nonw_wt,  // 0fxxxx	ToDo
 
-	nonw_wt,	// 10xxxx
-	nonw_wt,	// 11xxxx
-	nonw_wt,	// 12xxxx
-	nonw_wt,	// 13xxxx
-	knj2w_wt,	// 14xxxx
-	knj2w_wt,	// 15xxxx
-	knj2w_wt,	// 16xxxx
-	knj2w_wt,	// 17xxxx
-	tvramw_wt,	// 18xxxx
-	tvramw_wt,	// 19xxxx	
-	tvramw_wt,	// 1axxxx	
-	tvramw_wt,	// 1bxxxx	
-	nonw_wt,	// 1cxxxx
-	nonw_wt,	// 1dxxxx
-	nonw_wt,	// 1exxxx
-	nonw_wt,	// 1fxxxx
+    nonw_wt,   // 10xxxx
+    nonw_wt,   // 11xxxx
+    nonw_wt,   // 12xxxx
+    nonw_wt,   // 13xxxx
+    knj2w_wt,  // 14xxxx
+    knj2w_wt,  // 15xxxx
+    knj2w_wt,  // 16xxxx
+    knj2w_wt,  // 17xxxx
+    tvramw_wt, // 18xxxx
+    tvramw_wt, // 19xxxx
+    tvramw_wt, // 1axxxx
+    tvramw_wt, // 1bxxxx
+    nonw_wt,   // 1cxxxx
+    nonw_wt,   // 1dxxxx
+    nonw_wt,   // 1exxxx
+    nonw_wt,   // 1fxxxx
 
-	gvramw_wt,	// 20xxxx
-	gvramw_wt,	// 21xxxx
-	gvramw_wt,	// 22xxxx
-	gvramw_wt,	// 23xxxx
-	nonw_wt,	// 24xxxx
-	nonw_wt,	// 25xxxx
-	nonw_wt,	// 26xxxx
-	nonw_wt,	// 27xxxx
-	nonw_wt,	// 28xxxx
-	nonw_wt,	// 29xxxx
-	nonw_wt,	// 2axxxx
-	nonw_wt,	// 2bxxxx
-	nonw_wt,	// 2cxxxx
-	nonw_wt,	// 2dxxxx
-	nonw_wt,	// 2exxxx
-	nonw_wt,	// 2fxxxx
+    gvramw_wt, // 20xxxx
+    gvramw_wt, // 21xxxx
+    gvramw_wt, // 22xxxx
+    gvramw_wt, // 23xxxx
+    nonw_wt,   // 24xxxx
+    nonw_wt,   // 25xxxx
+    nonw_wt,   // 26xxxx
+    nonw_wt,   // 27xxxx
+    nonw_wt,   // 28xxxx
+    nonw_wt,   // 29xxxx
+    nonw_wt,   // 2axxxx
+    nonw_wt,   // 2bxxxx
+    nonw_wt,   // 2cxxxx
+    nonw_wt,   // 2dxxxx
+    nonw_wt,   // 2exxxx
+    nonw_wt,   // 2fxxxx
 
-	nonw_wt,	// 30xxxx
-	nonw_wt,	// 31xxxx
-	nonw_wt,	// 32xxxx
-	nonw_wt,	// 33xxxx
-	nonw_wt,	// 34xxxx
-	nonw_wt,	// 35xxxx
-	nonw_wt,	// 36xxxx
-	nonw_wt,	// 37xxxx
-	nonw_wt,	// 38xxxx
-	nonw_wt,	// 39xxxx
-	nonw_wt,	// 3axxxx
-	nonw_wt,	// 3bxxxx
-	nonw_wt,	// 3cxxxx
-	nonw_wt,	// 3dxxxx
-	nonw_wt,	// 3exxxx
-	nonw_wt,	// 3fxxxx
+    nonw_wt, // 30xxxx
+    nonw_wt, // 31xxxx
+    nonw_wt, // 32xxxx
+    nonw_wt, // 33xxxx
+    nonw_wt, // 34xxxx
+    nonw_wt, // 35xxxx
+    nonw_wt, // 36xxxx
+    nonw_wt, // 37xxxx
+    nonw_wt, // 38xxxx
+    nonw_wt, // 39xxxx
+    nonw_wt, // 3axxxx
+    nonw_wt, // 3bxxxx
+    nonw_wt, // 3cxxxx
+    nonw_wt, // 3dxxxx
+    nonw_wt, // 3exxxx
+    nonw_wt, // 3fxxxx
 
 };
 
@@ -361,12 +346,12 @@ static BYTE sgp_memoryread(UINT32 address) {
 		address: even physical address.
 */
 static REG16 sgp_memoryread_w(UINT32 address) {
-	CPU_REMCLOCK -= 4;		// TODO: real contention should stall only when the CPU also requests memory.
-							// The current model charges this wait for every SGP memory access.
-							// After a long CPU instruction such as REP MOVSW, one sgp_step() may
-							// perform many transfers, drive CPU_REMCLOCK far negative, and delay
-							// scheduled events.
-							// The four-clock charge has no hardware measurement behind it.
+	CPU_REMCLOCK -= 4; // TODO: real contention should stall only when the CPU also requests memory.
+	                   // The current model charges this wait for every SGP memory access.
+	                   // After a long CPU instruction such as REP MOVSW, one sgp_step() may
+	                   // perform many transfers, drive CPU_REMCLOCK far negative, and delay
+	                   // scheduled events.
+	                   // The four-clock charge has no hardware measurement behind it.
 	return rd16[(address >> 16) & 0x3f](address & 0x3fffffL);
 }
 
@@ -375,11 +360,11 @@ static REG16 sgp_memoryread_w(UINT32 address) {
 		address: even physical address.
 */
 static void sgp_memorywrite_w(UINT32 address, REG16 value) {
-	CPU_REMCLOCK -= 4;		// TODO: see the contention limitation in sgp_memoryread_w().
+	CPU_REMCLOCK -= 4; // TODO: see the contention limitation in sgp_memoryread_w().
 	wt16[(address >> 16) & 0x3f](address & 0x3fffffL, value);
 }
 
-// ---- 
+// ----
 static int dotcountmax[4] = {0x10, 0x04, 0x02, 0x01};
 static int bpp[4] = {1, 4, 8, 16};
 
@@ -390,14 +375,17 @@ static void fetch_block(UINT32 address, SGP_BLOCK block) {
 
 	dat = sgp_memoryread_w(address);
 	block->scrnmode = dat & 0x03;
-	block->dot = (dat >> 4) & (dotcountmax[block->scrnmode] -1);
-	block->width = sgp_memoryread_w(address + 2) & 0x3fff;	/* VA2 accepts all 14 width bits. */
-	block->height = sgp_memoryread_w(address + 4);			/* VA2 accepts all 16 height bits. */
-	block->fbw = sgp_memoryread_w(address + 6) & 0xfffe;	/* Bit 1 participates in the framebuffer width. */
-	block->address = sgp_memoryread_w(address + 8) & 0xfffe | ((UINT32)sgp_memoryread_w(address + 10) << 16);
+	block->dot = (dat >> 4) & (dotcountmax[block->scrnmode] - 1);
+	block->width = sgp_memoryread_w(address + 2) & 0x3fff; /* VA2 accepts all 14 width bits. */
+	block->height = sgp_memoryread_w(address + 4);         /* VA2 accepts all 16 height bits. */
+	block->fbw =
+	    sgp_memoryread_w(address + 6) & 0xfffe; /* Bit 1 participates in the framebuffer width. */
+	block->address =
+	    sgp_memoryread_w(address + 8) & 0xfffe | ((UINT32)sgp_memoryread_w(address + 10) << 16);
 
 	// Compatibility adjustment for the R-TYPE command stream; hardware basis is unverified.
-	if (block->fbw < 0) block->fbw += 2;
+	if (block->fbw < 0)
+		block->fbw += 2;
 }
 
 static void init_block(SGP_BLOCK block) {
@@ -435,52 +423,52 @@ static UINT16 logicalop(UINT16 dat, UINT16 dest, UINT16 *_mask) {
 	mask = *_mask;
 
 	switch (sgp.bltmode & SGP_BLTMODE_OP) {
-	case 0:		// 0
+	case 0: // 0
 		dat = 0;
 		break;
-	case 1:		// S AND D
+	case 1: // S AND D
 		dat = dat & dest;
 		break;
-	case 2:		// NOT(S) AND D
+	case 2: // NOT(S) AND D
 		dat = ~dat & dest;
 		break;
-	case 3:		// NOP
+	case 3: // NOP
 		mask = 0;
 		break;
-	case 4:		// S AND NOT(D)
+	case 4: // S AND NOT(D)
 		dat = dat & ~dest;
 		break;
-	case 5:		// S
+	case 5: // S
 	default:
 		break;
-	case 6:		// S XOR D
+	case 6: // S XOR D
 		dat = dat ^ dest;
 		break;
-	case 7:		// S OR D
+	case 7: // S OR D
 		dat = dat | dest;
 		break;
-	case 8:		// NOT(S OR D)
+	case 8: // NOT(S OR D)
 		dat = ~(dat | dest);
 		break;
-	case 9:		// NOT(S XOR D)
+	case 9: // NOT(S XOR D)
 		dat = ~(dat ^ dest);
 		break;
-	case 0x0a:	// NOT(S)
+	case 0x0a: // NOT(S)
 		dat = ~dat;
 		break;
-	case 0x0b:	// NOT(S) OR D
+	case 0x0b: // NOT(S) OR D
 		dat = ~dat | dest;
 		break;
-	case 0x0c:	// NOT(D)
+	case 0x0c: // NOT(D)
 		dat = ~dest;
 		break;
-	case 0x0d:	// S OR NOT(D)
+	case 0x0d: // S OR NOT(D)
 		dat = dat | ~dest;
 		break;
-	case 0x0e:	// NOT(S AND D)
+	case 0x0e: // NOT(S AND D)
 		dat = ~(dat & dest);
 		break;
-	case 0x0f:	// 1
+	case 0x0f: // 1
 		dat = 0xffff;
 		break;
 	}
@@ -489,7 +477,6 @@ static UINT16 logicalop(UINT16 dat, UINT16 dest, UINT16 *_mask) {
 	return dat;
 }
 
-
 /*
 Treat dat as packed pixels and return a mask whose pixel fields are zero for
 zero-valued pixels and one for nonzero pixels.
@@ -497,19 +484,19 @@ zero-valued pixels and one for nonzero pixels.
 static UINT16 zeromask(UINT16 dat, int scrnmode) {
 	UINT16 mask = 0;
 	int BPP = bpp[scrnmode];
-	UINT16 pixmask  = ~(0xffff >> BPP); // F000H for 4 bpp.
+	UINT16 pixmask = ~(0xffff >> BPP);  // F000H for 4 bpp.
 	UINT16 maskelem = ~(0xffff << BPP); // 000FH for 4 bpp.
 	int i;
 
 	for (i = 0; i < dotcountmax[scrnmode]; i++) {
 		mask <<= BPP;
-		if (dat & pixmask) mask |= maskelem;
+		if (dat & pixmask)
+			mask |= maskelem;
 		dat <<= BPP;
 	}
 
 	return mask;
 }
-
 
 static void write_dest(void) {
 	UINT16 dat;
@@ -537,7 +524,6 @@ static void write_dest(void) {
 #endif
 }
 
-
 static void write_dest2(void) {
 	UINT16 dat;
 	UINT16 dest;
@@ -547,8 +533,8 @@ static void write_dest2(void) {
 	dest = SWAPWORD(dest);
 	datmask = sgp.newvalmask;
 	switch (sgp.bltmode & SGP_BLTMODE_TP) {
-	case 0x0200:		// Transfer only where the destination block is zero.
-	case 0x0300:		// Reserved encoding; modeled like 0200H.
+	case 0x0200: // Transfer only where the destination block is zero.
+	case 0x0300: // Reserved encoding; modeled like 0200H.
 		datmask &= ~zeromask(dest, sgp.dest.scrnmode);
 		break;
 	}
@@ -559,7 +545,6 @@ static void write_dest2(void) {
 	sgp_memorywrite_w(sgp.dest.nextaddress, dat);
 }
 
-
 static void init_src_line(void) {
 	int dot;
 	if (sgp.bltmode & SGP_BLTMODE_SF) {
@@ -567,8 +552,7 @@ static void init_src_line(void) {
 		if (sgp.dest.dot < sgp.src.dot) {
 			sgp.src.nextaddress += 2;
 		}
-	}
-	else {
+	} else {
 		dot = sgp.src.dot;
 	}
 	read_word(&sgp.src);
@@ -590,7 +574,7 @@ static void init_dest_line(void) {
 	//}
 	//block->buf <<= (dotcountmax[block->scrnmode] - block->dotcount) * bpp[block->scrnmode];
 #else
-/* @@1
+	/* @@1
 	read_word(&sgp.dest);
 	//sgp.dest.nextaddress-=2;
 	//sgp.dest.dotcount = dotcountmax[sgp.dest.scrnmode];
@@ -600,7 +584,7 @@ static void init_dest_line(void) {
 	sgp.dest.buf <<= (dotcountmax[sgp.dest.scrnmode] - sgp.dest.dotcount) * bpp[sgp.dest.scrnmode];
 */
 	sgp.dest.dotcount = dotcountmax[sgp.dest.scrnmode]; //@@1
-	sgp.dest.dotcount -= sgp.dest.dot;					//@@1
+	sgp.dest.dotcount -= sgp.dest.dot;                  //@@1
 #endif
 	sgp.dest.xcount = sgp.dest.width;
 }
@@ -613,8 +597,7 @@ static void init_src_line_hd(void) {
 		if (sgp.dest.dot > sgp.src.dot) {
 			sgp.src.nextaddress -= 2;
 		}
-	}
-	else {
+	} else {
 		dot = sgp.src.dot;
 	}
 
@@ -637,7 +620,6 @@ static void init_dest_line_hd(void) {
 	sgp.dest.xcount = sgp.dest.width;
 }
 
-
 static void setintreq(void) {
 	if (sgp.ctrl & SGP_INTF) {
 		if (!sgp.intreq) {
@@ -647,9 +629,6 @@ static void setintreq(void) {
 		}
 	}
 }
-
-
-
 
 static void cmd_unknown(void) {
 	// Invalid command.
@@ -675,19 +654,22 @@ static void cmd_set_work(void) {
 	sgp.workmem = sgp_memoryread_w(sgp.pc) & 0xfffe | ((UINT32)sgp_memoryread_w(sgp.pc + 2) << 16);
 	sgp.pc += 4;
 	sgp.remainclock -= 23 * 2;
-
 }
 
 static void cmd_set_source(void) {
 	fetch_block(sgp.pc, &sgp.src);
-	TRACEOUT(("SGP: cmd: set source     : dot=%d, mode=%d, w=%d, h=%d, fbw=%d, addr=%08lx", sgp.src.dot, sgp.src.scrnmode, sgp.src.width, sgp.src.height, sgp.src.fbw, sgp.src.address));
+	TRACEOUT(("SGP: cmd: set source     : dot=%d, mode=%d, w=%d, h=%d, fbw=%d, addr=%08lx",
+	          sgp.src.dot, sgp.src.scrnmode, sgp.src.width, sgp.src.height, sgp.src.fbw,
+	          sgp.src.address));
 	sgp.pc += 12;
 	sgp.remainclock -= 106 * 2;
 }
 
 static void cmd_set_destination(void) {
 	fetch_block(sgp.pc, &sgp.dest);
-	TRACEOUT(("SGP: cmd: set destination: dot=%d, mode=%d, w=%d, h=%d, fbw=%d, addr=%08lx", sgp.dest.dot, sgp.dest.scrnmode, sgp.dest.width, sgp.dest.height, sgp.dest.fbw, sgp.dest.address));
+	TRACEOUT(("SGP: cmd: set destination: dot=%d, mode=%d, w=%d, h=%d, fbw=%d, addr=%08lx",
+	          sgp.dest.dot, sgp.dest.scrnmode, sgp.dest.width, sgp.dest.height, sgp.dest.fbw,
+	          sgp.dest.address));
 	sgp.pc += 12;
 	sgp.remainclock -= 106 * 2;
 }
@@ -699,9 +681,7 @@ static void cmd_set_color(void) {
 	sgp.remainclock -= 10 * 2;
 }
 
-
 static void cmd_bitblt(void) {
-
 	sgp.bltmode = sgp_memoryread_w(sgp.pc);
 	sgp.pc += 2;
 	sgp.remainclock -= 338 * 2;
@@ -719,8 +699,7 @@ static void cmd_bitblt(void) {
 		init_src_line_hd();
 		init_dest_line_hd();
 		sgp.func = FUNC_EXEC_BITBLT_HD;
-	}
-	else {
+	} else {
 		init_src_line();
 		init_dest_line();
 		sgp.func = FUNC_EXEC_BITBLT;
@@ -728,7 +707,6 @@ static void cmd_bitblt(void) {
 }
 
 static void cmd_patblt(void) {
-
 	sgp.bltmode = sgp_memoryread_w(sgp.pc);
 	sgp.pc += 2;
 	sgp.remainclock -= 338 * 2;
@@ -741,23 +719,22 @@ static void cmd_patblt(void) {
 		init_src_line_hd();
 		init_dest_line_hd();
 		sgp.func = FUNC_EXEC_BITBLT_HD;
-	}
-	else {
+	} else {
 		init_src_line();
 		init_dest_line();
-		sgp.func = FUNC_EXEC_BITBLT;		// Execute through the shared BITBLT/PATBLT routine.
+		sgp.func = FUNC_EXEC_BITBLT; // Execute through the shared BITBLT/PATBLT routine.
 	}
 }
 
-
 static void cmd_line(void) {
-
 	sgp.bltmode = sgp_memoryread_w(sgp.pc);
 	sgp.pc += 2;
 	fetch_block(sgp.pc, &sgp.dest);
 
-	TRACEOUT(("SGP: cmd: line: %04x, dot=%d, mode=%d, w=%d, h=%d, fbw=%d, addr=%08lx", sgp.bltmode, sgp.dest.dot, sgp.dest.scrnmode, sgp.dest.width, sgp.dest.height, sgp.dest.fbw, sgp.dest.address));
-	
+	TRACEOUT(("SGP: cmd: line: %04x, dot=%d, mode=%d, w=%d, h=%d, fbw=%d, addr=%08lx", sgp.bltmode,
+	          sgp.dest.dot, sgp.dest.scrnmode, sgp.dest.width, sgp.dest.height, sgp.dest.fbw,
+	          sgp.dest.address));
+
 	sgp.pc += 12;
 	sgp.remainclock -= 109;
 
@@ -765,60 +742,56 @@ static void cmd_line(void) {
 		// Real hardware corrupts memory for zero dimensions, suggesting that
 		// each zero field behaves as a 10000H extent.
 	}
-	else*/ if (sgp.dest.width < sgp.dest.height) {
+	else*/
+	if (sgp.dest.width < sgp.dest.height) {
 		// Height exceeds width.
 		sgp.func = FUNC_EXEC_LINE_Y;
 		sgp.dest.ycount = sgp.dest.height;
 		sgp.lineslopedenominator = sgp.dest.height - 1;
-		sgp.lineslopenumerator   = 
-			(sgp.dest.width == 0) ? 0 : sgp.dest.width - 1;
+		sgp.lineslopenumerator = (sgp.dest.width == 0) ? 0 : sgp.dest.width - 1;
 		sgp.lineslopecount = sgp.lineslopedenominator / 2;
 		sgp.dest.dotcount = sgp.dest.dot;
 		sgp.dest.nextaddress = sgp.dest.address;
-	}
-	else {
+	} else {
 		// Width is at least the height.
-//		UINT16 dest;
+		//		UINT16 dest;
 
 		sgp.func = FUNC_EXEC_LINE_X;
 		sgp.dest.xcount = sgp.dest.width;
 		sgp.lineslopedenominator = sgp.dest.width - 1;
-		sgp.lineslopenumerator   = 
-			(sgp.dest.height == 0) ? 0 : sgp.dest.height - 1;
-		sgp.lineslopecount = 
-			(sgp.lineslopedenominator == 0) ? 0 : (sgp.lineslopedenominator - 1) / 2;
-				// The decrement lacks a documented basis, but it matches observed
-				// point placement for a width-7, height-6 line.
+		sgp.lineslopenumerator = (sgp.dest.height == 0) ? 0 : sgp.dest.height - 1;
+		sgp.lineslopecount =
+		    (sgp.lineslopedenominator == 0) ? 0 : (sgp.lineslopedenominator - 1) / 2;
+		// The decrement lacks a documented basis, but it matches observed
+		// point placement for a width-7, height-6 line.
 		if (sgp.bltmode & SGP_BLTMODE_LINE_HD) {
 			// Negative direction.
 			sgp.dest.dotcount = sgp.dest.dot + 1;
-		}
-		else {
+		} else {
 			// Positive direction.
 			sgp.dest.dotcount = dotcountmax[sgp.dest.scrnmode] - sgp.dest.dot;
 		}
 		sgp.dest.nextaddress = sgp.dest.address;
-		
+
 		sgp.newval = 0;
 		sgp.newvalmask = 0;
-//		dest = sgp_memoryread_w(sgp.dest.nextaddress);
-//		sgp.dest.buf = SWAPWORD(dest);
-//		sgp.dest.buf <<= sgp.dest.dot * bpp[sgp.dest.scrnmode];
+		//		dest = sgp_memoryread_w(sgp.dest.nextaddress);
+		//		sgp.dest.buf = SWAPWORD(dest);
+		//		sgp.dest.buf <<= sgp.dest.dot * bpp[sgp.dest.scrnmode];
 	}
 }
 
 static void cmd_cls(void) {
 	sgp.clsaddr = (UINT32)sgp_memoryread_w(sgp.pc) |
-		          (((UINT32)sgp_memoryread_w(sgp.pc + 2)) << 16) &
-				  0xfffffffeL;
-	sgp.clscount = (UINT32)sgp_memoryread_w(sgp.pc + 4) |
-		           (((UINT32)sgp_memoryread_w(sgp.pc + 6)) << 16) ;
+	              (((UINT32)sgp_memoryread_w(sgp.pc + 2)) << 16) & 0xfffffffeL;
+	sgp.clscount =
+	    (UINT32)sgp_memoryread_w(sgp.pc + 4) | (((UINT32)sgp_memoryread_w(sgp.pc + 6)) << 16);
 	sgp.pc += 8;
 	sgp.remainclock -= 26 * 2;
 
 	sgp.func = FUNC_EXEC_CLS;
 
-	TRACEOUT(("SGP: cmd: cls: addr=%0lx, size(word)=%0lx",sgp.clsaddr, sgp.clscount));
+	TRACEOUT(("SGP: cmd: cls: addr=%0lx, size(word)=%0lx", sgp.clsaddr, sgp.clscount));
 }
 
 static void cmd_scan_right(void) {
@@ -831,16 +804,16 @@ static void cmd_scan_left(void) {
 	//ToDo
 }
 
-
 // ----
 
 static void exec_bitblt(void) {
 	UINT16 dat;
-//@@1	UINT16 dest;
+	//@@1	UINT16 dest;
 	UINT16 datmask;
 	int BPP = bpp[sgp.dest.scrnmode];
 	UINT16 PIXMASK = ~(0xffff << BPP);
-	BOOL EXTPIX = sgp.src.scrnmode == 0 && sgp.dest.scrnmode != 0;	// Expand a 1-bpp source into the destination format.
+	BOOL EXTPIX = sgp.src.scrnmode == 0 &&
+	              sgp.dest.scrnmode != 0; // Expand a 1-bpp source into the destination format.
 
 	if (sgp.src.dotcount == 0) {
 		read_word(&sgp.src);
@@ -848,40 +821,38 @@ static void exec_bitblt(void) {
 	}
 	if (EXTPIX) {
 		dat = (sgp.src.buf & 0x8000) ? 0xffff : 0;
-	}
-	else {
+	} else {
 		dat = sgp.src.buf >> (16 - BPP);
 	}
-//@@1	dest = sgp.dest.buf >> (16 - BPP);
+	//@@1	dest = sgp.dest.buf >> (16 - BPP);
 
 	switch (sgp.bltmode & SGP_BLTMODE_TP) {
-	case 0x0000:		// Transfer every source pixel.
-	default:	//@@1
+	case 0x0000: // Transfer every source pixel.
+	default:     //@@1
 		datmask = 0xffff;
 		break;
-	case 0x0100:		// Skip zero-valued source pixels.
+	case 0x0100: // Skip zero-valued source pixels.
 		datmask = dat ? 0xffff : 0;
 		break;
-/* @@1
+		/* @@1
 	case 0x0200:		// Transfer only where the destination block is zero.
 	case 0x0300:		// Reserved encoding; modeled like 0200H.
 		datmask = dest ? 0 : 0xffff;
 		break;
 */
 	}
-/*
+	/*
 	sgp.dest.buf = (sgp.dest.buf << 4) | dat;
 	sgp.dest.mask = (sgp.dest.mask << 4) | (dat ? 0x000f : 0);
 */
 	sgp.newval = (sgp.newval << BPP) | (dat & PIXMASK);
 	sgp.newvalmask = (sgp.newvalmask << BPP) | (datmask & PIXMASK);
 	sgp.dest.dotcount--;
-//@@1	sgp.dest.buf <<= BPP;
+	//@@1	sgp.dest.buf <<= BPP;
 
 	if (EXTPIX) {
 		sgp.src.buf <<= 1;
-	}
-	else {
+	} else {
 		sgp.src.buf <<= BPP;
 	}
 
@@ -891,7 +862,7 @@ static void exec_bitblt(void) {
 	sgp.src.xcount--;
 
 	if (sgp.dest.dotcount == 0 || sgp.dest.xcount == 0) {
-/*
+		/*
 		sgp.dest.buf <<= sgp.dest.dotcount * 4;
 		sgp.dest.mask <<= sgp.dest.dotcount * 4;
 */
@@ -900,17 +871,16 @@ static void exec_bitblt(void) {
 		if (EXTPIX) {
 			sgp.newval &= SWAPWORD(sgp.color);
 		}
-//		write_word(&sgp.dest);
-//@@1	write_dest();
-		write_dest2();	//@@1
+		//		write_word(&sgp.dest);
+		//@@1	write_dest();
+		write_dest2(); //@@1
 
 		sgp.dest.nextaddress += 2;
-//@@1	read_word(&sgp.dest);
+		//@@1	read_word(&sgp.dest);
 		sgp.dest.dotcount = dotcountmax[sgp.dest.scrnmode]; //@@1
 		if ((sgp.bltmode & SGP_BLTMODE_TP) == 0x0100) {
 			sgp.remainclock -= 10 * 2;
-		}
-		else {
+		} else {
 			sgp.remainclock -= 8 * 2;
 		}
 	}
@@ -921,15 +891,13 @@ static void exec_bitblt(void) {
 		if (sgp.dest.ycount == 0) {
 			//sgp.func = fetch_command;
 			sgp.func = FUNC_FETCH_COMMAND;
-		}
-		else {
+		} else {
 			sgp.remainclock -= 14 * 2;
 
 			if (sgp.bltmode & SGP_BLTMODE_VD) {
 				sgp.src.lineaddress -= (SINT32)sgp.src.fbw;
 				sgp.dest.lineaddress -= (SINT32)sgp.dest.fbw;
-			}
-			else {
+			} else {
 				sgp.src.lineaddress += (SINT32)sgp.src.fbw;
 				sgp.dest.lineaddress += (SINT32)sgp.dest.fbw;
 			}
@@ -943,8 +911,7 @@ static void exec_bitblt(void) {
 			init_src_line();
 			init_dest_line();
 		}
-	}
-	else if (sgp.src.xcount == 0) {
+	} else if (sgp.src.xcount == 0) {
 		// PATBLT destination width exceeds the source width and
 		// the source pattern wrapped horizontally.
 		sgp.src.nextaddress = sgp.src.lineaddress;
@@ -955,11 +922,12 @@ static void exec_bitblt(void) {
 // Horizontal direction is negative when HD is one.
 static void exec_bitblt_hd(void) {
 	UINT16 dat;
-//@@1	UINT16 dest;
+	//@@1	UINT16 dest;
 	UINT16 datmask;
 	int BPP = bpp[sgp.dest.scrnmode];
 	UINT16 PIXMASK = ~(0xffff << BPP);
-	BOOL EXTPIX = sgp.src.scrnmode == 0 && sgp.dest.scrnmode != 0;	// Expand a 1-bpp source into the destination format.
+	BOOL EXTPIX = sgp.src.scrnmode == 0 &&
+	              sgp.dest.scrnmode != 0; // Expand a 1-bpp source into the destination format.
 
 	if (sgp.src.dotcount == 0) {
 		read_word(&sgp.src);
@@ -967,21 +935,20 @@ static void exec_bitblt_hd(void) {
 	}
 	if (EXTPIX) {
 		dat = (sgp.src.buf & 0x0001) ? 0xffff : 0;
-	}
-	else {
+	} else {
 		dat = sgp.src.buf;
 	}
-//@@1	dest = sgp.dest.buf & PIXMASK;
+	//@@1	dest = sgp.dest.buf & PIXMASK;
 
 	switch (sgp.bltmode & SGP_BLTMODE_TP) {
-	case 0x0000:		// Transfer every source pixel.
-	default:	//@@1
+	case 0x0000: // Transfer every source pixel.
+	default:     //@@1
 		datmask = 0xffff;
 		break;
-	case 0x0100:		// Skip zero-valued source pixels.
+	case 0x0100: // Skip zero-valued source pixels.
 		datmask = dat ? 0xffff : 0;
 		break;
-/* @@1
+		/* @@1
 	case 0x0200:		// Transfer only where the destination block is zero.
 	case 0x0300:		// Reserved encoding; modeled like 0200H.
 		datmask = dest ? 0 : 0xffff;
@@ -992,12 +959,11 @@ static void exec_bitblt_hd(void) {
 	sgp.newval = (sgp.newval >> BPP) | ((dat & PIXMASK) << (16 - BPP));
 	sgp.newvalmask = (sgp.newvalmask >> BPP) | ((datmask & PIXMASK) << (16 - BPP));
 	sgp.dest.dotcount--;
-//@@1	sgp.dest.buf >>= BPP;
+	//@@1	sgp.dest.buf >>= BPP;
 
 	if (EXTPIX) {
 		sgp.src.buf >>= 1;
-	}
-	else {
+	} else {
 		sgp.src.buf >>= BPP;
 	}
 
@@ -1007,21 +973,19 @@ static void exec_bitblt_hd(void) {
 	sgp.src.xcount--;
 
 	if (sgp.dest.dotcount == 0 || sgp.dest.xcount == 0) {
-
 		sgp.newval >>= sgp.dest.dotcount * BPP;
 		sgp.newvalmask >>= sgp.dest.dotcount * BPP;
 		if (EXTPIX) {
 			sgp.newval &= SWAPWORD(sgp.color);
 		}
-//@@1		write_dest();
-		write_dest2();	//@@1
+		//@@1		write_dest();
+		write_dest2(); //@@1
 		sgp.dest.nextaddress -= 2;
-//@@1		read_word(&sgp.dest);
-		sgp.dest.dotcount = dotcountmax[sgp.dest.scrnmode];	//@@1
+		//@@1		read_word(&sgp.dest);
+		sgp.dest.dotcount = dotcountmax[sgp.dest.scrnmode]; //@@1
 		if ((sgp.bltmode & SGP_BLTMODE_TP) == 0x0100) {
 			sgp.remainclock -= 10 * 2;
-		}
-		else {
+		} else {
 			sgp.remainclock -= 8 * 2;
 		}
 	}
@@ -1031,15 +995,13 @@ static void exec_bitblt_hd(void) {
 		sgp.src.ycount--;
 		if (sgp.dest.ycount == 0) {
 			sgp.func = FUNC_FETCH_COMMAND;
-		}
-		else {
+		} else {
 			sgp.remainclock -= 14 * 2;
 
 			if (sgp.bltmode & SGP_BLTMODE_VD) {
 				sgp.src.lineaddress -= (SINT32)sgp.src.fbw;
 				sgp.dest.lineaddress -= (SINT32)sgp.dest.fbw;
-			}
-			else {
+			} else {
 				sgp.src.lineaddress += (SINT32)sgp.src.fbw;
 				sgp.dest.lineaddress += (SINT32)sgp.dest.fbw;
 			}
@@ -1053,15 +1015,13 @@ static void exec_bitblt_hd(void) {
 			init_src_line_hd();
 			init_dest_line_hd();
 		}
-	}
-	else if (sgp.src.xcount == 0) {
+	} else if (sgp.src.xcount == 0) {
 		// PATBLT destination width exceeds the source width and
 		// the source pattern wrapped horizontally.
 		sgp.src.nextaddress = sgp.src.lineaddress;
 		init_src_line_hd();
 	}
 }
-
 
 static void exec_cls(void) {
 	sgp_memorywrite_w(sgp.clsaddr, sgp.color);
@@ -1095,13 +1055,13 @@ Draw a line whose major axis advances one dot in X.
 static void exec_line_x(void) {
 	int xdir, ydir;
 	int shift;
-//	BOOL written = FALSE;
+	//	BOOL written = FALSE;
 	UINT16 dat;
-//	UINT16 dest;
+	//	UINT16 dest;
 	UINT16 datmask;
 	int DOTCOUNTMAX = dotcountmax[sgp.dest.scrnmode];
 	int BPP = bpp[sgp.dest.scrnmode];
-//	UINT16 PIXMASK = ~(0xffff << BPP);			// 000FH for 4 bpp.
+	//	UINT16 PIXMASK = ~(0xffff << BPP);			// 000FH for 4 bpp.
 	UINT16 PIXMASK;
 
 	xdir = (sgp.bltmode & SGP_BLTMODE_LINE_HD) ? -1 : 1;
@@ -1109,34 +1069,33 @@ static void exec_line_x(void) {
 
 	// Compose the dot at the current destination position.
 	dat = SWAPWORD(sgp.color);
-//	dat >>= (sgp.dest.dotcount - 1) * BPP;
-//	dat &= PIXMASK;
-//	dest = sgp.dest.buf >> (16 - BPP);
+	//	dat >>= (sgp.dest.dotcount - 1) * BPP;
+	//	dat &= PIXMASK;
+	//	dest = sgp.dest.buf >> (16 - BPP);
 
 	switch (sgp.bltmode & SGP_BLTMODE_TP) {
-	case 0x0000:		// Transfer every source pixel.
+	case 0x0000: // Transfer every source pixel.
 	default:
 		datmask = 0xffff;
 		break;
-	case 0x0100:		// Skip zero-valued source pixels.
-//		datmask = dat ? 0xffff : 0;
+	case 0x0100: // Skip zero-valued source pixels.
+		         //		datmask = dat ? 0xffff : 0;
 		datmask = zeromask(dat, sgp.dest.scrnmode);
 		break;
-//	case 0x0200:		// Transfer only where the destination block is zero.
-//	case 0x0300:		// Reserved encoding; modeled like 0200H.
-//		datmask = dest ? 0 : 0xffff;
-//		break;
+		//	case 0x0200:		// Transfer only where the destination block is zero.
+		//	case 0x0300:		// Reserved encoding; modeled like 0200H.
+		//		datmask = dest ? 0 : 0xffff;
+		//		break;
 	}
 
 	if (xdir > 0) {
-		PIXMASK = ~(0xffff << BPP);			// 000FH for 4 bpp.
+		PIXMASK = ~(0xffff << BPP); // 000FH for 4 bpp.
 		shift = (sgp.dest.dotcount - 1) * BPP;
 		sgp.newval = (sgp.newval << BPP) | ((dat >> shift) & PIXMASK);
 		sgp.newvalmask = (sgp.newvalmask << BPP) | ((datmask >> shift) & PIXMASK);
-//		sgp.dest.buf <<= BPP;
-	}
-	else {
-		PIXMASK = ~(0xffff >> BPP);			// F000H for 4 bpp.
+		//		sgp.dest.buf <<= BPP;
+	} else {
+		PIXMASK = ~(0xffff >> BPP); // F000H for 4 bpp.
 		shift = (sgp.dest.dotcount - 1) * BPP;
 		sgp.newval = (sgp.newval >> BPP) | ((dat << shift) & PIXMASK);
 		sgp.newvalmask = (sgp.newvalmask >> BPP) | ((datmask << shift) & PIXMASK);
@@ -1152,24 +1111,21 @@ static void exec_line_x(void) {
 	sgp.dest.xcount--;
 
 	// Charge modeled SGP execution time.
-	sgp.remainclock -= 11;	// One X-axis dot step.
+	sgp.remainclock -= 11; // One X-axis dot step.
 
-	if (sgp.dest.dotcount == 0 || 
-		sgp.lineslopecount >= sgp.lineslopedenominator ||
-		sgp.dest.xcount == 0) {
-
+	if (sgp.dest.dotcount == 0 || sgp.lineslopecount >= sgp.lineslopedenominator ||
+	    sgp.dest.xcount == 0) {
 		// Commit the accumulated destination word.
 		shift = sgp.dest.dotcount * BPP;
 		if (xdir > 0) {
 			sgp.newval <<= shift;
 			sgp.newvalmask <<= shift;
-		}
-		else {
+		} else {
 			sgp.newval >>= shift;
 			sgp.newvalmask >>= shift;
 		}
 
-/*
+		/*
 		dest = sgp_memoryread_w(sgp.dest.nextaddress);
 		dest = SWAPWORD(dest);
 		datmask = sgp.newvalmask;
@@ -1188,15 +1144,14 @@ static void exec_line_x(void) {
 		write_dest2();
 
 		// Charge modeled SGP execution time.
-		sgp.remainclock -= 3;	// One destination-word write.
+		sgp.remainclock -= 3; // One destination-word write.
 
 		if (sgp.dest.xcount > 0) {
 			if (sgp.dest.dotcount == 0) {
 				// Advance to the next destination word.
 				if (xdir > 0) {
 					sgp.dest.nextaddress += 2;
-				}
-				else {
+				} else {
 					sgp.dest.nextaddress -= 2;
 				}
 				sgp.dest.dotcount = DOTCOUNTMAX;
@@ -1206,18 +1161,17 @@ static void exec_line_x(void) {
 				// y = y + ydir
 				if (ydir > 0) {
 					sgp.dest.nextaddress += sgp.dest.fbw;
-				}
-				else {
+				} else {
 					sgp.dest.nextaddress -= sgp.dest.fbw;
 				}
 
 				// Charge modeled SGP execution time.
-				sgp.remainclock -= 11;	// One Y-axis dot step.
+				sgp.remainclock -= 11; // One Y-axis dot step.
 			}
 
-//			dest = sgp_memoryread_w(sgp.dest.nextaddress);
-//			sgp.dest.buf = SWAPWORD(dat);
-//			sgp.dest.buf <<= (DOTCOUNTMAX - sgp.dest.dotcount) * BPP;
+			//			dest = sgp_memoryread_w(sgp.dest.nextaddress);
+			//			sgp.dest.buf = SWAPWORD(dat);
+			//			sgp.dest.buf <<= (DOTCOUNTMAX - sgp.dest.dotcount) * BPP;
 			sgp.newval = 0;
 			sgp.newvalmask = 0;
 		}
@@ -1229,17 +1183,14 @@ static void exec_line_x(void) {
 	}
 }
 
-
-
-
 /*
 Draw a line whose major axis advances one dot in Y.
 */
 static void exec_line_y(void) {
-	static UINT32 ystepwait[]={8,9,9,10};
+	static UINT32 ystepwait[] = {8, 9, 9, 10};
 	int ydir, xdir;
 	int DOTCOUNTMAX = dotcountmax[sgp.dest.scrnmode];
-//	UINT16 dest;
+	//	UINT16 dest;
 	UINT16 dat;
 	UINT16 datmask;
 	int BPP = bpp[sgp.dest.scrnmode];
@@ -1251,11 +1202,11 @@ static void exec_line_y(void) {
 	// Compose the dot at the current destination position.
 	dat = SWAPWORD(sgp.color);
 	switch (sgp.bltmode & SGP_BLTMODE_TP) {
-	case 0x0000:		// Transfer every source pixel.
+	case 0x0000: // Transfer every source pixel.
 	default:
 		datmask = 0xffff;
 		break;
-	case 0x0100:		// Skip zero-valued source pixels.
+	case 0x0100: // Skip zero-valued source pixels.
 		datmask = zeromask(dat, sgp.dest.scrnmode);
 		break;
 	}
@@ -1270,9 +1221,9 @@ static void exec_line_y(void) {
 	write_dest2();
 
 	// Charge modeled SGP execution time.
-	sgp.remainclock -= 3;	// One destination-word write.
+	sgp.remainclock -= 3; // One destination-word write.
 
-/*	
+	/*
 	dat = SWAPWORD(sgp.color);
 	dest = sgp_memoryread_w(sgp.dest.nextaddress);
 	dest = SWAPWORD(dest);
@@ -1304,17 +1255,16 @@ static void exec_line_y(void) {
 */
 
 	// Advance to the next line position.
-	
+
 	// y = y + ydir
 	if (ydir > 0) {
 		sgp.dest.nextaddress += sgp.dest.fbw;
-	}
-	else {
+	} else {
 		sgp.dest.nextaddress -= sgp.dest.fbw;
 	}
 
 	// Charge modeled SGP execution time.
-	sgp.remainclock -= ystepwait[sgp.dest.scrnmode];	// One Y-axis dot step.
+	sgp.remainclock -= ystepwait[sgp.dest.scrnmode]; // One Y-axis dot step.
 
 	sgp.lineslopecount += sgp.lineslopenumerator;
 	if (sgp.lineslopecount >= sgp.lineslopedenominator) {
@@ -1323,16 +1273,15 @@ static void exec_line_y(void) {
 		if (sgp.dest.dotcount < 0) {
 			sgp.dest.nextaddress -= 2;
 			sgp.dest.dotcount += DOTCOUNTMAX;
-		}
-		else if (sgp.dest.dotcount >= DOTCOUNTMAX) {
+		} else if (sgp.dest.dotcount >= DOTCOUNTMAX) {
 			sgp.dest.nextaddress += 2;
 			sgp.dest.dotcount -= DOTCOUNTMAX;
 		}
-		
+
 		sgp.lineslopecount -= sgp.lineslopedenominator;
 
 		// Charge modeled SGP execution time.
-		sgp.remainclock -= 11;	// One X-axis dot step.
+		sgp.remainclock -= 11; // One X-axis dot step.
 	}
 
 	// Update the accumulator and test for command completion.
@@ -1342,42 +1291,39 @@ static void exec_line_y(void) {
 	}
 }
 
-
-
-// ---- 
+// ----
 
 typedef void (*COMMANDFUNC)();
 
 static COMMANDFUNC commandtable[] = {
-	cmd_unknown,			// 00
-	cmd_end,				// 01
-	cmd_nop,				// 02
-	cmd_set_work,			// 03
-	cmd_set_source,			// 04
-	cmd_set_destination,	// 05
-	cmd_set_color,			// 06
-	cmd_bitblt,				// 07
-	cmd_patblt,				// 08
-	cmd_line,				// 09
-	cmd_cls,				// 0a
-	cmd_scan_right,			// 0b
-	cmd_scan_left,			// 0c
-//	cmd_unknown,			// 0d
-//	cmd_unknown,			// 0e
-//	cmd_unknown,			// 0f
+    cmd_unknown,         // 00
+    cmd_end,             // 01
+    cmd_nop,             // 02
+    cmd_set_work,        // 03
+    cmd_set_source,      // 04
+    cmd_set_destination, // 05
+    cmd_set_color,       // 06
+    cmd_bitblt,          // 07
+    cmd_patblt,          // 08
+    cmd_line,            // 09
+    cmd_cls,             // 0a
+    cmd_scan_right,      // 0b
+    cmd_scan_left,       // 0c
+    //	cmd_unknown,			// 0d
+    //	cmd_unknown,			// 0e
+    //	cmd_unknown,			// 0f
 };
 
-// ---- 
+// ----
 
 static void fetch_command(void) {
 	WORD cmd;
-	
+
 	cmd = sgp_memoryread_w(sgp.pc);
 	sgp.pc += 2;
 	if (cmd >= 0x0d) {
 		TRACEOUT(("SGP: cmd: unknown %04x", cmd));
-	}
-	else {
+	} else {
 		commandtable[cmd]();
 	}
 }
@@ -1386,7 +1332,8 @@ void sgp_step(void) {
 	UINT32 now;
 	UINT32 past;
 
-	if (!gactrlva.gmsp) return;
+	if (!gactrlva.gmsp)
+		return;
 
 	now = CPU_CLOCK + CPU_BASECLOCK - CPU_REMCLOCK;
 	past = now - sgp.lastclock;
@@ -1433,12 +1380,10 @@ static REG8 IOINPCALL sgp_i_notimpl(UINT port) {
 		// Real-hardware readback is unstable; return the observed mask pattern.
 		if (port == 0x501 || port == 0x503) {
 			dat = 0xff;
-		}
-		else {
+		} else {
 			dat = (port & 0x02) ? 0xfd : 0xff;
 		}
-	}
-	else {
+	} else {
 		// low
 		// Real-hardware readback is unstable; return the observed mask pattern.
 		dat = ((port & 0x0f) == 0x0a) ? 0xfa : 0xfe;
@@ -1461,7 +1406,7 @@ SGP program-counter register.
 */
 static void IOOUTCALL sgp_o500(UINT port, REG8 dat) {
 	UINT32 mask;
-	int	bit;
+	int bit;
 
 	mask = 0x000000ffL;
 	bit = (port - 0x500) * 8;
@@ -1488,7 +1433,8 @@ static void IOOUTCALL sgp_o504(UINT port, REG8 dat) {
 }
 
 static REG8 IOINPCALL sgp_i504(UINT port) {
-	if (!gactrlva.gmsp) return sgp_i_notactive(port);
+	if (!gactrlva.gmsp)
+		return sgp_i_notactive(port);
 	return sgp.ctrl;
 }
 
@@ -1511,8 +1457,9 @@ static void IOOUTCALL sgp_o506(UINT port, REG8 dat) {
 Status register.
 */
 static REG8 IOINPCALL sgp_i506(UINT port) {
-	if (!gactrlva.gmsp) return sgp_i_notactive(port);
-//	TRACEOUT(("SGP: read status: %02x", sgp.busy));
+	if (!gactrlva.gmsp)
+		return sgp_i_notactive(port);
+	//	TRACEOUT(("SGP: read status: %02x", sgp.busy));
 	return sgp.busy;
 }
 
@@ -1520,9 +1467,10 @@ static REG8 IOINPCALL sgp_i506(UINT port) {
 ???
 */
 static REG8 IOINPCALL sgp_i508(UINT port) {
-	if (!gactrlva.gmsp) return sgp_i_notactive(port);
+	if (!gactrlva.gmsp)
+		return sgp_i_notactive(port);
 	TRACEOUT(("sgp: read unknown port %x: cs:ip=%.4x:%.4x", port, CPU_CS, CPU_IP));
-	return  1;
+	return 1;
 }
 
 // ---- I/F

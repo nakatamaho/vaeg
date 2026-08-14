@@ -9,9 +9,9 @@ extern const OEMCHAR str_dot[];
 
 extern const OEMCHAR str_cr[];
 extern const OEMCHAR str_crlf[];
-#define	str_lf	(str_crlf + 1)
+#define str_lf (str_crlf + 1)
 
-#define	str_oscr	str_lf
+#define str_oscr str_lf
 
 extern const OEMCHAR str_ini[];
 extern const OEMCHAR str_cfg[];

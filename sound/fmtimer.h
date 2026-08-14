@@ -1,14 +1,13 @@
 
 typedef struct {
-	UINT16	timera;
-	BYTE	timerb;
-	BYTE	status;
-	BYTE	reg;
-	BYTE	intr;
-	BYTE	irq;
-	BYTE	intdisabel;
+	UINT16 timera;
+	BYTE timerb;
+	BYTE status;
+	BYTE reg;
+	BYTE intr;
+	BYTE irq;
+	BYTE intdisabel;
 } _FMTIMER, *FMTIMER;
-
 
 #ifdef __cplusplus
 extern "C" {
@@ -23,4 +22,3 @@ void fmtimer_setreg(REG8 reg, REG8 value);
 #ifdef __cplusplus
 }
 #endif
-

@@ -11,18 +11,18 @@
  * VA91 entries.
  */
 typedef struct {
-    UINT8 sysm_bank;
-    UINT8 rom0_bank;
-    UINT8 rom1_bank;
-    UINT8 dma_sysm_bank;
-    UINT8 dma_access;
-    UINT8 backupmem_wp;
-    UINT8 dmy0;
-    UINT8 dmy1;
+	UINT8 sysm_bank;
+	UINT8 rom0_bank;
+	UINT8 rom1_bank;
+	UINT8 dma_sysm_bank;
+	UINT8 dma_access;
+	UINT8 backupmem_wp;
+	UINT8 dmy0;
+	UINT8 dmy1;
 
-    UINT32 rom0exist;
-    UINT32 rom1exist;
-    UINT32 sysmromexist;
+	UINT32 rom0exist;
+	UINT32 rom1exist;
+	UINT32 sysmromexist;
 } _MEMORYVA;
 
 #ifdef __cplusplus

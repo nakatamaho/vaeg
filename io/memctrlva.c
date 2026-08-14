@@ -2,15 +2,14 @@
  * memctrlva.c: PC-88VA memory control/memory switch
  */
 
-#include	"compiler.h"
-#include	"cpucore.h"
-#include	"machine/pccore.h"
-#include	"iocore.h"
-#include	"iocoreva.h"
-#include	"memoryva.h"
-#include	"sgp.h"
-#include	"va91.h"
-
+#include "compiler.h"
+#include "cpucore.h"
+#include "machine/pccore.h"
+#include "iocore.h"
+#include "iocoreva.h"
+#include "memoryva.h"
+#include "sgp.h"
+#include "va91.h"
 
 // ---- I/O
 
@@ -18,8 +17,7 @@ static void IOOUTCALL memctrlva_o152(UINT port, REG8 dat) {
 	if (pccore.model_va == PCMODEL_VA1) {
 		memoryva.rom0_bank = (dat & 0x0f);
 		memoryva.rom1_bank = ((dat & 0xf0) >> 4);
-	}
-	else {
+	} else {
 		memoryva.rom0_bank = ((dat & 0x40) >> 2) | (dat & 0x0f);
 		memoryva.rom1_bank = ((dat & 0xb0) >> 4);
 	}
@@ -28,10 +26,9 @@ static void IOOUTCALL memctrlva_o152(UINT port, REG8 dat) {
 
 static void IOOUTCALL memctrlva_o153(UINT port, REG8 dat) {
 	if ((dat & 0x0f) == 0x0f)
-	TRACEOUT(("memctrlva: out %x %x %.4x:%.4x", port, dat, CPU_CS, CPU_IP));
+		TRACEOUT(("memctrlva: out %x %x %.4x:%.4x", port, dat, CPU_CS, CPU_IP));
 	memoryva.sysm_bank = dat & 0x0f;
-	fdc_trace_text("banktrace port=%03x val=%02x sysm_bank=%02x",
-				   port, dat, memoryva.sysm_bank);
+	fdc_trace_text("banktrace port=%03x val=%02x sysm_bank=%02x", port, dat, memoryva.sysm_bank);
 	if ((dat ^ gactrlva.gmsp) & 0x10) {
 		// Reset access state when GMSP changes between multi- and single-plane modes.
 		gactrlva_reset();
@@ -43,25 +40,19 @@ static void IOOUTCALL memctrlva_o153(UINT port, REG8 dat) {
 	(void)port;
 }
 
-
 static REG8 IOINPCALL memctrlva_i152(UINT port) {
 	(void)port;
 	if (pccore.model_va == PCMODEL_VA1) {
-		return (memoryva.rom0_bank & 0x0f) |
-			   ((memoryva.rom1_bank & 0x0f) << 4);
-	}
-	else {
-		return (memoryva.rom0_bank & 0x0f) |
-			   ((memoryva.rom0_bank & 0x10) << 2) |
-			   ((memoryva.rom1_bank & 0x0b) << 4);
+		return (memoryva.rom0_bank & 0x0f) | ((memoryva.rom1_bank & 0x0f) << 4);
+	} else {
+		return (memoryva.rom0_bank & 0x0f) | ((memoryva.rom0_bank & 0x10) << 2) |
+		       ((memoryva.rom1_bank & 0x0b) << 4);
 	}
 }
 
 static REG8 IOINPCALL memctrlva_i153(UINT port) {
 	(void)port;
-	return (memoryva.sysm_bank & 0x0f) |
-		   gactrlva.gmsp |
-		   0x40;
+	return (memoryva.sysm_bank & 0x0f) | gactrlva.gmsp | 0x40;
 }
 
 static REG8 IOINPCALL memctrlva_i156(UINT port) {
@@ -96,7 +87,6 @@ static REG8 IOINPCALL memctrlva_i030(UINT port) {
 static REG8 IOINPCALL memctrlva_i031(UINT port) {
 	return backupmem[0x1fc6];
 }
-
 
 // ---- I/F
 

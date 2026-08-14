@@ -1,17 +1,16 @@
 
 typedef struct {
-	_SYSTIME	dt;
-	_SYSTIME	realc;
-	UINT		steps;
-	UINT		realchg;
+	_SYSTIME dt;
+	_SYSTIME realc;
+	UINT steps;
+	UINT realchg;
 } _CALENDAR, *CALENDAR;
-
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-extern	_CALENDAR	cal;
+extern _CALENDAR cal;
 
 void calendar_initialize(void);
 void calendar_inc(void);
@@ -23,4 +22,3 @@ void calendar_getvir(UINT8 *bcd);
 #ifdef __cplusplus
 }
 #endif
-

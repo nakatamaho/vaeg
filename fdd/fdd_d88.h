@@ -22,4 +22,3 @@ BOOL fdd_isformating_d88(void);
 #ifdef __cplusplus
 }
 #endif
-
