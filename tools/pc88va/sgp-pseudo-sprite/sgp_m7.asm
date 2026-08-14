@@ -27,6 +27,10 @@ org 0x100
 %define MILESTONE_STAGE         6
 %endif
 
+%ifndef M7_VARIANT
+%define M7_VARIANT              1
+%endif
+
 %define KEYBOARD_BIOS_INT       0x82
 %define CALENDAR_BIOS_INT       0x8c
 %define VIDEO_BIOS_INT          0x8f
@@ -66,8 +70,10 @@ org 0x100
 %define SGP_COMMAND_SET_DEST    0x0005
 %define SGP_COMMAND_SET_COLOR   0x0006
 %define SGP_COMMAND_BITBLT      0x0007
+%define SGP_COMMAND_PATBLT      0x0008
 %define SGP_COMMAND_CLS         0x000a
 %define SGP_BITBLT_COPY_XPAR    0x0105
+%define SGP_PATBLT_COPY         0x0005
 %define SGP_BUSY                0x01
 
 %define BALL_COUNT              16
@@ -114,6 +120,11 @@ org 0x100
 %define G1_PAGE_B_DSA           0x027d00
 %define SCREEN_WORD_COUNT       0x3e80
 %define SGP_COMMAND_WORD_COUNT  (11 + (SPRITE_MAX_COUNT + FPS_GLYPH_COUNT) * 16)
+%define FPS_SAMPLE_FRAMES       60
+%define BALL_PIXEL_COUNT        (SPRITE_WIDTH * SPRITE_HEIGHT)
+%define BALL_SOURCE_BYTES       SPRITE_BITMAP_BYTES
+%define BULLET_PIXEL_COUNT      (BULLET_WIDTH * BULLET_HEIGHT)
+%define BULLET_SOURCE_BYTES     BULLET_BITMAP_BYTES
 
 %define RGB565(r,g,b)           ((((g) & 0x3f) << 10) | (((r) & 0x1f) << 5) | ((b) & 0x1f))
 %define BALL_PAIR(a,b)          ((((a) & 0x0f) << 4) | ((b) & 0x0f))
@@ -511,6 +522,7 @@ poll_keyboard:
     cmp word [active_sprite_count], SPRITE_MAX_COUNT
     jae .no_key
     inc word [active_sprite_count]
+    call format_fps_glyphs
     clc
     ret
 
@@ -520,6 +532,7 @@ poll_keyboard:
     cmp word [active_sprite_count], SPRITE_MIN_COUNT
     jbe .no_key
     dec word [active_sprite_count]
+    call format_fps_glyphs
     clc
     ret
 
@@ -538,7 +551,6 @@ initialize_fps_counter:
     pop ds
     mov word [fps_frame_counter], 0
     mov word [fps_value], 0
-    mov byte [fps_warmup], 1
     mov ah, 0x02
     int CALENDAR_BIOS_INT
     push cs
@@ -563,22 +575,29 @@ update_fps_counter:
     push cs
     pop ds
     inc word [fps_frame_counter]
+    cmp word [fps_frame_counter], FPS_SAMPLE_FRAMES
+    jb .done
+
+    ; Calendar BIOS is sampled once per 60 completed frames, never per frame.
     mov ah, 0x02
     int CALENDAR_BIOS_INT
     push cs
     pop ds
-    cmp dh, [fps_last_second]
-    je .done
+    mov al, dh
+    sub al, [fps_last_second]
+    jnc .delta_ready
+    add al, 60
+.delta_ready:
+    xor ah, ah
+    cmp ax, 0
+    jne .seconds_ready
+    mov ax, 1
+.seconds_ready:
     mov [fps_last_second], dh
-
-    cmp byte [fps_warmup], 0
-    je .store_measurement
-    mov byte [fps_warmup], 0
-    mov word [fps_frame_counter], 0
-    jmp .done
-
-.store_measurement:
-    mov ax, [fps_frame_counter]
+    mov bx, ax
+    mov ax, FPS_SAMPLE_FRAMES
+    xor dx, dx
+    div bx
     mov [fps_value], ax
     mov word [fps_frame_counter], 0
     call format_fps_glyphs
@@ -934,6 +953,79 @@ update_sprite_positions:
     pop ax
     ret
 
+; Compute logical transfer quantities once per frame from the fixed record order.
+; Records are balls [0,16), bullets [16,48), then balls again.
+update_frame_transfer_stats:
+    push ax
+    push bx
+    push cx
+    push dx
+
+    mov ax, [active_sprite_count]
+    xor dx, dx
+    mov bx, ax
+    cmp bx, BALL_COUNT
+    jbe .balls_only
+    mov bx, BALL_COUNT
+.balls_only:
+    mov cx, bx
+    mov ax, BALL_PIXEL_COUNT
+    mul cx
+    mov [m6_sgp_pixels_frame_lo], ax
+    mov [m6_sgp_pixels_frame_hi], dx
+    mov ax, BALL_SOURCE_BYTES
+    mul cx
+    mov [m6_sgp_source_bytes_frame_lo], ax
+    mov [m6_sgp_source_bytes_frame_hi], dx
+
+    mov ax, [active_sprite_count]
+    sub ax, BALL_COUNT
+    jbe .glyphs
+    mov bx, ax
+    cmp bx, BULLET_COUNT
+    jbe .bullet_count_ready
+    mov bx, BULLET_COUNT
+.bullet_count_ready:
+    mov cx, bx
+    mov ax, BULLET_PIXEL_COUNT
+    mul cx
+    add [m6_sgp_pixels_frame_lo], ax
+    adc [m6_sgp_pixels_frame_hi], dx
+    mov ax, BULLET_SOURCE_BYTES
+    mul cx
+    add [m6_sgp_source_bytes_frame_lo], ax
+    adc [m6_sgp_source_bytes_frame_hi], dx
+
+    mov ax, [active_sprite_count]
+    sub ax, BALL_COUNT
+    sub ax, BULLET_COUNT
+    jbe .glyphs
+    mov cx, ax
+    mov ax, BALL_PIXEL_COUNT
+    mul cx
+    add [m6_sgp_pixels_frame_lo], ax
+    adc [m6_sgp_pixels_frame_hi], dx
+    mov ax, BALL_SOURCE_BYTES
+    mul cx
+    add [m6_sgp_source_bytes_frame_lo], ax
+    adc [m6_sgp_source_bytes_frame_hi], dx
+
+.glyphs:
+    mov ax, FPS_GLYPH_COUNT
+    add [m6_sgp_bitblts_frame], ax
+    mov ax, FPS_GLYPH_COUNT * FPS_GLYPH_WIDTH * FPS_GLYPH_HEIGHT
+    add [m6_sgp_pixels_frame_lo], ax
+    adc word [m6_sgp_pixels_frame_hi], 0
+    mov ax, FPS_GLYPH_COUNT * FPS_GLYPH_PITCH * FPS_GLYPH_HEIGHT
+    add [m6_sgp_source_bytes_frame_lo], ax
+    adc word [m6_sgp_source_bytes_frame_hi], 0
+
+    pop dx
+    pop cx
+    pop bx
+    pop ax
+    ret
+
 render_sprite_frame:
     call build_sgp_frame_commands
     call run_sgp_command_list
@@ -957,6 +1049,7 @@ build_sgp_frame_commands:
     mov [m6_sgp_pixels_frame_hi], ax
     mov [m6_sgp_source_bytes_frame_lo], ax
     mov [m6_sgp_source_bytes_frame_hi], ax
+    call update_frame_transfer_stats
     mov di, sgp_command_list
 
     mov ax, SGP_COMMAND_SET_WORK
@@ -1039,17 +1132,6 @@ build_sgp_frame_commands:
     mov ax, SGP_BITBLT_COPY_XPAR
     stosw
     inc word [m6_sgp_bitblts_frame]
-
-    mov ax, [si + SPRITE_WIDTH_OFFSET]
-    mov bx, [si + SPRITE_HEIGHT_OFFSET]
-    mul bx
-    add [m6_sgp_pixels_frame_lo], ax
-    adc [m6_sgp_pixels_frame_hi], dx
-    mov ax, [si + SPRITE_PITCH_OFFSET]
-    mov bx, [si + SPRITE_HEIGHT_OFFSET]
-    mul bx
-    add [m6_sgp_source_bytes_frame_lo], ax
-    adc [m6_sgp_source_bytes_frame_hi], dx
 
     add si, SPRITE_RECORD_SIZE
     dec word [m6_emit_remaining]
@@ -1146,10 +1228,6 @@ emit_fps_glyph_commands:
     mov ax, SGP_BITBLT_COPY_XPAR
     stosw
     inc word [m6_sgp_bitblts_frame]
-    add word [m6_sgp_pixels_frame_lo], FPS_GLYPH_WIDTH * FPS_GLYPH_HEIGHT
-    adc word [m6_sgp_pixels_frame_hi], 0
-    add word [m6_sgp_source_bytes_frame_lo], FPS_GLYPH_PITCH * FPS_GLYPH_HEIGHT
-    adc word [m6_sgp_source_bytes_frame_hi], 0
 
     add si, 2
     add bx, FPS_GLYPH_ADVANCE
@@ -1319,8 +1397,6 @@ fps_value:
     dw 0
 fps_last_second:
     db 0
-fps_warmup:
-    db 1
 draw_page_index:
     db 1
 draw_page_sgp_low:
@@ -1381,7 +1457,19 @@ m6_number_buffer:
     times 12 db 0
 
 message_start:
-%if MILESTONE_STAGE == 1
+%if M7_VARIANT == 1
+    db "SGPD_7A: M7a measurement-separated baseline", 13, 10
+    db "UP/+ adds a sprite (max 256), DOWN/- removes one, ESC exits.", 13, 10, "$"
+%elif M7_VARIANT == 2
+    db "SGPD_7B: M7b page-local dirty clear", 13, 10
+    db "UP/+ adds a sprite (max 256), DOWN/- removes one, ESC exits.", 13, 10, "$"
+%elif M7_VARIANT == 3
+    db "SGPD_7C: M7c CPU/SGP pipeline", 13, 10
+    db "UP/+ adds a sprite (max 256), DOWN/- removes one, ESC exits.", 13, 10, "$"
+%elif M7_VARIANT == 4
+    db "SGPD_7D: M7d invariant-hoisted renderer", 13, 10
+    db "UP/+ adds a sprite (max 256), DOWN/- removes one, ESC exits.", 13, 10, "$"
+%elif MILESTONE_STAGE == 1
     db "SGPDEMO1: M1 hardware inventory diagnostic", 13, 10
     db "See the M1 investigation report for verified interfaces.", 13, 10, "$"
 %elif MILESTONE_STAGE == 2
