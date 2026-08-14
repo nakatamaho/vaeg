@@ -56,7 +56,13 @@ defect regardless of what the diff was trying to do.
 - No new globals into the core from the frontend. Frontend talks to the
   core through the existing seams (`sysmng`/`taskmng`/`soundmng`-style
   interfaces).
-- Do not reformat existing code. No clang-format runs over legacy files.
+- Canonical active-source formatting is defined by the root `.clang-format`
+  and `tools/repo/clang_format_files.txt`. Use the exact command name
+  `clang-format-mp-22`; the checker requires clang-format major version 22.
+  Do not format files outside the closed manifest. In particular, never apply
+  it to vendored, generated, inactive compatibility, assembly, or binary
+  sources. Empty lines immediately after a function's opening brace are not
+  permitted.
 - CMake: explicit source lists, no `file(GLOB)`. Options are prefixed
   `VAEG_` (`VAEG_ENABLE_TESTS`, `VAEG_WERROR` default OFF).
 - Third-party code is vendored under `external/<name>/` at a pinned
