@@ -110,7 +110,6 @@ typedef struct {
 static DEBUG_HARNESS_STATE harness;
 
 static BOOL debug_harness_trace_supported(void) {
-
 #ifdef VAEG_Z80_COMPAT_INTEGRATION_TRACE
 	return TRUE;
 #else
@@ -121,8 +120,7 @@ static BOOL debug_harness_trace_supported(void) {
 static BOOL debug_id_valid(const char *value) {
 	const unsigned char *p;
 
-	if ((value == NULL) || (value[0] == '\0') ||
-		(strlen(value) > DEBUG_ID_MAX)) {
+	if ((value == NULL) || (value[0] == '\0') || (strlen(value) > DEBUG_ID_MAX)) {
 		return FALSE;
 	}
 	p = (const unsigned char *)value;
@@ -130,8 +128,7 @@ static BOOL debug_id_valid(const char *value) {
 		return FALSE;
 	}
 	for (p++; *p != '\0'; p++) {
-		if (!((*p >= 'a' && *p <= 'z') ||
-			(*p >= '0' && *p <= '9') || *p == '_' || *p == '-')) {
+		if (!((*p >= 'a' && *p <= 'z') || (*p >= '0' && *p <= '9') || *p == '_' || *p == '-')) {
 			return FALSE;
 		}
 	}
@@ -159,8 +156,7 @@ static BOOL debug_parse_uint32(const char *value, UINT32 *result) {
 	}
 	errno = 0;
 	parsed = strtoul(value, &end, 10);
-	if ((errno != 0) || (end == value) || (*end != '\0') ||
-		(parsed > 0xffffffffUL)) {
+	if ((errno != 0) || (end == value) || (*end != '\0') || (parsed > 0xffffffffUL)) {
 		return FAILURE;
 	}
 	*result = (UINT32)parsed;
@@ -185,14 +181,12 @@ static BOOL debug_parse_address(const char *value, UINT16 *cs, UINT16 *ip) {
 	*separator++ = '\0';
 	errno = 0;
 	segment = strtoul(copy, &end, 16);
-	if ((errno != 0) || (end == copy) || (*end != '\0') ||
-		(segment > 0xffffUL)) {
+	if ((errno != 0) || (end == copy) || (*end != '\0') || (segment > 0xffffUL)) {
 		return FAILURE;
 	}
 	errno = 0;
 	offset = strtoul(separator, &end, 16);
-	if ((errno != 0) || (end == separator) || (*end != '\0') ||
-		(offset > 0xffffUL)) {
+	if ((errno != 0) || (end == separator) || (*end != '\0') || (offset > 0xffffUL)) {
 		return FAILURE;
 	}
 	*cs = (UINT16)segment;
@@ -263,10 +257,8 @@ static int debug_find_resource(const char *id) {
 static BOOL debug_add_resource(const char *id, const char *path) {
 	DEBUG_RESOURCE *resource;
 
-	if (!debug_id_valid(id) || (path == NULL) || (path[0] == '\0') ||
-		(strlen(path) >= MAX_PATH) ||
-		(harness.resource_count >= DEBUG_RESOURCE_MAX) ||
-		(debug_find_resource(id) >= 0)) {
+	if (!debug_id_valid(id) || (path == NULL) || (path[0] == '\0') || (strlen(path) >= MAX_PATH) ||
+	    (harness.resource_count >= DEBUG_RESOURCE_MAX) || (debug_find_resource(id) >= 0)) {
 		return FAILURE;
 	}
 	resource = &harness.resources[harness.resource_count++];
@@ -284,12 +276,11 @@ static BOOL debug_add_resource(const char *id, const char *path) {
 static BOOL debug_add_counter(const char *id, const char *address) {
 	DEBUG_COUNTER *counter;
 
-	if (!debug_id_valid(id) ||
-		(harness.counter_count >= DEBUG_COUNTER_MAX)) {
+	if (!debug_id_valid(id) || (harness.counter_count >= DEBUG_COUNTER_MAX)) {
 		return FAILURE;
 	}
-	for (counter = harness.counters;
-		counter < harness.counters + harness.counter_count; counter++) {
+	for (counter = harness.counters; counter < harness.counters + harness.counter_count;
+	     counter++) {
 		if (!strcmp(counter->id, id)) {
 			return FAILURE;
 		}
@@ -307,14 +298,11 @@ static BOOL debug_parse_capture(DEBUG_ACTION *action, char *cursor) {
 	while ((token = debug_next_token(&cursor)) != NULL) {
 		if (!strcmp(token, "registers")) {
 			mask |= DEBUG_CAPTURE_REGISTERS;
-		}
-		else if (!strcmp(token, "tvram")) {
+		} else if (!strcmp(token, "tvram")) {
 			mask |= DEBUG_CAPTURE_TVRAM;
-		}
-		else if (!strcmp(token, "screen")) {
+		} else if (!strcmp(token, "screen")) {
 			mask |= DEBUG_CAPTURE_SCREEN;
-		}
-		else {
+		} else {
 			return FAILURE;
 		}
 	}
@@ -323,7 +311,7 @@ static BOOL debug_parse_capture(DEBUG_ACTION *action, char *cursor) {
 }
 
 static BOOL debug_parse_line(char *line, UINT line_number, BOOL *version_seen,
-		BOOL *event_context) {
+                             BOOL *event_context) {
 	char *cursor;
 	char *command;
 	char *first;
@@ -339,10 +327,9 @@ static BOOL debug_parse_line(char *line, UINT line_number, BOOL *version_seen,
 	}
 	if (!*version_seen) {
 		first = debug_next_token(&cursor);
-		if (strcmp(command, "debug-script") || (first == NULL) ||
-			strcmp(first, "1") || (debug_next_token(&cursor) != NULL)) {
-			fprintf(stderr, "Error: debug script line %u must be debug-script 1\n",
-				line_number);
+		if (strcmp(command, "debug-script") || (first == NULL) || strcmp(first, "1") ||
+		    (debug_next_token(&cursor) != NULL)) {
+			fprintf(stderr, "Error: debug script line %u must be debug-script 1\n", line_number);
 			return FAILURE;
 		}
 		*version_seen = TRUE;
@@ -351,8 +338,8 @@ static BOOL debug_parse_line(char *line, UINT line_number, BOOL *version_seen,
 	if (!strcmp(command, "limit-frame")) {
 		first = debug_next_token(&cursor);
 		if ((first == NULL) || (debug_next_token(&cursor) != NULL) ||
-			(debug_parse_uint32(first, &number) != SUCCESS) || (number == 0) ||
-			(harness.frame_limit != 0)) {
+		    (debug_parse_uint32(first, &number) != SUCCESS) || (number == 0) ||
+		    (harness.frame_limit != 0)) {
 			goto invalid;
 		}
 		harness.frame_limit = number;
@@ -369,9 +356,8 @@ static BOOL debug_parse_line(char *line, UINT line_number, BOOL *version_seen,
 	if (!strcmp(command, "counter")) {
 		first = debug_next_token(&cursor);
 		second = debug_next_token(&cursor);
-		if ((first == NULL) || (second == NULL) ||
-			(debug_next_token(&cursor) != NULL) ||
-			(debug_add_counter(first, second) != SUCCESS)) {
+		if ((first == NULL) || (second == NULL) || (debug_next_token(&cursor) != NULL) ||
+		    (debug_add_counter(first, second) != SUCCESS)) {
 			goto invalid;
 		}
 		return SUCCESS;
@@ -379,8 +365,8 @@ static BOOL debug_parse_line(char *line, UINT line_number, BOOL *version_seen,
 	if (!strcmp(command, "wait-frame")) {
 		first = debug_next_token(&cursor);
 		if ((first == NULL) || (debug_next_token(&cursor) != NULL) ||
-			(debug_parse_uint32(first, &number) != SUCCESS) ||
-			(debug_add_action(DEBUG_ACTION_WAIT_FRAME, &action) != SUCCESS)) {
+		    (debug_parse_uint32(first, &number) != SUCCESS) ||
+		    (debug_add_action(DEBUG_ACTION_WAIT_FRAME, &action) != SUCCESS)) {
 			goto invalid;
 		}
 		action->value = number;
@@ -394,8 +380,7 @@ static BOOL debug_parse_line(char *line, UINT line_number, BOOL *version_seen,
 		if (first[0] == '\0') {
 			goto invalid;
 		}
-		for (character = (const unsigned char *)first;
-			*character != '\0'; character++) {
+		for (character = (const unsigned char *)first; *character != '\0'; character++) {
 			if ((*character < 0x20) || (*character > 0x7e)) {
 				goto invalid;
 			}
@@ -412,7 +397,7 @@ static BOOL debug_parse_line(char *line, UINT line_number, BOOL *version_seen,
 	}
 	if (!strcmp(command, "enter")) {
 		if ((debug_next_token(&cursor) != NULL) ||
-			(debug_add_action(DEBUG_ACTION_ENTER, &action) != SUCCESS)) {
+		    (debug_add_action(DEBUG_ACTION_ENTER, &action) != SUCCESS)) {
 			goto invalid;
 		}
 		*event_context = FALSE;
@@ -421,11 +406,10 @@ static BOOL debug_parse_line(char *line, UINT line_number, BOOL *version_seen,
 	if (!strcmp(command, "mount-fdd")) {
 		first = debug_next_token(&cursor);
 		second = debug_next_token(&cursor);
-		if ((first == NULL) || (second == NULL) ||
-			(debug_next_token(&cursor) != NULL) ||
-			(strcmp(first, "1") && strcmp(first, "2")) ||
-			((resource = debug_find_resource(second)) < 0) ||
-			(debug_add_action(DEBUG_ACTION_MOUNT_FDD, &action) != SUCCESS)) {
+		if ((first == NULL) || (second == NULL) || (debug_next_token(&cursor) != NULL) ||
+		    (strcmp(first, "1") && strcmp(first, "2")) ||
+		    ((resource = debug_find_resource(second)) < 0) ||
+		    (debug_add_action(DEBUG_ACTION_MOUNT_FDD, &action) != SUCCESS)) {
 			goto invalid;
 		}
 		action->argument = (UINT)(first[0] - '1');
@@ -437,11 +421,10 @@ static BOOL debug_parse_line(char *line, UINT line_number, BOOL *version_seen,
 	if (!strcmp(command, "wait-pc")) {
 		first = debug_next_token(&cursor);
 		second = debug_next_token(&cursor);
-		if ((first == NULL) || (second == NULL) ||
-			(debug_next_token(&cursor) != NULL) ||
-			(debug_parse_uint32(second, &number) != SUCCESS) || (number == 0) ||
-			(debug_add_action(DEBUG_ACTION_WAIT_PC, &action) != SUCCESS) ||
-			(debug_parse_address(first, &action->cs, &action->ip) != SUCCESS)) {
+		if ((first == NULL) || (second == NULL) || (debug_next_token(&cursor) != NULL) ||
+		    (debug_parse_uint32(second, &number) != SUCCESS) || (number == 0) ||
+		    (debug_add_action(DEBUG_ACTION_WAIT_PC, &action) != SUCCESS) ||
+		    (debug_parse_address(first, &action->cs, &action->ip) != SUCCESS)) {
 			goto invalid;
 		}
 		action->value = number;
@@ -451,11 +434,10 @@ static BOOL debug_parse_line(char *line, UINT line_number, BOOL *version_seen,
 	if (!strcmp(command, "trace")) {
 		first = debug_next_token(&cursor);
 		second = debug_next_token(&cursor);
-		if (!*event_context || (first == NULL) || !debug_id_valid(first) ||
-			(second == NULL) || (debug_next_token(&cursor) != NULL) ||
-			(debug_parse_uint32(second, &number) != SUCCESS) ||
-			(number == 0) || (number > 1000000) ||
-			(debug_add_action(DEBUG_ACTION_TRACE, &action) != SUCCESS)) {
+		if (!*event_context || (first == NULL) || !debug_id_valid(first) || (second == NULL) ||
+		    (debug_next_token(&cursor) != NULL) ||
+		    (debug_parse_uint32(second, &number) != SUCCESS) || (number == 0) ||
+		    (number > 1000000) || (debug_add_action(DEBUG_ACTION_TRACE, &action) != SUCCESS)) {
 			goto invalid;
 		}
 		strcpy(action->id, first);
@@ -465,8 +447,8 @@ static BOOL debug_parse_line(char *line, UINT line_number, BOOL *version_seen,
 	if (!strcmp(command, "capture")) {
 		first = debug_next_token(&cursor);
 		if (!*event_context || (first == NULL) || !debug_id_valid(first) ||
-			(debug_add_action(DEBUG_ACTION_CAPTURE, &action) != SUCCESS) ||
-			(debug_parse_capture(action, cursor) != SUCCESS)) {
+		    (debug_add_action(DEBUG_ACTION_CAPTURE, &action) != SUCCESS) ||
+		    (debug_parse_capture(action, cursor) != SUCCESS)) {
 			goto invalid;
 		}
 		strcpy(action->id, first);
@@ -474,15 +456,14 @@ static BOOL debug_parse_line(char *line, UINT line_number, BOOL *version_seen,
 	}
 	if (!strcmp(command, "exit")) {
 		if ((debug_next_token(&cursor) != NULL) ||
-			(debug_add_action(DEBUG_ACTION_EXIT, &action) != SUCCESS)) {
+		    (debug_add_action(DEBUG_ACTION_EXIT, &action) != SUCCESS)) {
 			goto invalid;
 		}
 		*event_context = FALSE;
 		return SUCCESS;
 	}
 invalid:
-	fprintf(stderr, "Error: invalid debug script command at line %u\n",
-		line_number);
+	fprintf(stderr, "Error: invalid debug script command at line %u\n", line_number);
 	return FAILURE;
 }
 
@@ -502,8 +483,7 @@ static BOOL debug_parse_buffer(char *buffer, UINT size) {
 
 		line_number++;
 		start = position;
-		while ((position < size) && (buffer[position] != '\r') &&
-			(buffer[position] != '\n')) {
+		while ((position < size) && (buffer[position] != '\r') && (buffer[position] != '\n')) {
 			position++;
 		}
 		if ((position - start) >= DEBUG_LINE_MAX) {
@@ -511,8 +491,7 @@ static BOOL debug_parse_buffer(char *buffer, UINT size) {
 		}
 		if (position < size) {
 			buffer[position++] = '\0';
-			if ((position < size) && (buffer[position - 1] == '\r') &&
-				(buffer[position] == '\n')) {
+			if ((position < size) && (buffer[position - 1] == '\r') && (buffer[position] == '\n')) {
 				position++;
 			}
 		}
@@ -523,37 +502,32 @@ static BOOL debug_parse_buffer(char *buffer, UINT size) {
 		if ((buffer[content] == '\0') || (buffer[content] == '#')) {
 			continue;
 		}
-		if (debug_parse_line(buffer + start, line_number, &version_seen,
-			&event_context) != SUCCESS) {
+		if (debug_parse_line(buffer + start, line_number, &version_seen, &event_context) !=
+		    SUCCESS) {
 			return FAILURE;
 		}
 	}
-	return (version_seen && (harness.frame_limit != 0) &&
-		(harness.action_count != 0)) ? SUCCESS : FAILURE;
+	return (version_seen && (harness.frame_limit != 0) && (harness.action_count != 0)) ? SUCCESS
+	                                                                                   : FAILURE;
 }
 
-static BOOL debug_make_path(char *path, UINT path_size, const char *id,
-		const char *suffix) {
+static BOOL debug_make_path(char *path, UINT path_size, const char *id, const char *suffix) {
 	int length;
 
-	length = snprintf(path, path_size, "%s%c%s%s", harness.output_dir,
-		DEBUG_PATH_SEPARATOR, id, suffix);
+	length =
+	    snprintf(path, path_size, "%s%c%s%s", harness.output_dir, DEBUG_PATH_SEPARATOR, id, suffix);
 	return ((length > 0) && ((UINT)length < path_size)) ? SUCCESS : FAILURE;
 }
 
-static void debug_log(const char *event, UINT32 frames, const char *id,
-		UINT32 value) {
-
+static void debug_log(const char *event, UINT32 frames, const char *id, UINT32 value) {
 	if (harness.events == NULL) {
 		return;
 	}
-	fprintf(harness.events, "%s\t%u\t%s\t%u\n", event, frames,
-		(id != NULL) ? id : "-", value);
+	fprintf(harness.events, "%s\t%u\t%s\t%u\n", event, frames, (id != NULL) ? id : "-", value);
 	fflush(harness.events);
 }
 
-static BOOL debug_write_registers(const char *id,
-		const UPD9002_DEBUG_SNAPSHOT *snapshot) {
+static BOOL debug_write_registers(const char *id, const UPD9002_DEBUG_SNAPSHOT *snapshot) {
 	char path[MAX_PATH];
 	FILE *fp;
 
@@ -564,27 +538,25 @@ static BOOL debug_write_registers(const char *id,
 	if (fp == NULL) {
 		return FAILURE;
 	}
-	fprintf(fp, "schema\tvaeg-registers-v1\nsequence\t%u\nordinal\t%u\n"
-		"clock\t%u\nax\t%04x\nbx\t%04x\ncx\t%04x\ndx\t%04x\n"
-		"si\t%04x\ndi\t%04x\nbp\t%04x\nsp\t%04x\nes\t%04x\n"
-		"cs\t%04x\nss\t%04x\nds\t%04x\nip\t%04x\nflags\t%04x\n"
-		"es_base\t%08x\ncs_base\t%08x\nss_base\t%08x\n"
-		"ds_base\t%08x\n",
-		snapshot->sequence, snapshot->ordinal, snapshot->clock,
-		snapshot->ax, snapshot->bx, snapshot->cx, snapshot->dx,
-		snapshot->si, snapshot->di, snapshot->bp, snapshot->sp,
-		snapshot->es, snapshot->cs, snapshot->ss, snapshot->ds,
-		snapshot->ip, snapshot->flags, snapshot->es_base,
-		snapshot->cs_base, snapshot->ss_base, snapshot->ds_base);
+	fprintf(fp,
+	        "schema\tvaeg-registers-v1\nsequence\t%u\nordinal\t%u\n"
+	        "clock\t%u\nax\t%04x\nbx\t%04x\ncx\t%04x\ndx\t%04x\n"
+	        "si\t%04x\ndi\t%04x\nbp\t%04x\nsp\t%04x\nes\t%04x\n"
+	        "cs\t%04x\nss\t%04x\nds\t%04x\nip\t%04x\nflags\t%04x\n"
+	        "es_base\t%08x\ncs_base\t%08x\nss_base\t%08x\n"
+	        "ds_base\t%08x\n",
+	        snapshot->sequence, snapshot->ordinal, snapshot->clock, snapshot->ax, snapshot->bx,
+	        snapshot->cx, snapshot->dx, snapshot->si, snapshot->di, snapshot->bp, snapshot->sp,
+	        snapshot->es, snapshot->cs, snapshot->ss, snapshot->ds, snapshot->ip, snapshot->flags,
+	        snapshot->es_base, snapshot->cs_base, snapshot->ss_base, snapshot->ds_base);
 	return (fclose(fp) == 0) ? SUCCESS : FAILURE;
 }
 
 static BOOL debug_start_trace(const DEBUG_ACTION *action) {
 	char path[MAX_PATH];
 
-	if (!debug_harness_trace_supported() || upd9002_trace_active() ||
-		(harness.trace != NULL) ||
-		(debug_make_path(path, sizeof(path), action->id, ".trace.log") != SUCCESS)) {
+	if (!debug_harness_trace_supported() || upd9002_trace_active() || (harness.trace != NULL) ||
+	    (debug_make_path(path, sizeof(path), action->id, ".trace.log") != SUCCESS)) {
 		return FAILURE;
 	}
 	harness.trace = fopen(path, "wb");
@@ -596,7 +568,6 @@ static BOOL debug_start_trace(const DEBUG_ACTION *action) {
 }
 
 static void debug_close_completed_trace(void) {
-
 	if ((harness.trace != NULL) && !upd9002_trace_active()) {
 		upd9002_trace_stop();
 		if (fclose(harness.trace) != 0) {
@@ -606,36 +577,32 @@ static void debug_close_completed_trace(void) {
 	}
 }
 
-static BOOL debug_capture(const DEBUG_ACTION *action,
-		const UPD9002_DEBUG_SNAPSHOT *snapshot) {
+static BOOL debug_capture(const DEBUG_ACTION *action, const UPD9002_DEBUG_SNAPSHOT *snapshot) {
 	char tvram[MAX_PATH];
 	char screen[MAX_PATH];
 	const char *tvram_path;
 	const char *screen_path;
 
 	if ((action->argument & DEBUG_CAPTURE_REGISTERS) &&
-		(debug_write_registers(action->id, snapshot) != SUCCESS)) {
+	    (debug_write_registers(action->id, snapshot) != SUCCESS)) {
 		return FAILURE;
 	}
 	tvram_path = NULL;
 	screen_path = NULL;
 	if (action->argument & DEBUG_CAPTURE_TVRAM) {
-		if (debug_make_path(tvram, sizeof(tvram), action->id,
-			".tvram.bin") != SUCCESS) {
+		if (debug_make_path(tvram, sizeof(tvram), action->id, ".tvram.bin") != SUCCESS) {
 			return FAILURE;
 		}
 		tvram_path = tvram;
 	}
 	if (action->argument & DEBUG_CAPTURE_SCREEN) {
-		if (debug_make_path(screen, sizeof(screen), action->id,
-			".screen.bmp") != SUCCESS) {
+		if (debug_make_path(screen, sizeof(screen), action->id, ".screen.bmp") != SUCCESS) {
 			return FAILURE;
 		}
 		screen_path = screen;
 	}
 	if ((tvram_path != NULL) || (screen_path != NULL)) {
-		if (g75_screen_capture_to(tvram_path, screen_path, action->id,
-			FALSE) != SUCCESS) {
+		if (g75_screen_capture_to(tvram_path, screen_path, action->id, FALSE) != SUCCESS) {
 			return FAILURE;
 		}
 	}
@@ -651,9 +618,9 @@ void debug_harness_clear(void) {
 	}
 	if (harness.events != NULL) {
 		for (index = 0; index < harness.counter_count; index++) {
-			fprintf(harness.events, "counter\t%u\t%s\t%u\n",
-				harness.last_frame, harness.counters[index].id,
-				upd9002_debug_counter_value(harness.counters[index].core_index));
+			fprintf(harness.events, "counter\t%u\t%s\t%u\n", harness.last_frame,
+			        harness.counters[index].id,
+			        upd9002_debug_counter_value(harness.counters[index].core_index));
 		}
 		(void)fclose(harness.events);
 	}
@@ -675,9 +642,8 @@ BOOL debug_harness_load(const char *script_path, const char *output_dir) {
 	BOOL result;
 
 	debug_harness_clear();
-	if ((script_path == NULL) || (output_dir == NULL) ||
-		(script_path[0] == '\0') || (output_dir[0] == '\0') ||
-		(strlen(output_dir) >= sizeof(harness.output_dir))) {
+	if ((script_path == NULL) || (output_dir == NULL) || (script_path[0] == '\0') ||
+	    (output_dir[0] == '\0') || (strlen(output_dir) >= sizeof(harness.output_dir))) {
 		return FAILURE;
 	}
 	fp = fopen(script_path, "rb");
@@ -686,13 +652,12 @@ BOOL debug_harness_load(const char *script_path, const char *output_dir) {
 		return FAILURE;
 	}
 	if ((fseek(fp, 0, SEEK_END) != 0) || ((length = ftell(fp)) <= 0) ||
-		(length > DEBUG_SCRIPT_MAX) || (fseek(fp, 0, SEEK_SET) != 0)) {
+	    (length > DEBUG_SCRIPT_MAX) || (fseek(fp, 0, SEEK_SET) != 0)) {
 		fclose(fp);
 		return FAILURE;
 	}
 	buffer = (char *)malloc((size_t)length + 1);
-	if ((buffer == NULL) || (fread(buffer, 1, (size_t)length, fp) !=
-		(size_t)length)) {
+	if ((buffer == NULL) || (fread(buffer, 1, (size_t)length, fp) != (size_t)length)) {
 		free(buffer);
 		fclose(fp);
 		return FAILURE;
@@ -706,8 +671,7 @@ BOOL debug_harness_load(const char *script_path, const char *output_dir) {
 
 		for (index = 0; index < harness.action_count; index++) {
 			if (harness.actions[index].type == DEBUG_ACTION_TRACE) {
-				fprintf(stderr,
-					"Error: debug trace action requires a trace-enabled build\n");
+				fprintf(stderr, "Error: debug trace action requires a trace-enabled build\n");
 				result = FAILURE;
 				break;
 			}
@@ -718,8 +682,7 @@ BOOL debug_harness_load(const char *script_path, const char *output_dir) {
 		return FAILURE;
 	}
 	strcpy(harness.output_dir, output_dir);
-	if (debug_make_path(events_path, sizeof(events_path), "events", ".tsv") !=
-		SUCCESS) {
+	if (debug_make_path(events_path, sizeof(events_path), "events", ".tsv") != SUCCESS) {
 		debug_harness_clear();
 		return FAILURE;
 	}
@@ -732,7 +695,7 @@ BOOL debug_harness_load(const char *script_path, const char *output_dir) {
 	fprintf(harness.events, "event\tframe\tid\tvalue\n");
 	harness.loaded = TRUE;
 	fprintf(stderr, "debug-harness loaded actions=%u counters=%u resources=%u\n",
-		harness.action_count, harness.counter_count, harness.resource_count);
+	        harness.action_count, harness.counter_count, harness.resource_count);
 	return SUCCESS;
 }
 
@@ -744,9 +707,8 @@ BOOL debug_harness_initialize(void) {
 	}
 	upd9002_debug_reset();
 	for (index = 0; index < harness.counter_count; index++) {
-		if (upd9002_debug_counter_add(harness.counters[index].cs,
-			harness.counters[index].ip,
-			&harness.counters[index].core_index) != SUCCESS) {
+		if (upd9002_debug_counter_add(harness.counters[index].cs, harness.counters[index].ip,
+		                              &harness.counters[index].core_index) != SUCCESS) {
 			fprintf(stderr, "Error: debug counter initialization failed\n");
 			harness.exit_requested = TRUE;
 			return FAILURE;
@@ -758,7 +720,6 @@ BOOL debug_harness_initialize(void) {
 }
 
 BOOL debug_harness_active(void) {
-
 	return harness.loaded;
 }
 
@@ -788,8 +749,7 @@ static BOOL debug_execute_ready(UINT32 frames) {
 			}
 			if (action->type == DEBUG_ACTION_ENTER) {
 				text = debug_string_duplicate("\r");
-			}
-			else {
+			} else {
 				length = strlen(action->text);
 				text = (char *)malloc(length + 2);
 				if (text != NULL) {
@@ -808,15 +768,13 @@ static BOOL debug_execute_ready(UINT32 frames) {
 			return SUCCESS;
 		case DEBUG_ACTION_MOUNT_FDD:
 			resource = &harness.resources[action->value];
-			diskdrv_setfdd((REG8)action->argument,
-				resource->none ? NULL : resource->path, 0);
+			diskdrv_setfdd((REG8)action->argument, resource->none ? NULL : resource->path, 0);
 			debug_log("mount-fdd", frames, action->id, action->argument + 1);
 			harness.action_index++;
 			break;
 		case DEBUG_ACTION_WAIT_PC:
 			if (!harness.wait_armed) {
-				if (upd9002_debug_wait_arm(action->cs, action->ip,
-					action->value) != SUCCESS) {
+				if (upd9002_debug_wait_arm(action->cs, action->ip, action->value) != SUCCESS) {
 					return FAILURE;
 				}
 				harness.wait_armed = TRUE;
@@ -846,8 +804,7 @@ BOOL debug_harness_after_frame(UINT32 frames) {
 	harness.last_frame = frames;
 	debug_close_completed_trace();
 	result = debug_execute_ready(frames);
-	if ((result == SUCCESS) && !harness.exit_requested &&
-		(frames >= harness.frame_limit)) {
+	if ((result == SUCCESS) && !harness.exit_requested && (frames >= harness.frame_limit)) {
 		harness.exit_requested = TRUE;
 		debug_log("frame-limit", frames, NULL, harness.frame_limit);
 	}
@@ -860,9 +817,9 @@ BOOL debug_harness_handle_pc_event(UINT32 frames) {
 
 	harness.last_frame = frames;
 	if (!harness.loaded || !harness.wait_armed ||
-		(upd9002_debug_event_snapshot(&snapshot) != SUCCESS) ||
-		(harness.action_index >= harness.action_count) ||
-		(harness.actions[harness.action_index].type != DEBUG_ACTION_WAIT_PC)) {
+	    (upd9002_debug_event_snapshot(&snapshot) != SUCCESS) ||
+	    (harness.action_index >= harness.action_count) ||
+	    (harness.actions[harness.action_index].type != DEBUG_ACTION_WAIT_PC)) {
 		return FAILURE;
 	}
 	action = &harness.actions[harness.action_index++];
@@ -875,14 +832,12 @@ BOOL debug_harness_handle_pc_event(UINT32 frames) {
 				return FAILURE;
 			}
 			debug_log("trace", frames, action->id, action->value);
-		}
-		else if (action->type == DEBUG_ACTION_CAPTURE) {
+		} else if (action->type == DEBUG_ACTION_CAPTURE) {
 			if (debug_capture(action, &snapshot) != SUCCESS) {
 				return FAILURE;
 			}
 			debug_log("capture", frames, action->id, action->argument);
-		}
-		else {
+		} else {
 			break;
 		}
 		harness.action_index++;
@@ -892,29 +847,25 @@ BOOL debug_harness_handle_pc_event(UINT32 frames) {
 }
 
 BOOL debug_harness_exit_requested(void) {
-
 	return harness.exit_requested;
 }
 
 BOOL debug_harness_selftest(void) {
-	static const char valid[] =
-		"debug-script 1\n"
-		"limit-frame 1000\n"
-		"resource boot local-only.d88\n"
-		"counter dispatch e000:002a\n"
-		"wait-frame 120\n"
-		"input-line basic\n"
-		"mount-fdd 1 boot\n"
-		"wait-pc e000:0180 2\n"
-		"trace service 16\n"
-		"capture service registers tvram screen\n"
-		"exit\n";
-	static const char invalid[] =
-		"debug-script 1\n"
-		"capture bad registers\n";
-	static const char missing_limit[] =
-		"debug-script 1\n"
-		"exit\n";
+	static const char valid[] = "debug-script 1\n"
+	                            "limit-frame 1000\n"
+	                            "resource boot local-only.d88\n"
+	                            "counter dispatch e000:002a\n"
+	                            "wait-frame 120\n"
+	                            "input-line basic\n"
+	                            "mount-fdd 1 boot\n"
+	                            "wait-pc e000:0180 2\n"
+	                            "trace service 16\n"
+	                            "capture service registers tvram screen\n"
+	                            "exit\n";
+	static const char invalid[] = "debug-script 1\n"
+	                              "capture bad registers\n";
+	static const char missing_limit[] = "debug-script 1\n"
+	                                    "exit\n";
 	char *buffer;
 	BOOL passed;
 
@@ -924,11 +875,9 @@ BOOL debug_harness_selftest(void) {
 		return FAILURE;
 	}
 	passed = (debug_parse_buffer(buffer, sizeof(valid)) == SUCCESS) &&
-		(harness.resource_count == 1) && (harness.counter_count == 1) &&
-		(harness.action_count == 7) &&
-		(harness.actions[3].type == DEBUG_ACTION_WAIT_PC) &&
-		(harness.actions[4].type == DEBUG_ACTION_TRACE) &&
-		(harness.actions[5].argument == 7);
+	         (harness.resource_count == 1) && (harness.counter_count == 1) &&
+	         (harness.action_count == 7) && (harness.actions[3].type == DEBUG_ACTION_WAIT_PC) &&
+	         (harness.actions[4].type == DEBUG_ACTION_TRACE) && (harness.actions[5].argument == 7);
 	free(buffer);
 	debug_harness_clear();
 	buffer = debug_string_duplicate(invalid);
@@ -942,8 +891,7 @@ BOOL debug_harness_selftest(void) {
 	if (buffer == NULL) {
 		return FAILURE;
 	}
-	passed = passed &&
-		(debug_parse_buffer(buffer, sizeof(missing_limit)) == FAILURE);
+	passed = passed && (debug_parse_buffer(buffer, sizeof(missing_limit)) == FAILURE);
 	free(buffer);
 	debug_harness_clear();
 	return passed ? SUCCESS : FAILURE;

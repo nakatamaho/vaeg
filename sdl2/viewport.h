@@ -57,16 +57,12 @@ typedef struct {
 extern "C" {
 #endif
 
-BOOL vaeg_viewport_calculate(const VAEG_VIEWPORT_INPUT *input,
-										VAEG_VIEWPORT *viewport);
-BOOL vaeg_viewport_map_point(const VAEG_VIEWPORT *viewport,
-						int guest_width, int guest_height,
-						int drawable_x, int drawable_y,
-						int *guest_x, int *guest_y);
+BOOL vaeg_viewport_calculate(const VAEG_VIEWPORT_INPUT *input, VAEG_VIEWPORT *viewport);
+BOOL vaeg_viewport_map_point(const VAEG_VIEWPORT *viewport, int guest_width, int guest_height,
+                             int drawable_x, int drawable_y, int *guest_x, int *guest_y);
 UINT8 vaeg_fscrnmod_sanitize(UINT value, BOOL *masked);
-void vaeg_fullscreen_size(UINT fscrn_cx, UINT fscrn_cy, UINT8 fscrnmod,
-						int current_width, int current_height,
-						int *width, int *height);
+void vaeg_fullscreen_size(UINT fscrn_cx, UINT fscrn_cy, UINT8 fscrnmod, int current_width,
+                          int current_height, int *width, int *height);
 
 #ifdef __cplusplus
 }

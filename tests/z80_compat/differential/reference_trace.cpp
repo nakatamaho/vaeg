@@ -27,10 +27,10 @@
 #include "trace_backend.h"
 
 int main(int argc, char **argv) {
-    using vaeg::z80_compat::differential::Backend;
-    using vaeg::z80_compat::differential::RunTraceMain;
-    using vaeg::z80_compat::differential::TraceBackend;
-    return RunTraceMain(argc, argv, "reference", []() {
-        return std::unique_ptr<Backend>(new TraceBackend<Z80CompatCpu>());
-    });
+	using vaeg::z80_compat::differential::Backend;
+	using vaeg::z80_compat::differential::RunTraceMain;
+	using vaeg::z80_compat::differential::TraceBackend;
+	return RunTraceMain(argc, argv, "reference", []() {
+		return std::unique_ptr<Backend>(new TraceBackend<Z80CompatCpu>());
+	});
 }

@@ -32,14 +32,11 @@
 Upd9002CoreContext upd9002_core_context;
 
 static int fail(const char *message) {
-
 	fprintf(stderr, "upd9002-state-boundary: %s\n", message);
 	return 1;
 }
 
-static void make_noncanonical(Upd9002StateImage *state, UINT8 padding0,
-												UINT8 padding1) {
-
+static void make_noncanonical(Upd9002StateImage *state, UINT8 padding0, UINT8 padding1) {
 	memset(state, 0, sizeof(*state));
 	state->r.w.ax = 0x1234;
 	state->r.w.bx = 0x5678;
@@ -67,7 +64,6 @@ static void make_noncanonical(Upd9002StateImage *state, UINT8 padding0,
 }
 
 static int test_import_export(void) {
-
 	Upd9002StateImage alternate;
 	Upd9002StateImage exported;
 	Upd9002StateImage imported;
@@ -87,8 +83,7 @@ static int test_import_export(void) {
 	first_runtime = upd9002_core_context.s;
 
 	make_noncanonical(&alternate, 0x12, 0x34);
-	if (upd9002_state_import(&alternate, sizeof(alternate), NULL, 0) !=
-																SUCCESS) {
+	if (upd9002_state_import(&alternate, sizeof(alternate), NULL, 0) != SUCCESS) {
 		return fail("alternate valid import failed");
 	}
 	if (memcmp(&first_runtime, &upd9002_core_context.s, sizeof(first_runtime))) {
@@ -101,15 +96,14 @@ static int test_import_export(void) {
 
 	upd9002_core_context.s.r.w.ax = 0xbeef;
 	upd9002_state_export(&exported);
-	if ((exported.r.w.ax != 0xbeef) ||
-		(exported.padding[0] != 0x12) || (exported.padding[1] != 0x34)) {
+	if ((exported.r.w.ax != 0xbeef) || (exported.padding[0] != 0x12) ||
+	    (exported.padding[1] != 0x34)) {
 		return fail("runtime overlay did not preserve opaque padding");
 	}
 	return 0;
 }
 
 static int test_rejected_imports(void) {
-
 	Upd9002StateImage before_image;
 	Upd9002StateImage invalid;
 	Upd9002StateImage after_image;
@@ -125,47 +119,43 @@ static int test_rejected_imports(void) {
 
 	invalid.cpu_type = 0;
 	error[0] = '\0';
-	if ((upd9002_state_import(&invalid, sizeof(invalid), error,
-													sizeof(error)) != FAILURE) ||
-		strcmp(error, UPD9002_STATE_ERROR_CPU_TYPE)) {
+	if ((upd9002_state_import(&invalid, sizeof(invalid), error, sizeof(error)) != FAILURE) ||
+	    strcmp(error, UPD9002_STATE_ERROR_CPU_TYPE)) {
 		return fail("non-V30 cpu_type was not rejected deterministically");
 	}
 	upd9002_state_export(&after_image);
 	if (memcmp(&before_runtime, &upd9002_core_context.s, sizeof(before_runtime)) ||
-		memcmp(&before_image, &after_image, sizeof(before_image))) {
+	    memcmp(&before_image, &after_image, sizeof(before_image))) {
 		return fail("non-V30 rejection changed live state");
 	}
 
 	error[0] = '\0';
-	if ((upd9002_state_import(&invalid, sizeof(invalid) - 1, error,
-													sizeof(error)) != FAILURE) ||
-		strcmp(error, UPD9002_STATE_ERROR_SIZE)) {
+	if ((upd9002_state_import(&invalid, sizeof(invalid) - 1, error, sizeof(error)) != FAILURE) ||
+	    strcmp(error, UPD9002_STATE_ERROR_SIZE)) {
 		return fail("malformed payload size was not rejected deterministically");
 	}
 	upd9002_state_export(&after_image);
 	if (memcmp(&before_runtime, &upd9002_core_context.s, sizeof(before_runtime)) ||
-		memcmp(&before_image, &after_image, sizeof(before_image))) {
+	    memcmp(&before_image, &after_image, sizeof(before_image))) {
 		return fail("size rejection changed live state");
 	}
 
 	invalid = before_image;
 	invalid.MSW |= MSW_PE;
 	error[0] = '\0';
-	if ((upd9002_state_import(&invalid, sizeof(invalid), error,
-												sizeof(error)) != FAILURE) ||
-		strcmp(error, UPD9002_STATE_ERROR_PROTECTED_MODE)) {
+	if ((upd9002_state_import(&invalid, sizeof(invalid), error, sizeof(error)) != FAILURE) ||
+	    strcmp(error, UPD9002_STATE_ERROR_PROTECTED_MODE)) {
 		return fail("MSW.PE state was not rejected deterministically");
 	}
 	upd9002_state_export(&after_image);
 	if (memcmp(&before_runtime, &upd9002_core_context.s, sizeof(before_runtime)) ||
-		memcmp(&before_image, &after_image, sizeof(before_image))) {
+	    memcmp(&before_image, &after_image, sizeof(before_image))) {
 		return fail("MSW.PE rejection changed live state");
 	}
 	return 0;
 }
 
 static int test_reset_and_shut(void) {
-
 	Upd9002StateImage expected;
 	Upd9002StateImage exported;
 	Upd9002StateImage imported;
@@ -222,13 +212,12 @@ static int test_reset_and_shut(void) {
 }
 
 int main(void) {
-
 	upd9002_state_initialize();
-	if (test_import_export() || test_rejected_imports() ||
-		test_reset_and_shut()) {
+	if (test_import_export() || test_rejected_imports() || test_reset_and_shut()) {
 		return 1;
 	}
-	fprintf(stderr,
-		"upd9002-state-boundary: ABI, protected-state transaction, opaque bytes, reset, and CPU_SHUT passed\n");
+	fprintf(
+	    stderr,
+	    "upd9002-state-boundary: ABI, protected-state transaction, opaque bytes, reset, and CPU_SHUT passed\n");
 	return 0;
 }

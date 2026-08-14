@@ -22,50 +22,41 @@
  * IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-#include	"compiler.h"
-#include	"sdlapi.h"
-#include	"pacing.h"
+#include "compiler.h"
+#include "sdlapi.h"
+#include "pacing.h"
 
 enum {
 	VAEG_FAST_FORWARD_DRAWSKIP = 16
 };
 
 void vaeg_pacing_reset(VAEG_PACING_STATE *state) {
-
 	if (state != NULL) {
 		state->fast_forward_held = FALSE;
 	}
 }
 
-BOOL vaeg_pacing_key(VAEG_PACING_STATE *state, UINT scancode,
-							 BOOL pressed, BOOL repeat) {
-
+BOOL vaeg_pacing_key(VAEG_PACING_STATE *state, UINT scancode, BOOL pressed, BOOL repeat) {
 	if ((state == NULL) || (scancode != SDL_SCANCODE_F11)) {
-		return(FALSE);
+		return (FALSE);
 	}
 	if (pressed) {
 		if (!repeat) {
 			state->fast_forward_held = TRUE;
 		}
-	}
-	else {
+	} else {
 		state->fast_forward_held = FALSE;
 	}
-	return(TRUE);
+	return (TRUE);
 }
 
-BOOL vaeg_pacing_effective_nowait(const VAEG_PACING_STATE *state,
-												BOOL configured_nowait) {
-
-	return(((state != NULL) && state->fast_forward_held) ||
-											configured_nowait);
+BOOL vaeg_pacing_effective_nowait(const VAEG_PACING_STATE *state, BOOL configured_nowait) {
+	return (((state != NULL) && state->fast_forward_held) || configured_nowait);
 }
 
-UINT vaeg_pacing_effective_drawskip(const VAEG_PACING_STATE *state,
-												 UINT configured_drawskip) {
-
+UINT vaeg_pacing_effective_drawskip(const VAEG_PACING_STATE *state, UINT configured_drawskip) {
 	if ((state != NULL) && state->fast_forward_held) {
-		return(VAEG_FAST_FORWARD_DRAWSKIP);
+		return (VAEG_FAST_FORWARD_DRAWSKIP);
 	}
-	return(configured_drawskip);
+	return (configured_drawskip);
 }

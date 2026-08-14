@@ -37,12 +37,10 @@ static UPD9002_SSTS_RESULT *ssts_io_result;
 static int ssts_io_overflow;
 
 int upd9002_ssts_io_active(void) {
-
 	return ssts_io_result != NULL;
 }
 
 static void ssts_io_append(uint16_t port, uint8_t value, uint8_t direction) {
-
 	UPD9002_SSTS_IO_EVENT *event;
 
 	if (ssts_io_result->io_count >= UPD9002_SSTS_IO_CAPACITY) {
@@ -56,18 +54,15 @@ static void ssts_io_append(uint16_t port, uint8_t value, uint8_t direction) {
 }
 
 uint8_t upd9002_ssts_io_read(uint16_t port) {
-
 	ssts_io_append(port, 0xff, 0);
 	return 0xff;
 }
 
 void upd9002_ssts_io_write(uint16_t port, uint8_t value) {
-
 	ssts_io_append(port, value, 1);
 }
 
 void upd9002_ssts_interrupt(uint8_t vector) {
-
 	if (ssts_io_result != NULL) {
 		ssts_io_result->interrupt_count++;
 		ssts_io_result->last_interrupt_vector = vector;
@@ -75,7 +70,6 @@ void upd9002_ssts_interrupt(uint8_t vector) {
 }
 
 static void set_cpu(const UPD9002_HARNESS_CPU_STATE *state) {
-
 	CPU_AX = state->ax;
 	CPU_BX = state->bx;
 	CPU_CX = state->cx;
@@ -104,7 +98,6 @@ static void set_cpu(const UPD9002_HARNESS_CPU_STATE *state) {
 }
 
 static void get_cpu(UPD9002_HARNESS_CPU_STATE *state) {
-
 	state->ax = CPU_AX;
 	state->bx = CPU_BX;
 	state->cx = CPU_CX;
@@ -129,7 +122,6 @@ static void get_cpu(UPD9002_HARNESS_CPU_STATE *state) {
 }
 
 static uint32_t hash_ram(uint32_t address, uint32_t size) {
-
 	uint32_t hash;
 	uint32_t index;
 
@@ -141,21 +133,18 @@ static uint32_t hash_ram(uint32_t address, uint32_t size) {
 	return hash;
 }
 
-int upd9002_harness_run(const UPD9002_HARNESS_INPUT *input,
-						UPD9002_HARNESS_RESULT *result) {
-
+int upd9002_harness_run(const UPD9002_HARNESS_INPUT *input, UPD9002_HARNESS_RESULT *result) {
 	Upd9002RuntimeState saved_cpu;
 	_DMAC saved_dmac;
 	uint8_t *saved_ram;
 	uint32_t index;
 
-	if ((input == NULL) || (result == NULL) ||
-		(input->program_size == 0) ||
-		(input->program_size > UPD9002_HARNESS_PROGRAM_CAPACITY) ||
-		(input->ram_size > UPD9002_HARNESS_RAM_CAPACITY) ||
-		(input->program_address + input->program_size > 0x10000) ||
-		(input->ram_address + input->ram_size > 0x10000) ||
-		(input->step_count == 0) || (input->step_count > 256)) {
+	if ((input == NULL) || (result == NULL) || (input->program_size == 0) ||
+	    (input->program_size > UPD9002_HARNESS_PROGRAM_CAPACITY) ||
+	    (input->ram_size > UPD9002_HARNESS_RAM_CAPACITY) ||
+	    (input->program_address + input->program_size > 0x10000) ||
+	    (input->ram_address + input->ram_size > 0x10000) || (input->step_count == 0) ||
+	    (input->step_count > 256)) {
 		return FAILURE;
 	}
 	saved_ram = (uint8_t *)malloc(0x10000);
@@ -172,8 +161,7 @@ int upd9002_harness_run(const UPD9002_HARNESS_INPUT *input,
 	for (index = 0; index < input->ram_size; index++) {
 		mem[input->ram_address + index] = input->ram[index];
 	}
-	CopyMemory(mem + input->program_address, input->program,
-		input->program_size);
+	CopyMemory(mem + input->program_address, input->program, input->program_size);
 	for (index = 0; index < input->step_count; index++) {
 		upd9002_core_step();
 	}
@@ -190,18 +178,13 @@ int upd9002_harness_run(const UPD9002_HARNESS_INPUT *input,
 	return SUCCESS;
 }
 
-int upd9002_harness_run_ssts(const UPD9002_SSTS_INPUT *input,
-						UPD9002_SSTS_RESULT *result) {
-
+int upd9002_harness_run_ssts(const UPD9002_SSTS_INPUT *input, UPD9002_SSTS_RESULT *result) {
 	uint32_t index;
 
-	if ((input == NULL) || (result == NULL) ||
-		(input->ram_count > 0x100000) ||
-		(input->watch_count > 0x100000) ||
-		((input->ram_count != 0) && (input->ram == NULL)) ||
-		((input->watch_count != 0) &&
-			((input->watch_addresses == NULL) ||
-			(result->watch_values == NULL)))) {
+	if ((input == NULL) || (result == NULL) || (input->ram_count > 0x100000) ||
+	    (input->watch_count > 0x100000) || ((input->ram_count != 0) && (input->ram == NULL)) ||
+	    ((input->watch_count != 0) &&
+	     ((input->watch_addresses == NULL) || (result->watch_values == NULL)))) {
 		return FAILURE;
 	}
 	for (index = 0; index < input->ram_count; index++) {
@@ -240,22 +223,19 @@ int upd9002_harness_run_ssts(const UPD9002_SSTS_INPUT *input,
 		result->termination = UPD9002_SSTS_TERMINATION_HALT;
 	}
 	for (index = 0; index < input->watch_count; index++) {
-		result->watch_values[index] =
-			mem[input->watch_addresses[index] & 0xfffff];
+		result->watch_values[index] = mem[input->watch_addresses[index] & 0xfffff];
 	}
 	return SUCCESS;
 }
 
 static int hex_program(const char *text, uint8_t *program, uint32_t *size) {
-
 	uint32_t length;
 	uint32_t index;
 	unsigned int value;
 	char byte_text[3];
 
 	length = (uint32_t)strlen(text);
-	if ((length == 0) || (length & 1) ||
-		(length / 2 > UPD9002_HARNESS_PROGRAM_CAPACITY)) {
+	if ((length == 0) || (length & 1) || (length / 2 > UPD9002_HARNESS_PROGRAM_CAPACITY)) {
 		return FAILURE;
 	}
 	byte_text[2] = '\0';
@@ -272,7 +252,6 @@ static int hex_program(const char *text, uint8_t *program, uint32_t *size) {
 }
 
 static int run_manifest_case(char **field) {
-
 	UPD9002_HARNESS_INPUT input;
 	UPD9002_HARNESS_RESULT first;
 	UPD9002_HARNESS_RESULT second;
@@ -301,7 +280,7 @@ static int run_manifest_case(char **field) {
 	}
 	input.step_count = (uint32_t)steps;
 	if ((upd9002_harness_run(&input, &first) != SUCCESS) ||
-		(upd9002_harness_run(&input, &second) != SUCCESS)) {
+	    (upd9002_harness_run(&input, &second) != SUCCESS)) {
 		return FAILURE;
 	}
 	if (memcmp(&first, &second, sizeof(first)) != 0) {
@@ -311,7 +290,6 @@ static int run_manifest_case(char **field) {
 }
 
 int upd9002_harness_run_manifest(const char *path) {
-
 	FILE *stream;
 	char line[512];
 	char *field[7];

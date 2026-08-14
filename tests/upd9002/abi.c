@@ -31,11 +31,15 @@
 #include <stdio.h>
 #include <string.h>
 
-#define ALIGNOF(type) offsetof(struct { char byte; type value; }, value)
+#define ALIGNOF(type)                                                                              \
+	offsetof(                                                                                      \
+	    struct {                                                                                   \
+		    char byte;                                                                             \
+		    type value;                                                                            \
+	    },                                                                                         \
+	    value)
 
-static void append(char *buffer, size_t size, const char *name,
-						unsigned int value) {
-
+static void append(char *buffer, size_t size, const char *name, unsigned int value) {
 	size_t used;
 
 	used = strlen(buffer);
@@ -43,13 +47,12 @@ static void append(char *buffer, size_t size, const char *name,
 }
 
 static int verify_upd9002_state_abi(void) {
-
-	if ((sizeof(Upd9002StateImage) != 112) ||
-		(ALIGNOF(Upd9002StateImage) != 4)) {
+	if ((sizeof(Upd9002StateImage) != 112) || (ALIGNOF(Upd9002StateImage) != 4)) {
 		return 0;
 	}
-#define OFFSET(field, value) \
-	if (offsetof(Upd9002StateImage, field) != (value)) return 0
+#define OFFSET(field, value)                                                                       \
+	if (offsetof(Upd9002StateImage, field) != (value))                                             \
+	return 0
 	OFFSET(r, 0);
 	OFFSET(es_base, 28);
 	OFFSET(cs_base, 32);
@@ -81,7 +84,6 @@ static int verify_upd9002_state_abi(void) {
 }
 
 int main(int argc, char **argv) {
-
 	char actual[4096];
 	char expected[4096];
 	FILE *stream;
@@ -94,8 +96,9 @@ int main(int argc, char **argv) {
 	actual[0] = '\0';
 	append(actual, sizeof(actual), "upd9002_state.size", sizeof(Upd9002RuntimeState));
 	append(actual, sizeof(actual), "upd9002_state.align", ALIGNOF(Upd9002RuntimeState));
-#define FIELD(name) append(actual, sizeof(actual), "upd9002_state.offset." #name, \
-												offsetof(Upd9002RuntimeState, name))
+#define FIELD(name)                                                                                \
+	append(actual, sizeof(actual), "upd9002_state.offset." #name,                                  \
+	       offsetof(Upd9002RuntimeState, name))
 	FIELD(r);
 	FIELD(es_base);
 	FIELD(cs_base);
@@ -125,10 +128,8 @@ int main(int argc, char **argv) {
 #undef FIELD
 	append(actual, sizeof(actual), "upd9002.size", sizeof(UPD9002_REGS));
 	append(actual, sizeof(actual), "upd9002.align", ALIGNOF(UPD9002_REGS));
-	append(actual, sizeof(actual), "upd9002.offset.tcks",
-		offsetof(UPD9002_REGS, tcks));
-	append(actual, sizeof(actual), "upd9002.offset.dmy",
-		offsetof(UPD9002_REGS, dmy));
+	append(actual, sizeof(actual), "upd9002.offset.tcks", offsetof(UPD9002_REGS, tcks));
+	append(actual, sizeof(actual), "upd9002.offset.dmy", offsetof(UPD9002_REGS, dmy));
 	fputs(actual, stdout);
 	if (argc == 1) {
 		return 0;

@@ -30,7 +30,6 @@
 #include <stdio.h>
 
 static void setup_instruction(const UINT8 *instruction, UINT length) {
-
 	UINT index;
 
 	upd9002_core_reset();
@@ -61,57 +60,47 @@ static void setup_instruction(const UINT8 *instruction, UINT length) {
 	CPU_CLOCK = 0;
 	upd9002_core_context.s.cpu_type = CPUTYPE_V30;
 	for (index = 0; index < length; index++) {
-		mem[(CS_BASE + CPU_IP + index) & CPU_ADRSMASK] =
-														instruction[index];
+		mem[(CS_BASE + CPU_IP + index) & CPU_ADRSMASK] = instruction[index];
 	}
 }
 
 static UINT16 read_word(UINT32 address) {
-
-	return (UINT16)(mem[address & CPU_ADRSMASK] |
-			(mem[(address + 1) & CPU_ADRSMASK] << 8));
+	return (UINT16)(mem[address & CPU_ADRSMASK] | (mem[(address + 1) & CPU_ADRSMASK] << 8));
 }
 
 static void write_word(UINT32 address, UINT16 value) {
-
 	mem[address & CPU_ADRSMASK] = (UINT8)value;
 	mem[(address + 1) & CPU_ADRSMASK] = (UINT8)(value >> 8);
 }
 
 static int test_ff7_register_pushes_source(void) {
-
 	static const UINT8 instruction[] = {0xff, 0xf8};
 
 	setup_instruction(instruction, NELEMENTS(instruction));
 	upd9002_core_step();
-	if ((CPU_SP != 0x7ffe) || (read_word(SS_BASE + 0x7ffe) != 0x3456) ||
-		(CPU_AX != 0x3456) || (CPU_IP != 0x0102) ||
-		(CPU_FLAG != 0xf046)) {
-		fprintf(stderr,
-			"upd9002-m65a-ff7: register source push differed\n");
+	if ((CPU_SP != 0x7ffe) || (read_word(SS_BASE + 0x7ffe) != 0x3456) || (CPU_AX != 0x3456) ||
+	    (CPU_IP != 0x0102) || (CPU_FLAG != 0xf046)) {
+		fprintf(stderr, "upd9002-m65a-ff7: register source push differed\n");
 		return FAILURE;
 	}
 	return SUCCESS;
 }
 
 static int test_ff7_sp_alias_pushes_decremented_sp(void) {
-
 	static const UINT8 instruction[] = {0xff, 0xfc};
 
 	setup_instruction(instruction, NELEMENTS(instruction));
 	CPU_SP = 0x6000;
 	upd9002_core_step();
-	if ((CPU_SP != 0x5ffe) || (read_word(SS_BASE + 0x5ffe) != 0x5ffe) ||
-		(CPU_IP != 0x0102) || (CPU_FLAG != 0xf046)) {
-		fprintf(stderr,
-			"upd9002-m65a-ff7: SP alias did not push decremented SP\n");
+	if ((CPU_SP != 0x5ffe) || (read_word(SS_BASE + 0x5ffe) != 0x5ffe) || (CPU_IP != 0x0102) ||
+	    (CPU_FLAG != 0xf046)) {
+		fprintf(stderr, "upd9002-m65a-ff7: SP alias did not push decremented SP\n");
 		return FAILURE;
 	}
 	return SUCCESS;
 }
 
 static int test_ff7_memory_pushes_source_without_writing_operand(void) {
-
 	static const UINT8 instruction[] = {0xff, 0x3e, 0x20, 0x01};
 	const UINT32 operand = 0x0120;
 
@@ -119,21 +108,18 @@ static int test_ff7_memory_pushes_source_without_writing_operand(void) {
 	write_word(DS_BASE + operand, 0xbeef);
 	upd9002_core_step();
 	if ((CPU_SP != 0x7ffe) || (read_word(SS_BASE + 0x7ffe) != 0xbeef) ||
-		(read_word(DS_BASE + operand) != 0xbeef) ||
-		(CPU_IP != 0x0104) || (CPU_FLAG != 0xf046)) {
-		fprintf(stderr,
-			"upd9002-m65a-ff7: memory source push differed\n");
+	    (read_word(DS_BASE + operand) != 0xbeef) || (CPU_IP != 0x0104) || (CPU_FLAG != 0xf046)) {
+		fprintf(stderr, "upd9002-m65a-ff7: memory source push differed\n");
 		return FAILURE;
 	}
 	return SUCCESS;
 }
 
 int upd9002_m65a_ff7_main(void) {
-
 	upd9002_core_initialize();
 	if ((test_ff7_register_pushes_source() != SUCCESS) ||
-		(test_ff7_sp_alias_pushes_decremented_sp() != SUCCESS) ||
-		(test_ff7_memory_pushes_source_without_writing_operand() != SUCCESS)) {
+	    (test_ff7_sp_alias_pushes_decremented_sp() != SUCCESS) ||
+	    (test_ff7_memory_pushes_source_without_writing_operand() != SUCCESS)) {
 		upd9002_core_deinitialize();
 		return FAILURE;
 	}

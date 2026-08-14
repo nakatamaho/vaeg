@@ -31,19 +31,15 @@
 namespace vaeg_hostfat {
 
 inline std::string normalize_path(const std::string &input) {
-
 	std::size_t begin = 0;
 	std::size_t end = input.size();
-	while ((begin < end) &&
-		(input[begin] == ' ' || input[begin] == '\t')) {
+	while ((begin < end) && (input[begin] == ' ' || input[begin] == '\t')) {
 		begin++;
 	}
-	while ((end > begin) &&
-		(input[end - 1] == ' ' || input[end - 1] == '\t')) {
+	while ((end > begin) && (input[end - 1] == ' ' || input[end - 1] == '\t')) {
 		end--;
 	}
-	if ((end - begin >= 2) && (input[begin] == '"') &&
-		(input[end - 1] == '"')) {
+	if ((end - begin >= 2) && (input[begin] == '"') && (input[end - 1] == '"')) {
 		begin++;
 		end--;
 	}
@@ -51,10 +47,9 @@ inline std::string normalize_path(const std::string &input) {
 }
 
 inline std::filesystem::path path_from_utf8(const std::string &input) {
-
 	return std::filesystem::u8path(normalize_path(input));
 }
 
-}  // namespace vaeg_hostfat
+} // namespace vaeg_hostfat
 
 #endif

@@ -26,8 +26,8 @@
 #define VAEG_SDL2_SOUNDMNG_H
 
 enum {
-	SOUND_PCMSEEK		= 0,
-	SOUND_PCMSEEK1		= 1,
+	SOUND_PCMSEEK = 0,
+	SOUND_PCMSEEK1 = 1,
 
 	SOUND_MAXPCM
 };
@@ -46,8 +46,8 @@ BOOL soundmng_isenabled(void);
 #define soundmng_sync()
 #define soundmng_setreverse(r)
 
-#define	soundmng_pcmplay(a, b)
-#define	soundmng_pcmstop(a)
+#define soundmng_pcmplay(a, b)
+#define soundmng_pcmstop(a)
 
 void soundmng_initialize(void);
 void soundmng_deinitialize(void);

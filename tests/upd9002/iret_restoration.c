@@ -29,20 +29,16 @@
 #include <stdio.h>
 
 static UINT32 physical_address(UINT16 segment, UINT16 offset) {
-
 	return ((((UINT32)segment << 4) + offset) & 0x000fffff);
 }
 
 static void write_stack_word(UINT16 segment, UINT16 offset, UINT16 value) {
-
 	mem[physical_address(segment, offset)] = (UINT8)value;
-	mem[physical_address(segment, (UINT16)(offset + 1))] =
-													(UINT8)(value >> 8);
+	mem[physical_address(segment, (UINT16)(offset + 1))] = (UINT8)(value >> 8);
 }
 
-static void setup_state(UINT16 ss, UINT16 sp, UINT16 restored_ip,
-						UINT16 restored_cs, UINT16 restored_flags) {
-
+static void setup_state(UINT16 ss, UINT16 sp, UINT16 restored_ip, UINT16 restored_cs,
+                        UINT16 restored_flags) {
 	static const UINT8 instruction[] = {0xcf};
 
 	upd9002_core_reset();
@@ -79,15 +75,12 @@ static void setup_state(UINT16 ss, UINT16 sp, UINT16 restored_ip,
 }
 
 static int fail_case(const char *name, const char *detail) {
-
 	fprintf(stderr, "upd9002-iret-restoration: %s: %s\n", name, detail);
 	return FAILURE;
 }
 
-static int run_restoration_case(const char *name, UINT16 ss, UINT16 sp,
-						UINT16 restored_ip, UINT16 restored_cs,
-						UINT16 stack_flags, UINT16 expected_flags) {
-
+static int run_restoration_case(const char *name, UINT16 ss, UINT16 sp, UINT16 restored_ip,
+                                UINT16 restored_cs, UINT16 stack_flags, UINT16 expected_flags) {
 	setup_state(ss, sp, restored_ip, restored_cs, stack_flags);
 	upd9002_core_step();
 	if ((CPU_IP != restored_ip) || (CPU_CS != restored_cs)) {
@@ -97,63 +90,44 @@ static int run_restoration_case(const char *name, UINT16 ss, UINT16 sp,
 		return fail_case(name, "final SP differs");
 	}
 	if (CPU_FLAG != expected_flags) {
-		fprintf(stderr,
-			"upd9002-iret-restoration: %s: FLAGS expected=%04x actual=%04x\n",
-			name, expected_flags, CPU_FLAG);
+		fprintf(stderr, "upd9002-iret-restoration: %s: FLAGS expected=%04x actual=%04x\n", name,
+		        expected_flags, CPU_FLAG);
 		return fail_case(name, "FLAGS restoration differs");
 	}
-	if ((CPU_AX != 0x1357) || (CPU_BX != 0x2468) ||
-		(CPU_CX != 0x369c) || (CPU_DX != 0x48ad) ||
-		(CPU_SI != 0x55aa) || (CPU_DI != 0xaa55) ||
-		(CPU_BP != 0x7bcd) || (CPU_ES != 0x1111) ||
-		(CPU_SS != ss) || (CPU_DS != 0x3333)) {
+	if ((CPU_AX != 0x1357) || (CPU_BX != 0x2468) || (CPU_CX != 0x369c) || (CPU_DX != 0x48ad) ||
+	    (CPU_SI != 0x55aa) || (CPU_DI != 0xaa55) || (CPU_BP != 0x7bcd) || (CPU_ES != 0x1111) ||
+	    (CPU_SS != ss) || (CPU_DS != 0x3333)) {
 		return fail_case(name, "unrelated architectural state changed");
 	}
 	return SUCCESS;
 }
 
 static int test_stack_contract(void) {
-
-	if (run_restoration_case("ordinary", 0x3000, 0x8000,
-					0x1234, 0xabcd, 0x0202, 0x0202) != SUCCESS ||
-		run_restoration_case("segment offset wrap", 0x2345, 0xfffc,
-					0x0000, 0xffff, 0x0202, 0x0202) != SUCCESS ||
-		run_restoration_case("physical wrap", 0xffff, 0x000c,
-					0xffff, 0x0000, 0x0202, 0x0202) != SUCCESS) {
+	if (run_restoration_case("ordinary", 0x3000, 0x8000, 0x1234, 0xabcd, 0x0202, 0x0202) !=
+	        SUCCESS ||
+	    run_restoration_case("segment offset wrap", 0x2345, 0xfffc, 0x0000, 0xffff, 0x0202,
+	                         0x0202) != SUCCESS ||
+	    run_restoration_case("physical wrap", 0xffff, 0x000c, 0xffff, 0x0000, 0x0202, 0x0202) !=
+	        SUCCESS) {
 		return FAILURE;
 	}
 	return SUCCESS;
 }
 
 static int test_flags_restoration(void) {
-
 	static const struct {
 		UINT16 stack_flags;
 		UINT16 expected_flags;
-	} cases[] = {
-		{0x0000, 0x0002},
-		{0x0001, 0x0003},
-		{0x0002, 0x0002},
-		{0x0004, 0x0006},
-		{0x0008, 0x0002},
-		{0x0010, 0x0012},
-		{0x0020, 0x0002},
-		{0x0040, 0x0042},
-		{0x0080, 0x0082},
-		{0x0200, 0x0202},
-		{0x0400, 0x0402},
-		{0x0800, 0x0802},
-		{0x1000, 0x0002},
-		{0x2000, 0x0002},
-		{0x4000, 0x0002},
-		{0x8000, 0x0002}
-	};
+	} cases[] = {{0x0000, 0x0002}, {0x0001, 0x0003}, {0x0002, 0x0002}, {0x0004, 0x0006},
+	             {0x0008, 0x0002}, {0x0010, 0x0012}, {0x0020, 0x0002}, {0x0040, 0x0042},
+	             {0x0080, 0x0082}, {0x0200, 0x0202}, {0x0400, 0x0402}, {0x0800, 0x0802},
+	             {0x1000, 0x0002}, {0x2000, 0x0002}, {0x4000, 0x0002}, {0x8000, 0x0002}};
 	UINT index;
 
 	for (index = 0; index < NELEMENTS(cases); index++) {
-		if (run_restoration_case("FLAGS bit rule", 0x3000, 0x8000,
-						0x7654, 0x3210, cases[index].stack_flags,
-						cases[index].expected_flags) != SUCCESS) {
+		if (run_restoration_case("FLAGS bit rule", 0x3000, 0x8000, 0x7654, 0x3210,
+		                         cases[index].stack_flags,
+		                         cases[index].expected_flags) != SUCCESS) {
 			return FAILURE;
 		}
 	}
@@ -161,22 +135,19 @@ static int test_flags_restoration(void) {
 }
 
 int upd9002_iret_restoration_main(void) {
+	int result;
 
-    int result;
-
-    upd9002_test_flat_memory_set(TRUE);
-    upd9002_core_initialize();
-    result = SUCCESS;
-    if ((test_stack_contract() != SUCCESS) ||
-        (test_flags_restoration() != SUCCESS)) {
-        result = FAILURE;
-    }
-    upd9002_core_deinitialize();
-    upd9002_test_flat_memory_set(FALSE);
-    if (result != SUCCESS) {
-        return result;
-    }
-    fprintf(stderr,
-        "upd9002-iret-restoration: corrected contract checks passed\n");
-    return SUCCESS;
+	upd9002_test_flat_memory_set(TRUE);
+	upd9002_core_initialize();
+	result = SUCCESS;
+	if ((test_stack_contract() != SUCCESS) || (test_flags_restoration() != SUCCESS)) {
+		result = FAILURE;
+	}
+	upd9002_core_deinitialize();
+	upd9002_test_flat_memory_set(FALSE);
+	if (result != SUCCESS) {
+		return result;
+	}
+	fprintf(stderr, "upd9002-iret-restoration: corrected contract checks passed\n");
+	return SUCCESS;
 }

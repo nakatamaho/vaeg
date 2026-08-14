@@ -30,15 +30,14 @@ extern "C" {
 #endif
 
 typedef struct {
-	char	buffer[8];
-	UINT	length;
+	char buffer[8];
+	UINT length;
 } ROMANKANA_STATE;
 
 typedef void (*ROMANKANA_EMIT)(const char *token, void *arg);
 
 void romankana_reset(ROMANKANA_STATE *state);
-int romankana_feed(ROMANKANA_STATE *state, const char *text,
-					ROMANKANA_EMIT emit, void *arg);
+int romankana_feed(ROMANKANA_STATE *state, const char *text, ROMANKANA_EMIT emit, void *arg);
 int romankana_flush(ROMANKANA_STATE *state, ROMANKANA_EMIT emit, void *arg);
 
 #ifdef __cplusplus

@@ -34,27 +34,22 @@
 #define SSTS_WORKER_MAX_RAM 65536
 
 static int read_exact(FILE *stream, void *value, size_t size) {
-
 	return fread(value, 1, size, stream) == size;
 }
 
 static int write_exact(FILE *stream, const void *value, size_t size) {
-
 	return fwrite(value, 1, size, stream) == size;
 }
 
 static int read_u8(FILE *stream, uint8_t *value) {
-
 	return read_exact(stream, value, 1);
 }
 
 static int write_u8(FILE *stream, uint8_t value) {
-
 	return write_exact(stream, &value, 1);
 }
 
 static int read_u16(FILE *stream, uint16_t *value) {
-
 	uint8_t bytes[2];
 
 	if (!read_exact(stream, bytes, sizeof(bytes))) {
@@ -65,7 +60,6 @@ static int read_u16(FILE *stream, uint16_t *value) {
 }
 
 static int write_u16(FILE *stream, uint16_t value) {
-
 	uint8_t bytes[2];
 
 	bytes[0] = (uint8_t)value;
@@ -74,19 +68,17 @@ static int write_u16(FILE *stream, uint16_t value) {
 }
 
 static int read_u32(FILE *stream, uint32_t *value) {
-
 	uint8_t bytes[4];
 
 	if (!read_exact(stream, bytes, sizeof(bytes))) {
 		return 0;
 	}
-	*value = (uint32_t)bytes[0] | ((uint32_t)bytes[1] << 8) |
-		((uint32_t)bytes[2] << 16) | ((uint32_t)bytes[3] << 24);
+	*value = (uint32_t)bytes[0] | ((uint32_t)bytes[1] << 8) | ((uint32_t)bytes[2] << 16) |
+	         ((uint32_t)bytes[3] << 24);
 	return 1;
 }
 
 static int write_u32(FILE *stream, uint32_t value) {
-
 	uint8_t bytes[4];
 
 	bytes[0] = (uint8_t)value;
@@ -97,7 +89,6 @@ static int write_u32(FILE *stream, uint32_t value) {
 }
 
 static int read_cpu(FILE *stream, UPD9002_HARNESS_CPU_STATE *cpu) {
-
 	uint16_t values[14];
 	uint32_t index;
 
@@ -131,13 +122,8 @@ static int read_cpu(FILE *stream, UPD9002_HARNESS_CPU_STATE *cpu) {
 }
 
 static int write_cpu(FILE *stream, const UPD9002_HARNESS_CPU_STATE *cpu) {
-
-	const uint16_t values[14] = {
-		cpu->ax, cpu->bx, cpu->cx, cpu->dx,
-		cpu->sp, cpu->bp, cpu->si, cpu->di,
-		cpu->cs, cpu->ss, cpu->ds, cpu->es,
-		cpu->ip, cpu->flags
-	};
+	const uint16_t values[14] = {cpu->ax, cpu->bx, cpu->cx, cpu->dx, cpu->sp, cpu->bp, cpu->si,
+	                             cpu->di, cpu->cs, cpu->ss, cpu->ds, cpu->es, cpu->ip, cpu->flags};
 	uint32_t index;
 
 	for (index = 0; index < 14; index++) {
@@ -149,7 +135,6 @@ static int write_cpu(FILE *stream, const UPD9002_HARNESS_CPU_STATE *cpu) {
 }
 
 static int run_record(FILE *input_stream, FILE *output_stream) {
-
 	UPD9002_SSTS_INPUT input;
 	UPD9002_SSTS_RESULT result;
 	UPD9002_SSTS_RAM_ENTRY *ram;
@@ -168,9 +153,8 @@ static int run_record(FILE *input_stream, FILE *output_stream) {
 	watch_values = NULL;
 	success = 0;
 	if (!read_exact(input_stream, record_digest, sizeof(record_digest)) ||
-		!read_cpu(input_stream, &input.cpu) ||
-		!read_u32(input_stream, &ram_count) ||
-		(ram_count > SSTS_WORKER_MAX_RAM)) {
+	    !read_cpu(input_stream, &input.cpu) || !read_u32(input_stream, &ram_count) ||
+	    (ram_count > SSTS_WORKER_MAX_RAM)) {
 		goto cleanup;
 	}
 	if (ram_count != 0) {
@@ -181,12 +165,11 @@ static int run_record(FILE *input_stream, FILE *output_stream) {
 	}
 	for (index = 0; index < ram_count; index++) {
 		if (!read_u32(input_stream, &ram[index].address) ||
-			!read_u8(input_stream, &ram[index].value)) {
+		    !read_u8(input_stream, &ram[index].value)) {
 			goto cleanup;
 		}
 	}
-	if (!read_u32(input_stream, &watch_count) ||
-		(watch_count > SSTS_WORKER_MAX_RAM)) {
+	if (!read_u32(input_stream, &watch_count) || (watch_count > SSTS_WORKER_MAX_RAM)) {
 		goto cleanup;
 	}
 	if (watch_count != 0) {
@@ -210,19 +193,18 @@ static int run_record(FILE *input_stream, FILE *output_stream) {
 		goto cleanup;
 	}
 	if (!write_exact(output_stream, record_digest, sizeof(record_digest)) ||
-		!write_u8(output_stream, result.termination) ||
-		!write_u32(output_stream, result.interrupt_count) ||
-		!write_u8(output_stream, result.last_interrupt_vector) ||
-		!write_cpu(output_stream, &result.cpu) ||
-		!write_u32(output_stream, result.watch_count) ||
-		!write_exact(output_stream, result.watch_values, result.watch_count) ||
-		!write_u32(output_stream, result.io_count)) {
+	    !write_u8(output_stream, result.termination) ||
+	    !write_u32(output_stream, result.interrupt_count) ||
+	    !write_u8(output_stream, result.last_interrupt_vector) ||
+	    !write_cpu(output_stream, &result.cpu) || !write_u32(output_stream, result.watch_count) ||
+	    !write_exact(output_stream, result.watch_values, result.watch_count) ||
+	    !write_u32(output_stream, result.io_count)) {
 		goto cleanup;
 	}
 	for (index = 0; index < result.io_count; index++) {
 		if (!write_u16(output_stream, result.io[index].port) ||
-			!write_u8(output_stream, result.io[index].value) ||
-			!write_u8(output_stream, result.io[index].direction)) {
+		    !write_u8(output_stream, result.io[index].value) ||
+		    !write_u8(output_stream, result.io[index].direction)) {
 			goto cleanup;
 		}
 	}
@@ -236,13 +218,8 @@ cleanup:
 }
 
 int upd9002_ssts_worker_main(int argc, char **argv) {
-
-	static const uint8_t request_magic[8] = {
-		'V', '2', '0', 'R', 'E', 'Q', '2', 0
-	};
-	static const uint8_t response_magic[8] = {
-		'V', '2', '0', 'R', 'S', 'P', '2', 0
-	};
+	static const uint8_t request_magic[8] = {'V', '2', '0', 'R', 'E', 'Q', '2', 0};
+	static const uint8_t response_magic[8] = {'V', '2', '0', 'R', 'S', 'P', '2', 0};
 	uint8_t actual_magic[8];
 	FILE *input_stream;
 	FILE *output_stream;
@@ -266,11 +243,10 @@ int upd9002_ssts_worker_main(int argc, char **argv) {
 		return EXIT_FAILURE;
 	}
 	success = read_exact(input_stream, actual_magic, sizeof(actual_magic)) &&
-		(memcmp(actual_magic, request_magic, sizeof(request_magic)) == 0) &&
-		read_u32(input_stream, &record_count) &&
-		(record_count <= SSTS_WORKER_MAX_RECORDS) &&
-		write_exact(output_stream, response_magic, sizeof(response_magic)) &&
-		write_u32(output_stream, record_count);
+	          (memcmp(actual_magic, request_magic, sizeof(request_magic)) == 0) &&
+	          read_u32(input_stream, &record_count) && (record_count <= SSTS_WORKER_MAX_RECORDS) &&
+	          write_exact(output_stream, response_magic, sizeof(response_magic)) &&
+	          write_u32(output_stream, record_count);
 	upd9002_core_initialize();
 	for (index = 0; success && (index < record_count); index++) {
 		success = run_record(input_stream, output_stream);

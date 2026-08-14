@@ -22,11 +22,10 @@
  * IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-#include	"compiler.h"
-#include	"mousestate.h"
+#include "compiler.h"
+#include "mousestate.h"
 
 static SINT64 saturating_add(SINT64 value, SINT32 delta) {
-
 	if ((delta > 0) && (value > INT64_MAX - delta)) {
 		return INT64_MAX;
 	}
@@ -37,18 +36,15 @@ static SINT64 saturating_add(SINT64 value, SINT32 delta) {
 }
 
 static SINT16 axis_value(SINT64 *value, int clear) {
-
 	SINT64 scaled;
 	SINT16 result;
 
 	scaled = *value / 2;
 	if (scaled > INT16_MAX) {
 		result = INT16_MAX;
-	}
-	else if (scaled < INT16_MIN) {
+	} else if (scaled < INT16_MIN) {
 		result = INT16_MIN;
-	}
-	else {
+	} else {
 		result = (SINT16)scaled;
 	}
 	if (clear) {
@@ -58,13 +54,11 @@ static SINT16 axis_value(SINT64 *value, int clear) {
 }
 
 void vaeg_mouse_state_initialize(VAEG_MOUSE_STATE *state) {
-
 	ZeroMemory(state, sizeof(*state));
 	state->buttons = VAEG_MOUSE_RELEASED;
 }
 
 void vaeg_mouse_state_reset(VAEG_MOUSE_STATE *state) {
-
 	BOOL active;
 
 	active = state->active;
@@ -73,7 +67,6 @@ void vaeg_mouse_state_reset(VAEG_MOUSE_STATE *state) {
 }
 
 void vaeg_mouse_state_set_active(VAEG_MOUSE_STATE *state, BOOL active) {
-
 	if (!active) {
 		vaeg_mouse_state_initialize(state);
 		return;
@@ -82,7 +75,6 @@ void vaeg_mouse_state_set_active(VAEG_MOUSE_STATE *state, BOOL active) {
 }
 
 void vaeg_mouse_state_motion(VAEG_MOUSE_STATE *state, SINT32 x, SINT32 y) {
-
 	if (!state->active) {
 		return;
 	}
@@ -91,34 +83,30 @@ void vaeg_mouse_state_motion(VAEG_MOUSE_STATE *state, SINT32 x, SINT32 y) {
 }
 
 void vaeg_mouse_state_button(VAEG_MOUSE_STATE *state, UINT button, BOOL down) {
-
 	BYTE bit;
 
-	switch(button) {
-		case VAEG_MOUSE_BUTTON_LEFT:
-			bit = VAEG_MOUSE_LEFTBIT;
-			break;
+	switch (button) {
+	case VAEG_MOUSE_BUTTON_LEFT:
+		bit = VAEG_MOUSE_LEFTBIT;
+		break;
 
-		case VAEG_MOUSE_BUTTON_RIGHT:
-			bit = VAEG_MOUSE_RIGHTBIT;
-			break;
+	case VAEG_MOUSE_BUTTON_RIGHT:
+		bit = VAEG_MOUSE_RIGHTBIT;
+		break;
 
-		default:
-			return;
+	default:
+		return;
 	}
 	if (down) {
 		if (state->active) {
 			state->buttons &= (BYTE)~bit;
 		}
-	}
-	else {
+	} else {
 		state->buttons |= bit;
 	}
 }
 
-BYTE vaeg_mouse_state_getstat(VAEG_MOUSE_STATE *state,
-								SINT16 *x, SINT16 *y, int clear) {
-
+BYTE vaeg_mouse_state_getstat(VAEG_MOUSE_STATE *state, SINT16 *x, SINT16 *y, int clear) {
 	*x = axis_value(&state->x, clear);
 	*y = axis_value(&state->y, clear);
 	return state->buttons;

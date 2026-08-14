@@ -22,15 +22,14 @@
  * IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-#include	"compiler.h"
-#include	"framedisp.h"
+#include "compiler.h"
+#include "framedisp.h"
 
 enum {
 	VAEG_FRAMEDISP_INTERVAL_MS = 2000
 };
 
 void vaeg_framedisp_reset(VAEG_FRAMEDISP *state, UINT32 tick, UINT32 draws) {
-
 	if (state == NULL) {
 		return;
 	}
@@ -40,17 +39,16 @@ void vaeg_framedisp_reset(VAEG_FRAMEDISP *state, UINT32 tick, UINT32 draws) {
 }
 
 BOOL vaeg_framedisp_update(VAEG_FRAMEDISP *state, UINT32 tick, UINT32 draws) {
-
-	UINT32	elapsed;
-	UINT32	draw_delta;
-	UINT64	fps_tenths;
+	UINT32 elapsed;
+	UINT32 draw_delta;
+	UINT64 fps_tenths;
 
 	if (state == NULL) {
-		return(FALSE);
+		return (FALSE);
 	}
 	elapsed = tick - state->tick;
 	if (elapsed < VAEG_FRAMEDISP_INTERVAL_MS) {
-		return(FALSE);
+		return (FALSE);
 	}
 	draw_delta = draws - state->draws;
 	fps_tenths = ((UINT64)draw_delta * 10000) / elapsed;
@@ -60,5 +58,5 @@ BOOL vaeg_framedisp_update(VAEG_FRAMEDISP *state, UINT32 tick, UINT32 draws) {
 	state->tick = tick;
 	state->draws = draws;
 	state->fps_tenths = (UINT32)fps_tenths;
-	return(TRUE);
+	return (TRUE);
 }

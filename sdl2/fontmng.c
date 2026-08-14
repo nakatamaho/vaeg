@@ -22,51 +22,44 @@
  * IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-#include	"compiler.h"
-#include	"fontmng.h"
+#include "compiler.h"
+#include "fontmng.h"
 
 BOOL fontmng_init(void) {
-
-	return(SUCCESS);
+	return (SUCCESS);
 }
 
 void fontmng_setdeffontname(const char *name) {
-
 	(void)name;
 }
 
 void *fontmng_create(int size, UINT type, const char *fontface) {
-
 	(void)size;
 	(void)type;
 	(void)fontface;
-	return(NULL);
+	return (NULL);
 }
 
 void fontmng_destroy(void *hdl) {
-
 	(void)hdl;
 }
 
 BOOL fontmng_getsize(void *hdl, const char *string, POINT_T *pt) {
-
 	(void)hdl;
 	(void)string;
 	if (pt) {
 		pt->x = 0;
 		pt->y = 0;
 	}
-	return(FAILURE);
+	return (FAILURE);
 }
 
 BOOL fontmng_getdrawsize(void *hdl, const char *string, POINT_T *pt) {
-
-	return(fontmng_getsize(hdl, string, pt));
+	return (fontmng_getsize(hdl, string, pt));
 }
 
 FNTDAT fontmng_get(void *hdl, const char *string) {
-
 	(void)hdl;
 	(void)string;
-	return(NULL);
+	return (NULL);
 }

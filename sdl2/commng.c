@@ -22,62 +22,53 @@
  * IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-#include	"compiler.h"
-#include	"np2.h"
-#include	"commng.h"
-#include	"cmver.h"
-#include	"cmjasts.h"
+#include "compiler.h"
+#include "np2.h"
+#include "commng.h"
+#include "cmver.h"
+#include "cmjasts.h"
 
 static UINT ncread(COMMNG self, BYTE *data) {
-
 	(void)self;
 	(void)data;
-	return(0);
+	return (0);
 }
 
 static UINT ncwrite(COMMNG self, BYTE data) {
-
 	(void)self;
 	(void)data;
-	return(0);
+	return (0);
 }
 
 static BYTE ncgetstat(COMMNG self) {
-
 	(void)self;
-	return(0xf0);
+	return (0xf0);
 }
 
 static VAEG_INTPTR ncmsg(COMMNG self, UINT msg, VAEG_INTPTR param) {
-
 	(void)self;
 	(void)msg;
 	(void)param;
-	return(0);
+	return (0);
 }
 
 static void ncrelease(COMMNG self) {
-
 	(void)self;
 }
 
-static const _COMMNG com_nc = {
-		COMCONNECT_OFF, ncread, ncwrite, ncgetstat, ncmsg, ncrelease};
+static const _COMMNG com_nc = {COMCONNECT_OFF, ncread, ncwrite, ncgetstat, ncmsg, ncrelease};
 
 void commng_initialize(void) {
-
 	cmvermouth_initialize();
 }
 
 COMMNG commng_create(UINT device) {
-
-	COMMNG	ret;
+	COMMNG ret;
 
 	ret = NULL;
 	if (device == COMCREATE_MPU98II) {
 		ret = cmvermouth_create();
-	}
-	else if (device == COMCREATE_PRINTER) {
+	} else if (device == COMCREATE_PRINTER) {
 		if (np2oscfg.jastsnd) {
 			ret = cmjasts_create();
 		}
@@ -85,11 +76,10 @@ COMMNG commng_create(UINT device) {
 	if (ret == NULL) {
 		ret = (COMMNG)&com_nc;
 	}
-	return(ret);
+	return (ret);
 }
 
 void commng_destroy(COMMNG hdl) {
-
 	if (hdl) {
 		hdl->release(hdl);
 	}

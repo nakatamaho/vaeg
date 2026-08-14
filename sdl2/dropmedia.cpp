@@ -74,42 +74,34 @@ std::string g_mounted_archive_paths[2];
 std::string g_archive_source_directories[2];
 
 static std::string ascii_lower(std::string value) {
-
-	std::transform(value.begin(), value.end(), value.begin(),
-		[](unsigned char ch) { return static_cast<char>(std::tolower(ch)); });
+	std::transform(value.begin(), value.end(), value.begin(), [](unsigned char ch) {
+		return static_cast<char>(std::tolower(ch));
+	});
 	return value;
 }
 
 static std::string path_extension(const std::string &path) {
-
 	return ascii_lower(fs::u8path(path).extension().u8string());
 }
 
 static bool image_extension_supported(const std::string &path) {
-
-	static const char *extensions[] = {
-		".d88", ".88d", ".d98", ".98d", ".fdi",
-		".xdf", ".hdm", ".dup", ".2hd", ".tfd", ".img"
-	};
+	static const char *extensions[] = {".d88", ".88d", ".d98", ".98d", ".fdi", ".xdf",
+	                                   ".hdm", ".dup", ".2hd", ".tfd", ".img"};
 	const std::string extension = path_extension(path);
 
 	return std::any_of(std::begin(extensions), std::end(extensions),
-		[&extension](const char *candidate) {
-			return extension == candidate;
-		});
+	                   [&extension](const char *candidate) {
+		                   return extension == candidate;
+	                   });
 }
 
 static bool archive_extension_supported(const std::string &path) {
-
 	const std::string extension = path_extension(path);
 
-	return (extension == ".zip") || (extension == ".7z") ||
-		(extension == ".lzh");
+	return (extension == ".zip") || (extension == ".7z") || (extension == ".lzh");
 }
 
-static bool candidate_less(const DiskCandidate &left,
-						   const DiskCandidate &right) {
-
+static bool candidate_less(const DiskCandidate &left, const DiskCandidate &right) {
 	const std::string left_name = ascii_lower(left.basename);
 	const std::string right_name = ascii_lower(right.basename);
 
@@ -120,7 +112,6 @@ static bool candidate_less(const DiskCandidate &left,
 }
 
 static bool archive_path_safe(const char *entry_path) {
-
 	std::string normalized;
 	fs::path path;
 
@@ -129,9 +120,8 @@ static bool archive_path_safe(const char *entry_path) {
 	}
 	normalized = entry_path;
 	std::replace(normalized.begin(), normalized.end(), '\\', '/');
-	if ((normalized.size() >= 3) &&
-		std::isalpha(static_cast<unsigned char>(normalized[0])) &&
-		(normalized[1] == ':') && (normalized[2] == '/')) {
+	if ((normalized.size() >= 3) && std::isalpha(static_cast<unsigned char>(normalized[0])) &&
+	    (normalized[1] == ':') && (normalized[2] == '/')) {
 		return false;
 	}
 	path = fs::u8path(normalized);
@@ -150,16 +140,14 @@ static bool archive_path_safe(const char *entry_path) {
 #if defined(VAEG_HAVE_LIBARCHIVE)
 #if !defined(_WIN32)
 class ScopedArchiveLocale {
-public:
+  public:
 	ScopedArchiveLocale() : locale_(create_utf8_locale()), previous_(nullptr) {
-
 		if (locale_ != nullptr) {
 			previous_ = uselocale(locale_);
 		}
 	}
 
 	~ScopedArchiveLocale() {
-
 		if (previous_ != nullptr) {
 			uselocale(previous_);
 		}
@@ -171,12 +159,9 @@ public:
 	ScopedArchiveLocale(const ScopedArchiveLocale &) = delete;
 	ScopedArchiveLocale &operator=(const ScopedArchiveLocale &) = delete;
 
-private:
+  private:
 	static locale_t create_utf8_locale() {
-
-		static const char *names[] = {
-			"C.UTF-8", "C.utf8", "en_US.UTF-8", ""
-		};
+		static const char *names[] = {"C.UTF-8", "C.utf8", "en_US.UTF-8", ""};
 
 		for (const char *name : names) {
 			locale_t locale = newlocale(LC_CTYPE_MASK, name, nullptr);
@@ -193,7 +178,6 @@ private:
 #endif
 
 static fs::path archive_storage_root(void) {
-
 	char path[MAX_PATH];
 
 	file_getstatepath(path, sizeof(path), "archive-drop");
@@ -201,16 +185,13 @@ static fs::path archive_storage_root(void) {
 }
 
 static bool path_is_within(const fs::path &path, const fs::path &directory) {
-
 	const fs::path normalized_path = path.lexically_normal();
 	const fs::path normalized_directory = directory.lexically_normal();
 	auto path_part = normalized_path.begin();
 	auto directory_part = normalized_directory.begin();
 
-	for (; directory_part != normalized_directory.end();
-		 directory_part++, path_part++) {
-		if ((path_part == normalized_path.end()) ||
-			(*path_part != *directory_part)) {
+	for (; directory_part != normalized_directory.end(); directory_part++, path_part++) {
+		if ((path_part == normalized_path.end()) || (*path_part != *directory_part)) {
 			return false;
 		}
 	}
@@ -218,7 +199,6 @@ static bool path_is_within(const fs::path &path, const fs::path &directory) {
 }
 
 static std::string archive_source_directory(const std::string &archive_path) {
-
 	std::error_code ec;
 	fs::path path = fs::absolute(fs::u8path(archive_path), ec);
 
@@ -230,22 +210,20 @@ static std::string archive_source_directory(const std::string &archive_path) {
 }
 
 static void write_archive_source_directory(const fs::path &archive_directory,
-										 const std::string &source_directory) {
-
+                                           const std::string &source_directory) {
 	if (source_directory.empty() || (source_directory.size() >= MAX_PATH)) {
 		return;
 	}
 	std::ofstream output(archive_directory / kArchiveSourceDirectoryFile,
-										std::ios::binary | std::ios::trunc);
+	                     std::ios::binary | std::ios::trunc);
 	if (output) {
 		output.write(source_directory.data(),
-					 static_cast<std::streamsize>(source_directory.size()));
+		             static_cast<std::streamsize>(source_directory.size()));
 	}
 }
 
 static fs::path managed_archive_directory(const std::string &mounted_path,
-										 const fs::path &storage_root) {
-
+                                          const fs::path &storage_root) {
 	std::error_code ec;
 	const fs::path root = storage_root.lexically_normal();
 	fs::path path = fs::absolute(fs::u8path(mounted_path), ec);
@@ -275,26 +253,23 @@ static fs::path managed_archive_directory(const std::string &mounted_path,
 	const fs::path image_name = *component;
 	const std::string image_name_string = image_name.u8string();
 	if ((image_name_string.size() != 4) ||
-		(!std::all_of(image_name_string.begin(), image_name_string.end(),
-			[](unsigned char ch) { return std::isdigit(ch) != 0; }))) {
+	    (!std::all_of(image_name_string.begin(), image_name_string.end(), [](unsigned char ch) {
+		    return std::isdigit(ch) != 0;
+	    }))) {
 		return fs::path();
 	}
 	return root / batch_name / image_name;
 }
 
-static std::string read_archive_source_directory(
-										 const std::string &mounted_path,
-										 const fs::path &storage_root) {
-
-	const fs::path archive_directory =
-					managed_archive_directory(mounted_path, storage_root);
+static std::string read_archive_source_directory(const std::string &mounted_path,
+                                                 const fs::path &storage_root) {
+	const fs::path archive_directory = managed_archive_directory(mounted_path, storage_root);
 	char buffer[MAX_PATH];
 
 	if (archive_directory.empty()) {
 		return std::string();
 	}
-	std::ifstream input(archive_directory / kArchiveSourceDirectoryFile,
-										std::ios::binary);
+	std::ifstream input(archive_directory / kArchiveSourceDirectoryFile, std::ios::binary);
 	if (!input) {
 		return std::string();
 	}
@@ -306,21 +281,17 @@ static std::string read_archive_source_directory(
 	const std::string source_directory(buffer, static_cast<std::size_t>(size));
 	std::error_code ec;
 	if ((source_directory.find('\0') != std::string::npos) ||
-		(!fs::is_directory(fs::u8path(source_directory), ec)) || ec) {
+	    (!fs::is_directory(fs::u8path(source_directory), ec)) || ec) {
 		return std::string();
 	}
 	return source_directory;
 }
 
-static std::string read_archive_source_directory(
-										 const std::string &mounted_path) {
-
+static std::string read_archive_source_directory(const std::string &mounted_path) {
 	return read_archive_source_directory(mounted_path, archive_storage_root());
 }
 
-static fs::path create_archive_directory(const fs::path &root,
-										 std::string *error) {
-
+static fs::path create_archive_directory(const fs::path &root, std::string *error) {
 	std::error_code ec;
 	std::random_device random;
 
@@ -330,8 +301,7 @@ static fs::path create_archive_directory(const fs::path &root,
 	}
 	for (unsigned int attempt = 0; attempt < 64; attempt++) {
 		char name[64];
-		std::snprintf(name, sizeof(name), "drop-%08x-%02u",
-					  random(), attempt);
+		std::snprintf(name, sizeof(name), "drop-%08x-%02u", random(), attempt);
 		fs::path candidate = root / name;
 		if (fs::create_directory(candidate, ec)) {
 			return candidate;
@@ -345,9 +315,7 @@ static fs::path create_archive_directory(const fs::path &root,
 	return fs::path();
 }
 
-static bool write_test_archive(const fs::path &path, bool seven_zip,
-							   const char *entry_path) {
-
+static bool write_test_archive(const fs::path &path, bool seven_zip, const char *entry_path) {
 #if !defined(_WIN32)
 	ScopedArchiveLocale archive_locale;
 #endif
@@ -359,8 +327,8 @@ static bool write_test_archive(const fs::path &path, bool seven_zip,
 	if (writer == nullptr) {
 		return false;
 	}
-	result = seven_zip ? archive_write_set_format_7zip(writer) :
-		archive_write_set_format_zip(writer);
+	result =
+	    seven_zip ? archive_write_set_format_7zip(writer) : archive_write_set_format_zip(writer);
 	if ((!seven_zip) && (result == ARCHIVE_OK)) {
 		result = archive_write_set_options(writer, "zip:compression=deflate");
 	}
@@ -382,8 +350,9 @@ static bool write_test_archive(const fs::path &path, bool seven_zip,
 	result = archive_write_header(writer, entry);
 	if (result == ARCHIVE_OK) {
 		result = (archive_write_data(writer, payload, sizeof(payload) - 1) ==
-				  static_cast<la_ssize_t>(sizeof(payload) - 1)) ?
-			ARCHIVE_OK : ARCHIVE_FATAL;
+		          static_cast<la_ssize_t>(sizeof(payload) - 1))
+		             ? ARCHIVE_OK
+		             : ARCHIVE_FATAL;
 	}
 	archive_entry_free(entry);
 	if (archive_write_close(writer) != ARCHIVE_OK) {
@@ -394,10 +363,8 @@ static bool write_test_archive(const fs::path &path, bool seven_zip,
 }
 
 static bool extract_archive_images(const std::string &archive_path,
-								   std::vector<DiskCandidate> *images,
-								   std::string *error,
-								   const fs::path &storage_root) {
-
+                                   std::vector<DiskCandidate> *images, std::string *error,
+                                   const fs::path &storage_root) {
 	struct archive *reader;
 	struct archive_entry *entry;
 	fs::path temp_dir;
@@ -405,8 +372,7 @@ static bool extract_archive_images(const std::string &archive_path,
 	std::size_t entry_count;
 	std::size_t image_count;
 	const std::size_t initial_image_count = images->size();
-	const std::string source_directory =
-								archive_source_directory(archive_path);
+	const std::string source_directory = archive_source_directory(archive_path);
 #if !defined(_WIN32)
 	ScopedArchiveLocale archive_locale;
 #endif
@@ -425,14 +391,13 @@ static bool extract_archive_images(const std::string &archive_path,
 	archive_read_support_filter_all(reader);
 	archive_read_support_format_all(reader);
 #if defined(_WIN32)
-	result = archive_read_open_filename_w(reader,
-		fs::u8path(archive_path).c_str(), 10240);
+	result = archive_read_open_filename_w(reader, fs::u8path(archive_path).c_str(), 10240);
 #else
 	result = archive_read_open_filename(reader, archive_path.c_str(), 10240);
 #endif
 	if (result != ARCHIVE_OK) {
-		*error = archive_error_string(reader) ? archive_error_string(reader) :
-			"archive open failed";
+		*error =
+		    archive_error_string(reader) ? archive_error_string(reader) : "archive open failed";
 		archive_read_free(reader);
 		fs::remove_all(temp_dir);
 		return false;
@@ -455,12 +420,12 @@ static bool extract_archive_images(const std::string &archive_path,
 			goto extract_error;
 		}
 		if ((archive_entry_symlink(entry) != nullptr) ||
-			(archive_entry_hardlink(entry) != nullptr)) {
+		    (archive_entry_hardlink(entry) != nullptr)) {
 			*error = "archive links are not allowed";
 			goto extract_error;
 		}
 		if ((archive_entry_filetype(entry) != AE_IFREG) ||
-			(!image_extension_supported(entry_path))) {
+		    (!image_extension_supported(entry_path))) {
 			archive_read_data_skip(reader);
 			continue;
 		}
@@ -469,10 +434,8 @@ static bool extract_archive_images(const std::string &archive_path,
 			goto extract_error;
 		}
 		const la_int64_t declared_size = archive_entry_size(entry);
-		if ((declared_size < 0) ||
-			(static_cast<std::uintmax_t>(declared_size) > kMaxImageBytes) ||
-			(static_cast<std::uintmax_t>(declared_size) >
-			 (kMaxExtractedBytes - total_bytes))) {
+		if ((declared_size < 0) || (static_cast<std::uintmax_t>(declared_size) > kMaxImageBytes) ||
+		    (static_cast<std::uintmax_t>(declared_size) > (kMaxExtractedBytes - total_bytes))) {
 			*error = "archive disk image exceeds the extraction limit";
 			goto extract_error;
 		}
@@ -499,14 +462,12 @@ static bool extract_archive_images(const std::string &archive_path,
 				break;
 			}
 			if (count < 0) {
-				*error = archive_error_string(reader) ? archive_error_string(reader) :
-					"archive extraction failed";
+				*error = archive_error_string(reader) ? archive_error_string(reader)
+				                                      : "archive extraction failed";
 				goto extract_error;
 			}
-			if ((static_cast<std::uintmax_t>(count) >
-				 (kMaxImageBytes - image_bytes)) ||
-				(static_cast<std::uintmax_t>(count) >
-				 (kMaxExtractedBytes - total_bytes))) {
+			if ((static_cast<std::uintmax_t>(count) > (kMaxImageBytes - image_bytes)) ||
+			    (static_cast<std::uintmax_t>(count) > (kMaxExtractedBytes - total_bytes))) {
 				*error = "archive extraction limit exceeded";
 				goto extract_error;
 			}
@@ -528,13 +489,12 @@ static bool extract_archive_images(const std::string &archive_path,
 			*error = "extracted disk image path is too long";
 			goto extract_error;
 		}
-		images->push_back({output_path.u8string(), basename.u8string(),
-										 source_directory});
+		images->push_back({output_path.u8string(), basename.u8string(), source_directory});
 		image_count++;
 	}
 	if (result != ARCHIVE_EOF) {
-		*error = archive_error_string(reader) ? archive_error_string(reader) :
-			"archive read failed";
+		*error =
+		    archive_error_string(reader) ? archive_error_string(reader) : "archive read failed";
 		goto extract_error;
 	}
 	archive_read_free(reader);
@@ -553,10 +513,8 @@ extract_error:
 }
 #endif
 
-static void remember_archive_source(std::size_t drive,
-									const std::string &mounted_path,
-									const std::string &source_directory) {
-
+static void remember_archive_source(std::size_t drive, const std::string &mounted_path,
+                                    const std::string &source_directory) {
 	if (drive >= 2) {
 		return;
 	}
@@ -570,42 +528,36 @@ static void remember_archive_source(std::size_t drive,
 }
 
 static void append_status_line(const std::string &line) {
-
 	if (!g_status.empty()) {
 		g_status += '\n';
 	}
 	g_status += line;
 }
 
-static void mount_candidates(std::vector<DiskCandidate> *images,
-								 std::size_t first_drive) {
-
+static void mount_candidates(std::vector<DiskCandidate> *images, std::size_t first_drive) {
 	if ((images == nullptr) || (first_drive >= 2)) {
 		return;
 	}
 	const std::size_t capacity = 2 - first_drive;
 	std::sort(images->begin(), images->end(), candidate_less);
-	for (std::size_t index = 0;
-			(index < images->size()) && (index < capacity); index++) {
+	for (std::size_t index = 0; (index < images->size()) && (index < capacity); index++) {
 		const DiskCandidate &image = (*images)[index];
 		const std::size_t drive = first_drive + index;
 
 		diskdrv_setfdd(static_cast<REG8>(drive), image.path.c_str(), 0);
 		file_cpyname(np2oscfg.fdd_image[drive], image.path.c_str(),
-						 sizeof(np2oscfg.fdd_image[drive]));
+		             sizeof(np2oscfg.fdd_image[drive]));
 		remember_archive_source(drive, image.path, image.source_directory);
 		sysmng_update(SYS_UPDATEOSCFG);
 	}
 	if (images->size() > capacity) {
-		append_status_line("Ignored " +
-			std::to_string(images->size() - capacity) +
-			" additional disk image(s).");
+		append_status_line("Ignored " + std::to_string(images->size() - capacity) +
+		                   " additional disk image(s).");
 	}
 	dropmedia_prune_storage();
 }
 
 static void process_drop_batch(void) {
-
 	std::vector<DiskCandidate> images;
 
 	g_status.clear();
@@ -627,24 +579,20 @@ static void process_drop_batch(void) {
 		if (archive_extension_supported(path)) {
 #if defined(VAEG_HAVE_LIBARCHIVE)
 			std::string error;
-			if (!extract_archive_images(path, &images, &error,
-									archive_storage_root())) {
+			if (!extract_archive_images(path, &images, &error, archive_storage_root())) {
 				append_status_line("Archive drop failed: " + error + ": " +
-					fs_path.filename().u8string());
+				                   fs_path.filename().u8string());
 			}
 #else
-			append_status_line(
-				"Archive drop unavailable: this build has no LibArchive support.");
+			append_status_line("Archive drop unavailable: this build has no LibArchive support.");
 #endif
 			continue;
 		}
-		append_status_line("Unsupported dropped file: " +
-			fs_path.filename().u8string());
+		append_status_line("Unsupported dropped file: " + fs_path.filename().u8string());
 	}
 	if (!images.empty()) {
 		mount_candidates(&images, 0);
-	}
-	else if (g_status.empty()) {
+	} else if (g_status.empty()) {
 		g_status = "Drop contained no supported disk image.";
 	}
 	g_dropped_paths.clear();
@@ -653,7 +601,6 @@ static void process_drop_batch(void) {
 } // namespace
 
 extern "C" BOOL dropmedia_process_event(const void *event) {
-
 	const SDL_Event *sdl_event;
 
 	if (event == nullptr) {
@@ -661,34 +608,31 @@ extern "C" BOOL dropmedia_process_event(const void *event) {
 	}
 	sdl_event = static_cast<const SDL_Event *>(event);
 	switch (sdl_event->type) {
-		case SDL_DROPBEGIN:
-			g_dropped_paths.clear();
-			return TRUE;
+	case SDL_DROPBEGIN:
+		g_dropped_paths.clear();
+		return TRUE;
 
-		case SDL_DROPFILE:
-			if (sdl_event->drop.file != nullptr) {
-				g_dropped_paths.emplace_back(sdl_event->drop.file);
-				SDL_free(sdl_event->drop.file);
-			}
-			return TRUE;
+	case SDL_DROPFILE:
+		if (sdl_event->drop.file != nullptr) {
+			g_dropped_paths.emplace_back(sdl_event->drop.file);
+			SDL_free(sdl_event->drop.file);
+		}
+		return TRUE;
 
-		case SDL_DROPCOMPLETE:
-			process_drop_batch();
-			return TRUE;
+	case SDL_DROPCOMPLETE:
+		process_drop_batch();
+		return TRUE;
 
-		default:
-			return FALSE;
+	default:
+		return FALSE;
 	}
 }
 
 extern "C" BOOL dropmedia_path_is_archive(const char *path) {
-
-	return ((path != nullptr) && archive_extension_supported(path)) ?
-		TRUE : FALSE;
+	return ((path != nullptr) && archive_extension_supported(path)) ? TRUE : FALSE;
 }
 
 extern "C" BOOL dropmedia_mount_archive(const char *path, UINT first_drive) {
-
 	g_status.clear();
 	if ((path == nullptr) || (path[0] == '\0')) {
 		g_status = "Archive open failed: path is empty.";
@@ -711,70 +655,57 @@ extern "C" BOOL dropmedia_mount_archive(const char *path, UINT first_drive) {
 	std::vector<DiskCandidate> images;
 	std::string error;
 
-	if (!extract_archive_images(path, &images, &error,
-								archive_storage_root())) {
-		g_status = "Archive open failed: " + error + ": " +
-			fs::u8path(path).filename().u8string();
+	if (!extract_archive_images(path, &images, &error, archive_storage_root())) {
+		g_status = "Archive open failed: " + error + ": " + fs::u8path(path).filename().u8string();
 		return FALSE;
 	}
 	mount_candidates(&images, first_drive);
 	return TRUE;
 #else
-	g_status =
-		"Archive open unavailable: this build has no LibArchive support.";
+	g_status = "Archive open unavailable: this build has no LibArchive support.";
 	return FALSE;
 #endif
 }
 
-extern "C" BOOL dropmedia_fdd_source_directory(UINT drive,
-									const char *mounted_path, char *directory,
-									UINT directory_size) {
-
+extern "C" BOOL dropmedia_fdd_source_directory(UINT drive, const char *mounted_path,
+                                               char *directory, UINT directory_size) {
 	if ((directory != nullptr) && (directory_size != 0)) {
 		directory[0] = '\0';
 	}
-	if ((drive >= 2) || (mounted_path == nullptr) ||
-		(mounted_path[0] == '\0') || (directory == nullptr) ||
-		(directory_size == 0) ||
-		(g_mounted_archive_paths[drive] != mounted_path) ||
-		g_archive_source_directories[drive].empty() ||
-		(g_archive_source_directories[drive].size() >= directory_size)) {
+	if ((drive >= 2) || (mounted_path == nullptr) || (mounted_path[0] == '\0') ||
+	    (directory == nullptr) || (directory_size == 0) ||
+	    (g_mounted_archive_paths[drive] != mounted_path) ||
+	    g_archive_source_directories[drive].empty() ||
+	    (g_archive_source_directories[drive].size() >= directory_size)) {
 		return FALSE;
 	}
 	std::error_code ec;
-	if ((!fs::is_directory(
-			fs::u8path(g_archive_source_directories[drive]), ec)) || ec) {
+	if ((!fs::is_directory(fs::u8path(g_archive_source_directories[drive]), ec)) || ec) {
 		return FALSE;
 	}
 	file_cpyname(directory, g_archive_source_directories[drive].c_str(),
-										static_cast<int>(directory_size));
+	             static_cast<int>(directory_size));
 	return TRUE;
 }
 
 extern "C" const char *dropmedia_status(void) {
-
 	return g_status.c_str();
 }
 
 #if defined(VAEG_HAVE_LIBARCHIVE)
-static bool storage_directory_referenced(const fs::path &directory,
-										 const char *const *references,
-										 std::size_t reference_count) {
-
+static bool storage_directory_referenced(const fs::path &directory, const char *const *references,
+                                         std::size_t reference_count) {
 	for (std::size_t index = 0; index < reference_count; index++) {
-		if ((references[index] != nullptr) &&
-			(references[index][0] != '\0') &&
-			path_is_within(fs::u8path(references[index]), directory)) {
+		if ((references[index] != nullptr) && (references[index][0] != '\0') &&
+		    path_is_within(fs::u8path(references[index]), directory)) {
 			return true;
 		}
 	}
 	return false;
 }
 
-static void prune_storage_root(const fs::path &root,
-							  const char *const *references,
-							  std::size_t reference_count) {
-
+static void prune_storage_root(const fs::path &root, const char *const *references,
+                               std::size_t reference_count) {
 	std::error_code ec;
 
 	if ((!fs::exists(root, ec)) || ec) {
@@ -785,24 +716,22 @@ static void prune_storage_root(const fs::path &root,
 			return;
 		}
 		const std::string batch_name = batch.path().filename().u8string();
-		if ((batch_name.rfind("drop-", 0) != 0) ||
-			(!batch.is_directory(ec)) || ec) {
+		if ((batch_name.rfind("drop-", 0) != 0) || (!batch.is_directory(ec)) || ec) {
 			ec.clear();
 			continue;
 		}
-		for (const fs::directory_entry &image :
-			 fs::directory_iterator(batch.path(), ec)) {
+		for (const fs::directory_entry &image : fs::directory_iterator(batch.path(), ec)) {
 			if (ec) {
 				return;
 			}
 			const std::string image_name = image.path().filename().u8string();
 			if ((image_name.size() != 4) ||
-				(!std::all_of(image_name.begin(), image_name.end(),
-					[](unsigned char ch) { return std::isdigit(ch) != 0; }))) {
+			    (!std::all_of(image_name.begin(), image_name.end(), [](unsigned char ch) {
+				    return std::isdigit(ch) != 0;
+			    }))) {
 				continue;
 			}
-			if (!storage_directory_referenced(image.path(), references,
-													reference_count)) {
+			if (!storage_directory_referenced(image.path(), references, reference_count)) {
 				fs::remove_all(image.path(), ec);
 				ec.clear();
 			}
@@ -816,20 +745,15 @@ static void prune_storage_root(const fs::path &root,
 #endif
 
 extern "C" void dropmedia_prune_storage(void) {
-
 #if defined(VAEG_HAVE_LIBARCHIVE)
-	const char *references[4] = {
-		np2oscfg.fdd_image[0], np2oscfg.fdd_image[1],
-		g_session_references[0].c_str(), g_session_references[1].c_str()
-	};
+	const char *references[4] = {np2oscfg.fdd_image[0], np2oscfg.fdd_image[1],
+	                             g_session_references[0].c_str(), g_session_references[1].c_str()};
 
-	prune_storage_root(archive_storage_root(), references,
-												std::size(references));
+	prune_storage_root(archive_storage_root(), references, std::size(references));
 #endif
 }
 
 extern "C" void dropmedia_initialize(void) {
-
 	g_session_references[0].clear();
 	g_session_references[1].clear();
 	for (std::size_t drive = 0; drive < 2; drive++) {
@@ -837,23 +761,19 @@ extern "C" void dropmedia_initialize(void) {
 		g_archive_source_directories[drive].clear();
 #if defined(VAEG_HAVE_LIBARCHIVE)
 		const std::string source_directory =
-			read_archive_source_directory(np2oscfg.fdd_image[drive]);
-		remember_archive_source(drive, np2oscfg.fdd_image[drive],
-										source_directory);
+		    read_archive_source_directory(np2oscfg.fdd_image[drive]);
+		remember_archive_source(drive, np2oscfg.fdd_image[drive], source_directory);
 #endif
 	}
 	dropmedia_prune_storage();
 }
 
-extern "C" void dropmedia_set_session_fdd_references(const char *first,
-															 const char *second) {
-
+extern "C" void dropmedia_set_session_fdd_references(const char *first, const char *second) {
 	g_session_references[0] = (first != nullptr) ? first : "";
 	g_session_references[1] = (second != nullptr) ? second : "";
 }
 
 extern "C" void dropmedia_shutdown(void) {
-
 	g_dropped_paths.clear();
 	g_status.clear();
 	g_session_references[0].clear();
@@ -865,35 +785,25 @@ extern "C" void dropmedia_shutdown(void) {
 }
 
 extern "C" BOOL dropmedia_selftest(void) {
+	std::vector<DiskCandidate> candidates = {{"/tmp/b.D88", "b.D88", std::string()},
+	                                         {"/tmp/A.d88", "A.d88", std::string()},
+	                                         {"/tmp/c.xdf", "c.xdf", std::string()}};
 
-	std::vector<DiskCandidate> candidates = {
-		{"/tmp/b.D88", "b.D88", std::string()},
-		{"/tmp/A.d88", "A.d88", std::string()},
-		{"/tmp/c.xdf", "c.xdf", std::string()}
-	};
-
-	if ((!image_extension_supported("disk.D88")) ||
-		(!image_extension_supported("disk.2HD")) ||
-		(!image_extension_supported("disk.IMG")) ||
-		image_extension_supported("disk.zip") ||
-		(!dropmedia_path_is_archive("set.ZIP")) ||
-		(!dropmedia_path_is_archive("set.7Z")) ||
-		(!dropmedia_path_is_archive("set.LZH")) ||
-		dropmedia_path_is_archive("disk.d88") ||
-		dropmedia_path_is_archive(NULL)) {
+	if ((!image_extension_supported("disk.D88")) || (!image_extension_supported("disk.2HD")) ||
+	    (!image_extension_supported("disk.IMG")) || image_extension_supported("disk.zip") ||
+	    (!dropmedia_path_is_archive("set.ZIP")) || (!dropmedia_path_is_archive("set.7Z")) ||
+	    (!dropmedia_path_is_archive("set.LZH")) || dropmedia_path_is_archive("disk.d88") ||
+	    dropmedia_path_is_archive(NULL)) {
 		return FAILURE;
 	}
-	if ((!archive_path_safe("folder/disk.d88")) ||
-		archive_path_safe("../disk.d88") ||
-		archive_path_safe("folder/../../disk.d88") ||
-		archive_path_safe("/absolute/disk.d88") ||
-		archive_path_safe("C:\\absolute\\disk.d88")) {
+	if ((!archive_path_safe("folder/disk.d88")) || archive_path_safe("../disk.d88") ||
+	    archive_path_safe("folder/../../disk.d88") || archive_path_safe("/absolute/disk.d88") ||
+	    archive_path_safe("C:\\absolute\\disk.d88")) {
 		return FAILURE;
 	}
 	std::sort(candidates.begin(), candidates.end(), candidate_less);
-	if ((candidates[0].basename != "A.d88") ||
-		(candidates[1].basename != "b.D88") ||
-		(candidates[2].basename != "c.xdf")) {
+	if ((candidates[0].basename != "A.d88") || (candidates[1].basename != "b.D88") ||
+	    (candidates[2].basename != "c.xdf")) {
 		return FAILURE;
 	}
 #if defined(VAEG_HAVE_LIBARCHIVE)
@@ -905,8 +815,7 @@ extern "C" BOOL dropmedia_selftest(void) {
 		return FAILURE;
 	}
 	for (bool seven_zip : {false, true}) {
-		fs::path archive_path = test_dir /
-			(seven_zip ? "dropmedia-test.7z" : "dropmedia-test.zip");
+		fs::path archive_path = test_dir / (seven_zip ? "dropmedia-test.7z" : "dropmedia-test.zip");
 		const fs::path storage_root = test_dir / "storage";
 		std::vector<DiskCandidate> extracted;
 		char source_directory[MAX_PATH];
@@ -920,26 +829,23 @@ extern "C" BOOL dropmedia_selftest(void) {
 		}
 #endif
 		if ((!write_test_archive(archive_path, seven_zip, entry_path)) ||
-			(!extract_archive_images(archive_path.u8string(), &extracted, &error,
-									 storage_root)) ||
-			(extracted.size() != 1) ||
-			(extracted[0].basename != expected_basename) ||
-			(extracted[0].source_directory != test_dir.u8string()) ||
-			(read_archive_source_directory(extracted[0].path, storage_root) !=
-											 test_dir.u8string())) {
+		    (!extract_archive_images(archive_path.u8string(), &extracted, &error, storage_root)) ||
+		    (extracted.size() != 1) || (extracted[0].basename != expected_basename) ||
+		    (extracted[0].source_directory != test_dir.u8string()) ||
+		    (read_archive_source_directory(extracted[0].path, storage_root) !=
+		     test_dir.u8string())) {
 			fs::remove_all(test_dir);
 			dropmedia_shutdown();
 			return FAILURE;
 		}
-		remember_archive_source(0, extracted[0].path,
-									 extracted[0].source_directory);
-		if ((!dropmedia_fdd_source_directory(0, extracted[0].path.c_str(),
-					source_directory, sizeof(source_directory))) ||
-			strcmp(source_directory, test_dir.u8string().c_str()) ||
-			dropmedia_fdd_source_directory(0, extracted[0].path.c_str(),
-					short_directory, sizeof(short_directory)) ||
-			dropmedia_fdd_source_directory(0, "different.d88",
-					source_directory, sizeof(source_directory))) {
+		remember_archive_source(0, extracted[0].path, extracted[0].source_directory);
+		if ((!dropmedia_fdd_source_directory(0, extracted[0].path.c_str(), source_directory,
+		                                     sizeof(source_directory))) ||
+		    strcmp(source_directory, test_dir.u8string().c_str()) ||
+		    dropmedia_fdd_source_directory(0, extracted[0].path.c_str(), short_directory,
+		                                   sizeof(short_directory)) ||
+		    dropmedia_fdd_source_directory(0, "different.d88", source_directory,
+		                                   sizeof(source_directory))) {
 			fs::remove_all(test_dir);
 			dropmedia_shutdown();
 			return FAILURE;
@@ -948,8 +854,8 @@ extern "C" BOOL dropmedia_selftest(void) {
 	fs::path unsafe_path = test_dir / "dropmedia-unsafe.zip";
 	std::vector<DiskCandidate> unsafe_images;
 	if ((!write_test_archive(unsafe_path, false, "../escape.d88")) ||
-		extract_archive_images(unsafe_path.u8string(), &unsafe_images, &error,
-								 test_dir / "storage")) {
+	    extract_archive_images(unsafe_path.u8string(), &unsafe_images, &error,
+	                           test_dir / "storage")) {
 		fs::remove_all(test_dir);
 		dropmedia_shutdown();
 		return FAILURE;
@@ -966,12 +872,9 @@ extern "C" BOOL dropmedia_selftest(void) {
 	std::ofstream(keep_second).put('\0');
 	const std::string first_reference = keep_first.u8string();
 	const std::string second_reference = keep_second.u8string();
-	const char *references[2] = {
-		first_reference.c_str(), second_reference.c_str()
-	};
+	const char *references[2] = {first_reference.c_str(), second_reference.c_str()};
 	prune_storage_root(prune_root, references, std::size(references));
-	if ((!fs::exists(keep_first)) || fs::exists(remove_image) ||
-		(!fs::exists(keep_second))) {
+	if ((!fs::exists(keep_first)) || fs::exists(remove_image) || (!fs::exists(keep_second))) {
 		fs::remove_all(test_dir);
 		dropmedia_shutdown();
 		return FAILURE;

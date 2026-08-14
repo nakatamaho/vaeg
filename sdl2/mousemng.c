@@ -22,35 +22,33 @@
  * IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-#include	"compiler.h"
-#include	"sdlapi.h"
-#include	"mousemng.h"
-#include	"mousestate.h"
+#include "compiler.h"
+#include "sdlapi.h"
+#include "mousemng.h"
+#include "mousestate.h"
 
 typedef struct {
-	VAEG_MOUSE_STATE	state;
-	BOOL				initialized;
-	BOOL				requested;
-	BOOL				focused;
-	BOOL				gui_blocked;
-	BOOL				relative;
-	BOOL				retry_blocked;
-	char				status[256];
+	VAEG_MOUSE_STATE state;
+	BOOL initialized;
+	BOOL requested;
+	BOOL focused;
+	BOOL gui_blocked;
+	BOOL relative;
+	BOOL retry_blocked;
+	char status[256];
 } MOUSEMNG;
 
 static MOUSEMNG mousemng;
 
 static BOOL update_capture(BOOL retry) {
-
 	BOOL desired;
 
-	desired = mousemng.initialized && mousemng.requested &&
-				mousemng.focused && !mousemng.gui_blocked;
+	desired =
+	    mousemng.initialized && mousemng.requested && mousemng.focused && !mousemng.gui_blocked;
 	if (!desired) {
 		if (mousemng.relative) {
 			if (SDL_SetRelativeMouseMode(SDL_FALSE) < 0) {
-				SPRINTF(mousemng.status,
-						"Mouse release failed: %.220s", SDL_GetError());
+				SPRINTF(mousemng.status, "Mouse release failed: %.220s", SDL_GetError());
 				SDL_CaptureMouse(SDL_FALSE);
 				SDL_ShowCursor(SDL_ENABLE);
 			}
@@ -79,12 +77,10 @@ static BOOL update_capture(BOOL retry) {
 }
 
 BYTE mousemng_getstat(SINT16 *x, SINT16 *y, int clear) {
-
 	return vaeg_mouse_state_getstat(&mousemng.state, x, y, clear);
 }
 
 void mousemng_initialize(void) {
-
 	ZeroMemory(&mousemng, sizeof(mousemng));
 	vaeg_mouse_state_initialize(&mousemng.state);
 	mousemng.initialized = TRUE;
@@ -92,7 +88,6 @@ void mousemng_initialize(void) {
 }
 
 void mousemng_shutdown(void) {
-
 	if (!mousemng.initialized) {
 		return;
 	}
@@ -103,12 +98,10 @@ void mousemng_shutdown(void) {
 }
 
 void mousemng_reset(void) {
-
 	vaeg_mouse_state_reset(&mousemng.state);
 }
 
 BOOL mousemng_setcapture(BOOL capture) {
-
 	mousemng.requested = capture ? TRUE : FALSE;
 	mousemng.retry_blocked = FALSE;
 	if (!mousemng.requested) {
@@ -118,23 +111,19 @@ BOOL mousemng_setcapture(BOOL capture) {
 }
 
 BOOL mousemng_togglecapture(void) {
-
 	mousemng_setcapture(mousemng.requested ? FALSE : TRUE);
 	return mousemng.requested;
 }
 
 BOOL mousemng_getcapture(void) {
-
 	return mousemng.requested;
 }
 
 BOOL mousemng_iscaptured(void) {
-
 	return mousemng.relative;
 }
 
 void mousemng_setfocus(BOOL focused) {
-
 	focused = focused ? TRUE : FALSE;
 	if (mousemng.focused == focused) {
 		return;
@@ -145,7 +134,6 @@ void mousemng_setfocus(BOOL focused) {
 }
 
 void mousemng_setguiblocked(BOOL blocked) {
-
 	blocked = blocked ? TRUE : FALSE;
 	if (mousemng.gui_blocked == blocked) {
 		update_capture(FALSE);
@@ -157,16 +145,13 @@ void mousemng_setguiblocked(BOOL blocked) {
 }
 
 void mousemng_motion(SINT32 x, SINT32 y) {
-
 	vaeg_mouse_state_motion(&mousemng.state, x, y);
 }
 
 void mousemng_button(UINT button, BOOL down) {
-
 	vaeg_mouse_state_button(&mousemng.state, button, down);
 }
 
 const char *mousemng_status(void) {
-
 	return mousemng.status;
 }
