@@ -210,6 +210,21 @@ separates exact command/transfer quantities from VAEG timing-model-dependent
 observations. VAEG FPS, VBLANK thresholds, and modeled cycles are not claims
 about PC-88VA hardware performance.
 
+## Distribution D88
+
+The single compressed image [`sgpdemo.d88.xz`](sgpdemo.d88.xz) is a data-only
+2HD D88. It deliberately contains no PC-Engine system files. After booting a
+separate PC-Engine system disk, mount this image as a data disk; its root
+contains the six historical milestone programs and the four M7 variants:
+
+~~~text
+SGPDEMO1.COM ... SGPDEMO6.COM
+SGPD_7A.COM  SGPD_7B.COM  SGPD_7C.COM  SGPD_7D.COM
+~~~
+
+The image is generated from an empty FAT12 data disk with
+`tools/pc88va/pcengine_disk.py`, then compressed with `xz -9e`.
+
 ## Build
 
 Configure a normal VAEG preset, then build the dedicated guest target. For
