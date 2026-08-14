@@ -98,13 +98,15 @@ jobs:
         run: |
           set -euo pipefail
           if gh release view "${RELEASE_TAG}" >/dev/null 2>&1; then
+            release_title="88VA Eternal Grafx Rel.${RELEASE_TAG#rel-}"
             gh release edit "${RELEASE_TAG}" \
-              --title "88VA Eternal Grafx ${RELEASE_TAG}" \
+              --title "${release_title}" \
               --notes-file "${RELEASE_NOTES}"
           else
+            release_title="88VA Eternal Grafx Rel.${RELEASE_TAG#rel-}"
             gh release create "${RELEASE_TAG}" \
               --verify-tag \
-              --title "88VA Eternal Grafx ${RELEASE_TAG}" \
+              --title "${release_title}" \
               --notes-file "${RELEASE_NOTES}"
           fi
       - name: Upload release asset
