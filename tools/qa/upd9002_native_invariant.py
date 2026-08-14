@@ -243,7 +243,7 @@ def check_cpu_type_reference_map(root):
     header_lines = [line.strip() for line in
                     read_text(root, "cpu/upd9002/cpucore.h").splitlines()
                     if re.search(r"\bcpu_type\b", line)]
-    require(header_lines == ["UINT8\tcpu_type;", "UINT8\tcpu_type;"],
+    require(header_lines == ["UINT8 cpu_type;", "UINT8 cpu_type;"],
             "cpucore cpu_type declarations changed")
 
     for line in read_text(root, "cpu/upd9002/upd9002_core.c").splitlines():
