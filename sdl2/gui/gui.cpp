@@ -921,8 +921,8 @@ static void draw_bms_config_dialog(void) {
 			ImGui::TextUnformatted("Bank count must be between 1 and 255.");
 		}
 		ImGui::Separator();
-		ImGui::TextWrapped("The 80000H-9FFFFH aperture is available only while "
-			"BMS is enabled; each selector value chooses one BMS bank.");
+		ImGui::TextWrapped("Selector 0 restores main RAM at 80000H-9FFFFH; "
+			"selectors 1 through the configured bank count choose BMS storage.");
 		ImGui::TextWrapped("Applying a change resets the guest. Disabling BMS or "
 			"changing its bank count discards current BMS contents.");
 

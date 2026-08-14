@@ -613,13 +613,13 @@ static int test_va_bms_window(void) {
 	bmsio_reset();
 	upd9002_memorywrite_va(0x080000, 0x12);
 	upd9002_memorywrite_va_w(0x09fffe, 0x3456);
-	if ((upd9002_memoryread_va(0x080000) != 0xff) ||
-		(upd9002_memoryread_va_w(0x09fffe) != 0xffff) ||
-		(mem[0x080000] != 0xa1) || (mem[0x09fffe] != 0xb2) ||
-		(mem[0x09ffff] != 0xc3) ||
+	if ((upd9002_memoryread_va(0x080000) != 0x12) ||
+		(upd9002_memoryread_va_w(0x09fffe) != 0x3456) ||
+		(mem[0x080000] != 0x12) || (mem[0x09fffe] != 0x56) ||
+		(mem[0x09ffff] != 0x34) ||
 		(bmsiowork.bmsmem != NULL) || (bmsiowork.bmsmemsize != 0) ||
-		(bmsio.cfg.port != BMSIO_PORT_DEFAULT) || (bmsio.nomem != 1)) {
-		result = fail("VA BMS", "disabled aperture was not open bus");
+		(bmsio.cfg.port != BMSIO_PORT_DEFAULT) || (bmsio.nomem != 0)) {
+		result = fail("VA BMS", "disabled bank zero did not preserve main RAM");
 		goto bms_test_cleanup;
 	}
 
@@ -638,15 +638,13 @@ static int test_va_bms_window(void) {
 		goto bms_test_cleanup;
 	}
 	ZeroMemory(bmsiowork.bmsmem, bmsiowork.bmsmemsize);
-	upd9002_memorywrite_va(0x080000, 0x12);
-	upd9002_memorywrite_va_w(0x09fffe, 0x3456);
 	if ((upd9002_memoryread_va(0x080000) != 0x12) ||
 		(upd9002_memoryread_va_w(0x09fffe) != 0x3456) ||
-		(bmsiowork.bmsmem[0] != 0x12) ||
-		(LOADINTELWORD(bmsiowork.bmsmem + 0x1fffe) != 0x3456) ||
-		(mem[0x080000] != 0xa1) || (mem[0x09fffe] != 0xb2) ||
-		(mem[0x09ffff] != 0xc3)) {
-		result = fail("VA BMS", "bank zero did not map BMS storage");
+		(bmsiowork.bmsmem[0] != 0) ||
+		(LOADINTELWORD(bmsiowork.bmsmem + 0x1fffe) != 0) ||
+		(mem[0x080000] != 0x12) || (mem[0x09fffe] != 0x56) ||
+		(mem[0x09ffff] != 0x34)) {
+		result = fail("VA BMS", "enabled bank zero did not preserve main RAM");
 		goto bms_test_cleanup;
 	}
 
@@ -665,7 +663,11 @@ static int test_va_bms_window(void) {
 	upd9002_memorywrite_va(0x080000, 0x78);
 	upd9002_memorywrite_va_w(0x09fffe, 0x9abc);
 	if ((upd9002_memoryread_va(0x080000) != 0x78) ||
-		(upd9002_memoryread_va_w(0x09fffe) != 0x9abc)) {
+		(upd9002_memoryread_va_w(0x09fffe) != 0x9abc) ||
+		(bmsiowork.bmsmem[0] != 0x78) ||
+		(LOADINTELWORD(bmsiowork.bmsmem + 0x1fffe) != 0x9abc) ||
+		(mem[0x080000] != 0x12) || (mem[0x09fffe] != 0x56) ||
+		(mem[0x09ffff] != 0x34)) {
 		result = fail("VA BMS", "bank 1 access failed");
 		goto bms_test_cleanup;
 	}
@@ -680,12 +682,12 @@ static int test_va_bms_window(void) {
 	bmsio_set();
 	bmsio_reset();
 	if ((bmsiowork.bmsmem != NULL) || (bmsiowork.bmsmemsize != 0) ||
-		(bmsio.nomem != 1) ||
-		(upd9002_memoryread_va(0x080000) != 0xff) ||
-		(upd9002_memoryread_va_w(0x09fffe) != 0xffff) ||
-		(mem[0x080000] != 0xa1) || (mem[0x09fffe] != 0xb2) ||
-		(mem[0x09ffff] != 0xc3)) {
-		result = fail("VA BMS", "disable did not close the aperture");
+		(bmsio.nomem != 0) ||
+		(upd9002_memoryread_va(0x080000) != 0x12) ||
+		(upd9002_memoryread_va_w(0x09fffe) != 0x3456) ||
+		(mem[0x080000] != 0x12) || (mem[0x09fffe] != 0x56) ||
+		(mem[0x09ffff] != 0x34)) {
+		result = fail("VA BMS", "disable did not restore main RAM");
 	}
 
 bms_test_cleanup:
