@@ -40,7 +40,7 @@ usage() {
 		"Usage: $program_name --source SOURCE.d88 --output OUTPUT.d88 [--cache DIR]" \
 		'' \
 		'First create a vanilla PC-Engine 1.1 system disk, then add PCPLUS,' \
-		'SCHD, HOSTFAT, PCEPAT, TSCLVA, MSE 3.52b, RDBMS, RDPCM,' \
+		'SCHD, HOSTFAT, PCEPAT, RESET, TSCLVA, MSE 3.52b, RDBMS, RDPCM,' \
 		'BMSDRVA, EMMVA/SQEMM98/RDEMS,' \
 		'development tools, X8MAP, and K-Launcher.' \
 		'The source and generated D88 images are never added to the repository.'
@@ -143,6 +143,9 @@ fetch_package() {
 fetch_package pcepat.com \
 	59296bcb77b158ce072a7f62bdbdca420305fb43004f69845345efc73c276945 \
 	'http://www.pc88.gr.jp/softlib/index.php?action=download&anum=2&gnum=330&fname=PCEPAT.COM'
+fetch_package reset.zip \
+	e6e18f8f0766f6dbf04e91a51d964ce0d50ee067ad57fe1f098428351b8ffe04 \
+	'http://www.pc88.gr.jp/softlib/index.php?action=download&anum=2&gnum=340&fname=RESET.ZIP'
 fetch_package pcp108.lzh \
 	4561df318cdfb08bdf8276741058ca2b0d4a4eeaf084a8c5b587f520f6c9e3f0 \
 	'http://www.pc88.gr.jp/softlib/index.php?action=download&anum=2&gnum=378&fname=PCP108.LZH'
@@ -252,6 +255,8 @@ extract_archive "$cache_dir/pcp108.lzh" "$work_dir/pcp108"
 extract_archive "$cache_dir/pcp108p.lzh" "$work_dir/pcp108p"
 extract_archive "$cache_dir/schd155t.lzh" "$work_dir/schd"
 extract_archive "$cache_dir/rdpcm001.lzh" "$work_dir/rdpcm"
+mkdir -p -- "$work_dir/reset"
+unzip -q "$cache_dir/reset.zip" -d "$work_dir/reset"
 mkdir -p -- "$work_dir/tsclva"
 unzip -q "$cache_dir/tsclva.zip" -d "$work_dir/tsclva"
 mkdir -p -- "$work_dir/tsclbdf"
@@ -372,6 +377,7 @@ copy_payload "$stage_dir/PCPLUS.SYS" sys/PCPLUS.SYS
 copy_payload "$work_dir/schd/SCHD.SYS" sys/SCHD.SYS
 copy_payload "$hostfat_sys" sys/HOSTFAT.SYS
 copy_payload "$work_dir/pcepat/PCEPAT.SYS" sys/PCEPAT.SYS
+copy_payload "$work_dir/reset/RESET.SYS" sys/RESET.SYS
 copy_payload "$stage_dir/MSE352B.COM" sys/MSE352B.COM
 copy_payload "$work_dir/rdbms/RDBMS.SYS" sys/RDBMS.SYS
 copy_payload "$work_dir/ramdisk/RAMDISK.SYS" sys/RAMDISK.SYS
@@ -452,6 +458,7 @@ copy_payload "$work_dir/schd/SCHD.LOG" doc/SCHD.LOG
 copy_payload "$work_dir/schd/SCHD.TXT" doc/SCHD.TXT
 copy_payload "$work_dir/rdbms/RDBMS.DOC" doc/RDBMS.DOC
 copy_payload "$work_dir/rdpcm/RDPCM.DOC" doc/RDPCM.DOC
+copy_payload "$work_dir/reset/RESET.DOC" doc/RESET.DOC
 copy_payload "$stage_dir/TSCLVA.DOC" doc/TSCLVA.DOC
 copy_payload "$work_dir/bms/bms15020.doc" doc/BMS15020.DOC
 copy_payload "$work_dir/bms/bms15020.hed" doc/BMS15020.HED
@@ -529,6 +536,7 @@ printf '%s\r\n' \
 	'DEVICE  = A:\SYS\SCHD.SYS -I0' \
 	'DEVICE  = A:\SYS\HOSTFAT.SYS' \
 	'DEVICE  = A:\SYS\PCEPAT.SYS' \
+	'DEVICE  = A:\SYS\RESET.SYS' \
 	'DEVICE  = A:\SYS\TSCLVA.SYS' \
 	'DEVICE  = A:\SYS\MSE352B.COM' \
 	'DEVICE  = A:\SYS\RDBMS.SYS -P1D0 -S1' \

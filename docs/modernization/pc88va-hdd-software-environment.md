@@ -78,6 +78,10 @@ SYSTEM/EMS/XMS/UMB/BMS and VA-only SMM information. The published file is
 is the Softlib `RDPCM001.LZH` package. It turns the 256KB ADPCM sample RAM on
 a PC-88VA Sound Board II into a PC-Engine RAM disk.
 
+[RESET for PC-Engine Rev.51028](http://www.pc88.gr.jp/softlib/index.php?action=list_file&anum=2&gnum=340)
+is the Softlib `RESET.ZIP` package. It adds a warm-reset key chord to
+PC-Engine v1.05/1.1.
+
 [TSCLVA](http://www.pc88.gr.jp/softlib/?action=list_file&anum=2&gnum=309)
 is a PC-Engine screen-editor BIOS accelerator. The base Softlib page labels it
 Rev.50702, while both files inside `TSCLVA.ZIP` identify that payload as
@@ -101,6 +105,7 @@ DEVICE  = A:\SYS\BMSDRVA.SYS
 DEVICE  = A:\SYS\SCHD.SYS -I0
 DEVICE  = A:\SYS\HOSTFAT.SYS
 DEVICE  = A:\SYS\PCEPAT.SYS
+DEVICE  = A:\SYS\RESET.SYS
 DEVICE  = A:\SYS\TSCLVA.SYS
 DEVICE  = A:\SYS\MSE352B.COM
 DEVICE  = A:\SYS\RDBMS.SYS -P1D0 -S1
@@ -181,6 +186,28 @@ DEVICE  = A:\SYS\RDEMS.SYS -P40 -A
 
 RDEMS is the EMS-backed RAM disk and intentionally loads after TSCLVA. TSCLVA
 itself does not provide EMS or a RAM disk.
+
+## RESET Warm-reset Driver
+
+RESET Rev.51028 is a character-device driver for PC-Engine v1.05/1.1. Pressing
+`Ctrl`+`GRPH`+`DEL` invokes its warm-reset path. The manual reports a resident
+size of `0200h` bytes on the PC-88VA, PC-88VA2/3, and a PC-88VA with the
+version-up board, and requires PCEPAT to be loaded first. The development disk
+therefore places RESET immediately after PCEPAT and before TSCLVA:
+
+```dos
+DEVICE  = A:\SYS\PCEPAT.SYS
+DEVICE  = A:\SYS\RESET.SYS
+DEVICE  = A:\SYS\TSCLVA.SYS
+```
+
+The reset path reinitializes the memory map, video state, floppy interface,
+keyboard, TSP, and related I/O before transferring control to the firmware
+reset vector. The manual explicitly notes that it does not initialize the
+YM2608 sound device. `RESET.SYS` and `RESET.DOC` are installed in `A:\SYS` and
+`A:\DOC`; `RESET.ASM` remains only in the preserved original archive. The
+package contains no EXE or COM file, so it adds no new DIET target. The builder
+still reprocesses every existing `.EXE` and `.COM` under `A:\BIN`.
 
 ## RDPCM ADPCM-memory RAM Disk
 
@@ -454,8 +481,9 @@ For maintainer-local preservation, verified copies of the public inputs used
 for this image are stored under the Git-ignored
 `docs/archives/pc88va-development-disk/` directory. This includes the LHA
 2.55 executable and 2.55b patch, `X8MAP130.LZH`, `EMMVA15A.LZH`,
-`RDEMS152.LZH`, `RDPCM001.LZH`, `TSCLVA.ZIP`, `TSCLBDF.ZIP`, `BMS15020.TGZ`,
-both `PCP108.LZH` and `PCP108P.LZH`, and the pinned SQEMM source archive.
+`RDEMS152.LZH`, `RDPCM001.LZH`, `RESET.ZIP`, `TSCLVA.ZIP`, `TSCLBDF.ZIP`,
+`BMS15020.TGZ`, both `PCP108.LZH` and `PCP108P.LZH`, and the pinned SQEMM
+source archive.
 These archive copies and the generated D88 remain outside Git.
 
 The complete build performs these operations:
@@ -464,7 +492,7 @@ The complete build performs these operations:
    original fixed system-file chains.
 2. Fetch and verify PCEPAT, BMS Driver 1.50 Rev 0.20, PCPLUS 1.08 and its
    group 2-451 bug-fix patch, SCHD 1.55t, RDBMS 1.21, RDPCM 0.01, TSCLVA
-   Rev.50703 and its Rev.51127 update, BDIFF/BUPDATE 1.28,
+   Rev.50703 and its Rev.51127 update, RESET Rev.51028, BDIFF/BUPDATE 1.28,
    MSE 3.52a and the 3.52b patch, WSP 1.50, LHA 2.55 and its official 2.55b
    patch, DIET 1.44, Memory Mapper for PC 1.3, EMMVA 1.5a, RDEMS 1.52,
    K-Launcher 1.30, TEEN 0.30p, VBUFF 1.02, FATMAP 1.1, FORG 2.03, the VA
@@ -484,7 +512,7 @@ The complete build performs these operations:
 9. Run every `.EXE` and `.COM` under `BIN` through DIET 1.44. COM files retain
    their COM form; files for which DIET cannot reduce byte size remain
    unchanged.
-10. Add the fourteen `SYS` drivers, the compressed `BIN` utilities, their `DOC`
+10. Add the fifteen `SYS` drivers, the compressed `BIN` utilities, their `DOC`
     files, and an empty `TMP` directory to the vanilla FAT12 filesystem.
 
 The PC-Engine disk has a valid FAT12 allocation structure but no conventional
@@ -494,9 +522,9 @@ two-head, eight-sector, 1024-byte PC-Engine 1.1 layout. It never relocates the
 existing `ENGINEIO.SYS` or `PCENGINE.SYS` boot chains. The vanilla builder
 clears all unreferenced data clusters, and new directory entries use a fixed
 DOS date, so repeated builds from the same source are byte-for-byte
-reproducible. The validated image installs 96 payload files totaling 923,596
+reproducible. The validated image installs 98 payload files totaling 925,773
 bytes in addition to the four retained PC-Engine system files and leaves
-232,448 bytes free.
+229,376 bytes free.
 
 The development disk is organized as follows. `KLVA.EXE`, `KLCUST.EXE`,
 `KL.CFG`, and `KLJPN.HLP` are also kept in `BIN` because `KLL.COM` needs the
@@ -517,6 +545,7 @@ A:\SYS\
   SCHD.SYS
   HOSTFAT.SYS
   PCEPAT.SYS
+  RESET.SYS
   TSCLVA.SYS
   MSE352B.COM
   RAMDISK.SYS
@@ -593,6 +622,7 @@ A:\DOC\
   RAMDISK.DOC
   RAMREAD.ME
   RDPCM.DOC
+  RESET.DOC
   SCHD.DOC
   SCHD.LOG
   SCHD.TXT
@@ -653,6 +683,7 @@ DEVICE  = A:\SYS\BMSDRVA.SYS
 DEVICE  = A:\SYS\SCHD.SYS -I0
 DEVICE  = A:\SYS\HOSTFAT.SYS
 DEVICE  = A:\SYS\PCEPAT.SYS
+DEVICE  = A:\SYS\RESET.SYS
 DEVICE  = A:\SYS\TSCLVA.SYS
 DEVICE  = A:\SYS\MSE352B.COM
 DEVICE  = A:\SYS\RDBMS.SYS -P1D0 -S1
@@ -663,8 +694,9 @@ DEVICE  = A:\SYS\RDPCM.SYS
 The EMMVA/SQEMM98 manager stack loads first. PCPLUS follows it, then the
 WSP-generated BMSDRVA device-driver form. PCPLUS still precedes the target-zero
 SCHD block driver. HOSTFAT is available when vaeg has a read-only host folder
-configured. PCEPAT and TSCLVA both precede MSE as their documentation requires,
-and MSE is loaded without `/A`, `/B`, or `/X`.
+configured. RESET loads immediately after its required PCEPAT dependency;
+PCEPAT, RESET, and TSCLVA all precede MSE, which is loaded without `/A`, `/B`,
+or `/X`.
 RDBMS uses the PC-88VA I/O Bank Memory port `01D0H`, starts with bank 1, and
 uses its documented default bank count because no explicit count is supplied.
 The EMMVA adapter pair encloses the Open Watcom-built SQEMM98 manager. RDEMS
@@ -690,14 +722,14 @@ used after making a backup as directed by its documentation.
 The resulting disk is intended for PC-Engine 1.1 on a PC-88VA2/VA3 or the
 corresponding upgraded VA environment. The script proves structural
 bootability by retaining the original IPL and fixed system-file placement. A
-bounded normal-speed VA2 boot of the reordered 96-file image at the default
+bounded normal-speed VA2 boot of the reordered 98-file image at the default
 1MB EMS setting reached PC-Engine `Ready` and left its disposable D88 copy
 unchanged. The automated `DIR` text injection reached the guest as only `R`;
 the immediately preceding development disk produced the same control result.
 The run therefore establishes boot completion without attributing that input
 limitation to this hotfix, but it is not a pass for BMSDRVA, TSCLVA, RDEMS,
-RDPCM, MSE utility execution, or K-Launcher. Those remain PC-88VA/vaeg human
-checks.
+RDPCM, RESET-key execution, MSE utility execution, or K-Launcher. Those remain
+PC-88VA/vaeg human checks.
 
 ## Supplemental Softlib Archive Disk
 
