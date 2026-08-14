@@ -233,7 +233,7 @@ def verify(root: pathlib.Path) -> None:
         "upd9002_regs_bind",
     ), "io/upd9002_regs.h")
     require_fragments(register_source, (
-        "UPD9002_REGS\tupd9002_regs",
+        "UPD9002_REGS upd9002_regs",
         "void upd9002_regs_reset(void)",
         "void upd9002_regs_bind(void)",
     ), "io/upd9002_regs.c")

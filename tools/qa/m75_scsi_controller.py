@@ -74,8 +74,8 @@ def validate(root: pathlib.Path) -> None:
         raise AssertionError("INQUIRY revision must be 1.00")
     require(scsicmd, "hdd_inquiry_unsupported_lun[36]",
             "unsupported-LUN INQUIRY response table")
-    require(scsicmd, "0x7f,0x00,0x02,0x02,0x1f",
-            "unsupported-LUN INQUIRY qualifier")
+    if re.search(r"0x7f\s*,\s*0x00\s*,\s*0x02\s*,\s*0x02\s*,\s*0x1f", scsicmd) is None:
+        raise AssertionError("missing unsupported-LUN INQUIRY qualifier")
     for helper, label in (("scsicmd_cdb_lun", "CDB LUN extraction"),
                           ("scsicmd_target_lun", "WD Target LUN extraction"),
                           ("scsicmd_lun_supported", "central LUN validation"),
@@ -136,8 +136,8 @@ def validate(root: pathlib.Path) -> None:
             "MODE SENSE invalid-field CHECK CONDITION")
     require(scsicmd, "if (!scsicmd_check_condition)",
             "CHECK CONDITION phase selection")
-    require(scsiio_h, "UINT\tcmdpos;", "transfer length state slot")
-    require(scsiio_h, "BYTE\treserved[2][0x2000];",
+    require(scsiio_h, "UINT cmdpos;", "transfer length state slot")
+    require(scsiio_h, "BYTE reserved[2][0x2000];",
             "serialized board-ROM padding")
     require(scsiio, "case SCSICMD_TRANS_INFO:",
             "controller TRANSFER INFO dispatch")
@@ -208,7 +208,7 @@ def validate(root: pathlib.Path) -> None:
             "AR19 fixed DATA window")
     require(scsiio, "case SCSICTR_STATUS:",
             "AR17 status access")
-    require(scsiio, "scsiio.port++;\n\t\t\treturn(scsiio.scsistatus)",
+    require(scsiio, "scsiio.port++;\n\t\treturn (scsiio.scsistatus)",
             "AR17 auto-increment to COMMAND")
     require(scsiio, "scsiio.membank & 4",
             "IRE1 IRQ gate")
