@@ -133,11 +133,8 @@ static void MEMCALL mainw_wt(UINT32 address, REG16 value) {
 static REG16 MEMCALL bmsw_rd(UINT32 address) {
 	UINT32 offset;
 
-	if (bmsio.bank == 0) {
-		return mainw_rd(address);
-	}
 	address -= 0x080000L;
-	offset = ((UINT32)(bmsio.bank - 1) << 17) + address;
+	offset = ((UINT32)bmsio.bank << 17) + address;
 	if (!bmsio.nomem && (bmsiowork.bmsmem != NULL) &&
 		(offset + 1 < bmsiowork.bmsmemsize)) {
 		return *(REG16 *)(bmsiowork.bmsmem + offset);
@@ -150,12 +147,8 @@ static REG16 MEMCALL bmsw_rd(UINT32 address) {
 static void MEMCALL bmsw_wt(UINT32 address, REG16 value) {
 	UINT32 offset;
 
-	if (bmsio.bank == 0) {
-		mainw_wt(address, value);
-		return;
-	}
 	address -= 0x080000L;
-	offset = ((UINT32)(bmsio.bank - 1) << 17) + address;
+	offset = ((UINT32)bmsio.bank << 17) + address;
 	if (!bmsio.nomem && (bmsiowork.bmsmem != NULL) &&
 		(offset + 1 < bmsiowork.bmsmemsize)) {
 		*(REG16 *)(bmsiowork.bmsmem + offset) = value;

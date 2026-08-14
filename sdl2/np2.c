@@ -48,6 +48,7 @@
 #include	"machine/timing.h"
 #include	"machine/keystat.h"
 #include	"bkupmemva.h"
+#include	"emsio.h"
 #include	"gui/gui.h"
 #include	"romcheck.h"
 #include	"selftest.h"
@@ -396,7 +397,7 @@ static void smoke_configure_va(const char *model) {
 	np2cfg.sgp_speed_mode = SGP_SPEED_MODEL_DEFAULT;
 	np2cfg.sgp_multiplier = 1;
 	np2cfg.ITF_WORK = 1;
-	np2cfg.EXTMEM = 1;
+	np2cfg.EXTMEM = EMSIO_DEFAULT_MEGABYTES;
 	np2cfg.SOUND_SW = np2_default_sound_for_model(model);
 }
 

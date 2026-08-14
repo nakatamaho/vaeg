@@ -580,18 +580,30 @@ static int test_va_bms_window(void) {
 	_BMSIO		saved_bmsio;
 	_BMSIOWORK	saved_bmsiowork;
 	BYTE		*retained_mem;
+	BYTE		saved_main[3];
 	int		result;
 
 	saved_bmsiocfg = bmsiocfg;
 	saved_bmsio = bmsio;
 	saved_bmsiowork = bmsiowork;
+	saved_main[0] = mem[0x080000];
+	saved_main[1] = mem[0x09fffe];
+	saved_main[2] = mem[0x09ffff];
+	mem[0x080000] = 0xa1;
+	mem[0x09fffe] = 0xb2;
+	mem[0x09ffff] = 0xc3;
 	ZeroMemory(&bmsio, sizeof(bmsio));
 	ZeroMemory(&bmsiowork, sizeof(bmsiowork));
 	result = SUCCESS;
 
 	bmsiocfg.enabled = FALSE;
-	if ((BMSIO_PORT_DEFAULT != 0x01d0) || (BMSIO_PORT_COMPAT != 0x00ec)) {
-		result = fail("VA BMS", "unexpected default or compatibility port");
+	if ((BMSIO_DEFAULT_ENABLED != TRUE) ||
+		(BMSIO_PORT_DEFAULT != 0x01d0) ||
+		(BMSIO_PORT_COMPAT != 0x00ec) ||
+		(BMSIO_BANK_BYTES != 0x20000) ||
+		(BMSIO_DEFAULT_BANKS != 0x80) ||
+		(((UINT32)BMSIO_DEFAULT_BANKS * BMSIO_BANK_BYTES) != 0x01000000)) {
+		result = fail("VA BMS", "unexpected default configuration");
 		goto bms_test_cleanup;
 	}
 	bmsiocfg.port = BMSIO_PORT_DEFAULT;
@@ -601,11 +613,14 @@ static int test_va_bms_window(void) {
 	bmsio_reset();
 	upd9002_memorywrite_va(0x080000, 0x12);
 	upd9002_memorywrite_va_w(0x09fffe, 0x3456);
-	if ((upd9002_memoryread_va(0x080000) != 0x12) ||
-		(upd9002_memoryread_va_w(0x09fffe) != 0x3456) ||
+	if ((upd9002_memoryread_va(0x080000) != 0xff) ||
+		(upd9002_memoryread_va_w(0x09fffe) != 0xffff) ||
+		(mem[0x080000] != 0xa1) || (mem[0x09fffe] != 0xb2) ||
+		(mem[0x09ffff] != 0xc3) ||
 		(bmsiowork.bmsmem != NULL) || (bmsiowork.bmsmemsize != 0) ||
-		(bmsio.cfg.port != BMSIO_PORT_DEFAULT) || (bmsio.nomem != 0)) {
-		result = fail("VA BMS", "bank zero did not pass through main RAM");
+		(bmsio.cfg.port != BMSIO_PORT_DEFAULT) || (bmsio.nomem != 1)) {
+		result = fail("VA BMS", "disabled aperture was not open bus");
+		goto bms_test_cleanup;
 	}
 
 	bmsiocfg.enabled = TRUE;
@@ -623,9 +638,16 @@ static int test_va_bms_window(void) {
 		goto bms_test_cleanup;
 	}
 	ZeroMemory(bmsiowork.bmsmem, bmsiowork.bmsmemsize);
+	upd9002_memorywrite_va(0x080000, 0x12);
+	upd9002_memorywrite_va_w(0x09fffe, 0x3456);
 	if ((upd9002_memoryread_va(0x080000) != 0x12) ||
-		(upd9002_memoryread_va_w(0x09fffe) != 0x3456)) {
-		result = fail("VA BMS", "enabled bank zero did not preserve main RAM");
+		(upd9002_memoryread_va_w(0x09fffe) != 0x3456) ||
+		(bmsiowork.bmsmem[0] != 0x12) ||
+		(LOADINTELWORD(bmsiowork.bmsmem + 0x1fffe) != 0x3456) ||
+		(mem[0x080000] != 0xa1) || (mem[0x09fffe] != 0xb2) ||
+		(mem[0x09ffff] != 0xc3)) {
+		result = fail("VA BMS", "bank zero did not map BMS storage");
+		goto bms_test_cleanup;
 	}
 
 	retained_mem = bmsiowork.bmsmem;
@@ -635,6 +657,7 @@ static int test_va_bms_window(void) {
 		(upd9002_memoryread_va(0x080000) != 0x12) ||
 		(upd9002_memoryread_va_w(0x09fffe) != 0x3456)) {
 		result = fail("VA BMS", "ordinary reset did not retain BMS contents");
+		goto bms_test_cleanup;
 	}
 
 	bmsio.bank = 1;
@@ -644,20 +667,25 @@ static int test_va_bms_window(void) {
 	if ((upd9002_memoryread_va(0x080000) != 0x78) ||
 		(upd9002_memoryread_va_w(0x09fffe) != 0x9abc)) {
 		result = fail("VA BMS", "bank 1 access failed");
+		goto bms_test_cleanup;
 	}
 	bmsio.bank = 0;
 	if ((upd9002_memoryread_va(0x080000) != 0x12) ||
 		(upd9002_memoryread_va_w(0x09fffe) != 0x3456)) {
 		result = fail("VA BMS", "bank switch did not preserve bank 0");
+		goto bms_test_cleanup;
 	}
 
 	bmsiocfg.enabled = FALSE;
 	bmsio_set();
 	bmsio_reset();
 	if ((bmsiowork.bmsmem != NULL) || (bmsiowork.bmsmemsize != 0) ||
-		(bmsio.nomem != 0) ||
-		(upd9002_memoryread_va(0x080000) != 0x12)) {
-		result = fail("VA BMS", "disable did not restore main RAM");
+		(bmsio.nomem != 1) ||
+		(upd9002_memoryread_va(0x080000) != 0xff) ||
+		(upd9002_memoryread_va_w(0x09fffe) != 0xffff) ||
+		(mem[0x080000] != 0xa1) || (mem[0x09fffe] != 0xb2) ||
+		(mem[0x09ffff] != 0xc3)) {
+		result = fail("VA BMS", "disable did not close the aperture");
 	}
 
 bms_test_cleanup:
@@ -667,6 +695,9 @@ bms_test_cleanup:
 	bmsiocfg = saved_bmsiocfg;
 	bmsio = saved_bmsio;
 	bmsiowork = saved_bmsiowork;
+	mem[0x080000] = saved_main[0];
+	mem[0x09fffe] = saved_main[1];
+	mem[0x09ffff] = saved_main[2];
 	if (result == SUCCESS) {
 		fprintf(stderr, "selftest: VA BMS config/window lifecycle ok\n");
 	}
@@ -717,7 +748,7 @@ static int test_va_ems_board(void) {
 		goto ems_test_cleanup;
 	}
 
-	if ((EMSIO_DEFAULT_MEGABYTES != 1) ||
+	if ((EMSIO_DEFAULT_MEGABYTES != 13) ||
 		(EMSIO_MIN_MEGABYTES != 1) ||
 		(EMSIO_MAX_MEGABYTES != 13)) {
 		result = fail("VA EMS", "unexpected capacity bounds");

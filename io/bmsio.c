@@ -10,7 +10,7 @@
 #include	"iocoreva.h"
 #include	"bmsio.h"
 
-		_BMSIOCFG	bmsiocfg = {FALSE, BMSIO_PORT_DEFAULT,
+		_BMSIOCFG	bmsiocfg = {BMSIO_DEFAULT_ENABLED, BMSIO_PORT_DEFAULT,
 							BMSIO_PORT_MASK, BMSIO_DEFAULT_BANKS};
 		_BMSIO		bmsio;
 		_BMSIOWORK	bmsiowork;
@@ -21,7 +21,7 @@
 void bmsio_setnumbanks(UINT8 num) {
 	UINT32 memsize;
 
-	memsize = ((UINT32)num) * 0x20000;
+	memsize = ((UINT32)num) * BMSIO_BANK_BYTES;
 	if (bmsiowork.bmsmemsize != memsize) {
 		if (bmsiowork.bmsmem) {
 			_MFREE(bmsiowork.bmsmem);
@@ -49,7 +49,7 @@ static void IOOUTCALL bmsio_o00ec(UINT port, REG8 dat) {
 
 	bank=dat;
 	bmsio.bank=bank;
-	if ((bank == 0) || (bank <= bmsio.cfg.numbanks)) {
+	if (bmsio.cfg.enabled && (bank < bmsio.cfg.numbanks)) {
 		bmsio.nomem=0;
 	}
 	else {
