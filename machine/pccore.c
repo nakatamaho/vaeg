@@ -57,7 +57,7 @@ const OEMCHAR np2version[] = OEMTEXT(NP2VER_CORE);
 				0, 0, {1, 1, 6, 1, 8, 1},
 				OEMTEXT("88VA2"), PCBASECLOCK40, 2, 0, 1,
 				{0x48, 0x05, 0x04, 0x00, 0x01, 0x00, 0x00, 0x6e},
-				1, 1, 2, 1, 0x000000, 0xffffff,
+				1, EMSIO_DEFAULT_MEGABYTES, 2, 1, 0x000000, 0xffffff,
 				22050, 500, FMBOARD_VA_OPNA, 0,
 				{0, 0, 0}, 0xd1, 0x7f, 0xd1, 0, 0, 1,
 				3, {0x0c, 0x0c, 0x08, 0x06, 0x03, 0x0c}, 64, 64, 64, 64, 64,

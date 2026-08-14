@@ -914,13 +914,15 @@ static void draw_bms_config_dialog(void) {
 		ImGui::InputInt("128KB banks", &g_gui.pending_bms_banks, 1, 16);
 		if (banks_valid) {
 			ImGui::Text("Capacity: %dKB (%.3fMiB)",
-				g_gui.pending_bms_banks * 128,
+				g_gui.pending_bms_banks * (BMSIO_BANK_BYTES / 1024),
 				static_cast<double>(g_gui.pending_bms_banks) / 8.0);
 		}
 		else {
 			ImGui::TextUnformatted("Bank count must be between 1 and 255.");
 		}
 		ImGui::Separator();
+		ImGui::TextWrapped("The 80000H-9FFFFH aperture is available only while "
+			"BMS is enabled; each selector value chooses one BMS bank.");
 		ImGui::TextWrapped("Applying a change resets the guest. Disabling BMS or "
 			"changing its bank count discards current BMS contents.");
 
