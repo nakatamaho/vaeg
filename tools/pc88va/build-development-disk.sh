@@ -98,7 +98,7 @@ done
 [[ ! -e ${output_d88} ]] || die 'output already exists; refusing to overwrite it'
 [[ -d ${output_d88%/*} || ${output_d88} != */* ]] || die 'output directory does not exist'
 
-for required_command in curl dosbox lha nasm python3 sha256sum tar unzip; do
+for required_command in curl dd dosbox lha nasm od python3 sha256sum tar unzip; do
 	command -v "$required_command" >/dev/null 2>&1 ||
 		die "required host command is missing: $required_command"
 done
@@ -113,6 +113,26 @@ verify_sha256() {
 	actual=$(sha256sum -- "$path")
 	actual=${actual%% *}
 	[[ ${actual} == "${expected}" ]]
+}
+
+patch_rdbms_default_port() {
+	local path=$1
+	local before
+	local after
+
+	verify_sha256 "$path" \
+		7ead949be781303f12c3fc1bf499de3d59a504acea69747d90e21bb4109d5d49 ||
+		die 'RDBMS.SYS has unexpected original contents'
+	before=$(od -An -tx1 -j 26 -N 2 "$path" | tr -d '[:space:]')
+	[[ ${before} == ec00 ]] ||
+		die 'RDBMS.SYS does not contain the expected 00ECH default port'
+	printf '\320\001' | dd of="$path" bs=1 seek=26 conv=notrunc status=none
+	after=$(od -An -tx1 -j 26 -N 2 "$path" | tr -d '[:space:]')
+	[[ ${after} == d001 ]] ||
+		die 'could not set the RDBMS.SYS default port to 01D0H'
+	verify_sha256 "$path" \
+		8a4e09f9f2b1b1363a3d07a1edeb36ae744665324a7de9a1c628e6480a5f0289 ||
+		die 'patched RDBMS.SYS has unexpected contents'
 }
 
 fetch_package() {
@@ -262,6 +282,7 @@ unzip -q "$cache_dir/tsclva.zip" -d "$work_dir/tsclva"
 mkdir -p -- "$work_dir/tsclbdf"
 unzip -q "$cache_dir/tsclbdf.zip" -d "$work_dir/tsclbdf"
 extract_archive "$cache_dir/rdbms121.lzh" "$work_dir/rdbms"
+patch_rdbms_default_port "$work_dir/rdbms/RDBMS.SYS"
 extract_archive "$cache_dir/bdiff128.lzh" "$work_dir/bdiff"
 extract_archive "$cache_dir/mse352a.lzh" "$work_dir/mse352a"
 extract_archive "$cache_dir/mse352bf.lzh" "$work_dir/mse352bf"
