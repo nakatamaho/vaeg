@@ -29,13 +29,11 @@ the current MSE `/B` limitation.
 
 Release screenshots:
 
-![PC-88VA development disk CONFIG.SYS](docs/images/release-20260814-pc88va-config.png)
+![PC-88VA device driver registration, first screen](docs/images/release-20260814-device-drivers-top.png)
+
+![PC-88VA device driver registration, continued](docs/images/release-20260814-device-drivers-bottom.png)
 
 ![CP/MVA tools disk](docs/images/release-20260814-cpmva-tools.png)
-
-![VA2 PC-Engine ready screen](docs/images/release-20260814-va2-boot.png)
-
-![VA2 development disk boot check](docs/images/release-20260814-va2-development.png)
 
 ### 2026-08-06 - M76: uPD70008-compatible Z80 emulation and CP/MVA
 
