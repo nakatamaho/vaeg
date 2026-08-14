@@ -97,20 +97,20 @@ The development environment assembled below uses this baseline `CONFIG.SYS`:
 ```dos
 FILES   = 20
 BUFFERS = 30
-DEVICE  = A:\SYS\EMMVA01.SYS
-DEVICE  = A:\SYS\SQEMM98.SYS
-DEVICE  = A:\SYS\EMMVA02.SYS
-DEVICE  = A:\SYS\PCPLUS.SYS
-DEVICE  = A:\SYS\BMSDRVA.SYS
-DEVICE  = A:\SYS\SCHD.SYS -I0
-DEVICE  = A:\SYS\HOSTFAT.SYS
-DEVICE  = A:\SYS\PCEPAT.SYS
-DEVICE  = A:\SYS\RESET.SYS
-DEVICE  = A:\SYS\TSCLVA.SYS
-DEVICE  = A:\SYS\MSE352B.COM
-DEVICE  = A:\SYS\RDBMS.SYS -P1D0 -S1
-DEVICE  = A:\SYS\RDEMS.SYS -P40 -A
-DEVICE  = A:\SYS\RDPCM.SYS
+DEVICE = A:\SYS\EMMVA01.SYS
+DEVICE = A:\SYS\SQEMM98.SYS
+DEVICE = A:\SYS\EMMVA02.SYS
+DEVICE = A:\SYS\PCPLUS.SYS
+DEVICE = A:\SYS\BMSDRVA.SYS
+DEVICE = A:\SYS\SCHD.SYS -I0
+DEVICE = A:\SYS\HOSTFAT.SYS
+DEVICE = A:\SYS\PCEPAT.SYS
+DEVICE = A:\SYS\RESET.SYS
+DEVICE = A:\SYS\TSCLVA.SYS
+DEVICE = A:\SYS\MSE352B.COM
+DEVICE = A:\SYS\RDBMS.SYS -P1D0
+DEVICE = A:\SYS\RDEMS.SYS -P40 -A
+DEVICE = A:\SYS\RDPCM.SYS
 ```
 
 Here `A:` is the booted VA environment. The exact drive letter can differ if
@@ -125,8 +125,8 @@ The example in that document uses:
 ```dos
 FILES   = 20
 BUFFERS = 30
-DEVICE  = PCEPAT.SYS
-DEVICE  = MSE312.SYS
+DEVICE = PCEPAT.SYS
+DEVICE = MSE312.SYS
 ```
 
 `MSE352B.COM` is the MS-DOS application emulator for PC-Engine. The
@@ -174,14 +174,14 @@ requires PCEPAT to precede TSCLVA and places TSCLVA before MSE. The
 development-disk order therefore uses:
 
 ```dos
-DEVICE  = A:\SYS\PCPLUS.SYS
-DEVICE  = A:\SYS\BMSDRVA.SYS
+DEVICE = A:\SYS\PCPLUS.SYS
+DEVICE = A:\SYS\BMSDRVA.SYS
 ...
-DEVICE  = A:\SYS\PCEPAT.SYS
-DEVICE  = A:\SYS\TSCLVA.SYS
-DEVICE  = A:\SYS\MSE352B.COM
+DEVICE = A:\SYS\PCEPAT.SYS
+DEVICE = A:\SYS\TSCLVA.SYS
+DEVICE = A:\SYS\MSE352B.COM
 ...
-DEVICE  = A:\SYS\RDEMS.SYS -P40 -A
+DEVICE = A:\SYS\RDEMS.SYS -P40 -A
 ```
 
 RDEMS is the EMS-backed RAM disk and intentionally loads after TSCLVA. TSCLVA
@@ -196,9 +196,9 @@ version-up board, and requires PCEPAT to be loaded first. The development disk
 therefore places RESET immediately after PCEPAT and before TSCLVA:
 
 ```dos
-DEVICE  = A:\SYS\PCEPAT.SYS
-DEVICE  = A:\SYS\RESET.SYS
-DEVICE  = A:\SYS\TSCLVA.SYS
+DEVICE = A:\SYS\PCEPAT.SYS
+DEVICE = A:\SYS\RESET.SYS
+DEVICE = A:\SYS\TSCLVA.SYS
 ```
 
 The reset path reinitializes the memory map, video state, floppy interface,
@@ -226,7 +226,7 @@ it last so it cannot change the ordering requirements of the HDD, MSE, and EMS
 stacks:
 
 ```dos
-DEVICE  = A:\SYS\RDPCM.SYS
+DEVICE = A:\SYS\RDPCM.SYS
 ```
 
 The generated disk retains `RDPCM.SYS` in `A:\SYS` and `RDPCM.DOC` in
@@ -312,7 +312,9 @@ memory ends at `7FFFFH` (512KB); the aperture is exactly `80000H-9FFFFH`.
 When BMS is disabled, CPU and SGP reads from the aperture return open-bus
 values (`FFH`/`FFFFH`) and writes are ignored. When it is enabled, selector
 values zero through N-1 map directly to N independent 128KB BMS banks. Bank
-zero is therefore BMS storage, not a conventional-memory pass-through.
+zero is therefore BMS storage, not a pass-through to the built-in 512KB RAM.
+With selector zero it occupies `80000H`-`9FFFFH` and supplies the 128KB upper
+conventional-memory window expected by software such as RDBMS.
 
 A clean VAEG configuration enables BMS with 128 banks (16MB) at the native
 PC-88VA `01D0H` port. The corresponding persisted values are
@@ -353,9 +355,9 @@ pages, the fixed `C000H` page frame, zero page offset, and the startup memory
 test. The active stack is:
 
 ```dos
-DEVICE  = A:\SYS\EMMVA01.SYS
-DEVICE  = A:\SYS\SQEMM98.SYS
-DEVICE  = A:\SYS\EMMVA02.SYS
+DEVICE = A:\SYS\EMMVA01.SYS
+DEVICE = A:\SYS\SQEMM98.SYS
+DEVICE = A:\SYS\EMMVA02.SYS
 ```
 
 `SQEMM98.SYS` is the EMS manager created for this M90 workflow. `RDEMS.SYS`
@@ -369,7 +371,7 @@ Its included manual requires EMM version 3.2 or later and documents 40 EMS
 pages, or 640KB, as the default. For example:
 
 ```dos
-DEVICE  = A:\SYS\RDEMS.SYS -P40 -A
+DEVICE = A:\SYS\RDEMS.SYS -P40 -A
 ```
 
 The development-disk builder keeps both original LZH archives and installs
@@ -539,7 +541,7 @@ two-head, eight-sector, 1024-byte PC-Engine 1.1 layout. It never relocates the
 existing `ENGINEIO.SYS` or `PCENGINE.SYS` boot chains. The vanilla builder
 clears all unreferenced data clusters, and new directory entries use a fixed
 DOS date, so repeated builds from the same source are byte-for-byte
-reproducible. The validated image installs 98 payload files totaling 925,773
+reproducible. The validated image installs 98 payload files totaling 925,755
 bytes in addition to the four retained PC-Engine system files and leaves
 229,376 bytes free.
 
@@ -692,20 +694,20 @@ remain in the root as required for boot. `CONFIG.SYS` is:
 ```dos
 FILES   = 20
 BUFFERS = 30
-DEVICE  = A:\SYS\EMMVA01.SYS
-DEVICE  = A:\SYS\SQEMM98.SYS
-DEVICE  = A:\SYS\EMMVA02.SYS
-DEVICE  = A:\SYS\PCPLUS.SYS
-DEVICE  = A:\SYS\BMSDRVA.SYS
-DEVICE  = A:\SYS\SCHD.SYS -I0
-DEVICE  = A:\SYS\HOSTFAT.SYS
-DEVICE  = A:\SYS\PCEPAT.SYS
-DEVICE  = A:\SYS\RESET.SYS
-DEVICE  = A:\SYS\TSCLVA.SYS
-DEVICE  = A:\SYS\MSE352B.COM
-DEVICE  = A:\SYS\RDBMS.SYS -P1D0 -S1
-DEVICE  = A:\SYS\RDEMS.SYS -P40 -A
-DEVICE  = A:\SYS\RDPCM.SYS
+DEVICE = A:\SYS\EMMVA01.SYS
+DEVICE = A:\SYS\SQEMM98.SYS
+DEVICE = A:\SYS\EMMVA02.SYS
+DEVICE = A:\SYS\PCPLUS.SYS
+DEVICE = A:\SYS\BMSDRVA.SYS
+DEVICE = A:\SYS\SCHD.SYS -I0
+DEVICE = A:\SYS\HOSTFAT.SYS
+DEVICE = A:\SYS\PCEPAT.SYS
+DEVICE = A:\SYS\RESET.SYS
+DEVICE = A:\SYS\TSCLVA.SYS
+DEVICE = A:\SYS\MSE352B.COM
+DEVICE = A:\SYS\RDBMS.SYS -P1D0
+DEVICE = A:\SYS\RDEMS.SYS -P40 -A
+DEVICE = A:\SYS\RDPCM.SYS
 ```
 
 The EMMVA/SQEMM98 manager stack loads first. PCPLUS follows it, then the
@@ -714,8 +716,11 @@ SCHD block driver. HOSTFAT is available when vaeg has a read-only host folder
 configured. RESET loads immediately after its required PCEPAT dependency;
 PCEPAT, RESET, and TSCLVA all precede MSE, which is loaded without `/A`, `/B`,
 or `/X`.
-RDBMS uses the PC-88VA I/O Bank Memory port `01D0H`, starts with bank 1, and
-uses its documented default bank count because no explicit count is supplied.
+RDBMS explicitly selects the PC-88VA I/O Bank Memory port `01D0H`. Its
+documented defaults start at bank 1 and use 15 banks when `-S` and the bank
+count are omitted. On a 512KB VA, bank 0 supplies the `80000H`-`9FFFFH`
+128KB conventional-memory window; RDBMS reserves it by starting its RAM disk
+at bank 1 and restores bank 0 after each transfer.
 The EMMVA adapter pair encloses the Open Watcom-built SQEMM98 manager. RDEMS
 loads after TSCLVA and allocates its default 40-page EMS RAM disk. The BMS VA
 device driver is resident, while its COM form remains available for management.
