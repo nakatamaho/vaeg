@@ -29,9 +29,9 @@ the current MSE `/B` limitation.
 
 Release screenshots:
 
-![PC-88VA device driver registration, first screen](docs/images/release-20260814-device-drivers-top.png)
+![PC-88VA device driver registration at startup frame 35](docs/images/release-20260814-device-drivers-top.png)
 
-![PC-88VA device driver registration, continued](docs/images/release-20260814-device-drivers-bottom.png)
+![PC-88VA device driver registration at startup frame 40](docs/images/release-20260814-device-drivers-bottom.png)
 
 ![CP/MVA tools disk](docs/images/release-20260814-cpmva-tools.png)
 
