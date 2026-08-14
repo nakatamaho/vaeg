@@ -206,6 +206,42 @@ m2_wait_loop:
     call poll_keyboard
     jc animation_done
     jmp m2_wait_loop
+%elif M7_VARIANT >= 3
+    mov byte [current_command_index], 0
+    mov byte [build_command_index], 1
+    call start_sgp_command_list
+    jc animation_failed
+    mov byte [pipeline_active], 1
+
+pipeline_loop:
+    call poll_keyboard
+    jc animation_done
+
+    push cs
+    pop ds
+    call update_sprite_positions
+
+    ; Build the next list for the page currently on display.  Restore the
+    ; current SGP page before the synchronized flip.
+    xor byte [draw_page_index], 1
+    call set_draw_page_base
+    call build_sgp_frame_commands
+    xor byte [draw_page_index], 1
+    call set_draw_page_base
+
+    call wait_sgp_idle
+    jc animation_failed
+    call flip_draw_page
+    jc animation_failed
+    call update_fps_counter
+    call record_completed_frame
+
+    mov al, [build_command_index]
+    mov [current_command_index], al
+    xor byte [build_command_index], 1
+    call start_sgp_command_list
+    jc animation_failed
+    jmp pipeline_loop
 %else
 animation_loop:
     call poll_keyboard
@@ -224,6 +260,13 @@ animation_loop:
 %endif
 
 animation_done:
+%if M7_VARIANT >= 3
+    cmp byte [pipeline_active], 0
+    je .no_pipeline_wait
+    call wait_sgp_idle
+    mov byte [pipeline_active], 0
+.no_pipeline_wait:
+%endif
     call restore_video_state
     call print_m6_summary
     mov dx, message_done
@@ -239,6 +282,13 @@ initialization_failed:
     int 0x21
 
 animation_failed:
+%if M7_VARIANT >= 3
+    cmp byte [pipeline_active], 0
+    je .no_pipeline_wait
+    call wait_sgp_idle
+    mov byte [pipeline_active], 0
+.no_pipeline_wait:
+%endif
     call restore_video_state
     call print_m6_summary
     mov dx, message_animation_failed
@@ -364,14 +414,26 @@ initialize_video:
     call draw_g0_checkerboard
 %if MILESTONE_STAGE >= 3
     mov byte [draw_page_index], 0
+%if M7_VARIANT >= 3
+    mov byte [build_command_index], 0
+    mov byte [current_command_index], 0
+%endif
     call set_draw_page_base
     call render_sprite_frame
     jc .failed
 
     mov byte [draw_page_index], 1
+%if M7_VARIANT >= 3
+    mov byte [build_command_index], 1
+    mov byte [current_command_index], 1
+%endif
     call set_draw_page_base
     call render_sprite_frame
     jc .failed
+%if M7_VARIANT >= 3
+    mov byte [current_command_index], 0
+    mov byte [build_command_index], 1
+%endif
 %endif
 
     call set_display_page_from_draw
@@ -1274,6 +1336,29 @@ emit_dirty_clear_commands:
     ret
 %endif
 
+select_build_buffer:
+%if M7_VARIANT >= 3
+    cmp byte [build_command_index], 0
+    jne .buffer_b
+    mov di, sgp_command_list_a
+    mov [builder_command_base], di
+    mov si, sgp_work_area_a
+    mov [builder_work_area], si
+    ret
+.buffer_b:
+    mov di, sgp_command_list_b
+    mov [builder_command_base], di
+    mov si, sgp_work_area_b
+    mov [builder_work_area], si
+    ret
+%else
+    mov di, sgp_command_list
+    mov [builder_command_base], di
+    mov si, sgp_work_area
+    mov [builder_work_area], si
+    ret
+%endif
+
 render_sprite_frame:
     call build_sgp_frame_commands
     call run_sgp_command_list
@@ -1298,11 +1383,11 @@ build_sgp_frame_commands:
     mov [m6_sgp_source_bytes_frame_lo], ax
     mov [m6_sgp_source_bytes_frame_hi], ax
     call update_frame_transfer_stats
-    mov di, sgp_command_list
+    call select_build_buffer
 
     mov ax, SGP_COMMAND_SET_WORK
     stosw
-    mov si, sgp_work_area
+    mov si, [builder_work_area]
     call physical_address_from_ds_si
     stosw
     mov ax, dx
@@ -1404,15 +1489,29 @@ build_sgp_frame_commands:
     stosw
 
     mov ax, di
-    sub ax, sgp_command_list
+    sub ax, [builder_command_base]
     shr ax, 1
     mov [m6_sgp_commands_frame], ax
     call m6_accumulate_frame_counters
 
+%if M7_VARIANT == 3
+    mov si, [builder_command_base]
+    call physical_address_from_ds_si
+    cmp byte [build_command_index], 0
+    jne .store_command_address_b
+    mov [sgp_command_address_a_low], ax
+    mov [sgp_command_address_a_high], dx
+    jmp .command_address_ready
+.store_command_address_b:
+    mov [sgp_command_address_b_low], ax
+    mov [sgp_command_address_b_high], dx
+.command_address_ready:
+%elif M7_VARIANT < 3
     mov si, sgp_command_list
     call physical_address_from_ds_si
     mov [sgp_command_address_low], ax
     mov [sgp_command_address_high], dx
+%endif
 
     pop es
     pop bp
@@ -1505,10 +1604,51 @@ emit_fps_glyph_commands:
     ret
 
 run_sgp_command_list:
+%if M7_VARIANT >= 3
+    mov al, [build_command_index]
+    mov [current_command_index], al
+    call start_sgp_command_list
+    jc .failed
+    call wait_sgp_idle
+    ret
+%else
     call wait_sgp_idle
     jc .failed
+    call start_sgp_command_list
+    jc .failed
+    call wait_sgp_idle
+    ret
+%endif
 
+.failed:
+    stc
+    ret
+
+start_sgp_command_list:
+    push ax
+    push dx
     mov dx, PORT_SGP_COMMAND
+%if M7_VARIANT >= 3
+    cmp byte [current_command_index], 0
+    jne .buffer_b
+    mov ax, [sgp_command_address_a_low]
+    out dx, al
+    inc dx
+    mov al, ah
+    out dx, al
+    inc dx
+    mov ax, [sgp_command_address_a_high]
+    jmp .address_ready
+.buffer_b:
+    mov ax, [sgp_command_address_b_low]
+    out dx, al
+    inc dx
+    mov al, ah
+    out dx, al
+    inc dx
+    mov ax, [sgp_command_address_b_high]
+.address_ready:
+%else
     mov ax, [sgp_command_address_low]
     out dx, al
     inc dx
@@ -1516,6 +1656,7 @@ run_sgp_command_list:
     out dx, al
     inc dx
     mov ax, [sgp_command_address_high]
+%endif
     out dx, al
     inc dx
     mov al, ah
@@ -1528,12 +1669,9 @@ run_sgp_command_list:
     mov dx, PORT_SGP_STATUS
     mov al, SGP_BUSY
     out dx, al
-
-    call wait_sgp_idle
-    ret
-
-.failed:
-    stc
+    pop dx
+    pop ax
+    clc
     ret
 
 wait_sgp_idle:
@@ -1643,10 +1781,31 @@ saved_g0_bpp:
     db 0
 saved_g1_bpp:
     db 0
+builder_command_base:
+    dw 0
+builder_work_area:
+    dw 0
+%if M7_VARIANT >= 3
+sgp_command_address_a_low:
+    dw 0
+sgp_command_address_a_high:
+    dw 0
+sgp_command_address_b_low:
+    dw 0
+sgp_command_address_b_high:
+    dw 0
+current_command_index:
+    db 0
+build_command_index:
+    db 0
+pipeline_active:
+    db 0
+%else
 sgp_command_address_low:
     dw 0
 sgp_command_address_high:
     dw 0
+%endif
 active_sprite_count:
     dw SPRITE_INITIAL_COUNT
 m6_emit_remaining:
@@ -1866,8 +2025,15 @@ palette_values:
     dw RGB565(31, 63, 31)
 
 align 2, db 0
+%if M7_VARIANT >= 3
+sgp_command_list_a:
+    times SGP_COMMAND_WORD_COUNT dw 0
+sgp_command_list_b:
+    times SGP_COMMAND_WORD_COUNT dw 0
+%else
 sgp_command_list:
     times SGP_COMMAND_WORD_COUNT dw 0
+%endif
 
 align 2, db 0
 sprite_records:
@@ -1901,8 +2067,15 @@ sprite_records:
 
 
 align 2, db 0
+%if M7_VARIANT >= 3
+sgp_work_area_a:
+    times 58 db 0
+sgp_work_area_b:
+    times 58 db 0
+%else
 sgp_work_area:
     times 58 db 0
+%endif
 
 align 2, db 0
 sgp_zero_word:
