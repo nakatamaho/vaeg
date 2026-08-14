@@ -177,7 +177,7 @@ The stage variants are:
 | `SGPDEMO2.COM` | M2 Graphic 0 checkerboard/video bring-up |
 | `SGPDEMO3.COM` | M3 one transparent SGP BITBLT |
 | `SGPDEMO4.COM` | M4 multiple animated pseudo-sprites |
-| `SGPDEMO5.COM` | M5 hidden-page/double-buffered sprites |
+| `SGPDEMO5.COM` | M5 hidden-page/double-buffered sprites (1-256 balls; no bullets) |
 | `SGPDEMO6.COM` | M6 stress prefix, bullets, FPS/count, and counters |
 
 ## Build

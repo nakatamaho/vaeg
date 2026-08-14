@@ -423,8 +423,8 @@ The source now accepts `-dMILESTONE_STAGE=1` through `-dMILESTONE_STAGE=6`.
 The reproducible helper `build_milestone_coms.sh` emits the six runnable
 names. M1 is a text hardware-inventory diagnostic; M2 initializes the video
 mode and leaves the checkerboard visible; M3 uses one transparent SGP BITBLT;
-M4 uses multiple animated records; M5 uses the hidden-page path without the
-M6 bullet stress prefix; and M6 is the full stress/counter build.
+M4 uses multiple animated records; M5 uses the hidden-page path with 1-256 ball records and no M6 bullet
+stress prefix; and M6 is the full stress/counter build.
 
 The resulting COM sizes are:
 
@@ -433,7 +433,7 @@ SGPDEMO1.COM 20718
 SGPDEMO2.COM 20660
 SGPDEMO3.COM  8690
 SGPDEMO4.COM  8692
-SGPDEMO5.COM  8698
+SGPDEMO5.COM 20746
 SGPDEMO6.COM 20734
 ~~~
 
