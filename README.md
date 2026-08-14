@@ -14,6 +14,18 @@ normal development targets the CMake/SDL2 tree.
 
 ## News
 
+### 2026-08-14 - Rel.260814
+
+[Rel.260814](https://github.com/nakatamaho/vaeg/releases/tag/rel-260814)
+adds reproducible CP/MVA/uPD70008 support, the configurable PC-88VA EMS
+Board, native VA BMS defaults (16MB at `01D0H` with 640KB main RAM preserved),
+and the EMMVA/SQEMM98/RDEMS development-disk workflow. It also includes SDL
+keyboard and Windows JIS input fixes, host-drive selection, and 98-font and
+effective-clock GUI diagnostics. Release packages include matching
+`HOSTFAT.SYS` and `SQEMM98.SYS` drivers with licenses, instructions, and
+checksums. See [Rel.260814 changes](CHANGES.20260814.md) for setup notes and
+the current MSE `/B` limitation.
+
 ### 2026-08-06 - M76: uPD70008-compatible Z80 emulation and CP/MVA
 
 M76 brings the uPD70008-compatible Z80 emulation path to a working state.
