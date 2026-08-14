@@ -93,7 +93,6 @@
 
 // ---- I/F
 
-static const IOOUT updo20[1] = {upd4990_o20};
 
 void uPD4990_reset(void) {
 
@@ -102,6 +101,5 @@ void uPD4990_reset(void) {
 
 void uPD4990_bind(void) {
 
-	iocore_attachsysoutex(0x0020, 0x0cf1, updo20, 1);
 }
 

@@ -42,12 +42,12 @@ static void adjustpal(int palno) {
 
 // ---- I/O
 
-//    テキスト制御ポート0
+// Text-control port 0.
 static void IOOUTCALL videova_o030(UINT port, REG8 dat) {
 	videova.txtmode8 = dat;
 }
 
-//    表示画面制御レジスタ
+// Display-screen control register.
 
 static REG8 IOINPCALL videova_i100(UINT port) {
 //	return videova.grmode & 0xff;
@@ -69,7 +69,7 @@ static void IOOUTCALL videova_o101(UINT port, REG8 dat) {
 	SETHIGHBYTE(videova.grmode, dat);
 }
 
-//    グラフィック画面制御レジスタ
+// Graphics-screen control register.
 
 static REG8 IOINPCALL videova_i102(UINT port) {
 //	return videova.grres & 0xff;
@@ -91,7 +91,7 @@ static void IOOUTCALL videova_o103(UINT port, REG8 dat) {
 	SETHIGHBYTE(videova.grres, dat);
 }
 
-//    パレット指定画面制御レジスタ
+// Palette-indexed screen-composition register.
 
 static void IOOUTCALL videova_o106(UINT port, REG8 dat) {
 	SETLOWBYTE(videova.colcomp, dat);
@@ -101,7 +101,7 @@ static void IOOUTCALL videova_o107(UINT port, REG8 dat) {
 	SETHIGHBYTE(videova.colcomp, dat);
 }
 
-//    直接色指定画面制御レジスタ
+// Direct-color screen-composition register.
 
 static void IOOUTCALL videova_o108(UINT port, REG8 dat) {
 	SETLOWBYTE(videova.rgbcomp, dat);
@@ -111,7 +111,7 @@ static void IOOUTCALL videova_o109(UINT port, REG8 dat) {
 	SETHIGHBYTE(videova.rgbcomp, dat);
 }
 
-//    画面マスクモードレジスタ
+// Screen-mask mode register.
 
 static void IOOUTCALL videova_o10a(UINT port, REG8 dat) {
 	SETLOWBYTE(videova.mskmode, dat);
@@ -121,7 +121,7 @@ static void IOOUTCALL videova_o10b(UINT port, REG8 dat) {
 	SETHIGHBYTE(videova.mskmode, dat);
 }
 
-//    カラーパレットモードレジスタ
+// Color-palette mode register.
 
 static REG8 IOINPCALL videova_i10c(UINT port) {
 //	return videova.palmode & 0xff;
@@ -143,7 +143,7 @@ static void IOOUTCALL videova_o10d(UINT port, REG8 dat) {
 	SETHIGHBYTE(videova.palmode, dat);
 }
 
-//   バックドロップカラー
+// Backdrop-color register.
 static void IOOUTCALL videova_o10e(UINT port, REG8 dat) {
 	SETLOWBYTE(videova.dropcol, dat);
 	videova.dropcol = adjustcolor12(videova.dropcol);
@@ -154,13 +154,13 @@ static void IOOUTCALL videova_o10f(UINT port, REG8 dat) {
 	videova.dropcol = adjustcolor12(videova.dropcol);
 }
 
-//   カラーコード/プレーンマスクレジスタ
-//     bit15-12 テキスト/スプライト判別境界カラー(1～設定値 がスプライト)
-//     bit11- 8 シングルプレーン1bit/pixel時のフォアグラウンドカラー
-//     bit 7    マルチプレーン 4bit/pixel プレーン3 スイッチ(1でON)
-//     bit 6    グラフィック表示回路モード(1でV1/V2)
-//     bit 5- 4 0
-//     bit 3- 0 マルチプレーン 1bit/pixel プレーンn画面スイッチ
+// Color-code and plane-mask register.
+//     bits 15-12: text/sprite boundary; color codes 1 through this value are sprites.
+//     bits 11-8: foreground color for single-plane 1-bpp graphics.
+//     bit 7: plane-3 display enable for multi-plane 4-bpp graphics.
+//     bit 6: legacy V1/V2 graphics-display circuit when set.
+//     bits 5-4: reserved; software writes zero.
+//     bits 3-0: per-plane display enables for multi-plane 1-bpp graphics.
 static void IOOUTCALL videova_o110(UINT port, REG8 dat) {
 	SETLOWBYTE(videova.pagemsk, dat);
 }
@@ -170,7 +170,7 @@ static void IOOUTCALL videova_o111(UINT port, REG8 dat) {
 }
 
 
-//   グラフィック画面0透明色レジスタ
+// Graphics-screen 0 transparent-color register.
 
 static void IOOUTCALL videova_o124(UINT port, REG8 dat) {
 	SETLOWBYTE(videova.xpar_g0, dat);
@@ -180,7 +180,7 @@ static void IOOUTCALL videova_o125(UINT port, REG8 dat) {
 	SETHIGHBYTE(videova.xpar_g0, dat);
 }
 
-//   グラフィック画面1透明色レジスタ
+// Graphics-screen 1 transparent-color register.
 
 static void IOOUTCALL videova_o126(UINT port, REG8 dat) {
 	SETLOWBYTE(videova.xpar_g1, dat);
@@ -190,7 +190,7 @@ static void IOOUTCALL videova_o127(UINT port, REG8 dat) {
 	SETHIGHBYTE(videova.xpar_g1, dat);
 }
 
-//   テキスト/スプライト透明色レジスタ
+// Text/sprite transparent-color register.
 
 static void IOOUTCALL videova_o12e(UINT port, REG8 dat) {
 	SETLOWBYTE(videova.xpar_txtspr, dat | 0x0001);
@@ -200,7 +200,7 @@ static void IOOUTCALL videova_o12f(UINT port, REG8 dat) {
 	SETHIGHBYTE(videova.xpar_txtspr, dat);
 }
 
-//    画面マスクパラメータ
+// Screen-mask boundary registers.
 
 static void IOOUTCALL videova_o130(UINT port, REG8 dat) {
 	SETLOWBYTE(videova.mskleft, dat);
@@ -234,18 +234,18 @@ static void IOOUTCALL videova_o137(UINT port, REG8 dat) {
 	SETHIGHBYTE(videova.mskbot, dat & 0xff);
 }
 
-//   テキスト画面制御ポート
+// Text-screen control port.
 
 static void IOOUTCALL videova_o148(UINT port, REG8 dat) {
 	videova.txtmode = dat | 1;
 	//TRACEOUT(("videova_o148 - %x %x %.4x:%.4x", port, dat, CPU_CS, CPU_IP));
 	if ((dat & 1) == 0) {
-		// TVRAM 256Kモード
+		// The 256K TVRAM mode is not implemented.
 		TRACEOUT(("videova_o148: WARNING: TVRAM 256K mode is not supported."));
 	}
 }
 
-//   パレット
+// Palette registers.
 
 static void IOOUTCALL videova_o_palette_l(UINT port, REG8 dat) {
 	int n;
@@ -264,7 +264,7 @@ static void IOOUTCALL videova_o_palette_h(UINT port, REG8 dat) {
 }
 
 
-//   フレームバッファ制御
+// Framebuffer control registers.
 
 #define fbno(x) ((x>>5) & 3)
 
@@ -553,132 +553,132 @@ void videova_reset(void) {
 
 	videova.crtmode = sysportvacfg.dipsw & 1;
 
-	// ToDo: パレットの初期化
+	// TODO: establish documented power-on palette values.
 }
 
 void videova_bind(void) {
 	int i;
 
-	iocore_attachvaout(0x030, videova_o030);
+	iocore_attachout(0x030, videova_o030);
 
-	iocore_attachvainp(0x100, videova_i100);
-	iocore_attachvainp(0x101, videova_i101);
-	iocore_attachvaout(0x100, videova_o100);
-	iocore_attachvaout(0x101, videova_o101);
+	iocore_attachinp(0x100, videova_i100);
+	iocore_attachinp(0x101, videova_i101);
+	iocore_attachout(0x100, videova_o100);
+	iocore_attachout(0x101, videova_o101);
 
-	iocore_attachvainp(0x102, videova_i102);
-	iocore_attachvainp(0x103, videova_i103);
-	iocore_attachvaout(0x102, videova_o102);
-	iocore_attachvaout(0x103, videova_o103);
+	iocore_attachinp(0x102, videova_i102);
+	iocore_attachinp(0x103, videova_i103);
+	iocore_attachout(0x102, videova_o102);
+	iocore_attachout(0x103, videova_o103);
 
-	iocore_attachvaout(0x106, videova_o106);
-	iocore_attachvaout(0x107, videova_o107);
-	iocore_attachvaout(0x108, videova_o108);
-	iocore_attachvaout(0x109, videova_o109);
+	iocore_attachout(0x106, videova_o106);
+	iocore_attachout(0x107, videova_o107);
+	iocore_attachout(0x108, videova_o108);
+	iocore_attachout(0x109, videova_o109);
 
-	iocore_attachvaout(0x10a, videova_o10a);
-	iocore_attachvaout(0x10b, videova_o10b);
+	iocore_attachout(0x10a, videova_o10a);
+	iocore_attachout(0x10b, videova_o10b);
 
-	iocore_attachvainp(0x10c, videova_i10c);
-	iocore_attachvainp(0x10d, videova_i10d);
-	iocore_attachvaout(0x10c, videova_o10c);
-	iocore_attachvaout(0x10d, videova_o10d);
+	iocore_attachinp(0x10c, videova_i10c);
+	iocore_attachinp(0x10d, videova_i10d);
+	iocore_attachout(0x10c, videova_o10c);
+	iocore_attachout(0x10d, videova_o10d);
 
-	iocore_attachvaout(0x10e, videova_o10e);
-	iocore_attachvaout(0x10f, videova_o10f);
+	iocore_attachout(0x10e, videova_o10e);
+	iocore_attachout(0x10f, videova_o10f);
 
-	iocore_attachvaout(0x110, videova_o110);
-	iocore_attachvaout(0x111, videova_o111);
+	iocore_attachout(0x110, videova_o110);
+	iocore_attachout(0x111, videova_o111);
 
-	iocore_attachvaout(0x124, videova_o124);
-	iocore_attachvaout(0x125, videova_o125);
-	iocore_attachvaout(0x126, videova_o126);
-	iocore_attachvaout(0x127, videova_o127);
-	iocore_attachvaout(0x12e, videova_o12e);
-	iocore_attachvaout(0x12f, videova_o12f);
+	iocore_attachout(0x124, videova_o124);
+	iocore_attachout(0x125, videova_o125);
+	iocore_attachout(0x126, videova_o126);
+	iocore_attachout(0x127, videova_o127);
+	iocore_attachout(0x12e, videova_o12e);
+	iocore_attachout(0x12f, videova_o12f);
 
-	iocore_attachvaout(0x130, videova_o130);
-	iocore_attachvaout(0x131, videova_o131);
-	iocore_attachvaout(0x132, videova_o132);
-	iocore_attachvaout(0x133, videova_o133);
-	iocore_attachvaout(0x134, videova_o134);
-	iocore_attachvaout(0x135, videova_o135);
-	iocore_attachvaout(0x136, videova_o136);
-	iocore_attachvaout(0x137, videova_o137);
+	iocore_attachout(0x130, videova_o130);
+	iocore_attachout(0x131, videova_o131);
+	iocore_attachout(0x132, videova_o132);
+	iocore_attachout(0x133, videova_o133);
+	iocore_attachout(0x134, videova_o134);
+	iocore_attachout(0x135, videova_o135);
+	iocore_attachout(0x136, videova_o136);
+	iocore_attachout(0x137, videova_o137);
 
-	iocore_attachvaout(0x148, videova_o148);
+	iocore_attachout(0x148, videova_o148);
 
 	for (i = 0; i < VIDEOVA_FRAMEBUFFERS; i++) {
 		int base;
 		base = PORT_FRAMEBUFFER + 0x20 * i;
 
-		iocore_attachvaout(base + 0x00, videova_o_fb_00);
-		iocore_attachvaout(base + 0x01, videova_o_fb_01);
-		iocore_attachvaout(base + 0x02, videova_o_fb_02);
-		iocore_attachvaout(base + 0x03, videova_o_fb_03);
+		iocore_attachout(base + 0x00, videova_o_fb_00);
+		iocore_attachout(base + 0x01, videova_o_fb_01);
+		iocore_attachout(base + 0x02, videova_o_fb_02);
+		iocore_attachout(base + 0x03, videova_o_fb_03);
 
-		iocore_attachvaout(base + 0x04, videova_o_fb_04);
-		iocore_attachvaout(base + 0x05, videova_o_fb_05);
+		iocore_attachout(base + 0x04, videova_o_fb_04);
+		iocore_attachout(base + 0x05, videova_o_fb_05);
 
-		iocore_attachvaout(base + 0x06, videova_o_fb_06);
-		iocore_attachvaout(base + 0x07, videova_o_fb_07);
+		iocore_attachout(base + 0x06, videova_o_fb_06);
+		iocore_attachout(base + 0x07, videova_o_fb_07);
 
-		iocore_attachvaout(base + 0x08, videova_o_fb_08);
-		iocore_attachvaout(base + 0x09, videova_o_fb_09);
+		iocore_attachout(base + 0x08, videova_o_fb_08);
+		iocore_attachout(base + 0x09, videova_o_fb_09);
 
-		iocore_attachvaout(base + 0x0a, videova_o_fb_0a);
-		iocore_attachvaout(base + 0x0b, videova_o_fb_0b);
+		iocore_attachout(base + 0x0a, videova_o_fb_0a);
+		iocore_attachout(base + 0x0b, videova_o_fb_0b);
 
-		iocore_attachvaout(base + 0x0c, videova_o_fb_0c);
-		iocore_attachvaout(base + 0x0d, videova_o_fb_0d);
+		iocore_attachout(base + 0x0c, videova_o_fb_0c);
+		iocore_attachout(base + 0x0d, videova_o_fb_0d);
 
-		iocore_attachvaout(base + 0x0e, videova_o_fb_0e);
-		iocore_attachvaout(base + 0x0f, videova_o_fb_0f);
-		iocore_attachvaout(base + 0x10, videova_o_fb_10);
-		iocore_attachvaout(base + 0x11, videova_o_fb_11);
+		iocore_attachout(base + 0x0e, videova_o_fb_0e);
+		iocore_attachout(base + 0x0f, videova_o_fb_0f);
+		iocore_attachout(base + 0x10, videova_o_fb_10);
+		iocore_attachout(base + 0x11, videova_o_fb_11);
 
-		iocore_attachvaout(base + 0x12, videova_o_fb_12);
-		iocore_attachvaout(base + 0x13, videova_o_fb_13);
+		iocore_attachout(base + 0x12, videova_o_fb_12);
+		iocore_attachout(base + 0x13, videova_o_fb_13);
 
-		iocore_attachvaout(base + 0x16, videova_o_fb_16);
-		iocore_attachvaout(base + 0x17, videova_o_fb_17);
+		iocore_attachout(base + 0x16, videova_o_fb_16);
+		iocore_attachout(base + 0x17, videova_o_fb_17);
 
 	
-		iocore_attachvainp(base + 0x00, videova_i_fb_00);
-		iocore_attachvainp(base + 0x01, videova_i_fb_01);
-		iocore_attachvainp(base + 0x02, videova_i_fb_02);
-		iocore_attachvainp(base + 0x03, videova_i_fb_03);
+		iocore_attachinp(base + 0x00, videova_i_fb_00);
+		iocore_attachinp(base + 0x01, videova_i_fb_01);
+		iocore_attachinp(base + 0x02, videova_i_fb_02);
+		iocore_attachinp(base + 0x03, videova_i_fb_03);
 
-		iocore_attachvainp(base + 0x04, videova_i_fb_04);
-		iocore_attachvainp(base + 0x05, videova_i_fb_05);
+		iocore_attachinp(base + 0x04, videova_i_fb_04);
+		iocore_attachinp(base + 0x05, videova_i_fb_05);
 
-		iocore_attachvainp(base + 0x06, videova_i_fb_06);
-		iocore_attachvainp(base + 0x07, videova_i_fb_07);
+		iocore_attachinp(base + 0x06, videova_i_fb_06);
+		iocore_attachinp(base + 0x07, videova_i_fb_07);
 
-		iocore_attachvainp(base + 0x08, videova_i_fb_08);
-		iocore_attachvainp(base + 0x09, videova_i_fb_09);
+		iocore_attachinp(base + 0x08, videova_i_fb_08);
+		iocore_attachinp(base + 0x09, videova_i_fb_09);
 
-		iocore_attachvainp(base + 0x0a, videova_i_fb_0a);
-		iocore_attachvainp(base + 0x0b, videova_i_fb_0b);
+		iocore_attachinp(base + 0x0a, videova_i_fb_0a);
+		iocore_attachinp(base + 0x0b, videova_i_fb_0b);
 
-		iocore_attachvainp(base + 0x0c, videova_i_fb_0c);
-		iocore_attachvainp(base + 0x0d, videova_i_fb_0d);
+		iocore_attachinp(base + 0x0c, videova_i_fb_0c);
+		iocore_attachinp(base + 0x0d, videova_i_fb_0d);
 
-		iocore_attachvainp(base + 0x0e, videova_i_fb_0e);
-		iocore_attachvainp(base + 0x0f, videova_i_fb_0f);
-		iocore_attachvainp(base + 0x10, videova_i_fb_10);
-		iocore_attachvainp(base + 0x11, videova_i_fb_11);
+		iocore_attachinp(base + 0x0e, videova_i_fb_0e);
+		iocore_attachinp(base + 0x0f, videova_i_fb_0f);
+		iocore_attachinp(base + 0x10, videova_i_fb_10);
+		iocore_attachinp(base + 0x11, videova_i_fb_11);
 
-		iocore_attachvainp(base + 0x12, videova_i_fb_12);
-		iocore_attachvainp(base + 0x13, videova_i_fb_13);
+		iocore_attachinp(base + 0x12, videova_i_fb_12);
+		iocore_attachinp(base + 0x13, videova_i_fb_13);
 
-		iocore_attachvainp(base + 0x16, videova_i_fb_16);
-		iocore_attachvainp(base + 0x17, videova_i_fb_17);
+		iocore_attachinp(base + 0x16, videova_i_fb_16);
+		iocore_attachinp(base + 0x17, videova_i_fb_17);
 	}
 
 	for (i = 0; i < VIDEOVA_PALETTES * 2; i+=2) {
-		iocore_attachvaout(PORT_PALETTE + i, videova_o_palette_l);
-		iocore_attachvaout(PORT_PALETTE + i+1, videova_o_palette_h);
+		iocore_attachout(PORT_PALETTE + i, videova_o_palette_l);
+		iocore_attachout(PORT_PALETTE + i+1, videova_o_palette_h);
 	}
 
 }
@@ -688,24 +688,24 @@ int videova_hsyncmode(void) {
 	int ret;
 
 	if (videova.crtmode) {
-		// 24KHzディスプレイ
+		// 24.8 kHz display selected.
 		if (videova.grmode & 0x0080) {
-			// インターレースモード
+			// Interlaced mode.
 			ret = VIDEOVA_15_73KHZ;
 		}
 		else {
-			// ノンインターレースモード
+			// Non-interlaced mode.
 			ret = VIDEOVA_24_8KHZ;
 		}
 	}
 	else {
-		// 15KHzディスプレイ
+		// 15.7 kHz display selected.
 		if (videova.grmode & 0x0080) {
-			// インターレースモード
+			// Interlaced mode.
 			ret = VIDEOVA_15_73KHZ;
 		}
 		else {
-			// ノンインターレースモード
+			// Non-interlaced mode.
 			ret = VIDEOVA_15_98KHZ;
 		}
 	}

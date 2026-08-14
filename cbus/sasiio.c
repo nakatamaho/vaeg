@@ -11,7 +11,7 @@
 
 #include	"iocoreva.h"
 
-// TRACEOUTを有効にする場合は、以下の1を0にする
+// Change this condition to zero to enable SASI trace output.
 #if 1
 #undef TRACEOUT
 #define TRACEOUT(arg)
@@ -491,10 +491,6 @@ void sasiio_bind(void) {
 		iocore_attachout(0x0082, sasiio_o82);
 		iocore_attachinp(0x0080, sasiio_i80);
 		iocore_attachinp(0x0082, sasiio_i82);
-		iocore_attachvaout(0x0080, sasiio_o80);
-		iocore_attachvaout(0x0082, sasiio_o82);
-		iocore_attachvainp(0x0080, sasiio_i80);
-		iocore_attachvainp(0x0082, sasiio_i82);
 	}
 }
 

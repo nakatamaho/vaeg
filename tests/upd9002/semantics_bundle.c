@@ -634,6 +634,8 @@ static int test_shift_memory_and_rotate_protection(void) {
 
 int upd9002_semantics_bundle_main(void) {
 
+	upd9002_test_flat_memory_set(TRUE);
+
 	upd9002_core_initialize();
 	if ((test_evidence_oracles() != SUCCESS) ||
 		(test_aam_semantics() != SUCCESS) ||
@@ -646,9 +648,11 @@ int upd9002_semantics_bundle_main(void) {
 		(test_shift_registers() != SUCCESS) ||
 		(test_shift_memory_and_rotate_protection() != SUCCESS)) {
 		upd9002_core_deinitialize();
+		upd9002_test_flat_memory_set(FALSE);
 		return FAILURE;
 	}
 	upd9002_core_deinitialize();
+	upd9002_test_flat_memory_set(FALSE);
 	puts("upd9002-m62-semantics-bundle: audit infrastructure passed");
 	return SUCCESS;
 }

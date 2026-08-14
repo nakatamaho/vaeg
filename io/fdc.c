@@ -26,7 +26,7 @@ enum {
 	CLOCK80				= 7987200,		// 8MHz
 	CLOCK48				= 4792320,		// 4.8MHz
 
-	FDD_MOTORDELAY	= 505,	// FDDのモーターをONしてからreadyになるまでの時間(msec)
+	FDD_MOTORDELAY	= 505,	// Existing 505 ms approximation; Tekumani specifies 600 ms.
 
 	FDD_MOTOR_STOPPED	= 0,
 	FDD_MOTOR_STARTING	= 1,
@@ -78,9 +78,8 @@ static BOOL		fdctrace_stderr;
 
 #define getnow() 	(CPU_CLOCK + CPU_BASECLOCK - CPU_REMCLOCK)
 
-		// neventから呼び出されるコールバックルーチンで、
-		// イベント発生時刻を知るにはgetnow_oneventを使う。
-		// getnowはCPUの時刻なので、getnow_oneventより進んでいる。
+// In an nevent callback, CPU_CLOCK is the event timestamp. Use
+// getnow_onevent() there; getnow() includes progress beyond that boundary.
 #define getnow_onevent()	(CPU_CLOCK)
 
 static void start_executionphase(void);
@@ -470,7 +469,7 @@ REG8 DMACCALL fdc_dmafunc(REG8 func) {
 			return(1);
 
 		case DMAEXT_END:				// TC
-			fdc.tcreserved = TRUE;		// 次のread/writeが終わった時点でTC実行
+			fdc.tcreserved = TRUE;		// Apply terminal count after the current read/write unit completes.
 			break;
 
 		case DMAEXT_DRQ: 
@@ -562,7 +561,7 @@ void fdcsend_success7(void) {
 // ----------------------------------------------------------------------
 
 #if 0
-// FDCのタイムアウト			まぁ本当はこんなんじゃダメだけど…	ver0.29
+// Disabled approximation of the FDC command timeout.
 void fdctimeoutproc(NEVENTITEM item) {
 
 	if (item->flag & NEVENT_SETEVENT) {
@@ -626,7 +625,7 @@ static void get_eotgsldtl(void) {
 
 
 static BOOL inc_fdcR(void) {
-	BOOL	over;			// シリンダをまたがった
+	BOOL	over;			// The transfer crossed a cylinder boundary.
 
 	over = FALSE;
 
@@ -717,7 +716,7 @@ static void FDC_SenseDeviceStatus(void) {				// cmd: 04
 					fdc.buf[0] |= 0x20;
 					fdc.buf[0] |= 0x08;
 					/*
-						VAの場合、Ready=0ならTwo Side=0のようだ。
+						Observed VA behavior clears Two Side whenever Ready is clear.
 					*/
 				}
 				if (fddfile[fdc.us].protect) {
@@ -763,10 +762,10 @@ static BOOL writesector(void) {
 		return(FAILURE);
 	}
 	fdc.event = FDCEVENT_STARTBUFRECV;
-	fdc.bufp = 0;				// TCの処理でチェックするので必要
+	fdc.bufp = 0;				// Terminal-count handling tests whether a partial sector exists.
 /*
 	if (fdc.R == fdc.eot) {
-		// トラックの最後のセクタを書き終わった
+		// The final sector on this track has completed.
 		fdc.priampcnt = LENGTH_PRIAMP;
 	}
 	else {
@@ -822,9 +821,9 @@ static void FDC_WriteData(void) {						// cmd: 05
 
 		case FDCEVENT_TC:
 			if (fdc.bufp) {
-				// セクタの途中
+				// Terminal count arrived in the middle of a sector.
 				if (writesector()) {
-					// エラーなのでfdc.event は更新済みのはず
+					// writesector() has already selected the error-result event.
 					break;
 				}
 			}
@@ -1187,7 +1186,7 @@ static void resetrqm(void) {
 	}
 }
 
-// エクスキュージョンフェーズに入ったらこれを呼ぶ				
+// Initialize byte pacing when entering the execution phase.
 static void start_executionphase(void) {
 	int rpm = 360;
 	int tracklen;
@@ -1196,19 +1195,19 @@ static void start_executionphase(void) {
 	int gap0,sync,iam=4,gap1,idam=4,chrn=4,crc=2,gap2,ddam=4,data,gap3,gap4;
 
 	switch(CTRL_FDMEDIA[fdc.us]) {
-	// TODO: 2HD 1.44Mの場合→VAでは不要なので考えないことにする。
+	// VA drive modes modeled here do not include 1.44 MB 2HD media.
 	case DISKTYPE_2DD:		// 2D/2DD
 		gap0 = 80;
 		sync = 12;
 		gap1 = 50;
 		gap2 = 22;
-		data = 512;		// DOS(メディアID F9h, 2DD 720K)のフォーマットで代表させる
-		gap3 = 84;		// 同上
-		gap4 = 182;		// 同上
-		sectors = 9;	// 同上
-						// 備考
-						// 2DD 640K(512byte*8sector), 2D 320K(256byte*16sector)をこの設定で
-						// アクセスすると、実機より短時間でアクセスが終了する。
+		data = 512;		// Approximate with the DOS F9H 2DD 720 KiB format.
+		gap3 = 84;		// Same representative format.
+		gap4 = 182;		// Same representative format.
+		sectors = 9;	// Same representative format.
+						// This approximation completes 640 KiB 2DD and 320 KiB 2D tracks
+						// faster than real hardware because their sector layouts differ.
+
 		break;
 	case DISKTYPE_2HD:		// 2HD
 	default:
@@ -1216,31 +1215,29 @@ static void start_executionphase(void) {
 		sync = 12;
 		gap1 = 50;
 		gap2 = 22;
-		data = 1024;	// DOS(メディアID FEh)のフォーマットで代表させる
-		gap3 = 116;		// 同上
-		gap4 = 654;		// 同上
-		sectors = 8;	// 同上
+		data = 1024;	// Approximate with the DOS FEH 2HD format.
+		gap3 = 116;		// Same representative format.
+		gap4 = 654;		// Same representative format.
+		sectors = 8;	// Same representative format.
 		break;
 	}
 	seclen = sync + idam + chrn + crc + gap2 + sync + ddam + data + crc + gap3;
 	tracklen = gap0 + sync + iam + gap1 + seclen * sectors + gap4;
 //	fdc.rqminterval = pccore.realclock * 60 / (tracklen * rpm);
 	fdc.rqminterval = (SINT32)((UINT64)pccore.realclock * 60 / rpm / tracklen * seclen / data);
-						// 1トラックのデータを読み込む時間 = 
-						// プリアンブル・ポストアンブルを除いた部分を読み込むのに要する時間
-						// となるように設定する。
+	/* clocks_per_revolution = realclock * 60 / rpm.
+	 * sector_clocks = clocks_per_revolution * seclen / tracklen.
+	 * byte_interval = sector_clocks / payload_bytes.
+	 * This makes the modeled data-field time equal the sector time with
+	 * the track preamble and postamble excluded. */
 
-						// pccore.realclock * 60 / rpm = 1回転時間(clock)
-						// 1回転時間 * seclen / tracklen = 1セクタリード時間(clock)
-						// 1セクタリード時間 / data = 実データ1バイトあたりのリード時間
-	
 	fdc.rqmlastclock = getnow();
 	resetrqm();
 
 }
 
 
-// エクスキュージョンフェーズをぬけるときにこれを呼ぶ				
+// Clear byte pacing when leaving the execution phase.
 static void stop_executionphase(void) {
 	resetrqm();
 }
@@ -1438,7 +1435,7 @@ REG8 DMACCALL fdc_dataread(void) {
 						fdc.event = FDCEVENT_STARTBUFSEND2;
 /*
 						if (fdc.R == fdc.eot) {
-							// トラックの最後のセクタを読み終わった
+							// The final sector on this track has completed.
 							fdc.priampcnt = LENGTH_PRIAMP;
 						}
 						else {
@@ -1482,7 +1479,7 @@ static void stop_statewatch(void) {
 
 void fdc_timer(NEVENTITEM item) {
 	if (fdc.ctrlreg & 0x04) {
-		// XTMASK (1で割り込み許可)
+		// XTMASK is active high: one enables the timer interrupt.
 		if (fdc.chgreg & 1) {
 			pic_setirq(0x0b);
 		}
@@ -1507,32 +1504,7 @@ void fdc_fddmotor(NEVENTITEM item) {
 
 // ---- I/O
 
-static void IOOUTCALL fdc_o92(UINT port, REG8 dat) {
 
-//	TRACEOUT(("fdc out %.2x %.2x [%.4x:%.4x]", port, dat, CPU_CS, CPU_IP));
-
-	if (((port >> 4) ^ fdc.chgreg) & 1) {
-		return;
-	}
-	if ((fdc.status & (FDCSTAT_RQM | FDCSTAT_DIO)) == FDCSTAT_RQM) {
-		fdc_datawrite(dat);
-	}
-}
-
-static void IOOUTCALL fdc_o94(UINT port, REG8 dat) {
-
-//	TRACEOUT(("fdc out %.2x %.2x [%.4x:%.4x]", port, dat, CPU_CS, CPU_IP));
-
-	if (((port >> 4) ^ fdc.chgreg) & 1) {
-		return;
-	}
-	if ((fdc.ctrlreg ^ dat) & 0x10) {
-		fdcstatusreset();
-		fdc_dmaready(0);
-		dmac_check();
-	}
-	fdc.ctrlreg = dat;
-}
 
 
 static void IOOUTCALL fdcva_o_fdc1(UINT port, REG8 dat) {
@@ -1558,53 +1530,15 @@ static void IOOUTCALL fdcva_o_dskmisc(UINT port, REG8 dat) {
 		nevent_setbyms(NEVENT_FDCTIMER, 100, fdc_timer, NEVENT_ABSOLUTE);
 
 	}
-	fdc.ctrlreg = dat & 0xf5;		// 実際には、参照しているのはbit4(DMAE)のみのようだ
+	fdc.ctrlreg = dat & 0xf5;		// Only the modeled control bits are retained.
 }
 
 
 
 
 
-static REG8 IOINPCALL fdc_i90(UINT port) {
-//	TRACEOUT(("fdc in %.2x %.2x [%.4x:%.4x]", port, fdc.status,
-//															CPU_CS, CPU_IP));
 
-	if (((port >> 4) ^ fdc.chgreg) & 1) {
-		return(0xff);
-	}
-	return(fdc.status);
-}
 
-static REG8 IOINPCALL fdc_i92(UINT port) {
-
-	REG8	ret;
-
-	if (((port >> 4) ^ fdc.chgreg) & 1) {
-		return(0xff);
-	}
-	if ((fdc.status & (FDCSTAT_RQM | FDCSTAT_DIO))
-										== (FDCSTAT_RQM | FDCSTAT_DIO)) {
-		ret = fdc_dataread();
-	}
-	else {
-		ret = fdc.lastdata;
-	}
-//	TRACEOUT(("fdc in %.2x %.2x [%.4x:%.4x]", port, ret, CPU_CS, CPU_IP));
-	return(ret);
-}
-
-static REG8 IOINPCALL fdc_i94(UINT port) {
-
-	if (((port >> 4) ^ fdc.chgreg) & 1) {
-		return(0xff);
-	}
-	if (port & 0x10) {		// 94
-		return(0x40);
-	}
-	else {					// CC
-		return(0x70);		// readyを立てるるる
-	}
-}
 
 
 static REG8 IOINPCALL fdcva_i_fdc0(UINT port) {
@@ -1633,9 +1567,9 @@ static REG8 IOINPCALL fdcva_i_fdc1(UINT port) {
 static REG8 IOINPCALL fdcva_i_dskmisc(UINT port) {
 	REG8	ret;
 
-	ret = 0xa6 | 0x10;			// 常にready
-								// VA2のmonでi1b6 したら a6 が帰ってくる
-								// ToDo: bit4以外も意味があるのか？？
+	ret = 0xa6 | 0x10;			// Force the modeled drive-ready indication.
+								// A VA2 monitor read returned A6H before the forced ready bit.
+								// TODO: verify the remaining status-bit readback on hardware.
 
 //	TRACEOUT(("fdcva: in %.2x %.2x [%.4x:%.4x]", port, ret, CPU_CS, CPU_IP));
 	return ret;
@@ -1644,37 +1578,12 @@ static REG8 IOINPCALL fdcva_i_dskmisc(UINT port) {
 
 
 
-static void IOOUTCALL fdc_obe(UINT port, REG8 dat) {
 
-	int	i;
-
-	fdc.chgreg = dat;
-	if (fdc.chgreg & 2) {
-		for (i = 0; i < 4; i++) CTRL_FDMEDIA[i] = DISKTYPE_2HD;
-		fdc.clock = CLOCK80;
-	}
-	else {
-		for (i = 0; i < 4; i++) CTRL_FDMEDIA[i] = DISKTYPE_2DD;
-		fdc.clock = CLOCK48;
-	}
-	(void)port;
-}
-
-static REG8 IOINPCALL fdc_ibe(UINT port) {
-
-	(void)port;
-	return((fdc.chgreg & 3) | 8);
-}
 
 
 static void IOOUTCALL fdcva_o_dskctl(UINT port, REG8 dat) {
-/*
-	ToDo:
-	ドライブのモードにあわせて CTRL_FDMEDIA を切り替える必要があるが、
-	98は2ドライブ共通なのに対し、VAは独立に指定できるため、
-	困った。→対応済み
-	また、2Dの扱いは・・・？→対応済み
-*/
+	/* Port 1B4H selects media class and track density independently for
+	 * each VA drive. */
 	int i;
 
 	TRACEOUT(("fdcva: %.4x %.2x", port, dat));
@@ -1695,38 +1604,25 @@ static void IOOUTCALL fdcva_o_dskctl(UINT port, REG8 dat) {
 		}
 	}
 	if (dat & 0x20) {
-		// 8MHz
+		// Select the 8 MHz FDC clock.
 		fdc.clock = CLOCK80;
 	}
 	else {
-		// 4.8MHz
+		// Select the 4.8 MHz FDC clock.
 		fdc.clock = CLOCK48;
 	}
 	(void)port;
 }
 
 
-static void IOOUTCALL fdc_o4be(UINT port, REG8 dat) {
 
-	fdc.reg144 = dat;
-	if (dat & 0x10) {
-		fdc.rpm[(dat >> 5) & 3] = dat & 1;
-	}
-	(void)port;
-}
-
-static REG8 IOINPCALL fdc_i4be(UINT port) {
-
-	(void)port;
-	return(fdc.rpm[(fdc.reg144 >> 5) & 3] | 0xf0);
-}
 
 
 static void IOOUTCALL fdcva_o_mtrctl(UINT port, REG8 dat) {
 //	TRACEOUT(("fdcva: out %.2x %.2x [%.4x:%.4x]", port, dat, CPU_CS, CPU_IP));
 
-	// TODO: ドライブ1と2のモーターを区別せず駆動している。
-	//       正確にはわける必要がある。
+	// TODO: model each drive motor independently.
+	// The current latch starts and stops both modeled drives together.
 	if (dat & 0x03) {
 		if (fdc.motor[0] == FDD_MOTOR_STOPPED) {
 			fdc.motor[0] = fdc.motor[1] = FDD_MOTOR_STARTING;
@@ -1742,7 +1638,7 @@ static void IOOUTCALL fdcva_o_mtrctl(UINT port, REG8 dat) {
 	}
 }
 
-// ---- for PC-88VA Main System
+// ---- PC-88VA main-system interface
 
 
 static void IOOUTCALL fdcva_o1b0(UINT port, REG8 dat) {
@@ -1811,12 +1707,6 @@ void fdcsubsys_o_tc(void) {
 
 // ---- I/F
 
-static const IOOUT fdco90[4] = {
-					NULL,		fdc_o92,	fdc_o94,	NULL};
-static const IOINP fdci90[4] = {
-					fdc_i90,	fdc_i92,	fdc_i94,	NULL};
-static const IOOUT fdcobe[1] = {fdc_obe};
-static const IOINP fdcibe[1] = {fdc_ibe};
 
 void fdc_reset(void) {
 
@@ -1842,24 +1732,13 @@ void fdc_reset(void) {
 
 void fdc_bind(void) {
 
-	iocore_attachcmnoutex(0x0090, 0x00f9, fdco90, 4);
-	iocore_attachcmninpex(0x0090, 0x00f9, fdci90, 4);
-	iocore_attachcmnoutex(0x00c8, 0x00f9, fdco90, 4);
-	iocore_attachcmninpex(0x00c8, 0x00f9, fdci90, 4);
 
-	if (fdc.support144) {
-		iocore_attachout(0x04be, fdc_o4be);
-		iocore_attachinp(0x04be, fdc_i4be);
-	}
-	iocore_attachsysoutex(0x00be, 0x0cff, fdcobe, 1);
-	iocore_attachsysinpex(0x00be, 0x0cff, fdcibe, 1);
-
-	iocore_attachvaout(0x01b0, fdcva_o1b0);
-	iocore_attachvaout(0x01b2, fdcva_o1b2);
-	iocore_attachvaout(0x01b4, fdcva_o1b4);
-	iocore_attachvaout(0x01b6, fdcva_o1b6);
-	iocore_attachvainp(0x01b6, fdcva_i1b6);
-	iocore_attachvainp(0x01b8, fdcva_i1b8);
-	iocore_attachvaout(0x01ba, fdcva_o1ba);
-	iocore_attachvainp(0x01ba, fdcva_i1ba);
+	iocore_attachout(0x01b0, fdcva_o1b0);
+	iocore_attachout(0x01b2, fdcva_o1b2);
+	iocore_attachout(0x01b4, fdcva_o1b4);
+	iocore_attachout(0x01b6, fdcva_o1b6);
+	iocore_attachinp(0x01b6, fdcva_i1b6);
+	iocore_attachinp(0x01b8, fdcva_i1b8);
+	iocore_attachout(0x01ba, fdcva_o1ba);
+	iocore_attachinp(0x01ba, fdcva_i1ba);
 }

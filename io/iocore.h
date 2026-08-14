@@ -1,92 +1,49 @@
+#ifndef VAEG_IO_IOCORE_H
+#define VAEG_IO_IOCORE_H
 
 #ifndef IOOUTCALL
-#define	IOOUTCALL
+#define IOOUTCALL
 #endif
 #ifndef IOINPCALL
-#define	IOINPCALL
+#define IOINPCALL
 #endif
 
-typedef	void (IOOUTCALL *IOOUT)(UINT port, REG8 val);
-typedef	REG8 (IOINPCALL *IOINP)(UINT port);
-
+typedef void (IOOUTCALL *IOOUT)(UINT port, REG8 val);
+typedef REG8 (IOINPCALL *IOINP)(UINT port);
 typedef void (*IOCBFN)(void);
 
-#include	"lsidef.h"
+#include "lsidef.h"
 
-#include	"artic.h"
-#include	"cgrom.h"
-#include	"cpuio.h"
-#include	"dipsw.h"
-#include	"dmac.h"
-#include	"egc.h"
-#include	"emsio.h"
-#include	"fdc.h"
-#include	"fdd320.h"
-#include	"vramcompat.h"
-#include	"mouseif.h"
-#include	"necio.h"
-#include	"np2sysp.h"
-#include	"np2vasup.h"
-#include	"pic.h"
-#include	"pit.h"
-#include	"printif.h"
-#include	"serial.h"
-#include	"sysport.h"
-#include	"upd4990.h"
-
+#include "dmac.h"
+#include "emsio.h"
+#include "fdc.h"
+#include "mouseif.h"
+#include "np2sysp.h"
+#include "pic.h"
+#include "pit.h"
+#include "serial.h"
+#include "sysport.h"
+#include "upd4990.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-extern	_ARTIC		artic;
-extern	_CGROM		cgrom;
-extern	_CGWINDOW	cgwindow;
-extern	_DMAC		dmac;
-extern	_EGC		egc;
-extern	_EMSIO		emsio;
-extern	_FDC		fdc;
-extern	_GDCS		gdcs;
-extern	_GRCG		grcg;
-extern	_KEYBRD		keybrd;
-extern	_MOUSEIF	mouseif;
-extern	_NECIO		necio;
-extern	_NP2SYSP	np2sysp;
-extern	_PIC		pic;
-extern	_PIT		pit;
-extern	_RS232C		rs232c;
-extern	_SYSPORT	sysport;
-extern	_UPD4990	uPD4990;
+extern _DMAC dmac;
+extern _EMSIO emsio;
+extern _FDC fdc;
+extern _KEYBRD keybrd;
+extern _MOUSEIF mouseif;
+extern _NP2SYSP np2sysp;
+extern _PIC pic;
+extern _PIT pit;
+extern _RS232C rs232c;
+extern _SYSPORT sysport;
+extern _UPD4990 uPD4990;
 
-
-extern	UINT8		iomode_va;
-
-
-// I/O - 8bit decode
-void iocore_attachcmnout(UINT port, IOOUT func);
-void iocore_attachcmninp(UINT port, IOINP func);
-void iocore_attachcmnoutex(UINT port, UINT mask,
-											const IOOUT *func, UINT funcs);
-void iocore_attachcmninpex(UINT port, UINT mask,
-											const IOINP *func, UINT funcs);
-
-// システムI/O - 10bit decode
-void iocore_attachsysout(UINT port, IOOUT func);
-void iocore_attachsysinp(UINT port, IOINP func);
-void iocore_attachsysoutex(UINT port, UINT mask,
-											const IOOUT *func, UINT funcs);
-void iocore_attachsysinpex(UINT port, UINT mask,
-											const IOINP *func, UINT funcs);
-
-// サウンドI/O - 12bit decode
-BOOL iocore_attachsndout(UINT port, IOOUT func);
-BOOL iocore_attachsndinp(UINT port, IOINP func);
-
-// 拡張I/O - 16bit decode
+/* Register an exact port in the native VA 16-bit I/O address space. */
 BOOL iocore_attachout(UINT port, IOOUT func);
 BOOL iocore_attachinp(UINT port, IOINP func);
-BOOL iocore_attachvaout(UINT port, IOOUT func);
-BOOL iocore_attachvainp(UINT port, IOINP func);
 
 void iocore_create(void);
 void iocore_destroy(void);
@@ -107,4 +64,6 @@ UINT32 IOINPCALL iocore_inp32(UINT port);
 
 #ifdef __cplusplus
 }
+#endif
+
 #endif

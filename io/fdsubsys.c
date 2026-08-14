@@ -12,15 +12,15 @@
 
 
 enum {
-	// ポートC のビット(サブシステムからの見た場合)
+	// Port-C handshake bits, viewed from the subsystem side.
 
-	//   メイン→サブ
-	ATN_MAIN = 0x08,	//コマンド出力中		attention
-	DAC_MAIN = 0x04,	//データ引取り完了		data accepted
-	RFD_MAIN = 0x02,	//ハンドシェイクレディ	ready for data
-	DAV_MAIN = 0x01,	//データ出力中			data valid
+	// Main CPU to subsystem.
+	ATN_MAIN = 0x08,	// Command phase; attention asserted.
+	DAC_MAIN = 0x04,	// Data accepted.
+	RFD_MAIN = 0x02,	// Ready for data.
+	DAV_MAIN = 0x01,	// Data valid.
 
-	//   サブ→メイン
+	// Subsystem to main CPU.
 	DAC_SUB  = 0x40,
 	RFD_SUB  = 0x20,
 	DAV_SUB  = 0x10,
@@ -29,17 +29,17 @@ enum {
 	RFDBIT   = 5,
 	DAVBIT   = 4,
 
-	// サブのハンドシェイクの状態
+	// Subsystem handshake states.
 	HSST_STOPPED		= 0,
-	HSST_WAIT_ATN		= 1,	// ATN待ち
-	HSST_WAIT_CMD		= 2,	// DAV待ち/コマンド受信待ち
-	HSST_WAIT_DATA		= 3,	// DAV待ち/データ受信待ち
-	HSST_WAIT_DAV_RESET	= 4,	// DAV解除待ち
-	HSST_WAIT_RFD		= 11,	// RFD待ち/データ送信待ち
-	HSST_WAIT_DAC		= 12,	// DAC待ち
-	HSST_WAIT_DAC_RESET	= 13,	// DAC解除待ち
+	HSST_WAIT_ATN		= 1,	// Wait for ATN.
+	HSST_WAIT_CMD		= 2,	// Wait for DAV and command reception.
+	HSST_WAIT_DATA		= 3,	// Wait for DAV and data reception.
+	HSST_WAIT_DAV_RESET	= 4,	// Wait for DAV deassertion.
+	HSST_WAIT_RFD		= 11,	// Wait for RFD before sending data.
+	HSST_WAIT_DAC		= 12,	// Wait for DAC.
+	HSST_WAIT_DAC_RESET	= 13,	// Wait for DAC deassertion.
 
-	// サブのコマンド実行サイクルの状態
+	// Subsystem command-cycle states.
 	ST_RECV_CMD			= 0,
 	ST_RECV_DATA		= 1,
 	ST_EXEC_CMD			= 2,
@@ -49,7 +49,7 @@ enum {
 	WAITING		= 0,
 	GOAHEAD		= 1,
 
-	// サブシステムコマンド
+	// Subsystem command codes.
 	CMD_INITIALIZE			= 0x00,
 	CMD_WRITE_DATA			= 0x01,
 	CMD_READ_DATA			= 0x02,
@@ -66,18 +66,18 @@ enum {
 	CMD_SLEEP				= 0x25,
 	CMD_ACTIVE				= 0x26,
 
-	// サブシステムワークメモリのアドレス
-	WORK_DATA_BUF			= 0x4000,		// リード/ライトバッファ
-	WORK_READ_SECTOR_COUNT	= 0x7f08,		// リードしたセクタ数(リードコマンド実行時)
-	WORK_COMMAND_STATUS		= 0x7f14,		// コマンドステータス。(コマンド6参照)
-	WORK_DISK_MODE			= 0x7f44,		// ディスクモード ドライブ0,1の順
-	WORK_LAST_DISK_MODE		= 0x7f4f,		// 最後にアクセスしたドライブのディスクモード
-	WORK_DM_N				= 0x7f52,		// ディスクモードに対応するFDCのN
-	
+	// Addresses in subsystem work memory.
+	WORK_DATA_BUF			= 0x4000,		// Read/write data buffer.
+	WORK_READ_SECTOR_COUNT	= 0x7f08,		// Number of sectors completed by the read command.
+	WORK_COMMAND_STATUS		= 0x7f14,		// Command status returned by command 06H.
+	WORK_DISK_MODE			= 0x7f44,		// Per-drive disk mode, drive 0 then drive 1.
+	WORK_LAST_DISK_MODE		= 0x7f4f,		// Disk mode of the most recently accessed drive.
+	WORK_DM_N				= 0x7f52,		// FDC N field derived from the disk mode.
 
-	// その他
-	DATA_BUF_SIZE			= 0x2000,		// リード/ライトバッファのサイズ
-	DRIVES					= 2,			// ドライブ数
+
+	// Other constants.
+	DATA_BUF_SIZE			= 0x2000,		// Read/write data-buffer size.
+	DRIVES					= 2,			// Number of subsystem drives.
 };
 
 static const BYTE ntobit[]={0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80};
@@ -87,22 +87,22 @@ static BYTE portb_main;
 static BYTE portc_main;
 
 
-// ---- サブシステム
+// ---- FDD subsystem.
 
-		BYTE subsysmem[0x10000];	// サブシステムメモリ(64Kバイト)
+		BYTE subsysmem[0x10000];	// 64 KiB subsystem memory.
 
-static int	hsstate;		// ハンドシェイクの状態
+static int	hsstate;		// Current handshake state.
 static int	state;
 
 static BYTE	cmd;
-static BOOL cmdrecvd;		// コマンド受信済み
+static BOOL cmdrecvd;		// A complete command has been received.
 
-static int	recvdatacnt;	// 受信するデータのバイト数 減算カウンタ
-static BYTE *recvbuf;		// 受信バッファへのポインタ
-static int	senddatacnt;	// 送信するデータのバイト数 減算カウンタ
-static BYTE *sendbuf;		// 送信データへのポインタ
+static int	recvdatacnt;	// Remaining receive-byte count.
+static BYTE *recvbuf;		// Current receive destination.
+static int	senddatacnt;	// Remaining transmit-byte count.
+static BYTE *sendbuf;		// Current transmit source.
 
-static BYTE	parambuf[8];		// パラメータ送受信バッファ
+static BYTE	parambuf[8];		// Command parameter and result buffer.
 
 typedef struct {
 	UINT8	drive;
@@ -331,7 +331,7 @@ static int subsys_receive_data(void) {
 				hsstate = HSST_WAIT_DATA;
 			}
 			else {
-				// 予定したバイト数のデータを受信済み
+				// The complete scheduled receive payload has arrived.
 				return GOAHEAD;
 			}
 		}
@@ -359,7 +359,7 @@ static int subsys_send_data(void) {
 				hsstate = HSST_WAIT_RFD;
 			}
 			else {
-				// 予定したバイト数を送信済み
+				// The complete scheduled transmit payload has been sent.
 				return GOAHEAD;
 			}
 		}
@@ -368,9 +368,9 @@ static int subsys_send_data(void) {
 }
 
 /*
-コマンド受信後、パラメータ受信前の処理。
-主に、受信するパラメータのバイト数を決定する。
-	出力:
+Prepare a command after reception and before receiving its parameters.
+This primarily selects the command parameter length.
+	Output:
 		recvdatacnt
 		recvbuf
 */
@@ -426,7 +426,7 @@ static void subsys_cmd_received(void) {
 
 
 /*
-ディスク制御のためのサブルーチン
+Disk-control helpers.
 */
 
 static void config_fdc_by_disk_mode(int drv, int track) {
@@ -434,10 +434,10 @@ static void config_fdc_by_disk_mode(int drv, int track) {
 
 	mode = subsysmem[WORK_DISK_MODE + drv];
 
-	fdc.rpm[drv] = 0;	// 1.44ではない。 (ToDo: 設定方法は正しい？)
+	fdc.rpm[drv] = 0;	// The subsystem command set does not select 1.44 MB media here.
 	switch ((mode >> 4) & 0x03) {
 	case 0:	// 1D/2D
-		// ToDo: 48TPI/96TPIの切り替えをどう扱うか??
+		// TODO: model the documented 48/96 TPI selection.
 		CTRL_FDMEDIA[drv] = DISKTYPE_2DD;
 		break;
 	case 1: // 1DD/2DD
@@ -449,14 +449,14 @@ static void config_fdc_by_disk_mode(int drv, int track) {
 	}
 
 	if ((mode & 0x38) == 0x28 && track == 0) {
-		// 1HD/2HDでmodeのSPCビットが1でtrackが0の場合
+		// In 1HD/2HD mode, SPC remaps logical track zero.
 		fdc.mf = 0x00;	// FM
 	}
 	else {
 		fdc.mf = 0x40;	// MFM
 	}
 
-	fdc.N = mode & 0x03;	// セクタ長	fdc.Nを設定すればよいのか？
+	fdc.N = mode & 0x03;	// Set the FDC sector-size code from the subsystem disk mode.
 	subsysmem[WORK_DM_N] = fdc.N;
 	subsysmem[WORK_LAST_DISK_MODE] = mode;
 }
@@ -560,18 +560,18 @@ static void fdsubsys_trace_emit(void) {
 }
 
 /*
-各コマンドの実行
-	出力:
+Execute subsystem commands.
+	Output:
 		senddatacnt
 		sendbuf
 */
 
 /*
-0x00 初期化
+00H: initialize.
 */
 static void subsys_exec_initialize(void) {
 	TRACEOUT(("fdsubsys: initialize command"));
-	/* 以下の場合、初代VAだと2Dで読めたと勘違いしてV1/V2に移行しようとする
+	/* These FFH values make an original VA mis-detect readable 2D media and attempt V1/V2 mode.
 	subsysmem[WORK_DISK_MODE + 0] = 0xff;
 	subsysmem[WORK_DISK_MODE + 1] = 0xff;
 	*/
@@ -580,7 +580,7 @@ static void subsys_exec_initialize(void) {
 }
 
 /*
-0x01 ライトデータ
+01H: write data.
 */
 static void subsys_exec_write_data(void) {
 	if (parambuf[5] == 0) {
@@ -597,7 +597,7 @@ static void subsys_exec_write_data(void) {
 		if (recvdatacnt) {
 			recvbuf = &subsysmem[WORK_DATA_BUF];
 			state = ST_RECV_DATA;
-			parambuf[5] = 1;		// データ本体の受信にとりかかったことを表すフラグ
+			parambuf[5] = 1;		// Mark the payload receive phase as started.
 		}
 	}
 	else {
@@ -606,7 +606,7 @@ static void subsys_exec_write_data(void) {
 }
 
 /*
-0x02 ディスクからの読み込み
+02H: read sectors from disk.
 */
 static void subsys_exec_read_data(void) {
 	int drv;
@@ -629,15 +629,15 @@ static void subsys_exec_read_data(void) {
 
 	/*
 	fdc
-		us		ドライブ番号 (0～)
+		us: drive number, starting at zero.
 		ctrlfd (CTRL_FDMEDIA) DISKTYPE_2HD or DISKTYPE_2DD
-		treg	? 現在のシリンダ番号 設定不要？
-		hd		物理ヘッド番号
+		treg: current cylinder; not required by this path.
+		hd: physical head number.
 		C,H,R,N
 		mf		0:fm 0x40:mfm 0xff:??
 		rpm		?	0:1.2  1:1.44
 
-		ncn		シーク先のシリンダ番号
+		ncn: target seek cylinder.
 
 	
 	
@@ -662,7 +662,7 @@ static void subsys_exec_read_data(void) {
 		fdc.C = track >> 1;
 		fdc.H = track & 1;
 		fdc.R = sector;
-		// fdc.N はconfig_fdc_by_disk_modeで設定
+		// config_fdc_by_disk_mode() has already selected fdc.N.
 		fdc.hd = track & 1;
 
 		if (fdd_read()) goto failed;
@@ -685,7 +685,7 @@ failed:
 }
 
 /*
-0x03 リードバッファにあるデータを取得
+03H: return data from the read buffer.
 */
 static void subsys_exec_send_data(void) {
 	senddatacnt = (128 << subsysmem[WORK_DM_N]) * subsysmem[WORK_READ_SECTOR_COUNT];
@@ -697,7 +697,7 @@ static void subsys_exec_send_data(void) {
 }
 
 /*
-0x06 コマンドステータスの取得
+06H: return command status.
 */
 static void subsys_exec_send_result_status(void) {
 	parambuf[0] = subsysmem[WORK_COMMAND_STATUS];
@@ -711,33 +711,33 @@ static void subsys_exec_send_result_status(void) {
 }
 
 /*
-0x0c サブシステム側へのデータ転送
+0CH: transfer data into subsystem memory.
 */
 static void subsys_exec_receive_memory(void) {
 	if (parambuf[5] == 0) {
-		// データ本体が未受信
+		// Payload reception has not started.
 		WORD addr = (parambuf[0] << 8) | parambuf[1];
 		recvdatacnt = (parambuf[2] << 8) | parambuf[3];
 		recvbuf = &subsysmem[addr];
 		fdsubtrace.req_len = recvdatacnt;
 		fdsubsys_trace_set_range(addr, (UINT32)recvdatacnt);
 		state = ST_RECV_DATA;
-		parambuf[5] = 1;		// データ本体の受信にとりかかったことを表すフラグ
+		parambuf[5] = 1;		// Mark the payload receive phase as started.
 
 		TRACEOUT(("fdsubsys: receive_memory: addr=0x%04x, bytes=%d", addr, recvdatacnt));
 	}
 	else {
-		// データ本体を受信済み
+		// Payload reception is complete.
 	}
 
 	/*
-	VA2の起動ルーチンでは、7f4bh(リード/ライトデータ用リトライ値)にデータ01hまたは09h
-	を転送している。無視しても差し支えなさそう。
+	The VA2 bootstrap writes 01H or 09H to 7F4BH, the read/write retry-count byte.
+	The current model stores it without interpreting the value.
 	*/
 }
 
 /*
-0x0d エグゼキュート・コマンド
+0DH: execute command.
 */
 static void subsys_exec_execute_command(void) {
 	WORD addr = (parambuf[0] << 8) | parambuf[1];
@@ -746,7 +746,7 @@ static void subsys_exec_execute_command(void) {
 }
 
 /*
-0x0e ロード・データ
+0EH: load data.
 */
 static void subsys_exec_load_data(void) {
 	BYTE sectorcnt = parambuf[0];
@@ -763,14 +763,14 @@ static void subsys_exec_load_data(void) {
 
 
 /*
-0x17 サーフェースモードの設定
+17H: set surface mode.
 */
 static void subsys_exec_set_surface_mode(void) {
 	TRACEOUT(("fdsubsys: set surface mode: mode=0x%02x",parambuf[0]));
 }
 
 /*
-0x1f ディスクモードの設定
+1FH: set disk mode.
 */
 static void subsys_exec_set_disk_mode(void) {
 	int drv;
@@ -788,7 +788,7 @@ static void subsys_exec_set_disk_mode(void) {
 }
 
 /*
-0x20 ディスクモードの取得
+20H: return disk mode.
 */
 static void subsys_exec_send_disk_mode(void) {
 	int drv;
@@ -810,14 +810,14 @@ static void subsys_exec_send_disk_mode(void) {
 }
 
 /*
-0x21 バウンダリモードの設定
+21H: set boundary mode.
 */
 static void subsys_exec_set_boundary_mode(void) {
 	TRACEOUT(("fdsubsys: set boundary mode: mode=%d", parambuf[0]));
 }
 
 /*
-0x23 ドライブレディチェック
+23H: check drive-ready state.
 */
 static void subsys_exec_drive_ready_check(void) {
 	REG8 drv;
@@ -829,7 +829,7 @@ static void subsys_exec_drive_ready_check(void) {
 		parambuf[0] = 0x00;
 	}
 	else {
-		parambuf[0] = 0xff;		// ディスクがセットされていない
+		parambuf[0] = 0xff;		// No disk is inserted.
 	}
 
 	TRACEOUT(("fdsubsys: drive_ready_check: drive=%d, return=%d", drv, parambuf[0]));
@@ -839,26 +839,26 @@ static void subsys_exec_drive_ready_check(void) {
 }
 
 /*
-0x25 スリープ
+25H: sleep.
 */
 static void subsys_exec_sleep(void) {
 	TRACEOUT(("fdsubsys: sleep: return 0, 0"));
-	parambuf[0] = 0;	// メイン側 I/O 1b2h (サブシステム I/O f4h)の値
-	parambuf[1] = 0;	// モーター状態 0x00.OFF, 0xff.ON
+	parambuf[0] = 0;	// Value visible at main port 1B2H / subsystem port F4H.
+	parambuf[1] = 0;	// Motor state: 00H off, FFH on.
 
 	senddatacnt = 2;
 	sendbuf = parambuf;
 }
 
 /*
-0x26 アクティブ
+26H: activate.
 */
 static void subsys_exec_active(void) {
 	TRACEOUT(("fdsubsys: active: port1b2h=0x%0x, moter=%d", parambuf[0], parambuf[1]));
 }
 
 /*
-	出力:
+	Output:
 		state
 		senddatacnt
 		sendbuf
@@ -984,8 +984,8 @@ static void IOOUTCALL fdsubsys_o0fe(UINT port, REG8 dat) {
 
 static void IOOUTCALL fdsubsys_o0ff(UINT port, REG8 dat) {
 	if (dat & 0x80) {
-		// 8255モード指定
-		// 無視
+		// 8255 mode-set command.
+		// The subsystem handshake uses its fixed mode; ignore this write.
 	}
 	else {
 		int bitnum;
@@ -993,11 +993,11 @@ static void IOOUTCALL fdsubsys_o0ff(UINT port, REG8 dat) {
 		bitnum = (dat >> 1) & 0x07;
 		if (bitnum >= 4) {
 			if (dat & 1) {
-				// セット
+				// Set the selected port-C bit.
 				portc_main |= ntobit[bitnum];
 			}
 			else {
-				// リセット
+				// Clear the selected port-C bit.
 				portc_main &= ~ntobit[bitnum];
 			}
 			subsys_exec();
@@ -1024,10 +1024,10 @@ void fdsubsys_reset(void) {
 }
 
 void fdsubsys_bind(void) {
-	iocore_attachvaout(0x0fd, fdsubsys_o0fd);
-	iocore_attachvaout(0x0fe, fdsubsys_o0fe);
-	iocore_attachvaout(0x0ff, fdsubsys_o0ff);
+	iocore_attachout(0x0fd, fdsubsys_o0fd);
+	iocore_attachout(0x0fe, fdsubsys_o0fe);
+	iocore_attachout(0x0ff, fdsubsys_o0ff);
 
-	iocore_attachvainp(0x0fc, fdsubsys_i0fc);
-	iocore_attachvainp(0x0fe, fdsubsys_i0fe);
+	iocore_attachinp(0x0fc, fdsubsys_i0fc);
+	iocore_attachinp(0x0fe, fdsubsys_i0fe);
 }

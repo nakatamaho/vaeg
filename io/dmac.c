@@ -7,7 +7,7 @@
 
 #include	"iocoreva.h"
 
-// TRACEOUTを有効にする場合は、以下の1を0にする
+// Change this condition to zero to enable DMA trace output.
 #if 1
 #undef TRACEOUT
 #define TRACEOUT(arg)
@@ -108,176 +108,55 @@ UINT dmac_getdatas(DMACH dmach, BYTE *buf, UINT size) {
 
 // ---- I/O
 
-static void IOOUTCALL dmac_o01(UINT port, REG8 dat) {
-
-	DMACH	dmach;
-	int		lh;
-
-	fdc_trace_text("dmatrace port=%03x val=%02x", port, dat);
-	dmach = dmac.dmach + ((port >> 2) & 3);
-	lh = dmac.lh;
-	dmac.lh = (UINT8)(lh ^ 1);
-	dmach->adrs.b[lh + DMA32_LOW] = dat;
-	dmach->adrsorg.xb[lh + DMA32_LOW] = dat;
-}
-
-static void IOOUTCALL dmac_o03(UINT port, REG8 dat) {
-
-	int		ch;
-	DMACH	dmach;
-	int		lh;
-
-	fdc_trace_text("dmatrace port=%03x val=%02x", port, dat);
-	ch = (port >> 2) & 3;
-	dmach = dmac.dmach + ch;
-	lh = dmac.lh;
-	dmac.lh = lh ^ 1;
-	dmach->leng.b[lh] = dat;
-	dmach->lengorg.b[lh] = dat;
-	dmac.stat &= ~(1 << ch);
-}
-
-static void IOOUTCALL dmac_o13(UINT port, REG8 dat) {
-
-	fdc_trace_text("dmatrace port=%03x val=%02x", port, dat);
-	dmac.dmach[dat & 3].sreq = dat;
-	(void)port;
-}
-
-static void IOOUTCALL dmac_o15(UINT port, REG8 dat) {
-
-	fdc_trace_text("dmatrace port=%03x val=%02x", port, dat);
-	if (dat & 4) {
-		dmac.mask |= (1 << (dat & 3));
-	}
-	else {
-		dmac.mask &= ~(1 << (dat & 3));
-	}
-	dmac_check();
-	(void)port;
-}
-
-static void IOOUTCALL dmac_o17(UINT port, REG8 dat) {
-
-	fdc_trace_text("dmatrace port=%03x val=%02x", port, dat);
-	dmac.dmach[dat & 3].mode = dat;
-	(void)port;
-}
-
-static void IOOUTCALL dmac_o19(UINT port, REG8 dat) {
-
-	fdc_trace_text("dmatrace port=%03x val=%02x", port, dat);
-	dmac.lh = DMA16_LOW;
-	(void)port;
-	(void)dat;
-}
-
-static void IOOUTCALL dmac_o1b(UINT port, REG8 dat) {
-
-	fdc_trace_text("dmatrace port=%03x val=%02x", port, dat);
-	dmac.mask = 0x0f;
-	(void)port;
-	(void)dat;
-}
-
-static void IOOUTCALL dmac_o1f(UINT port, REG8 dat) {
-
-	fdc_trace_text("dmatrace port=%03x val=%02x", port, dat);
-	dmac.mask = dat;
-	dmac_check();
-	(void)port;
-}
-
-static void IOOUTCALL dmac_o21(UINT port, REG8 dat) {
-
-	DMACH	dmach;
-
-	fdc_trace_text("dmatrace port=%03x val=%02x", port, dat);
-	dmach = dmac.dmach + (((port >> 1) + 1) & 3);
-	// IA16では ver0.75で無効、ver0.76で修正
-	dmach->adrs.b[DMA32_HIGH + DMA16_LOW] = dat & 0x0f;
-}
-
-static void IOOUTCALL dmac_o29(UINT port, REG8 dat) {
-
-	DMACH	dmach;
-
-	fdc_trace_text("dmatrace port=%03x val=%02x", port, dat);
-	dmach = dmac.dmach + (dat & 3);
-	dmach->bound = dat;
-	(void)port;
-}
-
-static REG8 IOINPCALL dmac_i01(UINT port) {
-
-	DMACH	dmach;
-	int		lh;
-
-	dmach = dmac.dmach + ((port >> 2) & 3);
-	lh = dmac.lh;
-	dmac.lh = lh ^ 1;
-	return(dmach->adrs.b[lh + DMA32_LOW]);
-}
-
-static REG8 IOINPCALL dmac_i03(UINT port) {
-
-	DMACH	dmach;
-	int		lh;
-
-	dmach = dmac.dmach + ((port >> 2) & 3);
-	lh = dmac.lh;
-	dmac.lh = lh ^ 1;
-	return(dmach->leng.b[lh]);
-}
-
-static REG8 IOINPCALL dmac_i11(UINT port) {
-
-	(void)port;
-	return(dmac.stat);												// ToDo!!
-}
 
 
 
-/*
-	bit0..reset
-*/
+
+
+
+
+
+
+
+
+
+
+
+
+/* Port 160H master-control register: bit 0 resets the DMA controller. */
 static void IOOUTCALL dmacva_o160(UINT port, REG8 dat) {
 	fdc_trace_text("dmatrace port=%03x val=%02x", port, dat);
 	TRACEOUT(("dmac: o160: 0x%02x", dat));
 	if (dat & 0x01) {
 		TRACEOUT(("dmac: reset"));
-		dmac.mask = 0x0f;		// DMA要求禁止 全チャンネル
-		dmac.selch = 0;			// 根拠なし
-		dmac.base = 0;			// 根拠なし
+		dmac.mask = 0x0f;		// Mask DMA requests on all channels.
+		dmac.selch = 0;			// Reset value is undocumented; initialize to zero.
+		dmac.base = 0;			// Reset value is undocumented; initialize to zero.
 	}
 }
 
-/*
-	bit2  ..base
-	bit1-0..selch
-*/
+/* Port 161H channel selector: bit 2 selects base registers; bits 1-0
+ * select the channel. */
 static void IOOUTCALL dmacva_o161(UINT port, REG8 dat) {
-	fdc_trace_text("dmatrace port=%03x val=%02x", port, dat);
-	TRACEOUT(("dmac: o161: 0x%02x", dat));
-	dmac.selch = dat & 0x03;
-	dmac.base = dat & 0x04;
-	TRACEOUT(("dmac: selch=%d base=%d", dmac.selch, dmac.base));
+    fdc_trace_text("dmatrace port=%03x val=%02x", port, dat);
+    TRACEOUT(("dmac: o161: 0x%02x", dat));
+    dmac.selch = dat & 0x03;
+    dmac.base = dat & 0x04;
+    TRACEOUT(("dmac: selch=%d base=%d", dmac.selch, dmac.base));
 }
 
-/*
-	bit4  ..base
-	bit3-0..sel3-0
-*/
+/* Port 161H readback: bit 4 reports base-register selection and bits 3-0
+ * form a one-hot channel indication. */
 static REG8 IOINPCALL dmacva_i161(UINT port) {
-	BYTE ret;
-	
-	ret = (0x01 << dmac.selch) | (dmac.base ? 0x10 : 0x00);
-	TRACEOUT(("dmac: i161: 0x%02x", ret));
-	return ret;
+    BYTE ret;
+
+    ret = (0x01 << dmac.selch) | (dmac.base ? 0x10 : 0x00);
+    TRACEOUT(("dmac: i161: 0x%02x", ret));
+    return ret;
 }
 
 /*
-カウントレジスタ(L)
+Count register, low byte.
 */
 static void IOOUTCALL dmacva_o162(UINT port, REG8 dat) {
 	DMACH ch;
@@ -286,18 +165,18 @@ static void IOOUTCALL dmacva_o162(UINT port, REG8 dat) {
 	TRACEOUT(("dmac: o162: 0x%02x", dat));
 
 	ch = &dmac.dmach[dmac.selch];
-	ch->lengorg.b[DMA16_LOW] = dat;			// ベース設定
+	ch->lengorg.b[DMA16_LOW] = dat;			// Update the base register image.
 	TRACEOUT(("dmac: set count reg L (base): ch=%d count L=0x%02x", dmac.selch, dat));
-	//if (!dmac.base) {	//現状 ベースからカレントへのコピーは実装していないため、
-						//常にカレントを設定する必要がある。
-		ch->leng.b[DMA16_LOW] = dat;		// カレント設定
-		dmac.stat &= ~(1 << dmac.selch);
-		TRACEOUT(("dmac: set count reg L (current): ch=%d count L=0x%02x", dmac.selch, dat));
-	//}
+	/* Base-to-current reload is not implemented;
+	 * update the current register image on every register write. */
+	ch->leng.b[DMA16_LOW] = dat;		// Update the current register image.
+	dmac.stat &= ~(1 << dmac.selch);
+	TRACEOUT(("dmac: set count reg L (current): ch=%d count L=0x%02x", dmac.selch, dat));
+
 }
 
 /*
-カウントレジスタ(H)
+Count register, high byte.
 */
 static void IOOUTCALL dmacva_o163(UINT port, REG8 dat) {
 	DMACH ch;
@@ -306,27 +185,27 @@ static void IOOUTCALL dmacva_o163(UINT port, REG8 dat) {
 	TRACEOUT(("dmac: o163: 0x%02x", dat));
 
 	ch = &dmac.dmach[dmac.selch];
-	ch->lengorg.b[DMA16_HIGH] = dat;		// ベース設定
+	ch->lengorg.b[DMA16_HIGH] = dat;		// Update the base register image.
 	TRACEOUT(("dmac: set count reg H (base): ch=%d count=0x%04x", dmac.selch, ch->lengorg.w));
-	//if (!dmac.base) {	//現状 ベースからカレントへのコピーは実装していないため、
-						//常にカレントを設定する必要がある。
-		ch->leng.b[DMA16_HIGH] = dat;		// カレント設定
-		dmac.stat &= ~(1 << dmac.selch);
-		TRACEOUT(("dmac: set count reg H (current): ch=%d count=0x%04x", dmac.selch, ch->leng.w));
-	//}
+	/* Base-to-current reload is not implemented;
+	 * update the current register image on every register write. */
+	ch->leng.b[DMA16_HIGH] = dat;		// Update the current register image.
+	dmac.stat &= ~(1 << dmac.selch);
+	TRACEOUT(("dmac: set count reg H (current): ch=%d count=0x%04x", dmac.selch, ch->leng.w));
+
 }
 
 /*
-カウントレジスタ(L)
+Count register, low byte.
 */
 static REG8 IOINPCALL dmacva_i162(UINT port) {
 	BYTE ret;
 	if (dmac.base) {
-		// ベース
+		// Read the base register image.
 		ret = dmac.dmach[dmac.selch].lengorg.b[DMA16_LOW];
 	}
 	else {
-		// カレント
+		// Read the current register image.
 		ret = dmac.dmach[dmac.selch].leng.b[DMA16_LOW];
 	}
 	TRACEOUT(("dmac: i162: ch=%d base=%d count L=0x%02x ", dmac.selch, dmac.base, ret));
@@ -335,16 +214,16 @@ static REG8 IOINPCALL dmacva_i162(UINT port) {
 
 
 /*
-カウントレジスタ(H)
+Count register, high byte.
 */
 static REG8 IOINPCALL dmacva_i163(UINT port) {
 	BYTE ret;
 	if (dmac.base) {
-		// ベース
+		// Read the base register image.
 		ret = dmac.dmach[dmac.selch].lengorg.b[DMA16_HIGH];
 	}
 	else {
-		// カレント
+		// Read the current register image.
 		ret = dmac.dmach[dmac.selch].leng.b[DMA16_HIGH];
 	}
 	TRACEOUT(("dmac: i163: ch=%d base=%d count H=0x%02x ", dmac.selch, dmac.base, ret));
@@ -358,7 +237,7 @@ static const int intel2idx[3] = {
 };
 
 /*
-アドレスレジスタ
+Address register.
 */
 static void IOOUTCALL dmacva_o164(UINT port, REG8 dat) {
 	DMACH ch;
@@ -371,17 +250,17 @@ static void IOOUTCALL dmacva_o164(UINT port, REG8 dat) {
 	intelidx = port - 0x164;
 	idx = intel2idx[intelidx];
 	ch = &dmac.dmach[dmac.selch];
-	ch->adrsorg.xb[idx] = dat;		// ベース設定
+	ch->adrsorg.xb[idx] = dat;		// Update the base register image.
 	TRACEOUT(("dmac: set adrs reg (base): ch=%d adrs[%d]=0x%02x", dmac.selch, intelidx, dat));
-	//if (!dmac.base) {	//現状 ベースからカレントへのコピーは実装していないため、
-						//常にカレントを設定する必要がある。
-		ch->adrs.b[idx] = dat;		// カレント設定
-		TRACEOUT(("dmac: set adrs reg (current): ch=%d adrs[%d]=0x%02x", dmac.selch, intelidx, dat));
-	//}
+	/* Base-to-current reload is not implemented;
+	 * update the current register image on every register write. */
+	ch->adrs.b[idx] = dat;		// Update the current register image.
+	TRACEOUT(("dmac: set adrs reg (current): ch=%d adrs[%d]=0x%02x", dmac.selch, intelidx, dat));
+
 }
 
 /*
-アドレスレジスタ
+Address register.
 */
 static REG8 IOINPCALL dmacva_i164(UINT port) {
 	int idx;
@@ -392,11 +271,11 @@ static REG8 IOINPCALL dmacva_i164(UINT port) {
 	idx = intel2idx[intelidx];
 
 	if (dmac.base) {
-		// ベース
+		// Read the base register image.
 		ret = dmac.dmach[dmac.selch].adrsorg.xb[idx];
 	}
 	else {
-		// カレント
+		// Read the current register image.
 		ret = dmac.dmach[dmac.selch].adrs.b[idx];
 	}
 	TRACEOUT(("dmac: i%03x: ch=%d base=%d count[%d]=0x%02x ", port, dmac.selch, dmac.base, intelidx, ret));
@@ -405,7 +284,7 @@ static REG8 IOINPCALL dmacva_i164(UINT port) {
 
 #if 0
 /*
-アドレスレジスタ(bit7-0)
+Address register, bits 7-0.
 */
 static void IOOUTCALL dmacva_o164(UINT port, REG8 dat) {
 	DMACH ch;
@@ -413,17 +292,17 @@ static void IOOUTCALL dmacva_o164(UINT port, REG8 dat) {
 	TRACEOUT(("dmac: o164: 0x%02x", dat));
 
 	ch = &dmac.dmach[dmac.selch];
-	ch->adrsorg.xb[DMA32_LOW + DMA16_LOW] = dat;		// ベース設定
+	ch->adrsorg.xb[DMA32_LOW + DMA16_LOW] = dat;		// Update the base register image.
 	TRACEOUT(("dmac: set adrs reg bit7-0 (base): ch=%d adrs(7-0)=0x%02x", dmac.selch, dat));
-	//if (!dmac.base) {	//現状 ベースからカレントへのコピーは実装していないため、
-						//常にカレントを設定する必要がある。
-		ch->adrs.b[DMA32_LOW + DMA16_LOW] = dat;		// カレント設定
-		TRACEOUT(("dmac: set adrs reg bit7-0 (current): ch=%d adrs(7-0)=0x%02x", dmac.selch, dat));
-	//}
+	/* Base-to-current reload is not implemented;
+	 * update the current register image on every register write. */
+	ch->adrs.b[DMA32_LOW + DMA16_LOW] = dat;		// Update the current register image.
+	TRACEOUT(("dmac: set adrs reg bit7-0 (current): ch=%d adrs(7-0)=0x%02x", dmac.selch, dat));
+
 }
 
 /*
-アドレスレジスタ(bit15-8)
+Address register, bits 15-8.
 */
 static void IOOUTCALL dmacva_o165(UINT port, REG8 dat) {
 	DMACH ch;
@@ -431,17 +310,17 @@ static void IOOUTCALL dmacva_o165(UINT port, REG8 dat) {
 	TRACEOUT(("dmac: o165: 0x%02x", dat));
 
 	ch = &dmac.dmach[dmac.selch];
-	ch->adrsorg.xb[DMA32_LOW + DMA16_HIGH] = dat;		// ベース設定
+	ch->adrsorg.xb[DMA32_LOW + DMA16_HIGH] = dat;		// Update the base register image.
 	TRACEOUT(("dmac: set adrs reg bit15-8 (base): ch=%d adrs(15-8)=0x%02x", dmac.selch, dat));
-	//if (!dmac.base) {	//現状 ベースからカレントへのコピーは実装していないため、
-						//常にカレントを設定する必要がある。
-		ch->adrs.b[DMA32_LOW + DMA16_HIGH] = dat;		// カレント設定
-		TRACEOUT(("dmac: set adrs reg bit15-8 (current): ch=%d adrs(15-8)=0x%02x", dmac.selch, dat));
-	//}
+	/* Base-to-current reload is not implemented;
+	 * update the current register image on every register write. */
+	ch->adrs.b[DMA32_LOW + DMA16_HIGH] = dat;		// Update the current register image.
+	TRACEOUT(("dmac: set adrs reg bit15-8 (current): ch=%d adrs(15-8)=0x%02x", dmac.selch, dat));
+
 }
 
 /*
-アドレスレジスタ(bit19-16)
+Address register, bits 19-16.
 */
 static void IOOUTCALL dmacva_o166(UINT port, REG8 dat) {
 	DMACH ch;
@@ -450,62 +329,53 @@ static void IOOUTCALL dmacva_o166(UINT port, REG8 dat) {
 
 	dat &= 0x0f;
 	ch = &dmac.dmach[dmac.selch];
-	ch->adrsorg.xb[DMA32_HIGH + DMA16_LOW] = dat;		// ベース設定
+	ch->adrsorg.xb[DMA32_HIGH + DMA16_LOW] = dat;		// Update the base register image.
 	TRACEOUT(("dmac: set adrs reg bit19-16 (base): ch=%d adrs(19-16)=0x%02x", dmac.selch, dat));
-	//if (!dmac.base) {	//現状 ベースからカレントへのコピーは実装していないため、
-						//常にカレントを設定する必要がある。
-		ch->adrs.b[DMA32_HIGH + DMA16_LOW] = dat;		// カレント設定
-		TRACEOUT(("dmac: set adrs reg bit19-16 (current): ch=%d adrs(19-16)=0x%02x", dmac.selch, dat));
-	//}
+	/* Base-to-current reload is not implemented;
+	 * update the current register image on every register write. */
+	ch->adrs.b[DMA32_HIGH + DMA16_LOW] = dat;		// Update the current register image.
+	TRACEOUT(("dmac: set adrs reg bit19-16 (current): ch=%d adrs(19-16)=0x%02x", dmac.selch, dat));
+
 }
 #endif
 
 /*
-デバイスコントロールレジスタ 未実装
-	0x0168 I/O
-	0x0169 I/O
-*/
+ * Tekumani defines the 0168H/0169H device-control register for DMA disable,
+ * priority rotation, bus hold, and verify waits. No handlers are implemented.
+ */
 
-/*
-モードコントロールレジスタ
-*/
+/* 016AH mode control: transfer mode, address direction, auto-initialize,
+ * transfer direction, and byte/word selection. */
 static void IOOUTCALL dmacva_o16a(UINT port, REG8 dat) {
 
-	fdc_trace_text("dmatrace port=%03x val=%02x", port, dat);
-	TRACEOUT(("dmac: o16a: 0x%02x", dat));
-	TRACEOUT(("dmac: set mode: ch=%d mode=0x%02x", dmac.selch, dat));
-	dmac.dmach[dmac.selch].mode = dat;
-		/*
-			bit1-0の意味が98とは違うが
-			  98: SELCH
-			  VA: bit1: 未使用
-			      bit0: ワードバイトモード (VAはバイトモード(0)固定)
-			参照されていないので問題なし。
-		*/
+    fdc_trace_text("dmatrace port=%03x val=%02x", port, dat);
+    TRACEOUT(("dmac: o16a: 0x%02x", dat));
+    TRACEOUT(("dmac: set mode: ch=%d mode=0x%02x", dmac.selch, dat));
+    dmac.dmach[dmac.selch].mode = dat;
+    /* VA leaves bit 1 unused. Bit 0 is W/XB and is fixed to byte mode
+     * (zero) on VA; the current transfer engine does not inspect it. */
 }
 
-/*
-モードコントロールレジスタ
-*/
+/* Read back the selected channel 016AH mode-control latch. */
 static REG8 IOINPCALL dmacva_i16a(UINT port) {
-	BYTE ret = dmac.dmach[dmac.selch].mode;
-	TRACEOUT(("dmac: i16a: ch=%d mode=0x%02x", dmac.selch, ret));
-	return ret;
+    BYTE ret = dmac.dmach[dmac.selch].mode;
+    TRACEOUT(("dmac: i16a: ch=%d mode=0x%02x", dmac.selch, ret));
+    return ret;
 }
 
 /*
-ステータスレジスタ
+Status register.
 */
 static REG8 IOINPCALL dmacva_i16b(UINT port) {
-	BYTE ret = dmac.stat;												// ToDo!!
-							// オリジナルnp2のdmac_i11でToDoとなっている。
-							// 何が必要なのか？
+	/* Bits 3-0 expose the terminal-count latches; request-status bits
+	 * 7-4 are not yet modeled. */
+	BYTE ret = dmac.stat;
 	TRACEOUT(("dmac: i16b: stat=0x%02x", ret));
 	return ret;
 }
 
 /*
-マスクレジスタ
+Mask register.
 */
 static void IOOUTCALL dmacva_o16f(UINT port, REG8 dat) {
 	fdc_trace_text("dmatrace port=%03x val=%02x", port, dat);
@@ -526,60 +396,44 @@ static REG8 IOINPCALL dmacva_i16f(UINT port) {
 
 // ---- I/F
 
-static const IOOUT dmaco00[16] = {
-					dmac_o01,	dmac_o03,	dmac_o01,	dmac_o03,
-					dmac_o01,	dmac_o03,	dmac_o01,	dmac_o03,
-					NULL,		dmac_o13,	dmac_o15,	dmac_o17,
-					dmac_o19,	dmac_o1b,	NULL,		dmac_o1f};
 
-static const IOINP dmaci00[16] = {
-					dmac_i01,	dmac_i03,	dmac_i01,	dmac_i03,
-					dmac_i01,	dmac_i03,	dmac_i01,	dmac_i03,
-					dmac_i11,	NULL,		NULL,		NULL,
-					NULL,		NULL,		NULL,		NULL};
 
-static const IOOUT dmaco21[8] = {
-					dmac_o21,	dmac_o21,	dmac_o21,	dmac_o21,
-					dmac_o29,	NULL,		NULL,		NULL};
 
 void dmac_reset(void) {
 
 	ZeroMemory(&dmac, sizeof(dmac));
 	dmac.lh = DMA16_LOW;
-	dmac.mask = 0xf;		// DMA要求禁止 全チャンネル
-	dmac.selch = 0;			// 根拠なし
-	dmac.base = 0;			// 根拠なし
+	dmac.mask = 0xf;		// Mask DMA requests on all channels.
+	dmac.selch = 0;			// Reset value is undocumented; initialize to zero.
+	dmac.base = 0;			// Reset value is undocumented; initialize to zero.
 	dmac_procset();
 //	TRACEOUT(("sizeof(_DMACH) = %d", sizeof(_DMACH)));
 }
 
 void dmac_bind(void) {
 
-	iocore_attachsysoutex(0x0001, 0x0ce1, dmaco00, 16);
-	iocore_attachsysinpex(0x0001, 0x0ce1, dmaci00, 16);
-	iocore_attachsysoutex(0x0021, 0x0cf1, dmaco21, 8);
 
-	iocore_attachvaout(0x160, dmacva_o160);
-	iocore_attachvaout(0x161, dmacva_o161);
-	iocore_attachvainp(0x161, dmacva_i161);
+	iocore_attachout(0x160, dmacva_o160);
+	iocore_attachout(0x161, dmacva_o161);
+	iocore_attachinp(0x161, dmacva_i161);
 
-	iocore_attachvaout(0x162, dmacva_o162);
-	iocore_attachvainp(0x162, dmacva_i162);
-	iocore_attachvaout(0x163, dmacva_o163);
-	iocore_attachvainp(0x163, dmacva_i163);
+	iocore_attachout(0x162, dmacva_o162);
+	iocore_attachinp(0x162, dmacva_i162);
+	iocore_attachout(0x163, dmacva_o163);
+	iocore_attachinp(0x163, dmacva_i163);
 
-	iocore_attachvaout(0x164, dmacva_o164);
-	iocore_attachvainp(0x164, dmacva_i164);
-	iocore_attachvaout(0x165, dmacva_o164);
-	iocore_attachvainp(0x165, dmacva_i164);
-	iocore_attachvaout(0x166, dmacva_o164);
-	iocore_attachvainp(0x166, dmacva_i164);
+	iocore_attachout(0x164, dmacva_o164);
+	iocore_attachinp(0x164, dmacva_i164);
+	iocore_attachout(0x165, dmacva_o164);
+	iocore_attachinp(0x165, dmacva_i164);
+	iocore_attachout(0x166, dmacva_o164);
+	iocore_attachinp(0x166, dmacva_i164);
 
-	iocore_attachvaout(0x16a, dmacva_o16a);
-	iocore_attachvainp(0x16a, dmacva_i16a);
-	iocore_attachvainp(0x16b, dmacva_i16b);
-	iocore_attachvaout(0x16f, dmacva_o16f);
-	iocore_attachvainp(0x16f, dmacva_i16f);
+	iocore_attachout(0x16a, dmacva_o16a);
+	iocore_attachinp(0x16a, dmacva_i16a);
+	iocore_attachinp(0x16b, dmacva_i16b);
+	iocore_attachout(0x16f, dmacva_o16f);
+	iocore_attachinp(0x16f, dmacva_i16f);
 
 }
 

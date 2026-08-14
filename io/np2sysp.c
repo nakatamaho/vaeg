@@ -10,22 +10,22 @@
 
 
 #define		NP2SYSP_VER			"C"
-// #define	NP2SYSP_CREDIT		""					// 要るなら・・・
+// #define	NP2SYSP_CREDIT		""					// Optional credit string.
 
-// NP2依存ポート
+// Emulator-private identification and control port.
 // port:07edh	np2 value comm
 // port:07efh	np2 string comm
 
-// 基本的に STRINGでやり取りする
-// ポート 7efh に 'NP2' と出力で "NP2"が返ってきたら NP2である
+// Commands and replies use NUL-terminated strings.
+// Write 'NP2' to port 7EFH; a matching reply identifies this interface.
 
 // verA
-//		out->str: 'ver'				in->str:	ver番号 A～
-//		out->str: 'poweroff'		NP2を終了
+//		out->str: 'ver'				in->str:	version letter starting at A
+//		out->str: 'poweroff'		request emulator shutdown
 
 // verB
-//		out->str: 'cpu'				in->str:	CPU型番
-//		out->str: 'clock'			in->str:	動作クロック数
+//		out->str: 'cpu'				in->str:	CPU model string
+//		out->str: 'clock'			in->str:	configured clock rate
 
 
 // ----
@@ -242,8 +242,4 @@ void np2sysp_bind(void) {
 	iocore_attachout(0x07ef, np2sysp_o7ef);
 	iocore_attachinp(0x07ed, np2sysp_i7ed);
 	iocore_attachinp(0x07ef, np2sysp_i7ef);
-	iocore_attachvaout(0x07ed, np2sysp_o7ed);
-	iocore_attachvaout(0x07ef, np2sysp_o7ef);
-	iocore_attachvainp(0x07ed, np2sysp_i7ed);
-	iocore_attachvainp(0x07ef, np2sysp_i7ef);
 }

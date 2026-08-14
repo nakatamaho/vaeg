@@ -76,8 +76,8 @@ const OEMCHAR np2version[] = OEMTEXT(NP2VER_CORE);
 								  PCCORE_STANDARD_MULTIPLE, 0};
 	static UINT pccore_cpu_multiple_value = PCCORE_STANDARD_MULTIPLE;
 
-	UINT8	screenupdate = 3;			// bit0=1.画面の一部について描画が必要
-										// bit1=1.画面全体の描画が必要
+	UINT8	screenupdate = 3;			// Bit 0 requests a partial redraw.
+										// Bit 1 requests a full redraw.
 	int		screendispflag = 1;
 	int		soundrenewal = 0;
 	BOOL	drawframe;
@@ -172,7 +172,7 @@ static void pccore_set(void) {
 	}
 	pccore_clockrestore();
 
-	// 拡張メモリ
+	// Configure VA expansion memory.
 	extsize = 0;
 	if (!(np2cfg.dipsw[2] & 0x80)) {
 		extsize = min(np2cfg.EXTMEM, EMSIO_MAX_MEGABYTES);
@@ -180,10 +180,10 @@ static void pccore_set(void) {
 	pccore.extmem = extsize;
 	CopyMemory(pccore.dipsw, np2cfg.dipsw, 3);
 
-	// サウンドボードの接続
+	// Select the installed sound board.
 	pccore.sound = np2cfg.SOUND_SW;
 
-	// その他CBUSの接続
+	// Select other supported expansion-bus devices.
 	pccore.device = 0;
 	if (np2cfg.mpuenable) {
 		pccore.device |= PCCBUS_MPU98;
@@ -312,7 +312,7 @@ void pccore_reset(void) {
 	ZeroMemory(mem + VRAM1_E, 0x08000);
 	ZeroMemory(mem + FONT_ADRS, 0x08000);
 
-	//メモリスイッチ
+	// Copy configured memory-switch bytes into the VA work area.
 	for (i=0; i<8; i++) {
 		mem[0xa3fe2 + i*4] = np2cfg.memsw[i];
 	}
@@ -323,12 +323,12 @@ void pccore_reset(void) {
 	keystat_setlockedkey(np2cfg.lockedkey);
 	nevent_allreset();
 
-	//後ろに移動
+	// Reset the CPU after deriving the VA model and expansion-memory size.
 
 	CPU_RESET();
 	CPU_SETEXTSIZE((UINT32)pccore.extmem);
 
-	// HDDセット
+	// Open configured SASI and SCSI media.
 	sxsi_open();
 	if (sxsi_issasi()) {
 		pccore.hddif |= PCHDD_SASI;
@@ -346,11 +346,10 @@ void pccore_reset(void) {
 
 	fddfile_reset2dmode();
 
-	iocore_reset();								// サウンドでpicを呼ぶので…
+	iocore_reset();								// Sound-board reset calls the native PIC interface.
 	cbuscore_reset();
 	fmboard_reset(pccore.sound);
 
-	upd9002_memorymap(0);
 	upd9002_memorymap_va();
 	iocore_build();
 	iocore_bind();
@@ -359,7 +358,6 @@ void pccore_reset(void) {
 
 	fddmtr_initialize();
 	calendar_initialize();
-	vram_initialize();
 
 
 	bios_initialize();
@@ -385,7 +383,7 @@ static void drawscreenva(void) {
 	UINT16 lines;
 
 //	if (videova.grmode & 0x1000) {
-//		// SYNCEN (水平同期信号出力)
+//		// SYNCEN: horizontal-sync output enable.
 		tsp_updateclock();
 //	}
 
@@ -398,7 +396,7 @@ static void drawscreenva(void) {
 	if (lines > SURFACE_HEIGHT) lines = SURFACE_HEIGHT;
 
 	if ((tsp.flag & TSP_F_LINESCHANGED) && (videova.grmode & 0x1000)) {
-		// TSPの表示ライン数に変更あり、かつ、SYNCEN(水平同期信号出力)
+		// Apply a TSP line-count change only while SYNCEN is enabled.
 		scrnmng_setheight(0, lines);
 		tsp.flag &= ~TSP_F_LINESCHANGED;
 	}
@@ -409,18 +407,18 @@ static void drawscreenva(void) {
 	scrndrawva_compose_begin();
 
 	if (videova_hsyncmode() != VIDEOVA_24_8KHZ) {
-		// 15KHz
+		// 15.7 kHz output.
 		switch(videova.grmode & 0x00c0) {
-		case 0x00:	// ノンインターレースモード0
-		case 0x40:	// ノンインターレースモード1
+		case 0x00:	// Non-interlaced mode 0.
+		case 0x40:	// Non-interlaced mode 1.
 			for (y = 0; y < lines/*SURFACE_HEIGHT*/;) {
-				// 偶数ライン
+				// Even output raster.
 				maketextva_raster();
 				makesprva_raster();
 				makegrphva_raster();
 				scrndrawva_compose_raster();
 				y++;
-				// 奇数ライン
+				// Odd output raster.
 				maketextva_blankraster();
 				makesprva_blankraster();
 				makegrphva_blankraster();
@@ -429,17 +427,17 @@ static void drawscreenva(void) {
 			}
 			break;
 		
-		case 0x80:	// インターレースモード0
+		case 0x80:	// Interlaced mode 0.
 			for (y = 0; y < lines /*SURFACE_HEIGHT*/;) {
-				// 偶数ライン
+				// Even output raster.
 				maketextva_raster();
 				makesprva_raster();
 				makegrphva_raster();
 				scrndrawva_compose_raster();
 				y++;
-				// 奇数ライン(直前のラインと同一内容)
+				// Odd output raster; reuse the previous raster where noted.
 				if (text200) {
-					// 直前のラインと同一内容
+					// Reuse the previous output raster.
 				}
 				else {
 					maketextva_raster();
@@ -448,24 +446,24 @@ static void drawscreenva(void) {
 				y++;
 			}
 			break;
-		case 0xc0:	// インターレースモード1
+		case 0xc0:	// Interlaced mode 1.
 			for (y = 0; y < lines /*SURFACE_HEIGHT*/;) {
-				// 偶数ライン
+				// Even output raster.
 				maketextva_raster();
 				makesprva_raster();
 				makegrphva_raster();
 				scrndrawva_compose_raster();
 				y++;
-				// 奇数ライン
+				// Odd output raster.
 				if (text200) {
-					// 直前のラインと同一内容
+					// Reuse the previous output raster.
 				}
 				else {
 					maketextva_raster();
 				}
-					// スプライトは常に200ライン(直前のラインと同一内容)
+					// Sprites are always 200-line and retain the previous output raster.
 				if (grph200) {
-					// 直前のラインと同一内容
+					// Reuse the previous output raster.
 				}
 				else {
 					makegrphva_raster();
@@ -477,17 +475,17 @@ static void drawscreenva(void) {
 		}
 	}
 	else {
-		// 24KHz
+		// 24.8 kHz output.
 		switch(videova.grmode & 0x00c0) {
-		case 0x00:	// ノンインターレースモード0
+		case 0x00:	// Non-interlaced mode 0.
 			for (y = 0; y < lines/*SURFACE_HEIGHT*/;) {
-				// 偶数ライン
+				// Even output raster.
 				maketextva_raster();
 				makesprva_raster();
 				makegrphva_raster();
 				scrndrawva_compose_raster();
 				y++;
-				// 奇数ライン
+				// Odd output raster.
 				maketextva_raster();
 				makesprva_raster();
 				if (grph200) {
@@ -500,19 +498,19 @@ static void drawscreenva(void) {
 				y++;
 			}
 			break;
-		case 0x40:	// ノンインターレースモード1
+		case 0x40:	// Non-interlaced mode 1.
 			for (y = 0; y < lines/*SURFACE_HEIGHT*/;) {
-				// 偶数ライン
+				// Even output raster.
 				maketextva_raster();
 				makesprva_raster();
 				makegrphva_raster();
 				scrndrawva_compose_raster();
 				y++;
-				// 奇数ライン
+				// Odd output raster.
 				maketextva_raster();
 				makesprva_raster();
 				if (grph200) {
-					// 直前のラインと同一内容
+					// Reuse the previous output raster.
 				}
 				else {
 					makegrphva_raster();
@@ -521,9 +519,9 @@ static void drawscreenva(void) {
 				y++;
 			}
 			break;
-		case 0x80:	// インターレースモード0
-		case 0xc0:	// インターレースモード1
-			// 禁止
+		case 0x80:	// Interlaced mode 0.
+		case 0xc0:	// Interlaced mode 1.
+			// This mode combination is prohibited.
 			for (y = 0; y < lines /*SURFACE_HEIGHT*/;) {
 				maketextva_blankraster();
 				makesprva_blankraster();
@@ -538,7 +536,7 @@ static void drawscreenva(void) {
 	}
 
 
-	screenupdate |= 2;			// 今のところVA用描画ルーチンは全体描画しか実装していない
+	screenupdate |= 2;			// The VA renderer currently implements full redraws only.
 
 	if (screenupdate) {
 		screenupdate = scrndrawva_draw((BYTE)(screenupdate & 2));
@@ -552,13 +550,13 @@ static void screendispva_setnevent() {
 	nevent_set(NEVENT_FLAMES2, tsp.sysp4vsyncextension, sysp4vsyncend, NEVENT_RELATIVE);
 }
 
-// 表示期間の開始
+// Begin the active-display period.
 void screendispva(NEVENTITEM item) {
 /*
 	PICITEM		pi;
 */
 	tsp.vsync = 0;
-/*	sysp4vsyncstartに移動
+/*	Moved to sysp4vsyncstart.
 	screendispflag = 0;
 */
 	drawscreenva();
@@ -571,7 +569,7 @@ void screendispva(NEVENTITEM item) {
 	screendispva_setnevent();
 }
 
-// VSYNC期間の開始
+// Begin the vertical-retrace period.
 void screenvsyncva(NEVENTITEM item) {
 
 //	tsp.vsync = 0x20;
@@ -586,9 +584,9 @@ void screenvsyncva(NEVENTITEM item) {
 	nevent_set(NEVENT_FLAMES, tsp.vsyncclock, screendispva, NEVENT_RELATIVE);
 #else
 /*
-	// 割り込みは6クロック遅れて発生させる。
-	// (割り込みより前に IN AL,40hでVSYNC(bit5)=1が検出される場合がある
-	// 「最終平気UPO」ハング対策)
+	// Delay the interrupt by six clocks.
+	// Software may observe VRTC at port 040H before the interrupt;
+	// this ordering avoids a hang in Saishuu Heiki UPO.
 	nevent_set(NEVENT_FLAMES, 6, screenvsyncva2, NEVENT_RELATIVE);
 */
 	nevent_set(NEVENT_FLAMES, tsp.vsyncclock, screendispva, NEVENT_RELATIVE);
@@ -613,9 +611,9 @@ void sysp4vsyncint(NEVENTITEM item) {
 void sysp4vsyncstart(NEVENTITEM item) {
 	tsp.sysp4vsync = 0x20;
 
-	// 割り込みは6クロック遅れて発生させる。
-	// (割り込みより前に IN AL,40hでVSYNC(bit5)=1が検出される場合がある
-	// 「最終平気UPO」ハング対策)
+	// Delay the interrupt by six clocks.
+	// Software may observe VRTC at port 040H before the interrupt;
+	// this ordering avoids a hang in Saishuu Heiki UPO.
 	nevent_set(NEVENT_FLAMES2, 6, sysp4vsyncint, NEVENT_RELATIVE);
 
 	screendispflag = 0;
@@ -641,7 +639,7 @@ void sysp4vsyncend(NEVENTITEM item) {
 
 //@@@@@@
 
-// ブレークポイント
+// Debug breakpoints.
 typedef struct {
 	BOOL	enabled;
 	UINT16	seg;
@@ -653,10 +651,10 @@ enum {
 	BREAKADDR_MAX = 16,
 };
 
-		BOOL	stopexec = FALSE;					// 実行を停止する
-		BOOL	singlestep = FALSE;					// シングルステップ実行
-		BOOL	breakpointflag = TRUE;//FALSE;				// ブレークポイントを有効にする
-		BREAKADDR	breakaddrx[BREAKADDR_MAX] = {	// ブレークポイント
+		BOOL	stopexec = FALSE;					// Stop execution.
+		BOOL	singlestep = FALSE;					// Execute one instruction.
+		BOOL	breakpointflag = TRUE;//FALSE;				// Enable breakpoint checks.
+		BREAKADDR	breakaddrx[BREAKADDR_MAX] = {	// Debug breakpoints.
 			{FALSE, 0xe000, 0x9213},
 			{FALSE, 0xe000, 0xb577},
 		};
@@ -829,7 +827,6 @@ debug_resume_cpu:
 
 		nevent_progress();
 	}
-	artic_callback();
 	mpu98ii_callback();
 	diskdrv_callback();
 	calendar_inc();

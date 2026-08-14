@@ -31,23 +31,3 @@ void cbuscore_bind(void) {
 
 	iocore_cb(bindfn, sizeof(bindfn)/sizeof(IOCBFN));
 }
-
-
-void cbuscore_attachsndex(UINT port, const IOOUT *out, const IOINP *inp) {
-
-	UINT	i;
-	IOOUT	outfn;
-	IOINP	inpfn;
-
-	for (i=0; i<4; i++) {
-		outfn = out[i];
-		if (outfn) {
-			iocore_attachsndout(port, outfn);
-		}
-		inpfn = inp[i];
-		if (inpfn) {
-			iocore_attachsndinp(port, inpfn);
-		}
-		port += 2;
-	}
-}

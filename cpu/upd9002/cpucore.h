@@ -11,19 +11,14 @@
 
 #include "memory.h"
 
-
-#if !defined(CPUDEBUG)
+/*
+ * Native VA memory is always decoded by memoryva. Zero direct-access limits
+ * keep legacy instruction helpers on the mapped accessors as well.
+ */
 enum {
-	UPD9002_MEMREADMAX		= 0xa4000,
-	UPD9002_MEMWRITEMAX	= 0xa0000
+	UPD9002_MEMREADMAX = 0,
+	UPD9002_MEMWRITEMAX = 0
 };
-#else									// ダイレクトアクセス範囲を狭める
-enum {
-	UPD9002_MEMREADMAX		= 0x00400,
-	UPD9002_MEMWRITEMAX	= 0x00400
-};
-#endif
-
 enum {
 	C_FLAG			= 0x0001,
 	P_FLAG			= 0x0004,

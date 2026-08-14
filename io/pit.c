@@ -1,5 +1,5 @@
 // 
-// μPD8253C タイマLSI
+// uPD8253C programmable interval timer.
 // 
 
 #include	"compiler.h"
@@ -14,7 +14,7 @@
 
 // --- Common
 /*
-CPU供給クロック÷タイマ供給クロック を取得する
+Return the CPU-clock to timer-clock ratio.
 */
 static UINT timermultiple(void) {
 	return pccore.multiple << (upd9002_regs.tcks & 3);
@@ -34,7 +34,7 @@ void pit_ontckschanged(void) {
 // --- Interval timer
 static void setsystimerevent(UINT32 cnt, BOOL absolute) {
 
-	if (cnt > 8) {									// 根拠なし
+	if (cnt > 8) {									// The inherited cutoff has no documented hardware basis.
 		cnt *= timermultiple();
 	}
 	else {
@@ -54,7 +54,7 @@ void systimer(NEVENTITEM item) {
 			pic_setirq(0);
 		}
 		if ((pitch->ctrl & 0x0c) == 0x04) {
-			// レートジェネレータ
+			// Rate-generator mode.
 			pitch->flag |= PIT_FLAG_I;
 			setsystimerevent(pitch->value, NEVENT_RELATIVE);
 		}
@@ -123,7 +123,7 @@ void rs232ctimer(NEVENTITEM item) {
 	if (item->flag & NEVENT_SETEVENT) {
 		pitch = pit.ch + 2;
 		if ((pitch->ctrl & 0x0c) == 0x04) {
-			// レートジェネレータ
+			// Rate-generator mode.
 			setrs232cevent(pitch->value, NEVENT_RELATIVE);
 		}
 	}
@@ -355,9 +355,9 @@ static void IOOUTCALL pit_o77(UINT port, REG8 dat) {
 	if (chnum != 3) {
 		pitch = pit.ch + chnum;
 		pit_setflag(pitch, dat);
-		if (chnum == 0) {		// 書込みで itimerのirrがリセットされる…
+		if (chnum == 0) {		// A channel-0 write clears the interval-timer request.
 			pic.pi[0].irr &= (~1);
-			if (dat & 0x30) {	// 一応ラッチ時は割り込みをセットしない
+			if (dat & 0x30) {	// A latch command does not assert a new interrupt.
 				pitch->flag |= PIT_FLAG_I;
 			}
 		}
@@ -386,11 +386,7 @@ static REG8 IOINPCALL pit_i71(UINT port) {
 
 // ---- I/F
 
-static const IOOUT pito71[4] = {
-					pit_o71,	pit_o73,	pit_o75,	pit_o77};
 
-static const IOINP piti71[4] = {
-					pit_i71,	pit_i71,	pit_i71,	NULL};
 
 void itimer_reset(void) {
 
@@ -417,21 +413,12 @@ void itimer_reset(void) {
 
 void itimer_bind(void) {
 
-	iocore_attachsysoutex(0x0071, 0x0cf1, pito71, 4);
-	iocore_attachsysinpex(0x0071, 0x0cf1, piti71, 4);
-	iocore_attachout(0x3fd9, pit_o71);
-	iocore_attachout(0x3fdb, pit_o73);
-	iocore_attachout(0x3fdd, pit_o75);
-	iocore_attachout(0x3fdf, pit_o77);
-	iocore_attachinp(0x3fd9, pit_i71);
-	iocore_attachinp(0x3fdb, pit_i71);
-	iocore_attachinp(0x3fdd, pit_i71);
 
-	iocore_attachvaout(0x1a0, pit_o71);
-	iocore_attachvaout(0x1a2, pit_o73);
-	iocore_attachvaout(0x1a4, pit_o75);
-	iocore_attachvaout(0x1a6, pit_o77);
-	iocore_attachvainp(0x1a0, pit_i71);
-	iocore_attachvainp(0x1a2, pit_i71);
-	iocore_attachvainp(0x1a4, pit_i71);
+	iocore_attachout(0x1a0, pit_o71);
+	iocore_attachout(0x1a2, pit_o73);
+	iocore_attachout(0x1a4, pit_o75);
+	iocore_attachout(0x1a6, pit_o77);
+	iocore_attachinp(0x1a0, pit_i71);
+	iocore_attachinp(0x1a2, pit_i71);
+	iocore_attachinp(0x1a4, pit_i71);
 }

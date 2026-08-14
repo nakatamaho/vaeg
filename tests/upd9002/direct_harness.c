@@ -147,7 +147,6 @@ int upd9002_harness_run(const UPD9002_HARNESS_INPUT *input,
 	Upd9002RuntimeState saved_cpu;
 	_DMAC saved_dmac;
 	uint8_t *saved_ram;
-	uint8_t saved_memmode;
 	uint32_t index;
 
 	if ((input == NULL) || (result == NULL) ||
@@ -165,12 +164,10 @@ int upd9002_harness_run(const UPD9002_HARNESS_INPUT *input,
 	}
 	saved_cpu = CPU_STATSAVE;
 	saved_dmac = dmac;
-	saved_memmode = memmode_va;
 	CopyMemory(saved_ram, mem, 0x10000);
 
 	ZeroMemory(&CPU_STATSAVE, sizeof(CPU_STATSAVE));
 	ZeroMemory(&dmac, sizeof(dmac));
-	memmode_va = 0;
 	set_cpu(&input->cpu);
 	for (index = 0; index < input->ram_size; index++) {
 		mem[input->ram_address + index] = input->ram[index];
@@ -188,7 +185,6 @@ int upd9002_harness_run(const UPD9002_HARNESS_INPUT *input,
 
 	CPU_STATSAVE = saved_cpu;
 	dmac = saved_dmac;
-	memmode_va = saved_memmode;
 	CopyMemory(mem, saved_ram, 0x10000);
 	free(saved_ram);
 	return SUCCESS;
@@ -222,7 +218,6 @@ int upd9002_harness_run_ssts(const UPD9002_SSTS_INPUT *input,
 	ZeroMemory(&CPU_STATSAVE, sizeof(CPU_STATSAVE));
 	ZeroMemory(&dmac, sizeof(dmac));
 	ZeroMemory(mem, 0x100000);
-	memmode_va = 0;
 	set_cpu(&input->cpu);
 	for (index = 0; index < input->ram_count; index++) {
 		mem[input->ram[index].address] = input->ram[index].value;

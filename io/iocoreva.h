@@ -1,7 +1,10 @@
-/*
- * iocoreva.h: PC-88VA I/O
- */
+#ifndef VAEG_IO_IOCOREVA_H
+#define VAEG_IO_IOCOREVA_H
 
+/*
+ * Native PC-88VA device interfaces. Port registration uses the canonical
+ * 16-bit I/O map declared by iocore.h.
+ */
 #include	"memctrlva.h"
 #include	"tsp.h"
 #include	"videova.h"
@@ -10,19 +13,4 @@
 #include	"gactrlva.h"
 #include	"cgromva.h"
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-BOOL iocore_attachvaout(UINT port, IOOUT func);
-BOOL iocore_attachvainp(UINT port, IOINP func);
-
-
-
-
-
-
-
-#ifdef __cplusplus
-}
 #endif

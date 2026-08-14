@@ -46,7 +46,6 @@ enum {
 static void m69_prepare_io(void) {
 
 	pccore.model_va = PCMODEL_VA1;
-	iomode_va = 0x02;
 	pccore.multiple = 1;
 	CPU_REMCLOCK = 1000000;
 	iocore_create();

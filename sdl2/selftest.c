@@ -379,7 +379,6 @@ static int test_hostfat_transport(void) {
 		goto transport_cleanup;
 	}
 	np2sysp_reset();
-	iomode_va = 0x02;
 	hostfat_send_string("check_hostfat");
 	if ((iocore_inp8(0x07ef) != 'H') ||
 		(iocore_inp8(0x07ef) != '1')) {
@@ -479,7 +478,6 @@ static int test_hostfat_transport(void) {
 	status = SUCCESS;
 
 transport_cleanup:
-	iomode_va = 0;
 	iocore_destroy();
 	CPU_REMCLOCK = saved_remclock;
 	hostfat_unmount();
@@ -713,8 +711,6 @@ static int test_va_ems_board(void) {
 	BYTE		*saved_extmem;
 	UINT32		saved_extsize;
 	UINT8		saved_pccore_extmem;
-	UINT8		saved_iomode;
-	UINT8		saved_memmode;
 	SINT32		saved_remclock;
 	BYTE		saved_main;
 	BYTE		saved_high0;
@@ -737,8 +733,6 @@ static int test_va_ems_board(void) {
 	saved_extmem = CPU_EXTMEM;
 	saved_extsize = CPU_EXTMEMSIZE;
 	saved_pccore_extmem = pccore.extmem;
-	saved_iomode = iomode_va;
-	saved_memmode = memmode_va;
 	saved_remclock = CPU_REMCLOCK;
 	saved_main = mem[0xc0000];
 	saved_high0 = mem[0x100000];
@@ -769,14 +763,12 @@ static int test_va_ems_board(void) {
 	emsio_reset();
 	emsio_bind();
 	CPU_REMCLOCK = 0x100000;
-	iomode_va = 1;
 	iocore_out8(0x08e9, 1);
 	if ((iocore_inp8(0x08e9) != 0) || (emsio.target != 1)) {
 		result = fail("VA EMS", "VA target register was not reachable");
 		goto ems_test_cleanup;
 	}
 	iocore_out8(0x08e1, 0);
-	memmode_va = 0;
 	upd9002_memorywrite(0x0c0000, 0x5a);
 	if ((mem[0x100000] != 0x5a) || (emsio.addr[0] != 0x100000)) {
 		result = fail("VA EMS", "first 16KB page did not map");
@@ -796,19 +788,16 @@ static int test_va_ems_board(void) {
 		result = fail("VA EMS", "page mapping failed above the 64KB boundary");
 		goto ems_test_cleanup;
 	}
-	memmode_va = 1;
 	upd9002_memorywrite(0x0c0000, 0x96);
 	if ((upd9002_memoryread(0x0c0000) != 0x96) ||
 		(CPU_EXTMEM[0x10000] != 0x96)) {
 		result = fail("VA EMS", "native VA page-frame access did not map");
 		goto ems_test_cleanup;
 	}
-	memmode_va = 0;
 
-	iomode_va = 0;
 	iocore_out8(0x08e9, 1);
 	if (iocore_inp8(0x08e9) != 0) {
-		result = fail("VA EMS", "compatibility target register was not reachable");
+		result = fail("VA EMS", "native VA target register was not reachable");
 		goto ems_test_cleanup;
 	}
 	iocore_out8(0x08e9, 2);
@@ -831,8 +820,6 @@ static int test_va_ems_board(void) {
 	pccore.extmem = EMSIO_MAX_MEGABYTES;
 	emsio_reset();
 	emsio_bind();
-	iomode_va = 1;
-	memmode_va = 1;
 	page_count = EMSIO_MAX_MEGABYTES << 6;
 	for (i=0; i<page_count; i++) {
 		target = (i >> 6) + 1;
@@ -897,8 +884,6 @@ ems_test_cleanup:
 	for (i=0; i<4; i++) {
 		CPU_EMSPTR[i] = saved_ems[i];
 	}
-	iomode_va = saved_iomode;
-	memmode_va = saved_memmode;
 	CPU_REMCLOCK = saved_remclock;
 	if (result == SUCCESS) {
 		fprintf(stderr, "selftest: VA EMS board mapping/config lifecycle ok\n");

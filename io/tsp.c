@@ -12,7 +12,7 @@
 
 
 enum {
-	// TSPコマンド
+	// TSP command codes.
 	CMD_SYNC	= 0x10,
 	CMD_DSPON	= 0x12,
 	CMD_DSPOFF	= 0x13,
@@ -23,7 +23,7 @@ enum {
 	CMD_SPRDEF	= 0x84,
 	CMD_EXIT	= 0x88,
 
-	// ステータス
+	// TSP status bits.
 	STATUS_BUSY	= 0x04,
 	STATUS_VB	= 0x40,
 
@@ -54,7 +54,7 @@ static BYTE *getsprinfo(int no) {
 }
 
 /*
-スプライトの表示状態を変更する
+Apply the decoded sprite-display state.
 */
 static void sprsw(int no, BOOL sw) {
 	BYTE *sprinfo;
@@ -101,7 +101,7 @@ static void exec_sync(void) {
 }
 
 /*
-DSPON (TSP表示開始)
+DSPON: start TSP display.
 */
 static void exec_dspon(void) {
 	TRACEOUT(("tsp: dspon: param=0x%.2x, 0x%.2x, 0x%.2x",
@@ -114,7 +114,7 @@ static void exec_dspon(void) {
 }
 
 /*
-DSPDEF (画面構成と表示形態)
+DSPDEF: define screen composition and display format.
 */
 static void exec_dspdef(void) {
 	TRACEOUT(("tsp: dspdef: param=0x%.2x, 0x%.2x, 0x%.2x, 0x%.2x, 0x%.2x, 0x%.2x",
@@ -125,15 +125,15 @@ static void exec_dspdef(void) {
 	//tsp.pitch = tsp.parambuf[2] >> 4;
 	tsp.lineheight = tsp.parambuf[3] + 1;
 	tsp.hlinepos = tsp.parambuf[4];
-	tsp.blink = tsp.parambuf[5] >> 3;		// ToDo: そのまま採用すると周期が長すぎる
-											// テクマニの誤植？
+	tsp.blink = tsp.parambuf[5] >> 3;		// TODO: the literal field produces an unexpectedly long blink period;
+											// verify whether Tekumani contains a transcription error.
 	tsp.blinkcnt = tsp.blink;
 
 	tsp.status &= ~STATUS_BUSY;
 }
 
 /*
-CURDEF (カーソル形態の指定)
+CURDEF: define cursor format.
 */
 static void exec_curdef(void) {
 	TRACEOUT(("tsp: curdef: param=0x%.2x",tsp.parambuf[0])); 
@@ -146,7 +146,7 @@ static void exec_curdef(void) {
 }
 
 /*
-SPRON (スプライトの表示開始)
+SPRON: enable sprite display.
 */
 static void exec_spron(void) {
 	TRACEOUT(("tsp: spron: param=0x%.2x, 0x%.2x, 0x%.2x",tsp.parambuf[0], tsp.parambuf[1], tsp.parambuf[2])); 
@@ -161,9 +161,9 @@ static void exec_spron(void) {
 }
 
 /*
-SPRDEF (スプライト制御テーブルへの書き込み)
+SPRDEF: write a sprite-control-table entry.
 */
-// パラメータ2バイト目以降
+// Parameter bytes after the first.
 static void paramfunc_sprdef(REG8 dat) {
 	BYTE *mem;
 
@@ -172,7 +172,7 @@ static void paramfunc_sprdef(REG8 dat) {
 	tsp.sprdef_offset++;
 }
 
-// パラメータ1バイト目
+// First parameter byte.
 static void paramfunc_sprdef_begin(REG8 dat) {
 	TRACEOUT(("tsp: sprdef: offset=0x%.2x", dat)); 
 
@@ -182,7 +182,7 @@ static void paramfunc_sprdef_begin(REG8 dat) {
 }
 
 /*
-EXIT (処理中止)
+EXIT: abort command processing.
 */
 static void exec_exit(void) {
 	TRACEOUT(("tsp: exit")); 
@@ -191,7 +191,7 @@ static void exec_exit(void) {
 }
 
 /*
-未定義コマンド
+Undefined command.
 */
 static void exec_unknown(void) {
 	TRACEOUT(("tsp: unknown cmd: 0x%.2x", tsp.cmd));
@@ -257,7 +257,7 @@ static void paramfunc_generic(REG8 dat) {
 
 
 /*
-ステータス読み出し
+Read the TSP status register.
 */
 static REG8 IOINPCALL tsp_i142(UINT port) {
 	REG8 dat;
@@ -270,14 +270,14 @@ static REG8 IOINPCALL tsp_i142(UINT port) {
 }
 
 /*
-未実装ポート
+Unimplemented TSP port.
 */
 static REG8 IOINPCALL tsp_i143(UINT port) {
 	return 0xff;
 }
 
 /*
-コマンド書き込み
+Write a TSP command.
 */
 static void IOOUTCALL tsp_o142(UINT port, REG8 dat) {
 	TRACEOUT(("tsp: command: 0x%.2x", dat));
@@ -342,7 +342,7 @@ static void IOOUTCALL tsp_o142(UINT port, REG8 dat) {
 }
 
 /*
-パラメータ書き込み
+Write a TSP parameter byte.
 */
 static void IOOUTCALL tsp_o146(UINT port, REG8 dat) {
 	TRACEOUT(("tsp: parameter: 0x%.2x", dat));
@@ -377,22 +377,22 @@ void tsp_reset(void) {
 	//tsp.paramfunc = paramfunc_nop;
 	tsp.paramfunc = PARAMFUNC_NOP;
 	tsp_dirty = TRUE;
-						/* リセット時は tsp_dirty=TRUEとすることにより、
-						   maketextva.cのsleepを解除 */
+						/* Marking tsp_dirty on reset wakes the text renderer
+						   from its sleep state. */
 }
 
 void tsp_bind(void) {
 	tsp_updateclock();
 	/*
-	iocore_attachvaout(0x152, memctrlva_o152);
-	iocore_attachvaout(0x153, memctrlva_o153);
-	iocore_attachvaout(0x198, memctrlva_o198);
-	iocore_attachvaout(0x19a, memctrlva_o19a);
+	iocore_attachout(0x152, memctrlva_o152);
+	iocore_attachout(0x153, memctrlva_o153);
+	iocore_attachout(0x198, memctrlva_o198);
+	iocore_attachout(0x19a, memctrlva_o19a);
 	*/
-	iocore_attachvainp(0x142, tsp_i142);
-	iocore_attachvainp(0x143, tsp_i143);
-	iocore_attachvaout(0x142, tsp_o142);
-	iocore_attachvaout(0x146, tsp_o146);
+	iocore_attachinp(0x142, tsp_i142);
+	iocore_attachinp(0x143, tsp_i143);
+	iocore_attachout(0x142, tsp_o142);
+	iocore_attachout(0x146, tsp_o146);
 }
 
 // ---- 
@@ -400,30 +400,30 @@ void tsp_bind(void) {
 void tsp_updateclock(void) {
 #if 0
 	/*
-	TSPの仕様はわからないので、代わりに、
-	np2のGDCの処理と同じ計算を実施する。
+	The exact uninitialized TSP timing is unknown, so use
+	the inherited GDC timing calculation as a fallback.
 	*/
-	UINT hs = 7;		// 水平同期信号の幅(文字)
-	UINT hfp = 9;		// 右方向の非表示区間(文字)
-	UINT hbp = 7;		// 左方向の非表示区間(文字)
-	UINT vs = 8;		// 垂直同期信号の幅(ライン)
-	UINT vfp = 7;		// 下方向の非表示区間(ライン)
-	UINT vbp = 0x19 -3;	// 上方向の非表示区間(ライン)
-	UINT lf = 400 +3;	// 1画面あたり表示ライン数
-	UINT cr = 80;		// 1行あたり表示文字数
-	UINT32 clock = 21052600 / 8;	// 動作クロック=1秒あたり表示ブロック数
-						// (ブロック=1文字の1ライン分)
+	UINT hs = 7;		// Horizontal-sync width in character clocks.
+	UINT hfp = 9;		// Right-side horizontal blanking in character clocks.
+	UINT hbp = 7;		// Left-side horizontal blanking in character clocks.
+	UINT vs = 8;		// Vertical-sync width in lines.
+	UINT vfp = 7;		// Bottom vertical blanking in lines.
+	UINT vbp = 0x19 -3;	// Top vertical blanking in lines.
+	UINT lf = 400 +3;	// Active lines per frame.
+	UINT cr = 80;		// Active character clocks per line.
+	UINT32 clock = 21052600 / 8;	// Display blocks per second.
+						// One block is one raster row of one character cell.
 	UINT x;
 	UINT y;
 	UINT cnt;
 	UINT32 hclock;
 
-	x = hfp + hbp + hs + cr + 3;	// 1行あたり総表示文字数
-	y = vfp + vbp + vs + lf;		// 1画面あたり総表示ライン数
+	x = hfp + hbp + hs + cr + 3;	// Total character clocks per line.
+	y = vfp + vbp + vs + lf;		// Total lines per frame.
 
-	hclock = clock / x;				// 1秒あたり表示ライン数
-	cnt = (pccore.baseclock * y) / hclock;	// 1画面あたり時間(ベースクロック数)
-	cnt *= pccore.multiple;			// 1画面あたり時間(CPUクロック数)
+	hclock = clock / x;				// Lines per second.
+	cnt = (pccore.baseclock * y) / hclock;	// Frame duration in base clocks.
+	cnt *= pccore.multiple;			// Frame duration in CPU clocks.
 	tsp.rasterclock = cnt / y;
 //	tsp.hsyncclock = (tsp.rasterclock * cr) / x;
 	tsp.dispclock = tsp.rasterclock * lf;
@@ -435,33 +435,33 @@ void tsp_updateclock(void) {
 	UINT h;
 	UINT cnt;
 	UINT32 hclock;
-	UINT32 clock;			// 1秒あたり表示ドット数
-	UINT sysp4displines;	// システムポート4 VSYNC: 表示期間ライン数
-	UINT sysp4vsyncexlines;	// システムポート4 VSYNC: TSPのVSYNC終了時点から
-							// 1である期間のライン数
+	UINT32 clock;			// Pixel clocks per second.
+	UINT sysp4displines;	// System-port 4 VRTC: active-display line count.
+	UINT sysp4vsyncexlines;	// System-port 4 VRTC: line count for which VRTC remains active
+							// after the TSP vertical-sync interval ends.
 	int hsyncmode;
 	//UINT vaddefault, haddefault;
 
-	lbl = tsp.syncparam[2] & 0x3f;	// 左ブランク
-	lbr = tsp.syncparam[3] & 0x3f;	// 左ボーダー
-	had = tsp.syncparam[4];			// 水平表示領域
-	rbr = tsp.syncparam[5] & 0x3f;	// 右ボーダー
-	rbl = tsp.syncparam[6] & 0x3f;	// 右ブランク
-	hs  = tsp.syncparam[7] & 0x3f;	// 水平同期期間
-	tbl = tsp.syncparam[8] & 0x3f;	// 上ブランク
-	tbr = tsp.syncparam[9] & 0x3f;	// 上ボーダー
+	lbl = tsp.syncparam[2] & 0x3f;	// Left blanking.
+	lbr = tsp.syncparam[3] & 0x3f;	// Left border.
+	had = tsp.syncparam[4];			// Horizontal active area.
+	rbr = tsp.syncparam[5] & 0x3f;	// Right border.
+	rbl = tsp.syncparam[6] & 0x3f;	// Right blanking.
+	hs  = tsp.syncparam[7] & 0x3f;	// Horizontal-sync interval.
+	tbl = tsp.syncparam[8] & 0x3f;	// Top blanking.
+	tbr = tsp.syncparam[9] & 0x3f;	// Top border.
 	vad = tsp.syncparam[10] + ((tsp.syncparam[11] & 0x40) << 2);
-									// 垂直表示領域
-	bbr = tsp.syncparam[11] & 0x3f;	// 下ボーダー
-	bbl = tsp.syncparam[12] & 0x3f;	// 下ブランク
-	vs  = tsp.syncparam[13] & 0x3f;	// 垂直同期期間
+									// Vertical active area.
+	bbr = tsp.syncparam[11] & 0x3f;	// Bottom border.
+	bbl = tsp.syncparam[12] & 0x3f;	// Bottom blanking.
+	vs  = tsp.syncparam[13] & 0x3f;	// Vertical-sync interval.
 
 
 	if (vad == 0 && had == 0) {
-		// 初期化未
-		// SYNCパラメタが設定されていない場合でもtsp.dispclock/vsynclockが
-		// そこそこの値に設定されるようにする。
-		// 24KHz, 400ラインのデータを与えることにする。
+		// SYNC parameters have not been initialized.
+		// Provide usable display and vertical-sync clocks before the guest
+		// programs SYNC parameters.
+		// Use a 24.8 kHz, 400-line fallback timing.
 		lbl = 0x10; lbr = 0;
 		had = 0x9f;
 		rbl = 0x10; rbr = 0;
@@ -485,7 +485,7 @@ void tsp_updateclock(void) {
 		break;
 	case VIDEOVA_15_73KHZ:
 		//clock = 14219920;			// 15.73KHz
-		clock = 14252364;			// 実機測定値に近くなるように補正:15.766KHz
+		clock = 14252364;			// Adjusted to approximate the measured 15.766 kHz line rate.
 		sysp4displines = 202;
 		sysp4vsyncexlines = 36;
 		//vaddefault = 0xc8;
@@ -505,26 +505,26 @@ void tsp_updateclock(void) {
 	if (lbl < 3) lbl = 3;
 
 	w = (lbl+1 + lbr + had+1 + rbr + rbl+1 + hs+1) * 4;
-									// 1ラインあたり総ドット数
-									// μPD72022データシートの解説と異なり、
-									// lbr, rbrには1が加算されないように
-									// 実機では見える
+									// Total pixel clocks per line.
+									// Unlike the uPD72022 data-sheet description, observed hardware
+									// appears not to add one to LBR and RBR.
+
 	h = tbl + tbr + vad + bbr + bbl + vs;
-									// 1画面あたり総ライン数
+									// Total lines per frame.
 
 	if (sysp4displines + sysp4vsyncexlines >= h) {
-		// 初代VAは起動時に24KHz時でも15.98KHz200ライン用のSYNC設定をする。
-		// この場合、sysp4displinesが全ライン数をこえてしまいポート40hの
-		// VSYNCが常に0となってしまう。これを回避するために以下の処理を
-		// 実行する。
+		// The original VA bootstrap programs 15.98 kHz/200-line SYNC values
+		// even for 24.8 kHz output.  That can make sysp4displines exceed
+		// the total line count and leave port 040H VRTC permanently clear;
+		// clamp the derived interval to avoid that state.
 		sysp4displines = h - sysp4vsyncexlines - 4;
 	}
 
 
-	hclock = clock / w;				// 1秒あたり表示ライン数
+	hclock = clock / w;				// Lines per second.
 	cnt = (pccore.baseclock * h) / hclock;
-									// 1画面あたり時間(ベースクロック数)
-	cnt *= pccore.multiple;			// 1画面あたり時間(CPUクロック数)
+									// Frame duration in base clocks.
+	cnt *= pccore.multiple;			// Frame duration in CPU clocks.
 	tsp.rasterclock = cnt / h;
 	//tsp.dispclock = tsp.rasterclock * (tbl + tbr + vad);
 	//tsp.vsyncclock = cnt - tsp.dispclock;

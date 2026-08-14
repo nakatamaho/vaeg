@@ -46,7 +46,6 @@ static BYTE m68_bmsmem[M68_BMS_SIZE];
 
 static void configure_va_mapping(void) {
 
-	memmode_va = 1;
 	pccore.model_va = PCMODEL_VA1;
 	ZeroMemory(&memoryva, sizeof(memoryva));
 	memoryva.sysm_bank = 1;

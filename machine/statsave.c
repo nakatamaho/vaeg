@@ -111,7 +111,7 @@ typedef struct {
 
 // ----
 
-// 関数ポインタを intに変更。
+// Replace a serialized callback pointer with its stable table identifier.
 static BOOL proc2num(void *func, const PROCTBL *tbl, int size) {
 
 	int		i;
@@ -854,7 +854,7 @@ static int flagload_fm(STFLAGH sfh, const SFENTRY *t) {
 		ret |= statflag_read(sfh, &fmboardva, sizeof(fmboardva));
 	}
 
-	// 復元。 これ移動すること！
+	// Recompute ADPCM derived state after restoring its register image.
 	adpcm_update(&adpcm);
 	(void)t;
 	return(ret);
@@ -1566,7 +1566,7 @@ const SFENTRY	*tblterm;
 	sound_reset();
 	fddmtrsnd_bind();
 
-	iocore_reset();								// サウンドでpicを呼ぶので…
+	iocore_reset();								// Sound-board reset calls the native PIC interface.
 	cbuscore_reset();
 	fmboard_reset(pccore.sound);
 
@@ -1656,8 +1656,7 @@ const SFENTRY	*tblterm;
 	}
 	statflag_close(sffh);
 
-	// I/O作り直し
-	upd9002_memorymap(0);
+	// Rebuild the native VA I/O map after restoring device state.
 	upd9002_memorymap_va();
 	iocore_build();
 	iocore_bind();

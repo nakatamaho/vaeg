@@ -50,26 +50,26 @@ REG8 va91_rombankstatus(void) {
 
 
 void va91_reset(void) {
-	// ダイアログで設定した内容を動作環境に反映する
-	// VA-EGリセット時に呼ばれる(STATSAVEのロード時は呼ばれない)
+	// Apply configured VA91 board settings to the runtime state.
+	// Called on emulator reset, but not while loading a saved state.
 	va91.cfg = va91cfg;
 	if (pccore.model_va != PCMODEL_VA1) {
-		// 初代VAでなければバージョンアップボードは無効
+		// The VA91 upgrade board is available only for the original VA model.
 		va91.cfg.enabled = FALSE;
 	}
 
-	// バンクをリセット
+	// Restore the board ROM-bank selection.
 	va91_off2(0, 0);
 	va91_off3(0, 0);
 }
 
 void va91_bind(void) {
 	if (va91.cfg.enabled) {
-		iocore_attachvaout(0xff2, va91_off2);
-		iocore_attachvaout(0xff3, va91_off3);
+		iocore_attachout(0xff2, va91_off2);
+		iocore_attachout(0xff3, va91_off3);
 
-		iocore_attachvainp(0xff2, va91_iff2);
-		iocore_attachvainp(0xff3, va91_iff3);
+		iocore_attachinp(0xff2, va91_iff2);
+		iocore_attachinp(0xff3, va91_iff3);
 	}
 }
 
