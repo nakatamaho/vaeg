@@ -25,9 +25,14 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ## Status
 
-M92 implementation is complete on `topic/m92-clang-format` through
-`0ae6edd9`. Automated validation passes. G92 human validation is pending.
-M93 has not started.
+M92 implementation is complete on `topic/m92-clang-format`. Automated
+validation passes. The first G92 attempt did not pass because the maintainer
+observed an overall slowdown. G92 remains open, and M93 has not started.
+
+The initial handoff incorrectly identified test-enabled integration-trace
+executables as the artifacts for the normal-maintainer-configuration gate.
+Those executables are valid validation workers, but they are not production
+release executables and must not be used for runtime-performance acceptance.
 
 ## Scope and tool authority
 
@@ -120,12 +125,49 @@ Git-backed checks were run with `GIT_CONFIG_GLOBAL=/dev/null` and
 configuration could not be confused with a repository failure. Existing
 compiler warnings were not changed in this formatting milestone.
 
-Artifact identities after final builds:
+Validation-worker identities after the test-enabled builds:
 
 - macOS arm64 `build/macos-macports/sdl2/vaeg`:
   `d1b8b1bd648d8ebd2b7a69e45cd6bac9d931337fe504c899c02984d8c09efab6`
 - MinGW x86-64 `build/mingw-cross/sdl2/vaeg.exe`:
   `e1003bf06fa4ccdf0c7c6c59c53b8abd2a98dce35641079370809e658e5653f3`
+
+Both workers were configured with `VAEG_ENABLE_TESTS=ON` and
+`VAEG_Z80_COMPAT_INTEGRATION_TRACE=ON`. The trace option retains per-instruction
+trace calls even while no trace stream is active, so these workers can be
+slower than production releases. This is a build-configuration effect, not an
+accepted M92 runtime result.
+
+## Failed-gate diagnosis and corrected artifacts
+
+The failed report was investigated without changing emulator source. Fresh
+normal Release builds explicitly set `VAEG_ENABLE_TESTS`,
+`VAEG_Z80_COMPAT_INTEGRATION_TRACE`, and `VAEG_UPD9002_PERF_DIAGNOSTIC` to
+`OFF`. They produced:
+
+- macOS arm64 `build/g92-release/sdl2/vaeg`:
+  `6dbaba4be0e7018ccabb43440db289349f4f5616226ff005df3bde09a67cbbe4`
+- MinGW x86-64 `build/g92-mingw-release/sdl2/vaeg.exe`:
+  `65dc984f77d698741f4b9484adc574330271f3a84f064557b618fa412ef50e5f`
+
+The two corrected executables were built from evaluated implementation commit
+`03b6ad139ea4a33d0691be8ff313c99ba9296afc`. The macOS executable passed the
+ROM-less selftest.
+
+The same compiler, target, Release flags, and disabled diagnostic options were
+then used to rebuild predecessor `a7aaeba81b3828927019b9567c3c8d6ae087a708`.
+For both macOS and MinGW, 172 of 173 first-party object files were byte-for-byte
+identical between the predecessor and M92. The only differing object was
+`generic/np2info.c`, whose generated build-commit string necessarily differs;
+its disassembly was identical. The corresponding linked executable sizes were
+also identical on each platform. Under these controlled builds, M92 formatting
+therefore produces identical production instructions and no source-induced
+performance difference was found.
+
+The exact executable path used in the first failed human attempt was not
+recorded, so the failed observation is not overwritten or reclassified as a
+pass. G92 requires a fresh maintainer retest with one of the corrected normal
+Release executables.
 
 No hosted CI result is claimed in this report. No archived reference-tier path,
 vendored dependency, ROM, disk image, font, icon, wave data, or private

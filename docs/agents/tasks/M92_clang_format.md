@@ -23,7 +23,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 # M92 - Canonical clang-format normalization
 
-Status: **IMPLEMENTATION COMPLETE; G92 human gate pending**
+Status: **IMPLEMENTATION COMPLETE; G92 failed once; production-release retest pending**
 
 Predecessor: G91 passed and M91 merged to `main` at
 `a7aaeba81b3828927019b9567c3c8d6ae087a708`.
