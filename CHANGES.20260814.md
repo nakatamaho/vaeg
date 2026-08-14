@@ -34,9 +34,9 @@ and development-disk changes made after `rel-260805`.
   booted through the uPD70008-compatible main-CPU mode. The shared Z80
   compatibility implementation remains separate from the uPD780C floppy
   controller CPU.
-- The SDL frontend now handles key repeat and the Windows JIS `ろ`/underscore
-  mapping more reliably, and preserves the corrected TVRAM copy width and
-  kanji pairing.
+- The SDL frontend now handles key repeat and the Windows JIS `ろ` key can
+  enter an underscore (`_`) again. It also preserves the corrected TVRAM copy
+  width and kanji pairing.
 - Media and HOSTFAT dialogs can select the host-folder drive. The GUI also
   exposes the 98-font screen selection and reports effective clock/frame
   values, making model and timing configuration easier to verify.

@@ -21,7 +21,8 @@ adds reproducible CP/MVA/uPD70008 support, the configurable PC-88VA EMS
 Board, native VA BMS defaults (16MB at `01D0H` with 640KB main RAM preserved),
 and the EMMVA/SQEMM98/RDEMS development-disk workflow. It also includes SDL
 keyboard and Windows JIS input fixes, host-drive selection, and 98-font and
-effective-clock GUI diagnostics. Release packages include matching
+effective-clock GUI diagnostics. Windows JIS keyboard mode can enter `_` from
+the `ろ` key again. Release packages include matching
 `HOSTFAT.SYS` and `SQEMM98.SYS` drivers with licenses, instructions, and
 checksums. See [Rel.20260814 changes](CHANGES.20260814.md) for setup notes and
 the current MSE `/B` limitation.
