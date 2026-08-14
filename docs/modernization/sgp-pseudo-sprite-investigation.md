@@ -24,8 +24,9 @@ POSSIBILITY OF SUCH DAMAGE.
 -->
 # PC-88VA SGP Pseudo-Sprite Investigation
 
-> **Status:** M1 hardware inventory is complete; M5 implementation
-> details are recorded below; the G5 visual human gate passed
+> **Status:** M1 hardware inventory is complete; M5 implementation and G5
+> are complete; the corrected M6 stress/counter implementation is ready for
+> its human gate
 >
 > **Date:** 2026-08-14 (JST)
 
@@ -334,10 +335,16 @@ gradient, white upper-left highlight, dark lower-right edge, and a transparent
 source-zero silhouette. Sixteen hue variants are stored in main RAM; color 0
 remains transparent and all sphere pixels still come from SGP BITBLT. The CPU
 does not mask or copy them. The FPS label is followed by a C label and four
-ball-count digits, and the active prefix can grow from 1 to 1,024 records.
+ball-count digits, and the active prefix can grow from 1 to 256 records.
+Records 17 through 48 use an 8x8 transparent bullet bitmap; later records
+reuse the shaded 24x24 ball variants for the remaining stress capacity.
 
-The command buffer is 16,571 words (33,142 bytes) at the 1,024-sprite
-limit; the initial 16-sprite frame emits 443 words and 27 BITBLTs.
+The command buffer is 4,283 words (8,566 bytes) at the 256-record limit; the
+initial 16-sprite frame emits 443 words and 27 BITBLTs. The 48-record
+ball-plus-bullet prefix emits 955 words and 59 BITBLTs, with 11,572 source
+pixels and 5,786 source bytes. The 256-record frame transfers 131,380 source
+pixels and 65,690 source bytes; these are source rectangles presented to SGP,
+not a claim that every pixel is nonzero after transparency rejection.
 
 The M5 build passed NASM assembly, the dedicated CMake guest target, and
 headless VAEG execution on a disposable D88. G5 human measurement recorded
@@ -345,10 +352,102 @@ about 57 FPS at 26 active 24x24 spheres and about 28 FPS at 27 spheres.
 The current M5 gate is complete; this workload cliff is retained as an M6
 optimization input rather than treated as a VAEG correctness defect.
 
-## 12. Limitations and open checks
+## 12. M6 stress and instrumentation update
+
+M6 keeps the M5 page architecture and adds a bounded stress prefix of 256
+records. The first 16 records are the established shaded spheres, the next
+32 are 8x8 4-bpp transparent bullets, and records 49 through 256 are further
+spheres. Up/+/Down/- still changes only the active prefix, so a tester can
+measure the transition from balls to bullets without changing the command-list
+format or using a CPU pixel loop.
+
+The command builder counts command words and BITBLTs in the current frame. For
+each BITBLT it also counts source pixels (`width * height`) and source bytes
+(`pitch * height`); the CLS and command-list control words are not included in
+those transfer counters. Completed frames, VBLANK-synchronized page flips,
+and both per-frame and 32-bit cumulative transfer counters are retained in
+main RAM. A VBLANK counter increments only when the bounded low/high polling
+window is exhausted. On ESC, after restoring the saved video state, DOS prints
+all counters and the active sprite count. The cumulative values wrap at
+`0xffffffff`, while the per-frame values are 16-bit and sufficient for 256
+records.
+
+Machine checks for this M6 candidate were:
+
+- NASM assembled the default M6 `sgp_sprite_demo.asm` to a 20,734-byte COM;
+- the dedicated `sgpsprite_com` CMake target rebuilt successfully;
+- a normal 16-record headless VAEG run on a disposable copy of
+  `docs/disks/pcengine110-bootonly.d88` completed and produced a screen dump;
+- a temporary, uncommitted build with `SPRITE_INITIAL_COUNT` set to 256
+  completed the same VAEG launch without an emulator or SGP error; and
+- the source still contains no CPU sprite-pixel copy or masking loop.
+
+The 26-at-about-57-FPS and 27-at-about-28-FPS human measurements remain the
+M5 workload reference. M6's 256-record launch is a correctness/stability
+stress check, not a claim that 256 24x24 BITBLTs will sustain display rate.
+This section remains an implementation candidate until the maintainer passes
+the M6 visual/human gate.
+
+## 13. M6 rebuild correction and milestone binaries
+
+The first M6 distribution candidate exposed two separate packaging/runtime
+errors during the human review. The D88 had been made with the `vanilla`
+workflow, so it retained the four PC-Engine system files. The replacement
+artifact is made with `pcengine_disk.py data` and an install payload containing
+only the six milestone programs:
+
+~~~text
+A:\SGPDEMO1.COM
+A:\SGPDEMO2.COM
+A:\SGPDEMO3.COM
+A:\SGPDEMO4.COM
+A:\SGPDEMO5.COM
+A:\SGPDEMO6.COM
+~~~
+
+The compressed distribution is `tools/pc88va/sgp-pseudo-sprite/sgpdemo.d88.xz`.
+It is a data disk, not a standalone boot disk; a separate bootable system D88
+is mounted in FDD1 for launch. No `ENGINEIO.SYS`, `PCENGINE.SYS`,
+`ADVGBIOS.SYS`, or `PCENGINE.COM` is included in the distribution image.
+
+The first COM also used long conditional branches for the sprite and FPS
+loops. NASM encoded those branches as `0f 85`, but the uPD9002 instruction
+model treats the `0fh` prefix as its reserved/extended instruction family,
+not as an 8086 near conditional branch. As a result, the command list stopped
+after one sphere and one `F` glyph. This was a demo instruction-selection bug;
+no VAEG core behavior was changed. The corrected source keeps the loop counter
+in RAM, uses a short conditional exit, and uses an unconditional near jump for
+the long back edge.
+
+The source now accepts `-dMILESTONE_STAGE=1` through `-dMILESTONE_STAGE=6`.
+The reproducible helper `build_milestone_coms.sh` emits the six runnable
+names. M1 is a text hardware-inventory diagnostic; M2 initializes the video
+mode and leaves the checkerboard visible; M3 uses one transparent SGP BITBLT;
+M4 uses multiple animated records; M5 uses the hidden-page path without the
+M6 bullet stress prefix; and M6 is the full stress/counter build.
+
+The resulting COM sizes are:
+
+~~~text
+SGPDEMO1.COM 20718
+SGPDEMO2.COM 20660
+SGPDEMO3.COM  8690
+SGPDEMO4.COM  8692
+SGPDEMO5.COM  8698
+SGPDEMO6.COM 20734
+~~~
+
+A traced run of the corrected M6 COM emitted 16 sphere BITBLTs plus 11 FPS/
+count glyph BITBLTs (27 BITBLTs per frame), with all 16 sphere source addresses
+present before the glyph commands. The trace produced 37,709 `END` commands and
+1,018,143 source/BITBLT commands during the bounded run. This is the machine
+check for the earlier one-sprite/`F`-only symptom; visual M6 acceptance remains
+a human gate.
+
+## 14. Limitations and open checks
 
 - The M1 inventory itself did not build a NASM program or run VAEG; the
-  M5 update above records the later machine checks.
+  M5 and M6 updates above record the later machine checks.
 - The tracked video reconstruction labels direct 320x200 field programming as
   a candidate pending hardware tests. The documented graphics BIOS mode is
   therefore the safer initialization interface for M2.
@@ -364,7 +463,8 @@ optimization input rather than treated as a VAEG correctness defect.
   background plus G1 sprite-layer arrangement. Direct, documented `DSA1`
   exchange preserves that arrangement and is the selected path.
 - The optional 1-bpp expansion path is documented and present in VAEG, but it
-  remains outside M1-M6 and must not delay the 4-bpp demo.
+  remains outside the first six SGP demo milestones and must not delay the
+  4-bpp demo.
 
 No VAEG defect was demonstrated by this static inventory. Any later mismatch
 must be classified with a minimal guest reproducer before emulator behavior is

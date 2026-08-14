@@ -23,6 +23,10 @@
 bits 16
 org 0x100
 
+%ifndef MILESTONE_STAGE
+%define MILESTONE_STAGE         6
+%endif
+
 %define KEYBOARD_BIOS_INT       0x82
 %define CALENDAR_BIOS_INT       0x8c
 %define VIDEO_BIOS_INT          0x8f
@@ -66,13 +70,37 @@ org 0x100
 %define SGP_BITBLT_COPY_XPAR    0x0105
 %define SGP_BUSY                0x01
 
-%define SPRITE_INITIAL_COUNT    16
+%define BALL_COUNT              16
+%if MILESTONE_STAGE == 5
+%define BULLET_COUNT            0
+%define SPRITE_INITIAL_COUNT    BALL_COUNT
+%define SPRITE_MIN_COUNT        BALL_COUNT
+%define SPRITE_MAX_COUNT        BALL_COUNT
+%elif MILESTONE_STAGE == 4
+%define BULLET_COUNT            0
+%define SPRITE_INITIAL_COUNT    BALL_COUNT
 %define SPRITE_MIN_COUNT        1
-%define SPRITE_MAX_COUNT        1024
+%define SPRITE_MAX_COUNT        BALL_COUNT
+%elif MILESTONE_STAGE == 3
+%define BULLET_COUNT            0
+%define SPRITE_INITIAL_COUNT    1
+%define SPRITE_MIN_COUNT        1
+%define SPRITE_MAX_COUNT        BALL_COUNT
+%else
+%define BULLET_COUNT            32
+%define SPRITE_INITIAL_COUNT    BALL_COUNT
+%define SPRITE_MIN_COUNT        1
+%define SPRITE_MAX_COUNT        256
+%endif
+%define BULLET_FIRST_INDEX      BALL_COUNT
 %define SPRITE_WIDTH            24
 %define SPRITE_HEIGHT           24
 %define SPRITE_PITCH            12
 %define SPRITE_BITMAP_BYTES     (SPRITE_PITCH * SPRITE_HEIGHT)
+%define BULLET_WIDTH            8
+%define BULLET_HEIGHT           8
+%define BULLET_PITCH            4
+%define BULLET_BITMAP_BYTES     (BULLET_PITCH * BULLET_HEIGHT)
 %define FPS_GLYPH_COUNT         11
 %define FPS_GLYPH_WIDTH         4
 %define FPS_GLYPH_HEIGHT        7
@@ -131,6 +159,16 @@ org 0x100
 %define SPRITE_PRIORITY_OFFSET  16
 %define SPRITE_RECORD_SIZE      18
 
+%if MILESTONE_STAGE == 1
+start:
+    push cs
+    pop ds
+    cld
+    mov dx, message_start
+    call print_string
+    mov ax, 0x4c00
+    int 0x21
+%else
 start:
     push cs
     pop ds
@@ -142,9 +180,17 @@ start:
     call print_string
 
     call initialize_video
+%endif
     jc initialization_failed
     call initialize_fps_counter
+    call initialize_m6_counters
 
+%if MILESTONE_STAGE == 2
+m2_wait_loop:
+    call poll_keyboard
+    jc animation_done
+    jmp m2_wait_loop
+%else
 animation_loop:
     call poll_keyboard
     jc animation_done
@@ -157,10 +203,13 @@ animation_loop:
     call update_fps_counter
     call flip_draw_page
     jc animation_failed
+    call record_completed_frame
     jmp animation_loop
+%endif
 
 animation_done:
     call restore_video_state
+    call print_m6_summary
     mov dx, message_done
     call print_string
     mov ax, 0x4c00
@@ -175,6 +224,7 @@ initialization_failed:
 
 animation_failed:
     call restore_video_state
+    call print_m6_summary
     mov dx, message_animation_failed
     call print_string
     mov ax, 0x4c02
@@ -228,6 +278,10 @@ flip_draw_page:
     call wait_vblank_start
     jc .failed
     call set_display_page_from_draw
+    inc word [m6_page_flips_lo]
+    jnz .page_flip_count_ready
+    inc word [m6_page_flips_hi]
+.page_flip_count_ready:
     xor byte [draw_page_index], 1
     call set_draw_page_base
     clc
@@ -292,6 +346,7 @@ initialize_video:
     push cs
     pop ds
     call draw_g0_checkerboard
+%if MILESTONE_STAGE >= 3
     mov byte [draw_page_index], 0
     call set_draw_page_base
     call render_sprite_frame
@@ -301,6 +356,7 @@ initialize_video:
     call set_draw_page_base
     call render_sprite_frame
     jc .failed
+%endif
 
     call set_display_page_from_draw
     xor byte [draw_page_index], 1
@@ -535,6 +591,176 @@ update_fps_counter:
     pop ax
     ret
 
+initialize_m6_counters:
+    xor ax, ax
+    mov [m6_frames_lo], ax
+    mov [m6_frames_hi], ax
+    mov [m6_page_flips_lo], ax
+    mov [m6_page_flips_hi], ax
+    mov [m6_sgp_commands_frame], ax
+    mov [m6_sgp_bitblts_frame], ax
+    mov [m6_sgp_pixels_frame_lo], ax
+    mov [m6_sgp_pixels_frame_hi], ax
+    mov [m6_sgp_source_bytes_frame_lo], ax
+    mov [m6_sgp_source_bytes_frame_hi], ax
+    mov [m6_total_commands_lo], ax
+    mov [m6_total_commands_hi], ax
+    mov [m6_total_bitblts_lo], ax
+    mov [m6_total_bitblts_hi], ax
+    mov [m6_total_pixels_lo], ax
+    mov [m6_total_pixels_hi], ax
+    mov [m6_total_source_bytes_lo], ax
+    mov [m6_total_source_bytes_hi], ax
+    mov [m6_missed_vblank_lo], ax
+    mov [m6_missed_vblank_hi], ax
+    ret
+
+record_completed_frame:
+    inc word [m6_frames_lo]
+    jnz .ready
+    inc word [m6_frames_hi]
+.ready:
+    ret
+
+m6_accumulate_frame_counters:
+    push ax
+    push dx
+
+    mov ax, [m6_sgp_commands_frame]
+    add [m6_total_commands_lo], ax
+    adc word [m6_total_commands_hi], 0
+
+    mov ax, [m6_sgp_bitblts_frame]
+    add [m6_total_bitblts_lo], ax
+    adc word [m6_total_bitblts_hi], 0
+
+    mov ax, [m6_sgp_pixels_frame_lo]
+    mov dx, [m6_sgp_pixels_frame_hi]
+    add [m6_total_pixels_lo], ax
+    adc [m6_total_pixels_hi], dx
+
+    mov ax, [m6_sgp_source_bytes_frame_lo]
+    mov dx, [m6_sgp_source_bytes_frame_hi]
+    add [m6_total_source_bytes_lo], ax
+    adc [m6_total_source_bytes_hi], dx
+
+    pop dx
+    pop ax
+    ret
+
+print_m6_summary:
+    push ax
+    push dx
+
+    mov dx, message_m6_summary
+    call print_string
+    mov dx, label_m6_frames
+    call print_string
+    mov ax, [m6_frames_lo]
+    mov dx, [m6_frames_hi]
+    call print_u32
+    mov dx, label_m6_page_flips
+    call print_string
+    mov ax, [m6_page_flips_lo]
+    mov dx, [m6_page_flips_hi]
+    call print_u32
+    mov dx, label_m6_last_commands
+    call print_string
+    mov ax, [m6_sgp_commands_frame]
+    xor dx, dx
+    call print_u32
+    mov dx, label_m6_last_bitblts
+    call print_string
+    mov ax, [m6_sgp_bitblts_frame]
+    xor dx, dx
+    call print_u32
+    mov dx, label_m6_last_pixels
+    call print_string
+    mov ax, [m6_sgp_pixels_frame_lo]
+    mov dx, [m6_sgp_pixels_frame_hi]
+    call print_u32
+    mov dx, label_m6_last_bytes
+    call print_string
+    mov ax, [m6_sgp_source_bytes_frame_lo]
+    mov dx, [m6_sgp_source_bytes_frame_hi]
+    call print_u32
+    mov dx, label_m6_total_commands
+    call print_string
+    mov ax, [m6_total_commands_lo]
+    mov dx, [m6_total_commands_hi]
+    call print_u32
+    mov dx, label_m6_total_bitblts
+    call print_string
+    mov ax, [m6_total_bitblts_lo]
+    mov dx, [m6_total_bitblts_hi]
+    call print_u32
+    mov dx, label_m6_total_pixels
+    call print_string
+    mov ax, [m6_total_pixels_lo]
+    mov dx, [m6_total_pixels_hi]
+    call print_u32
+    mov dx, label_m6_total_bytes
+    call print_string
+    mov ax, [m6_total_source_bytes_lo]
+    mov dx, [m6_total_source_bytes_hi]
+    call print_u32
+    mov dx, label_m6_active
+    call print_string
+    mov ax, [active_sprite_count]
+    xor dx, dx
+    call print_u32
+    mov dx, label_m6_missed
+    call print_string
+    mov ax, [m6_missed_vblank_lo]
+    mov dx, [m6_missed_vblank_hi]
+    call print_u32
+
+    pop dx
+    pop ax
+    ret
+
+print_u32:
+    push ax
+    push bx
+    push cx
+    push dx
+    push si
+    push di
+
+    mov [m6_print_value_lo], ax
+    mov [m6_print_value_hi], dx
+    mov di, m6_number_buffer + 11
+    mov byte [di], '$'
+    dec di
+    mov bx, 10
+.next_digit:
+    xor dx, dx
+    mov ax, [m6_print_value_hi]
+    div bx
+    mov [m6_print_value_hi], ax
+    mov ax, [m6_print_value_lo]
+    div bx
+    mov [m6_print_value_lo], ax
+    add dl, '0'
+    mov [di], dl
+    dec di
+    cmp word [m6_print_value_hi], 0
+    jne .next_digit
+    cmp word [m6_print_value_lo], 0
+    jne .next_digit
+    inc di
+    mov dx, di
+    mov ah, 0x09
+    int 0x21
+
+    pop di
+    pop si
+    pop dx
+    pop cx
+    pop bx
+    pop ax
+    ret
+
 format_fps_glyphs:
     push ax
     push bx
@@ -621,6 +847,10 @@ wait_vblank_start:
     loop .poll_display_interval
     dec bx
     jnz .wait_display_interval
+    inc word [m6_missed_vblank_lo]
+    jnz .display_timeout_count_ready
+    inc word [m6_missed_vblank_hi]
+.display_timeout_count_ready:
     stc
     ret
 
@@ -637,6 +867,10 @@ wait_vblank_start:
     loop .poll_vblank_interval
     dec bx
     jnz .wait_vblank_interval
+    inc word [m6_missed_vblank_lo]
+    jnz .vblank_timeout_count_ready
+    inc word [m6_missed_vblank_hi]
+.vblank_timeout_count_ready:
     stc
     ret
 
@@ -717,6 +951,12 @@ build_sgp_frame_commands:
 
     push ds
     pop es
+    xor ax, ax
+    mov [m6_sgp_bitblts_frame], ax
+    mov [m6_sgp_pixels_frame_lo], ax
+    mov [m6_sgp_pixels_frame_hi], ax
+    mov [m6_sgp_source_bytes_frame_lo], ax
+    mov [m6_sgp_source_bytes_frame_hi], ax
     mov di, sgp_command_list
 
     mov ax, SGP_COMMAND_SET_WORK
@@ -744,7 +984,8 @@ build_sgp_frame_commands:
     stosw
 
     mov si, sprite_records
-    mov bp, [active_sprite_count]
+    mov ax, [active_sprite_count]
+    mov [m6_emit_remaining], ax
 
 .emit_sprite:
     mov ax, SGP_COMMAND_SET_SOURCE
@@ -797,14 +1038,34 @@ build_sgp_frame_commands:
     stosw
     mov ax, SGP_BITBLT_COPY_XPAR
     stosw
+    inc word [m6_sgp_bitblts_frame]
+
+    mov ax, [si + SPRITE_WIDTH_OFFSET]
+    mov bx, [si + SPRITE_HEIGHT_OFFSET]
+    mul bx
+    add [m6_sgp_pixels_frame_lo], ax
+    adc [m6_sgp_pixels_frame_hi], dx
+    mov ax, [si + SPRITE_PITCH_OFFSET]
+    mov bx, [si + SPRITE_HEIGHT_OFFSET]
+    mul bx
+    add [m6_sgp_source_bytes_frame_lo], ax
+    adc [m6_sgp_source_bytes_frame_hi], dx
 
     add si, SPRITE_RECORD_SIZE
-    dec bp
-    jnz .emit_sprite
+    dec word [m6_emit_remaining]
+    jz short .sprites_done
+    jmp .emit_sprite
 
+.sprites_done:
     call emit_fps_glyph_commands
     mov ax, SGP_COMMAND_END
     stosw
+
+    mov ax, di
+    sub ax, sgp_command_list
+    shr ax, 1
+    mov [m6_sgp_commands_frame], ax
+    call m6_accumulate_frame_counters
 
     mov si, sgp_command_list
     call physical_address_from_ds_si
@@ -831,7 +1092,8 @@ emit_fps_glyph_commands:
 
     mov si, fps_glyph_pointers
     mov bx, FPS_GLYPH_X
-    mov bp, FPS_GLYPH_COUNT
+    mov ax, FPS_GLYPH_COUNT
+    mov [m6_emit_remaining], ax
 
 .next_glyph:
     mov ax, SGP_COMMAND_SET_SOURCE
@@ -883,12 +1145,19 @@ emit_fps_glyph_commands:
     stosw
     mov ax, SGP_BITBLT_COPY_XPAR
     stosw
+    inc word [m6_sgp_bitblts_frame]
+    add word [m6_sgp_pixels_frame_lo], FPS_GLYPH_WIDTH * FPS_GLYPH_HEIGHT
+    adc word [m6_sgp_pixels_frame_hi], 0
+    add word [m6_sgp_source_bytes_frame_lo], FPS_GLYPH_PITCH * FPS_GLYPH_HEIGHT
+    adc word [m6_sgp_source_bytes_frame_hi], 0
 
     add si, 2
     add bx, FPS_GLYPH_ADVANCE
-    dec bp
-    jnz .next_glyph
+    dec word [m6_emit_remaining]
+    jz short .glyphs_done
+    jmp .next_glyph
 
+.glyphs_done:
     pop bp
     pop si
     pop dx
@@ -1042,6 +1311,8 @@ sgp_command_address_high:
     dw 0
 active_sprite_count:
     dw SPRITE_INITIAL_COUNT
+m6_emit_remaining:
+    dw 0
 fps_frame_counter:
     dw 0
 fps_value:
@@ -1061,10 +1332,100 @@ draw_page_dsa_low:
 draw_page_dsa_high:
     dw G1_PAGE_B_DSA >> 16
 
+; M6 diagnostics are 32-bit counters and wrap only after 0xffffffff.
+m6_frames_lo:
+    dw 0
+m6_frames_hi:
+    dw 0
+m6_page_flips_lo:
+    dw 0
+m6_page_flips_hi:
+    dw 0
+m6_sgp_commands_frame:
+    dw 0
+m6_sgp_bitblts_frame:
+    dw 0
+m6_sgp_pixels_frame_lo:
+    dw 0
+m6_sgp_pixels_frame_hi:
+    dw 0
+m6_sgp_source_bytes_frame_lo:
+    dw 0
+m6_sgp_source_bytes_frame_hi:
+    dw 0
+m6_total_commands_lo:
+    dw 0
+m6_total_commands_hi:
+    dw 0
+m6_total_bitblts_lo:
+    dw 0
+m6_total_bitblts_hi:
+    dw 0
+m6_total_pixels_lo:
+    dw 0
+m6_total_pixels_hi:
+    dw 0
+m6_total_source_bytes_lo:
+    dw 0
+m6_total_source_bytes_hi:
+    dw 0
+m6_missed_vblank_lo:
+    dw 0
+m6_missed_vblank_hi:
+    dw 0
+m6_print_value_lo:
+    dw 0
+m6_print_value_hi:
+    dw 0
+m6_number_buffer:
+    times 12 db 0
 
 message_start:
-    db "SGP pseudo-sprite demo: M5 rendered balls and count controls", 13, 10
-    db "UP/+ adds a ball, DOWN/- removes one, ESC exits.", 13, 10, "$"
+%if MILESTONE_STAGE == 1
+    db "SGPDEMO1: M1 hardware inventory diagnostic", 13, 10
+    db "See the M1 investigation report for verified interfaces.", 13, 10, "$"
+%elif MILESTONE_STAGE == 2
+    db "SGPDEMO2: M2 video bring-up (Graphic 0 background)", 13, 10
+    db "ESC exits.", 13, 10, "$"
+%elif MILESTONE_STAGE == 3
+    db "SGPDEMO3: M3 transparent SGP BITBLT", 13, 10
+    db "ESC exits.", 13, 10, "$"
+%elif MILESTONE_STAGE == 4
+    db "SGPDEMO4: M4 multiple pseudo-sprites", 13, 10
+    db "ESC exits.", 13, 10, "$"
+%elif MILESTONE_STAGE == 5
+    db "SGPDEMO5: M5 double-buffered pseudo-sprites", 13, 10
+    db "ESC exits.", 13, 10, "$"
+%else
+    db "SGPDEMO6: M6 stress/counters", 13, 10
+    db "UP/+ adds a sprite (max 256), DOWN/- removes one, ESC exits.", 13, 10, "$"
+%endif
+message_m6_summary:
+    db 13, 10, "M6 SGP counters (last frame and totals):", 13, 10, "$"
+label_m6_frames:
+    db "Frames: ", 13, 10, "$"
+label_m6_page_flips:
+    db "Page flips: ", 13, 10, "$"
+label_m6_last_commands:
+    db "Last command words: ", 13, 10, "$"
+label_m6_last_bitblts:
+    db "Last BITBLTs: ", 13, 10, "$"
+label_m6_last_pixels:
+    db "Last source pixels: ", 13, 10, "$"
+label_m6_last_bytes:
+    db "Last source bytes: ", 13, 10, "$"
+label_m6_total_commands:
+    db "Total command words: ", 13, 10, "$"
+label_m6_total_bitblts:
+    db "Total BITBLTs: ", 13, 10, "$"
+label_m6_total_pixels:
+    db "Total source pixels: ", 13, 10, "$"
+label_m6_total_bytes:
+    db "Total source bytes: ", 13, 10, "$"
+label_m6_active:
+    db "Active sprites: ", 13, 10, "$"
+label_m6_missed:
+    db "Missed VBLANK waits: ", 13, 10, "$"
 message_done:
     db "Video state restored.", 13, 10, "$"
 message_failed:
@@ -1114,24 +1475,13 @@ sprite_records:
     dw 119, 105, -2, 1, SPRITE_WIDTH, SPRITE_HEIGHT, SPRITE_PITCH, hsv_ball_13, 13
     dw 193, 63, 1, -2, SPRITE_WIDTH, SPRITE_HEIGHT, SPRITE_PITCH, hsv_ball_14, 14
     dw 261, 119, -1, 1, SPRITE_WIDTH, SPRITE_HEIGHT, SPRITE_PITCH, hsv_ball_15, 15
-    dw 6, 40, 2, 1, SPRITE_WIDTH, SPRITE_HEIGHT, SPRITE_PITCH, hsv_ball_00, 16
-    dw 58, 176, -1, -2, SPRITE_WIDTH, SPRITE_HEIGHT, SPRITE_PITCH, hsv_ball_01, 17
-    dw 102, 8, 1, 2, SPRITE_WIDTH, SPRITE_HEIGHT, SPRITE_PITCH, hsv_ball_02, 18
-    dw 150, 176, 2, -1, SPRITE_WIDTH, SPRITE_HEIGHT, SPRITE_PITCH, hsv_ball_03, 19
-    dw 202, 8, -1, 2, SPRITE_WIDTH, SPRITE_HEIGHT, SPRITE_PITCH, hsv_ball_04, 20
-    dw 250, 176, -2, -1, SPRITE_WIDTH, SPRITE_HEIGHT, SPRITE_PITCH, hsv_ball_05, 21
-    dw 300, 8, -1, 1, SPRITE_WIDTH, SPRITE_HEIGHT, SPRITE_PITCH, hsv_ball_06, 22
-    dw 6, 176, 1, -1, SPRITE_WIDTH, SPRITE_HEIGHT, SPRITE_PITCH, hsv_ball_07, 23
-    dw 55, 108, 2, 2, SPRITE_WIDTH, SPRITE_HEIGHT, SPRITE_PITCH, hsv_ball_08, 24
-    dw 85, 75, -2, 1, SPRITE_WIDTH, SPRITE_HEIGHT, SPRITE_PITCH, hsv_ball_09, 25
-    dw 145, 115, 1, -2, SPRITE_WIDTH, SPRITE_HEIGHT, SPRITE_PITCH, hsv_ball_10, 26
-    dw 175, 48, -1, 2, SPRITE_WIDTH, SPRITE_HEIGHT, SPRITE_PITCH, hsv_ball_11, 27
-    dw 225, 98, 2, -1, SPRITE_WIDTH, SPRITE_HEIGHT, SPRITE_PITCH, hsv_ball_12, 28
-    dw 275, 145, -2, -2, SPRITE_WIDTH, SPRITE_HEIGHT, SPRITE_PITCH, hsv_ball_13, 29
-    dw 303, 60, -1, 2, SPRITE_WIDTH, SPRITE_HEIGHT, SPRITE_PITCH, hsv_ball_14, 30
-    dw 15, 155, 2, -1, SPRITE_WIDTH, SPRITE_HEIGHT, SPRITE_PITCH, hsv_ball_15, 31
-%assign EXTRA_SPRITE_INDEX 32
-%rep SPRITE_MAX_COUNT - 32
+%assign BULLET_INDEX BULLET_FIRST_INDEX
+%rep BULLET_COUNT
+    dw ((BULLET_INDEX * 17) % (SCREEN_WIDTH - BULLET_WIDTH)), ((BULLET_INDEX * 29) % (SCREEN_HEIGHT - BULLET_HEIGHT)), ((BULLET_INDEX * 3) % 5) - 2, ((BULLET_INDEX * 5) % 5) - 2, BULLET_WIDTH, BULLET_HEIGHT, BULLET_PITCH, bullet_bitmap, BULLET_INDEX
+%assign BULLET_INDEX BULLET_INDEX + 1
+%endrep
+%assign EXTRA_SPRITE_INDEX BULLET_FIRST_INDEX + BULLET_COUNT
+%rep SPRITE_MAX_COUNT - (BULLET_FIRST_INDEX + BULLET_COUNT)
     dw ((EXTRA_SPRITE_INDEX * 37) % (SCREEN_WIDTH - SPRITE_WIDTH)), ((EXTRA_SPRITE_INDEX * 53) % (SCREEN_HEIGHT - SPRITE_HEIGHT)), ((EXTRA_SPRITE_INDEX * 3) % 5) - 2, ((EXTRA_SPRITE_INDEX * 5) % 7) - 3, SPRITE_WIDTH, SPRITE_HEIGHT, SPRITE_PITCH, hsv_ball_00 + ((EXTRA_SPRITE_INDEX % 16) * SPRITE_BITMAP_BYTES), EXTRA_SPRITE_INDEX
 %assign EXTRA_SPRITE_INDEX EXTRA_SPRITE_INDEX + 1
 %endrep
@@ -1158,6 +1508,18 @@ DEFINE_HSV_BALL hsv_ball_12, 10, 10
 DEFINE_HSV_BALL hsv_ball_13, 10, 11
 DEFINE_HSV_BALL hsv_ball_14, 11, 11
 DEFINE_HSV_BALL hsv_ball_15, 12, 12
+
+; Small 8x8 4-bpp bullet used by the M6 stress prefix.
+align 2, db 0
+bullet_bitmap:
+    db BALL_PAIR(0, 0), BALL_PAIR(0, 0), BALL_PAIR(0, 0), BALL_PAIR(0, 0)
+    db BALL_PAIR(0, 0), BALL_PAIR(0, 15), BALL_PAIR(15, 0), BALL_PAIR(0, 0)
+    db BALL_PAIR(0, 15), BALL_PAIR(15, 15), BALL_PAIR(15, 15), BALL_PAIR(15, 0)
+    db BALL_PAIR(15, 15), BALL_PAIR(15, 12), BALL_PAIR(12, 15), BALL_PAIR(15, 15)
+    db BALL_PAIR(15, 12), BALL_PAIR(12, 12), BALL_PAIR(12, 12), BALL_PAIR(12, 15)
+    db BALL_PAIR(15, 15), BALL_PAIR(15, 12), BALL_PAIR(12, 15), BALL_PAIR(15, 15)
+    db BALL_PAIR(0, 15), BALL_PAIR(15, 15), BALL_PAIR(15, 15), BALL_PAIR(15, 0)
+    db BALL_PAIR(0, 0), BALL_PAIR(0, 13), BALL_PAIR(13, 0), BALL_PAIR(0, 0)
 
 align 2, db 0
 fps_glyph_pointers:
