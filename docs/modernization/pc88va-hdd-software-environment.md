@@ -720,6 +720,16 @@ documented defaults start at bank 1 and use 15 banks when `-S` and the bank
 count are omitted. With VAEG's default 640KB main RAM, selector zero restores
 the ordinary `80000H`-`9FFFFH` upper 128KB after every RDBMS transfer, while
 the RAM disk occupies BMS selectors starting at 1.
+RDBMS 1.21 also documents that an original VA may not receive `CONFIG.SYS`
+parameters. Its distributed driver has `00ECH` embedded at file offset
+`001AH`, so `-P1D0` alone is insufficient on that model. The disk builder
+verifies the original extracted driver SHA-256
+`7ead949be781303f12c3fc1bf499de3d59a504acea69747d90e21bb4109d5d49`,
+checks the `EC 00` word, and changes only the generated disk copy to `D0 01`.
+The resulting `RDBMS.SYS` SHA-256 is
+`8a4e09f9f2b1b1363a3d07a1edeb36ae744665324a7de9a1c628e6480a5f0289`.
+The archived `rdbms121.lzh` remains byte-for-byte original, and the explicit
+`-P1D0` remains in `CONFIG.SYS` for models that do pass parameters.
 The EMMVA adapter pair encloses the Open Watcom-built SQEMM98 manager. RDEMS
 loads after TSCLVA and allocates its default 40-page EMS RAM disk. The BMS VA
 device driver is resident, while its COM form remains available for management.
