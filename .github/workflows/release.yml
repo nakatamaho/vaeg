@@ -39,7 +39,7 @@ permissions:
 
 env:
   RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag_name || github.ref_name }}
-  RELEASE_NOTES: CHANGES.20260805.md
+  RELEASE_NOTES: CHANGES.20260814.md
 
 jobs:
   linux:
@@ -87,7 +87,7 @@ jobs:
           install -m 644 assets/NOTICE.md "dist-package/${package}/assets/"
           install -m 644 external/suzukiplan-z80/LICENSE.txt \
             "dist-package/${package}/licenses/suzukiplan-z80.txt"
-          install -m 644 CHANGES.20260805.md "dist-package/${package}/"
+          install -m 644 CHANGES.20260814.md "dist-package/${package}/"
           install -m 644 dist/readme-dist.txt "dist-package/${package}/README-dist.txt"
           tar -C dist-package -czf "${asset}" "${package}"
           tar -tzf "${asset}"
@@ -218,7 +218,7 @@ jobs:
           cp assets/NOTICE.md "dist-package/${package}/assets/"
           cp external/suzukiplan-z80/LICENSE.txt \
             "dist-package/${package}/licenses/suzukiplan-z80.txt"
-          cp CHANGES.20260805.md "dist-package/${package}/"
+          cp CHANGES.20260814.md "dist-package/${package}/"
           cp dist/readme-dist.txt "dist-package/${package}/README-dist.txt"
           find "dist-package/${package}" -type f | sort
       - name: Zip package
@@ -285,7 +285,7 @@ jobs:
           install -m 644 assets/NOTICE.md "dist-package/${package}/assets/"
           install -m 644 external/suzukiplan-z80/LICENSE.txt \
             "dist-package/${package}/licenses/suzukiplan-z80.txt"
-          install -m 644 CHANGES.20260805.md "dist-package/${package}/"
+          install -m 644 CHANGES.20260814.md "dist-package/${package}/"
           install -m 644 dist/readme-dist.txt "dist-package/${package}/README-dist.txt"
 
           if otool -L "dist-package/${package}/vaeg" | grep -E 'libSDL2.*dylib'; then
