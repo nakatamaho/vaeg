@@ -26,8 +26,9 @@ symbols supplied by the complete source one directory up.
 | M3 | [`m3_transparent_bitblt.asm`](m3_transparent_bitblt.asm) | RAM bitmap, source-zero transparent BITBLT |
 | M4 | [`m4_multi_sprite.asm`](m4_multi_sprite.asm) | sprite records, animation, painter-order list |
 | M5 | [`m5_double_buffer.asm`](m5_double_buffer.asm) | two G1 pages and VBLANK-synchronized DSA1 flip |
+| M6 | [`m6_stress_counters.asm`](m6_stress_counters.asm) | bullet prefix, transfer counters, and bounded stress limit |
 
-The tested, buildable M5 program is
+The tested, buildable M6 program is
 [`../sgp_sprite_demo.asm`](../sgp_sprite_demo.asm). The excerpts preserve the
 conceptual source at each human gate without claiming that an excerpt was run
 as a separate binary.

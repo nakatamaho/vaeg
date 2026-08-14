@@ -26,20 +26,23 @@ POSSIBILITY OF SUCH DAMAGE.
 
 ## Current milestone
 
-This directory currently implements M5: multiple animated pseudo-sprites
+This directory currently implements M6: multiple animated pseudo-sprites
 rendered into a hidden Graphic 1 page, followed by a VBLANK-synchronized
-DSA1 page exchange. The M3 transparent-BITBLT and M4 animation gates
-passed before this double-buffer code was added.
+DSA1 page exchange, with a configurable bullet stress prefix and exit-time
+SGP counters. The M3 transparent-BITBLT, M4 animation, and M5 double-buffer
+gates passed before this stress instrumentation was added.
 G5 has passed. On the evaluated VAEG setup, the 24x24 scene measured about
-57 FPS with 26 active spheres and about 28 FPS with 27; that step is the
-current M5 workload limit and is not presented as a hardware maximum.
+57 FPS with 26 active spheres and about 28 FPS with 27; that step remains a
+workload measurement, not a hardware maximum. M6 raises the runtime prefix
+limit to 256 records and reserves 32 of those records for 8x8 bullets.
 The 16-bit real-mode DOS `.COM` program keeps the verified 320x200, 16-color,
-4-bpp, single-plane, two-screen configuration. Its M5 scene contains:
+4-bpp, single-plane, two-screen configuration. Its M6 scene contains:
 
 - a static CPU word-filled checkerboard in Graphic 0;
 - two 32,000-byte Graphic 1 pages: one displayed and one rendered off-screen;
-- 1-1024 independently moving 24x24 pre-rendered shaded balls, initially 16,
-  transferred from main RAM by SGP BITBLT commands; and
+- 1-256 independently moving records, initially 16 24x24 pre-rendered shaded
+  balls followed by 32 8x8 bullet records, transferred from main RAM by SGP
+  BITBLT commands; and
 - an eleven-glyph `FPSnnn Cnnnn` counter at the upper right, also transferred
   from main RAM by SGP BITBLT commands.
 
@@ -68,14 +71,16 @@ pixels. The record array is already in priority order: later records are drawn
 later and their nonzero pixels appear above earlier records. The first two
 balls move toward each other on the same path to provide a repeatable overlap
 test. PC-88VA cursor Up or `+` increases the active prefix of the array up to
-1024 records; cursor Down or `-` decreases it to one. Key sensing and retrieval
+256 records; cursor Down or `-` decreases it to one. The first 16 records
+are shaded balls, the next 32 are small bullets, and later records are extra
+shaded balls for the stress run. Key sensing and retrieval
 use the documented keyboard BIOS primitives, so no PC-compatible extended-key
 sequence is assumed.
 
-The M5 program uses these hardware interfaces, all traced in the
+The M6 program uses these hardware interfaces, all traced in the
 [M1 investigation](../../../docs/modernization/sgp-pseudo-sprite-investigation.md):
 
-| Purpose | Interface used by M5 |
+| Purpose | Interface used by M6 |
 |---|---|
 | Mode | Graphics BIOS `INT 8fh`, function 0, `BX=e00eh`, `CX=0404h` |
 | Buffer geometry check | Graphics BIOS function 7 for screens 0 and 1 |
@@ -95,10 +100,11 @@ The M5 program uses these hardware interfaces, all traced in the
 `COLCOMP=00abh` register value described in the M1 report. The BIOS owns the
 complete mode and composition transition.
 
-## M5 SGP command list
+## M6 SGP command list and counters
 
-The 33,142-byte maximum command buffer, 58-byte work area, 1,024 sprite
-records, 16 pre-rendered 24x24 HSV bitmaps, and 11 FPS/count glyph bitmaps
+The 8,566-byte maximum command buffer, 58-byte work area, 256 sprite
+records, 16 pre-rendered 24x24 HSV bitmaps, one 8x8 bullet bitmap, and 11
+FPS/count glyph bitmaps
 reside inside the DOS-loaded COM image in main RAM. DOS chooses the load
 segment, so every frame the program converts relevant `DS:offset` values to
 physical addresses.
@@ -110,7 +116,7 @@ SET_COLOR
     0000h
 CLS
     hidden G1 draw page at 220000h or 227d00h, 00003e80h words
-repeat for the active 1-1024 sprite records in painter order:
+repeat for the active 1-256 sprite records in painter order:
     SET_SOURCE
         4 bpp, start dot 0, 24x24, pitch 12
         selected HSV shaded-ball main-RAM physical address
@@ -131,10 +137,16 @@ END
 ~~~
 
 At the initial 16-ball setting this is 443 command words and 85 SGP opcodes,
-including 27 BITBLTs. At 1,024 balls it is 16,571 command words and 3,109
-opcodes, including 1,035 BITBLTs. The CPU starts the list and polls busy
+including 27 BITBLTs. At 48 active records (the 16 balls plus all 32 bullets)
+it is 955 command words, 59 BITBLTs, 11,572 source pixels, and 5,786 source
+bytes per frame. At the 256-record limit it is 4,283 command words, 267
+BITBLTs, 131,380 source pixels, and 65,690 source bytes per frame. The CPU
+starts the list and polls busy
 bit 0 until END
-clears it. The complete list is rendered into the page opposite the current
+clears it. The loop back edges in the COM use a short conditional exit plus
+an unconditional near jump; this is required by the uPD9002 instruction model,
+where `0fh` is not the 8086 near-conditional-branch prefix. The complete list
+is rendered into the page opposite the current
 display page. Only after SGP completion does `flip_draw_page` wait for the
 non-VBLANK-to-VBLANK transition and write the three DSA1 bytes. It then
 toggles the page variables, so the next CLS and all BITBLTs target the new
@@ -142,10 +154,31 @@ hidden page. Startup renders both pages before enabling display.
 
 ## Milestone source ladder
 
-Educational NASM excerpts for M2 through M5 are preserved in
-[`milestones/`](milestones/). They are deliberately short, annotated
-excerpts rather than untested standalone binaries; the buildable source is
+M6 records six diagnostic groups at runtime: completed frames, page flips, the
+last frame's command-word/BITBLT/pixel/source-byte counts, 32-bit totals for
+those transfer counts, active sprite count, and VBLANK waits that exhausted
+the bounded polling window. The summary is printed after video restoration
+when ESC exits (or when a bounded synchronization failure aborts the loop).
+The totals wrap at 32 bits; the per-frame values do not.
+
+Educational NASM excerpts for M2 through M6 are preserved in
+[`milestones/`](milestones/). The buildable source accepts
+`-dMILESTONE_STAGE=1` through `-dMILESTONE_STAGE=6`; the resulting runnable
+stage files are named `SGPDEMO1.COM` through `SGPDEMO6.COM`. M1 is a text
+inventory diagnostic because that milestone is hardware investigation rather
+than a graphics gate. The full source remains
 [`sgp_sprite_demo.asm`](sgp_sprite_demo.asm).
+
+The stage variants are:
+
+| File | Gate represented |
+|---|---|
+| `SGPDEMO1.COM` | M1 hardware-inventory diagnostic text |
+| `SGPDEMO2.COM` | M2 Graphic 0 checkerboard/video bring-up |
+| `SGPDEMO3.COM` | M3 one transparent SGP BITBLT |
+| `SGPDEMO4.COM` | M4 multiple animated pseudo-sprites |
+| `SGPDEMO5.COM` | M5 hidden-page/double-buffered sprites |
+| `SGPDEMO6.COM` | M6 stress prefix, bullets, FPS/count, and counters |
 
 ## Build
 
@@ -163,44 +196,78 @@ The output is:
 build/macos-macports/guest/sgpdemo.com
 ~~~
 
-The source can also be assembled independently:
+Build all six runnable milestone files with the repository helper:
 
 ~~~sh
-nasm -f bin tools/pc88va/sgp-pseudo-sprite/sgp_sprite_demo.asm \
-  -o /tmp/sgpdemo.com
+NASM=nasm tools/pc88va/sgp-pseudo-sprite/build_milestone_coms.sh /tmp/sgpdemo-coms
+~~~
+
+This writes `SGPDEMO1.COM` through `SGPDEMO6.COM` to the requested output
+directory. The source can also be assembled independently; omit the define
+for the default M6 build or select a stage explicitly:
+
+~~~sh
+nasm -f bin -dMILESTONE_STAGE=6 \
+  tools/pc88va/sgp-pseudo-sprite/sgp_sprite_demo.asm \
+  -o /tmp/SGPDEMO6.COM
 ~~~
 
 No generated `.COM` file belongs in the source tree.
 
 ## Disposable disk installation
 
-Always operate on a copy of a user-supplied PC-Engine D88 image:
+The distribution image [`sgpdemo.d88.xz`](sgpdemo.d88.xz) is intentionally a
+data disk. It contains exactly the six milestone programs:
+`A:\SGPDEMO1.COM` through `A:\SGPDEMO6.COM`. It does not contain
+`ENGINEIO.SYS`, `PCENGINE.SYS`, `ADVGBIOS.SYS`, or `PCENGINE.COM`, and it is
+not bootable by itself. This keeps emulator/system files out of the
+redistributable demo artifact.
+
+Create the same data-only image from a local copy of the repository's
+PC-Engine-layout source image:
 
 ~~~sh
-python3 tools/pc88va/pcengine_disk.py vanilla \
-  --source /path/to/pcengine-system.d88 \
-  --output /tmp/sgpdemo-test.d88
-mkdir -p /tmp/sgpdemo-payload/root
-cp build/macos-macports/guest/sgpdemo.com \
-  /tmp/sgpdemo-payload/root/SGPDEMO.COM
+work=$(mktemp -d /tmp/sgpdemo.XXXXXX)
+NASM=nasm tools/pc88va/sgp-pseudo-sprite/build_milestone_coms.sh \
+  "$work/coms"
+mkdir -p "$work/payload/root"
+python3 tools/pc88va/pcengine_disk.py data \
+  --source docs/disks/pcengine110-bootonly.d88 \
+  --output "$work/sgpdemo.d88"
+cp "$work/coms"/SGPDEMO?.COM "$work/payload/root/"
 python3 tools/pc88va/pcengine_disk.py install \
-  --image /tmp/sgpdemo-test.d88 \
-  --payload /tmp/sgpdemo-payload
+  --image "$work/sgpdemo.d88" \
+  --payload "$work/payload"
+python3 tools/pc88va/pcengine_disk.py list \
+  --image "$work/sgpdemo.d88"
+xz -c -9 "$work/sgpdemo.d88" > "$work/sgpdemo.d88.xz"
 ~~~
 
-Launch the configured VAEG executable with the disposable image, for example:
+The final `list` must show exactly six payload files, `SGPDEMO1.COM` through
+`SGPDEMO6.COM`, and no PC-Engine system files. To run them, mount a bootable
+PC-Engine system disk in FDD1 and this data disk in FDD2:
 
 ~~~sh
-build/macos-macports/sdl2/vaeg --fdd1 /tmp/sgpdemo-test.d88 --fdd2 none
+build/macos-macports/sdl2/vaeg \
+  --fdd1 docs/disks/pcengine110-bootonly.d88 \
+  --fdd2 /path/to/sgpdemo.d88
 ~~~
 
-At the DOS prompt, run:
+At the DOS prompt, run a selected stage on drive B:
 
 ~~~text
-SGPDEMO
+B:\SGPDEMO1
+B:\SGPDEMO2
+B:\SGPDEMO3
+B:\SGPDEMO4
+B:\SGPDEMO5
+B:\SGPDEMO6
 ~~~
 
-## Expected M5 result
+For a developer-only disposable bootable test image, `vanilla` may still be
+used with a system D88, but that image is not the M6 distribution artifact.
+
+## Expected M6 result
 
 The screen must show the Graphic 0 checkerboard with at least 16 pre-rendered
 shaded spheres spanning the HSV wheel and moving independently above it.
@@ -215,12 +282,16 @@ an overlap, nonzero pixels from the later record must appear above those from
 the earlier record while transparent pixels still reveal the lower ball or
 checkerboard. Every ball must bounce at the screen edges.
 
-Cursor Up or `+` must add balls one at a time to a maximum of 1024. Cursor Down
+Cursor Up or `+` must add records one at a time to a maximum of 256. Cursor Down
 or `-` must remove balls one at a time to a minimum of one. Newly enabled balls
 continue from their stored initial or last-active state.
 
+M6 additionally exercises the bullet prefix: records 17 through 48 are
+small 8x8 transparent bullets, so the first count increase after the initial
+16 balls changes both the BITBLT dimensions and the transfer counters.
+
 The M4 single-buffer baseline intentionally rendered into the displayed
-page and could show transient clearing or tearing. M5 must not show that
+page and could show transient clearing or tearing. M6 must not show that
 visible clear: the hidden page is fully rendered before its VBLANK DSA1
 exchange. Pressing ESC must return to the DOS prompt without a hang.
 The program restores the saved BIOS mode and resets the standard palette;
