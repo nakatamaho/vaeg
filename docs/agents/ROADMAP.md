@@ -425,6 +425,14 @@ compiled `00ECH` default must be overridden with `-P1D0` in PC-88VA mode.
 The implementation scope and G52 checklist are in
 `tasks/M52_io_bank_memory.md`.
 
+A post-G90 main hotfix supersedes only M52's bank-zero/pass-through policy and
+clean capacity defaults. The current model exposes 512KB of conventional RAM
+through `7FFFFH`; `80000H-9FFFFH` is open bus while BMS is disabled and maps
+zero-based BMS banks while enabled. Clean configurations enable 128 banks
+(16MB) at `01D0H` and 13MB of EMS. Existing persisted values remain explicit
+user choices. The implementation is
+[2425f99](https://github.com/nakatamaho/vaeg/commit/2425f999f71f7c44cf370dfac702e85f4da50b08).
+
 M53 adds an optional `PacingMs` host delay in Configure. The implementation
 does not alter emulated clock accounting. It schedules guest frames at the
 chosen interval while continuing to process and render the host UI, so large

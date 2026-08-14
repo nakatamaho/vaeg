@@ -78,7 +78,7 @@ snapshot; that tier is absent from the current tree.
 | Device / Keyboard | Keyboard/JoyKey modes; mechanical SHIFT/CTRL/GRPH; F12 mapping; Alt-right mapping; host-layout mapping mode | Host-layout mapping and binding table `done`; mechanical key options `later` | M14 implements JIS/US/custom SDL scancode mapping, Kana modes, and Roman-Kana helper. Mechanical SHIFT/CTRL/GRPH mode options remain later. |
 | Device / Sound | Beep level; disable boards; VA Sound Board 2; PC-9801 boards; JAST; seek sound | Sound on/off, VA OPN/OPNA hardware, backend, output rate/buffer, ymfm fidelity, volume, and seek sound `done`; rest `later` | Hardware selection is model-aware. M28 output settings rebuild both backends; fidelity affects only ymfm FM synthesis. Detailed jumper pages remain later. |
 | Device / Memory | 640KB, 1.6MB, 3.6MB, 7.6MB | `later` | Win32 command handler also contains 11.6MB and 13.6MB cases. |
-| Device | I/O Bank Memory; Mouse; Mouse Port; Version Up Board; Serial; MIDI; MIDI Panic; Sound option | I/O Bank Memory, mouse capture, and VA joystick/mouse port `done`; rest `later` | M52 restores the BMS dialog and one-based overlay semantics. M26 uses SDL relative mode and the existing guest mouse I/O path. |
+| Device | I/O Bank Memory; EMS Board; Mouse; Mouse Port; Version Up Board; Serial; MIDI; MIDI Panic; Sound option | I/O Bank Memory, EMS Board, mouse capture, and VA joystick/mouse port `done`; rest `later` | The post-G90 hotfix makes `80000H-9FFFFH` a zero-based BMS-only aperture and uses clean defaults of 16MB BMS at native VA port `01D0H` plus 13MB EMS; M26 uses SDL relative mode and the existing guest mouse I/O path. |
 | Other | BMP save; S98 logging; Calendar; shortcuts; clock/frame display; joy reverse/rapid; mouse rapid; SSTP; Help; About | Frame display, Mouse rapid, and About `done`; rest `later` | Frame display is organized under Screen in SDL2. CPU clock display remains later. Mouse rapid is exposed under Device -> Mouse. Help uses the retired Windows help path. |
 | State dynamic menu | Save slots and load slots | `done` | Required by M10 as state save/load. |
 | Operation record dynamic menu | Stop; Play; Multi play; Record; Repeat; record/play slots | `later` | `SUPPORT_OPRECORD` feature, not M10 gate scope. |
@@ -99,7 +99,8 @@ snapshot; that tier is absent from the current tree.
 | `IDD_SNDMIX` | `win9x/dialog/d_sound.cpp` | FM/PSG/ADPCM/PCM/rhythm volumes | Volume `done`; detailed mixer `later` |
 | `IDD_SND14`, `IDD_SND26`, `IDD_SND86`, `IDD_SNDSPB`, `IDD_SNDPAD1` | `win9x/dialog/d_sound.cpp` | Board-specific volume/jumper/joystick pad settings | `later` |
 | S98 and WAV file selectors | `win9x/dialog/d_sound.cpp` | Audio logging and WAV recording | `later` |
-| `IDD_BMS` | `win9x/dialog/d_bms.cpp` | I/O bank memory enable, port, bank count | `done` (M52); legacy keys persist, bank zero restores main RAM, and changes apply through guest reset |
+| `IDD_BMS` | `win9x/dialog/d_bms.cpp` | I/O bank memory enable, port, bank count | `done` (M52 plus post-G90 hotfix); legacy keys persist, clean configurations enable 128 banks at `01D0H`, bank zero selects BMS storage, and changes apply through guest reset |
+| SDL2 EMS Board | `sdl2/gui/gui.cpp` | EMS enable and 1-13MB capacity | `done` (M90 plus post-G90 hotfix); `ExMemory` persists, clean configurations select 13MB, and changes apply through guest reset |
 | `IDD_CALENDAR` | `win9x/dialog/d_clnd.cpp` | Real/virtual calendar and BCD time fields | `later` |
 | `IDD_ABOUT` | `win9x/dialog/d_about.cpp` | About box | `later` |
 | `IDD_VIEW_ADDRESS`, `IDR_VIEW` | `win9x/debuguty/*.cpp` | Debug/viewer address, register, dump, disassembly, VA views | `later` |

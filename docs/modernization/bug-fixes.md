@@ -952,8 +952,9 @@ separate parity correction or move it to Open Defects.
 
 ### VA BMS bank zero hid 128KB of conventional memory
 
-- **Status:** M30's open-bus interpretation was disproved and corrected in
-  M52; G52 passed.
+- **Status:** M30's open-bus interpretation was corrected in M52 and G52
+  passed. This historical compatibility policy was superseded by the
+  post-G90 expansion-memory-default hotfix described below.
 - **Symptom:** enabling I/O Bank Memory with 640KB main memory prevented
   CONFIG.SYS RAM-disk and MSE registration. Reducing main memory to 512KB
   avoided the failure by leaving `80000H-9FFFFH` unused.
@@ -991,7 +992,8 @@ separate parity correction or move it to Open Defects.
   the PC-88VA-01/02 choice, but the active default still used `00ECH`.
 - **Correction:** made `01D0H` the active clean-config default, invalid-value
   fallback, and first GUI choice while retaining `00ECH` as an explicit
-  compatibility option. BMS remains disabled by default.
+  compatibility option. BMS remained disabled by default at M52; the later
+  expansion-memory-default hotfix enables it without changing the port choice.
 - **Verification:** the ROM-less selftest checks the exact port constants and
   copied runtime default; Linux and MinGW clean release builds pass their
   selftests, including BMS configuration/window lifecycle coverage. A
@@ -999,6 +1001,38 @@ separate parity correction or move it to Open Defects.
   startup.
 - **Evidence:** [M52 I-O Bank Memory task](../agents/tasks/M52_io_bank_memory.md).
 - **Commit:** [e9ad63e3](https://github.com/nakatamaho/vaeg/commit/e9ad63e3d720e8dad14d5a63289f3d3443b54422).
+
+### VA expansion-memory defaults exposed the BMS aperture as conventional RAM
+
+- **Status:** fixed in the post-G90 main hotfix.
+- **Symptom:** a clean configuration exposed `80000H-9FFFFH` as ordinary main
+  RAM even when the optional BMS device was disabled, so the guest appeared to
+  have 640KB of conventional memory instead of a 512KB base plus an optional
+  128KB bank window. Clean BMS and EMS capacities were also only 2MB and 1MB.
+- **Affected scope:** CPU byte/word and SGP word access to the BMS aperture,
+  clean BMS enable/port/capacity values, the EMS clean capacity, and ROM-less
+  smoke configuration. Explicit values already stored in `vaeg.cfg` are not
+  migrated.
+- **Demonstrated root cause:** M52 deliberately made selector zero a main-RAM
+  pass-through and numbered expansion banks from one. The retained frontend
+  defaults also left BMS disabled with 16 128KB banks, while M90 retained the
+  earlier 1MB `ExMemory` default after extending the supported EMS range to
+  13MB. Those policies did not match the clarified VA model in which
+  conventional RAM ends at `7FFFFH` and `80000H-9FFFFH` exists only as the
+  bank-memory aperture.
+- **Correction:** disabled BMS now leaves the aperture open bus and ignores
+  writes. Enabled selector values zero through N-1 map directly to N BMS banks
+  in both CPU and SGP paths. Clean configurations enable 128 banks (16MB) at
+  native VA port `01D0H` and allocate 13MB of EMS.
+- **Verification:** the ROM-less lifecycle selftest covers disabled open-bus
+  byte/word access, ignored writes, bank-zero and bank-one isolation, reset
+  retention, and unchanged backing main RAM. Normal macOS and MinGW cross
+  builds completed; the macOS selftest passed normally and reached the BMS and
+  EMS pass markers under ASan/UBSan reporting mode without an ASan finding.
+  A maintainer-local generated PC-Engine development disk also booted to
+  `Ready`, and its BMS RAM-disk drive accepted a directory command.
+- **Evidence:** [PC-88VA BMS/EMS environment notes](pc88va-hdd-software-environment.md#bank-memory-manager).
+- **Commit:** [2425f99](https://github.com/nakatamaho/vaeg/commit/2425f999f71f7c44cf370dfac702e85f4da50b08).
 
 ### Z80 state-codec rejection was ignored by the state coordinator
 
