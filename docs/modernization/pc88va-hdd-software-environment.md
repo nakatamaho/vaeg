@@ -73,23 +73,39 @@ describes `X8MAP130.LZH` as a free MS-DOS utility for PC-98, PC-88VA, and
 AT-compatible machines that reports CPU and memory usage, including
 SYSTEM/EMS/XMS/UMB/BMS and VA-only SMM information. The published file is
 12,641 bytes and dated 2003-02-06.
+
+[RDPCM.SYS 0.01](http://www.pc88.gr.jp/softlib/?action=list_file&anum=2&gnum=388)
+is the Softlib `RDPCM001.LZH` package. It turns the 256KB ADPCM sample RAM on
+a PC-88VA Sound Board II into a PC-Engine RAM disk.
+
+[TSCLVA](http://www.pc88.gr.jp/softlib/?action=list_file&anum=2&gnum=309)
+is a PC-Engine screen-editor BIOS accelerator. The base Softlib page labels it
+Rev.50702, while both files inside `TSCLVA.ZIP` identify that payload as
+Rev.50703. The adjacent
+[TSCLBDF update](http://www.pc88.gr.jp/softlib/index.php?action=list_file&anum=2&gnum=346)
+provides `TSCLVA.BDF`, which advances both `TSCLVA.SYS` and `TSCLVA.DOC` from
+Rev.50703 to Rev.51127. The builder applies and verifies that update.
+
 ## Core Components
 
 The development environment assembled below uses this baseline `CONFIG.SYS`:
 
 ```dos
-FILES = 20
+FILES   = 20
 BUFFERS = 30
-DEVICE = A:\SYS\PCPLUS.SYS
-DEVICE = A:\SYS\SCHD.SYS -I0
-DEVICE = A:\SYS\HOSTFAT.SYS
-DEVICE = A:\SYS\PCEPAT.SYS
-DEVICE = A:\SYS\MSE352B.COM
-DEVICE = A:\SYS\RDBMS.SYS -P1D0 -S1
-DEVICE=A:\SYS\EMMVA01.SYS
-DEVICE=A:\SYS\SQEMM98.SYS
-DEVICE=A:\SYS\EMMVA02.SYS
-DEVICE=A:\SYS\RDEMS.SYS -P40 -A
+DEVICE  = A:\SYS\EMMVA01.SYS
+DEVICE  = A:\SYS\SQEMM98.SYS
+DEVICE  = A:\SYS\EMMVA02.SYS
+DEVICE  = A:\SYS\PCPLUS.SYS
+DEVICE  = A:\SYS\BMSDRVA.SYS
+DEVICE  = A:\SYS\SCHD.SYS -I0
+DEVICE  = A:\SYS\HOSTFAT.SYS
+DEVICE  = A:\SYS\PCEPAT.SYS
+DEVICE  = A:\SYS\TSCLVA.SYS
+DEVICE  = A:\SYS\MSE352B.COM
+DEVICE  = A:\SYS\RDBMS.SYS -P1D0 -S1
+DEVICE  = A:\SYS\RDEMS.SYS -P40 -A
+DEVICE  = A:\SYS\RDPCM.SYS
 ```
 
 Here `A:` is the booted VA environment. The exact drive letter can differ if
@@ -135,6 +151,62 @@ The development disk also installs the two commands supplied under
 through the same DIET stage as every other `.COM` file in `A:\BIN`. The
 PCPLUS redistribution terms, main manual, and SCSI notes are retained as
 `PCPLUS.DOC`, `PCPLUS.TXT`, and `SCSI55.TXT` in `A:\DOC`.
+
+## BMSDRVA and TSCLVA Load Order
+
+The BMS Driver 1.50 Rev 0.20 archive contains `BMSDRVA.COM` and a
+`BMSDRSYS.WUP` conversion patch. The builder applies that patch with the
+original WSP utility, verifies the resulting `BMSDRVA_.SYS`, installs it as
+`A:\SYS\BMSDRVA.SYS`, and loads it immediately after PCPLUS. The COM form
+remains in `A:\BIN` for its interactive status and management commands and is
+processed by DIET with the other BIN executables. The main manual, history, and
+package header are retained in `A:\DOC`.
+
+TSCLVA Rev.51127 accelerates the PC-Engine v1.05 screen-editor BIOS text-output
+services. Its manual reports a resident size of `0430h` bytes on the original
+PC-88VA, PC-88VA2/3, and a PC-88VA with the version-up board. The manual
+requires PCEPAT to precede TSCLVA and places TSCLVA before MSE. The
+development-disk order therefore uses:
+
+```dos
+DEVICE  = A:\SYS\PCPLUS.SYS
+DEVICE  = A:\SYS\BMSDRVA.SYS
+...
+DEVICE  = A:\SYS\PCEPAT.SYS
+DEVICE  = A:\SYS\TSCLVA.SYS
+DEVICE  = A:\SYS\MSE352B.COM
+...
+DEVICE  = A:\SYS\RDEMS.SYS -P40 -A
+```
+
+RDEMS is the EMS-backed RAM disk and intentionally loads after TSCLVA. TSCLVA
+itself does not provide EMS or a RAM disk.
+
+## RDPCM ADPCM-memory RAM Disk
+
+`RDPCM.SYS` 0.01 uses the Sound Board II ADPCM sample RAM as a volatile
+PC-Engine block device. The driver exposes about 256KB, with 253KB available
+for file data after its two FAT copies and root directory. Its manual documents
+1024-byte sectors, one sector per cluster, 32 root-directory entries, and a
+warm-boot signature that preserves the RAM-disk contents across reset. A power
+cycle or any software that overwrites the PCM RAM destroys those contents.
+
+The original PC-88VA needs an added PC-88VA-12 Sound Board II; later machines
+need the corresponding ADPCM memory. The manual warns that RDPCM cannot coexist
+safely with FM/ADPCM software, including music TSRs and keyboard-click tools,
+and that byte-at-a-time I/O makes it unusually slow. The development disk loads
+it last so it cannot change the ordering requirements of the HDD, MSE, and EMS
+stacks:
+
+```dos
+DEVICE  = A:\SYS\RDPCM.SYS
+```
+
+The generated disk retains `RDPCM.SYS` in `A:\SYS` and `RDPCM.DOC` in
+`A:\DOC`. The source `RDPCM.ASM` remains in the preserved original archive
+rather than occupying additional boot-disk space. The package has no EXE or
+COM file; the builder still applies its normal DIET pass to every existing
+`.EXE` and `.COM` under `A:\BIN`.
 
 ## PCEPAT PC-Engine Patch
 
@@ -237,16 +309,15 @@ pages, the fixed `C000H` page frame, zero page offset, and the startup memory
 test. The active stack is:
 
 ```dos
-DEVICE=A:\SYS\EMMVA01.SYS
-DEVICE=A:\SYS\SQEMM98.SYS
-DEVICE=A:\SYS\EMMVA02.SYS
-DEVICE=A:\SYS\RDEMS.SYS -P40 -A
+DEVICE  = A:\SYS\EMMVA01.SYS
+DEVICE  = A:\SYS\SQEMM98.SYS
+DEVICE  = A:\SYS\EMMVA02.SYS
 ```
 
 `SQEMM98.SYS` is the EMS manager created for this M90 workflow. `RDEMS.SYS`
 is not that manager: it is the existing third-party RAM-disk driver from the
-RDEMS152 package and consumes the EMS service after the EMMVA/SQEMM98 stack
-has initialized.
+RDEMS152 package. The three EMMVA/SQEMM98 lines load first; RDEMS consumes
+that service later, after TSCLVA.
 
 [RDEMS152](http://www.pc88.gr.jp/softlib/?action=list_file&anum=2&gnum=270)
 is a PC-88VA EMS RAM-disk driver and must be loaded after the EMM stack.
@@ -254,21 +325,21 @@ Its included manual requires EMM version 3.2 or later and documents 40 EMS
 pages, or 640KB, as the default. For example:
 
 ```dos
-DEVICE=A:\SYS\RDEMS.SYS -P40 -A
+DEVICE  = A:\SYS\RDEMS.SYS -P40 -A
 ```
 
-The supplemental-disk builder keeps both original LZH archives and installs
+The development-disk builder keeps both original LZH archives and installs
 `EMMVA01.SYS`, `SQEMM98.SYS`, `EMMVA02.SYS`, and `RDEMS.SYS` in `A:\SYS`.
-It places the exact four-line stack above in root `CONFIG.SYS`, with the
-EMMVA/RDEMS manuals, SQEMM98 notes, and combined licenses in `A:\DOC`. The
-source must be the verified `pcengine110-bootonly.d88`; the builder retains
+It places the three-line manager stack at the start of root `CONFIG.SYS` and
+RDEMS after TSCLVA, with the EMMVA/RDEMS manuals, SQEMM98 notes, and combined
+licenses in `A:\DOC`. The source must be a verified PC-Engine 1.1 disk; the
+builder retains
 its IPL and fixed `ENGINEIO.SYS`, `PCENGINE.SYS`, `ADVGBIOS.SYS`, and
 `PCENGINE.COM` placement, then installs the supplemental payload around those
 files. The resulting D88 is therefore a PC-Engine 1.1 boot disk rather than a
-data-only installation template. In the validated 1MB configuration,
-RDEMS152 registers a 640KB RAM disk as `C:` (`B:` remains the second floppy
-drive); a headless boot copied root `CONFIG.SYS` to that RAM disk and read the
-114-byte copy back successfully.
+data-only installation template. The earlier M90 four-driver supplemental disk
+validated RDEMS read/write at 1MB and 13MB. That result predates the expanded
+development-disk order and is not used as proof for BMSDRVA, TSCLVA, or RDPCM.
 
 ## Support Tools
 
@@ -383,16 +454,17 @@ For maintainer-local preservation, verified copies of the public inputs used
 for this image are stored under the Git-ignored
 `docs/archives/pc88va-development-disk/` directory. This includes the LHA
 2.55 executable and 2.55b patch, `X8MAP130.LZH`, `EMMVA15A.LZH`,
-`RDEMS152.LZH`, both `PCP108.LZH` and `PCP108P.LZH`, and the pinned SQEMM
-source archive. These archive copies and the generated D88 remain outside
-Git.
+`RDEMS152.LZH`, `RDPCM001.LZH`, `TSCLVA.ZIP`, `TSCLBDF.ZIP`, `BMS15020.TGZ`,
+both `PCP108.LZH` and `PCP108P.LZH`, and the pinned SQEMM source archive.
+These archive copies and the generated D88 remain outside Git.
 
 The complete build performs these operations:
 
 1. Create the minimal vanilla system disk while retaining the IPL and the
    original fixed system-file chains.
 2. Fetch and verify PCEPAT, BMS Driver 1.50 Rev 0.20, PCPLUS 1.08 and its
-   group 2-451 bug-fix patch, SCHD 1.55t, RDBMS 1.21, BDIFF/BUPDATE 1.28,
+   group 2-451 bug-fix patch, SCHD 1.55t, RDBMS 1.21, RDPCM 0.01, TSCLVA
+   Rev.50703 and its Rev.51127 update, BDIFF/BUPDATE 1.28,
    MSE 3.52a and the 3.52b patch, WSP 1.50, LHA 2.55 and its official 2.55b
    patch, DIET 1.44, Memory Mapper for PC 1.3, EMMVA 1.5a, RDEMS 1.52,
    K-Launcher 1.30, TEEN 0.30p, VBUFF 1.02, FATMAP 1.1, FORG 2.03, the VA
@@ -400,8 +472,9 @@ The complete build performs these operations:
    rev B executable archive.
 3. Extract the packages with the host `lha`, `tar`, and `unzip` commands.
 4. Run the original DOS `WSP.COM` and `BUPDATE.EXE` under headless DOSBox to
-   produce LHA 2.55b, `MSE352B.COM`, the patched `PCPLUS.SYS`, and the
-   PC-88VA K-Launcher files `KLL.COM`, `KLVA.EXE`, and `KLCUST.EXE`.
+   produce LHA 2.55b, `MSE352B.COM`, the patched `PCPLUS.SYS`, the generated
+   `BMSDRVA.SYS`, the updated TSCLVA Rev.51127 files, and the PC-88VA
+   K-Launcher files `KLL.COM`, `KLVA.EXE`, and `KLCUST.EXE`.
 5. Assemble and validate the repository's clean-room `HOSTFAT.SYS` with NASM.
 6. Build and validate `SQEMM98.SYS` from pinned source with Open Watcom, then
    install the complete EMMVA/SQEMM98/RDEMS driver stack.
@@ -411,7 +484,7 @@ The complete build performs these operations:
 9. Run every `.EXE` and `.COM` under `BIN` through DIET 1.44. COM files retain
    their COM form; files for which DIET cannot reduce byte size remain
    unchanged.
-10. Add the eleven `SYS` drivers, the compressed `BIN` utilities, their `DOC`
+10. Add the fourteen `SYS` drivers, the compressed `BIN` utilities, their `DOC`
     files, and an empty `TMP` directory to the vanilla FAT12 filesystem.
 
 The PC-Engine disk has a valid FAT12 allocation structure but no conventional
@@ -421,9 +494,9 @@ two-head, eight-sector, 1024-byte PC-Engine 1.1 layout. It never relocates the
 existing `ENGINEIO.SYS` or `PCENGINE.SYS` boot chains. The vanilla builder
 clears all unreferenced data clusters, and new directory entries use a fixed
 DOS date, so repeated builds from the same source are byte-for-byte
-reproducible. The validated image installs 88 payload files totaling 875,508
+reproducible. The validated image installs 96 payload files totaling 923,596
 bytes in addition to the four retained PC-Engine system files and leaves
-286,720 bytes free.
+232,448 bytes free.
 
 The development disk is organized as follows. `KLVA.EXE`, `KLCUST.EXE`,
 `KL.CFG`, and `KLJPN.HLP` are also kept in `BIN` because `KLL.COM` needs the
@@ -436,16 +509,19 @@ A:\
   PCENGINE.COM
 
 A:\SYS\
-  PCPLUS.SYS
-  SCHD.SYS
-  HOSTFAT.SYS
-  PCEPAT.SYS
-  MSE352B.COM
-  RAMDISK.SYS
-  RDBMS.SYS
   EMMVA01.SYS
   SQEMM98.SYS
   EMMVA02.SYS
+  PCPLUS.SYS
+  BMSDRVA.SYS
+  SCHD.SYS
+  HOSTFAT.SYS
+  PCEPAT.SYS
+  TSCLVA.SYS
+  MSE352B.COM
+  RAMDISK.SYS
+  RDPCM.SYS
+  RDBMS.SYS
   RDEMS.SYS
 
 A:\BIN\
@@ -499,6 +575,9 @@ A:\BIN\
   VDIR.EXE
 
 A:\DOC\
+  BMS15020.DOC
+  BMS15020.HED
+  BMS15020.HIS
   DIET144.DOC
   DIETREAD.DOC
   TEEN.DOC
@@ -513,6 +592,7 @@ A:\DOC\
   FORGREAD.DOC
   RAMDISK.DOC
   RAMREAD.ME
+  RDPCM.DOC
   SCHD.DOC
   SCHD.LOG
   SCHD.TXT
@@ -522,6 +602,7 @@ A:\DOC\
   SCSI55.TXT
   EMMVA150.DOC
   RDEMS152.MAN
+  TSCLVA.DOC
   SQEMM.LIC
   SQEMM98.TXT
   X8MAP130.SMP
@@ -544,7 +625,10 @@ COM files in COM form. DIET leaves `BIOSFREE.COM`, `BMSADDVA.COM`, `DIET.EXE`,
 `KLL.COM`, `SETDMA.COM`, `SETID.COM`, and `VBUFF.COM` unchanged because
 compression would not reduce their size; the remaining reducible executables
 are stored in DIET form. This includes reducing `SMSTAT.COM` from 1,944 to
-1,725 bytes and `X8MAP.COM` from 10,373 to 7,203 bytes.
+1,725 bytes, `X8MAP.COM` from 10,373 to 7,203 bytes, and the retained
+interactive `BMSDRVA.COM` from 24,812 to 4,351 bytes. The generated
+`BMSDRVA.SYS` is a device driver under `SYS`, not a BIN executable, and is not
+passed through DIET.
 `DIET.EXE` and its primary documentation are included so these files can be
 inspected or restored in the guest.
 
@@ -559,28 +643,35 @@ The hidden/system `ENGINEIO.SYS`, `PCENGINE.SYS`, and `ADVGBIOS.SYS` files
 remain in the root as required for boot. `CONFIG.SYS` is:
 
 ```dos
-FILES = 20
+FILES   = 20
 BUFFERS = 30
-DEVICE = A:\SYS\PCPLUS.SYS
-DEVICE = A:\SYS\SCHD.SYS -I0
-DEVICE = A:\SYS\HOSTFAT.SYS
-DEVICE = A:\SYS\PCEPAT.SYS
-DEVICE = A:\SYS\MSE352B.COM
-DEVICE = A:\SYS\RDBMS.SYS -P1D0 -S1
-DEVICE=A:\SYS\EMMVA01.SYS
-DEVICE=A:\SYS\SQEMM98.SYS
-DEVICE=A:\SYS\EMMVA02.SYS
-DEVICE=A:\SYS\RDEMS.SYS -P40 -A
+DEVICE  = A:\SYS\EMMVA01.SYS
+DEVICE  = A:\SYS\SQEMM98.SYS
+DEVICE  = A:\SYS\EMMVA02.SYS
+DEVICE  = A:\SYS\PCPLUS.SYS
+DEVICE  = A:\SYS\BMSDRVA.SYS
+DEVICE  = A:\SYS\SCHD.SYS -I0
+DEVICE  = A:\SYS\HOSTFAT.SYS
+DEVICE  = A:\SYS\PCEPAT.SYS
+DEVICE  = A:\SYS\TSCLVA.SYS
+DEVICE  = A:\SYS\MSE352B.COM
+DEVICE  = A:\SYS\RDBMS.SYS -P1D0 -S1
+DEVICE  = A:\SYS\RDEMS.SYS -P40 -A
+DEVICE  = A:\SYS\RDPCM.SYS
 ```
 
-PCPLUS precedes the target-zero SCHD block driver. HOSTFAT is available when
-vaeg has a read-only host folder configured. PCEPAT remains before MSE as its
-documentation requires, and MSE is loaded without `/A`, `/B`, or `/X`.
+The EMMVA/SQEMM98 manager stack loads first. PCPLUS follows it, then the
+WSP-generated BMSDRVA device-driver form. PCPLUS still precedes the target-zero
+SCHD block driver. HOSTFAT is available when vaeg has a read-only host folder
+configured. PCEPAT and TSCLVA both precede MSE as their documentation requires,
+and MSE is loaded without `/A`, `/B`, or `/X`.
 RDBMS uses the PC-88VA I/O Bank Memory port `01D0H`, starts with bank 1, and
 uses its documented default bank count because no explicit count is supplied.
-The EMMVA adapter pair encloses the Open Watcom-built SQEMM98 manager, after
-which RDEMS allocates its default 40-page EMS RAM disk. The BMS VA programs
-remain available for later use but are not made resident by this baseline.
+The EMMVA adapter pair encloses the Open Watcom-built SQEMM98 manager. RDEMS
+loads after TSCLVA and allocates its default 40-page EMS RAM disk. The BMS VA
+device driver is resident, while its COM form remains available for management.
+RDPCM loads last and claims the Sound Board II PCM RAM as another RAM disk;
+remove that line when running software that uses FM or ADPCM audio.
 `AUTOEXEC.BAT` uses neither `ECHO OFF` nor `PROMPT`; it only establishes the
 requested tool environment:
 
@@ -599,12 +690,14 @@ used after making a backup as directed by its documentation.
 The resulting disk is intended for PC-Engine 1.1 on a PC-88VA2/VA3 or the
 corresponding upgraded VA environment. The script proves structural
 bootability by retaining the original IPL and fixed system-file placement. A
-bounded headless VA2 boot at 13MB EMS reached PC-Engine `Ready`, and `DIR D:`
-reported 647,168 bytes available, proving that RDEMS registered after the
-complete EMMVA/SQEMM98 stack. RDBMS occupies `C:` in this load order. Visual
-confirmation with the DIET-compressed `X8MAP.COM` reported the 40-page/640KB
-RDEMS handle, 832 total EMS pages, and 13,312KB total capacity. MSE utility
-execution and K-Launcher remain PC-88VA/vaeg human checks.
+bounded normal-speed VA2 boot of the reordered 96-file image at the default
+1MB EMS setting reached PC-Engine `Ready` and left its disposable D88 copy
+unchanged. The automated `DIR` text injection reached the guest as only `R`;
+the immediately preceding development disk produced the same control result.
+The run therefore establishes boot completion without attributing that input
+limitation to this hotfix, but it is not a pass for BMSDRVA, TSCLVA, RDEMS,
+RDPCM, MSE utility execution, or K-Launcher. Those remain PC-88VA/vaeg human
+checks.
 
 ## Supplemental Softlib Archive Disk
 
