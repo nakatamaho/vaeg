@@ -74,8 +74,8 @@ org 0x100
 %if MILESTONE_STAGE == 5
 %define BULLET_COUNT            0
 %define SPRITE_INITIAL_COUNT    BALL_COUNT
-%define SPRITE_MIN_COUNT        BALL_COUNT
-%define SPRITE_MAX_COUNT        BALL_COUNT
+%define SPRITE_MIN_COUNT        1
+%define SPRITE_MAX_COUNT        256
 %elif MILESTONE_STAGE == 4
 %define BULLET_COUNT            0
 %define SPRITE_INITIAL_COUNT    BALL_COUNT
@@ -1395,7 +1395,7 @@ message_start:
     db "ESC exits.", 13, 10, "$"
 %elif MILESTONE_STAGE == 5
     db "SGPDEMO5: M5 double-buffered pseudo-sprites", 13, 10
-    db "ESC exits.", 13, 10, "$"
+    db "UP/+ adds balls (max 256), DOWN/- removes one, ESC exits.", 13, 10, "$"
 %else
     db "SGPDEMO6: M6 stress/counters", 13, 10
     db "UP/+ adds a sprite (max 256), DOWN/- removes one, ESC exits.", 13, 10, "$"
