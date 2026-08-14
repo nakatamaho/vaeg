@@ -40,7 +40,8 @@ usage() {
 		"Usage: $program_name --source SOURCE.d88 --output OUTPUT.d88 [--cache DIR]" \
 		'' \
 		'First create a vanilla PC-Engine 1.1 system disk, then add PCPLUS,' \
-		'SCHD, HOSTFAT, PCEPAT, MSE 3.52b, RDBMS, EMMVA/SQEMM98/RDEMS,' \
+		'SCHD, HOSTFAT, PCEPAT, TSCLVA, MSE 3.52b, RDBMS, RDPCM,' \
+		'BMSDRVA, EMMVA/SQEMM98/RDEMS,' \
 		'development tools, X8MAP, and K-Launcher.' \
 		'The source and generated D88 images are never added to the repository.'
 }
@@ -151,6 +152,15 @@ fetch_package pcp108p.lzh \
 fetch_package schd155t.lzh \
 	87aebcf7c9bc9c6170a40d0e6ddcce5afdcbb1fa55f1fdeeec815458f7ef065f \
 	'http://www.pc88.gr.jp/softlib/index.php?action=download&anum=2&gnum=448&fname=SCHD155T.LZH'
+fetch_package rdpcm001.lzh \
+	a823296e0fc56927f9cf332cf3da6d1670469fada79675ba968fda1fa351891b \
+	'http://www.pc88.gr.jp/softlib/index.php?action=download&anum=2&gnum=388&fname=RDPCM001.LZH'
+fetch_package tsclva.zip \
+	ca5250865b05f2e31342b84418cf2720ad42297e1760bfaa19fda6bdf191aa5e \
+	'http://www.pc88.gr.jp/softlib/index.php?action=download&anum=2&gnum=309&fname=TSCLVA.ZIP'
+fetch_package tsclbdf.zip \
+	99e0c2ccc755ccbd3b4d2ee7301bc9b8655de66160afe794b3ee110d7850e4f1 \
+	'http://www.pc88.gr.jp/softlib/index.php?action=download&anum=2&gnum=346&fname=TSCLBDF.ZIP'
 fetch_package rdbms121.lzh \
 	bf198dbf104a9ddf4b0309f53b3f8e7266ac83f9810162cee51c735403e9559c \
 	'http://www.pc88.gr.jp/softlib/index.php?action=download&anum=2&gnum=80&fname=RDBMS121.LZH'
@@ -241,6 +251,11 @@ extract_archive "$cache_dir/pcepat.com" "$work_dir/pcepat"
 extract_archive "$cache_dir/pcp108.lzh" "$work_dir/pcp108"
 extract_archive "$cache_dir/pcp108p.lzh" "$work_dir/pcp108p"
 extract_archive "$cache_dir/schd155t.lzh" "$work_dir/schd"
+extract_archive "$cache_dir/rdpcm001.lzh" "$work_dir/rdpcm"
+mkdir -p -- "$work_dir/tsclva"
+unzip -q "$cache_dir/tsclva.zip" -d "$work_dir/tsclva"
+mkdir -p -- "$work_dir/tsclbdf"
+unzip -q "$cache_dir/tsclbdf.zip" -d "$work_dir/tsclbdf"
 extract_archive "$cache_dir/rdbms121.lzh" "$work_dir/rdbms"
 extract_archive "$cache_dir/bdiff128.lzh" "$work_dir/bdiff"
 extract_archive "$cache_dir/mse352a.lzh" "$work_dir/mse352a"
@@ -279,6 +294,11 @@ cp -p -- "$work_dir/mse352bf/MSE352BF.WUP" "$stage_dir/"
 cp -p -- "$work_dir/bdiff/BUPDATE.EXE" "$stage_dir/"
 cp -p -- "$work_dir/pcp108/PCP108/PCPLUS.SYS" "$stage_dir/"
 cp -p -- "$work_dir/pcp108p/PCPLUS.BDF" "$stage_dir/"
+cp -p -- "$work_dir/bms/bmsdrva.com" "$stage_dir/BMSDRVA.COM"
+cp -p -- "$work_dir/bms/bmsdrsys.wup" "$stage_dir/BMSDRSYS.WUP"
+cp -p -- "$work_dir/tsclva/TSCLVA.DOC" "$stage_dir/"
+cp -p -- "$work_dir/tsclva/TSCLVA.SYS" "$stage_dir/"
+cp -p -- "$work_dir/tsclbdf/TSCLVA.BDF" "$stage_dir/"
 cp -p -- "$work_dir/lha/LHA.EXE" "$stage_dir/"
 cp -p -- "$work_dir/lha/HISTORY.DOC" "$stage_dir/"
 cp -p -- "$work_dir/lha_patch/LHA255B@.BDF" "$stage_dir/"
@@ -301,13 +321,15 @@ printf '%s\n' \
 	'tandy=off' \
 	'disney=false' >"$dosbox_conf"
 
-printf '%s\n' 'Applying LHA, MSE, PCPLUS, and K-Launcher patches'
+printf '%s\n' 'Applying LHA, MSE, PCPLUS, BMS, TSCLVA, and K-Launcher patches'
 SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy dosbox -conf "$dosbox_conf" -exit \
 	-c "mount c $stage_dir" \
 	-c 'c:' \
 	-c 'bupdate -x -i -o lha255b@ > lha255b.log' \
 	-c 'wsp -t -b mse352bf.wup > mse.log' \
 	-c 'bupdate -x -i -o pcplus.bdf > pcp.log' \
+	-c 'wsp -t -b bmsdrsys.wup > bms.log' \
+	-c 'bupdate -x -i -o tsclva.bdf > tscl.log' \
 	-c 'wsp -t -b klva.com > kl.log' \
 	-c 'exit' >/dev/null 2>&1
 
@@ -323,6 +345,9 @@ verify_generated() {
 verify_generated ALIAS.COM de06d39557440dc1a296b5d5ef80fda9fb7b57f63c67a2d339bc51db9bc12ed7
 verify_generated MSE352B.COM 794375496c62bf8f508ccbf57c8ceeb2ab439606d31638eea397eaac6bd3e68a
 verify_generated PCPLUS.SYS f86d03201a2fa6c0dab13345df55f3bb929f41ec3c7c6d03efb4dbd7935f1b06
+verify_generated BMSDRVA_.SYS 327692d21731b200313f1ccae7167464fdcd479e4cf60c148cba2a069c152974
+verify_generated TSCLVA.DOC 6712aa90951acfe03890259b415e0c9389a4c1394d2471eed641f5febe0b612d
+verify_generated TSCLVA.SYS 574e8e5a1a5ae72f6d6ae0198f7aa760fb70e6de379d7bd10b1ec0cd2f6eb74e
 verify_generated KLL.COM 752600dfb9809432310046047f6142b8edce47c25e25a14c1baa2d91bda87910
 verify_generated KLVA.EXE c6ad097435111398f1c1ebc90e9f35cd15caded6b5d6bed49d92c354ab7f3c43
 verify_generated KLCUST.EXE 72376b967fe51d4f40759f5d875762fa3b2b09a353afb1a9ea3c957f5a9c87bf
@@ -342,6 +367,7 @@ copy_payload() {
 
 copy_payload "$work_dir/bms/bmsdrva.com" bin/BMSDRVA.COM
 copy_payload "$work_dir/bms/bmsaddva.com" bin/BMSADDVA.COM
+copy_payload "$stage_dir/BMSDRVA_.SYS" sys/BMSDRVA.SYS
 copy_payload "$stage_dir/PCPLUS.SYS" sys/PCPLUS.SYS
 copy_payload "$work_dir/schd/SCHD.SYS" sys/SCHD.SYS
 copy_payload "$hostfat_sys" sys/HOSTFAT.SYS
@@ -349,6 +375,8 @@ copy_payload "$work_dir/pcepat/PCEPAT.SYS" sys/PCEPAT.SYS
 copy_payload "$stage_dir/MSE352B.COM" sys/MSE352B.COM
 copy_payload "$work_dir/rdbms/RDBMS.SYS" sys/RDBMS.SYS
 copy_payload "$work_dir/ramdisk/RAMDISK.SYS" sys/RAMDISK.SYS
+copy_payload "$work_dir/rdpcm/RDPCM.SYS" sys/RDPCM.SYS
+copy_payload "$stage_dir/TSCLVA.SYS" sys/TSCLVA.SYS
 copy_payload "$work_dir/emmva/EMMVA01.SYS" sys/EMMVA01.SYS
 copy_payload "$work_dir/emmva/EMMVA02.SYS" sys/EMMVA02.SYS
 copy_payload "$work_dir/rdems/RDEMS.SYS" sys/RDEMS.SYS
@@ -423,6 +451,11 @@ copy_payload "$work_dir/schd/SCHD.DOC" doc/SCHD.DOC
 copy_payload "$work_dir/schd/SCHD.LOG" doc/SCHD.LOG
 copy_payload "$work_dir/schd/SCHD.TXT" doc/SCHD.TXT
 copy_payload "$work_dir/rdbms/RDBMS.DOC" doc/RDBMS.DOC
+copy_payload "$work_dir/rdpcm/RDPCM.DOC" doc/RDPCM.DOC
+copy_payload "$stage_dir/TSCLVA.DOC" doc/TSCLVA.DOC
+copy_payload "$work_dir/bms/bms15020.doc" doc/BMS15020.DOC
+copy_payload "$work_dir/bms/bms15020.hed" doc/BMS15020.HED
+copy_payload "$work_dir/bms/bms15020.his" doc/BMS15020.HIS
 copy_payload "$work_dir/pcp108/PCP108/PCPLUS.DOC" doc/PCPLUS.DOC
 copy_payload "$work_dir/pcp108/PCP108/PCPLUS.TXT" doc/PCPLUS.TXT
 copy_payload "$work_dir/pcp108/PCP108/SCSIVA/SCSI55.TXT" doc/SCSI55.TXT
@@ -486,18 +519,21 @@ printf 'DIET processed %u executables and saved %u bytes\n' \
 	"$diet_processed" "$diet_saved"
 
 printf '%s\r\n' \
-	'FILES = 20' \
+	'FILES   = 20' \
 	'BUFFERS = 30' \
-	'DEVICE = A:\SYS\PCPLUS.SYS' \
-	'DEVICE = A:\SYS\SCHD.SYS -I0' \
-	'DEVICE = A:\SYS\HOSTFAT.SYS' \
-	'DEVICE = A:\SYS\PCEPAT.SYS' \
-	'DEVICE = A:\SYS\MSE352B.COM' \
-	'DEVICE = A:\SYS\RDBMS.SYS -P1D0 -S1' \
-	'DEVICE=A:\SYS\EMMVA01.SYS' \
-	'DEVICE=A:\SYS\SQEMM98.SYS' \
-	'DEVICE=A:\SYS\EMMVA02.SYS' \
-	'DEVICE=A:\SYS\RDEMS.SYS -P40 -A' >"$payload_dir/root/CONFIG.SYS"
+	'DEVICE  = A:\SYS\EMMVA01.SYS' \
+	'DEVICE  = A:\SYS\SQEMM98.SYS' \
+	'DEVICE  = A:\SYS\EMMVA02.SYS' \
+	'DEVICE  = A:\SYS\PCPLUS.SYS' \
+	'DEVICE  = A:\SYS\BMSDRVA.SYS' \
+	'DEVICE  = A:\SYS\SCHD.SYS -I0' \
+	'DEVICE  = A:\SYS\HOSTFAT.SYS' \
+	'DEVICE  = A:\SYS\PCEPAT.SYS' \
+	'DEVICE  = A:\SYS\TSCLVA.SYS' \
+	'DEVICE  = A:\SYS\MSE352B.COM' \
+	'DEVICE  = A:\SYS\RDBMS.SYS -P1D0 -S1' \
+	'DEVICE  = A:\SYS\RDEMS.SYS -P40 -A' \
+	'DEVICE  = A:\SYS\RDPCM.SYS' >"$payload_dir/root/CONFIG.SYS"
 
 printf '%s\r\n' \
 	'PATH A:\BIN' \
