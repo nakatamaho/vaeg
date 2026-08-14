@@ -180,6 +180,36 @@ The stage variants are:
 | `SGPDEMO5.COM` | M5 hidden-page/double-buffered sprites (1-256 balls; no bullets) |
 | `SGPDEMO6.COM` | M6 stress prefix, bullets, FPS/count, and counters |
 
+## M7 optimization variants
+
+The M7 audit and optimization variants are separate DOS 8.3 executables. The
+M5/M6 sources and `SGPDEMO5.COM`/`SGPDEMO6.COM` remain unchanged regression
+baselines.
+
+| File | Variant | Rendering change |
+|---|---|---|
+| `SGPD_7A.COM` | M7a | Samples the calendar BIOS once per 60 completed frames and moves fixed transfer arithmetic out of the sprite loop; rendering remains full-screen CLS and synchronous. |
+| `SGPD_7B.COM` | M7b | Keeps the original painter-order redraw, but clears the selected page's previous rectangles with verified SGP PATBLT zero fills. It falls back to full CLS when candidate dirty area reaches the 320x200 surface. |
+| `SGPD_7C.COM` | M7c | Uses two command/work buffers. While SGP renders the current hidden page, the CPU updates state and builds the next list for the page currently displayed; the list is started only after the VBLANK flip makes that page hidden. |
+| `SGPD_7D.COM` | M7d | Hoists immutable physical-address conversion and fixed sprite command fields to startup templates. Each frame patches destination start-dot and destination address; the useful Y offset table is retained and no X lookup table is added. |
+
+M7b, M7c, and M7d still redraw every active sprite in the original painter
+order. Dirty-region intersection redraw (M7e) and a triple-buffer experiment
+(M7f) are intentionally not enabled in this branch. All variants use the
+verified 320x200, 16-color, single-plane 4bpp mode and the existing Graphic 0
+background / Graphic 1 page exchange.
+
+Build all M7 variants with:
+
+~~~sh
+NASM=nasm tools/pc88va/sgp-pseudo-sprite/build_m7_coms.sh /tmp/sgpd-m7
+~~~
+
+The logical-work matrix in [`docs/sgp-m7-results.md`](../../../docs/sgp-m7-results.md)
+separates exact command/transfer quantities from VAEG timing-model-dependent
+observations. VAEG FPS, VBLANK thresholds, and modeled cycles are not claims
+about PC-88VA hardware performance.
+
 ## Build
 
 Configure a normal VAEG preset, then build the dedicated guest target. For
