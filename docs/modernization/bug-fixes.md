@@ -1031,6 +1031,31 @@ separate parity correction or move it to Open Defects.
   and [PC-88VA BMS/EMS environment notes](pc88va-hdd-software-environment.md#bank-memory-manager).
 - **Commit:** [c52bd8d](https://github.com/nakatamaho/vaeg/commit/c52bd8dbc62dfabc5d7bbbc50b4fbfe7bd6deef4).
 
+### Original VA ignored the RDBMS native-port override
+
+- **Status:** fixed in the post-G90 development-disk hotfix.
+- **Symptom:** the generated disk detected the 16MB BMS and registered RDBMS
+  in VA2 mode, but original-VA mode reported that no BANKRAM board was
+  installed and fell back to taking 128KB at segment `8000H`.
+- **Affected scope:** RDBMS 1.21 on original-VA PC-Engine boots using the
+  native `01D0H` BMS port. VA2 accepted the existing `-P1D0` line.
+- **Demonstrated root cause:** RDBMS's own documentation states that some
+  `CONFIG.SYS` parameters cannot be set on an original VA. The distributed
+  `RDBMS.SYS` embeds the PC-9801-compatible `00ECH` port at offset `001AH`, so
+  original-VA boot ignored `-P1D0` and probed a port different from VAEG's
+  configured native VA port.
+- **Correction:** the development-disk builder preserves the source archive,
+  verifies the exact original driver hash and `EC 00` bytes, then changes only
+  the generated copy's embedded default to `01D0H`. `CONFIG.SYS` retains
+  `-P1D0` for models that accept parameters; VAEG does not mirror the board at
+  the compatibility port.
+- **Verification:** two complete builds produced byte-identical D88 images.
+  The disk-extracted driver had the expected patched hash and `D0 01` word.
+  Original-VA and VA2 640KB boots both reached `Ready`, and `DIR C:` accessed
+  the RDBMS RAM disk without the BANKRAM warning.
+- **Evidence:** [PC-88VA BMS/RDBMS environment notes](pc88va-hdd-software-environment.md#bank-memory-manager).
+- **Commit:** [e08fd93](https://github.com/nakatamaho/vaeg/commit/e08fd938e6157ad9d05bb26dab6acc2842b3d192).
+
 ### Z80 state-codec rejection was ignored by the state coordinator
 
 - **Status:** fixed in M39.
