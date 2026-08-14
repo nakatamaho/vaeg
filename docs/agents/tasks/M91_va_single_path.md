@@ -23,18 +23,21 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 # M91 - Native V3 VA single path
 
+Status: **G91 human gate passed; M91 closed**
+
 Predecessor: approved G90.
 
 Branch: topic/m91-va-single-path
 
 Commit prefix: M91:
 
-Candidate gate: G91
+Gate result: G91 passed on 2026-08-15 against
+`66fbf20f6f5a8fbe107884ca1223acc53d352cbd`.
 
 Report: docs/agents/reports/m91_va_single_path.md
 
-Do not start M92. Do not merge M91 to main before G91 approval. Do not
-declare G91 passed.
+M91 is closed after maintainer approval. M92 remains separately authorized
+work and is not started by this closure.
 
 ## Goal
 
@@ -90,3 +93,10 @@ Run the repository invariant checks, normal CMake build, CTest, emulator
 selftest, focused uPD9002 and device validators, and an available cross-build.
 G91 then requires a clean-checkout native V3 boot, bundled VA demo, OS boot,
 and simple FDD, storage, keyboard, display, sound, and state-save operations.
+
+## Gate result
+
+The maintainer explicitly reported G91 passed on 2026-08-15 against candidate
+`66fbf20f6f5a8fbe107884ca1223acc53d352cbd`. This closes M91. The gate covers
+the required clean-checkout native V3 boot, bundled VA demo, OS boot, and
+simple FDD, storage, keyboard, display, sound, and state-save operations.
