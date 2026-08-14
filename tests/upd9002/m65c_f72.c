@@ -307,19 +307,26 @@ static int test_high_region_word_path_is_unchanged(void) {
 
 int upd9002_m65c_f72_main(void) {
 
-	upd9002_core_initialize();
-	if ((test_register_forms_are_protected() != SUCCESS) ||
-		(test_direct_even_low_memory_writes_both_bytes() != SUCCESS) ||
-		(test_direct_low_memory_value_partitions() != SUCCESS) ||
-		(test_odd_low_memory_uses_word_path() != SUCCESS) ||
-		(test_segment_override_selects_es() != SUCCESS) ||
-		(test_addressing_modes_and_displacement() != SUCCESS) ||
-		(test_offset_ffff_second_byte_address() != SUCCESS) ||
-		(test_high_region_word_path_is_unchanged() != SUCCESS)) {
-		upd9002_core_deinitialize();
-		return FAILURE;
-	}
-	upd9002_core_deinitialize();
-	puts("upd9002-m65c-f72: F7 /2 focused checks passed");
-	return SUCCESS;
+    int result;
+
+    upd9002_test_flat_memory_set(TRUE);
+    upd9002_core_initialize();
+    result = SUCCESS;
+    if ((test_register_forms_are_protected() != SUCCESS) ||
+        (test_direct_even_low_memory_writes_both_bytes() != SUCCESS) ||
+        (test_direct_low_memory_value_partitions() != SUCCESS) ||
+        (test_odd_low_memory_uses_word_path() != SUCCESS) ||
+        (test_segment_override_selects_es() != SUCCESS) ||
+        (test_addressing_modes_and_displacement() != SUCCESS) ||
+        (test_offset_ffff_second_byte_address() != SUCCESS) ||
+        (test_high_region_word_path_is_unchanged() != SUCCESS)) {
+        result = FAILURE;
+    }
+    upd9002_core_deinitialize();
+    upd9002_test_flat_memory_set(FALSE);
+    if (result != SUCCESS) {
+        return result;
+    }
+    puts("upd9002-m65c-f72: F7 /2 focused checks passed");
+    return SUCCESS;
 }

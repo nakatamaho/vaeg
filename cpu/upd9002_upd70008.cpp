@@ -347,8 +347,6 @@ extern "C" int upd9002_upd70008_compat_selftest(void) {
         static_cast<UINT32>(native_stack_segment) << 4;
 
     upd9002_core_initialize();
-    upd9002_memorymap(0);
-    memmode_va = 0;
     ZeroMemory(mem, 0x100000);
     upd9002_upd70008_register();
     upd9002_core_reset();

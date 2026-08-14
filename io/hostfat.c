@@ -383,8 +383,8 @@ UINT8 hostfat_service_request(UINT32 request_far_pointer) {
 	request_segment = (UINT)(request_far_pointer >> 16);
 	request_address = ((UINT32)request_segment << 4) + request_offset;
 	if ((request_offset > (0x10000U - HOSTFAT_PACKET_SIZE)) ||
-		(request_address >= UPD9002_MEMWRITEMAX) ||
-		(HOSTFAT_PACKET_SIZE > (UPD9002_MEMWRITEMAX - request_address))) {
+		(request_address >= UPD9002_MAINRAM_LIMIT) ||
+		(HOSTFAT_PACKET_SIZE > (UPD9002_MAINRAM_LIMIT - request_address))) {
 		return(HOSTFAT_RESULT_BAD_REQUEST);
 	}
 	for (position=0; position<sizeof(packet); position++) {
@@ -409,8 +409,8 @@ UINT8 hostfat_service_request(UINT32 request_far_pointer) {
 	transfer_segment = load_word(packet + HOSTFAT_PACKET_TRANSFER + 2);
 	transfer_address = ((UINT32)transfer_segment << 4) + transfer_offset;
 	transfer_size = (UINT32)count * HOSTFAT_SECTOR_SIZE;
-	if ((transfer_address >= UPD9002_MEMWRITEMAX) ||
-		(transfer_size > (UPD9002_MEMWRITEMAX - transfer_address))) {
+	if ((transfer_address >= UPD9002_MAINRAM_LIMIT) ||
+		(transfer_size > (UPD9002_MAINRAM_LIMIT - transfer_address))) {
 		return(HOSTFAT_RESULT_RANGE);
 	}
 

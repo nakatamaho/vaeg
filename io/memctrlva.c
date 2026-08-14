@@ -33,7 +33,7 @@ static void IOOUTCALL memctrlva_o153(UINT port, REG8 dat) {
 	fdc_trace_text("banktrace port=%03x val=%02x sysm_bank=%02x",
 				   port, dat, memoryva.sysm_bank);
 	if ((dat ^ gactrlva.gmsp) & 0x10) {
-		// シングルプレーン⇔マルチプレーン 切り替え
+		// Reset access state when GMSP changes between multi- and single-plane modes.
 		gactrlva_reset();
 		if (dat & 0x10) {
 			sgp_reset();
@@ -65,7 +65,7 @@ static REG8 IOINPCALL memctrlva_i153(UINT port) {
 }
 
 static REG8 IOINPCALL memctrlva_i156(UINT port) {
-	// ROMバンクステータス
+	// Return the VA91 ROM-bank presence status on the shared bank-status port.
 	REG8 dat = 0xff;
 	dat = ~(~dat | ~va91_rombankstatus());
 	return dat;
@@ -107,17 +107,17 @@ void memctrlva_reset(void) {
 }
 
 void memctrlva_bind(void) {
-	iocore_attachvaout(0x152, memctrlva_o152);
-	iocore_attachvaout(0x153, memctrlva_o153);
-	iocore_attachvaout(0x180, memctrlva_o180);
-	iocore_attachvaout(0x198, memctrlva_o198);
-	iocore_attachvaout(0x19a, memctrlva_o19a);
+	iocore_attachout(0x152, memctrlva_o152);
+	iocore_attachout(0x153, memctrlva_o153);
+	iocore_attachout(0x180, memctrlva_o180);
+	iocore_attachout(0x198, memctrlva_o198);
+	iocore_attachout(0x19a, memctrlva_o19a);
 
-	iocore_attachvainp(0x152, memctrlva_i152);
-	iocore_attachvainp(0x153, memctrlva_i153);
-	iocore_attachvainp(0x156, memctrlva_i156);
-	iocore_attachvainp(0x180, memctrlva_i180);
+	iocore_attachinp(0x152, memctrlva_i152);
+	iocore_attachinp(0x153, memctrlva_i153);
+	iocore_attachinp(0x156, memctrlva_i156);
+	iocore_attachinp(0x180, memctrlva_i180);
 
-	iocore_attachvainp(0x030, memctrlva_i030);
-	iocore_attachvainp(0x031, memctrlva_i031);
+	iocore_attachinp(0x030, memctrlva_i030);
+	iocore_attachinp(0x031, memctrlva_i031);
 }

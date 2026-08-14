@@ -1,9 +1,9 @@
 /*
- * cgromva.c: PC-88VA Character generator
+ * cgromva.c: PC-88VA V3 CGROM port and hardware character-code decoder
  *
- * ToDo:
- *   ハードウェア文字コードが不正の場合の動作を実機にあわせる。
- *	 8x8フォントへの対応
+ * Known limitations:
+ *   Invalid-code behavior still requires real-hardware verification.
+ *   The 8x8 font path is incomplete.
  */
 
 #include	"compiler.h"
@@ -27,13 +27,13 @@ static BYTE tofu[32] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
 						0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
 
 /*
-フォントを取得する
-  IN:	hccode		ハードウェア文字コード
-					bit15 文字の右側のとき1
-					bit14-bit8 JIS第二バイト
-					bit7  0
-					bit6-bit0  JIS第一バイト-0x20
-*/
+ * Return the glyph storage addressed by a VA hardware character code.
+ * hccode fields:
+ *   bit 15 selects the right half of a double-width glyph.
+ *   bits 14-8 contain the second JIS byte.
+ *   bit 7 is zero.
+ *   bits 6-0 contain the first JIS byte minus 20H.
+ */
 BYTE *cgromva_font(UINT16 hccode) {
 	int		lr;
 	UINT16	jis1;
@@ -46,22 +46,22 @@ BYTE *cgromva_font(UINT16 hccode) {
 	jis2 = (hccode >> 8) & 0x7f;
 
 	if (jis2 == 0 && lr == 0) {
-		// ANK (lr == 1の場合はANKとして扱わない)
+		// ANK is valid only when the right-half flag is clear.
 		base = fontmem;
 		if (videova.txtmode & 0x04) {
-			// 8ドット
+			// 8-dot ANK glyph.
 			font = 0x41000 + ((hccode & 0xff) << 3);
-					/* テクマニに従えば 0x42000 + ((hccode & 0xff) << 4) となるが、
-					   間違っているっぽい */
+			/* Tekumani describes 42000H with a 16-byte stride. The loaded
+			 * VA font image instead uses an 8-byte stride from 41000H. */
 		}
 		else {
-			// 16ドット
+			// 16-dot ANK glyph.
 			font = 0x40000 + ((hccode & 0xff) << 4);
 		}
 	}
 	else {
 		if (jis1 < 0x28) {
-			// JIS非漢字
+			// JIS non-kanji block.
 			base = fontmem;
 			font = lr + 
 					((jis2 & 0x60) << 8) +
@@ -69,7 +69,7 @@ BYTE *cgromva_font(UINT16 hccode) {
 					((jis2 & 0x1f) << 5);
 		}
 		else if (jis1 < 0x30) {
-			// NEC非漢字
+			// NEC non-kanji extension.
 			base = fontmem;
 			font = lr + 0x40000 + 
 					((jis2 & 0x60) << 8) +
@@ -77,7 +77,7 @@ BYTE *cgromva_font(UINT16 hccode) {
 					((jis2 & 0x1f) << 5);
 		}
 		else if (jis1 < 0x40) {
-			// JIS 第一水準 (3xxx)
+			// JIS level-1 block, 3xxx.
 			base = fontmem;
 			font = lr + 
 					(((UINT32)jis2 & 0x60) << 10) +
@@ -85,7 +85,7 @@ BYTE *cgromva_font(UINT16 hccode) {
 					((jis2 & 0x1f) << 5);
 		}
 		else if (jis1 < 0x50) {
-			// JIS 第一水準 (4xxx)
+			// JIS level-1 block, 4xxx.
 			base = fontmem;
 			font = lr + 0x4000 +
 					(((UINT32)jis2 & 0x60) << 10) +
@@ -93,7 +93,7 @@ BYTE *cgromva_font(UINT16 hccode) {
 					((jis2 & 0x1f) << 5);
 		}
 		else if (jis1 < 0x60) {
-			// JIS 第二水準 (5xxx)
+			// JIS level-2 block, 5xxx.
 			base = fontmem;
 			font = lr + 0x20000 + 
 					(((UINT32)jis2 & 0x60) << 10) +
@@ -101,7 +101,7 @@ BYTE *cgromva_font(UINT16 hccode) {
 					((jis2 & 0x1f) << 5);
 		}
 		else if (jis1 < 0x70) {
-			// JIS 第二水準 (6xxx)
+			// JIS level-2 block, 6xxx.
 			base = fontmem;
 			font = lr + 0x20000 + 0x4000 + 
 					(((UINT32)jis2 & 0x60) << 10) +
@@ -109,7 +109,7 @@ BYTE *cgromva_font(UINT16 hccode) {
 					((jis2 & 0x1f) << 5);
 		}
 		else if (jis1 < 0x76) {
-			// JIS 第二水準 (7xxx)
+			// JIS level-2 block, 7xxx.
 			base = fontmem;
 			font = lr + 0x20000 + 
 					((jis2 & 0x60) << 8) +
@@ -117,9 +117,9 @@ BYTE *cgromva_font(UINT16 hccode) {
 					((jis2 & 0x1f) << 5);
 		}
 		else if (jis1 < 0x78) {
-			// 外字
+			// User-defined character block.
 			if (jis1 == 0x77 && (jis2 == 0x7e || jis2 == 0x7f)) {
-				// 777e, 777f は豆腐が表示される
+				// Codes 777EH and 777FH use the solid fallback glyph.
 				base = tofu;
 				font = lr;
 			}
@@ -132,7 +132,7 @@ BYTE *cgromva_font(UINT16 hccode) {
 			}
 		}
 		else {
-			// 未定義
+			// Undefined hardware character code.
 			base = fontmem;
 			font = 0;
 		}
@@ -141,33 +141,24 @@ BYTE *cgromva_font(UINT16 hccode) {
 }
 
 /*
-フォントの幅を取得(漢字ROM内で1ラスタ分のデータのバイト数)
-  IN:	hccode		ハードウェア文字コード
-					bit15 文字の右側のとき1
-					bit14-bit8 JIS第二バイト
-					bit7  0
-					bit6-bit0  JIS第一バイト-0x20
-*/
+ * Return the number of CGROM bytes used by one glyph raster row.
+ * hccode fields:
+ *   bit 15 selects the right half of a double-width glyph.
+ *   bits 14-8 contain the second JIS byte.
+ *   bit 7 is zero.
+ *   bits 6-0 contain the first JIS byte minus 20H.
+ */
 int cgromva_width(UINT16 hccode) {
 	return (hccode & 0x7f00) == 0 ? 1 : 2;
 }
 
 /*
-CGROMアクセスポートにセットされたハードウェア文字コードを、
-TVRAMに格納するためのハードウェア文字コードに変換する。
-*/
+ * Convert the CGROM port selector and row-side bit to the hardware character
+ * code form used by the TVRAM renderer.
+ */
 static UINT16 curhccode(void) {
 	UINT16 hccode;
 
-	/*
-	if (cgromva.cgaddr & 0x7f00) {
-		hccode = cgromva.cgaddr & 0x7fff | ((cgromva.cgrow & 0x20) ? 0x0000 : 0x8000);
-	}
-	else {
-		// ANK
-		hccode = cgromva.cgaddr;
-	}
-	*/
 	hccode = cgromva.cgaddr & 0x7fff | ((cgromva.cgrow & 0x20) ? 0x0000 : 0x8000);
 	return hccode;
 }
@@ -179,7 +170,7 @@ static void IOOUTCALL cgromva_o14c(UINT port, REG8 dat) {
 }
 
 static void IOOUTCALL cgromva_o14d(UINT port, REG8 dat) {
-	// 最上位ビットはマスクしておくことにする
+	// Bit 15 is supplied by the 014FH left/right selector, not this byte.
 	SETHIGHBYTE(cgromva.cgaddr, dat & 0x7f);
 }
 
@@ -192,7 +183,7 @@ static REG8 IOINPCALL cgromva_i14e(UINT port) {
 	font = cgromva_font(hccode);
 
 	if (hccode < 0x100 && videova.txtmode & 0x04) {
-		// ANK 8ドット
+		// 8-dot ANK glyphs have eight raster rows.
 		row = cgromva.cgrow & 0x07;
 	}
 	else {
@@ -200,11 +191,10 @@ static REG8 IOINPCALL cgromva_i14e(UINT port) {
 	}
 	font += cgromva_width(hccode) * row;
 
+	/* Tekumani leaves reads of JIS 777EH and 777FH undefined; the current
+	 * fallback glyph returns FFH bytes for those codes. */
 	return *font;
 
-		/*
-			厳密には、JIS 777E, 777Fに対して返却する値は不定
-		*/
 }
 
 static void IOOUTCALL cgromva_o14e(UINT port, REG8 dat) {
@@ -221,7 +211,7 @@ static void IOOUTCALL cgromva_o14e(UINT port, REG8 dat) {
 	jis2 = (hccode >> 8) & 0x7f;
 
 	if (jis2 == 0 && lr == 0) {
-		// ANK (lr == 1の場合はANKとして扱わない)
+		// ANK is valid only when the right-half flag is clear.
 		writable = FALSE;
 	}
 	else {
@@ -229,13 +219,13 @@ static void IOOUTCALL cgromva_o14e(UINT port, REG8 dat) {
 			writable = FALSE;
 		}
 		else if (jis1 < 0x77) {
-			// 外字 (76xx)
+			// User-defined character block. (76xx)
 			writable = TRUE;
 		}
 		else if (jis1 < 0x78) {
-			// 外字 (77xx)
+			// User-defined character block. (77xx)
 			if (jis2 == 0x7e || jis2 == 0x7f) {
-				// 777e, 777f は変更不可
+				// Codes 777EH and 777FH are not writable.
 				writable = FALSE;
 			}
 			else {
@@ -266,10 +256,10 @@ void cgromva_reset(void) {
 }
 
 void cgromva_bind(void) {
-	iocore_attachvaout(0x14c, cgromva_o14c);
-	iocore_attachvaout(0x14d, cgromva_o14d);
-	iocore_attachvaout(0x14e, cgromva_o14e);
-	iocore_attachvaout(0x14f, cgromva_o14f);
+	iocore_attachout(0x14c, cgromva_o14c);
+	iocore_attachout(0x14d, cgromva_o14d);
+	iocore_attachout(0x14e, cgromva_o14e);
+	iocore_attachout(0x14f, cgromva_o14f);
 
-	iocore_attachvainp(0x14e, cgromva_i14e);
+	iocore_attachinp(0x14e, cgromva_i14e);
 }

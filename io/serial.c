@@ -11,13 +11,13 @@
 
 /*
   ToDo: 
-	Port 197h (RESETだけは実装済み)
+	Port 197H keyboard-sub-CPU commands; only the operation-class RESET command is implemented.
 */
 
 #include	"iocoreva.h"
 
 /*
-スキャンコード→ I/Oポート番号(上位4ビット), ビット番号(下位4ビット)
+Map scan codes to key-matrix port index (high nibble) and bit index (low nibble).
 */
 static UINT8 scantomap[0x80]={
 	// ESC,   1,   2,   3,   4,   5,   6,   7,   8,   9,   0,   -,   ^,   \,  BS, TAB,
@@ -26,20 +26,20 @@ static UINT8 scantomap[0x80]={
 	  0x41,0x47,0x25,0x42,0x44,0x51,0x45,0x31,0x37,0x40,0x20,0x53,0xe0,0x21,0x43,0x24,
 	//   F,   G,   H,   J,   K,   L,   ;,   :,   ],   Z,   X,   C,   V,   B,   N,   M,
 	  0x26,0x27,0x30,0x32,0x33,0x34,0x73,0x72,0x55,0x52,0x50,0x23,0x46,0x22,0x36,0x35,
-	//   <,   >,   /,   _, SPC,変換, RUP,RDOWN,INS, DEL,  ↑,  ←,  →,  ↓, CLR,HELP,
+	//   <,   >,   /,   _, SPC,CONV, RUP,RDOWN,INS, DEL,  UP,LEFT,RIGHT,DOWN, CLR,HELP,
       0x74,0x75,0x76,0x77,0xf6,0xd0,0xb0,0xb1,0xc6,0xc7,0x81,0xa2,0x82,0xa1,0x80,0xa3,
 	//   -,   /,   7,   8,   9,   *,   4,   5,   6,   +,   1,   2,   3,   =,   0,   ,,
       0xa5,0xa6,0x07,0x10,0x11,0x12,0x04,0x05,0x06,0x13,0x01,0x02,0x03,0x14,0x00,0x15,
-	//   .,決定,
+	//   .,DECIDE,
       0x16,0xd1,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,
 	//STOP,COPY,  F1,  F2,  F3,  F4,  F5,  F6,  F7,  F8,  F9, F10
 	  0x90,0xa4,0xf1,0xf2,0xf3,0xf4,0xf5,0xc0,0xc1,0xc2,0xc3,0xc4,0xff,0xff,0xff,0xff,
-	//LSFT,CAPS,カナ,GRPH,CTRL,    ,    ,    ,RSFT, RET,  PC,全角
+	//LSFT,CAPS,KANA,GRPH,CTRL,    ,    ,    ,RSFT, RET,  PC,FULLWIDTH
 	  0xe2,0xa7,0x85,0x84,0x87,0xff,0xff,0xff,0xe3,0xe1,0xd2,0xd3,0xff,0xff,0xff,0xff,
 };
 
 /*
-	以下はエミュレータ内部で使用する(I/Oからは読み出せない)
+	The following matrix positions are emulator-internal and cannot be read through I/O.
 	0xf1-0xf5: F1-F5
 	0xf6     : SPACE
 */
@@ -85,7 +85,7 @@ static void updatekeymap(UINT8 scancode) {
 	// SPACES
 	setmapbit(0x96, !(
 	 (~keybrd.keymap[0x0f] & 0x40) |	// SPACE
-	 (~keybrd.keymap[0x0d] & 0x03)		// 決定, 変換
+	 (~keybrd.keymap[0x0d] & 0x03)		// DECIDE and CONVERT
 	));
 
 	// F1-F5
@@ -102,7 +102,7 @@ static REG8 convertmodeldependent(REG8 data) {
 			return 0xff;
 		}
 		else if (code < 0x5c) {
-			code += 0x20;		// 右SFT, tenkey RET, PC, 全角
+			code += 0x20;		// Right SHIFT, keypad RETURN, PC, and FULLWIDTH.
 		}
 		else if (code < 0x60) {
 			return 0xff;
@@ -144,30 +144,7 @@ void keyboard_callback(NEVENTITEM item) {
 	}
 }
 
-static void IOOUTCALL keyboard_o41(UINT port, REG8 dat) {
 
-	if (keybrd.cmd & 1) {
-//		TRACEOUT(("send -> %02x", dat));
-		keystat_ctrlsend(dat);
-	}
-	else {
-		keybrd.mode = dat;
-	}
-	(void)port;
-}
-
-static void IOOUTCALL keyboard_o43(UINT port, REG8 dat) {
-
-//	TRACEOUT(("out43 -> %02x %.4x:%.8x", dat, CPU_CS, CPU_EIP));
-	if ((!(dat & 0x08)) && (keybrd.cmd & 0x08)) {
-		keyboard_resetsignal();
-	}
-	if (dat & 0x10) {
-		keybrd.status &= ~(0x38);
-	}
-	keybrd.cmd = dat;
-	(void)port;
-}
 
 static REG8 IOINPCALL keyboard_i41(UINT port) {
 
@@ -178,12 +155,6 @@ static REG8 IOINPCALL keyboard_i41(UINT port) {
 	return(keybrd.data);
 }
 
-static REG8 IOINPCALL keyboard_i43(UINT port) {
-
-	(void)port;
-//	TRACEOUT(("in43 -> %02x %.4x:%.8x", keybrd.status, CPU_CS, CPU_IP));
-	return(keybrd.status | 0x85);
-}
 
 
 static REG8 IOINPCALL keyboardva_i000(UINT port) {
@@ -194,13 +165,14 @@ static REG8 IOINPCALL keyboardva_i000(UINT port) {
 static void IOOUTCALL keyboardva_o197(UINT port, REG8 dat) {
 
 	TRACEOUT(("keyboard: o197 -> %02x %.4x:%.4x", dat, CPU_CS, CPU_IP));
-	if ((dat & 0x40) == 0x40) {		// テクマニではbit7,6=1,1 or 1,0となっているが、
-									// VAのROMは0,1または1,0で本ポートに出力している。
-									// このため、bit7は無視
-		// モードコマンド
+    if ((dat & 0x40) == 0x40) {
+        /* Tekumani shows bit 7 set for both command classes, while the VA ROM
+         * writes 01b and 10b in bits 7-6. Ignore bit 7 and use bit 6 as the
+         * class selector. */
+		// Mode command; its option bits are not implemented.
 	}
 	else {
-		// オペレーションコマンド
+		// Operation command.
 		if (dat & 0x01) {
 			// RESET
 			keyboard_resetsignal();
@@ -213,17 +185,13 @@ static void IOOUTCALL keyboardva_o197(UINT port, REG8 dat) {
 
 // ----
 
-static const IOOUT keybrdo41[2] = {
-					keyboard_o41,	keyboard_o43};
 
-static const IOINP keybrdi41[2] = {
-					keyboard_i41,	keyboard_i43};
 
 
 void keyboard_reset(void) {
 	UINT8	mapbkup[KB_MAP];
 
-	// リセット時はkeymapをクリアしない
+	// Preserve the host-maintained key matrix across a device reset.
 	CopyMemory(mapbkup, keybrd.keymap, sizeof(mapbkup));
 
 	ZeroMemory(&keybrd, sizeof(keybrd));
@@ -247,16 +215,14 @@ void keyboard_bind(void) {
 
 	keystat_ctrlreset();
 	keybrd.xferclock = pccore.realclock / 1920;
-	iocore_attachsysoutex(0x0041, 0x0cf1, keybrdo41, 2);
-	iocore_attachsysinpex(0x0041, 0x0cf1, keybrdi41, 2);
 
 	{
 		int i;
 		for (i = 0; i < 0x0f; i++) {
-			iocore_attachvainp(i, keyboardva_i000);
+			iocore_attachinp(i, keyboardva_i000);
 		}
-		iocore_attachvainp(0x1c1, keyboard_i41);
-		iocore_attachvaout(0x197, keyboardva_o197);
+		iocore_attachinp(0x1c1, keyboard_i41);
+		iocore_attachout(0x197, keyboardva_o197);
 	}
 }
 
@@ -479,11 +445,7 @@ static REG8 IOINPCALL rs232c_i32(UINT port) {
 
 // ----
 
-static const IOOUT rs232co30[2] = {
-					rs232c_o30,	rs232c_o32};
 
-static const IOINP rs232ci30[2] = {
-					rs232c_i30,	rs232c_i32};
 
 void rs232c_reset(void) {
 
@@ -500,12 +462,10 @@ void rs232c_reset(void) {
 
 void rs232c_bind(void) {
 
-	iocore_attachsysoutex(0x0030, 0x0cf1, rs232co30, 2);
-	iocore_attachsysinpex(0x0030, 0x0cf1, rs232ci30, 2);
 
-	iocore_attachvaout(0x020, rs232c_o30);
-	iocore_attachvaout(0x021, rs232c_o32);
-	iocore_attachvainp(0x020, rs232c_i30);
-	iocore_attachvainp(0x021, rs232c_i32);
+	iocore_attachout(0x020, rs232c_o30);
+	iocore_attachout(0x021, rs232c_o32);
+	iocore_attachinp(0x020, rs232c_i30);
+	iocore_attachinp(0x021, rs232c_i32);
 }
 

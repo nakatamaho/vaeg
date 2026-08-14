@@ -47,22 +47,22 @@ typedef struct {
 		BYTE	b[4];
 		UINT16	w[2];
 		UINT32	d;
-	} adrs;					// アドレスレジスタ(現在値)
+	} adrs;					// Current address register.
 	union {
 		BYTE	b[2];
 		UINT16	w;
-	} leng;					// カウントレジスタ(現在値)
-	BYTE	dmy1;			// adrsorgを4バイト境界に置くためのダミー
+	} leng;					// Current count register.
+	BYTE	dmy1;			// Padding that keeps adrsorg on a four-byte boundary.
 	BYTE	dmy2;
 	union {
 		BYTE	xb[4];
 		UINT16	xw[2];
 		UINT32	xd;
-	} adrsorg;				// アドレスレジスタ(ベース)
+	} adrsorg;				// Base address register.
 	union {
 		BYTE	b[2];
 		UINT16	w;
-	} lengorg;				// カウントレジスタ(ベース)
+	} lengorg;				// Base count register.
 	UINT8	bound;
 	UINT8	action;
 	DMAPROC	proc;
@@ -83,15 +83,15 @@ typedef struct {
 	int		lh;
 	UINT8	work;
 	UINT8	working;
-	UINT8	mask;			// bit3-0 1.DMA要求禁止
-	UINT8	stat;			// bit7-4 1.DMAリクエストあり 
-							// bit3-0 1.~ENDまたはターミナルカウント
+	UINT8	mask;			// Bits 3-0: one masks the corresponding DMA request.
+	UINT8	stat;			// Bits 7-4: DMA request status; not yet composed by the model.
+							// Bits 3-0: one indicates END or terminal count.
 	UINT	devices;
 	DMADEV	device[8];
 
-	UINT8	selch;			// レジスタの読み書き対象として選択されているチャンネル
-	BOOL	base;			// 0.カレント選択(リード時) カレント/ベース選択(ライト時)
-							// 1.ベース選択
+	UINT8	selch;			// Channel selected for register access.
+	BOOL	base;			// Zero selects current reads and current/base writes.
+							// One selects base-register access.
 
 } _DMAC, *DMAC;
 

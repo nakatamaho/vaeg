@@ -188,27 +188,17 @@ set(VAEG_CORE_SOURCES
     cpu/upd9002/upd9002_fe.c
     cpu/upd9002/upd9002_rp.c
     cpu/upd9002/memory.c
-    cpu/upd9002/egcmem.c
     cpu/upd9002/dmap.c
     io/iocore.c
-    io/artic.c
     io/bmsio.c
-    io/cgrom.c
-    io/cpuio.c
-    io/dipsw.c
     io/dmac.c
-    io/egc.c
     io/emsio.c
     io/fdc.c
-    io/fdd320.c
     io/hostfat.c
     io/mouseif.c
-    io/necio.c
     io/np2sysp.c
-    io/np2vasup.c
     io/pic.c
     io/pit.c
-    io/printif.c
     io/serial.c
     io/sysport.c
     io/upd4990.c
@@ -246,7 +236,6 @@ set(VAEG_CORE_SOURCES
     sound/adpcmc.c
     sound/adpcmg.c
     sound/soundrom.c
-    vram/vram.c
     fdd/diskdrv.c
     fdd/newdisk.c
     fdd/fddfile.c

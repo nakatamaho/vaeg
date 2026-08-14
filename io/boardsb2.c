@@ -15,7 +15,7 @@
 
 	_BOARDSB2	boardsb2;
 
-//static unsigned int wait = 160;		// = 20μs ToDo: ウェイト入れすぎ ? 
+//static unsigned int wait = 160;		// 20 us; retained for timing comparison.
 ////static unsigned int wait = 0;			// 
 
 // ---- wait
@@ -42,7 +42,7 @@ static void checkandwait(void) {
 		current = CPU_CLOCK + CPU_BASECLOCK - CPU_REMCLOCK;
 		past = current - boardsb2.lastaccess;
 		if (past < boardsb2.wait) {
-			// ウェイトする
+			// Charge the remaining programmed access wait.
 			CPU_REMCLOCK -= boardsb2.wait - past;
 		}
 		boardsb2.wait = 0;
@@ -151,7 +151,7 @@ static REG8 IOINPCALL sb2_i045(UINT port) {
 		mouseifva_indata(&data4, &data2);
 		dat = data4 | 0xf0;
 	}
-	else if (opn.opnreg == 0x0f) {						// 88VA固有
+	else if (opn.opnreg == 0x0f) {						// VA-specific joypad button register.
 		mouseifva_indata(&data4, &data2);
 		dat = data2 | 0xfc;
 	}
@@ -178,12 +178,12 @@ static REG8 IOINPCALL sb2_i047(UINT port) {
 
 
 static void IOOUTCALL sb2_o19c(UINT port, REG8 dat) {
-	// ウェイト有効
+	// Enable OPNA access waits.
 	boardsb2.waitenabled = TRUE;
 }
 
 static void IOOUTCALL sb2_o19e(UINT port, REG8 dat) {
-	// ウェイト無効
+	// Disable OPNA access waits.
 	boardsb2.waitenabled = FALSE;
 	boardsb2.wait = 0;
 }
@@ -203,10 +203,10 @@ static void boardsb_reset(void) {
 								/* 83/4000000 = 20.75μ */
 
 	psggen_setreg(&psg1, 0x07, 0);			
-											/* 88VA固有
-											   psggen_reset(fmboard_resetから呼ばれる)
-											   で初期値を0xbfにしている。
-											   VAの場合、0のようだ 
+											/* VA-specific reset value:
+											   psggen_reset(), called by fmboard_reset(),
+											   initializes this register to BFH,
+											   whereas the VA reset value appears to be zero.
 											*/
 	fmtimer_reset(0xc0);
 }
@@ -242,19 +242,19 @@ static void boardsb_bind(BOOL opna) {
 		sound_streamregist(&psg1, (SOUNDCB)psggen_getpcm);
 	}
 
-	iocore_attachvainp(0x044, sb2_i044);
-	iocore_attachvainp(0x045, sb2_i045);
-	iocore_attachvaout(0x044, sb2_o044);
-	iocore_attachvaout(0x045, sb2_o045);
+	iocore_attachinp(0x044, sb2_i044);
+	iocore_attachinp(0x045, sb2_i045);
+	iocore_attachout(0x044, sb2_o044);
+	iocore_attachout(0x045, sb2_o045);
 	if (opna) {
-		iocore_attachvainp(0x046, sb2_i044);
-		iocore_attachvainp(0x047, sb2_i047);
-		iocore_attachvaout(0x046, sb2_o046);
-		iocore_attachvaout(0x047, sb2_o047);
+		iocore_attachinp(0x046, sb2_i044);
+		iocore_attachinp(0x047, sb2_i047);
+		iocore_attachout(0x046, sb2_o046);
+		iocore_attachout(0x047, sb2_o047);
 	}
 
-	iocore_attachvaout(0x19c, sb2_o19c);
-	iocore_attachvaout(0x19e, sb2_o19e);
+	iocore_attachout(0x19c, sb2_o19c);
+	iocore_attachout(0x19e, sb2_o19e);
 }
 
 void boardopnva_bind(void) {

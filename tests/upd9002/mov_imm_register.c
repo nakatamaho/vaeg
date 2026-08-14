@@ -262,14 +262,18 @@ static int test_memory_forms(void) {
 
 int upd9002_mov_imm_register_main(void) {
 
+	upd9002_test_flat_memory_set(TRUE);
+
 	upd9002_core_initialize();
 	if ((test_c6_registers() != SUCCESS) ||
 		(test_c7_registers() != SUCCESS) ||
 		(test_memory_forms() != SUCCESS)) {
 		upd9002_core_deinitialize();
+		upd9002_test_flat_memory_set(FALSE);
 		return FAILURE;
 	}
 	upd9002_core_deinitialize();
+	upd9002_test_flat_memory_set(FALSE);
 	fprintf(stderr,
 		"upd9002-mov-imm-register: register and memory checks passed\n");
 	return SUCCESS;

@@ -65,9 +65,10 @@ static REG8 IOINPCALL bmsio_i00ec(UINT port) {
 // ---- I/F
 
 /*
-ダイアログで設定した内容を動作環境に反映する
-	NP2リセット時に呼ばれる(STATSAVEのロード時は呼ばれない)
-*/
+ * Copy the configured I/O Bank Memory settings into the active device.
+ * Machine reset calls this function; state loading restores the saved device
+ * state instead.
+ */
 void bmsio_set(void) {
 	bmsio.cfg = bmsiocfg;
 }
@@ -87,8 +88,5 @@ void bmsio_bind(void) {
 	if (bmsio.cfg.enabled) {
 		iocore_attachout(bmsio.cfg.port, bmsio_o00ec);
 		iocore_attachinp(bmsio.cfg.port, bmsio_i00ec);
-
-		iocore_attachvaout(bmsio.cfg.port, bmsio_o00ec);
-		iocore_attachvainp(bmsio.cfg.port, bmsio_i00ec);
 	}
 }

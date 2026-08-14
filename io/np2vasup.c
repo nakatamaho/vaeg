@@ -1,40 +1,13 @@
 /*
- * np2vasup.c: PC-88VA support control
+ * Retained source stub for out-of-tree users of the former np2vasup API.
+ * The active V3 build has no guest-visible VA/PC-98 mode selector.
  */
 
-#include	"compiler.h"
-#include	"cpucore.h"
-#include	"machine/pccore.h"
-#include	"iocore.h"
-#include	"iocoreva.h"
-
-
-
-
-
-// ---- I/O
-
-static void IOOUTCALL np2vasup_offd0(UINT port, REG8 dat) {
-	memmode_va = dat & 0x01;
-	iomode_va =  dat & 0x02;
-	(void)port;
-}
-
-static REG8 IOINPCALL np2vasup_iffd0(UINT port) {
-	(void)port;
-	return memmode_va & 0x01 | iomode_va & 0x02;
-}
-
-// ---- I/F
+#include "compiler.h"
+#include "np2vasup.h"
 
 void np2vasup_reset(void) {
-	np2vasup_offd0(0, 0xff);
 }
 
 void np2vasup_bind(void) {
-	iocore_attachout(0xffd0, np2vasup_offd0);
-	iocore_attachinp(0xffd0, np2vasup_iffd0);
-
-	iocore_attachvaout(0xffd0, np2vasup_offd0);
-	iocore_attachvainp(0xffd0, np2vasup_iffd0);
 }

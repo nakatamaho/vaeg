@@ -31,7 +31,7 @@ static const _PICITEM def_slave = {
 
 // ----
 
-#if 0	// スレーブがおかしい…
+#if 0	// Disabled implementation: slave arbitration is incorrect.
 void pic_irq(void) {
 
 	PIC		p;
@@ -42,7 +42,7 @@ void pic_irq(void) {
 	REG8	bit;
 	REG8	slave;
 
-	// 割込み許可？
+	// Do not arbitrate while maskable interrupts are disabled.
 	if (!CPU_isEI) {
 		return;
 	}
@@ -68,7 +68,7 @@ void pic_irq(void) {
 		num = (num + 1) & 7;
 		bit = 1 << num;
 	}
-	if (p->pi[0].icw[2] & bit) {					// スレーヴ
+	if (p->pi[0].icw[2] & bit) {					// Slave cascade.
 		dat = sir;
 		if (!(p->pi[1].ocw3 & PIC_OCW3_SMM)) {
 			dat |= p->pi[1].isr;
@@ -88,7 +88,7 @@ void pic_irq(void) {
 			CPU_INTERRUPT((REG8)((p->pi[1].icw[1] & 0xf8) | num), 0);
 		}
 	}
-	else if (!(p->pi[0].isr & bit)) {				// マスター
+	else if (!(p->pi[0].isr & bit)) {				// Master request.
 		p->pi[0].isr |= bit;
 		p->pi[0].irr &= ~bit;
 		if (num == 0) {
@@ -109,7 +109,7 @@ void pic_irq(void) {												// ver0.78
 	REG8	slave;
 
 #if 1	// Shinra log
-	// 割込み許可？
+	// Do not arbitrate while maskable interrupts are disabled.
 	if (!CPU_isEI) {
 		//TRACEOUT(("pic: !CPU_EI"));
 		return;
@@ -129,7 +129,7 @@ void pic_irq(void) {												// ver0.78
 		return;
 	}
 #if 0 // Shinra log
-	// 割込み許可？
+	// Do not arbitrate while maskable interrupts are disabled.
 	if (!CPU_isEI) {
 		TRACEOUT(("pic: !CPU_EI"));
 		return;
@@ -144,7 +144,7 @@ void pic_irq(void) {												// ver0.78
 		num = (num + 1) & 7;
 		bit = 1 << num;
 	}
-	if (p->pi[0].icw[2] & bit) {					// スレーヴ
+	if (p->pi[0].icw[2] & bit) {					// Slave cascade.
 		if (sir == 0) {
 			return;
 		}
@@ -166,7 +166,7 @@ void pic_irq(void) {												// ver0.78
 			CPU_INTERRUPT((REG8)((p->pi[1].icw[1] & 0xf8) | num), 0);
 		}
 	}
-	else if (!(p->pi[0].isr & bit)) {				// マスター
+	else if (!(p->pi[0].isr & bit)) {				// Master request.
 		p->pi[0].isr |= bit;
 		p->pi[0].irr &= ~bit;
 		if (num == 0) {
@@ -179,7 +179,7 @@ void pic_irq(void) {												// ver0.78
 #endif
 
 
-// 簡易モード(SYSTEM TIMERだけ)
+// Deferred system-timer request handling.
 void picmask(NEVENTITEM item) {
 
 	PICITEM		pi;
@@ -309,7 +309,7 @@ static void IOOUTCALL pic_o02(UINT port, REG8 dat) {
 #if 1
 		UINT8	set;
 		set = picp->imr & (~dat);
-		// リセットされたビットは割り込みある？
+		// Re-evaluate requests exposed by the cleared mask bits.
 		if ((CPU_isDI) || (!(picp->irr & set))) {
 			picp->imr = dat;
 			return;
@@ -378,11 +378,7 @@ static REG8 IOINPCALL picva_i18a(UINT port) {
 
 // ---- I/F
 
-static const IOOUT pico00[2] = {
-					pic_o00,	pic_o02};
 
-static const IOINP pici00[2] = {
-					pic_i00,	pic_i02};
 
 void pic_reset(void) {
 
@@ -392,18 +388,16 @@ void pic_reset(void) {
 
 void pic_bind(void) {
 
-	iocore_attachsysoutex(0x0000, 0x0cf1, pico00, 2);
-	iocore_attachsysinpex(0x0000, 0x0cf1, pici00, 2);
 
 	// slave
-	iocore_attachvaout(0x184, picva_o184);
-	iocore_attachvaout(0x186, picva_o186);
-	iocore_attachvainp(0x184, picva_i184);
-	iocore_attachvainp(0x186, picva_i186);
+	iocore_attachout(0x184, picva_o184);
+	iocore_attachout(0x186, picva_o186);
+	iocore_attachinp(0x184, picva_i184);
+	iocore_attachinp(0x186, picva_i186);
 	// master
-	iocore_attachvaout(0x188, picva_o188);
-	iocore_attachvaout(0x18a, picva_o18a);
-	iocore_attachvainp(0x188, picva_i188);
-	iocore_attachvainp(0x18a, picva_i18a);
+	iocore_attachout(0x188, picva_o188);
+	iocore_attachout(0x18a, picva_o18a);
+	iocore_attachinp(0x188, picva_i188);
+	iocore_attachinp(0x18a, picva_i18a);
 }
 

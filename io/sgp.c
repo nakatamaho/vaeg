@@ -357,25 +357,25 @@ static BYTE sgp_memoryread(UINT32 address) {
 */
 
 /*
-	入力:
-		address		アドレス(偶数)
+	Input:
+		address: even physical address.
 */
 static REG16 sgp_memoryread_w(UINT32 address) {
-	CPU_REMCLOCK -= 4;		// ToDo:本来は、CPUもメモリアクセスしようとしていた場合に
-							//      のみ待ちが生じる。この実装では常に待ちが入る。
-							//      CPUがrep movswなど長時間を消費した場合、直後の
-							//		sgp_stepでメモリ転送が大量に生じ、CPU_REMCLOCKが大きく
-							//      現象し、イベントの発生が遅れる可能性がある。
-							//      4という値には根拠なし。
+	CPU_REMCLOCK -= 4;		// TODO: real contention should stall only when the CPU also requests memory.
+							// The current model charges this wait for every SGP memory access.
+							// After a long CPU instruction such as REP MOVSW, one sgp_step() may
+							// perform many transfers, drive CPU_REMCLOCK far negative, and delay
+							// scheduled events.
+							// The four-clock charge has no hardware measurement behind it.
 	return rd16[(address >> 16) & 0x3f](address & 0x3fffffL);
 }
 
 /*
-	入力:
-		address		アドレス(偶数)
+	Input:
+		address: even physical address.
 */
 static void sgp_memorywrite_w(UINT32 address, REG16 value) {
-	CPU_REMCLOCK -= 4;		// ToDo: sgp_remoryread_wを参照
+	CPU_REMCLOCK -= 4;		// TODO: see the contention limitation in sgp_memoryread_w().
 	wt16[(address >> 16) & 0x3f](address & 0x3fffffL, value);
 }
 
@@ -391,12 +391,12 @@ static void fetch_block(UINT32 address, SGP_BLOCK block) {
 	dat = sgp_memoryread_w(address);
 	block->scrnmode = dat & 0x03;
 	block->dot = (dat >> 4) & (dotcountmax[block->scrnmode] -1);
-	block->width = sgp_memoryread_w(address + 2) & 0x3fff;	/* VA2は14bitまで可能 */
-	block->height = sgp_memoryread_w(address + 4);			/* VA2は16bitまで可能 */
-	block->fbw = sgp_memoryread_w(address + 6) & 0xfffe;	/* bit1も有効 */
+	block->width = sgp_memoryread_w(address + 2) & 0x3fff;	/* VA2 accepts all 14 width bits. */
+	block->height = sgp_memoryread_w(address + 4);			/* VA2 accepts all 16 height bits. */
+	block->fbw = sgp_memoryread_w(address + 6) & 0xfffe;	/* Bit 1 participates in the framebuffer width. */
 	block->address = sgp_memoryread_w(address + 8) & 0xfffe | ((UINT32)sgp_memoryread_w(address + 10) << 16);
 
-	// ToDo とりあえずのつじつまあわせ(R-TYPE)
+	// Compatibility adjustment for the R-TYPE command stream; hardware basis is unverified.
 	if (block->fbw < 0) block->fbw += 2;
 }
 
@@ -491,14 +491,14 @@ static UINT16 logicalop(UINT16 dat, UINT16 dest, UINT16 *_mask) {
 
 
 /*
-dat をピクセルデータ列として、ピクセル値が0の部分を0、非0の部分を1にしたマスクを
-返す
+Treat dat as packed pixels and return a mask whose pixel fields are zero for
+zero-valued pixels and one for nonzero pixels.
 */
 static UINT16 zeromask(UINT16 dat, int scrnmode) {
 	UINT16 mask = 0;
 	int BPP = bpp[scrnmode];
-	UINT16 pixmask  = ~(0xffff >> BPP); // 4bppなら0xf000
-	UINT16 maskelem = ~(0xffff << BPP); // 4bppなら0x000f
+	UINT16 pixmask  = ~(0xffff >> BPP); // F000H for 4 bpp.
+	UINT16 maskelem = ~(0xffff << BPP); // 000FH for 4 bpp.
 	int i;
 
 	for (i = 0; i < dotcountmax[scrnmode]; i++) {
@@ -547,8 +547,8 @@ static void write_dest2(void) {
 	dest = SWAPWORD(dest);
 	datmask = sgp.newvalmask;
 	switch (sgp.bltmode & SGP_BLTMODE_TP) {
-	case 0x0200:		// デスティネーションブロックが0の部分だけ転送する
-	case 0x0300:		// 禁止 → 0x0200と同じ
+	case 0x0200:		// Transfer only where the destination block is zero.
+	case 0x0300:		// Reserved encoding; modeled like 0200H.
 		datmask &= ~zeromask(dest, sgp.dest.scrnmode);
 		break;
 	}
@@ -605,7 +605,7 @@ static void init_dest_line(void) {
 	sgp.dest.xcount = sgp.dest.width;
 }
 
-// HD = 1 の場合
+// Horizontal direction is negative when HD is one.
 static void init_src_line_hd(void) {
 	int dot;
 	if (sgp.bltmode & SGP_BLTMODE_SF) {
@@ -626,7 +626,7 @@ static void init_src_line_hd(void) {
 	sgp.src.xcount = sgp.src.width;
 }
 
-// HD = 1 の場合
+// Horizontal direction is negative when HD is one.
 static void init_dest_line_hd(void) {
 	sgp.newval = 0;
 	sgp.newvalmask = 0;
@@ -652,12 +652,12 @@ static void setintreq(void) {
 
 
 static void cmd_unknown(void) {
-	// 無効な命令
+	// Invalid command.
 	TRACEOUT(("SGP: cmd: unknown"));
 }
 
 static void cmd_nop(void) {
-	// なにもしない
+	// No operation.
 	TRACEOUT(("SGP: cmd: nop"));
 	sgp.remainclock -= 5 * 2;
 }
@@ -671,7 +671,7 @@ static void cmd_end(void) {
 
 static void cmd_set_work(void) {
 	TRACEOUT(("SGP: cmd: set work"));
-	// 作業領域(58バイト)の設定
+	// Load the 58-byte SGP work-area address.
 	sgp.workmem = sgp_memoryread_w(sgp.pc) & 0xfffe | ((UINT32)sgp_memoryread_w(sgp.pc + 2) << 16);
 	sgp.pc += 4;
 	sgp.remainclock -= 23 * 2;
@@ -708,8 +708,8 @@ static void cmd_bitblt(void) {
 
 	TRACEOUT(("SGP: cmd: bitblt: %04x", sgp.bltmode));
 
-	// BITBLTの場合、SET DESTINATIONで設定した幅、高さは無視され、
-	// SET SOURCEで指定した幅、高さだけ転送される
+	// BITBLT ignores the width and height from SET DESTINATION;
+	// the SET SOURCE dimensions determine the transfer extent.
 	sgp.dest.width = sgp.src.width;
 	sgp.dest.height = sgp.src.height;
 
@@ -745,7 +745,7 @@ static void cmd_patblt(void) {
 	else {
 		init_src_line();
 		init_dest_line();
-		sgp.func = FUNC_EXEC_BITBLT;		// BITBLTと共通のルーチン
+		sgp.func = FUNC_EXEC_BITBLT;		// Execute through the shared BITBLT/PATBLT routine.
 	}
 }
 
@@ -762,11 +762,11 @@ static void cmd_line(void) {
 	sgp.remainclock -= 109;
 
 	/*if (sgp.dest.width == 0 && sgp.dest.height == 0) {
-		// 実機の場合、メモリ破壊を起こすことから、
-		// width=height=0x10000 として動作していると想像される。
+		// Real hardware corrupts memory for zero dimensions, suggesting that
+		// each zero field behaves as a 10000H extent.
 	}
 	else*/ if (sgp.dest.width < sgp.dest.height) {
-		// 縦長
+		// Height exceeds width.
 		sgp.func = FUNC_EXEC_LINE_Y;
 		sgp.dest.ycount = sgp.dest.height;
 		sgp.lineslopedenominator = sgp.dest.height - 1;
@@ -777,7 +777,7 @@ static void cmd_line(void) {
 		sgp.dest.nextaddress = sgp.dest.address;
 	}
 	else {
-		// 正方形または横長
+		// Width is at least the height.
 //		UINT16 dest;
 
 		sgp.func = FUNC_EXEC_LINE_X;
@@ -787,14 +787,14 @@ static void cmd_line(void) {
 			(sgp.dest.height == 0) ? 0 : sgp.dest.height - 1;
 		sgp.lineslopecount = 
 			(sgp.lineslopedenominator == 0) ? 0 : (sgp.lineslopedenominator - 1) / 2;
-				// -1 する明確な根拠はないが、こうしないと、
-				// 幅7高さ6の場合の描画点の位置が実機と一致しない。
+				// The decrement lacks a documented basis, but it matches observed
+				// point placement for a width-7, height-6 line.
 		if (sgp.bltmode & SGP_BLTMODE_LINE_HD) {
-			// 負方向
+			// Negative direction.
 			sgp.dest.dotcount = sgp.dest.dot + 1;
 		}
 		else {
-			// 正方向
+			// Positive direction.
 			sgp.dest.dotcount = dotcountmax[sgp.dest.scrnmode] - sgp.dest.dot;
 		}
 		sgp.dest.nextaddress = sgp.dest.address;
@@ -840,7 +840,7 @@ static void exec_bitblt(void) {
 	UINT16 datmask;
 	int BPP = bpp[sgp.dest.scrnmode];
 	UINT16 PIXMASK = ~(0xffff << BPP);
-	BOOL EXTPIX = sgp.src.scrnmode == 0 && sgp.dest.scrnmode != 0;	// 1bppからの拡張転送
+	BOOL EXTPIX = sgp.src.scrnmode == 0 && sgp.dest.scrnmode != 0;	// Expand a 1-bpp source into the destination format.
 
 	if (sgp.src.dotcount == 0) {
 		read_word(&sgp.src);
@@ -855,16 +855,16 @@ static void exec_bitblt(void) {
 //@@1	dest = sgp.dest.buf >> (16 - BPP);
 
 	switch (sgp.bltmode & SGP_BLTMODE_TP) {
-	case 0x0000:		// ソースをそのまま転送
+	case 0x0000:		// Transfer every source pixel.
 	default:	//@@1
 		datmask = 0xffff;
 		break;
-	case 0x0100:		// ソースが0の部分は転送しない
+	case 0x0100:		// Skip zero-valued source pixels.
 		datmask = dat ? 0xffff : 0;
 		break;
 /* @@1
-	case 0x0200:		// デスティネーションブロックが0の部分だけ転送する
-	case 0x0300:		// 禁止 → 0x0200と同じ
+	case 0x0200:		// Transfer only where the destination block is zero.
+	case 0x0300:		// Reserved encoding; modeled like 0200H.
 		datmask = dest ? 0 : 0xffff;
 		break;
 */
@@ -934,8 +934,8 @@ static void exec_bitblt(void) {
 				sgp.dest.lineaddress += (SINT32)sgp.dest.fbw;
 			}
 			if (sgp.src.ycount == 0) {
-				// PATBLTで、destの高さがsrcより大きかった場合で、
-				// 垂直ラップアラウンドが発生した場合
+				// PATBLT destination height exceeds the source height and
+				// the source pattern wrapped vertically.
 				init_block(&sgp.src);
 			}
 			sgp.src.nextaddress = sgp.src.lineaddress;
@@ -945,21 +945,21 @@ static void exec_bitblt(void) {
 		}
 	}
 	else if (sgp.src.xcount == 0) {
-		// PATBLTで、destの幅がsrcより大きかった場合で、
-		// 水平ラップアラウンドが発生した場合
+		// PATBLT destination width exceeds the source width and
+		// the source pattern wrapped horizontally.
 		sgp.src.nextaddress = sgp.src.lineaddress;
 		init_src_line();
 	}
 }
 
-// HD = 1 の場合
+// Horizontal direction is negative when HD is one.
 static void exec_bitblt_hd(void) {
 	UINT16 dat;
 //@@1	UINT16 dest;
 	UINT16 datmask;
 	int BPP = bpp[sgp.dest.scrnmode];
 	UINT16 PIXMASK = ~(0xffff << BPP);
-	BOOL EXTPIX = sgp.src.scrnmode == 0 && sgp.dest.scrnmode != 0;	// 1bppからの拡張転送
+	BOOL EXTPIX = sgp.src.scrnmode == 0 && sgp.dest.scrnmode != 0;	// Expand a 1-bpp source into the destination format.
 
 	if (sgp.src.dotcount == 0) {
 		read_word(&sgp.src);
@@ -974,16 +974,16 @@ static void exec_bitblt_hd(void) {
 //@@1	dest = sgp.dest.buf & PIXMASK;
 
 	switch (sgp.bltmode & SGP_BLTMODE_TP) {
-	case 0x0000:		// ソースをそのまま転送
+	case 0x0000:		// Transfer every source pixel.
 	default:	//@@1
 		datmask = 0xffff;
 		break;
-	case 0x0100:		// ソースが0の部分は転送しない
+	case 0x0100:		// Skip zero-valued source pixels.
 		datmask = dat ? 0xffff : 0;
 		break;
 /* @@1
-	case 0x0200:		// デスティネーションブロックが0の部分だけ転送する
-	case 0x0300:		// 禁止 → 0x0200と同じ
+	case 0x0200:		// Transfer only where the destination block is zero.
+	case 0x0300:		// Reserved encoding; modeled like 0200H.
 		datmask = dest ? 0 : 0xffff;
 		break;
 */
@@ -1044,8 +1044,8 @@ static void exec_bitblt_hd(void) {
 				sgp.dest.lineaddress += (SINT32)sgp.dest.fbw;
 			}
 			if (sgp.src.ycount == 0) {
-				// PATBLTで、destの高さがsrcより大きかった場合で、
-				// 垂直ラップアラウンドが発生した場合
+				// PATBLT destination height exceeds the source height and
+				// the source pattern wrapped vertically.
 				init_block(&sgp.src);
 			}
 			sgp.src.nextaddress = sgp.src.lineaddress;
@@ -1055,8 +1055,8 @@ static void exec_bitblt_hd(void) {
 		}
 	}
 	else if (sgp.src.xcount == 0) {
-		// PATBLTで、destの幅がsrcより大きかった場合で、
-		// 水平ラップアラウンドが発生した場合
+		// PATBLT destination width exceeds the source width and
+		// the source pattern wrapped horizontally.
 		sgp.src.nextaddress = sgp.src.lineaddress;
 		init_src_line_hd();
 	}
@@ -1090,7 +1090,7 @@ static void write_line_word(void) {
 */
 
 /*
-X方向に1ドットずつ進めながらラインを描画する
+Draw a line whose major axis advances one dot in X.
 */
 static void exec_line_x(void) {
 	int xdir, ydir;
@@ -1101,64 +1101,64 @@ static void exec_line_x(void) {
 	UINT16 datmask;
 	int DOTCOUNTMAX = dotcountmax[sgp.dest.scrnmode];
 	int BPP = bpp[sgp.dest.scrnmode];
-//	UINT16 PIXMASK = ~(0xffff << BPP);			// 4bppなら 0x000f
+//	UINT16 PIXMASK = ~(0xffff << BPP);			// 000FH for 4 bpp.
 	UINT16 PIXMASK;
 
 	xdir = (sgp.bltmode & SGP_BLTMODE_LINE_HD) ? -1 : 1;
 	ydir = (sgp.bltmode & SGP_BLTMODE_LINE_VD) ? -1 : 1;
 
-	// 現在位置にドットを描画
+	// Compose the dot at the current destination position.
 	dat = SWAPWORD(sgp.color);
 //	dat >>= (sgp.dest.dotcount - 1) * BPP;
 //	dat &= PIXMASK;
 //	dest = sgp.dest.buf >> (16 - BPP);
 
 	switch (sgp.bltmode & SGP_BLTMODE_TP) {
-	case 0x0000:		// ソースをそのまま転送
+	case 0x0000:		// Transfer every source pixel.
 	default:
 		datmask = 0xffff;
 		break;
-	case 0x0100:		// ソースが0の部分は転送しない
+	case 0x0100:		// Skip zero-valued source pixels.
 //		datmask = dat ? 0xffff : 0;
 		datmask = zeromask(dat, sgp.dest.scrnmode);
 		break;
-//	case 0x0200:		// デスティネーションブロックが0の部分だけ転送する
-//	case 0x0300:		// 禁止 → 0x0200と同じ
+//	case 0x0200:		// Transfer only where the destination block is zero.
+//	case 0x0300:		// Reserved encoding; modeled like 0200H.
 //		datmask = dest ? 0 : 0xffff;
 //		break;
 	}
 
 	if (xdir > 0) {
-		PIXMASK = ~(0xffff << BPP);			// 4bppなら 0x000f
+		PIXMASK = ~(0xffff << BPP);			// 000FH for 4 bpp.
 		shift = (sgp.dest.dotcount - 1) * BPP;
 		sgp.newval = (sgp.newval << BPP) | ((dat >> shift) & PIXMASK);
 		sgp.newvalmask = (sgp.newvalmask << BPP) | ((datmask >> shift) & PIXMASK);
 //		sgp.dest.buf <<= BPP;
 	}
 	else {
-		PIXMASK = ~(0xffff >> BPP);			// 4bppなら 0xf000
+		PIXMASK = ~(0xffff >> BPP);			// F000H for 4 bpp.
 		shift = (sgp.dest.dotcount - 1) * BPP;
 		sgp.newval = (sgp.newval >> BPP) | ((dat << shift) & PIXMASK);
 		sgp.newvalmask = (sgp.newvalmask >> BPP) | ((datmask << shift) & PIXMASK);
 	}
 
-	// 次の位置を求める
+	// Advance to the next line position.
 
 	// x++
 	sgp.dest.dotcount--;
-	// y方向
+	// Update the Y minor axis.
 	sgp.lineslopecount += sgp.lineslopenumerator;
-	// カウンタ更新
+	// Update the Bresenham accumulator.
 	sgp.dest.xcount--;
 
-	// 時間消費
-	sgp.remainclock -= 11;	// X方向に1ドット進んだ分
+	// Charge modeled SGP execution time.
+	sgp.remainclock -= 11;	// One X-axis dot step.
 
 	if (sgp.dest.dotcount == 0 || 
 		sgp.lineslopecount >= sgp.lineslopedenominator ||
 		sgp.dest.xcount == 0) {
 
-		// 書き込む
+		// Commit the accumulated destination word.
 		shift = sgp.dest.dotcount * BPP;
 		if (xdir > 0) {
 			sgp.newval <<= shift;
@@ -1174,8 +1174,8 @@ static void exec_line_x(void) {
 		dest = SWAPWORD(dest);
 		datmask = sgp.newvalmask;
 		switch (sgp.bltmode & SGP_BLTMODE_TP) {
-		case 0x0200:		// デスティネーションブロックが0の部分だけ転送する
-		case 0x0300:		// 禁止 → 0x0200と同じ
+		case 0x0200:		// Transfer only where the destination block is zero.
+		case 0x0300:		// Reserved encoding; modeled like 0200H.
 			datmask &= ~zeromask(dest, sgp.dest.scrnmode);
 			break;
 		}
@@ -1187,12 +1187,12 @@ static void exec_line_x(void) {
 */
 		write_dest2();
 
-		// 時間消費
-		sgp.remainclock -= 3;	// 1ワード書き込んだ分
+		// Charge modeled SGP execution time.
+		sgp.remainclock -= 3;	// One destination-word write.
 
 		if (sgp.dest.xcount > 0) {
 			if (sgp.dest.dotcount == 0) {
-				// アドレスを2進める
+				// Advance to the next destination word.
 				if (xdir > 0) {
 					sgp.dest.nextaddress += 2;
 				}
@@ -1211,8 +1211,8 @@ static void exec_line_x(void) {
 					sgp.dest.nextaddress -= sgp.dest.fbw;
 				}
 
-				// 時間消費
-				sgp.remainclock -= 11;	// Y方向に1ドット進んだ分
+				// Charge modeled SGP execution time.
+				sgp.remainclock -= 11;	// One Y-axis dot step.
 			}
 
 //			dest = sgp_memoryread_w(sgp.dest.nextaddress);
@@ -1223,7 +1223,7 @@ static void exec_line_x(void) {
 		}
 	}
 
-	// 終了判定
+	// Complete the command when the major-axis count expires.
 	if (sgp.dest.xcount == 0) {
 		sgp.func = FUNC_FETCH_COMMAND;
 	}
@@ -1233,7 +1233,7 @@ static void exec_line_x(void) {
 
 
 /*
-Y方向に1ドットずつ進めながらラインを描画する
+Draw a line whose major axis advances one dot in Y.
 */
 static void exec_line_y(void) {
 	static UINT32 ystepwait[]={8,9,9,10};
@@ -1248,14 +1248,14 @@ static void exec_line_y(void) {
 	ydir = (sgp.bltmode & SGP_BLTMODE_LINE_VD) ? -1 : 1;
 	xdir = (sgp.bltmode & SGP_BLTMODE_LINE_HD) ? -1 : 1;
 
-	// 現在位置にドットを描画
+	// Compose the dot at the current destination position.
 	dat = SWAPWORD(sgp.color);
 	switch (sgp.bltmode & SGP_BLTMODE_TP) {
-	case 0x0000:		// ソースをそのまま転送
+	case 0x0000:		// Transfer every source pixel.
 	default:
 		datmask = 0xffff;
 		break;
-	case 0x0100:		// ソースが0の部分は転送しない
+	case 0x0100:		// Skip zero-valued source pixels.
 		datmask = zeromask(dat, sgp.dest.scrnmode);
 		break;
 	}
@@ -1269,8 +1269,8 @@ static void exec_line_y(void) {
 
 	write_dest2();
 
-	// 時間消費
-	sgp.remainclock -= 3;	// 1ワード書き込んだ分
+	// Charge modeled SGP execution time.
+	sgp.remainclock -= 3;	// One destination-word write.
 
 /*	
 	dat = SWAPWORD(sgp.color);
@@ -1278,15 +1278,15 @@ static void exec_line_y(void) {
 	dest = SWAPWORD(dest);
 
 	switch (sgp.bltmode & SGP_BLTMODE_TP) {
-	case 0x0000:		// ソースをそのまま転送
+	case 0x0000:		// Transfer every source pixel.
 		datmask = 0xffff;
 		break;
-	case 0x0100:		// ソースが0の部分は転送しない
+	case 0x0100:		// Skip zero-valued source pixels.
 //		datmask = (dat & pixmask) ? 0xffff : 0;
 		datmask = zeromask(dat, sgp.dest.scrnmode);
 		break;
-	case 0x0200:		// デスティネーションブロックが0の部分だけ転送する
-	case 0x0300:		// 禁止 → 0x0200と同じ
+	case 0x0200:		// Transfer only where the destination block is zero.
+	case 0x0300:		// Reserved encoding; modeled like 0200H.
 //		datmask = (dest & pixmask) ? 0 : 0xffff;
 		datmask = ~zeromask(dest, sgp.dest.scrnmode);
 		break;
@@ -1303,7 +1303,7 @@ static void exec_line_y(void) {
 	sgp_memorywrite_w(sgp.dest.nextaddress, dat);
 */
 
-	// 次の位置を求める
+	// Advance to the next line position.
 	
 	// y = y + ydir
 	if (ydir > 0) {
@@ -1313,8 +1313,8 @@ static void exec_line_y(void) {
 		sgp.dest.nextaddress -= sgp.dest.fbw;
 	}
 
-	// 時間消費
-	sgp.remainclock -= ystepwait[sgp.dest.scrnmode];	// Y方向に1ドット進んだ分
+	// Charge modeled SGP execution time.
+	sgp.remainclock -= ystepwait[sgp.dest.scrnmode];	// One Y-axis dot step.
 
 	sgp.lineslopecount += sgp.lineslopenumerator;
 	if (sgp.lineslopecount >= sgp.lineslopedenominator) {
@@ -1331,11 +1331,11 @@ static void exec_line_y(void) {
 		
 		sgp.lineslopecount -= sgp.lineslopedenominator;
 
-		// 時間消費
-		sgp.remainclock -= 11;	// X方向に1ドット進んだ分
+		// Charge modeled SGP execution time.
+		sgp.remainclock -= 11;	// One X-axis dot step.
 	}
 
-	// カウンタの更新、終了判定
+	// Update the accumulator and test for command completion.
 	sgp.dest.ycount--;
 	if (sgp.dest.ycount == 0) {
 		sgp.func = FUNC_FETCH_COMMAND;
@@ -1430,7 +1430,7 @@ static REG8 IOINPCALL sgp_i_notimpl(UINT port) {
 
 	if (port & 1) {
 		// high
-		// 実機では必ずしも安定していない
+		// Real-hardware readback is unstable; return the observed mask pattern.
 		if (port == 0x501 || port == 0x503) {
 			dat = 0xff;
 		}
@@ -1440,7 +1440,7 @@ static REG8 IOINPCALL sgp_i_notimpl(UINT port) {
 	}
 	else {
 		// low
-		// 実機では必ずしも安定していない
+		// Real-hardware readback is unstable; return the observed mask pattern.
 		dat = ((port & 0x0f) == 0x0a) ? 0xfa : 0xfe;
 	}
 
@@ -1457,7 +1457,7 @@ static REG8 IOINPCALL sgp_i_notactive(UINT port) {
 }
 
 /*
-プログラムカウンタ
+SGP program-counter register.
 */
 static void IOOUTCALL sgp_o500(UINT port, REG8 dat) {
 	UINT32 mask;
@@ -1470,7 +1470,7 @@ static void IOOUTCALL sgp_o500(UINT port, REG8 dat) {
 }
 
 /*
-割り込み許可、中断要求
+Interrupt-enable and abort-request register.
 */
 static void IOOUTCALL sgp_o504(UINT port, REG8 dat) {
 	dat &= SGP_INTF | SGP_ABORT;
@@ -1493,12 +1493,12 @@ static REG8 IOINPCALL sgp_i504(UINT port) {
 }
 
 /*
-実行開始
+Execution-attention register.
 */
 static void IOOUTCALL sgp_o506(UINT port, REG8 dat) {
 	dat &= SGP_BUSY;
 	if (!(sgp.busy & SGP_BUSY) && (dat & SGP_BUSY)) {
-		// 実行開始
+		// Execution-attention register.
 		//sgp.func = fetch_command;
 		sgp.func = FUNC_FETCH_COMMAND;
 		sgp.pc = sgp.initialpc;
@@ -1508,7 +1508,7 @@ static void IOOUTCALL sgp_o506(UINT port, REG8 dat) {
 }
 
 /*
-ステータス読み出し
+Status register.
 */
 static REG8 IOINPCALL sgp_i506(UINT port) {
 	if (!gactrlva.gmsp) return sgp_i_notactive(port);
@@ -1537,17 +1537,17 @@ void sgp_bind(void) {
 	int i;
 
 	for (i = 0x500; i < 0x510; i++) {
-		iocore_attachvainp(i, sgp_i_notimpl);
+		iocore_attachinp(i, sgp_i_notimpl);
 	}
 
 	for (i = 0x500; i < 0x504; i++) {
-		iocore_attachvaout(i, sgp_o500);
+		iocore_attachout(i, sgp_o500);
 	}
-	iocore_attachvaout(0x504, sgp_o504);
-	iocore_attachvainp(0x504, sgp_i504);
+	iocore_attachout(0x504, sgp_o504);
+	iocore_attachinp(0x504, sgp_i504);
 
-	iocore_attachvaout(0x506, sgp_o506);
-	iocore_attachvainp(0x506, sgp_i506);
+	iocore_attachout(0x506, sgp_o506);
+	iocore_attachinp(0x506, sgp_i506);
 
-	iocore_attachvainp(0x508, sgp_i508);
+	iocore_attachinp(0x508, sgp_i508);
 }

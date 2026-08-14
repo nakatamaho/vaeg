@@ -162,14 +162,21 @@ static int test_flags_restoration(void) {
 
 int upd9002_iret_restoration_main(void) {
 
-	upd9002_core_initialize();
-	if ((test_stack_contract() != SUCCESS) ||
-		(test_flags_restoration() != SUCCESS)) {
-		upd9002_core_deinitialize();
-		return FAILURE;
-	}
-	upd9002_core_deinitialize();
-	fprintf(stderr,
-		"upd9002-iret-restoration: corrected contract checks passed\n");
-	return SUCCESS;
+    int result;
+
+    upd9002_test_flat_memory_set(TRUE);
+    upd9002_core_initialize();
+    result = SUCCESS;
+    if ((test_stack_contract() != SUCCESS) ||
+        (test_flags_restoration() != SUCCESS)) {
+        result = FAILURE;
+    }
+    upd9002_core_deinitialize();
+    upd9002_test_flat_memory_set(FALSE);
+    if (result != SUCCESS) {
+        return result;
+    }
+    fprintf(stderr,
+        "upd9002-iret-restoration: corrected contract checks passed\n");
+    return SUCCESS;
 }

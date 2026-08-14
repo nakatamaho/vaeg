@@ -2328,7 +2328,7 @@ UPD9002FN _enter(void) {						// C8:	enter	DATA16, DATA8
 			bp = UPD9002_BP;
 			UPD9002_BP = UPD9002_SP;
 			while(level--) {
-#if 1											// なにやってんだヲレ
+#if 1											// Retain the established compatibility sequence.
 				REG16 val;
 				bp -= 2;
 				UPD9002_SP -= 2;
@@ -2846,7 +2846,7 @@ UPD9002FN _sti(void) {							// FB:	sti
 #if defined(INTR_FAST)
 	if (UPD9002_FLAG & I_FLAG) {
 		NEXT_OPCODE;
-		return;									// 更新の意味なし
+		return;									// No architectural state would change.
 	}
 #endif
 	UPD9002_FLAG |= I_FLAG;

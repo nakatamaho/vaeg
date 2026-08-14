@@ -73,8 +73,8 @@ typedef REG8 (MEMCALL * MEM8READ)(UINT32 address);
 typedef void (MEMCALL * MEM16WRITE)(UINT32 address, REG16 value);
 typedef REG16 (MEMCALL * MEM16READ)(UINT32 address);
 
-static void MEMCALL i286_wt_va(UINT32 address, REG8 value);
-static void MEMCALL i286_wn_va(UINT32 address, REG8 value);
+static void MEMCALL mainram_wt(UINT32 address, REG8 value);
+static void MEMCALL unmapped_wt(UINT32 address, REG8 value);
 static void MEMCALL bms_wt_va(UINT32 address, REG8 value);
 static void MEMCALL sysm_wt(UINT32 address, REG8 value);
 static void MEMCALL tvram_wt(UINT32 address, REG8 value);
@@ -83,8 +83,8 @@ static void MEMCALL knj2_wt(UINT32 address, REG8 value);
 static void MEMCALL va91sysm_wt(UINT32 address, REG8 value);
 static void MEMCALL va91knj2_wt(UINT32 address, REG8 value);
 
-static void MEMCALL i286w_wt_va(UINT32 address, REG16 value);
-static void MEMCALL i286w_wn_va(UINT32 address, REG16 value);
+static void MEMCALL mainramw_wt(UINT32 address, REG16 value);
+static void MEMCALL unmappedw_wt(UINT32 address, REG16 value);
 static void MEMCALL bmsw_wt_va(UINT32 address, REG16 value);
 static void MEMCALL sysmw_wt(UINT32 address, REG16 value);
 static void MEMCALL tvramw_wt(UINT32 address, REG16 value);
@@ -93,8 +93,8 @@ static void MEMCALL knj2w_wt(UINT32 address, REG16 value);
 static void MEMCALL va91sysmw_wt(UINT32 address, REG16 value);
 static void MEMCALL va91knj2w_wt(UINT32 address, REG16 value);
 
-static REG8 MEMCALL i286_rd_va(UINT32 address);
-static REG8 MEMCALL i286_rn_va(UINT32 address);
+static REG8 MEMCALL mainram_rd(UINT32 address);
+static REG8 MEMCALL unmapped_rd(UINT32 address);
 static REG8 MEMCALL bms_rd_va(UINT32 address);
 static REG8 MEMCALL sysm_rd(UINT32 address);
 static REG8 MEMCALL tvram_rd(UINT32 address);
@@ -114,8 +114,8 @@ static REG8 MEMCALL va91dic2_rd(UINT32 address);
 static REG8 MEMCALL va91rom0_rd(UINT32 address);
 static REG8 MEMCALL va91rom1_rd(UINT32 address);
 
-static REG16 MEMCALL i286w_rd_va(UINT32 address);
-static REG16 MEMCALL i286w_rn_va(UINT32 address);
+static REG16 MEMCALL mainramw_rd(UINT32 address);
+static REG16 MEMCALL unmappedw_rd(UINT32 address);
 static REG16 MEMCALL bmsw_rd_va(UINT32 address);
 static REG16 MEMCALL sysmw_rd(UINT32 address);
 static REG16 MEMCALL tvramw_rd(UINT32 address);
@@ -135,60 +135,67 @@ static REG16 MEMCALL va91dic2w_rd(UINT32 address);
 static REG16 MEMCALL va91rom0w_rd(UINT32 address);
 static REG16 MEMCALL va91rom1w_rd(UINT32 address);
 
+/*
+ * The top-level VA decoder selects one handler per 64 KiB region. Addresses
+ * A0000H-DFFFFH enter the selected system-memory bank, while E0000H and
+ * F0000H enter the independently banked ROM windows. The byte and word tables
+ * remain parallel because VA devices define distinct word-access behavior.
+ */
+
 static MEM8WRITE membyte_write[16] = {
-	i286_wt_va, i286_wt_va, i286_wt_va, i286_wt_va,
-	i286_wt_va, i286_wt_va, i286_wt_va, i286_wt_va,
+	mainram_wt, mainram_wt, mainram_wt, mainram_wt,
+	mainram_wt, mainram_wt, mainram_wt, mainram_wt,
 	bms_wt_va, bms_wt_va, sysm_wt, sysm_wt,
-	sysm_wt, sysm_wt, i286_wn_va, i286_wn_va
+	sysm_wt, sysm_wt, unmapped_wt, unmapped_wt
 };
 
 static MEM8WRITE sysmbyte_write[16] = {
-	i286_wn_va, tvram_wt, i286_wn_va, i286_wn_va,
-	gvram_wt_va, i286_wn_va, i286_wn_va, i286_wn_va,
-	i286_wn_va, knj2_wt, i286_wn_va, i286_wn_va,
-	i286_wn_va, i286_wn_va, i286_wn_va, i286_wn_va
+	unmapped_wt, tvram_wt, unmapped_wt, unmapped_wt,
+	gvram_wt_va, unmapped_wt, unmapped_wt, unmapped_wt,
+	unmapped_wt, knj2_wt, unmapped_wt, unmapped_wt,
+	unmapped_wt, unmapped_wt, unmapped_wt, unmapped_wt
 };
 
 static MEM8WRITE va91sysmbyte_write[16] = {
-	i286_wn_va, i286_wn_va, i286_wn_va, i286_wn_va,
-	i286_wn_va, i286_wn_va, i286_wn_va, i286_wn_va,
-	i286_wn_va, va91knj2_wt, i286_wn_va, i286_wn_va,
-	i286_wn_va, i286_wn_va, i286_wn_va, i286_wn_va
+	unmapped_wt, unmapped_wt, unmapped_wt, unmapped_wt,
+	unmapped_wt, unmapped_wt, unmapped_wt, unmapped_wt,
+	unmapped_wt, va91knj2_wt, unmapped_wt, unmapped_wt,
+	unmapped_wt, unmapped_wt, unmapped_wt, unmapped_wt
 };
 
 static MEM16WRITE memword_write[16] = {
-	i286w_wt_va, i286w_wt_va, i286w_wt_va, i286w_wt_va,
-	i286w_wt_va, i286w_wt_va, i286w_wt_va, i286w_wt_va,
+	mainramw_wt, mainramw_wt, mainramw_wt, mainramw_wt,
+	mainramw_wt, mainramw_wt, mainramw_wt, mainramw_wt,
 	bmsw_wt_va, bmsw_wt_va, sysmw_wt, sysmw_wt,
-	sysmw_wt, sysmw_wt, i286w_wn_va, i286w_wn_va
+	sysmw_wt, sysmw_wt, unmappedw_wt, unmappedw_wt
 };
 
 static MEM16WRITE sysmword_write[16] = {
-	i286w_wn_va, tvramw_wt, i286w_wn_va, i286w_wn_va,
-	gvramw_wt_va, i286w_wn_va, i286w_wn_va, i286w_wn_va,
-	i286w_wn_va, knj2w_wt, i286w_wn_va, i286w_wn_va,
-	i286w_wn_va, i286w_wn_va, i286w_wn_va, i286w_wn_va
+	unmappedw_wt, tvramw_wt, unmappedw_wt, unmappedw_wt,
+	gvramw_wt_va, unmappedw_wt, unmappedw_wt, unmappedw_wt,
+	unmappedw_wt, knj2w_wt, unmappedw_wt, unmappedw_wt,
+	unmappedw_wt, unmappedw_wt, unmappedw_wt, unmappedw_wt
 };
 
 static MEM16WRITE va91sysmword_write[16] = {
-	i286w_wn_va, i286w_wn_va, i286w_wn_va, i286w_wn_va,
-	i286w_wn_va, i286w_wn_va, i286w_wn_va, i286w_wn_va,
-	i286w_wn_va, va91knj2w_wt, i286w_wn_va, i286w_wn_va,
-	i286w_wn_va, i286w_wn_va, i286w_wn_va, i286w_wn_va
+	unmappedw_wt, unmappedw_wt, unmappedw_wt, unmappedw_wt,
+	unmappedw_wt, unmappedw_wt, unmappedw_wt, unmappedw_wt,
+	unmappedw_wt, va91knj2w_wt, unmappedw_wt, unmappedw_wt,
+	unmappedw_wt, unmappedw_wt, unmappedw_wt, unmappedw_wt
 };
 
 static MEM8READ membyte_read[16] = {
-	i286_rd_va, i286_rd_va, i286_rd_va, i286_rd_va,
-	i286_rd_va, i286_rd_va, i286_rd_va, i286_rd_va,
+	mainram_rd, mainram_rd, mainram_rd, mainram_rd,
+	mainram_rd, mainram_rd, mainram_rd, mainram_rd,
 	bms_rd_va, bms_rd_va, sysm_rd, sysm_rd,
 	sysm_rd, sysm_rd, rom0_rd, rom1_rd
 };
 
 static MEM8READ sysmbyte_read[16] = {
-	i286_rn_va, tvram_rd, i286_rn_va, i286_rn_va,
-	gvram_rd_va, i286_rn_va, i286_rn_va, i286_rn_va,
-	knj1_rd, knj2_rd, i286_rn_va, i286_rn_va,
-	dic1_rd, dic2_rd, i286_rn_va, i286_rn_va
+	unmapped_rd, tvram_rd, unmapped_rd, unmapped_rd,
+	gvram_rd_va, unmapped_rd, unmapped_rd, unmapped_rd,
+	knj1_rd, knj2_rd, unmapped_rd, unmapped_rd,
+	dic1_rd, dic2_rd, unmapped_rd, unmapped_rd
 };
 
 static MEM8READ rom0byte_read[32] = {
@@ -196,38 +203,38 @@ static MEM8READ rom0byte_read[32] = {
 	stdrom0_rd, stdrom0_rd, stdrom0_rd, stdrom0_rd,
 	stdrom0_rd, stdrom0_rd, stdrom0_rd, stdrom0_rd,
 	stdrom0_rd, stdrom0_rd, stdrom0_rd, stdrom0_rd,
-	i286_rn_va, i286_rn_va, i286_rn_va, i286_rn_va,
-	i286_rn_va, i286_rn_va, i286_rn_va, i286_rn_va,
-	i286_rn_va, i286_rn_va, i286_rn_va, i286_rn_va,
-	i286_rn_va, i286_rn_va, i286_rn_va, i286_rn_va
+	unmapped_rd, unmapped_rd, unmapped_rd, unmapped_rd,
+	unmapped_rd, unmapped_rd, unmapped_rd, unmapped_rd,
+	unmapped_rd, unmapped_rd, unmapped_rd, unmapped_rd,
+	unmapped_rd, unmapped_rd, unmapped_rd, unmapped_rd
 };
 
 static MEM8READ rom1byte_read[16] = {
 	stdrom1_rd, stdrom1_rd, stdrom1_rd, stdrom1_rd,
 	stdrom1_rd, stdrom1_rd, stdrom1_rd, stdrom1_rd,
-	i286_rn_va, i286_rn_va, i286_rn_va, i286_rn_va,
-	i286_rn_va, i286_rn_va, i286_rn_va, i286_rn_va
+	unmapped_rd, unmapped_rd, unmapped_rd, unmapped_rd,
+	unmapped_rd, unmapped_rd, unmapped_rd, unmapped_rd
 };
 
 static MEM8READ va91sysmbyte_read[16] = {
-	i286_rn_va, i286_rn_va, i286_rn_va, i286_rn_va,
-	i286_rn_va, i286_rn_va, i286_rn_va, i286_rn_va,
-	i286_rn_va, va91knj2_rd, i286_rn_va, i286_rn_va,
-	va91dic1_rd, va91dic2_rd, i286_rn_va, i286_rn_va
+	unmapped_rd, unmapped_rd, unmapped_rd, unmapped_rd,
+	unmapped_rd, unmapped_rd, unmapped_rd, unmapped_rd,
+	unmapped_rd, va91knj2_rd, unmapped_rd, unmapped_rd,
+	va91dic1_rd, va91dic2_rd, unmapped_rd, unmapped_rd
 };
 
 static MEM16READ memword_read[16] = {
-	i286w_rd_va, i286w_rd_va, i286w_rd_va, i286w_rd_va,
-	i286w_rd_va, i286w_rd_va, i286w_rd_va, i286w_rd_va,
+	mainramw_rd, mainramw_rd, mainramw_rd, mainramw_rd,
+	mainramw_rd, mainramw_rd, mainramw_rd, mainramw_rd,
 	bmsw_rd_va, bmsw_rd_va, sysmw_rd, sysmw_rd,
 	sysmw_rd, sysmw_rd, rom0w_rd, rom1w_rd
 };
 
 static MEM16READ sysmword_read[16] = {
-	i286w_rn_va, tvramw_rd, i286w_rn_va, i286w_rn_va,
-	gvramw_rd_va, i286w_rn_va, i286w_rn_va, i286w_rn_va,
-	knj1w_rd, knj2w_rd, i286w_rn_va, i286w_rn_va,
-	dic1w_rd, dic2w_rd, i286w_rn_va, i286w_rn_va
+	unmappedw_rd, tvramw_rd, unmappedw_rd, unmappedw_rd,
+	gvramw_rd_va, unmappedw_rd, unmappedw_rd, unmappedw_rd,
+	knj1w_rd, knj2w_rd, unmappedw_rd, unmappedw_rd,
+	dic1w_rd, dic2w_rd, unmappedw_rd, unmappedw_rd
 };
 
 static MEM16READ rom0word_read[32] = {
@@ -235,24 +242,24 @@ static MEM16READ rom0word_read[32] = {
 	stdrom0w_rd, stdrom0w_rd, stdrom0w_rd, stdrom0w_rd,
 	stdrom0w_rd, stdrom0w_rd, stdrom0w_rd, stdrom0w_rd,
 	stdrom0w_rd, stdrom0w_rd, stdrom0w_rd, stdrom0w_rd,
-	i286w_rn_va, i286w_rn_va, i286w_rn_va, i286w_rn_va,
-	i286w_rn_va, i286w_rn_va, i286w_rn_va, i286w_rn_va,
-	i286w_rn_va, i286w_rn_va, i286w_rn_va, i286w_rn_va,
-	i286w_rn_va, i286w_rn_va, i286w_rn_va, i286w_rn_va
+	unmappedw_rd, unmappedw_rd, unmappedw_rd, unmappedw_rd,
+	unmappedw_rd, unmappedw_rd, unmappedw_rd, unmappedw_rd,
+	unmappedw_rd, unmappedw_rd, unmappedw_rd, unmappedw_rd,
+	unmappedw_rd, unmappedw_rd, unmappedw_rd, unmappedw_rd
 };
 
 static MEM16READ rom1word_read[16] = {
 	stdrom1w_rd, stdrom1w_rd, stdrom1w_rd, stdrom1w_rd,
 	stdrom1w_rd, stdrom1w_rd, stdrom1w_rd, stdrom1w_rd,
-	i286w_rn_va, i286w_rn_va, i286w_rn_va, i286w_rn_va,
-	i286w_rn_va, i286w_rn_va, i286w_rn_va, i286w_rn_va
+	unmappedw_rd, unmappedw_rd, unmappedw_rd, unmappedw_rd,
+	unmappedw_rd, unmappedw_rd, unmappedw_rd, unmappedw_rd
 };
 
 static MEM16READ va91sysmword_read[16] = {
-	i286w_rn_va, i286w_rn_va, i286w_rn_va, i286w_rn_va,
-	i286w_rn_va, i286w_rn_va, i286w_rn_va, i286w_rn_va,
-	i286w_rn_va, va91knj2w_rd, i286w_rn_va, i286w_rn_va,
-	va91dic1w_rd, va91dic2w_rd, i286w_rn_va, i286w_rn_va
+	unmappedw_rd, unmappedw_rd, unmappedw_rd, unmappedw_rd,
+	unmappedw_rd, unmappedw_rd, unmappedw_rd, unmappedw_rd,
+	unmappedw_rd, va91knj2w_rd, unmappedw_rd, unmappedw_rd,
+	va91dic1w_rd, va91dic2w_rd, unmappedw_rd, unmappedw_rd
 };
 
 static UINT32 top_index(UINT32 address) {
@@ -358,17 +365,12 @@ static REG16 rom1invalidw_rd(UINT32 address) {
 	return(ret);
 }
 
-static void MEMCALL i286_wt_va(UINT32 address, REG8 value) {
+static void MEMCALL mainram_wt(UINT32 address, REG8 value) {
 
-	UINT8	save;
-
-	save = memmode_va;
-	memmode_va = 0;
-	upd9002_memorywrite(address, value);
-	memmode_va = save;
+    upd9002_mainram_write(address, value);
 }
 
-static void MEMCALL i286_wn_va(UINT32 address, REG8 value) {
+static void MEMCALL unmapped_wt(UINT32 address, REG8 value) {
 
 	(void)address;
 	(void)value;
@@ -379,7 +381,7 @@ static void MEMCALL bms_wt_va(UINT32 address, REG8 value) {
 	UINT32	offset;
 
 	if (bmsio.bank == 0) {
-		i286_wt_va(address, value);
+		mainram_wt(address, value);
 		return;
 	}
 	if (bmsio.nomem || (bmsiowork.bmsmem == NULL)) {
@@ -452,17 +454,12 @@ static void MEMCALL va91knj2_wt(UINT32 address, REG8 value) {
 	backupmem[0x2000 + offset] = (BYTE)value;
 }
 
-static void MEMCALL i286w_wt_va(UINT32 address, REG16 value) {
+static void MEMCALL mainramw_wt(UINT32 address, REG16 value) {
 
-	UINT8	save;
-
-	save = memmode_va;
-	memmode_va = 0;
-	upd9002_memorywrite_w(address, value);
-	memmode_va = save;
+    upd9002_mainram_write_w(address, value);
 }
 
-static void MEMCALL i286w_wn_va(UINT32 address, REG16 value) {
+static void MEMCALL unmappedw_wt(UINT32 address, REG16 value) {
 
 	(void)address;
 	(void)value;
@@ -473,7 +470,7 @@ static void MEMCALL bmsw_wt_va(UINT32 address, REG16 value) {
 	UINT32	offset;
 
 	if (bmsio.bank == 0) {
-		i286w_wt_va(address, value);
+		mainramw_wt(address, value);
 		return;
 	}
 	if (bmsio.nomem || (bmsiowork.bmsmem == NULL)) {
@@ -533,19 +530,12 @@ static void MEMCALL va91knj2w_wt(UINT32 address, REG16 value) {
 	write_pair16(va91knj2_wt, address, value);
 }
 
-static REG8 MEMCALL i286_rd_va(UINT32 address) {
+static REG8 MEMCALL mainram_rd(UINT32 address) {
 
-	UINT8	save;
-	REG8	ret;
-
-	save = memmode_va;
-	memmode_va = 0;
-	ret = upd9002_memoryread(address);
-	memmode_va = save;
-	return(ret);
+    return(upd9002_mainram_read(address));
 }
 
-static REG8 MEMCALL i286_rn_va(UINT32 address) {
+static REG8 MEMCALL unmapped_rd(UINT32 address) {
 
 	(void)address;
 	return(0xff);
@@ -556,7 +546,7 @@ static REG8 MEMCALL bms_rd_va(UINT32 address) {
 	UINT32	offset;
 
 	if (bmsio.bank == 0) {
-		return(i286_rd_va(address));
+		return(mainram_rd(address));
 	}
 	if (bmsio.nomem || (bmsiowork.bmsmem == NULL)) {
 		return(0xff);
@@ -701,19 +691,12 @@ static REG8 MEMCALL va91rom1_rd(UINT32 address) {
 	return(va91rom1mem[offset]);
 }
 
-static REG16 MEMCALL i286w_rd_va(UINT32 address) {
+static REG16 MEMCALL mainramw_rd(UINT32 address) {
 
-	UINT8	save;
-	REG16	ret;
-
-	save = memmode_va;
-	memmode_va = 0;
-	ret = upd9002_memoryread_w(address);
-	memmode_va = save;
-	return(ret);
+    return(upd9002_mainram_read_w(address));
 }
 
-static REG16 MEMCALL i286w_rn_va(UINT32 address) {
+static REG16 MEMCALL unmappedw_rd(UINT32 address) {
 
 	(void)address;
 	return(0xffff);
@@ -724,7 +707,7 @@ static REG16 MEMCALL bmsw_rd_va(UINT32 address) {
 	UINT32	offset;
 
 	if (bmsio.bank == 0) {
-		return(i286w_rd_va(address));
+		return(mainramw_rd(address));
 	}
 	if (bmsio.nomem || (bmsiowork.bmsmem == NULL)) {
 		return(0xffff);
@@ -928,10 +911,10 @@ void MEMCALL upd9002_memorymap_va(void) {
 		rom1word_read[0x0f] = va91rom1w_rd;
 	}
 	else {
-		sysmbyte_write[0x0f] = i286_wn_va;
-		sysmword_write[0x0f] = i286w_wn_va;
-		sysmbyte_read[0x0f] = i286_rn_va;
-		sysmword_read[0x0f] = i286w_rn_va;
+		sysmbyte_write[0x0f] = unmapped_wt;
+		sysmword_write[0x0f] = unmappedw_wt;
+		sysmbyte_read[0x0f] = unmapped_rd;
+		sysmword_read[0x0f] = unmappedw_rd;
 		rom0byte_read[0x0f] = stdrom0_rd;
 		rom0word_read[0x0f] = stdrom0w_rd;
 		rom1byte_read[0x0f] = stdrom1_rd;

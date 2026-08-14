@@ -21,7 +21,7 @@ static REG8 IOINPCALL gactrlva_i_notimpl(UINT port) {
 
 	if (port & 1) {
 		// high
-		// 実機では必ずしも安定していない
+		// Real-hardware readback is unstable; return the observed mask pattern.
 		if (port < 0x580) {
 			dat = (port & 0x02) ? 0xfd : 0xff;
 		}
@@ -31,7 +31,7 @@ static REG8 IOINPCALL gactrlva_i_notimpl(UINT port) {
 	}
 	else {
 		// low
-		// 実機では必ずしも安定していない
+		// Real-hardware readback is unstable; return the observed mask pattern.
 		dat = ((port & 0x0f) == 0x0a) ? 0xfa : 0xfe;
 	}
 
@@ -45,7 +45,7 @@ static REG8 IOINPCALL gactrlva_i_notactive(UINT port) {
 
 	if (port & 1) {
 		// high
-		// 実機では必ずしも安定していない
+		// Real-hardware readback is unstable; return the observed mask pattern.
 		if (port < 0x580) {
 			dat = (port & 0x02) ? 0xfd : 0xff;
 		}
@@ -55,7 +55,7 @@ static REG8 IOINPCALL gactrlva_i_notactive(UINT port) {
 	}
 	else {
 		// low
-		// 実機では必ずしも安定していない
+		// Real-hardware readback is unstable; return the observed mask pattern.
 		dat = ((port & 0x0f) == 0x0a) ? 0xfa : 0xfe;
 	}
 
@@ -140,13 +140,13 @@ static REG8 IOINPCALL gactrlva_i516(UINT port) {
 static void IOOUTCALL gactrlva_o518(UINT port, REG8 dat) {
 	if (gactrlva.m.advancedaccessmode ^ dat & 0x04) {
 		if (!(dat & 0x04)) {
-			//パターンレジスタを8bitに変更
+			// Reset both pattern pointers when switching to 8-bit pattern mode.
 			gactrlva.m.patternreadpointer  = 0xf0;
 			gactrlva.m.patternwritepointer = 0xf0;
 		}
 	}
 	gactrlva.m.advancedaccessmode = dat & 0x3f; //0xbf;
-			// VAクラブ版テクマニはbit7:RBUSYだが、VA2だとbit7は0固定
+			// Tekumani defines bit 7 as RBUSY; observed VA2 reads keep it clear.
 	TRACEOUT(("gactrlva - %x %x %.4x %.4x", port, dat, CPU_CS, CPU_IP));
 }
 
@@ -187,7 +187,7 @@ static void IOOUTCALL gactrlva_o528(UINT port, REG8 dat) {
 
 	TRACEOUT(("gactrlva - %x %x %.4x %.4x", port, dat, CPU_CS, CPU_IP));
 	//gactrlva.m.cmpdatacontrol = dat & 0x0f | 0xf0;
-			// VAクラブ版テクマニでは上位4bit=0だがVA2では1111b
+			// Tekumani marks bits 7-4 as zero; observed VA2 reads return 1111b.
 	for (i = 0; i < 4; i++) {
 		gactrlva.m.cmpdata[i] = (dat & 1) ? 0xff : 0;
 		dat >>= 1;
@@ -206,7 +206,7 @@ static REG8 IOINPCALL gactrlva_i528(UINT port) {
 		if (gactrlva.m.cmpdata[i] == 0xff) dat |= 1;
 	}
 	dat |= 0xf0;
-		// VAクラブ版テクマニでは上位4bit=0だがVA2では1111b
+		// Tekumani marks bits 7-4 as zero; observed VA2 reads return 1111b.
 	//dat = gactrlva.m.cmpdatacontrol;
 	TRACEOUT(("gactrlva(in) - %x %x %.4x %.4x", port, dat, CPU_CS, CPU_IP));
 
@@ -257,11 +257,11 @@ static REG8 IOINPCALL gactrlva_i540(UINT port) {
 
 static void IOOUTCALL gactrlva_o550(UINT port, REG8 dat) {
 	if (!(gactrlva.m.advancedaccessmode & 0x04)) {
-		// パターンレジスタ 8bit
+		// In 8-bit pattern mode the pointer selector is ignored.
 		dat = 0;
 	}
 	gactrlva.m.patternreadpointer = dat & 0x0f | 0xf0;
-			// VAクラブ版テクマニでは上位4bit=0だがVA2では1111b
+			// Tekumani marks bits 7-4 as zero; observed VA2 reads return 1111b.
 	TRACEOUT(("gactrlva - %x %x %.4x %.4x", port, dat, CPU_CS, CPU_IP));
 }
 
@@ -278,11 +278,11 @@ static REG8 IOINPCALL gactrlva_i550(UINT port) {
 
 static void IOOUTCALL gactrlva_o552(UINT port, REG8 dat) {
 	if (!(gactrlva.m.advancedaccessmode & 0x04)) {
-		// パターンレジスタ 8bit
+		// In 8-bit pattern mode the pointer selector is ignored.
 		dat = 0;
 	}
 	gactrlva.m.patternwritepointer = dat & 0x0f | 0xf0;
-			// VAクラブ版テクマニでは上位4bit=0だがVA2では1111b
+			// Tekumani marks bits 7-4 as zero; observed VA2 reads return 1111b.
 	TRACEOUT(("gactrlva - %x %x %.4x %.4x", port, dat, CPU_CS, CPU_IP));
 }
 
@@ -320,7 +320,7 @@ static REG8 IOINPCALL gactrlva_i560(UINT port) {
 
 static void IOOUTCALL gactrlva_o580(UINT port, REG8 dat) {
 	gactrlva.s.writemode = dat & 0x18;	//0x98;
-			// VAクラブ版テクマニはbit7:RBUSYだが、VA2だとbit7は0固定
+			// Tekumani defines bit 7 as RBUSY; observed VA2 reads keep it clear.
 	//TRACEOUT(("gactrlva - %x %x %.4x %.4x", port, dat, CPU_CS, CPU_IP));
 }
 
@@ -413,52 +413,52 @@ void gactrlva_bind(void) {
 	int i;
 
 	for (i = 0x510; i < 0x600; i++) {
-		iocore_attachvainp(i, gactrlva_i_notimpl);
+		iocore_attachinp(i, gactrlva_i_notimpl);
 	}
 
-	iocore_attachvaout(0x510, gactrlva_o510);
-	iocore_attachvainp(0x510, gactrlva_i510);
-	iocore_attachvainp(0x511, gactrlva_i_high_m);
-	iocore_attachvaout(0x512, gactrlva_o512);
-	iocore_attachvainp(0x512, gactrlva_i512);
-	iocore_attachvainp(0x513, gactrlva_i_high_m);
-	iocore_attachvaout(0x514, gactrlva_o514);
-	iocore_attachvainp(0x514, gactrlva_i514);
-	iocore_attachvaout(0x516, gactrlva_o516);
-	iocore_attachvainp(0x516, gactrlva_i516);
-	iocore_attachvaout(0x518, gactrlva_o518);
-	iocore_attachvainp(0x518, gactrlva_i518);
-	iocore_attachvainp(0x519, gactrlva_i_high_m);
-	iocore_attachvaout(0x528, gactrlva_o528);
-	iocore_attachvainp(0x528, gactrlva_i528);
-	iocore_attachvaout(0x550, gactrlva_o550);
-	iocore_attachvainp(0x550, gactrlva_i550);
-	iocore_attachvaout(0x552, gactrlva_o552);
-	iocore_attachvainp(0x552, gactrlva_i552);
+	iocore_attachout(0x510, gactrlva_o510);
+	iocore_attachinp(0x510, gactrlva_i510);
+	iocore_attachinp(0x511, gactrlva_i_high_m);
+	iocore_attachout(0x512, gactrlva_o512);
+	iocore_attachinp(0x512, gactrlva_i512);
+	iocore_attachinp(0x513, gactrlva_i_high_m);
+	iocore_attachout(0x514, gactrlva_o514);
+	iocore_attachinp(0x514, gactrlva_i514);
+	iocore_attachout(0x516, gactrlva_o516);
+	iocore_attachinp(0x516, gactrlva_i516);
+	iocore_attachout(0x518, gactrlva_o518);
+	iocore_attachinp(0x518, gactrlva_i518);
+	iocore_attachinp(0x519, gactrlva_i_high_m);
+	iocore_attachout(0x528, gactrlva_o528);
+	iocore_attachinp(0x528, gactrlva_i528);
+	iocore_attachout(0x550, gactrlva_o550);
+	iocore_attachinp(0x550, gactrlva_i550);
+	iocore_attachout(0x552, gactrlva_o552);
+	iocore_attachinp(0x552, gactrlva_i552);
 	for (i = 0; i < 4; i++) {
-		iocore_attachvaout(0x520 + i * 2, gactrlva_o520);
-		iocore_attachvaout(0x530 + i * 2, gactrlva_o530);
-		iocore_attachvaout(0x540 + i * 2, gactrlva_o540);
-		iocore_attachvaout(0x560 + i * 2, gactrlva_o560);
+		iocore_attachout(0x520 + i * 2, gactrlva_o520);
+		iocore_attachout(0x530 + i * 2, gactrlva_o530);
+		iocore_attachout(0x540 + i * 2, gactrlva_o540);
+		iocore_attachout(0x560 + i * 2, gactrlva_o560);
 
-		iocore_attachvainp(0x520 + i * 2, gactrlva_i520);
-		iocore_attachvainp(0x521 + i * 2, gactrlva_i_high_m);
-		iocore_attachvainp(0x530 + i * 2, gactrlva_i530);
-		iocore_attachvainp(0x531 + i * 2, gactrlva_i_high_m);
-		iocore_attachvainp(0x540 + i * 2, gactrlva_i540);
-		iocore_attachvainp(0x541 + i * 2, gactrlva_i_high_m);
-		iocore_attachvainp(0x560 + i * 2, gactrlva_i560);
-		iocore_attachvainp(0x561 + i * 2, gactrlva_i_high_m);
+		iocore_attachinp(0x520 + i * 2, gactrlva_i520);
+		iocore_attachinp(0x521 + i * 2, gactrlva_i_high_m);
+		iocore_attachinp(0x530 + i * 2, gactrlva_i530);
+		iocore_attachinp(0x531 + i * 2, gactrlva_i_high_m);
+		iocore_attachinp(0x540 + i * 2, gactrlva_i540);
+		iocore_attachinp(0x541 + i * 2, gactrlva_i_high_m);
+		iocore_attachinp(0x560 + i * 2, gactrlva_i560);
+		iocore_attachinp(0x561 + i * 2, gactrlva_i_high_m);
 	}
-	iocore_attachvaout(0x580, gactrlva_o580);
-	iocore_attachvainp(0x580, gactrlva_i580);
+	iocore_attachout(0x580, gactrlva_o580);
+	iocore_attachinp(0x580, gactrlva_i580);
 	for (i = 0; i < 2; i++) {
-		iocore_attachvaout(0x590 + i * 2, gactrlva_o590);
-		iocore_attachvaout(0x591 + i * 2, gactrlva_o591);
-		iocore_attachvaout(0x5a0 + i * 2, gactrlva_o5a0);
+		iocore_attachout(0x590 + i * 2, gactrlva_o590);
+		iocore_attachout(0x591 + i * 2, gactrlva_o591);
+		iocore_attachout(0x5a0 + i * 2, gactrlva_o5a0);
 
-		iocore_attachvainp(0x590 + i * 2, gactrlva_i590);
-		iocore_attachvainp(0x591 + i * 2, gactrlva_i591);
-		iocore_attachvainp(0x5a0 + i * 2, gactrlva_i5a0);
+		iocore_attachinp(0x590 + i * 2, gactrlva_i590);
+		iocore_attachinp(0x591 + i * 2, gactrlva_i591);
+		iocore_attachinp(0x5a0 + i * 2, gactrlva_i5a0);
 	}
 }

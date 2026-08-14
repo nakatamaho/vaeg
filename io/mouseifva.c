@@ -53,9 +53,9 @@ static void latch(void) {
 
 
 /*
-マウスへの出力
+Advance the mouse nibble selector from a strobe transition.
 	IN:
-		strobe	ストローブ
+		strobe: current strobe level.
 */
 void mouseva_outstrobe(UINT8 strobe) {
 	if (strobe ^ mouseifva.laststrobe) {
@@ -69,11 +69,11 @@ void mouseva_outstrobe(UINT8 strobe) {
 }
 
 /*
-マウスからの入力
+Read the selected mouse movement nibble and buttons.
 	IN:
-		data4	入力データの格納先
-		button	ボタンの格納先
-				ボタン: bit5=右, bit7=左  0で押下
+		data: selected four-bit movement nibble.
+		button: two-bit button result.
+				Output bit 1 is right and bit 0 is left; zero means pressed.
 */
 void mouseva_indata(UINT8 *data, UINT8 *button) {
 	UINT8 x,y,b;
@@ -100,19 +100,19 @@ void mouseva_indata(UINT8 *data, UINT8 *button) {
 		b |= mouseif.rapid;
 	}
 	*button = 0;
-	if (b & 0x20) *button |= 0x02;				// 左
-	if (b & 0x80) *button |= 0x01;				// 右
+	if (b & 0x20) *button |= 0x02;				// Raw right-button bit maps to output bit 1.
+	if (b & 0x80) *button |= 0x01;				// Raw left-button bit maps to output bit 0.
 }
 
 
 // ---- Joy pad
 
 /*
-ジョイパッドからの入力
+Read the VA joypad directions and buttons.
 	IN:
-		data4	入力データの格納先
-		button	ボタンの格納先
-				ボタン: bit0=A, bit1=B  0で押下
+		data: selected four-bit movement nibble.
+		button: two-bit button result.
+				Bit 0 is A and bit 1 is B; zero means pressed.
 */
 void joypad_indata(UINT8 *data, UINT8 *button) {
 	static	REG8	rapids = 0;
@@ -128,8 +128,8 @@ void joypad_indata(UINT8 *data, UINT8 *button) {
 	clock = CPU_CLOCK + CPU_BASECLOCK - CPU_REMCLOCK;
 	diff = clock - lastc;
 
-	if (diff > 200000 || diff < 0) {	// 8MHzで20打/秒 くらい
-										// lastcが凄く昔の場合にdiff < 0となることがある
+	if (diff > 200000 || diff < 0) {	// At 8 MHz this produces about 20 press cycles per second.
+										// Signed wrap or a stale timestamp can make diff negative.
 		rapids ^= 0xf0;
 		lastc = clock;
 	}
@@ -143,7 +143,7 @@ void joypad_indata(UINT8 *data, UINT8 *button) {
 		ret |= rapids;
 	}
 
-	// rapidと非rapidを合成
+	// Combine rapid-fire and non-rapid button sources.
 	ret &= ((ret >> 2) | (~0x30));
 
 	if (np2cfg.BTN_MODE) {
@@ -164,7 +164,7 @@ void joypad_indata(UINT8 *data, UINT8 *button) {
 // ---- Mouse port
 
 /*
-マウスポートへSTROBEを出力
+Route a strobe transition to the selected pointing device.
 */
 void mouseifva_outstrobe(UINT8 strobe) {
 	switch(mouseifvacfg.device) {
@@ -175,7 +175,7 @@ void mouseifva_outstrobe(UINT8 strobe) {
 }
 
 /*
-マウスポートからデータ入力
+Read data from the selected pointing device.
 */
 void mouseifva_indata(UINT8 *data4, UINT8 *data2) { 
 	switch(mouseifvacfg.device) {
@@ -194,11 +194,11 @@ static void IOOUTCALL mouseifva_o1a8(UINT port, REG8 dat) {
 	UINT8	xminten;
 
 	mouseif.timing = dat & 3;
-	xminten = (~dat >> 3) & 0x10;			// 割り込み許可フラグ
-											// 0.許可 1.禁止
+	xminten = (~dat >> 3) & 0x10;			// Active-low interrupt-enable latch.
+											// Zero enables interrupts; one masks them.
 
 	if ((xminten ^ mouseif.upd8255.portc) & 0x10) {
-		// 変更あり
+		// Reschedule only when the enable state changes.
 		if (!(xminten & 0x10)) {
 			if (!nevent_iswork(NEVENT_MOUSE)) {
 				nevent_set(NEVENT_MOUSE, mouseif.intrclock << mouseif.timing,
@@ -218,5 +218,5 @@ void mouseifva_reset(void) {
 
 void mouseifva_bind(void) {
 
-	iocore_attachvaout(0x1a8, mouseifva_o1a8);
+	iocore_attachout(0x1a8, mouseifva_o1a8);
 }
