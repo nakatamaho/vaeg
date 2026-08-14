@@ -27,14 +27,6 @@ the `ろ` key again. Release packages include matching
 checksums. See [Rel.20260814 changes](CHANGES.20260814.md) for setup notes and
 the current MSE `/B` limitation.
 
-Release screenshots:
-
-![PC-88VA device driver registration at startup frame 35](docs/images/release-20260814-device-drivers-top.png)
-
-![PC-88VA device driver registration at startup frame 40](docs/images/release-20260814-device-drivers-bottom.png)
-
-![CP/MVA tools disk](docs/images/release-20260814-cpmva-tools.png)
-
 ### 2026-08-06 - M76: uPD70008-compatible Z80 emulation and CP/MVA
 
 M76 brings the uPD70008-compatible Z80 emulation path to a working state.
