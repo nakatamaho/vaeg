@@ -191,6 +191,9 @@ start:
     cld
 
     call save_video_state
+%if M7_VARIANT >= 4
+    call initialize_m7d_tables
+%endif
 
     mov dx, message_start
     call print_string
@@ -1282,11 +1285,18 @@ emit_dirty_clear_commands:
     stosw
     mov ax, 2
     stosw
+%if M7_VARIANT >= 4
+    mov ax, [m7_zero_address_low]
+    stosw
+    mov ax, [m7_zero_address_high]
+    stosw
+%else
     mov si, sgp_zero_word
     call physical_address_from_ds_si
     stosw
     mov ax, dx
     stosw
+%endif
 
     xor si, si
     mov cx, [dirty_rect_count]
@@ -1359,6 +1369,176 @@ select_build_buffer:
     ret
 %endif
 
+%if M7_VARIANT >= 4
+; M7d startup pass: convert immutable main-RAM pointers once and build
+; fixed SET_SOURCE/SET_DEST/BITBLT templates.  Frame emission patches only
+; the destination start-dot and physical destination address.
+initialize_m7d_tables:
+    push ax
+    push bx
+    push cx
+    push dx
+    push si
+    push di
+    push bp
+    push ds
+    pop es
+
+    mov bx, sprite_records
+    mov di, m7_sprite_source_low
+    mov bp, m7_sprite_source_high
+    mov cx, SPRITE_MAX_COUNT
+.source_loop:
+    push cx
+    mov si, [bx + SPRITE_BITMAP_OFFSET]
+    call physical_address_from_ds_si
+    mov [di], ax
+    mov [bp], dx
+    pop cx
+    add di, 2
+    add bp, 2
+    add bx, SPRITE_RECORD_SIZE
+    loop .source_loop
+
+    mov bx, fps_glyph_pointers
+    mov di, m7_glyph_source_low
+    mov bp, m7_glyph_source_high
+    mov cx, FPS_GLYPH_COUNT
+.glyph_source_loop:
+    push cx
+    mov si, [bx]
+    call physical_address_from_ds_si
+    mov [di], ax
+    mov [bp], dx
+    pop cx
+    add bx, 2
+    add di, 2
+    add bp, 2
+    loop .glyph_source_loop
+
+    mov si, sgp_command_list_a
+    call physical_address_from_ds_si
+    mov [sgp_command_address_a_low], ax
+    mov [sgp_command_address_a_high], dx
+    mov si, sgp_command_list_b
+    call physical_address_from_ds_si
+    mov [sgp_command_address_b_low], ax
+    mov [sgp_command_address_b_high], dx
+    mov si, sgp_work_area_a
+    call physical_address_from_ds_si
+    mov [m7_work_address_low], ax
+    mov [m7_work_address_high], dx
+    mov si, sgp_zero_word
+    call physical_address_from_ds_si
+    mov [m7_zero_address_low], ax
+    mov [m7_zero_address_high], dx
+
+    mov bx, sprite_records
+    mov bp, m7_sprite_source_low
+    mov si, m7_sprite_source_high
+    mov di, sprite_command_templates
+    mov cx, SPRITE_MAX_COUNT
+.template_loop:
+    push cx
+    mov ax, SGP_COMMAND_SET_SOURCE
+    stosw
+    mov ax, 0x0001
+    stosw
+    mov ax, [bx + SPRITE_WIDTH_OFFSET]
+    stosw
+    mov ax, [bx + SPRITE_HEIGHT_OFFSET]
+    stosw
+    mov ax, [bx + SPRITE_PITCH_OFFSET]
+    stosw
+    mov ax, [bp]
+    stosw
+    mov ax, [si]
+    stosw
+
+    mov ax, SGP_COMMAND_SET_DEST
+    stosw
+    xor ax, ax
+    stosw
+    mov ax, [bx + SPRITE_WIDTH_OFFSET]
+    stosw
+    mov ax, [bx + SPRITE_HEIGHT_OFFSET]
+    stosw
+    mov ax, SCREEN_PITCH
+    stosw
+    xor ax, ax
+    stosw
+    stosw
+
+    mov ax, SGP_COMMAND_BITBLT
+    stosw
+    mov ax, SGP_BITBLT_COPY_XPAR
+    stosw
+    pop cx
+    add bx, SPRITE_RECORD_SIZE
+    add bp, 2
+    add si, 2
+    loop .template_loop
+
+    pop bp
+    pop di
+    pop si
+    pop dx
+    pop cx
+    pop bx
+    pop ax
+    ret
+
+emit_sprite_template_commands:
+    push ax
+    push bx
+    push cx
+    push dx
+    push si
+    push bp
+    mov bx, sprite_records
+    mov si, sprite_command_templates
+    mov cx, [active_sprite_count]
+.next_template:
+    jcxz .done
+    push cx
+    mov cx, 16
+    rep movsw
+    pop cx
+
+    mov ax, [bx + SPRITE_X_OFFSET]
+    and ax, 0x0003
+    shl ax, 4
+    or ax, 0x0001
+    mov [es:di - 16], ax
+
+    mov ax, [bx + SPRITE_Y_OFFSET]
+    shl ax, 1
+    mov bp, ax
+    mov ax, [y_offset_table + bp]
+    xor bp, bp
+    mov dx, [bx + SPRITE_X_OFFSET]
+    and dx, 0xfffc
+    shr dx, 1
+    add ax, dx
+    adc bp, 0
+    add ax, [draw_page_sgp_low]
+    adc bp, [draw_page_sgp_high]
+    mov [es:di - 8], ax
+    mov [es:di - 6], bp
+
+    inc word [m6_sgp_bitblts_frame]
+    add bx, SPRITE_RECORD_SIZE
+    loop .next_template
+.done:
+    pop bp
+    pop si
+    pop dx
+    pop cx
+    pop bx
+    pop ax
+    ret
+%endif
+
 render_sprite_frame:
     call build_sgp_frame_commands
     call run_sgp_command_list
@@ -1387,11 +1567,18 @@ build_sgp_frame_commands:
 
     mov ax, SGP_COMMAND_SET_WORK
     stosw
+%if M7_VARIANT >= 4
+    mov ax, [m7_work_address_low]
+    stosw
+    mov ax, [m7_work_address_high]
+    stosw
+%else
     mov si, [builder_work_area]
     call physical_address_from_ds_si
     stosw
     mov ax, dx
     stosw
+%endif
 
     mov ax, SGP_COMMAND_SET_COLOR
     stosw
@@ -1421,6 +1608,9 @@ build_sgp_frame_commands:
 .clear_done:
 %endif
 
+%if M7_VARIANT >= 4
+    call emit_sprite_template_commands
+%else
     mov si, sprite_records
     mov ax, [active_sprite_count]
     mov [m6_emit_remaining], ax
@@ -1482,6 +1672,7 @@ build_sgp_frame_commands:
     dec word [m6_emit_remaining]
     jz short .sprites_done
     jmp .emit_sprite
+%endif
 
 .sprites_done:
     call emit_fps_glyph_commands
@@ -1533,6 +1724,7 @@ emit_fps_glyph_commands:
 
     mov si, fps_glyph_pointers
     mov bx, FPS_GLYPH_X
+    xor bp, bp
     mov ax, FPS_GLYPH_COUNT
     mov [m6_emit_remaining], ax
 
@@ -1547,6 +1739,12 @@ emit_fps_glyph_commands:
     stosw
     mov ax, FPS_GLYPH_PITCH
     stosw
+%if M7_VARIANT >= 4
+    mov ax, [m7_glyph_source_low + bp]
+    stosw
+    mov ax, [m7_glyph_source_high + bp]
+    stosw
+%else
     push si
     mov si, [si]
     call physical_address_from_ds_si
@@ -1554,6 +1752,7 @@ emit_fps_glyph_commands:
     stosw
     mov ax, dx
     stosw
+%endif
 
     mov ax, SGP_COMMAND_SET_DEST
     stosw
@@ -1589,6 +1788,7 @@ emit_fps_glyph_commands:
     inc word [m6_sgp_bitblts_frame]
 
     add si, 2
+    add bp, 2
     add bx, FPS_GLYPH_ADVANCE
     dec word [m6_emit_remaining]
     jz short .glyphs_done
@@ -2023,6 +2223,38 @@ palette_values:
     dw RGB565(3, 6, 3)
     dw RGB565(9, 18, 9)
     dw RGB565(31, 63, 31)
+
+%if M7_VARIANT >= 4
+align 2, db 0
+y_offset_table:
+%assign Y_OFFSET 0
+%rep SCREEN_HEIGHT
+    dw Y_OFFSET
+%assign Y_OFFSET Y_OFFSET + SCREEN_PITCH
+%endrep
+
+align 2, db 0
+m7_sprite_source_low:
+    times SPRITE_MAX_COUNT dw 0
+m7_sprite_source_high:
+    times SPRITE_MAX_COUNT dw 0
+m7_glyph_source_low:
+    times FPS_GLYPH_COUNT dw 0
+m7_glyph_source_high:
+    times FPS_GLYPH_COUNT dw 0
+m7_work_address_low:
+    dw 0
+m7_work_address_high:
+    dw 0
+m7_zero_address_low:
+    dw 0
+m7_zero_address_high:
+    dw 0
+
+align 2, db 0
+sprite_command_templates:
+    times SPRITE_MAX_COUNT * 16 dw 0
+%endif
 
 align 2, db 0
 %if M7_VARIANT >= 3
