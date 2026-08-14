@@ -307,14 +307,13 @@ on BMSDR. In practice, if an HDD image uses MSE `/A`, `/B`, or `/X`
 options, load or run the BMS driver before MSE. A minimal environment can
 omit BMS, but then those MSE features should not be enabled.
 
-VAEG models the PC-88VA BMS area as a separate 128KB aperture. Ordinary main
-memory ends at `7FFFFH` (512KB); the aperture is exactly `80000H-9FFFFH`.
-When BMS is disabled, CPU and SGP reads from the aperture return open-bus
-values (`FFH`/`FFFFH`) and writes are ignored. When it is enabled, selector
-values zero through N-1 map directly to N independent 128KB BMS banks. Bank
-zero is therefore BMS storage, not a pass-through to the built-in 512KB RAM.
-With selector zero it occupies `80000H`-`9FFFFH` and supplies the 128KB upper
-conventional-memory window expected by software such as RDBMS.
+VAEG defaults to 640KB of main RAM at `00000H`-`9FFFFH`. I/O Bank Memory uses
+`80000H`-`9FFFFH` as a temporary 128KB aperture without reducing that main
+memory: selector zero restores the ordinary upper 128KB, while selector values
+1 through N map N independent 128KB BMS banks. The disabled device remains at
+selector zero, so CPU and SGP access continues to reach main RAM. This
+one-based mapping matches RDBMS, which selects a nonzero bank for each transfer
+and writes zero afterward to restore conventional memory.
 
 A clean VAEG configuration enables BMS with 128 banks (16MB) at the native
 PC-88VA `01D0H` port. The corresponding persisted values are
@@ -718,9 +717,9 @@ PCEPAT, RESET, and TSCLVA all precede MSE, which is loaded without `/A`, `/B`,
 or `/X`.
 RDBMS explicitly selects the PC-88VA I/O Bank Memory port `01D0H`. Its
 documented defaults start at bank 1 and use 15 banks when `-S` and the bank
-count are omitted. On a 512KB VA, bank 0 supplies the `80000H`-`9FFFFH`
-128KB conventional-memory window; RDBMS reserves it by starting its RAM disk
-at bank 1 and restores bank 0 after each transfer.
+count are omitted. With VAEG's default 640KB main RAM, selector zero restores
+the ordinary `80000H`-`9FFFFH` upper 128KB after every RDBMS transfer, while
+the RAM disk occupies BMS selectors starting at 1.
 The EMMVA adapter pair encloses the Open Watcom-built SQEMM98 manager. RDEMS
 loads after TSCLVA and allocates its default 40-page EMS RAM disk. The BMS VA
 device driver is resident, while its COM form remains available for management.
