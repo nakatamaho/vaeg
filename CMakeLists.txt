@@ -431,6 +431,7 @@ list(APPEND VAEG_SDL2_SOURCES "${VAEG_APP_ICON_DATA}")
 find_program(VAEG_NASM_EXECUTABLE NAMES nasm)
 set(VAEG_HOSTFAT_SYS "${CMAKE_CURRENT_BINARY_DIR}/guest/hostfat.sys")
 set(VAEG_R2FPROBE_COM "${CMAKE_CURRENT_BINARY_DIR}/guest/r2fprobe.com")
+set(VAEG_SGPSPRITE_COM "${CMAKE_CURRENT_BINARY_DIR}/guest/sgpdemo.com")
 if(VAEG_NASM_EXECUTABLE)
     add_custom_command(
         OUTPUT "${VAEG_HOSTFAT_SYS}"
@@ -454,11 +455,24 @@ if(VAEG_NASM_EXECUTABLE)
             "${CMAKE_CURRENT_SOURCE_DIR}/tools/pc88va/hostfs/r2fprobe.asm"
         VERBATIM)
     add_custom_target(r2fprobe_com ALL DEPENDS "${VAEG_R2FPROBE_COM}")
+    add_custom_command(
+        OUTPUT "${VAEG_SGPSPRITE_COM}"
+        COMMAND "${CMAKE_COMMAND}" -E make_directory
+            "${CMAKE_CURRENT_BINARY_DIR}/guest"
+        COMMAND "${VAEG_NASM_EXECUTABLE}" -f bin
+            -o "${VAEG_SGPSPRITE_COM}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/tools/pc88va/sgp-pseudo-sprite/sgp_sprite_demo.asm"
+        DEPENDS
+            "${CMAKE_CURRENT_SOURCE_DIR}/tools/pc88va/sgp-pseudo-sprite/sgp_sprite_demo.asm"
+        VERBATIM)
+    add_custom_target(sgpsprite_com ALL DEPENDS "${VAEG_SGPSPRITE_COM}")
     message(STATUS "HOSTFAT.SYS: enabled (${VAEG_NASM_EXECUTABLE})")
     message(STATUS "R2FPROBE.COM: enabled (${VAEG_NASM_EXECUTABLE})")
+    message(STATUS "SGPDEMO.COM: enabled (${VAEG_NASM_EXECUTABLE})")
 else()
     message(STATUS "HOSTFAT.SYS: NASM not found; guest-driver target disabled")
     message(STATUS "R2FPROBE.COM: NASM not found; guest-probe target disabled")
+    message(STATUS "SGPDEMO.COM: NASM not found; guest-demo target disabled")
 endif()
 
 if(WIN32)
