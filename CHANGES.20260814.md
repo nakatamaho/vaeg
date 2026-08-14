@@ -23,7 +23,7 @@ IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE.
 -->
 
-# 88VA Eternal Grafx Rel.260814
+# 88VA Eternal Grafx Rel.20260814
 
 This release contains the user-facing PC-88VA EMS, bank-memory, guest-driver,
 and development-disk changes made after `rel-260805`.
