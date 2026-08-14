@@ -57,10 +57,9 @@ extern "C" {
 
 BOOL hostfat_manager_initialize(void);
 void hostfat_manager_shutdown(void);
-BOOL hostfat_manager_mount_startup(const char *path,
-		HOSTFAT_SNAPSHOT_INFO *info, char *error, UINT error_size);
-BOOL hostfat_manager_rebuild_async(const char *path, char *error,
-		UINT error_size);
+BOOL hostfat_manager_mount_startup(const char *path, HOSTFAT_SNAPSHOT_INFO *info, char *error,
+                                   UINT error_size);
+BOOL hostfat_manager_rebuild_async(const char *path, char *error, UINT error_size);
 UINT hostfat_manager_poll(void);
 BOOL hostfat_manager_unmount(char *error, UINT error_size);
 void hostfat_manager_get_status(HOSTFAT_MANAGER_STATUS *status);

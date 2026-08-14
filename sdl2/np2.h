@@ -49,50 +49,50 @@ enum {
 };
 
 typedef struct {
-	BYTE	NOWAIT;
-	BYTE	DRAW_SKIP;
-	BYTE	DISPCLK;
-	BYTE	F12KEY;
-	BYTE	resume;
-	BYTE	jastsnd;
-	BYTE	gui_scale;
-	BYTE	gui_aspect;
-	char	gui_fdd_dir[MAX_PATH];
-	char	gui_hdd_dir[MAX_PATH];
-	char	fdd_image[2][MAX_PATH];
-	char	keyboard_host_layout[NP2OSCFG_KEYBOARD_NAME_SIZE];
-	char	keyboard_kana_input[NP2OSCFG_KEYBOARD_NAME_SIZE];
-	BYTE	keyboard_auto_kana_lock;
-	BYTE	keyboard_tenkey_overlay;
-	char	keyboard_custom_map[NP2OSCFG_KEYBOARD_CUSTOM_MAP_SIZE];
-	char	opn_backend[NP2OSCFG_OPN_BACKEND_NAME_SIZE];
-	char	ymfm_fidelity[NP2OSCFG_YMFM_FIDELITY_NAME_SIZE];
-	BYTE	sound_enabled;
-	BYTE	gui_effect;
-	BYTE	gui_scaling;
-	UINT16	gui_window_width;
-	UINT16	gui_window_height;
-	BYTE	gui_display_mode;
-	SINT16	gui_monitor;
-	UINT16	gui_fullscreen_refresh;
-	UINT16	fscrn_cx;
-	UINT16	fscrn_cy;
-	BYTE	fscrnmod;
-	BYTE	MOUSE_SW;
-	UINT16	pacing_ms;
-	BYTE	hostfat_enabled;
-	char	hostfat_dir[MAX_PATH];
+	BYTE NOWAIT;
+	BYTE DRAW_SKIP;
+	BYTE DISPCLK;
+	BYTE F12KEY;
+	BYTE resume;
+	BYTE jastsnd;
+	BYTE gui_scale;
+	BYTE gui_aspect;
+	char gui_fdd_dir[MAX_PATH];
+	char gui_hdd_dir[MAX_PATH];
+	char fdd_image[2][MAX_PATH];
+	char keyboard_host_layout[NP2OSCFG_KEYBOARD_NAME_SIZE];
+	char keyboard_kana_input[NP2OSCFG_KEYBOARD_NAME_SIZE];
+	BYTE keyboard_auto_kana_lock;
+	BYTE keyboard_tenkey_overlay;
+	char keyboard_custom_map[NP2OSCFG_KEYBOARD_CUSTOM_MAP_SIZE];
+	char opn_backend[NP2OSCFG_OPN_BACKEND_NAME_SIZE];
+	char ymfm_fidelity[NP2OSCFG_YMFM_FIDELITY_NAME_SIZE];
+	BYTE sound_enabled;
+	BYTE gui_effect;
+	BYTE gui_scaling;
+	UINT16 gui_window_width;
+	UINT16 gui_window_height;
+	BYTE gui_display_mode;
+	SINT16 gui_monitor;
+	UINT16 gui_fullscreen_refresh;
+	UINT16 fscrn_cx;
+	UINT16 fscrn_cy;
+	BYTE fscrnmod;
+	BYTE MOUSE_SW;
+	UINT16 pacing_ms;
+	BYTE hostfat_enabled;
+	char hostfat_dir[MAX_PATH];
 } NP2OSCFG;
 
 #if defined(SIZE_QVGA)
 enum {
-	FULLSCREEN_WIDTH	= 320,
-	FULLSCREEN_HEIGHT	= 240
+	FULLSCREEN_WIDTH = 320,
+	FULLSCREEN_HEIGHT = 240
 };
 #else
 enum {
-	FULLSCREEN_WIDTH	= 640,
-	FULLSCREEN_HEIGHT	= 400
+	FULLSCREEN_WIDTH = 640,
+	FULLSCREEN_HEIGHT = 400
 };
 #endif
 
@@ -100,8 +100,8 @@ enum {
 extern "C" {
 #endif
 
-extern	NP2OSCFG	np2oscfg;
-extern	BOOL		np2_debug;
+extern NP2OSCFG np2oscfg;
+extern BOOL np2_debug;
 UINT16 np2_default_sound_for_model(const char *model);
 BOOL np2_sound_hardware_valid(const char *model, UINT16 sound);
 const char *np2_cli_boot_model(const char *value);

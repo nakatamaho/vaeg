@@ -45,7 +45,6 @@ enum {
 static BYTE m68_bmsmem[M68_BMS_SIZE];
 
 static void configure_va_mapping(void) {
-
 	pccore.model_va = PCMODEL_VA1;
 	ZeroMemory(&memoryva, sizeof(memoryva));
 	memoryva.sysm_bank = 1;
@@ -60,7 +59,6 @@ static void configure_va_mapping(void) {
 }
 
 static void reset_memory_fixture(void) {
-
 	ZeroMemory(mem, 0x100000);
 	ZeroMemory(textmem, 0x40000);
 	ZeroMemory(m68_bmsmem, sizeof(m68_bmsmem));
@@ -68,71 +66,57 @@ static void reset_memory_fixture(void) {
 }
 
 static UINT32 phys(UINT32 base, UINT16 offset) {
-
-	return(base + offset);
+	return (base + offset);
 }
 
 static UINT32 bms_offset(UINT16 offset) {
-
-	return(phys(M68_BMS_BASE, offset) - M68_BMS_BASE);
+	return (phys(M68_BMS_BASE, offset) - M68_BMS_BASE);
 }
 
 static void put_flat_word(UINT32 address, REG16 value) {
-
 	mem[address] = (BYTE)value;
 	mem[address + 1] = (BYTE)(value >> 8);
 }
 
 static void put_tvram_word(UINT16 offset, REG16 value) {
-
 	textmem[offset] = (BYTE)value;
 	textmem[LOW16(offset + 1)] = (BYTE)(value >> 8);
 }
 
 static REG16 flat_word(UINT32 address) {
-
-	return((REG16)(mem[address] | ((REG16)mem[address + 1] << 8)));
+	return ((REG16)(mem[address] | ((REG16)mem[address + 1] << 8)));
 }
 
 static REG16 tvram_word(UINT16 offset) {
-
-	return((REG16)(textmem[offset] |
-		((REG16)textmem[LOW16(offset + 1)] << 8)));
+	return ((REG16)(textmem[offset] | ((REG16)textmem[LOW16(offset + 1)] << 8)));
 }
 
 static REG16 bms_word(UINT16 offset) {
-
 	UINT32 offset32;
 
 	offset32 = bms_offset(offset);
-	return((REG16)(m68_bmsmem[offset32] |
-		((REG16)m68_bmsmem[offset32 + 1] << 8)));
+	return ((REG16)(m68_bmsmem[offset32] | ((REG16)m68_bmsmem[offset32 + 1] << 8)));
 }
 
 static int check_word(const char *name, REG16 actual, REG16 expected) {
-
 	if (actual != expected) {
-		fprintf(stderr,
-			"upd9002-m68-segmented-memory: %s expected=%04x actual=%04x\n",
-			name, expected, actual);
+		fprintf(stderr, "upd9002-m68-segmented-memory: %s expected=%04x actual=%04x\n", name,
+		        expected, actual);
 		return FAILURE;
 	}
 	return SUCCESS;
 }
 
 static int check_byte(const char *name, REG8 actual, REG8 expected) {
-
 	if (actual != expected) {
-		fprintf(stderr,
-			"upd9002-m68-segmented-memory: %s expected=%02x actual=%02x\n",
-			name, expected, actual);
+		fprintf(stderr, "upd9002-m68-segmented-memory: %s expected=%02x actual=%02x\n", name,
+		        expected, actual);
 		return FAILURE;
 	}
 	return SUCCESS;
 }
 
 static int check_true(const char *name, int condition) {
-
 	if (!condition) {
 		fprintf(stderr, "upd9002-m68-segmented-memory: %s\n", name);
 		return FAILURE;
@@ -141,7 +125,6 @@ static int check_true(const char *name, int condition) {
 }
 
 static int test_segmented_word_read_routes_tvram(void) {
-
 	REG16 value;
 
 	reset_memory_fixture();
@@ -149,15 +132,13 @@ static int test_segmented_word_read_routes_tvram(void) {
 	put_flat_word(phys(M68_TVRAM_BASE, 0x0100), 0x2010);
 	value = upd9002_memoryread_seg_w(M68_TVRAM_BASE, 0x0100);
 	if ((check_word("TVRAM read returned mapped textmem", value, 0xa55a) != SUCCESS) ||
-		(check_true("TVRAM read returned flat shadow",
-			value != 0x2010) != SUCCESS)) {
+	    (check_true("TVRAM read returned flat shadow", value != 0x2010) != SUCCESS)) {
 		return FAILURE;
 	}
 	return SUCCESS;
 }
 
 static int test_segmented_word_read_routes_bms(void) {
-
 	REG16 value;
 
 	reset_memory_fixture();
@@ -166,45 +147,39 @@ static int test_segmented_word_read_routes_bms(void) {
 	put_flat_word(phys(M68_BMS_BASE, 0x0020), 0x4321);
 	value = upd9002_memoryread_seg_w(M68_BMS_BASE, 0x0020);
 	if ((check_word("BMS read returned mapped bank memory", value, 0xb56d) != SUCCESS) ||
-		(check_true("BMS read returned flat shadow",
-			value != 0x4321) != SUCCESS)) {
+	    (check_true("BMS read returned flat shadow", value != 0x4321) != SUCCESS)) {
 		return FAILURE;
 	}
 	return SUCCESS;
 }
 
 static int test_segmented_word_write_routes_tvram(void) {
-
 	reset_memory_fixture();
 	put_flat_word(phys(M68_TVRAM_BASE, 0x0101), 0x2211);
 	upd9002_memorywrite_seg_w(M68_TVRAM_BASE, 0x0101, 0xc35a);
-	if ((check_word("TVRAM unaligned write updated textmem",
-			tvram_word(0x0101), 0xc35a) != SUCCESS) ||
-		(check_word("TVRAM unaligned write left flat shadow",
-			flat_word(phys(M68_TVRAM_BASE, 0x0101)), 0x2211) != SUCCESS) ||
-		(check_true("TVRAM write did not set dirty notification",
-			textmem_dirty) != SUCCESS)) {
+	if ((check_word("TVRAM unaligned write updated textmem", tvram_word(0x0101), 0xc35a) !=
+	     SUCCESS) ||
+	    (check_word("TVRAM unaligned write left flat shadow",
+	                flat_word(phys(M68_TVRAM_BASE, 0x0101)), 0x2211) != SUCCESS) ||
+	    (check_true("TVRAM write did not set dirty notification", textmem_dirty) != SUCCESS)) {
 		return FAILURE;
 	}
 	return SUCCESS;
 }
 
 static int test_segmented_word_write_routes_bms(void) {
-
 	reset_memory_fixture();
 	put_flat_word(phys(M68_BMS_BASE, 0x0030), 0x3412);
 	upd9002_memorywrite_seg_w(M68_BMS_BASE, 0x0030, 0xd17e);
-	if ((check_word("BMS write updated mapped bank memory",
-			bms_word(0x0030), 0xd17e) != SUCCESS) ||
-		(check_word("BMS write left flat shadow",
-			flat_word(phys(M68_BMS_BASE, 0x0030)), 0x3412) != SUCCESS)) {
+	if ((check_word("BMS write updated mapped bank memory", bms_word(0x0030), 0xd17e) != SUCCESS) ||
+	    (check_word("BMS write left flat shadow", flat_word(phys(M68_BMS_BASE, 0x0030)), 0x3412) !=
+	     SUCCESS)) {
 		return FAILURE;
 	}
 	return SUCCESS;
 }
 
 static int test_segmented_word_preserves_normal_ram(void) {
-
 	REG16 value;
 
 	reset_memory_fixture();
@@ -212,15 +187,14 @@ static int test_segmented_word_preserves_normal_ram(void) {
 	value = upd9002_memoryread_seg_w(M68_NORMAL_BASE, 0x0100);
 	upd9002_memorywrite_seg_w(M68_NORMAL_BASE, 0x0102, 0x33cc);
 	if ((check_word("normal RAM read", value, 0x55aa) != SUCCESS) ||
-		(check_word("normal RAM write",
-			flat_word(phys(M68_NORMAL_BASE, 0x0102)), 0x33cc) != SUCCESS)) {
+	    (check_word("normal RAM write", flat_word(phys(M68_NORMAL_BASE, 0x0102)), 0x33cc) !=
+	     SUCCESS)) {
 		return FAILURE;
 	}
 	return SUCCESS;
 }
 
 static int test_segmented_word_offsets_and_wrap(void) {
-
 	REG16 value;
 
 	reset_memory_fixture();
@@ -232,26 +206,20 @@ static int test_segmented_word_offsets_and_wrap(void) {
 	put_tvram_word(0xffff, 0x5ab4);
 	put_flat_word(phys(M68_TVRAM_BASE, 0xffff), 0x6655);
 	value = upd9002_memoryread_seg_w(M68_TVRAM_BASE, 0xffff);
-	if ((check_word("TVRAM FFFFh-to-0000h wrap read",
-			value, 0x5ab4) != SUCCESS) ||
-		(check_true("TVRAM wrap read returned flat shadow",
-			value != 0x6655) != SUCCESS)) {
+	if ((check_word("TVRAM FFFFh-to-0000h wrap read", value, 0x5ab4) != SUCCESS) ||
+	    (check_true("TVRAM wrap read returned flat shadow", value != 0x6655) != SUCCESS)) {
 		return FAILURE;
 	}
 	upd9002_memorywrite_seg_w(M68_TVRAM_BASE, 0xffff, 0x9c81);
-	if ((check_byte("TVRAM wrap low byte",
-			textmem[0xffff], 0x81) != SUCCESS) ||
-		(check_byte("TVRAM wrap high byte",
-			textmem[0x0000], 0x9c) != SUCCESS)) {
+	if ((check_byte("TVRAM wrap low byte", textmem[0xffff], 0x81) != SUCCESS) ||
+	    (check_byte("TVRAM wrap high byte", textmem[0x0000], 0x9c) != SUCCESS)) {
 		return FAILURE;
 	}
 	return SUCCESS;
 }
 
-static void setup_instruction(const UINT8 *instruction, UINT length,
-							UINT16 ds, UINT16 si, UINT16 es, UINT16 di,
-							UINT16 cx, BOOL direction) {
-
+static void setup_instruction(const UINT8 *instruction, UINT length, UINT16 ds, UINT16 si,
+                              UINT16 es, UINT16 di, UINT16 cx, BOOL direction) {
 	UINT index;
 
 	reset_memory_fixture();
@@ -283,118 +251,100 @@ static void setup_instruction(const UINT8 *instruction, UINT length,
 	CPU_CLOCK = 0;
 	upd9002_core_context.s.cpu_type = CPUTYPE_V30;
 	for (index = 0; index < length; index++) {
-		mem[(CS_BASE + CPU_IP + index) & CPU_ADRSMASK] =
-														instruction[index];
+		mem[(CS_BASE + CPU_IP + index) & CPU_ADRSMASK] = instruction[index];
 	}
 }
 
 static void put_normal_source(UINT16 offset, REG16 value) {
-
 	put_flat_word(phys(M68_NORMAL_BASE, offset), value);
 }
 
 static REG16 normal_word(UINT32 base, UINT16 offset) {
-
-	return(flat_word(phys(base, offset)));
+	return (flat_word(phys(base, offset)));
 }
 
 static int test_movsw_tvram_to_normal_nonrep(void) {
-
 	static const UINT8 instruction[] = {0xa5};
 
-	setup_instruction(instruction, NELEMENTS(instruction),
-		(UINT16)(M68_TVRAM_BASE >> 4), 0x0100,
-		(UINT16)(M68_ES_NORMAL_BASE >> 4), 0x0200, 0x7777, FALSE);
+	setup_instruction(instruction, NELEMENTS(instruction), (UINT16)(M68_TVRAM_BASE >> 4), 0x0100,
+	                  (UINT16)(M68_ES_NORMAL_BASE >> 4), 0x0200, 0x7777, FALSE);
 	put_tvram_word(0x0100, 0xa55a);
 	put_flat_word(phys(M68_TVRAM_BASE, 0x0100), 0x2010);
 	upd9002_core_step();
-	if ((check_word("non-REP MOVSW TVRAM->normal",
-			normal_word(M68_ES_NORMAL_BASE, 0x0200), 0xa55a) != SUCCESS) ||
-		(check_true("non-REP MOVSW copied flat TVRAM shadow",
-			normal_word(M68_ES_NORMAL_BASE, 0x0200) != 0x2010) != SUCCESS) ||
-		(check_word("non-REP MOVSW CX unchanged", CPU_CX, 0x7777) != SUCCESS)) {
+	if ((check_word("non-REP MOVSW TVRAM->normal", normal_word(M68_ES_NORMAL_BASE, 0x0200),
+	                0xa55a) != SUCCESS) ||
+	    (check_true("non-REP MOVSW copied flat TVRAM shadow",
+	                normal_word(M68_ES_NORMAL_BASE, 0x0200) != 0x2010) != SUCCESS) ||
+	    (check_word("non-REP MOVSW CX unchanged", CPU_CX, 0x7777) != SUCCESS)) {
 		return FAILURE;
 	}
 	return SUCCESS;
 }
 
 static int test_movsw_tvram_to_normal_rep(void) {
-
 	static const UINT8 instruction[] = {0xf3, 0xa5};
 
-	setup_instruction(instruction, NELEMENTS(instruction),
-		(UINT16)(M68_TVRAM_BASE >> 4), 0x0100,
-		(UINT16)(M68_ES_NORMAL_BASE >> 4), 0x0200, 2, FALSE);
+	setup_instruction(instruction, NELEMENTS(instruction), (UINT16)(M68_TVRAM_BASE >> 4), 0x0100,
+	                  (UINT16)(M68_ES_NORMAL_BASE >> 4), 0x0200, 2, FALSE);
 	put_tvram_word(0x0100, 0xa55a);
 	put_tvram_word(0x0102, 0xc33c);
 	put_flat_word(phys(M68_TVRAM_BASE, 0x0100), 0x2010);
 	put_flat_word(phys(M68_TVRAM_BASE, 0x0102), 0x4030);
 	upd9002_core_step();
-	if ((check_word("REP MOVSW TVRAM->normal word 0",
-			normal_word(M68_ES_NORMAL_BASE, 0x0200), 0xa55a) != SUCCESS) ||
-		(check_word("REP MOVSW TVRAM->normal word 1",
-			normal_word(M68_ES_NORMAL_BASE, 0x0202), 0xc33c) != SUCCESS) ||
-		(check_word("REP MOVSW CX final", CPU_CX, 0) != SUCCESS) ||
-		(check_word("REP MOVSW SI final", CPU_SI, 0x0104) != SUCCESS) ||
-		(check_word("REP MOVSW DI final", CPU_DI, 0x0204) != SUCCESS)) {
+	if ((check_word("REP MOVSW TVRAM->normal word 0", normal_word(M68_ES_NORMAL_BASE, 0x0200),
+	                0xa55a) != SUCCESS) ||
+	    (check_word("REP MOVSW TVRAM->normal word 1", normal_word(M68_ES_NORMAL_BASE, 0x0202),
+	                0xc33c) != SUCCESS) ||
+	    (check_word("REP MOVSW CX final", CPU_CX, 0) != SUCCESS) ||
+	    (check_word("REP MOVSW SI final", CPU_SI, 0x0104) != SUCCESS) ||
+	    (check_word("REP MOVSW DI final", CPU_DI, 0x0204) != SUCCESS)) {
 		return FAILURE;
 	}
 	return SUCCESS;
 }
 
 static int test_movsw_normal_to_tvram_rep(void) {
-
 	static const UINT8 instruction[] = {0xf3, 0xa5};
 
-	setup_instruction(instruction, NELEMENTS(instruction),
-		(UINT16)(M68_NORMAL_BASE >> 4), 0x0110,
-		(UINT16)(M68_TVRAM_BASE >> 4), 0x0210, 2, FALSE);
+	setup_instruction(instruction, NELEMENTS(instruction), (UINT16)(M68_NORMAL_BASE >> 4), 0x0110,
+	                  (UINT16)(M68_TVRAM_BASE >> 4), 0x0210, 2, FALSE);
 	put_normal_source(0x0110, 0x6d61);
 	put_normal_source(0x0112, 0x7032);
 	put_flat_word(phys(M68_TVRAM_BASE, 0x0210), 0x1111);
 	put_flat_word(phys(M68_TVRAM_BASE, 0x0212), 0x2222);
 	upd9002_core_step();
-	if ((check_word("REP MOVSW normal->TVRAM word 0",
-			tvram_word(0x0210), 0x6d61) != SUCCESS) ||
-		(check_word("REP MOVSW normal->TVRAM word 1",
-			tvram_word(0x0212), 0x7032) != SUCCESS) ||
-		(check_word("REP MOVSW normal->TVRAM flat shadow 0",
-			flat_word(phys(M68_TVRAM_BASE, 0x0210)), 0x1111) != SUCCESS) ||
-		(check_true("REP MOVSW normal->TVRAM dirty notification",
-			textmem_dirty) != SUCCESS)) {
+	if ((check_word("REP MOVSW normal->TVRAM word 0", tvram_word(0x0210), 0x6d61) != SUCCESS) ||
+	    (check_word("REP MOVSW normal->TVRAM word 1", tvram_word(0x0212), 0x7032) != SUCCESS) ||
+	    (check_word("REP MOVSW normal->TVRAM flat shadow 0",
+	                flat_word(phys(M68_TVRAM_BASE, 0x0210)), 0x1111) != SUCCESS) ||
+	    (check_true("REP MOVSW normal->TVRAM dirty notification", textmem_dirty) != SUCCESS)) {
 		return FAILURE;
 	}
 	return SUCCESS;
 }
 
 static int test_movsw_tvram_to_tvram_rep(void) {
-
 	static const UINT8 instruction[] = {0xf3, 0xa5};
 
-	setup_instruction(instruction, NELEMENTS(instruction),
-		(UINT16)(M68_TVRAM_BASE >> 4), 0x0300,
-		(UINT16)(M68_TVRAM_BASE >> 4), 0x0310, 2, FALSE);
+	setup_instruction(instruction, NELEMENTS(instruction), (UINT16)(M68_TVRAM_BASE >> 4), 0x0300,
+	                  (UINT16)(M68_TVRAM_BASE >> 4), 0x0310, 2, FALSE);
 	put_tvram_word(0x0300, 0x815a);
 	put_tvram_word(0x0302, 0xa59c);
 	put_flat_word(phys(M68_TVRAM_BASE, 0x0300), 0x1010);
 	put_flat_word(phys(M68_TVRAM_BASE, 0x0302), 0x2020);
 	upd9002_core_step();
-	if ((check_word("REP MOVSW TVRAM->TVRAM word 0",
-			tvram_word(0x0310), 0x815a) != SUCCESS) ||
-		(check_word("REP MOVSW TVRAM->TVRAM word 1",
-			tvram_word(0x0312), 0xa59c) != SUCCESS)) {
+	if ((check_word("REP MOVSW TVRAM->TVRAM word 0", tvram_word(0x0310), 0x815a) != SUCCESS) ||
+	    (check_word("REP MOVSW TVRAM->TVRAM word 1", tvram_word(0x0312), 0xa59c) != SUCCESS)) {
 		return FAILURE;
 	}
 	return SUCCESS;
 }
 
 static int test_movsw_bms_to_normal_rep(void) {
-
 	static const UINT8 instruction[] = {0xf3, 0xa5};
 
-	setup_instruction(instruction, NELEMENTS(instruction),
-		(UINT16)(M68_BMS_BASE >> 4), 0x0040,
-		(UINT16)(M68_ES_NORMAL_BASE >> 4), 0x0240, 2, FALSE);
+	setup_instruction(instruction, NELEMENTS(instruction), (UINT16)(M68_BMS_BASE >> 4), 0x0040,
+	                  (UINT16)(M68_ES_NORMAL_BASE >> 4), 0x0240, 2, FALSE);
 	m68_bmsmem[bms_offset(0x0040)] = 0x42;
 	m68_bmsmem[bms_offset(0x0041)] = 0x24;
 	m68_bmsmem[bms_offset(0x0042)] = 0x68;
@@ -402,56 +352,50 @@ static int test_movsw_bms_to_normal_rep(void) {
 	put_flat_word(phys(M68_BMS_BASE, 0x0040), 0xaaaa);
 	put_flat_word(phys(M68_BMS_BASE, 0x0042), 0xbbbb);
 	upd9002_core_step();
-	if ((check_word("REP MOVSW BMS->normal word 0",
-			normal_word(M68_ES_NORMAL_BASE, 0x0240), 0x2442) != SUCCESS) ||
-		(check_word("REP MOVSW BMS->normal word 1",
-			normal_word(M68_ES_NORMAL_BASE, 0x0242), 0x8668) != SUCCESS)) {
+	if ((check_word("REP MOVSW BMS->normal word 0", normal_word(M68_ES_NORMAL_BASE, 0x0240),
+	                0x2442) != SUCCESS) ||
+	    (check_word("REP MOVSW BMS->normal word 1", normal_word(M68_ES_NORMAL_BASE, 0x0242),
+	                0x8668) != SUCCESS)) {
 		return FAILURE;
 	}
 	return SUCCESS;
 }
 
 static int test_movsw_normal_to_bms_rep(void) {
-
 	static const UINT8 instruction[] = {0xf3, 0xa5};
 
-	setup_instruction(instruction, NELEMENTS(instruction),
-		(UINT16)(M68_NORMAL_BASE >> 4), 0x0120,
-		(UINT16)(M68_BMS_BASE >> 4), 0x0060, 2, FALSE);
+	setup_instruction(instruction, NELEMENTS(instruction), (UINT16)(M68_NORMAL_BASE >> 4), 0x0120,
+	                  (UINT16)(M68_BMS_BASE >> 4), 0x0060, 2, FALSE);
 	put_normal_source(0x0120, 0x61c4);
 	put_normal_source(0x0122, 0x68c8);
 	put_flat_word(phys(M68_BMS_BASE, 0x0060), 0x5555);
 	put_flat_word(phys(M68_BMS_BASE, 0x0062), 0x7777);
 	upd9002_core_step();
-	if ((check_word("REP MOVSW normal->BMS word 0",
-			bms_word(0x0060), 0x61c4) != SUCCESS) ||
-		(check_word("REP MOVSW normal->BMS word 1",
-			bms_word(0x0062), 0x68c8) != SUCCESS) ||
-		(check_word("REP MOVSW normal->BMS flat shadow 0",
-			flat_word(phys(M68_BMS_BASE, 0x0060)), 0x5555) != SUCCESS)) {
+	if ((check_word("REP MOVSW normal->BMS word 0", bms_word(0x0060), 0x61c4) != SUCCESS) ||
+	    (check_word("REP MOVSW normal->BMS word 1", bms_word(0x0062), 0x68c8) != SUCCESS) ||
+	    (check_word("REP MOVSW normal->BMS flat shadow 0", flat_word(phys(M68_BMS_BASE, 0x0060)),
+	                0x5555) != SUCCESS)) {
 		return FAILURE;
 	}
 	return SUCCESS;
 }
 
 static int test_movsw_rep_direction_decrement(void) {
-
 	static const UINT8 instruction[] = {0xf3, 0xa5};
 
-	setup_instruction(instruction, NELEMENTS(instruction),
-		(UINT16)(M68_TVRAM_BASE >> 4), 0x0402,
-		(UINT16)(M68_ES_NORMAL_BASE >> 4), 0x0502, 2, TRUE);
+	setup_instruction(instruction, NELEMENTS(instruction), (UINT16)(M68_TVRAM_BASE >> 4), 0x0402,
+	                  (UINT16)(M68_ES_NORMAL_BASE >> 4), 0x0502, 2, TRUE);
 	put_tvram_word(0x0400, 0x0400);
 	put_tvram_word(0x0402, 0x0402);
 	put_flat_word(phys(M68_TVRAM_BASE, 0x0400), 0x4000);
 	put_flat_word(phys(M68_TVRAM_BASE, 0x0402), 0x4002);
 	upd9002_core_step();
-	if ((check_word("REP MOVSW DF=1 first destination",
-			normal_word(M68_ES_NORMAL_BASE, 0x0502), 0x0402) != SUCCESS) ||
-		(check_word("REP MOVSW DF=1 second destination",
-			normal_word(M68_ES_NORMAL_BASE, 0x0500), 0x0400) != SUCCESS) ||
-		(check_word("REP MOVSW DF=1 SI final", CPU_SI, 0x03fe) != SUCCESS) ||
-		(check_word("REP MOVSW DF=1 DI final", CPU_DI, 0x04fe) != SUCCESS)) {
+	if ((check_word("REP MOVSW DF=1 first destination", normal_word(M68_ES_NORMAL_BASE, 0x0502),
+	                0x0402) != SUCCESS) ||
+	    (check_word("REP MOVSW DF=1 second destination", normal_word(M68_ES_NORMAL_BASE, 0x0500),
+	                0x0400) != SUCCESS) ||
+	    (check_word("REP MOVSW DF=1 SI final", CPU_SI, 0x03fe) != SUCCESS) ||
+	    (check_word("REP MOVSW DF=1 DI final", CPU_DI, 0x04fe) != SUCCESS)) {
 		return FAILURE;
 	}
 	return SUCCESS;
@@ -465,22 +409,20 @@ typedef struct {
 } M68CASE;
 
 int upd9002_m68_segmented_memory_main(void) {
-
 	static const M68CASE cases[] = {
-		{"segmented word read TVRAM", test_segmented_word_read_routes_tvram},
-		{"segmented word read BMS", test_segmented_word_read_routes_bms},
-		{"segmented word write TVRAM", test_segmented_word_write_routes_tvram},
-		{"segmented word write BMS", test_segmented_word_write_routes_bms},
-		{"segmented word normal RAM", test_segmented_word_preserves_normal_ram},
-		{"segmented word offsets/wrap", test_segmented_word_offsets_and_wrap},
-		{"MOVSW TVRAM->normal non-REP", test_movsw_tvram_to_normal_nonrep},
-		{"MOVSW TVRAM->normal REP", test_movsw_tvram_to_normal_rep},
-		{"MOVSW normal->TVRAM REP", test_movsw_normal_to_tvram_rep},
-		{"MOVSW TVRAM->TVRAM REP", test_movsw_tvram_to_tvram_rep},
-		{"MOVSW BMS->normal REP", test_movsw_bms_to_normal_rep},
-		{"MOVSW normal->BMS REP", test_movsw_normal_to_bms_rep},
-		{"MOVSW REP DF=1", test_movsw_rep_direction_decrement}
-	};
+	    {"segmented word read TVRAM", test_segmented_word_read_routes_tvram},
+	    {"segmented word read BMS", test_segmented_word_read_routes_bms},
+	    {"segmented word write TVRAM", test_segmented_word_write_routes_tvram},
+	    {"segmented word write BMS", test_segmented_word_write_routes_bms},
+	    {"segmented word normal RAM", test_segmented_word_preserves_normal_ram},
+	    {"segmented word offsets/wrap", test_segmented_word_offsets_and_wrap},
+	    {"MOVSW TVRAM->normal non-REP", test_movsw_tvram_to_normal_nonrep},
+	    {"MOVSW TVRAM->normal REP", test_movsw_tvram_to_normal_rep},
+	    {"MOVSW normal->TVRAM REP", test_movsw_normal_to_tvram_rep},
+	    {"MOVSW TVRAM->TVRAM REP", test_movsw_tvram_to_tvram_rep},
+	    {"MOVSW BMS->normal REP", test_movsw_bms_to_normal_rep},
+	    {"MOVSW normal->BMS REP", test_movsw_normal_to_bms_rep},
+	    {"MOVSW REP DF=1", test_movsw_rep_direction_decrement}};
 	UINT index;
 	UINT failures;
 
@@ -488,17 +430,14 @@ int upd9002_m68_segmented_memory_main(void) {
 	failures = 0;
 	for (index = 0; index < NELEMENTS(cases); index++) {
 		if (cases[index].fn() != SUCCESS) {
-			fprintf(stderr,
-				"upd9002-m68-segmented-memory: case failed: %s\n",
-				cases[index].name);
+			fprintf(stderr, "upd9002-m68-segmented-memory: case failed: %s\n", cases[index].name);
 			failures++;
 		}
 	}
 	upd9002_core_deinitialize();
 	if (failures) {
-		fprintf(stderr,
-			"upd9002-m68-segmented-memory: %u / %u cases failed\n",
-			failures, (UINT)NELEMENTS(cases));
+		fprintf(stderr, "upd9002-m68-segmented-memory: %u / %u cases failed\n", failures,
+		        (UINT)NELEMENTS(cases));
 		return FAILURE;
 	}
 	puts("upd9002-m68-segmented-memory: mapped dispatch checks passed");

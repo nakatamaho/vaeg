@@ -22,69 +22,55 @@
  * IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-#include	"compiler.h"
-#include	"romankana.h"
+#include "compiler.h"
+#include "romankana.h"
 
 typedef struct {
-	const char	*roman;
-	const char	*token;
+	const char *roman;
+	const char *token;
 } ROMANKANA_RULE;
 
 static const ROMANKANA_RULE rules[] = {
-	{"kya", "kya"}, {"kyu", "kyu"}, {"kyo", "kyo"},
-	{"sha", "sha"}, {"shu", "shu"}, {"sho", "sho"},
-	{"sya", "sha"}, {"syu", "shu"}, {"syo", "sho"},
-	{"cha", "cha"}, {"chu", "chu"}, {"cho", "cho"},
-	{"cya", "cha"}, {"cyu", "chu"}, {"cyo", "cho"},
-	{"tya", "cha"}, {"tyu", "chu"}, {"tyo", "cho"},
-	{"nya", "nya"}, {"nyu", "nyu"}, {"nyo", "nyo"},
-	{"hya", "hya"}, {"hyu", "hyu"}, {"hyo", "hyo"},
-	{"mya", "mya"}, {"myu", "myu"}, {"myo", "myo"},
-	{"rya", "rya"}, {"ryu", "ryu"}, {"ryo", "ryo"},
-	{"gya", "gya"}, {"gyu", "gyu"}, {"gyo", "gyo"},
-	{"ja", "ja"}, {"ju", "ju"}, {"jo", "jo"},
-	{"jya", "ja"}, {"jyu", "ju"}, {"jyo", "jo"},
-	{"zya", "ja"}, {"zyu", "ju"}, {"zyo", "jo"},
-	{"bya", "bya"}, {"byu", "byu"}, {"byo", "byo"},
-	{"pya", "pya"}, {"pyu", "pyu"}, {"pyo", "pyo"},
-	{"va", "va"}, {"vi", "vi"}, {"vu", "vu"}, {"ve", "ve"}, {"vo", "vo"},
-	{"xya", "xya"}, {"xyu", "xyu"}, {"xyo", "xyo"},
-	{"lya", "xya"}, {"lyu", "xyu"}, {"lyo", "xyo"},
-	{"xa", "xa"}, {"xi", "xi"}, {"xu", "xu"}, {"xe", "xe"}, {"xo", "xo"},
-	{"la", "xa"}, {"li", "xi"}, {"lu", "xu"}, {"le", "xe"}, {"lo", "xo"},
-	{"xtsu", "xtsu"}, {"ltsu", "xtsu"}, {"xtu", "xtsu"}, {"ltu", "xtsu"},
-	{"shi", "shi"}, {"si", "shi"}, {"chi", "chi"},
-	{"tsu", "tsu"}, {"tu", "tsu"},
-	{"ka", "ka"}, {"ki", "ki"}, {"ku", "ku"}, {"ke", "ke"}, {"ko", "ko"},
-	{"sa", "sa"}, {"su", "su"}, {"se", "se"}, {"so", "so"},
-	{"ta", "ta"}, {"te", "te"}, {"to", "to"},
-	{"na", "na"}, {"ni", "ni"}, {"nu", "nu"}, {"ne", "ne"}, {"no", "no"},
-	{"ha", "ha"}, {"hi", "hi"}, {"fu", "fu"}, {"he", "he"}, {"ho", "ho"},
-	{"ma", "ma"}, {"mi", "mi"}, {"mu", "mu"}, {"me", "me"}, {"mo", "mo"},
-	{"ya", "ya"}, {"yu", "yu"}, {"yo", "yo"},
-	{"ra", "ra"}, {"ri", "ri"}, {"ru", "ru"}, {"re", "re"}, {"ro", "ro"},
-	{"wa", "wa"}, {"wo", "wo"},
-	{"ga", "ga"}, {"gi", "gi"}, {"gu", "gu"}, {"ge", "ge"}, {"go", "go"},
-	{"za", "za"}, {"ji", "ji"}, {"zu", "zu"}, {"ze", "ze"}, {"zo", "zo"},
-	{"da", "da"}, {"de", "de"}, {"do", "do"},
-	{"ba", "ba"}, {"bi", "bi"}, {"bu", "bu"}, {"be", "be"}, {"bo", "bo"},
-	{"pa", "pa"}, {"pi", "pi"}, {"pu", "pu"}, {"pe", "pe"}, {"po", "po"},
-	{"a", "a"}, {"i", "i"}, {"u", "u"}, {"e", "e"}, {"o", "o"}
-};
+    {"kya", "kya"},   {"kyu", "kyu"},  {"kyo", "kyo"},  {"sha", "sha"}, {"shu", "shu"},
+    {"sho", "sho"},   {"sya", "sha"},  {"syu", "shu"},  {"syo", "sho"}, {"cha", "cha"},
+    {"chu", "chu"},   {"cho", "cho"},  {"cya", "cha"},  {"cyu", "chu"}, {"cyo", "cho"},
+    {"tya", "cha"},   {"tyu", "chu"},  {"tyo", "cho"},  {"nya", "nya"}, {"nyu", "nyu"},
+    {"nyo", "nyo"},   {"hya", "hya"},  {"hyu", "hyu"},  {"hyo", "hyo"}, {"mya", "mya"},
+    {"myu", "myu"},   {"myo", "myo"},  {"rya", "rya"},  {"ryu", "ryu"}, {"ryo", "ryo"},
+    {"gya", "gya"},   {"gyu", "gyu"},  {"gyo", "gyo"},  {"ja", "ja"},   {"ju", "ju"},
+    {"jo", "jo"},     {"jya", "ja"},   {"jyu", "ju"},   {"jyo", "jo"},  {"zya", "ja"},
+    {"zyu", "ju"},    {"zyo", "jo"},   {"bya", "bya"},  {"byu", "byu"}, {"byo", "byo"},
+    {"pya", "pya"},   {"pyu", "pyu"},  {"pyo", "pyo"},  {"va", "va"},   {"vi", "vi"},
+    {"vu", "vu"},     {"ve", "ve"},    {"vo", "vo"},    {"xya", "xya"}, {"xyu", "xyu"},
+    {"xyo", "xyo"},   {"lya", "xya"},  {"lyu", "xyu"},  {"lyo", "xyo"}, {"xa", "xa"},
+    {"xi", "xi"},     {"xu", "xu"},    {"xe", "xe"},    {"xo", "xo"},   {"la", "xa"},
+    {"li", "xi"},     {"lu", "xu"},    {"le", "xe"},    {"lo", "xo"},   {"xtsu", "xtsu"},
+    {"ltsu", "xtsu"}, {"xtu", "xtsu"}, {"ltu", "xtsu"}, {"shi", "shi"}, {"si", "shi"},
+    {"chi", "chi"},   {"tsu", "tsu"},  {"tu", "tsu"},   {"ka", "ka"},   {"ki", "ki"},
+    {"ku", "ku"},     {"ke", "ke"},    {"ko", "ko"},    {"sa", "sa"},   {"su", "su"},
+    {"se", "se"},     {"so", "so"},    {"ta", "ta"},    {"te", "te"},   {"to", "to"},
+    {"na", "na"},     {"ni", "ni"},    {"nu", "nu"},    {"ne", "ne"},   {"no", "no"},
+    {"ha", "ha"},     {"hi", "hi"},    {"fu", "fu"},    {"he", "he"},   {"ho", "ho"},
+    {"ma", "ma"},     {"mi", "mi"},    {"mu", "mu"},    {"me", "me"},   {"mo", "mo"},
+    {"ya", "ya"},     {"yu", "yu"},    {"yo", "yo"},    {"ra", "ra"},   {"ri", "ri"},
+    {"ru", "ru"},     {"re", "re"},    {"ro", "ro"},    {"wa", "wa"},   {"wo", "wo"},
+    {"ga", "ga"},     {"gi", "gi"},    {"gu", "gu"},    {"ge", "ge"},   {"go", "go"},
+    {"za", "za"},     {"ji", "ji"},    {"zu", "zu"},    {"ze", "ze"},   {"zo", "zo"},
+    {"da", "da"},     {"de", "de"},    {"do", "do"},    {"ba", "ba"},   {"bi", "bi"},
+    {"bu", "bu"},     {"be", "be"},    {"bo", "bo"},    {"pa", "pa"},   {"pi", "pi"},
+    {"pu", "pu"},     {"pe", "pe"},    {"po", "po"},    {"a", "a"},     {"i", "i"},
+    {"u", "u"},       {"e", "e"},      {"o", "o"}};
 
 static int is_vowel(char c) {
-
 	return (c == 'a') || (c == 'i') || (c == 'u') || (c == 'e') || (c == 'o');
 }
 
 static int is_consonant(char c) {
-
 	return ((c >= 'a') && (c <= 'z') && !is_vowel(c));
 }
 
 static int rule_prefix(const char *buf, UINT len, const char *rule) {
-
-	UINT	i;
+	UINT i;
 
 	for (i = 0; i < len; i++) {
 		if (rule[i] == '\0') {
@@ -98,8 +84,7 @@ static int rule_prefix(const char *buf, UINT len, const char *rule) {
 }
 
 static void consume(ROMANKANA_STATE *state, UINT count) {
-
-	UINT	i;
+	UINT i;
 
 	if (count >= state->length) {
 		state->length = 0;
@@ -114,48 +99,36 @@ static void consume(ROMANKANA_STATE *state, UINT count) {
 }
 
 static int emit_token(ROMANKANA_EMIT emit, void *arg, const char *token) {
-
 	if (emit != NULL) {
 		emit(token, arg);
 	}
 	return 1;
 }
 
-static int process(ROMANKANA_STATE *state, ROMANKANA_EMIT emit,
-					void *arg, int final) {
-
-	int		produced;
-	UINT	i;
+static int process(ROMANKANA_STATE *state, ROMANKANA_EMIT emit, void *arg, int final) {
+	int produced;
+	UINT i;
 
 	produced = 0;
-	while(state->length > 0) {
-		if ((state->length >= 2) &&
-			is_consonant(state->buffer[0]) &&
-			(state->buffer[0] == state->buffer[1]) &&
-			(state->buffer[0] != 'n')) {
+	while (state->length > 0) {
+		if ((state->length >= 2) && is_consonant(state->buffer[0]) &&
+		    (state->buffer[0] == state->buffer[1]) && (state->buffer[0] != 'n')) {
 			produced += emit_token(emit, arg, "xtsu");
 			consume(state, 1);
 			continue;
 		}
-		if ((state->length >= 2) &&
-			(state->buffer[0] == 'n') &&
-			(state->buffer[1] == '\'')) {
+		if ((state->length >= 2) && (state->buffer[0] == 'n') && (state->buffer[1] == '\'')) {
 			produced += emit_token(emit, arg, "nn");
 			consume(state, 2);
 			continue;
 		}
-		if ((state->length >= 2) &&
-			(state->buffer[0] == 'n') &&
-			(state->buffer[1] == 'n')) {
+		if ((state->length >= 2) && (state->buffer[0] == 'n') && (state->buffer[1] == 'n')) {
 			produced += emit_token(emit, arg, "nn");
 			consume(state, 2);
 			continue;
 		}
-		if ((state->length >= 2) &&
-			(state->buffer[0] == 'n') &&
-			is_consonant(state->buffer[1]) &&
-			(state->buffer[1] != 'y') &&
-			(state->buffer[1] != 'n')) {
+		if ((state->length >= 2) && (state->buffer[0] == 'n') && is_consonant(state->buffer[1]) &&
+		    (state->buffer[1] != 'y') && (state->buffer[1] != 'n')) {
 			produced += emit_token(emit, arg, "nn");
 			consume(state, 1);
 			continue;
@@ -163,8 +136,7 @@ static int process(ROMANKANA_STATE *state, ROMANKANA_EMIT emit,
 		for (i = 0; i < NELEMENTS(rules); i++) {
 			const char *roman = rules[i].roman;
 			UINT len = (UINT)strlen(roman);
-			if ((state->length >= len) &&
-				!memcmp(state->buffer, roman, len)) {
+			if ((state->length >= len) && !memcmp(state->buffer, roman, len)) {
 				produced += emit_token(emit, arg, rules[i].token);
 				consume(state, len);
 				break;
@@ -193,24 +165,21 @@ static int process(ROMANKANA_STATE *state, ROMANKANA_EMIT emit,
 }
 
 void romankana_reset(ROMANKANA_STATE *state) {
-
 	if (state != NULL) {
 		state->length = 0;
 		state->buffer[0] = '\0';
 	}
 }
 
-int romankana_feed(ROMANKANA_STATE *state, const char *text,
-					ROMANKANA_EMIT emit, void *arg) {
-
-	int		produced;
-	char	c;
+int romankana_feed(ROMANKANA_STATE *state, const char *text, ROMANKANA_EMIT emit, void *arg) {
+	int produced;
+	char c;
 
 	if ((state == NULL) || (text == NULL)) {
 		return 0;
 	}
 	produced = 0;
-	while((c = *text++) != '\0') {
+	while ((c = *text++) != '\0') {
 		if ((c >= 'A') && (c <= 'Z')) {
 			c = (char)(c - 'A' + 'a');
 		}
@@ -231,7 +200,6 @@ int romankana_feed(ROMANKANA_STATE *state, const char *text,
 }
 
 int romankana_flush(ROMANKANA_STATE *state, ROMANKANA_EMIT emit, void *arg) {
-
 	if (state == NULL) {
 		return 0;
 	}

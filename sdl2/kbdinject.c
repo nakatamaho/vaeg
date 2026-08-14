@@ -22,32 +22,27 @@
  * IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-#include	"compiler.h"
-#include	"machine/keystat.h"
-#include	"kbdinject.h"
+#include "compiler.h"
+#include "machine/keystat.h"
+#include "kbdinject.h"
 
 void kbdinject_keydown(BYTE guest_code) {
-
 	keystat_senddata(guest_code);
 }
 
 void kbdinject_keyup(BYTE guest_code) {
-
 	keystat_senddata((BYTE)(guest_code | 0x80));
 }
 
 void kbdinject_press(BYTE guest_code) {
-
 	kbdinject_keydown(guest_code);
 	kbdinject_keyup(guest_code);
 }
 
 void kbdinject_forcerelease(BYTE guest_code) {
-
 	keystat_forcerelease(guest_code);
 }
 
 void kbdinject_allrelease(void) {
-
 	keystat_allrelease();
 }

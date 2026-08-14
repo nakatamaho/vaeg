@@ -22,35 +22,34 @@
  * IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-#include	"compiler.h"
-#include	"sdlapi.h"
-#include	"parts.h"
-#include	"soundmng.h"
-#include	"soundopts.h"
-#include	"sound.h"
+#include "compiler.h"
+#include "sdlapi.h"
+#include "parts.h"
+#include "soundmng.h"
+#include "soundopts.h"
+#include "sound.h"
 #if defined(VERMOUTH_LIB)
-#include	"commng.h"
-#include	"cmver.h"
+#include "commng.h"
+#include "cmver.h"
 #endif
 
-#define	NSNDBUF				2
+#define NSNDBUF 2
 
 typedef struct {
-	BOOL				opened;
-	BOOL				enabled;
-	SDL_AudioDeviceID	device;
-	int					nsndbuf;
-	int					samples;
-	SINT16				*buf[NSNDBUF];
+	BOOL opened;
+	BOOL enabled;
+	SDL_AudioDeviceID device;
+	int nsndbuf;
+	int samples;
+	SINT16 *buf[NSNDBUF];
 } SOUNDMNG;
 
-static	SOUNDMNG	soundmng;
+static SOUNDMNG soundmng;
 
 static void sound_play_cb(void *userdata, Uint8 *stream, int len) {
-
-	int			length;
-	SINT16		*dst;
-const SINT32	*src;
+	int length;
+	SINT16 *dst;
+	const SINT32 *src;
 
 	length = min(len, (int)(soundmng.samples * 2 * sizeof(SINT16)));
 	dst = soundmng.buf[soundmng.nsndbuf];
@@ -58,24 +57,21 @@ const SINT32	*src;
 	if (src) {
 		satuation_s16(dst, src, length);
 		sound_pcmunlock(src);
-	}
-	else {
+	} else {
 		ZeroMemory(dst, length);
 	}
 	ZeroMemory(stream, len);
-	SDL_MixAudioFormat(stream, (Uint8 *)dst, AUDIO_S16SYS, length,
-						SDL_MIX_MAXVOLUME);
+	SDL_MixAudioFormat(stream, (Uint8 *)dst, AUDIO_S16SYS, length, SDL_MIX_MAXVOLUME);
 	soundmng.nsndbuf = (soundmng.nsndbuf + 1) % NSNDBUF;
 	(void)userdata;
 }
 
 UINT soundmng_create(UINT rate, UINT ms) {
-
-	SDL_AudioSpec	want;
-	SDL_AudioSpec	have;
-	UINT			s;
-	UINT			samples;
-	SINT16			*tmp;
+	SDL_AudioSpec want;
+	SDL_AudioSpec have;
+	UINT s;
+	UINT samples;
+	SINT16 *tmp;
 
 	if (soundmng.opened) {
 		goto smcre_err1;
@@ -91,7 +87,7 @@ UINT soundmng_create(UINT rate, UINT ms) {
 	}
 	soundmng.nsndbuf = 0;
 	soundmng.samples = samples;
-	for (s=0; s<NSNDBUF; s++) {
+	for (s = 0; s < NSNDBUF; s++) {
 		tmp = (SINT16 *)_MALLOC(samples * 2 * sizeof(SINT16), "buf");
 		if (tmp == NULL) {
 			goto smcre_err2;
@@ -115,10 +111,10 @@ UINT soundmng_create(UINT rate, UINT ms) {
 	cmvermouth_load(rate);
 #endif
 	soundmng.opened = TRUE;
-	return(samples);
+	return (samples);
 
 smcre_err2:
-	for (s=0; s<NSNDBUF; s++) {
+	for (s = 0; s < NSNDBUF; s++) {
 		tmp = soundmng.buf[s];
 		soundmng.buf[s] = NULL;
 		if (tmp) {
@@ -127,20 +123,19 @@ smcre_err2:
 	}
 
 smcre_err1:
-	return(0);
+	return (0);
 }
 
 void soundmng_destroy(void) {
-
-	int		i;
-	SINT16	*tmp;
+	int i;
+	SINT16 *tmp;
 
 	if (soundmng.opened) {
 		soundmng.opened = FALSE;
 		SDL_PauseAudioDevice(soundmng.device, 1);
 		SDL_CloseAudioDevice(soundmng.device);
 		soundmng.device = 0;
-		for (i=0; i<NSNDBUF; i++) {
+		for (i = 0; i < NSNDBUF; i++) {
 			tmp = soundmng.buf[i];
 			soundmng.buf[i] = NULL;
 			if (tmp) {
@@ -154,21 +149,18 @@ void soundmng_destroy(void) {
 }
 
 void soundmng_play(void) {
-
 	if (soundmng.opened) {
 		SDL_PauseAudioDevice(soundmng.device, soundmng.enabled ? 0 : 1);
 	}
 }
 
 void soundmng_stop(void) {
-
 	if (soundmng.opened) {
 		SDL_PauseAudioDevice(soundmng.device, 1);
 	}
 }
 
 void soundmng_setenabled(BOOL enabled) {
-
 	soundmng.enabled = enabled ? TRUE : FALSE;
 	if (soundmng.opened) {
 		SDL_PauseAudioDevice(soundmng.device, soundmng.enabled ? 0 : 1);
@@ -176,17 +168,14 @@ void soundmng_setenabled(BOOL enabled) {
 }
 
 BOOL soundmng_isenabled(void) {
-
-	return(soundmng.enabled);
+	return (soundmng.enabled);
 }
 
 void soundmng_initialize(void) {
-
 	soundmng.enabled = TRUE;
 }
 
 void soundmng_deinitialize(void) {
-
 #if defined(VERMOUTH_LIB)
 	cmvermouth_unload();
 #endif

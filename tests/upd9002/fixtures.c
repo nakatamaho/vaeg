@@ -38,7 +38,6 @@
 void upd9002_m42_process_cpu_reset_request(void);
 
 static void bytes_hex(const void *data, size_t size, char *output) {
-
 	const uint8_t *bytes;
 	size_t index;
 
@@ -50,7 +49,6 @@ static void bytes_hex(const void *data, size_t size, char *output) {
 }
 
 static void fixture_line(const char *scenario, char *line, size_t size) {
-
 	Upd9002StateImage cpu;
 	char cpu_hex[sizeof(cpu) * 2 + 1];
 	char regs_hex[sizeof(upd9002_regs) * 2 + 1];
@@ -59,18 +57,16 @@ static void fixture_line(const char *scenario, char *line, size_t size) {
 	bytes_hex(&cpu, sizeof(cpu), cpu_hex);
 	bytes_hex(&upd9002_regs, sizeof(upd9002_regs), regs_hex);
 	snprintf(line, size,
-		"%s,cpu286_size=%u,cpu286=%s,upd9002_size=%u,upd9002=%s,"
-		"ax=%04x,bx=%04x,cx=%04x,dx=%04x,sp=%04x,cs=%04x,ip=%04x,"
-		"flags=%04x,csbase=%08x,remain=%08x,base=%08x,clock=%08x,type=%02x\n",
-		scenario, (unsigned int)sizeof(cpu), cpu_hex,
-		(unsigned int)sizeof(upd9002_regs), regs_hex,
-		CPU_AX, CPU_BX, CPU_CX, CPU_DX, CPU_SP, CPU_CS, CPU_IP,
-		CPU_FLAG, CS_BASE, (uint32_t)CPU_REMCLOCK,
-		(uint32_t)CPU_BASECLOCK, CPU_CLOCK, upd9002_core_context.s.cpu_type);
+	         "%s,cpu286_size=%u,cpu286=%s,upd9002_size=%u,upd9002=%s,"
+	         "ax=%04x,bx=%04x,cx=%04x,dx=%04x,sp=%04x,cs=%04x,ip=%04x,"
+	         "flags=%04x,csbase=%08x,remain=%08x,base=%08x,clock=%08x,type=%02x\n",
+	         scenario, (unsigned int)sizeof(cpu), cpu_hex, (unsigned int)sizeof(upd9002_regs),
+	         regs_hex, CPU_AX, CPU_BX, CPU_CX, CPU_DX, CPU_SP, CPU_CS, CPU_IP, CPU_FLAG, CS_BASE,
+	         (uint32_t)CPU_REMCLOCK, (uint32_t)CPU_BASECLOCK, CPU_CLOCK,
+	         upd9002_core_context.s.cpu_type);
 }
 
 static void prepare_executed(void) {
-
 	static const uint8_t program[] = {0xb8, 0x34, 0x12, 0x40, 0x90};
 	uint32_t index;
 
@@ -91,15 +87,13 @@ static void prepare_executed(void) {
 }
 
 static int verify_native_reset_invariant(void) {
-
 	Upd9002StateImage saved;
 
 	upd9002_state_export(&saved);
 	upd9002_core_context.s.cpu_type = 0;
 	upd9002_core_reset();
-	if ((upd9002_core_context.s.cpu_type != CPUTYPE_V30) ||
-		(CPU_CS != 0xf000) || (CPU_IP != 0xfff0) ||
-		(CS_BASE != 0x000f0000) || (CPU_FLAG != 0xf002)) {
+	if ((upd9002_core_context.s.cpu_type != CPUTYPE_V30) || (CPU_CS != 0xf000) ||
+	    (CPU_IP != 0xfff0) || (CS_BASE != 0x000f0000) || (CPU_FLAG != 0xf002)) {
 		(void)upd9002_state_import(&saved, sizeof(saved), NULL, 0);
 		return FAILURE;
 	}
@@ -107,7 +101,6 @@ static int verify_native_reset_invariant(void) {
 }
 
 int upd9002_fixture_verify(const char *path) {
-
 	FILE *stream;
 	Upd9002StateImage saved_cpu;
 	UPD9002_REGS saved_regs;
@@ -129,8 +122,7 @@ int upd9002_fixture_verify(const char *path) {
 	CPU_RESETREQ = 1;
 	upd9002_m42_process_cpu_reset_request();
 	fixture_line("cpu-shut-request", actual[2], sizeof(actual[2]));
-	if (upd9002_state_import(&saved_cpu, sizeof(saved_cpu), NULL, 0) !=
-															SUCCESS) {
+	if (upd9002_state_import(&saved_cpu, sizeof(saved_cpu), NULL, 0) != SUCCESS) {
 		return FAILURE;
 	}
 	upd9002_regs = saved_regs;
@@ -145,7 +137,7 @@ int upd9002_fixture_verify(const char *path) {
 	}
 	for (index = 0; index < 3; index++) {
 		if ((fgets(expected, sizeof(expected), stream) == NULL) ||
-			strcmp(expected, actual[index])) {
+		    strcmp(expected, actual[index])) {
 			fprintf(stderr, "upd9002-fixture: mismatch for row %u\n", index);
 			fclose(stream);
 			return FAILURE;
@@ -156,7 +148,6 @@ int upd9002_fixture_verify(const char *path) {
 		return FAILURE;
 	}
 	fclose(stream);
-	fprintf(stderr,
-		"upd9002-fixture: reset, executed, and CPU_SHUT payloads passed\n");
+	fprintf(stderr, "upd9002-fixture: reset, executed, and CPU_SHUT payloads passed\n");
 	return SUCCESS;
 }

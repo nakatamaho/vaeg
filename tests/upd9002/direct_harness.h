@@ -106,11 +106,9 @@ typedef struct {
 	UPD9002_SSTS_IO_EVENT io[UPD9002_SSTS_IO_CAPACITY];
 } UPD9002_SSTS_RESULT;
 
-int upd9002_harness_run(const UPD9002_HARNESS_INPUT *input,
-						UPD9002_HARNESS_RESULT *result);
+int upd9002_harness_run(const UPD9002_HARNESS_INPUT *input, UPD9002_HARNESS_RESULT *result);
 int upd9002_harness_run_manifest(const char *path);
-int upd9002_harness_run_ssts(const UPD9002_SSTS_INPUT *input,
-						UPD9002_SSTS_RESULT *result);
+int upd9002_harness_run_ssts(const UPD9002_SSTS_INPUT *input, UPD9002_SSTS_RESULT *result);
 int upd9002_ssts_io_active(void);
 uint8_t upd9002_ssts_io_read(uint16_t port);
 void upd9002_ssts_io_write(uint16_t port, uint8_t value);

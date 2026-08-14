@@ -166,7 +166,6 @@ typedef uint32_t DWORD;
 #include "trace.h"
 
 static INLINE UINT32 vaeg_gettick(void) {
-
 	struct timeval tv;
 	UINT64 msec;
 

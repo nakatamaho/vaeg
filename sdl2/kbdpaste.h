@@ -46,8 +46,8 @@ void kbdpaste_cancel(void);
 BOOL kbdpaste_active(void);
 const char *kbdpaste_status(void);
 UINT kbdpaste_interval_ms(void);
-size_t kbdpaste_map_text(const char *text, KBDPASTE_ACTION *actions,
-						 size_t capacity, UINT *skipped);
+size_t kbdpaste_map_text(const char *text, KBDPASTE_ACTION *actions, size_t capacity,
+                         UINT *skipped);
 
 #ifdef __cplusplus
 }

@@ -26,14 +26,14 @@
 #define VAEG_SDL2_FONTMNG_H
 
 enum {
-	FDAT_PROPORTIONAL	= 0x01
+	FDAT_PROPORTIONAL = 0x01
 };
 
 typedef struct {
-	UINT8	width;
-	UINT8	height;
-	UINT8	bit;
-	UINT8	padding;
+	UINT8 width;
+	UINT8 height;
+	UINT8 bit;
+	UINT8 padding;
 } _FNTDAT, *FNTDAT;
 
 #ifdef __cplusplus

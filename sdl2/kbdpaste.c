@@ -56,74 +56,153 @@ typedef struct {
 static KBDPASTE_STATE paste;
 
 static BYTE role_code(KBDMAP_ROLE role) {
-
 	return kbdmap_guest_code(role);
 }
 
 static BOOL map_ascii(BYTE ch, KBDPASTE_ACTION *action) {
-
-	static const KBDMAP_ROLE digit_roles[] = {
-		KBDROLE_0, KBDROLE_1, KBDROLE_2, KBDROLE_3, KBDROLE_4,
-		KBDROLE_5, KBDROLE_6, KBDROLE_7, KBDROLE_8, KBDROLE_9
-	};
+	static const KBDMAP_ROLE digit_roles[] = {KBDROLE_0, KBDROLE_1, KBDROLE_2, KBDROLE_3,
+	                                          KBDROLE_4, KBDROLE_5, KBDROLE_6, KBDROLE_7,
+	                                          KBDROLE_8, KBDROLE_9};
 	static const KBDMAP_ROLE letter_roles[] = {
-		KBDROLE_A, KBDROLE_B, KBDROLE_C, KBDROLE_D, KBDROLE_E,
-		KBDROLE_F, KBDROLE_G, KBDROLE_H, KBDROLE_I, KBDROLE_J,
-		KBDROLE_K, KBDROLE_L, KBDROLE_M, KBDROLE_N, KBDROLE_O,
-		KBDROLE_P, KBDROLE_Q, KBDROLE_R, KBDROLE_S, KBDROLE_T,
-		KBDROLE_U, KBDROLE_V, KBDROLE_W, KBDROLE_X, KBDROLE_Y,
-		KBDROLE_Z
-	};
+	    KBDROLE_A, KBDROLE_B, KBDROLE_C, KBDROLE_D, KBDROLE_E, KBDROLE_F, KBDROLE_G,
+	    KBDROLE_H, KBDROLE_I, KBDROLE_J, KBDROLE_K, KBDROLE_L, KBDROLE_M, KBDROLE_N,
+	    KBDROLE_O, KBDROLE_P, KBDROLE_Q, KBDROLE_R, KBDROLE_S, KBDROLE_T, KBDROLE_U,
+	    KBDROLE_V, KBDROLE_W, KBDROLE_X, KBDROLE_Y, KBDROLE_Z};
 	KBDMAP_ROLE role;
 	BOOL shift;
 
 	shift = FALSE;
 	if ((ch >= '0') && (ch <= '9')) {
 		role = digit_roles[ch - '0'];
-	}
-	else if ((ch >= 'a') && (ch <= 'z')) {
+	} else if ((ch >= 'a') && (ch <= 'z')) {
 		role = letter_roles[ch - 'a'];
-	}
-	else if ((ch >= 'A') && (ch <= 'Z')) {
+	} else if ((ch >= 'A') && (ch <= 'Z')) {
 		role = letter_roles[ch - 'A'];
 		shift = TRUE;
-	}
-	else {
+	} else {
 		switch (ch) {
-			case ' ': role = KBDROLE_SPACE; break;
-			case '!': role = KBDROLE_1; shift = TRUE; break;
-			case '"': role = KBDROLE_2; shift = TRUE; break;
-			case '#': role = KBDROLE_3; shift = TRUE; break;
-			case '$': role = KBDROLE_4; shift = TRUE; break;
-			case '%': role = KBDROLE_5; shift = TRUE; break;
-			case '&': role = KBDROLE_6; shift = TRUE; break;
-			case '\'': role = KBDROLE_7; shift = TRUE; break;
-			case '(': role = KBDROLE_8; shift = TRUE; break;
-			case ')': role = KBDROLE_9; shift = TRUE; break;
-			case '*': role = KBDROLE_COLON; shift = TRUE; break;
-			case '+': role = KBDROLE_SEMICOLON; shift = TRUE; break;
-			case ',': role = KBDROLE_COMMA; break;
-			case '-': role = KBDROLE_MINUS; break;
-			case '.': role = KBDROLE_PERIOD; break;
-			case '/': role = KBDROLE_SLASH; break;
-			case ':': role = KBDROLE_COLON; break;
-			case ';': role = KBDROLE_SEMICOLON; break;
-			case '<': role = KBDROLE_COMMA; shift = TRUE; break;
-			case '=': role = KBDROLE_MINUS; shift = TRUE; break;
-			case '>': role = KBDROLE_PERIOD; shift = TRUE; break;
-			case '?': role = KBDROLE_SLASH; shift = TRUE; break;
-			case '@': role = KBDROLE_AT; break;
-			case '[': role = KBDROLE_BRACKETLEFT; break;
-			case '\\': role = KBDROLE_YEN; break;
-			case ']': role = KBDROLE_BRACKETRIGHT; break;
-			case '^': role = KBDROLE_CARET; break;
-			case '_': role = KBDROLE_UNDERSCORE; shift = TRUE; break;
-			case '`': role = KBDROLE_CARET; shift = TRUE; break;
-			case '{': role = KBDROLE_BRACKETLEFT; shift = TRUE; break;
-			case '|': role = KBDROLE_YEN; shift = TRUE; break;
-			case '}': role = KBDROLE_BRACKETRIGHT; shift = TRUE; break;
-			case '~': role = KBDROLE_AT; shift = TRUE; break;
-			default: return FALSE;
+		case ' ':
+			role = KBDROLE_SPACE;
+			break;
+		case '!':
+			role = KBDROLE_1;
+			shift = TRUE;
+			break;
+		case '"':
+			role = KBDROLE_2;
+			shift = TRUE;
+			break;
+		case '#':
+			role = KBDROLE_3;
+			shift = TRUE;
+			break;
+		case '$':
+			role = KBDROLE_4;
+			shift = TRUE;
+			break;
+		case '%':
+			role = KBDROLE_5;
+			shift = TRUE;
+			break;
+		case '&':
+			role = KBDROLE_6;
+			shift = TRUE;
+			break;
+		case '\'':
+			role = KBDROLE_7;
+			shift = TRUE;
+			break;
+		case '(':
+			role = KBDROLE_8;
+			shift = TRUE;
+			break;
+		case ')':
+			role = KBDROLE_9;
+			shift = TRUE;
+			break;
+		case '*':
+			role = KBDROLE_COLON;
+			shift = TRUE;
+			break;
+		case '+':
+			role = KBDROLE_SEMICOLON;
+			shift = TRUE;
+			break;
+		case ',':
+			role = KBDROLE_COMMA;
+			break;
+		case '-':
+			role = KBDROLE_MINUS;
+			break;
+		case '.':
+			role = KBDROLE_PERIOD;
+			break;
+		case '/':
+			role = KBDROLE_SLASH;
+			break;
+		case ':':
+			role = KBDROLE_COLON;
+			break;
+		case ';':
+			role = KBDROLE_SEMICOLON;
+			break;
+		case '<':
+			role = KBDROLE_COMMA;
+			shift = TRUE;
+			break;
+		case '=':
+			role = KBDROLE_MINUS;
+			shift = TRUE;
+			break;
+		case '>':
+			role = KBDROLE_PERIOD;
+			shift = TRUE;
+			break;
+		case '?':
+			role = KBDROLE_SLASH;
+			shift = TRUE;
+			break;
+		case '@':
+			role = KBDROLE_AT;
+			break;
+		case '[':
+			role = KBDROLE_BRACKETLEFT;
+			break;
+		case '\\':
+			role = KBDROLE_YEN;
+			break;
+		case ']':
+			role = KBDROLE_BRACKETRIGHT;
+			break;
+		case '^':
+			role = KBDROLE_CARET;
+			break;
+		case '_':
+			role = KBDROLE_UNDERSCORE;
+			shift = TRUE;
+			break;
+		case '`':
+			role = KBDROLE_CARET;
+			shift = TRUE;
+			break;
+		case '{':
+			role = KBDROLE_BRACKETLEFT;
+			shift = TRUE;
+			break;
+		case '|':
+			role = KBDROLE_YEN;
+			shift = TRUE;
+			break;
+		case '}':
+			role = KBDROLE_BRACKETRIGHT;
+			shift = TRUE;
+			break;
+		case '~':
+			role = KBDROLE_AT;
+			shift = TRUE;
+			break;
+		default:
+			return FALSE;
 		}
 	}
 	action->guest_code = role_code(role);
@@ -132,7 +211,6 @@ static BOOL map_ascii(BYTE ch, KBDPASTE_ACTION *action) {
 }
 
 static size_t utf8_character_length(const BYTE *text) {
-
 	BYTE ch;
 	size_t expected;
 	size_t length;
@@ -140,14 +218,11 @@ static size_t utf8_character_length(const BYTE *text) {
 	ch = text[0];
 	if ((ch & 0xe0) == 0xc0) {
 		expected = 2;
-	}
-	else if ((ch & 0xf0) == 0xe0) {
+	} else if ((ch & 0xf0) == 0xe0) {
 		expected = 3;
-	}
-	else if ((ch & 0xf8) == 0xf0) {
+	} else if ((ch & 0xf8) == 0xf0) {
 		expected = 4;
-	}
-	else {
+	} else {
 		return 1;
 	}
 	for (length = 1; length < expected; length++) {
@@ -158,9 +233,8 @@ static size_t utf8_character_length(const BYTE *text) {
 	return length;
 }
 
-size_t kbdpaste_map_text(const char *text, KBDPASTE_ACTION *actions,
-						 size_t capacity, UINT *skipped) {
-
+size_t kbdpaste_map_text(const char *text, KBDPASTE_ACTION *actions, size_t capacity,
+                         UINT *skipped) {
 	const BYTE *src;
 	size_t count;
 	UINT dropped;
@@ -187,18 +261,15 @@ size_t kbdpaste_map_text(const char *text, KBDPASTE_ACTION *actions,
 			if (*src == '\n') {
 				src++;
 			}
-		}
-		else if (*src == '\n') {
+		} else if (*src == '\n') {
 			action.guest_code = role_code(KBDROLE_RETURNL);
 			action.shift = FALSE;
 			mapped = action.guest_code != KBDMAP_NC;
 			src++;
-		}
-		else if (*src < 0x80) {
+		} else if (*src < 0x80) {
 			mapped = map_ascii(*src, &action);
 			src++;
-		}
-		else {
+		} else {
 			src += utf8_character_length(src);
 		}
 		if (!mapped) {
@@ -217,7 +288,6 @@ size_t kbdpaste_map_text(const char *text, KBDPASTE_ACTION *actions,
 }
 
 static void release_held_keys(void) {
-
 	if (paste.key_down && (paste.index < paste.count)) {
 		kbdinject_keyup(paste.actions[paste.index].guest_code);
 	}
@@ -229,7 +299,6 @@ static void release_held_keys(void) {
 }
 
 static void clear_queue(void) {
-
 	release_held_keys();
 	if (paste.actions != NULL) {
 		_MFREE(paste.actions);
@@ -242,17 +311,14 @@ static void clear_queue(void) {
 }
 
 void kbdpaste_initialize(void) {
-
 	ZeroMemory(&paste, sizeof(paste));
 }
 
 void kbdpaste_shutdown(void) {
-
 	clear_queue();
 }
 
 BOOL kbdpaste_start_text(const char *text) {
-
 	size_t capacity;
 	size_t count;
 	UINT skipped;
@@ -265,54 +331,46 @@ BOOL kbdpaste_start_text(const char *text) {
 	if (capacity > (SIZE_MAX / sizeof(KBDPASTE_ACTION))) {
 		clear_queue();
 		milstr_ncpy(paste.status, "Paste failed: clipboard is too large.",
-					(int)sizeof(paste.status));
+		            (int)sizeof(paste.status));
 		return FALSE;
 	}
-	actions = (KBDPASTE_ACTION *)_MALLOC(
-		capacity * sizeof(KBDPASTE_ACTION), "clipboard-paste");
+	actions = (KBDPASTE_ACTION *)_MALLOC(capacity * sizeof(KBDPASTE_ACTION), "clipboard-paste");
 	if (actions == NULL) {
 		clear_queue();
-		milstr_ncpy(paste.status, "Paste failed: out of memory.",
-					(int)sizeof(paste.status));
+		milstr_ncpy(paste.status, "Paste failed: out of memory.", (int)sizeof(paste.status));
 		return FALSE;
 	}
 	count = kbdpaste_map_text(text, actions, capacity, &skipped);
 	clear_queue();
 	if (count == 0) {
 		_MFREE(actions);
-		snprintf(paste.status, sizeof(paste.status),
-				 "Paste skipped %u unsupported characters.", skipped);
+		snprintf(paste.status, sizeof(paste.status), "Paste skipped %u unsupported characters.",
+		         skipped);
 		return FALSE;
 	}
 	paste.actions = actions;
 	paste.count = count;
 	paste.skipped = skipped;
-	paste.phase = actions[0].shift ? KBDPASTE_PHASE_SHIFT_DOWN :
-								  KBDPASTE_PHASE_KEY_DOWN;
+	paste.phase = actions[0].shift ? KBDPASTE_PHASE_SHIFT_DOWN : KBDPASTE_PHASE_KEY_DOWN;
 	paste.next_tick = SDL_GetTicks();
 	kbdinject_allrelease();
 	if (skipped != 0) {
-		snprintf(paste.status, sizeof(paste.status),
-				 "Pasting %u characters (%u skipped).",
-				 (UINT)count, skipped);
-	}
-	else {
-		snprintf(paste.status, sizeof(paste.status),
-				 "Pasting %u characters.", (UINT)count);
+		snprintf(paste.status, sizeof(paste.status), "Pasting %u characters (%u skipped).",
+		         (UINT)count, skipped);
+	} else {
+		snprintf(paste.status, sizeof(paste.status), "Pasting %u characters.", (UINT)count);
 	}
 	return TRUE;
 }
 
 BOOL kbdpaste_start_clipboard(void) {
-
 	char *text;
 	BOOL started;
 
 	text = SDL_GetClipboardText();
 	if (text == NULL) {
 		clear_queue();
-		snprintf(paste.status, sizeof(paste.status),
-				 "Paste failed: %s", SDL_GetError());
+		snprintf(paste.status, sizeof(paste.status), "Paste failed: %s", SDL_GetError());
 		return FALSE;
 	}
 	started = kbdpaste_start_text(text);
@@ -321,12 +379,10 @@ BOOL kbdpaste_start_clipboard(void) {
 }
 
 void kbdpaste_tick(UINT32 now, BOOL paused) {
-
 	KBDPASTE_ACTION *action;
 	BOOL cleanup_only;
 
-	if ((paste.actions == NULL) ||
-		((SINT32)(now - paste.next_tick) < 0)) {
+	if ((paste.actions == NULL) || ((SINT32)(now - paste.next_tick) < 0)) {
 		return;
 	}
 	action = &paste.actions[paste.index];
@@ -335,25 +391,20 @@ void kbdpaste_tick(UINT32 now, BOOL paused) {
 		if (paste.phase == KBDPASTE_PHASE_KEY_UP) {
 			kbdinject_keyup(action->guest_code);
 			paste.key_down = FALSE;
-			paste.phase = action->shift ? KBDPASTE_PHASE_SHIFT_UP :
-									 KBDPASTE_PHASE_IDLE;
+			paste.phase = action->shift ? KBDPASTE_PHASE_SHIFT_UP : KBDPASTE_PHASE_IDLE;
 			cleanup_only = TRUE;
-		}
-		else if (paste.phase == KBDPASTE_PHASE_SHIFT_UP) {
+		} else if (paste.phase == KBDPASTE_PHASE_SHIFT_UP) {
 			kbdinject_keyup(role_code(KBDROLE_SHIFTL));
 			paste.shift_down = FALSE;
 			paste.phase = KBDPASTE_PHASE_IDLE;
 			cleanup_only = TRUE;
-		}
-		else if ((paste.phase == KBDPASTE_PHASE_KEY_DOWN) &&
-				 paste.shift_down) {
+		} else if ((paste.phase == KBDPASTE_PHASE_KEY_DOWN) && paste.shift_down) {
 			kbdinject_keyup(role_code(KBDROLE_SHIFTL));
 			paste.shift_down = FALSE;
 			paste.phase = KBDPASTE_PHASE_SHIFT_DOWN;
 			paste.next_tick = now + KBDPASTE_EVENT_INTERVAL_MS;
 			return;
-		}
-		else {
+		} else {
 			return;
 		}
 	}
@@ -374,8 +425,7 @@ void kbdpaste_tick(UINT32 now, BOOL paused) {
 		case KBDPASTE_PHASE_KEY_UP:
 			kbdinject_keyup(action->guest_code);
 			paste.key_down = FALSE;
-			paste.phase = action->shift ? KBDPASTE_PHASE_SHIFT_UP :
-									 KBDPASTE_PHASE_IDLE;
+			paste.phase = action->shift ? KBDPASTE_PHASE_SHIFT_UP : KBDPASTE_PHASE_IDLE;
 			break;
 
 		case KBDPASTE_PHASE_SHIFT_UP:
@@ -399,44 +449,37 @@ void kbdpaste_tick(UINT32 now, BOOL paused) {
 			clear_queue();
 			if (skipped != 0) {
 				snprintf(paste.status, sizeof(paste.status),
-						 "Paste complete: %u characters, %u skipped.",
-						 count, skipped);
-			}
-			else {
-				snprintf(paste.status, sizeof(paste.status),
-						 "Paste complete: %u characters.", count);
+				         "Paste complete: %u characters, %u skipped.", count, skipped);
+			} else {
+				snprintf(paste.status, sizeof(paste.status), "Paste complete: %u characters.",
+				         count);
 			}
 			return;
 		}
-		paste.phase = paste.actions[paste.index].shift ?
-			KBDPASTE_PHASE_SHIFT_DOWN : KBDPASTE_PHASE_KEY_DOWN;
+		paste.phase =
+		    paste.actions[paste.index].shift ? KBDPASTE_PHASE_SHIFT_DOWN : KBDPASTE_PHASE_KEY_DOWN;
 	}
 	paste.next_tick = now + KBDPASTE_EVENT_INTERVAL_MS;
 }
 
 void kbdpaste_cancel(void) {
-
 	BOOL was_active;
 
 	was_active = paste.actions != NULL;
 	clear_queue();
 	if (was_active) {
-		milstr_ncpy(paste.status, "Paste cancelled.",
-					(int)sizeof(paste.status));
+		milstr_ncpy(paste.status, "Paste cancelled.", (int)sizeof(paste.status));
 	}
 }
 
 BOOL kbdpaste_active(void) {
-
 	return paste.actions != NULL;
 }
 
 const char *kbdpaste_status(void) {
-
 	return paste.status;
 }
 
 UINT kbdpaste_interval_ms(void) {
-
 	return KBDPASTE_EVENT_INTERVAL_MS;
 }

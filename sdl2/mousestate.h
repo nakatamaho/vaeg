@@ -37,10 +37,10 @@ enum {
 };
 
 typedef struct {
-	SINT64	x;
-	SINT64	y;
-	BYTE	buttons;
-	BOOL	active;
+	SINT64 x;
+	SINT64 y;
+	BYTE buttons;
+	BOOL active;
 } VAEG_MOUSE_STATE;
 
 #ifdef __cplusplus
@@ -52,8 +52,7 @@ void vaeg_mouse_state_reset(VAEG_MOUSE_STATE *state);
 void vaeg_mouse_state_set_active(VAEG_MOUSE_STATE *state, BOOL active);
 void vaeg_mouse_state_motion(VAEG_MOUSE_STATE *state, SINT32 x, SINT32 y);
 void vaeg_mouse_state_button(VAEG_MOUSE_STATE *state, UINT button, BOOL down);
-BYTE vaeg_mouse_state_getstat(VAEG_MOUSE_STATE *state,
-								SINT16 *x, SINT16 *y, int clear);
+BYTE vaeg_mouse_state_getstat(VAEG_MOUSE_STATE *state, SINT16 *x, SINT16 *y, int clear);
 
 #ifdef __cplusplus
 }

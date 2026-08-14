@@ -170,8 +170,7 @@ extern "C" {
 #endif
 
 void vaeg_cli_options_init(VAEG_CLI_OPTIONS *options);
-BOOL vaeg_cli_parse(int argc, char **argv, VAEG_CLI_OPTIONS *options,
-									char *error, UINT error_size);
+BOOL vaeg_cli_parse(int argc, char **argv, VAEG_CLI_OPTIONS *options, char *error, UINT error_size);
 
 #ifdef __cplusplus
 }

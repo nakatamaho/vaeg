@@ -22,8 +22,8 @@
  * IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-#include	"compiler.h"
-#include	"trace.h"
+#include "compiler.h"
+#include "trace.h"
 
 #ifdef TRACE
 void trace_init(void) {
@@ -33,9 +33,8 @@ void trace_term(void) {
 }
 
 void trace_fmt(const char *fmt, ...) {
-
-	va_list	ap;
-	char	buf[1024];
+	va_list ap;
+	char buf[1024];
 
 	va_start(ap, fmt);
 	vsnprintf(buf, sizeof(buf), fmt, ap);

@@ -40,13 +40,13 @@ enum {
 };
 
 typedef struct {
-	BYTE	*ptr;
-	int		xalign;
-	int		yalign;
-	int		width;
-	int		height;
-	UINT	bpp;
-	int		extend;
+	BYTE *ptr;
+	int xalign;
+	int yalign;
+	int width;
+	int height;
+	UINT bpp;
+	int extend;
 } SCRNSURF;
 
 #ifdef __cplusplus
@@ -59,10 +59,10 @@ void scrnmng_setheight(int posy, int height);
 const SCRNSURF *scrnmng_surflock(void);
 void scrnmng_surfunlock(const SCRNSURF *surf);
 
-#define	scrnmng_haveextend()	(0)
-#define	scrnmng_getbpp()		(16)
-#define	scrnmng_allflash()
-#define	scrnmng_palchanged()
+#define scrnmng_haveextend() (0)
+#define scrnmng_getbpp() (16)
+#define scrnmng_allflash()
+#define scrnmng_palchanged()
 
 RGB16 scrnmng_makepal16(RGB32 pal32);
 
@@ -82,10 +82,9 @@ int scrnmng_get_scaling(void);
 void scrnmng_set_effect(int effect);
 int scrnmng_get_effect(void);
 BOOL scrnmng_get_viewport(VAEG_VIEWPORT *viewport);
-BOOL scrnmng_map_window_point(int window_x, int window_y,
-								int *guest_x, int *guest_y);
-BOOL scrnmng_set_display_mode(int mode, int monitor, UINT width, UINT height,
-								UINT refresh, UINT8 fscrnmod);
+BOOL scrnmng_map_window_point(int window_x, int window_y, int *guest_x, int *guest_y);
+BOOL scrnmng_set_display_mode(int mode, int monitor, UINT width, UINT height, UINT refresh,
+                              UINT8 fscrnmod);
 int scrnmng_get_display_mode(void);
 BOOL scrnmng_isfullscreen(void);
 BOOL scrnmng_capture_window_size(int *width, int *height);
@@ -100,9 +99,9 @@ void scrnmng_refresh_title(void);
 void scrnmng_framedisp_tick(UINT32 tick, UINT32 draws, UINT32 frames);
 
 typedef struct {
-	int		width;
-	int		height;
-	int		bpp;
+	int width;
+	int height;
+	int bpp;
 } SCRNMENU;
 
 BOOL scrnmng_entermenu(SCRNMENU *smenu);

@@ -35,7 +35,7 @@ int upd9002_brkem_upd70008_main(void) {
 		return FAILURE;
 	}
 	fprintf(stderr,
-		"upd9002-brkem-upd70008: BRKEM, Z80 JR/IX/IY, CALLN/IRET, LD HL, RETEM passed\n");
+	        "upd9002-brkem-upd70008: BRKEM, Z80 JR/IX/IY, CALLN/IRET, LD HL, RETEM passed\n");
 	return SUCCESS;
 #else
 	return FAILURE;

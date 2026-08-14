@@ -47,13 +47,11 @@ typedef struct {
 } STATE_SNAPSHOT;
 
 static UINT32 read_u32(const BYTE *data) {
-
-	return (UINT32)data[0] | ((UINT32)data[1] << 8) |
-		((UINT32)data[2] << 16) | ((UINT32)data[3] << 24);
+	return (UINT32)data[0] | ((UINT32)data[1] << 8) | ((UINT32)data[2] << 16) |
+	       ((UINT32)data[3] << 24);
 }
 
 static void write_u32(BYTE *data, UINT32 value) {
-
 	data[0] = (BYTE)value;
 	data[1] = (BYTE)(value >> 8);
 	data[2] = (BYTE)(value >> 16);
@@ -61,13 +59,11 @@ static void write_u32(BYTE *data, UINT32 value) {
 }
 
 static void write_u16(BYTE *data, UINT16 value) {
-
 	data[0] = (BYTE)value;
 	data[1] = (BYTE)(value >> 8);
 }
 
 static void write_section_index(BYTE *data, UINT header, const char *name) {
-
 	size_t length;
 
 	memset(data + header, 0, 10);
@@ -79,7 +75,6 @@ static void write_section_index(BYTE *data, UINT header, const char *name) {
 }
 
 static UINT32 memory_hash(void) {
-
 	UINT32 hash;
 	UINT32 index;
 
@@ -92,7 +87,6 @@ static UINT32 memory_hash(void) {
 }
 
 static void snapshot_capture(STATE_SNAPSHOT *snapshot) {
-
 	snapshot->runtime = upd9002_core_context.s;
 	upd9002_state_export(&snapshot->state_image);
 	snapshot->core = pccore;
@@ -101,21 +95,17 @@ static void snapshot_capture(STATE_SNAPSHOT *snapshot) {
 }
 
 static int snapshot_matches(const STATE_SNAPSHOT *snapshot) {
-
 	Upd9002StateImage compatibility;
 
 	upd9002_state_export(&compatibility);
 	return !memcmp(&snapshot->runtime, &upd9002_core_context.s, sizeof(snapshot->runtime)) &&
-		!memcmp(&snapshot->state_image, &compatibility,
-			sizeof(snapshot->state_image)) &&
-		!memcmp(&snapshot->core, &pccore, sizeof(snapshot->core)) &&
-		!memcmp(&snapshot->registers, &upd9002_regs,
-			sizeof(snapshot->registers)) &&
-		(snapshot->memory_hash == memory_hash());
+	       !memcmp(&snapshot->state_image, &compatibility, sizeof(snapshot->state_image)) &&
+	       !memcmp(&snapshot->core, &pccore, sizeof(snapshot->core)) &&
+	       !memcmp(&snapshot->registers, &upd9002_regs, sizeof(snapshot->registers)) &&
+	       (snapshot->memory_hash == memory_hash());
 }
 
 static int read_file(const char *path, BYTE **data, UINT *size) {
-
 	FILEH file;
 	BYTE *buffer;
 	UINT length;
@@ -142,7 +132,6 @@ static int read_file(const char *path, BYTE **data, UINT *size) {
 }
 
 static int write_file(const char *path, const BYTE *data, UINT size) {
-
 	FILEH file;
 	int result;
 
@@ -155,9 +144,8 @@ static int write_file(const char *path, const BYTE *data, UINT size) {
 	return result;
 }
 
-static int find_section(const BYTE *data, UINT data_size, const char *name,
-										UINT *header, UINT *body, UINT *body_size) {
-
+static int find_section(const BYTE *data, UINT data_size, const char *name, UINT *header,
+                        UINT *body, UINT *body_size) {
 	UINT position;
 	size_t name_size;
 
@@ -183,16 +171,13 @@ static int find_section(const BYTE *data, UINT data_size, const char *name,
 	return FAILURE;
 }
 
-static int check_rejection(const char *path, const char *message,
-										const STATE_SNAPSHOT *snapshot) {
-
+static int check_rejection(const char *path, const char *message, const STATE_SNAPSHOT *snapshot) {
 	char error[256];
 
 	error[0] = '\0';
 	if ((statsave_check(path, error, sizeof(error)) != STATFLAG_FAILURE) ||
-		(strstr(error, message) == NULL)) {
-		fprintf(stderr, "upd9002-statsave-boundary: unexpected error: %s\n",
-			error);
+	    (strstr(error, message) == NULL)) {
+		fprintf(stderr, "upd9002-statsave-boundary: unexpected error: %s\n", error);
 		return FAILURE;
 	}
 	if (statsave_load(path) != STATFLAG_FAILURE) {
@@ -201,10 +186,8 @@ static int check_rejection(const char *path, const char *message,
 	return snapshot_matches(snapshot) ? SUCCESS : FAILURE;
 }
 
-static int compare_section(const BYTE *left, UINT left_size,
-									const BYTE *right, UINT right_size,
-									const char *name) {
-
+static int compare_section(const BYTE *left, UINT left_size, const BYTE *right, UINT right_size,
+                           const char *name) {
 	UINT left_header;
 	UINT left_body;
 	UINT left_body_size;
@@ -212,22 +195,18 @@ static int compare_section(const BYTE *left, UINT left_size,
 	UINT right_body;
 	UINT right_body_size;
 
-	if ((find_section(left, left_size, name, &left_header, &left_body,
-													&left_body_size) != SUCCESS) ||
-		(find_section(right, right_size, name, &right_header, &right_body,
-													&right_body_size) != SUCCESS) ||
-		(left_body_size != right_body_size)) {
+	if ((find_section(left, left_size, name, &left_header, &left_body, &left_body_size) !=
+	     SUCCESS) ||
+	    (find_section(right, right_size, name, &right_header, &right_body, &right_body_size) !=
+	     SUCCESS) ||
+	    (left_body_size != right_body_size)) {
 		return FAILURE;
 	}
-	return memcmp(left + left_body, right + right_body, left_body_size) ?
-		FAILURE : SUCCESS;
+	return memcmp(left + left_body, right + right_body, left_body_size) ? FAILURE : SUCCESS;
 }
 
-static int compare_section_pair(const BYTE *left, UINT left_size,
-									const char *left_name,
-									const BYTE *right, UINT right_size,
-									const char *right_name) {
-
+static int compare_section_pair(const BYTE *left, UINT left_size, const char *left_name,
+                                const BYTE *right, UINT right_size, const char *right_name) {
 	UINT left_header;
 	UINT left_body;
 	UINT left_body_size;
@@ -235,19 +214,17 @@ static int compare_section_pair(const BYTE *left, UINT left_size,
 	UINT right_body;
 	UINT right_body_size;
 
-	if ((find_section(left, left_size, left_name, &left_header, &left_body,
-													&left_body_size) != SUCCESS) ||
-		(find_section(right, right_size, right_name, &right_header, &right_body,
-													&right_body_size) != SUCCESS) ||
-		(left_body_size != right_body_size)) {
+	if ((find_section(left, left_size, left_name, &left_header, &left_body, &left_body_size) !=
+	     SUCCESS) ||
+	    (find_section(right, right_size, right_name, &right_header, &right_body,
+	                  &right_body_size) != SUCCESS) ||
+	    (left_body_size != right_body_size)) {
 		return FAILURE;
 	}
-	return memcmp(left + left_body, right + right_body, left_body_size) ?
-		FAILURE : SUCCESS;
+	return memcmp(left + left_body, right + right_body, left_body_size) ? FAILURE : SUCCESS;
 }
 
 int upd9002_statsave_boundary_verify(const char *valid_path) {
-
 	BYTE *data;
 	BYTE *roundtrip;
 	UINT data_size;
@@ -288,25 +265,24 @@ int upd9002_statsave_boundary_verify(const char *valid_path) {
 
 	result = FAILURE;
 	if ((read_file(valid_path, &data, &data_size) != SUCCESS) ||
-		(find_section(data, data_size, UPD9002_STATE_SECTION, &header, &body,
-													&body_size) != SUCCESS) ||
-		(body_size != sizeof(Upd9002StateImage))) {
+	    (find_section(data, data_size, UPD9002_STATE_SECTION, &header, &body, &body_size) !=
+	     SUCCESS) ||
+	    (body_size != sizeof(Upd9002StateImage))) {
 		goto done;
 	}
 	snapshot_capture(&snapshot);
 
 	data[body + offsetof(Upd9002StateImage, cpu_type)] = 0;
 	if ((write_file(invalid_path, data, data_size) != SUCCESS) ||
-		(check_rejection(invalid_path, UPD9002_STATE_ERROR_CPU_TYPE,
-													&snapshot) != SUCCESS)) {
+	    (check_rejection(invalid_path, UPD9002_STATE_ERROR_CPU_TYPE, &snapshot) != SUCCESS)) {
 		goto done;
 	}
 	data[body + offsetof(Upd9002StateImage, cpu_type)] = CPUTYPE_V30;
 	data[body + offsetof(Upd9002StateImage, MSW)] = MSW_PE;
 	data[body + offsetof(Upd9002StateImage, MSW) + 1] = 0;
 	if ((write_file(protected_path, data, data_size) != SUCCESS) ||
-		(check_rejection(protected_path,
-			UPD9002_STATE_ERROR_PROTECTED_MODE, &snapshot) != SUCCESS)) {
+	    (check_rejection(protected_path, UPD9002_STATE_ERROR_PROTECTED_MODE, &snapshot) !=
+	     SUCCESS)) {
 		goto done;
 	}
 	data[body + offsetof(Upd9002StateImage, MSW)] = 0;
@@ -314,29 +290,26 @@ int upd9002_statsave_boundary_verify(const char *valid_path) {
 
 	write_u32(data + header + 12, sizeof(Upd9002StateImage) - 1);
 	if ((write_file(malformed_path, data, data_size) != SUCCESS) ||
-		(check_rejection(malformed_path, UPD9002_STATE_ERROR_SIZE,
-													&snapshot) != SUCCESS)) {
+	    (check_rejection(malformed_path, UPD9002_STATE_ERROR_SIZE, &snapshot) != SUCCESS)) {
 		goto done;
 	}
 	write_u32(data + header + 12, sizeof(Upd9002StateImage));
 
 	truncated_size = body + sizeof(Upd9002StateImage) - 7;
 	if ((write_file(truncated_path, data, truncated_size) != SUCCESS) ||
-		(check_rejection(truncated_path, "uPD9002 payload is truncated",
-													&snapshot) != SUCCESS)) {
+	    (check_rejection(truncated_path, "uPD9002 payload is truncated", &snapshot) != SUCCESS)) {
 		goto done;
 	}
 
 	data[body + offsetof(Upd9002StateImage, padding)] = 0xa5;
 	data[body + offsetof(Upd9002StateImage, padding) + 1] = 0x5a;
 	if ((write_file(opaque_path, data, data_size) != SUCCESS) ||
-		(statsave_load(opaque_path) == STATFLAG_FAILURE) ||
-		(statsave_save(roundtrip_path) != STATFLAG_SUCCESS) ||
-		(read_file(roundtrip_path, &roundtrip, &roundtrip_size) != SUCCESS) ||
-		(compare_section(data, data_size, roundtrip, roundtrip_size,
-			UPD9002_STATE_SECTION) != SUCCESS) ||
-		(compare_section(data, data_size, roundtrip, roundtrip_size,
-			"UPD9002") != SUCCESS)) {
+	    (statsave_load(opaque_path) == STATFLAG_FAILURE) ||
+	    (statsave_save(roundtrip_path) != STATFLAG_SUCCESS) ||
+	    (read_file(roundtrip_path, &roundtrip, &roundtrip_size) != SUCCESS) ||
+	    (compare_section(data, data_size, roundtrip, roundtrip_size, UPD9002_STATE_SECTION) !=
+	     SUCCESS) ||
+	    (compare_section(data, data_size, roundtrip, roundtrip_size, "UPD9002") != SUCCESS)) {
 		goto done;
 	}
 	_MFREE(roundtrip);
@@ -345,25 +318,24 @@ int upd9002_statsave_boundary_verify(const char *valid_path) {
 	write_section_index(data, header, "CPU286");
 	write_u16(data + header + 10, 0);
 	if ((write_file(legacy_path, data, data_size) != SUCCESS) ||
-		(statsave_load(legacy_path) == STATFLAG_FAILURE) ||
-		(statsave_save(roundtrip_path) != STATFLAG_SUCCESS) ||
-		(read_file(roundtrip_path, &roundtrip, &roundtrip_size) != SUCCESS) ||
-		(compare_section_pair(data, data_size, "CPU286", roundtrip,
-			roundtrip_size, UPD9002_STATE_SECTION) != SUCCESS)) {
+	    (statsave_load(legacy_path) == STATFLAG_FAILURE) ||
+	    (statsave_save(roundtrip_path) != STATFLAG_SUCCESS) ||
+	    (read_file(roundtrip_path, &roundtrip, &roundtrip_size) != SUCCESS) ||
+	    (compare_section_pair(data, data_size, "CPU286", roundtrip, roundtrip_size,
+	                          UPD9002_STATE_SECTION) != SUCCESS)) {
 		goto done;
 	}
 	_MFREE(roundtrip);
 	roundtrip = NULL;
 
-	if (find_section(data, data_size, "UPD9002", &header, &body,
-													&body_size) != SUCCESS) {
+	if (find_section(data, data_size, "UPD9002", &header, &body, &body_size) != SUCCESS) {
 		goto done;
 	}
 	write_section_index(data, header, "LEGPORT");
 	snapshot_capture(&snapshot);
 	if ((write_file(legacy_only_path, data, data_size) != SUCCESS) ||
-		(check_rejection(legacy_only_path, UPD9002_STATE_ERROR_LEGACY_MARKER,
-													&snapshot) != SUCCESS)) {
+	    (check_rejection(legacy_only_path, UPD9002_STATE_ERROR_LEGACY_MARKER, &snapshot) !=
+	     SUCCESS)) {
 		goto done;
 	}
 	result = SUCCESS;
@@ -387,8 +359,9 @@ done:
 	file_delete(roundtrip_path);
 	file_delete(truncated_path);
 	if (result == SUCCESS) {
-		fprintf(stderr,
-			"upd9002-statsave-boundary: invalid type, protected state, size, truncation, atomicity, and opaque round trip passed\n");
+		fprintf(
+		    stderr,
+		    "upd9002-statsave-boundary: invalid type, protected state, size, truncation, atomicity, and opaque round trip passed\n");
 	}
 	return result;
 }

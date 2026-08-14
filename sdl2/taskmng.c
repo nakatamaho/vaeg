@@ -22,39 +22,36 @@
  * IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-#include	"compiler.h"
-#include	"sdlapi.h"
-#include	"taskmng.h"
-#include	"sdlkbd.h"
-#include	"kbdpaste.h"
-#include	"mousemng.h"
-#include	"pacing.h"
-#include	"np2.h"
-#include	"scrnmng.h"
-#include	"sysmng.h"
-#include	"gui/gui.h"
-#include	"dropmedia.h"
+#include "compiler.h"
+#include "sdlapi.h"
+#include "taskmng.h"
+#include "sdlkbd.h"
+#include "kbdpaste.h"
+#include "mousemng.h"
+#include "pacing.h"
+#include "np2.h"
+#include "scrnmng.h"
+#include "sysmng.h"
+#include "gui/gui.h"
+#include "dropmedia.h"
 
-		BOOL	task_avail;
-	static VAEG_PACING_STATE task_pacing;
-	static BOOL paste_shortcut_down;
-	static BOOL copy_shortcut_down;
-	static BOOL middle_shortcut_down;
+BOOL task_avail;
+static VAEG_PACING_STATE task_pacing;
+static BOOL paste_shortcut_down;
+static BOOL copy_shortcut_down;
+static BOOL middle_shortcut_down;
 
 static BOOL taskmng_paste_shortcut(const SDL_Event *event, BOOL captured) {
-
 	UINT16 modifier;
 
 	if (event->type == SDL_KEYUP) {
-		if ((event->key.keysym.scancode == SDL_SCANCODE_V) &&
-			paste_shortcut_down) {
+		if ((event->key.keysym.scancode == SDL_SCANCODE_V) && paste_shortcut_down) {
 			paste_shortcut_down = FALSE;
 			return TRUE;
 		}
 		return FALSE;
 	}
-	if ((event->type != SDL_KEYDOWN) ||
-		(event->key.keysym.scancode != SDL_SCANCODE_V)) {
+	if ((event->type != SDL_KEYDOWN) || (event->key.keysym.scancode != SDL_SCANCODE_V)) {
 		return FALSE;
 	}
 	modifier = (UINT16)event->key.keysym.mod;
@@ -75,21 +72,17 @@ static BOOL taskmng_paste_shortcut(const SDL_Event *event, BOOL captured) {
 	return TRUE;
 }
 
-
 static BOOL taskmng_copy_shortcut(const SDL_Event *event, BOOL captured) {
-
 	UINT16 modifier;
 
 	if (event->type == SDL_KEYUP) {
-		if ((event->key.keysym.scancode == SDL_SCANCODE_C) &&
-			copy_shortcut_down) {
+		if ((event->key.keysym.scancode == SDL_SCANCODE_C) && copy_shortcut_down) {
 			copy_shortcut_down = FALSE;
 			return TRUE;
 		}
 		return FALSE;
 	}
-	if ((event->type != SDL_KEYDOWN) ||
-		(event->key.keysym.scancode != SDL_SCANCODE_C)) {
+	if ((event->type != SDL_KEYDOWN) || (event->key.keysym.scancode != SDL_SCANCODE_C)) {
 		return FALSE;
 	}
 	modifier = (UINT16)event->key.keysym.mod;
@@ -111,17 +104,13 @@ static BOOL taskmng_copy_shortcut(const SDL_Event *event, BOOL captured) {
 }
 
 static void taskmng_toggle_mouse(void) {
-
 	np2oscfg.MOUSE_SW = mousemng_togglecapture() ? 1 : 0;
 	sysmng_update(SYS_UPDATEOSCFG);
 }
 
-static BOOL taskmng_mouse_key_shortcut(const SDL_Event *event,
-										BOOL captured) {
-
+static BOOL taskmng_mouse_key_shortcut(const SDL_Event *event, BOOL captured) {
 	if (((event->type != SDL_KEYDOWN) && (event->type != SDL_KEYUP)) ||
-		(event->key.keysym.scancode != SDL_SCANCODE_F12) ||
-		(np2oscfg.F12KEY != 0)) {
+	    (event->key.keysym.scancode != SDL_SCANCODE_F12) || (np2oscfg.F12KEY != 0)) {
 		return FALSE;
 	}
 	if ((event->type == SDL_KEYDOWN) && !event->key.repeat && !captured) {
@@ -130,12 +119,9 @@ static BOOL taskmng_mouse_key_shortcut(const SDL_Event *event,
 	return TRUE;
 }
 
-static BOOL taskmng_mouse_button_shortcut(const SDL_Event *event,
-										BOOL captured) {
-
-	if (((event->type != SDL_MOUSEBUTTONDOWN) &&
-		 (event->type != SDL_MOUSEBUTTONUP)) ||
-		(event->button.button != SDL_BUTTON_MIDDLE)) {
+static BOOL taskmng_mouse_button_shortcut(const SDL_Event *event, BOOL captured) {
+	if (((event->type != SDL_MOUSEBUTTONDOWN) && (event->type != SDL_MOUSEBUTTONUP)) ||
+	    (event->button.button != SDL_BUTTON_MIDDLE)) {
 		return FALSE;
 	}
 	if (event->type == SDL_MOUSEBUTTONUP) {
@@ -154,7 +140,6 @@ static BOOL taskmng_mouse_button_shortcut(const SDL_Event *event,
 }
 
 void taskmng_initialize(void) {
-
 	task_avail = TRUE;
 	paste_shortcut_down = FALSE;
 	middle_shortcut_down = FALSE;
@@ -166,7 +151,6 @@ void taskmng_initialize(void) {
 }
 
 void taskmng_exit(void) {
-
 	task_avail = FALSE;
 	paste_shortcut_down = FALSE;
 	middle_shortcut_down = FALSE;
@@ -176,26 +160,21 @@ void taskmng_exit(void) {
 }
 
 void taskmng_clear_fast_forward(void) {
-
 	vaeg_pacing_reset(&task_pacing);
 }
 
 BOOL taskmng_effective_nowait(BOOL configured_nowait) {
-
-	return(vaeg_pacing_effective_nowait(&task_pacing, configured_nowait));
+	return (vaeg_pacing_effective_nowait(&task_pacing, configured_nowait));
 }
 
 UINT taskmng_effective_drawskip(UINT configured_drawskip) {
-
-	return(vaeg_pacing_effective_drawskip(&task_pacing,
-											configured_drawskip));
+	return (vaeg_pacing_effective_drawskip(&task_pacing, configured_drawskip));
 }
 
 void taskmng_rol(void) {
+	SDL_Event e;
 
-	SDL_Event	e;
-
-	while(task_avail && SDL_PollEvent(&e)) {
+	while (task_avail && SDL_PollEvent(&e)) {
 		BOOL captured;
 		BOOL shortcut;
 
@@ -204,41 +183,32 @@ void taskmng_rol(void) {
 		}
 		shortcut = FALSE;
 		if (e.type == SDL_KEYDOWN) {
-			shortcut = vaeg_pacing_key(&task_pacing,
-							(UINT)e.key.keysym.scancode, TRUE,
-							e.key.repeat ? TRUE : FALSE);
-		}
-		else if (e.type == SDL_KEYUP) {
-			shortcut = vaeg_pacing_key(&task_pacing,
-							(UINT)e.key.keysym.scancode, FALSE, FALSE);
-		}
-		else if ((e.type == SDL_WINDOWEVENT) &&
-				 (e.window.event == SDL_WINDOWEVENT_FOCUS_LOST)) {
+			shortcut = vaeg_pacing_key(&task_pacing, (UINT)e.key.keysym.scancode, TRUE,
+			                           e.key.repeat ? TRUE : FALSE);
+		} else if (e.type == SDL_KEYUP) {
+			shortcut = vaeg_pacing_key(&task_pacing, (UINT)e.key.keysym.scancode, FALSE, FALSE);
+		} else if ((e.type == SDL_WINDOWEVENT) && (e.window.event == SDL_WINDOWEVENT_FOCUS_LOST)) {
 			vaeg_pacing_reset(&task_pacing);
 			paste_shortcut_down = FALSE;
 			copy_shortcut_down = FALSE;
 			middle_shortcut_down = FALSE;
 			kbdpaste_cancel();
 			mousemng_setfocus(FALSE);
-		}
-		else if ((e.type == SDL_WINDOWEVENT) &&
-				 (e.window.event == SDL_WINDOWEVENT_FOCUS_GAINED)) {
+		} else if ((e.type == SDL_WINDOWEVENT) &&
+		           (e.window.event == SDL_WINDOWEVENT_FOCUS_GAINED)) {
 			mousemng_setfocus(TRUE);
-		}
-		else if ((e.type == SDL_WINDOWEVENT) &&
-				 (e.window.event == SDL_WINDOWEVENT_SIZE_CHANGED)) {
+		} else if ((e.type == SDL_WINDOWEVENT) &&
+		           (e.window.event == SDL_WINDOWEVENT_SIZE_CHANGED)) {
 			int width;
 			int height;
 
 			if ((scrnmng_capture_window_size(&width, &height) == SUCCESS) &&
-				((np2oscfg.gui_window_width != width) ||
-				 (np2oscfg.gui_window_height != height))) {
+			    ((np2oscfg.gui_window_width != width) || (np2oscfg.gui_window_height != height))) {
 				np2oscfg.gui_window_width = (UINT16)min(width, 65535);
 				np2oscfg.gui_window_height = (UINT16)min(height, 65535);
 				sysmng_update(SYS_UPDATEOSCFG);
 			}
-		}
-		else if (e.type == SDL_QUIT) {
+		} else if (e.type == SDL_QUIT) {
 			vaeg_pacing_reset(&task_pacing);
 			paste_shortcut_down = FALSE;
 			copy_shortcut_down = FALSE;
@@ -260,58 +230,51 @@ void taskmng_rol(void) {
 		if (taskmng_mouse_button_shortcut(&e, captured)) {
 			shortcut = TRUE;
 		}
-		switch(e.type) {
-			case SDL_QUIT:
-				taskmng_exit();
-				break;
+		switch (e.type) {
+		case SDL_QUIT:
+			taskmng_exit();
+			break;
 
-			case SDL_KEYDOWN:
-				if (!shortcut) {
-					sdlkbd_keydown((UINT)e.key.keysym.scancode,
-								   e.key.keysym.sym,
-								   (UINT16)e.key.keysym.mod,
-								   captured,
-								   e.key.repeat ? TRUE : FALSE);
+		case SDL_KEYDOWN:
+			if (!shortcut) {
+				sdlkbd_keydown((UINT)e.key.keysym.scancode, e.key.keysym.sym,
+				               (UINT16)e.key.keysym.mod, captured, e.key.repeat ? TRUE : FALSE);
+			}
+			break;
+
+		case SDL_KEYUP:
+			if (!shortcut) {
+				sdlkbd_keyup((UINT)e.key.keysym.scancode, e.key.keysym.sym,
+				             (UINT16)e.key.keysym.mod, captured);
+			}
+			break;
+
+		case SDL_TEXTINPUT:
+			sdlkbd_textinput(e.text.text, captured);
+			break;
+
+		case SDL_MOUSEMOTION:
+			if (!captured && !shortcut) {
+				mousemng_motion(e.motion.xrel, e.motion.yrel);
+			}
+			break;
+
+		case SDL_MOUSEBUTTONDOWN:
+		case SDL_MOUSEBUTTONUP:
+			if (!shortcut &&
+			    ((e.button.button == SDL_BUTTON_LEFT) || (e.button.button == SDL_BUTTON_RIGHT))) {
+				UINT button;
+
+				button = (e.button.button == SDL_BUTTON_LEFT) ? MOUSEMNG_BUTTON_LEFT
+				                                              : MOUSEMNG_BUTTON_RIGHT;
+				if (!captured || (e.type == SDL_MOUSEBUTTONUP)) {
+					mousemng_button(button, e.type == SDL_MOUSEBUTTONDOWN ? TRUE : FALSE);
 				}
-				break;
+			}
+			break;
 
-			case SDL_KEYUP:
-				if (!shortcut) {
-					sdlkbd_keyup((UINT)e.key.keysym.scancode,
-								 e.key.keysym.sym,
-								 (UINT16)e.key.keysym.mod,
-								 captured);
-				}
-				break;
-
-			case SDL_TEXTINPUT:
-				sdlkbd_textinput(e.text.text, captured);
-				break;
-
-			case SDL_MOUSEMOTION:
-				if (!captured && !shortcut) {
-					mousemng_motion(e.motion.xrel, e.motion.yrel);
-				}
-				break;
-
-			case SDL_MOUSEBUTTONDOWN:
-			case SDL_MOUSEBUTTONUP:
-				if (!shortcut &&
-					((e.button.button == SDL_BUTTON_LEFT) ||
-					 (e.button.button == SDL_BUTTON_RIGHT))) {
-					UINT button;
-
-					button = (e.button.button == SDL_BUTTON_LEFT) ?
-							MOUSEMNG_BUTTON_LEFT : MOUSEMNG_BUTTON_RIGHT;
-					if (!captured || (e.type == SDL_MOUSEBUTTONUP)) {
-						mousemng_button(button,
-								e.type == SDL_MOUSEBUTTONDOWN ? TRUE : FALSE);
-					}
-				}
-				break;
-
-			default:
-				break;
+		default:
+			break;
 		}
 	}
 	if (task_avail) {
@@ -321,10 +284,9 @@ void taskmng_rol(void) {
 }
 
 BOOL taskmng_sleep(UINT32 tick) {
-
-	Uint64	base;
-	Uint64	freq;
-	Uint64	elapsed;
+	Uint64 base;
+	Uint64 freq;
+	Uint64 elapsed;
 
 	base = SDL_GetPerformanceCounter();
 	freq = SDL_GetPerformanceFrequency();
@@ -335,6 +297,6 @@ BOOL taskmng_sleep(UINT32 tick) {
 		}
 		SDL_Delay(1);
 		elapsed = ((SDL_GetPerformanceCounter() - base) * 1000) / freq;
-	} while(elapsed < tick);
-	return(task_avail);
+	} while (elapsed < tick);
+	return (task_avail);
 }

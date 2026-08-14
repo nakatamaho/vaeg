@@ -26,9 +26,9 @@
 #define VAEG_SDL2_FRAMEDISP_H
 
 typedef struct {
-	UINT32	tick;
-	UINT32	draws;
-	UINT32	fps_tenths;
+	UINT32 tick;
+	UINT32 draws;
+	UINT32 fps_tenths;
 } VAEG_FRAMEDISP;
 
 #ifdef __cplusplus

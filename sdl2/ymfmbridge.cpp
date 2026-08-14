@@ -38,7 +38,6 @@ constexpr uint32_t kYm2608Clock = kYm2203Clock * 2;
 constexpr unsigned kChipSlots = 2;
 
 ymfm::opn_fidelity native_fidelity(UINT fidelity) {
-
 	switch (fidelity) {
 	case YMFMBRIDGE_FIDELITY_MEDIUM:
 		return ymfm::OPN_FIDELITY_MED;
@@ -50,7 +49,7 @@ ymfm::opn_fidelity native_fidelity(UINT fidelity) {
 }
 
 class vaeg_ymfm_interface : public ymfm::ymfm_interface {
-public:
+  public:
 	void timer_expired(uint32_t timer) {
 		m_engine->engine_timer_expired(timer);
 	}
@@ -72,15 +71,9 @@ struct ymfm_slot {
 	int32_t last_left;
 	int32_t last_right;
 
-	ymfm_slot() :
-		opn(opn_intf),
-		opna(opna_intf),
-		active(false),
-		use_opna(true),
-		stereo(true),
-		phase(0),
-		last_left(0),
-		last_right(0) {
+	ymfm_slot()
+	    : opn(opn_intf), opna(opna_intf), active(false), use_opna(true), stereo(true), phase(0),
+	      last_left(0), last_right(0) {
 		opn.set_fidelity(ymfm::OPN_FIDELITY_MIN);
 		opna.set_fidelity(ymfm::OPN_FIDELITY_MIN);
 	}
@@ -95,33 +88,27 @@ int32_t g_vr_left = 0;
 int32_t g_vr_right = 0;
 
 void write_opn(ymfm::ym2203 &chip, uint8_t reg, uint8_t value) {
-
 	chip.write_address(reg);
 	chip.write_data(value);
 }
 
-void write_opna(ymfm::ym2608 &chip, bool high, uint8_t reg,
-				uint8_t value) {
-
+void write_opna(ymfm::ym2608 &chip, bool high, uint8_t reg, uint8_t value) {
 	if (high) {
 		chip.write_address_hi(reg);
 		chip.write_data_hi(value);
-	}
-	else {
+	} else {
 		chip.write_address(reg);
 		chip.write_data(value);
 	}
 }
 
 void generate_slot(ymfm_slot &slot, int64_t &left, int64_t &right) {
-
 	if (!slot.active) {
 		return;
 	}
 
-	const uint32_t native_rate = slot.use_opna ?
-		slot.opna.sample_rate(kYm2608Clock) :
-		slot.opn.sample_rate(kYm2203Clock);
+	const uint32_t native_rate =
+	    slot.use_opna ? slot.opna.sample_rate(kYm2608Clock) : slot.opn.sample_rate(kYm2203Clock);
 	slot.phase += native_rate;
 	uint32_t samples = static_cast<uint32_t>(slot.phase / g_output_rate);
 	slot.phase %= g_output_rate;
@@ -134,8 +121,7 @@ void generate_slot(ymfm_slot &slot, int64_t &left, int64_t &right) {
 				slot.opna.generate(&output);
 				sum_left += output.data[0];
 				sum_right += output.data[1];
-			}
-			else {
+			} else {
 				ymfm::ym2203::output_data output;
 				slot.opn.generate(&output);
 				sum_left += output.data[0];
@@ -150,8 +136,7 @@ void generate_slot(ymfm_slot &slot, int64_t &left, int64_t &right) {
 		const int32_t mono = (slot.last_left + slot.last_right) / 2;
 		left += mono;
 		right += mono;
-	}
-	else {
+	} else {
 		left += slot.last_left;
 		right += slot.last_right;
 	}
@@ -160,13 +145,11 @@ void generate_slot(ymfm_slot &slot, int64_t &left, int64_t &right) {
 } // namespace
 
 extern "C" void ymfm_opn_initialize(UINT rate) {
-
 	g_output_rate = (rate != 0) ? rate : 44100;
 	ymfm_opn_reset();
 }
 
 extern "C" UINT ymfm_opn_parsefidelity(const char *name) {
-
 	if ((name != nullptr) && (std::strcmp(name, "medium") == 0)) {
 		return YMFMBRIDGE_FIDELITY_MEDIUM;
 	}
@@ -177,7 +160,6 @@ extern "C" UINT ymfm_opn_parsefidelity(const char *name) {
 }
 
 extern "C" const char *ymfm_opn_fidelityname(UINT fidelity) {
-
 	switch (fidelity) {
 	case YMFMBRIDGE_FIDELITY_MEDIUM:
 		return "medium";
@@ -189,7 +171,6 @@ extern "C" const char *ymfm_opn_fidelityname(UINT fidelity) {
 }
 
 extern "C" void ymfm_opn_setfidelity(UINT fidelity) {
-
 	if (fidelity >= YMFMBRIDGE_FIDELITY_COUNT) {
 		fidelity = YMFMBRIDGE_FIDELITY_DEFAULT;
 	}
@@ -204,23 +185,19 @@ extern "C" void ymfm_opn_setfidelity(UINT fidelity) {
 }
 
 extern "C" UINT ymfm_opn_getfidelity(void) {
-
 	return g_fidelity;
 }
 
 extern "C" void ymfm_opn_setvol(UINT vol) {
-
 	g_volume = vol;
 }
 
 extern "C" void ymfm_opn_setvr(REG8 channel, REG8 value) {
-
 	if ((channel & 3) && value) {
 		g_vr_enabled = true;
 		g_vr_left = (channel & 1) ? value : 0;
 		g_vr_right = (channel & 2) ? value : 0;
-	}
-	else {
+	} else {
 		g_vr_enabled = false;
 		g_vr_left = 0;
 		g_vr_right = 0;
@@ -228,7 +205,6 @@ extern "C" void ymfm_opn_setvr(REG8 channel, REG8 value) {
 }
 
 extern "C" void ymfm_opn_reset(void) {
-
 	for (ymfm_slot &slot : g_slots) {
 		slot.opn.reset();
 		slot.opna.reset();
@@ -242,12 +218,11 @@ extern "C" void ymfm_opn_reset(void) {
 }
 
 extern "C" void ymfm_opn_setcfg(REG8 maxch, UINT flag) {
-
 	for (unsigned index = 0; index < kChipSlots; index++) {
 		ymfm_slot &slot = g_slots[index];
 		const unsigned first_channel = index * 6;
-		const unsigned channels = (maxch > first_channel) ?
-			min(static_cast<unsigned>(maxch - first_channel), 6U) : 0;
+		const unsigned channels =
+		    (maxch > first_channel) ? min(static_cast<unsigned>(maxch - first_channel), 6U) : 0;
 		slot.active = channels != 0;
 		slot.use_opna = (channels > 3) || ((flag & OPN_CHMASK) != 0);
 		slot.stereo = (flag & OPN_CHMASK) == OPN_STEREO;
@@ -259,7 +234,6 @@ extern "C" void ymfm_opn_setcfg(REG8 maxch, UINT flag) {
 }
 
 extern "C" void ymfm_opn_setextch(UINT chnum, REG8 data) {
-
 	const unsigned chip = chnum / 6;
 	if ((chip >= kChipSlots) || ((chnum % 6) != 2)) {
 		return;
@@ -269,7 +243,6 @@ extern "C" void ymfm_opn_setextch(UINT chnum, REG8 data) {
 }
 
 extern "C" void ymfm_opn_setcontrol(REG8 chbase, REG8 reg, REG8 value) {
-
 	const unsigned chip = chbase / 6;
 	if (chip >= kChipSlots) {
 		return;
@@ -279,7 +252,6 @@ extern "C" void ymfm_opn_setcontrol(REG8 chbase, REG8 reg, REG8 value) {
 }
 
 extern "C" void ymfm_opn_setreg(REG8 chbase, REG8 reg, REG8 value) {
-
 	const unsigned chip = chbase / 6;
 	const bool high = (chbase % 6) >= 3;
 	if (chip >= kChipSlots) {
@@ -292,7 +264,6 @@ extern "C" void ymfm_opn_setreg(REG8 chbase, REG8 reg, REG8 value) {
 }
 
 extern "C" void ymfm_opn_keyon(UINT chnum, REG8 value) {
-
 	const unsigned chip = chnum / 6;
 	const unsigned channel = chnum % 6;
 	if (chip >= kChipSlots) {
@@ -305,7 +276,6 @@ extern "C" void ymfm_opn_keyon(UINT chnum, REG8 value) {
 }
 
 extern "C" void ymfm_opn_timerover(UINT timer) {
-
 	for (ymfm_slot &slot : g_slots) {
 		if (slot.active) {
 			slot.opn_intf.timer_expired(timer);
@@ -315,8 +285,7 @@ extern "C" void ymfm_opn_timerover(UINT timer) {
 }
 
 extern "C" void ymfm_opn_getpcm(SINT32 *pcm, UINT count, BOOL use_vr) {
-
-	while(count--) {
+	while (count--) {
 		int64_t left = 0;
 		int64_t right = 0;
 		for (ymfm_slot &slot : g_slots) {

@@ -37,18 +37,14 @@
 #define M44_INPUT_DIR "VAEG_M44_SCENARIO_INPUT_DIR"
 #define M44_OUTPUT_DIR "VAEG_M44_SCENARIO_OUTPUT_DIR"
 
-static const char *const m44_scenario_names[] = {
-	"m44-reset.state",
-	"m44-executed-3.state",
-	"m44-cpu-shut-request.state"
-};
+static const char *const m44_scenario_names[] = {"m44-reset.state", "m44-executed-3.state",
+                                                 "m44-cpu-shut-request.state"};
 
 #if !defined(VAEG_M44_RAW_UPD9002_STATE)
 void upd9002_m42_process_cpu_reset_request(void);
 #endif
 
 static void prepare_executed(void) {
-
 	static const UINT8 program[] = {0xb8, 0x34, 0x12, 0x40, 0x90};
 	UINT32 index;
 
@@ -72,7 +68,6 @@ static void prepare_executed(void) {
 }
 
 static void prepare_cpu_shut(void) {
-
 	CPU_RESETREQ = 1;
 #if defined(VAEG_M44_RAW_UPD9002_STATE)
 	/* Exact production reset-request operation at the approved G41 SHA. */
@@ -86,12 +81,10 @@ static void prepare_cpu_shut(void) {
 }
 
 static void make_path(char *path, const char *directory, const char *name) {
-
 	SPRINTF(path, "%s/%s", directory, name);
 }
 
 static int save_scenario(const char *directory, const char *name) {
-
 	char path[MAX_PATH];
 
 	make_path(path, directory, name);
@@ -103,7 +96,6 @@ static int save_scenario(const char *directory, const char *name) {
 }
 
 static int generate_scenarios(const char *directory) {
-
 	if (save_scenario(directory, m44_scenario_names[0]) != SUCCESS) {
 		return FAILURE;
 	}
@@ -115,13 +107,11 @@ static int generate_scenarios(const char *directory) {
 	if (save_scenario(directory, m44_scenario_names[2]) != SUCCESS) {
 		return FAILURE;
 	}
-	fprintf(stderr,
-		"upd9002-state-scenario: reset, executed-3, and CPU_SHUT saved\n");
+	fprintf(stderr, "upd9002-state-scenario: reset, executed-3, and CPU_SHUT saved\n");
 	return SUCCESS;
 }
 
 static int roundtrip_scenarios(const char *input, const char *output) {
-
 	char input_path[MAX_PATH];
 	char output_path[MAX_PATH];
 	UINT index;
@@ -130,25 +120,22 @@ static int roundtrip_scenarios(const char *input, const char *output) {
 		make_path(input_path, input, m44_scenario_names[index]);
 		make_path(output_path, output, m44_scenario_names[index]);
 		if ((statsave_load(input_path) == STATFLAG_FAILURE) ||
-			(statsave_save(output_path) != STATFLAG_SUCCESS)) {
+		    (statsave_save(output_path) != STATFLAG_SUCCESS)) {
 			fprintf(stderr, "upd9002-state-scenario: round trip failed: %s\n",
-				m44_scenario_names[index]);
+			        m44_scenario_names[index]);
 			return FAILURE;
 		}
 	}
-	fprintf(stderr,
-		"upd9002-state-scenario: three states loaded and re-saved\n");
+	fprintf(stderr, "upd9002-state-scenario: three states loaded and re-saved\n");
 	return SUCCESS;
 }
 
 int upd9002_state_scenario_requested(void) {
-
-	return (getenv(M44_GENERATE_DIR) != NULL) ||
-		(getenv(M44_INPUT_DIR) != NULL) || (getenv(M44_OUTPUT_DIR) != NULL);
+	return (getenv(M44_GENERATE_DIR) != NULL) || (getenv(M44_INPUT_DIR) != NULL) ||
+	       (getenv(M44_OUTPUT_DIR) != NULL);
 }
 
 int upd9002_state_scenario_run(void) {
-
 	const char *generate;
 	const char *input;
 	const char *output;

@@ -40,118 +40,115 @@ constexpr std::size_t kStatusSize = 68;
 constexpr const char *kTraceSchema = "vaeg-compat-trace-v1";
 
 struct Registers {
-    std::uint16_t af = 0;
-    std::uint16_t bc = 0;
-    std::uint16_t de = 0;
-    std::uint16_t hl = 0;
-    std::uint16_t ix = 0;
-    std::uint16_t iy = 0;
-    std::uint16_t sp = 0xf000;
-    std::uint16_t pc = 0;
-    std::uint16_t alternate_af = 0;
-    std::uint16_t alternate_bc = 0;
-    std::uint16_t alternate_de = 0;
-    std::uint16_t alternate_hl = 0;
-    std::uint8_t i = 0;
-    std::uint8_t r = 0;
-    std::uint8_t im = 0;
-    bool iff1 = false;
-    bool iff2 = false;
+	std::uint16_t af = 0;
+	std::uint16_t bc = 0;
+	std::uint16_t de = 0;
+	std::uint16_t hl = 0;
+	std::uint16_t ix = 0;
+	std::uint16_t iy = 0;
+	std::uint16_t sp = 0xf000;
+	std::uint16_t pc = 0;
+	std::uint16_t alternate_af = 0;
+	std::uint16_t alternate_bc = 0;
+	std::uint16_t alternate_de = 0;
+	std::uint16_t alternate_hl = 0;
+	std::uint8_t i = 0;
+	std::uint8_t r = 0;
+	std::uint8_t im = 0;
+	bool iff1 = false;
+	bool iff2 = false;
 };
 
 struct State {
-    Registers registers;
-    bool halted = false;
-    bool external_wait = false;
-    bool irq = false;
-    bool ei_inhibited = false;
-    std::int32_t remainclock = 0;
-    std::int32_t lastclock = 0;
+	Registers registers;
+	bool halted = false;
+	bool external_wait = false;
+	bool irq = false;
+	bool ei_inhibited = false;
+	std::int32_t remainclock = 0;
+	std::int32_t lastclock = 0;
 };
 
 struct Patch {
-    std::uint16_t address;
-    std::vector<std::uint8_t> bytes;
+	std::uint16_t address;
+	std::vector<std::uint8_t> bytes;
 };
 
 enum class ActionKind {
-    Exec,
-    SetIrq,
-    SetWait,
-    Nmi,
-    SaveLoad,
-    SetAcknowledge,
-    SetInput
+	Exec,
+	SetIrq,
+	SetWait,
+	Nmi,
+	SaveLoad,
+	SetAcknowledge,
+	SetInput
 };
 
 struct Action {
-    ActionKind kind;
-    std::uint32_t value = 0;
-    std::uint32_t auxiliary = 0;
-    std::string reason;
-    bool normalized = false;
+	ActionKind kind;
+	std::uint32_t value = 0;
+	std::uint32_t auxiliary = 0;
+	std::string reason;
+	bool normalized = false;
 };
 
 struct Scenario {
-    std::string identifier;
-    std::uint32_t seed = 0;
-    State initial;
-    std::array<std::uint8_t, kStatusSize> retained_image{};
-    bool use_retained_image = false;
-    std::vector<Patch> patches;
-    std::vector<Action> actions;
+	std::string identifier;
+	std::uint32_t seed = 0;
+	State initial;
+	std::array<std::uint8_t, kStatusSize> retained_image{};
+	bool use_retained_image = false;
+	std::vector<Patch> patches;
+	std::vector<Action> actions;
 };
 
 struct Event {
-    std::uint32_t order = 0;
-    std::string type;
-    std::uint16_t address = 0;
-    std::uint8_t data = 0;
-    bool has_cpu_context = false;
-    std::uint16_t live_pc = 0;
-    std::uint16_t public_pc = 0;
+	std::uint32_t order = 0;
+	std::string type;
+	std::uint16_t address = 0;
+	std::uint8_t data = 0;
+	bool has_cpu_context = false;
+	std::uint16_t live_pc = 0;
+	std::uint16_t public_pc = 0;
 };
 
 struct Snapshot {
-    State state;
-    std::uint16_t live_pc = 0;
-    std::uint16_t public_pc = 0;
-    std::int64_t consumed_clocks = 0;
-    std::uint64_t full_memory_hash = 0;
-    std::uint64_t device_memory_hash = 0;
-    std::vector<Event> events;
+	State state;
+	std::uint16_t live_pc = 0;
+	std::uint16_t public_pc = 0;
+	std::int64_t consumed_clocks = 0;
+	std::uint64_t full_memory_hash = 0;
+	std::uint64_t device_memory_hash = 0;
+	std::vector<Event> events;
 };
 
 class Backend {
-public:
-    virtual ~Backend() = default;
-    virtual bool Initialize(
-        const std::array<std::uint8_t, kStatusSize> &status,
-        const std::vector<Patch> &patches) = 0;
-    virtual void AdvanceClock(std::uint32_t delta) = 0;
-    virtual void Exec() = 0;
-    virtual void SetIrq(bool asserted) = 0;
-    virtual void SetWait(bool asserted) = 0;
-    virtual void Nmi() = 0;
-    virtual bool SaveLoad() = 0;
-    virtual void SetAcknowledge(std::uint8_t value) = 0;
-    virtual void SetInput(std::uint8_t port, std::uint8_t value) = 0;
-    virtual Snapshot Capture() = 0;
+  public:
+	virtual ~Backend() = default;
+	virtual bool Initialize(const std::array<std::uint8_t, kStatusSize> &status,
+	                        const std::vector<Patch> &patches) = 0;
+	virtual void AdvanceClock(std::uint32_t delta) = 0;
+	virtual void Exec() = 0;
+	virtual void SetIrq(bool asserted) = 0;
+	virtual void SetWait(bool asserted) = 0;
+	virtual void Nmi() = 0;
+	virtual bool SaveLoad() = 0;
+	virtual void SetAcknowledge(std::uint8_t value) = 0;
+	virtual void SetInput(std::uint8_t port, std::uint8_t value) = 0;
+	virtual Snapshot Capture() = 0;
 };
 
 using BackendFactory = std::function<std::unique_ptr<Backend>()>;
 
 std::array<std::uint8_t, kStatusSize> EncodeState(const State &state);
-bool DecodeState(const std::array<std::uint8_t, kStatusSize> &image,
-                 State *state);
+bool DecodeState(const std::array<std::uint8_t, kStatusSize> &image, State *state);
 std::vector<Scenario> MakeDirectedCorpus();
-std::vector<Scenario> MakeGeneratedCorpus(std::uint32_t seed,
-                                          std::size_t count);
+std::vector<Scenario> MakeGeneratedCorpus(std::uint32_t seed, std::size_t count);
 std::vector<Scenario> MakeStateCorpus();
 std::vector<Scenario> MakeSchedulingRiskCorpus();
 std::vector<Scenario> MakeSchedulingConvergenceCorpus();
-std::uint64_t HashMemory(const std::array<std::uint8_t, kMemorySize> &memory,
-                         std::size_t begin, std::size_t end);
+std::uint64_t HashMemory(const std::array<std::uint8_t, kMemorySize> &memory, std::size_t begin,
+                         std::size_t end);
 int RunTraceMain(int argc, char **argv, const std::string &backend_name,
                  const BackendFactory &factory);
 

@@ -22,10 +22,9 @@
  * IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-#include	"compiler.h"
-#include	"joymng.h"
+#include "compiler.h"
+#include "joymng.h"
 
 BYTE joymng_getstat(void) {
-
-	return(0xff);
+	return (0xff);
 }

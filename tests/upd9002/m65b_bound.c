@@ -37,7 +37,6 @@ enum {
 };
 
 static void setup_instruction(const UINT8 *instruction, UINT length) {
-
 	UINT index;
 
 	upd9002_core_reset();
@@ -68,39 +67,32 @@ static void setup_instruction(const UINT8 *instruction, UINT length) {
 	CPU_CLOCK = 0;
 	upd9002_core_context.s.cpu_type = CPUTYPE_V30;
 	for (index = 0; index < length; index++) {
-		mem[(CS_BASE + CPU_IP + index) & CPU_ADRSMASK] =
-														instruction[index];
+		mem[(CS_BASE + CPU_IP + index) & CPU_ADRSMASK] = instruction[index];
 	}
 }
 
 static UINT16 read_word(UINT32 address) {
-
-	return (UINT16)(mem[address & CPU_ADRSMASK] |
-			(mem[(address + 1) & CPU_ADRSMASK] << 8));
+	return (UINT16)(mem[address & CPU_ADRSMASK] | (mem[(address + 1) & CPU_ADRSMASK] << 8));
 }
 
 static void write_word(UINT32 address, UINT16 value) {
-
 	mem[address & CPU_ADRSMASK] = (UINT8)value;
 	mem[(address + 1) & CPU_ADRSMASK] = (UINT8)(value >> 8);
 }
 
 static void write_bounds(UINT32 address, UINT16 lower, UINT16 upper) {
-
 	write_word(address, lower);
 	write_word(address + 2, upper);
 }
 
 static void write_vector5(void) {
-
 	write_word(5 * 4, kVector5Offset);
 	write_word(5 * 4 + 2, kVector5Segment);
 }
 
 static int expect_normal(UINT16 expected_ip) {
-
-	if ((CPU_CS != 0x2000) || (CPU_IP != expected_ip) ||
-		(CPU_SP != 0x8000) || (CPU_FLAG != 0xf046)) {
+	if ((CPU_CS != 0x2000) || (CPU_IP != expected_ip) || (CPU_SP != 0x8000) ||
+	    (CPU_FLAG != 0xf046)) {
 		fprintf(stderr, "upd9002-m65b-bound: normal state differed\n");
 		return FAILURE;
 	}
@@ -108,21 +100,16 @@ static int expect_normal(UINT16 expected_ip) {
 }
 
 static int expect_type5(UINT16 saved_ip) {
-
-	if ((CPU_CS != kVector5Segment) || (CPU_IP != kVector5Offset) ||
-		(CPU_SP != 0x7ffa) ||
-		(read_word(SS_BASE + 0x7ffa) != saved_ip) ||
-		(read_word(SS_BASE + 0x7ffc) != 0x2000) ||
-		(read_word(SS_BASE + 0x7ffe) != 0xf046)) {
+	if ((CPU_CS != kVector5Segment) || (CPU_IP != kVector5Offset) || (CPU_SP != 0x7ffa) ||
+	    (read_word(SS_BASE + 0x7ffa) != saved_ip) || (read_word(SS_BASE + 0x7ffc) != 0x2000) ||
+	    (read_word(SS_BASE + 0x7ffe) != 0xf046)) {
 		fprintf(stderr, "upd9002-m65b-bound: type-5 frame differed\n");
 		return FAILURE;
 	}
 	return SUCCESS;
 }
 
-static int run_direct_bound(UINT16 value, UINT16 lower, UINT16 upper,
-							BOOL expect_event) {
-
+static int run_direct_bound(UINT16 value, UINT16 lower, UINT16 upper, BOOL expect_event) {
 	static const UINT8 instruction[] = {0x62, 0x06, 0x00, 0x02};
 
 	setup_instruction(instruction, NELEMENTS(instruction));
@@ -131,7 +118,7 @@ static int run_direct_bound(UINT16 value, UINT16 lower, UINT16 upper,
 	write_bounds(DS_BASE + kBoundOffset, lower, upper);
 	upd9002_core_step();
 	if (read_word(DS_BASE + kBoundOffset) != lower ||
-		read_word(DS_BASE + kBoundOffset + 2) != upper) {
+	    read_word(DS_BASE + kBoundOffset + 2) != upper) {
 		fprintf(stderr, "upd9002-m65b-bound: bounds memory changed\n");
 		return FAILURE;
 	}
@@ -142,32 +129,29 @@ static int run_direct_bound(UINT16 value, UINT16 lower, UINT16 upper,
 }
 
 static int test_bound_signed_range_partitions(void) {
-
 	if ((run_direct_bound(0xfff6, 0xfff6, 0x000a, FALSE) != SUCCESS) ||
-		(run_direct_bound(0x0000, 0xfff6, 0x000a, FALSE) != SUCCESS) ||
-		(run_direct_bound(0x000a, 0xfff6, 0x000a, FALSE) != SUCCESS) ||
-		(run_direct_bound(0xfff5, 0xfff6, 0x000a, TRUE) != SUCCESS) ||
-		(run_direct_bound(0x000b, 0xfff6, 0x000a, TRUE) != SUCCESS)) {
+	    (run_direct_bound(0x0000, 0xfff6, 0x000a, FALSE) != SUCCESS) ||
+	    (run_direct_bound(0x000a, 0xfff6, 0x000a, FALSE) != SUCCESS) ||
+	    (run_direct_bound(0xfff5, 0xfff6, 0x000a, TRUE) != SUCCESS) ||
+	    (run_direct_bound(0x000b, 0xfff6, 0x000a, TRUE) != SUCCESS)) {
 		return FAILURE;
 	}
 	return SUCCESS;
 }
 
 static int test_bound_signed_extremes_and_unsigned_rejections(void) {
-
 	if ((run_direct_bound(0x8000, 0x8000, 0x7fff, FALSE) != SUCCESS) ||
-		(run_direct_bound(0x7fff, 0x8000, 0x7fff, FALSE) != SUCCESS) ||
-		(run_direct_bound(0xfffb, 0xfff6, 0xffff, FALSE) != SUCCESS) ||
-		(run_direct_bound(0x0005, 0x0001, 0x000a, FALSE) != SUCCESS) ||
-		(run_direct_bound(0xffff, 0xfffb, 0x0005, FALSE) != SUCCESS) ||
-		(run_direct_bound(0x8000, 0x0000, 0xffff, TRUE) != SUCCESS)) {
+	    (run_direct_bound(0x7fff, 0x8000, 0x7fff, FALSE) != SUCCESS) ||
+	    (run_direct_bound(0xfffb, 0xfff6, 0xffff, FALSE) != SUCCESS) ||
+	    (run_direct_bound(0x0005, 0x0001, 0x000a, FALSE) != SUCCESS) ||
+	    (run_direct_bound(0xffff, 0xfffb, 0x0005, FALSE) != SUCCESS) ||
+	    (run_direct_bound(0x8000, 0x0000, 0xffff, TRUE) != SUCCESS)) {
 		return FAILURE;
 	}
 	return SUCCESS;
 }
 
 static int test_bound_segment_override(void) {
-
 	static const UINT8 instruction[] = {0x26, 0x62, 0x06, 0x00, 0x02};
 
 	setup_instruction(instruction, NELEMENTS(instruction));
@@ -177,7 +161,7 @@ static int test_bound_segment_override(void) {
 	write_bounds(ES_BASE + kBoundOffset, 0xffff, 0x0001);
 	upd9002_core_step();
 	if ((read_word(DS_BASE + kBoundOffset) != 0x000a) ||
-		(read_word(ES_BASE + kBoundOffset) != 0xffff)) {
+	    (read_word(ES_BASE + kBoundOffset) != 0xffff)) {
 		fprintf(stderr, "upd9002-m65b-bound: segment memory changed\n");
 		return FAILURE;
 	}
@@ -185,7 +169,6 @@ static int test_bound_segment_override(void) {
 }
 
 static int test_bound_offset_wrap(void) {
-
 	static const UINT8 instruction[] = {0x62, 0x00};
 
 	setup_instruction(instruction, NELEMENTS(instruction));
@@ -199,7 +182,6 @@ static int test_bound_offset_wrap(void) {
 }
 
 static int test_bound_physical_wrap(void) {
-
 	static const UINT8 instruction[] = {0x62, 0x06, 0x10, 0x00};
 
 	setup_instruction(instruction, NELEMENTS(instruction));
@@ -214,13 +196,11 @@ static int test_bound_physical_wrap(void) {
 }
 
 int upd9002_m65b_bound_main(void) {
-
 	upd9002_core_initialize();
 	if ((test_bound_signed_range_partitions() != SUCCESS) ||
-		(test_bound_signed_extremes_and_unsigned_rejections() != SUCCESS) ||
-		(test_bound_segment_override() != SUCCESS) ||
-		(test_bound_offset_wrap() != SUCCESS) ||
-		(test_bound_physical_wrap() != SUCCESS)) {
+	    (test_bound_signed_extremes_and_unsigned_rejections() != SUCCESS) ||
+	    (test_bound_segment_override() != SUCCESS) || (test_bound_offset_wrap() != SUCCESS) ||
+	    (test_bound_physical_wrap() != SUCCESS)) {
 		upd9002_core_deinitialize();
 		return FAILURE;
 	}

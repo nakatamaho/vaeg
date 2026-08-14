@@ -37,15 +37,13 @@
 #include <windows.h>
 
 static inline wchar_t *winutf_from_utf8(const char *src) {
-
-	int			len;
-	wchar_t		*dst;
+	int len;
+	wchar_t *dst;
 
 	if (src == NULL) {
 		return NULL;
 	}
-	len = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS,
-							  src, -1, NULL, 0);
+	len = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, src, -1, NULL, 0);
 	if (len <= 0) {
 		return NULL;
 	}
@@ -53,8 +51,7 @@ static inline wchar_t *winutf_from_utf8(const char *src) {
 	if (dst == NULL) {
 		return NULL;
 	}
-	if (MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS,
-							src, -1, dst, len) <= 0) {
+	if (MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, src, -1, dst, len) <= 0) {
 		free(dst);
 		return NULL;
 	}
@@ -62,14 +59,12 @@ static inline wchar_t *winutf_from_utf8(const char *src) {
 }
 
 static inline int winutf_to_utf8(char *dst, int size, const wchar_t *src) {
-
-	int		ret;
+	int ret;
 
 	if ((dst == NULL) || (size <= 0) || (src == NULL)) {
 		return -1;
 	}
-	ret = WideCharToMultiByte(CP_UTF8, WC_ERR_INVALID_CHARS, src, -1,
-							  dst, size, NULL, NULL);
+	ret = WideCharToMultiByte(CP_UTF8, WC_ERR_INVALID_CHARS, src, -1, dst, size, NULL, NULL);
 	if (ret <= 0) {
 		dst[0] = '\0';
 		return -1;
@@ -78,7 +73,6 @@ static inline int winutf_to_utf8(char *dst, int size, const wchar_t *src) {
 }
 
 static inline void winutf_free(wchar_t *ptr) {
-
 	free(ptr);
 }
 #endif

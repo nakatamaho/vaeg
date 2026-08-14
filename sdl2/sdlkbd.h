@@ -30,10 +30,8 @@ extern "C" {
 #endif
 
 void sdlkbd_initialize(void);
-void sdlkbd_keydown(UINT scancode, SDL_Keycode keycode, UINT16 mod,
-					BOOL captured, BOOL repeat);
-void sdlkbd_keyup(UINT scancode, SDL_Keycode keycode, UINT16 mod,
-				  BOOL captured);
+void sdlkbd_keydown(UINT scancode, SDL_Keycode keycode, UINT16 mod, BOOL captured, BOOL repeat);
+void sdlkbd_keyup(UINT scancode, SDL_Keycode keycode, UINT16 mod, BOOL captured);
 void sdlkbd_resetf12(void);
 void sdlkbd_textinput(const char *text, BOOL captured);
 void sdlkbd_reset_state(void);

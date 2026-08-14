@@ -29,12 +29,10 @@
 #include <stdio.h>
 
 static UINT32 physical_address(UINT16 segment, UINT16 offset) {
-
 	return ((((UINT32)segment << 4) + offset) & 0x000fffff);
 }
 
 static UINT16 get_word_register(UINT code) {
-
 	switch (code) {
 	case 0:
 		return CPU_AX;
@@ -56,14 +54,12 @@ static UINT16 get_word_register(UINT code) {
 }
 
 static UINT8 get_byte_register(UINT code) {
-
 	const UINT16 value = get_word_register(code & 3);
 
 	return (code & 4) ? (UINT8)(value >> 8) : (UINT8)value;
 }
 
 static void setup_state(const UINT8 *instruction, UINT length) {
-
 	UINT index;
 
 	upd9002_core_reset();
@@ -99,25 +95,20 @@ static void setup_state(const UINT8 *instruction, UINT length) {
 }
 
 static int fail_case(const char *name, const char *detail) {
-
 	fprintf(stderr, "upd9002-mov-imm-register: %s: %s\n", name, detail);
 	return FAILURE;
 }
 
 static int test_c6_registers(void) {
-
-	static const UINT8 immediates[] =
-		{0x00, 0xff, 0x5a, 0xa5, 0x11, 0xee, 0x7f, 0x80};
+	static const UINT8 immediates[] = {0x00, 0xff, 0x5a, 0xa5, 0x11, 0xee, 0x7f, 0x80};
 	UINT code;
 
 	for (code = 0; code < 8; code++) {
 		UINT16 before[8];
 		UINT index;
 		UINT reg_extension = (code + 3) & 7;
-		UINT8 instruction[3] = {
-			0xc6, (UINT8)(0xc0 | (reg_extension << 3) | code),
-			immediates[code]
-		};
+		UINT8 instruction[3] = {0xc6, (UINT8)(0xc0 | (reg_extension << 3) | code),
+		                        immediates[code]};
 		setup_state(instruction, NELEMENTS(instruction));
 		for (index = 0; index < 8; index++) {
 			before[index] = get_word_register(index);
@@ -130,17 +121,13 @@ static int test_c6_registers(void) {
 			UINT16 expected = before[index];
 			if (index == (code & 3)) {
 				if (code & 4) {
-					expected = (UINT16)((expected & 0x00ff) |
-												(immediates[code] << 8));
-				}
-				else {
-					expected = (UINT16)((expected & 0xff00) |
-												immediates[code]);
+					expected = (UINT16)((expected & 0x00ff) | (immediates[code] << 8));
+				} else {
+					expected = (UINT16)((expected & 0xff00) | immediates[code]);
 				}
 			}
 			if (get_word_register(index) != expected) {
-				return fail_case("C6 register map",
-									"paired or unrelated register changed");
+				return fail_case("C6 register map", "paired or unrelated register changed");
 			}
 		}
 		if ((CPU_FLAG != 0x0fd7) || (CPU_IP != 0x0103)) {
@@ -151,30 +138,25 @@ static int test_c6_registers(void) {
 }
 
 static int test_c7_registers(void) {
-
-	static const UINT16 immediates[] =
-		{0x0000, 0xffff, 0x1234, 0xabcd, 0x00ff, 0xff00, 0x5aa5, 0x8001};
+	static const UINT16 immediates[] = {0x0000, 0xffff, 0x1234, 0xabcd,
+	                                    0x00ff, 0xff00, 0x5aa5, 0x8001};
 	UINT code;
 
 	for (code = 0; code < 8; code++) {
 		UINT16 before[8];
 		UINT index;
 		UINT reg_extension = (code + 5) & 7;
-		UINT8 instruction[4] = {
-			0xc7, (UINT8)(0xc0 | (reg_extension << 3) | code),
-			(UINT8)immediates[code], (UINT8)(immediates[code] >> 8)
-		};
+		UINT8 instruction[4] = {0xc7, (UINT8)(0xc0 | (reg_extension << 3) | code),
+		                        (UINT8)immediates[code], (UINT8)(immediates[code] >> 8)};
 		setup_state(instruction, NELEMENTS(instruction));
 		for (index = 0; index < 8; index++) {
 			before[index] = get_word_register(index);
 		}
 		upd9002_core_step();
 		for (index = 0; index < 8; index++) {
-			const UINT16 expected =
-							(index == code) ? immediates[code] : before[index];
+			const UINT16 expected = (index == code) ? immediates[code] : before[index];
 			if (get_word_register(index) != expected) {
-				return fail_case("C7 register map",
-									"destination or unrelated register differs");
+				return fail_case("C7 register map", "destination or unrelated register differs");
 			}
 		}
 		if ((CPU_FLAG != 0x0fd7) || (CPU_IP != 0x0104)) {
@@ -184,10 +166,8 @@ static int test_c7_registers(void) {
 	return SUCCESS;
 }
 
-static int run_memory_case(const char *name, const UINT8 *instruction,
-						UINT length, UINT16 segment, UINT16 offset,
-						UINT16 expected, UINT width) {
-
+static int run_memory_case(const char *name, const UINT8 *instruction, UINT length, UINT16 segment,
+                           UINT16 offset, UINT16 expected, UINT width) {
 	const UINT32 address = physical_address(segment, offset);
 	UINT16 before[8];
 	UINT index;
@@ -208,8 +188,7 @@ static int run_memory_case(const char *name, const UINT8 *instruction,
 	mem[(address + 1) & 0x000fffff] = 0xc3;
 	upd9002_core_step();
 	if ((mem[address] != (UINT8)expected) ||
-		((width == 16) &&
-		 (mem[(address + 1) & 0x000fffff] != (UINT8)(expected >> 8)))) {
+	    ((width == 16) && (mem[(address + 1) & 0x000fffff] != (UINT8)(expected >> 8)))) {
 		return fail_case(name, "memory destination differs");
 	}
 	for (index = 0; index < 8; index++) {
@@ -224,57 +203,47 @@ static int run_memory_case(const char *name, const UINT8 *instruction,
 }
 
 static int test_memory_forms(void) {
-
 	static const UINT8 c6_direct[] = {0xc6, 0x06, 0x34, 0x12, 0xa5};
 	static const UINT8 c6_disp8[] = {0xc6, 0x40, 0x7f, 0x5a};
-	static const UINT8 c7_disp16[] =
-					{0xc7, 0x80, 0x34, 0x12, 0x34, 0x12};
-	static const UINT8 c6_physical_wrap[] =
-					{0x26, 0xc6, 0x06, 0x10, 0x00, 0xee};
+	static const UINT8 c7_disp16[] = {0xc7, 0x80, 0x34, 0x12, 0x34, 0x12};
+	static const UINT8 c6_physical_wrap[] = {0x26, 0xc6, 0x06, 0x10, 0x00, 0xee};
 	static const UINT8 c7_offset_wrap[] = {0xc7, 0x00, 0xcd, 0xab};
 
-	if (run_memory_case("C6 direct", c6_direct, NELEMENTS(c6_direct),
-					0x3333, 0x1234, 0x00a5, 8) != SUCCESS) {
+	if (run_memory_case("C6 direct", c6_direct, NELEMENTS(c6_direct), 0x3333, 0x1234, 0x00a5, 8) !=
+	    SUCCESS) {
 		return FAILURE;
 	}
-	if (run_memory_case("C6 disp8", c6_disp8, NELEMENTS(c6_disp8),
-					0x3333, (UINT16)(0x48ad + 0x55aa + 0x7f),
-					0x005a, 8) != SUCCESS) {
+	if (run_memory_case("C6 disp8", c6_disp8, NELEMENTS(c6_disp8), 0x3333,
+	                    (UINT16)(0x48ad + 0x55aa + 0x7f), 0x005a, 8) != SUCCESS) {
 		return FAILURE;
 	}
-	if (run_memory_case("C7 disp16", c7_disp16, NELEMENTS(c7_disp16),
-					0x3333, (UINT16)(0x48ad + 0x55aa + 0x1234),
-					0x1234, 16) != SUCCESS) {
+	if (run_memory_case("C7 disp16", c7_disp16, NELEMENTS(c7_disp16), 0x3333,
+	                    (UINT16)(0x48ad + 0x55aa + 0x1234), 0x1234, 16) != SUCCESS) {
 		return FAILURE;
 	}
-	if (run_memory_case("C6 physical wrap", c6_physical_wrap,
-					NELEMENTS(c6_physical_wrap), 0xffff, 0x0010,
-					0x00ee, 8) != SUCCESS) {
+	if (run_memory_case("C6 physical wrap", c6_physical_wrap, NELEMENTS(c6_physical_wrap), 0xffff,
+	                    0x0010, 0x00ee, 8) != SUCCESS) {
 		return FAILURE;
 	}
-	if (run_memory_case("C7 offset wrap", c7_offset_wrap,
-					NELEMENTS(c7_offset_wrap), 0x3333, 0x0001,
-					0xabcd, 16) != SUCCESS) {
+	if (run_memory_case("C7 offset wrap", c7_offset_wrap, NELEMENTS(c7_offset_wrap), 0x3333, 0x0001,
+	                    0xabcd, 16) != SUCCESS) {
 		return FAILURE;
 	}
 	return SUCCESS;
 }
 
 int upd9002_mov_imm_register_main(void) {
-
 	upd9002_test_flat_memory_set(TRUE);
 
 	upd9002_core_initialize();
-	if ((test_c6_registers() != SUCCESS) ||
-		(test_c7_registers() != SUCCESS) ||
-		(test_memory_forms() != SUCCESS)) {
+	if ((test_c6_registers() != SUCCESS) || (test_c7_registers() != SUCCESS) ||
+	    (test_memory_forms() != SUCCESS)) {
 		upd9002_core_deinitialize();
 		upd9002_test_flat_memory_set(FALSE);
 		return FAILURE;
 	}
 	upd9002_core_deinitialize();
 	upd9002_test_flat_memory_set(FALSE);
-	fprintf(stderr,
-		"upd9002-mov-imm-register: register and memory checks passed\n");
+	fprintf(stderr, "upd9002-mov-imm-register: register and memory checks passed\n");
 	return SUCCESS;
 }

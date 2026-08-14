@@ -22,44 +22,38 @@
  * IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-#include	"compiler.h"
-#include	"soundopts.h"
+#include "compiler.h"
+#include "soundopts.h"
 
 BOOL vaeg_sound_rate_valid(UINT rate) {
-
-	return((rate == 11025) || (rate == 22050) || (rate == 44100));
+	return ((rate == 11025) || (rate == 22050) || (rate == 44100));
 }
 
 BOOL vaeg_sound_buffer_valid(UINT ms) {
-
-	return((ms >= VAEG_SOUND_BUFFER_MIN_MS) &&
-							(ms <= VAEG_SOUND_BUFFER_MAX_MS));
+	return ((ms >= VAEG_SOUND_BUFFER_MIN_MS) && (ms <= VAEG_SOUND_BUFFER_MAX_MS));
 }
 
 UINT vaeg_sound_buffer_clamp(UINT ms) {
-
 	if (ms < VAEG_SOUND_BUFFER_MIN_MS) {
-		return(VAEG_SOUND_BUFFER_MIN_MS);
+		return (VAEG_SOUND_BUFFER_MIN_MS);
 	}
 	if (ms > VAEG_SOUND_BUFFER_MAX_MS) {
-		return(VAEG_SOUND_BUFFER_MAX_MS);
+		return (VAEG_SOUND_BUFFER_MAX_MS);
 	}
-	return(ms);
+	return (ms);
 }
 
 UINT vaeg_sound_buffer_samples(UINT rate, UINT ms, UINT buffer_count) {
+	UINT64 target;
+	UINT samples;
 
-	UINT64	target;
-	UINT	samples;
-
-	if (!vaeg_sound_rate_valid(rate) || !vaeg_sound_buffer_valid(ms) ||
-		(buffer_count == 0)) {
-		return(0);
+	if (!vaeg_sound_rate_valid(rate) || !vaeg_sound_buffer_valid(ms) || (buffer_count == 0)) {
+		return (0);
 	}
 	target = ((UINT64)rate * ms) / ((UINT64)buffer_count * 1000);
 	samples = 1;
 	while ((UINT64)samples < target) {
 		samples <<= 1;
 	}
-	return(samples);
+	return (samples);
 }

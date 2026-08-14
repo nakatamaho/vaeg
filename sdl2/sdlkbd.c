@@ -22,20 +22,17 @@
  * IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-#include	"compiler.h"
-#include	"sdlapi.h"
-#include	"sdlkbd.h"
-#include	"kbdmap.h"
-#include	"kbdpaste.h"
+#include "compiler.h"
+#include "sdlapi.h"
+#include "sdlkbd.h"
+#include "kbdmap.h"
+#include "kbdpaste.h"
 
 void sdlkbd_initialize(void) {
-
 	kbdmap_initialize();
 }
 
-void sdlkbd_keydown(UINT scancode, SDL_Keycode keycode, UINT16 mod,
-					BOOL captured, BOOL repeat) {
-
+void sdlkbd_keydown(UINT scancode, SDL_Keycode keycode, UINT16 mod, BOOL captured, BOOL repeat) {
 	if (captured) {
 		kbdmap_trace_captured_key(scancode, keycode, mod, TRUE, repeat);
 		return;
@@ -43,9 +40,7 @@ void sdlkbd_keydown(UINT scancode, SDL_Keycode keycode, UINT16 mod,
 	kbdmap_keydown(scancode, keycode, mod, repeat);
 }
 
-void sdlkbd_keyup(UINT scancode, SDL_Keycode keycode, UINT16 mod,
-				  BOOL captured) {
-
+void sdlkbd_keyup(UINT scancode, SDL_Keycode keycode, UINT16 mod, BOOL captured) {
 	if (captured) {
 		kbdmap_trace_captured_key(scancode, keycode, mod, FALSE, FALSE);
 		return;
@@ -54,12 +49,10 @@ void sdlkbd_keyup(UINT scancode, SDL_Keycode keycode, UINT16 mod,
 }
 
 void sdlkbd_resetf12(void) {
-
 	kbdmap_resetf12();
 }
 
 void sdlkbd_textinput(const char *text, BOOL captured) {
-
 	if (captured) {
 		return;
 	}
@@ -67,7 +60,6 @@ void sdlkbd_textinput(const char *text, BOOL captured) {
 }
 
 void sdlkbd_reset_state(void) {
-
 	kbdpaste_cancel();
 	kbdmap_reset_frontend_state();
 }

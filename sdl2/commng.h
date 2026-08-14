@@ -26,20 +26,20 @@
 #define VAEG_SDL2_COMMNG_H
 
 enum {
-	COMCREATE_SERIAL		= 0,
+	COMCREATE_SERIAL = 0,
 	COMCREATE_PRINTER,
 	COMCREATE_MPU98II
 };
 
 enum {
-	COMCONNECT_OFF			= 0,
+	COMCONNECT_OFF = 0,
 	COMCONNECT_SERIAL,
 	COMCONNECT_MIDI,
 	COMCONNECT_PARALLEL
 };
 
 enum {
-	COMMSG_MIDIRESET		= 0,
+	COMMSG_MIDIRESET = 0,
 	COMMSG_SETFLAG,
 	COMMSG_GETFLAG,
 	COMMSG_SETRSFLAG,
@@ -47,23 +47,23 @@ enum {
 };
 
 struct _commng;
-typedef struct _commng	_COMMNG;
-typedef struct _commng	*COMMNG;
+typedef struct _commng _COMMNG;
+typedef struct _commng *COMMNG;
 
 struct _commng {
-	UINT	connect;
-	UINT	(*read)(COMMNG self, BYTE *data);
-	UINT	(*write)(COMMNG self, BYTE data);
-	BYTE	(*getstat)(COMMNG self);
-	VAEG_INTPTR	(*msg)(COMMNG self, UINT msg, VAEG_INTPTR param);
-	void	(*release)(COMMNG self);
+	UINT connect;
+	UINT (*read)(COMMNG self, BYTE *data);
+	UINT (*write)(COMMNG self, BYTE data);
+	BYTE (*getstat)(COMMNG self);
+	VAEG_INTPTR (*msg)(COMMNG self, UINT msg, VAEG_INTPTR param);
+	void (*release)(COMMNG self);
 };
 
 typedef struct {
-	UINT32	size;
-	UINT32	sig;
-	UINT32	ver;
-	UINT32	param;
+	UINT32 size;
+	UINT32 sig;
+	UINT32 ver;
+	UINT32 param;
 } _COMFLAG, *COMFLAG;
 
 #ifdef __cplusplus

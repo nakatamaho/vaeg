@@ -27,31 +27,29 @@
 #include "compiler.h"
 
 typedef struct {
-    char *text;
-    UINT wait_frames;
-    UINT disk_drive;
-    BOOL wait;
-    BOOL disk_swap;
+	char *text;
+	UINT wait_frames;
+	UINT disk_drive;
+	BOOL wait;
+	BOOL disk_swap;
 } HEADLESS_INPUT_COMMAND;
 
 typedef struct {
-    UINT command_index;
-    UINT command_count;
-    UINT32 next_frame;
-    BOOL completed;
-    HEADLESS_INPUT_COMMAND *commands;
+	UINT command_index;
+	UINT command_count;
+	UINT32 next_frame;
+	BOOL completed;
+	HEADLESS_INPUT_COMMAND *commands;
 } HEADLESS_INPUT_SCRIPT;
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-BOOL headless_input_script_load(HEADLESS_INPUT_SCRIPT *script,
-                                const char *path);
+BOOL headless_input_script_load(HEADLESS_INPUT_SCRIPT *script, const char *path);
 void headless_input_script_clear(HEADLESS_INPUT_SCRIPT *script);
 void headless_input_script_initialize(HEADLESS_INPUT_SCRIPT *script);
-BOOL headless_input_script_after_frame(HEADLESS_INPUT_SCRIPT *script,
-                                       UINT frames);
+BOOL headless_input_script_after_frame(HEADLESS_INPUT_SCRIPT *script, UINT frames);
 
 #ifdef __cplusplus
 }

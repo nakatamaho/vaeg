@@ -41,7 +41,6 @@ Upd9002CoreContext upd9002_core_context;
 UPD9002_REGS upd9002_regs;
 
 static int hex_value(int ch) {
-
 	if ((ch >= '0') && (ch <= '9')) {
 		return ch - '0';
 	}
@@ -52,7 +51,6 @@ static int hex_value(int ch) {
 }
 
 static int decode_hex(const char *text, UINT8 *output, size_t size) {
-
 	size_t index;
 
 	for (index = 0; index < size; index++) {
@@ -69,9 +67,7 @@ static int decode_hex(const char *text, UINT8 *output, size_t size) {
 	return SUCCESS;
 }
 
-static int parse_payload(const char *line, const char *key, UINT8 *output,
-														size_t size) {
-
+static int parse_payload(const char *line, const char *key, UINT8 *output, size_t size) {
 	const char *text;
 
 	text = strstr(line, key);
@@ -80,15 +76,13 @@ static int parse_payload(const char *line, const char *key, UINT8 *output,
 	}
 	text += strlen(key);
 	if ((strlen(text) < size * 2) ||
-		((text[size * 2] != ',') && (text[size * 2] != '\n') &&
-		 (text[size * 2] != '\0'))) {
+	    ((text[size * 2] != ',') && (text[size * 2] != '\n') && (text[size * 2] != '\0'))) {
 		return FAILURE;
 	}
 	return decode_hex(text, output, size);
 }
 
 static int import_export_cpu(const UINT8 *input, UINT8 *output) {
-
 #if defined(VAEG_M44_RAW_COMPAT_PROBE)
 	memcpy(&upd9002_core_context.s, input, sizeof(upd9002_core_context.s));
 	memcpy(output, &upd9002_core_context.s, sizeof(upd9002_core_context.s));
@@ -106,48 +100,42 @@ static int import_export_cpu(const UINT8 *input, UINT8 *output) {
 }
 
 static int verify_record(const char *line) {
-
 	UINT8 cpu_input[CPU_PAYLOAD_SIZE];
 	UINT8 cpu_output[CPU_PAYLOAD_SIZE];
 	UINT8 registers_input[UPD9002_PAYLOAD_SIZE];
 	UINT8 registers_output[UPD9002_PAYLOAD_SIZE];
 
-	if ((parse_payload(line, "cpu286=", cpu_input,
-												sizeof(cpu_input)) != SUCCESS) ||
-		(parse_payload(line, "upd9002=", registers_input,
-										sizeof(registers_input)) != SUCCESS) ||
-		(import_export_cpu(cpu_input, cpu_output) != SUCCESS)) {
+	if ((parse_payload(line, "cpu286=", cpu_input, sizeof(cpu_input)) != SUCCESS) ||
+	    (parse_payload(line, "upd9002=", registers_input, sizeof(registers_input)) != SUCCESS) ||
+	    (import_export_cpu(cpu_input, cpu_output) != SUCCESS)) {
 		return FAILURE;
 	}
 	memcpy(&upd9002_regs, registers_input, sizeof(upd9002_regs));
 	memcpy(registers_output, &upd9002_regs, sizeof(registers_output));
 	if (memcmp(cpu_input, cpu_output, sizeof(cpu_input)) ||
-		memcmp(registers_input, registers_output, sizeof(registers_input))) {
+	    memcmp(registers_input, registers_output, sizeof(registers_input))) {
 		return FAILURE;
 	}
 	return SUCCESS;
 }
 
 static int verify_opaque_record(const char *line) {
-
 	UINT8 cpu_input[CPU_PAYLOAD_SIZE];
 	UINT8 cpu_output[CPU_PAYLOAD_SIZE];
 
-	if (parse_payload(line, "cpu286=", cpu_input, sizeof(cpu_input)) !=
-															SUCCESS) {
+	if (parse_payload(line, "cpu286=", cpu_input, sizeof(cpu_input)) != SUCCESS) {
 		return FAILURE;
 	}
 	cpu_input[94] = 0xa5;
 	cpu_input[95] = 0x5a;
 	if ((import_export_cpu(cpu_input, cpu_output) != SUCCESS) ||
-		memcmp(cpu_input, cpu_output, sizeof(cpu_input))) {
+	    memcmp(cpu_input, cpu_output, sizeof(cpu_input))) {
 		return FAILURE;
 	}
 	return SUCCESS;
 }
 
 int main(int argc, char **argv) {
-
 	FILE *stream;
 	char line[PROBE_LINE_SIZE];
 	char first[PROBE_LINE_SIZE];
@@ -157,7 +145,7 @@ int main(int argc, char **argv) {
 		return 2;
 	}
 	if ((sizeof(upd9002_core_context.s) != CPU_PAYLOAD_SIZE) ||
-		(sizeof(upd9002_regs) != UPD9002_PAYLOAD_SIZE)) {
+	    (sizeof(upd9002_regs) != UPD9002_PAYLOAD_SIZE)) {
 		return 3;
 	}
 #if !defined(VAEG_M44_RAW_COMPAT_PROBE)
@@ -180,18 +168,15 @@ int main(int argc, char **argv) {
 		}
 		rows++;
 	}
-	if (ferror(stream) || (rows != 3) ||
-		(verify_opaque_record(first) != SUCCESS)) {
+	if (ferror(stream) || (rows != 3) || (verify_opaque_record(first) != SUCCESS)) {
 		fclose(stream);
 		return 6;
 	}
 	fclose(stream);
 #if defined(VAEG_M44_RAW_COMPAT_PROBE)
-	fprintf(stderr,
-		"upd9002-state-payload-probe: mode=g41-raw rows=3 opaque=pass\n");
+	fprintf(stderr, "upd9002-state-payload-probe: mode=g41-raw rows=3 opaque=pass\n");
 #else
-	fprintf(stderr,
-		"upd9002-state-payload-probe: mode=m44-adapter rows=3 opaque=pass\n");
+	fprintf(stderr, "upd9002-state-payload-probe: mode=m44-adapter rows=3 opaque=pass\n");
 #endif
 	return 0;
 }

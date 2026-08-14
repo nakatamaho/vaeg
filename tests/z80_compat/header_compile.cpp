@@ -39,31 +39,30 @@
 namespace {
 
 struct Bus {
-    std::array<std::uint8_t, 65536> memory{};
-    std::uint8_t acknowledge = 0x7f;
+	std::array<std::uint8_t, 65536> memory{};
+	std::uint8_t acknowledge = 0x7f;
 };
 
 unsigned char read_memory(void *opaque, unsigned short address) {
-    Bus *bus = static_cast<Bus *>(opaque);
-    return bus->memory[address];
+	Bus *bus = static_cast<Bus *>(opaque);
+	return bus->memory[address];
 }
 
-void write_memory(void *opaque, unsigned short address,
-                  unsigned char value) {
-    Bus *bus = static_cast<Bus *>(opaque);
-    bus->memory[address] = value;
+void write_memory(void *opaque, unsigned short address, unsigned char value) {
+	Bus *bus = static_cast<Bus *>(opaque);
+	bus->memory[address] = value;
 }
 
 unsigned char input(void *, unsigned short) {
-    return 0xff;
+	return 0xff;
 }
 
 void output(void *, unsigned short, unsigned char) {
 }
 
 unsigned char acknowledge(void *opaque) {
-    Bus *bus = static_cast<Bus *>(opaque);
-    return bus->acknowledge;
+	Bus *bus = static_cast<Bus *>(opaque);
+	return bus->acknowledge;
 }
 
 #ifndef Z80_DISABLE_DEBUG
@@ -74,19 +73,19 @@ void debug_message(void *, const char *) {
 } // namespace
 
 int main() {
-    Bus bus;
-    Z80 cpu(read_memory, write_memory, input, output, &bus);
-    cpu.setInterruptAcknowledgeCallback(acknowledge);
-    cpu.setIRQLine(true);
-    if (!cpu.isIRQLineAsserted()) {
-        return 1;
-    }
-    cpu.setIRQLine(false);
+	Bus bus;
+	Z80 cpu(read_memory, write_memory, input, output, &bus);
+	cpu.setInterruptAcknowledgeCallback(acknowledge);
+	cpu.setIRQLine(true);
+	if (!cpu.isIRQLineAsserted()) {
+		return 1;
+	}
+	cpu.setIRQLine(false);
 #ifndef Z80_DISABLE_DEBUG
-    cpu.setDebugMessage(debug_message);
-    cpu.resetDebugMessage();
+	cpu.setDebugMessage(debug_message);
+	cpu.resetDebugMessage();
 #endif
-    cpu.reg.PC = 0;
-    cpu.execute(1);
-    return cpu.reg.PC == 1 ? 0 : 1;
+	cpu.reg.PC = 0;
+	cpu.execute(1);
+	return cpu.reg.PC == 1 ? 0 : 1;
 }

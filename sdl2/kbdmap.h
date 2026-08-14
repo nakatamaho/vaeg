@@ -25,9 +25,9 @@
 #ifndef VAEG_SDL2_KBDMAP_H
 #define VAEG_SDL2_KBDMAP_H
 
-#include	<stddef.h>
-#include	"compiler.h"
-#include	"sdlapi.h"
+#include <stddef.h>
+#include "compiler.h"
+#include "sdlapi.h"
 
 enum {
 	KBDMAP_NC = 0xff
@@ -148,15 +148,15 @@ typedef enum {
 } KBDMAP_ROLE;
 
 typedef struct {
-	KBDMAP_ROLE	role;
-	const char	*id;
-	const char	*label;
-	const char	*semantic;
-	BYTE		guest_code;
-	SDL_Scancode	jis_scancode;
-	SDL_Scancode	us_scancode;
-	KBDMAP_STATUS	status;
-	const char	*evidence;
+	KBDMAP_ROLE role;
+	const char *id;
+	const char *label;
+	const char *semantic;
+	BYTE guest_code;
+	SDL_Scancode jis_scancode;
+	SDL_Scancode us_scancode;
+	KBDMAP_STATUS status;
+	const char *evidence;
 } KBDMAP_ENTRY;
 
 #ifdef __cplusplus
@@ -164,15 +164,14 @@ extern "C" {
 #endif
 
 void kbdmap_initialize(void);
-BOOL kbdmap_keydown(UINT scancode, SDL_Keycode keycode, UINT16 mod,
-					BOOL repeat);
+BOOL kbdmap_keydown(UINT scancode, SDL_Keycode keycode, UINT16 mod, BOOL repeat);
 BOOL kbdmap_keyup(UINT scancode, SDL_Keycode keycode, UINT16 mod);
 BOOL kbdmap_textinput(const char *text);
 BYTE kbdmap_lookup(UINT scancode);
 void kbdmap_reset_frontend_state(void);
 void kbdmap_resetf12(void);
-void kbdmap_trace_captured_key(UINT scancode, SDL_Keycode keycode,
-								UINT16 mod, BOOL down, BOOL repeat);
+void kbdmap_trace_captured_key(UINT scancode, SDL_Keycode keycode, UINT16 mod, BOOL down,
+                               BOOL repeat);
 
 int kbdmap_entry_count(void);
 const KBDMAP_ENTRY *kbdmap_entry(int index);

@@ -22,22 +22,20 @@
  * IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-#include	"compiler.h"
-#include	"sysmng.h"
-#include	"taskmng.h"
-#include	"mousemng.h"
+#include "compiler.h"
+#include "sysmng.h"
+#include "taskmng.h"
+#include "mousemng.h"
 
-	UINT	sys_updates;
+UINT sys_updates;
 
 void sysmng_cpureset(void) {
-
 	taskmng_clear_fast_forward();
 	mousemng_reset();
 	sys_updates &= (SYS_UPDATECFG | SYS_UPDATEOSCFG);
 }
 
 void sysmng_modeled(BYTE num, BYTE sw) {
-
 	(void)num;
 	(void)sw;
 }

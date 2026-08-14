@@ -34,12 +34,9 @@ extern "C" {
 #endif
 
 void vaeg_pacing_reset(VAEG_PACING_STATE *state);
-BOOL vaeg_pacing_key(VAEG_PACING_STATE *state, UINT scancode,
-							 BOOL pressed, BOOL repeat);
-BOOL vaeg_pacing_effective_nowait(const VAEG_PACING_STATE *state,
-												BOOL configured_nowait);
-UINT vaeg_pacing_effective_drawskip(const VAEG_PACING_STATE *state,
-												 UINT configured_drawskip);
+BOOL vaeg_pacing_key(VAEG_PACING_STATE *state, UINT scancode, BOOL pressed, BOOL repeat);
+BOOL vaeg_pacing_effective_nowait(const VAEG_PACING_STATE *state, BOOL configured_nowait);
+UINT vaeg_pacing_effective_drawskip(const VAEG_PACING_STATE *state, UINT configured_drawskip);
 
 #ifdef __cplusplus
 }

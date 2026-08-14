@@ -31,39 +31,34 @@ extern const unsigned char vaeg_splash_bmp[];
 extern const unsigned int vaeg_splash_bmp_size;
 
 BOOL splash_show(void) {
-
-	SDL_Renderer	*renderer;
-	SDL_RWops		*stream;
-	SDL_Surface		*surface;
-	SDL_Texture		*texture;
-	SDL_Rect		dst;
-	int				output_width;
-	int				output_height;
-	int				scale;
+	SDL_Renderer *renderer;
+	SDL_RWops *stream;
+	SDL_Surface *surface;
+	SDL_Texture *texture;
+	SDL_Rect dst;
+	int output_width;
+	int output_height;
+	int scale;
 
 	renderer = (SDL_Renderer *)scrnmng_get_renderer();
 	if (renderer == NULL) {
-		return(FAILURE);
+		return (FAILURE);
 	}
-	stream = SDL_RWFromConstMem(vaeg_splash_bmp,
-								(int)vaeg_splash_bmp_size);
+	stream = SDL_RWFromConstMem(vaeg_splash_bmp, (int)vaeg_splash_bmp_size);
 	if (stream == NULL) {
-		fprintf(stderr, "Warning: startup splash stream failed: %s\n",
-				SDL_GetError());
-		return(FAILURE);
+		fprintf(stderr, "Warning: startup splash stream failed: %s\n", SDL_GetError());
+		return (FAILURE);
 	}
 	surface = SDL_LoadBMP_RW(stream, 1);
 	if (surface == NULL) {
-		fprintf(stderr, "Warning: embedded startup splash failed: %s\n",
-				SDL_GetError());
-		return(FAILURE);
+		fprintf(stderr, "Warning: embedded startup splash failed: %s\n", SDL_GetError());
+		return (FAILURE);
 	}
 	texture = SDL_CreateTextureFromSurface(renderer, surface);
 	if (texture == NULL) {
-		fprintf(stderr, "Warning: startup splash texture failed: %s\n",
-				SDL_GetError());
+		fprintf(stderr, "Warning: startup splash texture failed: %s\n", SDL_GetError());
 		SDL_FreeSurface(surface);
-		return(FAILURE);
+		return (FAILURE);
 	}
 	SDL_SetTextureScaleMode(texture, SDL_ScaleModeNearest);
 	output_width = 0;
@@ -71,8 +66,7 @@ BOOL splash_show(void) {
 	SDL_GetRendererOutputSize(renderer, &output_width, &output_height);
 	scale = scrnmng_get_display_scale();
 	while ((scale > 1) &&
-		(((surface->w * scale) > output_width) ||
-		 ((surface->h * scale) > output_height))) {
+	       (((surface->w * scale) > output_width) || ((surface->h * scale) > output_height))) {
 		scale--;
 	}
 	dst.w = surface->w * scale;
@@ -86,5 +80,5 @@ BOOL splash_show(void) {
 	SDL_Log("Startup splash: embedded assets/vaeg.bmp");
 	SDL_DestroyTexture(texture);
 	SDL_FreeSurface(surface);
-	return(SUCCESS);
+	return (SUCCESS);
 }
