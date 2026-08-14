@@ -119,7 +119,12 @@ org 0x100
 %define G1_PAGE_A_DSA           0x020000
 %define G1_PAGE_B_DSA           0x027d00
 %define SCREEN_WORD_COUNT       0x3e80
+%if M7_VARIANT >= 2
+%define DIRTY_RECT_MAX_COUNT    (SPRITE_MAX_COUNT * 2 + 1)
+%define SGP_COMMAND_WORD_COUNT  (13 + DIRTY_RECT_MAX_COUNT * 9 + (SPRITE_MAX_COUNT + FPS_GLYPH_COUNT) * 16)
+%else
 %define SGP_COMMAND_WORD_COUNT  (11 + (SPRITE_MAX_COUNT + FPS_GLYPH_COUNT) * 16)
+%endif
 %define FPS_SAMPLE_FRAMES       60
 %define BALL_PIXEL_COUNT        (SPRITE_WIDTH * SPRITE_HEIGHT)
 %define BALL_SOURCE_BYTES       SPRITE_BITMAP_BYTES
@@ -632,6 +637,12 @@ initialize_m6_counters:
     mov [m6_total_source_bytes_hi], ax
     mov [m6_missed_vblank_lo], ax
     mov [m6_missed_vblank_hi], ax
+%if M7_VARIANT >= 2
+    mov [m7_dirty_rects_frame], ax
+    mov [m7_dirty_pixels_frame_lo], ax
+    mov [m7_dirty_pixels_frame_hi], ax
+    mov [m7_full_clears_frame], ax
+%endif
     ret
 
 record_completed_frame:
@@ -733,6 +744,23 @@ print_m6_summary:
     mov ax, [m6_missed_vblank_lo]
     mov dx, [m6_missed_vblank_hi]
     call print_u32
+%if M7_VARIANT >= 2
+    mov dx, label_m7_dirty_rects
+    call print_string
+    mov ax, [m7_dirty_rects_frame]
+    xor dx, dx
+    call print_u32
+    mov dx, label_m7_dirty_pixels
+    call print_string
+    mov ax, [m7_dirty_pixels_frame_lo]
+    mov dx, [m7_dirty_pixels_frame_hi]
+    call print_u32
+    mov dx, label_m7_full_clears
+    call print_string
+    mov ax, [m7_full_clears_frame]
+    xor dx, dx
+    call print_u32
+%endif
 
     pop dx
     pop ax
@@ -1026,6 +1054,226 @@ update_frame_transfer_stats:
     pop ax
     ret
 
+; M7b page-local dirty clear. The first pass records every old rectangle,
+; the second pass records every current rectangle and updates that page cache.
+; All current sprites are still redrawn in painter order after this clear.
+%if M7_VARIANT >= 2
+select_dirty_page:
+    cmp byte [draw_page_index], 0
+    jne .page_b
+    mov word [dirty_page_old_x], page_last_x_a
+    mov word [dirty_page_old_y], page_last_y_a
+    mov word [dirty_page_new_x], page_last_x_a
+    mov word [dirty_page_new_y], page_last_y_a
+    mov word [dirty_page_active], page_last_active_a
+    mov word [dirty_page_valid], page_last_valid_a
+    ret
+.page_b:
+    mov word [dirty_page_old_x], page_last_x_b
+    mov word [dirty_page_old_y], page_last_y_b
+    mov word [dirty_page_new_x], page_last_x_b
+    mov word [dirty_page_new_y], page_last_y_b
+    mov word [dirty_page_active], page_last_active_b
+    mov word [dirty_page_valid], page_last_valid_b
+    ret
+
+append_dirty_rect:
+    push ax
+    push bx
+    push cx
+    push dx
+    push si
+    push di
+    push bp
+    mov si, [dirty_rect_count]
+    cmp si, DIRTY_RECT_MAX_COUNT
+    jae .done
+    shl si, 1
+    mov [dirty_rect_x + si], ax
+    mov [dirty_rect_y + si], dx
+    mov [dirty_rect_w + si], bx
+    mov [dirty_rect_h + si], cx
+    inc word [dirty_rect_count]
+    mov ax, bx
+    mul cx
+    add [dirty_pixels_lo], ax
+    adc [dirty_pixels_hi], dx
+.done:
+    pop bp
+    pop di
+    pop si
+    pop dx
+    pop cx
+    pop bx
+    pop ax
+    ret
+
+prepare_dirty_rects:
+    push ax
+    push bx
+    push cx
+    push dx
+    push si
+    push di
+    push bp
+    call select_dirty_page
+    xor ax, ax
+    mov [dirty_rect_count], ax
+    mov [dirty_pixels_lo], ax
+    mov [dirty_pixels_hi], ax
+    mov byte [dirty_full_clear], 0
+
+    mov si, [dirty_page_valid]
+    cmp byte [si], 0
+    je .skip_old
+    mov si, [dirty_page_old_x]
+    mov di, [dirty_page_old_y]
+    mov bp, sprite_records
+    mov cx, [dirty_page_active]
+.old_loop:
+    jcxz .current
+    mov ax, [si]
+    mov dx, [di]
+    mov bx, [bp + SPRITE_WIDTH_OFFSET]
+    push cx
+    mov cx, [bp + SPRITE_HEIGHT_OFFSET]
+    call append_dirty_rect
+    pop cx
+    add si, 2
+    add di, 2
+    add bp, SPRITE_RECORD_SIZE
+    loop .old_loop
+    jmp .current
+
+.skip_old:
+    mov byte [dirty_full_clear], 1
+
+.current:
+    mov si, sprite_records
+    mov di, [dirty_page_new_x]
+    mov bp, [dirty_page_new_y]
+    mov cx, [active_sprite_count]
+.current_loop:
+    jcxz .current_done
+    mov ax, [si + SPRITE_X_OFFSET]
+    mov dx, [si + SPRITE_Y_OFFSET]
+    mov [di], ax
+    mov [bp], dx
+    mov bx, [si + SPRITE_WIDTH_OFFSET]
+    push cx
+    mov cx, [si + SPRITE_HEIGHT_OFFSET]
+    call append_dirty_rect
+    pop cx
+    add si, SPRITE_RECORD_SIZE
+    add di, 2
+    add bp, 2
+    loop .current_loop
+.current_done:
+    mov si, [dirty_page_active]
+    mov ax, [active_sprite_count]
+    mov [si], ax
+    mov si, [dirty_page_valid]
+    mov byte [si], 1
+
+    mov ax, FPS_GLYPH_X
+    mov dx, FPS_GLYPH_Y
+    mov bx, FPS_GLYPH_COUNT * FPS_GLYPH_ADVANCE
+    mov cx, FPS_GLYPH_HEIGHT
+    call append_dirty_rect
+
+    mov ax, [dirty_pixels_hi]
+    cmp ax, 0
+    jne .full
+    cmp word [dirty_pixels_lo], SCREEN_WIDTH * SCREEN_HEIGHT
+    jb .area_ready
+.full:
+    mov byte [dirty_full_clear], 1
+.area_ready:
+    mov ax, [dirty_rect_count]
+    mov [m7_dirty_rects_frame], ax
+    mov ax, [dirty_pixels_lo]
+    mov [m7_dirty_pixels_frame_lo], ax
+    mov ax, [dirty_pixels_hi]
+    mov [m7_dirty_pixels_frame_hi], ax
+    pop bp
+    pop di
+    pop si
+    pop dx
+    pop cx
+    pop bx
+    pop ax
+    ret
+
+emit_dirty_clear_commands:
+    push ax
+    push bx
+    push cx
+    push dx
+    push si
+    push bp
+    mov ax, SGP_COMMAND_SET_SOURCE
+    stosw
+    mov ax, 0x0001
+    stosw
+    mov ax, 1
+    stosw
+    stosw
+    mov ax, 2
+    stosw
+    mov si, sgp_zero_word
+    call physical_address_from_ds_si
+    stosw
+    mov ax, dx
+    stosw
+
+    xor si, si
+    mov cx, [dirty_rect_count]
+.next_rect:
+    jcxz .done
+    mov ax, SGP_COMMAND_SET_DEST
+    stosw
+    mov ax, [dirty_rect_x + si]
+    mov dx, ax
+    and ax, 0x0003
+    shl ax, 4
+    or ax, 0x0001
+    stosw
+    mov ax, [dirty_rect_w + si]
+    stosw
+    mov ax, [dirty_rect_h + si]
+    stosw
+    mov ax, SCREEN_PITCH
+    stosw
+    mov ax, [dirty_rect_y + si]
+    mov bx, SCREEN_PITCH
+    mul bx
+    mov bx, dx
+    mov dx, [dirty_rect_x + si]
+    and dx, 0xfffc
+    shr dx, 1
+    add ax, dx
+    adc bx, 0
+    add ax, [draw_page_sgp_low]
+    adc bx, [draw_page_sgp_high]
+    stosw
+    mov ax, bx
+    stosw
+    mov ax, SGP_COMMAND_PATBLT
+    stosw
+    mov ax, SGP_PATBLT_COPY
+    stosw
+    add si, 2
+    loop .next_rect
+.done:
+    pop bp
+    pop si
+    pop dx
+    pop cx
+    pop bx
+    pop ax
+    ret
+%endif
+
 render_sprite_frame:
     call build_sgp_frame_commands
     call run_sgp_command_list
@@ -1065,6 +1313,15 @@ build_sgp_frame_commands:
     xor ax, ax
     stosw
 
+%if M7_VARIANT >= 2
+    call prepare_dirty_rects
+    cmp byte [dirty_full_clear], 0
+    jne .full_clear
+    call emit_dirty_clear_commands
+    jmp .clear_done
+.full_clear:
+    inc word [m7_full_clears_frame]
+%endif
     mov ax, SGP_COMMAND_CLS
     stosw
     mov ax, [draw_page_sgp_low]
@@ -1075,6 +1332,9 @@ build_sgp_frame_commands:
     stosw
     xor ax, ax
     stosw
+%if M7_VARIANT >= 2
+.clear_done:
+%endif
 
     mov si, sprite_records
     mov ax, [active_sprite_count]
@@ -1408,6 +1668,63 @@ draw_page_dsa_low:
 draw_page_dsa_high:
     dw G1_PAGE_B_DSA >> 16
 
+%if M7_VARIANT >= 2
+m7_dirty_rects_frame:
+    dw 0
+m7_dirty_pixels_frame_lo:
+    dw 0
+m7_dirty_pixels_frame_hi:
+    dw 0
+m7_full_clears_frame:
+    dw 0
+dirty_full_clear:
+    db 0
+dirty_rect_count:
+    dw 0
+dirty_pixels_lo:
+    dw 0
+dirty_pixels_hi:
+    dw 0
+dirty_page_old_x:
+    dw 0
+dirty_page_old_y:
+    dw 0
+dirty_page_new_x:
+    dw 0
+dirty_page_new_y:
+    dw 0
+dirty_page_active:
+    dw 0
+dirty_page_valid:
+    dw 0
+dirty_rect_x:
+    times DIRTY_RECT_MAX_COUNT dw 0
+dirty_rect_y:
+    times DIRTY_RECT_MAX_COUNT dw 0
+dirty_rect_w:
+    times DIRTY_RECT_MAX_COUNT dw 0
+dirty_rect_h:
+    times DIRTY_RECT_MAX_COUNT dw 0
+page_last_active_a:
+    dw 0
+page_last_valid_a:
+    db 0
+    db 0
+page_last_x_a:
+    times SPRITE_MAX_COUNT dw 0
+page_last_y_a:
+    times SPRITE_MAX_COUNT dw 0
+page_last_active_b:
+    dw 0
+page_last_valid_b:
+    db 0
+    db 0
+page_last_x_b:
+    times SPRITE_MAX_COUNT dw 0
+page_last_y_b:
+    times SPRITE_MAX_COUNT dw 0
+%endif
+
 ; M6 diagnostics are 32-bit counters and wrap only after 0xffffffff.
 m6_frames_lo:
     dw 0
@@ -1514,6 +1831,14 @@ label_m6_active:
     db "Active sprites: ", 13, 10, "$"
 label_m6_missed:
     db "Missed VBLANK waits: ", 13, 10, "$"
+%if M7_VARIANT >= 2
+label_m7_dirty_rects:
+    db "Dirty rectangles: ", 13, 10, "$"
+label_m7_dirty_pixels:
+    db "Dirty logical pixels: ", 13, 10, "$"
+label_m7_full_clears:
+    db "Full CLS clears: ", 13, 10, "$"
+%endif
 message_done:
     db "Video state restored.", 13, 10, "$"
 message_failed:
@@ -1578,6 +1903,10 @@ sprite_records:
 align 2, db 0
 sgp_work_area:
     times 58 db 0
+
+align 2, db 0
+sgp_zero_word:
+    dw 0
 
 align 2, db 0
 DEFINE_HSV_BALL hsv_ball_00, 1, 1
