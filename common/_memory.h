@@ -5,21 +5,21 @@ extern "C" {
 
 #if !defined(MEMTRACE) && !defined(MEMCHECK)
 
-#define	_MEM_INIT()				
-#define	_MALLOC(a, b)			malloc(a)
-#define	_MFREE(a)				free(a)
-#define	_HANDLE_ADD(a, b)		
-#define	_HANDLE_REM(a)			
-#define	_MEM_USED(a)			
+#define _MEM_INIT()
+#define _MALLOC(a, b) malloc(a)
+#define _MFREE(a) free(a)
+#define _HANDLE_ADD(a, b)
+#define _HANDLE_REM(a)
+#define _MEM_USED(a)
 
 #elif defined(MEMTRACE)
 
-#define	_MEM_INIT()				_meminit()
-#define	_MALLOC(a, b)			_memalloc((a), (b))
-#define	_MFREE(a)				_memfree(a)
-#define	_HANDLE_ADD(a, b)		_handle_append((a), (b))
-#define	_HANDLE_REM(a)			_handle_remove(a)
-#define	_MEM_USED(a)			_memused(a)
+#define _MEM_INIT() _meminit()
+#define _MALLOC(a, b) _memalloc((a), (b))
+#define _MFREE(a) _memfree(a)
+#define _HANDLE_ADD(a, b) _handle_append((a), (b))
+#define _HANDLE_REM(a) _handle_remove(a)
+#define _MEM_USED(a) _memused(a)
 
 void _meminit(void);
 void *_memalloc(int size, const char *name);
@@ -30,15 +30,15 @@ void _memused(const char *filename);
 
 #elif defined(MEMCHECK)
 
-extern	BOOL	chgmemory;
-extern	DWORD	usedmemory;
+extern BOOL chgmemory;
+extern DWORD usedmemory;
 
-#define	_MEM_INIT()				_meminit()
-#define	_MALLOC(a, b)			_memalloc(a)
-#define	_MFREE(a)				_memfree(a)
-#define	_HANDLE_ADD(a, b)		
-#define	_HANDLE_REM(a)			
-#define	_MEM_USED(a)			
+#define _MEM_INIT() _meminit()
+#define _MALLOC(a, b) _memalloc(a)
+#define _MFREE(a) _memfree(a)
+#define _HANDLE_ADD(a, b)
+#define _HANDLE_REM(a)
+#define _MEM_USED(a)
 
 void _meminit(void);
 void *_memalloc(int size);

@@ -1,25 +1,20 @@
-#include	"compiler.h"
-#include	"dosio.h"
-#include	"cpucore.h"
-#include	"machine/pccore.h"
-#include	"soundrom.h"
+#include "compiler.h"
+#include "dosio.h"
+#include "cpucore.h"
+#include "machine/pccore.h"
+#include "soundrom.h"
 
-
-	SOUNDROM	soundrom;
-
+SOUNDROM soundrom;
 
 static const char file_sound[] = "sound";
 static const char file_extrom[] = ".rom";
-static const BYTE defsoundrom[9] = {
-							0x01,0x00,0x00,0x00,0xd2,0x00,0x08,0x00,0xcb};
-
+static const BYTE defsoundrom[9] = {0x01, 0x00, 0x00, 0x00, 0xd2, 0x00, 0x08, 0x00, 0xcb};
 
 static BOOL loadsoundrom(UINT address, const char *name) {
-
-	char	romname[24];
-	char	path[MAX_PATH];
-	FILEH	fh;
-	UINT	rsize;
+	char romname[24];
+	char path[MAX_PATH];
+	FILEH fh;
+	UINT rsize;
 
 	file_cpyname(romname, file_sound, sizeof(romname));
 	if (name) {
@@ -40,26 +35,22 @@ static BOOL loadsoundrom(UINT address, const char *name) {
 	soundrom.address = address;
 	if (address == 0xd0000) {
 		CPU_RAM_D000 &= ~(0x0f << 0);
-	}
-	else if (address == 0xd4000) {
+	} else if (address == 0xd4000) {
 		CPU_RAM_D000 &= ~(0x0f << 4);
 	}
-	return(SUCCESS);
+	return (SUCCESS);
 
 lsr_err:
-	return(FAILURE);
+	return (FAILURE);
 }
-
 
 // ----
 
 void soundrom_reset(void) {
-
 	ZeroMemory(&soundrom, sizeof(soundrom));
 }
 
 void soundrom_load(UINT32 address, const char *primary) {
-
 	if (primary != NULL) {
 		if (loadsoundrom(address, primary) == SUCCESS) {
 			return;
@@ -74,12 +65,9 @@ void soundrom_load(UINT32 address, const char *primary) {
 }
 
 void soundrom_loadex(UINT sw, const char *primary) {
-
 	if (sw < 4) {
 		soundrom_load((0xc8000 + ((UINT32)sw << 14)), primary);
-	}
-	else {
+	} else {
 		ZeroMemory(&soundrom, sizeof(soundrom));
 	}
 }
-

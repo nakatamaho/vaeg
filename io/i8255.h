@@ -6,7 +6,6 @@
 #if !defined(_i8255_h_)
 #define _i8255_h_
 
-
 typedef void (*I8255_busout)(BYTE);
 
 // 状態
@@ -20,12 +19,11 @@ typedef struct {
 
 // 構成(接続)
 typedef struct {
-	I8255	s;
-	I8255_busout	busoutporta;
-	I8255_busout	busoutportb;	
-	I8255_busout	busoutportc;
+	I8255 s;
+	I8255_busout busoutporta;
+	I8255_busout busoutportb;
+	I8255_busout busoutportc;
 } _I8255CFG, *I8255CFG;
-
 
 #ifdef __cplusplus
 extern "C" {
@@ -47,10 +45,8 @@ void i8255_businporta(I8255CFG p, BYTE dat);
 void i8255_businportb(I8255CFG p, BYTE dat);
 void i8255_businportc(I8255CFG p, BYTE dat);
 
-
 #ifdef __cplusplus
 }
 #endif
 
-
-#endif	/* _i8255_h_ */
+#endif /* _i8255_h_ */

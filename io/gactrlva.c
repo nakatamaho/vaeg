@@ -2,17 +2,16 @@
  * gactrlva.c: PC-88VA GVRAM access control
  */
 
-#include	"compiler.h"
-#include	"cpucore.h"
-#include	"machine/pccore.h"
-#include	"iocore.h"
-#include	"iocoreva.h"
+#include "compiler.h"
+#include "cpucore.h"
+#include "machine/pccore.h"
+#include "iocore.h"
+#include "iocoreva.h"
 
-
-#define SETLOWBYTE(x, y) (x) = ( (x) & 0xff00 | (y) )
-#define SETHIGHBYTE(x, y) (x) = ( (x) & 0x00ff | ((WORD)(y) << 8) )
-#define LOWBYTE(x)  ( (x) & 0xff )
-#define HIGHBYTE(x) ( (x) >> 8 )
+#define SETLOWBYTE(x, y) (x) = ((x) & 0xff00 | (y))
+#define SETHIGHBYTE(x, y) (x) = ((x) & 0x00ff | ((WORD)(y) << 8))
+#define LOWBYTE(x) ((x) & 0xff)
+#define HIGHBYTE(x) ((x) >> 8)
 
 // ---- I/O
 
@@ -24,12 +23,10 @@ static REG8 IOINPCALL gactrlva_i_notimpl(UINT port) {
 		// Real-hardware readback is unstable; return the observed mask pattern.
 		if (port < 0x580) {
 			dat = (port & 0x02) ? 0xfd : 0xff;
-		}
-		else {
+		} else {
 			dat = (port & 0x02) ? 0x7d : 0x7f;
 		}
-	}
-	else {
+	} else {
 		// low
 		// Real-hardware readback is unstable; return the observed mask pattern.
 		dat = ((port & 0x0f) == 0x0a) ? 0xfa : 0xfe;
@@ -48,12 +45,10 @@ static REG8 IOINPCALL gactrlva_i_notactive(UINT port) {
 		// Real-hardware readback is unstable; return the observed mask pattern.
 		if (port < 0x580) {
 			dat = (port & 0x02) ? 0xfd : 0xff;
-		}
-		else {
+		} else {
 			dat = (port & 0x02) ? 0x7d : 0x7f;
 		}
-	}
-	else {
+	} else {
 		// low
 		// Real-hardware readback is unstable; return the observed mask pattern.
 		dat = ((port & 0x0f) == 0x0a) ? 0xfa : 0xfe;
@@ -65,13 +60,12 @@ static REG8 IOINPCALL gactrlva_i_notactive(UINT port) {
 }
 
 static REG8 IOINPCALL gactrlva_i_high_m(UINT port) {
-
-	if (gactrlva.gmsp) return gactrlva_i_notactive(port);
+	if (gactrlva.gmsp)
+		return gactrlva_i_notactive(port);
 
 	TRACEOUT(("gactrlva(in, not implemented) - %x %x %.4x %.4x", port, 0xff, CPU_CS, CPU_IP));
 	return 0xff;
 }
-
 
 static void IOOUTCALL gactrlva_o510(UINT port, REG8 dat) {
 	gactrlva.m.accessmode = dat & 0x01;
@@ -81,7 +75,8 @@ static void IOOUTCALL gactrlva_o510(UINT port, REG8 dat) {
 static REG8 IOINPCALL gactrlva_i510(UINT port) {
 	REG8 dat;
 
-	if (gactrlva.gmsp) return gactrlva_i_notactive(port);
+	if (gactrlva.gmsp)
+		return gactrlva_i_notactive(port);
 
 	dat = gactrlva.m.accessmode;
 	TRACEOUT(("gactrlva(in) - %x %x %.4x %.4x", port, dat, CPU_CS, CPU_IP));
@@ -97,7 +92,8 @@ static void IOOUTCALL gactrlva_o512(UINT port, REG8 dat) {
 static REG8 IOINPCALL gactrlva_i512(UINT port) {
 	REG8 dat;
 
-	if (gactrlva.gmsp) return gactrlva_i_notactive(port);
+	if (gactrlva.gmsp)
+		return gactrlva_i_notactive(port);
 
 	dat = gactrlva.m.accessblock;
 	TRACEOUT(("gactrlva(in) - %x %x %.4x %.4x", port, dat, CPU_CS, CPU_IP));
@@ -113,7 +109,8 @@ static void IOOUTCALL gactrlva_o514(UINT port, REG8 dat) {
 static REG8 IOINPCALL gactrlva_i514(UINT port) {
 	REG8 dat;
 
-	if (gactrlva.gmsp) return gactrlva_i_notactive(port);
+	if (gactrlva.gmsp)
+		return gactrlva_i_notactive(port);
 
 	dat = gactrlva.m.readplane;
 	TRACEOUT(("gactrlva(in) - %x %x %.4x %.4x", port, dat, CPU_CS, CPU_IP));
@@ -129,7 +126,8 @@ static void IOOUTCALL gactrlva_o516(UINT port, REG8 dat) {
 static REG8 IOINPCALL gactrlva_i516(UINT port) {
 	REG8 dat;
 
-	if (gactrlva.gmsp) return gactrlva_i_notactive(port);
+	if (gactrlva.gmsp)
+		return gactrlva_i_notactive(port);
 
 	dat = gactrlva.m.writeplane;
 	TRACEOUT(("gactrlva(in) - %x %x %.4x %.4x", port, dat, CPU_CS, CPU_IP));
@@ -141,19 +139,20 @@ static void IOOUTCALL gactrlva_o518(UINT port, REG8 dat) {
 	if (gactrlva.m.advancedaccessmode ^ dat & 0x04) {
 		if (!(dat & 0x04)) {
 			// Reset both pattern pointers when switching to 8-bit pattern mode.
-			gactrlva.m.patternreadpointer  = 0xf0;
+			gactrlva.m.patternreadpointer = 0xf0;
 			gactrlva.m.patternwritepointer = 0xf0;
 		}
 	}
 	gactrlva.m.advancedaccessmode = dat & 0x3f; //0xbf;
-			// Tekumani defines bit 7 as RBUSY; observed VA2 reads keep it clear.
+	// Tekumani defines bit 7 as RBUSY; observed VA2 reads keep it clear.
 	TRACEOUT(("gactrlva - %x %x %.4x %.4x", port, dat, CPU_CS, CPU_IP));
 }
 
 static REG8 IOINPCALL gactrlva_i518(UINT port) {
 	REG8 dat;
 
-	if (gactrlva.gmsp) return gactrlva_i_notactive(port);
+	if (gactrlva.gmsp)
+		return gactrlva_i_notactive(port);
 
 	dat = gactrlva.m.advancedaccessmode;
 	TRACEOUT(("gactrlva(in) - %x %x %.4x %.4x", port, dat, CPU_CS, CPU_IP));
@@ -173,7 +172,8 @@ static REG8 IOINPCALL gactrlva_i520(UINT port) {
 	REG8 dat;
 	int i;
 
-	if (gactrlva.gmsp) return gactrlva_i_notactive(port);
+	if (gactrlva.gmsp)
+		return gactrlva_i_notactive(port);
 
 	i = (port >> 1) & 3;
 	dat = gactrlva.m.cmpdata[i];
@@ -187,7 +187,7 @@ static void IOOUTCALL gactrlva_o528(UINT port, REG8 dat) {
 
 	TRACEOUT(("gactrlva - %x %x %.4x %.4x", port, dat, CPU_CS, CPU_IP));
 	//gactrlva.m.cmpdatacontrol = dat & 0x0f | 0xf0;
-			// Tekumani marks bits 7-4 as zero; observed VA2 reads return 1111b.
+	// Tekumani marks bits 7-4 as zero; observed VA2 reads return 1111b.
 	for (i = 0; i < 4; i++) {
 		gactrlva.m.cmpdata[i] = (dat & 1) ? 0xff : 0;
 		dat >>= 1;
@@ -198,15 +198,17 @@ static REG8 IOINPCALL gactrlva_i528(UINT port) {
 	REG8 dat;
 	int i;
 
-	if (gactrlva.gmsp) return gactrlva_i_notactive(port);
+	if (gactrlva.gmsp)
+		return gactrlva_i_notactive(port);
 
 	dat = 0;
-	for (i = 3; i >=0; i--) {
+	for (i = 3; i >= 0; i--) {
 		dat <<= 1;
-		if (gactrlva.m.cmpdata[i] == 0xff) dat |= 1;
+		if (gactrlva.m.cmpdata[i] == 0xff)
+			dat |= 1;
 	}
 	dat |= 0xf0;
-		// Tekumani marks bits 7-4 as zero; observed VA2 reads return 1111b.
+	// Tekumani marks bits 7-4 as zero; observed VA2 reads return 1111b.
 	//dat = gactrlva.m.cmpdatacontrol;
 	TRACEOUT(("gactrlva(in) - %x %x %.4x %.4x", port, dat, CPU_CS, CPU_IP));
 
@@ -225,7 +227,8 @@ static REG8 IOINPCALL gactrlva_i530(UINT port) {
 	int i;
 	REG8 dat;
 
-	if (gactrlva.gmsp) return gactrlva_i_notactive(port);
+	if (gactrlva.gmsp)
+		return gactrlva_i_notactive(port);
 
 	i = (port >> 1) & 3;
 	dat = gactrlva.m.pattern[i][0];
@@ -246,7 +249,8 @@ static REG8 IOINPCALL gactrlva_i540(UINT port) {
 	int i;
 	REG8 dat;
 
-	if (gactrlva.gmsp) return gactrlva_i_notactive(port);
+	if (gactrlva.gmsp)
+		return gactrlva_i_notactive(port);
 
 	i = (port >> 1) & 3;
 	dat = gactrlva.m.pattern[i][1];
@@ -261,14 +265,15 @@ static void IOOUTCALL gactrlva_o550(UINT port, REG8 dat) {
 		dat = 0;
 	}
 	gactrlva.m.patternreadpointer = dat & 0x0f | 0xf0;
-			// Tekumani marks bits 7-4 as zero; observed VA2 reads return 1111b.
+	// Tekumani marks bits 7-4 as zero; observed VA2 reads return 1111b.
 	TRACEOUT(("gactrlva - %x %x %.4x %.4x", port, dat, CPU_CS, CPU_IP));
 }
 
 static REG8 IOINPCALL gactrlva_i550(UINT port) {
 	REG8 dat;
 
-	if (gactrlva.gmsp) return gactrlva_i_notactive(port);
+	if (gactrlva.gmsp)
+		return gactrlva_i_notactive(port);
 
 	dat = gactrlva.m.patternreadpointer;
 	TRACEOUT(("gactrlva(in) - %x %x %.4x %.4x", port, dat, CPU_CS, CPU_IP));
@@ -282,14 +287,15 @@ static void IOOUTCALL gactrlva_o552(UINT port, REG8 dat) {
 		dat = 0;
 	}
 	gactrlva.m.patternwritepointer = dat & 0x0f | 0xf0;
-			// Tekumani marks bits 7-4 as zero; observed VA2 reads return 1111b.
+	// Tekumani marks bits 7-4 as zero; observed VA2 reads return 1111b.
 	TRACEOUT(("gactrlva - %x %x %.4x %.4x", port, dat, CPU_CS, CPU_IP));
 }
 
 static REG8 IOINPCALL gactrlva_i552(UINT port) {
 	REG8 dat;
 
-	if (gactrlva.gmsp) return gactrlva_i_notactive(port);
+	if (gactrlva.gmsp)
+		return gactrlva_i_notactive(port);
 
 	dat = gactrlva.m.patternwritepointer;
 	TRACEOUT(("gactrlva(in) - %x %x %.4x %.4x", port, dat, CPU_CS, CPU_IP));
@@ -309,7 +315,8 @@ static REG8 IOINPCALL gactrlva_i560(UINT port) {
 	REG8 dat;
 	int i;
 
-	if (gactrlva.gmsp) return gactrlva_i_notactive(port);
+	if (gactrlva.gmsp)
+		return gactrlva_i_notactive(port);
 
 	i = (port >> 1) & 3;
 	dat = gactrlva.m.rop[i];
@@ -319,15 +326,16 @@ static REG8 IOINPCALL gactrlva_i560(UINT port) {
 }
 
 static void IOOUTCALL gactrlva_o580(UINT port, REG8 dat) {
-	gactrlva.s.writemode = dat & 0x18;	//0x98;
-			// Tekumani defines bit 7 as RBUSY; observed VA2 reads keep it clear.
+	gactrlva.s.writemode = dat & 0x18; //0x98;
+	// Tekumani defines bit 7 as RBUSY; observed VA2 reads keep it clear.
 	//TRACEOUT(("gactrlva - %x %x %.4x %.4x", port, dat, CPU_CS, CPU_IP));
 }
 
 static REG8 IOINPCALL gactrlva_i580(UINT port) {
 	REG8 dat;
 
-	if (!gactrlva.gmsp) return gactrlva_i_notactive(port);
+	if (!gactrlva.gmsp)
+		return gactrlva_i_notactive(port);
 
 	dat = gactrlva.s.writemode;
 	TRACEOUT(("gactrlva(in) - %x %x %.4x %.4x", port, dat, CPU_CS, CPU_IP));
@@ -336,7 +344,7 @@ static REG8 IOINPCALL gactrlva_i580(UINT port) {
 }
 
 static void IOOUTCALL gactrlva_o590(UINT port, REG8 dat) {
-	int	i;
+	int i;
 
 	i = (port >> 1) & 1;
 	SETLOWBYTE(gactrlva.s.pattern[i], dat);
@@ -345,9 +353,10 @@ static void IOOUTCALL gactrlva_o590(UINT port, REG8 dat) {
 
 static REG8 IOINPCALL gactrlva_i590(UINT port) {
 	REG8 dat;
-	int	i;
+	int i;
 
-	if (!gactrlva.gmsp) return gactrlva_i_notactive(port);
+	if (!gactrlva.gmsp)
+		return gactrlva_i_notactive(port);
 
 	i = (port >> 1) & 1;
 	dat = LOWBYTE(gactrlva.s.pattern[i]);
@@ -357,7 +366,7 @@ static REG8 IOINPCALL gactrlva_i590(UINT port) {
 }
 
 static void IOOUTCALL gactrlva_o591(UINT port, REG8 dat) {
-	int	i;
+	int i;
 
 	i = (port >> 1) & 1;
 	SETHIGHBYTE(gactrlva.s.pattern[i], dat);
@@ -366,9 +375,10 @@ static void IOOUTCALL gactrlva_o591(UINT port, REG8 dat) {
 
 static REG8 IOINPCALL gactrlva_i591(UINT port) {
 	REG8 dat;
-	int	i;
+	int i;
 
-	if (!gactrlva.gmsp) return gactrlva_i_notactive(port);
+	if (!gactrlva.gmsp)
+		return gactrlva_i_notactive(port);
 
 	i = (port >> 1) & 1;
 	dat = HIGHBYTE(gactrlva.s.pattern[i]);
@@ -378,7 +388,7 @@ static REG8 IOINPCALL gactrlva_i591(UINT port) {
 }
 
 static void IOOUTCALL gactrlva_o5a0(UINT port, REG8 dat) {
-	int	i;
+	int i;
 
 	i = (port >> 1) & 1;
 	gactrlva.s.rop[i] = dat;
@@ -387,9 +397,10 @@ static void IOOUTCALL gactrlva_o5a0(UINT port, REG8 dat) {
 
 static REG8 IOINPCALL gactrlva_i5a0(UINT port) {
 	REG8 dat;
-	int	i;
+	int i;
 
-	if (!gactrlva.gmsp) return gactrlva_i_notactive(port);
+	if (!gactrlva.gmsp)
+		return gactrlva_i_notactive(port);
 
 	i = (port >> 1) & 1;
 	dat = gactrlva.s.rop[i];
@@ -397,7 +408,6 @@ static REG8 IOINPCALL gactrlva_i5a0(UINT port) {
 
 	return dat;
 }
-
 
 // ---- I/F
 

@@ -2,10 +2,10 @@
 extern "C" {
 #endif
 
-extern	WORD	vabitmap[];
+extern WORD vabitmap[];
 //extern	BYTE	colorlevel5[];
 //extern	BYTE	colorlevel6[];
-extern	RGB16	drawcolor16[];
+extern RGB16 drawcolor16[];
 
 enum {
 	VAEG_VA_LAYER_TEXT = 0,
@@ -23,7 +23,6 @@ BOOL scrndrawva_layer_enabled(UINT layer);
 
 void scrndrawva_compose_begin(void);
 void scrndrawva_compose_raster(void);
-
 
 //void scrndrawva_draw_sub(const SCRNSURF	*surf);
 

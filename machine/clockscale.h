@@ -26,42 +26,38 @@
 #define VAEG_CLOCKSCALE_H
 
 typedef struct {
-	UINT32	numerator;
-	UINT32	denominator;
-	UINT64	remainder;
+	UINT32 numerator;
+	UINT32 denominator;
+	UINT64 remainder;
 } CLOCKSCALE;
 
-static INLINE BOOL clockscale_configure(CLOCKSCALE *scale,
-									UINT32 numerator, UINT32 denominator) {
-
+static INLINE BOOL clockscale_configure(CLOCKSCALE *scale, UINT32 numerator, UINT32 denominator) {
 	if ((scale == NULL) || (numerator == 0) || (denominator == 0)) {
-		return(FAILURE);
+		return (FAILURE);
 	}
 	scale->numerator = numerator;
 	scale->denominator = denominator;
 	scale->remainder = 0;
-	return(SUCCESS);
+	return (SUCCESS);
 }
 
 static INLINE void clockscale_reset(CLOCKSCALE *scale) {
-
 	if (scale != NULL) {
 		scale->remainder = 0;
 	}
 }
 
 static INLINE UINT64 clockscale_apply(CLOCKSCALE *scale, UINT32 value) {
-
 	UINT64 total;
 	UINT64 result;
 
 	if ((scale == NULL) || (scale->denominator == 0)) {
-		return(0);
+		return (0);
 	}
 	total = ((UINT64)value * scale->numerator) + scale->remainder;
 	result = total / scale->denominator;
 	scale->remainder = total % scale->denominator;
-	return(result);
+	return (result);
 }
 
 #endif

@@ -1,33 +1,33 @@
 #include "dosio.h"
 
 enum {
-	STATFLAG_SUCCESS	= 0,
-	STATFLAG_DISKCHG	= 0x0001,
-	STATFLAG_VERCHG		= 0x0002,
-	STATFLAG_WARNING	= 0x0080,
-	STATFLAG_VERSION	= 0x0100,
-	STATFLAG_FAILURE	= -1
+	STATFLAG_SUCCESS = 0,
+	STATFLAG_DISKCHG = 0x0001,
+	STATFLAG_VERCHG = 0x0002,
+	STATFLAG_WARNING = 0x0080,
+	STATFLAG_VERSION = 0x0100,
+	STATFLAG_FAILURE = -1
 };
 
 typedef struct {
-	char		index[10];
-	UINT16		ver;
-	UINT32		size;
+	char index[10];
+	UINT16 ver;
+	UINT32 size;
 } STFLAGHDR;
 
 typedef struct {
-	STFLAGHDR	hdr;
-	UINT		pos;
-	char		*err;
-	int			errlen;
+	STFLAGHDR hdr;
+	UINT pos;
+	char *err;
+	int errlen;
 } _STFLAGH, *STFLAGH;
 
 typedef struct {
-	char	index[10];
-	UINT16	ver;
-	UINT16	type;
-	void	*arg1;
-	UINT	arg2;
+	char index[10];
+	UINT16 ver;
+	UINT16 type;
+	void *arg1;
+	UINT arg2;
 } SFENTRY;
 
 #ifdef __cplusplus
@@ -45,7 +45,6 @@ int statsave_check_hostfat_override(const char *filename, char *buf, int size);
 int statsave_load(const char *filename);
 /* Retains the current HOSTFAT mount state and read-only snapshot. */
 int statsave_load_hostfat_override(const char *filename);
-
 
 #if defined(SUPPORT_OPRECORD)
 typedef void (*STATSAVE_LOAD_DISK_HOOK)(int drv, char *path, UINT size, int *readonly);

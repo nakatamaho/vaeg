@@ -1,41 +1,40 @@
 
 typedef struct {
-	UINT8	ctrl;
-	UINT8	ch;
-	UINT8	flag;
-	UINT8	stat;
-	UINT16	value;
-	UINT16	latch;
+	UINT8 ctrl;
+	UINT8 ch;
+	UINT8 flag;
+	UINT8 stat;
+	UINT16 value;
+	UINT16 latch;
 } _PITCH, *PITCH;
 
 typedef struct {
-	_PITCH	ch[5];
+	_PITCH ch[5];
 } _PIT, *PIT;
 
 enum {
-	PIT_CTRL_BCD	= 0x01,
-	PIT_CTRL_MODE	= 0x0e,
-	PIT_CTRL_RL		= 0x30,
-	PIT_CTRL_SC		= 0xc0,
+	PIT_CTRL_BCD = 0x01,
+	PIT_CTRL_MODE = 0x0e,
+	PIT_CTRL_RL = 0x30,
+	PIT_CTRL_SC = 0xc0,
 
-	PIT_RL_L		= 0x10,
-	PIT_RL_H		= 0x20,
-	PIT_RL_ALL		= 0x30,
+	PIT_RL_L = 0x10,
+	PIT_RL_H = 0x20,
+	PIT_RL_ALL = 0x30,
 
-	PIT_STAT_CMD	= 0x40,
-	PIT_STAT_INT	= 0x80,
+	PIT_STAT_CMD = 0x40,
+	PIT_STAT_INT = 0x80,
 
-	PIT_FLAG_R		= 0x01,
-	PIT_FLAG_W		= 0x02,
-	PIT_FLAG_L		= 0x04,
-	PIT_FLAG_S		= 0x08,
-	PIT_FLAG_C		= 0x10,
-	PIT_FLAG_I		= 0x20,
+	PIT_FLAG_R = 0x01,
+	PIT_FLAG_W = 0x02,
+	PIT_FLAG_L = 0x04,
+	PIT_FLAG_S = 0x08,
+	PIT_FLAG_C = 0x10,
+	PIT_FLAG_I = 0x20,
 
-	PIT_LATCH_S		= 0x10,
-	PIT_LATCH_C		= 0x20
+	PIT_LATCH_S = 0x10,
+	PIT_LATCH_C = 0x20
 };
-
 
 #ifdef __cplusplus
 extern "C" {
@@ -58,4 +57,3 @@ void pit_ontckschanged(void);
 #ifdef __cplusplus
 }
 #endif
-

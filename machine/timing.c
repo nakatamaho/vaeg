@@ -1,24 +1,21 @@
-#include	"compiler.h"
-#include	"machine/pccore.h"
-#include	"diskdrv.h"
-#include	"fdd_mtr.h"
-#include	"machine/timing.h"
+#include "compiler.h"
+#include "machine/pccore.h"
+#include "diskdrv.h"
+#include "fdd_mtr.h"
+#include "machine/timing.h"
 
-
-#define	MSSHIFT		16
+#define MSSHIFT 16
 
 typedef struct {
-	UINT32	tick;			// 前回timing_getcount実行時のGETTICK()の値
-	UINT32	msstep;			// 1msecあたりの画面表示サイクル数 << MSSHIFT
-	UINT	cnt;			// 経過時間を画面表示サイクル数であらわしたもの(整数部)
-	UINT32	fraction;		// 経過時間を画面表示サイクル数であらわしたもの(小数点以下MSSHIFTビット)
+	UINT32 tick;     // 前回timing_getcount実行時のGETTICK()の値
+	UINT32 msstep;   // 1msecあたりの画面表示サイクル数 << MSSHIFT
+	UINT cnt;        // 経過時間を画面表示サイクル数であらわしたもの(整数部)
+	UINT32 fraction; // 経過時間を画面表示サイクル数であらわしたもの(小数点以下MSSHIFTビット)
 } TIMING;
 
-static	TIMING	timing;
-
+static TIMING timing;
 
 void timing_reset(void) {
-
 	timing.tick = GETTICK();
 	timing.cnt = 0;
 	timing.fraction = 0;
@@ -30,17 +27,14 @@ void timing_reset(void) {
 			crthz		1秒当り描画ライン数
 */
 void timing_setrate(UINT lines, UINT crthz) {
-
 	timing.msstep = (crthz << (MSSHIFT - 3)) / lines / (1000 >> 3);
 }
 
 void timing_setcount(UINT value) {
-
 	timing.cnt = value;
 }
 
 void timing_hosttick(void) {
-
 	fddmtr_callback(GETTICK());
 }
 
@@ -49,10 +43,9 @@ void timing_hosttick(void) {
 	この値はtiming_setcountでリセットできる。
 */
 UINT timing_getcount(void) {
-
-	UINT32	ticknow;
-	UINT32	span;
-	UINT32	fraction;
+	UINT32 ticknow;
+	UINT32 span;
+	UINT32 fraction;
 
 	ticknow = GETTICK();
 	span = ticknow - timing.tick;
@@ -67,5 +60,5 @@ UINT timing_getcount(void) {
 		timing.cnt += fraction >> MSSHIFT;
 		timing.fraction = fraction & ((1 << MSSHIFT) - 1);
 	}
-	return(timing.cnt);
+	return (timing.cnt);
 }

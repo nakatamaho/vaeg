@@ -1,29 +1,29 @@
 
 
 typedef struct {
-	UINT8	phase;
-	UINT8	ocr;
-	UINT8	stat;
-	UINT8	error;
-	UINT8	unit;
-	UINT8	isrint;
-	BYTE	cmd[6];
-	UINT	cmdpos;
-	BYTE	sens[4];
-	UINT	senspos;
-	UINT	c2pos;
-	UINT32	sector;
-	UINT	blocks;
-	UINT	datpos;
-	UINT	datsize;
-	BYTE	dat[256];
+	UINT8 phase;
+	UINT8 ocr;
+	UINT8 stat;
+	UINT8 error;
+	UINT8 unit;
+	UINT8 isrint;
+	BYTE cmd[6];
+	UINT cmdpos;
+	BYTE sens[4];
+	UINT senspos;
+	UINT c2pos;
+	UINT32 sector;
+	UINT blocks;
+	UINT datpos;
+	UINT datsize;
+	BYTE dat[256];
 } _SASIIO, *SASIIO;
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-extern	_SASIIO		sasiio;
+extern _SASIIO sasiio;
 
 void sasiioint(NEVENTITEM item);
 

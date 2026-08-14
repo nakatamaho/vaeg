@@ -1,29 +1,28 @@
-#include	"compiler.h"
-#include	"cpucore.h"
-#include	"machine/pccore.h"
-#include	"iocore.h"
-#include	"iocoreva.h"
-#include	"sgp.h"
-#include	"subsystemmx.h"
-#include	"va91.h"
-#include	"upd9002_regs.h"
-#include	"upd9002_trace.h"
+#include "compiler.h"
+#include "cpucore.h"
+#include "machine/pccore.h"
+#include "iocore.h"
+#include "iocoreva.h"
+#include "sgp.h"
+#include "subsystemmx.h"
+#include "va91.h"
+#include "upd9002_regs.h"
+#include "upd9002_trace.h"
 #if defined(VAEG_UPD9002_SSTS_TESTING)
-#include	"tests/upd9002/direct_harness.h"
+#include "tests/upd9002/direct_harness.h"
 #endif
 
-	_DMAC		dmac;
-	_EMSIO		emsio;
-	_FDC		fdc;
-	_KEYBRD		keybrd;
-	_MOUSEIF	mouseif;
-	_NP2SYSP	np2sysp;
-	_PIC		pic;
-	_PIT		pit;
-	_RS232C		rs232c;
-	_SYSPORT	sysport;
-	_UPD4990	uPD4990;
-
+_DMAC dmac;
+_EMSIO emsio;
+_FDC fdc;
+_KEYBRD keybrd;
+_MOUSEIF mouseif;
+_NP2SYSP np2sysp;
+_PIC pic;
+_PIT pit;
+_RS232C rs232c;
+_SYSPORT sysport;
+_UPD4990 uPD4990;
 
 /*
  * The V3 machine exposes one 16-bit I/O address space. Each high-byte entry
@@ -31,34 +30,32 @@
  * port in that page.
  */
 enum {
-	IOFUNC_EXT	= 0x01
+	IOFUNC_EXT = 0x01
 };
 
 typedef struct {
-	IOOUT	ioout[256];
-	IOINP	ioinp[256];
-	UINT	type;
-	UINT	port;
+	IOOUT ioout[256];
+	IOINP ioinp[256];
+	UINT type;
+	UINT port;
 } _IOFUNC, *IOFUNC;
 
 typedef struct {
-	IOFUNC		base[256];
-	LISTARRAY	iotbl;
+	IOFUNC base[256];
+	LISTARRAY iotbl;
 } _IOMAP, *IOMAP;
 
 typedef struct {
-	_IOMAP	map;
-	UINT	busclock;
+	_IOMAP map;
+	UINT busclock;
 } _IOCORE, *IOCORE;
 
 static UINT8 iova_unhandled_out[0x2000];
 static _IOCORE iocore;
 
-
 static void trace_unhandled_out(UINT port) {
-
-	UINT	idx;
-	UINT	bit;
+	UINT idx;
+	UINT bit;
 
 	port &= 0xffff;
 	idx = port >> 3;
@@ -70,35 +67,30 @@ static void trace_unhandled_out(UINT port) {
 }
 
 static void IOOUTCALL defout8(UINT port, REG8 dat) {
-
 	trace_unhandled_out(port);
 	TRACEOUT(("defout8 - %x %x %.4x:%.4x", port, dat, CPU_CS, CPU_IP));
 }
 
 static REG8 IOINPCALL definp8(UINT port) {
-
 	TRACEOUT(("definp8 - %x %.4x:%.4x", port, CPU_CS, CPU_IP));
-	return(0xff);
+	return (0xff);
 }
 
 static void attachout(IOFUNC iof, UINT port, IOOUT func) {
-
 	if (func) {
 		iof->ioout[port] = func;
 	}
 }
 
 static void attachinp(IOFUNC iof, UINT port, IOINP func) {
-
 	if (func) {
 		iof->ioinp[port] = func;
 	}
 }
 
 static IOFUNC getextiofunc(UINT port) {
-
-	IOFUNC	iof;
-	IOMAP	map;
+	IOFUNC iof;
+	IOMAP map;
 
 	map = &iocore.map;
 	iof = map->base[(port >> 8) & 0xff];
@@ -110,72 +102,66 @@ static IOFUNC getextiofunc(UINT port) {
 			iof->port = port & 0xff00;
 		}
 	}
-	return(iof);
+	return (iof);
 }
 
 BOOL iocore_attachout(UINT port, IOOUT func) {
-
-	IOFUNC	iof;
+	IOFUNC iof;
 
 	iof = getextiofunc(port);
 	if (iof) {
 		attachout(iof, port & 0xff, func);
-		return(SUCCESS);
+		return (SUCCESS);
 	}
-	return(FAILURE);
+	return (FAILURE);
 }
 
 BOOL iocore_attachinp(UINT port, IOINP func) {
-
-	IOFUNC	iof;
+	IOFUNC iof;
 
 	iof = getextiofunc(port);
 	if (iof) {
 		attachinp(iof, port & 0xff, func);
-		return(SUCCESS);
+		return (SUCCESS);
 	}
-	return(FAILURE);
+	return (FAILURE);
 }
 
 void iocore_create(void) {
-
 	ZeroMemory(&iocore, sizeof(iocore));
 	ZeroMemory(iova_unhandled_out, sizeof(iova_unhandled_out));
 }
 
 void iocore_destroy(void) {
-
 	listarray_destroy(iocore.map.iotbl);
 	iocore.map.iotbl = NULL;
 }
 
 BOOL iocore_build(void) {
-
-	IOFUNC		base;
-	IOMAP		map;
-	LISTARRAY	iotbl;
-	int		i;
+	IOFUNC base;
+	IOMAP map;
+	LISTARRAY iotbl;
+	int i;
 
 	map = &iocore.map;
 	listarray_destroy(map->iotbl);
 	iotbl = listarray_new(sizeof(_IOFUNC), 32);
 	map->iotbl = iotbl;
 	if (iotbl == NULL) {
-		return(FAILURE);
+		return (FAILURE);
 	}
 
 	base = (IOFUNC)listarray_append(iotbl, NULL);
 	if (base == NULL) {
-		return(FAILURE);
+		return (FAILURE);
 	}
-	for (i=0; i<256; i++) {
+	for (i = 0; i < 256; i++) {
 		base->ioout[i] = defout8;
 		base->ioinp[i] = definp8;
 		map->base[i] = base;
 	}
-	return(SUCCESS);
+	return (SUCCESS);
 }
-
 
 /*
  * Reset shared device state before VA-specific controllers consume it. The
@@ -183,74 +169,38 @@ BOOL iocore_build(void) {
  * interfaces.
  */
 static const IOCBFN resetfn[] = {
-	dmac_reset,
-	fdc_reset,
-	keyboard_reset,
-	pic_reset,
-	rs232c_reset,
-	systemport_reset,
-	uPD4990_reset,
-	itimer_reset,
-	mouseif_reset,
-	np2sysp_reset,
-	emsio_reset,
-	memctrlva_reset,
-	tsp_reset,
-	sgp_reset,
-	videova_reset,
-	subsystemmx_reset,
-	systemportva_reset,
-	mouseifva_reset,
-	gactrlva_reset,
-	cgromva_reset,
-	va91_reset,
-	upd9002_regs_reset,
+    dmac_reset,        fdc_reset,          keyboard_reset,  pic_reset,      rs232c_reset,
+    systemport_reset,  uPD4990_reset,      itimer_reset,    mouseif_reset,  np2sysp_reset,
+    emsio_reset,       memctrlva_reset,    tsp_reset,       sgp_reset,      videova_reset,
+    subsystemmx_reset, systemportva_reset, mouseifva_reset, gactrlva_reset, cgromva_reset,
+    va91_reset,        upd9002_regs_reset,
 };
 
 static const IOCBFN bindfn[] = {
-	dmac_bind,
-	fdc_bind,
-	keyboard_bind,
-	pic_bind,
-	rs232c_bind,
-	itimer_bind,
-	np2sysp_bind,
-	emsio_bind,
-	memctrlva_bind,
-	tsp_bind,
-	sgp_bind,
-	videova_bind,
-	subsystemmx_bind,
-	systemportva_bind,
-	mouseifva_bind,
-	gactrlva_bind,
-	cgromva_bind,
-	va91_bind,
-	upd9002_regs_bind,
+    dmac_bind,     fdc_bind,     keyboard_bind,    pic_bind,          rs232c_bind,
+    itimer_bind,   np2sysp_bind, emsio_bind,       memctrlva_bind,    tsp_bind,
+    sgp_bind,      videova_bind, subsystemmx_bind, systemportva_bind, mouseifva_bind,
+    gactrlva_bind, cgromva_bind, va91_bind,        upd9002_regs_bind,
 };
 
 void iocore_cb(const IOCBFN *cbfn, UINT count) {
-
-	while(count--) {
+	while (count--) {
 		(*cbfn)();
 		cbfn++;
 	}
 }
 
 void iocore_reset(void) {
-
-	iocore_cb(resetfn, sizeof(resetfn)/sizeof(IOCBFN));
+	iocore_cb(resetfn, sizeof(resetfn) / sizeof(IOCBFN));
 }
 
 void iocore_bind(void) {
-
 	iocore.busclock = pccore.multiple;
-	iocore_cb(bindfn, sizeof(bindfn)/sizeof(IOCBFN));
+	iocore_cb(bindfn, sizeof(bindfn) / sizeof(IOCBFN));
 }
 
 void IOOUTCALL iocore_out8(UINT port, REG8 dat) {
-
-	IOFUNC	iof;
+	IOFUNC iof;
 
 #if defined(VAEG_UPD9002_SSTS_TESTING)
 	if (upd9002_ssts_io_active()) {
@@ -259,17 +209,15 @@ void IOOUTCALL iocore_out8(UINT port, REG8 dat) {
 	}
 #endif
 
-	upd9002_trace_event(UPD9002_TRACE_ORIGIN_CPU, "io-write",
-		(uint32_t)port, (uint32_t)dat, 1);
+	upd9002_trace_event(UPD9002_TRACE_ORIGIN_CPU, "io-write", (uint32_t)port, (uint32_t)dat, 1);
 	CPU_REMCLOCK -= iocore.busclock;
 	iof = iocore.map.base[(port >> 8) & 0xff];
 	iof->ioout[port & 0xff](port, dat);
 }
 
 REG8 IOINPCALL iocore_inp8(UINT port) {
-
-	IOFUNC	iof;
-	REG8	ret;
+	IOFUNC iof;
+	REG8 ret;
 
 #if defined(VAEG_UPD9002_SSTS_TESTING)
 	if (upd9002_ssts_io_active()) {
@@ -280,9 +228,8 @@ REG8 IOINPCALL iocore_inp8(UINT port) {
 	CPU_REMCLOCK -= iocore.busclock;
 	iof = iocore.map.base[(port >> 8) & 0xff];
 	ret = iof->ioinp[port & 0xff](port);
-	upd9002_trace_event(UPD9002_TRACE_ORIGIN_CPU, "io-read",
-		(uint32_t)port, (uint32_t)ret, 1);
-	return(ret);
+	upd9002_trace_event(UPD9002_TRACE_ORIGIN_CPU, "io-read", (uint32_t)port, (uint32_t)ret, 1);
+	return (ret);
 }
 
 /*
@@ -291,8 +238,7 @@ REG8 IOINPCALL iocore_inp8(UINT port) {
  * page crossing.
  */
 void IOOUTCALL iocore_out16(UINT port, REG16 dat) {
-
-	IOFUNC	iof;
+	IOFUNC iof;
 
 #if defined(VAEG_UPD9002_SSTS_TESTING)
 	if (upd9002_ssts_io_active()) {
@@ -311,17 +257,15 @@ void IOOUTCALL iocore_out16(UINT port, REG16 dat) {
 }
 
 REG16 IOINPCALL iocore_inp16(UINT port) {
-
-	IOFUNC	iof;
-	REG8	ret;
+	IOFUNC iof;
+	REG8 ret;
 
 #if defined(VAEG_UPD9002_SSTS_TESTING)
 	if (upd9002_ssts_io_active()) {
 		REG16 low;
 
 		low = upd9002_ssts_io_read((uint16_t)port);
-		return (REG16)(low |
-			(upd9002_ssts_io_read((uint16_t)(port + 1)) << 8));
+		return (REG16)(low | (upd9002_ssts_io_read((uint16_t)(port + 1)) << 8));
 	}
 #endif
 
@@ -330,21 +274,19 @@ REG16 IOINPCALL iocore_inp16(UINT port) {
 	ret = iof->ioinp[port & 0xff](port);
 	port++;
 	iof = iocore.map.base[(port >> 8) & 0xff];
-	return((UINT16)((iof->ioinp[port & 0xff](port) << 8) + ret));
+	return ((UINT16)((iof->ioinp[port & 0xff](port) << 8) + ret));
 }
 
 void IOOUTCALL iocore_out32(UINT port, UINT32 dat) {
-
 	CPU_REMCLOCK -= iocore.busclock;
 	iocore_out16(port, (UINT16)dat);
-	iocore_out16(port+2, (UINT16)(dat >> 16));
+	iocore_out16(port + 2, (UINT16)(dat >> 16));
 }
 
 UINT32 IOINPCALL iocore_inp32(UINT port) {
-
-	UINT32	ret;
+	UINT32 ret;
 
 	CPU_REMCLOCK -= iocore.busclock;
 	ret = iocore_inp16(port);
-	return(ret + (iocore_inp16(port+2) << 16));
+	return (ret + (iocore_inp16(port + 2) << 16));
 }

@@ -1,24 +1,22 @@
-#include	"compiler.h"
-#include	"dosio.h"
-#include	"cpucore.h"
-#include	"font.h"
-#include	"fontdata.h"
+#include "compiler.h"
+#include "dosio.h"
+#include "cpucore.h"
+#include "font.h"
+#include "fontdata.h"
 
-
-#define	V98FILESIZE		0x46800
+#define V98FILESIZE 0x46800
 
 static void v98knjcpy(BYTE *dst, const BYTE *src, int from, int to) {
+	int i, j, k;
+	const BYTE *p;
+	BYTE *q;
 
-	int		i, j, k;
-const BYTE	*p;
-	BYTE	*q;
-
-	for (i=from; i<to; i++) {
+	for (i = from; i < to; i++) {
 		p = src + 0x1800 + (0x60 * 32 * (i - 1));
 		q = dst + 0x20000 + (i << 4);
-		for (j=0x20; j<0x80; j++) {
-			for (k=0; k<16; k++) {
-				*(q + 0x800) = *(p+16);
+		for (j = 0x20; j < 0x80; j++) {
+			for (k = 0; k < 16; k++) {
+				*(q + 0x800) = *(p + 16);
 				*q++ = *p++;
 			}
 			p += 16;
@@ -28,9 +26,8 @@ const BYTE	*p;
 }
 
 BYTE fontv98_read(const char *filename, BYTE loading) {
-
-	FILEH	fh;
-	BYTE	*v98fnt;
+	FILEH fh;
+	BYTE *v98fnt;
 
 	if (!(loading & FONTLOAD_ALL)) {
 		goto frv_err1;
@@ -60,12 +57,12 @@ BYTE fontv98_read(const char *filename, BYTE loading) {
 	// 8x16 フォント(～0x7f)を読む必要がある？
 	if (loading & FONT_ANK16a) {
 		loading &= ~FONT_ANK16a;
-		CopyMemory(fontrom + 0x80000, v98fnt + 0x0800, 16*128);
+		CopyMemory(fontrom + 0x80000, v98fnt + 0x0800, 16 * 128);
 	}
 	// 8x16 フォント(0x80～)を読む必要がある？
 	if (loading & FONT_ANK16b) {
 		loading &= ~FONT_ANK16b;
-		CopyMemory(fontrom + 0x80800, v98fnt + 0x1000, 16*128);
+		CopyMemory(fontrom + 0x80800, v98fnt + 0x1000, 16 * 128);
 	}
 
 	// 第一水準漢字を読む必要がある？
@@ -88,9 +85,8 @@ frv_err3:
 	_MFREE(v98fnt);
 
 frv_err2:
-	file_close(fh);							// 後始末
+	file_close(fh); // 後始末
 
 frv_err1:
-	return(loading);
+	return (loading);
 }
-

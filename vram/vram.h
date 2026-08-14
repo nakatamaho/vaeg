@@ -1,15 +1,14 @@
 
 #ifndef VRAMCALL
-#define	VRAMCALL
+#define VRAMCALL
 #endif
 
-
 typedef struct {
-	UINT	operate;
+	UINT operate;
 #if !defined(CPUSTRUC_MEMWAIT)
-	UINT	tramwait;
-	UINT	vramwait;
-	UINT	grcgwait;
+	UINT tramwait;
+	UINT vramwait;
+	UINT grcgwait;
 #endif
 } VRAM_T;
 
@@ -20,35 +19,33 @@ typedef struct {
 //				bit4	analog enable
 
 enum {
-	VOP_ACCESSBIT	= 0x01,
-	VOP_EGCBIT		= 0x02,
-	VOP_GRCGBIT		= 0x0c,
-	VOP_ANALOGBIT	= 0x10,
+	VOP_ACCESSBIT = 0x01,
+	VOP_EGCBIT = 0x02,
+	VOP_GRCGBIT = 0x0c,
+	VOP_ANALOGBIT = 0x10,
 
-	VOP_ACCESSMASK	= ~(0x01),
-	VOP_EGCMASK		= ~(0x02),
-	VOP_GRCGMASK	= ~(0x0c),
-	VOP_ANALOGMASK	= ~(0x10)
+	VOP_ACCESSMASK = ~(0x01),
+	VOP_EGCMASK = ~(0x02),
+	VOP_GRCGMASK = ~(0x0c),
+	VOP_ANALOGMASK = ~(0x10)
 };
-
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-extern	VRAM_T	vramop;
-extern	BYTE	tramupdate[0x1000];
-extern	BYTE	vramupdate[0x8000];
+extern VRAM_T vramop;
+extern BYTE tramupdate[0x1000];
+extern BYTE vramupdate[0x8000];
 
 void vram_initialize(void);
 
 #if !defined(CPUSTRUC_MEMWAIT)
-#define	MEMWAIT_TRAM	vramop.tramwait
-#define	MEMWAIT_VRAM	vramop.vramwait
-#define	MEMWAIT_GRCG	vramop.grcgwait
+#define MEMWAIT_TRAM vramop.tramwait
+#define MEMWAIT_VRAM vramop.vramwait
+#define MEMWAIT_GRCG vramop.grcgwait
 #endif
 
 #ifdef __cplusplus
 }
 #endif
-

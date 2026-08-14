@@ -1,49 +1,47 @@
-#include	"compiler.h"
-#include	"timemng.h"
-#include	"machine/pccore.h"
-#include	"iocore.h"
-#include	"machine/calendar.h"
-
+#include "compiler.h"
+#include "timemng.h"
+#include "machine/pccore.h"
+#include "iocore.h"
+#include "machine/calendar.h"
 
 // ---- I/O
 
-       void IOOUTCALL upd4990_o20(UINT port, REG8 dat) {
-
-	REG8	mod;
-	REG8	cmd;
+void IOOUTCALL upd4990_o20(UINT port, REG8 dat) {
+	REG8 mod;
+	REG8 cmd;
 
 	mod = dat ^ uPD4990.last;
 	uPD4990.last = (UINT8)dat;
 
-	if (dat & 0x08) {										// STB
+	if (dat & 0x08) { // STB
 		if (mod & 0x08) {
 			cmd = uPD4990.parallel;
 			if (cmd == 7) {
 				cmd = uPD4990.serial & 0x0f;
 			}
-			switch(cmd) {
-				case 0x00:			// register hold
-					uPD4990.regsft = 0;
-					break;
+			switch (cmd) {
+			case 0x00: // register hold
+				uPD4990.regsft = 0;
+				break;
 
-				case 0x01:			// register shift
-					uPD4990.regsft = 1;
-					uPD4990.pos = (UPD4990_REGLEN * 8) - 1;
-					uPD4990.cdat = uPD4990.reg[UPD4990_REGLEN - 1] & 1;
-					break;
+			case 0x01: // register shift
+				uPD4990.regsft = 1;
+				uPD4990.pos = (UPD4990_REGLEN * 8) - 1;
+				uPD4990.cdat = uPD4990.reg[UPD4990_REGLEN - 1] & 1;
+				break;
 
-				case 0x02:			// time set	/ counter hold
-					uPD4990.regsft = 0;
-					break;
+			case 0x02: // time set	/ counter hold
+				uPD4990.regsft = 0;
+				break;
 
-				case 0x03:			// time read
-					uPD4990.regsft = 0;
-					ZeroMemory(uPD4990.reg, sizeof(uPD4990.reg));
-					calendar_get(uPD4990.reg + UPD4990_REGLEN - 6);
-					uPD4990.cdat = uPD4990.reg[UPD4990_REGLEN - 1] & 1;
-					// uPD4990 Happy!! :)
-					uPD4990.reg[UPD4990_REGLEN - 7] = 0x01;
-					break;
+			case 0x03: // time read
+				uPD4990.regsft = 0;
+				ZeroMemory(uPD4990.reg, sizeof(uPD4990.reg));
+				calendar_get(uPD4990.reg + UPD4990_REGLEN - 6);
+				uPD4990.cdat = uPD4990.reg[UPD4990_REGLEN - 1] & 1;
+				// uPD4990 Happy!! :)
+				uPD4990.reg[UPD4990_REGLEN - 7] = 0x01;
+				break;
 #if 0
 				case 0x04:			// TP=64Hz
 				case 0x05:			// TP=256Hz
@@ -61,8 +59,7 @@
 #endif
 			}
 		}
-	}
-	else if (dat & 0x10) {								// CLK
+	} else if (dat & 0x10) { // CLK
 		if (mod & 0x10) {
 			if (uPD4990.parallel == 7) {
 				uPD4990.serial >>= 1;
@@ -70,11 +67,9 @@
 			if ((uPD4990.regsft) && (uPD4990.pos)) {
 				uPD4990.pos--;
 			}
-			uPD4990.cdat = (uPD4990.reg[uPD4990.pos / 8] >>
-												((~uPD4990.pos) & 7)) & 1;
+			uPD4990.cdat = (uPD4990.reg[uPD4990.pos / 8] >> ((~uPD4990.pos) & 7)) & 1;
 		}
-	}
-	else {													// DATA
+	} else { // DATA
 		uPD4990.parallel = dat & 7;
 		if (uPD4990.parallel == 7) {
 			uPD4990.serial &= 0x0f;
@@ -82,24 +77,18 @@
 		}
 		if (dat & 0x20) {
 			uPD4990.reg[uPD4990.pos / 8] |= (0x80 >> (uPD4990.pos & 7));
-		}
-		else {
+		} else {
 			uPD4990.reg[uPD4990.pos / 8] &= ~(0x80 >> (uPD4990.pos & 7));
 		}
 	}
 	(void)port;
 }
 
-
 // ---- I/F
 
-
 void uPD4990_reset(void) {
-
 	ZeroMemory(&uPD4990, sizeof(uPD4990));
 }
 
 void uPD4990_bind(void) {
-
 }
-

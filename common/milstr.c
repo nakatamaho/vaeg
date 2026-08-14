@@ -1,21 +1,18 @@
-#include	"compiler.h"
-
+#include "compiler.h"
 
 // ---- Shift-JIS
 
 #if defined(SUPPORT_SJIS)
 int milsjis_charsize(const char *str) {
+	int pos;
 
-	int		pos;
-
-	pos = ((((str[0] ^ 0x20) - 0xa1) & 0xff) < 0x3c)?1:0;
-	return((str[pos] != '\0')?(pos+1):0);
+	pos = ((((str[0] ^ 0x20) - 0xa1) & 0xff) < 0x3c) ? 1 : 0;
+	return ((str[pos] != '\0') ? (pos + 1) : 0);
 }
 
 int milsjis_cmp(const char *str, const char *cmp) {
-
-	int		s;
-	int		c;
+	int s;
+	int c;
 
 	do {
 		s = (UINT8)*str++;
@@ -26,8 +23,7 @@ int milsjis_cmp(const char *str, const char *cmp) {
 			}
 			s = (UINT8)*str++;
 			c = (UINT8)*cmp++;
-		}
-		else {
+		} else {
 			if (((s - 'a') & 0xff) < 26) {
 				s -= 0x20;
 			}
@@ -39,17 +35,16 @@ int milsjis_cmp(const char *str, const char *cmp) {
 		if (s != c) {
 			goto mscp_err;
 		}
-	} while(s);
-	return(0);
+	} while (s);
+	return (0);
 
 mscp_err:
-	return((s > c)?1:-1);
+	return ((s > c) ? 1 : -1);
 }
 
 int milsjis_memcmp(const char *str, const char *cmp) {
-
-	int		s;
-	int		c;
+	int s;
+	int c;
 
 	do {
 		c = (UINT8)*cmp++;
@@ -60,8 +55,7 @@ int milsjis_memcmp(const char *str, const char *cmp) {
 			}
 			c = (UINT8)*cmp++;
 			s = (UINT8)*str++;
-		}
-		else if (c) {
+		} else if (c) {
 			if (((c - 'a') & 0xff) < 26) {
 				c &= ~0x20;
 			}
@@ -69,48 +63,43 @@ int milsjis_memcmp(const char *str, const char *cmp) {
 			if (((s - 'a') & 0xff) < 26) {
 				s &= ~0x20;
 			}
+		} else {
+			return (0);
 		}
-		else {
-			return(0);
-		}
-	} while(s == c);
-	return((s > c)?1:-1);
+	} while (s == c);
+	return ((s > c) ? 1 : -1);
 }
 
 int milsjis_kanji1st(const char *str, int pos) {
-
-	int		ret;
+	int ret;
 
 	ret = 0;
-	while((pos >= 0) &&
-		((((str[pos--] ^ 0x20) - 0xa1) & 0xff) < 0x3c)) {
+	while ((pos >= 0) && ((((str[pos--] ^ 0x20) - 0xa1) & 0xff) < 0x3c)) {
 		ret ^= 1;
 	}
-	return(ret);
+	return (ret);
 }
 
 int milsjis_kanji2nd(const char *str, int pos) {
-
-	int		ret;
+	int ret;
 
 	ret = 0;
-	while((pos > 0) && ((((str[--pos] ^ 0x20) - 0xa1) & 0xff) < 0x3c)) {
+	while ((pos > 0) && ((((str[--pos] ^ 0x20) - 0xa1) & 0xff) < 0x3c)) {
 		ret ^= 1;
 	}
-	return(ret);
+	return (ret);
 }
 
 void milsjis_ncpy(char *dst, const char *src, int maxlen) {
-
-	int		i;
+	int i;
 
 	if (maxlen > 0) {
 		maxlen--;
-		for (i=0; i<maxlen && src[i]; i++) {
+		for (i = 0; i < maxlen && src[i]; i++) {
 			dst[i] = src[i];
 		}
 		if (i) {
-			if (milsjis_kanji1st(src, i-1)) {
+			if (milsjis_kanji1st(src, i - 1)) {
 				i--;
 			}
 		}
@@ -119,22 +108,21 @@ void milsjis_ncpy(char *dst, const char *src, int maxlen) {
 }
 
 void milsjis_ncat(char *dst, const char *src, int maxlen) {
-
-	int		i;
-	int		j;
+	int i;
+	int j;
 
 	if (maxlen > 0) {
 		maxlen--;
-		for (i=0; i<maxlen; i++) {
+		for (i = 0; i < maxlen; i++) {
 			if (!dst[i]) {
 				break;
 			}
 		}
-		for (j=0; i<maxlen && src[j]; i++, j++) {
+		for (j = 0; i < maxlen && src[j]; i++, j++) {
 			dst[i] = src[j];
 		}
 		if ((i > 0) && (j > 0)) {
-			if (milsjis_kanji1st(dst, i-1)) {
+			if (milsjis_kanji1st(dst, i - 1)) {
 				i--;
 			}
 		}
@@ -143,55 +131,47 @@ void milsjis_ncat(char *dst, const char *src, int maxlen) {
 }
 
 char *milsjis_chr(const char *str, int c) {
-
-	int		s;
+	int s;
 
 	if (str) {
 		do {
 			s = *str;
 			if (s == c) {
-				return((char *)str);
+				return ((char *)str);
 			}
 			if ((((s ^ 0x20) - 0xa1) & 0xff) < 0x3c) {
 				str++;
 				s = *str;
 			}
 			str++;
-		} while(s);
+		} while (s);
 	}
-	return(NULL);
+	return (NULL);
 }
 #endif
-
 
 // ---- UTF8
 
 int milutf8_charsize(const char *str) {
-
 	if (str[0] == '\0') {
-		return(0);
-	}
-	else if (!(str[0] & 0x80)) {
-		return(1);
-	}
-	else if ((str[0] & 0xe0) == 0xc0) {
+		return (0);
+	} else if (!(str[0] & 0x80)) {
+		return (1);
+	} else if ((str[0] & 0xe0) == 0xc0) {
 		if ((str[1] & 0xc0) == 0x80) {
-			return(2);
+			return (2);
+		}
+	} else if ((str[0] & 0xf0) == 0xe0) {
+		if (((str[1] & 0xc0) == 0x80) || ((str[2] & 0xc0) == 0x80)) {
+			return (3);
 		}
 	}
-	else if ((str[0] & 0xf0) == 0xe0) {
-		if (((str[1] & 0xc0) == 0x80) ||
-			((str[2] & 0xc0) == 0x80)) {
-			return(3);
-		}
-	}
-	return(0);
+	return (0);
 }
 
 int milutf8_cmp(const char *str, const char *cmp) {
-
-	int		s;
-	int		c;
+	int s;
+	int c;
 
 	do {
 		s = (UINT8)*str++;
@@ -203,21 +183,20 @@ int milutf8_cmp(const char *str, const char *cmp) {
 			c -= 0x20;
 		}
 		if (s != c) {
-			return((s > c)?1:-1);
+			return ((s > c) ? 1 : -1);
 		}
-	} while(s);
-	return(0);
+	} while (s);
+	return (0);
 }
 
 int milutf8_memcmp(const char *str, const char *cmp) {
-
-	int		s;
-	int		c;
+	int s;
+	int c;
 
 	do {
 		c = (UINT8)*cmp++;
 		if (c == 0) {
-			return(0);
+			return (0);
 		}
 		if (((c - 'a') & 0xff) < 26) {
 			c -= 0x20;
@@ -226,34 +205,31 @@ int milutf8_memcmp(const char *str, const char *cmp) {
 		if (((s - 'a') & 0xff) < 26) {
 			s -= 0x20;
 		}
-	} while(s == c);
-	return((s > c)?1:-1);
+	} while (s == c);
+	return ((s > c) ? 1 : -1);
 }
 
 int milutf8_kanji1st(const char *str, int pos) {
-
-	return(((str[pos] & 0xc0) >= 0xc0)?1:0);
+	return (((str[pos] & 0xc0) >= 0xc0) ? 1 : 0);
 }
 
 int milutf8_kanji2nd(const char *str, int pos) {
-
-	return(((str[pos] & 0xc0) == 0x80)?1:0);
+	return (((str[pos] & 0xc0) == 0x80) ? 1 : 0);
 }
 
 void milutf8_ncpy(char *dst, const char *src, int maxlen) {
-
-	int		i;
+	int i;
 
 	if (maxlen > 0) {
 		maxlen--;
-		for (i=0; i<maxlen && src[i]; i++) {
+		for (i = 0; i < maxlen && src[i]; i++) {
 			dst[i] = src[i];
 		}
 		dst[i] = '\0';
 		if (i) {
 			do {
 				i--;
-			} while((i) && ((dst[i] & 0xc0) == 0x80));
+			} while ((i) && ((dst[i] & 0xc0) == 0x80));
 			i += milutf8_charsize(dst + i);
 			dst[i] = '\0';
 		}
@@ -261,25 +237,24 @@ void milutf8_ncpy(char *dst, const char *src, int maxlen) {
 }
 
 void milutf8_ncat(char *dst, const char *src, int maxlen) {
-
-	int		i;
-	int		j;
+	int i;
+	int j;
 
 	if (maxlen > 0) {
 		maxlen--;
-		for (i=0; i<maxlen; i++) {
+		for (i = 0; i < maxlen; i++) {
 			if (!dst[i]) {
 				break;
 			}
 		}
-		for (j=0; i<maxlen && src[j]; i++, j++) {
+		for (j = 0; i < maxlen && src[j]; i++, j++) {
 			dst[i] = src[j];
 		}
 		dst[i] = '\0';
 		if (i) {
 			do {
 				i--;
-			} while((i) && ((dst[i] & 0xc0) == 0x80));
+			} while ((i) && ((dst[i] & 0xc0) == 0x80));
 			i += milutf8_charsize(dst + i);
 			dst[i] = '\0';
 		}
@@ -287,34 +262,31 @@ void milutf8_ncat(char *dst, const char *src, int maxlen) {
 }
 
 char *milutf8_chr(const char *str, int c) {
-
-	int		s;
+	int s;
 
 	if (str) {
 		do {
 			s = *str;
 			if (s == c) {
-				return((char *)str);
+				return ((char *)str);
 			}
 			str++;
-		} while(s);
+		} while (s);
 	}
-	return(NULL);
+	return (NULL);
 }
-
 
 // ---- other
 
 int milstr_extendcmp(const char *str, const char *cmp) {
-
-	int		c;
-	int		s;
+	int c;
+	int s;
 
 	do {
-		while(1) {
+		while (1) {
 			c = (BYTE)*cmp++;
 			if (!c) {
-				return(0);
+				return (0);
 			}
 			if (((c - '0') & 0xff) < 10) {
 				break;
@@ -324,7 +296,7 @@ int milstr_extendcmp(const char *str, const char *cmp) {
 				break;
 			}
 		}
-		while(1) {
+		while (1) {
 			s = *str++;
 			if (!s) {
 				break;
@@ -337,29 +309,27 @@ int milstr_extendcmp(const char *str, const char *cmp) {
 				break;
 			}
 		}
-	} while(s == c);
-	return((s > c)?1:-1);
+	} while (s == c);
+	return ((s > c) ? 1 : -1);
 }
 
 OEMCHAR *milstr_nextword(const OEMCHAR *str) {
-
 	if (str) {
-		while((*str > '\0') && (*str <= ' ')) {
+		while ((*str > '\0') && (*str <= ' ')) {
 			str++;
 		}
 	}
-	return((OEMCHAR *)str);
+	return ((OEMCHAR *)str);
 }
 
 int milstr_getarg(OEMCHAR *str, OEMCHAR *arg[], int maxarg) {
+	int ret = 0;
+	OEMCHAR *p;
+	BOOL quot;
 
-	int		ret = 0;
-	OEMCHAR	*p;
-	BOOL	quot;
-
-	while(maxarg--) {
+	while (maxarg--) {
 		quot = FALSE;
-		while((*str > '\0') && (*str <= ' ')) {
+		while ((*str > '\0') && (*str <= ' ')) {
 			str++;
 		}
 		if (*str == '\0') {
@@ -367,14 +337,12 @@ int milstr_getarg(OEMCHAR *str, OEMCHAR *arg[], int maxarg) {
 		}
 		arg[ret++] = str;
 		p = str;
-		while(*str) {
+		while (*str) {
 			if (*str == '\"') {
 				quot = !quot;
-			}
-			else if ((quot) || (*str < '\0') || (*str > ' ')) {
+			} else if ((quot) || (*str < '\0') || (*str > ' ')) {
 				*p++ = *str;
-			}
-			else {
+			} else {
 				str++;
 				break;
 			}
@@ -382,73 +350,65 @@ int milstr_getarg(OEMCHAR *str, OEMCHAR *arg[], int maxarg) {
 		}
 		*p = '\0';
 	}
-	return(ret);
+	return (ret);
 }
 
 long milstr_solveHEX(const OEMCHAR *str) {
-
-	long	ret;
-	int		i;
-	char	c;
+	long ret;
+	int i;
+	char c;
 
 	ret = 0;
-	for (i=0; i<8; i++) {
+	for (i = 0; i < 8; i++) {
 		c = *str++;
 		if ((c >= '0') && (c <= '9')) {
 			c -= '0';
-		}
-		else if ((c >= 'A') && (c <= 'F')) {
+		} else if ((c >= 'A') && (c <= 'F')) {
 			c -= '7';
-		}
-		else if ((c >= 'a') && (c <= 'f')) {
+		} else if ((c >= 'a') && (c <= 'f')) {
 			c -= 'W';
-		}
-		else {
+		} else {
 			break;
 		}
 		ret <<= 4;
 		ret += (long)c;
 	}
-	return(ret);
+	return (ret);
 }
 
 long milstr_solveINT(const OEMCHAR *str) {
-
-	long	ret;
-	int		c;
-	int		s = 1;
+	long ret;
+	int c;
+	int s = 1;
 
 	ret = 0;
 	c = *str;
 	if (c == '+') {
 		str++;
-	}
-	else if (c == '-') {
+	} else if (c == '-') {
 		str++;
 		s = -1;
 	}
-	while(1) {
+	while (1) {
 		c = *str++;
 		c -= '0';
 		if ((unsigned)c < 10) {
 			ret *= 10;
 			ret += c;
-		}
-		else {
+		} else {
 			break;
 		}
 	}
-	return(ret * s);
+	return (ret * s);
 }
 
 OEMCHAR *milstr_list(const OEMCHAR *lststr, UINT pos) {
-
 	if (lststr) {
-		while(pos) {
+		while (pos) {
 			pos--;
-			while(*lststr++ != '\0') {
+			while (*lststr++ != '\0') {
 			}
 		}
 	}
-	return((OEMCHAR *)lststr);
+	return ((OEMCHAR *)lststr);
 }

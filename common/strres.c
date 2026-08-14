@@ -1,6 +1,5 @@
-#include	"compiler.h"
-#include	"strres.h"
-
+#include "compiler.h"
+#include "strres.h"
 
 const OEMCHAR str_null[] = OEMTEXT("");
 const OEMCHAR str_space[] = OEMTEXT(" ");

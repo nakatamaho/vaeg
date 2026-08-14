@@ -1,44 +1,41 @@
-#include	"compiler.h"
-#include	"midiout.h"
+#include "compiler.h"
+#include "midiout.h"
 
+#define RELBIT 6
 
-#define	RELBIT		6
+#define SAMPMULREL(a, b) ((a) * (b >> RELBIT))
+#define SAMPMULVOL(a, b) ((a) * (b))
 
-#define	SAMPMULREL(a, b)		((a) * (b >> RELBIT))
-#define	SAMPMULVOL(a, b)		((a) * (b))
-
-#define RESAMPLING(d, s, p) {									\
-	int		dat1;												\
-	int		dat2;												\
-	int		div;												\
-	dat1 = (s)[(p) >> FREQ_SHIFT];								\
-	div = (p) & FREQ_MASK;										\
-	if (div) {													\
-		dat2 = (s)[((p) >> FREQ_SHIFT) + 1];					\
-		dat1 += ((dat2 - dat1) * div) >> FREQ_SHIFT;			\
-	}															\
-	*(d) = (_SAMPLE)dat1;										\
-}
-
+#define RESAMPLING(d, s, p)                                                                        \
+	{                                                                                              \
+		int dat1;                                                                                  \
+		int dat2;                                                                                  \
+		int div;                                                                                   \
+		dat1 = (s)[(p) >> FREQ_SHIFT];                                                             \
+		div = (p) & FREQ_MASK;                                                                     \
+		if (div) {                                                                                 \
+			dat2 = (s)[((p) >> FREQ_SHIFT) + 1];                                                   \
+			dat1 += ((dat2 - dat1) * div) >> FREQ_SHIFT;                                           \
+		}                                                                                          \
+		*(d) = (_SAMPLE)dat1;                                                                      \
+	}
 
 #if defined(ENABLE_VIRLATE)
 
 // ---- vibrate
 
 static int vibrate_update(VOICE v) {
-
-	int		depth;
-	int		phase;
-	int		pitch;
-	float	step;
+	int depth;
+	int phase;
+	int pitch;
+	float step;
 
 	depth = v->sample->vibrate_depth << 6;
 	if (v->vibrate.sweepstep) {
 		v->vibrate.sweepcount += v->vibrate.sweepstep;
 		if (v->vibrate.sweepcount >= (1 << VIBSWEEP_SHIFT)) {
 			v->vibrate.sweepstep = 0;
-		}
-		else {
+		} else {
 			depth *= v->vibrate.sweepcount;
 			depth >>= VIBSWEEP_SHIFT;
 		}
@@ -47,19 +44,17 @@ static int vibrate_update(VOICE v) {
 	phase = v->vibrate.phase++;
 	phase &= (1 << VIBRATE_SHIFT) - 1;
 	pitch = (vibsin12[phase] * depth) >> 12;
-	step = v->freqnow * bendhtbl[(pitch >> (6 + 7)) + 24] *
-												bendltbl[(pitch >> 7) & 0x3f];
-	return((int)(step * (float)(1 << FREQ_SHIFT)));
+	step = v->freqnow * bendhtbl[(pitch >> (6 + 7)) + 24] * bendltbl[(pitch >> 7) & 0x3f];
+	return ((int)(step * (float)(1 << FREQ_SHIFT)));
 }
 
 static SAMPLE resample_vibrate(VOICE v, SAMPLE dst, SAMPLE dstterm) {
-
-	SAMPLE	src;
-	SAMPLE	dstbreak;
-	int		pos;
-	int		step;
-	int		last;
-	int		cnt;
+	SAMPLE src;
+	SAMPLE dstbreak;
+	int pos;
+	int step;
+	int last;
+	int cnt;
 
 	src = v->sample->data;
 	pos = v->samppos;
@@ -85,14 +80,14 @@ static SAMPLE resample_vibrate(VOICE v, SAMPLE dst, SAMPLE dstterm) {
 				pos += step;
 				if (pos > last) {
 					voice_setfree(v);
-					return(dst);
+					return (dst);
 				}
-			} while(dst < dstbreak);
+			} while (dst < dstbreak);
 
 			step = vibrate_update(v);
 			cnt = v->vibrate.rate;
 			dstbreak += cnt;
-		} while(dstbreak < dstterm);
+		} while (dstbreak < dstterm);
 		v->sampstep = step;
 	}
 	v->vibrate.count = cnt - (dstterm - dst);
@@ -102,21 +97,20 @@ static SAMPLE resample_vibrate(VOICE v, SAMPLE dst, SAMPLE dstterm) {
 		pos += step;
 		if (pos > last) {
 			voice_setfree(v);
-			return(dst);
+			return (dst);
 		}
-	} while(dst < dstterm);
+	} while (dst < dstterm);
 	v->samppos = pos;
-	return(dst);
+	return (dst);
 }
 
 static SAMPLE resample_vibloop(VOICE v, SAMPLE dst, SAMPLE dstterm) {
-
-	SAMPLE	src;
-	SAMPLE	dstbreak;
-	int		pos;
-	int		step;
-	int		last;
-	int		cnt;
+	SAMPLE src;
+	SAMPLE dstbreak;
+	int pos;
+	int step;
+	int last;
+	int cnt;
 
 	src = v->sample->data;
 	pos = v->samppos;
@@ -140,11 +134,11 @@ static SAMPLE resample_vibloop(VOICE v, SAMPLE dst, SAMPLE dstterm) {
 				if (pos > last) {
 					pos -= last - v->sample->loopstart;
 				}
-			} while(dst < dstbreak);
+			} while (dst < dstbreak);
 			step = vibrate_update(v);
 			cnt = v->vibrate.rate;
 			dstbreak += cnt;
-		} while(dstbreak < dstterm);
+		} while (dstbreak < dstterm);
 		v->sampstep = step;
 	}
 	v->vibrate.count = cnt - (dstterm - dst);
@@ -155,22 +149,21 @@ static SAMPLE resample_vibloop(VOICE v, SAMPLE dst, SAMPLE dstterm) {
 		if (pos > last) {
 			pos -= last - v->sample->loopstart;
 		}
-	} while(dst < dstterm);
+	} while (dst < dstterm);
 
 	v->samppos = pos;
-	return(dst);
+	return (dst);
 }
 
 static SAMPLE resample_vibround(VOICE v, SAMPLE dst, SAMPLE dstterm) {
-
-	SAMPLE	src;
-	SAMPLE	dstbreak;
-	int		pos;
-	int		step;
-	int		start;
-	int		last;
-	int		cnt;
-	BOOL	stepsign;
+	SAMPLE src;
+	SAMPLE dstbreak;
+	int pos;
+	int step;
+	int start;
+	int last;
+	int cnt;
+	BOOL stepsign;
 
 	src = v->sample->data;
 	pos = v->samppos;
@@ -205,12 +198,12 @@ static SAMPLE resample_vibround(VOICE v, SAMPLE dst, SAMPLE dstterm) {
 					step *= -1;
 					goto rr_backward1;
 				}
-rr_forward1:;
-			} while(dst < dstbreak);
+			rr_forward1:;
+			} while (dst < dstbreak);
 			step = vibrate_update(v);
 			cnt = v->vibrate.rate;
 			dstbreak += cnt;
-		} while(dstbreak < dstterm);
+		} while (dstbreak < dstterm);
 	}
 	v->vibrate.count = cnt - (dstterm - dst);
 	do {
@@ -222,8 +215,8 @@ rr_forward1:;
 			step *= -1;
 			goto rr_backward2;
 		}
-rr_forward2:;
-	} while(dst < dstterm);
+	rr_forward2:;
+	} while (dst < dstterm);
 	goto rr_done;
 
 rr_backward:
@@ -238,12 +231,12 @@ rr_backward:
 					step *= -1;
 					goto rr_forward1;
 				}
-rr_backward1:;
-			} while(dst < dstbreak);
+			rr_backward1:;
+			} while (dst < dstbreak);
 			step = 0 - vibrate_update(v);
 			cnt = v->vibrate.rate;
 			dstbreak += cnt;
-		} while(dstbreak < dstterm);
+		} while (dstbreak < dstterm);
 	}
 	v->vibrate.count = cnt - (dstterm - dst);
 	do {
@@ -255,26 +248,24 @@ rr_backward1:;
 			step *= -1;
 			goto rr_forward2;
 		}
-rr_backward2:;
-	} while(dst < dstterm);
+	rr_backward2:;
+	} while (dst < dstterm);
 
 rr_done:
 	v->samppos = pos;
 	v->sampstep = step;
-	return(dst);
+	return (dst);
 }
 
 #endif
 
-
 // ---- normal
 
 static SAMPLE resample_normal(VOICE v, SAMPLE dst, SAMPLE dstterm) {
-
-	SAMPLE	src;
-	int		pos;
-	int		step;
-	int		last;
+	SAMPLE src;
+	int pos;
+	int step;
+	int last;
 
 	src = v->sample->data;
 	pos = v->samppos;
@@ -290,20 +281,19 @@ static SAMPLE resample_normal(VOICE v, SAMPLE dst, SAMPLE dstterm) {
 		pos += step;
 		if (pos > last) {
 			voice_setfree(v);
-			return(dst);
+			return (dst);
 		}
-	} while(dst < dstterm);
+	} while (dst < dstterm);
 
 	v->samppos = pos;
-	return(dst);
+	return (dst);
 }
 
 static SAMPLE resample_loop(VOICE v, SAMPLE dst, SAMPLE dstterm) {
-
-	SAMPLE	src;
-	int		pos;
-	int		step;
-	int		last;
+	SAMPLE src;
+	int pos;
+	int step;
+	int last;
 
 	src = v->sample->data;
 	pos = v->samppos;
@@ -316,18 +306,17 @@ static SAMPLE resample_loop(VOICE v, SAMPLE dst, SAMPLE dstterm) {
 		if (pos > last) {
 			pos -= last - v->sample->loopstart;
 		}
-	} while(dst < dstterm);
+	} while (dst < dstterm);
 	v->samppos = pos;
-	return(dst);
+	return (dst);
 }
 
 static SAMPLE resample_round(VOICE v, SAMPLE dst, SAMPLE dstterm) {
-
-	SAMPLE	src;
-	int		pos;
-	int		step;
-	int		start;
-	int		last;
+	SAMPLE src;
+	int pos;
+	int step;
+	int start;
+	int last;
 
 	src = v->sample->data;
 	pos = v->samppos;
@@ -350,7 +339,7 @@ rr_forward:
 				goto rr_backward;
 			}
 		}
-	} while(dst < dstterm);
+	} while (dst < dstterm);
 	goto rr_done;
 
 rr_backward:
@@ -365,48 +354,45 @@ rr_backward:
 				goto rr_forward;
 			}
 		}
-	} while(dst < dstterm);
+	} while (dst < dstterm);
 
 rr_done:
 	v->samppos = pos;
 	v->sampstep = step;
-	return(dst);
+	return (dst);
 }
-
 
 // ----
 
 int envlope_setphase(VOICE v, int phase) {
-
 	do {
 		if (phase >= 6) {
 			voice_setfree(v);
-			return(1);
+			return (1);
 		}
 		if (v->sample->mode & MODE_ENVELOPE) {
 			if (v->phase & (VOICE_ON | VOICE_SUSTAIN)) {
 				if (phase >= 3) {
 					v->envstep = 0;
-					return(0);
+					return (0);
 				}
 			}
 		}
 		phase += 1;
-	} while(v->envvol == v->sample->envpostbl[phase-1]);
+	} while (v->envvol == v->sample->envpostbl[phase - 1]);
 	v->envphase = phase;
-	v->envterm = v->sample->envpostbl[phase-1];
-	v->envstep = v->sample->envratetbl[phase-1];
+	v->envterm = v->sample->envpostbl[phase - 1];
+	v->envstep = v->sample->envratetbl[phase - 1];
 	if (v->envterm < v->envvol) {
 		v->envstep *= -1;
 	}
-	return(0);
+	return (0);
 }
 
 void envelope_updates(VOICE v) {
-
-	int		envl;
-	int		envr;
-	int		vol;
+	int envl;
+	int envr;
+	int vol;
 
 	envl = v->volleft;
 	if ((v->flag & VOICE_MIXMASK) == VOICE_MIXNORMAL) {
@@ -436,8 +422,7 @@ void envelope_updates(VOICE v) {
 			envr = SAMP_LIMIT;
 		}
 		v->envright = envr;
-	}
-	else {
+	} else {
 #if defined(ENABLE_TREMOLO)
 		if (v->tremolo.step) {
 			envl *= v->tremolo.volume;
@@ -458,11 +443,10 @@ void envelope_updates(VOICE v) {
 
 #if defined(ENABLE_TREMOLO)
 static void tremolo_update(VOICE v) {
-
-	int		depth;
-	int		cnt;
-	int		vol;
-	int		pos;
+	int depth;
+	int cnt;
+	int vol;
+	int pos;
 
 	depth = v->sample->tremolo_depth << 8;
 	if (v->tremolo.sweepstep) {
@@ -470,8 +454,7 @@ static void tremolo_update(VOICE v) {
 		if (v->tremolo.sweepcount < (1 << TRESWEEP_SHIFT)) {
 			depth *= v->tremolo.sweepcount;
 			depth >>= TRESWEEP_SHIFT;
-		}
-		else {
+		} else {
 			v->tremolo.sweepstep = 0;
 		}
 	}
@@ -490,14 +473,13 @@ static void tremolo_update(VOICE v) {
 #endif
 
 static int envelope_update(VOICE v) {
-
 	if (v->envstep) {
 		v->envvol += v->envstep;
 		if (((v->envstep < 0) && (v->envvol <= v->envterm)) ||
-			((v->envstep > 0) && (v->envvol >= v->envterm))) {
+		    ((v->envstep > 0) && (v->envvol >= v->envterm))) {
 			v->envvol = v->envterm;
 			if (envlope_setphase(v, v->envphase)) {
-				return(1);
+				return (1);
 			}
 			if (v->envstep == 0) {
 				voice_setmix(v);
@@ -510,20 +492,18 @@ static int envelope_update(VOICE v) {
 	}
 #endif
 	envelope_updates(v);
-	return(0);
+	return (0);
 }
-
 
 // ---- release
 
 static void mixrel_normal(VOICE v, SINT32 *dst, SAMPLE src, SAMPLE srcterm) {
-
-	int		samples;
-	SINT32	voll;
-	SINT32	rell;
-	SINT32	volr;
-	SINT32	relr;
-	_SAMPLE	s;
+	int samples;
+	SINT32 voll;
+	SINT32 rell;
+	SINT32 volr;
+	SINT32 relr;
+	_SAMPLE s;
 
 	samples = srcterm - src;
 	voll = v->envleft << RELBIT;
@@ -547,17 +527,16 @@ static void mixrel_normal(VOICE v, SINT32 *dst, SAMPLE src, SAMPLE srcterm) {
 			dst[1] += SAMPMULREL(s, volr);
 		}
 		dst += 2;
-	} while(src < srcterm);
+	} while (src < srcterm);
 }
 
 static void mixrel_left(VOICE v, SINT32 *dst, SAMPLE src, SAMPLE srcterm) {
-
-	SINT32	vol;
-	SINT32	rel;
-	_SAMPLE	s;
+	SINT32 vol;
+	SINT32 rel;
+	_SAMPLE s;
 
 	vol = v->envleft << RELBIT;
-	rel = - (vol / (srcterm - src));
+	rel = -(vol / (srcterm - src));
 	if (!rel) {
 		rel = -1;
 	}
@@ -569,23 +548,21 @@ static void mixrel_left(VOICE v, SINT32 *dst, SAMPLE src, SAMPLE srcterm) {
 		s = *src++;
 		dst[0] += SAMPMULREL(s, vol);
 		dst += 2;
-	} while(src < srcterm);
+	} while (src < srcterm);
 }
 
 static void mixrel_right(VOICE v, SINT32 *dst, SAMPLE src, SAMPLE srcterm) {
-
 	mixrel_left(v, dst + 1, src, srcterm);
 }
 
 static void mixrel_centre(VOICE v, SINT32 *dst, SAMPLE src, SAMPLE srcterm) {
-
-	SINT32	vol;
-	SINT32	rel;
-	_SAMPLE	s;
-	SINT32	d;
+	SINT32 vol;
+	SINT32 rel;
+	_SAMPLE s;
+	SINT32 d;
 
 	vol = v->envleft << RELBIT;
-	rel = - (vol / (srcterm - src));
+	rel = -(vol / (srcterm - src));
 	if (!rel) {
 		rel = -1;
 	}
@@ -599,17 +576,15 @@ static void mixrel_centre(VOICE v, SINT32 *dst, SAMPLE src, SAMPLE srcterm) {
 		dst[0] += d;
 		dst[1] += d;
 		dst += 2;
-	} while(src < srcterm);
+	} while (src < srcterm);
 }
-
 
 // ---- normal
 
 static void mixnor_normal(VOICE v, SINT32 *dst, SAMPLE src, SAMPLE srcterm) {
-
-	SINT32	voll;
-	SINT32	volr;
-	_SAMPLE	s;
+	SINT32 voll;
+	SINT32 volr;
+	_SAMPLE s;
 
 	voll = v->envleft;
 	volr = v->envright;
@@ -618,40 +593,37 @@ static void mixnor_normal(VOICE v, SINT32 *dst, SAMPLE src, SAMPLE srcterm) {
 		dst[0] += SAMPMULVOL(s, voll);
 		dst[1] += SAMPMULVOL(s, volr);
 		dst += 2;
-	} while(src < srcterm);
+	} while (src < srcterm);
 }
 
 static void mixnor_left(VOICE v, SINT32 *dst, SAMPLE src, SAMPLE srcterm) {
-
-	SINT32	vol;
-	_SAMPLE	s;
+	SINT32 vol;
+	_SAMPLE s;
 
 	vol = v->envleft;
 	do {
 		s = *src++;
 		dst[0] += SAMPMULVOL(s, vol);
 		dst += 2;
-	} while(src < srcterm);
+	} while (src < srcterm);
 }
 
 static void mixnor_right(VOICE v, SINT32 *dst, SAMPLE src, SAMPLE srcterm) {
-
-	SINT32	vol;
-	_SAMPLE	s;
+	SINT32 vol;
+	_SAMPLE s;
 
 	vol = v->envleft;
 	do {
 		s = *src++;
 		dst[1] += SAMPMULVOL(s, vol);
 		dst += 2;
-	} while(src < srcterm);
+	} while (src < srcterm);
 }
 
 static void mixnor_centre(VOICE v, SINT32 *dst, SAMPLE src, SAMPLE srcterm) {
-
-	SINT32	vol;
-	_SAMPLE	s;
-	SINT32	d;
+	SINT32 vol;
+	_SAMPLE s;
+	SINT32 d;
 
 	vol = v->envleft;
 	do {
@@ -660,19 +632,17 @@ static void mixnor_centre(VOICE v, SINT32 *dst, SAMPLE src, SAMPLE srcterm) {
 		dst[0] += d;
 		dst[1] += d;
 		dst += 2;
-	} while(src < srcterm);
+	} while (src < srcterm);
 }
-
 
 // ---- env
 
 static void mixenv_normal(VOICE v, SINT32 *dst, SAMPLE src, SAMPLE srcterm) {
-
-	int		cnt;
-	SINT32	voll;
-	SINT32	volr;
-	SAMPLE	srcbreak;
-	_SAMPLE	s;
+	int cnt;
+	SINT32 voll;
+	SINT32 volr;
+	SAMPLE srcbreak;
+	_SAMPLE s;
 
 	cnt = v->envcount;
 	if (!cnt) {
@@ -692,7 +662,7 @@ static void mixenv_normal(VOICE v, SINT32 *dst, SAMPLE src, SAMPLE srcterm) {
 				dst[0] += SAMPMULVOL(s, voll);
 				dst[1] += SAMPMULVOL(s, volr);
 				dst += 2;
-			} while(src < srcbreak);
+			} while (src < srcbreak);
 			cnt = ENV_RATE;
 			if (envelope_update(v)) {
 				return;
@@ -700,7 +670,7 @@ static void mixenv_normal(VOICE v, SINT32 *dst, SAMPLE src, SAMPLE srcterm) {
 			voll = v->envleft;
 			volr = v->envright;
 			srcbreak = src + cnt;
-		} while(srcbreak < srcterm);
+		} while (srcbreak < srcterm);
 	}
 
 	v->envcount = cnt - (srcterm - src);
@@ -709,15 +679,14 @@ static void mixenv_normal(VOICE v, SINT32 *dst, SAMPLE src, SAMPLE srcterm) {
 		dst[0] += SAMPMULVOL(s, voll);
 		dst[1] += SAMPMULVOL(s, volr);
 		dst += 2;
-	} while(src < srcterm);
+	} while (src < srcterm);
 }
 
 static void mixenv_left(VOICE v, SINT32 *dst, SAMPLE src, SAMPLE srcterm) {
-
-	int		cnt;
-	SINT32	vol;
-	SAMPLE	srcbreak;
-	_SAMPLE	s;
+	int cnt;
+	SINT32 vol;
+	SAMPLE srcbreak;
+	_SAMPLE s;
 
 	cnt = v->envcount;
 	if (!cnt) {
@@ -735,14 +704,14 @@ static void mixenv_left(VOICE v, SINT32 *dst, SAMPLE src, SAMPLE srcterm) {
 				s = *src++;
 				dst[0] += SAMPMULVOL(s, vol);
 				dst += 2;
-			} while(src < srcbreak);
+			} while (src < srcbreak);
 			cnt = ENV_RATE;
 			if (envelope_update(v)) {
 				return;
 			}
 			vol = v->envleft;
 			srcbreak = src + cnt;
-		} while(srcbreak < srcterm);
+		} while (srcbreak < srcterm);
 	}
 
 	v->envcount = cnt - (srcterm - src);
@@ -750,21 +719,19 @@ static void mixenv_left(VOICE v, SINT32 *dst, SAMPLE src, SAMPLE srcterm) {
 		s = *src++;
 		dst[0] += SAMPMULVOL(s, vol);
 		dst += 2;
-	} while(src < srcterm);
+	} while (src < srcterm);
 }
 
 static void mixenv_right(VOICE v, SINT32 *dst, SAMPLE src, SAMPLE srcterm) {
-
 	mixenv_left(v, dst + 1, src, srcterm);
 }
 
 static void mixenv_centre(VOICE v, SINT32 *dst, SAMPLE src, SAMPLE srcterm) {
-
-	int		cnt;
-	SINT32	vol;
-	SAMPLE	srcbreak;
-	_SAMPLE	s;
-	SINT32	d;
+	int cnt;
+	SINT32 vol;
+	SAMPLE srcbreak;
+	_SAMPLE s;
+	SINT32 d;
 
 	cnt = v->envcount;
 	if (!cnt) {
@@ -784,14 +751,14 @@ static void mixenv_centre(VOICE v, SINT32 *dst, SAMPLE src, SAMPLE srcterm) {
 				dst[0] += d;
 				dst[1] += d;
 				dst += 2;
-			} while(src < srcbreak);
+			} while (src < srcbreak);
 			cnt = ENV_RATE;
 			if (envelope_update(v)) {
 				return;
 			}
 			vol = v->envleft;
 			srcbreak = src + cnt;
-		} while(srcbreak < srcterm);
+		} while (srcbreak < srcterm);
 	}
 
 	v->envcount = cnt - (srcterm - src);
@@ -801,34 +768,31 @@ static void mixenv_centre(VOICE v, SINT32 *dst, SAMPLE src, SAMPLE srcterm) {
 		dst[0] += d;
 		dst[1] += d;
 		dst += 2;
-	} while(src < srcterm);
+	} while (src < srcterm);
 }
-
 
 // ----
 
 static const RESPROC resproc[] = {
-		resample_normal,	resample_loop,		resample_round,
+    resample_normal,  resample_loop,    resample_round,
 #if defined(ENABLE_VIRLATE)
-		resample_vibrate,	resample_vibloop,	resample_vibround,
+    resample_vibrate, resample_vibloop, resample_vibround,
 #endif
 };
 
 void voice_setphase(VOICE v, BYTE phase) {
-
-	int		proc;
-	int		mode;
+	int proc;
+	int mode;
 
 	v->phase = phase;
 
 #if defined(ENABLE_VIRLATE)
-	proc = (v->vibrate.rate)?3:0;
+	proc = (v->vibrate.rate) ? 3 : 0;
 #else
 	proc = 0;
 #endif
 	mode = v->sample->mode;
-	if ((mode & MODE_LOOPING) &&
-		((mode & MODE_ENVELOPE) || (phase & (VOICE_ON | VOICE_SUSTAIN)))) {
+	if ((mode & MODE_LOOPING) && ((mode & MODE_ENVELOPE) || (phase & (VOICE_ON | VOICE_SUSTAIN)))) {
 		proc++;
 		if (mode & MODE_PINGPONG) {
 			proc++;
@@ -837,17 +801,14 @@ void voice_setphase(VOICE v, BYTE phase) {
 	v->resamp = resproc[proc];
 }
 
-
 // ----
 
-static const MIXPROC mixproc[] = {
-			mixnor_normal,	mixnor_left,	mixnor_right,	mixnor_centre,
-			mixenv_normal,	mixenv_left,	mixenv_right,	mixenv_centre,
-			mixrel_normal,	mixrel_left,	mixrel_right,	mixrel_centre};
+static const MIXPROC mixproc[] = {mixnor_normal, mixnor_left, mixnor_right, mixnor_centre,
+                                  mixenv_normal, mixenv_left, mixenv_right, mixenv_centre,
+                                  mixrel_normal, mixrel_left, mixrel_right, mixrel_centre};
 
 void voice_setmix(VOICE v) {
-
-	int		proc;
+	int proc;
 
 	proc = v->flag & VOICE_MIXMASK;
 	if (!(v->phase & VOICE_REL)) {
@@ -859,10 +820,8 @@ void voice_setmix(VOICE v) {
 		{
 			proc += 1 << 2;
 		}
-	}
-	else {
+	} else {
 		proc += 2 << 2;
 	}
 	v->mix = mixproc[proc];
 }
-

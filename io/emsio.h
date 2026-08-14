@@ -7,14 +7,12 @@ enum {
 	EMSIO_MAX_MEGABYTES = 13
 };
 
-
 typedef struct {
-	UINT8	maxmem;
-	UINT8	target;
-	UINT16	padding;
-	UINT32	addr[4];
+	UINT8 maxmem;
+	UINT8 target;
+	UINT16 padding;
+	UINT32 addr[4];
 } _EMSIO, *EMSIO;
-
 
 #ifdef __cplusplus
 extern "C" {

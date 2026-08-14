@@ -1,44 +1,40 @@
-#include	"compiler.h"
-#include	"wavefile.h"
-#include	"dosio.h"
-#include	"soundmng.h"
-#include	"cpucore.h"
-#include	"machine/pccore.h"
-#include	"iocore.h"
-#include	"sound.h"
-#include	"sndcsec.h"
-#include	"beep.h"
-#include	"getsnd.h"
+#include "compiler.h"
+#include "wavefile.h"
+#include "dosio.h"
+#include "soundmng.h"
+#include "cpucore.h"
+#include "machine/pccore.h"
+#include "iocore.h"
+#include "sound.h"
+#include "sndcsec.h"
+#include "beep.h"
+#include "getsnd.h"
 
+SOUNDCFG soundcfg;
 
-	SOUNDCFG	soundcfg;
-
-
-#define	STREAM_CBMAX	16
+#define STREAM_CBMAX 16
 
 typedef struct {
-	void	*hdl;
-	SOUNDCB	cbfn;
+	void *hdl;
+	SOUNDCB cbfn;
 } CBTBL;
 
 typedef struct {
-	SINT32	*buffer;
-	SINT32	*ptr;
-	UINT	samples;
-	UINT	reserve;
-	UINT	remain;
+	SINT32 *buffer;
+	SINT32 *ptr;
+	UINT samples;
+	UINT reserve;
+	UINT remain;
 #if defined(SUPPORT_WAVEREC)
-	WAVEWR	rec;
+	WAVEWR rec;
 #endif
-	CBTBL	*cbreg;
-	CBTBL	cb[STREAM_CBMAX];
+	CBTBL *cbreg;
+	CBTBL cb[STREAM_CBMAX];
 } SNDSTREAM;
 
-static	SNDSTREAM	sndstream;
-
+static SNDSTREAM sndstream;
 
 static void streamreset(void) {
-
 	SNDCSEC_ENTER;
 	sndstream.ptr = sndstream.buffer;
 	sndstream.remain = sndstream.samples + sndstream.reserve;
@@ -47,15 +43,14 @@ static void streamreset(void) {
 }
 
 static void streamprepare(UINT samples) {
-
-	CBTBL	*cb;
-	UINT	count;
+	CBTBL *cb;
+	UINT count;
 
 	count = min(sndstream.remain, samples);
 	if (count) {
 		ZeroMemory(sndstream.ptr, count * 2 * sizeof(SINT32));
 		cb = sndstream.cb;
-		while(cb < sndstream.cbreg) {
+		while (cb < sndstream.cbreg) {
 			cb->cbfn(cb->hdl, sndstream.ptr, count);
 			cb++;
 		}
@@ -64,29 +59,26 @@ static void streamprepare(UINT samples) {
 	}
 }
 
-
 #if defined(SUPPORT_WAVEREC)
 // ---- wave rec
 
 BOOL sound_recstart(const char *filename) {
-
-	WAVEWR	rec;
+	WAVEWR rec;
 
 	sound_recstop();
 	if (sndstream.buffer == NULL) {
-		return(FAILURE);
+		return (FAILURE);
 	}
 	rec = wavewr_open(filename, soundcfg.rate, 16, 2);
 	sndstream.rec = rec;
 	if (rec) {
-		return(SUCCESS);
+		return (SUCCESS);
 	}
-	return(FAILURE);
+	return (FAILURE);
 }
 
 void sound_recstop(void) {
-
-	WAVEWR	rec;
+	WAVEWR rec;
 
 	rec = sndstream.rec;
 	sndstream.rec = NULL;
@@ -94,20 +86,19 @@ void sound_recstop(void) {
 }
 
 static void streamfilewrite(UINT samples) {
+	CBTBL *cb;
+	UINT count;
+	SINT32 buf32[2 * 512];
+	BYTE buf[2 * 2 * 512];
+	UINT r;
+	UINT i;
+	SINT32 samp;
 
-	CBTBL	*cb;
-	UINT	count;
-	SINT32	buf32[2*512];
-	BYTE	buf[2*2*512];
-	UINT	r;
-	UINT	i;
-	SINT32	samp;
-
-	while(samples) {
+	while (samples) {
 		count = min(samples, 512);
 		ZeroMemory(buf32, count * 2 * sizeof(SINT32));
 		cb = sndstream.cb;
-		while(cb < sndstream.cbreg) {
+		while (cb < sndstream.cbreg) {
 			cb->cbfn(cb->hdl, buf32, count);
 			cb++;
 		}
@@ -117,17 +108,16 @@ static void streamfilewrite(UINT samples) {
 			sndstream.ptr += r * 2;
 			sndstream.remain -= r;
 		}
-		for (i=0; i<count*2; i++) {
+		for (i = 0; i < count * 2; i++) {
 			samp = buf32[i];
 			if (samp > 32767) {
 				samp = 32767;
-			}
-			else if (samp < -32768) {
+			} else if (samp < -32768) {
 				samp = -32768;
 			}
 			// little endianなので satuation_s16は使えない
-			buf[i*2+0] = (BYTE)samp;
-			buf[i*2+1] = (BYTE)(samp >> 8);
+			buf[i * 2 + 0] = (BYTE)samp;
+			buf[i * 2 + 1] = (BYTE)(samp >> 8);
 		}
 		wavewr_write(sndstream.rec, buf, count * 4);
 		samples -= count;
@@ -135,11 +125,10 @@ static void streamfilewrite(UINT samples) {
 }
 
 static void filltailsample(UINT count) {
-
-	SINT32	*ptr;
-	UINT	orgsize;
-	SINT32	sampl;
-	SINT32	sampr;
+	SINT32 *ptr;
+	UINT orgsize;
+	SINT32 sampl;
+	SINT32 sampr;
 
 	count = min(sndstream.remain, count);
 	if (count) {
@@ -148,8 +137,7 @@ static void filltailsample(UINT count) {
 		if (orgsize == 0) {
 			sampl = 0;
 			sampr = 0;
-		}
-		else {
+		} else {
 			sampl = *(ptr - 2);
 			sampr = *(ptr - 1);
 		}
@@ -159,28 +147,26 @@ static void filltailsample(UINT count) {
 			ptr[0] = sampl;
 			ptr[1] = sampr;
 			ptr += 2;
-		} while(--count);
+		} while (--count);
 	}
 }
 #endif
 
-
 // ----
 
 BOOL sound_create(UINT rate, UINT ms) {
-
-	UINT	samples;
-	UINT	reserve;
+	UINT samples;
+	UINT reserve;
 
 	ZeroMemory(&sndstream, sizeof(sndstream));
-	switch(rate) {
-		case 11025:
-		case 22050:
-		case 44100:
-			break;
+	switch (rate) {
+	case 11025:
+	case 22050:
+	case 44100:
+		break;
 
-		default:
-			return(FAILURE);
+	default:
+		return (FAILURE);
 	}
 	samples = soundmng_create(rate, ms);
 	if (samples == 0) {
@@ -196,8 +182,7 @@ BOOL sound_create(UINT rate, UINT ms) {
 #else
 	reserve = 0;
 #endif
-	sndstream.buffer = (SINT32 *)_MALLOC((samples + reserve) * 2 
-												* sizeof(SINT32), "stream");
+	sndstream.buffer = (SINT32 *)_MALLOC((samples + reserve) * 2 * sizeof(SINT32), "stream");
 	if (sndstream.buffer == NULL) {
 		goto scre_err2;
 	}
@@ -206,17 +191,16 @@ BOOL sound_create(UINT rate, UINT ms) {
 
 	SNDCSEC_INIT;
 	streamreset();
-	return(SUCCESS);
+	return (SUCCESS);
 
 scre_err2:
 	soundmng_destroy();
 
 scre_err1:
-	return(FAILURE);
+	return (FAILURE);
 }
 
 void sound_destroy(void) {
-
 	if (sndstream.buffer) {
 #if defined(SUPPORT_WAVEREC)
 		sound_recstop();
@@ -231,7 +215,6 @@ void sound_destroy(void) {
 }
 
 void sound_reset(void) {
-
 	if (sndstream.buffer) {
 		soundmng_reset();
 		streamreset();
@@ -241,10 +224,9 @@ void sound_reset(void) {
 }
 
 void sound_changeclock(void) {
-
-	UINT32	clock;
-	UINT	hz;
-	UINT	hzmax;
+	UINT32 clock;
+	UINT hz;
+	UINT hzmax;
 
 	if (sndstream.buffer == NULL) {
 		return;
@@ -256,7 +238,7 @@ void sound_changeclock(void) {
 
 	// で、クロック数に合せて調整。(64bit演算しろよな的)
 	hzmax = (1 << (32 - 8)) / (clock >> 8);
-	while(hzmax < hz) {
+	while (hzmax < hz) {
 		clock = (clock + 1) >> 1;
 		hz = (hz + 1) >> 1;
 	}
@@ -268,10 +250,8 @@ void sound_changeclock(void) {
 }
 
 void sound_streamregist(void *hdl, SOUNDCB cbfn) {
-
 	if (sndstream.buffer) {
-		if ((cbfn) &&
-			(sndstream.cbreg < (sndstream.cb + STREAM_CBMAX))) {
+		if ((cbfn) && (sndstream.cbreg < (sndstream.cb + STREAM_CBMAX))) {
 			sndstream.cbreg->hdl = hdl;
 			sndstream.cbreg->cbfn = cbfn;
 			sndstream.cbreg++;
@@ -279,12 +259,10 @@ void sound_streamregist(void *hdl, SOUNDCB cbfn) {
 	}
 }
 
-
 // ----
 
 void sound_sync(void) {
-
-	UINT32	length;
+	UINT32 length;
 
 	if (sndstream.buffer == NULL) {
 		return;
@@ -302,10 +280,9 @@ void sound_sync(void) {
 #if defined(SUPPORT_WAVEREC)
 	if (sndstream.rec) {
 		streamfilewrite(length);
-	}
-	else
+	} else
 #endif
-	streamprepare(length);
+		streamprepare(length);
 	soundcfg.lastclock += length * soundcfg.clockbase / soundcfg.hzbase;
 	beep_eventreset();
 	SNDCSEC_LEAVE;
@@ -320,12 +297,11 @@ void sound_sync(void) {
 static volatile int locks = 0;
 
 const SINT32 *sound_pcmlock(void) {
-
-const SINT32 *ret;
+	const SINT32 *ret;
 
 	if (locks) {
 		TRACEOUT(("sound pcm lock: already locked"));
-		return(NULL);
+		return (NULL);
 	}
 	locks++;
 	ret = sndstream.buffer;
@@ -335,50 +311,44 @@ const SINT32 *ret;
 #if defined(SUPPORT_WAVEREC)
 			if (sndstream.rec) {
 				filltailsample(sndstream.remain - sndstream.reserve);
-			}
-			else
+			} else
 #endif
-		{
-			streamprepare(sndstream.remain - sndstream.reserve);
-			soundcfg.lastclock = CPU_CLOCK + CPU_BASECLOCK - CPU_REMCLOCK;
-			beep_eventreset();
-		}
-	}
-	else {
+			{
+				streamprepare(sndstream.remain - sndstream.reserve);
+				soundcfg.lastclock = CPU_CLOCK + CPU_BASECLOCK - CPU_REMCLOCK;
+				beep_eventreset();
+			}
+	} else {
 		locks--;
 	}
-	return(ret);
+	return (ret);
 }
 
 void sound_pcmunlock(const SINT32 *hdl) {
-
-	int		leng;
+	int leng;
 
 	if (hdl) {
 		leng = sndstream.reserve - sndstream.remain;
 		if (leng > 0) {
-			CopyMemory(sndstream.buffer,
-						sndstream.buffer + (sndstream.samples * 2),
-												leng * 2 * sizeof(SINT32));
+			CopyMemory(sndstream.buffer, sndstream.buffer + (sndstream.samples * 2),
+			           leng * 2 * sizeof(SINT32));
 		}
 		sndstream.ptr = sndstream.buffer + (leng * 2);
 		sndstream.remain = sndstream.samples + sndstream.reserve - leng;
-//		sndstream.remain += sndstream.samples;
+		//		sndstream.remain += sndstream.samples;
 		SNDCSEC_LEAVE;
 		locks--;
 	}
 }
 
-
 // ---- pcmmix
 
 BOOL pcmmix_regist(PMIXDAT *dat, void *datptr, UINT datsize, UINT rate) {
-
-	GETSND	gs;
-	BYTE	tmp[256];
-	UINT	size;
-	UINT	r;
-	SINT16	*buf;
+	GETSND gs;
+	BYTE tmp[256];
+	UINT size;
+	UINT r;
+	SINT16 *buf;
 
 	gs = getsnd_create(datptr, datsize);
 	if (gs == NULL) {
@@ -391,7 +361,7 @@ BOOL pcmmix_regist(PMIXDAT *dat, void *datptr, UINT datsize, UINT rate) {
 	do {
 		r = getsnd_getpcmbyleng(gs, tmp, sizeof(tmp));
 		size += r;
-	} while(r);
+	} while (r);
 	getsnd_destroy(gs);
 	if (size == 0) {
 		goto pmr_err1;
@@ -412,21 +382,20 @@ BOOL pcmmix_regist(PMIXDAT *dat, void *datptr, UINT datsize, UINT rate) {
 	getsnd_destroy(gs);
 	dat->sample = buf;
 	dat->samples = r / 2;
-	return(SUCCESS);
+	return (SUCCESS);
 
 pmr_err2:
 	getsnd_destroy(gs);
 
 pmr_err1:
-	return(FAILURE);
+	return (FAILURE);
 }
 
 BOOL pcmmix_regfile(PMIXDAT *dat, const char *fname, UINT rate) {
-
-	FILEH	fh;
-	UINT	size;
-	BYTE	*ptr;
-	BOOL	r;
+	FILEH fh;
+	UINT size;
+	BYTE *ptr;
+	BOOL r;
 
 	r = FAILURE;
 	fh = file_open_rb(fname);
@@ -445,30 +414,29 @@ BOOL pcmmix_regfile(PMIXDAT *dat, const char *fname, UINT rate) {
 	file_close(fh);
 	r = pcmmix_regist(dat, ptr, size, rate);
 	_MFREE(ptr);
-	return(r);
+	return (r);
 
 pmrf_err2:
 	file_close(fh);
 
 pmrf_err1:
-	return(FAILURE);
+	return (FAILURE);
 }
 
 void SOUNDCALL pcmmix_getpcm(PCMMIX hdl, SINT32 *pcm, UINT count) {
+	UINT32 bitmap;
+	PMIXTRK *t;
+	const SINT16 *s;
+	UINT srem;
+	SINT32 *d;
+	UINT drem;
+	UINT r;
+	UINT j;
+	UINT flag;
+	SINT32 vol;
+	SINT32 samp;
 
-	UINT32		bitmap;
-	PMIXTRK		*t;
-const SINT16	*s;
-	UINT		srem;
-	SINT32		*d;
-	UINT		drem;
-	UINT		r;
-	UINT		j;
-	UINT		flag;
-	SINT32		vol;
-	SINT32		samp;
-
-	if ((hdl->hdr.playing == 0) || (count == 0))  {
+	if ((hdl->hdr.playing == 0) || (count == 0)) {
 		return;
 	}
 	t = hdl->trk;
@@ -483,47 +451,45 @@ const SINT16	*s;
 			vol = t->volume;
 			do {
 				r = min(srem, drem);
-				switch(flag & (PMIXFLAG_L | PMIXFLAG_R)) {
-					case PMIXFLAG_L:
-						for (j=0; j<r; j++) {
-							d[j*2+0] += (s[j] * vol) >> 12;
-						}
-						break;
+				switch (flag & (PMIXFLAG_L | PMIXFLAG_R)) {
+				case PMIXFLAG_L:
+					for (j = 0; j < r; j++) {
+						d[j * 2 + 0] += (s[j] * vol) >> 12;
+					}
+					break;
 
-					case PMIXFLAG_R:
-						for (j=0; j<r; j++) {
-							d[j*2+1] += (s[j] * vol) >> 12;
-						}
-						break;
+				case PMIXFLAG_R:
+					for (j = 0; j < r; j++) {
+						d[j * 2 + 1] += (s[j] * vol) >> 12;
+					}
+					break;
 
-					case PMIXFLAG_L | PMIXFLAG_R:
-						for (j=0; j<r; j++) {
-							samp = (s[j] * vol) >> 12;
-							d[j*2+0] += samp;
-							d[j*2+1] += samp;
-						}
-						break;
+				case PMIXFLAG_L | PMIXFLAG_R:
+					for (j = 0; j < r; j++) {
+						samp = (s[j] * vol) >> 12;
+						d[j * 2 + 0] += samp;
+						d[j * 2 + 1] += samp;
+					}
+					break;
 				}
 				s += r;
-				d += r*2;
+				d += r * 2;
 				srem -= r;
 				if (srem == 0) {
 					if (flag & PMIXFLAG_LOOP) {
 						s = t->data.sample;
 						srem = t->data.samples;
-					}
-					else {
+					} else {
 						hdl->hdr.playing &= ~bitmap;
 						break;
 					}
 				}
 				drem -= r;
-			} while(drem);
+			} while (drem);
 			t->pcm = s;
 			t->remain = srem;
 		}
 		t++;
 		bitmap <<= 1;
-	} while(bitmap < hdl->hdr.enable);
+	} while (bitmap < hdl->hdr.enable);
 }
-

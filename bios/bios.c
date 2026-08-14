@@ -1,67 +1,79 @@
-#include	"compiler.h"
-#include	"strres.h"
-#include	"dosio.h"
-#include	"cpucore.h"
-#include	"machine/pccore.h"
-#include	"iocore.h"
-#include	"bios.h"
-#include	"biosmem.h"
-#include	"sxsibios.h"
-#include	"vram.h"
-#include	"fddfile.h"
-#include	"fdd_mtr.h"
-#include	"fdfmt.h"
-#include	"keytable.res"
-#include	"itfrom.res"
-#include	"startup.res"
-#include	"biosfd80.res"
+#include "compiler.h"
+#include "strres.h"
+#include "dosio.h"
+#include "cpucore.h"
+#include "machine/pccore.h"
+#include "iocore.h"
+#include "bios.h"
+#include "biosmem.h"
+#include "sxsibios.h"
+#include "vram.h"
+#include "fddfile.h"
+#include "fdd_mtr.h"
+#include "fdfmt.h"
+#include "keytable.res"
+#include "itfrom.res"
+#include "startup.res"
+#include "biosfd80.res"
 
-
-#define	BIOS_SIMULATE
+#define BIOS_SIMULATE
 
 static const char neccheck[] = "Copyright (C) 1983 by NEC Corporation";
 
 typedef struct {
-	UINT8	port;
-	UINT8	data;
+	UINT8 port;
+	UINT8 data;
 } IODATA;
 
 static const IODATA iodata[] = {
-			// DMA
-				{0x29, 0x00}, {0x29, 0x01}, {0x29, 0x02}, {0x29, 0x03},
-				{0x27, 0x00}, {0x21, 0x00}, {0x23, 0x00}, {0x25, 0x00},
-				{0x1b, 0x00}, {0x11, 0x40},
+    // DMA
+    {0x29, 0x00},
+    {0x29, 0x01},
+    {0x29, 0x02},
+    {0x29, 0x03},
+    {0x27, 0x00},
+    {0x21, 0x00},
+    {0x23, 0x00},
+    {0x25, 0x00},
+    {0x1b, 0x00},
+    {0x11, 0x40},
 
-			// PIT
-				{0x77, 0x30}, {0x71, 0x00}, {0x71, 0x00},
-				{0x77, 0x76}, {0x73, 0xcd}, {0x73, 0x04},
-				{0x77, 0xb6},
+    // PIT
+    {0x77, 0x30},
+    {0x71, 0x00},
+    {0x71, 0x00},
+    {0x77, 0x76},
+    {0x73, 0xcd},
+    {0x73, 0x04},
+    {0x77, 0xb6},
 
-			// PIC
-				{0x00, 0x11}, {0x02, 0x08}, {0x02, 0x80}, {0x02, 0x1d},
-				{0x08, 0x11}, {0x0a, 0x10}, {0x0a, 0x07}, {0x0a, 0x09},
-				{0x02, 0x7d}, {0x0a, 0x71}};
+    // PIC
+    {0x00, 0x11},
+    {0x02, 0x08},
+    {0x02, 0x80},
+    {0x02, 0x1d},
+    {0x08, 0x11},
+    {0x0a, 0x10},
+    {0x0a, 0x07},
+    {0x0a, 0x09},
+    {0x02, 0x7d},
+    {0x0a, 0x71}};
 
-static const UINT8 msw_default[8] =
-							{0x48, 0x05, 0x04, 0x00, 0x01, 0x00, 0x00, 0x6e};
-
+static const UINT8 msw_default[8] = {0x48, 0x05, 0x04, 0x00, 0x01, 0x00, 0x00, 0x6e};
 
 static void bios_itfprepare(void) {
-
-const IODATA	*p;
-const IODATA	*pterm;
-
+	const IODATA *p;
+	const IODATA *pterm;
 
 	p = iodata;
 	pterm = iodata + (sizeof(iodata) / sizeof(IODATA));
-	while(p < pterm) {
+	while (p < pterm) {
 		iocore_out8(p->port, p->data);
 		p++;
 	}
 }
 
 static void bios_memclear(void) {
-
 	ZeroMemory(mem, 0xa0000);
 	ZeroMemory(mem + 0x100000, 0x10000);
 	if (CPU_EXTMEM) {
@@ -74,31 +86,29 @@ static void bios_memclear(void) {
 }
 
 static void bios_reinitbyswitch(void) {
-
-	BYTE	prxcrt;
-	BYTE	prxdupd;
-	BYTE	biosflag;
-	UINT8	boot;
+	BYTE prxcrt;
+	BYTE prxdupd;
+	BYTE biosflag;
+	UINT8 boot;
 
 	if (!(np2cfg.dipsw[2] & 0x80)) {
-		mem[MEMB_SYS_TYPE] = 0x01;		// 80286
-	}
-	else {
-		mem[MEMB_SYS_TYPE] = 0x00;		// V30
+		mem[MEMB_SYS_TYPE] = 0x01; // 80286
+	} else {
+		mem[MEMB_SYS_TYPE] = 0x00; // V30
 	}
 
 	mem[MEMB_BIOS_FLAG0] = 0x01;
 	prxcrt = 0x08;
-	if (!(np2cfg.dipsw[0] & 0x01)) {			// dipsw1-1 on
+	if (!(np2cfg.dipsw[0] & 0x01)) { // dipsw1-1 on
 		prxcrt |= 0x40;
 	}
-	if (!(np2cfg.dipsw[0] & 0x80)) {			// dipsw1-8 on
+	if (!(np2cfg.dipsw[0] & 0x80)) { // dipsw1-8 on
 		prxcrt |= 0x01;
 	}
 	mem[MEMB_PRXCRT] = prxcrt;
 
 	prxdupd = 0x18;
-	if (!(np2cfg.dipsw[1] & 0x80)) {			// dipsw2-8 on
+	if (!(np2cfg.dipsw[1] & 0x80)) { // dipsw2-8 on
 		prxdupd |= 0x20;
 	}
 	mem[MEMB_PRXDUPD] = prxdupd;
@@ -119,45 +129,40 @@ static void bios_reinitbyswitch(void) {
 	SETBIOSMEM32(MEMD_F2DD_POINTER, 0xfd801ad7);
 	SETBIOSMEM32(MEMD_F2HD_POINTER, 0xfd801aaf);
 	boot = mem[MEMB_MSW5] & 0xf0;
-	if (boot != 0x20) {		// 1MB
+	if (boot != 0x20) { // 1MB
 		fddbios_equip(3, TRUE);
 		mem[MEMB_BIOS_FLAG0] |= 0x02;
-	}
-	else {					// 640KB
+	} else { // 640KB
 		fddbios_equip(0, TRUE);
 		mem[MEMB_BIOS_FLAG0] &= ~0x02;
 	}
 	mem[MEMB_F2HD_MODE] = 0xff;
 	mem[MEMB_F2DD_MODE] = 0xff;
 
-
 	// FDC
 	if (fdc.support144) {
 		mem[MEMB_F144_SUP] |= fdc.equip;
 	}
-
 }
 
 static void bios_vectorset(void) {
+	UINT i;
 
-	UINT	i;
-
-	for (i=0; i<0x20; i++) {
-		*(UINT16 *)(mem + (i*4)) = *(UINT16 *)(mem + BIOS_BASE + BIOS_TABLE + (i*2));
+	for (i = 0; i < 0x20; i++) {
+		*(UINT16 *)(mem + (i * 4)) = *(UINT16 *)(mem + BIOS_BASE + BIOS_TABLE + (i * 2));
 		SETBIOSMEM16((i * 4) + 2, BIOS_SEG);
 	}
-	SETBIOSMEM32(0x1e*4, 0xe8000000);
+	SETBIOSMEM32(0x1e * 4, 0xe8000000);
 }
 
 static void setbiosseed(UINT8 *ptr, UINT size, UINT seedpos) {
-
-	UINT8	x;
-	UINT8	y;
-	UINT	i;
+	UINT8 x;
+	UINT8 y;
+	UINT i;
 
 	x = 0;
 	y = 0;
-	for (i=0; i<size; i+=2) {
+	for (i = 0; i < size; i += 2) {
 		x += ptr[i + 0];
 		y += ptr[i + 1];
 	}
@@ -166,13 +171,12 @@ static void setbiosseed(UINT8 *ptr, UINT size, UINT seedpos) {
 }
 
 void bios_initialize(void) {
-
-	BOOL	biosrom;
-	char	path[MAX_PATH];
-	FILEH	fh;
-	UINT	i;
-	UINT32	tmp;
-	UINT	pos;
+	BOOL biosrom;
+	char path[MAX_PATH];
+	FILEH fh;
+	UINT i;
+	UINT32 tmp;
+	UINT pos;
 
 	biosrom = FALSE;
 	getbiospath(path, str_biosrom, sizeof(path));
@@ -185,7 +189,7 @@ void bios_initialize(void) {
 		TRACEOUT(("load bios.rom"));
 		pccore.rom |= PCROM_BIOS;
 		// PnP BIOSを潰す
-		for (i=0; i<0x10000; i+=0x10) {
+		for (i = 0; i < 0x10000; i += 0x10) {
 			tmp = LOADINTELDWORD(mem + 0xf0000 + i);
 			if (tmp == 0x506e5024) {
 				TRACEOUT(("found PnP BIOS at %.5x", 0xf0000 + i));
@@ -194,8 +198,7 @@ void bios_initialize(void) {
 				break;
 			}
 		}
-	}
-	else {
+	} else {
 		CopyMemory(mem + 0x0e8000, nosyscode, sizeof(nosyscode));
 		if (!biosrom) {
 			CopyMemory(mem + 0xe8dd8, neccheck, 0x25);
@@ -205,10 +208,9 @@ void bios_initialize(void) {
 		setbiosseed(mem + 0x0e8000, 0x10000, 0xb1f0);
 	}
 
-
 #if defined(BIOS_SIMULATE)
 	CopyMemory(mem + BIOS_BASE, biosfd80, sizeof(biosfd80));
-	for (i=0; i<8; i+=2) {
+	for (i = 0; i < 8; i += 2) {
 		STOREINTELWORD(mem + 0xfd800 + 0x1aaf + i, 0x1ab7);
 		STOREINTELWORD(mem + 0xfd800 + 0x1ad7 + i, 0x1adf);
 		STOREINTELWORD(mem + 0xfd800 + 0x2361 + i, 0x1980);
@@ -247,10 +249,8 @@ void bios_initialize(void) {
 	CopyMemory(mem + 0x1e8000, mem + 0x0e8000, 0x10000);
 }
 
-
 static void bios_itfcall(void) {
-
-	int		i;
+	int i;
 
 	bios_itfprepare();
 	bios_memclear();
@@ -259,113 +259,108 @@ static void bios_itfcall(void) {
 	bios_reinitbyswitch();
 
 	if (!np2cfg.ITF_WORK) {
-		for (i=0; i<8; i++) {
-			mem[MEMX_MSW + (i*4)] = msw_default[i];
+		for (i = 0; i < 8; i++) {
+			mem[MEMX_MSW + (i * 4)] = msw_default[i];
 		}
 		CPU_FLAGL |= C_FLAG;
-	}
-	else {
+	} else {
 		CPU_DX = 0x43d;
 		CPU_AL = 0x10;
-		mem[0x004f8] = 0xee;		// out	dx, al
-		mem[0x004f9] = 0xea;		// call	far
+		mem[0x004f8] = 0xee; // out	dx, al
+		mem[0x004f9] = 0xea; // call	far
 		SETBIOSMEM16(0x004fa, 0x0000);
 		SETBIOSMEM16(0x004fc, 0xffff);
 		CPU_FLAGL &= ~C_FLAG;
 	}
 }
 
-
 UINT MEMCALL biosfunc(UINT32 adrs) {
-
-	UINT16	bootseg;
+	UINT16 bootseg;
 
 	if ((CPU_ITFBANK) && (adrs >= 0xf8000) && (adrs < 0x100000)) {
 		// for epson ITF
-		return(0);
+		return (0);
 	}
 
-//	TRACEOUT(("biosfunc(%x)", adrs));
+	//	TRACEOUT(("biosfunc(%x)", adrs));
 
-	switch(adrs) {
-		case BIOS_BASE + BIOSOFST_ITF:		// リセット
-			bios_itfcall();
-			return(1);
+	switch (adrs) {
+	case BIOS_BASE + BIOSOFST_ITF: // リセット
+		bios_itfcall();
+		return (1);
 
-		case BIOS_BASE + BIOSOFST_INIT:		// ブート
-#if 1		// for RanceII
-			bios_memclear();
+	case BIOS_BASE + BIOSOFST_INIT: // ブート
+#if 1                               // for RanceII
+		bios_memclear();
 #endif
-			bios_vectorset();
+		bios_vectorset();
 #if 1
-			bios0x09_init();
+		bios0x09_init();
 #endif
-			bios_reinitbyswitch();
-			bios_vectorset();
-			return(1);
+		bios_reinitbyswitch();
+		bios_vectorset();
+		return (1);
 
-		case BIOS_BASE + BIOSOFST_09:
-			CPU_REMCLOCK -= 500;
-			bios0x09();
-			return(1);
+	case BIOS_BASE + BIOSOFST_09:
+		CPU_REMCLOCK -= 500;
+		bios0x09();
+		return (1);
 
-		case BIOS_BASE + BIOSOFST_0c:
-			CPU_REMCLOCK -= 500;
-			bios0x0c();
-			return(1);
+	case BIOS_BASE + BIOSOFST_0c:
+		CPU_REMCLOCK -= 500;
+		bios0x0c();
+		return (1);
 
-		case BIOS_BASE + BIOSOFST_12:
-			CPU_REMCLOCK -= 500;
-			bios0x12();
-			return(1);
+	case BIOS_BASE + BIOSOFST_12:
+		CPU_REMCLOCK -= 500;
+		bios0x12();
+		return (1);
 
-		case BIOS_BASE + BIOSOFST_13:
-			CPU_REMCLOCK -= 500;
-			bios0x13();
-			return(1);
+	case BIOS_BASE + BIOSOFST_13:
+		CPU_REMCLOCK -= 500;
+		bios0x13();
+		return (1);
 
-		case BIOS_BASE + BIOSOFST_WAIT:
-			CPU_STI;
+	case BIOS_BASE + BIOSOFST_WAIT:
+		CPU_STI;
 #if 1
-			return(bios0x1b_wait());								// ver0.78
+		return (bios0x1b_wait()); // ver0.78
 #else
-			if (fddmtr.busy) {
-				CPU_IP--;
-				CPU_REMCLOCK = -1;
-			}
-			else {
-				if (fdc.chgreg & 1) {
-					if (!(mem[MEMB_DISK_INTL] & (0x01 << fdc.us))) {
-						CPU_IP--;
-						CPU_REMCLOCK -= 1000;
-					}
+		if (fddmtr.busy) {
+			CPU_IP--;
+			CPU_REMCLOCK = -1;
+		} else {
+			if (fdc.chgreg & 1) {
+				if (!(mem[MEMB_DISK_INTL] & (0x01 << fdc.us))) {
+					CPU_IP--;
+					CPU_REMCLOCK -= 1000;
 				}
-				else {
-					if (!(mem[MEMB_DISK_INTH] & (0x10 << fdc.us))) {
-						CPU_IP--;
-						CPU_REMCLOCK -= 1000;
-					}
+			} else {
+				if (!(mem[MEMB_DISK_INTH] & (0x10 << fdc.us))) {
+					CPU_IP--;
+					CPU_REMCLOCK -= 1000;
 				}
 			}
-			return(1);
+		}
+		return (1);
 #endif
 
-		case 0xfffe8:					// ブートストラップロード
-			CPU_REMCLOCK -= 2000;
-			bootseg = bootstrapload();
-			if (bootseg) {
-				CPU_STI;
-				CPU_CS = bootseg;
-				CPU_IP = 0x0000;
-				return(1);
-			}
-			return(0);
+	case 0xfffe8: // ブートストラップロード
+		CPU_REMCLOCK -= 2000;
+		bootseg = bootstrapload();
+		if (bootseg) {
+			CPU_STI;
+			CPU_CS = bootseg;
+			CPU_IP = 0x0000;
+			return (1);
+		}
+		return (0);
 
-		case 0xfffec:
-			CPU_REMCLOCK -= 2000;
-			bootstrapload();
-			return(0);
+	case 0xfffec:
+		CPU_REMCLOCK -= 2000;
+		bootstrapload();
+		return (0);
 	}
 
-	return(0);
+	return (0);
 }

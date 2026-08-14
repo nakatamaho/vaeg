@@ -6,7 +6,7 @@
 extern "C" {
 #endif
 
-extern	BYTE	grphmem[0x40000];
+extern BYTE grphmem[0x40000];
 
 /*
 void MEMCALL _gvram_wt(UINT32 address, REG8 value);

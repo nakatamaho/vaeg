@@ -2,138 +2,130 @@
  * fdsubsys.c: PC-88VA FD Sub System (mock-up type)
  */
 
-#include	"compiler.h"
-#include	"cpucore.h"
-#include	"machine/pccore.h"
-#include	"iocore.h"
-#include	"iocoreva.h"
-#include	"memoryva.h"
-#include	"fddfile.h"
-
+#include "compiler.h"
+#include "cpucore.h"
+#include "machine/pccore.h"
+#include "iocore.h"
+#include "iocoreva.h"
+#include "memoryva.h"
+#include "fddfile.h"
 
 enum {
 	// Port-C handshake bits, viewed from the subsystem side.
 
 	// Main CPU to subsystem.
-	ATN_MAIN = 0x08,	// Command phase; attention asserted.
-	DAC_MAIN = 0x04,	// Data accepted.
-	RFD_MAIN = 0x02,	// Ready for data.
-	DAV_MAIN = 0x01,	// Data valid.
+	ATN_MAIN = 0x08, // Command phase; attention asserted.
+	DAC_MAIN = 0x04, // Data accepted.
+	RFD_MAIN = 0x02, // Ready for data.
+	DAV_MAIN = 0x01, // Data valid.
 
 	// Subsystem to main CPU.
-	DAC_SUB  = 0x40,
-	RFD_SUB  = 0x20,
-	DAV_SUB  = 0x10,
+	DAC_SUB = 0x40,
+	RFD_SUB = 0x20,
+	DAV_SUB = 0x10,
 
-	DACBIT   = 6,
-	RFDBIT   = 5,
-	DAVBIT   = 4,
+	DACBIT = 6,
+	RFDBIT = 5,
+	DAVBIT = 4,
 
 	// Subsystem handshake states.
-	HSST_STOPPED		= 0,
-	HSST_WAIT_ATN		= 1,	// Wait for ATN.
-	HSST_WAIT_CMD		= 2,	// Wait for DAV and command reception.
-	HSST_WAIT_DATA		= 3,	// Wait for DAV and data reception.
-	HSST_WAIT_DAV_RESET	= 4,	// Wait for DAV deassertion.
-	HSST_WAIT_RFD		= 11,	// Wait for RFD before sending data.
-	HSST_WAIT_DAC		= 12,	// Wait for DAC.
-	HSST_WAIT_DAC_RESET	= 13,	// Wait for DAC deassertion.
+	HSST_STOPPED = 0,
+	HSST_WAIT_ATN = 1,        // Wait for ATN.
+	HSST_WAIT_CMD = 2,        // Wait for DAV and command reception.
+	HSST_WAIT_DATA = 3,       // Wait for DAV and data reception.
+	HSST_WAIT_DAV_RESET = 4,  // Wait for DAV deassertion.
+	HSST_WAIT_RFD = 11,       // Wait for RFD before sending data.
+	HSST_WAIT_DAC = 12,       // Wait for DAC.
+	HSST_WAIT_DAC_RESET = 13, // Wait for DAC deassertion.
 
 	// Subsystem command-cycle states.
-	ST_RECV_CMD			= 0,
-	ST_RECV_DATA		= 1,
-	ST_EXEC_CMD			= 2,
-	ST_SEND_DATA		= 3,
-	ST_END_CYCLE		= 4,
+	ST_RECV_CMD = 0,
+	ST_RECV_DATA = 1,
+	ST_EXEC_CMD = 2,
+	ST_SEND_DATA = 3,
+	ST_END_CYCLE = 4,
 
-	WAITING		= 0,
-	GOAHEAD		= 1,
+	WAITING = 0,
+	GOAHEAD = 1,
 
 	// Subsystem command codes.
-	CMD_INITIALIZE			= 0x00,
-	CMD_WRITE_DATA			= 0x01,
-	CMD_READ_DATA			= 0x02,
-	CMD_SEND_DATA			= 0x03,
-	CMD_SEND_RESULT_STATUS	= 0x06,
-	CMD_RECEIVE_MEMORY		= 0x0c,
-	CMD_EXECUTE_COMMAND		= 0x0d,
-	CMD_LOAD_DATA			= 0x0e,
-	CMD_SET_SURFACE_MODE	= 0x17,
-	CMD_SET_DISK_MODE		= 0x1f,
-	CMD_SEND_DISK_MODE		= 0x20,
-	CMD_SET_BOUNDARY_MODE	= 0x21,
-	CMD_DRIVE_READY_CHECK	= 0x23,
-	CMD_SLEEP				= 0x25,
-	CMD_ACTIVE				= 0x26,
+	CMD_INITIALIZE = 0x00,
+	CMD_WRITE_DATA = 0x01,
+	CMD_READ_DATA = 0x02,
+	CMD_SEND_DATA = 0x03,
+	CMD_SEND_RESULT_STATUS = 0x06,
+	CMD_RECEIVE_MEMORY = 0x0c,
+	CMD_EXECUTE_COMMAND = 0x0d,
+	CMD_LOAD_DATA = 0x0e,
+	CMD_SET_SURFACE_MODE = 0x17,
+	CMD_SET_DISK_MODE = 0x1f,
+	CMD_SEND_DISK_MODE = 0x20,
+	CMD_SET_BOUNDARY_MODE = 0x21,
+	CMD_DRIVE_READY_CHECK = 0x23,
+	CMD_SLEEP = 0x25,
+	CMD_ACTIVE = 0x26,
 
 	// Addresses in subsystem work memory.
-	WORK_DATA_BUF			= 0x4000,		// Read/write data buffer.
-	WORK_READ_SECTOR_COUNT	= 0x7f08,		// Number of sectors completed by the read command.
-	WORK_COMMAND_STATUS		= 0x7f14,		// Command status returned by command 06H.
-	WORK_DISK_MODE			= 0x7f44,		// Per-drive disk mode, drive 0 then drive 1.
-	WORK_LAST_DISK_MODE		= 0x7f4f,		// Disk mode of the most recently accessed drive.
-	WORK_DM_N				= 0x7f52,		// FDC N field derived from the disk mode.
-
+	WORK_DATA_BUF = 0x4000,          // Read/write data buffer.
+	WORK_READ_SECTOR_COUNT = 0x7f08, // Number of sectors completed by the read command.
+	WORK_COMMAND_STATUS = 0x7f14,    // Command status returned by command 06H.
+	WORK_DISK_MODE = 0x7f44,         // Per-drive disk mode, drive 0 then drive 1.
+	WORK_LAST_DISK_MODE = 0x7f4f,    // Disk mode of the most recently accessed drive.
+	WORK_DM_N = 0x7f52,              // FDC N field derived from the disk mode.
 
 	// Other constants.
-	DATA_BUF_SIZE			= 0x2000,		// Read/write data-buffer size.
-	DRIVES					= 2,			// Number of subsystem drives.
+	DATA_BUF_SIZE = 0x2000, // Read/write data-buffer size.
+	DRIVES = 2,             // Number of subsystem drives.
 };
 
-static const BYTE ntobit[]={0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80};
+static const BYTE ntobit[] = {0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80};
 
 static BYTE porta_main;
 static BYTE portb_main;
 static BYTE portc_main;
 
-
 // ---- FDD subsystem.
 
-		BYTE subsysmem[0x10000];	// 64 KiB subsystem memory.
+BYTE subsysmem[0x10000]; // 64 KiB subsystem memory.
 
-static int	hsstate;		// Current handshake state.
-static int	state;
+static int hsstate; // Current handshake state.
+static int state;
 
-static BYTE	cmd;
-static BOOL cmdrecvd;		// A complete command has been received.
+static BYTE cmd;
+static BOOL cmdrecvd; // A complete command has been received.
 
-static int	recvdatacnt;	// Remaining receive-byte count.
-static BYTE *recvbuf;		// Current receive destination.
-static int	senddatacnt;	// Remaining transmit-byte count.
-static BYTE *sendbuf;		// Current transmit source.
+static int recvdatacnt; // Remaining receive-byte count.
+static BYTE *recvbuf;   // Current receive destination.
+static int senddatacnt; // Remaining transmit-byte count.
+static BYTE *sendbuf;   // Current transmit source.
 
-static BYTE	parambuf[8];		// Command parameter and result buffer.
+static BYTE parambuf[8]; // Command parameter and result buffer.
 
 typedef struct {
-	UINT8	drive;
-	UINT8	C;
-	UINT8	H;
-	UINT8	R;
-	UINT8	N;
-	UINT8	st0;
-	UINT8	st1;
-	UINT8	st2;
-	UINT32	req_len;
-	UINT32	xfer_len;
-	UINT32	range_start;
-	UINT32	range_end;
+	UINT8 drive;
+	UINT8 C;
+	UINT8 H;
+	UINT8 R;
+	UINT8 N;
+	UINT8 st0;
+	UINT8 st1;
+	UINT8 st2;
+	UINT32 req_len;
+	UINT32 xfer_len;
+	UINT32 range_start;
+	UINT32 range_end;
 } FDSUBTRACE;
 
-static FDSUBTRACE	fdsubtrace;
+static FDSUBTRACE fdsubtrace;
 
+static void fdsubsys_trace_bytes(const char *dir, const UINT8 *data, UINT length) {
+	char prefix[64];
 
-static void fdsubsys_trace_bytes(const char *dir, const UINT8 *data,
-								 UINT length) {
-
-	char	prefix[64];
-
-	(void)snprintf(prefix, sizeof(prefix), "fdsubtrace mode=%02x %s",
-				   fdc.fddifmode, dir);
+	(void)snprintf(prefix, sizeof(prefix), "fdsubtrace mode=%02x %s", fdc.fddifmode, dir);
 	fdc_trace_bytes(prefix, data, length);
 }
 
 static UINT fdsubsys_trace_param_len(BYTE command) {
-
 	switch (command) {
 	case CMD_INITIALIZE:
 	case CMD_SEND_DATA:
@@ -161,25 +153,22 @@ static UINT fdsubsys_trace_param_len(BYTE command) {
 }
 
 static void fdsubsys_trace_main_sequence(void) {
-
-	UINT	len;
-	UINT	i;
-	UINT8	bytes[9];
+	UINT len;
+	UINT i;
+	UINT8 bytes[9];
 
 	len = fdsubsys_trace_param_len(cmd);
 	bytes[0] = cmd;
-	for (i=0; i<len; i++) {
+	for (i = 0; i < len; i++) {
 		bytes[i + 1] = parambuf[i];
 	}
 	fdsubsys_trace_bytes("main2sub", bytes, len + 1);
 }
 
 static void fdsubsys_trace_response_sequence(void) {
-
 	if (senddatacnt > 0) {
 		fdsubsys_trace_bytes("sub2main", sendbuf, (UINT)senddatacnt);
-	}
-	else {
+	} else {
 		fdsubsys_trace_bytes("sub2main", NULL, 0);
 	}
 }
@@ -198,13 +187,13 @@ static REG8 subsys_inportc(void) {
 
 static void subsys_setportc(int bitnum) {
 	if (bitnum >= 4) {
-		portc_main |= ntobit[bitnum-4];
+		portc_main |= ntobit[bitnum - 4];
 	}
 }
 
 static void subsys_resetportc(int bitnum) {
 	if (bitnum >= 4) {
-		portc_main &= ~ntobit[bitnum-4];
+		portc_main &= ~ntobit[bitnum - 4];
 	}
 }
 
@@ -234,7 +223,7 @@ static int subsys_wait_data(void) {
 	if (subsys_inportc() & DAV_MAIN) {
 		subsys_resetportc(RFDBIT);
 		data = subsys_inporta();
-//		TRACEOUT(("fdsubsys: recv data 0x%02x", data));
+		//		TRACEOUT(("fdsubsys: recv data 0x%02x", data));
 		*recvbuf++ = data;
 		recvdatacnt--;
 		subsys_setportc(DACBIT);
@@ -259,7 +248,7 @@ static int subsys_wait_rfd(void) {
 		data = *sendbuf++;
 		senddatacnt--;
 		subsys_outportb(data);
-//		TRACEOUT(("fdsubsys: send data 0x%02x", data));
+		//		TRACEOUT(("fdsubsys: send data 0x%02x", data));
 		subsys_setportc(DAVBIT);
 		hsstate = HSST_WAIT_DAC;
 		return GOAHEAD;
@@ -284,13 +273,12 @@ static int subsys_wait_dac_reset(void) {
 	return WAITING;
 }
 
-
 static int subsys_receive_cmd(void) {
 	int result;
 
 	result = GOAHEAD;
 	while (result == GOAHEAD) {
-		switch(hsstate) {
+		switch (hsstate) {
 		case HSST_WAIT_ATN:
 			result = subsys_wait_atn();
 			break;
@@ -303,8 +291,7 @@ static int subsys_receive_cmd(void) {
 		case HSST_STOPPED:
 			if (cmdrecvd) {
 				return GOAHEAD;
-			}
-			else {
+			} else {
 				hsstate = HSST_WAIT_ATN;
 			}
 		}
@@ -312,13 +299,12 @@ static int subsys_receive_cmd(void) {
 	return WAITING;
 }
 
-
 static int subsys_receive_data(void) {
 	int result;
 
 	result = GOAHEAD;
 	while (result == GOAHEAD) {
-		switch(hsstate) {
+		switch (hsstate) {
 		case HSST_WAIT_DATA:
 			result = subsys_wait_data();
 			break;
@@ -329,8 +315,7 @@ static int subsys_receive_data(void) {
 			if (recvdatacnt > 0) {
 				subsys_setportc(RFDBIT);
 				hsstate = HSST_WAIT_DATA;
-			}
-			else {
+			} else {
 				// The complete scheduled receive payload has arrived.
 				return GOAHEAD;
 			}
@@ -344,7 +329,7 @@ static int subsys_send_data(void) {
 
 	result = GOAHEAD;
 	while (result == GOAHEAD) {
-		switch(hsstate) {
+		switch (hsstate) {
 		case HSST_WAIT_RFD:
 			result = subsys_wait_rfd();
 			break;
@@ -357,8 +342,7 @@ static int subsys_send_data(void) {
 		case HSST_STOPPED:
 			if (senddatacnt > 0) {
 				hsstate = HSST_WAIT_RFD;
-			}
-			else {
+			} else {
 				// The complete scheduled transmit payload has been sent.
 				return GOAHEAD;
 			}
@@ -424,7 +408,6 @@ static void subsys_cmd_received(void) {
 	}
 }
 
-
 /*
 Disk-control helpers.
 */
@@ -434,9 +417,9 @@ static void config_fdc_by_disk_mode(int drv, int track) {
 
 	mode = subsysmem[WORK_DISK_MODE + drv];
 
-	fdc.rpm[drv] = 0;	// The subsystem command set does not select 1.44 MB media here.
+	fdc.rpm[drv] = 0; // The subsystem command set does not select 1.44 MB media here.
 	switch ((mode >> 4) & 0x03) {
-	case 0:	// 1D/2D
+	case 0: // 1D/2D
 		// TODO: model the documented 48/96 TPI selection.
 		CTRL_FDMEDIA[drv] = DISKTYPE_2DD;
 		break;
@@ -450,13 +433,12 @@ static void config_fdc_by_disk_mode(int drv, int track) {
 
 	if ((mode & 0x38) == 0x28 && track == 0) {
 		// In 1HD/2HD mode, SPC remaps logical track zero.
-		fdc.mf = 0x00;	// FM
-	}
-	else {
-		fdc.mf = 0x40;	// MFM
+		fdc.mf = 0x00; // FM
+	} else {
+		fdc.mf = 0x40; // MFM
 	}
 
-	fdc.N = mode & 0x03;	// Set the FDC sector-size code from the subsystem disk mode.
+	fdc.N = mode & 0x03; // Set the FDC sector-size code from the subsystem disk mode.
 	subsysmem[WORK_DM_N] = fdc.N;
 	subsysmem[WORK_LAST_DISK_MODE] = mode;
 }
@@ -468,45 +450,43 @@ static void set_command_status(BYTE status) {
 }
 
 static const char *fdsubsys_trace_cmdname(BYTE command) {
-
-	switch(command) {
-		case CMD_INITIALIZE:
-			return("FDSubInitialize");
-		case CMD_WRITE_DATA:
-			return("FDSubWriteData");
-		case CMD_READ_DATA:
-			return("FDSubReadData");
-		case CMD_SEND_DATA:
-			return("FDSubSendData");
-		case CMD_SEND_RESULT_STATUS:
-			return("FDSubSendResultStatus");
-		case CMD_RECEIVE_MEMORY:
-			return("FDSubReceiveMemory");
-		case CMD_EXECUTE_COMMAND:
-			return("FDSubExecuteCommand");
-		case CMD_LOAD_DATA:
-			return("FDSubLoadData");
-		case CMD_SET_SURFACE_MODE:
-			return("FDSubSetSurfaceMode");
-		case CMD_SET_DISK_MODE:
-			return("FDSubSetDiskMode");
-		case CMD_SEND_DISK_MODE:
-			return("FDSubSendDiskMode");
-		case CMD_SET_BOUNDARY_MODE:
-			return("FDSubSetBoundaryMode");
-		case CMD_DRIVE_READY_CHECK:
-			return("FDSubDriveReadyCheck");
-		case CMD_SLEEP:
-			return("FDSubSleep");
-		case CMD_ACTIVE:
-			return("FDSubActive");
-		default:
-			return("FDSubUnknown");
+	switch (command) {
+	case CMD_INITIALIZE:
+		return ("FDSubInitialize");
+	case CMD_WRITE_DATA:
+		return ("FDSubWriteData");
+	case CMD_READ_DATA:
+		return ("FDSubReadData");
+	case CMD_SEND_DATA:
+		return ("FDSubSendData");
+	case CMD_SEND_RESULT_STATUS:
+		return ("FDSubSendResultStatus");
+	case CMD_RECEIVE_MEMORY:
+		return ("FDSubReceiveMemory");
+	case CMD_EXECUTE_COMMAND:
+		return ("FDSubExecuteCommand");
+	case CMD_LOAD_DATA:
+		return ("FDSubLoadData");
+	case CMD_SET_SURFACE_MODE:
+		return ("FDSubSetSurfaceMode");
+	case CMD_SET_DISK_MODE:
+		return ("FDSubSetDiskMode");
+	case CMD_SEND_DISK_MODE:
+		return ("FDSubSendDiskMode");
+	case CMD_SET_BOUNDARY_MODE:
+		return ("FDSubSetBoundaryMode");
+	case CMD_DRIVE_READY_CHECK:
+		return ("FDSubDriveReadyCheck");
+	case CMD_SLEEP:
+		return ("FDSubSleep");
+	case CMD_ACTIVE:
+		return ("FDSubActive");
+	default:
+		return ("FDSubUnknown");
 	}
 }
 
 static void fdsubsys_trace_begin(void) {
-
 	ZeroMemory(&fdsubtrace, sizeof(fdsubtrace));
 	fdsubtrace.drive = 0xff;
 	fdsubtrace.st0 = 0xff;
@@ -517,18 +497,15 @@ static void fdsubsys_trace_begin(void) {
 }
 
 static void fdsubsys_trace_set_range(UINT32 start, UINT32 length) {
-
 	fdsubtrace.range_start = start;
 	if (length) {
 		fdsubtrace.range_end = start + length - 1;
-	}
-	else {
+	} else {
 		fdsubtrace.range_end = start;
 	}
 }
 
 static void fdsubsys_trace_set_chrn(int drv, int track, int sector) {
-
 	fdsubtrace.drive = (UINT8)drv;
 	fdsubtrace.C = (UINT8)(track >> 1);
 	fdsubtrace.H = (UINT8)(track & 1);
@@ -537,26 +514,11 @@ static void fdsubsys_trace_set_chrn(int drv, int track, int sector) {
 }
 
 static void fdsubsys_trace_emit(void) {
-
-	fdc_trace_log(cmd,
-			fdsubsys_trace_cmdname(cmd),
-			fdsubtrace.drive,
-			fdsubtrace.C,
-			fdsubtrace.H,
-			fdsubtrace.R,
-			fdsubtrace.N,
-			fdsubtrace.req_len,
-			fdsubtrace.st0,
-			fdsubtrace.st1,
-			fdsubtrace.st2,
-			fdsubtrace.xfer_len,
-			0xff,
-			memoryva.dma_access,
-			memoryva.dma_sysm_bank,
-			memoryva.sysm_bank,
-			0,
-			fdsubtrace.range_start,
-			fdsubtrace.range_end);
+	fdc_trace_log(cmd, fdsubsys_trace_cmdname(cmd), fdsubtrace.drive, fdsubtrace.C, fdsubtrace.H,
+	              fdsubtrace.R, fdsubtrace.N, fdsubtrace.req_len, fdsubtrace.st0, fdsubtrace.st1,
+	              fdsubtrace.st2, fdsubtrace.xfer_len, 0xff, memoryva.dma_access,
+	              memoryva.dma_sysm_bank, memoryva.sysm_bank, 0, fdsubtrace.range_start,
+	              fdsubtrace.range_end);
 }
 
 /*
@@ -589,7 +551,9 @@ static void subsys_exec_write_data(void) {
 		BYTE track = parambuf[2];
 		BYTE sector = parambuf[3];
 
-		TRACEOUT(("fdsubsys: write data (not implemented): sectorcnt=%d, drv=%d, track=%d, sector=%d",sectorcnt, drv, track, sector));
+		TRACEOUT(
+		    ("fdsubsys: write data (not implemented): sectorcnt=%d, drv=%d, track=%d, sector=%d",
+		     sectorcnt, drv, track, sector));
 		fdsubsys_trace_set_chrn(drv, track, sector);
 		fdsubtrace.req_len = 256UL * sectorcnt;
 
@@ -597,11 +561,9 @@ static void subsys_exec_write_data(void) {
 		if (recvdatacnt) {
 			recvbuf = &subsysmem[WORK_DATA_BUF];
 			state = ST_RECV_DATA;
-			parambuf[5] = 1;		// Mark the payload receive phase as started.
+			parambuf[5] = 1; // Mark the payload receive phase as started.
 		}
-	}
-	else {
-	
+	} else {
 	}
 }
 
@@ -625,7 +587,8 @@ static void subsys_exec_read_data(void) {
 	sector = parambuf[3];
 	fdsubsys_trace_set_chrn(drv, track, sector);
 
-	TRACEOUT(("fdsubsys: read_data: drv=%d, sectorcnt=%d, track=%d, sector=%d", drv, sectorcnt, track, sector));
+	TRACEOUT(("fdsubsys: read_data: drv=%d, sectorcnt=%d, track=%d, sector=%d", drv, sectorcnt,
+	          track, sector));
 
 	/*
 	fdc
@@ -642,7 +605,8 @@ static void subsys_exec_read_data(void) {
 	
 	
 	*/
-	if (drv >= DRIVES) goto failed;
+	if (drv >= DRIVES)
+		goto failed;
 
 	fdc.us = drv;
 	config_fdc_by_disk_mode(drv, track);
@@ -654,7 +618,8 @@ static void subsys_exec_read_data(void) {
 
 	fdc.ncn = track >> 1;
 	fdc.hd = track & 1;
-	if (fdd_seek()) goto failed;
+	if (fdd_seek())
+		goto failed;
 
 	subsysmem[WORK_READ_SECTOR_COUNT] = 0;
 	readbufaddr = WORK_DATA_BUF;
@@ -665,7 +630,8 @@ static void subsys_exec_read_data(void) {
 		// config_fdc_by_disk_mode() has already selected fdc.N.
 		fdc.hd = track & 1;
 
-		if (fdd_read()) goto failed;
+		if (fdd_read())
+			goto failed;
 
 		CopyMemory(&subsysmem[readbufaddr], fdc.buf, sectorsize);
 		fdsubtrace.xfer_len += sectorsize;
@@ -674,7 +640,8 @@ static void subsys_exec_read_data(void) {
 		sector++;
 		subsysmem[WORK_READ_SECTOR_COUNT]++;
 		readbufaddr += sectorsize;
-		if (readbufaddr >= WORK_DATA_BUF + DATA_BUF_SIZE) goto failed;
+		if (readbufaddr >= WORK_DATA_BUF + DATA_BUF_SIZE)
+			goto failed;
 	}
 	set_command_status(0x40);
 	return;
@@ -707,7 +674,6 @@ static void subsys_exec_send_result_status(void) {
 	sendbuf = parambuf;
 
 	TRACEOUT(("fdsubsys: send result status: return 0x%02x", parambuf[0]));
-
 }
 
 /*
@@ -722,11 +688,10 @@ static void subsys_exec_receive_memory(void) {
 		fdsubtrace.req_len = recvdatacnt;
 		fdsubsys_trace_set_range(addr, (UINT32)recvdatacnt);
 		state = ST_RECV_DATA;
-		parambuf[5] = 1;		// Mark the payload receive phase as started.
+		parambuf[5] = 1; // Mark the payload receive phase as started.
 
 		TRACEOUT(("fdsubsys: receive_memory: addr=0x%04x, bytes=%d", addr, recvdatacnt));
-	}
-	else {
+	} else {
 		// Payload reception is complete.
 	}
 
@@ -742,7 +707,7 @@ static void subsys_exec_receive_memory(void) {
 static void subsys_exec_execute_command(void) {
 	WORD addr = (parambuf[0] << 8) | parambuf[1];
 
-	TRACEOUT(("fdsubsys: execute command (not implemented): address=0x%02x",addr));
+	TRACEOUT(("fdsubsys: execute command (not implemented): address=0x%02x", addr));
 }
 
 /*
@@ -755,18 +720,19 @@ static void subsys_exec_load_data(void) {
 	BYTE sector = parambuf[3];
 	WORD addr = (parambuf[4] << 8) | parambuf[5];
 
-	TRACEOUT(("fdsubsys: load data (not implemented): sectorcount=%d, drv=%d, track=%d, sector=%d, address=0x%04x", sectorcnt, drv, track, sector, addr));
+	TRACEOUT((
+	    "fdsubsys: load data (not implemented): sectorcount=%d, drv=%d, track=%d, sector=%d, address=0x%04x",
+	    sectorcnt, drv, track, sector, addr));
 	fdsubsys_trace_set_chrn(drv, track, sector);
 	fdsubtrace.req_len = 256UL * sectorcnt;
 	fdsubsys_trace_set_range(addr, fdsubtrace.req_len);
 }
 
-
 /*
 17H: set surface mode.
 */
 static void subsys_exec_set_surface_mode(void) {
-	TRACEOUT(("fdsubsys: set surface mode: mode=0x%02x",parambuf[0]));
+	TRACEOUT(("fdsubsys: set surface mode: mode=0x%02x", parambuf[0]));
 }
 
 /*
@@ -797,7 +763,6 @@ static void subsys_exec_send_disk_mode(void) {
 	drv = parambuf[0];
 	fdsubtrace.drive = (UINT8)drv;
 
-
 	if (drv < DRIVES) {
 		mode = subsysmem[WORK_DISK_MODE + drv];
 	}
@@ -827,9 +792,8 @@ static void subsys_exec_drive_ready_check(void) {
 
 	if (fdd_diskready(drv)) {
 		parambuf[0] = 0x00;
-	}
-	else {
-		parambuf[0] = 0xff;		// No disk is inserted.
+	} else {
+		parambuf[0] = 0xff; // No disk is inserted.
 	}
 
 	TRACEOUT(("fdsubsys: drive_ready_check: drive=%d, return=%d", drv, parambuf[0]));
@@ -843,8 +807,8 @@ static void subsys_exec_drive_ready_check(void) {
 */
 static void subsys_exec_sleep(void) {
 	TRACEOUT(("fdsubsys: sleep: return 0, 0"));
-	parambuf[0] = 0;	// Value visible at main port 1B2H / subsystem port F4H.
-	parambuf[1] = 0;	// Motor state: 00H off, FFH on.
+	parambuf[0] = 0; // Value visible at main port 1B2H / subsystem port F4H.
+	parambuf[1] = 0; // Motor state: 00H off, FFH on.
 
 	senddatacnt = 2;
 	sendbuf = parambuf;
@@ -986,8 +950,7 @@ static void IOOUTCALL fdsubsys_o0ff(UINT port, REG8 dat) {
 	if (dat & 0x80) {
 		// 8255 mode-set command.
 		// The subsystem handshake uses its fixed mode; ignore this write.
-	}
-	else {
+	} else {
 		int bitnum;
 
 		bitnum = (dat >> 1) & 0x07;
@@ -995,8 +958,7 @@ static void IOOUTCALL fdsubsys_o0ff(UINT port, REG8 dat) {
 			if (dat & 1) {
 				// Set the selected port-C bit.
 				portc_main |= ntobit[bitnum];
-			}
-			else {
+			} else {
 				// Clear the selected port-C bit.
 				portc_main &= ~ntobit[bitnum];
 			}

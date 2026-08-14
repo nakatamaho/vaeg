@@ -1,64 +1,58 @@
-#include	"compiler.h"
+#include "compiler.h"
 
-
-#define	MEMTBLMAX	256
-#define	HDLTBLMAX	256
-
+#define MEMTBLMAX 256
+#define HDLTBLMAX 256
 
 #if defined(MEMTRACE)
 
-#include	"strres.h"
-#include	"dosio.h"
+#include "strres.h"
+#include "dosio.h"
 
 #if defined(MACOS)
-#define	CRLITERAL	"\r"
-#define	CRCONST		str_cr
+#define CRLITERAL "\r"
+#define CRCONST str_cr
 #elif defined(X11) || defined(SLZAURUS)
-#define	CRLITERAL	"\n"
-#define	CRCONST		str_lf
+#define CRLITERAL "\n"
+#define CRCONST str_lf
 #else
-#define	CRLITERAL	"\r\n"
-#define	CRCONST		str_crlf
+#define CRLITERAL "\r\n"
+#define CRCONST str_crlf
 #endif
 
 typedef struct {
-	void	*hdl;
-	UINT	size;
-	char	name[24];
+	void *hdl;
+	UINT size;
+	char name[24];
 } _MEMTBL;
 
 typedef struct {
-	void	*hdl;
-	char	name[28];
+	void *hdl;
+	char name[28];
 } _HDLTBL;
 
-static _MEMTBL	memtbl[MEMTBLMAX];
-static _HDLTBL	hdltbl[HDLTBLMAX];
+static _MEMTBL memtbl[MEMTBLMAX];
+static _HDLTBL hdltbl[HDLTBLMAX];
 
-static const char str_memhdr[] =											\
-				"Handle   Size       Name" CRLITERAL						\
-				"--------------------------------------------" CRLITERAL;
+static const char str_memhdr[] =
+    "Handle   Size       Name" CRLITERAL "--------------------------------------------" CRLITERAL;
 
-static const char str_hdlhdr[] =											\
-				"Handle   Name" CRLITERAL									\
-				"-------------------------------------" CRLITERAL;
+static const char str_hdlhdr[] =
+    "Handle   Name" CRLITERAL "-------------------------------------" CRLITERAL;
 
 static const char str_memused[] = "memused: %d" CRLITERAL;
 
 void _meminit(void) {
-
 	ZeroMemory(memtbl, sizeof(memtbl));
 	ZeroMemory(hdltbl, sizeof(hdltbl));
 }
 
 void *_memalloc(int size, const char *name) {
-
-	void	*ret;
-	int		i;
+	void *ret;
+	int i;
 
 	ret = malloc(size);
 	if (ret) {
-		for (i=0; i<MEMTBLMAX; i++) {
+		for (i = 0; i < MEMTBLMAX; i++) {
 			if (memtbl[i].hdl == NULL) {
 				memtbl[i].hdl = ret;
 				memtbl[i].size = size;
@@ -67,15 +61,14 @@ void *_memalloc(int size, const char *name) {
 			}
 		}
 	}
-	return(ret);
+	return (ret);
 }
 
 void _memfree(void *hdl) {
-
-	int		i;
+	int i;
 
 	if (hdl) {
-		for (i=0; i<MEMTBLMAX; i++) {
+		for (i = 0; i < MEMTBLMAX; i++) {
 			if (memtbl[i].hdl == hdl) {
 				memtbl[i].hdl = NULL;
 				break;
@@ -86,11 +79,10 @@ void _memfree(void *hdl) {
 }
 
 void _handle_append(void *hdl, const char *name) {
-
-	int		i;
+	int i;
 
 	if (hdl) {
-		for (i=0; i<HDLTBLMAX; i++) {
+		for (i = 0; i < HDLTBLMAX; i++) {
 			if (hdltbl[i].hdl == NULL) {
 				hdltbl[i].hdl = hdl;
 				milstr_ncpy(hdltbl[i].name, name, sizeof(hdltbl[0].name));
@@ -101,10 +93,9 @@ void _handle_append(void *hdl, const char *name) {
 }
 
 void _handle_remove(void *hdl) {
-
 	if (hdl) {
-		int		i;
-		for (i=0; i<HDLTBLMAX; i++) {
+		int i;
+		for (i = 0; i < HDLTBLMAX; i++) {
 			if (hdltbl[i].hdl == hdl) {
 				hdltbl[i].hdl = NULL;
 				break;
@@ -114,26 +105,25 @@ void _handle_remove(void *hdl) {
 }
 
 void _memused(const char *filename) {
-
-	int		i;
-	FILEH	fh;
-	int		memuses = 0;
-	int		hdluses = 0;
-	BYTE	memusebit[(MEMTBLMAX+7)/8];
-	BYTE	hdlusebit[(HDLTBLMAX+7)/8];
-	char	work[256];
+	int i;
+	FILEH fh;
+	int memuses = 0;
+	int hdluses = 0;
+	BYTE memusebit[(MEMTBLMAX + 7) / 8];
+	BYTE hdlusebit[(HDLTBLMAX + 7) / 8];
+	char work[256];
 
 	ZeroMemory(memusebit, sizeof(memusebit));
 	ZeroMemory(hdlusebit, sizeof(hdlusebit));
-	for (i=0; i<MEMTBLMAX; i++) {
+	for (i = 0; i < MEMTBLMAX; i++) {
 		if (memtbl[i].hdl) {
-			memusebit[i>>3] |= (BYTE)0x80 >> (i & 7);
+			memusebit[i >> 3] |= (BYTE)0x80 >> (i & 7);
 			memuses++;
 		}
 	}
-	for (i=0; i<HDLTBLMAX; i++) {
+	for (i = 0; i < HDLTBLMAX; i++) {
 		if (hdltbl[i].hdl) {
-			hdlusebit[i>>3] |= (BYTE)0x80 >> (i & 7);
+			hdlusebit[i >> 3] |= (BYTE)0x80 >> (i & 7);
 			hdluses++;
 		}
 	}
@@ -143,10 +133,10 @@ void _memused(const char *filename) {
 		file_write(fh, work, strlen(work));
 		if (memuses) {
 			file_write(fh, str_memhdr, strlen(str_memhdr));
-			for (i=0; i<MEMTBLMAX; i++) {
-				if ((memusebit[i>>3] << (i & 7)) & 0x80) {
-					SPRINTF(work, "%08lx %10u %s\r\n",
-						(long)memtbl[i].hdl, memtbl[i].size, memtbl[i].name);
+			for (i = 0; i < MEMTBLMAX; i++) {
+				if ((memusebit[i >> 3] << (i & 7)) & 0x80) {
+					SPRINTF(work, "%08lx %10u %s\r\n", (long)memtbl[i].hdl, memtbl[i].size,
+					        memtbl[i].name);
 					file_write(fh, work, strlen(work));
 				}
 			}
@@ -156,10 +146,9 @@ void _memused(const char *filename) {
 		file_write(fh, work, strlen(work));
 		if (hdluses) {
 			file_write(fh, str_hdlhdr, strlen(str_hdlhdr));
-			for (i=0; i<HDLTBLMAX; i++) {
-				if ((hdlusebit[i>>3] << (i & 7)) & 0x80) {
-					SPRINTF(work, "%08lx %s\r\n",
-									(long)hdltbl[i].hdl, hdltbl[i].name);
+			for (i = 0; i < HDLTBLMAX; i++) {
+				if ((hdlusebit[i >> 3] << (i & 7)) & 0x80) {
+					SPRINTF(work, "%08lx %s\r\n", (long)hdltbl[i].hdl, hdltbl[i].name);
 					file_write(fh, work, strlen(work));
 				}
 			}
@@ -172,29 +161,27 @@ void _memused(const char *filename) {
 #elif defined(MEMCHECK)
 
 typedef struct {
-	void	*hdl;
-	UINT	size;
+	void *hdl;
+	UINT size;
 } _MEMTBL;
 
-		UINT	usedmemory;
-		BOOL	chgmemory;
-static	_MEMTBL	memtbl[MEMTBLMAX];
+UINT usedmemory;
+BOOL chgmemory;
+static _MEMTBL memtbl[MEMTBLMAX];
 
 void _meminit(void) {
-
 	usedmemory = 0;
 	chgmemory = FALSE;
 	ZeroMemory(memtbl, sizeof(memtbl));
 }
 
 void *_memalloc(int size) {
-
-	void	*ret;
-	int		i;
+	void *ret;
+	int i;
 
 	ret = malloc(size);
 	if (ret) {
-		for (i=0; i<MEMTBLMAX; i++) {
+		for (i = 0; i < MEMTBLMAX; i++) {
 			if (memtbl[i].hdl == NULL) {
 				memtbl[i].hdl = ret;
 				memtbl[i].size = size;
@@ -204,15 +191,14 @@ void *_memalloc(int size) {
 			}
 		}
 	}
-	return(ret);
+	return (ret);
 }
 
 void _memfree(void *hdl) {
-
-	int		i;
+	int i;
 
 	if (hdl) {
-		for (i=0; i<MEMTBLMAX; i++) {
+		for (i = 0; i < MEMTBLMAX; i++) {
 			if (memtbl[i].hdl == hdl) {
 				memtbl[i].hdl = NULL;
 				usedmemory -= memtbl[i].size;
@@ -225,4 +211,3 @@ void _memfree(void *hdl) {
 }
 
 #endif
-

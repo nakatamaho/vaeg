@@ -1,109 +1,91 @@
-#include	"compiler.h"
-#include	<math.h>
-#include	"machine/pccore.h"
-#include	"iocore.h"
-#include	"sound.h"
-#include	"fmboard.h"
-#include	"ymfmbridge.h"
+#include "compiler.h"
+#include <math.h>
+#include "machine/pccore.h"
+#include "iocore.h"
+#include "sound.h"
+#include "fmboard.h"
+#include "ymfmbridge.h"
 
+#define OPM_ARRATE 399128L
+#define OPM_DRRATE 5514396L
 
-#define	OPM_ARRATE		 399128L
-#define	OPM_DRRATE		5514396L
+#define EG_STEP (96.0 / EVC_ENT) // dB step
+#define SC(db) (SINT32)((db) * ((3.0 / EG_STEP) * (1 << ENV_BITS))) + EC_DECAY
+#define D2(v) (((double)(6 << KF_BITS) * log((double)(v)) / log(2.0)) + 0.5)
+#define FMASMSHIFT (32 - 6 - (OPM_OUTSB + 1 + FMDIV_BITS) + FMVOL_SFTBIT)
+#define FREQBASE4096 ((double)OPNA_CLOCK / calcrate / 64)
 
-#define	EG_STEP	(96.0 / EVC_ENT)					// dB step
-#define	SC(db)	(SINT32)((db) * ((3.0 / EG_STEP) * (1 << ENV_BITS))) + EC_DECAY
-#define	D2(v)	(((double)(6 << KF_BITS) * log((double)(v)) / log(2.0)) + 0.5)
-#define	FMASMSHIFT	(32 - 6 - (OPM_OUTSB + 1 + FMDIV_BITS) + FMVOL_SFTBIT)
-#define	FREQBASE4096	((double)OPNA_CLOCK / calcrate / 64)
-
-
-	OPNCFG	opncfg;
+OPNCFG opncfg;
 #ifdef OPNGENX86
-	char	envshift[EVC_ENT];
-	char	sinshift[SIN_ENT];
+char envshift[EVC_ENT];
+char sinshift[SIN_ENT];
 #endif
 
+static SINT32 detunetable[8][32];
+static SINT32 attacktable[94];
+static SINT32 decaytable[94];
 
-static	SINT32	detunetable[8][32];
-static	SINT32	attacktable[94];
-static	SINT32	decaytable[94];
-
-static const SINT32	decayleveltable[16] = {
-		 			SC( 0),SC( 1),SC( 2),SC( 3),SC( 4),SC( 5),SC( 6),SC( 7),
-		 			SC( 8),SC( 9),SC(10),SC(11),SC(12),SC(13),SC(14),SC(31)};
-static const UINT8 multipletable[] = {
-			    	1, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30};
-static const SINT32 nulltable[] = {
-					0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-					0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
-static const UINT8 kftable[16] = {0,0,0,0,0,0,0,1,2,3,3,3,3,3,3,3};
+static const SINT32 decayleveltable[16] = {SC(0),  SC(1),  SC(2),  SC(3), SC(4),  SC(5),
+                                           SC(6),  SC(7),  SC(8),  SC(9), SC(10), SC(11),
+                                           SC(12), SC(13), SC(14), SC(31)};
+static const UINT8 multipletable[] = {1, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30};
+static const SINT32 nulltable[] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                                   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+static const UINT8 kftable[16] = {0, 0, 0, 0, 0, 0, 0, 1, 2, 3, 3, 3, 3, 3, 3, 3};
 static const UINT8 dttable[] = {
-					0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-					0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-					0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2,
-					2, 3, 3, 3, 4, 4, 4, 5, 5, 6, 6, 7, 8, 8, 8, 8,
-					1, 1, 1, 1, 2, 2, 2, 2, 2, 3, 3, 3, 4, 4, 4, 5,
-					5, 6, 6, 7, 8, 8, 9,10,11,12,13,14,16,16,16,16,
-					2, 2, 2, 2, 2, 3, 3, 3, 4, 4, 4, 5, 5, 6, 6, 7,
-					8, 8, 9,10,11,12,13,14,16,17,19,20,22,22,22,22};
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0,  1,  1,  1,  1,  1,  1,  1,  1,  2,  2,  2,  2,  2,  3, 3, 3,
+    4, 4, 4, 5, 5, 6, 6, 7, 8, 8,  8,  8,  1,  1,  1,  1,  2,  2,  2,  2,  2,  3,  3,  3, 4, 4,
+    4, 5, 5, 6, 6, 7, 8, 8, 9, 10, 11, 12, 13, 14, 16, 16, 16, 16, 2,  2,  2,  2,  2,  3, 3, 3,
+    4, 4, 4, 5, 5, 6, 6, 7, 8, 8,  9,  10, 11, 12, 13, 14, 16, 17, 19, 20, 22, 22, 22, 22};
 static const int extendslot[4] = {2, 3, 1, 0};
 static const int fmslot[4] = {0, 2, 1, 3};
 
 static UINT opnbackend = OPN_BACKEND_YMFM;
 
-
 void opngen_setbackend(UINT backend) {
-
-	opnbackend = (backend == OPN_BACKEND_YMFM) ?
-									OPN_BACKEND_YMFM : OPN_BACKEND_NP2;
+	opnbackend = (backend == OPN_BACKEND_YMFM) ? OPN_BACKEND_YMFM : OPN_BACKEND_NP2;
 }
 
 UINT opngen_getbackend(void) {
-
-	return(opnbackend);
+	return (opnbackend);
 }
 
 UINT opngen_parsebackend(const char *name) {
-
 	if ((name != NULL) && !strcmp(name, "np2")) {
-		return(OPN_BACKEND_NP2);
+		return (OPN_BACKEND_NP2);
 	}
-	return(OPN_BACKEND_YMFM);
+	return (OPN_BACKEND_YMFM);
 }
 
 const char *opngen_backendname(UINT backend) {
-
-	return((backend == OPN_BACKEND_YMFM) ? "ymfm" : "np2");
+	return ((backend == OPN_BACKEND_YMFM) ? "ymfm" : "np2");
 }
 
-
 void opngen_initialize(UINT rate) {
-
-	UINT	ratebit;
-	int		i;
-	int		j;
-	double	pom;
-	double	freq;
-	UINT32	calcrate;
+	UINT ratebit;
+	int i;
+	int j;
+	double pom;
+	double freq;
+	UINT32 calcrate;
 
 	if (rate == 44100) {
 		ratebit = 0;
-	}
-	else if (rate == 22050) {
+	} else if (rate == 22050) {
 		ratebit = 1;
-	}
-	else {
+	} else {
 		ratebit = 2;
 	}
 	calcrate = (OPNA_CLOCK / 72) >> ratebit;
 	opncfg.calc1024 = FMDIV_ENT * 44100 / (OPNA_CLOCK / 72);
 
-	for (i=0; i<EVC_ENT; i++) {
+	for (i = 0; i < EVC_ENT; i++) {
 #ifdef OPNGENX86
 		char sft;
 		sft = ENVTBL_BIT;
-		while(sft < (ENVTBL_BIT + 8)) {
-			pom = (double)(1 << sft) / pow(10.0, EG_STEP*(EVC_ENT-i)/20.0);
+		while (sft < (ENVTBL_BIT + 8)) {
+			pom = (double)(1 << sft) / pow(10.0, EG_STEP * (EVC_ENT - i) / 20.0);
 			opncfg.envtable[i] = (long)pom;
 			envshift[i] = sft - TL_BITS;
 			if (opncfg.envtable[i] >= (1 << (ENVTBL_BIT - 1))) {
@@ -112,16 +94,16 @@ void opngen_initialize(UINT rate) {
 			sft++;
 		}
 #else
-		pom = (double)(1 << ENVTBL_BIT) / pow(10.0, EG_STEP*(EVC_ENT-i)/20.0);
+		pom = (double)(1 << ENVTBL_BIT) / pow(10.0, EG_STEP * (EVC_ENT - i) / 20.0);
 		opncfg.envtable[i] = (long)pom;
 #endif
 	}
-	for (i=0; i<SIN_ENT; i++) {
+	for (i = 0; i < SIN_ENT; i++) {
 #ifdef OPNGENX86
 		char sft;
 		sft = SINTBL_BIT;
-		while(sft < (SINTBL_BIT + 8)) {
-			pom = (double)(1 << sft) * sin(2*PI*i/SIN_ENT);
+		while (sft < (SINTBL_BIT + 8)) {
+			pom = (double)(1 << sft) * sin(2 * PI * i / SIN_ENT);
 			opncfg.sintable[i] = (long)pom;
 			sinshift[i] = sft;
 			if (opncfg.sintable[i] >= (1 << (SINTBL_BIT - 1))) {
@@ -133,53 +115,48 @@ void opngen_initialize(UINT rate) {
 			sft++;
 		}
 #else
-		pom = (double)((1 << SINTBL_BIT) - 1) * sin(2*PI*i/SIN_ENT);
+		pom = (double)((1 << SINTBL_BIT) - 1) * sin(2 * PI * i / SIN_ENT);
 		opncfg.sintable[i] = (long)pom;
 #endif
 	}
-	for (i=0; i<EVC_ENT; i++) {
-		pom = pow(((double)(EVC_ENT-1-i)/EVC_ENT), 8) * EVC_ENT;
+	for (i = 0; i < EVC_ENT; i++) {
+		pom = pow(((double)(EVC_ENT - 1 - i) / EVC_ENT), 8) * EVC_ENT;
 		opncfg.envcurve[i] = (long)pom;
 		opncfg.envcurve[EVC_ENT + i] = i;
 	}
-	opncfg.envcurve[EVC_ENT*2] = EVC_ENT;
+	opncfg.envcurve[EVC_ENT * 2] = EVC_ENT;
 
-//	opmbaserate = (1L << FREQ_BITS) / (rate * x / 44100) * 55466;
-//	でも今は x == 55466だから…
+	//	opmbaserate = (1L << FREQ_BITS) / (rate * x / 44100) * 55466;
+	//	でも今は x == 55466だから…
 
-//	ここで FREQ_BITS >= 16が条件
+	//	ここで FREQ_BITS >= 16が条件
 	if (rate == 44100) {
 		opncfg.ratebit = 0 + (FREQ_BITS - 16);
-	}
-	else if (rate == 22050) {
+	} else if (rate == 22050) {
 		opncfg.ratebit = 1 + (FREQ_BITS - 16);
-	}
-	else {
+	} else {
 		opncfg.ratebit = 2 + (FREQ_BITS - 16);
 	}
 
-	for (i=0; i<4; i++) {
-		for (j=0; j<32; j++) {
+	for (i = 0; i < 4; i++) {
+		for (j = 0; j < 32; j++) {
 #if (FREQ_BITS >= 21)
-			freq = FREQBASE4096 * dttable[i*32 + j] *
-											(1 << (FREQ_BITS-21));
+			freq = FREQBASE4096 * dttable[i * 32 + j] * (1 << (FREQ_BITS - 21));
 #else
-			freq = FREQBASE4096 * dttable[i*32 + j] /
-											(1 << (21-FREQ_BITS));
+			freq = FREQBASE4096 * dttable[i * 32 + j] / (1 << (21 - FREQ_BITS));
 #endif
-			detunetable[i][j]   = (long)freq;
-			detunetable[i+4][j] = (long)-freq;
+			detunetable[i][j] = (long)freq;
+			detunetable[i + 4][j] = (long)-freq;
 		}
 	}
-	for (i=0; i<4; i++) {
+	for (i = 0; i < 4; i++) {
 		attacktable[i] = decaytable[i] = 0;
 	}
-	for (i=4; i<64; i++) {
+	for (i = 4; i < 64; i++) {
 		freq = (double)(EVC_ENT << ENV_BITS) * FREQBASE4096;
-		if (i < 8) {							// 忘れてます。
+		if (i < 8) { // 忘れてます。
 			freq *= 1.0 + (i & 2) * 0.25;
-		}
-		else if (i < 60) {
+		} else if (i < 60) {
 			freq *= 1.0 + (i & 3) * 0.25;
 		}
 		freq *= (double)(1 << ((i >> 2) - 1));
@@ -199,7 +176,7 @@ void opngen_initialize(UINT rate) {
 	}
 	attacktable[62] = EC_DECAY - 1;
 	attacktable[63] = EC_DECAY - 1;
-	for (i=64; i<94; i++) {
+	for (i = 64; i < 94; i++) {
 		attacktable[i] = attacktable[63];
 		decaytable[i] = decaytable[63];
 	}
@@ -207,7 +184,6 @@ void opngen_initialize(UINT rate) {
 }
 
 void opngen_setvol(UINT vol) {
-
 	opncfg.fmvol = vol * 5 / 4;
 #if defined(OPNGENX86)
 	opncfg.fmvol <<= FMASMSHIFT;
@@ -216,107 +192,101 @@ void opngen_setvol(UINT vol) {
 }
 
 void opngen_setVR(REG8 channel, REG8 value) {
-
 	if ((channel & 3) && (value)) {
 		opncfg.vr_en = TRUE;
-		opncfg.vr_l = (channel & 1)?value:0;
-		opncfg.vr_r = (channel & 2)?value:0;
-	}
-	else {
+		opncfg.vr_l = (channel & 1) ? value : 0;
+		opncfg.vr_r = (channel & 2) ? value : 0;
+	} else {
 		opncfg.vr_en = FALSE;
 	}
 	ymfm_opn_setvr(channel, value);
 }
 
-
 // ----
 
 static void set_algorithm(OPNCH *ch) {
-
-	SINT32	*outd;
-	UINT8	outslot;
+	SINT32 *outd;
+	UINT8 outslot;
 
 	outd = &opngen.outdc;
 	if (ch->stereo) {
-		switch(ch->pan & 0xc0) {
-			case 0x80:
-				outd = &opngen.outdl;
-				break;
+		switch (ch->pan & 0xc0) {
+		case 0x80:
+			outd = &opngen.outdl;
+			break;
 
-			case 0x40:
-				outd = &opngen.outdr;
-				break;
+		case 0x40:
+			outd = &opngen.outdr;
+			break;
 		}
 	}
-	switch(ch->algorithm) {
-		case 0:
-			ch->connect1 = &opngen.feedback2;
-			ch->connect2 = &opngen.feedback3;
-			ch->connect3 = &opngen.feedback4;
-			outslot = 0x08;
-			break;
+	switch (ch->algorithm) {
+	case 0:
+		ch->connect1 = &opngen.feedback2;
+		ch->connect2 = &opngen.feedback3;
+		ch->connect3 = &opngen.feedback4;
+		outslot = 0x08;
+		break;
 
-		case 1:
-			ch->connect1 = &opngen.feedback3;
-			ch->connect2 = &opngen.feedback3;
-			ch->connect3 = &opngen.feedback4;
-			outslot = 0x08;
-			break;
+	case 1:
+		ch->connect1 = &opngen.feedback3;
+		ch->connect2 = &opngen.feedback3;
+		ch->connect3 = &opngen.feedback4;
+		outslot = 0x08;
+		break;
 
-		case 2:
-			ch->connect1 = &opngen.feedback4;
-			ch->connect2 = &opngen.feedback3;
-			ch->connect3 = &opngen.feedback4;
-			outslot = 0x08;
-			break;
+	case 2:
+		ch->connect1 = &opngen.feedback4;
+		ch->connect2 = &opngen.feedback3;
+		ch->connect3 = &opngen.feedback4;
+		outslot = 0x08;
+		break;
 
-		case 3:
-			ch->connect1 = &opngen.feedback2;
-			ch->connect2 = &opngen.feedback4;
-			ch->connect3 = &opngen.feedback4;
-			outslot = 0x08;
-			break;
+	case 3:
+		ch->connect1 = &opngen.feedback2;
+		ch->connect2 = &opngen.feedback4;
+		ch->connect3 = &opngen.feedback4;
+		outslot = 0x08;
+		break;
 
-		case 4:
-			ch->connect1 = &opngen.feedback2;
-			ch->connect2 = outd;
-			ch->connect3 = &opngen.feedback4;
-			outslot = 0x0a;
-			break;
+	case 4:
+		ch->connect1 = &opngen.feedback2;
+		ch->connect2 = outd;
+		ch->connect3 = &opngen.feedback4;
+		outslot = 0x0a;
+		break;
 
-		case 5:
-			ch->connect1 = 0;
-			ch->connect2 = outd;
-			ch->connect3 = outd;
-			outslot = 0x0e;
-			break;
+	case 5:
+		ch->connect1 = 0;
+		ch->connect2 = outd;
+		ch->connect3 = outd;
+		outslot = 0x0e;
+		break;
 
-		case 6:
-			ch->connect1 = &opngen.feedback2;
-			ch->connect2 = outd;
-			ch->connect3 = outd;
-			outslot = 0x0e;
-			break;
+	case 6:
+		ch->connect1 = &opngen.feedback2;
+		ch->connect2 = outd;
+		ch->connect3 = outd;
+		outslot = 0x0e;
+		break;
 
-		case 7:
-		default:
-			ch->connect1 = outd;
-			ch->connect2 = outd;
-			ch->connect3 = outd;
-			outslot = 0x0f;
+	case 7:
+	default:
+		ch->connect1 = outd;
+		ch->connect2 = outd;
+		ch->connect3 = outd;
+		outslot = 0x0f;
 	}
 	ch->connect4 = outd;
 	ch->outslot = outslot;
 }
 
 static void set_dt1_mul(OPNSLOT *slot, REG8 value) {
-
 	slot->multiple = (SINT32)multipletable[value & 0x0f];
 	slot->detune1 = detunetable[(value >> 4) & 7];
 }
 
 static void set_tl(OPNSLOT *slot, REG8 value) {
-
 #if (EVC_BITS >= 7)
 	slot->totallevel = ((~value) & 0x007f) << (EVC_BITS - 7);
 #else
@@ -325,10 +295,9 @@ static void set_tl(OPNSLOT *slot, REG8 value) {
 }
 
 static void set_ks_ar(OPNSLOT *slot, REG8 value) {
-
 	slot->keyscale = ((~value) >> 6) & 3;
 	value &= 0x1f;
-	slot->attack = (value)?(attacktable + (value << 1)):nulltable;
+	slot->attack = (value) ? (attacktable + (value << 1)) : nulltable;
 	slot->env_inc_attack = slot->attack[slot->envratio];
 	if (slot->env_mode == EM_ATTACK) {
 		slot->env_inc = slot->env_inc_attack;
@@ -336,9 +305,8 @@ static void set_ks_ar(OPNSLOT *slot, REG8 value) {
 }
 
 static void set_d1r(OPNSLOT *slot, REG8 value) {
-
 	value &= 0x1f;
-	slot->decay1 = (value)?(decaytable + (value << 1)):nulltable;
+	slot->decay1 = (value) ? (decaytable + (value << 1)) : nulltable;
 	slot->env_inc_decay1 = slot->decay1[slot->envratio];
 	if (slot->env_mode == EM_DECAY1) {
 		slot->env_inc = slot->env_inc_decay1;
@@ -346,13 +314,11 @@ static void set_d1r(OPNSLOT *slot, REG8 value) {
 }
 
 static void set_dt2_d2r(OPNSLOT *slot, REG8 value) {
-
 	value &= 0x1f;
-	slot->decay2 = (value)?(decaytable + (value << 1)):nulltable;
+	slot->decay2 = (value) ? (decaytable + (value << 1)) : nulltable;
 	if (slot->ssgeg1) {
 		slot->env_inc_decay2 = 0;
-	}
-	else {
+	} else {
 		slot->env_inc_decay2 = slot->decay2[slot->envratio];
 	}
 	if (slot->env_mode == EM_DECAY2) {
@@ -361,7 +327,6 @@ static void set_dt2_d2r(OPNSLOT *slot, REG8 value) {
 }
 
 static void set_d1l_rr(OPNSLOT *slot, REG8 value) {
-
 	slot->decaylevel = decayleveltable[(value >> 4)];
 	slot->release = decaytable + ((value & 0x0f) << 2) + 2;
 	slot->env_inc_release = slot->release[slot->envratio];
@@ -377,13 +342,11 @@ static void set_d1l_rr(OPNSLOT *slot, REG8 value) {
 }
 
 static void set_ssgeg(OPNSLOT *slot, REG8 value) {
-
 	value &= 0xf;
 	if ((value == 0xb) || (value == 0xd)) {
 		slot->ssgeg1 = 1;
 		slot->env_inc_decay2 = 0;
-	}
-	else {
+	} else {
 		slot->ssgeg1 = 0;
 		slot->env_inc_decay2 = slot->decay2[slot->envratio];
 	}
@@ -393,17 +356,16 @@ static void set_ssgeg(OPNSLOT *slot, REG8 value) {
 }
 
 static void channleupdate(OPNCH *ch) {
-
-	int		i;
-	UINT32	fc = ch->keynote[0];						// ver0.27
-	UINT8	kc = ch->kcode[0];
-	UINT	evr;
-	OPNSLOT	*slot;
-	int		s;
+	int i;
+	UINT32 fc = ch->keynote[0]; // ver0.27
+	UINT8 kc = ch->kcode[0];
+	UINT evr;
+	OPNSLOT *slot;
+	int s;
 
 	slot = ch->slot;
 	if (!(ch->extop)) {
-		for (i=0; i<4; i++, slot++) {
+		for (i = 0; i < 4; i++, slot++) {
 			slot->freq_inc = (fc + slot->detune1[kc]) * slot->multiple;
 			evr = kc >> slot->keyscale;
 			if (slot->envratio != evr) {
@@ -414,12 +376,10 @@ static void channleupdate(OPNCH *ch) {
 				slot->env_inc_release = slot->release[evr];
 			}
 		}
-	}
-	else {
-		for (i=0; i<4; i++, slot++) {
+	} else {
+		for (i = 0; i < 4; i++, slot++) {
 			s = extendslot[i];
-			slot->freq_inc = (ch->keynote[s] + slot->detune1[ch->kcode[s]])
-														* slot->multiple;
+			slot->freq_inc = (ch->keynote[s] + slot->detune1[ch->kcode[s]]) * slot->multiple;
 			evr = ch->kcode[s] >> slot->keyscale;
 			if (slot->envratio != evr) {
 				slot->envratio = evr;
@@ -432,15 +392,13 @@ static void channleupdate(OPNCH *ch) {
 	}
 }
 
-
 // ----
 
 void opngen_reset(void) {
-
-	OPNCH	*ch;
-	UINT	i;
-	OPNSLOT	*slot;
-	UINT	j;
+	OPNCH *ch;
+	UINT i;
+	OPNSLOT *slot;
+	UINT j;
 
 	ymfm_opn_reset();
 	ZeroMemory(&opngen, sizeof(opngen));
@@ -448,10 +406,10 @@ void opngen_reset(void) {
 	opngen.playchannels = 3;
 
 	ch = opnch;
-	for (i=0; i<OPNCH_MAX; i++) {
+	for (i = 0; i < OPNCH_MAX; i++) {
 		ch->keynote[0] = 0;
 		slot = ch->slot;
-		for (j=0; j<4; j++) {
+		for (j = 0; j < 4; j++) {
 			slot->env_mode = EM_OFF;
 			slot->env_cnt = EC_OFF;
 			slot->env_end = EC_OFF + 1;
@@ -465,7 +423,7 @@ void opngen_reset(void) {
 		}
 		ch++;
 	}
-	for (i=0x30; i<0xc0; i++) {
+	for (i = 0x30; i < 0xc0; i++) {
 		opngen_setreg(0, (REG8)i, 0xff);
 		opngen_setreg(3, (REG8)i, 0xff);
 		opngen_setreg(6, (REG8)i, 0xff);
@@ -474,23 +432,21 @@ void opngen_reset(void) {
 }
 
 void opngen_setcfg(REG8 maxch, UINT flag) {
-
-	OPNCH	*ch;
-	UINT	i;
+	OPNCH *ch;
+	UINT i;
 
 	opngen.playchannels = maxch;
 	ch = opnch;
 	if ((flag & OPN_CHMASK) == OPN_STEREO) {
-		for (i=0; i<OPNCH_MAX; i++) {
+		for (i = 0; i < OPNCH_MAX; i++) {
 			if (flag & (1 << i)) {
 				ch->stereo = TRUE;
 				set_algorithm(ch);
 			}
 			ch++;
 		}
-	}
-	else {
-		for (i=0; i<OPNCH_MAX; i++) {
+	} else {
+		for (i = 0; i < OPNCH_MAX; i++) {
 			if (flag & (1 << i)) {
 				ch->stereo = FALSE;
 				set_algorithm(ch);
@@ -502,8 +458,7 @@ void opngen_setcfg(REG8 maxch, UINT flag) {
 }
 
 void opngen_setextch(UINT chnum, REG8 data) {
-
-	OPNCH	*ch;
+	OPNCH *ch;
 
 	ch = opnch;
 	ch[chnum].extop = data;
@@ -511,7 +466,6 @@ void opngen_setextch(UINT chnum, REG8 data) {
 }
 
 void opngen_setcontrol(REG8 chbase, REG8 reg, REG8 value) {
-
 	if (reg == 0x27) {
 		opngen_setextch(chbase + 2, value & 0xc0);
 	}
@@ -519,13 +473,12 @@ void opngen_setcontrol(REG8 chbase, REG8 reg, REG8 value) {
 }
 
 void opngen_setreg(REG8 chbase, REG8 reg, REG8 value) {
-
-	UINT	chpos;
-	OPNCH	*ch;
-	OPNSLOT	*slot;
-	UINT	fn;
-	UINT8	blk;
-	REG8	rawvalue;
+	UINT chpos;
+	OPNCH *ch;
+	OPNSLOT *slot;
+	UINT fn;
+	UINT8 blk;
+	REG8 rawvalue;
 
 	rawvalue = value;
 	chpos = reg & 3;
@@ -536,97 +489,94 @@ void opngen_setreg(REG8 chbase, REG8 reg, REG8 value) {
 	ch = opnch + chbase + chpos;
 	if (reg < 0xa0) {
 		slot = ch->slot + fmslot[(reg >> 2) & 3];
-		switch(reg & 0xf0) {
-			case 0x30:					// DT1 MUL
-				set_dt1_mul(slot, value);
-				channleupdate(ch);
-				break;
+		switch (reg & 0xf0) {
+		case 0x30: // DT1 MUL
+			set_dt1_mul(slot, value);
+			channleupdate(ch);
+			break;
 
-			case 0x40:					// TL
-				set_tl(slot, value);
-				break;
+		case 0x40: // TL
+			set_tl(slot, value);
+			break;
 
-			case 0x50:					// KS AR
-				set_ks_ar(slot, value);
-				channleupdate(ch);
-				break;
+		case 0x50: // KS AR
+			set_ks_ar(slot, value);
+			channleupdate(ch);
+			break;
 
-			case 0x60:					// D1R
-				set_d1r(slot, value);
-				break;
+		case 0x60: // D1R
+			set_d1r(slot, value);
+			break;
 
-			case 0x70:					// DT2 D2R
-				set_dt2_d2r(slot, value);
-				channleupdate(ch);
-				break;
+		case 0x70: // DT2 D2R
+			set_dt2_d2r(slot, value);
+			channleupdate(ch);
+			break;
 
-			case 0x80:					// D1L RR
-				set_d1l_rr(slot, value);
-				break;
+		case 0x80: // D1L RR
+			set_d1l_rr(slot, value);
+			break;
 
-			case 0x90:
-				set_ssgeg(slot, value);
-				channleupdate(ch);
-				break;
+		case 0x90:
+			set_ssgeg(slot, value);
+			channleupdate(ch);
+			break;
 		}
-	}
-	else {
-		switch(reg & 0xfc) {
-			case 0xa0:
-				blk = ch->keyfunc[0] >> 3;
-				fn = ((ch->keyfunc[0] & 7) << 8) + value;
-				ch->kcode[0] = (blk << 2) | kftable[fn >> 7];
-//				ch->keynote[0] = fn * opmbaserate / (1L << (22-blk));
-				ch->keynote[0] = (fn << (opncfg.ratebit + blk)) >> 6;
-				channleupdate(ch);
-				break;
+	} else {
+		switch (reg & 0xfc) {
+		case 0xa0:
+			blk = ch->keyfunc[0] >> 3;
+			fn = ((ch->keyfunc[0] & 7) << 8) + value;
+			ch->kcode[0] = (blk << 2) | kftable[fn >> 7];
+			//				ch->keynote[0] = fn * opmbaserate / (1L << (22-blk));
+			ch->keynote[0] = (fn << (opncfg.ratebit + blk)) >> 6;
+			channleupdate(ch);
+			break;
 
-			case 0xa4:
-				ch->keyfunc[0] = value & 0x3f;
-				break;
+		case 0xa4:
+			ch->keyfunc[0] = value & 0x3f;
+			break;
 
-			case 0xa8:
-				ch = opnch + chbase + 2;
-				blk = ch->keyfunc[chpos+1] >> 3;
-				fn = ((ch->keyfunc[chpos+1] & 7) << 8) + value;
-				ch->kcode[chpos+1] = (blk << 2) | kftable[fn >> 7];
-//				ch->keynote[chpos+1] = fn * opmbaserate / (1L << (22-blk));
-				ch->keynote[chpos+1] = (fn << (opncfg.ratebit + blk)) >> 6;
-				channleupdate(ch);
-				break;
+		case 0xa8:
+			ch = opnch + chbase + 2;
+			blk = ch->keyfunc[chpos + 1] >> 3;
+			fn = ((ch->keyfunc[chpos + 1] & 7) << 8) + value;
+			ch->kcode[chpos + 1] = (blk << 2) | kftable[fn >> 7];
+			//				ch->keynote[chpos+1] = fn * opmbaserate / (1L << (22-blk));
+			ch->keynote[chpos + 1] = (fn << (opncfg.ratebit + blk)) >> 6;
+			channleupdate(ch);
+			break;
 
-			case 0xac:
-				ch = opnch + chbase + 2;
-				ch->keyfunc[chpos+1] = value & 0x3f;
-				break;
+		case 0xac:
+			ch = opnch + chbase + 2;
+			ch->keyfunc[chpos + 1] = value & 0x3f;
+			break;
 
-			case 0xb0:
-				ch->algorithm = (UINT8)(value & 7);
-				value = (value >> 3) & 7;
-				if (value) {
-					ch->feedback = 8 - value;
-				}
-				else {
-					ch->feedback = 0;
-				}
-				set_algorithm(ch);
-				break;
+		case 0xb0:
+			ch->algorithm = (UINT8)(value & 7);
+			value = (value >> 3) & 7;
+			if (value) {
+				ch->feedback = 8 - value;
+			} else {
+				ch->feedback = 0;
+			}
+			set_algorithm(ch);
+			break;
 
-			case 0xb4:
-				ch->pan = (UINT8)(value & 0xc0);
-				set_algorithm(ch);
-				break;
+		case 0xb4:
+			ch->pan = (UINT8)(value & 0xc0);
+			set_algorithm(ch);
+			break;
 		}
 	}
 	ymfm_opn_setreg(chbase, reg, rawvalue);
 }
 
 void opngen_keyon(UINT chnum, REG8 value) {
-
-	OPNCH	*ch;
-	OPNSLOT	*slot;
-	REG8	bit;
-	UINT	i;
+	OPNCH *ch;
+	OPNSLOT *slot;
+	REG8 bit;
+	UINT i;
 
 	sound_sync();
 	opngen.keyreg[chnum] = value;
@@ -635,8 +585,8 @@ void opngen_keyon(UINT chnum, REG8 value) {
 	ch->playing |= value >> 4;
 	slot = ch->slot;
 	bit = 0x10;
-	for (i=0; i<4; i++) {
-		if (value & bit) {							// keyon
+	for (i = 0; i < 4; i++) {
+		if (value & bit) { // keyon
 			if (slot->env_mode <= EM_RELEASE) {
 				slot->freq_cnt = 0;
 				if (i == OPNSLOT1) {
@@ -647,13 +597,12 @@ void opngen_keyon(UINT chnum, REG8 value) {
 				slot->env_cnt = EC_ATTACK;
 				slot->env_end = EC_DECAY;
 			}
-		}
-		else {										// keyoff
+		} else { // keyoff
 			if (slot->env_mode > EM_RELEASE) {
 				slot->env_mode = EM_RELEASE;
 				if (!(slot->env_cnt & EC_DECAY)) {
-					slot->env_cnt = (opncfg.envcurve[slot->env_cnt
-										>> ENV_BITS] << ENV_BITS) + EC_DECAY;
+					slot->env_cnt =
+					    (opncfg.envcurve[slot->env_cnt >> ENV_BITS] << ENV_BITS) + EC_DECAY;
 				}
 				slot->env_end = EC_OFF;
 				slot->env_inc = slot->env_inc_release;
@@ -666,6 +615,5 @@ void opngen_keyon(UINT chnum, REG8 value) {
 }
 
 void opngen_timerover(UINT timer) {
-
 	ymfm_opn_timerover(timer);
 }

@@ -1,39 +1,32 @@
-#include	"compiler.h"
-#include	"cpucore.h"
-#include	"machine/pccore.h"
-#include	"iocore.h"
-#include	"scsiio.h"
+#include "compiler.h"
+#include "cpucore.h"
+#include "machine/pccore.h"
+#include "iocore.h"
+#include "scsiio.h"
 
-#include	"iocoreva.h"
+#include "iocoreva.h"
 
 enum {
-	PIC_OCW2_L		= 0x07,
-	PIC_OCW2_EOI	= 0x20,
-	PIC_OCW2_SL		= 0x40,
-	PIC_OCW2_R		= 0x80,
+	PIC_OCW2_L = 0x07,
+	PIC_OCW2_EOI = 0x20,
+	PIC_OCW2_SL = 0x40,
+	PIC_OCW2_R = 0x80,
 
-	PIC_OCW3_RIS	= 0x01,
-	PIC_OCW3_RR		= 0x02,
-	PIC_OCW3_P		= 0x04,
-	PIC_OCW3_SMM	= 0x20,
-	PIC_OCW3_ESMM	= 0x40
+	PIC_OCW3_RIS = 0x01,
+	PIC_OCW3_RR = 0x02,
+	PIC_OCW3_P = 0x04,
+	PIC_OCW3_SMM = 0x20,
+	PIC_OCW3_ESMM = 0x40
 };
 
+static const _PICITEM def_master = {{0x11, 0x08, 0x80, 0x1d}, 0x7d, 0, 0, 0, 0, 0};
 
-static const _PICITEM def_master = {
-								{0x11, 0x08, 0x80, 0x1d},
-								0x7d, 0, 0, 0, 0, 0};
-
-static const _PICITEM def_slave = {
-								{0x11, 0x10, 0x07, 0x09},
-								0x71, 0, 0, 0, 0, 0};
-
+static const _PICITEM def_slave = {{0x11, 0x10, 0x07, 0x09}, 0x71, 0, 0, 0, 0, 0};
 
 // ----
 
-#if 0	// Disabled implementation: slave arbitration is incorrect.
+#if 0 // Disabled implementation: slave arbitration is incorrect.
 void pic_irq(void) {
-
 	PIC		p;
 	REG8	mir;
 	REG8	sir;
@@ -99,16 +92,16 @@ void pic_irq(void) {
 	}
 }
 #else
-void pic_irq(void) {												// ver0.78
+void pic_irq(void) { // ver0.78
 
-	PIC		p;
-	REG8	mir;
-	REG8	sir;
-	REG8	num;
-	REG8	bit;
-	REG8	slave;
+	PIC p;
+	REG8 mir;
+	REG8 sir;
+	REG8 num;
+	REG8 bit;
+	REG8 slave;
 
-#if 1	// Shinra log
+#if 1 // Shinra log
 	// Do not arbitrate while maskable interrupts are disabled.
 	if (!CPU_isEI) {
 		//TRACEOUT(("pic: !CPU_EI"));
@@ -140,11 +133,11 @@ void pic_irq(void) {												// ver0.78
 	}
 	num = p->pi[0].pry;
 	bit = 1 << num;
-	while(!(mir & bit)) {
+	while (!(mir & bit)) {
 		num = (num + 1) & 7;
 		bit = 1 << num;
 	}
-	if (p->pi[0].icw[2] & bit) {					// Slave cascade.
+	if (p->pi[0].icw[2] & bit) { // Slave cascade.
 		if (sir == 0) {
 			return;
 		}
@@ -153,7 +146,7 @@ void pic_irq(void) {												// ver0.78
 		}
 		num = p->pi[1].pry;
 		bit = 1 << num;
-		while(!(sir & bit)) {
+		while (!(sir & bit)) {
 			num = (num + 1) & 7;
 			bit = 1 << num;
 		}
@@ -162,27 +155,24 @@ void pic_irq(void) {												// ver0.78
 			p->pi[0].irr &= ~slave;
 			p->pi[1].isr |= bit;
 			p->pi[1].irr &= ~bit;
-//			TRACEOUT(("pic: hardware-int %.2x: [%.4x:%.4x]", (p->pi[1].icw[1] & 0xf8) | num, CPU_CS, CPU_IP));
+			//			TRACEOUT(("pic: hardware-int %.2x: [%.4x:%.4x]", (p->pi[1].icw[1] & 0xf8) | num, CPU_CS, CPU_IP));
 			CPU_INTERRUPT((REG8)((p->pi[1].icw[1] & 0xf8) | num), 0);
 		}
-	}
-	else if (!(p->pi[0].isr & bit)) {				// Master request.
+	} else if (!(p->pi[0].isr & bit)) { // Master request.
 		p->pi[0].isr |= bit;
 		p->pi[0].irr &= ~bit;
 		if (num == 0) {
 			nevent_reset(NEVENT_PICMASK);
 		}
-//		TRACEOUT(("hardware-int %.2x [%.4x:%.4x]", (p->pi[0].icw[1] & 0xf8) | num, CPU_CS, CPU_IP));
+		//		TRACEOUT(("hardware-int %.2x [%.4x:%.4x]", (p->pi[0].icw[1] & 0xf8) | num, CPU_CS, CPU_IP));
 		CPU_INTERRUPT((REG8)((p->pi[0].icw[1] & 0xf8) | num), 0);
 	}
 }
 #endif
 
-
 // Deferred system-timer request handling.
 void picmask(NEVENTITEM item) {
-
-	PICITEM		pi;
+	PICITEM pi;
 
 	if (item->flag & NEVENT_SETEVENT) {
 		pi = &pic.pi[0];
@@ -191,9 +181,8 @@ void picmask(NEVENTITEM item) {
 }
 
 void pic_setirq(REG8 irq) {
-
-	PICITEM	pi;
-	REG8	bit;
+	PICITEM pi;
+	REG8 bit;
 
 	pi = pic.pi;
 	bit = 1 << (irq & 7);
@@ -202,12 +191,11 @@ void pic_setirq(REG8 irq) {
 		if (pi[0].imr & bit) {
 			if (bit & PIC_SYSTEMTIMER) {
 				if ((pit.ch[0].ctrl & 0x0c) == 0x04) {
-					SINT32 cnt;										// ver0.29
+					SINT32 cnt; // ver0.29
 					if (pit.ch[0].value > 8) {
 						cnt = pccore.multiple * pit.ch[0].value;
 						cnt >>= 2;
-					}
-					else {
+					} else {
 						cnt = pccore.multiple << (16 - 2);
 					}
 					nevent_set(NEVENT_PICMASK, cnt, picmask, NEVENT_ABSOLUTE);
@@ -219,95 +207,88 @@ void pic_setirq(REG8 irq) {
 				pi[0].irr &= ~PIC_CRTV;
 			}
 		}
-	}
-	else {
+	} else {
 		pi[1].irr |= bit;
 	}
 	scsiio_trace_pic_irq(irq, TRUE);
 }
 
 void pic_resetirq(REG8 irq) {
-
-	PICITEM		pi;
+	PICITEM pi;
 
 	pi = pic.pi + ((irq >> 3) & 1);
 	pi->irr &= ~(1 << (irq & 7));
 }
 
-
 // ---- I/O
 
 static void IOOUTCALL pic_o00(UINT port, REG8 dat) {
+	PICITEM picp;
+	REG8 level;
+	UINT8 ocw3;
 
-	PICITEM	picp;
-	REG8	level;
-	UINT8	ocw3;
-
-//	TRACEOUT(("pic %x %x", port, dat));
+	//	TRACEOUT(("pic %x %x", port, dat));
 	picp = &pic.pi[(port >> 3) & 1];
 	picp->writeicw = 0;
-	switch(dat & 0x18) {
-		case 0x00:						// ocw2
-			if (dat & PIC_OCW2_SL) {
-				level = dat & PIC_OCW2_L;
+	switch (dat & 0x18) {
+	case 0x00: // ocw2
+		if (dat & PIC_OCW2_SL) {
+			level = dat & PIC_OCW2_L;
+		} else {
+			if (!picp->isr) {
+				break;
 			}
-			else {
-				if (!picp->isr) {
-					break;
-				}
-				level = picp->pry;
-				while(!(picp->isr & (1 << level))) {
-					level = (level + 1) & 7;
-				}
+			level = picp->pry;
+			while (!(picp->isr & (1 << level))) {
+				level = (level + 1) & 7;
 			}
-			if (dat & PIC_OCW2_R) {
-				picp->pry = (level + 1) & 7;
-			}
-			if (dat & PIC_OCW2_EOI) {
-				picp->isr &= ~(1 << level);
-				scsiio_trace_pic_irq((REG8)(((port >> 3) & 1) * 8 + level),
-						FALSE);
-			}
-			nevent_forceexit();				// mainloop exit
-			break;
+		}
+		if (dat & PIC_OCW2_R) {
+			picp->pry = (level + 1) & 7;
+		}
+		if (dat & PIC_OCW2_EOI) {
+			picp->isr &= ~(1 << level);
+			scsiio_trace_pic_irq((REG8)(((port >> 3) & 1) * 8 + level), FALSE);
+		}
+		nevent_forceexit(); // mainloop exit
+		break;
 
-		case 0x08:							// ocw3
-			ocw3 = picp->ocw3;
-			if (!(dat & PIC_OCW3_RR)) {
-				dat &= PIC_OCW3_RIS;
-				dat |= (ocw3 & PIC_OCW3_RIS);
-			}
-			if (!(dat & PIC_OCW3_ESMM)) {
-				dat &= ~PIC_OCW3_SMM;
-				dat |= (ocw3 & PIC_OCW3_SMM);
-			}
-			picp->ocw3 = dat;
-			break;
+	case 0x08: // ocw3
+		ocw3 = picp->ocw3;
+		if (!(dat & PIC_OCW3_RR)) {
+			dat &= PIC_OCW3_RIS;
+			dat |= (ocw3 & PIC_OCW3_RIS);
+		}
+		if (!(dat & PIC_OCW3_ESMM)) {
+			dat &= ~PIC_OCW3_SMM;
+			dat |= (ocw3 & PIC_OCW3_SMM);
+		}
+		picp->ocw3 = dat;
+		break;
 
-		default:
-			picp->icw[0] = dat;
-			picp->imr = 0;
-			picp->irr = 0;
-			picp->ocw3 = 0;
+	default:
+		picp->icw[0] = dat;
+		picp->imr = 0;
+		picp->irr = 0;
+		picp->ocw3 = 0;
 #if 0
 			picp->levels = 0;
 			picp->isr = 0;
 #endif
-			picp->pry = 0;
-			picp->writeicw = 1;
-			break;
+		picp->pry = 0;
+		picp->writeicw = 1;
+		break;
 	}
 }
 
 static void IOOUTCALL pic_o02(UINT port, REG8 dat) {
+	PICITEM picp;
 
-	PICITEM		picp;
-
-//	TRACEOUT(("pic %x %x", port, dat));
+	//	TRACEOUT(("pic %x %x", port, dat));
 	picp = &pic.pi[(port >> 3) & 1];
 	if (!picp->writeicw) {
 #if 1
-		UINT8	set;
+		UINT8 set;
 		set = picp->imr & (~dat);
 		// Re-evaluate requests exposed by the cleared mask bits.
 		if ((CPU_isDI) || (!(picp->irr & set))) {
@@ -316,8 +297,7 @@ static void IOOUTCALL pic_o02(UINT port, REG8 dat) {
 		}
 #endif
 		picp->imr = dat;
-	}
-	else {
+	} else {
 		picp->icw[picp->writeicw] = dat;
 		picp->writeicw++;
 		if (picp->writeicw >= (3 + (picp->icw[0] & 1))) {
@@ -328,24 +308,21 @@ static void IOOUTCALL pic_o02(UINT port, REG8 dat) {
 }
 
 static REG8 IOINPCALL pic_i00(UINT port) {
-
-	PICITEM		picp;
+	PICITEM picp;
 
 	picp = &pic.pi[(port >> 3) & 1];
 	if (!(picp->ocw3 & PIC_OCW3_RIS)) {
-		return(picp->irr);			// read irr
-	}
-	else {
-		return(picp->isr);			// read isr
+		return (picp->irr); // read irr
+	} else {
+		return (picp->isr); // read isr
 	}
 }
 
 static REG8 IOINPCALL pic_i02(UINT port) {
-
-	PICITEM		picp;
+	PICITEM picp;
 
 	picp = &pic.pi[(port >> 3) & 1];
-	return(picp->imr);
+	return (picp->imr);
 }
 
 //slave
@@ -378,17 +355,12 @@ static REG8 IOINPCALL picva_i18a(UINT port) {
 
 // ---- I/F
 
-
-
 void pic_reset(void) {
-
 	pic.pi[0] = def_master;
 	pic.pi[1] = def_slave;
 }
 
 void pic_bind(void) {
-
-
 	// slave
 	iocore_attachout(0x184, picva_o184);
 	iocore_attachout(0x186, picva_o186);
@@ -400,4 +372,3 @@ void pic_bind(void) {
 	iocore_attachinp(0x188, picva_i188);
 	iocore_attachinp(0x18a, picva_i18a);
 }
-

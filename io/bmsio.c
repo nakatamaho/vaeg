@@ -3,18 +3,17 @@
  *
  */
 
-#include	"compiler.h"
-#include	"cpucore.h"
-#include	"machine/pccore.h"
-#include	"iocore.h"
-#include	"iocoreva.h"
-#include	"bmsio.h"
+#include "compiler.h"
+#include "cpucore.h"
+#include "machine/pccore.h"
+#include "iocore.h"
+#include "iocoreva.h"
+#include "bmsio.h"
 
-		_BMSIOCFG	bmsiocfg = {BMSIO_DEFAULT_ENABLED, BMSIO_PORT_DEFAULT,
-							BMSIO_PORT_MASK, BMSIO_DEFAULT_BANKS};
-		_BMSIO		bmsio;
-		_BMSIOWORK	bmsiowork;
-
+_BMSIOCFG bmsiocfg = {BMSIO_DEFAULT_ENABLED, BMSIO_PORT_DEFAULT, BMSIO_PORT_MASK,
+                      BMSIO_DEFAULT_BANKS};
+_BMSIO bmsio;
+_BMSIOWORK bmsiowork;
 
 // ---- internal
 
@@ -47,14 +46,12 @@ void bmsio_setnumbanks(UINT8 num) {
 static void IOOUTCALL bmsio_o00ec(UINT port, REG8 dat) {
 	UINT8 bank;
 
-	bank=dat;
-	bmsio.bank=bank;
-	if ((bank == 0) ||
-		(bmsio.cfg.enabled && (bank <= bmsio.cfg.numbanks))) {
-		bmsio.nomem=0;
-	}
-	else {
-		bmsio.nomem=1;
+	bank = dat;
+	bmsio.bank = bank;
+	if ((bank == 0) || (bmsio.cfg.enabled && (bank <= bmsio.cfg.numbanks))) {
+		bmsio.nomem = 0;
+	} else {
+		bmsio.nomem = 1;
 	}
 }
 
@@ -76,11 +73,10 @@ void bmsio_set(void) {
 void bmsio_reset(void) {
 	if (bmsio.cfg.enabled) {
 		bmsio_setnumbanks(bmsio.cfg.numbanks);
-		bmsio_o00ec(0,0);
-	}
-	else {
+		bmsio_o00ec(0, 0);
+	} else {
 		bmsio_setnumbanks(0);
-		bmsio_o00ec(0,0);
+		bmsio_o00ec(0, 0);
 	}
 }
 

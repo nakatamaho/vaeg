@@ -2,7 +2,6 @@
  * fdsubsys.h: PC-88VA FD Sub System
  */
 
-
 #ifdef __cplusplus
 extern "C" {
 #endif

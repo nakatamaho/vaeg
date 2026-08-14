@@ -28,12 +28,10 @@
 UPD9002_DIAGNOSTIC upd9002_diagnostic_state;
 
 void upd9002_diagnostic_clear(void) {
-
 	ZeroMemory(&upd9002_diagnostic_state, sizeof(upd9002_diagnostic_state));
 }
 
 void upd9002_diagnostic_raise_rep0f(UINT8 prefix, UINT16 cs, UINT16 ip) {
-
 	if (upd9002_diagnostic_state.reason != UPD9002_DIAGNOSTIC_NONE) {
 		return;
 	}
@@ -44,7 +42,6 @@ void upd9002_diagnostic_raise_rep0f(UINT8 prefix, UINT16 cs, UINT16 ip) {
 }
 
 int upd9002_diagnostic_get(UPD9002_DIAGNOSTIC *diagnostic) {
-
 	if ((diagnostic == NULL) || !upd9002_diagnostic_pending()) {
 		return FAILURE;
 	}

@@ -2,52 +2,46 @@
  * tsp.c: PC-88VA Text Sprite Processor
  */
 
-#include	"compiler.h"
-#include	"cpucore.h"
-#include	"machine/pccore.h"
-#include	"iocore.h"
-#include	"iocoreva.h"
-#include	"memoryva.h"
-#include	"machine/timing.h"
-
+#include "compiler.h"
+#include "cpucore.h"
+#include "machine/pccore.h"
+#include "iocore.h"
+#include "iocoreva.h"
+#include "memoryva.h"
+#include "machine/timing.h"
 
 enum {
 	// TSP command codes.
-	CMD_SYNC	= 0x10,
-	CMD_DSPON	= 0x12,
-	CMD_DSPOFF	= 0x13,
-	CMD_DSPDEF	= 0x14,
-	CMD_CURDEF	= 0x15,
-	CMD_SPRON	= 0x82,
-	CMD_SPROFF	= 0x83,
-	CMD_SPRDEF	= 0x84,
-	CMD_EXIT	= 0x88,
+	CMD_SYNC = 0x10,
+	CMD_DSPON = 0x12,
+	CMD_DSPOFF = 0x13,
+	CMD_DSPDEF = 0x14,
+	CMD_CURDEF = 0x15,
+	CMD_SPRON = 0x82,
+	CMD_SPROFF = 0x83,
+	CMD_SPRDEF = 0x84,
+	CMD_EXIT = 0x88,
 
 	// TSP status bits.
-	STATUS_BUSY	= 0x04,
-	STATUS_VB	= 0x40,
+	STATUS_BUSY = 0x04,
+	STATUS_VB = 0x40,
 
 	// paramfunc
-	PARAMFUNC_NOP			= 0,
+	PARAMFUNC_NOP = 0,
 	PARAMFUNC_GENERIC,
 	PARAMFUNC_SPRDEF_BEGIN,
 	PARAMFUNC_SPRDEF,
 
 	// execfunc
-	EXECFUNC_SYNC			= 0,
+	EXECFUNC_SYNC = 0,
 	EXECFUNC_DSPON,
 	EXECFUNC_DSPDEF,
 	EXECFUNC_CURDEF,
 	EXECFUNC_SPRON,
-
-
-
 };
 
-
-
-		_TSP	tsp;
-		BOOL	tsp_dirty;
+_TSP tsp;
+BOOL tsp_dirty;
 
 static BYTE *getsprinfo(int no) {
 	return textmem + tsp.sprtable + no * 8;
@@ -64,8 +58,7 @@ static void sprsw(int no, BOOL sw) {
 	d = LOADINTELWORD(sprinfo + 0);
 	if (sw) {
 		d |= 0x0200;
-	}
-	else {
+	} else {
 		d &= ~0x0200;
 	}
 	STOREINTELWORD(sprinfo + 0, d);
@@ -79,7 +72,8 @@ static void exec_sync(void) {
 	UINT16 newlines;
 	//BOOL newhsync15khz;
 
-	for (i = 0; i < 14; i++) tsp.syncparam[i] = tsp.parambuf[i];
+	for (i = 0; i < 14; i++)
+		tsp.syncparam[i] = tsp.parambuf[i];
 	tsp.textmg = (tsp.syncparam[0] & 0xc0) == 0x80;
 	newlines = tsp.syncparam[0x0a] | ((tsp.syncparam[0x0b] & 0x40) << 2);
 	//newhsync15khz = tsp.syncparam[0x02] == 0x1c;
@@ -88,14 +82,12 @@ static void exec_sync(void) {
 		//tsp.hsync15khz = newhsync15khz;
 		tsp.flag |= TSP_F_LINESCHANGED;
 	}
-	
-//	TRACEOUT(("tsp: sync: textmg=0x%.2x, screenlines=%d, hsync=%s"
-//		, tsp.textmg
-//		, tsp.screenlines
-//		, (tsp.hsync15khz) ? "15KHz" : "24KHz"));
-	TRACEOUT(("tsp: sync: textmg=0x%.2x, screenlines=%d"
-		, tsp.textmg
-		, tsp.screenlines));
+
+	//	TRACEOUT(("tsp: sync: textmg=0x%.2x, screenlines=%d, hsync=%s"
+	//		, tsp.textmg
+	//		, tsp.screenlines
+	//		, (tsp.hsync15khz) ? "15KHz" : "24KHz"));
+	TRACEOUT(("tsp: sync: textmg=0x%.2x, screenlines=%d", tsp.textmg, tsp.screenlines));
 
 	tsp.status &= ~STATUS_BUSY;
 }
@@ -104,8 +96,8 @@ static void exec_sync(void) {
 DSPON: start TSP display.
 */
 static void exec_dspon(void) {
-	TRACEOUT(("tsp: dspon: param=0x%.2x, 0x%.2x, 0x%.2x",
-		tsp.parambuf[0], tsp.parambuf[1], tsp.parambuf[2]));
+	TRACEOUT(("tsp: dspon: param=0x%.2x, 0x%.2x, 0x%.2x", tsp.parambuf[0], tsp.parambuf[1],
+	          tsp.parambuf[2]));
 
 	tsp.texttable = tsp.parambuf[0] << 8;
 	tsp.dspon = TRUE;
@@ -117,16 +109,16 @@ static void exec_dspon(void) {
 DSPDEF: define screen composition and display format.
 */
 static void exec_dspdef(void) {
-	TRACEOUT(("tsp: dspdef: param=0x%.2x, 0x%.2x, 0x%.2x, 0x%.2x, 0x%.2x, 0x%.2x",
-		tsp.parambuf[0], tsp.parambuf[1], tsp.parambuf[2], 
-		tsp.parambuf[3], tsp.parambuf[4], tsp.parambuf[5])); 
+	TRACEOUT(("tsp: dspdef: param=0x%.2x, 0x%.2x, 0x%.2x, 0x%.2x, 0x%.2x, 0x%.2x", tsp.parambuf[0],
+	          tsp.parambuf[1], tsp.parambuf[2], tsp.parambuf[3], tsp.parambuf[4], tsp.parambuf[5]));
 
 	tsp.attroffset = tsp.parambuf[0] + (WORD)tsp.parambuf[1] * 0x100;
 	//tsp.pitch = tsp.parambuf[2] >> 4;
 	tsp.lineheight = tsp.parambuf[3] + 1;
 	tsp.hlinepos = tsp.parambuf[4];
-	tsp.blink = tsp.parambuf[5] >> 3;		// TODO: the literal field produces an unexpectedly long blink period;
-											// verify whether Tekumani contains a transcription error.
+	tsp.blink =
+	    tsp.parambuf[5] >> 3; // TODO: the literal field produces an unexpectedly long blink period;
+	                          // verify whether Tekumani contains a transcription error.
 	tsp.blinkcnt = tsp.blink;
 
 	tsp.status &= ~STATUS_BUSY;
@@ -136,7 +128,7 @@ static void exec_dspdef(void) {
 CURDEF: define cursor format.
 */
 static void exec_curdef(void) {
-	TRACEOUT(("tsp: curdef: param=0x%.2x",tsp.parambuf[0])); 
+	TRACEOUT(("tsp: curdef: param=0x%.2x", tsp.parambuf[0]));
 
 	tsp.curn = tsp.parambuf[0] >> 3;
 	tsp.be = tsp.parambuf[0] & 0x01;
@@ -149,7 +141,8 @@ static void exec_curdef(void) {
 SPRON: enable sprite display.
 */
 static void exec_spron(void) {
-	TRACEOUT(("tsp: spron: param=0x%.2x, 0x%.2x, 0x%.2x",tsp.parambuf[0], tsp.parambuf[1], tsp.parambuf[2])); 
+	TRACEOUT(("tsp: spron: param=0x%.2x, 0x%.2x, 0x%.2x", tsp.parambuf[0], tsp.parambuf[1],
+	          tsp.parambuf[2]));
 
 	tsp.sprtable = tsp.parambuf[0] << 8;
 	tsp.hspn = tsp.parambuf[2] >> 3;
@@ -174,7 +167,7 @@ static void paramfunc_sprdef(REG8 dat) {
 
 // First parameter byte.
 static void paramfunc_sprdef_begin(REG8 dat) {
-	TRACEOUT(("tsp: sprdef: offset=0x%.2x", dat)); 
+	TRACEOUT(("tsp: sprdef: offset=0x%.2x", dat));
 
 	tsp.sprdef_offset = dat;
 	//tsp.paramfunc = paramfunc_sprdef;
@@ -185,7 +178,7 @@ static void paramfunc_sprdef_begin(REG8 dat) {
 EXIT: abort command processing.
 */
 static void exec_exit(void) {
-	TRACEOUT(("tsp: exit")); 
+	TRACEOUT(("tsp: exit"));
 
 	tsp.status &= ~STATUS_BUSY;
 }
@@ -255,7 +248,6 @@ static void paramfunc_generic(REG8 dat) {
 
 // ---- I/O
 
-
 /*
 Read the TSP status register.
 */
@@ -288,7 +280,7 @@ static void IOOUTCALL tsp_o142(UINT port, REG8 dat) {
 	tsp.status |= STATUS_BUSY;
 	tsp_dirty = TRUE;
 
-	switch(dat) {
+	switch (dat) {
 	case CMD_SYNC:
 		tsp.recvdatacnt = 14;
 		tsp.execfunc = EXECFUNC_SYNC;
@@ -346,7 +338,7 @@ Write a TSP parameter byte.
 */
 static void IOOUTCALL tsp_o146(UINT port, REG8 dat) {
 	TRACEOUT(("tsp: parameter: 0x%.2x", dat));
-/*
+	/*
 	if (tsp.recvdatacnt) {
 		*(tsp.datap++) = dat;
 		if (--tsp.recvdatacnt == 0) execcmd();
@@ -377,7 +369,7 @@ void tsp_reset(void) {
 	//tsp.paramfunc = paramfunc_nop;
 	tsp.paramfunc = PARAMFUNC_NOP;
 	tsp_dirty = TRUE;
-						/* Marking tsp_dirty on reset wakes the text renderer
+	/* Marking tsp_dirty on reset wakes the text renderer
 						   from its sleep state. */
 }
 
@@ -395,7 +387,7 @@ void tsp_bind(void) {
 	iocore_attachout(0x146, tsp_o146);
 }
 
-// ---- 
+// ----
 
 void tsp_updateclock(void) {
 #if 0
@@ -435,48 +427,50 @@ void tsp_updateclock(void) {
 	UINT h;
 	UINT cnt;
 	UINT32 hclock;
-	UINT32 clock;			// Pixel clocks per second.
-	UINT sysp4displines;	// System-port 4 VRTC: active-display line count.
-	UINT sysp4vsyncexlines;	// System-port 4 VRTC: line count for which VRTC remains active
-							// after the TSP vertical-sync interval ends.
+	UINT32 clock;           // Pixel clocks per second.
+	UINT sysp4displines;    // System-port 4 VRTC: active-display line count.
+	UINT sysp4vsyncexlines; // System-port 4 VRTC: line count for which VRTC remains active
+	                        // after the TSP vertical-sync interval ends.
 	int hsyncmode;
 	//UINT vaddefault, haddefault;
 
-	lbl = tsp.syncparam[2] & 0x3f;	// Left blanking.
-	lbr = tsp.syncparam[3] & 0x3f;	// Left border.
-	had = tsp.syncparam[4];			// Horizontal active area.
-	rbr = tsp.syncparam[5] & 0x3f;	// Right border.
-	rbl = tsp.syncparam[6] & 0x3f;	// Right blanking.
-	hs  = tsp.syncparam[7] & 0x3f;	// Horizontal-sync interval.
-	tbl = tsp.syncparam[8] & 0x3f;	// Top blanking.
-	tbr = tsp.syncparam[9] & 0x3f;	// Top border.
+	lbl = tsp.syncparam[2] & 0x3f; // Left blanking.
+	lbr = tsp.syncparam[3] & 0x3f; // Left border.
+	had = tsp.syncparam[4];        // Horizontal active area.
+	rbr = tsp.syncparam[5] & 0x3f; // Right border.
+	rbl = tsp.syncparam[6] & 0x3f; // Right blanking.
+	hs = tsp.syncparam[7] & 0x3f;  // Horizontal-sync interval.
+	tbl = tsp.syncparam[8] & 0x3f; // Top blanking.
+	tbr = tsp.syncparam[9] & 0x3f; // Top border.
 	vad = tsp.syncparam[10] + ((tsp.syncparam[11] & 0x40) << 2);
-									// Vertical active area.
-	bbr = tsp.syncparam[11] & 0x3f;	// Bottom border.
-	bbl = tsp.syncparam[12] & 0x3f;	// Bottom blanking.
-	vs  = tsp.syncparam[13] & 0x3f;	// Vertical-sync interval.
-
+	// Vertical active area.
+	bbr = tsp.syncparam[11] & 0x3f; // Bottom border.
+	bbl = tsp.syncparam[12] & 0x3f; // Bottom blanking.
+	vs = tsp.syncparam[13] & 0x3f;  // Vertical-sync interval.
 
 	if (vad == 0 && had == 0) {
 		// SYNC parameters have not been initialized.
 		// Provide usable display and vertical-sync clocks before the guest
 		// programs SYNC parameters.
 		// Use a 24.8 kHz, 400-line fallback timing.
-		lbl = 0x10; lbr = 0;
+		lbl = 0x10;
+		lbr = 0;
 		had = 0x9f;
-		rbl = 0x10; rbr = 0;
+		rbl = 0x10;
+		rbr = 0;
 		hs = 0x0f;
-		tbl = 0x19; tbr = 0;
+		tbl = 0x19;
+		tbr = 0;
 		vad = 0x190;
-		bbl = 0x07; bbr = 0;
+		bbl = 0x07;
+		bbr = 0;
 		vs = 8;
 		hsyncmode = VIDEOVA_24_8KHZ;
-	}
-	else {
+	} else {
 		hsyncmode = videova_hsyncmode();
 	}
 
-	switch(hsyncmode) {
+	switch (hsyncmode) {
 	case VIDEOVA_24_8KHZ:
 		clock = 20854022;
 		sysp4displines = 402;
@@ -485,7 +479,7 @@ void tsp_updateclock(void) {
 		break;
 	case VIDEOVA_15_73KHZ:
 		//clock = 14219920;			// 15.73KHz
-		clock = 14252364;			// Adjusted to approximate the measured 15.766 kHz line rate.
+		clock = 14252364; // Adjusted to approximate the measured 15.766 kHz line rate.
 		sysp4displines = 202;
 		sysp4vsyncexlines = 36;
 		//vaddefault = 0xc8;
@@ -498,19 +492,23 @@ void tsp_updateclock(void) {
 		break;
 	}
 
-	if (vs < 4) vs = 4;
-	if (vad < 4) vad = 4;
+	if (vs < 4)
+		vs = 4;
+	if (vad < 4)
+		vad = 4;
 	had |= 1;
-	if (hs < 4) hs = 4;
-	if (lbl < 3) lbl = 3;
+	if (hs < 4)
+		hs = 4;
+	if (lbl < 3)
+		lbl = 3;
 
-	w = (lbl+1 + lbr + had+1 + rbr + rbl+1 + hs+1) * 4;
-									// Total pixel clocks per line.
-									// Unlike the uPD72022 data-sheet description, observed hardware
-									// appears not to add one to LBR and RBR.
+	w = (lbl + 1 + lbr + had + 1 + rbr + rbl + 1 + hs + 1) * 4;
+	// Total pixel clocks per line.
+	// Unlike the uPD72022 data-sheet description, observed hardware
+	// appears not to add one to LBR and RBR.
 
 	h = tbl + tbr + vad + bbr + bbl + vs;
-									// Total lines per frame.
+	// Total lines per frame.
 
 	if (sysp4displines + sysp4vsyncexlines >= h) {
 		// The original VA bootstrap programs 15.98 kHz/200-line SYNC values
@@ -520,11 +518,10 @@ void tsp_updateclock(void) {
 		sysp4displines = h - sysp4vsyncexlines - 4;
 	}
 
-
-	hclock = clock / w;				// Lines per second.
+	hclock = clock / w; // Lines per second.
 	cnt = (pccore.baseclock * h) / hclock;
-									// Frame duration in base clocks.
-	cnt *= pccore.multiple;			// Frame duration in CPU clocks.
+	// Frame duration in base clocks.
+	cnt *= pccore.multiple; // Frame duration in CPU clocks.
 	tsp.rasterclock = cnt / h;
 	//tsp.dispclock = tsp.rasterclock * (tbl + tbr + vad);
 	//tsp.vsyncclock = cnt - tsp.dispclock;
@@ -532,11 +529,10 @@ void tsp_updateclock(void) {
 	tsp.dispclock = cnt - tsp.vsyncclock;
 	timing_setrate(h, hclock);
 
-//	tsp.sysp4vsyncextension = tsp.rasterclock * sysp4vsyncexlines;
-//	tsp.sysp4dispclock = tsp.rasterclock * sysp4displines;
+	//	tsp.sysp4vsyncextension = tsp.rasterclock * sysp4vsyncexlines;
+	//	tsp.sysp4dispclock = tsp.rasterclock * sysp4displines;
 	tsp.sysp4vsyncextension = cnt * sysp4vsyncexlines / h;
 	tsp.sysp4dispclock = cnt * sysp4displines / h;
 
 #endif
-
 }

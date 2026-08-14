@@ -1,18 +1,16 @@
-#include	"compiler.h"
-#include	"sound.h"
-#include	"beep.h"
+#include "compiler.h"
+#include "sound.h"
+#include "beep.h"
 
-
-extern	BEEPCFG		beepcfg;
+extern BEEPCFG beepcfg;
 
 static void oneshot(BEEP bp, SINT32 *pcm, UINT count) {
-
-	SINT32		vol;
-const BPEVENT	*bev;
-	SINT32		clock;
-	int			event;
-	SINT32		remain;
-	SINT32		samp;
+	SINT32 vol;
+	const BPEVENT *bev;
+	SINT32 clock;
+	int event;
+	SINT32 remain;
+	SINT32 samp;
 
 	vol = beepcfg.vol;
 	bev = bp->event;
@@ -21,15 +19,14 @@ const BPEVENT	*bev;
 		clock = bev->clock;
 		event = bev->enable;
 		bev++;
-	}
-	else {
+	} else {
 		clock = 0x40000000;
 		event = bp->lastenable;
 	}
 	do {
 		remain = (1 << 16);
 		samp = 0;
-		while(remain >= clock) {
+		while (remain >= clock) {
 			remain -= clock;
 			if (bp->lastenable) {
 				samp += clock;
@@ -40,8 +37,7 @@ const BPEVENT	*bev;
 				clock = bev->clock;
 				event = bev->enable;
 				bev++;
-			}
-			else {
+			} else {
 				clock = 0x40000000;
 			}
 		}
@@ -54,20 +50,19 @@ const BPEVENT	*bev;
 		pcm[0] += samp;
 		pcm[1] += samp;
 		pcm += 2;
-	} while(--count);
+	} while (--count);
 	bp->lastenable = event;
 	bp->events = 0;
 }
 
 static void rategenerator(BEEP bp, SINT32 *pcm, UINT count) {
-
-	SINT32		vol;
-const BPEVENT	*bev;
-	SINT32		samp;
-	SINT32		remain;
-	SINT32		clock;
-	int			event;
-	UINT		r;
+	SINT32 vol;
+	const BPEVENT *bev;
+	SINT32 samp;
+	SINT32 remain;
+	SINT32 clock;
+	int event;
+	UINT r;
 
 	vol = beepcfg.vol;
 	bev = bp->event;
@@ -76,8 +71,7 @@ const BPEVENT	*bev;
 		clock = bev->clock;
 		event = bev->enable;
 		bev++;
-	}
-	else {
+	} else {
 		clock = 0x40000000;
 		event = bp->lastenable;
 	}
@@ -89,29 +83,27 @@ const BPEVENT	*bev;
 			count -= r;
 			if (bp->lastenable) {
 				do {
-					samp = (bp->cnt & 0x8000)?1:-1;
+					samp = (bp->cnt & 0x8000) ? 1 : -1;
 					bp->cnt += bp->hz;
-					samp += (bp->cnt & 0x8000)?1:-1;
+					samp += (bp->cnt & 0x8000) ? 1 : -1;
 					bp->cnt += bp->hz;
-					samp += (bp->cnt & 0x8000)?1:-1;
+					samp += (bp->cnt & 0x8000) ? 1 : -1;
 					bp->cnt += bp->hz;
-					samp += (bp->cnt & 0x8000)?1:-1;
+					samp += (bp->cnt & 0x8000) ? 1 : -1;
 					bp->cnt += bp->hz;
 					samp *= vol;
 					samp <<= (10 - 2);
 					pcm[0] += samp;
 					pcm[1] += samp;
 					pcm += 2;
-				} while(--r);
-			}
-			else {
+				} while (--r);
+			} else {
 				pcm += 2 * r;
 			}
-		}
-		else {
+		} else {
 			remain = (1 << 16);
 			samp = 0;
-			while(remain >= clock) {
+			while (remain >= clock) {
 				remain -= clock;
 				if (bp->lastenable) {
 					samp += clock;
@@ -123,8 +115,7 @@ const BPEVENT	*bev;
 					clock = bev->clock;
 					event = bev->enable;
 					bev++;
-				}
-				else {
+				} else {
 					clock = 0x40000000;
 				}
 			}
@@ -139,22 +130,19 @@ const BPEVENT	*bev;
 			pcm += 2;
 			count--;
 		}
-	} while(count);
+	} while (count);
 	bp->lastenable = event;
 	bp->events = 0;
 }
 
 void SOUNDCALL beep_getpcm(BEEP bp, SINT32 *pcm, UINT count) {
-
 	if ((count) && (beepcfg.vol)) {
 		if (bp->mode == 0) {
 			if (bp->events) {
 				oneshot(bp, pcm, count);
 			}
-		}
-		else if (bp->mode == 1) {
+		} else if (bp->mode == 1) {
 			rategenerator(bp, pcm, count);
 		}
 	}
 }
-

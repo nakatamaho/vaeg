@@ -2,56 +2,55 @@
  * makegrphva.c: PC-88VA Graphics
  */
 
-#include	"compiler.h"
-#include	"scrndraw.h"
-#include	"gvramva.h"
-#include	"videova.h"
-#include	"makegrphva.h"
+#include "compiler.h"
+#include "scrndraw.h"
+#include "gvramva.h"
+#include "videova.h"
+#include "makegrphva.h"
 
 enum {
-	GRPHVA_SCREENS	= 2,
+	GRPHVA_SCREENS = 2,
 };
 typedef struct {
-	UINT16	y;						// 現在処理中のラスタ(グラフィック画面の座標系で)
-//	BOOL	r200lines;				// 解像度200/204ラインならTRUE
-	BOOL	r320dots;				// 解像度320ドットならTRUE
-	int		pixelmode;				// 0..1bit, 1..4bit, 2..8bit, 3..16bit
-									// bit3 0..パレット 1..直接色指定
-	WORD	*rasterbuf;
-	BOOL	*noraster;
-	UINT32	addrmask;
-	UINT32	addrofs;
+	UINT16 y;      // 現在処理中のラスタ(グラフィック画面の座標系で)
+	               //	BOOL	r200lines;				// 解像度200/204ラインならTRUE
+	BOOL r320dots; // 解像度320ドットならTRUE
+	int pixelmode; // 0..1bit, 1..4bit, 2..8bit, 3..16bit
+	               // bit3 0..パレット 1..直接色指定
+	WORD *rasterbuf;
+	BOOL *noraster;
+	UINT32 addrmask;
+	UINT32 addrofs;
 
-	UINT32	lineaddr;				// 次回表示GVRAMアドレス
-	UINT32	wrappedaddr;			// 水平ラップアラウンド後のGVRAMアドレス
-	UINT16	wrapcount;				// 水平ラップアラウンドするまでの残りバイト数
-	UINT16	vwrapcount;				// 垂直ラップアラウンドするまでの残りライン数
-	FRAMEBUFFER	framebuffer;		// 現在表示しているフレームバッファ
-	int		nextframebuffer;		// 次に使用するフレームバッファの番号。無い場合は-1
+	UINT32 lineaddr;         // 次回表示GVRAMアドレス
+	UINT32 wrappedaddr;      // 水平ラップアラウンド後のGVRAMアドレス
+	UINT16 wrapcount;        // 水平ラップアラウンドするまでの残りバイト数
+	UINT16 vwrapcount;       // 垂直ラップアラウンドするまでの残りライン数
+	FRAMEBUFFER framebuffer; // 現在表示しているフレームバッファ
+	int nextframebuffer;     // 次に使用するフレームバッファの番号。無い場合は-1
 } _SCREEN, *SCREEN;
 
 typedef struct {
-	UINT16		screeny;			// 現在処理中のラスタ(画面共通の座標系で)
-	_SCREEN		screen[GRPHVA_SCREENS];
+	UINT16 screeny; // 現在処理中のラスタ(画面共通の座標系で)
+	_SCREEN screen[GRPHVA_SCREENS];
 } _GRPHVAWORK;
 
+static _GRPHVAWORK work;
 
-static	_GRPHVAWORK	work;
-
-		WORD grph0_raster[SURFACE_WIDTH + 64];
-		WORD grph1_raster[SURFACE_WIDTH + 64];
-											// 1ラスタ分のピクセルデータ
-											// 各ピクセルはカラーコード(16bit) または
-											// パレット番号
-											// 画面横幅 + 
-											// 最大4バイト(ex.1bit/pixelなら32dot,
-											// 水平解像度320ならその倍)分
-											// 使用する
-		BOOL grph0_noraster;
-		BOOL grph1_noraster;
-											// 割り当てられた分割画面がない場合、
-											// グラフィック画面非表示の場合、
-											// true
+WORD grph0_raster[SURFACE_WIDTH + 64];
+WORD grph1_raster[SURFACE_WIDTH + 64];
+// 1ラスタ分のピクセルデータ
+// 各ピクセルはカラーコード(16bit) または
+// パレット番号
+// 画面横幅 +
+// 最大4バイト(ex.1bit/pixelなら32dot,
+// 水平解像度320ならその倍)分
+// 使用する
+BOOL grph0_noraster;
+BOOL grph1_noraster;
+// 割り当てられた分割画面がない場合、
+// グラフィック画面非表示の場合、
+// true
 
 /*
 static	WORD byte2pixel[256][8];			// マルチプレーン
@@ -61,23 +60,21 @@ static	WORD byte2pixel[256][8];			// マルチプレーン
 static	WORD plane2pixel[4][4][4][4][2];	// マルチプレーン
 											// 2bit*4plane→2ピクセル変換テーブル
 */
-static	BYTE byte2pixel[256][8];			// マルチプレーン
-											// 1バイト→8ピクセル変換テーブル
+static BYTE byte2pixel[256][8]; // マルチプレーン
+                                // 1バイト→8ピクセル変換テーブル
 
-
-#define addr18(scrn, x) ( (x) & ((scrn)->addrmask) | ((scrn)->addrofs) )
+#define addr18(scrn, x) ((x) & ((scrn)->addrmask) | ((scrn)->addrofs))
 #define issingleplane() (videova.grmode & 0x0400)
 
-static void drawm4_pixels(SCREEN screen, UINT32 addr, UINT16 wrapcount,
-		WORD *b, UINT count, BOOL doublewidth) {
-
-	UINT	xp;
-	UINT	i;
-	BYTE	d0;
-	BYTE	d1;
-	BYTE	d2;
-	BYTE	d3;
-	WORD	pixel;
+static void drawm4_pixels(SCREEN screen, UINT32 addr, UINT16 wrapcount, WORD *b, UINT count,
+                          BOOL doublewidth) {
+	UINT xp;
+	UINT i;
+	BYTE d0;
+	BYTE d1;
+	BYTE d2;
+	BYTE d3;
+	WORD pixel;
 
 	for (xp = 0; xp < count; xp++) {
 		if (wrapcount-- == 0) {
@@ -91,16 +88,13 @@ static void drawm4_pixels(SCREEN screen, UINT32 addr, UINT16 wrapcount,
 		addr = addr18(screen, addr + 1);
 
 		for (i = 0; i < 8; i++) {
-			pixel = (WORD)(byte2pixel[d0][i] |
-					(byte2pixel[d1][i] << 1) |
-					(byte2pixel[d2][i] << 2) |
-					(byte2pixel[d3][i] << 3));
+			pixel = (WORD)(byte2pixel[d0][i] | (byte2pixel[d1][i] << 1) | (byte2pixel[d2][i] << 2) |
+			               (byte2pixel[d3][i] << 3));
 			if (doublewidth) {
 				b[0] = pixel;
 				b[1] = pixel;
 				b += 2;
-			}
-			else {
+			} else {
 				*b++ = pixel;
 			}
 		}
@@ -108,7 +102,7 @@ static void drawm4_pixels(SCREEN screen, UINT32 addr, UINT16 wrapcount,
 }
 
 static void selectframe(SCREEN screen, int no) {
-	FRAMEBUFFER	f;
+	FRAMEBUFFER f;
 
 	if (no < 0 || no >= VIDEOVA_FRAMEBUFFERS) {
 		screen->framebuffer = NULL;
@@ -121,28 +115,24 @@ static void selectframe(SCREEN screen, int no) {
 		// シングルプレーンモード
 		screen->lineaddr = addr18(screen, f->dsa);
 		screen->wrappedaddr = addr18(screen, f->dsa - f->ofx);
-	}
-	else {
+	} else {
 		// マルチプレーンモード
-		screen->addrofs = (f->fsa & 0x20000L) ? 0x00020000L/4 : 0;
-		screen->lineaddr = addr18(screen, f->dsa/4);
-		screen->wrappedaddr = addr18(screen, f->dsa/4 - f->ofx/4);
+		screen->addrofs = (f->fsa & 0x20000L) ? 0x00020000L / 4 : 0;
+		screen->lineaddr = addr18(screen, f->dsa / 4);
+		screen->wrappedaddr = addr18(screen, f->dsa / 4 - f->ofx / 4);
 	}
 	if (f->fbl == 0xffff) {
 		// screen 1 (垂直ラップアラウンドなし)
 		screen->vwrapcount = 0;
-	}
-	else {
+	} else {
 		screen->vwrapcount = f->fbl + 1 - f->ofy;
 	}
 
 	if (no == 0) {
 		screen->nextframebuffer = 2;
-	}
-	else if (no == 2) {
+	} else if (no == 2) {
 		screen->nextframebuffer = 3;
-	}
-	else {
+	} else {
 		screen->nextframebuffer = -1;
 	}
 }
@@ -156,13 +146,13 @@ static void selectframe(SCREEN screen, int no) {
 */
 static void selectnextframe(SCREEN screen) {
 	screen->framebuffer = NULL;
-	if (screen->nextframebuffer < 0) return;
+	if (screen->nextframebuffer < 0)
+		return;
 
 	if (videova.framebuffer[screen->nextframebuffer].dsp < screen->y) {
 		// これより後のフレームバッファは表示しない
 		screen->nextframebuffer = -1;
-	}
-	else if (videova.framebuffer[screen->nextframebuffer].dsp == screen->y) {
+	} else if (videova.framebuffer[screen->nextframebuffer].dsp == screen->y) {
 		selectframe(screen, screen->nextframebuffer);
 	}
 }
@@ -173,8 +163,7 @@ static void endraster(SCREEN screen) {
 		// 垂直ラップアラウンド
 		screen->wrappedaddr = addr18(screen, screen->framebuffer->fsa);
 		screen->lineaddr = addr18(screen, screen->wrappedaddr + screen->framebuffer->ofx);
-	}
-	else {
+	} else {
 		screen->lineaddr = addr18(screen, screen->lineaddr + screen->framebuffer->fbw);
 		screen->wrappedaddr = addr18(screen, screen->wrappedaddr + screen->framebuffer->fbw);
 	}
@@ -184,46 +173,40 @@ static void endraster_m(SCREEN screen) {
 	screen->vwrapcount--;
 	if (screen->vwrapcount == 0) {
 		// 垂直ラップアラウンド
-		screen->wrappedaddr = addr18(screen, screen->framebuffer->fsa/4);
-		screen->lineaddr = addr18(screen, screen->wrappedaddr + screen->framebuffer->ofx/4);
-	}
-	else {
-		screen->lineaddr = addr18(screen, screen->lineaddr + screen->framebuffer->fbw/4);
-		screen->wrappedaddr = addr18(screen, screen->wrappedaddr + screen->framebuffer->fbw/4);
+		screen->wrappedaddr = addr18(screen, screen->framebuffer->fsa / 4);
+		screen->lineaddr = addr18(screen, screen->wrappedaddr + screen->framebuffer->ofx / 4);
+	} else {
+		screen->lineaddr = addr18(screen, screen->lineaddr + screen->framebuffer->fbw / 4);
+		screen->wrappedaddr = addr18(screen, screen->wrappedaddr + screen->framebuffer->fbw / 4);
 	}
 }
 
-
 // シングルプレーン1bit/pixel
 static void drawraster_s1(SCREEN screen) {
-	UINT16		xp;
-	UINT16		wrapcount;
-	UINT32		addr;
-	WORD		*b;
-	DWORD		dd;
-	BYTE		fg;
-	UINT16		i;
+	UINT16 xp;
+	UINT16 wrapcount;
+	UINT32 addr;
+	WORD *b;
+	DWORD dd;
+	BYTE fg;
+	UINT16 i;
 
 	addr = screen->lineaddr;
 	b = screen->rasterbuf;
 	if (screen->framebuffer->ofx == 0xffff) {
 		// screen 1 (ラップアラウンドなし)
 		wrapcount = 0;
-	}
-	else {
+	} else {
 		wrapcount = screen->framebuffer->fbw - screen->framebuffer->ofx;
 	}
 
 	// フォアグラウンドカラーのパレット番号
 	fg = (videova.pagemsk & 0x0f00) >> 8;
 
-
 	if (screen->r320dots) {
 		// 320 dots
-		dd = ((DWORD)grphmem[addr+0] << 24) | 
-			 ((DWORD)grphmem[addr+1] << 16) | 
-			 ((DWORD)grphmem[addr+2] << 8) | 
-			 grphmem[addr+3];
+		dd = ((DWORD)grphmem[addr + 0] << 24) | ((DWORD)grphmem[addr + 1] << 16) |
+		     ((DWORD)grphmem[addr + 2] << 8) | grphmem[addr + 3];
 		addr = addr18(screen, addr + 4);
 
 		i = screen->framebuffer->dot & 0x1f;
@@ -233,16 +216,14 @@ static void drawraster_s1(SCREEN screen) {
 			b += 2;
 			dd <<= 1;
 		}
-		for (xp = 0; xp < 320/32; xp++) {
+		for (xp = 0; xp < 320 / 32; xp++) {
 			wrapcount -= 4;
 			if (wrapcount == 0) {
 				addr = screen->wrappedaddr;
 			}
 
-			dd = ((DWORD)grphmem[addr+0] << 24) | 
-				 ((DWORD)grphmem[addr+1] << 16) | 
-				 ((DWORD)grphmem[addr+2] << 8) | 
-				 grphmem[addr+3];
+			dd = ((DWORD)grphmem[addr + 0] << 24) | ((DWORD)grphmem[addr + 1] << 16) |
+			     ((DWORD)grphmem[addr + 2] << 8) | grphmem[addr + 3];
 			addr = addr18(screen, addr + 4);
 
 			for (i = 0; i < 32; i++) {
@@ -252,16 +233,11 @@ static void drawraster_s1(SCREEN screen) {
 			}
 		}
 
-
-
-	}
-	else {
+	} else {
 		// 640 dots
 
-		dd = ((DWORD)grphmem[addr+0] << 24) | 
-			 ((DWORD)grphmem[addr+1] << 16) | 
-			 ((DWORD)grphmem[addr+2] << 8) | 
-			 grphmem[addr+3];
+		dd = ((DWORD)grphmem[addr + 0] << 24) | ((DWORD)grphmem[addr + 1] << 16) |
+		     ((DWORD)grphmem[addr + 2] << 8) | grphmem[addr + 3];
 		addr = addr18(screen, addr + 4);
 
 		i = screen->framebuffer->dot & 0x1f;
@@ -270,16 +246,14 @@ static void drawraster_s1(SCREEN screen) {
 			*b++ = (dd & 0x80000000L) ? fg : 0;
 			dd <<= 1;
 		}
-		for (xp = 0; xp < 640/32; xp++) {
+		for (xp = 0; xp < 640 / 32; xp++) {
 			wrapcount -= 4;
 			if (wrapcount == 0) {
 				addr = screen->wrappedaddr;
 			}
 
-			dd = ((DWORD)grphmem[addr+0] << 24) | 
-				 ((DWORD)grphmem[addr+1] << 16) | 
-				 ((DWORD)grphmem[addr+2] << 8) | 
-				 grphmem[addr+3];
+			dd = ((DWORD)grphmem[addr + 0] << 24) | ((DWORD)grphmem[addr + 1] << 16) |
+			     ((DWORD)grphmem[addr + 2] << 8) | grphmem[addr + 3];
 			addr = addr18(screen, addr + 4);
 
 			for (i = 0; i < 32; i++) {
@@ -292,26 +266,23 @@ static void drawraster_s1(SCREEN screen) {
 	endraster(screen);
 }
 
-
 // シングルプレーン4bit/pixel
 static void drawraster_s4(SCREEN screen) {
-	UINT16		xp;
-	UINT16		wrapcount;
-	UINT32		addr;
-	WORD		*b;
+	UINT16 xp;
+	UINT16 wrapcount;
+	UINT32 addr;
+	WORD *b;
 
-	WORD		d, d2;
+	WORD d, d2;
 
 	addr = screen->lineaddr;
 	b = screen->rasterbuf;
 	if (screen->framebuffer->ofx == 0xffff) {
 		// screen 1 (ラップアラウンドなし)
 		wrapcount = 0;
-	}
-	else {
+	} else {
 		wrapcount = screen->framebuffer->fbw - screen->framebuffer->ofx;
 	}
-
 
 	if (screen->r320dots) {
 		// 320 dots
@@ -321,31 +292,31 @@ static void drawraster_s4(SCREEN screen) {
 
 		switch (screen->framebuffer->dot & 0x13) {
 		case 0:
-			b[0] = b[1] = (d >>  4) & 0x0f;
+			b[0] = b[1] = (d >> 4) & 0x0f;
 			b += 2;
 		case 1:
-			b[0] = b[1] = (d      ) & 0x0f;
+			b[0] = b[1] = (d) & 0x0f;
 			b += 2;
 		case 2:
 			b[0] = b[1] = (d >> 12) & 0x0f;
 			b += 2;
 		case 3:
-			b[0] = b[1] = (d >>  8) & 0x0f;
+			b[0] = b[1] = (d >> 8) & 0x0f;
 			b += 2;
 		case 0x10:
-			b[0] = b[1] = (d2 >>  4) & 0x0f;
+			b[0] = b[1] = (d2 >> 4) & 0x0f;
 			b += 2;
 		case 0x11:
-			b[0] = b[1] = (d2      ) & 0x0f;
+			b[0] = b[1] = (d2) & 0x0f;
 			b += 2;
 		case 0x12:
 			b[0] = b[1] = (d2 >> 12) & 0x0f;
 			b += 2;
 		case 0x13:
-			b[0] = b[1] = (d2 >>  8) & 0x0f;
+			b[0] = b[1] = (d2 >> 8) & 0x0f;
 			b += 2;
 		}
-		for (xp = 0; xp < 320/8; xp++) {
+		for (xp = 0; xp < 320 / 8; xp++) {
 			wrapcount -= 4;
 			if (wrapcount == 0) {
 				addr = screen->wrappedaddr;
@@ -355,26 +326,25 @@ static void drawraster_s4(SCREEN screen) {
 			d2 = LOADINTELWORD(grphmem + addr + 2);
 			addr = addr18(screen, addr + 4);
 
-			b[0] = b[1] = (d >>  4) & 0x0f;
+			b[0] = b[1] = (d >> 4) & 0x0f;
 			b += 2;
-			b[0] = b[1] = (d      ) & 0x0f;
+			b[0] = b[1] = (d) & 0x0f;
 			b += 2;
 			b[0] = b[1] = (d >> 12) & 0x0f;
 			b += 2;
-			b[0] = b[1] = (d >>  8) & 0x0f;
+			b[0] = b[1] = (d >> 8) & 0x0f;
 			b += 2;
 
-			b[0] = b[1] = (d2 >>  4) & 0x0f;
+			b[0] = b[1] = (d2 >> 4) & 0x0f;
 			b += 2;
-			b[0] = b[1] = (d2      ) & 0x0f;
+			b[0] = b[1] = (d2) & 0x0f;
 			b += 2;
 			b[0] = b[1] = (d2 >> 12) & 0x0f;
 			b += 2;
-			b[0] = b[1] = (d2 >>  8) & 0x0f;
+			b[0] = b[1] = (d2 >> 8) & 0x0f;
 			b += 2;
 		}
-	}
-	else {
+	} else {
 		// 640 dots
 
 		d = LOADINTELWORD(grphmem + addr);
@@ -383,23 +353,23 @@ static void drawraster_s4(SCREEN screen) {
 
 		switch (screen->framebuffer->dot & 0x13) {
 		case 0:
-			*b++ = (d >>  4) & 0x0f;
+			*b++ = (d >> 4) & 0x0f;
 		case 1:
-			*b++ = (d      ) & 0x0f;
+			*b++ = (d) & 0x0f;
 		case 2:
 			*b++ = (d >> 12) & 0x0f;
 		case 3:
-			*b++ = (d >>  8) & 0x0f;
+			*b++ = (d >> 8) & 0x0f;
 		case 0x10:
-			*b++ = (d2 >>  4) & 0x0f;
+			*b++ = (d2 >> 4) & 0x0f;
 		case 0x11:
-			*b++ = (d2      ) & 0x0f;
+			*b++ = (d2) & 0x0f;
 		case 0x12:
 			*b++ = (d2 >> 12) & 0x0f;
 		case 0x13:
-			*b++ = (d2 >>  8) & 0x0f;
+			*b++ = (d2 >> 8) & 0x0f;
 		}
-		for (xp = 0; xp < 640/8; xp++) {
+		for (xp = 0; xp < 640 / 8; xp++) {
 			wrapcount -= 4;
 			if (wrapcount == 0) {
 				addr = screen->wrappedaddr;
@@ -409,15 +379,15 @@ static void drawraster_s4(SCREEN screen) {
 			d2 = LOADINTELWORD(grphmem + addr + 2);
 			addr = addr18(screen, addr + 4);
 
-			*b++ = (d >>  4) & 0x0f;
-			*b++ = (d      ) & 0x0f;
+			*b++ = (d >> 4) & 0x0f;
+			*b++ = (d) & 0x0f;
 			*b++ = (d >> 12) & 0x0f;
-			*b++ = (d >>  8) & 0x0f;
+			*b++ = (d >> 8) & 0x0f;
 
-			*b++ = (d2 >>  4) & 0x0f;
-			*b++ = (d2      ) & 0x0f;
+			*b++ = (d2 >> 4) & 0x0f;
+			*b++ = (d2) & 0x0f;
 			*b++ = (d2 >> 12) & 0x0f;
-			*b++ = (d2 >>  8) & 0x0f;
+			*b++ = (d2 >> 8) & 0x0f;
 		}
 	}
 
@@ -426,23 +396,21 @@ static void drawraster_s4(SCREEN screen) {
 
 // シングルプレーン8bit/pixel
 static void drawraster_s8(SCREEN screen) {
-	UINT16		xp;
-	UINT16		wrapcount;
-	UINT32		addr;
-	WORD		*b;
+	UINT16 xp;
+	UINT16 wrapcount;
+	UINT32 addr;
+	WORD *b;
 
-	WORD		d, d2;
+	WORD d, d2;
 
 	addr = screen->lineaddr;
 	b = screen->rasterbuf;
 	if (screen->framebuffer->ofx == 0xffff) {
 		// screen 1 (ラップアラウンドなし)
 		wrapcount = 0;
-	}
-	else {
+	} else {
 		wrapcount = screen->framebuffer->fbw - screen->framebuffer->ofx;
 	}
-
 
 	if (screen->r320dots) {
 		// 320 dots
@@ -452,19 +420,19 @@ static void drawraster_s8(SCREEN screen) {
 
 		switch (screen->framebuffer->dot & 0x11) {
 		case 0:
-			b[0] = b[1] = (d     ) & 0xff;
+			b[0] = b[1] = (d) & 0xff;
 			b += 2;
 		case 1:
 			b[0] = b[1] = (d >> 8) & 0xff;
 			b += 2;
 		case 0x10:
-			b[0] = b[1] = (d2     ) & 0xff;
+			b[0] = b[1] = (d2) & 0xff;
 			b += 2;
 		case 0x11:
 			b[0] = b[1] = (d2 >> 8) & 0xff;
 			b += 2;
 		}
-		for (xp = 0; xp < 320/4; xp++) {
+		for (xp = 0; xp < 320 / 4; xp++) {
 			wrapcount -= 4;
 			if (wrapcount == 0) {
 				addr = screen->wrappedaddr;
@@ -473,18 +441,17 @@ static void drawraster_s8(SCREEN screen) {
 			d = LOADINTELWORD(grphmem + addr);
 			d2 = LOADINTELWORD(grphmem + addr + 2);
 			addr = addr18(screen, addr + 4);
-			b[0] = b[1] = (d     ) & 0xff;
+			b[0] = b[1] = (d) & 0xff;
 			b += 2;
 			b[0] = b[1] = (d >> 8) & 0xff;
 			b += 2;
 
-			b[0] = b[1] = (d2     ) & 0xff;
+			b[0] = b[1] = (d2) & 0xff;
 			b += 2;
 			b[0] = b[1] = (d2 >> 8) & 0xff;
 			b += 2;
 		}
-	}
-	else {
+	} else {
 		// 640 dots
 
 		d = LOADINTELWORD(grphmem + addr);
@@ -493,15 +460,15 @@ static void drawraster_s8(SCREEN screen) {
 
 		switch (screen->framebuffer->dot & 0x11) {
 		case 0:
-			*b++ = (d     ) & 0xff;
+			*b++ = (d) & 0xff;
 		case 1:
 			*b++ = (d >> 8) & 0xff;
 		case 0x10:
-			*b++ = (d2     ) & 0xff;
+			*b++ = (d2) & 0xff;
 		case 0x11:
 			*b++ = (d2 >> 8) & 0xff;
 		}
-		for (xp = 0; xp < 640/4; xp++) {
+		for (xp = 0; xp < 640 / 4; xp++) {
 			wrapcount -= 4;
 			if (wrapcount == 0) {
 				addr = screen->wrappedaddr;
@@ -510,10 +477,10 @@ static void drawraster_s8(SCREEN screen) {
 			d = LOADINTELWORD(grphmem + addr);
 			d2 = LOADINTELWORD(grphmem + addr + 2);
 			addr = addr18(screen, addr + 4);
-			*b++ = (d     ) & 0xff;
+			*b++ = (d) & 0xff;
 			*b++ = (d >> 8) & 0xff;
 
-			*b++ = (d2     ) & 0xff;
+			*b++ = (d2) & 0xff;
 			*b++ = (d2 >> 8) & 0xff;
 		}
 	}
@@ -522,23 +489,21 @@ static void drawraster_s8(SCREEN screen) {
 
 // シングルプレーン16bit/pixel
 static void drawraster_s16(SCREEN screen) {
-	UINT16		xp;
-	UINT16		wrapcount;
-	UINT32		addr;
-	WORD		*b;
+	UINT16 xp;
+	UINT16 wrapcount;
+	UINT32 addr;
+	WORD *b;
 
-	WORD		d, d2;
+	WORD d, d2;
 
 	addr = screen->lineaddr;
 	b = screen->rasterbuf;
 	if (screen->framebuffer->ofx == 0xffff) {
 		// screen 1 (ラップアラウンドなし)
 		wrapcount = 0;
-	}
-	else {
+	} else {
 		wrapcount = screen->framebuffer->fbw - screen->framebuffer->ofx;
 	}
-
 
 	if (screen->r320dots) {
 		// 320 dots
@@ -555,7 +520,7 @@ static void drawraster_s16(SCREEN screen) {
 			b += 2;
 		}
 
-		for (xp = 0; xp < 320/2; xp++) {
+		for (xp = 0; xp < 320 / 2; xp++) {
 			wrapcount -= 4;
 			if (wrapcount == 0) {
 				addr = screen->wrappedaddr;
@@ -570,8 +535,7 @@ static void drawraster_s16(SCREEN screen) {
 			b[0] = b[1] = d2;
 			b += 2;
 		}
-	}
-	else {
+	} else {
 		// 640 dots
 
 		d = LOADINTELWORD(grphmem + addr);
@@ -584,7 +548,7 @@ static void drawraster_s16(SCREEN screen) {
 		case 0x10:
 			*b++ = d2;
 		}
-		for (xp = 0; xp < 640/2; xp++) {
+		for (xp = 0; xp < 640 / 2; xp++) {
 			wrapcount -= 4;
 			if (wrapcount == 0) {
 				addr = screen->wrappedaddr;
@@ -601,17 +565,16 @@ static void drawraster_s16(SCREEN screen) {
 	endraster(screen);
 }
 
-
 // マルチプレーン4bit/pixel
 static void drawraster_m4(SCREEN screen) {
-//	UINT16		xp;
-	UINT16		wrapcount;
-	UINT32		addr;
-	WORD		*b;
-//	DWORD		dd;
-	BYTE		d0, d1, d2, d3;
-//	BYTE		fg;
-	UINT16		i;
+	//	UINT16		xp;
+	UINT16 wrapcount;
+	UINT32 addr;
+	WORD *b;
+	//	DWORD		dd;
+	BYTE d0, d1, d2, d3;
+	//	BYTE		fg;
+	UINT16 i;
 
 	addr = screen->lineaddr;
 	b = screen->rasterbuf;
@@ -619,14 +582,12 @@ static void drawraster_m4(SCREEN screen) {
 	if (screen->framebuffer->ofx == 0xffff) {
 		// screen 1 (ラップアラウンドなし)
 		wrapcount = 0;
-	}
-	else {
-		wrapcount = screen->framebuffer->fbw/4 - screen->framebuffer->ofx/4;
+	} else {
+		wrapcount = screen->framebuffer->fbw / 4 - screen->framebuffer->ofx / 4;
 	}
 
 	// フォアグラウンドカラーのパレット番号
 	//fg = (videova.pagemsk & 0x0f00) >> 8;
-
 
 	if (screen->r320dots) {
 		i = screen->framebuffer->dot & 0x07;
@@ -642,10 +603,8 @@ static void drawraster_m4(SCREEN screen) {
 			d2 <<= i;
 			d3 <<= i;
 			for (; i < 8; i++) {
-				b[0] = b[1] = ((d0 & 0x80) >> 7) | 
-					          ((d1 & 0x80) >> 6) | 
-					          ((d2 & 0x80) >> 5) | 
-					          ((d3 & 0x80) >> 4);
+				b[0] = b[1] = ((d0 & 0x80) >> 7) | ((d1 & 0x80) >> 6) | ((d2 & 0x80) >> 5) |
+				              ((d3 & 0x80) >> 4);
 				d0 <<= 1;
 				d1 <<= 1;
 				d2 <<= 1;
@@ -655,10 +614,9 @@ static void drawraster_m4(SCREEN screen) {
 			wrapcount--;
 		}
 
-		drawm4_pixels(screen, addr, wrapcount, b, 320/8, TRUE);
+		drawm4_pixels(screen, addr, wrapcount, b, 320 / 8, TRUE);
 
-	
-/*
+		/*
 		// 320 dots
 		dd = ((DWORD)grphmem[addr+0] << 24) | 
 			 ((DWORD)grphmem[addr+1] << 16) | 
@@ -693,9 +651,7 @@ static void drawraster_m4(SCREEN screen) {
 		}
 */
 
-
-	}
-	else {
+	} else {
 		// 640 dots
 		i = screen->framebuffer->dot & 0x07;
 		if (i > 0) {
@@ -710,10 +666,8 @@ static void drawraster_m4(SCREEN screen) {
 			d2 <<= i;
 			d3 <<= i;
 			for (; i < 8; i++) {
-				*b++ = ((d0 & 0x80) >> 7) | 
-					   ((d1 & 0x80) >> 6) | 
-					   ((d2 & 0x80) >> 5) | 
-					   ((d3 & 0x80) >> 4);
+				*b++ = ((d0 & 0x80) >> 7) | ((d1 & 0x80) >> 6) | ((d2 & 0x80) >> 5) |
+				       ((d3 & 0x80) >> 4);
 				d0 <<= 1;
 				d1 <<= 1;
 				d2 <<= 1;
@@ -722,9 +676,9 @@ static void drawraster_m4(SCREEN screen) {
 			wrapcount--;
 		}
 #if 1
-		drawm4_pixels(screen, addr, wrapcount, b, 640/8, FALSE);
+		drawm4_pixels(screen, addr, wrapcount, b, 640 / 8, FALSE);
 #else
-		for (xp = 0; xp < 640/8; xp++) {
+		for (xp = 0; xp < 640 / 8; xp++) {
 			//wrapcount -= 1;
 			if (wrapcount-- == 0) {
 				addr = screen->wrappedaddr;
@@ -737,7 +691,7 @@ static void drawraster_m4(SCREEN screen) {
 			d3 = grphmem[addr + 0x30000];
 			addr = addr18(screen, addr + 1);
 			*/
-			
+
 			__asm {
 				mov		edi, addr
 				movzx	ebx, grphmem[edi + 0x30000]
@@ -778,7 +732,7 @@ static void drawraster_m4(SCREEN screen) {
 				mov		[ebx+14], dh
 				;mov		[ebx+15], byte ptr 0
 			}
-			
+
 			/*
 			__asm {
 				mov		edi, addr
@@ -820,7 +774,7 @@ static void drawraster_m4(SCREEN screen) {
 			addr = addr18(screen, addr + 1);
 			b += 8;
 
-/*
+			/*
 			for (i = 0; i < 8; i++) {
 				*b++ = ((d0 & 0x80) >> 7) | 
 					   ((d1 & 0x80) >> 6) | 
@@ -832,7 +786,7 @@ static void drawraster_m4(SCREEN screen) {
 				d3 <<= 1;
 			}
 */
-/*
+			/*
 			{
 				DWORD p;
 
@@ -865,7 +819,7 @@ static void drawraster_m4(SCREEN screen) {
 				b += 2;
 			}
 */
-/*
+			/*
 			{
 				for (i = 6; i < 8 ; i-=2) {
 					*((DWORD *)&b[i]) = 
@@ -885,84 +839,77 @@ static void drawraster_m4(SCREEN screen) {
 	endraster_m(screen);
 }
 
-
 static void drawraster(SCREEN screen) {
-
-//	if (!screen->r200lines || (work.screeny & 1) == 0) {
-		if (screen->framebuffer != NULL) {
-			if (screen->framebuffer->dsp + screen->framebuffer->dsh == screen->y) {
-				screen->framebuffer = NULL;
-			}
+	//	if (!screen->r200lines || (work.screeny & 1) == 0) {
+	if (screen->framebuffer != NULL) {
+		if (screen->framebuffer->dsp + screen->framebuffer->dsh == screen->y) {
+			screen->framebuffer = NULL;
 		}
+	}
 
-		// 必要なら、次のフレームバッファに切り替える
-		if (screen->framebuffer == NULL) {
-			do {
-				selectnextframe(screen);
-			} while (!(screen->framebuffer == NULL || screen->framebuffer->dsh > 0 ));
-		}
+	// 必要なら、次のフレームバッファに切り替える
+	if (screen->framebuffer == NULL) {
+		do {
+			selectnextframe(screen);
+		} while (!(screen->framebuffer == NULL || screen->framebuffer->dsh > 0));
+	}
 
-		//if (screen->rasterbuf) {
-			*screen->noraster = FALSE;
-			if (screen->framebuffer == NULL) {
-				// 何も表示しない
-				/*
+	//if (screen->rasterbuf) {
+	*screen->noraster = FALSE;
+	if (screen->framebuffer == NULL) {
+		// 何も表示しない
+		/*
 				UINT16		xp;
 				WORD		*b;
 				b = screen->rasterbuf;
 				for (xp = 0; xp < 640; xp++) *b++ = 0;
 				*/
-				*screen->noraster = TRUE;
-			}
-			else if (issingleplane()) {
-				// シングルプレーンモード
-				switch (screen->pixelmode) {
-				case 0:
-					drawraster_s1(screen);
-					break;
-				case 1:
-					drawraster_s4(screen);
-					break;
-				case 2:
-					drawraster_s8(screen);
-					break;
-				case 3:
-					drawraster_s16(screen);
-					break;
-				}
-			}
-			else {
-				// マルチプレーンモード
-				switch (screen->pixelmode) {
-				/*
+		*screen->noraster = TRUE;
+	} else if (issingleplane()) {
+		// シングルプレーンモード
+		switch (screen->pixelmode) {
+		case 0:
+			drawraster_s1(screen);
+			break;
+		case 1:
+			drawraster_s4(screen);
+			break;
+		case 2:
+			drawraster_s8(screen);
+			break;
+		case 3:
+			drawraster_s16(screen);
+			break;
+		}
+	} else {
+		// マルチプレーンモード
+		switch (screen->pixelmode) {
+		/*
 				case 0:
 					drawraster_m1(screen);
 					break;
 				*/
-				case 1:
-					drawraster_m4(screen);
-					break;
-				default:
-					{
-						// 何も表示しない (透明ではなく、0を出力)
-						UINT16		xp;
-						WORD		*b;
-						b = screen->rasterbuf;
-						for (xp = 0; xp < 640; xp++) *b++ = 0;
-					}
-					break;
-				}
-			}
-		//}
-		screen->y++;
+		case 1:
+			drawraster_m4(screen);
+			break;
+		default: {
+			// 何も表示しない (透明ではなく、0を出力)
+			UINT16 xp;
+			WORD *b;
+			b = screen->rasterbuf;
+			for (xp = 0; xp < 640; xp++)
+				*b++ = 0;
+		} break;
+		}
+	}
+	//}
+	screen->y++;
 
-//	}
+	//	}
 }
 
-
-		
 void makegrphva_initialize(void) {
-/*
+	/*
 	// マルチプレーン 1バイト→8ピクセル 変換テーブル
 	{
 		int d;
@@ -977,7 +924,7 @@ void makegrphva_initialize(void) {
 		}
 	}
 */
-/*
+	/*
 	// マルチプレーン 2bit*4plane→2ピクセル変換テーブル
 	{
 		int p0,p1,p2,p3;
@@ -1017,36 +964,33 @@ void makegrphva_initialize(void) {
 }
 
 void makegrphva_begin(BOOL *scrn200) {
-
 	work.screeny = 0;
 
 	work.screen[0].pixelmode = videova.grres & 0x0003;
 	work.screen[1].pixelmode = (videova.grres >> 8) & 0x0003;
 	work.screen[0].rasterbuf = grph0_raster;
 	work.screen[1].rasterbuf = grph1_raster;
-	work.screen[0].noraster  = &grph0_noraster;
-	work.screen[1].noraster  = &grph1_noraster;
+	work.screen[0].noraster = &grph0_noraster;
+	work.screen[1].noraster = &grph1_noraster;
 
 	work.screen[0].r320dots = videova.grres & 0x0010;
 	work.screen[1].r320dots = videova.grres & 0x1000;
-//	work.screen[0].r200lines = videova.grmode & 0x0002;
-//	work.screen[1].r200lines = videova.grmode & 0x0002;
+	//	work.screen[0].r200lines = videova.grmode & 0x0002;
+	//	work.screen[1].r200lines = videova.grmode & 0x0002;
 	if (issingleplane()) {
-		if (videova.grmode & 0x0800)  {
+		if (videova.grmode & 0x0800) {
 			// 2画面モード
 			work.screen[0].addrmask = 0x0001ffffL;
-		}
-		else {
+		} else {
 			// 1画面モード
 			work.screen[0].addrmask = 0x0003ffffL;
 		}
-		work.screen[0].addrofs  = 0x00000000L;
-	}
-	else {
-		work.screen[0].addrmask = 0x0001ffffL/4;
+		work.screen[0].addrofs = 0x00000000L;
+	} else {
+		work.screen[0].addrmask = 0x0001ffffL / 4;
 	}
 	work.screen[1].addrmask = 0x0001ffffL;
-	work.screen[1].addrofs  = 0x00020000L;
+	work.screen[1].addrofs = 0x00020000L;
 	work.screen[0].nextframebuffer = 0;
 	work.screen[1].nextframebuffer = 1;
 	work.screen[0].y = 0;
@@ -1059,7 +1003,7 @@ void makegrphva_begin(BOOL *scrn200) {
 
 void makegrphva_blankraster(void) {
 	int i;
-//	UINT16 xp;
+	//	UINT16 xp;
 
 	for (i = 0; i < GRPHVA_SCREENS; i++) {
 		/*
@@ -1072,20 +1016,17 @@ void makegrphva_blankraster(void) {
 }
 
 void makegrphva_raster(void) {
-
 	if (!(videova.grmode & 0x8000)) {
 		// グラフィック表示禁止
 		makegrphva_blankraster();
-	}
-	else if (videova.grmode & 0x0400) {
+	} else if (videova.grmode & 0x0400) {
 		// シングルプレーンモード
 		drawraster(&work.screen[0]);
 		drawraster(&work.screen[1]);
-	}
-	else {
+	} else {
 		// マルチプレーンモード
 		drawraster(&work.screen[0]);
 	}
-	
+
 	work.screeny++;
 }

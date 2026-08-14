@@ -28,23 +28,22 @@
 
 #include <cstdint>
 
-using VaegUpd780DisasmRead = std::uint8_t (*)(void *opaque,
-                                           std::uint16_t address);
+using VaegUpd780DisasmRead = std::uint8_t (*)(void *opaque, std::uint16_t address);
 
 enum VaegUpd780DisasmStatus : std::uint8_t {
-    VAEG_UPD780_DISASM_OK = 0,
-    VAEG_UPD780_DISASM_INVALID_READER = 1,
-    VAEG_UPD780_DISASM_PREFIX_LIMIT = 2
+	VAEG_UPD780_DISASM_OK = 0,
+	VAEG_UPD780_DISASM_INVALID_READER = 1,
+	VAEG_UPD780_DISASM_PREFIX_LIMIT = 2
 };
 
 struct VaegUpd780DisasmResult {
-    std::uint16_t next_pc;
-    std::uint8_t length;
-    std::uint8_t status;
+	std::uint16_t next_pc;
+	std::uint8_t length;
+	std::uint8_t status;
 };
 
-VaegUpd780DisasmResult VaegUpd780Disassemble(
-    std::uint16_t pc, char *destination, std::uint32_t capacity,
-    VaegUpd780DisasmRead read, void *opaque);
+VaegUpd780DisasmResult VaegUpd780Disassemble(std::uint16_t pc, char *destination,
+                                             std::uint32_t capacity, VaegUpd780DisasmRead read,
+                                             void *opaque);
 
 #endif

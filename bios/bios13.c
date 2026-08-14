@@ -1,41 +1,39 @@
-#include	"compiler.h"
-#include	"cpucore.h"
-#include	"machine/pccore.h"
-#include	"iocore.h"
-#include	"bios.h"
-#include	"biosmem.h"
+#include "compiler.h"
+#include "cpucore.h"
+#include "machine/pccore.h"
+#include "iocore.h"
+#include "bios.h"
+#include "biosmem.h"
 
-
-#define	baseport 0x0090
+#define baseport 0x0090
 
 void bios0x13(void) {
+	BYTE stat;
+	BYTE result;
+	BYTE *p;
+	BYTE drv;
+	BYTE drvbit;
 
-	BYTE	stat;
-	BYTE	result;
-	BYTE	*p;
-	BYTE	drv;
-	BYTE	drvbit;
-
-//	TRACE_("BIOS", 0x13);
+	//	TRACE_("BIOS", 0x13);
 	iocore_out8(0x08, 0x20);
 	if (!pic.pi[1].isr) {
 		iocore_out8(0x00, 0x20);
 	}
 
 	stat = iocore_inp8(baseport);
-	while(1) {
+	while (1) {
 		if (!(stat & FDCSTAT_CB)) {
 			if ((stat & (FDCSTAT_RQM | FDCSTAT_DIO)) != FDCSTAT_RQM) {
 				break;
 			}
-			iocore_out8(baseport+2, 0x08);
+			iocore_out8(baseport + 2, 0x08);
 			stat = iocore_inp8(baseport);
 		}
-		if ((stat & (FDCSTAT_RQM | FDCSTAT_DIO | FDCSTAT_CB))
-							!= (FDCSTAT_RQM | FDCSTAT_DIO | FDCSTAT_CB)) {
+		if ((stat & (FDCSTAT_RQM | FDCSTAT_DIO | FDCSTAT_CB)) !=
+		    (FDCSTAT_RQM | FDCSTAT_DIO | FDCSTAT_CB)) {
 			break;
 		}
-		result = iocore_inp8(baseport+2);
+		result = iocore_inp8(baseport + 2);
 		if (result == FDCRLT_IC1) {
 			break;
 		}
@@ -50,14 +48,14 @@ void bios0x13(void) {
 		}
 #endif
 		p = mem + MEMX_DISK_RESULT + (drv * 8);
-		while(1) {
+		while (1) {
 			*p++ = result;
 			stat = iocore_inp8(baseport);
-			if ((stat & (FDCSTAT_RQM | FDCSTAT_DIO | FDCSTAT_CB))
-							!= (FDCSTAT_RQM | FDCSTAT_DIO | FDCSTAT_CB)) {
+			if ((stat & (FDCSTAT_RQM | FDCSTAT_DIO | FDCSTAT_CB)) !=
+			    (FDCSTAT_RQM | FDCSTAT_DIO | FDCSTAT_CB)) {
 				break;
 			}
-			result = iocore_inp8(baseport+2);
+			result = iocore_inp8(baseport + 2);
 		}
 		mem[MEMB_DISK_INTL] |= drvbit;
 	}

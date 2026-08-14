@@ -41,7 +41,7 @@ typedef struct {
 
 extern UPD9002_DIAGNOSTIC upd9002_diagnostic_state;
 
-#define upd9002_diagnostic_pending() \
+#define upd9002_diagnostic_pending()                                                               \
 	((BOOL)(upd9002_diagnostic_state.reason != UPD9002_DIAGNOSTIC_NONE))
 
 #ifdef __cplusplus

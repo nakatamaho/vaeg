@@ -2,10 +2,9 @@
 // vermouthのみ使用のCOMMNG-MIDI
 // あまりに一緒すぎるんで 関数名変えてこっちへ
 
-
 // ---- com manager midi for vermouth
 
-#define	COMSIG_MIDI		0x4944494d
+#define COMSIG_MIDI 0x4944494d
 
 #ifdef __cplusplus
 extern "C" {
@@ -21,4 +20,3 @@ void cmvermouth_unload(void);
 #ifdef __cplusplus
 }
 #endif
-

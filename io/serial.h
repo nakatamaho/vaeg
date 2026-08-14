@@ -1,43 +1,40 @@
 
 enum {
-	KB_CTR			= (1 << 3),
-	KB_CTRMASK		= (KB_CTR - 1),
+	KB_CTR = (1 << 3),
+	KB_CTRMASK = (KB_CTR - 1),
 
-	KB_BUF			= (1 << 7),
-	KB_BUFMASK		= (KB_BUF - 1),
+	KB_BUF = (1 << 7),
+	KB_BUFMASK = (KB_BUF - 1),
 
-	KB_MAP			= 0x10,
-
+	KB_MAP = 0x10,
 };
 
 typedef struct {
-	UINT32	xferclock;
-	UINT8	data;
-	UINT8	cmd;
-	UINT8	mode;
-	UINT8	status;
-	UINT	ctrls;
-	UINT	ctrpos;
-	UINT	buffers;
-	UINT	bufpos;
-	UINT8	ctr[KB_CTR];
-	UINT8	buf[KB_BUF];
+	UINT32 xferclock;
+	UINT8 data;
+	UINT8 cmd;
+	UINT8 mode;
+	UINT8 status;
+	UINT ctrls;
+	UINT ctrpos;
+	UINT buffers;
+	UINT bufpos;
+	UINT8 ctr[KB_CTR];
+	UINT8 buf[KB_BUF];
 
-	UINT8	keymap[KB_MAP];
+	UINT8 keymap[KB_MAP];
 
 } _KEYBRD, *KEYBRD;
 
 typedef struct {
-	UINT8	result;
-	UINT8	data;
-	UINT8	send;
-	UINT8	cmd;
-	UINT	pos;
-	UINT	dummyinst;
-	UINT	mul;
+	UINT8 result;
+	UINT8 data;
+	UINT8 send;
+	UINT8 cmd;
+	UINT pos;
+	UINT dummyinst;
+	UINT mul;
 } _RS232C, *RS232C;
-
-
 
 #ifdef __cplusplus
 extern "C" {
@@ -50,8 +47,6 @@ void keyboard_bind(void);
 void keyboard_resetsignal(void);
 void keyboard_ctrl(REG8 data);
 void keyboard_send(REG8 data);
-
-
 
 void rs232c_construct(void);
 void rs232c_destruct(void);
@@ -67,4 +62,3 @@ void rs232c_midipanic(void);
 #ifdef __cplusplus
 }
 #endif
-

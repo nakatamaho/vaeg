@@ -2,36 +2,32 @@
  * mouseifva.c: PC-88VA Mouse interface
  */
 
-#include	"compiler.h"
-#include	"cpucore.h"
-#include	"machine/pccore.h"
-#include	"iocore.h"
-#include	"joymng.h"
-#include	"machine/keystat.h"
-#include	"oprecord.h"
+#include "compiler.h"
+#include "cpucore.h"
+#include "machine/pccore.h"
+#include "iocore.h"
+#include "joymng.h"
+#include "machine/keystat.h"
+#include "oprecord.h"
 
-#include	"iocoreva.h"
-
-
+#include "iocoreva.h"
 
 enum {
-	XH	= 0,
-	XL	= 1,
-	YH	= 2,
-	YL	= 3,
-	INITSTATE	= XH,
-	LASTSTATE	= YL,
+	XH = 0,
+	XL = 1,
+	YH = 2,
+	YL = 3,
+	INITSTATE = XH,
+	LASTSTATE = YL,
 };
 
+_MOUSEIFVACFG mouseifvacfg = {MOUSEIFVA_JOYPAD};
 
-	_MOUSEIFVACFG	mouseifvacfg = {MOUSEIFVA_JOYPAD};
-
-	_MOUSEIFVA		mouseifva;
+_MOUSEIFVA mouseifva;
 
 // ---- Mouse
 
 static void latch(void) {
-
 	calc_mousexy();
 	mouseif.latch_x = mouseif.x;
 	mouseif.x = 0;
@@ -39,18 +35,15 @@ static void latch(void) {
 	mouseif.y = 0;
 	if (mouseif.latch_x > 127) {
 		mouseif.latch_x = 127;
-	}
-	else if (mouseif.latch_x < -128) {
+	} else if (mouseif.latch_x < -128) {
 		mouseif.latch_x = -128;
 	}
 	if (mouseif.latch_y > 127) {
 		mouseif.latch_y = 127;
-	}
-	else if (mouseif.latch_y < -128) {
+	} else if (mouseif.latch_y < -128) {
 		mouseif.latch_y = -128;
 	}
 }
-
 
 /*
 Advance the mouse nibble selector from a strobe transition.
@@ -76,11 +69,11 @@ Read the selected mouse movement nibble and buttons.
 				Output bit 1 is right and bit 0 is left; zero means pressed.
 */
 void mouseva_indata(UINT8 *data, UINT8 *button) {
-	UINT8 x,y,b;
+	UINT8 x, y, b;
 
 	x = -mouseif.latch_x;
 	y = -mouseif.latch_y;
-	switch(mouseifva.state) {
+	switch (mouseifva.state) {
 	case XL:
 		*data = x & 0x0f;
 		break;
@@ -100,10 +93,11 @@ void mouseva_indata(UINT8 *data, UINT8 *button) {
 		b |= mouseif.rapid;
 	}
 	*button = 0;
-	if (b & 0x20) *button |= 0x02;				// Raw right-button bit maps to output bit 1.
-	if (b & 0x80) *button |= 0x01;				// Raw left-button bit maps to output bit 0.
+	if (b & 0x20)
+		*button |= 0x02; // Raw right-button bit maps to output bit 1.
+	if (b & 0x80)
+		*button |= 0x01; // Raw left-button bit maps to output bit 0.
 }
-
 
 // ---- Joy pad
 
@@ -115,21 +109,22 @@ Read the VA joypad directions and buttons.
 				Bit 0 is A and bit 1 is B; zero means pressed.
 */
 void joypad_indata(UINT8 *data, UINT8 *button) {
-	static	REG8	rapids = 0;
-	static	SINT32	lastc = 0;
-	REG8	ret;
-	UINT32	clock;
-	SINT32	diff;
+	static REG8 rapids = 0;
+	static SINT32 lastc = 0;
+	REG8 ret;
+	UINT32 clock;
+	SINT32 diff;
 
 #if defined(SUPPORT_OPRECORD)
-	if (!oprecord_play_joypad(0, data, button)) return;
+	if (!oprecord_play_joypad(0, data, button))
+		return;
 #endif
 
 	clock = CPU_CLOCK + CPU_BASECLOCK - CPU_REMCLOCK;
 	diff = clock - lastc;
 
-	if (diff > 200000 || diff < 0) {	// At 8 MHz this produces about 20 press cycles per second.
-										// Signed wrap or a stale timestamp can make diff negative.
+	if (diff > 200000 || diff < 0) { // At 8 MHz this produces about 20 press cycles per second.
+		                             // Signed wrap or a stale timestamp can make diff negative.
 		rapids ^= 0xf0;
 		lastc = clock;
 	}
@@ -160,14 +155,13 @@ void joypad_indata(UINT8 *data, UINT8 *button) {
 #endif
 }
 
-
 // ---- Mouse port
 
 /*
 Route a strobe transition to the selected pointing device.
 */
 void mouseifva_outstrobe(UINT8 strobe) {
-	switch(mouseifvacfg.device) {
+	switch (mouseifvacfg.device) {
 	case MOUSEIFVA_MOUSE:
 		mouseva_outstrobe(strobe);
 		break;
@@ -177,8 +171,8 @@ void mouseifva_outstrobe(UINT8 strobe) {
 /*
 Read data from the selected pointing device.
 */
-void mouseifva_indata(UINT8 *data4, UINT8 *data2) { 
-	switch(mouseifvacfg.device) {
+void mouseifva_indata(UINT8 *data4, UINT8 *data2) {
+	switch (mouseifvacfg.device) {
 	case MOUSEIFVA_MOUSE:
 		mouseva_indata(data4, data2);
 		break;
@@ -191,18 +185,18 @@ void mouseifva_indata(UINT8 *data4, UINT8 *data2) {
 // ---- I/O
 
 static void IOOUTCALL mouseifva_o1a8(UINT port, REG8 dat) {
-	UINT8	xminten;
+	UINT8 xminten;
 
 	mouseif.timing = dat & 3;
-	xminten = (~dat >> 3) & 0x10;			// Active-low interrupt-enable latch.
-											// Zero enables interrupts; one masks them.
+	xminten = (~dat >> 3) & 0x10; // Active-low interrupt-enable latch.
+	                              // Zero enables interrupts; one masks them.
 
 	if ((xminten ^ mouseif.upd8255.portc) & 0x10) {
 		// Reschedule only when the enable state changes.
 		if (!(xminten & 0x10)) {
 			if (!nevent_iswork(NEVENT_MOUSE)) {
-				nevent_set(NEVENT_MOUSE, mouseif.intrclock << mouseif.timing,
-												mouseint, NEVENT_ABSOLUTE);
+				nevent_set(NEVENT_MOUSE, mouseif.intrclock << mouseif.timing, mouseint,
+				           NEVENT_ABSOLUTE);
 			}
 		}
 		mouseif.upd8255.portc = mouseif.upd8255.portc & ~0x10 | xminten;
@@ -217,6 +211,5 @@ void mouseifva_reset(void) {
 }
 
 void mouseifva_bind(void) {
-
 	iocore_attachout(0x1a8, mouseifva_o1a8);
 }

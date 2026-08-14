@@ -40,8 +40,7 @@ enum {
 
 void upd9002_perf_start_from_env(void);
 void upd9002_perf_stop(void);
-void upd9002_perf_record_step(uint32_t cs_base, uint16_t ip, uint8_t opcode,
-								uint8_t next_byte);
+void upd9002_perf_record_step(uint32_t cs_base, uint16_t ip, uint8_t opcode, uint8_t next_byte);
 void upd9002_perf_record_0f(uint8_t opcode);
 void upd9002_perf_record_reserved(uint32_t kind);
 void upd9002_perf_record_exception(uint8_t vect);
@@ -51,7 +50,7 @@ void upd9002_perf_record_interrupt(uint8_t vect);
 
 #define upd9002_perf_start_from_env() ((void)0)
 #define upd9002_perf_stop() ((void)0)
-#define upd9002_perf_record_step(cs_base, ip, opcode, next_byte) \
+#define upd9002_perf_record_step(cs_base, ip, opcode, next_byte)                                   \
 	((void)(cs_base), (void)(ip), (void)(opcode), (void)(next_byte))
 #define upd9002_perf_record_0f(opcode) ((void)(opcode))
 #define upd9002_perf_record_reserved(kind) ((void)(kind))

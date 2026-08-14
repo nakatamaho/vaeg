@@ -1,46 +1,37 @@
-#include	"compiler.h"
-
+#include "compiler.h"
 
 BOOL rect_in(const RECT_T *rect, int x, int y) {
-
-	if ((rect) &&
-		(rect->left <= x) && (rect->right > x) &&
-		(rect->top <= y) && (rect->bottom > y)) {
-		return(TRUE);
+	if ((rect) && (rect->left <= x) && (rect->right > x) && (rect->top <= y) &&
+	    (rect->bottom > y)) {
+		return (TRUE);
 	}
-	return(FALSE);
+	return (FALSE);
 }
 
 int rect_num(const RECT_T *rect, int cnt, int x, int y) {
-
-	int		i;
+	int i;
 
 	if (rect) {
-		for (i=0; i<cnt; i++, rect++) {
-			if ((rect->left <= x) && (x < rect->right) &&
-				(rect->top <= y) && (y < rect->bottom)) {
-				return(i);
+		for (i = 0; i < cnt; i++, rect++) {
+			if ((rect->left <= x) && (x < rect->right) && (rect->top <= y) && (y < rect->bottom)) {
+				return (i);
 			}
 		}
 	}
-	return(-1);
+	return (-1);
 }
 
 BOOL rect_isoverlap(const RECT_T *r1, const RECT_T *r2) {
-
-	if ((r1->left >= r2->right) ||
-		(r1->right <= r2->left) ||
-		(r1->top >= r2->bottom) ||
-		(r1->bottom <= r2->top)) {
-		return(FALSE);
+	if ((r1->left >= r2->right) || (r1->right <= r2->left) || (r1->top >= r2->bottom) ||
+	    (r1->bottom <= r2->top)) {
+		return (FALSE);
 	}
-	return(TRUE);
+	return (TRUE);
 }
 
-void rect_enumout(const RECT_T *tag, const RECT_T *base,
-				void *arg, void (*outcb)(void *arg, const RECT_T *rect)) {
-
-	RECT_T	rect;
+void rect_enumout(const RECT_T *tag, const RECT_T *base, void *arg,
+                  void (*outcb)(void *arg, const RECT_T *rect)) {
+	RECT_T rect;
 
 	if ((tag != NULL) && (base != NULL) && (outcb != NULL)) {
 		// base.top -> tag.top
@@ -50,7 +41,7 @@ void rect_enumout(const RECT_T *tag, const RECT_T *base,
 			rect.left = base->left;
 			rect.right = base->right;
 			outcb(arg, &rect);
-				rect.top = rect.bottom;
+			rect.top = rect.bottom;
 		}
 
 		// -> tag.bottom
@@ -80,7 +71,6 @@ void rect_enumout(const RECT_T *tag, const RECT_T *base,
 }
 
 void rect_add(RECT_T *dst, const RECT_T *src) {
-
 	if (dst->left > src->left) {
 		dst->left = src->left;
 	}
@@ -96,16 +86,14 @@ void rect_add(RECT_T *dst, const RECT_T *src) {
 }
 
 void unionrect_rst(UNIRECT *unirct) {
-
 	if (unirct) {
 		unirct->type = 0;
 	}
 }
 
 void unionrect_add(UNIRECT *unirct, const RECT_T *rct) {
-
-	int		type;
-	RECT_T	*r;
+	int type;
+	RECT_T *r;
 
 	if (unirct == NULL) {
 		goto ura_end;
@@ -116,13 +104,11 @@ void unionrect_add(UNIRECT *unirct, const RECT_T *rct) {
 	}
 	if (rct == NULL) {
 		type = -1;
-	}
-	else {
+	} else {
 		r = &unirct->r;
 		if (type++ == 0) {
 			unirct->r = *rct;
-		}
-		else {
+		} else {
 			if (r->left > rct->left) {
 				r->left = rct->left;
 			}
@@ -144,12 +130,9 @@ ura_end:
 }
 
 const RECT_T *unionrect_get(const UNIRECT *unirct) {
-
 	if ((unirct) && (unirct->type > 0)) {
-		return(&unirct->r);
-	}
-	else {
-		return(NULL);
+		return (&unirct->r);
+	} else {
+		return (NULL);
 	}
 }
-

@@ -1,40 +1,37 @@
 // フロッピーディスクの挿入延滞用のブリッヂ
 
-#include	"compiler.h"
-#include	"dosio.h"
-#include	"sysmng.h"
-#include	"machine/pccore.h"
-#include	"iocore.h"
-#include	"diskdrv.h"
-#include	"fddfile.h"
+#include "compiler.h"
+#include "dosio.h"
+#include "sysmng.h"
+#include "machine/pccore.h"
+#include "iocore.h"
+#include "diskdrv.h"
+#include "fddfile.h"
 
 #if defined(SUPPORT_OPRECORD)
-#include	"oprecord.h"
+#include "oprecord.h"
 #endif
 
-#define	DISK_DELAY	20			// (0.4sec)
+#define DISK_DELAY 20 // (0.4sec)
 
-	int		diskdrv_delay[4];
-	int		diskdrv_ro[4];
-	char	diskdrv_fname[4][MAX_PATH];
-
+int diskdrv_delay[4];
+int diskdrv_ro[4];
+char diskdrv_fname[4][MAX_PATH];
 
 void diskdrv_sethdd(REG8 drv, const char *fname) {
-
-	UINT	num;
-	char	*p;
-	int		leng;
+	UINT num;
+	char *p;
+	int leng;
 
 	num = drv & 0x0f;
 	p = NULL;
 	leng = 0;
-	if (!(drv & 0x20)) {			// SASI or IDE
+	if (!(drv & 0x20)) { // SASI or IDE
 		if (num < 2) {
 			p = np2cfg.sasihdd[num];
 			leng = sizeof(np2cfg.sasihdd[0]);
 		}
-	}
-	else {							// SCSI
+	} else { // SCSI
 		if (num < 7) {
 			p = np2cfg.scsihdd[num];
 			leng = sizeof(np2cfg.scsihdd[0]);
@@ -43,8 +40,7 @@ void diskdrv_sethdd(REG8 drv, const char *fname) {
 	if (p) {
 		if (fname) {
 			file_cpyname(p, fname, leng);
-		}
-		else {
+		} else {
 			p[0] = '\0';
 		}
 		sysmng_update(SYS_UPDATEHDD | SYS_UPDATECFG);
@@ -52,7 +48,6 @@ void diskdrv_sethdd(REG8 drv, const char *fname) {
 }
 
 void diskdrv_setfdd(REG8 drv, const char *fname, int readonly) {
-
 	if ((drv < 4) && (fdc.equip & (1 << drv))) {
 		fdd_eject(drv);
 		diskdrv_delay[drv] = 0;
@@ -73,10 +68,9 @@ void diskdrv_setfdd(REG8 drv, const char *fname, int readonly) {
 }
 
 void diskdrv_callback(void) {
+	REG8 drv;
 
-	REG8	drv;
-
-	for (drv=0; drv<4; drv++) {
+	for (drv = 0; drv < 4; drv++) {
 		if (diskdrv_delay[drv]) {
 			diskdrv_delay[drv]--;
 			if ((!diskdrv_delay[drv]) && (diskdrv_fname[drv][0])) {

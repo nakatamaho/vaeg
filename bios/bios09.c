@@ -1,16 +1,14 @@
-#include	"compiler.h"
-#include	"cpucore.h"
-#include	"machine/pccore.h"
-#include	"iocore.h"
-#include	"bios.h"
-#include	"biosmem.h"
-
+#include "compiler.h"
+#include "cpucore.h"
+#include "machine/pccore.h"
+#include "iocore.h"
+#include "bios.h"
+#include "biosmem.h"
 
 void bios0x09_init(void) {
-
-	iocore_out8(0x43, 0x3a);		// keyboard reset-high
-	iocore_out8(0x43, 0x32);		// keyboard reset-low
-	iocore_out8(0x43, 0x16);		// error reset
+	iocore_out8(0x43, 0x3a); // keyboard reset-high
+	iocore_out8(0x43, 0x32); // keyboard reset-low
+	iocore_out8(0x43, 0x16); // error reset
 	ZeroMemory(mem + 0x00502, 0x20);
 	ZeroMemory(mem + 0x00528, 0x13);
 	SETBIOSMEM16(MEMW_KB_SHIFT_TBL, 0x0e00);
@@ -21,20 +19,17 @@ void bios0x09_init(void) {
 }
 
 static void updateshiftkey(void) {
-
-	UINT8	shiftsts;
-	UINT	base;
+	UINT8 shiftsts;
+	UINT base;
 
 	shiftsts = mem[MEMB_SHIFT_STS];
-	mem[MEMB_MSW6] &= 0x3f;							// KEYBOARD LED
+	mem[MEMB_MSW6] &= 0x3f; // KEYBOARD LED
 	mem[MEMB_MSW6] |= (UINT8)(shiftsts << 5);
 	if (shiftsts & 0x10) {
 		base = 7;
-	}
-	else if (shiftsts & 0x08) {
+	} else if (shiftsts & 0x08) {
 		base = 6;
-	}
-	else {
+	} else {
 		base = shiftsts & 7;
 		if (base >= 6) {
 			base -= 2;
@@ -45,13 +40,12 @@ static void updateshiftkey(void) {
 }
 
 void bios0x09(void) {
-
-	BYTE	key;
-	UINT	pos;
-	BYTE	bit;
-	UINT16	code;
-	UINT32	base;
-	UINT	kbbuftail;
+	BYTE key;
+	UINT pos;
+	BYTE bit;
+	UINT16 code;
+	UINT32 base;
+	UINT kbbuftail;
 
 	key = CPU_AL;
 	pos = (key & 0x7f) >> 3;
@@ -67,36 +61,29 @@ void bios0x09(void) {
 				if (code == 0xff00) {
 					code = 0xffff;
 				}
-			}
-			else {
+			} else {
 				code = mem[base + key];
 				if (code != 0xff) {
 					code += key << 8;
-				}
-				else {
+				} else {
 					code = 0xffff;
 				}
 			}
-		}
-		else if (key < 0x60) {
-			if (key == 0x5e) {								// home
+		} else if (key < 0x60) {
+			if (key == 0x5e) { // home
 				code = 0xae00;
 			}
-		}
-		else {
+		} else {
 			if (key == 0x60) {
-//				CPU_INTERRUPT(6, -1);
-			}
-			else if (key == 0x61) {
-//				CPU_INTERRUPT(5, -1);
-			}
-			else if (key < 0x70) {
+				//				CPU_INTERRUPT(6, -1);
+			} else if (key == 0x61) {
+				//				CPU_INTERRUPT(5, -1);
+			} else if (key < 0x70) {
 				code = mem[base + key - 0x0c] << 8;
 				if (code == 0xff00) {
 					code = 0xffff;
 				}
-			}
-			else if (key < 0x75) {
+			} else if (key < 0x75) {
 				mem[MEMB_SHIFT_STS] |= bit;
 				updateshiftkey();
 			}
@@ -113,8 +100,7 @@ void bios0x09(void) {
 				SETBIOSMEM16(MEMW_KB_BUF_TAIL, kbbuftail);
 			}
 		}
-	}
-	else {
+	} else {
 		mem[MEMX_KB_KY_STS + pos] &= ~bit;
 		if ((key >= 0xf0) && (key < 0xf5)) {
 			mem[MEMB_SHIFT_STS] &= ~bit;
@@ -122,4 +108,3 @@ void bios0x09(void) {
 		}
 	}
 }
-

@@ -1,32 +1,29 @@
-#include	"compiler.h"
-#include	"dosio.h"
-#include	"textfile.h"
-
+#include "compiler.h"
+#include "dosio.h"
+#include "textfile.h"
 
 static BOOL getnextstrings(TEXTFILEH fh) {
-
-	UINT	rsize;
+	UINT rsize;
 
 	if (!fh) {
-		return(FAILURE);
+		return (FAILURE);
 	}
 	if (file_seek(fh->fh, fh->fhpos, 0) != fh->fhpos) {
-		return(FAILURE);
+		return (FAILURE);
 	}
 	rsize = file_read(fh->fh, fh + 1, fh->buffersize);
 	if (rsize == (UINT)-1) {
-		return(FAILURE);
+		return (FAILURE);
 	}
 	fh->fhpos += rsize;
 	fh->pos = 0;
 	fh->remain = rsize;
-	return(SUCCESS);
+	return (SUCCESS);
 }
 
 TEXTFILEH textfile_open(const char *filename, UINT buffersize) {
-
-	FILEH		fh;
-	TEXTFILEH	ret;
+	FILEH fh;
+	TEXTFILEH ret;
 
 	if (buffersize < 256) {
 		buffersize = 256;
@@ -47,25 +44,22 @@ TEXTFILEH textfile_open(const char *filename, UINT buffersize) {
 	if (ret->remain >= 3) {
 		char *ptr;
 		ptr = ((char *)(ret + 1)) + ret->pos;
-		if ((ptr[0] == (char)0xef) &&
-			(ptr[1] == (char)0xbb) &&
-			(ptr[2] == (char)0xbf)) {
+		if ((ptr[0] == (char)0xef) && (ptr[1] == (char)0xbb) && (ptr[2] == (char)0xbf)) {
 			ret->pos += 3;
 			ret->remain -= 3;
 		}
 	}
 #endif
-	return(ret);
+	return (ret);
 
 tfo_err2:
 	file_close(fh);
 
 tfo_err1:
-	return(NULL);
+	return (NULL);
 }
 
 void textfile_close(TEXTFILEH fh) {
-
 	if (fh) {
 		file_close(fh->fh);
 		_MFREE(fh);
@@ -73,18 +67,17 @@ void textfile_close(TEXTFILEH fh) {
 }
 
 BOOL textfile_read(TEXTFILEH fh, char *buffer, UINT size) {
-
-	char	c = '\0';
-	char	*p;
-	BOOL	crlf;
-	BOOL	ret = FAILURE;
+	char c = '\0';
+	char *p;
+	BOOL crlf;
+	BOOL ret = FAILURE;
 
 	if ((fh) && (size > 0)) {
 		size--;
 		crlf = FALSE;
 		do {
 			if ((!fh->remain) && (getnextstrings(fh))) {
-				return(FAILURE);
+				return (FAILURE);
 			}
 			if (!fh->remain) {
 				break;
@@ -92,7 +85,7 @@ BOOL textfile_read(TEXTFILEH fh, char *buffer, UINT size) {
 			ret = SUCCESS;
 			p = (char *)(fh + 1);
 			p += fh->pos;
-			while((fh->remain) && (size)) {
+			while ((fh->remain) && (size)) {
 				c = *p++;
 				fh->pos++;
 				fh->remain--;
@@ -104,7 +97,7 @@ BOOL textfile_read(TEXTFILEH fh, char *buffer, UINT size) {
 				size--;
 			}
 			if (!crlf) {
-				while((fh->remain) && (size)) {
+				while ((fh->remain) && (size)) {
 					c = *p++;
 					fh->pos++;
 					fh->remain--;
@@ -114,10 +107,10 @@ BOOL textfile_read(TEXTFILEH fh, char *buffer, UINT size) {
 					}
 				}
 			}
-		} while(!crlf);
+		} while (!crlf);
 		if ((crlf) && (c == 0x0d)) {
 			if ((!fh->remain) && (getnextstrings(fh))) {
-				return(FAILURE);
+				return (FAILURE);
 			}
 			if (fh->remain) {
 				p = (char *)(fh + 1);
@@ -130,5 +123,5 @@ BOOL textfile_read(TEXTFILEH fh, char *buffer, UINT size) {
 		}
 		*buffer = '\0';
 	}
-	return(ret);
+	return (ret);
 }
