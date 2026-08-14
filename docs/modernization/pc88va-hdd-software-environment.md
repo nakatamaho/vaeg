@@ -107,7 +107,7 @@ DEVICE = A:\SYS\HOSTFAT.SYS
 DEVICE = A:\SYS\PCEPAT.SYS
 DEVICE = A:\SYS\RESET.SYS
 DEVICE = A:\SYS\TSCLVA.SYS
-DEVICE = A:\SYS\MSE352B.COM
+DEVICE = A:\SYS\MSE352B.COM /A /B
 DEVICE = A:\SYS\RDBMS.SYS -P1D0
 DEVICE = A:\SYS\RDEMS.SYS -P40 -A
 DEVICE = A:\SYS\RDPCM.SYS
@@ -133,7 +133,9 @@ DEVICE = MSE312.SYS
 archived MSE package provides 3.52a, and the 3.52b form is produced by
 applying the archived diff with WSP. The included MSE documentation says
 MSE can be loaded either as a command-line resident program or as a
-`DEVICE=` line in `CONFIG.SYS`.
+`DEVICE=` line in `CONFIG.SYS`. The development disk passes `/A` to place
+the Alias data in BMS and `/B` to swap part of MSE's code data into BMS.
+It does not pass `/X`, because the disk does not install an XMS manager.
 
 Useful MSE-side tools in the archived package include:
 
@@ -179,7 +181,7 @@ DEVICE = A:\SYS\BMSDRVA.SYS
 ...
 DEVICE = A:\SYS\PCEPAT.SYS
 DEVICE = A:\SYS\TSCLVA.SYS
-DEVICE = A:\SYS\MSE352B.COM
+DEVICE = A:\SYS\MSE352B.COM /A /B
 ...
 DEVICE = A:\SYS\RDEMS.SYS -P40 -A
 ```
@@ -303,9 +305,10 @@ The downloaded `bms15020.tgz` archive contains VA-side files including:
 - `bmsdrsys.wup`: WUP diff for the SYS driver forms.
 
 The MSE documentation says its Alias and bank-memory swap features depend
-on BMSDR. In practice, if an HDD image uses MSE `/A`, `/B`, or `/X`
-options, load or run the BMS driver before MSE. A minimal environment can
-omit BMS, but then those MSE features should not be enabled.
+on BMSDR. The development disk therefore enables `/A` and `/B` only after
+loading BMSDRVA. The separate `/X` option additionally needs an XMS manager
+and remains disabled. A minimal environment can omit BMS, but then these MSE
+features should not be enabled.
 
 VAEG defaults to 640KB of main RAM at `00000H`-`9FFFFH`. I/O Bank Memory uses
 `80000H`-`9FFFFH` as a temporary 128KB aperture without reducing that main
@@ -703,7 +706,7 @@ DEVICE = A:\SYS\HOSTFAT.SYS
 DEVICE = A:\SYS\PCEPAT.SYS
 DEVICE = A:\SYS\RESET.SYS
 DEVICE = A:\SYS\TSCLVA.SYS
-DEVICE = A:\SYS\MSE352B.COM
+DEVICE = A:\SYS\MSE352B.COM /A /B
 DEVICE = A:\SYS\RDBMS.SYS -P1D0
 DEVICE = A:\SYS\RDEMS.SYS -P40 -A
 DEVICE = A:\SYS\RDPCM.SYS
@@ -713,8 +716,9 @@ The EMMVA/SQEMM98 manager stack loads first. PCPLUS follows it, then the
 WSP-generated BMSDRVA device-driver form. PCPLUS still precedes the target-zero
 SCHD block driver. HOSTFAT is available when vaeg has a read-only host folder
 configured. RESET loads immediately after its required PCEPAT dependency;
-PCEPAT, RESET, and TSCLVA all precede MSE, which is loaded without `/A`, `/B`,
-or `/X`.
+PCEPAT, RESET, and TSCLVA all precede MSE. MSE uses `/A` for BMS-backed Alias
+data and `/B` for partial BMS code-data swap; `/X` remains omitted because no
+XMS manager is installed.
 RDBMS explicitly selects the PC-88VA I/O Bank Memory port `01D0H`. Its
 documented defaults start at bank 1 and use 15 banks when `-S` and the bank
 count are omitted. With VAEG's default 640KB main RAM, selector zero restores
