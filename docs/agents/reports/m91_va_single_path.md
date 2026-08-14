@@ -27,7 +27,8 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 M91 implementation is complete on `topic/m91-va-single-path` at
 `b20da74a4fab80877b7449f82e766ade6782615a`. Automated validation passes.
-G91 remains pending and no merge to `main` is claimed.
+The maintainer passed G91 on 2026-08-15 against candidate
+`66fbf20f6f5a8fbe107884ca1223acc53d352cbd`; M91 is closed.
 
 ## Evidence boundary
 
@@ -121,8 +122,8 @@ compile or link failure remains.
 
 ## Gate
 
-G91 remains a human gate. From a clean checkout of the pushed candidate, the
-maintainer must still verify native V3 boot, the bundled VA demo, an OS boot,
-and simple FDD/storage, keyboard, display, sound, and state-save operations.
-No result for those manual operations is claimed here. M92 must not begin and
-M91 must not merge to `main` until the maintainer states that G91 passed.
+The maintainer explicitly reported G91 passed on 2026-08-15 against candidate
+`66fbf20f6f5a8fbe107884ca1223acc53d352cbd`. The approval covers the required
+clean-checkout native V3 boot, bundled VA demo, OS boot, and simple FDD,
+storage, keyboard, display, sound, and state-save operations. M91 is closed;
+this documentation-only closure does not claim additional automated testing.
