@@ -242,6 +242,15 @@ writing 1 to byte port `0506h`, and polls `0506h` bit 0 until it clears. The
 word-cycle requirement is confirmed by the VA BIOS disassembly; VAEG's byte-lane
 I/O model does not reproduce a hardware hang caused by byte access to these
 ports.
+
+The same BIOS start sequence writes `10h` to byte port `0580h` immediately
+before waiting for SGP idle and programming `0500h`/`0502h`. In the display
+logic this selects CPU-data GVRAM writes (bits 4:3 = `10`); the port is also
+read as the system `RBUSY` status in other paths. The demos therefore reassert
+`0580h=10h` before every SGP kick, while keeping the command pointer and start
+access widths unchanged. This is a hardware-state precaution derived from the
+BIOS sequence, not an emulator timing assumption.
+
 VAEG clears busy when `END` executes. The documented completion interrupt at
 level 8 exists, but polling is the simpler first correctness path and is fully
 implemented in VAEG.

@@ -399,7 +399,7 @@ The word-oriented interface is in `0500h-0507h`:
 | `0504h` | Read/write | Interrupt enable and abort control |
 | `0506h` | Read/write | Start/attention and busy |
 | `0508h` | Read in vaeg | Unknown; current implementation returns 1 |
-| `0580h` | Read | System `RBUSY`, checked before sensitive SGP reads |
+| `0580h` | Read/write | Read-side `RBUSY`; write-side GVRAM access mode (`10h` = CPU data write) |
 
 The low and high command-address fields are word I/O registers, not four
 independent byte ports. This is established by the period Tech manual and by
@@ -417,7 +417,9 @@ clears busy and follows the current completion-interrupt helper; exact hardware
 abort/interrupt ordering remains unresolved.
 
 Before certain reads, software ensures `0580h.RBUSY=0`. This bus/register
-readiness is separate from SGP command busy.
+readiness is separate from SGP command busy. The VA BIOS also writes `10h` to
+`0580h` immediately before each command-list kick; the demos mirror that write
+to reassert CPU-data GVRAM write mode without changing the byte access width.
 
 ### 4.2 Recommended start sequence
 

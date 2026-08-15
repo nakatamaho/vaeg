@@ -87,7 +87,7 @@ The M6 program uses these hardware interfaces, all traced in the
 | Layer order | Graphics BIOS function 3, `CX=0034h` (G1 above G0) |
 | CPU G0 aperture | `a000:0000`; the CPU does not write G1 after mode setup |
 | GVRAM mapping | Port `0153h`: single-plane mode and system-memory bank 4 |
-| CPU write mode | Port `0580h`: CPU data write for the static G0 background |
+| CPU write mode | Port `0580h`: CPU data write for the static G0 background and before each SGP kick |
 | Composition transparency | Ports `0124h`/`0126h`: G0 opaque, G1 color 0 transparent |
 | SGP command address | Word ports `0500h` (low) and `0502h` (high) |
 | SGP control/status | Ports `0504h` and `0506h` |
