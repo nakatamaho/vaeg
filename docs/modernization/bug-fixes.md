@@ -70,6 +70,32 @@ separate parity correction or move it to Open Defects.
 
 ## Fixed Defects
 
+### Historical SGP demo COMs used byte cycles for word-only VA registers
+
+- **Status:** fixed in M93; the bundled COMs are rebuilt from the corrected
+  common sources.
+- **Symptom:** the SGP pseudo-sprite COM programs could freeze on real
+  PC-88VA hardware even though VAEG accepted the same I/O sequence.
+- **Root cause:** the demos wrote the 32-bit SGP command-list pointer as four
+  byte cycles and wrote FB1 `DSA1` as three byte cycles. The period Tech manual
+  and the VA BIOS use word writes at `0500h`/`0502h` and at `022eh`/`0230h`;
+  byte access to those word ports is not hardware-safe. The BIOS also
+  reasserts `0580h=10h` before each SGP kick.
+- **Correction:** all generated SGP stages use word I/O for the command
+  pointer and DSA1, byte I/O only for `0504h`/`0506h`, and reassert the BIOS
+  GVRAM write mode before each kick. `SET WORK` remains the first command in
+  every drawing list.
+- **Verification:** NASM rebuilt `SGPDEMO1.COM` through `SGPDEMO6.COM` and
+  `SGPD_7A.COM` through `SGPD_7D.COM`; the data-only D88 contains exactly
+  those ten byte-matching payloads; the clean macOS CMake build and repository
+  encoding/EOL/case checks passed. Real-hardware rerun remains a maintainer
+  gate and is not claimed here.
+- **Evidence:** [SGP demo investigation](sgp-pseudo-sprite-investigation.md),
+  [uPD92017 SGP interface](upd92017-sgp.md), and the Tech-manual/BIOS
+  disassembly notes recorded there.
+- **Commit:** [707d191](https://github.com/nakatamaho/vaeg/commit/707d191f07e8058959f4c062e2e8cc42738a1de4).
+
+
 ### Bootable PC-Engine EMS media froze before reaching the prompt
 
 - **Status:** fixed in M90; G90 human gate remains pending.
