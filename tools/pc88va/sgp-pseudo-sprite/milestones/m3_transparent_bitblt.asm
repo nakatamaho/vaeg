@@ -24,7 +24,7 @@
 
 ; SGP command words live in the DOS-loaded main-RAM COM image. The complete
 ; source converts DS:offset to the SGP physical address before writing the
-; command pointer to ports 0500h-0503h.
+; command pointer to the word ports 0500h (low word) and 0502h (high word).
 
 SGP_COMMAND_SET_WORK   equ 0003h
 SGP_COMMAND_SET_SOURCE equ 0004h

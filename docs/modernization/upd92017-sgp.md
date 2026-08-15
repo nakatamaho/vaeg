@@ -394,11 +394,18 @@ The word-oriented interface is in `0500h-0507h`:
 
 | Port | Direction | Reconstructed function |
 |---:|---|---|
-| `0500h-0503h` | Write | Four bytes of command-list start address; bit 0 forced even |
+| `0500h` | Write (word) | Low 16 bits of command-list start address |
+| `0502h` | Write (word) | High 16 bits of command-list start address; bit 0 of the combined address is forced even |
 | `0504h` | Read/write | Interrupt enable and abort control |
 | `0506h` | Read/write | Start/attention and busy |
 | `0508h` | Read in vaeg | Unknown; current implementation returns 1 |
 | `0580h` | Read | System `RBUSY`, checked before sensitive SGP reads |
+
+The low and high command-address fields are word I/O registers, not four
+independent byte ports. This is established by the period Tech manual and by
+the VA BIOS sequence that executes `OUT DX,AX` at `0500h`, advances to `0502h`,
+and executes a second `OUT DX,AX`. The start/status access at `0506h` remains
+byte-wide.
 
 The local implementation masks `0504h` to interrupt enable `04h` and abort
 `02h`. OCR wording that appears to say “bit 4” conflicts with diagrams/examples
@@ -417,7 +424,7 @@ readiness is separate from SGP command busy.
 1. Build the complete list in main RAM.
 2. Reserve and initialize required descriptors and work memory.
 3. Wait until SGP busy is clear.
-4. Program `0500h-0503h`.
+4. Program the low word at `0500h` and the high word at `0502h`.
 5. Configure interrupt enable at `0504h`.
 6. Start through `0506h`.
 7. Poll busy or wait for completion interrupt.

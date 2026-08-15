@@ -89,9 +89,9 @@ The M6 program uses these hardware interfaces, all traced in the
 | GVRAM mapping | Port `0153h`: single-plane mode and system-memory bank 4 |
 | CPU write mode | Port `0580h`: CPU data write for the static G0 background |
 | Composition transparency | Ports `0124h`/`0126h`: G0 opaque, G1 color 0 transparent |
-| SGP command address | Ports `0500h-0503h` |
+| SGP command address | Word ports `0500h` (low) and `0502h` (high) |
 | SGP control/status | Ports `0504h` and `0506h` |
-| Frame pacing and flip | TSP status port `0142h`, bit 6, then FB1 DSA ports `022eh-0230h` |
+| Frame pacing and flip | TSP status port `0142h`, bit 6, then FB1 DSA word ports `022eh` (low) and `0230h` (high) |
 | SGP destination | draw page A `220000h` or page B `227d00h`, pitch 160 bytes |
 | Ball-count input | Keyboard BIOS `INT 82h`, functions `0ah` and `09h`; Up scan `3ah`, Down scan `3dh` |
 | FPS time base | Calendar BIOS `INT 8ch`, function `02h`; display pixels are still rendered by SGP |
@@ -148,7 +148,7 @@ an unconditional near jump; this is required by the uPD9002 instruction model,
 where `0fh` is not the 8086 near-conditional-branch prefix. The complete list
 is rendered into the page opposite the current
 display page. Only after SGP completion does `flip_draw_page` wait for the
-non-VBLANK-to-VBLANK transition and write the three DSA1 bytes. It then
+non-VBLANK-to-VBLANK transition and write the two DSA1 words. It then
 toggles the page variables, so the next CLS and all BITBLTs target the new
 hidden page. Startup renders both pages before enabling display.
 

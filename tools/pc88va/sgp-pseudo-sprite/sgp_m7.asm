@@ -43,7 +43,6 @@ org 0x100
 %define PORT_G0_TRANSPARENCY    0x0124
 %define PORT_G1_TRANSPARENCY    0x0126
 %define PORT_FB1_DSA_LOW        0x022e
-%define PORT_FB1_DSA_MIDDLE     0x022f
 %define PORT_FB1_DSA_HIGH        0x0230
 %define PORT_TSP_STATUS         0x0142
 %define PORT_SGP_COMMAND        0x0500
@@ -327,18 +326,16 @@ set_draw_page_base:
     pop ax
     ret
 
+; DSA1 is a pair of word registers; byte writes can hang real hardware.
 set_display_page_from_draw:
     push ax
     push dx
     mov dx, PORT_FB1_DSA_LOW
     mov ax, [draw_page_dsa_low]
-    out dx, al
-    inc dx
-    mov al, ah
-    out dx, al
-    inc dx
+    out dx, ax
+    add dx, 2
     mov ax, [draw_page_dsa_high]
-    out dx, al
+    out dx, ax
     pop dx
     pop ax
     ret
@@ -1824,6 +1821,8 @@ run_sgp_command_list:
     stc
     ret
 
+; The command pointer uses word writes at 0500h and 0502h.
+; Control and start remain byte writes at 0504h and 0506h.
 start_sgp_command_list:
     push ax
     push dx
@@ -1832,35 +1831,23 @@ start_sgp_command_list:
     cmp byte [current_command_index], 0
     jne .buffer_b
     mov ax, [sgp_command_address_a_low]
-    out dx, al
-    inc dx
-    mov al, ah
-    out dx, al
-    inc dx
+    out dx, ax
+    add dx, 2
     mov ax, [sgp_command_address_a_high]
     jmp .address_ready
 .buffer_b:
     mov ax, [sgp_command_address_b_low]
-    out dx, al
-    inc dx
-    mov al, ah
-    out dx, al
-    inc dx
+    out dx, ax
+    add dx, 2
     mov ax, [sgp_command_address_b_high]
 .address_ready:
 %else
     mov ax, [sgp_command_address_low]
-    out dx, al
-    inc dx
-    mov al, ah
-    out dx, al
-    inc dx
+    out dx, ax
+    add dx, 2
     mov ax, [sgp_command_address_high]
 %endif
-    out dx, al
-    inc dx
-    mov al, ah
-    out dx, al
+    out dx, ax
 
     mov dx, PORT_SGP_CONTROL
     xor al, al

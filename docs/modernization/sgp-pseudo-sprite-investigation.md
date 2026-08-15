@@ -236,8 +236,12 @@ not a guessed count-minus-one encoding. Sprite X positions are encoded using
 the aligned destination word address plus the descriptor's start-dot field;
 CPU code does not touch destination pixels.
 
-The CPU writes the even command-list physical address through `0500h-0503h`,
-starts the SGP by writing 1 to `0506h`, and polls `0506h` bit 0 until it clears.
+The CPU writes the even command-list physical address as two word I/O cycles:
+the low word at `0500h` and the high word at `0502h`. It starts the SGP by
+writing 1 to byte port `0506h`, and polls `0506h` bit 0 until it clears. The
+word-cycle requirement is confirmed by the VA BIOS disassembly; VAEG's byte-lane
+I/O model does not reproduce a hardware hang caused by byte access to these
+ports.
 VAEG clears busy when `END` executes. The documented completion interrupt at
 level 8 exists, but polling is the simpler first correctness path and is fully
 implemented in VAEG.
@@ -255,7 +259,7 @@ The proposed flip sequence is therefore:
 wait for SGP busy = 0
 wait until (IN 0142h AND 40h) = 0
 wait until (IN 0142h AND 40h) != 0
-write 18-bit DSA1 at ports 022eh, 022fh, and 0230h
+write DSA1 as words at ports 022eh (low) and 0230h (high)
 swap front/back variables
 ~~~
 
@@ -326,7 +330,7 @@ of `0x7d00` bytes inside the 128-KiB Graphic 1 region.
 Each frame selects the page opposite `draw_page_index`, emits SGP CLS
 and transparent BITBLTs there, and waits for SGP busy to clear. It then
 waits for port `0142h` bit 6 to make a low-to-high VBLANK transition and
-writes DSA1 low, middle, and high bytes through `022eh-0230h`. The page
+writes DSA1 low and high words through `022eh` and `0230h`. The page
 index is toggled only after that write. Startup renders both pages before
 display enable, so no uninitialized page is exposed.
 
