@@ -72,7 +72,8 @@ separate parity correction or move it to Open Defects.
 
 ### Historical SGP demo COMs used byte cycles for word-only VA registers
 
-- **Status:** fixed in M93; the bundled COMs are rebuilt from the corrected
+- **Status:** hardware-safe access correction applied; real-hardware
+  validation remains open. The bundled COMs are rebuilt from the corrected
   common sources.
 - **Symptom:** the SGP pseudo-sprite COM programs could freeze on real
   PC-88VA hardware even though VAEG accepted the same I/O sequence.
@@ -93,7 +94,7 @@ separate parity correction or move it to Open Defects.
 - **Evidence:** [SGP demo investigation](sgp-pseudo-sprite-investigation.md),
   [uPD92017 SGP interface](upd92017-sgp.md), and the Tech-manual/BIOS
   disassembly notes recorded there.
-- **Commit:** [707d191](https://github.com/nakatamaho/vaeg/commit/707d191f07e8058959f4c062e2e8cc42738a1de4).
+- **Commit:** pending publication; no fixing commit is claimed in this checkout.
 
 
 ### Bootable PC-Engine EMS media froze before reaching the prompt
