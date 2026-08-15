@@ -29,7 +29,6 @@ G1_PAGE_B_SGP_BASE equ 227d00h
 G1_PAGE_A_DSA      equ 020000h
 G1_PAGE_B_DSA      equ 027d00h
 PORT_FB1_DSA_LOW   equ 022eh
-PORT_FB1_DSA_MID   equ 022fh
 PORT_FB1_DSA_HIGH  equ 0230h
 PORT_TSP_STATUS    equ 0142h
 TSP_STATUS_VBLANK  equ 40h
@@ -37,16 +36,14 @@ TSP_STATUS_VBLANK  equ 40h
 ; Each frame's SGP CLS and BITBLTs use draw_page_sgp_low/high. The current
 ; source's full command builder replaces the old fixed page address with these
 ; two words, so the CPU still never copies sprite pixels.
+; DSA1 uses word writes at 022eh and 0230h on real hardware.
 set_display_page_from_draw:
     mov dx, PORT_FB1_DSA_LOW
     mov ax, [draw_page_dsa_low]
-    out dx, al
-    inc dx
-    mov al, ah
-    out dx, al
-    inc dx
+    out dx, ax
+    add dx, 2
     mov ax, [draw_page_dsa_high]
-    out dx, al
+    out dx, ax
     ret
 
 flip_draw_page:
