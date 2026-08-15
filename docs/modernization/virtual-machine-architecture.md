@@ -133,7 +133,7 @@ The reset implementation is `machine/pccore.c:360-480`.
 
 ## ROM and Memory
 
-For PC-88VA, `biosva_initialize()` selects a model-specific ROM filename set
+For PC-88VA, `romva_initialize()` selects a model-specific ROM filename set
 and loads it into the emulator buffers:
 
 | Buffer | VA | VA2/VA3 |
@@ -151,9 +151,9 @@ prevents same-named but model-specific ROM data from being mixed. VA3 currently
 shares the VA2 ROM set and emulation path. `vasubsys.rom` is a separate vaeg
 extra shared by both models rather than one of MAME's five active model ROMs.
 
-The filename selection and loader are in `bios/biosva.c:17-94`; the expected
-MAME CRC32/SHA-1 values are recorded in
-`docs/agents/tasks/M18_rom_layout.md`.
+The filename selection and loader are in
+[bios/romva.c](../../bios/romva.c); the expected MAME CRC32/SHA-1 values are
+recorded in `docs/agents/tasks/M18_rom_layout.md`.
 
 The installed memory differs between the original VA and VA2/VA3:
 
