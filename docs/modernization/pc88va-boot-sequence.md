@@ -69,7 +69,7 @@ physical address = FFFF0h
 ```
 
 Physical `F0000h-FFFFFh` is ROM1. The model-selected ROM is loaded by
-[bios/biosva.c](../../bios/biosva.c) and read through the ROM1 mapping in
+[bios/romva.c](../../bios/romva.c) and read through the ROM1 mapping in
 [memoryva/memoryva.c](../../memoryva/memoryva.c). Both analyzed ROMs contain:
 
 ```asm

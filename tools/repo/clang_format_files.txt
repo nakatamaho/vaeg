@@ -28,9 +28,9 @@ bios/bios12.c
 bios/bios13.c
 bios/bios1b.c
 bios/biosmem.h
-bios/biosva.c
-bios/biosva.h
 bios/fdfmt.h
+bios/romva.c
+bios/romva.h
 bios/rsbios.h
 bios/sxsibios.c
 bios/sxsibios.h

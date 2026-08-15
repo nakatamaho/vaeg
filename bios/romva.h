@@ -3,8 +3,8 @@
 extern "C" {
 #endif
 
-void biosva_initialize(void);
-BOOL biosva_load_font(const char *filename);
+void romva_initialize(void);
+BOOL romva_load_pc98_font(const char *filename);
 
 #ifdef __cplusplus
 }
