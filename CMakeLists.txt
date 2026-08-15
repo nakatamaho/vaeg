@@ -265,7 +265,7 @@ set(VAEG_Z80_COMPAT_PRODUCTION_SOURCES
 message(STATUS "Production uPD70008-compatible core: shared Z80 compatibility backend")
 
 set(VAEG_VA_SOURCES
-    bios/biosva.c
+    bios/romva.c
     memoryva/gvramva.c
     memoryva/memoryva.c
     ${VAEG_Z80_COMPAT_PRODUCTION_SOURCES}

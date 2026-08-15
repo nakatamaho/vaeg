@@ -10,7 +10,7 @@
 #include "cbuscore.h"
 #include "mpu98ii.h"
 #include "bios.h"
-#include "biosva.h"
+#include "romva.h"
 #include "biosmem.h"
 #include "vram.h"
 #include "scrndraw.h"
@@ -384,7 +384,7 @@ void pccore_reset(void) {
 	calendar_initialize();
 
 	bios_initialize();
-	biosva_initialize();
+	romva_initialize();
 	va91_initialize();
 	CS_BASE = 0xf0000;
 	CPU_CS = 0xf000;

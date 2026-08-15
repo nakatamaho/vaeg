@@ -50,7 +50,7 @@
 #include "hostfat_path.h"
 #include "fddfile.h"
 #include "fontdata.h"
-#include "biosva.h"
+#include "romva.h"
 #include "machine/keystat.h"
 #include "newdisk.h"
 #include "np2.h"
@@ -2748,7 +2748,7 @@ static void load_font_preset(const char *filename) {
 		g_gui.font_status += filename;
 		return;
 	}
-	if (!biosva_load_font(path)) {
+	if (!romva_load_pc98_font(path)) {
 		g_gui.font_status = "Font load failed: ";
 		g_gui.font_status += filename;
 		return;
