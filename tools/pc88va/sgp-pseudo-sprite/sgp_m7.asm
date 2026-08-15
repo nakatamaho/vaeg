@@ -1826,6 +1826,10 @@ run_sgp_command_list:
 start_sgp_command_list:
     push ax
     push dx
+    ; The VA BIOS reasserts CPU-data GVRAM write mode before each SGP kick.
+    mov dx, PORT_GVRAM_WRITE_MODE
+    mov al, GVRAM_CPU_WRITE_MODE
+    out dx, al
     mov dx, PORT_SGP_COMMAND
 %if M7_VARIANT >= 3
     cmp byte [current_command_index], 0

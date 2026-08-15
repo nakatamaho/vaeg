@@ -1169,6 +1169,12 @@ run_sgp_command_list:
     call wait_sgp_idle
     jc .failed
 
+    ; The VA BIOS reasserts CPU-data GVRAM write mode before each SGP kick.
+    ; Keep the shared mode latch in the documented state on real hardware.
+    mov dx, PORT_GVRAM_WRITE_MODE
+    mov al, GVRAM_CPU_WRITE_MODE
+    out dx, al
+
     mov dx, PORT_SGP_COMMAND
     mov ax, [sgp_command_address_low]
     out dx, ax
