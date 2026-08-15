@@ -25,9 +25,12 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ## Status
 
-M92 implementation is complete on `topic/m92-clang-format`. Automated
-validation passes. The first G92 attempt did not pass because the maintainer
-observed an overall slowdown. G92 remains open, and M93 has not started.
+M92 is complete on `topic/m92-clang-format`. Automated validation passed, and
+the maintainer passed G92 using the corrected normal Release handoff from
+candidate `caa1f403cd0c1f6ce7673d6f839de7d3932c5316`.
+
+The first G92 attempt did not pass because the maintainer observed an overall
+slowdown.
 
 The initial handoff incorrectly identified test-enabled integration-trace
 executables as the artifacts for the normal-maintainer-configuration gate.
@@ -180,6 +183,7 @@ integration asset was modified.
 3. `88dda51d` - normalize active SDL2 and test sources.
 4. `5a805dec` - align source-contract validators with canonical whitespace.
 5. `0ae6edd9` - register the two mechanical commits for blame.
+6. `caa1f403` - correct the human-gate artifact handoff after the failed attempt.
 
 ## G92 human gate
 
@@ -192,4 +196,6 @@ From a clean checkout of the reported final candidate:
    operations; and
 5. confirm behavior is unchanged.
 
-M92 remains open until the maintainer explicitly reports G92 passed.
+On 2026-08-15, the maintainer reported that the human gate passed after the
+corrected normal Release handoff. G92 is passed, M92 is closed, and integration
+into `main` is authorized.
