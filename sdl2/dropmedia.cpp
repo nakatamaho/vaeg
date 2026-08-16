@@ -84,6 +84,15 @@ static std::string path_extension(const std::string &path) {
 	return ascii_lower(fs::u8path(path).extension().u8string());
 }
 
+static std::string display_file_name(const std::string &path) {
+	std::string name = fs::u8path(path).filename().u8string();
+	const std::size_t separator = name.find_last_of("/\\");
+	if (separator != std::string::npos) {
+		name.erase(0, separator + 1);
+	}
+	return name;
+}
+
 static bool image_extension_supported(const std::string &path) {
 	static const char *extensions[] = {".d88", ".88d", ".d98", ".98d", ".fdi", ".xdf",
 	                                   ".hdm", ".dup", ".2hd", ".tfd", ".img"};
@@ -565,12 +574,12 @@ static void process_drop_batch(void) {
 		std::error_code ec;
 		const fs::path fs_path = fs::u8path(path);
 		if ((!fs::is_regular_file(fs_path, ec)) || ec) {
-			append_status_line("Drop ignored: file not found: " + path);
+			append_status_line("Drop ignored: file not found: " + display_file_name(path));
 			continue;
 		}
 		if (image_extension_supported(path)) {
 			if (path.size() >= MAX_PATH) {
-				append_status_line("Drop ignored: path is too long: " + path);
+				append_status_line("Drop ignored: path is too long: " + display_file_name(path));
 				continue;
 			}
 			images.push_back({path, fs_path.filename().u8string(), std::string()});

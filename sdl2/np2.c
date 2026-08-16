@@ -123,7 +123,8 @@
 
 NP2OSCFG np2oscfg = {0,
                      0,
-                     VAEG_DISPINFO_CPU_CLOCK | VAEG_DISPINFO_SGP_CLOCK,
+                     VAEG_DISPINFO_CPU_CLOCK | VAEG_DISPINFO_SGP_CLOCK |
+                         VAEG_DISPINFO_FDD,
                      0,
                      0,
                      0,
