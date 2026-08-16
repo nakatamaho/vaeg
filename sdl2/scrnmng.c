@@ -253,6 +253,12 @@ static void scrnmng_update_title(void) {
 		scrnmng_append_fdd_title(title, sizeof(title), &length, 0);
 		scrnmng_append_fdd_title(title, sizeof(title), &length, 1);
 	}
+	if ((np2oscfg.DISPCLK & VAEG_DISPINFO_FPS) && (length >= 0) &&
+	    ((size_t)length < sizeof(title))) {
+		length += snprintf(title + length, sizeof(title) - (size_t)length, " - %u.%1uFPS",
+		                   (unsigned int)(scrnmng.framedisp.fps_tenths / 10),
+		                   (unsigned int)(scrnmng.framedisp.fps_tenths % 10));
+	}
 	if ((np2oscfg.DISPCLK & VAEG_DISPINFO_CPU_CLOCK) && (length >= 0) &&
 	    ((size_t)length < sizeof(title))) {
 		length += snprintf(title + length, sizeof(title) - (size_t)length, " - CPU %u.%04uMHz",
@@ -268,12 +274,6 @@ static void scrnmng_update_title(void) {
 	if (scrnmng.framedisp_enabled && (length >= 0) && ((size_t)length < sizeof(title))) {
 		length += snprintf(title + length, sizeof(title) - (size_t)length, " - FRAME %u",
 		                   (unsigned int)drawcount);
-	}
-	if ((np2oscfg.DISPCLK & VAEG_DISPINFO_FPS) && (length >= 0) &&
-	    ((size_t)length < sizeof(title))) {
-		(void)snprintf(title + length, sizeof(title) - (size_t)length, " - %u.%1uFPS",
-		               (unsigned int)(scrnmng.framedisp.fps_tenths / 10),
-		               (unsigned int)(scrnmng.framedisp.fps_tenths % 10));
 	}
 	SDL_SetWindowTitle(scrnmng.window, title);
 }
