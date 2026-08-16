@@ -255,7 +255,6 @@ static void bios_itfcall(void) {
 	bios_itfprepare();
 	bios_memclear();
 	bios_vectorset();
-	bios0x09_init();
 	bios_reinitbyswitch();
 
 	if (!np2cfg.ITF_WORK) {
@@ -294,31 +293,8 @@ UINT MEMCALL biosfunc(UINT32 adrs) {
 		bios_memclear();
 #endif
 		bios_vectorset();
-#if 1
-		bios0x09_init();
-#endif
 		bios_reinitbyswitch();
 		bios_vectorset();
-		return (1);
-
-	case BIOS_BASE + BIOSOFST_09:
-		CPU_REMCLOCK -= 500;
-		bios0x09();
-		return (1);
-
-	case BIOS_BASE + BIOSOFST_0c:
-		CPU_REMCLOCK -= 500;
-		bios0x0c();
-		return (1);
-
-	case BIOS_BASE + BIOSOFST_12:
-		CPU_REMCLOCK -= 500;
-		bios0x12();
-		return (1);
-
-	case BIOS_BASE + BIOSOFST_13:
-		CPU_REMCLOCK -= 500;
-		bios0x13();
 		return (1);
 
 	case BIOS_BASE + BIOSOFST_WAIT:

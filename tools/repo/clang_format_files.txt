@@ -22,10 +22,6 @@
 # Canonical M92 formatting scope. Keep paths sorted and relative to the root.
 bios/bios.c
 bios/bios.h
-bios/bios09.c
-bios/bios0c.c
-bios/bios12.c
-bios/bios13.c
 bios/bios1b.c
 bios/biosmem.h
 bios/fdfmt.h

@@ -8,12 +8,6 @@ enum {
 	BIOSOFST_ITF = 0x0080,
 	BIOSOFST_INIT = 0x0084,
 
-	BIOSOFST_09 = 0x0088, // Keyboard
-	BIOSOFST_0c = 0x008c, // Serial
-
-	BIOSOFST_12 = 0x0090, // FDC
-	BIOSOFST_13 = 0x0094, // FDC
-
 	BIOSOFST_WAIT = 0x00b4 // FDD waiting
 };
 
@@ -25,14 +19,6 @@ extern "C" {
 
 void bios_initialize(void);
 UINT MEMCALL biosfunc(UINT32 adrs);
-
-void bios0x09(void);
-void bios0x09_init(void);
-
-void bios0x0c(void);
-
-void bios0x12(void);
-void bios0x13(void);
 
 UINT bios0x1b_wait(void);
 void fddbios_equip(REG8 type, BOOL clear);
