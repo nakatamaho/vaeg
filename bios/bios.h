@@ -20,10 +20,10 @@ extern "C" {
 void bios_initialize(void);
 UINT MEMCALL biosfunc(UINT32 adrs);
 
-UINT bios0x1b_wait(void);
-void fddbios_equip(REG8 type, BOOL clear);
+UINT biosboot_wait(void);
+void biosboot_fdd_equip(REG8 type, BOOL clear);
 
-REG16 bootstrapload(void);
+REG16 biosboot_load(void);
 
 #ifdef __cplusplus
 }

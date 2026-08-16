@@ -130,10 +130,10 @@ static void bios_reinitbyswitch(void) {
 	SETBIOSMEM32(MEMD_F2HD_POINTER, 0xfd801aaf);
 	boot = mem[MEMB_MSW5] & 0xf0;
 	if (boot != 0x20) { // 1MB
-		fddbios_equip(3, TRUE);
+		biosboot_fdd_equip(3, TRUE);
 		mem[MEMB_BIOS_FLAG0] |= 0x02;
 	} else { // 640KB
-		fddbios_equip(0, TRUE);
+		biosboot_fdd_equip(0, TRUE);
 		mem[MEMB_BIOS_FLAG0] &= ~0x02;
 	}
 	mem[MEMB_F2HD_MODE] = 0xff;
@@ -300,7 +300,7 @@ UINT MEMCALL biosfunc(UINT32 adrs) {
 	case BIOS_BASE + BIOSOFST_WAIT:
 		CPU_STI;
 #if 1
-		return (bios0x1b_wait()); // ver0.78
+		return (biosboot_wait()); // ver0.78
 #else
 		if (fddmtr.busy) {
 			CPU_IP--;
@@ -323,7 +323,7 @@ UINT MEMCALL biosfunc(UINT32 adrs) {
 
 	case 0xfffe8: // ブートストラップロード
 		CPU_REMCLOCK -= 2000;
-		bootseg = bootstrapload();
+		bootseg = biosboot_load();
 		if (bootseg) {
 			CPU_STI;
 			CPU_CS = bootseg;
@@ -334,7 +334,7 @@ UINT MEMCALL biosfunc(UINT32 adrs) {
 
 	case 0xfffec:
 		CPU_REMCLOCK -= 2000;
-		bootstrapload();
+		biosboot_load();
 		return (0);
 	}
 

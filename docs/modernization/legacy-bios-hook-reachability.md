@@ -27,7 +27,7 @@ POSSIBILITY OF SUCH DAMAGE.
 ## Scope and result
 
 This audit examines the former `bios09.c`, `bios0c.c`, `bios12.c`, and
-`bios13.c` handlers and the retained `bios1b.c` helpers in the VA-only product.
+`bios13.c` handlers and the retained `biosboot.c` helpers in the VA-only product.
 It combines static call-graph inspection, the PC-88VA hardware descriptions in
 Tekumani, the PC-98 interface descriptions in `docs/98io/`, and a bounded boot
 of `docs/disks/pcengine110-bootonly.d88`.
@@ -39,7 +39,7 @@ The result is:
 - remove `bios09.c`, `bios0c.c`, `bios12.c`, and `bios13.c` and their C
   dispatch cases; they implement the simulated PC-98 common-BIOS path and are
   not reached by the VA ROM or PC-Engine boot;
-- retain `bios1b.c`; its public INT 1Bh dispatcher was already removed in M81,
+- retain `biosboot.c`; its public INT 1Bh dispatcher was already removed in M81,
   but the remaining file provides emulator-internal FDD equipment,
   bootstrap-load, and completion-wait helpers that still have direct callers.
 
@@ -80,7 +80,7 @@ it is not needed to remove these four C implementations.
 | `bios0c.c` | `biosfunc(FD80:008C)` called `bios0x0c()` | Reads a common 8251 receive/status path through `30h/32h/33h`, stores data/status pairs in the common BIOS RS buffer, performs SI/SO and XON/XOFF processing, then acknowledges the PIC | Remove. Tekumani assigns VA USART data/control to `20h/21h`; on VA, `30h` and `32h` are unrelated system/video controls. The active VA RS-232C device and IRQ path are in [`io/serial.c`](../../io/serial.c). |
 | `bios12.c` | `biosfunc(FD80:0090)` called `bios0x12()` | Drains D765 result bytes from the PC-98 640-KiB FDD interface at `C8h/CAh`, updates common BIOS result flags, and acknowledges the slave/master PIC | Remove. `docs/98io/io_fdd.txt` identifies `C8h/CAh/CCh` as the PC-98 640-KiB interface. Tekumani assigns VA INT 12h to bus UINT4, not the FDC. |
 | `bios13.c` | `biosfunc(FD80:0094)` called `bios0x13()` | Drains D765 result bytes from the PC-98 1-MiB FDD interface at `90h/92h`, updates common BIOS result storage, and acknowledges the PIC | Remove. `docs/98io/io_fdd.txt` identifies `90h/92h/94h` as the PC-98 interface. VA uses `1B8h/1BAh` in DMA mode and its FDC subsystem in intelligent mode; both active paths are implemented in [`io/fdc.c`](../../io/fdc.c) and [`io/fdsubsys.c`](../../io/fdsubsys.c). |
-| [`bios1b.c`](../../bios/bios1b.c) | Direct calls from `bios.c`: `fddbios_equip()` during simulated BIOS initialization, `bootstrapload()` at physical `0xFFFE8/0xFFFEC`, and `bios0x1b_wait()` at `FD80:00B4` | Maintains the FDD equipment word; probes and reads FDD boot sectors through the emulator FDD backend; tries SASI/SCSI boot blocks through `sxsi_read()`; and stalls/retries until FDD motor/result completion | Retain. No public INT 1Bh dispatcher remains, but these internal helpers still have named callers. The selected boot did not exercise them; that bounded result does not prove all boot-switch/media fallback paths unreachable. |
+| [`biosboot.c`](../../bios/biosboot.c) | Direct calls from `bios.c`: `biosboot_fdd_equip()` during simulated BIOS initialization, `biosboot_load()` at physical `0xFFFE8/0xFFFEC`, and `biosboot_wait()` at `FD80:00B4` | Maintains the FDD equipment word; probes and reads FDD boot sectors through the emulator FDD backend; tries SASI/SCSI boot blocks through `sxsi_read()`; and stalls/retries until FDD motor/result completion | Retain. No public INT 1Bh dispatcher remains, but these internal helpers still have named callers. The selected boot did not exercise them; that bounded result does not prove all boot-switch/media fallback paths unreachable. |
 
 ## Hardware and implementation comparison
 
@@ -93,7 +93,7 @@ common-BIOS device access:
 | RS-232C | INT 0Ch; D8251 data/control ports `20h/21h` | Ports `30h/32h/33h` and common BIOS RS work area | `rs232c_bind()` and IRQ 4 in `io/serial.c` |
 | FDC | INT 13h; intelligent mode at reset, or D765 ports `1B8h/1BAh` in DMA mode | PC-98 D765 ports `C8h/CAh` and `90h/92h` | `fdsubsys` intelligent-mode path or `fdc_bind()` DMA-mode path |
 | INT 12h | UINT4 (bus slot interrupt) | PC-98 640-KiB FDC result service | No VA FDC role |
-| INT 1Bh | Reserved/default in the observed VA1 IVT; public VA disk BIOS uses INT 80h/81h | Public common INT 1Bh dispatcher already removed in M81 | Only the internal bootstrap/equipment/wait helpers remain in `bios1b.c` |
+| INT 1Bh | Reserved/default in the observed VA1 IVT; public VA disk BIOS uses INT 80h/81h | Public common INT 1Bh dispatcher already removed in M81 | Only the internal bootstrap/equipment/wait helpers remain in `biosboot.c` |
 
 References used were `docs/tekumani/2.TXT`, `docs/98io/io_kb.txt`, and
 `docs/98io/io_fdd.txt`. The emulator source agrees with Tekumani: the VA FDC
@@ -129,7 +129,7 @@ At frames 1, 60, 300, and 1800, every one of the following counters was zero:
 - simulated common-BIOS reset/initialization: `FD80:0080`, `FD80:0084`;
 - removed handler entries: `FD80:0088`, `FD80:008C`, `FD80:0090`,
   `FD80:0094`;
-- retained `bios1b.c` hooks: `FD80:00B4`, physical `0xFFFE8`, and physical
+- retained `biosboot.c` hooks: `FD80:00B4`, physical `0xFFFE8`, and physical
   `0xFFFEC`.
 
 The reset-vector counter at `F000:FFF0` was one. Repeating the 1800-frame run
@@ -147,7 +147,7 @@ The cleanup:
   initializer calls from `bios/bios.c`;
 - removes their offsets and declarations from `bios/bios.h`;
 - removes the four files from `CMakeLists.txt` and the clang-format manifest;
-- leaves `bios/bios1b.c` and its three emulator-internal entry routes intact.
+- leaves `bios/biosboot.c` and its three emulator-internal entry routes intact.
 
 ## Validation
 
@@ -173,7 +173,7 @@ human visual gate.
 
 - The bounded PC-Engine run does not exercise every VA1/VA2 ROM revision,
   direct-DMA FDC mode, serial receive case, boot switch, or alternate medium.
-- Retaining `bios1b.c` is conservative because it has explicit internal
+- Retaining `biosboot.c` is conservative because it has explicit internal
   callers and boot-media-dependent branches. Removing it requires a separate
   audit of the entire simulated bootstrap fallback, not inference from one
   zero-hit run.

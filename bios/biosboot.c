@@ -35,7 +35,7 @@ static BOOL setfdcmode(REG8 drv, REG8 type, REG8 rpm) {
 	return (SUCCESS);
 }
 
-void fddbios_equip(REG8 type, BOOL clear) {
+void biosboot_fdd_equip(REG8 type, BOOL clear) {
 	REG16 diskequip;
 
 	diskequip = GETBIOSMEM16(MEMW_DISK_EQUIP);
@@ -136,14 +136,14 @@ static UINT16 boot_fd(REG8 drv, REG8 type) {
 		bootseg = boot_fd1(3, 0);
 		if (bootseg) {
 			mem[MEMB_DISK_BOOT] = (UINT8)(0x90 + drv);
-			fddbios_equip(3, TRUE);
+			biosboot_fdd_equip(3, TRUE);
 			return (bootseg);
 		}
 		// 1.44MB
 		bootseg = boot_fd1(3, 1);
 		if (bootseg) {
 			mem[MEMB_DISK_BOOT] = (UINT8)(0x30 + drv);
-			fddbios_equip(3, TRUE);
+			biosboot_fdd_equip(3, TRUE);
 			return (bootseg);
 		}
 	}
@@ -152,7 +152,7 @@ static UINT16 boot_fd(REG8 drv, REG8 type) {
 		bootseg = boot_fd1(0, 0);
 		if (bootseg) {
 			mem[MEMB_DISK_BOOT] = (BYTE)(0x70 + drv);
-			fddbios_equip(0, TRUE);
+			biosboot_fdd_equip(0, TRUE);
 			return (bootseg);
 		}
 	}
@@ -170,7 +170,7 @@ static REG16 boot_hd(REG8 drv) {
 	return (0);
 }
 
-REG16 bootstrapload(void) {
+REG16 biosboot_load(void) {
 	BYTE i;
 	REG16 bootseg;
 
@@ -232,7 +232,7 @@ REG16 bootstrapload(void) {
 
 // --------------------------------------------------------------------------
 
-UINT bios0x1b_wait(void) {
+UINT biosboot_wait(void) {
 	UINT addr;
 	REG8 bit;
 
