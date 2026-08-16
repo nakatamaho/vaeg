@@ -216,10 +216,6 @@ set(VAEG_CORE_SOURCES
     sound/getsnd/getwave.c
     sound/getsnd/getsmix.c
     bios/bios.c
-    bios/bios09.c
-    bios/bios0c.c
-    bios/bios12.c
-    bios/bios13.c
     bios/bios1b.c
     bios/sxsibios.c
     sound/sound.c
