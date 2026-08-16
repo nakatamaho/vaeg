@@ -22,6 +22,7 @@
  * IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
+#include <string.h>
 #include "compiler.h"
 #include "sdlapi.h"
 #include "scrnmng.h"
@@ -29,6 +30,11 @@
 #include "np2ver.h"
 #include "machine/pccore.h"
 #include "sgp.h"
+#include "videova.h"
+#include "tsp.h"
+#include "fontdata.h"
+#include "diskdrv.h"
+#include "fddfile.h"
 #include "appicon.h"
 #include "framedisp.h"
 
@@ -87,6 +93,7 @@ static SCRNSURF scrnsurf;
 static VAEG_SPEEDMETER speedmeter;
 
 static BOOL scrnmng_calculate_viewport(VAEG_VIEWPORT *viewport);
+static void scrnmng_draw_video_info_overlay(const VAEG_VIEWPORT *viewport);
 
 static void scrnmng_capture_dummy_frame(void) {
 	VAEG_VIEWPORT viewport;
@@ -190,8 +197,48 @@ static void scrnmng_update_speedmeter(UINT32 tick, UINT32 frames) {
 	speedmeter.fps_tenths = (UINT32)fps_tenths;
 }
 
+static const char *scrnmng_fdd_title_path(int drive) {
+	const char *path;
+
+	path = fdd_diskname((REG8)drive);
+	if ((path == NULL) || (path[0] == '\0')) {
+		path = diskdrv_fname[drive];
+	}
+	return ((path != NULL) ? path : "");
+}
+
+static const char *scrnmng_fdd_display_name(const char *path) {
+	const char *name;
+	const char *separator;
+
+	name = path;
+	separator = strrchr(name, '/');
+	if (separator != NULL) {
+		name = separator + 1;
+	}
+	separator = strrchr(name, '\\');
+	if (separator != NULL) {
+		name = separator + 1;
+	}
+	return name;
+}
+
+static void scrnmng_append_fdd_title(char *title, size_t title_size, int *length, int drive) {
+	const char *path;
+	const char *name;
+
+	if ((title == NULL) || (length == NULL) || (*length < 0) ||
+	    ((size_t)*length >= title_size)) {
+		return;
+	}
+	path = scrnmng_fdd_title_path(drive);
+	name = (path[0] != '\0') ? scrnmng_fdd_display_name(path) : "Empty";
+	*length += snprintf(title + *length, title_size - (size_t)*length, " - FDD%d: %s", drive + 1,
+	                    name);
+}
+
 static void scrnmng_update_title(void) {
-	char title[192];
+	char title[512];
 	UINT32 cpu_clock;
 	UINT32 sgp_clock;
 	int length;
@@ -202,6 +249,10 @@ static void scrnmng_update_title(void) {
 	cpu_clock = scrnmng_measured_clock(pccore_cpu_clock());
 	sgp_clock = scrnmng_measured_clock(sgp_effective_clock());
 	length = snprintf(title, sizeof(title), "%s", app_name);
+	if ((np2oscfg.DISPCLK & VAEG_DISPINFO_FDD) != 0) {
+		scrnmng_append_fdd_title(title, sizeof(title), &length, 0);
+		scrnmng_append_fdd_title(title, sizeof(title), &length, 1);
+	}
 	if ((np2oscfg.DISPCLK & VAEG_DISPINFO_CPU_CLOCK) && (length >= 0) &&
 	    ((size_t)length < sizeof(title))) {
 		length += snprintf(title + length, sizeof(title) - (size_t)length, " - CPU %u.%04uMHz",
@@ -227,6 +278,151 @@ static void scrnmng_update_title(void) {
 	SDL_SetWindowTitle(scrnmng.window, title);
 }
 
+static int scrnmng_video_bpp(UINT mode) {
+	switch (mode & 3) {
+	case 0:
+		return 1;
+	case 1:
+		return 4;
+	case 2:
+		return 8;
+	default:
+		return 16;
+	}
+}
+static unsigned int scrnmng_video_colors(int bpp) {
+	if (bpp >= 16) {
+		return 65536;
+	}
+	return 1U << bpp;
+}
+static void scrnmng_format_video_line(char *line, size_t line_size, const char *label, int width,
+                                      int height, int bpp) {
+	if (bpp >= 16) {
+		(void)snprintf(line, line_size, "%s %dx%d %dbpp direct (%u colors)", label, width, height,
+		               bpp, scrnmng_video_colors(bpp));
+	} else {
+		(void)snprintf(line, line_size, "%s %dx%d %dbpp %u colors", label, width, height, bpp,
+		               scrnmng_video_colors(bpp));
+	}
+}
+static void scrnmng_draw_text_glyphs(int x, int y, int scale, const char *text, SDL_Color color) {
+	const unsigned char *glyph;
+	int character;
+	int row;
+	int bit;
+
+	if ((text == NULL) || (scale <= 0)) {
+		return;
+	}
+	SDL_SetRenderDrawColor(scrnmng.renderer, color.r, color.g, color.b, color.a);
+	while (*text != '\0') {
+		character = (unsigned char)*text++;
+		glyph = fontdata_8 + (character * 8);
+		for (row = 0; row < 8; row++) {
+			for (bit = 0; bit < 8; bit++) {
+				if ((glyph[row] & (0x80 >> bit)) != 0) {
+					SDL_Rect pixel = {x + bit * scale, y + row * scale, scale, scale};
+					SDL_RenderFillRect(scrnmng.renderer, &pixel);
+				}
+			}
+		}
+		x += 8 * scale;
+	}
+}
+static int scrnmng_menu_offset(void) {
+	int window_width;
+	int window_height;
+	int output_width;
+	int output_height;
+
+	if ((scrnmng.window == NULL) || (scrnmng.renderer == NULL)) {
+		return 0;
+	}
+	SDL_GetWindowSize(scrnmng.window, &window_width, &window_height);
+	if ((SDL_GetRendererOutputSize(scrnmng.renderer, &output_width, &output_height) != 0) ||
+	    (window_height <= 0) || (output_height <= 0)) {
+		return scrnmng.menu_height;
+	}
+	return (int)(((SINT64)scrnmng.menu_height * output_height + (window_height / 2)) /
+	             window_height);
+}
+
+static void scrnmng_draw_video_info_overlay(const VAEG_VIEWPORT *viewport) {
+	char lines[4][96];
+	int graphics_height;
+	int text_height;
+	int g0_width;
+	int g1_width;
+	int g0_bpp;
+	int g1_bpp;
+	int scale;
+	int line_height;
+	int width;
+	int height;
+	int output_width;
+	int output_height;
+	int i;
+	SDL_Rect background;
+	SDL_Color text_color;
+
+	if ((viewport == NULL) || (!viewport->valid) ||
+	    ((np2oscfg.DISPCLK & VAEG_DISPINFO_VIDEO) == 0)) {
+		return;
+	}
+	if ((SDL_GetRendererOutputSize(scrnmng.renderer, &output_width, &output_height) != 0) ||
+	    (output_width <= 0) || (output_height <= 0)) {
+		return;
+	}
+	graphics_height = (videova.grmode & 0x0002) ? 200 : 400;
+	text_height = (tsp.screenlines != 0) ? tsp.screenlines : graphics_height;
+	g0_width = (videova.grres & 0x0010) ? 320 : 640;
+	g1_width = (videova.grres & 0x1000) ? 320 : 640;
+	g0_bpp = scrnmng_video_bpp(videova.grres);
+	g1_bpp = scrnmng_video_bpp(videova.grres >> 8);
+	scrnmng_format_video_line(lines[0], sizeof(lines[0]), "TEXT", 640, text_height, 4);
+	scrnmng_format_video_line(lines[1], sizeof(lines[1]), "SPRITE", 640, text_height, 4);
+	scrnmng_format_video_line(lines[2], sizeof(lines[2]), "G0", g0_width, graphics_height, g0_bpp);
+	scrnmng_format_video_line(lines[3], sizeof(lines[3]), "G1", g1_width, graphics_height, g1_bpp);
+
+	scale = (int)viewport->scale_x;
+	if (scale < 1) {
+		scale = 1;
+	}
+	if (scale > 3) {
+		scale = 3;
+	}
+	line_height = 8 * scale;
+	width = 0;
+	for (i = 0; i < 4; i++) {
+		const int length = (int)strlen(lines[i]);
+		if (length > width) {
+			width = length;
+		}
+	}
+	width = width * 8 * scale + 8 * scale;
+	height = line_height * 4 + 8 * scale;
+	if ((width >= output_width) || (height >= output_height)) {
+		return;
+	}
+	background.x = output_width - width;
+	background.y = scrnmng_menu_offset() + 2;
+	background.w = width;
+	background.h = height;
+	SDL_SetRenderDrawBlendMode(scrnmng.renderer, SDL_BLENDMODE_BLEND);
+	SDL_SetRenderDrawColor(scrnmng.renderer, 0, 0, 0, 190);
+	SDL_RenderFillRect(scrnmng.renderer, &background);
+	text_color.r = 255;
+	text_color.g = 255;
+	text_color.b = 192;
+	text_color.a = 255;
+	for (i = 0; i < 4; i++) {
+		scrnmng_draw_text_glyphs(background.x + 4 * scale,
+		                         background.y + 4 * scale + i * line_height, scale, lines[i],
+		                         text_color);
+	}
+	SDL_SetRenderDrawBlendMode(scrnmng.renderer, SDL_BLENDMODE_NONE);
+}
 static void scrnmng_log_renderer(void) {
 	SDL_RendererInfo info;
 	const char *name;
@@ -439,6 +635,7 @@ BOOL scrnmng_create(int width, int height) {
 	}
 	scrnmng_clear_shadow();
 	scrnmng.enable = TRUE;
+	scrnmng_update_title();
 	return (SUCCESS);
 }
 
@@ -589,10 +786,10 @@ BOOL scrnmng_map_window_point(int window_x, int window_y, int *guest_x, int *gue
 	VAEG_VIEWPORT viewport;
 	int window_width;
 	int window_height;
-	int output_width;
-	int output_height;
 	int drawable_x;
 	int drawable_y;
+	int output_width;
+	int output_height;
 
 	if (scrnmng_calculate_viewport(&viewport) != SUCCESS) {
 		return (FAILURE);
@@ -866,8 +1063,13 @@ void scrnmng_present_begin(void) {
 }
 
 void scrnmng_present_end(void) {
+	VAEG_VIEWPORT viewport;
+
 	if ((!scrnmng.enable) || (scrnmng.renderer == NULL)) {
 		return;
+	}
+	if (scrnmng_calculate_viewport(&viewport) == SUCCESS) {
+		scrnmng_draw_video_info_overlay(&viewport);
 	}
 	if (scrnmng.rendered_capture_enabled) {
 		scrnmng_capture_rendered_frame();

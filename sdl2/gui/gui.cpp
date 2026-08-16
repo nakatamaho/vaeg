@@ -1376,14 +1376,27 @@ static const char *hdd_interface_name(int drive) {
 	return (hdd_is_scsi(drive) ? "SCSI ID " : "SASI-");
 }
 
+static std::string display_file_name(const char *path) {
+	if ((path == nullptr) || (path[0] == '\0')) {
+		return std::string();
+	}
+	std::string name = fs::u8path(path).filename().u8string();
+	const std::size_t separator = name.find_last_of("/\\");
+	if (separator != std::string::npos) {
+		name.erase(0, separator + 1);
+	}
+	return name;
+}
+
 static void set_fdd_status(int drive, const char *action, const char *path) {
 	g_gui.fdd_status = "FDD";
 	g_gui.fdd_status += static_cast<char>('1' + drive);
 	g_gui.fdd_status += ' ';
 	g_gui.fdd_status += action;
-	if ((path != nullptr) && (path[0] != '\0')) {
+	const std::string name = display_file_name(path);
+	if (!name.empty()) {
 		g_gui.fdd_status += ": ";
-		g_gui.fdd_status += path;
+		g_gui.fdd_status += name;
 	}
 }
 
@@ -1396,9 +1409,10 @@ static void set_hdd_status(int drive, const char *action, const char *path) {
 	}
 	g_gui.hdd_status += ' ';
 	g_gui.hdd_status += action;
-	if ((path != nullptr) && (path[0] != '\0')) {
+	const std::string name = display_file_name(path);
+	if (!name.empty()) {
 		g_gui.hdd_status += ": ";
-		g_gui.hdd_status += path;
+		g_gui.hdd_status += name;
 	}
 }
 
@@ -1747,7 +1761,7 @@ static void create_new_fdd_image(void) {
 		set_fdd_status(drive, "created and mounted", path.c_str());
 	} else {
 		g_gui.fdd_status = "New FDD image created: ";
-		g_gui.fdd_status += path;
+		g_gui.fdd_status += display_file_name(path.c_str());
 	}
 	g_gui.new_fdd_open = false;
 }
@@ -1787,7 +1801,7 @@ static void create_new_sasi_image(void) {
 		set_hdd_status(drive, "created and configured; reset to apply", path.c_str());
 	} else {
 		g_gui.hdd_status = "New SASI image created: ";
-		g_gui.hdd_status += path;
+		g_gui.hdd_status += display_file_name(path.c_str());
 	}
 	g_gui.new_sasi_open = false;
 }
@@ -1828,7 +1842,7 @@ static void create_new_scsi_image(void) {
 		set_hdd_status(0x20 | drive, "created and configured; reset to apply", path.c_str());
 	} else {
 		g_gui.hdd_status = "New SCSI image created: ";
-		g_gui.hdd_status += path;
+		g_gui.hdd_status += display_file_name(path.c_str());
 	}
 	g_gui.new_scsi_open = false;
 }
@@ -2299,14 +2313,14 @@ static void draw_fdd_mount_state(int drive) {
 		ImGui::TextDisabled("FDD%d: Empty", drive + 1);
 		return;
 	}
-	const std::string name = fs::u8path(path).filename().u8string();
+	const std::string name = display_file_name(path);
 	if (inserting) {
 		ImGui::Text("FDD%d: %s (inserting)", drive + 1, name.c_str());
 	} else {
 		ImGui::Text("FDD%d: %s", drive + 1, name.c_str());
 	}
 	if (ImGui::IsItemHovered()) {
-		ImGui::SetTooltip("%s", path);
+		ImGui::SetTooltip("%s", name.c_str());
 	}
 }
 
@@ -2325,10 +2339,10 @@ static void draw_hdd_mount_state(int drive) {
 		ImGui::TextDisabled("%s: Empty", label.c_str());
 		return;
 	}
-	const std::string name = fs::u8path(path).filename().u8string();
+	const std::string name = display_file_name(path);
 	ImGui::Text("%s: %s", label.c_str(), name.c_str());
 	if (ImGui::IsItemHovered()) {
-		ImGui::SetTooltip("%s", path);
+		ImGui::SetTooltip("%s", name.c_str());
 	}
 }
 
@@ -3069,6 +3083,12 @@ static void set_info_layer(UINT layer, bool enabled) {
 
 static void draw_info_menu(void) {
 	if (ImGui::BeginMenu("Info / 情報")) {
+		bool show_fdd = (np2oscfg.DISPCLK & VAEG_DISPINFO_FDD) != 0;
+		if (ImGui::MenuItem("Show FDD", nullptr, show_fdd)) {
+			np2oscfg.DISPCLK ^= VAEG_DISPINFO_FDD;
+			scrnmng_refresh_title();
+			sysmng_update(SYS_UPDATEOSCFG);
+		}
 		bool show_fps = (np2oscfg.DISPCLK & VAEG_DISPINFO_FPS) != 0;
 		if (ImGui::MenuItem("Show FPS", nullptr, show_fps)) {
 			np2oscfg.DISPCLK ^= VAEG_DISPINFO_FPS;
@@ -3091,6 +3111,11 @@ static void draw_info_menu(void) {
 		if (ImGui::MenuItem("Show frame", nullptr, show_frame)) {
 			np2oscfg.DISPCLK ^= VAEG_DISPINFO_FRAME;
 			scrnmng_set_framedisp((np2oscfg.DISPCLK & VAEG_DISPINFO_FRAME) ? TRUE : FALSE);
+			sysmng_update(SYS_UPDATEOSCFG);
+		}
+		bool show_video = (np2oscfg.DISPCLK & VAEG_DISPINFO_VIDEO) != 0;
+		if (ImGui::MenuItem("Show video info overlay", nullptr, show_video)) {
+			np2oscfg.DISPCLK ^= VAEG_DISPINFO_VIDEO;
 			sysmng_update(SYS_UPDATEOSCFG);
 		}
 		ImGui::Separator();
