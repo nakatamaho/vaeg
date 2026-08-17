@@ -358,6 +358,8 @@ tests/upd9002/m68_segmented_memory.c
 tests/upd9002/m68_segmented_memory.h
 tests/upd9002/m70_prefix_string.c
 tests/upd9002/m70_prefix_string.h
+tests/upd9002/m96d_nop.c
+tests/upd9002/m96d_nop.h
 tests/upd9002/mov_imm_register.c
 tests/upd9002/mov_imm_register.h
 tests/upd9002/rep0f_diagnostic_stop.c
