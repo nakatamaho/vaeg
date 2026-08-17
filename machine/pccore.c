@@ -9,7 +9,6 @@
 #include "iocore.h"
 #include "cbuscore.h"
 #include "mpu98ii.h"
-#include "bios.h"
 #include "romva.h"
 #include "biosmem.h"
 #include "scrndraw.h"
@@ -382,7 +381,6 @@ void pccore_reset(void) {
 	fddmtr_initialize();
 	calendar_initialize();
 
-	bios_initialize();
 	romva_initialize();
 	va91_initialize();
 	CS_BASE = 0xf0000;

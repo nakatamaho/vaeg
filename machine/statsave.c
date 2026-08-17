@@ -13,7 +13,6 @@
 #include "sasiio.h"
 #include "scsiio.h"
 #include "mpu98ii.h"
-#include "bios.h"
 #include "sound.h"
 #include "fmboard.h"
 #include "beep.h"

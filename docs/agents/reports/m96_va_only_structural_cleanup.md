@@ -357,6 +357,102 @@ No supported-workload behavior difference has been observed; M96d therefore
 records a removed latent simulated-BIOS NOP hook rather than a demonstrated
 guest-visible bug.
 
+## 14. M96e simulated-BIOS producer/consumer audit
+
+The M96d change removes the only production caller of `biosfunc()`: the
+physical-address side channel in the uPD9002 NOP handler. A complete tracked
+source search at the M96e starting point found no other caller of
+`biosfunc()`, `bios_itfcall()`, `bios_itfprepare()`, `bios_memclear()`,
+`bios_vectorset()`, `bios_reinitbyswitch()`, `setbiosseed()`, or
+`bios_initialize()` other than the reset call listed below. The reset call is
+removed in M96e1 after this audit; native VA ROM setup remains in
+`romva_initialize()`.
+
+### 14.1 `bios_initialize()` producer/consumer map
+
+| Produced range or value | Producer | Production consumer after M96d | CPU-visible through native VA decoder | Decision |
+| --- | --- | --- | --- | --- |
+| `mem + 0xe8000` (`bios.rom`, `nosyscode`, checksum seed) | `bios_initialize()` | None; no host reader found | No; VA `E0000h-EEFFFh` is backed by `rom0mem`, not flat `mem[]` | Remove simulated initializer |
+| `mem + 0xfd800` (`biosfd80`, FDD format tables, key table) | `bios_initialize()` | None after `biosfunc()` removal | No; VA ROM1 is backed by `rom1mem` | Remove simulated initializer; retain generated resources as separate backlog |
+| `mem + 0xfffe8` / `0xfffec` bootstrap stubs | `bios_initialize()` | None after `biosfunc()` removal | No; the VA `F0000h-FFFFFh` window reads `rom1mem` | Remove simulated initializer |
+| `mem + ITF_ADRS` (`0x1f8000`) and `0x1c0000` shadow | `bios_initialize()` | None; no production reader found | No native CPU route; these are raw host `mem[]` storage | Remove simulated initializer |
+| `mem + 0x1e8000` BIOS shadow | `bios_initialize()` | None; no production reader found | No native CPU route | Remove simulated initializer |
+| `pccore.rom |= PCROM_BIOS` | `bios_initialize()` | None after removing the old `bios.rom` path | N/A | Remove with simulated initializer |
+
+`machine/pccore.c` now initializes the CPU-visible native VA ROMs only through
+`romva_initialize()`. `memoryva/memoryva.c` maps the F0000H-FFFFFH window to
+`rom1mem` and the lower VA ROM window to `rom0mem`; it does not expose the
+simulated BIOS bytes written to flat `mem[]`. Direct host reads of the audited
+ranges are absent from production source. This distinguishes guest-visible
+ROM backing from emulator-only flat-memory storage and avoids treating host
+storage as a hardware memory map.
+
+### 14.2 Simulated-BIOS helper reachability
+
+| Function | Baseline callers | Callers after M96d | M96e decision |
+| --- | --- | --- | --- |
+| `bios_initialize()` | `machine/pccore.c:pccore_reset()` | Same single reset caller before M96e1 | Remove call and simulated initializer |
+| `biosfunc()` | uPD9002 `_nop()` only | None | Remove definition with simulated BIOS C dispatch |
+| `bios_itfcall()` | `biosfunc()` ITF case | None | Remove with `bios.c` |
+| `bios_itfprepare()` | `bios_itfcall()` | None | Remove with `bios.c` |
+| `bios_memclear()` | `bios_itfcall()` and INIT case | None | Remove with `bios.c` |
+| `bios_vectorset()` | `bios_itfcall()` and INIT case | None | Remove with `bios.c` |
+| `bios_reinitbyswitch()` | `bios_itfcall()` and INIT case | None | Remove with `bios.c` |
+| `setbiosseed()` | `bios_initialize()` | None after reset call removal | Remove with `bios.c` |
+| `msw_default[]` | `bios_itfcall()` | None | Remove with `bios.c` |
+| `iodata[]` / `neccheck` | `bios_initialize()` / `bios_itfprepare()` | None | Remove with `bios.c` |
+
+The `CPU_ITFBANK` guard in the removed `biosfunc()` is not used as evidence
+for deleting the serialized CPU field; that state decision remains in M96g.
+
+### 14.3 `biosboot.c` function-by-function disposition
+
+At the M96e starting point all callers below were inside `bios.c`. There are
+no callers from FDD, SASI, SCSI, reset, state-load, or host frontend code.
+The file is therefore scheduled for M96e2 deletion after M96e1 removes the
+dispatch that referenced it.
+
+| Function | Baseline production callers | Callers after M96d / M96e1 | Decision |
+| --- | --- | --- | --- |
+| `biosboot_fdd_equip()` | `bios_reinitbyswitch()`, `boot_fd()`, `boot_fd1()` through `bios.c` | None | Delete |
+| `biosboot_load()` | `biosfunc()` cases `0xfffe8` and `0xfffec` | None | Delete |
+| `biosboot_wait()` | `biosfunc()` case `BIOSOFST_WAIT` | None | Delete |
+
+`biosboot.c` is not the live FDD/SASI/SCSI device implementation. Those paths
+remain under `io/`, `fdd/`, `cbus/`, and `bios/sxsibios.c` as applicable.
+
+### 14.4 Live BIOS work-area consumers
+
+The simulated bootstrap work-area header is reduced only after the dispatch
+deletion. The following definitions have live production consumers and are
+retained:
+
+| Definition | Consumer | Classification |
+| --- | --- | --- |
+| `MEMW_DISK_EQUIP` (`0x055c`) | `bios/sxsibios.c` SASI initialization | Emulator representation of guest disk-equipment state |
+| `MEMB_DISK_EQUIPS` (`0x0482`) | `bios/sxsibios.c` SCSI initialization | Emulator representation of guest disk-equipment state |
+| `MEMX_MSW` (`0xa3fe2`) | `machine/pccore.c:pccore_cfgupdate()` | VA memory-switch synchronization state; source authority remains unresolved in this report |
+
+All other `biosmem.h` definitions are referenced only by the removed
+simulated BIOS/bootstrap path or by the M96d test's historical selector. The
+test now uses a local named offset so that dead simulated-BIOS definitions do
+not remain in the production header.
+
+### 14.5 Read-only `romimage/` inventory
+
+`romimage/` is protected by S2. This inventory records provenance and live
+consumers only; every action is `READ_ONLY`.
+
+| Generated or source payload | Included by | Generator/source | Live consumer | M96 action |
+| --- | --- | --- | --- | --- |
+| `romimage/bios/biosfd80.asm` | No active CMake translation unit | Historical simulated BIOS source | None after M96e | `READ_ONLY` |
+| `romimage/bios/biosmain.x86` | No active CMake translation unit | Historical BIOS image source | None after M96e | `READ_ONLY` |
+| `romimage/itf.asm`, `romimage/itf.mk`, `romimage/itfd.mk` | External ROM-generation workflow | VA ITF ROM source | Native ROM build workflow, outside active CMake | `READ_ONLY` |
+| `romimage/hddboot.asm`, `romimage/idebios.asm` | External ROM-generation workflow | VA storage bootstrap sources | Native ROM build workflow, outside active CMake | `READ_ONLY` |
+| `romimage/sasibios.asm`, `romimage/scsibios.asm` | External ROM-generation workflow | C-bus storage BIOS sources | ROM-generation workflow; emulator C-bus remains live | `READ_ONLY` |
+
+No `romimage/` file is edited, deleted, regenerated, or replaced by M96e.
+
 ## 10. Validation at baseline
 
 | Check | Result |
