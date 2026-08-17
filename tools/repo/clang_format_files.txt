@@ -27,7 +27,6 @@ bios/biosmem.h
 bios/fdfmt.h
 bios/romva.c
 bios/romva.h
-bios/rsbios.h
 bios/sxsibios.c
 bios/sxsibios.h
 cbus/cbuscore.c

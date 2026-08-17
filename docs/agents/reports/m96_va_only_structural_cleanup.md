@@ -25,8 +25,8 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ## M96 status
 
-M96a was report-only and passed G96a. M96b1 now removes only the proven-dead
-EGC/GRCG residue. No ROM, disk, font, icon, cursor, or wave payload was
+M96a was report-only and passed G96a. M96b removes only proven-dead residue
+after the staged reachability review. No ROM, disk, font, icon, cursor, or wave payload was
 modified. The working branch is `topic/m96-va-only-structural-cleanup`.
 
 The task file was absent at the evaluated baseline. This commit adds the
@@ -147,17 +147,18 @@ Both reviews inspect the same baseline and treat S1-S4 as settled facts.
 | `oprecord.c` | Not built and guarded by undefined `SUPPORT_OPRECORD` | Out-of-tree operation-record compatibility may still be intentional | `DEFER_INSUFFICIENT_EVIDENCE` | M72 explicitly left `SUPPORT_OPRECORD` for focused audit |
 | `common/wavefile.*` | Not built and guarded by undefined `SUPPORT_WAVEREC` | Recording is an optional historical interface; verify all supported definitions first | `DEFER_INSUFFICIENT_EVIDENCE` | M72 left `SUPPORT_WAVEREC` for focused audit |
 | `io/np2vasup.*` | Stub is unreferenced by production CMake | Header explicitly says it is retained for out-of-tree users | `RETAIN_COMPATIBILITY` | File comment and no active selector |
-| `generic/unasm*`, `cmndraw*`, `dipswbmp*`, `common/mimpidef.*` | Self-contained, not built, and unreferenced | They may serve offline tools; deletion must not remove tool workflows accidentally | `DELETE` candidates / tool audit required | CMake and reference census |
-| `sound/tms3631*`, `bios/rsbios.h` | No active CMake or symbol path | Legacy names alone are not enough; check generated/tool consumers | `DELETE` candidates | Production search has no consumers |
+| `generic/unasm*`, `cmndraw*`, `dipswbmp*`, `common/mimpidef.*` | Self-contained, not built, and unreferenced | No tracked production or tool consumer remains | `DELETE` in M96b4 | CMake and reference census |
+| `sound/tms3631*`, `bios/rsbios.h` | No active CMake or symbol path | No generated/tool consumer remains | `DELETE` in M96b4 | Production and tool search has no consumers |
 | `cbus/scsibios.res` | Payload is not included; `cbus/sasibios.res` is the live SASI payload | C-bus itself is live under S1; deleting one unused payload must not touch device code | `DELETE` candidate | `cbus/sasiio.c` includes `sasibios.res`, not `scsibios.res` |
 | `fdd/fdd_mtr.res` | Payload is not included; active motor sound loads external WAV files | FDD motor behavior is live and must remain | `DELETE` candidate | `fdd/fdd_mtr.c` uses WAV names, not the resource |
 
 ## 6. Reachability freeze for M96b candidates
 
-The following is preliminary evidence, not permission to delete before G96a.
-`find_unreferenced.py` reported 71 items, including protected ROM generators,
-guest tools, and the candidates below. M96b must add one final row per deleted
-file with build, include, symbol, runtime, hardware, and historical evidence.
+The B1-B3 evidence is committed. B4 applies the same proof to the remaining
+NP2 utility and generated-payload candidates. `find_unreferenced.py` reported
+57 items after B3, including protected ROM generators, guest tools, and the
+candidates below. M96b adds one final row per deleted file with build,
+include, symbol, runtime, hardware, and historical evidence.
 
 | Candidate group | CMake entry at baseline | Active include/symbol evidence | Initial decision |
 | --- | --- | --- | --- |
@@ -165,7 +166,7 @@ file with build, include, symbol, runtime, hardware, and historical evidence.
 | Generic VRAM (`vram/vram.*`) | `vram.c` and `vram.h` removed; prior includes were stale | No production use of `vramop`, `tramupdate`, `vramupdate`, `VOP_*`, or `MEMWAIT_*` outside deleted EGC code | `DELETE` in M96b2 |
 | PC-98 I/O (`io/dipsw.*`, `io/necio.*`, `io/cpuio.*`, `io/fdd320.*`, `io/printif.*`, `io/iocore16.tbl`) | Absent | No runtime registration; `np2cfg.dipsw` and `CPU_ITFBANK` uses are separate live/state paths | `DELETE` or defer by per-file proof |
 | NP2 utility residue | Absent | `oprecord` and `wavefile` are macro-guarded; `np2vasup` explicitly retained as stub | Defer macro-guarded items; retain compatibility stub; audit others |
-| Generated legacy payloads | Absent | `scsibios.res` and `fdd_mtr.res` have no production include | `DELETE` candidate; no C-bus/FDD code deletion |
+| Generated legacy payloads | Absent | `scsibios.res` and `fdd_mtr.res` have no production include | `DELETE` in M96b4; no C-bus/FDD code deletion |
 
 `romimage/` files reported by the tool are read-only and are not M96b
 deletion candidates.
@@ -241,6 +242,45 @@ interface. It is deferred rather than deleted by its historical name.
 | `io/fdd320.c` | Yes | No production include | No live route found | Hardware ownership unresolved; prior M72 preservation note | `b04c6203` (`M86: update machine core references`) | `DEFER_INSUFFICIENT_EVIDENCE` |
 | `io/fdd320.h` | Yes | No production include | No live route found | Hardware ownership unresolved; companion header | `2baf50de` (`M4: lowercase all tracked paths`) | `DEFER_INSUFFICIENT_EVIDENCE` |
 
+### 6.4 M96b4 B4 deletion and preservation proof
+
+The B4 utility sources are not in any production CMake source list and have
+no production include or symbol consumer. `oprecord.*` and `common/wavefile.*`
+are deliberately retained: active files include their headers unconditionally,
+and their APIs remain a compatibility surface when the corresponding optional
+macros are enabled by an out-of-tree build. `io/np2vasup.*` is also retained
+because its source comment explicitly documents that out-of-tree contract.
+
+The two deleted `.res` files are generated payloads, not live device code.
+The active C-bus SASI path includes `sasibios.res`; no production unit includes
+`scsibios.res`. The active FDD motor implementation loads external WAV files
+(`seek.wav`, `seek1.wav`, `headon.wav`, and `headoff.wav`) and does not include
+`fdd_mtr.res`.
+
+| File | CMake absent | Include absent | Symbol/runtime result | Hardware classification | Last historical reference | Decision |
+| --- | --- | --- | --- | --- | --- | --- |
+| `generic/unasm.c` | Yes | Yes | Self-contained `unasm()` only | Obsolete unbuilt disassembler utility | `b04c6203` (`M86: update machine core references`) | `DELETE` |
+| `generic/unasm.h` | Yes | Yes | No declaration consumer | Obsolete companion declaration | `2baf50de` (`M4: lowercase all tracked paths`) | `DELETE` |
+| `generic/unasmdef.tbl` | N/A | Only deleted `unasm.c` | No external consumer | Obsolete disassembler table | `b04c6203` (`M86: update machine core references`) | `DELETE` |
+| `generic/unasmfpu.tbl` | N/A | Only deleted `unasm.c` | No external consumer | Obsolete disassembler table | `b04c6203` (`M86: update machine core references`) | `DELETE` |
+| `generic/unasmop.tbl` | N/A | Only deleted `unasm.c` | No external consumer | Obsolete disassembler table | `b04c6203` (`M86: update machine core references`) | `DELETE` |
+| `generic/unasmop3.tbl` | N/A | Only deleted `unasm.c` | No external consumer | Obsolete disassembler table | `b04c6203` (`M86: update machine core references`) | `DELETE` |
+| `generic/unasmop8.tbl` | N/A | Only deleted `unasm.c` | No external consumer | Obsolete disassembler table | `b04c6203` (`M86: update machine core references`) | `DELETE` |
+| `generic/unasmstr.tbl` | N/A | Only deleted `unasm.c` | No external consumer | Obsolete disassembler table | `b04c6203` (`M86: update machine core references`) | `DELETE` |
+| `generic/cmndraw.c` | Yes | Yes | Self-contained host bitmap helpers only | Obsolete unbuilt generic renderer | `b04c6203` (`M86: update machine core references`) | `DELETE` |
+| `generic/cmndraw.h` | Yes | Yes | No declaration consumer | Obsolete companion declaration | `2baf50de` (`M4: lowercase all tracked paths`) | `DELETE` |
+| `generic/dipswbmp.c` | Yes | Only deleted `dipswbmp.h` | No `dipswbmp_*` consumer | Obsolete unbuilt legacy option bitmap resource | `b04c6203` (`M86: update machine core references`) | `DELETE` |
+| `generic/dipswbmp.h` | Yes | Yes | No declaration consumer | Obsolete companion declaration | `2baf50de` (`M4: lowercase all tracked paths`) | `DELETE` |
+| `generic/dipswbmp.res` | N/A | Only deleted `dipswbmp.c` | No external consumer | Obsolete unbuilt option bitmap payload | `b04c6203` (`M86: update machine core references`) | `DELETE` |
+| `common/mimpidef.c` | Yes | Only deleted `mimpidef.h` | No `mimpidef_load` consumer | Obsolete unbuilt MIMPI definition parser | `b04c6203` (`M86: update machine core references`) | `DELETE` |
+| `common/mimpidef.h` | Yes | Yes | No declaration consumer | Obsolete companion declaration | `2baf50de` (`M4: lowercase all tracked paths`) | `DELETE` |
+| `sound/tms3631.h` | Yes | Yes | No `tms3631_*` consumer | Obsolete unbuilt TMS3631 sound path | `b04c6203` (`M86: update machine core references`) | `DELETE` |
+| `sound/tms3631c.c` | Yes | Only deleted TMS header | No runtime registration | Obsolete unbuilt TMS3631 implementation | `b04c6203` (`M86: update machine core references`) | `DELETE` |
+| `sound/tms3631g.c` | Yes | Only deleted TMS header | No runtime registration | Obsolete unbuilt TMS3631 implementation | `b04c6203` (`M86: update machine core references`) | `DELETE` |
+| `bios/rsbios.h` | Yes | Yes | No `RSBIOS` consumer | Obsolete unbuilt serial BIOS layout | `b04c6203` (`M86: update machine core references`) | `DELETE` |
+| `cbus/scsibios.res` | Yes | Yes | `sasibios.res` is live; this payload has no consumer | Obsolete duplicate C-bus SCSI payload; C-bus code remains live | `b04c6203` (`M86: update machine core references`) | `DELETE` |
+| `fdd/fdd_mtr.res` | Yes | Yes | `fdd_mtr.c` loads external WAV files | Obsolete embedded motor-sound payload; FDD motor code remains live | `b04c6203` (`M86: update machine core references`) | `DELETE` |
+
 ## 7. Retained legacy-looking names
 
 These names are not deletion evidence. Their baseline disposition is:
@@ -288,6 +328,15 @@ untracked `docs/tekumani/` path.
 
 The MinGW build used the repository-supported `mingw-cross` preset. No
 source-changing M96 work was included in either build.
+
+M96b submilestone validation so far:
+
+| Submilestone | Linux configure/build | Linux selftest | MinGW cross-build | Notes |
+| --- | --- | --- | --- | --- |
+| M96b1 | PASS | PASS | PASS | EGC/GRCG residue removed |
+| M96b2 | PASS | PASS | PASS | Generic VRAM residue and stale includes removed |
+| M96b3 | PASS | PASS | PASS (`ninja: no work to do`) | Legacy I/O residue removed; `cpuio` and `fdd320` retained/deferred |
+| M96b4 | PASS | PASS | PASS (`ninja: no work to do`) | Utility/resource residue removed; optional `oprecord`/wave recording surfaces retained |
 
 ## 11. Corrections against earlier reports
 
