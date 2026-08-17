@@ -390,10 +390,8 @@ vram/makesprva.c
 vram/makesprva.h
 vram/maketextva.c
 vram/maketextva.h
-vram/palettesva.c
 vram/scrndraw.h
 vram/scrndrawva.c
 vram/scrndrawva.h
 vram/sdrawva.c
 vram/sdrawva.h
-vram/vram.h
