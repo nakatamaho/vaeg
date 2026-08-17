@@ -20,8 +20,6 @@
 # OF THE POSSIBILITY OF SUCH DAMAGE.
 #
 # Canonical M92 formatting scope. Keep paths sorted and relative to the root.
-bios/bios.h
-bios/biosboot.c
 bios/biosmem.h
 bios/fdfmt.h
 bios/romva.c
