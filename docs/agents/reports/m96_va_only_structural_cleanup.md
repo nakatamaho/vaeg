@@ -225,7 +225,7 @@ consumer checks are registered for M96b6 and remain open.
 
 | Gate | Evaluated commit | Result | Maintainer statement |
 | --- | --- | --- | --- |
-| G96a | `dfe50a1420c075040c12b96f00c315b5987a846a` | **PENDING** | Awaiting clean-checkout VA smoke validation |
+| G96a | `fd1214e3584b5cc21e1076f6f1ce0f956de72cc8` | **PASS** | Maintainer: human gate passed |
 | G96b-G96i / G96 | Not reached | **PENDING** | Blocked by staged gate protocol |
 
 M96b must not begin until the maintainer explicitly states that G96a passed.
