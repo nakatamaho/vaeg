@@ -28,8 +28,9 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 M96a was report-only and passed G96a. M96b removes only proven-dead residue
 after the staged reachability review. M96c clarified the live VA I/O and C-bus
 ownership boundaries. M96d removes the physical-address NOP side channel and
-passed its focused regression test; G96d remains pending. No ROM, disk, font,
-icon, cursor, or wave payload was modified. The working branch is
+passed its focused regression test. G96d passed on the maintainer's human
+check. No ROM, disk, font, icon, cursor, or wave payload was modified. The
+working branch is
 `topic/m96-va-only-structural-cleanup`.
 
 The task file was absent at the evaluated baseline. This commit adds the
@@ -400,8 +401,10 @@ consumer checks are registered for M96b6 and remain open.
 | G96a | `fd1214e3584b5cc21e1076f6f1ce0f956de72cc8` | **PASS** | Maintainer: human gate passed |
 | G96b | `78ac500` | **PASS** | Maintainer: human gate passed |
 | G96c | `f31fb45` | **PASS** | Maintainer: human gate passed |
-| G96d-G96i / G96 | Not reached | **PENDING** | Blocked by staged gate protocol |
+| G96d | `11038588b491ca8e250df9ced8ccf821494def28` | **PASS** | Maintainer: human gate passed |
+| G96e-G96i / G96 | Not reached | **PENDING** | Blocked by staged gate protocol |
 
 M96b completed after the maintainer recorded G96b as passed. M96c completed
-after G96c. M96d source and focused validation are complete; G96d is the next
-human gate. Later gates remain pending until their respective stages complete.
+after G96c. The maintainer then passed G96d for the M96d candidate; M96e is
+now unlocked. Later gates remain pending until their respective stages
+complete.
