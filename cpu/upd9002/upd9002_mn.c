@@ -3,7 +3,6 @@
 #include "upd9002_ops.h"
 #include "machine/pccore.h"
 #include "iocore.h"
-#include "bios.h"
 #include "upd9002_trace.h"
 #include "upd9002_perf.h"
 #include "upd9002_diagnostic.h"
@@ -1738,22 +1737,7 @@ UPD9002FN _pop_ea(void) { // 8F:	pop		EA
 	}
 }
 
-UPD9002FN _nop(void) { // 90: nop / bios func
-
-#if 1 // call BIOS
-	UINT32 adrs;
-
-	adrs = LOW16(UPD9002_IP - 1) + CS_BASE;
-	if ((adrs >= 0xf8000) && (adrs < 0x100000)) {
-		biosfunc(adrs);
-		ES_BASE = UPD9002_ES << 4;
-		CS_BASE = UPD9002_CS << 4;
-		SS_BASE = UPD9002_SS << 4;
-		SS_FIX = SS_BASE;
-		DS_BASE = UPD9002_DS << 4;
-		DS_FIX = DS_BASE;
-	}
-#endif
+UPD9002FN _nop(void) { // 90: nop
 	UPD9002_WORKCLOCK(3);
 }
 

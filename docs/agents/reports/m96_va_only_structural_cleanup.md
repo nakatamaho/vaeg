@@ -26,8 +26,11 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 ## M96 status
 
 M96a was report-only and passed G96a. M96b removes only proven-dead residue
-after the staged reachability review. No ROM, disk, font, icon, cursor, or wave payload was
-modified. The working branch is `topic/m96-va-only-structural-cleanup`.
+after the staged reachability review. M96c clarified the live VA I/O and C-bus
+ownership boundaries. M96d removes the physical-address NOP side channel and
+passed its focused regression test; G96d remains pending. No ROM, disk, font,
+icon, cursor, or wave payload was modified. The working branch is
+`topic/m96-va-only-structural-cleanup`.
 
 The task file was absent at the evaluated baseline. This commit adds the
 tracked task index at
@@ -323,6 +326,35 @@ no source comment cites the maintainer-local hardware-document directories.
 | --- | --- | --- | --- | --- |
 | `io/iocore.c` | File ownership and lifecycle comment | The canonical VA CPU-visible 16-bit I/O map owns built-in bindings; C-bus devices register into the same map and reset/build/bind order is deliberate | Current source lifecycle in `machine/pccore.c` and `machine/statsave.c`; maintainer-settled S1 C-bus boundary | `emulator-policy` / `hardware-documented` |
 | `cbus/cbuscore.c` | C-bus ownership comment | C-bus owns reset/bind lifecycle for live SASI, SCSI, MPU98II, and BMS devices; it is not a second CPU I/O map or PC-9801 residue | Current callback tables and `machine/pccore.c`; maintainer-settled S1 | `hardware-documented` / `emulator-policy` |
+| `tests/upd9002/m96d_nop.c` | ROM1 test backing comment | The focused test populates the ROM1 backing selected for the VA F0000H-FFFFFH window rather than flat `mem[]` storage | `memoryva/memoryva.c`: ROM1 handler for the F0000H region | `hardware-documented` |
+
+## 9. M96d simulated-BIOS NOP-hook audit
+
+Before M96d, the only production caller of `biosfunc()` was the `_nop()`
+opcode handler in `cpu/upd9002/upd9002_mn.c`. The handler derived a physical
+address from the post-fetch instruction pointer and dispatched every NOP in
+the `0xf8000`-`0xfffff` range through the simulated BIOS path. M96d makes
+opcode `90h` a plain NOP and preserves its existing `UPD9002_WORKCLOCK(3)`
+cost. The segment-base reloads that existed only to recover from that side
+channel are removed with the dispatch.
+
+| Function or address | Baseline callers / cases | Callers after NOP-hook removal | Final decision |
+| --- | --- | --- | --- |
+| `biosfunc()` | `_nop()` was the only production caller; declaration and definition remain | No production caller from the CPU instruction path | Retain pending the complete simulated-BIOS audit in M96e |
+| `BIOS_BASE + BIOSOFST_ITF` (`fd80:0080`) | `biosfunc()` switch case calls `bios_itfcall()` | No NOP caller; direct helper reachability is an M96e question | Retain pending M96e |
+| `BIOS_BASE + BIOSOFST_INIT` (`fd80:0084`) | `biosfunc()` switch case calls `bios_memclear()`, `bios_vectorset()`, and `bios_reinitbyswitch()` | No NOP caller; direct helper reachability is an M96e question | Retain pending M96e |
+| `BIOS_BASE + BIOSOFST_WAIT` (`fd80:00b4`) | `biosfunc()` switch case calls `biosboot_wait()` | No NOP caller; FDD wait reachability is an M96e question | Retain pending M96e |
+| Physical `0xfffe8` | `biosfunc()` case calls `biosboot_load()` and subtracts 2000 clocks | No CPU NOP route | Retain pending M96e |
+| Physical `0xfffec` | `biosfunc()` case calls `biosboot_load()` and subtracts 2000 clocks | No CPU NOP route | Retain pending M96e |
+
+The focused test `--upd9002-m96d-nop` places a NOP in the VA ROM1 backing at
+the `0xfffe8` window address, selects the ROM/default bootstrap path without
+private ROM data, and verifies that one step consumes the normal three-clock
+NOP cost, advances IP by one, and leaves all segment bases unchanged. This
+test does not assert that a supported guest previously exercised the hook.
+No supported-workload behavior difference has been observed; M96d therefore
+records a removed latent simulated-BIOS NOP hook rather than a demonstrated
+guest-visible bug.
 
 ## 10. Validation at baseline
 
@@ -354,6 +386,7 @@ M96b submilestone validation so far:
 | M96b3 | PASS | PASS | PASS (`ninja: no work to do`) | Legacy I/O residue removed; `cpuio` and `fdd320` retained/deferred |
 | M96b4 | PASS | PASS | PASS (`ninja: no work to do`) | Utility/resource residue removed; optional `oprecord`/wave recording surfaces retained |
 | M96c | PASS | PASS | PASS | Ownership comments only; callback order and dispatch behavior unchanged |
+| M96d | PASS | PASS | PASS | Test-enabled build; `ctest --test-dir build/m96d-linux` 84/84 passed with one fixture-dependent skip; focused physical-address regression test passes |
 
 ## 12. Corrections against earlier reports
 
@@ -370,5 +403,5 @@ consumer checks are registered for M96b6 and remain open.
 | G96d-G96i / G96 | Not reached | **PENDING** | Blocked by staged gate protocol |
 
 M96b completed after the maintainer recorded G96b as passed. M96c completed
-after G96c. M96d is now unlocked; later gates remain pending until their
-respective stages complete.
+after G96c. M96d source and focused validation are complete; G96d is the next
+human gate. Later gates remain pending until their respective stages complete.
