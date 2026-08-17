@@ -23,11 +23,11 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 # M96 VA-only structural cleanup report
 
-## M96a status
+## M96 status
 
-M96a is report-only. No source, ROM, disk, font, icon, cursor, or wave
-payload was modified. The working branch is
-`topic/m96-va-only-structural-cleanup`.
+M96a was report-only and passed G96a. M96b1 now removes only the proven-dead
+EGC/GRCG residue. No ROM, disk, font, icon, cursor, or wave payload was
+modified. The working branch is `topic/m96-va-only-structural-cleanup`.
 
 The task file was absent at the evaluated baseline. This commit adds the
 tracked task index at
@@ -135,7 +135,7 @@ Both reviews inspect the same baseline and treat S1-S4 as settled facts.
 
 | Item | Reviewer A - reduction advocate | Reviewer B - preservation advocate | Arbiter | Evidence |
 | --- | --- | --- | --- | --- |
-| `io/egc.*`, `cpu/upd9002/egcmem.*` | Not in production CMake; tool reports them unreferenced | Names and implementation could represent inherited graphics behavior; verify VA ownership and stale includes before deletion | `DELETE` candidate, pending M96b proof | Explicit CMake lists; `find_unreferenced.py`; includes in each other only |
+| `io/egc.*`, `cpu/upd9002/egcmem.*` | Not in production CMake; tool reports them unreferenced | Names and implementation could represent inherited graphics behavior; verify VA ownership and stale includes before deletion | `DELETE` in M96b1 | Explicit CMake lists; `find_unreferenced.py`; includes in each other only |
 | `io/vramcompat.h` | No production include or symbol use | Header may be historical contract for the EGC family | `DELETE` candidate, pending M96b proof | No active include; no CMake entry |
 | `vram/vram.c`, `vram/vram.h` | Generic state is only consumed by dead EGC code and stale includes | `bios.c`, `pccore.c`, and `statsave.c` include `vram.h`; prove no state symbols are used | `DELETE` candidate, pending stale-include proof | `rg` finds no `vramop`, `VOP_*`, or `MEMWAIT_*` in those production units |
 | `vram/palettesva.c` | In CMake but contains only a removal note and no code | It is in the active source list, so remove the entry and file together only after build proof | `DELETE` candidate, pending M96b2 | Explicit `VAEG_VA_SOURCES` entry; file has no definitions |
@@ -159,7 +159,7 @@ file with build, include, symbol, runtime, hardware, and historical evidence.
 
 | Candidate group | CMake entry at baseline | Active include/symbol evidence | Initial decision |
 | --- | --- | --- | --- |
-| EGC/GRCG (`io/egc.*`, `cpu/upd9002/egcmem.*`, `io/vramcompat.h`) | Absent | Only candidate-to-candidate includes; no active VA registration | `DELETE` candidate |
+| EGC/GRCG (`io/egc.*`, `cpu/upd9002/egcmem.*`, `io/vramcompat.h`) | Absent | Only candidate-to-candidate includes; no active VA registration | `DELETE` in M96b1 |
 | Generic VRAM (`vram/vram.*`) | `vram.c` absent; `vram.h` only stale includes; `palettesva.c` present | No production use of `vramop`, `tramupdate`, `vramupdate`, `VOP_*`, or `MEMWAIT_*` outside dead EGC code | `DELETE` candidate |
 | PC-98 I/O (`io/dipsw.*`, `io/necio.*`, `io/cpuio.*`, `io/fdd320.*`, `io/printif.*`, `io/iocore16.tbl`) | Absent | No runtime registration; `np2cfg.dipsw` and `CPU_ITFBANK` uses are separate live/state paths | `DELETE` or defer by per-file proof |
 | NP2 utility residue | Absent | `oprecord` and `wavefile` are macro-guarded; `np2vasup` explicitly retained as stub | Defer macro-guarded items; retain compatibility stub; audit others |
@@ -167,6 +167,27 @@ file with build, include, symbol, runtime, hardware, and historical evidence.
 
 `romimage/` files reported by the tool are read-only and are not M96b
 deletion candidates.
+
+### 6.1 M96b1 B1 deletion proof
+
+The B1 files were outside every production CMake source list. A complete
+tracked-source search found no production include, symbol reference, callback
+registration, reset/bind path, or state-save entry after the earlier portable
+VA migration. The only remaining references were candidate-to-candidate
+includes and historical reports. The EGC/GRCG implementation therefore has
+no runtime route in the current VA product and was removed as a group.
+
+| File | CMake absent | Include absent | Symbol absent | Runtime absent | Hardware classification | Last historical reference | Decision |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `io/egc.c` | Yes | Yes | Yes outside deleted group | Yes: no `egc_bind`/`egc_reset` registration | Obsolete unreachable legacy EGC port handler | `b04c6203` (`M86: update machine core references`) | `DELETE` |
+| `io/egc.h` | Yes | Yes | Yes outside deleted group | Yes | Obsolete unreachable legacy EGC state contract | `2baf50de` (`M4: lowercase all tracked paths`) | `DELETE` |
+| `cpu/upd9002/egcmem.c` | Yes | Yes | Yes outside deleted group | Yes: no VA memory-map route | Obsolete unreachable legacy EGC memory engine | `b04c6203` (`M86: update machine core references`) | `DELETE` |
+| `cpu/upd9002/egcmem.h` | Yes | Yes | Yes outside deleted group | Yes | Obsolete unreachable legacy EGC memory interface | `484cf94d` (`M51: move uPD9002 core sources`) | `DELETE` |
+| `io/vramcompat.h` | Yes | Yes | Yes | Yes | Obsolete compatibility-only GRCG/EGC state declarations | `2fe49c94` (`M88: remove retired non-VA display backends`) | `DELETE` |
+
+This deletion does not remove the live VA GVRAM, GDC, SGP, TSP, or C-bus
+boundaries. `vram/vram.h` and its generic state are audited separately in
+M96b2; no B1 change depends on deleting those symbols.
 
 ## 7. Retained legacy-looking names
 
