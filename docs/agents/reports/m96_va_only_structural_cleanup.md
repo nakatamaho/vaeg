@@ -366,7 +366,9 @@ consumer checks are registered for M96b6 and remain open.
 | --- | --- | --- | --- |
 | G96a | `fd1214e3584b5cc21e1076f6f1ce0f956de72cc8` | **PASS** | Maintainer: human gate passed |
 | G96b | `78ac500` | **PASS** | Maintainer: human gate passed |
-| G96c-G96i / G96 | Not reached | **PENDING** | Blocked by staged gate protocol |
+| G96c | `f31fb45` | **PASS** | Maintainer: human gate passed |
+| G96d-G96i / G96 | Not reached | **PENDING** | Blocked by staged gate protocol |
 
-M96b completed after the maintainer recorded G96b as passed. M96c is now
-unlocked; later gates remain pending until their respective stages complete.
+M96b completed after the maintainer recorded G96b as passed. M96c completed
+after G96c. M96d is now unlocked; later gates remain pending until their
+respective stages complete.
