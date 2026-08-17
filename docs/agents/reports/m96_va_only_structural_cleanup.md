@@ -328,6 +328,7 @@ no source comment cites the maintainer-local hardware-document directories.
 | `io/iocore.c` | File ownership and lifecycle comment | The canonical VA CPU-visible 16-bit I/O map owns built-in bindings; C-bus devices register into the same map and reset/build/bind order is deliberate | Current source lifecycle in `machine/pccore.c` and `machine/statsave.c`; maintainer-settled S1 C-bus boundary | `emulator-policy` / `hardware-documented` |
 | `cbus/cbuscore.c` | C-bus ownership comment | C-bus owns reset/bind lifecycle for live SASI, SCSI, MPU98II, and BMS devices; it is not a second CPU I/O map or PC-9801 residue | Current callback tables and `machine/pccore.c`; maintainer-settled S1 | `hardware-documented` / `emulator-policy` |
 | `tests/upd9002/m96d_nop.c` | ROM1 test backing comment | The focused test populates the ROM1 backing selected for the VA F0000H-FFFFFH window rather than flat `mem[]` storage | `memoryva/memoryva.c`: ROM1 handler for the F0000H region | `hardware-documented` |
+| `bios/biosmem.h` | Remaining work-area offsets | Active SASI/SCSI service state and memory-switch synchronization use these emulator-owned offsets; former simulated bootstrap offsets are absent | Current consumers in `bios/sxsibios.c` and `machine/pccore.c`; no untracked hardware path is claimed | `emulator-policy` |
 
 ## 9. M96d simulated-BIOS NOP-hook audit
 
@@ -364,7 +365,7 @@ physical-address side channel in the uPD9002 NOP handler. A complete tracked
 source search at the M96e starting point found no other caller of
 `biosfunc()`, `bios_itfcall()`, `bios_itfprepare()`, `bios_memclear()`,
 `bios_vectorset()`, `bios_reinitbyswitch()`, `setbiosseed()`, or
-`bios_initialize()` other than the reset call listed below. The reset call is
+`bios_initialize()` other than the reset call listed below. The reset call was
 removed in M96e1 after this audit; native VA ROM setup remains in
 `romva_initialize()`.
 
@@ -407,16 +408,16 @@ for deleting the serialized CPU field; that state decision remains in M96g.
 
 ### 14.3 `biosboot.c` function-by-function disposition
 
-At the M96e starting point all callers below were inside `bios.c`. There are
+At the M96e starting point all callers below were inside `bios.c`. There were
 no callers from FDD, SASI, SCSI, reset, state-load, or host frontend code.
-The file is therefore scheduled for M96e2 deletion after M96e1 removes the
-dispatch that referenced it.
+After M96e1 removed the dispatch that referenced it, the file was deleted in
+M96e2.
 
 | Function | Baseline production callers | Callers after M96d / M96e1 | Decision |
 | --- | --- | --- | --- |
-| `biosboot_fdd_equip()` | `bios_reinitbyswitch()`, `boot_fd()`, `boot_fd1()` through `bios.c` | None | Delete |
-| `biosboot_load()` | `biosfunc()` cases `0xfffe8` and `0xfffec` | None | Delete |
-| `biosboot_wait()` | `biosfunc()` case `BIOSOFST_WAIT` | None | Delete |
+| `biosboot_fdd_equip()` | `bios_reinitbyswitch()`, `boot_fd()`, `boot_fd1()` through `bios.c` | None | Deleted in M96e2 |
+| `biosboot_load()` | `biosfunc()` cases `0xfffe8` and `0xfffec` | None | Deleted in M96e2 |
+| `biosboot_wait()` | `biosfunc()` case `BIOSOFST_WAIT` | None | Deleted in M96e2 |
 
 `biosboot.c` is not the live FDD/SASI/SCSI device implementation. Those paths
 remain under `io/`, `fdd/`, `cbus/`, and `bios/sxsibios.c` as applicable.
@@ -452,6 +453,15 @@ consumers only; every action is `READ_ONLY`.
 | `romimage/sasibios.asm`, `romimage/scsibios.asm` | External ROM-generation workflow | C-bus storage BIOS sources | ROM-generation workflow; emulator C-bus remains live | `READ_ONLY` |
 
 No `romimage/` file is edited, deleted, regenerated, or replaced by M96e.
+
+### 14.6 M96e3 work-area result
+
+`bios/biosmem.h` now contains only `MEMB_DISK_EQUIPS`, `MEMW_DISK_EQUIP`,
+and `MEMX_MSW`, plus the endian-safe access macros required by the two live
+consumers. The removed definitions were referenced only by the deleted
+simulated BIOS/bootstrap implementation or by the focused M96d test. The
+test's historical MSW5 selector is a local constant and is not part of the
+production work-area header.
 
 ## 10. Validation at baseline
 
