@@ -139,9 +139,11 @@ Both reviews inspect the same baseline and treat S1-S4 as settled facts.
 | `io/vramcompat.h` | No production include or symbol use | Header may be historical contract for the EGC family | `DELETE` candidate, pending M96b proof | No active include; no CMake entry |
 | `vram/vram.c`, `vram/vram.h` | Generic state is only consumed by dead EGC code and stale includes | `bios.c`, `pccore.c`, and `statsave.c` include `vram.h`; prove no state symbols are used | `DELETE` in M96b2 | `rg` finds no `vramop`, `VOP_*`, or `MEMWAIT_*` in those production units |
 | `vram/palettesva.c`, `vram/palettesva.h` | `palettesva.c` was the only active CMake entry and both files contain no implementation | No production include or symbol use | `DELETE` in M96b2 | Explicit `VAEG_VA_SOURCES` entry removed with the empty files |
-| `io/dipsw.*`, `io/printif.*`, `io/fdd320.*`, `io/cpuio.*` | No CMake entry or runtime registration | DIP switch data itself is live in `NP2CFG`; do not confuse dead implementation files with live switch state | `DELETE` candidate, pending M96b3 | Active code accesses `np2cfg.dipsw` directly; candidate files are not built |
-| `io/necio.*` | No production entry; sole `CPU_ITFBANK` writer is inactive | CPU state layout and legacy BIOS guard still need a separate state-aware decision | `DEFER_INSUFFICIENT_EVIDENCE` for state; source `DELETE` candidate | `CPU_ITFBANK` read/write census; state assertions in `upd9002_state.c` |
-| `io/iocore16.tbl` | Unreferenced obsolete table | It may be a historical word-port specification, not the active map | `DELETE` candidate, pending M96b3 | No production include; `io/iocore.c` owns active map |
+| `io/dipsw.*`, `io/printif.*` | No CMake entry or runtime registration | DIP switch data itself is live in `NP2CFG`; VA port 0040 is owned by `sysportva.c`, not this duplicate | `DELETE` in M96b3 | Candidate files are not built; active VA state remains |
+| `io/necio.*` | No production entry; sole `CPU_ITFBANK` writer is inactive | CPU state layout and legacy BIOS guard remain separate state work | `DELETE` in M96b3; retain state field | `CPU_ITFBANK` read/write census; state assertions in `upd9002_state.c` |
+| `io/cpuio.*` | No production entry, but tracked M49 QA evidence reads it | Historical QA contract still names the reset-request handler | `RETAIN_COMPATIBILITY` | Do not break the protected reachability tool in M96b3 |
+| `io/fdd320.*` | No production entry | M72 preservation note and no VA-authoritative 0051h evidence leave 5-inch 2D ownership unresolved | `DEFER_INSUFFICIENT_EVIDENCE` | Requires a dedicated hardware audit; do not delete by name |
+| `io/iocore16.tbl` | Unreferenced | It is a historical word-port termination table, not the active map | `DELETE` in M96b3 | No production include; `io/iocore.c` owns active map |
 | `oprecord.c` | Not built and guarded by undefined `SUPPORT_OPRECORD` | Out-of-tree operation-record compatibility may still be intentional | `DEFER_INSUFFICIENT_EVIDENCE` | M72 explicitly left `SUPPORT_OPRECORD` for focused audit |
 | `common/wavefile.*` | Not built and guarded by undefined `SUPPORT_WAVEREC` | Recording is an optional historical interface; verify all supported definitions first | `DEFER_INSUFFICIENT_EVIDENCE` | M72 left `SUPPORT_WAVEREC` for focused audit |
 | `io/np2vasup.*` | Stub is unreferenced by production CMake | Header explicitly says it is retained for out-of-tree users | `RETAIN_COMPATIBILITY` | File comment and no active selector |
@@ -205,6 +207,39 @@ renderer were removed as part of the same cleanup.
 | `vram/vram.h` | Yes | Yes after removing three stale includes | Yes: no `VRAM_T`, `VOP_*`, or `MEMWAIT_*` consumer | Yes | Obsolete generic VRAM/EGC compatibility declarations | `e5941339` (`M92: format active emulator core sources`) | `DELETE` |
 | `vram/palettesva.c` | Entry removed from `VAEG_VA_SOURCES` | Yes | Yes: comment only | Yes | Empty obsolete VA palette translation residue | `71a4a3bd` (`M89: merge VA source directories`) | `DELETE` |
 | `vram/palettesva.h` | N/A | Yes | Yes: comment only | Yes | Empty obsolete VA palette header residue | `71a4a3bd` (`M89: merge VA source directories`) | `DELETE` |
+
+### 6.3 M96b3 B3 deletion and preservation proof
+
+The deleted B3 files have no production CMake entry, include edge, runtime
+registration, or active symbol consumer. `io/dipsw.c` is not the live
+configuration storage: `np2cfg.dipsw[]` remains in `NP2CFG` and its VA
+consumers remain untouched. The old printer file duplicated the 0040H port
+but the active VA owner is `io/sysportva.c`; deleting the unbuilt duplicate
+does not remove the VA system-port implementation. `io/necio.c` was the only
+writer of `CPU_ITFBANK`, but the serialized CPU field and its BIOS guard are
+not removed here.
+
+Two candidates are deliberately retained. `io/cpuio.c` is read by the
+tracked M49 protected-reachability tool and golden evidence, so deleting it
+would break a compatibility/evidence contract even though it is absent from
+the production build. `io/fdd320.c` remains unresolved: M72 recorded that
+5-inch 2D behavior might belong to the PC-88 side, and the available
+VA-authoritative references inspected in M96 do not establish the 0051H
+interface. It is deferred rather than deleted by its historical name.
+
+| File | CMake absent | Include absent | Symbol/runtime result | Hardware classification | Last historical reference | Decision |
+| --- | --- | --- | --- | --- | --- | --- |
+| `io/dipsw.c` | Yes | Yes | No `dipsw_w8`/`dipsw_r8` registration | Obsolete unbuilt legacy DIP port adapter; `NP2CFG.dipsw[]` is live separately | `b04c6203` (`M86: update machine core references`) | `DELETE` |
+| `io/dipsw.h` | Yes | Yes | No declaration consumer | Obsolete companion declaration | `2baf50de` (`M4: lowercase all tracked paths`) | `DELETE` |
+| `io/necio.c` | Yes | Yes | Sole `CPU_ITFBANK` writer is not in production | Obsolete unbuilt ITF-bank selector; CPU state is retained | `b04c6203` (`M86: update machine core references`) | `DELETE` |
+| `io/necio.h` | Yes | Yes | No declaration consumer or live `NECIO` object | Obsolete companion declaration | `2baf50de` (`M4: lowercase all tracked paths`) | `DELETE` |
+| `io/printif.c` | Yes | Yes | No `printif_bind` registration; VA 0040H is owned by `sysportva.c` | Obsolete duplicate printer adapter | `b04c6203` (`M86: update machine core references`) | `DELETE` |
+| `io/printif.h` | Yes | Yes | No declaration consumer | Obsolete companion declaration | `2baf50de` (`M4: lowercase all tracked paths`) | `DELETE` |
+| `io/iocore16.tbl` | No production entry | No include | No symbol consumer | Obsolete generic word-port table; active VA map is `io/iocore.c` | `b04c6203` (`M86: update machine core references`) | `DELETE` |
+| `io/cpuio.c` | Yes | Referenced by tracked M49 QA tool | Protected tool/evidence consumer remains | Legacy compatibility/evidence contract | `b04c6203` (`M86: update machine core references`) | `RETAIN_COMPATIBILITY` |
+| `io/cpuio.h` | Yes | No production include; paired with retained QA source | Protected historical interface companion | Legacy compatibility/evidence contract | `2baf50de` (`M4: lowercase all tracked paths`) | `RETAIN_COMPATIBILITY` |
+| `io/fdd320.c` | Yes | No production include | No live route found | Hardware ownership unresolved; prior M72 preservation note | `b04c6203` (`M86: update machine core references`) | `DEFER_INSUFFICIENT_EVIDENCE` |
+| `io/fdd320.h` | Yes | No production include | No live route found | Hardware ownership unresolved; companion header | `2baf50de` (`M4: lowercase all tracked paths`) | `DEFER_INSUFFICIENT_EVIDENCE` |
 
 ## 7. Retained legacy-looking names
 
