@@ -348,7 +348,8 @@ consumer checks are registered for M96b6 and remain open.
 | Gate | Evaluated commit | Result | Maintainer statement |
 | --- | --- | --- | --- |
 | G96a | `fd1214e3584b5cc21e1076f6f1ce0f956de72cc8` | **PASS** | Maintainer: human gate passed |
-| G96b-G96i / G96 | Not reached | **PENDING** | Blocked by staged gate protocol |
+| G96b | `78ac500` | **PASS** | Maintainer: human gate passed |
+| G96c-G96i / G96 | Not reached | **PENDING** | Blocked by staged gate protocol |
 
-M96b is now proceeding after the maintainer recorded G96a as passed. The
-combined M96b gate remains pending until B1-B4 validation is complete.
+M96b completed after the maintainer recorded G96b as passed. M96c is now
+unlocked; later gates remain pending until their respective stages complete.
