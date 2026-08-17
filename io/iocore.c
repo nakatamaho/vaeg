@@ -1,3 +1,11 @@
+/*
+ * PC-88VA canonical CPU-visible I/O map.
+ * Built-in VA devices register their exact ports here. C-bus devices use the
+ * same map after their own lifecycle tier binds them; cbuscore is not a
+ * second CPU I/O address space. The reset/build/bind order is deliberate.
+ * Evidence: docs/agents/reports/m96_va_only_structural_cleanup.md, section 11.
+ */
+
 #include "compiler.h"
 #include "cpucore.h"
 #include "machine/pccore.h"
