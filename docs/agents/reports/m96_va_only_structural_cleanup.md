@@ -29,7 +29,9 @@ M96a was report-only and passed G96a. M96b removes only proven-dead residue
 after the staged reachability review. M96c clarified the live VA I/O and C-bus
 ownership boundaries. M96d removes the physical-address NOP side channel and
 passed its focused regression test. G96d passed on the maintainer's human
-check. No ROM, disk, font, icon, cursor, or wave payload was modified. The
+check. M96e removes the unreachable simulated BIOS initializer and bootstrap
+helpers, and retains only live SASI/SCSI work-area fields. No ROM, disk, font,
+icon, cursor, or wave payload was modified. The
 working branch is
 `topic/m96-va-only-structural-cleanup`.
 
@@ -494,6 +496,22 @@ M96b submilestone validation so far:
 | M96b4 | PASS | PASS | PASS (`ninja: no work to do`) | Utility/resource residue removed; optional `oprecord`/wave recording surfaces retained |
 | M96c | PASS | PASS | PASS | Ownership comments only; callback order and dispatch behavior unchanged |
 | M96d | PASS | PASS | PASS | Test-enabled build; `ctest --test-dir build/m96d-linux` 84/84 passed with one fixture-dependent skip; focused physical-address regression test passes |
+| M96e1 | PASS | PASS | PASS | Removed `bios_initialize()` and `bios/bios.c`; native VA ROM initialization remains in `romva_initialize()` |
+| M96e2 | PASS | PASS | PASS | Removed `biosboot.c` and `bios.h` after function-by-function zero-caller proof |
+| M96e3 | PASS | PASS | PASS | Reduced `biosmem.h` to three live consumers; no simulated bootstrap offsets remain |
+
+M96e final validation was evaluated at commit `613a8a8` before this
+report-only recording commit: `cmake --build --preset linux-debug -j4` and
+the SDL dummy selftest passed; `build/m96e-linux/sdl2/vaeg --upd9002-m96d-nop`
+passed; `ctest --test-dir build/m96e-linux --output-on-failure` reported 83
+PASS and one fixture-dependent SKIP (`vaeg_upd9002_ssts_ci_external`); and
+`CCACHE_DISABLE=1 cmake --build --preset mingw-cross -j4` passed. The MinGW
+artifact was `build/mingw-cross/sdl2/vaeg.exe` with SHA-256
+`8f52ee29298865769094400b9d2be993a322891605c8672395e7904d068dfd2a`.
+Encoding, EOL, case, focused clang-format, milestone-ID, diff-check, and
+unreferenced-source validators passed. The unreferenced report contains 453
+sources, 413 reached, and 40 unreferenced; retained candidates and protected
+`romimage/` sources are classified above.
 
 ## 12. Corrections against earlier reports
 
@@ -508,9 +526,10 @@ consumer checks are registered for M96b6 and remain open.
 | G96b | `78ac500` | **PASS** | Maintainer: human gate passed |
 | G96c | `f31fb45` | **PASS** | Maintainer: human gate passed |
 | G96d | `11038588b491ca8e250df9ced8ccf821494def28` | **PASS** | Maintainer: human gate passed |
-| G96e-G96i / G96 | Not reached | **PENDING** | Blocked by staged gate protocol |
+| G96e | `613a8a8` | **PENDING** | Awaiting maintainer's VA boot/storage/display/sound/state human check |
+| G96f-G96i / G96 | Not reached | **PENDING** | Blocked by staged gate protocol |
 
 M96b completed after the maintainer recorded G96b as passed. M96c completed
-after G96c. The maintainer then passed G96d for the M96d candidate; M96e is
-now unlocked. Later gates remain pending until their respective stages
-complete.
+after G96c. The maintainer then passed G96d for the M96d candidate; M96e
+source work is complete and G96e is now the next human gate. Later gates
+remain pending until their respective stages complete.
