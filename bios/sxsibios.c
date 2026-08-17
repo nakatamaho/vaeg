@@ -1,7 +1,6 @@
 #include "compiler.h"
 #include "cpucore.h"
 #include "machine/pccore.h"
-#include "bios.h"
 #include "biosmem.h"
 #include "sxsibios.h"
 #include "scsicmd.h"

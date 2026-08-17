@@ -26,11 +26,14 @@
 #include "compiler.h"
 #include "cpucore.h"
 #include "upd9002_ops.h"
-#include "bios/biosmem.h"
 #include "memoryva.h"
 #include "tests/upd9002/m96d_nop.h"
 
 #include <stdio.h>
+
+enum {
+	M96D_MSW5_OFFSET = 0xa3ff2
+};
 
 static void setup_nop_at_physical_address(void) {
 	upd9002_core_reset();
@@ -66,7 +69,7 @@ static void setup_nop_at_physical_address(void) {
 	/* VA ROM1 backing supplies the F0000H-FFFFFH window. Evidence: M96 report section 11. */
 	rom1mem[0xffe8] = 0x90;
 	/* Select the ROM/default path if the old hook is accidentally called. */
-	mem[MEMB_MSW5] = 0xf0;
+	mem[M96D_MSW5_OFFSET] = 0xf0;
 }
 
 static int test_nop_has_no_physical_bios_side_channel(void) {
