@@ -285,7 +285,6 @@ set(VAEG_VA_SOURCES
     vram/makegrphva.c
     vram/makesprva.c
     vram/maketextva.c
-    vram/palettesva.c
     vram/scrndrawva.c
     vram/sdrawva.c)
 

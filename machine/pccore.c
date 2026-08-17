@@ -12,7 +12,6 @@
 #include "bios.h"
 #include "romva.h"
 #include "biosmem.h"
-#include "vram.h"
 #include "scrndraw.h"
 #include "sound.h"
 #include "fmboard.h"

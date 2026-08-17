@@ -6,7 +6,6 @@
 //#include	"cpucore.h"
 //#include	"machine/pccore.h"
 //#include	"iocore.h"
-//#include	"vram.h"
 //#include	"scrnmng.h"
 #include "scrndraw.h"
 //#include	"scrndrawva.h"

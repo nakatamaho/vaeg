@@ -137,8 +137,8 @@ Both reviews inspect the same baseline and treat S1-S4 as settled facts.
 | --- | --- | --- | --- | --- |
 | `io/egc.*`, `cpu/upd9002/egcmem.*` | Not in production CMake; tool reports them unreferenced | Names and implementation could represent inherited graphics behavior; verify VA ownership and stale includes before deletion | `DELETE` in M96b1 | Explicit CMake lists; `find_unreferenced.py`; includes in each other only |
 | `io/vramcompat.h` | No production include or symbol use | Header may be historical contract for the EGC family | `DELETE` candidate, pending M96b proof | No active include; no CMake entry |
-| `vram/vram.c`, `vram/vram.h` | Generic state is only consumed by dead EGC code and stale includes | `bios.c`, `pccore.c`, and `statsave.c` include `vram.h`; prove no state symbols are used | `DELETE` candidate, pending stale-include proof | `rg` finds no `vramop`, `VOP_*`, or `MEMWAIT_*` in those production units |
-| `vram/palettesva.c` | In CMake but contains only a removal note and no code | It is in the active source list, so remove the entry and file together only after build proof | `DELETE` candidate, pending M96b2 | Explicit `VAEG_VA_SOURCES` entry; file has no definitions |
+| `vram/vram.c`, `vram/vram.h` | Generic state is only consumed by dead EGC code and stale includes | `bios.c`, `pccore.c`, and `statsave.c` include `vram.h`; prove no state symbols are used | `DELETE` in M96b2 | `rg` finds no `vramop`, `VOP_*`, or `MEMWAIT_*` in those production units |
+| `vram/palettesva.c`, `vram/palettesva.h` | `palettesva.c` was the only active CMake entry and both files contain no implementation | No production include or symbol use | `DELETE` in M96b2 | Explicit `VAEG_VA_SOURCES` entry removed with the empty files |
 | `io/dipsw.*`, `io/printif.*`, `io/fdd320.*`, `io/cpuio.*` | No CMake entry or runtime registration | DIP switch data itself is live in `NP2CFG`; do not confuse dead implementation files with live switch state | `DELETE` candidate, pending M96b3 | Active code accesses `np2cfg.dipsw` directly; candidate files are not built |
 | `io/necio.*` | No production entry; sole `CPU_ITFBANK` writer is inactive | CPU state layout and legacy BIOS guard still need a separate state-aware decision | `DEFER_INSUFFICIENT_EVIDENCE` for state; source `DELETE` candidate | `CPU_ITFBANK` read/write census; state assertions in `upd9002_state.c` |
 | `io/iocore16.tbl` | Unreferenced obsolete table | It may be a historical word-port specification, not the active map | `DELETE` candidate, pending M96b3 | No production include; `io/iocore.c` owns active map |
@@ -160,7 +160,7 @@ file with build, include, symbol, runtime, hardware, and historical evidence.
 | Candidate group | CMake entry at baseline | Active include/symbol evidence | Initial decision |
 | --- | --- | --- | --- |
 | EGC/GRCG (`io/egc.*`, `cpu/upd9002/egcmem.*`, `io/vramcompat.h`) | Absent | Only candidate-to-candidate includes; no active VA registration | `DELETE` in M96b1 |
-| Generic VRAM (`vram/vram.*`) | `vram.c` absent; `vram.h` only stale includes; `palettesva.c` present | No production use of `vramop`, `tramupdate`, `vramupdate`, `VOP_*`, or `MEMWAIT_*` outside dead EGC code | `DELETE` candidate |
+| Generic VRAM (`vram/vram.*`) | `vram.c` and `vram.h` removed; prior includes were stale | No production use of `vramop`, `tramupdate`, `vramupdate`, `VOP_*`, or `MEMWAIT_*` outside deleted EGC code | `DELETE` in M96b2 |
 | PC-98 I/O (`io/dipsw.*`, `io/necio.*`, `io/cpuio.*`, `io/fdd320.*`, `io/printif.*`, `io/iocore16.tbl`) | Absent | No runtime registration; `np2cfg.dipsw` and `CPU_ITFBANK` uses are separate live/state paths | `DELETE` or defer by per-file proof |
 | NP2 utility residue | Absent | `oprecord` and `wavefile` are macro-guarded; `np2vasup` explicitly retained as stub | Defer macro-guarded items; retain compatibility stub; audit others |
 | Generated legacy payloads | Absent | `scsibios.res` and `fdd_mtr.res` have no production include | `DELETE` candidate; no C-bus/FDD code deletion |
@@ -186,8 +186,25 @@ no runtime route in the current VA product and was removed as a group.
 | `io/vramcompat.h` | Yes | Yes | Yes | Yes | Obsolete compatibility-only GRCG/EGC state declarations | `2fe49c94` (`M88: remove retired non-VA display backends`) | `DELETE` |
 
 This deletion does not remove the live VA GVRAM, GDC, SGP, TSP, or C-bus
-boundaries. `vram/vram.h` and its generic state are audited separately in
-M96b2; no B1 change depends on deleting those symbols.
+boundaries. The VA renderer remains under `vram/*va.c` and the VA memory
+decoder remains under `memoryva/`.
+
+### 6.2 M96b2 B2 deletion proof
+
+The generic VRAM files had no production definition or consumer after the
+EGC removal. `bios/bios.c`, `machine/pccore.c`, and `machine/statsave.c` had
+only stale `vram.h` includes; no code in those units referenced the generic
+state, wait macros, or operation flags. The two VA palette files contained no
+implementation and were not included anywhere. Their one CMake source entry
+was removed together with the files. Comment-only stale includes in the VA
+renderer were removed as part of the same cleanup.
+
+| File | CMake absent | Include absent | Symbol absent | Runtime absent | Hardware classification | Last historical reference | Decision |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `vram/vram.c` | Yes | Yes | Yes | Yes: no `vram_initialize` route | Obsolete generic VRAM state backing | `88399555` (`M72: remove inactive PC-9821 guarded code`) | `DELETE` |
+| `vram/vram.h` | Yes | Yes after removing three stale includes | Yes: no `VRAM_T`, `VOP_*`, or `MEMWAIT_*` consumer | Yes | Obsolete generic VRAM/EGC compatibility declarations | `e5941339` (`M92: format active emulator core sources`) | `DELETE` |
+| `vram/palettesva.c` | Entry removed from `VAEG_VA_SOURCES` | Yes | Yes: comment only | Yes | Empty obsolete VA palette translation residue | `71a4a3bd` (`M89: merge VA source directories`) | `DELETE` |
+| `vram/palettesva.h` | N/A | Yes | Yes: comment only | Yes | Empty obsolete VA palette header residue | `71a4a3bd` (`M89: merge VA source directories`) | `DELETE` |
 
 ## 7. Retained legacy-looking names
 
@@ -249,4 +266,5 @@ consumer checks are registered for M96b6 and remain open.
 | G96a | `fd1214e3584b5cc21e1076f6f1ce0f956de72cc8` | **PASS** | Maintainer: human gate passed |
 | G96b-G96i / G96 | Not reached | **PENDING** | Blocked by staged gate protocol |
 
-M96b must not begin until the maintainer explicitly states that G96a passed.
+M96b is now proceeding after the maintainer recorded G96a as passed. The
+combined M96b gate remains pending until B1-B4 validation is complete.

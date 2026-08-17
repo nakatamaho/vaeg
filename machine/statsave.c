@@ -14,7 +14,6 @@
 #include "scsiio.h"
 #include "mpu98ii.h"
 #include "bios.h"
-#include "vram.h"
 #include "sound.h"
 #include "fmboard.h"
 #include "beep.h"
