@@ -1,3 +1,12 @@
+/*
+ * PC-88VA C-bus device lifecycle owner.
+ * This tier resets and binds live expansion devices (SASI, SCSI, MPU98II,
+ * and BMS); each device ultimately registers its CPU-visible ports through
+ * iocore. It is a hardware ownership boundary, not PC-9801 compatibility
+ * residue. Evidence: docs/agents/reports/m96_va_only_structural_cleanup.md,
+ * section 11.
+ */
+
 #include "compiler.h"
 #include "machine/pccore.h"
 #include "iocore.h"

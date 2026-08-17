@@ -129,6 +129,19 @@ distinction unless a behavior-backed alternative is demonstrated.
 | `BIOS_SIMULATE` | Always-defined simulated BIOS path in `bios/bios.c` | `DEFER_TO_M96e` |
 | `VAEG_FIX`, `VAEG_EXT` | No active selector remains in production CMake; historical evidence is retained in reports | `ALREADY_ABSENT` / M96h evidence check |
 
+### M96c dispatch and ownership conclusion
+
+The M96c census found no surviving runtime selector that dispatches to an
+obsolete PC-98 machine implementation. `PCMODEL_VA1`/`PCMODEL_VA2` remain the
+live VA model selector. `PCMODEL_VA` is a same-valued compatibility constant
+and is deferred to the state-safe M96f vocabulary cleanup. `CPU_ITFBANK` and
+the simulated-BIOS path remain deferred to their isolated M96d/e/g stages.
+The C-bus callback tier is retained under S1; it is a live hardware ownership
+boundary, not a second I/O map.
+
+M96c makes no callback or dispatch behavior change. It adds only file-level
+ownership comments to `io/iocore.c` and `cbus/cbuscore.c`.
+
 ## 5. Two-reviewer debate
 
 Both reviews inspect the same baseline and treat S1-S4 as settled facts.
@@ -301,12 +314,15 @@ main/HMA and legacy compatibility ranges, and also clears a font range at
 M96e/M96g after producer/consumer evidence. In particular, `fontrom` remains
 inside `mem[]` and no `mem[]` bound is changed here.
 
-## 9. Comment evidence map
+## 11. Comment evidence map
 
-No source comments were changed in M96a. Hardware-facing comment evidence is
-therefore empty for this stage. Later source changes must add one row per
-edited comment here, using a tracked M96 report section and never an
-untracked `docs/tekumani/` path.
+M96c adds only file-level ownership comments. They cite this tracked section;
+no source comment cites the maintainer-local hardware-document directories.
+
+| Source file | Comment subject | Behavioral statement | Hardware reference | Evidence class |
+| --- | --- | --- | --- | --- |
+| `io/iocore.c` | File ownership and lifecycle comment | The canonical VA CPU-visible 16-bit I/O map owns built-in bindings; C-bus devices register into the same map and reset/build/bind order is deliberate | Current source lifecycle in `machine/pccore.c` and `machine/statsave.c`; maintainer-settled S1 C-bus boundary | `emulator-policy` / `hardware-documented` |
+| `cbus/cbuscore.c` | C-bus ownership comment | C-bus owns reset/bind lifecycle for live SASI, SCSI, MPU98II, and BMS devices; it is not a second CPU I/O map or PC-9801 residue | Current callback tables and `machine/pccore.c`; maintainer-settled S1 | `hardware-documented` / `emulator-policy` |
 
 ## 10. Validation at baseline
 
@@ -337,13 +353,14 @@ M96b submilestone validation so far:
 | M96b2 | PASS | PASS | PASS | Generic VRAM residue and stale includes removed |
 | M96b3 | PASS | PASS | PASS (`ninja: no work to do`) | Legacy I/O residue removed; `cpuio` and `fdd320` retained/deferred |
 | M96b4 | PASS | PASS | PASS (`ninja: no work to do`) | Utility/resource residue removed; optional `oprecord`/wave recording surfaces retained |
+| M96c | PASS | PASS | PASS | Ownership comments only; callback order and dispatch behavior unchanged |
 
-## 11. Corrections against earlier reports
+## 12. Corrections against earlier reports
 
 M96a does not yet make the M88 or M84a corrections. The required producer /
 consumer checks are registered for M96b6 and remain open.
 
-## 12. Human gates
+## 13. Human gates
 
 | Gate | Evaluated commit | Result | Maintainer statement |
 | --- | --- | --- | --- |
