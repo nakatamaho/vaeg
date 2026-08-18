@@ -81,3 +81,14 @@ checkerboard, DOS ESC exits and restores video, the disposable D88 contains the
 COM, and the report distinguishes proven VA behavior from deferred 8bpp/music
 work. The final step repeats build/launch/fix until the program is launchable;
 it must not stop at the first assembler success.
+
+## Execution status
+
+- [x] 00 audit and adversarial plan review saved on `M97a`.
+- [x] 01 VA video mode, black G0, palette, composition, teardown implemented.
+- [x] 02 all eight scene routines and SGP LINE command generation implemented.
+- [x] 03 DOS ESC polling path implemented; VA Music BIOS remains optional and
+      is deliberately not allowed to block graphics bring-up.
+- [x] 04 NASM build script, CMake `neon4va_com` target, and disposable D88
+      procedure verified.
+- [ ] 05 final repeated launch/debug loop and maintainer hardware gate.

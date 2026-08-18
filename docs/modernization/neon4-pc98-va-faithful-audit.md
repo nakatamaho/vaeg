@@ -100,3 +100,36 @@ for it.
 - SGP LINE direction names conflict between generic and LINE-specific VAEG
   constants; asymmetric edges in all four directions must be checked.
 - 8bpp/640x400 fidelity requires a separate framebuffer-capacity audit.
+
+## Implemented VA path
+
+The implementation is `demos/neon4-va/neonva.asm` and builds as the DOS 8.3
+file `NEONVA.COM`. It uses the verified 320x200 single-plane 4bpp mode,
+Graphic 0 at SGP `200000h`, and two Graphic 1 pages at SGP `220000h` and
+`227d00h`. The display page is selected with DSA1 `022eh/0230h` only after
+TSP status-port `0142h` reaches VBLANK. SGP command pointers at `0500h/0502h`
+are written as WORDs, and every command list starts with `SET_WORK` for the
+58-byte work area in main RAM.
+
+Each frame clears the hidden G1 page with `CLS`, emits the scene's ordered
+wireframe records through `SET_COLOR` plus `LINE`, waits for SGP completion,
+waits for VBLANK, and exchanges DSA1. The G0 black initialization is also an
+SGP `CLS` command targeting `200000h`; no CPU pixel loop is used for animated
+geometry. DOS `INT 21h/AH=06h/DL=FFh` polls the console and accepts only ASCII
+ESC (`1bh`) as the exit key.
+
+The first VAEG bring-up exposed two implementation hazards that are now fixed:
+
+1. Scene routines initially used `PUSHA/POPA`. That restored `DI`, the SGP
+   command-list write cursor, and silently discarded every scene record. Scene
+   routines now preserve caller registers individually while retaining `DI`.
+2. A large CPU `REP STOSW` clear of the VA G0 window delayed the guest DOS
+   command path under the current VAEG memory timing. G0 initialization now
+   uses the same mandatory-`SET_WORK` SGP `CLS` primitive as the draw pages.
+
+The source was rerun in VAEG after both corrections. A fresh disposable disk
+showed the scene-specific carrier rectangle and tetrahedral seed without a
+checkerboard; SGP trace output showed `SET_WORK`, `CLS`, multiple `LINE`
+records, and `END` for both hidden pages. These are VAEG observations, not a
+real-hardware performance claim. Manual ESC and physical PC-88VA validation
+remain the final human gate.
