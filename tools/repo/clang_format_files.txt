@@ -169,8 +169,6 @@ io/subsystemif.c
 io/subsystemif.h
 io/subsystemmx.c
 io/subsystemmx.h
-io/sysport.c
-io/sysport.h
 io/sysportva.c
 io/sysportva.h
 io/tsp.c

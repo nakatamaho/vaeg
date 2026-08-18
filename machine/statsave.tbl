@@ -1,6 +1,6 @@
 
 
-#define		NP2STATUS_VERSION		0x080608
+#define		NP2STATUS_VERSION		0x080609
 
 static const NP2FHDR np2flagdef = {
 						"VA-EG",
@@ -74,7 +74,7 @@ static const SFENTRY np2tbl[] = {
 	{UPD9002_COMPAT_STATE_SECTION, 1,
 					STATFLAG_UPD9002_COMPAT,NULL,
 					UPD9002_COMPAT_STATE_SIZE},
-	{"MEMORY",		0,	STATFLAG_MEM,	NULL,			0x130000},
+	{"MEMORY",		0,	STATFLAG_MEM,	NULL,			0x110000},
 	{"EXTMEM",		0,	STATFLAG_EXT,	NULL,			0},
 
 	{"DMAC",		0,	STATFLAG_DMA,	&dmac,			sizeof(dmac)},
@@ -85,7 +85,6 @@ static const SFENTRY np2tbl[] = {
 	{"NP2SYSPORT",	0,	STATFLAG_BIN,	&np2sysp,		sizeof(np2sysp)},
 	{"PIC",			0,	STATFLAG_BIN,	&pic,			sizeof(pic)},
 	{"RS232C",		0,	STATFLAG_BIN,	&rs232c,		sizeof(rs232c)},
-	{"SYSTEMPORT",	0,	STATFLAG_BIN,	&sysport,		sizeof(sysport)},
 	{"uPD4990",		0,	STATFLAG_BIN,	&uPD4990,		sizeof(uPD4990)},
 	{"EVENT",		0,	STATFLAG_EVT,	&nevent,		sizeof(nevent)},
 	{"CALENDAR",	0,	STATFLAG_BIN,	&cal,			sizeof(cal)},

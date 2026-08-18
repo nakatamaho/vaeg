@@ -332,7 +332,7 @@ no source comment cites the maintainer-local hardware-document directories.
 | `tests/upd9002/m96d_nop.c` | ROM1 test backing comment | The focused test populates the ROM1 backing selected for the VA F0000H-FFFFFH window rather than flat `mem[]` storage | `memoryva/memoryva.c`: ROM1 handler for the F0000H region | `hardware-documented` |
 | `bios/biosmem.h` | Remaining work-area offsets | Active SASI/SCSI service state and memory-switch synchronization use these emulator-owned offsets; former simulated bootstrap offsets are absent | Current consumers in `bios/sxsibios.c` and `machine/pccore.c`; no untracked hardware path is claimed | `emulator-policy` |
 | `machine/pccore.h` | Configuration and serialized-model comments | `NP2CFG` values are reset-time configuration; `PCCORE.model` is retained as a serialized compatibility byte while `model_va` selects the active VA model | Current reset and save-state declarations in `machine/pccore.c` and `machine/statsave.c` | `emulator-policy` |
-| `io/sysportva.c` | System-port ownership and staged compatibility shadow | Runtime serial/beeper consumers use the VA system-port latch; the generic shadow is retained only until the explicit M96g state-format revision | `io/sysportva.c`, `io/serial.c`, `sound/beepc.c`, and `machine/statsave.tbl`; VA system-port behavior summarized in `docs/modernization/pc88va-boot-sequence.md` | `emulator-policy` / `hardware-documented` |
+| `io/sysportva.c` | System-port ownership | Runtime serial/beeper consumers and the VA port handlers use the VA system-port latch; the obsolete generic shadow and serialized section are removed in M96g | `io/sysportva.c`, `io/serial.c`, `sound/beepc.c`, and `machine/statsave.tbl`; VA system-port behavior summarized in `docs/modernization/pc88va-boot-sequence.md` | `emulator-policy` / `hardware-documented` |
 
 ## 9. M96d simulated-BIOS NOP-hook audit
 
@@ -629,13 +629,12 @@ reset table.
 | Reset | `systemport_reset()` writes `sysport.c=F9h`, then `systemportva_reset()` writes VA state | Generic reset callback is no longer a runtime dependency; `systemportva_reset()` restores `F9h`, mirrors the compatibility byte, and refreshes the beeper gate | `io/iocore.c`, `io/sysportva.c` |
 | Guest writes | VA handlers write VA state and mirror the shadow | Unchanged while the old state section is retained | `io/sysportva.c` |
 
-M96g1 deliberately retains the one-byte `sysport` object and its mirrored
-writes so that the pre-M96g serialized section remains byte-compatible while
-runtime ownership is migrated. M96g2 removes that shadow and the
-`SYSTEMPORT` section together, with an explicit state-version change. The
-reset callback sequence is therefore unchanged except that the now-unused
-generic reset callback is not needed by runtime consumers; the VA reset still
-runs at its original position. Bind order is unchanged.
+M96g1 retained the one-byte `sysport` object and its mirrored writes so that
+the pre-M96g serialized section remained byte-compatible while runtime
+ownership was migrated. M96g2 removes that shadow and the `SYSTEMPORT` section
+together, with an explicit state-version change. The reset callback sequence
+therefore retains the VA reset at its original position while dropping only
+the unused generic callback. Bind order is unchanged.
 
 ### 14.2 Memory and state-save baseline (G3-G6)
 
@@ -662,11 +661,12 @@ backing. `FONT_ADRS` remains live; `VRAM*`, `VRAMADDRMASKEX`, `VRAM_STEP`, and
 `ITF_ADRS` become removable only after the legacy transfers and all other
 references are deleted.
 
-The current header is `NP2STATUS_VERSION=0x080608`; M96g2 will use policy B
-(explicit rejection) and bump it to `0x080609`. The old `SYSTEMPORT` section
-and the two legacy `MEMORY` chunks will be absent from the new format, whose
-`MEMORY` size will be `0x110000`. No pre-M96g state is silently partially
-loaded.
+The old header was `NP2STATUS_VERSION=0x080608`; M96g2 uses policy B
+(explicit rejection) and bumps it to `0x080609`. The old `SYSTEMPORT` section
+is absent from the new format. M96g3 will remove the two legacy `MEMORY`
+chunks; the resulting `MEMORY` size is then `0x110000`. No pre-M96g state is
+silently partially loaded; the focused state test mutates the header version
+and verifies rejection before any state is applied.
 
 ### 14.3 M96g1 machine validation
 
@@ -682,6 +682,15 @@ changed in this substage.
 
 The M96g human gate remains pending until the complete state/memory change is
 validated; this substage does not claim G96g.
+
+### 14.4 M96g2 state-format validation
+
+M96g2 removes the generic `sysport` source and header, removes its CMake and
+formatter-manifest entries, removes the `SYSTEMPORT` section, and increments
+the state header from `0x080608` to `0x080609`. The `SYSPORTVA` section remains
+the sole serialized system-port state. The focused state-boundary test now
+hashes the `0x110000`-byte active memory section and rejects a pre-M96g header
+version without mutating the captured machine snapshot.
 
 ## 15. Human gates
 

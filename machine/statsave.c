@@ -451,8 +451,6 @@ static int flagsave_mem(STFLAGH sfh, const SFENTRY *tbl) {
 	int ret;
 
 	ret = statflag_write(sfh, mem, 0x110000);
-	ret |= statflag_write(sfh, mem + VRAM1_B, 0x18000);
-	ret |= statflag_write(sfh, mem + VRAM1_E, 0x8000);
 	(void)tbl;
 	return (ret);
 }
@@ -461,8 +459,6 @@ static int flagload_mem(STFLAGH sfh, const SFENTRY *tbl) {
 	int ret;
 
 	ret = statflag_read(sfh, mem, 0x110000);
-	ret |= statflag_read(sfh, mem + VRAM1_B, 0x18000);
-	ret |= statflag_read(sfh, mem + VRAM1_E, 0x8000);
 	(void)tbl;
 	return (ret);
 }

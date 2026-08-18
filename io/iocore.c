@@ -29,7 +29,6 @@ _NP2SYSP np2sysp;
 _PIC pic;
 _PIT pit;
 _RS232C rs232c;
-_SYSPORT sysport;
 _UPD4990 uPD4990;
 
 /*

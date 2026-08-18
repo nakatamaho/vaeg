@@ -22,7 +22,6 @@ typedef void (*IOCBFN)(void);
 #include "pic.h"
 #include "pit.h"
 #include "serial.h"
-#include "sysport.h"
 #include "upd4990.h"
 
 #ifdef __cplusplus
@@ -38,7 +37,6 @@ extern _NP2SYSP np2sysp;
 extern _PIC pic;
 extern _PIT pit;
 extern _RS232C rs232c;
-extern _SYSPORT sysport;
 extern _UPD4990 uPD4990;
 
 /* Register an exact port in the native VA 16-bit I/O address space. */

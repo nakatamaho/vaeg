@@ -36,7 +36,7 @@
 
 #define STATE_FILE_HEADER_SIZE 0x30
 #define STATE_SECTION_HEADER_SIZE 16
-#define STATE_MEMORY_SIZE 0x130000
+#define STATE_MEMORY_SIZE 0x110000
 
 typedef struct {
 	Upd9002RuntimeState runtime;
@@ -233,6 +233,7 @@ int upd9002_statsave_boundary_verify(const char *valid_path) {
 	UINT body;
 	UINT body_size;
 	UINT truncated_size;
+	UINT32 current_version;
 	STATE_SNAPSHOT snapshot;
 	char invalid_path[MAX_PATH];
 	char legacy_path[MAX_PATH];
@@ -271,6 +272,13 @@ int upd9002_statsave_boundary_verify(const char *valid_path) {
 		goto done;
 	}
 	snapshot_capture(&snapshot);
+	current_version = read_u32(data + STATE_FILE_HEADER_SIZE - sizeof(UINT32));
+	write_u32(data + STATE_FILE_HEADER_SIZE - sizeof(UINT32), current_version - 1);
+	if ((write_file(invalid_path, data, data_size) != SUCCESS) ||
+	    (check_rejection(invalid_path, "", &snapshot) != SUCCESS)) {
+		goto done;
+	}
+	write_u32(data + STATE_FILE_HEADER_SIZE - sizeof(UINT32), current_version);
 
 	data[body + offsetof(Upd9002StateImage, cpu_type)] = 0;
 	if ((write_file(invalid_path, data, data_size) != SUCCESS) ||
