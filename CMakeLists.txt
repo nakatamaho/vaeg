@@ -200,7 +200,6 @@ set(VAEG_CORE_SOURCES
     io/pic.c
     io/pit.c
     io/serial.c
-    io/sysport.c
     io/upd4990.c
     cbus/cbuscore.c
     cbus/sasiio.c
