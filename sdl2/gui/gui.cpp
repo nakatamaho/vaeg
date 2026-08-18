@@ -3182,7 +3182,7 @@ static void draw_about_dialog(void) {
 			close_about = ImGui::Button("OK", ImVec2(-1.0f, 0.0f));
 			ImGui::TableNextRow();
 			ImGui::TableNextColumn();
-			ImGui::Text("Based on Neko Project II  %s", NP2VER_CORE);
+			ImGui::TextUnformatted("PC-88VA emulator core");
 			ImGui::TableNextColumn();
 			ImGui::BeginDisabled(g_gui.about_more);
 			if (ImGui::Button("More >>", ImVec2(-1.0f, 0.0f))) {
