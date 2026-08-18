@@ -2774,6 +2774,21 @@ static void load_font_preset(const char *filename) {
 	g_gui.font_status += filename;
 }
 
+static void load_default_va_font(void) {
+	const char *filename = romva_default_font_filename();
+
+	if (!romva_load_default_font()) {
+		g_gui.font_status = "VA font load failed: ";
+		g_gui.font_status += filename;
+		return;
+	}
+	np2cfg.fontfile[0] = '\0';
+	pccore_redraw();
+	sysmng_update(SYS_UPDATECFG);
+	g_gui.font_status = "Font loaded: ";
+	g_gui.font_status += filename;
+}
+
 static void draw_screen_menu(void) {
 	if (ImGui::BeginMenu("Screen / 画面")) {
 		if (ImGui::BeginMenu("Effect")) {
@@ -2846,11 +2861,22 @@ static void draw_screen_menu(void) {
 		ImGui::Separator();
 		if (ImGui::BeginMenu("Font")) {
 			char path[MAX_PATH];
-			const bool available = font_preset_path(pc98fontromname, path, sizeof(path));
-			if (ImGui::MenuItem("98font", nullptr, false, available)) {
+			const char *va_filename = romva_default_font_filename();
+			const bool va_available = font_preset_path(va_filename, path, sizeof(path));
+			const bool va_selected = np2cfg.fontfile[0] == '\0';
+			if (ImGui::MenuItem("VA default", nullptr, va_selected, va_available)) {
+				load_default_va_font();
+			}
+			if (!va_available) {
+				ImGui::TextDisabled("%s not found in the ROM directory", va_filename);
+			}
+			const bool pc98_available = font_preset_path(pc98fontromname, path, sizeof(path));
+			const bool pc98_selected =
+			    np2cfg.fontfile[0] && !file_cmpname(file_getname(np2cfg.fontfile), pc98fontromname);
+			if (ImGui::MenuItem("98font compatibility", nullptr, pc98_selected, pc98_available)) {
 				load_font_preset(pc98fontromname);
 			}
-			if (!available) {
+			if (!pc98_available) {
 				ImGui::TextDisabled("98font.rom not found in the ROM directory");
 			}
 			ImGui::EndMenu();

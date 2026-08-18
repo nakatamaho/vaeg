@@ -27,11 +27,38 @@
 #define VAROM1ROM_VA2 "varom1_va2.rom"
 #define VASUBSYSROM "vasubsys.rom"
 
+#define VAFONTFILE_SIZE 0x50000
 #define V98FONTFILE_SIZE 0x46800
 
 /* VA2 names follow MAME's pc88va2 ROM set; do not fall back to VA names. */
 static const char *romva_model_filename(const char *va, const char *va2) {
 	return ((pccore.model_va == PCMODEL_VA2) ? va2 : va);
+}
+
+const char *romva_default_font_filename(void) {
+	return romva_model_filename(VAFONTROM, VAFONTROM_VA2);
+}
+
+BOOL romva_load_default_font(void) {
+	char path[MAX_PATH];
+	FILEH fh;
+	BOOL success;
+
+	getbiospath(path, romva_default_font_filename(), sizeof(path));
+	fh = file_open_rb(path);
+	if (fh == FILEH_INVALID) {
+		return (FALSE);
+	}
+	if (file_getsize(fh) != VAFONTFILE_SIZE) {
+		file_close(fh);
+		return (FALSE);
+	}
+	success = (file_read(fh, fontmem, VAFONTFILE_SIZE) == VAFONTFILE_SIZE);
+	file_close(fh);
+	if (success) {
+		memoryva.sysmromexist |= 0x300;
+	}
+	return (success);
 }
 
 BOOL romva_load_pc98_font(const char *filename) {
@@ -99,14 +126,7 @@ void romva_initialize(void) {
 	memoryva.sysmromexist = 0;
 	subsystem.romexist = FALSE;
 
-	getbiospath(path, romva_model_filename(VAFONTROM, VAFONTROM_VA2), sizeof(path));
-	fh = file_open_rb(path);
-	if (fh != FILEH_INVALID) {
-		success = (file_read(fh, fontmem, 0x50000) == 0x50000);
-		if (success)
-			memoryva.sysmromexist |= 0x300; // bank 8,9
-		file_close(fh);
-	}
+	romva_load_default_font();
 	if (np2cfg.fontfile[0] && !file_cmpname(file_getname(np2cfg.fontfile), pc98fontromname)) {
 		getbiospath(path, pc98fontromname, sizeof(path));
 		romva_load_pc98_font(path);
