@@ -315,8 +315,6 @@ void pccore_reset(void) {
 		sound_init();
 	}
 	ZeroMemory(mem, 0x110000);
-	ZeroMemory(mem + VRAM1_B, 0x18000);
-	ZeroMemory(mem + VRAM1_E, 0x08000);
 	ZeroMemory(mem + FONT_ADRS, 0x08000);
 
 	// Copy configured memory-switch bytes into the VA work area.
