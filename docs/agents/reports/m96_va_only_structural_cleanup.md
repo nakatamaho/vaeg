@@ -39,7 +39,8 @@ M96f removed proven-dead configuration fields after the designated-initializer
 byte-identity gate; G96f passed. M96g then migrated runtime system-port users
 to the VA latch, removed the redundant `SYSTEMPORT` state section with an
 explicit version bump, and removed legacy serialized memory chunks and
-constants. G96g is now the remaining human gate for this candidate.
+constants. G96g passed on the final M96g4 candidate; M96h remains gated by the
+staged milestone protocol.
 
 The task file was absent at the evaluated baseline. This commit adds the
 tracked task index at
@@ -761,7 +762,7 @@ must still confirm audible OPN and OPNA continuation after loading a state.
 | G96d | `11038588b491ca8e250df9ced8ccf821494def28` | **PASS** | Maintainer: human gate passed |
 | G96e | `613a8a8` | **PASS** | Maintainer: human gate passed |
 | G96f | `75d088a` | **PASS** | Maintainer: human gate passed; SCSI support-disk path checked |
-| G96g | `cc3c9f4` | **PENDING** | Candidate validated; maintainer human gate required |
+| G96g | `6374cb1` | **PASS** | Maintainer: G96g passed |
 | G96h | Not reached | **PENDING** | Blocked by staged gate protocol |
 | G96i | Not reached | **PENDING** | Blocked by staged gate protocol |
 | G96 | Not reached | **PENDING** | Blocked by staged gate protocol |
