@@ -40,7 +40,8 @@ byte-identity gate; G96f passed. M96g then migrated runtime system-port users
 to the VA latch, removed the redundant `SYSTEMPORT` state section with an
 explicit version bump, and removed legacy serialized memory chunks and
 constants. G96g passed on the final M96g4 candidate. G96h passed on the final
-M96h candidate; M96i is now the active final-audit stage.
+M96h candidate; M96i completed its final audit and passed G96i on the
+`e311ea583397f04d9489e82897405fe139e2c3aa` candidate.
 
 The task file was absent at the evaluated baseline. This commit adds the
 tracked task index at
@@ -924,8 +925,8 @@ M96i found no additional safe source deletion or dispatch flattening. The VA
 I/O map, live C-bus ownership tier, VA1/VA2 selector, and protected ROM
 workflow are all explicit and preserved. The remaining unreferenced list is
 classified backlog/compatibility/protected material rather than an unreviewed
-cleanup target. M96i is ready for its human gate; no M96 completion claim is
-made until `G96i` and the final `G96` are explicitly passed.
+cleanup target. The maintainer passed G96i on the `e311ea5` candidate. M96
+still has no completion claim until the final `G96` is explicitly passed.
 
 ## 15. Human gates
 
@@ -939,7 +940,7 @@ made until `G96i` and the final `G96` are explicitly passed.
 | G96f | `75d088a` | **PASS** | Maintainer: human gate passed; SCSI support-disk path checked |
 | G96g | `6374cb1` | **PASS** | Maintainer: G96g passed |
 | G96h | `fc8afbd2fa46e5df6ba3163590cd2ff39f626a80` | **PASS** | Maintainer: G96h human gate passed |
-| G96i | Not reached | **PENDING** | Blocked by staged gate protocol |
+| G96i | `e311ea583397f04d9489e82897405fe139e2c3aa` | **PASS** | Maintainer: G96i human gate passed |
 | G96 | Not reached | **PENDING** | Blocked by staged gate protocol |
 
 M96b completed after the maintainer recorded G96b as passed. M96c completed
