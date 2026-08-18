@@ -4,6 +4,8 @@ extern "C" {
 #endif
 
 void romva_initialize(void);
+const char *romva_default_font_filename(void);
+BOOL romva_load_default_font(void);
 BOOL romva_load_pc98_font(const char *filename);
 
 #ifdef __cplusplus
