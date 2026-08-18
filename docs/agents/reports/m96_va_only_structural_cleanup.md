@@ -526,10 +526,10 @@ consumer checks are registered for M96b6 and remain open.
 | G96b | `78ac500` | **PASS** | Maintainer: human gate passed |
 | G96c | `f31fb45` | **PASS** | Maintainer: human gate passed |
 | G96d | `11038588b491ca8e250df9ced8ccf821494def28` | **PASS** | Maintainer: human gate passed |
-| G96e | `613a8a8` | **PENDING** | Awaiting maintainer's VA boot/storage/display/sound/state human check |
+| G96e | `613a8a8` | **PASS** | Maintainer: human gate passed |
 | G96f-G96i / G96 | Not reached | **PENDING** | Blocked by staged gate protocol |
 
 M96b completed after the maintainer recorded G96b as passed. M96c completed
-after G96c. The maintainer then passed G96d for the M96d candidate; M96e
-source work is complete and G96e is now the next human gate. Later gates
-remain pending until their respective stages complete.
+after G96c. The maintainer then passed G96d for the M96d candidate and G96e
+for the M96e candidate. Later gates remain pending until their respective
+stages complete.
