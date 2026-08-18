@@ -616,7 +616,8 @@ candidate list includes protected ROM sources and retained demo material.
 | G96c | `f31fb45` | **PASS** | Maintainer: human gate passed |
 | G96d | `11038588b491ca8e250df9ced8ccf821494def28` | **PASS** | Maintainer: human gate passed |
 | G96e | `613a8a8` | **PASS** | Maintainer: human gate passed |
-| G96f-G96i / G96 | Not reached | **PENDING** | Blocked by staged gate protocol |
+| G96f | `75d088a` | **PASS** | Maintainer: human gate passed; SCSI support-disk path checked |
+| G96g-G96i / G96 | Not reached | **PENDING** | Blocked by staged gate protocol |
 
 M96b completed after the maintainer recorded G96b as passed. M96c completed
 after G96c. The maintainer then passed G96d for the M96d candidate and G96e
