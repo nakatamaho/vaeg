@@ -42,6 +42,8 @@ explicit version bump, and removed legacy serialized memory chunks and
 constants. G96g passed on the final M96g4 candidate. G96h passed on the final
 M96h candidate; M96i completed its final audit and passed G96i on the
 `e311ea583397f04d9489e82897405fe139e2c3aa` candidate.
+The maintainer subsequently passed the final G96 human gate on the
+`74c859111951f22e86b2bd6453a5f07b040fd6da` candidate; M96 is complete.
 
 The task file was absent at the evaluated baseline. This commit adds the
 tracked task index at
@@ -941,9 +943,9 @@ still has no completion claim until the final `G96` is explicitly passed.
 | G96g | `6374cb1` | **PASS** | Maintainer: G96g passed |
 | G96h | `fc8afbd2fa46e5df6ba3163590cd2ff39f626a80` | **PASS** | Maintainer: G96h human gate passed |
 | G96i | `e311ea583397f04d9489e82897405fe139e2c3aa` | **PASS** | Maintainer: G96i human gate passed |
-| G96 | Not reached | **PENDING** | Blocked by staged gate protocol |
+| G96 | `74c859111951f22e86b2bd6453a5f07b040fd6da` | **PASS** | Maintainer: G96 human gate passed |
 
 M96b completed after the maintainer recorded G96b as passed. M96c completed
 after G96c. The maintainer then passed G96d for the M96d candidate and G96e
-for the M96e candidate. Later gates remain pending until their respective
-stages complete.
+for the M96e candidate. G96f, G96g, G96h, G96i, and final G96 were each
+recorded against their evaluated candidates. M96 is closed.
