@@ -126,7 +126,7 @@ distinction unless a behavior-backed alternative is demonstrated.
 
 | Dispatch or selector | Baseline finding | M96a classification |
 | --- | --- | --- |
-| `PCMODEL_VA` | Same value as `PCMODEL_VA1`; `pccore.model` is set once while `model_va` selects VA1/VA2 | `DEFER_INSUFFICIENT_EVIDENCE`; planned M96f configuration/state audit |
+| `PCMODEL_VA` | Same value as `PCMODEL_VA1`; removed by the M96f vocabulary cleanup while the serialized model byte remains | `REMOVED_M96F`; `PCMODEL_VA1`/`PCMODEL_VA2` remain the live VA selectors |
 | `PCMODEL_VA1` / `PCMODEL_VA2` | Live VA1/VA2 runtime selection in memory, ROM, SGP, GUI, and selftests | `RETAIN_LIVE` |
 | `SUPPORT_PC98*`, `PC9821*`, `PC9801*` | No active production selector found in the baseline source search; prior removal is recorded as `ALREADY_ABSENT` (M72/M91 where applicable) | `ALREADY_ABSENT` |
 | `iocore16` | Only the unreferenced `io/iocore16.tbl` artifact remains; canonical VA map is `io/iocore.c` | `DEFER_TO_M96b3` |
@@ -139,8 +139,8 @@ distinction unless a behavior-backed alternative is demonstrated.
 
 The M96c census found no surviving runtime selector that dispatches to an
 obsolete PC-98 machine implementation. `PCMODEL_VA1`/`PCMODEL_VA2` remain the
-live VA model selector. `PCMODEL_VA` is a same-valued compatibility constant
-and is deferred to the state-safe M96f vocabulary cleanup. `CPU_ITFBANK` and
+live VA model selectors. The same-valued `PCMODEL_VA` compatibility constant is
+removed by M96f without changing the serialized `PCCORE.model` byte. `CPU_ITFBANK` and
 the simulated-BIOS path remain deferred to their isolated M96d/e/g stages.
 The C-bus callback tier is retained under S1; it is a live hardware ownership
 boundary, not a second I/O map.
@@ -331,6 +331,7 @@ no source comment cites the maintainer-local hardware-document directories.
 | `cbus/cbuscore.c` | C-bus ownership comment | C-bus owns reset/bind lifecycle for live SASI, SCSI, MPU98II, and BMS devices; it is not a second CPU I/O map or PC-9801 residue | Current callback tables and `machine/pccore.c`; maintainer-settled S1 | `hardware-documented` / `emulator-policy` |
 | `tests/upd9002/m96d_nop.c` | ROM1 test backing comment | The focused test populates the ROM1 backing selected for the VA F0000H-FFFFFH window rather than flat `mem[]` storage | `memoryva/memoryva.c`: ROM1 handler for the F0000H region | `hardware-documented` |
 | `bios/biosmem.h` | Remaining work-area offsets | Active SASI/SCSI service state and memory-switch synchronization use these emulator-owned offsets; former simulated bootstrap offsets are absent | Current consumers in `bios/sxsibios.c` and `machine/pccore.c`; no untracked hardware path is claimed | `emulator-policy` |
+| `machine/pccore.h` | Configuration and serialized-model comments | `NP2CFG` values are reset-time configuration; `PCCORE.model` is retained as a serialized compatibility byte while `model_va` selects the active VA model | Current reset and save-state declarations in `machine/pccore.c` and `machine/statsave.c` | `emulator-policy` |
 
 ## 9. M96d simulated-BIOS NOP-hook audit
 
@@ -515,10 +516,98 @@ sources, 413 reached, and 40 unreferenced; retained candidates and protected
 
 ## 12. Corrections against earlier reports
 
-M96a does not yet make the M88 or M84a corrections. The required producer /
-consumer checks are registered for M96b6 and remain open.
+M96f verified the two corrections previously registered by M96b6. The M88
+report's statement that the removed display settings remain as positional
+configuration padding is no longer current: those `NP2CFG` members had no
+production readers or writers and are removed by M96f2. The M84a report's
+statement that `snd26opt`, `snd86opt`, and `vol_pcm` are named padding inside
+`PCCORE` is also incorrect. They were members of `NP2CFG`, persisted through
+the name-keyed `INITBL` table in `sdl2/ini.c`, and were not part of the raw
+`PCCORE` save-state section. Both corrections are recorded here without
+rewriting the historical reports.
 
-## 13. Human gates
+## 13. M96f configuration evidence
+
+### 13.1 M96f1 designated initializer gate
+
+The positional `NP2CFG` initializer in `machine/pccore.c` was converted to
+designated fields before any member deletion. The baseline and converted
+initializer each name all 59 `NP2CFG` declarations. `PCCORE` was not
+converted. A compiler object dump located the `np2cfg` symbol in `__data` and
+extracted its 12,388-byte image before and after the conversion:
+
+| Check | Result |
+| --- | --- |
+| `NP2CFG` byte count | 12,388 before / 12,388 after |
+| Before image SHA-256 | `5762154eb4875b2ee1af4ac4a5736c5f09096833a47dbb606dba1cc0d57b0956` |
+| After image SHA-256 | `5762154eb4875b2ee1af4ac4a5736c5f09096833a47dbb606dba1cc0d57b0956` |
+| Byte comparison | identical (`cmp` exit 0) |
+| Configuration round-trip | existing `ini_read`/`ini_write` selftest: `selftest: ini ok` |
+| `--selftest` | all tests passed, exit 0 |
+
+The conversion changes no `INITBL` entry or target address; the configuration
+round-trip therefore exercises the same name-keyed fields and produces the
+same serialized settings. The machine-verifiable gate G96f1 passed on the
+M96f1 candidate.
+
+### 13.2 M96f2 removed configuration residue
+
+The following members had no production CMake consumer, include consumer,
+symbol read/write, GUI/CLI entry, `INITBL` entry, or save-state dependency.
+Their only source references were the declaration and initializer (with
+`PCMODEL_VA` additionally appearing in the old generic model byte setup).
+
+| Field | Proof of no live consumer | Decision |
+| --- | --- | --- |
+| `uPD72020` | declaration/initializer only; no `INITBL`, GUI, CLI, or runtime reference | removed |
+| `DISPSYNC` | declaration/initializer only; no `INITBL`, GUI, CLI, or runtime reference | removed |
+| `RASTER` | declaration/initializer only; no `INITBL`, GUI, CLI, or runtime reference | removed |
+| `realpal` | declaration/initializer only; no `INITBL`, GUI, CLI, or runtime reference | removed |
+| `LCD_MODE` | declaration/initializer only; no `INITBL`, GUI, CLI, or runtime reference | removed |
+| `skipline` | declaration/initializer only; no `INITBL`, GUI, CLI, or runtime reference | removed |
+| `skiplight` | declaration/initializer only; no `INITBL`, GUI, CLI, or runtime reference | removed |
+| `wait[6]` | declaration/initializer only; no `INITBL`, GUI, CLI, or runtime reference | removed |
+| `grcg` | declaration/initializer only; no `INITBL`, GUI, CLI, or runtime reference | removed |
+| `color16` | declaration/initializer only; no `INITBL`, GUI, CLI, or runtime reference | removed |
+| `snd26opt` | declaration/initializer only; no sound, GUI, CLI, or `INITBL` reference | removed |
+| `snd86opt` | declaration/initializer only; no sound, GUI, CLI, or `INITBL` reference | removed |
+| `vol_pcm` | declaration/initializer only; no sound, GUI, CLI, or `INITBL` reference | removed |
+| `PROTECTMEM` | declaration/initializer only; no memory, GUI, CLI, or `INITBL` reference | removed |
+| `hdrvacc` | declaration/initializer only; no storage, GUI, CLI, or `INITBL` reference | removed |
+| `hdrvroot` | declaration/initializer only; no storage, GUI, CLI, or `INITBL` reference | removed |
+| `PCMODEL_VA` | same-valued generic selector; replaced by `PCMODEL_VA1` while preserving the serialized byte | removed |
+
+The active VA selector remains `PCMODEL_VA1`/`PCMODEL_VA2` in
+`PCCORE.model_va`; the serialized `PCCORE.model` byte remains in place and is
+documented as a compatibility byte. `NP2CFG` is configuration state, not a
+raw save-state section, so removing these members does not change the
+`PCCORE` binary state layout.
+
+### 13.3 M96f validation
+
+The M96f source-changing candidate was rebuilt after the field removal. The
+test-enabled Linux build used a separate `build/m96f-linux` directory so the
+repository `linux-debug` preset remained unchanged. The MinGW build used the
+repository `mingw-cross` preset with ccache disabled.
+
+| Check | Result |
+| --- | --- |
+| `cmake -S . -B build/m96f-linux -G Ninja -DCMAKE_BUILD_TYPE=Debug -DVAEG_ENABLE_TESTS=ON -DVAEG_Z80_COMPAT_INTEGRATION_TRACE=ON -DVAEG_WERROR=OFF` | PASS |
+| `cmake --build build/m96f-linux -j4` | PASS |
+| `ctest --test-dir build/m96f-linux --output-on-failure` | 83 PASS, 1 fixture-dependent SKIP |
+| `build/m96f-linux/sdl2/vaeg --selftest` with dummy SDL drivers | PASS, all tests passed |
+| `CCACHE_DISABLE=1 cmake --preset mingw-cross` | PASS |
+| `CCACHE_DISABLE=1 cmake --build --preset mingw-cross -j4` | PASS |
+| MinGW artifact | `build/mingw-cross/sdl2/vaeg.exe`, SHA-256 `15b7a734756db5ce8ebb79345a4cc25ecf12ecaa6edeb9d1557bf3f1aa7226ba` |
+| `git diff --check`, encoding, EOL, case | PASS |
+| Focused `clang-format-mp-22` check for `machine/pccore.c` and `machine/pccore.h` | PASS |
+| Full `tools/repo/clang_format.py` check | FAIL on unrelated pre-existing `sdl2/np2.c` and `sdl2/scrnmng.c` lines |
+
+The full formatter failure is inherited from the baseline and is not in the
+M96f diff. The report-only unreferenced-source scan remains informational; its
+candidate list includes protected ROM sources and retained demo material.
+
+## 15. Human gates
 
 | Gate | Evaluated commit | Result | Maintainer statement |
 | --- | --- | --- | --- |
