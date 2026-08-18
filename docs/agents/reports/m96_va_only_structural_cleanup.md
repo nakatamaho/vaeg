@@ -35,6 +35,12 @@ icon, cursor, or wave payload was modified. The
 working branch is
 `topic/m96-va-only-structural-cleanup`.
 
+M96f removed proven-dead configuration fields after the designated-initializer
+byte-identity gate; G96f passed. M96g then migrated runtime system-port users
+to the VA latch, removed the redundant `SYSTEMPORT` state section with an
+explicit version bump, and removed legacy serialized memory chunks and
+constants. G96g is now the remaining human gate for this candidate.
+
 The task file was absent at the evaluated baseline. This commit adds the
 tracked task index at
 [`docs/agents/tasks/M96_va_only_structural_cleanup.md`](../tasks/M96_va_only_structural_cleanup.md)
@@ -712,6 +718,24 @@ to the removed constants remains.
 | `python3 tools/repo/check_case.py` | PASS |
 | Focused `clang-format-mp-22` check for changed C files | PASS |
 
+### 14.6 M96g candidate validation
+
+The complete M96g candidate was validated at the source tip before the
+ROADMAP-only gate-status commit. Linux CTest passed after the ROADMAP row was
+made declarative again; the only skipped test requires external CI assets.
+The full formatter check still reports the two unrelated pre-existing
+`sdl2/np2.c` and `sdl2/scrnmng.c` violations recorded by M96f.
+
+| Check | Result |
+| --- | --- |
+| `ctest --test-dir build/m96f-linux --output-on-failure` | 83 PASS, 1 SKIP, 0 FAIL |
+| `CCACHE_DISABLE=1 cmake --preset mingw-cross` | PASS |
+| `CCACHE_DISABLE=1 cmake --build --preset mingw-cross -j4` | PASS |
+| MinGW artifact | `build/mingw-cross/sdl2/vaeg.exe` |
+| MinGW SHA-256 | `75270b72922d4a9f8031e43dd5e80c036b00b98fd6c9c4bbd3b35017bff27cc1` |
+| `python3 tools/repo/find_unreferenced.py --report` | PASS; informational candidates remain, including protected `romimage/` sources |
+| Full `python3 tools/repo/clang_format.py` check | FAIL only on inherited `sdl2/np2.c` and `sdl2/scrnmng.c` lines |
+
 ## 15. Human gates
 
 | Gate | Evaluated commit | Result | Maintainer statement |
@@ -722,7 +746,10 @@ to the removed constants remains.
 | G96d | `11038588b491ca8e250df9ced8ccf821494def28` | **PASS** | Maintainer: human gate passed |
 | G96e | `613a8a8` | **PASS** | Maintainer: human gate passed |
 | G96f | `75d088a` | **PASS** | Maintainer: human gate passed; SCSI support-disk path checked |
-| G96g-G96i / G96 | Not reached | **PENDING** | Blocked by staged gate protocol |
+| G96g | `7c19094` | **PENDING** | Candidate validated; maintainer human gate required |
+| G96h | Not reached | **PENDING** | Blocked by staged gate protocol |
+| G96i | Not reached | **PENDING** | Blocked by staged gate protocol |
+| G96 | Not reached | **PENDING** | Blocked by staged gate protocol |
 
 M96b completed after the maintainer recorded G96b as passed. M96c completed
 after G96c. The maintainer then passed G96d for the M96d candidate and G96e
