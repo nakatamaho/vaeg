@@ -53,6 +53,11 @@ void ymfm_opn_keyon(UINT chnum, REG8 value);
 void ymfm_opn_timerover(UINT timer);
 void ymfm_opn_getpcm(SINT32 *pcm, UINT count, BOOL use_vr);
 
+/* Serialize the complete YMFM bridge state used by OPN/OPNA synthesis. */
+UINT32 ymfm_opn_state_size(void);
+int ymfm_opn_state_save(void *buffer, UINT32 size);
+int ymfm_opn_state_load(const void *buffer, UINT32 size);
+
 #ifdef __cplusplus
 }
 #endif
