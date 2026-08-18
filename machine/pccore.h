@@ -15,8 +15,6 @@ enum {
 	CPUMODE_8MHZ = 0x20,
 	CPUMODE_BASE4MHZ = 0x40,
 
-	PCMODEL_VA = 1,
-
 	PCHDD_SASI = 0x01,
 	PCHDD_SCSI = 0x02,
 
@@ -38,28 +36,17 @@ enum {
 };
 
 typedef struct {
-	// Retired non-VA display configuration; kept only as struct padding.
-	UINT8 uPD72020;
-	UINT8 DISPSYNC;
-	UINT8 RASTER;
-	UINT8 realpal;
-	UINT8 LCD_MODE;
-	UINT8 skipline;
-	UINT16 skiplight;
-
 	UINT8 KEY_MODE;
 	UINT8 XSHIFT;
 	UINT8 BTN_RAPID;
 	UINT8 BTN_MODE;
 
-	UINT8 dipsw[3];
+	UINT8 dipsw[3]; // DIP-switch values latched at reset.
 	UINT8 MOUSERAPID;
 
 	UINT8 calendar;
 	UINT8 usefd144;
-	UINT8 wait[6]; // retired non-VA timing padding
-
-	// リセット時とかあんまり参照されない奴
+	// Configuration values used during reset and infrequently thereafter.
 	OEMCHAR model[8];
 	UINT baseclock;
 	UINT multiple;
@@ -70,8 +57,6 @@ typedef struct {
 
 	UINT8 ITF_WORK;
 	UINT8 EXTMEM;
-	UINT8 grcg;    // retired non-VA display state padding
-	UINT8 color16; // retired non-VA display state padding
 	UINT32 BG_COLOR;
 	UINT32 FG_COLOR;
 
@@ -81,19 +66,16 @@ typedef struct {
 	UINT8 snd_x;
 
 	UINT8 snd14opt[3];
-	UINT8 snd26opt; // retired non-VA board state padding
-	UINT8 snd86opt; // retired non-VA board state padding
 	UINT8 spbopt;
-	UINT8 spb_vrc; // ver0.30
-	UINT8 spb_vrl; // ver0.30
-	UINT8 spb_x;   // ver0.30
+	UINT8 spb_vrc;
+	UINT8 spb_vrl;
+	UINT8 spb_x;
 
 	UINT8 BEEP_VOL;
 	UINT8 vol14[6];
 	UINT8 vol_fm;
 	UINT8 vol_ssg;
 	UINT8 vol_adpcm;
-	UINT8 vol_pcm; // retired non-VA PCM state padding
 	UINT8 vol_rhythm;
 
 	UINT8 mpuenable;
@@ -102,16 +84,13 @@ typedef struct {
 	UINT8 fddequip;
 	UINT8 MOTOR;
 	UINT8 MOTORVOL;
-	UINT8 PROTECTMEM;
-	UINT8 hdrvacc;
 
 	UINT8 lockedkey;
 
-	OEMCHAR sasihdd[2][MAX_PATH]; // ver0.74
-	OEMCHAR scsihdd[7][MAX_PATH]; // ver0.74
+	OEMCHAR sasihdd[2][MAX_PATH];
+	OEMCHAR scsihdd[7][MAX_PATH];
 	OEMCHAR fontfile[MAX_PATH];
 	OEMCHAR biospath[MAX_PATH];
-	OEMCHAR hdrvroot[MAX_PATH];
 } NP2CFG;
 
 typedef struct {
@@ -119,7 +98,7 @@ typedef struct {
 	UINT multiple;
 
 	UINT8 cpumode;
-	UINT8 model;
+	UINT8 model; // Serialized compatibility byte; active VA model is model_va.
 	UINT8 hddif;
 	UINT8 extmem;
 	UINT8 dipsw[3]; // リセット時のDIPSW
