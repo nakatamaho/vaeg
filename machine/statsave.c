@@ -40,6 +40,7 @@
 #include "subsystemif.h"
 #include "subsystem.h"
 #include "boardsb2.h"
+#include "ymfmbridge.h"
 #include "va91.h"
 #include "upd9002_regs.h"
 
@@ -644,6 +645,7 @@ enum {
 	FLAG_PSG3 = 0x0080,
 	FLAG_RHYTHM = 0x0100,
 	FLAG_ADPCM = 0x0200,
+	FLAG_YMFM = 0x0400,
 	FLAG_FMBOARDVA = 0x8000,
 };
 
@@ -652,18 +654,38 @@ typedef struct {
 	BYTE extop[4];
 } OPNKEY;
 
+static BYTE *fm_backend_restore;
+static UINT32 fm_backend_restore_size;
+
+static UINT fm_save_flags(UINT32 type) {
+	switch (type) {
+	case FMBOARD_VA_OPN:
+		return (FLAG_FM1A | FLAG_PSG1 | FLAG_YMFM | FLAG_FMBOARDVA);
+
+	case FMBOARD_VA_OPNA:
+		return (FLAG_FM1A | FLAG_FM1B | FLAG_PSG1 | FLAG_RHYTHM | FLAG_ADPCM | FLAG_YMFM |
+		        FLAG_FMBOARDVA);
+
+	default:
+		return (0);
+	}
+}
+
 static UINT32 fm_state_size(UINT32 type) {
 	UINT32 size;
 
 	size = sizeof(type);
 	switch (type) {
 	case FMBOARD_NONE:
-	case FMBOARD_VA_OPN:
 		break;
 
+	case FMBOARD_VA_OPN:
 	case FMBOARD_VA_OPNA:
-		size += sizeof(fmtimer) + sizeof(opn) + sizeof(OPNKEY) + sizeof(PSGREG) + sizeof(adpcm) +
-		        sizeof(fmboardva);
+		size += sizeof(fmtimer) + sizeof(opn) + sizeof(OPNKEY) + sizeof(PSGREG) +
+		        sizeof(fmboardva) + sizeof(UINT32) + ymfm_opn_state_size();
+		if (type == FMBOARD_VA_OPNA) {
+			size += sizeof(adpcm);
+		}
 		break;
 
 	default:
@@ -701,17 +723,11 @@ static int flagcheck_fm(STFLAGH sfh, const SFENTRY *tbl) {
 static int flagsave_fm(STFLAGH sfh, const SFENTRY *tbl) {
 	int ret;
 	UINT saveflg;
+	UINT32 backend_size;
+	BYTE *backend_state;
 	OPNKEY opnkey;
 
-	switch (usesound) {
-	case 0x0200:
-		saveflg = FLAG_FM1A | FLAG_FM1B | FLAG_PSG1 | FLAG_RHYTHM | FLAG_ADPCM | FLAG_FMBOARDVA;
-		break;
-
-	default:
-		saveflg = 0;
-		break;
-	}
+	saveflg = fm_save_flags(usesound);
 
 	ret = statflag_write(sfh, &usesound, sizeof(usesound));
 	if (saveflg & FLAG_FM1A) {
@@ -739,6 +755,20 @@ static int flagsave_fm(STFLAGH sfh, const SFENTRY *tbl) {
 	if (saveflg & FLAG_FMBOARDVA) {
 		ret |= statflag_write(sfh, &fmboardva, sizeof(fmboardva));
 	}
+	if (saveflg & FLAG_YMFM) {
+		backend_size = ymfm_opn_state_size();
+		ret |= statflag_write(sfh, &backend_size, sizeof(backend_size));
+		backend_state = (BYTE *)_MALLOC(backend_size, "ymfm-state-save");
+		if ((backend_state == NULL) ||
+		    (ymfm_opn_state_save(backend_state, backend_size) != SUCCESS)) {
+			ret = STATFLAG_FAILURE;
+		} else {
+			ret |= statflag_write(sfh, backend_state, backend_size);
+		}
+		if (backend_state != NULL) {
+			_MFREE(backend_state);
+		}
+	}
 	(void)tbl;
 	return (ret);
 }
@@ -746,20 +776,15 @@ static int flagsave_fm(STFLAGH sfh, const SFENTRY *tbl) {
 static int flagload_fm(STFLAGH sfh, const SFENTRY *t) {
 	int ret;
 	UINT saveflg;
+	UINT32 backend_size;
+	UINT32 expected_backend_size;
 	OPNKEY opnkey;
 
+	fm_backend_restore = NULL;
+	fm_backend_restore_size = 0;
 	ret = statflag_read(sfh, &usesound, sizeof(usesound));
 	fmboard_reset(usesound);
-
-	switch (usesound) {
-	case 0x0200:
-		saveflg = FLAG_FM1A | FLAG_FM1B | FLAG_PSG1 | FLAG_RHYTHM | FLAG_ADPCM | FLAG_FMBOARDVA;
-		break;
-
-	default:
-		saveflg = 0;
-		break;
-	}
+	saveflg = fm_save_flags(usesound);
 
 	if (saveflg & FLAG_FM1A) {
 		ret |= statflag_read(sfh, &fmtimer, sizeof(fmtimer));
@@ -785,6 +810,26 @@ static int flagload_fm(STFLAGH sfh, const SFENTRY *t) {
 	}
 	if (saveflg & FLAG_FMBOARDVA) {
 		ret |= statflag_read(sfh, &fmboardva, sizeof(fmboardva));
+	}
+	if (saveflg & FLAG_YMFM) {
+		expected_backend_size = ymfm_opn_state_size();
+		ret |= statflag_read(sfh, &backend_size, sizeof(backend_size));
+		if (backend_size != expected_backend_size) {
+			statflag_seterr(sfh, "FMBOARD YMFM state payload size is unsupported");
+			ret = STATFLAG_FAILURE;
+		} else {
+			fm_backend_restore = (BYTE *)_MALLOC(backend_size, "ymfm-state-load");
+			if ((fm_backend_restore == NULL) ||
+			    (statflag_read(sfh, fm_backend_restore, backend_size) != STATFLAG_SUCCESS)) {
+				if (fm_backend_restore != NULL) {
+					_MFREE(fm_backend_restore);
+				}
+				fm_backend_restore = NULL;
+				ret = STATFLAG_FAILURE;
+			} else {
+				fm_backend_restore_size = backend_size;
+			}
+		}
 	}
 
 	// Recompute ADPCM derived state after restoring its register image.
@@ -1544,6 +1589,14 @@ static int statsave_load_internal(const char *filename, BOOL allow_hostfat_misma
 	iocore_bind();
 	cbuscore_bind();
 	fmboard_bind();
+	if (fm_backend_restore != NULL) {
+		if (ymfm_opn_state_load(fm_backend_restore, fm_backend_restore_size) != SUCCESS) {
+			ret = STATFLAG_FAILURE;
+		}
+		_MFREE(fm_backend_restore);
+		fm_backend_restore = NULL;
+		fm_backend_restore_size = 0;
+	}
 
 	soundmng_play();
 

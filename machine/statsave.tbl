@@ -1,6 +1,6 @@
 
 
-#define		NP2STATUS_VERSION		0x080609
+#define		NP2STATUS_VERSION		0x08060a
 
 static const NP2FHDR np2flagdef = {
 						"VA-EG",
@@ -93,7 +93,7 @@ static const SFENTRY np2tbl[] = {
 	{"CMMPU98",		0,	STATFLAG_COM,	(void *)0,		0},
 	{"CMRS232C",	0,	STATFLAG_COM,	(void *)1,		0},
 	{"DISK",		0,	STATFLAG_DISK,	NULL,			0},
-	{"FMBOARD",		0,	STATFLAG_FM,	NULL,			0},
+	{"FMBOARD",		1,	STATFLAG_FM,	NULL,			0},
 	{"BEEP",		0,	STATFLAG_BIN,	&beep,			sizeof(beep)},
 	{"SASI",		0,	STATFLAG_BIN,	&sasiio,		sizeof(sasiio)},
 	{"SCSI",		0,	STATFLAG_BIN,	&scsiio,		sizeof(scsiio)},

@@ -25,6 +25,7 @@
 #include "ymfm_opn.h"
 
 #include <cstring>
+#include <vector>
 
 #include "compiler.h"
 #include "sound.h"
@@ -36,6 +37,7 @@ namespace {
 constexpr uint32_t kYm2203Clock = 3993552;
 constexpr uint32_t kYm2608Clock = kYm2203Clock * 2;
 constexpr unsigned kChipSlots = 2;
+constexpr uint32_t kStateVersion = 1;
 
 ymfm::opn_fidelity native_fidelity(UINT fidelity) {
 	switch (fidelity) {
@@ -139,6 +141,56 @@ void generate_slot(ymfm_slot &slot, int64_t &left, int64_t &right) {
 	} else {
 		left += slot.last_left;
 		right += slot.last_right;
+	}
+}
+
+void state_u64(ymfm::ymfm_saved_state &state, uint64_t &value) {
+	uint32_t low = static_cast<uint32_t>(value);
+	uint32_t high = static_cast<uint32_t>(value >> 32);
+	state.save_restore(low);
+	state.save_restore(high);
+	if (!state.saving()) {
+		value = (static_cast<uint64_t>(high) << 32) | low;
+	}
+}
+
+void save_restore_state(std::vector<uint8_t> &buffer, bool saving) {
+	ymfm::ymfm_saved_state state(buffer, saving);
+	uint32_t version = kStateVersion;
+	state.save_restore(version);
+	state.save_restore(g_output_rate);
+	state.save_restore(g_volume);
+	state.save_restore(g_fidelity);
+	state.save_restore(g_vr_enabled);
+	state.save_restore(g_vr_left);
+	state.save_restore(g_vr_right);
+
+	for (ymfm_slot &slot : g_slots) {
+		uint8_t active = slot.active ? 1 : 0;
+		uint8_t use_opna = slot.use_opna ? 1 : 0;
+		uint8_t stereo = slot.stereo ? 1 : 0;
+		state.save_restore(active);
+		state.save_restore(use_opna);
+		state.save_restore(stereo);
+		state_u64(state, slot.phase);
+		state.save_restore(slot.last_left);
+		state.save_restore(slot.last_right);
+		if (!saving) {
+			slot.active = active != 0;
+			slot.use_opna = use_opna != 0;
+			slot.stereo = stereo != 0;
+		}
+	}
+
+	if (!saving) {
+		for (ymfm_slot &slot : g_slots) {
+			slot.opn.set_fidelity(native_fidelity(g_fidelity));
+			slot.opna.set_fidelity(native_fidelity(g_fidelity));
+		}
+	}
+	for (ymfm_slot &slot : g_slots) {
+		slot.opn.save_restore(state);
+		slot.opna.save_restore(state);
 	}
 }
 
@@ -301,4 +353,40 @@ extern "C" void ymfm_opn_getpcm(SINT32 *pcm, UINT count, BOOL use_vr) {
 		pcm[1] += static_cast<SINT32>(right * g_volume / 64);
 		pcm += 2;
 	}
+}
+
+extern "C" UINT32 ymfm_opn_state_size(void) {
+	std::vector<uint8_t> state;
+	save_restore_state(state, true);
+	return static_cast<UINT32>(state.size());
+}
+
+extern "C" int ymfm_opn_state_save(void *buffer, UINT32 size) {
+	std::vector<uint8_t> state;
+	if ((buffer == nullptr) || (size != ymfm_opn_state_size())) {
+		return (-1);
+	}
+	save_restore_state(state, true);
+	std::memcpy(buffer, state.data(), state.size());
+	return (0);
+}
+
+extern "C" int ymfm_opn_state_load(const void *buffer, UINT32 size) {
+	std::vector<uint8_t> state;
+	uint32_t version;
+
+	if ((buffer == nullptr) || (size != ymfm_opn_state_size())) {
+		return (-1);
+	}
+	state.assign(static_cast<const uint8_t *>(buffer), static_cast<const uint8_t *>(buffer) + size);
+	if (state.size() < sizeof(version)) {
+		return (-1);
+	}
+	version = static_cast<uint32_t>(state[0]) | (static_cast<uint32_t>(state[1]) << 8) |
+	          (static_cast<uint32_t>(state[2]) << 16) | (static_cast<uint32_t>(state[3]) << 24);
+	if (version != kStateVersion) {
+		return (-1);
+	}
+	save_restore_state(state, false);
+	return (0);
 }
