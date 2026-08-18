@@ -104,7 +104,7 @@ All four DOS 8.3 outputs were assembled from the same source with NASM
 2.16.03:
 
 ~~~sh
-NASM=/private/tmp/nasm-install/bin/nasm   tools/pc88va/sgp-pseudo-sprite/build_m7_coms.sh /tmp/sgpd-m7
+NASM=/private/tmp/nasm-install/bin/nasm   demos/sgp-pseudo-sprite/build_m7_coms.sh /tmp/sgpd-m7
 ~~~
 
 The resulting exact sizes in this rebuild were:

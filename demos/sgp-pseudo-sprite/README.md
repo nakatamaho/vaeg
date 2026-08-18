@@ -202,7 +202,7 @@ background / Graphic 1 page exchange.
 Build all M7 variants with:
 
 ~~~sh
-NASM=nasm tools/pc88va/sgp-pseudo-sprite/build_m7_coms.sh /tmp/sgpd-m7
+NASM=nasm demos/sgp-pseudo-sprite/build_m7_coms.sh /tmp/sgpd-m7
 ~~~
 
 The logical-work matrix in [`docs/sgp-m7-results.md`](../../../docs/sgp-m7-results.md)
@@ -244,8 +244,8 @@ build/macos-macports/guest/sgpdemo.com
 Build all ten distributed files with the repository helpers:
 
 ~~~sh
-NASM=nasm tools/pc88va/sgp-pseudo-sprite/build_milestone_coms.sh /tmp/sgpdemo-coms
-NASM=nasm tools/pc88va/sgp-pseudo-sprite/build_m7_coms.sh /tmp/sgpdemo-m7
+NASM=nasm demos/sgp-pseudo-sprite/build_milestone_coms.sh /tmp/sgpdemo-coms
+NASM=nasm demos/sgp-pseudo-sprite/build_m7_coms.sh /tmp/sgpdemo-m7
 ~~~
 
 The first command writes `SGPDEMO1.COM` through `SGPDEMO6.COM`; the second
@@ -254,7 +254,7 @@ independently:
 
 ~~~sh
 nasm -f bin -dMILESTONE_STAGE=6 \
-  tools/pc88va/sgp-pseudo-sprite/sgp_sprite_demo.asm \
+  demos/sgp-pseudo-sprite/sgp_sprite_demo.asm \
   -o /tmp/SGPDEMO6.COM
 ~~~
 
@@ -274,9 +274,9 @@ PC-Engine-layout source image:
 
 ~~~sh
 work=$(mktemp -d /tmp/sgpdemo.XXXXXX)
-NASM=nasm tools/pc88va/sgp-pseudo-sprite/build_milestone_coms.sh \
+NASM=nasm demos/sgp-pseudo-sprite/build_milestone_coms.sh \
   "$work/coms"
-NASM=nasm tools/pc88va/sgp-pseudo-sprite/build_m7_coms.sh \
+NASM=nasm demos/sgp-pseudo-sprite/build_m7_coms.sh \
   "$work/m7"
 mkdir -p "$work/payload/root"
 python3 tools/pc88va/pcengine_disk.py data \
