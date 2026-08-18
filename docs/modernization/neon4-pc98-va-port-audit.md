@@ -125,6 +125,31 @@ launchable and visually correct.
 | “A successful VAEG run proves real VA hardware” | VAEG SGP timing and BIOS coverage are not a physical-board test | `upd92017-sgp.md` marks unresolved semantics and model-dependent timing | Report VAEG launch separately from hardware validation; do not claim hardware performance |
 | “Commit the original untracked source directory as part of the port” | It would mix a large reference import with the new implementation and may include binaries | Current tree shows `demos/NEON4_1_0/` untracked with COM/MID/S98 payloads | Preserve the reference directory; add only a small lower-case VA port directory and docs |
 
+## First implementation result
+
+The implementation is in `demos/neon4-va/neonva.asm`. It emits one `LINE`
+command followed by its complete destination descriptor for each edge; the
+descriptor is part of the `LINE` command stream, not a preceding PC-98-style
+register write. Each frame starts with `SET_WORK`, clears the hidden G1 page
+with `CLS`, emits sixteen painter-ordered edges, and terminates with `END`.
+The command list and work area are in the COM's main-RAM data segment.
+
+| Check | Result |
+|---|---|
+| NASM standalone build with `/opt/local/bin/nasm` | PASS; 2446-byte `NEONVA.COM` outside Git |
+| CMake `linux-debug` configure | PASS; NASM guest target enabled |
+| CMake `linux-debug` build | PASS; `build/linux-debug/guest/neonva.com` generated |
+| VAEG disposable-disk launch | PASS; VA background and animated coloured LINE geometry captured |
+| ESC path | Implemented; manual human gate still required |
+| Physical PC-88VA hardware | Not tested; no hardware claim is made |
+
+The first VAEG run exposed a command-stream mistake: `LINE` fetches its own
+destination descriptor immediately after the mode word. The initial draft
+emitted `SET_DESTINATION` before `LINE`, which left the emulator waiting on an
+invalid stream. The stream was corrected and relaunched successfully. This is
+why the implementation keeps the descriptor layout explicit rather than
+describing the result as a generic register sequence.
+
 ## Open questions and gates
 
 - Exact VA Music BIOS availability in each ROM set must be checked at runtime;
@@ -138,4 +163,3 @@ launchable and visually correct.
 - A human gate is required after a clean VAEG build, launch, visual check,
   ESC exit, and (if available) VA hardware check. No screenshot or emulator
   run alone is a hardware PASS.
-
