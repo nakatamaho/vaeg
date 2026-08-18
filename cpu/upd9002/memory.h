@@ -6,42 +6,22 @@
 #endif
 
 /*
- * Native VA CPU-visible memory is decoded by memoryva. The backing mem array
- * stores conventional main RAM and the 64 KiB HMA only; expansion memory is
- * owned by the uPD9002 core context.
+ * memoryva owns CPU-visible VA decoding for ROM, GVRAM, text, and expansion
+ * memory. The backing mem array stores VA main RAM/HMA plus host font data
+ * bound at FONT_ADRS; it is not a second guest-visible VRAM map. Evidence:
+ * docs/agents/reports/m96_va_only_structural_cleanup.md, section 11.
  */
 enum {
 	UPD9002_MAINRAM_LIMIT = 0x0a0000,
 	USE_HIMEM = 0x110000,
-
-	/*
-     * These offsets are private backing storage for the retained simulated
-     * boot BIOS, host font conversion, and legacy MEMORY save-state payload.
-     * They are not entries in the native VA CPU memory decoder.
-     */
-	VRAM_STEP = 0x100000,
-	VRAM_B = 0x0a8000,
-	VRAM_R = 0x0b0000,
-	VRAM_G = 0x0b8000,
-	VRAM_E = 0x0e0000,
-	VRAM0_B = VRAM_B,
-	VRAM0_R = VRAM_R,
-	VRAM0_G = VRAM_G,
-	VRAM0_E = VRAM_E,
-	VRAM1_B = VRAM_STEP + VRAM_B,
-	VRAM1_R = VRAM_STEP + VRAM_R,
-	VRAM1_G = VRAM_STEP + VRAM_G,
-	VRAM1_E = VRAM_STEP + VRAM_E,
-	FONT_ADRS = 0x110000,
-	ITF_ADRS = VRAM_STEP + 0x0f8000
+	FONT_ADRS = 0x110000
 };
-
-#define VRAMADDRMASKEX(a) ((a) & (VRAM_STEP | 0x7fff))
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
+/* Keep the allocation above the complete 0x110000-0x194000 font backing. */
 extern BYTE mem[0x200000];
 
 /* Raw storage helpers used only by native VA map entries for main RAM. */

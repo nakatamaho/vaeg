@@ -333,6 +333,7 @@ no source comment cites the maintainer-local hardware-document directories.
 | `bios/biosmem.h` | Remaining work-area offsets | Active SASI/SCSI service state and memory-switch synchronization use these emulator-owned offsets; former simulated bootstrap offsets are absent | Current consumers in `bios/sxsibios.c` and `machine/pccore.c`; no untracked hardware path is claimed | `emulator-policy` |
 | `machine/pccore.h` | Configuration and serialized-model comments | `NP2CFG` values are reset-time configuration; `PCCORE.model` is retained as a serialized compatibility byte while `model_va` selects the active VA model | Current reset and save-state declarations in `machine/pccore.c` and `machine/statsave.c` | `emulator-policy` |
 | `io/sysportva.c` | System-port ownership | Runtime serial/beeper consumers and the VA port handlers use the VA system-port latch; the obsolete generic shadow and serialized section are removed in M96g | `io/sysportva.c`, `io/serial.c`, `sound/beepc.c`, and `machine/statsave.tbl`; VA system-port behavior summarized in `docs/modernization/pc88va-boot-sequence.md` | `emulator-policy` / `hardware-documented` |
+| `cpu/upd9002/memory.h` | `mem[]` ownership comment | `memoryva` owns guest-visible VA decoding; `mem[]` additionally contains host font backing at `FONT_ADRS` | `cpu/upd9002/memory.h`, `font/font.h`, and live references catalogued in M96g §14.2 | `emulator-policy` |
 
 ## 9. M96d simulated-BIOS NOP-hook audit
 
@@ -651,8 +652,8 @@ The live host-backed `mem[]` ranges are:
 | --- | ---: | ---: | ---: | --- |
 | VA CPU main RAM + HMA backing | `0x000000` | `0x110000` | `0x110000` | yes |
 | Font backing via `FONTMEMORYBIND` / `fontrom` | `0x110000` | `0x084000` | `0x194000` | yes; required by S3 |
-| Legacy serialized VRAM1_B chunk | `0x1A8000` | `0x018000` | `0x1C0000` | no; M96g3 target |
-| Legacy serialized VRAM1_E chunk | `0x1E0000` | `0x008000` | `0x1E8000` | no; M96g3 target |
+| Legacy serialized VRAM1_B chunk | `0x1A8000` | `0x018000` | `0x1C0000` | no; removed by M96g3 |
+| Legacy serialized VRAM1_E chunk | `0x1E0000` | `0x008000` | `0x1E8000` | no; removed by M96g3 |
 
 The current allocation is `0x200000`; M96g3 must not reduce it below
 `0x194000` while `fontrom` remains an alias inside `mem[]`. CPU-visible VA
@@ -663,10 +664,10 @@ references are deleted.
 
 The old header was `NP2STATUS_VERSION=0x080608`; M96g2 uses policy B
 (explicit rejection) and bumps it to `0x080609`. The old `SYSTEMPORT` section
-is absent from the new format. M96g3 will remove the two legacy `MEMORY`
-chunks; the resulting `MEMORY` size is then `0x110000`. No pre-M96g state is
-silently partially loaded; the focused state test mutates the header version
-and verifies rejection before any state is applied.
+is absent from the new format. M96g3 removes the two legacy `MEMORY` chunks;
+the resulting `MEMORY` size is `0x110000`. No pre-M96g state is silently
+partially loaded; the focused state test mutates the header version and
+verifies rejection before any state is applied.
 
 ### 14.3 M96g1 machine validation
 
@@ -691,6 +692,25 @@ the state header from `0x080608` to `0x080609`. The `SYSPORTVA` section remains
 the sole serialized system-port state. The focused state-boundary test now
 hashes the `0x110000`-byte active memory section and rejects a pre-M96g header
 version without mutating the captured machine snapshot.
+
+### 14.5 M96g3 memory cleanup
+
+M96g3 removes the two obsolete reset clears and the unused `VRAM*`,
+`VRAMADDRMASKEX`, `VRAM_STEP`, and `ITF_ADRS` constants. The active state
+payload is `0x110000` bytes. The allocated `mem[]` bound remains `0x200000`
+intentionally: the proven live high range is the font backing through
+exclusive address `0x194000`, and leaving allocation headroom avoids changing
+the flat-memory/test seam without a separate proof. No production reference
+to the removed constants remains.
+
+| Check | Result |
+| --- | --- |
+| `cmake --build build/m96f-linux -j4` | PASS |
+| `SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy build/m96f-linux/sdl2/vaeg --selftest` | PASS |
+| `python3 tools/repo/check_encoding.py --expect utf8` | PASS |
+| `python3 tools/repo/check_eol.py --enforce` | PASS |
+| `python3 tools/repo/check_case.py` | PASS |
+| Focused `clang-format-mp-22` check for changed C files | PASS |
 
 ## 15. Human gates
 

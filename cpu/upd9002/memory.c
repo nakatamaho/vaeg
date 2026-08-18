@@ -6,6 +6,7 @@
 #include "tests/upd9002/direct_harness.h"
 #endif
 
+/* Emulator storage includes main/HMA backing and the host font range. */
 BYTE mem[0x200000];
 
 #if defined(VAEG_UPD9002_SSTS_TESTING)
