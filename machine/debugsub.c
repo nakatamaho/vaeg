@@ -4,6 +4,7 @@
 #include "cpucore.h"
 #include "machine/pccore.h"
 #include "iocore.h"
+#include "sysportva.h"
 #include "machine/debugsub.h"
 
 #if defined(MACOS)
@@ -130,7 +131,7 @@ void debugsub_status(void) {
 		p = debugsub_regs();
 		file_write(fh, p, strlen(p));
 		SPRINTF(work, str_picstat, pic.pi[0].imr, pic.pi[0].irr, pic.pi[0].isr, pic.pi[1].imr,
-		        pic.pi[1].irr, pic.pi[1].isr, mouseif.upd8255.portc, sysport.c);
+		        pic.pi[1].irr, pic.pi[1].isr, mouseif.upd8255.portc, sysportva.c);
 		file_write(fh, work, strlen(work));
 		file_close(fh);
 	}

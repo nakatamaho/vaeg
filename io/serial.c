@@ -400,13 +400,13 @@ void rs232c_callback(void) {
 	interrupt = FALSE;
 	if ((cm_rs232c) && (cm_rs232c->read(cm_rs232c, &rs232c.data))) {
 		rs232c.result |= 2;
-		if (sysport.c & 1) {
+		if (sysportva.c & 1) {
 			interrupt = TRUE;
 		}
 	} else {
 		rs232c.result &= (BYTE)~2;
 	}
-	if (sysport.c & 4) {
+	if (sysportva.c & 4) {
 		if (rs232c.send) {
 			rs232c.send = 0;
 			interrupt = TRUE;
@@ -436,7 +436,7 @@ static void IOOUTCALL rs232c_o30(UINT port, REG8 dat) {
 	if (cm_rs232c) {
 		cm_rs232c->write(cm_rs232c, (UINT8)dat);
 	}
-	if (sysport.c & 4) {
+	if (sysportva.c & 4) {
 		rs232c.send = 0;
 		pic_setirq(4);
 	} else {

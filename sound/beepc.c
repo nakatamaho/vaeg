@@ -3,6 +3,7 @@
 #include "cpucore.h"
 #include "machine/pccore.h"
 #include "iocore.h"
+#include "sysportva.h"
 #include "sound.h"
 #include "fmboard.h"
 #include "beep.h"
@@ -149,7 +150,7 @@ void beep_lheventset(int low) {
 void beep_oneventset(void) {
 	int buz;
 
-	buz = (sysport.c & 8) ? 0 : 1;
+	buz = (sysportva.c & 8) ? 0 : 1;
 	if (beep.buz != buz) {
 		beep.buz = buz;
 		beep_eventset();

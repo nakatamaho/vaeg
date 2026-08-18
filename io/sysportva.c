@@ -1,5 +1,11 @@
 /*
- * sysportva.c: PC-88VA V3 system, calendar, printer, and mode-switch ports
+ * PC-88VA system-port, calendar, printer, and mode-switch state.
+ *
+ * Runtime consumers use sysportva.c directly. The generic sysport shadow is
+ * updated only while the old serialized SYSTEMPORT section is retained; the
+ * next M96g stage removes that compatibility shadow with an explicit state
+ * format revision. Evidence: docs/agents/reports/m96_va_only_structural_cleanup.md,
+ * section 11.
  */
 
 #include "compiler.h"
@@ -195,12 +201,13 @@ static REG8 IOINPCALL sysp_i1cd(UINT port) {
 void systemportva_reset(void) {
 	sysportva.a |= 0xc1;
 	sysportva.c = 0xf9;
+	/* Keep the pre-M96g serialized shadow byte identical during this stage. */
+	sysport.c = sysportva.c;
 	sysportva.port010 = 0;
 	sysportva.port040 = 0;
 	sysportva.port190 &= 0x01; // Preserve only RSTMD.
 	sysportva.port190 |= 0x18; // Restore FBEN=1 and AVC=10b.
-	                           //beep_oneventset();
-	                           //modeled_oneventset();
+	beep_oneventset();
 }
 
 void systemportva_bind(void) {
