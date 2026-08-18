@@ -669,11 +669,13 @@ backing. `FONT_ADRS` remains live; `VRAM*`, `VRAMADDRMASKEX`, `VRAM_STEP`, and
 references are deleted.
 
 The old header was `NP2STATUS_VERSION=0x080608`; M96g2 uses policy B
-(explicit rejection) and bumps it to `0x080609`. The old `SYSTEMPORT` section
-is absent from the new format. M96g3 removes the two legacy `MEMORY` chunks;
-the resulting `MEMORY` size is `0x110000`. No pre-M96g state is silently
-partially loaded; the focused state test mutates the header version and
-verifies rejection before any state is applied.
+(explicit rejection) and bumps it to `0x080609`. M96g4 changes the FMBOARD
+payload and therefore bumps the current header to `0x08060a`; the FMBOARD
+section version is now `1`. The old `SYSTEMPORT` section is absent from the
+new format. M96g3 removes the two legacy `MEMORY` chunks; the resulting
+`MEMORY` size is `0x110000`. No pre-M96g state is silently partially loaded;
+the focused state test mutates the header version and verifies rejection
+before any state is applied.
 
 ### 14.3 M96g1 machine validation
 
@@ -720,11 +722,11 @@ to the removed constants remains.
 
 ### 14.6 M96g candidate validation
 
-The complete M96g candidate was validated at the source tip before the
-ROADMAP-only gate-status commit. Linux CTest passed after the ROADMAP row was
-made declarative again; the only skipped test requires external CI assets.
-The full formatter check still reports the two unrelated pre-existing
-`sdl2/np2.c` and `sdl2/scrnmng.c` violations recorded by M96f.
+The complete M96g source candidate, including the OPN/OPNA state correction,
+was validated before this documentation update. Linux CTest passed; the only
+skipped test requires external CI assets. The full formatter check still
+reports the two unrelated pre-existing `sdl2/np2.c` and `sdl2/scrnmng.c`
+violations recorded by M96f.
 
 | Check | Result |
 | --- | --- |
@@ -732,9 +734,22 @@ The full formatter check still reports the two unrelated pre-existing
 | `CCACHE_DISABLE=1 cmake --preset mingw-cross` | PASS |
 | `CCACHE_DISABLE=1 cmake --build --preset mingw-cross -j4` | PASS |
 | MinGW artifact | `build/mingw-cross/sdl2/vaeg.exe` |
-| MinGW SHA-256 | `75270b72922d4a9f8031e43dd5e80c036b00b98fd6c9c4bbd3b35017bff27cc1` |
+| MinGW SHA-256 | `7d2a475550deedda4337c143aa2cc18fadef7c93eba46f26391b309f551bda57` |
 | `python3 tools/repo/find_unreferenced.py --report` | PASS; informational candidates remain, including protected `romimage/` sources |
 | Full `python3 tools/repo/clang_format.py` check | FAIL only on inherited `sdl2/np2.c` and `sdl2/scrnmng.c` lines |
+
+### 14.7 M96g4 OPN/OPNA state correction
+
+The FMBOARD section previously saved only the register image and did not
+serialize the active YMFM engine. Its flag selection also omitted the VA OPN
+board. M96g4 adds the complete YMFM bridge state for both VA OPN and VA OPNA,
+restores it after `fmboard_bind()` has rebuilt the device map, and rejects the
+older FMBOARD payload through section version `1` and
+`NP2STATUS_VERSION=0x08060a`.
+
+The existing save/load/save stability assertion now covers the serialized
+YMFM state bytes: the Linux selftest passed after the change. The human gate
+must still confirm audible OPN and OPNA continuation after loading a state.
 
 ## 15. Human gates
 
@@ -746,7 +761,7 @@ The full formatter check still reports the two unrelated pre-existing
 | G96d | `11038588b491ca8e250df9ced8ccf821494def28` | **PASS** | Maintainer: human gate passed |
 | G96e | `613a8a8` | **PASS** | Maintainer: human gate passed |
 | G96f | `75d088a` | **PASS** | Maintainer: human gate passed; SCSI support-disk path checked |
-| G96g | `7c19094` | **PENDING** | Candidate validated; maintainer human gate required |
+| G96g | `cc3c9f4` | **PENDING** | Candidate validated; maintainer human gate required |
 | G96h | Not reached | **PENDING** | Blocked by staged gate protocol |
 | G96i | Not reached | **PENDING** | Blocked by staged gate protocol |
 | G96 | Not reached | **PENDING** | Blocked by staged gate protocol |
