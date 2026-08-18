@@ -341,6 +341,11 @@ no source comment cites the maintainer-local hardware-document directories.
 | `machine/pccore.h` | Configuration and serialized-model comments | `NP2CFG` values are reset-time configuration; `PCCORE.model` is retained as a serialized compatibility byte while `model_va` selects the active VA model | Current reset and save-state declarations in `machine/pccore.c` and `machine/statsave.c` | `emulator-policy` |
 | `io/sysportva.c` | System-port ownership | Runtime serial/beeper consumers and the VA port handlers use the VA system-port latch; the obsolete generic shadow and serialized section are removed in M96g | `io/sysportva.c`, `io/serial.c`, `sound/beepc.c`, and `machine/statsave.tbl`; VA system-port behavior summarized in `docs/modernization/pc88va-boot-sequence.md` | `emulator-policy` / `hardware-documented` |
 | `cpu/upd9002/memory.h` | `mem[]` ownership comment | `memoryva` owns guest-visible VA decoding; `mem[]` additionally contains host font backing at `FONT_ADRS` | `cpu/upd9002/memory.h`, `font/font.h`, and live references catalogued in M96g §14.2 | `emulator-policy` |
+| `cpu/upd9002/memory.c` | Allocation comment | The host allocation covers main/HMA storage and the font backing range | `cpu/upd9002/memory.c`, `font/font.h`, and M96g §14.2 | `emulator-policy` |
+| `cpu/upd9002/upd9002_mn.c` | NOP opcode comment | Opcode `90h` is the plain uPD9002 NOP after the simulated-BIOS side channel was removed | `cpu/upd9002/upd9002_mn.c` opcode implementation and M96d decision | `emulator-policy` |
+| `machine/pccore.h` | Configuration/model comments | DIP values are reset-latched configuration; configuration fields are reset-time state; the serialized model byte is retained while the active VA selector is separate | `machine/pccore.c`, `machine/statsave.c`, and M96f §13 | `emulator-policy` |
+| `sound/ymfmbridge.h` | YMFM state API comment | The exposed state API serializes the complete OPN/OPNA bridge state used by the sound path | `sdl2/ymfmbridge.cpp` and M96g §14.7 | `emulator-policy` |
+| `tests/upd9002/m96d_nop.c` | NOP regression setup comments | The regression places a NOP in the VA ROM1 backing for the historical hook address and selects the normal ROM/default path | `memoryva/memoryva.c` ROM1 mapping and M96d §9 | `emulator-policy` / `hardware-documented` |
 
 ## 9. M96d simulated-BIOS NOP-hook audit
 
@@ -844,6 +849,83 @@ associated with that documentation-only correction.
 | Focused `clang-format-mp-22` on all M96h-changed C/C++ files | PASS |
 | `python3 tools/repo/clang_format.py` | FAIL only on inherited pre-existing lines in `sdl2/np2.c` and `sdl2/scrnmng.c` |
 | `vaeg_milestone_id_selftest` | PASS after the `ROADMAP.md` gate-row correction |
+
+## 14.9. M96i final structural audit
+
+M96i was evaluated against the M96 baseline commit
+`dfe50a1420c075040c12b96f00c315b5987a846a` and the pre-audit candidate
+`12dcc1d80aa0db708763d0f626dfdf897788cf4a`. This is a report-only audit;
+the source and build inputs used for the M96h validation were unchanged.
+
+### 14.9.1. I1 reachability census
+
+`python3 tools/repo/find_unreferenced.py --report` reports 451 sources, 411
+reached, and 40 unreferenced at the M96h candidate. The remaining list is not
+a new deletion verdict. It consists of the already classified compatibility
+and demo material (`io/cpuio.*`, `io/np2vasup.*`, `oprecord.c`, and the SGP
+milestone sources), protected/read-only ROM generators and payloads under
+`romimage/`, and the standalone hardware probe under
+`tools/hardware/pc88va_rep0f/`, plus `bios/fdfmt.h` and
+`common/wavefile.c` retained for the backlog. Every item is therefore either
+covered by the M96b reviewer decision, protected by S2, or explicitly
+deferred; none is silently promoted to `DELETE` by this final census.
+
+### 14.9.2. I2 protected payload audit
+
+The evaluated diff has no path under `romimage/` and no modified ROM, disk,
+font, icon, cursor, or wave payload. `git diff --name-status ... -- romimage`
+is empty. The only generated payload change in the M96 history is the
+approved deletion of `cbus/scsibios.res` in M96b4; it is not under the S2
+protected `romimage/` tree and is not C-bus device support. The final audit
+therefore leaves every protected payload unchanged.
+
+### 14.9.3. I3 C-bus boundary
+
+The live C-bus boundary remains intact. `cbus/cbuscore.c` still owns reset and
+bind callbacks for SASI, SCSI, MPU98II, and BMS, and those devices register
+their CPU-visible ports through the canonical `io/iocore.c` map. The callback
+order is unchanged from M96c for both cold reset and state-load reconstruction:
+
+| Path | Reset order | Bind order | M96i result |
+| --- | --- | --- | --- |
+| Cold reset | `iocore_reset()` -> `cbuscore_reset()` -> `fmboard_reset()` -> `upd9002_memorymap_va()` -> `iocore_build()` -> `iocore_bind()` -> `cbuscore_bind()` -> `fmboard_bind()` | As shown | `RETAIN_HARDWARE_BOUNDARY` |
+| State-load reconstruction | `iocore_reset()` -> `cbuscore_reset()` -> `fmboard_reset()` -> section restore -> `upd9002_memorymap_va()` -> `iocore_build()` -> `iocore_bind()` -> `cbuscore_bind()` -> `fmboard_bind()` | As shown | `RETAIN_HARDWARE_BOUNDARY` |
+
+No C-bus source or device was removed in M96i. The retained names `sasiio`,
+`scsiio`, `scsicmd`, `mpu98ii`, and `cbus` remain live VA ownership names;
+they are not PC-9801 residue.
+
+### 14.9.4. I4 final dispatch table
+
+| Dispatch or selector | Baseline status | Final status | VA reason |
+| --- | --- | --- | --- |
+| `PCMODEL_VA1` / `PCMODEL_VA2` | Live model selection | `RETAIN_LIVE` | VA1/VA2 ROM and reset behavior remain selectable |
+| `CPU_ITFBANK` | CPU context field; old writer was `io/necio.c` | `RETAIN_COMPATIBILITY` | State/context layout is preserved; no production writer remains |
+| `SUPPORT_OPRECORD` | Guarded out-of-tree/state hooks | `DEFER_INSUFFICIENT_EVIDENCE` | M72 compatibility surface was not audited in M96 |
+| `MEMOPTIMIZE` | Active portable CPU optimization | `RETAIN_LIVE` | Defined by `sdl2/compiler.h` and consumed by compiled CPU code |
+| `cbuscore` callbacks | Live VA device lifecycle tier | `RETAIN_HARDWARE_BOUNDARY` | Owns C-bus devices; it is not a CPU-model selector |
+| `biosfunc()` and physical-address NOP hook | Simulated-BIOS side channel | `DELETE` | M96d/e removed the hook and unreachable simulated BIOS C path |
+| `PCMODEL_VA`, `CPUSTRUC_MEMWAIT`, `USEIPTRACE` | Obsolete/dead selectors or branches | `ALREADY_ABSENT` | Removed by M96f/M96h after build-definition and reachability evidence |
+| `SUPPORT_PC98*`, `PC9821*`, `PC9801*`, `iocore16` runtime selectors | No active production selector | `ALREADY_ABSENT` / `READ_ONLY` | Only historical docs or the unreferenced table artifact remain |
+| `romimage/` generators and payloads | Read-only source/payload tree | `READ_ONLY_PROTECTED` | S2 prohibits M96 edits |
+
+### 14.9.5. I5 comment/source reconciliation
+
+The comment map in section 11 now covers every behavior-bearing comment added
+by M96 to a changed source or test file. Comments that describe host storage,
+state serialization, or compatibility policy are explicitly classified as
+`emulator-policy`; no source comment cites the maintainer-local
+`docs/tekumani/` or ROM-disassembly paths. Copyright headers and untouched
+historical comments are not treated as behavioral evidence entries.
+
+### 14.9.6. M96i conclusion
+
+M96i found no additional safe source deletion or dispatch flattening. The VA
+I/O map, live C-bus ownership tier, VA1/VA2 selector, and protected ROM
+workflow are all explicit and preserved. The remaining unreferenced list is
+classified backlog/compatibility/protected material rather than an unreviewed
+cleanup target. M96i is ready for its human gate; no M96 completion claim is
+made until `G96i` and the final `G96` are explicitly passed.
 
 ## 15. Human gates
 
