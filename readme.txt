@@ -31,9 +31,6 @@
 
     milstr.hはUTF-8文字列操作を使用します。
 
-  CPUSTRUC_MEMWAIT
-　　　cpucore構造体にメモリウェイト値を移動する(vramop)
-
   CGWND_FONTPTR
 　　　cgwindowにフォントポインタを持たせる
 　　　現状、あまり意味を持ちません

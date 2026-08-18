@@ -11,7 +11,6 @@
 #include "sxsi.h"
 
 #if defined(_WIN32) && defined(TRACE)
-extern void iptrace_out(void);
 #define SCSICMD_ERR                                                                                \
 	MessageBox(NULL, "SCSI error", "?", MB_OK);                                                    \
 	exit(1);
