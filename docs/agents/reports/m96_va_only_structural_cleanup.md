@@ -39,8 +39,8 @@ M96f removed proven-dead configuration fields after the designated-initializer
 byte-identity gate; G96f passed. M96g then migrated runtime system-port users
 to the VA latch, removed the redundant `SYSTEMPORT` state section with an
 explicit version bump, and removed legacy serialized memory chunks and
-constants. G96g passed on the final M96g4 candidate; M96h remains gated by the
-staged milestone protocol.
+constants. G96g passed on the final M96g4 candidate. The M96h candidate is
+ready for its human gate; M96i remains gated by the staged milestone protocol.
 
 The task file was absent at the evaluated baseline. This commit adds the
 tracked task index at
@@ -751,6 +751,99 @@ older FMBOARD payload through section version `1` and
 The existing save/load/save stability assertion now covers the serialized
 YMFM state bytes: the Linux selftest passed after the change. The human gate
 must still confirm audible OPN and OPNA continuation after loading a state.
+
+## 14.8. M96h dead branches and identity cleanup
+
+M96h was evaluated after the explicit G96g pass. The audit searched the
+tracked source tree, `CMakeLists.txt`, `CMakePresets.json`, `cmake/`,
+`.github/`, generated CMake/Ninja files for the Linux Debug, M96f test, and
+MinGW cross builds, and the verbose per-target `DEFINES` emitted in those
+build files. No supported repository build supplies `CPUSTRUC_MEMWAIT`,
+`USEIPTRACE`, or `SUPPORT_OPRECORD`; `MEMOPTIMIZE` is actively defined by the
+portable frontend. This does not make the three undefined macros all
+removable: one has live guarded compatibility hooks, while the other two are
+proven dead in the current product.
+
+### 14.8.1 H1 macro inventory and decisions
+
+| Macro | Definitions in supported builds | Production references | Arbiter decision | M96h action |
+| --- | --- | --- | --- | --- |
+| `CPUSTRUC_MEMWAIT` | None in tracked build/configuration files or generated `DEFINES` | Two guarded field/macro blocks in `cpu/upd9002/cpucore.h`; one historical readme entry | `DELETE` | Removed the guarded fields, access macros, and stale readme entry |
+| `USEIPTRACE` | None in tracked build/configuration files or generated `DEFINES` | Dead declaration in `machine/pccore.h` and trace storage/recording blocks in `machine/pccore.c` | `DELETE` | Removed the dead IP-trace blocks and the unused Windows SCSI declaration |
+| `SUPPORT_OPRECORD` | None in supported builds | Guarded operation-record hooks in `machine/statsave.*`, `fdd/diskdrv.c`, `io/mouseifva.c`, `io/serial.c`, and `oprecord.*` | `DEFER_INSUFFICIENT_EVIDENCE` | Retained; M72 explicitly deferred this out-of-tree/state-save compatibility surface |
+| `MEMOPTIMIZE` | Active definition `sdl2/compiler.h:189` (`2`) | CPU fast-path branches in `cpu/upd9002/*` and generated operation macros | `RETAIN_LIVE` | Unchanged; this is an active optimization policy, not dead residue |
+
+`TRACE` remains a separate supported diagnostic macro. M96h removes only the
+`USEIPTRACE`-dependent storage and recording path; it does not alter the
+normal `TRACE` counters or the supported VAEG integration trace option.
+Historical SSTS fixture JSON may still contain old source snapshots; those
+fixtures are provenance data, not compiled definitions.
+
+### 14.8.2 H1 two-reviewer audit
+
+| Item | Reviewer A - reduction advocate | Reviewer B - preservation advocate | Arbiter | Evidence |
+| --- | --- | --- | --- | --- |
+| `CPUSTRUC_MEMWAIT` | No definition, active include, or consumer exists; guarded struct members are absent from production layout | An out-of-tree build could have enabled it historically, so prove every supported CMake/Ninja definition is absent before deleting | `DELETE` | Tracked-source and build-definition search; Linux/MinGW/M96f `DEFINES`; `cpucore.h` was the only code owner |
+| `USEIPTRACE` | No definition or caller exists; the `pccore` blocks are compile-dead and the SCSI declaration has no call site | Trace code is diagnostic and could be useful, but no supported build enables it and the remaining `TRACE` path is independent | `DELETE` | Tracked-source/build search; `rg` call census; normal `TRACE` blocks retained |
+| `SUPPORT_OPRECORD` | Undefined in the product build and appears removable | M72 documented operation-record state/device hooks as an out-of-tree compatibility surface requiring a focused audit | `DEFER_INSUFFICIENT_EVIDENCE` | M72 report/task; guarded references remain in state and device code |
+| `MEMOPTIMIZE` | Several branches look legacy and could be simplified | `sdl2/compiler.h` actively defines level 2 and CPU code consumes it | `RETAIN_LIVE` | Active definition plus compiled CPU references; no removal |
+| `NP2VER_CORE` and selector comments | User-visible output still exposed stale Neko Project II identity | Save-state/header names and legal provenance are compatibility/history and must remain; only active identity should change | `DELETE` active macro/comments, `RETAIN` format/history | `np2ver.h`, CLI, About dialog, `np2info`; `VA-EG` state signature and `NP2FHDR` untouched |
+
+### 14.8.3 H2 VAEG identity result
+
+`np2ver.h` no longer defines the obsolete `NP2VER_CORE "ver.0.80"` value or
+the commented platform-selector list. `VAEGREL_CORE` remains the build-date
+release identity. The historical `np2version` symbol is retained to avoid a
+broad `np2*` rename, but its value now comes from `VAEGREL_CORE`, so the
+runtime information panel reports the VAEG release rather than an NP2 core
+version. CLI help/version output now prints one VAEG release string, and the
+About dialog identifies the `PC-88VA emulator core` without the stale Neko
+Project II version claim. The `VA-EG` save-state signature and `NP2FHDR`
+layout are unchanged.
+
+### 14.8.4 H3 comment scope
+
+Only files already changed by M96h were touched. The removed trace block also
+removed its `Shinra` and `@@@@@@` diary markers. No repository-wide comment
+translation was attempted, and no source comment cites maintainer-local
+hardware-document paths. Existing legacy-provenance documentation remains
+unchanged because it describes licensing/history rather than active emulator
+identity.
+
+### 14.8.5 M96h source commits and validation
+
+| Commit | Concern | Result |
+| --- | --- | --- |
+| `2835907` | Remove proven-dead `CPUSTRUC_MEMWAIT` and `USEIPTRACE` branches; remove stale diary markers and readme flag entry | Source/build validation passed |
+| `d524c44` | Remove stale NP2 core identity from active version/header/UI paths while retaining VAEG release information | Source/build validation passed |
+
+The M96f test build was rebuilt after both source commits. The build emitted
+only pre-existing warnings (including the known `fontrom` `sizeof` warning);
+no M96h warning or error was introduced. The full repository formatter still
+reports the inherited `sdl2/np2.c` formatting issue outside the M96h lines.
+The M96h audit also corrected the M96 row in `ROADMAP.md`: the strict
+milestone validator requires the row's canonical gate `G96`, while the staged
+sub-gate history is recorded in this report. No source or behavior change is
+associated with that documentation-only correction.
+
+| Check | Result |
+| --- | --- |
+| `cmake --build build/m96f-linux -j4` | PASS |
+| `SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy build/m96f-linux/sdl2/vaeg --selftest` from a temporary directory | PASS, exit 0; all tests passed |
+| `CCACHE_DISABLE=1 cmake --preset mingw-cross` | PASS |
+| `CCACHE_DISABLE=1 cmake --build --preset mingw-cross -j4` | PASS |
+| MinGW artifact | `build/mingw-cross/sdl2/vaeg.exe` |
+| MinGW SHA-256 | `151eb94844205fbbecff82d2e16dd450f86f143d383cbbcbc7ebc6638ae69da9` |
+| `ctest --test-dir build/m96f-linux --output-on-failure` | 83 PASS, 1 fixture-dependent SKIP, 0 FAIL |
+| `build/m96f-linux/sdl2/vaeg --version` | `88VA Eternal Grafx Rel.20260818`; no legacy NP2 version suffix |
+| `python3 tools/repo/check_encoding.py --expect utf8` | PASS, 0 violations |
+| `python3 tools/repo/check_eol.py --enforce` | PASS, 0 violations |
+| `python3 tools/repo/check_case.py` | PASS, 0 findings |
+| `GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git diff --check` | PASS |
+| `python3 tools/repo/find_unreferenced.py --report` | PASS; 451 sources, 411 reached, 40 unreferenced; candidates remain classified/backlog or protected |
+| Focused `clang-format-mp-22` on all M96h-changed C/C++ files | PASS |
+| `python3 tools/repo/clang_format.py` | FAIL only on inherited pre-existing lines in `sdl2/np2.c` and `sdl2/scrnmng.c` |
+| `vaeg_milestone_id_selftest` | PASS after the `ROADMAP.md` gate-row correction |
 
 ## 15. Human gates
 
