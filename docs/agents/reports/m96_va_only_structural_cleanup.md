@@ -332,6 +332,7 @@ no source comment cites the maintainer-local hardware-document directories.
 | `tests/upd9002/m96d_nop.c` | ROM1 test backing comment | The focused test populates the ROM1 backing selected for the VA F0000H-FFFFFH window rather than flat `mem[]` storage | `memoryva/memoryva.c`: ROM1 handler for the F0000H region | `hardware-documented` |
 | `bios/biosmem.h` | Remaining work-area offsets | Active SASI/SCSI service state and memory-switch synchronization use these emulator-owned offsets; former simulated bootstrap offsets are absent | Current consumers in `bios/sxsibios.c` and `machine/pccore.c`; no untracked hardware path is claimed | `emulator-policy` |
 | `machine/pccore.h` | Configuration and serialized-model comments | `NP2CFG` values are reset-time configuration; `PCCORE.model` is retained as a serialized compatibility byte while `model_va` selects the active VA model | Current reset and save-state declarations in `machine/pccore.c` and `machine/statsave.c` | `emulator-policy` |
+| `io/sysportva.c` | System-port ownership and staged compatibility shadow | Runtime serial/beeper consumers use the VA system-port latch; the generic shadow is retained only until the explicit M96g state-format revision | `io/sysportva.c`, `io/serial.c`, `sound/beepc.c`, and `machine/statsave.tbl`; VA system-port behavior summarized in `docs/modernization/pc88va-boot-sequence.md` | `emulator-policy` / `hardware-documented` |
 
 ## 9. M96d simulated-BIOS NOP-hook audit
 
@@ -606,6 +607,81 @@ repository `mingw-cross` preset with ccache disabled.
 The full formatter failure is inherited from the baseline and is not in the
 M96f diff. The report-only unreferenced-source scan remains informational; its
 candidate list includes protected ROM sources and retained demo material.
+
+## 14. M96g system-port and memory audit
+
+### 14.1 System-port ownership (G1)
+
+The baseline has one VA-visible system-port implementation and one redundant
+one-byte shadow. `io/sysportva.c` binds the VA ports and owns `sysportva.c`;
+`io/sysport.c` owns no guest port and only resets the shadow used by the
+serialized `SYSTEMPORT` section. The only runtime reads of the shadow were in
+`io/serial.c`, `sound/beepc.c`, and `machine/debugsub.c`; the only writes were
+the VA `01CDh`/`01CFh` handlers in `io/sysportva.c`. No production path calls
+`systemport_bind()`, and `systemport_reset()` is only present in the iocore
+reset table.
+
+| Consumer or lifecycle point | Before M96g1 | M96g1 result | Evidence |
+| --- | --- | --- | --- |
+| RS-232C receive/transmit interrupt gating | Reads `sysport.c` bits 0 and 2 | Reads `sysportva.c` bits 0 and 2 | `io/serial.c` and VA `01CDh`/`01CFh` handlers |
+| Beeper gate | Reads `sysport.c` bit 3 | Reads `sysportva.c` bit 3 | `sound/beepc.c` and VA `01CDh`/`01CFh` handlers |
+| Debug status dump | Prints `sysport.c` | Prints `sysportva.c` | `machine/debugsub.c` |
+| Reset | `systemport_reset()` writes `sysport.c=F9h`, then `systemportva_reset()` writes VA state | Generic reset callback is no longer a runtime dependency; `systemportva_reset()` restores `F9h`, mirrors the compatibility byte, and refreshes the beeper gate | `io/iocore.c`, `io/sysportva.c` |
+| Guest writes | VA handlers write VA state and mirror the shadow | Unchanged while the old state section is retained | `io/sysportva.c` |
+
+M96g1 deliberately retains the one-byte `sysport` object and its mirrored
+writes so that the pre-M96g serialized section remains byte-compatible while
+runtime ownership is migrated. M96g2 removes that shadow and the
+`SYSTEMPORT` section together, with an explicit state-version change. The
+reset callback sequence is therefore unchanged except that the now-unused
+generic reset callback is not needed by runtime consumers; the VA reset still
+runs at its original position. Bind order is unchanged.
+
+### 14.2 Memory and state-save baseline (G3-G6)
+
+The `MEMORY` section currently declares `0x130000` bytes. `flagsave_mem()`
+and `flagload_mem()` transfer `0x110000` bytes of main/HMA backing followed
+by two legacy chunks: `mem + VRAM1_B` (`0x18000` bytes) and `mem + VRAM1_E`
+(`0x8000` bytes). No production reader consumes either legacy chunk after
+M96e; they are only serialized residue. M96g3 will remove those transfers
+and the reset clears that only serve those chunks.
+
+The live host-backed `mem[]` ranges are:
+
+| Use | Start | Size | Exclusive end | Live after M96e |
+| --- | ---: | ---: | ---: | --- |
+| VA CPU main RAM + HMA backing | `0x000000` | `0x110000` | `0x110000` | yes |
+| Font backing via `FONTMEMORYBIND` / `fontrom` | `0x110000` | `0x084000` | `0x194000` | yes; required by S3 |
+| Legacy serialized VRAM1_B chunk | `0x1A8000` | `0x018000` | `0x1C0000` | no; M96g3 target |
+| Legacy serialized VRAM1_E chunk | `0x1E0000` | `0x008000` | `0x1E8000` | no; M96g3 target |
+
+The current allocation is `0x200000`; M96g3 must not reduce it below
+`0x194000` while `fontrom` remains an alias inside `mem[]`. CPU-visible VA
+ROM/GVRAM are owned by `memoryva` and are not counted as `mem[]` host font
+backing. `FONT_ADRS` remains live; `VRAM*`, `VRAMADDRMASKEX`, `VRAM_STEP`, and
+`ITF_ADRS` become removable only after the legacy transfers and all other
+references are deleted.
+
+The current header is `NP2STATUS_VERSION=0x080608`; M96g2 will use policy B
+(explicit rejection) and bump it to `0x080609`. The old `SYSTEMPORT` section
+and the two legacy `MEMORY` chunks will be absent from the new format, whose
+`MEMORY` size will be `0x110000`. No pre-M96g state is silently partially
+loaded.
+
+### 14.3 M96g1 machine validation
+
+The M96g1 runtime-consumer migration was built from the M96f candidate and
+passed the emulator selftest. No save-state bytes or protected payloads were
+changed in this substage.
+
+| Check | Result |
+| --- | --- |
+| `cmake --build build/m96f-linux -j4` | PASS |
+| `SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy build/m96f-linux/sdl2/vaeg --selftest` | PASS |
+| `git diff --check` | PASS |
+
+The M96g human gate remains pending until the complete state/memory change is
+validated; this substage does not claim G96g.
 
 ## 15. Human gates
 

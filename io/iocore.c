@@ -177,11 +177,11 @@ BOOL iocore_build(void) {
  * interfaces.
  */
 static const IOCBFN resetfn[] = {
-    dmac_reset,        fdc_reset,          keyboard_reset,  pic_reset,      rs232c_reset,
-    systemport_reset,  uPD4990_reset,      itimer_reset,    mouseif_reset,  np2sysp_reset,
-    emsio_reset,       memctrlva_reset,    tsp_reset,       sgp_reset,      videova_reset,
-    subsystemmx_reset, systemportva_reset, mouseifva_reset, gactrlva_reset, cgromva_reset,
-    va91_reset,        upd9002_regs_reset,
+    dmac_reset,         fdc_reset,       keyboard_reset, pic_reset,     rs232c_reset,
+    uPD4990_reset,      itimer_reset,    mouseif_reset,  np2sysp_reset, emsio_reset,
+    memctrlva_reset,    tsp_reset,       sgp_reset,      videova_reset, subsystemmx_reset,
+    systemportva_reset, mouseifva_reset, gactrlva_reset, cgromva_reset, va91_reset,
+    upd9002_regs_reset,
 };
 
 static const IOCBFN bindfn[] = {
