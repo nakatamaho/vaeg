@@ -186,6 +186,29 @@ separate parity correction or move it to Open Defects.
 - **Evidence:** [M85 state-save report](../agents/reports/m85_state_save_section_cleanup.md).
 - **Commit:** [a6493d2](https://github.com/nakatamaho/vaeg/commit/a6493d2f481a3744f528d1a19d5ee3663df59e90).
 
+### OPN/OPNA synthesis state was not restored by save/load
+
+- **Status:** fixed in M96g4; G96g human verification remains pending.
+- **Symptom:** loading a state reset the YMFM OPN/OPNA synthesis phase and
+  envelope state instead of resuming the saved sound. The VA OPN board also
+  had no FM payload beyond its `usesound` word.
+- **Root cause:** the FMBOARD section saved the register image and selected
+  wrapper state, but not the active YMFM engine state. Its flag selection was
+  also limited to `FMBOARD_VA_OPNA`, so `FMBOARD_VA_OPN` state was silently
+  incomplete.
+- **Correction:** the FMBOARD payload now covers both VA OPN and VA OPNA,
+  serializes the complete YMFM bridge through the upstream `save_restore`
+  API, restores it after device rebinding, and rejects the previous payload
+  format with a state-version bump.
+- **Verification:** Linux selftest, including save/load/save section-byte
+  stability, passed after the correction; focused encoding, EOL, case, and
+  clang-format checks passed. MinGW and the maintainer's sound human check
+  remain part of G96g.
+- **Evidence:** [FMBOARD state implementation](../../machine/statsave.c) and
+  [YMFM bridge state implementation](../../sdl2/ymfmbridge.cpp).
+- **Milestone:** M96g4.
+- **Commit:** [cc3c9f4](https://github.com/nakatamaho/vaeg/commit/cc3c9f4e4dcc6d6058ef60d847fea088460173e7).
+
 ### CP/MVA EXM=1 directory grouping omitted large-program data
 
 - **Status:** fixed in the uncommitted M76 working tree; commit pending because this task prohibits commit and push.
