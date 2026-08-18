@@ -155,15 +155,8 @@ void pccore_redraw(void);
 
 void pccore_postevent(UINT32 event);
 
-#if defined(USEIPTRACE) && defined(TRACE) // Shinra
-void iptrace_out(void);
-extern int treafter;
-#endif
-
-//@@@@@
 void pccore_debugint(UINT32 no);
 void pccore_debugmem(UINT32 op, UINT32 addr, UINT16 data);
-//@@@@@
 
 #ifdef __cplusplus
 }

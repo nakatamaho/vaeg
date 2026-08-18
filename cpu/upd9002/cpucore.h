@@ -213,12 +213,6 @@ typedef struct {
 	UINT32 extsize;
 	BYTE *ems[4];
 	UINT32 inport;
-#if defined(CPUSTRUC_MEMWAIT)
-	UINT8 tramwait;
-	UINT8 vramwait;
-	UINT8 grcgwait;
-	UINT8 padding;
-#endif
 } Upd9002ExtendedState;
 
 typedef struct {
@@ -331,12 +325,6 @@ UINT upd9002_dispatch_test_rejected_count(void);
 #define CPU_COMPAT_MODE upd9002_core_context.s.padding[0]
 #define CPU_COMPAT_RETURN_PENDING upd9002_core_context.s.padding[1]
 #define CPU_EMSPTR upd9002_core_context.e.ems
-
-#if defined(CPUSTRUC_MEMWAIT)
-#define MEMWAIT_TRAM upd9002_core_context.e.tramwait
-#define MEMWAIT_VRAM upd9002_core_context.e.vramwait
-#define MEMWAIT_GRCG upd9002_core_context.e.grcgwait
-#endif
 
 #define CPU_isDI (!(upd9002_core_context.s.r.w.flag & I_FLAG))
 #define CPU_isEI (upd9002_core_context.s.r.w.flag & I_FLAG)

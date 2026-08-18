@@ -680,46 +680,6 @@ void pccore_debugint(UINT32 no) {
 	*/
 }
 
-//@@@@@@
-
-#if defined(USEIPTRACE) // Shinra
-#define IPTRACE (1 << 12)
-#endif
-
-#if defined(TRACE) && IPTRACE
-static UINT trpos = 0;
-static UINT32 treip[IPTRACE];
-static BYTE trerom0bank[IPTRACE];
-static WORD tredata1[IPTRACE];
-
-int treafter = 0; // Shinra
-
-void iptrace_out(void) {
-	FILEH fh;
-	UINT s;
-	UINT32 eip;
-	char buf[32];
-
-	s = trpos;
-	if (s > IPTRACE) {
-		s -= IPTRACE;
-	} else {
-		s = 0;
-	}
-	fh = file_create_c("his.txt");
-	while (s < trpos) {
-		BYTE bank = trerom0bank[s & (IPTRACE - 1)];
-		eip = treip[s & (IPTRACE - 1)];
-		//		SPRINTF(buf, "%.4x:%.4x (rom0=%.2x)\r\n", (eip >> 16), eip & 0xffff, bank);
-		SPRINTF(buf, "%.4x:%.4x (rom0=%.2x) ES=%.4x\r\n", (eip >> 16), eip & 0xffff, bank,
-		        tredata1[s & (IPTRACE - 1)]);
-		s++;
-		file_write(fh, buf, strlen(buf));
-	}
-	file_close(fh);
-}
-#endif
-
 #if defined(TRACE)
 static int resetcnt = 0;
 static int execcnt = 0;
@@ -778,28 +738,6 @@ void pccore_exec(BOOL draw) {
 				pccore_debug_resume = TRUE;
 				return;
 			}
-#if defined(TRACE) && IPTRACE
-			treip[trpos & (IPTRACE - 1)] = (CPU_CS << 16) + CPU_IP;
-			trerom0bank[trpos & (IPTRACE - 1)] = memoryva.rom0_bank;
-			tredata1[trpos & (IPTRACE - 1)] = CPU_ES;
-			trpos++;
-#endif
-			//@@@@@@
-			//@@@@@@
-
-#if defined(TRACE) && defined(IPTRACE) // Shinra
-			if (treafter) {
-				if (treafter < 0) {
-					iptrace_out();
-					treafter = 0;
-				} else {
-					if (--treafter == 0) {
-						iptrace_out();
-					}
-				}
-			}
-#endif
-
 			//TRACEOUT(("%.4x:%.4x", CPU_CS, CPU_IP));
 			upd9002_core_step();
 			if (upd9002_diagnostic_pending()) {
