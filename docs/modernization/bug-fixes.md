@@ -70,6 +70,31 @@ separate parity correction or move it to Open Defects.
 
 ## Fixed Defects
 
+### SGP LINE directions and SCAN behavior diverged from the Technical Manual
+
+- **Status:** fixed in M97; G97 visual-regression verification remains
+  pending and real-hardware timing remains unverified.
+- **Symptom:** LINE interpreted the documented vertical and horizontal
+  direction bits in each other's positions, and both SCAN commands only
+  logged a TODO before command processing continued. The original-VA block
+  decoder also accepted later-model width, height, and pitch bits that the VA
+  descriptor reserves.
+- **Root cause:** the SGP implementation carried separate reversed LINE masks,
+  unimplemented SCAN command handlers, and one unconditional VA2-style block
+  decoder. The local PC-88VA Technical Manual defines common LINE/BLT
+  direction bits, complete SCAN results, and the original-VA field widths.
+- **Correction:** use `VD=0800h` and `HD=0400h` for LINE, select original-VA
+  versus VA2 descriptor profiles explicitly, and execute SCAN RIGHT/LEFT
+  incrementally with the documented SET COLOR boundary and destination
+  updates. No SGP timing coefficient or save-state layout changed.
+- **Verification:** the compiled selftest covers both descriptor profiles,
+  all sixteen ROPs, destination-zero transfer, and SCAN first/middle/miss and
+  packed-word-boundary cases. Linux debug build/selftest and 83 CTests passed,
+  one external-fixture test skipped, and the MinGW cross build passed.
+- **Evidence:** [M97 report](../agents/reports/m97_sgp_tekumani_commands.md).
+- **Commits:** [ffb8521](https://github.com/nakatamaho/vaeg/commit/ffb85210c62f984108ad9d022f7d046107744f60),
+  [7b788ed](https://github.com/nakatamaho/vaeg/commit/7b788edc6e657f2d9e8e48f759c5cab6eb7c4899).
+
 ### Historical SGP demo COMs used byte cycles for word-only VA registers
 
 - **Status:** hardware-safe access correction applied; real-hardware
