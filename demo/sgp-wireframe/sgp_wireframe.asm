@@ -32,8 +32,7 @@ org 0x100
 
 %define PORT_MEMORY_MAP         0x0153
 %define PORT_G0_TRANSPARENCY    0x0124
-%define PORT_G1_TRANSPARENCY    0x0126
-%define PORT_FB1_DSA_LOW        0x022e
+%define PORT_FB0_DSA_LOW        0x020e
 %define PORT_TSP_STATUS         0x0142
 %define PORT_SGP_COMMAND        0x0500
 %define PORT_SGP_CONTROL        0x0504
@@ -42,20 +41,19 @@ org 0x100
 
 %define MEMORY_MAP_GVRAM_SINGLE 0x54
 %define GVRAM_CPU_WRITE_MODE    0x10
-%define MODE_320X200_G0_G1      0xe00e
-%define PIXEL_SIZE_G0_G1_4BPP   0x0404
-%define COMPOSE_G1_OVER_G0      0x0034
+%define MODE_640X400_G0         0xa000
+%define PIXEL_SIZE_G0_4BPP      0x0004
+%define COMPOSE_G0_ONLY         0x0003
 %define TSP_STATUS_VBLANK       0x40
 
-%define SCREEN_WIDTH            320
-%define SCREEN_HEIGHT           200
-%define SCREEN_PITCH            160
-%define G0_SEGMENT              0xa000
-%define G1_PAGE_A_SGP_BASE      0x220000
-%define G1_PAGE_B_SGP_BASE      0x227d00
-%define G1_PAGE_A_DSA           0x020000
-%define G1_PAGE_B_DSA           0x027d00
-%define SCREEN_WORD_COUNT       0x3e80
+%define SCREEN_WIDTH            640
+%define SCREEN_HEIGHT           400
+%define SCREEN_PITCH            320
+%define G0_PAGE_A_SGP_BASE      0x200000
+%define G0_PAGE_B_SGP_BASE      0x21f400
+%define G0_PAGE_A_DSA           0x000000
+%define G0_PAGE_B_DSA           0x01f400
+%define SCREEN_WORD_COUNT       0xfa00
 
 %define SGP_COMMAND_END         0x0001
 %define SGP_COMMAND_SET_WORK    0x0003
@@ -90,7 +88,7 @@ org 0x100
 
 %define PROJECTED_VERTEX_SIZE   6
 %define SHAPE_COUNT             4
-%define COMMAND_LIST_WORDS      1024
+%define COMMAND_LIST_WORDS      1536
 
 start:
     push cs
@@ -140,8 +138,8 @@ animation_failed:
     int 0x21
 
 initialize_video:
-    mov bx, MODE_320X200_G0_G1
-    mov cx, PIXEL_SIZE_G0_G1_4BPP
+    mov bx, MODE_640X400_G0
+    mov cx, PIXEL_SIZE_G0_4BPP
     xor dx, dx
     mov byte [video_mode_changed], 1
     xor ax, ax
@@ -162,10 +160,12 @@ initialize_video:
     test ax, ax
     jnz .failed
 
+    call define_g0_double_buffer
+    jc .failed
     call initialize_palette
     jc .failed
     mov ax, 0x0300
-    mov cx, COMPOSE_G1_OVER_G0
+    mov cx, COMPOSE_G0_ONLY
     int VIDEO_BIOS_INT
     test ax, ax
     jnz .failed
@@ -173,17 +173,12 @@ initialize_video:
     mov dx, PORT_G0_TRANSPARENCY
     xor ax, ax
     out dx, ax
-    mov dx, PORT_G1_TRANSPARENCY
-    mov ax, 1
-    out dx, ax
     mov dx, PORT_MEMORY_MAP
     mov al, MEMORY_MAP_GVRAM_SINGLE
     out dx, al
     mov dx, PORT_GVRAM_WRITE_MODE
     mov al, GVRAM_CPU_WRITE_MODE
     out dx, al
-
-    call draw_background
 
     mov byte [draw_page_index], 0
     call select_draw_page
@@ -202,6 +197,33 @@ initialize_video:
     ret
 
 .failed:
+    stc
+    ret
+
+; Use one 640x800 Graphic 0 framebuffer as two 640x400 display pages. Each
+; page is 128000 bytes, so both pages fit in the 256 KiB single-plane GVRAM.
+define_g0_double_buffer:
+    push es
+    push ds
+    pop es
+    mov ax, 0x0100
+    mov cx, 1
+    mov di, g0_framebuffer_descriptor
+    int VIDEO_BIOS_INT
+    test ax, ax
+    jnz .failed
+
+    mov ax, 0x0200
+    mov cx, 1
+    mov di, g0_window_descriptor
+    int VIDEO_BIOS_INT
+    test ax, ax
+    jnz .failed
+    pop es
+    clc
+    ret
+.failed:
+    pop es
     stc
     ret
 
@@ -235,63 +257,26 @@ initialize_palette:
     stc
     ret
 
-; Draw a subdued grid once on Graphic 0. Animated geometry remains entirely
-; on the transparent Graphic 1 layer.
-draw_background:
-    push ax
-    push bx
-    push cx
-    push di
-    push es
-    mov ax, G0_SEGMENT
-    mov es, ax
-    xor di, di
-    xor bx, bx
-.row:
-    mov ax, 0x0000
-    test bl, 0x0f
-    jnz .row_color_ready
-    mov ax, 0xdddd
-.row_color_ready:
-    mov cx, SCREEN_PITCH / 2
-.word:
-    test di, 0x000f
-    jnz .store
-    or ax, 0x000d
-.store:
-    stosw
-    and ax, 0xddd0
-    loop .word
-    inc bx
-    cmp bx, SCREEN_HEIGHT
-    jb .row
-    pop es
-    pop di
-    pop cx
-    pop bx
-    pop ax
-    ret
-
 select_draw_page:
     cmp byte [draw_page_index], 0
     jne .page_b
-    mov word [draw_page_sgp_low], G1_PAGE_A_SGP_BASE & 0xffff
-    mov word [draw_page_sgp_high], G1_PAGE_A_SGP_BASE >> 16
-    mov word [draw_page_dsa_low], G1_PAGE_A_DSA & 0xffff
-    mov word [draw_page_dsa_high], G1_PAGE_A_DSA >> 16
+    mov word [draw_page_sgp_low], G0_PAGE_A_SGP_BASE & 0xffff
+    mov word [draw_page_sgp_high], G0_PAGE_A_SGP_BASE >> 16
+    mov word [draw_page_dsa_low], G0_PAGE_A_DSA & 0xffff
+    mov word [draw_page_dsa_high], G0_PAGE_A_DSA >> 16
     ret
 .page_b:
-    mov word [draw_page_sgp_low], G1_PAGE_B_SGP_BASE & 0xffff
-    mov word [draw_page_sgp_high], G1_PAGE_B_SGP_BASE >> 16
-    mov word [draw_page_dsa_low], G1_PAGE_B_DSA & 0xffff
-    mov word [draw_page_dsa_high], G1_PAGE_B_DSA >> 16
+    mov word [draw_page_sgp_low], G0_PAGE_B_SGP_BASE & 0xffff
+    mov word [draw_page_sgp_high], G0_PAGE_B_SGP_BASE >> 16
+    mov word [draw_page_dsa_low], G0_PAGE_B_DSA & 0xffff
+    mov word [draw_page_dsa_high], G0_PAGE_B_DSA >> 16
     ret
 
-; DSA1 uses word registers. Byte access to these ports can hang real hardware.
+; DSA0 uses word registers. Byte access to these ports can hang real hardware.
 display_draw_page:
     push ax
     push dx
-    mov dx, PORT_FB1_DSA_LOW
+    mov dx, PORT_FB0_DSA_LOW
     mov ax, [draw_page_dsa_low]
     out dx, ax
     add dx, 2
@@ -339,6 +324,7 @@ build_frame_commands:
     ; CLS leaves SET COLOR at zero, so the first nonzero edge color must be
     ; emitted even when that edge uses palette index 15.
     mov word [last_line_color], 0
+    call emit_background_grid
     mov bx, shape_records
     mov cx, SHAPE_COUNT
 .shape:
@@ -369,7 +355,8 @@ build_frame_commands:
     ret
 
 ; Project one signed-byte vertex set with two Q7 rotations and a small
-; perspective term. The pulsating scale is independent for each solid.
+; perspective term. Each product is saved before the next IMUL because the
+; one-operand 16-bit form overwrites DX:AX.
 project_shape:
     push ax
     push bx
@@ -417,37 +404,39 @@ project_shape:
 
     mov ax, [vertex_x]
     imul word [cos_y]
-    mov dx, ax
+    mov [rotation_term], ax
     mov ax, [vertex_z]
     imul word [sin_y]
-    add ax, dx
+    add ax, [rotation_term]
     sar ax, 7
     mov [rotated_x], ax
 
     mov ax, [vertex_z]
     imul word [cos_y]
-    mov dx, ax
+    mov [rotation_term], ax
     mov ax, [vertex_x]
     imul word [sin_y]
+    mov dx, [rotation_term]
     sub dx, ax
     sar dx, 7
     mov [rotated_z1], dx
 
     mov ax, [vertex_y]
     imul word [cos_x]
-    mov dx, ax
+    mov [rotation_term], ax
     mov ax, [rotated_z1]
     imul word [sin_x]
+    mov dx, [rotation_term]
     sub dx, ax
     sar dx, 7
     mov [rotated_y], dx
 
     mov ax, [vertex_y]
     imul word [sin_x]
-    mov dx, ax
+    mov [rotation_term], ax
     mov ax, [rotated_z1]
     imul word [cos_x]
-    add ax, dx
+    add ax, [rotation_term]
     sar ax, 7
     mov [rotated_z], ax
 
@@ -480,6 +469,53 @@ project_shape:
     pop di
     pop si
     pop dx
+    pop cx
+    pop bx
+    pop ax
+    ret
+
+; Draw a quiet 40-pixel grid into every hidden page. It supplies a stable
+; 640x400 reference without using CPU GVRAM writes.
+emit_background_grid:
+    push ax
+    push bx
+    push cx
+    mov ax, 0xdddd
+    call emit_set_color
+
+    xor bx, bx
+    mov cx, 16
+.vertical:
+    mov [line_x1], bx
+    mov [line_x2], bx
+    mov word [line_y1], 0
+    mov word [line_y2], SCREEN_HEIGHT - 1
+    call emit_line
+    add bx, 40
+    loop .vertical
+
+    xor bx, bx
+    mov cx, 10
+.horizontal:
+    mov [line_y1], bx
+    mov [line_y2], bx
+    mov word [line_x1], 0
+    mov word [line_x2], SCREEN_WIDTH - 1
+    call emit_line
+    add bx, 40
+    loop .horizontal
+
+    mov word [line_x1], SCREEN_WIDTH - 1
+    mov word [line_x2], SCREEN_WIDTH - 1
+    mov word [line_y1], 0
+    mov word [line_y2], SCREEN_HEIGHT - 1
+    call emit_line
+    mov word [line_x1], 0
+    mov word [line_x2], SCREEN_WIDTH - 1
+    mov word [line_y1], SCREEN_HEIGHT - 1
+    mov word [line_y2], SCREEN_HEIGHT - 1
+    call emit_line
+
     pop cx
     pop bx
     pop ax
@@ -820,7 +856,7 @@ print_string:
     ret
 
 message_start:
-    db "SGP wireframe: tetrahedron, cuboid, dodecahedron, icosahedron", 13, 10
+    db "SGP wireframe: tetrahedron, cube, dodecahedron, icosahedron", 13, 10
     db "All animated edges are drawn by SGP LINE. ESC exits.", 13, 10, "$"
 message_done:
     db "Video state restored.", 13, 10, "$"
@@ -828,6 +864,12 @@ message_initialization_failed:
     db "Video or SGP initialization failed.", 13, 10, "$"
 message_animation_failed:
     db "Animation synchronization failed.", 13, 10, "$"
+
+align 2, db 0
+g0_framebuffer_descriptor:
+    dw 4, SCREEN_WIDTH, SCREEN_HEIGHT * 2
+g0_window_descriptor:
+    dw 0, 0, SCREEN_HEIGHT, 0, 0
 
 align 2, db 0
 palette_values:
@@ -863,37 +905,37 @@ align 2, db 0
 shape_records:
     dw tetrahedron_vertices, tetrahedron_edges, tetrahedron_projected
     db 4, 6
-    dw 80, 50
+    dw 160, 100
     db 0, 7, 1, 2, 0, 1
-    dw 82, 14, 0xeeee, 0x4444
+    dw 122, 8, 0xeeee, 0x4444
 
-    dw cuboid_vertices, cuboid_edges, cuboid_projected
+    dw cube_vertices, cube_edges, cube_projected
     db 8, 12
-    dw 240, 50
+    dw 480, 100
     db 11, 0, 2, 1, 16, 2
-    dw 82, 12, 0x7777, 0x5555
+    dw 130, 10, 0x7777, 0x5555
 
     dw dodecahedron_vertices, dodecahedron_edges, dodecahedron_projected
     db 20, 30
-    dw 80, 146
+    dw 160, 300
     db 23, 41, 1, 1, 32, 1
-    dw 88, 12, 0xaaaa, 0x8888
+    dw 185, 15, 0xaaaa, 0x8888
 
     dw icosahedron_vertices, icosahedron_edges, icosahedron_projected
     db 12, 30
-    dw 240, 146
+    dw 480, 300
     db 37, 19, 2, 3, 48, 2
-    dw 86, 13, 0x3333, 0x2222
+    dw 160, 14, 0x3333, 0x2222
 
 tetrahedron_vertices:
     db 48, 48, 48, -48, -48, 48, -48, 48, -48, 48, -48, -48
 tetrahedron_edges:
     db 0,1, 0,2, 0,3, 1,2, 1,3, 2,3
 
-cuboid_vertices:
-    db -50,-34,-40, -50,-34,40, -50,34,-40, -50,34,40
-    db 50,-34,-40, 50,-34,40, 50,34,-40, 50,34,40
-cuboid_edges:
+cube_vertices:
+    db -44,-44,-44, -44,-44,44, -44,44,-44, -44,44,44
+    db 44,-44,-44, 44,-44,44, 44,44,-44, 44,44,44
+cube_edges:
     db 0,1, 0,2, 0,4, 1,3, 1,5, 2,3, 2,6
     db 3,7, 4,5, 4,6, 5,7, 6,7
 
@@ -921,7 +963,7 @@ icosahedron_edges:
 
 align 2, db 0
 tetrahedron_projected: times 4 * PROJECTED_VERTEX_SIZE db 0
-cuboid_projected: times 8 * PROJECTED_VERTEX_SIZE db 0
+cube_projected: times 8 * PROJECTED_VERTEX_SIZE db 0
 dodecahedron_projected: times 20 * PROJECTED_VERTEX_SIZE db 0
 icosahedron_projected: times 12 * PROJECTED_VERTEX_SIZE db 0
 
@@ -958,6 +1000,7 @@ rotated_x: dw 0
 rotated_y: dw 0
 rotated_z1: dw 0
 rotated_z: dw 0
+rotation_term: dw 0
 line_x1: dw 0
 line_y1: dw 0
 line_z1: dw 0

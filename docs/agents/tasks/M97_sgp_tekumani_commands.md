@@ -65,7 +65,8 @@ corpus, or non-free integration layer.
   mode through focused selftests.
 - Correct stale SGP documentation where direct manual text resolves it.
 - Add one DOS 8.3-compatible LINE visual test, at the maintainer's request,
-  with rotating tetrahedron, cuboid, dodecahedron, and icosahedron geometry.
+  with rotating regular tetrahedron, cube, regular dodecahedron, and regular
+  icosahedron geometry in 640x400 mode.
   The CPU may project vertices and generate the main-RAM command list; every
   animated edge must be drawn by SGP LINE.
 
@@ -117,7 +118,8 @@ corpus, or non-free integration layer.
 - Use the existing hardware-safe word access for the command-address and
   display-start ports and begin every command list with SET WORK.
 - Render four independently rotating and pulsating solids into the hidden
-  Graphic 1 page and exchange pages during vertical blank.
+  half of a 640x800 Graphic 0 framebuffer and exchange its two 640x400 halves
+  through DSA0 during vertical blank.
 - Use depth-cued edges rather than claim polygon filling: the documented SGP
   command set has LINE but no general polygon or flood-fill command.
 - Keep generated COM and disposable disk images outside Git.
@@ -149,9 +151,10 @@ From a clean checkout of the candidate:
 1. boot VAEG in the normal VA configuration;
 2. run the existing SGP pseudo-sprite demo and verify its background,
    transparency, sprite overlap, animation, and clean exit;
-3. run `SGPWIRE.COM` and verify the four solids rotate and change scale, dim
-   and bright edges remain connected, and LINE direction works in all visible
-   octants;
+3. run `SGPWIRE.COM` and verify that the 640x400 screen shows a regular
+   tetrahedron, cube, regular dodecahedron, and regular icosahedron; verify the
+   four solids rotate and change scale, dim and bright edges remain connected,
+   and LINE direction works in all visible octants;
 4. verify normal V3/OS boot and display operation are unchanged.
 
 Automated tests establish manual-derived functional behavior. The human gate
