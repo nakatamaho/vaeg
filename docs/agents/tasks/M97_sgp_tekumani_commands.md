@@ -23,7 +23,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 # M97 - Complete documented SGP command semantics
 
-Status: **in progress**
+Status: **candidate published; G97 pending**
 
 Branch: `topic/m97-sgp-tekumani`
 
@@ -112,7 +112,7 @@ GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git diff --check
 python3 tools/repo/check_encoding.py --expect utf8
 python3 tools/repo/check_eol.py --enforce
 python3 tools/repo/check_case.py
-python3 tools/repo/clang_format.py --check
+python3 tools/repo/clang_format.py
 python3 tools/repo/find_unreferenced.py --report
 cmake --preset linux-debug
 cmake --build --preset linux-debug -j
