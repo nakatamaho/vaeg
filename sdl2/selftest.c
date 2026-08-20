@@ -2481,7 +2481,7 @@ int vaeg_selftest_run(void) {
 		return (FAILURE);
 	}
 	if (sgp_manual_commands_selftest() != SUCCESS) {
-		return (fail("SGP manual commands", "descriptor, LINE, ROP, or TP=2 test failed"));
+		return (fail("SGP manual commands", "descriptor, LINE, ROP, TP=2, or SCAN test failed"));
 	}
 	fprintf(stderr, "selftest: SGP manual commands ok\n");
 	if (test_pacing() != SUCCESS) {

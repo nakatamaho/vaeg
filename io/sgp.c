@@ -23,6 +23,8 @@ enum {
 	FUNC_EXEC_CLS,
 	FUNC_EXEC_LINE_X,
 	FUNC_EXEC_LINE_Y,
+	FUNC_EXEC_SCAN_RIGHT,
+	FUNC_EXEC_SCAN_LEFT,
 };
 
 _SGP sgp;
@@ -803,13 +805,29 @@ static void cmd_cls(void) {
 }
 
 static void cmd_scan_right(void) {
-	TRACEOUT(("SGP: cmd: scan right (not implemented)"));
-	//ToDo
+	TRACEOUT(("SGP: cmd: scan right"));
+	if (sgp.dest.width == 0) {
+		/* Zero extents are undefined by the hardware manual; finish defensively. */
+		sgp.func = FUNC_FETCH_COMMAND;
+		return;
+	}
+	sgp.dest.nextaddress = sgp.dest.address;
+	sgp.dest.dotcount = sgp.dest.dot;
+	sgp.dest.xcount = sgp.dest.width;
+	sgp.func = FUNC_EXEC_SCAN_RIGHT;
 }
 
 static void cmd_scan_left(void) {
-	TRACEOUT(("SGP: cmd: scan left (not implemented)"));
-	//ToDo
+	TRACEOUT(("SGP: cmd: scan left"));
+	if (sgp.dest.width == 0) {
+		/* Zero extents are undefined by the hardware manual; finish defensively. */
+		sgp.func = FUNC_FETCH_COMMAND;
+		return;
+	}
+	sgp.dest.nextaddress = sgp.dest.address;
+	sgp.dest.dotcount = sgp.dest.dot;
+	sgp.dest.xcount = sgp.dest.width;
+	sgp.func = FUNC_EXEC_SCAN_LEFT;
 }
 
 // ----
@@ -1039,6 +1057,95 @@ static void exec_cls(void) {
 		sgp.func = FUNC_FETCH_COMMAND;
 	}
 	sgp.remainclock -= 3 * 2;
+}
+
+static UINT16 scan_pixel(int dot, int scrnmode, UINT16 packed_value) {
+	int bits;
+	int shift;
+	UINT16 mask;
+
+	bits = bpp[scrnmode];
+	shift = (dotcountmax[scrnmode] - dot - 1) * bits;
+	mask = (UINT16)(0xffffU >> (16 - bits));
+	return ((packed_value >> shift) & mask);
+}
+
+static void scan_move_right(UINT32 *address, int *dot, int scrnmode) {
+	(*dot)++;
+	if (*dot == dotcountmax[scrnmode]) {
+		*dot = 0;
+		*address += 2;
+	}
+}
+
+static void scan_move_left(UINT32 *address, int *dot, int scrnmode) {
+	if (*dot == 0) {
+		*dot = dotcountmax[scrnmode] - 1;
+		*address -= 2;
+	} else {
+		(*dot)--;
+	}
+}
+
+static BOOL scan_current_pixel_matches(void) {
+	UINT16 source_word;
+	UINT16 color_word;
+
+	source_word = SWAPWORD(sgp_memoryread_w(sgp.dest.nextaddress));
+	color_word = SWAPWORD(sgp.color);
+	return (scan_pixel(sgp.dest.dotcount, sgp.dest.scrnmode, source_word) ==
+	        scan_pixel(sgp.dest.dotcount, sgp.dest.scrnmode, color_word));
+}
+
+static void exec_scan_right(void) {
+	UINT16 scanned;
+
+	/* One scheduler quantum keeps SCAN incremental; this is not a hardware timing claim. */
+	sgp.remainclock--;
+	scanned = sgp.dest.width - sgp.dest.xcount;
+	if (scan_current_pixel_matches()) {
+		sgp.dest.width = scanned;
+		sgp.func = FUNC_FETCH_COMMAND;
+		return;
+	}
+
+	sgp.dest.xcount--;
+	if (sgp.dest.xcount == 0) {
+		/* A miss leaves the destination descriptor unchanged. */
+		sgp.func = FUNC_FETCH_COMMAND;
+		return;
+	}
+	scan_move_right(&sgp.dest.nextaddress, &sgp.dest.dotcount, sgp.dest.scrnmode);
+}
+
+static void exec_scan_left(void) {
+	UINT16 scanned;
+	UINT32 left_address;
+	int left_dot;
+
+	/* One scheduler quantum keeps SCAN incremental; this is not a hardware timing claim. */
+	sgp.remainclock--;
+	scanned = sgp.dest.width - sgp.dest.xcount;
+	if (scan_current_pixel_matches()) {
+		sgp.dest.width = scanned;
+		if (scanned != 0) {
+			left_address = sgp.dest.nextaddress;
+			left_dot = sgp.dest.dotcount;
+			scan_move_right(&left_address, &left_dot, sgp.dest.scrnmode);
+			sgp.dest.address = left_address;
+			sgp.dest.dot = left_dot;
+		}
+		sgp.func = FUNC_FETCH_COMMAND;
+		return;
+	}
+
+	sgp.dest.xcount--;
+	if (sgp.dest.xcount == 0) {
+		/* A miss leaves the destination descriptor unchanged. */
+		sgp.func = FUNC_FETCH_COMMAND;
+		return;
+	}
+	scan_move_left(&sgp.dest.nextaddress, &sgp.dest.dotcount, sgp.dest.scrnmode);
 }
 
 /*
@@ -1369,6 +1476,12 @@ void sgp_step(void) {
 		case FUNC_EXEC_LINE_Y:
 			exec_line_y();
 			break;
+		case FUNC_EXEC_SCAN_RIGHT:
+			exec_scan_right();
+			break;
+		case FUNC_EXEC_SCAN_LEFT:
+			exec_scan_left();
+			break;
 		case FUNC_FETCH_COMMAND:
 		default:
 			fetch_command();
@@ -1378,6 +1491,29 @@ void sgp_step(void) {
 	sgp.lastclock = now;
 }
 
+static BOOL finish_scan_selftest(BOOL left) {
+	UINT count;
+
+	if (left) {
+		cmd_scan_left();
+	} else {
+		cmd_scan_right();
+	}
+	for (count = 0; count < 32; count++) {
+		if (sgp.func == FUNC_FETCH_COMMAND) {
+			return (SUCCESS);
+		}
+		if (sgp.func == FUNC_EXEC_SCAN_RIGHT) {
+			exec_scan_right();
+		} else if (sgp.func == FUNC_EXEC_SCAN_LEFT) {
+			exec_scan_left();
+		} else {
+			return (FAILURE);
+		}
+	}
+	return (FAILURE);
+}
+
 BOOL sgp_manual_commands_selftest(void) {
 	static const UINT16 rop_expected[16] = {0x0000, 0x0303, 0x3030, 0x0000, 0x0c0c, 0x0f0f,
 	                                        0x3c3c, 0x3f3f, 0xc0c0, 0xc3c3, 0xf0f0, 0xf3f3,
@@ -1385,7 +1521,7 @@ BOOL sgp_manual_commands_selftest(void) {
 	const UINT32 descriptor_address = 0x001000;
 	const UINT32 destination_address = 0x001020;
 	BYTE saved_descriptor[12];
-	BYTE saved_destination[2];
+	BYTE saved_destination[4];
 	_SGP saved_sgp;
 	_SGP_BLOCK block;
 	SINT32 saved_cpu_remclock;
@@ -1448,6 +1584,72 @@ BOOL sgp_manual_commands_selftest(void) {
 	sgp.bltmode = 0x0205;
 	write_dest2();
 	if (LOADINTELWORD(mem + destination_address) != 0x1f1f) {
+		goto restore;
+	}
+
+	STOREINTELWORD(mem + destination_address, SWAPWORD(0x1234));
+	STOREINTELWORD(mem + destination_address + 2, SWAPWORD(0x5678));
+	sgp.dest.scrnmode = 1;
+	sgp.dest.address = destination_address;
+	sgp.dest.dot = 0;
+	sgp.dest.width = 8;
+	sgp.color = 0x7777;
+	if ((finish_scan_selftest(FALSE) != SUCCESS) || (sgp.dest.width != 6) ||
+	    (sgp.dest.address != destination_address) || (sgp.dest.dot != 0)) {
+		goto restore;
+	}
+
+	sgp.dest.address = destination_address;
+	sgp.dest.dot = 0;
+	sgp.dest.width = 8;
+	sgp.color = 0x1111;
+	if ((finish_scan_selftest(FALSE) != SUCCESS) || (sgp.dest.width != 0) ||
+	    (sgp.dest.address != destination_address) || (sgp.dest.dot != 0)) {
+		goto restore;
+	}
+
+	sgp.dest.address = destination_address;
+	sgp.dest.dot = 0;
+	sgp.dest.width = 8;
+	sgp.color = 0x9999;
+	if ((finish_scan_selftest(FALSE) != SUCCESS) || (sgp.dest.width != 8) ||
+	    (sgp.dest.address != destination_address) || (sgp.dest.dot != 0)) {
+		goto restore;
+	}
+
+	sgp.dest.address = destination_address;
+	sgp.dest.dot = 3;
+	sgp.dest.width = 2;
+	sgp.color = 0x5555;
+	if ((finish_scan_selftest(FALSE) != SUCCESS) || (sgp.dest.width != 1) ||
+	    (sgp.dest.address != destination_address) || (sgp.dest.dot != 3)) {
+		goto restore;
+	}
+
+	sgp.dest.address = destination_address + 2;
+	sgp.dest.dot = 3;
+	sgp.dest.width = 8;
+	sgp.color = 0x3333;
+	if ((finish_scan_selftest(TRUE) != SUCCESS) || (sgp.dest.width != 5) ||
+	    (sgp.dest.address != destination_address) || (sgp.dest.dot != 3)) {
+		goto restore;
+	}
+
+	sgp.dest.address = destination_address + 2;
+	sgp.dest.dot = 3;
+	sgp.dest.width = 8;
+	sgp.color = 0x8888;
+	if ((finish_scan_selftest(TRUE) != SUCCESS) || (sgp.dest.width != 0) ||
+	    (sgp.dest.address != destination_address + 2) || (sgp.dest.dot != 3)) {
+		goto restore;
+	}
+
+	sgp.dest.address = destination_address + 2;
+	sgp.dest.dot = 3;
+	sgp.dest.width = 8;
+	sgp.color = 0x9999;
+	if ((finish_scan_selftest(TRUE) != SUCCESS) || (sgp.dest.width != 8) ||
+	    (sgp.dest.address != destination_address + 2) || (sgp.dest.dot != 3)) {
 		goto restore;
 	}
 
