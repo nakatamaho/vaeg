@@ -24,19 +24,22 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 # SGP wireframe demo
 
 `SGPWIRE.COM` is a 16-bit real-mode PC-88VA visual test for the SGP `LINE`
-command. It displays a tetrahedron, cuboid, dodecahedron, and icosahedron in
-320x200 16-color single-plane mode. Every edge is drawn by SGP `LINE`; the CPU
-only rotates and projects vertices and builds the main-RAM command list.
+command. It displays a regular tetrahedron, cube, regular dodecahedron, and
+regular icosahedron in 640x400 16-color single-plane mode. Every edge is drawn
+by SGP `LINE`; the CPU only rotates and projects vertices and builds the
+main-RAM command list.
 
 The solids rotate on two axes and pulse at independent rates. Edges nearer the
 viewer use a bright palette index and edges farther away use a dim index. This
 depth cue is intentional: the SGP has no documented general polygon or flood
 fill command, so this test does not claim hardware polygon filling.
 
-Graphic 0 contains a static dark grid. Graphic 1 contains two 320x200 4-bpp
-pages. The hidden page is cleared and redrawn by the SGP, then selected during
-vertical blank. The command list begins with `SET WORK`, and the command-address
-ports and display-start ports are accessed as words for real-hardware safety.
+Graphics BIOS defines one 640x800 Graphic 0 framebuffer. Its two 640x400 4-bpp
+halves exactly fit in 256,000 of the 262,144 single-plane GVRAM bytes. The SGP
+clears the hidden half, redraws a dark reference grid and all four solids, and
+then selects that half through DSA0 during vertical blank. The command list
+begins with `SET WORK`, and the command-address and display-start ports are
+accessed as words for real-hardware safety.
 
 Build with:
 

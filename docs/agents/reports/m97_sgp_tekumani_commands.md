@@ -114,19 +114,28 @@ The compiled selftest now verifies:
 
 At the maintainer's request, M97 adds the isolated
 `demo/sgp-wireframe/sgp_wireframe.asm` visual test. It builds the DOS 8.3 name
-`SGPWIRE.COM` and displays a tetrahedron, cuboid, dodecahedron, and
-icosahedron in four viewports. The CPU performs signed fixed-point rotation,
-perspective projection, and command-list generation. SGP CLS clears the hidden
-Graphic 1 page and SGP LINE draws all 78 edges before a vertical-blank page
-exchange.
+`SGPWIRE.COM` and displays a regular tetrahedron, cube, regular dodecahedron,
+and regular icosahedron in four viewports. The CPU performs signed fixed-point
+rotation, perspective projection, and command-list generation. SGP CLS clears
+the hidden half of a 640x800 Graphic 0 framebuffer and SGP LINE draws the grid
+and all 78 solid edges before a vertical-blank DSA0 page exchange.
+
+The first visual candidate incorrectly used `DX` to preserve an intermediate
+rotation product even though the next one-operand 16-bit `IMUL` overwrote
+`DX:AX`. This made valid edge tables appear as malformed solids. The corrected
+projection stores each intermediate product before executing the next `IMUL`.
+The former rectangular cuboid was also replaced with an actual cube.
 
 Each solid has independent X/Y angular rates and a sinusoidal scale. Edge
 brightness follows the projected endpoint depth, providing a simple depth cue
 without claiming polygon filling. The documented SGP command set has no
 general polygon or flood-fill command.
 
+Graphics BIOS mode function 0 uses `BX=a000h` and `CL=4` for single-plane,
+one-screen, 640x400, 4-bpp output. Function 1 defines Graphic 0 as 640x800;
+its two 128,000-byte display halves occupy 256,000 bytes of the 256 KiB GVRAM.
 The demo uses the existing hardware-safe startup contract: SET WORK begins
-every list, `0500h`/`0502h` and the two DSA1 registers receive word writes,
+every list, `0500h`/`0502h` and the two DSA0 registers receive word writes,
 and the GVRAM write-mode latch is restored before each kick. No generated COM
 or disposable disk image is tracked.
 
@@ -143,8 +152,8 @@ or disposable disk image is tracked.
 | `build/linux-debug/sdl2/vaeg --selftest` | PASS, including `SGP manual commands ok` |
 | CTest | 83 PASS, 1 external-fixture SKIP, 0 FAIL |
 | MinGW cross release build | PASS, PE32+ x86-64 GUI executable |
-| `SGPWIRE.COM` deterministic NASM build | PASS, 4,493 bytes |
-| VAEG wireframe smoke at two distinct frames | PASS, four connected solids with changed pose/scale |
+| `SGPWIRE.COM` deterministic NASM build | PASS, 5,663 bytes |
+| VAEG wireframe smoke at two distinct frames | PASS, 640x400; four connected regular solids with changed pose/scale |
 
 The task's initial `ctest --preset linux-debug` spelling was corrected because
 the repository has configure/build presets but no CTest preset. The executed
@@ -154,10 +163,10 @@ MinGW artifact:
 
 ```text
 build/mingw-cross/sdl2/vaeg.exe
-SHA-256 5957cbc16e3464f6ed4ea90bd7d40d00ae89f1e9c904522e5ce3b15ff48a0b89
+SHA-256 83c5d1190bac41dcd9b8fcc604433e0030ad5ab54169ca55fc9055facfc15698
 
 build/linux-debug/guest/sgpwire.com
-SHA-256 b0c43639a7a1172aa05dd6652ab52fd68d23779de0bc35d7b0250b575961e443
+SHA-256 eda9ee6650179cfabb75759631c67240bcdfb1212850b5f9d0e8ef05737f12b0
 ```
 
 No ROM, disk, font, icon, cursor, wave, or maintainer-local reference file was

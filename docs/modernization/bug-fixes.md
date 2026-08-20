@@ -70,6 +70,30 @@ separate parity correction or move it to Open Defects.
 
 ## Fixed Defects
 
+### SGP wireframe demo corrupted its projected solid geometry
+
+- **Status:** fixed in the revised M97 visual-gate candidate; G97 remains
+  pending.
+- **Symptom:** the program identified its four objects as a tetrahedron,
+  cuboid, dodecahedron, and icosahedron, but the animated line sets did not
+  consistently resemble those solids. It also used 320x200 output instead of
+  the subsequently required 640x400 mode.
+- **Root cause:** the projection routine saved one multiplication result in
+  `DX`, then executed another one-operand 16-bit `IMUL`, which overwrote
+  `DX:AX` before the two products were combined. The second object also used
+  unequal X, Y, and Z extents and therefore was a cuboid rather than a regular
+  hexahedron.
+- **Correction:** preserve every intermediate Q7 product in memory, use equal
+  extents for the cube, retain the verified degree-3/30-edge dodecahedron and
+  degree-5/30-edge icosahedron tables, and render at 640x400 from two halves of
+  a BIOS-defined 640x800 Graphic 0 framebuffer.
+- **Verification:** NASM builds the revised COM, and two VAEG captures at
+  distinct animation phases show the connected regular tetrahedron, cube,
+  regular dodecahedron, and regular icosahedron on a 640x400 reference grid.
+- **Evidence:** [M97 report](../agents/reports/m97_sgp_tekumani_commands.md).
+- **Commit:** pending publication; no fixing commit is claimed in this
+  checkout.
+
 ### SGP LINE directions and SCAN behavior diverged from the Technical Manual
 
 - **Status:** fixed in M97; G97 visual-regression verification remains
