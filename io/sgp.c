@@ -376,16 +376,24 @@ static void fetch_block(UINT32 address, SGP_BLOCK block) {
 	dat = sgp_memoryread_w(address);
 	block->scrnmode = dat & 0x03;
 	block->dot = (dat >> 4) & (dotcountmax[block->scrnmode] - 1);
-	block->width = sgp_memoryread_w(address + 2) & 0x3fff; /* VA2 accepts all 14 width bits. */
-	block->height = sgp_memoryread_w(address + 4);         /* VA2 accepts all 16 height bits. */
-	block->fbw =
-	    sgp_memoryread_w(address + 6) & 0xfffe; /* Bit 1 participates in the framebuffer width. */
+	if (pccore.model_va == PCMODEL_VA2) {
+		/* Preserve the wider VA2 descriptor profile used by existing software. */
+		block->width = sgp_memoryread_w(address + 2) & 0x3fff;
+		block->height = sgp_memoryread_w(address + 4);
+		block->fbw = sgp_memoryread_w(address + 6) & 0xfffe;
+	} else {
+		/* The original VA descriptor defines 12-bit extents and a four-byte pitch. */
+		block->width = sgp_memoryread_w(address + 2) & 0x0fff;
+		block->height = sgp_memoryread_w(address + 4) & 0x0fff;
+		block->fbw = sgp_memoryread_w(address + 6) & 0xfffc;
+	}
 	block->address =
 	    sgp_memoryread_w(address + 8) & 0xfffe | ((UINT32)sgp_memoryread_w(address + 10) << 16);
 
-	// Compatibility adjustment for the R-TYPE command stream; hardware basis is unverified.
-	if (block->fbw < 0)
+	/* Legacy VA2 compatibility for an observed R-TYPE command stream. */
+	if ((pccore.model_va == PCMODEL_VA2) && (block->fbw < 0)) {
 		block->fbw += 2;
+	}
 }
 
 static void init_block(SGP_BLOCK block) {
@@ -1368,6 +1376,90 @@ void sgp_step(void) {
 		}
 	}
 	sgp.lastclock = now;
+}
+
+BOOL sgp_manual_commands_selftest(void) {
+	static const UINT16 rop_expected[16] = {0x0000, 0x0303, 0x3030, 0x0000, 0x0c0c, 0x0f0f,
+	                                        0x3c3c, 0x3f3f, 0xc0c0, 0xc3c3, 0xf0f0, 0xf3f3,
+	                                        0xcccc, 0xcfcf, 0xfcfc, 0xffff};
+	const UINT32 descriptor_address = 0x001000;
+	const UINT32 destination_address = 0x001020;
+	BYTE saved_descriptor[12];
+	BYTE saved_destination[2];
+	_SGP saved_sgp;
+	_SGP_BLOCK block;
+	SINT32 saved_cpu_remclock;
+	UINT saved_model_va;
+	UINT16 dat;
+	UINT16 mask;
+	UINT index;
+	BOOL result;
+
+	CopyMemory(saved_descriptor, mem + descriptor_address, sizeof(saved_descriptor));
+	CopyMemory(saved_destination, mem + destination_address, sizeof(saved_destination));
+	saved_sgp = sgp;
+	saved_cpu_remclock = CPU_REMCLOCK;
+	saved_model_va = pccore.model_va;
+	result = FAILURE;
+
+	STOREINTELWORD(mem + descriptor_address + 0, 0x0031);
+	STOREINTELWORD(mem + descriptor_address + 2, 0x3abc);
+	STOREINTELWORD(mem + descriptor_address + 4, 0xf456);
+	STOREINTELWORD(mem + descriptor_address + 6, 0x0006);
+	STOREINTELWORD(mem + descriptor_address + 8, 0x1235);
+	STOREINTELWORD(mem + descriptor_address + 10, 0x0020);
+
+	pccore.model_va = PCMODEL_VA1;
+	fetch_block(descriptor_address, &block);
+	if ((block.scrnmode != 1) || (block.dot != 3) || (block.width != 0x0abc) ||
+	    (block.height != 0x0456) || (block.fbw != 4) || (block.address != 0x201234)) {
+		goto restore;
+	}
+
+	pccore.model_va = PCMODEL_VA2;
+	fetch_block(descriptor_address, &block);
+	if ((block.width != 0x3abc) || (block.height != 0xf456) || (block.fbw != 6) ||
+	    (block.address != 0x201234)) {
+		goto restore;
+	}
+
+	if ((SGP_BLTMODE_LINE_VD != SGP_BLTMODE_VD) || (SGP_BLTMODE_LINE_HD != SGP_BLTMODE_HD)) {
+		goto restore;
+	}
+
+	for (index = 0; index < NELEMENTS(rop_expected); index++) {
+		sgp.bltmode = (UINT16)index;
+		mask = 0xffff;
+		dat = logicalop(0x0f0f, 0x3333, &mask);
+		if (index == 3) {
+			if (mask != 0) {
+				goto restore;
+			}
+		} else if ((mask != 0xffff) || (dat != rop_expected[index])) {
+			goto restore;
+		}
+	}
+
+	STOREINTELWORD(mem + destination_address, 0x0f0f);
+	sgp.dest.nextaddress = destination_address;
+	sgp.dest.scrnmode = 1;
+	sgp.newval = 0x1111;
+	sgp.newvalmask = 0xffff;
+	sgp.bltmode = 0x0205;
+	write_dest2();
+	if (LOADINTELWORD(mem + destination_address) != 0x1f1f) {
+		goto restore;
+	}
+
+	result = SUCCESS;
+
+restore:
+	CopyMemory(mem + descriptor_address, saved_descriptor, sizeof(saved_descriptor));
+	CopyMemory(mem + destination_address, saved_destination, sizeof(saved_destination));
+	sgp = saved_sgp;
+	CPU_REMCLOCK = saved_cpu_remclock;
+	pccore.model_va = saved_model_va;
+	return (result);
 }
 
 // ---- I/O

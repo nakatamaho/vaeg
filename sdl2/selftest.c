@@ -2480,6 +2480,10 @@ int vaeg_selftest_run(void) {
 	if (test_sgp_speed() != SUCCESS) {
 		return (FAILURE);
 	}
+	if (sgp_manual_commands_selftest() != SUCCESS) {
+		return (fail("SGP manual commands", "descriptor, LINE, ROP, or TP=2 test failed"));
+	}
+	fprintf(stderr, "selftest: SGP manual commands ok\n");
 	if (test_pacing() != SUCCESS) {
 		return (FAILURE);
 	}
