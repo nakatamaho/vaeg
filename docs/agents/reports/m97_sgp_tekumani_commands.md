@@ -110,6 +110,26 @@ The compiled selftest now verifies:
 - SCAN LEFT first-pixel, later-pixel, and miss cases, including returned left
   address/dot and width.
 
+### 4.4 LINE visual gate program
+
+At the maintainer's request, M97 adds the isolated
+`demo/sgp-wireframe/sgp_wireframe.asm` visual test. It builds the DOS 8.3 name
+`SGPWIRE.COM` and displays a tetrahedron, cuboid, dodecahedron, and
+icosahedron in four viewports. The CPU performs signed fixed-point rotation,
+perspective projection, and command-list generation. SGP CLS clears the hidden
+Graphic 1 page and SGP LINE draws all 78 edges before a vertical-blank page
+exchange.
+
+Each solid has independent X/Y angular rates and a sinusoidal scale. Edge
+brightness follows the projected endpoint depth, providing a simple depth cue
+without claiming polygon filling. The documented SGP command set has no
+general polygon or flood-fill command.
+
+The demo uses the existing hardware-safe startup contract: SET WORK begins
+every list, `0500h`/`0502h` and the two DSA1 registers receive word writes,
+and the GVRAM write-mode latch is restored before each kick. No generated COM
+or disposable disk image is tracked.
+
 ## 5. Validation
 
 | Check | Result |
@@ -123,6 +143,8 @@ The compiled selftest now verifies:
 | `build/linux-debug/sdl2/vaeg --selftest` | PASS, including `SGP manual commands ok` |
 | CTest | 83 PASS, 1 external-fixture SKIP, 0 FAIL |
 | MinGW cross release build | PASS, PE32+ x86-64 GUI executable |
+| `SGPWIRE.COM` deterministic NASM build | PASS, 4,493 bytes |
+| VAEG wireframe smoke at two distinct frames | PASS, four connected solids with changed pose/scale |
 
 The task's initial `ctest --preset linux-debug` spelling was corrected because
 the repository has configure/build presets but no CTest preset. The executed
@@ -132,7 +154,10 @@ MinGW artifact:
 
 ```text
 build/mingw-cross/sdl2/vaeg.exe
-SHA-256 ec8a7fdd05008540aafab3fca5a119ed39eff88e159bba46c4847c9792438b3f
+SHA-256 5957cbc16e3464f6ed4ea90bd7d40d00ae89f1e9c904522e5ce3b15ff48a0b89
+
+build/linux-debug/guest/sgpwire.com
+SHA-256 b0c43639a7a1172aa05dd6652ab52fd68d23779de0bc35d7b0250b575961e443
 ```
 
 No ROM, disk, font, icon, cursor, wave, or maintainer-local reference file was
@@ -146,6 +171,8 @@ modified. No real-hardware test was performed or claimed.
 | M97a evidence correction | `da9981cc7bde84057c76a5d87081e4955dfbb8b8` |
 | M97b descriptor/LINE/ROP/TP2 | `ffb85210c62f984108ad9d022f7d046107744f60` |
 | M97c SCAN implementation | `7b788edc6e657f2d9e8e48f759c5cab6eb7c4899` |
+| M97e LINE visual-gate scope | `23c04210eb37e06356b978e752cab9c70bfaa608` |
+| M97f SGP wireframe demo | `bf59f1f567f4e815dd0bd671fa174cb1e422a92f` |
 
 ## 7. Remaining unknowns
 
@@ -160,4 +187,5 @@ modified. No real-hardware test was performed or claimed.
 ## 8. Human gate
 
 G97 is pending. It is a VAEG visual-regression gate and does not require or
-claim a real-hardware run.
+claim a real-hardware run. `SGPWIRE.COM` is now the LINE-specific visual part
+of that gate rather than an optional unavailable fixture.
