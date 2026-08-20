@@ -182,6 +182,8 @@ modified. No real-hardware test was performed or claimed.
 | M97c SCAN implementation | `7b788edc6e657f2d9e8e48f759c5cab6eb7c4899` |
 | M97e LINE visual-gate scope | `23c04210eb37e06356b978e752cab9c70bfaa608` |
 | M97f SGP wireframe demo | `bf59f1f567f4e815dd0bd671fa174cb1e422a92f` |
+| M97g initial visual-validation record | `92b04a4` |
+| M97f1 640x400 geometry correction | `7df8bc9529c012695fcb5d38fe677dba984c1eba` |
 
 ## 7. Remaining unknowns
 

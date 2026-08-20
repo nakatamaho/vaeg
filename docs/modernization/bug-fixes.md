@@ -91,8 +91,7 @@ separate parity correction or move it to Open Defects.
   distinct animation phases show the connected regular tetrahedron, cube,
   regular dodecahedron, and regular icosahedron on a 640x400 reference grid.
 - **Evidence:** [M97 report](../agents/reports/m97_sgp_tekumani_commands.md).
-- **Commit:** pending publication; no fixing commit is claimed in this
-  checkout.
+- **Commit:** [7df8bc9](https://github.com/nakatamaho/vaeg/commit/7df8bc9529c012695fcb5d38fe677dba984c1eba).
 
 ### SGP LINE directions and SCAN behavior diverged from the Technical Manual
 
