@@ -541,7 +541,7 @@ The mode word contains source alignment/format `SF`, vertical direction `VD`,
 horizontal direction `HD`, transparent-processing `TP`, a four-bit operation,
 and reserved bits.
 
-The local vaeg definitions use:
+The Technical Manual defines:
 
 | Field | Mask |
 |---|---:|
@@ -551,8 +551,9 @@ The local vaeg definitions use:
 | `TP` | `0300h` |
 | operation | `000Fh` |
 
-These are implementation evidence until checked against a clean period bit
-diagram and raw command lists.
+The current vaeg BITBLT/PATBLT definitions use the same masks. LINE uses the
+same documented bit positions, so a separate swapped LINE direction mapping is
+not supported by this source.
 
 `VD`/`HD` choose traversal direction and safe overlap order. `SF` affects
 source alignment when source and destination start dots differ. Each start-dot
@@ -571,31 +572,9 @@ vaeg handles source-zero suppression in important paths, treats `TP=3` like
 destination-zero in one helper, and leaves some `TP=2/3` paths commented out.
 That is incomplete emulation, not a hardware restriction.
 
-### 10.2 ROP ordering conflict
+### 10.2 ROP ordering
 
-All sixteen Boolean functions exist, but the nibble ordering must be verified
-from the period table. The reconstruction supplied for this revision proposed:
-
-| ROP | Candidate result |
-|---:|---|
-| `0` | `0` |
-| `1` | `S & D` |
-| `2` | `S & ~D` |
-| `3` | `S` |
-| `4` | `~S & D` |
-| `5` | `D` |
-| `6` | `S ^ D` |
-| `7` | `S | D` |
-| `8` | `~(S | D)` |
-| `9` | `~(S ^ D)` |
-| `A` | `~D` |
-| `B` | `S | ~D` |
-| `C` | `~S` |
-| `D` | `~S | D` |
-| `E` | `~(S & D)` |
-| `F` | all ones |
-
-**[CONFLICT]** Current vaeg instead implements the complete set in this order:
+The Technical Manual gives all sixteen Boolean functions in this order:
 
 | ROP | vaeg result |
 |---:|---|
@@ -616,9 +595,9 @@ from the period table. The reconstruction supplied for this revision proposed:
 | `E` | `~(S & D)` |
 | `F` | all ones |
 
-Do not choose between the tables merely because either is a conventional
-truth-table ordering. A hardware test must record raw ROP nibble, source word,
-initial destination, mask edges, and result.
+Current vaeg implements this same order. Focused tests must still cover the raw
+ROP nibble, source word, initial destination, and partial-word masks so a
+future refactor cannot silently reorder the table.
 
 ## 11. BITBLT (`0007h`)
 
@@ -663,14 +642,11 @@ state. Behavior is consistent with an integer Bresenham-family accumulator,
 but endpoint inclusion, tie breaking, major-axis choice, and initial error are
 hardware-visible.
 
-**[CONFLICT]** vaeg's generic BLT masks name `VD=0800h` and `HD=0400h`, while
-its LINE-specific names swap those meanings: `LINE_VD=0400h` and
-`LINE_HD=0800h`. The supplied period-document reconstruction says the LINE
-direction symbols disagree with those local definitions.
-
-Implementations must decode raw bits under a named profile and test asymmetric
-lines in all four direction combinations. Do not use a host graphics-library
-line routine.
+**[DOCUMENTED]** LINE uses `VD=0800h` and `HD=0400h`, the same direction-bit
+positions as BITBLT and PATBLT. Current vaeg's separate
+`LINE_VD=0400h`/`LINE_HD=0800h` definitions are reversed. Implementations must
+test asymmetric lines in all four direction combinations. Do not use a host
+graphics-library line routine.
 
 Required cases are horizontal, vertical, 45-degree, shallow, steep, every
 octant, one-pixel, reversed endpoints, word boundaries, and descriptor edges.
@@ -694,21 +670,23 @@ tests.
 
 ## 15. SCAN_RIGHT (`000Bh`)
 
-SCAN_RIGHT advances pixel by pixel until a specified equality/inequality or
-boundary condition, assisting flood fill. Recoverable inputs include initial
-position, descriptor, comparison color/set, pixel mode, and extent.
-
-The exact condition bits, inclusive/exclusive start, result location, and
-boundary convention remain **[UNKNOWN]**. Current vaeg only logs the command as
-not implemented.
+SCAN_RIGHT advances pixel by pixel until it finds the SET COLOR value. The
+destination descriptor supplies the starting pixel, pixel mode, and maximum
+pixel count. If the starting pixel already has the selected color, the result
+width is zero. If a later pixel matches, the destination width becomes the
+number of pixels from the start to that boundary. If no pixel matches within
+the maximum count, the destination width remains unchanged. Current vaeg only
+logs the command as not implemented.
 
 ## 16. SCAN_LEFT (`000Ch`)
 
-SCAN_LEFT is the symmetric leftward operation and is also a vaeg TODO.
+SCAN_LEFT applies the same color and count rules while moving left. On a
+match, it additionally updates the destination start address and start-dot to
+the left edge of the scanned region. A first-pixel match produces width zero;
+a miss leaves the descriptor unchanged. It is also a vaeg TODO.
 
 Tests must distinguish initial-pixel stopping, one-pixel-away stopping,
-inclusive/exclusive boundary, packed-word crossing, x=0, rightmost start,
-equality/inequality, and left/right symmetry.
+packed-word crossing, x=0, rightmost start, no match, and left/right symmetry.
 
 SCAN is a documented functional command and should not be omitted merely
 because common software may implement flood fill on the CPU.
