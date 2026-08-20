@@ -64,6 +64,10 @@ corpus, or non-free integration layer.
 - Verify all sixteen documented ROP values and destination-zero transfer
   mode through focused selftests.
 - Correct stale SGP documentation where direct manual text resolves it.
+- Add one DOS 8.3-compatible LINE visual test, at the maintainer's request,
+  with rotating tetrahedron, cuboid, dodecahedron, and icosahedron geometry.
+  The CPU may project vertices and generate the main-RAM command list; every
+  animated edge must be drawn by SGP LINE.
 
 ## Out of scope
 
@@ -74,7 +78,8 @@ corpus, or non-free integration layer.
 - Zero width/height behavior, 4MiB wrap, start-while-busy, or partial-word
   abort semantics.
 - Guessing reserved `TP=3` behavior.
-- Changing TSP, framebuffer, SGP speed controls, demos, ROMs, or disk images.
+- Changing TSP, framebuffer, SGP speed controls, existing demos, ROMs, or disk
+  images. The new isolated LINE visual test in M97e is the sole demo exception.
 - Real-hardware validation. Functional results remain manual-derived until a
   later hardware campaign is possible.
 
@@ -105,6 +110,18 @@ corpus, or non-free integration layer.
   behavior, and left/right result updates.
 - Run all repository validators and supported local builds/tests.
 
+### M97e - LINE visual gate program
+
+- Add `demo/sgp-wireframe/sgp_wireframe.asm`, which builds the DOS 8.3 name
+  `SGPWIRE.COM` out of tree.
+- Use the existing hardware-safe word access for the command-address and
+  display-start ports and begin every command list with SET WORK.
+- Render four independently rotating and pulsating solids into the hidden
+  Graphic 1 page and exchange pages during vertical blank.
+- Use depth-cued edges rather than claim polygon filling: the documented SGP
+  command set has LINE but no general polygon or flood-fill command.
+- Keep generated COM and disposable disk images outside Git.
+
 ## Validation
 
 ```text
@@ -132,8 +149,9 @@ From a clean checkout of the candidate:
 1. boot VAEG in the normal VA configuration;
 2. run the existing SGP pseudo-sprite demo and verify its background,
    transparency, sprite overlap, animation, and clean exit;
-3. run the existing LINE-based wireframe demo if available and verify line
-   direction in all visible octants;
+3. run `SGPWIRE.COM` and verify the four solids rotate and change scale, dim
+   and bright edges remain connected, and LINE direction works in all visible
+   octants;
 4. verify normal V3/OS boot and display operation are unchanged.
 
 Automated tests establish manual-derived functional behavior. The human gate
