@@ -24,6 +24,7 @@
 # POSSIBILITY OF SUCH DAMAGE.
 
 import argparse
+from datetime import datetime
 import os
 import re
 import struct
@@ -37,7 +38,6 @@ DATA_CLUSTER_COUNT = 1269
 LAST_DATA_CLUSTER = DATA_CLUSTER_COUNT + 1
 ROOT_START_LBA = 5
 ROOT_SECTORS = 6
-FIXED_DATE = ((2026 - 1980) << 9) | (1 << 5) | 1
 SYSTEM_LAYOUTS = {
     "1.05": {
         "ENGINEIO.SYS": (2, 4096),
@@ -107,15 +107,25 @@ def find_entry(directory, raw_name):
     return first_free, False
 
 
+def fat_now():
+    """Return the current local time encoded as FAT time and date words."""
+    now = datetime.now()
+    year = min(max(now.year, 1980), 2107)
+    fat_date = ((year - 1980) << 9) | (now.month << 5) | now.day
+    fat_time = (now.hour << 11) | (now.minute << 5) | (now.second // 2)
+    return fat_time, fat_date
+
+
 def make_entry(raw_name, attributes, first_cluster, size):
+    fat_time, fat_date = fat_now()
     entry = bytearray(32)
     entry[:11] = raw_name
     entry[11] = attributes
-    struct.pack_into("<H", entry, 14, 0)
-    struct.pack_into("<H", entry, 16, FIXED_DATE)
-    struct.pack_into("<H", entry, 18, FIXED_DATE)
-    struct.pack_into("<H", entry, 22, 0)
-    struct.pack_into("<H", entry, 24, FIXED_DATE)
+    struct.pack_into("<H", entry, 14, fat_time)
+    struct.pack_into("<H", entry, 16, fat_date)
+    struct.pack_into("<H", entry, 18, fat_date)
+    struct.pack_into("<H", entry, 22, fat_time)
+    struct.pack_into("<H", entry, 24, fat_date)
     struct.pack_into("<H", entry, 26, first_cluster)
     struct.pack_into("<I", entry, 28, size)
     return entry
