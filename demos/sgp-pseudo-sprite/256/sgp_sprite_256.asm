@@ -31,19 +31,18 @@ org 0x100
 %define VIDEO_G1_BPP_OFFSET     0x0012
 
 %define PORT_MEMORY_MAP         0x0153
-%define PORT_GRMODE             0x0100
-%define PORT_GRRES              0x0102
+%define PORT_G0_TRANSPARENCY    0x0124
+%define PORT_G1_TRANSPARENCY    0x0126
 %define PORT_PALETTE_COMPOSE    0x0106
 %define PORT_RGB_COMPOSE        0x0108
-%define PORT_FB0_FBW            0x0204
-%define PORT_FB0_FBL            0x0206
-%define PORT_FB0_DOT            0x0208
-%define PORT_FB0_OFX            0x020a
-%define PORT_FB0_OFY            0x020c
-%define PORT_FB0_DSA_LOW        0x020e
-%define PORT_FB0_DSA_HIGH       0x0210
-%define PORT_FB0_DSH            0x0212
-%define PORT_FB0_DSP            0x0216
+%define PORT_FB1_FBW            0x0224
+%define PORT_FB1_DOT            0x0228
+%define PORT_FB1_OFX            0x022a
+%define PORT_FB1_OFY            0x022c
+%define PORT_FB1_DSA_LOW        0x022e
+%define PORT_FB1_DSA_HIGH       0x0230
+%define PORT_FB1_DSH            0x0232
+%define PORT_FB1_DSP            0x0236
 %define PORT_TSP_STATUS         0x0142
 %define PORT_SGP_COMMAND        0x0500
 %define PORT_SGP_CONTROL        0x0504
@@ -52,22 +51,25 @@ org 0x100
 
 %define MEMORY_MAP_GVRAM_SINGLE 0x54
 %define GVRAM_CPU_WRITE_MODE    0x10
-%define MODE_320X400_G0_ONLY    0xa00c
-%define PIXEL_SIZE_G0_8BPP     0x0008
-%define COMPOSE_G0_DIRECT       0x0008
+%define MODE_320X200_G0_G1      0xe00e
+%define PIXEL_SIZE_G0_G1_8BPP   0x0808
+%define COMPOSE_G1_OVER_G0      0x0034
+%define RGB_COMPOSE_G1_OVER_G0  0x0089
 %define TSP_STATUS_VBLANK       0x40
 
-; One 320x800 source surface contains two visible 320x400 pages.  The
-; 8-bpp page stride is 320*400 bytes = 0x1f400 bytes.  The VA output
-; window presents the 400-line surface at the emulator's 640x400 raster.
+; Graphic 0 is the 320x200 background. Graphic 1 owns a 320x400 backing
+; surface containing two 320x200 8-bpp pages. Each page is 64,000 bytes and
+; is selected through the FB1 DSA register pair; the display window remains
+; 320x200.
+%define G0_SEGMENT              0xa000
 %define SCREEN_WIDTH            320
-%define SCREEN_HEIGHT           400
+%define SCREEN_HEIGHT           200
 %define SCREEN_PITCH            320
-%define G0_PAGE_A_SGP_BASE      0x200000
-%define G0_PAGE_B_SGP_BASE      0x21f400
-%define G0_PAGE_A_DSA           0x000000
-%define G0_PAGE_B_DSA           0x01f400
-%define SCREEN_WORD_COUNT       0xfa00
+%define G1_PAGE_A_SGP_BASE      0x220000
+%define G1_PAGE_B_SGP_BASE      0x22fa00
+%define G1_PAGE_A_DSA           0x020000
+%define G1_PAGE_B_DSA           0x02fa00
+%define SCREEN_WORD_COUNT       0x7d00
 
 %define SGP_COMMAND_END         0x0001
 %define SGP_COMMAND_SET_WORK    0x0003
@@ -75,10 +77,8 @@ org 0x100
 %define SGP_COMMAND_SET_DEST    0x0005
 %define SGP_COMMAND_SET_COLOR   0x0006
 %define SGP_COMMAND_BITBLT      0x0007
-%define SGP_COMMAND_PATBLT      0x0008
 %define SGP_COMMAND_CLS         0x000a
 %define SGP_BITBLT_COPY_XPAR    0x0105
-%define SGP_PATBLT_COPY         0x0005
 %define SGP_BUSY                0x01
 
 %define SPRITE_MIN_COUNT        1
@@ -117,13 +117,6 @@ animation_loop:
     jc animation_failed
     call update_sprites
     call update_fps_counter
-    call build_background_commands
-    mov ax, [background_command_address_low]
-    mov [sgp_command_address_low], ax
-    mov ax, [background_command_address_high]
-    mov [sgp_command_address_high], ax
-    call run_sgp_command_list
-    jc animation_failed
     call build_sprite_commands
     call run_sgp_command_list
     jc animation_failed
@@ -154,22 +147,55 @@ animation_failed:
     int 0x21
 
 initialize_video:
-    mov bx, MODE_320X400_G0_ONLY
-    mov cx, PIXEL_SIZE_G0_8BPP
+    mov bx, MODE_320X200_G0_G1
+    mov cx, PIXEL_SIZE_G0_G1_8BPP
     xor dx, dx
     mov byte [video_mode_changed], 1
     xor ax, ax
     int VIDEO_BIOS_INT
     test ax, ax
     jnz .failed
-    call define_g0_surface
-    jc .failed
+
+    mov ax, 0x0b00
+    int VIDEO_BIOS_INT
+    test ax, ax
+    jnz .failed
+
+    mov ax, 0x0900
+    int VIDEO_BIOS_INT
+    test ax, ax
+    jnz .failed
+
+    mov ax, 0x0a00
+    int VIDEO_BIOS_INT
+    test ax, ax
+    jnz .failed
+
+    mov ax, 0x0300
+    mov cx, COMPOSE_G1_OVER_G0
+    int VIDEO_BIOS_INT
+    test ax, ax
+    jnz .failed
+
+    ; 8-bpp surfaces use the direct-color composition slots. The low
+    ; nibble is the highest-priority slot: G1 (9) over G0 (8).
     xor ax, ax
     mov dx, PORT_PALETTE_COMPOSE
     out dx, ax
-    mov ax, COMPOSE_G0_DIRECT
+    mov ax, RGB_COMPOSE_G1_OVER_G0
     mov dx, PORT_RGB_COMPOSE
     out dx, ax
+
+    mov dx, PORT_G0_TRANSPARENCY
+    xor ax, ax
+    out dx, ax
+
+    mov dx, PORT_G1_TRANSPARENCY
+    mov ax, 0x0001
+    out dx, ax
+
+    call configure_g1_framebuffer
+
     mov dx, PORT_MEMORY_MAP
     mov al, MEMORY_MAP_GVRAM_SINGLE
     out dx, al
@@ -178,28 +204,15 @@ initialize_video:
     out dx, al
 
     call convert_orbs
+    call draw_g0_checkerboard
     mov byte [draw_page_index], 0
     call select_draw_page
-    call build_background_commands
-    mov ax, [background_command_address_low]
-    mov [sgp_command_address_low], ax
-    mov ax, [background_command_address_high]
-    mov [sgp_command_address_high], ax
-    call run_sgp_command_list
-    jc .failed
     call build_sprite_commands
     call run_sgp_command_list
     jc .failed
     call display_draw_page
     mov byte [draw_page_index], 1
     call select_draw_page
-    call build_background_commands
-    mov ax, [background_command_address_low]
-    mov [sgp_command_address_low], ax
-    mov ax, [background_command_address_high]
-    mov [sgp_command_address_high], ax
-    call run_sgp_command_list
-    jc .failed
     call build_sprite_commands
     call run_sgp_command_list
     jc .failed
@@ -213,83 +226,103 @@ initialize_video:
     stc
     ret
 
-define_g0_surface:
-    push es
-    push ds
-    pop es
-    mov ax, 0x0100
-    mov cx, 1
-    mov di, g0_framebuffer_descriptor
-    int VIDEO_BIOS_INT
-    test ax, ax
-    jnz .failed
-    mov ax, 0x0200
-    mov cx, 1
-    mov di, g0_window_descriptor
-    int VIDEO_BIOS_INT
-    test ax, ax
-    jnz .failed
-    pop es
-    clc
-    ret
-.failed:
-    pop es
-    stc
-    ret
-
-configure_g0_framebuffer:
+; FB1 is a 320-byte-pitch, 400-line backing surface with a 200-line
+; display window. DSA1 selects its upper or lower 200-line page; FBL is not
+; used for FB1 vertical wraparound on the VA path.
+configure_g1_framebuffer:
     push ax
     push dx
-    mov dx, PORT_FB0_FBW
+    mov dx, PORT_FB1_FBW
     mov ax, SCREEN_PITCH
     out dx, ax
-    mov dx, PORT_FB0_FBL
-    mov ax, SCREEN_HEIGHT * 2
-    out dx, ax
-    mov dx, PORT_FB0_DOT
+    mov dx, PORT_FB1_DOT
     xor ax, ax
     out dx, ax
-    mov dx, PORT_FB0_OFX
+    mov dx, PORT_FB1_OFX
     out dx, ax
-    mov dx, PORT_FB0_OFY
+    mov dx, PORT_FB1_OFY
     out dx, ax
-    mov dx, PORT_FB0_DSA_LOW
-    out dx, ax
-    mov dx, PORT_FB0_DSA_HIGH
-    out dx, ax
-    mov dx, PORT_FB0_DSH
+    mov dx, PORT_FB1_DSH
     mov ax, SCREEN_HEIGHT
     out dx, ax
-    mov dx, PORT_FB0_DSP
+    mov dx, PORT_FB1_DSP
     xor ax, ax
     out dx, ax
     pop dx
     pop ax
-    clc
     ret
 
 select_draw_page:
     cmp byte [draw_page_index], 0
     je .page_a
-    mov word [draw_page_sgp_low], G0_PAGE_B_SGP_BASE & 0xffff
-    mov word [draw_page_sgp_high], G0_PAGE_B_SGP_BASE >> 16
-    mov word [draw_page_dsa_low], G0_PAGE_B_DSA & 0xffff
-    mov word [draw_page_dsa_high], G0_PAGE_B_DSA >> 16
+    mov word [draw_page_sgp_low], G1_PAGE_B_SGP_BASE & 0xffff
+    mov word [draw_page_sgp_high], G1_PAGE_B_SGP_BASE >> 16
+    mov word [draw_page_dsa_low], G1_PAGE_B_DSA & 0xffff
+    mov word [draw_page_dsa_high], G1_PAGE_B_DSA >> 16
     ret
 .page_a:
-    mov word [draw_page_sgp_low], G0_PAGE_A_SGP_BASE & 0xffff
-    mov word [draw_page_sgp_high], G0_PAGE_A_SGP_BASE >> 16
-    mov word [draw_page_dsa_low], G0_PAGE_A_DSA & 0xffff
-    mov word [draw_page_dsa_high], G0_PAGE_A_DSA >> 16
+    mov word [draw_page_sgp_low], G1_PAGE_A_SGP_BASE & 0xffff
+    mov word [draw_page_sgp_high], G1_PAGE_A_SGP_BASE >> 16
+    mov word [draw_page_dsa_low], G1_PAGE_A_DSA & 0xffff
+    mov word [draw_page_dsa_high], G1_PAGE_A_DSA >> 16
     ret
 
 display_draw_page:
-    mov dx, PORT_FB0_DSA_LOW
+    mov dx, PORT_FB1_DSA_LOW
     mov ax, [draw_page_dsa_low]
     out dx, ax
     add dx, 2
     mov ax, [draw_page_dsa_high]
     out dx, ax
+    ret
+
+; Graphic 0 is a CPU-written 8-bpp checkerboard. It is deliberately kept
+; independent from the SGP sprite list so the two graphics screens exercise
+; the same G0/G1 composition path as the 16-color demo.
+draw_g0_checkerboard:
+    push ax
+    push bx
+    push cx
+    push dx
+    push si
+    push di
+    push bp
+    push es
+    mov ax, G0_SEGMENT
+    mov es, ax
+    xor di, di
+    xor bx, bx
+.row:
+    mov dx, checker_row_a
+    mov bp, checker_row_b
+    test bl, 0x10
+    jz .phase_ready
+    xchg dx, bp
+.phase_ready:
+    mov cx, 20
+.tile:
+    mov si, dx
+    test cl, 1
+    jz .tile_source_ready
+    mov si, bp
+.tile_source_ready:
+    push cx
+    mov cx, 16
+    rep movsb
+    pop cx
+    dec cx
+    jnz .tile
+    inc bx
+    cmp bx, SCREEN_HEIGHT
+    jne .row
+    pop es
+    pop bp
+    pop di
+    pop si
+    pop dx
+    pop cx
+    pop bx
+    pop ax
     ret
 
 update_sprites:
@@ -342,76 +375,6 @@ update_sprites:
     pop ax
     ret
 
-build_background_commands:
-    push ax
-    push bx
-    push cx
-    push dx
-    push si
-    push di
-    push es
-    push ds
-    pop es
-    mov di, sgp_background_list
-
-    mov ax, SGP_COMMAND_SET_WORK
-    stosw
-    mov si, sgp_work_area
-    call physical_address_from_ds_si
-    stosw
-    mov ax, dx
-    stosw
-
-    ; PATBLT repeats the 16x16 checker pattern across the hidden page.
-    mov ax, SGP_COMMAND_SET_SOURCE
-    stosw
-    mov ax, 2
-    stosw
-    mov ax, 16
-    stosw
-    mov ax, 16
-    stosw
-    mov ax, 16
-    stosw
-    mov si, checker_pattern
-    call physical_address_from_ds_si
-    stosw
-    mov ax, dx
-    stosw
-    mov ax, SGP_COMMAND_SET_DEST
-    stosw
-    mov ax, 2
-    stosw
-    mov ax, SCREEN_WIDTH
-    stosw
-    mov ax, SCREEN_HEIGHT
-    stosw
-    mov ax, SCREEN_PITCH
-    stosw
-    mov ax, [draw_page_sgp_low]
-    stosw
-    mov ax, [draw_page_sgp_high]
-    stosw
-    mov ax, SGP_COMMAND_PATBLT
-    stosw
-    mov ax, SGP_PATBLT_COPY
-    stosw
-    mov ax, SGP_COMMAND_END
-    stosw
-
-    mov si, sgp_background_list
-    call physical_address_from_ds_si
-    mov [background_command_address_low], ax
-    mov [background_command_address_high], dx
-    pop es
-    pop di
-    pop si
-    pop dx
-    pop cx
-    pop bx
-    pop ax
-    ret
-
 build_sprite_commands:
     push ax
     push bx
@@ -430,6 +393,22 @@ build_sprite_commands:
     call physical_address_from_ds_si
     stosw
     mov ax, dx
+    stosw
+
+    mov ax, SGP_COMMAND_SET_COLOR
+    stosw
+    xor ax, ax
+    stosw
+
+    mov ax, SGP_COMMAND_CLS
+    stosw
+    mov ax, [draw_page_sgp_low]
+    stosw
+    mov ax, [draw_page_sgp_high]
+    stosw
+    mov ax, SCREEN_WORD_COUNT
+    stosw
+    xor ax, ax
     stosw
 
     mov si, sprite_records
@@ -497,7 +476,7 @@ emit_sprite:
     mov dx, SCREEN_PITCH
     mul dx
     mov bx, [bp]
-    and bx, 0xfffc
+    and bx, 0xfffe
     shr bx, 1
     add ax, bx
     adc dx, 0
@@ -565,7 +544,7 @@ emit_status_glyphs:
     mov ax, FPS_GLYPH_Y * SCREEN_PITCH
     xor dx, dx
     mov bp, bx
-    and bp, 0xfffc
+    and bp, 0xfffe
     shr bp, 1
     add ax, bp
     adc dx, 0
@@ -925,20 +904,22 @@ message_animation_failed:
     db "SGP synchronization failed.", 13, 10, "$"
 
 align 2, db 0
-g0_framebuffer_descriptor:
-    dw 8, SCREEN_WIDTH, SCREEN_HEIGHT * 2
-g0_window_descriptor:
-    dw 0, 0, SCREEN_HEIGHT, 0, 0
-
-align 2, db 0
-sgp_background_list:
-    times 64 dw 0
 sgp_command_list:
     times 4096 dw 0
 sgp_work_area:
     times 29 dw 0
 
 align 2, db 0
+checker_row_a:
+    times 8 db 0x18
+    times 8 db 0x38
+checker_row_b:
+    times 8 db 0x38
+    times 8 db 0x18
+
+align 2, db 0
+; Retained only as a local data pattern for source-level reference; the
+; active background writer uses checker_row_a/checker_row_b directly.
 checker_pattern:
     db 0x18,0x18,0x18,0x18,0x18,0x18,0x18,0x18,0x38,0x38,0x38,0x38,0x38,0x38,0x38,0x38
     db 0x18,0x18,0x18,0x18,0x18,0x18,0x18,0x18,0x38,0x38,0x38,0x38,0x38,0x38,0x38,0x38
@@ -1046,8 +1027,6 @@ draw_page_index: db 0
 align 2, db 0
 sgp_command_address_low: dw 0
 sgp_command_address_high: dw 0
-background_command_address_low: dw 0
-background_command_address_high: dw 0
 fps_frame_counter: dw 0
 fps_value: dw 0
 fps_last_second: db 0
