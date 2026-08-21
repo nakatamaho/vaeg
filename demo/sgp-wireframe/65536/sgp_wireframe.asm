@@ -57,15 +57,16 @@ org 0x100
 %define COMPOSE_G0_DIRECT       0x0008
 %define TSP_STATUS_VBLANK       0x40
 
-; The source surface is 640 pixels wide at 16 bpp (1280 bytes per row).
-; GRRES selects a 320-dot display fetch, so the visible window is 320x200.
+; The source surface is 320 pixels wide at 16 bpp (640 bytes per row).
+; Two 320x200 pages are stacked vertically in a 320x400 framebuffer.
 %define SCREEN_WIDTH            320
 %define SCREEN_HEIGHT           200
-%define SCREEN_PITCH            1280
+%define SCREEN_PITCH            640
 %define G0_PAGE_A_SGP_BASE      0x200000
-%define G0_PAGE_B_SGP_BASE      0x200280
+%define G0_PAGE_B_SGP_BASE      0x21f400
 %define G0_PAGE_A_DSA           0x000000
-%define G0_PAGE_B_DSA           0x000280
+%define G0_PAGE_B_DSA           0x01f400
+%define SCREEN_WORD_COUNT       0xfa00
 
 %define SGP_COMMAND_END         0x0001
 %define SGP_COMMAND_SET_WORK    0x0003
@@ -168,13 +169,14 @@ initialize_video:
     mov dx, PORT_GRRES
     mov ax, 0x1313
     out dx, ax
-    ; G0 is a 640x200 direct-color framebuffer. Its two 320x200 horizontal
-    ; halves are used as hidden/display pages within the 256 KiB surface.
+    ; G0 is a 320x400 direct-color source framebuffer. Its two contiguous
+    ; 320x200 halves are used as hidden/display pages within the 256 KiB
+    ; surface.
     call define_g0_surface
     jc .failed
 
     ; The BIOS descriptor establishes the surface; these registers establish
-    ; the 640x200 source layout and 320x200 displayed sub-screen explicitly.
+    ; the 320x400 source layout and 320x200 displayed sub-screen explicitly.
     call configure_g0_framebuffer
     jc .failed
 
@@ -212,7 +214,7 @@ initialize_video:
     stc
     ret
 
-; Define the single 640x200 G0 framebuffer used by this direct-color path.
+; Define the single 320x400 G0 framebuffer used by this direct-color path.
 define_g0_surface:
     push es
     push ds
@@ -239,7 +241,7 @@ define_g0_surface:
     ret
 
 ; Configure FB0 according to the VA framebuffer register model:
-; FBW=1280 bytes, FBL=200 lines, DSH=200, DSP=0, with no source offset.
+; FBW=640 bytes, FBL=400 lines, DSH=200, DSP=0, with no source offset.
 configure_g0_framebuffer:
     push ax
     push dx
@@ -247,7 +249,7 @@ configure_g0_framebuffer:
     mov ax, SCREEN_PITCH
     out dx, ax
     mov dx, PORT_FB0_FBL
-    mov ax, SCREEN_HEIGHT
+    mov ax, SCREEN_HEIGHT * 2
     out dx, ax
     mov dx, PORT_FB0_DOT
     xor ax, ax
@@ -296,9 +298,6 @@ display_draw_page:
     add dx, 2
     mov ax, [draw_page_dsa_high]
     out dx, ax
-    mov dx, PORT_FB0_OFX
-    mov ax, [draw_page_dsa_low]
-    out dx, ax
     pop dx
     pop ax
     ret
@@ -327,9 +326,18 @@ build_frame_commands:
     stosw
     xor ax, ax
     stosw
-    ; The two pages are interleaved by the 1280-byte source pitch. A single
-    ; linear CLS would erase both pages, so emit one SGP CLS per hidden row.
-    call emit_hidden_page_clear
+    ; The two pages are contiguous in the 320x400 source surface, so one
+    ; linear CLS clears exactly the hidden 320x200 page.
+    mov ax, SGP_COMMAND_CLS
+    stosw
+    mov ax, [draw_page_sgp_low]
+    stosw
+    mov ax, [draw_page_sgp_high]
+    stosw
+    mov ax, SCREEN_WORD_COUNT
+    stosw
+    xor ax, ax
+    stosw
     mov word [last_line_color], 0
     call emit_background_grid
     mov bx, shape_records
@@ -355,36 +363,6 @@ build_frame_commands:
     pop es
     pop di
     pop si
-    pop dx
-    pop cx
-    pop bx
-    pop ax
-    ret
-
-emit_hidden_page_clear:
-    push ax
-    push bx
-    push cx
-    push dx
-    xor bx, bx
-    mov cx, SCREEN_HEIGHT
-.row:
-    mov ax, SGP_COMMAND_CLS
-    stosw
-    mov ax, bx
-    mov dx, SCREEN_PITCH
-    mul dx
-    add ax, [draw_page_sgp_low]
-    adc dx, [draw_page_sgp_high]
-    stosw
-    mov ax, dx
-    stosw
-    mov ax, SCREEN_WIDTH
-    stosw
-    xor ax, ax
-    stosw
-    inc bx
-    loop .row
     pop dx
     pop cx
     pop bx
@@ -904,9 +882,7 @@ message_animation_failed:
 
 align 2, db 0
 g0_framebuffer_descriptor:
-    ; The BIOS descriptor uses the logical 320-dot mode width.  FBW below
-    ; supplies the 1280-byte source pitch for the 640-pixel backing row.
-    dw 16, SCREEN_WIDTH, SCREEN_HEIGHT
+    dw 16, SCREEN_WIDTH, SCREEN_HEIGHT * 2
 g0_window_descriptor:
     dw 0, 0, SCREEN_HEIGHT, 0, 0
 
