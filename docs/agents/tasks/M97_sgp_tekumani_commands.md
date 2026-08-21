@@ -113,7 +113,7 @@ corpus, or non-free integration layer.
 
 ### M97e - LINE visual gate program
 
-- Add `demo/sgp-wireframe/sgp_wireframe.asm`, which builds the DOS 8.3 name
+- Add `demos/sgp-wireframe/sgp_wireframe.asm`, which builds the DOS 8.3 name
   `SGPWIRE.COM` out of tree.
 - Use the existing hardware-safe word access for the command-address and
   display-start ports and begin every command list with SET WORK.
@@ -129,12 +129,12 @@ corpus, or non-free integration layer.
 The existing wireframe visual test is part of the M97 candidate and must be
 treated as the baseline for the later scan/fill experiments:
 
-- `demo/sgp-wireframe/sgp_wireframe.asm` builds `SGPWIRE.COM`, a 16-color
+- `demos/sgp-wireframe/sgp_wireframe.asm` builds `SGPWIRE.COM`, a 16-color
   640x400 single-plane test.
-- `demo/sgp-wireframe/sgp_wireframe256.asm` builds `SGP256.COM`, a separate
+- `demos/sgp-wireframe/sgp_wireframe256.asm` builds `SGP256.COM`, a separate
   8-bpp direct-color test using the existing 320x400 logical viewport.
 - The next wireframe extension is implemented as three color-depth tracks under
-  `demo/sgp-wireframe/{16,256,65536}/`. The 16-color and 256-color tracks
+  `demos/sgp-wireframe/{16,256,65536}/`. The 16-color and 256-color tracks
   preserve the existing 640x400 and 320x400 layouts respectively. The
   65536-color track uses the VA direct-color layout established by the
   PC-Engine 1.00 demonstration trace: a 320x400 source framebuffer at 16 bpp
@@ -161,7 +161,7 @@ treated as the baseline for the later scan/fill experiments:
 - The test intentionally remains wireframe-only. It does not claim polygon
   filling, SCAN-to-PATBLT chaining, or real-hardware timing equivalence.
 
-The pseudo-sprite extension under `demo/sgp-pseudo-sprite/65536/` is a separate
+The pseudo-sprite extension under `demos/sgp-pseudo-sprite/65536/` is a separate
 double-buffered direct-color teaching track. `SGP655S.COM` uses the same
 320x400 source / 320x200 display setup as the 16-bpp wireframe, renders up to
 128 moving 24x24 transparent 16-bpp BITBLT spheres, and exchanges the two
@@ -185,9 +185,9 @@ of direct-SGP experiments. The eight stages are implemented on three parallel
 color-depth tracks:
 
 ```text
-demo/sgp-scan/16/SGPSCAN1.COM ... SGPSCAN8.COM      16-color track
-demo/sgp-scan/256/SGPSCAN1.COM ... SGPSCAN8.COM     256-color track
-demo/sgp-scan/65536/SGPSCAN1.COM ... SGPSCAN8.COM  65536-color track
+demos/sgp-scan/16/SGPSCAN1.COM ... SGPSCAN8.COM      16-color track
+demos/sgp-scan/256/SGPSCAN1.COM ... SGPSCAN8.COM     256-color track
+demos/sgp-scan/65536/SGPSCAN1.COM ... SGPSCAN8.COM  65536-color track
 ```
 
 The identical DOS 8.3 basenames are intentional; the parent directory is the
@@ -315,8 +315,8 @@ passed. SCAN semantics remain manual-derived and timing claims remain out of
 scope.
 
 Tracked source paths must remain lowercase and separated by color track, for
-example `demo/sgp-wireframe/65536/sgp_wireframe.asm` and
-`demo/sgp-scan/256/sgpscan1.asm`. The uppercase COM names are generated DOS
+example `demos/sgp-wireframe/65536/sgp_wireframe.asm` and
+`demos/sgp-scan/256/sgpscan1.asm`. The uppercase COM names are generated DOS
 artifacts and remain outside Git unless a later release task explicitly
 authorizes distribution media.
 
@@ -347,8 +347,8 @@ From a clean checkout of the candidate:
 1. boot VAEG in the normal VA configuration;
 2. run the existing SGP pseudo-sprite demo and verify its background,
    transparency, sprite overlap, animation, and clean exit;
-3. run the three wireframe tracks under `demo/sgp-wireframe/16`,
-   `demo/sgp-wireframe/256`, and `demo/sgp-wireframe/65536`. Verify the
+3. run the three wireframe tracks under `demos/sgp-wireframe/16`,
+   `demos/sgp-wireframe/256`, and `demos/sgp-wireframe/65536`. Verify the
    regular tetrahedron, cube, regular dodecahedron, and regular icosahedron
    in each track's documented resolution and color depth; verify rotation,
    scale changes, connected dim/bright edges, and LINE direction in all

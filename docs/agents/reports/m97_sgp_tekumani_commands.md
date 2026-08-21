@@ -113,7 +113,7 @@ The compiled selftest now verifies:
 ### 4.4 LINE visual gate program
 
 At the maintainer's request, M97 adds the isolated
-`demo/sgp-wireframe/sgp_wireframe.asm` visual test. It builds the DOS 8.3 name
+`demos/sgp-wireframe/sgp_wireframe.asm` visual test. It builds the DOS 8.3 name
 `SGPWIRE.COM` and displays a regular tetrahedron, cube, regular dodecahedron,
 and regular icosahedron in four viewports. The CPU performs signed fixed-point
 rotation, perspective projection, and command-list generation. SGP CLS clears
@@ -141,7 +141,7 @@ or disposable disk image is tracked.
 
 ### 4.5 16-bpp 320x200 page exchange correction
 
-The direct-color teaching track under `demo/sgp-wireframe/65536/` uses the
+The direct-color teaching track under `demos/sgp-wireframe/65536/` uses the
 PC-Engine 1.00-derived `GRMODE=0xB462` / `GRRES=0x1313` profile with a 320x400 source
 surface (`FBW=640`, `FBL=400`) and a 320x200 displayed window. Two contiguous
 320x200 pages occupy byte offsets `0` and `0x1f400`; DSA0 is changed only
