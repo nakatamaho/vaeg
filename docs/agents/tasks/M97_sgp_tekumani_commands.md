@@ -136,20 +136,22 @@ treated as the baseline for the later scan/fill experiments:
 - The next wireframe extension is implemented as three color-depth tracks under
   `demo/sgp-wireframe/{16,256,65536}/`. The 16-color and 256-color tracks
   preserve the existing 640x400 and 320x400 layouts respectively. The
-  65536-color track uses a capacity-safe 320x400 16-bpp layout: one page is
-  256 KiB, which consumes the complete single-plane G0 framebuffer. It is
+  65536-color track uses the VA direct-color layout established by the
+  PC-Engine 1.00 demonstration trace: a 640x200 source framebuffer at 16 bpp
+  (`FBW=1280`, one 256 KiB page) with a 320x200 display window. It is
   therefore a single-page animation and does not claim a 16-bpp G1 two-screen
-  or double-buffer arrangement. The program explicitly writes G0 `GRRES`
-  (`PM0=11b`, `HW0=1`) after the video BIOS mode call so the framebuffer fetch
-  matches the SGP 16-bpp/320-dot descriptor.
+  or double-buffer arrangement. The program explicitly writes
+  `GRMODE=0xB462` and `GRRES=0x1313`, then programs FB0's pitch, height,
+  source offsets, display start, displayed height, and destination position.
 - The CPU performs fixed-point rotation and perspective projection and builds
   the command list in main RAM. SGP performs `CLS` and every animated edge
   through `LINE`.
 - The 16-color version uses two 640x400 halves of a 640x800 Graphic 0
   framebuffer. The 256-color version uses two 320x400 halves of a 320x800
   Graphic 0 framebuffer.
-- The 65536-color version uses one 320x400 16-bpp Graphic 0 page; its
-  animation redraws that page in place because a second page cannot fit.
+- The 65536-color version uses one 640x200 16-bpp Graphic 0 page and presents
+  it through the 320x200 display mode; its animation redraws that page in
+  place because a second page cannot fit.
 - Video BIOS is used only for mode/framebuffer/window/composition setup and
   restoration. SGP command submission, display-page selection, GVRAM mode,
   and VBLANK polling use the verified direct interfaces.

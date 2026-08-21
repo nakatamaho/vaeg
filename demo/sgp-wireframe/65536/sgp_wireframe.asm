@@ -32,9 +32,18 @@ org 0x100
 
 %define PORT_MEMORY_MAP         0x0153
 %define PORT_GRRES              0x0102
+%define PORT_GRMODE             0x0100
 %define PORT_PALETTE_COMPOSE    0x0106
 %define PORT_RGB_COMPOSE        0x0108
+%define PORT_FB0_FBW            0x0204
+%define PORT_FB0_FBL            0x0206
+%define PORT_FB0_DOT            0x0208
+%define PORT_FB0_OFX            0x020a
+%define PORT_FB0_OFY            0x020c
 %define PORT_FB0_DSA_LOW        0x020e
+%define PORT_FB0_DSA_HIGH       0x0210
+%define PORT_FB0_DSH            0x0212
+%define PORT_FB0_DSP            0x0216
 %define PORT_TSP_STATUS         0x0142
 %define PORT_SGP_COMMAND        0x0500
 %define PORT_SGP_CONTROL        0x0504
@@ -43,14 +52,17 @@ org 0x100
 
 %define MEMORY_MAP_GVRAM_SINGLE 0x54
 %define GVRAM_CPU_WRITE_MODE    0x10
-%define MODE_320X400_G0_ONLY     0xa00c
+%define MODE_320X200_G0_ONLY     0xa00e
 %define PIXEL_SIZE_G0_16BPP       0x0010
 %define COMPOSE_G0_DIRECT       0x0008
 %define TSP_STATUS_VBLANK       0x40
 
+; The source surface is 640 pixels wide at 16 bpp (1280 bytes per row).
+; GRRES selects a 320-dot display fetch, so the visible window is 320x200.
 %define SCREEN_WIDTH            320
-%define SCREEN_HEIGHT           400
-%define SCREEN_PITCH            640
+%define SOURCE_WIDTH            640
+%define SCREEN_HEIGHT           200
+%define SCREEN_PITCH            1280
 %define G0_PAGE_A_SGP_BASE      0x200000
 %define G0_PAGE_A_DSA           0x000000
 %define SCREEN_WORD_COUNT       0x1f400
@@ -137,7 +149,7 @@ animation_failed:
     int 0x21
 
 initialize_video:
-    mov bx, MODE_320X400_G0_ONLY
+    mov bx, MODE_320X200_G0_ONLY
     mov cx, PIXEL_SIZE_G0_16BPP
     xor dx, dx
     mov byte [video_mode_changed], 1
@@ -145,13 +157,23 @@ initialize_video:
     int VIDEO_BIOS_INT
     test ax, ax
     jnz .failed
-    ; Keep the BIOS-selected 320-dot direct-color format explicit.
-    mov dx, PORT_GRRES
-    mov ax, 0x0013
+    ; Match the PC-Engine 1.00-style 200-line, single-plane, non-interlaced field.
+    ; This is a word register and must be written as a word on real hardware.
+    mov dx, PORT_GRMODE
+    mov ax, 0xb462
     out dx, ax
-    ; G0 is one 320x400 direct-color framebuffer. A second page does not fit
-    ; in the 256 KiB single-plane address space at 16 bpp.
+    ; G0: 16 bpp, 320-dot fetch; G1 remains configured but is not selected.
+    mov dx, PORT_GRRES
+    mov ax, 0x1313
+    out dx, ax
+    ; G0 is one 640x200 direct-color framebuffer. At 16 bpp it occupies the
+    ; complete 256 KiB single-plane surface, so no second page is claimed.
     call define_g0_surface
+    jc .failed
+
+    ; The BIOS descriptor establishes the surface; these registers establish
+    ; the 640x200 source layout and 320x200 displayed sub-screen explicitly.
+    call configure_g0_framebuffer
     jc .failed
 
     ; 16-bpp graphics is a direct-color source on the direct-color priority
@@ -186,7 +208,7 @@ initialize_video:
     stc
     ret
 
-; Define the single 320x400 G0 framebuffer used by this 16-bpp fallback.
+; Define the single 640x200 G0 framebuffer used by this direct-color path.
 define_g0_surface:
     push es
     push ds
@@ -206,9 +228,43 @@ define_g0_surface:
     pop es
     clc
     ret
+
 .failed:
     pop es
     stc
+    ret
+
+; Configure FB0 according to the VA framebuffer register model:
+; FBW=1280 bytes, FBL=200 lines, DSH=200, DSP=0, with no source offset.
+configure_g0_framebuffer:
+    push ax
+    push dx
+    mov dx, PORT_FB0_FBW
+    mov ax, SCREEN_PITCH
+    out dx, ax
+    mov dx, PORT_FB0_FBL
+    mov ax, SCREEN_HEIGHT
+    out dx, ax
+    mov dx, PORT_FB0_DOT
+    xor ax, ax
+    out dx, ax
+    mov dx, PORT_FB0_OFX
+    out dx, ax
+    mov dx, PORT_FB0_OFY
+    out dx, ax
+    mov dx, PORT_FB0_DSA_LOW
+    out dx, ax
+    mov dx, PORT_FB0_DSA_HIGH
+    out dx, ax
+    mov dx, PORT_FB0_DSH
+    mov ax, SCREEN_HEIGHT
+    out dx, ax
+    mov dx, PORT_FB0_DSP
+    xor ax, ax
+    out dx, ax
+    pop dx
+    pop ax
+    clc
     ret
 
 select_draw_page:
@@ -402,9 +458,7 @@ project_shape:
     imul word [perspective_scale]
     sar ax, 7
     shl ax, 1
-    ; The 320-dot graphics mode expands each logical pixel horizontally in
-    ; the display path. Keep projection coordinates in the logical 320x400
-    ; coordinate system.
+    ; Keep projection coordinates in the 320-dot display coordinate system.
     neg ax
     add ax, [bx + SHAPE_CENTER_Y]
     stosw
@@ -425,7 +479,7 @@ project_shape:
     ret
 
 ; Draw a quiet 40-pixel grid into the single direct-color page. It supplies a
-; stable 320x400 reference without using CPU GVRAM writes.
+; stable 320x200 reference without using CPU GVRAM writes.
 emit_background_grid:
     push ax
     push bx
@@ -816,7 +870,7 @@ message_animation_failed:
 
 align 2, db 0
 g0_framebuffer_descriptor:
-    dw 16, SCREEN_WIDTH, SCREEN_HEIGHT
+    dw 16, SOURCE_WIDTH, SCREEN_HEIGHT
 g0_window_descriptor:
     dw 0, 0, SCREEN_HEIGHT, 0, 0
 
@@ -835,25 +889,25 @@ align 2, db 0
 shape_records:
     dw tetrahedron_vertices, tetrahedron_edges, tetrahedron_projected
     db 4, 6
-    dw 80, 100
+    dw 80, 50
     db 0, 7, 1, 2, 0, 1
     dw 64, 6, DIRECT16(31, 20, 4), DIRECT16(8, 8, 8)
 
     dw cube_vertices, cube_edges, cube_projected
     db 8, 12
-    dw 240, 100
+    dw 240, 50
     db 11, 0, 2, 1, 16, 2
     dw 68, 8, DIRECT16(31, 56, 8), DIRECT16(12, 24, 4)
 
     dw dodecahedron_vertices, dodecahedron_edges, dodecahedron_projected
     db 20, 30
-    dw 80, 300
+    dw 80, 150
     db 23, 41, 1, 1, 32, 1
     dw 74, 12, DIRECT16(8, 48, 31), DIRECT16(4, 16, 20)
 
     dw icosahedron_vertices, icosahedron_edges, icosahedron_projected
     db 12, 30
-    dw 240, 300
+    dw 240, 150
     db 37, 19, 2, 3, 48, 2
     dw 70, 10, DIRECT16(31, 20, 4), DIRECT16(4, 12, 31)
 
