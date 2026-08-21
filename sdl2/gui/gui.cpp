@@ -3148,6 +3148,11 @@ static void draw_info_menu(void) {
 			np2oscfg.DISPCLK ^= VAEG_DISPINFO_VIDEO;
 			sysmng_update(SYS_UPDATEOSCFG);
 		}
+		bool show_framebuffer = (np2oscfg.DISPCLK & VAEG_DISPINFO_FRAMEBUFFER) != 0;
+		if (ImGui::MenuItem("Show FB info overlay", nullptr, show_framebuffer)) {
+			np2oscfg.DISPCLK ^= VAEG_DISPINFO_FRAMEBUFFER;
+			sysmng_update(SYS_UPDATEOSCFG);
+		}
 		ImGui::Separator();
 		bool show_text = scrndrawva_layer_enabled(VAEG_VA_LAYER_TEXT) != FALSE;
 		if (ImGui::MenuItem("Show text", nullptr, show_text)) {

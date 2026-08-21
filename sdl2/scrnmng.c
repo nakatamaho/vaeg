@@ -94,6 +94,7 @@ static VAEG_SPEEDMETER speedmeter;
 
 static BOOL scrnmng_calculate_viewport(VAEG_VIEWPORT *viewport);
 static void scrnmng_draw_video_info_overlay(const VAEG_VIEWPORT *viewport);
+static void scrnmng_draw_framebuffer_info_overlay(const VAEG_VIEWPORT *viewport);
 
 static void scrnmng_capture_dummy_frame(void) {
 	VAEG_VIEWPORT viewport;
@@ -335,6 +336,21 @@ static void scrnmng_format_graphics_line(char *line, size_t line_size, const cha
 	(void)snprintf(line, line_size, "%s %dx%d FB %dx%d %dbpp", label, logical_width, logical_height,
 	               framebuffer_width, framebuffer_height, bpp);
 }
+
+static void scrnmng_format_framebuffer_line(char *line, size_t line_size, int framebuffer_no,
+                                            int bpp, FRAMEBUFFER framebuffer) {
+	int width;
+	int height;
+
+	if (!scrnmng_framebuffer_valid(framebuffer, framebuffer_no)) {
+		(void)snprintf(line, line_size, "FB%d n/a", framebuffer_no);
+		return;
+	}
+	width = scrnmng_framebuffer_width(framebuffer, bpp);
+	height = scrnmng_framebuffer_height(framebuffer);
+	(void)snprintf(line, line_size, "FB%d %dx%d %dbpp", framebuffer_no, width, height, bpp);
+}
+
 static void scrnmng_draw_text_glyphs(int x, int y, int scale, const char *text, SDL_Color color) {
 	const unsigned char *glyph;
 	int character;
@@ -459,6 +475,80 @@ static void scrnmng_draw_video_info_overlay(const VAEG_VIEWPORT *viewport) {
 	}
 	SDL_SetRenderDrawBlendMode(scrnmng.renderer, SDL_BLENDMODE_NONE);
 }
+
+static void scrnmng_draw_framebuffer_info_overlay(const VAEG_VIEWPORT *viewport) {
+	char lines[VIDEOVA_FRAMEBUFFERS][48];
+	int g0_bpp;
+	int g1_bpp;
+	int scale;
+	int line_height;
+	int width;
+	int height;
+	int output_width;
+	int output_height;
+	int y_offset;
+	int i;
+	SDL_Rect background;
+	SDL_Color text_color;
+
+	if ((viewport == NULL) || (!viewport->valid) ||
+	    ((np2oscfg.DISPCLK & VAEG_DISPINFO_FRAMEBUFFER) == 0)) {
+		return;
+	}
+	if ((SDL_GetRendererOutputSize(scrnmng.renderer, &output_width, &output_height) != 0) ||
+	    (output_width <= 0) || (output_height <= 0)) {
+		return;
+	}
+	g0_bpp = scrnmng_video_bpp(videova.grres);
+	g1_bpp = scrnmng_video_bpp(videova.grres >> 8);
+	for (i = 0; i < VIDEOVA_FRAMEBUFFERS; i++) {
+		int bpp = (i & 1) ? g1_bpp : g0_bpp;
+		scrnmng_format_framebuffer_line(lines[i], sizeof(lines[i]), i, bpp,
+		                                &videova.framebuffer[i]);
+	}
+	scale = (int)viewport->scale_x;
+	if (scale < 1) {
+		scale = 1;
+	}
+	if (scale > 3) {
+		scale = 3;
+	}
+	line_height = 8 * scale;
+	width = 0;
+	for (i = 0; i < VIDEOVA_FRAMEBUFFERS; i++) {
+		const int length = (int)strlen(lines[i]);
+		if (length > width) {
+			width = length;
+		}
+	}
+	width = width * 8 * scale + 8 * scale;
+	height = line_height * VIDEOVA_FRAMEBUFFERS + 8 * scale;
+	y_offset = scrnmng_menu_offset() + 2;
+	if ((np2oscfg.DISPCLK & VAEG_DISPINFO_VIDEO) != 0) {
+		y_offset += 4 * line_height + 8 * scale + 4;
+	}
+	if ((width >= output_width) || (y_offset + height >= output_height)) {
+		return;
+	}
+	background.x = output_width - width;
+	background.y = y_offset;
+	background.w = width;
+	background.h = height;
+	SDL_SetRenderDrawBlendMode(scrnmng.renderer, SDL_BLENDMODE_BLEND);
+	SDL_SetRenderDrawColor(scrnmng.renderer, 0, 0, 0, 190);
+	SDL_RenderFillRect(scrnmng.renderer, &background);
+	text_color.r = 255;
+	text_color.g = 255;
+	text_color.b = 192;
+	text_color.a = 255;
+	for (i = 0; i < VIDEOVA_FRAMEBUFFERS; i++) {
+		scrnmng_draw_text_glyphs(background.x + 4 * scale,
+		                         background.y + 4 * scale + i * line_height, scale, lines[i],
+		                         text_color);
+	}
+	SDL_SetRenderDrawBlendMode(scrnmng.renderer, SDL_BLENDMODE_NONE);
+}
+
 static void scrnmng_log_renderer(void) {
 	SDL_RendererInfo info;
 	const char *name;
@@ -1106,6 +1196,7 @@ void scrnmng_present_end(void) {
 	}
 	if (scrnmng_calculate_viewport(&viewport) == SUCCESS) {
 		scrnmng_draw_video_info_overlay(&viewport);
+		scrnmng_draw_framebuffer_info_overlay(&viewport);
 	}
 	if (scrnmng.rendered_capture_enabled) {
 		scrnmng_capture_rendered_frame();

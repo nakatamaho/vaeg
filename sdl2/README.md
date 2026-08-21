@@ -625,7 +625,11 @@ change frame skip or guest timing. `Info -> Show text`, `Show sprite`, `Show
 graphics 0`, and `Show graphics 1` independently enable the four VA composition
 layers; graphics 0 and graphics 1 are the VA's two graphics planes. These layer
 switches are frontend display filters and do not modify guest VRAM or video
-registers. `Info -> About` opens the version and runtime information dialog.
+registers. `Info -> Show video info overlay` reports the logical graphics
+view and one representative framebuffer. `Info -> Show FB info overlay`
+instead lists all four VA framebuffer descriptors vertically (`FB0` through
+`FB3`), including split-screen segments and unavailable entries. `Info ->
+About` opens the version and runtime information dialog.
 
 ## OPN/OPNA FM Backend
 
