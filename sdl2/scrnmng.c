@@ -290,39 +290,35 @@ static int scrnmng_video_bpp(UINT mode) {
 		return 16;
 	}
 }
-static unsigned int scrnmng_video_colors(int bpp) {
-	if (bpp >= 16) {
-		return 65536;
-	}
-	return 1U << bpp;
-}
 static void scrnmng_format_video_line(char *line, size_t line_size, const char *label, int width,
                                       int height, int bpp) {
-	if (bpp >= 16) {
-		(void)snprintf(line, line_size, "%s %dx%d %dbpp direct (%u colors)", label, width, height,
-		               bpp, scrnmng_video_colors(bpp));
-	} else {
-		(void)snprintf(line, line_size, "%s %dx%d %dbpp %u colors", label, width, height, bpp,
-		               scrnmng_video_colors(bpp));
+	(void)snprintf(line, line_size, "%s %dx%d %dbpp", label, width, height, bpp);
+}
+static BOOL scrnmng_framebuffer_valid(FRAMEBUFFER framebuffer, int framebuffer_no) {
+	if ((framebuffer == NULL) || (framebuffer->fbw == 0xffff) || (framebuffer->dsh == 0)) {
+		return FALSE;
 	}
+	/* FB1 has no writable FSA/FBL/OFX/OFY fields in the VA model. */
+	if ((framebuffer_no != 1) && (framebuffer->fsa == 0xffffffffL)) {
+		return FALSE;
+	}
+	return TRUE;
 }
 static int scrnmng_framebuffer_width(FRAMEBUFFER framebuffer, int bpp) {
-	if ((framebuffer == NULL) || (bpp <= 0) || (framebuffer->fsa == 0xffffffffL) ||
-	    (framebuffer->fbw == 0xffff)) {
+	if ((framebuffer == NULL) || (bpp <= 0) || (framebuffer->fbw == 0xffff)) {
 		return 0;
 	}
 	return ((int)framebuffer->fbw * 8) / bpp;
 }
 static int scrnmng_framebuffer_height(FRAMEBUFFER framebuffer) {
-	if ((framebuffer == NULL) || (framebuffer->fsa == 0xffffffffL) ||
-	    (framebuffer->fbl == 0xffff)) {
+	if ((framebuffer == NULL) || (framebuffer->dsh == 0)) {
 		return 0;
 	}
-	return framebuffer->fbl;
+	return framebuffer->dsh;
 }
 static void scrnmng_format_graphics_line(char *line, size_t line_size, const char *label,
                                          BOOL active, int logical_width, int logical_height,
-                                         int bpp, FRAMEBUFFER framebuffer) {
+                                         int bpp, int framebuffer_no, FRAMEBUFFER framebuffer) {
 	int framebuffer_width;
 	int framebuffer_height;
 
@@ -330,29 +326,14 @@ static void scrnmng_format_graphics_line(char *line, size_t line_size, const cha
 		(void)snprintf(line, line_size, "%s OFF", label);
 		return;
 	}
-	framebuffer_width = scrnmng_framebuffer_width(framebuffer, bpp);
-	framebuffer_height = scrnmng_framebuffer_height(framebuffer);
-	if (framebuffer_width <= 0 || framebuffer_height <= 0) {
-		if (bpp >= 16) {
-			(void)snprintf(line, line_size,
-			               "%s LOG %dx%d OUT 640x400 FB unset %dbpp direct (%u colors)", label,
-			               logical_width, logical_height, bpp, scrnmng_video_colors(bpp));
-		} else {
-			(void)snprintf(line, line_size, "%s LOG %dx%d OUT 640x400 FB unset %dbpp %u colors",
-			               label, logical_width, logical_height, bpp, scrnmng_video_colors(bpp));
-		}
+	if (!scrnmng_framebuffer_valid(framebuffer, framebuffer_no)) {
+		(void)snprintf(line, line_size, "%s OFF", label);
 		return;
 	}
-	if (bpp >= 16) {
-		(void)snprintf(line, line_size,
-		               "%s LOG %dx%d OUT 640x400 FB %dx%d %dbpp direct (%u colors)", label,
-		               logical_width, logical_height, framebuffer_width, framebuffer_height, bpp,
-		               scrnmng_video_colors(bpp));
-	} else {
-		(void)snprintf(line, line_size, "%s LOG %dx%d OUT 640x400 FB %dx%d %dbpp %u colors", label,
-		               logical_width, logical_height, framebuffer_width, framebuffer_height, bpp,
-		               scrnmng_video_colors(bpp));
-	}
+	framebuffer_width = scrnmng_framebuffer_width(framebuffer, bpp);
+	framebuffer_height = scrnmng_framebuffer_height(framebuffer);
+	(void)snprintf(line, line_size, "%s %dx%d FB %dx%d %dbpp", label, logical_width, logical_height,
+	               framebuffer_width, framebuffer_height, bpp);
 }
 static void scrnmng_draw_text_glyphs(int x, int y, int scale, const char *text, SDL_Color color) {
 	const unsigned char *glyph;
@@ -436,9 +417,9 @@ static void scrnmng_draw_video_info_overlay(const VAEG_VIEWPORT *viewport) {
 	scrnmng_format_video_line(lines[0], sizeof(lines[0]), "TEXT", 640, text_height, 4);
 	scrnmng_format_video_line(lines[1], sizeof(lines[1]), "SPRITE", 640, text_height, 4);
 	scrnmng_format_graphics_line(lines[2], sizeof(lines[2]), "G0", g0_active, g0_width,
-	                             graphics_height, g0_bpp, &videova.framebuffer[0]);
+	                             graphics_height, g0_bpp, 0, &videova.framebuffer[0]);
 	scrnmng_format_graphics_line(lines[3], sizeof(lines[3]), "G1", g1_active, g1_width,
-	                             graphics_height, g1_bpp, &videova.framebuffer[1]);
+	                             graphics_height, g1_bpp, 1, &videova.framebuffer[1]);
 
 	scale = (int)viewport->scale_x;
 	if (scale < 1) {
