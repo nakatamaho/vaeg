@@ -42,8 +42,8 @@ org 0x100
 
 %define MEMORY_MAP_GVRAM_SINGLE 0x54
 %define GVRAM_CPU_WRITE_MODE    0x10
-%define MODE_320X400_G0_G1      0xe00c
-%define PIXEL_SIZE_G0_8BPP_G1_4BPP 0x0408
+%define MODE_320X400_G0_ONLY     0xa00c
+%define PIXEL_SIZE_G0_8BPP       0x0008
 %define COMPOSE_G0_DIRECT       0x0008
 %define TSP_STATUS_VBLANK       0x40
 
@@ -141,8 +141,8 @@ animation_failed:
     int 0x21
 
 initialize_video:
-    mov bx, MODE_320X400_G0_G1
-    mov cx, PIXEL_SIZE_G0_8BPP_G1_4BPP
+    mov bx, MODE_320X400_G0_ONLY
+    mov cx, PIXEL_SIZE_G0_8BPP
     xor dx, dx
     mov byte [video_mode_changed], 1
     xor ax, ax
