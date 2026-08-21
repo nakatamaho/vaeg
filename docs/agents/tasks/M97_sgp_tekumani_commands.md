@@ -124,6 +124,182 @@ corpus, or non-free integration layer.
   command set has LINE but no general polygon or flood-fill command.
 - Keep generated COM and disposable disk images outside Git.
 
+#### M97e recorded implementation and color-depth extension plan
+
+The existing wireframe visual test is part of the M97 candidate and must be
+treated as the baseline for the later scan/fill experiments:
+
+- `demo/sgp-wireframe/sgp_wireframe.asm` builds `SGPWIRE.COM`, a 16-color
+  640x400 single-plane test.
+- `demo/sgp-wireframe/sgp_wireframe256.asm` builds `SGP256.COM`, a separate
+  8-bpp direct-color test using the existing 320x400 logical viewport.
+- The next wireframe extension is implemented as three color-depth tracks under
+  `demo/sgp-wireframe/{16,256,65536}/`. The 16-color and 256-color tracks
+  preserve the existing 640x400 and 320x400 layouts respectively. The
+  65536-color track uses a capacity-safe 320x200 16-bpp layout: each
+  320x200 page is 128 KiB, so one 256 KiB single-plane G0 framebuffer with
+  height 400 can serve as two front/back pages. The G1 two-screen path is not
+  used because the documented screen-1 pixel-size input does not include 16
+  bpp.
+- The CPU performs fixed-point rotation and perspective projection and builds
+  the command list in main RAM. SGP performs `CLS` and every animated edge
+  through `LINE`.
+- The 16-color version uses two 640x400 halves of a 640x800 Graphic 0
+  framebuffer. The 256-color version uses two 320x400 halves of a 320x800
+  Graphic 0 framebuffer.
+- Video BIOS is used only for mode/framebuffer/window/composition setup and
+  restoration. SGP command submission, display-page selection, GVRAM mode,
+  and VBLANK polling use the verified direct interfaces.
+- The test intentionally remains wireframe-only. It does not claim polygon
+  filling, SCAN-to-PATBLT chaining, or real-hardware timing equivalence.
+
+The generated COM files and disposable disk images remain out of the
+repository. This recorded baseline must continue to build and run before any
+SGPSCAN stage is evaluated.
+
+### M97f - staged SCAN/PATBLT demonstration family
+
+M97f extends the recorded wireframe baseline with a deliberately staged set
+of direct-SGP experiments. The eight stages are implemented on three parallel
+color-depth tracks:
+
+```text
+demo/sgp-scan/16/SGPSCAN1.COM ... SGPSCAN8.COM      16-color track
+demo/sgp-scan/256/SGPSCAN1.COM ... SGPSCAN8.COM     256-color track
+demo/sgp-scan/65536/SGPSCAN1.COM ... SGPSCAN8.COM  65536-color track
+```
+
+The identical DOS 8.3 basenames are intentional; the parent directory is the
+track identity. Thus there are eight functional stages and three color-depth
+variants per stage, for 24 generated COM artifacts. Each program is an
+independently buildable teaching and regression artifact. No stage may
+silently replace an earlier stage.
+
+The initial resolution policy is deliberately capacity-driven and may be
+refined only by evidence from the corresponding video-mode probe:
+
+| Track | Initial mode | Page size | Intended exchange |
+|---|---|---:|---|
+| `16` | 640x400, 4bpp | 128,000 bytes | Existing single-plane Graphic 0 double buffer |
+| `256` | 320x400, 8bpp | 128,000 bytes | Existing single-plane Graphic 0 double buffer |
+| `65536` | 320x200, 16bpp | 128,000 bytes | Single-plane G0 320x400 framebuffer with two DSA0 pages |
+
+The 65536-color mode must not be expanded to 640x400 unless a separate
+capacity and display-path investigation proves that additional storage and
+fetching exist. The SGP descriptor supports the 16bpp pixel mode in VAEG, but
+the exact hardware direct-color encoding remains a documented verification
+item; the demo must not label an emulator-only RGB layout as a hardware fact.
+
+All stages follow the same ownership rule:
+
+- Video BIOS performs only video mode, framebuffer/window, composition,
+  palette (where applicable), and restoration setup.
+- The CPU performs geometry, face ordering, seed selection, shade selection,
+  and command-list construction in main RAM.
+- SGP performs `SET_WORK`, `SET_SOURCE`, `SET_DESTINATION`, `SET_COLOR`,
+  `SCAN_RIGHT`, `SCAN_LEFT`, `PATBLT`, `LINE`, and `END` as appropriate.
+- CPU pixel loops, BIOS polygon drawing, Sprite BIOS, and emulator-only APIs
+  are prohibited.
+- Every command list begins with `SET_WORK` and uses hardware-safe word
+  writes for the SGP command-address and display-start registers.
+
+#### SGPSCAN1 - command and descriptor probe
+
+Create a one-line or one-rectangle probe that draws a known boundary color,
+executes `SCAN_RIGHT` and `SCAN_LEFT`, and makes the resulting descriptor
+state visible through a following simple operation. Each color-depth variant
+uses its track-specific validated mode. This stage must establish:
+
+- first-pixel match;
+- later-pixel match;
+- no-match behavior;
+- packed-word boundary behavior; and
+- whether a following SGP operation can consume the updated internal
+  destination descriptor.
+
+No animated geometry is allowed in this stage.
+
+#### SGPSCAN2 - SCAN to PATBLT handoff
+
+Use a solid one-pixel source pattern and a single `PATBLT` operation after a
+SCAN operation. Demonstrate that only the discovered span is filled. If the
+hardware-derived command semantics do not support direct handoff, record the
+failure and keep this stage as a diagnostic; do not emulate the handoff with a
+CPU pixel loop.
+
+#### SGPSCAN3 - one convex polygon
+
+Draw one closed triangle or quadrilateral with `LINE`, locate its horizontal
+spans using both scan directions, and fill them with `PATBLT`. Redraw the
+outline after filling. The CPU may generate one command-list record per
+scanline, but it may not write individual pixels.
+
+#### SGPSCAN4 - multiple convex polygons
+
+Render several non-overlapping convex polygons in painter order. Preserve
+outline visibility, avoid boundary-color collisions, and verify that old spans
+are cleared on the hidden page before the page is displayed. This is the first
+stage that exercises multiple SCAN/PATBLT spans per frame.
+
+#### SGPSCAN5 - shaded polyhedron baseline
+
+Complete the 16-color visual track using a rotating convex polyhedron or a
+small collection of convex faces. CPU-side face normals or a fixed lighting
+table select palette indices; SGP performs the face spans and outlines. Use
+the existing 640x400 double-buffered Graphic 0 arrangement and VBLANK page
+exchange. The 256-color and 65536-color directories contain the equivalent
+stage in their own pixel formats. This stage must remain visibly distinct
+from the wireframe-only `SGPWIRE.COM` baseline.
+
+#### SGPSCAN6 - direct-color single-face validation
+
+Port the proven convex-face path to the direct-color layout of each track.
+For 256 colors, validate descriptor start-dot, source pattern packing, PATBLT
+span width, and the 3:3:2 color encoding with one animated face before adding
+multiple faces. For 65536 colors, validate the 16bpp word color and the
+320x200 single-plane G0 front/back arrangement (two pages in a 320x400
+registered framebuffer). The 16-color track retains the
+same stage number as its corresponding single-face validation.
+
+#### SGPSCAN7 - direct-color shaded polyhedron
+
+Add multiple visible faces, painter-order overlap, depth-based shade choice,
+and outline restoration to the 256-color and 65536-color tracks. The
+implementation must not assume that the 16-color framebuffer geometry,
+palette behavior, or 8bpp packing transfers unchanged to another track.
+
+#### SGPSCAN8 - final scan/fill stress and teaching example
+
+Combine the validated scan/fill path with rotating and pulsating convex
+polyhedra, bounded command-list capacity checks, ESC exit, hidden-page
+redraw, and diagnostic counters. Keep all three color-depth variants in their
+separate directories. This is the final visual candidate, not a claim of real
+PC-88VA throughput.
+
+#### SGPSCAN stage acceptance
+
+For every stage and all three tracks, record:
+
+- exact NASM command and output path;
+- command-list opcodes used;
+- whether SCAN-to-PATBLT handoff is direct or explicitly marked unsupported;
+- mode, logical resolution, bpp, framebuffer/page addresses;
+- VAEG selftest/build result;
+- visual result and known limitations.
+
+The final M97 visual gate must run the existing wireframe baselines and the
+three new wireframe tracks, followed by all available `SGPSCAN1.COM` through
+`SGPSCAN8.COM` variants in all three color-depth directories. A failed
+later stage must not be reported as a failure of an earlier stage that already
+passed. SCAN semantics remain manual-derived and timing claims remain out of
+scope.
+
+Tracked source paths must remain lowercase and separated by color track, for
+example `demo/sgp-wireframe/65536/sgp_wireframe.asm` and
+`demo/sgp-scan/256/sgpscan1.asm`. The uppercase COM names are generated DOS
+artifacts and remain outside Git unless a later release task explicitly
+authorizes distribution media.
+
 ## Validation
 
 ```text
@@ -151,11 +327,20 @@ From a clean checkout of the candidate:
 1. boot VAEG in the normal VA configuration;
 2. run the existing SGP pseudo-sprite demo and verify its background,
    transparency, sprite overlap, animation, and clean exit;
-3. run `SGPWIRE.COM` and verify that the 640x400 screen shows a regular
-   tetrahedron, cube, regular dodecahedron, and regular icosahedron; verify the
-   four solids rotate and change scale, dim and bright edges remain connected,
-   and LINE direction works in all visible octants;
-4. verify normal V3/OS boot and display operation are unchanged.
+3. run the three wireframe tracks under `demo/sgp-wireframe/16`,
+   `demo/sgp-wireframe/256`, and `demo/sgp-wireframe/65536`. Verify the
+   regular tetrahedron, cube, regular dodecahedron, and regular icosahedron
+   in each track's documented resolution and color depth; verify rotation,
+   scale changes, connected dim/bright edges, and LINE direction in all
+   visible octants;
+4. run each available `SGPSCAN1.COM` through `SGPSCAN8.COM` from all three
+   tracks. Confirm the documented stage progression: probe,
+   SCAN-to-PATBLT handoff, one convex polygon, multiple convex polygons,
+   shaded geometry in the track's color depth, single-face validation where
+   applicable, multi-face shading, and the final bounded stress example. If a
+   stage is intentionally diagnostic or marked unsupported, verify that its
+   diagnostic result is explicit rather than treating it as a visual pass;
+5. verify normal V3/OS boot and display operation are unchanged.
 
 Automated tests establish manual-derived functional behavior. The human gate
 checks visual regression only; it does not claim real-hardware equivalence.
