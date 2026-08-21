@@ -351,3 +351,19 @@ exchange. Pressing ESC must return to the DOS prompt without a hang.
 The program restores the saved BIOS mode and resets the standard palette;
 arbitrary application palette contents cannot be preserved because VAEG does
 not expose palette readback.
+
+## 65536-color single-page track
+
+`demo/sgp-pseudo-sprite/65536/` contains `SGP655S.COM`, a separate direct-color
+track for the same SGP pseudo-sprite idea. It uses one 320x200 visible G0 page
+from a 320x400, 16-bpp source surface. Each frame is rebuilt in place with one
+linear CLS, an SGP LINE grid, and four transparent 16-bpp BITBLT orbs. It does
+not use G1, a second page, or DSA page exchange. This is intentionally a small
+single-page workload; the wireframe track remains the reference for contiguous
+double-buffered 16-bpp page exchange.
+
+Build it with:
+
+```sh
+NASM=/opt/local/bin/nasm demo/sgp-pseudo-sprite/65536/build.sh /tmp/SGP655S.COM
+```
