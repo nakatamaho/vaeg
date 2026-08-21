@@ -138,9 +138,9 @@ treated as the baseline for the later scan/fill experiments:
   preserve the existing 640x400 and 320x400 layouts respectively. The
   65536-color track uses the VA direct-color layout established by the
   74U11 demonstration trace: a 640x200 source framebuffer at 16 bpp
-  (`FBW=1280`, one 256 KiB page) with a 320x200 display window. It is
-  therefore a single-page animation and does not claim a 16-bpp G1 two-screen
-  or double-buffer arrangement. The program explicitly writes
+  (`FBW=1280`) with a 320x200 display window. Two 320x200 pages are stored in
+  the left and right 320-pixel halves of each source row; DSA0 and OFX select
+  the displayed half during VBLANK. The program explicitly writes
   `GRMODE=0xB462` and `GRRES=0x1313`, then programs FB0's pitch, height,
   source offsets, display start, displayed height, and destination position.
 - The CPU performs fixed-point rotation and perspective projection and builds
@@ -149,9 +149,13 @@ treated as the baseline for the later scan/fill experiments:
 - The 16-color version uses two 640x400 halves of a 640x800 Graphic 0
   framebuffer. The 256-color version uses two 320x400 halves of a 320x800
   Graphic 0 framebuffer.
-- The 65536-color version uses one 640x200 16-bpp Graphic 0 page and presents
-  it through the 320x200 display mode; its animation redraws that page in
-  place because a second page cannot fit.
+- The 65536-color version uses the two interleaved 320x200 16-bpp pages in
+  the 640x200 Graphic 0 source surface. Since no native pitch-aware rectangle
+  fill is available, it clears the hidden page with 200 row-sized SGP CLS
+  commands before drawing the grid and all edges. The display half changes
+  only after SGP completion and the VBLANK wait; the projection keeps the
+  vertical coordinate in the 320x200 logical space so the 2x display raster
+  does not distort the solids.
 - Video BIOS is used only for mode/framebuffer/window/composition setup and
   restoration. SGP command submission, display-page selection, GVRAM mode,
   and VBLANK polling use the verified direct interfaces.

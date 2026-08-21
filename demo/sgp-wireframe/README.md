@@ -87,12 +87,16 @@ NASM=/opt/local/bin/nasm demo/sgp-wireframe/65536/build.sh /tmp/SGP65536.COM
 
 `demo/sgp-wireframe/65536/` is a direct-color 16-bpp test with a 640x200
 source framebuffer and a 320x200 display window. Its source pitch is 1280
-bytes per line, so one page is exactly 256 KiB. A second page would exceed the
-single-plane GVRAM capacity at 16 bpp, and this track deliberately does not
-claim double buffering. The program selects the 200-line G0 mode, writes the
-explicit VA `GRMODE=0xB462` and `GRRES=0x1313` values, and programs FB0 with
-`FBW=1280`, `FBL=200`, `DSH=200`, and `DSP=0`. The CPU builds command lists in
-main RAM, and SGP performs the clear and every animated edge through LINE.
+bytes per line. Two 320x200 pages occupy the left and right halves of each
+source row, at byte offsets `0` and `280h`; the page selected for display is
+changed during VBLANK through DSA0 and OFX. Because the pages are interleaved
+by the source pitch, the hidden page is cleared with one SGP CLS command per
+row rather than a linear full-surface clear. The program selects the 200-line
+G0 mode, writes the explicit VA `GRMODE=0xB462` and `GRRES=0x1313` values, and
+programs FB0 with `FBW=1280`, `FBL=200`, `DSH=200`, and `DSP=0`. The CPU builds
+command lists in main RAM, and SGP performs the row clears, reference grid,
+and every animated edge through CLS and LINE. This avoids exposing a partially
+redrawn page while retaining the 320x200 aspect correction.
 
 The 16-bit direct-color words follow the existing VAEG direct-color convention
 for this visual test. The track does not make an independent claim about the
