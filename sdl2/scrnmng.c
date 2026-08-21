@@ -320,9 +320,6 @@ static int scrnmng_framebuffer_height(FRAMEBUFFER framebuffer) {
 static void scrnmng_format_graphics_line(char *line, size_t line_size, const char *label,
                                          BOOL active, int logical_width, int logical_height,
                                          int bpp, int framebuffer_no, FRAMEBUFFER framebuffer) {
-	int framebuffer_width;
-	int framebuffer_height;
-
 	if (!active) {
 		(void)snprintf(line, line_size, "%s OFF", label);
 		return;
@@ -331,24 +328,33 @@ static void scrnmng_format_graphics_line(char *line, size_t line_size, const cha
 		(void)snprintf(line, line_size, "%s OFF", label);
 		return;
 	}
-	framebuffer_width = scrnmng_framebuffer_width(framebuffer, bpp);
-	framebuffer_height = scrnmng_framebuffer_height(framebuffer);
-	(void)snprintf(line, line_size, "%s %dx%d FB %dx%d %dbpp", label, logical_width, logical_height,
-	               framebuffer_width, framebuffer_height, bpp);
+	(void)snprintf(line, line_size, "%s ON %dx%d %dbpp", label, logical_width, logical_height, bpp);
 }
 
-static void scrnmng_format_framebuffer_line(char *line, size_t line_size, int framebuffer_no,
-                                            int bpp, FRAMEBUFFER framebuffer) {
+static int scrnmng_format_framebuffer_lines(char lines[][48], int framebuffer_no, int bpp,
+                                            FRAMEBUFFER framebuffer) {
 	int width;
-	int height;
+	int source_height;
+	int line_count;
 
 	if (!scrnmng_framebuffer_valid(framebuffer, framebuffer_no)) {
-		(void)snprintf(line, line_size, "FB%d OFF", framebuffer_no);
-		return;
+		(void)snprintf(lines[0], 48, "FB%d OFF", framebuffer_no);
+		return 1;
 	}
 	width = scrnmng_framebuffer_width(framebuffer, bpp);
-	height = scrnmng_framebuffer_height(framebuffer);
-	(void)snprintf(line, line_size, "FB%d %dx%d %dbpp", framebuffer_no, width, height, bpp);
+	line_count = 0;
+	if (framebuffer->fbl == 0xffff) {
+		(void)snprintf(lines[line_count++], 48, "FB%d source %dxN/A", framebuffer_no, width);
+	} else {
+		source_height = (int)framebuffer->fbl + 1;
+		(void)snprintf(lines[line_count++], 48, "FB%d source %dx%d", framebuffer_no, width,
+		               source_height);
+	}
+	(void)snprintf(lines[line_count++], 48, "FB%d view %dx%d", framebuffer_no, width,
+	               scrnmng_framebuffer_height(framebuffer));
+	(void)snprintf(lines[line_count++], 48, "FB%d DSA %06Xh", framebuffer_no,
+	               (unsigned int)(framebuffer->dsa & 0x03ffffu));
+	return line_count;
 }
 
 static void scrnmng_draw_text_glyphs(int x, int y, int scale, const char *text, SDL_Color color) {
@@ -477,9 +483,10 @@ static void scrnmng_draw_video_info_overlay(const VAEG_VIEWPORT *viewport) {
 }
 
 static void scrnmng_draw_framebuffer_info_overlay(const VAEG_VIEWPORT *viewport) {
-	char lines[VIDEOVA_FRAMEBUFFERS][48];
+	char lines[VIDEOVA_FRAMEBUFFERS * 3][48];
 	int g0_bpp;
 	int g1_bpp;
+	int line_count;
 	int scale;
 	int line_height;
 	int width;
@@ -501,10 +508,11 @@ static void scrnmng_draw_framebuffer_info_overlay(const VAEG_VIEWPORT *viewport)
 	}
 	g0_bpp = scrnmng_video_bpp(videova.grres);
 	g1_bpp = scrnmng_video_bpp(videova.grres >> 8);
+	line_count = 0;
 	for (i = 0; i < VIDEOVA_FRAMEBUFFERS; i++) {
 		int bpp = (i & 1) ? g1_bpp : g0_bpp;
-		scrnmng_format_framebuffer_line(lines[i], sizeof(lines[i]), i, bpp,
-		                                &videova.framebuffer[i]);
+		line_count +=
+		    scrnmng_format_framebuffer_lines(&lines[line_count], i, bpp, &videova.framebuffer[i]);
 	}
 	scale = (int)viewport->scale_x;
 	if (scale < 1) {
@@ -515,14 +523,14 @@ static void scrnmng_draw_framebuffer_info_overlay(const VAEG_VIEWPORT *viewport)
 	}
 	line_height = 8 * scale;
 	width = 0;
-	for (i = 0; i < VIDEOVA_FRAMEBUFFERS; i++) {
+	for (i = 0; i < line_count; i++) {
 		const int length = (int)strlen(lines[i]);
 		if (length > width) {
 			width = length;
 		}
 	}
 	width = width * 8 * scale + 8 * scale;
-	height = line_height * VIDEOVA_FRAMEBUFFERS + 8 * scale;
+	height = line_height * line_count + 8 * scale;
 	y_offset = scrnmng_menu_offset() + 2;
 	if ((np2oscfg.DISPCLK & VAEG_DISPINFO_VIDEO) != 0) {
 		y_offset += 4 * line_height + 8 * scale + 4;
@@ -541,7 +549,7 @@ static void scrnmng_draw_framebuffer_info_overlay(const VAEG_VIEWPORT *viewport)
 	text_color.g = 255;
 	text_color.b = 192;
 	text_color.a = 255;
-	for (i = 0; i < VIDEOVA_FRAMEBUFFERS; i++) {
+	for (i = 0; i < line_count; i++) {
 		scrnmng_draw_text_glyphs(background.x + 4 * scale,
 		                         background.y + 4 * scale + i * line_height, scale, lines[i],
 		                         text_color);
