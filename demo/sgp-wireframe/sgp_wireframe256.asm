@@ -415,6 +415,10 @@ project_shape:
     mov ax, [rotated_y]
     imul word [perspective_scale]
     sar ax, 7
+    ; In 320-dot 8-bpp mode the VA raster expands each pixel to two
+    ; horizontal host pixels.  Double the logical Y excursion to preserve
+    ; the apparent aspect ratio on the 640-pixel output surface.
+    shl ax, 1
     neg ax
     add ax, [bx + SHAPE_CENTER_Y]
     stosw
@@ -847,25 +851,25 @@ align 2, db 0
 shape_records:
     dw tetrahedron_vertices, tetrahedron_edges, tetrahedron_projected
     db 4, 6
-    dw 80, 90
+    dw 80, 100
     db 0, 7, 1, 2, 0, 1
     dw 64, 6, COLOR8(0x1f), COLOR8(0x0c)
 
     dw cube_vertices, cube_edges, cube_projected
     db 8, 12
-    dw 240, 90
+    dw 240, 100
     db 11, 0, 2, 1, 16, 2
     dw 68, 8, COLOR8(0xfc), COLOR8(0x7c)
 
     dw dodecahedron_vertices, dodecahedron_edges, dodecahedron_projected
     db 20, 30
-    dw 80, 290
+    dw 80, 300
     db 23, 41, 1, 1, 32, 1
     dw 74, 12, COLOR8(0xe3), COLOR8(0xe0)
 
     dw icosahedron_vertices, icosahedron_edges, icosahedron_projected
     db 12, 30
-    dw 240, 290
+    dw 240, 300
     db 37, 19, 2, 3, 48, 2
     dw 70, 10, COLOR8(0x1f), COLOR8(0x03)
 

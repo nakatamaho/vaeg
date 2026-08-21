@@ -60,7 +60,9 @@ at SGP addresses `200000h` and `21f400h`.
 G1 is disabled in this variant, so the two-screen G1 384-pixel alignment
 constraint is not involved.
 The 320-pixel logical viewport is expanded by the VA display path to the
-640-pixel host surface. The existing 16-color `SGPWIRE.COM` and its Graphic 0
+640-pixel host surface. The vertex projection therefore doubles its vertical
+excursion so that the wireframe solids retain a near-square appearance.
+The existing 16-color `SGPWIRE.COM` and its Graphic 0
 implementation are not changed. The 8-bit line colors use the PC-88VA 3:3:2
 RGB encoding; no palette BIOS calls are required for this variant.
 
