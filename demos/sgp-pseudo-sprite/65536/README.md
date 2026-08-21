@@ -52,7 +52,7 @@ top edge to the safe visible range before emitting each BITBLT.
 Build:
 
 ```sh
-NASM=/opt/local/bin/nasm demo/sgp-pseudo-sprite/65536/build.sh /tmp/SGP655S.COM
+NASM=/opt/local/bin/nasm demos/sgp-pseudo-sprite/65536/build.sh /tmp/SGP655S.COM
 ```
 
 The program uses the same verified direct-color setup as the 65536-color
