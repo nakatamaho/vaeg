@@ -261,8 +261,10 @@ NASM=nasm demos/sgp-pseudo-sprite/build-d88.sh \
 ~~~
 
 This writes `/tmp/sgp-pseudo-sprite.d88` and
-`/tmp/sgp-pseudo-sprite.d88.xz`. No generated COM or D88 artifact belongs in
-the source tree.
+`/tmp/sgp-pseudo-sprite.d88.xz`. Generated COM files remain outside the source
+tree. The reproducible non-bootable D88 pair may be checked in under this
+directory when it contains only the freely distributable payloads listed
+above; the checked-in pair is not a bootable PC-Engine image.
 
 The M6 source can also be assembled independently:
 
