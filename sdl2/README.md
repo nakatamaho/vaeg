@@ -626,10 +626,12 @@ graphics 0`, and `Show graphics 1` independently enable the four VA composition
 layers; graphics 0 and graphics 1 are the VA's two graphics planes. These layer
 switches are frontend display filters and do not modify guest VRAM or video
 registers. `Info -> Show video info overlay` reports the logical graphics
-view and one representative framebuffer. `Info -> Show FB info overlay`
-instead lists all four VA framebuffer descriptors vertically (`FB0` through
-`FB3`), including split-screen segments and unavailable entries as `OFF`. `Info ->
-About` opens the version and runtime information dialog.
+state (`ON`/`OFF`, logical size, and bpp). `Info -> Show FB info overlay`
+lists all four VA framebuffer descriptors vertically (`FB0` through `FB3`).
+Each active descriptor is split into `source` (virtual source geometry), `view`
+(visible sub-screen geometry), and `DSA` (display source address); unavailable
+descriptors are shown as `OFF`. `Info -> About` opens the version and runtime
+information dialog.
 
 ## OPN/OPNA FM Backend
 
