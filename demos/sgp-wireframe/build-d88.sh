@@ -23,12 +23,13 @@
 set -eu
 
 if [ "$#" -ne 2 ]; then
-    printf 'usage: %s SOURCE_BOOTABLE_2HD.d88 OUTPUT.d88\n' "$0" >&2
+    printf 'usage: %s SOURCE_2HD_TEMPLATE.d88 OUTPUT.d88\n' "$0" >&2
     exit 2
 fi
 
 source_image=$1
 output_image=$2
+compressed_image=${output_image}.xz
 script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 repo_root=$(CDPATH= cd -- "$script_dir/../.." && pwd)
 
@@ -40,15 +41,29 @@ repo_root=$(CDPATH= cd -- "$script_dir/../.." && pwd)
     printf 'error: refusing to overwrite existing output: %s\n' "$output_image" >&2
     exit 1
 }
+[ ! -e "$compressed_image" ] || {
+    printf 'error: refusing to overwrite existing output: %s\n' "$compressed_image" >&2
+    exit 1
+}
 output_parent=$(dirname -- "$output_image")
 [ -d "$output_parent" ] || {
     printf 'error: output directory does not exist: %s\n' "$output_parent" >&2
     exit 1
 }
+command -v python3 >/dev/null 2>&1 || {
+    printf 'error: required host command is missing: python3\n' >&2
+    exit 1
+}
+command -v xz >/dev/null 2>&1 || {
+    printf 'error: required host command is missing: xz\n' >&2
+    exit 1
+}
 
 work_dir=$(mktemp -d "${TMPDIR:-/tmp}/sgp-wireframe-d88.XXXXXX")
+compressed_temporary=$(mktemp "${compressed_image}.tmp.XXXXXX")
 cleanup() {
     rm -rf "$work_dir"
+    rm -f "$compressed_temporary"
 }
 trap cleanup EXIT HUP INT TERM
 
@@ -58,10 +73,16 @@ mkdir -p "$work_dir/16" "$work_dir/256" "$work_dir/65536"
 "$script_dir/256/build.sh" "$work_dir/256/SGPWIRE.COM"
 "$script_dir/65536/build.sh" "$work_dir/65536/SGPWIRE.COM"
 
-cp -- "$source_image" "$output_image"
+python3 "$repo_root/tools/pc88va/pcengine_disk.py" data \
+    --source "$source_image" \
+    --output "$work_dir/empty-data.d88"
 python3 "$repo_root/tools/pc88va/pcengine_disk.py" install \
-    --image "$output_image" \
+    --image "$work_dir/empty-data.d88" \
     --payload "$work_dir"
+cp -- "$work_dir/empty-data.d88" "$output_image"
+xz -c -9e "$output_image" > "$compressed_temporary"
+mv -- "$compressed_temporary" "$compressed_image"
 
-printf 'Created SGP wireframe disk: %s\n' "$output_image"
+printf 'Created non-bootable SGP wireframe data disk: %s\n' "$output_image"
+printf 'Created compressed wireframe data disk: %s\n' "$compressed_image"
 printf '  16/SGPWIRE.COM\n  256/SGPWIRE.COM\n  65536/SGPWIRE.COM\n'
