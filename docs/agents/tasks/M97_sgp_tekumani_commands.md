@@ -65,8 +65,8 @@ corpus, or non-free integration layer.
   mode through focused selftests.
 - Correct stale SGP documentation where direct manual text resolves it.
 - Add one DOS 8.3-compatible LINE visual test, at the maintainer's request,
-  with rotating regular tetrahedron, cube, regular dodecahedron, and regular
-  icosahedron geometry in 640x400 mode.
+  with rotating regular tetrahedron, cube, centered regular octahedron,
+  regular dodecahedron, and regular icosahedron geometry in 640x400 mode.
   The CPU may project vertices and generate the main-RAM command list; every
   animated edge must be drawn by SGP LINE.
 
@@ -117,7 +117,7 @@ corpus, or non-free integration layer.
   `SGPWIRE.COM` out of tree.
 - Use the existing hardware-safe word access for the command-address and
   display-start ports and begin every command list with SET WORK.
-- Render four independently rotating and pulsating solids into the hidden
+- Render five independently rotating and pulsating solids into the hidden
   half of a 640x800 Graphic 0 framebuffer and exchange its two 640x400 halves
   through DSA0 during vertical blank.
 - Use depth-cued edges rather than claim polygon filling: the documented SGP
@@ -177,6 +177,12 @@ tearing is not exposed; it does not alter the M6 4-bpp baselines.
 The generated COM files and disposable disk images remain out of the
 repository. This recorded baseline must continue to build and run before any
 SGPSCAN stage is evaluated.
+
+For local distribution, `demos/sgp-wireframe/build-d88.sh` builds the three
+tracks with the common `SGPWIRE.COM` basename and installs them into one
+bootable 2HD D88 under `16/`, `256/`, and `65536/`. It copies rather than
+modifies the source system image, refuses to overwrite an existing output,
+and leaves the generated D88 outside the repository.
 
 ### M97f - staged SCAN/PATBLT demonstration family
 
@@ -349,8 +355,9 @@ From a clean checkout of the candidate:
    transparency, sprite overlap, animation, and clean exit;
 3. run the three wireframe tracks under `demos/sgp-wireframe/16`,
    `demos/sgp-wireframe/256`, and `demos/sgp-wireframe/65536`. Verify the
-   regular tetrahedron, cube, regular dodecahedron, and regular icosahedron
-   in each track's documented resolution and color depth; verify rotation,
+   regular tetrahedron, cube, centered regular octahedron, regular dodecahedron,
+   and regular icosahedron in each track's documented resolution and color
+   depth; verify rotation,
    scale changes, connected dim/bright edges, and LINE direction in all
    visible octants;
 4. run each available `SGPSCAN1.COM` through `SGPSCAN8.COM` from all three
