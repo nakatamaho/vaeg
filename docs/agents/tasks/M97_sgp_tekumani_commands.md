@@ -137,25 +137,24 @@ treated as the baseline for the later scan/fill experiments:
   `demo/sgp-wireframe/{16,256,65536}/`. The 16-color and 256-color tracks
   preserve the existing 640x400 and 320x400 layouts respectively. The
   65536-color track uses the VA direct-color layout established by the
-  PC-Engine 1.00 demonstration trace: a 640x200 source framebuffer at 16 bpp
-  (`FBW=1280`) with a 320x200 display window. Two 320x200 pages are stored in
-  the left and right 320-pixel halves of each source row; DSA0 and OFX select
-  the displayed half during VBLANK. The program explicitly writes
-  `GRMODE=0xB462` and `GRRES=0x1313`, then programs FB0's pitch, height,
-  source offsets, display start, displayed height, and destination position.
+  PC-Engine 1.00 demonstration trace: a 320x400 source framebuffer at 16 bpp
+  (`FBW=640`, `FBL=400`) with a 320x200 display window. Two contiguous
+  320x200 pages are stored at source offsets `0` and `1f400h`; DSA0 selects
+  the displayed page during VBLANK. The program explicitly writes
+  `GRMODE=0xB462` and `GRRES=0x1313`, then programs FB0's pitch, source
+  height, display start, and displayed height.
 - The CPU performs fixed-point rotation and perspective projection and builds
   the command list in main RAM. SGP performs `CLS` and every animated edge
   through `LINE`.
 - The 16-color version uses two 640x400 halves of a 640x800 Graphic 0
   framebuffer. The 256-color version uses two 320x400 halves of a 320x800
   Graphic 0 framebuffer.
-- The 65536-color version uses the two interleaved 320x200 16-bpp pages in
-  the 640x200 Graphic 0 source surface. Since no native pitch-aware rectangle
-  fill is available, it clears the hidden page with 200 row-sized SGP CLS
-  commands before drawing the grid and all edges. The display half changes
-  only after SGP completion and the VBLANK wait; the projection keeps the
-  vertical coordinate in the 320x200 logical space so the 2x display raster
-  does not distort the solids.
+- The 65536-color version uses two contiguous 320x200 16-bpp pages in the
+  320x400 Graphic 0 source surface. Since the hidden page is linear, one SGP
+  CLS command clears its `0xfa00` words before drawing the grid and all edges.
+  The display page changes only after SGP completion and the VBLANK wait; the
+  projection keeps the vertical coordinate in the 320x200 logical space so
+  the display raster does not distort the solids.
 - Video BIOS is used only for mode/framebuffer/window/composition setup and
   restoration. SGP command submission, display-page selection, GVRAM mode,
   and VBLANK polling use the verified direct interfaces.
@@ -191,11 +190,11 @@ refined only by evidence from the corresponding video-mode probe:
 |---|---|---:|---|
 | `16` | 640x400, 4bpp | 128,000 bytes | Existing single-plane Graphic 0 double buffer |
 | `256` | 320x400, 8bpp | 128,000 bytes | Existing single-plane Graphic 0 double buffer |
-| `65536` | 320x400, 16bpp | 256,000 bytes | Single-page single-plane G0; no page exchange |
+| `65536` | 320x400 source, 320x200 display, 16bpp | 128,000 bytes/page | Single-plane G0 double buffer with contiguous vertical pages |
 
-The 65536-color mode must not be expanded to 640x400 unless a separate
-capacity and display-path investigation proves that additional storage and
-fetching exist. The SGP descriptor supports the 16bpp pixel mode in VAEG, but
+The 65536-color mode must not be expanded to a 640-dot source unless a
+separate capacity and display-path investigation proves that additional
+storage and fetching exist. The SGP descriptor supports the 16bpp pixel mode in VAEG, but
 the exact hardware direct-color encoding remains a documented verification
 item; the demo must not label an emulator-only RGB layout as a hardware fact.
 
