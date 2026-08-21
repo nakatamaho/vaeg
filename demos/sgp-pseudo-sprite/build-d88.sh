@@ -87,4 +87,5 @@ printf 'Created non-bootable SGP pseudo-sprite data disk: %s\n' "$output_image"
 printf 'Created compressed pseudo-sprite data disk: %s\n' "$compressed_image"
 printf '  16/SGPDEMO1.COM ... 16/SGPDEMO6.COM\n'
 printf '  16/SGPD_7A.COM ... 16/SGPD_7D.COM\n'
+printf '  16/SGPD_7S.COM (scrolling background)\n'
 printf '  256/SGP256S.COM\n  65536/SGP655S.COM\n'

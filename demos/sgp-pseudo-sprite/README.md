@@ -192,6 +192,7 @@ baselines.
 | `SGPD_7B.COM` | M7b | Keeps the original painter-order redraw, but clears the selected page's previous rectangles with verified SGP PATBLT zero fills. It falls back to full CLS when candidate dirty area reaches the 320x200 surface. |
 | `SGPD_7C.COM` | M7c | Uses two command/work buffers. While SGP renders the current hidden page, the CPU updates state and builds the next list for the page currently displayed; the list is started only after the VBLANK flip makes that page hidden. |
 | `SGPD_7D.COM` | M7d | Hoists immutable physical-address conversion and fixed sprite command fields to startup templates. Each frame patches destination start-dot and destination address; the useful Y offset table is retained and no X lookup table is added. |
+| `SGPD_7S.COM` | M7s | Restores the three-band Graphic 0 scrolling background. Internal phases advance by 3, 7, and 11 byte units and are rounded to four-byte source offsets before word writes; sprite rendering remains the M7a synchronous path. |
 
 M7b, M7c, and M7d still redraw every active sprite in the original painter
 order. Dirty-region intersection redraw (M7e) and a triple-buffer experiment
@@ -219,6 +220,7 @@ are grouped by color depth, matching the wireframe demo layout:
 ~~~text
 16/SGPDEMO1.COM ... 16/SGPDEMO6.COM
 16/SGPD_7A.COM  ... 16/SGPD_7D.COM
+16/SGPD_7S.COM
 256/SGP256S.COM
 65536/SGP655S.COM
 ~~~
@@ -252,7 +254,8 @@ NASM=nasm demos/sgp-pseudo-sprite/65536/build.sh /tmp/sgpdemo-65536/SGP655S.COM
 ~~~
 
 The 16-color builder writes `SGPDEMO1.COM` through `SGPDEMO6.COM` and
-`SGPD_7A.COM` through `SGPD_7D.COM`. The complete data disk pair is generated
+`SGPD_7A.COM` through `SGPD_7D.COM`, plus the scrolling `SGPD_7S.COM`.
+The complete data disk pair is generated
 with:
 
 ~~~sh
@@ -335,6 +338,7 @@ B:\16\SGPD_7A
 B:\16\SGPD_7B
 B:\16\SGPD_7C
 B:\16\SGPD_7D
+B:\16\SGPD_7S
 B:\256\SGP256S
 B:\65536\SGP655S
 ~~~

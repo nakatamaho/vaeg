@@ -32,3 +32,6 @@ for variant in 1 2 3 4; do
     suffix=$(printf '%s' "$variant" | tr 1234 ABCD)
     "$nasm_command" -f bin -dM7_VARIANT="$variant"         "$source_file" -o "$output_dir/SGPD_7${suffix}.COM"
 done
+
+"$nasm_command" -f bin -dM7_VARIANT=1 -dM7_SCROLL=1 \
+    "$source_file" -o "$output_dir/SGPD_7S.COM"
