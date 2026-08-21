@@ -30,9 +30,14 @@ single-plane mode. Every edge is drawn by SGP `LINE`; the CPU only rotates and
 projects vertices and builds the main-RAM command list.
 
 The solids rotate on two axes and pulse at independent rates. Edges nearer the
-viewer use a bright palette index and edges farther away use a dim index. This
-depth cue is intentional: the SGP has no documented general polygon or flood
-fill command, so this test does not claim hardware polygon filling.
+viewer use a bright palette index and edges farther away use a dim index. The
+demo is intentionally SGP `LINE`-only: no polygon-fill path is active. Space is
+reserved and ignored in this build; ESC exits.
+
+Each command list also contains invisible one-pixel `SCAN_RIGHT` and
+`SCAN_LEFT` probes at the first destination pixel. They are not part of the visual
+effect; with a trace-enabled VAEG build they provide a direct headless check
+that both SGP scan command routes are fetched and executed.
 
 Graphics BIOS defines one 640x800 Graphic 0 framebuffer. Its two 640x400 4-bpp
 halves exactly fit in 256,000 of the 262,144 single-plane GVRAM bytes. The SGP
@@ -104,10 +109,10 @@ component naming of the hardware word format. All three tracks use the
 hardware-safe word access already established by the baseline and begin each
 SGP list with SET WORK.
 
-## One bootable D88 containing all tracks
+## Non-bootable D88 containing all tracks
 
 `build-d88.sh` builds all three variants with the same DOS basename and
-installs them into separate directories on one bootable 2HD image:
+installs them into separate directories on one non-bootable 2HD data image:
 
 ```text
 A:\16\SGPWIRE.COM
@@ -123,5 +128,9 @@ NASM=/opt/local/bin/nasm demos/sgp-wireframe/build-d88.sh \
     /path/to/pcengine110-bootonly.d88 /tmp/sgp-wireframe.d88
 ```
 
-The generated D88 is a local build artifact and is intentionally not tracked
-in the repository.
+The first argument is used only as a local 2HD/FAT12 geometry template. The
+generator first creates an empty data disk, so the output contains no
+`ENGINEIO.SYS`, `PCENGINE.SYS`, `ADVGBIOS.SYS`, or `PCENGINE.COM` and cannot
+boot by itself. The command writes both `/tmp/sgp-wireframe.d88` and its
+compressed companion `/tmp/sgp-wireframe.d88.xz`. Generated disk images are
+local build artifacts and are intentionally not tracked in the repository.

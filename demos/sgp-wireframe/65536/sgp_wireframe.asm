@@ -70,9 +70,12 @@ org 0x100
 
 %define SGP_COMMAND_END         0x0001
 %define SGP_COMMAND_SET_WORK    0x0003
+%define SGP_COMMAND_SET_DEST    0x0005
 %define SGP_COMMAND_SET_COLOR   0x0006
 %define SGP_COMMAND_LINE        0x0009
 %define SGP_COMMAND_CLS         0x000a
+%define SGP_COMMAND_SCAN_RIGHT  0x000b
+%define SGP_COMMAND_SCAN_LEFT   0x000c
 %define SGP_LINE_COPY           0x0005
 %define SGP_LINE_HD             0x0400
 %define SGP_LINE_VD             0x0800
@@ -84,21 +87,24 @@ org 0x100
 %define SHAPE_VERTICES          0
 %define SHAPE_EDGES             2
 %define SHAPE_PROJECTED         4
-%define SHAPE_VERTEX_COUNT      6
-%define SHAPE_EDGE_COUNT        7
-%define SHAPE_CENTER_X          8
-%define SHAPE_CENTER_Y          10
-%define SHAPE_PHASE_Y           12
-%define SHAPE_PHASE_X           13
-%define SHAPE_SPEED_Y           14
-%define SHAPE_SPEED_X           15
-%define SHAPE_SCALE_PHASE       16
-%define SHAPE_SCALE_SPEED       17
-%define SHAPE_BASE_SCALE        18
-%define SHAPE_SCALE_AMPLITUDE   20
-%define SHAPE_BRIGHT_COLOR      22
-%define SHAPE_DIM_COLOR         24
-%define SHAPE_RECORD_SIZE       26
+%define SHAPE_ROTATED           6
+%define SHAPE_VERTEX_COUNT      8
+%define SHAPE_EDGE_COUNT        9
+%define SHAPE_CENTER_X          10
+%define SHAPE_CENTER_Y          12
+%define SHAPE_PHASE_Y           14
+%define SHAPE_PHASE_X           15
+%define SHAPE_SPEED_Y           16
+%define SHAPE_SPEED_X           17
+%define SHAPE_SCALE_PHASE       18
+%define SHAPE_SCALE_SPEED       19
+%define SHAPE_BASE_SCALE        20
+%define SHAPE_SCALE_AMPLITUDE   22
+%define SHAPE_BRIGHT_COLOR      24
+%define SHAPE_DIM_COLOR         26
+%define SHAPE_FACE_TABLE        28
+%define SHAPE_FACE_COUNT        30
+%define SHAPE_RECORD_SIZE       32
 
 %define PROJECTED_VERTEX_SIZE   6
 %define SHAPE_COUNT             5
@@ -116,7 +122,7 @@ start:
     jc initialization_failed
 
 animation_loop:
-    call poll_escape
+    call poll_keyboard
     jc animation_done
 
     call build_frame_commands
@@ -340,6 +346,9 @@ build_frame_commands:
     stosw
     mov word [last_line_color], 0
     call emit_background_grid
+    ; Exercise both documented SCAN commands at the first destination pixel. The
+    ; probes terminate immediately and do not modify the destination.
+    call emit_scan_probe
     mov bx, shape_records
     mov cx, SHAPE_COUNT
 .shape:
@@ -379,9 +388,11 @@ project_shape:
     push dx
     push si
     push di
+    push bp
     mov bx, [current_shape]
     mov si, [bx + SHAPE_VERTICES]
     mov di, [bx + SHAPE_PROJECTED]
+    mov bp, [bx + SHAPE_ROTATED]
 
     mov al, [bx + SHAPE_PHASE_Y]
     call load_sine_cosine
@@ -476,12 +487,25 @@ project_shape:
     stosw
     mov ax, [rotated_z]
     stosw
+
+    ; Keep the rotated object-space coordinates for face normals.  ES is DS
+    ; while the command list is built, so BP can address this second array.
+    mov ax, [rotated_x]
+    mov [es:bp], ax
+    add bp, 2
+    mov ax, [rotated_y]
+    mov [es:bp], ax
+    add bp, 2
+    mov ax, [rotated_z]
+    mov [es:bp], ax
+    add bp, 2
     dec cx
     jz short .vertices_done
     jmp .vertex
 
 .vertices_done:
 
+    pop bp
     pop di
     pop si
     pop dx
@@ -532,8 +556,47 @@ emit_background_grid:
     mov word [line_y2], SCREEN_HEIGHT - 1
     call emit_line
 
+.done:
     pop cx
     pop bx
+    pop ax
+    ret
+
+emit_scan_probe:
+    push ax
+    mov ax, SGP_COMMAND_SET_DEST
+    stosw
+    mov ax, 3
+    stosw
+    mov ax, 8
+    stosw
+    mov ax, 1
+    stosw
+    mov ax, SCREEN_PITCH
+    stosw
+    mov ax, [draw_page_sgp_low]
+    stosw
+    mov ax, [draw_page_sgp_high]
+    stosw
+    mov ax, SGP_COMMAND_SCAN_RIGHT
+    stosw
+
+    mov ax, SGP_COMMAND_SET_DEST
+    stosw
+    mov ax, 3
+    stosw
+    mov ax, 8
+    stosw
+    mov ax, 1
+    stosw
+    mov ax, SCREEN_PITCH
+    stosw
+    mov ax, [draw_page_sgp_low]
+    stosw
+    mov ax, [draw_page_sgp_high]
+    stosw
+    mov ax, SGP_COMMAND_SCAN_LEFT
+    stosw
     pop ax
     ret
 
@@ -620,7 +683,6 @@ projected_vertex_address:
     pop bx
     pop ax
     ret
-
 emit_set_color:
     cmp ax, [last_line_color]
     je .done
@@ -718,7 +780,7 @@ advance_shape_phases:
     pop ax
     ret
 
-poll_escape:
+poll_keyboard:
     mov ah, 0x0a
     int KEYBOARD_BIOS_INT
     jc .none
@@ -732,7 +794,6 @@ poll_escape:
 .escape:
     stc
     ret
-
 wait_vblank_start:
     mov dx, PORT_TSP_STATUS
     mov bx, 4
@@ -872,7 +933,7 @@ print_string:
 
 message_start:
     db "SGP 65536-color wireframe: tetrahedron, cube, octahedron, dodecahedron, icosahedron", 13, 10
-    db "G0 direct-color 16-bpp; all animated edges use SGP LINE. ESC exits.", 13, 10, "$"
+    db "G0 direct-color 16-bpp; SPACE is reserved; ESC exits.", 13, 10, "$"
 message_done:
     db "Video state restored.", 13, 10, "$"
 message_initialization_failed:
@@ -899,35 +960,45 @@ sin_table:
 
 align 2, db 0
 shape_records:
-    dw tetrahedron_vertices, tetrahedron_edges, tetrahedron_projected
+    dw tetrahedron_vertices, tetrahedron_edges, tetrahedron_projected, tetrahedron_rotated
     db 4, 6
     dw 80, 50
     db 0, 7, 1, 2, 0, 1
     dw 64, 6, DIRECT16(31, 20, 4), DIRECT16(8, 8, 8)
+    dw tetrahedron_faces
+    db 4, 0
 
-    dw cube_vertices, cube_edges, cube_projected
+    dw cube_vertices, cube_edges, cube_projected, cube_rotated
     db 8, 12
     dw 240, 50
     db 11, 0, 2, 1, 16, 2
     dw 68, 8, DIRECT16(31, 56, 8), DIRECT16(12, 24, 4)
+    dw cube_faces
+    db 12, 0
 
-    dw dodecahedron_vertices, dodecahedron_edges, dodecahedron_projected
+    dw dodecahedron_vertices, dodecahedron_edges, dodecahedron_projected, dodecahedron_rotated
     db 20, 30
     dw 80, 150
     db 23, 41, 1, 1, 32, 1
     dw 74, 12, DIRECT16(8, 48, 31), DIRECT16(4, 16, 20)
+    dw dodecahedron_faces
+    db 8, 0
 
-    dw octahedron_vertices, octahedron_edges, octahedron_projected
+    dw octahedron_vertices, octahedron_edges, octahedron_projected, octahedron_rotated
     db 6, 12
     dw 160, 100
     db 17, 29, 2, 1, 24, 2
     dw 82, 8, DIRECT16(31, 63, 31), DIRECT16(4, 28, 12)
+    dw octahedron_faces
+    db 8, 0
 
-    dw icosahedron_vertices, icosahedron_edges, icosahedron_projected
+    dw icosahedron_vertices, icosahedron_edges, icosahedron_projected, icosahedron_rotated
     db 12, 30
     dw 240, 150
     db 37, 19, 2, 3, 48, 2
     dw 70, 10, DIRECT16(31, 20, 4), DIRECT16(4, 12, 31)
+    dw icosahedron_faces
+    db 20, 0
 
 tetrahedron_vertices:
     db 48, 48, 48, -48, -48, 48, -48, 48, -48, 48, -48, -48
@@ -969,17 +1040,41 @@ icosahedron_edges:
     db 2,5, 2,7, 2,8, 2,10, 3,5, 3,7, 3,9, 3,11, 4,6, 4,8
     db 4,9, 5,7, 5,8, 5,9, 6,10, 6,11, 7,10, 7,11, 8,9, 10,11
 
+; Object face metadata retained for future geometry experiments.  Rendering is
+; currently edge-only.
+tetrahedron_faces:
+    db 0,2,1, 0,1,3, 0,3,2, 1,2,3
+cube_faces:
+    db 0,1,2, 1,3,2, 4,6,5, 5,6,7
+    db 0,4,1, 1,4,5, 2,3,6, 3,7,6
+    db 0,2,4, 2,6,4, 1,5,3, 3,5,7
+dodecahedron_faces:
+    db 0,10,8, 0,14,12, 0,17,16, 1,9,11
+    db 1,17,12, 2,13,10, 3,11,13, 4,14,8
+octahedron_faces:
+    db 0,2,4, 0,4,3, 0,3,5, 0,5,2
+    db 1,4,2, 1,3,4, 1,5,3, 1,2,5
+icosahedron_faces:
+    db 0,8,2, 0,2,10, 0,6,4, 0,4,8, 0,10,6
+    db 1,3,9, 1,11,3, 1,4,6, 1,9,4, 1,6,11
+    db 2,5,7, 2,8,5, 2,7,10, 3,7,5, 3,5,9
+    db 3,11,7, 4,9,8, 5,8,9, 6,10,11, 7,11,10
+
 align 2, db 0
 tetrahedron_projected: times 4 * PROJECTED_VERTEX_SIZE db 0
 cube_projected: times 8 * PROJECTED_VERTEX_SIZE db 0
 dodecahedron_projected: times 20 * PROJECTED_VERTEX_SIZE db 0
 octahedron_projected: times 6 * PROJECTED_VERTEX_SIZE db 0
 icosahedron_projected: times 12 * PROJECTED_VERTEX_SIZE db 0
+tetrahedron_rotated: times 4 * PROJECTED_VERTEX_SIZE db 0
+cube_rotated: times 8 * PROJECTED_VERTEX_SIZE db 0
+dodecahedron_rotated: times 20 * PROJECTED_VERTEX_SIZE db 0
+octahedron_rotated: times 6 * PROJECTED_VERTEX_SIZE db 0
+icosahedron_rotated: times 12 * PROJECTED_VERTEX_SIZE db 0
 
 align 2, db 0
 sgp_command_list: times COMMAND_LIST_WORDS dw 0
 sgp_work_area: times 58 db 0
-
 saved_memory_map: db 0
 saved_write_mode: db 0
 saved_single_plane: db 0
