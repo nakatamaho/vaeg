@@ -132,8 +132,8 @@ The first argument is used only as a local 2HD/FAT12 geometry template. The
 generator first creates an empty data disk, so the output contains no
 `ENGINEIO.SYS`, `PCENGINE.SYS`, `ADVGBIOS.SYS`, or `PCENGINE.COM` and cannot
 boot by itself. The command writes both `/tmp/sgp-wireframe.d88` and its
-compressed companion `/tmp/sgp-wireframe.d88.xz`. Generated disk images are
-local build artifacts. A reproducible non-bootable D88 pair containing only
-the freely distributable wireframe payloads may be checked in under this
-directory; the source template and any bootable or PC-Engine system image
-remain outside the repository.
+compressed companion `/tmp/sgp-wireframe.d88.xz`. Generated COM files and the
+raw D88 remain local build artifacts. The `.d88.xz` companion may be checked
+in under this directory only when it contains the freely distributable
+wireframe payloads; the source template and any bootable or PC-Engine system
+image remain outside the repository.

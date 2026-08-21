@@ -110,11 +110,12 @@ Release notes may summarize the ledger but do not replace it.
   companion. Payloads must be grouped under `16/`, `256/`, and `65536/` when
   those color-depth variants exist. A local PC-Engine-layout D88 may be used
   only as a geometry/FAT12 template; it must never be copied as generated SGP
-  demo output. The resulting D88 and `.d88.xz` pair may be committed under
-  those demo directories only when the image listing proves that it contains
+  demo output. Only the `.d88.xz` companion may be committed under those demo
+  directories, and only when the image listing proves that it contains
   source-built, freely distributable demo payloads and no PC-Engine or other
-  non-free system files. The raw image and compressed image must be generated
-  reproducibly, pass an `xz` round-trip check, and remain non-bootable. This
+  non-free system files. The raw D88 remains a local generated artifact. The
+  compressed image must be generated reproducibly, pass an `xz` round-trip
+  check against that raw image, and represent a non-bootable disk. This
   exception does not permit committing the source template, ROMs, private
   media, or any bootable image.
 - Treat private integration asset identities as sensitive. Tracked files must
