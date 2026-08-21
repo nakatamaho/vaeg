@@ -570,7 +570,8 @@ draw_g0_checkerboard:
 %if M7_SCROLL
 ; Update three independently phased checkerboard bands.  The phase counters
 ; advance at 3, 7, and 11 internal byte units, while the row writer rounds
-; each visible source offset down to a four-byte boundary.  The G0 aperture is
+; each visible source offset to the nearest eight-byte checker boundary. The
+; G0 aperture is
 ; written with word transfers so the scroll background never uses byte writes
 ; to a hardware word port.
 update_scroll_background:
@@ -608,8 +609,8 @@ update_scroll_background:
     ret
 
 ; BX=start row, CX=row count, DX=unrounded phase.  The pattern source is
-; copied to a temporary row with a four-byte rounded offset, then transferred
-; to G0 as words.
+; copied to a temporary row with an offset rounded to the nearest checker
+; boundary (eight bytes, or sixteen dots), then transferred to G0 as words.
 draw_scroll_band:
     push ax
     push bx
@@ -632,7 +633,8 @@ draw_scroll_band:
     mov si, scroll_pattern_dark
 .pattern_selected:
     mov ax, [scroll_work_phase]
-    and ax, 0x000c
+    add ax, 4
+    and ax, 0x0008
     add si, ax
 
     push es
@@ -2243,7 +2245,7 @@ scroll_work_phase:
 scroll_work_rows:
     dw 0
 
-; Each source row is 192 bytes so a rounded four-byte phase can be applied
+; Each source row is 192 bytes so a rounded eight-byte phase can be applied
 ; without crossing the end of the pattern while copying a 160-byte screen
 ; row. The two rows are the alternating halves of a 16x16 checker tile.
 scroll_pattern_dark:
@@ -2267,7 +2269,7 @@ scroll_row_buffer:
 message_start:
 %if M7_SCROLL
     db "SGPD_7S: M7 scrolling Graphic 0 background", 13, 10
-    db "Three bands use 3/7/11 internal phases rounded to 4-byte writes.", 13, 10
+    db "Three bands use 3/7/11 phases aligned to checker boundaries.", 13, 10
     db "UP/+ adds a sprite (max 256), DOWN/- removes one, ESC exits.", 13, 10, "$"
 %elif M7_VARIANT == 1
     db "SGPD_7A: M7a measurement-separated baseline", 13, 10

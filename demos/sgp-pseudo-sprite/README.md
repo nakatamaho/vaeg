@@ -192,7 +192,7 @@ baselines.
 | `SGPD_7B.COM` | M7b | Keeps the original painter-order redraw, but clears the selected page's previous rectangles with verified SGP PATBLT zero fills. It falls back to full CLS when candidate dirty area reaches the 320x200 surface. |
 | `SGPD_7C.COM` | M7c | Uses two command/work buffers. While SGP renders the current hidden page, the CPU updates state and builds the next list for the page currently displayed; the list is started only after the VBLANK flip makes that page hidden. |
 | `SGPD_7D.COM` | M7d | Hoists immutable physical-address conversion and fixed sprite command fields to startup templates. Each frame patches destination start-dot and destination address; the useful Y offset table is retained and no X lookup table is added. |
-| `SGPD_7S.COM` | M7s | Restores the three-band Graphic 0 scrolling background. Internal phases advance by 3, 7, and 11 byte units and are rounded to four-byte source offsets before word writes; sprite rendering remains the M7a synchronous path. |
+| `SGPD_7S.COM` | M7s | Restores the three-band Graphic 0 scrolling background. Internal phases advance by 3, 7, and 11 byte units and are rounded to the nearest eight-byte (16-dot) checker boundary before word writes, keeping the tile edges aligned; sprite rendering remains the M7a synchronous path. |
 
 M7b, M7c, and M7d still redraw every active sprite in the original painter
 order. Dirty-region intersection redraw (M7e) and a triple-buffer experiment
