@@ -162,12 +162,17 @@ treated as the baseline for the later scan/fill experiments:
   filling, SCAN-to-PATBLT chaining, or real-hardware timing equivalence.
 
 The pseudo-sprite extension under `demo/sgp-pseudo-sprite/65536/` is a separate
-single-page direct-color teaching track. `SGP655S.COM` uses the same 320x400
-source / 320x200 display setup as the 16-bpp wireframe, but renders only the
-upper page and never exchanges DSA pages. Each frame uses one linear CLS for
-that page, an SGP LINE grid, and four 16x16 transparent 16-bpp BITBLTs. This
-small workload deliberately trades page-flip tear protection for a simpler
-single-surface demonstration; it does not alter the M6 4-bpp baselines.
+double-buffered direct-color teaching track. `SGP655S.COM` uses the same
+320x400 source / 320x200 display setup as the 16-bpp wireframe, renders up to
+128 moving 24x24 transparent 16-bpp BITBLT spheres, and exchanges the two
+contiguous pages through the FB0 DSA registers. The 16 source bitmaps cycle
+through HSV hues; each remains monochromatic while using supersampled
+Phong-style shading. The background is plain black by default; SPACE toggles a
+direct-SGP white square grid with 16-pixel cells. The deterministic records
+use sixteen integer velocity directions. SPACE toggles it. UP/DOWN (or `+`/`-`)
+selects one to 128 active spheres.
+Rendering stays on the hidden page, so the earlier single-page partial-draw
+tearing is not exposed; it does not alter the M6 4-bpp baselines.
 
 The generated COM files and disposable disk images remain out of the
 repository. This recorded baseline must continue to build and run before any

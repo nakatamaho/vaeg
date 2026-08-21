@@ -56,14 +56,15 @@ org 0x100
 %define COMPOSE_G0_DIRECT       0x0008
 %define TSP_STATUS_VBLANK       0x40
 
-; The G0 source is 320x400 at 16 bpp, but only its upper 320x200 page is
-; displayed. This is deliberately a single-page renderer: there is no page
-; flip and therefore no second frame buffer to clear or synchronize.
+; Two 320x200 pages are stacked vertically in the 320x400 16-bpp G0 source.
+; SGP renders the hidden page and FB0 DSA selects the page shown by the TSP.
 %define SCREEN_WIDTH            320
 %define SCREEN_HEIGHT           200
 %define SCREEN_PITCH            640
-%define G0_PAGE_SGP_BASE        0x200000
-%define G0_PAGE_DSA             0x000000
+%define G0_PAGE_A_SGP_BASE      0x200000
+%define G0_PAGE_B_SGP_BASE      0x21f400
+%define G0_PAGE_A_DSA           0x000000
+%define G0_PAGE_B_DSA           0x01f400
 %define SCREEN_WORD_COUNT       0xfa00
 
 %define SGP_COMMAND_END         0x0001
@@ -80,48 +81,14 @@ org 0x100
 %define SGP_LINE_VD             0x0800
 %define SGP_BUSY                0x01
 
-%define SPRITE_COUNT            4
-%define SPRITE_WIDTH            16
-%define SPRITE_HEIGHT           16
-%define SPRITE_PITCH            32
+%define SPRITE_MIN_COUNT        1
+%define SPRITE_MAX_COUNT        128
+%define SPRITE_WIDTH            24
+%define SPRITE_HEIGHT           24
+%define SPRITE_PITCH            48
 %define SPRITE_RECORD_SIZE      8
-
-%define DIRECT16(r,g,b)         ((((g) & 0x3f) << 10) | (((r) & 0x1f) << 5) | ((b) & 0x1f))
-
-; Each source bitmap is a 16x16 16-bpp image. Word zero is transparent under
-; BITBLT mode 0105h; the remaining words are a shaded direct-color orb.
-%macro DEFINE_ORB 4
-%1:
-    dw 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
-    dw 0, 0, 0, 0, 0, %2, %2, %2, %2, %2, 0, 0, 0, 0, 0, 0
-    dw 0, 0, 0, 0, %2, %3, %3, %3, %3, %3, %4, 0, 0, 0, 0, 0
-    dw 0, 0, 0, %2, %3, %3, %3, %3, %3, %3, %4, %4, 0, 0, 0, 0
-    dw 0, 0, %2, %3, %3, %3, %3, %3, %3, %3, %4, %4, %4, 0, 0, 0
-    dw 0, %2, %3, %3, %3, %3, %3, %3, %3, %3, %4, %4, %4, %4, 0, 0
-    dw 0, %2, %3, %3, %3, %3, %3, %3, %3, %3, %4, %4, %4, %4, 0, 0
-    dw 0, %2, %3, %3, %3, %3, %3, %3, %3, %4, %4, %4, %4, %4, 0, 0
-    dw 0, %2, %3, %3, %3, %3, %3, %3, %3, %4, %4, %4, %4, %4, 0, 0
-    dw 0, 0, %3, %3, %3, %3, %3, %3, %3, %4, %4, %4, %4, %4, 0, 0
-    dw 0, 0, %3, %3, %3, %3, %3, %3, %3, %4, %4, %4, %4, %4, 0, 0
-    dw 0, 0, %3, %3, %3, %3, %3, %3, %4, %4, %4, %4, %4, 0, 0, 0
-    dw 0, 0, 0, %3, %3, %3, %3, %3, %4, %4, %4, %4, %4, 0, 0, 0
-    dw 0, 0, 0, 0, %3, %3, %3, %3, %4, %4, %4, %4, 0, 0, 0, 0
-    dw 0, 0, 0, 0, 0, %4, %4, %4, %4, %4, %4, 0, 0, 0, 0, 0
-    dw 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
-%endmacro
-
-%define ORB_CYAN_BASE DIRECT16(4, 28, 31)
-%define ORB_CYAN_HI   DIRECT16(20, 63, 63)
-%define ORB_CYAN_SH   DIRECT16(1, 8, 12)
-%define ORB_MAG_BASE  DIRECT16(31, 8, 28)
-%define ORB_MAG_HI    DIRECT16(63, 28, 63)
-%define ORB_MAG_SH    DIRECT16(12, 1, 9)
-%define ORB_YEL_BASE  DIRECT16(28, 28, 3)
-%define ORB_YEL_HI    DIRECT16(63, 63, 18)
-%define ORB_YEL_SH    DIRECT16(10, 7, 0)
-%define ORB_GRN_BASE  DIRECT16(4, 30, 8)
-%define ORB_GRN_HI    DIRECT16(20, 63, 24)
-%define ORB_GRN_SH    DIRECT16(0, 10, 2)
+; VAEG direct-color uses 5-bit red, 6-bit green, and 5-bit blue.
+%define GRID_COLOR              0xffff
 
 start:
     push cs
@@ -134,17 +101,18 @@ start:
     jc initialization_failed
 
 animation_loop:
-    call poll_escape
+    call poll_keyboard
     jc animation_done
-    ; A single visible page cannot hide its clear and redraw. Start each
-    ; frame immediately after VBLANK so the complete frame is ready before
-    ; the next visible field whenever the SGP workload fits the interval.
+    ; Render the hidden page, then exchange DSA only after SGP is idle.
     call wait_vblank_start
     jc animation_failed
     call update_sprites
     call build_frame_commands
     call run_sgp_command_list
     jc animation_failed
+    call display_draw_page
+    xor byte [draw_page_index], 1
+    call select_draw_page
     jmp animation_loop
 
 animation_done:
@@ -187,6 +155,9 @@ initialize_video:
     jc .failed
     call configure_g0_framebuffer
     jc .failed
+    ; Keep page A displayed while the first complete frame is rendered on B.
+    mov byte [draw_page_index], 1
+    call select_draw_page
     xor ax, ax
     mov dx, PORT_PALETTE_COMPOSE
     out dx, ax
@@ -264,13 +235,37 @@ configure_g0_framebuffer:
     clc
     ret
 
+select_draw_page:
+    cmp byte [draw_page_index], 0
+    je .page_a
+    mov word [draw_page_sgp_low], G0_PAGE_B_SGP_BASE & 0xffff
+    mov word [draw_page_sgp_high], G0_PAGE_B_SGP_BASE >> 16
+    mov word [draw_page_dsa_low], G0_PAGE_B_DSA & 0xffff
+    mov word [draw_page_dsa_high], G0_PAGE_B_DSA >> 16
+    ret
+.page_a:
+    mov word [draw_page_sgp_low], G0_PAGE_A_SGP_BASE & 0xffff
+    mov word [draw_page_sgp_high], G0_PAGE_A_SGP_BASE >> 16
+    mov word [draw_page_dsa_low], G0_PAGE_A_DSA & 0xffff
+    mov word [draw_page_dsa_high], G0_PAGE_A_DSA >> 16
+    ret
+
+display_draw_page:
+    mov dx, PORT_FB0_DSA_LOW
+    mov ax, [draw_page_dsa_low]
+    out dx, ax
+    mov dx, PORT_FB0_DSA_HIGH
+    mov ax, [draw_page_dsa_high]
+    out dx, ax
+    ret
+
 update_sprites:
     push ax
     push bx
     push cx
     push si
     mov si, sprite_records
-    mov cx, SPRITE_COUNT
+    mov cx, [active_sprite_count]
 .next:
     mov al, [si + 4]
     cbw
@@ -342,17 +337,20 @@ build_frame_commands:
     stosw
     mov ax, SGP_COMMAND_CLS
     stosw
-    mov ax, G0_PAGE_SGP_BASE & 0xffff
+    mov ax, [draw_page_sgp_low]
     stosw
-    mov ax, G0_PAGE_SGP_BASE >> 16
+    mov ax, [draw_page_sgp_high]
     stosw
     mov ax, SCREEN_WORD_COUNT
     stosw
     xor ax, ax
     stosw
+    cmp byte [background_grid_enabled], 0
+    je .sprites
     call emit_background_grid
+.sprites:
     mov si, sprite_records
-    mov cx, SPRITE_COUNT
+    mov cx, [active_sprite_count]
 .sprite:
     push cx
     call emit_sprite
@@ -374,39 +372,6 @@ build_frame_commands:
     pop bx
     pop ax
     ret
-
-
-emit_background_grid:
-    push ax
-    push bx
-    push cx
-    mov ax, DIRECT16(5, 7, 18)
-    call emit_set_color
-    xor bx, bx
-    mov cx, 8
-.vertical:
-    mov [line_x1], bx
-    mov [line_x2], bx
-    mov word [line_y1], 0
-    mov word [line_y2], SCREEN_HEIGHT - 1
-    call emit_line
-    add bx, 40
-    loop .vertical
-    xor bx, bx
-    mov cx, 5
-.horizontal:
-    mov [line_y1], bx
-    mov [line_y2], bx
-    mov word [line_x1], 0
-    mov word [line_x2], SCREEN_WIDTH - 1
-    call emit_line
-    add bx, 40
-    loop .horizontal
-    pop cx
-    pop bx
-    pop ax
-    ret
-
 emit_sprite:
     push ax
     push bx
@@ -446,12 +411,11 @@ emit_sprite:
     mov bx, [bp]
     mov dx, SCREEN_PITCH
     mul dx
-    mov dx, 0
     shl bx, 1
     add ax, bx
     adc dx, 0
-    add ax, G0_PAGE_SGP_BASE & 0xffff
-    adc dx, G0_PAGE_SGP_BASE >> 16
+    add ax, [draw_page_sgp_low]
+    adc dx, [draw_page_sgp_high]
     stosw
     mov ax, dx
     stosw
@@ -462,6 +426,37 @@ emit_sprite:
     pop bp
     pop si
     pop dx
+    pop cx
+    pop bx
+    pop ax
+    ret
+
+emit_background_grid:
+    push ax
+    push bx
+    push cx
+    mov ax, GRID_COLOR
+    call emit_set_color
+    xor bx, bx
+    mov cx, 20
+.vertical:
+    mov [line_x1], bx
+    mov [line_x2], bx
+    mov word [line_y1], 0
+    mov word [line_y2], SCREEN_HEIGHT - 1
+    call emit_line
+    add bx, 16
+    loop .vertical
+    xor bx, bx
+    mov cx, 13
+.horizontal:
+    mov word [line_x1], 0
+    mov word [line_x2], SCREEN_WIDTH - 1
+    mov [line_y1], bx
+    mov [line_y2], bx
+    call emit_line
+    add bx, 16
+    loop .horizontal
     pop cx
     pop bx
     pop ax
@@ -516,8 +511,8 @@ emit_line:
     shl bx, 1
     add ax, bx
     adc dx, 0
-    add ax, G0_PAGE_SGP_BASE & 0xffff
-    adc dx, G0_PAGE_SGP_BASE >> 16
+    add ax, [draw_page_sgp_low]
+    adc dx, [draw_page_sgp_high]
     stosw
     mov ax, dx
     stosw
@@ -527,7 +522,7 @@ emit_line:
     pop ax
     ret
 
-poll_escape:
+poll_keyboard:
     mov ah, 0x0a
     int KEYBOARD_BIOS_INT
     jc .none
@@ -535,7 +530,37 @@ poll_escape:
     int KEYBOARD_BIOS_INT
     cmp ah, 0
     je .escape
+    cmp ah, 0x48
+    je .increase_count
+    cmp ah, 0x50
+    je .decrease_count
+    cmp ah, 0x3a
+    je .increase_count
+    cmp ah, 0x3d
+    je .decrease_count
+    cmp al, '+'
+    je .increase_count
+    cmp al, '-'
+    je .decrease_count
+    cmp al, ' '
+    je .toggle_grid
 .none:
+    clc
+    ret
+.increase_count:
+    cmp word [active_sprite_count], SPRITE_MAX_COUNT
+    jae .none
+    inc word [active_sprite_count]
+    clc
+    ret
+.decrease_count:
+    cmp word [active_sprite_count], SPRITE_MIN_COUNT
+    jbe .none
+    dec word [active_sprite_count]
+    clc
+    ret
+.toggle_grid:
+    xor byte [background_grid_enabled], 1
     clc
     ret
 .escape:
@@ -678,9 +703,9 @@ print_string:
     ret
 
 message_start:
-    db "SGP 65536-color single-page pseudo-sprite demo", 13, 10
-    db "G0 direct-color 16-bpp; SGP CLS, LINE, and transparent BITBLT.", 13, 10
-    db "ESC exits.", 13, 10, "$"
+    db "SGP 65536-color double-buffered pseudo-sprite demo", 13, 10
+    db "G0 direct-color 16-bpp; 16 HSV ray-traced spheres.", 13, 10
+    db "UP/DOWN: count 1-128. SPACE: grid on/off. ESC exits.", 13, 10, "$"
 message_done:
     db "Video state restored.", 13, 10, "$"
 message_initialization_failed:
@@ -696,42 +721,31 @@ g0_window_descriptor:
 
 align 2, db 0
 sgp_command_list:
-    times 2048 dw 0
+    times 4096 dw 0
 sgp_work_area:
     times 29 dw 0
 
 align 2, db 0
 sprite_records:
-    dw 24, 20
-    db 1, 1
-    dw orb_cyan
-    dw 150, 18
-    db -1, 1
-    dw orb_magenta
-    dw 268, 34
-    db 1, -1
-    dw orb_yellow
-    dw 72, 88
-    db -1, -1
-    dw orb_green
+%macro SPRITE_RECORD 5
+    dw %1, %2
+    db %3, %4
+    dw %5
+%endmacro
+%include "sprite_records_128_random16.inc"
+active_sprite_count:
+    dw 1
 
 align 2, db 0
-orb_cyan:
-    DEFINE_ORB orb_cyan, ORB_CYAN_HI, ORB_CYAN_BASE, ORB_CYAN_SH
-orb_magenta:
-    DEFINE_ORB orb_magenta, ORB_MAG_HI, ORB_MAG_BASE, ORB_MAG_SH
-orb_yellow:
-    DEFINE_ORB orb_yellow, ORB_YEL_HI, ORB_YEL_BASE, ORB_YEL_SH
-orb_green:
-    DEFINE_ORB orb_green, ORB_GRN_HI, ORB_GRN_BASE, ORB_GRN_SH
+%include "orb_hsv16_24.inc"
 
 align 2, db 0
-line_x1: dw 0
-line_y1: dw 0
-line_x2: dw 0
-line_y2: dw 0
-line_width: dw 0
-line_height: dw 0
+draw_page_sgp_low: dw 0
+draw_page_sgp_high: dw 0
+draw_page_dsa_low: dw 0
+draw_page_dsa_high: dw 0
+draw_page_index: db 0
+align 2, db 0
 sgp_command_address_low: dw 0
 sgp_command_address_high: dw 0
 sgp_work_address_low: dw 0
@@ -743,3 +757,10 @@ saved_single_plane: db 0
 saved_g0_bpp: db 0
 saved_g1_bpp: db 0
 video_mode_changed: db 0
+background_grid_enabled: db 0
+line_x1: dw 0
+line_y1: dw 0
+line_x2: dw 0
+line_y2: dw 0
+line_width: dw 0
+line_height: dw 0
