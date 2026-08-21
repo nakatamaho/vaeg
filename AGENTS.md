@@ -118,6 +118,14 @@ Release notes may summarize the ledger but do not replace it.
   check against that raw image, and represent a non-bootable disk. This
   exception does not permit committing the source template, ROMs, private
   media, or any bootable image.
+- A separate bootable SGP validation image may also be generated locally from
+  a PC-Engine bootable template. It may retain the template's PC-Engine
+  system files and may be named `sgp-demo-bootable.d88` (or an equivalent
+  task-specific name), but it is a local test artifact only: never commit or
+  push the bootable D88, its compressed form, the template, or its system
+  files. Keep the bootable-image generator separate from the non-bootable
+  distribution generator so a validation image cannot be mistaken for a
+  distributable archive.
 - Treat private integration asset identities as sensitive. Tracked files must
   use neutral stable test identifiers; do not record private filenames,
   absolute paths, or hashes unless the maintainer explicitly authorizes that
