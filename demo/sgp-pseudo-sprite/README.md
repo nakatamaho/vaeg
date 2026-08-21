@@ -352,15 +352,20 @@ The program restores the saved BIOS mode and resets the standard palette;
 arbitrary application palette contents cannot be preserved because VAEG does
 not expose palette readback.
 
-## 65536-color single-page track
+## 65536-color double-buffered track
 
 `demo/sgp-pseudo-sprite/65536/` contains `SGP655S.COM`, a separate direct-color
-track for the same SGP pseudo-sprite idea. It uses one 320x200 visible G0 page
-from a 320x400, 16-bpp source surface. Each frame is rebuilt in place with one
-linear CLS, an SGP LINE grid, and four transparent 16-bpp BITBLT orbs. It does
-not use G1, a second page, or DSA page exchange. This is intentionally a small
-single-page workload; the wireframe track remains the reference for contiguous
-double-buffered 16-bpp page exchange.
+track for the same SGP pseudo-sprite idea. It uses two 320x200 G0 pages from a
+320x400, 16-bpp source surface and exchanges the contiguous pages with
+the FB0 DSA registers. Each frame clears the hidden page and emits up to 128
+moving 24x24 transparent 16-bpp BITBLT spheres. The 16 source bitmaps cycle
+through HSV hue values; each bitmap remains monochromatic while using
+supersampled Phong-style shading. The deterministic records use sixteen
+velocity directions. SPACE toggles a SGP-drawn white 16-pixel square grid.
+UP/DOWN (or `+`/`-`) changes the active count from one to 128.
+It does not use
+G1 or a CPU pixel loop. The wireframe track remains the reference for the
+larger contiguous 16-bpp geometry workload.
 
 Build it with:
 
