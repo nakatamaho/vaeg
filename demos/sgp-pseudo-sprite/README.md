@@ -265,6 +265,9 @@ This writes `/tmp/sgp-pseudo-sprite.d88` and
 outside the source tree. The `.d88.xz` companion may be checked in under this
 directory only when it contains the freely distributable payloads listed
 above; it represents a non-bootable PC-Engine-free data image.
+The canonical checked-in archive is
+`demos/sgp-pseudo-sprite/sgp-pseudo-sprite.d88.xz`; the older
+`sgpdemo.d88.xz` name is deprecated.
 
 The M6 source can also be assembled independently:
 
