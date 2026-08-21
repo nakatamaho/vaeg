@@ -49,3 +49,19 @@ NASM=/opt/local/bin/nasm demo/sgp-wireframe/build.sh /tmp/SGPWIRE.COM
 
 Copy `SGPWIRE.COM` to a bootable PC-88VA DOS disk and run it from the command
 line. Press Escape to restore the previous video mode and return to DOS.
+
+## 256-color variant
+
+`SGP256.COM` is a separate direct-color variant. It selects a 320x400
+single-plane mode with G0 at 8 bpp, assigns G0 to the direct-color priority
+path, and uses two 128000-byte pages at SGP addresses `200000h` and `21f400h`.
+The 320-pixel logical viewport is expanded by the VA display path to the
+640-pixel host surface. The existing 16-color `SGPWIRE.COM` and its Graphic 0
+implementation are not changed. The 8-bit line colors use the PC-88VA 3:3:2
+RGB encoding; no palette BIOS calls are required for this variant.
+
+Build it with:
+
+```sh
+NASM=/opt/local/bin/nasm demo/sgp-wireframe/build256.sh /tmp/SGP256.COM
+```

@@ -285,7 +285,7 @@ VAEG's display scheduling. No VBLANK interrupt behavior is assumed.
 ## 9. Original proposed implementation path
 
 The next milestones should use a new directory such as
-`demos/sgp-pseudo-sprite/` and a CMake-generated
+`demo/sgp-pseudo-sprite/` and a CMake-generated
 `guest/sgpdemo.com` artifact:
 
 1. **M2 video bring-up:** use graphics BIOS function 0 for the complete
@@ -418,7 +418,7 @@ A:\SGPDEMO5.COM
 A:\SGPDEMO6.COM
 ~~~
 
-The compressed distribution is `demos/sgp-pseudo-sprite/sgpdemo.d88.xz`.
+The compressed distribution is `demo/sgp-pseudo-sprite/sgpdemo.d88.xz`.
 It is a data disk, not a standalone boot disk; a separate bootable system D88
 is mounted in FDD1 for launch. No `ENGINEIO.SYS`, `PCENGINE.SYS`,
 `ADVGBIOS.SYS`, or `PCENGINE.COM` is included in the distribution image.
