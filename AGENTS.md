@@ -102,16 +102,21 @@ Release notes may summarize the ledger but do not replace it.
 - Tracked paths are lowercase except tool- or project-mandated names listed
   by `tools/repo/check_case.py`, including top-level `CHANGES*.md` release
   notes. New paths must otherwise be lowercase.
-- Never modify binary payloads: `romimage/`, ROM/disk images, fonts,
-  icons, cursors, wave data.
+- Never modify binary payloads: `romimage/`, ROM images, fonts, icons,
+  cursors, wave data, or private/integration disk images.
 - SGP demo disk images are data-only artifacts. `demos/sgp-wireframe` and
   `demos/sgp-pseudo-sprite` disk generation must remove all PC-Engine system
   files and produce a non-bootable 2HD D88 plus its `.d88.xz` compressed
   companion. Payloads must be grouped under `16/`, `256/`, and `65536/` when
   those color-depth variants exist. A local PC-Engine-layout D88 may be used
   only as a geometry/FAT12 template; it must never be copied as generated SGP
-  demo output. These generated images remain local artifacts and are not
-  committed.
+  demo output. The resulting D88 and `.d88.xz` pair may be committed under
+  those demo directories only when the image listing proves that it contains
+  source-built, freely distributable demo payloads and no PC-Engine or other
+  non-free system files. The raw image and compressed image must be generated
+  reproducibly, pass an `xz` round-trip check, and remain non-bootable. This
+  exception does not permit committing the source template, ROMs, private
+  media, or any bootable image.
 - Treat private integration asset identities as sensitive. Tracked files must
   use neutral stable test identifiers; do not record private filenames,
   absolute paths, or hashes unless the maintainer explicitly authorizes that
