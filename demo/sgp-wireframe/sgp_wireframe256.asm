@@ -150,7 +150,8 @@ initialize_video:
     test ax, ax
     jnz .failed
 
-    ; G0 has enough single-plane storage for two 320x400x8-bpp pages.
+    ; G0 has enough single-plane storage for one 320x800 framebuffer,
+    ; presented as two 320x400 pages.
     call define_g0_surface
     jc .failed
 
@@ -189,7 +190,9 @@ initialize_video:
     stc
     ret
 
-; Define one 320x400 G0 framebuffer and its display window.
+; Define one 320x800 G0 framebuffer and a 320x400 display window.  The two
+; 320x400 pages are the upper and lower halves of this single registered
+; framebuffer; DSA0 selects which half is displayed.
 define_g0_surface:
     push es
     push ds
@@ -825,7 +828,7 @@ message_animation_failed:
 
 align 2, db 0
 g0_framebuffer_descriptor:
-    dw 8, SCREEN_WIDTH, SCREEN_HEIGHT
+    dw 8, SCREEN_WIDTH, SCREEN_HEIGHT * 2
 g0_window_descriptor:
     dw 0, 0, SCREEN_HEIGHT, 0, 0
 
