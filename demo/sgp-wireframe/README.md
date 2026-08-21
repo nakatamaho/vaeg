@@ -85,13 +85,14 @@ NASM=/opt/local/bin/nasm demo/sgp-wireframe/256/build.sh /tmp/SGP256.COM
 NASM=/opt/local/bin/nasm demo/sgp-wireframe/65536/build.sh /tmp/SGP65536.COM
 ```
 
-`demo/sgp-wireframe/65536/` is a direct-color 16-bpp, 320x400 logical test.
-It uses one 256 KiB G0 framebuffer page. A second 320x400 page would exceed
-the single-plane GVRAM capacity at 16 bpp, so this track deliberately does not
-claim double buffering. The video BIOS selects the 320x400 mode and the
-program explicitly selects G0 16-bpp/320-dot `GRRES` before registering the
-framebuffer. The CPU builds command lists in main RAM, and SGP performs the
-clear and every animated edge through LINE.
+`demo/sgp-wireframe/65536/` is a direct-color 16-bpp test with a 640x200
+source framebuffer and a 320x200 display window. Its source pitch is 1280
+bytes per line, so one page is exactly 256 KiB. A second page would exceed the
+single-plane GVRAM capacity at 16 bpp, and this track deliberately does not
+claim double buffering. The program selects the 200-line G0 mode, writes the
+explicit VA `GRMODE=0xB462` and `GRRES=0x1313` values, and programs FB0 with
+`FBW=1280`, `FBL=200`, `DSH=200`, and `DSP=0`. The CPU builds command lists in
+main RAM, and SGP performs the clear and every animated edge through LINE.
 
 The 16-bit direct-color words follow the existing VAEG direct-color convention
 for this visual test. The track does not make an independent claim about the
