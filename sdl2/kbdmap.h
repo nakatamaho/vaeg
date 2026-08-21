@@ -144,8 +144,16 @@ typedef enum {
 	KBDROLE_KP_COMMA,
 	KBDROLE_KP_PERIOD,
 	KBDROLE_RETURNR,
+	KBDROLE_FAST_FORWARD,
+	KBDROLE_MOUSE_CAPTURE,
 	KBDROLE_COUNT
 } KBDMAP_ROLE;
+
+typedef enum {
+	KBDMAP_SPECIAL_NONE = -1,
+	KBDMAP_SPECIAL_FAST_FORWARD = 0,
+	KBDMAP_SPECIAL_MOUSE_CAPTURE
+} KBDMAP_SPECIAL_ACTION;
 
 typedef struct {
 	KBDMAP_ROLE role;
@@ -178,6 +186,7 @@ const KBDMAP_ENTRY *kbdmap_entry(int index);
 BYTE kbdmap_guest_code(KBDMAP_ROLE role);
 SDL_Scancode kbdmap_binding(int index);
 KBDMAP_STATUS kbdmap_binding_status(int index);
+KBDMAP_SPECIAL_ACTION kbdmap_special_action(UINT scancode);
 const char *kbdmap_status_name(KBDMAP_STATUS status);
 const char *kbdmap_layout_name(void);
 const char *kbdmap_kana_input_name(void);

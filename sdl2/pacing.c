@@ -33,21 +33,29 @@ enum {
 void vaeg_pacing_reset(VAEG_PACING_STATE *state) {
 	if (state != NULL) {
 		state->fast_forward_held = FALSE;
+		state->fast_forward_scancode = SDL_SCANCODE_UNKNOWN;
 	}
 }
 
 BOOL vaeg_pacing_key(VAEG_PACING_STATE *state, UINT scancode, BOOL pressed, BOOL repeat) {
-	if ((state == NULL) || (scancode != SDL_SCANCODE_F11)) {
+	if (state == NULL) {
 		return (FALSE);
 	}
 	if (pressed) {
 		if (!repeat) {
 			state->fast_forward_held = TRUE;
+			state->fast_forward_scancode = scancode;
+			return (TRUE);
 		}
-	} else {
-		state->fast_forward_held = FALSE;
+		return (state->fast_forward_held && (state->fast_forward_scancode == scancode)) ? TRUE
+		                                                                                : FALSE;
 	}
-	return (TRUE);
+	if (state->fast_forward_held && (state->fast_forward_scancode == scancode)) {
+		state->fast_forward_held = FALSE;
+		state->fast_forward_scancode = SDL_SCANCODE_UNKNOWN;
+		return (TRUE);
+	}
+	return (FALSE);
 }
 
 BOOL vaeg_pacing_effective_nowait(const VAEG_PACING_STATE *state, BOOL configured_nowait) {

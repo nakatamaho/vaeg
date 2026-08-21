@@ -2689,7 +2689,7 @@ static void draw_keyboard_config(void) {
 		                      ImVec2(0.0f, 390.0f))) {
 			ImGui::TableSetupScrollFreeze(0, 1);
 			ImGui::TableSetupColumn("Role");
-			ImGui::TableSetupColumn("Guest");
+			ImGui::TableSetupColumn("Guest / action");
 			ImGui::TableSetupColumn("Binding");
 			ImGui::TableSetupColumn("Status");
 			ImGui::TableSetupColumn("Capture");
@@ -2701,8 +2701,12 @@ static void draw_keyboard_config(void) {
 				if (entry == nullptr) {
 					continue;
 				}
-				std::snprintf(guest, sizeof(guest), "0x%02x",
-				              static_cast<unsigned int>(entry->guest_code));
+				if (entry->guest_code == KBDMAP_NC) {
+					std::snprintf(guest, sizeof(guest), "host");
+				} else {
+					std::snprintf(guest, sizeof(guest), "0x%02x",
+					              static_cast<unsigned int>(entry->guest_code));
+				}
 				ImGui::TableNextRow();
 				ImGui::TableSetColumnIndex(0);
 				ImGui::TextUnformatted(entry->label);

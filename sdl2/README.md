@@ -607,10 +607,11 @@ sgp_mult=1
 CPU or SGP scaling does not change VBlank/TSP timing, sound pitch and timers,
 FDD timing, RTC, or normal one-to-one host pacing. `Screen -> No Wait` removes
 host waiting. `Screen -> Frame skip` selects Auto, Full frame, 1/2, 1/3, or
-1/4 presentation without changing guest time. Holding F11 temporarily uses
-No Wait and draw skip 16; releasing F11, losing focus, resetting, loading a
-state, or quitting clears the temporary mode. F11 is never sent to the guest
-and the saved No Wait/frame-skip/CPU/SGP values are not overwritten.
+1/4 presentation without changing guest time. Holding the configured
+`Fast forward` keyboard action (F11 by default) temporarily uses No Wait and
+draw skip 16; releasing it, losing focus, resetting, loading a state, or
+quitting clears the temporary mode. The active host action is not sent to the
+guest, and the saved No Wait/frame-skip/CPU/SGP values are not overwritten.
 
 `Info -> Show FPS`, `Show CPU clock`, `Show SGP clock`, and `Show frame`
 independently control the corresponding suffixes in the native window title.

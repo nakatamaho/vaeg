@@ -1503,10 +1503,13 @@ static int test_pacing(void) {
 	if (!vaeg_pacing_key(&state, SDL_SCANCODE_F11, FALSE, FALSE) || state.fast_forward_held) {
 		return (fail("pacing", "F11 keyup did not disable fast-forward"));
 	}
-	if (vaeg_pacing_key(&state, SDL_SCANCODE_RALT, TRUE, FALSE)) {
-		return (fail("pacing", "Right Alt was consumed as a shortcut"));
+	if (vaeg_pacing_key(&state, SDL_SCANCODE_RALT, FALSE, FALSE)) {
+		return (fail("pacing", "unrelated keyup was consumed as a shortcut"));
 	}
-	(void)vaeg_pacing_key(&state, SDL_SCANCODE_F11, TRUE, FALSE);
+	if (!vaeg_pacing_key(&state, SDL_SCANCODE_F9, TRUE, FALSE) ||
+	    !vaeg_pacing_key(&state, SDL_SCANCODE_F9, FALSE, FALSE)) {
+		return (fail("pacing", "remapped fast-forward key was not accepted"));
+	}
 	vaeg_pacing_reset(&state);
 	if (state.fast_forward_held || configured_nowait || (configured_drawskip != 3)) {
 		return (fail("pacing", "focus/reset cleanup changed saved settings"));
