@@ -126,6 +126,13 @@ Release notes may summarize the ledger but do not replace it.
   files. Keep the bootable-image generator separate from the non-bootable
   distribution generator so a validation image cannot be mistaken for a
   distributable archive.
+- Binary artifact reporting: whenever a build or test produces a binary that
+  is being handed off or requested for verification (`.com`, `.exe`, `.d88`,
+  `.d88.xz`, or similar), report its complete absolute filesystem path. Do
+  not report only a basename or repository-relative path. This reporting rule
+  does not override the private-asset rule below; do not disclose an absolute
+  path that would reveal a protected private integration asset without
+  maintainer authorization.
 - Treat private integration asset identities as sensitive. Tracked files must
   use neutral stable test identifiers; do not record private filenames,
   absolute paths, or hashes unless the maintainer explicitly authorizes that
