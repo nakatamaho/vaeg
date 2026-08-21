@@ -72,5 +72,6 @@ printf 'Created local bootable SGP pseudo-sprite validation disk: %s\n' \
     "$output_image"
 printf '  16/SGPDEMO1.COM ... 16/SGPDEMO6.COM\n'
 printf '  16/SGPD_7A.COM ... 16/SGPD_7D.COM\n'
+printf '  16/SGPD_7S.COM (scrolling background)\n'
 printf '  256/SGP256S.COM\n  65536/SGP655S.COM\n'
 printf '  PC-Engine system files are retained from the local template.\n'
