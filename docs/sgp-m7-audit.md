@@ -32,7 +32,7 @@ model or any existing demo.
 ## Demo inventory and baseline
 
 There is no stage-7 demo in the current tree. The existing runnable stages are
-generated from [`sgp_sprite_demo.asm`](../demo/sgp-pseudo-sprite/sgp_sprite_demo.asm):
+generated from [`sgp_sprite_demo.asm`](../demos/sgp-pseudo-sprite/sgp_sprite_demo.asm):
 
 | Baseline | Source | Generated file | Rendering path |
 |---|---|---|---|
@@ -40,9 +40,9 @@ generated from [`sgp_sprite_demo.asm`](../demo/sgp-pseudo-sprite/sgp_sprite_demo
 | M6 | `MILESTONE_STAGE=6` | `SGPDEMO6.COM` | M5 path plus 8x8 bullets, counters, and 1-256 active records |
 
 The educational source ladder is under
-[`demo/sgp-pseudo-sprite/milestones/`](../demo/sgp-pseudo-sprite/milestones/).
+[`demos/sgp-pseudo-sprite/milestones/`](../demos/sgp-pseudo-sprite/milestones/).
 The baseline generator is
-[`build_milestone_coms.sh`](../demo/sgp-pseudo-sprite/build_milestone_coms.sh).
+[`build_milestone_coms.sh`](../demos/sgp-pseudo-sprite/build_milestone_coms.sh).
 The baseline rebuild produced `SGPDEMO5.COM` (20,746 bytes) and
 `SGPDEMO6.COM` (20,734 bytes) with the repository NASM tool. A bounded VAEG
 run booted the disposable PC-Engine disk, launched M5, exercised `+` and `-`,

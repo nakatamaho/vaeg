@@ -445,9 +445,9 @@ if(VAEG_NASM_EXECUTABLE)
             "${CMAKE_CURRENT_BINARY_DIR}/guest"
         COMMAND "${VAEG_NASM_EXECUTABLE}" -f bin
             -o "${VAEG_SGPSPRITE_COM}"
-            "${CMAKE_CURRENT_SOURCE_DIR}/demo/sgp-pseudo-sprite/sgp_sprite_demo.asm"
+            "${CMAKE_CURRENT_SOURCE_DIR}/demos/sgp-pseudo-sprite/sgp_sprite_demo.asm"
         DEPENDS
-            "${CMAKE_CURRENT_SOURCE_DIR}/demo/sgp-pseudo-sprite/sgp_sprite_demo.asm"
+            "${CMAKE_CURRENT_SOURCE_DIR}/demos/sgp-pseudo-sprite/sgp_sprite_demo.asm"
         VERBATIM)
     add_custom_target(sgpsprite_com ALL DEPENDS "${VAEG_SGPSPRITE_COM}")
     add_custom_command(
@@ -456,9 +456,9 @@ if(VAEG_NASM_EXECUTABLE)
             "${CMAKE_CURRENT_BINARY_DIR}/guest"
         COMMAND "${VAEG_NASM_EXECUTABLE}" -f bin
             -o "${VAEG_SGPWIRE_COM}"
-            "${CMAKE_CURRENT_SOURCE_DIR}/demo/sgp-wireframe/sgp_wireframe.asm"
+            "${CMAKE_CURRENT_SOURCE_DIR}/demos/sgp-wireframe/sgp_wireframe.asm"
         DEPENDS
-            "${CMAKE_CURRENT_SOURCE_DIR}/demo/sgp-wireframe/sgp_wireframe.asm"
+            "${CMAKE_CURRENT_SOURCE_DIR}/demos/sgp-wireframe/sgp_wireframe.asm"
         VERBATIM)
     add_custom_target(sgpwire_com ALL DEPENDS "${VAEG_SGPWIRE_COM}")
     add_custom_command(
@@ -467,9 +467,9 @@ if(VAEG_NASM_EXECUTABLE)
             "${CMAKE_CURRENT_BINARY_DIR}/guest"
         COMMAND "${VAEG_NASM_EXECUTABLE}" -f bin
             -o "${VAEG_SGP256_COM}"
-            "${CMAKE_CURRENT_SOURCE_DIR}/demo/sgp-wireframe/sgp_wireframe256.asm"
+            "${CMAKE_CURRENT_SOURCE_DIR}/demos/sgp-wireframe/sgp_wireframe256.asm"
         DEPENDS
-            "${CMAKE_CURRENT_SOURCE_DIR}/demo/sgp-wireframe/sgp_wireframe256.asm"
+            "${CMAKE_CURRENT_SOURCE_DIR}/demos/sgp-wireframe/sgp_wireframe256.asm"
         VERBATIM)
     add_custom_target(sgp256_com ALL DEPENDS "${VAEG_SGP256_COM}")
     message(STATUS "HOSTFAT.SYS: enabled (${VAEG_NASM_EXECUTABLE})")
