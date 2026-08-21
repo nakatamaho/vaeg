@@ -161,6 +161,14 @@ treated as the baseline for the later scan/fill experiments:
 - The test intentionally remains wireframe-only. It does not claim polygon
   filling, SCAN-to-PATBLT chaining, or real-hardware timing equivalence.
 
+The pseudo-sprite extension under `demo/sgp-pseudo-sprite/65536/` is a separate
+single-page direct-color teaching track. `SGP655S.COM` uses the same 320x400
+source / 320x200 display setup as the 16-bpp wireframe, but renders only the
+upper page and never exchanges DSA pages. Each frame uses one linear CLS for
+that page, an SGP LINE grid, and four 16x16 transparent 16-bpp BITBLTs. This
+small workload deliberately trades page-flip tear protection for a simpler
+single-surface demonstration; it does not alter the M6 4-bpp baselines.
+
 The generated COM files and disposable disk images remain out of the
 repository. This recorded baseline must continue to build and run before any
 SGPSCAN stage is evaluated.
