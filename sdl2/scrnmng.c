@@ -343,7 +343,7 @@ static void scrnmng_format_framebuffer_line(char *line, size_t line_size, int fr
 	int height;
 
 	if (!scrnmng_framebuffer_valid(framebuffer, framebuffer_no)) {
-		(void)snprintf(line, line_size, "FB%d n/a", framebuffer_no);
+		(void)snprintf(line, line_size, "FB%d OFF", framebuffer_no);
 		return;
 	}
 	width = scrnmng_framebuffer_width(framebuffer, bpp);

@@ -628,7 +628,7 @@ switches are frontend display filters and do not modify guest VRAM or video
 registers. `Info -> Show video info overlay` reports the logical graphics
 view and one representative framebuffer. `Info -> Show FB info overlay`
 instead lists all four VA framebuffer descriptors vertically (`FB0` through
-`FB3`), including split-screen segments and unavailable entries. `Info ->
+`FB3`), including split-screen segments and unavailable entries as `OFF`. `Info ->
 About` opens the version and runtime information dialog.
 
 ## OPN/OPNA FM Backend
