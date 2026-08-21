@@ -44,7 +44,7 @@ accessed as words for real-hardware safety.
 Build with:
 
 ```sh
-NASM=/opt/local/bin/nasm demo/sgp-wireframe/build.sh /tmp/SGPWIRE.COM
+NASM=/opt/local/bin/nasm demos/sgp-wireframe/build.sh /tmp/SGPWIRE.COM
 ```
 
 Copy `SGPWIRE.COM` to a bootable PC-88VA DOS disk and run it from the command
@@ -69,7 +69,7 @@ RGB encoding; no palette BIOS calls are required for this variant.
 Build it with:
 
 ```sh
-NASM=/opt/local/bin/nasm demo/sgp-wireframe/build256.sh /tmp/SGP256.COM
+NASM=/opt/local/bin/nasm demos/sgp-wireframe/build256.sh /tmp/SGP256.COM
 ```
 
 ## Color-depth teaching tracks
@@ -80,12 +80,12 @@ to the established M97e baselines while giving each track an independent build
 entry point:
 
 ```sh
-NASM=/opt/local/bin/nasm demo/sgp-wireframe/16/build.sh /tmp/SGPWIRE.COM
-NASM=/opt/local/bin/nasm demo/sgp-wireframe/256/build.sh /tmp/SGP256.COM
-NASM=/opt/local/bin/nasm demo/sgp-wireframe/65536/build.sh /tmp/SGP65536.COM
+NASM=/opt/local/bin/nasm demos/sgp-wireframe/16/build.sh /tmp/SGPWIRE.COM
+NASM=/opt/local/bin/nasm demos/sgp-wireframe/256/build.sh /tmp/SGP256.COM
+NASM=/opt/local/bin/nasm demos/sgp-wireframe/65536/build.sh /tmp/SGP65536.COM
 ```
 
-`demo/sgp-wireframe/65536/` is a direct-color 16-bpp test with a 320x400
+`demos/sgp-wireframe/65536/` is a direct-color 16-bpp test with a 320x400
 source framebuffer and a 320x200 display window. Its source pitch is 640
 bytes per line. Two contiguous 320x200 pages occupy the upper and lower
 halves of the source surface, at byte offsets `0` and `1f400h`; DSA0 selects
