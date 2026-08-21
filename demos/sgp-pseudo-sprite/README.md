@@ -269,6 +269,21 @@ The canonical checked-in archive is
 `demos/sgp-pseudo-sprite/sgp-pseudo-sprite.d88.xz`; the older
 `sgpdemo.d88.xz` name is deprecated.
 
+## Local bootable validation disk
+
+For emulator or hardware boot-path validation, create a separate bootable
+image from a local PC-Engine 2HD template:
+
+~~~sh
+NASM=/opt/local/bin/nasm demos/sgp-pseudo-sprite/build-bootable-d88.sh \
+  /path/to/pcengine110-bootonly.d88 /private/tmp/sgp-demo-bootable.d88
+~~~
+
+This preserves the template's PC-Engine system files and installs the same
+color-grouped payloads as the data-only archive. The resulting
+`sgp-demo-bootable.d88` is a local validation artifact and must not be
+committed or compressed for distribution.
+
 The M6 source can also be assembled independently:
 
 ~~~sh
