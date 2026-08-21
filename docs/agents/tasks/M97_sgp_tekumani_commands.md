@@ -136,17 +136,20 @@ treated as the baseline for the later scan/fill experiments:
 - The next wireframe extension is implemented as three color-depth tracks under
   `demo/sgp-wireframe/{16,256,65536}/`. The 16-color and 256-color tracks
   preserve the existing 640x400 and 320x400 layouts respectively. The
-  65536-color track uses a capacity-safe 320x200 16-bpp layout: each
-  320x200 page is 128 KiB, so one 256 KiB single-plane G0 framebuffer with
-  height 400 can serve as two front/back pages. The G1 two-screen path is not
-  used because the documented screen-1 pixel-size input does not include 16
-  bpp.
+  65536-color track uses a capacity-safe 320x400 16-bpp layout: one page is
+  256 KiB, which consumes the complete single-plane G0 framebuffer. It is
+  therefore a single-page animation and does not claim a 16-bpp G1 two-screen
+  or double-buffer arrangement. The program explicitly writes G0 `GRRES`
+  (`PM0=11b`, `HW0=1`) after the video BIOS mode call so the framebuffer fetch
+  matches the SGP 16-bpp/320-dot descriptor.
 - The CPU performs fixed-point rotation and perspective projection and builds
   the command list in main RAM. SGP performs `CLS` and every animated edge
   through `LINE`.
 - The 16-color version uses two 640x400 halves of a 640x800 Graphic 0
   framebuffer. The 256-color version uses two 320x400 halves of a 320x800
   Graphic 0 framebuffer.
+- The 65536-color version uses one 320x400 16-bpp Graphic 0 page; its
+  animation redraws that page in place because a second page cannot fit.
 - Video BIOS is used only for mode/framebuffer/window/composition setup and
   restoration. SGP command submission, display-page selection, GVRAM mode,
   and VBLANK polling use the verified direct interfaces.
@@ -182,7 +185,7 @@ refined only by evidence from the corresponding video-mode probe:
 |---|---|---:|---|
 | `16` | 640x400, 4bpp | 128,000 bytes | Existing single-plane Graphic 0 double buffer |
 | `256` | 320x400, 8bpp | 128,000 bytes | Existing single-plane Graphic 0 double buffer |
-| `65536` | 320x200, 16bpp | 128,000 bytes | Single-plane G0 320x400 framebuffer with two DSA0 pages |
+| `65536` | 320x400, 16bpp | 256,000 bytes | Single-page single-plane G0; no page exchange |
 
 The 65536-color mode must not be expanded to 640x400 unless a separate
 capacity and display-path investigation proves that additional storage and
@@ -256,9 +259,8 @@ from the wireframe-only `SGPWIRE.COM` baseline.
 Port the proven convex-face path to the direct-color layout of each track.
 For 256 colors, validate descriptor start-dot, source pattern packing, PATBLT
 span width, and the 3:3:2 color encoding with one animated face before adding
-multiple faces. For 65536 colors, validate the 16bpp word color and the
-320x200 single-plane G0 front/back arrangement (two pages in a 320x400
-registered framebuffer). The 16-color track retains the
+multiple faces. For 65536 colors, validate the 16bpp word color, explicit G0
+`GRRES`, and the 320x400 single-plane G0 single-page arrangement. The 16-color track retains the
 same stage number as its corresponding single-face validation.
 
 #### SGPSCAN7 - direct-color shaded polyhedron

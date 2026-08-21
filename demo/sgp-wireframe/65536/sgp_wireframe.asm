@@ -31,6 +31,7 @@ org 0x100
 %define VIDEO_G1_BPP_OFFSET     0x0012
 
 %define PORT_MEMORY_MAP         0x0153
+%define PORT_GRRES              0x0102
 %define PORT_PALETTE_COMPOSE    0x0106
 %define PORT_RGB_COMPOSE        0x0108
 %define PORT_FB0_DSA_LOW        0x020e
@@ -42,19 +43,17 @@ org 0x100
 
 %define MEMORY_MAP_GVRAM_SINGLE 0x54
 %define GVRAM_CPU_WRITE_MODE    0x10
-%define MODE_320X200_G0_ONLY     0xa00a
+%define MODE_320X400_G0_ONLY     0xa00c
 %define PIXEL_SIZE_G0_16BPP       0x0010
 %define COMPOSE_G0_DIRECT       0x0008
 %define TSP_STATUS_VBLANK       0x40
 
 %define SCREEN_WIDTH            320
-%define SCREEN_HEIGHT           200
+%define SCREEN_HEIGHT           400
 %define SCREEN_PITCH            640
 %define G0_PAGE_A_SGP_BASE      0x200000
-%define G0_PAGE_B_SGP_BASE      0x21f400
 %define G0_PAGE_A_DSA           0x000000
-%define G0_PAGE_B_DSA           0x01f400
-%define SCREEN_WORD_COUNT       0xfa00
+%define SCREEN_WORD_COUNT       0x1f400
 
 %define SGP_COMMAND_END         0x0001
 %define SGP_COMMAND_SET_WORK    0x0003
@@ -113,8 +112,6 @@ animation_loop:
     call wait_vblank_start
     jc animation_failed
     call display_draw_page
-    xor byte [draw_page_index], 1
-    call select_draw_page
     call advance_shape_phases
     jmp animation_loop
 
@@ -140,7 +137,7 @@ animation_failed:
     int 0x21
 
 initialize_video:
-    mov bx, MODE_320X200_G0_ONLY
+    mov bx, MODE_320X400_G0_ONLY
     mov cx, PIXEL_SIZE_G0_16BPP
     xor dx, dx
     mov byte [video_mode_changed], 1
@@ -148,9 +145,12 @@ initialize_video:
     int VIDEO_BIOS_INT
     test ax, ax
     jnz .failed
-
-    ; G0 has enough single-plane storage for one 320x400 framebuffer,
-    ; presented as two 320x200 pages.
+    ; Keep the BIOS-selected 320-dot direct-color format explicit.
+    mov dx, PORT_GRRES
+    mov ax, 0x0013
+    out dx, ax
+    ; G0 is one 320x400 direct-color framebuffer. A second page does not fit
+    ; in the 256 KiB single-plane address space at 16 bpp.
     call define_g0_surface
     jc .failed
 
@@ -169,14 +169,11 @@ initialize_video:
     mov al, GVRAM_CPU_WRITE_MODE
     out dx, al
 
-    mov byte [draw_page_index], 0
     call select_draw_page
     call build_frame_commands
     call run_sgp_command_list
     jc .failed
     call display_draw_page
-    mov byte [draw_page_index], 1
-    call select_draw_page
 
     mov ax, 0x0b01
     int VIDEO_BIOS_INT
@@ -189,9 +186,7 @@ initialize_video:
     stc
     ret
 
-; Define one 320x400 G0 framebuffer and a 320x200 display window.  The two
-; 320x200 pages are the upper and lower halves of this single registered
-; framebuffer; DSA0 selects which half is displayed.
+; Define the single 320x400 G0 framebuffer used by this 16-bpp fallback.
 define_g0_surface:
     push es
     push ds
@@ -217,18 +212,10 @@ define_g0_surface:
     ret
 
 select_draw_page:
-    cmp byte [draw_page_index], 0
-    jne .page_b
     mov word [draw_page_sgp_low], G0_PAGE_A_SGP_BASE & 0xffff
     mov word [draw_page_sgp_high], G0_PAGE_A_SGP_BASE >> 16
     mov word [draw_page_dsa_low], G0_PAGE_A_DSA & 0xffff
     mov word [draw_page_dsa_high], G0_PAGE_A_DSA >> 16
-    ret
-.page_b:
-    mov word [draw_page_sgp_low], G0_PAGE_B_SGP_BASE & 0xffff
-    mov word [draw_page_sgp_high], G0_PAGE_B_SGP_BASE >> 16
-    mov word [draw_page_dsa_low], G0_PAGE_B_DSA & 0xffff
-    mov word [draw_page_dsa_high], G0_PAGE_B_DSA >> 16
     ret
 
 ; DSA0 uses word registers. Byte access to these ports can hang real hardware.
@@ -275,9 +262,9 @@ build_frame_commands:
     stosw
     mov ax, [draw_page_sgp_high]
     stosw
-    mov ax, SCREEN_WORD_COUNT
+    mov ax, SCREEN_WORD_COUNT & 0xffff
     stosw
-    xor ax, ax
+    mov ax, SCREEN_WORD_COUNT >> 16
     stosw
 
     ; CLS leaves SET COLOR at zero, so the first nonzero direct-color value
@@ -414,8 +401,9 @@ project_shape:
     mov ax, [rotated_y]
     imul word [perspective_scale]
     sar ax, 7
-    ; The 200-line graphics mode expands the logical raster vertically in
-    ; the display path. Keep projection coordinates in the logical 200-line
+    shl ax, 1
+    ; The 320-dot graphics mode expands each logical pixel horizontally in
+    ; the display path. Keep projection coordinates in the logical 320x400
     ; coordinate system.
     neg ax
     add ax, [bx + SHAPE_CENTER_Y]
@@ -436,8 +424,8 @@ project_shape:
     pop ax
     ret
 
-; Draw a quiet 40-pixel grid into every hidden page. It supplies a stable
-; 320x200 reference without using CPU GVRAM writes.
+; Draw a quiet 40-pixel grid into the single direct-color page. It supplies a
+; stable 320x400 reference without using CPU GVRAM writes.
 emit_background_grid:
     push ax
     push bx
@@ -457,7 +445,7 @@ emit_background_grid:
     loop .vertical
 
     xor bx, bx
-    mov cx, 5
+    mov cx, 10
 .horizontal:
     mov [line_y1], bx
     mov [line_y2], bx
@@ -828,7 +816,7 @@ message_animation_failed:
 
 align 2, db 0
 g0_framebuffer_descriptor:
-    dw 16, SCREEN_WIDTH, SCREEN_HEIGHT * 2
+    dw 16, SCREEN_WIDTH, SCREEN_HEIGHT
 g0_window_descriptor:
     dw 0, 0, SCREEN_HEIGHT, 0, 0
 
@@ -847,25 +835,25 @@ align 2, db 0
 shape_records:
     dw tetrahedron_vertices, tetrahedron_edges, tetrahedron_projected
     db 4, 6
-    dw 80, 50
+    dw 80, 100
     db 0, 7, 1, 2, 0, 1
     dw 64, 6, DIRECT16(31, 20, 4), DIRECT16(8, 8, 8)
 
     dw cube_vertices, cube_edges, cube_projected
     db 8, 12
-    dw 240, 50
+    dw 240, 100
     db 11, 0, 2, 1, 16, 2
     dw 68, 8, DIRECT16(31, 56, 8), DIRECT16(12, 24, 4)
 
     dw dodecahedron_vertices, dodecahedron_edges, dodecahedron_projected
     db 20, 30
-    dw 80, 150
+    dw 80, 300
     db 23, 41, 1, 1, 32, 1
     dw 74, 12, DIRECT16(8, 48, 31), DIRECT16(4, 16, 20)
 
     dw icosahedron_vertices, icosahedron_edges, icosahedron_projected
     db 12, 30
-    dw 240, 150
+    dw 240, 300
     db 37, 19, 2, 3, 48, 2
     dw 70, 10, DIRECT16(31, 20, 4), DIRECT16(4, 12, 31)
 
@@ -920,7 +908,6 @@ video_mode_changed: db 0
 saved_video_mode: dw 0
 saved_g0_bpp: db 0
 saved_g1_bpp: db 0
-draw_page_index: db 0
 draw_page_sgp_low: dw 0
 draw_page_sgp_high: dw 0
 draw_page_dsa_low: dw 0
