@@ -101,7 +101,7 @@ org 0x100
 %define SHAPE_RECORD_SIZE       26
 
 %define PROJECTED_VERTEX_SIZE   6
-%define SHAPE_COUNT             4
+%define SHAPE_COUNT             5
 %define COMMAND_LIST_WORDS      2048
 
 start:
@@ -871,7 +871,7 @@ print_string:
     ret
 
 message_start:
-    db "SGP 65536-color wireframe: tetrahedron, cube, dodecahedron, icosahedron", 13, 10
+    db "SGP 65536-color wireframe: tetrahedron, cube, octahedron, dodecahedron, icosahedron", 13, 10
     db "G0 direct-color 16-bpp; all animated edges use SGP LINE. ESC exits.", 13, 10, "$"
 message_done:
     db "Video state restored.", 13, 10, "$"
@@ -917,6 +917,12 @@ shape_records:
     db 23, 41, 1, 1, 32, 1
     dw 74, 12, DIRECT16(8, 48, 31), DIRECT16(4, 16, 20)
 
+    dw octahedron_vertices, octahedron_edges, octahedron_projected
+    db 6, 12
+    dw 160, 100
+    db 17, 29, 2, 1, 24, 2
+    dw 82, 8, DIRECT16(31, 63, 31), DIRECT16(4, 28, 12)
+
     dw icosahedron_vertices, icosahedron_edges, icosahedron_projected
     db 12, 30
     dw 240, 150
@@ -948,6 +954,12 @@ dodecahedron_edges:
     db 6,10, 6,15, 6,18, 7,11, 7,15, 7,19
     db 8,10, 9,11, 12,14, 13,15, 16,17, 18,19
 
+octahedron_vertices:
+    db 56,0,0, -56,0,0, 0,56,0, 0,-56,0, 0,0,56, 0,0,-56
+octahedron_edges:
+    db 0,2, 0,3, 0,4, 0,5, 1,2, 1,3
+    db 1,4, 1,5, 2,4, 4,3, 3,5, 5,2
+
 icosahedron_vertices:
     db 0,-31,-50, 0,-31,50, 0,31,-50, 0,31,50
     db -31,-50,0, -31,50,0, 31,-50,0, 31,50,0
@@ -961,6 +973,7 @@ align 2, db 0
 tetrahedron_projected: times 4 * PROJECTED_VERTEX_SIZE db 0
 cube_projected: times 8 * PROJECTED_VERTEX_SIZE db 0
 dodecahedron_projected: times 20 * PROJECTED_VERTEX_SIZE db 0
+octahedron_projected: times 6 * PROJECTED_VERTEX_SIZE db 0
 icosahedron_projected: times 12 * PROJECTED_VERTEX_SIZE db 0
 
 align 2, db 0

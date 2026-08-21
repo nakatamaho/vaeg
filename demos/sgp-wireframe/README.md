@@ -24,10 +24,10 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 # SGP wireframe demo
 
 `SGPWIRE.COM` is a 16-bit real-mode PC-88VA visual test for the SGP `LINE`
-command. It displays a regular tetrahedron, cube, regular dodecahedron, and
-regular icosahedron in 640x400 16-color single-plane mode. Every edge is drawn
-by SGP `LINE`; the CPU only rotates and projects vertices and builds the
-main-RAM command list.
+command. It displays a regular tetrahedron, cube, centered regular
+octahedron, regular dodecahedron, and regular icosahedron in 640x400 16-color
+single-plane mode. Every edge is drawn by SGP `LINE`; the CPU only rotates and
+projects vertices and builds the main-RAM command list.
 
 The solids rotate on two axes and pulse at independent rates. Edges nearer the
 viewer use a bright palette index and edges farther away use a dim index. This
@@ -36,7 +36,7 @@ fill command, so this test does not claim hardware polygon filling.
 
 Graphics BIOS defines one 640x800 Graphic 0 framebuffer. Its two 640x400 4-bpp
 halves exactly fit in 256,000 of the 262,144 single-plane GVRAM bytes. The SGP
-clears the hidden half, redraws a dark reference grid and all four solids, and
+clears the hidden half, redraws a dark reference grid and all five solids, and
 then selects that half through DSA0 during vertical blank. The command list
 begins with `SET WORK`, and the command-address and display-start ports are
 accessed as words for real-hardware safety.
@@ -103,3 +103,25 @@ for this visual test. The track does not make an independent claim about the
 component naming of the hardware word format. All three tracks use the
 hardware-safe word access already established by the baseline and begin each
 SGP list with SET WORK.
+
+## One bootable D88 containing all tracks
+
+`build-d88.sh` builds all three variants with the same DOS basename and
+installs them into separate directories on one bootable 2HD image:
+
+```text
+A:\16\SGPWIRE.COM
+A:\256\SGPWIRE.COM
+A:\65536\SGPWIRE.COM
+```
+
+The source image is copied before installation and is never modified. The
+output image must not already exist.
+
+```sh
+NASM=/opt/local/bin/nasm demos/sgp-wireframe/build-d88.sh \
+    /path/to/pcengine110-bootonly.d88 /tmp/sgp-wireframe.d88
+```
+
+The generated D88 is a local build artifact and is intentionally not tracked
+in the repository.
