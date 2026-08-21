@@ -306,6 +306,54 @@ static void scrnmng_format_video_line(char *line, size_t line_size, const char *
 		               scrnmng_video_colors(bpp));
 	}
 }
+static int scrnmng_framebuffer_width(FRAMEBUFFER framebuffer, int bpp) {
+	if ((framebuffer == NULL) || (bpp <= 0) || (framebuffer->fsa == 0xffffffffL) ||
+	    (framebuffer->fbw == 0xffff)) {
+		return 0;
+	}
+	return ((int)framebuffer->fbw * 8) / bpp;
+}
+static int scrnmng_framebuffer_height(FRAMEBUFFER framebuffer) {
+	if ((framebuffer == NULL) || (framebuffer->fsa == 0xffffffffL) ||
+	    (framebuffer->fbl == 0xffff)) {
+		return 0;
+	}
+	return framebuffer->fbl;
+}
+static void scrnmng_format_graphics_line(char *line, size_t line_size, const char *label,
+                                         BOOL active, int logical_width, int logical_height,
+                                         int bpp, FRAMEBUFFER framebuffer) {
+	int framebuffer_width;
+	int framebuffer_height;
+
+	if (!active) {
+		(void)snprintf(line, line_size, "%s OFF", label);
+		return;
+	}
+	framebuffer_width = scrnmng_framebuffer_width(framebuffer, bpp);
+	framebuffer_height = scrnmng_framebuffer_height(framebuffer);
+	if (framebuffer_width <= 0 || framebuffer_height <= 0) {
+		if (bpp >= 16) {
+			(void)snprintf(line, line_size,
+			               "%s LOG %dx%d OUT 640x400 FB unset %dbpp direct (%u colors)", label,
+			               logical_width, logical_height, bpp, scrnmng_video_colors(bpp));
+		} else {
+			(void)snprintf(line, line_size, "%s LOG %dx%d OUT 640x400 FB unset %dbpp %u colors",
+			               label, logical_width, logical_height, bpp, scrnmng_video_colors(bpp));
+		}
+		return;
+	}
+	if (bpp >= 16) {
+		(void)snprintf(line, line_size,
+		               "%s LOG %dx%d OUT 640x400 FB %dx%d %dbpp direct (%u colors)", label,
+		               logical_width, logical_height, framebuffer_width, framebuffer_height, bpp,
+		               scrnmng_video_colors(bpp));
+	} else {
+		(void)snprintf(line, line_size, "%s LOG %dx%d OUT 640x400 FB %dx%d %dbpp %u colors", label,
+		               logical_width, logical_height, framebuffer_width, framebuffer_height, bpp,
+		               scrnmng_video_colors(bpp));
+	}
+}
 static void scrnmng_draw_text_glyphs(int x, int y, int scale, const char *text, SDL_Color color) {
 	const unsigned char *glyph;
 	int character;
@@ -356,6 +404,8 @@ static void scrnmng_draw_video_info_overlay(const VAEG_VIEWPORT *viewport) {
 	int g1_width;
 	int g0_bpp;
 	int g1_bpp;
+	BOOL g0_active;
+	BOOL g1_active;
 	int scale;
 	int line_height;
 	int width;
@@ -380,10 +430,15 @@ static void scrnmng_draw_video_info_overlay(const VAEG_VIEWPORT *viewport) {
 	g1_width = (videova.grres & 0x1000) ? 320 : 640;
 	g0_bpp = scrnmng_video_bpp(videova.grres);
 	g1_bpp = scrnmng_video_bpp(videova.grres >> 8);
+	/* G1 is a separate screen only in single-plane, two-screen mode. */
+	g0_active = (videova.grmode & 0x8000) != 0;
+	g1_active = g0_active && ((videova.grmode & 0x0c00) == 0x0c00);
 	scrnmng_format_video_line(lines[0], sizeof(lines[0]), "TEXT", 640, text_height, 4);
 	scrnmng_format_video_line(lines[1], sizeof(lines[1]), "SPRITE", 640, text_height, 4);
-	scrnmng_format_video_line(lines[2], sizeof(lines[2]), "G0", g0_width, graphics_height, g0_bpp);
-	scrnmng_format_video_line(lines[3], sizeof(lines[3]), "G1", g1_width, graphics_height, g1_bpp);
+	scrnmng_format_graphics_line(lines[2], sizeof(lines[2]), "G0", g0_active, g0_width,
+	                             graphics_height, g0_bpp, &videova.framebuffer[0]);
+	scrnmng_format_graphics_line(lines[3], sizeof(lines[3]), "G1", g1_active, g1_width,
+	                             graphics_height, g1_bpp, &videova.framebuffer[1]);
 
 	scale = (int)viewport->scale_x;
 	if (scale < 1) {
