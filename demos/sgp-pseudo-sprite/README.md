@@ -212,18 +212,20 @@ about PC-88VA hardware performance.
 
 ## Distribution D88
 
-The single compressed image [`sgpdemo.d88.xz`](sgpdemo.d88.xz) is a data-only
-2HD D88. It deliberately contains no PC-Engine system files. After booting a
-separate PC-Engine system disk, mount this image as a data disk; its root
-contains the six historical milestone programs and the four M7 variants:
+`build-d88.sh` creates a raw non-bootable 2HD data disk and a compressed
+`.d88.xz` companion. The image contains no PC-Engine system files. Programs
+are grouped by color depth, matching the wireframe demo layout:
 
 ~~~text
-SGPDEMO1.COM ... SGPDEMO6.COM
-SGPD_7A.COM  SGPD_7B.COM  SGPD_7C.COM  SGPD_7D.COM
+16/SGPDEMO1.COM ... 16/SGPDEMO6.COM
+16/SGPD_7A.COM  ... 16/SGPD_7D.COM
+256/SGP256S.COM
+65536/SGP655S.COM
 ~~~
 
-The image is generated from an empty FAT12 data disk with
-`tools/pc88va/pcengine_disk.py`, then compressed with `xz -9e`.
+The source D88 passed to the generator is used only as a local 2HD/FAT12
+geometry template. The output is first reset to an empty data disk, then the
+COM payloads are installed and compressed with `xz -9e`.
 
 ## Build
 
@@ -241,16 +243,28 @@ The output is:
 build/macos-macports/guest/sgpdemo.com
 ~~~
 
-Build all ten distributed files with the repository helpers:
+Build the color-grouped distributed files with the repository helpers:
 
 ~~~sh
-NASM=nasm demos/sgp-pseudo-sprite/build_milestone_coms.sh /tmp/sgpdemo-coms
-NASM=nasm demos/sgp-pseudo-sprite/build_m7_coms.sh /tmp/sgpdemo-m7
+NASM=nasm demos/sgp-pseudo-sprite/16/build.sh /tmp/sgpdemo-16
+NASM=nasm demos/sgp-pseudo-sprite/256/build.sh /tmp/sgpdemo-256/SGP256S.COM
+NASM=nasm demos/sgp-pseudo-sprite/65536/build.sh /tmp/sgpdemo-65536/SGP655S.COM
 ~~~
 
-The first command writes `SGPDEMO1.COM` through `SGPDEMO6.COM`; the second
-writes `SGPD_7A.COM` through `SGPD_7D.COM`. The M6 source can also be assembled
-independently:
+The 16-color builder writes `SGPDEMO1.COM` through `SGPDEMO6.COM` and
+`SGPD_7A.COM` through `SGPD_7D.COM`. The complete data disk pair is generated
+with:
+
+~~~sh
+NASM=nasm demos/sgp-pseudo-sprite/build-d88.sh \
+  /path/to/pcengine110-bootonly.d88 /tmp/sgp-pseudo-sprite.d88
+~~~
+
+This writes `/tmp/sgp-pseudo-sprite.d88` and
+`/tmp/sgp-pseudo-sprite.d88.xz`. No generated COM or D88 artifact belongs in
+the source tree.
+
+The M6 source can also be assembled independently:
 
 ~~~sh
 nasm -f bin -dMILESTONE_STAGE=6 \
@@ -262,60 +276,47 @@ No generated `.COM` file belongs in the source tree.
 
 ## Disposable disk installation
 
-The distribution image [`sgpdemo.d88.xz`](sgpdemo.d88.xz) is intentionally a
-data disk. It contains exactly ten programs: `A:\SGPDEMO1.COM` through
-`A:\SGPDEMO6.COM` and `A:\SGPD_7A.COM` through `A:\SGPD_7D.COM`. It does
-not contain `ENGINEIO.SYS`, `PCENGINE.SYS`, `ADVGBIOS.SYS`, or `PCENGINE.COM`,
-and it is not bootable by itself. This keeps emulator/system files out of the
-redistributable demo artifact.
-
-Create the same data-only image from a local copy of the repository's
-PC-Engine-layout source image:
+The generated image is intentionally a data disk and is not bootable by
+itself. Its root contains only the three color directories listed above; it
+does not contain `ENGINEIO.SYS`, `PCENGINE.SYS`, `ADVGBIOS.SYS`, or
+`PCENGINE.COM`. Create it from a local copy of the repository's PC-Engine-
+layout source image:
 
 ~~~sh
 work=$(mktemp -d /tmp/sgpdemo.XXXXXX)
-NASM=nasm demos/sgp-pseudo-sprite/build_milestone_coms.sh \
-  "$work/coms"
-NASM=nasm demos/sgp-pseudo-sprite/build_m7_coms.sh \
-  "$work/m7"
-mkdir -p "$work/payload/root"
-python3 tools/pc88va/pcengine_disk.py data \
-  --source docs/disks/pcengine110-bootonly.d88 \
-  --output "$work/sgpdemo.d88"
-cp "$work/coms"/SGPDEMO?.COM "$work/payload/root/"
-cp "$work/m7"/SGPD_7?.COM "$work/payload/root/"
-python3 tools/pc88va/pcengine_disk.py install \
-  --image "$work/sgpdemo.d88" \
-  --payload "$work/payload"
+NASM=nasm demos/sgp-pseudo-sprite/build-d88.sh \
+  docs/disks/pcengine110-bootonly.d88 "$work/sgp-pseudo-sprite.d88"
 python3 tools/pc88va/pcengine_disk.py list \
-  --image "$work/sgpdemo.d88"
-xz -c -9 "$work/sgpdemo.d88" > "$work/sgpdemo.d88.xz"
+  --image "$work/sgp-pseudo-sprite.d88"
+xz -dc "$work/sgp-pseudo-sprite.d88.xz" | \
+  cmp - "$work/sgp-pseudo-sprite.d88"
 ~~~
 
-The final `list` must show exactly ten payload files, `SGPDEMO1.COM` through
-`SGPDEMO6.COM` and `SGPD_7A.COM` through `SGPD_7D.COM`, with no PC-Engine
-system files. To run them, mount a bootable PC-Engine system disk in FDD1
-and this data disk in FDD2:
+The final `list` must show exactly the 16-color, 256-color, and 65536-color
+directories above, with no PC-Engine system files. To run them, mount a
+bootable PC-Engine system disk in FDD1 and this data disk in FDD2:
 
 ~~~sh
 build/macos-macports/sdl2/vaeg \
   --fdd1 docs/disks/pcengine110-bootonly.d88 \
-  --fdd2 /path/to/sgpdemo.d88
+  --fdd2 /path/to/sgp-pseudo-sprite.d88
 ~~~
 
 At the DOS prompt, run a selected stage on drive B:
 
 ~~~text
-B:\SGPDEMO1
-B:\SGPDEMO2
-B:\SGPDEMO3
-B:\SGPDEMO4
-B:\SGPDEMO5
-B:\SGPDEMO6
-B:\SGPD_7A
-B:\SGPD_7B
-B:\SGPD_7C
-B:\SGPD_7D
+B:\16\SGPDEMO1
+B:\16\SGPDEMO2
+B:\16\SGPDEMO3
+B:\16\SGPDEMO4
+B:\16\SGPDEMO5
+B:\16\SGPDEMO6
+B:\16\SGPD_7A
+B:\16\SGPD_7B
+B:\16\SGPD_7C
+B:\16\SGPD_7D
+B:\256\SGP256S
+B:\65536\SGP655S
 ~~~
 
 For a developer-only disposable bootable test image, `vanilla` may still be

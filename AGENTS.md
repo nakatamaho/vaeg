@@ -104,12 +104,14 @@ Release notes may summarize the ledger but do not replace it.
   notes. New paths must otherwise be lowercase.
 - Never modify binary payloads: `romimage/`, ROM/disk images, fonts,
   icons, cursors, wave data.
-- Wireframe demo disk images are data-only artifacts. `demos/sgp-wireframe`
-  disk generation must remove all PC-Engine system files and produce a
-  non-bootable 2HD D88 plus its `.d88.xz` compressed companion. A local
-  PC-Engine-layout D88 may be used only as a geometry/FAT12 template; it must
-  never be copied as the generated wireframe output. These generated images
-  remain local artifacts and are not committed.
+- SGP demo disk images are data-only artifacts. `demos/sgp-wireframe` and
+  `demos/sgp-pseudo-sprite` disk generation must remove all PC-Engine system
+  files and produce a non-bootable 2HD D88 plus its `.d88.xz` compressed
+  companion. Payloads must be grouped under `16/`, `256/`, and `65536/` when
+  those color-depth variants exist. A local PC-Engine-layout D88 may be used
+  only as a geometry/FAT12 template; it must never be copied as generated SGP
+  demo output. These generated images remain local artifacts and are not
+  committed.
 - Treat private integration asset identities as sensitive. Tracked files must
   use neutral stable test identifiers; do not record private filenames,
   absolute paths, or hashes unless the maintainer explicitly authorizes that
