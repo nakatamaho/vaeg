@@ -60,12 +60,12 @@ org 0x100
 ; The source surface is 640 pixels wide at 16 bpp (1280 bytes per row).
 ; GRRES selects a 320-dot display fetch, so the visible window is 320x200.
 %define SCREEN_WIDTH            320
-%define SOURCE_WIDTH            640
 %define SCREEN_HEIGHT           200
 %define SCREEN_PITCH            1280
 %define G0_PAGE_A_SGP_BASE      0x200000
+%define G0_PAGE_B_SGP_BASE      0x200280
 %define G0_PAGE_A_DSA           0x000000
-%define SCREEN_WORD_COUNT       0x1f400
+%define G0_PAGE_B_DSA           0x000280
 
 %define SGP_COMMAND_END         0x0001
 %define SGP_COMMAND_SET_WORK    0x0003
@@ -101,7 +101,7 @@ org 0x100
 
 %define PROJECTED_VERTEX_SIZE   6
 %define SHAPE_COUNT             4
-%define COMMAND_LIST_WORDS      1536
+%define COMMAND_LIST_WORDS      2048
 
 start:
     push cs
@@ -124,6 +124,8 @@ animation_loop:
     call wait_vblank_start
     jc animation_failed
     call display_draw_page
+    xor byte [draw_page_index], 1
+    call select_draw_page
     call advance_shape_phases
     jmp animation_loop
 
@@ -166,8 +168,8 @@ initialize_video:
     mov dx, PORT_GRRES
     mov ax, 0x1313
     out dx, ax
-    ; G0 is one 640x200 direct-color framebuffer. At 16 bpp it occupies the
-    ; complete 256 KiB single-plane surface, so no second page is claimed.
+    ; G0 is a 640x200 direct-color framebuffer. Its two 320x200 horizontal
+    ; halves are used as hidden/display pages within the 256 KiB surface.
     call define_g0_surface
     jc .failed
 
@@ -196,6 +198,8 @@ initialize_video:
     call run_sgp_command_list
     jc .failed
     call display_draw_page
+    mov byte [draw_page_index], 1
+    call select_draw_page
 
     mov ax, 0x0b01
     int VIDEO_BIOS_INT
@@ -268,6 +272,14 @@ configure_g0_framebuffer:
     ret
 
 select_draw_page:
+    cmp byte [draw_page_index], 0
+    je .page_a
+    mov word [draw_page_sgp_low], G0_PAGE_B_SGP_BASE & 0xffff
+    mov word [draw_page_sgp_high], G0_PAGE_B_SGP_BASE >> 16
+    mov word [draw_page_dsa_low], G0_PAGE_B_DSA & 0xffff
+    mov word [draw_page_dsa_high], G0_PAGE_B_DSA >> 16
+    ret
+.page_a:
     mov word [draw_page_sgp_low], G0_PAGE_A_SGP_BASE & 0xffff
     mov word [draw_page_sgp_high], G0_PAGE_A_SGP_BASE >> 16
     mov word [draw_page_dsa_low], G0_PAGE_A_DSA & 0xffff
@@ -283,6 +295,9 @@ display_draw_page:
     out dx, ax
     add dx, 2
     mov ax, [draw_page_dsa_high]
+    out dx, ax
+    mov dx, PORT_FB0_OFX
+    mov ax, [draw_page_dsa_low]
     out dx, ax
     pop dx
     pop ax
@@ -312,19 +327,9 @@ build_frame_commands:
     stosw
     xor ax, ax
     stosw
-    mov ax, SGP_COMMAND_CLS
-    stosw
-    mov ax, [draw_page_sgp_low]
-    stosw
-    mov ax, [draw_page_sgp_high]
-    stosw
-    mov ax, SCREEN_WORD_COUNT & 0xffff
-    stosw
-    mov ax, SCREEN_WORD_COUNT >> 16
-    stosw
-
-    ; CLS leaves SET COLOR at zero, so the first nonzero direct-color value
-    ; must be emitted even when that edge uses the brightest 8-bit value.
+    ; The two pages are interleaved by the 1280-byte source pitch. A single
+    ; linear CLS would erase both pages, so emit one SGP CLS per hidden row.
+    call emit_hidden_page_clear
     mov word [last_line_color], 0
     call emit_background_grid
     mov bx, shape_records
@@ -350,6 +355,36 @@ build_frame_commands:
     pop es
     pop di
     pop si
+    pop dx
+    pop cx
+    pop bx
+    pop ax
+    ret
+
+emit_hidden_page_clear:
+    push ax
+    push bx
+    push cx
+    push dx
+    xor bx, bx
+    mov cx, SCREEN_HEIGHT
+.row:
+    mov ax, SGP_COMMAND_CLS
+    stosw
+    mov ax, bx
+    mov dx, SCREEN_PITCH
+    mul dx
+    add ax, [draw_page_sgp_low]
+    adc dx, [draw_page_sgp_high]
+    stosw
+    mov ax, dx
+    stosw
+    mov ax, SCREEN_WIDTH
+    stosw
+    xor ax, ax
+    stosw
+    inc bx
+    loop .row
     pop dx
     pop cx
     pop bx
@@ -457,7 +492,6 @@ project_shape:
     mov ax, [rotated_y]
     imul word [perspective_scale]
     sar ax, 7
-    shl ax, 1
     ; Keep projection coordinates in the 320-dot display coordinate system.
     neg ax
     add ax, [bx + SHAPE_CENTER_Y]
@@ -870,7 +904,9 @@ message_animation_failed:
 
 align 2, db 0
 g0_framebuffer_descriptor:
-    dw 16, SOURCE_WIDTH, SCREEN_HEIGHT
+    ; The BIOS descriptor uses the logical 320-dot mode width.  FBW below
+    ; supplies the 1280-byte source pitch for the 640-pixel backing row.
+    dw 16, SCREEN_WIDTH, SCREEN_HEIGHT
 g0_window_descriptor:
     dw 0, 0, SCREEN_HEIGHT, 0, 0
 
@@ -966,6 +1002,7 @@ draw_page_sgp_low: dw 0
 draw_page_sgp_high: dw 0
 draw_page_dsa_low: dw 0
 draw_page_dsa_high: dw 0
+draw_page_index: db 0
 sgp_command_address_low: dw 0
 sgp_command_address_high: dw 0
 current_shape: dw 0

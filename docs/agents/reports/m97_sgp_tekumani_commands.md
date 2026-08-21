@@ -139,6 +139,20 @@ every list, `0500h`/`0502h` and the two DSA0 registers receive word writes,
 and the GVRAM write-mode latch is restored before each kick. No generated COM
 or disposable disk image is tracked.
 
+### 4.5 16-bpp 320x200 page exchange correction
+
+The direct-color teaching track under `demo/sgp-wireframe/65536/` uses the
+PC-Engine 1.00-derived `GRMODE=0xB462` / `GRRES=0x1313` profile with a 640x200 source
+surface (`FBW=1280`) and a 320x200 displayed window. Two 320x200 pages share
+each source row at byte offsets `0` and `0x280`; DSA0 and OFX are changed only
+after SGP completion and the VBLANK wait. A linear full-surface CLS would erase
+both interleaved pages, so the hidden page is cleared with 200 row-sized CLS
+commands. This removes the visible partially-redrawn-page flicker while
+keeping all rendering in SGP and the command list in main RAM. The projection
+keeps its Y coordinate in the 320x200 logical space; the earlier extra Y shift
+was removed because the 200-line display raster supplies the vertical
+magnification.
+
 ## 5. Validation
 
 | Check | Result |
