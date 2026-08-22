@@ -1122,7 +1122,7 @@ orb8_bitmaps:
     times 16 * SPRITE_BITMAP_BYTES db 0
 
 align 2, db 0
-%include "../65536/orb_hsv16_24.inc"
+%include "orb_raytrace16_24.inc"
 orb_source_table:
     dw orb_hsv_00, orb_hsv_01, orb_hsv_02, orb_hsv_03
     dw orb_hsv_04, orb_hsv_05, orb_hsv_06, orb_hsv_07
