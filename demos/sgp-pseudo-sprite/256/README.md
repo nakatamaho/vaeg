@@ -15,7 +15,7 @@ a 320x200 display window. The two 64,000-byte pages are selected by DSA1:
 page A uses SGP address `0220000h` / DSA `0020000h`, and page B uses SGP
 address `022fa00h` / DSA `002fa00h`. The logical and displayed geometry is
 always 320x200. The 16-bit ray-traced
-HSV sphere source is reduced once at startup to VA 8-bpp `RRRGGGBB` direct
+HSV sphere source is reduced once at startup to VA 8-bpp `GGGRRRBB` direct
 color. Zero pixels remain transparent, and nonzero samples that quantize to
 zero use a dark neutral fallback so shadow pixels do not acquire a blue cast.
 UP/DOWN (or `+`/`-`) changes the active ball
