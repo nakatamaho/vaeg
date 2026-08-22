@@ -53,11 +53,17 @@ def clamp(value: float, lower: float = 0.0, upper: float = 1.0) -> float:
     return max(lower, min(upper, value))
 
 
-def rgb565_word(rgb: tuple[float, float, float]) -> int:
-    red = int(clamp(rgb[0]) * 31.0 + 0.5)
-    green = int(clamp(rgb[1]) * 63.0 + 0.5)
-    blue = int(clamp(rgb[2]) * 31.0 + 0.5)
-    return (green << 10) | (red << 5) | blue
+def rgb332_byte(rgb: tuple[float, float, float]) -> int:
+    """Round linear RGB directly into the VA GGGRRRBB byte layout."""
+
+    red = int(clamp(rgb[0]) * 7.0 + 0.5)
+    green = int(clamp(rgb[1]) * 7.0 + 0.5)
+    blue = int(clamp(rgb[2]) * 3.0 + 0.5)
+    value = (green << 5) | (red << 2) | blue
+    if value == 0 and any(channel > 0.0 for channel in rgb):
+        # Keep a lit edge distinguishable from transparent color zero.
+        return 0x24
+    return value
 
 
 def trace_sphere(hue: float) -> list[list[int]]:
@@ -97,7 +103,7 @@ def trace_sphere(hue: float) -> list[list[int]]:
             coverage = hits / float(SUPERSAMPLE * SUPERSAMPLE)
             edge_factor = 0.45 + 0.55 * coverage
             output_row.append(
-                rgb565_word(
+                rgb332_byte(
                     (
                         red / (SUPERSAMPLE * SUPERSAMPLE) * edge_factor,
                         green / (SUPERSAMPLE * SUPERSAMPLE) * edge_factor,
@@ -112,8 +118,8 @@ def trace_sphere(hue: float) -> list[list[int]]:
 def emit_bitmap(name: str, bitmap: list[list[int]]) -> str:
     lines = [f"{name}:"]
     for row in bitmap:
-        values = ", ".join(f"0x{value:04x}" for value in row)
-        lines.append(f"    dw {values}")
+        values = ", ".join(f"0x{value:02x}" for value in row)
+        lines.append(f"    db {values}")
     return "\n".join(lines)
 
 
@@ -139,9 +145,10 @@ def generate() -> str:
 ; OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
 ; ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ;
-; 16 deterministic 24x24 G6/R5/B5 ray-traced spheres.  Each sample traces
-; an orthographic ray against a sphere and combines ambient, diffuse, and
-; specular lighting.  Zero words are transparent for SGP BITBLT mode 0105h.
+; 16 deterministic 24x24 GGGRRRBB ray-traced spheres.  Each sample traces an
+; orthographic ray against a sphere and combines ambient, diffuse, and
+; specular lighting before direct 3:3:2 quantization.  Zero bytes are
+; transparent for SGP BITBLT mode 0105h.
 
 """
     bitmaps = [emit_bitmap(f"orb_hsv_{index:02d}", trace_sphere(index / 16.0)) for index in range(16)]

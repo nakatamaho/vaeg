@@ -212,7 +212,6 @@ initialize_video:
     mov al, GVRAM_CPU_WRITE_MODE
     out dx, al
 
-    call convert_orbs
     call draw_g0_checkerboard
     mov byte [draw_page_index], 0
     call select_draw_page
@@ -901,89 +900,6 @@ physical_address_from_ds_si:
     adc dx, 0
     ret
 
-; Convert the retained VA direct-color words to the VA 8-bpp direct-color
-; layout.  The byte is GGG RRR BB: the 16-bpp source stores green in bits
-; 15..10, red in bits 9..5, and blue in bits 4..0.  Each channel is rounded
-; to the nearest 3:3:2 level instead of truncated. Zero remains transparent;
-; a nonzero source that quantizes to zero is kept as a dark neutral 8-bpp
-; color rather than a blue-only value.
-convert_orbs:
-    push es
-    push ds
-    pop es
-    push ax
-    push bx
-    push cx
-    push dx
-    push si
-    push di
-    push bp
-    mov bp, orb_source_table
-    mov di, orb8_bitmaps
-    mov cx, 16
-.ball:
-    push cx
-    mov si, [bp]
-    add bp, 2
-    mov cx, SPRITE_BITMAP_BYTES
-.pixel:
-    lodsw
-    test ax, ax
-    jz .transparent
-    mov dx, ax
-    shr ax, 10
-    and ax, 0x003f
-    add ax, 4
-    shr ax, 3
-    cmp ax, 7
-    jbe .green_level_ready
-    mov ax, 7
-.green_level_ready:
-    shl ax, 5
-    mov bx, dx
-    shr bx, 5
-    and bx, 0x001f
-    add bx, 2
-    shr bx, 2
-    cmp bx, 7
-    jbe .red_level_ready
-    mov bx, 7
-.red_level_ready:
-    shl bx, 2
-    or ax, bx
-    mov bx, dx
-    and bx, 0x1f
-    add bx, 4
-    shr bx, 3
-    cmp bx, 3
-    jbe .blue_level_ready
-    mov bx, 3
-.blue_level_ready:
-    or ax, bx
-    or ax, ax
-    jnz .store_pixel
-    mov al, 0x24
-.store_pixel:
-    stosb
-    loop .pixel
-    jmp .next_ball
-.transparent:
-    xor al, al
-    stosb
-    loop .pixel
-.next_ball:
-    pop cx
-    loop .ball
-    pop bp
-    pop di
-    pop si
-    pop dx
-    pop cx
-    pop bx
-    pop ax
-    pop es
-    ret
-
 save_video_state:
     mov dx, PORT_MEMORY_MAP
     in al, dx
@@ -1027,7 +943,7 @@ message_start:
     db "UP/DOWN changes the ball count (1-128), ESC exits.", 13, 10, "$"
 %else
     db "SGP 256-color double-buffered pseudo-sprite demo", 13, 10
-    db "G0 VA 8-bpp reduced-color ray-traced spheres; PATBLT checkerboard.", 13, 10
+    db "G0 VA 8-bpp direct GGGRRRBB ray-traced spheres; PATBLT checkerboard.", 13, 10
     db "UP/DOWN: count 1-128. ESC exits. FPS/C shown at top right.", 13, 10, "$"
 %endif
 message_done:
@@ -1119,15 +1035,7 @@ active_sprite_count:
 
 align 2, db 0
 orb8_bitmaps:
-    times 16 * SPRITE_BITMAP_BYTES db 0
-
-align 2, db 0
-%include "orb_raytrace16_24.inc"
-orb_source_table:
-    dw orb_hsv_00, orb_hsv_01, orb_hsv_02, orb_hsv_03
-    dw orb_hsv_04, orb_hsv_05, orb_hsv_06, orb_hsv_07
-    dw orb_hsv_08, orb_hsv_09, orb_hsv_10, orb_hsv_11
-    dw orb_hsv_12, orb_hsv_13, orb_hsv_14, orb_hsv_15
+%include "orb_raytrace8_24.inc"
 
 align 2, db 0
 fps_glyph_pointers:

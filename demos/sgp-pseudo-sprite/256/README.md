@@ -16,9 +16,9 @@ page A uses SGP address `0220000h` / DSA `0020000h`, and page B uses SGP
 address `022fa00h` / DSA `002fa00h`. The logical and displayed geometry is
 always 320x200. The 16 HSV sphere bitmaps are generated offline by
 `generate_raytrace.py`: each 24x24 pixel traces an orthographic ray against a
-sphere and combines ambient, diffuse, and specular lighting in G6/R5/B5. The
-source is reduced once at startup to VA 8-bpp `GGGRRRBB` direct color with
-rounded 3:3:2 channel quantization. Zero pixels remain transparent, and
+sphere and combines ambient, diffuse, and specular lighting before directly
+rounding the result to VA 8-bpp `GGGRRRBB` direct color. There is no retained
+16-bpp source or startup conversion loop. Zero pixels remain transparent, and
 nonzero samples that quantize to zero use a dark neutral fallback so shadow
 pixels do not acquire a blue cast.
 UP/DOWN (or `+`/`-`) changes the active ball
@@ -37,7 +37,7 @@ Regenerate the deterministic ray-traced source include with:
 
 ```sh
 python3 demos/sgp-pseudo-sprite/256/generate_raytrace.py \
-  demos/sgp-pseudo-sprite/256/orb_raytrace16_24.inc
+  demos/sgp-pseudo-sprite/256/orb_raytrace8_24.inc
 ```
 
 `SGP256T.COM` uses the same sprite and framebuffer path, but redraws the
