@@ -475,9 +475,10 @@ emit_sprite:
     mov ax, [bp + 2]
     mov dx, SCREEN_PITCH
     mul dx
+    ; 8-bpp destination addresses are byte offsets.  Align the base to an
+    ; even pixel and let the SET_DEST start-dot select the odd pixel.
     mov bx, [bp]
     and bx, 0xfffe
-    shr bx, 1
     add ax, bx
     adc dx, 0
     add ax, [draw_page_sgp_low]
@@ -545,7 +546,6 @@ emit_status_glyphs:
     xor dx, dx
     mov bp, bx
     and bp, 0xfffe
-    shr bp, 1
     add ax, bp
     adc dx, 0
     add ax, [draw_page_sgp_low]
