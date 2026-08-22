@@ -911,11 +911,11 @@ sgp_work_area:
 
 align 2, db 0
 checker_row_a:
-    times 8 db 0x18
-    times 8 db 0x38
+    times 8 db 0x00
+    times 8 db 0x6d
 checker_row_b:
-    times 8 db 0x38
-    times 8 db 0x18
+    times 8 db 0x6d
+    times 8 db 0x00
 
 align 2, db 0
 ; Retained only as a local data pattern for source-level reference; the
