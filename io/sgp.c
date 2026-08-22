@@ -13,6 +13,10 @@
 #include "sgp.h"
 #include "bmsio.h"
 
+#include <stdarg.h>
+#include <stdio.h>
+#include <stdlib.h>
+
 #define SWAPWORD(x) (((x) << 8) | ((x) >> 8))
 
 enum {
@@ -29,6 +33,24 @@ enum {
 
 _SGP sgp;
 static CLOCKSCALE sgp_clock_scale = {1, 1, 0};
+
+/* Optional, test-only SCAN trace.  The normal emulator path remains silent. */
+static void sgp_scan_trace(const char *format, ...) {
+	static int enabled = -1;
+	va_list ap;
+
+	if (enabled < 0) {
+		enabled = (getenv("VAEG_SGP_SCAN_TRACE") != NULL) ? 1 : 0;
+	}
+	if (!enabled) {
+		return;
+	}
+	va_start(ap, format);
+	fputs("SGP_SCAN: ", stderr);
+	vfprintf(stderr, format, ap);
+	fputc('\n', stderr);
+	va_end(ap);
+}
 
 BOOL sgp_speed_mode_valid(UINT mode) {
 	return (mode < SGP_SPEED_MODE_COUNT);
@@ -668,6 +690,8 @@ static void cmd_set_work(void) {
 
 static void cmd_set_source(void) {
 	fetch_block(sgp.pc, &sgp.src);
+	sgp_scan_trace("SET_SOURCE addr=%06lx dot=%d mode=%d width=%d height=%d fbw=%d", sgp.src.address,
+	               sgp.src.dot, sgp.src.scrnmode, sgp.src.width, sgp.src.height, sgp.src.fbw);
 	TRACEOUT(("SGP: cmd: set source     : dot=%d, mode=%d, w=%d, h=%d, fbw=%d, addr=%08lx",
 	          sgp.src.dot, sgp.src.scrnmode, sgp.src.width, sgp.src.height, sgp.src.fbw,
 	          sgp.src.address));
@@ -677,6 +701,8 @@ static void cmd_set_source(void) {
 
 static void cmd_set_destination(void) {
 	fetch_block(sgp.pc, &sgp.dest);
+	sgp_scan_trace("SET_DEST addr=%06lx dot=%d mode=%d width=%d height=%d fbw=%d", sgp.dest.address,
+	               sgp.dest.dot, sgp.dest.scrnmode, sgp.dest.width, sgp.dest.height, sgp.dest.fbw);
 	TRACEOUT(("SGP: cmd: set destination: dot=%d, mode=%d, w=%d, h=%d, fbw=%d, addr=%08lx",
 	          sgp.dest.dot, sgp.dest.scrnmode, sgp.dest.width, sgp.dest.height, sgp.dest.fbw,
 	          sgp.dest.address));
@@ -720,6 +746,9 @@ static void cmd_patblt(void) {
 	sgp.bltmode = sgp_memoryread_w(sgp.pc);
 	sgp.pc += 2;
 	sgp.remainclock -= 338 * 2;
+	sgp_scan_trace("PATBLT mode=%04x src_width=%d src_height=%d dest_width=%d dest_height=%d dest_addr=%06lx dest_dot=%d",
+	               sgp.bltmode, sgp.src.width, sgp.src.height, sgp.dest.width, sgp.dest.height,
+	               sgp.dest.address, sgp.dest.dot);
 
 	TRACEOUT(("SGP: cmd: patblt: %04x", sgp.bltmode));
 
@@ -806,6 +835,8 @@ static void cmd_cls(void) {
 
 static void cmd_scan_right(void) {
 	TRACEOUT(("SGP: cmd: scan right"));
+	sgp_scan_trace("SCAN_RIGHT start addr=%06lx dot=%d width=%d mode=%d color=%04x", sgp.dest.address,
+	               sgp.dest.dot, sgp.dest.width, sgp.dest.scrnmode, sgp.color);
 	if (sgp.dest.width == 0) {
 		/* Zero extents are undefined by the hardware manual; finish defensively. */
 		sgp.func = FUNC_FETCH_COMMAND;
@@ -819,6 +850,8 @@ static void cmd_scan_right(void) {
 
 static void cmd_scan_left(void) {
 	TRACEOUT(("SGP: cmd: scan left"));
+	sgp_scan_trace("SCAN_LEFT start addr=%06lx dot=%d width=%d mode=%d color=%04x", sgp.dest.address,
+	               sgp.dest.dot, sgp.dest.width, sgp.dest.scrnmode, sgp.color);
 	if (sgp.dest.width == 0) {
 		/* Zero extents are undefined by the hardware manual; finish defensively. */
 		sgp.func = FUNC_FETCH_COMMAND;
@@ -1105,6 +1138,8 @@ static void exec_scan_right(void) {
 	scanned = sgp.dest.width - sgp.dest.xcount;
 	if (scan_current_pixel_matches()) {
 		sgp.dest.width = scanned;
+		sgp_scan_trace("SCAN_RIGHT result found=1 width=%d addr=%06lx dot=%d", sgp.dest.width,
+		               sgp.dest.address, sgp.dest.dot);
 		sgp.func = FUNC_FETCH_COMMAND;
 		return;
 	}
@@ -1112,6 +1147,8 @@ static void exec_scan_right(void) {
 	sgp.dest.xcount--;
 	if (sgp.dest.xcount == 0) {
 		/* A miss leaves the destination descriptor unchanged. */
+		sgp_scan_trace("SCAN_RIGHT result found=0 width=%d addr=%06lx dot=%d", sgp.dest.width,
+		               sgp.dest.address, sgp.dest.dot);
 		sgp.func = FUNC_FETCH_COMMAND;
 		return;
 	}
@@ -1135,6 +1172,8 @@ static void exec_scan_left(void) {
 			sgp.dest.address = left_address;
 			sgp.dest.dot = left_dot;
 		}
+		sgp_scan_trace("SCAN_LEFT result found=1 width=%d addr=%06lx dot=%d", sgp.dest.width,
+		               sgp.dest.address, sgp.dest.dot);
 		sgp.func = FUNC_FETCH_COMMAND;
 		return;
 	}
@@ -1142,6 +1181,8 @@ static void exec_scan_left(void) {
 	sgp.dest.xcount--;
 	if (sgp.dest.xcount == 0) {
 		/* A miss leaves the destination descriptor unchanged. */
+		sgp_scan_trace("SCAN_LEFT result found=0 width=%d addr=%06lx dot=%d", sgp.dest.width,
+		               sgp.dest.address, sgp.dest.dot);
 		sgp.func = FUNC_FETCH_COMMAND;
 		return;
 	}
@@ -1702,6 +1743,8 @@ static void IOOUTCALL sgp_o500(UINT port, REG8 dat) {
 	UINT32 mask;
 	int bit;
 
+	TRACEOUT(
+	    ("SGP: io out port=%04x width=8 value=%02x cs:ip=%.4x:%.4x", port, dat, CPU_CS, CPU_IP));
 	mask = 0x000000ffL;
 	bit = (port - 0x500) * 8;
 	mask <<= bit;
@@ -1712,6 +1755,8 @@ static void IOOUTCALL sgp_o500(UINT port, REG8 dat) {
 Interrupt-enable and abort-request register.
 */
 static void IOOUTCALL sgp_o504(UINT port, REG8 dat) {
+	TRACEOUT(
+	    ("SGP: io out port=%04x width=8 value=%02x cs:ip=%.4x:%.4x", port, dat, CPU_CS, CPU_IP));
 	dat &= SGP_INTF | SGP_ABORT;
 	sgp.ctrl = dat;
 	if (sgp.ctrl & SGP_ABORT) {
@@ -1727,6 +1772,8 @@ static void IOOUTCALL sgp_o504(UINT port, REG8 dat) {
 }
 
 static REG8 IOINPCALL sgp_i504(UINT port) {
+	TRACEOUT(("SGP: io in port=%04x width=8 value=%02x cs:ip=%.4x:%.4x", port, sgp.ctrl, CPU_CS,
+	          CPU_IP));
 	if (!gactrlva.gmsp)
 		return sgp_i_notactive(port);
 	return sgp.ctrl;
@@ -1736,6 +1783,8 @@ static REG8 IOINPCALL sgp_i504(UINT port) {
 Execution-attention register.
 */
 static void IOOUTCALL sgp_o506(UINT port, REG8 dat) {
+	TRACEOUT(
+	    ("SGP: io out port=%04x width=8 value=%02x cs:ip=%.4x:%.4x", port, dat, CPU_CS, CPU_IP));
 	dat &= SGP_BUSY;
 	if (!(sgp.busy & SGP_BUSY) && (dat & SGP_BUSY)) {
 		// Execution-attention register.
@@ -1751,6 +1800,8 @@ static void IOOUTCALL sgp_o506(UINT port, REG8 dat) {
 Status register.
 */
 static REG8 IOINPCALL sgp_i506(UINT port) {
+	TRACEOUT(("SGP: io in port=%04x width=8 value=%02x cs:ip=%.4x:%.4x", port, sgp.busy, CPU_CS,
+	          CPU_IP));
 	if (!gactrlva.gmsp)
 		return sgp_i_notactive(port);
 	//	TRACEOUT(("SGP: read status: %02x", sgp.busy));
