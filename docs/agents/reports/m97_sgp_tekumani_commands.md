@@ -154,6 +154,30 @@ remains in main RAM. The projection keeps its Y coordinate in the 320x200
 logical space; the earlier extra Y shift remains removed because it distorted
 the aspect of the 200-line display raster.
 
+### 4.6 Direct-color triangle scan exercise
+
+The new `demos/sgp-scan/65536/sgptri.asm` is a separate direct-color teaching
+exercise. It selects the 320x200 logical G0 view used by the existing 16-bpp
+track, keeps two contiguous 320x200 pages in the 320x400 source surface, and
+allows one through four independently rotating projected triangular plates to
+be selected with the arrow keys. The CPU performs the fixed-point rotation,
+projection, and shade choice. SGP performs the clear, background grid, SCAN
+probes, and triangle outlines on the selected hidden 16-bpp frame.
+
+Polygon filling is intentionally disabled again. The command set has no
+documented polygon-fill opcode, and direct-color behavior of the Graphics BIOS
+polygon/Paint services remains under evaluation. The demo does not claim that
+an INT 87h/AH=15h Paint call emits `SCAN_RIGHT` or `SCAN_LEFT`; it emits both
+SGP commands directly as harmless probes so VAEG tracing can verify that the
+implemented SCAN handlers are reached.
+
+The first implementation used signed 16-bit edge intersection and division in
+the guest command builder. That path could stop before the SGP kick on malformed
+projected edges. It was replaced with clipped min/max spans and bounded
+addition/shift-only midpoint spans. Those fill paths are no longer called; the
+current build emits only outline LINE records. This is emulator evidence only;
+BIOS equivalence and real-hardware behavior remain unconfirmed.
+
 ## 5. Validation
 
 | Check | Result |

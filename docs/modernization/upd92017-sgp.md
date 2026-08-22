@@ -143,9 +143,9 @@ vaeg evidence:
 - [`io/sgp.c`](../../io/sgp.c)
 - [`io/sgp.h`](../../io/sgp.h)
 
-The local implementation contains BITBLT, PATBLT, LINE, CLS, dispatch,
-interrupts, and memory access. SCAN commands are TODOs; Kanji handlers and
-some memory regions are incomplete; timing and contention contain provisional
+The local implementation contains BITBLT, PATBLT, LINE, CLS, SCAN_RIGHT,
+SCAN_LEFT, dispatch, interrupts, and memory access. Kanji handlers and some
+memory regions are incomplete; timing and contention contain provisional
 constants; and later-model descriptor widths are reconstruction evidence.
 
 MAME evidence:
@@ -675,15 +675,18 @@ destination descriptor supplies the starting pixel, pixel mode, and maximum
 pixel count. If the starting pixel already has the selected color, the result
 width is zero. If a later pixel matches, the destination width becomes the
 number of pixels from the start to that boundary. If no pixel matches within
-the maximum count, the destination width remains unchanged. Current vaeg only
-logs the command as not implemented.
+the maximum count, the destination width remains unchanged. Current vaeg
+executes the scan asynchronously through the SGP state machine. The
+emulator-side SCAN sanity test covers first-pixel, later-pixel, miss,
+packed-word, nearest-boundary, and adjacent-boundary cases.
 
 ## 16. SCAN_LEFT (`000Ch`)
 
 SCAN_LEFT applies the same color and count rules while moving left. On a
 match, it additionally updates the destination start address and start-dot to
 the left edge of the scanned region. A first-pixel match produces width zero;
-a miss leaves the descriptor unchanged. It is also a vaeg TODO.
+a miss leaves the descriptor unchanged. Current vaeg implements this behavior
+in the same asynchronous state machine as SCAN_RIGHT.
 
 Tests must distinguish initial-pixel stopping, one-pixel-away stopping,
 packed-word crossing, x=0, rightmost start, no match, and left/right symmetry.
@@ -753,13 +756,38 @@ A staged emulator strategy is:
 | Address space | 4MiB original-VA map | Broadly modeled; incomplete handlers | Period map is baseline; overlays are model profiles |
 | Command table | Main RAM for portable software | Fetch backend can address SGP space | Require main RAM until hardware proves otherwise |
 | Work area | 58 bytes | Address retained | Preserve size; do not invent layout |
-| BITBLT/PATBLT | Documented | Implemented with incomplete modes | Period semantics first |
+| BITBLT/PATBLT | Documented | Implemented; edge cases and hardware conformance remain incomplete | Period semantics first |
 | LINE | Documented | Implemented; direction conflict | Raw-bit hardware test |
 | CLS | Documented | Word-count fill | Verify count encoding |
-| SCAN | Documented | Both TODO | Required, detailed format unresolved |
+| SCAN_RIGHT / SCAN_LEFT | Documented | Implemented and covered by emulator-side sanity tests | Real-hardware conformance remains open |
+| Kanji ROM source access | Address regions are present in the SGP map | `knj1w_rd()` and `knj2w_rd()` are TODO | Required only for SGP transfers sourced from Kanji ROM |
+| Kanji ROM writes | ROM is not a normal writable target | `knj2w_wt()` is a TODO no-op | Confirm write-protection behavior before changing it |
+| Unknown command after `000Ch` | Manual says thirteen commands but identifies twelve opcodes | `000Dh` and above are rejected as unknown | Do not invent the missing opcode |
 | VA2 descriptor width | Not fully established | 14-bit width/16-bit height comments | Separate later-model profile |
 | Clock | No recovered primary table | Nominal 3.9936/7.9872MHz | Captured/provisional provenance |
 | Contention | Shared-memory waits | Fixed approximate CPU deduction | Do not claim cycle accuracy |
+
+### 19.1 Functions outside the SGP command set
+
+The following items must not be reported as missing SGP opcodes. They are
+either higher-level software operations or responsibilities of another VA
+device/layer:
+
+| Function | SGP status | Correct interpretation |
+|---|---|---|
+| Dedicated rectangle-fill opcode | Not identified | A solid rectangle can be composed with a 1x1 source and PATBLT; CLS is a linear word fill, not a rectangle primitive |
+| Flood fill / PAINT | No dedicated SGP command | BIOS or guest software can combine SCAN_LEFT/SCAN_RIGHT with PATBLT |
+| Polygon fill | Not an SGP command | Requires CPU/BIOS edge setup and repeated SGP operations |
+| Circle / ellipse | Not an SGP command | Must be approximated by CPU-generated LINE records or another graphics layer |
+| Sprite management | Not an SGP responsibility | Owned by TSP/pseudo-sprite software |
+| Scaling and rotation | Not an SGP responsibility | Performed by CPU-side geometry or sprite hardware/software |
+| Alpha blending and z-buffering | Not an SGP command | No corresponding SGP state or opcode is identified |
+| 3D transformation | Not an SGP responsibility | CPU-side operation |
+
+This distinction is important: the absence of these functions from SGP is a
+hardware-command-set property, not an assertion that VAEG is missing an SGP
+implementation. Conversely, Kanji ROM access, the unresolved thirteenth
+command, and hardware-accurate timing remain genuine SGP audit items.
 
 MAME must be checked directly for individual semantics before attributing a
 behavior to it. Its device and map are useful implementation evidence, not a
