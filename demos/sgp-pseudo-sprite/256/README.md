@@ -16,8 +16,9 @@ page A uses SGP address `0220000h` / DSA `0020000h`, and page B uses SGP
 address `022fa00h` / DSA `002fa00h`. The logical and displayed geometry is
 always 320x200. The 16-bit ray-traced
 HSV sphere source is reduced once at startup to VA 8-bpp `GGGRRRBB` direct
-color. Zero pixels remain transparent, and nonzero samples that quantize to
-zero use a dark neutral fallback so shadow pixels do not acquire a blue cast.
+color with rounded 3:3:2 channel quantization. Zero pixels remain transparent,
+and nonzero samples that quantize to zero use a dark neutral fallback so shadow
+pixels do not acquire a blue cast.
 UP/DOWN (or `+`/`-`) changes the active ball
 count from 1 through 128; ESC exits and restores the previous video mode.
 

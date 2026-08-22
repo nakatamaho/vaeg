@@ -903,9 +903,10 @@ physical_address_from_ds_si:
 
 ; Convert the retained VA direct-color words to the VA 8-bpp direct-color
 ; layout.  The byte is GGG RRR BB: the 16-bpp source stores green in bits
-; 15..10, red in bits 9..5, and blue in bits 4..0.  Zero remains
-; transparent; a nonzero source that quantizes to zero is kept as a dark
-; neutral 8-bpp color rather than a blue-only value.
+; 15..10, red in bits 9..5, and blue in bits 4..0.  Each channel is rounded
+; to the nearest 3:3:2 level instead of truncated. Zero remains transparent;
+; a nonzero source that quantizes to zero is kept as a dark neutral 8-bpp
+; color rather than a blue-only value.
 convert_orbs:
     push es
     push ds
@@ -932,17 +933,32 @@ convert_orbs:
     mov dx, ax
     shr ax, 10
     and ax, 0x003f
+    add ax, 4
     shr ax, 3
+    cmp ax, 7
+    jbe .green_level_ready
+    mov ax, 7
+.green_level_ready:
     shl ax, 5
     mov bx, dx
     shr bx, 5
     and bx, 0x001f
+    add bx, 2
     shr bx, 2
+    cmp bx, 7
+    jbe .red_level_ready
+    mov bx, 7
+.red_level_ready:
     shl bx, 2
     or ax, bx
     mov bx, dx
     and bx, 0x1f
+    add bx, 4
     shr bx, 3
+    cmp bx, 3
+    jbe .blue_level_ready
+    mov bx, 3
+.blue_level_ready:
     or ax, bx
     or ax, ax
     jnz .store_pixel
