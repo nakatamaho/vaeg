@@ -22,6 +22,10 @@
 bits 16
 org 0x100
 
+%ifndef SCROLL_BACKGROUND
+%define SCROLL_BACKGROUND       0
+%endif
+
 %define KEYBOARD_BIOS_INT       0x82
 %define CALENDAR_BIOS_INT       0x8c
 %define VIDEO_BIOS_INT          0x8f
@@ -117,6 +121,9 @@ animation_loop:
     jc animation_done
     call wait_vblank_start
     jc animation_failed
+%if SCROLL_BACKGROUND
+    call update_scroll_background
+%endif
     call update_sprites
     call update_fps_counter
     call build_sprite_commands
@@ -326,6 +333,108 @@ draw_g0_checkerboard:
     pop bx
     pop ax
     ret
+
+%if SCROLL_BACKGROUND
+; Move three independently phased 16-dot checker bands.  The internal
+; phases advance by 3, 7, and 11 byte units, then round to a 16-byte tile
+; boundary before copying each row.  G0 is CPU-visible memory, so the final
+; row transfer uses word stores and never byte-accesses a hardware word port.
+update_scroll_background:
+    push ax
+    push bx
+    push cx
+    push dx
+    push es
+    mov ax, G0_SEGMENT
+    mov es, ax
+
+    add word [scroll_phase_top], 3
+    and word [scroll_phase_top], 0x001f
+    add word [scroll_phase_middle], 7
+    and word [scroll_phase_middle], 0x001f
+    add word [scroll_phase_bottom], 11
+    and word [scroll_phase_bottom], 0x001f
+
+    xor bx, bx
+    mov cx, 66
+    mov dx, [scroll_phase_top]
+    call draw_scroll_band
+
+    mov bx, 66
+    mov cx, 67
+    mov dx, [scroll_phase_middle]
+    call draw_scroll_band
+
+    mov bx, 133
+    mov cx, 67
+    mov dx, [scroll_phase_bottom]
+    call draw_scroll_band
+
+    pop es
+    pop dx
+    pop cx
+    pop bx
+    pop ax
+    ret
+
+; BX=start row, CX=row count, DX=unrounded phase.  The source pattern is
+; longer than one display row so an aligned 16-byte phase can be copied
+; without wrapping inside the temporary row buffer.
+draw_scroll_band:
+    push ax
+    push bx
+    push cx
+    push dx
+    push si
+    push di
+    push bp
+
+    mov [scroll_work_y], bx
+    mov [scroll_work_phase], dx
+    mov [scroll_work_rows], cx
+.row:
+    mov bp, [scroll_work_y]
+    test bp, 0x0010
+    jz .dark_row
+    mov si, scroll_pattern_light
+    jmp .pattern_selected
+.dark_row:
+    mov si, scroll_pattern_dark
+.pattern_selected:
+    mov ax, [scroll_work_phase]
+    add ax, 8
+    and ax, 0x0010
+    add si, ax
+
+    push es
+    push ds
+    pop es
+    mov di, scroll_row_buffer
+    mov cx, SCREEN_PITCH
+    rep movsb
+    pop es
+
+    mov ax, bp
+    mov bx, SCREEN_PITCH
+    mul bx
+    mov di, ax
+    mov si, scroll_row_buffer
+    mov cx, SCREEN_PITCH / 2
+    rep movsw
+
+    inc word [scroll_work_y]
+    dec word [scroll_work_rows]
+    jnz .row
+
+    pop bp
+    pop di
+    pop si
+    pop dx
+    pop cx
+    pop bx
+    pop ax
+    ret
+%endif
 
 update_sprites:
     push ax
@@ -896,9 +1005,15 @@ print_string:
     ret
 
 message_start:
+%if SCROLL_BACKGROUND
+    db "SGP256T: 8-bpp pseudo-sprites with scrolling G0", 13, 10
+    db "Three bands use 3/7/11 phases aligned to 16-dot checker tiles.", 13, 10
+    db "UP/DOWN changes the ball count (1-128), ESC exits.", 13, 10, "$"
+%else
     db "SGP 256-color double-buffered pseudo-sprite demo", 13, 10
     db "G0 VA 8-bpp reduced-color ray-traced spheres; PATBLT checkerboard.", 13, 10
     db "UP/DOWN: count 1-128. ESC exits. FPS/C shown at top right.", 13, 10, "$"
+%endif
 message_done:
     db "Video state restored.", 13, 10, "$"
 message_initialization_failed:
@@ -919,6 +1034,38 @@ checker_row_a:
 checker_row_b:
     times 8 db 0x6d
     times 8 db 0x00
+
+%if SCROLL_BACKGROUND
+align 2, db 0
+scroll_phase_top:
+    dw 0
+scroll_phase_middle:
+    dw 0
+scroll_phase_bottom:
+    dw 0
+scroll_work_y:
+    dw 0
+scroll_work_phase:
+    dw 0
+scroll_work_rows:
+    dw 0
+
+; Each source row is 352 bytes, allowing a 0- or 16-byte aligned phase to
+; supply a complete 320-byte display row.  The two source rows are the
+; alternating halves of the 16x16 checker tile.
+scroll_pattern_dark:
+%rep 11
+    times 16 db 0x00
+    times 16 db 0x6d
+%endrep
+scroll_pattern_light:
+%rep 11
+    times 16 db 0x6d
+    times 16 db 0x00
+%endrep
+scroll_row_buffer:
+    times SCREEN_PITCH db 0
+%endif
 
 align 2, db 0
 ; Retained only as a local data pattern for source-level reference; the

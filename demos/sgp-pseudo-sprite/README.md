@@ -200,6 +200,11 @@ order. Dirty-region intersection redraw (M7e) and a triple-buffer experiment
 verified 320x200, 16-color, single-plane 4bpp mode and the existing Graphic 0
 background / Graphic 1 page exchange.
 
+The parallel 8-bpp demos live under `256/`. `SGP256S.COM` keeps the static
+checkerboard, while `SGP256T.COM` applies the same three-band 3/7/11-phase
+scrolling background as `SGPD_7S.COM`; both retain the 320x200 logical window
+and two-page Graphic 1 sprite surface.
+
 Build all M7 variants with:
 
 ~~~sh
@@ -222,6 +227,7 @@ are grouped by color depth, matching the wireframe demo layout:
 16/SGPD_7A.COM  ... 16/SGPD_7D.COM
 16/SGPD_7S.COM
 256/SGP256S.COM
+256/SGP256T.COM
 65536/SGP655S.COM
 ~~~
 
@@ -250,6 +256,7 @@ Build the color-grouped distributed files with the repository helpers:
 ~~~sh
 NASM=nasm demos/sgp-pseudo-sprite/16/build.sh /tmp/sgpdemo-16
 NASM=nasm demos/sgp-pseudo-sprite/256/build.sh /tmp/sgpdemo-256/SGP256S.COM
+NASM=nasm demos/sgp-pseudo-sprite/256/build-scroll.sh /tmp/sgpdemo-256/SGP256T.COM
 NASM=nasm demos/sgp-pseudo-sprite/65536/build.sh /tmp/sgpdemo-65536/SGP655S.COM
 ~~~
 
@@ -340,6 +347,7 @@ B:\16\SGPD_7C
 B:\16\SGPD_7D
 B:\16\SGPD_7S
 B:\256\SGP256S
+B:\256\SGP256T
 B:\65536\SGP655S
 ~~~
 

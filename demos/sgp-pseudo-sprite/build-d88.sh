@@ -71,6 +71,7 @@ mkdir -p "$work_dir/16" "$work_dir/256" "$work_dir/65536"
 
 NASM=${NASM:-nasm} "$script_dir/16/build.sh" "$work_dir/16"
 NASM=${NASM:-nasm} "$script_dir/256/build.sh" "$work_dir/256/SGP256S.COM"
+NASM=${NASM:-nasm} "$script_dir/256/build-scroll.sh" "$work_dir/256/SGP256T.COM"
 NASM=${NASM:-nasm} "$script_dir/65536/build.sh" "$work_dir/65536/SGP655S.COM"
 
 python3 "$repo_root/tools/pc88va/pcengine_disk.py" data \
@@ -88,4 +89,6 @@ printf 'Created compressed pseudo-sprite data disk: %s\n' "$compressed_image"
 printf '  16/SGPDEMO1.COM ... 16/SGPDEMO6.COM\n'
 printf '  16/SGPD_7A.COM ... 16/SGPD_7D.COM\n'
 printf '  16/SGPD_7S.COM (scrolling background)\n'
-printf '  256/SGP256S.COM\n  65536/SGP655S.COM\n'
+printf '  256/SGP256S.COM (static background)\n'
+printf '  256/SGP256T.COM (scrolling background)\n'
+printf '  65536/SGP655S.COM\n'
