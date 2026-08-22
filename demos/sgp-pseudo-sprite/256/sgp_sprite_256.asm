@@ -98,7 +98,9 @@ org 0x100
 %define FPS_GLYPH_Y             4
 %define FPS_GLYPH_ADVANCE       5
 %define FPS_SAMPLE_FRAMES       60
-%define GLYPH_COLOR             0xf8
+; The 8-bpp direct-color layout is RRR GGG BB.  Use all channel bits for
+; status glyphs so the displayed FPS/C text is neutral white, not yellow.
+%define GLYPH_COLOR             0xff
 
 start:
     push cs
@@ -791,9 +793,10 @@ physical_address_from_ds_si:
     ret
 
 ; Convert the retained VA direct-color words to the VA 8-bpp direct-color
-; layout.  The byte is GGG RRR BB: the 16-bpp source stores green in bits
+; layout.  The byte is RRR GGG BB: the 16-bpp source stores green in bits
 ; 15..10, red in bits 9..5, and blue in bits 4..0.  Zero remains
-; transparent; a nonzero source that quantizes to zero is kept as color 1.
+; transparent; a nonzero source that quantizes to zero is kept as a dark
+; neutral 8-bpp color rather than a blue-only value.
 convert_orbs:
     push es
     push ds
@@ -818,14 +821,14 @@ convert_orbs:
     test ax, ax
     jz .transparent
     mov dx, ax
-    shr ax, 10
-    and ax, 0x003f
-    shr ax, 3
+    shr ax, 5
+    and ax, 0x001f
+    shr ax, 2
     shl ax, 5
     mov bx, dx
-    shr bx, 5
-    and bx, 0x001f
-    shr bx, 2
+    shr bx, 10
+    and bx, 0x003f
+    shr bx, 3
     shl bx, 2
     or ax, bx
     mov bx, dx
@@ -834,7 +837,7 @@ convert_orbs:
     or ax, bx
     or ax, ax
     jnz .store_pixel
-    mov al, 1
+    mov al, 0x24
 .store_pixel:
     stosb
     loop .pixel
