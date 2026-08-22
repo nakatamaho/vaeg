@@ -1,4 +1,4 @@
-# SGP256S
+# SGP256S / SGP256T
 
 `SGP256S.COM` is the 8-bpp parallel of the 16-color pseudo-sprite demo. Both
 graphics screens use the same logical 320x200 mode:
@@ -29,3 +29,15 @@ NASM=/opt/local/bin/nasm sh demos/sgp-pseudo-sprite/256/build.sh /tmp/SGP256S.CO
 
 The generated COM and any D88 test image are disposable artifacts and remain
 outside the repository.
+
+`SGP256T.COM` uses the same sprite and framebuffer path, but redraws the
+Graphic 0 checkerboard as three independently phased horizontal bands. The
+internal phases advance by 3, 7, and 11 byte units and snap to 16-byte
+(16-dot) checker boundaries before each row is written. The sprite count,
+FPS/C glyphs, 8-bpp format, and two-page Graphic 1 exchange are unchanged.
+
+Build the scrolling variant with:
+
+```sh
+NASM=/opt/local/bin/nasm sh demos/sgp-pseudo-sprite/256/build-scroll.sh /tmp/SGP256T.COM
+```
