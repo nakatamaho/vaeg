@@ -70,6 +70,35 @@ separate parity correction or move it to Open Defects.
 
 ## Fixed Defects
 
+### GLASS P4 face fill used geometry-specific repair and empty-span overdraw
+
+- **Status:** fixed in M97; real-hardware keyboard-return parity remains a
+  separate unresolved item.
+- **Symptom:** the GLASS P4 cube needed a temporary one-pixel outline bridge
+  after face filling, and a vertex row could gain a face-colour pixel outside
+  the polygon when an empty span was swapped into an ordered range.
+- **Root cause:** triangle spans used inconsistent integer-X ownership at
+  `y+1/2`; the generic span emitter swapped `x_left > x_right` instead of
+  treating it as an empty span. The earlier repair stage masked this symptom
+  with cube-specific writes. This was not an SDL blank-raster presentation
+  issue.
+- **Correction:** use one general `ceil(left)`/`floor(right)` half-row rule,
+  discard empty spans, preserve exact logical endpoints with masked 4bpp word
+  RMW, and keep only the intended outline redraw. The CPU verification path
+  now uses the same exact logical-span contract. A source-level no-repair
+  guard prevents reintroducing named geometry-specific repair stages.
+- **Verification:** independent x-mod-4 calibration, face underfill/overfill,
+  internal-hole, edge-registration, vertex, shared-edge, slope, and rectangle
+  matrices passed. CPU/SGP complete GVRAM and composed-screen comparison
+  passed; CTest 84/84 passed with one external test skipped by policy; VAEG
+  selftest passed. Real observations remain PC-88VA graphics/ESC PASS with
+  keyboard-after-return unresolved, and PC-88VA2 graphics/ESC/keyboard PASS.
+- **Evidence:** [M97 P4 visual report](../agents/reports/m97_p4_visual_holes.md),
+  [SGP P4 implementation](../../demos/va/glass-orbit/src/glass_orbit_p4_sgp.asm),
+  and [no-repair guard](../../demos/va/glass-orbit/tools/check-p4-no-repair.py).
+- **Milestone/task:** M97 P4 fill algorithm cleanup.
+- **Commit:** [76d7de7](https://github.com/nakatamaho/vaeg/commit/76d7de7cfffd51b49302cd46cd47afb82ad200f4).
+
 ### SGP wireframe demo corrupted its projected solid geometry
 
 - **Status:** fixed in the revised M97 visual-gate candidate; G97 remains
