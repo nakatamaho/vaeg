@@ -65,7 +65,7 @@ would enqueue the outline twice.
 ## Build
 
 ```sh
-NASM=nasm demos/va/glass-orbit/build-p5-sgp.sh /absolute/path/GLASSP5S.COM
+NASM=nasm demos/glass-orbit/build-p5-sgp.sh /absolute/path/GLASSP5S.COM
 ```
 
 The generated COM and raw payload are local artifacts. A local bootable image

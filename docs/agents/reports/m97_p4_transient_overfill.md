@@ -69,7 +69,7 @@ disabled.
 ## Temporal QA
 
 The independent checker is
-`demos/va/glass-orbit/tools/verify-p4-temporal.py`.  It reconstructs each
+`demos/glass-orbit/tools/verify-p4-temporal.py`.  It reconstructs each
 operation in the order `left-RMW`, `SGP-full`, `right-RMW`, checks endpoint and
 interior disjointness, and checks that every intermediate face-color set is a
 subset of the exact logical span.  It also runs endpoint-residue and sloped

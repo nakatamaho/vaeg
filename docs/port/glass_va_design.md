@@ -51,7 +51,7 @@ renderer nor a fallback selected at runtime.
 
 ## 2. Deliverable layout and build boundary
 
-P3 must add only new GLASS-specific files beneath `demos/va/glass-orbit/`.
+P3 must add only new GLASS-specific files beneath `demos/glass-orbit/`.
 The P0 geometry/data files remain the sole imported original-code closure.
 
 | Planned file | Responsibility |

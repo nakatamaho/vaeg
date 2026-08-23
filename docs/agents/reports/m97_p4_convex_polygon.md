@@ -144,16 +144,16 @@ separate QA item because this GLASS path does not use them.
 
 ## Files changed
 
-- `demos/va/glass-orbit/src/glass_p4_convex.inc`: shared convex scan
+- `demos/glass-orbit/src/glass_p4_convex.inc`: shared convex scan
   converter.
-- `demos/va/glass-orbit/src/glass_orbit_p4_sgp.asm`: one convex call per
+- `demos/glass-orbit/src/glass_orbit_p4_sgp.asm`: one convex call per
   visible SGP face; triangle filler retained for QA.
-- `demos/va/glass-orbit/src/glass_orbit_p4_cpu.asm`: same shared geometry for
+- `demos/glass-orbit/src/glass_orbit_p4_cpu.asm`: same shared geometry for
   the CPU reference path.
-- `demos/va/glass-orbit/tools/check-p4-convex.py`: structural one-pass face
+- `demos/glass-orbit/tools/check-p4-convex.py`: structural one-pass face
   guard.
-- `demos/va/glass-orbit/build-p4-sgp.sh` and `build-p4-cpu.sh`: invoke the
+- `demos/glass-orbit/build-p4-sgp.sh` and `build-p4-cpu.sh`: invoke the
   convex-face guard.
-- `demos/va/glass-orbit/tools/verify-p4-visual.py`: direct convex oracle,
+- `demos/glass-orbit/tools/verify-p4-visual.py`: direct convex oracle,
   triangle-union comparison, and generic convex-shape matrix.
 - `docs/port/glass_p4_sgp.md`: direct convex-face architecture and contract.

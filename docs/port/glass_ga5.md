@@ -80,7 +80,7 @@ The runner takes a local bootable 2HD template, a VAEG binary, a local ROM
 directory, and a new output directory:
 
 ```text
-demos/va/glass-orbit/run-vaeg-ga5.sh \
+demos/glass-orbit/run-vaeg-ga5.sh \
   SOURCE_BOOTABLE_2HD.d88 VAEG ROM_DIRECTORY OUTPUT_DIRECTORY
 ```
 

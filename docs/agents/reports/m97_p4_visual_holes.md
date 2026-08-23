@@ -62,7 +62,7 @@ interpolation code.
 
 ## Independent checker
 
-`demos/va/glass-orbit/tools/verify-p4-visual.py` decodes raw logical pixels,
+`demos/glass-orbit/tools/verify-p4-visual.py` decodes raw logical pixels,
 reports every interior background run with width and modulo-8/modulo-16
 coordinates, and runs an independent pixel-array rectangle alignment matrix
 for all eight low-bit start positions, including exhaustive endpoint and

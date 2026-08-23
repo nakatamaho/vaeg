@@ -94,8 +94,8 @@ separate parity correction or move it to Open Defects.
   selftest passed. Real observations remain PC-88VA graphics/ESC PASS with
   keyboard-after-return unresolved, and PC-88VA2 graphics/ESC/keyboard PASS.
 - **Evidence:** [M97 P4 visual report](../agents/reports/m97_p4_visual_holes.md),
-  [SGP P4 implementation](../../demos/va/glass-orbit/src/glass_orbit_p4_sgp.asm),
-  and [no-repair guard](../../demos/va/glass-orbit/tools/check-p4-no-repair.py).
+  [SGP P4 implementation](../../demos/glass-orbit/src/glass_orbit_p4_sgp.asm),
+  and [no-repair guard](../../demos/glass-orbit/tools/check-p4-no-repair.py).
 - **Milestone/task:** M97 P4 fill algorithm cleanup.
 - **Commit:** [76d7de7](https://github.com/nakatamaho/vaeg/commit/76d7de7cfffd51b49302cd46cd47afb82ad200f4).
 
@@ -124,8 +124,8 @@ separate parity correction or move it to Open Defects.
   source/partition guard, P4 alignment/slope matrices, CTest, and repository
   checks passed.
 - **Evidence:** [P5 temporal report](../port/glass_p5.md), [P5 temporal
-  checker](../../demos/va/glass-orbit/tools/verify-p5-temporal.py), and
-  [P5 scene](../../demos/va/glass-orbit/src/glass_p5_scene.inc).
+  checker](../../demos/glass-orbit/tools/verify-p5-temporal.py), and
+  [P5 scene](../../demos/glass-orbit/src/glass_p5_scene.inc).
 - **Milestone/task:** M97 P5 temporal rendering cleanup.
 - **Commit:** [49242f3](https://github.com/nakatamaho/vaeg/commit/49242f3d3d739eb1602042cb6819314f328ef7ac).
 
