@@ -40,13 +40,16 @@ org 0
 ; Diagnostic build stages isolate the first list section that cannot complete.
 ; Stage 1 emits SET_WORK, SET_COLOR, full-page CLS, END.  Stage 2 adds face
 ; spans.  Stage 3 is the P4-2 candidate and adds the twelve cube-edge LINEs.
+; Stage 4 emits only the cube-edge LINEs on a cleared page for registration
+; diagnostics; stage 5 emits a direct one-pixel word-layout calibration strip.
+; Neither diagnostic stage changes the production renderer.
 ; The selected stage changes the generated guest payload only; it does not
 ; alter VAEG's SGP behaviour.
 %ifndef GLASS_P4_SGP_STAGE
 %define GLASS_P4_SGP_STAGE 3
 %endif
-%if GLASS_P4_SGP_STAGE < 1 || GLASS_P4_SGP_STAGE > 3
-%error "GLASS_P4_SGP_STAGE must be 1, 2, or 3"
+%if GLASS_P4_SGP_STAGE < 1 || GLASS_P4_SGP_STAGE > 5
+%error "GLASS_P4_SGP_STAGE must be 1, 2, 3, 4, or 5"
 %endif
 
 %define VIDEO_BIOS_INT          0x8f
@@ -168,13 +171,20 @@ glass_p4_sgp_build_ready:
 
         ; SGP has written only complete interior words.  Apply the recorded
         ; endpoint masks with CPU word read-modify-write, then redraw the
-        ; outline list so edge colours remain on top of face coverage.
+        ; intended outline list so edge colours remain on top of face coverage.
         call    glass_p4_sgp_apply_endpoint_spans
-%if GLASS_P4_SGP_STAGE >= 3
+%if GLASS_P4_SGP_STAGE == 3 || GLASS_P4_SGP_STAGE == 4
         call    glass_p4_sgp_build_edge_list
         jc      glass_p4_sgp_failed
         call    glass_p4_sgp_run_list
         jc      glass_p4_sgp_failed
+%endif
+
+%if GLASS_P4_SGP_STAGE == 5
+        ; Independent calibration writes.  This deliberately does not call
+        ; glass_p4_sgp_pixel_masks: each x%4 case is an explicit literal so
+        ; the captured raw words can calibrate that production helper.
+        call    glass_p4_sgp_calibrate_word_layout
 %endif
 
         ; Read only after END has made the SGP idle.  This checksum is a
@@ -299,10 +309,10 @@ glass_p4_sgp_build_list:
         mov     cx, G0_PAGE_WORDS
         call    glass_p4_sgp_emit_cls
 
-%if GLASS_P4_SGP_STAGE >= 2
+%if GLASS_P4_SGP_STAGE == 2 || GLASS_P4_SGP_STAGE == 3
         call    glass_p4_sgp_draw_faces
 %endif
-%if GLASS_P4_SGP_STAGE >= 3
+%if GLASS_P4_SGP_STAGE == 3 || GLASS_P4_SGP_STAGE == 4
         call    glass_p4_sgp_draw_edges
 %endif
         mov     ax, SGP_COMMAND_END
@@ -515,8 +525,12 @@ glass_p4_sgp_load_vertex:
         ret
 
 ; Convert the unchanged logical Y coordinates exactly once, sort the triangle,
-; then emit an inward-rounded full-word SGP CLS span for each physical row.
+; then emit an inclusive span for each physical row.  The edge rule samples
+; the row at y+1/2 and uses integer X edge ownership: ceil() for the left
+; boundary and floor() for the right boundary.  Endpoint masks preserve this
+; exact logical coverage while SGP handles only complete interior words.
 glass_p4_sgp_fill_triangle:
+        push    bp
         sar     word [glass_p4_sgp_tri_v0+2], 1
         sar     word [glass_p4_sgp_tri_v1+2], 1
         sar     word [glass_p4_sgp_tri_v2+2], 1
@@ -541,8 +555,12 @@ glass_p4_sgp_fill_triangle:
         mov     bx, ax
         mov     si, glass_p4_sgp_tri_v0
         mov     di, glass_p4_sgp_tri_v2
+        mov     bp, 1                 ; ceil(x_intersection - 1/2)
         call    glass_p4_sgp_interpolate_edge
-        mov     [glass_p4_sgp_span_x0], ax
+        mov     [glass_p4_sgp_edge_a_ceil], ax
+        xor     bp, bp                ; floor(x_intersection - 1/2)
+        call    glass_p4_sgp_interpolate_edge
+        mov     [glass_p4_sgp_edge_a_floor], ax
 
         mov     bx, [glass_p4_sgp_scan_y]
         cmp     bx, [glass_p4_sgp_tri_v1+2]
@@ -554,7 +572,23 @@ glass_p4_sgp_fill_triangle:
         mov     si, glass_p4_sgp_tri_v0
         mov     di, glass_p4_sgp_tri_v1
 .second_edge:
+        mov     bp, 1                 ; ceil(x_intersection - 1/2)
         call    glass_p4_sgp_interpolate_edge
+        mov     [glass_p4_sgp_edge_b_ceil], ax
+        xor     bp, bp                ; floor(x_intersection - 1/2)
+        call    glass_p4_sgp_interpolate_edge
+        mov     [glass_p4_sgp_edge_b_floor], ax
+        mov     ax, [glass_p4_sgp_edge_a_ceil]
+        cmp     ax, [glass_p4_sgp_edge_b_ceil]
+        jle     .lower_ready
+        mov     ax, [glass_p4_sgp_edge_b_ceil]
+.lower_ready:
+        mov     [glass_p4_sgp_span_x0], ax
+        mov     ax, [glass_p4_sgp_edge_a_floor]
+        cmp     ax, [glass_p4_sgp_edge_b_floor]
+        jge     .upper_ready
+        mov     ax, [glass_p4_sgp_edge_b_floor]
+.upper_ready:
         mov     [glass_p4_sgp_span_x1], ax
         mov     ax, [glass_p4_sgp_span_x0]
         mov     bx, [glass_p4_sgp_span_x1]
@@ -563,10 +597,14 @@ glass_p4_sgp_fill_triangle:
         inc     word [glass_p4_sgp_scan_y]
         jmp     .scan
 .done:
+        pop     bp
         ret
 
-; SI and DI are x/y pairs; BX is physical Y.  Return the signed linear X in
-; AX.  The caller never supplies a horizontal edge here.
+; SI and DI are x/y pairs; BX is physical Y.  Return the x-boundary at the
+; row sample y+1/2.  BP=1 returns ceil(x), BP=0 returns floor(x), using the
+; deterministic integer-X edge ownership of the face rasterizer.  The
+; denominator is positive because vertices were sorted by Y.  The caller
+; never supplies a horizontal edge here.
 glass_p4_sgp_interpolate_edge:
         push    bx
         push    cx
@@ -576,10 +614,26 @@ glass_p4_sgp_interpolate_edge:
         jz      .degenerate
         mov     ax, bx
         sub     ax, [si+2]
+        shl     ax, 1
+        inc     ax
         mov     dx, [di]
         sub     dx, [si]
         imul    dx
+        shl     cx, 1
         idiv    cx
+        or      dx, dx
+        jz      .add_origin
+        test    dx, 8000h
+        jnz     .negative_remainder
+        cmp     bp, 0
+        je      .add_origin
+        inc     ax
+        jmp     .add_origin
+.negative_remainder:
+        cmp     bp, 0
+        jne     .add_origin
+        dec     ax
+.add_origin:
         add     ax, [si]
         jmp     .done
 .degenerate:
@@ -607,12 +661,12 @@ glass_p4_sgp_swap_if_y_greater:
 ; AX/BX are inclusive logical X bounds and CX is a physical Y.  One packed
 ; 4bpp word contains four logical pixels.  Geometry is never rounded: SGP
 ; receives only complete interior words and the exact endpoints are recorded
-; for masked CPU word RMW after the command list completes.
+; for masked CPU word RMW after the command list completes.  AX>BX is an
+; empty raster span (for example, a vertex row with no covered integer X) and
+; must be discarded; swapping it would create a pixel outside the polygon.
 glass_p4_sgp_emit_span:
         cmp     ax, bx
-        jle     .ordered
-        xchg    ax, bx
-.ordered:
+        jg      .done
         cmp     bx, 0
         jl      .done
         cmp     ax, G0_WIDTH - 1
@@ -778,6 +832,76 @@ glass_p4_sgp_apply_endpoint_spans:
         pop     bp
         pop     di
         pop     si
+        pop     dx
+        pop     cx
+        pop     bx
+        pop     ax
+        ret
+
+; Write x=0..15 as palette indices 1..15 at physical row 20.  The four
+; literal masks are a diagnostic fixture, not a second production mask table.
+; The page was cleared by the preceding SGP list, so raw-word deltas are
+; directly observable in the capture.
+glass_p4_sgp_calibrate_word_layout:
+        push    ax
+        push    bx
+        push    cx
+        push    dx
+        push    di
+        push    si
+        push    es
+        mov     ax, 0xa000
+        mov     es, ax
+        xor     bx, bx
+.pixel:
+        mov     ax, bx
+        shr     ax, 2
+        shl     ax, 1
+        mov     di, ax
+        add     di, 20 * G0_PITCH_BYTES
+        mov     ax, bx
+        and     ax, 3
+        cmp     ax, 0
+        jne     .x1
+        mov     dx, 0x00f0
+        jmp     .mask
+.x1:
+        cmp     ax, 1
+        jne     .x2
+        mov     dx, 0x000f
+        jmp     .mask
+.x2:
+        cmp     ax, 2
+        jne     .x3
+        mov     dx, 0xf000
+        jmp     .mask
+.x3:
+        mov     dx, 0x0f00
+.mask:
+        mov     ax, bx
+        inc     ax
+        cmp     ax, 16
+        jne     .colour_ready
+        mov     ax, 1
+.colour_ready:
+        mov     cx, ax
+        shl     ax, 4
+        or      ax, cx
+        mov     cx, ax
+        shl     cx, 8
+        or      ax, cx
+        and     ax, dx
+        mov     cx, dx
+        not     cx
+        and     cx, [es:di]
+        or      ax, cx
+        mov     [es:di], ax
+        inc     bx
+        cmp     bx, 16
+        jb      .pixel
+        pop     es
+        pop     si
+        pop     di
         pop     dx
         pop     cx
         pop     bx
@@ -970,6 +1094,10 @@ glass_p4_sgp_tri_v2            dw 0,0
 glass_p4_sgp_scan_y            dw 0
 glass_p4_sgp_span_x0           dw 0
 glass_p4_sgp_span_x1           dw 0
+glass_p4_sgp_edge_a_ceil       dw 0
+glass_p4_sgp_edge_a_floor      dw 0
+glass_p4_sgp_edge_b_ceil       dw 0
+glass_p4_sgp_edge_b_floor      dw 0
 glass_p4_sgp_span_first        dw 0
 glass_p4_sgp_span_past         dw 0
 glass_p4_sgp_span_words        dw 0

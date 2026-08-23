@@ -56,9 +56,19 @@ contention, command-list length limits, or hardware conformance.
 
 ## Span and line ownership
 
-P2 option A is implemented.  Each CPU-converted triangle span is clipped and
-then rounded inward to complete four-pixel packed-4bpp words.  The SGP receives
-only nonempty `CLS` word spans; P4-2 does not use CPU GVRAM RMW or `PATBLT`.
+The logical span and the packed-word transaction are separate.  Each
+CPU-converted triangle span is represented as an exact inclusive
+`[x_left,x_right]` range using a row sample at `y+1/2`, with `ceil()` for the
+left edge and `floor()` for the right edge.  The SGP receives only complete
+interior four-pixel words.  The first and last partial words are applied once
+with a masked CPU read-modify-write after the SGP list completes; pixels
+outside the logical span are preserved.  This is a memory-access detail and
+never rounds the polygon geometry.  An empty span (`x_left > x_right`) is
+discarded rather than swapped into an out-of-polygon pixel.
+
+The edge-only SGP list is then redrawn as the intended wireframe stage.  There
+is no post-outline bridge, patch, erase, or geometry-specific repair stage.
+P4-2 does not use `PATBLT` for endpoint or registration cases.
 
 `LINE` descriptors retain logical X, halve logical Y once, use mode `0005h`,
 add `HD`/`VD` only for negative direction, and use the 320-byte G0 pitch.  The
@@ -84,9 +94,10 @@ and restores `DI`.  The staged list tests then completed as follows:
 | 2 | stage 1 plus visible-face spans | reaches `AX=4753h`; 3134-byte list |
 | 3 | stage 2 plus all cube-edge lines | reaches `AX=4753h`; 3338-byte list; visible closed cube |
 
-`GLASS_P4_SGP_STAGE=1`, `2`, or `3` selects only a diagnostic build subset.
-Stage 3 is the candidate output.  The list reservation remains 32 KiB and
-fails closed before an overrun.
+`GLASS_P4_SGP_STAGE=1` through `5` selects only a diagnostic build subset.
+Stage 3 is the candidate output; stage 4 is outline-only and stage 5 is the
+independent packed-word calibration fixture.  The list reservation remains
+32 KiB and fails closed before an overrun.
 
 ## Local execution and comparison
 
@@ -129,9 +140,13 @@ The accepted fixed-frame values are:
 
 | build | checkpoint | marker | raw checksum |
 | --- | --- | --- | --- |
-| CPU verifier | `3000:0200` | `4750h` | `6DD9h` |
-| SGP candidate | `3000:0280` | `4753h` | `6DD9h` |
+| CPU verifier | `3000:0200` | `4750h` | `7ACEh` |
+| SGP candidate | `3000:0280` | `4753h` | `7ACEh` |
 
 The capture comparison validates VAEG internal consistency only.  The same
 payload and command sequence still require a future real-PC-88VA observation
-before they can be described as hardware-correct.
+before they can be described as hardware-correct.  The registration checker
+is separate from face geometry: it compares the face-only capture with an
+independent pixel-center oracle, then compares the final capture against the
+actual outline-only SGP raster and reports visible gaps, leaks, and vertex
+junctions independently.

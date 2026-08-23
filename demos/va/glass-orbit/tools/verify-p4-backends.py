@@ -36,7 +36,7 @@ from pathlib import Path
 
 
 PAYLOAD_SEGMENT = "3000"
-RAW_CHECKSUM = "6dd9"
+RAW_CHECKSUM = "7ace"
 GVRAM_SIZE = 0x40000
 CPU_PREFIX = "glass-p4-cpu"
 SGP_PREFIX = "glass-p4-sgp"
