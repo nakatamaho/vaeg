@@ -29,8 +29,9 @@
 ; The program shares only the preserved cube geometry/data with P4-1.  It
 ; constructs an SGP list in main RAM: SET WORK, SET COLOR, CLS, per-span CLS,
 ; per-edge LINE, and END.  It never uses the CPU G0 aperture before the SGP
-; has completed; the sole post-completion CPU access is the raw checksum for
-; the host-side comparison harness.  Evidence: docs/port/glass_p4_sgp.md.
+; has completed.  After completion it applies exact packed-word endpoint RMW
+; masks and then redraws the edge-only SGP list.  Evidence:
+; docs/agents/reports/m97_p4_visual_holes.md.
 
 cpu 286
 bits 16
@@ -142,6 +143,17 @@ glass_p4_sgp_entry:
 
         mov     word [render_frame_counter], 0
         call    glass_compute_cube
+        ; Diagnostic-only projection export for the independent host oracle.
+        ; It is placed in an unused GVRAM page and does not participate in
+        ; rendering or SGP command construction.
+        mov     si, glass_cube_projected
+        mov     ax, 0xa000
+        mov     es, ax
+        mov     di, 0xfc00
+        mov     cx, 24
+        rep     movsw
+        push    cs
+        pop     es
         call    glass_p4_sgp_build_list
         jc      glass_p4_sgp_failed
         ; Keep the generated-list size observable at a fixed pre-submit
@@ -153,6 +165,17 @@ glass_p4_sgp_build_ready:
         nop
         call    glass_p4_sgp_run_list
         jc      glass_p4_sgp_failed
+
+        ; SGP has written only complete interior words.  Apply the recorded
+        ; endpoint masks with CPU word read-modify-write, then redraw the
+        ; outline list so edge colours remain on top of face coverage.
+        call    glass_p4_sgp_apply_endpoint_spans
+%if GLASS_P4_SGP_STAGE >= 3
+        call    glass_p4_sgp_build_edge_list
+        jc      glass_p4_sgp_failed
+        call    glass_p4_sgp_run_list
+        jc      glass_p4_sgp_failed
+%endif
 
         ; Read only after END has made the SGP idle.  This checksum is a
         ; narrow stability witness; P4-2's host comparator owns the complete
@@ -257,6 +280,7 @@ glass_p4_sgp_build_list:
         push    ds
         pop     es
         mov     word [glass_p4_sgp_list_cursor], glass_p4_sgp_command_list
+        mov     word [glass_p4_sgp_endpoint_cursor], glass_p4_sgp_endpoint_buffer
         mov     byte [glass_p4_sgp_list_overflow], 0
         mov     word [glass_p4_sgp_last_colour], 0xffff
 
@@ -304,6 +328,40 @@ glass_p4_sgp_build_list:
         pop     dx
         pop     cx
         pop     bx
+        pop     ax
+        ret
+
+; Build a second list containing only the outlines.  Endpoint RMW is applied
+; between the face list and this list, so exact face coverage cannot overwrite
+; the red/green/white edge colours.
+glass_p4_sgp_build_edge_list:
+        push    ax
+        push    si
+        push    es
+        push    ds
+        pop     es
+        mov     word [glass_p4_sgp_list_cursor], glass_p4_sgp_command_list
+        mov     byte [glass_p4_sgp_list_overflow], 0
+        mov     word [glass_p4_sgp_last_colour], 0xffff
+        call    glass_p4_sgp_draw_edges
+        mov     ax, SGP_COMMAND_END
+        call    glass_p4_sgp_emit_word
+        cmp     byte [glass_p4_sgp_list_overflow], 0
+        jne     .failed
+        mov     ax, [glass_p4_sgp_list_cursor]
+        sub     ax, glass_p4_sgp_command_list
+        mov     [glass_p4_sgp_list_bytes], ax
+        mov     si, glass_p4_sgp_command_list
+        call    glass_p4_sgp_physical_address_from_ds_si
+        mov     [glass_p4_sgp_command_address_low], ax
+        mov     [glass_p4_sgp_command_address_high], dx
+        clc
+        jmp     .done
+.failed:
+        stc
+.done:
+        pop     es
+        pop     si
         pop     ax
         ret
 
@@ -546,9 +604,10 @@ glass_p4_sgp_swap_if_y_greater:
         pop     ax
         ret
 
-; AX/BX are inclusive X bounds and CX is a physical Y.  Outward rounding to
-; complete packed-4bpp words avoids a diagonal seam when a convex face is
-; represented by two independently rounded triangles.
+; AX/BX are inclusive logical X bounds and CX is a physical Y.  One packed
+; 4bpp word contains four logical pixels.  Geometry is never rounded: SGP
+; receives only complete interior words and the exact endpoints are recorded
+; for masked CPU word RMW after the command list completes.
 glass_p4_sgp_emit_span:
         cmp     ax, bx
         jle     .ordered
@@ -566,9 +625,16 @@ glass_p4_sgp_emit_span:
         jle     .right_clipped
         mov     bx, G0_WIDTH - 1
 .right_clipped:
+        mov     [glass_p4_sgp_exact_x0], ax
+        mov     [glass_p4_sgp_exact_x1], bx
+        mov     [glass_p4_sgp_exact_y], cx
+        call    glass_p4_sgp_record_span
+
+        mov     ax, [glass_p4_sgp_exact_x0]
+        add     ax, 3
         and     ax, 0xfffc
+        mov     bx, [glass_p4_sgp_exact_x1]
         inc     bx
-        add     bx, 3
         and     bx, 0xfffc
         cmp     ax, bx
         jae     .done
@@ -589,6 +655,133 @@ glass_p4_sgp_emit_span:
         mov     cx, [glass_p4_sgp_span_words]
         call    glass_p4_sgp_emit_cls
 .done:
+        ret
+
+glass_p4_sgp_record_span:
+        mov     di, [glass_p4_sgp_endpoint_cursor]
+        cmp     di, glass_p4_sgp_endpoint_buffer_end - 8
+        ja      .overflow
+        mov     ax, [glass_p4_sgp_exact_x0]
+        stosw
+        mov     ax, [glass_p4_sgp_exact_x1]
+        stosw
+        mov     ax, [glass_p4_sgp_exact_y]
+        stosw
+        xor     ax, ax
+        mov     al, [glass_p4_sgp_draw_colour]
+        stosw
+        mov     [glass_p4_sgp_endpoint_cursor], di
+        ret
+.overflow:
+        mov     byte [glass_p4_sgp_list_overflow], 1
+        ret
+
+; Apply one exact span as masked word RMW.  The endpoint list is replayed
+; after SGP completion; pixels outside [x0,x1] in each first/last word are
+; preserved.  The four-pixel grouping is the documented packed-4bpp layout.
+glass_p4_sgp_apply_endpoint_spans:
+        push    ax
+        push    bx
+        push    cx
+        push    dx
+        push    si
+        push    di
+        push    bp
+        push    es
+        mov     ax, 0xa000
+        mov     es, ax
+        mov     si, glass_p4_sgp_endpoint_buffer
+.next:
+        cmp     si, [glass_p4_sgp_endpoint_cursor]
+        jae     .done
+        mov     ax, [si]
+        mov     [glass_p4_sgp_apply_x0], ax
+        mov     ax, [si+2]
+        mov     [glass_p4_sgp_apply_x1], ax
+        mov     ax, [si+4]
+        mov     [glass_p4_sgp_apply_y], ax
+        mov     ax, [si+6]
+        mov     [glass_p4_sgp_apply_colour], ax
+        and     ax, 0x000f
+        mov     bx, ax
+        shl     ax, 4
+        or      ax, bx
+        mov     bx, ax
+        shl     bx, 8
+        or      ax, bx
+        mov     [glass_p4_sgp_apply_colour_word], ax
+        mov     ax, [glass_p4_sgp_apply_x0]
+        shr     ax, 2
+        mov     [glass_p4_sgp_apply_word], ax
+.word:
+        mov     ax, [glass_p4_sgp_apply_word]
+        shl     ax, 2
+        mov     [glass_p4_sgp_apply_word_x], ax
+        mov     ax, [glass_p4_sgp_apply_word_x]
+        cmp     ax, [glass_p4_sgp_apply_x0]
+        jae     .low_ready
+        mov     ax, [glass_p4_sgp_apply_x0]
+.low_ready:
+        mov     [glass_p4_sgp_apply_low], ax
+        mov     ax, [glass_p4_sgp_apply_word_x]
+        add     ax, 3
+        cmp     ax, [glass_p4_sgp_apply_x1]
+        jbe     .high_ready
+        mov     ax, [glass_p4_sgp_apply_x1]
+.high_ready:
+        mov     [glass_p4_sgp_apply_high], ax
+        xor     dx, dx
+        xor     bx, bx
+        mov     bp, [glass_p4_sgp_apply_low]
+.pixel:
+        mov     ax, bp
+        and     ax, 3
+        shl     ax, 1
+        mov     di, ax
+        mov     cx, [glass_p4_sgp_pixel_masks + di]
+        or      dx, cx
+        mov     ax, bp
+        and     ax, 3
+        shl     ax, 1
+        mov     cx, [glass_p4_sgp_apply_colour_word]
+        mov     di, ax
+        and     cx, [glass_p4_sgp_pixel_masks + di]
+        or      bx, cx
+        inc     bp
+        cmp     bp, [glass_p4_sgp_apply_high]
+        jbe     .pixel
+        mov     [glass_p4_sgp_apply_mask], dx
+        mov     [glass_p4_sgp_apply_value], bx
+        mov     ax, [glass_p4_sgp_apply_y]
+        mov     cx, G0_PITCH_BYTES
+        mul     cx
+        mov     cx, [glass_p4_sgp_apply_word]
+        shl     cx, 1
+        add     ax, cx
+        mov     di, ax
+        mov     ax, [es:di]
+        mov     cx, [glass_p4_sgp_apply_mask]
+        not     cx
+        and     ax, cx
+        or      ax, [glass_p4_sgp_apply_value]
+        mov     [es:di], ax
+        inc     word [glass_p4_sgp_apply_word]
+        mov     ax, [glass_p4_sgp_apply_word]
+        mov     cx, [glass_p4_sgp_apply_x1]
+        shr     cx, 2
+        cmp     ax, cx
+        jbe     .word
+        add     si, 8
+        jmp     .next
+.done:
+        pop     es
+        pop     bp
+        pop     di
+        pop     si
+        pop     dx
+        pop     cx
+        pop     bx
+        pop     ax
         ret
 
 ; Emit one documented SGP LINE.  The P4 fixed cube is wholly inside the
@@ -780,6 +973,9 @@ glass_p4_sgp_span_x1           dw 0
 glass_p4_sgp_span_first        dw 0
 glass_p4_sgp_span_past         dw 0
 glass_p4_sgp_span_words        dw 0
+glass_p4_sgp_exact_x0          dw 0
+glass_p4_sgp_exact_x1          dw 0
+glass_p4_sgp_exact_y           dw 0
 glass_p4_sgp_line_x0           dw 0
 glass_p4_sgp_line_y0           dw 0
 glass_p4_sgp_line_x1           dw 0
@@ -792,6 +988,21 @@ glass_p4_sgp_command_address_low  dw 0
 glass_p4_sgp_command_address_high dw 0
 glass_p4_sgp_list_bytes           dw 0
 glass_p4_sgp_list_cursor          dw 0
+glass_p4_sgp_endpoint_cursor      dw 0
+glass_p4_sgp_apply_x0             dw 0
+glass_p4_sgp_apply_x1             dw 0
+glass_p4_sgp_apply_y              dw 0
+glass_p4_sgp_apply_colour         dw 0
+glass_p4_sgp_apply_colour_word    dw 0
+glass_p4_sgp_apply_word           dw 0
+glass_p4_sgp_apply_word_x         dw 0
+glass_p4_sgp_apply_low            dw 0
+glass_p4_sgp_apply_high           dw 0
+glass_p4_sgp_apply_mask           dw 0
+glass_p4_sgp_apply_value          dw 0
+; Packed 4bpp CPU-word order is byte-swapped relative to the logical pixel
+; order: x%4=0,1,2,3 map to 00f0h, 000fh, f000h, 0f00h respectively.
+glass_p4_sgp_pixel_masks           dw 0x00f0, 0x000f, 0xf000, 0x0f00
 
 align 2, db 0
 glass_p4_sgp_work_area:
@@ -801,6 +1012,11 @@ glass_p4_sgp_command_list:
         ; uses less, but keeps the production candidate's fail-closed bound.
         times 32768 db 0
 glass_p4_sgp_command_list_end:
+
+align 2, db 0
+glass_p4_sgp_endpoint_buffer:
+        times 8192 db 0
+glass_p4_sgp_endpoint_buffer_end:
 
 %if ($ - $$) > LOADER_RETURN_SS
 %error "GLASS ORBIT P4-2 payload overlaps the loader return reserve"

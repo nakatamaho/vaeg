@@ -22,18 +22,30 @@ independent correctness oracle.
 
 ## Correction
 
-`glass_p4_sgp_emit_span` now rounds the left endpoint down and the inclusive
-right endpoint up to complete packed words.  The two triangles therefore cover
-their shared diagonal without an unpainted word.  This remains SGP-only; no
-host post-processing or special-case triangle path is used.
+The first correction (outward endpoint rounding) removed the diagonal seam but
+introduced visible polygon-edge overfill.  It was therefore replaced.  The
+logical span is now kept inclusive and exact.  One packed 4bpp word contains
+four logical pixels; its CPU-word masks are, for `x % 4 = 0,1,2,3`,
+`00f0h, 000fh, f000h, 0f00h`.  SGP CLS writes only complete interior words.
+The first and last words are written once with masked read-modify-write, and a
+second SGP list redraws the outlines after endpoint repair.
+
+The endpoint mask operation preserves pixels outside `[x0,x1]`; it is a
+memory-transaction detail and does not expand polygon geometry.  The two
+triangles use the existing deterministic half-open scan convention, so their
+union remains gap-free without compensating geometric expansion.
 
 ## Independent checker
 
 `demos/va/glass-orbit/tools/verify-p4-visual.py` decodes raw logical pixels,
 reports every interior background run with width and modulo-8/modulo-16
 coordinates, and runs an independent pixel-array rectangle alignment matrix
-for all eight low-bit start positions.  The matrix does not reuse SGP or guest
-span code.
+for all eight low-bit start positions, including exhaustive endpoint and
+outside-border cases.  The payload exports the computed vertices into an
+unused GVRAM tail; the checker uses those vertices only as polygon input and
+performs its own host-side scan conversion.  It reports independent
+`underfill` and `overfill` counts.  Face-only stage 2 is checked before
+outlines; final stage 3 ignores outline colours when counting underfill.
 
 ## Loader issue (orthogonal)
 
@@ -49,9 +61,17 @@ zero AH as ESC.
 | check | before | after |
 |---|---:|---:|
 | raw logical interior runs | 155 | 0 |
-| independent rectangle alignment failures | 0 | 0 |
+| face underfill | 220 (shared CPU/SGP convention) | 0 |
+| face overfill | 168 (outward-rounding regression) | 0 |
+| rectangle/alignment/outside-border failures | 0 | 0 |
 | regular blank-raster presentation | retained | retained |
 | ESC loader return | corrupt continuation | clean return |
+
+The final face-only capture reports `underfill=0, overfill=0`; the outlined
+capture reports the same after excluding legitimate outline-colour replacement
+of face pixels.  The final PNG was visually inspected: the previous diagonal
+holes and the new horizontal stair-step protrusions are both absent.  SCAN
+LEFT/RIGHT is not used by this GLASS path and remains a separate QA item.
 
 The remaining hardware-conformance question is separate: this is an emulator
 side regression result and does not establish silicon-level PC-88VA behavior.
