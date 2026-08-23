@@ -71,7 +71,8 @@ never from source comments.
 
 After drawing, the guest calculates a rolling checksum over the raw 64,000
 byte packed G0 page and places it in `BX` at the fixed checkpoint
-`2000:0200`. The initial two VAEG runs produced `BX=416Eh`. This is a raw-page
+`2000:0200`. The corrected renderer's initial two VAEG runs produced
+`BX=B30Eh`. This is a raw-page
 stability witness, **not a replacement for a full raw framebuffer capture**.
 P4-2 must add the CPU-versus-SGP raw-pixel comparison; neither P4-1 result
 proves PC-88VA hardware conformance.
@@ -113,3 +114,15 @@ P4-1 establishes only that the new CPU verification implementation is stable
 under VAEG and visibly draws the retained fixed cube geometry. It does not
 make an SGP claim, a performance claim, an input/exit claim, or a real-PC-88VA
 compatibility claim. Those remain later staged work.
+
+## Correction before the P4-1 human gate
+
+The initial P4-1 candidate did not preserve the face-table cursor around each
+CPU triangle-fill call. The fill routine uses `SI` as a temporary edge pointer,
+so the next iteration read a non-face record as geometry. After the initial
+black clear, that could create invalid spans before the edge pass and leave an
+interactive run visibly black. The renderer now saves and restores the
+face-table cursor around both triangle fills for every face. A fresh VAEG
+capture reached the checkpoint at frame 1293 with `AX=4750h`, `BX=B30Eh` and
+an actually inspected multicolour cube image. This is emulator evidence only;
+the P4-1 human gate remains pending.
