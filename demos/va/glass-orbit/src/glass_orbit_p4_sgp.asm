@@ -48,6 +48,9 @@ org 0
 %ifndef GLASS_P4_SGP_STAGE
 %define GLASS_P4_SGP_STAGE 3
 %endif
+%ifndef GLASS_P4_SGP_AUDIT
+%define GLASS_P4_SGP_AUDIT 0
+%endif
 %if GLASS_P4_SGP_STAGE < 1 || GLASS_P4_SGP_STAGE > 5
 %error "GLASS_P4_SGP_STAGE must be 1, 2, 3, 4, or 5"
 %endif
@@ -69,6 +72,10 @@ org 0
 %define G0_WIDTH                640
 %define G0_HEIGHT               200
 %define G0_PITCH_BYTES          320
+; The CPU aperture is one 64-KiB window; this diagnostic payload uses an
+; otherwise uninteresting row inside that window.  The host verifier masks
+; this range before running visible-pixel geometry checks.
+%define G0_AUDIT_GVRAM_OFFSET   0x2000
 %define SGP_BUSY                0x01
 %define SGP_COMMAND_END         0x0001
 %define SGP_COMMAND_SET_WORK    0x0003
@@ -185,6 +192,10 @@ glass_p4_sgp_build_ready:
         ; glass_p4_sgp_pixel_masks: each x%4 case is an explicit literal so
         ; the captured raw words can calibrate that production helper.
         call    glass_p4_sgp_calibrate_word_layout
+%endif
+
+%if GLASS_P4_SGP_AUDIT
+        call    glass_p4_sgp_export_span_audit
 %endif
 
         ; Read only after END has made the SGP idle.  This checksum is a
@@ -429,6 +440,7 @@ glass_p4_sgp_draw_faces:
         push    di
         mov     si, glass_cube_faces
         mov     bp, 6
+        mov     byte [glass_p4_sgp_face_id], 0
 .face:
         call    glass_face_is_visible
         jnc     .next
@@ -461,6 +473,7 @@ glass_p4_sgp_draw_faces:
         pop     si
 .next:
         add     si, 5
+        inc     byte [glass_p4_sgp_face_id]
         dec     bp
         jnz     .face
         pop     di
@@ -657,11 +670,14 @@ glass_p4_sgp_swap_if_y_greater:
         ret
 
 ; AX/BX are inclusive logical X bounds and CX is a physical Y.  One packed
-; 4bpp word contains four logical pixels.  Geometry is never rounded: SGP
-; receives only complete interior words and the exact endpoints are recorded
-; for masked CPU word RMW after the command list completes.  AX>BX is an
-; empty raster span (for example, a vertex row with no covered integer X) and
-; must be discarded; swapping it would create a pixel outside the polygon.
+; 4bpp word contains four logical pixels.  Geometry is never rounded.  The
+; word ownership partition is explicit: first_word=x0>>2,
+; last_word=x1>>2, full_first=first_word+(x0&3!=0), and
+; full_last=last_word-(x1&3!=3).  Only the complete [full_first,full_last]
+; words are submitted to SGP.  Every other covered pixel is applied later by
+; exact CPU word RMW, so a partial endpoint can never be written as a full
+; SGP word, even transiently.  AX>BX is an empty raster span and must be
+; discarded; swapping it would create a pixel outside the polygon.
 glass_p4_sgp_emit_span:
         cmp     ax, bx
         jg      .done
@@ -680,26 +696,47 @@ glass_p4_sgp_emit_span:
         mov     [glass_p4_sgp_exact_x0], ax
         mov     [glass_p4_sgp_exact_x1], bx
         mov     [glass_p4_sgp_exact_y], cx
-        call    glass_p4_sgp_record_span
-
+        ; Partition by word indices, never by outward pixel-coordinate
+        ; rounding.  A same-word or endpoint-only span has zero full words.
         mov     ax, [glass_p4_sgp_exact_x0]
-        add     ax, 3
-        and     ax, 0xfffc
+        shr     ax, 2
+        mov     [glass_p4_sgp_span_first_word], ax
         mov     bx, [glass_p4_sgp_exact_x1]
-        inc     bx
-        and     bx, 0xfffc
-        cmp     ax, bx
-        jae     .done
-        mov     [glass_p4_sgp_span_first], ax
-        mov     [glass_p4_sgp_span_past], bx
-        sub     bx, ax
         shr     bx, 2
+        mov     [glass_p4_sgp_span_last_word], bx
+        mov     dx, [glass_p4_sgp_exact_x0]
+        and     dx, 3
+        mov     ax, [glass_p4_sgp_span_first_word]
+        cmp     dx, 0
+        je      .left_aligned
+        inc     ax
+.left_aligned:
+        mov     [glass_p4_sgp_span_full_first], ax
+        mov     dx, [glass_p4_sgp_exact_x1]
+        and     dx, 3
+        mov     bx, [glass_p4_sgp_span_last_word]
+        cmp     dx, 3
+        je      .right_aligned
+        dec     bx
+.right_aligned:
+        mov     [glass_p4_sgp_span_full_last], bx
+        cmp     ax, bx
+        ja      .no_full_words
+        sub     bx, ax
+        inc     bx
         mov     [glass_p4_sgp_span_words], bx
+        jmp     .record
+.no_full_words:
+        mov     word [glass_p4_sgp_span_words], 0
+.record:
+        call    glass_p4_sgp_record_span
+        cmp     word [glass_p4_sgp_span_words], 0
+        je      .done
         mov     ax, cx
         mov     bx, G0_PITCH_BYTES
         mul     bx
-        mov     bx, [glass_p4_sgp_span_first]
-        shr     bx, 1
+        mov     bx, [glass_p4_sgp_span_full_first]
+        shl     bx, 1
         add     ax, bx
         adc     dx, 0
         add     ax, G0_SGP_BASE & 0xffff
@@ -717,7 +754,7 @@ glass_p4_sgp_emit_span:
 
 glass_p4_sgp_record_span:
         mov     di, [glass_p4_sgp_endpoint_cursor]
-        cmp     di, glass_p4_sgp_endpoint_buffer_end - 8
+        cmp     di, glass_p4_sgp_endpoint_buffer_end - 16
         ja      .overflow
         mov     ax, [glass_p4_sgp_exact_x0]
         stosw
@@ -727,6 +764,15 @@ glass_p4_sgp_record_span:
         stosw
         xor     ax, ax
         mov     al, [glass_p4_sgp_draw_colour]
+        mov     ah, [glass_p4_sgp_face_id]
+        stosw
+        mov     ax, [glass_p4_sgp_span_first_word]
+        stosw
+        mov     ax, [glass_p4_sgp_span_last_word]
+        stosw
+        mov     ax, [glass_p4_sgp_span_full_first]
+        stosw
+        mov     ax, [glass_p4_sgp_span_words]
         stosw
         mov     [glass_p4_sgp_endpoint_cursor], di
         ret
@@ -734,9 +780,10 @@ glass_p4_sgp_record_span:
         mov     byte [glass_p4_sgp_list_overflow], 1
         ret
 
-; Apply one exact span as masked word RMW.  The endpoint list is replayed
-; after SGP completion; pixels outside [x0,x1] in each first/last word are
-; preserved.  The four-pixel grouping is the documented packed-4bpp layout.
+; Apply only partial endpoint words as masked word RMW.  Complete interior
+; words belong exclusively to the preceding SGP CLS range and are skipped
+; here.  For a same-word span, full_count is zero and exactly one RMW is
+; performed.  Pixels outside [x0,x1] are preserved in the endpoint word.
 glass_p4_sgp_apply_endpoint_spans:
         push    ax
         push    bx
@@ -760,6 +807,11 @@ glass_p4_sgp_apply_endpoint_spans:
         mov     [glass_p4_sgp_apply_y], ax
         mov     ax, [si+6]
         mov     [glass_p4_sgp_apply_colour], ax
+        mov     ax, [si+12]
+        mov     [glass_p4_sgp_apply_full_first], ax
+        mov     ax, [si+14]
+        mov     [glass_p4_sgp_apply_full_count], ax
+        mov     ax, [glass_p4_sgp_apply_colour]
         and     ax, 0x000f
         mov     bx, ax
         shl     ax, 4
@@ -773,6 +825,15 @@ glass_p4_sgp_apply_endpoint_spans:
         mov     [glass_p4_sgp_apply_word], ax
 .word:
         mov     ax, [glass_p4_sgp_apply_word]
+        cmp     word [glass_p4_sgp_apply_full_count], 0
+        je      .write_word
+        cmp     ax, [glass_p4_sgp_apply_full_first]
+        jb      .write_word
+        mov     bx, [glass_p4_sgp_apply_full_first]
+        add     bx, [glass_p4_sgp_apply_full_count]
+        cmp     ax, bx
+        jb      .skip_word
+.write_word:
         shl     ax, 2
         mov     [glass_p4_sgp_apply_word_x], ax
         mov     ax, [glass_p4_sgp_apply_word_x]
@@ -823,13 +884,14 @@ glass_p4_sgp_apply_endpoint_spans:
         and     ax, cx
         or      ax, [glass_p4_sgp_apply_value]
         mov     [es:di], ax
+.skip_word:
         inc     word [glass_p4_sgp_apply_word]
         mov     ax, [glass_p4_sgp_apply_word]
         mov     cx, [glass_p4_sgp_apply_x1]
         shr     cx, 2
         cmp     ax, cx
         jbe     .word
-        add     si, 8
+        add     si, 16
         jmp     .next
 .done:
         pop     es
@@ -839,6 +901,48 @@ glass_p4_sgp_apply_endpoint_spans:
         pop     dx
         pop     cx
         pop     bx
+        pop     ax
+        ret
+
+; Export the exact span ownership audit into a gated diagnostic area of the
+; CPU GVRAM aperture.  The default production payload does not call this
+; routine.  The audit area is captured only by the audit run and is masked by
+; the host visual checker; it is not part of the production rendering path.
+glass_p4_sgp_export_span_audit:
+        push    ax
+        push    cx
+        push    dx
+        push    si
+        push    di
+        push    es
+        mov     ax, [glass_p4_sgp_endpoint_cursor]
+        sub     ax, glass_p4_sgp_endpoint_buffer
+        mov     cx, 4
+        shr     ax, cl
+        mov     dx, ax
+        mov     ax, 0xa000
+        mov     es, ax
+        mov     di, G0_AUDIT_GVRAM_OFFSET
+        mov     ax, 0x5034             ; "P4" audit magic.
+        stosw
+        mov     ax, 1
+        stosw
+        mov     ax, 16                 ; bytes per span record.
+        stosw
+        mov     ax, dx
+        stosw
+        xor     ax, ax
+        stosw
+        stosw
+        mov     si, glass_p4_sgp_endpoint_buffer
+        mov     cx, dx
+        shl     cx, 3                  ; eight words per 16-byte record.
+        rep     movsw
+        pop     es
+        pop     di
+        pop     si
+        pop     dx
+        pop     cx
         pop     ax
         ret
 
@@ -1106,12 +1210,16 @@ glass_p4_sgp_edge_a_ceil       dw 0
 glass_p4_sgp_edge_a_floor      dw 0
 glass_p4_sgp_edge_b_ceil       dw 0
 glass_p4_sgp_edge_b_floor      dw 0
-glass_p4_sgp_span_first        dw 0
-glass_p4_sgp_span_past         dw 0
+glass_p4_sgp_span_first_word   dw 0
+glass_p4_sgp_span_last_word    dw 0
+glass_p4_sgp_span_full_first   dw 0
+glass_p4_sgp_span_full_last    dw 0
 glass_p4_sgp_span_words        dw 0
 glass_p4_sgp_exact_x0          dw 0
 glass_p4_sgp_exact_x1          dw 0
 glass_p4_sgp_exact_y           dw 0
+glass_p4_sgp_face_id            db 0
+align 2, db 0
 glass_p4_sgp_line_x0           dw 0
 glass_p4_sgp_line_y0           dw 0
 glass_p4_sgp_line_x1           dw 0
@@ -1136,6 +1244,8 @@ glass_p4_sgp_apply_low            dw 0
 glass_p4_sgp_apply_high           dw 0
 glass_p4_sgp_apply_mask           dw 0
 glass_p4_sgp_apply_value          dw 0
+glass_p4_sgp_apply_full_first      dw 0
+glass_p4_sgp_apply_full_count      dw 0
 ; Packed 4bpp CPU-word order is byte-swapped relative to the logical pixel
 ; order: x%4=0,1,2,3 map to 00f0h, 000fh, f000h, 0f00h respectively.
 glass_p4_sgp_pixel_masks           dw 0x00f0, 0x000f, 0xf000, 0x0f00

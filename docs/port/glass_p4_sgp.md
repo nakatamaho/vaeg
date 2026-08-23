@@ -89,6 +89,46 @@ P4-2 does not use `PATBLT` for endpoint or registration cases.  Endpoint RMW
 is a general packed-word access operation derived only from the span bounds,
 colour, and 4bpp layout.
 
+## Temporal write ownership
+
+The span writer uses word indices rather than outward pixel-coordinate rounding:
+
+```text
+first_word = x0 / 4
+last_word  = x1 / 4
+full_first = first_word + (x0 % 4 != 0)
+full_last  = last_word  - (x1 % 4 != 3)
+```
+
+Only `[full_first, full_last]` is emitted as SGP `CLS` full words.  A partial
+left or right word is excluded from that range and receives one exact CPU
+read-modify-write.  A span contained in one word receives one masked RMW and
+no SGP command.  The endpoint and interior word sets are therefore disjoint;
+there is no full-word overdraw followed by endpoint restoration.  The SGP
+command is waited to idle before endpoint RMW, so the two owners do not overlap
+asynchronously.
+
+The production build keeps this audit disabled.  A diagnostic build can be
+made with:
+
+```text
+GLASS_P4_SGP_AUDIT=1 demos/va/glass-orbit/build-p4-sgp.sh /absolute/path/GLASSP4S.COM
+```
+
+It writes a versioned 16-byte span record (`x0`, `x1`, `y`, colour/face,
+first/last word, full-word start/count) into the gated GVRAM audit area.  The
+audit payload is a local QA artifact; its area is masked before visual-pixel
+verification.  The independent host checker reconstructs the operation order
+and checks that every intermediate state is a subset of the exact span:
+
+```text
+python3 demos/va/glass-orbit/tools/verify-p4-temporal.py /absolute/path/glass-p4-sgp.gvram.bin
+```
+
+This proves the span-to-word partition and its temporal ownership in VAEG.  It
+is not a real-hardware timing trace; real PC-88VA observation remains required
+for hardware conformance.
+
 `LINE` descriptors retain logical X, halve logical Y once, use mode `0005h`,
 add `HD`/`VD` only for negative direction, and use the 320-byte G0 pitch.  The
 descriptor format is independently exercised by the existing SGP wireframe
