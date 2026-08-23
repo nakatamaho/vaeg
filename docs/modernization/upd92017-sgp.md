@@ -28,8 +28,8 @@ short_title: "PC-88VA uPD92017 SGP Reconstruction"
 filename: "docs/modernization/upd92017-sgp.md"
 document_status: "Reconstructed, non-authoritative specification"
 language: "en"
-version: "0.4-en.1"
-date: "2026-07-18"
+version: "0.4-en.2"
+date: "2026-08-23"
 target_system: "NEC PC-88VA family"
 device_identifier: "uPD92017; original-VA package marking D92017-002"
 later_device_identifier: "uPD92046; VA2 package marking D92046GD-001"
@@ -464,15 +464,34 @@ Words are little-endian in memory, but CPU byte order alone does not establish
 visual pixel lane order. Tests must determine least-significant lane,
 start-dot selection, boundary crossing, and reverse traversal in every mode.
 
-SET_COLOR may represent a scalar color, repeated packed word, or foreground/
-background expansion lanes depending on the command. Host-endian fill shortcuts
-are unsafe without lane tests.
+The BNN manual describes the `SET COLOR` value as being consumed in units that
+match the selected pixel mode ([BNN] `PC88VA_テクニカルマニュアル_BNN.md`,
+§4.5.6(4.6), pp. 97-98):
+
+| Pixel mode | Color bits consumed for one word | Interpretation |
+|---|---:|---|
+| 1 bpp | 1 bit × 16 pixels | The selected bit is used for all 16 lanes |
+| 4 bpp | 4 bits × 4 pixels | The selected 4-bit value is repeated for 4 lanes |
+| 8 bpp | 8 bits × 2 pixels | The selected 8-bit value is repeated for 2 lanes |
+| 16 bpp | 16 bits × 1 pixel | The complete color word is used |
+
+This applies to 1-bpp source expansion, `LINE`, `CLS`, and the `SCAN` color
+comparison. It does not by itself settle which byte or bit is the leftmost
+visual lane; that remains a separate pixel-order question. Host-endian fill
+shortcuts are unsafe without lane tests.
 
 ## 7. Block descriptors
 
 A descriptor contains pixel mode, start dot, width, height, framebuffer pitch
 `FBW`, and even 22-bit start address. `FBW` advances scan lines and is not the
 transfer rectangle width.
+
+The BNN block diagrams explicitly specify `FBW` as a byte count and require its
+low two bits to be zero ([BNN] `PC88VA_テクニカルマニュアル_BNN.md`,
+§4.5.6(3.2), p. 95). Width and height are pixel counts; they must not be
+derived from `FBW` or rounded to a word count. The start-dot field is bounded by
+the pixel mode: 0..15 for 1 bpp, 0..3 for 4 bpp, 0..1 for 8 bpp, and 0 for
+16 bpp.
 
 The aligned word address and start-dot offset allow unaligned rectangles while
 first/last-word masks preserve neighboring pixels. Horizontal and vertical
@@ -532,8 +551,10 @@ writable RAM, TVRAM, or GVRAM.
 ### 9.4 SET_COLOR (`0006h`)
 
 SET_COLOR loads the full 16-bit color word used by expansion, LINE, CLS, and
-possibly scan comparison. It must not be truncated to the current display
-depth.
+scan comparison. The BNN lane rule is not an optional display-depth
+conversion: the relevant 1-, 4-, or 8-bit field is repeated across the word,
+while 16 bpp consumes the complete 16-bit value. It must not be truncated to
+the current display depth or interpreted as a host-endian pixel buffer.
 
 ## 10. BITBLT/PATBLT mode and Boolean ROP
 
@@ -555,9 +576,11 @@ The current vaeg BITBLT/PATBLT definitions use the same masks. LINE uses the
 same documented bit positions, so a separate swapped LINE direction mapping is
 not supported by this source.
 
-`VD`/`HD` choose traversal direction and safe overlap order. `SF` affects
-source alignment when source and destination start dots differ. Each start-dot
-offset and word-boundary crossing needs a raw-vector test.
+`VD`/`HD` choose traversal direction and safe overlap order. The BNN definition
+of `SF` is explicit ([BNN] `PC88VA_テクニカルマニュアル_BNN.md`,
+§4.5.6(4.7), p. 99): `SF=0` shifts the source to the destination dot
+position; `SF=1` transfers the source without that alignment shift. Each
+start-dot offset and word-boundary crossing needs a raw-vector test.
 
 ### 10.1 Transparency
 
@@ -568,9 +591,20 @@ At minimum, the recovered modes distinguish:
 - transfer only where destination is zero;
 - one-bit source color expansion.
 
-vaeg handles source-zero suppression in important paths, treats `TP=3` like
-destination-zero in one helper, and leaves some `TP=2/3` paths commented out.
-That is incomplete emulation, not a hardware restriction.
+The BNN table defines only `TP-MOD=0`, `1`, and `2`; it does not define
+`TP-MOD=3` ([BNN] `PC88VA_テクニカルマニュアル_BNN.md`, §4.5.6(4.7),
+p. 99). Therefore `TP=3` is currently **[UNKNOWN]**, not a fourth documented
+transparency mode. Some VAEG helper paths historically treat it like
+destination-zero; that is an implementation compatibility choice and must not
+be presented as hardware behavior.
+
+The same BNN section gives two cross-format restrictions which callers and
+negative tests must preserve:
+
+* a differing source/destination pixel format is supported only for 1-bpp
+  source to multi-bpp destination expansion;
+* 1-bpp-to-multi-bpp expansion requires `HD=0` (left-to-right), and `HD=1`
+  requires `TP-MOD=0`.
 
 ### 10.2 ROP ordering
 
@@ -711,6 +745,10 @@ because common software may implement flood fill on the CPU.
 13. Abort may leave a partially updated read-modify-write word.
 14. Unknown opcodes must remain visible in diagnostics.
 15. CPU, SGP, and display access to shared memory may contend.
+16. `FBW` is a byte pitch and its low two bits must be zero.
+17. Cross-format transfer is restricted to documented 1-bpp-to-multi-bpp
+    expansion; the documented direction/transparent-mode restrictions apply.
+18. `TP-MOD=3` is not defined by the BNN command table and remains unknown.
 
 ## 18. Memory contention and timing
 
@@ -756,6 +794,10 @@ A staged emulator strategy is:
 | Address space | 4MiB original-VA map | Broadly modeled; incomplete handlers | Period map is baseline; overlays are model profiles |
 | Command table | Main RAM for portable software | Fetch backend can address SGP space | Require main RAM until hardware proves otherwise |
 | Work area | 58 bytes | Address retained | Preserve size; do not invent layout |
+| SET_COLOR lane expansion | Mode-dependent 1/4/8/16-bpp lane use is documented | Full color is retained, but lane-level conformance remains a test target | Add mode-specific raw vectors |
+| `SF` source alignment | `0=shift to destination dot`, `1=no shift` | Alignment path exists | Verify every start-dot and word-boundary combination |
+| `TP-MOD=3` | Not defined in BNN | Some helpers treat it like destination-zero | Keep as explicit unknown; do not generalize |
+| `FBW` | Byte pitch; low two bits zero | Parsed and masked per model | Add invalid-pitch negative tests |
 | BITBLT/PATBLT | Documented | Implemented; edge cases and hardware conformance remain incomplete | Period semantics first |
 | LINE | Documented | Implemented; direction conflict | Raw-bit hardware test |
 | CLS | Documented | Word-count fill | Verify count encoding |
@@ -1117,6 +1159,16 @@ Wiki statements must be cited page by page when recoverable. Captured claims
 are not primary evidence without a retrievable page or corroboration.
 
 ## 27. Change log
+
+### 0.4-en.2 - 2026-08-23
+
+- Added BNN-backed `SET_COLOR` lane expansion rules for 1/4/8/16 bpp.
+- Made the BNN `SF` shift/no-shift semantics explicit.
+- Recorded the documented `FBW` byte-pitch and low-two-bit alignment rule.
+- Separated the documented `TP-MOD=0..2` modes from the undefined `TP-MOD=3`
+  implementation compatibility behavior.
+- Recorded the BNN cross-format and direction restrictions as negative-test
+  requirements.
 
 ### 0.4-en.1 - 2026-07-18
 
