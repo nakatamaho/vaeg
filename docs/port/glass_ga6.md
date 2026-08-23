@@ -67,13 +67,12 @@ cited from source comments.
 
 ## ESC exit
 
-The normal `GLASSP6.COM` loop uses the PC-88VA Keyboard BIOS rather than DOS
-input:
+All three GA-6 programs use the PC-88VA Keyboard BIOS rather than DOS input:
 
 | function | inputs | result used |
 | --- | --- | --- |
-| `$PrmSnsK` | `INT 82h`, `AH=0Ah` | Carry means no pending primitive key. |
-| `$PrmGetK` | `INT 82h`, `AH=09h` | The existing VA demo convention identifies ESC with returned `AH=00h`. |
+| `$SnsChar` | `INT 82h`, `AH=01h` | Carry clear means a character is waiting. |
+| `$GetChar` | `INT 82h`, `AH=00h` | The returned `AH=00h` scan code identifies ESC. |
 
 On ESC the payload invokes Graphics BIOS `$ScnDsp(AL=0)` and restores the
 loader's original stack continuation. It then returns to the invoking local
@@ -81,10 +80,13 @@ COM command path without executing a DOS interrupt from the bare payload.
 This is a loader ABI for the local validation image, not a PC-88VA firmware
 claim.
 
-Evidence: `[VA-TEKU:603KEYB.TXT section 6.3.1]` identifies primitive sense
-and get-key functions 0Ah and 09h; the returned-ESC convention is an existing
-verified VAEG demo convention and remains `hardware_pending` until a real VA
-comparison.
+Evidence: `[VA-TEKU:603KEYB.TXT section 6.3.1]` identifies `$GetChar` and
+`$SnsChar` as functions 00h and 01h. The VA-specific CP/M BIOS source at
+`docs/cpmva/CHARDEV.ASM` uses carry after `$SnsChar`, then obtains the scan
+code from `AH` after `$GetChar`; it treats scan code zero as the ASCII path.
+VAEG's keyboard map identifies ESC as scan code zero. Real-VA confirmation of
+the complete exit interaction remains `hardware_pending` until the human
+gate; the headless input interface cannot inject ESC.
 
 ## Deterministic VAEG captures
 
@@ -93,8 +95,8 @@ the human-facing program. For deterministic capture, the build also supplies:
 
 | program | action |
 | --- | --- |
-| `GLASSP6A.COM` | initialize both pages and leave page A selected at the GA-6 checkpoint |
-| `GLASSP6B.COM` | initialize both pages and leave page B selected at the GA-6 checkpoint |
+| `GLASSP6A.COM` | initialize both pages and leave page A selected at the GA-6 checkpoint; poll ESC without changing the selected page |
+| `GLASSP6B.COM` | initialize both pages and leave page B selected at the GA-6 checkpoint; poll ESC without changing the selected page |
 
 The host runner starts a fresh local boot for each program and checks its
 captured output. The validator requires the entire 640 by 200 visible region
