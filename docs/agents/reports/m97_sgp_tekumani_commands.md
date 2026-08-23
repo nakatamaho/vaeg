@@ -25,7 +25,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 Evaluated baseline: `79ce89af64958cd85cdffa030890fb24a2af8148`
 
-Status: **candidate published; G97 pending**
+Status: **G97 human gate passed on 2026-08-24; M97 closed**
 
 ## 1. Rejected QA milestone removal
 
@@ -236,6 +236,8 @@ modified. No real-hardware test was performed or claimed.
 
 ## 8. Human gate
 
-G97 is pending. It is a VAEG visual-regression gate and does not require or
-claim a real-hardware run. `SGPWIRE.COM` is now the LINE-specific visual part
-of that gate rather than an optional unavailable fixture.
+The maintainer passed G97 on 2026-08-24 against the extended candidate
+`7ab4fabfff8ace9f7ae8648cee4004ad6d507b94`. It is a VAEG visual-regression
+gate and does not require or claim a real-hardware run. `SGPWIRE.COM` remains
+the LINE-specific visual part of that gate rather than an optional unavailable
+fixture. M97 is closed; real-PC-88VA equivalence and timing remain unproven.

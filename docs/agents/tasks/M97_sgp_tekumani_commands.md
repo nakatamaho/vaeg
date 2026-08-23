@@ -23,7 +23,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 # M97 - Complete documented SGP command semantics
 
-Status: **candidate published; G97 pending**
+Status: **G97 human gate passed on 2026-08-24; M97 closed**
 
 Branch: `topic/m97-sgp-tekumani`
 
@@ -372,5 +372,7 @@ From a clean checkout of the candidate:
 Automated tests establish manual-derived functional behavior. The human gate
 checks visual regression only; it does not claim real-hardware equivalence.
 
-**STOP after publishing the G97 candidate until the maintainer states that
-G97 passed.**
+The maintainer stated that G97 passed on 2026-08-24. M97 is now a historical
+record and must not be started again. The gate remains a VAEG visual-regression
+acceptance only; it does not establish real-PC-88VA equivalence or timing
+behavior.
