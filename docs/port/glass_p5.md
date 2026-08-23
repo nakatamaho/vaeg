@@ -51,7 +51,8 @@ This prevents the visible page from being cleared or repaired during a frame.
 The wrapper exposes explicit `FRAME_READY`, geometry-complete, star-complete,
 and SGP-idle state bytes. `FRAME_READY` is set only after both SGP lists and
 the CPU star pass finish, checked across the VBLANK wait, and cleared only
-after `$RollTo` selects the completed target half. The endpoint path remains
+for each new-frame `$RollTo` after it selects the completed target half. The
+initial graphics-off source selection is setup only. The endpoint path remains
 an exact masked RMW for partial words; it is not a full-word paint followed by
 an erase. The temporal checker therefore treats endpoint/interior word
 ownership and page-ready ordering as separate invariants.
