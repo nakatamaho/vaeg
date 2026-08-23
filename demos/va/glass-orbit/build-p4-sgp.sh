@@ -56,6 +56,8 @@ command -v "$python" >/dev/null 2>&1 || {
 
 "$python" "$script_dir/tools/check-p4-no-repair.py" \
     "$source_dir/glass_orbit_p4_sgp.asm"
+"$python" "$script_dir/tools/check-p4-convex.py" \
+    "$source_dir/glass_orbit_p4_sgp.asm" sgp
 
 "$assembler" -f bin -O2 -I "$source_dir/" \
     -dGLASS_P4_SGP_STAGE="$stage" \

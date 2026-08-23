@@ -245,9 +245,10 @@ glass_p4_cpu_clear:
         pop     ax
         ret
 
-; Draw visible cube quads as two solid triangles each.  The retained geometry
-; routine owns winding and back-face classification; this renderer only maps
-; source face colours to the approved VA face palette indices.
+; Draw each visible cube quad with one convex-polygon scan conversion.  The
+; retained geometry routine owns winding and back-face classification; this
+; renderer only maps source face colours to the approved VA face palette
+; indices.  The standalone triangle primitive remains available for QA.
 glass_p4_cpu_draw_faces:
         push    ax
         push    bx
@@ -265,29 +266,25 @@ glass_p4_cpu_draw_faces:
         mov     [glass_p4_draw_colour], al
 
         mov     al, [si]
-        mov     di, glass_p4_tri_v0
+        mov     di, glass_p4_poly_v0
         call    glass_p4_cpu_load_vertex
         mov     al, [si+1]
-        mov     di, glass_p4_tri_v1
+        mov     di, glass_p4_poly_v1
         call    glass_p4_cpu_load_vertex
         mov     al, [si+2]
-        mov     di, glass_p4_tri_v2
-        call    glass_p4_cpu_load_vertex
-        push    si
-        call    glass_p4_cpu_fill_triangle
-        pop     si
-
-        mov     al, [si]
-        mov     di, glass_p4_tri_v0
-        call    glass_p4_cpu_load_vertex
-        mov     al, [si+2]
-        mov     di, glass_p4_tri_v1
+        mov     di, glass_p4_poly_v2
         call    glass_p4_cpu_load_vertex
         mov     al, [si+3]
-        mov     di, glass_p4_tri_v2
+        mov     di, glass_p4_poly_v3
         call    glass_p4_cpu_load_vertex
+        sar     word [glass_p4_poly_v0+2], 1
+        sar     word [glass_p4_poly_v1+2], 1
+        sar     word [glass_p4_poly_v2+2], 1
+        sar     word [glass_p4_poly_v3+2], 1
         push    si
-        call    glass_p4_cpu_fill_triangle
+        mov     si, glass_p4_poly_v0
+        mov     cx, 4
+        call    glass_p4_convex_fill_polygon
         pop     si
 .next:
         add     si, 5
@@ -516,6 +513,16 @@ glass_p4_cpu_span:
 .done:
         ret
 
+; The shared convex scanner supplies only logical coordinates.  The CPU
+; backend adds the current face colour before using its direct-pixel writer.
+glass_p4_cpu_convex_emit_span:
+        mov     dl, [glass_p4_draw_colour]
+        jmp     glass_p4_cpu_span
+
+%define GLASS_P4_CONVEX_EMIT_SPAN glass_p4_cpu_convex_emit_span
+%include "glass_p4_convex.inc"
+%undef GLASS_P4_CONVEX_EMIT_SPAN
+
 ; Verification-only line rasterizer with logical endpoints.  It converts Y to
 ; physical rows once, then uses the documented SGP descriptor's major-axis
 ; traversal and initial half-step convention.  It remains a CPU direct-GVRAM
@@ -703,6 +710,10 @@ align 2, db 0
 glass_p4_tri_v0      dw 0,0
 glass_p4_tri_v1      dw 0,0
 glass_p4_tri_v2      dw 0,0
+glass_p4_poly_v0     dw 0,0
+glass_p4_poly_v1     dw 0,0
+glass_p4_poly_v2     dw 0,0
+glass_p4_poly_v3     dw 0,0
 glass_p4_scan_y      dw 0
 glass_p4_span_x0     dw 0
 glass_p4_span_x1     dw 0
