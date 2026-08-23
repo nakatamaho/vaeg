@@ -51,6 +51,9 @@ org 0
 %ifndef GLASS_P4_SGP_AUDIT
 %define GLASS_P4_SGP_AUDIT 0
 %endif
+%ifndef GLASS_P5
+%define GLASS_P5 0
+%endif
 %if GLASS_P4_SGP_STAGE < 1 || GLASS_P4_SGP_STAGE > 5
 %error "GLASS_P4_SGP_STAGE must be 1, 2, 3, 4, or 5"
 %endif
@@ -151,6 +154,10 @@ glass_p4_sgp_entry:
         mov     al, GVRAM_CPU_WRITE_MODE
         out     dx, al
 
+%if GLASS_P5
+        call    glass_p5_run
+        jmp     glass_p4_sgp_idle
+%else
         mov     word [render_frame_counter], 0
         call    glass_compute_cube
         ; Diagnostic-only projection export for the independent host oracle.
@@ -208,6 +215,7 @@ glass_p4_sgp_build_ready:
         pop     es
         mov     ax, 0x4753             ; "GS" P4-2 SGP success marker.
         jmp     glass_p4_sgp_idle
+%endif
 
 glass_p4_sgp_failed:
         push    cs
@@ -320,6 +328,9 @@ glass_p4_sgp_build_list:
         mov     cx, G0_PAGE_WORDS
         call    glass_p4_sgp_emit_cls
 
+%if GLASS_P5
+        call    glass_p5_draw_grid
+%endif
 %if GLASS_P4_SGP_STAGE == 2 || GLASS_P4_SGP_STAGE == 3
         call    glass_p4_sgp_draw_faces
 %endif
@@ -1176,6 +1187,7 @@ glass_p4_sgp_raw_checksum:
 
 %include "glass_geometry.inc"
 %include "glass_data.inc"
+%include "glass_p5_scene.inc"
 
 align 2, db 0
 glass_p4_sgp_framebuffer_descriptor:

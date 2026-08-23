@@ -356,3 +356,24 @@ This is a VAEG functional-regression result, not a measurement of SGP speed,
 an assertion about real command-list limits, or PC-88VA hardware conformance.
 The detailed command-list, capture, and comparison contract is in
 [`glass_p4_sgp.md`](glass_p4_sgp.md).
+
+## 13. P5 complete-scene connection (2026-08-24)
+
+P5 connects the retained GLASS scene data to the P4 SGP backend.  The P5
+payload emits the horizon, perspective rays, and five depth lines as SGP LINE
+commands before the convex face spans and cube outline.  After the SGP list
+and endpoint RMW have completed, it plots the 256 retained stars through the
+CPU GVRAM aperture; this is the only single-pixel path because SGP has no
+pixel opcode.  The frame counter and star-scroll state advance once per
+completed frame, and the Keyboard BIOS ESC path leaves through the existing
+loader continuation.
+
+The P4 fixed-frame payload remains the face-rendering regression reference.
+P5 is a separate wrapper build (`GLASS_P5=1`) over the same backend and does
+not add a second polygon rasterizer, a host renderer, or a DOS `INT 21h`
+service.  VAEG captures for both VA and VA2 showed the same complete scene:
+star field, filled rotating cube, colored outline, and perspective grid.
+
+P5 intentionally retains the single visible G0 page used by P4.  Its VBLANK
+poll is a frame boundary, not a timing claim; hidden-page presentation remains
+the separate GA-6/page-pipeline follow-up.
