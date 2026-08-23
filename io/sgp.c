@@ -394,22 +394,60 @@ static int bpp[4] = {1, 4, 8, 16};
 
 static void fetch_command(void);
 
+static BOOL sgp_command_known(WORD cmd) {
+	return ((cmd >= 0x0001) && (cmd <= 0x000c));
+}
+
+/*
+ * These checks describe the documented command combinations without changing
+ * the current compatibility behavior.  Invalid encodings are traced at the
+ * command boundary and remain available for a later hardware-backed policy.
+ */
+static BOOL sgp_fbw_aligned(UINT16 fbw) {
+	return ((fbw & 0x0003) == 0);
+}
+
+static BOOL sgp_blt_mode_valid(UINT16 bltmode, const _SGP_BLOCK *src, const _SGP_BLOCK *dest) {
+	UINT16 tp = bltmode & SGP_BLTMODE_TP;
+
+	if (tp == 0x0300) {
+		/* TP=3 is reserved by the BNN manual. */
+		return (FALSE);
+	}
+	if ((bltmode & SGP_BLTMODE_HD) && (tp != 0)) {
+		/* HD=1 is documented only with ordinary transfer (TP=0). */
+		return (FALSE);
+	}
+	if ((src != NULL) && (dest != NULL) && (src->scrnmode != dest->scrnmode)) {
+		/* The only documented format expansion is 1bpp source to a wider destination. */
+		if ((src->scrnmode != 0) || (dest->scrnmode == 0) || (bltmode & SGP_BLTMODE_HD)) {
+			return (FALSE);
+		}
+	}
+	return (TRUE);
+}
+
 static void fetch_block(UINT32 address, SGP_BLOCK block) {
 	UINT16 dat;
+	UINT16 raw_fbw;
 
 	dat = sgp_memoryread_w(address);
 	block->scrnmode = dat & 0x03;
 	block->dot = (dat >> 4) & (dotcountmax[block->scrnmode] - 1);
+	raw_fbw = sgp_memoryread_w(address + 6);
+	if (!sgp_fbw_aligned(raw_fbw)) {
+		TRACEOUT(("SGP: descriptor: FBW low bits are reserved: %04x", raw_fbw));
+	}
 	if (pccore.model_va == PCMODEL_VA2) {
 		/* Preserve the wider VA2 descriptor profile used by existing software. */
 		block->width = sgp_memoryread_w(address + 2) & 0x3fff;
 		block->height = sgp_memoryread_w(address + 4);
-		block->fbw = sgp_memoryread_w(address + 6) & 0xfffe;
+		block->fbw = raw_fbw & 0xfffe;
 	} else {
 		/* The original VA descriptor defines 12-bit extents and a four-byte pitch. */
 		block->width = sgp_memoryread_w(address + 2) & 0x0fff;
 		block->height = sgp_memoryread_w(address + 4) & 0x0fff;
-		block->fbw = sgp_memoryread_w(address + 6) & 0xfffc;
+		block->fbw = raw_fbw & 0xfffc;
 	}
 	block->address =
 	    sgp_memoryread_w(address + 8) & 0xfffe | ((UINT32)sgp_memoryread_w(address + 10) << 16);
@@ -664,7 +702,7 @@ static void setintreq(void) {
 
 static void cmd_unknown(void) {
 	// Invalid command.
-	TRACEOUT(("SGP: cmd: unknown"));
+	TRACEOUT(("SGP: cmd: unknown 0000"));
 }
 
 static void cmd_nop(void) {
@@ -723,6 +761,9 @@ static void cmd_bitblt(void) {
 	sgp.remainclock -= 338 * 2;
 
 	TRACEOUT(("SGP: cmd: bitblt: %04x", sgp.bltmode));
+	if (!sgp_blt_mode_valid(sgp.bltmode, &sgp.src, &sgp.dest)) {
+		TRACEOUT(("SGP: bitblt: reserved or unsupported mode combination: %04x", sgp.bltmode));
+	}
 
 	// BITBLT ignores the width and height from SET DESTINATION;
 	// the SET SOURCE dimensions determine the transfer extent.
@@ -751,6 +792,9 @@ static void cmd_patblt(void) {
 	               sgp.dest.address, sgp.dest.dot);
 
 	TRACEOUT(("SGP: cmd: patblt: %04x", sgp.bltmode));
+	if (!sgp_blt_mode_valid(sgp.bltmode, &sgp.src, &sgp.dest)) {
+		TRACEOUT(("SGP: patblt: reserved or unsupported mode combination: %04x", sgp.bltmode));
+	}
 
 	init_block(&sgp.src);
 	init_block(&sgp.dest);
@@ -769,6 +813,9 @@ static void cmd_line(void) {
 	sgp.bltmode = sgp_memoryread_w(sgp.pc);
 	sgp.pc += 2;
 	fetch_block(sgp.pc, &sgp.dest);
+	if ((sgp.bltmode & SGP_BLTMODE_TP) == 0x0300) {
+		TRACEOUT(("SGP: line: reserved TP mode: %04x", sgp.bltmode));
+	}
 
 	TRACEOUT(("SGP: cmd: line: %04x, dot=%d, mode=%d, w=%d, h=%d, fbw=%d, addr=%08lx", sgp.bltmode,
 	          sgp.dest.dot, sgp.dest.scrnmode, sgp.dest.width, sgp.dest.height, sgp.dest.fbw,
@@ -1477,7 +1524,7 @@ static void fetch_command(void) {
 
 	cmd = sgp_memoryread_w(sgp.pc);
 	sgp.pc += 2;
-	if (cmd >= 0x0d) {
+	if (!sgp_command_known(cmd)) {
 		TRACEOUT(("SGP: cmd: unknown %04x", cmd));
 	} else {
 		commandtable[cmd]();
@@ -1555,6 +1602,13 @@ static BOOL finish_scan_selftest(BOOL left) {
 	return (FAILURE);
 }
 
+static BOOL scan_result_matches(BOOL left, UINT16 width, UINT32 address, int dot) {
+	if (finish_scan_selftest(left) != SUCCESS) {
+		return (FALSE);
+	}
+	return ((sgp.dest.width == width) && (sgp.dest.address == address) && (sgp.dest.dot == dot));
+}
+
 BOOL sgp_manual_commands_selftest(void) {
 	static const UINT16 rop_expected[16] = {0x0000, 0x0303, 0x3030, 0x0000, 0x0c0c, 0x0f0f,
 	                                        0x3c3c, 0x3f3f, 0xc0c0, 0xc3c3, 0xf0f0, 0xf3f3,
@@ -1600,6 +1654,38 @@ BOOL sgp_manual_commands_selftest(void) {
 		goto restore;
 	}
 
+	/* Descriptor and mode negative cases remain explicit and machine-checked. */
+	if (!sgp_fbw_aligned(0x0020) || sgp_fbw_aligned(0x0022)) {
+		goto restore;
+	}
+	if (sgp_command_known(0x0000) || !sgp_command_known(0x0002) ||
+	    !sgp_command_known(0x000c) || sgp_command_known(0x000d) ||
+	    sgp_command_known(0xffff)) {
+		goto restore;
+	}
+	sgp.remainclock = 10;
+	cmd_nop();
+	if (sgp.remainclock != 0) {
+		goto restore;
+	}
+	block.scrnmode = 0;
+	block.dot = 0;
+	block.width = 8;
+	block.height = 1;
+	block.fbw = 4;
+	sgp.dest.scrnmode = 1;
+	if (!sgp_blt_mode_valid(0x0000, &block, &sgp.dest) ||
+	    !sgp_blt_mode_valid(0x0100, &block, &sgp.dest) ||
+	    sgp_blt_mode_valid(0x0400, &block, &sgp.dest) ||
+	    sgp_blt_mode_valid(0x0500, &block, &sgp.dest) ||
+	    sgp_blt_mode_valid(0x0300, &block, &sgp.dest)) {
+		goto restore;
+	}
+	block.scrnmode = 1;
+	if (!sgp_blt_mode_valid(0x0400, &block, &sgp.dest)) {
+		goto restore;
+	}
+
 	if ((SGP_BLTMODE_LINE_VD != SGP_BLTMODE_VD) || (SGP_BLTMODE_LINE_HD != SGP_BLTMODE_HD)) {
 		goto restore;
 	}
@@ -1635,8 +1721,7 @@ BOOL sgp_manual_commands_selftest(void) {
 	sgp.dest.dot = 0;
 	sgp.dest.width = 8;
 	sgp.color = 0x7777;
-	if ((finish_scan_selftest(FALSE) != SUCCESS) || (sgp.dest.width != 6) ||
-	    (sgp.dest.address != destination_address) || (sgp.dest.dot != 0)) {
+	if (!scan_result_matches(FALSE, 6, destination_address, 0)) {
 		goto restore;
 	}
 
@@ -1671,8 +1756,7 @@ BOOL sgp_manual_commands_selftest(void) {
 	sgp.dest.dot = 3;
 	sgp.dest.width = 8;
 	sgp.color = 0x3333;
-	if ((finish_scan_selftest(TRUE) != SUCCESS) || (sgp.dest.width != 5) ||
-	    (sgp.dest.address != destination_address) || (sgp.dest.dot != 3)) {
+	if (!scan_result_matches(TRUE, 5, destination_address, 3)) {
 		goto restore;
 	}
 
