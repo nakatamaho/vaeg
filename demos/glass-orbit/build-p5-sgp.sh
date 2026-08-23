@@ -34,11 +34,18 @@ raw_output=$output_dir/GLASSP5S.BIN
 script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 source_dir=$script_dir/src
 assembler=${NASM:-nasm}
+python=${PYTHON:-python3}
 
 command -v "$assembler" >/dev/null 2>&1 || {
     printf 'error: NASM is unavailable: %s\n' "$assembler" >&2
     exit 1
 }
+command -v "$python" >/dev/null 2>&1 || {
+    printf 'error: Python is unavailable: %s\n' "$python" >&2
+    exit 1
+}
+
+"$python" "$script_dir/tools/verify-opna-source.py" "$script_dir"
 
 "$assembler" -f bin -O2 -I "$source_dir/" \
     "$source_dir/glass_orbit_p5_sgp.asm" -o "$raw_output"
