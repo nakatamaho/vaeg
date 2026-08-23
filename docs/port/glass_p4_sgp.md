@@ -38,9 +38,9 @@ END
 ```
 
 The guest never writes the G0 CPU aperture before the list has completed.
-CPU work is confined to preserved geometry, face scan conversion, command-list
-construction, and the post-completion checksum.  Stars, grid, animation,
-double buffering, and OPNA remain later work.
+CPU work is confined to preserved geometry, convex-face scan conversion,
+command-list construction, and the post-completion checksum.  Stars, grid,
+animation, double buffering, and OPNA remain later work.
 
 The physical G0 assumptions are the accepted P1/P2 contract:
 
@@ -54,10 +54,27 @@ The physical G0 assumptions are the accepted P1/P2 contract:
 This is VAEG functional evidence.  It does not establish PC-88VA SGP timing,
 contention, command-list length limits, or hardware conformance.
 
+## Direct convex face ownership
+
+Each visible cube face is submitted once to the shared
+`glass_p4_convex_fill_polygon` scanner with four projected vertices.  The
+scanner is included from `src/glass_p4_convex.inc` by both the CPU verifier and
+the SGP payload; only the final span writer differs.  The P4 face path does
+not split a quadrilateral into triangles and has no synthetic internal
+diagonal.  The standalone triangle rasterizer remains available for primitive
+QA and shared-edge regression tests.
+
+For a convex polygon, every covered physical row produces zero or one span.
+Non-horizontal edges use the half-open vertical interval
+`min_y <= y+1/2 < max_y`, so a vertex is not counted twice.  Degenerate and
+reversed spans are discarded.  The implementation accepts either vertex
+winding because it finds the outermost two intersections rather than relying
+on orientation.
+
 ## Span and line ownership
 
 The logical span and the packed-word transaction are separate.  Each
-CPU-converted triangle span is represented as an exact inclusive
+CPU-converted convex-face span is represented as an exact inclusive
 `[x_left,x_right]` range using a row sample at `y+1/2`, with `ceil()` for the
 left edge and `floor()` for the right edge.  The SGP receives only complete
 interior four-pixel words.  The first and last partial words are applied once
@@ -68,7 +85,9 @@ discarded rather than swapped into an out-of-polygon pixel.
 
 The edge-only SGP list is then redrawn as the intended wireframe stage.  There
 is no post-outline bridge, patch, erase, or geometry-specific repair stage.
-P4-2 does not use `PATBLT` for endpoint or registration cases.
+P4-2 does not use `PATBLT` for endpoint or registration cases.  Endpoint RMW
+is a general packed-word access operation derived only from the span bounds,
+colour, and 4bpp layout.
 
 `LINE` descriptors retain logical X, halve logical Y once, use mode `0005h`,
 add `HD`/`VD` only for negative direction, and use the 320-byte G0 pitch.  The
@@ -97,7 +116,9 @@ and restores `DI`.  The staged list tests then completed as follows:
 `GLASS_P4_SGP_STAGE=1` through `5` selects only a diagnostic build subset.
 Stage 3 is the candidate output; stage 4 is outline-only and stage 5 is the
 independent packed-word calibration fixture.  The list reservation remains
-32 KiB and fails closed before an overrun.
+32 KiB and fails closed before an overrun.  The source guard
+`tools/check-p4-convex.py` requires exactly one convex-polygon call in each
+face-rendering routine and rejects triangle decomposition there.
 
 ## Local execution and comparison
 

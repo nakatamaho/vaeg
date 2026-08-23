@@ -202,6 +202,61 @@ def shared_edge_matrix():
     }
 
 
+def convex_polygon_matrix():
+    """Exercise direct convex polygons, winding, and degenerate inputs."""
+    cases = {
+        "triangle": ((32, 16), (12, 72), (82, 72)),
+        "rectangle": ((120, 24), (180, 24), (180, 64), (120, 64)),
+        "slanted_quadrilateral": ((220, 18), (310, 34), (288, 104), (198, 86)),
+        "diamond": ((380, 18), (430, 62), (380, 106), (330, 62)),
+        "trapezoid": ((470, 24), (570, 24), (548, 92), (492, 92)),
+        "narrow_1": ((20, 120), (20, 132), (20, 132), (20, 120)),
+        "narrow_2": ((40, 120), (41, 120), (41, 132), (40, 132)),
+        "narrow_3": ((60, 120), (62, 120), (62, 132), (60, 132)),
+        "narrow_4": ((80, 120), (83, 120), (83, 132), (80, 132)),
+        "narrow_5": ((100, 120), (104, 120), (104, 132), (100, 132)),
+        "pentagon": ((520, 118), (570, 134), (550, 178), (490, 178),
+                     (470, 134)),
+    }
+    reports = {}
+    failures = []
+    for name, polygon in cases.items():
+        direct = edge_polygon_pixels(list(polygon))
+        reverse = edge_polygon_pixels(list(reversed(polygon)))
+        winding_equal = direct == reverse
+        reports[name] = {
+            "pixels": len(direct),
+            "winding_equal": winding_equal,
+            "status": "PASS" if winding_equal else "FAIL",
+        }
+        if not winding_equal:
+            failures.append(name)
+
+    degenerate_cases = {
+        "too_few_vertices": ((10, 10), (20, 20)),
+        "zero_area": ((10, 10), (20, 20), (30, 30)),
+        "duplicate_vertex": ((10, 10), (30, 10), (30, 30), (30, 30),
+                              (10, 30)),
+    }
+    for name, polygon in degenerate_cases.items():
+        pixels = edge_polygon_pixels(list(polygon))
+        expected_empty = name != "duplicate_vertex"
+        passed = bool(pixels) != expected_empty
+        reports[name] = {
+            "pixels": len(pixels),
+            "expected_empty": expected_empty,
+            "status": "PASS" if passed else "FAIL",
+        }
+        if not passed:
+            failures.append(name)
+    return {
+        "cases": reports,
+        "failures": failures,
+        "status": "PASS" if not failures else "FAIL",
+        "authority": "host geometry oracle only",
+    }
+
+
 def _edge(a, b, point):
     return ((b[0] - a[0]) * (point[1] - a[1]) -
             (b[1] - a[1]) * (point[0] - a[0]))
@@ -215,6 +270,42 @@ def _fraction_floor(value):
 def _fraction_ceil(value):
     """Return ceil(value) without converting the independent oracle to float."""
     return -((-value.numerator) // value.denominator)
+
+
+def edge_polygon_pixels(vertices):
+    """Rasterize one convex polygon directly with no diagonal decomposition.
+
+    This is an independent logical-pixel oracle.  It samples each physical
+    row at ``y + 1/2``, activates non-horizontal edges with a half-open
+    vertical interval, and writes one inclusive span from the outermost
+    intersections.  It knows nothing about the guest's 4bpp storage.
+    """
+    if len(vertices) < 3:
+        return set()
+    top = min(point[1] for point in vertices)
+    bottom = max(point[1] for point in vertices)
+    pixels = set()
+    for y in range(max(0, top), min(HEIGHT, bottom)):
+        sample_y = Fraction(2 * y + 1, 2)
+        intersections = []
+        for first, second in zip(vertices, vertices[1:] + vertices[:1]):
+            x0, y0 = first
+            x1, y1 = second
+            if y0 == y1:
+                continue
+            edge_top = min(y0, y1)
+            edge_bottom = max(y0, y1)
+            if not (edge_top < sample_y < edge_bottom):
+                continue
+            fraction = (sample_y - y0) / (y1 - y0)
+            intersections.append(Fraction(x0) + fraction * (x1 - x0))
+        if len(intersections) < 2:
+            continue
+        left = _fraction_ceil(min(intersections))
+        right = _fraction_floor(max(intersections))
+        for x in range(max(0, left), min(WIDTH - 1, right) + 1):
+            pixels.add((x, y))
+    return pixels
 
 
 def edge_triangle_pixels(vertices, indices):
@@ -266,9 +357,26 @@ def expected_faces(data):
                  (b[1] - a[1]) * (c[0] - a[0]))
         if cross >= 0:
             continue
+        polygon = [(raw_vertices[index][0], raw_vertices[index][1] // 2)
+                   for index in (v0, v1, v2, v3)]
+        for x, y in edge_polygon_pixels(polygon):
+            expected[y][x] = colour
+    return expected
+
+
+def triangle_union_faces(data):
+    """Return the previous two-triangle union as a secondary reference."""
+    raw_vertices = projection_vertices(data)
+    expected = [[0] * WIDTH for _ in range(HEIGHT)]
+    for v0, v1, v2, v3, colour in FACE_DEFS:
+        a, b, c = raw_vertices[v0], raw_vertices[v1], raw_vertices[v2]
+        cross = ((b[0] - a[0]) * (c[1] - a[1]) -
+                 (b[1] - a[1]) * (c[0] - a[0]))
+        if cross >= 0:
+            continue
+        vertices = [(point[0], point[1] // 2) for point in raw_vertices]
         for triangle in ((v0, v1, v2), (v0, v2, v3)):
-            for x, y in edge_triangle_pixels(
-                    [(point[0], point[1] // 2) for point in raw_vertices], triangle):
+            for x, y in edge_triangle_pixels(vertices, triangle):
                 expected[y][x] = colour
     return expected
 
@@ -525,6 +633,13 @@ def main():
     alignment_failures = rectangle_alignment_matrix()
     slope_result = slope_matrix()
     shared_edge_result = shared_edge_matrix()
+    convex_result = convex_polygon_matrix()
+    direct_expected = expected_faces(geometry_data)
+    triangle_expected = triangle_union_faces(geometry_data)
+    triangle_union_mismatch = sum(
+        direct_expected[y][x] != triangle_expected[y][x]
+        for y in range(HEIGHT) for x in range(WIDTH)
+    )
     expected = expected_faces(geometry_data)
     edge_result = None
     vertex_result = None
@@ -550,6 +665,12 @@ def main():
         "rectangle_alignment_failures": alignment_failures,
         "slope_matrix": slope_result,
         "shared_edge_matrix": shared_edge_result,
+        "convex_polygon_matrix": convex_result,
+        "triangle_union_mismatch": triangle_union_mismatch,
+        "direct_convex_oracle": {
+            "status": "PASS" if triangle_union_mismatch == 0 else "FAIL",
+            "triangle_union_mismatch": triangle_union_mismatch,
+        },
         "geometry_underfill_overfill": {
             "underfill": len(underfill),
             "overfill": len(overfill),
@@ -559,7 +680,9 @@ def main():
         "vertex_junctions": vertex_result,
         "status": "PASS" if not underfill and not overfill and
         not alignment_failures and slope_result["status"] == "PASS" and
-        shared_edge_result["status"] == "PASS" and edge_ok and vertex_ok else "FAIL",
+        shared_edge_result["status"] == "PASS" and
+        convex_result["status"] == "PASS" and
+        triangle_union_mismatch == 0 and edge_ok and vertex_ok else "FAIL",
     }
     print(json.dumps(result, sort_keys=True))
     return 0 if result["status"] == "PASS" and not result["rectangle_alignment_failures"] else 1

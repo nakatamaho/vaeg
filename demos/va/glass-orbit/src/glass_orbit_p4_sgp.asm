@@ -417,8 +417,10 @@ glass_p4_sgp_emit_cls:
         call    glass_p4_sgp_emit_word
         ret
 
-; Build camera-facing quads as two triangles.  The CPU performs only scan
-; conversion and list construction; every visible span is an SGP CLS command.
+; Build each camera-facing quad with one convex-polygon scan conversion.  The
+; CPU performs only geometry and list construction; every visible span is an
+; SGP CLS command.  The standalone triangle primitive remains available for
+; independent QA, but is not used for P4 face rendering.
 glass_p4_sgp_draw_faces:
         push    ax
         push    bx
@@ -437,29 +439,25 @@ glass_p4_sgp_draw_faces:
         call    glass_p4_sgp_emit_set_colour_index
 
         mov     al, [si]
-        mov     di, glass_p4_sgp_tri_v0
+        mov     di, glass_p4_sgp_poly_v0
         call    glass_p4_sgp_load_vertex
         mov     al, [si+1]
-        mov     di, glass_p4_sgp_tri_v1
+        mov     di, glass_p4_sgp_poly_v1
         call    glass_p4_sgp_load_vertex
         mov     al, [si+2]
-        mov     di, glass_p4_sgp_tri_v2
-        call    glass_p4_sgp_load_vertex
-        push    si
-        call    glass_p4_sgp_fill_triangle
-        pop     si
-
-        mov     al, [si]
-        mov     di, glass_p4_sgp_tri_v0
-        call    glass_p4_sgp_load_vertex
-        mov     al, [si+2]
-        mov     di, glass_p4_sgp_tri_v1
+        mov     di, glass_p4_sgp_poly_v2
         call    glass_p4_sgp_load_vertex
         mov     al, [si+3]
-        mov     di, glass_p4_sgp_tri_v2
+        mov     di, glass_p4_sgp_poly_v3
         call    glass_p4_sgp_load_vertex
+        sar     word [glass_p4_sgp_poly_v0+2], 1
+        sar     word [glass_p4_sgp_poly_v1+2], 1
+        sar     word [glass_p4_sgp_poly_v2+2], 1
+        sar     word [glass_p4_sgp_poly_v3+2], 1
         push    si
-        call    glass_p4_sgp_fill_triangle
+        mov     si, glass_p4_sgp_poly_v0
+        mov     cx, 4
+        call    glass_p4_convex_fill_polygon
         pop     si
 .next:
         add     si, 5
@@ -710,6 +708,12 @@ glass_p4_sgp_emit_span:
         call    glass_p4_sgp_emit_cls
 .done:
         ret
+
+; The shared convex scanner calls this backend callback with exact logical
+; spans.  CPU and SGP therefore use identical edge and row coverage rules.
+%define GLASS_P4_CONVEX_EMIT_SPAN glass_p4_sgp_emit_span
+%include "glass_p4_convex.inc"
+%undef GLASS_P4_CONVEX_EMIT_SPAN
 
 glass_p4_sgp_record_span:
         mov     di, [glass_p4_sgp_endpoint_cursor]
@@ -1091,6 +1095,10 @@ glass_p4_sgp_last_colour       dw 0
 glass_p4_sgp_tri_v0            dw 0,0
 glass_p4_sgp_tri_v1            dw 0,0
 glass_p4_sgp_tri_v2            dw 0,0
+glass_p4_sgp_poly_v0           dw 0,0
+glass_p4_sgp_poly_v1           dw 0,0
+glass_p4_sgp_poly_v2           dw 0,0
+glass_p4_sgp_poly_v3           dw 0,0
 glass_p4_sgp_scan_y            dw 0
 glass_p4_sgp_span_x0           dw 0
 glass_p4_sgp_span_x1           dw 0
