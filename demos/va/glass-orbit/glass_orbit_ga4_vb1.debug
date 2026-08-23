@@ -25,6 +25,6 @@ debug-script 1
 limit-frame 3000
 wait-frame 1200
 input-line GLASSP4
-wait-pc 2000:0200 2
+wait-pc 2000:0200 1
 capture ga4-vb1 registers screen
 exit

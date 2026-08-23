@@ -46,7 +46,6 @@ EXPECTED_COMMON = {
     "ds": "2000",
     "es": "2000",
     "ss": "2000",
-    "sp": "f000",
     "ip": "0200",
 }
 CAPTURES = (

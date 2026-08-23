@@ -26,9 +26,11 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 GA-4 proves only that the GLASS payload can observe the documented TSP
 vertical-blank status bit and makes its updates conditional on successive
 low-to-high observations. It retains GA-2's G0 640 by 200 single-plane 4bpp
-mode, GA-3's diagnostic palette, and CPU aperture. It does not submit SGP
-work, alter TSP `SYNC`, modify framebuffer descriptors, select a second page,
-or make a PC-88VA timing or frame-rate claim.
+mode, GA-3's diagnostic palette, and CPU aperture. It writes a static page of
+palette-index-1 pixels once, then changes palette entry 1 at word port `0302h`
+after each observed VB edge. It does not submit SGP work, alter TSP `SYNC`,
+modify framebuffer descriptors, select a second page, or make a PC-88VA timing
+or frame-rate claim.
 
 ## VB contract
 
@@ -38,28 +40,35 @@ period. The payload performs only byte input from that port:
 ```text
 wait until VB = 0
 wait until VB = 1
-update one 640 by 200 background
+write palette entry 1 at `0302h`
 ```
 
 This low-to-high sequence avoids treating a long assertion of VB as more than
-one update. A bounded diagnostic polling loop reports the `47E4h` failure
-marker instead of reporting success if either level is not observed. The loop
-bound is not a hardware timing specification.
+one update. Because rewriting the entire 64 KiB page can extend beyond the
+blanking period and cause a split frame, GA-4 does not rewrite GVRAM inside the
+loop. The page remains `1111h`; the single palette entry changes colour. The
+single word `OUT` avoids the visible split caused by a 64 KiB GVRAM rewrite and
+keeps the repeated update independent of Graphics BIOS call state. A bounded
+diagnostic polling loop reports the `47E4h` failure marker instead of reporting
+success if either level is not observed. The loop bound is not a hardware timing
+specification.
 
-Evidence: `[VA-TEKU:2.TXT TSP status-port diagram, 0142h bit 6]` and
+Evidence: `[VA-TEKU:2.TXT TSP status-port diagram, 0142h bit 6]`,
+`[VA-TEKU:4.TXT §4.5 palette word ports 0300h--031Eh]`, and
 `[SRC:io/tsp.c:tsp_i142]`. The local Technical Manual is maintainer-local and
 is cited here, never from a source comment.
 
 ## Two bounded captures
 
 Each run begins from a fresh boot and captures `2000:0200`, the program's
-checkpoint immediately after a completed update. The two M74 scripts select
-different appearances of that checkpoint:
+loop checkpoint after a completed update. The loop does not define a stack
+pointer value as part of that checkpoint, so it is not an acceptance condition.
+The two M74 scripts select different appearances of that checkpoint:
 
-| Capture | Completed low-to-high observations | Expected packed word | Expected RGB sample |
+| Capture | Completed low-to-high observations | Palette entry 1 value | Expected RGB sample |
 |---|---:|---:|---|
-| `ga4-vb1` | 1 | `1111h` | `(0, 0, 255)` |
-| `ga4-vb5` | 5 | `5555h` | `(0, 254, 255)` |
+| `ga4-vb1` | 1 | `001Fh` | `(0, 0, 255)` |
+| `ga4-vb5` | 5 | `FC1Fh` | `(0, 254, 255)` |
 
 The checker rejects a missing checkpoint, wrong `4744h` success marker, wrong
 count in `BX`, unexpected uniform-background geometry, black separator rows,
