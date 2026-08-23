@@ -38,6 +38,7 @@ bits 16
 org 0
 
 %define VIDEO_BIOS_INT          0x8f
+%define KEYBOARD_BIOS_INT       0x82
 %define PORT_MEMORY_MAP         0x0153
 %define PORT_GVRAM_WRITE_MODE   0x0580
 %define MODE_G0_640X200_4BPP    0xa002
@@ -49,6 +50,11 @@ org 0
 %define G0_WIDTH                640
 %define G0_HEIGHT               200
 %define G0_PITCH_BYTES          320
+%define LOADER_RETURN_SS        0xe000
+%define LOADER_RETURN_SP        0xe002
+%define LOADER_RETURN_FLAGS     0xe004
+%define LOADER_RETURN_MAGIC     0xe006
+%define LOADER_RETURN_SIGNATURE 0x5034
 
 glass_p4_cpu_entry:
         cli
@@ -119,8 +125,47 @@ glass_p4_cpu_failed:
 ; The debugger observes a completed fixed frame at this stable address.
 times 0x0200 - ($ - $$) db 0
 glass_p4_cpu_idle:
+        call    glass_p4_cpu_escape_pressed
+        jc      glass_p4_cpu_exit
         hlt
         jmp     glass_p4_cpu_idle
+
+; The PC-88VA Keyboard BIOS supplies the interactive exit path for the local
+; COM loader.  $SnsChar reports pending input through CF; $GetChar returns
+; the scan code in AH, with ESC encoded as zero.
+glass_p4_cpu_escape_pressed:
+        mov     ah, 0x01
+        int     KEYBOARD_BIOS_INT
+        jc      .none
+        mov     ah, 0x00
+        int     KEYBOARD_BIOS_INT
+        or      ah, ah
+        jz      .escape
+.none:
+        clc
+        ret
+.escape:
+        stc
+        ret
+
+; The raw payload can also be injected without the local COM loader.  Such a
+; run has no return continuation, so only use the exit path when the loader
+; supplied its explicit context.
+glass_p4_cpu_exit:
+        cmp     word [cs:LOADER_RETURN_MAGIC], LOADER_RETURN_SIGNATURE
+        jne     glass_p4_cpu_idle
+        mov     ax, 0x0b00             ; $ScnDsp: graphics off.
+        int     VIDEO_BIOS_INT
+        mov     ax, 0x0300             ; $Compose: text only.
+        mov     cx, 0x0001
+        int     VIDEO_BIOS_INT
+        cli
+        mov     ax, [cs:LOADER_RETURN_SS]
+        mov     ss, ax
+        mov     sp, [cs:LOADER_RETURN_SP]
+        push    word [cs:LOADER_RETURN_FLAGS]
+        popf
+        retf
 
 ; Configure the source-colour palette plus the P2 face-colour mapping.
 ; Palette entries 8..13 are only a visual CPU-reference profile; they are not
@@ -573,6 +618,6 @@ glass_p4_line_sy     dw 0
 glass_p4_line_error  dw 0
 glass_p4_line_e2     dw 0
 
-%if ($ - $$) > 0xef00
-%error "GLASS ORBIT P4-1 payload overlaps the fixed stack reserve"
+%if ($ - $$) > LOADER_RETURN_SS
+%error "GLASS ORBIT P4-1 payload overlaps the loader return reserve"
 %endif

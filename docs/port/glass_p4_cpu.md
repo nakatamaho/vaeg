@@ -103,6 +103,35 @@ python3 demos/va/glass-orbit/tools/verify-p4-cpu-capture.py FIRST SECOND
 The checker has no baseline-update capability. Its accepted checksum and
 visible envelope are source-controlled; changing either requires review.
 
+## Interactive exit
+
+`GLASSP4C.COM` uses the PC-88VA Keyboard BIOS, not MS-DOS, for its optional
+interactive exit. `$SnsChar` (`INT 82h`, `AH=01h`) reports a pending key in
+CF; `$GetChar` (`AH=00h`) returns the scan code in `AH`, where ESC is zero.
+On ESC, the payload disables graphics with `$ScnDsp(AL=0)`, selects text as
+the only compositor input through `$Compose(AL=0, CX=0001h)`, and restores the
+explicit return continuation saved by the local COM loader. The raw payload
+does not use this path unless a loader supplied the continuation context.
+
+This is a local-loader ABI for the bootable validation disk, not a PC-88VA
+firmware contract. It is based on the documented Graphics and Keyboard BIOS
+service contracts and requires a human confirmation because the headless
+runner cannot inject ESC.
+
+## VA2/VA3 bootstrap boundary
+
+The local bootable validation image reaches the P4-1 checkpoint under VAEG's
+`--model va` run. Under the same controlled VAEG launch with `--model va2`,
+the debugger's input action was issued at frame 1200 but did not reach the
+`2000:0200` payload checkpoint before the frame-5000 limit. No guest P4 code,
+Graphics BIOS mode call, or CPU GVRAM write had executed at that point.
+
+This is a **bootstrap limitation of the local PC-Engine validation image**,
+not evidence that the P4-1 renderer is incompatible with VA2 or VA3 hardware.
+The emulator currently exposes `va` and `va2` CLI model selectors; its `va2`
+startup chooses the VA2/VA3 ROM path. A VA2/VA3-capable loader or a direct
+bare-payload launch is required before making a renderer compatibility claim.
+
 `tools/repo/find_unreferenced.py --report` reports the P4-1 NASM sources as
 outside the production CMake graph. `build-p4-cpu.sh` and the local loader are
 their explicit build ownership; the report is a candidate list, not a deletion
@@ -112,8 +141,8 @@ verdict.
 
 P4-1 establishes only that the new CPU verification implementation is stable
 under VAEG and visibly draws the retained fixed cube geometry. It does not
-make an SGP claim, a performance claim, an input/exit claim, or a real-PC-88VA
-compatibility claim. Those remain later staged work.
+make an SGP claim, a performance claim, or a real-PC-88VA compatibility claim.
+Those remain later staged work.
 
 ## Correction before the P4-1 human gate
 

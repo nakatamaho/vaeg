@@ -20,9 +20,9 @@
 ; EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ; Local PC-Engine loader for the P4-1 verification payload.  It copies the
-; source-built image to the approved 2000:0000 bare-payload entry and never
-; invokes a DOS service itself.  The payload intentionally idles after its
-; fixed frame; this loader has no return continuation.
+; source-built image to the approved 2000:0000 bare-payload entry and saves a
+; return continuation there, so the VA Keyboard BIOS ESC path can return to
+; the invoking COM command without a DOS interrupt in the bare payload.
 
 cpu 286
 bits 16
@@ -32,7 +32,15 @@ org 0x100
 %error "GLASS_P4_CPU_PAYLOAD_FILE must name the raw P4-1 payload"
 %endif
 
+%define LOADER_RETURN_SS        0xe000
+%define LOADER_RETURN_SP        0xe002
+%define LOADER_RETURN_FLAGS     0xe004
+%define LOADER_RETURN_MAGIC     0xe006
+%define LOADER_RETURN_SIGNATURE 0x5034
+
 start:
+        pushf
+        pop     bx
         cli
         push    cs
         pop     ds
@@ -40,11 +48,23 @@ start:
         mov     es, ax
         mov     si, payload
         xor     di, di
-        mov     cx, (payload_end - payload + 1) / 2
-        rep     movsw
+        mov     cx, payload_end - payload
+        cld
+        rep     movsb
+        push    cs
+        push    word loader_return
+        mov     ax, ss
+        mov     dx, sp
+        mov     [es:LOADER_RETURN_SS], ax
+        mov     [es:LOADER_RETURN_SP], dx
+        mov     [es:LOADER_RETURN_FLAGS], bx
+        mov     word [es:LOADER_RETURN_MAGIC], LOADER_RETURN_SIGNATURE
         push    word 0x2000
         push    word 0x0000
         retf
+
+loader_return:
+        ret
 
 align 2, db 0
 payload:
