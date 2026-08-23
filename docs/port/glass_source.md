@@ -102,6 +102,47 @@ origin is P1-8 work.  The harness initializes its code/data segment, executes
 one geometry step, and then idles.  It contains no graphics output and no DOS,
 BIOS, TSP, SGP, or OPNA operation.
 
+## Local VAEG smoke wrapper
+
+P0 itself deliberately makes no loader ABI claim.  A separate local-only
+`GLASSP0.COM` wrapper uses the already-supported PC-Engine DOS COM path only
+to execute the same geometry/data closure once under VAEG.  It does not call a
+graphics BIOS service, configure video, access an I/O port, create an SGP
+list, or establish the future bare-payload entry convention.
+
+Create a bootable local image from a maintainer-local PC-Engine 2HD template:
+
+```sh
+NASM=/opt/local/bin/nasm \
+  demos/va/glass-orbit/build-bootable-d88.sh \
+  /path/to/pcengine-bootable.d88 \
+  /private/tmp/glass-orbit-p0-bootable.d88
+```
+
+The generated D88 retains the template's non-free PC-Engine system files.  It
+is a local validation artifact only and must not be committed or distributed.
+At the DOS prompt, execute `GLASSP0`. The local wrapper returns to the DOS
+prompt only after the shared geometry closure has returned.
+
+For a bounded VAEG smoke run, the standard headless keyboard path types that
+command and captures the resulting DOS screen:
+
+```sh
+NASM=/opt/local/bin/nasm \
+  demos/va/glass-orbit/run-vaeg-smoke.sh \
+  /path/to/pcengine-bootable.d88 \
+  /absolute/path/to/vaeg \
+  /absolute/path/to/rom-directory \
+  /private/tmp/glass-orbit-p0-smoke
+```
+
+The captured screen must visibly show the initial `Ready` prompt, the
+`GLASSP0` command, and a second `Ready` prompt. This is solely a VAEG execution
+smoke: it proves that the local DOS wrapper reaches the geometry closure and
+returns to the command processor. It is not evidence for the P1-8
+bare-payload convention, 640x200 packed 4bpp, V3 display setup, SGP behavior,
+or real PC-88VA hardware compatibility.
+
 ## P0 verification and non-claims
 
 P0 passes when NASM builds the binary and static inspection confirms that no
