@@ -1872,3 +1872,37 @@ separate parity correction or move it to Open Defects.
   release, macOS release, MinGW cross build, and `git diff --check` passed.
 - **Evidence:** [M75 report](../agents/reports/m75_scsi_support.md).
 - **Commit:** [024855e](https://github.com/nakatamaho/vaeg/commit/024855e799750d762be0526cb10ada43a573f30d)
+
+
+### GLASS P4 SGP face spans left localized holes
+
+- **Status:** fixed in M97.
+- **Symptom:** the P4 cube contained short diagonal black runs inside otherwise
+  solid colored faces.  Regular horizontal blank-raster gaps were a separate
+  presentation effect.
+- **Root cause:** each convex face was split into two triangles and each span
+  was independently rounded inward to packed-4bpp words, leaving an unpainted
+  word at the shared diagonal.
+- **Correction:** round span endpoints outward to complete packed words.  The
+  change remains SGP-only and does not post-process the host framebuffer.
+- **Verification:** raw logical G0 inspection changed from 155 interior runs to
+  zero; the independent eight-way rectangle alignment matrix passed; the
+  fixed PNG was visually inspected; CTest passed 84/84 with one expected skip.
+- **Evidence:** [M97 P4 visual-hole report](../agents/reports/m97_p4_visual_holes.md).
+- **Commit:** [db8ce8f](https://github.com/nakatamaho/vaeg/commit/db8ce8f)
+
+
+### GLASS P4 SGP loader returned through a corrupt stack
+
+- **Status:** fixed in M97.
+- **Symptom:** leaving the SGP payload with ESC did not reliably return to the
+  local loader and could leave a black or unusable screen.
+- **Root cause:** the loader saved the pre-continuation stack pointer instead
+  of pushing and saving its `loader_return` continuation, so the payload
+  `retf` consumed a flags word as a return frame.
+- **Correction:** preserve flags, push `cs:loader_return`, save the real
+  `ss:sp`, and use the VA Keyboard BIOS documented `BH=0, BL=1Bh` ESC result.
+- **Verification:** the VAEG P4 SGP capture returned with exit status 0 after
+  the ESC input event; NASM payload build passed.
+- **Evidence:** [M97 P4 visual-hole report](../agents/reports/m97_p4_visual_holes.md).
+- **Commit:** [db8ce8f](https://github.com/nakatamaho/vaeg/commit/db8ce8f)
