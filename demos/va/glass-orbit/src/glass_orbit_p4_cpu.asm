@@ -197,7 +197,9 @@ glass_p4_cpu_draw_faces:
         mov     al, [si+2]
         mov     di, glass_p4_tri_v2
         call    glass_p4_cpu_load_vertex
+        push    si
         call    glass_p4_cpu_fill_triangle
+        pop     si
 
         mov     al, [si]
         mov     di, glass_p4_tri_v0
@@ -208,7 +210,9 @@ glass_p4_cpu_draw_faces:
         mov     al, [si+3]
         mov     di, glass_p4_tri_v2
         call    glass_p4_cpu_load_vertex
+        push    si
         call    glass_p4_cpu_fill_triangle
+        pop     si
 .next:
         add     si, 5
         dec     bp
