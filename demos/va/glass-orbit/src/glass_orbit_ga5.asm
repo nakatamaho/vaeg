@@ -25,9 +25,10 @@
 ; THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ; GLASS ORBIT GA-5 SGP clear proof.
-; The list is exactly SET WORK, SET COLOR, CLS, END. The CPU reads GVRAM only
-; after SGP idle to validate the completed SGP result, then installs the GA-2
-; nibble-order probe. It does not assign an SGP duration or timing contract.
+; The production list is exactly SET WORK, SET COLOR, CLS, END. The CPU reads
+; GVRAM only after SGP idle to validate the completed SGP result. The optional
+; CPU-reference build performs the same clear through the CPU aperture. Neither
+; build assigns an SGP duration or timing contract.
 ; Evidence: docs/port/glass_ga5.md.
 
 cpu 286
@@ -95,21 +96,20 @@ glass_ga5_entry:
         mov     al, GVRAM_CPU_WRITE_MODE
         out     dx, al
 
+%ifdef GLASS_GA5_CPU_REFERENCE
+        call    glass_ga5_cpu_clear
+        mov     ax, 0x4743             ; "GC" GA-5 CPU-reference marker.
+%else
         call    glass_ga5_build_sgp_list
         call    glass_ga5_run_sgp_list
         jc      glass_ga5_failed
         call    glass_ga5_verify_sgp_clear
         jc      glass_ga5_failed
-
-        ; This probe is deliberately the same as GA-2. The preceding verifier
-        ; has already checked every word produced by SGP CLS.
-        mov     word [es:0], 0x3412
-        mov     word [es:2], 0x7856
-
+        mov     ax, 0x4745             ; "GE" GA-5 SGP success marker.
+%endif
         push    cs
         pop     es
         mov     bx, GVRAM_PAGE_WORDS
-        mov     ax, 0x4745             ; "GE" GA-5 success marker.
         jmp     glass_ga5_idle
 
 glass_ga5_failed:
@@ -225,6 +225,18 @@ glass_ga5_verify_sgp_clear:
         ret
 .failed:
         stc
+        ret
+
+; Verification-only reference backend. It is compiled only when
+; GLASS_GA5_CPU_REFERENCE is defined and writes the same 5555h page image as
+; the SGP CLS command. The human-facing GLASSP5.COM never calls this routine.
+glass_ga5_cpu_clear:
+        mov     ax, 0xa000
+        mov     es, ax
+        xor     di, di
+        mov     ax, 0x5555
+        mov     cx, GVRAM_PAGE_WORDS
+        rep     stosw
         ret
 
 ; Convert DS:SI to the 20-bit physical address required by SGP command ports.
