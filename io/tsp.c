@@ -20,6 +20,7 @@ enum {
 	CMD_SPRON = 0x82,
 	CMD_SPROFF = 0x83,
 	CMD_SPRDEF = 0x84,
+	CMD_SPRSW = 0x85,
 	CMD_EXIT = 0x88,
 
 	// TSP status bits.
@@ -38,6 +39,7 @@ enum {
 	EXECFUNC_DSPDEF,
 	EXECFUNC_CURDEF,
 	EXECFUNC_SPRON,
+	EXECFUNC_SPRSW,
 };
 
 _TSP tsp;
@@ -179,6 +181,22 @@ static void exec_sproff(void) {
 }
 
 /*
+SPRSW: update the display switch of one sprite descriptor.
+
+The parameter carries the sprite number in bits 7:3 and SPSW in bit 1.  The
+descriptor table itself remains owned by TVRAM; this command only changes the
+descriptor's existing enable bit.
+*/
+static void exec_sprsw(void) {
+	REG8 dat;
+
+	dat = tsp.parambuf[0];
+	TRACEOUT(("tsp: sprsw: sprite=%u, enable=%u", dat >> 3, (dat & 0x02) != 0));
+	sprsw(dat >> 3, (dat & 0x02) != 0);
+	tsp.status &= ~STATUS_BUSY;
+}
+
+/*
 SPRDEF: write a sprite-control-table entry.
 */
 // Parameter bytes after the first.
@@ -266,6 +284,9 @@ static void paramfunc_generic(REG8 dat) {
 			case EXECFUNC_SPRON:
 				exec_spron();
 				break;
+			case EXECFUNC_SPRSW:
+				exec_sprsw();
+				break;
 			}
 		}
 	}
@@ -348,6 +369,11 @@ static void IOOUTCALL tsp_o142(UINT port, REG8 dat) {
 		tsp.recvdatacnt = 0;
 		tsp.paramfunc = PARAMFUNC_NOP;
 		exec_sproff();
+		break;
+	case CMD_SPRSW:
+		tsp.recvdatacnt = 1;
+		tsp.execfunc = EXECFUNC_SPRSW;
+		tsp.paramfunc = PARAMFUNC_GENERIC;
 		break;
 	case CMD_SPRDEF:
 		//tsp.paramfunc = paramfunc_sprdef_begin;
