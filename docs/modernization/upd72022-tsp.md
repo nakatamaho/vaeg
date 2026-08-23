@@ -1149,16 +1149,19 @@ The command decoder currently provides functional handling for:
 - `SPRON` (`82h`);
 - `SPRWR`-like sequential sprite-table writes under the local name `SPRDEF`
   (`84h`);
+- `SPRSW` (`85h`), which updates one descriptor's enable bit;
 - `EXIT` (`88h`).
 
-At the evaluated revision, `DSPOFF` and `SPROFF` have constants but no command
-cases. All other commands fall through the unknown-command path. The
-implementation therefore does not yet model active-screen selection, cursor
-movement, light-pen reads, sprite status/read/switch operations,
-display-memory programmed I/O, DMA, masking, or controller interrupts. This
-coverage statement is intentionally separate from the generic data-book
-command list: a command being documented by NEC does not establish that the
-PC-88VA wrapper has implemented it.
+`DSPOFF` (`13h`) and `SPROFF` (`83h`) are implemented as no-parameter state
+transitions. `DSPOFF` disables both TSP text and sprite output; `SPROFF`
+disables sprite output while leaving text state unchanged. `SPRSW` (`85h`) is
+implemented as a one-parameter descriptor-enable update. All other commands
+fall through the unknown-command path. The implementation therefore does not
+yet model active-screen selection, cursor movement, light-pen reads, sprite
+status/read operations, display-memory programmed I/O, DMA, masking, or
+controller interrupts. This coverage statement is intentionally separate from
+the generic data-book command list: a command being documented by NEC does not
+establish that the PC-88VA wrapper has implemented it.
 
 The 22-command data-book chapter is useful not only as background but as a
 concrete completeness checklist for the TSP core.
