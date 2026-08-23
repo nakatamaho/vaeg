@@ -36,13 +36,14 @@ import struct
 from pathlib import Path
 
 
+EXPECTED_PAYLOAD_SEGMENT = "3000"
 EXPECTED_REGISTERS = {
     "schema": "vaeg-registers-v1",
     "ax": "4750",
-    "cs": "2000",
-    "ds": "2000",
-    "es": "2000",
-    "ss": "2000",
+    "cs": EXPECTED_PAYLOAD_SEGMENT,
+    "ds": EXPECTED_PAYLOAD_SEGMENT,
+    "es": EXPECTED_PAYLOAD_SEGMENT,
+    "ss": EXPECTED_PAYLOAD_SEGMENT,
     "sp": "f000",
     "ip": "0200",
 }

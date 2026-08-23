@@ -70,9 +70,9 @@ never from source comments.
 ## Raw stability witness and visible diagnostic
 
 After drawing, the guest calculates a rolling checksum over the raw 64,000
-byte packed G0 page and places it in `BX` at the fixed checkpoint
-`2000:0200`. The corrected renderer's initial two VAEG runs produced
-`BX=B30Eh`. This is a raw-page
+byte packed G0 page and places it in `BX` at the fixed checkpoint at
+`3000:0200` in the local validation-loader contract. Two fresh VAEG runs for
+each of the `va` and `va2` model selectors produced `BX=B30Eh`. This is a raw-page
 stability witness, **not a replacement for a full raw framebuffer capture**.
 P4-2 must add the CPU-versus-SGP raw-pixel comparison; neither P4-1 result
 proves PC-88VA hardware conformance.
@@ -118,19 +118,28 @@ firmware contract. It is based on the documented Graphics and Keyboard BIOS
 service contracts and requires a human confirmation because the headless
 runner cannot inject ESC.
 
-## VA2/VA3 bootstrap boundary
+## VA2/VA3 local-loader correction
 
-The local bootable validation image reaches the P4-1 checkpoint under VAEG's
-`--model va` run. Under the same controlled VAEG launch with `--model va2`,
-the debugger's input action was issued at frame 1200 but did not reach the
-`2000:0200` payload checkpoint before the frame-5000 limit. No guest P4 code,
-Graphics BIOS mode call, or CPU GVRAM write had executed at that point.
+The initial local loader copied the raw P4-1 payload to `2000:0000`.  In a
+VAEG `--model va2` trace, `$ScnMode` returned success, but the payload's
+later framebuffer descriptor no longer contained its source values.  The
+following `$DefBuf` call then returned `AX=0002h` (invalid pixel size), so the
+renderer correctly entered its failure checkpoint without touching GVRAM.
 
-This is a **bootstrap limitation of the local PC-Engine validation image**,
-not evidence that the P4-1 renderer is incompatible with VA2 or VA3 hardware.
-The emulator currently exposes `va` and `va2` CLI model selectors; its `va2`
-startup chooses the VA2/VA3 ROM path. A VA2/VA3-capable loader or a direct
-bare-payload launch is required before making a renderer compatibility claim.
+This was localized by a temporary descriptor probe: after `$ScnMode`, the
+VA2 run read descriptor words different from the assembled `(4,640,400)`,
+while the VA run read the assembled values.  Moving only the local-loader
+payload segment to `3000h` preserved the descriptor; `$DefBuf` and `$DefWin`
+then returned success and the CPU renderer reached its normal
+`3000:0200` checkpoint with `AX=4750h` and `BX=B30Eh`.  The captured image was
+opened and inspected: it contains the expected bounded multicolour cube, not
+a blank rectangle.
+
+This is an emulator-local loader-placement correction, not a claim that
+`2000:0000` is unsafe on PC-88VA hardware.  The VAEG CLI exposes `va` and
+`va2`; the latter selects the VA2/VA3 ROM path.  The P4 runner accepts
+`VAEG_P4_MODEL=va2` for that local path.  Real-machine payload placement and
+the complete V3 entry ABI remain hardware-pending.
 
 `tools/repo/find_unreferenced.py --report` reports the P4-1 NASM sources as
 outside the production CMake graph. `build-p4-cpu.sh` and the local loader are

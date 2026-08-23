@@ -75,6 +75,29 @@ glass_p4_cpu_entry:
         or      ax, ax
         jnz     glass_p4_cpu_failed
 
+        ; $ScnMode resets all framebuffer and window definitions.  Define
+        ; the GA-6-proven 640x400 packed source and select its first 200-line
+        ; window before touching the G0 aperture.  The descriptor and window
+        ; remain payload-owned data, so ES must address this payload for both
+        ; Graphics BIOS calls.
+        push    cs
+        pop     es
+        mov     ax, 0x0100             ; $DefBuf: one G0 640x400 4bpp FB0.
+        mov     cx, 1
+        mov     di, glass_p4_cpu_framebuffer_descriptor
+        int     VIDEO_BIOS_INT
+        or      ax, ax
+        jnz     glass_p4_cpu_failed
+
+        push    cs
+        pop     es
+        mov     ax, 0x0200             ; $DefWin: show FB0 source at Y=0.
+        mov     cx, 1
+        mov     di, glass_p4_cpu_window_descriptor
+        int     VIDEO_BIOS_INT
+        or      ax, ax
+        jnz     glass_p4_cpu_failed
+
         ; Palette setup is owned by the VA Graphics BIOS.  Drawing below is
         ; direct CPU access to the documented G0 aperture, never a BIOS draw.
         mov     ax, 0x0900             ; $PalCtl, palette mode 0.
@@ -584,6 +607,11 @@ glass_p4_cpu_raw_checksum:
 %include "glass_data.inc"
 
 align 2, db 0
+glass_p4_cpu_framebuffer_descriptor:
+        dw 4, 640, 400
+glass_p4_cpu_window_descriptor:
+        dw 0, 0, 200, 0, 0
+
 glass_p4_cpu_palette:
         dw 0x0000, 0x001f, 0x03e0, 0x03ff
         dw 0xfc00, 0xfc1f, 0xffe0, 0xffff
