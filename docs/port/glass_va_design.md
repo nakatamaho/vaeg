@@ -331,3 +331,21 @@ blocked by both the required P2 approval and these explicit conditions:
 
 P3 must stop at the first failed GA proof. It may not compensate with a PC-98
 BIOS/GRCG path, a host-side renderer, or a runtime CPU fallback.
+
+## 12. P4-2 implementation evidence (2026-08-23)
+
+P4-2 implemented the SGP fixed-frame renderer described in section 10.  Its
+production candidate emits `SET_WORK`, `SET_COLOR`, `CLS`, `LINE`, and `END`
+only.  It uses the selected inward whole-word span rule; the CPU never writes
+the G0 aperture before the submitted SGP list is complete.
+
+The CPU verifier and the SGP candidate completed separately at their expected
+checkpoints.  A debug-harness capture of the complete 256 KiB GVRAM backing
+store and of the composed screen was byte-identical between the two builds.
+Two independent SGP candidate runs were also byte-identical.  The VA2/VA3 ROM
+path reached the same SGP success marker and raw checksum.
+
+This is a VAEG functional-regression result, not a measurement of SGP speed,
+an assertion about real command-list limits, or PC-88VA hardware conformance.
+The detailed command-list, capture, and comparison contract is in
+[`glass_p4_sgp.md`](glass_p4_sgp.md).
