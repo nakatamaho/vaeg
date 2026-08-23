@@ -30,7 +30,9 @@
 
 cpu 286
 bits 16
-org 0x100
+
+; NOT VERIFIED: the eventual payload load origin belongs to P1-8.  P0 keeps
+; NASM's origin-zero flat-binary default and makes no COM/PSP assumption.
 
 jmp start
 

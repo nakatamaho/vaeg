@@ -28,7 +28,7 @@
 set -eu
 
 if [ "$#" -ne 1 ]; then
-    printf 'usage: %s OUTPUT.COM\n' "$0" >&2
+    printf 'usage: %s OUTPUT.BIN\n' "$0" >&2
     exit 2
 fi
 

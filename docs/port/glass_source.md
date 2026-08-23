@@ -94,12 +94,13 @@ run or display the result.
 
 ```sh
 NASM=/opt/local/bin/nasm \
-  demos/va/glass-orbit/build-p0.sh /private/tmp/glass_orbit_p0.com
+  demos/va/glass-orbit/build-p0.sh /private/tmp/glass_orbit_p0.bin
 ```
 
-The harness initializes its COM data segment, executes one geometry step, and
-then idles.  It contains no graphics output and no DOS, BIOS, TSP, SGP, or
-OPNA operation.
+The P0 source deliberately has no `org` directive: the eventual payload load
+origin is P1-8 work.  The harness initializes its code/data segment, executes
+one geometry step, and then idles.  It contains no graphics output and no DOS,
+BIOS, TSP, SGP, or OPNA operation.
 
 ## P0 verification and non-claims
 
