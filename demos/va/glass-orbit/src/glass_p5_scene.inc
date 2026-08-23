@@ -30,27 +30,82 @@
 
 %define PORT_TSP_STATUS_P5       0x0142
 %define TSP_STATUS_VBLANK_P5     0x0040
+%define PAGE_A_SOURCE_Y_P5       0
+%define PAGE_B_SOURCE_Y_P5       200
+%define PAGE_A_BASE_P5           0x200000
+%define PAGE_B_BASE_P5           0x20fa00
+%define PAGE_A_CPU_SEGMENT_P5    0xa000
+%define PAGE_B_CPU_SEGMENT_P5    0xafa0
 
 glass_p5_run:
         mov     word [render_frame_counter], 0
         mov     word [glass_star_scroll_x], 0
         mov     byte [glass_star_subtick], 0
+        mov     byte [glass_p5_display_page], 0
+        mov     byte [glass_p5_target_page], 1
+        mov     byte [glass_p5_frame_ready], 0
+        mov     byte [glass_p5_geometry_complete], 0
+        mov     byte [glass_p5_stars_complete], 0
+        mov     byte [glass_p5_sgp_idle], 0
+        mov     word [glass_p5_presented_frame], 0
+        mov     ax, 0x0b00             ; $ScnDsp: graphics off.
+        int     VIDEO_BIOS_INT
+        or      ax, ax
+        jnz     .failed
+        call    glass_p5_select_display_page
+        jc      .failed
 .frame:
+        ; A target half is not presentable while it is being rebuilt.
+        mov     byte [glass_p5_frame_ready], 0
+        mov     byte [glass_p5_geometry_complete], 0
+        mov     byte [glass_p5_stars_complete], 0
+        mov     byte [glass_p5_sgp_idle], 0
+        call    glass_p5_select_target_storage
         call    glass_compute_cube
         call    glass_p4_sgp_build_list
         jc      .failed
         call    glass_p4_sgp_run_list
         jc      .failed
+        mov     byte [glass_p5_sgp_idle], 1
         call    glass_p4_sgp_apply_endpoint_spans
+        mov     byte [glass_p5_geometry_complete], 1
         call    glass_p4_sgp_build_edge_list
         jc      .failed
         call    glass_p4_sgp_run_list
         jc      .failed
+        mov     byte [glass_p5_sgp_idle], 1
         call    glass_p5_draw_stars
+        mov     byte [glass_p5_stars_complete], 1
         call    glass_advance_scene_tick
         inc     word [render_frame_counter]
+        ; FRAME_READY is set only after both SGP lists have completed and the
+        ; CPU star pass has finished.  The display selector below is guarded
+        ; by this state; an incomplete target half can never be presented.
+        cmp     byte [glass_p5_geometry_complete], 1
+        jne     .failed
+        cmp     byte [glass_p5_stars_complete], 1
+        jne     .failed
+        cmp     byte [glass_p5_sgp_idle], 1
+        jne     .failed
+        mov     byte [glass_p5_frame_ready], 1
         call    glass_p5_wait_vblank
         jc      .failed
+        cmp     byte [glass_p5_frame_ready], 1
+        jne     .failed
+        mov     al, [glass_p5_target_page]
+        mov     [glass_p5_display_page], al
+        call    glass_p5_select_display_page
+        jc      .failed
+        inc     word [glass_p5_presented_frame]
+        mov     byte [glass_p5_frame_ready], 0
+        xor     byte [glass_p5_target_page], 1
+        cmp     word [render_frame_counter], 1
+        jne     .display_ready
+        mov     ax, 0x0b01             ; $ScnDsp: first complete frame on.
+        int     VIDEO_BIOS_INT
+        or      ax, ax
+        jnz     .failed
+.display_ready:
         call    glass_p4_sgp_escape_pressed
         jc      glass_p4_sgp_exit
         jmp     .frame
@@ -59,6 +114,51 @@ glass_p5_run:
         pop     es
         xor     bx, bx
         mov     ax, 0x47e5             ; debugger-visible P5 failure marker.
+        ret
+
+; Select the source-window half with the VA Graphics BIOS $RollTo service.
+; This is the coupled FB0 OFY/DSA operation proved by GA-6; no raw DSA write
+; is used for presentation.
+glass_p5_select_display_page:
+        push    ax
+        push    bx
+        push    cx
+        push    dx
+        xor     bx, bx
+        xor     cx, cx
+        xor     dx, dx
+        cmp     byte [glass_p5_display_page], 0
+        je      .source_ready
+        mov     dx, PAGE_B_SOURCE_Y_P5
+.source_ready:
+        mov     ax, 0x0500             ; $RollTo, G0, FB0.
+        int     VIDEO_BIOS_INT
+        or      ax, ax
+        jnz     .failed
+        clc
+        jmp     .done
+.failed:
+        stc
+.done:
+        pop     dx
+        pop     cx
+        pop     bx
+        pop     ax
+        ret
+
+; Point the shared exact-span backend at the hidden FB0 source half.  CPU
+; endpoint RMW and stars use the corresponding A0000h aperture segment.
+glass_p5_select_target_storage:
+        cmp     byte [glass_p5_target_page], 0
+        je      .page_a
+        mov     word [glass_p4_sgp_target_base_low], PAGE_B_BASE_P5 & 0xffff
+        mov     word [glass_p4_sgp_target_base_high], PAGE_B_BASE_P5 >> 16
+        mov     word [glass_p4_sgp_target_cpu_segment], PAGE_B_CPU_SEGMENT_P5
+        ret
+.page_a:
+        mov     word [glass_p4_sgp_target_base_low], PAGE_A_BASE_P5 & 0xffff
+        mov     word [glass_p4_sgp_target_base_high], PAGE_A_BASE_P5 >> 16
+        mov     word [glass_p4_sgp_target_cpu_segment], PAGE_A_CPU_SEGMENT_P5
         ret
 
 ; Emit the original perspective grid as 15 SGP LINE commands.  Coordinates
@@ -147,7 +247,7 @@ glass_p5_plot_pixel:
         push    dx
         push    di
         push    es
-        mov     ax, 0xa000
+        mov     ax, [glass_p4_sgp_target_cpu_segment]
         mov     es, ax
         mov     ax, bx
         mov     cx, G0_PITCH_BYTES
@@ -188,6 +288,14 @@ glass_p5_plot_pixel:
 align 2, db 0
 glass_p5_pixel_x dw 0
 glass_p5_pixel_colour db 0
+glass_p5_display_page db 0
+glass_p5_target_page db 1
+glass_p5_frame_ready db 0
+glass_p5_geometry_complete db 0
+glass_p5_stars_complete db 0
+glass_p5_sgp_idle db 0
+align 2, db 0
+glass_p5_presented_frame dw 0
 
 ; Draw the retained 256-star table.  The source scene is logical 640x400;
 ; stars are restricted to the upper sky and therefore use physical y=y/2.

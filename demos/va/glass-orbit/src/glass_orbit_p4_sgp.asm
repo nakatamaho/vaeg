@@ -154,6 +154,12 @@ glass_p4_sgp_entry:
         mov     al, GVRAM_CPU_WRITE_MODE
         out     dx, al
 
+        ; P4 uses the visible FB0 source half.  P5 replaces these values with
+        ; the hidden FB0 source half before each frame build.
+        mov     word [glass_p4_sgp_target_base_low], G0_SGP_BASE & 0xffff
+        mov     word [glass_p4_sgp_target_base_high], G0_SGP_BASE >> 16
+        mov     word [glass_p4_sgp_target_cpu_segment], 0xa000
+
 %if GLASS_P5
         call    glass_p5_run
         jmp     glass_p4_sgp_idle
@@ -323,8 +329,8 @@ glass_p4_sgp_build_list:
 
         xor     ax, ax
         call    glass_p4_sgp_emit_set_colour
-        mov     ax, G0_SGP_BASE & 0xffff
-        mov     dx, G0_SGP_BASE >> 16
+        mov     ax, [glass_p4_sgp_target_base_low]
+        mov     dx, [glass_p4_sgp_target_base_high]
         mov     cx, G0_PAGE_WORDS
         call    glass_p4_sgp_emit_cls
 
@@ -750,8 +756,8 @@ glass_p4_sgp_emit_span:
         shl     bx, 1
         add     ax, bx
         adc     dx, 0
-        add     ax, G0_SGP_BASE & 0xffff
-        adc     dx, G0_SGP_BASE >> 16
+        add     ax, [glass_p4_sgp_target_base_low]
+        adc     dx, [glass_p4_sgp_target_base_high]
         mov     cx, [glass_p4_sgp_span_words]
         call    glass_p4_sgp_emit_cls
 .done:
@@ -804,7 +810,7 @@ glass_p4_sgp_apply_endpoint_spans:
         push    di
         push    bp
         push    es
-        mov     ax, 0xa000
+        mov     ax, [glass_p4_sgp_target_cpu_segment]
         mov     es, ax
         mov     si, glass_p4_sgp_endpoint_buffer
 .next:
@@ -888,6 +894,7 @@ glass_p4_sgp_apply_endpoint_spans:
         mov     cx, [glass_p4_sgp_apply_word]
         shl     cx, 1
         add     ax, cx
+        adc     dx, 0
         mov     di, ax
         mov     ax, [es:di]
         mov     cx, [glass_p4_sgp_apply_mask]
@@ -1083,8 +1090,8 @@ glass_p4_sgp_emit_line:
         shr     bx, 1
         add     ax, bx
         adc     dx, 0
-        add     ax, G0_SGP_BASE & 0xffff
-        adc     dx, G0_SGP_BASE >> 16
+        add     ax, [glass_p4_sgp_target_base_low]
+        adc     dx, [glass_p4_sgp_target_base_high]
         call    glass_p4_sgp_emit_word
         mov     ax, dx
         call    glass_p4_sgp_emit_word
@@ -1258,6 +1265,9 @@ glass_p4_sgp_apply_mask           dw 0
 glass_p4_sgp_apply_value          dw 0
 glass_p4_sgp_apply_full_first      dw 0
 glass_p4_sgp_apply_full_count      dw 0
+glass_p4_sgp_target_base_low       dw 0
+glass_p4_sgp_target_base_high      dw 0
+glass_p4_sgp_target_cpu_segment    dw 0
 ; Packed 4bpp CPU-word order is byte-swapped relative to the logical pixel
 ; order: x%4=0,1,2,3 map to 00f0h, 000fh, f000h, 0f00h respectively.
 glass_p4_sgp_pixel_masks           dw 0x00f0, 0x000f, 0xf000, 0x0f00
