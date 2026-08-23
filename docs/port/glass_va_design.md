@@ -385,8 +385,9 @@ functional presentation result, not a real-hardware timing or conformance
 claim.
 
 The P5 loop records explicit `FRAME_READY`, geometry-complete, star-complete,
-and SGP-idle states. The page selector is reached only after those states are
-complete and the VBLANK wait has succeeded; `FRAME_READY` is cleared after the
-completed half is selected. Partial 4bpp endpoint words are masked CPU RMW
+and SGP-idle states. Each new-frame page selector call is reached only after
+those states are complete and the VBLANK wait has succeeded; the initial
+graphics-off source selection is setup only. `FRAME_READY` is cleared after
+the completed half is selected. Partial 4bpp endpoint words are masked CPU RMW
 writes and are excluded from the SGP full-word range, so no endpoint restore
 pass is used to hide a transient overdraw.
