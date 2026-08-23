@@ -148,6 +148,11 @@ Release notes may summarize the ledger but do not replace it.
 - New files created in phase 2 carry a 2-clause BSD header
   `Copyright (c) 2026 Nakata Maho` (see CONVENTIONS.md §New code).
   Never alter copyright headers of existing files.
+- New PC-88VA guest demos and QA payloads must not use MS-DOS `INT 21h`
+  services. Use the documented PC-88VA BIOS service appropriate to the
+  hardware function instead; do not substitute a DOS service for a VA BIOS
+  call merely because the payload is launched from a local PC-Engine/DOS
+  validation disk.
 - Do not restore the M57-deleted reference-tier paths (`win9x/`, `i286x/`,
   `cpuxva/memoryva.x86`, or `hlp/`) unless a task explicitly requires it.
   Use tag `archive/frozen-win9x-i286x-g56` for historical comparison.
