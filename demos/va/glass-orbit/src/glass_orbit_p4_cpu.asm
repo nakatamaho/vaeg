@@ -162,8 +162,10 @@ glass_p4_cpu_escape_pressed:
         jc      .none
         mov     ah, 0x00
         int     KEYBOARD_BIOS_INT
-        or      ah, ah
-        jz      .escape
+        cmp     bh, 0
+        jne     .none
+        cmp     bl, 0x1b
+        je      .escape
 .none:
         clc
         ret

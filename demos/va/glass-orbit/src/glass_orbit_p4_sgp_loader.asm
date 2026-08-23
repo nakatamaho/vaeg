@@ -45,9 +45,10 @@ org 0x100
 
 start:
         pushf
+        pop     bx
+        cli
         push    cs
         pop     ds
-        cli
         mov     ax, P4_PAYLOAD_SEGMENT
         mov     es, ax
         mov     si, payload
@@ -55,17 +56,20 @@ start:
         mov     cx, (payload_end - payload + 1) / 2
         cld
         rep     movsw
-        mov     ax, cs
+        push    cs
+        push    word loader_return
+        mov     ax, ss
         mov     [es:LOADER_RETURN_SS], ax
         mov     dx, sp
         mov     [es:LOADER_RETURN_SP], dx
-        pushf
-        pop     bx
         mov     [es:LOADER_RETURN_FLAGS], bx
         mov     word [es:LOADER_RETURN_MAGIC], LOADER_RETURN_SIGNATURE
         push    word P4_PAYLOAD_SEGMENT
         push    word 0x0000
         retf
+
+loader_return:
+        ret
 
 payload:
         incbin GLASS_P4_SGP_PAYLOAD_FILE

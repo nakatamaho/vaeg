@@ -184,8 +184,10 @@ glass_p4_sgp_escape_pressed:
         jc      .none
         mov     ah, 0x00
         int     KEYBOARD_BIOS_INT
-        or      ah, ah
-        jz      .escape
+        cmp     bh, 0
+        jne     .none
+        cmp     bl, 0x1b
+        je      .escape
 .none:
         clc
         ret
@@ -544,8 +546,9 @@ glass_p4_sgp_swap_if_y_greater:
         pop     ax
         ret
 
-; AX/BX are inclusive X bounds and CX is a physical Y.  P2 option A rounds
-; inward to complete packed-4bpp words; no CPU GVRAM read-modify-write occurs.
+; AX/BX are inclusive X bounds and CX is a physical Y.  Outward rounding to
+; complete packed-4bpp words avoids a diagonal seam when a convex face is
+; represented by two independently rounded triangles.
 glass_p4_sgp_emit_span:
         cmp     ax, bx
         jle     .ordered
@@ -563,9 +566,9 @@ glass_p4_sgp_emit_span:
         jle     .right_clipped
         mov     bx, G0_WIDTH - 1
 .right_clipped:
-        add     ax, 3
         and     ax, 0xfffc
         inc     bx
+        add     bx, 3
         and     bx, 0xfffc
         cmp     ax, bx
         jae     .done
