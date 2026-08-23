@@ -30,7 +30,7 @@
 ; two visible pages are its Y=0 and Y=200 source regions.  Page selection is
 ; intentionally made only through the PC-88VA Graphics BIOS $RollTo service
 ; after a TSP vertical-blank observation; this avoids a raw DSA-only update.
-; ESC uses the PC-88VA Keyboard BIOS primitive functions, not a DOS service.
+; ESC uses the PC-88VA Keyboard BIOS character services, not a DOS service.
 ; Evidence: docs/port/glass_ga6.md.
 
 cpu 286
@@ -182,7 +182,11 @@ glass_ga6_set_checkpoint_marker:
 times 0x0100 - ($ - $$) db 0
 glass_ga6_checkpoint:
 %ifdef GLASS_GA6_CAPTURE_PAGE
-        hlt
+        ; Keep the selected static page visible while still polling the VA
+        ; Keyboard BIOS, so GLASSP6A and GLASSP6B have the same ESC exit as
+        ; the alternating-page GLASSP6 variant.
+        call    glass_ga6_escape_pressed
+        jc      glass_ga6_exit
         jmp     glass_ga6_checkpoint
 %endif
         jmp     glass_ga6_loop
@@ -224,14 +228,14 @@ glass_ga6_select_visible_page:
         pop     bx
         ret
 
-; The Keyboard BIOS primitive sense/get pair is the documented PC-88VA path.
-; PrmSnsK returns CF when no key is pending; PrmGetK leaves ESC's scan code in
-; AH, where the existing VA demos identify it as zero.
+; The PC-88VA Keyboard BIOS $SnsChar/$GetChar pair is used here rather than
+; the primitive functions.  The VA CP/M BIOS checks CF after $SnsChar and
+; receives the scan code in AH from $GetChar.  ESC is scan code zero.
 glass_ga6_escape_pressed:
-        mov     ah, 0x0a
+        mov     ah, 0x01             ; $SnsChar: CF clear when input is ready.
         int     KEYBOARD_BIOS_INT
         jc      .none
-        mov     ah, 0x09
+        mov     ah, 0x00             ; $GetChar: AH is the keyboard scan code.
         int     KEYBOARD_BIOS_INT
         cmp     ah, 0
         je      .escape
