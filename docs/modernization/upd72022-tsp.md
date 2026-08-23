@@ -1166,6 +1166,79 @@ establish that the PC-88VA wrapper has implemented it.
 The 22-command data-book chapter is useful not only as background but as a
 concrete completeness checklist for the TSP core.
 
+### Cross-source coverage matrix
+
+The following matrix separates the generic μPD72022 programming model from the
+PC-88VA subset documented by BNN and from the current vaeg implementation. The
+generic source contains OCR/name variants (and an inconsistent summary entry)
+such as `DSPOF`/`DSPOP`; use opcode `12h`/`13h` and the BNN names
+`DSPON`/`DSPOFF` when resolving them. `SPRAD`/`SPWR` are the corresponding
+`SPRRD`/`SPRWR` naming variants.
+The BNN table is the VA-specific authority for the normal PC-88VA path; an
+omitted generic command is not automatically a VA defect when native software
+uses the CPU TVRAM map instead of the generic host-transfer interface.
+
+| Command | Generic `uPD72022.md` | PC-88VA BNN material | Current vaeg state | Classification |
+|---|---|---|---|---|
+| `SYNC (10h)` | 14-byte mode/timing setup | 14-byte TSP initialization | Accepts all 14 bytes, but only selected timing/display fields affect behavior | Partial |
+| `DSPON (12h)` | Screen-table base plus backdrop color | 3 bytes; VA table uses the high address byte and zero reserved bytes | Enables text and stores only the first address byte; backdrop and wider address profiles are not modeled | Partial |
+| `DSPOFF (13h)` | Stop display and sprite controller | Stops text and sprites | Disables text and sprites | Basic VA match |
+| `DSPDEF (14h)` | Attribute offset, pitch, MRA, HRA, blink | Six-byte screen-format definition | Basic offset/height/line/blink handling; `PITCH`, full field masks, and wider offsets are incomplete | Partial |
+| `CURDEF (15h)` | Cursor sprite, CE, BE | Cursor sprite, cursor enable, blink enable | Selects cursor sprite and updates its enable bit | Basic VA match |
+| `ACTSCR (16h)` | Select active split | Select cursor split screen | Unknown command path | Missing |
+| `CURS (1Eh)` | Set virtual Y/X and update cursor address | Set cursor Y then X | Unknown command path | Missing |
+| `LPNR (1Ah)` | Read light-pen position | VA material marks light pen unavailable | Not implemented | Intentional VA omission pending evidence |
+| `EMUL (8Ch)` | Not in generic list | Dynamic μPD3301 attribute expansion, used by V1/V2 | Unknown command path | Missing |
+| `EXIT (88h)` | Abort memory operation / clear error | Abort partial command and stop EMUL | Clears BUSY only | Partial |
+| `SPRON (82h)` | Enable sprites and set table/options | Table address, `HSPN`, `MG`, `GR` | Basic table/options and enable state; no overflow/collision result path | Partial |
+| `SPROFF (83h)` | Stop sprite controller | Stop sprites and cursor sprite | Disables sprites | Basic VA match |
+| `SPRSW (85h)` | Toggle one sprite | Toggle one sprite | Updates one descriptor enable bit | Basic VA match |
+| `SPRRD (80h)` | Read sprite attributes | Not listed in the BNN VA command subset | Unknown command path | Generic command missing |
+| `SPRWR (84h)` | Selector plus sequential attribute stream | Not listed in the BNN VA command subset | A sequential write exists under local name `SPRDEF`, but selector/stream semantics are not complete | Partial generic match |
+| `SPROV (81h)` | Read overflow/collision status | Read sprite-over/collision information | Unknown command path | Missing |
+| `MASK`, `DPLD`, `DPRD`, `RDAT`, `WDAT`, `BLKTOT`, `BLKTIN` | Generic display-memory and DMA operations | Not part of the normal BNN VA command subset | Unknown command path | Generic commands missing; separate VA scope |
+
+The BNN command list is at [`PC88VA_テクニカルマニュアル_BNN.md`](../tekumani/PC88VA_テクニカルマニュアル_BNN.md), while the generic command list and command semantics are in [`uPD72022.md`](../tekumani/uPD72022.md). The implementation coverage above is derived from [`io/tsp.c`](../../io/tsp.c), not from the presence of a command name in either document.
+
+### Host ports and status coverage
+
+| Interface | Generic μPD72022 / BNN definition | Current vaeg state | Result |
+|---|---|---|---|
+| `0142h` read | Status: `LP`, `VB`, `SC`, `ER`, `EMEN` (VA), `BUSY`, `OBF`, `IBF` | Only `VB` and `BUSY` are exposed | Status ABI incomplete |
+| `0142h` write | Command byte | Implemented | Basic match |
+| `0146h` write | Parameter or streaming input | Implemented for the local parameter parser | Basic input path only |
+| `0146h` read | Result or streaming output | Not bound | Result-producing commands cannot work |
+| `IBF`/`BUSY` sequencing | BNN examples poll `IBF | BUSY` before writes | `BUSY` is modeled; `IBF` is not | Partial |
+| `OBF` sequencing | Set when a result is available; cleared by read | Not modeled | Missing |
+| `ER` recovery | Malformed input sets error; `EXIT` clears it | Unknown commands simply clear BUSY | Missing |
+| `SC`/`SPROV` | Sprite-over/collision latch and result | No latch or result | Missing |
+| `EMEN`/`EMUL` | VA-specific persistent expansion state | No state | Missing |
+
+BNN explicitly documents the status layout at the `0142h` table and uses
+`TEST AL,5` (`IBF | BUSY`) in its command/parameter examples. The generic data
+book calls bit 3 reserved; BNN's `EMEN` meaning is therefore a VA-specific
+extension, not a contradiction. Likewise, the generic light-pen command is
+documented but BNN marks the VA light pen unavailable.
+
+### Rendering and model-level consequences
+
+Command decoding is not the whole TSP contract. The current renderer still
+has documented gaps in text attribute modes and mode-3 state persistence,
+`VSA`/`VH` virtual-buffer handling, sprite clipping, `HSPN` overflow,
+collision groups, `SC`/`SPROV`, and the VA2/VA3 256-KiB TVRAM profile. These are
+separate from the generic host-transfer/DMA commands and must not be silently
+counted as implemented merely because text or sprites are visible.
+
+Therefore the current status is:
+
+```text
+BNN PC-88VA TSP subset: partially implemented
+Generic uPD72022 command set: substantially incomplete
+Status/result-port ABI: incomplete
+Documented source audit: consistent with these limitations
+Hardware conformance: not established
+```
+
 ### Critical correctness gaps
 
 The earlier audit described the following `tsp_i142()` expression as a
