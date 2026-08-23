@@ -29,5 +29,7 @@
 ; regression reference and is not changed by this wrapper.
 
 %define GLASS_P5 1
-%define GLASS_P4_SGP_STAGE 3
+; P5 emits faces/grid in the first list and the intended outline exactly once
+; after endpoint RMW.  Stage 3 would enqueue the outline twice.
+%define GLASS_P4_SGP_STAGE 2
 %include "glass_orbit_p4_sgp.asm"

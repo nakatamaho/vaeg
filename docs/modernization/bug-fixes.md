@@ -99,6 +99,36 @@ separate parity correction or move it to Open Defects.
 - **Milestone/task:** M97 P4 fill algorithm cleanup.
 - **Commit:** [76d7de7](https://github.com/nakatamaho/vaeg/commit/76d7de7cfffd51b49302cd46cd47afb82ad200f4).
 
+### GLASS P5 rebuilt the visible page and enqueued cube edges twice
+
+- **Status:** fixed in M97a; real-hardware timing and keyboard parity remain
+  separate pending items.
+- **Symptom:** the complete P5 scene could visibly show face construction and
+  a temporary four-pixel endpoint stage, with substantial flicker while the
+  active page was cleared and rebuilt. The final VAEG framebuffer was correct.
+- **Root cause:** P5 used the common backend at stage 3, so the first SGP list
+  already contained the edge LINE commands before endpoint RMW and the scene
+  submitted a second edge list. It also rendered every frame into the single
+  displayed FB0 source half; the VBLANK poll happened only after construction.
+- **Correction:** P5 now uses stage 2 (grid/faces only), applies the shared
+  exact endpoint partition once, submits one outline list, and renders into
+  the hidden 200-line FB0 source half. After SGP idle and CPU stars complete,
+  it waits for TSP VBLANK and selects the complete source through Graphics
+  BIOS `$RollTo`. CPU endpoint/stars use the matching A0000h aperture segment
+  for each source half. Explicit `FRAME_READY`, geometry-complete,
+  star-complete, and SGP-idle state bytes guard the page selection; partial
+  endpoint words remain exact masked RMW writes and are never SGP-full-filled.
+- **Verification:** P4 raw GVRAM and screen remained byte-identical to the
+  pre-change capture; P5 VA and VA2 captures show complete presented frames;
+  three temporal checkpoints showed no visible construction frame. The P5
+  source/partition guard, P4 alignment/slope matrices, CTest, and repository
+  checks passed.
+- **Evidence:** [P5 temporal report](../port/glass_p5.md), [P5 temporal
+  checker](../../demos/va/glass-orbit/tools/verify-p5-temporal.py), and
+  [P5 scene](../../demos/va/glass-orbit/src/glass_p5_scene.inc).
+- **Milestone/task:** M97 P5 temporal rendering cleanup.
+- **Commit:** pending publication.
+
 ### SGP wireframe demo corrupted its projected solid geometry
 
 - **Status:** fixed in the revised M97 visual-gate candidate; G97 remains

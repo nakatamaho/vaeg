@@ -361,12 +361,12 @@ The detailed command-list, capture, and comparison contract is in
 
 P5 connects the retained GLASS scene data to the P4 SGP backend.  The P5
 payload emits the horizon, perspective rays, and five depth lines as SGP LINE
-commands before the convex face spans and cube outline.  After the SGP list
-and endpoint RMW have completed, it plots the 256 retained stars through the
-CPU GVRAM aperture; this is the only single-pixel path because SGP has no
-pixel opcode.  The frame counter and star-scroll state advance once per
-completed frame, and the Keyboard BIOS ESC path leaves through the existing
-loader continuation.
+commands before the convex face spans.  After the first SGP list and endpoint
+RMW have completed, it submits the outline list once and plots the 256
+retained stars through the CPU GVRAM aperture; this is the only single-pixel
+path because SGP has no pixel opcode.  The frame counter and star-scroll state
+advance once per completed frame, and the Keyboard BIOS ESC path leaves
+through the existing loader continuation.
 
 The P4 fixed-frame payload remains the face-rendering regression reference.
 P5 is a separate wrapper build (`GLASS_P5=1`) over the same backend and does
@@ -374,6 +374,19 @@ not add a second polygon rasterizer, a host renderer, or a DOS `INT 21h`
 service.  VAEG captures for both VA and VA2 showed the same complete scene:
 star field, filled rotating cube, colored outline, and perspective grid.
 
-P5 intentionally retains the single visible G0 page used by P4.  Its VBLANK
-poll is a frame boundary, not a timing claim; hidden-page presentation remains
-the separate GA-6/page-pipeline follow-up.
+P5 now uses the two 200-line source halves of the GA-6-proven G0 FB0 as a
+render/display pair.  It renders SGP grid/faces, applies exact endpoint RMW,
+renders edges, and plots stars on the hidden half.  Only after all writes and
+SGP idle does it wait for TSP VBLANK and call Graphics BIOS `$RollTo` to select
+the complete page.  The first page is built while graphics are disabled.  No
+visible page is cleared or repaired during construction, and the P5 wrapper
+uses backend stage 2 so the outline is not enqueued twice.  This is a VAEG
+functional presentation result, not a real-hardware timing or conformance
+claim.
+
+The P5 loop records explicit `FRAME_READY`, geometry-complete, star-complete,
+and SGP-idle states. The page selector is reached only after those states are
+complete and the VBLANK wait has succeeded; `FRAME_READY` is cleared after the
+completed half is selected. Partial 4bpp endpoint words are masked CPU RMW
+writes and are excluded from the SGP full-word range, so no endpoint restore
+pass is used to hide a transient overdraw.
