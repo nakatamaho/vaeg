@@ -108,9 +108,22 @@ documented TSP SYNC profile
 ```
 
 The payload may not rely on a DOS prompt, PC-98 `INT 18h`, PC-98 GDC/GRCG
-ports, or inherited graphics state. P1-U1 and P1-U2 mean the actual global
-V3 enter/leave and loader contracts still need a maintainer-approved choice
-before GA-1 can be implemented.
+ports, or inherited graphics state.
+
+**Approved P2 scope:** a PC-88VA Graphics BIOS call establishes the V3
+640x200, single-plane, 4bpp display state before the payload configures its
+framebuffer descriptors and submits SGP work. The same VA BIOS ownership is
+used to leave graphics mode. This is an explicit dependency on the VA BIOS,
+not an accidental dependency on DOS or a PC-98 BIOS. Once mode entry is
+complete, all GLASS drawing remains direct SGP work plus the specified CPU
+star writes; the payload must not call a graphics BIOS drawing primitive.
+
+P3 must identify the exact VA Graphics BIOS entry, input/output register
+contract, and error result from the local VA references before emitting the
+call. If that contract cannot be established, P3 stops rather than substituting
+raw TSP writes or a PC-98 video call. P1-U1 remains hardware-pending for the
+underlying TSP profile, but it is outside the P3 mode-entry implementation
+while this BIOS-owned boundary is in force.
 
 ## 4. Scene-facing graphics API
 
@@ -303,8 +316,10 @@ pixel oracle for the backend comparison.
 SGP contracts are sufficient to design P3. Actual implementation remains
 blocked by both the required P2 approval and these explicit conditions:
 
-1. approve a bare-payload loader/entry/stack contract (P1-U2);
-2. approve an exact V3 enter/leave strategy or explicitly scope its source;
+1. implement the approved bare-payload loader/entry/stack contract (P1-U2)
+   before its first VAEG run;
+2. implement the approved VA Graphics BIOS V3 enter/leave boundary and cite
+   its exact ABI before its first guest call;
 3. choose span endpoint option A or C; and
 4. retain P1-U4/P1-U5 as hardware-pending rather than performance claims.
 
