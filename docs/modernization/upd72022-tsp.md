@@ -1131,6 +1131,7 @@ window scaling must not alter TSP timing or guest display state.
 | `0142h` | Write | Command byte |
 | `0143h` | Read | Unimplemented; returns `FFh` |
 | `0146h` | Write | Command parameter or sprite-attribute data |
+| `0146h` | Read | Not exposed by the current vaeg binding; result/streaming reads remain unimplemented |
 
 These are PC-88VA board-level I/O assignments. They are not package pin
 numbers or universal uPD72022 host addresses. The VA ROM boot sequence writes
@@ -1150,45 +1151,52 @@ The command decoder currently provides functional handling for:
   (`84h`);
 - `EXIT` (`88h`).
 
-`DSPOFF` and `SPROFF` have constants but no command cases. All other commands
-fall through the unknown-command path. The implementation therefore does not
-yet model active-screen selection, cursor movement, light-pen reads, sprite
-status/read/switch operations, display-memory programmed I/O, DMA, masking,
-or controller interrupts.
+At the evaluated revision, `DSPOFF` and `SPROFF` have constants but no command
+cases. All other commands fall through the unknown-command path. The
+implementation therefore does not yet model active-screen selection, cursor
+movement, light-pen reads, sprite status/read/switch operations,
+display-memory programmed I/O, DMA, masking, or controller interrupts. This
+coverage statement is intentionally separate from the generic data-book
+command list: a command being documented by NEC does not establish that the
+PC-88VA wrapper has implemented it.
 
 The 22-command data-book chapter is useful not only as background but as a
 concrete completeness checklist for the TSP core.
 
 ### Critical correctness gaps
 
-The local source at this revision has these concrete issues:
-
-1. `tsp_i142()` is parsed as
+The earlier audit described the following `tsp_i142()` expression as a
+remaining bug:
 
    ~~~c
    return (tsp.status | tsp.vsync) ? STATUS_VB : 0;
    ~~~
 
-   because bitwise OR binds before the conditional operator. It therefore
-   returns only `VB` when either operand is nonzero and cannot return `BUSY` or
-   a combined byte. The intended expression is:
+That description is stale for the current source. The active implementation
+already uses the intended grouping:
 
    ~~~c
-   return tsp.status | (tsp.vsync ? STATUS_VB : 0);
+   dat = tsp.status;
+   if (tsp.vsync) {
+       dat |= STATUS_VB;
+   }
+   return dat;
    ~~~
 
-2. `IBF`, `OBF`, `ER`, `EMEN`, `SC`, command-result reads at `0146h`, and
+The remaining gaps are:
+
+1. `IBF`, `OBF`, `ER`, `EMEN`, `SC`, command-result reads at `0146h`, and
    output streaming are absent.
-3. `DSPDEF.PITCH` is commented out, and only the low 16 bits of signed 19-bit
+2. `DSPDEF.PITCH` is commented out, and only the low 16 bits of signed 19-bit
    `ATROFF` are retained.
-4. Blink uses a heuristic shift rather than a verified hardware correction.
-5. `vram/maketextva.c` lists modes 2 through 5, underline, and double width
+3. Blink uses a heuristic shift rather than a verified hardware correction.
+4. `vram/maketextva.c` lists modes 2 through 5, underline, and double width
    as TODOs; mode 3 cannot yet retain independent color and shape state.
-6. Screen rendering does not enforce the complete `VSA/VH` virtual-buffer
+5. Screen rendering does not enforce the complete `VSA/VH` virtual-buffer
    contract.
-7. Sprite rendering lacks `HSPN` overflow, collision groups, `SC/SPROV`, and
+6. Sprite rendering lacks `HSPN` overflow, collision groups, `SC/SPROV`, and
    complete clipping.
-8. Port `0148h` forces bit 0 to one and only warns on the path labeled 256KiB
+7. Port `0148h` forces bit 0 to one and only warns on the path labeled 256KiB
    TVRAM mode, so VA2/VA3 is not yet a complete TSP display profile.
 
 ### Timing model
@@ -1218,23 +1226,36 @@ not mechanically overwritten with generic uPD72022 equations.
 ### Implementation priorities already identified
 
 The source and data book expose several areas that need focused tests before
-the TSP implementation is expanded:
+the TSP implementation is expanded. The safe order is deliberately from
+state transitions that already have a direct vaeg field, toward operations
+that require a new result/status path:
 
-1. Verify command and parameter buffering against ROM traces for all supported
+1. Record and test no-parameter display-state transitions (`DSPOFF`, then
+   `SPROFF`) without changing the generic command parser.
+2. Verify command and parameter buffering against ROM traces for all supported
    commands.
-2. Verify `0142h` BUSY and VBlank status independently, including operator
-   precedence in the current status expression.
-3. Determine the meaning of the unimplemented `0143h` read path from the VA
+3. Verify `0142h` BUSY and VBlank status independently. The status expression
+   grouping is already corrected in the current source; preserve that fix.
+4. Determine the meaning of the unimplemented `0143h` read path from the VA
    technical manual or ROM reads.
-4. Distinguish VA-specific `SPRDEF` behavior from the documented `SPRWR`
+5. Distinguish VA-specific `SPRDEF` behavior from the documented `SPRWR`
    command and its sprite-number/attribute-number parameters.
-5. Implement `DSPOFF` and `SPROFF` before relying on display-disable behavior.
-6. Add `ACTSCR`, cursor, sprite status, and collision/overflow behavior based
+6. Add `SPRSW` only after the global sprite-off transition is independently
+   tested.
+7. Add `ACTSCR`, cursor, sprite status, and collision/overflow behavior based
    on software that exercises them.
-7. Keep display-memory DMA and interrupt support separate from immediate text
+8. Keep display-memory DMA and interrupt support separate from immediate text
    rendering so command completion remains observable.
-8. Compare VA, VA2, and VA3 TVRAM size and address decoding without assuming
+9. Compare VA, VA2, and VA3 TVRAM size and address decoding without assuming
    the uPD72022 maximum memory size is fully installed.
+
+The generic uPD72022 transcription (`uPD72022.md`, printed pages 3-78 through
+3-88) is the semantic source for this order: `DSPOF/DSPOFF` has no parameter
+and disables both display controllers; `SPROF/SPROFF` has no parameter and
+disables sprites (and therefore the cursor); `SPRSW` has one selector byte and
+changes one descriptor's enable bit. These statements are generic-device
+semantics, not a claim that every VA model is electrically identical to the
+retail part. VA-specific behavior remains subject to ROM or hardware evidence.
 
 The active code also deserves ROM-less unit coverage for command parameter
 counts, status transitions, sprite-table bounds, malformed command streams,
