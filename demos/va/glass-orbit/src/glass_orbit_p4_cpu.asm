@@ -437,7 +437,9 @@ glass_p4_cpu_swap_if_y_greater:
         ret
 
 ; AX/BX are inclusive X bounds, CX is physical Y, and DL is a palette index.
-; It clips to the packed G0 page before plotting pixels independently.
+; P4-2 selects P2 option A: move both boundaries inward to complete packed
+; 4bpp words.  The CPU verifier retains pixel writes but applies exactly the
+; same span ownership as SGP CLS, allowing the two backends to be compared.
 glass_p4_cpu_span:
         cmp     ax, bx
         jle     .ordered
@@ -455,6 +457,13 @@ glass_p4_cpu_span:
         jle     .right_clipped
         mov     bx, G0_WIDTH - 1
 .right_clipped:
+        add     ax, 3
+        and     ax, 0xfffc
+        inc     bx
+        and     bx, 0xfffc
+        cmp     ax, bx
+        jae     .done
+        dec     bx
         mov     [glass_p4_span_x], ax
         mov     [glass_p4_span_end], bx
         mov     [glass_p4_span_y], cx
@@ -471,8 +480,10 @@ glass_p4_cpu_span:
 .done:
         ret
 
-; Bresenham line with logical endpoints.  It converts Y to physical rows once,
-; then uses the same packed pixel writer as the triangle-span reference path.
+; Verification-only line rasterizer with logical endpoints.  It converts Y to
+; physical rows once, then uses the documented SGP descriptor's major-axis
+; traversal and initial half-step convention.  It remains a CPU direct-GVRAM
+; implementation; no SGP state or command execution is reused here.
 glass_p4_cpu_line:
         sar     word [glass_p4_line_y0], 1
         sar     word [glass_p4_line_y1], 1
@@ -495,42 +506,71 @@ glass_p4_cpu_line:
 .dy_ready:
         mov     word [glass_p4_line_sy], 1
 .dy_store:
-        neg     ax
         mov     [glass_p4_line_dy], ax
         mov     ax, [glass_p4_line_dx]
-        add     ax, [glass_p4_line_dy]
+        cmp     ax, [glass_p4_line_dy]
+        jl      .major_y
+
+        ; SGP LINE chooses X when both extents are equal.  Its X-major
+        ; accumulator starts at (dx - 1) / 2, with dx == 0 as a point.
+        mov     [glass_p4_line_denominator], ax
+        inc     ax
+        mov     [glass_p4_line_count], ax
+        mov     ax, [glass_p4_line_denominator]
+        or      ax, ax
+        jz      .x_plot
+        dec     ax
+        shr     ax, 1
         mov     [glass_p4_line_error], ax
-.plot:
+.x_plot:
         mov     ax, [glass_p4_line_x0]
         mov     bx, [glass_p4_line_y0]
         mov     dl, [glass_p4_draw_colour]
         call    glass_p4_cpu_physical_pixel
-        mov     ax, [glass_p4_line_x0]
-        cmp     ax, [glass_p4_line_x1]
-        jne     .continue
-        mov     ax, [glass_p4_line_y0]
-        cmp     ax, [glass_p4_line_y1]
-        je      .done
-.continue:
-        mov     ax, [glass_p4_line_error]
-        shl     ax, 1
-        mov     [glass_p4_line_e2], ax
-        cmp     ax, [glass_p4_line_dy]
-        jl      .skip_x
+        dec     word [glass_p4_line_count]
+        jz      .done
         mov     ax, [glass_p4_line_dy]
         add     [glass_p4_line_error], ax
-        mov     ax, [glass_p4_line_sx]
-        add     [glass_p4_line_x0], ax
-.skip_x:
-        mov     ax, [glass_p4_line_e2]
-        cmp     ax, [glass_p4_line_dx]
-        jg      .skip_y
-        mov     ax, [glass_p4_line_dx]
-        add     [glass_p4_line_error], ax
+        mov     ax, [glass_p4_line_error]
+        cmp     ax, [glass_p4_line_denominator]
+        jl      .x_step
+        sub     ax, [glass_p4_line_denominator]
+        mov     [glass_p4_line_error], ax
         mov     ax, [glass_p4_line_sy]
         add     [glass_p4_line_y0], ax
-.skip_y:
-        jmp     .plot
+.x_step:
+        mov     ax, [glass_p4_line_sx]
+        add     [glass_p4_line_x0], ax
+        jmp     .x_plot
+
+.major_y:
+        ; For Y-major descriptors the initial accumulator is dy / 2.
+        mov     ax, [glass_p4_line_dy]
+        mov     [glass_p4_line_denominator], ax
+        inc     ax
+        mov     [glass_p4_line_count], ax
+        dec     ax
+        shr     ax, 1
+        mov     [glass_p4_line_error], ax
+.y_plot:
+        mov     ax, [glass_p4_line_x0]
+        mov     bx, [glass_p4_line_y0]
+        mov     dl, [glass_p4_draw_colour]
+        call    glass_p4_cpu_physical_pixel
+        dec     word [glass_p4_line_count]
+        jz      .done
+        mov     ax, [glass_p4_line_sy]
+        add     [glass_p4_line_y0], ax
+        mov     ax, [glass_p4_line_error]
+        add     ax, [glass_p4_line_dx]
+        mov     [glass_p4_line_error], ax
+        cmp     ax, [glass_p4_line_denominator]
+        jl      .y_plot
+        sub     ax, [glass_p4_line_denominator]
+        mov     [glass_p4_line_error], ax
+        mov     ax, [glass_p4_line_sx]
+        add     [glass_p4_line_x0], ax
+        jmp     .y_plot
 .done:
         ret
 
@@ -644,7 +684,8 @@ glass_p4_line_dy     dw 0
 glass_p4_line_sx     dw 0
 glass_p4_line_sy     dw 0
 glass_p4_line_error  dw 0
-glass_p4_line_e2     dw 0
+glass_p4_line_denominator dw 0
+glass_p4_line_count  dw 0
 
 %if ($ - $$) > LOADER_RETURN_SS
 %error "GLASS ORBIT P4-1 payload overlaps the loader return reserve"
