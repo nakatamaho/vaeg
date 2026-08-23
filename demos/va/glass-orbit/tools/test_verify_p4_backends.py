@@ -40,7 +40,7 @@ def write_capture(directory: Path, prefix: str, marker: str, ip: str, raw: bytes
     registers = {
         "schema": "vaeg-registers-v1",
         "ax": marker,
-        "bx": "6dd9",
+        "bx": "7ace",
         "cs": "3000",
         "ds": "3000",
         "es": "3000",

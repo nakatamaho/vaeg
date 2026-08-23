@@ -130,6 +130,12 @@ glass_p4_cpu_entry:
         mov     word [render_frame_counter], 0
         call    glass_p4_cpu_clear
         call    glass_compute_cube
+        ; Keep the same diagnostic-only projection export as the SGP build so
+        ; complete GVRAM comparisons differ only in the rendering path.
+        mov     si, glass_cube_projected
+        mov     di, 0xfc00
+        mov     cx, 24
+        rep     movsw
         call    glass_p4_cpu_draw_faces
         call    glass_p4_cpu_draw_edges
         call    glass_p4_cpu_raw_checksum
@@ -346,9 +352,10 @@ glass_p4_cpu_load_vertex:
 
 ; Fill one triangle with CPU pixels.  Triangle coordinates start in the
 ; unchanged logical 640x400 space; this is the sole Y conversion point for
-; the span primitive.  The scan line excludes the final bottom row, matching
-; the top-left style convention later used by the SGP reference path.
+; the span primitive.  The scan line excludes the final bottom row and samples
+; y+1/2 with integer-X ceil/floor edge ownership, matching the SGP path.
 glass_p4_cpu_fill_triangle:
+        push    bp
         sar     word [glass_p4_tri_v0+2], 1
         sar     word [glass_p4_tri_v1+2], 1
         sar     word [glass_p4_tri_v2+2], 1
@@ -373,8 +380,12 @@ glass_p4_cpu_fill_triangle:
         mov     bx, ax
         mov     si, glass_p4_tri_v0
         mov     di, glass_p4_tri_v2
+        mov     bp, 1                 ; ceil(x at y+1/2)
         call    glass_p4_cpu_interpolate_edge
-        mov     [glass_p4_span_x0], ax
+        mov     [glass_p4_edge_a_ceil], ax
+        xor     bp, bp                ; floor(x at y+1/2)
+        call    glass_p4_cpu_interpolate_edge
+        mov     [glass_p4_edge_a_floor], ax
 
         mov     bx, [glass_p4_scan_y]
         cmp     bx, [glass_p4_tri_v1+2]
@@ -386,7 +397,23 @@ glass_p4_cpu_fill_triangle:
         mov     si, glass_p4_tri_v0
         mov     di, glass_p4_tri_v1
 .second_edge:
+        mov     bp, 1                 ; ceil(x at y+1/2)
         call    glass_p4_cpu_interpolate_edge
+        mov     [glass_p4_edge_b_ceil], ax
+        xor     bp, bp                ; floor(x at y+1/2)
+        call    glass_p4_cpu_interpolate_edge
+        mov     [glass_p4_edge_b_floor], ax
+        mov     ax, [glass_p4_edge_a_ceil]
+        cmp     ax, [glass_p4_edge_b_ceil]
+        jle     .lower_ready
+        mov     ax, [glass_p4_edge_b_ceil]
+.lower_ready:
+        mov     [glass_p4_span_x0], ax
+        mov     ax, [glass_p4_edge_a_floor]
+        cmp     ax, [glass_p4_edge_b_floor]
+        jge     .upper_ready
+        mov     ax, [glass_p4_edge_b_floor]
+.upper_ready:
         mov     [glass_p4_span_x1], ax
         mov     ax, [glass_p4_span_x0]
         mov     bx, [glass_p4_span_x1]
@@ -396,10 +423,11 @@ glass_p4_cpu_fill_triangle:
         inc     word [glass_p4_scan_y]
         jmp     .scan
 .done:
+        pop     bp
         ret
 
-; SI and DI are x/y pairs; BX is a physical Y.  Return the signed linearly
-; interpolated X in AX.  The caller never supplies a horizontal edge here.
+; SI and DI are x/y pairs; BX is a physical Y.  Return the edge X at the
+; y+1/2 row sample in AX.  BP=1 returns ceil(X), BP=0 returns floor(X).
 glass_p4_cpu_interpolate_edge:
         push    bx
         push    cx
@@ -409,10 +437,26 @@ glass_p4_cpu_interpolate_edge:
         jz      .degenerate
         mov     ax, bx
         sub     ax, [si+2]
+        shl     ax, 1
+        inc     ax
         mov     dx, [di]
         sub     dx, [si]
         imul    dx
+        shl     cx, 1
         idiv    cx
+        or      dx, dx
+        jz      .add_origin
+        test    dx, 8000h
+        jnz     .negative_remainder
+        cmp     bp, 0
+        je      .add_origin
+        inc     ax
+        jmp     .add_origin
+.negative_remainder:
+        cmp     bp, 0
+        jne     .add_origin
+        dec     ax
+.add_origin:
         add     ax, [si]
         jmp     .done
 .degenerate:
@@ -438,15 +482,12 @@ glass_p4_cpu_swap_if_y_greater:
         pop     ax
         ret
 
-; AX/BX are inclusive X bounds, CX is physical Y, and DL is a palette index.
-; P4-2 selects P2 option A: move both boundaries inward to complete packed
-; 4bpp words.  The CPU verifier retains pixel writes but applies exactly the
-; same span ownership as SGP CLS, allowing the two backends to be compared.
+; AX/BX are inclusive logical X bounds, CX is physical Y, and DL is a palette
+; index.  Geometry is never rounded for this direct-pixel verifier: every
+; covered logical pixel is written and an empty x0>x1 span is discarded.
 glass_p4_cpu_span:
         cmp     ax, bx
-        jle     .ordered
-        xchg    ax, bx
-.ordered:
+        jg      .done
         cmp     bx, 0
         jl      .done
         cmp     ax, G0_WIDTH - 1
@@ -459,13 +500,6 @@ glass_p4_cpu_span:
         jle     .right_clipped
         mov     bx, G0_WIDTH - 1
 .right_clipped:
-        add     ax, 3
-        and     ax, 0xfffc
-        inc     bx
-        and     bx, 0xfffc
-        cmp     ax, bx
-        jae     .done
-        dec     bx
         mov     [glass_p4_span_x], ax
         mov     [glass_p4_span_end], bx
         mov     [glass_p4_span_y], cx
@@ -672,6 +706,10 @@ glass_p4_tri_v2      dw 0,0
 glass_p4_scan_y      dw 0
 glass_p4_span_x0     dw 0
 glass_p4_span_x1     dw 0
+glass_p4_edge_a_ceil dw 0
+glass_p4_edge_a_floor dw 0
+glass_p4_edge_b_ceil dw 0
+glass_p4_edge_b_floor dw 0
 glass_p4_span_x      dw 0
 glass_p4_span_end    dw 0
 glass_p4_span_y      dw 0

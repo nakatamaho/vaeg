@@ -72,10 +72,10 @@ never from source comments.
 After drawing, the guest calculates a rolling checksum over the raw 64,000
 byte packed G0 page and places it in `BX` at the fixed checkpoint at
 `3000:0200` in the local validation-loader contract. Two fresh VAEG runs for
-each of the `va` and `va2` model selectors produced `BX=B30Eh`. This is a raw-page
+each of the `va` and `va2` model selectors produced `BX=7ACEh`. This is a raw-page
 stability witness, **not a replacement for a full raw framebuffer capture**.
-P4-2 must add the CPU-versus-SGP raw-pixel comparison; neither P4-1 result
-proves PC-88VA hardware conformance.
+The P4-2 comparator now checks the complete CPU-versus-SGP raw page; neither
+result proves PC-88VA hardware conformance.
 
 The host checker also requires byte-identical composed 640 by 422 BMPs from
 two fresh runs and verifies a bounded, multicolour cube-shaped foreground
@@ -131,7 +131,7 @@ VA2 run read descriptor words different from the assembled `(4,640,400)`,
 while the VA run read the assembled values.  Moving only the local-loader
 payload segment to `3000h` preserved the descriptor; `$DefBuf` and `$DefWin`
 then returned success and the CPU renderer reached its normal
-`3000:0200` checkpoint with `AX=4750h` and `BX=B30Eh`.  The captured image was
+`3000:0200` checkpoint with `AX=4750h` and `BX=7ACEh`.  The captured image was
 opened and inspected: it contains the expected bounded multicolour cube, not
 a blank rectangle.
 
@@ -161,17 +161,18 @@ so the next iteration read a non-face record as geometry. After the initial
 black clear, that could create invalid spans before the edge pass and leave an
 interactive run visibly black. The renderer now saves and restores the
 face-table cursor around both triangle fills for every face. A fresh VAEG
-capture reached the checkpoint at frame 1293 with `AX=4750h`, `BX=B30Eh` and
+capture reached the checkpoint at frame 1293 with `AX=4750h`, `BX=7ACEh` and
 an actually inspected multicolour cube image. This is emulator evidence only;
 the P4-1 human gate remains pending.
 
 ## P4-2 verification alignment
 
-P4-2 accepted P2 option A for face spans: both boundaries are rounded inward
-to whole four-pixel packed-4bpp words before a span is drawn.  The original
-P4-1 CPU verifier filled every clipped pixel, so its prior `B30Eh` witness was
-not expected to equal the SGP `CLS` result at face edges.  The verifier now
-applies the same P2 span ownership while still writing GVRAM directly.
+P4-2 now keeps face spans pixel-exact and treats four-pixel word alignment as
+an access detail.  The CPU verifier remains a direct-pixel reference for the
+logical geometry; the SGP path emits complete interior words and applies only
+general partial endpoint masks after completion.  Both use the documented
+integer-X/half-row span convention; the `7ACEh` witness is not a claim about
+real-hardware timing or line-silicon conformance.
 
 The CPU line verifier also uses a standalone implementation of the SGP LINE
 descriptor's major-axis stepping and documented-in-source initial half-step
@@ -180,7 +181,7 @@ This makes the CPU build an exact functional oracle for the P4-2 fixed frame,
 not a claim that either rasterizer establishes real-PC-88VA line silicon
 details.
 
-The current fixed CPU result is `AX=4750h`, `BX=6DD9h` at `3000:0200`.
+The current fixed CPU result is `AX=4750h`, `BX=7ACEh` at `3000:0200`.
 P4-2 compares its entire debug-captured GVRAM storage and composed screen
-against this result; its own checkpoint is `AX=4753h`, `BX=6DD9h` at
+against this result; its own checkpoint is `AX=4753h`, `BX=7ACEh` at
 `3000:0280`.

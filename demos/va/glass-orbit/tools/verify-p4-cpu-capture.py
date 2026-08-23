@@ -47,7 +47,7 @@ EXPECTED_REGISTERS = {
     "sp": "f000",
     "ip": "0200",
 }
-EXPECTED_RAW_CHECKSUM = "6dd9"
+EXPECTED_RAW_CHECKSUM = "7ace"
 SCREEN_NAME = "glass-p4-cpu.screen.bmp"
 REGISTERS_NAME = "glass-p4-cpu.registers.tsv"
 EVENTS_NAME = "events.tsv"

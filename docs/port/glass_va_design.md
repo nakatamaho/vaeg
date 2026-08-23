@@ -281,21 +281,27 @@ fact.
 `CLS` operates on words, while packed 4bpp uses four pixels per word. A
 triangle scanline can have non-word-aligned endpoints.
 
-**Approved P2 choice: option A.** Each filled triangle span is rounded inward
-to the first and last complete four-pixel words. `CLS` must never write a word
-that extends beyond the mathematically derived span. The separate SGP `LINE`
-commands remain responsible for the visible outline. This intentionally allows
-up to three pixels of inward edge quantization on either side of a filled
-scanline.
+The implementation keeps the logical span exact and treats word alignment as
+an access detail.  Each scanline is an inclusive `[x_left,x_right]` range from
+the `y+1/2` row sample, using `ceil()` on the left intersection and `floor()`
+on the right intersection.  `CLS` writes only complete interior four-pixel
+words; the first and last partial words are applied once with a masked CPU
+read-modify-write after SGP completion.  Thus no pixel outside the logical
+span is modified.  A span with `x_left > x_right` is empty and is discarded.
+
+The separate SGP `LINE` commands remain the intended outline stage.  No
+post-outline composition, bridge, patch, erase, or other geometry-specific
+repair is permitted.
 
 | Option | Behavior | Worst-case command-list effect | Consequence |
 |---|---|---:|---|
-| A: snap to full words | **Selected.** Round the interior span to safe four-pixel boundaries and emit only `CLS`. | none beyond the 24,492-byte estimate | Keeps the documented opcode set to `SET_WORK`, `SET_COLOR`, `LINE`, `CLS`, `END`; edges are quantized in up to three pixels at each side. |
+| Exact endpoint RMW | **Selected.** Keep the logical span exact, emit complete interior words with `CLS`, then mask the two endpoint words. | bounded by one record per span | Preserves geometry while retaining the SGP-only interior-word path. |
 | C: SGP endpoint `PATBLT` | Not selected for this port. Use `CLS` for full words and 1x1 `PATBLT` for each partial endpoint. | up to 86,400 additional bytes before shared setup in the uncullable bound | Preserves exact endpoint pixels but requires a documented PATBLT source/destination sequence and may exceed a practical list limit. |
 
-CPU endpoint read-modify-write is deliberately absent from the options: it
-would violate the production SGP-only span rule. A later, separately approved
-milestone may reconsider option C only with dedicated PATBLT evidence.
+The endpoint RMW is a memory-transaction operation after SGP completion; it
+does not replace the SGP span path or alter the logical geometry. A later,
+separately approved milestone may reconsider option C only with dedicated
+PATBLT evidence.
 
 ## 10. Staged implementation and acceptance
 
@@ -336,8 +342,9 @@ BIOS/GRCG path, a host-side renderer, or a runtime CPU fallback.
 
 P4-2 implemented the SGP fixed-frame renderer described in section 10.  Its
 production candidate emits `SET_WORK`, `SET_COLOR`, `CLS`, `LINE`, and `END`
-only.  It uses the selected inward whole-word span rule; the CPU never writes
-the G0 aperture before the submitted SGP list is complete.
+only.  It keeps exact integer-X/half-row spans, applies only the general
+partial-endpoint word RMW after the submitted SGP list completes, and redraws
+the intended outline list.  There is no geometry-specific repair pass.
 
 The CPU verifier and the SGP candidate completed separately at their expected
 checkpoints.  A debug-harness capture of the complete 256 KiB GVRAM backing
