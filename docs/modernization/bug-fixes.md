@@ -1906,3 +1906,21 @@ separate parity correction or move it to Open Defects.
   the ESC input event; NASM payload build passed.
 - **Evidence:** [M97 P4 visual-hole report](../agents/reports/m97_p4_visual_holes.md).
 - **Commit:** [db8ce8f](https://github.com/nakatamaho/vaeg/commit/db8ce8f)
+
+
+### GLASS P4 outward word rounding overfilled polygon edges
+
+- **Status:** fixed in M97.
+- **Symptom:** the first hole correction produced horizontal stair-step
+  protrusions beyond blue, yellow, and green face boundaries.
+- **Root cause:** rounding the logical span outward changed polygon coverage;
+  packed-word alignment was incorrectly treated as geometry.
+- **Correction:** retain inclusive logical `[x0,x1]` spans, emit only complete
+  interior words through SGP, and apply one exact masked CPU word RMW for the
+  endpoint words.  The packed 4bpp layout is four pixels per word, with the
+  VA byte-swapped mask order recorded in the source.
+- **Verification:** independent face oracle reports underfill=0 and overfill=0
+  before outlines; exhaustive alignment/endpoint/outside-border tests pass;
+  final PNG was inspected; CTest remains 84/84 with one expected skip.
+- **Evidence:** [M97 P4 visual-hole report](../agents/reports/m97_p4_visual_holes.md).
+- **Commit:** [9a778bc](https://github.com/nakatamaho/vaeg/commit/9a778bc)
