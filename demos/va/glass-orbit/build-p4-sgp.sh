@@ -36,11 +36,21 @@ source_dir=$script_dir/src
 assembler=${NASM:-nasm}
 python=${PYTHON:-python3}
 stage=${GLASS_P4_SGP_STAGE:-3}
+audit=${GLASS_P4_SGP_AUDIT:-0}
 
 case "$stage" in
     1|2|3|4|5) ;;
     *)
         printf 'error: GLASS_P4_SGP_STAGE must be 1, 2, 3, 4, or 5: %s\n' "$stage" >&2
+        exit 2
+        ;;
+esac
+
+case "$audit" in
+    0|"") audit_define= ;;
+    1) audit_define='-dGLASS_P4_SGP_AUDIT=1' ;;
+    *)
+        printf 'error: GLASS_P4_SGP_AUDIT must be 0 or 1: %s\n' "$audit" >&2
         exit 2
         ;;
 esac
@@ -61,6 +71,7 @@ command -v "$python" >/dev/null 2>&1 || {
 
 "$assembler" -f bin -O2 -I "$source_dir/" \
     -dGLASS_P4_SGP_STAGE="$stage" \
+    $audit_define \
     "$source_dir/glass_orbit_p4_sgp.asm" -o "$raw_output"
 payload_size=$(wc -c < "$raw_output" | tr -d ' ')
 if [ "$payload_size" -gt 57088 ]; then
