@@ -31,6 +31,8 @@ output=$1
 output_dir=$(CDPATH= cd -- "$(dirname -- "$output")" && pwd)
 output_name=$(basename -- "$output")
 raw_output=$output_dir/GLASSG5.BIN
+cpu_raw_output=$output_dir/GLASSG5C.BIN
+cpu_output=$output_dir/GLASSP5C.COM
 script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 source_dir=$script_dir/src
 assembler=${NASM:-nasm}
@@ -42,24 +44,34 @@ command -v "$assembler" >/dev/null 2>&1 || {
 
 "$assembler" -f bin -O2 -I "$source_dir/" \
     "$source_dir/glass_orbit_ga5.asm" -o "$raw_output"
+"$assembler" -f bin -O2 -I "$source_dir/" -dGLASS_GA5_CPU_REFERENCE=1 \
+    "$source_dir/glass_orbit_ga5.asm" -o "$cpu_raw_output"
 
-payload_size=$(wc -c < "$raw_output" | tr -d ' ')
-if [ "$payload_size" -gt 61184 ]; then
-    printf 'error: GA-5 raw payload exceeds fixed stack boundary: %s bytes\n' "$payload_size" >&2
-    exit 1
-fi
+for raw_payload in "$raw_output" "$cpu_raw_output"; do
+    payload_size=$(wc -c < "$raw_payload" | tr -d ' ')
+    if [ "$payload_size" -gt 61184 ]; then
+        printf 'error: GA-5 raw payload exceeds fixed stack boundary: %s bytes\n' "$payload_size" >&2
+        exit 1
+    fi
+done
 
 (
     cd "$output_dir"
     "$assembler" -f bin -O2 -I "$source_dir/" \
         "$source_dir/glass_orbit_ga5_loader.asm" -o "$output_name"
+    "$assembler" -f bin -O2 -I "$source_dir/" \
+        "$source_dir/glass_orbit_ga5_cpu_loader.asm" -o "$(basename -- "$cpu_output")"
 )
 
-com_size=$(wc -c < "$output" | tr -d ' ')
-if [ "$com_size" -gt 65280 ]; then
-    printf 'error: GA-5 loader exceeds the DOS COM size limit: %s bytes\n' "$com_size" >&2
-    exit 1
-fi
+for loader in "$output" "$cpu_output"; do
+    com_size=$(wc -c < "$loader" | tr -d ' ')
+    if [ "$com_size" -gt 65280 ]; then
+        printf 'error: GA-5 loader exceeds the DOS COM size limit: %s bytes\n' "$com_size" >&2
+        exit 1
+    fi
+done
 
 printf 'Built GLASS ORBIT GA-5 bare payload: %s\n' "$raw_output"
+printf 'Built GLASS ORBIT GA-5 CPU-reference payload: %s\n' "$cpu_raw_output"
 printf 'Built GLASS ORBIT GA-5 local loader: %s\n' "$output"
+printf 'Built GLASS ORBIT GA-5 CPU-reference loader: %s\n' "$cpu_output"

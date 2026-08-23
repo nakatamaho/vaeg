@@ -20,7 +20,7 @@
 # OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
 # ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-"""Validate the GLASS ORBIT GA-5 SGP CLS proof against GA-2 CPU output.
+"""Validate the GLASS ORBIT GA-5 SGP CLS proof against its CPU reference.
 
 The guest reports success only after it has read every 16-bit GVRAM word from
 the CPU aperture following SGP completion. This host checker independently
@@ -39,7 +39,7 @@ MENU_HEIGHT = 22
 GUEST_WIDTH = 640
 COMPOSITION_HEIGHT = 400
 LOGICAL_HEIGHT = 200
-EXPECTED_REGISTERS = {
+SGP_EXPECTED_REGISTERS = {
     "schema": "vaeg-registers-v1",
     "ax": "4745",
     "bx": "7d00",
@@ -50,6 +50,7 @@ EXPECTED_REGISTERS = {
     "sp": "f000",
     "ip": "0100",
 }
+CPU_EXPECTED_REGISTERS = dict(SGP_EXPECTED_REGISTERS, ax="4743")
 
 
 def read_tsv(path: Path) -> dict[str, str]:
@@ -126,75 +127,64 @@ def black(pixel: tuple[int, int, int]) -> bool:
     return max(pixel) <= 4
 
 
-def validate_ga5(directory: Path) -> tuple[list[str], Optional[list[list[tuple[int, int, int]]]], dict[str, str]]:
+def validate_capture(directory: Path, capture_name: str,
+                     expected_registers: dict[str, str], prefix: str
+                     ) -> tuple[list[str], Optional[list[list[tuple[int, int, int]]]], dict[str, str]]:
     errors = []
     values: dict[str, str] = {}
-    registers_path = directory / "ga5-idle.registers.tsv"
-    screen_path = directory / "ga5-idle.screen.bmp"
+    registers_path = directory / (capture_name + ".registers.tsv")
+    screen_path = directory / (capture_name + ".screen.bmp")
     events_path = directory / "events.tsv"
     if not registers_path.is_file():
-        errors.append("GA5_REGISTERS_MISSING")
+        errors.append(prefix + "_REGISTERS_MISSING")
     else:
         try:
             values = read_tsv(registers_path)
         except (OSError, UnicodeError, ValueError):
-            errors.append("GA5_CAPTURE_SCHEMA")
-    for key, expected in EXPECTED_REGISTERS.items():
+            errors.append(prefix + "_CAPTURE_SCHEMA")
+    for key, expected in expected_registers.items():
         if values.get(key) != expected:
-            errors.append("GA5_%s_MISMATCH" % key.upper())
+            errors.append("%s_%s_MISMATCH" % (prefix, key.upper()))
     try:
         flags = int(values.get("flags", ""), 16)
     except ValueError:
-        errors.append("GA5_FLAGS_INVALID")
+        errors.append(prefix + "_FLAGS_INVALID")
     else:
         if flags & 0x0400:
-            errors.append("GA5_DIRECTION_FLAG_SET")
+            errors.append(prefix + "_DIRECTION_FLAG_SET")
         if not flags & 0x0200:
-            errors.append("GA5_INTERRUPTS_DISABLED")
+            errors.append(prefix + "_INTERRUPTS_DISABLED")
     if not events_path.is_file():
-        errors.append("GA5_EVENTS_MISSING")
+        errors.append(prefix + "_EVENTS_MISSING")
     elif not any(line.startswith("pc\t") for line in events_path.read_text(encoding="utf-8").splitlines()):
-        errors.append("GA5_IDLE_NOT_REACHED")
+        errors.append(prefix + "_IDLE_NOT_REACHED")
     rows = None
     if not screen_path.is_file() or screen_path.stat().st_size == 0:
-        errors.append("GA5_SCREEN_MISSING")
+        errors.append(prefix + "_SCREEN_MISSING")
     else:
         try:
             width, height, rows = read_bmp(screen_path)
         except (OSError, ValueError) as error:
-            errors.append(str(error))
+            errors.append(prefix + "_" + str(error))
         else:
             if width != GUEST_WIDTH or height < MENU_HEIGHT + COMPOSITION_HEIGHT:
-                errors.append("GA5_VIEWPORT_DIMENSIONS")
+                errors.append(prefix + "_VIEWPORT_DIMENSIONS")
             else:
                 for logical_y in range(LOGICAL_HEIGHT):
                     visible_y = MENU_HEIGHT + logical_y * 2
                     separator_y = visible_y + 1
                     for x in range(GUEST_WIDTH):
-                        expected = x + 1 if logical_y == 0 and x < 8 else 5
-                        if color_class(rows[visible_y][x]) != expected:
-                            errors.append("GA5_VISIBLE_PATTERN_MISMATCH")
+                        if color_class(rows[visible_y][x]) != 5:
+                            errors.append(prefix + "_VISIBLE_PATTERN_MISMATCH")
                             break
                         if not black(rows[separator_y][x]):
-                            errors.append("GA5_200_LINE_BOUNDS")
+                            errors.append(prefix + "_200_LINE_BOUNDS")
                             break
-                    if errors and errors[-1] in ("GA5_VISIBLE_PATTERN_MISMATCH", "GA5_200_LINE_BOUNDS"):
+                    if errors and errors[-1] in (
+                            prefix + "_VISIBLE_PATTERN_MISMATCH",
+                            prefix + "_200_LINE_BOUNDS"):
                         break
     return errors, rows, values
-
-
-def read_cpu_viewport(directory: Path) -> tuple[list[str], Optional[list[list[tuple[int, int, int]]]]]:
-    errors = []
-    screen_path = directory / "ga2-idle.screen.bmp"
-    if not screen_path.is_file() or screen_path.stat().st_size == 0:
-        return ["GA5_CPU_REFERENCE_SCREEN_MISSING"], None
-    try:
-        width, height, rows = read_bmp(screen_path)
-    except (OSError, ValueError):
-        return ["GA5_CPU_REFERENCE_BMP_INVALID"], None
-    if width != GUEST_WIDTH or height < MENU_HEIGHT + COMPOSITION_HEIGHT:
-        errors.append("GA5_CPU_REFERENCE_VIEWPORT_DIMENSIONS")
-    return errors, rows
 
 
 def main() -> int:
@@ -202,8 +192,10 @@ def main() -> int:
     parser.add_argument("cpu_capture", type=Path)
     parser.add_argument("sgp_capture", type=Path)
     args = parser.parse_args()
-    errors, ga5_rows, values = validate_ga5(args.sgp_capture)
-    cpu_errors, cpu_rows = read_cpu_viewport(args.cpu_capture)
+    errors, ga5_rows, values = validate_capture(
+        args.sgp_capture, "ga5-idle", SGP_EXPECTED_REGISTERS, "GA5")
+    cpu_errors, cpu_rows, cpu_values = validate_capture(
+        args.cpu_capture, "ga5-cpu-idle", CPU_EXPECTED_REGISTERS, "GA5_CPU")
     errors.extend(cpu_errors)
     viewport_identical = False
     if ga5_rows is not None and cpu_rows is not None and not cpu_errors:
@@ -217,6 +209,7 @@ def main() -> int:
         "errors": errors,
         "schema": "glass-orbit-ga5-v1",
         "status": "PASS" if not errors else "FAIL",
+        "cpu_reference_words": cpu_values.get("bx"),
         "verified_words": values.get("bx"),
     }
     print(json.dumps(outcome, sort_keys=True))

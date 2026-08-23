@@ -33,6 +33,7 @@ rom_directory=$3
 output_directory=$4
 script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 disk_image=$output_directory/glass-orbit-ga5-bootable.d88
+cpu_debug_output=$output_directory/cpu-reference
 debug_output=$output_directory/sgp-debug
 
 [ -f "$vaeg" ] || {
@@ -48,10 +49,20 @@ debug_output=$output_directory/sgp-debug
     exit 1
 }
 
-mkdir -p "$output_directory" "$debug_output"
-"$script_dir/run-vaeg-ga2.sh" "$source_image" "$vaeg" "$rom_directory" \
-    "$output_directory/cpu-reference"
+mkdir -p "$output_directory" "$cpu_debug_output" "$debug_output"
 "$script_dir/build-ga5-bootable-d88.sh" "$source_image" "$disk_image"
+
+SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
+    "$vaeg" \
+        --model va \
+        --roms "$rom_directory" \
+        --fdd1 "$disk_image" \
+        --no-cfg \
+        --no-bkupmem \
+        --nowait \
+        --mute \
+        --debug-script "$script_dir/glass_orbit_ga5_cpu.debug" \
+        --debug-output-dir "$cpu_debug_output"
 
 SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
     "$vaeg" \
@@ -66,5 +77,5 @@ SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
         --debug-output-dir "$debug_output"
 
 python3 "$script_dir/tools/verify-ga5-capture.py" \
-    "$output_directory/cpu-reference/debug" "$debug_output"
+    "$cpu_debug_output" "$debug_output"
 printf 'GLASS ORBIT GA-5 VAEG capture directory: %s\n' "$output_directory"

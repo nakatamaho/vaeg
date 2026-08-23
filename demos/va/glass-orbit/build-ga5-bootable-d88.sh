@@ -54,6 +54,7 @@ trap cleanup EXIT HUP INT TERM
 mkdir -p "$work_dir/root"
 NASM=${NASM:-nasm} "$script_dir/build-ga5.sh" "$work_dir/root/GLASSP5.COM"
 rm "$work_dir/root/GLASSG5.BIN"
+rm "$work_dir/root/GLASSG5C.BIN"
 
 python3 "$repo_root/tools/pc88va/pcengine_disk.py" vanilla \
     --source "$source_image" \
@@ -65,4 +66,5 @@ python3 "$repo_root/tools/pc88va/pcengine_disk.py" list --image "$output_image"
 
 printf 'Created local bootable GLASS ORBIT GA-5 disk: %s\n' "$output_image"
 printf '  Run GLASSP5 at the PC-Engine command prompt.\n'
+printf '  GLASSP5C is the verification-only CPU reference.\n'
 printf '  This bootable image is local-only and must not be committed.\n'

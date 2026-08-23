@@ -27,8 +27,8 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 GA-5 proves one intentionally small equivalence in VAEG: an SGP command list
 containing `SET_WORK`, `SET_COLOR`, `CLS`, and `END` clears the selected G0
-page to the same visible result as GA-2's CPU fill. It does not establish an
-SGP execution-time model or real PC-88VA conformance.
+page to the same visible result as a dedicated GA-5 CPU reference. It does not
+establish an SGP execution-time model or real PC-88VA conformance.
 
 The guest sets G0 to 640x200, packed 4bpp, with the same video-BIOS setup and
 palette used by GA-2. The SGP command list is stored in main RAM. Its physical
@@ -59,15 +59,16 @@ compares every one of the `7D00h` words with `5555h`. It reports success only
 when all words match. This is a completed-GVRAM readback, not a timing
 measurement.
 
-Only after that readback, the program writes the four GA-2 probe words. The
-probe makes the SGP output display-identical to GA-2 while retaining the prior
-full-page verification. The headless runner then:
+The human-facing SGP program makes no further GVRAM writes after that readback:
+its completed image is a uniform palette-index-5 clear. The headless runner
+uses a separately compiled CPU-reference program that performs the same
+`5555h` word fill, then:
 
-1. runs a fresh GA-2 CPU reference capture;
+1. runs a fresh GA-5 CPU reference capture;
 2. runs `GLASSP5` from a fresh local bootable D88;
 3. validates the guest success marker and `7D00h` count;
 4. validates the 640 x 200 physical display pattern in the composed viewport;
-5. compares the complete 640 x 400 composed guest viewport with the GA-2
+5. compares the complete 640 x 400 composed guest viewport with the GA-5 CPU
    reference.
 
 The host-side viewport comparison is visual-output evidence. It is not a
@@ -94,7 +95,7 @@ The VAEG functional run passed all of these checks:
 | --- | --- |
 | guest SGP completion and all-word readback | PASS (`7D00h` words) |
 | GA-5 visible 640 x 200 pattern | PASS |
-| GA-2 CPU and GA-5 SGP composed viewport equality | PASS |
+| GA-5 CPU and GA-5 SGP composed viewport equality | PASS |
 
 This result shows emulator-side CPU/SGP functional equivalence for this exact
 clear operation. It remains `hardware_pending` until a PC-88VA run is compared
