@@ -25,9 +25,9 @@
 ; THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ; GLASS ORBIT GA-4 TSP vertical-blank polling proof.
-; Graphics BIOS owns the already-approved display and palette setup.  This
-; payload only reads TSP status port 0142h.  It waits for a low-to-high VB
-; transition before each CPU-written background update.  It does not assign a
+; Graphics BIOS owns the already-approved display and initial palette setup.
+; This payload only reads TSP status port 0142h. It waits for a low-to-high VB
+; transition before each direct palette-entry update. It does not assign a
 ; physical frame rate or change a TSP timing register.
 ; Evidence: docs/port/glass_ga4.md.
 
@@ -39,6 +39,7 @@ org 0
 %define PORT_MEMORY_MAP         0x0153
 %define PORT_GVRAM_WRITE_MODE   0x0580
 %define PORT_TSP_STATUS         0x0142
+%define PORT_PALETTE_ENTRY_1    0x0302
 %define MODE_G0_640X200_4BPP    0xa002
 %define PIXEL_SIZE_G0_4BPP      0x0004
 %define COMPOSE_G0_ONLY         0x0003
@@ -107,9 +108,10 @@ glass_ga4_set_palette:
         mov     al, GVRAM_CPU_WRITE_MODE
         out     dx, al
 
-        ; Start from black. Every later colour update is preceded by a VB
-        ; low-to-high observation through glass_ga4_wait_vblank_start.
-        xor     ax, ax
+        ; Draw one static palette-index-1 page. Every later colour update is
+        ; a palette-entry change after a VB low-to-high observation, not a
+        ; 64 KiB GVRAM rewrite that could continue into active display.
+        mov     ax, 0x1111
         call    glass_ga4_fill_page
         mov     byte [glass_ga4_colour_index], 1
         mov     word [glass_ga4_vblank_count], 0
@@ -124,8 +126,9 @@ glass_ga4_frame_ready:
         xor     bx, bx
         mov     bl, [glass_ga4_colour_index]
         shl     bx, 1
-        mov     ax, [glass_ga4_colour_words + bx]
-        call    glass_ga4_fill_page
+        mov     ax, [glass_ga4_palette + bx]
+        mov     dx, PORT_PALETTE_ENTRY_1
+        out     dx, ax
 
         inc     byte [glass_ga4_colour_index]
         cmp     byte [glass_ga4_colour_index], PALETTE_ENTRY_COUNT
@@ -148,7 +151,7 @@ glass_ga4_idle:
         hlt
         jmp     glass_ga4_idle
 
-; AX is a packed word with one palette index in every nibble.  The function
+; AX is a packed word with one palette index in every nibble. The function
 ; writes exactly one 640x200 packed-4bpp page through the proven GA-2 aperture.
 glass_ga4_fill_page:
         push    cx
@@ -204,13 +207,6 @@ glass_ga4_palette:
         dw 0xfc00, 0xfc1f, 0xffe0, 0xffff
         dw 0x7def, 0x0015, 0x02a0, 0x02b5
         dw 0xac00, 0xac15, 0xaea0, 0xaeb5
-
-; Index 0 is reserved for the initial clear.  The live proof cycles 1..15.
-glass_ga4_colour_words:
-        dw 0x0000, 0x1111, 0x2222, 0x3333
-        dw 0x4444, 0x5555, 0x6666, 0x7777
-        dw 0x8888, 0x9999, 0xaaaa, 0xbbbb
-        dw 0xcccc, 0xdddd, 0xeeee, 0xffff
 
 glass_ga4_colour_index:
         db 0
