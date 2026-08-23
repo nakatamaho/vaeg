@@ -436,6 +436,11 @@ void maketextva_raster(void) {
 	BYTE *lbs; // linebitmap 当該ラインの左端
 	TEXTVAFRAME f;
 
+	if (!tsp.dspon) {
+		maketextva_blankraster();
+		return;
+	}
+
 	if (videova.txtmode & 0x80) {
 		// テキスト表示OFF
 		maketextva_blankraster();

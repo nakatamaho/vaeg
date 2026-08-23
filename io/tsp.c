@@ -106,6 +106,21 @@ static void exec_dspon(void) {
 }
 
 /*
+DSPOFF: stop both the text and sprite display controllers.
+
+The generic uPD72022 command has no parameters.  Retrace/timing continues;
+only the two TSP display paths are disabled.  Graphics composition is owned
+by the VA display circuitry and is intentionally not changed here.
+*/
+static void exec_dspoff(void) {
+	TRACEOUT(("tsp: dspoff"));
+
+	tsp.dspon = FALSE;
+	tsp.spron = FALSE;
+	tsp.status &= ~STATUS_BUSY;
+}
+
+/*
 DSPDEF: define screen composition and display format.
 */
 static void exec_dspdef(void) {
@@ -150,6 +165,16 @@ static void exec_spron(void) {
 	tsp.gr = tsp.parambuf[2] & 0x01;
 	tsp.spron = TRUE;
 
+	tsp.status &= ~STATUS_BUSY;
+}
+
+/*
+SPROFF: stop the sprite display controller and its cursor sprite.
+*/
+static void exec_sproff(void) {
+	TRACEOUT(("tsp: sproff"));
+
+	tsp.spron = FALSE;
 	tsp.status &= ~STATUS_BUSY;
 }
 
@@ -293,6 +318,11 @@ static void IOOUTCALL tsp_o142(UINT port, REG8 dat) {
 		//tsp.paramfunc = paramfunc_generic;
 		tsp.paramfunc = PARAMFUNC_GENERIC;
 		break;
+	case CMD_DSPOFF:
+		tsp.recvdatacnt = 0;
+		tsp.paramfunc = PARAMFUNC_NOP;
+		exec_dspoff();
+		break;
 	case CMD_DSPDEF:
 		tsp.recvdatacnt = 6;
 		//tsp.endparamfunc = exec_dspdef;
@@ -313,6 +343,11 @@ static void IOOUTCALL tsp_o142(UINT port, REG8 dat) {
 		tsp.execfunc = EXECFUNC_SPRON;
 		//tsp.paramfunc = paramfunc_generic;
 		tsp.paramfunc = PARAMFUNC_GENERIC;
+		break;
+	case CMD_SPROFF:
+		tsp.recvdatacnt = 0;
+		tsp.paramfunc = PARAMFUNC_NOP;
+		exec_sproff();
 		break;
 	case CMD_SPRDEF:
 		//tsp.paramfunc = paramfunc_sprdef_begin;

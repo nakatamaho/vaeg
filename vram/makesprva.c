@@ -216,6 +216,14 @@ void makesprva_raster(void) {
 	BOOL mg;
 
 	mg = tsp.mg && !((tsp.syncparam[0] & 0xc0) == 0x40);
+	if (!tsp.spron) {
+		ZeroMemory(sprraster, sizeof(sprraster));
+		if (!mg || (work.screeny & 1) == 0) {
+			work.y++;
+		}
+		work.screeny++;
+		return;
+	}
 
 	if (!mg || (work.screeny & 1) == 0) {
 		ZeroMemory(sprraster, sizeof(sprraster));
