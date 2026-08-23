@@ -23,7 +23,7 @@
 set -eu
 
 if [ "$#" -ne 4 ]; then
-    printf 'usage: %s SOURCE_BOOTABLE_2HD.d88 VAEG ROM_DIRECTORY OUTPUT_DIRECTORY\n' "$0" >&2
+    printf 'usage: VAEG_P4_MODEL=va|va2 %s SOURCE_BOOTABLE_2HD.d88 VAEG ROM_DIRECTORY OUTPUT_DIRECTORY\n' "$0" >&2
     exit 2
 fi
 
@@ -31,6 +31,7 @@ source_image=$1
 vaeg=$2
 rom_directory=$3
 output_directory=$4
+model=${VAEG_P4_MODEL:-va}
 script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 disk_image=$output_directory/glass-orbit-p4-cpu-bootable.d88
 
@@ -46,12 +47,16 @@ disk_image=$output_directory/glass-orbit-p4-cpu-bootable.d88
     printf 'error: refusing to overwrite output directory: %s\n' "$output_directory" >&2
     exit 1
 }
+[ "$model" = va ] || [ "$model" = va2 ] || {
+    printf 'error: VAEG_P4_MODEL must be va or va2: %s\n' "$model" >&2
+    exit 2
+}
 
 mkdir -p "$output_directory"
 "$script_dir/build-p4-cpu-bootable-d88.sh" "$source_image" "$disk_image"
 SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
     "$vaeg" \
-        --model va \
+        --model "$model" \
         --roms "$rom_directory" \
         --fdd1 "$disk_image" \
         --no-cfg \

@@ -24,6 +24,6 @@ debug-script 1
 limit-frame 5000
 wait-frame 1200
 input-line GLASSP4C
-wait-pc 2000:0200 1
+wait-pc 3000:0200 1
 capture glass-p4-cpu registers screen
 exit

@@ -20,9 +20,9 @@
 ; EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ; Local PC-Engine loader for the P4-1 verification payload.  It copies the
-; source-built image to the approved 2000:0000 bare-payload entry and saves a
-; return continuation there, so the VA Keyboard BIOS ESC path can return to
-; the invoking COM command without a DOS interrupt in the bare payload.
+; source-built image to a private main-RAM segment and saves a return
+; continuation there, so the VA Keyboard BIOS ESC path can return to the
+; invoking COM command without a DOS interrupt in the bare payload.
 
 cpu 286
 bits 16
@@ -37,6 +37,7 @@ org 0x100
 %define LOADER_RETURN_FLAGS     0xe004
 %define LOADER_RETURN_MAGIC     0xe006
 %define LOADER_RETURN_SIGNATURE 0x5034
+%define P4_PAYLOAD_SEGMENT       0x3000
 
 start:
         pushf
@@ -44,7 +45,7 @@ start:
         cli
         push    cs
         pop     ds
-        mov     ax, 0x2000
+        mov     ax, P4_PAYLOAD_SEGMENT
         mov     es, ax
         mov     si, payload
         xor     di, di
@@ -59,7 +60,7 @@ start:
         mov     [es:LOADER_RETURN_SP], dx
         mov     [es:LOADER_RETURN_FLAGS], bx
         mov     word [es:LOADER_RETURN_MAGIC], LOADER_RETURN_SIGNATURE
-        push    word 0x2000
+        push    word P4_PAYLOAD_SEGMENT
         push    word 0x0000
         retf
 
