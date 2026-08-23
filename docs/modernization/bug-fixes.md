@@ -127,7 +127,7 @@ separate parity correction or move it to Open Defects.
   checker](../../demos/va/glass-orbit/tools/verify-p5-temporal.py), and
   [P5 scene](../../demos/va/glass-orbit/src/glass_p5_scene.inc).
 - **Milestone/task:** M97 P5 temporal rendering cleanup.
-- **Commit:** pending publication.
+- **Commit:** [49242f3](https://github.com/nakatamaho/vaeg/commit/49242f3d3d739eb1602042cb6819314f328ef7ac).
 
 ### SGP wireframe demo corrupted its projected solid geometry
 
