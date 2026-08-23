@@ -54,6 +54,11 @@ glass_p5_run:
         jnz     .failed
         call    glass_p5_select_display_page
         jc      .failed
+%if GLASS_P5
+        ; Keep graphics usable when the YM2608 high bank is absent.  The
+        ; probe is read-only and bounded; a detected OPNA starts the song.
+        call    glass_opna_init
+%endif
 .frame:
         ; A target half is not presentable while it is being rebuilt.
         mov     byte [glass_p5_frame_ready], 0
@@ -77,6 +82,9 @@ glass_p5_run:
         call    glass_p5_draw_stars
         mov     byte [glass_p5_stars_complete], 1
         call    glass_advance_scene_tick
+%if GLASS_P5
+        call    glass_opna_tick
+%endif
         inc     word [render_frame_counter]
         ; FRAME_READY is set only after both SGP lists have completed and the
         ; CPU star pass has finished.  The display selector below is guarded
@@ -107,9 +115,17 @@ glass_p5_run:
         jnz     .failed
 .display_ready:
         call    glass_p4_sgp_escape_pressed
-        jc      glass_p4_sgp_exit
+        jc      .exit
         jmp     .frame
+.exit:
+%if GLASS_P5
+        call    glass_opna_shutdown
+%endif
+        jmp     glass_p4_sgp_exit
 .failed:
+%if GLASS_P5
+        call    glass_opna_shutdown
+%endif
         push    cs
         pop     es
         xor     bx, bx
