@@ -30,7 +30,7 @@ fi
 source_image=$1
 output_image=$2
 script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
-repo_root=$(CDPATH= cd -- "$script_dir/../../.." && pwd)
+repo_root=$(CDPATH= cd -- "$script_dir/../.." && pwd)
 
 [ -f "$source_image" ] || {
     printf 'error: source D88 does not exist: %s\n' "$source_image" >&2
