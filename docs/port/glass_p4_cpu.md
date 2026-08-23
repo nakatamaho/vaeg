@@ -89,7 +89,7 @@ representation, not a PC-88VA timing claim.
 maintainer-local PC-Engine template. The resulting D88 is never committed.
 
 ```text
-demos/va/glass-orbit/run-vaeg-p4-cpu.sh \
+demos/glass-orbit/run-vaeg-p4-cpu.sh \
   SOURCE_BOOTABLE_2HD.d88 VAEG ROM_DIRECTORY OUTPUT_DIRECTORY
 ```
 
@@ -97,7 +97,7 @@ The runner captures `glass-p4-cpu.registers.tsv` and
 `glass-p4-cpu.screen.bmp`. Validate two independent capture directories with:
 
 ```text
-python3 demos/va/glass-orbit/tools/verify-p4-cpu-capture.py FIRST SECOND
+python3 demos/glass-orbit/tools/verify-p4-cpu-capture.py FIRST SECOND
 ```
 
 The checker has no baseline-update capability. Its accepted checksum and

@@ -94,7 +94,7 @@ run or display the result.
 
 ```sh
 NASM=/opt/local/bin/nasm \
-  demos/va/glass-orbit/build-p0.sh /private/tmp/glass_orbit_p0.bin
+  demos/glass-orbit/build-p0.sh /private/tmp/glass_orbit_p0.bin
 ```
 
 The P0 source deliberately has no `org` directive: the eventual payload load
@@ -114,7 +114,7 @@ Create a bootable local image from a maintainer-local PC-Engine 2HD template:
 
 ```sh
 NASM=/opt/local/bin/nasm \
-  demos/va/glass-orbit/build-bootable-d88.sh \
+  demos/glass-orbit/build-bootable-d88.sh \
   /path/to/pcengine-bootable.d88 \
   /private/tmp/glass-orbit-p0-bootable.d88
 ```
@@ -129,7 +129,7 @@ command and captures the resulting DOS screen:
 
 ```sh
 NASM=/opt/local/bin/nasm \
-  demos/va/glass-orbit/run-vaeg-smoke.sh \
+  demos/glass-orbit/run-vaeg-smoke.sh \
   /path/to/pcengine-bootable.d88 \
   /absolute/path/to/vaeg \
   /absolute/path/to/rom-directory \

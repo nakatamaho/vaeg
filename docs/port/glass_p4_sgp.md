@@ -112,7 +112,7 @@ The production build keeps this audit disabled.  A diagnostic build can be
 made with:
 
 ```text
-GLASS_P4_SGP_AUDIT=1 demos/va/glass-orbit/build-p4-sgp.sh /absolute/path/GLASSP4S.COM
+GLASS_P4_SGP_AUDIT=1 demos/glass-orbit/build-p4-sgp.sh /absolute/path/GLASSP4S.COM
 ```
 
 It writes a versioned 16-byte span record (`x0`, `x1`, `y`, colour/face,
@@ -122,7 +122,7 @@ verification.  The independent host checker reconstructs the operation order
 and checks that every intermediate state is a subset of the exact span:
 
 ```text
-python3 demos/va/glass-orbit/tools/verify-p4-temporal.py /absolute/path/glass-p4-sgp.gvram.bin
+python3 demos/glass-orbit/tools/verify-p4-temporal.py /absolute/path/glass-p4-sgp.gvram.bin
 ```
 
 This proves the span-to-word partition and its temporal ownership in VAEG.  It
@@ -165,7 +165,7 @@ face-rendering routine and rejects triangle decomposition there.
 Build a local bootable validation disk from the maintainer's local template:
 
 ```text
-demos/va/glass-orbit/build-p4-sgp-bootable-d88.sh SOURCE_BOOTABLE_2HD.d88 OUTPUT.d88
+demos/glass-orbit/build-p4-sgp-bootable-d88.sh SOURCE_BOOTABLE_2HD.d88 OUTPUT.d88
 ```
 
 The generated D88 contains non-free PC-Engine files and is local-only.  It
@@ -176,7 +176,7 @@ loader continuation.
 For bounded VAEG capture:
 
 ```text
-demos/va/glass-orbit/run-vaeg-p4-sgp.sh SOURCE_BOOTABLE_2HD.d88 VAEG ROM_DIRECTORY OUTPUT_DIRECTORY
+demos/glass-orbit/run-vaeg-p4-sgp.sh SOURCE_BOOTABLE_2HD.d88 VAEG ROM_DIRECTORY OUTPUT_DIRECTORY
 ```
 
 The runner defaults to VAEG's explicit `--sgp 16` functional acceleration so
@@ -190,7 +190,7 @@ debugger output only and changes no emulated device state.  Compare one CPU
 capture and two fresh SGP captures with:
 
 ```text
-python3 demos/va/glass-orbit/tools/verify-p4-backends.py CPU_DIR SGP_DIR SGP_REPEAT_DIR
+python3 demos/glass-orbit/tools/verify-p4-backends.py CPU_DIR SGP_DIR SGP_REPEAT_DIR
 ```
 
 The comparator rejects a missing checkpoint, wrong success marker, wrong raw

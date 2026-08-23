@@ -105,7 +105,7 @@ and rejects a mixed, stale, or partial page. Distinct red and blue samples are
 also required.
 
 ```text
-demos/va/glass-orbit/run-vaeg-ga6.sh \
+demos/glass-orbit/run-vaeg-ga6.sh \
   SOURCE_BOOTABLE_2HD.d88 VAEG ROM_DIRECTORY OUTPUT_DIRECTORY
 ```
 
