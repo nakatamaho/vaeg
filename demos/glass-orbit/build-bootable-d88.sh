@@ -45,15 +45,15 @@ repo_root=$(CDPATH= cd -- "$script_dir/../.." && pwd)
     exit 1
 }
 
-work_dir=$(mktemp -d "${TMPDIR:-/tmp}/glass-orbit-p5sgp.XXXXXX")
+work_dir=$(mktemp -d "${TMPDIR:-/tmp}/glass-orbit.XXXXXX")
 cleanup() {
     rm -rf "$work_dir"
 }
 trap cleanup EXIT HUP INT TERM
 
 mkdir -p "$work_dir/root"
-NASM=${NASM:-nasm} "$script_dir/build-p5-sgp.sh" "$work_dir/root/GLASSP5S.COM"
-rm "$work_dir/root/GLASSP5S.BIN"
+NASM=${NASM:-nasm} "$script_dir/build.sh" "$work_dir/root/GLASS.COM"
+rm "$work_dir/root/GLASS.BIN"
 
 python3 "$repo_root/tools/pc88va/pcengine_disk.py" vanilla \
     --source "$source_image" \
@@ -64,6 +64,6 @@ python3 "$repo_root/tools/pc88va/pcengine_disk.py" install \
 python3 "$repo_root/tools/pc88va/pcengine_disk.py" list \
     --image "$output_image"
 
-printf 'Created local bootable GLASS ORBIT P5 SGP disk: %s\n' "$output_image"
-printf '  Run GLASSP5S to render the complete SGP scene.\n'
+printf 'Created local bootable GLASS ORBIT disk: %s\n' "$output_image"
+printf '  Run GLASS to render the complete SGP scene.\n'
 printf '  This bootable image is local-only and must not be committed.\n'

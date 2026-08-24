@@ -47,8 +47,8 @@ def load_p4_temporal():
 
 
 def check_sources(source_root):
-    wrapper = (source_root / "glass_orbit_p5_sgp.asm").read_text(encoding="utf-8")
-    scene = (source_root / "glass_p5_scene.inc").read_text(encoding="utf-8")
+    wrapper = (source_root / "glass_orbit.asm").read_text(encoding="utf-8")
+    scene = (source_root / "glass_scene.inc").read_text(encoding="utf-8")
     errors = []
     if "%define GLASS_P4_SGP_STAGE 2" not in wrapper:
         errors.append("P5 must exclude edges from the first SGP list")

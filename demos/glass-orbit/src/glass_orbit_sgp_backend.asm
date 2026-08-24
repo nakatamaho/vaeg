@@ -1194,7 +1194,7 @@ glass_p4_sgp_raw_checksum:
 
 %include "glass_geometry.inc"
 %include "glass_data.inc"
-%include "glass_p5_scene.inc"
+%include "glass_scene.inc"
 
 align 2, db 0
 glass_p4_sgp_framebuffer_descriptor:

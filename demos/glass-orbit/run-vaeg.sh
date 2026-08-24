@@ -23,7 +23,7 @@
 set -eu
 
 if [ "$#" -ne 4 ]; then
-    printf 'usage: VAEG_P5_MODEL=va|va2 %s SOURCE_BOOTABLE_2HD.d88 VAEG ROM_DIRECTORY OUTPUT_DIRECTORY\n' "$0" >&2
+    printf 'usage: VAEG_GLASS_MODEL=va|va2 %s SOURCE_BOOTABLE_2HD.d88 VAEG ROM_DIRECTORY OUTPUT_DIRECTORY\n' "$0" >&2
     exit 2
 fi
 
@@ -31,17 +31,17 @@ source_image=$1
 vaeg=$2
 rom_directory=$3
 output_directory=$4
-model=${VAEG_P5_MODEL:-va}
+model=${VAEG_GLASS_MODEL:-va}
 script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
-disk_image=$output_directory/glass-orbit-p5-sgp-bootable.d88
+disk_image=$output_directory/glass-orbit-bootable.d88
 
 [ -f "$vaeg" ] || { printf 'error: VAEG executable does not exist: %s\n' "$vaeg" >&2; exit 1; }
 [ -d "$rom_directory" ] || { printf 'error: ROM directory does not exist: %s\n' "$rom_directory" >&2; exit 1; }
 [ ! -e "$output_directory" ] || { printf 'error: refusing to overwrite output directory: %s\n' "$output_directory" >&2; exit 1; }
-[ "$model" = va ] || [ "$model" = va2 ] || { printf 'error: VAEG_P5_MODEL must be va or va2: %s\n' "$model" >&2; exit 2; }
+[ "$model" = va ] || [ "$model" = va2 ] || { printf 'error: VAEG_GLASS_MODEL must be va or va2: %s\n' "$model" >&2; exit 2; }
 
 mkdir -p "$output_directory"
-"$script_dir/build-p5-sgp-bootable-d88.sh" "$source_image" "$disk_image"
+"$script_dir/build-bootable-d88.sh" "$source_image" "$disk_image"
 SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
     "$vaeg" \
         --model "$model" \
@@ -53,6 +53,6 @@ SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
         --mute \
         --cpumult 2 \
         --sgp 16 \
-        --debug-script "$script_dir/glass_orbit_p5_sgp.debug" \
+        --debug-script "$script_dir/glass_orbit.debug" \
         --debug-output-dir "$output_directory"
-printf 'GLASS ORBIT P5 SGP VAEG capture directory: %s\n' "$output_directory"
+printf 'GLASS ORBIT VAEG capture directory: %s\n' "$output_directory"

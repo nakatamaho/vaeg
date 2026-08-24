@@ -30,7 +30,7 @@ fi
 output=$1
 output_dir=$(CDPATH= cd -- "$(dirname -- "$output")" && pwd)
 output_name=$(basename -- "$output")
-raw_output=$output_dir/GLASSP5S.BIN
+raw_output=$output_dir/GLASS.BIN
 script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 source_dir=$script_dir/src
 assembler=${NASM:-nasm}
@@ -48,24 +48,24 @@ command -v "$python" >/dev/null 2>&1 || {
 "$python" "$script_dir/tools/verify-opna-source.py" "$script_dir"
 
 "$assembler" -f bin -O2 -I "$source_dir/" \
-    "$source_dir/glass_orbit_p5_sgp.asm" -o "$raw_output"
+    "$source_dir/glass_orbit.asm" -o "$raw_output"
 payload_size=$(wc -c < "$raw_output" | tr -d ' ')
 if [ "$payload_size" -gt 57088 ]; then
-    printf 'error: P5 raw payload exceeds fixed stack boundary: %s bytes\n' "$payload_size" >&2
+    printf 'error: GLASS raw payload exceeds fixed stack boundary: %s bytes\n' "$payload_size" >&2
     exit 1
 fi
 
 (
     cd "$output_dir"
     "$assembler" -f bin -O2 -I "$source_dir/" \
-        -dGLASS_P5_SGP_PAYLOAD_FILE=\"$(basename -- "$raw_output")\" \
-        "$source_dir/glass_orbit_p5_sgp_loader.asm" -o "$output_name"
+        -dGLASS_PAYLOAD_FILE=\"$(basename -- "$raw_output")\" \
+        "$source_dir/glass_orbit_loader.asm" -o "$output_name"
 )
 com_size=$(wc -c < "$output" | tr -d ' ')
 if [ "$com_size" -gt 65280 ]; then
-    printf 'error: P5 loader exceeds the DOS COM size limit: %s bytes\n' "$com_size" >&2
+    printf 'error: GLASS loader exceeds the DOS COM size limit: %s bytes\n' "$com_size" >&2
     exit 1
 fi
 
-printf 'Built GLASS ORBIT P5 SGP raw payload: %s\n' "$raw_output"
-printf 'Built GLASS ORBIT P5 SGP verification loader: %s\n' "$output"
+printf 'Built GLASS ORBIT raw payload: %s\n' "$raw_output"
+printf 'Built GLASS ORBIT verification loader: %s\n' "$output"

@@ -23,21 +23,22 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 # GLASS ORBIT
 
-The authoritative PC-88VA port is the P5 SGP scene with OPNA/YM2608 audio.
-Earlier GA, P0, and standalone P4 milestone payloads are intentionally not
-kept in this directory.
+The authoritative PC-88VA port is the final SGP scene with OPNA/YM2608
+audio. Earlier GA, P0, and standalone P4 milestone payloads are intentionally
+not kept in this directory.
 
 Build the final verification loader with:
 
 ```sh
-NASM=nasm demos/glass-orbit/build-p5-sgp.sh /absolute/path/GLASSP5S.COM
+NASM=nasm demos/glass-orbit/build.sh /absolute/path/GLASS.COM
 ```
 
-`build-p5-sgp-bootable-d88.sh` creates a local bootable validation disk from
+`build-bootable-d88.sh` creates a local bootable validation disk from
 a supplied template. The bootable image is a local artifact and must not be
-committed. `run-vaeg-p5-sgp.sh` is the final VAEG capture/temporal-QA entry
+committed. `run-vaeg.sh` is the final VAEG capture/temporal-QA entry
 point.
 
 The shared SGP backend and exact 4bpp span/convex-polygon helpers under
-`src/` are implementation dependencies of P5, not separate demo variants.
+`src/` are implementation dependencies of the final scene, not separate demo
+variants.
 The audio path is OPNA/YM2608 only; OPL is intentionally out of scope.

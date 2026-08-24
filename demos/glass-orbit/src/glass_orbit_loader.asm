@@ -24,8 +24,10 @@
 ; (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
 ; THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-; Local-only PC-Engine loader for the P5 bare payload.  It uses the same
-; Keyboard-BIOS return continuation as the P4 verification loader.
+; Local-only PC-Engine loader for the final bare payload.  It uses the same
+; Keyboard-BIOS return continuation as the shared payload loader.
 
-%define GLASS_PAYLOAD_FILE GLASS_P5_SGP_PAYLOAD_FILE
+%ifndef GLASS_PAYLOAD_FILE
+%error "GLASS_PAYLOAD_FILE must name the raw GLASS payload"
+%endif
 %include "glass_orbit_payload_loader.asm"

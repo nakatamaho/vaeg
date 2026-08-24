@@ -152,8 +152,8 @@ separate QA item because this GLASS path does not use them.
   the CPU reference path.
 - `demos/glass-orbit/tools/check-p4-convex.py`: structural one-pass face
   guard.
-- `demos/glass-orbit/build-p5-sgp.sh`: builds the final wrapper around the
+- `demos/glass-orbit/build.sh`: builds the final wrapper around the
   shared convex-face backend and invokes the OPNA source guard.
 - `demos/glass-orbit/tools/verify-p4-visual.py`: direct convex oracle,
   triangle-union comparison, and generic convex-shape matrix.
-- `docs/port/glass_p5.md`: final direct convex-face architecture and contract.
+- `docs/port/glass_orbit.md`: final direct convex-face architecture and contract.
