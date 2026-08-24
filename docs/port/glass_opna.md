@@ -12,7 +12,7 @@ modification, are permitted provided that the following conditions are met:
 
 # GLASS ORBIT P6: OPNA/YM2608 audio
 
-P6 adds one audio backend to the VA port: the YM2608/OPNA register path. OPL,
+The final audio path uses one backend on the VA port: the YM2608/OPNA register path. OPL,
 OPL2, OPL3, YM3812, and YMF262 are not compiled into this payload. Graphics,
 SGP lists, CPU stars, page exchange, and the existing VA BIOS exit path remain
 unchanged.
@@ -39,7 +39,7 @@ each of the original audible FM channels 0, 1, and 2 and masks the index at
 256; this is byte-for-byte equivalent to the original 512-step data. Original
 channels 3--11 are all `FFh`, and the original OPNA rhythm path is disabled.
 
-P5 calls `glass_opna_init` once, advances the score from `glass_opna_tick` once
+The final scene calls `glass_opna_init` once, advances the score from `glass_opna_tick` once
 per completed graphics frame, and calls `glass_opna_shutdown` on both the ESC
 path and the failure path. The original divider of six frames per score step is
 retained. At a nominal 60 Hz frame cadence this is approximately 10 score steps
@@ -58,15 +58,15 @@ The source/data contract can be checked without ROMs or hardware:
 python3 demos/glass-orbit/tools/verify-opna-source.py demos/glass-orbit
 ```
 
-The P5 payload build remains the existing command:
+The final payload build uses the existing command:
 
 ```sh
-demos/glass-orbit/build-p5-sgp.sh /absolute/path/GLASSP5S.COM
+demos/glass-orbit/build.sh /absolute/path/GLASS.COM
 ```
 
 For VAEG, select `va2` (the default YM2608 model) and use the existing
-`run-vaeg-p5-sgp.sh` harness. The capture must still reach the same P5
-`3000:177d` frame-ready checkpoint, and `verify-p5-temporal.py` remains the
+`run-vaeg.sh` harness. The capture must still reach the same
+`3000:177d` frame-ready checkpoint, and `verify-temporal.py` remains the
 graphics regression check. These are emulator-side checks only; audible output
 and post-ESC audio silence still require a physical PC-88VA/VA2 gate.
 

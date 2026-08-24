@@ -62,13 +62,13 @@ def check(root: Path) -> dict[str, object]:
     source_dir = root / "src"
     opna = (source_dir / "glass_opna.inc").read_text(encoding="utf-8")
     data = (source_dir / "glass_opna_data.inc").read_text(encoding="utf-8")
-    wrapper = (source_dir / "glass_orbit_p5_sgp.asm").read_text(encoding="utf-8")
-    scene = (source_dir / "glass_p5_scene.inc").read_text(encoding="utf-8")
+    wrapper = (source_dir / "glass_orbit.asm").read_text(encoding="utf-8")
+    scene = (source_dir / "glass_scene.inc").read_text(encoding="utf-8")
     errors: list[str] = []
 
     for path, text in ((source_dir / "glass_opna.inc", opna),
                        (source_dir / "glass_opna_data.inc", data),
-                       (source_dir / "glass_orbit_p5_sgp.asm", wrapper)):
+                       (source_dir / "glass_orbit.asm", wrapper)):
         lower = text.lower()
         if any(token in lower for token in FORBIDDEN):
             errors.append(f"forbidden non-OPNA token in {path.name}")

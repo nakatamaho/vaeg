@@ -99,7 +99,7 @@ separate parity correction or move it to Open Defects.
 - **Milestone/task:** M97 P4 fill algorithm cleanup.
 - **Commit:** [76d7de7](https://github.com/nakatamaho/vaeg/commit/76d7de7cfffd51b49302cd46cd47afb82ad200f4).
 
-### GLASS P5 rebuilt the visible page and enqueued cube edges twice
+### GLASS final scene rebuilt the visible page and enqueued cube edges twice
 
 - **Status:** fixed in M97a; real-hardware timing and keyboard parity remain
   separate pending items.
@@ -123,9 +123,9 @@ separate parity correction or move it to Open Defects.
   three temporal checkpoints showed no visible construction frame. The P5
   source/partition guard, P4 alignment/slope matrices, CTest, and repository
   checks passed.
-- **Evidence:** [P5 temporal report](../port/glass_p5.md), [P5 temporal
-  checker](../../demos/glass-orbit/tools/verify-p5-temporal.py), and
-  [P5 scene](../../demos/glass-orbit/src/glass_p5_scene.inc).
+- **Evidence:** [final temporal report](../port/glass_orbit.md), [temporal
+  checker](../../demos/glass-orbit/tools/verify-temporal.py), and
+  [final scene](../../demos/glass-orbit/src/glass_scene.inc).
 - **Milestone/task:** M97 P5 temporal rendering cleanup.
 - **Commit:** [49242f3](https://github.com/nakatamaho/vaeg/commit/49242f3d3d739eb1602042cb6819314f328ef7ac).
 

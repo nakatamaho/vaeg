@@ -22,9 +22,9 @@
 debug-script 1
 limit-frame 5000
 wait-frame 1200
-input-line GLASSP5S
+input-line GLASS
 # 177Dh is the stable post-FRAME_READY loop checkpoint for the current
 # payload. Capture occurs only after page selection, never during a build.
 wait-pc 3000:177D 1
-capture glass-p5-sgp registers gvram screen
+capture glass-orbit registers gvram screen
 exit

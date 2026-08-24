@@ -22,13 +22,13 @@
 debug-script 1
 limit-frame 5000
 wait-frame 1200
-input-line GLASSP5S
+input-line GLASS
 wait-pc 3000:177D 1
-capture p5-frame-a registers gvram screen
+capture glass-frame-a registers gvram screen
 wait-frame 1300
 wait-pc 3000:177D 1
-capture p5-frame-b registers gvram screen
+capture glass-frame-b registers gvram screen
 wait-frame 1400
 wait-pc 3000:177D 1
-capture p5-frame-c registers gvram screen
+capture glass-frame-c registers gvram screen
 exit
