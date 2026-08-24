@@ -1,5 +1,0 @@
-# Copyright (c) 2026 Nakata Maho
-# Local VAEG smoke input. It invokes the local PC-Engine COM wrapper only.
-@wait 1200
-GLASSP0
-@wait 600
