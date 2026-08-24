@@ -38,6 +38,17 @@ a supplied template. The bootable image is a local artifact and must not be
 committed. `run-vaeg.sh` is the final VAEG capture/temporal-QA entry
 point.
 
+Create the distributable non-bootable data disk with:
+
+```sh
+NASM=nasm demos/glass-orbit/build-d88.sh \
+    /path/to/2hd-template.d88 /absolute/path/glass-orbit.d88
+```
+
+The builder uses the template only for 2HD geometry, creates a blank data
+disk, installs `GLASS.COM`, and writes `glass-orbit.d88.xz`. The raw D88 is a
+local artifact; only the `.d88.xz` companion is committed.
+
 The shared SGP backend and exact 4bpp span/convex-polygon helpers under
 `src/` are implementation dependencies of the final scene, not separate demo
 variants.
