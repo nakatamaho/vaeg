@@ -46,7 +46,7 @@ four projected face vertices
     -> intended outline LINE list
 ```
 
-`src/glass_p4_convex.inc` is the single geometry implementation included by
+`src/glass_convex.inc` is the single geometry implementation included by
 both the CPU and SGP payloads.  The backend callback is the only difference:
 the CPU writes logical pixels directly, while the SGP path emits complete
 interior CLS words and replays general endpoint masks.
@@ -144,9 +144,9 @@ separate QA item because this GLASS path does not use them.
 
 ## Files changed
 
-- `demos/glass-orbit/src/glass_p4_convex.inc`: shared convex scan
+- `demos/glass-orbit/src/glass_convex.inc`: shared convex scan
   converter.
-- `demos/glass-orbit/src/glass_orbit_p4_sgp.asm`: one convex call per
+- `demos/glass-orbit/src/glass_orbit_sgp_backend.asm`: one convex call per
   visible SGP face; triangle filler retained for QA.
 - `demos/glass-orbit/src/glass_orbit_p4_cpu.asm`: same shared geometry for
   the CPU reference path.

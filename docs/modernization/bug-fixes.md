@@ -94,7 +94,7 @@ separate parity correction or move it to Open Defects.
   selftest passed. Real observations remain PC-88VA graphics/ESC PASS with
   keyboard-after-return unresolved, and PC-88VA2 graphics/ESC/keyboard PASS.
 - **Evidence:** [M97 P4 visual report](../agents/reports/m97_p4_visual_holes.md),
-  [SGP P4 implementation](../../demos/glass-orbit/src/glass_orbit_p4_sgp.asm),
+  [shared SGP implementation](../../demos/glass-orbit/src/glass_orbit_sgp_backend.asm),
   and [no-repair guard](../../demos/glass-orbit/tools/check-p4-no-repair.py).
 - **Milestone/task:** M97 P4 fill algorithm cleanup.
 - **Commit:** [76d7de7](https://github.com/nakatamaho/vaeg/commit/76d7de7cfffd51b49302cd46cd47afb82ad200f4).

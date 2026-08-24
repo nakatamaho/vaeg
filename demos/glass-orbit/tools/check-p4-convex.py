@@ -48,7 +48,7 @@ def validate_source(source: str, prefix: str) -> list[dict[str, str]]:
         errors.append({"code": "P4_CONVEX_TRIANGLE_DECOMPOSITION", "prefix": prefix})
     if "mov     cx, 4" not in body:
         errors.append({"code": "P4_CONVEX_QUAD_VERTEX_COUNT", "prefix": prefix})
-    if 'include "glass_p4_convex.inc"' not in source:
+    if 'include "glass_convex.inc"' not in source:
         errors.append({"code": "P4_CONVEX_IMPLEMENTATION_MISSING", "prefix": prefix})
     return errors
 

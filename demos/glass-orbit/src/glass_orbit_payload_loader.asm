@@ -24,7 +24,7 @@
 ; (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
 ; THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-; Local PC-Engine loader for the P4-2 verification payload.  It copies the
+; Local PC-Engine loader for the final SGP verification payload.  It copies the
 ; source-built image to the same private main-RAM segment used by the corrected
 ; P4-1 loader and records a Keyboard-BIOS return continuation there.
 
@@ -32,8 +32,8 @@ cpu 286
 bits 16
 org 0x100
 
-%ifndef GLASS_P4_SGP_PAYLOAD_FILE
-%error "GLASS_P4_SGP_PAYLOAD_FILE must name the raw P4-2 payload"
+%ifndef GLASS_PAYLOAD_FILE
+%error "GLASS_PAYLOAD_FILE must name the raw SGP payload"
 %endif
 
 %define LOADER_RETURN_SS        0xe000
@@ -41,7 +41,7 @@ org 0x100
 %define LOADER_RETURN_FLAGS     0xe004
 %define LOADER_RETURN_MAGIC     0xe006
 %define LOADER_RETURN_SIGNATURE 0x5034
-%define P4_PAYLOAD_SEGMENT       0x3000
+%define PAYLOAD_SEGMENT          0x3000
 
 start:
         pushf
@@ -49,7 +49,7 @@ start:
         cli
         push    cs
         pop     ds
-        mov     ax, P4_PAYLOAD_SEGMENT
+        mov     ax, PAYLOAD_SEGMENT
         mov     es, ax
         mov     si, payload
         xor     di, di
@@ -64,7 +64,7 @@ start:
         mov     [es:LOADER_RETURN_SP], dx
         mov     [es:LOADER_RETURN_FLAGS], bx
         mov     word [es:LOADER_RETURN_MAGIC], LOADER_RETURN_SIGNATURE
-        push    word P4_PAYLOAD_SEGMENT
+        push    word PAYLOAD_SEGMENT
         push    word 0x0000
         retf
 
@@ -72,9 +72,9 @@ loader_return:
         ret
 
 payload:
-        incbin GLASS_P4_SGP_PAYLOAD_FILE
+        incbin GLASS_PAYLOAD_FILE
 payload_end:
 
 %if ($ - $$) > 0xff00
-%error "GLASS ORBIT P4-2 loader exceeds the DOS COM size limit"
+%error "GLASS ORBIT SGP loader exceeds the DOS COM size limit"
 %endif

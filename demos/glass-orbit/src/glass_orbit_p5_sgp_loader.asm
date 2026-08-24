@@ -27,5 +27,5 @@
 ; Local-only PC-Engine loader for the P5 bare payload.  It uses the same
 ; Keyboard-BIOS return continuation as the P4 verification loader.
 
-%define GLASS_P4_SGP_PAYLOAD_FILE GLASS_P5_SGP_PAYLOAD_FILE
-%include "glass_orbit_p4_sgp_loader.asm"
+%define GLASS_PAYLOAD_FILE GLASS_P5_SGP_PAYLOAD_FILE
+%include "glass_orbit_payload_loader.asm"

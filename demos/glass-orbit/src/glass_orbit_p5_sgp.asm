@@ -32,7 +32,7 @@
 ; P5 emits faces/grid in the first list and the intended outline exactly once
 ; after endpoint RMW.  Stage 3 would enqueue the outline twice.
 %define GLASS_P4_SGP_STAGE 2
-%include "glass_orbit_p4_sgp.asm"
+%include "glass_orbit_sgp_backend.asm"
 ; P6 audio is deliberately OPNA/YM2608-only.  The original multi-backend
 ; sound source is not included in this VA payload.
 %include "glass_opna.inc"
