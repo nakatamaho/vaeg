@@ -766,7 +766,7 @@ glass_p4_sgp_emit_span:
 ; The shared convex scanner calls this backend callback with exact logical
 ; spans.  CPU and SGP therefore use identical edge and row coverage rules.
 %define GLASS_P4_CONVEX_EMIT_SPAN glass_p4_sgp_emit_span
-%include "glass_p4_convex.inc"
+%include "glass_convex.inc"
 %undef GLASS_P4_CONVEX_EMIT_SPAN
 
 glass_p4_sgp_record_span:

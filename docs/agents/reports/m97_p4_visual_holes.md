@@ -31,10 +31,10 @@ pixel.  The fix is to discard that empty span and to use one deterministic
 
 | location | operation | category | reason | action |
 | --- | --- | --- | --- | --- |
-| `glass_orbit_p4_sgp.asm:glass_p4_sgp_apply_endpoint_spans` | masked first/last-word RMW | A/B | exact logical span access for packed 4bpp | keep |
-| `glass_orbit_p4_sgp.asm:glass_p4_sgp_build_edge_list` | redraw the twelve intended LINE edges | A | normal wireframe rendering stage | keep |
+| `glass_orbit_sgp_backend.asm:glass_p4_sgp_apply_endpoint_spans` | masked first/last-word RMW | A/B | exact logical span access for packed 4bpp | keep |
+| `glass_orbit_sgp_backend.asm:glass_p4_sgp_build_edge_list` | redraw the twelve intended LINE edges | A | normal wireframe rendering stage | keep |
 | previous `glass_p4_sgp_bridge_outline_gaps` stage | one-pixel outline-colour writes at known cube gaps | C | geometry-specific visual repair | removed |
-| `glass_orbit_p4_sgp.asm:glass_p4_sgp_emit_span` | swap when `x0 > x1` | C-equivalent bug | converted empty vertex spans into coverage | removed; empty spans are discarded |
+| `glass_orbit_sgp_backend.asm:glass_p4_sgp_emit_span` | swap when `x0 > x1` | C-equivalent bug | converted empty vertex spans into coverage | removed; empty spans are discarded |
 
 There are no geometry-specific post-fill rectangles, erases, per-face offsets,
 or cube-coordinate repair writes in the final P4 path.  The source-level
