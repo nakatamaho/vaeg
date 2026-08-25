@@ -33,6 +33,12 @@ command -v "$assembler" >/dev/null 2>&1 || {
     exit 127
 }
 
+scene=${NEON4_P5_SCENE:-0}
+case "$scene" in
+    0|1) ;;
+    *) printf 'error: NEON4_P5_SCENE must be 0 or 1\n' >&2; exit 2 ;;
+esac
+
 script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 output_dir=$(CDPATH= cd -- "$(dirname -- "$1")" && pwd)
 output_path=$output_dir/$(basename -- "$1")
@@ -40,6 +46,7 @@ raw_path=$output_dir/.$(basename -- "$1").raw
 
 "$assembler" -f bin -O2 \
     -dNEON4_STAGE=8 \
+    -dNEON4_P5_SCENE="$scene" \
     -I "$script_dir/src/" \
     "$script_dir/src/neon4_p3.asm" -o "$raw_path"
 
