@@ -101,8 +101,10 @@ start:
         ; N4-1: entry/stack/segment smoke.  No graphics or BIOS call.
         jmp     return_to_loader
 %else
+        call    show_entry_text
         call    va_video_enter
         jc      stage_failure
+        call    show_video_ok_text
         cld
         push    cs
         pop     ds
@@ -158,6 +160,7 @@ stage_failure:
         ; human gate.  No DOS service is used on this path.
         push    cs
         pop     ds
+        call    show_failure_text
         mov     al, 0e0h
         call    cpu_clear_page
 wait_for_escape:
@@ -273,6 +276,7 @@ va_video_enter:
         clc
         jmp     .done
 .failed:
+        mov     [cs:video_error_code], ax
         stc
 .done:
         pop     es
@@ -644,6 +648,113 @@ keyboard_escape:
         clc
         ret
 
+show_entry_text:
+        mov     si, entry_text
+        xor     dx, dx
+        jmp     show_text_message
+
+show_video_ok_text:
+        mov     si, video_ok_text
+        mov     dx, 0001h
+
+show_text_message:
+        push    ax
+        push    dx
+        push    si
+        push    ds
+        push    es
+        push    cs
+        pop     ds
+        push    cs
+        pop     es
+        mov     ah, 08h
+        int     83h
+        mov     ah, 02h
+        mov     dx, 8000h
+        int     83h
+        pop     es
+        pop     ds
+        pop     si
+        pop     dx
+        pop     ax
+        ret
+
+; Show the last Graphics BIOS return code before entering the failure wait.
+; This is deliberately a diagnostic path: it keeps the text plane enabled and
+; does not use DOS console services.
+show_failure_text:
+        push    ax
+        push    dx
+        push    si
+        push    ds
+        push    es
+        mov     dx, PORT_MEMORY_MAP
+        mov     al, MEMORY_MAP_TVRAM
+        out     dx, al
+        push    cs
+        pop     ds
+        push    cs
+        pop     es
+        mov     ax, 0300h
+        mov     cx, 0031h
+        int     VIDEO_BIOS_INT
+        mov     si, failure_text
+        xor     dx, dx
+        mov     ah, 08h
+        int     83h
+        mov     ah, 02h
+        mov     dx, 8000h
+        int     83h
+        mov     ax, [video_error_code]
+        call    make_failure_hex
+        mov     si, failure_code_text
+        mov     dx, 0001h
+        mov     ah, 08h
+        int     83h
+        mov     ah, 02h
+        mov     dx, 8000h
+        int     83h
+        pop     es
+        pop     ds
+        pop     si
+        pop     dx
+        pop     ax
+        ret
+
+make_failure_hex:
+        push    ax
+        push    bx
+        push    cx
+        push    dx
+        push    di
+        mov     bx, ax
+        mov     di, failure_hex + 3
+        mov     cx, 4
+.digit:
+        mov     ax, bx
+        and     al, 0fh
+        cmp     al, 0ah
+        jb      .number
+        add     al, 'A' - 0ah
+        jmp     .store
+.number:
+        add     al, '0'
+.store:
+        mov     [cs:di], al
+        dec     di
+        shr     bx, 1
+        shr     bx, 1
+        shr     bx, 1
+        shr     bx, 1
+        dec     cx
+        jnz     .digit
+        pop     di
+        pop     dx
+        pop     cx
+        pop     bx
+        pop     ax
+        ret
+
 PAGE_A_SGP_LOW equ 0000h
 
 align 2
@@ -670,6 +781,13 @@ align 16
 ; $DefWin descriptor: framebuffer number, screen Y, height, source X, Y.
 neon4_window_descriptor:
         dw 0, 0, SCREEN_HEIGHT, 0, 0
+
+failure_text db 'N4 VIDEO FAIL', 0
+entry_text db 'N4 ENTER', 0
+video_ok_text db 'N4 VIDEO OK', 0
+failure_code_text db 'BIOS RC: ', 0
+failure_hex db '0000', 0
+video_error_code dw 0
 
 ; These words are intentionally reserved for the P3 command builder.  The
 ; loader writes its return continuation at CS:0e000..0e008.
