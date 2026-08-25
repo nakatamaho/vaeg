@@ -95,3 +95,35 @@ VAEG headless guest execution was not available in this checkout because the
 model ROM set was incomplete (`vafont` missing).  Therefore N4-2/N4-5 image
 equality and FB0 page switching remain `HUMAN_GATE_PENDING`; no hardware timing
 or silicon compatibility claim is made here.
+
+## P4 primitive backend
+
+P4 adds a deterministic 320x200 primitive scene to
+`demos/neon4/src/neon4_p3.asm`.  It is intentionally a backend gate, not the
+NEON4 scene integration: a filled rectangle and four edges plus both diagonals
+are rendered after the VA mode setup and the payload waits at the existing
+`ESC` continuation.
+
+The CPU and SGP builds share the same physical geometry.  The CPU build is the
+reference writer; the SGP build emits `SET_WORK`, `SET_COLOR`, one `CLS` span
+per row, six `LINE` commands, and `END`.  The SGP list reserves 4096 words,
+while the P4 diagnostic scene uses 661 words (1322 bytes) at its high-water
+point.  The 8bpp LINE descriptor uses screen mode `2`, dot `0` or `1` for the
+two pixels in a word, and the verified direction bits (`VD=0400h`,
+`HD=0800h`).  Odd X addresses are aligned down to the containing even word.
+
+The CPU line reference follows the SGP accumulator/tie convention rather than
+an independent Bresenham tie rule.  This makes the two writers compare at the
+logical-pixel level while keeping the CPU path verification-only.
+
+Build both variants with:
+
+```sh
+demos/neon4/build_p4.sh cpu /tmp/N4P4CPU.COM
+demos/neon4/build_p4.sh sgp /tmp/N4P4SGP.COM
+```
+
+VAEG validation on the VA2 model reached `3000:0022` (the `ESC` polling loop)
+for both payloads.  The rendered BMPs were compared with ImageMagick
+`compare -metric AE` and produced `0` differing pixels.  This is emulator
+functional evidence only; real VA/VA2 visual acceptance remains a human gate.
