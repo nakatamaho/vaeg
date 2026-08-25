@@ -22,11 +22,11 @@
 ; NEON RELAY 4 P3 VA skeleton.
 ;
 ; This file intentionally contains only the N4-1..N4-6 hardware skeleton.  It
-; does not link the original scene code.  The 8bpp BIOS argument is a P3
-; calibration value: the P1 contract established the GRRES field encoding,
-; but no existing payload had exercised the Graphics BIOS 8bpp call.  The
-; value is therefore overrideable with -dNEON4_PIXEL_ARGS=.... and remains
-; marked NOT VERIFIED until a VA/VA2 observation is recorded.
+; does not link the original scene code.  The 8bpp path follows
+; topic/m97-sgp-tekumani:demos/sgp-pseudo-sprite/256: INT 8Fh enters 320x200
+; G0/G1 with CX=0808h, G1 uses a 320x400 backing surface, and FB1 DSA selects
+; its two 64,000-byte pages.  Scene code is not linked until the P3 gate is
+; complete.
 
         cpu     286
         bits    16
@@ -38,8 +38,20 @@
 %ifndef NEON4_PIXEL_ARGS
 %define NEON4_PIXEL_ARGS 0808h
 %endif
+%ifndef NEON4_MODE
+%define NEON4_MODE 0e00eh
+%endif
+%ifndef NEON4_USE_DEFAULT_BUFFERS
+%define NEON4_USE_DEFAULT_BUFFERS 1
+%endif
 %ifndef NEON4_DIRECT_REGS
 %define NEON4_DIRECT_REGS 0
+%endif
+%ifndef NEON4_DIAG_MARKER
+; Direct TVRAM writes are intentionally disabled on the 8bpp path.  The
+; graphics BIOS owns the text-plane mapping during mode transition; enabling
+; this probe can corrupt the mode state before the first GVRAM write.
+%define NEON4_DIAG_MARKER 0
 %endif
 
 %define VIDEO_BIOS_INT          8fh
@@ -54,6 +66,16 @@
 %define PORT_GVRAM_WRITE_MODE   0580h
 %define PORT_COL_COMP           0106h
 %define PORT_RGB_COMP           0108h
+%define PORT_G0_TRANSPARENCY    0124h
+%define PORT_G1_TRANSPARENCY    0126h
+%define PORT_FB1_FBW            0224h
+%define PORT_FB1_DOT            0228h
+%define PORT_FB1_OFX            022ah
+%define PORT_FB1_OFY            022ch
+%define PORT_FB1_DSA_LOW        022eh
+%define PORT_FB1_DSA_HIGH       0230h
+%define PORT_FB1_DSH            0232h
+%define PORT_FB1_DSP            0236h
 %define PORT_FB0_DSA_LOW        020eh
 %define PORT_FB0_DSA_HIGH       0210h
 
@@ -63,8 +85,8 @@
 %define TSP_VBLANK              040h
 %define SGP_BUSY                001h
 
-%define MODE_320X200_G0         0a00eh
-%define COMPOSE_G0_ONLY         0003h
+%define COMPOSE_G1_OVER_G0      0034h
+%define RGB_COMPOSE_G1_OVER_G0  0089h
 %define G0_SEGMENT              0a000h
 
 %define SCREEN_WIDTH            320
@@ -73,9 +95,13 @@
 %define WORDS_PER_LINE          160
 %define SCREEN_WORDS            (WORDS_PER_LINE * SCREEN_HEIGHT)
 %define PAGE_BYTES              (BYTES_PER_LINE * SCREEN_HEIGHT)
-%define PAGE_B_SGP              020fa00h
-%define PAGE_B_DSA              0000fa00h
+%define PAGE_A_SGP_LOW          0000h
+%define PAGE_A_SGP_HIGH         0022h
+%define PAGE_B_SGP              022fa00h
 %define PAGE_B_SGP_LOW          0fa00h
+%define PAGE_B_SGP_HIGH         0022h
+%define PAGE_A_DSA              020000h
+%define PAGE_B_DSA              02fa00h
 
 %define SGP_END                 0001h
 %define SGP_SET_WORK            0003h
@@ -91,9 +117,11 @@ start:
         pop     ds
         push    cs
         pop     es
-        mov     ax, 0e000h
-        mov     ss, ax
-        mov     sp, 0dff0h
+        ; Keep the loader-provided SS:SP until the video BIOS transaction has
+        ; completed.  The VA BIOS uses the caller stack internally; the
+        ; loader stack is the only stack contract verified by the existing
+        ; payloads.  A private E000h stack makes INT 8Fh hang in VAEG before
+        ; returning from the mode call.
         cld
         sti
 
@@ -110,6 +138,12 @@ start:
         pop     es
 
 %if NEON4_STAGE == 2
+        ; The text checkpoint is written only after the graphics BIOS has
+        ; established a valid VA memory map.  Pre-mode TVRAM writes are not
+        ; safe on the 8bpp BIOS path.
+%if NEON4_DIAG_MARKER
+        call    diag_write_text_marker
+%endif
         mov     al, 024h
         call    cpu_clear_page
         jmp     wait_for_escape
@@ -130,17 +164,17 @@ start:
         jnc     .vblank_loop
         jmp     leave_and_return
 %elif NEON4_STAGE == 5
+        call    set_display_page_a
         mov     al, 024h
         call    sgp_clear_page
         jc      stage_failure
         jmp     wait_for_escape
 %elif NEON4_STAGE == 6
-        ; N4-6: CPU paints page A, SGP paints page B, then the FB0 DSA
-        ; source is exchanged.  The DSA ports are the same FB0 pair used by
-        ; the existing NEON3 VA backend; FB0/FB2 8bpp behaviour is still
-        ; hardware-pending.
+        ; N4-6: render both hidden G1 pages with SGP, then exchange FB1 DSA
+        ; at a VBLANK edge.  This follows the SGP256 two-page sequence.
         mov     al, 01ch
-        call    cpu_clear_page
+        call    sgp_clear_page
+        jc      stage_failure
         mov     al, 0e3h
         call    sgp_clear_page_b
         jc      stage_failure
@@ -184,8 +218,7 @@ return_to_loader:
         jmp     .halt_loop
 
 ; ---------------------------------------------------------------------------
-; VA graphics setup.  The mode call follows the proven sprite payload order;
-; only the 8bpp argument is new to P3.
+; VA graphics setup.  The mode call and FB1 setup follow the SGP256 payload.
 ; ---------------------------------------------------------------------------
 va_video_enter:
         push    ax
@@ -198,25 +231,21 @@ va_video_enter:
         mov     ax, VIDEO_DATA_SEG
         mov     ds, ax
         mov     es, ax
-        mov     bx, MODE_320X200_G0
-%if NEON4_DIRECT_REGS
-        ; Enter through the proven 320x200 BIOS transaction, then switch G0
-        ; to direct 8bpp with the reconstructed GRRES/FB0 registers below.
-        ; This avoids guessing an unimplemented 8bpp BIOS argument while the
-        ; P3 calibration is still in progress.
-        mov     cx, 0404h
-%else
+        mov     bx, NEON4_MODE
         mov     cx, NEON4_PIXEL_ARGS
-%endif
         xor     dx, dx
         xor     ax, ax
         int     VIDEO_BIOS_INT
         or      ax, ax
         jnz     .failed
-        ; Define the 8bpp FB0 surface and its display window explicitly.
-        ; The VA BIOS mode call resets the descriptor tables; leaving them
-        ; undefined makes every later framebuffer operation fail before the
-        ; first pixel is written.
+%if NEON4_USE_DEFAULT_BUFFERS
+        ; The proven 320x200 VA payload leaves the BIOS-created descriptors
+        ; untouched and verifies them before drawing.  Keep that path as the
+        ; default while the 8bpp descriptor contract is unverified.
+%else
+        ; Define the framebuffer surface and display window explicitly only
+        ; for a separately calibrated mode.  This path is not used by the
+        ; default P3 diagnostic build.
         push    cs
         pop     es
         mov     di, neon4_framebuffer_descriptor
@@ -233,6 +262,7 @@ va_video_enter:
         int     VIDEO_BIOS_INT
         or      ax, ax
         jnz     .failed
+%endif
         mov     ax, 0b00h
         int     VIDEO_BIOS_INT
         or      ax, ax
@@ -245,22 +275,33 @@ va_video_enter:
         int     VIDEO_BIOS_INT
         or      ax, ax
         jnz     .failed
-        ; Select the direct RGB screen fed by G0.  The 8bpp mode and its
-        ; descriptors do not by themselves enable the RGB composition path;
-        ; without these two writes only the text cursor remains visible.
+        ; Select the direct RGB composition slots used by the 8bpp G1-over-G0
+        ; path.  The low nibble is the highest-priority slot: G1 (9) over G0
+        ; (8).  This is the same composition contract as SGP256.
         mov     dx, PORT_COL_COMP
         xor     ax, ax
         out     dx, ax
         mov     dx, PORT_RGB_COMP
-        mov     ax, 0008h             ; RGB screen 0 <- direct G0.
+        mov     ax, RGB_COMPOSE_G1_OVER_G0
         out     dx, ax
         mov     ax, 0300h
-        mov     cx, COMPOSE_G0_ONLY
+        mov     cx, COMPOSE_G1_OVER_G0
         int     VIDEO_BIOS_INT
         or      ax, ax
         jnz     .failed
+        ; Keep G0 opaque and G1 index zero transparent, as in SGP256.
+        mov     dx, PORT_G0_TRANSPARENCY
+        xor     ax, ax
+        out     dx, ax
+        mov     dx, PORT_G1_TRANSPARENCY
+        mov     ax, 0001h
+        out     dx, ax
 %if NEON4_DIRECT_REGS
+        ; Optional experimental G0-direct calibration path.
         call    configure_rgb332_mode
+%else
+        call    configure_g1_framebuffer
+        call    set_display_page_a
 %endif
         mov     ax, 0b01h             ; Enable graphics output after setup.
         int     VIDEO_BIOS_INT
@@ -287,10 +328,34 @@ va_video_enter:
         pop     ax
         ret
 
-; [NOT VERIFIED ON VA SILICON]  The field positions and FB0 byte layout are
-; backed by the in-tree VAEG model and the P1 contract.  This is the P3
-; calibration path for direct G0 RGB332; it is deliberately kept separate
-; from the proven 4bpp BIOS entry above.
+; Configure the G1 8bpp backing surface used by the SGP256 path.  FB1 is a
+; 320-byte-pitch, 400-line surface with a 200-line display window; DSA1
+; selects the upper or lower page.
+configure_g1_framebuffer:
+        push    ax
+        push    dx
+        mov     dx, PORT_FB1_FBW
+        mov     ax, BYTES_PER_LINE
+        out     dx, ax
+        mov     dx, PORT_FB1_DOT
+        xor     ax, ax
+        out     dx, ax
+        mov     dx, PORT_FB1_OFX
+        out     dx, ax
+        mov     dx, PORT_FB1_OFY
+        out     dx, ax
+        mov     dx, PORT_FB1_DSH
+        mov     ax, SCREEN_HEIGHT
+        out     dx, ax
+        mov     dx, PORT_FB1_DSP
+        xor     ax, ax
+        out     dx, ax
+        pop     dx
+        pop     ax
+        ret
+
+; [NOT VERIFIED ON VA SILICON] Optional direct G0 RGB332 calibration path.
+; The default P3 path uses the BIOS 8bpp + FB1 contract above.
 configure_rgb332_mode:
         push    ax
         push    dx
@@ -466,10 +531,12 @@ cpu_marker_band:
 ; ---------------------------------------------------------------------------
 sgp_clear_page:
         mov     dx, PAGE_A_SGP_LOW
+        mov     bx, PAGE_A_SGP_HIGH
         jmp     sgp_clear_with_base
 
 sgp_clear_page_b:
         mov     dx, PAGE_B_SGP_LOW
+        mov     bx, PAGE_B_SGP_HIGH
 sgp_clear_with_base:
         push    ax
         push    bx
@@ -480,8 +547,7 @@ sgp_clear_with_base:
         push    es
         mov     [cs:sgp_colour_byte], al
         mov     [cs:sgp_destination_low], dx
-        mov     ax, 0020h
-        mov     [cs:sgp_destination_high], ax
+        mov     [cs:sgp_destination_high], bx
         mov     di, sgp_command_list
         push    cs
         pop     es
@@ -587,14 +653,23 @@ physical_address_from_ds_si:
         adc     dx, 0
         ret
 
-; FB0 DSA is a pair of word ports.  This is a VAEG-backed P3 experiment;
-; real VA/VA2 FB0 page switching remains hardware-pending.
-set_display_page_b:
-        mov     dx, PORT_FB0_DSA_LOW
-        mov     ax, PAGE_B_DSA & 0ffffh
+; FB1 DSA is a pair of word ports.  Keep the low/high writes separate, as in
+; the SGP256 payload; byte writes can hang real VA hardware.
+set_display_page_a:
+        mov     dx, PORT_FB1_DSA_LOW
+        mov     ax, PAGE_A_DSA & 0ffffh
         out     dx, ax
         add     dx, 2
         xor     ax, ax
+        out     dx, ax
+        ret
+
+set_display_page_b:
+        mov     dx, PORT_FB1_DSA_LOW
+        mov     ax, PAGE_B_DSA & 0ffffh
+        out     dx, ax
+        add     dx, 2
+        mov     ax, PAGE_B_DSA >> 16
         out     dx, ax
         ret
 
@@ -647,7 +722,53 @@ keyboard_escape:
         clc
         ret
 
-PAGE_A_SGP_LOW equ 0000h
+; Put a checkpoint on the existing text plane before the first 8bpp mode
+; transaction.  The text BIOS is not safe before a graphics mode has been
+; established on the tested ROMs, so this diagnostic marker writes the known
+; VA TVRAM character/attribute planes directly.  It is not a production text
+; path and does not touch GVRAM.
+diag_write_text_marker:
+        push    ax
+        push    bx
+        push    dx
+        push    si
+        push    di
+        push    ds
+        push    es
+        mov     dx, PORT_MEMORY_MAP
+        mov     al, MEMORY_MAP_TVRAM
+        out     dx, al
+        push    cs
+        pop     ds
+        mov     ax, G0_SEGMENT
+        mov     es, ax
+        mov     si, diag_pre_mode_text
+        mov     di, 0a00h             ; row 10, column 0 in the text plane
+        mov     bx, 8a00h             ; matching attribute bytes
+.character:
+        lodsb
+        test    al, al
+        jz      .done
+        xor     ah, ah
+        stosw
+        mov     byte [es:bx], 07h
+        inc     bx
+        jmp     .character
+.done:
+        ; Restore the graphics memory map before returning to the video setup.
+        ; Leaving TVRAM selected would make the next stage depend on a
+        ; diagnostic-only bank selection.
+        mov     dx, PORT_MEMORY_MAP
+        mov     al, MEMORY_MAP_GVRAM
+        out     dx, al
+        pop     es
+        pop     ds
+        pop     di
+        pop     si
+        pop     dx
+        pop     bx
+        pop     ax
+        ret
 
 align 2
 sgp_command_list:
@@ -674,6 +795,7 @@ align 16
 neon4_window_descriptor:
         dw 0, 0, SCREEN_HEIGHT, 0, 0
 
+diag_pre_mode_text db 'N4 ENTER OK', 0
 video_error_code dw 0
 
 ; These words are intentionally reserved for the P3 command builder.  The
