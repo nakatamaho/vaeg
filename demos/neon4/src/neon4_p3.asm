@@ -19,7 +19,7 @@
 ; TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 ; OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-; NEON RELAY 4 P3 VA skeleton.
+; NEON RELAY 4 P3/P4 VA skeleton.
 ;
 ; This file intentionally contains only the N4-1..N4-6 hardware skeleton.  It
 ; does not link the original scene code.  The 8bpp path follows
@@ -52,6 +52,10 @@
 ; graphics BIOS owns the text-plane mapping during mode transition; enabling
 ; this probe can corrupt the mode state before the first GVRAM write.
 %define NEON4_DIAG_MARKER 0
+%endif
+%ifndef NEON4_P4_BACKEND
+; P4 diagnostic backend: 0 = CPU reference, 1 = SGP command list.
+%define NEON4_P4_BACKEND 0
 %endif
 
 %define VIDEO_BIOS_INT          8fh
@@ -107,6 +111,18 @@
 %define SGP_SET_WORK            0003h
 %define SGP_SET_COLOR           0006h
 %define SGP_CLS                 000ah
+%define SGP_LINE                0009h
+%define SGP_LINE_COPY           0005h
+%define SGP_LINE_VD             0400h
+%define SGP_LINE_HD             0800h
+
+%define P4_LIST_WORDS           4096
+%define P4_TEST_X0              040
+%define P4_TEST_Y0              040
+%define P4_TEST_X1              280
+%define P4_TEST_Y1              160
+%define P4_TEST_FILL            01ch
+%define P4_TEST_EDGE            0e3h
 
 ; ---------------------------------------------------------------------------
 ; Entry and stage dispatch.
@@ -182,8 +198,14 @@ start:
         jc      stage_failure
         call    set_display_page_b
         jmp     wait_for_escape
+%elif NEON4_STAGE == 7
+        ; P4: run the same deterministic primitive scene through either the
+        ; CPU reference writer or the SGP command-list writer.
+        call    p4_run_test_scene
+        jc      stage_failure
+        jmp     wait_for_escape
 %else
-%error "NEON4_STAGE must be 1..6"
+%error "NEON4_STAGE must be 1..7"
 %endif
 %endif
 
@@ -673,6 +695,461 @@ set_display_page_b:
         out     dx, ax
         ret
 
+; ---------------------------------------------------------------------------
+; P4 deterministic primitive backend.
+; The test scene deliberately uses the same logical shape in both builds:
+; the CPU build writes packed 8bpp G0 pixels, while the SGP build emits
+; SET_COLOR/CLS/LINE commands for G1.  The visible composition is selected
+; accordingly so the two outputs can be compared without sharing a writer.
+; ---------------------------------------------------------------------------
+p4_run_test_scene:
+%if NEON4_P4_BACKEND == 0
+        call    p4_cpu_scene
+%else
+        call    p4_sgp_scene
+%endif
+        clc
+        ret
+
+p4_set_cpu_composition:
+        push    ax
+        push    dx
+        mov     dx, PORT_COL_COMP
+        xor     ax, ax
+        out     dx, ax
+        mov     dx, PORT_RGB_COMP
+        mov     ax, 0008h
+        out     dx, ax
+        pop     dx
+        pop     ax
+        ret
+
+p4_set_sgp_composition:
+        push    ax
+        push    dx
+        mov     dx, PORT_COL_COMP
+        xor     ax, ax
+        out     dx, ax
+        mov     dx, PORT_RGB_COMP
+        mov     ax, RGB_COMPOSE_G1_OVER_G0
+        out     dx, ax
+        pop     dx
+        pop     ax
+        ret
+
+p4_cpu_scene:
+        call    p4_set_cpu_composition
+        xor     al, al
+        call    cpu_clear_page
+        mov     byte [p4_draw_color], P4_TEST_FILL
+        call    p4_cpu_fill_rect
+        mov     byte [p4_draw_color], P4_TEST_EDGE
+        mov     ax, P4_TEST_X0
+        mov     bx, P4_TEST_Y0
+        mov     cx, P4_TEST_X1
+        mov     dx, P4_TEST_Y0
+        call    p4_cpu_line
+        mov     ax, P4_TEST_X1
+        mov     bx, P4_TEST_Y0
+        mov     cx, P4_TEST_X1
+        mov     dx, P4_TEST_Y1
+        call    p4_cpu_line
+        mov     ax, P4_TEST_X1
+        mov     bx, P4_TEST_Y1
+        mov     cx, P4_TEST_X0
+        mov     dx, P4_TEST_Y1
+        call    p4_cpu_line
+        mov     ax, P4_TEST_X0
+        mov     bx, P4_TEST_Y1
+        mov     cx, P4_TEST_X0
+        mov     dx, P4_TEST_Y0
+        call    p4_cpu_line
+        mov     ax, P4_TEST_X0
+        mov     bx, P4_TEST_Y0
+        mov     cx, P4_TEST_X1
+        mov     dx, P4_TEST_Y1
+        call    p4_cpu_line
+        mov     ax, P4_TEST_X1
+        mov     bx, P4_TEST_Y0
+        mov     cx, P4_TEST_X0
+        mov     dx, P4_TEST_Y1
+        jmp     p4_cpu_line
+
+p4_cpu_fill_rect:
+        push    ax
+        push    bx
+        push    cx
+        push    dx
+        mov     word [p4_rect_x0], P4_TEST_X0
+        mov     word [p4_rect_y0], P4_TEST_Y0
+        mov     word [p4_rect_x1], P4_TEST_X1
+        mov     word [p4_rect_y1], P4_TEST_Y1
+        mov     dx, [p4_rect_y0]
+.row:
+        mov     cx, [p4_rect_x0]
+.pixel:
+        mov     al, [p4_draw_color]
+        call    p4_cpu_put_pixel
+        inc     cx
+        cmp     cx, [p4_rect_x1]
+        jle     .pixel
+        inc     dx
+        cmp     dx, [p4_rect_y1]
+        jle     .row
+        pop     dx
+        pop     cx
+        pop     bx
+        pop     ax
+        ret
+
+; AL = colour, CX = physical X, DX = physical Y.
+p4_cpu_put_pixel:
+        push    ax
+        push    bx
+        push    cx
+        push    dx
+        push    si
+        push    di
+        push    es
+        mov     [p4_pixel_color], al
+        mov     si, cx
+        mov     ax, dx
+        mov     bx, BYTES_PER_LINE
+        mul     bx
+        and     cx, 0fffeh
+        add     ax, cx
+        mov     di, ax
+        mov     ax, G0_SEGMENT
+        mov     es, ax
+        mov     ax, [es:di]
+        test    si, 1
+        jnz     .odd
+        mov     al, [p4_pixel_color]
+        jmp     .store
+.odd:
+        mov     ah, [p4_pixel_color]
+.store:
+        mov     [es:di], ax
+        pop     es
+        pop     di
+        pop     si
+        pop     dx
+        pop     cx
+        pop     bx
+        pop     ax
+        ret
+
+; AX=x0, BX=y0, CX=x1, DX=y1.  The color is p4_draw_color.
+; The software reference follows the SGP LINE accumulator convention rather
+; than an unrelated Bresenham tie rule, so CPU and SGP paths have identical
+; endpoint ownership for the P4 comparison scene.
+p4_cpu_line:
+        mov     [p4_line_x0], ax
+        mov     [p4_line_y0], bx
+        mov     [p4_line_x1], cx
+        mov     [p4_line_y1], dx
+        mov     ax, [p4_line_x1]
+        sub     ax, [p4_line_x0]
+        jns     .x_positive
+        neg     ax
+        mov     word [p4_line_sx], -1
+        jmp     .x_delta
+.x_positive:
+        mov     word [p4_line_sx], 1
+.x_delta:
+        mov     [p4_line_dx], ax
+        mov     ax, [p4_line_y1]
+        sub     ax, [p4_line_y0]
+        jns     .y_positive
+        neg     ax
+        mov     word [p4_line_sy], -1
+        jmp     .y_delta
+.y_positive:
+        mov     word [p4_line_sy], 1
+.y_delta:
+        mov     [p4_line_dy], ax
+        mov     ax, [p4_line_dx]
+        cmp     ax, [p4_line_dy]
+        jb      .y_major
+
+        ; X-major: denominator=width-1, numerator=height-1, and the
+        ; accumulator starts at (denominator-1)/2 as in cmd_line().
+        mov     [p4_line_denominator], ax
+        mov     ax, [p4_line_dy]
+        mov     [p4_line_numerator], ax
+        mov     ax, [p4_line_denominator]
+        or      ax, ax
+        jz      .single_point
+        dec     ax
+        shr     ax, 1
+        mov     [p4_line_count], ax
+        mov     ax, [p4_line_denominator]
+        inc     ax
+        mov     [p4_line_steps], ax
+.x_loop:
+        mov     al, [p4_draw_color]
+        mov     cx, [p4_line_x0]
+        mov     dx, [p4_line_y0]
+        call    p4_cpu_put_pixel
+        dec     word [p4_line_steps]
+        jz      .done
+        mov     ax, [p4_line_x0]
+        add     ax, [p4_line_sx]
+        mov     [p4_line_x0], ax
+        mov     ax, [p4_line_count]
+        add     ax, [p4_line_numerator]
+        cmp     ax, [p4_line_denominator]
+        jb      .x_no_y
+        sub     ax, [p4_line_denominator]
+        mov     bx, [p4_line_y0]
+        add     bx, [p4_line_sy]
+        mov     [p4_line_y0], bx
+.x_no_y:
+        mov     [p4_line_count], ax
+        jmp     .x_loop
+
+.y_major:
+        ; Y-major: denominator=height-1, numerator=width-1, and the
+        ; accumulator starts at denominator/2 as in cmd_line().
+        mov     [p4_line_denominator], ax
+        mov     ax, [p4_line_dy]
+        mov     [p4_line_denominator], ax
+        mov     ax, [p4_line_dx]
+        mov     [p4_line_numerator], ax
+        mov     ax, [p4_line_denominator]
+        or      ax, ax
+        jz      .single_point
+        shr     ax, 1
+        mov     [p4_line_count], ax
+        mov     ax, [p4_line_denominator]
+        inc     ax
+        mov     [p4_line_steps], ax
+.y_loop:
+        mov     al, [p4_draw_color]
+        mov     cx, [p4_line_x0]
+        mov     dx, [p4_line_y0]
+        call    p4_cpu_put_pixel
+        dec     word [p4_line_steps]
+        jz      .done
+        mov     ax, [p4_line_y0]
+        add     ax, [p4_line_sy]
+        mov     [p4_line_y0], ax
+        mov     ax, [p4_line_count]
+        add     ax, [p4_line_numerator]
+        cmp     ax, [p4_line_denominator]
+        jb      .y_no_x
+        sub     ax, [p4_line_denominator]
+        mov     bx, [p4_line_x0]
+        add     bx, [p4_line_sx]
+        mov     [p4_line_x0], bx
+.y_no_x:
+        mov     [p4_line_count], ax
+        jmp     .y_loop
+
+.single_point:
+        mov     al, [p4_draw_color]
+        mov     cx, [p4_line_x0]
+        mov     dx, [p4_line_y0]
+        call    p4_cpu_put_pixel
+.done:
+        ret
+
+p4_sgp_scene:
+        call    p4_set_sgp_composition
+        xor     al, al
+        call    sgp_clear_page
+        jc      .done
+        call    p4_build_sgp_scene
+        call    run_sgp_command_list
+.done:
+        ret
+
+p4_build_sgp_scene:
+        push    ax
+        push    bx
+        push    cx
+        push    dx
+        push    si
+        push    di
+        push    es
+        push    cs
+        pop     es
+        mov     di, sgp_command_list
+        mov     ax, SGP_SET_WORK
+        stosw
+        mov     si, sgp_work_area
+        call    physical_address_from_ds_si
+        stosw
+        mov     ax, dx
+        stosw
+        mov     ax, P4_TEST_FILL
+        call    p4_sgp_emit_set_color
+        mov     bx, P4_TEST_Y0
+.fill_row:
+        mov     ax, P4_TEST_X0
+        mov     cx, (P4_TEST_X1-P4_TEST_X0+1)/2
+        call    p4_sgp_emit_cls_span
+        inc     bx
+        cmp     bx, P4_TEST_Y1
+        jle     .fill_row
+        mov     ax, P4_TEST_EDGE
+        call    p4_sgp_emit_set_color
+        mov     ax, P4_TEST_X0
+        mov     bx, P4_TEST_Y0
+        mov     cx, P4_TEST_X1
+        mov     dx, P4_TEST_Y0
+        call    p4_sgp_emit_line
+        mov     ax, P4_TEST_X1
+        mov     bx, P4_TEST_Y0
+        mov     cx, P4_TEST_X1
+        mov     dx, P4_TEST_Y1
+        call    p4_sgp_emit_line
+        mov     ax, P4_TEST_X1
+        mov     bx, P4_TEST_Y1
+        mov     cx, P4_TEST_X0
+        mov     dx, P4_TEST_Y1
+        call    p4_sgp_emit_line
+        mov     ax, P4_TEST_X0
+        mov     bx, P4_TEST_Y1
+        mov     cx, P4_TEST_X0
+        mov     dx, P4_TEST_Y0
+        call    p4_sgp_emit_line
+        mov     ax, P4_TEST_X0
+        mov     bx, P4_TEST_Y0
+        mov     cx, P4_TEST_X1
+        mov     dx, P4_TEST_Y1
+        call    p4_sgp_emit_line
+        mov     ax, P4_TEST_X1
+        mov     bx, P4_TEST_Y0
+        mov     cx, P4_TEST_X0
+        mov     dx, P4_TEST_Y1
+        call    p4_sgp_emit_line
+        mov     ax, SGP_END
+        stosw
+        pop     es
+        pop     di
+        pop     si
+        pop     dx
+        pop     cx
+        pop     bx
+        pop     ax
+        ret
+
+p4_sgp_emit_set_color:
+        push    bx
+        mov     ah, al
+        mov     bx, ax
+        mov     ax, SGP_SET_COLOR
+        stosw
+        mov     ax, bx
+        stosw
+        pop     bx
+        ret
+
+; AX=x, BX=y, CX=word count.  The span is physical and page-A based.
+p4_sgp_emit_cls_span:
+        push    ax
+        push    bx
+        push    cx
+        push    dx
+        push    si
+        mov     [p4_span_x], ax
+        mov     [p4_span_y], bx
+        mov     [p4_span_words], cx
+        mov     ax, bx
+        mov     bx, BYTES_PER_LINE
+        mul     bx
+        add     ax, [p4_span_x]
+        adc     dx, 0
+        add     ax, PAGE_A_SGP_LOW
+        adc     dx, PAGE_A_SGP_HIGH
+        mov     si, ax
+        mov     ax, SGP_CLS
+        stosw
+        mov     ax, si
+        stosw
+        mov     ax, dx
+        stosw
+        mov     ax, [p4_span_words]
+        stosw
+        xor     ax, ax
+        stosw
+        pop     si
+        pop     dx
+        pop     cx
+        pop     bx
+        pop     ax
+        ret
+
+; AX=x0, BX=y0, CX=x1, DX=y1.  Endpoints are physical pixels.
+p4_sgp_emit_line:
+        push    ax
+        push    bx
+        push    cx
+        push    dx
+        push    si
+        mov     [p4_line_x0], ax
+        mov     [p4_line_y0], bx
+        mov     [p4_line_x1], cx
+        mov     [p4_line_y1], dx
+        ; LINE copy mode is the documented 8bpp-compatible copy variant used
+        ; by the NEON3 backend.  Direction bits are added below.
+        mov     bx, SGP_LINE_COPY
+        mov     ax, [p4_line_x1]
+        sub     ax, [p4_line_x0]
+        jns     .x_ok
+        neg     ax
+        or      bx, SGP_LINE_HD
+.x_ok:
+        inc     ax
+        mov     [p4_line_dx], ax
+        mov     ax, [p4_line_y1]
+        sub     ax, [p4_line_y0]
+        jns     .y_ok
+        neg     ax
+        or      bx, SGP_LINE_VD
+.y_ok:
+        inc     ax
+        mov     [p4_line_dy], ax
+        mov     ax, [p4_line_y0]
+        mov     si, BYTES_PER_LINE
+        mul     si
+        mov     si, [p4_line_x0]
+        and     si, 0fffeh
+        add     ax, si
+        adc     dx, 0
+        add     ax, PAGE_A_SGP_LOW
+        adc     dx, PAGE_A_SGP_HIGH
+        mov     si, ax
+        mov     [p4_line_address_high], dx
+        mov     ax, SGP_LINE
+        stosw
+        mov     ax, bx
+        stosw
+        mov     ax, [p4_line_x0]
+        and     ax, 1
+        shl     ax, 4
+        ; Descriptor mode 2 is packed 8bpp; bit 4 selects the odd pixel
+        ; within the two-pixel word.
+        or      ax, 2
+        stosw
+        mov     ax, [p4_line_dx]
+        stosw
+        mov     ax, [p4_line_dy]
+        stosw
+        mov     ax, BYTES_PER_LINE
+        stosw
+        mov     ax, si
+        stosw
+        mov     ax, [p4_line_address_high]
+        stosw
+        pop     si
+        pop     dx
+        pop     cx
+        pop     bx
+        pop     ax
+        ret
+
 wait_vblank_edge:
         push    ax
         push    cx
@@ -772,12 +1249,40 @@ diag_write_text_marker:
 
 align 2
 sgp_command_list:
-        times 32 dw 0
+        times P4_LIST_WORDS dw 0
 sgp_work_area:
         times 29 dw 0
 sgp_destination_low dw 0
 sgp_destination_high dw 0
 sgp_colour_byte db 0
+        align 2
+
+; P4 diagnostic state.  These are scratch words only; the P4 path is entered
+; after the normal BIOS mode setup and does not share state with the P3 probes.
+p4_draw_color db 0
+p4_pixel_color db 0
+        align 2
+p4_rect_x0 dw 0
+p4_rect_y0 dw 0
+p4_rect_x1 dw 0
+p4_rect_y1 dw 0
+p4_line_x0 dw 0
+p4_line_y0 dw 0
+p4_line_x1 dw 0
+p4_line_y1 dw 0
+p4_line_sx dw 0
+p4_line_sy dw 0
+p4_line_dx dw 0
+p4_line_dy dw 0
+p4_line_err dw 0
+p4_line_count dw 0
+p4_line_denominator dw 0
+p4_line_numerator dw 0
+p4_line_steps dw 0
+p4_line_address_high dw 0
+p4_span_x dw 0
+p4_span_y dw 0
+p4_span_words dw 0
         align 2
 
 neon4_bar_values:
