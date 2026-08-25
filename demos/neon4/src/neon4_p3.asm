@@ -651,12 +651,14 @@ neon4_bar_values:
         db 10h, 30h, 50h, 70h, 90h, 0b0h, 0d0h, 0f0h
         db 1ch, 3ch, 5ch, 7ch, 9ch, 0bch, 0dch, 0fch
 
-align 2
-; $DefBuf/$DefWin descriptors: pixel size, width, height.
+align 16
+; $DefBuf descriptor: pixel size, width, height.
 neon4_framebuffer_descriptor:
         dw 8, SCREEN_WIDTH, SCREEN_HEIGHT
+align 16
+; $DefWin descriptor: framebuffer number, screen Y, height, source X, Y.
 neon4_window_descriptor:
-        dw 8, SCREEN_WIDTH, SCREEN_HEIGHT
+        dw 0, 0, SCREEN_HEIGHT, 0, 0
 
 ; These words are intentionally reserved for the P3 command builder.  The
 ; loader writes its return continuation at CS:0e000..0e008.
