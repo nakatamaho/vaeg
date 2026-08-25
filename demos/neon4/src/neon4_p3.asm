@@ -52,6 +52,8 @@
 %define PORT_SGP_CONTROL        0504h
 %define PORT_SGP_STATUS         0506h
 %define PORT_GVRAM_WRITE_MODE   0580h
+%define PORT_COL_COMP           0106h
+%define PORT_RGB_COMP           0108h
 %define PORT_FB0_DSA_LOW        020eh
 %define PORT_FB0_DSA_HIGH       0210h
 
@@ -241,6 +243,15 @@ va_video_enter:
         int     VIDEO_BIOS_INT
         or      ax, ax
         jnz     .failed
+        ; Select the direct RGB screen fed by G0.  The 8bpp mode and its
+        ; descriptors do not by themselves enable the RGB composition path;
+        ; without these two writes only the text cursor remains visible.
+        mov     dx, PORT_COL_COMP
+        xor     ax, ax
+        out     dx, ax
+        mov     dx, PORT_RGB_COMP
+        mov     ax, 0008h             ; RGB screen 0 <- direct G0.
+        out     dx, ax
         mov     ax, 0300h
         mov     cx, COMPOSE_G1_OVER_G0
         int     VIDEO_BIOS_INT
