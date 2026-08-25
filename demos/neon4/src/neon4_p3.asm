@@ -1372,8 +1372,17 @@ video_error_code dw 0
 
 p5_run_scene:
         call    p4_set_sgp_composition
+        ; Build on the hidden G1 page and expose it only after the complete
+        ; SGP batch has finished.  This follows the validated 8bpp two-page
+        ; sequence used by the pseudo-sprite payload.
+        call    set_display_page_a
+        mov     byte [p5_draw_page], 1
+        call    p5_set_draw_page
         xor     al, al
-        call    cpu_clear_page
+        call    sgp_clear_page
+        jc      .failed
+        call    sgp_clear_page_b
+        jc      .failed
         mov     byte [video_400_mode], 0
         mov     byte [low_egc_available], 0
         mov     byte [low_dirty_span_enable], 0
@@ -1393,7 +1402,7 @@ p5_run_scene:
         call    wait_vblank_edge
         jc      .failed
         xor     al, al
-        call    sgp_clear_page
+        call    p5_clear_draw_page
         jc      .failed
         mov     ax, [scene_frame]
 %if NEON4_P5_SCENE == 1
@@ -1411,6 +1420,8 @@ p5_run_scene:
         call    scene4_facet_rotation
 %endif
         call    p5_finish_batch
+        jc      .failed
+        call    p5_flip_draw_page
         jc      .failed
         call    keyboard_escape
         jc      .exit
@@ -1565,8 +1576,8 @@ p5_emit_span_physical:
         mul     bx
         add     ax, si
         adc     dx, 0
-        add     ax, PAGE_A_SGP_LOW
-        adc     dx, PAGE_A_SGP_HIGH
+        add     ax, [p5_draw_sgp_low]
+        adc     dx, [p5_draw_sgp_high]
         mov     si, ax
         mov     ax, SGP_CLS
         stosw
@@ -1662,8 +1673,8 @@ p5_emit_line_physical:
         and     bx, 0fffeh
         add     ax, bx
         adc     dx, 0
-        add     ax, PAGE_A_SGP_LOW
-        adc     dx, PAGE_A_SGP_HIGH
+        add     ax, [p5_draw_sgp_low]
+        adc     dx, [p5_draw_sgp_high]
         mov     si, ax
         mov     ax, SGP_LINE
         stosw
@@ -1752,6 +1763,54 @@ p5_finish_batch:
         call    p5_flush_batch
         ret
 
+p5_set_draw_page:
+        push    ax
+        cmp     byte [p5_draw_page], 0
+        jne     .page_b
+        mov     ax, PAGE_A_SGP_LOW
+        mov     [p5_draw_sgp_low], ax
+        mov     ax, PAGE_A_SGP_HIGH
+        mov     [p5_draw_sgp_high], ax
+        mov     ax, PAGE_A_DSA & 0ffffh
+        mov     [p5_draw_dsa_low], ax
+        mov     ax, PAGE_A_DSA >> 16
+        mov     [p5_draw_dsa_high], ax
+        pop     ax
+        ret
+.page_b:
+        mov     ax, PAGE_B_SGP_LOW
+        mov     [p5_draw_sgp_low], ax
+        mov     ax, PAGE_B_SGP_HIGH
+        mov     [p5_draw_sgp_high], ax
+        mov     ax, PAGE_B_DSA & 0ffffh
+        mov     [p5_draw_dsa_low], ax
+        mov     ax, PAGE_B_DSA >> 16
+        mov     [p5_draw_dsa_high], ax
+        pop     ax
+        ret
+
+p5_clear_draw_page:
+        mov     dx, [p5_draw_sgp_low]
+        mov     bx, [p5_draw_sgp_high]
+        jmp     sgp_clear_with_base
+
+p5_flip_draw_page:
+        call    wait_vblank_edge
+        jc      .failed
+        mov     dx, PORT_FB1_DSA_LOW
+        mov     ax, [p5_draw_dsa_low]
+        out     dx, ax
+        add     dx, 2
+        mov     ax, [p5_draw_dsa_high]
+        out     dx, ax
+        xor     byte [p5_draw_page], 1
+        call    p5_set_draw_page
+        clc
+        ret
+.failed:
+        stc
+        ret
+
 p5_flush_batch:
         push    ax
         push    bx
@@ -1798,6 +1857,12 @@ p5_line_width dw 0
 p5_line_height dw 0
 p5_last_color dw 0ffffh
 p5_list_offset dw 0
+p5_draw_page db 1
+align 2
+p5_draw_sgp_low dw PAGE_B_SGP_LOW
+p5_draw_sgp_high dw PAGE_B_SGP_HIGH
+p5_draw_dsa_low dw PAGE_B_DSA & 0ffffh
+p5_draw_dsa_high dw PAGE_B_DSA >> 16
 
 %if ($ - $$) >= 0e000h
 %error "NEON4 P5-1 payload overlaps the loader return reserve"
