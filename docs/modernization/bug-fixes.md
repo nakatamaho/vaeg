@@ -1983,3 +1983,20 @@ separate parity correction or move it to Open Defects.
   final PNG was inspected; CTest remains 84/84 with one expected skip.
 - **Evidence:** [M97 P4 visual-hole report](../agents/reports/m97_p4_visual_holes.md).
 - **Commit:** [9a778bc](https://github.com/nakatamaho/vaeg/commit/9a778bc)
+
+
+### NEON inherited the caller's soft-key guide
+
+- **Status:** fixed in M100; TEXT remains enabled for the NEON overlay.
+- **Symptom:** the NEON bottom row showed the caller's `DIR A:`, `COPY`, and
+  `TIME` function-key/status guide while the intended NEON text was visible.
+- **Root cause:** startup left the VA Text BIOS soft-key producer and Screen
+  Editor system-line presentation owned by the loader/editor environment.
+- **Correction:** use Text BIOS `INT 83h/AH=2Fh, AL=00h` to stop the producer,
+  then Screen Editor `INT 94h/AH=01h, AL=FFh` to hide the system-line display;
+  restore both services on exit.
+- **Verification:** NASM payload builds for 640x200 and 640x400, VAEG raw
+  TVRAM validation (`TEXT_VISIBLE=PASS`, `BOTTOM_GUIDE=PASS`), repository
+  case/diff checks, and the dedicated stale-console validator passed.
+- **Evidence:** [NEON text-console report](../port/neon3_text_console.md).
+- **Commit:** [93ac88b](https://github.com/nakatamaho/vaeg/commit/93ac88b3d98cbb117c688a16d569f93e31b2986e)
