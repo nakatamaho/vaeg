@@ -46,9 +46,19 @@ output_dir=$(CDPATH= cd -- "$(dirname -- "$output")" && pwd)
 output_path=$output_dir/$(basename -- "$output")
 raw_path=$output_dir/.$(basename -- "$output").raw
 
+# Hardware is the default.  Set NEON4_SGP_REAL_DIRECTION=0 only for a VAEG
+# comparison build; VAEG's legacy line model labels these two bits opposite
+# to the validated VA hardware contract.
+real_direction=${NEON4_SGP_REAL_DIRECTION:-1}
+case "$real_direction" in
+    0|1) ;;
+    *) printf 'error: NEON4_SGP_REAL_DIRECTION must be 0 or 1\n' >&2; exit 2 ;;
+esac
+
 "$assembler" -f bin -O2 \
     -dNEON4_STAGE=7 \
     -dNEON4_P4_BACKEND="$backend_define" \
+    -dNEON4_SGP_REAL_DIRECTION="$real_direction" \
     "$script_dir/src/neon4_p3.asm" -o "$raw_path"
 
 "$assembler" -f bin -O2 \
