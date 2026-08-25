@@ -19,14 +19,11 @@
 ; TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 ; OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-; NEON RELAY 4 P3/P4 VA skeleton.
+; NEON RELAY 4 P3/P5 VA payload.
 ;
-; This file intentionally contains only the N4-1..N4-6 hardware skeleton.  It
-; does not link the original scene code.  The 8bpp path follows
-; topic/m97-sgp-tekumani:demos/sgp-pseudo-sprite/256: INT 8Fh enters 320x200
-; G0/G1 with CX=0808h, G1 uses a 320x400 backing surface, and FB1 DSA selects
-; its two 64,000-byte pages.  Scene code is not linked until the P3 gate is
-; complete.
+; The 8bpp path follows topic/m97-sgp-tekumani:demos/sgp-pseudo-sprite/256:
+; INT 8Fh enters 320x200 G0/G1 with CX=0808h, G1 uses a 320x400 backing
+; surface, and FB1 DSA selects its two 64,000-byte pages.
 
         cpu     286
         bits    16
@@ -56,6 +53,15 @@
 %ifndef NEON4_P4_BACKEND
 ; P4 diagnostic backend: 0 = CPU reference, 1 = SGP command list.
 %define NEON4_P4_BACKEND 0
+%endif
+
+%if NEON4_STAGE == 8
+%define NEON4_286 1
+%define NEON4_P0 1
+%define OPL_PROBE_AUTO 0
+%define OPL_DETECT_NONE 0
+%define EGC_LENGTH_PORT 0
+%define EGC_SHIFT_PORT 0
 %endif
 
 %define VIDEO_BIOS_INT          8fh
@@ -216,8 +222,14 @@ start:
         call    p4_run_test_scene
         jc      stage_failure
         jmp     wait_for_escape
+%elif NEON4_STAGE == 8
+        ; P5-1: render scene 1 (FACET ASSEMBLY) through the shared NEON4
+        ; geometry and the VA SGP span/line backend.
+        call    p5_run_facet_scene
+        jc      stage_failure
+        jmp     wait_for_escape
 %else
-%error "NEON4_STAGE must be 1..7"
+%error "NEON4_STAGE must be 1..8"
 %endif
 %endif
 
@@ -1319,4 +1331,428 @@ video_error_code dw 0
 ; loader writes its return continuation at CS:0e000..0e008.
 %if ($ - $$) >= 0e000h
 %error "NEON4 P3 payload overlaps the loader return reserve"
+%endif
+
+%if NEON4_STAGE == 8
+; ---------------------------------------------------------------------------
+; P5-1 scene integration.
+; ---------------------------------------------------------------------------
+; The original geometry remains in logical 640x400 coordinates.  These
+; primitive entry points are the only place where it is reduced to the
+; 320x200 packed 8bpp G1 surface.  A span is represented by inclusive logical
+; endpoints; the 8bpp SGP path rounds only the storage transaction to an even
+; byte address.  Later P5 work will add exact one-pixel endpoint handling.
+;
+; The original low-colour geometry uses DI as a private per-helper flag.  The
+; SGP list cursor therefore lives in p5_list_offset rather than DI; otherwise
+; n4_story_raster_panel would redirect command words into the payload.
+
+%include "config4_286.inc"
+%include "data4_p0.inc"
+%include "low4_data.inc"
+%include "geom4_low.inc"
+%include "scene4_256.inc"
+
+; config4_256.inc describes the original planar 16-colour surface with an
+; 80-byte row.  The VA P5 backend below targets packed 8bpp G1, whose physical
+; row is 320 bytes.  Keep the scene's logical SCREEN_W/SCREEN_H definitions,
+; but restore the storage pitch for every SGP address calculation here.
+%undef BYTES_PER_LINE
+%define BYTES_PER_LINE 320
+
+p5_run_facet_scene:
+        call    p4_set_sgp_composition
+        xor     al, al
+        call    cpu_clear_page
+        xor     al, al
+        call    sgp_clear_page
+        jc      .failed
+
+        mov     byte [video_400_mode], 0
+        mov     byte [low_egc_available], 0
+        mov     byte [low_dirty_span_enable], 0
+        mov     byte [egc16_saved_page], 0
+        mov     word [city_global_frame], N4_SCENE0_FRAMES
+        mov     word [scene_frame], 0
+        mov     byte [scene_index], 1
+        call    p5_start_batch
+        call    scene4_facet_rotation
+        call    p5_finish_batch
+        jc      .failed
+        clc
+        ret
+.failed:
+        stc
+        ret
+
+; The source low-colour renderer treats this as a batch boundary.  SGP list
+; submission is deliberately deferred until the list is full or the scene
+; returns, so the geometry remains independent of the backend.
+line_batch_begin:
+        ret
+
+set_access_page:
+        ret
+
+clear_graphics_frame16:
+        xor     al, al
+        jmp     sgp_clear_page
+
+text_update:
+low_dirty_span_frame_end:
+low_dirty_span_record_rect:
+low_raster_track_rect16:
+grcg16_prepare_color:
+egc16_enable_vram_copy:
+egc16_disable_to_grcg:
+        ret
+
+pixel_set:
+        ; SGP has no pixel opcode.  A one-pixel span is represented by the
+        ; same general span writer; exact endpoint treatment is P5-2.
+        call    p5_emit_span_from_ax_bx_cx
+        ret
+
+hline_set:
+hline_set_fast:
+hline_set_same_colour_fast:
+hline_set16_same_fast:
+hline_set_same_colour:
+        call    p5_emit_span_from_ax_bx_cx
+        ret
+
+line_set:
+line_set_same_colour:
+        call    p5_emit_line_from_ax_bx_cx_dx
+        ret
+
+fill_rect:
+        push    ax
+        push    bx
+        push    cx
+        push    dx
+        mov     [p5_rect_x0], ax
+        mov     [p5_rect_y0], bx
+        mov     [p5_rect_x1], cx
+        mov     [p5_rect_y1], dx
+        mov     bx, [p5_rect_y0]
+.row:
+        mov     ax, [p5_rect_x0]
+        mov     cx, [p5_rect_x1]
+        call    p5_emit_span_from_ax_bx_cx
+        inc     bx
+        cmp     bx, [p5_rect_y1]
+        jle     .row
+        pop     dx
+        pop     cx
+        pop     bx
+        pop     ax
+        ret
+
+hline_set16_same:
+        jmp     p5_emit_span_from_ax_bx_cx
+
+; AX=x0, BX=y, CX=x1 in logical coordinates.  The geometry uses inclusive
+; endpoints.  Physical spans are mapped with floor(x/2), floor(y/2).
+p5_emit_span_from_ax_bx_cx:
+        push    ax
+        push    bx
+        push    cx
+        push    dx
+        cmp     ax, cx
+        jle     .ordered
+        xchg    ax, cx
+.ordered:
+        cmp     cx, 0
+        jl      .done
+        cmp     ax, SCREEN_W-1
+        jg      .done
+        cmp     ax, 0
+        jge     .x0_ok
+        xor     ax, ax
+.x0_ok:
+        cmp     cx, SCREEN_W-1
+        jle     .x1_ok
+        mov     cx, SCREEN_W-1
+.x1_ok:
+        sar     ax, 1
+        sar     cx, 1
+        sar     bx, 1
+        call    p5_emit_span_physical
+.done:
+        pop     dx
+        pop     cx
+        pop     bx
+        pop     ax
+        ret
+
+; AX=physical x0, BX=physical y, CX=physical x1, inclusive.
+p5_emit_span_physical:
+        push    ax
+        push    bx
+        push    cx
+        push    dx
+        push    si
+        cmp     ax, cx
+        jle     .ordered
+        xchg    ax, cx
+.ordered:
+        ; CLS addresses are word-oriented in the packed 8bpp descriptor.  The
+        ; first byte is aligned down and the count covers the resulting words.
+        mov     dx, ax
+        and     dx, 1
+        and     ax, 0fffeh
+        sub     cx, ax
+        inc     cx
+        inc     cx
+        shr     cx, 1
+        mov     di, [p5_list_offset]
+        call    p5_emit_color_if_needed
+        cmp     di, sgp_command_list + ((P4_LIST_WORDS-16)*2)
+        jb      .space_ready
+        call    p5_flush_batch
+.space_ready:
+        mov     si, ax
+        mov     ax, bx
+        mov     bx, BYTES_PER_LINE
+        mul     bx
+        add     ax, si
+        adc     dx, 0
+        add     ax, PAGE_A_SGP_LOW
+        adc     dx, PAGE_A_SGP_HIGH
+        mov     si, ax
+        mov     ax, SGP_CLS
+        stosw
+        mov     ax, si
+        stosw
+        mov     ax, dx
+        stosw
+        mov     ax, cx
+        stosw
+        xor     ax, ax
+        stosw
+        mov     [p5_list_offset], di
+        pop     si
+        pop     dx
+        pop     cx
+        pop     bx
+        pop     ax
+        ret
+
+; AX=x0, BX=y0, CX=x1, DX=y1 in logical coordinates.
+p5_emit_line_from_ax_bx_cx_dx:
+        push    ax
+        push    bx
+        push    cx
+        push    dx
+        cmp     ax, 0
+        jl      .done
+        cmp     cx, 0
+        jl      .done
+        cmp     ax, SCREEN_W-1
+        jg      .done
+        cmp     cx, SCREEN_W-1
+        jg      .done
+        cmp     bx, 0
+        jl      .done
+        cmp     dx, 0
+        jl      .done
+        cmp     bx, SCREEN_H-1
+        jg      .done
+        cmp     dx, SCREEN_H-1
+        jg      .done
+        sar     ax, 1
+        sar     cx, 1
+        sar     bx, 1
+        sar     dx, 1
+        call    p5_emit_line_physical
+.done:
+        pop     dx
+        pop     cx
+        pop     bx
+        pop     ax
+        ret
+
+; AX=x0, BX=y0, CX=x1, DX=y1 in physical pixels.
+p5_emit_line_physical:
+        push    ax
+        push    bx
+        push    cx
+        push    dx
+        push    si
+        push    bp
+        mov     [p5_line_x0], ax
+        mov     [p5_line_y0], bx
+        mov     [p5_line_x1], cx
+        mov     [p5_line_y1], dx
+        mov     bp, SGP_LINE_COPY
+        mov     ax, cx
+        sub     ax, [p5_line_x0]
+        jns     .x_positive
+        neg     ax
+        or      bp, SGP_LINE_HD
+.x_positive:
+        inc     ax
+        mov     [p5_line_width], ax
+        mov     ax, dx
+        sub     ax, [p5_line_y0]
+        jns     .y_positive
+        neg     ax
+        or      bp, SGP_LINE_VD
+.y_positive:
+        inc     ax
+        mov     [p5_line_height], ax
+        mov     di, [p5_list_offset]
+        call    p5_emit_color_if_needed
+        cmp     di, sgp_command_list + ((P4_LIST_WORDS-20)*2)
+        jb      .space_ready
+        call    p5_flush_batch
+.space_ready:
+        mov     ax, [p5_line_y0]
+        mov     bx, BYTES_PER_LINE
+        mul     bx
+        mov     bx, [p5_line_x0]
+        and     bx, 0fffeh
+        add     ax, bx
+        adc     dx, 0
+        add     ax, PAGE_A_SGP_LOW
+        adc     dx, PAGE_A_SGP_HIGH
+        mov     si, ax
+        mov     ax, SGP_LINE
+        stosw
+        mov     ax, bp
+        stosw
+        mov     ax, [p5_line_x0]
+        and     ax, 1
+        shl     ax, 4
+        or      ax, 2
+        stosw
+        mov     ax, [p5_line_width]
+        stosw
+        mov     ax, [p5_line_height]
+        stosw
+        mov     ax, BYTES_PER_LINE
+        stosw
+        mov     ax, si
+        stosw
+        mov     ax, dx
+        stosw
+        mov     [p5_list_offset], di
+        pop     bp
+        pop     si
+        pop     dx
+        pop     cx
+        pop     bx
+        pop     ax
+        ret
+
+p5_emit_color_if_needed:
+        push    ax
+        push    bx
+        mov     di, [p5_list_offset]
+        xor     bx, bx
+        mov     bl, [draw_color]
+        and     bx, 0fh
+        mov     al, [p5_rgb332_palette + bx]
+        mov     ah, al
+        cmp     ax, [p5_last_color]
+        je      .done
+        cmp     di, sgp_command_list + ((P4_LIST_WORDS-8)*2)
+        jb      .space_ready
+        call    p5_flush_batch
+.space_ready:
+        mov     [p5_last_color], ax
+        mov     dx, ax
+        mov     dh, dl
+        mov     ax, SGP_SET_COLOR
+        stosw
+        mov     ax, dx
+        stosw
+        mov     [p5_list_offset], di
+.done:
+        pop     bx
+        pop     ax
+        ret
+
+p5_start_batch:
+        push    ax
+        push    bx
+        push    cx
+        push    dx
+        push    si
+        push    es
+        push    cs
+        pop     es
+        mov     di, sgp_command_list
+        mov     word [p5_last_color], 0ffffh
+        mov     ax, SGP_SET_WORK
+        stosw
+        mov     si, sgp_work_area
+        call    physical_address_from_ds_si
+        stosw
+        mov     ax, dx
+        stosw
+        mov     [p5_list_offset], di
+        pop     es
+        pop     si
+        pop     dx
+        pop     cx
+        pop     bx
+        pop     ax
+        ret
+
+p5_finish_batch:
+        call    p5_flush_batch
+        ret
+
+p5_flush_batch:
+        push    ax
+        push    bx
+        push    cx
+        push    dx
+        push    si
+        mov     di, [p5_list_offset]
+        mov     ax, SGP_END
+        stosw
+        call    run_sgp_command_list
+        jc      .failed
+        call    p5_start_batch
+        clc
+        jmp     .done
+.failed:
+        stc
+.done:
+        pop     si
+        pop     dx
+        pop     cx
+        pop     bx
+        pop     ax
+        ret
+
+; RGB332 bytes for the 16 authored low-colour buckets.  The geometry remains
+; unchanged; this table is only the VA direct-colour backend mapping.
+align 2
+p5_rgb332_palette:
+        db 00h, 0e7h, 01fh, 03fh
+        db 0f0h, 0ffh, 0c0h, 0e0h
+        db 0e0h, 0feh, 0c0h, 0fch
+        db 03h, 0ffh, 0f8h, 0e0h
+
+align 2
+p5_rect_x0 dw 0
+p5_rect_y0 dw 0
+p5_rect_x1 dw 0
+p5_rect_y1 dw 0
+p5_line_x0 dw 0
+p5_line_y0 dw 0
+p5_line_x1 dw 0
+p5_line_y1 dw 0
+p5_line_width dw 0
+p5_line_height dw 0
+p5_last_color dw 0ffffh
+p5_list_offset dw 0
+
+%if ($ - $$) >= 0e000h
+%error "NEON4 P5-1 payload overlaps the loader return reserve"
+%endif
 %endif
