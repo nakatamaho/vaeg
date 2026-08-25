@@ -54,6 +54,10 @@
 ; P4 diagnostic backend: 0 = CPU reference, 1 = SGP command list.
 %define NEON4_P4_BACKEND 0
 %endif
+%ifndef NEON4_P5_SCENE
+; P5 scene selector: 0 = SIGNAL SEED, 1 = FACET ASSEMBLY.
+%define NEON4_P5_SCENE 0
+%endif
 
 %if NEON4_STAGE == 8
 %define NEON4_286 1
@@ -223,9 +227,9 @@ start:
         jc      stage_failure
         jmp     wait_for_escape
 %elif NEON4_STAGE == 8
-        ; P5-1: render scene 1 (FACET ASSEMBLY) through the shared NEON4
-        ; geometry and the VA SGP span/line backend.
-        call    p5_run_facet_scene
+        ; P5: render the selected NEON4 scene through the shared geometry and
+        ; the VA SGP span/line backend.
+        call    p5_run_scene
         jc      leave_and_return
         jmp     wait_for_escape
 %else
@@ -1360,7 +1364,7 @@ video_error_code dw 0
 %undef BYTES_PER_LINE
 %define BYTES_PER_LINE 320
 
-p5_run_facet_scene:
+p5_run_scene:
         call    p4_set_sgp_composition
         xor     al, al
         call    cpu_clear_page
@@ -1369,7 +1373,13 @@ p5_run_facet_scene:
         mov     byte [low_dirty_span_enable], 0
         mov     byte [egc16_saved_page], 0
         mov     word [scene_frame], 0
+%if NEON4_P5_SCENE == 0
+        mov     byte [scene_index], 0
+%elif NEON4_P5_SCENE == 1
         mov     byte [scene_index], 1
+%else
+%error "NEON4_P5_SCENE must be 0 or 1"
+%endif
 
 .frame:
         call    wait_vblank_edge
@@ -1378,16 +1388,26 @@ p5_run_facet_scene:
         call    sgp_clear_page
         jc      .failed
         mov     ax, [scene_frame]
+%if NEON4_P5_SCENE == 1
         add     ax, N4_SCENE0_FRAMES
+%endif
         mov     [city_global_frame], ax
         call    p5_start_batch
+%if NEON4_P5_SCENE == 0
+        call    scene4_solid_primitives
+%else
         call    scene4_facet_rotation
+%endif
         call    p5_finish_batch
         jc      .failed
         call    keyboard_escape
         jc      .exit
         inc     word [scene_frame]
+%if NEON4_P5_SCENE == 0
+        cmp     word [scene_frame], N4_SCENE0_FRAMES
+%else
         cmp     word [scene_frame], N4_SCENE1_FRAMES
+%endif
         jb      .frame
         mov     word [scene_frame], 0
         jmp     .frame
