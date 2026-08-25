@@ -1,20 +1,27 @@
-# NEON4 P5-4 status
+# NEON4 P5 full-scene status
 
-P5-3 integrates `scene4_checker_plane` (GRID ARRIVAL) with the 320x200
-packed 8bpp VA SGP backend.  The same source can select SIGNAL SEED with
-`NEON4_P5_SCENE=0` or FACET ASSEMBLY with `NEON4_P5_SCENE=1`.  The original
-geometry remains in logical 640x400 coordinates; the backend halves X and Y
-at primitive entry.
+The stage-8 payload now runs the complete NEON4 timeline: all eight original
+scene routines, 384 logical frames each, for `TOTAL_FRAMES = 3072`.  There is
+no `NEON4_P5_SCENE` build-time selector.  The original geometry remains in
+logical 640x400 coordinates; the backend halves X and Y at primitive entry for
+the 320x200 target.
 
 ## Scope
 
-The stage-8 payload renders the selected scene repeatedly until ESC.  Each
-iteration advances the original logical scene frame, waits for a VBLANK edge,
-clears the hidden draw page, submits one SGP command batch, waits for SGP idle,
-and flips FB1 DSA at the next VBLANK edge.  The raster carrier uses the
-generic span backend when EGC is disabled.  Face spans still use the initial
-word-oriented CLS path; exact one-pixel endpoint handling is intentionally
-reserved for the next P5 slice.
+The stage-8 payload advances one absolute frame counter from 0 through 3071.
+`select_scene` maps that counter to the original eight chapter-local
+`scene_frame` values, then `render_scene` dispatches through the original
+eight-entry `scene_routines` table.  Each iteration waits for a VBLANK edge,
+clears the hidden draw page, submits SGP batches, waits for SGP idle, and flips
+the draw page at the next VBLANK edge.  ESC remains an early exit; reaching
+3072 frames returns through the normal loader continuation.
+
+The RASTER TRANSFER scene and recurring raster panels use the existing generic
+span fallback while `low_egc_available` is disabled.  This is a functional
+SGP/CLS fallback; SGP BITBLT conformance remains a separate P6 item.
+
+The same source builds the existing 320x200 packed RGB332 path and the
+320x200 direct 16bpp path with `NEON4_P5_BPP=8` or `NEON4_P5_BPP=16`.
 
 The P5 presentation now follows the validated 8bpp two-page sequence from
 `demos/sgp-pseudo-sprite`: the displayed page is never cleared or rebuilt
@@ -44,24 +51,15 @@ reach the normal ESC wait path.
 
 The following local checks were completed:
 
-* `NEON4_P5_SCENE=0 demos/neon4/build_p5.sh /tmp/NEON4P5.COM` — PASS.
-* `NEON4_P5_SCENE=1 demos/neon4/build_p5.sh /tmp/NEON4FCT.COM` — PASS.
-* `NEON4_P5_SCENE=6 demos/neon4/build_p5.sh /tmp/NEON4P5.COM` — PASS.
-* `demos/neon4/build_p4.sh sgp /tmp/N4P4-regress.COM` — PASS (10,309 bytes).
-* VAEG stage-8 scene 0 — PASS: the frame-loop keyboard checkpoint was reached
-  at two guest frames and the rendered captures have different SHA-256 values,
-  proving that `scene_frame` advances.  The guest crop contains the SIGNAL
-  SEED carrier and tetrahedral geometry (non-black bounds 172x149 at 640x400
-  presentation scale).
-* VAEG stage-8 scene 1 — PASS previously; the selector remains available for
-  the Facet Assembly regression.
-* VAEG stage-8 scene 6 — PASS: GRID ARRIVAL reaches the frame-loop keyboard
-  checkpoint and emits checker-plane spans plus the reconstructed solid.
-* VAEG stage-8 scene 6 double-buffer run — PASS: two captures at successive
-  page flips contain complete scene states and the guest reaches the keyboard
-  checkpoint without a visible clear phase.
-* VAEG stage-8 scene 6 colour-conversion run — PASS: the SGP colour words are
-  generated from the original 256-entry PEGC table through the RGB332 table.
+* `demos/neon4/build_p4.sh sgp ...` — PASS (P4 regression payload builds).
+* `NEON4_P5_BPP=8 demos/neon4/build_p5.sh ...` — PASS (full-scene payload).
+* `NEON4_P5_BPP=16 demos/neon4/build_p5.sh ...` — PASS (full-scene payload).
+* Long VAEG headless run with the 8bpp payload — PASS; the script completed
+  without a guest hang and the screen dump contained non-black scene output.
+* Long VAEG headless run with the 16bpp payload — PASS; the script completed
+  without a guest hang and the screen dump contained non-black scene output.
+* Static dispatch audit — PASS: `scene_routines` contains all eight original
+  entries, each source scene length is 384, and `TOTAL_FRAMES` is 3072.
 * A temporary one-span check — PASS: a logical span x=100..500, y=100 is
   centered at the expected physical row after the 320-byte pitch correction.
 
@@ -75,8 +73,7 @@ generated disk images and screenshots are not repository artifacts.
 ## Not yet verified
 
 * exact 1-pixel endpoint writes for packed 8bpp spans;
-* CPU-reference/SGP pixel equality for the scene;
-* scenes 2--5 and 7;
+* CPU-reference/SGP pixel equality for the complete scene;
 * 640x200 variant;
 * OPNA integration;
 * real PC-88VA hardware.

@@ -23,7 +23,9 @@
 ;
 ; The 8bpp path follows topic/m97-sgp-tekumani:demos/sgp-pseudo-sprite/256:
 ; INT 8Fh enters 320x200 G0/G1 with CX=0808h, G1 uses a 320x400 backing
-; surface, and FB1 DSA selects its two 64,000-byte pages.
+; surface, and FB1 DSA selects its two 64,000-byte pages.  The 16bpp path
+; follows the corresponding direct-colour G0 setup from the 65536 demo and
+; uses two 128,000-byte pages in the same 256 KiB GVRAM window.
 
         cpu     286
         bits    16
@@ -32,11 +34,25 @@
 %ifndef NEON4_STAGE
 %define NEON4_STAGE 2
 %endif
+%ifndef NEON4_P5_BPP
+%define NEON4_P5_BPP 8
+%endif
+%if (NEON4_P5_BPP != 8) && (NEON4_P5_BPP != 16)
+%error "NEON4_P5_BPP must be 8 or 16"
+%endif
 %ifndef NEON4_PIXEL_ARGS
+%if NEON4_P5_BPP == 16
+%define NEON4_PIXEL_ARGS 0010h
+%else
 %define NEON4_PIXEL_ARGS 0808h
 %endif
+%endif
 %ifndef NEON4_MODE
+%if NEON4_P5_BPP == 16
+%define NEON4_MODE 0a00eh
+%else
 %define NEON4_MODE 0e00eh
+%endif
 %endif
 %ifndef NEON4_USE_DEFAULT_BUFFERS
 %define NEON4_USE_DEFAULT_BUFFERS 1
@@ -54,12 +70,6 @@
 ; P4 diagnostic backend: 0 = CPU reference, 1 = SGP command list.
 %define NEON4_P4_BACKEND 0
 %endif
-%ifndef NEON4_P5_SCENE
-; P5 scene selector: 0 = SIGNAL SEED, 1 = FACET ASSEMBLY,
-; 6 = GRID ARRIVAL checker plane.
-%define NEON4_P5_SCENE 0
-%endif
-
 %if NEON4_STAGE == 8
 %define NEON4_286 1
 %define NEON4_P0 1
@@ -91,8 +101,17 @@
 %define PORT_FB1_DSA_HIGH       0230h
 %define PORT_FB1_DSH            0232h
 %define PORT_FB1_DSP            0236h
+%define PORT_GRMODE             0100h
+%define PORT_GRRES              0102h
+%define PORT_FB0_FBW            0204h
+%define PORT_FB0_FBL            0206h
+%define PORT_FB0_DOT            0208h
+%define PORT_FB0_OFX            020ah
+%define PORT_FB0_OFY            020ch
 %define PORT_FB0_DSA_LOW        020eh
 %define PORT_FB0_DSA_HIGH       0210h
+%define PORT_FB0_DSH            0212h
+%define PORT_FB0_DSP            0216h
 
 %define MEMORY_MAP_TVRAM        041h
 %define MEMORY_MAP_GVRAM        054h
@@ -102,14 +121,24 @@
 
 %define COMPOSE_G1_OVER_G0      0034h
 %define RGB_COMPOSE_G1_OVER_G0  0089h
+%define COMPOSE_G0_DIRECT       0008h
 %define G0_SEGMENT              0a000h
 
 %define SCREEN_WIDTH            320
 %define SCREEN_HEIGHT           200
+%if NEON4_P5_BPP == 16
+%define BYTES_PER_LINE          640
+%define WORDS_PER_LINE          320
+%define PAGE_A_SGP_LOW          0000h
+%define PAGE_A_SGP_HIGH         0020h
+%define PAGE_B_SGP              021f400h
+%define PAGE_B_SGP_LOW          0f400h
+%define PAGE_B_SGP_HIGH         0021h
+%define PAGE_A_DSA              000000h
+%define PAGE_B_DSA              01f400h
+%else
 %define BYTES_PER_LINE          320
 %define WORDS_PER_LINE          160
-%define SCREEN_WORDS            (WORDS_PER_LINE * SCREEN_HEIGHT)
-%define PAGE_BYTES              (BYTES_PER_LINE * SCREEN_HEIGHT)
 %define PAGE_A_SGP_LOW          0000h
 %define PAGE_A_SGP_HIGH         0022h
 %define PAGE_B_SGP              022fa00h
@@ -117,6 +146,9 @@
 %define PAGE_B_SGP_HIGH         0022h
 %define PAGE_A_DSA              020000h
 %define PAGE_B_DSA              02fa00h
+%endif
+%define SCREEN_WORDS            (WORDS_PER_LINE * SCREEN_HEIGHT)
+%define PAGE_BYTES              (BYTES_PER_LINE * SCREEN_HEIGHT)
 
 %define SGP_END                 0001h
 %define SGP_SET_WORK            0003h
@@ -289,6 +321,40 @@ va_video_enter:
         int     VIDEO_BIOS_INT
         or      ax, ax
         jnz     .failed
+%if NEON4_P5_BPP == 16
+        ; One G0 screen owns the complete 256 KiB GVRAM window in 16bpp
+        ; mode, allowing two 128 KiB 320x200 pages.
+        mov     dx, PORT_GRMODE
+        mov     ax, 0b462h
+        out     dx, ax
+        mov     dx, PORT_GRRES
+        mov     ax, 1313h
+        out     dx, ax
+        push    cs
+        pop     es
+        mov     di, neon4_framebuffer_descriptor
+        mov     ax, 0100h
+        mov     cx, 1
+        int     VIDEO_BIOS_INT
+        or      ax, ax
+        jnz     .failed
+        push    cs
+        pop     es
+        mov     di, neon4_window_descriptor
+        mov     ax, 0200h
+        mov     cx, 1
+        int     VIDEO_BIOS_INT
+        or      ax, ax
+        jnz     .failed
+        call    configure_g0_framebuffer
+        call    set_display_page_a
+        mov     dx, PORT_COL_COMP
+        xor     ax, ax
+        out     dx, ax
+        mov     dx, PORT_RGB_COMP
+        mov     ax, COMPOSE_G0_DIRECT
+        out     dx, ax
+%else
 %if NEON4_USE_DEFAULT_BUFFERS
         ; The proven 320x200 VA payload leaves the BIOS-created descriptors
         ; untouched and verifies them before drawing.  Keep that path as the
@@ -314,6 +380,8 @@ va_video_enter:
         or      ax, ax
         jnz     .failed
 %endif
+%endif
+%if NEON4_P5_BPP != 16
         mov     ax, 0b00h
         int     VIDEO_BIOS_INT
         or      ax, ax
@@ -354,6 +422,7 @@ va_video_enter:
         call    configure_g1_framebuffer
         call    set_display_page_a
 %endif
+%endif
         mov     ax, 0b01h             ; Enable graphics output after setup.
         int     VIDEO_BIOS_INT
         or      ax, ax
@@ -376,6 +445,38 @@ va_video_enter:
         pop     dx
         pop     cx
         pop     bx
+        pop     ax
+        ret
+
+; Configure a 320x200 16bpp G0 backing surface with a 400-line source and a
+; 200-line display window.  DSA0 selects one of the two 128 KiB pages.
+configure_g0_framebuffer:
+        push    ax
+        push    dx
+        mov     dx, PORT_FB0_FBW
+        mov     ax, BYTES_PER_LINE
+        out     dx, ax
+        mov     dx, PORT_FB0_FBL
+        mov     ax, SCREEN_HEIGHT * 2
+        out     dx, ax
+        mov     dx, PORT_FB0_DOT
+        xor     ax, ax
+        out     dx, ax
+        mov     dx, PORT_FB0_OFX
+        out     dx, ax
+        mov     dx, PORT_FB0_OFY
+        out     dx, ax
+        mov     dx, PORT_FB0_DSA_LOW
+        out     dx, ax
+        mov     dx, PORT_FB0_DSA_HIGH
+        out     dx, ax
+        mov     dx, PORT_FB0_DSH
+        mov     ax, SCREEN_HEIGHT
+        out     dx, ax
+        mov     dx, PORT_FB0_DSP
+        xor     ax, ax
+        out     dx, ax
+        pop     dx
         pop     ax
         ret
 
@@ -707,21 +808,39 @@ physical_address_from_ds_si:
 ; FB1 DSA is a pair of word ports.  Keep the low/high writes separate, as in
 ; the SGP256 payload; byte writes can hang real VA hardware.
 set_display_page_a:
+%if NEON4_P5_BPP == 16
+        mov     dx, PORT_FB0_DSA_LOW
+        mov     ax, PAGE_A_DSA & 0ffffh
+        out     dx, ax
+        add     dx, 2
+        mov     ax, PAGE_A_DSA >> 16
+        out     dx, ax
+%else
         mov     dx, PORT_FB1_DSA_LOW
         mov     ax, PAGE_A_DSA & 0ffffh
         out     dx, ax
         add     dx, 2
         mov     ax, PAGE_A_DSA >> 16
         out     dx, ax
+%endif
         ret
 
 set_display_page_b:
+%if NEON4_P5_BPP == 16
+        mov     dx, PORT_FB0_DSA_LOW
+        mov     ax, PAGE_B_DSA & 0ffffh
+        out     dx, ax
+        add     dx, 2
+        mov     ax, PAGE_B_DSA >> 16
+        out     dx, ax
+%else
         mov     dx, PORT_FB1_DSA_LOW
         mov     ax, PAGE_B_DSA & 0ffffh
         out     dx, ax
         add     dx, 2
         mov     ax, PAGE_B_DSA >> 16
         out     dx, ax
+%endif
         ret
 
 ; ---------------------------------------------------------------------------
@@ -760,7 +879,11 @@ p4_set_sgp_composition:
         xor     ax, ax
         out     dx, ax
         mov     dx, PORT_RGB_COMP
+%if NEON4_P5_BPP == 16
+        mov     ax, COMPOSE_G0_DIRECT
+%else
         mov     ax, RGB_COMPOSE_G1_OVER_G0
+%endif
         out     dx, ax
         pop     dx
         pop     ax
@@ -1323,7 +1446,11 @@ neon4_bar_values:
 align 16
 ; $DefBuf descriptor: pixel size, width, height.
 neon4_framebuffer_descriptor:
+%if NEON4_P5_BPP == 16
+        dw 16, SCREEN_WIDTH, SCREEN_HEIGHT * 2
+%else
         dw 8, SCREEN_WIDTH, SCREEN_HEIGHT
+%endif
 align 16
 ; $DefWin descriptor: framebuffer number, screen Y, height, source X, Y.
 neon4_window_descriptor:
@@ -1344,9 +1471,9 @@ video_error_code dw 0
 ; ---------------------------------------------------------------------------
 ; The original geometry remains in logical 640x400 coordinates.  These
 ; primitive entry points are the only place where it is reduced to the
-; 320x200 packed 8bpp G1 surface.  A span is represented by inclusive logical
-; endpoints; the 8bpp SGP path rounds only the storage transaction to an even
-; byte address.  Later P5 work will add exact one-pixel endpoint handling.
+; selected 320x200 packed/direct surface.  A span is represented by inclusive
+; logical endpoints; the 8bpp SGP path rounds only the storage transaction to
+; an even byte address, while the 16bpp path uses one word per pixel.
 ;
 ; The original low-colour geometry uses DI as a private per-helper flag.  The
 ; SGP list cursor therefore lives in p5_list_offset rather than DI; otherwise
@@ -1359,23 +1486,21 @@ video_error_code dw 0
 %include "scene4_256.inc"
 %include "neon4_va_palette.inc"
 
-; Original logical frame origin for scene 6.  The scene itself keeps using
-; scene_frame as its local 0..383 phase; city_global_frame preserves the
-; complete NEON4 timeline for the checker colour/phase animation.
-%define NEON4_P5_SCENE6_BASE (N4_SCENE0_FRAMES + N4_SCENE1_FRAMES + N4_SCENE2_FRAMES + N4_SCENE3_FRAMES + N4_SCENE4_FRAMES + N4_SCENE5_FRAMES)
-
-; config4_256.inc describes the original planar 16-colour surface with an
-; 80-byte row.  The VA P5 backend below targets packed 8bpp G1, whose physical
-; row is 320 bytes.  Keep the scene's logical SCREEN_W/SCREEN_H definitions,
-; but restore the storage pitch for every SGP address calculation here.
+; config4_256.inc describes the original planar 16-colour surface.  The VA P5
+; backend keeps the scene's logical SCREEN_W/SCREEN_H definitions, while the
+; storage pitch follows the selected packed/direct colour mode.  The source
+; include defines its own 80-byte planar pitch, so replace it explicitly here.
 %undef BYTES_PER_LINE
+%if NEON4_P5_BPP == 16
+%define BYTES_PER_LINE 640
+%else
 %define BYTES_PER_LINE 320
+%endif
 
 p5_run_scene:
         call    p4_set_sgp_composition
-        ; Build on the hidden G1 page and expose it only after the complete
-        ; SGP batch has finished.  This follows the validated 8bpp two-page
-        ; sequence used by the pseudo-sprite payload.
+        ; Build on the hidden page and expose it only after the complete SGP
+        ; batch has finished.  The page/descriptor path is selected by BPP.
         call    set_display_page_a
         mov     byte [p5_draw_page], 1
         call    p5_set_draw_page
@@ -1388,16 +1513,7 @@ p5_run_scene:
         mov     byte [low_egc_available], 0
         mov     byte [low_dirty_span_enable], 0
         mov     byte [egc16_saved_page], 0
-        mov     word [scene_frame], 0
-%if NEON4_P5_SCENE == 0
-        mov     byte [scene_index], 0
-%elif NEON4_P5_SCENE == 1
-        mov     byte [scene_index], 1
-%elif NEON4_P5_SCENE == 6
-        mov     byte [scene_index], 6
-%else
-        %error "NEON4_P5_SCENE must be 0, 1, or 6"
-%endif
+        mov     word [frame_counter], 0
 
 .frame:
         call    wait_vblank_edge
@@ -1405,38 +1521,21 @@ p5_run_scene:
         xor     al, al
         call    p5_clear_draw_page
         jc      .failed
-        mov     ax, [scene_frame]
-%if NEON4_P5_SCENE == 1
-        add     ax, N4_SCENE0_FRAMES
-%elif NEON4_P5_SCENE == 6
-        add     ax, NEON4_P5_SCENE6_BASE
-%endif
-        mov     [city_global_frame], ax
+        mov     ax, [frame_counter]
+        call    select_scene
         call    p5_start_batch
-%if NEON4_P5_SCENE == 0
-        call    scene4_solid_primitives
-%elif NEON4_P5_SCENE == 6
-        call    scene4_checker_plane
-%else
-        call    scene4_facet_rotation
-%endif
+        call    render_scene
         call    p5_finish_batch
         jc      .failed
         call    p5_flip_draw_page
         jc      .failed
         call    keyboard_escape
         jc      .exit
-        inc     word [scene_frame]
-%if NEON4_P5_SCENE == 0
-        cmp     word [scene_frame], N4_SCENE0_FRAMES
-%elif NEON4_P5_SCENE == 6
-        cmp     word [scene_frame], N4_SCENE6_FRAMES
-%else
-        cmp     word [scene_frame], N4_SCENE1_FRAMES
-%endif
+        inc     word [frame_counter]
+        cmp     word [frame_counter], TOTAL_FRAMES
         jb      .frame
-        mov     word [scene_frame], 0
-        jmp     .frame
+        stc
+        ret
 .exit:
         stc
         ret
@@ -1556,6 +1655,14 @@ p5_emit_span_physical:
         jle     .ordered
         xchg    ax, cx
 .ordered:
+%if NEON4_P5_BPP == 16
+        ; 16bpp pixels are one SGP word each; every physical X is already
+        ; word-aligned after converting it to a byte address.
+        sub     cx, ax
+        inc     cx
+        shl     ax, 1
+        xor     dx, dx
+%else
         ; CLS addresses are word-oriented in the packed 8bpp descriptor.  The
         ; first byte is aligned down and the count covers the resulting words.
         mov     dx, ax
@@ -1565,6 +1672,7 @@ p5_emit_span_physical:
         inc     cx
         inc     cx
         shr     cx, 1
+%endif
         mov     di, [p5_list_offset]
         call    p5_emit_color_if_needed
         cmp     di, sgp_command_list + ((P4_LIST_WORDS-16)*2)
@@ -1671,7 +1779,11 @@ p5_emit_line_physical:
         mov     bx, BYTES_PER_LINE
         mul     bx
         mov     bx, [p5_line_x0]
+%if NEON4_P5_BPP == 16
+        shl     bx, 1
+%else
         and     bx, 0fffeh
+%endif
         add     ax, bx
         adc     dx, 0
         add     ax, [p5_draw_sgp_low]
@@ -1681,10 +1793,14 @@ p5_emit_line_physical:
         stosw
         mov     ax, bp
         stosw
+%if NEON4_P5_BPP == 16
+        mov     ax, 3
+%else
         mov     ax, [p5_line_x0]
         and     ax, 1
         shl     ax, 4
         or      ax, 2
+%endif
         stosw
         mov     ax, [p5_line_width]
         stosw
@@ -1712,7 +1828,53 @@ p5_emit_color_if_needed:
         xor     bx, bx
         mov     bl, [draw_color]
         mov     al, [n4_va_rgb332_from_pegc + bx]
+%if NEON4_P5_BPP == 16
+        ; Expand the RGB332 table entry to the VA direct 16bpp code used by
+        ; the emulator's G0 path (RGB565-shaped: G6 R5 B5).
+        mov     dl, al
+        mov     al, dl
+        and     al, 3
+        xor     ah, ah
+        shl     ax, 1
+        shl     ax, 1
+        shl     ax, 1
+        test    dl, 3
+        jz      .blue_ready
+        or      ax, 7
+.blue_ready:
+        mov     si, ax
+        mov     al, dl
+        and     al, 1ch
+        xor     ah, ah
+        shl     ax, 1
+        shl     ax, 1
+        shl     ax, 1
+        shl     ax, 1
+        shl     ax, 1
+        test    dl, 1ch
+        jz      .red_ready
+        or      ax, 60h
+.red_ready:
+        or      si, ax
+        mov     al, dl
+        and     al, 0e0h
+        xor     ah, ah
+        shl     ax, 1
+        shl     ax, 1
+        shl     ax, 1
+        shl     ax, 1
+        shl     ax, 1
+        shl     ax, 1
+        shl     ax, 1
+        shl     ax, 1
+        test    dl, 0e0h
+        jz      .green_ready
+        or      ax, 1c00h
+.green_ready:
+        or      ax, si
+%else
         mov     ah, al
+%endif
         cmp     ax, [p5_last_color]
         je      .done
         cmp     di, sgp_command_list + ((P4_LIST_WORDS-8)*2)
@@ -1721,7 +1883,9 @@ p5_emit_color_if_needed:
 .space_ready:
         mov     [p5_last_color], ax
         mov     dx, ax
+%if NEON4_P5_BPP != 16
         mov     dh, dl
+%endif
         mov     ax, SGP_SET_COLOR
         stosw
         mov     ax, dx
@@ -1797,7 +1961,11 @@ p5_clear_draw_page:
 p5_flip_draw_page:
         call    wait_vblank_edge
         jc      .failed
+%if NEON4_P5_BPP == 16
+        mov     dx, PORT_FB0_DSA_LOW
+%else
         mov     dx, PORT_FB1_DSA_LOW
+%endif
         mov     ax, [p5_draw_dsa_low]
         out     dx, ax
         add     dx, 2
