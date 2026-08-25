@@ -37,19 +37,19 @@ implementation is valid for the NEON4 256-colour target.
 
 NEON3 is a monolithic 16-colour G0/4bpp harness rather than a standalone
 backend library. The pseudo-sprite demo is a 320x200 G0/G1/4bpp implementation
-with a complete SGP BITBLT path. Both are useful references, but all 256-colour
-and 8bpp assumptions remain to be established in P1.
+with a complete SGP BITBLT path. Both are useful references, but neither
+contains the NEON4 256-colour RGB332/direct-pixel path.
 
 ## 2. Reuse matrix
 
 | Capability required by NEON4 | `demos/neon3` | `demos/sgp-pseudo-sprite` | P0-0 disposition |
 |---|---|---|---|
-| VA video mode initialization | **Partial**: VA BIOS `$ScnMode`, `$DefBuf`, `$DefWin`, `$PalCtl`, `$SetPal`, `$Compose`, and `$ScnDsp` are issued by `neon_va_enter` ([source](../../demos/neon3/src/neon_counter.asm#L459-L570)). It is 16-colour/4bpp G0, with 640x200 and 640x400 profiles. | **Partial**: BIOS `INT 8Fh` initializes fixed 320x200 G0/G1 4bpp ([source](../../demos/sgp-pseudo-sprite/sgp_m7.asm#L359-L391)). | Reuse call ordering and error handling. **No 256-colour/8bpp mode exists in either asset; P1 must establish it.** |
-| 256-colour packed mode | **No**: palette has 16 entries and the payload status explicitly identifies 16-colour 4bpp ([source](../../demos/neon3/src/neon_counter.asm#L523-L544), [data](../../demos/neon3/src/neon_counter.asm#L1970-L2005)). | **No**: fixed 16-entry 4bpp palette and 4bpp G0/G1 mode ([source](../../demos/sgp-pseudo-sprite/sgp_m7.asm#L56-L74), [source](../../demos/sgp-pseudo-sprite/sgp_m7.asm#L455-L499)). | **New**. P1-1 must determine palette/direct-colour representation, entry count, and 8bpp pixel order. |
+| VA video mode initialization | **Partial**: VA BIOS `$ScnMode`, `$DefBuf`, `$DefWin`, `$PalCtl`, `$SetPal`, `$Compose`, and `$ScnDsp` are issued by `neon_va_enter` ([source](../../demos/neon3/src/neon_counter.asm#L459-L570)). It is 16-colour/4bpp G0, with 640x200 and 640x400 profiles. | **Partial**: BIOS `INT 8Fh` initializes fixed 320x200 G0/G1 4bpp ([source](../../demos/sgp-pseudo-sprite/sgp_m7.asm#L359-L391)). | Reuse call ordering and error handling. **No 256-colour/8bpp mode exists in either asset; P1 must document the RGB332 mode.** |
+| 256-colour packed mode | **No**: palette has 16 entries and the payload status explicitly identifies 16-colour 4bpp ([source](../../demos/neon3/src/neon_counter.asm#L523-L544), [data](../../demos/neon3/src/neon_counter.asm#L1970-L2005)). | **No**: fixed 16-entry 4bpp palette and 4bpp G0/G1 mode ([source](../../demos/sgp-pseudo-sprite/sgp_m7.asm#L56-L74), [source](../../demos/sgp-pseudo-sprite/sgp_m7.asm#L455-L499)). | **New**. NEON4 directly generates RGB332 pixel bytes; P1 documents the VA 8bpp packing and bit order, not a 256-entry palette. |
 | 320x200 physical profile | **No**: existing profiles are 640x200 and 640x400. | **Yes, but 4bpp only**: `SCREEN_WIDTH=320`, `SCREEN_HEIGHT=200`, `SCREEN_PITCH=160` ([source](../../demos/sgp-pseudo-sprite/sgp_m7.asm#L61-L64)). | Reuse geometry of the profile/configuration boundary, not the 4bpp values. |
 | 640x200 physical profile | **Yes, 4bpp**: `NEON_PROFILE_200` selects 640-wide G0 and maps logical Y at the primitive boundary ([source](../../demos/neon3/src/neon_counter.asm#L64-L80), [mapping](../../demos/neon3/src/neon_counter.asm#L1470-L1477)). | **No**: fixed 320-wide mode. | Reuse NEON3 profile-selection structure; replace pitch/page sizes for 8bpp. |
-| Palette setup | **Yes, 16 entries**: `$PalCtl` followed by 16 `$SetPal` calls ([source](../../demos/neon3/src/neon_counter.asm#L512-L544)). | **Yes, 16 entries**: `initialize_sprite_palette` calls BIOS palette entry setup for indices 0..15 ([source](../../demos/sgp-pseudo-sprite/sgp_m7.asm#L455-L499)). | Reuse BIOS transaction shape. **256-entry/frame-ramp path is new.** |
-| Frame-unit palette update | **No**: NEON3 loads its fixed 16-colour table during entry; no frame palette animation path is present in the payload. | **No**: palette is initialized once; animation is in source bitmaps, not palette updates. | **New** for NEON4's live palette animation; design is blocked on P1-1. |
+| Palette setup | **Yes, 16 entries**: `$PalCtl` followed by 16 `$SetPal` calls ([source](../../demos/neon3/src/neon_counter.asm#L512-L544)). | **Yes, 16 entries**: `initialize_sprite_palette` calls BIOS palette entry setup for indices 0..15 ([source](../../demos/sgp-pseudo-sprite/sgp_m7.asm#L455-L499)). | Reuse only for any text/composition colours that require a VA palette. It is not the NEON4 scene colour representation. |
+| Frame-unit palette update | **No**: NEON3 loads its fixed 16-colour table during entry; no frame palette animation path is present in the payload. | **No**: palette is initialized once; animation is in source bitmaps, not palette updates. | **Not required for NEON4 scene colour**. NEON4 generates RGB332 pixels directly; P1 documents the mode write contract. |
 | Two-page double buffer / display-page switch | **Yes, 4bpp FB0**: page A/B SGP bases and DSA values are selected by profile ([source](../../demos/neon3/src/neon_counter.asm#L66-L80), [flip](../../demos/neon3/src/neon_counter.asm#L1662-L1721)). | **Yes, 4bpp G1**: page A/B SGP/DSA bases, DSA word writes, VBLANK flip, and hidden-page rendering ([source](../../demos/sgp-pseudo-sprite/sgp_m7.asm#L301-L354), [initialization](../../demos/sgp-pseudo-sprite/sgp_m7.asm#L415-L446)). | Reuse the page-state machine, VBLANK ordering, and paired-word DSA writes. **8bpp FB0 page stride and descriptor coupling require P1 validation.** |
 | VBLANK polling | **Yes**: TSP status `0142h`, bit `40h`, with bounded low-to-high transition polling ([source](../../demos/neon3/src/neon_counter.asm#L1628-L1660)). | **Yes**: same TSP status/bit and bounded transition helper ([source](../../demos/sgp-pseudo-sprite/sgp_m7.asm#L945-L988)). | Directly reusable as the first timing primitive. Real 320/640 frequency equivalence remains P1/hardware-pending. |
 | SGP command-list builder: `SET_WORK` | **Yes**: work-area address is emitted in `neon_sgp_begin_frame` ([source](../../demos/neon3/src/neon_counter.asm#L1160-L1205)). | **Yes**: work-area address is emitted at the start of each frame list ([source](../../demos/sgp-pseudo-sprite/sgp_m7.asm#L1544-L1578)). | Reuse physical-address conversion and list ownership rules. |
@@ -85,7 +85,7 @@ references and are suitable starting points for later milestones:
    from the pseudo-sprite demo.
 
 These are reuse candidates, not proof of a NEON4 256-colour contract. P1 must
-resolve 8bpp word/pixel ordering, palette representation, FB0 page capacity,
+resolve RGB332 bit placement, 8bpp word/pixel ordering, FB0 page capacity,
 descriptor fields, and BITBLT source/destination semantics before code is
 generated.
 
@@ -95,7 +95,7 @@ P0-0 identifies the following as genuinely new or not available in the
 references:
 
 - 256-colour packed mode setup for both 320x200 and 640x200;
-- 8bpp palette/direct-colour representation and frame animation;
+- RGB332 direct pixel encoding and 8bpp byte/pixel ordering;
 - two 8bpp FB0 pages, including page stride and display-start coupling;
 - one source tree with a build-time X mapping (`X >>= 1` only for 320x200);
 - exact 8bpp span endpoint handling and a CPU verification renderer, if the
@@ -114,7 +114,9 @@ list submission, basic `CLS`/`LINE`, and `BITBLT` descriptor construction. It is
 not sufficient to claim that NEON4's target mode is already implemented: both
 references are 16-colour/4bpp, neither contains a CPU reference backend or an
 OPNA player, and neither proves the required 8bpp FB0/descriptor contract.
+The NEON4 scene colour path is direct RGB332 generation, not frame palette
+animation.
 
 P0-0 is complete. No code was changed. The next authorized step is P0-1 or P1
-according to the milestone gate; no P1 hardware values are inferred by this
-inventory.
+according to the milestone gate. The RGB332 choice is a NEON4 design decision;
+the inventory does not infer the VA 8bpp bit order or descriptor values.
