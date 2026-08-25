@@ -226,7 +226,7 @@ start:
         ; P5-1: render scene 1 (FACET ASSEMBLY) through the shared NEON4
         ; geometry and the VA SGP span/line backend.
         call    p5_run_facet_scene
-        jc      stage_failure
+        jc      leave_and_return
         jmp     wait_for_escape
 %else
 %error "NEON4_STAGE must be 1..8"
@@ -1364,22 +1364,35 @@ p5_run_facet_scene:
         call    p4_set_sgp_composition
         xor     al, al
         call    cpu_clear_page
-        xor     al, al
-        call    sgp_clear_page
-        jc      .failed
-
         mov     byte [video_400_mode], 0
         mov     byte [low_egc_available], 0
         mov     byte [low_dirty_span_enable], 0
         mov     byte [egc16_saved_page], 0
-        mov     word [city_global_frame], N4_SCENE0_FRAMES
         mov     word [scene_frame], 0
         mov     byte [scene_index], 1
+
+.frame:
+        call    wait_vblank_edge
+        jc      .failed
+        xor     al, al
+        call    sgp_clear_page
+        jc      .failed
+        mov     ax, [scene_frame]
+        add     ax, N4_SCENE0_FRAMES
+        mov     [city_global_frame], ax
         call    p5_start_batch
         call    scene4_facet_rotation
         call    p5_finish_batch
         jc      .failed
-        clc
+        call    keyboard_escape
+        jc      .exit
+        inc     word [scene_frame]
+        cmp     word [scene_frame], N4_SCENE1_FRAMES
+        jb      .frame
+        mov     word [scene_frame], 0
+        jmp     .frame
+.exit:
+        stc
         ret
 .failed:
         stc
