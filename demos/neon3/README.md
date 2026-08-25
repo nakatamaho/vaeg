@@ -90,6 +90,19 @@ rejected by the `E000h` loader-reserve guard instead of silently producing an
 oversized payload.  It is incompatible with the optional
 `NEON_SAFE_BIOS_STACK` build because that mode also reserves segment `2000h`.
 
+## Distribution disk
+
+[`neon3-distribution.d88.xz`](neon3-distribution.d88.xz) is the distributable
+non-bootable data disk.  Its root directory contains only the source-built
+`NEON200.COM` and `NEON400.COM` validation payloads; it contains no PC-Engine
+system files, ROMs, or private media.  The raw D88 is a local generation
+intermediate and is not distributed.  Rebuild the two wrapped payloads with
+the loader command above, create an empty data disk from a vanilla validation
+image with `tools/pc88va/pcengine_disk.py data`, install the two files with
+`pcengine_disk.py install`, and compress the resulting D88 with `xz -c -9`.
+The checked-in `.d88.xz` must pass an `xz` round-trip comparison before it is
+updated.
+
 ## P3 human gate
 
 The P3 gate disk contains four independent COM programs.  Run them from the
