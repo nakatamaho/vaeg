@@ -1,4 +1,4 @@
-# NEON4 P5-3 status
+# NEON4 P5-4 status
 
 P5-3 integrates `scene4_checker_plane` (GRID ARRIVAL) with the 320x200
 packed 8bpp VA SGP backend.  The same source can select SIGNAL SEED with
@@ -10,15 +10,16 @@ at primitive entry.
 
 The stage-8 payload renders the selected scene repeatedly until ESC.  Each
 iteration advances the original logical scene frame, waits for a VBLANK edge,
-clears the draw page, and submits one SGP command batch.  The raster carrier
-uses the generic span backend when EGC is disabled.  Face spans still use the
-initial word-oriented CLS path; exact one-pixel endpoint handling is
-intentionally reserved for the next P5 slice.
+clears the hidden draw page, submits one SGP command batch, waits for SGP idle,
+and flips FB1 DSA at the next VBLANK edge.  The raster carrier uses the
+generic span backend when EGC is disabled.  Face spans still use the initial
+word-oriented CLS path; exact one-pixel endpoint handling is intentionally
+reserved for the next P5 slice.
 
-The current P5 presentation remains single-page: the visible draw page is
-cleared and rebuilt after each VBLANK edge.  Flicker during construction is
-therefore a known presentation limitation, not a checker-plane geometry
-failure.  A hardware-valid hidden-page/flip pass is a separate follow-up.
+The P5 presentation now follows the validated 8bpp two-page sequence from
+`demos/sgp-pseudo-sprite`: the displayed page is never cleared or rebuilt
+while visible.  This removes the clear/rebuild flicker; any remaining motion
+is scene animation rather than an incomplete-frame exposure.
 
 The first VAEG run exposed an address-calculation regression: the imported
 `config4_256.inc` planar constants redefine `BYTES_PER_LINE` as 80.  The VA
@@ -51,6 +52,9 @@ The following local checks were completed:
   the Facet Assembly regression.
 * VAEG stage-8 scene 6 — PASS: GRID ARRIVAL reaches the frame-loop keyboard
   checkpoint and emits checker-plane spans plus the reconstructed solid.
+* VAEG stage-8 scene 6 double-buffer run — PASS: two captures at successive
+  page flips contain complete scene states and the guest reaches the keyboard
+  checkpoint without a visible clear phase.
 * A temporary one-span check — PASS: a logical span x=100..500, y=100 is
   centered at the expected physical row after the 320-byte pitch correction.
 
