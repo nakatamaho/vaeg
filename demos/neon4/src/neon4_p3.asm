@@ -39,7 +39,7 @@
 %define NEON4_PIXEL_ARGS 0808h
 %endif
 %ifndef NEON4_DIRECT_REGS
-%define NEON4_DIRECT_REGS 1
+%define NEON4_DIRECT_REGS 0
 %endif
 
 %define VIDEO_BIOS_INT          8fh
@@ -206,6 +206,26 @@ va_video_enter:
 %endif
         xor     dx, dx
         xor     ax, ax
+        int     VIDEO_BIOS_INT
+        or      ax, ax
+        jnz     .failed
+        ; Define the 8bpp FB0 surface and its display window explicitly.
+        ; The VA BIOS mode call resets the descriptor tables; leaving them
+        ; undefined makes every later framebuffer operation fail before the
+        ; first pixel is written.
+        push    cs
+        pop     es
+        mov     di, neon4_framebuffer_descriptor
+        mov     ax, 0100h              ; $DefBuf, graphics screen 0.
+        mov     cx, 1
+        int     VIDEO_BIOS_INT
+        or      ax, ax
+        jnz     .failed
+        push    cs
+        pop     es
+        mov     di, neon4_window_descriptor
+        mov     ax, 0200h              ; $DefWin, graphics screen 0.
+        mov     cx, 1
         int     VIDEO_BIOS_INT
         or      ax, ax
         jnz     .failed
@@ -630,6 +650,13 @@ neon4_bar_values:
         db 04h, 24h, 44h, 64h, 84h, 0a4h, 0c4h, 0e4h
         db 10h, 30h, 50h, 70h, 90h, 0b0h, 0d0h, 0f0h
         db 1ch, 3ch, 5ch, 7ch, 9ch, 0bch, 0dch, 0fch
+
+align 2
+; $DefBuf/$DefWin descriptors: pixel size, width, height.
+neon4_framebuffer_descriptor:
+        dw 8, SCREEN_WIDTH, SCREEN_HEIGHT
+neon4_window_descriptor:
+        dw 8, SCREEN_WIDTH, SCREEN_HEIGHT
 
 ; These words are intentionally reserved for the P3 command builder.  The
 ; loader writes its return continuation at CS:0e000..0e008.
