@@ -1,9 +1,10 @@
-# NEON4 P5-2 status
+# NEON4 P5-3 status
 
-P5-2 integrates `scene4_solid_primitives` (SIGNAL SEED) with the 320x200
-packed 8bpp VA SGP backend.  The same source can select the previously gated
-Facet Assembly scene with `NEON4_P5_SCENE=1`.  The original geometry remains
-in logical 640x400 coordinates; the backend halves X and Y at primitive entry.
+P5-3 integrates `scene4_checker_plane` (GRID ARRIVAL) with the 320x200
+packed 8bpp VA SGP backend.  The same source can select SIGNAL SEED with
+`NEON4_P5_SCENE=0` or FACET ASSEMBLY with `NEON4_P5_SCENE=1`.  The original
+geometry remains in logical 640x400 coordinates; the backend halves X and Y
+at primitive entry.
 
 ## Scope
 
@@ -13,6 +14,11 @@ clears the draw page, and submits one SGP command batch.  The raster carrier
 uses the generic span backend when EGC is disabled.  Face spans still use the
 initial word-oriented CLS path; exact one-pixel endpoint handling is
 intentionally reserved for the next P5 slice.
+
+The current P5 presentation remains single-page: the visible draw page is
+cleared and rebuilt after each VBLANK edge.  Flicker during construction is
+therefore a known presentation limitation, not a checker-plane geometry
+failure.  A hardware-valid hidden-page/flip pass is a separate follow-up.
 
 The first VAEG run exposed an address-calculation regression: the imported
 `config4_256.inc` planar constants redefine `BYTES_PER_LINE` as 80.  The VA
@@ -32,8 +38,9 @@ reach the normal ESC wait path.
 
 The following local checks were completed:
 
-* `NEON4_P5_SCENE=0 demos/neon4/build_p5.sh /tmp/N4P5.COM` — PASS.
-* `NEON4_P5_SCENE=1 demos/neon4/build_p5.sh /tmp/N4P5-facet.COM` — PASS.
+* `NEON4_P5_SCENE=0 demos/neon4/build_p5.sh /tmp/NEON4P5.COM` — PASS.
+* `NEON4_P5_SCENE=1 demos/neon4/build_p5.sh /tmp/NEON4FCT.COM` — PASS.
+* `NEON4_P5_SCENE=6 demos/neon4/build_p5.sh /tmp/NEON4P5.COM` — PASS.
 * `demos/neon4/build_p4.sh sgp /tmp/N4P4-regress.COM` — PASS (10,309 bytes).
 * VAEG stage-8 scene 0 — PASS: the frame-loop keyboard checkpoint was reached
   at two guest frames and the rendered captures have different SHA-256 values,
@@ -42,6 +49,8 @@ The following local checks were completed:
   presentation scale).
 * VAEG stage-8 scene 1 — PASS previously; the selector remains available for
   the Facet Assembly regression.
+* VAEG stage-8 scene 6 — PASS: GRID ARRIVAL reaches the frame-loop keyboard
+  checkpoint and emits checker-plane spans plus the reconstructed solid.
 * A temporary one-span check — PASS: a logical span x=100..500, y=100 is
   centered at the expected physical row after the 320-byte pitch correction.
 
@@ -56,7 +65,7 @@ generated disk images and screenshots are not repository artifacts.
 
 * exact 1-pixel endpoint writes for packed 8bpp spans;
 * CPU-reference/SGP pixel equality for the scene;
-* scenes 0 and 2--7;
+* scenes 2--5 and 7;
 * 640x200 variant;
 * OPNA integration;
 * real PC-88VA hardware.

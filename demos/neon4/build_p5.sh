@@ -35,8 +35,8 @@ command -v "$assembler" >/dev/null 2>&1 || {
 
 scene=${NEON4_P5_SCENE:-0}
 case "$scene" in
-    0|1) ;;
-    *) printf 'error: NEON4_P5_SCENE must be 0 or 1\n' >&2; exit 2 ;;
+    0|1|6) ;;
+    *) printf 'error: NEON4_P5_SCENE must be 0, 1, or 6\n' >&2; exit 2 ;;
 esac
 
 script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)

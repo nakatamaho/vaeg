@@ -55,7 +55,8 @@
 %define NEON4_P4_BACKEND 0
 %endif
 %ifndef NEON4_P5_SCENE
-; P5 scene selector: 0 = SIGNAL SEED, 1 = FACET ASSEMBLY.
+; P5 scene selector: 0 = SIGNAL SEED, 1 = FACET ASSEMBLY,
+; 6 = GRID ARRIVAL checker plane.
 %define NEON4_P5_SCENE 0
 %endif
 
@@ -1357,6 +1358,11 @@ video_error_code dw 0
 %include "geom4_low.inc"
 %include "scene4_256.inc"
 
+; Original logical frame origin for scene 6.  The scene itself keeps using
+; scene_frame as its local 0..383 phase; city_global_frame preserves the
+; complete NEON4 timeline for the checker colour/phase animation.
+%define NEON4_P5_SCENE6_BASE (N4_SCENE0_FRAMES + N4_SCENE1_FRAMES + N4_SCENE2_FRAMES + N4_SCENE3_FRAMES + N4_SCENE4_FRAMES + N4_SCENE5_FRAMES)
+
 ; config4_256.inc describes the original planar 16-colour surface with an
 ; 80-byte row.  The VA P5 backend below targets packed 8bpp G1, whose physical
 ; row is 320 bytes.  Keep the scene's logical SCREEN_W/SCREEN_H definitions,
@@ -1377,8 +1383,10 @@ p5_run_scene:
         mov     byte [scene_index], 0
 %elif NEON4_P5_SCENE == 1
         mov     byte [scene_index], 1
+%elif NEON4_P5_SCENE == 6
+        mov     byte [scene_index], 6
 %else
-%error "NEON4_P5_SCENE must be 0 or 1"
+        %error "NEON4_P5_SCENE must be 0, 1, or 6"
 %endif
 
 .frame:
@@ -1390,11 +1398,15 @@ p5_run_scene:
         mov     ax, [scene_frame]
 %if NEON4_P5_SCENE == 1
         add     ax, N4_SCENE0_FRAMES
+%elif NEON4_P5_SCENE == 6
+        add     ax, NEON4_P5_SCENE6_BASE
 %endif
         mov     [city_global_frame], ax
         call    p5_start_batch
 %if NEON4_P5_SCENE == 0
         call    scene4_solid_primitives
+%elif NEON4_P5_SCENE == 6
+        call    scene4_checker_plane
 %else
         call    scene4_facet_rotation
 %endif
@@ -1405,6 +1417,8 @@ p5_run_scene:
         inc     word [scene_frame]
 %if NEON4_P5_SCENE == 0
         cmp     word [scene_frame], N4_SCENE0_FRAMES
+%elif NEON4_P5_SCENE == 6
+        cmp     word [scene_frame], N4_SCENE6_FRAMES
 %else
         cmp     word [scene_frame], N4_SCENE1_FRAMES
 %endif
