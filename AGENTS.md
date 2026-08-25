@@ -103,36 +103,13 @@ Release notes may summarize the ledger but do not replace it.
   by `tools/repo/check_case.py`, including top-level `CHANGES*.md` release
   notes. New paths must otherwise be lowercase.
 - Never modify binary payloads: `romimage/`, ROM images, fonts, icons,
-  cursors, wave data, or private/integration disk images.
-- SGP demo disk images are data-only artifacts. `demos/sgp-wireframe` and
-  `demos/sgp-pseudo-sprite` disk generation must remove all PC-Engine system
-  files and produce a non-bootable 2HD D88 plus its `.d88.xz` compressed
-  companion. Payloads must be grouped under `16/`, `256/`, and `65536/` when
-  those color-depth variants exist. A local PC-Engine-layout D88 may be used
-  only as a geometry/FAT12 template; it must never be copied as generated SGP
-  demo output. Only the `.d88.xz` companion may be committed under those demo
-  directories, and only when the image listing proves that it contains
-  source-built, freely distributable demo payloads and no PC-Engine or other
-  non-free system files. The raw D88 remains a local generated artifact. The
-  compressed image must be generated reproducibly, pass an `xz` round-trip
-  check against that raw image, and represent a non-bootable disk. This
-  exception does not permit committing the source template, ROMs, private
-  media, or any bootable image.
-- A separate bootable SGP validation image may also be generated locally from
-  a PC-Engine bootable template. It may retain the template's PC-Engine
-  system files and may be named `sgp-demo-bootable.d88` (or an equivalent
-  task-specific name), but it is a local test artifact only: never commit or
-  push the bootable D88, its compressed form, the template, or its system
-  files. Keep the bootable-image generator separate from the non-bootable
-  distribution generator so a validation image cannot be mistaken for a
-  distributable archive.
-- Binary artifact reporting: whenever a build or test produces a binary that
-  is being handed off or requested for verification (`.com`, `.exe`, `.d88`,
-  `.d88.xz`, or similar), report its complete absolute filesystem path. Do
-  not report only a basename or repository-relative path. This reporting rule
-  does not override the private-asset rule below; do not disclose an absolute
-  path that would reveal a protected private integration asset without
-  maintainer authorization.
+  cursors, or wave data.  A narrowly scoped distribution exception permits
+  committing a reproducibly generated, non-bootable `.d88.xz` only when its
+  directory has an explicit allow-list, the image listing proves that every
+  stored file is a source-built and freely distributable payload, and the
+  compressed image round-trips byte-for-byte to its generated raw D88.  The
+  raw D88, bootable validation disks, PC-Engine system files, private media,
+  ROMs, and source templates remain untracked and must never be committed.
 - Treat private integration asset identities as sensitive. Tracked files must
   use neutral stable test identifiers; do not record private filenames,
   absolute paths, or hashes unless the maintainer explicitly authorizes that
@@ -148,11 +125,6 @@ Release notes may summarize the ledger but do not replace it.
 - New files created in phase 2 carry a 2-clause BSD header
   `Copyright (c) 2026 Nakata Maho` (see CONVENTIONS.md §New code).
   Never alter copyright headers of existing files.
-- New PC-88VA guest demos and QA payloads must not use MS-DOS `INT 21h`
-  services. Use the documented PC-88VA BIOS service appropriate to the
-  hardware function instead; do not substitute a DOS service for a VA BIOS
-  call merely because the payload is launched from a local PC-Engine/DOS
-  validation disk.
 - Do not restore the M57-deleted reference-tier paths (`win9x/`, `i286x/`,
   `cpuxva/memoryva.x86`, or `hlp/`) unless a task explicitly requires it.
   Use tag `archive/frozen-win9x-i286x-g56` for historical comparison.
