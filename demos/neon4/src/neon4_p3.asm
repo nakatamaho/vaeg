@@ -663,6 +663,9 @@ show_text_message:
         push    si
         push    ds
         push    es
+        mov     dx, PORT_MEMORY_MAP
+        mov     al, MEMORY_MAP_TVRAM
+        out     dx, al
         push    cs
         pop     ds
         push    cs
