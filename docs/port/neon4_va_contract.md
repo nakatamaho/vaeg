@@ -27,6 +27,12 @@ POSSIBILITY OF SUCH DAMAGE.
 Status: P1 research complete. This document authorizes P2 design work only;
 it does not authorize a NEON4 VA implementation.
 
+Implementation extension: the completed NEON4 source also provides the
+requested 640x400 16-colour profile. That profile uses packed 4bpp G0 and
+the VA 4096-colour palette; it is documented separately in
+`demos/neon4/README.md` and does not change the direct RGB332 contract below
+for the original 256-colour profile.
+
 The first implementation target remains the 286 scene path in `demos/neon4`.
 The two requested physical modes are 320x200 and 640x200, both single-plane,
 packed 8bpp, with two displayable source pages where the descriptor and real

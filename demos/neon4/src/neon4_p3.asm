@@ -21,7 +21,10 @@
 
 ; NEON RELAY 4 P3/P5 VA payload.
 ;
-; The 8bpp path follows topic/m97-sgp-tekumani:demos/sgp-pseudo-sprite/256:
+; The 4bpp path is the 640x400, 16-colour VA palette profile.  Each pixel
+; selects one of sixteen palette entries; the entries themselves use the
+; documented 4096-colour (12-bit) G/R/B layout.  The 8bpp path follows
+; topic/m97-sgp-tekumani:demos/sgp-pseudo-sprite/256:
 ; INT 8Fh enters 320x200 G0/G1 with CX=0808h, G1 uses a 320x400 backing
 ; surface, and FB1 DSA selects its two 64,000-byte pages.  The 16bpp path
 ; follows the corresponding direct-colour G0 setup from the 65536 demo and
@@ -37,18 +40,22 @@
 %ifndef NEON4_P5_BPP
 %define NEON4_P5_BPP 8
 %endif
-%if (NEON4_P5_BPP != 8) && (NEON4_P5_BPP != 16)
-%error "NEON4_P5_BPP must be 8 or 16"
+%if (NEON4_P5_BPP != 4) && (NEON4_P5_BPP != 8) && (NEON4_P5_BPP != 16)
+%error "NEON4_P5_BPP must be 4, 8, or 16"
 %endif
 %ifndef NEON4_PIXEL_ARGS
-%if NEON4_P5_BPP == 16
+%if NEON4_P5_BPP == 4
+%define NEON4_PIXEL_ARGS 0004h
+%elif NEON4_P5_BPP == 16
 %define NEON4_PIXEL_ARGS 0010h
 %else
 %define NEON4_PIXEL_ARGS 0808h
 %endif
 %endif
 %ifndef NEON4_MODE
-%if NEON4_P5_BPP == 16
+%if NEON4_P5_BPP == 4
+%define NEON4_MODE 0a000h
+%elif NEON4_P5_BPP == 16
 %define NEON4_MODE 0a00eh
 %else
 %define NEON4_MODE 0e00eh
@@ -124,11 +131,25 @@
 %define COMPOSE_G0_DIRECT       0008h
 %define G0_SEGMENT              0a000h
 
+%if NEON4_P5_BPP == 4
+%define SCREEN_WIDTH            640
+%define SCREEN_HEIGHT           400
+%define BYTES_PER_LINE          320
+%define WORDS_PER_LINE          160
+%define PAGE_A_SGP              0200000h
+%define PAGE_A_SGP_LOW          0000h
+%define PAGE_A_SGP_HIGH         0020h
+%define PAGE_B_SGP              021f400h
+%define PAGE_B_SGP_LOW          0f400h
+%define PAGE_B_SGP_HIGH         0021h
+%define PAGE_A_DSA              000000h
+%define PAGE_B_DSA              01f400h
+%elif NEON4_P5_BPP == 16
 %define SCREEN_WIDTH            320
 %define SCREEN_HEIGHT           200
-%if NEON4_P5_BPP == 16
 %define BYTES_PER_LINE          640
 %define WORDS_PER_LINE          320
+%define PAGE_A_SGP              0200000h
 %define PAGE_A_SGP_LOW          0000h
 %define PAGE_A_SGP_HIGH         0020h
 %define PAGE_B_SGP              021f400h
@@ -137,8 +158,11 @@
 %define PAGE_A_DSA              000000h
 %define PAGE_B_DSA              01f400h
 %else
+%define SCREEN_WIDTH            320
+%define SCREEN_HEIGHT           200
 %define BYTES_PER_LINE          320
 %define WORDS_PER_LINE          160
+%define PAGE_A_SGP              0220000h
 %define PAGE_A_SGP_LOW          0000h
 %define PAGE_A_SGP_HIGH         0022h
 %define PAGE_B_SGP              022fa00h
@@ -321,15 +345,37 @@ va_video_enter:
         int     VIDEO_BIOS_INT
         or      ax, ax
         jnz     .failed
+%if (NEON4_P5_BPP == 4) || (NEON4_P5_BPP == 16)
+        ; G0 owns the complete 256 KiB GVRAM window.  The 4bpp profile uses
+        ; two 640x400 pages; the 16bpp profile uses two 320x200 pages.
 %if NEON4_P5_BPP == 16
-        ; One G0 screen owns the complete 256 KiB GVRAM window in 16bpp
-        ; mode, allowing two 128 KiB 320x200 pages.
+        ; Direct-colour mode needs the explicit G0 register setup used by the
+        ; 16bpp VA profile.  The 4bpp path keeps the BIOS mode registers from
+        ; the validated SGP wireframe sequence.
         mov     dx, PORT_GRMODE
         mov     ax, 0b462h
         out     dx, ax
         mov     dx, PORT_GRRES
         mov     ax, 1313h
         out     dx, ax
+%endif
+%if NEON4_P5_BPP == 4
+        ; Match the validated 640x400 4bpp sequence: temporarily disable
+        ; graphics output, select the palette control bank, then restore the
+        ; graphics register bank before defining FB0 and its window.
+        mov     ax, 0b00h
+        int     VIDEO_BIOS_INT
+        or      ax, ax
+        jnz     .failed
+        mov     ax, 0900h
+        int     VIDEO_BIOS_INT
+        or      ax, ax
+        jnz     .failed
+        mov     ax, 0a00h
+        int     VIDEO_BIOS_INT
+        or      ax, ax
+        jnz     .failed
+%endif
         push    cs
         pop     es
         mov     di, neon4_framebuffer_descriptor
@@ -346,14 +392,29 @@ va_video_enter:
         int     VIDEO_BIOS_INT
         or      ax, ax
         jnz     .failed
+%if NEON4_P5_BPP == 4
+        ; $DefBuf/$DefWin populate the validated 640x400 FB0 register set.
+        ; Do not overwrite it with the direct-colour register convention.
+%else
         call    configure_g0_framebuffer
+%endif
         call    set_display_page_a
+%if NEON4_P5_BPP == 4
+        call    neon4_set_low_palette
+        jc      .failed
+        mov     ax, 0300h              ; $Compose: G0 only, palette colour.
+        mov     cx, 0003h
+        int     VIDEO_BIOS_INT
+        or      ax, ax
+        jnz     .failed
+%else
         mov     dx, PORT_COL_COMP
         xor     ax, ax
         out     dx, ax
         mov     dx, PORT_RGB_COMP
         mov     ax, COMPOSE_G0_DIRECT
         out     dx, ax
+%endif
 %else
 %if NEON4_USE_DEFAULT_BUFFERS
         ; The proven 320x200 VA payload leaves the BIOS-created descriptors
@@ -381,7 +442,7 @@ va_video_enter:
         jnz     .failed
 %endif
 %endif
-%if NEON4_P5_BPP != 16
+%if NEON4_P5_BPP == 8
         mov     ax, 0b00h
         int     VIDEO_BIOS_INT
         or      ax, ax
@@ -808,7 +869,7 @@ physical_address_from_ds_si:
 ; FB1 DSA is a pair of word ports.  Keep the low/high writes separate, as in
 ; the SGP256 payload; byte writes can hang real VA hardware.
 set_display_page_a:
-%if NEON4_P5_BPP == 16
+%if (NEON4_P5_BPP == 4) || (NEON4_P5_BPP == 16)
         mov     dx, PORT_FB0_DSA_LOW
         mov     ax, PAGE_A_DSA & 0ffffh
         out     dx, ax
@@ -826,7 +887,7 @@ set_display_page_a:
         ret
 
 set_display_page_b:
-%if NEON4_P5_BPP == 16
+%if (NEON4_P5_BPP == 4) || (NEON4_P5_BPP == 16)
         mov     dx, PORT_FB0_DSA_LOW
         mov     ax, PAGE_B_DSA & 0ffffh
         out     dx, ax
@@ -873,6 +934,10 @@ p4_set_cpu_composition:
         ret
 
 p4_set_sgp_composition:
+%if NEON4_P5_BPP == 4
+        ; 4bpp G0 is palette-composed by $Compose during mode setup.
+        ret
+%else
         push    ax
         push    dx
         mov     dx, PORT_COL_COMP
@@ -888,6 +953,7 @@ p4_set_sgp_composition:
         pop     dx
         pop     ax
         ret
+%endif
 
 p4_cpu_scene:
         call    p4_set_cpu_composition
@@ -1446,7 +1512,9 @@ neon4_bar_values:
 align 16
 ; $DefBuf descriptor: pixel size, width, height.
 neon4_framebuffer_descriptor:
-%if NEON4_P5_BPP == 16
+%if NEON4_P5_BPP == 4
+        dw 4, SCREEN_WIDTH, SCREEN_HEIGHT * 2
+%elif NEON4_P5_BPP == 16
         dw 16, SCREEN_WIDTH, SCREEN_HEIGHT * 2
 %else
         dw 8, SCREEN_WIDTH, SCREEN_HEIGHT
@@ -1486,6 +1554,61 @@ video_error_code dw 0
 %include "scene4_256.inc"
 %include "neon4_va_palette.inc"
 
+; Load the original NEON4 low-colour hue/shade table into the VA's sixteen
+; 12-bit palette entries.  The source bytes are G,R,B nibbles.  The VA
+; palette word follows the documented 4096-colour layout: G[15:12],
+; R[9:6], and B[4:1].
+neon4_set_low_palette:
+        push    ax
+        push    bx
+        push    cx
+        push    dx
+        push    si
+        push    ds
+        push    cs
+        pop     ds
+        xor     bx, bx
+        mov     si, low4_palette_grb
+.entry:
+        xor     ax, ax
+        mov     al, [si]
+        mov     cl, 12
+        shl     ax, cl
+        mov     dx, ax
+        xor     ax, ax
+        mov     al, [si + 1]
+        mov     cl, 6
+        shl     ax, cl
+        or      dx, ax
+        xor     ax, ax
+        mov     al, [si + 2]
+        shl     ax, 1
+        or      dx, ax
+        mov     cx, dx
+        mov     ax, 0800h
+        mov     al, bl
+        int     VIDEO_BIOS_INT
+        or      ax, ax
+        jnz     .failed
+        push    cs
+        pop     ds
+        inc     bl
+        add     si, 3
+        cmp     bl, 16
+        jb      .entry
+        clc
+        jmp     .done
+.failed:
+        stc
+.done:
+        pop     ds
+        pop     si
+        pop     dx
+        pop     cx
+        pop     bx
+        pop     ax
+        ret
+
 ; config4_256.inc describes the original planar 16-colour surface.  The VA P5
 ; backend keeps the scene's logical SCREEN_W/SCREEN_H definitions, while the
 ; storage pitch follows the selected packed/direct colour mode.  The source
@@ -1509,7 +1632,11 @@ p5_run_scene:
         jc      .failed
         call    sgp_clear_page_b
         jc      .failed
+%if NEON4_P5_BPP == 4
+        mov     byte [video_400_mode], 1
+%else
         mov     byte [video_400_mode], 0
+%endif
         mov     byte [low_egc_available], 0
         mov     byte [low_dirty_span_enable], 0
         mov     byte [egc16_saved_page], 0
@@ -1611,7 +1738,8 @@ hline_set16_same:
         jmp     p5_emit_span_from_ax_bx_cx
 
 ; AX=x0, BX=y, CX=x1 in logical coordinates.  The geometry uses inclusive
-; endpoints.  Physical spans are mapped with floor(x/2), floor(y/2).
+; endpoints.  The 640x400 4bpp profile is mapped one-to-one; reduced
+; profiles use floor(x/2), floor(y/2) at this primitive boundary.
 p5_emit_span_from_ax_bx_cx:
         push    ax
         push    bx
@@ -1633,9 +1761,11 @@ p5_emit_span_from_ax_bx_cx:
         jle     .x1_ok
         mov     cx, SCREEN_W-1
 .x1_ok:
+%if NEON4_P5_BPP != 4
         sar     ax, 1
         sar     cx, 1
         sar     bx, 1
+%endif
         call    p5_emit_span_physical
 .done:
         pop     dx
@@ -1655,7 +1785,53 @@ p5_emit_span_physical:
         jle     .ordered
         xchg    ax, cx
 .ordered:
-%if NEON4_P5_BPP == 16
+%if NEON4_P5_BPP == 4
+        ; Packed 4bpp has four logical pixels per word.  Apply partial
+        ; endpoint words immediately through exact CPU RMW while the draw
+        ; page is hidden, then submit only complete interior words to SGP.
+        mov     [p5_span_x0], ax
+        mov     [p5_span_y], bx
+        mov     [p5_span_x1], cx
+        call    p5_apply_span_endpoints
+        mov     ax, [p5_span_x0]
+        shr     ax, 2
+        mov     [p5_span_first_word], ax
+        mov     ax, [p5_span_x1]
+        shr     ax, 2
+        mov     [p5_span_last_word], ax
+        mov     ax, [p5_span_x0]
+        and     ax, 3
+        mov     bx, [p5_span_first_word]
+        or      ax, ax
+        jz      .left_word_aligned
+        inc     bx
+.left_word_aligned:
+        mov     [p5_span_full_first], bx
+        mov     ax, [p5_span_x1]
+        and     ax, 3
+        mov     bx, [p5_span_last_word]
+        cmp     ax, 3
+        je      .right_word_aligned
+        dec     bx
+.right_word_aligned:
+        mov     [p5_span_full_last], bx
+        cmp     bx, [p5_span_full_first]
+        jb      .span_done
+        sub     bx, [p5_span_full_first]
+        inc     bx
+        mov     cx, bx
+        mov     ax, [p5_span_y]
+        mov     bx, BYTES_PER_LINE
+        mul     bx
+        mov     bx, [p5_span_full_first]
+        shl     bx, 1
+        add     ax, bx
+        adc     dx, 0
+        add     ax, [p5_draw_sgp_low]
+        adc     dx, [p5_draw_sgp_high]
+        mov     si, ax
+        jmp     .emit_cls_words
+%elif NEON4_P5_BPP == 16
         ; 16bpp pixels are one SGP word each; every physical X is already
         ; word-aligned after converting it to a byte address.
         sub     cx, ax
@@ -1688,6 +1864,18 @@ p5_emit_span_physical:
         add     ax, [p5_draw_sgp_low]
         adc     dx, [p5_draw_sgp_high]
         mov     si, ax
+.emit_cls_words:
+        mov     di, [p5_list_offset]
+        ; p5_emit_color_if_needed uses DX for the SET_COLOR payload.  Preserve
+        ; the already-computed physical high address while it emits or
+        ; reuses the colour state.
+        push    dx
+        call    p5_emit_color_if_needed
+        pop     dx
+        cmp     di, sgp_command_list + ((P4_LIST_WORDS-16)*2)
+        jb      .emit_space_ready
+        call    p5_flush_batch
+.emit_space_ready:
         mov     ax, SGP_CLS
         stosw
         mov     ax, si
@@ -1699,6 +1887,144 @@ p5_emit_span_physical:
         xor     ax, ax
         stosw
         mov     [p5_list_offset], di
+        pop     si
+        pop     dx
+        pop     cx
+        pop     bx
+        pop     ax
+        ret
+
+.span_done:
+        pop     si
+        pop     dx
+        pop     cx
+        pop     bx
+        pop     ax
+        ret
+
+; Apply the partial words of the current exact span directly to the hidden
+; FB0 page.  Full words are deliberately left for SGP CLS.  This routine is
+; geometry-independent and never performs a later corrective erase.
+p5_apply_span_endpoints:
+        push    ax
+        push    bx
+        push    cx
+        push    dx
+        push    si
+        push    di
+        push    bp
+        push    es
+        mov     ax, [p5_span_x0]
+        mov     bx, [p5_span_x1]
+        mov     dx, ax
+        and     dx, 3
+        mov     cx, bx
+        and     cx, 3
+        mov     si, ax
+        shr     si, 2
+        mov     di, bx
+        shr     di, 2
+        cmp     si, di
+        jne     .different_words
+        cmp     dx, 0
+        jne     .same_word_partial
+        cmp     cx, 3
+        je      .done
+.same_word_partial:
+        mov     [p5_apply_word], si
+        mov     [p5_apply_low], ax
+        mov     [p5_apply_high], bx
+        call    p5_rmw_word
+        jmp     .done
+.different_words:
+        cmp     dx, 0
+        je      .left_complete
+        mov     [p5_apply_word], si
+        mov     [p5_apply_low], ax
+        mov     bp, si
+        shl     bp, 2
+        add     bp, 3
+        mov     [p5_apply_high], bp
+        call    p5_rmw_word
+.left_complete:
+        cmp     cx, 3
+        je      .done
+        mov     [p5_apply_word], di
+        mov     bp, di
+        shl     bp, 2
+        mov     [p5_apply_low], bp
+        mov     [p5_apply_high], bx
+        call    p5_rmw_word
+.done:
+        pop     es
+        pop     bp
+        pop     di
+        pop     si
+        pop     dx
+        pop     cx
+        pop     bx
+        pop     ax
+        ret
+
+; Read-modify-write one packed 4bpp word for the inclusive pixel range held
+; in p5_apply_low/high.  The x%4 ordering is the independently calibrated
+; FB0 mapping used by the GLASS and NEON3 VA backends.  The CPU aperture
+; segment follows the selected hidden page; page B is offset by 1f400h.
+p5_rmw_word:
+        push    ax
+        push    bx
+        push    cx
+        push    dx
+        push    si
+        push    di
+        push    bp
+        push    es
+        xor     dx, dx
+        xor     bx, bx
+        mov     al, [draw_color]
+        and     al, 0fh
+        xor     ah, ah
+        mov     si, ax
+        shl     ax, 4
+        or      ax, si
+        mov     si, ax
+        shl     ax, 8
+        or      si, ax
+        mov     bp, [p5_apply_low]
+.pixel:
+        mov     ax, bp
+        and     ax, 3
+        shl     ax, 1
+        mov     di, ax
+        mov     cx, [p5_packed_masks + di]
+        or      dx, cx
+        mov     cx, si
+        and     cx, [p5_packed_masks + di]
+        or      bx, cx
+        inc     bp
+        cmp     bp, [p5_apply_high]
+        jbe     .pixel
+        mov     [p5_apply_mask], dx
+        mov     [p5_apply_value], bx
+        mov     ax, [p5_span_y]
+        mov     cx, BYTES_PER_LINE
+        mul     cx
+        mov     cx, [p5_apply_word]
+        shl     cx, 1
+        add     ax, cx
+        adc     dx, 0
+        mov     di, ax
+        mov     ax, [p5_draw_cpu_segment]
+        mov     es, ax
+        mov     ax, [es:di]
+        mov     cx, [p5_apply_mask]
+        not     cx
+        and     ax, cx
+        or      ax, [p5_apply_value]
+        mov     [es:di], ax
+        pop     es
+        pop     bp
+        pop     di
         pop     si
         pop     dx
         pop     cx
@@ -1728,10 +2054,12 @@ p5_emit_line_from_ax_bx_cx_dx:
         jg      .done
         cmp     dx, SCREEN_H-1
         jg      .done
+%if NEON4_P5_BPP != 4
         sar     ax, 1
         sar     cx, 1
         sar     bx, 1
         sar     dx, 1
+%endif
         call    p5_emit_line_physical
 .done:
         pop     dx
@@ -1779,7 +2107,10 @@ p5_emit_line_physical:
         mov     bx, BYTES_PER_LINE
         mul     bx
         mov     bx, [p5_line_x0]
-%if NEON4_P5_BPP == 16
+%if NEON4_P5_BPP == 4
+        and     bx, 0fffch
+        shr     bx, 1
+%elif NEON4_P5_BPP == 16
         shl     bx, 1
 %else
         and     bx, 0fffeh
@@ -1793,7 +2124,12 @@ p5_emit_line_physical:
         stosw
         mov     ax, bp
         stosw
-%if NEON4_P5_BPP == 16
+%if NEON4_P5_BPP == 4
+        mov     ax, [p5_line_x0]
+        and     ax, 3
+        shl     ax, 4
+        or      ax, 1
+%elif NEON4_P5_BPP == 16
         mov     ax, 3
 %else
         mov     ax, [p5_line_x0]
@@ -1827,6 +2163,15 @@ p5_emit_color_if_needed:
         mov     di, [p5_list_offset]
         xor     bx, bx
         mov     bl, [draw_color]
+%if NEON4_P5_BPP == 4
+        and     bx, 000fh
+        mov     ax, bx
+        shl     ax, 4
+        or      ax, bx
+        mov     bx, ax
+        shl     bx, 8
+        or      ax, bx
+%else
         mov     al, [n4_va_rgb332_from_pegc + bx]
 %if NEON4_P5_BPP == 16
         ; Expand the RGB332 table entry to the VA direct 16bpp code used by
@@ -1875,6 +2220,7 @@ p5_emit_color_if_needed:
 %else
         mov     ah, al
 %endif
+%endif
         cmp     ax, [p5_last_color]
         je      .done
         cmp     di, sgp_command_list + ((P4_LIST_WORDS-8)*2)
@@ -1883,7 +2229,7 @@ p5_emit_color_if_needed:
 .space_ready:
         mov     [p5_last_color], ax
         mov     dx, ax
-%if NEON4_P5_BPP != 16
+%if NEON4_P5_BPP == 8
         mov     dh, dl
 %endif
         mov     ax, SGP_SET_COLOR
@@ -1939,6 +2285,8 @@ p5_set_draw_page:
         mov     [p5_draw_dsa_low], ax
         mov     ax, PAGE_A_DSA >> 16
         mov     [p5_draw_dsa_high], ax
+        mov     ax, G0_SEGMENT
+        mov     [p5_draw_cpu_segment], ax
         pop     ax
         ret
 .page_b:
@@ -1950,6 +2298,8 @@ p5_set_draw_page:
         mov     [p5_draw_dsa_low], ax
         mov     ax, PAGE_B_DSA >> 16
         mov     [p5_draw_dsa_high], ax
+        mov     ax, G0_SEGMENT + ((PAGE_B_SGP - PAGE_A_SGP) >> 4)
+        mov     [p5_draw_cpu_segment], ax
         pop     ax
         ret
 
@@ -1961,7 +2311,7 @@ p5_clear_draw_page:
 p5_flip_draw_page:
         call    wait_vblank_edge
         jc      .failed
-%if NEON4_P5_BPP == 16
+%if (NEON4_P5_BPP == 4) || (NEON4_P5_BPP == 16)
         mov     dx, PORT_FB0_DSA_LOW
 %else
         mov     dx, PORT_FB1_DSA_LOW
@@ -2014,6 +2364,18 @@ p5_line_x1 dw 0
 p5_line_y1 dw 0
 p5_line_width dw 0
 p5_line_height dw 0
+p5_span_x0 dw 0
+p5_span_x1 dw 0
+p5_span_y dw 0
+p5_span_first_word dw 0
+p5_span_last_word dw 0
+p5_span_full_first dw 0
+p5_span_full_last dw 0
+p5_apply_word dw 0
+p5_apply_low dw 0
+p5_apply_high dw 0
+p5_apply_mask dw 0
+p5_apply_value dw 0
 p5_last_color dw 0ffffh
 p5_list_offset dw 0
 p5_draw_page db 1
@@ -2022,6 +2384,11 @@ p5_draw_sgp_low dw PAGE_B_SGP_LOW
 p5_draw_sgp_high dw PAGE_B_SGP_HIGH
 p5_draw_dsa_low dw PAGE_B_DSA & 0ffffh
 p5_draw_dsa_high dw PAGE_B_DSA >> 16
+p5_draw_cpu_segment dw G0_SEGMENT + ((PAGE_B_SGP - PAGE_A_SGP) >> 4)
+
+align 2
+; Packed 4bpp FB0 word order: x%4 = 0,1,2,3.
+p5_packed_masks dw 00f0h, 000fh, 0f000h, 0f00h
 
 %if ($ - $$) >= 0e000h
 %error "NEON4 P5-1 payload overlaps the loader return reserve"

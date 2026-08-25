@@ -27,6 +27,13 @@ POSSIBILITY OF SUCH DAMAGE.
 Status: design complete. Decision: **GO WITH RESTRICTIONS**. This document is a
 design and estimation artifact; it does not add the P3 implementation.
 
+The implementation now also exposes the requested `NEON4_P5_PROFILE=16`
+variant: 640x400 packed 4bpp G0 with sixteen 12-bit palette entries selected
+from the VA's 4096-colour space. The direct RGB332 rules below remain the
+contract for the original 256-colour (`PROFILE=256`) path; the 16-colour
+palette conversion and distribution layout are documented in
+`demos/neon4/README.md`.
+
 The P1 contract fixes the target to the 286 scene path, direct packed RGB332,
 SGP drawing, VA BIOS services, OPNA-only audio, and 320x200 first. The same
 source tree will later build 640x200 by changing the physical-width parameter.
