@@ -84,7 +84,7 @@ low_mul_shr8:
 ; a low-colour bucket.
 ; AL-only hot conversion for callers that do not need low_phys_to_16's
 ; historical AH/CX side effects.  80286 supports immediate shift counts.
-%if NEON4_STAGE == 8
+%if (NEON4_STAGE == 8) && (NEON4_P5_BPP != 4)
 %macro LOW_PHYS_AL_TO_16_HOT 0
         ; VA direct-colour path: preserve the source palette index.
 %endmacro
@@ -99,7 +99,7 @@ low_mul_shr8:
 %endif
 
 low_phys_to_16:
-%if NEON4_STAGE == 8
+%if (NEON4_STAGE == 8) && (NEON4_P5_BPP != 4)
         ret
 %else
         push    cx

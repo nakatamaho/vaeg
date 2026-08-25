@@ -20,8 +20,20 @@ The RASTER TRANSFER scene and recurring raster panels use the existing generic
 span fallback while `low_egc_available` is disabled.  This is a functional
 SGP/CLS fallback; SGP BITBLT conformance remains a separate P6 item.
 
-The same source builds the existing 320x200 packed RGB332 path and the
-320x200 direct 16bpp path with `NEON4_P5_BPP=8` or `NEON4_P5_BPP=16`.
+The same source now builds three profile values:
+
+| `NEON4_P5_PROFILE` | Physical mode | Storage |
+| --- | --- | --- |
+| `16` | 640x400 | packed 4bpp G0 with sixteen VA palette entries |
+| `256` | 320x200 | packed RGB332 bytes |
+| `65536` | 320x200 | direct 16bpp |
+
+The `16` profile is the PC-88VA 16-colour mode.  It is not RGB332: every
+pixel is a four-bit index, while each of the sixteen entries selects a colour
+from the VA's 4096-colour palette.  The backend converts the source G/R/B
+nibbles to the documented `$SetPal` word layout (`G<<12 | R<<6 | B<<1`) and
+uploads the entries once at startup.  See `demos/neon4/README.md` for the
+mode and distribution details.
 
 The P5 presentation now follows the validated 8bpp two-page sequence from
 `demos/sgp-pseudo-sprite`: the displayed page is never cleared or rebuilt

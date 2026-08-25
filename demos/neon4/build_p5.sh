@@ -33,11 +33,21 @@ command -v "$assembler" >/dev/null 2>&1 || {
     exit 127
 }
 
-bpp=${NEON4_P5_BPP:-8}
-case "$bpp" in
-    8|16) ;;
-    *) printf 'error: NEON4_P5_BPP must be 8 or 16\n' >&2; exit 2 ;;
-esac
+profile=${NEON4_P5_PROFILE:-}
+if [ "$profile" ]; then
+    case "$profile" in
+        16) bpp=4 ;;       # 640x400, 16-colour packed G0
+        256) bpp=8 ;;      # 320x200, packed RGB332
+        65536) bpp=16 ;;   # 320x200, direct 16bpp
+        *) printf 'error: NEON4_P5_PROFILE must be 16, 256, or 65536\n' >&2; exit 2 ;;
+    esac
+else
+    bpp=${NEON4_P5_BPP:-8}
+    case "$bpp" in
+        4|8|16) ;;
+        *) printf 'error: NEON4_P5_BPP must be 4, 8, or 16\n' >&2; exit 2 ;;
+    esac
+fi
 
 script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 output_dir=$(CDPATH= cd -- "$(dirname -- "$1")" && pwd)
