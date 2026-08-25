@@ -21,6 +21,11 @@ The P5 presentation now follows the validated 8bpp two-page sequence from
 while visible.  This removes the clear/rebuild flicker; any remaining motion
 is scene animation rather than an incomplete-frame exposure.
 
+The VA colour path keeps the original 0..255 PEGC index through the low
+geometry helpers.  `neon4_va_palette.inc` quantises the original
+`pegc_palette_grb` table to direct RGB332 bytes (`gggrrrbb`).  It no longer
+uses the temporary 16-entry approximation table.
+
 The first VAEG run exposed an address-calculation regression: the imported
 `config4_256.inc` planar constants redefine `BYTES_PER_LINE` as 80.  The VA
 packed backend restores the physical 320-byte pitch immediately after the
@@ -55,6 +60,8 @@ The following local checks were completed:
 * VAEG stage-8 scene 6 double-buffer run — PASS: two captures at successive
   page flips contain complete scene states and the guest reaches the keyboard
   checkpoint without a visible clear phase.
+* VAEG stage-8 scene 6 colour-conversion run — PASS: the SGP colour words are
+  generated from the original 256-entry PEGC table through the RGB332 table.
 * A temporary one-span check — PASS: a logical span x=100..500, y=100 is
   centered at the expected physical row after the 320-byte pitch correction.
 

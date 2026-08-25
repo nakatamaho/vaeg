@@ -1357,6 +1357,7 @@ video_error_code dw 0
 %include "low4_data.inc"
 %include "geom4_low.inc"
 %include "scene4_256.inc"
+%include "neon4_va_palette.inc"
 
 ; Original logical frame origin for scene 6.  The scene itself keeps using
 ; scene_frame as its local 0..383 phase; city_global_frame preserves the
@@ -1710,8 +1711,7 @@ p5_emit_color_if_needed:
         mov     di, [p5_list_offset]
         xor     bx, bx
         mov     bl, [draw_color]
-        and     bx, 0fh
-        mov     al, [p5_rgb332_palette + bx]
+        mov     al, [n4_va_rgb332_from_pegc + bx]
         mov     ah, al
         cmp     ax, [p5_last_color]
         je      .done
@@ -1834,15 +1834,6 @@ p5_flush_batch:
         pop     bx
         pop     ax
         ret
-
-; RGB332 bytes for the 16 authored low-colour buckets.  The geometry remains
-; unchanged; this table is only the VA direct-colour backend mapping.
-align 2
-p5_rgb332_palette:
-        db 00h, 0e7h, 01fh, 03fh
-        db 0f0h, 0ffh, 0c0h, 0e0h
-        db 0e0h, 0feh, 0c0h, 0fch
-        db 03h, 0ffh, 0f8h, 0e0h
 
 align 2
 p5_rect_x0 dw 0

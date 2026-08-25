@@ -79,11 +79,16 @@ low_mul_shr8:
         ret
 
 ; Convert authored 0..255 physical colour to the matching 16-colour hue/shade
-; bucket.  low4_palette_grb is arranged to mirror the 256-colour 32-step ramp
-; families, so the high-nibble reduction preserves both hue family and coarse
-; brightness wherever possible.
+; bucket.  The VA stage keeps the authored index so its direct RGB332 backend
+; can quantise the original 256-entry PEGC palette instead of collapsing it to
+; a low-colour bucket.
 ; AL-only hot conversion for callers that do not need low_phys_to_16's
 ; historical AH/CX side effects.  80286 supports immediate shift counts.
+%if NEON4_STAGE == 8
+%macro LOW_PHYS_AL_TO_16_HOT 0
+        ; VA direct-colour path: preserve the source palette index.
+%endmacro
+%else
 %macro LOW_PHYS_AL_TO_16_HOT 0
         cmp     al, 16
         jb      %%ready
@@ -91,8 +96,12 @@ low_mul_shr8:
         and     al, 0Fh
 %%ready:
 %endmacro
+%endif
 
 low_phys_to_16:
+%if NEON4_STAGE == 8
+        ret
+%else
         push    cx
         cmp     al, 16
         jb      .done
@@ -103,10 +112,15 @@ low_phys_to_16:
 .done:
         pop     cx
         ret
+%endif
 
 low_use_color:
+%if NEON4_STAGE == 8
+        mov     [draw_color], al
+%else
         and     al, 0Fh
         mov     [draw_color], al
+%endif
         ; Tail-call the batch setup; its RET returns directly to our caller.
         jmp     line_batch_begin
 low_use_phys_color:
