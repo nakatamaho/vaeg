@@ -63,8 +63,8 @@
 %define TSP_VBLANK              040h
 %define SGP_BUSY                001h
 
-%define MODE_320X200_G0_G1      0e00eh
-%define COMPOSE_G1_OVER_G0      0034h
+%define MODE_320X200_G0         0a00eh
+%define COMPOSE_G0_ONLY         0003h
 %define G0_SEGMENT              0a000h
 
 %define SCREEN_WIDTH            320
@@ -196,7 +196,7 @@ va_video_enter:
         mov     ax, VIDEO_DATA_SEG
         mov     ds, ax
         mov     es, ax
-        mov     bx, MODE_320X200_G0_G1
+        mov     bx, MODE_320X200_G0
 %if NEON4_DIRECT_REGS
         ; Enter through the proven 320x200 BIOS transaction, then switch G0
         ; to direct 8bpp with the reconstructed GRRES/FB0 registers below.
@@ -253,7 +253,7 @@ va_video_enter:
         mov     ax, 0008h             ; RGB screen 0 <- direct G0.
         out     dx, ax
         mov     ax, 0300h
-        mov     cx, COMPOSE_G1_OVER_G0
+        mov     cx, COMPOSE_G0_ONLY
         int     VIDEO_BIOS_INT
         or      ax, ax
         jnz     .failed
