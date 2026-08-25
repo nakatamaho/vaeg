@@ -595,14 +595,17 @@ wait_vblank_edge:
         ret
 
 keyboard_escape:
-        mov     ah, 01h
+        ; Use the VA keyboard contract exercised by the existing SGP demo:
+        ; AH=0Ah tests for a pending key and AH=09h consumes it.  AH=00h is
+        ; the returned scan code for ESC.  The older AH=01h/AH=00h pair is
+        ; not a non-blocking poll on the VA2 BIOS and can leave this stage
+        ; waiting forever.
+        mov     ah, 0ah
         int     KEYBOARD_BIOS_INT
         jc      .none
-        mov     ah, 00h
+        mov     ah, 09h
         int     KEYBOARD_BIOS_INT
-        cmp     bh, 0
-        jne     .none
-        cmp     bl, 1bh
+        cmp     ah, 00h
         jne     .none
         stc
         ret
