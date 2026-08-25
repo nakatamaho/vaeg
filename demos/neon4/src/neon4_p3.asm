@@ -113,8 +113,20 @@
 %define SGP_CLS                 000ah
 %define SGP_LINE                0009h
 %define SGP_LINE_COPY           0005h
-%define SGP_LINE_VD             0400h
+; The real VA BLTMODE direction meanings are the same as the validated
+; NEON3/GLASS payload: HD=0400h and VD=0800h.  VAEG's internal enum uses
+; opposite names for its legacy line model; the build script can select that
+; model explicitly for emulator-only comparison, but hardware is the default.
+%ifndef NEON4_SGP_REAL_DIRECTION
+%define NEON4_SGP_REAL_DIRECTION 1
+%endif
+%if NEON4_SGP_REAL_DIRECTION
+%define SGP_LINE_HD             0400h
+%define SGP_LINE_VD             0800h
+%else
 %define SGP_LINE_HD             0800h
+%define SGP_LINE_VD             0400h
+%endif
 
 %define P4_LIST_WORDS           4096
 %define P4_TEST_X0              040
