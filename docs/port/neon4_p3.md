@@ -44,12 +44,12 @@ or BITBLT.
 The payload uses the VA keyboard BIOS for `ESC` and the validated loader return
 continuation.  It does not use DOS `INT 21h`.
 
-## 8bpp calibration boundary
+## 8bpp mode contract
 
-The existing payloads prove `INT 8Fh` `BX=E00Eh`, `CX=0404h` for 320x200 4bpp,
-but no in-tree payload proves the 8bpp `CX` argument.  P3 therefore enters the
-proven 4bpp transaction and then applies the documented/reconstructed direct
-mode registers:
+The BNN VA BIOS description specifies `CL`/`CH` as the pixel-size fields of
+`INT 8Fh/AH=00h`; value `8` selects 8 bits per pixel.  P3 therefore enters the
+320x200 mode with `CX=0808h`, then defines one 8bpp FB0 descriptor and one
+8bpp display window through `$DefBuf`/`$DefWin`:
 
 ```text
 GRRES = 0012h       ; G0: 320 dots, 8bpp
@@ -59,9 +59,9 @@ FB0.DSH = 200
 RGB composition = G0 direct (0008h)
 ```
 
-These writes are explicitly marked `NOT VERIFIED ON VA SILICON` in the source.
-`-dNEON4_DIRECT_REGS=0 -dNEON4_PIXEL_ARGS=0808h` remains available for a
-separate BIOS-argument experiment; it is not the default path.
+The descriptor ABI is documented in the BNN material; actual VA/VA2 execution
+remains the human gate.  The optional `NEON4_DIRECT_REGS=1` path retains the
+register-level RGB332 setup for comparison, but is no longer the default.
 
 ## Build
 
