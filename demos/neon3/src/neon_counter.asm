@@ -122,6 +122,7 @@
 %define NEON_VIDEO_BIOS_INT         8fh
 %define NEON_KEYBOARD_BIOS_INT      82h
 %define NEON_TEXT_BIOS_INT          83h
+%define NEON_SCREEN_EDITOR_BIOS_INT 94h
 %ifndef NEON_VIDEO_MODE
 %ifdef NEON_PROFILE_400
 %define NEON_VIDEO_MODE             0a000h
@@ -173,6 +174,12 @@ start:
         mov     bx, NEON_G0_WORDS_PER_LINE
         mul     bx
         mov     [neon_sgp_page_words], ax
+        ; Take ownership of the VA text console before entering graphics.
+        ; Text BIOS function 2Fh with AL=0 suppresses the resident soft-key
+        ; producer.  Screen Editor function 01h with AL=FF then hides the
+        ; complete system-line display.  Both are VA BIOS services; TEXT
+        ; itself remains enabled.
+        call    neon_text_console_init
         call    neon_va_enter
         jc      neon_counter_bios_failed
         cld                     ; VA BIOS may return with DF set on this ROM.
@@ -401,6 +408,7 @@ neon_counter_prepare_idle:
 
 neon_counter_exit:
         call    neon_va_leave
+        call    neon_text_console_restore
         cmp     word [cs:NEON_LOADER_RETURN_MAGIC], NEON_LOADER_RETURN_SIGNATURE
         jne     start.idle
         cli
@@ -410,6 +418,40 @@ neon_counter_exit:
         push    word [cs:NEON_LOADER_RETURN_FLAGS]
         popf
         retf
+
+; Remove the resident soft-key/function-key guide without disabling TEXT.
+; INT 83h/AH=2Fh stops the soft-key producer (AL=0 requests zero entries),
+; while INT 94h/AH=01h with AL=FF hides the reserved system-line display.
+neon_text_console_init:
+        pusha
+        push    ds
+        push    es
+        mov     ah, 2fh                ; Text BIOS: soft-key display control
+        xor     al, al                 ; display zero function keys
+        int     NEON_TEXT_BIOS_INT
+        mov     ah, 01h                ; Screen Editor: system-line control
+        mov     al, 0ffh               ; erase/hide the complete system line
+        int     NEON_SCREEN_EDITOR_BIOS_INT
+        pop     es
+        pop     ds
+        popa
+        ret
+
+; Restore the normal ten-entry system-line/soft-key guide for the caller.
+neon_text_console_restore:
+        pusha
+        push    ds
+        push    es
+        mov     ah, 2fh                ; Text BIOS: soft-key display control
+        mov     al, 0ah                ; display the ten-key caller guide
+        int     NEON_TEXT_BIOS_INT
+        mov     ah, 01h                ; Screen Editor: system-line control
+        mov     al, 0ah                ; display the ten-entry system line
+        int     NEON_SCREEN_EDITOR_BIOS_INT
+        pop     es
+        pop     ds
+        popa
+        ret
 
 ; ---------------------------------------------------------------------------
 ; VA BIOS-only entry and a small text status overlay.
@@ -854,10 +896,9 @@ neon_counter_show_status:
 ; this payload have a working ASCIZ text path in graphics composition, while
 ; AH=17h/AL=02h can fail to return when issued during active G0 composition.
 ; Keep the clear operation on the known-good text BIOS path and cover the
-; complete 80-column rows so stale loader text cannot remain visible.  The VA
-; The resident system line occupies the bottom rows while the shell's text
-; descriptor is active, so clear only the main rows addressable by the text
-; overlay.  The system-line row is left to the loader/editor environment.
+; complete 80-column rows so stale loader text cannot remain visible.  The
+; startup Text BIOS soft-key control and Screen Editor system-line control
+; disable the resident guide first, so the text overlay owns all 25 rows.
 neon_status_clear_rows:
         push    ax
         push    bx
@@ -870,7 +911,7 @@ neon_status_clear_rows:
         mov     si, neon_status_blank_line
         call    neon_status_bios_puts_at
         inc     bl
-        cmp     bl, 24
+        cmp     bl, 25
         jb      .row
         pop     si
         pop     dx

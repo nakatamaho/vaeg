@@ -107,11 +107,12 @@ updated.
 
 The P3 gate disk contains four independent COM programs.  Run them from the
 PC-Engine prompt and record the visible result and the status screen.  The
-programs use VA BIOS services (INT 8Fh for video, INT 83h for text, and INT
-82h for keyboard); they do not use DOS INT 21h services.  The status overlay
-clears the main TVRAM rows before composing the status page.  The inherited
-system-line row is left to the loader/editor environment; no speculative
-system-line service is called from the payload.
+programs use VA BIOS services (INT 8Fh for video, INT 83h for text/soft-key
+control, INT 94h for system-line visibility, and INT 82h for keyboard); they
+do not use DOS INT 21h services.  Startup uses Text BIOS function 2Fh with
+`AL=00h` and Screen Editor function 01h with `AL=FFh` to suppress the inherited
+function-key/system-line guide.  TEXT remains enabled for the NEON overlay.
+On exit the payload restores the ten-entry guide with `AL=0Ah`.
 
 * `NEONINI.COM` performs VA V3/G0 initialization only.  Press `ESC` to
   verify the VA BIOS leave path and return to the prompt.

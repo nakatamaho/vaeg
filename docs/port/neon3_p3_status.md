@@ -39,10 +39,11 @@ wireframe in VAEG; its idle registers were `AX=0001`, `BX=0000`, `CX=0001`,
 and `DX=0001`.  This is emulator evidence only, not a real-hardware gate.
 
 The status text path uses the known-good INT 83h/AH=02 attribute convention
-(`DX=8000h`), clears the main rows, and composes the text plane afterward.
-The payload deliberately does not call an undocumented or contradictory
-system-line service; the inherited function-key row remains owned by the
-loader/editor environment.
+(`DX=8000h`), clears all 25 main rows, and composes the text plane afterward.
+Startup now stops the soft-key producer with INT 83h/AH=2Fh, `AL=00h` and
+hides the complete system-line display with INT 94h/AH=01h, `AL=FFh` before
+graphics entry.  TEXT remains enabled; the function-key guide is not left to
+the loader/editor environment.
 
 ## Implemented
 
