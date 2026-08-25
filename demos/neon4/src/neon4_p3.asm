@@ -660,7 +660,7 @@ set_display_page_a:
         mov     ax, PAGE_A_DSA & 0ffffh
         out     dx, ax
         add     dx, 2
-        xor     ax, ax
+        mov     ax, PAGE_A_DSA >> 16
         out     dx, ax
         ret
 
