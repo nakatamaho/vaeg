@@ -2515,52 +2515,14 @@ p5_emit_color_if_needed:
         shl     bx, 8
         or      ax, bx
 %else
-        mov     al, [n4_va_rgb332_from_pegc + bx]
 %if NEON4_P5_BPP == 16
-        ; Expand the RGB332 table entry to the VA direct 16bpp code used by
-        ; the emulator's G0 path (RGB565-shaped: G6 R5 B5).
-        mov     dl, al
-        mov     al, dl
-        and     al, 3
-        xor     ah, ah
-        shl     ax, 1
-        shl     ax, 1
-        shl     ax, 1
-        test    dl, 3
-        jz      .blue_ready
-        or      ax, 7
-.blue_ready:
-        mov     si, ax
-        mov     al, dl
-        and     al, 1ch
-        xor     ah, ah
-        shl     ax, 1
-        shl     ax, 1
-        shl     ax, 1
-        shl     ax, 1
-        shl     ax, 1
-        test    dl, 1ch
-        jz      .red_ready
-        or      ax, 60h
-.red_ready:
-        or      si, ax
-        mov     al, dl
-        and     al, 0e0h
-        xor     ah, ah
-        shl     ax, 1
-        shl     ax, 1
-        shl     ax, 1
-        shl     ax, 1
-        shl     ax, 1
-        shl     ax, 1
-        shl     ax, 1
-        shl     ax, 1
-        test    dl, 0e0h
-        jz      .green_ready
-        or      ax, 1c00h
-.green_ready:
-        or      ax, si
+        ; The direct-colour profile indexes the original PEGC palette directly.
+        ; Its G6/R5/B5 word is precomputed from the source G/R/B triplets;
+        ; RGB332 is retained only for the 8bpp profile.
+        shl     bx, 1
+        mov     ax, [n4_va_rgb565_from_pegc + bx]
 %else
+        mov     al, [n4_va_rgb332_from_pegc + bx]
         mov     ah, al
 %endif
 %endif
