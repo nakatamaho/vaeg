@@ -2000,3 +2000,25 @@ separate parity correction or move it to Open Defects.
   case/diff checks, and the dedicated stale-console validator passed.
 - **Evidence:** [NEON text-console report](../port/neon3_text_console.md).
 - **Commit:** [93ac88b](https://github.com/nakatamaho/vaeg/commit/93ac88b3d98cbb117c688a16d569f93e31b2986e)
+
+
+### NEON4 320x200 direct-colour spans used a corrupted SGP destination
+
+- **Status:** fixed in M97.
+- **Symptom:** the 320x200 x 65536-colour NEON4 profile regressed to sparse
+  or missing graphics after the 640x400 packed profile was added; the 16-colour
+  profile remained on its separate path.
+- **Root cause:** the packed-profile refactor shared a post-address label with
+  the direct-colour path.  The second `p5_emit_color_if_needed` call converted
+  the colour through `SI`, overwriting the already calculated SGP `CLS`
+  destination address before the command was emitted.
+- **Correction:** keep the second colour emission conditional on the 4bpp
+  path, which reaches that label after address calculation.  The 8bpp and
+  16bpp paths emit colour once before calculating the destination and now keep
+  `SI` intact.
+- **Verification:** fixed 320x200 direct-colour capture reached the stable
+  frame-loop checkpoint on both VAEG VA2 and VA models and rendered the scene;
+  640x400 packed capture also reached its checkpoint; all three NASM profiles
+  built; VAEG selftest passed; CTest passed 84/84 with one expected skip.
+- **Evidence:** [NEON4 P5 source](../../demos/neon4/src/neon4_p3.asm).
+- **Commit:** [1a02f35](https://github.com/nakatamaho/vaeg/commit/1a02f354363b7aedfa699f6a51d73c3745842abd)
