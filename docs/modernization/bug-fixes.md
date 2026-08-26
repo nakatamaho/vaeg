@@ -70,6 +70,33 @@ separate parity correction or move it to Open Defects.
 
 ## Fixed Defects
 
+### NEON4 4bpp spans exposed a deferred four-pixel completion
+
+- **Status:** fixed in M97.
+- **Symptom:** the 640x400 16-colour profile could show a four-pixel hole in
+  a face span before a later write filled it.  The completed framebuffer did
+  not necessarily retain the hole, but the intermediate paint sequence was
+  visibly wrong.
+- **Root cause:** the packed 4bpp span writer split one logical span between
+  immediate CPU RMW operations for partial endpoint words and an asynchronous
+  SGP CLS operation for complete interior words.  That is two visible write
+  stages for one span; it is not a geometry or nibble-mapping rule.
+- **Correction:** the 4bpp path now walks every touched word through one
+  geometry-independent exact CPU RMW routine.  The first and last words use
+  their logical endpoint masks, while wholly covered words select all four
+  nibbles through the same routine.  No endpoint-correction pass or SGP CLS
+  overlap remains for face spans.  SGP remains in use for clear and LINE
+  operations.
+- **Verification:** NASM builds passed for the 16-colour and 65536-colour
+  profiles; consecutive VAEG captures of the 16-colour profile retained the
+  intended face geometry without a later span-completion stage; `git diff
+  --check`, CTest (84/84 with one expected skip), and the repository case
+  check passed.  Real-hardware timing remains outside this VAEG result.
+- **Evidence:** [NEON4 P5 source](../../demos/neon4/src/neon4_p3.asm) and the
+  local VAEG exact-span capture used for this correction.
+- **Milestone/task:** M97 NEON4 4bpp transient span correction.
+- **Commit:** pending publication.
+
 ### GLASS P4 face fill used geometry-specific repair and empty-span overdraw
 
 - **Status:** fixed in M97; real-hardware keyboard-return parity remains a
