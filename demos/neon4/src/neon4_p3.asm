@@ -2172,6 +2172,11 @@ p5_emit_span_physical:
         push    cx
         push    dx
         push    si
+        ; Preserve the caller's table/iterator pointer.  NEON4's CAT and
+        ; raster span walkers keep their source cursor in DI; the SGP list
+        ; encoder also uses DI internally.  The backend must not leak that
+        ; implementation detail into the geometry layer.
+        push    di
         cmp     ax, cx
         jle     .ordered
         xchg    ax, cx
@@ -2234,14 +2239,10 @@ p5_emit_span_physical:
         xor     ax, ax
         stosw
         mov     [p5_list_offset], di
-        pop     si
-        pop     dx
-        pop     cx
-        pop     bx
-        pop     ax
-        ret
+        jmp     .span_done
 
 .span_done:
+        pop     di
         pop     si
         pop     dx
         pop     cx
@@ -2419,6 +2420,10 @@ p5_emit_line_physical:
         push    dx
         push    si
         push    bp
+        ; Preserve the caller's iterator pointer.  Line emission uses DI as
+        ; the command-list cursor, but scene walkers may keep their data
+        ; cursor there across successive primitives.
+        push    di
         mov     [p5_line_x0], ax
         mov     [p5_line_y0], bx
         mov     [p5_line_x1], cx
@@ -2492,6 +2497,7 @@ p5_emit_line_physical:
         mov     ax, dx
         stosw
         mov     [p5_list_offset], di
+        pop     di
         pop     bp
         pop     si
         pop     dx
