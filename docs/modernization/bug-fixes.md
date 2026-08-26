@@ -2125,4 +2125,4 @@ separate parity correction or move it to Open Defects.
   the pre-existing `vaeg_upd9002_trace_equivalence` FMBOARD statsave failure.
 - **Evidence:** [NEON4 P5 source](../../demos/neon4/src/geom4_low.inc),
   [NEON4 P5 colour report](../port/neon4_p5.md).
-- **Commit:** [f86c3c0](https://github.com/nakatamaho/vaeg/commit/f86c3c07430e5dfc78d98fc4ad7410fc4d048f5c)
+- **Commit:** [f86c3c0](https://github.com/nakatamaho/vaeg/commit/f86c3c0de7e224166d6eaadf2b0f56bba8e3e01f)
