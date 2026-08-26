@@ -1978,7 +1978,9 @@ p5_apply_span_endpoints:
 ; Read-modify-write one packed 4bpp word for the inclusive pixel range held
 ; in p5_apply_low/high.  The x%4 ordering is the independently calibrated
 ; FB0 mapping used by the GLASS and NEON3 VA backends.  The CPU aperture
-; segment follows the selected hidden page; page B is offset by 1f400h.
+; segment follows the selected hidden page; page B is offset by 1f400h.  A
+; 640x400 packed page is 128 KiB, so a single 16-bit offset cannot cover it:
+; the upper half uses the next 4 KiB paragraph while the low offset wraps.
 p5_rmw_word:
         push    ax
         push    bx
@@ -2024,6 +2026,10 @@ p5_rmw_word:
         adc     dx, 0
         mov     di, ax
         mov     ax, [p5_draw_cpu_segment]
+        or      dx, dx
+        jz      .segment_ready
+        add     ax, 1000h
+.segment_ready:
         mov     es, ax
         mov     ax, [es:di]
         mov     cx, [p5_apply_mask]
