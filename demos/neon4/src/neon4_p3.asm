@@ -1789,51 +1789,18 @@ p5_emit_span_physical:
         xchg    ax, cx
 .ordered:
 %if NEON4_P5_BPP == 4
-        ; Packed 4bpp has four logical pixels per word.  Apply partial
-        ; endpoint words immediately through exact CPU RMW while the draw
-        ; page is hidden, then submit only complete interior words to SGP.
+        ; Packed 4bpp has four logical pixels per word.  Write every word
+        ; touched by this exact span through the same CPU RMW operation.  A
+        ; partial endpoint must not be painted in a separate pass and a full
+        ; interior word must not arrive later through SGP: that ordering made
+        ; a four-pixel hole visible before the endpoint correction.  The
+        ; complete span is now one general exact-write operation; SGP remains
+        ; responsible for clear and line primitives.
         mov     [p5_span_x0], ax
         mov     [p5_span_y], bx
         mov     [p5_span_x1], cx
-        call    p5_apply_span_endpoints
-        mov     ax, [p5_span_x0]
-        shr     ax, 2
-        mov     [p5_span_first_word], ax
-        mov     ax, [p5_span_x1]
-        shr     ax, 2
-        mov     [p5_span_last_word], ax
-        mov     ax, [p5_span_x0]
-        and     ax, 3
-        mov     bx, [p5_span_first_word]
-        or      ax, ax
-        jz      .left_word_aligned
-        inc     bx
-.left_word_aligned:
-        mov     [p5_span_full_first], bx
-        mov     ax, [p5_span_x1]
-        and     ax, 3
-        mov     bx, [p5_span_last_word]
-        cmp     ax, 3
-        je      .right_word_aligned
-        dec     bx
-.right_word_aligned:
-        mov     [p5_span_full_last], bx
-        cmp     bx, [p5_span_full_first]
-        jb      .span_done
-        sub     bx, [p5_span_full_first]
-        inc     bx
-        mov     cx, bx
-        mov     ax, [p5_span_y]
-        mov     bx, BYTES_PER_LINE
-        mul     bx
-        mov     bx, [p5_span_full_first]
-        shl     bx, 1
-        add     ax, bx
-        adc     dx, 0
-        add     ax, [p5_draw_sgp_low]
-        adc     dx, [p5_draw_sgp_high]
-        mov     si, ax
-        jmp     .emit_cls_words
+        call    p5_write_span_cpu_exact
+        jmp     .span_done
 %elif NEON4_P5_BPP == 16
         ; 16bpp pixels are one SGP word each; every physical X is already
         ; word-aligned after converting it to a byte address.
@@ -1868,23 +1835,6 @@ p5_emit_span_physical:
         adc     dx, [p5_draw_sgp_high]
         mov     si, ax
 .emit_cls_words:
-%if NEON4_P5_BPP == 4
-        ; The reduced packed path reaches this label after calculating the
-        ; destination address, so it emits the colour state here.  The 8bpp
-        ; and 16bpp paths already emitted it before address calculation; a
-        ; second call would overwrite SI, which holds the CLS destination.
-        mov     di, [p5_list_offset]
-        ; p5_emit_color_if_needed uses DX for the SET_COLOR payload.  Preserve
-        ; the already-computed physical high address while it emits or
-        ; reuses the colour state.
-        push    dx
-        call    p5_emit_color_if_needed
-        pop     dx
-        cmp     di, sgp_command_list + ((P4_LIST_WORDS-16)*2)
-        jb      .emit_space_ready
-        call    p5_flush_batch
-.emit_space_ready:
-%endif
         mov     ax, SGP_CLS
         stosw
         mov     ax, si
@@ -1911,10 +1861,12 @@ p5_emit_span_physical:
         pop     ax
         ret
 
-; Apply the partial words of the current exact span directly to the hidden
-; FB0 page.  Full words are deliberately left for SGP CLS.  This routine is
-; geometry-independent and never performs a later corrective erase.
-p5_apply_span_endpoints:
+; Write every packed word touched by the current exact span through CPU
+; read-modify-write.  The first and last words use partial masks when needed;
+; words wholly covered by the span use the same operation with all four pixel
+; nibbles selected.  Thus no endpoint word is written in a later correction
+; pass and no SGP command can expose a four-pixel intermediate hole.
+p5_write_span_cpu_exact:
         push    ax
         push    bx
         push    cx
@@ -1924,46 +1876,34 @@ p5_apply_span_endpoints:
         push    bp
         push    es
         mov     ax, [p5_span_x0]
-        mov     bx, [p5_span_x1]
-        mov     dx, ax
-        and     dx, 3
-        mov     cx, bx
-        and     cx, 3
+        shr     ax, 2
+        mov     [p5_span_first_word], ax
         mov     si, ax
-        shr     si, 2
-        mov     di, bx
-        shr     di, 2
-        cmp     si, di
-        jne     .different_words
-        cmp     dx, 0
-        jne     .same_word_partial
-        cmp     cx, 3
-        je      .done
-.same_word_partial:
-        mov     [p5_apply_word], si
-        mov     [p5_apply_low], ax
-        mov     [p5_apply_high], bx
+        mov     ax, [p5_span_x1]
+        shr     ax, 2
+        mov     [p5_span_last_word], ax
+.word:
+        mov     [p5_word_index], si
+        mov     ax, si
+        shl     ax, 2
+        mov     [p5_word_low], ax
+        add     ax, 3
+        mov     [p5_word_high], ax
+        cmp     si, [p5_span_first_word]
+        jne     .left_ready
+        mov     ax, [p5_span_x0]
+        mov     [p5_word_low], ax
+.left_ready:
+        cmp     si, [p5_span_last_word]
+        jne     .right_ready
+        mov     ax, [p5_span_x1]
+        mov     [p5_word_high], ax
+.right_ready:
         call    p5_rmw_word
-        jmp     .done
-.different_words:
-        cmp     dx, 0
-        je      .left_complete
-        mov     [p5_apply_word], si
-        mov     [p5_apply_low], ax
-        mov     bp, si
-        shl     bp, 2
-        add     bp, 3
-        mov     [p5_apply_high], bp
-        call    p5_rmw_word
-.left_complete:
-        cmp     cx, 3
-        je      .done
-        mov     [p5_apply_word], di
-        mov     bp, di
-        shl     bp, 2
-        mov     [p5_apply_low], bp
-        mov     [p5_apply_high], bx
-        call    p5_rmw_word
+        cmp     si, [p5_span_last_word]
+        jae     .done
+        inc     si
+        jmp     .word
 .done:
         pop     es
         pop     bp
@@ -1976,7 +1916,7 @@ p5_apply_span_endpoints:
         ret
 
 ; Read-modify-write one packed 4bpp word for the inclusive pixel range held
-; in p5_apply_low/high.  The x%4 ordering is the independently calibrated
+; in p5_word_low/high.  The x%4 ordering is the independently calibrated
 ; FB0 mapping used by the GLASS and NEON3 VA backends.  The CPU aperture
 ; segment follows the selected hidden page; page B is offset by 1f400h.  A
 ; 640x400 packed page is 128 KiB, so a single 16-bit offset cannot cover it:
@@ -2001,7 +1941,7 @@ p5_rmw_word:
         mov     si, ax
         shl     ax, 8
         or      si, ax
-        mov     bp, [p5_apply_low]
+        mov     bp, [p5_word_low]
 .pixel:
         mov     ax, bp
         and     ax, 3
@@ -2013,14 +1953,14 @@ p5_rmw_word:
         and     cx, [p5_packed_masks + di]
         or      bx, cx
         inc     bp
-        cmp     bp, [p5_apply_high]
+        cmp     bp, [p5_word_high]
         jbe     .pixel
-        mov     [p5_apply_mask], dx
-        mov     [p5_apply_value], bx
+        mov     [p5_word_mask], dx
+        mov     [p5_word_value], bx
         mov     ax, [p5_span_y]
         mov     cx, BYTES_PER_LINE
         mul     cx
-        mov     cx, [p5_apply_word]
+        mov     cx, [p5_word_index]
         shl     cx, 1
         add     ax, cx
         adc     dx, 0
@@ -2032,10 +1972,10 @@ p5_rmw_word:
 .segment_ready:
         mov     es, ax
         mov     ax, [es:di]
-        mov     cx, [p5_apply_mask]
+        mov     cx, [p5_word_mask]
         not     cx
         and     ax, cx
-        or      ax, [p5_apply_value]
+        or      ax, [p5_word_value]
         mov     [es:di], ax
         pop     es
         pop     bp
@@ -2384,13 +2324,11 @@ p5_span_x1 dw 0
 p5_span_y dw 0
 p5_span_first_word dw 0
 p5_span_last_word dw 0
-p5_span_full_first dw 0
-p5_span_full_last dw 0
-p5_apply_word dw 0
-p5_apply_low dw 0
-p5_apply_high dw 0
-p5_apply_mask dw 0
-p5_apply_value dw 0
+p5_word_index dw 0
+p5_word_low dw 0
+p5_word_high dw 0
+p5_word_mask dw 0
+p5_word_value dw 0
 p5_last_color dw 0ffffh
 p5_list_offset dw 0
 p5_draw_page db 1
