@@ -97,7 +97,7 @@ separate parity correction or move it to Open Defects.
 - **Evidence:** [NEON4 P5 report](../port/neon4_p5.md) and [NEON4 stage-8
   source](../../demos/neon4/src/neon4_p3.asm).
 - **Milestone/task:** M97 NEON4 text-console cleanup.
-- **Commit:** pending publication.
+- **Commit:** [d013466f](https://github.com/nakatamaho/vaeg/commit/d013466f35eb9af8666a0906a3a9e26435485eb5).
 
 ### NEON4 4bpp spans exposed a deferred four-pixel completion
 
