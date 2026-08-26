@@ -244,6 +244,13 @@ start:
         push    cs
         pop     es
 
+%if NEON4_STAGE == 8
+        ; Establish the text overlay once, including a complete TVRAM clear,
+        ; before the first graphics frame is built.  Later updates never turn
+        ; the display off, which avoids the visible text blink.
+        call    neon4_text_activate_overlay
+%endif
+
 %if NEON4_STAGE == 2
         ; The text checkpoint is written only after the graphics BIOS has
         ; established a valid VA memory map.  Pre-mode TVRAM writes are not
@@ -1446,6 +1453,9 @@ neon4_text_console_init:
         mov     ah, 01h
         mov     al, 0ffh
         int     SCREEN_EDITOR_BIOS_INT
+        mov     ah, 25h                ; Text BIOS: cursor display control
+        xor     al, al                 ; hide cursor and cursor blink
+        int     TEXT_BIOS_INT
         pop     es
         pop     ds
         popa
@@ -1462,25 +1472,21 @@ neon4_text_console_restore:
         mov     ah, 01h
         mov     al, 0ah
         int     SCREEN_EDITOR_BIOS_INT
+        mov     ah, 25h                ; restore the normal blinking cursor
+        mov     al, 03h
+        int     TEXT_BIOS_INT
         pop     es
         pop     ds
         popa
         ret
 
-; Draw the live NEON4 overlay through the VA Text BIOS.  The text plane is
-; temporarily selected for BIOS writes, then composed above G0 again.  This
-; is the same text-over-graphics contract used by NEON3; no DOS console API or
-; direct TVRAM address is involved.
-neon4_text_update_overlay:
+; Activate the live overlay once after graphics mode setup.  The complete
+; TVRAM clear happens while the text-only composition is hidden; subsequent
+; frame updates use the same Text BIOS writes without toggling ScnDsp.
+neon4_text_activate_overlay:
         pusha
         push    ds
         push    es
-        push    cs
-        pop     ds
-
-        ; Text BIOS calls are made while text-only composition is active.  The
-        ; graphics path may leave GVRAM selected, so restore TVRAM before the
-        ; character writes and GVRAM before returning to the scene.
         xor     ax, ax
         mov     ds, ax
         mov     es, ax
@@ -1499,48 +1505,14 @@ neon4_text_update_overlay:
         mov     dx, PORT_MEMORY_MAP
         mov     al, MEMORY_MAP_TVRAM
         out     dx, al
-        call    neon4_text_clear_rows
+        call    neon4_text_clear_console
+        call    neon4_text_write_static_overlay
+        call    neon4_text_update_overlay
+        ; The first frame selects its scene after this bootstrap update.  Keep
+        ; the title marked dirty so that scene 0 is written once at that
+        ; first VBLANK, without repainting it on later frames.
+        mov     byte [neon4_text_last_scene], 0ffh
 
-        mov     si, neon4_text_live_title
-        xor     dx, dx
-        call    neon4_text_puts_at
-        mov     si, neon4_text_profile
-        mov     dh, 1
-        xor     dl, dl
-        call    neon4_text_puts_at
-        mov     si, neon4_text_frame
-        mov     ax, [render_frame_counter]
-        mov     dh, 2
-        call    neon4_text_hex_at
-        mov     si, neon4_text_scene
-        mov     dh, 3
-        xor     dl, dl
-        call    neon4_text_puts_at
-        xor     bx, bx
-        mov     bl, [scene_index]
-        cmp     bl, NEON4_TEXT_SCENE_COUNT
-        jae     .no_scene_title
-        shl     bx, 1
-        mov     si, [scene_title_ptrs + bx]
-        mov     dh, 3
-        mov     dl, 18
-        call    neon4_text_puts_at
-.no_scene_title:
-        mov     si, neon4_text_local
-        mov     ax, [scene_frame]
-        mov     dh, 4
-        call    neon4_text_hex_at
-        mov     si, neon4_text_limit
-        mov     ax, NEON4_TEXT_TOTAL_FRAMES
-        mov     dh, 5
-        call    neon4_text_hex_at
-        mov     si, neon4_text_exit
-        mov     dh, 6
-        xor     dl, dl
-        call    neon4_text_puts_at
-
-        ; Compose text above G0 and resume graphics display.  The same layer
-        ; ordering is valid for both the 4bpp palette and 16bpp direct modes.
         mov     dx, PORT_MEMORY_MAP
         mov     al, MEMORY_MAP_GVRAM
         out     dx, al
@@ -1563,10 +1535,108 @@ neon4_text_update_overlay:
         popa
         ret
 
-; Clear the overlay rows once per update so scene titles of different lengths
-; cannot leave stale characters.  The complete 25-row clear is unnecessary:
-; startup guide suppression owns the remaining text rows.
-neon4_text_clear_rows:
+; Draw fields that never change during a run.  They are written once after
+; the complete TVRAM clear so frame updates do not repaint the whole overlay.
+neon4_text_write_static_overlay:
+        pusha
+        push    ds
+        push    es
+        push    cs
+        pop     ds
+        mov     dx, PORT_MEMORY_MAP
+        mov     al, MEMORY_MAP_TVRAM
+        out     dx, al
+
+        mov     si, neon4_text_live_title
+        xor     dx, dx
+        call    neon4_text_puts_at
+        mov     si, neon4_text_profile
+        mov     dh, 1
+        xor     dl, dl
+        call    neon4_text_puts_at
+        mov     si, neon4_text_frame
+        mov     dh, 2
+        xor     dl, dl
+        call    neon4_text_puts_at
+        mov     si, neon4_text_scene
+        mov     dh, 3
+        xor     dl, dl
+        call    neon4_text_puts_at
+        mov     si, neon4_text_local
+        mov     dh, 4
+        xor     dl, dl
+        call    neon4_text_puts_at
+        mov     si, neon4_text_limit
+        mov     dh, 5
+        xor     dl, dl
+        call    neon4_text_puts_at
+        mov     si, neon4_text_exit
+        mov     dh, 6
+        xor     dl, dl
+        call    neon4_text_puts_at
+
+        mov     dx, PORT_MEMORY_MAP
+        mov     al, MEMORY_MAP_GVRAM
+        out     dx, al
+        pop     es
+        pop     ds
+        popa
+        ret
+
+; Update only the fixed-width live values.  The scene title row is cleared and
+; rewritten only when the scene changes, preventing a visible repaint on every
+; frame.
+neon4_text_update_overlay:
+        pusha
+        push    ds
+        push    es
+        push    cs
+        pop     ds
+        mov     dx, PORT_MEMORY_MAP
+        mov     al, MEMORY_MAP_TVRAM
+        out     dx, al
+
+        mov     ax, [render_frame_counter]
+        mov     dh, 2
+        call    neon4_text_hex_value_at
+        mov     al, [scene_index]
+        cmp     al, [neon4_text_last_scene]
+        je      .scene_ready
+        mov     [neon4_text_last_scene], al
+        mov     si, neon4_text_blank_line
+        mov     dh, 3
+        xor     dl, dl
+        call    neon4_text_puts_at
+        mov     si, neon4_text_scene
+        mov     dh, 3
+        xor     dl, dl
+        call    neon4_text_puts_at
+        xor     bx, bx
+        mov     bl, [scene_index]
+        cmp     bl, NEON4_TEXT_SCENE_COUNT
+        jae     .scene_ready
+        shl     bx, 1
+        mov     si, [scene_title_ptrs + bx]
+        mov     dh, 3
+        mov     dl, 18
+        call    neon4_text_puts_at
+.scene_ready:
+        mov     ax, [scene_frame]
+        mov     dh, 4
+        call    neon4_text_hex_value_at
+
+        mov     dx, PORT_MEMORY_MAP
+        mov     al, MEMORY_MAP_GVRAM
+        out     dx, al
+        pop     es
+        pop     ds
+        popa
+        ret
+
+; Clear the complete TVRAM text surface once before the first overlay.  This
+; removes stale caller/loader text while the display is still hidden; it is
+; never repeated during frame updates.
+neon4_text_clear_console:
         push    ax
         push    bx
         push    dx
@@ -1578,7 +1648,7 @@ neon4_text_clear_rows:
         mov     si, neon4_text_blank_line
         call    neon4_text_puts_at
         inc     bl
-        cmp     bl, 7
+        cmp     bl, 25
         jb      .row
         pop     si
         pop     dx
@@ -1642,6 +1712,18 @@ neon4_text_hex_at:
         mov     si, neon4_text_hex_buffer
         mov     dl, 24
         call    neon4_text_puts_at
+        ret
+
+; AX = value, DH = row.  Write only the fixed-width value field at column 24.
+neon4_text_hex_value_at:
+        push    ax
+        push    dx
+        call    neon4_text_make_hex
+        mov     si, neon4_text_hex_buffer
+        mov     dl, 24
+        call    neon4_text_puts_at
+        pop     dx
+        pop     ax
         ret
 
 neon4_text_make_hex:
@@ -1798,6 +1880,7 @@ neon4_text_blank_line times 80 db ' '
                          db 0
 neon4_text_hex_buffer times 5 db 0
 neon4_text_hex_digits db '0123456789ABCDEF'
+neon4_text_last_scene db 0ffh
 %endif
 video_error_code dw 0
 
@@ -1896,6 +1979,10 @@ neon4_set_low_palette:
 
 p5_run_scene:
         call    p4_set_sgp_composition
+        ; The direct-colour backend writes its RGB composition register above;
+        ; reassert the VA text-above-G0 composition once before rendering.
+        ; This is deliberately outside the frame loop, so it cannot blink.
+        call    neon4_text_show_overlay
         ; Build on the hidden page and expose it only after the complete SGP
         ; batch has finished.  The page/descriptor path is selected by BPP.
         call    set_display_page_a
@@ -1919,22 +2006,22 @@ p5_run_scene:
 .frame:
         call    wait_vblank_edge
         jc      .failed
-        xor     al, al
-        call    p5_clear_draw_page
-        jc      .failed
+        ; Update the live text fields immediately after the VBLANK edge.  The
+        ; BIOS writes are grouped before the hidden graphics page is built,
+        ; rather than landing after page presentation during active scanout.
         mov     ax, [frame_counter]
         mov     [render_frame_counter], ax
         call    select_scene
+        call    neon4_text_update_overlay
+        xor     al, al
+        call    p5_clear_draw_page
+        jc      .failed
         call    p5_start_batch
         call    render_scene
         call    p5_finish_batch
         jc      .failed
         call    p5_flip_draw_page
         jc      .failed
-        ; Update the live text overlay only after the complete graphics page
-        ; has been presented.  The text BIOS composition sequence is shared
-        ; with NEON3 and leaves the selected G0 page intact.
-        call    neon4_text_update_overlay
         call    keyboard_escape
         jc      .exit
         inc     word [frame_counter]
@@ -1950,6 +2037,28 @@ p5_run_scene:
         ret
 .failed:
         stc
+        ret
+
+; Reassert TEXT above G0 after a profile-specific direct-colour composition
+; setup.  Unlike the old per-frame transition this does not blank the display.
+neon4_text_show_overlay:
+        pusha
+        push    ds
+        push    es
+        mov     ax, 0338h
+        mov     ds, ax
+        mov     es, ax
+        mov     ax, 0300h              ; $Compose: text above G0
+        mov     cx, 0031h
+        int     VIDEO_BIOS_INT
+        mov     ax, 0338h
+        mov     ds, ax
+        mov     es, ax
+        mov     ax, 0b01h              ; $ScnDsp: display on
+        int     VIDEO_BIOS_INT
+        pop     es
+        pop     ds
+        popa
         ret
 
 ; The source low-colour renderer treats this as a batch boundary.  SGP list
