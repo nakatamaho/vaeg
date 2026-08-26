@@ -13,8 +13,9 @@ The stage-8 payload advances one absolute frame counter from 0 through 3071.
 `scene_frame` values, then `render_scene` dispatches through the original
 eight-entry `scene_routines` table.  Each iteration waits for a VBLANK edge,
 clears the hidden draw page, submits SGP batches, waits for SGP idle, and flips
-the draw page at the next VBLANK edge.  ESC remains an early exit; reaching
-3072 frames returns through the normal loader continuation.
+the draw page at the next VBLANK edge.  ESC remains an early exit; after the
+3072nd frame both published profiles reset the logical counter to zero and
+continue from scene 0.
 
 The RASTER TRANSFER scene and recurring raster panels use the existing generic
 span fallback while `low_egc_available` is disabled.  This is a functional
@@ -72,6 +73,9 @@ The following local checks were completed:
   without a guest hang and the screen dump contained non-black scene output.
 * Static dispatch audit — PASS: `scene_routines` contains all eight original
   entries, each source scene length is 384, and `TOTAL_FRAMES` is 3072.
+* Loop audit — PASS: both profile listings reset `frame_counter` and branch to
+  the frame label after the `TOTAL_FRAMES` comparison; ESC remains checked on
+  every iteration.
 * A temporary one-span check — PASS: a logical span x=100..500, y=100 is
   centered at the expected physical row after the 320-byte pitch correction.
 

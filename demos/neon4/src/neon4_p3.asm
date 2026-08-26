@@ -1661,8 +1661,11 @@ p5_run_scene:
         inc     word [frame_counter]
         cmp     word [frame_counter], TOTAL_FRAMES
         jb      .frame
-        stc
-        ret
+        ; Both published profiles are continuously looping demos.  Keep the
+        ; finite timeline for one pass, then restart it without leaving the
+        ; payload; ESC remains the only normal exit.
+        mov     word [frame_counter], 0
+        jmp     .frame
 .exit:
         stc
         ret
