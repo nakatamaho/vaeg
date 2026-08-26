@@ -42,7 +42,8 @@ usage() {
 		'First create a vanilla PC-Engine 1.1 system disk, then add PCPLUS,' \
 		'SCHD, HOSTFAT, PCEPAT, RESET, TSCLVA, MSE 3.52b, RDBMS, RDPCM,' \
 		'BMSDRVA, EMMVA/SQEMM98/RDEMS,' \
-		'development tools, SCFORM, VIEW480, JFPPAT, 2HCDRV, FDFORM, X8MAP,' \
+		'development tools, ISHVA/PKPAK, TENIM3, TFD, SCFORM, VIEW480,' \
+		'JFPPAT, 2HCDRV, FDFORM, X8MAP,' \
 		'and K-Launcher.' \
 		'The source and generated D88 images are never added to the repository.'
 }
@@ -257,6 +258,24 @@ fetch_package 2hcdrv.zip \
 fetch_package fdfrmsrc.lzh \
 	d81358cbcfc1d6175359059d9c01fb75e5585993c3bc3d3e1fc988d7aa7c3e5a \
 	'http://www.pc88.gr.jp/softlib/index.php?action=download&anum=2&gnum=401&fname=FDFRMSRC.LZH'
+fetch_package isharc.com \
+	c51ffc66551f55872532b0ebde186ac7e9f76ef9c8287c731190f7e433bba61f \
+	'http://www.pc88.gr.jp/softlib/index.php?action=download&anum=2&gnum=69&fname=ISHARC.COM'
+fetch_package isharc.doc \
+	d3ec746ac0ce93bd9b4995a0fd1cb53de3289b914a7019c47e7b01d440657fc3 \
+	'http://www.pc88.gr.jp/softlib/index.php?action=download&anum=2&gnum=69&fname=ISHARC.DOC'
+fetch_package tenim3.com \
+	f7b89107dc0a6a7c4ce53547418400f68a62bc4d2206a97f02489dfb1d556eb8 \
+	'http://www.pc88.gr.jp/softlib/index.php?action=download&anum=2&gnum=74&fname=TENIM3.COM'
+fetch_package tenim3.doc \
+	e369fd63be567e19080fc89be41e43787bb32d9742a8be2f3995826f8d731fb6 \
+	'http://www.pc88.gr.jp/softlib/index.php?action=download&anum=2&gnum=74&fname=TENIM3.DOC'
+fetch_package tfd12.lzh \
+	bf970f49d787ac2870399db5020d3936ad36626bf0c87dd1535fb62e556794c1 \
+	'http://www.pc88.gr.jp/softlib/index.php?action=download&anum=2&gnum=348&fname=TFD12.LZH'
+fetch_package tfd12.doc \
+	65380f66c08120fed9e94c508ec491faff8bedc86cd2b48af3d7126c81ec499f \
+	'http://www.pc88.gr.jp/softlib/index.php?action=download&anum=2&gnum=348&fname=TFD12.DOC'
 
 work_dir=$(mktemp -d "${TMPDIR:-/tmp}/vaeg-pc88va-devdisk.XXXXXX")
 
@@ -326,6 +345,9 @@ unzip -q "$cache_dir/jfppat.zip" -d "$work_dir/jfppat"
 mkdir -p -- "$work_dir/2hcdrv"
 unzip -q "$cache_dir/2hcdrv.zip" -d "$work_dir/2hcdrv"
 extract_archive "$cache_dir/fdfrmsrc.lzh" "$work_dir/fdfrmsrc"
+extract_archive "$cache_dir/isharc.com" "$work_dir/isharc"
+extract_archive "$cache_dir/tenim3.com" "$work_dir/tenim3"
+extract_archive "$cache_dir/tfd12.lzh" "$work_dir/tfd12"
 add_uppercase_aliases "$work_dir"
 
 stage_dir=$work_dir/stage
@@ -468,6 +490,10 @@ copy_payload "$work_dir/forg/FORG.DAT" bin/FORG.DAT
 copy_payload "$work_dir/scform/SCFORM.COM" bin/SCFORM.COM
 copy_payload "$work_dir/2hcdrv/2HCDRV.COM" bin/2HCDRV.COM
 copy_payload "$work_dir/2hcdrv/FDFORM.COM" bin/FDFORM.COM
+copy_payload "$work_dir/isharc/ISHVA.COM" bin/ISHVA.COM
+copy_payload "$work_dir/isharc/PKPAK.EXE" bin/PKPAK.EXE
+copy_payload "$work_dir/isharc/PKUNPAK.EXE" bin/PKUNPAK.EXE
+copy_payload "$work_dir/tfd12/TFD.SYS" sys/TFD.SYS
 "$repo_root/tools/openwatcom/build-view480.sh" \
 	--source "$work_dir/v480/VIEW480.ASM" \
 	--output "$payload_dir/bin/VIEW480.COM"
@@ -523,6 +549,12 @@ copy_payload "$work_dir/emmva/EMMVA150.DOC" doc/EMMVA150.DOC
 copy_payload "$work_dir/rdems/RDEMS152.MAN" doc/RDEMS152.MAN
 copy_payload "$work_dir/scform/SCFORM.DOC" doc/SCFORM.DOC
 copy_payload "$work_dir/scform/SCFORM.LOG" doc/SCFORM.LOG
+copy_payload "$cache_dir/isharc.doc" doc/ISHARC.DOC
+copy_payload "$work_dir/isharc/README.DOC" doc/ISHVA.DOC
+copy_payload "$cache_dir/tenim3.doc" doc/TENIM3.DOC
+copy_payload "$work_dir/tenim3/NEC_MAIL.DOC" doc/TENMAIL.DOC
+copy_payload "$cache_dir/tfd12.doc" doc/TFD12.DOC
+copy_payload "$work_dir/tfd12/TFD12.MAN" doc/TFD12.MAN
 copy_payload "$work_dir/jfppat/JFPPAT.DOC" doc/JFPPAT.DOC
 copy_payload "$work_dir/2hcdrv/2HCDRV.DOC" doc/2HCDRV.DOC
 copy_payload "$work_dir/2hcdrv/FDFORM.DOC" doc/FDFORM.DOC
@@ -530,6 +562,9 @@ copy_payload "$cache_dir/v480src.lzh" archive/V480SRC.LZH
 copy_payload "$cache_dir/jfppat.zip" archive/JFPPAT.ZIP
 copy_payload "$cache_dir/2hcdrv.zip" archive/2HCDRV.ZIP
 copy_payload "$cache_dir/fdfrmsrc.lzh" archive/FDFRMSRC.LZH
+copy_payload "$cache_dir/isharc.com" archive/ISHARC.COM
+copy_payload "$cache_dir/tenim3.com" archive/TENIM3.COM
+copy_payload "$cache_dir/tfd12.lzh" archive/TFD12.LZH
 
 printf '%s\r\n' \
 	'SQEMM98 MAX v0.8 for PC-88VA' \

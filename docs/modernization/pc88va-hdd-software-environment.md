@@ -109,6 +109,27 @@ documentation. The related [2HCDRV package](http://www.pc88.gr.jp/softlib/index.
 is installed as `2HCDRV.COM` and `FDFORM.COM`; `FDFRMSRC.LZH` is retained as
 the formatter source archive.
 
+[ISHARC](http://www.pc88.gr.jp/softlib/index.php?action=list_file&anum=2&gnum=69)
+is the VA-patched ISH 1.12c archive utility package. The builder extracts
+`ISHVA.COM`, `PKPAK.EXE`, and `PKUNPAK.EXE` into `A:\BIN`, keeps the original
+self-extracting `ISHARC.COM` under `A:\ARCHIVE`, and installs both the Softlib
+note and the package README under `A:\DOC`.
+
+[TENIM3](http://www.pc88.gr.jp/softlib/index.php?action=list_file&anum=2&gnum=74)
+is the V3 PC-Engine sample "3D mouse tennis" package. Its self-extracting
+`TENIM3.COM` and its Softlib note are retained under `A:\ARCHIVE` and
+`A:\DOC`. The archive is kept intact because expanding its image and pattern
+assets would exceed the fixed FAT12 space of the development disk; copy it to
+a working directory and run it there when the complete sample tree is needed.
+
+[TFD12](http://www.pc88.gr.jp/softlib/index.php?action=list_file&anum=2&gnum=348)
+is the free TFD 1.2 floppy-speed adapter. The builder installs `TFD.SYS` in
+`A:\SYS`, retains `TFD12.LZH` under `A:\ARCHIVE`, and installs both the
+Softlib note and the full manual under `A:\DOC`. TFD is not enabled in the
+generated `CONFIG.SYS` by default: its manual says that EMS must be loaded
+before TFD and that EMS-backed operation is not supported by emulators. A
+hardware user can add `DEVICE = A:\SYS\TFD.SYS -MT-` after the EMS drivers.
+
 ## Core Components
 
 The development environment assembled below uses this baseline `CONFIG.SYS`:
@@ -524,7 +545,8 @@ for this image are stored under the Git-ignored
 2.55 executable and 2.55b patch, `X8MAP130.LZH`, `EMMVA15A.LZH`,
 `RDEMS152.LZH`, `RDPCM001.LZH`, `RESET.ZIP`, `TSCLVA.ZIP`, `TSCLBDF.ZIP`,
 `BMS15020.TGZ`, both `PCP108.LZH` and `PCP108P.LZH`, `SCF124.LZH`,
-`V480SRC.LZH`, `JFPPAT.ZIP`, `2HCDRV.ZIP`, `FDFRMSRC.LZH`, and the pinned
+`V480SRC.LZH`, `JFPPAT.ZIP`, `2HCDRV.ZIP`, `FDFRMSRC.LZH`, `ISHARC.COM`,
+`TENIM3.COM`, `TFD12.LZH`, and the pinned
 SQEMM source archive.
 These archive copies and the generated D88 remain outside Git.
 
@@ -532,7 +554,8 @@ The complete build performs these operations:
 
 1. Create the minimal vanilla system disk while retaining the IPL and the
    original fixed system-file chains.
-2. Fetch and verify PCEPAT, SCFORM, JFPPAT, 2HCDRV, FDFRMSRC, and V480,
+2. Fetch and verify PCEPAT, SCFORM, ISHARC, TENIM3, TFD12, JFPPAT, 2HCDRV,
+   FDFRMSRC, and V480,
    together with BMS Driver 1.50 Rev 0.20, PCPLUS 1.08 and its
    group 2-451 bug-fix patch, SCHD 1.55t, RDBMS 1.21, RDPCM 0.01, TSCLVA
    Rev.50703 and its Rev.51127 update, RESET Rev.51028, BDIFF/BUPDATE 1.28,
@@ -547,17 +570,21 @@ The complete build performs these operations:
    `BMSDRVA.SYS`, the updated TSCLVA Rev.51127 files, and the PC-88VA
    K-Launcher files `KLL.COM`, `KLVA.EXE`, and `KLCUST.EXE`.
 5. Assemble and validate the repository's clean-room `HOSTFAT.SYS` with NASM.
-6. Assemble and link `VIEW480.ASM` from `V480SRC.LZH` with the pinned
+6. Extract the ISHARC self-extracting package and the TFD archive, then stage
+   their tools, driver, and documentation. TENIM3 remains as its intact
+   self-extracting archive because its expanded sample assets do not fit in
+   the fixed FAT12 development disk.
+7. Assemble and link `VIEW480.ASM` from `V480SRC.LZH` with the pinned
    Open Watcom image, then install the resulting `VIEW480.COM`.
-7. Build and validate `SQEMM98.SYS` from pinned source with Open Watcom, then
+8. Build and validate `SQEMM98.SYS` from pinned source with Open Watcom, then
    install the complete EMMVA/SQEMM98/RDEMS driver stack.
-8. Verify the generated files against known public-package checksums.
-9. Extract the RAMDISK self-extracting archive and stage its driver, helper
+9. Verify the generated files against known public-package checksums.
+10. Extract the RAMDISK self-extracting archive and stage its driver, helper
    commands, and documentation separately.
-10. Run every `.EXE` and `.COM` under `BIN` through DIET 1.44. COM files retain
+11. Run every `.EXE` and `.COM` under `BIN` through DIET 1.44. COM files retain
    their COM form; files for which DIET cannot reduce byte size remain
    unchanged.
-11. Add the `SYS` drivers, compressed `BIN` utilities, source archives,
+12. Add the `SYS` drivers, compressed `BIN` utilities, source archives,
     documentation, and an empty `TMP` directory to the vanilla FAT12
     filesystem.
 
@@ -569,8 +596,8 @@ existing `ENGINEIO.SYS` or `PCENGINE.SYS` boot chains. The vanilla builder
 clears all unreferenced data clusters, and new directory entries use a fixed
 DOS date, so repeated builds from the same source are byte-for-byte
 reproducible. The builder's final file count, payload size, and free-space
-summary include the SCFORM, VIEW480, JFPPAT, 2HCDRV, and formatter-source
-additions described below.
+summary include the SCFORM, VIEW480, ISHARC, TENIM3, TFD12, JFPPAT, 2HCDRV,
+and formatter-source additions described below.
 
 The development disk is organized as follows. `KLVA.EXE`, `KLCUST.EXE`,
 `KL.CFG`, and `KLJPN.HLP` are also kept in `BIN` because `KLL.COM` needs the
@@ -592,6 +619,7 @@ A:\SYS\
   HOSTFAT.SYS
   PCEPAT.SYS
   JFPPAT.SYS
+  TFD.SYS
   RESET.SYS
   TSCLVA.SYS
   MSE352B.COM
@@ -632,6 +660,9 @@ A:\BIN\
   VIEW480.COM
   2HCDRV.COM
   FDFORM.COM
+  ISHVA.COM
+  PKPAK.EXE
+  PKUNPAK.EXE
   FATMAP.EXE
   FATMAP_E.COM
   FORG.EXE
@@ -671,6 +702,12 @@ A:\DOC\
   JFPPAT.DOC
   2HCDRV.DOC
   FDFORM.DOC
+  ISHARC.DOC
+  ISHVA.DOC
+  TENIM3.DOC
+  TENMAIL.DOC
+  TFD12.DOC
+  TFD12.MAN
   FATMAP.MAN
   FATMREAD.DOC
   FORG.DOC
@@ -699,6 +736,9 @@ A:\ARCHIVE\
   JFPPAT.ZIP
   2HCDRV.ZIP
   FDFRMSRC.LZH
+  ISHARC.COM
+  TENIM3.COM
+  TFD12.LZH
 
 A:\TMP\
 ```
