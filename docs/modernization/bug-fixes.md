@@ -2100,3 +2100,29 @@ separate parity correction or move it to Open Defects.
   passes 84/84 with one expected skip.
 - **Evidence:** [NEON4 P5 source](../../demos/neon4/src/neon4_p3.asm).
 - **Commit:** [4c10eb4](https://github.com/nakatamaho/vaeg/commit/4c10eb432befa6d0bff66d19c9246ee7a4bc86b5)
+
+
+### NEON4 direct-colour scenes used low-colour face indices
+
+- **Status:** fixed in M97.
+- **Symptom:** the 65536-colour profile rendered scene faces with grey or
+  otherwise incorrect hues around frame 0x1CE, even though the direct
+  `pegc_palette_grb` to G6/R5/B5 table was correct.
+- **Root cause:** the shared 286 geometry path selected `low_face_theme_pairs`
+  (16-colour analog indices such as 3, 5, and 13) before the direct-colour
+  backend converted the value.  Those indices are grayscale entries in the
+  original 256-colour palette, so the direct profile never reached the blue
+  ramp selected by the original cross-area shade calculation.
+- **Correction:** direct profiles now retain the original 256-colour shade
+  rule (`clamp((projected_cross >> 11) + 8, 8, 31)`) and produce the original
+  ramp indices before conversion.  Direct-profile ribbon strips and finale
+  blades likewise use their original 256-colour indices; low-colour graph
+  colouring and dithering remain confined to the 4bpp profile.
+- **Verification:** the source `pegc_palette_grb` table independently converts
+  to all 256 RGB332 bytes and all 256 G6/R5/B5 words with zero mismatches;
+  NASM builds pass for 4bpp, RGB332, and direct 16bpp profiles; the bootable
+  validation disk contains both rebuilt payloads; CTest remains subject to
+  the pre-existing `vaeg_upd9002_trace_equivalence` FMBOARD statsave failure.
+- **Evidence:** [NEON4 P5 source](../../demos/neon4/src/geom4_low.inc),
+  [NEON4 P5 colour report](../port/neon4_p5.md).
+- **Commit:** [f86c3c0](https://github.com/nakatamaho/vaeg/commit/f86c3c07430e5dfc78d98fc4ad7410fc4d048f5c)
