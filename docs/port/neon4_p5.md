@@ -41,6 +41,18 @@ The P5 presentation now follows the validated 8bpp two-page sequence from
 while visible.  This removes the clear/rebuild flicker; any remaining motion
 is scene animation rather than an incomplete-frame exposure.
 
+## Text overlay and console ownership
+
+Both published profiles keep the VA TEXT plane enabled and draw the live
+NEON4 status overlay through the same VA BIOS text path used by NEON3.  At
+stage-8 entry, `INT 83h` with `AH=2Fh, AL=00h` removes the inherited soft-key
+guide and `INT 94h` with `AH=01h, AL=FFh` hides the reserved system line.  The
+overlay then selects text-only composition, writes the title, profile, scene,
+frame, and exit rows through the Text BIOS, and restores text-above-G0
+composition.  Exit restores the caller's ten-entry guide with `AL=0Ah` for
+both services.  No DOS console API, direct TVRAM address, or TEXT-OFF
+workaround is used.
+
 The VA colour path keeps the original 0..255 PEGC index through the low
 geometry helpers.  `neon4_va_palette.inc` quantises the original
 `pegc_palette_grb` table to direct RGB332 bytes (`gggrrrbb`).  It no longer

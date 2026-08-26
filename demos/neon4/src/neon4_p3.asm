@@ -37,6 +37,8 @@
 %ifndef NEON4_STAGE
 %define NEON4_STAGE 2
 %endif
+%define NEON4_TEXT_SCENE_COUNT 8
+%define NEON4_TEXT_TOTAL_FRAMES 3072
 %ifndef NEON4_P5_BPP
 %define NEON4_P5_BPP 8
 %endif
@@ -88,6 +90,8 @@
 
 %define VIDEO_BIOS_INT          8fh
 %define KEYBOARD_BIOS_INT       82h
+%define TEXT_BIOS_INT           83h
+%define SCREEN_EDITOR_BIOS_INT  94h
 %define VIDEO_DATA_SEG          0338h
 
 %define PORT_MEMORY_MAP         0153h
@@ -220,6 +224,14 @@ start:
         cld
         sti
 
+%if NEON4_STAGE == 8
+        ; Take ownership of the VA text console before entering graphics.
+        ; Text BIOS function 2Fh removes the resident soft-key producer and
+        ; Screen Editor function 01h hides the system-line guide.  TEXT stays
+        ; enabled for the NEON4 overlay.
+        call    neon4_text_console_init
+%endif
+
 %if NEON4_STAGE == 1
         ; N4-1: entry/stack/segment smoke.  No graphics or BIOS call.
         jmp     return_to_loader
@@ -308,6 +320,9 @@ wait_for_escape:
         jnc     wait_for_escape
 leave_and_return:
         call    va_video_leave
+%if NEON4_STAGE == 8
+        call    neon4_text_console_restore
+%endif
 return_to_loader:
         cli
         cmp     word [cs:0e006h], 5034h
@@ -1417,6 +1432,246 @@ keyboard_escape:
         clc
         ret
 
+%if NEON4_STAGE == 8
+; Remove the inherited VA soft-key/function-key guide without disabling TEXT.
+; INT 83h/AH=2Fh with AL=0 requests zero soft-key entries, while INT 94h
+; (Screen Editor)/AH=01h with AL=FF hides the reserved system line.
+neon4_text_console_init:
+        pusha
+        push    ds
+        push    es
+        mov     ah, 2fh
+        xor     al, al
+        int     TEXT_BIOS_INT
+        mov     ah, 01h
+        mov     al, 0ffh
+        int     SCREEN_EDITOR_BIOS_INT
+        pop     es
+        pop     ds
+        popa
+        ret
+
+; Restore the caller's normal ten-entry soft-key/system-line guide on exit.
+neon4_text_console_restore:
+        pusha
+        push    ds
+        push    es
+        mov     ah, 2fh
+        mov     al, 0ah
+        int     TEXT_BIOS_INT
+        mov     ah, 01h
+        mov     al, 0ah
+        int     SCREEN_EDITOR_BIOS_INT
+        pop     es
+        pop     ds
+        popa
+        ret
+
+; Draw the live NEON4 overlay through the VA Text BIOS.  The text plane is
+; temporarily selected for BIOS writes, then composed above G0 again.  This
+; is the same text-over-graphics contract used by NEON3; no DOS console API or
+; direct TVRAM address is involved.
+neon4_text_update_overlay:
+        pusha
+        push    ds
+        push    es
+        push    cs
+        pop     ds
+
+        ; Text BIOS calls are made while text-only composition is active.  The
+        ; graphics path may leave GVRAM selected, so restore TVRAM before the
+        ; character writes and GVRAM before returning to the scene.
+        xor     ax, ax
+        mov     ds, ax
+        mov     es, ax
+        mov     ax, 0b00h              ; $ScnDsp: display off
+        int     VIDEO_BIOS_INT
+        mov     ax, 0338h
+        mov     ds, ax
+        mov     es, ax
+        mov     ax, 0300h              ; $Compose: text only
+        mov     cx, 0001h
+        int     VIDEO_BIOS_INT
+        push    cs
+        pop     ds
+        push    cs
+        pop     es
+        mov     dx, PORT_MEMORY_MAP
+        mov     al, MEMORY_MAP_TVRAM
+        out     dx, al
+        call    neon4_text_clear_rows
+
+        mov     si, neon4_text_live_title
+        xor     dx, dx
+        call    neon4_text_puts_at
+        mov     si, neon4_text_profile
+        mov     dh, 1
+        xor     dl, dl
+        call    neon4_text_puts_at
+        mov     si, neon4_text_frame
+        mov     ax, [render_frame_counter]
+        mov     dh, 2
+        call    neon4_text_hex_at
+        mov     si, neon4_text_scene
+        mov     dh, 3
+        xor     dl, dl
+        call    neon4_text_puts_at
+        xor     bx, bx
+        mov     bl, [scene_index]
+        cmp     bl, NEON4_TEXT_SCENE_COUNT
+        jae     .no_scene_title
+        shl     bx, 1
+        mov     si, [scene_title_ptrs + bx]
+        mov     dh, 3
+        mov     dl, 18
+        call    neon4_text_puts_at
+.no_scene_title:
+        mov     si, neon4_text_local
+        mov     ax, [scene_frame]
+        mov     dh, 4
+        call    neon4_text_hex_at
+        mov     si, neon4_text_limit
+        mov     ax, NEON4_TEXT_TOTAL_FRAMES
+        mov     dh, 5
+        call    neon4_text_hex_at
+        mov     si, neon4_text_exit
+        mov     dh, 6
+        xor     dl, dl
+        call    neon4_text_puts_at
+
+        ; Compose text above G0 and resume graphics display.  The same layer
+        ; ordering is valid for both the 4bpp palette and 16bpp direct modes.
+        mov     dx, PORT_MEMORY_MAP
+        mov     al, MEMORY_MAP_GVRAM
+        out     dx, al
+        mov     ax, 0338h
+        mov     ds, ax
+        mov     es, ax
+        mov     ax, 0300h              ; $Compose: text above G0
+        mov     cx, 0031h
+        int     VIDEO_BIOS_INT
+        mov     ax, 0338h
+        mov     ds, ax
+        mov     es, ax
+        mov     ax, 0b01h              ; $ScnDsp: display on
+        int     VIDEO_BIOS_INT
+        mov     dx, PORT_MEMORY_MAP
+        mov     al, MEMORY_MAP_GVRAM
+        out     dx, al
+        pop     es
+        pop     ds
+        popa
+        ret
+
+; Clear the overlay rows once per update so scene titles of different lengths
+; cannot leave stale characters.  The complete 25-row clear is unnecessary:
+; startup guide suppression owns the remaining text rows.
+neon4_text_clear_rows:
+        push    ax
+        push    bx
+        push    dx
+        push    si
+        xor     bx, bx
+.row:
+        mov     dh, bl
+        xor     dl, dl
+        mov     si, neon4_text_blank_line
+        call    neon4_text_puts_at
+        inc     bl
+        cmp     bl, 7
+        jb      .row
+        pop     si
+        pop     dx
+        pop     bx
+        pop     ax
+        ret
+
+; DS:SI = NUL-terminated string, DH = row, DL = column.
+neon4_text_puts_at:
+        push    ax
+        push    bx
+        push    cx
+        push    dx
+        push    si
+        push    di
+        push    ds
+        push    es
+        mov     bh, dh
+        mov     bl, dl
+        push    cs
+        pop     ds
+        push    cs
+        pop     es
+        cld
+        mov     ah, 08h                ; set text cursor, DH=X and DL=Y
+        mov     dh, bl
+        mov     dl, bh
+        push    si
+        int     TEXT_BIOS_INT
+        pop     si
+        push    cs
+        pop     ds
+        push    cs
+        pop     es
+        mov     ah, 02h                ; write ASCIZ with current attribute
+        mov     dx, 8000h
+        push    si
+        int     TEXT_BIOS_INT
+        pop     si
+        pop     es
+        pop     ds
+        pop     di
+        pop     si
+        pop     dx
+        pop     cx
+        pop     bx
+        pop     ax
+        ret
+
+; DS:SI = label, AX = value, DH = row.  Place the fixed-width value at col 24.
+neon4_text_hex_at:
+        push    ax
+        push    dx
+        push    si
+        xor     dl, dl
+        call    neon4_text_puts_at
+        pop     si
+        pop     dx
+        pop     ax
+        call    neon4_text_make_hex
+        mov     si, neon4_text_hex_buffer
+        mov     dl, 24
+        call    neon4_text_puts_at
+        ret
+
+neon4_text_make_hex:
+        push    ax
+        push    bx
+        push    cx
+        push    dx
+        push    di
+        mov     bx, ax
+        mov     di, neon4_text_hex_buffer
+        mov     cx, 4
+.digit:
+        rol     bx, 4
+        mov     dx, bx
+        and     dx, 0fh
+        mov     si, dx
+        mov     al, [neon4_text_hex_digits + si]
+        stosb
+        loop    .digit
+        xor     al, al
+        stosb
+        pop     di
+        pop     dx
+        pop     cx
+        pop     bx
+        pop     ax
+        ret
+
+%endif
+
 ; Put a checkpoint on the existing text plane before the first 8bpp mode
 ; transaction.  The text BIOS is not safe before a graphics mode has been
 ; established on the tested ROMs, so this diagnostic marker writes the known
@@ -1525,6 +1780,25 @@ neon4_window_descriptor:
         dw 0, 0, SCREEN_HEIGHT, 0, 0
 
 diag_pre_mode_text db 'N4 ENTER OK', 0
+%if NEON4_STAGE == 8
+neon4_text_live_title db 'NEON4 // LIVE FRAME STATUS', 0
+neon4_text_frame db 'FRAME (HEX):', 0
+neon4_text_local db 'LOCAL FRAME (HEX):', 0
+neon4_text_scene db 'SCENE TITLE:', 0
+neon4_text_limit db 'TOTAL FRAMES (HEX):', 0
+%if NEON4_P5_BPP == 4
+neon4_text_profile db 'PROFILE: 640X400 / G0 / 4BPP', 0
+%elif NEON4_P5_BPP == 16
+neon4_text_profile db 'PROFILE: 320X200 / G0 / 16BPP', 0
+%else
+neon4_text_profile db 'PROFILE: 320X200 / G1 / 8BPP', 0
+%endif
+neon4_text_exit db 'ESC: PRESS ESC TO EXIT', 0
+neon4_text_blank_line times 80 db ' '
+                         db 0
+neon4_text_hex_buffer times 5 db 0
+neon4_text_hex_digits db '0123456789ABCDEF'
+%endif
 video_error_code dw 0
 
 ; These words are intentionally reserved for the P3 command builder.  The
@@ -1649,6 +1923,7 @@ p5_run_scene:
         call    p5_clear_draw_page
         jc      .failed
         mov     ax, [frame_counter]
+        mov     [render_frame_counter], ax
         call    select_scene
         call    p5_start_batch
         call    render_scene
@@ -1656,6 +1931,10 @@ p5_run_scene:
         jc      .failed
         call    p5_flip_draw_page
         jc      .failed
+        ; Update the live text overlay only after the complete graphics page
+        ; has been presented.  The text BIOS composition sequence is shared
+        ; with NEON3 and leaves the selected G0 page intact.
+        call    neon4_text_update_overlay
         call    keyboard_escape
         jc      .exit
         inc     word [frame_counter]

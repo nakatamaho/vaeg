@@ -33,6 +33,13 @@ The profile value is selected by `NEON4_P5_PROFILE`:
 | `16` | `16/neon4.com` | 640x400, packed 4bpp G0 | 16 indices, each selected from the 4096-colour palette |
 | `65536` | `65536/neon4.com` | 320x200, direct 16bpp G0 | native VA direct colour |
 
+Both profiles keep the VA TEXT plane enabled.  Stage 8 takes ownership of the
+console with Text BIOS `INT 83h/AH=2Fh, AL=00h` and Screen Editor BIOS
+`INT 94h/AH=01h, AL=FFh`, removing the inherited function-key/system-line
+guide without hiding NEON4's own text.  The live title, profile, scene, frame,
+and ESC status are refreshed through the same BIOS overlay sequence used by
+NEON3; exit restores the normal ten-entry guide (`AL=0Ah`).
+
 ## 16-colour palette mode
 
 The 640x400 profile is not RGB332.  Each pixel is a four-bit palette index,

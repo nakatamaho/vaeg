@@ -70,6 +70,32 @@ separate parity correction or move it to Open Defects.
 
 ## Fixed Defects
 
+### NEON4 inherited the DOS soft-key guide instead of owning the VA text plane
+
+- **Status:** fixed in M97; real PC-88VA hardware confirmation remains
+  pending.
+- **Symptom:** NEON4's graphics could be accompanied by the stale bottom
+  console/function-key row (`DIR A:`, `DIR B:`, `COPY`, `TIME`), while the
+  intended NEON status text was not rendered by the stage-8 port.
+- **Root cause:** unlike GLASS, NEON4 must keep TEXT enabled, but its stage-8
+  startup had no VA text-console ownership sequence and `text_update` was only
+  a stub.  The inherited soft-key/system-line state therefore remained
+  visible.
+- **Correction:** stage 8 now calls VA Text BIOS `INT 83h/AH=2Fh, AL=00h` and
+  Screen Editor BIOS `INT 94h/AH=01h, AL=FFh` before graphics.  A shared
+  NEON3-style overlay selects text-only composition for BIOS writes, updates
+  the title/profile/frame/scene rows, restores text-above-G0 composition, and
+  returns through `AL=0Ah` restoration calls on exit.  TEXT stays enabled and
+  no DOS or direct-TVRAM clearing path is used.
+- **Verification:** 16-colour and 65536-colour payloads assemble; VAEG
+  captures show the live overlay and blank rows below it, with no inherited
+  guide text in the decoded TVRAM.  Graphics remains visible in both
+  profiles.  CTest and hardware acceptance are reported separately below.
+- **Evidence:** [NEON4 P5 report](../port/neon4_p5.md) and [NEON4 stage-8
+  source](../../demos/neon4/src/neon4_p3.asm).
+- **Milestone/task:** M97 NEON4 text-console cleanup.
+- **Commit:** pending publication.
+
 ### NEON4 4bpp spans exposed a deferred four-pixel completion
 
 - **Status:** fixed in M97.
