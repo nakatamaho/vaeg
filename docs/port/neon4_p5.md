@@ -90,6 +90,17 @@ scene is building raster assets.  The P5 SGP command cursor is stored in
 command words to offset 1 of the payload and was required for the scene to
 reach the normal ESC wait path.
 
+The same register ownership rule also applies to the RASTER TRANSFER CAT
+span tables.  `low_draw_cat48` and
+`low_draw_cat48_200_overlay` keep their source-table cursor in `DI` while
+walking each row.  The SGP span and line emitters use `DI` internally as their
+command-list cursor, so they now save and restore the caller's `DI` on every
+entry.  Before this correction the first CAT span was valid, but the next
+source pair was read from the SGP command list; the resulting direct-colour
+image corruption was therefore data-cursor clobbering, not a bad CAT table or
+the RGB conversion.  The CPU 4bpp path did not expose the fault because its
+endpoint writer already preserved `DI`.
+
 ## Verification
 
 The following local checks were completed:
@@ -108,6 +119,9 @@ The following local checks were completed:
   every iteration.
 * A temporary one-span check — PASS: a logical span x=100..500, y=100 is
   centered at the expected physical row after the 320-byte pitch correction.
+* CAT cursor audit — PASS: both `p5_emit_span_physical` and
+  `p5_emit_line_physical` preserve `DI`; the 65536 profile builds with the
+  CAT table cursor intact across every emitted span.
 
 The current payload SHA-256 is recorded outside the repository with the D88
 capture because generated disk images are distribution artifacts, not source
