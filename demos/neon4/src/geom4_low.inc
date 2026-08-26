@@ -78,10 +78,10 @@ low_mul_shr8:
         or      ax, dx
         ret
 
-; Convert authored 0..255 physical colour to the matching 16-colour hue/shade
-; bucket.  The VA stage keeps the authored index so its direct RGB332 backend
-; can quantise the original 256-entry PEGC palette instead of collapsing it to
-; a low-colour bucket.
+; Convert authored 0..255 physical colour to the matching low-colour hue/shade
+; bucket.  The VA stage keeps the authored index so its packed RGB332 and
+; direct G6/R5/B5 backends can convert the original 256-entry PEGC palette
+; without collapsing it to a low-colour bucket.
 ; AL-only hot conversion for callers that do not need low_phys_to_16's
 ; historical AH/CX side effects.  80286 supports immediate shift counts.
 %if (NEON4_STAGE == 8) && (NEON4_P5_BPP != 4)
@@ -887,6 +887,14 @@ low_face_is_front:
         imul    bx
         sub     [low_cross1_lo], ax
         sbb     [low_cross1_hi], dx
+        ; Keep the complete positive projected area for the direct-colour
+        ; profile.  The original 256-colour renderer derives its ramp shade
+        ; from this value; the 16-colour profile continues to use its graph
+        ; colour classes below.
+        mov     ax, [low_cross1_lo]
+        mov     [n4_geo_face_cross], ax
+        mov     ax, [low_cross1_hi]
+        mov     [n4_geo_face_cross+2], ax
         mov     ax, [low_cross1_hi]
         or      ax, ax
         js      .no
@@ -913,6 +921,32 @@ low_face_colour:
         push    cx
         push    dx
         push    si
+
+%if (NEON4_STAGE == 8) && (NEON4_P5_BPP != 4)
+        ; Direct-colour profiles retain the original NEON4 256-entry palette
+        ; index and shade calculation.  The projected face area is positive
+        ; here and is converted exactly as n4_geo_colour_from_cross in the
+        ; original 256-colour source: shade = clamp(cross >> 11 + 8, 8, 31),
+        ; A = base + shade, B = A - 3.  p5_emit_color_if_needed later maps
+        ; those source indices independently to RGB332 or G6/R5/B5.
+        mov     ax, [n4_geo_face_cross+2]
+        or      ax, ax
+        jnz     .direct_shade_max
+        mov     dx, [n4_geo_face_cross]
+        mov     cl, 11
+        shr     dx, cl
+        add     dx, 8
+        cmp     dx, 31
+        jbe     .direct_shade_ready
+.direct_shade_max:
+        mov     dx, 31
+.direct_shade_ready:
+        add     dl, [n4_geo_colour_base]
+        mov     al, dl
+        mov     ah, dl
+        sub     ah, 3
+        jmp     .done
+%endif
 
         mov     si, [low_face_class_ptr]
         mov     bx, bp
@@ -944,6 +978,7 @@ low_face_colour:
         mov     al, [low_face_theme_pairs+bx]
         mov     ah, [low_face_theme_pairs+bx+1]
 
+.done:
         pop     si
         pop     dx
         pop     cx
@@ -988,7 +1023,13 @@ n4_geo_draw_tri_faces:
         mov     ax, bp
         and     al, 1
         mov     [low_face_dither_phase], al
+%if (NEON4_STAGE == 8) && (NEON4_P5_BPP != 4)
+        ; The original 256-colour path writes one shaded palette index per
+        ; face.  Dither is a low-colour-only presentation rule.
+        mov     byte [low_face_dither_enable], 0
+%else
         mov     byte [low_face_dither_enable], 1
+%endif
         mov     al, [n4_geo_fill_mode]
         mov     [n4_fill_mode], al
         call    n4_fill_triangle
@@ -1059,7 +1100,13 @@ n4_geo_draw_quad_faces:
         mov     ax, bp
         and     al, 1
         mov     [low_face_dither_phase], al
+%if (NEON4_STAGE == 8) && (NEON4_P5_BPP != 4)
+        ; The original 256-colour path writes one shaded palette index per
+        ; face.  Dither is a low-colour-only presentation rule.
+        mov     byte [low_face_dither_enable], 0
+%else
         mov     byte [low_face_dither_enable], 1
+%endif
         mov     al, [n4_geo_fill_mode]
         mov     [n4_fill_mode], al
 
@@ -3271,6 +3318,35 @@ n4_draw_ribbon_layer:
         add     ax, [n4_ribbon_base_y]
         mov     [n4_tri_y1], ax
 
+%if (NEON4_STAGE == 8) && (NEON4_P5_BPP != 4)
+        ; Direct-colour profiles use the original 256-colour ribbon ramp.
+        ; The low-colour edition keeps its authored four-slot palette below.
+        mov     ax, bp
+        shl     ax, 1
+        mov     bx, [city_global_frame]
+        shr     bx, 3
+        add     ax, bx
+        and     al, 63
+        cmp     al, 31
+        jbe     .ribbon_level_ready
+        mov     ah, 63
+        sub     ah, al
+        mov     al, ah
+.ribbon_level_ready:
+        mov     ah, al
+        add     al, [n4_ribbon_colour_base]
+        mov     [n4_fill_colour_a], al
+        mov     al, ah
+        cmp     al, 3
+        jae     .ribbon_b_sub
+        xor     al, al
+        jmp     .ribbon_b_ready
+.ribbon_b_sub:
+        sub     al, 3
+.ribbon_b_ready:
+        add     al, [n4_ribbon_colour_base]
+        mov     [n4_fill_colour_b], al
+%else
         ; 16-colour/286 editions: use four direct colours per ribbon.
         mov     bx, bp
         and     bx, 3
@@ -3283,6 +3359,7 @@ n4_draw_ribbon_layer:
 .ribbon_colour_ready:
         mov     [n4_fill_colour_a], al
         mov     [n4_fill_colour_b], al
+%endif
         mov     al, [n4_ribbon_fill_mode]
         mov     [n4_fill_mode], al
         call    n4_fill_ribbon_quad
@@ -3686,9 +3763,19 @@ scene4_material_finale:
         mov     ax, [n4_polar92_even_xy + si + 2]
         add     ax, 200
         mov     [n4_tri_y2], ax
+%if (NEON4_STAGE == 8) && (NEON4_P5_BPP != 4)
+        ; Direct-colour profiles use the original 256-colour finale ramp.
+        mov     bx, bp
+        mov     ax, [city_global_frame]
+        shr     ax, 3
+        add     bx, ax
+        and     bx, 15
+        mov     al, [n4_finale_colours + bx]
+%else
         mov     bx, bp
         and     bx, 7
         mov     al, [low_finale_blade_colours + bx]
+%endif
         mov     [n4_fill_colour_a], al
         mov     byte [n4_fill_mode], 0
         call    n4_fill_triangle

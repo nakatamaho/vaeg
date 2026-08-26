@@ -56,15 +56,31 @@ ten-entry guide with `AL=0Ah` for both services and the normal cursor.  No DOS
 console API, direct TVRAM address, or TEXT-OFF workaround is used.
 
 The VA colour path keeps the original 0..255 PEGC index through the low
-geometry helpers.  `neon4_va_palette.inc` quantises the original
-`pegc_palette_grb` table to direct RGB332 bytes (`gggrrrbb`).  It no longer
-uses the temporary 16-entry approximation table.
+geometry helpers.  `neon4_va_palette.inc` contains two independent conversion
+tables from the original `pegc_palette_grb` source triplets (G/R/B, 8 bits
+each): the 8bpp profile quantises to direct RGB332 bytes (`gggrrrbb`), while
+the 65536 profile converts directly to the VA direct-colour word
+`G6[15:10] | R5[9:5] | B5[4:0]`.  The 16bpp path therefore never discards the
+source blue component through an intermediate 2-bit RGB332 value.
 
 The first VAEG run exposed an address-calculation regression: the imported
 `config4_256.inc` planar constants redefine `BYTES_PER_LINE` as 80.  The VA
 packed backend restores the physical 320-byte pitch immediately after the
 scene includes.  Without that override, every SGP row address was compressed
 and the scene appeared as a band near the top of the display.
+
+## Direct-profile scene colour selection
+
+The low-colour geometry helpers retain their graph-coloured 16-entry tables
+only for the 4bpp profile.  The 8bpp and 65536-colour profiles follow the
+original NEON4 256-colour scene calculation: for a front-facing face,
+`shade = clamp((projected_cross >> 11) + 8, 8, 31)`, then
+`colour_a = n4_geo_colour_base + shade` and `colour_b = colour_a - 3`.
+The direct profiles do not dither those face shades.  Surface-wave strips and
+finale blades likewise use their original 256-entry ramp indices.  These
+indices are passed unchanged to `p5_emit_color_if_needed`, where the selected
+profile converts them from `pegc_palette_grb` to RGB332 or directly to
+`G6/R5/B5`; no 16-colour slot is used as an intermediate colour.
 
 ## Backend invariant
 
