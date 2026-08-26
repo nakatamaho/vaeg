@@ -2284,6 +2284,11 @@ static int test_mouse_state(void) {
 		np2oscfg.F12KEY = saved_f12;
 		return (fail("mouse", "F12 keypad-comma binding changed"));
 	}
+	np2oscfg.F12KEY = 5;
+	if (kbdmap_lookup(SDL_SCANCODE_F12) != 0x5a) {
+		np2oscfg.F12KEY = saved_f12;
+		return (fail("mouse", "F12 PC-key binding changed"));
+	}
 	np2oscfg.F12KEY = saved_f12;
 	fprintf(stderr, "selftest: mouse state ok\n");
 	return (SUCCESS);

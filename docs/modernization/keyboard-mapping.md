@@ -255,7 +255,7 @@ Status values:
 | NFER/KETTEI | KEY88_KETTEI | none | 0x51 | International5 | F11 (when not used by Fast forward) | mapped-but-untested | `machine/keystat.h`, `win9x/winkbd.cpp`, `io/serial.c` |
 | SPACE | KEY88_SPACE | Space | 0x34 | Space | Space | implemented | `machine/keystat.h`, `sdl2/sdlkbd.c` |
 | XFER/HENKAN | KEY88_HENKAN | none | 0x35 | International4 | Application | mapped-but-untested | `machine/keystat.h`, `win9x/winkbd.cpp` |
-| PC | KEY88_PC | none | 0x5a | ScrollLock | ScrollLock | mapped-but-untested | `win9x/winkbd.cpp`, `io/serial.c` |
+| PC | KEY88_PC | none; F12 option | 0x5a | ScrollLock | ScrollLock | mapped-but-untested | `win9x/winkbd.cpp`, `io/serial.c`, `sdl2/kbdmap.c` |
 | ZENKAKU | KEY88_ZENKAKU | none | 0x5b | Lang5 | unassigned | mapped-but-untested | `win9x/winkbd.cpp`, `io/serial.c` |
 | INSERT | KEY88_INS | Insert | 0x38 | Insert | Insert | implemented | `machine/keystat.h`, `sdl2/sdlkbd.c` |
 | DELETE | KEY88_DEL | Delete | 0x39 | Delete | Delete | implemented | `machine/keystat.h`, `sdl2/sdlkbd.c` |

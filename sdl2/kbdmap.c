@@ -424,7 +424,7 @@ static const TENKEYOVERLAY_ENTRY tenkey_overlay_entries[] = {
 #undef ACHORD
 #undef APASS
 
-static const BYTE f12keys[] = {0x61, 0x60, 0x4d, 0x4f};
+static const BYTE f12keys[] = {0x61, 0x60, 0x4d, 0x4f, 0x5a};
 
 static BYTE scancode_key[SDL_NUM_SCANCODES];
 static int scancode_role[SDL_NUM_SCANCODES];

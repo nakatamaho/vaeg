@@ -35,6 +35,7 @@ hold-to-fast-forward shortcut, so its keyup always clears the transient state
 even while ImGui captures input. It defaults to F11 and is configurable in
 the Keyboard mapping window. The `Mouse capture` host action is likewise
 listed there; it is active when the existing F12 binding menu is set to Mouse.
+The same menu can route F12 to the guest PC key without enabling mouse capture.
 All events are then passed to Dear ImGui. Other keyboard events and
 SDL_TEXTINPUT reach the guest only when `ImGuiIO::WantCaptureKeyboard` is
 false. Mouse events reach guest-side routing only when

@@ -518,7 +518,8 @@ state directly.
 Select `VA controller port -> Mouse` for VA mouse software; `Joystick` keeps
 the original controller-pad path. `Capture mouse` traps the host pointer only
 while the vaeg window has focus and Dear ImGui is not using the mouse. F12
-toggles capture when `Keyboard -> F12 binding -> Mouse` is selected. Middle
+toggles capture when `Keyboard -> F12 binding -> Mouse` is selected. The same
+menu can route F12 to the guest PC key. Middle
 click also toggles capture outside the GUI. Focus loss, reset, state load, and
 shutdown release both guest buttons and pending movement.
 

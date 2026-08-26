@@ -2923,6 +2923,9 @@ static void draw_device_menu(void) {
 				if (ImGui::MenuItem("Tenkey ,", nullptr, np2oscfg.F12KEY == 4)) {
 					set_f12_key(4);
 				}
+				if (ImGui::MenuItem("PC key", nullptr, np2oscfg.F12KEY == 5)) {
+					set_f12_key(5);
+				}
 				ImGui::EndMenu();
 			}
 			if (ImGui::BeginMenu("Host layout")) {
