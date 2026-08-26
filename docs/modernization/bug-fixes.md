@@ -2023,3 +2023,24 @@ separate parity correction or move it to Open Defects.
   The separate VA-model display path remains outside this regression result.
 - **Evidence:** [NEON4 P5 source](../../demos/neon4/src/neon4_p3.asm).
 - **Commit:** [1a02f35](https://github.com/nakatamaho/vaeg/commit/1a02f354363b7aedfa699f6a51d73c3745842abd)
+
+
+### NEON4 640x400 4bpp CPU endpoint writes wrapped at 64 KiB
+
+- **Status:** fixed in M97.
+- **Symptom:** the 16-colour profile showed a detached duplicate tetrahedron
+  and diagonal fragments at a different location from the rendered face.
+- **Root cause:** the exact endpoint read-modify-write path calculated a
+  128 KiB page offset in a 16-bit offset register, so rows in the upper half
+  wrapped at 64 KiB and wrote endpoint nibbles into unrelated rows.
+- **Correction:** retain the exact packed-4bpp endpoint mask, but select the
+  next 4 KiB CPU-aperture paragraph when the calculated offset has a non-zero
+  high word.  The SGP 24-bit destination path and polygon geometry are
+  unchanged.
+- **Verification:** disabling endpoint RMW in a diagnostic build removed the
+  detached shape, proving the fault was in the CPU endpoint path; the fixed
+  4bpp VAEG capture has only the intended central geometry.  The 16-colour and
+  65536-colour payloads build successfully, P4 CPU/SGP builds pass, and CTest
+  passes 84/84 with one expected skip.
+- **Evidence:** [NEON4 P5 source](../../demos/neon4/src/neon4_p3.asm).
+- **Commit:** [4c10eb4](https://github.com/nakatamaho/vaeg/commit/4c10eb432befa6d0bff66d19c9246ee7a4bc86b5)
