@@ -26,8 +26,9 @@ POSSIBILITY OF SUCH DAMAGE.
 
 This note summarizes the external PC-88VA HDD environment recipe centered
 on PCEPAT, MSE, and PCPLUS. It is a source-reference note for future vaeg
-SASI/HDD workflow work. It does not add, mirror, or redistribute any
-third-party binaries.
+SASI/HDD workflow work. Public third-party inputs are fetched and verified by
+the builders, but their binaries are generated into untracked D88 images and
+are not stored in this repository.
 
 ## Source Notes
 
@@ -90,6 +91,24 @@ Rev.50703. The adjacent
 provides `TSCLVA.BDF`, which advances both `TSCLVA.SYS` and `TSCLVA.DOC` from
 Rev.50703 to Rev.51127. The builder applies and verifies that update.
 
+[SCFORM](http://www.pc88.gr.jp/forum/viewtopic.php?t=502) is included from
+the forum's `scf124.lzh` download. It provides the SCSI formatter command and
+its original documentation; the development-disk builder installs
+`SCFORM.COM` in `A:\BIN`.
+
+[VIEW480](http://www.pc88.gr.jp/softlib/index.php?action=list_file&anum=2&gnum=404)
+is built from `V480SRC.LZH` (`VIEW480.ASM`) with the pinned Open Watcom
+`wasm`/`wlink` container in TASM-compatibility mode. The resulting
+`VIEW480.COM` is installed in `A:\BIN`, while the source archive is retained
+under `A:\ARCHIVE`.
+
+[JFPPAT](http://www.pc88.gr.jp/softlib/index.php?action=list_file&anum=2&gnum=307)
+is a PC-Engine patch driver. The builder installs `JFPPAT.SYS` in `A:\SYS`,
+loads it immediately after `PCEPAT.SYS`, and retains `JFPPAT.ZIP` and its
+documentation. The related [2HCDRV package](http://www.pc88.gr.jp/softlib/index.php?action=list_file&anum=2&gnum=306)
+is installed as `2HCDRV.COM` and `FDFORM.COM`; `FDFRMSRC.LZH` is retained as
+the formatter source archive.
+
 ## Core Components
 
 The development environment assembled below uses this baseline `CONFIG.SYS`:
@@ -105,6 +124,7 @@ DEVICE = A:\SYS\BMSDRVA.SYS
 DEVICE = A:\SYS\SCHD.SYS -I0
 DEVICE = A:\SYS\HOSTFAT.SYS
 DEVICE = A:\SYS\PCEPAT.SYS
+DEVICE = A:\SYS\JFPPAT.SYS
 DEVICE = A:\SYS\RESET.SYS
 DEVICE = A:\SYS\TSCLVA.SYS
 DEVICE = A:\SYS\MSE352B.COM /A /B
@@ -503,15 +523,17 @@ for this image are stored under the Git-ignored
 `docs/archives/pc88va-development-disk/` directory. This includes the LHA
 2.55 executable and 2.55b patch, `X8MAP130.LZH`, `EMMVA15A.LZH`,
 `RDEMS152.LZH`, `RDPCM001.LZH`, `RESET.ZIP`, `TSCLVA.ZIP`, `TSCLBDF.ZIP`,
-`BMS15020.TGZ`, both `PCP108.LZH` and `PCP108P.LZH`, and the pinned SQEMM
-source archive.
+`BMS15020.TGZ`, both `PCP108.LZH` and `PCP108P.LZH`, `SCF124.LZH`,
+`V480SRC.LZH`, `JFPPAT.ZIP`, `2HCDRV.ZIP`, `FDFRMSRC.LZH`, and the pinned
+SQEMM source archive.
 These archive copies and the generated D88 remain outside Git.
 
 The complete build performs these operations:
 
 1. Create the minimal vanilla system disk while retaining the IPL and the
    original fixed system-file chains.
-2. Fetch and verify PCEPAT, BMS Driver 1.50 Rev 0.20, PCPLUS 1.08 and its
+2. Fetch and verify PCEPAT, SCFORM, JFPPAT, 2HCDRV, FDFRMSRC, and V480,
+   together with BMS Driver 1.50 Rev 0.20, PCPLUS 1.08 and its
    group 2-451 bug-fix patch, SCHD 1.55t, RDBMS 1.21, RDPCM 0.01, TSCLVA
    Rev.50703 and its Rev.51127 update, RESET Rev.51028, BDIFF/BUPDATE 1.28,
    MSE 3.52a and the 3.52b patch, WSP 1.50, LHA 2.55 and its official 2.55b
@@ -525,16 +547,19 @@ The complete build performs these operations:
    `BMSDRVA.SYS`, the updated TSCLVA Rev.51127 files, and the PC-88VA
    K-Launcher files `KLL.COM`, `KLVA.EXE`, and `KLCUST.EXE`.
 5. Assemble and validate the repository's clean-room `HOSTFAT.SYS` with NASM.
-6. Build and validate `SQEMM98.SYS` from pinned source with Open Watcom, then
+6. Assemble and link `VIEW480.ASM` from `V480SRC.LZH` with the pinned
+   Open Watcom image, then install the resulting `VIEW480.COM`.
+7. Build and validate `SQEMM98.SYS` from pinned source with Open Watcom, then
    install the complete EMMVA/SQEMM98/RDEMS driver stack.
-7. Verify the generated files against known public-package checksums.
-8. Extract the RAMDISK self-extracting archive and stage its driver, helper
+8. Verify the generated files against known public-package checksums.
+9. Extract the RAMDISK self-extracting archive and stage its driver, helper
    commands, and documentation separately.
-9. Run every `.EXE` and `.COM` under `BIN` through DIET 1.44. COM files retain
+10. Run every `.EXE` and `.COM` under `BIN` through DIET 1.44. COM files retain
    their COM form; files for which DIET cannot reduce byte size remain
    unchanged.
-10. Add the fifteen `SYS` drivers, the compressed `BIN` utilities, their `DOC`
-    files, and an empty `TMP` directory to the vanilla FAT12 filesystem.
+11. Add the `SYS` drivers, compressed `BIN` utilities, source archives,
+    documentation, and an empty `TMP` directory to the vanilla FAT12
+    filesystem.
 
 The PC-Engine disk has a valid FAT12 allocation structure but no conventional
 DOS BPB, so normal `mtools` commands reject it as non-DOS media. The builder
@@ -543,9 +568,9 @@ two-head, eight-sector, 1024-byte PC-Engine 1.1 layout. It never relocates the
 existing `ENGINEIO.SYS` or `PCENGINE.SYS` boot chains. The vanilla builder
 clears all unreferenced data clusters, and new directory entries use a fixed
 DOS date, so repeated builds from the same source are byte-for-byte
-reproducible. The validated image installs 98 payload files totaling 925,755
-bytes in addition to the four retained PC-Engine system files and leaves
-229,376 bytes free.
+reproducible. The builder's final file count, payload size, and free-space
+summary include the SCFORM, VIEW480, JFPPAT, 2HCDRV, and formatter-source
+additions described below.
 
 The development disk is organized as follows. `KLVA.EXE`, `KLCUST.EXE`,
 `KL.CFG`, and `KLJPN.HLP` are also kept in `BIN` because `KLL.COM` needs the
@@ -566,6 +591,7 @@ A:\SYS\
   SCHD.SYS
   HOSTFAT.SYS
   PCEPAT.SYS
+  JFPPAT.SYS
   RESET.SYS
   TSCLVA.SYS
   MSE352B.COM
@@ -602,6 +628,10 @@ A:\BIN\
   TLOG.COM
   TLOGBMS.COM
   VBUFF.COM
+  SCFORM.COM
+  VIEW480.COM
+  2HCDRV.COM
+  FDFORM.COM
   FATMAP.EXE
   FATMAP_E.COM
   FORG.EXE
@@ -636,6 +666,11 @@ A:\DOC\
   TLOG.DOC
   VBUFF.DOC
   VBUFF.LOG
+  SCFORM.DOC
+  SCFORM.LOG
+  JFPPAT.DOC
+  2HCDRV.DOC
+  FDFORM.DOC
   FATMAP.MAN
   FATMREAD.DOC
   FORG.DOC
@@ -658,6 +693,12 @@ A:\DOC\
   SQEMM98.TXT
   X8MAP130.SMP
   X8MAP130.TXT
+
+A:\ARCHIVE\
+  V480SRC.LZH
+  JFPPAT.ZIP
+  2HCDRV.ZIP
+  FDFRMSRC.LZH
 
 A:\TMP\
 ```
@@ -704,6 +745,7 @@ DEVICE = A:\SYS\BMSDRVA.SYS
 DEVICE = A:\SYS\SCHD.SYS -I0
 DEVICE = A:\SYS\HOSTFAT.SYS
 DEVICE = A:\SYS\PCEPAT.SYS
+DEVICE = A:\SYS\JFPPAT.SYS
 DEVICE = A:\SYS\RESET.SYS
 DEVICE = A:\SYS\TSCLVA.SYS
 DEVICE = A:\SYS\MSE352B.COM /A /B
@@ -716,7 +758,8 @@ The EMMVA/SQEMM98 manager stack loads first. PCPLUS follows it, then the
 WSP-generated BMSDRVA device-driver form. PCPLUS still precedes the target-zero
 SCHD block driver. HOSTFAT is available when vaeg has a read-only host folder
 configured. RESET loads immediately after its required PCEPAT dependency;
-PCEPAT, RESET, and TSCLVA all precede MSE. MSE uses `/A` for BMS-backed Alias
+PCEPAT, JFPPAT, RESET, and TSCLVA all precede MSE. JFPPAT is the optional
+PC-Engine patch layer and is loaded immediately after PCEPAT. MSE uses `/A` for BMS-backed Alias
 data and `/B` for partial BMS code-data swap; `/X` remains omitted because no
 XMS manager is installed.
 RDBMS explicitly selects the PC-88VA I/O Bank Memory port `01D0H`. Its

@@ -42,7 +42,8 @@ usage() {
 		'First create a vanilla PC-Engine 1.1 system disk, then add PCPLUS,' \
 		'SCHD, HOSTFAT, PCEPAT, RESET, TSCLVA, MSE 3.52b, RDBMS, RDPCM,' \
 		'BMSDRVA, EMMVA/SQEMM98/RDEMS,' \
-		'development tools, X8MAP, and K-Launcher.' \
+		'development tools, SCFORM, VIEW480, JFPPAT, 2HCDRV, FDFORM, X8MAP,' \
+		'and K-Launcher.' \
 		'The source and generated D88 images are never added to the repository.'
 }
 
@@ -241,6 +242,21 @@ fetch_package ramdisk.com \
 fetch_package fut312bx.zip \
 	49df5a5f68b91f64affc9f305a328f0925e07cbe88604e17687c653a523eabe5 \
 	'https://www.ibiblio.org/pub/micro/pc-stuff/freedos/mirrors/gnuish/dos_only/fut312bx.zip'
+fetch_package scf124.lzh \
+	a62183d66da90546d19d81f8adad32a2df2485d619badcaf2c167668b7603aad \
+	'http://www.pc88.gr.jp/forum/download.php?id=15'
+fetch_package v480src.lzh \
+	ddb5623a46169e9e8bc6dd8394d4ad1051ce571b51662a78210b40bfe9e46b20 \
+	'http://www.pc88.gr.jp/softlib/index.php?action=download&anum=2&gnum=404&fname=V480SRC.LZH'
+fetch_package jfppat.zip \
+	900e2ee9b7a3562ff1f8f9f0a4bbbd82bbd248a35f49768d5dc34607b9c194b0 \
+	'http://www.pc88.gr.jp/softlib/index.php?action=download&anum=2&gnum=307&fname=JFPPAT.ZIP'
+fetch_package 2hcdrv.zip \
+	1da4d799b1aaf3a2fc94f8872eb3fd2cf6eb788fb907e8ba8c85cc79b0487e39 \
+	'http://www.pc88.gr.jp/softlib/index.php?action=download&anum=2&gnum=306&fname=2HCDRV.ZIP'
+fetch_package fdfrmsrc.lzh \
+	d81358cbcfc1d6175359059d9c01fb75e5585993c3bc3d3e1fc988d7aa7c3e5a \
+	'http://www.pc88.gr.jp/softlib/index.php?action=download&anum=2&gnum=401&fname=FDFRMSRC.LZH'
 
 work_dir=$(mktemp -d "${TMPDIR:-/tmp}/vaeg-pc88va-devdisk.XXXXXX")
 
@@ -303,6 +319,13 @@ mkdir -p -- "$work_dir/bms"
 tar -xzf "$cache_dir/bms15020.tgz" -C "$work_dir/bms"
 mkdir -p -- "$work_dir/fut312bx"
 unzip -q "$cache_dir/fut312bx.zip" 'BIN/*' -d "$work_dir/fut312bx"
+extract_archive "$cache_dir/scf124.lzh" "$work_dir/scform"
+extract_archive "$cache_dir/v480src.lzh" "$work_dir/v480"
+mkdir -p -- "$work_dir/jfppat"
+unzip -q "$cache_dir/jfppat.zip" -d "$work_dir/jfppat"
+mkdir -p -- "$work_dir/2hcdrv"
+unzip -q "$cache_dir/2hcdrv.zip" -d "$work_dir/2hcdrv"
+extract_archive "$cache_dir/fdfrmsrc.lzh" "$work_dir/fdfrmsrc"
 add_uppercase_aliases "$work_dir"
 
 stage_dir=$work_dir/stage
@@ -385,7 +408,7 @@ python3 "$script_dir/hostfat/check_driver.py" --input "$hostfat_sys"
 
 payload_dir=$work_dir/payload
 mkdir -p -- "$payload_dir/root" "$payload_dir/bin" "$payload_dir/doc" \
-	"$payload_dir/sys" "$payload_dir/tmp"
+	"$payload_dir/sys" "$payload_dir/archive" "$payload_dir/tmp"
 
 copy_payload() {
 	cp -- "$1" "$payload_dir/$2"
@@ -398,6 +421,7 @@ copy_payload "$stage_dir/PCPLUS.SYS" sys/PCPLUS.SYS
 copy_payload "$work_dir/schd/SCHD.SYS" sys/SCHD.SYS
 copy_payload "$hostfat_sys" sys/HOSTFAT.SYS
 copy_payload "$work_dir/pcepat/PCEPAT.SYS" sys/PCEPAT.SYS
+copy_payload "$work_dir/jfppat/JFPPAT.SYS" sys/JFPPAT.SYS
 copy_payload "$work_dir/reset/RESET.SYS" sys/RESET.SYS
 copy_payload "$stage_dir/MSE352B.COM" sys/MSE352B.COM
 copy_payload "$work_dir/rdbms/RDBMS.SYS" sys/RDBMS.SYS
@@ -441,6 +465,12 @@ copy_payload "$work_dir/fatmap/FATMAP.EXE" bin/FATMAP.EXE
 copy_payload "$work_dir/fatmap/FATMAP_E.COM" bin/FATMAP_E.COM
 copy_payload "$work_dir/forg/FORG.EXE" bin/FORG.EXE
 copy_payload "$work_dir/forg/FORG.DAT" bin/FORG.DAT
+copy_payload "$work_dir/scform/SCFORM.COM" bin/SCFORM.COM
+copy_payload "$work_dir/2hcdrv/2HCDRV.COM" bin/2HCDRV.COM
+copy_payload "$work_dir/2hcdrv/FDFORM.COM" bin/FDFORM.COM
+"$repo_root/tools/openwatcom/build-view480.sh" \
+	--source "$work_dir/v480/VIEW480.ASM" \
+	--output "$payload_dir/bin/VIEW480.COM"
 copy_payload "$work_dir/ramdisk/BIOSFREE.COM" bin/BIOSFREE.COM
 copy_payload "$work_dir/ramdisk/SETID.COM" bin/SETID.COM
 copy_payload "$work_dir/ramdisk/SETIPL.COM" bin/SETIPL.COM
@@ -491,6 +521,15 @@ copy_payload "$work_dir/x8map/X8MAP130.SMP" doc/X8MAP130.SMP
 copy_payload "$work_dir/x8map/X8MAP130.TXT" doc/X8MAP130.TXT
 copy_payload "$work_dir/emmva/EMMVA150.DOC" doc/EMMVA150.DOC
 copy_payload "$work_dir/rdems/RDEMS152.MAN" doc/RDEMS152.MAN
+copy_payload "$work_dir/scform/SCFORM.DOC" doc/SCFORM.DOC
+copy_payload "$work_dir/scform/SCFORM.LOG" doc/SCFORM.LOG
+copy_payload "$work_dir/jfppat/JFPPAT.DOC" doc/JFPPAT.DOC
+copy_payload "$work_dir/2hcdrv/2HCDRV.DOC" doc/2HCDRV.DOC
+copy_payload "$work_dir/2hcdrv/FDFORM.DOC" doc/FDFORM.DOC
+copy_payload "$cache_dir/v480src.lzh" archive/V480SRC.LZH
+copy_payload "$cache_dir/jfppat.zip" archive/JFPPAT.ZIP
+copy_payload "$cache_dir/2hcdrv.zip" archive/2HCDRV.ZIP
+copy_payload "$cache_dir/fdfrmsrc.lzh" archive/FDFRMSRC.LZH
 
 printf '%s\r\n' \
 	'SQEMM98 MAX v0.8 for PC-88VA' \
@@ -557,6 +596,7 @@ printf '%s\r\n' \
 	'DEVICE = A:\SYS\SCHD.SYS -I0' \
 	'DEVICE = A:\SYS\HOSTFAT.SYS' \
 	'DEVICE = A:\SYS\PCEPAT.SYS' \
+	'DEVICE = A:\SYS\JFPPAT.SYS' \
 	'DEVICE = A:\SYS\RESET.SYS' \
 	'DEVICE = A:\SYS\TSCLVA.SYS' \
 	'DEVICE = A:\SYS\MSE352B.COM /A /B' \
