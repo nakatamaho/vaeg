@@ -27,6 +27,7 @@
 
 typedef struct {
 	BOOL fast_forward_held;
+	UINT fast_forward_scancode;
 } VAEG_PACING_STATE;
 
 #ifdef __cplusplus

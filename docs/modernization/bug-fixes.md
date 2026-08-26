@@ -70,6 +70,198 @@ separate parity correction or move it to Open Defects.
 
 ## Fixed Defects
 
+### NEON3 text overlay repainted the whole TVRAM surface every frame
+
+- **Status:** fixed in M97; real PC-88VA/VA2 hardware confirmation remains
+  pending for this increment.
+- **Symptom:** the live NEON3 text blinked during rendering, stale console
+  text remained until the first repaint, and the release payload stopped at
+  the end of its 6144-frame timeline instead of continuing until `ESC`.
+- **Root cause:** `neon_counter_update_overlay` toggled text composition,
+  cleared all 25 TVRAM rows, and rewrote static labels on every frame after
+  the page flip.  The frame-limit path then fell through to the diagnostic
+  status screen after one timeline pass.
+- **Correction:** clear TVRAM once before the first frame through the VA Text
+  BIOS path, write static labels once, and update only fixed-width dynamic
+  fields after the VBLANK-boundary presentation.  Rewrite the scene title only
+  when the scene changes.  Text BIOS `INT 83h/AH=25h, AL=00h` suppresses cursor
+  blink while running and `AL=03h` restores it on exit.  The default release
+  build wraps the 6144-frame timeline to frame zero until `ESC`; diagnostic
+  builds can disable wrapping with `NEON_BUILD_LOOP=0`.
+- **Verification:** NEON3 200/400 NASM payloads build at 57328 bytes; VAEG
+  startup/frame-loop capture reports `TEXT_VISIBLE=PASS`,
+  `BOTTOM_GUIDE=PASS`, and `FORBIDDEN_VISIBLE=NONE`; `vaeg --selftest` passes;
+  CTest passes 84/84 with one expected skip; repository encoding, case, and
+  diff checks pass.  No real VA/VA2 hardware gate was run for this change.
+- **Evidence:** [NEON3 text-console report](../port/neon3_text_console.md),
+  [NEON3 P3 status](../port/neon3_p3_status.md), and
+  [NEON3 source](../../demos/neon3/src/neon_counter.asm).
+- **Milestone/task:** M97 NEON3 text repaint cleanup and continuous timeline.
+- **Commit:** [b62e0e07](https://github.com/nakatamaho/vaeg/commit/b62e0e07d4f37f3dcbd8fb559667cc21536b7a2)
+
+### NEON4 inherited the DOS soft-key guide instead of owning the VA text plane
+
+- **Status:** fixed in M97; real PC-88VA hardware confirmation remains
+  pending.
+- **Symptom:** NEON4's graphics could be accompanied by the stale bottom
+  console/function-key row (`DIR A:`, `DIR B:`, `COPY`, `TIME`), while the
+  intended NEON status text was not rendered by the stage-8 port.
+- **Root cause:** unlike GLASS, NEON4 must keep TEXT enabled, but its stage-8
+  startup had no VA text-console ownership sequence and `text_update` was only
+  a stub.  The inherited soft-key/system-line state therefore remained
+  visible.
+- **Correction:** stage 8 now calls VA Text BIOS `INT 83h/AH=2Fh, AL=00h` and
+  Screen Editor BIOS `INT 94h/AH=01h, AL=FFh` before graphics.  A shared
+  NEON3-style overlay selects text-only composition, clears all TVRAM rows
+  while the display is hidden, writes fixed labels once, and restores
+  text-above-G0 composition.  Dynamic fields are grouped immediately after
+  each VBLANK edge, and the scene title row is rewritten only on a scene
+  change.  Text BIOS `AH=25h, AL=00h` hides the cursor blink; exit restores
+  `AL=0Ah` guide settings and the normal cursor.  TEXT stays enabled and no
+  DOS or direct-TVRAM clearing path is used.
+- **Verification:** 16-colour and 65536-colour payloads assemble; VAEG
+  captures show the live overlay and blank rows below it, with no inherited
+  guide text in the decoded TVRAM.  Graphics remains visible in both
+  profiles.  CTest and hardware acceptance are reported separately below.
+- **Evidence:** [NEON4 P5 report](../port/neon4_p5.md) and [NEON4 stage-8
+  source](../../demos/neon4/src/neon4_p3.asm).
+- **Milestone/task:** M97 NEON4 text-console cleanup.
+- **Commit:** [d013466f](https://github.com/nakatamaho/vaeg/commit/d013466f35eb9af8666a0906a3a9e26435485eb5).
+
+### NEON4 4bpp spans exposed a deferred four-pixel completion
+
+- **Status:** fixed in M97.
+- **Symptom:** the 640x400 16-colour profile could show a four-pixel hole in
+  a face span before a later write filled it.  The completed framebuffer did
+  not necessarily retain the hole, but the intermediate paint sequence was
+  visibly wrong.
+- **Root cause:** the packed 4bpp span writer split one logical span between
+  immediate CPU RMW operations for partial endpoint words and an asynchronous
+  SGP CLS operation for complete interior words.  That is two visible write
+  stages for one span; it is not a geometry or nibble-mapping rule.
+- **Correction:** the 4bpp path now walks every touched word through one
+  geometry-independent exact CPU RMW routine.  The first and last words use
+  their logical endpoint masks, while wholly covered words select all four
+  nibbles through the same routine.  No endpoint-correction pass or SGP CLS
+  overlap remains for face spans.  SGP remains in use for clear and LINE
+  operations.
+- **Verification:** NASM builds passed for the 16-colour and 65536-colour
+  profiles; consecutive VAEG captures of the 16-colour profile retained the
+  intended face geometry without a later span-completion stage; `git diff
+  --check`, CTest (84/84 with one expected skip), and the repository case
+  check passed.  Real-hardware timing remains outside this VAEG result.
+- **Evidence:** [NEON4 P5 source](../../demos/neon4/src/neon4_p3.asm) and the
+  local VAEG exact-span capture used for this correction.
+- **Milestone/task:** M97 NEON4 4bpp transient span correction.
+- **Commit:** pending publication.
+
+### GLASS P4 face fill used geometry-specific repair and empty-span overdraw
+
+- **Status:** fixed in M97; real-hardware keyboard-return parity remains a
+  separate unresolved item.
+- **Symptom:** the GLASS P4 cube needed a temporary one-pixel outline bridge
+  after face filling, and a vertex row could gain a face-colour pixel outside
+  the polygon when an empty span was swapped into an ordered range.
+- **Root cause:** triangle spans used inconsistent integer-X ownership at
+  `y+1/2`; the generic span emitter swapped `x_left > x_right` instead of
+  treating it as an empty span. The earlier repair stage masked this symptom
+  with cube-specific writes. This was not an SDL blank-raster presentation
+  issue.
+- **Correction:** use one general `ceil(left)`/`floor(right)` half-row rule,
+  discard empty spans, preserve exact logical endpoints with masked 4bpp word
+  RMW, and keep only the intended outline redraw. The CPU verification path
+  now uses the same exact logical-span contract. A source-level no-repair
+  guard prevents reintroducing named geometry-specific repair stages.
+- **Verification:** independent x-mod-4 calibration, face underfill/overfill,
+  internal-hole, edge-registration, vertex, shared-edge, slope, and rectangle
+  matrices passed. CPU/SGP complete GVRAM and composed-screen comparison
+  passed; CTest 84/84 passed with one external test skipped by policy; VAEG
+  selftest passed. Real observations remain PC-88VA graphics/ESC PASS with
+  keyboard-after-return unresolved, and PC-88VA2 graphics/ESC/keyboard PASS.
+- **Evidence:** [M97 P4 visual report](../agents/reports/m97_p4_visual_holes.md),
+  [shared SGP implementation](../../demos/glass-orbit/src/glass_orbit_sgp_backend.asm),
+  and [no-repair guard](../../demos/glass-orbit/tools/check-p4-no-repair.py).
+- **Milestone/task:** M97 P4 fill algorithm cleanup.
+- **Commit:** [76d7de7](https://github.com/nakatamaho/vaeg/commit/76d7de7cfffd51b49302cd46cd47afb82ad200f4).
+
+### GLASS final scene rebuilt the visible page and enqueued cube edges twice
+
+- **Status:** fixed in M97a; real-hardware timing and keyboard parity remain
+  separate pending items.
+- **Symptom:** the complete P5 scene could visibly show face construction and
+  a temporary four-pixel endpoint stage, with substantial flicker while the
+  active page was cleared and rebuilt. The final VAEG framebuffer was correct.
+- **Root cause:** P5 used the common backend at stage 3, so the first SGP list
+  already contained the edge LINE commands before endpoint RMW and the scene
+  submitted a second edge list. It also rendered every frame into the single
+  displayed FB0 source half; the VBLANK poll happened only after construction.
+- **Correction:** P5 now uses stage 2 (grid/faces only), applies the shared
+  exact endpoint partition once, submits one outline list, and renders into
+  the hidden 200-line FB0 source half. After SGP idle and CPU stars complete,
+  it waits for TSP VBLANK and selects the complete source through Graphics
+  BIOS `$RollTo`. CPU endpoint/stars use the matching A0000h aperture segment
+  for each source half. Explicit `FRAME_READY`, geometry-complete,
+  star-complete, and SGP-idle state bytes guard the page selection; partial
+  endpoint words remain exact masked RMW writes and are never SGP-full-filled.
+- **Verification:** P4 raw GVRAM and screen remained byte-identical to the
+  pre-change capture; P5 VA and VA2 captures show complete presented frames;
+  three temporal checkpoints showed no visible construction frame. The P5
+  source/partition guard, P4 alignment/slope matrices, CTest, and repository
+  checks passed.
+- **Evidence:** [final temporal report](../port/glass_orbit.md), [temporal
+  checker](../../demos/glass-orbit/tools/verify-temporal.py), and
+  [final scene](../../demos/glass-orbit/src/glass_scene.inc).
+- **Milestone/task:** M97 P5 temporal rendering cleanup.
+- **Commit:** [49242f3](https://github.com/nakatamaho/vaeg/commit/49242f3d3d739eb1602042cb6819314f328ef7ac).
+
+### SGP wireframe demo corrupted its projected solid geometry
+
+- **Status:** fixed in the revised M97 visual-gate candidate; G97 remains
+  pending.
+- **Symptom:** the program identified its four objects as a tetrahedron,
+  cuboid, dodecahedron, and icosahedron, but the animated line sets did not
+  consistently resemble those solids. It also used 320x200 output instead of
+  the subsequently required 640x400 mode.
+- **Root cause:** the projection routine saved one multiplication result in
+  `DX`, then executed another one-operand 16-bit `IMUL`, which overwrote
+  `DX:AX` before the two products were combined. The second object also used
+  unequal X, Y, and Z extents and therefore was a cuboid rather than a regular
+  hexahedron.
+- **Correction:** preserve every intermediate Q7 product in memory, use equal
+  extents for the cube, retain the verified degree-3/30-edge dodecahedron and
+  degree-5/30-edge icosahedron tables, and render at 640x400 from two halves of
+  a BIOS-defined 640x800 Graphic 0 framebuffer.
+- **Verification:** NASM builds the revised COM, and two VAEG captures at
+  distinct animation phases show the connected regular tetrahedron, cube,
+  regular dodecahedron, and regular icosahedron on a 640x400 reference grid.
+- **Evidence:** [M97 report](../agents/reports/m97_sgp_tekumani_commands.md).
+- **Commit:** [7df8bc9](https://github.com/nakatamaho/vaeg/commit/7df8bc9529c012695fcb5d38fe677dba984c1eba).
+
+### SGP LINE directions and SCAN behavior diverged from the Technical Manual
+
+- **Status:** fixed in M97; G97 visual-regression verification remains
+  pending and real-hardware timing remains unverified.
+- **Symptom:** LINE interpreted the documented vertical and horizontal
+  direction bits in each other's positions, and both SCAN commands only
+  logged a TODO before command processing continued. The original-VA block
+  decoder also accepted later-model width, height, and pitch bits that the VA
+  descriptor reserves.
+- **Root cause:** the SGP implementation carried separate reversed LINE masks,
+  unimplemented SCAN command handlers, and one unconditional VA2-style block
+  decoder. The local PC-88VA Technical Manual defines common LINE/BLT
+  direction bits, complete SCAN results, and the original-VA field widths.
+- **Correction:** use `VD=0800h` and `HD=0400h` for LINE, select original-VA
+  versus VA2 descriptor profiles explicitly, and execute SCAN RIGHT/LEFT
+  incrementally with the documented SET COLOR boundary and destination
+  updates. No SGP timing coefficient or save-state layout changed.
+- **Verification:** the compiled selftest covers both descriptor profiles,
+  all sixteen ROPs, destination-zero transfer, and SCAN first/middle/miss and
+  packed-word-boundary cases. Linux debug build/selftest and 83 CTests passed,
+  one external-fixture test skipped, and the MinGW cross build passed.
+- **Evidence:** [M97 report](../agents/reports/m97_sgp_tekumani_commands.md).
+- **Commits:** [ffb8521](https://github.com/nakatamaho/vaeg/commit/ffb85210c62f984108ad9d022f7d046107744f60),
+  [7b788ed](https://github.com/nakatamaho/vaeg/commit/7b788edc6e657f2d9e8e48f759c5cab6eb7c4899).
+
 ### Historical SGP demo COMs used byte cycles for word-only VA registers
 
 - **Status:** hardware-safe access correction applied; real-hardware
@@ -1824,3 +2016,169 @@ separate parity correction or move it to Open Defects.
   release, macOS release, MinGW cross build, and `git diff --check` passed.
 - **Evidence:** [M75 report](../agents/reports/m75_scsi_support.md).
 - **Commit:** [024855e](https://github.com/nakatamaho/vaeg/commit/024855e799750d762be0526cb10ada43a573f30d)
+
+
+### GLASS P4 SGP face spans left localized holes
+
+- **Status:** fixed in M97.
+- **Symptom:** the P4 cube contained short diagonal black runs inside otherwise
+  solid colored faces.  Regular horizontal blank-raster gaps were a separate
+  presentation effect.
+- **Root cause:** each convex face was split into two triangles and each span
+  was independently rounded inward to packed-4bpp words, leaving an unpainted
+  word at the shared diagonal.
+- **Correction:** round span endpoints outward to complete packed words.  The
+  change remains SGP-only and does not post-process the host framebuffer.
+- **Verification:** raw logical G0 inspection changed from 155 interior runs to
+  zero; the independent eight-way rectangle alignment matrix passed; the
+  fixed PNG was visually inspected; CTest passed 84/84 with one expected skip.
+- **Evidence:** [M97 P4 visual-hole report](../agents/reports/m97_p4_visual_holes.md).
+- **Commit:** [db8ce8f](https://github.com/nakatamaho/vaeg/commit/db8ce8f)
+
+
+### GLASS P4 SGP loader returned through a corrupt stack
+
+- **Status:** fixed in M97.
+- **Symptom:** leaving the SGP payload with ESC did not reliably return to the
+  local loader and could leave a black or unusable screen.
+- **Root cause:** the loader saved the pre-continuation stack pointer instead
+  of pushing and saving its `loader_return` continuation, so the payload
+  `retf` consumed a flags word as a return frame.
+- **Correction:** preserve flags, push `cs:loader_return`, save the real
+  `ss:sp`, and use the VA Keyboard BIOS documented `BH=0, BL=1Bh` ESC result.
+- **Verification:** the VAEG P4 SGP capture returned with exit status 0 after
+  the ESC input event; NASM payload build passed.
+- **Evidence:** [M97 P4 visual-hole report](../agents/reports/m97_p4_visual_holes.md).
+- **Commit:** [db8ce8f](https://github.com/nakatamaho/vaeg/commit/db8ce8f)
+
+
+### GLASS P4 outward word rounding overfilled polygon edges
+
+- **Status:** fixed in M97.
+- **Symptom:** the first hole correction produced horizontal stair-step
+  protrusions beyond blue, yellow, and green face boundaries.
+- **Root cause:** rounding the logical span outward changed polygon coverage;
+  packed-word alignment was incorrectly treated as geometry.
+- **Correction:** retain inclusive logical `[x0,x1]` spans, emit only complete
+  interior words through SGP, and apply one exact masked CPU word RMW for the
+  endpoint words.  The packed 4bpp layout is four pixels per word, with the
+  VA byte-swapped mask order recorded in the source.
+- **Verification:** independent face oracle reports underfill=0 and overfill=0
+  before outlines; exhaustive alignment/endpoint/outside-border tests pass;
+  final PNG was inspected; CTest remains 84/84 with one expected skip.
+- **Evidence:** [M97 P4 visual-hole report](../agents/reports/m97_p4_visual_holes.md).
+- **Commit:** [9a778bc](https://github.com/nakatamaho/vaeg/commit/9a778bc)
+
+
+### NEON inherited the caller's soft-key guide
+
+- **Status:** fixed in M100; TEXT remains enabled for the NEON overlay.
+- **Symptom:** the NEON bottom row showed the caller's `DIR A:`, `COPY`, and
+  `TIME` function-key/status guide while the intended NEON text was visible.
+- **Root cause:** startup left the VA Text BIOS soft-key producer and Screen
+  Editor system-line presentation owned by the loader/editor environment.
+- **Correction:** use Text BIOS `INT 83h/AH=2Fh, AL=00h` to stop the producer,
+  then Screen Editor `INT 94h/AH=01h, AL=FFh` to hide the system-line display;
+  restore both services on exit.
+- **Verification:** NASM payload builds for 640x200 and 640x400, VAEG raw
+  TVRAM validation (`TEXT_VISIBLE=PASS`, `BOTTOM_GUIDE=PASS`), repository
+  case/diff checks, and the dedicated stale-console validator passed.
+- **Evidence:** [NEON text-console report](../port/neon3_text_console.md).
+- **Commit:** [93ac88b](https://github.com/nakatamaho/vaeg/commit/93ac88b3d98cbb117c688a16d569f93e31b2986e)
+
+
+### NEON4 320x200 direct-colour spans used a corrupted SGP destination
+
+- **Status:** fixed in M97.
+- **Symptom:** the 320x200 x 65536-colour NEON4 profile regressed to sparse
+  or missing graphics after the 640x400 packed profile was added; the 16-colour
+  profile remained on its separate path.
+- **Root cause:** the packed-profile refactor shared a post-address label with
+  the direct-colour path.  The second `p5_emit_color_if_needed` call converted
+  the colour through `SI`, overwriting the already calculated SGP `CLS`
+  destination address before the command was emitted.
+- **Correction:** keep the second colour emission conditional on the 4bpp
+  path, which reaches that label after address calculation.  The 8bpp and
+  16bpp paths emit colour once before calculating the destination and now keep
+  `SI` intact.
+- **Verification:** fixed 320x200 direct-colour capture reached the stable
+  frame-loop checkpoint and rendered the scene on the VAEG VA2 model;
+  640x400 packed capture also reached its checkpoint; all three NASM profiles
+  built; VAEG selftest passed; CTest passed 84/84 with one expected skip.
+  The separate VA-model display path remains outside this regression result.
+- **Evidence:** [NEON4 P5 source](../../demos/neon4/src/neon4_p3.asm).
+- **Commit:** [1a02f35](https://github.com/nakatamaho/vaeg/commit/1a02f354363b7aedfa699f6a51d73c3745842abd)
+
+
+### NEON4 640x400 4bpp CPU endpoint writes wrapped at 64 KiB
+
+- **Status:** fixed in M97.
+- **Symptom:** the 16-colour profile showed a detached duplicate tetrahedron
+  and diagonal fragments at a different location from the rendered face.
+- **Root cause:** the exact endpoint read-modify-write path calculated a
+  128 KiB page offset in a 16-bit offset register, so rows in the upper half
+  wrapped at 64 KiB and wrote endpoint nibbles into unrelated rows.
+- **Correction:** retain the exact packed-4bpp endpoint mask, but select the
+  next 4 KiB CPU-aperture paragraph when the calculated offset has a non-zero
+  high word.  The SGP 24-bit destination path and polygon geometry are
+  unchanged.
+- **Verification:** disabling endpoint RMW in a diagnostic build removed the
+  detached shape, proving the fault was in the CPU endpoint path; the fixed
+  4bpp VAEG capture has only the intended central geometry.  The 16-colour and
+  65536-colour payloads build successfully, P4 CPU/SGP builds pass, and CTest
+  passes 84/84 with one expected skip.
+- **Evidence:** [NEON4 P5 source](../../demos/neon4/src/neon4_p3.asm).
+- **Commit:** [4c10eb4](https://github.com/nakatamaho/vaeg/commit/4c10eb432befa6d0bff66d19c9246ee7a4bc86b5)
+
+
+### NEON4 direct-colour scenes used low-colour face indices
+
+- **Status:** fixed in M97.
+- **Symptom:** the 65536-colour profile rendered scene faces with grey or
+  otherwise incorrect hues around frame 0x1CE, even though the direct
+  `pegc_palette_grb` to G6/R5/B5 table was correct.
+- **Root cause:** the shared 286 geometry path selected `low_face_theme_pairs`
+  (16-colour analog indices such as 3, 5, and 13) before the direct-colour
+  backend converted the value.  Those indices are grayscale entries in the
+  original 256-colour palette, so the direct profile never reached the blue
+  ramp selected by the original cross-area shade calculation.
+- **Correction:** direct profiles now retain the original 256-colour shade
+  rule (`clamp((projected_cross >> 11) + 8, 8, 31)`) and produce the original
+  ramp indices before conversion.  Direct-profile ribbon strips and finale
+  blades likewise use their original 256-colour indices; low-colour graph
+  colouring and dithering remain confined to the 4bpp profile.
+- **Verification:** the source `pegc_palette_grb` table independently converts
+  to all 256 RGB332 bytes and all 256 G6/R5/B5 words with zero mismatches;
+  NASM builds pass for 4bpp, RGB332, and direct 16bpp profiles; the bootable
+  validation disk contains both rebuilt payloads; CTest remains subject to
+  the pre-existing `vaeg_upd9002_trace_equivalence` FMBOARD statsave failure.
+- **Evidence:** [NEON4 P5 source](../../demos/neon4/src/geom4_low.inc),
+  [NEON4 P5 colour report](../port/neon4_p5.md).
+- **Commit:** [f86c3c0](https://github.com/nakatamaho/vaeg/commit/f86c3c0de7e224166d6eaadf2b0f56bba8e3e01f)
+
+
+### NEON4 direct-colour CAT image used a clobbered span-table cursor
+
+- **Status:** fixed in M97.
+- **Symptom:** the 65536-colour NEON4 RASTER TRANSFER scene (frames around
+  `0620h`-`0700h`) rendered the moving square CAT image with corrupted spans;
+  the first row was plausible, but later rows contained misplaced or stretched
+  coloured runs.  The 4bpp CPU endpoint path did not reproduce the failure.
+- **Root cause:** `low_draw_cat48` and its 200-line overlay walk their source
+  span tables with `DI`.  The SGP `p5_emit_span_physical` and
+  `p5_emit_line_physical` routines also used `DI` as their command-list cursor
+  without preserving the caller's value.  After the first SGP span, the CAT
+  walker therefore read x coordinates from command-list words instead of from
+  `low4_data.inc`.
+- **Correction:** save and restore `DI` in both physical SGP emitters, while
+  retaining `p5_list_offset` as the command-list state.  No CAT coordinates,
+  image data, colour conversion, or geometry-specific correction was changed.
+- **Verification:** the CAT span tables were independently compared with the
+  canonical 48-row source (650 spans, zero differences); NASM builds pass for
+  4bpp, RGB332, and direct 16bpp profiles; the assembled direct-profile listing
+  contains matching `push di`/`pop di` pairs in both emitters; a rebuilt
+  bootable validation disk contains the corrected `65536/neon4.com`.
+- **Evidence:** [NEON4 P5 source](../../demos/neon4/src/neon4_p3.asm),
+  [NEON4 P5 status](../port/neon4_p5.md).
+- **Milestone/task:** M97 NEON4 direct-colour CAT span cursor preservation.
+- **Commit:** [7c3fb85](https://github.com/nakatamaho/vaeg/commit/7c3fb857b49b90c4f384411125c94d37ce75bf0)

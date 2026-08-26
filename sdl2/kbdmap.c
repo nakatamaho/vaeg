@@ -255,7 +255,13 @@ static const KBDMAP_ENTRY entries[] = {
       SDL_SCANCODE_KP_PERIOD, KBDMAP_STATUS_IMPLEMENTED, "sdl2/sdlkbd.c:74; keystat.h:94"),
     E(KBDROLE_RETURNR, "returnr", "keypad Enter", "KEY88_RETURNR", 0x59, SDL_SCANCODE_KP_ENTER,
       SDL_SCANCODE_KP_ENTER, KBDMAP_STATUS_MAPPED_UNTESTED,
-      "win9x/winkbd.cpp:106-108; io/serial.c:38 and :107-109")};
+      "win9x/winkbd.cpp:106-108; io/serial.c:38 and :107-109"),
+    E(KBDROLE_FAST_FORWARD, "fast_forward", "Fast forward", "HOST_FAST_FORWARD", KBDMAP_NC,
+      SDL_SCANCODE_F11, SDL_SCANCODE_F11, KBDMAP_STATUS_IMPLEMENTED,
+      "sdl2/pacing.c: host pacing action"),
+    E(KBDROLE_MOUSE_CAPTURE, "mouse_capture", "Mouse capture", "HOST_MOUSE_CAPTURE", KBDMAP_NC,
+      SDL_SCANCODE_F12, SDL_SCANCODE_F12, KBDMAP_STATUS_IMPLEMENTED,
+      "sdl2/taskmng.c: F12 host capture action")};
 
 typedef struct {
 	const char *token;
@@ -694,6 +700,17 @@ static int entry_index_from_role(KBDMAP_ROLE role) {
 		}
 	}
 	return -1;
+}
+
+static KBDMAP_SPECIAL_ACTION special_action_for_role(KBDMAP_ROLE role) {
+	switch (role) {
+	case KBDROLE_FAST_FORWARD:
+		return KBDMAP_SPECIAL_FAST_FORWARD;
+	case KBDROLE_MOUSE_CAPTURE:
+		return KBDMAP_SPECIAL_MOUSE_CAPTURE;
+	default:
+		return KBDMAP_SPECIAL_NONE;
+	}
 }
 
 static int entry_index_from_id(const char *id) {
@@ -1408,6 +1425,23 @@ KBDMAP_STATUS kbdmap_binding_status(int index) {
 	return bind_status[index];
 }
 
+KBDMAP_SPECIAL_ACTION kbdmap_special_action(UINT scancode) {
+	int i;
+
+	if ((scancode <= SDL_SCANCODE_UNKNOWN) || (scancode >= SDL_NUM_SCANCODES)) {
+		return KBDMAP_SPECIAL_NONE;
+	}
+	for (i = 0; i < (int)NELEMENTS(entries); i++) {
+		if (bindings[i] == (SDL_Scancode)scancode) {
+			KBDMAP_SPECIAL_ACTION action = special_action_for_role(entries[i].role);
+			if (action != KBDMAP_SPECIAL_NONE) {
+				return action;
+			}
+		}
+	}
+	return KBDMAP_SPECIAL_NONE;
+}
+
 const char *kbdmap_status_name(KBDMAP_STATUS status) {
 	switch (status) {
 	case KBDMAP_STATUS_IMPLEMENTED:
@@ -1682,6 +1716,10 @@ int kbdmap_selftest(void) {
 	    (kbdmap_lookup(SDL_SCANCODE_EQUALS) != 0x0c)) {
 		KBDMAP_SELFTEST_FAIL("JIS physical punctuation lookup");
 	}
+	if ((kbdmap_special_action(SDL_SCANCODE_F11) != KBDMAP_SPECIAL_FAST_FORWARD) ||
+	    (kbdmap_special_action(SDL_SCANCODE_F12) != KBDMAP_SPECIAL_MOUSE_CAPTURE)) {
+		KBDMAP_SELFTEST_FAIL("default host special bindings");
+	}
 	kana_index = entry_index_from_role(KBDROLE_KANA);
 	semicolon_index = entry_index_from_role(KBDROLE_SEMICOLON);
 	if ((kana_index < 0) || (semicolon_index < 0)) {
@@ -1699,8 +1737,17 @@ int kbdmap_selftest(void) {
 		KBDMAP_SELFTEST_FAIL("inline semicolon parse");
 	}
 	kbdmap_serialize_custom(serialized, sizeof(serialized));
-	if (strstr(serialized, "kana=") == NULL) {
+	if ((strstr(serialized, "kana=") == NULL) || (strstr(serialized, "fast_forward=") == NULL) ||
+	    (strstr(serialized, "mouse_capture=") == NULL)) {
 		KBDMAP_SELFTEST_FAIL("custom serialization");
+	}
+	set_config_string(np2oscfg.keyboard_custom_map, sizeof(np2oscfg.keyboard_custom_map),
+	                  "fast_forward=F9;mouse_capture=F10;kana=Right Alt;");
+	kbdmap_apply_config();
+	if ((kbdmap_special_action(SDL_SCANCODE_F9) != KBDMAP_SPECIAL_FAST_FORWARD) ||
+	    (kbdmap_special_action(SDL_SCANCODE_F10) != KBDMAP_SPECIAL_MOUSE_CAPTURE) ||
+	    (kbdmap_special_action(SDL_SCANCODE_F11) != KBDMAP_SPECIAL_NONE)) {
+		KBDMAP_SELFTEST_FAIL("custom host special bindings");
 	}
 	set_config_string(np2oscfg.keyboard_host_layout, sizeof(np2oscfg.keyboard_host_layout),
 	                  "custom");

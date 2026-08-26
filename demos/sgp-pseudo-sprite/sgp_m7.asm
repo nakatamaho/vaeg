@@ -31,6 +31,10 @@ org 0x100
 %define M7_VARIANT              1
 %endif
 
+%ifndef M7_SCROLL
+%define M7_SCROLL               0
+%endif
+
 %define KEYBOARD_BIOS_INT       0x82
 %define CALENDAR_BIOS_INT       0x8c
 %define VIDEO_BIOS_INT          0x8f
@@ -252,6 +256,9 @@ animation_loop:
     push cs
     pop ds
     call update_sprite_positions
+%if M7_SCROLL
+    call update_scroll_background
+%endif
     call render_sprite_frame
     jc animation_failed
     call update_fps_counter
@@ -559,6 +566,106 @@ draw_g0_checkerboard:
     cmp bx, SCREEN_HEIGHT
     jne .row
     ret
+
+%if M7_SCROLL
+; Update three independently phased checkerboard bands.  The phase counters
+; advance at 3, 7, and 11 internal byte units, while the row writer rounds
+; each visible source offset to the nearest eight-byte checker boundary. The
+; G0 aperture is
+; written with word transfers so the scroll background never uses byte writes
+; to a hardware word port.
+update_scroll_background:
+    push ax
+    push bx
+    push cx
+    push dx
+
+    add word [scroll_phase_top], 3
+    and word [scroll_phase_top], 0x000f
+    add word [scroll_phase_middle], 7
+    and word [scroll_phase_middle], 0x000f
+    add word [scroll_phase_bottom], 11
+    and word [scroll_phase_bottom], 0x000f
+
+    xor bx, bx
+    mov cx, 66
+    mov dx, [scroll_phase_top]
+    call draw_scroll_band
+
+    mov bx, 66
+    mov cx, 67
+    mov dx, [scroll_phase_middle]
+    call draw_scroll_band
+
+    mov bx, 133
+    mov cx, 67
+    mov dx, [scroll_phase_bottom]
+    call draw_scroll_band
+
+    pop dx
+    pop cx
+    pop bx
+    pop ax
+    ret
+
+; BX=start row, CX=row count, DX=unrounded phase.  The pattern source is
+; copied to a temporary row with an offset rounded to the nearest checker
+; boundary (eight bytes, or sixteen dots), then transferred to G0 as words.
+draw_scroll_band:
+    push ax
+    push bx
+    push cx
+    push dx
+    push si
+    push di
+    push bp
+
+    mov [scroll_work_y], bx
+    mov [scroll_work_phase], dx
+    mov [scroll_work_rows], cx
+.row:
+    mov bp, [scroll_work_y]
+    test bp, 0x0010
+    jz .dark_row
+    mov si, scroll_pattern_light
+    jmp .pattern_selected
+.dark_row:
+    mov si, scroll_pattern_dark
+.pattern_selected:
+    mov ax, [scroll_work_phase]
+    add ax, 4
+    and ax, 0x0008
+    add si, ax
+
+    push es
+    push ds
+    pop es
+    mov di, scroll_row_buffer
+    mov cx, SCREEN_PITCH
+    rep movsb
+    pop es
+
+    mov ax, bp
+    mov bx, SCREEN_PITCH
+    mul bx
+    mov di, ax
+    mov si, scroll_row_buffer
+    mov cx, SCREEN_PITCH / 2
+    rep movsw
+
+    inc word [scroll_work_y]
+    dec word [scroll_work_rows]
+    jnz .row
+
+    pop bp
+    pop di
+    pop si
+    pop dx
+    pop cx
+    pop bx
+    pop ax
+    ret
+%endif
 
 
 poll_keyboard:
@@ -2123,8 +2230,48 @@ m6_print_value_hi:
 m6_number_buffer:
     times 12 db 0
 
+%if M7_SCROLL
+align 2, db 0
+scroll_phase_top:
+    dw 0
+scroll_phase_middle:
+    dw 0
+scroll_phase_bottom:
+    dw 0
+scroll_work_y:
+    dw 0
+scroll_work_phase:
+    dw 0
+scroll_work_rows:
+    dw 0
+
+; Each source row is 192 bytes so a rounded eight-byte phase can be applied
+; without crossing the end of the pattern while copying a 160-byte screen
+; row. The two rows are the alternating halves of a 16x16 checker tile.
+scroll_pattern_dark:
+%rep 6
+    times 8 db 0xdd
+    times 8 db 0xee
+    times 8 db 0xdd
+    times 8 db 0xee
+%endrep
+scroll_pattern_light:
+%rep 6
+    times 8 db 0xee
+    times 8 db 0xdd
+    times 8 db 0xee
+    times 8 db 0xdd
+%endrep
+scroll_row_buffer:
+    times SCREEN_PITCH db 0
+%endif
+
 message_start:
-%if M7_VARIANT == 1
+%if M7_SCROLL
+    db "SGPD_7S: M7 scrolling Graphic 0 background", 13, 10
+    db "Three bands use 3/7/11 phases aligned to checker boundaries.", 13, 10
+    db "UP/+ adds a sprite (max 256), DOWN/- removes one, ESC exits.", 13, 10, "$"
+%elif M7_VARIANT == 1
     db "SGPD_7A: M7a measurement-separated baseline", 13, 10
     db "UP/+ adds a sprite (max 256), DOWN/- removes one, ESC exits.", 13, 10, "$"
 %elif M7_VARIANT == 2

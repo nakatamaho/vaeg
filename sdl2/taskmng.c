@@ -26,6 +26,7 @@
 #include "sdlapi.h"
 #include "taskmng.h"
 #include "sdlkbd.h"
+#include "kbdmap.h"
 #include "kbdpaste.h"
 #include "mousemng.h"
 #include "pacing.h"
@@ -40,6 +41,7 @@ static VAEG_PACING_STATE task_pacing;
 static BOOL paste_shortcut_down;
 static BOOL copy_shortcut_down;
 static BOOL middle_shortcut_down;
+static BOOL mouse_key_shortcut_down;
 
 static BOOL taskmng_paste_shortcut(const SDL_Event *event, BOOL captured) {
 	UINT16 modifier;
@@ -109,11 +111,21 @@ static void taskmng_toggle_mouse(void) {
 }
 
 static BOOL taskmng_mouse_key_shortcut(const SDL_Event *event, BOOL captured) {
-	if (((event->type != SDL_KEYDOWN) && (event->type != SDL_KEYUP)) ||
-	    (event->key.keysym.scancode != SDL_SCANCODE_F12) || (np2oscfg.F12KEY != 0)) {
+	KBDMAP_SPECIAL_ACTION action;
+
+	if ((event->type != SDL_KEYDOWN) && (event->type != SDL_KEYUP)) {
+		return FALSE;
+	}
+	action = kbdmap_special_action((UINT)event->key.keysym.scancode);
+	if ((event->type == SDL_KEYUP) && mouse_key_shortcut_down) {
+		mouse_key_shortcut_down = FALSE;
+		return TRUE;
+	}
+	if ((action != KBDMAP_SPECIAL_MOUSE_CAPTURE) || (np2oscfg.F12KEY != 0)) {
 		return FALSE;
 	}
 	if ((event->type == SDL_KEYDOWN) && !event->key.repeat && !captured) {
+		mouse_key_shortcut_down = TRUE;
 		taskmng_toggle_mouse();
 	}
 	return TRUE;
@@ -143,6 +155,7 @@ void taskmng_initialize(void) {
 	task_avail = TRUE;
 	paste_shortcut_down = FALSE;
 	middle_shortcut_down = FALSE;
+	mouse_key_shortcut_down = FALSE;
 	vaeg_pacing_reset(&task_pacing);
 	kbdpaste_initialize();
 	mousemng_initialize();
@@ -154,6 +167,7 @@ void taskmng_exit(void) {
 	task_avail = FALSE;
 	paste_shortcut_down = FALSE;
 	middle_shortcut_down = FALSE;
+	mouse_key_shortcut_down = FALSE;
 	vaeg_pacing_reset(&task_pacing);
 	kbdpaste_shutdown();
 	mousemng_shutdown();
@@ -183,8 +197,10 @@ void taskmng_rol(void) {
 		}
 		shortcut = FALSE;
 		if (e.type == SDL_KEYDOWN) {
-			shortcut = vaeg_pacing_key(&task_pacing, (UINT)e.key.keysym.scancode, TRUE,
-			                           e.key.repeat ? TRUE : FALSE);
+			if (kbdmap_special_action((UINT)e.key.keysym.scancode) == KBDMAP_SPECIAL_FAST_FORWARD) {
+				shortcut = vaeg_pacing_key(&task_pacing, (UINT)e.key.keysym.scancode, TRUE,
+				                           e.key.repeat ? TRUE : FALSE);
+			}
 		} else if (e.type == SDL_KEYUP) {
 			shortcut = vaeg_pacing_key(&task_pacing, (UINT)e.key.keysym.scancode, FALSE, FALSE);
 		} else if ((e.type == SDL_WINDOWEVENT) && (e.window.event == SDL_WINDOWEVENT_FOCUS_LOST)) {

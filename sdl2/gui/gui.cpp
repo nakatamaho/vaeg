@@ -2689,7 +2689,7 @@ static void draw_keyboard_config(void) {
 		                      ImVec2(0.0f, 390.0f))) {
 			ImGui::TableSetupScrollFreeze(0, 1);
 			ImGui::TableSetupColumn("Role");
-			ImGui::TableSetupColumn("Guest");
+			ImGui::TableSetupColumn("Guest / action");
 			ImGui::TableSetupColumn("Binding");
 			ImGui::TableSetupColumn("Status");
 			ImGui::TableSetupColumn("Capture");
@@ -2701,8 +2701,12 @@ static void draw_keyboard_config(void) {
 				if (entry == nullptr) {
 					continue;
 				}
-				std::snprintf(guest, sizeof(guest), "0x%02x",
-				              static_cast<unsigned int>(entry->guest_code));
+				if (entry->guest_code == KBDMAP_NC) {
+					std::snprintf(guest, sizeof(guest), "host");
+				} else {
+					std::snprintf(guest, sizeof(guest), "0x%02x",
+					              static_cast<unsigned int>(entry->guest_code));
+				}
 				ImGui::TableNextRow();
 				ImGui::TableSetColumnIndex(0);
 				ImGui::TextUnformatted(entry->label);
@@ -3142,6 +3146,11 @@ static void draw_info_menu(void) {
 		bool show_video = (np2oscfg.DISPCLK & VAEG_DISPINFO_VIDEO) != 0;
 		if (ImGui::MenuItem("Show video info overlay", nullptr, show_video)) {
 			np2oscfg.DISPCLK ^= VAEG_DISPINFO_VIDEO;
+			sysmng_update(SYS_UPDATEOSCFG);
+		}
+		bool show_framebuffer = (np2oscfg.DISPCLK & VAEG_DISPINFO_FRAMEBUFFER) != 0;
+		if (ImGui::MenuItem("Show FB info overlay", nullptr, show_framebuffer)) {
+			np2oscfg.DISPCLK ^= VAEG_DISPINFO_FRAMEBUFFER;
 			sysmng_update(SYS_UPDATEOSCFG);
 		}
 		ImGui::Separator();

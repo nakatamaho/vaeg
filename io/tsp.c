@@ -20,6 +20,7 @@ enum {
 	CMD_SPRON = 0x82,
 	CMD_SPROFF = 0x83,
 	CMD_SPRDEF = 0x84,
+	CMD_SPRSW = 0x85,
 	CMD_EXIT = 0x88,
 
 	// TSP status bits.
@@ -38,6 +39,7 @@ enum {
 	EXECFUNC_DSPDEF,
 	EXECFUNC_CURDEF,
 	EXECFUNC_SPRON,
+	EXECFUNC_SPRSW,
 };
 
 _TSP tsp;
@@ -106,6 +108,21 @@ static void exec_dspon(void) {
 }
 
 /*
+DSPOFF: stop both the text and sprite display controllers.
+
+The generic uPD72022 command has no parameters.  Retrace/timing continues;
+only the two TSP display paths are disabled.  Graphics composition is owned
+by the VA display circuitry and is intentionally not changed here.
+*/
+static void exec_dspoff(void) {
+	TRACEOUT(("tsp: dspoff"));
+
+	tsp.dspon = FALSE;
+	tsp.spron = FALSE;
+	tsp.status &= ~STATUS_BUSY;
+}
+
+/*
 DSPDEF: define screen composition and display format.
 */
 static void exec_dspdef(void) {
@@ -150,6 +167,32 @@ static void exec_spron(void) {
 	tsp.gr = tsp.parambuf[2] & 0x01;
 	tsp.spron = TRUE;
 
+	tsp.status &= ~STATUS_BUSY;
+}
+
+/*
+SPROFF: stop the sprite display controller and its cursor sprite.
+*/
+static void exec_sproff(void) {
+	TRACEOUT(("tsp: sproff"));
+
+	tsp.spron = FALSE;
+	tsp.status &= ~STATUS_BUSY;
+}
+
+/*
+SPRSW: update the display switch of one sprite descriptor.
+
+The parameter carries the sprite number in bits 7:3 and SPSW in bit 1.  The
+descriptor table itself remains owned by TVRAM; this command only changes the
+descriptor's existing enable bit.
+*/
+static void exec_sprsw(void) {
+	REG8 dat;
+
+	dat = tsp.parambuf[0];
+	TRACEOUT(("tsp: sprsw: sprite=%u, enable=%u", dat >> 3, (dat & 0x02) != 0));
+	sprsw(dat >> 3, (dat & 0x02) != 0);
 	tsp.status &= ~STATUS_BUSY;
 }
 
@@ -241,6 +284,9 @@ static void paramfunc_generic(REG8 dat) {
 			case EXECFUNC_SPRON:
 				exec_spron();
 				break;
+			case EXECFUNC_SPRSW:
+				exec_sprsw();
+				break;
 			}
 		}
 	}
@@ -293,6 +339,11 @@ static void IOOUTCALL tsp_o142(UINT port, REG8 dat) {
 		//tsp.paramfunc = paramfunc_generic;
 		tsp.paramfunc = PARAMFUNC_GENERIC;
 		break;
+	case CMD_DSPOFF:
+		tsp.recvdatacnt = 0;
+		tsp.paramfunc = PARAMFUNC_NOP;
+		exec_dspoff();
+		break;
 	case CMD_DSPDEF:
 		tsp.recvdatacnt = 6;
 		//tsp.endparamfunc = exec_dspdef;
@@ -312,6 +363,16 @@ static void IOOUTCALL tsp_o142(UINT port, REG8 dat) {
 		//tsp.endparamfunc = exec_spron;
 		tsp.execfunc = EXECFUNC_SPRON;
 		//tsp.paramfunc = paramfunc_generic;
+		tsp.paramfunc = PARAMFUNC_GENERIC;
+		break;
+	case CMD_SPROFF:
+		tsp.recvdatacnt = 0;
+		tsp.paramfunc = PARAMFUNC_NOP;
+		exec_sproff();
+		break;
+	case CMD_SPRSW:
+		tsp.recvdatacnt = 1;
+		tsp.execfunc = EXECFUNC_SPRSW;
 		tsp.paramfunc = PARAMFUNC_GENERIC;
 		break;
 	case CMD_SPRDEF:

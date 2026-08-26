@@ -607,10 +607,11 @@ sgp_mult=1
 CPU or SGP scaling does not change VBlank/TSP timing, sound pitch and timers,
 FDD timing, RTC, or normal one-to-one host pacing. `Screen -> No Wait` removes
 host waiting. `Screen -> Frame skip` selects Auto, Full frame, 1/2, 1/3, or
-1/4 presentation without changing guest time. Holding F11 temporarily uses
-No Wait and draw skip 16; releasing F11, losing focus, resetting, loading a
-state, or quitting clears the temporary mode. F11 is never sent to the guest
-and the saved No Wait/frame-skip/CPU/SGP values are not overwritten.
+1/4 presentation without changing guest time. Holding the configured
+`Fast forward` keyboard action (F11 by default) temporarily uses No Wait and
+draw skip 16; releasing it, losing focus, resetting, loading a state, or
+quitting clears the temporary mode. The active host action is not sent to the
+guest, and the saved No Wait/frame-skip/CPU/SGP values are not overwritten.
 
 `Info -> Show FPS`, `Show CPU clock`, `Show SGP clock`, and `Show frame`
 independently control the corresponding suffixes in the native window title.
@@ -624,7 +625,13 @@ change frame skip or guest timing. `Info -> Show text`, `Show sprite`, `Show
 graphics 0`, and `Show graphics 1` independently enable the four VA composition
 layers; graphics 0 and graphics 1 are the VA's two graphics planes. These layer
 switches are frontend display filters and do not modify guest VRAM or video
-registers. `Info -> About` opens the version and runtime information dialog.
+registers. `Info -> Show video info overlay` reports the logical graphics
+state (`ON`/`OFF`, logical size, and bpp). `Info -> Show FB info overlay`
+lists all four VA framebuffer descriptors vertically (`FB0` through `FB3`).
+Each active descriptor is split into `source` (virtual source geometry), `view`
+(visible sub-screen geometry), and `DSA` (display source address); unavailable
+descriptors are shown as `OFF`. `Info -> About` opens the version and runtime
+information dialog.
 
 ## OPN/OPNA FM Backend
 

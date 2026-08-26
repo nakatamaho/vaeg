@@ -414,6 +414,8 @@ find_program(VAEG_NASM_EXECUTABLE NAMES nasm)
 set(VAEG_HOSTFAT_SYS "${CMAKE_CURRENT_BINARY_DIR}/guest/hostfat.sys")
 set(VAEG_R2FPROBE_COM "${CMAKE_CURRENT_BINARY_DIR}/guest/r2fprobe.com")
 set(VAEG_SGPSPRITE_COM "${CMAKE_CURRENT_BINARY_DIR}/guest/sgpdemo.com")
+set(VAEG_SGPWIRE_COM "${CMAKE_CURRENT_BINARY_DIR}/guest/sgpwire.com")
+set(VAEG_SGP256_COM "${CMAKE_CURRENT_BINARY_DIR}/guest/sgp256.com")
 if(VAEG_NASM_EXECUTABLE)
     add_custom_command(
         OUTPUT "${VAEG_HOSTFAT_SYS}"
@@ -448,13 +450,39 @@ if(VAEG_NASM_EXECUTABLE)
             "${CMAKE_CURRENT_SOURCE_DIR}/demos/sgp-pseudo-sprite/sgp_sprite_demo.asm"
         VERBATIM)
     add_custom_target(sgpsprite_com ALL DEPENDS "${VAEG_SGPSPRITE_COM}")
+    add_custom_command(
+        OUTPUT "${VAEG_SGPWIRE_COM}"
+        COMMAND "${CMAKE_COMMAND}" -E make_directory
+            "${CMAKE_CURRENT_BINARY_DIR}/guest"
+        COMMAND "${VAEG_NASM_EXECUTABLE}" -f bin
+            -o "${VAEG_SGPWIRE_COM}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/demos/sgp-wireframe/sgp_wireframe.asm"
+        DEPENDS
+            "${CMAKE_CURRENT_SOURCE_DIR}/demos/sgp-wireframe/sgp_wireframe.asm"
+        VERBATIM)
+    add_custom_target(sgpwire_com ALL DEPENDS "${VAEG_SGPWIRE_COM}")
+    add_custom_command(
+        OUTPUT "${VAEG_SGP256_COM}"
+        COMMAND "${CMAKE_COMMAND}" -E make_directory
+            "${CMAKE_CURRENT_BINARY_DIR}/guest"
+        COMMAND "${VAEG_NASM_EXECUTABLE}" -f bin
+            -o "${VAEG_SGP256_COM}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/demos/sgp-wireframe/sgp_wireframe256.asm"
+        DEPENDS
+            "${CMAKE_CURRENT_SOURCE_DIR}/demos/sgp-wireframe/sgp_wireframe256.asm"
+        VERBATIM)
+    add_custom_target(sgp256_com ALL DEPENDS "${VAEG_SGP256_COM}")
     message(STATUS "HOSTFAT.SYS: enabled (${VAEG_NASM_EXECUTABLE})")
     message(STATUS "R2FPROBE.COM: enabled (${VAEG_NASM_EXECUTABLE})")
     message(STATUS "SGPDEMO.COM: enabled (${VAEG_NASM_EXECUTABLE})")
+    message(STATUS "SGPWIRE.COM: enabled (${VAEG_NASM_EXECUTABLE})")
+    message(STATUS "SGP256.COM: enabled (${VAEG_NASM_EXECUTABLE})")
 else()
     message(STATUS "HOSTFAT.SYS: NASM not found; guest-driver target disabled")
     message(STATUS "R2FPROBE.COM: NASM not found; guest-probe target disabled")
     message(STATUS "SGPDEMO.COM: NASM not found; guest-demo target disabled")
+    message(STATUS "SGPWIRE.COM: NASM not found; guest-demo target disabled")
+    message(STATUS "SGP256.COM: NASM not found; guest-demo target disabled")
 endif()
 
 if(WIN32)

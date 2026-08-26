@@ -28,6 +28,7 @@
 #include "cpu/upd9002/upd9002_trace.h"
 #include "fdd/diskdrv.h"
 #include "g75_screen.h"
+#include "gvramva.h"
 #include "kbdpaste.h"
 #include "sdlapi.h"
 
@@ -51,7 +52,8 @@ enum {
 	DEBUG_LINE_MAX = 4096,
 	DEBUG_CAPTURE_REGISTERS = 1,
 	DEBUG_CAPTURE_TVRAM = 2,
-	DEBUG_CAPTURE_SCREEN = 4
+	DEBUG_CAPTURE_SCREEN = 4,
+	DEBUG_CAPTURE_GVRAM = 8
 };
 
 typedef enum {
@@ -302,6 +304,8 @@ static BOOL debug_parse_capture(DEBUG_ACTION *action, char *cursor) {
 			mask |= DEBUG_CAPTURE_TVRAM;
 		} else if (!strcmp(token, "screen")) {
 			mask |= DEBUG_CAPTURE_SCREEN;
+		} else if (!strcmp(token, "gvram")) {
+			mask |= DEBUG_CAPTURE_GVRAM;
 		} else {
 			return FAILURE;
 		}
@@ -580,8 +584,10 @@ static void debug_close_completed_trace(void) {
 static BOOL debug_capture(const DEBUG_ACTION *action, const UPD9002_DEBUG_SNAPSHOT *snapshot) {
 	char tvram[MAX_PATH];
 	char screen[MAX_PATH];
+	char gvram[MAX_PATH];
 	const char *tvram_path;
 	const char *screen_path;
+	FILE *fp;
 
 	if ((action->argument & DEBUG_CAPTURE_REGISTERS) &&
 	    (debug_write_registers(action->id, snapshot) != SUCCESS)) {
@@ -589,6 +595,7 @@ static BOOL debug_capture(const DEBUG_ACTION *action, const UPD9002_DEBUG_SNAPSH
 	}
 	tvram_path = NULL;
 	screen_path = NULL;
+	gvram[0] = '\0';
 	if (action->argument & DEBUG_CAPTURE_TVRAM) {
 		if (debug_make_path(tvram, sizeof(tvram), action->id, ".tvram.bin") != SUCCESS) {
 			return FAILURE;
@@ -601,8 +608,26 @@ static BOOL debug_capture(const DEBUG_ACTION *action, const UPD9002_DEBUG_SNAPSH
 		}
 		screen_path = screen;
 	}
+	if (action->argument & DEBUG_CAPTURE_GVRAM) {
+		if (debug_make_path(gvram, sizeof(gvram), action->id, ".gvram.bin") != SUCCESS) {
+			return FAILURE;
+		}
+	}
 	if ((tvram_path != NULL) || (screen_path != NULL)) {
 		if (g75_screen_capture_to(tvram_path, screen_path, action->id, FALSE) != SUCCESS) {
+			return FAILURE;
+		}
+	}
+	if (gvram[0] != '\0') {
+		fp = fopen(gvram, "wb");
+		if (fp == NULL) {
+			return FAILURE;
+		}
+		if (fwrite(grphmem, 1, sizeof(grphmem), fp) != sizeof(grphmem)) {
+			(void)fclose(fp);
+			return FAILURE;
+		}
+		if (fclose(fp) != 0) {
 			return FAILURE;
 		}
 	}
@@ -860,7 +885,7 @@ BOOL debug_harness_selftest(void) {
 	                            "mount-fdd 1 boot\n"
 	                            "wait-pc e000:0180 2\n"
 	                            "trace service 16\n"
-	                            "capture service registers tvram screen\n"
+	                            "capture service registers tvram screen gvram\n"
 	                            "exit\n";
 	static const char invalid[] = "debug-script 1\n"
 	                              "capture bad registers\n";
@@ -877,7 +902,7 @@ BOOL debug_harness_selftest(void) {
 	passed = (debug_parse_buffer(buffer, sizeof(valid)) == SUCCESS) &&
 	         (harness.resource_count == 1) && (harness.counter_count == 1) &&
 	         (harness.action_count == 7) && (harness.actions[3].type == DEBUG_ACTION_WAIT_PC) &&
-	         (harness.actions[4].type == DEBUG_ACTION_TRACE) && (harness.actions[5].argument == 7);
+	         (harness.actions[4].type == DEBUG_ACTION_TRACE) && (harness.actions[5].argument == 15);
 	free(buffer);
 	debug_harness_clear();
 	buffer = debug_string_duplicate(invalid);

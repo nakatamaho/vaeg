@@ -192,12 +192,18 @@ baselines.
 | `SGPD_7B.COM` | M7b | Keeps the original painter-order redraw, but clears the selected page's previous rectangles with verified SGP PATBLT zero fills. It falls back to full CLS when candidate dirty area reaches the 320x200 surface. |
 | `SGPD_7C.COM` | M7c | Uses two command/work buffers. While SGP renders the current hidden page, the CPU updates state and builds the next list for the page currently displayed; the list is started only after the VBLANK flip makes that page hidden. |
 | `SGPD_7D.COM` | M7d | Hoists immutable physical-address conversion and fixed sprite command fields to startup templates. Each frame patches destination start-dot and destination address; the useful Y offset table is retained and no X lookup table is added. |
+| `SGPD_7S.COM` | M7s | Restores the three-band Graphic 0 scrolling background. Internal phases advance by 3, 7, and 11 byte units and are rounded to the nearest eight-byte (16-dot) checker boundary before word writes, keeping the tile edges aligned; sprite rendering remains the M7a synchronous path. |
 
 M7b, M7c, and M7d still redraw every active sprite in the original painter
 order. Dirty-region intersection redraw (M7e) and a triple-buffer experiment
 (M7f) are intentionally not enabled in this branch. All variants use the
 verified 320x200, 16-color, single-plane 4bpp mode and the existing Graphic 0
 background / Graphic 1 page exchange.
+
+The parallel 8-bpp demos live under `256/`. `SGP256S.COM` keeps the static
+checkerboard, while `SGP256T.COM` applies the same three-band 3/7/11-phase
+scrolling background as `SGPD_7S.COM`; both retain the 320x200 logical window
+and two-page Graphic 1 sprite surface.
 
 Build all M7 variants with:
 
@@ -212,18 +218,22 @@ about PC-88VA hardware performance.
 
 ## Distribution D88
 
-The single compressed image [`sgpdemo.d88.xz`](sgpdemo.d88.xz) is a data-only
-2HD D88. It deliberately contains no PC-Engine system files. After booting a
-separate PC-Engine system disk, mount this image as a data disk; its root
-contains the six historical milestone programs and the four M7 variants:
+`build-d88.sh` creates a raw non-bootable 2HD data disk and a compressed
+`.d88.xz` companion. The image contains no PC-Engine system files. Programs
+are grouped by color depth, matching the wireframe demo layout:
 
 ~~~text
-SGPDEMO1.COM ... SGPDEMO6.COM
-SGPD_7A.COM  SGPD_7B.COM  SGPD_7C.COM  SGPD_7D.COM
+16/SGPDEMO1.COM ... 16/SGPDEMO6.COM
+16/SGPD_7A.COM  ... 16/SGPD_7D.COM
+16/SGPD_7S.COM
+256/SGP256S.COM
+256/SGP256T.COM
+65536/SGP655S.COM
 ~~~
 
-The image is generated from an empty FAT12 data disk with
-`tools/pc88va/pcengine_disk.py`, then compressed with `xz -9e`.
+The source D88 passed to the generator is used only as a local 2HD/FAT12
+geometry template. The output is first reset to an empty data disk, then the
+COM payloads are installed and compressed with `xz -9e`.
 
 ## Build
 
@@ -241,16 +251,50 @@ The output is:
 build/macos-macports/guest/sgpdemo.com
 ~~~
 
-Build all ten distributed files with the repository helpers:
+Build the color-grouped distributed files with the repository helpers:
 
 ~~~sh
-NASM=nasm demos/sgp-pseudo-sprite/build_milestone_coms.sh /tmp/sgpdemo-coms
-NASM=nasm demos/sgp-pseudo-sprite/build_m7_coms.sh /tmp/sgpdemo-m7
+NASM=nasm demos/sgp-pseudo-sprite/16/build.sh /tmp/sgpdemo-16
+NASM=nasm demos/sgp-pseudo-sprite/256/build.sh /tmp/sgpdemo-256/SGP256S.COM
+NASM=nasm demos/sgp-pseudo-sprite/256/build-scroll.sh /tmp/sgpdemo-256/SGP256T.COM
+NASM=nasm demos/sgp-pseudo-sprite/65536/build.sh /tmp/sgpdemo-65536/SGP655S.COM
 ~~~
 
-The first command writes `SGPDEMO1.COM` through `SGPDEMO6.COM`; the second
-writes `SGPD_7A.COM` through `SGPD_7D.COM`. The M6 source can also be assembled
-independently:
+The 16-color builder writes `SGPDEMO1.COM` through `SGPDEMO6.COM` and
+`SGPD_7A.COM` through `SGPD_7D.COM`, plus the scrolling `SGPD_7S.COM`.
+The complete data disk pair is generated
+with:
+
+~~~sh
+NASM=nasm demos/sgp-pseudo-sprite/build-d88.sh \
+  /path/to/pcengine110-bootonly.d88 /tmp/sgp-pseudo-sprite.d88
+~~~
+
+This writes `/tmp/sgp-pseudo-sprite.d88` and
+`/tmp/sgp-pseudo-sprite.d88.xz`. Generated COM files and the raw D88 remain
+outside the source tree. The `.d88.xz` companion may be checked in under this
+directory only when it contains the freely distributable payloads listed
+above; it represents a non-bootable PC-Engine-free data image.
+The canonical checked-in archive is
+`demos/sgp-pseudo-sprite/sgp-pseudo-sprite.d88.xz`; the older
+`sgpdemo.d88.xz` name is deprecated.
+
+## Local bootable validation disk
+
+For emulator or hardware boot-path validation, create a separate bootable
+image from a local PC-Engine 2HD template:
+
+~~~sh
+NASM=/opt/local/bin/nasm demos/sgp-pseudo-sprite/build-bootable-d88.sh \
+  /path/to/pcengine110-bootonly.d88 /private/tmp/sgp-demo-bootable.d88
+~~~
+
+This preserves the template's PC-Engine system files and installs the same
+color-grouped payloads as the data-only archive. The resulting
+`sgp-demo-bootable.d88` is a local validation artifact and must not be
+committed or compressed for distribution.
+
+The M6 source can also be assembled independently:
 
 ~~~sh
 nasm -f bin -dMILESTONE_STAGE=6 \
@@ -262,60 +306,49 @@ No generated `.COM` file belongs in the source tree.
 
 ## Disposable disk installation
 
-The distribution image [`sgpdemo.d88.xz`](sgpdemo.d88.xz) is intentionally a
-data disk. It contains exactly ten programs: `A:\SGPDEMO1.COM` through
-`A:\SGPDEMO6.COM` and `A:\SGPD_7A.COM` through `A:\SGPD_7D.COM`. It does
-not contain `ENGINEIO.SYS`, `PCENGINE.SYS`, `ADVGBIOS.SYS`, or `PCENGINE.COM`,
-and it is not bootable by itself. This keeps emulator/system files out of the
-redistributable demo artifact.
-
-Create the same data-only image from a local copy of the repository's
-PC-Engine-layout source image:
+The generated image is intentionally a data disk and is not bootable by
+itself. Its root contains only the three color directories listed above; it
+does not contain `ENGINEIO.SYS`, `PCENGINE.SYS`, `ADVGBIOS.SYS`, or
+`PCENGINE.COM`. Create it from a local copy of the repository's PC-Engine-
+layout source image:
 
 ~~~sh
 work=$(mktemp -d /tmp/sgpdemo.XXXXXX)
-NASM=nasm demos/sgp-pseudo-sprite/build_milestone_coms.sh \
-  "$work/coms"
-NASM=nasm demos/sgp-pseudo-sprite/build_m7_coms.sh \
-  "$work/m7"
-mkdir -p "$work/payload/root"
-python3 tools/pc88va/pcengine_disk.py data \
-  --source docs/disks/pcengine110-bootonly.d88 \
-  --output "$work/sgpdemo.d88"
-cp "$work/coms"/SGPDEMO?.COM "$work/payload/root/"
-cp "$work/m7"/SGPD_7?.COM "$work/payload/root/"
-python3 tools/pc88va/pcengine_disk.py install \
-  --image "$work/sgpdemo.d88" \
-  --payload "$work/payload"
+NASM=nasm demos/sgp-pseudo-sprite/build-d88.sh \
+  docs/disks/pcengine110-bootonly.d88 "$work/sgp-pseudo-sprite.d88"
 python3 tools/pc88va/pcengine_disk.py list \
-  --image "$work/sgpdemo.d88"
-xz -c -9 "$work/sgpdemo.d88" > "$work/sgpdemo.d88.xz"
+  --image "$work/sgp-pseudo-sprite.d88"
+xz -dc "$work/sgp-pseudo-sprite.d88.xz" | \
+  cmp - "$work/sgp-pseudo-sprite.d88"
 ~~~
 
-The final `list` must show exactly ten payload files, `SGPDEMO1.COM` through
-`SGPDEMO6.COM` and `SGPD_7A.COM` through `SGPD_7D.COM`, with no PC-Engine
-system files. To run them, mount a bootable PC-Engine system disk in FDD1
-and this data disk in FDD2:
+The final `list` must show exactly the 16-color, 256-color, and 65536-color
+directories above, with no PC-Engine system files. To run them, mount a
+bootable PC-Engine system disk in FDD1 and this data disk in FDD2:
 
 ~~~sh
 build/macos-macports/sdl2/vaeg \
   --fdd1 docs/disks/pcengine110-bootonly.d88 \
-  --fdd2 /path/to/sgpdemo.d88
+  --fdd2 /path/to/sgp-pseudo-sprite.d88
 ~~~
 
 At the DOS prompt, run a selected stage on drive B:
 
 ~~~text
-B:\SGPDEMO1
-B:\SGPDEMO2
-B:\SGPDEMO3
-B:\SGPDEMO4
-B:\SGPDEMO5
-B:\SGPDEMO6
-B:\SGPD_7A
-B:\SGPD_7B
-B:\SGPD_7C
-B:\SGPD_7D
+B:\16\SGPDEMO1
+B:\16\SGPDEMO2
+B:\16\SGPDEMO3
+B:\16\SGPDEMO4
+B:\16\SGPDEMO5
+B:\16\SGPDEMO6
+B:\16\SGPD_7A
+B:\16\SGPD_7B
+B:\16\SGPD_7C
+B:\16\SGPD_7D
+B:\16\SGPD_7S
+B:\256\SGP256S
+B:\256\SGP256T
+B:\65536\SGP655S
 ~~~
 
 For a developer-only disposable bootable test image, `vanilla` may still be
@@ -351,3 +384,24 @@ exchange. Pressing ESC must return to the DOS prompt without a hang.
 The program restores the saved BIOS mode and resets the standard palette;
 arbitrary application palette contents cannot be preserved because VAEG does
 not expose palette readback.
+
+## 65536-color double-buffered track
+
+`demos/sgp-pseudo-sprite/65536/` contains `SGP655S.COM`, a separate direct-color
+track for the same SGP pseudo-sprite idea. It uses two 320x200 G0 pages from a
+320x400, 16-bpp source surface and exchanges the contiguous pages with
+the FB0 DSA registers. Each frame clears the hidden page and emits up to 128
+moving 24x24 transparent 16-bpp BITBLT spheres. The 16 source bitmaps cycle
+through HSV hue values; each bitmap remains monochromatic while using
+supersampled Phong-style shading. The deterministic records use sixteen
+velocity directions. SPACE toggles a SGP-drawn white 16-pixel square grid.
+UP/DOWN (or `+`/`-`) changes the active count from one to 128.
+It does not use
+G1 or a CPU pixel loop. The wireframe track remains the reference for the
+larger contiguous 16-bpp geometry workload.
+
+Build it with:
+
+```sh
+NASM=/opt/local/bin/nasm demos/sgp-pseudo-sprite/65536/build.sh /tmp/SGP655S.COM
+```

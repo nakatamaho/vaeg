@@ -63,6 +63,12 @@ loader keeps compatibility with that inline form, including scancode
 names such as `;` and `=`, but new saves use the sidecar to avoid long
 INI lines and delimiter ambiguity.
 
+The same sidecar also stores frontend host actions. `fast_forward` defaults
+to F11 and controls the temporary hold-to-fast-forward pacing action;
+`mouse_capture` defaults to F12 and controls the host capture shortcut when
+`F12_bind=0` (Mouse). These actions are shown as host rows in the Keyboard
+mapping window and can be rebound without changing guest key codes.
+
 ImGui input capture remains authoritative. If ImGui wants keyboard or
 text input, neither raw scancodes nor Roman-Kana helper output reach the
 guest. During key-binding capture, the captured keydown and matching
@@ -246,7 +252,7 @@ Status values:
 | Shift right | KEY88_SHIFTR | RightShift as 0x70 | 0x58 | RightShift | RightShift | mapped-but-untested | `io/serial.c` |
 | KANA | KEY88_KANA | none | 0x72 | RightAlt, alias International2 | RightAlt | mapped-but-untested | `machine/keystat.h`, `win9x/winkbd.cpp` |
 | GRPH | KEY88_GRAPH | LeftAlt/RightAlt | 0x73 | LeftAlt | LeftAlt | implemented | `machine/keystat.h`, `sdl2/sdlkbd.c` |
-| NFER/KETTEI | KEY88_KETTEI | none | 0x51 | International5 | F11 | mapped-but-untested | `machine/keystat.h`, `win9x/winkbd.cpp`, `io/serial.c` |
+| NFER/KETTEI | KEY88_KETTEI | none | 0x51 | International5 | F11 (when not used by Fast forward) | mapped-but-untested | `machine/keystat.h`, `win9x/winkbd.cpp`, `io/serial.c` |
 | SPACE | KEY88_SPACE | Space | 0x34 | Space | Space | implemented | `machine/keystat.h`, `sdl2/sdlkbd.c` |
 | XFER/HENKAN | KEY88_HENKAN | none | 0x35 | International4 | Application | mapped-but-untested | `machine/keystat.h`, `win9x/winkbd.cpp` |
 | PC | KEY88_PC | none | 0x5a | ScrollLock | ScrollLock | mapped-but-untested | `win9x/winkbd.cpp`, `io/serial.c` |

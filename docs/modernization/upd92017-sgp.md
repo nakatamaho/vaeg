@@ -28,8 +28,8 @@ short_title: "PC-88VA uPD92017 SGP Reconstruction"
 filename: "docs/modernization/upd92017-sgp.md"
 document_status: "Reconstructed, non-authoritative specification"
 language: "en"
-version: "0.4-en.1"
-date: "2026-07-18"
+version: "0.4-en.2"
+date: "2026-08-23"
 target_system: "NEC PC-88VA family"
 device_identifier: "uPD92017; original-VA package marking D92017-002"
 later_device_identifier: "uPD92046; VA2 package marking D92046GD-001"
@@ -143,9 +143,9 @@ vaeg evidence:
 - [`io/sgp.c`](../../io/sgp.c)
 - [`io/sgp.h`](../../io/sgp.h)
 
-The local implementation contains BITBLT, PATBLT, LINE, CLS, dispatch,
-interrupts, and memory access. SCAN commands are TODOs; Kanji handlers and
-some memory regions are incomplete; timing and contention contain provisional
+The local implementation contains BITBLT, PATBLT, LINE, CLS, SCAN_RIGHT,
+SCAN_LEFT, dispatch, interrupts, and memory access. Kanji handlers and some
+memory regions are incomplete; timing and contention contain provisional
 constants; and later-model descriptor widths are reconstruction evidence.
 
 MAME evidence:
@@ -464,15 +464,34 @@ Words are little-endian in memory, but CPU byte order alone does not establish
 visual pixel lane order. Tests must determine least-significant lane,
 start-dot selection, boundary crossing, and reverse traversal in every mode.
 
-SET_COLOR may represent a scalar color, repeated packed word, or foreground/
-background expansion lanes depending on the command. Host-endian fill shortcuts
-are unsafe without lane tests.
+The BNN manual describes the `SET COLOR` value as being consumed in units that
+match the selected pixel mode ([BNN] `PC88VA_テクニカルマニュアル_BNN.md`,
+§4.5.6(4.6), pp. 97-98):
+
+| Pixel mode | Color bits consumed for one word | Interpretation |
+|---|---:|---|
+| 1 bpp | 1 bit × 16 pixels | The selected bit is used for all 16 lanes |
+| 4 bpp | 4 bits × 4 pixels | The selected 4-bit value is repeated for 4 lanes |
+| 8 bpp | 8 bits × 2 pixels | The selected 8-bit value is repeated for 2 lanes |
+| 16 bpp | 16 bits × 1 pixel | The complete color word is used |
+
+This applies to 1-bpp source expansion, `LINE`, `CLS`, and the `SCAN` color
+comparison. It does not by itself settle which byte or bit is the leftmost
+visual lane; that remains a separate pixel-order question. Host-endian fill
+shortcuts are unsafe without lane tests.
 
 ## 7. Block descriptors
 
 A descriptor contains pixel mode, start dot, width, height, framebuffer pitch
 `FBW`, and even 22-bit start address. `FBW` advances scan lines and is not the
 transfer rectangle width.
+
+The BNN block diagrams explicitly specify `FBW` as a byte count and require its
+low two bits to be zero ([BNN] `PC88VA_テクニカルマニュアル_BNN.md`,
+§4.5.6(3.2), p. 95). Width and height are pixel counts; they must not be
+derived from `FBW` or rounded to a word count. The start-dot field is bounded by
+the pixel mode: 0..15 for 1 bpp, 0..3 for 4 bpp, 0..1 for 8 bpp, and 0 for
+16 bpp.
 
 The aligned word address and start-dot offset allow unaligned rectangles while
 first/last-word masks preserve neighboring pixels. Horizontal and vertical
@@ -532,8 +551,10 @@ writable RAM, TVRAM, or GVRAM.
 ### 9.4 SET_COLOR (`0006h`)
 
 SET_COLOR loads the full 16-bit color word used by expansion, LINE, CLS, and
-possibly scan comparison. It must not be truncated to the current display
-depth.
+scan comparison. The BNN lane rule is not an optional display-depth
+conversion: the relevant 1-, 4-, or 8-bit field is repeated across the word,
+while 16 bpp consumes the complete 16-bit value. It must not be truncated to
+the current display depth or interpreted as a host-endian pixel buffer.
 
 ## 10. BITBLT/PATBLT mode and Boolean ROP
 
@@ -541,7 +562,7 @@ The mode word contains source alignment/format `SF`, vertical direction `VD`,
 horizontal direction `HD`, transparent-processing `TP`, a four-bit operation,
 and reserved bits.
 
-The local vaeg definitions use:
+The Technical Manual defines:
 
 | Field | Mask |
 |---|---:|
@@ -551,12 +572,15 @@ The local vaeg definitions use:
 | `TP` | `0300h` |
 | operation | `000Fh` |
 
-These are implementation evidence until checked against a clean period bit
-diagram and raw command lists.
+The current vaeg BITBLT/PATBLT definitions use the same masks. LINE uses the
+same documented bit positions, so a separate swapped LINE direction mapping is
+not supported by this source.
 
-`VD`/`HD` choose traversal direction and safe overlap order. `SF` affects
-source alignment when source and destination start dots differ. Each start-dot
-offset and word-boundary crossing needs a raw-vector test.
+`VD`/`HD` choose traversal direction and safe overlap order. The BNN definition
+of `SF` is explicit ([BNN] `PC88VA_テクニカルマニュアル_BNN.md`,
+§4.5.6(4.7), p. 99): `SF=0` shifts the source to the destination dot
+position; `SF=1` transfers the source without that alignment shift. Each
+start-dot offset and word-boundary crossing needs a raw-vector test.
 
 ### 10.1 Transparency
 
@@ -567,35 +591,24 @@ At minimum, the recovered modes distinguish:
 - transfer only where destination is zero;
 - one-bit source color expansion.
 
-vaeg handles source-zero suppression in important paths, treats `TP=3` like
-destination-zero in one helper, and leaves some `TP=2/3` paths commented out.
-That is incomplete emulation, not a hardware restriction.
+The BNN table defines only `TP-MOD=0`, `1`, and `2`; it does not define
+`TP-MOD=3` ([BNN] `PC88VA_テクニカルマニュアル_BNN.md`, §4.5.6(4.7),
+p. 99). Therefore `TP=3` is currently **[UNKNOWN]**, not a fourth documented
+transparency mode. Some VAEG helper paths historically treat it like
+destination-zero; that is an implementation compatibility choice and must not
+be presented as hardware behavior.
 
-### 10.2 ROP ordering conflict
+The same BNN section gives two cross-format restrictions which callers and
+negative tests must preserve:
 
-All sixteen Boolean functions exist, but the nibble ordering must be verified
-from the period table. The reconstruction supplied for this revision proposed:
+* a differing source/destination pixel format is supported only for 1-bpp
+  source to multi-bpp destination expansion;
+* 1-bpp-to-multi-bpp expansion requires `HD=0` (left-to-right), and `HD=1`
+  requires `TP-MOD=0`.
 
-| ROP | Candidate result |
-|---:|---|
-| `0` | `0` |
-| `1` | `S & D` |
-| `2` | `S & ~D` |
-| `3` | `S` |
-| `4` | `~S & D` |
-| `5` | `D` |
-| `6` | `S ^ D` |
-| `7` | `S | D` |
-| `8` | `~(S | D)` |
-| `9` | `~(S ^ D)` |
-| `A` | `~D` |
-| `B` | `S | ~D` |
-| `C` | `~S` |
-| `D` | `~S | D` |
-| `E` | `~(S & D)` |
-| `F` | all ones |
+### 10.2 ROP ordering
 
-**[CONFLICT]** Current vaeg instead implements the complete set in this order:
+The Technical Manual gives all sixteen Boolean functions in this order:
 
 | ROP | vaeg result |
 |---:|---|
@@ -616,9 +629,9 @@ from the period table. The reconstruction supplied for this revision proposed:
 | `E` | `~(S & D)` |
 | `F` | all ones |
 
-Do not choose between the tables merely because either is a conventional
-truth-table ordering. A hardware test must record raw ROP nibble, source word,
-initial destination, mask edges, and result.
+Current vaeg implements this same order. Focused tests must still cover the raw
+ROP nibble, source word, initial destination, and partial-word masks so a
+future refactor cannot silently reorder the table.
 
 ## 11. BITBLT (`0007h`)
 
@@ -663,14 +676,11 @@ state. Behavior is consistent with an integer Bresenham-family accumulator,
 but endpoint inclusion, tie breaking, major-axis choice, and initial error are
 hardware-visible.
 
-**[CONFLICT]** vaeg's generic BLT masks name `VD=0800h` and `HD=0400h`, while
-its LINE-specific names swap those meanings: `LINE_VD=0400h` and
-`LINE_HD=0800h`. The supplied period-document reconstruction says the LINE
-direction symbols disagree with those local definitions.
-
-Implementations must decode raw bits under a named profile and test asymmetric
-lines in all four direction combinations. Do not use a host graphics-library
-line routine.
+**[DOCUMENTED]** LINE uses `VD=0800h` and `HD=0400h`, the same direction-bit
+positions as BITBLT and PATBLT. Current vaeg's separate
+`LINE_VD=0400h`/`LINE_HD=0800h` definitions are reversed. Implementations must
+test asymmetric lines in all four direction combinations. Do not use a host
+graphics-library line routine.
 
 Required cases are horizontal, vertical, 45-degree, shallow, steep, every
 octant, one-pixel, reversed endpoints, word boundaries, and descriptor edges.
@@ -694,21 +704,26 @@ tests.
 
 ## 15. SCAN_RIGHT (`000Bh`)
 
-SCAN_RIGHT advances pixel by pixel until a specified equality/inequality or
-boundary condition, assisting flood fill. Recoverable inputs include initial
-position, descriptor, comparison color/set, pixel mode, and extent.
-
-The exact condition bits, inclusive/exclusive start, result location, and
-boundary convention remain **[UNKNOWN]**. Current vaeg only logs the command as
-not implemented.
+SCAN_RIGHT advances pixel by pixel until it finds the SET COLOR value. The
+destination descriptor supplies the starting pixel, pixel mode, and maximum
+pixel count. If the starting pixel already has the selected color, the result
+width is zero. If a later pixel matches, the destination width becomes the
+number of pixels from the start to that boundary. If no pixel matches within
+the maximum count, the destination width remains unchanged. Current vaeg
+executes the scan asynchronously through the SGP state machine. The
+emulator-side SCAN sanity test covers first-pixel, later-pixel, miss,
+packed-word, nearest-boundary, and adjacent-boundary cases.
 
 ## 16. SCAN_LEFT (`000Ch`)
 
-SCAN_LEFT is the symmetric leftward operation and is also a vaeg TODO.
+SCAN_LEFT applies the same color and count rules while moving left. On a
+match, it additionally updates the destination start address and start-dot to
+the left edge of the scanned region. A first-pixel match produces width zero;
+a miss leaves the descriptor unchanged. Current vaeg implements this behavior
+in the same asynchronous state machine as SCAN_RIGHT.
 
 Tests must distinguish initial-pixel stopping, one-pixel-away stopping,
-inclusive/exclusive boundary, packed-word crossing, x=0, rightmost start,
-equality/inequality, and left/right symmetry.
+packed-word crossing, x=0, rightmost start, no match, and left/right symmetry.
 
 SCAN is a documented functional command and should not be omitted merely
 because common software may implement flood fill on the CPU.
@@ -730,6 +745,10 @@ because common software may implement flood fill on the CPU.
 13. Abort may leave a partially updated read-modify-write word.
 14. Unknown opcodes must remain visible in diagnostics.
 15. CPU, SGP, and display access to shared memory may contend.
+16. `FBW` is a byte pitch and its low two bits must be zero.
+17. Cross-format transfer is restricted to documented 1-bpp-to-multi-bpp
+    expansion; the documented direction/transparent-mode restrictions apply.
+18. `TP-MOD=3` is not defined by the BNN command table and remains unknown.
 
 ## 18. Memory contention and timing
 
@@ -775,13 +794,42 @@ A staged emulator strategy is:
 | Address space | 4MiB original-VA map | Broadly modeled; incomplete handlers | Period map is baseline; overlays are model profiles |
 | Command table | Main RAM for portable software | Fetch backend can address SGP space | Require main RAM until hardware proves otherwise |
 | Work area | 58 bytes | Address retained | Preserve size; do not invent layout |
-| BITBLT/PATBLT | Documented | Implemented with incomplete modes | Period semantics first |
+| SET_COLOR lane expansion | Mode-dependent 1/4/8/16-bpp lane use is documented | Full color is retained, but lane-level conformance remains a test target | Add mode-specific raw vectors |
+| `SF` source alignment | `0=shift to destination dot`, `1=no shift` | Alignment path exists | Verify every start-dot and word-boundary combination |
+| `TP-MOD=3` | Not defined in BNN | Some helpers treat it like destination-zero | Keep as explicit unknown; do not generalize |
+| `FBW` | Byte pitch; low two bits zero | Parsed and masked per model | Add invalid-pitch negative tests |
+| BITBLT/PATBLT | Documented | Implemented; edge cases and hardware conformance remain incomplete | Period semantics first |
 | LINE | Documented | Implemented; direction conflict | Raw-bit hardware test |
 | CLS | Documented | Word-count fill | Verify count encoding |
-| SCAN | Documented | Both TODO | Required, detailed format unresolved |
+| SCAN_RIGHT / SCAN_LEFT | Documented | Implemented and covered by emulator-side sanity tests | Real-hardware conformance remains open |
+| Kanji ROM source access | Address regions are present in the SGP map | `knj1w_rd()` and `knj2w_rd()` are TODO | Required only for SGP transfers sourced from Kanji ROM |
+| Kanji ROM writes | ROM is not a normal writable target | `knj2w_wt()` is a TODO no-op | Confirm write-protection behavior before changing it |
+| Unknown command after `000Ch` | Manual says thirteen commands but identifies twelve opcodes | `000Dh` and above are rejected as unknown | Do not invent the missing opcode |
 | VA2 descriptor width | Not fully established | 14-bit width/16-bit height comments | Separate later-model profile |
 | Clock | No recovered primary table | Nominal 3.9936/7.9872MHz | Captured/provisional provenance |
 | Contention | Shared-memory waits | Fixed approximate CPU deduction | Do not claim cycle accuracy |
+
+### 19.1 Functions outside the SGP command set
+
+The following items must not be reported as missing SGP opcodes. They are
+either higher-level software operations or responsibilities of another VA
+device/layer:
+
+| Function | SGP status | Correct interpretation |
+|---|---|---|
+| Dedicated rectangle-fill opcode | Not identified | A solid rectangle can be composed with a 1x1 source and PATBLT; CLS is a linear word fill, not a rectangle primitive |
+| Flood fill / PAINT | No dedicated SGP command | BIOS or guest software can combine SCAN_LEFT/SCAN_RIGHT with PATBLT |
+| Polygon fill | Not an SGP command | Requires CPU/BIOS edge setup and repeated SGP operations |
+| Circle / ellipse | Not an SGP command | Must be approximated by CPU-generated LINE records or another graphics layer |
+| Sprite management | Not an SGP responsibility | Owned by TSP/pseudo-sprite software |
+| Scaling and rotation | Not an SGP responsibility | Performed by CPU-side geometry or sprite hardware/software |
+| Alpha blending and z-buffering | Not an SGP command | No corresponding SGP state or opcode is identified |
+| 3D transformation | Not an SGP responsibility | CPU-side operation |
+
+This distinction is important: the absence of these functions from SGP is a
+hardware-command-set property, not an assertion that VAEG is missing an SGP
+implementation. Conversely, Kanji ROM access, the unresolved thirteenth
+command, and hardware-accurate timing remain genuine SGP audit items.
 
 MAME must be checked directly for individual semantics before attributing a
 behavior to it. Its device and map are useful implementation evidence, not a
@@ -1111,6 +1159,16 @@ Wiki statements must be cited page by page when recoverable. Captured claims
 are not primary evidence without a retrievable page or corroboration.
 
 ## 27. Change log
+
+### 0.4-en.2 - 2026-08-23
+
+- Added BNN-backed `SET_COLOR` lane expansion rules for 1/4/8/16 bpp.
+- Made the BNN `SF` shift/no-shift semantics explicit.
+- Recorded the documented `FBW` byte-pitch and low-two-bit alignment rule.
+- Separated the documented `TP-MOD=0..2` modes from the undefined `TP-MOD=3`
+  implementation compatibility behavior.
+- Recorded the BNN cross-format and direction restrictions as negative-test
+  requirements.
 
 ### 0.4-en.1 - 2026-07-18
 

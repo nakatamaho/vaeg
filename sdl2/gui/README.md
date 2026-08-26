@@ -30,8 +30,11 @@ The M10 GUI uses Dear ImGui with `imgui_impl_sdl2` and
 
 ## Input Routing
 
-F11 is first handled as a frontend-global hold-to-fast-forward shortcut, so
-its keyup always clears the transient state even while ImGui captures input.
+The configured `Fast forward` binding is first handled as a frontend-global
+hold-to-fast-forward shortcut, so its keyup always clears the transient state
+even while ImGui captures input. It defaults to F11 and is configurable in
+the Keyboard mapping window. The `Mouse capture` host action is likewise
+listed there; it is active when the existing F12 binding menu is set to Mouse.
 All events are then passed to Dear ImGui. Other keyboard events and
 SDL_TEXTINPUT reach the guest only when `ImGuiIO::WantCaptureKeyboard` is
 false. Mouse events reach guest-side routing only when
@@ -188,9 +191,10 @@ menu. If every other preflight result is acceptable, the modal offers
 snapshot remain active while the rest of the saved guest state is restored.
 Cancel leaves the running guest untouched.
 
-Screen exposes the persisted No Wait and frame-skip controls. F11 is a
-non-persistent frontend shortcut: while held it selects effective No Wait and
-draw skip 16, then immediately returns to the saved values on release.
+Screen exposes the persisted No Wait and frame-skip controls. The configured
+Fast forward host action (F11 by default) is non-persistent: while held it
+selects effective No Wait and draw skip 16, then immediately returns to the
+saved values on release.
 
 ## Display Controls
 

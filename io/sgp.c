@@ -13,6 +13,10 @@
 #include "sgp.h"
 #include "bmsio.h"
 
+#include <stdarg.h>
+#include <stdio.h>
+#include <stdlib.h>
+
 #define SWAPWORD(x) (((x) << 8) | ((x) >> 8))
 
 enum {
@@ -23,10 +27,30 @@ enum {
 	FUNC_EXEC_CLS,
 	FUNC_EXEC_LINE_X,
 	FUNC_EXEC_LINE_Y,
+	FUNC_EXEC_SCAN_RIGHT,
+	FUNC_EXEC_SCAN_LEFT,
 };
 
 _SGP sgp;
 static CLOCKSCALE sgp_clock_scale = {1, 1, 0};
+
+/* Optional, test-only SCAN trace.  The normal emulator path remains silent. */
+static void sgp_scan_trace(const char *format, ...) {
+	static int enabled = -1;
+	va_list ap;
+
+	if (enabled < 0) {
+		enabled = (getenv("VAEG_SGP_SCAN_TRACE") != NULL) ? 1 : 0;
+	}
+	if (!enabled) {
+		return;
+	}
+	va_start(ap, format);
+	fputs("SGP_SCAN: ", stderr);
+	vfprintf(stderr, format, ap);
+	fputc('\n', stderr);
+	va_end(ap);
+}
 
 BOOL sgp_speed_mode_valid(UINT mode) {
 	return (mode < SGP_SPEED_MODE_COUNT);
@@ -370,22 +394,68 @@ static int bpp[4] = {1, 4, 8, 16};
 
 static void fetch_command(void);
 
+static BOOL sgp_command_known(WORD cmd) {
+	return ((cmd >= 0x0001) && (cmd <= 0x000c));
+}
+
+/*
+ * These checks describe the documented command combinations without changing
+ * the current compatibility behavior.  Invalid encodings are traced at the
+ * command boundary and remain available for a later hardware-backed policy.
+ */
+static BOOL sgp_fbw_aligned(UINT16 fbw) {
+	return ((fbw & 0x0003) == 0);
+}
+
+static BOOL sgp_blt_mode_valid(UINT16 bltmode, const _SGP_BLOCK *src, const _SGP_BLOCK *dest) {
+	UINT16 tp = bltmode & SGP_BLTMODE_TP;
+
+	if (tp == 0x0300) {
+		/* TP=3 is reserved by the BNN manual. */
+		return (FALSE);
+	}
+	if ((bltmode & SGP_BLTMODE_HD) && (tp != 0)) {
+		/* HD=1 is documented only with ordinary transfer (TP=0). */
+		return (FALSE);
+	}
+	if ((src != NULL) && (dest != NULL) && (src->scrnmode != dest->scrnmode)) {
+		/* The only documented format expansion is 1bpp source to a wider destination. */
+		if ((src->scrnmode != 0) || (dest->scrnmode == 0) || (bltmode & SGP_BLTMODE_HD)) {
+			return (FALSE);
+		}
+	}
+	return (TRUE);
+}
+
 static void fetch_block(UINT32 address, SGP_BLOCK block) {
 	UINT16 dat;
+	UINT16 raw_fbw;
 
 	dat = sgp_memoryread_w(address);
 	block->scrnmode = dat & 0x03;
 	block->dot = (dat >> 4) & (dotcountmax[block->scrnmode] - 1);
-	block->width = sgp_memoryread_w(address + 2) & 0x3fff; /* VA2 accepts all 14 width bits. */
-	block->height = sgp_memoryread_w(address + 4);         /* VA2 accepts all 16 height bits. */
-	block->fbw =
-	    sgp_memoryread_w(address + 6) & 0xfffe; /* Bit 1 participates in the framebuffer width. */
+	raw_fbw = sgp_memoryread_w(address + 6);
+	if (!sgp_fbw_aligned(raw_fbw)) {
+		TRACEOUT(("SGP: descriptor: FBW low bits are reserved: %04x", raw_fbw));
+	}
+	if (pccore.model_va == PCMODEL_VA2) {
+		/* Preserve the wider VA2 descriptor profile used by existing software. */
+		block->width = sgp_memoryread_w(address + 2) & 0x3fff;
+		block->height = sgp_memoryread_w(address + 4);
+		block->fbw = raw_fbw & 0xfffe;
+	} else {
+		/* The original VA descriptor defines 12-bit extents and a four-byte pitch. */
+		block->width = sgp_memoryread_w(address + 2) & 0x0fff;
+		block->height = sgp_memoryread_w(address + 4) & 0x0fff;
+		block->fbw = raw_fbw & 0xfffc;
+	}
 	block->address =
 	    sgp_memoryread_w(address + 8) & 0xfffe | ((UINT32)sgp_memoryread_w(address + 10) << 16);
 
-	// Compatibility adjustment for the R-TYPE command stream; hardware basis is unverified.
-	if (block->fbw < 0)
+	/* Legacy VA2 compatibility for an observed R-TYPE command stream. */
+	if ((pccore.model_va == PCMODEL_VA2) && (block->fbw < 0)) {
 		block->fbw += 2;
+	}
 }
 
 static void init_block(SGP_BLOCK block) {
@@ -632,7 +702,7 @@ static void setintreq(void) {
 
 static void cmd_unknown(void) {
 	// Invalid command.
-	TRACEOUT(("SGP: cmd: unknown"));
+	TRACEOUT(("SGP: cmd: unknown 0000"));
 }
 
 static void cmd_nop(void) {
@@ -658,6 +728,8 @@ static void cmd_set_work(void) {
 
 static void cmd_set_source(void) {
 	fetch_block(sgp.pc, &sgp.src);
+	sgp_scan_trace("SET_SOURCE addr=%06lx dot=%d mode=%d width=%d height=%d fbw=%d", sgp.src.address,
+	               sgp.src.dot, sgp.src.scrnmode, sgp.src.width, sgp.src.height, sgp.src.fbw);
 	TRACEOUT(("SGP: cmd: set source     : dot=%d, mode=%d, w=%d, h=%d, fbw=%d, addr=%08lx",
 	          sgp.src.dot, sgp.src.scrnmode, sgp.src.width, sgp.src.height, sgp.src.fbw,
 	          sgp.src.address));
@@ -667,6 +739,8 @@ static void cmd_set_source(void) {
 
 static void cmd_set_destination(void) {
 	fetch_block(sgp.pc, &sgp.dest);
+	sgp_scan_trace("SET_DEST addr=%06lx dot=%d mode=%d width=%d height=%d fbw=%d", sgp.dest.address,
+	               sgp.dest.dot, sgp.dest.scrnmode, sgp.dest.width, sgp.dest.height, sgp.dest.fbw);
 	TRACEOUT(("SGP: cmd: set destination: dot=%d, mode=%d, w=%d, h=%d, fbw=%d, addr=%08lx",
 	          sgp.dest.dot, sgp.dest.scrnmode, sgp.dest.width, sgp.dest.height, sgp.dest.fbw,
 	          sgp.dest.address));
@@ -687,6 +761,9 @@ static void cmd_bitblt(void) {
 	sgp.remainclock -= 338 * 2;
 
 	TRACEOUT(("SGP: cmd: bitblt: %04x", sgp.bltmode));
+	if (!sgp_blt_mode_valid(sgp.bltmode, &sgp.src, &sgp.dest)) {
+		TRACEOUT(("SGP: bitblt: reserved or unsupported mode combination: %04x", sgp.bltmode));
+	}
 
 	// BITBLT ignores the width and height from SET DESTINATION;
 	// the SET SOURCE dimensions determine the transfer extent.
@@ -710,8 +787,14 @@ static void cmd_patblt(void) {
 	sgp.bltmode = sgp_memoryread_w(sgp.pc);
 	sgp.pc += 2;
 	sgp.remainclock -= 338 * 2;
+	sgp_scan_trace("PATBLT mode=%04x src_width=%d src_height=%d dest_width=%d dest_height=%d dest_addr=%06lx dest_dot=%d",
+	               sgp.bltmode, sgp.src.width, sgp.src.height, sgp.dest.width, sgp.dest.height,
+	               sgp.dest.address, sgp.dest.dot);
 
 	TRACEOUT(("SGP: cmd: patblt: %04x", sgp.bltmode));
+	if (!sgp_blt_mode_valid(sgp.bltmode, &sgp.src, &sgp.dest)) {
+		TRACEOUT(("SGP: patblt: reserved or unsupported mode combination: %04x", sgp.bltmode));
+	}
 
 	init_block(&sgp.src);
 	init_block(&sgp.dest);
@@ -730,6 +813,9 @@ static void cmd_line(void) {
 	sgp.bltmode = sgp_memoryread_w(sgp.pc);
 	sgp.pc += 2;
 	fetch_block(sgp.pc, &sgp.dest);
+	if ((sgp.bltmode & SGP_BLTMODE_TP) == 0x0300) {
+		TRACEOUT(("SGP: line: reserved TP mode: %04x", sgp.bltmode));
+	}
 
 	TRACEOUT(("SGP: cmd: line: %04x, dot=%d, mode=%d, w=%d, h=%d, fbw=%d, addr=%08lx", sgp.bltmode,
 	          sgp.dest.dot, sgp.dest.scrnmode, sgp.dest.width, sgp.dest.height, sgp.dest.fbw,
@@ -795,13 +881,33 @@ static void cmd_cls(void) {
 }
 
 static void cmd_scan_right(void) {
-	TRACEOUT(("SGP: cmd: scan right (not implemented)"));
-	//ToDo
+	TRACEOUT(("SGP: cmd: scan right"));
+	sgp_scan_trace("SCAN_RIGHT start addr=%06lx dot=%d width=%d mode=%d color=%04x", sgp.dest.address,
+	               sgp.dest.dot, sgp.dest.width, sgp.dest.scrnmode, sgp.color);
+	if (sgp.dest.width == 0) {
+		/* Zero extents are undefined by the hardware manual; finish defensively. */
+		sgp.func = FUNC_FETCH_COMMAND;
+		return;
+	}
+	sgp.dest.nextaddress = sgp.dest.address;
+	sgp.dest.dotcount = sgp.dest.dot;
+	sgp.dest.xcount = sgp.dest.width;
+	sgp.func = FUNC_EXEC_SCAN_RIGHT;
 }
 
 static void cmd_scan_left(void) {
-	TRACEOUT(("SGP: cmd: scan left (not implemented)"));
-	//ToDo
+	TRACEOUT(("SGP: cmd: scan left"));
+	sgp_scan_trace("SCAN_LEFT start addr=%06lx dot=%d width=%d mode=%d color=%04x", sgp.dest.address,
+	               sgp.dest.dot, sgp.dest.width, sgp.dest.scrnmode, sgp.color);
+	if (sgp.dest.width == 0) {
+		/* Zero extents are undefined by the hardware manual; finish defensively. */
+		sgp.func = FUNC_FETCH_COMMAND;
+		return;
+	}
+	sgp.dest.nextaddress = sgp.dest.address;
+	sgp.dest.dotcount = sgp.dest.dot;
+	sgp.dest.xcount = sgp.dest.width;
+	sgp.func = FUNC_EXEC_SCAN_LEFT;
 }
 
 // ----
@@ -1031,6 +1137,103 @@ static void exec_cls(void) {
 		sgp.func = FUNC_FETCH_COMMAND;
 	}
 	sgp.remainclock -= 3 * 2;
+}
+
+static UINT16 scan_pixel(int dot, int scrnmode, UINT16 packed_value) {
+	int bits;
+	int shift;
+	UINT16 mask;
+
+	bits = bpp[scrnmode];
+	shift = (dotcountmax[scrnmode] - dot - 1) * bits;
+	mask = (UINT16)(0xffffU >> (16 - bits));
+	return ((packed_value >> shift) & mask);
+}
+
+static void scan_move_right(UINT32 *address, int *dot, int scrnmode) {
+	(*dot)++;
+	if (*dot == dotcountmax[scrnmode]) {
+		*dot = 0;
+		*address += 2;
+	}
+}
+
+static void scan_move_left(UINT32 *address, int *dot, int scrnmode) {
+	if (*dot == 0) {
+		*dot = dotcountmax[scrnmode] - 1;
+		*address -= 2;
+	} else {
+		(*dot)--;
+	}
+}
+
+static BOOL scan_current_pixel_matches(void) {
+	UINT16 source_word;
+	UINT16 color_word;
+
+	source_word = SWAPWORD(sgp_memoryread_w(sgp.dest.nextaddress));
+	color_word = SWAPWORD(sgp.color);
+	return (scan_pixel(sgp.dest.dotcount, sgp.dest.scrnmode, source_word) ==
+	        scan_pixel(sgp.dest.dotcount, sgp.dest.scrnmode, color_word));
+}
+
+static void exec_scan_right(void) {
+	UINT16 scanned;
+
+	/* One scheduler quantum keeps SCAN incremental; this is not a hardware timing claim. */
+	sgp.remainclock--;
+	scanned = sgp.dest.width - sgp.dest.xcount;
+	if (scan_current_pixel_matches()) {
+		sgp.dest.width = scanned;
+		sgp_scan_trace("SCAN_RIGHT result found=1 width=%d addr=%06lx dot=%d", sgp.dest.width,
+		               sgp.dest.address, sgp.dest.dot);
+		sgp.func = FUNC_FETCH_COMMAND;
+		return;
+	}
+
+	sgp.dest.xcount--;
+	if (sgp.dest.xcount == 0) {
+		/* A miss leaves the destination descriptor unchanged. */
+		sgp_scan_trace("SCAN_RIGHT result found=0 width=%d addr=%06lx dot=%d", sgp.dest.width,
+		               sgp.dest.address, sgp.dest.dot);
+		sgp.func = FUNC_FETCH_COMMAND;
+		return;
+	}
+	scan_move_right(&sgp.dest.nextaddress, &sgp.dest.dotcount, sgp.dest.scrnmode);
+}
+
+static void exec_scan_left(void) {
+	UINT16 scanned;
+	UINT32 left_address;
+	int left_dot;
+
+	/* One scheduler quantum keeps SCAN incremental; this is not a hardware timing claim. */
+	sgp.remainclock--;
+	scanned = sgp.dest.width - sgp.dest.xcount;
+	if (scan_current_pixel_matches()) {
+		sgp.dest.width = scanned;
+		if (scanned != 0) {
+			left_address = sgp.dest.nextaddress;
+			left_dot = sgp.dest.dotcount;
+			scan_move_right(&left_address, &left_dot, sgp.dest.scrnmode);
+			sgp.dest.address = left_address;
+			sgp.dest.dot = left_dot;
+		}
+		sgp_scan_trace("SCAN_LEFT result found=1 width=%d addr=%06lx dot=%d", sgp.dest.width,
+		               sgp.dest.address, sgp.dest.dot);
+		sgp.func = FUNC_FETCH_COMMAND;
+		return;
+	}
+
+	sgp.dest.xcount--;
+	if (sgp.dest.xcount == 0) {
+		/* A miss leaves the destination descriptor unchanged. */
+		sgp_scan_trace("SCAN_LEFT result found=0 width=%d addr=%06lx dot=%d", sgp.dest.width,
+		               sgp.dest.address, sgp.dest.dot);
+		sgp.func = FUNC_FETCH_COMMAND;
+		return;
+	}
+	scan_move_left(&sgp.dest.nextaddress, &sgp.dest.dotcount, sgp.dest.scrnmode);
 }
 
 /*
@@ -1321,7 +1524,7 @@ static void fetch_command(void) {
 
 	cmd = sgp_memoryread_w(sgp.pc);
 	sgp.pc += 2;
-	if (cmd >= 0x0d) {
+	if (!sgp_command_known(cmd)) {
 		TRACEOUT(("SGP: cmd: unknown %04x", cmd));
 	} else {
 		commandtable[cmd]();
@@ -1361,6 +1564,12 @@ void sgp_step(void) {
 		case FUNC_EXEC_LINE_Y:
 			exec_line_y();
 			break;
+		case FUNC_EXEC_SCAN_RIGHT:
+			exec_scan_right();
+			break;
+		case FUNC_EXEC_SCAN_LEFT:
+			exec_scan_left();
+			break;
 		case FUNC_FETCH_COMMAND:
 		default:
 			fetch_command();
@@ -1368,6 +1577,216 @@ void sgp_step(void) {
 		}
 	}
 	sgp.lastclock = now;
+}
+
+static BOOL finish_scan_selftest(BOOL left) {
+	UINT count;
+
+	if (left) {
+		cmd_scan_left();
+	} else {
+		cmd_scan_right();
+	}
+	for (count = 0; count < 32; count++) {
+		if (sgp.func == FUNC_FETCH_COMMAND) {
+			return (SUCCESS);
+		}
+		if (sgp.func == FUNC_EXEC_SCAN_RIGHT) {
+			exec_scan_right();
+		} else if (sgp.func == FUNC_EXEC_SCAN_LEFT) {
+			exec_scan_left();
+		} else {
+			return (FAILURE);
+		}
+	}
+	return (FAILURE);
+}
+
+static BOOL scan_result_matches(BOOL left, UINT16 width, UINT32 address, int dot) {
+	if (finish_scan_selftest(left) != SUCCESS) {
+		return (FALSE);
+	}
+	return ((sgp.dest.width == width) && (sgp.dest.address == address) && (sgp.dest.dot == dot));
+}
+
+BOOL sgp_manual_commands_selftest(void) {
+	static const UINT16 rop_expected[16] = {0x0000, 0x0303, 0x3030, 0x0000, 0x0c0c, 0x0f0f,
+	                                        0x3c3c, 0x3f3f, 0xc0c0, 0xc3c3, 0xf0f0, 0xf3f3,
+	                                        0xcccc, 0xcfcf, 0xfcfc, 0xffff};
+	const UINT32 descriptor_address = 0x001000;
+	const UINT32 destination_address = 0x001020;
+	BYTE saved_descriptor[12];
+	BYTE saved_destination[4];
+	_SGP saved_sgp;
+	_SGP_BLOCK block;
+	SINT32 saved_cpu_remclock;
+	UINT saved_model_va;
+	UINT16 dat;
+	UINT16 mask;
+	UINT index;
+	BOOL result;
+
+	CopyMemory(saved_descriptor, mem + descriptor_address, sizeof(saved_descriptor));
+	CopyMemory(saved_destination, mem + destination_address, sizeof(saved_destination));
+	saved_sgp = sgp;
+	saved_cpu_remclock = CPU_REMCLOCK;
+	saved_model_va = pccore.model_va;
+	result = FAILURE;
+
+	STOREINTELWORD(mem + descriptor_address + 0, 0x0031);
+	STOREINTELWORD(mem + descriptor_address + 2, 0x3abc);
+	STOREINTELWORD(mem + descriptor_address + 4, 0xf456);
+	STOREINTELWORD(mem + descriptor_address + 6, 0x0006);
+	STOREINTELWORD(mem + descriptor_address + 8, 0x1235);
+	STOREINTELWORD(mem + descriptor_address + 10, 0x0020);
+
+	pccore.model_va = PCMODEL_VA1;
+	fetch_block(descriptor_address, &block);
+	if ((block.scrnmode != 1) || (block.dot != 3) || (block.width != 0x0abc) ||
+	    (block.height != 0x0456) || (block.fbw != 4) || (block.address != 0x201234)) {
+		goto restore;
+	}
+
+	pccore.model_va = PCMODEL_VA2;
+	fetch_block(descriptor_address, &block);
+	if ((block.width != 0x3abc) || (block.height != 0xf456) || (block.fbw != 6) ||
+	    (block.address != 0x201234)) {
+		goto restore;
+	}
+
+	/* Descriptor and mode negative cases remain explicit and machine-checked. */
+	if (!sgp_fbw_aligned(0x0020) || sgp_fbw_aligned(0x0022)) {
+		goto restore;
+	}
+	if (sgp_command_known(0x0000) || !sgp_command_known(0x0002) ||
+	    !sgp_command_known(0x000c) || sgp_command_known(0x000d) ||
+	    sgp_command_known(0xffff)) {
+		goto restore;
+	}
+	sgp.remainclock = 10;
+	cmd_nop();
+	if (sgp.remainclock != 0) {
+		goto restore;
+	}
+	block.scrnmode = 0;
+	block.dot = 0;
+	block.width = 8;
+	block.height = 1;
+	block.fbw = 4;
+	sgp.dest.scrnmode = 1;
+	if (!sgp_blt_mode_valid(0x0000, &block, &sgp.dest) ||
+	    !sgp_blt_mode_valid(0x0100, &block, &sgp.dest) ||
+	    sgp_blt_mode_valid(0x0400, &block, &sgp.dest) ||
+	    sgp_blt_mode_valid(0x0500, &block, &sgp.dest) ||
+	    sgp_blt_mode_valid(0x0300, &block, &sgp.dest)) {
+		goto restore;
+	}
+	block.scrnmode = 1;
+	if (!sgp_blt_mode_valid(0x0400, &block, &sgp.dest)) {
+		goto restore;
+	}
+
+	if ((SGP_BLTMODE_LINE_VD != SGP_BLTMODE_VD) || (SGP_BLTMODE_LINE_HD != SGP_BLTMODE_HD)) {
+		goto restore;
+	}
+
+	for (index = 0; index < NELEMENTS(rop_expected); index++) {
+		sgp.bltmode = (UINT16)index;
+		mask = 0xffff;
+		dat = logicalop(0x0f0f, 0x3333, &mask);
+		if (index == 3) {
+			if (mask != 0) {
+				goto restore;
+			}
+		} else if ((mask != 0xffff) || (dat != rop_expected[index])) {
+			goto restore;
+		}
+	}
+
+	STOREINTELWORD(mem + destination_address, 0x0f0f);
+	sgp.dest.nextaddress = destination_address;
+	sgp.dest.scrnmode = 1;
+	sgp.newval = 0x1111;
+	sgp.newvalmask = 0xffff;
+	sgp.bltmode = 0x0205;
+	write_dest2();
+	if (LOADINTELWORD(mem + destination_address) != 0x1f1f) {
+		goto restore;
+	}
+
+	STOREINTELWORD(mem + destination_address, SWAPWORD(0x1234));
+	STOREINTELWORD(mem + destination_address + 2, SWAPWORD(0x5678));
+	sgp.dest.scrnmode = 1;
+	sgp.dest.address = destination_address;
+	sgp.dest.dot = 0;
+	sgp.dest.width = 8;
+	sgp.color = 0x7777;
+	if (!scan_result_matches(FALSE, 6, destination_address, 0)) {
+		goto restore;
+	}
+
+	sgp.dest.address = destination_address;
+	sgp.dest.dot = 0;
+	sgp.dest.width = 8;
+	sgp.color = 0x1111;
+	if ((finish_scan_selftest(FALSE) != SUCCESS) || (sgp.dest.width != 0) ||
+	    (sgp.dest.address != destination_address) || (sgp.dest.dot != 0)) {
+		goto restore;
+	}
+
+	sgp.dest.address = destination_address;
+	sgp.dest.dot = 0;
+	sgp.dest.width = 8;
+	sgp.color = 0x9999;
+	if ((finish_scan_selftest(FALSE) != SUCCESS) || (sgp.dest.width != 8) ||
+	    (sgp.dest.address != destination_address) || (sgp.dest.dot != 0)) {
+		goto restore;
+	}
+
+	sgp.dest.address = destination_address;
+	sgp.dest.dot = 3;
+	sgp.dest.width = 2;
+	sgp.color = 0x5555;
+	if ((finish_scan_selftest(FALSE) != SUCCESS) || (sgp.dest.width != 1) ||
+	    (sgp.dest.address != destination_address) || (sgp.dest.dot != 3)) {
+		goto restore;
+	}
+
+	sgp.dest.address = destination_address + 2;
+	sgp.dest.dot = 3;
+	sgp.dest.width = 8;
+	sgp.color = 0x3333;
+	if (!scan_result_matches(TRUE, 5, destination_address, 3)) {
+		goto restore;
+	}
+
+	sgp.dest.address = destination_address + 2;
+	sgp.dest.dot = 3;
+	sgp.dest.width = 8;
+	sgp.color = 0x8888;
+	if ((finish_scan_selftest(TRUE) != SUCCESS) || (sgp.dest.width != 0) ||
+	    (sgp.dest.address != destination_address + 2) || (sgp.dest.dot != 3)) {
+		goto restore;
+	}
+
+	sgp.dest.address = destination_address + 2;
+	sgp.dest.dot = 3;
+	sgp.dest.width = 8;
+	sgp.color = 0x9999;
+	if ((finish_scan_selftest(TRUE) != SUCCESS) || (sgp.dest.width != 8) ||
+	    (sgp.dest.address != destination_address + 2) || (sgp.dest.dot != 3)) {
+		goto restore;
+	}
+
+	result = SUCCESS;
+
+restore:
+	CopyMemory(mem + descriptor_address, saved_descriptor, sizeof(saved_descriptor));
+	CopyMemory(mem + destination_address, saved_destination, sizeof(saved_destination));
+	sgp = saved_sgp;
+	CPU_REMCLOCK = saved_cpu_remclock;
+	pccore.model_va = saved_model_va;
+	return (result);
 }
 
 // ---- I/O
@@ -1408,6 +1827,8 @@ static void IOOUTCALL sgp_o500(UINT port, REG8 dat) {
 	UINT32 mask;
 	int bit;
 
+	TRACEOUT(
+	    ("SGP: io out port=%04x width=8 value=%02x cs:ip=%.4x:%.4x", port, dat, CPU_CS, CPU_IP));
 	mask = 0x000000ffL;
 	bit = (port - 0x500) * 8;
 	mask <<= bit;
@@ -1418,6 +1839,8 @@ static void IOOUTCALL sgp_o500(UINT port, REG8 dat) {
 Interrupt-enable and abort-request register.
 */
 static void IOOUTCALL sgp_o504(UINT port, REG8 dat) {
+	TRACEOUT(
+	    ("SGP: io out port=%04x width=8 value=%02x cs:ip=%.4x:%.4x", port, dat, CPU_CS, CPU_IP));
 	dat &= SGP_INTF | SGP_ABORT;
 	sgp.ctrl = dat;
 	if (sgp.ctrl & SGP_ABORT) {
@@ -1433,6 +1856,8 @@ static void IOOUTCALL sgp_o504(UINT port, REG8 dat) {
 }
 
 static REG8 IOINPCALL sgp_i504(UINT port) {
+	TRACEOUT(("SGP: io in port=%04x width=8 value=%02x cs:ip=%.4x:%.4x", port, sgp.ctrl, CPU_CS,
+	          CPU_IP));
 	if (!gactrlva.gmsp)
 		return sgp_i_notactive(port);
 	return sgp.ctrl;
@@ -1442,6 +1867,8 @@ static REG8 IOINPCALL sgp_i504(UINT port) {
 Execution-attention register.
 */
 static void IOOUTCALL sgp_o506(UINT port, REG8 dat) {
+	TRACEOUT(
+	    ("SGP: io out port=%04x width=8 value=%02x cs:ip=%.4x:%.4x", port, dat, CPU_CS, CPU_IP));
 	dat &= SGP_BUSY;
 	if (!(sgp.busy & SGP_BUSY) && (dat & SGP_BUSY)) {
 		// Execution-attention register.
@@ -1457,6 +1884,8 @@ static void IOOUTCALL sgp_o506(UINT port, REG8 dat) {
 Status register.
 */
 static REG8 IOINPCALL sgp_i506(UINT port) {
+	TRACEOUT(("SGP: io in port=%04x width=8 value=%02x cs:ip=%.4x:%.4x", port, sgp.busy, CPU_CS,
+	          CPU_IP));
 	if (!gactrlva.gmsp)
 		return sgp_i_notactive(port);
 	//	TRACEOUT(("SGP: read status: %02x", sgp.busy));

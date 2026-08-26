@@ -28,8 +28,8 @@ short_title: "GDC/SGP capability matrix"
 filename: "docs/modernization/gdc-sgp-capabilities.md"
 document_status: "Evidence-based comparison"
 language: "en"
-version: "0.1-en.1"
-date: "2026-08-16"
+version: "0.1-en.2"
+date: "2026-08-23"
 target_system: "PC-98 GDC documentation and PC-88VA SGP"
 ---
 
@@ -103,7 +103,7 @@ not established for this comparison.
 | 1-bpp color expansion | Not established by the ordinary GDC interface. | A 1-bpp source can expand to a multi-bit destination using `SET_COLOR`; the period document requires left-to-right transfer for this mode. | `4.TXT` `SET_COLOR`, pixel modes, and usage restrictions. |
 | Pixel formats | The supplied GDC notes identify VRAM and command interfaces but do not establish the SGP packed 1/4/8/16-bpp descriptor model. | Block descriptors support 1, 4, 8, and 16 bits per pixel; start-dot ranges depend on that mode. | `4.TXT` pixel-position and block sections. |
 | Circles, arcs, ellipses | Not established for the ordinary GDC. | No circle, arc, or ellipse command is listed. | Circle/ellipse opcodes in [`io_agdc.txt`](../98io/io_agdc.txt) are μPD72120 AGDC (PC-H98), not this GDC or the VA SGP. |
-| Flood fill / paint | Not established for the ordinary GDC. | No single flood-fill command is listed. `SCAN_RIGHT`/`SCAN_LEFT` locate a boundary color; the document describes following a scan with `PATBLT` as paint assistance. | `4.TXT` SCAN sections. In current VAEG, both scan handlers are TODO; see [`upd92017-sgp.md`](upd92017-sgp.md) and [`io/sgp.c`](../../io/sgp.c). |
+| Flood fill / paint | Not established for the ordinary GDC. | No single flood-fill command is listed. `SCAN_RIGHT`/`SCAN_LEFT` locate a boundary color; the document describes following a scan with `PATBLT` as paint assistance. | `4.TXT` SCAN sections. Current VAEG implements both scan commands as asynchronous operations; hardware conformance remains open. See [`upd92017-sgp.md`](upd92017-sgp.md) and [`io/sgp.c`](../../io/sgp.c). |
 | Framebuffer/page ownership | PC-98 GDC documentation describes separate graphics VRAM planes and display/drawing plane selection on applicable machines. | SGP draws into the addressed destination; it does not select the visible composition page. | GDC plane selection in `io_disp.txt`; VA framebuffer/window/display control is owned by the graphics BIOS. |
 | Windowing, composition, scrolling and palette | GDC `SCROLL`/`TEXTW` affect its command stream, but the supplied PC-98 notes do not define the PC-88VA G0/G1 compositor. | Not an SGP responsibility. PC-88VA graphics BIOS provides framebuffer definition, windows, composition priority, absolute/relative display position, masks, palette, and display enable. | [`606GRP.TXT`](../tekumani/606GRP.TXT) functions 0-11. SGP only writes the addressed memory. |
 | VBLANK/VSYNC generation | Text GDC status exposes VSYNC; port `0064h` triggers a one-shot INT 0Ah at the next VSYNC on documented PC-98 systems. | SGP completion is separate from display VSYNC: `END` can request INT 10h level 8, and `0506h` reports SGP BUSY. | `io_disp.txt` VSYNC section and `4.TXT` SGP status/interrupt sections. Page exchange must use the VA display mechanism, not SGP BUSY as a VBLANK signal. |
@@ -137,8 +137,9 @@ implementation is a separate, model-dependent layer:
 - `BITBLT`, `PATBLT`, `LINE`, and `CLS` are dispatched in [`io/sgp.c`](../../io/sgp.c).
 - The emulator models the 16 logical operations and the two transparent
   transfer modes, but its exact timing coefficients are provisional.
-- `SCAN_RIGHT` and `SCAN_LEFT` are command entries but currently log
-  "not implemented" and do not provide working paint assistance.
+- `SCAN_RIGHT` and `SCAN_LEFT` are implemented as asynchronous command
+  entries and covered by emulator-side sanity tests; this does not establish
+  real-PC-88VA conformance or a complete BIOS-level flood-fill operation.
 - No VAEG timing result should be reported as a PC-88VA hardware throughput
   measurement.
 
