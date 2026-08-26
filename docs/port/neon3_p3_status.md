@@ -56,11 +56,14 @@ the loader/editor environment.
 - P3-B emits SET_WORK, SET_COLOR, complete-word CLS, LINE, and END records
   into one bounded list per frame, submits the physical list address through
   the SGP command port, and waits for idle before advancing the timeline.
-- The harness iterates `TOTAL_FRAMES` (6144) and retains per-frame maxima in
-  plain words.  The VA text-plane status uses the documented cursor/ASCIZ
-  services and the current-attribute selector `DX=8000h`.  The live scene
-  overlay is composed as text above G0 (`CX=0031h`), so the title/profile
-  remain visible while the SGP scene is moving.
+- The harness iterates the complete `TOTAL_FRAMES` (6144) timeline and then
+  wraps back to frame zero for continuous playback.  Per-frame maxima remain
+  available in plain words.  Startup clears all TVRAM rows once through the VA
+  Text BIOS, hides the cursor blink, and writes the static overlay labels.
+  After each completed page is presented, only fixed-width values are updated;
+  the scene title is rewritten on scene changes.  The live scene overlay is
+  composed as text above G0 (`CX=0031h`), so the title/profile remain visible
+  while the SGP scene is moving.
 - The payload enters the selected VA G0 mode through INT 8Fh.  Water-raster
   pixel callbacks remain no-ops in this increment, and partial packed-word
   endpoint RMW is intentionally deferred.
@@ -72,8 +75,9 @@ the loader/editor environment.
 
 Local NASM builds passed for both profiles.  The generated files are local
 transient artifacts and are not repository deliverables.  The default build
-is the complete original timeline: 6144 rendered frames (logical frame
-indices 0 through 6143), after which the status page waits for `ESC`.
+plays the complete original timeline of 6144 logical frames (indices 0 through
+6143) and then wraps to frame zero, continuing until `ESC`.  A stop-at-limit
+diagnostic build can still be selected with `NEON_BUILD_LOOP=0`.
 
 ```text
 profile 200: 52644 bytes

@@ -68,20 +68,26 @@ exit the pair is restored with `INT 83h/AH=2Fh, AL=0Ah` and
 ```text
 Text BIOS INT 83h/AH=2Fh AL=00h (stop producer)
 Screen Editor INT 94h/AH=01h AL=FFh (hide system line)
+Text BIOS INT 83h/AH=25h AL=00h (hide cursor and blink)
 VA graphics INT 8Fh ($ScnMode/$DefBuf/$DefWin/$Compose/$ScnDsp)
-NEON Text BIOS INT 83h overlay
+one-time TVRAM clear and static overlay labels
+VBLANK-boundary fixed-width live fields
 ```
 
-The status-row clearing path covers all 25 main rows after the soft-key
-producer and system-line display have been disabled.  No DOS `INT 21h`,
-periodic bottom-row erase, or direct hard-coded TVRAM erase is used.
+The startup clearing path covers all 25 main rows after the soft-key producer
+and system-line display have been disabled.  During the continuous timeline,
+the payload does not clear rows or toggle display composition: it overwrites
+the fixed-width frame fields after the completed page is presented and rewrites
+the scene title field only on a scene transition.  No DOS `INT 21h`, periodic
+bottom-row erase, or direct hard-coded TVRAM erase is used.
 
 ## Exit
 
 The existing VA graphics leave path remains unchanged.  Before returning, the
 payload restores the normal ten-entry guide with Text BIOS
-`INT 83h/AH=2Fh, AL=0Ah` and Screen Editor `INT 94h/AH=01h, AL=0Ah`.  The
-loader/editor then returns with its saved continuation.
+`INT 83h/AH=2Fh, AL=0Ah`, Screen Editor `INT 94h/AH=01h, AL=0Ah`, and the
+normal cursor blink with Text BIOS `INT 83h/AH=25h, AL=03h`.  The loader/editor
+then returns with its saved continuation.
 
 ## QA status
 
@@ -91,6 +97,7 @@ The source-level checks are:
 * intended NEON strings continue to use `INT 83h`;
 * `INT 83h/AH=2Fh` stops the soft-key producer and `INT 94h/AH=01h` hides
   the system-line presentation;
+* `INT 83h/AH=25h, AL=00h` suppresses the cursor and its blink during the demo;
 * no DOS `INT 21h` appears in the NEON VA payload;
 * graphics SGP/G0 code is unchanged.
 

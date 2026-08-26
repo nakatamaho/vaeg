@@ -57,6 +57,13 @@ if [ "${NEON_BUILD_SGP_EXTERNAL_LIST:-}" ]; then
     esac
 fi
 
+if [ "${NEON_BUILD_LOOP:-}" ]; then
+    case "${NEON_BUILD_LOOP}" in
+        0|1) extra_define="$extra_define -d NEON_LOOP=${NEON_BUILD_LOOP}" ;;
+        *) printf 'error: NEON_BUILD_LOOP must be 0 or 1\n' >&2; exit 2 ;;
+    esac
+fi
+
 script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 output_dir=$(CDPATH= cd -- "$(dirname -- "$output")" && pwd)
 output_path=$output_dir/$(basename -- "$output")
