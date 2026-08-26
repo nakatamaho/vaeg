@@ -70,6 +70,35 @@ separate parity correction or move it to Open Defects.
 
 ## Fixed Defects
 
+### NEON3 text overlay repainted the whole TVRAM surface every frame
+
+- **Status:** fixed in M97; real PC-88VA/VA2 hardware confirmation remains
+  pending for this increment.
+- **Symptom:** the live NEON3 text blinked during rendering, stale console
+  text remained until the first repaint, and the release payload stopped at
+  the end of its 6144-frame timeline instead of continuing until `ESC`.
+- **Root cause:** `neon_counter_update_overlay` toggled text composition,
+  cleared all 25 TVRAM rows, and rewrote static labels on every frame after
+  the page flip.  The frame-limit path then fell through to the diagnostic
+  status screen after one timeline pass.
+- **Correction:** clear TVRAM once before the first frame through the VA Text
+  BIOS path, write static labels once, and update only fixed-width dynamic
+  fields after the VBLANK-boundary presentation.  Rewrite the scene title only
+  when the scene changes.  Text BIOS `INT 83h/AH=25h, AL=00h` suppresses cursor
+  blink while running and `AL=03h` restores it on exit.  The default release
+  build wraps the 6144-frame timeline to frame zero until `ESC`; diagnostic
+  builds can disable wrapping with `NEON_BUILD_LOOP=0`.
+- **Verification:** NEON3 200/400 NASM payloads build at 57328 bytes; VAEG
+  startup/frame-loop capture reports `TEXT_VISIBLE=PASS`,
+  `BOTTOM_GUIDE=PASS`, and `FORBIDDEN_VISIBLE=NONE`; `vaeg --selftest` passes;
+  CTest passes 84/84 with one expected skip; repository encoding, case, and
+  diff checks pass.  No real VA/VA2 hardware gate was run for this change.
+- **Evidence:** [NEON3 text-console report](../port/neon3_text_console.md),
+  [NEON3 P3 status](../port/neon3_p3_status.md), and
+  [NEON3 source](../../demos/neon3/src/neon_counter.asm).
+- **Milestone/task:** M97 NEON3 text repaint cleanup and continuous timeline.
+- **Commit:** [b62e0e07](https://github.com/nakatamaho/vaeg/commit/b62e0e07d4f37f3dcbd8fb559667cc21536b7a2)
+
 ### NEON4 inherited the DOS soft-key guide instead of owning the VA text plane
 
 - **Status:** fixed in M97; real PC-88VA hardware confirmation remains
