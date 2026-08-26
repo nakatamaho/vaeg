@@ -2126,3 +2126,30 @@ separate parity correction or move it to Open Defects.
 - **Evidence:** [NEON4 P5 source](../../demos/neon4/src/geom4_low.inc),
   [NEON4 P5 colour report](../port/neon4_p5.md).
 - **Commit:** [f86c3c0](https://github.com/nakatamaho/vaeg/commit/f86c3c0de7e224166d6eaadf2b0f56bba8e3e01f)
+
+
+### NEON4 direct-colour CAT image used a clobbered span-table cursor
+
+- **Status:** fixed in M97.
+- **Symptom:** the 65536-colour NEON4 RASTER TRANSFER scene (frames around
+  `0620h`-`0700h`) rendered the moving square CAT image with corrupted spans;
+  the first row was plausible, but later rows contained misplaced or stretched
+  coloured runs.  The 4bpp CPU endpoint path did not reproduce the failure.
+- **Root cause:** `low_draw_cat48` and its 200-line overlay walk their source
+  span tables with `DI`.  The SGP `p5_emit_span_physical` and
+  `p5_emit_line_physical` routines also used `DI` as their command-list cursor
+  without preserving the caller's value.  After the first SGP span, the CAT
+  walker therefore read x coordinates from command-list words instead of from
+  `low4_data.inc`.
+- **Correction:** save and restore `DI` in both physical SGP emitters, while
+  retaining `p5_list_offset` as the command-list state.  No CAT coordinates,
+  image data, colour conversion, or geometry-specific correction was changed.
+- **Verification:** the CAT span tables were independently compared with the
+  canonical 48-row source (650 spans, zero differences); NASM builds pass for
+  4bpp, RGB332, and direct 16bpp profiles; the assembled direct-profile listing
+  contains matching `push di`/`pop di` pairs in both emitters; a rebuilt
+  bootable validation disk contains the corrected `65536/neon4.com`.
+- **Evidence:** [NEON4 P5 source](../../demos/neon4/src/neon4_p3.asm),
+  [NEON4 P5 status](../port/neon4_p5.md).
+- **Milestone/task:** M97 NEON4 direct-colour CAT span cursor preservation.
+- **Commit:** [7c3fb85](https://github.com/nakatamaho/vaeg/commit/7c3fb857b49b90c4f384411125c94d37ce75bf0)
