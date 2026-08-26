@@ -155,7 +155,7 @@ The first VA implementation uses TSP polling, not the source PC-98 IRQ2 path:
 ```text
 wait for VB=0 -> VB=1 transition on port 0142h bit 6
 count elapsed VB transitions since the previous service
-advance logical_frame by elapsed transitions, capped at 3072
+advance logical_frame by elapsed transitions, wrapping to 0 after 3072
 advance the OPNA logical tick accumulator by the same elapsed count
 render at most one back-page state per service pass
 if rendering missed a VB, skip drawing but do not roll back logical time
@@ -180,18 +180,11 @@ selects the scene.
 
 ### 3.4 Completion and termination
 
-When logical frame reaches 3072:
-
-```text
-stop submitting new scene work
-wait SGP idle
-finish/stop OPNA through the VA Music BIOS path
-restore VA display/text state
-return through the existing payload continuation
-```
-
-No frame counter wrap is permitted. The final scene is therefore 384 frames,
-not an open-ended 6144-frame or emulator-only loop.
+When logical frame reaches 3072, the published NEON4 profiles reset the
+logical counter to zero and continue from scene 0.  ESC remains the explicit
+normal exit path; it stops drawing and returns through the existing payload
+continuation.  The final scene is therefore exactly 384 frames per pass, with
+the complete 3072-frame sequence repeating until exit.
 
 ## 4. SGP command model
 

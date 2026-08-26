@@ -24,7 +24,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 # NEON RELAY 4 PC-88VA profiles
 
 The NEON4 source under `src/` builds both profiles from one NASM tree.  The
-scene geometry and the complete eight-scene, 3072-frame timeline are shared.
+scene geometry and the complete eight-scene, 3072-frame timeline are shared;
+both published profiles loop back to scene 0 after the final scene until ESC.
 The profile value is selected by `NEON4_P5_PROFILE`:
 
 | Profile | Executable directory | VA mode | Colour representation |
