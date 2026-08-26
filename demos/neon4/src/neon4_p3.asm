@@ -1865,6 +1865,11 @@ p5_emit_span_physical:
         adc     dx, [p5_draw_sgp_high]
         mov     si, ax
 .emit_cls_words:
+%if NEON4_P5_BPP == 4
+        ; The reduced packed path reaches this label after calculating the
+        ; destination address, so it emits the colour state here.  The 8bpp
+        ; and 16bpp paths already emitted it before address calculation; a
+        ; second call would overwrite SI, which holds the CLS destination.
         mov     di, [p5_list_offset]
         ; p5_emit_color_if_needed uses DX for the SET_COLOR payload.  Preserve
         ; the already-computed physical high address while it emits or
@@ -1876,6 +1881,7 @@ p5_emit_span_physical:
         jb      .emit_space_ready
         call    p5_flush_batch
 .emit_space_ready:
+%endif
         mov     ax, SGP_CLS
         stosw
         mov     ax, si
