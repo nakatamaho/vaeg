@@ -119,15 +119,15 @@ On exit the payload restores the ten-entry guide with `AL=0Ah`.
 * `NEONSMK.COM` clears G0 and submits a deterministic white rectangle through
   SGP `CLS`/`LINE`.  The rectangle must be visible.  Press `ESC` after the
   idle state is reached.
-* `NEON200.COM` runs the complete 640x200-profile timeline (6144 rendered
-  frames).  The VA text overlay is cleared with the Text BIOS screen-CLS and
-refreshed after each completed frame, showing the global frame, scene title,
-and scene-local frame above the moving G0 scene.  The compact overlay omits
-diagnostic key rows.  At
-  the end it switches to the VA text status screen; `FRAMES` and `LIMIT`
-  should both be `1800` (hex), then press `ESC`.
-* `NEON400.COM` runs the same complete 6144-frame timeline with the 640x400
-  logical profile and the same live text overlay.
+* `NEON200.COM` continuously loops the complete 640x200-profile timeline
+  (6144 logical frames).  Startup clears TVRAM once through the VA Text BIOS,
+  then writes the static overlay labels once.  After each completed frame and
+  VBLANK page flip, only the fixed-width frame values are overwritten; the
+  scene title field is updated only when the scene changes.  The cursor is
+  hidden with Text BIOS `INT 83h/AH=25h, AL=00h` while the demo runs.  Press
+  `ESC` to leave the loop.
+* `NEON400.COM` continuously loops the same 6144-frame timeline with the
+  640x400 logical profile and the same incremental live text overlay.
 For each run, check:
 
 1. the graphics result is visible before the status screen;
@@ -159,6 +159,7 @@ more commands than fit in one queue; the backend closes the current batch
 with `END`, waits for SGP idle, then starts another batch with `SET_WORK` and
 the current colour before continuing the same hidden page.  A command is
 reserved as a whole, so neither `LINE` nor `CLS` can be split across batches.
-The compiled default frame limit remains `0x1800` (6144); a shorter limit is
-available only when explicitly requested through `NEON_BUILD_FRAME_LIMIT` for
-diagnostic builds.
+The compiled timeline length remains `0x1800` (6144).  Release payloads wrap
+back to frame zero after that point and continue until `ESC`; a shorter limit
+is available through `NEON_BUILD_FRAME_LIMIT`.  Diagnostic builds that stop
+at the selected limit set `NEON_BUILD_LOOP=0` as well.

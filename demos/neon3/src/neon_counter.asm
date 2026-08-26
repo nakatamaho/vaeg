@@ -140,9 +140,12 @@
 %ifndef NEON_FRAME_LIMIT
 %define NEON_FRAME_LIMIT            TOTAL_FRAMES
 %endif
+%ifndef NEON_LOOP
+%define NEON_LOOP                   1
+%endif
 
 ; ---------------------------------------------------------------------------
-; Entry and deterministic 6144-frame measurement loop.
+; Entry and deterministic 6144-frame looping demo.
 ; ---------------------------------------------------------------------------
 start:
         cli
@@ -209,6 +212,17 @@ start:
         mov     [render_frame_counter], ax
         mov     [city_camera_timeline_valid], al
         mov     [scene_index], al
+
+        ; Establish the text surface once before the first frame.  This clears
+        ; stale TVRAM and writes the static overlay; later frame updates never
+        ; clear or recompose the visible display.
+        push    cs
+        pop     ds
+        mov     dx, NEON_MEMORY_MAP_PORT
+        mov     al, NEON_MEMORY_MAP_TVRAM
+        out     dx, al
+        call    neon_status_clear_rows
+        call    neon_text_write_static_overlay
 
 %ifdef NEON_INIT_ONLY
         ; Initialization-only probe used by the P3 gate to separate VA BIOS
@@ -327,10 +341,20 @@ start:
         cmp     word [frame_counter], NEON_FRAME_LIMIT
         jb      .frame_loop
 
+%if NEON_LOOP
+        ; The release payload is a continuous demo.  Rebase the logical
+        ; timeline at its end; select_scene will re-enter scene 0 on the next
+        ; frame and the normal scene-change path will rebase persistent state.
+        xor     ax, ax
+        mov     [frame_counter], ax
+        mov     byte [neon_text_last_scene], 0ffh
+        jmp     .frame_loop
+%else
 %ifndef NEON_SKIP_STATUS
         call    neon_counter_show_status
 %endif
         call    neon_counter_prepare_idle
+%endif
 
         ; Keep the completed result visible until the operator presses ESC.
         ; Keyboard polling and return use VA BIOS services only; DOS INT 21h
@@ -432,6 +456,9 @@ neon_text_console_init:
         mov     ah, 01h                ; Screen Editor: system-line control
         mov     al, 0ffh               ; erase/hide the complete system line
         int     NEON_SCREEN_EDITOR_BIOS_INT
+        mov     ah, 25h                ; Text BIOS: cursor display control
+        xor     al, al                 ; hide cursor and cursor blink
+        int     NEON_TEXT_BIOS_INT
         pop     es
         pop     ds
         popa
@@ -448,6 +475,9 @@ neon_text_console_restore:
         mov     ah, 01h                ; Screen Editor: system-line control
         mov     al, 0ah                ; display the ten-entry system line
         int     NEON_SCREEN_EDITOR_BIOS_INT
+        mov     ah, 25h                ; Text BIOS: cursor display control
+        mov     al, 03h                ; restore the normal blinking cursor
+        int     NEON_TEXT_BIOS_INT
         pop     es
         pop     ds
         popa
@@ -645,109 +675,96 @@ neon_va_leave:
         pop     es
         ret
 
-; Draw the static NEON title/profile labels through the VA Text BIOS on the
-; text plane; this does not depend on DOS or on the original PC-98 text
-; routines.
-neon_scene_text_overlay:
+; Draw fields that never change during a run.  They are written once after
+; the complete TVRAM clear so frame updates do not repaint the whole overlay.
+neon_text_write_static_overlay:
         pusha
         push    ds
+        push    es
         push    cs
         pop     ds
         mov     dx, NEON_MEMORY_MAP_PORT
         mov     al, NEON_MEMORY_MAP_TVRAM
         out     dx, al
-        mov     si, neon_scene_title
+
+        mov     si, neon_live_title
         xor     dx, dx
         call    neon_status_bios_puts_at
-        mov     si, neon_scene_profile
+        mov     si, neon_live_frame
         mov     dh, 1
         xor     dl, dl
         call    neon_status_bios_puts_at
+        mov     si, neon_live_local
+        mov     dh, 2
+        xor     dl, dl
+        call    neon_status_bios_puts_at
+        mov     si, neon_live_scene_title
+        mov     dh, 3
+        xor     dl, dl
+        call    neon_status_bios_puts_at
+        mov     si, neon_live_limit
+        mov     dh, 4
+        xor     dl, dl
+        call    neon_status_bios_puts_at
+        mov     si, neon_status_exit
+        mov     dh, 14
+        xor     dl, dl
+        call    neon_status_bios_puts_at
+
+        mov     dx, NEON_MEMORY_MAP_PORT
+        mov     al, NEON_MEMORY_MAP_GVRAM
+        out     dx, al
+        pop     es
         pop     ds
         popa
         ret
 
-; Refresh the live frame information after a completed SGP frame.  The text
-; screen is selected temporarily, cleared with the documented Text BIOS CLS,
-; and restored above G0.  This presentation overlay does not alter the SGP
-; command list or G0.
+; Refresh only fixed-width live fields after the completed page has been
+; presented.  The caller reaches this point immediately after VBLANK; TEXT
+; remains composed above G0, so no display or composition toggle is needed.
 neon_counter_update_overlay:
         pusha
         push    ds
         push    es
         push    cs
         pop     ds
-
-        ; Text BIOS services are issued only while the text composition is
-        ; active.  Calling them with visible G0 selected can hang on VA ROMs.
-        xor     ax, ax
-        mov     ds, ax
-        mov     es, ax
-        mov     ax, 0b00h              ; VA $ScnDsp, graphics off
-        int     NEON_VIDEO_BIOS_INT
-        mov     ax, 0338h
-        mov     ds, ax
-        mov     es, ax
-        mov     ax, 0300h              ; VA $Compose, text only
-        mov     cx, 0001h
-        int     NEON_VIDEO_BIOS_INT
-        push    cs
-        pop     ds
-        push    cs
-        pop     es
-
         mov     dx, NEON_MEMORY_MAP_PORT
         mov     al, NEON_MEMORY_MAP_TVRAM
         out     dx, al
-        call    neon_text_bios_clear
 
-        mov     si, neon_live_title
-        xor     dx, dx
+        mov     ax, [render_frame_counter]
+        call    neon_status_make_hex
+        mov     si, neon_status_hex_buffer
+        mov     dh, 1
+        mov     dl, 24
         call    neon_status_bios_puts_at
 
-        mov     si, neon_live_frame
-        mov     ax, [render_frame_counter]
-        mov     dh, 1
-        call    neon_status_bios_hex_at
-
-        mov     si, neon_live_local
         mov     ax, [scene_frame]
+        call    neon_status_make_hex
+        mov     si, neon_status_hex_buffer
         mov     dh, 2
-        call    neon_status_bios_hex_at
+        mov     dl, 24
+        call    neon_status_bios_puts_at
 
-        mov     si, neon_live_scene_title
+        mov     al, [scene_index]
+        cmp     al, [neon_text_last_scene]
+        je      .scene_done
+        mov     [neon_text_last_scene], al
+        mov     si, neon_status_blank_line
+        add     si, 18
         mov     dh, 3
-        xor     dl, dl
+        mov     dl, 18
         call    neon_status_bios_puts_at
         xor     bx, bx
         mov     bl, [scene_index]
         cmp     bl, SCENE_COUNT
-        jae     .no_scene_title
+        jae     .scene_done
         shl     bx, 1
         mov     si, [scene_title_ptrs + bx]
         mov     dh, 3
         mov     dl, 18
         call    neon_status_bios_puts_at
-.no_scene_title:
-        mov     si, neon_live_limit
-        mov     ax, NEON_FRAME_LIMIT
-        mov     dh, 4
-        call    neon_status_bios_hex_at
-
-        mov     dx, NEON_MEMORY_MAP_PORT
-        mov     al, NEON_MEMORY_MAP_GVRAM
-        out     dx, al
-        mov     ax, 0338h
-        mov     ds, ax
-        mov     es, ax
-        mov     ax, 0300h              ; VA $Compose, text above G0
-        mov     cx, 0031h
-        int     NEON_VIDEO_BIOS_INT
-        mov     ax, 0338h
-        mov     ds, ax
-        mov     es, ax
-        mov     ax, 0b01h              ; VA $ScnDsp, graphics on
-        int     NEON_VIDEO_BIOS_INT
+.scene_done:
         mov     dx, NEON_MEMORY_MAP_PORT
         mov     al, NEON_MEMORY_MAP_GVRAM
         out     dx, al
@@ -919,30 +936,6 @@ neon_status_clear_rows:
         pop     ax
         ret
 
-; DS:SI = NUL-terminated string, DH = text row, DL = text column.
-; The resident VA text environment supplies the frame descriptor.  Use the
-; documented cursor and ASCIZ services without resetting that descriptor.
-neon_text_bios_clear:
-        push    ax
-        push    dx
-        push    ds
-        push    es
-        push    cs
-        pop     ds
-        push    cs
-        pop     es
-        mov     ax, 1702h
-        int     NEON_TEXT_BIOS_INT
-        push    cs
-        pop     ds
-        push    cs
-        pop     es
-        pop     es
-        pop     ds
-        pop     dx
-        pop     ax
-        ret
-
 neon_status_bios_puts_at:
         push    ax
         push    bx
@@ -1064,6 +1057,7 @@ neon_counter_reset:
         mov     word [neon_sgp_failure_marker], 0
         mov     word [neon_sgp_idle_seen], 0
         mov     byte [neon_escape_seen], 0
+        mov     byte [neon_text_last_scene], 0ffh
         popa
         ret
 
@@ -1883,6 +1877,7 @@ neon_counter_max_cls                dw 0
 neon_counter_max_command_words      dw 0
 neon_counter_frame_index            dw 0
 neon_counter_last_color             db 0ffh
+neon_text_last_scene                db 0ffh
         align 2
 ; This legacy diagnostic reserve has no runtime references; keep a small
 ; alignment cushion without letting the status-row cleanup cross the loader
