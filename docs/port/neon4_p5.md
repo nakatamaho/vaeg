@@ -47,11 +47,13 @@ Both published profiles keep the VA TEXT plane enabled and draw the live
 NEON4 status overlay through the same VA BIOS text path used by NEON3.  At
 stage-8 entry, `INT 83h` with `AH=2Fh, AL=00h` removes the inherited soft-key
 guide and `INT 94h` with `AH=01h, AL=FFh` hides the reserved system line.  The
-overlay then selects text-only composition, writes the title, profile, scene,
-frame, and exit rows through the Text BIOS, and restores text-above-G0
-composition.  Exit restores the caller's ten-entry guide with `AL=0Ah` for
-both services.  No DOS console API, direct TVRAM address, or TEXT-OFF
-workaround is used.
+overlay then selects text-only composition, clears all TVRAM rows while the
+display is hidden, writes fixed labels once, and restores text-above-G0
+composition.  Each VBLANK edge updates only fixed-width frame/local values;
+the scene title row is cleared and rewritten only when the scene changes.  The
+cursor is hidden with Text BIOS `AH=25h, AL=00h`.  Exit restores the caller's
+ten-entry guide with `AL=0Ah` for both services and the normal cursor.  No DOS
+console API, direct TVRAM address, or TEXT-OFF workaround is used.
 
 The VA colour path keeps the original 0..255 PEGC index through the low
 geometry helpers.  `neon4_va_palette.inc` quantises the original

@@ -38,7 +38,10 @@ console with Text BIOS `INT 83h/AH=2Fh, AL=00h` and Screen Editor BIOS
 `INT 94h/AH=01h, AL=FFh`, removing the inherited function-key/system-line
 guide without hiding NEON4's own text.  The live title, profile, scene, frame,
 and ESC status are refreshed through the same BIOS overlay sequence used by
-NEON3; exit restores the normal ten-entry guide (`AL=0Ah`).
+NEON3.  Startup clears all TVRAM rows while the display is hidden, hides the
+text cursor, and updates dynamic fields as one group immediately after each
+VBLANK edge.  Exit restores the normal ten-entry guide (`AL=0Ah`) and cursor
+mode.
 
 ## 16-colour palette mode
 

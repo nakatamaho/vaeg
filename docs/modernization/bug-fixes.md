@@ -83,10 +83,13 @@ separate parity correction or move it to Open Defects.
   visible.
 - **Correction:** stage 8 now calls VA Text BIOS `INT 83h/AH=2Fh, AL=00h` and
   Screen Editor BIOS `INT 94h/AH=01h, AL=FFh` before graphics.  A shared
-  NEON3-style overlay selects text-only composition for BIOS writes, updates
-  the title/profile/frame/scene rows, restores text-above-G0 composition, and
-  returns through `AL=0Ah` restoration calls on exit.  TEXT stays enabled and
-  no DOS or direct-TVRAM clearing path is used.
+  NEON3-style overlay selects text-only composition, clears all TVRAM rows
+  while the display is hidden, writes fixed labels once, and restores
+  text-above-G0 composition.  Dynamic fields are grouped immediately after
+  each VBLANK edge, and the scene title row is rewritten only on a scene
+  change.  Text BIOS `AH=25h, AL=00h` hides the cursor blink; exit restores
+  `AL=0Ah` guide settings and the normal cursor.  TEXT stays enabled and no
+  DOS or direct-TVRAM clearing path is used.
 - **Verification:** 16-colour and 65536-colour payloads assemble; VAEG
   captures show the live overlay and blank rows below it, with no inherited
   guide text in the decoded TVRAM.  Graphics remains visible in both
