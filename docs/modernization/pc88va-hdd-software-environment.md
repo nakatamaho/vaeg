@@ -862,6 +862,95 @@ limitation to this hotfix, but it is not a pass for BMSDRVA, TSCLVA, RDEMS,
 RDPCM, RESET-key execution, MSE utility execution, or K-Launcher. Those remain
 PC-88VA/vaeg human checks.
 
+## 40 MB SASI Development HDI Builder
+
+For a hard-disk development environment, use
+[`tools/pc88va/build-sasi-development-disks.sh`](../../tools/pc88va/build-sasi-development-disks.sh).
+It creates two separate 40 MB SASI HDIs with the same development payload:
+the VA image keeps the PC-Engine 1.05 boot files, and the VA2 image keeps the
+PC-Engine 1.1 boot files. The source D88 images are read-only inputs and are
+never modified. The payload D88 should be a complete image produced by
+`build-development-disk.sh`; its `ARCHIVE`, `BIN`, `DOC`, `SYS`, and `TMP`
+directories are transplanted into both HDIs. The SASI builder deliberately
+regenerates `CONFIG.SYS` and `AUTOEXEC.BAT` so the documented VA load order is
+identical on both variants.
+
+The command-line wrapper accepts explicit paths, which is useful because the
+system and development D88 images are normally kept outside Git:
+
+```sh
+tools/pc88va/build-sasi-development-disks.sh \
+  --source-va "/path/to/PC-Engine 1.05.d88" \
+  --source-va2 "/path/to/PC-Engine 1.1.d88" \
+  --payload-d88 "/path/to/pc88va-development.d88" \
+  --output-dir /private/tmp/pc88va-sasi
+```
+
+The result is:
+
+```text
+/private/tmp/pc88va-sasi/pc88va-sasi-40mb-va.hdi
+/private/tmp/pc88va-sasi/pc88va-sasi-40mb-va2.hdi
+```
+
+The output directory is created if necessary, but an existing output file is
+never overwritten. To build one variant directly, use
+`build-sasi-development-disk.py` with `--variant va` or `--variant va2` and
+the same `--source`, `--payload-d88`, and `--output` options. Without
+`--payload-d88`, the direct builder intentionally creates only the small
+system-plus-`BIN` layout used for layout tests; it is not the complete
+development environment.
+
+The generated HDI has the HDFORM-compatible 40 MB geometry (4096-byte header,
+256-byte SASI blocks, 33 sectors, 8 surfaces, and 615 cylinders). The builder
+validates the fixed PC-Engine IPL/system-file placement, writes matching FAT
+copies, and preserves exact logical file contents while allocating new HDI
+clusters. The generated configuration is:
+
+```dos
+FILES   = 20
+BUFFERS = 30
+DEVICE = A:\SYS\EMMVA01.SYS
+DEVICE = A:\SYS\SQEMM98.SYS
+DEVICE = A:\SYS\EMMVA02.SYS
+DEVICE = A:\SYS\PCPLUS.SYS
+DEVICE = A:\SYS\BMSDRVA.SYS
+DEVICE = A:\SYS\SCHD.SYS -I0
+DEVICE = A:\SYS\HOSTFAT.SYS
+DEVICE = A:\SYS\PCEPAT.SYS
+DEVICE = A:\SYS\JFPPAT.SYS
+DEVICE = A:\SYS\RESET.SYS
+DEVICE = A:\SYS\TSCLVA.SYS
+DEVICE = A:\SYS\MSE352B.COM /A /B
+DEVICE = A:\SYS\RDBMS.SYS -P1D0 -S2
+DEVICE = A:\SYS\RDEMS.SYS -P128 -A
+DEVICE = A:\SYS\RDPCM.SYS
+```
+
+`AUTOEXEC.BAT` sets `PATH A:\BIN`, `TEEN`, `TMP`, and `COMSPEC` for the
+PC-Engine command environment. `TFD.SYS` remains installed in `SYS` but is
+not loaded by default, as required by its documentation; it can be enabled
+manually after EMS setup on real hardware.
+
+The builder itself is host-side and does not require DOSBox. For a structural
+and VAEG mount smoke check after generation, run both models with the matching
+HDI (using a local ROM-less VAEG build):
+
+```sh
+SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
+  build/linux-debug/sdl2/vaeg --model va \
+  --sasi1 /private/tmp/pc88va-sasi/pc88va-sasi-40mb-va.hdi \
+  --no-cfg --no-bkupmem --smoke --mute
+
+SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
+  build/linux-debug/sdl2/vaeg --model va2 \
+  --sasi1 /private/tmp/pc88va-sasi/pc88va-sasi-40mb-va2.hdi \
+  --no-cfg --no-bkupmem --smoke --mute
+```
+
+These checks establish HDI geometry, header, FAT, and mount behavior. They do
+not replace a real PC-88VA/VA2 boot and driver-operation check.
+
 ## Supplemental Softlib Archive Disk
 
 [`tools/pc88va/build-softlib-archive-disk.sh`](../../tools/pc88va/build-softlib-archive-disk.sh)
