@@ -30,11 +30,13 @@ repo_root=$(CDPATH= cd -- "$script_dir/../.." && pwd)
 builder=$script_dir/build-sasi-development-disk.py
 source_va=$repo_root/docs/disks/'PC-Engine 1.05.d88'
 source_va2=$repo_root/docs/disks/'PC-Engine 1.1.d88'
+payload_d88=$repo_root/docs/disks/pc88va-development.d88
 output_dir=/private/tmp
 
 usage() {
 	cat <<EOF
-Usage: $program_name [--source-va PATH] [--source-va2 PATH] [--output-dir DIR]
+Usage: $program_name [--source-va PATH] [--source-va2 PATH]
+       [--payload-d88 PATH] [--output-dir DIR]
 
 Build two 40 MB PC-88VA SASI HDI development disks:
   pc88va-sasi-40mb-va.hdi   PC-Engine 1.05
@@ -42,6 +44,10 @@ Build two 40 MB PC-88VA SASI HDI development disks:
 
 The source D88 files default to docs/disks under the repository.  Use the
 source options when the preserved system disks are outside the repository.
+The payload D88 defaults to the complete development disk at
+docs/disks/pc88va-development.d88.  Its BIN, SYS, DOC, ARCHIVE, and TMP
+directories are transplanted into both SASI images; CONFIG.SYS and
+AUTOEXEC.BAT are regenerated from the documented VA load order.
 Generated images are never overwritten.
 EOF
 }
@@ -63,6 +69,11 @@ while (($#)); do
 		source_va2=$2
 		shift 2
 		;;
+	--payload-d88)
+		(($# >= 2)) || die '--payload-d88 requires a path'
+		payload_d88=$2
+		shift 2
+		;;
 	--output-dir)
 		(($# >= 2)) || die '--output-dir requires a directory'
 		output_dir=$2
@@ -80,10 +91,14 @@ done
 
 [[ -f $source_va && -r $source_va ]] || die "VA source D88 is not readable: $source_va"
 [[ -f $source_va2 && -r $source_va2 ]] || die "VA2 source D88 is not readable: $source_va2"
+[[ -f $payload_d88 && -r $payload_d88 ]] ||
+	die "development payload D88 is not readable: $payload_d88"
 [[ -f $builder && -r $builder ]] || die "builder is not readable: $builder"
 mkdir -p -- "$output_dir"
 
 python3 "$builder" --variant va --source "$source_va" \
+	--payload-d88 "$payload_d88" \
 	--output "$output_dir/pc88va-sasi-40mb-va.hdi"
 python3 "$builder" --variant va2 --source "$source_va2" \
+	--payload-d88 "$payload_d88" \
 	--output "$output_dir/pc88va-sasi-40mb-va2.hdi"

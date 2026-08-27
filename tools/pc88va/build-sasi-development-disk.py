@@ -6,6 +6,11 @@ The input is a PC-Engine 1.05 or 1.1 system D88.  The generated HDI uses the
 files in the conventional first clusters.  Every COM and EXE found anywhere
 on the source D88 is copied into ``\\BIN``.
 
+When a complete development D88 is supplied with ``--payload-d88``, its
+regular files and directories are transplanted as well and the documented
+CONFIG.SYS/AUTOEXEC.BAT are regenerated.  Without that option the builder
+creates the small system-plus-BIN image used for layout tests.
+
 This is a host-side image builder.  It does not require a running emulator or
 DOSBox; the generated image contains the source PC-Engine IPL and the FAT12
 layout used by the PC-88VA SASI formatter.  Real-machine boot validation
@@ -81,6 +86,36 @@ SYSTEM_ATTRIBUTES = {
     "PCENGINE.COM": 0x21,
 }
 
+CONFIG_LINES = (
+    "FILES   = 20",
+    "BUFFERS = 30",
+    r"DEVICE = A:\SYS\EMMVA01.SYS",
+    r"DEVICE = A:\SYS\SQEMM98.SYS",
+    r"DEVICE = A:\SYS\EMMVA02.SYS",
+    r"DEVICE = A:\SYS\PCPLUS.SYS",
+    r"DEVICE = A:\SYS\BMSDRVA.SYS",
+    r"DEVICE = A:\SYS\SCHD.SYS -I0",
+    r"DEVICE = A:\SYS\HOSTFAT.SYS",
+    r"DEVICE = A:\SYS\PCEPAT.SYS",
+    r"DEVICE = A:\SYS\JFPPAT.SYS",
+    r"DEVICE = A:\SYS\RESET.SYS",
+    r"DEVICE = A:\SYS\TSCLVA.SYS",
+    r"DEVICE = A:\SYS\MSE352B.COM /A /B",
+    r"DEVICE = A:\SYS\RDBMS.SYS -P1D0 -S2",
+    r"DEVICE = A:\SYS\RDEMS.SYS -P128 -A",
+    r"DEVICE = A:\SYS\RDPCM.SYS",
+)
+AUTOEXEC_LINES = (
+    r"PATH A:\BIN",
+    r"SET TEEN=A:\BIN\TEEN.DEF",
+    r"SET TMP=A:\TMP",
+    r"SET COMSPEC=A:\PCENGINE.COM",
+)
+
+
+def text_file(lines: tuple[str, ...]) -> bytes:
+    return ("\r\n".join(lines) + "\r\n").encode("ascii")
+
 
 class BuildError(Exception):
     """A deterministic input or layout error."""
@@ -144,6 +179,44 @@ def collect_executables(disk, module, directory=None, prefix=()):
         if name.upper().endswith((".COM", ".EXE")):
             files.append((path, d88_file(disk, list(path), module)))
     return files
+
+
+def collect_payload_files(disk, module, directory=None, prefix=()):
+    """Return all regular files and directories from a PC-Engine D88.
+
+    The result is intentionally independent of the HDI allocator.  Each
+    record contains a relative 8.3 path, file bytes, and the source FAT
+    attributes so a complete development D88 can be transplanted into the
+    larger SASI filesystem without preserving its cluster numbers.
+    """
+    if directory is None:
+        directory = disk.root
+    files = []
+    directories = []
+    for _, entry in module.iter_entries(directory):
+        if entry[11] & 0x08:
+            continue
+        name = module.display_name(entry[:11])
+        if name in (".", ".."):
+            continue
+        path = prefix + (name,)
+        cluster = struct.unpack_from("<H", entry, 26)[0]
+        if entry[11] & 0x10:
+            contents = bytearray()
+            for item in disk.cluster_chain(cluster):
+                contents.extend(disk.read_cluster(item))
+            child_files, child_directories = collect_payload_files(
+                disk, module, contents, path)
+            directories.append(path)
+            files.extend(child_files)
+            directories.extend(child_directories)
+            continue
+        size = struct.unpack_from("<I", entry, 28)[0]
+        contents = bytearray()
+        for item in disk.cluster_chain(cluster):
+            contents.extend(disk.read_cluster(item))
+        files.append((path, bytes(contents[:size]), entry[11]))
+    return files, directories
 
 
 def fat_set(fat: bytearray, cluster: int, value: int) -> None:
@@ -220,7 +293,7 @@ class HdiBuilder:
         self.image[HEADER_SIZE:HEADER_SIZE + len(boot_sector)] = boot_sector
         self.fat[:3] = b"\xD3\xFF\xFF"
 
-    def allocate(self, contents: bytes) -> int:
+    def allocate_chain(self, contents: bytes) -> list[int]:
         count = max(1, (len(contents) + CLUSTER_SIZE - 1) // CLUSTER_SIZE)
         first = self.next_cluster
         last = first + count - 1
@@ -233,50 +306,60 @@ class HdiBuilder:
             offset = DATA_OFFSET + (cluster - 2) * CLUSTER_SIZE
             self.image[offset:offset + len(data)] = data
         self.next_cluster = last + 1
-        return first
+        return list(range(first, last + 1))
+
+    def allocate(self, contents: bytes) -> int:
+        return self.allocate_chain(contents)[0]
+
+    def directory_slot(self, directory: bytearray, name: str) -> int:
+        raw_name = self.module.short_name(name)
+        for offset in range(0, len(directory), 32):
+            first = directory[offset]
+            if first not in (0x00, 0xE5) and \
+                    directory[offset:offset + 11] == raw_name:
+                raise BuildError(f"duplicate directory entry: {name}")
+            if first in (0x00, 0xE5):
+                return offset
+        raise BuildError("directory is full")
 
     def add_root(self, name: str, attributes: int, contents: bytes) -> int:
-        slot = self.root_slot(name)
+        slot = self.directory_slot(self.root, name)
         first = self.allocate(contents)
         self.root[slot:slot + 32] = make_entry(
             self.module.short_name(name), attributes, first, len(contents))
         return first
 
-    def root_slot(self, name: str) -> int:
-        raw_name = self.module.short_name(name)
-        for offset in range(0, len(self.root), 32):
-            first = self.root[offset]
-            if first not in (0x00, 0xE5) and self.root[offset:offset + 11] == raw_name:
-                raise BuildError(f"duplicate root entry: {name}")
-            if first in (0x00, 0xE5):
-                return offset
-        raise BuildError("root directory is full")
-
-    def add_bin(self, files: list[tuple[tuple[str, ...], bytes]]) -> None:
-        directory_cluster = self.allocate(bytes(CLUSTER_SIZE))
-        directory = bytearray(b"\xE5" * CLUSTER_SIZE)
-        directory[:32] = make_entry(self.module.special_directory_name("."), 0x10,
-                                    directory_cluster, 0)
-        directory[32:64] = make_entry(self.module.special_directory_name(".."), 0x10,
-                                      0, 0)
-        slot = 64
-        names = set()
-        for path, contents in files:
-            name = path[-1].upper()
-            if name in names:
-                raise BuildError(f"duplicate BIN basename: {name}")
-            names.add(name)
-            if slot + 32 > len(directory):
-                raise BuildError("BIN directory is full")
+    def add_directory(self, name: str,
+                       files: list[tuple[str, bytes, int]],
+                       parent_cluster: int = 0) -> int:
+        """Create one directory and install its regular files."""
+        required_entries = 2 + len(files)
+        required_clusters = max(
+            1, (required_entries * 32 + CLUSTER_SIZE - 1) // CLUSTER_SIZE)
+        directory_clusters = self.allocate_chain(
+            bytes(required_clusters * CLUSTER_SIZE))
+        directory = bytearray(b"\xE5" * (required_clusters * CLUSTER_SIZE))
+        directory[:32] = make_entry(
+            self.module.special_directory_name("."), 0x10,
+            directory_clusters[0], 0)
+        directory[32:64] = make_entry(
+            self.module.special_directory_name(".."), 0x10,
+            parent_cluster, 0)
+        for path_name, contents, attributes in files:
+            slot = self.directory_slot(directory, path_name)
             first = self.allocate(contents)
             directory[slot:slot + 32] = make_entry(
-                self.module.short_name(name), 0x20, first, len(contents))
-            slot += 32
-        offset = DATA_OFFSET + (directory_cluster - 2) * CLUSTER_SIZE
-        self.image[offset:offset + CLUSTER_SIZE] = directory
-        bin_offset = self.root_slot("BIN")
-        self.root[bin_offset:bin_offset + 32] = make_entry(
-            self.module.short_name("BIN"), 0x10, directory_cluster, 0)
+                self.module.short_name(path_name), attributes, first,
+                len(contents))
+        for index, cluster in enumerate(directory_clusters):
+            begin = index * CLUSTER_SIZE
+            offset = DATA_OFFSET + (cluster - 2) * CLUSTER_SIZE
+            self.image[offset:offset + CLUSTER_SIZE] = directory[
+                begin:begin + CLUSTER_SIZE]
+        slot = self.directory_slot(self.root, name)
+        self.root[slot:slot + 32] = make_entry(
+            self.module.short_name(name), 0x10, directory_clusters[0], 0)
+        return directory_clusters[0]
 
     def finish(self) -> bytes:
         self.image[FAT1_OFFSET:FAT1_OFFSET + FAT_SIZE] = self.fat
@@ -288,7 +371,8 @@ class HdiBuilder:
         return bytes(self.image)
 
 
-def build(source: Path, output: Path, variant: str) -> dict[str, object]:
+def build(source: Path, output: Path, variant: str,
+          payload_d88: Path | None = None) -> dict[str, object]:
     module = load_pcengine_module()
     try:
         # Some preserved 1.05 disks have the same system files at different
@@ -336,7 +420,49 @@ def build(source: Path, output: Path, variant: str) -> dict[str, object]:
     for name in SYSTEM_FILES:
         builder.add_root(name, SYSTEM_ATTRIBUTES[name],
                          d88_file(source_disk, [name], module))
-    builder.add_bin(sorted(executables, key=lambda item: "/".join(item[0]).upper()))
+    builder.add_root("CONFIG.SYS", 0x20, text_file(CONFIG_LINES))
+    builder.add_root("AUTOEXEC.BAT", 0x20, text_file(AUTOEXEC_LINES))
+
+    installed_files = []
+    if payload_d88 is not None:
+        try:
+            payload_disk = module.PcEngineDisk(
+                payload_d88.read_bytes(), require_system_files=False)
+        except (OSError, module.DiskError) as error:
+            raise BuildError(
+                f"cannot read development payload D88: {error}") from error
+        payload_files, payload_directories = collect_payload_files(
+            payload_disk, module)
+        directory_names = {path[0].upper() for path in payload_directories}
+        grouped = {}
+        for path, contents, attributes in payload_files:
+            name = path[-1].upper()
+            if len(path) == 1:
+                if name in SYSTEM_FILES:
+                    continue
+                if name in {"CONFIG.SYS", "AUTOEXEC.BAT"}:
+                    continue
+                builder.add_root(name, attributes, contents)
+                installed_files.append((path, contents))
+                continue
+            if len(path) != 2:
+                raise BuildError(
+                    "development payload contains a nested directory: "
+                    + "/".join(path))
+            grouped.setdefault(path[0].upper(), []).append(
+                (path[1], contents, attributes))
+        for name in sorted(directory_names | set(grouped)):
+            records = grouped.get(name, [])
+            builder.add_directory(name, records)
+            installed_files.extend(
+                ((name, item[0]), item[1]) for item in records)
+    else:
+        records = sorted(
+            [(path[-1], contents, 0x20) for path, contents in executables],
+            key=lambda item: item[0].upper())
+        builder.add_directory("BIN", records)
+        installed_files.extend(
+            (("BIN", name), contents) for name, contents, _ in records)
     image = builder.finish()
     if output.exists():
         raise BuildError(f"output already exists: {output}")
@@ -368,11 +494,12 @@ def build(source: Path, output: Path, variant: str) -> dict[str, object]:
             "clusters": CLUSTER_COUNT,
             "image_bytes": len(image),
         },
-        "executables_in_bin": [
+        "payload_d88": str(payload_d88) if payload_d88 is not None else None,
+        "installed_files": [
             {"source": "/".join(path), "name": path[-1].upper(),
              "bytes": len(contents),
              "sha256": hashlib.sha256(contents).hexdigest()}
-            for path, contents in executables
+            for path, contents in installed_files
         ],
         "sha256": hashlib.sha256(image).hexdigest(),
     }
@@ -391,15 +518,20 @@ def main(argv=None) -> int:
                         help="VA uses PC-Engine 1.05; VA2 uses PC-Engine 1.1")
     parser.add_argument("--source", type=Path,
                         help="source PC-Engine D88 (default is the repository docs path)")
+    parser.add_argument("--payload-d88", type=Path,
+                        help="complete development D88 to transplant into the HDI")
     parser.add_argument("--output", required=True, type=Path,
                         help="new 40 MB SASI HDI path (must not already exist)")
     args = parser.parse_args(argv)
     source = (args.source or default_source(args.variant)).resolve()
+    payload_d88 = args.payload_d88.resolve() if args.payload_d88 else None
     output = args.output.resolve()
     if not source.is_file():
         parser.error(f"source D88 not found: {source}")
+    if payload_d88 is not None and not payload_d88.is_file():
+        parser.error(f"payload D88 not found: {payload_d88}")
     try:
-        result = build(source, output, args.variant)
+        result = build(source, output, args.variant, payload_d88)
     except (BuildError, OSError) as error:
         parser.exit(1, f"error: {error}\n")
     print("Created boot-layout 40 MB SASI development disk")
@@ -407,8 +539,8 @@ def main(argv=None) -> int:
     print(f"output: {result['output']}")
     print(f"size: {result['geometry']['image_bytes']} bytes")
     print(f"SHA-256: {result['sha256']}")
-    print(f"BIN executables: {len(result['executables_in_bin'])}")
-    for item in result["executables_in_bin"]:
+    print(f"installed files: {len(result['installed_files'])}")
+    for item in result["installed_files"]:
         print(f"  {item['name']}: {item['bytes']} bytes ({item['source']})")
     return 0
 
