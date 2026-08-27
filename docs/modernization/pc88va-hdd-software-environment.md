@@ -150,7 +150,7 @@ DEVICE = A:\SYS\RESET.SYS
 DEVICE = A:\SYS\TSCLVA.SYS
 DEVICE = A:\SYS\MSE352B.COM /A /B
 DEVICE = A:\SYS\RDBMS.SYS -P1D0 -S2
-DEVICE = A:\SYS\RDEMS.SYS -P40 -A
+DEVICE = A:\SYS\RDEMS.SYS -P128 -A
 DEVICE = A:\SYS\RDPCM.SYS
 ```
 
@@ -224,7 +224,7 @@ DEVICE = A:\SYS\PCEPAT.SYS
 DEVICE = A:\SYS\TSCLVA.SYS
 DEVICE = A:\SYS\MSE352B.COM /A /B
 ...
-DEVICE = A:\SYS\RDEMS.SYS -P40 -A
+DEVICE = A:\SYS\RDEMS.SYS -P128 -A
 ```
 
 RDEMS is the EMS-backed RAM disk and intentionally loads after TSCLVA. TSCLVA
@@ -418,10 +418,11 @@ that service later, after TSCLVA.
 [RDEMS152](http://www.pc88.gr.jp/softlib/?action=list_file&anum=2&gnum=270)
 is a PC-88VA EMS RAM-disk driver and must be loaded after the EMM stack.
 Its included manual requires EMM version 3.2 or later and documents 40 EMS
-pages, or 640KB, as the default. For example:
+pages, or 640KB, as the default. The development disk explicitly requests
+128 pages (2MB) instead:
 
 ```dos
-DEVICE = A:\SYS\RDEMS.SYS -P40 -A
+DEVICE = A:\SYS\RDEMS.SYS -P128 -A
 ```
 
 The development-disk builder keeps both original LZH archives and installs
@@ -797,7 +798,7 @@ DEVICE = A:\SYS\RESET.SYS
 DEVICE = A:\SYS\TSCLVA.SYS
 DEVICE = A:\SYS\MSE352B.COM /A /B
 DEVICE = A:\SYS\RDBMS.SYS -P1D0 -S2
-DEVICE = A:\SYS\RDEMS.SYS -P40 -A
+DEVICE = A:\SYS\RDEMS.SYS -P128 -A
 DEVICE = A:\SYS\RDPCM.SYS
 ```
 
@@ -830,7 +831,7 @@ When BMS is enabled, VAEG also exposes the fixed driver's `00ECH` probe as an
 alias of the native `01D0H` selector; both addresses therefore operate on the
 same bank state while the persisted default remains `BMS_Port=01d0`.
 The EMMVA adapter pair encloses the Open Watcom-built SQEMM98 manager. RDEMS
-loads after TSCLVA and allocates its default 40-page EMS RAM disk. The BMS VA
+loads after TSCLVA and allocates a 128-page (2MB) EMS RAM disk. The BMS VA
 device driver is resident, while its COM form remains available for management.
 RDPCM loads last and claims the Sound Board II PCM RAM as another RAM disk;
 remove that line when running software that uses FM or ADPCM audio.
