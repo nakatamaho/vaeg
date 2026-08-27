@@ -47,8 +47,8 @@ DEFAULT_DISTRIBUTIONS = (
     ("glass-orbit.d88.xz", ("GLASS",)),
     ("neon3-distribution.d88.xz", ("NEON3",)),
     ("neon4-distribution.d88.xz", ("NEON4/16", "NEON4/65536")),
-    ("sgp-pseudo-sprite.d88.xz", ("SPRT16", "SPRT256", "SPRT655")),
-    ("sgp-wireframe.d88.xz", ("WIRE16", "WIRE256", "WIRE655")),
+    ("sgp-pseudo-sprite.d88.xz", ("SPRITE/16", "SPRITE/256", "SPRITE/65536")),
+    ("sgp-wireframe.d88.xz", ("WIRE/16", "WIRE/256", "WIRE/65536")),
 )
 
 
@@ -212,8 +212,8 @@ def main(argv=None):
     print(f"output: {args.output.resolve()}")
     print(f"size: {size} bytes")
     print(f"SHA-256: {digest}")
-    print("directories: GLASS NEON3 NEON4/16 NEON4/65536 SPRT16 SPRT256 "
-          "SPRT655 WIRE16 WIRE256 WIRE655")
+    print("directories: GLASS NEON3 NEON4/16 NEON4/65536 SPRITE/16 "
+          "SPRITE/256 SPRITE/65536 WIRE/16 WIRE/256 WIRE/65536")
     return 0
 
 

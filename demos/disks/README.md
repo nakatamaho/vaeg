@@ -42,8 +42,9 @@ python3 tools/pc88va/build-all-demos-bootable-disk.py \
 ```
 
 The builder extracts the five component `.d88.xz` images and installs them as
-`A:\GLASS`, `A:\NEON3`, `A:\NEON4\16`, `A:\NEON4\65536`, `A:\SPRT16`,
-`A:\SPRT256`, `A:\SPRT655`, `A:\WIRE16`, `A:\WIRE256`, and `A:\WIRE655`.
+`A:\GLASS`, `A:\NEON3`, `A:\NEON4\16`, `A:\NEON4\65536`,
+`A:\SPRITE\16`, `A:\SPRITE\256`, `A:\SPRITE\65536`, `A:\WIRE\16`,
+`A:\WIRE\256`, and `A:\WIRE\65536`.
 The supplied system disk provides the IPL and boot files, so the result is a
 bootable PC-Engine D88. The source and raw output remain local artifacts and
 are not committed.
