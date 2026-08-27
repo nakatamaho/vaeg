@@ -149,7 +149,7 @@ DEVICE = A:\SYS\JFPPAT.SYS
 DEVICE = A:\SYS\RESET.SYS
 DEVICE = A:\SYS\TSCLVA.SYS
 DEVICE = A:\SYS\MSE352B.COM /A /B
-DEVICE = A:\SYS\RDBMS.SYS -P1D0
+DEVICE = A:\SYS\RDBMS.SYS -P1D0 -S2
 DEVICE = A:\SYS\RDEMS.SYS -P40 -A
 DEVICE = A:\SYS\RDPCM.SYS
 ```
@@ -796,7 +796,7 @@ DEVICE = A:\SYS\JFPPAT.SYS
 DEVICE = A:\SYS\RESET.SYS
 DEVICE = A:\SYS\TSCLVA.SYS
 DEVICE = A:\SYS\MSE352B.COM /A /B
-DEVICE = A:\SYS\RDBMS.SYS -P1D0
+DEVICE = A:\SYS\RDBMS.SYS -P1D0 -S2
 DEVICE = A:\SYS\RDEMS.SYS -P40 -A
 DEVICE = A:\SYS\RDPCM.SYS
 ```
@@ -811,7 +811,9 @@ data and `/B` for partial BMS code-data swap; `/X` remains omitted because no
 XMS manager is installed.
 RDBMS explicitly selects the PC-88VA I/O Bank Memory port `01D0H`. Its
 documented defaults start at bank 1 and use 15 banks when `-S` and the bank
-count are omitted. With VAEG's default 640KB main RAM, selector zero restores
+count are omitted. The development disk passes `-S2` so bank 1 remains
+reserved for MSE's `/A /B` code and Alias swap, while RDBMS uses banks 2
+through 16. With VAEG's default 640KB main RAM, selector zero restores
 the ordinary `80000H`-`9FFFFH` upper 128KB after every RDBMS transfer, while
 the RAM disk occupies BMS selectors starting at 1.
 RDBMS 1.21 also documents that an original VA may not receive `CONFIG.SYS`
