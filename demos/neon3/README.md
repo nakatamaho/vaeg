@@ -92,7 +92,7 @@ oversized payload.  It is incompatible with the optional
 
 ## Distribution disk
 
-[`neon3-distribution.d88.xz`](neon3-distribution.d88.xz) is the distributable
+[`neon3-distribution.d88.xz`](../disks/neon3-distribution.d88.xz) is the distributable
 non-bootable data disk.  Its root directory contains only the source-built
 `NEON200.COM` and `NEON400.COM` validation payloads; it contains no PC-Engine
 system files, ROMs, or private media.  The raw D88 is a local generation
@@ -100,8 +100,8 @@ intermediate and is not distributed.  Rebuild the two wrapped payloads with
 the loader command above, create an empty data disk from a vanilla validation
 image with `tools/pc88va/pcengine_disk.py data`, install the two files with
 `pcengine_disk.py install`, and compress the resulting D88 with `xz -c -9`.
-The checked-in `.d88.xz` must pass an `xz` round-trip comparison before it is
-updated.
+The checked-in `demos/disks/neon3-distribution.d88.xz` must pass an `xz`
+round-trip comparison before it is updated.
 
 ## P3 human gate
 

@@ -46,8 +46,9 @@ NASM=nasm demos/glass-orbit/build-d88.sh \
 ```
 
 The builder uses the template only for 2HD geometry, creates a blank data
-disk, installs `GLASS.COM`, and writes `glass-orbit.d88.xz`. The raw D88 is a
-local artifact; only the `.d88.xz` companion is committed.
+disk, installs `GLASS.COM`, and writes the compressed companion to
+`demos/disks/glass-orbit.d88.xz`. The raw D88 is a local artifact; only the
+`.d88.xz` companion is committed.
 
 The shared SGP backend and exact 4bpp span/convex-polygon helpers under
 `src/` are implementation dependencies of the final scene, not separate demo

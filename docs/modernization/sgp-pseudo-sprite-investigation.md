@@ -418,7 +418,7 @@ A:\SGPDEMO5.COM
 A:\SGPDEMO6.COM
 ~~~
 
-The compressed distribution is `demos/sgp-pseudo-sprite/sgpdemo.d88.xz`.
+The compressed distribution is `demos/disks/sgp-pseudo-sprite.d88.xz`.
 It is a data disk, not a standalone boot disk; a separate bootable system D88
 is mounted in FDD1 for launch. No `ENGINEIO.SYS`, `PCENGINE.SYS`,
 `ADVGBIOS.SYS`, or `PCENGINE.COM` is included in the distribution image.

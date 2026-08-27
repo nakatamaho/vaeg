@@ -29,9 +29,12 @@ fi
 
 source_image=$1
 output_image=$2
-compressed_image=${output_image}.xz
 script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 repo_root=$(CDPATH= cd -- "$script_dir/../.." && pwd)
+distribution_dir=$repo_root/demos/disks
+mkdir -p "$distribution_dir"
+output_name=${output_image##*/}
+compressed_image=$distribution_dir/${output_name}.xz
 
 [ -f "$source_image" ] || {
     printf 'error: source D88 does not exist: %s\n' "$source_image" >&2

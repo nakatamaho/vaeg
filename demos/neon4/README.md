@@ -94,11 +94,12 @@ A:\16\neon4.com
 A:\65536\neon4.com
 ```
 
-It also writes the compressed companion (`OUTPUT.d88.xz`).  The only generated
-binary allowed to be tracked under this directory is the reproducible
-`neon4-distribution.d88.xz` image; raw D88 images and bootable validation
-disks remain local artifacts outside Git.  The source 2HD template is used
-only for geometry and is never modified.
+It also writes the compressed companion to `demos/disks/` using the raw
+output basename (for example, `demos/disks/neon4-distribution.d88.xz`).  The
+only generated binary allowed to be tracked is the reproducible distribution
+image; raw D88 images and bootable validation disks remain local artifacts
+outside Git.  The source 2HD template is used only for geometry and is never
+modified.
 
 ```sh
 ./build-d88.sh /path/to/pcengine110-bootonly.d88 \

@@ -270,13 +270,13 @@ NASM=nasm demos/sgp-pseudo-sprite/build-d88.sh \
   /path/to/pcengine110-bootonly.d88 /tmp/sgp-pseudo-sprite.d88
 ~~~
 
-This writes `/tmp/sgp-pseudo-sprite.d88` and
-`/tmp/sgp-pseudo-sprite.d88.xz`. Generated COM files and the raw D88 remain
-outside the source tree. The `.d88.xz` companion may be checked in under this
-directory only when it contains the freely distributable payloads listed
-above; it represents a non-bootable PC-Engine-free data image.
+This writes `/tmp/sgp-pseudo-sprite.d88`; the compressed companion is written
+to `demos/disks/sgp-pseudo-sprite.d88.xz`. Generated COM files and the raw D88
+remain outside the source tree. The `.d88.xz` companion may be checked in only
+when it contains the freely distributable payloads listed above; it represents
+a non-bootable PC-Engine-free data image.
 The canonical checked-in archive is
-`demos/sgp-pseudo-sprite/sgp-pseudo-sprite.d88.xz`; the older
+`demos/disks/sgp-pseudo-sprite.d88.xz`; the older
 `sgpdemo.d88.xz` name is deprecated.
 
 ## Local bootable validation disk
@@ -318,7 +318,7 @@ NASM=nasm demos/sgp-pseudo-sprite/build-d88.sh \
   docs/disks/pcengine110-bootonly.d88 "$work/sgp-pseudo-sprite.d88"
 python3 tools/pc88va/pcengine_disk.py list \
   --image "$work/sgp-pseudo-sprite.d88"
-xz -dc "$work/sgp-pseudo-sprite.d88.xz" | \
+xz -dc demos/disks/sgp-pseudo-sprite.d88.xz | \
   cmp - "$work/sgp-pseudo-sprite.d88"
 ~~~
 
