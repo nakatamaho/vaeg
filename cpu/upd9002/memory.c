@@ -1,5 +1,6 @@
 #include "compiler.h"
 #include "cpucore.h"
+#include "machine/pccore.h"
 #include "memoryva.h"
 #include "upd9002_trace.h"
 #if defined(VAEG_UPD9002_SSTS_TESTING)
@@ -29,6 +30,9 @@ static BOOL upd9002_test_flat_memory_active(void) {
  */
 REG8 MEMCALL upd9002_mainram_read(UINT32 address) {
 	if (address < USE_HIMEM) {
+		if ((address < UPD9002_MAINRAM_LIMIT) && (address >= pccore_mainram_limit())) {
+			return 0xff;
+		}
 		return mem[address];
 	}
 	address -= 0x100000;
@@ -48,6 +52,9 @@ REG16 MEMCALL upd9002_mainram_read_w(UINT32 address) {
 
 void MEMCALL upd9002_mainram_write(UINT32 address, REG8 value) {
 	if (address < USE_HIMEM) {
+		if ((address < UPD9002_MAINRAM_LIMIT) && (address >= pccore_mainram_limit())) {
+			return;
+		}
 		mem[address] = (BYTE)value;
 		return;
 	}

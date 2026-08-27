@@ -334,6 +334,7 @@ static const INITBL iniitem[] = {
 
     {"DIPswtch", INITYPE_BYTEARG, np2cfg.dipsw, 3},
     {"MEMswtch", INITYPE_BYTEARG, np2cfg.memsw, 8},
+    {"Main_RAM", INITYPE_UINT16, &np2cfg.main_ram, 0},
     {"ExMemory", INITYPE_UINT8, &np2cfg.EXTMEM, 0},
     {"ITF_WORK", INITYPE_BOOL, &np2cfg.ITF_WORK, 0},
     {"Use_BMS_", INITYPE_BOOL, &bmsiocfg.enabled, 0},
@@ -446,6 +447,12 @@ void initload(void) {
 		SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "Invalid ExMemory=%u; using %u", np2cfg.EXTMEM,
 		            EMSIO_MAX_MEGABYTES);
 		np2cfg.EXTMEM = EMSIO_MAX_MEGABYTES;
+	}
+	if ((np2cfg.main_ram != 256) && (np2cfg.main_ram != 384) && (np2cfg.main_ram != 512) &&
+	    (np2cfg.main_ram != 640)) {
+		SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "Invalid Main_RAM=%u; using 640",
+		            np2cfg.main_ram);
+		np2cfg.main_ram = 640;
 	}
 
 	bmsiocfg.enabled = bmsiocfg.enabled ? TRUE : FALSE;

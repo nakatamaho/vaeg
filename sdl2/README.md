@@ -504,6 +504,21 @@ Use `--bkupmem path` to override either model default, or `--no-bkupmem` to
 disable both backup-memory reads and writes. These two options are mutually
 exclusive. No implicit migration or fallback reads old user-state copies.
 
+For VA models, `Main_RAM` describes the installed conventional-RAM ceiling,
+independently of the BIOS memory-switch selection in `MEMswtch`:
+
+```ini
+Main_RAM=640
+```
+
+Supported physical capacities are 256, 384, 512, and 640 KB. Addresses above
+the configured capacity are unavailable to the guest CPU, so the VA BIOS
+memory check cannot retain a `MEMswtch` selection beyond the installed limit.
+`Use_BMS_`, `BMS_Port`, and `BMS_Size` describe the separate bank-memory
+device and do not increase this conventional-RAM ceiling. When a model-specific
+backup-memory file is missing or truncated, the frontend seeds the BIOS
+memory-selection record from `Main_RAM`; an existing backup image is preserved.
+
 Obsolete `np2.cfg`, `np2.ini`, and `vaeg.ini` files are not read. Fixed GUI
 save-state slots and keyboard sidecars remain in the user state directory.
 

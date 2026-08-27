@@ -61,6 +61,7 @@ NP2CFG np2cfg = {.KEY_MODE = 0,
                  .sgp_speed_mode = 0,
                  .sgp_multiplier = 1,
                  .memsw = {0x48, 0x05, 0x04, 0x00, 0x01, 0x00, 0x00, 0x6e},
+                 .main_ram = 640,
                  .ITF_WORK = 1,
                  .EXTMEM = EMSIO_DEFAULT_MEGABYTES,
                  .BG_COLOR = 0x000000,
@@ -105,6 +106,26 @@ PCCORE pccore = {PCBASECLOCK25,
                  PCBASECLOCK25 *PCBASEMULTIPLE};
 CLOCKSCALE pccore_cpu_scale = {PCCORE_STANDARD_MULTIPLE, PCCORE_STANDARD_MULTIPLE, 0};
 static UINT pccore_cpu_multiple_value = PCCORE_STANDARD_MULTIPLE;
+
+static UINT16 pccore_normalize_mainram(UINT16 value) {
+	switch (value) {
+	case 256:
+	case 384:
+	case 512:
+	case 640:
+		return value;
+	default:
+		return 640;
+	}
+}
+
+UINT16 pccore_mainram_kb(void) {
+	return pccore_normalize_mainram(np2cfg.main_ram);
+}
+
+UINT32 pccore_mainram_limit(void) {
+	return (UINT32)pccore_mainram_kb() * 1024;
+}
 
 UINT8 screenupdate = 3; // Bit 0 requests a partial redraw.
                         // Bit 1 requests a full redraw.

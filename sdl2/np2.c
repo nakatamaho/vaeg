@@ -1900,9 +1900,9 @@ int main(int argc, char **argv) {
 	if (np2_debug) {
 		fprintf(stderr,
 		        "INFO: Machine config: pc_model=%s clk_base=%u "
-		        "clk_mult=%u SNDboard=%03x sound_enabled=%u biospath=%s\n",
-		        np2cfg.model, np2cfg.baseclock, np2cfg.multiple, np2cfg.SOUND_SW,
-		        np2oscfg.sound_enabled, np2cfg.biospath);
+		        "clk_mult=%u Main_RAM=%u SNDboard=%03x sound_enabled=%u biospath=%s\n",
+		        np2cfg.model, np2cfg.baseclock, np2cfg.multiple, pccore_mainram_kb(),
+		        np2cfg.SOUND_SW, np2oscfg.sound_enabled, np2cfg.biospath);
 		fprintf(stderr,
 		        "INFO: Runtime config: opn_backend=%s ymfm_fidelity=%s "
 		        "SampleHz=%u Latencys=%u sgp_mode=%u sgp_mult=%u\n",

@@ -43,6 +43,7 @@
 #include "hostfat_manager.h"
 #include "ini.h"
 #include "machine/pccore.h"
+#include "cpu/upd9002/memory.h"
 #include "cpucore.h"
 #include "diagnostics/upd9002_debug.h"
 #include "iocore.h"
@@ -1179,6 +1180,8 @@ static int test_profile_ini(void) {
 	_BMSIOCFG write_bms;
 	UINT8 ems_megabytes;
 	UINT8 read_ems_megabytes;
+	UINT16 main_ram;
+	UINT16 read_main_ram;
 	_BMSIOCFG read_bms;
 	PFTBL write_tbl[] = {
 	    {"name", PFTYPE_STR, name, sizeof(name)}, {"flag", PFTYPE_BOOL, &flag, 0},
@@ -1194,11 +1197,13 @@ static int test_profile_ini(void) {
 	                          {"BMS_Port", INITYPE_HEX16, &write_bms.port, 0},
 	                          {"BMS_Size", INITYPE_UINT8, &write_bms.numbanks, 0},
 	                          {"ExMemory", INITYPE_UINT8, &ems_megabytes, 0},
+	                          {"Main_RAM", INITYPE_UINT16, &main_ram, 0},
 	                          {"PacingMs", INITYPE_UINT16, &pacing_ms, 0}};
 	INITBL read_bms_tbl[] = {{"Use_BMS_", INITYPE_BOOL, &read_bms.enabled, 0},
 	                         {"BMS_Port", INITYPE_HEX16, &read_bms.port, 0},
 	                         {"BMS_Size", INITYPE_UINT8, &read_bms.numbanks, 0},
 	                         {"ExMemory", INITYPE_UINT8, &read_ems_megabytes, 0},
+	                         {"Main_RAM", INITYPE_UINT16, &read_main_ram, 0},
 	                         {"PacingMs", INITYPE_UINT16, &read_pacing_ms, 0}};
 
 	SPRINTF(path, "vaeg-selftest-%lu.ini", (unsigned long)getpid());
@@ -1222,6 +1227,8 @@ static int test_profile_ini(void) {
 	read_pacing_ms = 0;
 	write_bms.enabled = TRUE;
 	read_ems_megabytes = 0;
+	main_ram = 384;
+	read_main_ram = 0;
 	write_bms.port = BMSIO_PORT_COMPAT;
 	write_bms.portmask = BMSIO_PORT_MASK;
 	write_bms.numbanks = 32;
@@ -1243,7 +1250,7 @@ static int test_profile_ini(void) {
 	}
 	if ((read_bms.enabled != TRUE) || (read_bms.port != BMSIO_PORT_COMPAT) ||
 	    (read_bms.numbanks != 32) || (read_pacing_ms != pacing_ms) ||
-	    (read_ems_megabytes != ems_megabytes)) {
+	    (read_ems_megabytes != ems_megabytes) || (read_main_ram != main_ram)) {
 		return (fail("ini", "BMS/EMS settings did not round-trip"));
 	}
 	fprintf(stderr, "selftest: ini ok\n");
@@ -1255,7 +1262,7 @@ static int test_persistence_controls(void) {
 	char backup_path[MAX_PATH];
 	char missing_backup_path[MAX_PATH];
 	BYTE saved_backup_memory[0x04000];
-	BYTE zero_backup_memory[0x04000];
+	UINT16 saved_main_ram;
 	const char *detail;
 
 	SPRINTF(config_path, "vaeg-selftest-%lu.cfg", (unsigned long)getpid());
@@ -1265,7 +1272,7 @@ static int test_persistence_controls(void) {
 	file_delete(backup_path);
 	file_delete(missing_backup_path);
 	CopyMemory(saved_backup_memory, backupmem, sizeof(saved_backup_memory));
-	ZeroMemory(zero_backup_memory, sizeof(zero_backup_memory));
+	saved_main_ram = np2cfg.main_ram;
 	detail = NULL;
 
 	initsetpath(config_path);
@@ -1297,12 +1304,16 @@ static int test_persistence_controls(void) {
 	}
 	bkupmemva_setpath(missing_backup_path);
 	bkupmemva_setenabled(TRUE);
+	np2cfg.main_ram = 640;
 	ZeroMemory(backupmem, sizeof(backupmem));
 	backupmem[0] = 0xa5;
 	bkupmemva_load();
-	if ((detail == NULL) && (memcmp(backupmem, zero_backup_memory, sizeof(backupmem)) != 0)) {
-		detail = "missing backup-memory image retained stale data";
+	if ((detail == NULL) && ((backupmem[0] != 0) || (backupmem[0x1fc4] != 0x64) ||
+	                         (backupmem[0x1fc8] != 0x4b) || (backupmem[0x1fc9] != 0x5a) ||
+	                         (backupmem[0x1fca] != 0x4d) || (backupmem[0x1fcd] != 0x48))) {
+		detail = "missing backup-memory image was not seeded from Main_RAM";
 	}
+	np2cfg.main_ram = saved_main_ram;
 	CopyMemory(backupmem, saved_backup_memory, sizeof(saved_backup_memory));
 	bkupmemva_setpath(NULL);
 	bkupmemva_setenabled(TRUE);
@@ -1314,6 +1325,83 @@ static int test_persistence_controls(void) {
 		return (fail("persistence controls", detail));
 	}
 	fprintf(stderr, "selftest: persistence controls ok\n");
+	return (SUCCESS);
+}
+
+static int test_main_ram_configuration(void) {
+	static const UINT16 capacities[] = {256, 384, 512, 640};
+	BYTE saved_backup_memory[0x04000];
+	UINT16 saved_main_ram;
+	UINT16 capacity;
+	UINT32 limit;
+	BYTE saved_below;
+	BYTE saved_above;
+	BYTE checksum;
+	int i;
+	int j;
+
+	saved_main_ram = np2cfg.main_ram;
+	CopyMemory(saved_backup_memory, backupmem, sizeof(saved_backup_memory));
+	for (i = 0; i < NELEMENTS(capacities); i++) {
+		capacity = capacities[i];
+		np2cfg.main_ram = capacity;
+		limit = pccore_mainram_limit();
+		if ((pccore_mainram_kb() != capacity) || (limit != (UINT32)capacity * 1024)) {
+			np2cfg.main_ram = saved_main_ram;
+			CopyMemory(backupmem, saved_backup_memory, sizeof(saved_backup_memory));
+			return (fail("Main_RAM", "capacity normalization failed"));
+		}
+
+		/* Build a BIOS-shaped record only for this host-side configuration test. */
+		ZeroMemory(backupmem, sizeof(backupmem));
+		backupmem[0x1fc2] = 0xdb;
+		backupmem[0x1fc3] = 0x02;
+		backupmem[0x1fc4] = (BYTE)(0x60 | ((capacity / 128) - 1));
+		backupmem[0x1fc5] = 0x04;
+		backupmem[0x1fc6] = 0xf9;
+		backupmem[0x1fc7] = 0x0a;
+		backupmem[0x1fc8] = 0x4b;
+		backupmem[0x1fc9] = 0x5a;
+		backupmem[0x1fca] = 0x4d;
+		backupmem[0x1fcb] = 0xff;
+		backupmem[0x1fcc] = 0xff;
+		checksum = 0;
+		for (j = 0; j < 8; j++) {
+			checksum = (BYTE)(checksum + backupmem[0x1fc0 + j]);
+		}
+		backupmem[0x1fcd] = checksum;
+		if (backupmem[0x1fc4] != (BYTE)(0x60 | ((capacity / 128) - 1)) ||
+		    backupmem[0x1fc8] != 0x4b || backupmem[0x1fc9] != 0x5a || backupmem[0x1fca] != 0x4d ||
+		    backupmem[0x1fcd] != checksum) {
+			np2cfg.main_ram = saved_main_ram;
+			CopyMemory(backupmem, saved_backup_memory, sizeof(saved_backup_memory));
+			return (fail("Main_RAM", "backup-memory capacity record failed"));
+		}
+
+		saved_below = mem[limit - 1];
+		upd9002_mainram_write(limit - 1, 0x5a);
+		if (upd9002_mainram_read(limit - 1) != 0x5a) {
+			np2cfg.main_ram = saved_main_ram;
+			mem[limit - 1] = saved_below;
+			CopyMemory(backupmem, saved_backup_memory, sizeof(saved_backup_memory));
+			return (fail("Main_RAM", "last installed byte was not writable"));
+		}
+		mem[limit - 1] = saved_below;
+		if (limit < UPD9002_MAINRAM_LIMIT) {
+			saved_above = mem[limit];
+			upd9002_mainram_write(limit, 0xa5);
+			if (upd9002_mainram_read(limit) != 0xff) {
+				np2cfg.main_ram = saved_main_ram;
+				mem[limit] = saved_above;
+				CopyMemory(backupmem, saved_backup_memory, sizeof(saved_backup_memory));
+				return (fail("Main_RAM", "uninstalled byte was accessible"));
+			}
+			mem[limit] = saved_above;
+		}
+	}
+	np2cfg.main_ram = saved_main_ram;
+	CopyMemory(backupmem, saved_backup_memory, sizeof(saved_backup_memory));
+	fprintf(stderr, "selftest: Main_RAM physical ceiling ok\n");
 	return (SUCCESS);
 }
 
@@ -2531,6 +2619,9 @@ int vaeg_selftest_run(void) {
 		return (FAILURE);
 	}
 	if (test_persistence_controls() != SUCCESS) {
+		return (FAILURE);
+	}
+	if (test_main_ram_configuration() != SUCCESS) {
 		return (FAILURE);
 	}
 	if (test_va_layer_display() != SUCCESS) {

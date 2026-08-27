@@ -54,6 +54,8 @@ typedef struct {
 	UINT8 sgp_multiplier;
 
 	UINT8 memsw[8];
+	/* Installed conventional RAM ceiling; BIOS MEMswtch remains independent. */
+	UINT16 main_ram;
 
 	UINT8 ITF_WORK;
 	UINT8 EXTMEM;
@@ -146,6 +148,8 @@ BOOL pccore_cpu_multiple_valid(UINT multiple);
 void pccore_clockrestore(void);
 UINT pccore_cpu_multiple(void);
 UINT32 pccore_cpu_clock(void);
+UINT16 pccore_mainram_kb(void);
+UINT32 pccore_mainram_limit(void);
 
 void pccore_init(void);
 void pccore_term(void);
