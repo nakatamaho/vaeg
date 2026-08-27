@@ -366,6 +366,13 @@ count, not a megabyte count. The `00ECH` PC-9801-compatible port and smaller
 capacities remain selectable. Explicit values in an existing `vaeg.cfg`,
 including an off setting, are preserved rather than migrated.
 
+When BMS is enabled, VAEG binds both `01D0H` and `00ECH` to the same bank
+selector. `01D0H` remains the native and default configuration choice, while
+the `00ECH` alias lets fixed PC-9801-compatible BMS software probe the same
+physical bank memory without changing the development disk's driver. The
+persisted `BMS_Port` value remains the preferred port shown by the
+configuration UI.
+
 ## EMS Board, EMMVA, and RDEMS
 
 The [PC-88VA FAQ EMS article](http://www.pc88.gr.jp/vafaq/view.php/article/88va/vafaq/5)
@@ -817,6 +824,9 @@ The resulting `RDBMS.SYS` SHA-256 is
 `8a4e09f9f2b1b1363a3d07a1edeb36ae744665324a7de9a1c628e6480a5f0289`.
 The archived `rdbms121.lzh` remains byte-for-byte original, and the explicit
 `-P1D0` remains in `CONFIG.SYS` for models that do pass parameters.
+When BMS is enabled, VAEG also exposes the fixed driver's `00ECH` probe as an
+alias of the native `01D0H` selector; both addresses therefore operate on the
+same bank state while the persisted default remains `BMS_Port=01d0`.
 The EMMVA adapter pair encloses the Open Watcom-built SQEMM98 manager. RDEMS
 loads after TSCLVA and allocates its default 40-page EMS RAM disk. The BMS VA
 device driver is resident, while its COM form remains available for management.

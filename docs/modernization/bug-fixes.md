@@ -1289,14 +1289,40 @@ separate parity correction or move it to Open Defects.
 - **Correction:** the development-disk builder preserves the source archive,
   verifies the exact original driver hash and `EC 00` bytes, then changes only
   the generated copy's embedded default to `01D0H`. `CONFIG.SYS` retains
-  `-P1D0` for models that accept parameters; VAEG does not mirror the board at
-  the compatibility port.
+  `-P1D0` for models that accept parameters; at this stage VAEG intentionally
+  did not mirror the board at the compatibility port.
 - **Verification:** two complete builds produced byte-identical D88 images.
   The disk-extracted driver had the expected patched hash and `D0 01` word.
   Original-VA and VA2 640KB boots both reached `Ready`, and `DIR C:` accessed
   the RDBMS RAM disk without the BANKRAM warning.
 - **Evidence:** [PC-88VA BMS/RDBMS environment notes](pc88va-hdd-software-environment.md#bank-memory-manager).
 - **Commit:** [e08fd93](https://github.com/nakatamaho/vaeg/commit/e08fd938e6157ad9d05bb26dab6acc2842b3d192).
+
+### Fixed BMS driver could not probe the VAEG native-first bank device
+
+- **Status:** fixed in M97e; real VA/VA2 guest confirmation remains pending.
+- **Symptom:** with the unchanged development-disk `BMSDRVA.SYS`, the guest
+  reported the compatibility `00ECH` probe and only one visible bank even
+  though VAEG was configured with the native `01D0H` device and its full
+  capacity.
+- **Affected scope:** BMS selector I/O during VA and VA2 startup, including
+  software that probes `00ECH` before selecting the native VA port.
+- **Demonstrated root cause:** the fixed BMS driver probes `00ECH`, while the
+  VAEG device had been registered only at the configured `01D0H` address. An
+  unhandled compatibility-port read therefore looked like a one-bank device;
+  the disk driver was not defective and is intentionally unchanged.
+- **Correction:** when BMS is enabled, register the same bank-selector
+  callbacks at both `01D0H` and `00ECH`. The native `01D0H` setting remains the
+  default and preferred configuration; both aliases share one bank state and
+  storage, without adding a second device or modifying `BMSDRVA.SYS`.
+- **Verification:** the ROM-less selftest selects banks through each alias in
+  both native-preference and compatibility-preference configurations, checks
+  that reads report the shared selection, and retains the existing aperture,
+  reset, and disable lifecycle checks. Linux debug build, selftest, repository
+  encoding/EOL/case checks, and diff validation pass.
+- **Evidence:** [M97e BMS dual-port report](../agents/reports/m97e_bms_dual_port.md),
+  [PC-88VA BMS/EMS environment notes](pc88va-hdd-software-environment.md#bank-memory-manager).
+- **Commit:** [8386b4b](https://github.com/nakatamaho/vaeg/commit/8386b4b2986edaeac6660f9622c343d96ec1e50c).
 
 ### Z80 state-codec rejection was ignored by the state coordinator
 
