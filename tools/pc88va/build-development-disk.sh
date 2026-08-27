@@ -639,6 +639,9 @@ printf '%s\r\n' \
 	'DEVICE = A:\SYS\RDEMS.SYS -P40 -A' \
 	'DEVICE = A:\SYS\RDPCM.SYS' >"$payload_dir/root/CONFIG.SYS"
 
+grep -Fqx 'DEVICE = A:\SYS\MSE352B.COM /A /B' "$payload_dir/root/CONFIG.SYS" ||
+	die 'generated CONFIG.SYS is missing the MSE BMS /A /B switches'
+
 printf '%s\r\n' \
 	'PATH A:\BIN' \
 	'SET TEEN=A:\BIN\TEEN.DEF' \
