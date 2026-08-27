@@ -1253,12 +1253,19 @@ static int test_profile_ini(void) {
 static int test_persistence_controls(void) {
 	char config_path[MAX_PATH];
 	char backup_path[MAX_PATH];
+	char missing_backup_path[MAX_PATH];
+	BYTE saved_backup_memory[0x04000];
+	BYTE zero_backup_memory[0x04000];
 	const char *detail;
 
 	SPRINTF(config_path, "vaeg-selftest-%lu.cfg", (unsigned long)getpid());
 	SPRINTF(backup_path, "vaeg-selftest-%lu-bkup.dat", (unsigned long)getpid());
+	SPRINTF(missing_backup_path, "vaeg-selftest-%lu-missing-bkup.dat", (unsigned long)getpid());
 	file_delete(config_path);
 	file_delete(backup_path);
+	file_delete(missing_backup_path);
+	CopyMemory(saved_backup_memory, backupmem, sizeof(saved_backup_memory));
+	ZeroMemory(zero_backup_memory, sizeof(zero_backup_memory));
 	detail = NULL;
 
 	initsetpath(config_path);
@@ -1288,10 +1295,20 @@ static int test_persistence_controls(void) {
 	if ((detail == NULL) && (file_attr(backup_path) >= 0)) {
 		detail = "disabled backup-memory persistence wrote a file";
 	}
+	bkupmemva_setpath(missing_backup_path);
+	bkupmemva_setenabled(TRUE);
+	ZeroMemory(backupmem, sizeof(backupmem));
+	backupmem[0] = 0xa5;
+	bkupmemva_load();
+	if ((detail == NULL) && (memcmp(backupmem, zero_backup_memory, sizeof(backupmem)) != 0)) {
+		detail = "missing backup-memory image retained stale data";
+	}
+	CopyMemory(backupmem, saved_backup_memory, sizeof(saved_backup_memory));
 	bkupmemva_setpath(NULL);
 	bkupmemva_setenabled(TRUE);
 	file_delete(config_path);
 	file_delete(backup_path);
+	file_delete(missing_backup_path);
 
 	if (detail != NULL) {
 		return (fail("persistence controls", detail));

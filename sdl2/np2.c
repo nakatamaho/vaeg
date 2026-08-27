@@ -165,6 +165,8 @@ static const UINT startup_splash_ms = 1500;
 static const UINT max_catchup_frames = 15;
 static const char va_backup_memory_file[] = "vabkupmem.dat";
 static const char va2_backup_memory_file[] = "va2bkupmem.dat";
+static BOOL backup_memory_path_ready = FALSE;
+static BOOL backup_memory_path_explicit = FALSE;
 static const char *rompath_override;
 typedef struct {
 	const char *name;
@@ -531,9 +533,31 @@ static const char *backup_memory_filename(const char *model) {
 	return ((milstr_cmp(model, str_VA1) == 0) ? va_backup_memory_file : va2_backup_memory_file);
 }
 
+static void switch_backup_memory_model(const char *model) {
+	const char *path;
+
+	if (!backup_memory_path_ready || backup_memory_path_explicit) {
+		return;
+	}
+	/* Preserve the old model before selecting and loading the new image. */
+	bkupmemva_save();
+	path = backup_memory_filename(model);
+	bkupmemva_setpath(path);
+	bkupmemva_load();
+	/* Materialize a missing model-specific image for BIOS setup immediately. */
+	if (file_attr(path) < 0) {
+		bkupmemva_save();
+	}
+	if (np2_debug) {
+		SDL_Log("Backup memory model switch: %s", backup_memory_filename(model));
+	}
+}
+
 static void select_backup_memory_path(const VAEG_CLI_OPTIONS *options) {
 	const char *path;
 
+	backup_memory_path_ready = TRUE;
+	backup_memory_path_explicit = (options->bkupmem_path != NULL);
 	if (options->no_bkupmem) {
 		bkupmemva_setenabled(FALSE);
 		if (np2_debug) {
@@ -675,6 +699,9 @@ BOOL np2_select_boot_model(const char *model) {
 		return (FAILURE);
 	}
 	changed = (milstr_cmp(np2cfg.model, model) != 0);
+	if (changed) {
+		switch_backup_memory_model(model);
+	}
 	file_cpyname(np2cfg.model, model, sizeof(np2cfg.model));
 	if (changed) {
 		np2cfg.SOUND_SW = np2_default_sound_for_model(model);

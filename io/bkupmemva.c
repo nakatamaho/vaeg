@@ -52,6 +52,8 @@ void bkupmemva_load(void) {
 	if (!bkupmemva_enabled) {
 		return;
 	}
+	/* A missing model-specific file starts with a clean backup-RAM image. */
+	ZeroMemory(backupmem, 0x04000);
 	bkupmemva_statepath(path, sizeof(path));
 	(void)bkupmemva_read(path);
 }
