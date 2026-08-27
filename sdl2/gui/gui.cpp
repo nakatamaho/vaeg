@@ -2926,6 +2926,10 @@ static void draw_device_menu(void) {
 				if (ImGui::MenuItem("PC key", nullptr, np2oscfg.F12KEY == 5)) {
 					set_f12_key(5);
 				}
+				if (ImGui::MenuItem("Full speed (No Wait)", nullptr,
+				                    np2oscfg.F12KEY == KBDMAP_F12_FULL_SPEED)) {
+					set_f12_key(KBDMAP_F12_FULL_SPEED);
+				}
 				ImGui::EndMenu();
 			}
 			if (ImGui::BeginMenu("Host layout")) {

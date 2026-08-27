@@ -33,6 +33,10 @@ enum {
 	KBDMAP_NC = 0xff
 };
 
+enum {
+	KBDMAP_F12_FULL_SPEED = 6
+};
+
 typedef enum {
 	KBDMAP_STATUS_IMPLEMENTED = 0,
 	KBDMAP_STATUS_MAPPED_UNTESTED,

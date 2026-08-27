@@ -2289,6 +2289,12 @@ static int test_mouse_state(void) {
 		np2oscfg.F12KEY = saved_f12;
 		return (fail("mouse", "F12 PC-key binding changed"));
 	}
+	np2oscfg.F12KEY = KBDMAP_F12_FULL_SPEED;
+	if ((kbdmap_lookup(SDL_SCANCODE_F12) != KBDMAP_NC) ||
+	    (kbdmap_special_action(SDL_SCANCODE_F12) != KBDMAP_SPECIAL_FAST_FORWARD)) {
+		np2oscfg.F12KEY = saved_f12;
+		return (fail("mouse", "F12 full-speed binding changed"));
+	}
 	np2oscfg.F12KEY = saved_f12;
 	fprintf(stderr, "selftest: mouse state ok\n");
 	return (SUCCESS);

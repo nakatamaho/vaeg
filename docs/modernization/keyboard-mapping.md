@@ -69,6 +69,11 @@ to F11 and controls the temporary hold-to-fast-forward pacing action;
 `F12_bind=0` (Mouse). These actions are shown as host rows in the Keyboard
 mapping window and can be rebound without changing guest key codes.
 
+The F12 binding menu also provides `F12_bind=6` (`Full speed (No Wait)`). While
+F12 is held in this mode, it selects the same temporary No Wait and draw-skip
+16 pacing path as the configurable `fast_forward` host action; the F12 event is
+not sent to the guest.
+
 ImGui input capture remains authoritative. If ImGui wants keyboard or
 text input, neither raw scancodes nor Roman-Kana helper output reach the
 guest. During key-binding capture, the captured keydown and matching

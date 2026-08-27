@@ -1431,6 +1431,9 @@ KBDMAP_SPECIAL_ACTION kbdmap_special_action(UINT scancode) {
 	if ((scancode <= SDL_SCANCODE_UNKNOWN) || (scancode >= SDL_NUM_SCANCODES)) {
 		return KBDMAP_SPECIAL_NONE;
 	}
+	if ((scancode == SDL_SCANCODE_F12) && (np2oscfg.F12KEY == KBDMAP_F12_FULL_SPEED)) {
+		return KBDMAP_SPECIAL_FAST_FORWARD;
+	}
 	for (i = 0; i < (int)NELEMENTS(entries); i++) {
 		if (bindings[i] == (SDL_Scancode)scancode) {
 			KBDMAP_SPECIAL_ACTION action = special_action_for_role(entries[i].role);

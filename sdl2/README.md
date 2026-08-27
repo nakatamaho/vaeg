@@ -613,6 +613,9 @@ host waiting. `Screen -> Frame skip` selects Auto, Full frame, 1/2, 1/3, or
 draw skip 16; releasing it, losing focus, resetting, loading a state, or
 quitting clears the temporary mode. The active host action is not sent to the
 guest, and the saved No Wait/frame-skip/CPU/SGP values are not overwritten.
+The Keyboard -> F12 binding menu can select `Full speed (No Wait)` as an
+alternative hold-to-fast-forward shortcut; in that mode F12 uses the same
+temporary path and is not sent to the guest.
 
 `Info -> Show FPS`, `Show CPU clock`, `Show SGP clock`, and `Show frame`
 independently control the corresponding suffixes in the native window title.
