@@ -81,23 +81,9 @@ void bmsio_reset(void) {
 }
 
 void bmsio_bind(void) {
-	UINT16 primary_port;
-	UINT16 compatibility_port;
-
 	if (bmsio.cfg.enabled) {
-		/*
-		 * The PC-88VA-native selector is 01D0H.  Older BMS software,
-		 * including the fixed SYS driver distributed on the development
-		 * disk, may probe the PC-9801-compatible 00ECH selector first.
-		 * Both addresses are aliases for one physical bank register; the
-		 * configured port remains the user's preferred/native setting.
-		 */
-		primary_port = bmsio.cfg.port;
-		compatibility_port =
-		    (primary_port == BMSIO_PORT_DEFAULT) ? BMSIO_PORT_COMPAT : BMSIO_PORT_DEFAULT;
-		iocore_attachout(primary_port, bmsio_o00ec);
-		iocore_attachinp(primary_port, bmsio_i00ec);
-		iocore_attachout(compatibility_port, bmsio_o00ec);
-		iocore_attachinp(compatibility_port, bmsio_i00ec);
+		/* Only the explicitly selected port is active. */
+		iocore_attachout(bmsio.cfg.port, bmsio_o00ec);
+		iocore_attachinp(bmsio.cfg.port, bmsio_i00ec);
 	}
 }

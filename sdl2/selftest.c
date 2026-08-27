@@ -638,31 +638,30 @@ static int test_va_bms_window(void) {
 	iocore_create();
 	io_created = TRUE;
 	if (iocore_build() != SUCCESS) {
-		result = fail("VA BMS", "could not build port-alias I/O table");
+		result = fail("VA BMS", "could not build selected-port I/O table");
 		goto bms_test_cleanup;
 	}
 	bmsio_bind();
 	iocore_out8(BMSIO_PORT_DEFAULT, 1);
 	if ((bmsio.bank != 1) || (bmsio.nomem != 0) || (iocore_inp8(BMSIO_PORT_DEFAULT) != 1) ||
-	    (iocore_inp8(BMSIO_PORT_COMPAT) != 1)) {
-		result = fail("VA BMS", "native port alias did not select the shared bank");
+	    (iocore_inp8(BMSIO_PORT_COMPAT) != 0xff)) {
+		result = fail("VA BMS", "native selection unexpectedly exposed another port");
 		goto bms_test_cleanup;
 	}
-	iocore_out8(BMSIO_PORT_COMPAT, 2);
-	if ((bmsio.bank != 2) || (bmsio.nomem != 0) || (iocore_inp8(BMSIO_PORT_DEFAULT) != 2) ||
-	    (iocore_inp8(BMSIO_PORT_COMPAT) != 2)) {
-		result = fail("VA BMS", "compatibility port alias did not select the shared bank");
+	iocore_destroy();
+	iocore_create();
+	if (iocore_build() != SUCCESS) {
+		result = fail("VA BMS", "could not rebuild selected-port I/O table");
 		goto bms_test_cleanup;
 	}
 	bmsiocfg.port = BMSIO_PORT_COMPAT;
 	bmsio_set();
 	bmsio_reset();
 	bmsio_bind();
-	iocore_out8(BMSIO_PORT_DEFAULT, 1);
 	iocore_out8(BMSIO_PORT_COMPAT, 2);
-	if ((bmsio.bank != 2) || (bmsio.nomem != 0) || (iocore_inp8(BMSIO_PORT_DEFAULT) != 2) ||
-	    (iocore_inp8(BMSIO_PORT_COMPAT) != 2)) {
-		result = fail("VA BMS", "compatibility preference did not retain both aliases");
+	if ((bmsio.bank != 2) || (bmsio.nomem != 0) || (iocore_inp8(BMSIO_PORT_COMPAT) != 2) ||
+	    (iocore_inp8(BMSIO_PORT_DEFAULT) != 0xff)) {
+		result = fail("VA BMS", "compatibility selection unexpectedly exposed another port");
 		goto bms_test_cleanup;
 	}
 	iocore_destroy();
