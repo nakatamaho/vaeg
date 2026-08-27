@@ -24,19 +24,18 @@ POSSIBILITY OF SUCH DAMAGE.
 -->
 # PC-88VA SGP Pseudo-Sprite Demo
 
-## Current milestone
+## Final implementation
 
-This directory currently implements M6: multiple animated pseudo-sprites
+This directory contains the final M7 implementation: multiple animated pseudo-sprites
 rendered into a hidden Graphic 1 page, followed by a VBLANK-synchronized
 DSA1 page exchange, with a configurable bullet stress prefix and exit-time
-SGP counters. The M3 transparent-BITBLT, M4 animation, and M5 double-buffer
-gates passed before this stress instrumentation was added.
-G5 has passed. On the evaluated VAEG setup, the 24x24 scene measured about
-57 FPS with 26 active spheres and about 28 FPS with 27; that step remains a
-workload measurement, not a hardware maximum. M6 raises the runtime prefix
-limit to 256 records and reserves 32 of those records for 8x8 bullets.
+SGP counters. The reviewed M7 rendering variants share this source; the build
+helpers emit only these final variants. On the evaluated VAEG setup, the 24x24
+scene measured about 57 FPS with 26 active spheres and about 28 FPS with 27;
+that remains a workload measurement, not a hardware maximum. The final runtime
+prefix limit is 256 records and reserves 32 of those records for 8x8 bullets.
 The 16-bit real-mode DOS `.COM` program keeps the verified 320x200, 16-color,
-4-bpp, single-plane, two-screen configuration. Its M6 scene contains:
+4-bpp, single-plane, two-screen configuration. Its final scene contains:
 
 - a static CPU word-filled checkerboard in Graphic 0;
 - two 32,000-byte Graphic 1 pages: one displayed and one rendered off-screen;
@@ -77,10 +76,10 @@ shaded balls for the stress run. Key sensing and retrieval
 use the documented keyboard BIOS primitives, so no PC-compatible extended-key
 sequence is assumed.
 
-The M6 program uses these hardware interfaces, all traced in the
+The final program uses these hardware interfaces, all traced in the
 [M1 investigation](../../../docs/modernization/sgp-pseudo-sprite-investigation.md):
 
-| Purpose | Interface used by M6 |
+| Purpose | Interface used by the final program |
 |---|---|
 | Mode | Graphics BIOS `INT 8fh`, function 0, `BX=e00eh`, `CX=0404h` |
 | Buffer geometry check | Graphics BIOS function 7 for screens 0 and 1 |
@@ -100,7 +99,7 @@ The M6 program uses these hardware interfaces, all traced in the
 `COLCOMP=00abh` register value described in the M1 report. The BIOS owns the
 complete mode and composition transition.
 
-## M6 SGP command list and counters
+## SGP command list and counters
 
 The 8,566-byte maximum command buffer, 58-byte work area, 256 sprite
 records, 16 pre-rendered 24x24 HSV bitmaps, one 8x8 bullet bitmap, and 11
@@ -152,39 +151,20 @@ non-VBLANK-to-VBLANK transition and write the two DSA1 words. It then
 toggles the page variables, so the next CLS and all BITBLTs target the new
 hidden page. Startup renders both pages before enabling display.
 
-## Milestone source ladder
+## Runtime counters
 
-M6 records six diagnostic groups at runtime: completed frames, page flips, the
+The final program records six diagnostic groups at runtime: completed frames, page flips, the
 last frame's command-word/BITBLT/pixel/source-byte counts, 32-bit totals for
 those transfer counts, active sprite count, and VBLANK waits that exhausted
 the bounded polling window. The summary is printed after video restoration
 when ESC exits (or when a bounded synchronization failure aborts the loop).
 The totals wrap at 32 bits; the per-frame values do not.
 
-Educational NASM excerpts for M2 through M6 are preserved in
-[`milestones/`](milestones/). The buildable source accepts
-`-dMILESTONE_STAGE=1` through `-dMILESTONE_STAGE=6`; the resulting runnable
-stage files are named `SGPDEMO1.COM` through `SGPDEMO6.COM`. M1 is a text
-inventory diagnostic because that milestone is hardware investigation rather
-than a graphics gate. The full source remains
-[`sgp_sprite_demo.asm`](sgp_sprite_demo.asm).
+## Final 16-color variants
 
-The stage variants are:
-
-| File | Gate represented |
-|---|---|
-| `SGPDEMO1.COM` | M1 hardware-inventory diagnostic text |
-| `SGPDEMO2.COM` | M2 Graphic 0 checkerboard/video bring-up |
-| `SGPDEMO3.COM` | M3 one transparent SGP BITBLT |
-| `SGPDEMO4.COM` | M4 multiple animated pseudo-sprites |
-| `SGPDEMO5.COM` | M5 hidden-page/double-buffered sprites (1-256 balls; no bullets) |
-| `SGPDEMO6.COM` | M6 stress prefix, bullets, FPS/count, and counters |
-
-## M7 optimization variants
-
-The M7 audit and optimization variants are separate DOS 8.3 executables. The
-M5/M6 sources and `SGPDEMO5.COM`/`SGPDEMO6.COM` remain unchanged regression
-baselines.
+The final 16-color build emits separate DOS 8.3 executables for the reviewed
+rendering variants. They share the same final source and are not milestone
+bring-up images.
 
 | File | Variant | Rendering change |
 |---|---|---|
@@ -208,7 +188,7 @@ and two-page Graphic 1 sprite surface.
 Build all M7 variants with:
 
 ~~~sh
-NASM=nasm demos/sgp-pseudo-sprite/build_m7_coms.sh /tmp/sgpd-m7
+NASM=nasm demos/sgp-pseudo-sprite/build.sh /tmp/sgpd-final
 ~~~
 
 The logical-work matrix in [`docs/sgp-m7-results.md`](../../../docs/sgp-m7-results.md)
@@ -223,7 +203,6 @@ about PC-88VA hardware performance.
 are grouped by color depth, matching the wireframe demo layout:
 
 ~~~text
-16/SGPDEMO1.COM ... 16/SGPDEMO6.COM
 16/SGPD_7A.COM  ... 16/SGPD_7D.COM
 16/SGPD_7S.COM
 256/SGP256S.COM
@@ -260,8 +239,8 @@ NASM=nasm demos/sgp-pseudo-sprite/256/build-scroll.sh /tmp/sgpdemo-256/SGP256T.C
 NASM=nasm demos/sgp-pseudo-sprite/65536/build.sh /tmp/sgpdemo-65536/SGP655S.COM
 ~~~
 
-The 16-color builder writes `SGPDEMO1.COM` through `SGPDEMO6.COM` and
-`SGPD_7A.COM` through `SGPD_7D.COM`, plus the scrolling `SGPD_7S.COM`.
+The 16-color builder writes `SGPD_7A.COM` through `SGPD_7D.COM`, plus the
+scrolling `SGPD_7S.COM`.
 The complete data disk pair is generated
 with:
 
@@ -294,12 +273,12 @@ color-grouped payloads as the data-only archive. The resulting
 `sgp-demo-bootable.d88` is a local validation artifact and must not be
 committed or compressed for distribution.
 
-The M6 source can also be assembled independently:
+The final source can also be assembled independently:
 
 ~~~sh
-nasm -f bin -dMILESTONE_STAGE=6 \
-  demos/sgp-pseudo-sprite/sgp_sprite_demo.asm \
-  -o /tmp/SGPDEMO6.COM
+nasm -f bin -dM7_VARIANT=1 \
+  demos/sgp-pseudo-sprite/sgp_sprite.asm \
+  -o /tmp/SGPD_7A.COM
 ~~~
 
 No generated `.COM` file belongs in the source tree.
@@ -332,15 +311,9 @@ build/macos-macports/sdl2/vaeg \
   --fdd2 /path/to/sgp-pseudo-sprite.d88
 ~~~
 
-At the DOS prompt, run a selected stage on drive B:
+At the DOS prompt, run a selected final variant on drive B:
 
 ~~~text
-B:\16\SGPDEMO1
-B:\16\SGPDEMO2
-B:\16\SGPDEMO3
-B:\16\SGPDEMO4
-B:\16\SGPDEMO5
-B:\16\SGPDEMO6
 B:\16\SGPD_7A
 B:\16\SGPD_7B
 B:\16\SGPD_7C
@@ -352,9 +325,9 @@ B:\65536\SGP655S
 ~~~
 
 For a developer-only disposable bootable test image, `vanilla` may still be
-used with a system D88, but that image is not the M6 distribution artifact.
+used with a system D88, but that image is not the distribution artifact.
 
-## Expected M6 result
+## Expected final result
 
 The screen must show the Graphic 0 checkerboard with at least 16 pre-rendered
 shaded spheres spanning the HSV wheel and moving independently above it.
@@ -373,14 +346,13 @@ Cursor Up or `+` must add records one at a time to a maximum of 256. Cursor Down
 or `-` must remove balls one at a time to a minimum of one. Newly enabled balls
 continue from their stored initial or last-active state.
 
-M6 additionally exercises the bullet prefix: records 17 through 48 are
+The final program additionally exercises the bullet prefix: records 17 through 48 are
 small 8x8 transparent bullets, so the first count increase after the initial
 16 balls changes both the BITBLT dimensions and the transfer counters.
 
-The M4 single-buffer baseline intentionally rendered into the displayed
-page and could show transient clearing or tearing. M6 must not show that
-visible clear: the hidden page is fully rendered before its VBLANK DSA1
-exchange. Pressing ESC must return to the DOS prompt without a hang.
+The hidden page is fully rendered before its VBLANK DSA1 exchange, so the
+final program does not expose a visible clear. Pressing ESC must return to the
+DOS prompt without a hang.
 The program restores the saved BIOS mode and resets the standard palette;
 arbitrary application palette contents cannot be preserved because VAEG does
 not expose palette readback.

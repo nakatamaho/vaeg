@@ -23,7 +23,7 @@
 set -eu
 
 script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
-source_file="$script_dir/sgp_m7.asm"
+source_file="$script_dir/sgp_sprite.asm"
 nasm_command=${NASM:-nasm}
 output_dir=${1:-"$script_dir/build"}
 

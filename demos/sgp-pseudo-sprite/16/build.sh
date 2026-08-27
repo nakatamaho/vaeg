@@ -26,5 +26,4 @@ script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 output_dir=${1:-"$script_dir/build"}
 
 mkdir -p "$output_dir"
-NASM=${NASM:-nasm} "$script_dir/../build_milestone_coms.sh" "$output_dir"
-NASM=${NASM:-nasm} "$script_dir/../build_m7_coms.sh" "$output_dir"
+NASM=${NASM:-nasm} "$script_dir/../build.sh" "$output_dir"

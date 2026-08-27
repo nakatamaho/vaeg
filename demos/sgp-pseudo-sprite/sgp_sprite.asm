@@ -23,10 +23,6 @@
 bits 16
 org 0x100
 
-%ifndef MILESTONE_STAGE
-%define MILESTONE_STAGE         6
-%endif
-
 %ifndef M7_VARIANT
 %define M7_VARIANT              1
 %endif
@@ -80,27 +76,10 @@ org 0x100
 %define SGP_BUSY                0x01
 
 %define BALL_COUNT              16
-%if MILESTONE_STAGE == 5
-%define BULLET_COUNT            0
-%define SPRITE_INITIAL_COUNT    BALL_COUNT
-%define SPRITE_MIN_COUNT        1
-%define SPRITE_MAX_COUNT        256
-%elif MILESTONE_STAGE == 4
-%define BULLET_COUNT            0
-%define SPRITE_INITIAL_COUNT    BALL_COUNT
-%define SPRITE_MIN_COUNT        1
-%define SPRITE_MAX_COUNT        BALL_COUNT
-%elif MILESTONE_STAGE == 3
-%define BULLET_COUNT            0
-%define SPRITE_INITIAL_COUNT    1
-%define SPRITE_MIN_COUNT        1
-%define SPRITE_MAX_COUNT        BALL_COUNT
-%else
 %define BULLET_COUNT            32
 %define SPRITE_INITIAL_COUNT    BALL_COUNT
 %define SPRITE_MIN_COUNT        1
 %define SPRITE_MAX_COUNT        256
-%endif
 %define BULLET_FIRST_INDEX      BALL_COUNT
 %define SPRITE_WIDTH            24
 %define SPRITE_HEIGHT           24
@@ -178,16 +157,6 @@ org 0x100
 %define SPRITE_PRIORITY_OFFSET  16
 %define SPRITE_RECORD_SIZE      18
 
-%if MILESTONE_STAGE == 1
-start:
-    push cs
-    pop ds
-    cld
-    mov dx, message_start
-    call print_string
-    mov ax, 0x4c00
-    int 0x21
-%else
 start:
     push cs
     pop ds
@@ -202,17 +171,11 @@ start:
     call print_string
 
     call initialize_video
-%endif
     jc initialization_failed
     call initialize_fps_counter
     call initialize_m6_counters
 
-%if MILESTONE_STAGE == 2
-m2_wait_loop:
-    call poll_keyboard
-    jc animation_done
-    jmp m2_wait_loop
-%elif M7_VARIANT >= 3
+%if M7_VARIANT >= 3
     mov byte [current_command_index], 0
     mov byte [build_command_index], 1
     call start_sgp_command_list
@@ -419,7 +382,6 @@ initialize_video:
     push cs
     pop ds
     call draw_g0_checkerboard
-%if MILESTONE_STAGE >= 3
     mov byte [draw_page_index], 0
 %if M7_VARIANT >= 3
     mov byte [build_command_index], 0
@@ -440,7 +402,6 @@ initialize_video:
 %if M7_VARIANT >= 3
     mov byte [current_command_index], 0
     mov byte [build_command_index], 1
-%endif
 %endif
 
     call set_display_page_from_draw
@@ -2182,7 +2143,7 @@ page_last_y_b:
     times SPRITE_MAX_COUNT dw 0
 %endif
 
-; M6 diagnostics are 32-bit counters and wrap only after 0xffffffff.
+; Runtime diagnostics are 32-bit counters and wrap only after 0xffffffff.
 m6_frames_lo:
     dw 0
 m6_frames_hi:
@@ -2283,27 +2244,12 @@ message_start:
 %elif M7_VARIANT == 4
     db "SGPD_7D: M7d invariant-hoisted renderer", 13, 10
     db "UP/+ adds a sprite (max 256), DOWN/- removes one, ESC exits.", 13, 10, "$"
-%elif MILESTONE_STAGE == 1
-    db "SGPDEMO1: M1 hardware inventory diagnostic", 13, 10
-    db "See the M1 investigation report for verified interfaces.", 13, 10, "$"
-%elif MILESTONE_STAGE == 2
-    db "SGPDEMO2: M2 video bring-up (Graphic 0 background)", 13, 10
-    db "ESC exits.", 13, 10, "$"
-%elif MILESTONE_STAGE == 3
-    db "SGPDEMO3: M3 transparent SGP BITBLT", 13, 10
-    db "ESC exits.", 13, 10, "$"
-%elif MILESTONE_STAGE == 4
-    db "SGPDEMO4: M4 multiple pseudo-sprites", 13, 10
-    db "ESC exits.", 13, 10, "$"
-%elif MILESTONE_STAGE == 5
-    db "SGPDEMO5: M5 double-buffered pseudo-sprites", 13, 10
-    db "UP/+ adds balls (max 256), DOWN/- removes one, ESC exits.", 13, 10, "$"
 %else
-    db "SGPDEMO6: M6 stress/counters", 13, 10
+    db "SGP final pseudo-sprite renderer", 13, 10
     db "UP/+ adds a sprite (max 256), DOWN/- removes one, ESC exits.", 13, 10, "$"
 %endif
 message_m6_summary:
-    db 13, 10, "M6 SGP counters (last frame and totals):", 13, 10, "$"
+    db 13, 10, "SGP counters (last frame and totals):", 13, 10, "$"
 label_m6_frames:
     db "Frames: ", 13, 10, "$"
 label_m6_page_flips:
@@ -2469,7 +2415,7 @@ DEFINE_HSV_BALL hsv_ball_13, 10, 11
 DEFINE_HSV_BALL hsv_ball_14, 11, 11
 DEFINE_HSV_BALL hsv_ball_15, 12, 12
 
-; Small 8x8 4-bpp bullet used by the M6 stress prefix.
+; Small 8x8 4-bpp bullet used by the final stress prefix.
 align 2, db 0
 bullet_bitmap:
     db BALL_PAIR(0, 0), BALL_PAIR(0, 0), BALL_PAIR(0, 0), BALL_PAIR(0, 0)

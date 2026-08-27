@@ -35,7 +35,7 @@
         org     0
 
 %ifndef NEON4_STAGE
-%define NEON4_STAGE 2
+%define NEON4_STAGE 8
 %endif
 %define NEON4_TEXT_SCENE_COUNT 8
 %define NEON4_TEXT_TOTAL_FRAMES 3072

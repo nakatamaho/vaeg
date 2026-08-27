@@ -72,9 +72,9 @@ trap cleanup EXIT HUP INT TERM
 
 mkdir -p "$work_dir/payload/16" "$work_dir/payload/65536"
 NEON4_P5_PROFILE=16 NASM=${NASM:-nasm} \
-    "$script_dir/build_p5.sh" "$work_dir/payload/16/neon4.com"
+    "$script_dir/build.sh" "$work_dir/payload/16/neon4.com"
 NEON4_P5_PROFILE=65536 NASM=${NASM:-nasm} \
-    "$script_dir/build_p5.sh" "$work_dir/payload/65536/neon4.com"
+    "$script_dir/build.sh" "$work_dir/payload/65536/neon4.com"
 
 python3 "$repo_root/tools/pc88va/pcengine_disk.py" data \
     --source "$source_image" \

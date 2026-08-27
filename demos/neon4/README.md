@@ -76,11 +76,11 @@ boundary.
 Build either raw loader payload directly:
 
 ```sh
-NEON4_P5_PROFILE=16 ./build_p5.sh /absolute/path/neon4-16.com
-NEON4_P5_PROFILE=65536 ./build_p5.sh /absolute/path/neon4-65536.com
+NEON4_P5_PROFILE=16 ./build.sh /absolute/path/neon4-16.com
+NEON4_P5_PROFILE=65536 ./build.sh /absolute/path/neon4-65536.com
 ```
 
-`build_p5.sh` wraps the stage-8 payload with the validated VA loader return
+`build.sh` wraps the final payload with the validated VA loader return
 continuation.  `NEON4_P5_PROFILE=16` is the 640x400 palette build; the numeric
 name is a profile identifier, not a 16bpp mode.
 

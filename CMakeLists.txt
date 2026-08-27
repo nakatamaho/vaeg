@@ -445,9 +445,9 @@ if(VAEG_NASM_EXECUTABLE)
             "${CMAKE_CURRENT_BINARY_DIR}/guest"
         COMMAND "${VAEG_NASM_EXECUTABLE}" -f bin
             -o "${VAEG_SGPSPRITE_COM}"
-            "${CMAKE_CURRENT_SOURCE_DIR}/demos/sgp-pseudo-sprite/sgp_sprite_demo.asm"
+            "${CMAKE_CURRENT_SOURCE_DIR}/demos/sgp-pseudo-sprite/sgp_sprite.asm"
         DEPENDS
-            "${CMAKE_CURRENT_SOURCE_DIR}/demos/sgp-pseudo-sprite/sgp_sprite_demo.asm"
+            "${CMAKE_CURRENT_SOURCE_DIR}/demos/sgp-pseudo-sprite/sgp_sprite.asm"
         VERBATIM)
     add_custom_target(sgpsprite_com ALL DEPENDS "${VAEG_SGPSPRITE_COM}")
     add_custom_command(

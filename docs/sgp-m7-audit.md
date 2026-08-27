@@ -31,23 +31,24 @@ model or any existing demo.
 
 ## Demo inventory and baseline
 
-There is no stage-7 demo in the current tree. The existing runnable stages are
-generated from [`sgp_sprite_demo.asm`](../demos/sgp-pseudo-sprite/sgp_sprite_demo.asm):
+There is no stage-specific demo in the current tree. The final runnable
+variants are generated from [`sgp_sprite.asm`](../demos/sgp-pseudo-sprite/sgp_sprite.asm).
+The M5/M6 rows below are historical baseline records from the pre-final source
+layout; they are not build targets of the current tree.
 
 | Baseline | Source | Generated file | Rendering path |
 |---|---|---|---|
-| M5 | `MILESTONE_STAGE=5` | `SGPDEMO5.COM` | 320x200, 4bpp, G1 pages A/B, full hidden-page `CLS`, transparent SGP BITBLT |
-| M6 | `MILESTONE_STAGE=6` | `SGPDEMO6.COM` | M5 path plus 8x8 bullets, counters, and 1-256 active records |
+| M5 (historical) | former `MILESTONE_STAGE=5` | former `SGPDEMO5.COM` | 320x200, 4bpp, G1 pages A/B, full hidden-page `CLS`, transparent SGP BITBLT |
+| M6 (historical) | former `MILESTONE_STAGE=6` | former `SGPDEMO6.COM` | M5 path plus 8x8 bullets, counters, and 1-256 active records |
 
-The educational source ladder is under
-[`demos/sgp-pseudo-sprite/milestones/`](../demos/sgp-pseudo-sprite/milestones/).
-The baseline generator is
-[`build_milestone_coms.sh`](../demos/sgp-pseudo-sprite/build_milestone_coms.sh).
-The baseline rebuild produced `SGPDEMO5.COM` (20,746 bytes) and
-`SGPDEMO6.COM` (20,734 bytes) with the repository NASM tool. A bounded VAEG
-run booted the disposable PC-Engine disk, launched M5, exercised `+` and `-`,
-and exited without a synchronization error. This is a smoke result, not a
-hardware performance claim.
+The former educational source ladder and baseline generator are historical
+artifacts and are no longer shipped under `demos/sgp-pseudo-sprite`.
+The historical baseline rebuild produced `SGPDEMO5.COM` (20,746 bytes) and
+`SGPDEMO6.COM` (20,734 bytes) with the repository NASM tool. Those files are
+not emitted by the final builder. A bounded VAEG run booted the disposable
+PC-Engine disk, launched M5, exercised `+` and `-`, and exited without a
+synchronization error. This is a smoke result, not a hardware performance
+claim.
 
 ## VAEG SGP execution model
 

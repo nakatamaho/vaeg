@@ -58,7 +58,7 @@ raw_path=$output_dir/.$(basename -- "$1").raw
     -dNEON4_STAGE=8 \
     -dNEON4_P5_BPP="$bpp" \
     -I "$script_dir/src/" \
-    "$script_dir/src/neon4_p3.asm" -o "$raw_path"
+    "$script_dir/src/neon4.asm" -o "$raw_path"
 
 "$assembler" -f bin -O2 \
     -dNEON_PAYLOAD_FILE="\"$raw_path\"" \
