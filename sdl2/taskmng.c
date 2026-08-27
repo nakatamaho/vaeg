@@ -33,10 +33,13 @@
 #include "np2.h"
 #include "scrnmng.h"
 #include "sysmng.h"
+#include "machine/timing.h"
+#include "soundmng.h"
 #include "gui/gui.h"
 #include "dropmedia.h"
 
 BOOL task_avail;
+static BOOL task_paused;
 static VAEG_PACING_STATE task_pacing;
 static BOOL paste_shortcut_down;
 static BOOL copy_shortcut_down;
@@ -153,6 +156,7 @@ static BOOL taskmng_mouse_button_shortcut(const SDL_Event *event, BOOL captured)
 
 void taskmng_initialize(void) {
 	task_avail = TRUE;
+	task_paused = FALSE;
 	paste_shortcut_down = FALSE;
 	middle_shortcut_down = FALSE;
 	mouse_key_shortcut_down = FALSE;
@@ -165,12 +169,28 @@ void taskmng_initialize(void) {
 
 void taskmng_exit(void) {
 	task_avail = FALSE;
+	task_paused = FALSE;
 	paste_shortcut_down = FALSE;
 	middle_shortcut_down = FALSE;
 	mouse_key_shortcut_down = FALSE;
 	vaeg_pacing_reset(&task_pacing);
 	kbdpaste_shutdown();
 	mousemng_shutdown();
+}
+
+void taskmng_toggle_pause(void) {
+	task_paused = task_paused ? FALSE : TRUE;
+	/* Drop wall-clock debt so resuming does not catch up skipped time. */
+	timing_reset();
+	if (task_paused) {
+		soundmng_stop();
+	} else {
+		soundmng_play();
+	}
+}
+
+BOOL taskmng_ispaused(void) {
+	return (task_paused);
 }
 
 void taskmng_clear_fast_forward(void) {

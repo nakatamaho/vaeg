@@ -3606,6 +3606,11 @@ void gui_draw(void) {
 		g_gui.configure_request = true;
 	}
 	if (ImGui::BeginMainMenuBar()) {
+		const bool paused = taskmng_ispaused() ? true : false;
+		if (ImGui::Button(paused ? "Resume" : "Pause / Break")) {
+			taskmng_toggle_pause();
+		}
+		ImGui::Separator();
 		draw_emulate_menu();
 		draw_fdd_menu();
 		draw_harddisk_menu();

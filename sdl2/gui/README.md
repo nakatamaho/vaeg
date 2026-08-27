@@ -30,6 +30,10 @@ The M10 GUI uses Dear ImGui with `imgui_impl_sdl2` and
 
 ## Input Routing
 
+The main menu bar provides a `Pause / Break` button. It suspends guest CPU
+execution, guest timing, and host audio while leaving the GUI responsive;
+clicking `Resume` continues execution without a wall-clock catch-up burst.
+
 The configured `Fast forward` binding is first handled as a frontend-global
 hold-to-fast-forward shortcut, so its keyup always clears the transient state
 even while ImGui captures input. It defaults to F11 and is configurable in

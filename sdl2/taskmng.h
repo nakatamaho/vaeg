@@ -34,6 +34,8 @@ extern BOOL task_avail;
 void taskmng_initialize(void);
 void taskmng_exit(void);
 void taskmng_rol(void);
+void taskmng_toggle_pause(void);
+BOOL taskmng_ispaused(void);
 void taskmng_clear_fast_forward(void);
 BOOL taskmng_effective_nowait(BOOL configured_nowait);
 UINT taskmng_effective_drawskip(UINT configured_drawskip);

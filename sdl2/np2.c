@@ -1463,6 +1463,11 @@ static BOOL runloop(BOOL smoke, BOOL pacelog_enabled, BOOL detect_screen, BOOL h
 		UINT effective_drawskip;
 
 		taskmng_rol();
+		if (taskmng_ispaused()) {
+			render_host_ui_only();
+			SDL_Delay(16);
+			continue;
+		}
 		if (g75_screen_harness_exit_requested(SDL_GetTicks() - harness_started)) {
 			taskmng_exit();
 			break;
