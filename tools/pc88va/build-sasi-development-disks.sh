@@ -46,8 +46,10 @@ The source D88 files default to docs/disks under the repository.  Use the
 source options when the preserved system disks are outside the repository.
 The payload D88 defaults to the complete development disk at
 docs/disks/pc88va-development.d88.  Its BIN, SYS, DOC, ARCHIVE, and TMP
-directories are transplanted into both SASI images; CONFIG.SYS and
-AUTOEXEC.BAT are regenerated from the documented VA load order.
+directories are transplanted into both SASI images.  COM/EXE utilities from
+each matching PC-Engine source D88 are also installed in that image's BIN;
+the boot PCENGINE.COM remains at the root.  CONFIG.SYS and AUTOEXEC.BAT are
+regenerated from the documented VA load order.
 Generated images are never overwritten.
 EOF
 }

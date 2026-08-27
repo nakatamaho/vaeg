@@ -874,6 +874,8 @@ never modified. The payload D88 should be a complete image produced by
 directories are transplanted into both HDIs. The SASI builder deliberately
 regenerates `CONFIG.SYS` and `AUTOEXEC.BAT` so the documented VA load order is
 identical on both variants.
+COM/EXE utilities found on each matching PC-Engine source D88 are also added
+to that variant's `A:\BIN`; the boot `PCENGINE.COM` remains at the root.
 
 The command-line wrapper accepts explicit paths, which is useful because the
 system and development D88 images are normally kept outside Git:

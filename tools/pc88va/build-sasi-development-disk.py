@@ -4,10 +4,12 @@
 The input is a PC-Engine 1.05 or 1.1 system D88.  The generated HDI uses the
 40 MB SASI geometry implemented by fdd/sxsi.c and places the four boot system
 files in the conventional first clusters.  Every COM and EXE found anywhere
-on the source D88 is copied into ``\\BIN``.
+on the source D88 is copied into ``\\BIN`` (except the boot ``PCENGINE.COM``,
+which remains at the root).
 
 When a complete development D88 is supplied with ``--payload-d88``, its
-regular files and directories are transplanted as well and the documented
+regular files and directories are transplanted as well, the matching source
+disk's COM/EXE files are added to ``\\BIN``, and the documented
 CONFIG.SYS/AUTOEXEC.BAT are regenerated.  Without that option the builder
 creates the small system-plus-BIN image used for layout tests.
 
@@ -451,6 +453,23 @@ def build(source: Path, output: Path, variant: str,
                     + "/".join(path))
             grouped.setdefault(path[0].upper(), []).append(
                 (path[1], contents, attributes))
+
+        # Keep the utilities from the matching PC-Engine source disk in BIN
+        # even when a complete development payload is transplanted.  The boot
+        # PCENGINE.COM is already installed at the root and is not duplicated.
+        source_bin = sorted(
+            [(path[-1], contents, 0x20) for path, contents in executables
+             if path[-1].upper() != "PCENGINE.COM"],
+            key=lambda item: item[0].upper())
+        payload_bin = grouped.setdefault("BIN", [])
+        existing_bin_names = {item[0].upper() for item in payload_bin}
+        for name, contents, attributes in source_bin:
+            if name.upper() in existing_bin_names:
+                raise BuildError(
+                    f"source executable conflicts with payload BIN entry: {name}")
+            payload_bin.append((name, contents, attributes))
+            existing_bin_names.add(name.upper())
+        directory_names.add("BIN")
         for name in sorted(directory_names | set(grouped)):
             records = grouped.get(name, [])
             builder.add_directory(name, records)
@@ -458,7 +477,8 @@ def build(source: Path, output: Path, variant: str,
                 ((name, item[0]), item[1]) for item in records)
     else:
         records = sorted(
-            [(path[-1], contents, 0x20) for path, contents in executables],
+            [(path[-1], contents, 0x20) for path, contents in executables
+             if path[-1].upper() != "PCENGINE.COM"],
             key=lambda item: item[0].upper())
         builder.add_directory("BIN", records)
         installed_files.extend(
