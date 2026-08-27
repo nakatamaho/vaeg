@@ -413,13 +413,13 @@ def add_file(disk, directory, payload):
     return len(contents)
 
 
-def create_root_directory(disk, name, additional_entries):
+def create_directory(disk, parent_directory, name, additional_entries):
     raw_name = short_name(name)
-    offset, exists = find_entry(disk.root, raw_name)
+    offset, exists = find_entry(parent_directory, raw_name)
     if exists:
-        if not disk.root[offset + 11] & 0x10:
-            raise DiskError(f"root entry is not a directory: {name}")
-        cluster = struct.unpack_from("<H", disk.root, offset + 26)[0]
+        if not parent_directory[offset + 11] & 0x10:
+            raise DiskError(f"payload entry is not a directory: {name}")
+        cluster = struct.unpack_from("<H", parent_directory, offset + 26)[0]
         chain = disk.cluster_chain(cluster)
         contents = bytearray()
         for item in chain:
@@ -437,7 +437,9 @@ def create_root_directory(disk, name, additional_entries):
             special_directory_name("."), 0x10, chain[0], 0
         )
         contents[32:64] = make_entry(special_directory_name(".."), 0x10, 0, 0)
-        disk.root[offset:offset + 32] = make_entry(raw_name, 0x10, chain[0], 0)
+        parent_directory[offset:offset + 32] = make_entry(
+            raw_name, 0x10, chain[0], 0
+        )
         return chain, contents
 
     required_clusters = max(
@@ -449,6 +451,38 @@ def create_root_directory(disk, name, additional_entries):
         chain.extend(added)
         contents.extend(bytes((required_clusters * SECTOR_SIZE) - len(contents)))
     return chain, contents
+
+
+def create_root_directory(disk, name, additional_entries):
+    return create_directory(disk, disk.root, name, additional_entries)
+
+
+def write_directory_chain(disk, chain, contents):
+    for index, cluster in enumerate(chain):
+        begin = index * SECTOR_SIZE
+        disk.write_cluster(cluster, contents[begin:begin + SECTOR_SIZE])
+
+
+def install_directory(disk, parent_directory, directory_path):
+    items = sorted(directory_path.iterdir(), key=lambda path: path.name)
+    if any(not item.is_file() and not item.is_dir() for item in items):
+        raise DiskError(f"unexpected directory payload entry: {directory_path}")
+
+    chain, directory = create_directory(
+        disk, parent_directory, directory_path.name, len(items)
+    )
+    installed_files = 0
+    installed_bytes = 0
+    for item in items:
+        if item.is_file():
+            installed_bytes += add_file(disk, directory, item)
+            installed_files += 1
+        else:
+            child_files, child_bytes = install_directory(disk, directory, item)
+            installed_files += child_files
+            installed_bytes += child_bytes
+    write_directory_chain(disk, chain, directory)
+    return installed_files, installed_bytes
 
 
 def install_payload(image, payload_root):
@@ -484,20 +518,11 @@ def install_payload(image, payload_root):
         (path for path in payload.iterdir() if path.is_dir() and path.name != "root"),
         key=lambda path: path.name,
     ):
-        items = sorted(directory_path.iterdir(), key=lambda path: path.name)
-        if any(item.is_dir() for item in items):
-            raise DiskError(f"nested payload directory is unsupported: {directory_path.name}")
-        chain, directory = create_root_directory(
-            disk, directory_path.name, len(items)
+        child_files, child_bytes = install_directory(
+            disk, disk.root, directory_path
         )
-        for item in items:
-            if not item.is_file():
-                raise DiskError(f"unexpected directory payload entry: {item.name}")
-            installed_bytes += add_file(disk, directory, item)
-            installed_files += 1
-        for index, cluster in enumerate(chain):
-            begin = index * SECTOR_SIZE
-            disk.write_cluster(cluster, directory[begin:begin + SECTOR_SIZE])
+        installed_files += child_files
+        installed_bytes += child_bytes
 
     disk.flush()
     image_path.write_bytes(disk.image)

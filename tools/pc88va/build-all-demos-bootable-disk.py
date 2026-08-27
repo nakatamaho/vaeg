@@ -46,7 +46,7 @@ DEFAULT_DISTRIBUTION_DIR = REPOSITORY_ROOT / "demos" / "disks"
 DEFAULT_DISTRIBUTIONS = (
     ("glass-orbit.d88.xz", ("GLASS",)),
     ("neon3-distribution.d88.xz", ("NEON3",)),
-    ("neon4-distribution.d88.xz", ("N4_16", "N4_65536")),
+    ("neon4-distribution.d88.xz", ("NEON4/16", "NEON4/65536")),
     ("sgp-pseudo-sprite.d88.xz", ("SPRT16", "SPRT256", "SPRT655")),
     ("sgp-wireframe.d88.xz", ("WIRE16", "WIRE256", "WIRE655")),
 )
@@ -212,7 +212,7 @@ def main(argv=None):
     print(f"output: {args.output.resolve()}")
     print(f"size: {size} bytes")
     print(f"SHA-256: {digest}")
-    print("directories: GLASS NEON3 N4_16 N4_65536 SPRT16 SPRT256 "
+    print("directories: GLASS NEON3 NEON4/16 NEON4/65536 SPRT16 SPRT256 "
           "SPRT655 WIRE16 WIRE256 WIRE655")
     return 0
 
