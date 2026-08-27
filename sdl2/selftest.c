@@ -589,6 +589,7 @@ static int test_va_bms_window(void) {
 	_BMSIOWORK saved_bmsiowork;
 	BYTE *retained_mem;
 	BYTE saved_main[3];
+	BOOL io_created;
 	int result;
 
 	saved_bmsiocfg = bmsiocfg;
@@ -602,6 +603,7 @@ static int test_va_bms_window(void) {
 	mem[0x09ffff] = 0xc3;
 	ZeroMemory(&bmsio, sizeof(bmsio));
 	ZeroMemory(&bmsiowork, sizeof(bmsiowork));
+	io_created = FALSE;
 	result = SUCCESS;
 
 	bmsiocfg.enabled = FALSE;
@@ -629,8 +631,44 @@ static int test_va_bms_window(void) {
 	}
 
 	bmsiocfg.enabled = TRUE;
-	bmsiocfg.port = BMSIO_PORT_COMPAT;
+	bmsiocfg.port = BMSIO_PORT_DEFAULT;
 	bmsiocfg.numbanks = 2;
+	bmsio_set();
+	bmsio_reset();
+	iocore_create();
+	io_created = TRUE;
+	if (iocore_build() != SUCCESS) {
+		result = fail("VA BMS", "could not build port-alias I/O table");
+		goto bms_test_cleanup;
+	}
+	bmsio_bind();
+	iocore_out8(BMSIO_PORT_DEFAULT, 1);
+	if ((bmsio.bank != 1) || (bmsio.nomem != 0) || (iocore_inp8(BMSIO_PORT_DEFAULT) != 1) ||
+	    (iocore_inp8(BMSIO_PORT_COMPAT) != 1)) {
+		result = fail("VA BMS", "native port alias did not select the shared bank");
+		goto bms_test_cleanup;
+	}
+	iocore_out8(BMSIO_PORT_COMPAT, 2);
+	if ((bmsio.bank != 2) || (bmsio.nomem != 0) || (iocore_inp8(BMSIO_PORT_DEFAULT) != 2) ||
+	    (iocore_inp8(BMSIO_PORT_COMPAT) != 2)) {
+		result = fail("VA BMS", "compatibility port alias did not select the shared bank");
+		goto bms_test_cleanup;
+	}
+	bmsiocfg.port = BMSIO_PORT_COMPAT;
+	bmsio_set();
+	bmsio_reset();
+	bmsio_bind();
+	iocore_out8(BMSIO_PORT_DEFAULT, 1);
+	iocore_out8(BMSIO_PORT_COMPAT, 2);
+	if ((bmsio.bank != 2) || (bmsio.nomem != 0) || (iocore_inp8(BMSIO_PORT_DEFAULT) != 2) ||
+	    (iocore_inp8(BMSIO_PORT_COMPAT) != 2)) {
+		result = fail("VA BMS", "compatibility preference did not retain both aliases");
+		goto bms_test_cleanup;
+	}
+	iocore_destroy();
+	io_created = FALSE;
+
+	bmsiocfg.port = BMSIO_PORT_COMPAT;
 	bmsio_set();
 	bmsio_reset();
 	if ((bmsiowork.bmsmem == NULL) || (bmsiowork.bmsmemsize != 0x40000) ||
@@ -686,6 +724,9 @@ static int test_va_bms_window(void) {
 	}
 
 bms_test_cleanup:
+	if (io_created) {
+		iocore_destroy();
+	}
 	if (bmsiowork.bmsmem != NULL) {
 		_MFREE(bmsiowork.bmsmem);
 	}
