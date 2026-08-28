@@ -10,8 +10,11 @@ which remains at the root).
 When a complete development D88 is supplied with ``--payload-d88``, its
 regular files and directories are transplanted as well, the matching source
 disk's COM/EXE files are added to ``\\BIN``, and the documented
-CONFIG.SYS/AUTOEXEC.BAT are regenerated.  Without that option the builder
-creates the small system-plus-BIN image used for layout tests.
+CONFIG.SYS/AUTOEXEC.BAT are regenerated.  An LSI C-86 trial archive can be
+supplied with ``--lsic-archive`` and its extracted tree with ``--lsic-tree``;
+the archive is retained under ``\\ARCHIVE`` and the runnable compiler tree is
+installed under ``\\LSIC86``.  Without that option the builder creates the
+small system-plus-BIN image used for layout tests.
 
 This is a host-side image builder.  It does not require a running emulator or
 DOSBox; the generated image contains the source PC-Engine IPL and the FAT12
@@ -113,6 +116,18 @@ AUTOEXEC_LINES = (
     r"SET TMP=A:\TMP",
     r"SET COMSPEC=A:\PCENGINE.COM",
 )
+LSIC_AUTOEXEC_LINES = (
+    r"PATH A:\BIN;A:\LSIC86\BIN",
+    r"SET LSIC86=A:\LSIC86",
+    r"SET INCLUDE=A:\LSIC86\INCLUDE",
+    r"SET LIB=A:\LSIC86\LIB",
+)
+
+
+def autoexec_lines(lsic_enabled: bool) -> tuple[str, ...]:
+    if not lsic_enabled:
+        return AUTOEXEC_LINES
+    return LSIC_AUTOEXEC_LINES + AUTOEXEC_LINES[1:]
 
 
 def text_file(lines: tuple[str, ...]) -> bytes:
@@ -242,6 +257,62 @@ def fat_get(fat: bytes, cluster: int) -> int:
     return pair & 0xFFF
 
 
+def new_directory_tree() -> dict[str, object]:
+    """Return the mutable representation used by HdiBuilder directory trees."""
+    return {"files": [], "directories": {}}
+
+
+def ensure_directory(tree: dict[str, object], path: tuple[str, ...]) -> dict[str, object]:
+    """Create path's directory nodes and return the final node."""
+    node = tree
+    for component in path:
+        directories = node["directories"]
+        key = component.upper()
+        child = directories.get(key)
+        if child is None:
+            child = {"name": component, "tree": new_directory_tree()}
+            directories[key] = child
+        node = child["tree"]
+    return node
+
+
+def add_tree_file(tree: dict[str, object], path: tuple[str, ...],
+                  contents: bytes, attributes: int) -> None:
+    """Insert one regular file into a directory tree, rejecting collisions."""
+    if len(path) < 2:
+        raise BuildError("directory tree file must have a parent directory")
+    node = ensure_directory(tree, path[:-1])
+    files = node["files"]
+    filename = path[-1]
+    if any(item[0].upper() == filename.upper() for item in files):
+        raise BuildError("duplicate directory entry: " + "/".join(path))
+    files.append((filename, contents, attributes))
+
+
+def collect_host_tree(root: Path, module) -> list[tuple[tuple[str, ...], bytes]]:
+    """Collect a checked, relative tree extracted from the LSI-C archive."""
+    if not root.is_dir():
+        raise BuildError(f"LSI-C extracted tree is not a directory: {root}")
+    records = []
+    for path in sorted(root.rglob("*"), key=lambda item: item.as_posix().upper()):
+        if path.is_symlink() or not path.is_file():
+            continue
+        relative = path.relative_to(root)
+        components = tuple(part.upper() for part in relative.parts)
+        if not components or any(component in (".", "..") for component in components):
+            raise BuildError("invalid LSI-C extracted path: " + str(relative))
+        for component in components:
+            try:
+                module.short_name(component)
+            except module.DiskError as error:
+                raise BuildError(
+                    f"invalid LSI-C 8.3 path component {component}: {relative}") from error
+        records.append((components, path.read_bytes()))
+    if not records:
+        raise BuildError("LSI-C extracted tree is empty")
+    return records
+
+
 def fat_now() -> tuple[int, int]:
     now = datetime.now()
     year = min(max(now.year, 1980), 2107)
@@ -331,11 +402,12 @@ class HdiBuilder:
             self.module.short_name(name), attributes, first, len(contents))
         return first
 
-    def add_directory(self, name: str,
-                       files: list[tuple[str, bytes, int]],
-                       parent_cluster: int = 0) -> int:
-        """Create one directory and install its regular files."""
-        required_entries = 2 + len(files)
+    def _create_directory(self, tree: dict[str, object],
+                          parent_cluster: int) -> int:
+        """Create a directory tree node and return its first cluster."""
+        files = tree["files"]
+        directories = tree["directories"]
+        required_entries = 2 + len(files) + len(directories)
         required_clusters = max(
             1, (required_entries * 32 + CLUSTER_SIZE - 1) // CLUSTER_SIZE)
         directory_clusters = self.allocate_chain(
@@ -353,15 +425,35 @@ class HdiBuilder:
             directory[slot:slot + 32] = make_entry(
                 self.module.short_name(path_name), attributes, first,
                 len(contents))
+        for path_name in sorted(directories.values(),
+                                key=lambda item: item["name"].upper()):
+            child = self._create_directory(
+                path_name["tree"], directory_clusters[0])
+            slot = self.directory_slot(directory, path_name["name"])
+            directory[slot:slot + 32] = make_entry(
+                self.module.short_name(path_name["name"]), 0x10, child, 0)
         for index, cluster in enumerate(directory_clusters):
             begin = index * CLUSTER_SIZE
             offset = DATA_OFFSET + (cluster - 2) * CLUSTER_SIZE
             self.image[offset:offset + CLUSTER_SIZE] = directory[
                 begin:begin + CLUSTER_SIZE]
+        return directory_clusters[0]
+
+    def add_directory_tree(self, name: str,
+                           tree: dict[str, object]) -> int:
+        """Create a top-level directory with arbitrary nested subdirectories."""
+        first = self._create_directory(tree, 0)
         slot = self.directory_slot(self.root, name)
         self.root[slot:slot + 32] = make_entry(
-            self.module.short_name(name), 0x10, directory_clusters[0], 0)
-        return directory_clusters[0]
+            self.module.short_name(name), 0x10, first, 0)
+        return first
+
+    def add_directory(self, name: str,
+                       files: list[tuple[str, bytes, int]]) -> int:
+        """Compatibility wrapper for a top-level directory without children."""
+        tree = new_directory_tree()
+        tree["files"].extend(files)
+        return self.add_directory_tree(name, tree)
 
     def finish(self) -> bytes:
         self.image[FAT1_OFFSET:FAT1_OFFSET + FAT_SIZE] = self.fat
@@ -373,9 +465,31 @@ class HdiBuilder:
         return bytes(self.image)
 
 
+LSIC_ARCHIVE_SHA256 = (
+    "c8c4c49aed600fb2413cf5707ef01b2f4057de69196c3478d5226bf1b224081b"
+)
+
+
 def build(source: Path, output: Path, variant: str,
-          payload_d88: Path | None = None) -> dict[str, object]:
+          payload_d88: Path | None = None,
+          lsic_archive: Path | None = None,
+          lsic_tree: Path | None = None) -> dict[str, object]:
     module = load_pcengine_module()
+    if (lsic_archive is None) != (lsic_tree is None):
+        raise BuildError("--lsic-archive and --lsic-tree must be supplied together")
+    lsic_contents = None
+    lsic_records = []
+    if lsic_archive is not None and lsic_tree is not None:
+        try:
+            lsic_contents = lsic_archive.read_bytes()
+        except OSError as error:
+            raise BuildError(f"cannot read LSI-C archive: {lsic_archive}") from error
+        observed_hash = hashlib.sha256(lsic_contents).hexdigest()
+        if observed_hash != LSIC_ARCHIVE_SHA256:
+            raise BuildError(
+                f"LSI-C archive SHA-256 mismatch: {lsic_archive} "
+                f"({observed_hash})")
+        lsic_records = collect_host_tree(lsic_tree, module)
     try:
         # Some preserved 1.05 disks have the same system files at different
         # cluster numbers after later files were added.  Identify the release
@@ -423,7 +537,8 @@ def build(source: Path, output: Path, variant: str,
         builder.add_root(name, SYSTEM_ATTRIBUTES[name],
                          d88_file(source_disk, [name], module))
     builder.add_root("CONFIG.SYS", 0x20, text_file(CONFIG_LINES))
-    builder.add_root("AUTOEXEC.BAT", 0x20, text_file(AUTOEXEC_LINES))
+    builder.add_root("AUTOEXEC.BAT", 0x20,
+                     text_file(autoexec_lines(lsic_contents is not None)))
 
     installed_files = []
     if payload_d88 is not None:
@@ -435,8 +550,9 @@ def build(source: Path, output: Path, variant: str,
                 f"cannot read development payload D88: {error}") from error
         payload_files, payload_directories = collect_payload_files(
             payload_disk, module)
-        directory_names = {path[0].upper() for path in payload_directories}
-        grouped = {}
+        payload_tree = new_directory_tree()
+        for path in payload_directories:
+            ensure_directory(payload_tree, path)
         for path, contents, attributes in payload_files:
             name = path[-1].upper()
             if len(path) == 1:
@@ -447,12 +563,8 @@ def build(source: Path, output: Path, variant: str,
                 builder.add_root(name, attributes, contents)
                 installed_files.append((path, contents))
                 continue
-            if len(path) != 2:
-                raise BuildError(
-                    "development payload contains a nested directory: "
-                    + "/".join(path))
-            grouped.setdefault(path[0].upper(), []).append(
-                (path[1], contents, attributes))
+            add_tree_file(payload_tree, path, contents, attributes)
+            installed_files.append((path, contents))
 
         # Keep the utilities from the matching PC-Engine source disk in BIN
         # even when a complete development payload is transplanted.  The boot
@@ -461,28 +573,51 @@ def build(source: Path, output: Path, variant: str,
             [(path[-1], contents, 0x20) for path, contents in executables
              if path[-1].upper() != "PCENGINE.COM"],
             key=lambda item: item[0].upper())
-        payload_bin = grouped.setdefault("BIN", [])
-        existing_bin_names = {item[0].upper() for item in payload_bin}
+        ensure_directory(payload_tree, ("BIN",))
+        bin_tree = ensure_directory(payload_tree, ("BIN",))
+        existing_bin_names = {item[0].upper() for item in bin_tree["files"]}
         for name, contents, attributes in source_bin:
             if name.upper() in existing_bin_names:
                 raise BuildError(
                     f"source executable conflicts with payload BIN entry: {name}")
-            payload_bin.append((name, contents, attributes))
+            add_tree_file(payload_tree, ("BIN", name), contents, attributes)
+            installed_files.append((("BIN", name), contents))
             existing_bin_names.add(name.upper())
-        directory_names.add("BIN")
-        for name in sorted(directory_names | set(grouped)):
-            records = grouped.get(name, [])
-            builder.add_directory(name, records)
-            installed_files.extend(
-                ((name, item[0]), item[1]) for item in records)
+        if lsic_contents is not None:
+            add_tree_file(payload_tree, ("ARCHIVE", "LSIC330C.LZH"),
+                          lsic_contents, 0x20)
+            installed_files.append((("ARCHIVE", "LSIC330C.LZH"), lsic_contents))
+            for path, contents in lsic_records:
+                install_path = ("LSIC86",) + path
+                add_tree_file(payload_tree, install_path, contents, 0x20)
+                installed_files.append((install_path, contents))
+        for key in sorted(payload_tree["directories"]):
+            descriptor = payload_tree["directories"][key]
+            builder.add_directory_tree(descriptor["name"], descriptor["tree"])
     else:
         records = sorted(
             [(path[-1], contents, 0x20) for path, contents in executables
              if path[-1].upper() != "PCENGINE.COM"],
             key=lambda item: item[0].upper())
-        builder.add_directory("BIN", records)
-        installed_files.extend(
-            (("BIN", name), contents) for name, contents, _ in records)
+        if lsic_contents is None:
+            builder.add_directory("BIN", records)
+            installed_files.extend(
+                (("BIN", name), contents) for name, contents, _ in records)
+        else:
+            tree = new_directory_tree()
+            for name, contents, attributes in records:
+                add_tree_file(tree, ("BIN", name), contents, attributes)
+                installed_files.append((("BIN", name), contents))
+            add_tree_file(tree, ("ARCHIVE", "LSIC330C.LZH"),
+                          lsic_contents, 0x20)
+            installed_files.append((("ARCHIVE", "LSIC330C.LZH"), lsic_contents))
+            for path, contents in lsic_records:
+                install_path = ("LSIC86",) + path
+                add_tree_file(tree, install_path, contents, 0x20)
+                installed_files.append((install_path, contents))
+            for key in sorted(tree["directories"]):
+                descriptor = tree["directories"][key]
+                builder.add_directory_tree(descriptor["name"], descriptor["tree"])
     image = builder.finish()
     if output.exists():
         raise BuildError(f"output already exists: {output}")
@@ -515,6 +650,8 @@ def build(source: Path, output: Path, variant: str,
             "image_bytes": len(image),
         },
         "payload_d88": str(payload_d88) if payload_d88 is not None else None,
+        "lsic_archive": str(lsic_archive) if lsic_archive is not None else None,
+        "lsic_tree": str(lsic_tree) if lsic_tree is not None else None,
         "installed_files": [
             {"source": "/".join(path), "name": path[-1].upper(),
              "bytes": len(contents),
@@ -540,18 +677,31 @@ def main(argv=None) -> int:
                         help="source PC-Engine D88 (default is the repository docs path)")
     parser.add_argument("--payload-d88", type=Path,
                         help="complete development D88 to transplant into the HDI")
+    parser.add_argument("--lsic-archive", type=Path,
+                        help="verified LSIC330C.LZH to install under ARCHIVE")
+    parser.add_argument("--lsic-tree", type=Path,
+                        help="directory extracted from --lsic-archive to install under LSIC86")
     parser.add_argument("--output", required=True, type=Path,
                         help="new 40 MB SASI HDI path (must not already exist)")
     args = parser.parse_args(argv)
     source = (args.source or default_source(args.variant)).resolve()
     payload_d88 = args.payload_d88.resolve() if args.payload_d88 else None
+    lsic_archive = args.lsic_archive.resolve() if args.lsic_archive else None
+    lsic_tree = args.lsic_tree.resolve() if args.lsic_tree else None
     output = args.output.resolve()
     if not source.is_file():
         parser.error(f"source D88 not found: {source}")
     if payload_d88 is not None and not payload_d88.is_file():
         parser.error(f"payload D88 not found: {payload_d88}")
+    if (lsic_archive is None) != (lsic_tree is None):
+        parser.error("--lsic-archive and --lsic-tree must be supplied together")
+    if lsic_archive is not None and not lsic_archive.is_file():
+        parser.error(f"LSI-C archive not found: {lsic_archive}")
+    if lsic_tree is not None and not lsic_tree.is_dir():
+        parser.error(f"LSI-C extracted tree not found: {lsic_tree}")
     try:
-        result = build(source, output, args.variant, payload_d88)
+        result = build(source, output, args.variant, payload_d88,
+                       lsic_archive, lsic_tree)
     except (BuildError, OSError) as error:
         parser.exit(1, f"error: {error}\n")
     print("Created boot-layout 40 MB SASI development disk")

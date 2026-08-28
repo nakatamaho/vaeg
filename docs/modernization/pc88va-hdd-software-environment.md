@@ -885,6 +885,7 @@ tools/pc88va/build-sasi-development-disks.sh \
   --source-va "/path/to/PC-Engine 1.05.d88" \
   --source-va2 "/path/to/PC-Engine 1.1.d88" \
   --payload-d88 "/path/to/pc88va-development.d88" \
+  --lsic-archive "/path/to/LSIC330C.LZH" \
   --output-dir /private/tmp/pc88va-sasi
 ```
 
@@ -901,7 +902,16 @@ never overwritten. To build one variant directly, use
 the same `--source`, `--payload-d88`, and `--output` options. Without
 `--payload-d88`, the direct builder intentionally creates only the small
 system-plus-`BIN` layout used for layout tests; it is not the complete
-development environment.
+development environment. Both builders accept the verified
+`LSIC330C.LZH` archive and an extracted tree; the wrapper extracts the archive
+automatically and installs the archive at `A:\ARCHIVE\LSIC330C.LZH` and the
+complete compiler tree below `A:\LSIC86`. This preserves the original `BIN`,
+`INCLUDE`, `LIB`, `MAN`, and `SRC` layout so the compiler tools can be run
+under MSE. The original `_LCC` configuration expects this `A:\LSIC86` root.
+`AUTOEXEC.BAT` adds `A:\LSIC86\BIN` to `PATH` and sets `LSIC86`,
+`INCLUDE`, and `LIB`. The default archive is read from the verified softlib
+cache; `--lsic-archive` selects an explicit copy. Extracted files are staged
+in a temporary host directory and are not tracked.
 
 The generated HDI has the HDFORM-compatible 40 MB geometry (4096-byte header,
 256-byte SASI blocks, 33 sectors, 8 surfaces, and 615 cylinders). The builder
@@ -929,10 +939,10 @@ DEVICE = A:\SYS\RDEMS.SYS -P128 -A
 DEVICE = A:\SYS\RDPCM.SYS
 ```
 
-`AUTOEXEC.BAT` sets `PATH A:\BIN`, `TEEN`, `TMP`, and `COMSPEC` for the
-PC-Engine command environment. `TFD.SYS` remains installed in `SYS` but is
-not loaded by default, as required by its documentation; it can be enabled
-manually after EMS setup on real hardware.
+`AUTOEXEC.BAT` sets `PATH A:\BIN;A:\LSIC86\BIN`, `LSIC86`, `INCLUDE`, `LIB`,
+`TEEN`, `TMP`, and `COMSPEC` for the PC-Engine command environment. `TFD.SYS`
+remains installed in `SYS` but is not loaded by default, as required by its
+documentation; it can be enabled manually after EMS setup on real hardware.
 
 The builder itself is host-side and does not require DOSBox. For a structural
 and VAEG mount smoke check after generation, run both models with the matching

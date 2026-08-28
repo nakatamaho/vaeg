@@ -32,11 +32,21 @@ source_va=$repo_root/docs/disks/'PC-Engine 1.05.d88'
 source_va2=$repo_root/docs/disks/'PC-Engine 1.1.d88'
 payload_d88=$repo_root/docs/disks/pc88va-development.d88
 output_dir=/private/tmp
+lsic_archive=${VAEG_LSIC_ARCHIVE:-${VAEG_PC88VA_SOFTLIB_CACHE:-${XDG_CACHE_HOME:-${HOME}/.cache}/vaeg/pc88va-softlib-archive-disk}/LSIC330C.LZH}
+work_dir=
+
+cleanup() {
+	if [[ -n ${work_dir} && ${work_dir} == "${TMPDIR:-/tmp}"/vaeg-pc88va-sasi.* && -d ${work_dir} ]]; then
+		rm -rf -- "$work_dir"
+	fi
+}
+
+trap cleanup EXIT HUP INT TERM
 
 usage() {
 	cat <<EOF
 Usage: $program_name [--source-va PATH] [--source-va2 PATH]
-       [--payload-d88 PATH] [--output-dir DIR]
+       [--payload-d88 PATH] [--lsic-archive PATH] [--output-dir DIR]
 
 Build two 40 MB PC-88VA SASI HDI development disks:
   pc88va-sasi-40mb-va.hdi   PC-Engine 1.05
@@ -49,7 +59,10 @@ docs/disks/pc88va-development.d88.  Its BIN, SYS, DOC, ARCHIVE, and TMP
 directories are transplanted into both SASI images.  COM/EXE utilities from
 each matching PC-Engine source D88 are also installed in that image's BIN;
 the boot PCENGINE.COM remains at the root.  CONFIG.SYS and AUTOEXEC.BAT are
-regenerated from the documented VA load order.
+regenerated from the documented VA load order.  LSIC330C.LZH is verified,
+retained in A:\\ARCHIVE, and extracted below A:\\LSIC86 for use through MSE.
+The archive defaults to the verified softlib cache; use --lsic-archive to
+select another copy.
 Generated images are never overwritten.
 EOF
 }
@@ -76,6 +89,11 @@ while (($#)); do
 		payload_d88=$2
 		shift 2
 		;;
+	--lsic-archive)
+		(($# >= 2)) || die '--lsic-archive requires a path'
+		lsic_archive=$2
+		shift 2
+		;;
 	--output-dir)
 		(($# >= 2)) || die '--output-dir requires a directory'
 		output_dir=$2
@@ -95,12 +113,24 @@ done
 [[ -f $source_va2 && -r $source_va2 ]] || die "VA2 source D88 is not readable: $source_va2"
 [[ -f $payload_d88 && -r $payload_d88 ]] ||
 	die "development payload D88 is not readable: $payload_d88"
+[[ -f $lsic_archive && -r $lsic_archive ]] ||
+	die "LSI-C archive is not readable: $lsic_archive (use --lsic-archive)"
 [[ -f $builder && -r $builder ]] || die "builder is not readable: $builder"
 mkdir -p -- "$output_dir"
 
+work_dir=$(mktemp -d "${TMPDIR:-/tmp}/vaeg-pc88va-sasi.XXXXXX")
+lsic_tree=$work_dir/lsic
+mkdir -p -- "$lsic_tree"
+lha xfw="$lsic_tree" "$lsic_archive" >/dev/null
+
 python3 "$builder" --variant va --source "$source_va" \
 	--payload-d88 "$payload_d88" \
+	--lsic-archive "$lsic_archive" --lsic-tree "$lsic_tree" \
 	--output "$output_dir/pc88va-sasi-40mb-va.hdi"
 python3 "$builder" --variant va2 --source "$source_va2" \
 	--payload-d88 "$payload_d88" \
+	--lsic-archive "$lsic_archive" --lsic-tree "$lsic_tree" \
 	--output "$output_dir/pc88va-sasi-40mb-va2.hdi"
+
+cleanup
+work_dir=
