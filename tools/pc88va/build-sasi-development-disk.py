@@ -14,7 +14,12 @@ CONFIG.SYS/AUTOEXEC.BAT are regenerated.  An LSI C-86 trial archive can be
 supplied with ``--lsic-archive`` and its extracted tree with ``--lsic-tree``;
 the archive is retained under ``\\ARCHIVE`` and the runnable compiler tree is
 installed under ``\\LSIC86``.  Without that option the builder creates the
-small system-plus-BIN image used for layout tests.
+small system-plus-BIN image used for layout tests.  A verified CP/M program
+EXEcutor archive and the preserved CP/M tools/source disks (plus an optional
+development disk) can be supplied with the ``--cpm-*`` options; they are
+installed under ``\\CPM\\BIN``, ``\\CPM\\TOOLS``,
+``\\CPM\\SOURCE``, and ``\\CPM\\DEV`` and the emulator directory is added to
+``PATH``.
 
 This is a host-side image builder.  It does not require a running emulator or
 DOSBox; the generated image contains the source PC-Engine IPL and the FAT12
@@ -52,12 +57,14 @@ import os
 import re
 import struct
 import tempfile
+import zipfile
 from datetime import datetime
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 PCENGINE_DISK_PATH = Path(__file__).with_name("pcengine_disk.py")
+CPM_INSTALLER_PATH = REPOSITORY_ROOT / "tools" / "cpmva" / "install_cpmva.py"
 
 HEADER_SIZE = 4096
 SECTOR_SIZE = 256
@@ -124,10 +131,19 @@ LSIC_AUTOEXEC_LINES = (
 )
 
 
-def autoexec_lines(lsic_enabled: bool) -> tuple[str, ...]:
-    if not lsic_enabled:
-        return AUTOEXEC_LINES
-    return LSIC_AUTOEXEC_LINES + AUTOEXEC_LINES[1:]
+def autoexec_lines(lsic_enabled: bool, cpm_enabled: bool) -> tuple[str, ...]:
+    path_entries = [r"A:\BIN"]
+    if lsic_enabled:
+        path_entries.append(r"A:\LSIC86\BIN")
+    if cpm_enabled:
+        path_entries.append(r"A:\CPM\BIN")
+    lines = ["PATH " + ";".join(path_entries)]
+    if lsic_enabled:
+        lines.extend(LSIC_AUTOEXEC_LINES[1:])
+    if cpm_enabled:
+        lines.append(r"SET CPM=A:\CPM")
+    lines.extend(AUTOEXEC_LINES[1:])
+    return tuple(lines)
 
 
 def text_file(lines: tuple[str, ...]) -> bytes:
@@ -143,6 +159,17 @@ def load_pcengine_module():
         "pc88va_sasi_pcengine_disk", PCENGINE_DISK_PATH)
     if spec is None or spec.loader is None:
         raise BuildError(f"could not load {PCENGINE_DISK_PATH}")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def load_cpm_module():
+    """Load the repository CP/M D88 reader without invoking its CLI."""
+    spec = importlib.util.spec_from_file_location(
+        "pc88va_sasi_cpm_installer", CPM_INSTALLER_PATH)
+    if spec is None or spec.loader is None:
+        raise BuildError(f"could not load {CPM_INSTALLER_PATH}")
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
@@ -313,6 +340,131 @@ def collect_host_tree(root: Path, module) -> list[tuple[tuple[str, ...], bytes]]
     return records
 
 
+def parse_legacy_cpm_raw(raw: bytes, module) -> dict[str, bytes]:
+    """Read the older CP/MVA one-16-KiB-extent-per-entry images.
+
+    The current CP/MVA writer uses EXM=1 and is parsed by ``parse_cpm_raw``.
+    The preserved source/development disks predate that writer and encode each
+    16 KiB extent in its own directory entry.  They are read-only inputs here,
+    so accepting that historical layout lets the builder preserve their files
+    without changing the CP/M disk generator or emulator.
+    """
+    if len(raw) != module.CPM_RAW_SIZE:
+        raise BuildError("CP/M raw image is not exactly 327680 bytes")
+    files: dict[str, list[tuple[int, bytes]]] = {}
+    allocated: set[int] = set()
+    for index in range(module.CPM_DIRECTORY_ENTRIES):
+        begin = module.CPM_DIRECTORY_OFFSET + index * 32
+        entry = raw[begin:begin + 32]
+        if entry[0] == 0xE5:
+            continue
+        if entry[0] != 0:
+            raise BuildError("CP/M legacy disk uses an unsupported user area")
+        if entry[13] != 0 or entry[14] != 0:
+            raise BuildError("CP/M legacy disk has invalid extent fields")
+        name = entry[1:9].decode("ascii").rstrip()
+        extension = entry[9:12].decode("ascii").rstrip()
+        display = name + (f".{extension}" if extension else "")
+        extent = entry[12]
+        records = entry[15]
+        if records > module.CPM_RECORDS_PER_SUBEXTENT:
+            raise BuildError(f"CP/M legacy extent is too large: {display}")
+        block_count = (records * module.CPM_RECORD_SIZE +
+                       module.CPM_BLOCK_SIZE - 1) // module.CPM_BLOCK_SIZE
+        if block_count > 8:
+            raise BuildError(f"CP/M legacy extent has too many blocks: {display}")
+        blocks = list(entry[16:16 + block_count])
+        if any(block < 2 or block > module.CPM_MAX_BLOCK for block in blocks):
+            raise BuildError(f"CP/M legacy extent references an invalid block: {display}")
+        if allocated.intersection(blocks):
+            raise BuildError(f"CP/M legacy extent reuses a block: {display}")
+        allocated.update(blocks)
+        content = bytearray()
+        for block in blocks:
+            offset = module.CPM_DIRECTORY_OFFSET + block * module.CPM_BLOCK_SIZE
+            content.extend(raw[offset:offset + module.CPM_BLOCK_SIZE])
+        content = content[:records * module.CPM_RECORD_SIZE]
+        entries = files.setdefault(display, [])
+        if any(previous_extent == extent for previous_extent, _ in entries):
+            raise BuildError(f"CP/M legacy disk repeats extent: {display}")
+        entries.append((extent, bytes(content)))
+    result = {}
+    for name, extents in files.items():
+        ordered = sorted(extents)
+        for expected_extent, (extent, _) in enumerate(ordered):
+            if extent != expected_extent:
+                raise BuildError(f"CP/M legacy disk has an extent gap: {name}")
+        result[name] = b"".join(content for _, content in ordered)
+    if not result:
+        raise BuildError("CP/M legacy disk has no files")
+    return result
+
+
+def collect_cpm_disk(path: Path, label: str, cpm_module) -> list[tuple[tuple[str, ...], bytes]]:
+    """Extract all files from one CP/M D88 into a namespaced DOS tree."""
+    try:
+        raw = cpm_module.unwrap_cpm_d88(path.read_bytes())
+    except (OSError, cpm_module.InstallerError) as error:
+        raise BuildError(f"cannot read CP/M D88 {path}: {error}") from error
+    try:
+        files = cpm_module.parse_cpm_raw(raw)
+    except cpm_module.InstallerError:
+        files = parse_legacy_cpm_raw(raw, cpm_module)
+    return [(('CPM', label, name), contents)
+            for name, contents in sorted(files.items())]
+
+
+def collect_cpm_archive(path: Path, module) -> list[tuple[tuple[str, ...], bytes]]:
+    """Collect the CP/M emulator archive into its runtime/source/doc areas."""
+    try:
+        contents = path.read_bytes()
+    except OSError as error:
+        raise BuildError(f"cannot read CP/M emulator archive: {path}") from error
+    if len(contents) != CPM_ARCHIVE_SIZE:
+        raise BuildError(
+            f"CP/M emulator archive size mismatch: {len(contents)} != {CPM_ARCHIVE_SIZE}")
+    observed_hash = hashlib.sha256(contents).hexdigest()
+    if observed_hash != CPM_ARCHIVE_SHA256:
+        raise BuildError(
+            f"CP/M emulator archive SHA-256 mismatch: {path} ({observed_hash})")
+    records = []
+    try:
+        archive = zipfile.ZipFile(path)
+    except (OSError, zipfile.BadZipFile) as error:
+        raise BuildError(f"cannot open CP/M emulator archive: {path}") from error
+    with archive:
+        for member in sorted(archive.infolist(), key=lambda item: item.filename.upper()):
+            if member.is_dir():
+                continue
+            relative = PurePosixPath(member.filename)
+            if relative.is_absolute() or any(part in ("", ".", "..")
+                                             for part in relative.parts):
+                raise BuildError(f"invalid CP/M emulator archive path: {member.filename}")
+            if len(relative.parts) != 1:
+                raise BuildError(f"unexpected nested CP/M emulator path: {member.filename}")
+            name = relative.parts[0].upper()
+            try:
+                module.short_name(name)
+            except module.DiskError as error:
+                raise BuildError(f"invalid CP/M emulator 8.3 name: {name}") from error
+            if name in {"CPM.EXE", "XCCP.CPM"}:
+                directory = "BIN"
+            elif name.endswith((".ASM", ".MAC", ".MAK")):
+                directory = "SRC"
+            else:
+                directory = "DOC"
+            records.append((('CPM', directory, name), archive.read(member)))
+    if not records:
+        raise BuildError("CP/M emulator archive is empty")
+    return records
+
+
+def add_cpm_to_tree(tree: dict[str, object], records, installed_files) -> None:
+    for path, contents in records:
+        add_tree_file(tree, path, contents, 0x20)
+        installed_files.append((path, contents))
+
+
 def fat_now() -> tuple[int, int]:
     now = datetime.now()
     year = min(max(now.year, 1980), 2107)
@@ -468,15 +620,30 @@ class HdiBuilder:
 LSIC_ARCHIVE_SHA256 = (
     "c8c4c49aed600fb2413cf5707ef01b2f4057de69196c3478d5226bf1b224081b"
 )
+CPM_ARCHIVE_SIZE = 29761
+CPM_ARCHIVE_SHA256 = (
+    "691e51dda202ab97b7c8c947ca7c9bf2d93d822f3e315362fcc7840199b8d6f7"
+)
 
 
 def build(source: Path, output: Path, variant: str,
           payload_d88: Path | None = None,
           lsic_archive: Path | None = None,
-          lsic_tree: Path | None = None) -> dict[str, object]:
+          lsic_tree: Path | None = None,
+          cpm_archive: Path | None = None,
+          cpm_tools_d88: Path | None = None,
+          cpm_source_d88: Path | None = None,
+          cpm_dev_d88: Path | None = None) -> dict[str, object]:
     module = load_pcengine_module()
     if (lsic_archive is None) != (lsic_tree is None):
         raise BuildError("--lsic-archive and --lsic-tree must be supplied together")
+    cpm_disks = (cpm_tools_d88, cpm_source_d88, cpm_dev_d88)
+    if cpm_archive is None and any(path is not None for path in cpm_disks):
+        raise BuildError(
+            "CP/M D88 options require --cpm-archive")
+    if cpm_archive is not None and (cpm_tools_d88 is None or cpm_source_d88 is None):
+        raise BuildError(
+            "--cpm-archive requires --cpm-tools-d88 and --cpm-source-d88")
     lsic_contents = None
     lsic_records = []
     if lsic_archive is not None and lsic_tree is not None:
@@ -490,6 +657,16 @@ def build(source: Path, output: Path, variant: str,
                 f"LSI-C archive SHA-256 mismatch: {lsic_archive} "
                 f"({observed_hash})")
         lsic_records = collect_host_tree(lsic_tree, module)
+    cpm_records = []
+    if cpm_archive is not None:
+        cpm_module = load_cpm_module()
+        cpm_records.extend(collect_cpm_archive(cpm_archive, module))
+        cpm_disk_inputs = [("TOOLS", cpm_tools_d88),
+                           ("SOURCE", cpm_source_d88)]
+        if cpm_dev_d88 is not None:
+            cpm_disk_inputs.append(("DEV", cpm_dev_d88))
+        for label, path in cpm_disk_inputs:
+            cpm_records.extend(collect_cpm_disk(path, label, cpm_module))
     try:
         # Some preserved 1.05 disks have the same system files at different
         # cluster numbers after later files were added.  Identify the release
@@ -538,7 +715,8 @@ def build(source: Path, output: Path, variant: str,
                          d88_file(source_disk, [name], module))
     builder.add_root("CONFIG.SYS", 0x20, text_file(CONFIG_LINES))
     builder.add_root("AUTOEXEC.BAT", 0x20,
-                     text_file(autoexec_lines(lsic_contents is not None)))
+                     text_file(autoexec_lines(lsic_contents is not None,
+                                              cpm_archive is not None)))
 
     installed_files = []
     if payload_d88 is not None:
@@ -591,6 +769,7 @@ def build(source: Path, output: Path, variant: str,
                 install_path = ("LSIC86",) + path
                 add_tree_file(payload_tree, install_path, contents, 0x20)
                 installed_files.append((install_path, contents))
+        add_cpm_to_tree(payload_tree, cpm_records, installed_files)
         for key in sorted(payload_tree["directories"]):
             descriptor = payload_tree["directories"][key]
             builder.add_directory_tree(descriptor["name"], descriptor["tree"])
@@ -599,7 +778,7 @@ def build(source: Path, output: Path, variant: str,
             [(path[-1], contents, 0x20) for path, contents in executables
              if path[-1].upper() != "PCENGINE.COM"],
             key=lambda item: item[0].upper())
-        if lsic_contents is None:
+        if lsic_contents is None and not cpm_records:
             builder.add_directory("BIN", records)
             installed_files.extend(
                 (("BIN", name), contents) for name, contents, _ in records)
@@ -608,13 +787,15 @@ def build(source: Path, output: Path, variant: str,
             for name, contents, attributes in records:
                 add_tree_file(tree, ("BIN", name), contents, attributes)
                 installed_files.append((("BIN", name), contents))
-            add_tree_file(tree, ("ARCHIVE", "LSIC330C.LZH"),
-                          lsic_contents, 0x20)
-            installed_files.append((("ARCHIVE", "LSIC330C.LZH"), lsic_contents))
-            for path, contents in lsic_records:
-                install_path = ("LSIC86",) + path
-                add_tree_file(tree, install_path, contents, 0x20)
-                installed_files.append((install_path, contents))
+            if lsic_contents is not None:
+                add_tree_file(tree, ("ARCHIVE", "LSIC330C.LZH"),
+                              lsic_contents, 0x20)
+                installed_files.append((("ARCHIVE", "LSIC330C.LZH"), lsic_contents))
+                for path, contents in lsic_records:
+                    install_path = ("LSIC86",) + path
+                    add_tree_file(tree, install_path, contents, 0x20)
+                    installed_files.append((install_path, contents))
+            add_cpm_to_tree(tree, cpm_records, installed_files)
             for key in sorted(tree["directories"]):
                 descriptor = tree["directories"][key]
                 builder.add_directory_tree(descriptor["name"], descriptor["tree"])
@@ -652,6 +833,12 @@ def build(source: Path, output: Path, variant: str,
         "payload_d88": str(payload_d88) if payload_d88 is not None else None,
         "lsic_archive": str(lsic_archive) if lsic_archive is not None else None,
         "lsic_tree": str(lsic_tree) if lsic_tree is not None else None,
+        "cpm_archive": str(cpm_archive) if cpm_archive is not None else None,
+        "cpm_disks": {
+            "tools": str(cpm_tools_d88) if cpm_tools_d88 is not None else None,
+            "source": str(cpm_source_d88) if cpm_source_d88 is not None else None,
+            "dev": str(cpm_dev_d88) if cpm_dev_d88 is not None else None,
+        },
         "installed_files": [
             {"source": "/".join(path), "name": path[-1].upper(),
              "bytes": len(contents),
@@ -681,6 +868,14 @@ def main(argv=None) -> int:
                         help="verified LSIC330C.LZH to install under ARCHIVE")
     parser.add_argument("--lsic-tree", type=Path,
                         help="directory extracted from --lsic-archive to install under LSIC86")
+    parser.add_argument("--cpm-archive", type=Path,
+                        help="verified CP/M program EXEcutor cpm08.zip")
+    parser.add_argument("--cpm-tools-d88", type=Path,
+                        help="CP/M tools/games D88 to install under CPM\\TOOLS")
+    parser.add_argument("--cpm-source-d88", type=Path,
+                        help="CP/M source/documentation D88 to install under CPM\\SOURCE")
+    parser.add_argument("--cpm-dev-d88", type=Path,
+                        help="CP/M development D88 to install under CPM\\DEV")
     parser.add_argument("--output", required=True, type=Path,
                         help="new 40 MB SASI HDI path (must not already exist)")
     args = parser.parse_args(argv)
@@ -688,6 +883,10 @@ def main(argv=None) -> int:
     payload_d88 = args.payload_d88.resolve() if args.payload_d88 else None
     lsic_archive = args.lsic_archive.resolve() if args.lsic_archive else None
     lsic_tree = args.lsic_tree.resolve() if args.lsic_tree else None
+    cpm_archive = args.cpm_archive.resolve() if args.cpm_archive else None
+    cpm_tools_d88 = args.cpm_tools_d88.resolve() if args.cpm_tools_d88 else None
+    cpm_source_d88 = args.cpm_source_d88.resolve() if args.cpm_source_d88 else None
+    cpm_dev_d88 = args.cpm_dev_d88.resolve() if args.cpm_dev_d88 else None
     output = args.output.resolve()
     if not source.is_file():
         parser.error(f"source D88 not found: {source}")
@@ -699,9 +898,23 @@ def main(argv=None) -> int:
         parser.error(f"LSI-C archive not found: {lsic_archive}")
     if lsic_tree is not None and not lsic_tree.is_dir():
         parser.error(f"LSI-C extracted tree not found: {lsic_tree}")
+    cpm_paths = (cpm_tools_d88, cpm_source_d88, cpm_dev_d88)
+    if cpm_archive is None and any(path is not None for path in cpm_paths):
+        parser.error(
+            "CP/M D88 options require --cpm-archive")
+    if cpm_archive is not None and (cpm_tools_d88 is None or cpm_source_d88 is None):
+        parser.error(
+            "--cpm-archive requires --cpm-tools-d88 and --cpm-source-d88")
+    for label, path in (("CP/M archive", cpm_archive),
+                        ("CP/M tools D88", cpm_tools_d88),
+                        ("CP/M source D88", cpm_source_d88),
+                        ("CP/M development D88", cpm_dev_d88)):
+        if path is not None and not path.is_file():
+            parser.error(f"{label} not found: {path}")
     try:
         result = build(source, output, args.variant, payload_d88,
-                       lsic_archive, lsic_tree)
+                       lsic_archive, lsic_tree, cpm_archive,
+                       cpm_tools_d88, cpm_source_d88, cpm_dev_d88)
     except (BuildError, OSError) as error:
         parser.exit(1, f"error: {error}\n")
     print("Created boot-layout 40 MB SASI development disk")

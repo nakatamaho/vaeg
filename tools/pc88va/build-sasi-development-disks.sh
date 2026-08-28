@@ -33,6 +33,10 @@ source_va2=$repo_root/docs/disks/'PC-Engine 1.1.d88'
 payload_d88=$repo_root/docs/disks/pc88va-development.d88
 output_dir=/private/tmp
 lsic_archive=${VAEG_LSIC_ARCHIVE:-${VAEG_PC88VA_SOFTLIB_CACHE:-${XDG_CACHE_HOME:-${HOME}/.cache}/vaeg/pc88va-softlib-archive-disk}/LSIC330C.LZH}
+cpm_archive=${VAEG_CPM_EXECUTOR_ARCHIVE:-${VAEG_PC88VA_SOFTLIB_CACHE:-${XDG_CACHE_HOME:-${HOME}/.cache}/vaeg/cpm08}/cpm08.zip}
+cpm_tools_d88=${VAEG_CPM_TOOLS_D88:-${HOME}/88VA/images/cpm/cpmva-tools.d88}
+cpm_source_d88=${VAEG_CPM_SOURCE_D88:-${HOME}/88VA/images/cpm/cpmva-source.d88}
+cpm_dev_d88=${VAEG_CPM_DEV_D88:-${HOME}/88VA/images/cpm/cpmva-dev.d88}
 work_dir=
 
 cleanup() {
@@ -46,7 +50,9 @@ trap cleanup EXIT HUP INT TERM
 usage() {
 	cat <<EOF
 Usage: $program_name [--source-va PATH] [--source-va2 PATH]
-       [--payload-d88 PATH] [--lsic-archive PATH] [--output-dir DIR]
+       [--payload-d88 PATH] [--lsic-archive PATH] [--cpm-archive PATH]
+       [--cpm-tools-d88 PATH] [--cpm-source-d88 PATH] [--cpm-dev-d88 PATH]
+       [--output-dir DIR]
 
 Build two 40 MB PC-88VA SASI HDI development disks:
   pc88va-sasi-40mb-va.hdi   PC-Engine 1.05
@@ -62,7 +68,9 @@ the boot PCENGINE.COM remains at the root.  CONFIG.SYS and AUTOEXEC.BAT are
 regenerated from the documented VA load order.  LSIC330C.LZH is verified,
 retained in A:\\ARCHIVE, and extracted below A:\\LSIC86 for use through MSE.
 The archive defaults to the verified softlib cache; use --lsic-archive to
-select another copy.
+select another copy.  The CP/M emulator defaults to the verified cpm08.zip
+cache, and the three preserved CP/M data disks default to ~/88VA/images/cpm;
+use the CP/M options to select other copies.
 Generated images are never overwritten.
 EOF
 }
@@ -94,6 +102,26 @@ while (($#)); do
 		lsic_archive=$2
 		shift 2
 		;;
+	--cpm-archive)
+		(($# >= 2)) || die '--cpm-archive requires a path'
+		cpm_archive=$2
+		shift 2
+		;;
+	--cpm-tools-d88)
+		(($# >= 2)) || die '--cpm-tools-d88 requires a path'
+		cpm_tools_d88=$2
+		shift 2
+		;;
+	--cpm-source-d88)
+		(($# >= 2)) || die '--cpm-source-d88 requires a path'
+		cpm_source_d88=$2
+		shift 2
+		;;
+	--cpm-dev-d88)
+		(($# >= 2)) || die '--cpm-dev-d88 requires a path'
+		cpm_dev_d88=$2
+		shift 2
+		;;
 	--output-dir)
 		(($# >= 2)) || die '--output-dir requires a directory'
 		output_dir=$2
@@ -115,6 +143,14 @@ done
 	die "development payload D88 is not readable: $payload_d88"
 [[ -f $lsic_archive && -r $lsic_archive ]] ||
 	die "LSI-C archive is not readable: $lsic_archive (use --lsic-archive)"
+[[ -f $cpm_archive && -r $cpm_archive ]] ||
+	die "CP/M emulator archive is not readable: $cpm_archive (use --cpm-archive)"
+[[ -f $cpm_tools_d88 && -r $cpm_tools_d88 ]] ||
+	die "CP/M tools D88 is not readable: $cpm_tools_d88 (use --cpm-tools-d88)"
+[[ -f $cpm_source_d88 && -r $cpm_source_d88 ]] ||
+	die "CP/M source D88 is not readable: $cpm_source_d88 (use --cpm-source-d88)"
+[[ -f $cpm_dev_d88 && -r $cpm_dev_d88 ]] ||
+	die "CP/M development D88 is not readable: $cpm_dev_d88 (use --cpm-dev-d88)"
 [[ -f $builder && -r $builder ]] || die "builder is not readable: $builder"
 mkdir -p -- "$output_dir"
 
@@ -126,10 +162,14 @@ lha xfw="$lsic_tree" "$lsic_archive" >/dev/null
 python3 "$builder" --variant va --source "$source_va" \
 	--payload-d88 "$payload_d88" \
 	--lsic-archive "$lsic_archive" --lsic-tree "$lsic_tree" \
+	--cpm-archive "$cpm_archive" --cpm-tools-d88 "$cpm_tools_d88" \
+	--cpm-source-d88 "$cpm_source_d88" --cpm-dev-d88 "$cpm_dev_d88" \
 	--output "$output_dir/pc88va-sasi-40mb-va.hdi"
 python3 "$builder" --variant va2 --source "$source_va2" \
 	--payload-d88 "$payload_d88" \
 	--lsic-archive "$lsic_archive" --lsic-tree "$lsic_tree" \
+	--cpm-archive "$cpm_archive" --cpm-tools-d88 "$cpm_tools_d88" \
+	--cpm-source-d88 "$cpm_source_d88" --cpm-dev-d88 "$cpm_dev_d88" \
 	--output "$output_dir/pc88va-sasi-40mb-va2.hdi"
 
 cleanup

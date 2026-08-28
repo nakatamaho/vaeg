@@ -944,6 +944,23 @@ DEVICE = A:\SYS\RDPCM.SYS
 remains installed in `SYS` but is not loaded by default, as required by its
 documentation; it can be enabled manually after EMS setup on real hardware.
 
+The same builder can install the [CP/M program EXEcutor 0.8
+(`cpm08.zip`)](https://www.vector.co.jp/soft/dl/dos/util/se000015.html) and the
+preserved CP/M tools/source disks (and, when supplied, the development disk).
+The verified archive is 29,761 bytes with SHA-256
+`691e51dda202ab97b7c8c947ca7c9bf2d93d822f3e315362fcc7840199b8d6f7`; it is a
+local input and is not committed. The wrapper accepts the archive and the
+CP/M D88 inputs (`cpmva-tools.d88` and `cpmva-source.d88`, plus optional
+`cpmva-dev.d88`) through `VAEG_CPM_EXECUTOR_ARCHIVE`,
+`VAEG_CPM_TOOLS_D88`, `VAEG_CPM_SOURCE_D88`, and `VAEG_CPM_DEV_D88` (or the
+corresponding command options). Their files are expanded below
+`A:\CPM\TOOLS`, `A:\CPM\SOURCE`, and, when supplied, `A:\CPM\DEV`; the
+emulator and its `XCCP.CPM` support file are under
+`A:\CPM\BIN`, with sources and documentation under `A:\CPM\SRC` and
+`A:\CPM\DOC`. When enabled, `AUTOEXEC.BAT` adds `A:\CPM\BIN` to `PATH` and
+sets `CPM=A:\CPM`. The CP/M D88 reader accepts both the current EXM=1 layout
+and the historical one-16-KiB-extent layout used by the preserved source disk.
+
 The builder itself is host-side and does not require DOSBox. For a structural
 and VAEG mount smoke check after generation, run both models with the matching
 HDI (using a local ROM-less VAEG build):
