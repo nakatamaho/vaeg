@@ -2511,6 +2511,9 @@ static int test_opn_backends(void) {
 
 	if ((np2_default_sound_for_model(str_VA1) != FMBOARD_VA_OPN) ||
 	    (np2_default_sound_for_model(str_VA2) != FMBOARD_VA_OPNA) ||
+	    (np2_sound_for_model_selection(str_VA1, FMBOARD_VA_OPNA) != FMBOARD_VA_OPNA) ||
+	    (np2_sound_for_model_selection(str_VA2, FMBOARD_VA_OPN) != FMBOARD_VA_OPNA) ||
+	    (np2_sound_for_model_selection(str_VA1, FMBOARD_NONE) != FMBOARD_VA_OPN) ||
 	    (np2_sound_hardware_valid(str_VA1, FMBOARD_NONE) != FALSE) ||
 	    (np2_sound_hardware_valid(str_VA1, FMBOARD_VA_OPN) != TRUE) ||
 	    (np2_sound_hardware_valid(str_VA1, FMBOARD_VA_OPNA) != TRUE) ||

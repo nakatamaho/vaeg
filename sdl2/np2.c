@@ -433,6 +433,13 @@ BOOL np2_sound_hardware_valid(const char *model, UINT16 sound) {
 	return (sound == FMBOARD_NONE);
 }
 
+UINT16 np2_sound_for_model_selection(const char *model, UINT16 sound) {
+	if (np2_sound_hardware_valid(model, sound)) {
+		return (sound);
+	}
+	return (np2_default_sound_for_model(model));
+}
+
 const char *np2_cli_boot_model(const char *value) {
 	if (value == NULL) {
 		return (NULL);
@@ -704,7 +711,7 @@ BOOL np2_select_boot_model(const char *model) {
 	}
 	file_cpyname(np2cfg.model, model, sizeof(np2cfg.model));
 	if (changed) {
-		np2cfg.SOUND_SW = np2_default_sound_for_model(model);
+		np2cfg.SOUND_SW = np2_sound_for_model_selection(model, np2cfg.SOUND_SW);
 	}
 	result = resolve_model_rompath(missing, sizeof(missing));
 	report_model_rompath(result, missing);
