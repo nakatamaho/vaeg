@@ -102,6 +102,16 @@ is built from `V480SRC.LZH` (`VIEW480.ASM`) with the pinned Open Watcom
 `VIEW480.COM` is installed in `A:\BIN`, while the source archive is retained
 under `A:\ARCHIVE`.
 
+[JWasm v2.20](https://github.com/Baron-von-Riedesel/JWasm/releases/tag/v2.20)
+is a free MASM-compatible assembler with a DOS real-mode executable. The
+SASI development-disk builder pins `JWasm_v220_dos.zip` at SHA-256
+`e4cab76e0cdc038e4bc284be136cbd0e5116b02a0a2a76fc4a12cad326224723`, keeps
+the original package as `A:\ARCHIVE\JWASM220.ZIP`, and installs
+`A:\BIN\JWASMR.EXE`. Its readme and license are installed as
+`A:\DOC\JWASM.TXT` and `A:\DOC\JWASM.LIC`. `JWASMR.EXE` is the real-mode
+16-bit DOS tool; it is not loaded by `CONFIG.SYS`, because `A:\BIN` is already
+on `PATH`.
+
 [JFPPAT](http://www.pc88.gr.jp/softlib/index.php?action=list_file&anum=2&gnum=307)
 is a PC-Engine patch driver. The builder installs `JFPPAT.SYS` in `A:\SYS`,
 loads it immediately after `PCEPAT.SYS`, and retains `JFPPAT.ZIP` and its
@@ -886,6 +896,7 @@ tools/pc88va/build-sasi-development-disks.sh \
   --source-va2 "/path/to/PC-Engine 1.1.d88" \
   --payload-d88 "/path/to/pc88va-development.d88" \
   --lsic-archive "/path/to/LSIC330C.LZH" \
+  --jwasm-archive "/path/to/JWasm_v220_dos.zip" \
   --output-dir /private/tmp/pc88va-sasi
 ```
 
@@ -912,6 +923,11 @@ under MSE. The original `_LCC` configuration expects this `A:\LSIC86` root.
 `INCLUDE`, and `LIB`. The default archive is read from the verified softlib
 cache; `--lsic-archive` selects an explicit copy. Extracted files are staged
 in a temporary host directory and are not tracked.
+
+`JWasm_v220_dos.zip` is fetched automatically into the local verified cache
+when `--jwasm-archive` (or `VAEG_JWASM_ARCHIVE`) is not supplied. The wrapper
+passes the verified archive to both VA and VA2 builders, so each resulting HDI
+contains the same `JWASMR.EXE` tool under `A:\BIN`.
 
 The generated HDI has the HDFORM-compatible 40 MB geometry (4096-byte header,
 256-byte SASI blocks, 33 sectors, 8 surfaces, and 615 cylinders). The builder

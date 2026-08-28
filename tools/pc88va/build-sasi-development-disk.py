@@ -28,6 +28,11 @@ other documentation, while the STEST utilities are installed under ``\\BIN``.
 The original archives are retained under ``\\ARCHIVE``.  Package bytes are
 checksum-verified and the builder never formats or modifies removable media.
 
+The optional free JWasm DOS package can be supplied with
+``--jwasm-archive``.  Its real-mode MASM-compatible assembler
+(``JWASMR.EXE``), readme, and license are installed under ``\\BIN`` and
+``\\DOC``; the original archive is retained under ``\\ARCHIVE``.
+
 This is a host-side image builder.  It does not require a running emulator or
 DOSBox; the generated image contains the source PC-Engine IPL and the FAT12
 layout used by the PC-88VA SASI formatter.  Real-machine boot validation
@@ -59,6 +64,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import io
 import importlib.util
 import os
 import re
@@ -454,6 +460,48 @@ def install_mo_packages(tree: dict[str, object], packages, installed_files) -> N
             record(path, contents)
 
 
+def collect_jwasm_package(archive_contents: bytes, module):
+    """Extract the real-mode JWasm tool and its provenance documents."""
+    try:
+        archive = zipfile.ZipFile(io.BytesIO(archive_contents))
+    except (OSError, zipfile.BadZipFile) as error:
+        raise BuildError("cannot open JWasm DOS package") from error
+    with archive:
+        by_name = {}
+        for member in archive.infolist():
+            if member.is_dir():
+                continue
+            parts = PurePosixPath(member.filename).parts
+            if len(parts) != 1:
+                continue
+            name = parts[0].upper()
+            if name in {"JWASMR.EXE", "README.TXT", "LICENSE.TXT"}:
+                if name in by_name:
+                    raise BuildError(f"duplicate JWasm package file: {name}")
+                by_name[name] = archive.read(member)
+    expected = {
+        "JWASMR.EXE": ("BIN",),
+        "README.TXT": ("DOC",),
+        "LICENSE.TXT": ("DOC",),
+    }
+    missing = sorted(set(expected) - set(by_name))
+    if missing:
+        raise BuildError("JWasm package is missing: " + ", ".join(missing))
+    records = []
+    for name, prefix in expected.items():
+        output_name = {
+            "JWASMR.EXE": "JWASMR.EXE",
+            "README.TXT": "JWASM.TXT",
+            "LICENSE.TXT": "JWASM.LIC",
+        }[name]
+        try:
+            module.short_name(output_name)
+        except module.DiskError as error:
+            raise BuildError(f"invalid JWasm output name: {output_name}") from error
+        records.append((prefix + (output_name,), by_name[name]))
+    return records
+
+
 def parse_legacy_cpm_raw(raw: bytes, module) -> dict[str, bytes]:
     """Read the older CP/MVA one-16-KiB-extent-per-entry images.
 
@@ -734,6 +782,10 @@ class HdiBuilder:
 LSIC_ARCHIVE_SHA256 = (
     "c8c4c49aed600fb2413cf5707ef01b2f4057de69196c3478d5226bf1b224081b"
 )
+JWASM_ARCHIVE_NAME = "JWASM220.ZIP"
+JWASM_ARCHIVE_SHA256 = (
+    "e4cab76e0cdc038e4bc284be136cbd0e5116b02a0a2a76fc4a12cad326224723"
+)
 CPM_ARCHIVE_SIZE = 29761
 CPM_ARCHIVE_SHA256 = (
     "691e51dda202ab97b7c8c947ca7c9bf2d93d822f3e315362fcc7840199b8d6f7"
@@ -753,7 +805,8 @@ def build(source: Path, output: Path, variant: str,
           mo_va128mo_archive: Path | None = None,
           mo_va128mo_tree: Path | None = None,
           mo_stest_archive: Path | None = None,
-          mo_stest_tree: Path | None = None) -> dict[str, object]:
+          mo_stest_tree: Path | None = None,
+          jwasm_archive: Path | None = None) -> dict[str, object]:
     module = load_pcengine_module()
     if (lsic_archive is None) != (lsic_tree is None):
         raise BuildError("--lsic-archive and --lsic-tree must be supplied together")
@@ -786,6 +839,19 @@ def build(source: Path, output: Path, variant: str,
                 f"LSI-C archive SHA-256 mismatch: {lsic_archive} "
                 f"({observed_hash})")
         lsic_records = collect_host_tree(lsic_tree, module)
+    jwasm_contents = None
+    jwasm_records = []
+    if jwasm_archive is not None:
+        try:
+            jwasm_contents = jwasm_archive.read_bytes()
+        except OSError as error:
+            raise BuildError(f"cannot read JWasm archive: {jwasm_archive}") from error
+        observed_hash = hashlib.sha256(jwasm_contents).hexdigest()
+        if observed_hash != JWASM_ARCHIVE_SHA256:
+            raise BuildError(
+                f"JWasm archive SHA-256 mismatch: {jwasm_archive} "
+                f"({observed_hash})")
+        jwasm_records = collect_jwasm_package(jwasm_contents, module)
     cpm_records = []
     if cpm_archive is not None:
         cpm_module = load_cpm_module()
@@ -908,6 +974,14 @@ def build(source: Path, output: Path, variant: str,
                 installed_files.append((install_path, contents))
         add_cpm_to_tree(payload_tree, cpm_records, installed_files)
         install_mo_packages(payload_tree, mo_packages, installed_files)
+        if jwasm_contents is not None:
+            add_tree_file(payload_tree, ("ARCHIVE", JWASM_ARCHIVE_NAME),
+                          jwasm_contents, 0x20)
+            installed_files.append((("ARCHIVE", JWASM_ARCHIVE_NAME),
+                                    jwasm_contents))
+            for path, contents in jwasm_records:
+                add_tree_file(payload_tree, path, contents, 0x20)
+                installed_files.append((path, contents))
         for key in sorted(payload_tree["directories"]):
             descriptor = payload_tree["directories"][key]
             builder.add_directory_tree(descriptor["name"], descriptor["tree"])
@@ -916,7 +990,8 @@ def build(source: Path, output: Path, variant: str,
             [(path[-1], contents, 0x20) for path, contents in executables
              if path[-1].upper() != "PCENGINE.COM"],
             key=lambda item: item[0].upper())
-        if lsic_contents is None and not cpm_records and not mo_packages:
+        if (lsic_contents is None and not cpm_records and not mo_packages
+                and jwasm_contents is None):
             builder.add_directory("BIN", records)
             installed_files.extend(
                 (("BIN", name), contents) for name, contents, _ in records)
@@ -935,6 +1010,14 @@ def build(source: Path, output: Path, variant: str,
                     installed_files.append((install_path, contents))
             add_cpm_to_tree(tree, cpm_records, installed_files)
             install_mo_packages(tree, mo_packages, installed_files)
+            if jwasm_contents is not None:
+                add_tree_file(tree, ("ARCHIVE", JWASM_ARCHIVE_NAME),
+                              jwasm_contents, 0x20)
+                installed_files.append((("ARCHIVE", JWASM_ARCHIVE_NAME),
+                                        jwasm_contents))
+                for path, contents in jwasm_records:
+                    add_tree_file(tree, path, contents, 0x20)
+                    installed_files.append((path, contents))
             for key in sorted(tree["directories"]):
                 descriptor = tree["directories"][key]
                 builder.add_directory_tree(descriptor["name"], descriptor["tree"])
@@ -978,6 +1061,7 @@ def build(source: Path, output: Path, variant: str,
             "source": str(cpm_source_d88) if cpm_source_d88 is not None else None,
             "dev": str(cpm_dev_d88) if cpm_dev_d88 is not None else None,
         },
+        "jwasm_archive": str(jwasm_archive) if jwasm_archive is not None else None,
         "installed_files": [
             {"source": "/".join(path), "name": path[-1].upper(),
              "bytes": len(contents),
@@ -1027,6 +1111,8 @@ def main(argv=None) -> int:
                         help="verified STEST115.LZH archive")
     parser.add_argument("--mo-stest-tree", type=Path,
                         help="tree extracted from STEST115.LZH")
+    parser.add_argument("--jwasm-archive", type=Path,
+                        help="verified JWasm DOS package (JWasm_v220_dos.zip)")
     parser.add_argument("--output", required=True, type=Path,
                         help="new 40 MB SASI HDI path (must not already exist)")
     args = parser.parse_args(argv)
@@ -1044,6 +1130,7 @@ def main(argv=None) -> int:
         tree = getattr(args, f"mo_{name}_tree")
         mo_paths[name] = (archive.resolve() if archive else None,
                           tree.resolve() if tree else None)
+    jwasm_archive = args.jwasm_archive.resolve() if args.jwasm_archive else None
     output = args.output.resolve()
     if not source.is_file():
         parser.error(f"source D88 not found: {source}")
@@ -1076,13 +1163,16 @@ def main(argv=None) -> int:
             parser.error(f"MO {name} archive not found: {archive}")
         if tree is not None and not tree.is_dir():
             parser.error(f"MO {name} extracted tree not found: {tree}")
+    if jwasm_archive is not None and not jwasm_archive.is_file():
+        parser.error(f"JWasm archive not found: {jwasm_archive}")
     try:
         result = build(source, output, args.variant, payload_d88,
                        lsic_archive, lsic_tree, cpm_archive,
                        cpm_tools_d88, cpm_source_d88, cpm_dev_d88,
                        mo_paths["schd"][0], mo_paths["schd"][1],
                        mo_paths["va128mo"][0], mo_paths["va128mo"][1],
-                       mo_paths["stest"][0], mo_paths["stest"][1])
+                       mo_paths["stest"][0], mo_paths["stest"][1],
+                       jwasm_archive)
     except (BuildError, OSError) as error:
         parser.exit(1, f"error: {error}\n")
     print("Created boot-layout 40 MB SASI development disk")

@@ -38,12 +38,17 @@ mo_cache=${VAEG_PC88VA_MO_CACHE:-${XDG_CACHE_HOME:-${HOME}/.cache}/vaeg/pc88va-d
 mo_schd_archive=${VAEG_MO_SCHD_ARCHIVE:-$mo_cache/schd155t.lzh}
 mo_va128mo_archive=${VAEG_MO_VA128MO_ARCHIVE:-$mo_cache/va128mo.lzh}
 mo_stest_archive=${VAEG_MO_STEST_ARCHIVE:-$mo_cache/stest115.lzh}
+jwasm_archive=${VAEG_JWASM_ARCHIVE:-${XDG_CACHE_HOME:-${HOME}/.cache}/vaeg/jwasm/JWasm_v220_dos.zip}
 cpm_tools_d88=${VAEG_CPM_TOOLS_D88:-${HOME}/88VA/images/cpm/cpmva-tools.d88}
 cpm_source_d88=${VAEG_CPM_SOURCE_D88:-${HOME}/88VA/images/cpm/cpmva-source.d88}
 cpm_dev_d88=${VAEG_CPM_DEV_D88:-${HOME}/88VA/images/cpm/cpmva-dev.d88}
 work_dir=
+jwasm_tmp=
 
 cleanup() {
+	if [[ -n ${jwasm_tmp} && -f ${jwasm_tmp} ]]; then
+		rm -f -- "$jwasm_tmp"
+	fi
 	if [[ -n ${work_dir} && ${work_dir} == "${TMPDIR:-/tmp}"/vaeg-pc88va-sasi.* && -d ${work_dir} ]]; then
 		rm -rf -- "$work_dir"
 	fi
@@ -55,6 +60,7 @@ usage() {
 	cat <<EOF
 Usage: $program_name [--source-va PATH] [--source-va2 PATH]
        [--payload-d88 PATH] [--lsic-archive PATH] [--cpm-archive PATH]
+       [--jwasm-archive PATH]
        [--mo-schd-archive PATH] [--mo-va128mo-archive PATH]
        [--mo-stest-archive PATH]
        [--cpm-tools-d88 PATH] [--cpm-source-d88 PATH] [--cpm-dev-d88 PATH]
@@ -81,6 +87,9 @@ The SCHD155T, VA128MO, and STEST115 archives default to the verified
 pc88va-development-disk cache; use the --mo-* options or VAEG_MO_*_ARCHIVE
 variables to select explicit copies.  The archives are retained under
 A:\\ARCHIVE and their documented files are installed under BIN, DOC, and SYS.
+JWasm_v220_dos.zip defaults to the pinned free JWasm release cache (or
+VAEG_JWASM_ARCHIVE); JWASMR.EXE, its readme/license, and the original archive
+are installed under BIN, DOC, and ARCHIVE.
 Generated images are never overwritten.
 EOF
 }
@@ -110,6 +119,11 @@ while (($#)); do
 	--lsic-archive)
 		(($# >= 2)) || die '--lsic-archive requires a path'
 		lsic_archive=$2
+		shift 2
+		;;
+	--jwasm-archive)
+		(($# >= 2)) || die '--jwasm-archive requires a path'
+		jwasm_archive=$2
 		shift 2
 		;;
 	--mo-schd-archive)
@@ -162,6 +176,34 @@ while (($#)); do
 	esac
 done
 
+ensure_jwasm_archive() {
+	local parent
+	local actual
+	parent=$(dirname -- "$jwasm_archive")
+	mkdir -p -- "$parent"
+	if [[ -f $jwasm_archive ]]; then
+		actual=$(sha256sum -- "$jwasm_archive")
+		actual=${actual%% *}
+		[[ $actual == e4cab76e0cdc038e4bc284be136cbd0e5116b02a0a2a76fc4a12cad326224723 ]] ||
+			die "JWasm archive has the wrong SHA-256: $jwasm_archive"
+		return
+	fi
+	command -v curl >/dev/null 2>&1 || die 'required host command is missing: curl'
+	command -v sha256sum >/dev/null 2>&1 || die 'required host command is missing: sha256sum'
+	jwasm_tmp=$(mktemp "$parent/JWasm_v220_dos.zip.part.XXXXXX")
+	if ! curl --fail --location --silent --show-error --retry 3 \
+		--connect-timeout 20 --output "$jwasm_tmp" \
+		https://github.com/Baron-von-Riedesel/JWasm/releases/download/v2.20/JWasm_v220_dos.zip; then
+		die 'download failed: JWasm_v220_dos.zip'
+	fi
+	actual=$(sha256sum -- "$jwasm_tmp")
+	actual=${actual%% *}
+	[[ $actual == e4cab76e0cdc038e4bc284be136cbd0e5116b02a0a2a76fc4a12cad326224723 ]] ||
+		die "downloaded JWasm archive has the wrong SHA-256: $actual"
+	mv -- "$jwasm_tmp" "$jwasm_archive"
+	jwasm_tmp=
+}
+
 [[ -f $source_va && -r $source_va ]] || die "VA source D88 is not readable: $source_va"
 [[ -f $source_va2 && -r $source_va2 ]] || die "VA2 source D88 is not readable: $source_va2"
 [[ -f $payload_d88 && -r $payload_d88 ]] ||
@@ -183,6 +225,7 @@ done
 [[ -f $cpm_dev_d88 && -r $cpm_dev_d88 ]] ||
 	die "CP/M development D88 is not readable: $cpm_dev_d88 (use --cpm-dev-d88)"
 [[ -f $builder && -r $builder ]] || die "builder is not readable: $builder"
+ensure_jwasm_archive
 mkdir -p -- "$output_dir"
 
 work_dir=$(mktemp -d "${TMPDIR:-/tmp}/vaeg-pc88va-sasi.XXXXXX")
@@ -199,6 +242,7 @@ lha xfw="$mo_stest_tree" "$mo_stest_archive" >/dev/null
 
 python3 "$builder" --variant va --source "$source_va" \
 	--payload-d88 "$payload_d88" \
+	--jwasm-archive "$jwasm_archive" \
 	--lsic-archive "$lsic_archive" --lsic-tree "$lsic_tree" \
 	--mo-schd-archive "$mo_schd_archive" --mo-schd-tree "$mo_schd_tree" \
 	--mo-va128mo-archive "$mo_va128mo_archive" --mo-va128mo-tree "$mo_va128mo_tree" \
@@ -208,6 +252,7 @@ python3 "$builder" --variant va --source "$source_va" \
 	--output "$output_dir/pc88va-sasi-40mb-va.hdi"
 python3 "$builder" --variant va2 --source "$source_va2" \
 	--payload-d88 "$payload_d88" \
+	--jwasm-archive "$jwasm_archive" \
 	--lsic-archive "$lsic_archive" --lsic-tree "$lsic_tree" \
 	--mo-schd-archive "$mo_schd_archive" --mo-schd-tree "$mo_schd_tree" \
 	--mo-va128mo-archive "$mo_va128mo_archive" --mo-va128mo-tree "$mo_va128mo_tree" \
