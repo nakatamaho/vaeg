@@ -181,14 +181,16 @@ Disk images may also be dragged onto the SDL window. One drop operation is
 sorted by case-insensitive basename: the first image mounts as FDD1, the
 second as FDD2, and later images are reported as ignored. Supported direct
 extensions are `.d88`, `.88d`, `.d98`, `.98d`, `.fdi`, `.xdf`, `.hdm`,
-`.dup`, `.2hd`, `.tfd`, and `.img`. ZIP, 7z, and LZH drops extract only supported
-images to bounded managed storage under the platform user-state directory
-when LibArchive support is built. Archive mounts are saved in `FDD1FILE` and
+`.dup`, `.2hd`, `.tfd`, and `.img`. A supported single disk image compressed as
+`.d88.xz` (or another supported image suffix followed by `.xz`) is also
+accepted and extracted to bounded managed storage. ZIP, 7z, and LZH drops
+extract only supported images to bounded managed storage under the platform
+user-state directory when LibArchive support is built. Archive mounts are saved in `FDD1FILE` and
 `FDD2FILE`, so they remain valid through reset and application restart.
 Unreferenced managed images are removed after eject or replacement; an image
 still mounted in either drive is retained.
 
-When a mounted image came from a ZIP, 7z, or LZH archive, FDD1/FDD2 Open
+When a mounted image came from a ZIP, 7z, LZH, or single-image XZ stream, FDD1/FDD2 Open
 starts in the directory that contained the source archive instead of exposing
 the managed extraction directory. This association is kept per drive and is
 restored with persistent managed mounts after an application restart.

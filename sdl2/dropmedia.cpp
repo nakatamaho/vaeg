@@ -93,21 +93,41 @@ static std::string display_file_name(const std::string &path) {
 	return name;
 }
 
+static const char *const kImageExtensions[] = {".d88", ".88d", ".d98", ".98d", ".fdi", ".xdf",
+                                               ".hdm", ".dup", ".2hd", ".tfd", ".img"};
+
 static bool image_extension_supported(const std::string &path) {
-	static const char *extensions[] = {".d88", ".88d", ".d98", ".98d", ".fdi", ".xdf",
-	                                   ".hdm", ".dup", ".2hd", ".tfd", ".img"};
 	const std::string extension = path_extension(path);
 
-	return std::any_of(std::begin(extensions), std::end(extensions),
+	return std::any_of(std::begin(kImageExtensions), std::end(kImageExtensions),
 	                   [&extension](const char *candidate) {
 		                   return extension == candidate;
 	                   });
 }
 
+static std::string compressed_image_basename(const std::string &path) {
+	const std::string name = fs::u8path(path).filename().u8string();
+	const std::string lower_name = ascii_lower(name);
+
+	for (const char *image_extension : kImageExtensions) {
+		const std::string suffix = std::string(image_extension) + ".xz";
+		if ((lower_name.size() >= suffix.size()) &&
+		    (lower_name.compare(lower_name.size() - suffix.size(), suffix.size(), suffix) == 0)) {
+			return name.substr(0, name.size() - 3);
+		}
+	}
+	return std::string();
+}
+
+static bool compressed_image_extension_supported(const std::string &path) {
+	return !compressed_image_basename(path).empty();
+}
+
 static bool archive_extension_supported(const std::string &path) {
 	const std::string extension = path_extension(path);
 
-	return (extension == ".zip") || (extension == ".7z") || (extension == ".lzh");
+	return (extension == ".zip") || (extension == ".7z") || (extension == ".lzh") ||
+	       compressed_image_extension_supported(path);
 }
 
 static bool candidate_less(const DiskCandidate &left, const DiskCandidate &right) {
@@ -371,6 +391,174 @@ static bool write_test_archive(const fs::path &path, bool seven_zip, const char 
 	return result == ARCHIVE_OK;
 }
 
+static bool write_test_xz_image(const fs::path &path) {
+#if !defined(_WIN32)
+	ScopedArchiveLocale archive_locale;
+#endif
+	struct archive *writer = archive_write_new();
+	struct archive_entry *entry;
+	static const char payload[] = "D88";
+	int result;
+
+	if (writer == nullptr) {
+		return false;
+	}
+	result = archive_write_set_format_raw(writer);
+	if (result == ARCHIVE_OK) {
+		result = archive_write_add_filter_xz(writer);
+	}
+	if (result == ARCHIVE_OK) {
+		result = archive_write_open_filename(writer, path.u8string().c_str());
+	}
+	entry = archive_entry_new();
+	if ((result != ARCHIVE_OK) || (entry == nullptr)) {
+		if (entry != nullptr) {
+			archive_entry_free(entry);
+		}
+		archive_write_free(writer);
+		return false;
+	}
+	archive_entry_set_pathname_utf8(entry, "test.d88");
+	archive_entry_set_filetype(entry, AE_IFREG);
+	archive_entry_set_perm(entry, 0600);
+	archive_entry_set_size(entry, sizeof(payload) - 1);
+	result = archive_write_header(writer, entry);
+	if (result == ARCHIVE_OK) {
+		result = (archive_write_data(writer, payload, sizeof(payload) - 1) ==
+		          static_cast<la_ssize_t>(sizeof(payload) - 1))
+		             ? ARCHIVE_OK
+		             : ARCHIVE_FATAL;
+	}
+	archive_entry_free(entry);
+	if (archive_write_close(writer) != ARCHIVE_OK) {
+		result = ARCHIVE_FATAL;
+	}
+	archive_write_free(writer);
+	return result == ARCHIVE_OK;
+}
+
+static bool extract_xz_image(const std::string &image_path, std::vector<DiskCandidate> *images,
+                             std::string *error, const fs::path &storage_root) {
+	const std::string source_directory = archive_source_directory(image_path);
+	const std::string basename = compressed_image_basename(image_path);
+	struct archive *reader;
+	struct archive_entry *entry;
+	fs::path temp_dir;
+	fs::path output_dir;
+	fs::path output_path;
+	std::uintmax_t image_bytes = 0;
+	std::uintmax_t total_bytes = 0;
+	char buffer[16384];
+	int result;
+
+	if (basename.empty()) {
+		*error = "compressed image has an unsupported name";
+		return false;
+	}
+	temp_dir = create_archive_directory(storage_root, error);
+	if (temp_dir.empty()) {
+		return false;
+	}
+	reader = archive_read_new();
+	if (reader == nullptr) {
+		fs::remove_all(temp_dir);
+		*error = "libarchive initialization failed";
+		return false;
+	}
+	archive_read_support_filter_all(reader);
+	result = archive_read_support_format_raw(reader);
+	if (result != ARCHIVE_OK) {
+		archive_read_free(reader);
+		fs::remove_all(temp_dir);
+		*error = "raw archive support is unavailable";
+		return false;
+	}
+#if defined(_WIN32)
+	result = archive_read_open_filename_w(reader, fs::u8path(image_path).c_str(), 10240);
+#else
+	result = archive_read_open_filename(reader, image_path.c_str(), 10240);
+#endif
+	if (result != ARCHIVE_OK) {
+		*error = archive_error_string(reader) ? archive_error_string(reader) : "image open failed";
+		archive_read_free(reader);
+		fs::remove_all(temp_dir);
+		return false;
+	}
+	result = archive_read_next_header(reader, &entry);
+	if ((result != ARCHIVE_OK) || (archive_entry_filetype(entry) != AE_IFREG) ||
+	    (archive_entry_symlink(entry) != nullptr) || (archive_entry_hardlink(entry) != nullptr)) {
+		*error = archive_error_string(reader) ? archive_error_string(reader)
+		                                      : "compressed image payload is invalid";
+		archive_read_free(reader);
+		fs::remove_all(temp_dir);
+		return false;
+	}
+	output_dir = temp_dir / "0000";
+	std::error_code ec;
+	if ((!fs::create_directory(output_dir, ec)) || ec) {
+		*error = "could not create an archive extraction directory";
+		archive_read_free(reader);
+		fs::remove_all(temp_dir);
+		return false;
+	}
+	output_path = output_dir / fs::u8path(basename);
+	{
+		std::ofstream output(output_path, std::ios::binary | std::ios::trunc);
+		if (!output) {
+			*error = "could not create an extracted disk image";
+			archive_read_free(reader);
+			fs::remove_all(temp_dir);
+			return false;
+		}
+		for (;;) {
+			const la_ssize_t count = archive_read_data(reader, buffer, sizeof(buffer));
+			if (count == 0) {
+				break;
+			}
+			if (count < 0) {
+				*error = archive_error_string(reader) ? archive_error_string(reader)
+				                                      : "compressed image extraction failed";
+				archive_read_free(reader);
+				fs::remove_all(temp_dir);
+				return false;
+			}
+			if ((static_cast<std::uintmax_t>(count) > (kMaxImageBytes - image_bytes)) ||
+			    (static_cast<std::uintmax_t>(count) > (kMaxExtractedBytes - total_bytes))) {
+				*error = "compressed image extraction limit exceeded";
+				archive_read_free(reader);
+				fs::remove_all(temp_dir);
+				return false;
+			}
+			output.write(buffer, count);
+			if (!output) {
+				*error = "could not write an extracted disk image";
+				archive_read_free(reader);
+				fs::remove_all(temp_dir);
+				return false;
+			}
+			image_bytes += static_cast<std::uintmax_t>(count);
+			total_bytes += static_cast<std::uintmax_t>(count);
+		}
+	}
+	result = archive_read_next_header(reader, &entry);
+	if (result != ARCHIVE_EOF) {
+		*error = "compressed image contains more than one payload";
+		archive_read_free(reader);
+		fs::remove_all(temp_dir);
+		return false;
+	}
+	archive_read_free(reader);
+	write_archive_source_directory(output_dir, source_directory);
+	if ((output_path.u8string().size() >= MAX_PATH) || (image_bytes == 0)) {
+		*error = (image_bytes == 0) ? "compressed image is empty"
+		                            : "extracted disk image path is too long";
+		fs::remove_all(temp_dir);
+		return false;
+	}
+	images->push_back({output_path.u8string(), basename, source_directory});
+	return true;
+}
+
 static bool extract_archive_images(const std::string &archive_path,
                                    std::vector<DiskCandidate> *images, std::string *error,
                                    const fs::path &storage_root) {
@@ -386,6 +574,10 @@ static bool extract_archive_images(const std::string &archive_path,
 	ScopedArchiveLocale archive_locale;
 #endif
 	int result;
+
+	if (compressed_image_extension_supported(archive_path)) {
+		return extract_xz_image(archive_path, images, error, storage_root);
+	}
 
 	temp_dir = create_archive_directory(storage_root, error);
 	if (temp_dir.empty()) {
@@ -801,7 +993,8 @@ extern "C" BOOL dropmedia_selftest(void) {
 	if ((!image_extension_supported("disk.D88")) || (!image_extension_supported("disk.2HD")) ||
 	    (!image_extension_supported("disk.IMG")) || image_extension_supported("disk.zip") ||
 	    (!dropmedia_path_is_archive("set.ZIP")) || (!dropmedia_path_is_archive("set.7Z")) ||
-	    (!dropmedia_path_is_archive("set.LZH")) || dropmedia_path_is_archive("disk.d88") ||
+	    (!dropmedia_path_is_archive("set.LZH")) || (!dropmedia_path_is_archive("disk.d88.xz")) ||
+	    dropmedia_path_is_archive("disk.xz") || dropmedia_path_is_archive("disk.d88") ||
 	    dropmedia_path_is_archive(NULL)) {
 		return FAILURE;
 	}
@@ -855,6 +1048,27 @@ extern "C" BOOL dropmedia_selftest(void) {
 		                                   sizeof(short_directory)) ||
 		    dropmedia_fdd_source_directory(0, "different.d88", source_directory,
 		                                   sizeof(source_directory))) {
+			fs::remove_all(test_dir);
+			dropmedia_shutdown();
+			return FAILURE;
+		}
+	}
+	{
+		const fs::path image_path = test_dir / "sample.d88.xz";
+		const fs::path storage_root = test_dir / "storage-xz";
+		std::vector<DiskCandidate> extracted;
+		if ((!write_test_xz_image(image_path)) ||
+		    (!extract_archive_images(image_path.u8string(), &extracted, &error, storage_root)) ||
+		    (extracted.size() != 1) || (extracted[0].basename != "sample.d88") ||
+		    (extracted[0].source_directory != test_dir.u8string())) {
+			fs::remove_all(test_dir);
+			dropmedia_shutdown();
+			return FAILURE;
+		}
+		std::ifstream extracted_file(extracted[0].path, std::ios::binary);
+		const std::string contents((std::istreambuf_iterator<char>(extracted_file)),
+		                           std::istreambuf_iterator<char>());
+		if (contents != "D88") {
 			fs::remove_all(test_dir);
 			dropmedia_shutdown();
 			return FAILURE;
