@@ -43,7 +43,7 @@ usage() {
 		"Usage: $program_name --source SOURCE.d88 --output OUTPUT.d88 [options]" \
 		'' \
 		'Create a bootable PC-Engine 1.1 disk containing pinned PC-88VA' \
-		'Softlib downloads in A:\ARCHIVE, plus selected extracted tools.' \
+		'Softlib downloads in A:\ARCHIVE, plus extracted 16-bit tools.' \
 		'EMMVA/SQEMM98/RDEMS drivers are installed in A:\SYS. A root' \
 		'CONFIG.SYS records the required load order.' \
 		'' \
@@ -305,7 +305,10 @@ work_dir=$(mktemp -d "${TMPDIR:-/tmp}/vaeg-pc88va-softlib.XXXXXX")
 payload_dir=$work_dir/payload
 mkdir -p -- "$payload_dir/root" "$payload_dir/archive" "$payload_dir/bin" "$payload_dir/doc" \
 	"$payload_dir/sys" "$work_dir/emmva" "$work_dir/rdems" \
-	"$work_dir/infozip/unzip" "$work_dir/infozip/zip"
+	"$work_dir/infozip/unzip" "$work_dir/infozip/zip" \
+	"$work_dir/emacsva" "$work_dir/cpmva" "$work_dir/tdc10" \
+	"$work_dir/bench003" "$work_dir/2hcdrv" "$work_dir/jfppat" \
+	"$work_dir/vbuff" "$work_dir/rdpcm" "$work_dir/prjva"
 
 unzip -q "$cache_dir/UNZ532X3.EXE" \
 	unzip.exe unzip.doc COPYING README.DOS \
@@ -320,6 +323,15 @@ for file in X8MAP.COM X8MAP130.SMP X8MAP130.TXT; do
 done
 lha xfw="$work_dir/emmva" "$cache_dir/EMMVA15A.LZH" >/dev/null
 lha xfw="$work_dir/rdems" "$cache_dir/RDEMS152.LZH" >/dev/null
+lha xfw="$work_dir/emacsva" "$cache_dir/EMACSVA.LZH" >/dev/null
+lha xfw="$work_dir/cpmva" "$cache_dir/CPMVA.LZH" >/dev/null
+lha xfw="$work_dir/tdc10" "$cache_dir/TDC10.LZH" >/dev/null
+lha xfw="$work_dir/bench003" "$cache_dir/BENCH003.LZH" >/dev/null
+unzip -q "$cache_dir/2HCDRV.ZIP" 2HCDRV.COM FDFORM.COM -d "$work_dir/2hcdrv"
+unzip -q "$cache_dir/JFPPAT.ZIP" JFPPAT.SYS -d "$work_dir/jfppat"
+lha xfw="$work_dir/vbuff" "$cache_dir/VBUFF102.LZH" >/dev/null
+lha xfw="$work_dir/rdpcm" "$cache_dir/RDPCM001.LZH" >/dev/null
+unzip -q "$cache_dir/PRJVA.ZIP" 'PC88VA/BIN/plustakerva.exe' -d "$work_dir/prjva"
 cp -- "$work_dir/emmva/EMMVA01.SYS" "$work_dir/emmva/EMMVA02.SYS" "$payload_dir/sys/"
 cp -- "$work_dir/rdems/RDEMS.SYS" "$payload_dir/sys/RDEMS.SYS"
 
@@ -363,6 +375,21 @@ done
 
 cp -- "$work_dir/infozip/unzip/unzip.exe" "$payload_dir/bin/UNZIP.EXE"
 cp -- "$work_dir/infozip/zip/zip.exe" "$payload_dir/bin/ZIP.EXE"
+cp -- "$work_dir/emacsva/EMACS.EXE" "$payload_dir/bin/EMACS.EXE"
+cp -- "$work_dir/cpmva/CPMBIOS.COM" "$payload_dir/bin/CPMBIOS.COM"
+cp -- "$work_dir/cpmva/CPMVA.EXE" "$payload_dir/bin/CPMVA.EXE"
+cp -- "$work_dir/cpmva/DO.COM" "$payload_dir/bin/DO.COM"
+cp -- "$work_dir/cpmva/EXIT.COM" "$payload_dir/bin/EXIT.COM"
+cp -- "$work_dir/cpmva/FCONV.COM" "$payload_dir/bin/FCONV.COM"
+cp -- "$work_dir/cpmva/RDCPM.EXE" "$payload_dir/bin/RDCPM.EXE"
+cp -- "$work_dir/tdc10/TDC.COM" "$payload_dir/bin/TDC.COM"
+cp -- "$work_dir/bench003/BENCH.EXE" "$payload_dir/bin/BENCH.EXE"
+cp -- "$work_dir/2hcdrv/2HCDRV.COM" "$payload_dir/bin/2HCDRV.COM"
+cp -- "$work_dir/2hcdrv/FDFORM.COM" "$payload_dir/bin/FDFORM.COM"
+cp -- "$work_dir/vbuff/VBUFF.COM" "$payload_dir/bin/VBUFF.COM"
+cp -- "$work_dir/prjva/PC88VA/BIN/plustakerva.exe" "$payload_dir/bin/PLUSTAKE.EXE"
+cp -- "$work_dir/jfppat/JFPPAT.SYS" "$payload_dir/sys/JFPPAT.SYS"
+cp -- "$work_dir/rdpcm/RDPCM.SYS" "$payload_dir/sys/RDPCM.SYS"
 cp -- "$work_dir/infozip/unzip/COPYING" "$payload_dir/doc/COPYING"
 cp -- "$work_dir/infozip/unzip/unzip.doc" "$payload_dir/doc/UNZIP.DOC"
 cp -- "$work_dir/infozip/unzip/README.DOS" "$payload_dir/doc/UNZDOS.TXT"

@@ -44,7 +44,7 @@ usage() {
 		'BMSDRVA, EMMVA/SQEMM98/RDEMS,' \
 		'development tools, ISHVA/PKPAK, TENIM3, TFD, SCFORM, VIEW480,' \
 		'JFPPAT, 2HCDRV, FDFORM, X8MAP,' \
-		'and K-Launcher.' \
+		'K-Launcher, EMACS, CPMVA, TDC, and BENCH binaries.' \
 		'The source and generated D88 images are never added to the repository.'
 }
 
@@ -276,6 +276,21 @@ fetch_package tfd12.lzh \
 fetch_package tfd12.doc \
 	65380f66c08120fed9e94c508ec491faff8bedc86cd2b48af3d7126c81ec499f \
 	'http://www.pc88.gr.jp/softlib/index.php?action=download&anum=2&gnum=348&fname=TFD12.DOC'
+# These packages contain runnable DOS programs which were previously left
+# inside the supplemental archive disk only.  Extracting their 16-bit
+# executables here keeps the FDD payload and the HDD transplant consistent.
+fetch_package emacsva.lzh \
+	64d496d67668f7d5bd071ff304ed33a689b0795fa793afac9e631346070c8a8a \
+	'http://www.pc88.gr.jp/softlib/index.php?action=download&anum=2&gnum=435&fname=EMACSVA.LZH'
+fetch_package cpmva.lzh \
+	c5188efa73c80609e2184890d5a1ee5f0b274f8d29a3d73ae370fe7526d9dccd \
+	'http://www.pc88.gr.jp/softlib/index.php?action=download&anum=2&gnum=424&fname=CPMVA.LZH'
+fetch_package tdc10.lzh \
+	c6c31cf6a604b07220c88a010bcd2e40cdb009dd4601e7d8a0ad903a4f2df23e \
+	'http://www.pc88.gr.jp/softlib/index.php?action=download&anum=2&gnum=201&fname=TDC10.LZH'
+fetch_package bench003.lzh \
+	40f5fbf391d416a79d843c13e11797abfd8ff49ea45a7d6f8a627cb389d9c79c \
+	'http://www.pc88.gr.jp/softlib/index.php?action=download&anum=2&gnum=389&fname=BENCH003.LZH'
 
 work_dir=$(mktemp -d "${TMPDIR:-/tmp}/vaeg-pc88va-devdisk.XXXXXX")
 
@@ -348,6 +363,10 @@ extract_archive "$cache_dir/fdfrmsrc.lzh" "$work_dir/fdfrmsrc"
 extract_archive "$cache_dir/isharc.com" "$work_dir/isharc"
 extract_archive "$cache_dir/tenim3.com" "$work_dir/tenim3"
 extract_archive "$cache_dir/tfd12.lzh" "$work_dir/tfd12"
+extract_archive "$cache_dir/emacsva.lzh" "$work_dir/emacsva"
+extract_archive "$cache_dir/cpmva.lzh" "$work_dir/cpmva"
+extract_archive "$cache_dir/tdc10.lzh" "$work_dir/tdc10"
+extract_archive "$cache_dir/bench003.lzh" "$work_dir/bench003"
 add_uppercase_aliases "$work_dir"
 
 stage_dir=$work_dir/stage
@@ -494,6 +513,15 @@ copy_payload "$work_dir/isharc/ISHVA.COM" bin/ISHVA.COM
 copy_payload "$work_dir/isharc/PKPAK.EXE" bin/PKPAK.EXE
 copy_payload "$work_dir/isharc/PKUNPAK.EXE" bin/PKUNPAK.EXE
 copy_payload "$work_dir/tfd12/TFD.SYS" sys/TFD.SYS
+copy_payload "$work_dir/emacsva/EMACS.EXE" bin/EMACS.EXE
+copy_payload "$work_dir/cpmva/CPMBIOS.COM" bin/CPMBIOS.COM
+copy_payload "$work_dir/cpmva/CPMVA.EXE" bin/CPMVA.EXE
+copy_payload "$work_dir/cpmva/DO.COM" bin/DO.COM
+copy_payload "$work_dir/cpmva/EXIT.COM" bin/EXIT.COM
+copy_payload "$work_dir/cpmva/FCONV.COM" bin/FCONV.COM
+copy_payload "$work_dir/cpmva/RDCPM.EXE" bin/RDCPM.EXE
+copy_payload "$work_dir/tdc10/TDC.COM" bin/TDC.COM
+copy_payload "$work_dir/bench003/BENCH.EXE" bin/BENCH.EXE
 "$repo_root/tools/openwatcom/build-view480.sh" \
 	--source "$work_dir/v480/VIEW480.ASM" \
 	--output "$payload_dir/bin/VIEW480.COM"
@@ -555,6 +583,17 @@ copy_payload "$cache_dir/tenim3.doc" doc/TENIM3.DOC
 copy_payload "$work_dir/tenim3/NEC_MAIL.DOC" doc/TENMAIL.DOC
 copy_payload "$cache_dir/tfd12.doc" doc/TFD12.DOC
 copy_payload "$work_dir/tfd12/TFD12.MAN" doc/TFD12.MAN
+copy_payload "$work_dir/emacsva/EMACS.HLP" doc/EMACS.HLP
+copy_payload "$work_dir/emacsva/EMACS.RC" doc/EMACS.RC
+copy_payload "$work_dir/emacsva/EMACSJ.HLP" doc/EMACSJ.HLP
+copy_payload "$work_dir/emacsva/EMACSVA.DOC" doc/EMACSVA.DOC
+copy_payload "$work_dir/emacsva/README.1ST" doc/EMACS1ST.1ST
+copy_payload "$work_dir/emacsva/REFMAN.TXT" doc/EMACSREF.TXT
+copy_payload "$work_dir/cpmva/CPMVA.DOC" doc/CPMVA.DOC
+copy_payload "$work_dir/cpmva/README.DOC" doc/CPMREAD.DOC
+copy_payload "$work_dir/tdc10/TDC.DOC" doc/TDC.DOC
+copy_payload "$work_dir/bench003/BENCH.DOC" doc/BENCH.DOC
+copy_payload "$work_dir/bench003/README.1ST" doc/BENCHRD.1ST
 copy_payload "$work_dir/jfppat/JFPPAT.DOC" doc/JFPPAT.DOC
 copy_payload "$work_dir/2hcdrv/2HCDRV.DOC" doc/2HCDRV.DOC
 copy_payload "$work_dir/2hcdrv/FDFORM.DOC" doc/FDFORM.DOC
