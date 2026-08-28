@@ -21,6 +21,13 @@ installed under ``\\CPM\\BIN``, ``\\CPM\\TOOLS``,
 ``\\CPM\\SOURCE``, and ``\\CPM\\DEV`` and the emulator directory is added to
 ``PATH``.
 
+The optional PC-88VA SCSI/MO support packages from PC88.gr.jp can be supplied
+with the ``--mo-*`` options.  SCHD 1.55T is installed under ``\\SYS`` and its
+manuals under ``\\DOC``; the VA128MO and STEST manuals are kept with the
+other documentation, while the STEST utilities are installed under ``\\BIN``.
+The original archives are retained under ``\\ARCHIVE``.  Package bytes are
+checksum-verified and the builder never formats or modifies removable media.
+
 This is a host-side image builder.  It does not require a running emulator or
 DOSBox; the generated image contains the source PC-Engine IPL and the FAT12
 layout used by the PC-88VA SASI formatter.  Real-machine boot validation
@@ -316,10 +323,35 @@ def add_tree_file(tree: dict[str, object], path: tuple[str, ...],
     files.append((filename, contents, attributes))
 
 
+def upsert_tree_file(tree: dict[str, object], path: tuple[str, ...],
+                     contents: bytes, attributes: int) -> None:
+    """Install a file while allowing an identical payload entry to be reused.
+
+    A complete development D88 already contains SCHD's driver and manuals.
+    Package installation verifies those bytes rather than creating duplicate
+    DOS directory entries.  A different file at the same path is a
+    deterministic error so stale payload data cannot be silently replaced.
+    """
+    if len(path) < 2:
+        raise BuildError("directory tree file must have a parent directory")
+    node = ensure_directory(tree, path[:-1])
+    files = node["files"]
+    filename = path[-1]
+    for index, item in enumerate(files):
+        if item[0].upper() != filename.upper():
+            continue
+        if item[1] != contents:
+            raise BuildError("package file conflicts with payload: " +
+                             "/".join(path))
+        files[index] = (item[0], contents, attributes)
+        return
+    files.append((filename, contents, attributes))
+
+
 def collect_host_tree(root: Path, module) -> list[tuple[tuple[str, ...], bytes]]:
-    """Collect a checked, relative tree extracted from the LSI-C archive."""
+    """Collect a checked, relative tree extracted from a host archive."""
     if not root.is_dir():
-        raise BuildError(f"LSI-C extracted tree is not a directory: {root}")
+        raise BuildError(f"extracted package tree is not a directory: {root}")
     records = []
     for path in sorted(root.rglob("*"), key=lambda item: item.as_posix().upper()):
         if path.is_symlink() or not path.is_file():
@@ -327,17 +359,99 @@ def collect_host_tree(root: Path, module) -> list[tuple[tuple[str, ...], bytes]]
         relative = path.relative_to(root)
         components = tuple(part.upper() for part in relative.parts)
         if not components or any(component in (".", "..") for component in components):
-            raise BuildError("invalid LSI-C extracted path: " + str(relative))
+            raise BuildError("invalid extracted package path: " + str(relative))
         for component in components:
             try:
                 module.short_name(component)
             except module.DiskError as error:
                 raise BuildError(
-                    f"invalid LSI-C 8.3 path component {component}: {relative}") from error
+                    f"invalid 8.3 path component {component}: {relative}") from error
         records.append((components, path.read_bytes()))
     if not records:
-        raise BuildError("LSI-C extracted tree is empty")
+        raise BuildError("extracted package tree is empty")
     return records
+
+
+MO_PACKAGE_SPECS = {
+    "schd": {
+        "archive_name": "SCHD155T.LZH",
+        "sha256": "87aebcf7c9bc9c6170a40d0e6ddcce5afdcbb1fa55f1fdeeec815458f7ef065f",
+        "files": {
+            "SCHD.SYS": ("SYS",),
+            "SCHD.DOC": ("DOC",),
+            "SCHD.LOG": ("DOC",),
+            "SCHD.TXT": ("DOC",),
+        },
+    },
+    "va128mo": {
+        "archive_name": "VA128MO.LZH",
+        "sha256": "1dc8f366fb56e1761051e9b0c1e8950999ebb6df10ddf1bb91251e2557728a36",
+        "files": {"VA128MO.DOC": ("DOC",)},
+    },
+    "stest": {
+        "archive_name": "STEST115.LZH",
+        "sha256": "0410326b8c570ccc87e532cc2dd5c4076d34f2ad3fe5ca52dc32bdf4d43e20c2",
+        "files": {
+            "STEST.EXE": ("BIN",),
+            "STESTX.COM": ("BIN",),
+            "STEST.BAT": ("BIN",),
+            "STEST115.DOC": ("DOC",),
+            "COMMAND.DOC": ("DOC",),
+            "UTILITY.DOC": ("DOC",),
+        },
+    },
+}
+
+
+def collect_mo_package(archive: Path, tree: Path, module, package: str):
+    """Verify one PC-88VA MO package and map files to the HDI tree."""
+    spec = MO_PACKAGE_SPECS[package]
+    try:
+        archive_contents = archive.read_bytes()
+    except OSError as error:
+        raise BuildError(f"cannot read {package} archive: {archive}") from error
+    observed_hash = hashlib.sha256(archive_contents).hexdigest()
+    if observed_hash != spec["sha256"]:
+        raise BuildError(
+            f"{package} archive SHA-256 mismatch: {archive} ({observed_hash})")
+    records = collect_host_tree(tree, module)
+    by_name = {}
+    for relative, contents in records:
+        if len(relative) != 1:
+            raise BuildError(f"unexpected nested {package} package path: " +
+                             "/".join(relative))
+        name = relative[0].upper()
+        if name in by_name:
+            raise BuildError(f"duplicate {package} package file: {name}")
+        by_name[name] = contents
+    expected = spec["files"]
+    missing = sorted(set(expected) - set(by_name))
+    unexpected = sorted(set(by_name) - set(expected))
+    if missing:
+        raise BuildError(f"{package} package is missing: {', '.join(missing)}")
+    if unexpected:
+        raise BuildError(
+            f"{package} package contains unexpected files: {', '.join(unexpected)}")
+    mapped = []
+    for name, prefix in expected.items():
+        mapped.append((prefix + (name,), by_name[name]))
+    return archive_contents, mapped
+
+
+def install_mo_packages(tree: dict[str, object], packages, installed_files) -> None:
+    """Add verified MO packages and their archives to a mutable DOS tree."""
+    def record(path, contents):
+        if not any(item[0] == path for item in installed_files):
+            installed_files.append((path, contents))
+
+    for archive_name, archive_contents, records in packages:
+        archive_path = ("ARCHIVE", archive_name)
+        upsert_tree_file(tree, archive_path, archive_contents, 0x20)
+        record(archive_path, archive_contents)
+        for path, contents in records:
+            attributes = 0x27 if path == ("SYS", "SCHD.SYS") else 0x20
+            upsert_tree_file(tree, path, contents, attributes)
+            record(path, contents)
 
 
 def parse_legacy_cpm_raw(raw: bytes, module) -> dict[str, bytes]:
@@ -633,7 +747,13 @@ def build(source: Path, output: Path, variant: str,
           cpm_archive: Path | None = None,
           cpm_tools_d88: Path | None = None,
           cpm_source_d88: Path | None = None,
-          cpm_dev_d88: Path | None = None) -> dict[str, object]:
+          cpm_dev_d88: Path | None = None,
+          mo_schd_archive: Path | None = None,
+          mo_schd_tree: Path | None = None,
+          mo_va128mo_archive: Path | None = None,
+          mo_va128mo_tree: Path | None = None,
+          mo_stest_archive: Path | None = None,
+          mo_stest_tree: Path | None = None) -> dict[str, object]:
     module = load_pcengine_module()
     if (lsic_archive is None) != (lsic_tree is None):
         raise BuildError("--lsic-archive and --lsic-tree must be supplied together")
@@ -644,6 +764,15 @@ def build(source: Path, output: Path, variant: str,
     if cpm_archive is not None and (cpm_tools_d88 is None or cpm_source_d88 is None):
         raise BuildError(
             "--cpm-archive requires --cpm-tools-d88 and --cpm-source-d88")
+    mo_inputs = (
+        ("schd", mo_schd_archive, mo_schd_tree),
+        ("va128mo", mo_va128mo_archive, mo_va128mo_tree),
+        ("stest", mo_stest_archive, mo_stest_tree),
+    )
+    for name, archive, tree in mo_inputs:
+        if (archive is None) != (tree is None):
+            raise BuildError(
+                f"--mo-{name}-archive and --mo-{name}-tree must be supplied together")
     lsic_contents = None
     lsic_records = []
     if lsic_archive is not None and lsic_tree is not None:
@@ -667,6 +796,14 @@ def build(source: Path, output: Path, variant: str,
             cpm_disk_inputs.append(("DEV", cpm_dev_d88))
         for label, path in cpm_disk_inputs:
             cpm_records.extend(collect_cpm_disk(path, label, cpm_module))
+    mo_packages = []
+    for name, archive, tree in mo_inputs:
+        if archive is None:
+            continue
+        archive_contents, records = collect_mo_package(
+            archive, tree, module, name)
+        mo_packages.append((MO_PACKAGE_SPECS[name]["archive_name"],
+                            archive_contents, records))
     try:
         # Some preserved 1.05 disks have the same system files at different
         # cluster numbers after later files were added.  Identify the release
@@ -770,6 +907,7 @@ def build(source: Path, output: Path, variant: str,
                 add_tree_file(payload_tree, install_path, contents, 0x20)
                 installed_files.append((install_path, contents))
         add_cpm_to_tree(payload_tree, cpm_records, installed_files)
+        install_mo_packages(payload_tree, mo_packages, installed_files)
         for key in sorted(payload_tree["directories"]):
             descriptor = payload_tree["directories"][key]
             builder.add_directory_tree(descriptor["name"], descriptor["tree"])
@@ -778,7 +916,7 @@ def build(source: Path, output: Path, variant: str,
             [(path[-1], contents, 0x20) for path, contents in executables
              if path[-1].upper() != "PCENGINE.COM"],
             key=lambda item: item[0].upper())
-        if lsic_contents is None and not cpm_records:
+        if lsic_contents is None and not cpm_records and not mo_packages:
             builder.add_directory("BIN", records)
             installed_files.extend(
                 (("BIN", name), contents) for name, contents, _ in records)
@@ -796,6 +934,7 @@ def build(source: Path, output: Path, variant: str,
                     add_tree_file(tree, install_path, contents, 0x20)
                     installed_files.append((install_path, contents))
             add_cpm_to_tree(tree, cpm_records, installed_files)
+            install_mo_packages(tree, mo_packages, installed_files)
             for key in sorted(tree["directories"]):
                 descriptor = tree["directories"][key]
                 builder.add_directory_tree(descriptor["name"], descriptor["tree"])
@@ -876,6 +1015,18 @@ def main(argv=None) -> int:
                         help="CP/M source/documentation D88 to install under CPM\\SOURCE")
     parser.add_argument("--cpm-dev-d88", type=Path,
                         help="CP/M development D88 to install under CPM\\DEV")
+    parser.add_argument("--mo-schd-archive", type=Path,
+                        help="verified SCHD155T.LZH archive")
+    parser.add_argument("--mo-schd-tree", type=Path,
+                        help="tree extracted from SCHD155T.LZH")
+    parser.add_argument("--mo-va128mo-archive", type=Path,
+                        help="verified VA128MO.LZH archive")
+    parser.add_argument("--mo-va128mo-tree", type=Path,
+                        help="tree extracted from VA128MO.LZH")
+    parser.add_argument("--mo-stest-archive", type=Path,
+                        help="verified STEST115.LZH archive")
+    parser.add_argument("--mo-stest-tree", type=Path,
+                        help="tree extracted from STEST115.LZH")
     parser.add_argument("--output", required=True, type=Path,
                         help="new 40 MB SASI HDI path (must not already exist)")
     args = parser.parse_args(argv)
@@ -887,6 +1038,12 @@ def main(argv=None) -> int:
     cpm_tools_d88 = args.cpm_tools_d88.resolve() if args.cpm_tools_d88 else None
     cpm_source_d88 = args.cpm_source_d88.resolve() if args.cpm_source_d88 else None
     cpm_dev_d88 = args.cpm_dev_d88.resolve() if args.cpm_dev_d88 else None
+    mo_paths = {}
+    for name in ("schd", "va128mo", "stest"):
+        archive = getattr(args, f"mo_{name}_archive")
+        tree = getattr(args, f"mo_{name}_tree")
+        mo_paths[name] = (archive.resolve() if archive else None,
+                          tree.resolve() if tree else None)
     output = args.output.resolve()
     if not source.is_file():
         parser.error(f"source D88 not found: {source}")
@@ -911,10 +1068,21 @@ def main(argv=None) -> int:
                         ("CP/M development D88", cpm_dev_d88)):
         if path is not None and not path.is_file():
             parser.error(f"{label} not found: {path}")
+    for name, (archive, tree) in mo_paths.items():
+        if (archive is None) != (tree is None):
+            parser.error(
+                f"--mo-{name}-archive and --mo-{name}-tree must be supplied together")
+        if archive is not None and not archive.is_file():
+            parser.error(f"MO {name} archive not found: {archive}")
+        if tree is not None and not tree.is_dir():
+            parser.error(f"MO {name} extracted tree not found: {tree}")
     try:
         result = build(source, output, args.variant, payload_d88,
                        lsic_archive, lsic_tree, cpm_archive,
-                       cpm_tools_d88, cpm_source_d88, cpm_dev_d88)
+                       cpm_tools_d88, cpm_source_d88, cpm_dev_d88,
+                       mo_paths["schd"][0], mo_paths["schd"][1],
+                       mo_paths["va128mo"][0], mo_paths["va128mo"][1],
+                       mo_paths["stest"][0], mo_paths["stest"][1])
     except (BuildError, OSError) as error:
         parser.exit(1, f"error: {error}\n")
     print("Created boot-layout 40 MB SASI development disk")

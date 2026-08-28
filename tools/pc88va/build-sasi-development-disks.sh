@@ -34,6 +34,10 @@ payload_d88=$repo_root/docs/disks/pc88va-development.d88
 output_dir=/private/tmp
 lsic_archive=${VAEG_LSIC_ARCHIVE:-${VAEG_PC88VA_SOFTLIB_CACHE:-${XDG_CACHE_HOME:-${HOME}/.cache}/vaeg/pc88va-softlib-archive-disk}/LSIC330C.LZH}
 cpm_archive=${VAEG_CPM_EXECUTOR_ARCHIVE:-${VAEG_PC88VA_SOFTLIB_CACHE:-${XDG_CACHE_HOME:-${HOME}/.cache}/vaeg/cpm08}/cpm08.zip}
+mo_cache=${VAEG_PC88VA_MO_CACHE:-${XDG_CACHE_HOME:-${HOME}/.cache}/vaeg/pc88va-development-disk}
+mo_schd_archive=${VAEG_MO_SCHD_ARCHIVE:-$mo_cache/schd155t.lzh}
+mo_va128mo_archive=${VAEG_MO_VA128MO_ARCHIVE:-$mo_cache/va128mo.lzh}
+mo_stest_archive=${VAEG_MO_STEST_ARCHIVE:-$mo_cache/stest115.lzh}
 cpm_tools_d88=${VAEG_CPM_TOOLS_D88:-${HOME}/88VA/images/cpm/cpmva-tools.d88}
 cpm_source_d88=${VAEG_CPM_SOURCE_D88:-${HOME}/88VA/images/cpm/cpmva-source.d88}
 cpm_dev_d88=${VAEG_CPM_DEV_D88:-${HOME}/88VA/images/cpm/cpmva-dev.d88}
@@ -51,6 +55,8 @@ usage() {
 	cat <<EOF
 Usage: $program_name [--source-va PATH] [--source-va2 PATH]
        [--payload-d88 PATH] [--lsic-archive PATH] [--cpm-archive PATH]
+       [--mo-schd-archive PATH] [--mo-va128mo-archive PATH]
+       [--mo-stest-archive PATH]
        [--cpm-tools-d88 PATH] [--cpm-source-d88 PATH] [--cpm-dev-d88 PATH]
        [--output-dir DIR]
 
@@ -71,6 +77,10 @@ The archive defaults to the verified softlib cache; use --lsic-archive to
 select another copy.  The CP/M emulator defaults to the verified cpm08.zip
 cache, and the three preserved CP/M data disks default to ~/88VA/images/cpm;
 use the CP/M options to select other copies.
+The SCHD155T, VA128MO, and STEST115 archives default to the verified
+pc88va-development-disk cache; use the --mo-* options or VAEG_MO_*_ARCHIVE
+variables to select explicit copies.  The archives are retained under
+A:\\ARCHIVE and their documented files are installed under BIN, DOC, and SYS.
 Generated images are never overwritten.
 EOF
 }
@@ -100,6 +110,21 @@ while (($#)); do
 	--lsic-archive)
 		(($# >= 2)) || die '--lsic-archive requires a path'
 		lsic_archive=$2
+		shift 2
+		;;
+	--mo-schd-archive)
+		(($# >= 2)) || die '--mo-schd-archive requires a path'
+		mo_schd_archive=$2
+		shift 2
+		;;
+	--mo-va128mo-archive)
+		(($# >= 2)) || die '--mo-va128mo-archive requires a path'
+		mo_va128mo_archive=$2
+		shift 2
+		;;
+	--mo-stest-archive)
+		(($# >= 2)) || die '--mo-stest-archive requires a path'
+		mo_stest_archive=$2
 		shift 2
 		;;
 	--cpm-archive)
@@ -145,6 +170,12 @@ done
 	die "LSI-C archive is not readable: $lsic_archive (use --lsic-archive)"
 [[ -f $cpm_archive && -r $cpm_archive ]] ||
 	die "CP/M emulator archive is not readable: $cpm_archive (use --cpm-archive)"
+[[ -f $mo_schd_archive && -r $mo_schd_archive ]] ||
+	die "SCHD155T archive is not readable: $mo_schd_archive (use --mo-schd-archive)"
+[[ -f $mo_va128mo_archive && -r $mo_va128mo_archive ]] ||
+	die "VA128MO archive is not readable: $mo_va128mo_archive (use --mo-va128mo-archive)"
+[[ -f $mo_stest_archive && -r $mo_stest_archive ]] ||
+	die "STEST115 archive is not readable: $mo_stest_archive (use --mo-stest-archive)"
 [[ -f $cpm_tools_d88 && -r $cpm_tools_d88 ]] ||
 	die "CP/M tools D88 is not readable: $cpm_tools_d88 (use --cpm-tools-d88)"
 [[ -f $cpm_source_d88 && -r $cpm_source_d88 ]] ||
@@ -158,16 +189,29 @@ work_dir=$(mktemp -d "${TMPDIR:-/tmp}/vaeg-pc88va-sasi.XXXXXX")
 lsic_tree=$work_dir/lsic
 mkdir -p -- "$lsic_tree"
 lha xfw="$lsic_tree" "$lsic_archive" >/dev/null
+mo_schd_tree=$work_dir/mo-schd
+mo_va128mo_tree=$work_dir/mo-va128mo
+mo_stest_tree=$work_dir/mo-stest
+mkdir -p -- "$mo_schd_tree" "$mo_va128mo_tree" "$mo_stest_tree"
+lha xfw="$mo_schd_tree" "$mo_schd_archive" >/dev/null
+lha xfw="$mo_va128mo_tree" "$mo_va128mo_archive" >/dev/null
+lha xfw="$mo_stest_tree" "$mo_stest_archive" >/dev/null
 
 python3 "$builder" --variant va --source "$source_va" \
 	--payload-d88 "$payload_d88" \
 	--lsic-archive "$lsic_archive" --lsic-tree "$lsic_tree" \
+	--mo-schd-archive "$mo_schd_archive" --mo-schd-tree "$mo_schd_tree" \
+	--mo-va128mo-archive "$mo_va128mo_archive" --mo-va128mo-tree "$mo_va128mo_tree" \
+	--mo-stest-archive "$mo_stest_archive" --mo-stest-tree "$mo_stest_tree" \
 	--cpm-archive "$cpm_archive" --cpm-tools-d88 "$cpm_tools_d88" \
 	--cpm-source-d88 "$cpm_source_d88" --cpm-dev-d88 "$cpm_dev_d88" \
 	--output "$output_dir/pc88va-sasi-40mb-va.hdi"
 python3 "$builder" --variant va2 --source "$source_va2" \
 	--payload-d88 "$payload_d88" \
 	--lsic-archive "$lsic_archive" --lsic-tree "$lsic_tree" \
+	--mo-schd-archive "$mo_schd_archive" --mo-schd-tree "$mo_schd_tree" \
+	--mo-va128mo-archive "$mo_va128mo_archive" --mo-va128mo-tree "$mo_va128mo_tree" \
+	--mo-stest-archive "$mo_stest_archive" --mo-stest-tree "$mo_stest_tree" \
 	--cpm-archive "$cpm_archive" --cpm-tools-d88 "$cpm_tools_d88" \
 	--cpm-source-d88 "$cpm_source_d88" --cpm-dev-d88 "$cpm_dev_d88" \
 	--output "$output_dir/pc88va-sasi-40mb-va2.hdi"
