@@ -131,8 +131,9 @@ Info-ZIP packages install ZIP and UNZIP with their manuals.  EMACSVA, CPMVA,
 The SASI-only 2HCDRSRC/2HCDRV, PCPATSRC, TSCLVSRC, S88VALSI, and S88VA250
 source/library packages are retained verbatim under A:\\ARCHIVE without
 expansion.  The runnable 2HCDRV.COM and FDFORM.COM tools are installed in
-A:\\BIN, and 2HCDRV.COM is loaded by the generated CONFIG.SYS; these source
-packages are not added to FDD.
+A:\\BIN, but 2HCDRV.COM is not loaded by the generated CONFIG.SYS because its
+resident startup path can reset VAEG; these source packages are not added to
+FDD.
 The Vector UNIX-like tools 4.12h package is staged below A:\\UNIX\\BIN with
 its manuals and source documentation below A:\\UNIX\\MAN and A:\\UNIX\\DOC;
 the original TGZ is retained under A:\\ARCHIVE.  Its path is added after
@@ -499,7 +500,6 @@ python3 "$builder" --variant va --source "$source_va" \
 	--mo-stest-archive "$mo_stest_archive" --mo-stest-tree "$mo_stest_tree" \
 	--cpm-archive "$cpm_archive" --cpm-tools-d88 "$cpm_tools_d88" \
 	--cpm-source-d88 "$cpm_source_d88" --cpm-dev-d88 "$cpm_dev_d88" \
-	--enable-2hc \
 	--supplemental-tree "$supplemental_tree" \
 	--supplemental-manifest "$supplemental_manifest" \
 	--output "$output_dir/pc88va-sasi-40mb-va.hdi"
@@ -512,7 +512,6 @@ python3 "$builder" --variant va2 --source "$source_va2" \
 	--mo-stest-archive "$mo_stest_archive" --mo-stest-tree "$mo_stest_tree" \
 	--cpm-archive "$cpm_archive" --cpm-tools-d88 "$cpm_tools_d88" \
 	--cpm-source-d88 "$cpm_source_d88" --cpm-dev-d88 "$cpm_dev_d88" \
-	--enable-2hc \
 	--supplemental-tree "$supplemental_tree" \
 	--supplemental-manifest "$supplemental_manifest" \
 	--output "$output_dir/pc88va-sasi-40mb-va2.hdi"

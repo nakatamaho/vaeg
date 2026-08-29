@@ -914,9 +914,10 @@ archives as `2HCDRSRC.LZH`, `2HCDRV.ZIP`, `PCPATSRC.ZIP`, `TSCLVSRC.LZH`,
 `S88VALSI.LZH`, and `S88VA250.LZH` under `A:\ARCHIVE` without expansion.
 The separate package notes and the 2HCDRV/FDFORM documentation are in
 `A:\DOC`; the runnable `2HCDRV.COM` and `FDFORM.COM` are installed in
-`A:\BIN`, and the generated `CONFIG.SYS` loads `A:\BIN\2HCDRV.COM` before
-MSE.  These source/library archives are intentionally not passed to the full
-FDD profile.
+`A:\BIN`.  `2HCDRV.COM` is not loaded by the generated `CONFIG.SYS` because
+its resident startup path can reset VAEG; it remains available for explicit
+manual testing.  These source/library archives are intentionally not passed
+to the full FDD profile.
 
 The SASI image also uses the maintained STEST 1.15 package from the
 [OSL driver archive](https://www2u.biglobe.ne.jp/~pumpkin/hlabo/osl/driver/STEST115.LZH)
