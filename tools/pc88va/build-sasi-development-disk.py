@@ -21,6 +21,12 @@ installed under ``\\CPM\\BIN``, ``\\CPM\\TOOLS``,
 ``\\CPM\\SOURCE``, and ``\\CPM\\DEV`` and the emulator directory is added to
 ``PATH``.
 
+The optional ``--supplemental-tree`` is the normalized output of
+``stage-development-tools.sh``.  Its files are merged into the image and an
+optional ``--supplemental-manifest`` is checked before allocation.  The full
+SASI profile includes the UNIX-like tools below ``\\UNIX`` and appends that
+directory to ``PATH``.
+
 The optional PC-88VA SCSI/MO support packages from PC88.gr.jp can be supplied
 with the ``--mo-*`` options.  SCHD 1.55T is installed under ``\\SYS`` and its
 manuals under ``\\DOC``; the VA128MO and STEST manuals are kept with the
@@ -130,6 +136,15 @@ CONFIG_LINES = (
     r"DEVICE = A:\SYS\RDEMS.SYS -P128 -A",
     r"DEVICE = A:\SYS\RDPCM.SYS",
 )
+
+
+def config_lines(two_hc_enabled: bool = False) -> tuple[str, ...]:
+    """Return the generated VA load order, optionally installing 2HCDRV."""
+    lines = list(CONFIG_LINES)
+    if two_hc_enabled:
+        index = lines.index(r"DEVICE = A:\SYS\MSE352B.COM /A /B")
+        lines.insert(index, r"DEVICE = A:\BIN\2HCDRV.COM")
+    return tuple(lines)
 AUTOEXEC_LINES = (
     r"PATH A:\BIN",
     r"SET TEEN=A:\BIN\TEEN.DEF",
@@ -144,12 +159,15 @@ LSIC_AUTOEXEC_LINES = (
 )
 
 
-def autoexec_lines(lsic_enabled: bool, cpm_enabled: bool) -> tuple[str, ...]:
+def autoexec_lines(lsic_enabled: bool, cpm_enabled: bool,
+                   unix_tools_enabled: bool) -> tuple[str, ...]:
     path_entries = [r"A:\BIN"]
     if lsic_enabled:
         path_entries.append(r"A:\LSIC86\BIN")
     if cpm_enabled:
         path_entries.append(r"A:\CPM\BIN")
+    if unix_tools_enabled:
+        path_entries.append(r"A:\UNIX\BIN")
     lines = ["PATH " + ";".join(path_entries)]
     if lsic_enabled:
         lines.extend(LSIC_AUTOEXEC_LINES[1:])
@@ -214,11 +232,18 @@ def d88_file(disk, components: list[str], module) -> bytes:
     raise BuildError("D88 path does not name a file")
 
 
+def sorted_directory_entries(directory, module):
+    """Return active DOS directory entries in deterministic name order."""
+    return sorted(
+        module.iter_entries(directory),
+        key=lambda item: (module.display_name(item[1][:11]).upper(), item[0]))
+
+
 def collect_executables(disk, module, directory=None, prefix=()):
     if directory is None:
         directory = disk.root
     files = []
-    for _, entry in module.iter_entries(directory):
+    for _, entry in sorted_directory_entries(directory, module):
         raw_name = entry[:11]
         if entry[11] & 0x08:
             continue
@@ -250,7 +275,7 @@ def collect_payload_files(disk, module, directory=None, prefix=()):
         directory = disk.root
     files = []
     directories = []
-    for _, entry in module.iter_entries(directory):
+    for _, entry in sorted_directory_entries(directory, module):
         if entry[11] & 0x08:
             continue
         name = module.display_name(entry[:11])
@@ -354,6 +379,21 @@ def upsert_tree_file(tree: dict[str, object], path: tuple[str, ...],
     files.append((filename, contents, attributes))
 
 
+def replace_tree_file(tree: dict[str, object], path: tuple[str, ...],
+                      contents: bytes, attributes: int) -> None:
+    """Install an authoritative staged file, replacing an older copy."""
+    if len(path) < 2:
+        raise BuildError("directory tree file must have a parent directory")
+    node = ensure_directory(tree, path[:-1])
+    files = node["files"]
+    filename = path[-1]
+    for index, item in enumerate(files):
+        if item[0].upper() == filename.upper():
+            files[index] = (item[0], contents, attributes)
+            return
+    files.append((filename, contents, attributes))
+
+
 def collect_host_tree(root: Path, module) -> list[tuple[tuple[str, ...], bytes]]:
     """Collect a checked, relative tree extracted from a host archive."""
     if not root.is_dir():
@@ -378,6 +418,58 @@ def collect_host_tree(root: Path, module) -> list[tuple[tuple[str, ...], bytes]]
     return records
 
 
+def validate_stage_manifest(manifest: Path, records: list[tuple[tuple[str, ...], bytes]],
+                            profile: str) -> None:
+    """Verify that a normalized staging tree matches its producer manifest."""
+    try:
+        lines = manifest.read_text(encoding="utf-8").splitlines()
+    except (OSError, UnicodeError) as error:
+        raise BuildError(f"cannot read staging manifest: {manifest}") from error
+    expected = {}
+    for line_number, line in enumerate(lines, 1):
+        if not line or line.startswith("#"):
+            continue
+        fields = line.split("\t")
+        if len(fields) != 4:
+            raise BuildError(
+                f"invalid staging manifest line {line_number}: {manifest}")
+        observed_profile, relative, digest, size_text = fields
+        if observed_profile != profile:
+            raise BuildError(
+                f"staging manifest profile mismatch on line {line_number}: "
+                f"expected {profile}, got {observed_profile}")
+        try:
+            size = int(size_text, 10)
+        except ValueError as error:
+            raise BuildError(
+                f"invalid staging manifest size on line {line_number}: {manifest}") from error
+        if not relative or relative.upper() in expected:
+            raise BuildError(
+                f"duplicate staging manifest path on line {line_number}: {relative}")
+        if len(digest) != 64 or any(character not in "0123456789abcdef" for character in digest.lower()):
+            raise BuildError(
+                f"invalid staging manifest SHA-256 on line {line_number}: {relative}")
+        expected[relative.upper()] = (digest.lower(), size)
+    actual = {}
+    for path, contents in records:
+        relative = "/".join(path).upper()
+        actual[relative] = (hashlib.sha256(contents).hexdigest(), len(contents))
+    if expected != actual:
+        missing = sorted(set(expected) - set(actual))
+        extra = sorted(set(actual) - set(expected))
+        changed = sorted(path for path in set(expected) & set(actual)
+                         if expected[path] != actual[path])
+        details = []
+        if missing:
+            details.append("missing=" + ",".join(missing[:4]))
+        if extra:
+            details.append("extra=" + ",".join(extra[:4]))
+        if changed:
+            details.append("changed=" + ",".join(changed[:4]))
+        raise BuildError("staging manifest does not match tree (" +
+                         "; ".join(details) + ")")
+
+
 MO_PACKAGE_SPECS = {
     "schd": {
         "archive_name": "SCHD155T.LZH",
@@ -396,7 +488,7 @@ MO_PACKAGE_SPECS = {
     },
     "stest": {
         "archive_name": "STEST115.LZH",
-        "sha256": "0410326b8c570ccc87e532cc2dd5c4076d34f2ad3fe5ca52dc32bdf4d43e20c2",
+        "sha256": "6ae981b0010df20a510f85165567add33032241854b147ed47937a59953010bc",
         "files": {
             "STEST.EXE": ("BIN",),
             "STESTX.COM": ("BIN",),
@@ -627,6 +719,34 @@ def add_cpm_to_tree(tree: dict[str, object], records, installed_files) -> None:
         installed_files.append((path, contents))
 
 
+def add_host_tree(tree: dict[str, object], root: Path, module,
+                  installed_files, manifest: Path | None = None,
+                  profile: str = "sasi") -> None:
+    """Merge a pre-staged DOS tree into the generated image.
+
+    Package staging is deliberately kept outside the filesystem allocator.  A
+    caller can combine files extracted by the host's archive tools and the
+    allocator will still apply the same path validation as files transplanted
+    from a source D88.  The staging manifest is authoritative for its named
+    package paths, so an older payload copy is replaced rather than creating
+    a duplicate DOS directory entry.
+    """
+    records = collect_host_tree(root, module)
+    if manifest is not None:
+        validate_stage_manifest(manifest, records, profile)
+    for path, contents in records:
+        if len(path) < 2:
+            raise BuildError("supplemental tree file must have a directory: " +
+                             "/".join(path))
+        replace_tree_file(tree, path, contents, 0x20)
+        for index, item in enumerate(installed_files):
+            if item[0] == path:
+                installed_files[index] = (path, contents)
+                break
+        else:
+            installed_files.append((path, contents))
+
+
 def fat_now() -> tuple[int, int]:
     now = datetime.now()
     year = min(max(now.year, 1980), 2107)
@@ -733,7 +853,8 @@ class HdiBuilder:
         directory[32:64] = make_entry(
             self.module.special_directory_name(".."), 0x10,
             parent_cluster, 0)
-        for path_name, contents, attributes in files:
+        for path_name, contents, attributes in sorted(
+                files, key=lambda item: item[0].upper()):
             slot = self.directory_slot(directory, path_name)
             first = self.allocate(contents)
             directory[slot:slot + 32] = make_entry(
@@ -806,8 +927,13 @@ def build(source: Path, output: Path, variant: str,
           mo_va128mo_tree: Path | None = None,
           mo_stest_archive: Path | None = None,
           mo_stest_tree: Path | None = None,
-          jwasm_archive: Path | None = None) -> dict[str, object]:
+          jwasm_archive: Path | None = None,
+          supplemental_tree: Path | None = None,
+          supplemental_manifest: Path | None = None,
+          two_hc_enabled: bool = False) -> dict[str, object]:
     module = load_pcengine_module()
+    if supplemental_manifest is not None and supplemental_tree is None:
+        raise BuildError("--supplemental-manifest requires --supplemental-tree")
     if (lsic_archive is None) != (lsic_tree is None):
         raise BuildError("--lsic-archive and --lsic-tree must be supplied together")
     cpm_disks = (cpm_tools_d88, cpm_source_d88, cpm_dev_d88)
@@ -916,10 +1042,12 @@ def build(source: Path, output: Path, variant: str,
     for name in SYSTEM_FILES:
         builder.add_root(name, SYSTEM_ATTRIBUTES[name],
                          d88_file(source_disk, [name], module))
-    builder.add_root("CONFIG.SYS", 0x20, text_file(CONFIG_LINES))
+    builder.add_root("CONFIG.SYS", 0x20,
+                     text_file(config_lines(two_hc_enabled)))
     builder.add_root("AUTOEXEC.BAT", 0x20,
                      text_file(autoexec_lines(lsic_contents is not None,
-                                              cpm_archive is not None)))
+                                               cpm_archive is not None,
+                                               supplemental_tree is not None)))
 
     installed_files = []
     if payload_d88 is not None:
@@ -982,6 +1110,9 @@ def build(source: Path, output: Path, variant: str,
             for path, contents in jwasm_records:
                 add_tree_file(payload_tree, path, contents, 0x20)
                 installed_files.append((path, contents))
+        if supplemental_tree is not None:
+            add_host_tree(payload_tree, supplemental_tree, module,
+                          installed_files, supplemental_manifest)
         for key in sorted(payload_tree["directories"]):
             descriptor = payload_tree["directories"][key]
             builder.add_directory_tree(descriptor["name"], descriptor["tree"])
@@ -1018,6 +1149,9 @@ def build(source: Path, output: Path, variant: str,
                 for path, contents in jwasm_records:
                     add_tree_file(tree, path, contents, 0x20)
                     installed_files.append((path, contents))
+            if supplemental_tree is not None:
+                add_host_tree(tree, supplemental_tree, module, installed_files,
+                              supplemental_manifest)
             for key in sorted(tree["directories"]):
                 descriptor = tree["directories"][key]
                 builder.add_directory_tree(descriptor["name"], descriptor["tree"])
@@ -1062,6 +1196,10 @@ def build(source: Path, output: Path, variant: str,
             "dev": str(cpm_dev_d88) if cpm_dev_d88 is not None else None,
         },
         "jwasm_archive": str(jwasm_archive) if jwasm_archive is not None else None,
+        "supplemental_tree": (str(supplemental_tree)
+                              if supplemental_tree is not None else None),
+        "supplemental_manifest": (str(supplemental_manifest)
+                                   if supplemental_manifest is not None else None),
         "installed_files": [
             {"source": "/".join(path), "name": path[-1].upper(),
              "bytes": len(contents),
@@ -1113,6 +1251,12 @@ def main(argv=None) -> int:
                         help="tree extracted from STEST115.LZH")
     parser.add_argument("--jwasm-archive", type=Path,
                         help="verified JWasm DOS package (JWasm_v220_dos.zip)")
+    parser.add_argument("--supplemental-tree", type=Path,
+                        help="pre-staged DOS tree to merge into the HDI")
+    parser.add_argument("--supplemental-manifest", type=Path,
+                        help="manifest produced for the supplemental tree")
+    parser.add_argument("--enable-2hc", action="store_true",
+                        help="load the SASI-only 2HCDRV.COM device in CONFIG.SYS")
     parser.add_argument("--output", required=True, type=Path,
                         help="new 40 MB SASI HDI path (must not already exist)")
     args = parser.parse_args(argv)
@@ -1131,6 +1275,10 @@ def main(argv=None) -> int:
         mo_paths[name] = (archive.resolve() if archive else None,
                           tree.resolve() if tree else None)
     jwasm_archive = args.jwasm_archive.resolve() if args.jwasm_archive else None
+    supplemental_tree = (args.supplemental_tree.resolve()
+                         if args.supplemental_tree else None)
+    supplemental_manifest = (args.supplemental_manifest.resolve()
+                             if args.supplemental_manifest else None)
     output = args.output.resolve()
     if not source.is_file():
         parser.error(f"source D88 not found: {source}")
@@ -1165,6 +1313,10 @@ def main(argv=None) -> int:
             parser.error(f"MO {name} extracted tree not found: {tree}")
     if jwasm_archive is not None and not jwasm_archive.is_file():
         parser.error(f"JWasm archive not found: {jwasm_archive}")
+    if supplemental_tree is not None and not supplemental_tree.is_dir():
+        parser.error(f"supplemental tree not found: {supplemental_tree}")
+    if supplemental_manifest is not None and not supplemental_manifest.is_file():
+        parser.error(f"supplemental manifest not found: {supplemental_manifest}")
     try:
         result = build(source, output, args.variant, payload_d88,
                        lsic_archive, lsic_tree, cpm_archive,
@@ -1172,7 +1324,8 @@ def main(argv=None) -> int:
                        mo_paths["schd"][0], mo_paths["schd"][1],
                        mo_paths["va128mo"][0], mo_paths["va128mo"][1],
                        mo_paths["stest"][0], mo_paths["stest"][1],
-                       jwasm_archive)
+                       jwasm_archive, supplemental_tree, supplemental_manifest,
+                       args.enable_2hc)
     except (BuildError, OSError) as error:
         parser.exit(1, f"error: {error}\n")
     print("Created boot-layout 40 MB SASI development disk")

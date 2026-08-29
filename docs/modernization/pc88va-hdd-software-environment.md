@@ -376,12 +376,11 @@ count, not a megabyte count. The `00ECH` PC-9801-compatible port and smaller
 capacities remain selectable. Explicit values in an existing `vaeg.cfg`,
 including an off setting, are preserved rather than migrated.
 
-When BMS is enabled, VAEG binds both `01D0H` and `00ECH` to the same bank
-selector. `01D0H` remains the native and default configuration choice, while
-the `00ECH` alias lets fixed PC-9801-compatible BMS software probe the same
-physical bank memory without changing the development disk's driver. The
-persisted `BMS_Port` value remains the preferred port shown by the
-configuration UI.
+When BMS is enabled, VAEG binds only the explicitly selected port. `01D0H`
+remains the native and default configuration choice; selecting `00ECH` is the
+explicit PC-9801-compatible mode. This keeps the menu selection authoritative
+and avoids exposing an unintended second device address. The persisted
+`BMS_Port` value remains the selected port shown by the configuration UI.
 
 ## EMS Board, EMMVA, and RDEMS
 
@@ -588,21 +587,25 @@ The complete build performs these operations:
    `BMSDRVA.SYS`, the updated TSCLVA Rev.51127 files, and the PC-88VA
    K-Launcher files `KLL.COM`, `KLVA.EXE`, and `KLCUST.EXE`.
 5. Assemble and validate the repository's clean-room `HOSTFAT.SYS` with NASM.
-6. Extract the ISHARC self-extracting package and the TFD archive, then stage
+6. Run `tools/pc88va/stage-development-tools.sh` to create the normalized
+   common-tool tree and its SHA-256 manifest.  The FDD builder selects the
+   compact profile from that tree; the SASI builder selects the full profile.
+   Both backends therefore use the same extraction and destination rules.
+7. Extract the ISHARC self-extracting package and the TFD archive, then stage
    their tools, driver, and documentation. TENIM3 remains as its intact
    self-extracting archive because its expanded sample assets do not fit in
    the fixed FAT12 development disk.
-7. Assemble and link `VIEW480.ASM` from `V480SRC.LZH` with the pinned
+8. Assemble and link `VIEW480.ASM` from `V480SRC.LZH` with the pinned
    Open Watcom image, then install the resulting `VIEW480.COM`.
-8. Build and validate `SQEMM98.SYS` from pinned source with Open Watcom, then
+9. Build and validate `SQEMM98.SYS` from pinned source with Open Watcom, then
    install the complete EMMVA/SQEMM98/RDEMS driver stack.
-9. Verify the generated files against known public-package checksums.
-10. Extract the RAMDISK self-extracting archive and stage its driver, helper
+10. Verify the generated files against known public-package checksums.
+11. Extract the RAMDISK self-extracting archive and stage its driver, helper
    commands, and documentation separately.
-11. Run every `.EXE` and `.COM` under `BIN` through DIET 1.44. COM files retain
+12. Run every `.EXE` and `.COM` under `BIN` through DIET 1.44. COM files retain
    their COM form; files for which DIET cannot reduce byte size remain
    unchanged.
-12. Add the `SYS` drivers, compressed `BIN` utilities, source archives,
+13. Add the `SYS` drivers, compressed `BIN` utilities, source archives,
     documentation, and an empty `TMP` directory to the vanilla FAT12
     filesystem.
 
@@ -837,9 +840,10 @@ The resulting `RDBMS.SYS` SHA-256 is
 `8a4e09f9f2b1b1363a3d07a1edeb36ae744665324a7de9a1c628e6480a5f0289`.
 The archived `rdbms121.lzh` remains byte-for-byte original, and the explicit
 `-P1D0` remains in `CONFIG.SYS` for models that do pass parameters.
-When BMS is enabled, VAEG also exposes the fixed driver's `00ECH` probe as an
-alias of the native `01D0H` selector; both addresses therefore operate on the
-same bank state while the persisted default remains `BMS_Port=01d0`.
+VAEG binds only the selected BMS port, so software using the fixed driver's
+compiled `00ECH` default must select `BMS_Port=00ec`; native-VA software uses
+the default `BMS_Port=01d0`. The development disk and its BMS driver remain
+unchanged.
 The EMMVA adapter pair encloses the Open Watcom-built SQEMM98 manager. RDEMS
 loads after TSCLVA and allocates a 128-page (2MB) EMS RAM disk. The BMS VA
 device driver is resident, while its COM form remains available for management.
@@ -879,13 +883,48 @@ For a hard-disk development environment, use
 It creates two separate 40 MB SASI HDIs with the same development payload:
 the VA image keeps the PC-Engine 1.05 boot files, and the VA2 image keeps the
 PC-Engine 1.1 boot files. The source D88 images are read-only inputs and are
-never modified. The payload D88 should be a complete image produced by
-`build-development-disk.sh`; its `ARCHIVE`, `BIN`, `DOC`, `SYS`, and `TMP`
-directories are transplanted into both HDIs. The SASI builder deliberately
-regenerates `CONFIG.SYS` and `AUTOEXEC.BAT` so the documented VA load order is
-identical on both variants.
+never modified. The payload D88 is transplanted with its `ARCHIVE`, `BIN`,
+`DOC`, `SYS`, and `TMP` directories into both HDIs. The SASI wrapper also
+stages the verified LSI-C, ISH/PKPAK, 16-bit Info-ZIP, EMACSVA, CPMVA, TDC,
+and BENCH packages, so an older payload D88 cannot silently omit those tools.
+The SASI builder deliberately regenerates `CONFIG.SYS` and `AUTOEXEC.BAT` so
+the documented VA load order is identical on both variants.
 COM/EXE utilities found on each matching PC-Engine source D88 are also added
 to that variant's `A:\BIN`; the boot `PCENGINE.COM` remains at the root.
+The package extraction is shared with the FDD builder through
+[`tools/pc88va/stage-development-tools.sh`](../../tools/pc88va/stage-development-tools.sh).
+It emits a normalized tree plus an optional tab-separated manifest containing
+the selected profile, relative 8.3 path, SHA-256, and byte count.  The SASI
+injector validates that manifest before merging the tree, while the FDD
+injector verifies every compact-profile source path before copying it.  The
+FDD profile intentionally omits the full Info-ZIP and UNIX-like collection
+because the fixed FAT12 medium cannot hold it and because those commands
+overlap historical `BIN` names.  The SASI profile includes the complete
+Vector UNIX-like tools 4.12h package under `A:\UNIX\BIN`, manuals under
+`A:\UNIX\MAN` and `A:\UNIX\DOC`, and the original `UXTL412H.TGZ` under
+`A:\ARCHIVE`; `AUTOEXEC.BAT` appends `A:\UNIX\BIN` after the existing paths.
+The package is the free DOS/Windows 95/98 UNIX-like tools distribution from
+[Vector's se010511 page](https://www.vector.co.jp/soft/win95/util/se010511.html),
+downloaded as `uxtl412h.tgz` (SHA-256
+`dfc2b671cdbf7287cd845cf8166317ad0ecb13e720e50f8da858d3292316396f`).
+
+The SASI-only source and library set also includes Softlib groups 2-400,
+2-306, 2-331, 2-403, 2-436, and 2-382.  The builder retains the verified
+archives as `2HCDRSRC.LZH`, `2HCDRV.ZIP`, `PCPATSRC.ZIP`, `TSCLVSRC.LZH`,
+`S88VALSI.LZH`, and `S88VA250.LZH` under `A:\ARCHIVE` without expansion.
+The separate package notes and the 2HCDRV/FDFORM documentation are in
+`A:\DOC`; the runnable `2HCDRV.COM` and `FDFORM.COM` are installed in
+`A:\BIN`, and the generated `CONFIG.SYS` loads `A:\BIN\2HCDRV.COM` before
+MSE.  These source/library archives are intentionally not passed to the full
+FDD profile.
+
+The SASI image also uses the maintained STEST 1.15 package from the
+[OSL driver archive](https://www2u.biglobe.ne.jp/~pumpkin/hlabo/osl/driver/STEST115.LZH)
+and keeps its companion source archive
+[`ST115SRC.LZH`](https://www2u.biglobe.ne.jp/~pumpkin/hlabo/osl/driver/ST115SRC.LZH)
+under `A:\ARCHIVE`.  `STEST115.LZH` is expanded to `A:\BIN\STEST.EXE`,
+`A:\BIN\STESTX.COM`, and `A:\BIN\STEST.BAT`, with its manuals under
+`A:\DOC`; `ST115SRC.LZH` remains a source archive and is not added to FDD.
 
 The command-line wrapper accepts explicit paths, which is useful because the
 system and development D88 images are normally kept outside Git:
@@ -927,7 +966,11 @@ in a temporary host directory and are not tracked.
 `JWasm_v220_dos.zip` is fetched automatically into the local verified cache
 when `--jwasm-archive` (or `VAEG_JWASM_ARCHIVE`) is not supplied. The wrapper
 passes the verified archive to both VA and VA2 builders, so each resulting HDI
-contains the same `JWASMR.EXE` tool under `A:\BIN`.
+contains the same `JWASMR.EXE` tool under `A:\BIN`. The wrapper likewise
+verifies and stages `ISHARC.COM`, `UNZ532X3.EXE`, `ZIP22X.ZIP`,
+`EMACSVA.LZH`, `CPMVA.LZH`, `TDC10.LZH`, and `BENCH003.LZH`; runnable files
+are placed in `A:\BIN`, manuals in `A:\DOC`, and original archives in
+`A:\ARCHIVE`.
 
 The generated HDI has the HDFORM-compatible 40 MB geometry (4096-byte header,
 256-byte SASI blocks, 33 sectors, 8 surfaces, and 615 cylinders). The builder
@@ -1004,6 +1047,9 @@ software archives. It validates `pcengine110-bootonly.d88`, retains its IPL
 and four fixed system-file chains, clears every other FAT/root/data entry,
 and installs the supplemental payload in the remaining space. The source D88
 is opened read-only and the output must be a new path.
+The FDD payload is defined by
+[`tools/pc88va/softlib-fdd-manifest.tsv`](../../tools/pc88va/softlib-fdd-manifest.tsv),
+which mirrors the historical `pc88va-softlib-archives.d88` file set.
 
 Run it with:
 
@@ -1017,13 +1063,9 @@ tools/pc88va/build-softlib-archive-disk.sh \
 The output must not already exist. The cache option is optional and follows
 the same verified-download behavior as the development-disk builder. The
 script pins every public file by SHA-256, rejects mismatched cache entries,
-and installs all requested Softlib and Vector archives verbatim. It also
-extracts `X8MAP130.LZH` into `A:\BIN`, builds `SQEMM98.SYS` with the pinned
-Open Watcom image, installs the EMMVA/SQEMM98/RDEMS stack in `A:\SYS`, and
-writes its load order to root `CONFIG.SYS`. Docker or Podman is therefore
-required for the default build. A previously generated driver and its
-combined license can instead be supplied with `--sqemm-driver` and
-`--sqemm-license`.
+and validates the manifest byte counts before installation. Drivers and the
+larger extracted tool collections are installed by the SASI development
+builder, not duplicated on this FDD.
 
 The requested Softlib groups and files are:
 
@@ -1042,17 +1084,10 @@ The requested Softlib groups and files are:
 | [2-270](http://www.pc88.gr.jp/softlib/index.php?action=list_file&anum=2&gnum=270) | `RDEMS152.LZH` |
 | [2-201](http://www.pc88.gr.jp/softlib/index.php?action=list_file&anum=2&gnum=201) | `TDC10.LZH` |
 | [2-389](http://www.pc88.gr.jp/softlib/index.php?action=list_file&anum=2&gnum=389) | `BENCH003.DOC`, `BENCH003.LZH` |
-| [Vector se128128](https://www.vector.co.jp/soft/dos/hardware/se128128.html) | `X8MAP130.LZH` (Memory Mapper for PC 1.3) |
 
-The EMMVA and RDEMS archives are likewise retained verbatim. The builder also
-extracts `EMMVA01.SYS`, `EMMVA02.SYS`, and `RDEMS.SYS`, adds the generated
-`SQEMM98.SYS`, and installs a complete EMS load stack without separately
-supplied EMM4J. It retains the upstream SQEMM MIT terms and the PC-88VA port's
-BSD terms together as `A:\DOC\SQEMM.LIC`.
+The EMMVA and RDEMS archives are retained verbatim; their extracted drivers
+remain SASI-only.
 
-For the Vector package, the disk therefore contains the original
-`A:\ARCHIVE\X8MAP130.LZH` plus `A:\BIN\X8MAP.COM`,
-`A:\BIN\X8MAP130.SMP`, and `A:\BIN\X8MAP130.TXT`.
 Group 2-306 appeared twice in the requested URL list and is intentionally
 stored once. The disk also contains the 409,884-byte `LSIC330C.LZH` archive
 from the [LSI C-86 3.30c trial-version page](https://www.vector.co.jp/soft/maker/lsi/se001169.html).
@@ -1077,9 +1112,9 @@ their copying terms and primary manuals. The original `UNZ532X3.EXE` and
 `ZIP22X.ZIP` distributions remain in the verified host cache but are not
 duplicated on the D88.
 
-The supplemental payload contains 39 files totaling 967,920 bytes. Together
-with the four retained PC-Engine system files, the generated disk contains 43
-files. The files are organized as follows:
+The supplemental payload contains 26 files totaling 895,144 bytes. Together
+with the four retained PC-Engine system files, the generated bootable disk
+contains 30 files. The files are organized as follows:
 
 ```text
 A:\
@@ -1087,8 +1122,6 @@ A:\
   PCENGINE.SYS
   ADVGBIOS.SYS
   PCENGINE.COM
-  CONFIG.SYS
-
   ARCHIVE\
     2HCDRSRC.LZH
     2HCDRV.ZIP
@@ -1109,34 +1142,21 @@ A:\
     RDPCM001.LZH
     TDC10.LZH
     VBUFF102.LZH
-    X8MAP130.LZH
-
   BIN\
     UNZIP.EXE
-    X8MAP.COM
-    X8MAP130.SMP
-    X8MAP130.TXT
     ZIP.EXE
 
   DOC\
     COPYING
-    EMMVA150.DOC
-    RDEMS152.MAN
-    SQEMM.LIC
-    SQEMM98.TXT
     UNZDOS.TXT
     UNZIP.DOC
     ZIP.DOC
     ZIPREAD.TXT
 
-  SYS\
-    EMMVA01.SYS
-    EMMVA02.SYS
-    RDEMS.SYS
-    SQEMM98.SYS
 ```
 
-The resulting disk has 222,208 bytes (217 KiB) free. Two builds from the same
+The resulting disk has 304,128 bytes (297 KiB) free with the PC-Engine 1.1
+source system image. Two builds from the same
 source and verified cache are byte-for-byte identical. A headless DOSBox check
 confirmed that the included 16-bit Info-ZIP executables can test and extract
 `PRJVA.ZIP` and create a valid ZIP archive.

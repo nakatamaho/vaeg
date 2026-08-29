@@ -24,8 +24,8 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ## Scope and current result
 
-The PC-88.gr.jp packages for SCHD 1.55T, VA128MO, and STEST 1.15 were
-audited and are now accepted as optional inputs to
+The PC-88.gr.jp packages for SCHD 1.55T and VA128MO, together with the OSL
+STEST 1.15 package, were audited and are now accepted as optional inputs to
 [`build-sasi-development-disks.sh`](../../tools/pc88va/build-sasi-development-disks.sh).
 The builder verifies the original archive bytes, keeps each archive under
 `A:\ARCHIVE`, and installs the runnable files and manuals in `A:\SYS`,
@@ -38,6 +38,8 @@ The package listing pages are the provenance references:
 - [SCHD155T (gnum 448)](http://www.pc88.gr.jp/softlib/index.php?action=list_file&anum=2&gnum=448)
 - [VA128MO (gnum 449)](http://www.pc88.gr.jp/softlib/index.php?action=list_file&anum=2&gnum=449)
 - [STEST115 (gnum 450)](http://www.pc88.gr.jp/softlib/index.php?action=list_file&anum=2&gnum=450)
+- [STEST115.LZH (OSL driver archive)](https://www2u.biglobe.ne.jp/~pumpkin/hlabo/osl/driver/STEST115.LZH)
+- [ST115SRC.LZH (OSL source archive)](https://www2u.biglobe.ne.jp/~pumpkin/hlabo/osl/driver/ST115SRC.LZH)
 
 With the three archives in the verified development cache, the existing
 wrapper installs them in both variants alongside the other development
@@ -59,7 +61,8 @@ The verified archive identities are:
 | --- | ---: | --- |
 | `SCHD155T.LZH` | 15,360 | `87aebcf7c9bc9c6170a40d0e6ddcce5afdcbb1fa55f1fdeeec815458f7ef065f` |
 | `VA128MO.LZH` | 3,584 | `1dc8f366fb56e1761051e9b0c1e8950999ebb6df10ddf1bb91251e2557728a36` |
-| `STEST115.LZH` | 107,392 | `0410326b8c570ccc87e532cc2dd5c4076d34f2ad3fe5ca52dc32bdf4d43e20c2` |
+| `STEST115.LZH` | 107,136 | `6ae981b0010df20a510f85165567add33032241854b147ed47937a59953010bc` |
+| `ST115SRC.LZH` | 60,672 | `1192d3a38a4d9444a9b8b021fcd550e61e7b860bc39b67a01868c58e62bc2e51` |
 
 Installed files are:
 
@@ -67,12 +70,19 @@ Installed files are:
 A:\ARCHIVE\SCHD155T.LZH
 A:\ARCHIVE\VA128MO.LZH
 A:\ARCHIVE\STEST115.LZH
+A:\ARCHIVE\ST115SRC.LZH
 A:\SYS\SCHD.SYS
 A:\DOC\SCHD.DOC  A:\DOC\SCHD.LOG  A:\DOC\SCHD.TXT
 A:\DOC\VA128MO.DOC
 A:\BIN\STEST.EXE  A:\BIN\STESTX.COM  A:\BIN\STEST.BAT
 A:\DOC\STEST115.DOC  A:\DOC\COMMAND.DOC  A:\DOC\UTILITY.DOC
 ```
+
+`STEST115.LZH` is the runnable STEST 1.15 distribution and is expanded into
+`A:\BIN` with its manuals in `A:\DOC`.  `ST115SRC.LZH` is retained unchanged
+under `A:\ARCHIVE` as the corresponding source distribution; it is not
+expanded on the fixed-size FDD image.  Both archives are downloaded and
+verified by the SASI builder from the OSL URLs above.
 
 `AUTOEXEC.BAT` already puts `A:\BIN` on `PATH`, so `STESTX.COM` and the
 other installed utilities are discoverable.  `STEST.BAT` creates the
