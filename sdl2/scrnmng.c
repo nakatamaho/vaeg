@@ -1478,6 +1478,32 @@ BOOL scrnmng_save_rendered_frame(const char *path) {
 	return (SUCCESS);
 }
 
+BOOL scrnmng_save_guest_frame(const char *path) {
+	SDL_Surface *surface;
+	BOOL result;
+
+	if ((path == NULL) || (path[0] == '\0') || (scrnmng.shadow == NULL)) {
+		return (FAILURE);
+	}
+	surface = SDL_CreateRGBSurfaceWithFormatFrom(scrnmng.shadow + (SCRNMNG_SURFACE_GUARD_LEFT * 2),
+	                                             scrnmng.width, scrnmng.height, 16,
+	                                             scrnmng.shadow_pitch, SDL_PIXELFORMAT_RGB565);
+	if (surface == NULL) {
+		fprintf(stderr, "guest-screen-save-source-failed path=%s error=%s\n", path, SDL_GetError());
+		return (FAILURE);
+	}
+	if (scrnmng_path_is_png(path)) {
+		result = scrnmng_png_save_surface(surface, path);
+	} else {
+		result = (SDL_SaveBMP(surface, path) == 0) ? SUCCESS : FAILURE;
+	}
+	if (result != SUCCESS) {
+		fprintf(stderr, "guest-screen-save-failed path=%s error=%s\n", path, SDL_GetError());
+	}
+	SDL_FreeSurface(surface);
+	return (result);
+}
+
 void scrnmng_set_framedisp(BOOL enabled) {
 	scrnmng.framedisp_enabled = enabled ? TRUE : FALSE;
 	scrnmng_reset_metrics();

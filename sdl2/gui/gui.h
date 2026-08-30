@@ -35,6 +35,7 @@ BOOL gui_process_event(const void *event);
 BOOL gui_guest_keyboard_blocked(void);
 BOOL gui_guest_mouse_blocked(void);
 BOOL gui_copy_screen_text(void);
+BOOL gui_save_screenshot(void);
 void gui_new_frame(void);
 void gui_draw(void);
 void gui_render(void);

@@ -83,6 +83,7 @@
 #include "strres.h"
 #include "sysmng.h"
 #include "taskmng.h"
+#include "timemng.h"
 #include "ymfmbridge.h"
 
 extern "C" {
@@ -176,6 +177,7 @@ struct GuiState {
 	std::vector<BrowserEntry> fdd_entries;
 	std::string fdd_status;
 	std::string font_status;
+	std::string screenshot_status;
 	bool new_fdd_open = false;
 	bool new_fdd_refresh = false;
 	int new_fdd_format = NEWDISK_FDD_MSDOS_2HD;
@@ -438,6 +440,42 @@ static BOOL copy_screen_text(void) {
 		return (FAILURE);
 	}
 	g_gui.keyboard_status = "Copy complete.";
+	return (SUCCESS);
+}
+
+static BOOL save_screenshot(void) {
+	_SYSTIME systime;
+	char path[MAX_PATH];
+	UINT attempt;
+	const UINT32 ticks = SDL_GetTicks();
+
+	if (!g_gui.initialized) {
+		return (FAILURE);
+	}
+	if (timemng_gettime(&systime) != SUCCESS) {
+		g_gui.screenshot_status = "スクリーンショットの時刻取得に失敗しました。";
+		return (FAILURE);
+	}
+	for (attempt = 0; attempt < 1000; attempt++) {
+		std::snprintf(path, sizeof(path), "vaeg-%04u%02u%02u-%02u%02u%02u-%010u-%03u.png",
+		              systime.year, systime.month, systime.day, systime.hour, systime.minute,
+		              systime.second, static_cast<unsigned int>(ticks), attempt);
+		if (file_attr(path) < 0) {
+			break;
+		}
+	}
+	if (attempt == 1000) {
+		g_gui.screenshot_status = "スクリーンショット名を確保できません。";
+		return (FAILURE);
+	}
+	if (scrnmng_save_guest_frame(path) != SUCCESS) {
+		g_gui.screenshot_status = "スクリーンショット保存に失敗しました: ";
+		g_gui.screenshot_status += SDL_GetError();
+		return (FAILURE);
+	}
+	g_gui.screenshot_status = "スクリーンショットを保存しました: ";
+	g_gui.screenshot_status += path;
+	std::fprintf(stderr, "screenshot saved path=%s\n", path);
 	return (SUCCESS);
 }
 
@@ -2247,12 +2285,12 @@ static void draw_new_fdd_dialog(void) {
 }
 
 static void draw_emulate_menu(void) {
-	if (ImGui::BeginMenu("Emulate / エミュレート")) {
-		if (ImGui::MenuItem("Reset / リセット")) {
+	if (ImGui::BeginMenu("エミュレート")) {
+		if (ImGui::MenuItem("リセット")) {
 			reset_guest();
 		}
 		ImGui::Separator();
-		if (ImGui::BeginMenu("Boot model / 起動機種")) {
+		if (ImGui::BeginMenu("起動機種")) {
 			if (ImGui::MenuItem("VA", nullptr, milstr_cmp(np2cfg.model, str_VA1) == 0)) {
 				select_boot_model(str_VA1);
 			}
@@ -2266,7 +2304,7 @@ static void draw_emulate_menu(void) {
 			open_configure_dialog();
 		}
 		ImGui::Separator();
-		if (ImGui::MenuItem("Exit / 終了")) {
+		if (ImGui::MenuItem("終了")) {
 			taskmng_exit();
 		}
 		ImGui::EndMenu();
@@ -2274,7 +2312,7 @@ static void draw_emulate_menu(void) {
 }
 
 static void draw_edit_menu(void) {
-	if (ImGui::BeginMenu("Edit / 編集")) {
+	if (ImGui::BeginMenu("編集")) {
 #if defined(__APPLE__)
 		const char *copy_shortcut = "Cmd+C";
 		const char *shortcut = "Cmd+V";
@@ -2285,7 +2323,7 @@ static void draw_edit_menu(void) {
 		if (ImGui::MenuItem("Copy screen text", copy_shortcut)) {
 			copy_screen_text();
 		}
-		if (ImGui::MenuItem("Paste / 貼り付け", shortcut)) {
+		if (ImGui::MenuItem("貼り付け", shortcut)) {
 			kbdpaste_start_clipboard();
 		}
 		if (ImGui::MenuItem("Cancel Paste", nullptr, false, kbdpaste_active() ? true : false)) {
@@ -2794,7 +2832,16 @@ static void load_default_va_font(void) {
 }
 
 static void draw_screen_menu(void) {
-	if (ImGui::BeginMenu("Screen / 画面")) {
+	if (ImGui::BeginMenu("画面")) {
+		const char *screenshot_shortcut =
+		    (np2oscfg.F12KEY == KBDMAP_F12_SCREENSHOT) ? "PrintScreen / F12" : "PrintScreen";
+		if (ImGui::MenuItem("スクリーンショットを保存", screenshot_shortcut)) {
+			save_screenshot();
+		}
+		if (!g_gui.screenshot_status.empty()) {
+			ImGui::TextDisabled("%s", g_gui.screenshot_status.c_str());
+		}
+		ImGui::Separator();
 		if (ImGui::BeginMenu("Effect")) {
 			static const char *labels[] = {"Unfiltered", "Linear", "Scanline", "CRT Lite"};
 			for (int value = 0; value < VAEG_EFFECT_COUNT; value++) {
@@ -2893,8 +2940,8 @@ static void draw_screen_menu(void) {
 }
 
 static void draw_device_menu(void) {
-	if (ImGui::BeginMenu("Device / デバイス")) {
-		if (ImGui::BeginMenu("Keyboard / キーボード")) {
+	if (ImGui::BeginMenu("デバイス")) {
+		if (ImGui::BeginMenu("キーボード")) {
 			if (ImGui::MenuItem("Keyboard", nullptr, np2cfg.KEY_MODE == 0)) {
 				set_key_mode(0);
 			}
@@ -2929,6 +2976,10 @@ static void draw_device_menu(void) {
 				if (ImGui::MenuItem("Full speed (No Wait)", nullptr,
 				                    np2oscfg.F12KEY == KBDMAP_F12_FULL_SPEED)) {
 					set_f12_key(KBDMAP_F12_FULL_SPEED);
+				}
+				if (ImGui::MenuItem("スクリーンショット", nullptr,
+				                    np2oscfg.F12KEY == KBDMAP_F12_SCREENSHOT)) {
+					set_f12_key(KBDMAP_F12_SCREENSHOT);
 				}
 				ImGui::EndMenu();
 			}
@@ -2970,7 +3021,7 @@ static void draw_device_menu(void) {
 			menu_item_not_implemented("Mechanical keys (not implemented)");
 			ImGui::EndMenu();
 		}
-		if (ImGui::BeginMenu("Sound / 音")) {
+		if (ImGui::BeginMenu("音")) {
 			if (ImGui::BeginMenu("FM sound OPN/OPNA")) {
 				const bool va1 = milstr_cmp(np2cfg.model, str_VA1) == 0;
 				ImGui::BeginDisabled(!va1);
@@ -3119,7 +3170,7 @@ static void set_info_layer(UINT layer, bool enabled) {
 }
 
 static void draw_info_menu(void) {
-	if (ImGui::BeginMenu("Info / 情報")) {
+	if (ImGui::BeginMenu("情報")) {
 		bool show_fdd = (np2oscfg.DISPCLK & VAEG_DISPINFO_FDD) != 0;
 		if (ImGui::MenuItem("Show FDD", nullptr, show_fdd)) {
 			np2oscfg.DISPCLK ^= VAEG_DISPINFO_FDD;
@@ -3250,7 +3301,7 @@ static void draw_about_dialog(void) {
 }
 
 static void draw_state_menu(void) {
-	if (ImGui::BeginMenu("State / 状態")) {
+	if (ImGui::BeginMenu("状態")) {
 		if (ImGui::BeginMenu("Save")) {
 			for (int slot = 0; slot < kStateSlots; slot++) {
 				char label[32];
@@ -3421,6 +3472,10 @@ static void draw_system_menu(void) {
 } // namespace
 extern "C" BOOL gui_copy_screen_text(void) {
 	return copy_screen_text();
+}
+
+extern "C" BOOL gui_save_screenshot(void) {
+	return save_screenshot();
 }
 
 BOOL gui_initialize(void *window, void *renderer, const char *argv0) {
@@ -3611,7 +3666,7 @@ void gui_draw(void) {
 	}
 	if (ImGui::BeginMainMenuBar()) {
 		const bool paused = taskmng_ispaused() ? true : false;
-		if (ImGui::Button(paused ? "Resume" : "Pause / Break")) {
+		if (ImGui::Button(paused ? "Resume" : "Pause")) {
 			taskmng_toggle_pause();
 		}
 		ImGui::Separator();

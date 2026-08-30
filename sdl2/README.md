@@ -623,6 +623,14 @@ back to Windowed. The backend retains the legacy `fscrn_cx`, `fscrn_cy`, and
 hexadecimal `fscrnmod` fields, but detailed monitor/mode selection and
 Borderless desktop are not exposed in the current GUI.
 
+`画面 -> スクリーンショットを保存` writes the most recent 640x400 guest frame as a
+PNG directly in the current working directory; it never contains the host GUI
+menu or overlays. Names include the local time, the SDL tick count, and a
+collision suffix, so existing captures are never overwritten. `PrintScreen`
+invokes the same host action and is no longer sent to the guest COPY key.
+`デバイス -> キーボード -> F12 binding` can also assign the same action to F12;
+existing F12 selections remain unchanged.
+
 ## Execution Speed And Pacing
 
 `Emulate -> Configure...` keeps the VA base clock fixed at 3.9936 MHz and

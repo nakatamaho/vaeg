@@ -90,6 +90,8 @@ the first release of the maintained portable fork. It established the active
 CMake, SDL2, and Dear ImGui build for Windows-MinGW, Linux, and macOS after
 completion of the phase-2 portability work.
 
+![PC-88VA demonstration running under VAEG](docs/images/vaeg-20260830-185259-0000024846-000.png)
+
 ## Current Frontend
 
 The active frontend is the SDL2 + Dear ImGui build under `sdl2/`. It

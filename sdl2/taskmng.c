@@ -45,6 +45,7 @@ static BOOL paste_shortcut_down;
 static BOOL copy_shortcut_down;
 static BOOL middle_shortcut_down;
 static BOOL mouse_key_shortcut_down;
+static BOOL screenshot_shortcut_down;
 
 static BOOL taskmng_paste_shortcut(const SDL_Event *event, BOOL captured) {
 	UINT16 modifier;
@@ -108,6 +109,28 @@ static BOOL taskmng_copy_shortcut(const SDL_Event *event, BOOL captured) {
 	return TRUE;
 }
 
+static BOOL taskmng_screenshot_shortcut(const SDL_Event *event, BOOL captured) {
+	if ((event->type != SDL_KEYDOWN) && (event->type != SDL_KEYUP)) {
+		return FALSE;
+	}
+	if ((event->type == SDL_KEYUP) && screenshot_shortcut_down &&
+	    (kbdmap_special_action((UINT)event->key.keysym.scancode) == KBDMAP_SPECIAL_SCREENSHOT)) {
+		screenshot_shortcut_down = FALSE;
+		return TRUE;
+	}
+	if (kbdmap_special_action((UINT)event->key.keysym.scancode) != KBDMAP_SPECIAL_SCREENSHOT) {
+		return FALSE;
+	}
+	if (captured) {
+		return FALSE;
+	}
+	if ((event->type == SDL_KEYDOWN) && !event->key.repeat) {
+		screenshot_shortcut_down = TRUE;
+		(void)gui_save_screenshot();
+	}
+	return TRUE;
+}
+
 static void taskmng_toggle_mouse(void) {
 	np2oscfg.MOUSE_SW = mousemng_togglecapture() ? 1 : 0;
 	sysmng_update(SYS_UPDATEOSCFG);
@@ -160,6 +183,7 @@ void taskmng_initialize(void) {
 	paste_shortcut_down = FALSE;
 	middle_shortcut_down = FALSE;
 	mouse_key_shortcut_down = FALSE;
+	screenshot_shortcut_down = FALSE;
 	vaeg_pacing_reset(&task_pacing);
 	kbdpaste_initialize();
 	mousemng_initialize();
@@ -173,6 +197,7 @@ void taskmng_exit(void) {
 	paste_shortcut_down = FALSE;
 	middle_shortcut_down = FALSE;
 	mouse_key_shortcut_down = FALSE;
+	screenshot_shortcut_down = FALSE;
 	vaeg_pacing_reset(&task_pacing);
 	kbdpaste_shutdown();
 	mousemng_shutdown();
@@ -228,6 +253,7 @@ void taskmng_rol(void) {
 			paste_shortcut_down = FALSE;
 			copy_shortcut_down = FALSE;
 			middle_shortcut_down = FALSE;
+			screenshot_shortcut_down = FALSE;
 			kbdpaste_cancel();
 			mousemng_setfocus(FALSE);
 		} else if ((e.type == SDL_WINDOWEVENT) &&
@@ -249,6 +275,7 @@ void taskmng_rol(void) {
 			paste_shortcut_down = FALSE;
 			copy_shortcut_down = FALSE;
 			middle_shortcut_down = FALSE;
+			screenshot_shortcut_down = FALSE;
 			kbdpaste_cancel();
 			mousemng_setfocus(FALSE);
 		}
@@ -261,6 +288,9 @@ void taskmng_rol(void) {
 			shortcut = TRUE;
 		}
 		if (taskmng_copy_shortcut(&e, captured)) {
+			shortcut = TRUE;
+		}
+		if (taskmng_screenshot_shortcut(&e, captured)) {
 			shortcut = TRUE;
 		}
 		if (taskmng_mouse_button_shortcut(&e, captured)) {

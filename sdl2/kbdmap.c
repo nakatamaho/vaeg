@@ -39,8 +39,8 @@
 static const KBDMAP_ENTRY entries[] = {
     E(KBDROLE_STOP, "stop", "STOP", "KEY88_STOP", 0x60, SDL_SCANCODE_PAUSE, SDL_SCANCODE_PAUSE,
       KBDMAP_STATUS_IMPLEMENTED, "win9x/winkbd.cpp:20; keystat.h:102"),
-    E(KBDROLE_COPY, "copy", "COPY", "KEY88_COPY", 0x61, SDL_SCANCODE_PRINTSCREEN,
-      SDL_SCANCODE_PRINTSCREEN, KBDMAP_STATUS_IMPLEMENTED, "win9x/winkbd.cpp:178; keystat.h:103"),
+    E(KBDROLE_COPY, "copy", "COPY", "KEY88_COPY", 0x61, SDL_SCANCODE_UNKNOWN, SDL_SCANCODE_UNKNOWN,
+      KBDMAP_STATUS_INTENTIONALLY_UNMAPPED, "F12 binding or Keyboard bindings; keystat.h:103"),
     E(KBDROLE_F1, "f1", "F1", "KEY88_F1", 0x62, SDL_SCANCODE_F1, SDL_SCANCODE_F1,
       KBDMAP_STATUS_IMPLEMENTED, "win9x/winkbd.cpp:50; keystat.h:104"),
     E(KBDROLE_F2, "f2", "F2", "KEY88_F2", 0x63, SDL_SCANCODE_F2, SDL_SCANCODE_F2,
@@ -261,7 +261,10 @@ static const KBDMAP_ENTRY entries[] = {
       "sdl2/pacing.c: host pacing action"),
     E(KBDROLE_MOUSE_CAPTURE, "mouse_capture", "Mouse capture", "HOST_MOUSE_CAPTURE", KBDMAP_NC,
       SDL_SCANCODE_F12, SDL_SCANCODE_F12, KBDMAP_STATUS_IMPLEMENTED,
-      "sdl2/taskmng.c: F12 host capture action")};
+      "sdl2/taskmng.c: F12 host capture action"),
+    E(KBDROLE_SCREENSHOT, "screenshot", "スクリーンショット", "HOST_SCREENSHOT", KBDMAP_NC,
+      SDL_SCANCODE_PRINTSCREEN, SDL_SCANCODE_PRINTSCREEN, KBDMAP_STATUS_IMPLEMENTED,
+      "sdl2/taskmng.c: PrintScreen host screenshot action")};
 
 typedef struct {
 	const char *token;
@@ -708,6 +711,8 @@ static KBDMAP_SPECIAL_ACTION special_action_for_role(KBDMAP_ROLE role) {
 		return KBDMAP_SPECIAL_FAST_FORWARD;
 	case KBDROLE_MOUSE_CAPTURE:
 		return KBDMAP_SPECIAL_MOUSE_CAPTURE;
+	case KBDROLE_SCREENSHOT:
+		return KBDMAP_SPECIAL_SCREENSHOT;
 	default:
 		return KBDMAP_SPECIAL_NONE;
 	}
@@ -1434,6 +1439,9 @@ KBDMAP_SPECIAL_ACTION kbdmap_special_action(UINT scancode) {
 	if ((scancode == SDL_SCANCODE_F12) && (np2oscfg.F12KEY == KBDMAP_F12_FULL_SPEED)) {
 		return KBDMAP_SPECIAL_FAST_FORWARD;
 	}
+	if ((scancode == SDL_SCANCODE_F12) && (np2oscfg.F12KEY == KBDMAP_F12_SCREENSHOT)) {
+		return KBDMAP_SPECIAL_SCREENSHOT;
+	}
 	for (i = 0; i < (int)NELEMENTS(entries); i++) {
 		if (bindings[i] == (SDL_Scancode)scancode) {
 			KBDMAP_SPECIAL_ACTION action = special_action_for_role(entries[i].role);
@@ -1719,7 +1727,9 @@ int kbdmap_selftest(void) {
 	    (kbdmap_lookup(SDL_SCANCODE_EQUALS) != 0x0c)) {
 		KBDMAP_SELFTEST_FAIL("JIS physical punctuation lookup");
 	}
-	if ((kbdmap_special_action(SDL_SCANCODE_F11) != KBDMAP_SPECIAL_FAST_FORWARD) ||
+	if ((kbdmap_lookup(SDL_SCANCODE_PRINTSCREEN) != KBDMAP_NC) ||
+	    (kbdmap_special_action(SDL_SCANCODE_PRINTSCREEN) != KBDMAP_SPECIAL_SCREENSHOT) ||
+	    (kbdmap_special_action(SDL_SCANCODE_F11) != KBDMAP_SPECIAL_FAST_FORWARD) ||
 	    (kbdmap_special_action(SDL_SCANCODE_F12) != KBDMAP_SPECIAL_MOUSE_CAPTURE)) {
 		KBDMAP_SELFTEST_FAIL("default host special bindings");
 	}
@@ -1741,14 +1751,16 @@ int kbdmap_selftest(void) {
 	}
 	kbdmap_serialize_custom(serialized, sizeof(serialized));
 	if ((strstr(serialized, "kana=") == NULL) || (strstr(serialized, "fast_forward=") == NULL) ||
-	    (strstr(serialized, "mouse_capture=") == NULL)) {
+	    (strstr(serialized, "mouse_capture=") == NULL) ||
+	    (strstr(serialized, "screenshot=") == NULL)) {
 		KBDMAP_SELFTEST_FAIL("custom serialization");
 	}
 	set_config_string(np2oscfg.keyboard_custom_map, sizeof(np2oscfg.keyboard_custom_map),
-	                  "fast_forward=F9;mouse_capture=F10;kana=Right Alt;");
+	                  "fast_forward=F9;mouse_capture=F10;screenshot=F8;kana=Right Alt;");
 	kbdmap_apply_config();
 	if ((kbdmap_special_action(SDL_SCANCODE_F9) != KBDMAP_SPECIAL_FAST_FORWARD) ||
 	    (kbdmap_special_action(SDL_SCANCODE_F10) != KBDMAP_SPECIAL_MOUSE_CAPTURE) ||
+	    (kbdmap_special_action(SDL_SCANCODE_F8) != KBDMAP_SPECIAL_SCREENSHOT) ||
 	    (kbdmap_special_action(SDL_SCANCODE_F11) != KBDMAP_SPECIAL_NONE)) {
 		KBDMAP_SELFTEST_FAIL("custom host special bindings");
 	}
