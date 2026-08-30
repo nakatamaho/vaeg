@@ -177,7 +177,7 @@ initialize_video:
     int VIDEO_BIOS_INT
     test ax, ax
     jnz .failed
-    ; Match the PC-Engine 1.00-style 200-line, single-plane, non-interlaced field.
+    ; Match the PC-Engine 1.00 200-line, single-plane, non-interlaced field.
     ; This is a word register and must be written as a word on real hardware.
     mov dx, PORT_GRMODE
     mov ax, 0xb462
