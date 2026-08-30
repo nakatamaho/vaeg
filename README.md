@@ -14,6 +14,16 @@ normal development targets the CMake/SDL2 tree.
 
 ## News
 
+### 2026-08-30 - Rel.20260830
+
+[Rel.20260830](https://github.com/nakatamaho/vaeg/releases/tag/rel-20260830)
+focuses on VA implementation cleanup, compatibility hardening, and everyday
+SDL frontend usability. It consolidates the native VA and SGP paths, refines
+SCSI/BMS development-media workflows, and adds guest-only PNG screenshot
+capture, selectable F12 actions, Pause, and menu/input polish. See
+[Rel.20260830 changes](CHANGES.20260830.md) for the complete notes and the
+current hardware-validation boundaries.
+
 ### 2026-08-14 - Rel.20260814
 
 [Rel.20260814](https://github.com/nakatamaho/vaeg/releases/tag/rel-20260814)

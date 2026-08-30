@@ -39,7 +39,6 @@ permissions:
 
 env:
   RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag_name || github.ref_name }}
-  RELEASE_NOTES: CHANGES.20260814.md
 
 jobs:
   linux:
@@ -76,8 +75,10 @@ jobs:
         run: |
           set -euo pipefail
           release_id="${RELEASE_TAG//-/}"
+          release_notes="CHANGES.${RELEASE_TAG#rel-}.md"
           package="vaeg-${release_id}-linux-x86_64"
           asset="${package}.tar.gz"
+          test -f "${release_notes}"
           rm -rf dist-package "${asset}"
           mkdir -p "dist-package/${package}/assets" \
             "dist-package/${package}/licenses"
@@ -87,7 +88,7 @@ jobs:
           install -m 644 assets/NOTICE.md "dist-package/${package}/assets/"
           install -m 644 external/suzukiplan-z80/LICENSE.txt \
             "dist-package/${package}/licenses/suzukiplan-z80.txt"
-          install -m 644 CHANGES.20260814.md "dist-package/${package}/"
+          install -m 644 "${release_notes}" "dist-package/${package}/"
           install -m 644 dist/readme-dist.txt "dist-package/${package}/README-dist.txt"
           tar -C dist-package -czf "${asset}" "${package}"
           tar -tzf "${asset}"
@@ -97,17 +98,19 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
+          release_notes="CHANGES.${RELEASE_TAG#rel-}.md"
+          test -f "${release_notes}"
           if gh release view "${RELEASE_TAG}" >/dev/null 2>&1; then
             release_title="88VA Eternal Grafx Rel.${RELEASE_TAG#rel-}"
             gh release edit "${RELEASE_TAG}" \
               --title "${release_title}" \
-              --notes-file "${RELEASE_NOTES}"
+              --notes-file "${release_notes}"
           else
             release_title="88VA Eternal Grafx Rel.${RELEASE_TAG#rel-}"
             gh release create "${RELEASE_TAG}" \
               --verify-tag \
               --title "${release_title}" \
-              --notes-file "${RELEASE_NOTES}"
+              --notes-file "${release_notes}"
           fi
       - name: Upload release asset
         env:
@@ -211,7 +214,9 @@ jobs:
         run: |
           set -euo pipefail
           release_id="${RELEASE_TAG//-/}"
+          release_notes="CHANGES.${RELEASE_TAG#rel-}.md"
           package="vaeg-${release_id}-win-x86_64"
+          test -f "${release_notes}"
           rm -rf dist-package
           mkdir -p "dist-package/${package}/assets" "dist-package/${package}/licenses"
           cp build/mingw-ci/sdl2/vaeg.exe "dist-package/${package}/"
@@ -220,7 +225,7 @@ jobs:
           cp assets/NOTICE.md "dist-package/${package}/assets/"
           cp external/suzukiplan-z80/LICENSE.txt \
             "dist-package/${package}/licenses/suzukiplan-z80.txt"
-          cp CHANGES.20260814.md "dist-package/${package}/"
+          cp "${release_notes}" "dist-package/${package}/"
           cp dist/readme-dist.txt "dist-package/${package}/README-dist.txt"
           find "dist-package/${package}" -type f | sort
       - name: Zip package
@@ -276,8 +281,10 @@ jobs:
           file build/macos-ci/sdl2/vaeg | tee vaeg-file.txt
           grep -q 'arm64' vaeg-file.txt
           release_id="${RELEASE_TAG//-/}"
+          release_notes="CHANGES.${RELEASE_TAG#rel-}.md"
           package="vaeg-${release_id}-macos-arm64"
           asset="${package}.tar.gz"
+          test -f "${release_notes}"
           rm -rf dist-package "${asset}"
           mkdir -p "dist-package/${package}/assets" \
             "dist-package/${package}/licenses"
@@ -287,7 +294,7 @@ jobs:
           install -m 644 assets/NOTICE.md "dist-package/${package}/assets/"
           install -m 644 external/suzukiplan-z80/LICENSE.txt \
             "dist-package/${package}/licenses/suzukiplan-z80.txt"
-          install -m 644 CHANGES.20260814.md "dist-package/${package}/"
+          install -m 644 "${release_notes}" "dist-package/${package}/"
           install -m 644 dist/readme-dist.txt "dist-package/${package}/README-dist.txt"
 
           if otool -L "dist-package/${package}/vaeg" | grep -E 'libSDL2.*dylib'; then
