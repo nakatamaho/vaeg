@@ -145,9 +145,10 @@ variables to select explicit copies.  The archives are retained under
 A:\\ARCHIVE and their documented files are installed under BIN, DOC, and SYS.
 The default SCSI profile is fixed-160mb, because the 160 MB fixed SCSI disk
 is assumed to be attached.  Use --scsi-profile fixed for the legacy generic
-fixed-target note, or mo-128mb/mo-160mb for an external removable MO target.
-MO profiles add SCHD's -X -D1 policy and a manual setup note under A:\\DOC;
-VBUFF and SFORM are never run automatically.
+fixed-target note, or mo-128mb/mo-160mb to stage hardware-reference files for
+an external removable MO target. MO operation is unsupported in VAEG; those
+profiles do not add emulator support. VBUFF and SFORM are never run
+automatically.
 Setup notes are installed in English and Japanese by default; use
 --docs-lang en or --docs-lang ja to install only one language.
 JWasm_v220_dos.zip defaults to the pinned free JWasm release cache (or

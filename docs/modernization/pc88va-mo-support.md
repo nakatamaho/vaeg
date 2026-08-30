@@ -20,20 +20,22 @@ WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
 OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
 ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 -->
-# PC-88VA 128 MB MO support plan
+# PC-88VA 128 MB MO compatibility notes (unsupported in VAEG)
 
 Language: [English](pc88va-mo-support.md) | [日本語 SCSI procedure](scsi-support.ja.md)
 
 ## Scope and current result
 
 The PC-88.gr.jp packages for SCHD 1.55T and VA128MO, together with the OSL
-STEST 1.15 package, were audited and are now accepted as optional inputs to
-[`build-sasi-development-disks.sh`](../../tools/pc88va/build-sasi-development-disks.sh).
+STEST 1.15 package, were audited and are retained as optional reference inputs
+to [`build-sasi-development-disks.sh`](../../tools/pc88va/build-sasi-development-disks.sh).
 The builder verifies the original archive bytes, keeps each archive under
 `A:\ARCHIVE`, and installs the runnable files and manuals in `A:\SYS`,
 `A:\BIN`, and `A:\DOC` on both the VA and VA2 40 MB development HDIs.  The
 fixed-HDD `CONFIG.SYS` remains unchanged: an MO option must not silently alter
-the known-good boot path.  Formatting a real MO is deliberately not automated.
+the known-good boot path. VAEG does not support MO/removable-media operation;
+the packages and procedures below are documentation for separately validated
+real hardware only. Formatting a real MO is deliberately not automated.
 
 The package listing pages are the provenance references:
 
@@ -161,9 +163,9 @@ remain unchanged for HDD images.
 ### Guest software layer
 
 The package installer is the first, non-destructive step.  It preserves the
-known-good boot configuration and exposes the manuals and STEST tools for a
-real MO.  A later MO profile can add an opt-in configuration snippet rather
-than changing the default:
+known-good boot configuration and exposes the manuals and STEST tools as
+real-hardware reference material.  A future hardware-only profile may document
+an opt-in configuration snippet, but it must not be read as VAEG MO support:
 
 ```dos
 DEVICE=A:\SYS\PCPLUS.SYS
@@ -179,15 +181,16 @@ policy is added unless requested:
 tools/pc88va/build-sasi-development-disks.sh --scsi-profile mo-128mb
 ```
 
-The other supported profiles are `fixed`, `mo-128mb`, and `mo-160mb`.
-`--scsi-id 0` through `--scsi-id 7` selects the SCHD target ID.  The
-MO profiles generate `SCHD.SYS -I<n> -X -D1` and install a profile note under
-`A:\DOC`; the note records the required manual `VBUFF` setting (`-B11` for a
-128 MB medium and `-B12` for a 160 MB target), reboot, `SCFORM /S` for 128 MB
-or `SCFORM /SS` for 160 MB, and the destructive `STEST55S SFORM` step.  None
-of those commands is run while
-building the 40 MB SASI support disk.  `fixed-160mb` keeps the fixed-disk
-SCHD policy and only records the larger-sector operator procedure.
+The builder profiles are `fixed`, `fixed-160mb`, `mo-128mb`, and `mo-160mb`.
+The `mo-*` profiles are reference-only staging profiles and do not provide MO
+support in VAEG.  `--scsi-id 0` through `--scsi-id 7` selects the SCHD target
+ID.  The MO profiles generate `SCHD.SYS -I<n> -X -D1` and install a profile
+note under `A:\DOC`; the note records the required manual `VBUFF` setting
+(`-B11` for a 128 MB medium and `-B12` for a 160 MB target), reboot,
+`SCFORM /S` for 128 MB or `SCFORM /SS` for a 160 MB target, and the destructive
+`STEST55S SFORM` step.  None of those commands is run while building the 40 MB
+SASI support disk.  `fixed-160mb` keeps the fixed-disk SCHD policy and only
+records the larger-sector operator procedure.
 
 The exact `-D`/logical-sector combination must follow the installed SCHD
 revision and the operator's medium.  `STEST55S SFORM` is intentionally left

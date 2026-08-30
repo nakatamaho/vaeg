@@ -48,6 +48,16 @@ downloads or a verified local cache remain available. A generated disk also
 keeps the original package manuals together for use with real PC-88VA
 hardware or a future SCSI-capable implementation.
 
+## MO support status
+
+VAEG does **not** support magneto-optical (MO) or other removable SCSI media.
+The SCHD, VA128MO, and STEST packages may be retained on a development disk
+as historical reference material, but VAEG's supported SCSI path is for fixed
+disks only. The `mo-128mb` and `mo-160mb` builder profiles stage reference
+files; they do not make MO media usable in VAEG and are not a support claim.
+The physical-MO commands below apply only to separately validated hardware,
+outside the VAEG emulator.
+
 ## Current VAEG setup (Rel.260805)
 
 The following is the supported user workflow for the current VAEG release.
@@ -117,7 +127,7 @@ The image creator refuses to overwrite an existing file. SCSI images use the
 `.hdd` extension and 256-byte physical blocks; SASI images are a separate
 `.hdi` format and must be created through the SASI workflow.
 
-### 3. Format the target in the guest
+### 3. Format a fixed-disk target in the guest
 
 Boot the generated support D88 as the floppy drive. Confirm that PCPLUS is
 loaded before SCHD and that each intended SCSI ID receives a drive letter.
@@ -157,6 +167,9 @@ lifecycle for one target and for target IDs 0 and 1.
   disk builder and the release executable are separate from those guest
   assets.
 
+MO media is outside this workflow. Do not interpret the retained MO packages
+or the `mo-*` builder profiles as emulator support.
+
 ## Sources and Software
 
 The primary setup note is the PC88.gr.jp forum topic
@@ -171,7 +184,8 @@ packages are:
 - [BDIFF/BUPDATE 1.28][bdiff], used only on the host under DOSBox to apply
   that correction reproducibly.
 - [SCHD 1.55T][schd], the PC-Engine block-device driver for SCSI hard disks
-  and magneto-optical media.
+  and magneto-optical media in the original hardware environment. VAEG only
+  supports the fixed-disk path here.
 - [VBUFF 1.02][vbuff], which changes the maximum logical-sector buffer size
   recorded in a PC-Engine system disk's IPL.
 - [SCFORM 1.24][scform-topic], an interactive SCSI initialization and

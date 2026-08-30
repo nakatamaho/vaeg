@@ -27,12 +27,14 @@ optional ``--supplemental-manifest`` is checked before allocation.  The full
 SASI profile includes the UNIX-like tools below ``\\UNIX`` and appends that
 directory to ``PATH``.
 
-The optional PC-88VA SCSI/MO support packages from PC88.gr.jp can be supplied
-with the ``--mo-*`` options.  SCHD 1.55T is installed under ``\\SYS`` and its
-manuals under ``\\DOC``; the VA128MO and STEST manuals are kept with the
-other documentation, while the STEST utilities are installed under ``\\BIN``.
-The original archives are retained under ``\\ARCHIVE``.  Package bytes are
-checksum-verified and the builder never formats or modifies removable media.
+The optional PC-88VA SCSI/MO reference packages from PC88.gr.jp can be
+supplied with the ``--mo-*`` options.  SCHD 1.55T is installed under
+``\\SYS`` and its manuals under ``\\DOC``; the VA128MO and STEST manuals are
+kept with the other documentation, while the STEST utilities are installed
+under ``\\BIN``.  VAEG does not support MO/removable-media operation; these
+packages are retained for hardware reference only.  The original archives
+are retained under ``\\ARCHIVE``.  Package bytes are checksum-verified and
+the builder never formats or modifies removable media.
 
 The generated ``CONFIG.SYS`` uses SCSI target ID 0 and the fixed-160MB policy
 by default.  ``--scsi-id`` selects another target, while ``--scsi-profile``
@@ -185,15 +187,15 @@ def scsi_setup_lines(scsi_id: int, scsi_profile: str,
         removable = "YES"
         schd = f"DEVICE = A:\\SYS\\SCHD.SYS -I{scsi_id} -X -D1"
         vbuff = "VBUFF -D1 -B11"
-        caution = "Use a confirmed 128MB medium and a compatible SCSI interface."
-        caution_ja = "確認済みの128MB媒体と対応SCSIインターフェースを使用してください。"
+        caution = "MO/removable-media operation is unsupported in VAEG; hardware-only reference."
+        caution_ja = "MOやリムーバブル媒体はVAEG未サポートです。実機用の参考資料です。"
     else:
         medium = "160MB REMOVABLE MO"
         removable = "YES"
         schd = f"DEVICE = A:\\SYS\\SCHD.SYS -I{scsi_id} -X -D1"
         vbuff = "VBUFF -D1 -B12"
-        caution = "160MB removable-MO support is not hardware-verified in VAEG."
-        caution_ja = "160MBリムーバブルMOはVAEGで実機検証されていません。"
+        caution = "MO/removable-media operation is unsupported in VAEG; hardware-only reference."
+        caution_ja = "MOやリムーバブル媒体はVAEG未サポートです。実機用の参考資料です。"
     scform = ("SCFORM /SS"
               if scsi_profile in ("fixed-160mb", "mo-160mb")
               else "SCFORM /S")
@@ -203,6 +205,8 @@ def scsi_setup_lines(scsi_id: int, scsi_profile: str,
             f"プロファイル: {medium}",
             f"SCSI ID: {scsi_id}",
             f"リムーバブル媒体: {removable}",
+            ("サポート状態: VAEGでは未サポート（実機用参考資料）"
+             if removable == "YES" else "サポート状態: VAEG固定ディスク経路"),
             f"検証: {caution_ja}",
             "",
             "CONFIG.SYS の SCHD 行:",
@@ -212,7 +216,7 @@ def scsi_setup_lines(scsi_id: int, scsi_profile: str,
             f"1. PC-Engine システムディスクで {vbuff} を実行",
             "2. VBUFF がIPLを書き換えたら再起動",
             f"3. 対象確認とバックアップ後に {scform} を実行",
-            "4. MO媒体では STEST55S SFORM は破壊的操作のため手動実行",
+            "4. MO媒体の操作はVAEG未サポート。実機でのみ手動実行",
             "5. SETDMA.COM は必要時に PCPLUS 読み込み後に手動実行",
             "",
             "生成されたSASIディスクは40MBの起動・サポートディスクです。",
@@ -223,6 +227,8 @@ def scsi_setup_lines(scsi_id: int, scsi_profile: str,
         f"PROFILE: {medium}",
         f"SCSI ID: {scsi_id}",
         f"REMOVABLE POLICY: {removable}",
+        ("SUPPORT STATUS: UNSUPPORTED IN VAEG (HARDWARE REFERENCE ONLY)"
+         if removable == "YES" else "SUPPORT STATUS: VAEG FIXED-DISK PATH"),
         f"VALIDATION: {caution}",
         "",
         "CONFIG.SYS SCHD LINE:",
@@ -232,7 +238,7 @@ def scsi_setup_lines(scsi_id: int, scsi_profile: str,
         f"1. On the PC-Engine system disk, run: {vbuff}",
         "2. Reboot after VBUFF changes the IPL buffer size.",
         f"3. Run {scform} only after confirming the target and backing it up.",
-        "4. For MO media, STEST55S SFORM is destructive and remains manual.",
+        "4. MO operation is unsupported in VAEG; use SFORM only on validated hardware.",
         "5. SETDMA.COM is optional; run it manually after PCPLUS is loaded.",
         "",
         "The generated SASI disk is still a 40 MB boot/support disk.",
