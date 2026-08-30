@@ -27,6 +27,12 @@ the `ろ` key again. Release packages include matching
 checksums. See [Rel.20260814 changes](CHANGES.20260814.md) for setup notes and
 the current MSE `/B` limitation.
 
+![BMSDRV and SCSI driver running under VAEG](docs/images/vaeg-20260830-194027-0000154308-000.png)
+
+*Actual SDL-rendered VAEG capture: BMSDRV initializes at `01D0H` with `0081H`
+usable BMS banks in the 16MB configuration, while SCHD detects the virtual
+SCSI drive `D:` at 159MB of guest-usable capacity from the 160MB image.*
+
 ![EMMVA and SQEMM98 running under VAEG](docs/images/vaeg-20260830-191026-0000629238-000.png)
 
 *Actual SDL-rendered VAEG capture: EMMVA and SQEMM98 initialize successfully
