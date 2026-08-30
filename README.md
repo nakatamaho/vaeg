@@ -27,6 +27,8 @@ the `ろ` key again. Release packages include matching
 checksums. See [Rel.20260814 changes](CHANGES.20260814.md) for setup notes and
 the current MSE `/B` limitation.
 
+![EMMVA and SQEMM98 running under VAEG](docs/images/vaeg-20260830-191026-0000629238-000.png)
+
 ### 2026-08-06 - M76: uPD70008-compatible Z80 emulation and CP/MVA
 
 M76 brings the uPD70008-compatible Z80 emulation path to a working state.
