@@ -48,9 +48,10 @@ import upd9002_ssts_ratchet as ratchet
 MILESTONE = "M60d"
 CANDIDATE_GATE = "G60d"
 APPROVED_PREDECESSOR_GATE = "G60c"
-# Evidence keeps the original identity; Git topology follows rewritten history.
+# Evidence keeps the original identity; Git topology starts at the current
+# main-history checkpoint established after the protected-history rewrite.
 APPROVED_PREDECESSOR_SHA = "e425e55fc17117000ba5178a796de4444d897234"
-APPROVED_PREDECESSOR_GIT_SHA = "ead6b2055fdd6ad0cd938f62dcd44187c5ce5ddf"
+APPROVED_PREDECESSOR_GIT_SHA = "a187d14427b7532e16487653f8ffb6fe37c9703d"
 G60C_EVALUATED_SHA = "a9dd78bded5c1072f0285f00cf7759654da8b7d8"
 G60C_CI_URL = "https://github.com/nakatamaho/vaeg/actions/runs/30148175007"
 TARGET_POLICY_ID = (
