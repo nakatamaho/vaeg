@@ -24,6 +24,10 @@ capture, selectable F12 actions, Pause, and menu/input polish. See
 [Rel.20260830 changes](CHANGES.20260830.md) for the complete notes and the
 current hardware-validation boundaries.
 
+![NEON4 port running under VAEG](docs/images/vaeg-20260830-203152-0000037017-000.png)
+
+*NEON4 port for PC-88VA. The [original version](https://www.youtube.com/watch?v=X8b5w6losoY&list=PLJPzkZgJsiVs&index=5) ran on a higher-clocked system, so it is a little slower on PC-88VA.*
+
 ### 2026-08-14 - Rel.20260814
 
 [Rel.20260814](https://github.com/nakatamaho/vaeg/releases/tag/rel-20260814)
