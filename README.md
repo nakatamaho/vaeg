@@ -42,7 +42,7 @@ See the [CP/MVA setup guide](docs/cpmva-setup.md) for the complete procedure.
 *Actual SDL-rendered VAEG capture from a headless CP/MVA run: the generated
 disk is mounted, `DIR` lists the CP/M tools, and `EXIT` returns to PC-Engine.*
 
-![PC-88VA demonstration running under VAEG](docs/images/vaeg-20260830-185259-0000024846-000.png)
+![CP/MVA tools running under VAEG](docs/images/vaeg-20260830-190207-0000130320-000.png)
 
 ### 2026-08-05 - Rel.260805
 
@@ -91,6 +91,8 @@ for the complete upgrade notes.
 the first release of the maintained portable fork. It established the active
 CMake, SDL2, and Dear ImGui build for Windows-MinGW, Linux, and macOS after
 completion of the phase-2 portability work.
+
+![PC-88VA demonstration running under VAEG](docs/images/vaeg-20260830-185259-0000024846-000.png)
 
 ## Current Frontend
 
