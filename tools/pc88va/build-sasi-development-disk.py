@@ -34,6 +34,14 @@ other documentation, while the STEST utilities are installed under ``\\BIN``.
 The original archives are retained under ``\\ARCHIVE``.  Package bytes are
 checksum-verified and the builder never formats or modifies removable media.
 
+The generated ``CONFIG.SYS`` uses SCSI target ID 0 and the fixed-160MB policy
+by default.  ``--scsi-id`` selects another target, while ``--scsi-profile``
+can select ``fixed``, ``mo-128mb``, or ``mo-160mb``.  MO profiles add the
+documented ``-X -D1`` SCHD policy and install a manual setup note; VBUFF,
+SCFORM, SFORM, and SETDMA are never run by the builder.  ``--docs-lang``
+selects the installed operator-note language (``en``, ``ja``, or ``both``;
+the default is ``both``).
+
 The optional free JWasm DOS package can be supplied with
 ``--jwasm-archive``.  Its real-mode MASM-compatible assembler
 (``JWASMR.EXE``), readme, and license are installed under ``\\BIN`` and
@@ -137,10 +145,112 @@ CONFIG_LINES = (
     r"DEVICE = A:\SYS\RDPCM.SYS",
 )
 
+SCSI_PROFILES = ("fixed", "fixed-160mb", "mo-128mb", "mo-160mb")
+SCSI_DOC_LANGUAGES = ("en", "ja", "both")
 
-def config_lines(two_hc_enabled: bool = False) -> tuple[str, ...]:
-    """Return the generated VA load order, optionally installing 2HCDRV."""
+
+def validate_scsi_profile(scsi_id: int, scsi_profile: str) -> None:
+    """Validate the target selector used by the generated guest config."""
+    if not isinstance(scsi_id, int) or not 0 <= scsi_id <= 7:
+        raise BuildError("SCSI ID must be an integer from 0 through 7")
+    if scsi_profile not in SCSI_PROFILES:
+        raise BuildError(
+            "SCSI profile must be one of: " + ", ".join(SCSI_PROFILES))
+
+
+def validate_scsi_doc_language(language: str) -> None:
+    """Validate the language set selected for installed setup notes."""
+    if language not in SCSI_DOC_LANGUAGES:
+        raise BuildError(
+            "SCSI document language must be one of: "
+            + ", ".join(SCSI_DOC_LANGUAGES))
+
+
+def scsi_setup_lines(scsi_id: int, scsi_profile: str,
+                     language: str = "en") -> tuple[str, ...]:
+    """Return non-destructive operator notes for an SCSI target profile."""
+    validate_scsi_profile(scsi_id, scsi_profile)
+    validate_scsi_doc_language(language)
+    if scsi_profile == "fixed":
+        return ()
+    if scsi_profile == "fixed-160mb":
+        medium = "160MB FIXED SCSI TARGET"
+        removable = "NO"
+        schd = f"DEVICE = A:\\SYS\\SCHD.SYS -I{scsi_id}"
+        vbuff = "VBUFF -D1 -B12"
+        caution = "160MB fixed-target support still requires real hardware validation."
+        caution_ja = "160MB固定SCSIターゲットは実機検証が必要です。"
+    elif scsi_profile == "mo-128mb":
+        medium = "128MB REMOVABLE MO"
+        removable = "YES"
+        schd = f"DEVICE = A:\\SYS\\SCHD.SYS -I{scsi_id} -X -D1"
+        vbuff = "VBUFF -D1 -B11"
+        caution = "Use a confirmed 128MB medium and a compatible SCSI interface."
+        caution_ja = "確認済みの128MB媒体と対応SCSIインターフェースを使用してください。"
+    else:
+        medium = "160MB REMOVABLE MO"
+        removable = "YES"
+        schd = f"DEVICE = A:\\SYS\\SCHD.SYS -I{scsi_id} -X -D1"
+        vbuff = "VBUFF -D1 -B12"
+        caution = "160MB removable-MO support is not hardware-verified in VAEG."
+        caution_ja = "160MBリムーバブルMOはVAEGで実機検証されていません。"
+    scform = ("SCFORM /SS"
+              if scsi_profile in ("fixed-160mb", "mo-160mb")
+              else "SCFORM /S")
+    if language == "ja":
+        return (
+            "PC-88VA SCSI ターゲット設定",
+            f"プロファイル: {medium}",
+            f"SCSI ID: {scsi_id}",
+            f"リムーバブル媒体: {removable}",
+            f"検証: {caution_ja}",
+            "",
+            "CONFIG.SYS の SCHD 行:",
+            schd,
+            "",
+            "手動手順（自動実行しません）:",
+            f"1. PC-Engine システムディスクで {vbuff} を実行",
+            "2. VBUFF がIPLを書き換えたら再起動",
+            f"3. 対象確認とバックアップ後に {scform} を実行",
+            "4. MO媒体では STEST55S SFORM は破壊的操作のため手動実行",
+            "5. SETDMA.COM は必要時に PCPLUS 読み込み後に手動実行",
+            "",
+            "生成されたSASIディスクは40MBの起動・サポートディスクです。",
+            "この設定は外部SCSIターゲット用のゲスト環境を準備します。",
+        )
+    return (
+        "PC-88VA SCSI TARGET PROFILE",
+        f"PROFILE: {medium}",
+        f"SCSI ID: {scsi_id}",
+        f"REMOVABLE POLICY: {removable}",
+        f"VALIDATION: {caution}",
+        "",
+        "CONFIG.SYS SCHD LINE:",
+        schd,
+        "",
+        "OPERATOR STEPS (NOT RUN AUTOMATICALLY):",
+        f"1. On the PC-Engine system disk, run: {vbuff}",
+        "2. Reboot after VBUFF changes the IPL buffer size.",
+        f"3. Run {scform} only after confirming the target and backing it up.",
+        "4. For MO media, STEST55S SFORM is destructive and remains manual.",
+        "5. SETDMA.COM is optional; run it manually after PCPLUS is loaded.",
+        "",
+        "The generated SASI disk is still a 40 MB boot/support disk.",
+        "This profile prepares the guest software for an external SCSI target.",
+    )
+
+
+def config_lines(two_hc_enabled: bool = False, scsi_id: int = 0,
+                 scsi_profile: str = "fixed-160mb") -> tuple[str, ...]:
+    """Return the generated VA load order and selected SCHD target policy."""
+    validate_scsi_profile(scsi_id, scsi_profile)
     lines = list(CONFIG_LINES)
+    schd_index = lines.index(r"DEVICE = A:\SYS\SCHD.SYS -I0")
+    schd_suffix = ""
+    if scsi_profile in ("mo-128mb", "mo-160mb"):
+        schd_suffix = " -X -D1"
+    lines[schd_index] = (
+        rf"DEVICE = A:\SYS\SCHD.SYS -I{scsi_id}{schd_suffix}")
     if two_hc_enabled:
         index = lines.index(r"DEVICE = A:\SYS\MSE352B.COM /A /B")
         lines.insert(index, r"DEVICE = A:\BIN\2HCDRV.COM")
@@ -178,8 +288,8 @@ def autoexec_lines(lsic_enabled: bool, cpm_enabled: bool,
     return tuple(lines)
 
 
-def text_file(lines: tuple[str, ...]) -> bytes:
-    return ("\r\n".join(lines) + "\r\n").encode("ascii")
+def text_file(lines: tuple[str, ...], encoding: str = "ascii") -> bytes:
+    return ("\r\n".join(lines) + "\r\n").encode(encoding)
 
 
 class BuildError(Exception):
@@ -551,6 +661,31 @@ def install_mo_packages(tree: dict[str, object], packages, installed_files) -> N
             attributes = 0x27 if path == ("SYS", "SCHD.SYS") else 0x20
             upsert_tree_file(tree, path, contents, attributes)
             record(path, contents)
+
+
+def install_scsi_profile_doc(tree: dict[str, object], installed_files,
+                             scsi_id: int, scsi_profile: str,
+                             docs_lang: str = "both") -> None:
+    """Install selected manual-only SCSI/MO setup notes."""
+    if scsi_profile == "fixed":
+        return
+    validate_scsi_doc_language(docs_lang)
+    basename = {
+        "fixed-160mb": "SCSI160.TXT",
+        "mo-128mb": "MO128.TXT",
+        "mo-160mb": "MO160.TXT",
+    }[scsi_profile]
+    stem = basename[:-4]
+    languages = ("en", "ja") if docs_lang == "both" else (docs_lang,)
+    for language in languages:
+        suffix = "E" if language == "en" else "J"
+        path = ("DOC", f"{stem}{suffix}.TXT")
+        encoding = "ascii" if language == "en" else "cp932"
+        contents = text_file(
+            scsi_setup_lines(scsi_id, scsi_profile, language), encoding)
+        upsert_tree_file(tree, path, contents, 0x20)
+        if not any(item[0] == path for item in installed_files):
+            installed_files.append((path, contents))
 
 
 def collect_jwasm_package(archive_contents: bytes, module):
@@ -931,8 +1066,13 @@ def build(source: Path, output: Path, variant: str,
           jwasm_archive: Path | None = None,
           supplemental_tree: Path | None = None,
           supplemental_manifest: Path | None = None,
-          two_hc_enabled: bool = False) -> dict[str, object]:
+          two_hc_enabled: bool = False,
+          scsi_id: int = 0,
+          scsi_profile: str = "fixed-160mb",
+          docs_lang: str = "both") -> dict[str, object]:
     module = load_pcengine_module()
+    validate_scsi_profile(scsi_id, scsi_profile)
+    validate_scsi_doc_language(docs_lang)
     if supplemental_manifest is not None and supplemental_tree is None:
         raise BuildError("--supplemental-manifest requires --supplemental-tree")
     if (lsic_archive is None) != (lsic_tree is None):
@@ -1044,7 +1184,8 @@ def build(source: Path, output: Path, variant: str,
         builder.add_root(name, SYSTEM_ATTRIBUTES[name],
                          d88_file(source_disk, [name], module))
     builder.add_root("CONFIG.SYS", 0x20,
-                     text_file(config_lines(two_hc_enabled)))
+                     text_file(config_lines(two_hc_enabled, scsi_id,
+                                            scsi_profile)))
     builder.add_root("AUTOEXEC.BAT", 0x20,
                      text_file(autoexec_lines(lsic_contents is not None,
                                                cpm_archive is not None,
@@ -1103,6 +1244,8 @@ def build(source: Path, output: Path, variant: str,
                 installed_files.append((install_path, contents))
         add_cpm_to_tree(payload_tree, cpm_records, installed_files)
         install_mo_packages(payload_tree, mo_packages, installed_files)
+        install_scsi_profile_doc(payload_tree, installed_files,
+                                 scsi_id, scsi_profile, docs_lang)
         if jwasm_contents is not None:
             add_tree_file(payload_tree, ("ARCHIVE", JWASM_ARCHIVE_NAME),
                           jwasm_contents, 0x20)
@@ -1123,7 +1266,7 @@ def build(source: Path, output: Path, variant: str,
              if path[-1].upper() != "PCENGINE.COM"],
             key=lambda item: item[0].upper())
         if (lsic_contents is None and not cpm_records and not mo_packages
-                and jwasm_contents is None):
+                and jwasm_contents is None and scsi_profile == "fixed"):
             builder.add_directory("BIN", records)
             installed_files.extend(
                 (("BIN", name), contents) for name, contents, _ in records)
@@ -1142,6 +1285,8 @@ def build(source: Path, output: Path, variant: str,
                     installed_files.append((install_path, contents))
             add_cpm_to_tree(tree, cpm_records, installed_files)
             install_mo_packages(tree, mo_packages, installed_files)
+            install_scsi_profile_doc(tree, installed_files,
+                                     scsi_id, scsi_profile, docs_lang)
             if jwasm_contents is not None:
                 add_tree_file(tree, ("ARCHIVE", JWASM_ARCHIVE_NAME),
                               jwasm_contents, 0x20)
@@ -1177,6 +1322,9 @@ def build(source: Path, output: Path, variant: str,
         "source": str(source),
         "output": str(output),
         "system_version": source_version,
+        "scsi_id": scsi_id,
+        "scsi_profile": scsi_profile,
+        "docs_lang": docs_lang,
         "geometry": {
             "header_bytes": HEADER_SIZE,
             "sector_bytes": SECTOR_SIZE,
@@ -1258,6 +1406,15 @@ def main(argv=None) -> int:
                         help="manifest produced for the supplemental tree")
     parser.add_argument("--enable-2hc", action="store_true",
                         help="load the SASI-only 2HCDRV.COM device in CONFIG.SYS")
+    parser.add_argument("--scsi-id", type=int, default=0, choices=range(8),
+                        help="SCSI target ID for SCHD (default: 0)")
+    parser.add_argument("--scsi-profile", choices=SCSI_PROFILES,
+                        default="fixed-160mb",
+                        help="fixed-160mb (default), fixed, mo-128mb, or "
+                             "mo-160mb")
+    parser.add_argument("--docs-lang", choices=SCSI_DOC_LANGUAGES,
+                        default="both",
+                        help="SCSI setup-note language: en, ja, or both")
     parser.add_argument("--output", required=True, type=Path,
                         help="new 40 MB SASI HDI path (must not already exist)")
     args = parser.parse_args(argv)
@@ -1326,11 +1483,14 @@ def main(argv=None) -> int:
                        mo_paths["va128mo"][0], mo_paths["va128mo"][1],
                        mo_paths["stest"][0], mo_paths["stest"][1],
                        jwasm_archive, supplemental_tree, supplemental_manifest,
-                       args.enable_2hc)
+                       args.enable_2hc, args.scsi_id, args.scsi_profile,
+                       args.docs_lang)
     except (BuildError, OSError) as error:
         parser.exit(1, f"error: {error}\n")
     print("Created boot-layout 40 MB SASI development disk")
     print(f"variant: {result['variant']}")
+    print(f"SCSI target: ID {result['scsi_id']} ({result['scsi_profile']})")
+    print(f"SCSI setup notes: {result['docs_lang']}")
     print(f"output: {result['output']}")
     print(f"size: {result['geometry']['image_bytes']} bytes")
     print(f"SHA-256: {result['sha256']}")

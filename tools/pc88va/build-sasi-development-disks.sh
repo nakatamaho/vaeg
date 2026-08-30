@@ -52,6 +52,18 @@ s88valsi_doc=${VAEG_S88VALSI_DOC:-$softlib_cache/S88VALSI.DOC}
 s88va250_archive=${VAEG_S88VA250_ARCHIVE:-$softlib_cache/S88VA250.LZH}
 s88va250_doc=${VAEG_S88VA250_DOC:-$softlib_cache/S88VA250.DOC}
 stest_source_archive=${VAEG_STEST_SOURCE_ARCHIVE:-$softlib_cache/ST115SRC.LZH}
+zim_img_archive=${VAEG_ZIM_IMG_ARCHIVE:-$softlib_cache/ZIM_IMG.LZH}
+rdems15_archive=${VAEG_RDEMS15_ARCHIVE:-$softlib_cache/RDEMS15.LZH}
+rdems152_archive=${VAEG_RDEMS152_ARCHIVE:-$softlib_cache/RDEMS152.LZH}
+vachk_bas=${VAEG_VACHK_BAS:-$softlib_cache/VACHK.BAS}
+vachk_txt=${VAEG_VACHK_TXT:-$softlib_cache/VACHK.TXT}
+vachk_doc=${VAEG_VACHK_DOC:-$softlib_cache/VACHK.DOC}
+gm1_archive=${VAEG_GM1_ARCHIVE:-$softlib_cache/G&M1.LZH}
+clk_source=${VAEG_CLK_SOURCE:-$softlib_cache/CLK21.SRC}
+clk_archive=${VAEG_CLK_ARCHIVE:-$softlib_cache/CLK21.LZH}
+clk_doc=${VAEG_CLK_DOC:-$softlib_cache/CLK21.DOC}
+va3ddemo_asm=${VAEG_VA3DDEMO_ASM:-$softlib_cache/VA3DDEMO.ASM}
+va3ddemo_doc=${VAEG_VA3DDEMO_DOC:-$softlib_cache/VA3DDEMO.DOC}
 cpm_archive=${VAEG_CPM_EXECUTOR_ARCHIVE:-${VAEG_PC88VA_SOFTLIB_CACHE:-${XDG_CACHE_HOME:-${HOME}/.cache}/vaeg/cpm08}/cpm08.zip}
 mo_cache=${VAEG_PC88VA_MO_CACHE:-${XDG_CACHE_HOME:-${HOME}/.cache}/vaeg/pc88va-development-disk}
 mo_schd_archive=${VAEG_MO_SCHD_ARCHIVE:-$mo_cache/schd155t.lzh}
@@ -61,6 +73,9 @@ jwasm_archive=${VAEG_JWASM_ARCHIVE:-${XDG_CACHE_HOME:-${HOME}/.cache}/vaeg/jwasm
 cpm_tools_d88=${VAEG_CPM_TOOLS_D88:-${HOME}/88VA/images/cpm/cpmva-tools.d88}
 cpm_source_d88=${VAEG_CPM_SOURCE_D88:-${HOME}/88VA/images/cpm/cpmva-source.d88}
 cpm_dev_d88=${VAEG_CPM_DEV_D88:-${HOME}/88VA/images/cpm/cpmva-dev.d88}
+scsi_id=0
+scsi_profile=fixed-160mb
+docs_lang=both
 work_dir=
 jwasm_tmp=
 download_tmp=
@@ -93,9 +108,17 @@ Usage: $program_name [--source-va PATH] [--source-va2 PATH]
 	       [--s88valsi-archive PATH] [--s88valsi-doc PATH]
 	       [--s88va250-archive PATH] [--s88va250-doc PATH]
 	       [--stest-source-archive PATH]
+	       [--zim-img-archive PATH] [--rdems15-archive PATH]
+	       [--rdems152-archive PATH]
+	       [--vachk-bas PATH] [--vachk-txt PATH] [--vachk-doc PATH]
+	       [--gm1-archive PATH]
+	       [--clk-source PATH] [--clk-archive PATH] [--clk-doc PATH]
+	       [--va3ddemo-asm PATH] [--va3ddemo-doc PATH]
 	       [--jwasm-archive PATH]
        [--mo-schd-archive PATH] [--mo-va128mo-archive PATH]
        [--mo-stest-archive PATH]
+       [--scsi-id 0-7] [--scsi-profile fixed|fixed-160mb|mo-128mb|mo-160mb]
+       [--docs-lang en|ja|both]
        [--cpm-tools-d88 PATH] [--cpm-source-d88 PATH] [--cpm-dev-d88 PATH]
        [--output-dir DIR]
 
@@ -120,6 +143,13 @@ The SCHD155T, VA128MO, and STEST115 archives default to the verified
 pc88va-development-disk cache; use the --mo-* options or VAEG_MO_*_ARCHIVE
 variables to select explicit copies.  The archives are retained under
 A:\\ARCHIVE and their documented files are installed under BIN, DOC, and SYS.
+The default SCSI profile is fixed-160mb, because the 160 MB fixed SCSI disk
+is assumed to be attached.  Use --scsi-profile fixed for the legacy generic
+fixed-target note, or mo-128mb/mo-160mb for an external removable MO target.
+MO profiles add SCHD's -X -D1 policy and a manual setup note under A:\\DOC;
+VBUFF and SFORM are never run automatically.
+Setup notes are installed in English and Japanese by default; use
+--docs-lang en or --docs-lang ja to install only one language.
 JWasm_v220_dos.zip defaults to the pinned free JWasm release cache (or
 VAEG_JWASM_ARCHIVE); JWASMR.EXE, its readme/license, and the original archive
 are installed under BIN, DOC, and ARCHIVE.
@@ -259,6 +289,66 @@ while (($#)); do
 		stest_source_archive=$2
 		shift 2
 		;;
+	--zim-img-archive)
+		(($# >= 2)) || die '--zim-img-archive requires a path'
+		zim_img_archive=$2
+		shift 2
+		;;
+	--rdems15-archive)
+		(($# >= 2)) || die '--rdems15-archive requires a path'
+		rdems15_archive=$2
+		shift 2
+		;;
+	--rdems152-archive)
+		(($# >= 2)) || die '--rdems152-archive requires a path'
+		rdems152_archive=$2
+		shift 2
+		;;
+	--vachk-bas)
+		(($# >= 2)) || die '--vachk-bas requires a path'
+		vachk_bas=$2
+		shift 2
+		;;
+	--vachk-txt)
+		(($# >= 2)) || die '--vachk-txt requires a path'
+		vachk_txt=$2
+		shift 2
+		;;
+	--vachk-doc)
+		(($# >= 2)) || die '--vachk-doc requires a path'
+		vachk_doc=$2
+		shift 2
+		;;
+	--gm1-archive)
+		(($# >= 2)) || die '--gm1-archive requires a path'
+		gm1_archive=$2
+		shift 2
+		;;
+	--clk-source)
+		(($# >= 2)) || die '--clk-source requires a path'
+		clk_source=$2
+		shift 2
+		;;
+	--clk-archive)
+		(($# >= 2)) || die '--clk-archive requires a path'
+		clk_archive=$2
+		shift 2
+		;;
+	--clk-doc)
+		(($# >= 2)) || die '--clk-doc requires a path'
+		clk_doc=$2
+		shift 2
+		;;
+	--va3ddemo-asm)
+		(($# >= 2)) || die '--va3ddemo-asm requires a path'
+		va3ddemo_asm=$2
+		shift 2
+		;;
+	--va3ddemo-doc)
+		(($# >= 2)) || die '--va3ddemo-doc requires a path'
+		va3ddemo_doc=$2
+		shift 2
+		;;
 	--jwasm-archive)
 		(($# >= 2)) || die '--jwasm-archive requires a path'
 		jwasm_archive=$2
@@ -277,6 +367,21 @@ while (($#)); do
 	--mo-stest-archive)
 		(($# >= 2)) || die '--mo-stest-archive requires a path'
 		mo_stest_archive=$2
+		shift 2
+		;;
+	--scsi-id)
+		(($# >= 2)) || die '--scsi-id requires a value'
+		scsi_id=$2
+		shift 2
+		;;
+	--scsi-profile)
+		(($# >= 2)) || die '--scsi-profile requires a value'
+		scsi_profile=$2
+		shift 2
+		;;
+	--docs-lang)
+		(($# >= 2)) || die '--docs-lang requires a value'
+		docs_lang=$2
 		shift 2
 		;;
 	--cpm-archive)
@@ -313,6 +418,22 @@ while (($#)); do
 		;;
 	esac
 done
+
+[[ $scsi_id =~ ^[0-7]$ ]] || die '--scsi-id must be one digit from 0 through 7'
+case $scsi_profile in
+fixed|fixed-160mb|mo-128mb|mo-160mb)
+	;;
+*)
+	die '--scsi-profile must be fixed, fixed-160mb, mo-128mb, or mo-160mb'
+	;;
+esac
+case $docs_lang in
+en|ja|both)
+	;;
+*)
+	die '--docs-lang must be en, ja, or both'
+	;;
+esac
 
 ensure_jwasm_archive() {
 	local parent
@@ -439,6 +560,42 @@ ensure_cached_package "$stest_source_archive" \
 ensure_cached_package "$mo_stest_archive" \
 	6ae981b0010df20a510f85165567add33032241854b147ed47937a59953010bc \
 	'https://www2u.biglobe.ne.jp/~pumpkin/hlabo/osl/driver/STEST115.LZH'
+ensure_cached_package "$zim_img_archive" \
+	cc4018975c02128680908560218f32f661009c4d699166b02c62325dbb817609 \
+	'http://www.pc88.gr.jp/softlib/index.php?action=download&anum=2&gnum=193&fname=ZIM_IMG.LZH'
+ensure_cached_package "$rdems15_archive" \
+	379cb93b6343f0dc7cabb1074e5bc8be0d676c8010a17c7e3692bd67cbd4311c \
+	'http://www.pc88.gr.jp/softlib/index.php?action=download&anum=2&gnum=261&fname=RDEMS15.LZH'
+ensure_cached_package "$rdems152_archive" \
+	0ba023a9f82defca085dc13d7103fe5b2a788ef9217d660686f2a20d8b0e70f9 \
+	'http://www.pc88.gr.jp/softlib/index.php?action=download&anum=2&gnum=270&fname=RDEMS152.LZH'
+ensure_cached_package "$vachk_bas" \
+	e94d74516bc0c17d82d7f60a6ad1f8a8d9cd2fc963764d7e501c98d9d764946c \
+	'http://www.pc88.gr.jp/softlib/index.php?action=download&anum=2&gnum=274&fname=VACHK.BAS'
+ensure_cached_package "$vachk_txt" \
+	7e3028c47200f6bb3f1b614ec6f3db51ae04ee2601ced9864de0d585b453ac4c \
+	'http://www.pc88.gr.jp/softlib/index.php?action=download&anum=2&gnum=274&fname=VACHK.TXT'
+ensure_cached_package "$vachk_doc" \
+	ead94fc9704d2c19d524e963854ba809315cc973d4a16d825dd93e441c54ba9f \
+	'http://www.pc88.gr.jp/softlib/index.php?action=download&anum=2&gnum=274&fname=VACHK.DOC'
+ensure_cached_package "$gm1_archive" \
+	ebded3b3b2b8ac8fc24588c2e11e9524894fcbd6b0bb425232ddfdc0ee7890c0 \
+	'http://www.pc88.gr.jp/softlib/index.php?action=download&anum=2&gnum=278&fname=G%26M1.LZH'
+ensure_cached_package "$clk_source" \
+	81ad0fbae4b742afa4318ef776b852b908f7055240587a257fa1d10f264317e0 \
+	'http://www.pc88.gr.jp/softlib/index.php?action=download&anum=2&gnum=386&fname=CLK21.SRC'
+ensure_cached_package "$clk_archive" \
+	8cb0d8bef39dc333a81527bd02c64669cc62caea8419a114c9a5df0db886b955 \
+	'http://www.pc88.gr.jp/softlib/index.php?action=download&anum=2&gnum=386&fname=CLK21.LZH'
+ensure_cached_package "$clk_doc" \
+	6e97ad631f71f54095a47b0bda5870ed70eafe594d1b070b5ae8f6c2b51841bb \
+	'http://www.pc88.gr.jp/softlib/index.php?action=download&anum=2&gnum=386&fname=CLK21.DOC'
+ensure_cached_package "$va3ddemo_asm" \
+	ad8f142d7b774b536bcd6b76c25fe6276b5e25fcb387236169c775dbacc33d2a \
+	'http://www.pc88.gr.jp/softlib/index.php?action=download&anum=1&gnum=23&fname=VA3dDEMO.ASM'
+ensure_cached_package "$va3ddemo_doc" \
+	ff416a82b52062a9d818f46e28fbaf7e73923728a5a61387736acdb9bedaaed5 \
+	'http://www.pc88.gr.jp/softlib/index.php?action=download&anum=1&gnum=23&fname=VA3dDEMO.DOC'
 [[ -f $cpm_archive && -r $cpm_archive ]] ||
 	die "CP/M emulator archive is not readable: $cpm_archive (use --cpm-archive)"
 [[ -f $mo_schd_archive && -r $mo_schd_archive ]] ||
@@ -481,7 +638,13 @@ supplemental_manifest=$work_dir/supplemental.manifest.tsv
 	--tsclv-source-archive "$tsclv_source_archive" \
 	--s88valsi-archive "$s88valsi_archive" --s88valsi-doc "$s88valsi_doc" \
 		--s88va250-archive "$s88va250_archive" --s88va250-doc "$s88va250_doc" \
-		--stest-source-archive "$stest_source_archive"
+		--stest-source-archive "$stest_source_archive" \
+	--zim-img-archive "$zim_img_archive" --rdems15-archive "$rdems15_archive" \
+	--rdems152-archive "$rdems152_archive" \
+	--vachk-bas "$vachk_bas" --vachk-txt "$vachk_txt" --vachk-doc "$vachk_doc" \
+	--gm1-archive "$gm1_archive" \
+	--clk-source "$clk_source" --clk-archive "$clk_archive" --clk-doc "$clk_doc" \
+	--va3ddemo-asm "$va3ddemo_asm" --va3ddemo-doc "$va3ddemo_doc"
 
 mo_schd_tree=$work_dir/mo-schd
 mo_va128mo_tree=$work_dir/mo-va128mo
@@ -501,8 +664,9 @@ python3 "$builder" --variant va --source "$source_va" \
 	--cpm-archive "$cpm_archive" --cpm-tools-d88 "$cpm_tools_d88" \
 	--cpm-source-d88 "$cpm_source_d88" --cpm-dev-d88 "$cpm_dev_d88" \
 	--supplemental-tree "$supplemental_tree" \
-	--supplemental-manifest "$supplemental_manifest" \
-	--output "$output_dir/pc88va-sasi-40mb-va.hdi"
+		--supplemental-manifest "$supplemental_manifest" \
+	--scsi-id "$scsi_id" --scsi-profile "$scsi_profile" --docs-lang "$docs_lang" \
+		--output "$output_dir/pc88va-sasi-40mb-va.hdi"
 python3 "$builder" --variant va2 --source "$source_va2" \
 	--payload-d88 "$payload_d88" \
 	--jwasm-archive "$jwasm_archive" \
@@ -513,8 +677,9 @@ python3 "$builder" --variant va2 --source "$source_va2" \
 	--cpm-archive "$cpm_archive" --cpm-tools-d88 "$cpm_tools_d88" \
 	--cpm-source-d88 "$cpm_source_d88" --cpm-dev-d88 "$cpm_dev_d88" \
 	--supplemental-tree "$supplemental_tree" \
-	--supplemental-manifest "$supplemental_manifest" \
-	--output "$output_dir/pc88va-sasi-40mb-va2.hdi"
+		--supplemental-manifest "$supplemental_manifest" \
+	--scsi-id "$scsi_id" --scsi-profile "$scsi_profile" --docs-lang "$docs_lang" \
+		--output "$output_dir/pc88va-sasi-40mb-va2.hdi"
 
 cleanup
 work_dir=

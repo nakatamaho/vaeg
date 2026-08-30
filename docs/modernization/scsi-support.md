@@ -24,6 +24,8 @@ POSSIBILITY OF SUCH DAMAGE.
 -->
 # PC-88VA SCSI Support Disk
 
+Language: [English](scsi-support.md) | [日本語](scsi-support.ja.md)
+
 This document is an independently written summary of the PC-88VA SCSI setup
 described by the original software documentation and the PC88.gr.jp forum.
 It does not reproduce the forum post or package manuals. The repository does
@@ -407,6 +409,22 @@ DEVICE = A:\SCHD.SYS -I0
 PCPLUS must load before SCHD. The value after `-I` is the target's SCSI ID
 and is generated from `--scsi-id`.
 
+The SASI development-disk builder assumes the attached 160 MB fixed SCSI
+target by default (the generated SCHD line remains the normal fixed-target
+line).  For an external removable medium, build an explicit profile rather
+than changing the normal boot disk in place:
+
+```sh
+tools/pc88va/build-sasi-development-disks.sh --scsi-profile mo-128mb
+```
+
+`--scsi-profile mo-128mb` or `mo-160mb` adds `-X -D1` to the generated SCHD
+line and writes a manual setup note under `A:\DOC`.  `fixed-160mb` keeps the
+fixed-disk policy while documenting the larger-sector procedure.  The image
+produced by this command remains the 40 MB SASI boot/support disk; the profile
+prepares its guest software for a separate SCSI target.  VBUFF, SCFORM,
+STEST55S SFORM, and SETDMA are deliberately not run by the host builder.
+
 ## Interface-Board Setup
 
 Read `A:\DOC\SCSI55.TXT` before configuring a PC-9801-55 or compatible
@@ -468,14 +486,17 @@ After applying the 2048-byte VBUFF setting, start SCFORM with its
 logical-sector-size extension:
 
 ```dos
-SCFORM /S
+SCFORM /S       ; up to approximately 128 MiB (2048-byte sectors)
+SCFORM /SS      ; 129-256 MiB (4096-byte sectors)
 ```
 
 The SCFORM 1.24 manual defines the option as `-S` and demonstrates the
 slash form in its `SCFORM /MS` example. The forum topic says `-B` at this
-point, but `-B11` belongs to VBUFF; SCFORM uses `/S` to expose the
-2048-byte choice. The option expands the choices—it does not select the
-2048-byte value automatically.
+point, but `-B11` belongs to VBUFF. Each additional `S` doubles the logical
+sector size: `/S` exposes 2048-byte sectors, `/SS` exposes 4096-byte sectors,
+and `/SSS` exposes 8192-byte sectors. The option expands the choices; it does
+not select a value automatically. Therefore a 129-256 MB region requires
+`SCFORM /SS`, not `/S`.
 
 In SCFORM's menus:
 

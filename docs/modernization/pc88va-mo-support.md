@@ -22,6 +22,8 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 -->
 # PC-88VA 128 MB MO support plan
 
+Language: [English](pc88va-mo-support.md) | [日本語 SCSI procedure](scsi-support.ja.md)
+
 ## Scope and current result
 
 The PC-88.gr.jp packages for SCHD 1.55T and VA128MO, together with the OSL
@@ -168,6 +170,24 @@ DEVICE=A:\SYS\PCPLUS.SYS
 DEVICE=A:\SYS\SCHD.SYS -I0 -X
 VBUFF -D1 -B11
 ```
+
+The SASI development-disk builder now exposes that choice explicitly.  Its
+default assumes the attached 160 MB fixed SCSI disk; no removable-media
+policy is added unless requested:
+
+```sh
+tools/pc88va/build-sasi-development-disks.sh --scsi-profile mo-128mb
+```
+
+The other supported profiles are `fixed`, `mo-128mb`, and `mo-160mb`.
+`--scsi-id 0` through `--scsi-id 7` selects the SCHD target ID.  The
+MO profiles generate `SCHD.SYS -I<n> -X -D1` and install a profile note under
+`A:\DOC`; the note records the required manual `VBUFF` setting (`-B11` for a
+128 MB medium and `-B12` for a 160 MB target), reboot, `SCFORM /S` for 128 MB
+or `SCFORM /SS` for 160 MB, and the destructive `STEST55S SFORM` step.  None
+of those commands is run while
+building the 40 MB SASI support disk.  `fixed-160mb` keeps the fixed-disk
+SCHD policy and only records the larger-sector operator procedure.
 
 The exact `-D`/logical-sector combination must follow the installed SCHD
 revision and the operator's medium.  `STEST55S SFORM` is intentionally left
