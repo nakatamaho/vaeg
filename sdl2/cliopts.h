@@ -26,6 +26,7 @@
 #define VAEG_SDL2_CLIOPTS_H
 
 #include "compiler.h"
+#include "screenshot.h"
 
 enum {
 	VAEG_CLI_MODEL_UNSET = 0,
@@ -163,6 +164,8 @@ typedef struct {
 	const char *debug_output_dir;
 	const char *screen_dump_path;
 	const char *screen_tvram_dump_path;
+	VAEG_SCREENSHOT_REQUEST screenshot_requests[VAEG_SCREENSHOT_MAX_REQUESTS];
+	UINT screenshot_count;
 } VAEG_CLI_OPTIONS;
 
 #ifdef __cplusplus

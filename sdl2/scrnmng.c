@@ -158,6 +158,248 @@ static void scrnmng_capture_rendered_frame(void) {
 	}
 }
 
+static UINT32 scrnmng_png_crc32_update(UINT32 crc, const BYTE *data, size_t length) {
+	size_t i;
+	int bit;
+
+	for (i = 0; i < length; i++) {
+		crc ^= data[i];
+		for (bit = 0; bit < 8; bit++) {
+			crc = (crc & 1) ? ((crc >> 1) ^ 0xedb88320U) : (crc >> 1);
+		}
+	}
+	return crc;
+}
+
+static UINT32 scrnmng_png_adler32(const BYTE *data, size_t length) {
+	UINT32 a = 1;
+	UINT32 b = 0;
+	size_t i;
+
+	for (i = 0; i < length; i++) {
+		a += data[i];
+		if (a >= 65521U) {
+			a -= 65521U;
+		}
+		b += a;
+		if (b >= 65521U) {
+			b -= 65521U;
+		}
+	}
+	return (b << 16) | a;
+}
+
+static BOOL scrnmng_png_write_u32(FILE *fp, UINT32 value) {
+	BYTE bytes[4];
+
+	bytes[0] = (BYTE)(value >> 24);
+	bytes[1] = (BYTE)(value >> 16);
+	bytes[2] = (BYTE)(value >> 8);
+	bytes[3] = (BYTE)value;
+	return (fwrite(bytes, 1, sizeof(bytes), fp) == sizeof(bytes)) ? SUCCESS : FAILURE;
+}
+
+static BOOL scrnmng_png_write_chunk(FILE *fp, const char type[4], const BYTE *data,
+	                                  UINT32 length) {
+	UINT32 crc;
+
+	if (scrnmng_png_write_u32(fp, length) != SUCCESS || fwrite(type, 1, 4, fp) != 4) {
+		return FAILURE;
+	}
+	if ((length != 0) && (fwrite(data, 1, length, fp) != length)) {
+		return FAILURE;
+	}
+	crc = scrnmng_png_crc32_update(0xffffffffU, (const BYTE *)type, 4);
+	if (length != 0) {
+		crc = scrnmng_png_crc32_update(crc, data, length);
+	}
+	crc ^= 0xffffffffU;
+	return scrnmng_png_write_u32(fp, crc);
+}
+
+static BOOL scrnmng_png_save_surface(SDL_Surface *surface, const char *path) {
+	BYTE ihdr[13];
+	BYTE *raw = NULL;
+	BYTE *compressed = NULL;
+	FILE *fp = NULL;
+	size_t row_bytes;
+	size_t raw_length;
+	size_t compressed_length;
+	size_t blocks;
+	size_t source_y;
+	size_t source_x;
+	size_t compressed_pos;
+	size_t raw_pos;
+	size_t remaining;
+	BOOL locked = FALSE;
+	BOOL result = FAILURE;
+
+	if ((surface == NULL) || (path == NULL) || (surface->w <= 0) || (surface->h <= 0)) {
+		return FAILURE;
+	}
+	row_bytes = (size_t)surface->w * 4 + 1;
+	if ((row_bytes > (SIZE_MAX / (size_t)surface->h)) ||
+	    ((raw_length = row_bytes * (size_t)surface->h) > UINT32_MAX)) {
+		return FAILURE;
+	}
+	blocks = (raw_length + 65534) / 65535;
+	if ((blocks > (SIZE_MAX - raw_length - 6) / 5) ||
+	    ((compressed_length = raw_length + 6 + blocks * 5) > UINT32_MAX)) {
+		return FAILURE;
+	}
+	raw = (BYTE *)malloc(raw_length);
+	compressed = (BYTE *)malloc(compressed_length);
+	if ((raw == NULL) || (compressed == NULL)) {
+		goto cleanup;
+	}
+	if (SDL_MUSTLOCK(surface)) {
+		if (SDL_LockSurface(surface) != 0) {
+			goto cleanup;
+		}
+		locked = TRUE;
+	}
+	for (source_y = 0; source_y < (size_t)surface->h; source_y++) {
+		BYTE *destination = raw + source_y * row_bytes;
+		const BYTE *source = (const BYTE *)surface->pixels + source_y * (size_t)surface->pitch;
+
+		destination[0] = 0;
+		for (source_x = 0; source_x < (size_t)surface->w; source_x++) {
+			const BYTE *pixel_bytes = source + source_x * (size_t)surface->format->BytesPerPixel;
+			UINT32 pixel = 0;
+			UINT8 red;
+			UINT8 green;
+			UINT8 blue;
+			UINT8 alpha;
+
+			switch (surface->format->BytesPerPixel) {
+			case 1:
+				pixel = pixel_bytes[0];
+				break;
+			case 2:
+				memcpy(&pixel, pixel_bytes, 2);
+				break;
+			case 3:
+#if SDL_BYTEORDER == SDL_BIG_ENDIAN
+				pixel = ((UINT32)pixel_bytes[0] << 16) | ((UINT32)pixel_bytes[1] << 8) |
+				        pixel_bytes[2];
+#else
+				pixel = pixel_bytes[0] | ((UINT32)pixel_bytes[1] << 8) |
+				        ((UINT32)pixel_bytes[2] << 16);
+#endif
+				break;
+			default:
+				memcpy(&pixel, pixel_bytes, 4);
+				break;
+			}
+			SDL_GetRGBA(pixel, surface->format, &red, &green, &blue, &alpha);
+			destination[1 + source_x * 4 + 0] = red;
+			destination[1 + source_x * 4 + 1] = green;
+			destination[1 + source_x * 4 + 2] = blue;
+			destination[1 + source_x * 4 + 3] = alpha;
+		}
+	}
+	if (locked) {
+		SDL_UnlockSurface(surface);
+		locked = FALSE;
+	}
+
+	compressed[0] = 0x78;
+	compressed[1] = 0x01;
+	compressed_pos = 2;
+	raw_pos = 0;
+	remaining = raw_length;
+	while (remaining != 0) {
+		size_t block_length = (remaining > 65535) ? 65535 : remaining;
+		compressed[compressed_pos++] = (remaining == block_length) ? 1 : 0;
+		compressed[compressed_pos++] = (BYTE)block_length;
+		compressed[compressed_pos++] = (BYTE)(block_length >> 8);
+		compressed[compressed_pos++] = (BYTE)~block_length;
+		compressed[compressed_pos++] = (BYTE)(~block_length >> 8);
+		memcpy(compressed + compressed_pos, raw + raw_pos, block_length);
+		compressed_pos += block_length;
+		raw_pos += block_length;
+		remaining -= block_length;
+	}
+	{
+		UINT32 adler = scrnmng_png_adler32(raw, raw_length);
+		compressed[compressed_pos++] = (BYTE)(adler >> 24);
+		compressed[compressed_pos++] = (BYTE)(adler >> 16);
+		compressed[compressed_pos++] = (BYTE)(adler >> 8);
+		compressed[compressed_pos++] = (BYTE)adler;
+	}
+	if (compressed_pos != compressed_length) {
+		goto cleanup;
+	}
+	ihdr[0] = (BYTE)((UINT32)surface->w >> 24);
+	ihdr[1] = (BYTE)((UINT32)surface->w >> 16);
+	ihdr[2] = (BYTE)((UINT32)surface->w >> 8);
+	ihdr[3] = (BYTE)surface->w;
+	ihdr[4] = (BYTE)((UINT32)surface->h >> 24);
+	ihdr[5] = (BYTE)((UINT32)surface->h >> 16);
+	ihdr[6] = (BYTE)((UINT32)surface->h >> 8);
+	ihdr[7] = (BYTE)surface->h;
+	ihdr[8] = 8;
+	ihdr[9] = 6;
+	ihdr[10] = 0;
+	ihdr[11] = 0;
+	ihdr[12] = 0;
+	fp = fopen(path, "wb");
+	if (fp == NULL) {
+		goto cleanup;
+	}
+	if (fwrite("\x89PNG\r\n\x1a\n", 1, 8, fp) != 8 ||
+	    scrnmng_png_write_chunk(fp, "IHDR", ihdr, sizeof(ihdr)) != SUCCESS ||
+	    scrnmng_png_write_chunk(fp, "IDAT", compressed, (UINT32)compressed_length) != SUCCESS ||
+	    scrnmng_png_write_chunk(fp, "IEND", NULL, 0) != SUCCESS) {
+		goto cleanup;
+	}
+	if (fclose(fp) != 0) {
+		fp = NULL;
+		goto cleanup;
+	}
+	fp = NULL;
+	result = SUCCESS;
+
+cleanup:
+	if (locked) {
+		SDL_UnlockSurface(surface);
+	}
+	if (fp != NULL) {
+		(void)fclose(fp);
+	}
+	free(compressed);
+	free(raw);
+	return result;
+}
+
+static BOOL scrnmng_path_is_png(const char *path) {
+	const char *extension;
+	unsigned char first;
+	unsigned char second;
+	unsigned char third;
+
+	if (path == NULL) {
+		return FALSE;
+	}
+	extension = strrchr(path, '.');
+	if ((extension == NULL) || (strlen(extension) != 4)) {
+		return FALSE;
+	}
+	first = (unsigned char)extension[1];
+	second = (unsigned char)extension[2];
+	third = (unsigned char)extension[3];
+	if ((first >= 'A') && (first <= 'Z')) {
+		first = (unsigned char)(first - 'A' + 'a');
+	}
+	if ((second >= 'A') && (second <= 'Z')) {
+		second = (unsigned char)(second - 'A' + 'a');
+	}
+	if ((third >= 'A') && (third <= 'Z')) {
+		third = (unsigned char)(third - 'A' + 'a');
+	}
+	return (first == 'p') && (second == 'n') && (third == 'g') && (extension[4] == '\0');
+}
+
 static UINT32 scrnmng_measured_clock(UINT32 configured_clock) {
 	UINT64 measured;
 
@@ -1219,6 +1461,14 @@ BOOL scrnmng_save_rendered_frame(const char *path) {
 	scrnmng_capture_rendered_frame();
 	if (scrnmng.rendered_frame == NULL) {
 		return (FAILURE);
+	}
+	if (scrnmng_path_is_png(path)) {
+		if (scrnmng_png_save_surface(scrnmng.rendered_frame, path) != SUCCESS) {
+			fprintf(stderr, "scsitrace rendered-screen-save-failed path=%s error=%s\n", path,
+			        SDL_GetError());
+			return (FAILURE);
+		}
+		return (SUCCESS);
 	}
 	if (SDL_SaveBMP(scrnmng.rendered_frame, path) != 0) {
 		fprintf(stderr, "scsitrace rendered-screen-save-failed path=%s error=%s\n", path,

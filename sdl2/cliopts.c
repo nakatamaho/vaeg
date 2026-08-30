@@ -97,6 +97,47 @@ static BOOL parse_uint(const char *value, UINT *result) {
 	return (SUCCESS);
 }
 
+static BOOL parse_screenshot(const char *value, VAEG_SCREENSHOT_REQUEST *request,
+                             char *error, UINT error_size) {
+	char *end;
+	const char *path;
+	unsigned long frame;
+
+	if ((value == NULL) || (value[0] < '0') || (value[0] > '9')) {
+		return (set_error(error, error_size,
+		                  "--screenshot requires a decimal FRAME:PATH with FRAME >= 1", value));
+	}
+	errno = 0;
+	end = NULL;
+	frame = strtoul(value, &end, 10);
+	if ((errno != 0) || (end == value) || (*end != ':') || (frame == 0) ||
+	    (frame > UINT32_MAX)) {
+		return (set_error(error, error_size,
+		                  "--screenshot requires a decimal FRAME:PATH with FRAME >= 1", value));
+	}
+	path = end + 1;
+	if (path[0] == '\0') {
+		return (set_error(error, error_size, "--screenshot requires a non-empty output path", value));
+	}
+	if (strrchr(path, '.') != NULL) {
+		const char *extension = strrchr(path, '.');
+		if (name_equal(extension, ".bmp")) {
+			request->format = VAEG_SCREENSHOT_FORMAT_BMP;
+		} else if (name_equal(extension, ".png")) {
+			request->format = VAEG_SCREENSHOT_FORMAT_PNG;
+		} else {
+			return (set_error(error, error_size,
+			                  "--screenshot supports only .bmp and .png paths", value));
+		}
+	} else {
+		return (set_error(error, error_size,
+		                  "--screenshot supports only .bmp and .png paths", value));
+	}
+	request->frame = (UINT32)frame;
+	request->path = path;
+	return SUCCESS;
+}
+
 static BOOL parse_media(const char *option, const char *value, UINT *mode, const char **path,
                         char *error, UINT error_size) {
 	if ((value == NULL) || (value[0] == '\0')) {
@@ -228,6 +269,21 @@ BOOL vaeg_cli_parse(int argc, char **argv, VAEG_CLI_OPTIONS *options, char *erro
 				return (set_error(error, error_size, "--screen-dump requires a path", value));
 			}
 			options->screen_dump_path = value;
+		} else if (!strcmp(argument, "--screenshot")) {
+			VAEG_SCREENSHOT_REQUEST request;
+
+			value = option_value(argc, argv, &position, argument, error, error_size);
+			if (value == NULL) {
+				return FAILURE;
+			}
+			if (options->screenshot_count >= VAEG_SCREENSHOT_MAX_REQUESTS) {
+				return (set_error(error, error_size,
+				                  "--screenshot accepts at most 64 requests", value));
+			}
+			if (parse_screenshot(value, &request, error, error_size) != SUCCESS) {
+				return FAILURE;
+			}
+			options->screenshot_requests[options->screenshot_count++] = request;
 		} else if (!strcmp(argument, "--screen-tvram-dump")) {
 			value = option_value(argc, argv, &position, argument, error, error_size);
 			if ((value == NULL) || (value[0] == '\0')) {

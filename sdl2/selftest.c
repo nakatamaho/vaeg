@@ -213,6 +213,10 @@ static int test_cli_options(void) {
 	                 "debug-output",
 	                 "--screen-dump",
 	                 "rendered.bmp",
+	                 "--screenshot",
+	                 "1800:frame.BMP",
+	                 "--screenshot",
+	                 "600:C:\\tmp\\frame.PNG",
 	                 "--screen-tvram-dump",
 	                 "tvram.bin",
 	                 "--scsitrace-cmdreq-windows",
@@ -237,6 +241,11 @@ static int test_cli_options(void) {
 	char *config_conflict[] = {"vaeg", "--cfg", "test.cfg", "--no-cfg"};
 	char *bkupmem_conflict[] = {"vaeg", "--bkupmem", "test.dat", "--no-bkupmem"};
 	char *hostfat_disabled[] = {"vaeg", "--smoke"};
+	char *invalid_screenshot_frame[] = {"vaeg", "--screenshot", "abc:a.png"};
+	char *zero_screenshot_frame[] = {"vaeg", "--screenshot", "0:a.png"};
+	char *negative_screenshot_frame[] = {"vaeg", "--screenshot", "-1:a.png"};
+	char *empty_screenshot_path[] = {"vaeg", "--screenshot", "1:"};
+	char *invalid_screenshot_format[] = {"vaeg", "--screenshot", "1:a.jpg"};
 	VAEG_CLI_OPTIONS options;
 	char error[256];
 
@@ -273,6 +282,12 @@ static int test_cli_options(void) {
 	    strcmp(options.debug_script, "debug.txt") || (options.debug_output_dir == NULL) ||
 	    strcmp(options.debug_output_dir, "debug-output") || (options.screen_dump_path == NULL) ||
 	    strcmp(options.screen_dump_path, "rendered.bmp") ||
+	    (options.screenshot_count != 2) || (options.screenshot_requests[0].frame != 1800) ||
+	    strcmp(options.screenshot_requests[0].path, "frame.BMP") ||
+	    (options.screenshot_requests[0].format != VAEG_SCREENSHOT_FORMAT_BMP) ||
+	    (options.screenshot_requests[1].frame != 600) ||
+	    strcmp(options.screenshot_requests[1].path, "C:\\tmp\\frame.PNG") ||
+	    (options.screenshot_requests[1].format != VAEG_SCREENSHOT_FORMAT_PNG) ||
 	    (options.screen_tvram_dump_path == NULL) ||
 	    strcmp(options.screen_tvram_dump_path, "tvram.bin") || (options.config_path == NULL) ||
 	    strcmp(options.config_path, "session.cfg") || (options.bkupmem_path == NULL) ||
@@ -313,10 +328,81 @@ static int test_cli_options(void) {
 	    (vaeg_cli_parse((int)NELEMENTS(config_conflict), config_conflict, &options, error,
 	                    sizeof(error)) == SUCCESS) ||
 	    (vaeg_cli_parse((int)NELEMENTS(bkupmem_conflict), bkupmem_conflict, &options, error,
-	                    sizeof(error)) == SUCCESS)) {
+                    sizeof(error)) == SUCCESS) ||
+	    (vaeg_cli_parse((int)NELEMENTS(invalid_screenshot_frame), invalid_screenshot_frame,
+                    &options, error, sizeof(error)) == SUCCESS) ||
+	    (vaeg_cli_parse((int)NELEMENTS(zero_screenshot_frame), zero_screenshot_frame, &options,
+                    error, sizeof(error)) == SUCCESS) ||
+	    (vaeg_cli_parse((int)NELEMENTS(negative_screenshot_frame), negative_screenshot_frame,
+                    &options, error, sizeof(error)) == SUCCESS) ||
+	    (vaeg_cli_parse((int)NELEMENTS(empty_screenshot_path), empty_screenshot_path, &options,
+                    error, sizeof(error)) == SUCCESS) ||
+	    (vaeg_cli_parse((int)NELEMENTS(invalid_screenshot_format), invalid_screenshot_format,
+                    &options, error, sizeof(error)) == SUCCESS)) {
 		return (fail("CLI options", "invalid input was accepted"));
 	}
 	fprintf(stderr, "selftest: CLI options ok\n");
+	return (SUCCESS);
+}
+
+typedef struct {
+	UINT32 frames[8];
+	const char *paths[8];
+	UINT count;
+} SCREENSHOT_TEST_CAPTURE;
+
+static BOOL test_screenshot_capture(UINT32 frame, const VAEG_SCREENSHOT_REQUEST *request,
+	                                   void *opaque) {
+	SCREENSHOT_TEST_CAPTURE *capture = (SCREENSHOT_TEST_CAPTURE *)opaque;
+
+	if ((capture == NULL) || (request == NULL) || (capture->count >= NELEMENTS(capture->frames))) {
+		return FAILURE;
+	}
+	capture->frames[capture->count] = frame;
+	capture->paths[capture->count] = request->path;
+	capture->count++;
+	return SUCCESS;
+}
+
+static int test_screenshot_scheduler(void) {
+	VAEG_SCREENSHOT_REQUEST requests[] = {
+		{11, "eleven.png", VAEG_SCREENSHOT_FORMAT_PNG},
+		{3, "three.bmp", VAEG_SCREENSHOT_FORMAT_BMP},
+		{7, "seven-a.bmp", VAEG_SCREENSHOT_FORMAT_BMP},
+		{7, "seven-b.bmp", VAEG_SCREENSHOT_FORMAT_BMP},
+	};
+	VAEG_SCREENSHOT_SCHEDULER scheduler;
+	SCREENSHOT_TEST_CAPTURE capture;
+	char *expected_paths[] = {"three.bmp", "seven-a.bmp", "seven-b.bmp", "eleven.png"};
+	UINT i;
+
+	ZeroMemory(&capture, sizeof(capture));
+	vaeg_screenshot_scheduler_init(&scheduler, requests, NELEMENTS(requests));
+	if (!vaeg_screenshot_scheduler_wants_frame(&scheduler, 3) ||
+	    (vaeg_screenshot_scheduler_after_frame(&scheduler, 3, test_screenshot_capture,
+	                                           &capture) != SUCCESS) ||
+	    !vaeg_screenshot_scheduler_wants_frame(&scheduler, 7) ||
+	    (vaeg_screenshot_scheduler_after_frame(&scheduler, 7, test_screenshot_capture,
+                                           &capture) != SUCCESS) ||
+	    !vaeg_screenshot_scheduler_wants_frame(&scheduler, 11) ||
+	    (vaeg_screenshot_scheduler_after_frame(&scheduler, 11, test_screenshot_capture,
+                                           &capture) != SUCCESS) ||
+	    !vaeg_screenshot_scheduler_done(&scheduler) || (capture.count != 4)) {
+		return (fail("screenshot scheduler", "frame ordering or completion failed"));
+	}
+	for (i = 0; i < capture.count; i++) {
+		if ((capture.frames[i] != ((i == 0) ? 3 : (i < 3) ? 7 : 11)) ||
+		    strcmp(capture.paths[i], expected_paths[i])) {
+			return (fail("screenshot scheduler", "capture order was not stable"));
+		}
+	}
+	ZeroMemory(&capture, sizeof(capture));
+	vaeg_screenshot_scheduler_init(&scheduler, requests, NELEMENTS(requests));
+	if (vaeg_screenshot_scheduler_after_frame(&scheduler, 4, test_screenshot_capture,
+	                                          &capture) == SUCCESS) {
+		return (fail("screenshot scheduler", "missed frame was accepted"));
+	}
+	fprintf(stderr, "selftest: screenshot scheduler ok\n");
 	return (SUCCESS);
 }
 
@@ -2602,6 +2688,9 @@ int vaeg_selftest_run(void) {
 		return (FAILURE);
 	}
 	if (test_cli_options() != SUCCESS) {
+		return (FAILURE);
+	}
+	if (test_screenshot_scheduler() != SUCCESS) {
 		return (FAILURE);
 	}
 	if ((upd9002_debug_selftest() != SUCCESS) || (debug_harness_selftest() != SUCCESS)) {

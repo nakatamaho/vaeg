@@ -62,7 +62,7 @@ the pinned SDL2 release recorded in ADR-0006.
 | Persistence | `--cfg path`, `--no-cfg`, `--bkupmem path`, `--no-bkupmem` |
 | Execution | `--cpumult 1..32`, `--sgp model|follow-cpu|1..16`, `--nowait`, `--frameskip auto|full|2|3|4` |
 | Display/input | `--fullscreen`, `--windowed`, `--effect unfiltered|linear|scanline|crt-lite`, `--scaling native|fit|fit-8dot|integer|stretch`, `--controller joystick|mouse`, `--keyboard-layout jis|us|custom` |
-| Diagnostics/information | `--smoke`, `--selftest`, `--debug`, `--fdctrace`, `--scsitrace`, `--pacelog`, `--trace-cpu N`, `--headless-input-script path`, `--debug-script path`, `--debug-output-dir directory`, `--screen-dump path`, `--screen-tvram-dump path`, `--version`, `--help`, `-h` |
+| Diagnostics/information | `--smoke`, `--selftest`, `--debug`, `--fdctrace`, `--scsitrace`, `--pacelog`, `--trace-cpu N`, `--headless-input-script path`, `--debug-script path`, `--debug-output-dir directory`, `--screen-dump path`, `--screenshot FRAME:PATH`, `--screen-tvram-dump path`, `--version`, `--help`, `-h` |
 
 Run `vaeg --help` for the built-in list. Enum values are ASCII
 case-insensitive, and the last occurrence wins when an option is repeated.
@@ -119,11 +119,40 @@ neutral case ID and resolves the worker, script directory, output root, model,
 and optional ROM directory from `VAEG_M74_*` environment variables.
 
 `--screen-dump PATH` or `VAEG_SCREEN_DUMP=PATH` captures the final SDL
-render-target image as a BMP after scaling, viewport, and display effects have
-been rendered. `--screen-tvram-dump PATH` or
+render-target image after scaling, viewport, and display effects have been
+rendered (BMP by default, or PNG when the path ends in `.png`).
+`--screen-tvram-dump PATH` or
 `VAEG_SCREEN_TVRAM_DUMP=PATH` retains the raw `VAEGSCN1` TVRAM diagnostic used
 by the QA decoder. If no capture option is supplied, the normal default
 window, scaling, and effect settings are unchanged.
+
+`--screenshot FRAME:PATH` captures the rendered screen immediately after the
+absolute completed guest frame `FRAME` and continues execution. The option is
+repeatable, supports `.bmp` and `.png` paths (case-insensitive), and exits
+normally after the highest requested frame has been captured. Requests for the
+same frame are written without running another guest frame between them. Frame
+numbers are guest frames, not host display frames or wall-clock times. For
+example:
+
+```sh
+./vaeg \
+  --model va2 \
+  --roms ./roms \
+  --fdd1 demo.d88 \
+  --screenshot 1800:docs/images/demo.png
+```
+
+Multiple documentation images can be captured in one run:
+
+```sh
+./vaeg \
+  --model va2 \
+  --roms ./roms \
+  --fdd1 demo.d88 \
+  --screenshot 600:docs/images/boot.png \
+  --screenshot 1200:docs/images/title.png \
+  --screenshot 1800:docs/images/demo.png
+```
 
 `--model va` selects `88VA1` and its unsuffixed ROM set. `--model va2` selects
 the `88VA2` compatibility model and its `*_va2.rom` set. The effective model

@@ -310,7 +310,8 @@ static void usage(const char *progname) {
 	printf("\t--trace-cpu 1..1000000\n");
 	printf("\t--headless-input-script path\n");
 	printf("\t--debug-script path --debug-output-dir directory\n");
-	printf("\t--screen-dump path (rendered BMP)\n");
+	printf("\t--screen-dump path (rendered BMP, or PNG for .png)\n");
+	printf("\t--screenshot FRAME:PATH (completed guest frame; .bmp or .png; repeatable)\n");
 	printf("\t--screen-tvram-dump path (raw TVRAM)\n");
 	printf("\t--version --help [-h]\n");
 	printf("Create image (no SDL session):\n");
@@ -1433,6 +1434,22 @@ static BOOL run_guest_frame(BOOL draw, UINT32 frames) {
 	return SUCCESS;
 }
 
+static BOOL capture_screenshot_request(UINT32 frame, const VAEG_SCREENSHOT_REQUEST *request,
+                                       void *opaque) {
+	(void)opaque;
+	if ((request == NULL) || (scrnmng_save_rendered_frame(request->path) != SUCCESS)) {
+		fprintf(stderr, "Error: screenshot capture failed at completed guest frame %u\n", frame);
+		return FAILURE;
+	}
+	fprintf(stderr, "screenshot frame=%u path=%s\n", frame, request->path);
+	return SUCCESS;
+}
+
+static BOOL screenshot_frame_needs_draw(const VAEG_SCREENSHOT_SCHEDULER *scheduler,
+                                         UINT32 frame) {
+	return vaeg_screenshot_scheduler_wants_frame(scheduler, frame);
+}
+
 static void render_host_ui_only(void) {
 	gui_new_frame();
 	gui_draw();
@@ -1442,7 +1459,8 @@ static void render_host_ui_only(void) {
 }
 
 static BOOL smoke_after_frame(BOOL smoke, UINT frames, BOOL detect_screen, BOOL headless_input,
-                              HEADLESS_INPUT_SCRIPT *input_script) {
+                              HEADLESS_INPUT_SCRIPT *input_script,
+                              VAEG_SCREENSHOT_SCHEDULER *screenshots) {
 	BOOL done;
 	BOOL ret;
 
@@ -1455,7 +1473,17 @@ static BOOL smoke_after_frame(BOOL smoke, UINT frames, BOOL detect_screen, BOOL 
 		taskmng_exit();
 		return (FAILURE);
 	}
+	/* Completed-frame order is deterministic: automation, screenshots, then exit checks. */
+	if ((screenshots != NULL) &&
+	    (vaeg_screenshot_scheduler_after_frame(screenshots, frames, capture_screenshot_request,
+	                                            NULL) != SUCCESS)) {
+		taskmng_exit();
+		return (FAILURE);
+	}
 	if (debug_harness_exit_requested()) {
+		taskmng_exit();
+	}
+	if ((screenshots != NULL) && vaeg_screenshot_scheduler_done(screenshots)) {
 		taskmng_exit();
 	}
 	if (!smoke) {
@@ -1476,7 +1504,8 @@ static BOOL smoke_after_frame(BOOL smoke, UINT frames, BOOL detect_screen, BOOL 
 }
 
 static BOOL runloop(BOOL smoke, BOOL pacelog_enabled, BOOL detect_screen, BOOL headless_input,
-                    HEADLESS_INPUT_SCRIPT *input_script) {
+                    HEADLESS_INPUT_SCRIPT *input_script,
+                    VAEG_SCREENSHOT_SCHEDULER *screenshots) {
 	UINT frames;
 	PACELOG pacelog;
 	UINT32 next_guest_tick;
@@ -1521,14 +1550,16 @@ static BOOL runloop(BOOL smoke, BOOL pacelog_enabled, BOOL detect_screen, BOOL h
 		if (effective_nowait) {
 			BOOL draw;
 
-			draw = headless_input ? FALSE : (framecnt == 0);
+			draw = screenshot_frame_needs_draw(screenshots, frames + 1) ||
+			       (headless_input ? FALSE : (framecnt == 0));
 			if (run_guest_frame(draw, frames) != SUCCESS) {
 				return FAILURE;
 			}
 			next_guest_tick = SDL_GetTicks() + np2oscfg.pacing_ms;
 			frames++;
 			pacelog_update(&pacelog, pacelog_enabled, 1, draw ? 0 : 1, 0);
-			if (smoke_after_frame(smoke, frames, detect_screen, headless_input, input_script) !=
+			if (smoke_after_frame(smoke, frames, detect_screen, headless_input, input_script,
+			                       screenshots) !=
 			    SUCCESS) {
 				return (FAILURE);
 			}
@@ -1551,14 +1582,16 @@ static BOOL runloop(BOOL smoke, BOOL pacelog_enabled, BOOL detect_screen, BOOL h
 			if (framecnt < effective_drawskip) {
 				BOOL draw;
 
-				draw = headless_input ? FALSE : (framecnt == 0);
+				draw = screenshot_frame_needs_draw(screenshots, frames + 1) ||
+				       (headless_input ? FALSE : (framecnt == 0));
 				if (run_guest_frame(draw, frames) != SUCCESS) {
 					return FAILURE;
 				}
 				next_guest_tick = SDL_GetTicks() + np2oscfg.pacing_ms;
 				frames++;
 				pacelog_update(&pacelog, pacelog_enabled, 1, draw ? 0 : 1, 0);
-				if (smoke_after_frame(smoke, frames, detect_screen, headless_input, input_script) !=
+				if (smoke_after_frame(smoke, frames, detect_screen, headless_input, input_script,
+				                       screenshots) !=
 				    SUCCESS) {
 					return (FAILURE);
 				}
@@ -1571,14 +1604,16 @@ static BOOL runloop(BOOL smoke, BOOL pacelog_enabled, BOOL detect_screen, BOOL h
 				BOOL draw;
 				UINT cnt;
 
-				draw = headless_input ? FALSE : (framecnt == 0);
+				draw = screenshot_frame_needs_draw(screenshots, frames + 1) ||
+				       (headless_input ? FALSE : (framecnt == 0));
 				if (run_guest_frame(draw, frames) != SUCCESS) {
 					return FAILURE;
 				}
 				next_guest_tick = SDL_GetTicks() + np2oscfg.pacing_ms;
 				frames++;
 				pacelog_update(&pacelog, pacelog_enabled, 1, draw ? 0 : 1, 0);
-				if (smoke_after_frame(smoke, frames, detect_screen, headless_input, input_script) !=
+				if (smoke_after_frame(smoke, frames, detect_screen, headless_input, input_script,
+				                       screenshots) !=
 				    SUCCESS) {
 					return (FAILURE);
 				}
@@ -1633,6 +1668,7 @@ int main(int argc, char **argv) {
 	HEADLESS_INPUT_SCRIPT input_script;
 	VAEG_CLI_OPTIONS options;
 	CLI_SAVED_CONFIG saved_cli;
+	VAEG_SCREENSHOT_SCHEDULER screenshots;
 	char cli_error[256];
 	const char *cli_model;
 
@@ -1749,6 +1785,14 @@ int main(int argc, char **argv) {
 	if (options.version) {
 		printf("88VA Eternal Grafx %s\n", VAEGREL_CORE);
 		return (SUCCESS);
+	}
+	if (options.screenshot_count != 0) {
+		vaeg_screenshot_scheduler_init(&screenshots, options.screenshot_requests,
+		                               options.screenshot_count);
+	}
+	if (options.smoke && (options.screenshot_count != 0)) {
+		fprintf(stderr, "Error: --screenshot cannot be combined with --smoke\n");
+		return (FAILURE);
 	}
 	if (((options.debug_script == NULL) != (options.debug_output_dir == NULL)) ||
 	    ((options.debug_script != NULL) &&
@@ -1992,7 +2036,8 @@ int main(int argc, char **argv) {
 			taskmng_exit();
 		} else {
 			run_ok = runloop(options.smoke, options.pacelog, smoke_detect_screen,
-			                 options.headless_input_script != NULL, &input_script);
+			                 options.headless_input_script != NULL, &input_script,
+			                 (options.screenshot_count != 0) ? &screenshots : NULL);
 		}
 		g75_screen_capture();
 	}

@@ -300,6 +300,7 @@ set(VAEG_SDL2_SOURCES
     sdl2/debug_harness.c
     sdl2/g75_screen.c
     sdl2/cliopts.c
+    sdl2/screenshot.c
     sdl2/dosio.c
     sdl2/ini.c
     sdl2/taskmng.c
