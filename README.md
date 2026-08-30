@@ -29,6 +29,9 @@ the current MSE `/B` limitation.
 
 ![EMMVA and SQEMM98 running under VAEG](docs/images/vaeg-20260830-191026-0000629238-000.png)
 
+*Actual SDL-rendered VAEG capture: EMMVA and SQEMM98 initialize successfully
+and report 31.0 MB of guest-usable EMS from the configured 32MB board.*
+
 ### 2026-08-06 - M76: uPD70008-compatible Z80 emulation and CP/MVA
 
 M76 brings the uPD70008-compatible Z80 emulation path to a working state.
