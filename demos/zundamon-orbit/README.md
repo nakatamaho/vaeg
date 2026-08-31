@@ -476,3 +476,68 @@ Return as its equivalent clean-exit request after the settled captures.
 M98o does not traverse scale levels, add general motion or cadence controls,
 perform partial clears, draw multiple objects, use private artwork, measure
 performance, or claim physical-machine validation.
+
+## M98p 30-scale full-page-CLS zoom baseline
+
+M98p keeps the accepted M98o page lifecycle and traverses every descriptor in
+the public one-bank atlas. The exact 58-publication cycle is:
+
+```text
+30, 29, 28, ..., 3, 2, 1, 2, 3, ..., 28, 29
+```
+
+Scale IDs are the canonical descriptor positions 1 through 30; 0 and 31 are
+invalid. The guest validates all dimensions, four-byte pitches, stored scaled
+anchors, single-bank offsets, payload bounds, and frame CRCs before graphics
+mode. It calculates each destination from the stored anchor and the fixed
+scene anchor `(160,100)`. The SGP descriptor also carries the destination X
+parity in DOT, so odd-X levels remain pixel-exact instead of moving left to an
+even word boundary.
+
+Every update performs a full 64,000-byte CLS on only the hidden G1 page and
+then one transparent `0105h` BITBLT directly from BMS selector 1. The guest
+holds the selector stable until SGP completion, observes a new VBLANK
+low-to-high edge, publishes through DSA1, and advances the scale only after
+publication. This intentionally expensive clear is the correctness baseline;
+M98p has no dirty-row optimization or cadence selector.
+
+Run all public Zundamon host tests:
+
+```sh
+PYTHONPYCACHEPREFIX=/tmp/vaeg-m98p-pyc \
+  python3 -m unittest discover \
+    -s demos/zundamon-orbit/tools -p 'test_*.py'
+```
+
+Run the two bounded VA2 page-parity proofs from fresh output directories:
+
+```sh
+VAEG_ZUNDAMON_MODEL=va2 VAEG_ZUNDAMON_INITIAL_PAGE=a \
+  demos/zundamon-orbit/run-vaeg.sh \
+    /path/to/local-bootable-2hd.d88 /path/to/vaeg \
+    /path/to/rom-directory build/generated/zundamon-orbit/m98p-page-a
+
+VAEG_ZUNDAMON_MODEL=va2 VAEG_ZUNDAMON_INITIAL_PAGE=b \
+  demos/zundamon-orbit/run-vaeg.sh \
+    /path/to/local-bootable-2hd.d88 /path/to/vaeg \
+    /path/to/rom-directory build/generated/zundamon-orbit/m98p-page-b
+```
+
+Each bounded build runs one complete cycle without keyboard injection. The
+two initial-page choices provide every scale on both physical G1 pages. The
+oracle compares all 116 scale/page observations against independently built
+indexed page images and checks the exact SGP source, destination, dimensions,
+pitch, X parity, sequence, counters, and stable final frames.
+
+Build the interactive local disk from an explicit bootable 2HD template:
+
+```sh
+demos/zundamon-orbit/build-local-d88.sh \
+  /path/to/local-bootable-2hd.d88 \
+  build/generated/zundamon-orbit/public/zundorb.bin \
+  build/generated/zundamon-orbit/zundamon-orbit-m98p.d88
+```
+
+The interactive `ZUNDORB` command repeats the same cycle until ESC. M98p does
+not add dirty-row clearing, selectable cadence, orbit motion, depth coupling,
+private artwork, multiple instances, or physical-hardware performance claims.

@@ -103,11 +103,16 @@ org 0x100
 %define G1_PAGE_BYTES           0xfa00
 %define G1_PAGE_WORD_COUNT      0x7d00
 %define G1_BACKING_BYTES        0x1f400
-%define RENDER_BATCH_COUNT      4
-%define POSITION_P0_X           48
-%define POSITION_P0_Y           40
-%define POSITION_P1_X           248
-%define POSITION_P1_Y           140
+%define SCALE_PUBLICATIONS_PER_CYCLE 58
+%define TARGET_ANCHOR_X         160
+%define TARGET_ANCHOR_Y         100
+
+%ifndef M98P_BOUNDED_QA
+%define M98P_BOUNDED_QA         0
+%endif
+%ifndef M98P_INITIAL_VISIBLE_PAGE
+%define M98P_INITIAL_VISIBLE_PAGE 0
+%endif
 
 %define PAGE_A                  0
 %define PAGE_B                  1
@@ -150,14 +155,16 @@ org 0x100
 %define SGP_BITBLT_COPY_XPAR    0x0105
 %define SGP_BUSY                0x01
 
-%define PROBE_CHECKPOINT_IP     0x3000
-%define LOAD_CHECKPOINT_IP      0x3010
-%define TRANSFER_CHECKPOINT_IP  0x3020
-%define FLIP_CHECKPOINT_IP      0x3030
-%define SETTLED_CHECKPOINT_IP   0x3040
-%define REPORT_A_CHECKPOINT_IP  0x3050
-%define REPORT_B_CHECKPOINT_IP  0x3060
-%define REPORT_C_CHECKPOINT_IP  0x3070
+%define PROBE_CHECKPOINT_IP     0x4000
+%define LOAD_CHECKPOINT_IP      0x4010
+%define TRANSFER_CHECKPOINT_IP  0x4020
+%define FLIP_CHECKPOINT_IP      0x4030
+%define SETTLED_CHECKPOINT_IP   0x4040
+%define REPORT_A_CHECKPOINT_IP  0x4050
+%define REPORT_B_CHECKPOINT_IP  0x4060
+%define REPORT_C_CHECKPOINT_IP  0x4070
+%define REPORT_D_CHECKPOINT_IP  0x4080
+%define REPORT_E_CHECKPOINT_IP  0x4090
 %define PROBE_CHECKPOINT_OFFSET (PROBE_CHECKPOINT_IP - 0x0100)
 %define LOAD_CHECKPOINT_OFFSET  (LOAD_CHECKPOINT_IP - 0x0100)
 %define TRANSFER_CHECKPOINT_OFFSET (TRANSFER_CHECKPOINT_IP - 0x0100)
@@ -166,30 +173,32 @@ org 0x100
 %define REPORT_A_CHECKPOINT_OFFSET (REPORT_A_CHECKPOINT_IP - 0x0100)
 %define REPORT_B_CHECKPOINT_OFFSET (REPORT_B_CHECKPOINT_IP - 0x0100)
 %define REPORT_C_CHECKPOINT_OFFSET (REPORT_C_CHECKPOINT_IP - 0x0100)
+%define REPORT_D_CHECKPOINT_OFFSET (REPORT_D_CHECKPOINT_IP - 0x0100)
+%define REPORT_E_CHECKPOINT_OFFSET (REPORT_E_CHECKPOINT_IP - 0x0100)
 
 %if G1_PAGE_BYTES != SCREEN_WIDTH * SCREEN_HEIGHT
-%error "M98o G1 page size does not match the logical viewport"
+%error "M98p G1 page size does not match the logical viewport"
 %endif
 %if G1_PAGE_WORD_COUNT * 2 != G1_PAGE_BYTES
-%error "M98o G1 word count is inconsistent"
+%error "M98p G1 word count is inconsistent"
 %endif
 %if G1_PAGE_B_SGP_BASE - G1_PAGE_A_SGP_BASE != G1_PAGE_BYTES
-%error "M98o SGP pages are not adjacent"
+%error "M98p SGP pages are not adjacent"
 %endif
 %if G1_PAGE_B_DSA - G1_PAGE_A_DSA != G1_PAGE_BYTES
-%error "M98o DSA pages are not adjacent"
+%error "M98p DSA pages are not adjacent"
 %endif
 %if G1_BACKING_BYTES != G1_PAGE_BYTES * 2
-%error "M98o G1 backing surface is not two pages"
+%error "M98p G1 backing surface is not two pages"
 %endif
-%if POSITION_P0_X + 23 > SCREEN_WIDTH || POSITION_P0_Y + 19 > SCREEN_HEIGHT
-%error "M98o P0 is outside the logical viewport"
+%if M98P_INITIAL_VISIBLE_PAGE != PAGE_A && M98P_INITIAL_VISIBLE_PAGE != PAGE_B
+%error "M98p initial visible page must be page A or page B"
 %endif
-%if POSITION_P1_X + 23 > SCREEN_WIDTH || POSITION_P1_Y + 19 > SCREEN_HEIGHT
-%error "M98o P1 is outside the logical viewport"
+%if M98P_BOUNDED_QA != 0 && M98P_BOUNDED_QA != 1
+%error "M98p bounded QA flag must be zero or one"
 %endif
-%if POSITION_P0_X + 23 > POSITION_P1_X && POSITION_P1_X + 23 > POSITION_P0_X && POSITION_P0_Y + 19 > POSITION_P1_Y && POSITION_P1_Y + 19 > POSITION_P0_Y
-%error "M98o P0 and P1 overlap"
+%if TARGET_ANCHOR_X >= SCREEN_WIDTH || TARGET_ANCHOR_Y >= SCREEN_HEIGHT
+%error "M98p target anchor is outside the logical viewport"
 %endif
 
 start:
@@ -266,27 +275,36 @@ load_resume:
     jmp transfer_checkpoint
 
 transfer_resume:
-    mov byte [render_sequence_index], 0
+    mov byte [current_scale_id], ATLAS_SCALE_COUNT
+    mov byte [scale_direction], 0
 render_loop:
-    cmp byte [render_sequence_index], RENDER_BATCH_COUNT
-    je settled_start
+    mov al, [current_scale_id]
+    call select_scale_descriptor
+    jc descriptor_failed
     call render_and_publish_hidden_page
     jc runtime_failed
     mov bx, [page_flips]
     xor cx, cx
-    mov cl, [visible_page_index]
+    mov cl, [last_published_scale_id]
     xor dx, dx
-    mov dl, [last_position_index]
-    mov si, [page_state]
-    mov di, [visible_page_index]
-    mov bp, [last_published_dsa]
+    mov dl, [last_published_direction]
+    xor ax, ax
+    mov al, [visible_page_index]
+    mov si, ax
+    mov di, [selected_dst_x]
+    mov bp, [selected_dst_y]
     mov ax, 0x98d1
     jmp flip_checkpoint
 
 flip_resume:
+    call advance_scale_sequence
+%if M98P_BOUNDED_QA
+    cmp word [cycles_completed], 1
+    je settled_start
+%else
     call poll_escape
     jc normal_exit
-    inc byte [render_sequence_index]
+%endif
     jmp render_loop
 
 settled_start:
@@ -298,23 +316,34 @@ settled_loop:
     pop ds
     push cs
     pop es
-    mov bx, [selected_width]
-    mov cx, [selected_height]
-    mov dx, [selected_pitch]
+    mov bx, [page_flips]
+    mov cx, [cycles_completed]
+    mov dx, [direction_reversals]
     mov si, [page_flips]
-    xor di, di
-    mov di, [visible_page_index]
+    xor ax, ax
+    mov al, [visible_page_index]
+    mov di, ax
     mov bp, [last_published_dsa]
     mov ax, 0x98d2
     jmp settled_checkpoint
 
 settled_resume:
+%if M98P_BOUNDED_QA
+    call poll_escape
+    ; Bounded QA does not depend on keyboard input; an injected key is ignored.
+%else
     call poll_escape
     jc normal_exit
+%endif
     inc byte [settled_capture_count]
     cmp byte [settled_capture_count], 2
     jb settled_loop
 
+%if M98P_BOUNDED_QA
+    call validate_bounded_success
+    jc descriptor_failed
+    jmp normal_exit
+%endif
 idle_exit_loop:
     call wait_vblank_edge
     jc runtime_failed
@@ -351,6 +380,10 @@ runtime_failed:
     jmp fatal_exit
 .vblank:
     mov word [exit_message], message_runtime_failed
+    jmp fatal_exit
+descriptor_failed:
+    inc word [descriptor_errors]
+    mov word [exit_message], message_descriptor_failed
 
 fatal_exit:
     mov byte [exit_errorlevel], 1
@@ -384,13 +417,33 @@ report_b_resume:
     mov cx, [cleanup_runs]
     xor dx, dx
     mov dl, [visible_page_index]
-    mov si, [page_state]
-    mov di, [visible_page_index]
-    mov bp, [last_published_dsa]
+    mov si, [cycles_completed]
+    mov di, [direction_reversals]
+    mov bp, [descriptor_errors]
     mov ax, 0x98e3
     jmp report_c_checkpoint
 
 report_c_resume:
+    mov bx, [source_bytes]
+    mov cx, [source_bytes + 2]
+    mov dx, [cleared_bytes]
+    mov si, [cleared_bytes + 2]
+    mov di, [bms_bank_selections]
+    mov bp, [last_published_dsa]
+    mov ax, 0x98e4
+    jmp report_d_checkpoint
+
+report_d_resume:
+    mov bx, [publication_digest]
+    mov cx, [publication_digest + 2]
+    mov dx, [scale_publication_total]
+    mov si, [scale_shrink_total]
+    mov di, [scale_grow_total]
+    mov bp, [bounded_validation_pass]
+    mov ax, 0x98e5
+    jmp report_e_checkpoint
+
+report_e_resume:
     mov dx, [exit_message]
     call print_string
     mov al, [exit_errorlevel]
@@ -847,22 +900,146 @@ validate_atlas_metadata:
     cmp word [atlas_metadata + 62], 0
     long_jne .failed
 
-    mov bx, atlas_metadata + ATLAS_SELECTED_DESC
+    mov al, ATLAS_SCALE_COUNT
+    call select_scale_descriptor
+    jc .failed
+    mov ax, [selected_width]
+    mov [atlas_source_width], ax
+    mov ax, [selected_height]
+    mov [atlas_source_height], ax
+    mov ax, [selected_anchor_x]
+    mov [atlas_source_anchor_x], ax
+    mov ax, [selected_anchor_y]
+    mov [atlas_source_anchor_y], ax
+    mov word [expected_descriptor_offset], 0
+    mov word [expected_descriptor_offset + 2], 0
+    mov byte [descriptor_validation_id], 1
+.descriptor_loop:
+    mov al, [descriptor_validation_id]
+    call select_scale_descriptor
+    jc .failed
+    call validate_canonical_scale
+    jc .failed
+    mov ax, [selected_bank_offset]
+    cmp ax, [expected_descriptor_offset]
+    jne .failed
+    mov dx, [selected_bank_offset + 2]
+    cmp dx, [expected_descriptor_offset + 2]
+    jne .failed
+    add ax, [selected_payload_bytes]
+    adc dx, [selected_payload_bytes + 2]
+    add ax, 15
+    adc dx, 0
+    and ax, 0xfff0
+    mov [expected_descriptor_offset], ax
+    mov [expected_descriptor_offset + 2], dx
+    inc byte [descriptor_validation_id]
+    cmp byte [descriptor_validation_id], ATLAS_SCALE_COUNT + 1
+    jne .descriptor_loop
+    mov al, ATLAS_SCALE_COUNT
+    call select_scale_descriptor
+    jc .failed
+    clc
+    ret
+.failed:
+    stc
+    ret
+
+validate_canonical_scale:
+    xor cx, cx
+    mov cl, [selected_scale_id]
+    cmp cl, ATLAS_SCALE_COUNT
+    jne .numerator_ready
+    mov cx, 31
+.numerator_ready:
+    mov ax, [atlas_source_width]
+    mul cx
+    add ax, 15
+    adc dx, 0
+    mov bx, 31
+    div bx
+    test ax, ax
+    jnz .width_ready
+    inc ax
+.width_ready:
+    cmp ax, [selected_width]
+    jne .failed
+    mov ax, [atlas_source_height]
+    mul cx
+    add ax, 15
+    adc dx, 0
+    mov bx, 31
+    div bx
+    test ax, ax
+    jnz .height_ready
+    inc ax
+.height_ready:
+    cmp ax, [selected_height]
+    jne .failed
+
+    mov ax, [atlas_source_anchor_x]
+    shl ax, 1
+    inc ax
+    mul word [selected_width]
+    mov bx, [atlas_source_width]
+    shl bx, 1
+    div bx
+    mov bx, [selected_width]
+    dec bx
+    cmp ax, bx
+    jbe .anchor_x_ready
+    mov ax, bx
+.anchor_x_ready:
+    cmp ax, [selected_anchor_x]
+    jne .failed
+    mov ax, [atlas_source_anchor_y]
+    shl ax, 1
+    inc ax
+    mul word [selected_height]
+    mov bx, [atlas_source_height]
+    shl bx, 1
+    div bx
+    mov bx, [selected_height]
+    dec bx
+    cmp ax, bx
+    jbe .anchor_y_ready
+    mov ax, bx
+.anchor_y_ready:
+    cmp ax, [selected_anchor_y]
+    jne .failed
+    clc
+    ret
+.failed:
+    stc
+    ret
+
+; AL is the implicit public scale ID, 1 through 30.  The descriptor identity
+; is its canonical table position; IDs 0 and 31 therefore cannot be selected.
+select_scale_descriptor:
+    cmp al, 1
+    jb .failed
+    cmp al, ATLAS_SCALE_COUNT
+    ja .failed
+    mov [selected_scale_id], al
+    xor ah, ah
+    dec ax
+    mov bx, ATLAS_DESCRIPTOR_BYTES
+    mul bx
+    add ax, 64
+    mov bx, atlas_metadata
+    add bx, ax
+
     mov ax, [bx + 0]
     test ax, ax
-    long_jz .failed
+    jz .failed
     cmp ax, SCREEN_WIDTH
-    long_ja .failed
-    cmp ax, 23
-    long_jne .failed
+    ja .failed
     mov [selected_width], ax
     mov ax, [bx + 2]
     test ax, ax
-    long_jz .failed
+    jz .failed
     cmp ax, SCREEN_HEIGHT
-    long_ja .failed
-    cmp ax, 19
-    long_jne .failed
+    ja .failed
     mov [selected_height], ax
     mov ax, [bx + 4]
     mov [selected_pitch], ax
@@ -870,13 +1047,21 @@ validate_atlas_metadata:
     add dx, 3
     and dx, 0xfffc
     cmp ax, dx
-    long_jne .failed
+    jne .failed
+    mov ax, [bx + 6]
+    cmp ax, [selected_width]
+    jae .failed
+    mov [selected_anchor_x], ax
+    mov ax, [bx + 8]
+    cmp ax, [selected_height]
+    jae .failed
+    mov [selected_anchor_y], ax
     cmp word [bx + 10], 0
-    long_jne .failed
+    jne .failed
     cmp word [bx + 12], 0
-    long_jne .failed
+    jne .failed
     cmp word [bx + 14], 0
-    long_jne .failed
+    jne .failed
     mov ax, [bx + 16]
     mov dx, [bx + 18]
     mov [selected_bank_offset], ax
@@ -888,43 +1073,60 @@ validate_atlas_metadata:
     sub si, ATLAS_METADATA_BYTES
     sbb di, 0
     cmp si, ax
-    long_jne .failed
+    jne .failed
     cmp di, dx
-    long_jne .failed
+    jne .failed
     mov ax, [bx + 24]
     mov dx, [bx + 26]
     test dx, dx
-    long_jnz .failed
+    jnz .failed
     mov [selected_payload_bytes], ax
     mov [selected_payload_bytes + 2], dx
     mov ax, [selected_pitch]
     mul word [selected_height]
     cmp ax, [selected_payload_bytes]
-    long_jne .failed
+    jne .failed
     test dx, dx
-    long_jnz .failed
+    jnz .failed
     mov ax, [selected_bank_offset]
     mov dx, [selected_bank_offset + 2]
     add ax, [selected_payload_bytes]
     adc dx, [selected_payload_bytes + 2]
+    cmp dx, BMS_BANK_SIZE_HIGH
+    ja .failed
+    jne .bank_range_ok
+    test ax, ax
+    jnz .failed
+.bank_range_ok:
     cmp dx, [atlas_payload_bytes + 2]
-    long_ja .failed
-    jb .range_ok
+    ja .failed
+    jb .payload_range_ok
     cmp ax, [atlas_payload_bytes]
-    long_ja .failed
-.range_ok:
+    ja .failed
+.payload_range_ok:
     mov ax, [bx + 28]
     mov [expected_frame_crc], ax
     mov ax, [bx + 30]
     mov [expected_frame_crc + 2], ax
-    mov ax, SCREEN_WIDTH
-    sub ax, [selected_width]
-    shr ax, 1
+    mov ax, TARGET_ANCHOR_X
+    sub ax, [selected_anchor_x]
+    jc .failed
     mov [selected_dst_x], ax
-    mov ax, SCREEN_HEIGHT
-    sub ax, [selected_height]
-    shr ax, 1
+    add ax, [selected_width]
+    cmp ax, SCREEN_WIDTH
+    ja .failed
+    mov ax, TARGET_ANCHOR_Y
+    sub ax, [selected_anchor_y]
+    jc .failed
     mov [selected_dst_y], ax
+    add ax, [selected_height]
+    cmp ax, SCREEN_HEIGHT
+    ja .failed
+    mov ax, [selected_bank_offset]
+    mov dx, [selected_bank_offset + 2]
+    add dx, BMS_WINDOW_SGP_BASE >> 16
+    mov [selected_source_low], ax
+    mov [selected_source_high], dx
     clc
     ret
 .failed:
@@ -1119,7 +1321,7 @@ close_atlas_if_open:
 .done:
     ret
 
-; G98o initializes both 64,000-byte G1 pages before either is visible.
+; M98p initializes both 64,000-byte G1 pages before either is visible.
 initialize_video_double_buffer:
     call verify_page_descriptors
     jc .failed
@@ -1131,6 +1333,8 @@ initialize_video_double_buffer:
     call verify_staging_poison
     jc .failed
     call verify_bms_payload_crc
+    jc .failed
+    call verify_all_bms_frame_crcs
     jc .failed
     call select_ordinary_mapping
     call verify_normal_guards
@@ -1190,13 +1394,19 @@ initialize_video_double_buffer:
     mov word [pages_initialized], 2
     call wait_vblank_edge
     jc .failed
-    mov al, PAGE_A
+    mov al, M98P_INITIAL_VISIBLE_PAGE
     call publish_page
     jc .failed
-    mov byte [visible_page_index], PAGE_A
+    mov byte [visible_page_index], M98P_INITIAL_VISIBLE_PAGE
+%if M98P_INITIAL_VISIBLE_PAGE = PAGE_A
     mov byte [hidden_page_index], PAGE_B
     mov byte [page_state + PAGE_A], PAGE_VISIBLE
     inc word [page_a_publications]
+%else
+    mov byte [hidden_page_index], PAGE_A
+    mov byte [page_state + PAGE_B], PAGE_VISIBLE
+    inc word [page_b_publications]
+%endif
     mov ax, 0x0b01
     int VIDEO_BIOS_INT
     test ax, ax
@@ -1205,6 +1415,26 @@ initialize_video_double_buffer:
     ret
 .failed:
     call select_ordinary_mapping
+    stc
+    ret
+
+verify_all_bms_frame_crcs:
+    mov byte [descriptor_validation_id], 1
+.next:
+    mov al, [descriptor_validation_id]
+    call select_scale_descriptor
+    jc .failed
+    call verify_bms_frame_crc
+    jc .failed
+    inc byte [descriptor_validation_id]
+    cmp byte [descriptor_validation_id], ATLAS_SCALE_COUNT + 1
+    jne .next
+    mov al, ATLAS_SCALE_COUNT
+    call select_scale_descriptor
+    jc .failed
+    clc
+    ret
+.failed:
     stc
     ret
 
@@ -1224,14 +1454,6 @@ verify_page_descriptors:
     cmp word [page_dsa_low + PAGE_B * 2], G1_PAGE_B_DSA & 0xffff
     jne .failed
     cmp word [page_dsa_high + PAGE_B * 2], G1_PAGE_B_DSA >> 16
-    jne .failed
-    cmp word [page_position_x + PAGE_A * 2], POSITION_P1_X
-    jne .failed
-    cmp word [page_position_y + PAGE_A * 2], POSITION_P1_Y
-    jne .failed
-    cmp word [page_position_x + PAGE_B * 2], POSITION_P0_X
-    jne .failed
-    cmp word [page_position_y + PAGE_B * 2], POSITION_P0_Y
     jne .failed
     clc
     ret
@@ -1379,7 +1601,8 @@ build_initialization_commands:
     jmp finalize_sgp_command_list
 
 build_render_commands:
-    ; The explicit hidden-page index chooses both the page and its position.
+    ; The explicit hidden-page index chooses only the destination page.  The
+    ; stored scaled anchor keeps every descriptor on the fixed scene anchor.
     push ax
     push dx
     push si
@@ -1432,7 +1655,10 @@ build_render_commands:
 
     mov ax, SGP_COMMAND_SET_DEST
     stosw
-    mov ax, 2
+    mov ax, [selected_dst_x]
+    and ax, 1
+    shl ax, 4
+    or ax, 2
     stosw
     mov ax, [selected_width]
     stosw
@@ -1440,13 +1666,12 @@ build_render_commands:
     stosw
     mov ax, SCREEN_PITCH
     stosw
-    mov ax, [page_position_y + si]
-    mov [selected_dst_y], ax
+    mov ax, [selected_dst_y]
     mul word [screen_pitch_word]
-    mov bx, [page_position_x + si]
-    mov [selected_dst_x], bx
+    mov bx, [selected_dst_x]
     add ax, bx
     adc dx, 0
+    and ax, 0xfffe
     add ax, [page_sgp_low + si]
     adc dx, [page_sgp_high + si]
     stosw
@@ -1528,11 +1753,9 @@ render_and_publish_hidden_page:
     cmp al, PAGE_A
     jne .published_b
     inc word [page_a_publications]
-    mov byte [last_position_index], 1
     jmp .published
 .published_b:
     inc word [page_b_publications]
-    mov byte [last_position_index], 0
 .published:
     mov al, [visible_page_index]
     xor ah, ah
@@ -1543,6 +1766,11 @@ render_and_publish_hidden_page:
     mov [visible_page_index], bl
     mov [hidden_page_index], al
     inc word [page_flips]
+    mov al, [selected_scale_id]
+    mov [last_published_scale_id], al
+    mov al, [scale_direction]
+    mov [last_published_direction], al
+    call record_scale_publication
     clc
     jmp .done
 .sgp_error:
@@ -1561,6 +1789,7 @@ render_and_publish_hidden_page:
     ret
 
 select_render_bms:
+    inc word [bms_bank_selections]
     mov dx, PORT_BMS_SELECTOR
     in al, dx
     cmp al, BMS_FIRST_SELECTOR
@@ -1569,6 +1798,145 @@ select_render_bms:
     out dx, al
     inc word [bms_bank_switches]
 .done:
+    ret
+
+record_scale_publication:
+    push ax
+    push bx
+    push cx
+    push dx
+    push si
+    xor ax, ax
+    mov al, [selected_scale_id]
+    dec ax
+    mov si, ax
+    shl si, 1
+    inc word [scale_publications + si]
+    inc word [scale_publication_total]
+    cmp byte [scale_direction], 0
+    jne .grow
+    inc word [scale_shrink_publications + si]
+    inc word [scale_shrink_total]
+    jmp .direction_recorded
+.grow:
+    inc word [scale_grow_publications + si]
+    inc word [scale_grow_total]
+.direction_recorded:
+    shl si, 1
+    xor ax, ax
+    mov al, [visible_page_index]
+    shl ax, 1
+    add si, ax
+    inc word [scale_page_publications + si]
+
+    mov ax, [selected_payload_bytes]
+    add [source_bytes], ax
+    adc word [source_bytes + 2], 0
+    add word [cleared_bytes], G1_PAGE_BYTES & 0xffff
+    adc word [cleared_bytes + 2], G1_PAGE_BYTES >> 16
+
+    xor ax, ax
+    mov al, [selected_scale_id]
+    xor bx, bx
+    mov bl, [scale_direction]
+    shl bx, 8
+    add ax, bx
+    add [publication_digest], ax
+    adc word [publication_digest + 2], 0
+    xor ax, ax
+    mov al, [visible_page_index]
+    inc ax
+    add [publication_digest + 2], ax
+    pop si
+    pop dx
+    pop cx
+    pop bx
+    pop ax
+    ret
+
+advance_scale_sequence:
+    cmp byte [scale_direction], 0
+    jne .grow
+    cmp byte [current_scale_id], 1
+    jne .shrink_step
+    mov byte [scale_direction], 1
+    mov byte [current_scale_id], 2
+    inc word [direction_reversals]
+    ret
+.shrink_step:
+    dec byte [current_scale_id]
+    ret
+.grow:
+    cmp byte [current_scale_id], 29
+    jne .grow_step
+    mov byte [scale_direction], 0
+    mov byte [current_scale_id], 30
+    inc word [direction_reversals]
+    inc word [cycles_completed]
+    ret
+.grow_step:
+    inc byte [current_scale_id]
+    ret
+
+validate_bounded_success:
+    cmp word [render_batches_started], SCALE_PUBLICATIONS_PER_CYCLE
+    jne .failed
+    cmp word [render_batches_completed], SCALE_PUBLICATIONS_PER_CYCLE
+    jne .failed
+    cmp word [full_page_clears], SCALE_PUBLICATIONS_PER_CYCLE
+    jne .failed
+    cmp word [transparent_bitblts], SCALE_PUBLICATIONS_PER_CYCLE
+    jne .failed
+    cmp word [page_flips], SCALE_PUBLICATIONS_PER_CYCLE
+    jne .failed
+    cmp word [cycles_completed], 1
+    jne .failed
+    cmp word [direction_reversals], 2
+    jne .failed
+    cmp word [sgp_timeouts], 0
+    jne .failed
+    cmp word [sgp_errors], 0
+    jne .failed
+    cmp word [vblank_timeouts], 0
+    jne .failed
+    cmp word [descriptor_errors], 0
+    jne .failed
+    cmp word [scale_publication_total], SCALE_PUBLICATIONS_PER_CYCLE
+    jne .failed
+    cmp word [scale_shrink_total], 30
+    jne .failed
+    cmp word [scale_grow_total], 28
+    jne .failed
+    xor si, si
+    mov cx, ATLAS_SCALE_COUNT
+.scale_loop:
+    mov ax, [scale_publications + si]
+    cmp cx, ATLAS_SCALE_COUNT
+    je .endpoint
+    cmp cx, 1
+    je .endpoint
+    cmp ax, 2
+    jne .failed
+    cmp word [scale_shrink_publications + si], 1
+    jne .failed
+    cmp word [scale_grow_publications + si], 1
+    jne .failed
+    jmp .next
+.endpoint:
+    cmp ax, 1
+    jne .failed
+    cmp word [scale_shrink_publications + si], 1
+    jne .failed
+    cmp word [scale_grow_publications + si], 0
+    jne .failed
+.next:
+    add si, 2
+    loop .scale_loop
+    mov word [bounded_validation_pass], 1
+    clc
+    ret
+.failed:
+    stc
     ret
 
 select_render_ordinary:
@@ -1766,18 +2134,20 @@ print_string:
     ret
 
 message_start:
-    db "M98O_INIT: transparent G1 double-buffer proof", 13, 10
+    db "M98P_INIT: 30-scale full-page-CLS zoom baseline", 13, 10
     db "Selector 0 is ordinary RAM; selector 1 is the atlas bank.", 13, 10, "$"
 message_done:
-    db "M98O_EXIT: ordinary mapping and video state restored.", 13, 10, "$"
+    db "M98P_EXIT: ordinary mapping and video state restored.", 13, 10, "$"
 message_bms_failed:
-    db "M98O_FAIL: predecessor BMS mapping probe failed.", 13, 10, "$"
+    db "M98P_FAIL: predecessor BMS mapping probe failed.", 13, 10, "$"
 message_atlas_failed:
-    db "M98O_FAIL: atlas validation or streaming failed.", 13, 10, "$"
+    db "M98P_FAIL: atlas validation or streaming failed.", 13, 10, "$"
+message_descriptor_failed:
+    db "M98P_FAIL: scale descriptor or bounded invariant failed.", 13, 10, "$"
 message_transfer_failed:
-    db "M98O_FAIL: hidden-page SGP batch failed.", 13, 10, "$"
+    db "M98P_FAIL: hidden-page SGP batch failed.", 13, 10, "$"
 message_runtime_failed:
-    db "M98O_FAIL: bounded VBLANK edge wait timed out.", 13, 10, "$"
+    db "M98P_FAIL: bounded VBLANK edge wait timed out.", 13, 10, "$"
 atlas_filename:
     db "ZUNDORB.BIN", 0
 
@@ -1806,6 +2176,12 @@ report_b_checkpoint:
 times REPORT_C_CHECKPOINT_OFFSET - ($ - $$) db 0x90
 report_c_checkpoint:
     jmp report_c_resume
+times REPORT_D_CHECKPOINT_OFFSET - ($ - $$) db 0x90
+report_d_checkpoint:
+    jmp report_d_resume
+times REPORT_E_CHECKPOINT_OFFSET - ($ - $$) db 0x90
+report_e_checkpoint:
+    jmp report_e_resume
 
 align 2, db 0
 sgp_command_list:
@@ -1830,14 +2206,16 @@ page_sgp_low: dw G1_PAGE_A_SGP_BASE & 0xffff, G1_PAGE_B_SGP_BASE & 0xffff
 page_sgp_high: dw G1_PAGE_A_SGP_BASE >> 16, G1_PAGE_B_SGP_BASE >> 16
 page_dsa_low: dw G1_PAGE_A_DSA & 0xffff, G1_PAGE_B_DSA & 0xffff
 page_dsa_high: dw G1_PAGE_A_DSA >> 16, G1_PAGE_B_DSA >> 16
-page_position_x: dw POSITION_P1_X, POSITION_P0_X
-page_position_y: dw POSITION_P1_Y, POSITION_P0_Y
 page_state: db PAGE_UNINITIALIZED, PAGE_UNINITIALIZED
-visible_page_index: db PAGE_A
-hidden_page_index: db PAGE_B
-render_sequence_index: db 0
+visible_page_index: db M98P_INITIAL_VISIBLE_PAGE
+hidden_page_index: db 1 - M98P_INITIAL_VISIBLE_PAGE
 settled_capture_count: db 0
-last_position_index: db 0
+current_scale_id: db ATLAS_SCALE_COUNT
+scale_direction: db 0
+selected_scale_id: db 0
+last_published_scale_id: db 0
+last_published_direction: db 0
+descriptor_validation_id: db 0
 runtime_failure_kind: db 0
 exit_errorlevel: db 1
 align 2, db 0
@@ -1856,7 +2234,22 @@ sgp_timeouts: dw 0
 sgp_errors: dw 0
 vblank_timeouts: dw 0
 bms_bank_switches: dw 0
+bms_bank_selections: dw 0
+descriptor_errors: dw 0
 cleanup_runs: dw 0
+cycles_completed: dw 0
+direction_reversals: dw 0
+scale_publication_total: dw 0
+scale_shrink_total: dw 0
+scale_grow_total: dw 0
+bounded_validation_pass: dw 0
+source_bytes: dw 0, 0
+cleared_bytes: dw 0, 0
+publication_digest: dw 0, 0
+scale_publications: times ATLAS_SCALE_COUNT dw 0
+scale_shrink_publications: times ATLAS_SCALE_COUNT dw 0
+scale_grow_publications: times ATLAS_SCALE_COUNT dw 0
+scale_page_publications: times ATLAS_SCALE_COUNT * 2 dw 0
 sgp_command_address_low: dw 0
 sgp_command_address_high: dw 0
 saved_video_mode: dw 0
@@ -1879,6 +2272,13 @@ crc_range_remaining: dw 0, 0
 selected_width: dw 0
 selected_height: dw 0
 selected_pitch: dw 0
+selected_anchor_x: dw 0
+selected_anchor_y: dw 0
+atlas_source_width: dw 0
+atlas_source_height: dw 0
+atlas_source_anchor_x: dw 0
+atlas_source_anchor_y: dw 0
+expected_descriptor_offset: dw 0, 0
 selected_bank_offset: dw 0, 0
 selected_payload_bytes: dw 0, 0
 selected_dst_x: dw 0
@@ -1909,5 +2309,5 @@ staging_buffer:
 program_end:
 
 %if program_end - $$ >= 65280
-%error "M98o guest exceeds the 64-KiB DOS payload limit"
+%error "M98p guest exceeds the 64-KiB DOS payload limit"
 %endif

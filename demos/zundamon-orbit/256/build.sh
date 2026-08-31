@@ -28,6 +28,8 @@ if [ "$#" -gt 2 ]; then
 fi
 
 nasm_command=${NASM:-nasm}
+bounded_qa=${M98P_BOUNDED_QA:-0}
+initial_visible_page=${M98P_INITIAL_VISIBLE_PAGE:-0}
 output=${1:-ZUNDORB.COM}
 listing=${2:-${output%.*}.LST}
 script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
@@ -41,8 +43,19 @@ command -v "$nasm_command" >/dev/null 2>&1 || {
     printf 'error: NASM command is unavailable\n' >&2
     exit 127
 }
+case "$bounded_qa" in
+    0|1) ;;
+    *) printf 'error: M98P_BOUNDED_QA must be 0 or 1\n' >&2; exit 2 ;;
+esac
+case "$initial_visible_page" in
+    0|1) ;;
+    *) printf 'error: M98P_INITIAL_VISIBLE_PAGE must be 0 or 1\n' >&2; exit 2 ;;
+esac
 
-"$nasm_command" -f bin -l "$listing" \
+"$nasm_command" -f bin \
+    -dM98P_BOUNDED_QA="$bounded_qa" \
+    -dM98P_INITIAL_VISIBLE_PAGE="$initial_visible_page" \
+    -l "$listing" \
     "$script_dir/zundamon_orbit_256.asm" -o "$output"
 
 size=$(wc -c < "$output" | tr -d ' ')
@@ -51,4 +64,5 @@ size=$(wc -c < "$output" | tr -d ' ')
     exit 1
 }
 
-printf 'M98O_GUEST_BUILD_PASS size=%s listing=%s\n' "$size" "$listing"
+printf 'M98P_GUEST_BUILD_PASS size=%s bounded_qa=%s initial_page=%s listing=%s\n' \
+    "$size" "$bounded_qa" "$initial_visible_page" "$listing"

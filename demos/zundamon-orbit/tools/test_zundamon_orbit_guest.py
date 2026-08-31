@@ -126,6 +126,25 @@ def write_fixture(directory: Path):
         "  100                                  staging_buffer:\n"
         "  101 000034C0 00<rep 1000h>              times STAGING_BYTES db 0\n",
         encoding="utf-8")
+    (directory / "m98o-source.asm").write_text(
+        "%define G1_PAGE_BYTES           0xfa00\n"
+        "%define G1_PAGE_WORD_COUNT      0x7d00\n"
+        "%define G1_PAGE_B_SGP_BASE      0x22fa00\n"
+        "%define G1_PAGE_B_DSA           0x02fa00\n"
+        "%define POSITION_P0_X           48\n"
+        "%define POSITION_P1_X           248\n"
+        "%define PAGE_UNINITIALIZED      0\n"
+        "%define PAGE_HIDDEN_RENDERING   2\n"
+        "%define PAGE_HIDDEN_COMPLETE    3\n"
+        "%define PAGE_VISIBLE            4\n"
+        "call select_render_bms\n"
+        "call wait_vblank_edge\n"
+        "call publish_page\n"
+        "call select_render_ordinary\n"
+        "call run_sgp_command_list\n"
+        "call run_sgp_command_list\n"
+        "mov ax, SGP_COMMAND_BITBLT\n",
+        encoding="utf-8")
     return atlas_path, header, descriptor
 
 
@@ -134,11 +153,14 @@ class M98oOracleTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             directory = Path(temporary)
             atlas, header, descriptor = write_fixture(directory)
-            source = None if mutation is None else mutation(directory, header, descriptor)
+            source = directory / "m98o-source.asm"
+            if mutation is not None:
+                mutated_source = mutation(directory, header, descriptor)
+                if mutated_source is not None:
+                    source = mutated_source
             command = [sys.executable, str(SCRIPT), str(directory), "--atlas", str(atlas),
-                       "--trace", str(directory / "sgp-trace.log")]
-            if source is not None:
-                command.extend(("--source", str(source)))
+                       "--trace", str(directory / "sgp-trace.log"),
+                       "--source", str(source)]
             completed = subprocess.run(command, check=False, capture_output=True, text=True)
             return completed.returncode, json.loads(completed.stdout)
 
