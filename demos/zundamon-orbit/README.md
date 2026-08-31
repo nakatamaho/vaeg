@@ -87,3 +87,37 @@ PYTHONPYCACHEPREFIX=/tmp/vaeg-m98c-pyc \
 The M98c validator checks only the manifest. It does not open the referenced
 BMP or palette and never prints their names or the manifest path. File-content
 validation belongs to M98d.
+
+## Image and palette validation
+
+M98d fixes `bmp32` to an uncompressed 32-bpp BMP with a 54-byte header and
+BGRA pixel storage. Both bottom-up and top-down row order are accepted. The
+RGB888 palette contains exactly 16 entries: indices 0 and 15 equal the exact
+background color, while visible indices 1-14 are unique.
+
+The content inspector checks the actual BMP dimensions, crop bounds, palette,
+and every crop pixel. Background pixels recover as index 0; every opaque pixel
+must exactly match one visible palette entry. It rejects nearest-color input,
+an all-transparent crop, and a crop without transparency.
+
+Build and inspect a complete synthetic bundle:
+
+```sh
+output_root=$(mktemp -d /tmp/vaeg-m98d.XXXXXX)
+python3 demos/zundamon-orbit/tools/build_zundamon_orbit_input_fixture.py \
+  --output "$output_root/input"
+python3 demos/zundamon-orbit/tools/inspect_zundamon_orbit_input.py \
+  --manifest "$output_root/input/input.json"
+```
+
+Run the deterministic, negative, row-order, and privacy-output tests:
+
+```sh
+PYTHONPYCACHEPREFIX=/tmp/vaeg-m98d-pyc \
+  python3 demos/zundamon-orbit/tools/test_zundamon_orbit_input.py
+```
+
+For a separately prepared local bundle, pass its manifest through the same
+inspector. Success and failure output deliberately omits paths, filenames,
+dimensions, palette values, pixel counts, and hashes. M98d does not write the
+recovered private indices to disk.
