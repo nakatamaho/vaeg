@@ -23,13 +23,17 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 # M98o - Add transparent G1 double buffering
 
-Status: **assigned on 2026-08-31; implementation in progress**
+Status: **automated VA2/VAEG candidate passed at `ddc70c692ecb65066269c9894eb4b14f702fd2d9`; G98o human gate pending**
 
 Branch: `topic/m98o-g1-double-buffer`
 
 Starting commit: `50201c9c22809246525e04de825399079b6c84f5`
 
 Accepted M98l candidate: `228f31eb192c2722862691067c46c4db9e4aeb95`
+
+Evaluated M98o candidate: `ddc70c692ecb65066269c9894eb4b14f702fd2d9`
+
+Result: [`../reports/m98o_zundamon_g1_double_buffer.md`](../reports/m98o_zundamon_g1_double_buffer.md)
 
 Commit prefix: `M98o:`
 
