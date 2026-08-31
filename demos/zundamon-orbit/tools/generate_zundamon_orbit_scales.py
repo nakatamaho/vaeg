@@ -37,7 +37,8 @@ import validate_zundamon_orbit_manifest as manifest_validator
 
 
 SCALE_COUNT = 30
-SCALE_ROUNDING_BIAS = SCALE_COUNT // 2
+SCALE_DENOMINATOR = 31
+SCALE_ROUNDING_BIAS = SCALE_DENOMINATOR // 2
 ROW_ALIGNMENT = 4
 FRAME_ALIGNMENT = 16
 STREAM_NAME = "scales.va8"
@@ -67,9 +68,10 @@ def scale_dimension(source_size: int, level: int) -> int:
         fail("M98G_SOURCE_GEOMETRY", "source dimension is invalid")
     if not 1 <= level <= SCALE_COUNT:
         fail("M98G_LEVEL_RANGE", "scale level is outside 1-30")
+    numerator = level if level < SCALE_COUNT else SCALE_DENOMINATOR
     return max(
         1,
-        (source_size * level + SCALE_ROUNDING_BIAS) // SCALE_COUNT,
+        (source_size * numerator + SCALE_ROUNDING_BIAS) // SCALE_DENOMINATOR,
     )
 
 

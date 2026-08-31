@@ -66,7 +66,7 @@ multiple viewing angles.
 | Transparent copy | SGP BITBLT mode `0105h` |
 | Atlas storage | Exactly one 128 KiB I/O Bank Memory window at `80000h-9ffffh` |
 | BMS default port | `01d0h`, overridable by guest option |
-| Atlas source maximum | Start at 98x128; downscale further only to fit one bank |
+| Atlas source maximum | 98x128; this exact maximum frame is preserved |
 | Scale levels | Exactly 30, smallest through full size |
 | Runtime scaling | None |
 | Orbit phases | 64 deterministic lookup-table entries |
@@ -176,22 +176,25 @@ va8    = (green3 << 5) | (red3 << 2) | blue2
 
 An opaque result that quantizes to zero must be repaired to the nearest
 nonzero value with deterministic tie breaking. Before scale generation, a
-source larger than 98x128 is fitted within that bounding box. If the resulting
-30-level atlas would exceed one 128-KiB bank, the source shrinks further to the
-largest aspect-preserving dimensions that fit. Both steps use deterministic
-center-sampled nearest-neighbor selection; the anchor uses the same
-pixel-center projection, an input that already satisfies both limits is
-unchanged, and upscaling is forbidden. Scale generation then uses:
+source larger than 98x128 is fitted within that bounding box with deterministic
+center-sampled nearest-neighbor selection. The anchor uses the same
+pixel-center projection, an input that already fits is unchanged, and
+upscaling is forbidden. A 98x128 source remains the exact maximum frame. Scale
+generation then uses:
 
 ```text
-width(i)  = max(1, (source_width  * i + 15) // 30)
-height(i) = max(1, (source_height * i + 15) // 30)
-pitch(i)  = (width(i) + 3) & ~3
+numerator(i) = i for i=1..29, and 31 for i=30
+width(i)     = max(1, (source_width  * numerator(i) + 15) // 31)
+height(i)    = max(1, (source_height * numerator(i) + 15) // 31)
+pitch(i)     = (width(i) + 3) & ~3
 ```
 
 for `i=1..30`, deterministic center-sampled nearest-neighbor selection,
-zeroed row padding, 16-byte frame alignment, and a complete atlas contained in
-one 128 KiB bank.
+zeroed row padding, 16-byte frame alignment, an exact full-size level 30, and
+a complete atlas contained in one 128 KiB bank. Omitting the `30/31` scale
+slot retains 30 descriptors while preserving the exact 98x128 maximum. The
+maximum-bound atlas occupies 127456 of 131072 bytes after row and frame
+alignment.
 
 ## 7. Guest correctness contracts
 

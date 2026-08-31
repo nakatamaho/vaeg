@@ -147,30 +147,9 @@ def scale_atlas_occupied_bytes(width: int, height: int) -> int:
 
 def normalized_dimensions(width: int, height: int) -> tuple[int, int]:
     target_width, target_height = bounded_dimensions(width, height)
-    if scale_atlas_occupied_bytes(target_width, target_height) <= packer.BANK_SIZE:
-        return target_width, target_height
-
-    width_limited = (
-        width * MAX_ATLAS_SOURCE_HEIGHT
-        >= height * MAX_ATLAS_SOURCE_WIDTH
-    )
-    if width_limited:
-        candidates = (
-            (candidate_width,
-             max(1, height * candidate_width // width))
-            for candidate_width in range(target_width - 1, 0, -1)
-        )
-    else:
-        candidates = (
-            (max(1, width * candidate_height // height),
-             candidate_height)
-            for candidate_height in range(target_height - 1, 0, -1)
-        )
-    for candidate_width, candidate_height in candidates:
-        if scale_atlas_occupied_bytes(
-                candidate_width, candidate_height) <= packer.BANK_SIZE:
-            return candidate_width, candidate_height
-    fail("M98J_NORMALIZE_BANK", "no one-bank normalization geometry exists")
+    if scale_atlas_occupied_bytes(target_width, target_height) > packer.BANK_SIZE:
+        fail("M98J_NORMALIZE_BANK", "bounded source exceeds one BMS bank")
+    return target_width, target_height
 
 
 def normalize_source(pixels: bytes, width: int, height: int,

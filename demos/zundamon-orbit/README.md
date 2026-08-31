@@ -191,8 +191,9 @@ M98g generates exactly 30 nearest-neighbor frames, numbered 1 through 30.
 Their dimensions and row pitch are:
 
 ```text
-width(i)  = max(1, (source_width  * i + 15) // 30)
-height(i) = max(1, (source_height * i + 15) // 30)
+numerator(i) = i for i=1..29, and 31 for i=30
+width(i)     = max(1, (source_width  * numerator(i) + 15) // 31)
+height(i)    = max(1, (source_height * numerator(i) + 15) // 31)
 pitch(i)  = (width(i) + 3) & ~3
 ```
 
@@ -200,7 +201,10 @@ Every target pixel samples the source pixel containing its projected center.
 Rows have zero padding through the four-byte pitch, and every frame starts at
 a 16-byte boundary. All 30 descriptors are retained even when small adjacent
 levels have the same dimensions. The anchor is projected with the same
-pixel-center convention.
+pixel-center convention. Level 30 is the exact full-size source. The omitted
+30/31 slot leaves the complete 30-level 98x128 atlas within one bank without
+shrinking the maximum frame. With four-byte row pitch and 16-byte frame
+alignment, that maximum-bound atlas occupies 127456 of 131072 bytes.
 
 Generate an ignored intermediate scale set directly from a validated bundle:
 
@@ -300,13 +304,14 @@ PYTHONPYCACHEPREFIX=/tmp/vaeg-m98i-pyc \
 M98j connects manifest validation, exact indexed-pixel recovery, VA8
 conversion, downscale-only source normalization, all 30 scale levels,
 single-bank BMS packing, and both final atlas inspectors without writing
-intermediate private pixels or scale streams. The normalized source starts
-within the 98x128 bound and, when necessary, shrinks further to the largest
-aspect-preserving dimensions whose complete 30-level atlas fits one 128-KiB
-bank. Selection is deterministic center-sampled nearest-neighbor, the anchor
-uses the same coordinate rule, and the pipeline never upscales. An input that
-already satisfies both bounds remains byte-for-byte unchanged. A bounded
-contact sheet displays every level in order over a checkerboard,
+intermediate private pixels or scale streams. The normalized source fits
+within the 98x128 bound while preserving its aspect ratio; a 98x128 source is
+retained exactly as the maximum frame. Selection is deterministic
+center-sampled nearest-neighbor, the anchor uses the same coordinate rule,
+and the pipeline never upscales. An input that already fits remains
+byte-for-byte unchanged. The fixed 30-level schedule keeps every permitted
+normalized atlas within one 128-KiB bank. A bounded contact sheet displays
+every level in order over a checkerboard,
 marks the projected anchor, and labels the level, dimensions, and anchor.
 
 Run the complete public fixture through the production pipeline:

@@ -103,8 +103,8 @@ class ZundamonOrbitPipelineTests(unittest.TestCase):
             )
 
     def test_normalization_is_downscale_only_for_replicated_source(self) -> None:
-        width = 96
-        height = 125
+        width = pipeline.MAX_ATLAS_SOURCE_WIDTH
+        height = pipeline.MAX_ATLAS_SOURCE_HEIGHT
         replication = 3
         source = bytes(
             ((x * 17 + y * 29) % 255) + 1
@@ -137,13 +137,10 @@ class ZundamonOrbitPipelineTests(unittest.TestCase):
         self.assertEqual((small.anchor_x, small.anchor_y), (2, 1))
         self.assertEqual(small.pixels, bytes(range(12)))
         self.assertEqual(small.report["downscaled"], False)
-        self.assertEqual(pipeline.normalized_dimensions(98, 128), (96, 125))
-        self.assertGreater(
-            pipeline.scale_atlas_occupied_bytes(98, 128), packer.BANK_SIZE)
-        self.assertGreater(
-            pipeline.scale_atlas_occupied_bytes(97, 126), packer.BANK_SIZE)
-        self.assertLessEqual(
-            pipeline.scale_atlas_occupied_bytes(96, 125), packer.BANK_SIZE)
+        self.assertEqual(pipeline.normalized_dimensions(98, 128), (98, 128))
+        self.assertEqual(
+            pipeline.scale_atlas_occupied_bytes(98, 128), 127456)
+        self.assertLess(127456, packer.BANK_SIZE)
         self.assertEqual(pipeline.normalized_dimensions(196, 128), (98, 64))
         self.assertEqual(pipeline.normalized_dimensions(98, 256), (49, 128))
 

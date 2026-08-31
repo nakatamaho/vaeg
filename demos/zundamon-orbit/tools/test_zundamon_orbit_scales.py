@@ -48,7 +48,8 @@ def digest(input_file: Path) -> str:
 
 
 def oracle_dimension(source_size: int, level: int) -> int:
-    return max(1, (source_size * level + 15) // 30)
+    numerator = level if level < 30 else 31
+    return max(1, (source_size * numerator + 15) // 31)
 
 
 def oracle_sample(coordinate: int, source_size: int, target_size: int) -> int:

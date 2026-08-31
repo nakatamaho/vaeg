@@ -33,11 +33,11 @@ M98j adds one source-neutral host pipeline that validates the manifest and
 input, recovers exact indices, converts VA8 pixels, generates all 30 scales,
 packs the final atlas, and applies both the M98h format inspector and M98i
 single-bank packing validator. Before scale generation, it deterministically
-fits oversized sources within 98x128 while preserving aspect ratio, then
-shrinks further when required so that the complete 30-level atlas fits one
-128-KiB bank. It projects the anchor with the same center-sampled
-nearest-neighbor rule, never upscales, and writes no intermediate pixel or
-scale stream.
+fits oversized sources within 98x128 while preserving aspect ratio. It keeps
+an exact 98x128 maximum frame, projects the anchor with the same
+center-sampled nearest-neighbor rule, never upscales, and writes no
+intermediate pixel or scale stream. The 30-level scale schedule itself keeps
+the complete atlas within one 128-KiB bank.
 
 Successful output contains only the final atlas, a deterministic 30-level
 contact sheet, and a combined private report. The contact sheet uses a fixed
@@ -59,7 +59,8 @@ with independently composed M98f-M98i output, deterministic downscale-only
 normalization and anchor projection, one-bank enforcement, both final
 inspectors, contact-sheet geometry and marker pixels, report reconciliation,
 the exact three-file output set, overwrite refusal, isolated failures, and
-path-redacted public/local CLI behavior.
+path-redacted public/local CLI behavior. The public maximum-bound oracle
+confirms that a 98x128 source occupies 127456 of 131072 bank bytes.
 
 M98b-M98i regressions also passed, for 61 passing test methods across M98b
 through M98j. Python compilation, the public pipeline workflow, JSON,
@@ -70,7 +71,7 @@ public and local data remains untracked.
 
 One existing approved local bundle passed the M98d input preflight. The
 maintainer then approved 30 scale levels and exactly one atlas bank, retaining
-98x128 as the initial maximum and downscale-only normalization. The pipeline
+98x128 as the exact maximum and using downscale-only normalization. The pipeline
 generated exactly the final atlas, contact sheet, and private report. Both
 final inspectors passed, the atlas requires one bank, and the contact sheet
 contains all 30 ordered levels with projected anchors and transparency

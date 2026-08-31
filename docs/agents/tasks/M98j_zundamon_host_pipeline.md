@@ -37,9 +37,9 @@ Connect the frozen M98c through M98i host stages into one fail-closed command
 that turns an explicitly supplied generic local manifest into the final
 single-bank version-1 atlas, a deterministic 30-level contact sheet, and a
 private combined report. Apply the approved 98x128 downscale-only source
-normalization and shrink further when necessary to fit the complete atlas in
-one BMS bank before M98g. Run the public synthetic fixture through exactly the
-same pipeline before preparing any local human-gate candidate.
+normalization without shrinking a 98x128 maximum frame. Run the public
+synthetic fixture through exactly the same pipeline before preparing any local
+human-gate candidate.
 
 ## Required changes
 
@@ -49,11 +49,13 @@ same pipeline before preparing any local human-gate candidate.
   packing, M98h format inspection, and M98i packing inspection without
   intermediate private files.
 - Fit sources larger than 98x128 within that bounding box while preserving the
-  aspect ratio. If all 30 scales would exceed one bank, shrink further to the
-  largest aspect-preserving dimensions that fit. Use deterministic
-  center-sampled nearest-neighbor selection, project the anchor with the same
-  pixel-center rule, leave inputs that satisfy both bounds byte-for-byte
-  unchanged, and never upscale.
+  aspect ratio. Use deterministic center-sampled nearest-neighbor selection,
+  project the anchor with the same pixel-center rule, leave inputs that fit
+  byte-for-byte unchanged, preserve an exact 98x128 maximum frame, and never
+  upscale.
+- Use the M98g 30-level schedule with numerator 1 through 29 followed by 31,
+  over denominator 31. Require the complete atlas to fit one BMS bank without
+  further source shrinking.
 - Accept either an explicit local manifest and a new output directory or a
   public-fixture output directory. The public mode must create a temporary
   M98d fixture and invoke the same production pipeline function.
@@ -86,9 +88,8 @@ stop without fabricating or acquiring input.
 
 If an approved bundle reaches a frozen fail-closed stage error, record only a
 neutral stable status and retain G98j as pending. Do not split, crop, or alter
-the accepted local input. The fixed downscale-only normalization and one-bank
-fit above are the only M98j transformations added before the scaler and
-packer.
+the accepted local input. The fixed 98x128 downscale-only normalization is the
+only M98j pixel transformation before the scaler and packer.
 
 ## Private boundary
 
@@ -100,8 +101,7 @@ contains only the M98b abstract marker.
 ## Out of scope
 
 - Changing the G98e-approved input crop, transparency, or anchor.
-- Any normalization other than the fixed downscale-only 98x128 and one-bank
-  rules.
+- Any normalization other than the fixed downscale-only 98x128 rule.
 - Any M98h format or M98i packing change beyond the authorized 30-descriptor,
   single-bank revision.
 - Guest assembly, BMS probing/loading, SGP transfer, VAEG, disk images,

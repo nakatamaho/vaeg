@@ -47,6 +47,7 @@ HEADER_SIZE = 64
 DESCRIPTOR_SIZE = 32
 POSE_COUNT = 1
 SCALE_COUNT = 30
+SCALE_DENOMINATOR = 31
 BANK_SIZE = 0x00020000
 FIRST_BANK_VALUE = 1
 DESCRIPTOR_OFFSET = HEADER_SIZE
@@ -171,13 +172,17 @@ def validate_scale_set(scale_set: scaler.ScaleSet) -> None:
         if len(frame.payload) > BANK_SIZE:
             fail("M98I_FRAME_TOO_LARGE", "frame payload exceeds one BMS bank")
 
+        numerator = (
+            frame.level if frame.level < SCALE_COUNT else SCALE_DENOMINATOR)
         expected_width = max(
             1,
-            (source.width * frame.level + SCALE_COUNT // 2) // SCALE_COUNT,
+            (source.width * numerator + SCALE_DENOMINATOR // 2)
+            // SCALE_DENOMINATOR,
         )
         expected_height = max(
             1,
-            (source.height * frame.level + SCALE_COUNT // 2) // SCALE_COUNT,
+            (source.height * numerator + SCALE_DENOMINATOR // 2)
+            // SCALE_DENOMINATOR,
         )
         if (frame.width, frame.height) != (expected_width, expected_height):
             fail("M98I_SCALE_GEOMETRY", "scale geometry is noncanonical")

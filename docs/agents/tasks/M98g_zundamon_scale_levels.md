@@ -43,9 +43,10 @@ packing contract.
 For levels `i=1..30`:
 
 ```text
-width(i)  = max(1, (source_width  * i + 15) // 30)
-height(i) = max(1, (source_height * i + 15) // 30)
-pitch(i)  = (width(i) + 3) & ~3
+numerator(i) = i for i=1..29, and 31 for i=30
+width(i)     = max(1, (source_width  * numerator(i) + 15) // 31)
+height(i)    = max(1, (source_height * numerator(i) + 15) // 31)
+pitch(i)     = (width(i) + 3) & ~3
 ```
 
 For target coordinate `t`, source size `s`, and target size `d`, sample:
@@ -60,8 +61,10 @@ Project a source anchor coordinate `a` with:
 anchor(a) = min(d - 1, ((2 * a + 1) * d) // (2 * s))
 ```
 
-Level 30 must reproduce every source pixel exactly. Retain all 30 descriptors
-when adjacent small levels have duplicate dimensions.
+Level 30 must reproduce every source pixel exactly. The `30/31` scale slot is
+omitted so a 98x128 full-size source and all 30 frames fit one later BMS bank.
+Retain all 30 descriptors when adjacent small levels have duplicate
+dimensions.
 
 ## Required changes
 
