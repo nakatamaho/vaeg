@@ -23,11 +23,15 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 # M98l - Stream one BMS atlas and prove a direct G1 transfer
 
-Status: **assigned on 2026-08-31; implementation in progress**
+Status: **automated VA2 candidate passed on 2026-08-31; maintainer human gate pending**
 
 Branch: `topic/m98l-zundamon-bms-direct-g1`
 
 Starting commit: `2a6c3944bab1fb691261fa2f0950dc4a2faeab8c`
+
+Evaluated candidate: `228f31eb192c2722862691067c46c4db9e4aeb95`
+
+Result: [`../reports/m98l_zundamon_bms_direct_g1.md`](../reports/m98l_zundamon_bms_direct_g1.md)
 
 Commit prefix: `M98l:`
 
@@ -141,10 +145,12 @@ PYTHONPYCACHEPREFIX=/tmp/vaeg-m98l-pyc \
 
 NASM=/opt/local/bin/nasm \
   sh demos/zundamon-orbit/256/build.sh \
-  build/generated/zundamon-orbit/m98l/ZUNDORB.COM
+  build/generated/zundamon-orbit/m98l/ZUNDORB.COM \
+  build/generated/zundamon-orbit/m98l/ZUNDORB.LST
 
 sh demos/zundamon-orbit/build-local-d88.sh \
   <local-bootable-2hd-template> \
+  build/generated/zundamon-orbit/m98l/ZUNDORB.BIN \
   build/generated/zundamon-orbit/m98l/zundamon-orbit-m98l.d88
 
 VAEG_ZUNDAMON_MODEL=va2 sh demos/zundamon-orbit/run-vaeg.sh \
@@ -154,6 +160,8 @@ VAEG_ZUNDAMON_MODEL=va2 sh demos/zundamon-orbit/run-vaeg.sh \
   build/generated/zundamon-orbit/m98l-run
 
 python3 demos/zundamon-orbit/tools/verify_zundamon_orbit_guest.py \
+  --atlas build/generated/zundamon-orbit/m98l-run/ZUNDORB.BIN \
+  --trace build/generated/zundamon-orbit/m98l-run/sgp-trace.log \
   build/generated/zundamon-orbit/m98l-run
 
 build/macos-macports/sdl2/vaeg --selftest

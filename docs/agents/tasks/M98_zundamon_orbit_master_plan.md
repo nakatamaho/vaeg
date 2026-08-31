@@ -23,7 +23,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 # M98 - Zundamon billboard-orbit demo master plan
 
-Status: **G98a, G98e, G98j, and G98k human gates and G98b-G98d and G98f-G98i machine gates passed; M98k closed at candidate `6ed575dedc5da8827704c33a274ac72e480ce420`; M98l assigned**
+Status: **G98a, G98e, G98j, and G98k human gates and G98b-G98d and G98f-G98i machine gates passed; M98k closed at candidate `6ed575dedc5da8827704c33a274ac72e480ce420`; M98l automated VA2 candidate `228f31eb192c2722862691067c46c4db9e4aeb95` passed and awaits the human gate**
 
 Branch family: `topic/m98-zundamon-orbit`
 
@@ -163,7 +163,9 @@ GVRAM oracle passed, and the maintainer explicitly passed G98k on 2026-08-31.
 M98k is closed. M98l is assigned as the combined BMS mapping, bounded atlas
 streaming, and direct BMS-window-to-G1 proof. M98m and M98n remain reserved
 identifiers absorbed into M98l; M98o and later retain their numbering and
-remain unassigned.
+remain unassigned. The M98l VA2 automated candidate is
+`228f31eb192c2722862691067c46c4db9e4aeb95`; its three internal gates passed,
+but M98l remains open until the maintainer passes G98l.
 
 ## 6. Deterministic host contracts
 
