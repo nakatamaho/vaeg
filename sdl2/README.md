@@ -62,11 +62,20 @@ the pinned SDL2 release recorded in ADR-0006.
 | Persistence | `--cfg path`, `--no-cfg`, `--bkupmem path`, `--no-bkupmem` |
 | Execution | `--cpumult 1..32`, `--sgp model|follow-cpu|1..16`, `--nowait`, `--frameskip auto|full|2|3|4` |
 | Display/input | `--fullscreen`, `--windowed`, `--effect unfiltered|linear|scanline|crt-lite`, `--scaling native|fit|fit-8dot|integer|stretch`, `--controller joystick|mouse`, `--keyboard-layout jis|us|custom` |
-| Diagnostics/information | `--smoke`, `--selftest`, `--debug`, `--fdctrace`, `--scsitrace`, `--pacelog`, `--trace-cpu N`, `--headless-input-script path`, `--debug-script path`, `--debug-output-dir directory`, `--screen-dump path`, `--screenshot FRAME:PATH`, `--screen-tvram-dump path`, `--version`, `--help`, `-h` |
+| Diagnostics/information | `--smoke`, `--selftest`, `--debug`, `--fdctrace`, `--scsitrace`, `--pacelog`, `--trace-cpu N`, `--trace-cpu-output path`, `--trace-cpu-stop`, `--production-trace-capability`, `--headless-input-script path`, `--debug-script path`, `--debug-output-dir directory`, `--screen-dump path`, `--screenshot FRAME:PATH`, `--screen-tvram-dump path`, `--version`, `--help`, `-h` |
 
 Run `vaeg --help` for the built-in list. Enum values are ASCII
 case-insensitive, and the last occurrence wins when an option is repeated.
 Positional FDD arguments have been removed; use `--fdd1` and `--fdd2`.
+
+The production-memory CPU trace options are available only in a build with
+`VAEG_Z80_COMPAT_INTEGRATION_TRACE=ON`. `--trace-cpu N` sets the maximum CPU
+instruction records. `--trace-cpu-output path` writes them to a separate file,
+and `--trace-cpu-stop` exits with an explicit trace-limit record after the
+bound. The trace uses the instruction byte already fetched through the normal
+memory map and does not perform an extra guest-memory read. See
+[`production-memory-trace.md`](../docs/modernization/production-memory-trace.md)
+for the P0/P1/T0/T1 build boundary and ROM-free QA contract.
 
 `--headless-input-script path` starts the emulator with dummy SDL video/audio
 drivers and injects commands through the normal guest keyboard path. Each

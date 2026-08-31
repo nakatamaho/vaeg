@@ -205,6 +205,11 @@ static int test_cli_options(void) {
 	                 "--pacelog",
 	                 "--trace-cpu",
 	                 "17",
+#if defined(VAEG_Z80_COMPAT_INTEGRATION_TRACE)
+	                 "--trace-cpu-output",
+	                 "cpu.trace",
+	                 "--trace-cpu-stop",
+#endif
 	                 "--headless-input-script",
 	                 "input.txt",
 	                 "--debug-script",
@@ -277,6 +282,10 @@ static int test_cli_options(void) {
 	    (options.scaling != VAEG_CLI_SCALING_FIT_8DOT) ||
 	    (options.controller != VAEG_CLI_CONTROLLER_MOUSE) ||
 	    (options.keyboard_layout != VAEG_CLI_KEYBOARD_CUSTOM) || (options.trace_cpu != 17) ||
+#if defined(VAEG_Z80_COMPAT_INTEGRATION_TRACE)
+	    !options.trace_cpu_stop || (options.trace_cpu_output == NULL) ||
+	    strcmp(options.trace_cpu_output, "cpu.trace") ||
+#endif
 	    (options.headless_input_script == NULL) ||
 	    strcmp(options.headless_input_script, "input.txt") || (options.debug_script == NULL) ||
 	    strcmp(options.debug_script, "debug.txt") || (options.debug_output_dir == NULL) ||
@@ -2668,6 +2677,76 @@ static int test_opn_backends(void) {
 	return (SUCCESS);
 }
 
+#if defined(VAEG_Z80_COMPAT_INTEGRATION_TRACE)
+static int test_production_trace_path(void) {
+	Upd9002CoreContext saved_context;
+	_MEMORYVA saved_memoryva;
+	UINT8 saved_model;
+	BYTE saved_opcode;
+	int result;
+
+	saved_context = upd9002_core_context;
+	saved_memoryva = memoryva;
+	saved_model = pccore.model_va;
+	saved_opcode = mem[0x2000];
+	result = SUCCESS;
+
+#if defined(VAEG_UPD9002_SSTS_TESTING)
+	upd9002_test_flat_memory_set(FALSE);
+#endif
+	CPU_COMPAT_MODE = UPD9002_COMPAT_NATIVE;
+	CPU_COMPAT_RETURN_PENDING = 0;
+	upd9002_core_context.s.prefix = 0;
+	upd9002_core_context.s.trap = 0;
+	upd9002_core_context.s.resetreq = 0;
+	upd9002_core_context.s.ovflag = 0;
+	CPU_MSW = 0;
+	pccore.model_va = PCMODEL_VA1;
+	memoryva.sysm_bank = 0;
+	mem[0x2000] = 0x90;
+	CPU_AX = 0x1111;
+	CPU_BX = 0x2222;
+	CPU_CX = 0x3333;
+	CPU_DX = 0x4444;
+	CPU_SI = 0x5555;
+	CPU_DI = 0x6666;
+	CPU_BP = 0x7777;
+	CPU_SP = 0x8888;
+	CPU_ES = 0x9999;
+	CPU_SS = 0xaaaa;
+	CPU_DS = 0xbbbb;
+	CPU_CS = 0;
+	ES_BASE = 0x99990;
+	SS_BASE = 0xaaaa0;
+	DS_BASE = 0xbbbb0;
+	CS_BASE = 0;
+	CPU_IP = 0x2000;
+	CPU_FLAG = 0x0202;
+	CPU_ADRSMASK = 0xfffff;
+	CPU_BASECLOCK = 0x2000;
+	CPU_REMCLOCK = 0x1000;
+	CPU_CLOCK = 0;
+
+	upd9002_core_step();
+	if ((CPU_IP != 0x2001) || (CPU_AX != 0x1111) || (CPU_BX != 0x2222) || (CPU_SP != 0x8888) ||
+	    (CPU_FLAG != 0x0202) ||
+	    (upd9002_memory_last_read_backend() != UPD9002_MEMORY_BACKEND_PRODUCTION)) {
+		result = fail("production trace", "synthetic instruction left the production path");
+	} else {
+		fprintf(stderr,
+		        "selftest: production trace checkpoint "
+		        "ax=%04x bx=%04x sp=%04x cs=%04x ip=%04x flags=%04x memory=production\n",
+		        CPU_AX, CPU_BX, CPU_SP, CPU_CS, CPU_IP, CPU_FLAG);
+	}
+
+	mem[0x2000] = saved_opcode;
+	pccore.model_va = saved_model;
+	memoryva = saved_memoryva;
+	upd9002_core_context = saved_context;
+	return result;
+}
+#endif
+
 int vaeg_selftest_run(void) {
 #if defined(VAEG_UPD9002_M44_TESTING)
 	if (upd9002_state_scenario_requested()) {
@@ -2781,6 +2860,11 @@ int vaeg_selftest_run(void) {
 	if (test_hostfat_transport() != SUCCESS) {
 		return (FAILURE);
 	}
+#if defined(VAEG_Z80_COMPAT_INTEGRATION_TRACE)
+	if (test_production_trace_path() != SUCCESS) {
+		return FAILURE;
+	}
+#endif
 #if defined(VAEG_UPD780_INTEGRATION_TESTING)
 	if (vaeg_upd780_subsystem_integration_test() != SUCCESS) {
 		return (fail("uPD780 subsystem integration", "production seam test failed"));

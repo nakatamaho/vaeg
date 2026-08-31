@@ -37,9 +37,12 @@ enum {
 #ifdef VAEG_Z80_COMPAT_INTEGRATION_TRACE
 
 void upd9002_trace_start(FILE *stream, uint32_t steps);
+void upd9002_trace_start_bounded(FILE *stream, uint32_t steps);
 void upd9002_trace_stop(void);
 int upd9002_trace_active(void);
-void upd9002_trace_step_begin(void);
+int upd9002_trace_stop_requested(void);
+uint32_t upd9002_trace_step_position(void);
+void upd9002_trace_step_begin(uint8_t opcode, uint32_t memory_backend);
 void upd9002_trace_step_end(void);
 void upd9002_guest_trace_start(FILE *stream);
 void upd9002_guest_trace_start_cmdreq_windows(FILE *stream);
@@ -53,9 +56,12 @@ void upd9002_trace_event(uint32_t origin, const char *kind, uint32_t address, ui
 #else
 
 #define upd9002_trace_start(stream, steps) ((void)(stream), (void)(steps))
+#define upd9002_trace_start_bounded(stream, steps) ((void)(stream), (void)(steps))
 #define upd9002_trace_stop() ((void)0)
 #define upd9002_trace_active() 0
-#define upd9002_trace_step_begin() ((void)0)
+#define upd9002_trace_stop_requested() 0
+#define upd9002_trace_step_position() 0U
+#define upd9002_trace_step_begin(opcode, memory_backend) ((void)0)
 #define upd9002_trace_step_end() ((void)0)
 #define upd9002_guest_trace_start(stream) ((void)(stream))
 #define upd9002_guest_trace_start_cmdreq_windows(stream) ((void)(stream))

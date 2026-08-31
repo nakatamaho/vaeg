@@ -53,6 +53,57 @@ jobs:
       - name: Check path case
         run: python3 tools/repo/check_case.py
 
+  production-trace:
+    name: production-memory CPU trace matrix
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake ninja-build pkg-config libsdl2-dev gcc g++ nasm
+      - name: Configure P0 P1 T0 T1
+        run: |
+          common='-G Ninja -DCMAKE_BUILD_TYPE=Release -DVAEG_ENABLE_ARCHIVE_DROP=OFF -DCMAKE_EXPORT_COMPILE_COMMANDS=ON'
+          cmake -S . -B build/m07i-p0 ${common} -DVAEG_Z80_COMPAT_INTEGRATION_TRACE=OFF -DVAEG_ENABLE_TESTS=OFF
+          cmake -S . -B build/m07i-p1-a ${common} -DVAEG_Z80_COMPAT_INTEGRATION_TRACE=ON -DVAEG_ENABLE_TESTS=OFF
+          cmake -S . -B build/m07i-p1-b ${common} -DVAEG_Z80_COMPAT_INTEGRATION_TRACE=ON -DVAEG_ENABLE_TESTS=OFF
+          cmake -S . -B build/m07i-t0 ${common} -DVAEG_Z80_COMPAT_INTEGRATION_TRACE=OFF -DVAEG_ENABLE_TESTS=ON
+          cmake -S . -B build/m07i-t1 ${common} -DVAEG_Z80_COMPAT_INTEGRATION_TRACE=ON -DVAEG_ENABLE_TESTS=ON
+      - name: Build matrix
+        run: |
+          cmake --build build/m07i-p0 --target vaeg_sdl2
+          cmake --build build/m07i-p1-a --target vaeg_sdl2
+          cmake --build build/m07i-p1-b --target vaeg_sdl2
+          cmake --build build/m07i-t0 --target vaeg_sdl2
+          cmake --build build/m07i-t1 --target vaeg_sdl2
+      - name: Verify production-memory boundary
+        run: |
+          python3 tools/qa/production_trace.py verify-matrix \
+            --p0-compile-commands build/m07i-p0/compile_commands.json \
+            --p1-compile-commands build/m07i-p1-a/compile_commands.json \
+            --t0-compile-commands build/m07i-t0/compile_commands.json \
+            --t1-compile-commands build/m07i-t1/compile_commands.json \
+            --p1-binary build/m07i-p1-a/sdl2/vaeg
+          python3 tools/qa/production_trace.py compare-binaries \
+            --first build/m07i-p1-a/sdl2/vaeg \
+            --second build/m07i-p1-b/sdl2/vaeg
+          python3 tools/qa/production_trace.py verify-runtime \
+            --binary build/m07i-p1-a/sdl2/vaeg \
+            --work build/m07i-production-runtime
+      - name: Verify P0 T0 T1 behavior
+        env:
+          SDL_VIDEODRIVER: dummy
+          SDL_AUDIODRIVER: dummy
+        run: |
+          build/m07i-p0/sdl2/vaeg --selftest
+          build/m07i-t0/sdl2/vaeg --selftest
+          build/m07i-t1/sdl2/vaeg --selftest
+          ctest --test-dir build/m07i-t1 --output-on-failure \
+            -R '^vaeg_upd9002_trace_equivalence$'
+
   guest-drivers:
     name: PC-88VA guest-driver distribution
     runs-on: ubuntu-latest

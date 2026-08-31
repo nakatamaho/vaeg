@@ -24,6 +24,14 @@ extern "C" {
 /* Keep the allocation above the complete 0x110000-0x194000 font backing. */
 extern BYTE mem[0x200000];
 
+#if defined(VAEG_Z80_COMPAT_INTEGRATION_TRACE)
+enum {
+	UPD9002_MEMORY_BACKEND_UNKNOWN = 0,
+	UPD9002_MEMORY_BACKEND_PRODUCTION,
+	UPD9002_MEMORY_BACKEND_TEST_FLAT
+};
+#endif
+
 /* Raw storage helpers used only by native VA map entries for main RAM. */
 REG8 MEMCALL upd9002_mainram_read(UINT32 address);
 REG16 MEMCALL upd9002_mainram_read_w(UINT32 address);
@@ -39,6 +47,10 @@ REG8 MEMCALL upd9002_memoryread(UINT32 address);
 REG16 MEMCALL upd9002_memoryread_w(UINT32 address);
 void MEMCALL upd9002_memorywrite(UINT32 address, REG8 value);
 void MEMCALL upd9002_memorywrite_w(UINT32 address, REG16 value);
+#if defined(VAEG_Z80_COMPAT_INTEGRATION_TRACE)
+UINT upd9002_memory_last_read_backend(void);
+const char *upd9002_memory_backend_name(UINT backend);
+#endif
 REG16 MEMCALL upd9002_memoryread_seg_w(UINT32 segment_base, UINT off);
 void MEMCALL upd9002_memorywrite_seg_w(UINT32 segment_base, UINT off, REG16 value);
 

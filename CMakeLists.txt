@@ -81,12 +81,6 @@ configure_file(
     "${CMAKE_CURRENT_BINARY_DIR}/generated/vaeg_build_info.h"
     @ONLY)
 
-if(VAEG_ENABLE_TESTS AND NOT VAEG_Z80_COMPAT_INTEGRATION_TRACE)
-    message(FATAL_ERROR
-        "VAEG_ENABLE_TESTS requires VAEG_Z80_COMPAT_INTEGRATION_TRACE=ON; "
-        "the trace-equivalence test cannot use an uninstrumented executable")
-endif()
-
 if(VAEG_FETCH_SDL2)
     include(FetchContent)
     if(VAEG_STATIC_SDL2)
@@ -726,9 +720,12 @@ if(VAEG_WERROR)
     target_compile_options(vaeg_sdl2 PRIVATE -Werror)
 endif()
 
-if(VAEG_ENABLE_TESTS)
+if(VAEG_ENABLE_TESTS OR VAEG_Z80_COMPAT_INTEGRATION_TRACE)
     enable_testing()
     find_package(Python3 REQUIRED COMPONENTS Interpreter)
+endif()
+
+if(VAEG_ENABLE_TESTS)
     set(VAEG_SSTS_V20_ROOT "" CACHE PATH
         "Verified external SingleStepTests V20 checkout for uPD9002 comparison")
 
@@ -973,17 +970,17 @@ if(VAEG_ENABLE_TESTS)
     set_tests_properties(vaeg_upd9002_m66a_state_verify PROPERTIES
         LABELS "romless;upd9002;state")
 
-    add_test(NAME vaeg_upd9002_trace_equivalence
-        COMMAND "${CMAKE_COMMAND}"
-            "-DVAEG_EXECUTABLE=$<TARGET_FILE:vaeg_sdl2>"
-            "-DTRACE_GOLDEN=${CMAKE_CURRENT_SOURCE_DIR}/tests/upd9002/trace_baseline.txt"
-            -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/upd9002/run_trace_equivalence.cmake")
-    set_tests_properties(vaeg_upd9002_trace_equivalence PROPERTIES
-        # This invokes the complete selftest three times.  The M55 64 MiB
-        # snapshot identity checks are intentionally expensive under ASan.
-        LABELS "romless;upd9002;trace;harness" TIMEOUT 420)
-
     if(VAEG_Z80_COMPAT_INTEGRATION_TRACE)
+        add_test(NAME vaeg_upd9002_trace_equivalence
+            COMMAND "${CMAKE_COMMAND}"
+                "-DVAEG_EXECUTABLE=$<TARGET_FILE:vaeg_sdl2>"
+                "-DTRACE_GOLDEN=${CMAKE_CURRENT_SOURCE_DIR}/tests/upd9002/trace_baseline.txt"
+                -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/upd9002/run_trace_equivalence.cmake")
+        set_tests_properties(vaeg_upd9002_trace_equivalence PROPERTIES
+            # This invokes the complete selftest three times.  The M55 64 MiB
+            # snapshot identity checks are intentionally expensive under ASan.
+            LABELS "romless;upd9002;trace;harness" TIMEOUT 420)
+
         add_test(NAME vaeg_m74_debug_harness
             COMMAND "${CMAKE_COMMAND}"
                 "-DVAEG_EXECUTABLE=$<TARGET_FILE:vaeg_sdl2>"
@@ -1513,4 +1510,23 @@ if(VAEG_ENABLE_TESTS)
         ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
         LABELS "m75;scsi;compiled"
         RESOURCE_LOCK vaeg_sxsi_image_selftest)
+endif()
+
+if(VAEG_Z80_COMPAT_INTEGRATION_TRACE AND NOT VAEG_ENABLE_TESTS)
+    add_test(NAME vaeg_production_trace_qa_selftest
+        COMMAND "${Python3_EXECUTABLE}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/production_trace.py"
+            selftest)
+    set_tests_properties(vaeg_production_trace_qa_selftest PROPERTIES
+        LABELS "romless;upd9002;trace;production")
+
+    add_test(NAME vaeg_production_trace_runtime
+        COMMAND "${Python3_EXECUTABLE}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/production_trace.py"
+            verify-runtime
+            --binary "$<TARGET_FILE:vaeg_sdl2>"
+            --work "${CMAKE_CURRENT_BINARY_DIR}/production-trace-runtime")
+    set_tests_properties(vaeg_production_trace_runtime PROPERTIES
+        LABELS "romless;upd9002;trace;production"
+        TIMEOUT 420)
 endif()

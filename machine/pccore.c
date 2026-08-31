@@ -26,6 +26,7 @@
 #include "machine/keystat.h"
 #include "machine/debugsub.h"
 #include "upd9002_diagnostic.h"
+#include "upd9002_trace.h"
 #include "diagnostics/upd9002_debug.h"
 
 #include "bmsio.h"
@@ -762,6 +763,9 @@ void pccore_exec(BOOL draw) {
 			//TRACEOUT(("%.4x:%.4x", CPU_CS, CPU_IP));
 			upd9002_core_step();
 			if (upd9002_diagnostic_pending()) {
+				return;
+			}
+			if (upd9002_trace_stop_requested()) {
 				return;
 			}
 			subsystemmx_exec();

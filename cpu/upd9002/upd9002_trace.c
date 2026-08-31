@@ -24,6 +24,7 @@
  */
 #include "compiler.h"
 #include "cpucore.h"
+#include "machine/pccore.h"
 #include "upd9002_trace.h"
 
 typedef struct {
@@ -34,6 +35,10 @@ typedef struct {
 	int32_t before_clock;
 	uint16_t before_cs;
 	uint16_t before_ip;
+	BOOL stop_on_limit;
+	BOOL stop_requested;
+	BOOL step_active;
+	UINT memory_backend;
 } UPD9002_TRACE_STATE;
 
 static UPD9002_TRACE_STATE trace_state;
@@ -208,13 +213,22 @@ static const char *origin_name(uint32_t origin) {
 	}
 }
 
-void upd9002_trace_start(FILE *stream, uint32_t steps) {
+static void upd9002_trace_start_common(FILE *stream, uint32_t steps, BOOL stop_on_limit) {
 	ZeroMemory(&trace_state, sizeof(trace_state));
 	if ((stream != NULL) && (steps != 0)) {
 		trace_state.stream = stream;
 		trace_state.remaining = steps;
+		trace_state.stop_on_limit = stop_on_limit;
 		fprintf(stream, "upd9002-trace-v1\n");
 	}
+}
+
+void upd9002_trace_start(FILE *stream, uint32_t steps) {
+	upd9002_trace_start_common(stream, steps, FALSE);
+}
+
+void upd9002_trace_start_bounded(FILE *stream, uint32_t steps) {
+	upd9002_trace_start_common(stream, steps, TRUE);
 }
 
 void upd9002_trace_stop(void) {
@@ -389,9 +403,17 @@ int upd9002_trace_active(void) {
 	return (trace_state.stream != NULL) && (trace_state.remaining != 0);
 }
 
+int upd9002_trace_stop_requested(void) {
+	return trace_state.stop_requested ? 1 : 0;
+}
+
+uint32_t upd9002_trace_step_position(void) {
+	return trace_state.step;
+}
+
 void upd9002_trace_event(uint32_t origin, const char *kind, uint32_t address, uint32_t value,
                          uint32_t width) {
-	if (!upd9002_trace_active()) {
+	if (!upd9002_trace_active() || !trace_state.step_active) {
 		return;
 	}
 	fprintf(trace_state.stream,
@@ -400,9 +422,17 @@ void upd9002_trace_event(uint32_t origin, const char *kind, uint32_t address, ui
 	        (kind != NULL) ? kind : "invalid", address, value, width);
 }
 
-void upd9002_trace_step_begin(void) {
+#if !defined(VAEG_UPD9002_SSTS_TESTING)
+static const char *trace_model_name(void) {
+	return (pccore.model_va == PCMODEL_VA1) ? "va" : "va2";
+}
+#endif
+
+void upd9002_trace_step_begin(uint8_t opcode, uint32_t memory_backend) {
 	uint32_t address;
+#if defined(VAEG_UPD9002_SSTS_TESTING)
 	uint32_t index;
+#endif
 
 	if (!upd9002_trace_active()) {
 		return;
@@ -411,14 +441,29 @@ void upd9002_trace_step_begin(void) {
 	trace_state.before_cs = CPU_CS;
 	trace_state.before_ip = CPU_IP;
 	trace_state.event = 0;
+	trace_state.step_active = TRUE;
+	trace_state.memory_backend = (UINT)memory_backend;
 	address = (CS_BASE + CPU_IP) & CPU_ADRSMASK;
+#if defined(VAEG_UPD9002_SSTS_TESTING)
+	/* Preserve the established CPU-only fixture format for traced test builds. */
 	fprintf(trace_state.stream, "begin step=%08x cs=%04x ip=%04x bytes=", trace_state.step, CPU_CS,
 	        CPU_IP);
 	for (index = 0; index < 8; index++) {
 		fprintf(trace_state.stream, "%02x", mem[(address + index) & CPU_ADRSMASK]);
 	}
 	fputc('\n', trace_state.stream);
-	upd9002_trace_event(UPD9002_TRACE_ORIGIN_CPU, "fetch", address, mem[address], 1);
+#else
+	fprintf(trace_state.stream,
+	        "begin step=%08x clock=%08x model=%s memory=%s "
+	        "cs=%04x ip=%04x physical=%08x bytes=%02x "
+	        "ax=%04x bx=%04x cx=%04x dx=%04x si=%04x di=%04x bp=%04x sp=%04x "
+	        "es=%04x ss=%04x ds=%04x flags=%04x if=%u\n",
+	        trace_state.step, (uint32_t)(CPU_CLOCK + CPU_BASECLOCK - CPU_REMCLOCK),
+	        trace_model_name(), upd9002_memory_backend_name((UINT)memory_backend), CPU_CS, CPU_IP,
+	        address, opcode, CPU_AX, CPU_BX, CPU_CX, CPU_DX, CPU_SI, CPU_DI, CPU_BP, CPU_SP, CPU_ES,
+	        CPU_SS, CPU_DS, CPU_FLAG, (CPU_FLAG & I_FLAG) ? 1U : 0U);
+#endif
+	upd9002_trace_event(UPD9002_TRACE_ORIGIN_CPU, "fetch", address, opcode, 1);
 	upd9002_trace_event(UPD9002_TRACE_ORIGIN_DMA, "scheduler-checkpoint", 0, 0, 0);
 	upd9002_trace_event(UPD9002_TRACE_ORIGIN_DEVICE, "device-checkpoint", 0, 0, 0);
 }
@@ -438,7 +483,13 @@ void upd9002_trace_step_end(void) {
 	    (uint32_t)consumed, (uint32_t)CPU_REMCLOCK);
 	trace_state.step++;
 	trace_state.remaining--;
+	trace_state.step_active = FALSE;
 	if (trace_state.remaining == 0) {
+		if (trace_state.stop_on_limit) {
+			trace_state.stop_requested = TRUE;
+			fprintf(trace_state.stream, "stop reason=trace-limit step=%08x memory=%s\n",
+			        trace_state.step, upd9002_memory_backend_name(trace_state.memory_backend));
+		}
 		fflush(trace_state.stream);
 	}
 }

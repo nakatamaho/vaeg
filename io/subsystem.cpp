@@ -48,8 +48,8 @@ static VAEG_UPD780_INTEGRATION_TRACE_STATE upd780testtrace;
 // ---- Clock
 
 class Clock : public IClock {
-#if defined(VAEG_UPD780_INTEGRATION_TESTING)
   public:
+#if defined(VAEG_UPD780_INTEGRATION_TESTING)
 	Clock() : testoverride(false), testnow(0) {
 	}
 	void SetTestNow(std::uint32_t now) {

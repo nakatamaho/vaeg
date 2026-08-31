@@ -130,6 +130,10 @@ typedef struct {
 	BOOL nowait;
 	BOOL no_config;
 	BOOL no_bkupmem;
+#if defined(VAEG_Z80_COMPAT_INTEGRATION_TRACE)
+	BOOL trace_capability;
+	BOOL trace_cpu_stop;
+#endif
 	UINT trace_cpu;
 	UINT scsitrace_limit;
 	UINT scsitrace_jitter_seed;
@@ -159,6 +163,9 @@ typedef struct {
 	const char *roms_path;
 	const char *config_path;
 	const char *bkupmem_path;
+#if defined(VAEG_Z80_COMPAT_INTEGRATION_TRACE)
+	const char *trace_cpu_output;
+#endif
 	const char *headless_input_script;
 	const char *debug_script;
 	const char *debug_output_dir;

@@ -308,6 +308,10 @@ static void usage(const char *progname) {
 	printf("\t--scsitrace-limit 1..1000000\n");
 	printf("\t--scsitrace-jitter-seed N [--scsitrace-jitter-span N]\n");
 	printf("\t--trace-cpu 1..1000000\n");
+#if defined(VAEG_Z80_COMPAT_INTEGRATION_TRACE)
+	printf("\t--trace-cpu-output path --trace-cpu-stop\n");
+	printf("\t--production-trace-capability\n");
+#endif
 	printf("\t--headless-input-script path\n");
 	printf("\t--debug-script path --debug-output-dir directory\n");
 	printf("\t--screen-dump path (rendered BMP, or PNG for .png)\n");
@@ -318,6 +322,54 @@ static void usage(const char *progname) {
 	printf("\t--create-scsi-hdd --output path [--size-mib N | --block-count N]\n");
 	printf("\t\t[--block-size 256|512|1024] [--force]\n");
 }
+
+#if defined(VAEG_Z80_COMPAT_INTEGRATION_TRACE)
+static BOOL production_trace_start(const VAEG_CLI_OPTIONS *options, FILE **stream) {
+	if ((options == NULL) || (stream == NULL)) {
+		return FAILURE;
+	}
+	*stream = NULL;
+	if (options->trace_cpu == 0) {
+		return SUCCESS;
+	}
+	if (options->trace_cpu_output != NULL) {
+		*stream = fopen(options->trace_cpu_output, "wb");
+		if (*stream == NULL) {
+			fprintf(stderr, "Error: cannot open --trace-cpu-output file\n");
+			return FAILURE;
+		}
+	} else {
+		*stream = stderr;
+	}
+	if (options->trace_cpu_stop) {
+		upd9002_trace_start_bounded(*stream, options->trace_cpu);
+	} else {
+		upd9002_trace_start(*stream, options->trace_cpu);
+	}
+	return SUCCESS;
+}
+
+static void production_trace_stop(FILE **stream) {
+	if (stream == NULL) {
+		return;
+	}
+	upd9002_trace_stop();
+	if ((*stream != NULL) && (*stream != stderr)) {
+		fclose(*stream);
+	}
+	*stream = NULL;
+}
+
+static void production_trace_capability(void) {
+#if defined(VAEG_UPD9002_SSTS_TESTING)
+	printf("vaeg-production-trace-v1 trace=enabled tests=enabled memory=production "
+	       "test-flat=compiled bounded-stop=enabled file-output=enabled\n");
+#else
+	printf("vaeg-production-trace-v1 trace=enabled tests=disabled memory=production "
+	       "test-flat=absent bounded-stop=enabled file-output=enabled\n");
+#endif
+}
+#endif
 
 static int create_scsi_hdd_cli(int argc, char **argv) {
 	const char *output = NULL;
@@ -1403,6 +1455,10 @@ static BOOL run_guest_frame(BOOL draw, UINT32 frames) {
 	}
 	for (;;) {
 		pccore_exec(draw);
+		if (upd9002_trace_stop_requested()) {
+			taskmng_exit();
+			return SUCCESS;
+		}
 		if (upd9002_diagnostic_get(&diagnostic) == SUCCESS) {
 			fprintf(stderr,
 			        "Error: uPD9002 fail-closed diagnostic stop at %04x:%04x: "
@@ -1671,6 +1727,9 @@ int main(int argc, char **argv) {
 	VAEG_SCREENSHOT_SCHEDULER screenshots;
 	char cli_error[256];
 	const char *cli_model;
+#if defined(VAEG_Z80_COMPAT_INTEGRATION_TRACE)
+	FILE *cpu_trace_stream;
+#endif
 
 #if defined(VAEG_UPD9002_M46_TESTING)
 	if ((argc == 2) && !strcmp(argv[1], "--upd9002-m46-dispatch-qa")) {
@@ -1772,6 +1831,9 @@ int main(int argc, char **argv) {
 	run_ok = SUCCESS;
 	splash_started = 0;
 	cli_model = NULL;
+#if defined(VAEG_Z80_COMPAT_INTEGRATION_TRACE)
+	cpu_trace_stream = NULL;
+#endif
 	ZeroMemory(&input_script, sizeof(input_script));
 	if (vaeg_cli_parse(argc, argv, &options, cli_error, sizeof(cli_error)) != SUCCESS) {
 		fprintf(stderr, "Error: %s\n", cli_error);
@@ -1786,6 +1848,21 @@ int main(int argc, char **argv) {
 		printf("88VA Eternal Grafx %s\n", VAEGREL_CORE);
 		return (SUCCESS);
 	}
+#if defined(VAEG_Z80_COMPAT_INTEGRATION_TRACE)
+	if (options.trace_capability) {
+		if (argc != 2) {
+			fprintf(stderr, "Error: --production-trace-capability must be used alone\n");
+			return FAILURE;
+		}
+		production_trace_capability();
+		return SUCCESS;
+	}
+	if (((options.trace_cpu_output != NULL) || options.trace_cpu_stop) &&
+	    (options.trace_cpu == 0)) {
+		fprintf(stderr, "Error: trace output and bounded stop require --trace-cpu\n");
+		return FAILURE;
+	}
+#endif
 	if (options.screenshot_count != 0) {
 		vaeg_screenshot_scheduler_init(&screenshots, options.screenshot_requests,
 		                               options.screenshot_count);
@@ -1801,7 +1878,11 @@ int main(int argc, char **argv) {
 		                "combined with --trace-cpu or --headless-input-script\n");
 		return (FAILURE);
 	}
-	if ((options.headless_input_script != NULL) || (options.debug_script != NULL)) {
+	if ((options.headless_input_script != NULL) || (options.debug_script != NULL)
+#if defined(VAEG_Z80_COMPAT_INTEGRATION_TRACE)
+	    || options.trace_cpu_stop
+#endif
+	) {
 		options.mute = TRUE;
 		options.nowait = TRUE;
 		SDL_setenv("SDL_VIDEODRIVER", "dummy", 1);
@@ -1827,9 +1908,6 @@ int main(int argc, char **argv) {
 	initsetpath(options.config_path);
 	initsetenabled(options.no_config ? FALSE : TRUE);
 	rompath_override = options.roms_path;
-	if (options.trace_cpu != 0) {
-		upd9002_trace_start(stderr, options.trace_cpu);
-	}
 	if (options.scsitrace && options.scsitrace_guest) {
 		if (options.scsitrace_cmdreq_windows) {
 			upd9002_guest_trace_start_cmdreq_windows(stderr);
@@ -1839,10 +1917,27 @@ int main(int argc, char **argv) {
 	}
 	upd9002_perf_start_from_env();
 	if (options.selftest) {
+#if defined(VAEG_Z80_COMPAT_INTEGRATION_TRACE)
+		if (production_trace_start(&options, &cpu_trace_stream) != SUCCESS) {
+			upd9002_perf_stop();
+			upd9002_guest_trace_stop();
+			SDL_Quit();
+			dosio_term();
+			return FAILURE;
+		}
+#else
+		if (options.trace_cpu != 0) {
+			upd9002_trace_start(stderr, options.trace_cpu);
+		}
+#endif
 		run_ok = vaeg_selftest_run();
 		upd9002_perf_stop();
 		upd9002_guest_trace_stop();
+#if defined(VAEG_Z80_COMPAT_INTEGRATION_TRACE)
+		production_trace_stop(&cpu_trace_stream);
+#else
 		upd9002_trace_stop();
+#endif
 		SDL_Quit();
 		dosio_term();
 		return (run_ok);
@@ -1972,6 +2067,23 @@ int main(int argc, char **argv) {
 		np2oscfg.resume = 0;
 	}
 
+#if defined(VAEG_Z80_COMPAT_INTEGRATION_TRACE)
+	if (production_trace_start(&options, &cpu_trace_stream) != SUCCESS) {
+		debug_harness_clear();
+		headless_input_script_clear(&input_script);
+		hostfat_manager_shutdown();
+		upd9002_perf_stop();
+		upd9002_guest_trace_stop();
+		SDL_Quit();
+		dosio_term();
+		return FAILURE;
+	}
+#else
+	if (options.trace_cpu != 0) {
+		upd9002_trace_start(stderr, options.trace_cpu);
+	}
+#endif
+
 	TRACEINIT();
 	fdc_trace_enable(options.fdctrace);
 	scsiio_trace_enable(options.scsitrace);
@@ -2060,7 +2172,11 @@ int main(int argc, char **argv) {
 	scrnmng_destroy();
 	TRACETERM();
 	upd9002_perf_stop();
+#if defined(VAEG_Z80_COMPAT_INTEGRATION_TRACE)
+	production_trace_stop(&cpu_trace_stream);
+#else
 	upd9002_trace_stop();
+#endif
 	upd9002_guest_trace_stop();
 	SDL_Quit();
 	dosio_term();
@@ -2076,7 +2192,11 @@ np2main_err2:
 	hostfat_manager_shutdown();
 	TRACETERM();
 	upd9002_perf_stop();
+#if defined(VAEG_Z80_COMPAT_INTEGRATION_TRACE)
+	production_trace_stop(&cpu_trace_stream);
+#else
 	upd9002_trace_stop();
+#endif
 	upd9002_guest_trace_stop();
 	SDL_Quit();
 	dosio_term();

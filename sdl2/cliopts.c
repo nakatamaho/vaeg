@@ -308,6 +308,18 @@ BOOL vaeg_cli_parse(int argc, char **argv, VAEG_CLI_OPTIONS *options, char *erro
 				                  value));
 			}
 			options->trace_cpu = number;
+#if defined(VAEG_Z80_COMPAT_INTEGRATION_TRACE)
+		} else if (!strcmp(argument, "--trace-cpu-output")) {
+			value = option_value(argc, argv, &position, argument, error, error_size);
+			if ((value == NULL) || (value[0] == '\0')) {
+				return (set_error(error, error_size, "--trace-cpu-output requires a path", value));
+			}
+			options->trace_cpu_output = value;
+		} else if (!strcmp(argument, "--trace-cpu-stop")) {
+			options->trace_cpu_stop = TRUE;
+		} else if (!strcmp(argument, "--production-trace-capability")) {
+			options->trace_capability = TRUE;
+#endif
 		} else if (!strcmp(argument, "--fullscreen")) {
 			options->display_mode = VAEG_CLI_DISPLAY_FULLSCREEN;
 		} else if (!strcmp(argument, "--windowed")) {

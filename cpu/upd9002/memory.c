@@ -10,6 +10,10 @@
 /* Emulator storage includes main/HMA backing and the host font range. */
 BYTE mem[0x200000];
 
+#if defined(VAEG_Z80_COMPAT_INTEGRATION_TRACE)
+static UINT upd9002_last_read_backend;
+#endif
+
 #if defined(VAEG_UPD9002_SSTS_TESTING)
 static BOOL upd9002_test_flat_memory;
 
@@ -77,11 +81,34 @@ void MEMCALL upd9002_mainram_write_w(UINT32 address, REG16 value) {
 REG8 MEMCALL upd9002_memoryread(UINT32 address) {
 #if defined(VAEG_UPD9002_SSTS_TESTING)
 	if (upd9002_test_flat_memory_active()) {
+#if defined(VAEG_Z80_COMPAT_INTEGRATION_TRACE)
+		upd9002_last_read_backend = UPD9002_MEMORY_BACKEND_TEST_FLAT;
+#endif
 		return mem[address & 0xfffff];
 	}
 #endif
+#if defined(VAEG_Z80_COMPAT_INTEGRATION_TRACE)
+	upd9002_last_read_backend = UPD9002_MEMORY_BACKEND_PRODUCTION;
+#endif
 	return upd9002_memoryread_va(address);
 }
+
+#if defined(VAEG_Z80_COMPAT_INTEGRATION_TRACE)
+UINT upd9002_memory_last_read_backend(void) {
+	return upd9002_last_read_backend;
+}
+
+const char *upd9002_memory_backend_name(UINT backend) {
+	switch (backend) {
+	case UPD9002_MEMORY_BACKEND_PRODUCTION:
+		return "production";
+	case UPD9002_MEMORY_BACKEND_TEST_FLAT:
+		return "test-flat";
+	default:
+		return "unknown";
+	}
+}
+#endif
 
 REG16 MEMCALL upd9002_memoryread_w(UINT32 address) {
 #if defined(VAEG_UPD9002_SSTS_TESTING)

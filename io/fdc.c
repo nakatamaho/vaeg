@@ -16,6 +16,7 @@
 #include "iocoreva.h"
 #include "memoryva.h"
 #include "subsystem.h"
+#include "upd9002_trace.h"
 
 enum {
 	FDC_DMACH2HD = 2,
@@ -69,6 +70,9 @@ typedef struct {
 
 static FDCTRACE fdctrace;
 static BOOL fdctrace_stderr;
+#if defined(VAEG_Z80_COMPAT_INTEGRATION_TRACE)
+static UINT32 fdctrace_event;
+#endif
 
 #define getnow() (CPU_CLOCK + CPU_BASECLOCK - CPU_REMCLOCK)
 
@@ -81,6 +85,9 @@ static void stop_executionphase(void);
 
 void fdc_trace_enable(BOOL enable) {
 	fdctrace_stderr = enable;
+#if defined(VAEG_Z80_COMPAT_INTEGRATION_TRACE)
+	fdctrace_event = 0;
+#endif
 }
 
 void fdc_trace_text(const char *fmt, ...) {
@@ -259,6 +266,13 @@ void fdc_trace_log(REG8 cmd, const char *name, UINT8 drive, UINT8 C, UINT8 H, UI
                    UINT32 req_len, UINT8 st0, UINT8 st1, UINT8 st2, UINT32 xfer_len, UINT8 dma_ch,
                    UINT8 dma_access, UINT8 dma_sysm_bank, UINT8 sysm_bank, UINT32 dma_len,
                    UINT32 dma_start, UINT32 dma_end) {
+#if defined(VAEG_Z80_COMPAT_INTEGRATION_TRACE)
+	if (fdctrace_stderr && upd9002_trace_active()) {
+		fprintf(stderr, "trace-correlation fdc=%08x cpu-step=%08x\n", fdctrace_event,
+		        upd9002_trace_step_position());
+	}
+	fdctrace_event++;
+#endif
 	TRACEOUT((FDCTRACE_FORMAT, cmd, name, drive, C, H, R, N, fdc_trace_mode_value(),
 	          fdc_trace_mode_name(), (unsigned long)req_len, st0, st1, st2, (unsigned long)xfer_len,
 	          dma_ch, dma_access, dma_sysm_bank, sysm_bank, (unsigned long)dma_len,
