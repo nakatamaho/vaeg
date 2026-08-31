@@ -23,13 +23,13 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 # M98q page-local dirty-row CLS result
 
-Status: **G98q automated VA2 gate passed; maintainer human gate pending**
+Status: **G98q human gate passed on 2026-09-01; M98q closed**
 
 ## Result
 
-`M98q RESULT: PASS (automated)`
+`M98q RESULT: PASS`
 
-`G98q: human gate pending`
+`G98q FINAL STATUS: PASS`
 
 The M98p full-page baseline reproduced before this change. The M98q renderer
 then completed four bounded 116-publication VA2 cases: `A/full`, `A/dirty`,
@@ -39,9 +39,11 @@ exactly two initialization full clears, zero steady-state full clears, 1,069
 row CLS commands, 8,407 words, and 16,814 bytes. No framebuffer, guard,
 descriptor, SGP, VBLANK, or cleanup mismatch remained.
 
-This is VAEG/VA2 evidence. Physical PC-88VA evidence remains
-`REAL_HW_PENDING`, and automation does not replace the required maintainer
-visual and ESC-restoration gate.
+On 2026-09-01, the maintainer ran `ZUNDORB` in VA2, confirmed that there was
+no stale image, horizontal one-pixel streak, anchor wobble, or flicker, and
+confirmed successful ESC restoration. The maintainer then explicitly passed
+G98q. This remains VAEG/VA2 evidence; physical PC-88VA evidence remains
+`REAL_HW_PENDING`.
 
 ## Git and predecessor
 
@@ -369,17 +371,16 @@ RAM, private asset, or ROM-derived material is tracked by M98q.
 
 ## Human gate and limitations
 
-Launch the pristine D88 in VA2 with the same ROM selection used for accepted
-M98p testing. At the Human prompt run:
+The maintainer launched the pristine D88 in VA2 with the accepted ROM
+selection and ran:
 
 ```text
 ZUNDORB
 ```
 
-Confirm the same centered 30-to-1-to-29 shrink/grow cycle, no stale larger
-silhouette, no horizontal one-pixel streak, stable anchor and transparency,
-no partial page or parity difference, no new flicker/tearing, and ESC return
-to the prompt with the previous display restored.
+The observed centered 30-to-1-to-29 shrink/grow cycle had no stale larger
+silhouette, horizontal one-pixel streak, anchor wobble, or flicker. ESC
+returned normally with display restoration. This closes the human gate.
 
 M98q supports exactly one homogeneous G1 object. It adds no cadence selector,
 orbit/depth behavior, private image integration, multiple instances, dirty-row
@@ -388,4 +389,4 @@ work remain unassigned.
 
 `REAL_HW_PENDING`
 
-`G98q: human gate pending`
+`G98q FINAL STATUS: PASS`

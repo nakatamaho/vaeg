@@ -23,7 +23,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 # M98q - Add page-local dirty-row clearing
 
-Status: **automated VA2 gate passed; maintainer human gate pending**
+Status: **G98q human gate passed on 2026-09-01; M98q closed**
 
 Branch: `topic/m98q-zundamon-dirty-rows`
 
