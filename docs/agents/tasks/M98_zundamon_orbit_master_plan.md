@@ -23,7 +23,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 # M98 - Zundamon billboard-orbit demo master plan
 
-Status: **G98a, G98e, G98j, G98k, G98l, and G98o human gates and G98b-G98d and G98f-G98i machine gates passed; M98o closed on 2026-08-31**
+Status: **G98a, G98e, G98j, G98k, G98l, and G98o human gates and G98b-G98d and G98f-G98i machine gates passed; M98p assigned on 2026-08-31**
 
 Branch family: `topic/m98-zundamon-orbit`
 
@@ -142,8 +142,8 @@ Execute exactly one assigned stage and stop at its gate.
 | M98l | BMS atlas streaming and direct G1 proof; absorbs former M98m/M98n scopes | Human/VAEG |
 | M98m | Reserved - absorbed into M98l; no separate execution | Reserved |
 | M98n | Reserved - absorbed into M98l; no separate execution | Reserved |
-| M98o | Add transparent G1 double buffering | Human/VAEG |
-| M98p | Visit all 30 scales with a full-clear baseline | Human/VAEG |
+| M98o | Add transparent G1 double buffering - G98o passed | Human/VAEG |
+| M98p | Visit all 30 scales with a full-page-CLS baseline | Human/VAEG |
 | M98q | Add page-local dirty-row clearing | Human/VAEG |
 | M98r | Add VBLANK rate selection and telemetry | Human/VAEG |
 | M98s | Add a constant-size 64-phase ellipse | Human/VAEG |
@@ -168,6 +168,9 @@ reserved identifiers absorbed into M98l. M98o's automated transparent-G1
 double-buffer candidate `ddc70c692ecb65066269c9894eb4b14f702fd2d9`
 passed in VA2 mode, and the maintainer explicitly passed G98o on 2026-08-31
 after confirming the displayed marker and ESC restoration. M98o is closed.
+M98p is assigned to the 30-scale full-page-CLS zoom baseline. The former
+atlas-streaming scope is not repeated because G98l-B already completed it.
+M98p must stop at its human gate and must not begin dirty-row clearing.
 Later milestones retain their numbering and remain unassigned.
 
 ## 6. Deterministic host contracts
