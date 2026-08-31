@@ -121,3 +121,33 @@ For a separately prepared local bundle, pass its manifest through the same
 inspector. Success and failure output deliberately omits paths, filenames,
 dimensions, palette values, pixel counts, and hashes. M98d does not write the
 recovered private indices to disk.
+
+## Crop and anchor preview
+
+M98e builds three deterministic review images from a bundle that has passed
+the M98d inspector: a full-source crop/anchor overlay, an unmarked crop, and a
+crop-relative anchor overlay. It reads the source bundle without modifying it
+and refuses to reuse an existing output directory.
+
+Generate a private review directory with an explicit local manifest:
+
+```sh
+python3 demos/zundamon-orbit/tools/build_zundamon_orbit_crop_preview.py \
+  --manifest /path/to/private/input.json \
+  --output build/generated/zundamon-orbit/private-gate/m98e-preview
+```
+
+The optional `--scale` value is an integer from 1 through 8 and affects only
+the two crop previews. Generated previews stay below the ignored
+`build/generated/zundamon-orbit/` tree and must not be committed.
+
+Run the deterministic pixel, overlay, immutability, overwrite, and
+privacy-output tests:
+
+```sh
+PYTHONPYCACHEPREFIX=/tmp/vaeg-m98e-pyc \
+  python3 demos/zundamon-orbit/tools/test_zundamon_orbit_crop_preview.py
+```
+
+Tool success only means that the review images were generated. Crop,
+transparency, and anchor approval remains the maintainer-only G98e human gate.
