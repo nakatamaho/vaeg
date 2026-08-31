@@ -23,7 +23,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 # M98e - Approve crop, transparency, and anchor
 
-Status: **G98e human gate pending**
+Status: **G98e human gate passed on 2026-08-31**
 
 Branch: `topic/m98e-zundamon-crop-anchor`
 
@@ -89,5 +89,6 @@ The maintainer inspects all three untracked previews and confirms that:
 4. the anchor marks the approved stable visual pivot; and
 5. the source bundle remains unchanged.
 
-Only the maintainer may state `G98e passed`. Until then, report
-`G98e HUMAN GATE PENDING` and stop. Do not begin M98f.
+The maintainer stated `G98e passed` on 2026-08-31 after inspecting all three
+local previews. M98e is closed. Do not begin M98f until it is explicitly
+assigned.

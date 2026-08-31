@@ -25,7 +25,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 Evaluated predecessor: `086f7ffe7fba59e6efe6e94bf720cd8c22a0278b`
 
-Status: **`LOCAL_PREVIEW_READY`; G98e human gate pending**
+Status: **G98e human gate passed on 2026-08-31**
 
 ## Result
 
@@ -38,9 +38,9 @@ does not disclose paths or private image metadata.
 
 A neutral local bundle passed the M98d content inspector without modifying
 its source, and the three untracked review images were generated below the
-ignored output tree. This establishes `LOCAL_PREVIEW_READY` only. The tracked
-tree records no private filenames, paths, hashes, dimensions, crop or anchor
-values, colors, counts, or preview images.
+ignored output tree. This established `LOCAL_PREVIEW_READY` before human
+review. The tracked tree records no private filenames, paths, hashes,
+dimensions, crop or anchor values, colors, counts, or preview images.
 
 ## Machine evidence
 
@@ -62,7 +62,7 @@ conversion, atlas, guest, VAEG, or physical-machine claim.
 
 ## Human gate
 
-The maintainer must inspect all three untracked review images and approve the
-crop, exact-background transparency, unmarked crop content, and visual pivot.
-Only the maintainer may state `G98e passed`. Until then, G98e remains pending
-and M98f must not begin.
+The maintainer inspected all three untracked review images and stated
+`G98e passed` on 2026-08-31, approving the crop, exact-background
+transparency, unmarked crop content, and visual pivot. This closes M98e but
+does not assign M98f.

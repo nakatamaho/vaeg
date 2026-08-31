@@ -23,7 +23,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 # M98 - Zundamon billboard-orbit demo master plan
 
-Status: **G98a human gate and G98b-G98d machine gates passed on 2026-08-31; `LOCAL_PREVIEW_READY`; G98e human gate pending; M98f is unassigned**
+Status: **G98a and G98e human gates and G98b-G98d machine gates passed on 2026-08-31; M98f is unassigned**
 
 Branch family: `topic/m98-zundamon-orbit`
 
