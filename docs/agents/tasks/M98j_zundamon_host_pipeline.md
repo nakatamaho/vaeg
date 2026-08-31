@@ -23,7 +23,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 # M98j - Run the complete local host-asset pipeline
 
-Status: **implementation candidate; `HOST_FIXTURE_PASS`; `LOCAL_HOST_PIPELINE_READY`; G98j human/local gate pending**
+Status: **G98j human/local gate passed on 2026-08-31 at candidate `95d431b717124b69c3e490d1c53fce485e9e15d5`; M98j closed**
 
 Branch: `topic/m98j-zundamon-host-pipeline`
 
@@ -131,3 +131,6 @@ When an approved local bundle exists, successful generation establishes only
 `LOCAL_HOST_PIPELINE_READY`. G98j passes only after the maintainer inspects the
 six required levels and explicitly says so. Stop at G98j; M98k remains
 unassigned.
+
+The maintainer inspected the required levels and explicitly stated that G98j
+passed on 2026-08-31. M98j is closed; M98k remains unassigned.

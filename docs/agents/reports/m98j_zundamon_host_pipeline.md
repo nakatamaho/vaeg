@@ -25,7 +25,9 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 Evaluated predecessor: `3160756daeab2e6a51775a5aee595fc124f7ce02`
 
-Status: **implementation candidate; `HOST_FIXTURE_PASS`; `LOCAL_HOST_PIPELINE_READY`; G98j pending**
+Accepted candidate: `95d431b717124b69c3e490d1c53fce485e9e15d5`
+
+Status: **G98j human/local gate passed on 2026-08-31; M98j closed**
 
 ## Result
 
@@ -77,11 +79,11 @@ final inspectors passed, the atlas requires one bank, and the contact sheet
 contains all 30 ordered levels with projected anchors and transparency
 previews.
 
-This establishes `LOCAL_HOST_PIPELINE_READY`, not G98j acceptance. The
-maintainer must inspect levels 1, 8, 15, 23, 29, and 30 before passing the
-human/local gate.
+The maintainer inspected the required levels and explicitly stated that G98j
+passed on 2026-08-31. This converts `LOCAL_HOST_PIPELINE_READY` into accepted
+human/local gate evidence.
 
 ## Boundary
 
-G98j remains pending. M98j makes no local-atlas, guest, BMS runtime, SGP,
+G98j passed and M98j is closed. M98j makes no guest loading, BMS runtime, SGP,
 VAEG, disk-image, screenshot, or physical-machine claim. M98k is unassigned.
