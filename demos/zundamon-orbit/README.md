@@ -296,3 +296,43 @@ and privacy-output tests:
 PYTHONPYCACHEPREFIX=/tmp/vaeg-m98i-pyc \
   python3 demos/zundamon-orbit/tools/test_zundamon_orbit_packing.py
 ```
+
+## Complete host-asset pipeline
+
+M98j connects manifest validation, exact indexed-pixel recovery, VA8
+conversion, all 32 scale levels, minimal BMS packing, and both final atlas
+inspectors without writing intermediate private pixels or scale streams. A
+bounded contact sheet displays every level in order over a checkerboard,
+marks the projected anchor, and labels the level, dimensions, and anchor.
+
+Run the complete public fixture through the production pipeline:
+
+```sh
+pipeline_root=$(mktemp -d /tmp/vaeg-m98j.XXXXXX)
+python3 demos/zundamon-orbit/tools/build_zundamon_orbit_pipeline.py \
+  --fixture-output "$pipeline_root/output"
+```
+
+Run an explicitly supplied local bundle into the ignored generated tree:
+
+```sh
+python3 demos/zundamon-orbit/tools/build_zundamon_orbit_pipeline.py \
+  --manifest /path/to/local/input.json \
+  --output build/generated/zundamon-orbit/private-gate/m98j-pipeline
+```
+
+A successful output directory contains only `zundorb.bin`,
+`contact-sheet.bmp`, and `pipeline-report.json`. Local success establishes
+`LOCAL_HOST_PIPELINE_READY`, not human approval. Inspect contact-sheet levels
+1, 8, 16, 24, 31, and 32 before passing G98j.
+
+The pipeline deliberately fails when even one complete frame exceeds a
+128-KiB bank. It does not resize, split, reorder, or silently revise the
+approved source contract to make an input fit.
+
+Run the public end-to-end, contact-sheet, report, overwrite, and privacy tests:
+
+```sh
+PYTHONPYCACHEPREFIX=/tmp/vaeg-m98j-pyc \
+  python3 demos/zundamon-orbit/tools/test_zundamon_orbit_pipeline.py
+```
