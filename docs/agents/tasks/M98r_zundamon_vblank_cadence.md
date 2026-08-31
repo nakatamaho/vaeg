@@ -23,7 +23,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 # M98r - Add selectable VBLANK cadence
 
-Status: **assigned; implementation in progress**
+Status: **automated VA2 gate passed; maintainer human gate pending**
 
 Branch: `topic/m98r-vblank-cadence`
 
