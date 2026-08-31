@@ -23,7 +23,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 # M98 - Zundamon billboard-orbit demo master plan
 
-Status: **G98a, G98e, G98j, and G98k human gates and G98b-G98d and G98f-G98i machine gates passed; M98k closed at candidate `6ed575dedc5da8827704c33a274ac72e480ce420`; M98l remains unassigned**
+Status: **G98a, G98e, G98j, and G98k human gates and G98b-G98d and G98f-G98i machine gates passed; M98k closed at candidate `6ed575dedc5da8827704c33a274ac72e480ce420`; M98l assigned**
 
 Branch family: `topic/m98-zundamon-orbit`
 
@@ -139,9 +139,9 @@ Execute exactly one assigned stage and stop at its gate.
 | M98i | Pack complete frames into 128 KiB BMS banks | Machine |
 | M98j | Run the complete local host-asset pipeline | Human/local |
 | M98k | Bring up the isolated 320x200 8-bpp guest | Human/VAEG |
-| M98l | Probe BMS mapping and required capacity | Human/VAEG |
-| M98m | Stream and validate the atlas into BMS | Human/VAEG |
-| M98n | Prove one direct BMS-to-G1 SGP transfer | Human/VAEG |
+| M98l | BMS atlas streaming and direct G1 proof; absorbs former M98m/M98n scopes | Human/VAEG |
+| M98m | Reserved - absorbed into M98l; no separate execution | Reserved |
+| M98n | Reserved - absorbed into M98l; no separate execution | Reserved |
 | M98o | Add transparent G1 double buffering | Human/VAEG |
 | M98p | Visit all 30 scales with a full-clear baseline | Human/VAEG |
 | M98q | Add page-local dirty-row clearing | Human/VAEG |
@@ -160,9 +160,10 @@ Execute exactly one assigned stage and stop at its gate.
 M98k produced automated VAEG candidate
 `6ed575dedc5da8827704c33a274ac72e480ce420` on 2026-08-31. Its exact indexed
 GVRAM oracle passed, and the maintainer explicitly passed G98k on 2026-08-31.
-M98k is closed. M98l and later remain
-deliberately unassigned; no superseded draft or retired stage is authority for
-this plan.
+M98k is closed. M98l is assigned as the combined BMS mapping, bounded atlas
+streaming, and direct BMS-window-to-G1 proof. M98m and M98n remain reserved
+identifiers absorbed into M98l; M98o and later retain their numbering and
+remain unassigned.
 
 ## 6. Deterministic host contracts
 
