@@ -23,7 +23,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 # M98p - Add the 30-scale full-page-CLS zoom baseline
 
-Status: **assigned on 2026-08-31; implementation in progress**
+Status: **automated VA2 evidence passed; G98p human gate pending**
 
 Branch: `topic/m98p-zundamon-scale-baseline`
 
@@ -34,6 +34,10 @@ Accepted M98o implementation: `ddc70c692ecb65066269c9894eb4b14f702fd2d9`
 Accepted M98o report head: `71bcdf3467a26dc4eaeb5ca0167fe9e01a26ef20`
 
 Commit prefix: `M98p:`
+
+Evaluated implementation: `4e9c57975a2e3705bc7cb2c29b3b94e5b88f4bea`
+
+Result: [`../reports/m98p_zundamon_scale_baseline.md`](../reports/m98p_zundamon_scale_baseline.md)
 
 Gate type: **automated VA2/VAEG evidence plus maintainer human gate**
 

@@ -23,7 +23,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 # M98 - Zundamon billboard-orbit demo master plan
 
-Status: **G98a, G98e, G98j, G98k, G98l, and G98o human gates and G98b-G98d and G98f-G98i machine gates passed; M98p assigned on 2026-08-31**
+Status: **G98a, G98e, G98j, G98k, G98l, and G98o human gates and G98b-G98d and G98f-G98i machine gates passed; M98p automated evidence passed and G98p human gate is pending**
 
 Branch family: `topic/m98-zundamon-orbit`
 
@@ -171,6 +171,10 @@ after confirming the displayed marker and ESC restoration. M98o is closed.
 M98p is assigned to the 30-scale full-page-CLS zoom baseline. The former
 atlas-streaming scope is not repeated because G98l-B already completed it.
 M98p must stop at its human gate and must not begin dirty-row clearing.
+The M98p implementation candidate is
+`4e9c57975a2e3705bc7cb2c29b3b94e5b88f4bea`; its two opposite-parity bounded
+VA2 runs passed the exact indexed oracle. The maintainer must still inspect
+the interactive candidate and explicitly pass G98p.
 Later milestones retain their numbering and remain unassigned.
 
 ## 6. Deterministic host contracts
