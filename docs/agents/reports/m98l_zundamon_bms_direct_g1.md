@@ -23,8 +23,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 # M98l BMS stream and direct G1 result
 
-Status: **automated VA2 candidate passed on 2026-08-31; maintainer human gate
-pending**
+Status: **G98l human gate passed on 2026-08-31; M98l closed**
 
 ## Result
 
@@ -40,8 +39,9 @@ One source-built guest demonstrates the complete path from the public
 synthetic `ZUNDORB.BIN` file, through a bounded conventional-memory buffer,
 into BMS selector 1, and directly from the selected BMS window into Graphic 1
 through the SGP. The independent indexed-GVRAM oracle reported `PASS` with no
-errors in VA2 mode. This is not yet the maintainer's G98l human-gate decision,
-and it is not physical-machine evidence.
+errors in VA2 mode. The maintainer subsequently inspected the VA2 result and
+explicitly stated that G98l passed on 2026-08-31. This remains emulator
+evidence, not physical-machine evidence.
 
 ## Git and publication
 
@@ -57,9 +57,11 @@ and it is not physical-machine evidence.
   `228f31eb192c2722862691067c46c4db9e4aeb95`
 - Push status: all commits through the evaluated candidate were pushed to
   `origin/topic/m98l-zundamon-bms-direct-g1` before this report was written.
+- Evidence report commit:
+  `ed88898e0f854edae72264a3aed5cca349f263b3`
 
-The report commit and final pushed remote tip are recorded in the handoff,
-because a commit cannot contain its own SHA.
+The gate-closing commit and final pushed remote tip are recorded in the
+handoff, because a commit cannot contain its own SHA.
 
 ## Files changed
 
@@ -373,8 +375,8 @@ The automated VA2 run used SDL's software renderer with
 `SDL_VIDEODRIVER=dummy`. A created BMP is not considered visual success. PASS
 comes from exact indexed GVRAM, BMS/SGP phase signatures, the generic source
 trace, bounded completion, and two stable nonblack composed frames. A human
-GUI inspection remains the G98l gate. Physical PC-88VA behavior and timing are
-`REAL_HW_PENDING`.
+GUI inspection subsequently passed G98l. Physical PC-88VA behavior and timing
+remain `REAL_HW_PENDING`.
 
 The pre-existing unrelated dirty and untracked entries were preserved exactly
 and were not staged:
@@ -407,7 +409,6 @@ controls, performance measurement, maintainer-supplied artwork, and physical
 machine validation remain deferred. No proprietary or ROM-derived material is
 tracked.
 
-G98l remains open until the maintainer boots the provided VA2 D88 in a GUI,
-confirms the static centered public marker over the nonzero background, exits
-the guest without corruption, and explicitly states that G98l passed. Do not
-start M98o before that statement.
+The maintainer explicitly stated `G98l passed` on 2026-08-31 after the VA2
+human-gate run. M98l is closed. M98o remains unassigned and was not started in
+this session.

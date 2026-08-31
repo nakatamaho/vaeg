@@ -23,7 +23,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 # M98l - Stream one BMS atlas and prove a direct G1 transfer
 
-Status: **automated VA2 candidate passed on 2026-08-31; maintainer human gate pending**
+Status: **G98l human gate passed on 2026-08-31; M98l closed**
 
 Branch: `topic/m98l-zundamon-bms-direct-g1`
 
