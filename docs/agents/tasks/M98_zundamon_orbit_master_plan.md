@@ -23,7 +23,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 # M98 - Zundamon billboard-orbit demo master plan
 
-Status: **G98a, G98e, G98j, G98k, G98l, G98o, and G98p human gates and G98b-G98d and G98f-G98i machine gates passed; M98q assigned on 2026-09-01**
+Status: **G98a, G98e, G98j, G98k, G98l, G98o, and G98p human gates and G98b-G98d and G98f-G98i machine gates passed; M98q automated VA2 gate passed and human gate is pending**
 
 Branch family: `topic/m98-zundamon-orbit`
 
@@ -144,7 +144,7 @@ Execute exactly one assigned stage and stop at its gate.
 | M98n | Reserved - absorbed into M98l; no separate execution | Reserved |
 | M98o | Add transparent G1 double buffering - G98o passed | Human/VAEG |
 | M98p | Visit all 30 scales with a full-page-CLS baseline - G98p passed | Human/VAEG |
-| M98q | Add page-local dirty-row clearing - assigned | Human/VAEG |
+| M98q | Add page-local dirty-row clearing - automated VA2 gate passed; human gate pending | Human/VAEG |
 | M98r | Add VBLANK rate selection and telemetry | Human/VAEG |
 | M98s | Add a constant-size 64-phase ellipse | Human/VAEG |
 | M98t | Couple orbit depth to the 30-level atlas | Human/VAEG |
@@ -176,8 +176,12 @@ single-marker shrink-and-grow behavior, the maintainer explicitly passed
 G98p on 2026-08-31. M98p is closed.
 M98q replaces only the steady-state full-page clear with independent
 per-physical-page dirty-row clearing for the one homogeneous G1 object. M98p
-remains the byte-correct golden; later milestones retain their numbering and
-remain unassigned.
+remains the byte-correct golden. Its implementation candidate is
+`6a3f229c74d1ffed9888b279e80334ac76d2e461`; all four 116-publication
+`A/full`, `A/dirty`, `B/full`, and `B/dirty` VA2 comparisons passed with zero
+framebuffer mismatches. The automated gate passed on 2026-09-01, while the
+maintainer visual and ESC-restoration gate remains pending. Later milestones
+retain their numbering and remain unassigned.
 
 ## 6. Deterministic host contracts
 
