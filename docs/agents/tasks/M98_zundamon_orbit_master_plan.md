@@ -145,7 +145,7 @@ Execute exactly one assigned stage and stop at its gate.
 | M98o | Add transparent G1 double buffering - G98o passed | Human/VAEG |
 | M98p | Visit all 30 scales with a full-page-CLS baseline - G98p passed | Human/VAEG |
 | M98q | Add page-local dirty-row clearing - G98q passed | Human/VAEG |
-| M98r | Add VBLANK cadence selection and telemetry - automated gate passed; human gate pending | Human/VAEG |
+| M98r | Add VBLANK cadence selection and telemetry - corrected interactive candidate passed automated regression; human gate pending | Human/VAEG |
 | M98s | Add a constant-size 64-phase ellipse | Human/VAEG |
 | M98t | Couple orbit depth to the 30-level atlas | Human/VAEG |
 | M98u | Integrate and tune the approved local image | Human/local |

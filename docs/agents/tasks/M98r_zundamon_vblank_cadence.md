@@ -84,6 +84,10 @@ cadence changes, SPACE pause/resume without a shortened first interval or
 scale jump, unchanged transparency/anchor/page quality, and ESC restoration.
 Automation cannot close G98r.
 
+The first interactive candidate returned immediately after command entry. The
+replacement candidate must ignore a queued command Return, recognize only the
+complete ESC key result, and repeat this human gate before G98r can close.
+
 ## Non-goals
 
 M98r does not add ellipse motion, x/y movement, depth coupling, a private

@@ -41,6 +41,28 @@ one transparent BITBLT, and transactional page publication are unchanged.
 This is VAEG in VA2 mode. Physical PC-88VA/VA2 evidence remains
 `REAL_HW_PENDING`.
 
+The first interactive candidate did not pass its human gate: the maintainer
+reported an immediate return to the Human prompt, including a retry that
+printed no M98R failure diagnostic. The correction below has passed automated
+VA2 regression, but the replacement candidate still requires the maintainer's
+visual confirmation.
+
+## Interactive Return correction
+
+The original interactive input path accepted Return as an exit key and also
+recognized ESC from scan code zero alone. A command-confirming Return retained
+by the guest input path could therefore enter normal cleanup before the first
+visible publication. Return is no longer an exit key, and both keyboard polls
+now require the complete INT 82h/AH=09h ESC result: scan code `00h` and
+internal code `1bh`.
+
+A release-mode regression enters `ZUNDORB /V1`, injects one additional Return
+at relocated entry `3000:012ah`, and then captures all 58 publication
+checkpoints. The corrected guest produced 58 G1 captures, exactly 58 SGP
+source and destination operations, and every G1 capture matched the accepted
+M98r V1 golden byte-for-byte. This specifically rejects another prompt-only
+normal exit while leaving the renderer and cadence output unchanged.
+
 ## Git and predecessor
 
 - Branch: `topic/m98r-vblank-cadence`
@@ -50,6 +72,8 @@ This is VAEG in VA2 mode. Physical PC-88VA/VA2 evidence remains
   `6a3f229c74d1ffed9888b279e80334ac76d2e461`
 - M98r implementation:
   `72a493e9262955187d8f30b6b31ca9a2a1fc3b4f`
+- Interactive Return correction:
+  `3c3f233305915aa61c594886520764b578ef5025`
 - Report/pushed-head commit: recorded in the final handoff because this file
   cannot contain its own commit SHA.
 - Accepted predecessor report:
@@ -98,6 +122,7 @@ outputs remain ignored below `build/generated/zundamon-orbit/`.
 | `demos/zundamon-orbit/tools/generate_zundamon_orbit_cadence_debug.py` | Generate bounded checkpoint/capture scripts. |
 | `demos/zundamon-orbit/tools/verify_zundamon_orbit_cadence_guest.py` | Verify guest edges, frames, traces, counters, and artifacts. |
 | `demos/zundamon-orbit/tools/test_zundamon_orbit_cadence_guest.py` | Independently model parser, scheduler, and fail-closed cases. |
+| `docs/modernization/bug-fixes.md` | Record the interactive Return/ESC discrimination defect and correction. |
 | `docs/agents/ROADMAP.md` | Record M98r assignment and automated result. |
 | `docs/agents/tasks/M98_zundamon_orbit_master_plan.md` | Keep M98r/M98s/M98t separate and record gate state. |
 | `docs/agents/tasks/M98r_zundamon_vblank_cadence.md` | Record the fixed M98r task and human gate. |
@@ -260,7 +285,7 @@ sh -n demos/zundamon-orbit/256/build.sh \
   demos/zundamon-orbit/build-local-d88.sh demos/zundamon-orbit/run-vaeg.sh
 ```
 
-The CMake build was current, VAEG selftest passed, all 130 demo tests passed,
+The CMake build was current, VAEG selftest passed, all 131 demo tests passed,
 and the encoding, EOL, case, shell, Python-compile, and whitespace checks
 passed. No emulator source changed, so no additional emulator regression was
 required beyond the full selftest and VA2 end-to-end matrix.
@@ -283,6 +308,16 @@ Two clean release guest builds were byte-identical:
 | pristine candidate D88 | 1,338,960 | `9e3c36e13c81fcaf9cbfd9feef6906750099f8de1389c7a4a0b99c844b3ac2b8` |
 | VAEG executable | 8,155,976 | `13109ea163c6c708e0e79df0b149b1ff317c04381f9ad119e90ac35bc8e73d46` |
 
+The corrected release candidate was also built twice with byte-identical
+outputs:
+
+| Corrected artifact | Bytes | SHA-256 |
+|---|---:|---|
+| `ZUNDORB.COM` | 22,464 | `2d1b7ead1b98ffa83a56d8a13af6c9a5b2250664728dd34b3e01027b38b040be` |
+| `ZUNDORB.LST` | 217,981 | `f355d54949074772a6b0ca16ea0a8435a39fcc16bf4efc66a15f38f6bf96466c` |
+| `ZUNDORB.BIN` | 5,912 | `7d635be2c77680ad8d452d1cf23ee5401a61042ff317870a73f5587e5bd3b9aa` |
+| corrected pristine D88 | 1,338,960 | `7079317889b8baccafd09ace259664fb0c9af62c9beaf4243a040839c94250eb` |
+
 The eight static oracle-report SHA-256 values, V1 through V8, are:
 
 ```text
@@ -296,11 +331,11 @@ b604e3a32c6664b8fe32e9858f046720510e165f5d0279f82b211d31d40a14f8
 0ed45bf52a7bf77b3d83b4a05cb816882e1b31d594967dd8dca14fcce7dc4642
 ```
 
-The pristine human-gate candidate is generated and untracked at:
+The corrected pristine human-gate candidate is generated and untracked at:
 
 ```text
-build/generated/zundamon-orbit/m98r-va2-candidate/
-zundamon-orbit-m98r-pristine.d88
+build/generated/zundamon-orbit/m98r-va2-candidate-3/
+zundamon-orbit-m98r-return-fix-pristine.d88
 ```
 
 The disk lists only the accepted boot files plus the public `ZUNDORB.COM` and

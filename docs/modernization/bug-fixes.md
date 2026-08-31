@@ -2208,3 +2208,30 @@ separate parity correction or move it to Open Defects.
   [NEON4 P5 status](../port/neon4_p5.md).
 - **Milestone/task:** M97 NEON4 direct-colour CAT span cursor preservation.
 - **Commit:** [7c3fb85](https://github.com/nakatamaho/vaeg/commit/7c3fb857b49b90c4f384411125c94d37ce75bf0)
+
+
+### ZUNDORB cadence demo treated command Return as exit
+
+- **Status:** fixed in M98r; corrected maintainer visual confirmation remains
+  pending.
+- **Symptom:** the interactive M98r candidate returned immediately to the
+  Human prompt after `ZUNDORB` was entered, without displaying the synthetic
+  scale animation and without printing an M98R failure diagnostic.
+- **Affected scope:** the ZUNDORB guest's interactive keyboard polling; the
+  atlas, BMS, SGP, G1, and cadence rendering paths were unchanged.
+- **Demonstrated root cause:** the guest accepted Return as a second exit key,
+  and its remaining ESC test recognized scan code zero without checking the
+  BIOS internal code. A command-confirming Return left in the guest keyboard
+  path could therefore request normal cleanup before a visible publication.
+- **Correction:** Return is no longer an exit key. Both interactive polling
+  paths require the complete INT 82h/AH=09h ESC result: scan code `00h` and
+  internal code `1Bh`.
+- **Verification:** a release-mode regression injects an additional Return at
+  the relocated guest entry and then captures 58 publications. All 58 G1
+  buffers match the accepted M98r golden byte-for-byte, with exactly 58 SGP
+  sources and destinations. The 131 demo tests, VAEG selftest, all eight
+  static VA2 divisor cases, opposite-page V1/V4/V8 runs, selector ladder,
+  pause/resume, and missed-slot cases pass.
+- **Evidence:** [M98r cadence report](../agents/reports/m98r_zundamon_vblank_cadence.md).
+- **Milestone/task:** M98r interactive Return/ESC discrimination.
+- **Commit:** [3c3f233](https://github.com/nakatamaho/vaeg/commit/3c3f233305915aa61c594886520764b578ef5025).
