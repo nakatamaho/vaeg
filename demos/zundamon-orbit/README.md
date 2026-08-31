@@ -184,3 +184,40 @@ privacy-output tests:
 PYTHONPYCACHEPREFIX=/tmp/vaeg-m98f-pyc \
   python3 demos/zundamon-orbit/tools/test_zundamon_orbit_va8.py
 ```
+
+## Thirty-two scale levels
+
+M98g generates exactly 32 nearest-neighbor frames, numbered 1 through 32.
+Their dimensions and row pitch are:
+
+```text
+width(i)  = max(1, (source_width  * i + 16) // 32)
+height(i) = max(1, (source_height * i + 16) // 32)
+pitch(i)  = (width(i) + 3) & ~3
+```
+
+Every target pixel samples the source pixel containing its projected center.
+Rows have zero padding through the four-byte pitch, and every frame starts at
+a 16-byte boundary. All 32 descriptors are retained even when small adjacent
+levels have the same dimensions. The anchor is projected with the same
+pixel-center convention.
+
+Generate an ignored intermediate scale set directly from a validated bundle:
+
+```sh
+python3 demos/zundamon-orbit/tools/generate_zundamon_orbit_scales.py \
+  --manifest /path/to/private/input.json \
+  --output build/generated/zundamon-orbit/private-gate/m98g-scales
+```
+
+The output contains `scales.va8` and a private `report.json`. This is not the
+final atlas format: it has no atlas header, CRC, BMS bank number, or bank
+packing. Those contracts belong to later milestones.
+
+Run the dimension, sampling, anchor, padding, alignment, reproducibility, and
+privacy-output tests:
+
+```sh
+PYTHONPYCACHEPREFIX=/tmp/vaeg-m98g-pyc \
+  python3 demos/zundamon-orbit/tools/test_zundamon_orbit_scales.py
+```
