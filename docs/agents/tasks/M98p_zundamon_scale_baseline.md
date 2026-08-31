@@ -23,7 +23,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 # M98p - Add the 30-scale full-page-CLS zoom baseline
 
-Status: **automated VA2 evidence passed; G98p human gate pending**
+Status: **G98p human gate passed on 2026-08-31; M98p closed**
 
 Branch: `topic/m98p-zundamon-scale-baseline`
 
@@ -105,9 +105,11 @@ Provide one pristine generated D88. In VA2 the maintainer must confirm the
 center-anchored synthetic sprite shrinks from 30 through 1, grows through 29,
 and repeats without endpoint pauses, wobble, stale silhouettes, clear-only
 frames, page-parity differences, flicker, or tearing. Transparent holes must
-show G0 and ESC must restore the guest environment. Automation reports
-`G98p: human gate pending` until the maintainer explicitly states
-`G98p passed`.
+show G0 and ESC must restore the guest environment. The automated VA2
+evidence passed at `4e9c57975a2e3705bc7cb2c29b3b94e5b88f4bea`. After
+confirming that the single public marker performed the expected
+shrink-and-grow sequence, the maintainer explicitly stated `G98p passed` on
+2026-08-31. M98p is closed.
 
 ## Non-goals
 

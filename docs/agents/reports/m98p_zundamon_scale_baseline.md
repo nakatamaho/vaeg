@@ -23,13 +23,13 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 # M98p 30-scale full-page-CLS zoom baseline result
 
-Status: **G98p: human gate pending**
+Status: **G98p human gate passed on 2026-08-31; M98p closed**
 
 ## Result
 
-`M98p RESULT: PASS (automated scope)`
+`M98p RESULT: PASS`
 
-`G98p: human gate pending`
+`G98p FINAL STATUS: PASS`
 
 The public synthetic atlas completed the exact 58-publication
 `30..1..29` sequence in two bounded VA2 runs with opposite initial visible
@@ -39,9 +39,10 @@ one transparent direct-BMS BITBLT, completed the SGP batch, observed a fresh
 VBLANK low-to-high edge, and then published DSA1. No timeout, descriptor,
 trace, framebuffer, counter, or stable-frame mismatch remained.
 
-Automation does not close this gate. The maintainer must inspect the
-interactive D88 and explicitly state `G98p passed`. This is VAEG evidence;
-physical PC-88VA evidence remains `REAL_HW_PENDING`.
+On 2026-08-31, the maintainer confirmed that the candidate displayed the
+expected single-marker shrink-and-grow sequence and explicitly stated
+`G98p passed`. M98p is closed. This remains VAEG evidence; physical PC-88VA
+evidence remains `REAL_HW_PENDING`.
 
 ## Git and predecessor
 
@@ -349,9 +350,10 @@ accepted property of the G98j public atlas, not a skipped scale.
 
 SDL dummy video was used as deterministic transport for automated evidence.
 Exact indexed GVRAM and SGP traces, not PNG existence, establish the automated
-result. GUI visual acceptance is still pending. M98p adds no dirty-row
-clearing, cadence selector, orbit, depth coupling, private image, multiple
-instances, or performance claim. Physical hardware was not tested:
-`REAL_HW_PENDING`.
+result. The maintainer subsequently inspected the interactive candidate,
+confirmed the intended single-marker scale behavior, and explicitly passed
+G98p. M98p adds no dirty-row clearing, cadence selector, orbit, depth coupling,
+private image, multiple instances, or performance claim. Physical hardware
+was not tested: `REAL_HW_PENDING`.
 
-Final status: **G98p: human gate pending**. Stop before M98q.
+Final status: **G98p human gate passed; M98p closed**. M98q was not started.
