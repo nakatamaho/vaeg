@@ -23,7 +23,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 # M98 - Zundamon billboard-orbit demo master plan
 
-Status: **G98a human gate and G98b machine gate passed on 2026-08-31; M98c is unassigned**
+Status: **G98a human gate and G98b-G98c machine gates passed on 2026-08-31; M98d is unassigned**
 
 Branch family: `topic/m98-zundamon-orbit`
 
@@ -155,7 +155,7 @@ Execute exactly one assigned stage and stop at its gate.
 | M98aa | Complete negative, deterministic, and performance QA | Machine + human |
 | M98ab | Finish documentation and the final gate | Human |
 
-M98c and later are deliberately unassigned. No superseded draft or retired
+M98d and later are deliberately unassigned. No superseded draft or retired
 stage is authority for this plan.
 
 ## 6. Deterministic host contracts
