@@ -23,20 +23,22 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 # M98o transparent G1 double-buffer result
 
-Status: **automated VA2/VAEG candidate PASS; G98o human gate pending**
+Status: **G98o human gate passed on 2026-08-31; M98o closed**
 
 ## Result
 
-`M98o AUTOMATED RESULT: PASS`
+`M98o RESULT: PASS`
 
-`G98o FINAL STATUS: PENDING MAINTAINER HUMAN GATE`
+`G98o FINAL STATUS: PASS`
 
 The public synthetic fixture completed four bounded hidden-page render and
 publication batches in VA2 mode. The exact indexed-GVRAM oracle, alternating
 SGP descriptor trace, page-lifecycle checkpoints, post-cleanup counters, two
 settled frames, deterministic rebuild, focused fault model, and repository
-checks all passed. This is VAEG evidence only. It does not pass the required
-maintainer visual gate and is not physical PC-88VA evidence.
+checks all passed. On 2026-08-31, the maintainer reported that the marker
+appeared slightly below and to the right of center, confirmed that ESC
+restored the guest environment, and explicitly stated `G98o passed`. M98o is
+closed. This remains VAEG evidence and is not physical PC-88VA evidence.
 
 ## Git and predecessor
 
@@ -326,12 +328,11 @@ found no generated COM, listing, atlas, capture, trace, or D88 artifact.
 
 ## Limitations and gate
 
-SDL dummy video was used only as deterministic transport. The exact indexed
-GVRAM, descriptor trace, and nonblack composed BMP checks establish the VAEG
-candidate, but no GUI visual inspection was claimed from the headless run.
-The maintainer must run the local D88 in VA2 mode, confirm clean A/B
-alternation without a partial or stale page, and exit with ESC before stating
-that G98o passed.
+SDL dummy video was used only as deterministic transport for the automated
+run. The exact indexed GVRAM, descriptor trace, and nonblack composed BMP
+checks established the VA2/VAEG candidate independently of the later human
+inspection. The maintainer then observed the displayed marker, confirmed ESC
+restoration, and explicitly passed G98o on 2026-08-31.
 
 `REAL_HW_PENDING`
 
@@ -343,4 +344,4 @@ The final `git status --short` is identical to the pre-existing dirty baseline
 listed above; all M98o tracked files are committed. Generated M98o output is
 ignored, and no unrelated path was staged.
 
-Final automated status: **M98o candidate PASS; G98o human gate pending**.
+Final status: **G98o human gate passed; M98o closed**.

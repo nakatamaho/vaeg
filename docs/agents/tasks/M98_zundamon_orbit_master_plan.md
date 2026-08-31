@@ -23,7 +23,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 # M98 - Zundamon billboard-orbit demo master plan
 
-Status: **G98a, G98e, G98j, G98k, and G98l human gates and G98b-G98d and G98f-G98i machine gates passed; M98o automated VA2/VAEG candidate `ddc70c692ecb65066269c9894eb4b14f702fd2d9` passed on 2026-08-31 and awaits G98o human gate**
+Status: **G98a, G98e, G98j, G98k, G98l, and G98o human gates and G98b-G98d and G98f-G98i machine gates passed; M98o closed on 2026-08-31**
 
 Branch family: `topic/m98-zundamon-orbit`
 
@@ -166,8 +166,9 @@ candidate `228f31eb192c2722862691067c46c4db9e4aeb95`, and the maintainer
 explicitly passed G98l on 2026-08-31. M98l is closed. M98m and M98n remain
 reserved identifiers absorbed into M98l. M98o's automated transparent-G1
 double-buffer candidate `ddc70c692ecb65066269c9894eb4b14f702fd2d9`
-passed in VA2 mode and awaits its human gate. Later milestones retain their
-numbering and remain unassigned.
+passed in VA2 mode, and the maintainer explicitly passed G98o on 2026-08-31
+after confirming the displayed marker and ESC restoration. M98o is closed.
+Later milestones retain their numbering and remain unassigned.
 
 ## 6. Deterministic host contracts
 

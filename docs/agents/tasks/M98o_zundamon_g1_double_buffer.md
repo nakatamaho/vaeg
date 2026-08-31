@@ -23,7 +23,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 # M98o - Add transparent G1 double buffering
 
-Status: **automated VA2/VAEG candidate passed at `ddc70c692ecb65066269c9894eb4b14f702fd2d9`; G98o human gate pending**
+Status: **G98o human gate passed on 2026-08-31; M98o closed**
 
 Branch: `topic/m98o-g1-double-buffer`
 
@@ -176,7 +176,9 @@ fresh VBLANK publication, exact A/B alternation and identities, transparency,
 no partial/stale page, counter invariants, all negative cases, deterministic
 rebuilds, repository checks, and no generated/private material in Git.
 
-Automated VA2/VAEG success creates the G98o human-gate candidate; only the
-maintainer can state `G98o passed`. Physical validation remains
-`REAL_HW_PENDING`. Push the topic branch, report exact SHAs, and stop without
-starting M98p.
+The automated VA2/VAEG candidate passed at
+`ddc70c692ecb65066269c9894eb4b14f702fd2d9`. On 2026-08-31, the maintainer
+reported that the marker appeared slightly below and to the right of center,
+that ESC restored the guest environment, and explicitly stated `G98o passed`.
+M98o is closed. Physical validation remains `REAL_HW_PENDING`; M98p was not
+started.
