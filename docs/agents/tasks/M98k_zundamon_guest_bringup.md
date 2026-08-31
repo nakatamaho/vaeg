@@ -23,11 +23,13 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 # M98k - Bring up the isolated 320x200 8-bpp guest
 
-Status: **assigned; implementation in progress; G98k pending**
+Status: **automated VAEG candidate `6ed575dedc5da8827704c33a274ac72e480ce420` passed; G98k pending**
 
 Branch: `topic/m98k-zundamon-guest-bringup`
 
 Starting commit: `8b8c5ceeac5445ba1eb0d3aa804974db09de6809`
+
+Implementation commit: `6ed575dedc5da8827704c33a274ac72e480ce420`
 
 Commit prefix: `M98k:`
 
