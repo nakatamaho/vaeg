@@ -104,15 +104,23 @@ org 0x100
 %define G1_PAGE_WORD_COUNT      0x7d00
 %define G1_BACKING_BYTES        0x1f400
 %define SCALE_PUBLICATIONS_PER_CYCLE 58
+%define QA_CYCLES               2
+%define QA_PUBLICATIONS         (SCALE_PUBLICATIONS_PER_CYCLE * QA_CYCLES)
 %define TARGET_ANCHOR_X         160
 %define TARGET_ANCHOR_Y         100
 
-%ifndef M98P_BOUNDED_QA
-%define M98P_BOUNDED_QA         0
+%ifndef M98Q_BOUNDED_QA
+%define M98Q_BOUNDED_QA         0
 %endif
-%ifndef M98P_INITIAL_VISIBLE_PAGE
-%define M98P_INITIAL_VISIBLE_PAGE 0
+%ifndef M98Q_INITIAL_VISIBLE_PAGE
+%define M98Q_INITIAL_VISIBLE_PAGE 0
 %endif
+%ifndef M98Q_CLEAR_MODE
+%define M98Q_CLEAR_MODE         1
+%endif
+
+%define CLEAR_MODE_FULL         0
+%define CLEAR_MODE_DIRTY        1
 
 %define PAGE_A                  0
 %define PAGE_B                  1
@@ -154,6 +162,10 @@ org 0x100
 %define SGP_COMMAND_CLS         0x000a
 %define SGP_BITBLT_COPY_XPAR    0x0105
 %define SGP_BUSY                0x01
+%define SGP_COMMAND_LIST_WORDS  64
+%define DIRTY_ROW_COMMAND_WORDS 5
+%define DIRTY_BATCH_FIXED_WORDS 6
+%define DIRTY_ROWS_PER_BATCH    ((SGP_COMMAND_LIST_WORDS - DIRTY_BATCH_FIXED_WORDS) / DIRTY_ROW_COMMAND_WORDS)
 
 %define PROBE_CHECKPOINT_IP     0x4000
 %define LOAD_CHECKPOINT_IP      0x4010
@@ -165,6 +177,9 @@ org 0x100
 %define REPORT_C_CHECKPOINT_IP  0x4070
 %define REPORT_D_CHECKPOINT_IP  0x4080
 %define REPORT_E_CHECKPOINT_IP  0x4090
+%define REPORT_F_CHECKPOINT_IP  0x40a0
+%define REPORT_G_CHECKPOINT_IP  0x40b0
+%define REPORT_H_CHECKPOINT_IP  0x40c0
 %define PROBE_CHECKPOINT_OFFSET (PROBE_CHECKPOINT_IP - 0x0100)
 %define LOAD_CHECKPOINT_OFFSET  (LOAD_CHECKPOINT_IP - 0x0100)
 %define TRANSFER_CHECKPOINT_OFFSET (TRANSFER_CHECKPOINT_IP - 0x0100)
@@ -175,30 +190,42 @@ org 0x100
 %define REPORT_C_CHECKPOINT_OFFSET (REPORT_C_CHECKPOINT_IP - 0x0100)
 %define REPORT_D_CHECKPOINT_OFFSET (REPORT_D_CHECKPOINT_IP - 0x0100)
 %define REPORT_E_CHECKPOINT_OFFSET (REPORT_E_CHECKPOINT_IP - 0x0100)
+%define REPORT_F_CHECKPOINT_OFFSET (REPORT_F_CHECKPOINT_IP - 0x0100)
+%define REPORT_G_CHECKPOINT_OFFSET (REPORT_G_CHECKPOINT_IP - 0x0100)
+%define REPORT_H_CHECKPOINT_OFFSET (REPORT_H_CHECKPOINT_IP - 0x0100)
 
 %if G1_PAGE_BYTES != SCREEN_WIDTH * SCREEN_HEIGHT
-%error "M98p G1 page size does not match the logical viewport"
+%error "M98q G1 page size does not match the logical viewport"
 %endif
 %if G1_PAGE_WORD_COUNT * 2 != G1_PAGE_BYTES
-%error "M98p G1 word count is inconsistent"
+%error "M98q G1 word count is inconsistent"
 %endif
 %if G1_PAGE_B_SGP_BASE - G1_PAGE_A_SGP_BASE != G1_PAGE_BYTES
-%error "M98p SGP pages are not adjacent"
+%error "M98q SGP pages are not adjacent"
 %endif
 %if G1_PAGE_B_DSA - G1_PAGE_A_DSA != G1_PAGE_BYTES
-%error "M98p DSA pages are not adjacent"
+%error "M98q DSA pages are not adjacent"
 %endif
 %if G1_BACKING_BYTES != G1_PAGE_BYTES * 2
-%error "M98p G1 backing surface is not two pages"
+%error "M98q G1 backing surface is not two pages"
 %endif
-%if M98P_INITIAL_VISIBLE_PAGE != PAGE_A && M98P_INITIAL_VISIBLE_PAGE != PAGE_B
-%error "M98p initial visible page must be page A or page B"
+%if M98Q_INITIAL_VISIBLE_PAGE != PAGE_A && M98Q_INITIAL_VISIBLE_PAGE != PAGE_B
+%error "M98q initial visible page must be page A or page B"
 %endif
-%if M98P_BOUNDED_QA != 0 && M98P_BOUNDED_QA != 1
-%error "M98p bounded QA flag must be zero or one"
+%if M98Q_BOUNDED_QA != 0 && M98Q_BOUNDED_QA != 1
+%error "M98q bounded QA flag must be zero or one"
+%endif
+%if M98Q_CLEAR_MODE != CLEAR_MODE_FULL && M98Q_CLEAR_MODE != CLEAR_MODE_DIRTY
+%error "M98q clear mode must be full or dirty"
+%endif
+%if DIRTY_ROWS_PER_BATCH < 1
+%error "M98q command list cannot hold one dirty row"
+%endif
+%if DIRTY_BATCH_FIXED_WORDS + DIRTY_ROWS_PER_BATCH * DIRTY_ROW_COMMAND_WORDS > SGP_COMMAND_LIST_WORDS
+%error "M98q dirty-row batch exceeds the command-list capacity"
 %endif
 %if TARGET_ANCHOR_X >= SCREEN_WIDTH || TARGET_ANCHOR_Y >= SCREEN_HEIGHT
-%error "M98p target anchor is outside the logical viewport"
+%error "M98q target anchor is outside the logical viewport"
 %endif
 
 start:
@@ -298,8 +325,8 @@ render_loop:
 
 flip_resume:
     call advance_scale_sequence
-%if M98P_BOUNDED_QA
-    cmp word [cycles_completed], 1
+%if M98Q_BOUNDED_QA
+    cmp word [cycles_completed], QA_CYCLES
     je settled_start
 %else
     call poll_escape
@@ -328,7 +355,7 @@ settled_loop:
     jmp settled_checkpoint
 
 settled_resume:
-%if M98P_BOUNDED_QA
+%if M98Q_BOUNDED_QA
     call poll_escape
     ; Bounded QA does not depend on keyboard input; an injected key is ignored.
 %else
@@ -339,7 +366,7 @@ settled_resume:
     cmp byte [settled_capture_count], 2
     jb settled_loop
 
-%if M98P_BOUNDED_QA
+%if M98Q_BOUNDED_QA
     call validate_bounded_success
     jc descriptor_failed
     jmp normal_exit
@@ -396,9 +423,9 @@ common_exit:
     mov bx, [pages_initialized]
     mov cx, [render_batches_started]
     mov dx, [render_batches_completed]
-    mov si, [full_page_clears]
-    mov di, [transparent_bitblts]
-    mov bp, [page_flips]
+    mov si, [initial_full_page_clears]
+    mov di, [steady_full_page_clears]
+    mov bp, [transparent_bitblts]
     mov ax, 0x98e1
     jmp report_a_checkpoint
 
@@ -426,8 +453,8 @@ report_b_resume:
 report_c_resume:
     mov bx, [source_bytes]
     mov cx, [source_bytes + 2]
-    mov dx, [cleared_bytes]
-    mov si, [cleared_bytes + 2]
+    mov dx, [dirty_row_cls_commands]
+    mov si, [dirty_row_cls_commands + 2]
     mov di, [bms_bank_selections]
     mov bp, [last_published_dsa]
     mov ax, 0x98e4
@@ -444,6 +471,39 @@ report_d_resume:
     jmp report_e_checkpoint
 
 report_e_resume:
+    mov bx, [dirty_rect_clears]
+    mov cx, [dirty_words_cleared]
+    mov dx, [dirty_words_cleared + 2]
+    mov si, [dirty_bytes_cleared]
+    mov di, [dirty_bytes_cleared + 2]
+    mov bp, [guard_failures]
+    mov ax, 0x98e6
+    jmp report_f_checkpoint
+
+report_f_resume:
+    mov bx, [baseline_full_clear_words]
+    mov cx, [baseline_full_clear_words + 2]
+    mov dx, [baseline_full_clear_bytes]
+    mov si, [baseline_full_clear_bytes + 2]
+    mov di, [sgp_command_lists]
+    mov bp, [sgp_commands]
+    mov ax, 0x98e7
+    jmp report_g_checkpoint
+
+report_g_resume:
+    mov bx, [dirty_full_mismatches]
+    mov cx, [page_flips]
+    xor dx, dx
+    mov dl, [page_old_valid + PAGE_A]
+    xor ax, ax
+    mov al, [page_old_valid + PAGE_B]
+    mov si, ax
+    mov di, [page_old_scale_id]
+    mov bp, [cleanup_runs]
+    mov ax, 0x98e8
+    jmp report_h_checkpoint
+
+report_h_resume:
     mov dx, [exit_message]
     call print_string
     mov al, [exit_errorlevel]
@@ -1321,7 +1381,7 @@ close_atlas_if_open:
 .done:
     ret
 
-; M98p initializes both 64,000-byte G1 pages before either is visible.
+; M98q initializes both 64,000-byte G1 pages once before either is visible.
 initialize_video_double_buffer:
     call verify_page_descriptors
     jc .failed
@@ -1389,16 +1449,21 @@ initialize_video_double_buffer:
     call build_initialization_commands
     call run_sgp_command_list
     jc .failed
+    mov word [initial_full_page_clears], 2
+    inc word [sgp_command_lists]
+    add word [sgp_commands], 5
     mov byte [page_state + PAGE_A], PAGE_HIDDEN_CLEAN
     mov byte [page_state + PAGE_B], PAGE_HIDDEN_CLEAN
+    mov byte [page_old_valid + PAGE_A], 0
+    mov byte [page_old_valid + PAGE_B], 0
     mov word [pages_initialized], 2
     call wait_vblank_edge
     jc .failed
-    mov al, M98P_INITIAL_VISIBLE_PAGE
+    mov al, M98Q_INITIAL_VISIBLE_PAGE
     call publish_page
     jc .failed
-    mov byte [visible_page_index], M98P_INITIAL_VISIBLE_PAGE
-%if M98P_INITIAL_VISIBLE_PAGE = PAGE_A
+    mov byte [visible_page_index], M98Q_INITIAL_VISIBLE_PAGE
+%if M98Q_INITIAL_VISIBLE_PAGE = PAGE_A
     mov byte [hidden_page_index], PAGE_B
     mov byte [page_state + PAGE_A], PAGE_VISIBLE
     inc word [page_a_publications]
@@ -1623,6 +1688,7 @@ build_render_commands:
     mov ax, dx
     stosw
     pop si
+%if M98Q_CLEAR_MODE = CLEAR_MODE_FULL
     mov ax, SGP_COMMAND_SET_COLOR
     stosw
     xor ax, ax
@@ -1637,6 +1703,7 @@ build_render_commands:
     stosw
     xor ax, ax
     stosw
+%endif
 
     mov ax, SGP_COMMAND_SET_SOURCE
     stosw
@@ -1683,6 +1750,64 @@ build_render_commands:
     stosw
     mov ax, SGP_COMMAND_END
     stosw
+    jmp finalize_sgp_command_list
+
+; Build a bounded list containing one zero-valued CLS per old scanline.
+; dirty_row_address is a physical byte address, while CLS length is an exact
+; word count.  The live SGP decrements this count after every 16-bit write.
+build_dirty_row_commands:
+    push ax
+    push dx
+    push si
+    push di
+    push es
+    push ds
+    pop es
+    mov di, sgp_command_list
+    mov ax, SGP_COMMAND_SET_WORK
+    stosw
+    mov si, sgp_work_area
+    call physical_address_from_ds_si
+    stosw
+    mov ax, dx
+    stosw
+    mov ax, SGP_COMMAND_SET_COLOR
+    stosw
+    xor ax, ax
+    stosw
+    mov cx, [dirty_batch_rows]
+    test cx, cx
+    jz .invalid
+    cmp cx, DIRTY_ROWS_PER_BATCH
+    ja .invalid
+    mov bx, [dirty_row_address]
+    mov dx, [dirty_row_address + 2]
+.row:
+    mov ax, SGP_COMMAND_CLS
+    stosw
+    mov ax, bx
+    stosw
+    mov ax, dx
+    stosw
+    mov ax, [dirty_words_per_row]
+    stosw
+    xor ax, ax
+    stosw
+    add bx, SCREEN_PITCH
+    adc dx, 0
+    loop .row
+    mov [dirty_row_address], bx
+    mov [dirty_row_address + 2], dx
+    mov ax, SGP_COMMAND_END
+    stosw
+    jmp finalize_sgp_command_list
+.invalid:
+    ; The caller validates this state before entering the builder.  Preserve a
+    ; bounded END-only list if an internal invariant is nevertheless broken.
+    mov word [dirty_builder_failed], 1
+    mov di, sgp_command_list
+    mov ax, SGP_COMMAND_END
+    stosw
 finalize_sgp_command_list:
     mov si, sgp_command_list
     call physical_address_from_ds_si
@@ -1693,6 +1818,184 @@ finalize_sgp_command_list:
     pop si
     pop dx
     pop ax
+    ret
+
+prepare_pending_rectangle:
+    mov ax, [selected_dst_x]
+    cmp ax, SCREEN_WIDTH
+    jae .failed
+    mov [pending_x], ax
+    mov bx, ax
+    add bx, [selected_width]
+    jc .failed
+    cmp bx, SCREEN_WIDTH
+    ja .failed
+    cmp bx, ax
+    jbe .failed
+    mov ax, [selected_dst_y]
+    cmp ax, SCREEN_HEIGHT
+    jae .failed
+    mov [pending_y], ax
+    mov bx, ax
+    add bx, [selected_height]
+    jc .failed
+    cmp bx, SCREEN_HEIGHT
+    ja .failed
+    cmp bx, ax
+    jbe .failed
+    mov ax, [selected_width]
+    mov [pending_width], ax
+    mov ax, [selected_height]
+    mov [pending_height], ax
+    mov al, [selected_scale_id]
+    mov [pending_scale_id], al
+    clc
+    ret
+.failed:
+    stc
+    ret
+
+; Resolve only the hidden physical page's most recently published rectangle.
+; Saved rectangles stay logical and half-open; rounding is temporary clear
+; state for the one homogeneous G1 object.
+prepare_dirty_clear_state:
+    mov byte [dirty_clear_needed], 0
+    mov word [dirty_builder_failed], 0
+    mov al, [hidden_page_index]
+    cmp al, PAGE_B
+    ja .failed
+    xor ah, ah
+    mov bx, ax
+    cmp byte [page_old_valid + bx], 0
+    je .none
+    mov byte [dirty_clear_needed], 1
+    mov si, bx
+    shl si, 1
+    mov ax, [page_old_x + si]
+    cmp ax, SCREEN_WIDTH
+    jae .failed
+    mov cx, [page_old_width + si]
+    test cx, cx
+    jz .failed
+    mov dx, ax
+    add dx, cx
+    jc .failed
+    cmp dx, SCREEN_WIDTH
+    ja .failed
+    cmp dx, ax
+    jbe .failed
+    and ax, 0xfffe
+    mov [dirty_clear_x0], ax
+    inc dx
+    and dx, 0xfffe
+    cmp dx, SCREEN_WIDTH
+    ja .failed
+    cmp dx, ax
+    jbe .failed
+    sub dx, ax
+    test dx, 1
+    jnz .failed
+    shr dx, 1
+    test dx, dx
+    jz .failed
+    mov [dirty_words_per_row], dx
+
+    mov ax, [page_old_y + si]
+    cmp ax, SCREEN_HEIGHT
+    jae .failed
+    mov cx, [page_old_height + si]
+    test cx, cx
+    jz .failed
+    mov dx, ax
+    add dx, cx
+    jc .failed
+    cmp dx, SCREEN_HEIGHT
+    ja .failed
+    cmp dx, ax
+    jbe .failed
+    mov [dirty_rows_remaining], cx
+
+    mul word [screen_pitch_word]
+    add ax, [dirty_clear_x0]
+    adc dx, 0
+    add ax, [page_sgp_low + si]
+    adc dx, [page_sgp_high + si]
+    mov [dirty_row_address], ax
+    mov [dirty_row_address + 2], dx
+
+    inc word [dirty_rect_clears]
+    mov ax, [page_old_height + si]
+    add [dirty_row_cls_commands], ax
+    adc word [dirty_row_cls_commands + 2], 0
+    mul word [dirty_words_per_row]
+    add [dirty_words_cleared], ax
+    adc [dirty_words_cleared + 2], dx
+    shl ax, 1
+    rcl dx, 1
+    add [dirty_bytes_cleared], ax
+    adc [dirty_bytes_cleared + 2], dx
+.none:
+    clc
+    ret
+.failed:
+    stc
+    ret
+
+clear_hidden_dirty_rows:
+    call prepare_dirty_clear_state
+    jc .failed
+    cmp byte [dirty_clear_needed], 0
+    je .done
+.batch:
+    mov ax, [dirty_rows_remaining]
+    test ax, ax
+    jz .done
+    cmp ax, DIRTY_ROWS_PER_BATCH
+    jbe .batch_size_ready
+    mov ax, DIRTY_ROWS_PER_BATCH
+.batch_size_ready:
+    mov [dirty_batch_rows], ax
+    call build_dirty_row_commands
+    cmp word [dirty_builder_failed], 0
+    jne .failed
+    call run_sgp_command_list
+    jc .failed
+    inc word [sgp_command_lists]
+    mov ax, [dirty_batch_rows]
+    add ax, 3
+    add [sgp_commands], ax
+    mov ax, [dirty_batch_rows]
+    sub [dirty_rows_remaining], ax
+    jmp .batch
+.done:
+    clc
+    ret
+.failed:
+    stc
+    ret
+
+commit_pending_rectangle:
+    mov al, [hidden_page_index]
+    cmp al, PAGE_B
+    ja .failed
+    xor ah, ah
+    mov bx, ax
+    mov byte [page_old_valid + bx], 1
+    mov al, [pending_scale_id]
+    mov [page_old_scale_id + bx], al
+    shl bx, 1
+    mov ax, [pending_x]
+    mov [page_old_x + bx], ax
+    mov ax, [pending_y]
+    mov [page_old_y + bx], ax
+    mov ax, [pending_width]
+    mov [page_old_width + bx], ax
+    mov ax, [pending_height]
+    mov [page_old_height + bx], ax
+    clc
+    ret
+.failed:
+    stc
     ret
 
 render_and_publish_hidden_page:
@@ -1719,18 +2022,37 @@ render_and_publish_hidden_page:
     cmp bl, PAGE_HIDDEN_STALE
     jne .state_failed
 .state_ready:
+    call prepare_pending_rectangle
+    jc .state_failed
     call wait_sgp_idle
     jc .failed
-    call select_render_bms
     mov byte [page_state + si], PAGE_HIDDEN_RENDERING
     inc word [render_batches_started]
+    add word [baseline_full_clear_words], G1_PAGE_WORD_COUNT
+    adc word [baseline_full_clear_words + 2], 0
+    add word [baseline_full_clear_bytes], G1_PAGE_BYTES & 0xffff
+    adc word [baseline_full_clear_bytes + 2], G1_PAGE_BYTES >> 16
+%if M98Q_CLEAR_MODE = CLEAR_MODE_DIRTY
+    call clear_hidden_dirty_rows
+    jc .failed
+%endif
+    call select_render_bms
     mov al, [hidden_page_index]
     call build_render_commands
     call run_sgp_command_list
     jc .failed
+    inc word [sgp_command_lists]
+%if M98Q_CLEAR_MODE = CLEAR_MODE_FULL
+    add word [sgp_commands], 7
+    inc word [steady_full_page_clears]
+%else
+    add word [sgp_commands], 5
+%endif
     inc word [render_batches_completed]
-    inc word [full_page_clears]
     inc word [transparent_bitblts]
+    mov al, [hidden_page_index]
+    xor ah, ah
+    mov si, ax
     mov byte [page_state + si], PAGE_HIDDEN_COMPLETE
     call verify_staging_poison
     jc .sgp_error
@@ -1745,6 +2067,8 @@ render_and_publish_hidden_page:
     jc .failed
     mov al, [hidden_page_index]
     call publish_page
+    jc .state_failed
+    call commit_pending_rectangle
     jc .state_failed
     mov al, [hidden_page_index]
     xor ah, ah
@@ -1832,8 +2156,6 @@ record_scale_publication:
     mov ax, [selected_payload_bytes]
     add [source_bytes], ax
     adc word [source_bytes + 2], 0
-    add word [cleared_bytes], G1_PAGE_BYTES & 0xffff
-    adc word [cleared_bytes + 2], G1_PAGE_BYTES >> 16
 
     xor ax, ax
     mov al, [selected_scale_id]
@@ -1879,19 +2201,42 @@ advance_scale_sequence:
     ret
 
 validate_bounded_success:
-    cmp word [render_batches_started], SCALE_PUBLICATIONS_PER_CYCLE
+    cmp word [render_batches_started], QA_PUBLICATIONS
     jne .failed
-    cmp word [render_batches_completed], SCALE_PUBLICATIONS_PER_CYCLE
+    cmp word [render_batches_completed], QA_PUBLICATIONS
     jne .failed
-    cmp word [full_page_clears], SCALE_PUBLICATIONS_PER_CYCLE
+    cmp word [initial_full_page_clears], 2
     jne .failed
-    cmp word [transparent_bitblts], SCALE_PUBLICATIONS_PER_CYCLE
+%if M98Q_CLEAR_MODE = CLEAR_MODE_DIRTY
+    cmp word [steady_full_page_clears], 0
     jne .failed
-    cmp word [page_flips], SCALE_PUBLICATIONS_PER_CYCLE
+    cmp word [dirty_rect_clears], QA_PUBLICATIONS - 2
     jne .failed
-    cmp word [cycles_completed], 1
+    mov ax, [dirty_words_cleared + 2]
+    cmp ax, [baseline_full_clear_words + 2]
+    jb .dirty_volume_ok
+    ja .failed
+    mov ax, [dirty_words_cleared]
+    cmp ax, [baseline_full_clear_words]
+    jae .failed
+.dirty_volume_ok:
+%else
+    cmp word [steady_full_page_clears], QA_PUBLICATIONS
     jne .failed
-    cmp word [direction_reversals], 2
+    cmp word [dirty_rect_clears], 0
+    jne .failed
+    cmp word [dirty_row_cls_commands], 0
+    jne .failed
+    cmp word [dirty_row_cls_commands + 2], 0
+    jne .failed
+%endif
+    cmp word [transparent_bitblts], QA_PUBLICATIONS
+    jne .failed
+    cmp word [page_flips], QA_PUBLICATIONS
+    jne .failed
+    cmp word [cycles_completed], QA_CYCLES
+    jne .failed
+    cmp word [direction_reversals], QA_CYCLES * 2
     jne .failed
     cmp word [sgp_timeouts], 0
     jne .failed
@@ -1901,11 +2246,23 @@ validate_bounded_success:
     jne .failed
     cmp word [descriptor_errors], 0
     jne .failed
-    cmp word [scale_publication_total], SCALE_PUBLICATIONS_PER_CYCLE
+    cmp word [dirty_full_mismatches], 0
     jne .failed
-    cmp word [scale_shrink_total], 30
+    cmp word [guard_failures], 0
     jne .failed
-    cmp word [scale_grow_total], 28
+    cmp word [baseline_full_clear_words], (QA_PUBLICATIONS * G1_PAGE_WORD_COUNT) & 0xffff
+    jne .failed
+    cmp word [baseline_full_clear_words + 2], (QA_PUBLICATIONS * G1_PAGE_WORD_COUNT) >> 16
+    jne .failed
+    cmp word [baseline_full_clear_bytes], (QA_PUBLICATIONS * G1_PAGE_BYTES) & 0xffff
+    jne .failed
+    cmp word [baseline_full_clear_bytes + 2], (QA_PUBLICATIONS * G1_PAGE_BYTES) >> 16
+    jne .failed
+    cmp word [scale_publication_total], QA_PUBLICATIONS
+    jne .failed
+    cmp word [scale_shrink_total], 30 * QA_CYCLES
+    jne .failed
+    cmp word [scale_grow_total], 28 * QA_CYCLES
     jne .failed
     xor si, si
     mov cx, ATLAS_SCALE_COUNT
@@ -1915,17 +2272,17 @@ validate_bounded_success:
     je .endpoint
     cmp cx, 1
     je .endpoint
-    cmp ax, 2
+    cmp ax, 2 * QA_CYCLES
     jne .failed
-    cmp word [scale_shrink_publications + si], 1
+    cmp word [scale_shrink_publications + si], QA_CYCLES
     jne .failed
-    cmp word [scale_grow_publications + si], 1
+    cmp word [scale_grow_publications + si], QA_CYCLES
     jne .failed
     jmp .next
 .endpoint:
-    cmp ax, 1
+    cmp ax, QA_CYCLES
     jne .failed
-    cmp word [scale_shrink_publications + si], 1
+    cmp word [scale_shrink_publications + si], QA_CYCLES
     jne .failed
     cmp word [scale_grow_publications + si], 0
     jne .failed
@@ -2134,20 +2491,20 @@ print_string:
     ret
 
 message_start:
-    db "M98P_INIT: 30-scale full-page-CLS zoom baseline", 13, 10
+    db "M98Q_INIT: page-local dirty-row zoom", 13, 10
     db "Selector 0 is ordinary RAM; selector 1 is the atlas bank.", 13, 10, "$"
 message_done:
-    db "M98P_EXIT: ordinary mapping and video state restored.", 13, 10, "$"
+    db "M98Q_EXIT: ordinary mapping and video state restored.", 13, 10, "$"
 message_bms_failed:
-    db "M98P_FAIL: predecessor BMS mapping probe failed.", 13, 10, "$"
+    db "M98Q_FAIL: predecessor BMS mapping probe failed.", 13, 10, "$"
 message_atlas_failed:
-    db "M98P_FAIL: atlas validation or streaming failed.", 13, 10, "$"
+    db "M98Q_FAIL: atlas validation or streaming failed.", 13, 10, "$"
 message_descriptor_failed:
-    db "M98P_FAIL: scale descriptor or bounded invariant failed.", 13, 10, "$"
+    db "M98Q_FAIL: scale descriptor or bounded invariant failed.", 13, 10, "$"
 message_transfer_failed:
-    db "M98P_FAIL: hidden-page SGP batch failed.", 13, 10, "$"
+    db "M98Q_FAIL: hidden-page SGP batch failed.", 13, 10, "$"
 message_runtime_failed:
-    db "M98P_FAIL: bounded VBLANK edge wait timed out.", 13, 10, "$"
+    db "M98Q_FAIL: bounded VBLANK edge wait timed out.", 13, 10, "$"
 atlas_filename:
     db "ZUNDORB.BIN", 0
 
@@ -2182,10 +2539,19 @@ report_d_checkpoint:
 times REPORT_E_CHECKPOINT_OFFSET - ($ - $$) db 0x90
 report_e_checkpoint:
     jmp report_e_resume
+times REPORT_F_CHECKPOINT_OFFSET - ($ - $$) db 0x90
+report_f_checkpoint:
+    jmp report_f_resume
+times REPORT_G_CHECKPOINT_OFFSET - ($ - $$) db 0x90
+report_g_checkpoint:
+    jmp report_g_resume
+times REPORT_H_CHECKPOINT_OFFSET - ($ - $$) db 0x90
+report_h_checkpoint:
+    jmp report_h_resume
 
 align 2, db 0
 sgp_command_list:
-    times 64 dw 0
+    times SGP_COMMAND_LIST_WORDS dw 0
 sgp_work_area:
     times 29 dw 0
 checker_row_a:
@@ -2207,8 +2573,10 @@ page_sgp_high: dw G1_PAGE_A_SGP_BASE >> 16, G1_PAGE_B_SGP_BASE >> 16
 page_dsa_low: dw G1_PAGE_A_DSA & 0xffff, G1_PAGE_B_DSA & 0xffff
 page_dsa_high: dw G1_PAGE_A_DSA >> 16, G1_PAGE_B_DSA >> 16
 page_state: db PAGE_UNINITIALIZED, PAGE_UNINITIALIZED
-visible_page_index: db M98P_INITIAL_VISIBLE_PAGE
-hidden_page_index: db 1 - M98P_INITIAL_VISIBLE_PAGE
+page_old_valid: db 0, 0
+page_old_scale_id: db 0, 0
+visible_page_index: db M98Q_INITIAL_VISIBLE_PAGE
+hidden_page_index: db 1 - M98Q_INITIAL_VISIBLE_PAGE
 settled_capture_count: db 0
 current_scale_id: db ATLAS_SCALE_COUNT
 scale_direction: db 0
@@ -2218,13 +2586,32 @@ last_published_direction: db 0
 descriptor_validation_id: db 0
 runtime_failure_kind: db 0
 exit_errorlevel: db 1
+dirty_clear_needed: db 0
 align 2, db 0
+page_old_x: dw 0, 0
+page_old_y: dw 0, 0
+page_old_width: dw 0, 0
+page_old_height: dw 0, 0
+pending_x: dw 0
+pending_y: dw 0
+pending_width: dw 0
+pending_height: dw 0
+pending_scale_id: db 0
+align 2, db 0
+dirty_clear_x0: dw 0
+dirty_words_per_row: dw 0
+dirty_rows_remaining: dw 0
+dirty_batch_rows: dw 0
+dirty_row_address: dw 0, 0
+dirty_builder_failed: dw 0
 last_published_dsa: dw G1_PAGE_A_DSA & 0xffff
 exit_message: dw message_transfer_failed
 pages_initialized: dw 0
 render_batches_started: dw 0
 render_batches_completed: dw 0
-full_page_clears: dw 0
+initial_full_page_clears: dw 0
+steady_full_page_clears: dw 0
+dirty_rect_clears: dw 0
 transparent_bitblts: dw 0
 vblank_edges_seen: dw 0
 page_flips: dw 0
@@ -2237,6 +2624,10 @@ bms_bank_switches: dw 0
 bms_bank_selections: dw 0
 descriptor_errors: dw 0
 cleanup_runs: dw 0
+dirty_full_mismatches: dw 0
+guard_failures: dw 0
+sgp_command_lists: dw 0
+sgp_commands: dw 0
 cycles_completed: dw 0
 direction_reversals: dw 0
 scale_publication_total: dw 0
@@ -2244,7 +2635,11 @@ scale_shrink_total: dw 0
 scale_grow_total: dw 0
 bounded_validation_pass: dw 0
 source_bytes: dw 0, 0
-cleared_bytes: dw 0, 0
+dirty_row_cls_commands: dw 0, 0
+dirty_words_cleared: dw 0, 0
+dirty_bytes_cleared: dw 0, 0
+baseline_full_clear_words: dw 0, 0
+baseline_full_clear_bytes: dw 0, 0
 publication_digest: dw 0, 0
 scale_publications: times ATLAS_SCALE_COUNT dw 0
 scale_shrink_publications: times ATLAS_SCALE_COUNT dw 0
@@ -2309,5 +2704,5 @@ staging_buffer:
 program_end:
 
 %if program_end - $$ >= 65280
-%error "M98p guest exceeds the 64-KiB DOS payload limit"
+%error "M98q guest exceeds the 64-KiB DOS payload limit"
 %endif

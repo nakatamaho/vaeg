@@ -33,15 +33,17 @@ rom_directory=$3
 output_directory=$4
 model=${VAEG_ZUNDAMON_MODEL:-va2}
 initial_page=${VAEG_ZUNDAMON_INITIAL_PAGE:-a}
+clear_mode=${VAEG_ZUNDAMON_CLEAR_MODE:-dirty}
+golden_directory=${VAEG_ZUNDAMON_GOLDEN_DIRECTORY:-}
 script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
-pristine_disk_image=$output_directory/zundamon-orbit-m98p-pristine.d88
-disk_image=$output_directory/zundamon-orbit-m98p.d88
+pristine_disk_image=$output_directory/zundamon-orbit-m98q-pristine.d88
+disk_image=$output_directory/zundamon-orbit-m98q.d88
 guest_image=$output_directory/ZUNDORB.COM
 guest_listing=$output_directory/ZUNDORB.LST
 atlas_directory=$output_directory/public-atlas
 atlas_image=$output_directory/ZUNDORB.BIN
 trace_log=$output_directory/sgp-trace.log
-debug_script=$output_directory/zundamon-orbit-m98p.debug
+debug_script=$output_directory/zundamon-orbit-m98q.debug
 
 [ -f "$source_image" ] || { printf 'error: source D88 does not exist\n' >&2; exit 1; }
 [ -f "$vaeg" ] && [ -x "$vaeg" ] || { printf 'error: VAEG executable is unavailable\n' >&2; exit 1; }
@@ -49,8 +51,19 @@ debug_script=$output_directory/zundamon-orbit-m98p.debug
 [ ! -e "$output_directory" ] || { printf 'error: refusing to overwrite output directory\n' >&2; exit 1; }
 case "$model" in
     va2) ;;
-    *) printf 'error: M98p automated validation requires VAEG_ZUNDAMON_MODEL=va2\n' >&2; exit 2 ;;
+    *) printf 'error: M98q automated validation requires VAEG_ZUNDAMON_MODEL=va2\n' >&2; exit 2 ;;
 esac
+case "$clear_mode" in
+    full) clear_mode_define=0 ;;
+    dirty) clear_mode_define=1 ;;
+    *) printf 'error: VAEG_ZUNDAMON_CLEAR_MODE must be full or dirty\n' >&2; exit 2 ;;
+esac
+if [ "$clear_mode" = dirty ]; then
+    [ -n "$golden_directory" ] && [ -d "$golden_directory" ] || {
+        printf 'error: dirty validation requires VAEG_ZUNDAMON_GOLDEN_DIRECTORY\n' >&2
+        exit 2
+    }
+fi
 case "$initial_page" in
     a) initial_page_define=0 ;;
     b) initial_page_define=1 ;;
@@ -61,15 +74,18 @@ mkdir -p "$output_directory"
 python3 "$script_dir/tools/build_zundamon_orbit_pipeline.py" \
     --fixture-output "$atlas_directory"
 cp "$atlas_directory/zundorb.bin" "$atlas_image"
-M98P_BOUNDED_QA=1 M98P_INITIAL_VISIBLE_PAGE=$initial_page_define \
+M98Q_BOUNDED_QA=1 M98Q_INITIAL_VISIBLE_PAGE=$initial_page_define \
+    M98Q_CLEAR_MODE=$clear_mode_define \
     NASM=${NASM:-nasm} "$script_dir/256/build.sh" "$guest_image" "$guest_listing"
-M98P_BOUNDED_QA=1 M98P_INITIAL_VISIBLE_PAGE=$initial_page_define \
+M98Q_BOUNDED_QA=1 M98Q_INITIAL_VISIBLE_PAGE=$initial_page_define \
+    M98Q_CLEAR_MODE=$clear_mode_define \
     NASM=${NASM:-nasm} "$script_dir/build-local-d88.sh" \
         "$source_image" "$atlas_image" "$pristine_disk_image"
 cp "$pristine_disk_image" "$disk_image"
 cmp "$pristine_disk_image" "$disk_image"
-python3 "$script_dir/tools/generate_zundamon_orbit_scale_debug.py" \
-    --initial-page "$initial_page" --output "$debug_script"
+python3 "$script_dir/tools/generate_zundamon_orbit_dirty_debug.py" \
+    --initial-page "$initial_page" --clear-mode "$clear_mode" \
+    --output "$debug_script"
 
 SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy VAEG_SGP_SCAN_TRACE=1 \
     "$vaeg" \
@@ -84,11 +100,15 @@ SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy VAEG_SGP_SCAN_TRACE=1 \
         --debug-output-dir "$output_directory" \
         >"$output_directory/vaeg.stdout.log" 2>"$trace_log"
 
-python3 "$script_dir/tools/verify_zundamon_orbit_scale_guest.py" \
+set -- python3 "$script_dir/tools/verify_zundamon_orbit_dirty_guest.py" \
     --atlas "$atlas_image" \
     --trace "$trace_log" \
     --initial-page "$initial_page" \
-    --report "$output_directory/m98p-oracle.json" \
-    "$output_directory"
-printf 'M98P_VAEG_CAPTURE_PASS initial_page=%s output=%s\n' \
-    "$initial_page" "$output_directory"
+    --clear-mode "$clear_mode" \
+    --report "$output_directory/m98q-oracle.json"
+if [ "$clear_mode" = dirty ]; then
+    set -- "$@" --golden-directory "$golden_directory"
+fi
+"$@" "$output_directory"
+printf 'M98Q_VAEG_CAPTURE_PASS initial_page=%s clear_mode=%s output=%s\n' \
+    "$initial_page" "$clear_mode" "$output_directory"

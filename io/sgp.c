@@ -34,7 +34,7 @@ enum {
 _SGP sgp;
 static CLOCKSCALE sgp_clock_scale = {1, 1, 0};
 
-/* Optional, test-only SCAN trace.  The normal emulator path remains silent. */
+/* Optional, test-only SGP command trace.  The normal emulator path is silent. */
 static void sgp_scan_trace(const char *format, ...) {
 	static int enabled = -1;
 	va_list ap;
@@ -878,6 +878,7 @@ static void cmd_cls(void) {
 	sgp.func = FUNC_EXEC_CLS;
 
 	TRACEOUT(("SGP: cmd: cls: addr=%0lx, size(word)=%0lx", sgp.clsaddr, sgp.clscount));
+	sgp_scan_trace("CLS addr=%06lx words=%lu", sgp.clsaddr, sgp.clscount);
 }
 
 static void cmd_scan_right(void) {

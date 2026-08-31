@@ -55,7 +55,7 @@ command -v python3 >/dev/null 2>&1 || {
     exit 127
 }
 
-work_dir=$(mktemp -d "${TMPDIR:-/tmp}/zundamon-orbit-m98p.XXXXXX")
+work_dir=$(mktemp -d "${TMPDIR:-/tmp}/zundamon-orbit-m98q.XXXXXX")
 cleanup() {
     rm -rf "$work_dir"
 }
@@ -74,6 +74,9 @@ python3 "$script_dir/tools/build_zundamon_orbit_boot_disk.py" \
 python3 "$repo_root/tools/pc88va/pcengine_disk.py" list \
     --image "$output_image"
 
-printf 'Created local bootable M98p disk: %s\n' "$output_image"
-printf '  ZUNDORB.COM loops the 30-scale full-page-CLS zoom until ESC.\n'
+printf 'Created local bootable M98q disk: %s\n' "$output_image"
+case "${M98Q_CLEAR_MODE:-1}" in
+    0) printf '  ZUNDORB.COM uses the two-cycle full-clear QA baseline.\n' ;;
+    *) printf '  ZUNDORB.COM loops the 30-scale page-local dirty-row zoom until ESC.\n' ;;
+esac
 printf '  The source template is unchanged; this output remains local-only.\n'

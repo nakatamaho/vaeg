@@ -28,8 +28,9 @@ if [ "$#" -gt 2 ]; then
 fi
 
 nasm_command=${NASM:-nasm}
-bounded_qa=${M98P_BOUNDED_QA:-0}
-initial_visible_page=${M98P_INITIAL_VISIBLE_PAGE:-0}
+bounded_qa=${M98Q_BOUNDED_QA:-0}
+initial_visible_page=${M98Q_INITIAL_VISIBLE_PAGE:-0}
+clear_mode=${M98Q_CLEAR_MODE:-1}
 output=${1:-ZUNDORB.COM}
 listing=${2:-${output%.*}.LST}
 script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
@@ -45,16 +46,21 @@ command -v "$nasm_command" >/dev/null 2>&1 || {
 }
 case "$bounded_qa" in
     0|1) ;;
-    *) printf 'error: M98P_BOUNDED_QA must be 0 or 1\n' >&2; exit 2 ;;
+    *) printf 'error: M98Q_BOUNDED_QA must be 0 or 1\n' >&2; exit 2 ;;
 esac
 case "$initial_visible_page" in
     0|1) ;;
-    *) printf 'error: M98P_INITIAL_VISIBLE_PAGE must be 0 or 1\n' >&2; exit 2 ;;
+    *) printf 'error: M98Q_INITIAL_VISIBLE_PAGE must be 0 or 1\n' >&2; exit 2 ;;
+esac
+case "$clear_mode" in
+    0|1) ;;
+    *) printf 'error: M98Q_CLEAR_MODE must be 0 or 1\n' >&2; exit 2 ;;
 esac
 
 "$nasm_command" -f bin \
-    -dM98P_BOUNDED_QA="$bounded_qa" \
-    -dM98P_INITIAL_VISIBLE_PAGE="$initial_visible_page" \
+    -dM98Q_BOUNDED_QA="$bounded_qa" \
+    -dM98Q_INITIAL_VISIBLE_PAGE="$initial_visible_page" \
+    -dM98Q_CLEAR_MODE="$clear_mode" \
     -l "$listing" \
     "$script_dir/zundamon_orbit_256.asm" -o "$output"
 
@@ -64,5 +70,5 @@ size=$(wc -c < "$output" | tr -d ' ')
     exit 1
 }
 
-printf 'M98P_GUEST_BUILD_PASS size=%s bounded_qa=%s initial_page=%s listing=%s\n' \
-    "$size" "$bounded_qa" "$initial_visible_page" "$listing"
+printf 'M98Q_GUEST_BUILD_PASS size=%s bounded_qa=%s initial_page=%s clear_mode=%s listing=%s\n' \
+    "$size" "$bounded_qa" "$initial_visible_page" "$clear_mode" "$listing"

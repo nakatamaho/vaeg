@@ -513,21 +513,24 @@ Run the two bounded VA2 page-parity proofs from fresh output directories:
 
 ```sh
 VAEG_ZUNDAMON_MODEL=va2 VAEG_ZUNDAMON_INITIAL_PAGE=a \
+VAEG_ZUNDAMON_CLEAR_MODE=full \
   demos/zundamon-orbit/run-vaeg.sh \
     /path/to/local-bootable-2hd.d88 /path/to/vaeg \
     /path/to/rom-directory build/generated/zundamon-orbit/m98p-page-a
 
 VAEG_ZUNDAMON_MODEL=va2 VAEG_ZUNDAMON_INITIAL_PAGE=b \
+VAEG_ZUNDAMON_CLEAR_MODE=full \
   demos/zundamon-orbit/run-vaeg.sh \
     /path/to/local-bootable-2hd.d88 /path/to/vaeg \
     /path/to/rom-directory build/generated/zundamon-orbit/m98p-page-b
 ```
 
-Each bounded build runs one complete cycle without keyboard injection. The
-two initial-page choices provide every scale on both physical G1 pages. The
-oracle compares all 116 scale/page observations against independently built
-indexed page images and checks the exact SGP source, destination, dimensions,
-pitch, X parity, sequence, counters, and stable final frames.
+The current runner extends the M98p golden to two complete cycles without
+keyboard injection. The two initial-page choices provide every scale on both
+physical G1 pages. The oracle compares all scale/page observations against
+independently built indexed page images and checks the exact SGP source,
+destination, dimensions, pitch, X parity, sequence, counters, and stable final
+frames.
 
 Build the interactive local disk from an explicit bootable 2HD template:
 
@@ -541,3 +544,60 @@ demos/zundamon-orbit/build-local-d88.sh \
 The interactive `ZUNDORB` command repeats the same cycle until ESC. M98p does
 not add dirty-row clearing, selectable cadence, orbit motion, depth coupling,
 private artwork, multiple instances, or physical-hardware performance claims.
+
+## M98q page-local dirty-row clearing
+
+M98q preserves M98p's atlas, fixed anchor, exact `30..1..29` sequence,
+transparent BMS-to-G1 BITBLT, double buffering, and VBLANK publication. It
+changes only the steady-state hidden-page clear. Page A and page B each retain
+the logical rectangle of the pseudo-sprite most recently published on that
+physical page. On reuse, the guest rounds the old horizontal extent outward
+to complete 16-bit words and issues one exact-word-count CLS per old scanline.
+All row clears finish before the new BITBLT, and the pending rectangle is
+committed only after successful page publication.
+
+Both pages are fully cleared once during initialization. Release steady state
+has no full-page CLS. This is correct only because G1 contains exactly one
+homogeneous pseudo-sprite; multi-object interval unions remain deferred.
+
+Run the focused tests and the four two-cycle VA2 comparisons from fresh output
+directories. Dirty runs require their matching full-clear golden directory:
+
+```sh
+PYTHONPYCACHEPREFIX=/tmp/vaeg-m98q-pyc \
+  python3 -m unittest discover \
+    -s demos/zundamon-orbit/tools -p 'test_*.py'
+
+VAEG_ZUNDAMON_MODEL=va2 VAEG_ZUNDAMON_INITIAL_PAGE=a \
+VAEG_ZUNDAMON_CLEAR_MODE=full \
+  demos/zundamon-orbit/run-vaeg.sh \
+    /path/to/local-bootable-2hd.d88 /path/to/vaeg \
+    /path/to/rom-directory build/generated/zundamon-orbit/m98q-a-full
+
+VAEG_ZUNDAMON_MODEL=va2 VAEG_ZUNDAMON_INITIAL_PAGE=a \
+VAEG_ZUNDAMON_CLEAR_MODE=dirty \
+VAEG_ZUNDAMON_GOLDEN_DIRECTORY=build/generated/zundamon-orbit/m98q-a-full \
+  demos/zundamon-orbit/run-vaeg.sh \
+    /path/to/local-bootable-2hd.d88 /path/to/vaeg \
+    /path/to/rom-directory build/generated/zundamon-orbit/m98q-a-dirty
+```
+
+Repeat those commands with initial page `b` and distinct `m98q-b-*` output
+directories. Each run publishes 116 frames. The oracle checks the complete
+GVRAM image, host-composited result, old-only shrinking regions, trace order,
+per-page state, exact row addresses and word counts, stable settled frames,
+and work counters. Reduced logical clear volume is not an elapsed-performance
+or physical-hardware claim.
+
+Build the interactive dirty-row candidate from an explicit local template:
+
+```sh
+demos/zundamon-orbit/build-local-d88.sh \
+  /path/to/local-bootable-2hd.d88 \
+  build/generated/zundamon-orbit/public/zundorb.bin \
+  build/generated/zundamon-orbit/zundamon-orbit-m98q.d88
+```
+
+`ZUNDORB` repeats the unchanged scale cycle until ESC. M98q adds no cadence
+selector, orbit or depth motion, private artwork, multiple instances, sound,
+gameplay, or physical-hardware timing evidence.

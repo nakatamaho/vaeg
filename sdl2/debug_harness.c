@@ -44,7 +44,7 @@
 #endif
 
 enum {
-	DEBUG_COMMAND_MAX = 256,
+	DEBUG_COMMAND_MAX = 512,
 	DEBUG_RESOURCE_MAX = 16,
 	DEBUG_COUNTER_MAX = 32,
 	DEBUG_ID_MAX = 63,
@@ -891,7 +891,10 @@ BOOL debug_harness_selftest(void) {
 	                              "capture bad registers\n";
 	static const char missing_limit[] = "debug-script 1\n"
 	                                    "exit\n";
+	char extended[8192];
 	char *buffer;
+	size_t extended_size;
+	UINT index;
 	BOOL passed;
 
 	debug_harness_clear();
@@ -918,6 +921,18 @@ BOOL debug_harness_selftest(void) {
 	}
 	passed = passed && (debug_parse_buffer(buffer, sizeof(missing_limit)) == FAILURE);
 	free(buffer);
+	debug_harness_clear();
+	extended_size =
+	    (size_t)snprintf(extended, sizeof(extended), "debug-script 1\nlimit-frame 1000\n");
+	for (index = 0; index < 300; index++) {
+		extended_size += (size_t)snprintf(extended + extended_size,
+		                                  sizeof(extended) - extended_size, "wait-frame 1\n");
+	}
+	extended_size +=
+	    (size_t)snprintf(extended + extended_size, sizeof(extended) - extended_size, "exit\n");
+	passed = passed && (extended_size < sizeof(extended)) &&
+	         (debug_parse_buffer(extended, (UINT)extended_size + 1) == SUCCESS) &&
+	         (harness.action_count == 301);
 	debug_harness_clear();
 	return passed ? SUCCESS : FAILURE;
 }
