@@ -344,3 +344,60 @@ Run the public end-to-end, contact-sheet, report, overwrite, and privacy tests:
 PYTHONPYCACHEPREFIX=/tmp/vaeg-m98j-pyc \
   python3 demos/zundamon-orbit/tools/test_zundamon_orbit_pipeline.py
 ```
+
+## Bootable 320x200 8-bpp baseline
+
+M98k is the first guest-side milestone. `ZUNDORB.COM` selects the established
+320x200 G0/G1 direct-color configuration, fills G0 with a nonzero checkerboard,
+and submits one bounded SGP command list. That single list clears G1 and uses
+transparent BITBLT mode `0105h` to place one embedded 16x16 synthetic marker
+at `(152, 92)`. The marker uses a 16-byte row stride with no padding and three
+nonzero `GGGRRRBB` values. The settled guest does not redraw the marker.
+
+Build the guest into an existing output directory:
+
+```sh
+NASM=/opt/local/bin/nasm \
+  demos/zundamon-orbit/256/build.sh /tmp/ZUNDORB.COM
+```
+
+Build a local bootable disk by explicitly supplying a PC-Engine 2HD template.
+The template is copied, never modified, and the script refuses to overwrite
+the output. The added file receives the fixed FAT timestamp
+`2026-01-01 00:00:00`, so equal template and guest inputs produce an identical
+D88 even when builds run at different host times:
+
+```sh
+demos/zundamon-orbit/build-local-d88.sh \
+  /path/to/local-bootable-2hd.d88 \
+  /tmp/zundamon-orbit-m98k.d88
+```
+
+Run a bounded VA2 capture with an explicit VAEG executable and ROM directory.
+The output directory must not exist. The runner preserves a pristine generated
+D88 and boots a disposable copy because the emulated floppy is writable:
+
+```sh
+VAEG_ZUNDAMON_MODEL=va2 demos/zundamon-orbit/run-vaeg.sh \
+  /path/to/local-bootable-2hd.d88 \
+  /path/to/vaeg \
+  /path/to/rom-directory \
+  build/generated/zundamon-orbit/m98k-run
+```
+
+The runner uses dummy SDL only as a transport for the emulator's rendered
+BMP capture. PASS comes from the independent indexed-GVRAM oracle: it checks
+the exact G0 and G1 bytes, one marker occurrence, two settled-frame identities,
+the register completion signature, the event sequence, and a nonblack rendered
+frame. Dummy SDL output alone is never treated as visual proof.
+
+Run the focused oracle tests independently:
+
+```sh
+PYTHONPYCACHEPREFIX=/tmp/vaeg-m98k-pyc \
+  python3 demos/zundamon-orbit/tools/test_zundamon_orbit_guest.py
+```
+
+M98k does not load an atlas or any external asset and contains no BMS, EMS,
+XMS, scaling, animation, or multi-instance path. Those concerns remain gated
+to later milestones.

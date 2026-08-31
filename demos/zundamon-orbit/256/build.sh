@@ -1,0 +1,52 @@
+#!/bin/sh
+# Copyright (c) 2026 Nakata Maho
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are met:
+# 1. Redistributions of source code must retain the above copyright notice,
+#    this list of conditions and the following disclaimer.
+# 2. Redistributions in binary form must reproduce the above copyright notice,
+#    this list of conditions and the following disclaimer in the documentation
+#    and/or other materials provided with the distribution.
+#
+# THIS SOFTWARE IS PROVIDED BY THE AUTHOR "AS IS" AND ANY EXPRESS OR IMPLIED
+# WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+# MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO
+# EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+# SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+# PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
+# OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+# WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+# OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
+# ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+set -eu
+
+if [ "$#" -gt 1 ]; then
+    printf 'usage: %s [OUTPUT.COM]\n' "$0" >&2
+    exit 2
+fi
+
+nasm_command=${NASM:-nasm}
+output=${1:-ZUNDORB.COM}
+script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+output_parent=$(dirname -- "$output")
+
+[ -d "$output_parent" ] || {
+    printf 'error: output directory does not exist: %s\n' "$output_parent" >&2
+    exit 1
+}
+command -v "$nasm_command" >/dev/null 2>&1 || {
+    printf 'error: NASM command is unavailable\n' >&2
+    exit 127
+}
+
+"$nasm_command" -f bin "$script_dir/zundamon_orbit_256.asm" -o "$output"
+
+size=$(wc -c < "$output" | tr -d ' ')
+[ "$size" -lt 65280 ] || {
+    printf 'error: generated COM exceeds the 64-KiB DOS payload limit\n' >&2
+    exit 1
+}
+
+printf 'M98K_GUEST_BUILD_PASS size=%s\n' "$size"
