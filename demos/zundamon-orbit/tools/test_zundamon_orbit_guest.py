@@ -121,6 +121,8 @@ def write_fixture(directory: Path) -> tuple[Path, atlas_format.Header,
         encoding="utf-8",
     )
     (directory / "ZUNDORB.LST").write_text(
+        "  090                                  poison_staging_buffer:\n"
+        "  091 00000839 1E                         push ds\n"
         "  100                                  staging_buffer:\n"
         "  101 000033C0 00<rep 1000h>              times STAGING_BYTES db 0\n",
         encoding="utf-8",
@@ -158,6 +160,7 @@ class M98lOracleTests(unittest.TestCase):
         self.assertEqual(result["status"], "PASS")
         self.assertEqual(result["errors"], [])
         self.assertEqual(result["staging"]["chunk_count"], 2)
+        self.assertEqual(result["staging"]["address"], "3000:34c0")
         self.assertEqual(result["sgp"]["trace"]["bms_source_count"], 1)
 
     def test_probe_signature_mutation(self) -> None:

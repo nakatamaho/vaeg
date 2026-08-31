@@ -335,8 +335,9 @@ def listing_symbol_offset(path: Path, symbol: str) -> int | None:
         lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
     except OSError:
         return None
+    label = re.compile(rf"(?:^|\s){re.escape(symbol)}:\s*$")
     for index, line in enumerate(lines):
-        if line.rstrip().endswith(f"{symbol}:"):
+        if label.search(line):
             for following in lines[index + 1:index + 4]:
                 match = re.search(r"\s([0-9A-Fa-f]{8})\s", following)
                 if match:
