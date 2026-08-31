@@ -221,3 +221,40 @@ privacy-output tests:
 PYTHONPYCACHEPREFIX=/tmp/vaeg-m98g-pyc \
   python3 demos/zundamon-orbit/tools/test_zundamon_orbit_scales.py
 ```
+
+## Version-1 atlas format
+
+M98h freezes the little-endian `ZUNDORB.BIN` version-1 container. Its fixed
+64-byte header is followed by 32 fixed 32-byte descriptors and a payload
+region beginning at byte 1088. The header declares one pose, 32 scales,
+128-KiB BMS banks, required bank count, an explicit first guest bank selector,
+payload bounds, complete file size, and payload/file CRC32 values.
+
+Each descriptor records dimensions, pitch, projected anchor, logical bank
+slot, offset within the bank, absolute file offset, payload length, flags, and
+frame CRC32. Guest bank selector values are derived as
+`first_bank_value + logical_bank_slot`; selector zero remains the ordinary
+memory mapping.
+
+Build and inspect the public format fixture:
+
+```sh
+fixture_root=$(mktemp -d /tmp/vaeg-m98h.XXXXXX)
+python3 demos/zundamon-orbit/tools/build_zundamon_orbit_atlas_fixture.py \
+  --output "$fixture_root/atlas.bin"
+python3 demos/zundamon-orbit/tools/inspect_zundamon_orbit_atlas.py \
+  --input "$fixture_root/atlas.bin"
+```
+
+The public fixture assigns one frame to each logical bank solely to exercise
+the format without implementing M98i packing. It is not a private or
+distribution atlas. The inspector independently rejects malformed geometry,
+flags, offsets, bank crossing or overlap, nonzero padding, noncanonical scale
+or anchor geometry, and bad frame, payload, or file CRCs.
+
+Run the deterministic writer/inspector and focused negative tests:
+
+```sh
+PYTHONPYCACHEPREFIX=/tmp/vaeg-m98h-pyc \
+  python3 demos/zundamon-orbit/tools/test_zundamon_orbit_atlas.py
+```
