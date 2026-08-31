@@ -151,3 +151,36 @@ PYTHONPYCACHEPREFIX=/tmp/vaeg-m98e-pyc \
 
 Tool success only means that the review images were generated. Crop,
 transparency, and anchor approval remains the maintainer-only G98e human gate.
+
+## VA 8-bpp conversion
+
+M98f converts a validated crop to one byte per pixel in VA direct-color
+`GGGRRRBB` order. Source index 0 remains byte `00h` for transparency. Visible
+RGB888 colors use deterministic nearest-integer 3:3:2 quantization without
+dithering.
+
+If an opaque source color would quantize to `00h`, the converter searches all
+255 nonzero VA bytes. It minimizes squared RGB error after expanding each
+candidate back to 8-bit channel values; equal distances select the lower byte.
+This keeps `00h` exclusive to transparency.
+
+Convert an explicitly supplied local bundle into a new ignored directory:
+
+```sh
+python3 demos/zundamon-orbit/tools/convert_zundamon_orbit_va8.py \
+  --manifest /path/to/private/input.json \
+  --output build/generated/zundamon-orbit/private-gate/m98f-va8
+```
+
+The directory contains top-to-bottom, left-to-right raw `pixels.va8` and a
+private `report.json`. The report records per-palette conversion error,
+opaque-zero repairs, and collisions for local inspection. Neither output is
+distributable by the public fixture workflow.
+
+Run the bit-layout, rounding, repair, collision, reproducibility, and
+privacy-output tests:
+
+```sh
+PYTHONPYCACHEPREFIX=/tmp/vaeg-m98f-pyc \
+  python3 demos/zundamon-orbit/tools/test_zundamon_orbit_va8.py
+```
