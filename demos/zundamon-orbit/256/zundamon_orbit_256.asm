@@ -104,7 +104,7 @@ org 0x100
 %define G1_PAGE_WORD_COUNT      0x7d00
 %define G1_BACKING_BYTES        0x1f400
 %define SCALE_PUBLICATIONS_PER_CYCLE 58
-%define QA_CYCLES               2
+%define QA_CYCLES               M98R_QA_CYCLES
 %define QA_PUBLICATIONS         (SCALE_PUBLICATIONS_PER_CYCLE * QA_CYCLES)
 %define TARGET_ANCHOR_X         160
 %define TARGET_ANCHOR_Y         100
@@ -118,6 +118,15 @@ org 0x100
 %ifndef M98Q_CLEAR_MODE
 %define M98Q_CLEAR_MODE         1
 %endif
+%ifndef M98R_BOUNDED_QA
+%define M98R_BOUNDED_QA         0
+%endif
+%ifndef M98R_QA_CYCLES
+%define M98R_QA_CYCLES          1
+%endif
+%ifndef M98R_QA_SCENARIO
+%define M98R_QA_SCENARIO        0
+%endif
 
 %define CLEAR_MODE_FULL         0
 %define CLEAR_MODE_DIRTY        1
@@ -130,6 +139,19 @@ org 0x100
 %define PAGE_HIDDEN_COMPLETE    3
 %define PAGE_VISIBLE            4
 %define PAGE_HIDDEN_STALE       5
+
+%define RENDER_IDLE             0
+%define RENDER_RENDERING        1
+%define RENDER_READY            2
+
+%define KEY_SCAN_ESCAPE         0x00
+%define KEY_SCAN_SPACE          0x34
+%define KEY_SCAN_LEFT           0x3b
+%define KEY_SCAN_RIGHT          0x3c
+%define KEY_SCAN_RETURN         0x1c
+
+%define CADENCE_MIN             1
+%define CADENCE_MAX             8
 
 %define BMS_WINDOW_SEGMENT      0x8000
 %define BMS_WINDOW_SGP_BASE     0x080000
@@ -180,6 +202,9 @@ org 0x100
 %define REPORT_F_CHECKPOINT_IP  0x40a0
 %define REPORT_G_CHECKPOINT_IP  0x40b0
 %define REPORT_H_CHECKPOINT_IP  0x40c0
+%define REPORT_I_CHECKPOINT_IP  0x40d0
+%define REPORT_J_CHECKPOINT_IP  0x40e0
+%define REPORT_K_CHECKPOINT_IP  0x40f0
 %define PROBE_CHECKPOINT_OFFSET (PROBE_CHECKPOINT_IP - 0x0100)
 %define LOAD_CHECKPOINT_OFFSET  (LOAD_CHECKPOINT_IP - 0x0100)
 %define TRANSFER_CHECKPOINT_OFFSET (TRANSFER_CHECKPOINT_IP - 0x0100)
@@ -193,6 +218,9 @@ org 0x100
 %define REPORT_F_CHECKPOINT_OFFSET (REPORT_F_CHECKPOINT_IP - 0x0100)
 %define REPORT_G_CHECKPOINT_OFFSET (REPORT_G_CHECKPOINT_IP - 0x0100)
 %define REPORT_H_CHECKPOINT_OFFSET (REPORT_H_CHECKPOINT_IP - 0x0100)
+%define REPORT_I_CHECKPOINT_OFFSET (REPORT_I_CHECKPOINT_IP - 0x0100)
+%define REPORT_J_CHECKPOINT_OFFSET (REPORT_J_CHECKPOINT_IP - 0x0100)
+%define REPORT_K_CHECKPOINT_OFFSET (REPORT_K_CHECKPOINT_IP - 0x0100)
 
 %if G1_PAGE_BYTES != SCREEN_WIDTH * SCREEN_HEIGHT
 %error "M98q G1 page size does not match the logical viewport"
@@ -215,6 +243,15 @@ org 0x100
 %if M98Q_BOUNDED_QA != 0 && M98Q_BOUNDED_QA != 1
 %error "M98q bounded QA flag must be zero or one"
 %endif
+%if M98R_BOUNDED_QA != 0 && M98R_BOUNDED_QA != 1
+%error "M98r bounded QA flag must be zero or one"
+%endif
+%if M98R_QA_CYCLES < 1 || M98R_QA_CYCLES > 2
+%error "M98r bounded QA cycles must be one or two"
+%endif
+%if M98R_QA_SCENARIO < 0 || M98R_QA_SCENARIO > 3
+%error "M98r QA scenario must be static, ladder, pause, or missed-slot"
+%endif
 %if M98Q_CLEAR_MODE != CLEAR_MODE_FULL && M98Q_CLEAR_MODE != CLEAR_MODE_DIRTY
 %error "M98q clear mode must be full or dirty"
 %endif
@@ -232,6 +269,7 @@ start:
     ; PC-Engine may choose a different COM load segment.  Relocate the guest
     ; to the established private-RAM segment so debug checkpoints are stable.
     mov ax, cs
+    mov [cs:psp_segment], ax
     cmp ax, PAYLOAD_SEGMENT
     je relocated_start
     pushf
@@ -256,6 +294,12 @@ relocated_start:
     push cs
     pop ds
     cld
+    call parse_cadence_option
+    jc cadence_option_failed
+    mov ah, 0x0f
+    mov al, 1
+    int KEYBOARD_BIOS_INT
+    mov byte [keyboard_repeat_disabled], 1
     call save_video_state
     mov dx, message_start
     call print_string
@@ -304,33 +348,47 @@ load_resume:
 transfer_resume:
     mov byte [current_scale_id], ATLAS_SCALE_COUNT
     mov byte [scale_direction], 0
+    call initialize_cadence_scheduler
 render_loop:
     mov al, [current_scale_id]
     call select_scale_descriptor
     jc descriptor_failed
-    call render_and_publish_hidden_page
+    mov byte [hidden_render_state], RENDER_RENDERING
+    call render_hidden_page_to_ready
+    jc runtime_failed
+    call qa_force_missed_slots_before_ready
+    jc runtime_failed
+    mov byte [hidden_render_state], RENDER_READY
+.wait_slot:
+    call wait_scheduler_edge
+    jc runtime_failed
+    cmp byte [exit_requested], 0
+    jne normal_exit
+    cmp byte [eligible_publication], 0
+    je .wait_slot
+    mov byte [eligible_publication], 0
+    call publish_ready_hidden_page
     jc runtime_failed
     mov bx, [page_flips]
     xor cx, cx
     mov cl, [last_published_scale_id]
     xor dx, dx
     mov dl, [last_published_direction]
+    mov al, [active_divisor]
+    mov dh, al
     xor ax, ax
     mov al, [visible_page_index]
     mov si, ax
-    mov di, [selected_dst_x]
-    mov bp, [selected_dst_y]
+    mov di, [vblank_edges_total]
+    mov bp, [requested_slots]
     mov ax, 0x98d1
     jmp flip_checkpoint
 
 flip_resume:
     call advance_scale_sequence
-%if M98Q_BOUNDED_QA
+%if M98R_BOUNDED_QA
     cmp word [cycles_completed], QA_CYCLES
     je settled_start
-%else
-    call poll_escape
-    jc normal_exit
 %endif
     jmp render_loop
 
@@ -355,7 +413,7 @@ settled_loop:
     jmp settled_checkpoint
 
 settled_resume:
-%if M98Q_BOUNDED_QA
+%if M98R_BOUNDED_QA
     call poll_escape
     ; Bounded QA does not depend on keyboard input; an injected key is ignored.
 %else
@@ -366,7 +424,7 @@ settled_resume:
     cmp byte [settled_capture_count], 2
     jb settled_loop
 
-%if M98Q_BOUNDED_QA
+%if M98R_BOUNDED_QA
     call validate_bounded_success
     jc descriptor_failed
     jmp normal_exit
@@ -383,6 +441,12 @@ normal_exit:
     mov word [exit_message], message_done
     mov byte [exit_errorlevel], 0
     jmp common_exit
+
+cadence_option_failed:
+    mov dx, message_option_failed
+    call print_string
+    mov ax, 0x4c02
+    int 0x21
 
 bms_probe_failed:
     mov byte [probe_result], 1
@@ -418,6 +482,13 @@ common_exit:
     call close_atlas_if_open
     call restore_bms_and_guards
     call restore_video_state
+    cmp byte [keyboard_repeat_disabled], 0
+    je .repeat_restored
+    mov ah, 0x0f
+    xor al, al
+    int KEYBOARD_BIOS_INT
+    mov byte [keyboard_repeat_disabled], 0
+.repeat_restored:
     inc word [cleanup_runs]
 
     mov bx, [pages_initialized]
@@ -504,6 +575,42 @@ report_g_resume:
     jmp report_h_checkpoint
 
 report_h_resume:
+    mov bx, [vblank_edges_total]
+    mov cx, [vblank_edges_unpaused]
+    mov dx, [vblank_edges_paused]
+    mov si, [requested_slots]
+    mov di, [published_updates]
+    mov bp, [missed_slots]
+    mov ax, 0x98e9
+    jmp report_i_checkpoint
+
+report_i_resume:
+    xor bx, bx
+    mov bl, [active_divisor]
+    mov bh, [requested_divisor]
+    mov cx, [divider_change_requests]
+    mov dx, [divider_changes_applied]
+    mov si, [divider_boundary_resets]
+    mov di, [ready_wait_edges]
+    mov bp, [scale_advances]
+    mov ax, 0x98ea
+    jmp report_j_checkpoint
+
+report_j_resume:
+    mov bx, [pause_requests]
+    mov cx, [pause_transitions_applied]
+    mov dx, [control_endpoint_hits]
+    mov si, [partial_publication_attempts]
+    xor ax, ax
+    mov al, [hidden_render_state]
+    mov di, ax
+    xor ax, ax
+    mov al, [divider_count]
+    mov bp, ax
+    mov ax, 0x98eb
+    jmp report_k_checkpoint
+
+report_k_resume:
     mov dx, [exit_message]
     call print_string
     mov al, [exit_errorlevel]
@@ -1998,7 +2105,7 @@ commit_pending_rectangle:
     stc
     ret
 
-render_and_publish_hidden_page:
+render_hidden_page_to_ready:
     push ax
     push bx
     push cx
@@ -2061,15 +2168,34 @@ render_and_publish_hidden_page:
     call select_render_ordinary
     call verify_normal_guards
     jc .sgp_error
+    clc
+    jmp .done
+.sgp_error:
+    inc word [sgp_errors]
+.state_failed:
+    mov byte [runtime_failure_kind], 1
+.failed:
+    stc
+.done:
+    pop di
+    pop si
+    pop dx
+    pop cx
+    pop bx
+    pop ax
+    ret
 
-    mov byte [runtime_failure_kind], 2
-    call wait_vblank_edge
-    jc .failed
+publish_ready_hidden_page:
+    push ax
+    push bx
+    push si
+    cmp byte [hidden_render_state], RENDER_READY
+    jne .failed
     mov al, [hidden_page_index]
     call publish_page
-    jc .state_failed
+    jc .failed
     call commit_pending_rectangle
-    jc .state_failed
+    jc .failed
     mov al, [hidden_page_index]
     xor ah, ah
     mov si, ax
@@ -2090,24 +2216,20 @@ render_and_publish_hidden_page:
     mov [visible_page_index], bl
     mov [hidden_page_index], al
     inc word [page_flips]
+    inc word [published_updates]
     mov al, [selected_scale_id]
     mov [last_published_scale_id], al
     mov al, [scale_direction]
     mov [last_published_direction], al
     call record_scale_publication
+    mov byte [hidden_render_state], RENDER_IDLE
+    call qa_after_publication
     clc
     jmp .done
-.sgp_error:
-    inc word [sgp_errors]
-.state_failed:
-    mov byte [runtime_failure_kind], 1
 .failed:
     stc
 .done:
-    pop di
     pop si
-    pop dx
-    pop cx
     pop bx
     pop ax
     ret
@@ -2177,6 +2299,7 @@ record_scale_publication:
     ret
 
 advance_scale_sequence:
+    inc word [scale_advances]
     cmp byte [scale_direction], 0
     jne .grow
     cmp byte [current_scale_id], 1
@@ -2233,6 +2356,24 @@ validate_bounded_success:
     cmp word [transparent_bitblts], QA_PUBLICATIONS
     jne .failed
     cmp word [page_flips], QA_PUBLICATIONS
+    jne .failed
+    cmp word [published_updates], QA_PUBLICATIONS
+    jne .failed
+    cmp word [scale_advances], QA_PUBLICATIONS
+    jne .failed
+    mov ax, [published_updates]
+    add ax, [missed_slots]
+    cmp ax, [requested_slots]
+    jne .failed
+    cmp byte [active_divisor], CADENCE_MIN
+    jb .failed
+    cmp byte [active_divisor], CADENCE_MAX
+    ja .failed
+    cmp byte [requested_divisor], CADENCE_MIN
+    jb .failed
+    cmp byte [requested_divisor], CADENCE_MAX
+    ja .failed
+    cmp word [partial_publication_attempts], 0
     jne .failed
     cmp word [cycles_completed], QA_CYCLES
     jne .failed
@@ -2296,6 +2437,358 @@ validate_bounded_success:
     stc
     ret
 
+parse_cadence_option:
+    push ax
+    push bx
+    push cx
+    push si
+    push es
+    mov byte [parsed_divisor], CADENCE_MIN
+    mov byte [cadence_option_seen], 0
+    mov ax, [psp_segment]
+    mov es, ax
+    xor cx, cx
+    mov cl, [es:0x0080]
+    mov si, 0x0081
+.skip_space:
+    test cx, cx
+    jz .success
+    mov al, [es:si]
+    cmp al, ' '
+    je .space
+    cmp al, 9
+    jne .token
+.space:
+    inc si
+    dec cx
+    jmp .skip_space
+.token:
+    cmp byte [cadence_option_seen], 0
+    jne .failed
+    cmp cx, 3
+    jb .failed
+    cmp al, '/'
+    jne .failed
+    mov al, [es:si + 1]
+    and al, 0xdf
+    cmp al, 'V'
+    jne .failed
+    mov al, [es:si + 2]
+    cmp al, '1'
+    jb .failed
+    cmp al, '8'
+    ja .failed
+    sub al, '0'
+    mov [parsed_divisor], al
+    mov byte [cadence_option_seen], 1
+    add si, 3
+    sub cx, 3
+    test cx, cx
+    jz .success
+    mov al, [es:si]
+    cmp al, ' '
+    je .skip_space
+    cmp al, 9
+    je .skip_space
+.failed:
+    stc
+    jmp .done
+.success:
+    clc
+.done:
+    pop es
+    pop si
+    pop cx
+    pop bx
+    pop ax
+    ret
+
+initialize_cadence_scheduler:
+    mov al, [parsed_divisor]
+    mov [active_divisor], al
+    mov [requested_divisor], al
+    mov byte [divider_count], 0
+    mov byte [paused], 0
+    mov byte [pause_toggle_pending], 0
+    mov byte [exit_requested], 0
+    mov byte [eligible_publication], 0
+    mov byte [hidden_render_state], RENDER_IDLE
+    mov dx, PORT_TSP_STATUS
+    in al, dx
+    and al, TSP_STATUS_VBLANK
+    mov [vblank_last_high], al
+    mov byte [scheduler_active], 1
+    ret
+
+poll_control_requests:
+    push ax
+    mov ah, 0x0a
+    int KEYBOARD_BIOS_INT
+    jc .done
+    mov ah, 0x09
+    int KEYBOARD_BIOS_INT
+    cmp ah, KEY_SCAN_ESCAPE
+    je .escape
+    cmp ah, KEY_SCAN_RETURN
+    je .escape
+    cmp ah, KEY_SCAN_LEFT
+    je .faster
+    cmp ah, KEY_SCAN_RIGHT
+    je .slower
+    cmp ah, KEY_SCAN_SPACE
+    je .pause
+    jmp .done
+.escape:
+    mov byte [exit_requested], 1
+    jmp .done
+.faster:
+    cmp byte [requested_divisor], CADENCE_MIN
+    jbe .clamped
+    dec byte [requested_divisor]
+    inc word [divider_change_requests]
+    jmp .done
+.slower:
+    cmp byte [requested_divisor], CADENCE_MAX
+    jae .clamped
+    inc byte [requested_divisor]
+    inc word [divider_change_requests]
+    jmp .done
+.pause:
+    xor byte [pause_toggle_pending], 1
+    inc word [pause_requests]
+    jmp .done
+.clamped:
+    inc word [control_endpoint_hits]
+.done:
+    pop ax
+    ret
+
+observe_vblank_sample:
+    push ax
+    push dx
+    cmp byte [scheduler_active], 0
+    je .no_edge
+    mov dx, PORT_TSP_STATUS
+    in al, dx
+    test al, TSP_STATUS_VBLANK
+    jz .low
+    cmp byte [vblank_last_high], 0
+    jne .no_edge
+    mov byte [vblank_last_high], TSP_STATUS_VBLANK
+    call process_scheduler_edge
+    pop dx
+    pop ax
+    stc
+    ret
+.low:
+    mov byte [vblank_last_high], 0
+.no_edge:
+    pop dx
+    pop ax
+    clc
+    ret
+
+process_scheduler_edge:
+    push ax
+    push bx
+    inc word [vblank_edges_total]
+    mov byte [scheduler_boundary_reset], 0
+    call qa_before_scheduler_actions
+    cmp byte [exit_requested], 0
+    jne .done
+    cmp byte [pause_toggle_pending], 0
+    je .check_divisor
+    xor byte [paused], 1
+    mov byte [pause_toggle_pending], 0
+    inc word [pause_transitions_applied]
+    mov byte [scheduler_boundary_reset], 1
+.check_divisor:
+    mov al, [requested_divisor]
+    cmp al, [active_divisor]
+    je .classify
+    mov [active_divisor], al
+    inc word [divider_changes_applied]
+    mov byte [scheduler_boundary_reset], 1
+.classify:
+    cmp byte [paused], 0
+    je .unpaused
+    inc word [vblank_edges_paused]
+    mov byte [divider_count], 0
+    cmp byte [scheduler_boundary_reset], 0
+    je .done
+    inc word [divider_boundary_resets]
+    jmp .done
+.unpaused:
+    inc word [vblank_edges_unpaused]
+    cmp byte [scheduler_boundary_reset], 0
+    je .count_divider
+    mov byte [divider_count], 0
+    inc word [divider_boundary_resets]
+    jmp .ready_wait
+.count_divider:
+    inc byte [divider_count]
+    mov al, [divider_count]
+    cmp al, [active_divisor]
+    jb .ready_wait
+    mov byte [divider_count], 0
+    inc word [requested_slots]
+    cmp byte [hidden_render_state], RENDER_READY
+    jne .missed
+    mov byte [eligible_publication], 1
+    jmp .done
+.missed:
+    inc word [missed_slots]
+    jmp .done
+.ready_wait:
+    cmp byte [hidden_render_state], RENDER_READY
+    jne .done
+    inc word [ready_wait_edges]
+.done:
+    pop bx
+    pop ax
+    ret
+
+wait_scheduler_edge:
+    mov bx, 4
+.outer:
+    mov cx, 0xffff
+.poll:
+    call poll_control_requests
+    cmp byte [exit_requested], 0
+    jne .ready
+    call observe_vblank_sample
+    jc .ready
+    loop .poll
+    dec bx
+    jnz .outer
+    inc word [vblank_timeouts]
+    mov byte [runtime_failure_kind], 2
+    stc
+    ret
+.ready:
+    clc
+    ret
+
+qa_queue_divisor:
+    ; AL is a checked divisor used only by compile-time bounded QA scenarios.
+    cmp al, CADENCE_MIN
+    jb .failed
+    cmp al, CADENCE_MAX
+    ja .failed
+    cmp al, [requested_divisor]
+    je .done
+    mov [requested_divisor], al
+    inc word [divider_change_requests]
+.done:
+    clc
+    ret
+.failed:
+    stc
+    ret
+
+qa_force_missed_slots_before_ready:
+%if M98R_BOUNDED_QA && M98R_QA_SCENARIO = 3
+    cmp byte [qa_stage], 0
+    jne .done
+    call wait_scheduler_edge
+    jc .failed
+    call wait_scheduler_edge
+    jc .failed
+    mov byte [qa_stage], 1
+%endif
+.done:
+    clc
+    ret
+.failed:
+    stc
+    ret
+
+qa_queue_pause:
+    xor byte [pause_toggle_pending], 1
+    inc word [pause_requests]
+    ret
+
+qa_after_sgp_submission:
+%if M98R_BOUNDED_QA && M98R_QA_SCENARIO = 1
+    cmp byte [hidden_render_state], RENDER_RENDERING
+    jne .done
+    cmp byte [qa_stage], 0
+    jne .done
+    cmp word [published_updates], 4
+    jne .done
+    mov al, 2
+    call qa_queue_divisor
+    jc .done
+    mov byte [qa_stage], 1
+%elif M98R_BOUNDED_QA && M98R_QA_SCENARIO = 2
+    cmp byte [hidden_render_state], RENDER_RENDERING
+    jne .done
+    cmp byte [qa_stage], 0
+    jne .done
+    cmp word [published_updates], 4
+    jne .done
+    call qa_queue_pause
+    mov byte [qa_pause_edges_remaining], 5
+    mov byte [qa_stage], 1
+%endif
+.done:
+    ret
+
+qa_after_publication:
+%if M98R_BOUNDED_QA && M98R_QA_SCENARIO = 1
+    cmp byte [qa_stage], 1
+    jb .done
+    cmp byte [qa_stage], 14
+    jae .done
+    xor bx, bx
+    mov bl, [qa_stage]
+    dec bx
+    mov si, bx
+    shl si, 1
+    mov ax, [qa_ladder_publications + si]
+    cmp ax, [published_updates]
+    jne .done
+    mov al, [qa_ladder_divisors + bx]
+    call qa_queue_divisor
+    jc .done
+    inc byte [qa_stage]
+%elif M98R_BOUNDED_QA && M98R_QA_SCENARIO = 2
+    cmp byte [qa_stage], 2
+    jne .pause_at_40
+    cmp word [published_updates], 20
+    jne .done
+    call qa_queue_pause
+    mov byte [qa_pause_edges_remaining], 5
+    mov byte [qa_stage], 3
+    jmp .done
+.pause_at_40:
+    cmp byte [qa_stage], 4
+    jne .done
+    cmp word [published_updates], 40
+    jne .done
+    call qa_queue_pause
+    mov byte [qa_pause_edges_remaining], 5
+    mov byte [qa_stage], 5
+%endif
+.done:
+    ret
+
+qa_before_scheduler_actions:
+%if M98R_BOUNDED_QA && M98R_QA_SCENARIO = 2
+    cmp byte [paused], 0
+    je .done
+    cmp byte [pause_toggle_pending], 0
+    jne .done
+    cmp byte [qa_pause_edges_remaining], 0
+    je .done
+    dec byte [qa_pause_edges_remaining]
+    jne .done
+    call qa_queue_pause
+    inc byte [qa_stage]
+%endif
+.done:
+    ret
+
 select_render_ordinary:
     mov dx, PORT_BMS_SELECTOR
     in al, dx
@@ -2325,6 +2818,7 @@ run_sgp_command_list:
     mov dx, PORT_SGP_STATUS
     mov al, SGP_BUSY
     out dx, al
+    call qa_after_sgp_submission
     call wait_sgp_idle
     jnc .complete
     ; Abort only after the bounded completion wait fails.  This leaves the
@@ -2353,6 +2847,11 @@ wait_sgp_idle:
     in al, dx
     test al, SGP_BUSY
     jz .ready
+    cmp byte [scheduler_active], 0
+    je .continue
+    call poll_control_requests
+    call observe_vblank_sample
+.continue:
     loop .poll
     dec bx
     jnz .outer
@@ -2491,20 +2990,22 @@ print_string:
     ret
 
 message_start:
-    db "M98Q_INIT: page-local dirty-row zoom", 13, 10
+    db "M98R_INIT: selectable VBLANK cadence zoom", 13, 10
     db "Selector 0 is ordinary RAM; selector 1 is the atlas bank.", 13, 10, "$"
 message_done:
-    db "M98Q_EXIT: ordinary mapping and video state restored.", 13, 10, "$"
+    db "M98R_EXIT: ordinary mapping, keyboard, and video state restored.", 13, 10, "$"
+message_option_failed:
+    db "M98R_OPTION: use zero or one exact /V1 through /V8 option.", 13, 10, "$"
 message_bms_failed:
-    db "M98Q_FAIL: predecessor BMS mapping probe failed.", 13, 10, "$"
+    db "M98R_FAIL: predecessor BMS mapping probe failed.", 13, 10, "$"
 message_atlas_failed:
-    db "M98Q_FAIL: atlas validation or streaming failed.", 13, 10, "$"
+    db "M98R_FAIL: atlas validation or streaming failed.", 13, 10, "$"
 message_descriptor_failed:
-    db "M98Q_FAIL: scale descriptor or bounded invariant failed.", 13, 10, "$"
+    db "M98R_FAIL: scale descriptor or bounded invariant failed.", 13, 10, "$"
 message_transfer_failed:
-    db "M98Q_FAIL: hidden-page SGP batch failed.", 13, 10, "$"
+    db "M98R_FAIL: hidden-page SGP batch failed.", 13, 10, "$"
 message_runtime_failed:
-    db "M98Q_FAIL: bounded VBLANK edge wait timed out.", 13, 10, "$"
+    db "M98R_FAIL: bounded VBLANK edge wait timed out.", 13, 10, "$"
 atlas_filename:
     db "ZUNDORB.BIN", 0
 
@@ -2548,6 +3049,15 @@ report_g_checkpoint:
 times REPORT_H_CHECKPOINT_OFFSET - ($ - $$) db 0x90
 report_h_checkpoint:
     jmp report_h_resume
+times REPORT_I_CHECKPOINT_OFFSET - ($ - $$) db 0x90
+report_i_checkpoint:
+    jmp report_i_resume
+times REPORT_J_CHECKPOINT_OFFSET - ($ - $$) db 0x90
+report_j_checkpoint:
+    jmp report_j_resume
+times REPORT_K_CHECKPOINT_OFFSET - ($ - $$) db 0x90
+report_k_checkpoint:
+    jmp report_k_resume
 
 align 2, db 0
 sgp_command_list:
@@ -2560,6 +3070,8 @@ checker_row_a:
 checker_row_b:
     times 8 db 0x49
     times 8 db 0x24
+qa_ladder_publications: dw 8, 12, 16, 20, 24, 28, 32, 36, 40, 44, 48, 52, 56
+qa_ladder_divisors: db 3, 4, 5, 6, 7, 8, 7, 6, 5, 4, 3, 2, 1
 guard_normal_outside: db 0x5a,0xa5,0x3c,0xc3,0x69,0x96,0x0f,0xf0
 guard_normal_under:   db 0xa5,0x5a,0xc3,0x3c,0x96,0x69,0xf0,0x0f
 signature_bank_1:    db 0x11,0x21,0x31,0x41,0x51,0x61,0x71,0x81
@@ -2587,6 +3099,22 @@ descriptor_validation_id: db 0
 runtime_failure_kind: db 0
 exit_errorlevel: db 1
 dirty_clear_needed: db 0
+parsed_divisor: db CADENCE_MIN
+active_divisor: db CADENCE_MIN
+requested_divisor: db CADENCE_MIN
+divider_count: db 0
+paused: db 0
+pause_toggle_pending: db 0
+exit_requested: db 0
+eligible_publication: db 0
+hidden_render_state: db RENDER_IDLE
+vblank_last_high: db 0
+scheduler_active: db 0
+scheduler_boundary_reset: db 0
+cadence_option_seen: db 0
+keyboard_repeat_disabled: db 0
+qa_stage: db 0
+qa_pause_edges_remaining: db 0
 align 2, db 0
 page_old_x: dw 0, 0
 page_old_y: dw 0, 0
@@ -2605,6 +3133,7 @@ dirty_batch_rows: dw 0
 dirty_row_address: dw 0, 0
 dirty_builder_failed: dw 0
 last_published_dsa: dw G1_PAGE_A_DSA & 0xffff
+psp_segment: dw 0
 exit_message: dw message_transfer_failed
 pages_initialized: dw 0
 render_batches_started: dw 0
@@ -2624,6 +3153,21 @@ bms_bank_switches: dw 0
 bms_bank_selections: dw 0
 descriptor_errors: dw 0
 cleanup_runs: dw 0
+vblank_edges_total: dw 0
+vblank_edges_unpaused: dw 0
+vblank_edges_paused: dw 0
+divider_change_requests: dw 0
+divider_changes_applied: dw 0
+divider_boundary_resets: dw 0
+pause_requests: dw 0
+pause_transitions_applied: dw 0
+control_endpoint_hits: dw 0
+requested_slots: dw 0
+published_updates: dw 0
+missed_slots: dw 0
+ready_wait_edges: dw 0
+scale_advances: dw 0
+partial_publication_attempts: dw 0
 dirty_full_mismatches: dw 0
 guard_failures: dw 0
 sgp_command_lists: dw 0
@@ -2704,5 +3248,5 @@ staging_buffer:
 program_end:
 
 %if program_end - $$ >= 65280
-%error "M98q guest exceeds the 64-KiB DOS payload limit"
+%error "M98r guest exceeds the 64-KiB DOS payload limit"
 %endif

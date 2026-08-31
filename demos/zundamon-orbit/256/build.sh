@@ -28,9 +28,11 @@ if [ "$#" -gt 2 ]; then
 fi
 
 nasm_command=${NASM:-nasm}
-bounded_qa=${M98Q_BOUNDED_QA:-0}
-initial_visible_page=${M98Q_INITIAL_VISIBLE_PAGE:-0}
-clear_mode=${M98Q_CLEAR_MODE:-1}
+bounded_qa=${M98R_BOUNDED_QA:-0}
+qa_cycles=${M98R_QA_CYCLES:-1}
+qa_scenario=${M98R_QA_SCENARIO:-0}
+initial_visible_page=${M98R_INITIAL_VISIBLE_PAGE:-0}
+clear_mode=${M98R_CLEAR_MODE:-1}
 output=${1:-ZUNDORB.COM}
 listing=${2:-${output%.*}.LST}
 script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
@@ -46,19 +48,29 @@ command -v "$nasm_command" >/dev/null 2>&1 || {
 }
 case "$bounded_qa" in
     0|1) ;;
-    *) printf 'error: M98Q_BOUNDED_QA must be 0 or 1\n' >&2; exit 2 ;;
+    *) printf 'error: M98R_BOUNDED_QA must be 0 or 1\n' >&2; exit 2 ;;
+esac
+case "$qa_cycles" in
+    1|2) ;;
+    *) printf 'error: M98R_QA_CYCLES must be 1 or 2\n' >&2; exit 2 ;;
+esac
+case "$qa_scenario" in
+    0|1|2|3) ;;
+    *) printf 'error: M98R_QA_SCENARIO must be 0, 1, 2, or 3\n' >&2; exit 2 ;;
 esac
 case "$initial_visible_page" in
     0|1) ;;
-    *) printf 'error: M98Q_INITIAL_VISIBLE_PAGE must be 0 or 1\n' >&2; exit 2 ;;
+    *) printf 'error: M98R_INITIAL_VISIBLE_PAGE must be 0 or 1\n' >&2; exit 2 ;;
 esac
 case "$clear_mode" in
     0|1) ;;
-    *) printf 'error: M98Q_CLEAR_MODE must be 0 or 1\n' >&2; exit 2 ;;
+    *) printf 'error: M98R_CLEAR_MODE must be 0 or 1\n' >&2; exit 2 ;;
 esac
 
 "$nasm_command" -f bin \
-    -dM98Q_BOUNDED_QA="$bounded_qa" \
+    -dM98R_BOUNDED_QA="$bounded_qa" \
+    -dM98R_QA_CYCLES="$qa_cycles" \
+    -dM98R_QA_SCENARIO="$qa_scenario" \
     -dM98Q_INITIAL_VISIBLE_PAGE="$initial_visible_page" \
     -dM98Q_CLEAR_MODE="$clear_mode" \
     -l "$listing" \
@@ -70,5 +82,5 @@ size=$(wc -c < "$output" | tr -d ' ')
     exit 1
 }
 
-printf 'M98Q_GUEST_BUILD_PASS size=%s bounded_qa=%s initial_page=%s clear_mode=%s listing=%s\n' \
-    "$size" "$bounded_qa" "$initial_visible_page" "$clear_mode" "$listing"
+printf 'M98R_GUEST_BUILD_PASS size=%s bounded_qa=%s cycles=%s scenario=%s initial_page=%s clear_mode=%s listing=%s\n' \
+    "$size" "$bounded_qa" "$qa_cycles" "$qa_scenario" "$initial_visible_page" "$clear_mode" "$listing"

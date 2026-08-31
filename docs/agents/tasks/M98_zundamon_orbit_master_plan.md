@@ -145,7 +145,7 @@ Execute exactly one assigned stage and stop at its gate.
 | M98o | Add transparent G1 double buffering - G98o passed | Human/VAEG |
 | M98p | Visit all 30 scales with a full-page-CLS baseline - G98p passed | Human/VAEG |
 | M98q | Add page-local dirty-row clearing - G98q passed | Human/VAEG |
-| M98r | Add VBLANK rate selection and telemetry | Human/VAEG |
+| M98r | Add VBLANK cadence selection and telemetry - active | Human/VAEG |
 | M98s | Add a constant-size 64-phase ellipse | Human/VAEG |
 | M98t | Couple orbit depth to the 30-level atlas | Human/VAEG |
 | M98u | Integrate and tune the approved local image | Human/local |
@@ -179,10 +179,11 @@ per-physical-page dirty-row clearing for the one homogeneous G1 object. M98p
 remains the byte-correct golden. Its implementation candidate is
 `6a3f229c74d1ffed9888b279e80334ac76d2e461`; all four 116-publication
 `A/full`, `A/dirty`, `B/full`, and `B/dirty` VA2 comparisons passed with zero
-framebuffer mismatches. The automated gate passed on 2026-09-01. The
-maintainer then confirmed no stale image, horizontal one-pixel streak, anchor
-wobble, or flicker and confirmed successful ESC restoration. G98q passed and
-M98q is closed. Later milestones retain their numbering and remain unassigned.
+framebuffer mismatches. The maintainer explicitly passed G98q on 2026-09-01
+after confirming no stale image, horizontal one-pixel streak, anchor wobble,
+or flicker and successful ESC restoration. M98q is closed. M98r adds only
+selectable VBLANK cadence; M98s ellipse motion and M98t depth coupling remain
+separate later milestones.
 
 ## 6. Deterministic host contracts
 

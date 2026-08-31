@@ -601,3 +601,30 @@ demos/zundamon-orbit/build-local-d88.sh \
 `ZUNDORB` repeats the unchanged scale cycle until ESC. M98q adds no cadence
 selector, orbit or depth motion, private artwork, multiple instances, sound,
 gameplay, or physical-hardware timing evidence.
+
+## M98r selectable VBLANK cadence
+
+M98r preserves the M98q image, fixed anchor, dirty-row clearing, page
+transactions, and exact `30..1..29` scale sequence. It adds only publication
+cadence. Run `ZUNDORB` with no option for the default `/V1`, or select one of
+the eight divisors explicitly:
+
+```text
+/V1  60 fps nominal      /V5  12 fps nominal
+/V2  30 fps nominal      /V6  10 fps nominal
+/V3  20 fps nominal      /V7  8.6 fps nominal
+/V4  15 fps nominal      /V8  7.5 fps nominal
+```
+
+LEFT selects the next faster divisor, RIGHT selects the next slower divisor,
+SPACE pauses or resumes, and ESC restores the machine and exits. Changes and
+pause transitions take effect on a fresh VBLANK boundary; a resumed animation
+waits one complete new divisor interval. The labels are selector names rather
+than exact measured rates. The requested update rate is the actual display
+VBLANK rate divided by the selected divisor.
+
+The generated VA2 validation runs keep VBLANK edge counts, requested slots,
+successful publications, and missed slots separate. A missed slot retains the
+complete visible page and does not skip a scale. M98r adds no ellipse, depth
+coupling, private image, multiple instances, UP/DOWN behavior, or physical-
+hardware timing claim.
