@@ -258,3 +258,41 @@ Run the deterministic writer/inspector and focused negative tests:
 PYTHONPYCACHEPREFIX=/tmp/vaeg-m98h-pyc \
   python3 demos/zundamon-orbit/tools/test_zundamon_orbit_atlas.py
 ```
+
+## Minimal BMS bank packing
+
+M98i places all 32 frames in increasing scale order into the minimum
+deterministic sequence of 128-KiB logical BMS banks. Every frame begins at a
+16-byte-aligned bank offset and remains entirely within one bank. When the
+next complete frame cannot fit, the remaining bank tail is left unused and
+the frame starts at offset zero in the next logical bank. Frames are never
+split, reordered, or backfilled.
+
+The compact atlas file does not serialize unused bank tails. It retains the
+M98h canonical file layout and records each logical bank slot and bank offset
+in the descriptor table. The M98h one-frame-per-bank fixture remains a valid
+format test; the stricter M98i validator deliberately rejects it as
+nonminimal production packing.
+
+Build and inspect the minimally packed public fixture:
+
+```sh
+packing_root=$(mktemp -d /tmp/vaeg-m98i.XXXXXX)
+python3 demos/zundamon-orbit/tools/pack_zundamon_orbit_atlas.py \
+  --fixture-output "$packing_root/packed"
+python3 demos/zundamon-orbit/tools/pack_zundamon_orbit_atlas.py \
+  --inspect "$packing_root/packed/zundorb.bin"
+```
+
+The generated `packing-report.json` reconciles useful pixels, row and frame
+alignment, logical bank-boundary padding, per-bank payload and occupied
+bytes, compact payload size, and required bank count. These values are not
+printed by the CLI.
+
+Run the exact-fit, overflow, multi-bank, deterministic, corruption, metrics,
+and privacy-output tests:
+
+```sh
+PYTHONPYCACHEPREFIX=/tmp/vaeg-m98i-pyc \
+  python3 demos/zundamon-orbit/tools/test_zundamon_orbit_packing.py
+```
