@@ -55,7 +55,7 @@ command -v python3 >/dev/null 2>&1 || {
     exit 127
 }
 
-work_dir=$(mktemp -d "${TMPDIR:-/tmp}/zundamon-orbit-m98l.XXXXXX")
+work_dir=$(mktemp -d "${TMPDIR:-/tmp}/zundamon-orbit-m98o.XXXXXX")
 cleanup() {
     rm -rf "$work_dir"
 }
@@ -74,6 +74,6 @@ python3 "$script_dir/tools/build_zundamon_orbit_boot_disk.py" \
 python3 "$repo_root/tools/pc88va/pcengine_disk.py" list \
     --image "$output_image"
 
-printf 'Created local bootable M98l disk: %s\n' "$output_image"
-printf '  ZUNDORB.COM streams ZUNDORB.BIN through one 4096-byte buffer.\n'
+printf 'Created local bootable M98o disk: %s\n' "$output_image"
+printf '  ZUNDORB.COM renders BMS content through hidden G1 pages.\n'
 printf '  The source template is unchanged; this output remains local-only.\n'

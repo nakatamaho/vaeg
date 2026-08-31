@@ -1,4 +1,3 @@
-#!/bin/sh
 # Copyright (c) 2026 Nakata Maho
 #
 # Redistribution and use in source and binary forms, with or without
@@ -17,38 +16,36 @@
 # PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
 # OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
 # WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
-# OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
-# ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+# OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
+# OF THE POSSIBILITY OF SUCH DAMAGE.
 
-set -eu
-
-if [ "$#" -gt 2 ]; then
-    printf 'usage: %s [OUTPUT.COM [OUTPUT.LST]]\n' "$0" >&2
-    exit 2
-fi
-
-nasm_command=${NASM:-nasm}
-output=${1:-ZUNDORB.COM}
-listing=${2:-${output%.*}.LST}
-script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
-output_parent=$(dirname -- "$output")
-
-[ -d "$output_parent" ] || {
-    printf 'error: output directory does not exist: %s\n' "$output_parent" >&2
-    exit 1
-}
-command -v "$nasm_command" >/dev/null 2>&1 || {
-    printf 'error: NASM command is unavailable\n' >&2
-    exit 127
-}
-
-"$nasm_command" -f bin -l "$listing" \
-    "$script_dir/zundamon_orbit_256.asm" -o "$output"
-
-size=$(wc -c < "$output" | tr -d ' ')
-[ "$size" -lt 65280 ] || {
-    printf 'error: generated COM exceeds the 64-KiB DOS payload limit\n' >&2
-    exit 1
-}
-
-printf 'M98O_GUEST_BUILD_PASS size=%s listing=%s\n' "$size" "$listing"
+debug-script 1
+limit-frame 5000
+wait-frame 1200
+input-line ZUNDORB
+wait-pc 3000:3000 1
+capture m98o-probe registers
+wait-pc 3000:3010 1
+capture m98o-load registers
+wait-pc 3000:3020 1
+capture m98o-initialize registers
+wait-pc 3000:3030 1
+capture m98o-flip-1 registers gvram screen
+wait-pc 3000:3030 1
+capture m98o-flip-2 registers gvram screen
+wait-pc 3000:3030 1
+capture m98o-flip-3 registers gvram screen
+wait-pc 3000:3030 1
+capture m98o-flip-4 registers gvram screen
+wait-pc 3000:3040 1
+capture m98o-settled-a registers gvram screen
+wait-pc 3000:3040 1
+capture m98o-settled-b registers gvram screen
+enter
+wait-pc 3000:3050 1
+capture m98o-report-a registers
+wait-pc 3000:3060 1
+capture m98o-report-b registers
+wait-pc 3000:3070 1
+capture m98o-report-c registers
+exit

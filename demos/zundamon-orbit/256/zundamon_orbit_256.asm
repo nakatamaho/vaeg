@@ -98,7 +98,25 @@ org 0x100
 %define G1_BACKING_HEIGHT       400
 %define G1_PAGE_A_SGP_BASE      0x220000
 %define G1_PAGE_A_DSA           0x020000
-%define G1_BACKING_WORD_COUNT   0xfa00
+%define G1_PAGE_B_SGP_BASE      0x22fa00
+%define G1_PAGE_B_DSA           0x02fa00
+%define G1_PAGE_BYTES           0xfa00
+%define G1_PAGE_WORD_COUNT      0x7d00
+%define G1_BACKING_BYTES        0x1f400
+%define RENDER_BATCH_COUNT      4
+%define POSITION_P0_X           48
+%define POSITION_P0_Y           40
+%define POSITION_P1_X           248
+%define POSITION_P1_Y           140
+
+%define PAGE_A                  0
+%define PAGE_B                  1
+%define PAGE_UNINITIALIZED      0
+%define PAGE_HIDDEN_CLEAN       1
+%define PAGE_HIDDEN_RENDERING   2
+%define PAGE_HIDDEN_COMPLETE    3
+%define PAGE_VISIBLE            4
+%define PAGE_HIDDEN_STALE       5
 
 %define BMS_WINDOW_SEGMENT      0x8000
 %define BMS_WINDOW_SGP_BASE     0x080000
@@ -135,11 +153,44 @@ org 0x100
 %define PROBE_CHECKPOINT_IP     0x3000
 %define LOAD_CHECKPOINT_IP      0x3010
 %define TRANSFER_CHECKPOINT_IP  0x3020
-%define IDLE_CHECKPOINT_IP      0x3030
+%define FLIP_CHECKPOINT_IP      0x3030
+%define SETTLED_CHECKPOINT_IP   0x3040
+%define REPORT_A_CHECKPOINT_IP  0x3050
+%define REPORT_B_CHECKPOINT_IP  0x3060
+%define REPORT_C_CHECKPOINT_IP  0x3070
 %define PROBE_CHECKPOINT_OFFSET (PROBE_CHECKPOINT_IP - 0x0100)
 %define LOAD_CHECKPOINT_OFFSET  (LOAD_CHECKPOINT_IP - 0x0100)
 %define TRANSFER_CHECKPOINT_OFFSET (TRANSFER_CHECKPOINT_IP - 0x0100)
-%define IDLE_CHECKPOINT_OFFSET  (IDLE_CHECKPOINT_IP - 0x0100)
+%define FLIP_CHECKPOINT_OFFSET  (FLIP_CHECKPOINT_IP - 0x0100)
+%define SETTLED_CHECKPOINT_OFFSET (SETTLED_CHECKPOINT_IP - 0x0100)
+%define REPORT_A_CHECKPOINT_OFFSET (REPORT_A_CHECKPOINT_IP - 0x0100)
+%define REPORT_B_CHECKPOINT_OFFSET (REPORT_B_CHECKPOINT_IP - 0x0100)
+%define REPORT_C_CHECKPOINT_OFFSET (REPORT_C_CHECKPOINT_IP - 0x0100)
+
+%if G1_PAGE_BYTES != SCREEN_WIDTH * SCREEN_HEIGHT
+%error "M98o G1 page size does not match the logical viewport"
+%endif
+%if G1_PAGE_WORD_COUNT * 2 != G1_PAGE_BYTES
+%error "M98o G1 word count is inconsistent"
+%endif
+%if G1_PAGE_B_SGP_BASE - G1_PAGE_A_SGP_BASE != G1_PAGE_BYTES
+%error "M98o SGP pages are not adjacent"
+%endif
+%if G1_PAGE_B_DSA - G1_PAGE_A_DSA != G1_PAGE_BYTES
+%error "M98o DSA pages are not adjacent"
+%endif
+%if G1_BACKING_BYTES != G1_PAGE_BYTES * 2
+%error "M98o G1 backing surface is not two pages"
+%endif
+%if POSITION_P0_X + 23 > SCREEN_WIDTH || POSITION_P0_Y + 19 > SCREEN_HEIGHT
+%error "M98o P0 is outside the logical viewport"
+%endif
+%if POSITION_P1_X + 23 > SCREEN_WIDTH || POSITION_P1_Y + 19 > SCREEN_HEIGHT
+%error "M98o P1 is outside the logical viewport"
+%endif
+%if POSITION_P0_X + 23 > POSITION_P1_X && POSITION_P1_X + 23 > POSITION_P0_X && POSITION_P0_Y + 19 > POSITION_P1_Y && POSITION_P1_Y + 19 > POSITION_P0_Y
+%error "M98o P0 and P1 overlap"
+%endif
 
 start:
     ; PC-Engine may choose a different COM load segment.  Relocate the guest
@@ -188,7 +239,7 @@ relocated_start:
 probe_resume:
     cmp byte [probe_result], 0
     je .probe_passed
-    mov dx, message_bms_failed
+    mov word [exit_message], message_bms_failed
     jmp fatal_exit
 .probe_passed:
     call load_atlas_to_bms
@@ -203,24 +254,46 @@ probe_resume:
     jmp load_checkpoint
 
 load_resume:
-    call initialize_video_and_transfer
+    call initialize_video_double_buffer
     jc transfer_failed
-    mov bx, [selected_dst_x]
-    mov cx, [selected_dst_y]
+    mov bx, G1_PAGE_BYTES
+    mov cx, SCREEN_PITCH
     mov dx, SGP_BITBLT_COPY_XPAR
     mov si, [selected_source_low]
     mov di, [selected_source_high]
-    mov bp, 0x0101
+    mov bp, 0x0201
     mov ax, 0x98c1
     jmp transfer_checkpoint
 
 transfer_resume:
-idle_loop:
-    call wait_vblank_start
+    mov byte [render_sequence_index], 0
+render_loop:
+    cmp byte [render_sequence_index], RENDER_BATCH_COUNT
+    je settled_start
+    call render_and_publish_hidden_page
     jc runtime_failed
+    mov bx, [page_flips]
+    xor cx, cx
+    mov cl, [visible_page_index]
+    xor dx, dx
+    mov dl, [last_position_index]
+    mov si, [page_state]
+    mov di, [visible_page_index]
+    mov bp, [last_published_dsa]
+    mov ax, 0x98d1
+    jmp flip_checkpoint
+
+flip_resume:
     call poll_escape
     jc normal_exit
-    ; No redraw occurs in this loop.  The two captures must be identical.
+    inc byte [render_sequence_index]
+    jmp render_loop
+
+settled_start:
+    mov byte [settled_capture_count], 0
+settled_loop:
+    call wait_vblank_edge
+    jc runtime_failed
     push cs
     pop ds
     push cs
@@ -228,22 +301,32 @@ idle_loop:
     mov bx, [selected_width]
     mov cx, [selected_height]
     mov dx, [selected_pitch]
-    mov si, 0x0101
-    mov di, [selected_dst_y]
-    mov bp, [selected_dst_x]
-    mov ax, 0x984c
-    jmp idle_checkpoint
+    mov si, [page_flips]
+    xor di, di
+    mov di, [visible_page_index]
+    mov bp, [last_published_dsa]
+    mov ax, 0x98d2
+    jmp settled_checkpoint
 
-idle_resume:
-    jmp idle_loop
+settled_resume:
+    call poll_escape
+    jc normal_exit
+    inc byte [settled_capture_count]
+    cmp byte [settled_capture_count], 2
+    jb settled_loop
+
+idle_exit_loop:
+    call wait_vblank_edge
+    jc runtime_failed
+    ; Idle display edges are not measured render/publication edges.
+    dec word [vblank_edges_seen]
+    call poll_escape
+    jnc idle_exit_loop
 
 normal_exit:
-    call restore_bms_and_guards
-    call restore_video_state
-    mov dx, message_done
-    call print_string
-    mov ax, 0x4c00
-    int 0x21
+    mov word [exit_message], message_done
+    mov byte [exit_errorlevel], 0
+    jmp common_exit
 
 bms_probe_failed:
     mov byte [probe_result], 1
@@ -256,22 +339,62 @@ bms_probe_failed:
     mov ax, 0x98af
     jmp probe_checkpoint
 atlas_load_failed:
-    mov dx, message_atlas_failed
+    mov word [exit_message], message_atlas_failed
     jmp fatal_exit
 transfer_failed:
-    mov dx, message_transfer_failed
+    mov word [exit_message], message_transfer_failed
     jmp fatal_exit
 runtime_failed:
-    mov dx, message_runtime_failed
+    cmp byte [runtime_failure_kind], 2
+    je .vblank
+    mov word [exit_message], message_transfer_failed
+    jmp fatal_exit
+.vblank:
+    mov word [exit_message], message_runtime_failed
 
 fatal_exit:
-    push dx
+    mov byte [exit_errorlevel], 1
+common_exit:
     call close_atlas_if_open
     call restore_bms_and_guards
     call restore_video_state
-    pop dx
+    inc word [cleanup_runs]
+
+    mov bx, [pages_initialized]
+    mov cx, [render_batches_started]
+    mov dx, [render_batches_completed]
+    mov si, [full_page_clears]
+    mov di, [transparent_bitblts]
+    mov bp, [page_flips]
+    mov ax, 0x98e1
+    jmp report_a_checkpoint
+
+report_a_resume:
+    mov bx, [vblank_edges_seen]
+    mov cx, [page_a_publications]
+    mov dx, [page_b_publications]
+    mov si, [sgp_timeouts]
+    mov di, [sgp_errors]
+    mov bp, [vblank_timeouts]
+    mov ax, 0x98e2
+    jmp report_b_checkpoint
+
+report_b_resume:
+    mov bx, [bms_bank_switches]
+    mov cx, [cleanup_runs]
+    xor dx, dx
+    mov dl, [visible_page_index]
+    mov si, [page_state]
+    mov di, [visible_page_index]
+    mov bp, [last_published_dsa]
+    mov ax, 0x98e3
+    jmp report_c_checkpoint
+
+report_c_resume:
+    mov dx, [exit_message]
     call print_string
-    mov ax, 0x4c01
+    mov al, [exit_errorlevel]
+    mov ah, 0x4c
     int 0x21
 
 ; G98l-A: selector 0 is ordinary RAM; selectors 1..128 are independent BMS
@@ -730,12 +853,16 @@ validate_atlas_metadata:
     long_jz .failed
     cmp ax, SCREEN_WIDTH
     long_ja .failed
+    cmp ax, 23
+    long_jne .failed
     mov [selected_width], ax
     mov ax, [bx + 2]
     test ax, ax
     long_jz .failed
     cmp ax, SCREEN_HEIGHT
     long_ja .failed
+    cmp ax, 19
+    long_jne .failed
     mov [selected_height], ax
     mov ax, [bx + 4]
     mov [selected_pitch], ax
@@ -992,9 +1119,23 @@ close_atlas_if_open:
 .done:
     ret
 
-; G98l-C: establish the M98k 320x200 8-bpp G0/G1 path, then issue one
-; transparent BITBLT whose source remains inside the selected BMS window.
-initialize_video_and_transfer:
+; G98o initializes both 64,000-byte G1 pages before either is visible.
+initialize_video_double_buffer:
+    call verify_page_descriptors
+    jc .failed
+    mov ax, [selected_bank_offset]
+    mov dx, [selected_bank_offset + 2]
+    add dx, BMS_WINDOW_SGP_BASE >> 16
+    mov [selected_source_low], ax
+    mov [selected_source_high], dx
+    call verify_staging_poison
+    jc .failed
+    call verify_bms_payload_crc
+    jc .failed
+    call select_ordinary_mapping
+    call verify_normal_guards
+    jc .failed
+
     mov bx, MODE_320X200_G0_G1
     mov cx, PIXEL_SIZE_G0_G1_8BPP
     xor dx, dx
@@ -1041,26 +1182,21 @@ initialize_video_and_transfer:
     mov al, GVRAM_CPU_WRITE_MODE
     out dx, al
     call draw_g0_checkerboard
-    call build_bms_commands
-
-    call verify_staging_poison
-    jc .failed
-    call verify_bms_payload_crc
-    jc .failed
-    mov dx, PORT_BMS_SELECTOR
-    mov al, BMS_FIRST_SELECTOR
-    out dx, al
+    call build_initialization_commands
     call run_sgp_command_list
     jc .failed
-    call verify_staging_poison
+    mov byte [page_state + PAGE_A], PAGE_HIDDEN_CLEAN
+    mov byte [page_state + PAGE_B], PAGE_HIDDEN_CLEAN
+    mov word [pages_initialized], 2
+    call wait_vblank_edge
     jc .failed
-    call verify_bms_payload_crc
+    mov al, PAGE_A
+    call publish_page
     jc .failed
-    call select_ordinary_mapping
-    call verify_normal_guards
-    jc .failed
-    call restore_normal_guards
-    call display_page_a
+    mov byte [visible_page_index], PAGE_A
+    mov byte [hidden_page_index], PAGE_B
+    mov byte [page_state + PAGE_A], PAGE_VISIBLE
+    inc word [page_a_publications]
     mov ax, 0x0b01
     int VIDEO_BIOS_INT
     test ax, ax
@@ -1069,6 +1205,37 @@ initialize_video_and_transfer:
     ret
 .failed:
     call select_ordinary_mapping
+    stc
+    ret
+
+verify_page_descriptors:
+    cmp word [page_sgp_low + PAGE_A * 2], G1_PAGE_A_SGP_BASE & 0xffff
+    jne .failed
+    cmp word [page_sgp_high + PAGE_A * 2], G1_PAGE_A_SGP_BASE >> 16
+    jne .failed
+    cmp word [page_sgp_low + PAGE_B * 2], G1_PAGE_B_SGP_BASE & 0xffff
+    jne .failed
+    cmp word [page_sgp_high + PAGE_B * 2], G1_PAGE_B_SGP_BASE >> 16
+    jne .failed
+    cmp word [page_dsa_low + PAGE_A * 2], G1_PAGE_A_DSA & 0xffff
+    jne .failed
+    cmp word [page_dsa_high + PAGE_A * 2], G1_PAGE_A_DSA >> 16
+    jne .failed
+    cmp word [page_dsa_low + PAGE_B * 2], G1_PAGE_B_DSA & 0xffff
+    jne .failed
+    cmp word [page_dsa_high + PAGE_B * 2], G1_PAGE_B_DSA >> 16
+    jne .failed
+    cmp word [page_position_x + PAGE_A * 2], POSITION_P1_X
+    jne .failed
+    cmp word [page_position_y + PAGE_A * 2], POSITION_P1_Y
+    jne .failed
+    cmp word [page_position_x + PAGE_B * 2], POSITION_P0_X
+    jne .failed
+    cmp word [page_position_y + PAGE_B * 2], POSITION_P0_Y
+    jne .failed
+    clc
+    ret
+.failed:
     stc
     ret
 
@@ -1095,13 +1262,30 @@ configure_g1_framebuffer:
     pop ax
     ret
 
-display_page_a:
+publish_page:
+    ; AL is an explicitly validated page index.
+    cmp al, PAGE_B
+    ja .failed
+    xor ah, ah
+    mov si, ax
+    mov ah, [page_state + si]
+    cmp ah, PAGE_HIDDEN_COMPLETE
+    je .state_ready
+    cmp ah, PAGE_HIDDEN_CLEAN
+    jne .failed
+.state_ready:
+    shl si, 1
     mov dx, PORT_FB1_DSA_LOW
-    mov ax, G1_PAGE_A_DSA & 0xffff
+    mov ax, [page_dsa_low + si]
+    mov [last_published_dsa], ax
     out dx, ax
     add dx, 2
-    mov ax, G1_PAGE_A_DSA >> 16
+    mov ax, [page_dsa_high + si]
     out dx, ax
+    clc
+    ret
+.failed:
+    stc
     ret
 
 draw_g0_checkerboard:
@@ -1150,7 +1334,7 @@ draw_g0_checkerboard:
     pop ax
     ret
 
-build_bms_commands:
+build_initialization_commands:
     push ax
     push dx
     push si
@@ -1170,14 +1354,63 @@ build_bms_commands:
     stosw
     xor ax, ax
     stosw
-    ; The sole SGP submission clears G1 and performs exactly one BITBLT.
     mov ax, SGP_COMMAND_CLS
     stosw
     mov ax, G1_PAGE_A_SGP_BASE & 0xffff
     stosw
     mov ax, G1_PAGE_A_SGP_BASE >> 16
     stosw
-    mov ax, G1_BACKING_WORD_COUNT
+    mov ax, G1_PAGE_WORD_COUNT
+    stosw
+    xor ax, ax
+    stosw
+    mov ax, SGP_COMMAND_CLS
+    stosw
+    mov ax, G1_PAGE_B_SGP_BASE & 0xffff
+    stosw
+    mov ax, G1_PAGE_B_SGP_BASE >> 16
+    stosw
+    mov ax, G1_PAGE_WORD_COUNT
+    stosw
+    xor ax, ax
+    stosw
+    mov ax, SGP_COMMAND_END
+    stosw
+    jmp finalize_sgp_command_list
+
+build_render_commands:
+    ; The explicit hidden-page index chooses both the page and its position.
+    push ax
+    push dx
+    push si
+    push di
+    push es
+    push ds
+    pop es
+    xor ah, ah
+    mov si, ax
+    shl si, 1
+    mov di, sgp_command_list
+    mov ax, SGP_COMMAND_SET_WORK
+    stosw
+    push si
+    mov si, sgp_work_area
+    call physical_address_from_ds_si
+    stosw
+    mov ax, dx
+    stosw
+    pop si
+    mov ax, SGP_COMMAND_SET_COLOR
+    stosw
+    xor ax, ax
+    stosw
+    mov ax, SGP_COMMAND_CLS
+    stosw
+    mov ax, [page_sgp_low + si]
+    stosw
+    mov ax, [page_sgp_high + si]
+    stosw
+    mov ax, G1_PAGE_WORD_COUNT
     stosw
     xor ax, ax
     stosw
@@ -1192,13 +1425,9 @@ build_bms_commands:
     stosw
     mov ax, [selected_pitch]
     stosw
-    mov ax, [selected_bank_offset]
-    mov dx, [selected_bank_offset + 2]
-    add dx, BMS_WINDOW_SGP_BASE >> 16
-    mov [selected_source_low], ax
-    mov [selected_source_high], dx
+    mov ax, [selected_source_low]
     stosw
-    mov ax, dx
+    mov ax, [selected_source_high]
     stosw
 
     mov ax, SGP_COMMAND_SET_DEST
@@ -1211,12 +1440,15 @@ build_bms_commands:
     stosw
     mov ax, SCREEN_PITCH
     stosw
-    mov ax, [selected_dst_y]
+    mov ax, [page_position_y + si]
+    mov [selected_dst_y], ax
     mul word [screen_pitch_word]
-    add ax, [selected_dst_x]
+    mov bx, [page_position_x + si]
+    mov [selected_dst_x], bx
+    add ax, bx
     adc dx, 0
-    add ax, G1_PAGE_A_SGP_BASE & 0xffff
-    adc dx, G1_PAGE_A_SGP_BASE >> 16
+    add ax, [page_sgp_low + si]
+    adc dx, [page_sgp_high + si]
     stosw
     mov ax, dx
     stosw
@@ -1226,6 +1458,7 @@ build_bms_commands:
     stosw
     mov ax, SGP_COMMAND_END
     stosw
+finalize_sgp_command_list:
     mov si, sgp_command_list
     call physical_address_from_ds_si
     mov [sgp_command_address_low], ax
@@ -1235,6 +1468,118 @@ build_bms_commands:
     pop si
     pop dx
     pop ax
+    ret
+
+render_and_publish_hidden_page:
+    push ax
+    push bx
+    push cx
+    push dx
+    push si
+    push di
+    mov byte [runtime_failure_kind], 1
+    mov al, [visible_page_index]
+    cmp al, PAGE_B
+    ja .state_failed
+    cmp al, [hidden_page_index]
+    je .state_failed
+    mov al, [hidden_page_index]
+    cmp al, PAGE_B
+    ja .state_failed
+    xor ah, ah
+    mov si, ax
+    mov bl, [page_state + si]
+    cmp bl, PAGE_HIDDEN_CLEAN
+    je .state_ready
+    cmp bl, PAGE_HIDDEN_STALE
+    jne .state_failed
+.state_ready:
+    call wait_sgp_idle
+    jc .failed
+    call select_render_bms
+    mov byte [page_state + si], PAGE_HIDDEN_RENDERING
+    inc word [render_batches_started]
+    mov al, [hidden_page_index]
+    call build_render_commands
+    call run_sgp_command_list
+    jc .failed
+    inc word [render_batches_completed]
+    inc word [full_page_clears]
+    inc word [transparent_bitblts]
+    mov byte [page_state + si], PAGE_HIDDEN_COMPLETE
+    call verify_staging_poison
+    jc .sgp_error
+    call verify_bms_frame_crc
+    jc .sgp_error
+    call select_render_ordinary
+    call verify_normal_guards
+    jc .sgp_error
+
+    mov byte [runtime_failure_kind], 2
+    call wait_vblank_edge
+    jc .failed
+    mov al, [hidden_page_index]
+    call publish_page
+    jc .state_failed
+    mov al, [hidden_page_index]
+    xor ah, ah
+    mov si, ax
+    mov byte [page_state + si], PAGE_VISIBLE
+    cmp al, PAGE_A
+    jne .published_b
+    inc word [page_a_publications]
+    mov byte [last_position_index], 1
+    jmp .published
+.published_b:
+    inc word [page_b_publications]
+    mov byte [last_position_index], 0
+.published:
+    mov al, [visible_page_index]
+    xor ah, ah
+    mov si, ax
+    mov byte [page_state + si], PAGE_HIDDEN_STALE
+    mov al, [visible_page_index]
+    mov bl, [hidden_page_index]
+    mov [visible_page_index], bl
+    mov [hidden_page_index], al
+    inc word [page_flips]
+    clc
+    jmp .done
+.sgp_error:
+    inc word [sgp_errors]
+.state_failed:
+    mov byte [runtime_failure_kind], 1
+.failed:
+    stc
+.done:
+    pop di
+    pop si
+    pop dx
+    pop cx
+    pop bx
+    pop ax
+    ret
+
+select_render_bms:
+    mov dx, PORT_BMS_SELECTOR
+    in al, dx
+    cmp al, BMS_FIRST_SELECTOR
+    je .done
+    mov al, BMS_FIRST_SELECTOR
+    out dx, al
+    inc word [bms_bank_switches]
+.done:
+    ret
+
+select_render_ordinary:
+    mov dx, PORT_BMS_SELECTOR
+    in al, dx
+    test al, al
+    jz .done
+    xor al, al
+    out dx, al
+    inc word [bms_bank_switches]
+.done:
     ret
 
 run_sgp_command_list:
@@ -1256,6 +1601,19 @@ run_sgp_command_list:
     mov al, SGP_BUSY
     out dx, al
     call wait_sgp_idle
+    jnc .complete
+    ; Abort only after the bounded completion wait fails.  This leaves the
+    ; aperture safe to restore without publishing the incomplete page.
+    mov dx, PORT_SGP_CONTROL
+    mov al, 0x02
+    out dx, al
+    mov dx, PORT_SGP_CONTROL
+    xor al, al
+    out dx, al
+    stc
+    ret
+.complete:
+    clc
     ret
 .failed:
     stc
@@ -1273,13 +1631,14 @@ wait_sgp_idle:
     loop .poll
     dec bx
     jnz .outer
+    inc word [sgp_timeouts]
     stc
     ret
 .ready:
     clc
     ret
 
-wait_vblank_start:
+wait_vblank_edge:
     mov dx, PORT_TSP_STATUS
     mov bx, 4
 .wait_display:
@@ -1291,6 +1650,7 @@ wait_vblank_start:
     loop .display_poll
     dec bx
     jnz .wait_display
+    inc word [vblank_timeouts]
     stc
     ret
 .display_seen:
@@ -1304,9 +1664,11 @@ wait_vblank_start:
     loop .vblank_poll
     dec bx
     jnz .wait_vblank
+    inc word [vblank_timeouts]
     stc
     ret
 .ready:
+    inc word [vblank_edges_seen]
     clc
     ret
 
@@ -1317,6 +1679,10 @@ poll_escape:
     mov ah, 0x09
     int KEYBOARD_BIOS_INT
     cmp ah, 0
+    je .escape
+    ; Return is accepted only to let the deterministic debug harness request
+    ; the same clean exit without adding a release-only fault bypass.
+    cmp ah, 0x1c
     je .escape
 .none:
     clc
@@ -1400,18 +1766,18 @@ print_string:
     ret
 
 message_start:
-    db "M98L_INIT: BMS stream and direct SGP-to-G1 proof", 13, 10
+    db "M98O_INIT: transparent G1 double-buffer proof", 13, 10
     db "Selector 0 is ordinary RAM; selector 1 is the atlas bank.", 13, 10, "$"
 message_done:
-    db "M98L_EXIT: ordinary mapping and video state restored.", 13, 10, "$"
+    db "M98O_EXIT: ordinary mapping and video state restored.", 13, 10, "$"
 message_bms_failed:
-    db "M98L_A_FAIL: BMS mapping probe failed.", 13, 10, "$"
+    db "M98O_FAIL: predecessor BMS mapping probe failed.", 13, 10, "$"
 message_atlas_failed:
-    db "M98L_B_FAIL: atlas validation or streaming failed.", 13, 10, "$"
+    db "M98O_FAIL: atlas validation or streaming failed.", 13, 10, "$"
 message_transfer_failed:
-    db "M98L_C_FAIL: direct BMS SGP transfer failed.", 13, 10, "$"
+    db "M98O_FAIL: hidden-page SGP batch failed.", 13, 10, "$"
 message_runtime_failed:
-    db "M98L_C_FAIL: bounded VBLANK wait timed out.", 13, 10, "$"
+    db "M98O_FAIL: bounded VBLANK edge wait timed out.", 13, 10, "$"
 atlas_filename:
     db "ZUNDORB.BIN", 0
 
@@ -1425,9 +1791,21 @@ load_checkpoint:
 times TRANSFER_CHECKPOINT_OFFSET - ($ - $$) db 0x90
 transfer_checkpoint:
     jmp transfer_resume
-times IDLE_CHECKPOINT_OFFSET - ($ - $$) db 0x90
-idle_checkpoint:
-    jmp idle_resume
+times FLIP_CHECKPOINT_OFFSET - ($ - $$) db 0x90
+flip_checkpoint:
+    jmp flip_resume
+times SETTLED_CHECKPOINT_OFFSET - ($ - $$) db 0x90
+settled_checkpoint:
+    jmp settled_resume
+times REPORT_A_CHECKPOINT_OFFSET - ($ - $$) db 0x90
+report_a_checkpoint:
+    jmp report_a_resume
+times REPORT_B_CHECKPOINT_OFFSET - ($ - $$) db 0x90
+report_b_checkpoint:
+    jmp report_b_resume
+times REPORT_C_CHECKPOINT_OFFSET - ($ - $$) db 0x90
+report_c_checkpoint:
+    jmp report_c_resume
 
 align 2, db 0
 sgp_command_list:
@@ -1448,6 +1826,37 @@ signature_bank_128:  db 0x18,0x28,0x38,0x48,0x58,0x68,0x78,0x88
 
 align 2, db 0
 screen_pitch_word: dw SCREEN_PITCH
+page_sgp_low: dw G1_PAGE_A_SGP_BASE & 0xffff, G1_PAGE_B_SGP_BASE & 0xffff
+page_sgp_high: dw G1_PAGE_A_SGP_BASE >> 16, G1_PAGE_B_SGP_BASE >> 16
+page_dsa_low: dw G1_PAGE_A_DSA & 0xffff, G1_PAGE_B_DSA & 0xffff
+page_dsa_high: dw G1_PAGE_A_DSA >> 16, G1_PAGE_B_DSA >> 16
+page_position_x: dw POSITION_P1_X, POSITION_P0_X
+page_position_y: dw POSITION_P1_Y, POSITION_P0_Y
+page_state: db PAGE_UNINITIALIZED, PAGE_UNINITIALIZED
+visible_page_index: db PAGE_A
+hidden_page_index: db PAGE_B
+render_sequence_index: db 0
+settled_capture_count: db 0
+last_position_index: db 0
+runtime_failure_kind: db 0
+exit_errorlevel: db 1
+align 2, db 0
+last_published_dsa: dw G1_PAGE_A_DSA & 0xffff
+exit_message: dw message_transfer_failed
+pages_initialized: dw 0
+render_batches_started: dw 0
+render_batches_completed: dw 0
+full_page_clears: dw 0
+transparent_bitblts: dw 0
+vblank_edges_seen: dw 0
+page_flips: dw 0
+page_a_publications: dw 0
+page_b_publications: dw 0
+sgp_timeouts: dw 0
+sgp_errors: dw 0
+vblank_timeouts: dw 0
+bms_bank_switches: dw 0
+cleanup_runs: dw 0
 sgp_command_address_low: dw 0
 sgp_command_address_high: dw 0
 saved_video_mode: dw 0
@@ -1500,5 +1909,5 @@ staging_buffer:
 program_end:
 
 %if program_end - $$ >= 65280
-%error "M98l guest exceeds the 64-KiB DOS payload limit"
+%error "M98o guest exceeds the 64-KiB DOS payload limit"
 %endif

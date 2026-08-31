@@ -424,3 +424,55 @@ PYTHONPYCACHEPREFIX=/tmp/vaeg-m98l-pyc \
 M98l does not traverse scale levels at runtime, animate, exchange pages, draw
 multiple objects, measure performance, load maintainer-supplied artwork, or
 claim physical-machine validation. Those concerns remain separately gated.
+
+## Transparent G1 double buffering
+
+M98o retains the public M98l atlas loader and direct BMS source, but replaces
+the one static transfer with an explicit two-page Graphic 1 lifecycle. The
+320x400, 320-byte-pitch backing surface contains two 64,000-byte pages:
+page A at SGP address `220000h`/DSA1 `020000h` and page B at SGP address
+`22fa00h`/DSA1 `02fa00h`.
+
+Both pages are cleared before display. The bounded proof then renders the
+fixed 23x19 level-30 fixture in this order:
+
+```text
+page B at (48,40), page A at (248,140),
+page B at (48,40), page A at (248,140)
+```
+
+Each hidden-page batch performs one complete-page CLS followed by one
+transparent `0105h` BITBLT from BMS selector 1. The selector, command storage,
+and page descriptor remain unchanged until SGP completion. The completed page
+is published only after the guest observes VBLANK low and then high; only then
+do the explicit visible and hidden roles change. The nonzero G0 checkerboard
+remains static and shows through every transparent source pixel.
+
+Run the focused page-oracle and deterministic lifecycle-fault tests:
+
+```sh
+PYTHONPYCACHEPREFIX=/tmp/vaeg-m98o-pyc \
+  python3 demos/zundamon-orbit/tools/test_zundamon_orbit_guest.py
+```
+
+Run the bounded VA2 proof through the same explicit local boot-template
+workflow used by M98l:
+
+```sh
+VAEG_ZUNDAMON_MODEL=va2 demos/zundamon-orbit/run-vaeg.sh \
+  /path/to/local-bootable-2hd.d88 \
+  /path/to/vaeg \
+  /path/to/rom-directory \
+  build/generated/zundamon-orbit/m98o-run
+```
+
+The runner records all four publications and two consecutive settled frames.
+PASS requires exact indexed contents for both page parities, the alternating
+BMS-source SGP destination trace, unchanged visible-page bytes, counter
+invariants, stable nonblack output, and post-cleanup register reports.
+The final page remains displayed until ESC; the deterministic harness sends
+Return as its equivalent clean-exit request after the settled captures.
+
+M98o does not traverse scale levels, add general motion or cadence controls,
+perform partial clears, draw multiple objects, use private artwork, measure
+performance, or claim physical-machine validation.

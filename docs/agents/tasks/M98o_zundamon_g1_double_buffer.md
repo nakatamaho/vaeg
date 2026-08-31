@@ -99,8 +99,9 @@ idle, selects bank 1 while idle, marks the hidden page rendering, performs a
 full hidden-page clear and one transparent BMS-source BITBLT, holds bank and
 descriptors stable until completion, restores selector zero, waits VBLANK low
 then high, updates DSA1, and only then swaps page roles. Capture every
-publication and two consecutive settled final frames; ESC may request an early
-normal exit.
+publication and two consecutive settled final frames. ESC requests normal
+cleanup; Return provides the equivalent clean-exit request for the
+deterministic debug harness.
 
 ## Counters and evidence
 

@@ -33,8 +33,8 @@ rom_directory=$3
 output_directory=$4
 model=${VAEG_ZUNDAMON_MODEL:-va2}
 script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
-pristine_disk_image=$output_directory/zundamon-orbit-m98l-pristine.d88
-disk_image=$output_directory/zundamon-orbit-m98l.d88
+pristine_disk_image=$output_directory/zundamon-orbit-m98o-pristine.d88
+disk_image=$output_directory/zundamon-orbit-m98o.d88
 guest_image=$output_directory/ZUNDORB.COM
 guest_listing=$output_directory/ZUNDORB.LST
 atlas_directory=$output_directory/public-atlas
@@ -69,13 +69,13 @@ SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy VAEG_SGP_SCAN_TRACE=1 \
         --no-bkupmem \
         --nowait \
         --mute \
-        --debug-script "$script_dir/zundamon_orbit_m98l.debug" \
+        --debug-script "$script_dir/zundamon_orbit_m98o.debug" \
         --debug-output-dir "$output_directory" \
         >"$output_directory/vaeg.stdout.log" 2>"$trace_log"
 
 python3 "$script_dir/tools/verify_zundamon_orbit_guest.py" \
     --atlas "$atlas_image" \
     --trace "$trace_log" \
-    --report "$output_directory/m98l-oracle.json" \
+    --report "$output_directory/m98o-oracle.json" \
     "$output_directory"
-printf 'M98L_VAEG_CAPTURE_PASS output=%s\n' "$output_directory"
+printf 'M98O_VAEG_CAPTURE_PASS output=%s\n' "$output_directory"
