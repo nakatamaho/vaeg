@@ -23,7 +23,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 # M98 - Zundamon billboard-orbit demo master plan
 
-Status: **G98a, G98e, and G98j human gates and G98b-G98d and G98f-G98i machine gates passed; M98j closed at candidate `95d431b717124b69c3e490d1c53fce485e9e15d5`; M98k automated VAEG candidate `6ed575dedc5da8827704c33a274ac72e480ce420` passed its oracle; G98k is pending**
+Status: **G98a, G98e, G98j, and G98k human gates and G98b-G98d and G98f-G98i machine gates passed; M98k closed at candidate `6ed575dedc5da8827704c33a274ac72e480ce420`; M98l remains unassigned**
 
 Branch family: `topic/m98-zundamon-orbit`
 
@@ -159,7 +159,8 @@ Execute exactly one assigned stage and stop at its gate.
 
 M98k produced automated VAEG candidate
 `6ed575dedc5da8827704c33a274ac72e480ce420` on 2026-08-31. Its exact indexed
-GVRAM oracle passed, but G98k remains a human gate. M98l and later remain
+GVRAM oracle passed, and the maintainer explicitly passed G98k on 2026-08-31.
+M98k is closed. M98l and later remain
 deliberately unassigned; no superseded draft or retired stage is authority for
 this plan.
 

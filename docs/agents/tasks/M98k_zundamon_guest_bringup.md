@@ -23,7 +23,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 # M98k - Bring up the isolated 320x200 8-bpp guest
 
-Status: **automated VAEG candidate `6ed575dedc5da8827704c33a274ac72e480ce420` passed; G98k pending**
+Status: **G98k human/VAEG gate passed on 2026-08-31 at candidate `6ed575dedc5da8827704c33a274ac72e480ce420`; M98k closed**
 
 Branch: `topic/m98k-zundamon-guest-bringup`
 
@@ -167,6 +167,6 @@ oracle and two-frame stability checks pass, the rendered captures are stable
 and non-black, diagnostics distinguish failure from completion, and no private
 or generated payload enters Git.
 
-Automated success produces an M98k VAEG candidate. G98k remains a human gate
-and passes only when the maintainer explicitly states that it passed. Stop at
-G98k; M98l remains unassigned.
+Automated success produced the M98k VAEG candidate. The maintainer inspected
+the human-gate result and explicitly stated that G98k passed on 2026-08-31.
+M98k is closed. M98l remains unassigned.

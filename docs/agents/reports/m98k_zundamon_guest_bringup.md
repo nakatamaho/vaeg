@@ -23,6 +23,10 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 # M98k guest bring-up result
 
+Accepted candidate: `6ed575dedc5da8827704c33a274ac72e480ce420`
+
+Status: **G98k human/VAEG gate passed on 2026-08-31; M98k closed**
+
 ## Result
 
 `M98k RESULT: PASS`
@@ -31,8 +35,8 @@ The automated VA2 candidate boots through PC-Engine, enters the established
 320x200 G0/G1 8-bpp direct-color mode, completes one bounded SGP submission,
 and leaves one exact embedded 16x16 marker on G1 at `(152, 92)`. The independent
 indexed-GVRAM oracle passed with no errors. This is an automated VAEG result;
-`G98k` remains pending until the maintainer explicitly passes the human gate.
-No physical-PC-88VA claim is made.
+the maintainer subsequently inspected the human-gate result and explicitly
+stated that G98k passed on 2026-08-31. No physical-PC-88VA claim is made.
 
 Branch: `topic/m98k-zundamon-guest-bringup`
 
@@ -218,10 +222,10 @@ D88 and captures are validation artifacts and are not tracked.
 ## Limitations and preserved state
 
 The automated run used the SDL software renderer with
-`SDL_VIDEODRIVER=dummy`. No real-window GUI acceptance was claimed. Unlike a
-PNG-exists smoke check, the PASS is based on exact indexed GVRAM, completion
-registers, event chronology, and stable nonblack composed frames. Maintainer
-visual acceptance and physical hardware remain separate gates.
+`SDL_VIDEODRIVER=dummy`. Unlike a PNG-exists smoke check, its PASS is based on
+exact indexed GVRAM, completion registers, event chronology, and stable
+nonblack composed frames. The maintainer subsequently passed the separate
+human/VAEG gate. Physical hardware remains untested and is not implied.
 
 The final worktree retains the exact pre-existing unrelated entries:
 
@@ -245,6 +249,6 @@ The final worktree retains the exact pre-existing unrelated entries:
 ```
 
 No M98k file overlaps those paths. No private input name, path, identity, or
-payload was tracked. ROM extraction, external assets, BMS/EMS/XMS, atlas
-loading, scaling, animation, multiple instances, and real artwork remain
-deferred. M98l is not started.
+payload was tracked. G98k passed and M98k is closed. ROM extraction, external
+assets, BMS/EMS/XMS, atlas loading, scaling, animation, multiple instances,
+and real artwork remain deferred. M98l remains unassigned and is not started.
