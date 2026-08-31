@@ -70,6 +70,34 @@ separate parity correction or move it to Open Defects.
 
 ## Fixed Defects
 
+### CPU trace incorrectly depended on tests and their flat memory seam
+
+- **Status:** fixed in M7i; private firmware behavior and real hardware remain
+  separate evidence gates.
+- **Symptom:** a production build succeeded with trace disabled, but enabling
+  `VAEG_Z80_COMPAT_INTEGRATION_TRACE` while keeping tests disabled failed in
+  `io/subsystem.cpp`. Enabling tests made the build succeed but also compiled
+  the flat uPD9002 test-memory seam, making the trace inadmissible for
+  production-memory observations.
+- **Root cause:** `Clock::now()` was unintentionally public only under
+  `VAEG_UPD780_INTEGRATION_TESTING`, and CMake required every test build to
+  enable CPU trace. Trace observation and test storage were therefore coupled
+  in both directions.
+- **Correction:** make the clock observation API independent of tests, permit
+  all P0/P1/T0/T1 combinations, record the backend used by the actual
+  instruction fetch, add a strict trace-limit stop, and keep the established
+  test-fixture format confined to test builds. Production tracing adds no
+  guest-memory read.
+- **Verification:** ROM-free QA structurally checks all four compile-definition
+  sets and P1 link membership; a synthetic production-path instruction has
+  identical traced/untraced architectural state; repeated traces and two clean
+  P1 builds are byte-identical; T1 trace equivalence passes; and the P0 binary
+  is byte-identical before and after the correction.
+- **Evidence:** [production-memory trace contract](production-memory-trace.md)
+  and [production trace QA](../../tools/qa/production_trace.py).
+- **Milestone/task:** M7i production-memory trace prerequisite.
+- **Commit:** [5c820ab37e684af5f3451f886d30b3eb8628704c](https://github.com/nakatamaho/vaeg/commit/5c820ab37e684af5f3451f886d30b3eb8628704c).
+
 ### NEON3 text overlay repainted the whole TVRAM surface every frame
 
 - **Status:** fixed in M97; real PC-88VA/VA2 hardware confirmation remains
