@@ -299,6 +299,20 @@ class M98rFixtureAndTraceTests(unittest.TestCase):
         self.assertEqual(script.count("wait-pc 3000:4040 1"), 2)
         self.assertEqual(script.count("report-"), 11)
 
+    def test_release_startup_regression_can_queue_extra_return(self) -> None:
+        script = debug_generator.build_script("a", 1, 1, "static", True)
+        self.assertIn("input-line ZUNDORB /V1\nwait-pc 3000:012a 1\n", script)
+        self.assertIn("-entry registers\nenter\n", script)
+        self.assertNotIn("wait-pc 3000:4000 1", script)
+        self.assertNotIn("wait-pc 3000:4010 1", script)
+        self.assertNotIn("wait-pc 3000:4020 1", script)
+        self.assertEqual(script.count("wait-pc 3000:4030 1"), 58)
+        self.assertNotIn("settled", script)
+        source = (TOOLS.parent / "256" / "zundamon_orbit_256.asm").read_text(
+            encoding="utf-8")
+        self.assertNotIn("KEY_SCAN_RETURN", source)
+        self.assertIn("cmp al, KEY_INTERNAL_ESCAPE", source)
+
     def test_ladder_and_pause_schedules_are_deterministic(self) -> None:
         ladder, ladder_counts = oracle.scheduler_schedule(1, 2, "ladder")
         self.assertEqual(ladder_counts["changes"], 14)

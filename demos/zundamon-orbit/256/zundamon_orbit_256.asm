@@ -145,10 +145,12 @@ org 0x100
 %define RENDER_READY            2
 
 %define KEY_SCAN_ESCAPE         0x00
+; INT 82h/AH=09h returns the scan code in AH and internal code in AL.
+; Recognize the complete ESC result so a queued command Return is ignored.
+%define KEY_INTERNAL_ESCAPE     0x1b
 %define KEY_SCAN_SPACE          0x34
 %define KEY_SCAN_LEFT           0x3b
 %define KEY_SCAN_RIGHT          0x3c
-%define KEY_SCAN_RETURN         0x1c
 
 %define CADENCE_MIN             1
 %define CADENCE_MAX             8
@@ -2528,9 +2530,10 @@ poll_control_requests:
     mov ah, 0x09
     int KEYBOARD_BIOS_INT
     cmp ah, KEY_SCAN_ESCAPE
+    jne .check_left
+    cmp al, KEY_INTERNAL_ESCAPE
     je .escape
-    cmp ah, KEY_SCAN_RETURN
-    je .escape
+.check_left:
     cmp ah, KEY_SCAN_LEFT
     je .faster
     cmp ah, KEY_SCAN_RIGHT
@@ -2902,11 +2905,9 @@ poll_escape:
     jc .none
     mov ah, 0x09
     int KEYBOARD_BIOS_INT
-    cmp ah, 0
-    je .escape
-    ; Return is accepted only to let the deterministic debug harness request
-    ; the same clean exit without adding a release-only fault bypass.
-    cmp ah, 0x1c
+    cmp ah, KEY_SCAN_ESCAPE
+    jne .none
+    cmp al, KEY_INTERNAL_ESCAPE
     je .escape
 .none:
     clc
