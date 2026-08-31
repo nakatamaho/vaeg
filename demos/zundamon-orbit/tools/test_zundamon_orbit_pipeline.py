@@ -103,8 +103,8 @@ class ZundamonOrbitPipelineTests(unittest.TestCase):
             )
 
     def test_normalization_is_downscale_only_for_replicated_source(self) -> None:
-        width = pipeline.MAX_ATLAS_SOURCE_WIDTH
-        height = pipeline.MAX_ATLAS_SOURCE_HEIGHT
+        width = 96
+        height = 125
         replication = 3
         source = bytes(
             ((x * 17 + y * 29) % 255) + 1
@@ -129,12 +129,21 @@ class ZundamonOrbitPipelineTests(unittest.TestCase):
         self.assertEqual(normalized.pixels, source)
         self.assertEqual(normalized.report["downscaled"], True)
         self.assertEqual(normalized.report["upscaling"], False)
+        self.assertLessEqual(
+            normalized.report["one_bank_occupied_bytes"], packer.BANK_SIZE)
 
         small = pipeline.normalize_source(bytes(range(12)), 4, 3, 2, 1)
         self.assertEqual((small.width, small.height), (4, 3))
         self.assertEqual((small.anchor_x, small.anchor_y), (2, 1))
         self.assertEqual(small.pixels, bytes(range(12)))
         self.assertEqual(small.report["downscaled"], False)
+        self.assertEqual(pipeline.normalized_dimensions(98, 128), (96, 125))
+        self.assertGreater(
+            pipeline.scale_atlas_occupied_bytes(98, 128), packer.BANK_SIZE)
+        self.assertGreater(
+            pipeline.scale_atlas_occupied_bytes(97, 126), packer.BANK_SIZE)
+        self.assertLessEqual(
+            pipeline.scale_atlas_occupied_bytes(96, 125), packer.BANK_SIZE)
         self.assertEqual(pipeline.normalized_dimensions(196, 128), (98, 64))
         self.assertEqual(pipeline.normalized_dimensions(98, 256), (49, 128))
 
@@ -151,8 +160,8 @@ class ZundamonOrbitPipelineTests(unittest.TestCase):
             )
             contact = cast(dict[str, object], result.report["contact_sheet"])
             cells = cast(list[dict[str, int]], contact["cells"])
-            self.assertEqual(len(cells), 32)
-            self.assertEqual([cell["level"] for cell in cells], list(range(1, 33)))
+            self.assertEqual(len(cells), 30)
+            self.assertEqual([cell["level"] for cell in cells], list(range(1, 31)))
             for cell in cells:
                 self.assertEqual(
                     image.rgb_at(cell["marker_x"], cell["marker_y"]),
@@ -189,11 +198,15 @@ class ZundamonOrbitPipelineTests(unittest.TestCase):
             validation = cast(dict[str, object], report["validation"])
             self.assertEqual(validation["format"], "M98H_ATLAS_PASS")
             self.assertEqual(validation["packing"], "M98I_PACKING_PASS")
-            self.assertEqual(validation["descriptor_count"], 32)
+            self.assertEqual(validation["descriptor_count"], 30)
+            self.assertEqual(validation["required_bank_count"], 1)
             packing = cast(dict[str, object], report["packing"])
             packing_metrics = cast(dict[str, object], packing["metrics"])
             self.assertEqual(validation["required_bank_count"],
                              packing_metrics["required_bank_count"])
+            normalization = cast(dict[str, object], report["normalization"])
+            self.assertEqual(normalization["one_bank_occupied_bytes"],
+                             packing_metrics["bms_span_bytes"])
             conversion = cast(dict[str, object], report["conversion"])
             conversion_format = cast(dict[str, object], conversion["format"])
             source = cast(dict[str, object], report["input"])

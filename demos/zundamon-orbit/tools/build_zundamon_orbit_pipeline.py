@@ -49,8 +49,8 @@ REPORT_SCHEMA = "vaeg-zundamon-orbit-host-pipeline-report-v1"
 REPORT_VERSION = 1
 MAX_ATLAS_SOURCE_WIDTH = 98
 MAX_ATLAS_SOURCE_HEIGHT = 128
-SHEET_COLUMNS = 4
-SHEET_ROWS = 8
+SHEET_COLUMNS = 5
+SHEET_ROWS = 6
 CELL_WIDTH = 240
 CELL_HEIGHT = 196
 SHEET_WIDTH = SHEET_COLUMNS * CELL_WIDTH
@@ -114,7 +114,7 @@ class NormalizedSource:
     report: dict[str, object]
 
 
-def normalized_dimensions(width: int, height: int) -> tuple[int, int]:
+def bounded_dimensions(width: int, height: int) -> tuple[int, int]:
     if width < 1 or height < 1:
         fail("M98J_NORMALIZE_GEOMETRY", "normalization geometry is invalid")
     if width <= MAX_ATLAS_SOURCE_WIDTH and height <= MAX_ATLAS_SOURCE_HEIGHT:
@@ -130,6 +130,47 @@ def normalized_dimensions(width: int, height: int) -> tuple[int, int]:
             or target_height > MAX_ATLAS_SOURCE_HEIGHT):
         fail("M98J_NORMALIZE_BOUNDS", "normalization target exceeds its bounds")
     return target_width, target_height
+
+
+def scale_atlas_occupied_bytes(width: int, height: int) -> int:
+    if width < 1 or height < 1:
+        fail("M98J_NORMALIZE_GEOMETRY", "normalization geometry is invalid")
+    cursor = 0
+    for level in range(1, scaler.SCALE_COUNT + 1):
+        frame_width = scaler.scale_dimension(width, level)
+        frame_height = scaler.scale_dimension(height, level)
+        pitch = scaler.align_up(frame_width, scaler.ROW_ALIGNMENT)
+        cursor = scaler.align_up(cursor, scaler.FRAME_ALIGNMENT)
+        cursor += pitch * frame_height
+    return cursor
+
+
+def normalized_dimensions(width: int, height: int) -> tuple[int, int]:
+    target_width, target_height = bounded_dimensions(width, height)
+    if scale_atlas_occupied_bytes(target_width, target_height) <= packer.BANK_SIZE:
+        return target_width, target_height
+
+    width_limited = (
+        width * MAX_ATLAS_SOURCE_HEIGHT
+        >= height * MAX_ATLAS_SOURCE_WIDTH
+    )
+    if width_limited:
+        candidates = (
+            (candidate_width,
+             max(1, height * candidate_width // width))
+            for candidate_width in range(target_width - 1, 0, -1)
+        )
+    else:
+        candidates = (
+            (max(1, width * candidate_height // height),
+             candidate_height)
+            for candidate_height in range(target_height - 1, 0, -1)
+        )
+    for candidate_width, candidate_height in candidates:
+        if scale_atlas_occupied_bytes(
+                candidate_width, candidate_height) <= packer.BANK_SIZE:
+            return candidate_width, candidate_height
+    fail("M98J_NORMALIZE_BANK", "no one-bank normalization geometry exists")
 
 
 def normalize_source(pixels: bytes, width: int, height: int,
@@ -178,6 +219,8 @@ def normalize_source(pixels: bytes, width: int, height: int,
         "output_anchor_y": target_anchor_y,
         "output_height": target_height,
         "output_width": target_width,
+        "one_bank_occupied_bytes": scale_atlas_occupied_bytes(
+            target_width, target_height),
         "upscaling": False,
     }
     return NormalizedSource(
@@ -240,7 +283,7 @@ def preview_dimensions(width: int, height: int) -> tuple[int, int]:
 def contact_sheet_pixels(scale_set: scaler.ScaleSet) -> tuple[
         tuple[tuple[int, int, int], ...], dict[str, object]]:
     if len(scale_set.frames) != scaler.SCALE_COUNT:
-        fail("M98J_CONTACT_FRAME_COUNT", "contact sheet requires 32 frames")
+        fail("M98J_CONTACT_FRAME_COUNT", "contact sheet requires 30 frames")
     pixels = [SHEET_BACKGROUND] * (SHEET_WIDTH * SHEET_HEIGHT)
     cells = []
     for index, frame in enumerate(scale_set.frames):

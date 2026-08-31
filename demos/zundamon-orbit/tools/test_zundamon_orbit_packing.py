@@ -123,7 +123,7 @@ class ZundamonOrbitPackingTests(unittest.TestCase):
             (lambda: packer.plan_bank_layout((0,)), "M98I_PLAN_SIZE"),
             (lambda: packer.plan_bank_layout((packer.BANK_SIZE + 1,)),
              "M98I_FRAME_TOO_LARGE"),
-            (lambda: packer.plan_bank_layout(tuple(1 for _ in range(33))),
+            (lambda: packer.plan_bank_layout(tuple(1 for _ in range(31))),
              "M98I_PLAN_COUNT"),
         )
         for operation, expected_code in cases:
@@ -140,7 +140,7 @@ class ZundamonOrbitPackingTests(unittest.TestCase):
         header, descriptors, plan = packer.inspect_packed_bytes(first.contents)
         self.assertEqual(header.required_bank_count, plan.required_bank_count)
         self.assertEqual(plan.required_bank_count, 1)
-        self.assertEqual(len(descriptors), 32)
+        self.assertEqual(len(descriptors), 30)
         self.assertTrue(all(descriptor.bank_slot == 0
                             for descriptor in descriptors))
         self.assert_plan_matches_oracle(tuple(
@@ -148,31 +148,22 @@ class ZundamonOrbitPackingTests(unittest.TestCase):
 
         format_header, format_descriptors = format_inspector.inspect_bytes(
             format_fixture.build_fixture())
-        self.assertEqual(format_header.required_bank_count, 32)
-        self.assertEqual(len(format_descriptors), 32)
+        self.assertEqual(format_header.required_bank_count, 30)
+        self.assertEqual(len(format_descriptors), 30)
         self.assert_packing_error(
             lambda: packer.inspect_packed_bytes(format_fixture.build_fixture()),
             "M98I_REQUIRED_BANK_COUNT",
         )
 
-    def test_large_neutral_scale_set_uses_multiple_minimal_banks(self) -> None:
-        width = 320
-        height = 320
-        source = bytes((index % 251) + 1 for index in range(width * height))
-        scale_set = scaler.build_scale_set(
-            source, width, height, width // 2, height // 2)
-        packed = packer.build_atlas(scale_set)
-        header, descriptors, plan = packer.inspect_packed_bytes(packed.contents)
-        self.assertGreater(header.required_bank_count, 1)
-        self.assertEqual(header.required_bank_count, plan.required_bank_count)
-        self.assert_plan_matches_oracle(tuple(
-            descriptor.payload_bytes for descriptor in descriptors))
-        for descriptor in descriptors:
-            self.assertEqual(descriptor.bank_offset % 16, 0)
-            self.assertLessEqual(
-                descriptor.bank_offset + descriptor.payload_bytes,
-                packer.BANK_SIZE,
-            )
+    def test_second_bank_plan_is_rejected(self) -> None:
+        valid = packer.plan_bank_layout((packer.BANK_SIZE,))
+        packer.require_one_bank(valid)
+        second_bank = packer.plan_bank_layout((packer.BANK_SIZE, 1))
+        self.assertEqual(second_bank.required_bank_count, 2)
+        self.assert_packing_error(
+            lambda: packer.require_one_bank(second_bank),
+            "M98I_ATLAS_BANK_COUNT",
+        )
 
     def test_scale_set_failures_reach_exact_isolated_codes(self) -> None:
         valid = format_fixture.public_scale_set()
@@ -239,14 +230,14 @@ class ZundamonOrbitPackingTests(unittest.TestCase):
             lambda: packer.validate_scale_set(changed_row_padding),
             "M98I_ROW_PADDING")
 
-    def test_minimal_packing_validator_rejects_isolated_corruptions(self) -> None:
+    def test_production_packing_validator_rejects_isolated_corruptions(self) -> None:
         packed = packer.build_public_fixture()
         header, descriptors = format_inspector.inspect_bytes(packed.contents)
-        packer.validate_minimal_packing(header, descriptors)
+        packer.validate_production_packing(header, descriptors)
 
         changed_header = dataclasses.replace(header, required_bank_count=2)
         self.assert_packing_error(
-            lambda: packer.validate_minimal_packing(
+            lambda: packer.validate_production_packing(
                 changed_header, descriptors),
             "M98I_REQUIRED_BANK_COUNT")
 
@@ -254,7 +245,7 @@ class ZundamonOrbitPackingTests(unittest.TestCase):
         changed_descriptors[1] = dataclasses.replace(
             changed_descriptors[1], bank_slot=1, bank_offset=0)
         self.assert_packing_error(
-            lambda: packer.validate_minimal_packing(
+            lambda: packer.validate_production_packing(
                 header, tuple(changed_descriptors)),
             "M98I_NONMINIMAL_LAYOUT")
 

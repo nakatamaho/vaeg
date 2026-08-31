@@ -21,9 +21,9 @@ OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
 OF THE POSSIBILITY OF SUCH DAMAGE.
 -->
 
-# M98g - Generate exactly 32 deterministic scale levels
+# M98g - Generate exactly 30 deterministic scale levels
 
-Status: **G98g machine gate passed on 2026-08-31; `LOCAL_SCALE_SET_PASS`**
+Status: **G98g machine gate passed on 2026-08-31; 30-level contract revalidated by M98j; `LOCAL_SCALE_SET_PASS`**
 
 Branch: `topic/m98g-zundamon-scale-levels`
 
@@ -33,18 +33,18 @@ Gate type: **machine-verifiable public fixture; optional local integration statu
 
 ## Goal
 
-Generate exactly 32 deterministic center-sampled nearest-neighbor scale
+Generate exactly 30 deterministic center-sampled nearest-neighbor scale
 levels from the M98f VA8 crop, preserve transparency and every sampled byte,
 and project the approved anchor without introducing the final atlas or BMS
 packing contract.
 
 ## Geometry contract
 
-For levels `i=1..32`:
+For levels `i=1..30`:
 
 ```text
-width(i)  = max(1, (source_width  * i + 16) // 32)
-height(i) = max(1, (source_height * i + 16) // 32)
+width(i)  = max(1, (source_width  * i + 15) // 30)
+height(i) = max(1, (source_height * i + 15) // 30)
 pitch(i)  = (width(i) + 3) & ~3
 ```
 
@@ -60,7 +60,7 @@ Project a source anchor coordinate `a` with:
 anchor(a) = min(d - 1, ((2 * a + 1) * d) // (2 * s))
 ```
 
-Level 32 must reproduce every source pixel exactly. Retain all 32 descriptors
+Level 30 must reproduce every source pixel exactly. Retain all 30 descriptors
 when adjacent small levels have duplicate dimensions.
 
 ## Required changes
@@ -72,13 +72,13 @@ when adjacent small levels have duplicate dimensions.
   every frame begins at a 16-byte-aligned stream offset.
 - Emit an intermediate `scales.va8` stream and deterministic private
   `report.json` only in a new explicitly supplied output directory.
-- Record exactly 32 descriptors with level, dimensions, pitch, projected
+- Record exactly 30 descriptors with level, dimensions, pitch, projected
   anchor, stream offset, and payload length.
 - Keep CLI success and failure output free of paths, filenames, source or
   target geometry, anchors, pixels, byte counts, descriptors, and hashes.
-- Add independent-oracle tests covering all pixels of all 32 public-fixture
+- Add independent-oracle tests covering all pixels of all 30 public-fixture
   frames, including duplicate dimensions, row padding, frame alignment,
-  level-32 identity, anchor bounds, and exact stable failure codes.
+  level-30 identity, anchor bounds, and exact stable failure codes.
 
 ## Private boundary
 
@@ -108,7 +108,7 @@ git diff --check
 
 ## Acceptance
 
-The public fixture produces exactly 32 ordered descriptors, monotonic
+The public fixture produces exactly 30 ordered descriptors, monotonic
 dimensions, preserved duplicate levels, an exact full-size level, and payloads
 matching an independent center-sampling oracle. Every row and frame-alignment
 padding byte is zero, anchors remain in bounds, focused failures reach exact

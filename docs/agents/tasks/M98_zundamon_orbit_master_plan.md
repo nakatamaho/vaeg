@@ -23,7 +23,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 # M98 - Zundamon billboard-orbit demo master plan
 
-Status: **G98a and G98e human gates and G98b-G98d and G98f-G98i machine gates passed; M98j candidate has `HOST_FIXTURE_PASS` and `LOCAL_HOST_PIPELINE_READY`; G98j is pending and M98k is unassigned**
+Status: **G98a and G98e human gates and G98b-G98d and G98f-G98i machine gates passed; their 30-scale single-bank contract was revalidated by M98j; M98j has `HOST_FIXTURE_PASS` and `LOCAL_HOST_PIPELINE_READY`; G98j is pending and M98k is unassigned**
 
 Branch family: `topic/m98-zundamon-orbit`
 
@@ -37,8 +37,9 @@ Build one isolated PC-88VA/VAEG demonstration named **Zundamon orbit** that:
    RGB888 palette through a generic, source-neutral interface;
 2. converts the accepted image to VA 8-bpp `GGGRRRBB`, reserving byte `00h`
    for transparency;
-3. generates exactly 32 deterministic nearest-neighbor scale levels;
-4. stores one shared scale atlas in PC-88VA I/O Bank Memory (BMS);
+3. generates exactly 30 deterministic nearest-neighbor scale levels;
+4. stores one shared scale atlas in exactly one PC-88VA I/O Bank Memory (BMS)
+   bank;
 5. lets the SGP read the selected 128 KiB BMS window directly and
    transparently BITBLT frames into double-buffered Graphic 1;
 6. displays a 320x200 scene over a static Graphic 0 background;
@@ -63,10 +64,10 @@ multiple viewing angles.
 | G1 page A | SGP `0220000h`, DSA1 `0020000h` |
 | G1 page B | SGP `022fa00h`, DSA1 `002fa00h` |
 | Transparent copy | SGP BITBLT mode `0105h` |
-| Atlas storage | I/O Bank Memory, 128 KiB window at `80000h-9ffffh` |
+| Atlas storage | Exactly one 128 KiB I/O Bank Memory window at `80000h-9ffffh` |
 | BMS default port | `01d0h`, overridable by guest option |
-| Atlas source maximum | 98x128; preserve aspect ratio and downscale only |
-| Scale levels | Exactly 32, smallest through full size |
+| Atlas source maximum | Start at 98x128; downscale further only to fit one bank |
+| Scale levels | Exactly 30, smallest through full size |
 | Runtime scaling | None |
 | Orbit phases | 64 deterministic lookup-table entries |
 | Active instances | 1-16; default 1 |
@@ -133,7 +134,7 @@ Execute exactly one assigned stage and stop at its gate.
 | M98d | Validate indexed pixels and the 16-entry palette | Machine/local |
 | M98e | Approve crop, transparency, and anchor | Human/local |
 | M98f | Convert opaque colors to VA `GGGRRRBB` | Machine |
-| M98g | Generate exactly 32 deterministic scale levels | Machine |
+| M98g | Generate exactly 30 deterministic scale levels | Machine |
 | M98h | Freeze the atlas format and fail-closed inspector | Machine |
 | M98i | Pack complete frames into 128 KiB BMS banks | Machine |
 | M98j | Run the complete local host-asset pipeline | Human/local |
@@ -142,11 +143,11 @@ Execute exactly one assigned stage and stop at its gate.
 | M98m | Stream and validate the atlas into BMS | Human/VAEG |
 | M98n | Prove one direct BMS-to-G1 SGP transfer | Human/VAEG |
 | M98o | Add transparent G1 double buffering | Human/VAEG |
-| M98p | Visit all 32 scales with a full-clear baseline | Human/VAEG |
+| M98p | Visit all 30 scales with a full-clear baseline | Human/VAEG |
 | M98q | Add page-local dirty-row clearing | Human/VAEG |
 | M98r | Add VBLANK rate selection and telemetry | Human/VAEG |
 | M98s | Add a constant-size 64-phase ellipse | Human/VAEG |
-| M98t | Couple orbit depth to the 32-level atlas | Human/VAEG |
+| M98t | Couple orbit depth to the 30-level atlas | Human/VAEG |
 | M98u | Integrate and tune the approved local image | Human/local |
 | M98v | Generate deterministic multi-instance depth order | Machine |
 | M98w | Add the multi-instance full-clear baseline | Human/VAEG |
@@ -175,20 +176,22 @@ va8    = (green3 << 5) | (red3 << 2) | blue2
 
 An opaque result that quantizes to zero must be repaired to the nearest
 nonzero value with deterministic tie breaking. Before scale generation, a
-source larger than 98x128 is fitted within that bounding box with deterministic
-center-sampled nearest-neighbor selection. The aspect ratio is preserved, the
-anchor uses the same pixel-center projection, an input that already fits is
+source larger than 98x128 is fitted within that bounding box. If the resulting
+30-level atlas would exceed one 128-KiB bank, the source shrinks further to the
+largest aspect-preserving dimensions that fit. Both steps use deterministic
+center-sampled nearest-neighbor selection; the anchor uses the same
+pixel-center projection, an input that already satisfies both limits is
 unchanged, and upscaling is forbidden. Scale generation then uses:
 
 ```text
-width(i)  = max(1, (source_width  * i + 16) // 32)
-height(i) = max(1, (source_height * i + 16) // 32)
+width(i)  = max(1, (source_width  * i + 15) // 30)
+height(i) = max(1, (source_height * i + 15) // 30)
 pitch(i)  = (width(i) + 3) & ~3
 ```
 
-for `i=1..32`, deterministic center-sampled nearest-neighbor selection,
-zeroed row padding, 16-byte frame alignment, and no frame crossing a 128 KiB
-bank boundary.
+for `i=1..30`, deterministic center-sampled nearest-neighbor selection,
+zeroed row padding, 16-byte frame alignment, and a complete atlas contained in
+one 128 KiB bank.
 
 ## 7. Guest correctness contracts
 

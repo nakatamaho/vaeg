@@ -42,7 +42,7 @@ DESCRIPTOR_FORMAT = "<HHHHHHHHIIII"
 HEADER_SIZE = struct.calcsize(HEADER_FORMAT)
 DESCRIPTOR_SIZE = struct.calcsize(DESCRIPTOR_FORMAT)
 POSE_COUNT = 1
-SCALE_COUNT = 32
+SCALE_COUNT = 30
 BANK_SIZE = 0x00020000
 FIRST_BANK_VALUE = 1
 DESCRIPTOR_OFFSET = HEADER_SIZE
@@ -97,7 +97,7 @@ def pack_header(payload_bytes: int, file_size: int, payload_crc32: int,
 
 
 def build_fixture() -> bytes:
-    if HEADER_SIZE != 64 or DESCRIPTOR_SIZE != 32 or PAYLOAD_OFFSET != 1088:
+    if HEADER_SIZE != 64 or DESCRIPTOR_SIZE != 32 or PAYLOAD_OFFSET != 1024:
         raise FixtureError("M98H_FIXTURE_FORMAT_SIZE: format size differs")
     scale_set = public_scale_set()
     if len(scale_set.frames) != SCALE_COUNT:

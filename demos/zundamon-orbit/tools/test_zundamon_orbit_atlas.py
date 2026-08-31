@@ -79,12 +79,12 @@ class ZundamonOrbitAtlasTests(unittest.TestCase):
         header, descriptors = inspector.inspect_bytes(contents)
         self.assertEqual(builder.HEADER_SIZE, 64)
         self.assertEqual(builder.DESCRIPTOR_SIZE, 32)
-        self.assertEqual(builder.PAYLOAD_OFFSET, 1088)
-        self.assertEqual(header.required_bank_count, 32)
+        self.assertEqual(builder.PAYLOAD_OFFSET, 1024)
+        self.assertEqual(header.required_bank_count, 30)
         self.assertEqual(header.first_bank_value, 1)
-        self.assertEqual(len(descriptors), 32)
+        self.assertEqual(len(descriptors), 30)
         self.assertEqual([descriptor.bank_slot for descriptor in descriptors],
-                         list(range(32)))
+                         list(range(30)))
         self.assertTrue(all(descriptor.bank_offset == 0
                             for descriptor in descriptors))
         self.assertEqual(header.payload_offset + header.payload_bytes,
@@ -100,7 +100,7 @@ class ZundamonOrbitAtlasTests(unittest.TestCase):
             ("flags", lambda data: set_u32(data, 12, 1), "M98H_HEADER_FLAGS"),
             ("pose count", lambda data: set_u16(data, 16, 2),
              "M98H_POSE_COUNT"),
-            ("scale count", lambda data: set_u16(data, 18, 31),
+            ("scale count", lambda data: set_u16(data, 18, 29),
              "M98H_SCALE_COUNT"),
             ("descriptor size", lambda data: set_u16(data, 20, 31),
              "M98H_DESCRIPTOR_SIZE"),
@@ -116,7 +116,7 @@ class ZundamonOrbitAtlasTests(unittest.TestCase):
              "M98H_DESCRIPTOR_OFFSET"),
             ("descriptor bytes", lambda data: set_u32(data, 36, 1000),
              "M98H_DESCRIPTOR_BYTES"),
-            ("payload offset", lambda data: set_u32(data, 40, 1104),
+            ("payload offset", lambda data: set_u32(data, 40, 1040),
              "M98H_PAYLOAD_OFFSET"),
             ("payload bounds", lambda data: set_u32(data, 44, 0),
              "M98H_PAYLOAD_BOUNDS"),
@@ -149,7 +149,7 @@ class ZundamonOrbitAtlasTests(unittest.TestCase):
             ("reserved", lambda data: set_u16(
                 data, descriptor_offset(0, 14), 1), "M98H_DESCRIPTOR_RESERVED"),
             ("bank slot", lambda data: set_u16(
-                data, descriptor_offset(0, 10), 32), "M98H_BANK_SLOT"),
+                data, descriptor_offset(0, 10), 30), "M98H_BANK_SLOT"),
             ("bank alignment", lambda data: set_u32(
                 data, descriptor_offset(0, 16), 1),
              "M98H_BANK_OFFSET_ALIGNMENT"),
@@ -160,7 +160,7 @@ class ZundamonOrbitAtlasTests(unittest.TestCase):
                 data, descriptor_offset(0, 20), first.file_offset + 1),
              "M98H_FILE_OFFSET_ALIGNMENT"),
             ("file range", lambda data: set_u32(
-                data, descriptor_offset(31, 20),
+                data, descriptor_offset(29, 20),
                 inspector.align_up(last.file_offset + last.payload_bytes, 16)),
              "M98H_FILE_RANGE"),
             ("payload length", lambda data: set_u32(

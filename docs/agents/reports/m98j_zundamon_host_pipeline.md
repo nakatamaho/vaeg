@@ -30,14 +30,16 @@ Status: **implementation candidate; `HOST_FIXTURE_PASS`; `LOCAL_HOST_PIPELINE_RE
 ## Result
 
 M98j adds one source-neutral host pipeline that validates the manifest and
-input, recovers exact indices, converts VA8 pixels, generates all 32 scales,
+input, recovers exact indices, converts VA8 pixels, generates all 30 scales,
 packs the final atlas, and applies both the M98h format inspector and M98i
-minimal-packing validator. Before scale generation, it deterministically fits
-oversized sources within 98x128 while preserving aspect ratio and projecting
-the anchor with the same center-sampled nearest-neighbor rule. It never
-upscales and writes no intermediate pixel or scale stream.
+single-bank packing validator. Before scale generation, it deterministically
+fits oversized sources within 98x128 while preserving aspect ratio, then
+shrinks further when required so that the complete 30-level atlas fits one
+128-KiB bank. It projects the anchor with the same center-sampled
+nearest-neighbor rule, never upscales, and writes no intermediate pixel or
+scale stream.
 
-Successful output contains only the final atlas, a deterministic 32-level
+Successful output contains only the final atlas, a deterministic 30-level
 contact sheet, and a combined private report. The contact sheet uses a fixed
 bounded grid, checkerboard transparency, projected anchor crosses, and labels
 for level, dimensions, and anchor. Its preview resampling never feeds back
@@ -54,10 +56,10 @@ M98J_TEST_PASS
 
 Coverage includes byte reproducibility, input immutability, exact agreement
 with independently composed M98f-M98i output, deterministic downscale-only
-normalization and anchor projection, both final inspectors, contact-sheet
-geometry and marker pixels, report reconciliation, the exact three-file
-output set, overwrite refusal, isolated failures, and path-redacted
-public/local CLI behavior.
+normalization and anchor projection, one-bank enforcement, both final
+inspectors, contact-sheet geometry and marker pixels, report reconciliation,
+the exact three-file output set, overwrite refusal, isolated failures, and
+path-redacted public/local CLI behavior.
 
 M98b-M98i regressions also passed, for 61 passing test methods across M98b
 through M98j. Python compilation, the public pipeline workflow, JSON,
@@ -67,14 +69,15 @@ public and local data remains untracked.
 ## Local gate evidence
 
 One existing approved local bundle passed the M98d input preflight. The
-maintainer then approved a fixed maximum source size of 98x128 and
-downscale-only normalization. The pipeline generated exactly the final atlas,
-contact sheet, and private report. Both final inspectors passed, and the
-contact sheet contains all 32 ordered levels with projected anchors and
-transparency previews.
+maintainer then approved 30 scale levels and exactly one atlas bank, retaining
+98x128 as the initial maximum and downscale-only normalization. The pipeline
+generated exactly the final atlas, contact sheet, and private report. Both
+final inspectors passed, the atlas requires one bank, and the contact sheet
+contains all 30 ordered levels with projected anchors and transparency
+previews.
 
 This establishes `LOCAL_HOST_PIPELINE_READY`, not G98j acceptance. The
-maintainer must inspect levels 1, 8, 16, 24, 31, and 32 before passing the
+maintainer must inspect levels 1, 8, 15, 23, 29, and 30 before passing the
 human/local gate.
 
 ## Boundary

@@ -20,7 +20,7 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
 # THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-"""Pack 32 ordered scale frames into a minimal version-1 BMS atlas."""
+"""Pack 30 ordered scale frames into one version-1 BMS atlas bank."""
 
 from __future__ import annotations
 
@@ -46,12 +46,12 @@ DESCRIPTOR_FORMAT = "<HHHHHHHHIIII"
 HEADER_SIZE = 64
 DESCRIPTOR_SIZE = 32
 POSE_COUNT = 1
-SCALE_COUNT = 32
+SCALE_COUNT = 30
 BANK_SIZE = 0x00020000
 FIRST_BANK_VALUE = 1
 DESCRIPTOR_OFFSET = HEADER_SIZE
 DESCRIPTOR_BYTES = SCALE_COUNT * DESCRIPTOR_SIZE
-PAYLOAD_OFFSET = 1088
+PAYLOAD_OFFSET = 1024
 FILE_CRC_OFFSET = 56
 FRAME_ALIGNMENT = 16
 ATLAS_NAME = "zundorb.bin"
@@ -101,7 +101,7 @@ class PackedAtlas:
 
 def plan_bank_layout(payload_sizes: Sequence[int]) -> PackingPlan:
     if not 1 <= len(payload_sizes) <= SCALE_COUNT:
-        fail("M98I_PLAN_COUNT", "packing plan frame count is outside 1-32")
+        fail("M98I_PLAN_COUNT", "packing plan frame count is outside 1-30")
 
     placements: list[Placement] = []
     bank_slot = 0
@@ -122,7 +122,7 @@ def plan_bank_layout(payload_sizes: Sequence[int]) -> PackingPlan:
             bank_boundary_padding_bytes += BANK_SIZE - cursor
             bank_slot += 1
             if bank_slot >= SCALE_COUNT:
-                fail("M98I_BANK_COUNT", "packing requires more than 32 banks")
+                fail("M98I_BANK_COUNT", "packing requires more than 30 banks")
             cursor = 0
             aligned_offset = 0
             bank_payload_bytes.append(0)
@@ -151,13 +151,13 @@ def plan_bank_layout(payload_sizes: Sequence[int]) -> PackingPlan:
 
 def validate_scale_set(scale_set: scaler.ScaleSet) -> None:
     if len(scale_set.frames) != SCALE_COUNT:
-        fail("M98I_SCALE_COUNT", "scale set must contain exactly 32 frames")
+        fail("M98I_SCALE_COUNT", "scale set must contain exactly 30 frames")
 
     stream_cursor = 0
     source = scale_set.frames[-1]
     for index, frame in enumerate(scale_set.frames):
         if frame.level != index + 1:
-            fail("M98I_LEVEL_ORDER", "scale levels are not ordered 1-32")
+            fail("M98I_LEVEL_ORDER", "scale levels are not ordered 1-30")
         if not (1 <= frame.width <= format_inspector.MAX_DIMENSION
                 and 1 <= frame.height <= format_inspector.MAX_DIMENSION):
             fail("M98I_DIMENSIONS", "frame dimensions are invalid")
@@ -171,8 +171,14 @@ def validate_scale_set(scale_set: scaler.ScaleSet) -> None:
         if len(frame.payload) > BANK_SIZE:
             fail("M98I_FRAME_TOO_LARGE", "frame payload exceeds one BMS bank")
 
-        expected_width = max(1, (source.width * frame.level + 16) // SCALE_COUNT)
-        expected_height = max(1, (source.height * frame.level + 16) // SCALE_COUNT)
+        expected_width = max(
+            1,
+            (source.width * frame.level + SCALE_COUNT // 2) // SCALE_COUNT,
+        )
+        expected_height = max(
+            1,
+            (source.height * frame.level + SCALE_COUNT // 2) // SCALE_COUNT,
+        )
         if (frame.width, frame.height) != (expected_width, expected_height):
             fail("M98I_SCALE_GEOMETRY", "scale geometry is noncanonical")
         expected_anchor_x = format_inspector.projected_coordinate(
@@ -230,7 +236,7 @@ def pack_header(required_bank_count: int, payload_bytes: int, file_size: int,
     )
 
 
-def validate_minimal_packing(
+def validate_production_packing(
         header: format_inspector.Header,
         descriptors: tuple[format_inspector.Descriptor, ...]) -> PackingPlan:
     plan = plan_bank_layout(tuple(
@@ -241,7 +247,13 @@ def validate_minimal_packing(
         if (descriptor.bank_slot, descriptor.bank_offset) != (
                 placement.bank_slot, placement.bank_offset):
             fail("M98I_NONMINIMAL_LAYOUT", "frame bank placement is noncanonical")
+    require_one_bank(plan)
     return plan
+
+
+def require_one_bank(plan: PackingPlan) -> None:
+    if plan.required_bank_count != 1:
+        fail("M98I_ATLAS_BANK_COUNT", "atlas must fit one BMS bank")
 
 
 def inspect_packed_bytes(
@@ -249,7 +261,7 @@ def inspect_packed_bytes(
 ) -> tuple[format_inspector.Header,
            tuple[format_inspector.Descriptor, ...], PackingPlan]:
     header, descriptors = format_inspector.inspect_bytes(contents)
-    plan = validate_minimal_packing(header, descriptors)
+    plan = validate_production_packing(header, descriptors)
     return header, descriptors, plan
 
 
@@ -262,11 +274,12 @@ def inspect_packed_file(
 
 def build_atlas(scale_set: scaler.ScaleSet) -> PackedAtlas:
     if (struct.calcsize(HEADER_FORMAT), struct.calcsize(DESCRIPTOR_FORMAT),
-            PAYLOAD_OFFSET) != (HEADER_SIZE, DESCRIPTOR_SIZE, 1088):
+            PAYLOAD_OFFSET) != (HEADER_SIZE, DESCRIPTOR_SIZE, 1024):
         fail("M98I_FORMAT_SIZE", "atlas format size differs")
     validate_scale_set(scale_set)
     plan = plan_bank_layout(tuple(
         len(frame.payload) for frame in scale_set.frames))
+    require_one_bank(plan)
 
     payload = bytearray()
     descriptor_values = []

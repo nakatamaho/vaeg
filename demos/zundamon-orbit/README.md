@@ -185,20 +185,20 @@ PYTHONPYCACHEPREFIX=/tmp/vaeg-m98f-pyc \
   python3 demos/zundamon-orbit/tools/test_zundamon_orbit_va8.py
 ```
 
-## Thirty-two scale levels
+## Thirty scale levels
 
-M98g generates exactly 32 nearest-neighbor frames, numbered 1 through 32.
+M98g generates exactly 30 nearest-neighbor frames, numbered 1 through 30.
 Their dimensions and row pitch are:
 
 ```text
-width(i)  = max(1, (source_width  * i + 16) // 32)
-height(i) = max(1, (source_height * i + 16) // 32)
+width(i)  = max(1, (source_width  * i + 15) // 30)
+height(i) = max(1, (source_height * i + 15) // 30)
 pitch(i)  = (width(i) + 3) & ~3
 ```
 
 Every target pixel samples the source pixel containing its projected center.
 Rows have zero padding through the four-byte pitch, and every frame starts at
-a 16-byte boundary. All 32 descriptors are retained even when small adjacent
+a 16-byte boundary. All 30 descriptors are retained even when small adjacent
 levels have the same dimensions. The anchor is projected with the same
 pixel-center convention.
 
@@ -225,8 +225,8 @@ PYTHONPYCACHEPREFIX=/tmp/vaeg-m98g-pyc \
 ## Version-1 atlas format
 
 M98h freezes the little-endian `ZUNDORB.BIN` version-1 container. Its fixed
-64-byte header is followed by 32 fixed 32-byte descriptors and a payload
-region beginning at byte 1088. The header declares one pose, 32 scales,
+64-byte header is followed by 30 fixed 32-byte descriptors and a payload
+region beginning at byte 1024. The header declares one pose, 30 scales,
 128-KiB BMS banks, required bank count, an explicit first guest bank selector,
 payload bounds, complete file size, and payload/file CRC32 values.
 
@@ -259,14 +259,12 @@ PYTHONPYCACHEPREFIX=/tmp/vaeg-m98h-pyc \
   python3 demos/zundamon-orbit/tools/test_zundamon_orbit_atlas.py
 ```
 
-## Minimal BMS bank packing
+## Single-bank BMS packing
 
-M98i places all 32 frames in increasing scale order into the minimum
-deterministic sequence of 128-KiB logical BMS banks. Every frame begins at a
-16-byte-aligned bank offset and remains entirely within one bank. When the
-next complete frame cannot fit, the remaining bank tail is left unused and
-the frame starts at offset zero in the next logical bank. Frames are never
-split, reordered, or backfilled.
+M98i places all 30 frames in increasing scale order into exactly one 128-KiB
+logical BMS bank. Every frame begins at a 16-byte-aligned bank offset. The
+production packer rejects an atlas that would require a second bank; frames
+are never split, reordered, or backfilled.
 
 The compact atlas file does not serialize unused bank tails. It retains the
 M98h canonical file layout and records each logical bank slot and bank offset
@@ -285,12 +283,12 @@ python3 demos/zundamon-orbit/tools/pack_zundamon_orbit_atlas.py \
 ```
 
 The generated `packing-report.json` reconciles useful pixels, row and frame
-alignment, logical bank-boundary padding, per-bank payload and occupied
-bytes, compact payload size, and required bank count. These values are not
+alignment, per-bank payload and occupied bytes, compact payload size, and the
+required bank count of one. These values are not
 printed by the CLI.
 
-Run the exact-fit, overflow, multi-bank, deterministic, corruption, metrics,
-and privacy-output tests:
+Run the exact-fit, overflow, multi-bank rejection, deterministic, corruption,
+metrics, and privacy-output tests:
 
 ```sh
 PYTHONPYCACHEPREFIX=/tmp/vaeg-m98i-pyc \
@@ -300,13 +298,15 @@ PYTHONPYCACHEPREFIX=/tmp/vaeg-m98i-pyc \
 ## Complete host-asset pipeline
 
 M98j connects manifest validation, exact indexed-pixel recovery, VA8
-conversion, downscale-only source normalization, all 32 scale levels, minimal
-BMS packing, and both final atlas inspectors without writing intermediate
-private pixels or scale streams. The normalized source fits within 98x128,
-preserves its aspect ratio, uses deterministic center-sampled nearest-neighbor
-selection, and projects the anchor with the same coordinate rule. Inputs that
-already fit remain byte-for-byte unchanged, and the pipeline never upscales.
-A bounded contact sheet displays every level in order over a checkerboard,
+conversion, downscale-only source normalization, all 30 scale levels,
+single-bank BMS packing, and both final atlas inspectors without writing
+intermediate private pixels or scale streams. The normalized source starts
+within the 98x128 bound and, when necessary, shrinks further to the largest
+aspect-preserving dimensions whose complete 30-level atlas fits one 128-KiB
+bank. Selection is deterministic center-sampled nearest-neighbor, the anchor
+uses the same coordinate rule, and the pipeline never upscales. An input that
+already satisfies both bounds remains byte-for-byte unchanged. A bounded
+contact sheet displays every level in order over a checkerboard,
 marks the projected anchor, and labels the level, dimensions, and anchor.
 
 Run the complete public fixture through the production pipeline:
@@ -328,10 +328,10 @@ python3 demos/zundamon-orbit/tools/build_zundamon_orbit_pipeline.py \
 A successful output directory contains only `zundorb.bin`,
 `contact-sheet.bmp`, and `pipeline-report.json`. Local success establishes
 `LOCAL_HOST_PIPELINE_READY`, not human approval. Inspect contact-sheet levels
-1, 8, 16, 24, 31, and 32 before passing G98j.
+1, 8, 15, 23, 29, and 30 before passing G98j.
 
-After normalization, the pipeline deliberately fails when even one complete
-frame exceeds a 128-KiB bank. It never splits or reorders a frame.
+After normalization, the complete atlas occupies exactly one BMS bank. The
+pipeline never splits or reorders a frame.
 
 Run the public end-to-end, contact-sheet, report, overwrite, and privacy tests:
 

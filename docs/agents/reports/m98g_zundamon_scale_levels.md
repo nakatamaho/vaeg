@@ -21,15 +21,15 @@ OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
 OF THE POSSIBILITY OF SUCH DAMAGE.
 -->
 
-# M98g - Zundamon 32-level scale-set report
+# M98g - Zundamon 30-level scale-set report
 
 Evaluated predecessor: `a08bbb5283a219cea576b16845bbb4571e0d35aa`
 
-Status: **G98g machine gate passed on 2026-08-31; `LOCAL_SCALE_SET_PASS`**
+Status: **G98g machine gate passed on 2026-08-31; 30-level contract revalidated by M98j; `LOCAL_SCALE_SET_PASS`**
 
 ## Result
 
-M98g adds a standard-library generator for exactly 32 center-sampled
+M98g adds a standard-library generator for exactly 30 center-sampled
 nearest-neighbor VA8 frames. It implements the frozen integer dimension
 formula, four-byte row pitch, zero row padding, 16-byte frame alignment, and
 pixel-center anchor projection. Every level has an independent descriptor,
@@ -42,7 +42,7 @@ CLI output is a single neutral success token or a stable error code with
 neutral detail.
 
 The approved local bundle passed the same generator without modifying its
-inputs. Its ignored stream contains exactly 32 ordered in-range frames and
+inputs. Its ignored stream contains exactly 30 ordered in-range frames and
 passed local structural checks. This establishes `LOCAL_SCALE_SET_PASS`; no
 private values or identities are recorded here.
 
@@ -56,7 +56,7 @@ M98G_TEST_PASS
 ```
 
 Coverage includes exact dimension sequences, duplicate-dimension retention,
-level-32 source identity, explicit center-sampling and anchor examples, an
+level-30 source identity, explicit center-sampling and anchor examples, an
 independent all-frame pixel oracle, zero row and frame padding, 16-byte frame
 offsets, descriptor agreement, byte reproducibility, input immutability,
 overwrite refusal, focused stable error codes, and path-redacted CLI success

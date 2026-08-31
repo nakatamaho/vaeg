@@ -35,28 +35,31 @@ Gate type: **machine-verifiable public pipeline plus maintainer-only local visua
 
 Connect the frozen M98c through M98i host stages into one fail-closed command
 that turns an explicitly supplied generic local manifest into the final
-minimally packed version-1 atlas, a deterministic 32-level contact sheet, and
-a private combined report. Apply the approved 98x128 downscale-only source
-normalization before M98g. Run the public synthetic fixture through exactly
-the same pipeline before preparing any local human-gate candidate.
+single-bank version-1 atlas, a deterministic 30-level contact sheet, and a
+private combined report. Apply the approved 98x128 downscale-only source
+normalization and shrink further when necessary to fit the complete atlas in
+one BMS bank before M98g. Run the public synthetic fixture through exactly the
+same pipeline before preparing any local human-gate candidate.
 
 ## Required changes
 
 - Add one standard-library pipeline entry point that performs manifest and
   source validation, exact indexed-pixel recovery, VA8 conversion,
-  downscale-only source normalization, 32-level scaling, minimal BMS packing,
-  M98h format inspection, and M98i packing inspection without intermediate
-  private files.
+  downscale-only source normalization, 30-level scaling, single-bank BMS
+  packing, M98h format inspection, and M98i packing inspection without
+  intermediate private files.
 - Fit sources larger than 98x128 within that bounding box while preserving the
-  aspect ratio. Use deterministic center-sampled nearest-neighbor selection,
-  project the anchor with the same pixel-center rule, leave inputs that already
-  fit byte-for-byte unchanged, and never upscale.
+  aspect ratio. If all 30 scales would exceed one bank, shrink further to the
+  largest aspect-preserving dimensions that fit. Use deterministic
+  center-sampled nearest-neighbor selection, project the anchor with the same
+  pixel-center rule, leave inputs that satisfy both bounds byte-for-byte
+  unchanged, and never upscale.
 - Accept either an explicit local manifest and a new output directory or a
   public-fixture output directory. The public mode must create a temporary
   M98d fixture and invoke the same production pipeline function.
 - Write only `zundorb.bin`, `contact-sheet.bmp`, and
   `pipeline-report.json` into the new output directory. Refuse overwrite.
-- Render all 32 levels in fixed order on a bounded contact sheet, with a
+- Render all 30 levels in fixed order on a bounded contact sheet, with a
   checkerboard transparency background, anchor cross, level, dimensions, and
   anchor coordinates. Preview resampling must not alter atlas pixels.
 - Combine the conversion, scale-set, packing, contact-sheet, and final
@@ -74,7 +77,7 @@ the same pipeline before preparing any local human-gate candidate.
 If an already approved local bundle is available, run the same command into
 the ignored `build/generated/zundamon-orbit/` tree and report only
 `LOCAL_HOST_PIPELINE_READY`. The maintainer must inspect contact-sheet levels
-1, 8, 16, 24, 31, and 32, including anchors and transparency, before stating
+1, 8, 15, 23, 29, and 30, including anchors and transparency, before stating
 that G98j passed. Codex must not infer this approval from successful file
 generation or automated inspection.
 
@@ -83,8 +86,9 @@ stop without fabricating or acquiring input.
 
 If an approved bundle reaches a frozen fail-closed stage error, record only a
 neutral stable status and retain G98j as pending. Do not split, crop, or alter
-the accepted local input. The fixed 98x128 downscale-only normalization above
-is the only M98j transformation added before the frozen scaler and packer.
+the accepted local input. The fixed downscale-only normalization and one-bank
+fit above are the only M98j transformations added before the scaler and
+packer.
 
 ## Private boundary
 
@@ -96,8 +100,10 @@ contains only the M98b abstract marker.
 ## Out of scope
 
 - Changing the G98e-approved input crop, transparency, or anchor.
-- Any normalization other than the fixed downscale-only 98x128 rule.
-- Changing the M98h format or M98i packing algorithm.
+- Any normalization other than the fixed downscale-only 98x128 and one-bank
+  rules.
+- Any M98h format or M98i packing change beyond the authorized 30-descriptor,
+  single-bank revision.
 - Guest assembly, BMS probing/loading, SGP transfer, VAEG, disk images,
   screenshots, animation, or physical-machine work.
 

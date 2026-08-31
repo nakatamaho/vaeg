@@ -25,12 +25,12 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 Evaluated predecessor: `9babd808d2f3a8cea898e9caadbfa2301d2e8726`
 
-Status: **G98h machine gate passed on 2026-08-31; `HOST_ATLAS_FORMAT_PASS`**
+Status: **G98h machine gate passed on 2026-08-31; 30-descriptor contract revalidated by M98j; `HOST_ATLAS_FORMAT_PASS`**
 
 ## Result
 
-M98h freezes the 64-byte little-endian `ZUNDORB.BIN` version-1 header and 32
-fixed 32-byte descriptors. The format records one pose, 32 scales, 128-KiB
+M98h freezes the 64-byte little-endian `ZUNDORB.BIN` version-1 header and 30
+fixed 32-byte descriptors. The format records one pose, 30 scales, 128-KiB
 BMS bank size, required bank count, explicit first selector value, canonical
 payload bounds, complete file size, and frame, payload, and file CRC32 values.
 Logical bank slots are converted to guest selectors through the header;

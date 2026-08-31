@@ -23,7 +23,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 # M98h - Freeze the atlas format and fail-closed inspector
 
-Status: **G98h machine gate passed on 2026-08-31; `HOST_ATLAS_FORMAT_PASS`**
+Status: **G98h machine gate passed on 2026-08-31; 30-descriptor contract revalidated by M98j; `HOST_ATLAS_FORMAT_PASS`**
 
 Branch: `topic/m98h-zundamon-atlas-format`
 
@@ -48,15 +48,15 @@ All integers are unsigned little-endian. The header is exactly 64 bytes:
 | `0ah` | 2 | header size | 64 |
 | `0ch` | 4 | flags | zero |
 | `10h` | 2 | pose count | exactly 1 |
-| `12h` | 2 | scale count | exactly 32 |
+| `12h` | 2 | scale count | exactly 30 |
 | `14h` | 2 | descriptor size | 32 |
 | `16h` | 2 | reserved | zero |
 | `18h` | 4 | bank size | `00020000h` |
-| `1ch` | 2 | required bank count | 1 through 32 |
+| `1ch` | 2 | required bank count | 1 through 30 |
 | `1eh` | 2 | first bank value | exactly 1 |
 | `20h` | 4 | descriptor offset | 64 |
-| `24h` | 4 | descriptor bytes | 1024 |
-| `28h` | 4 | payload offset | 1088 |
+| `24h` | 4 | descriptor bytes | 960 |
+| `28h` | 4 | payload offset | 1024 |
 | `2ch` | 4 | payload bytes | complete payload region |
 | `30h` | 4 | file size | exact complete file size |
 | `34h` | 4 | payload CRC32 | bytes from payload offset to EOF |
@@ -69,7 +69,7 @@ selector values are not stored per descriptor.
 
 ## Descriptor contract
 
-Exactly 32 descriptors appear in increasing scale order. Each is 32 bytes:
+Exactly 30 descriptors appear in increasing scale order. Each is 32 bytes:
 
 | Offset | Size | Field |
 |---:|---:|---|
@@ -99,7 +99,7 @@ nondecreasing bank slots, and nonoverlapping ranges within each bank.
 - Add an independent standard-library inspector with separately callable
   header, descriptor, canonical-geometry, layout, padding, frame-CRC,
   payload-CRC, and file-CRC validation layers.
-- Bound files to the maximum possible 32 one-bank frames and reject symlinks,
+- Bound files to the maximum possible 30 one-bank frames and reject symlinks,
   non-regular files, malformed or extra data, and every noncanonical field.
 - Keep writer and inspector CLI output free of paths, filenames, dimensions,
   anchors, bank assignments, sizes, CRCs, payload values, and hashes.
@@ -114,7 +114,7 @@ and private `ZUNDORB.BIN` generation remain later local work.
 
 ## Out of scope
 
-- Selecting the minimum required banks or implementing production packing.
+- Enforcing the production single-bank rule or implementing production packing.
 - Changing M98g pixels, scaling, or anchors.
 - Guest loading, BMS probing, SGP transfer, VAEG, or physical-machine work.
 

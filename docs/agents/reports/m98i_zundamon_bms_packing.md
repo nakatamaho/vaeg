@@ -25,27 +25,26 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 Evaluated predecessor: `7db0dce837542b6632f0cd322ab4fb334d45cfd4`
 
-Status: **G98i machine gate passed on 2026-08-31; `HOST_BMS_PACKING_PASS`**
+Status: **G98i machine gate passed on 2026-08-31; single-bank contract revalidated by M98j; `HOST_BMS_PACKING_PASS`**
 
 ## Result
 
-M98i adds a deterministic sequential packer for the 32 M98g scale frames.
-Each complete payload starts at a 16-byte-aligned offset in a 128-KiB logical
-BMS bank. A frame that would cross the current bank starts at offset zero in
-the next bank. The algorithm does not split, reorder, backfill, or duplicate
-frames, and derives the minimum bank count for that fixed order.
+M98i adds a deterministic sequential packer for the 30 M98g scale frames.
+Each complete payload starts at a 16-byte-aligned offset in one 128-KiB
+logical BMS bank. The algorithm does not split, reorder, backfill, or
+duplicate frames, and rejects an atlas that would require a second bank.
 
-The resulting atlas retains the compact M98h version-1 file layout. Logical
-bank tails are accounted for in the report but are not serialized. The
+The resulting atlas retains the compact M98h version-1 file layout. The
+logical bank tail is accounted for in the report but is not serialized. The
 packer validates the complete M98g scale set before encoding, sends the final
 container through the independent M98h inspector, and then applies a separate
-M98i minimal-packing validator. This preserves the M98h format fixture as
+M98i single-bank packing validator. This preserves the M98h format fixture as
 format-valid while distinguishing it from production packing.
 
 The generated JSON report reconciles useful pixels, row padding, BMS frame
-alignment, bank-boundary padding, per-bank payload and occupied bytes,
-compact file alignment, payload region, complete file size, and required bank
-count. CLI output contains only neutral success tokens or stable error codes.
+alignment, bank payload and occupied bytes, compact file alignment, payload
+region, complete file size, and the required bank count of one. CLI output
+contains only neutral success tokens or stable error codes.
 
 ## Machine evidence
 
@@ -57,9 +56,9 @@ M98I_TEST_PASS
 ```
 
 Coverage includes independent exact-fit, alignment-fit, one-byte-overflow,
-and multi-bank plan oracles; a large neutral multi-bank scale set; complete
-M98h format validation; rejection of the format-only nonminimal fixture;
-isolated scale-stream and plan corruptions; oversized-frame rejection;
+and multi-bank plan oracles; rejection of a controlled second-bank plan;
+complete M98h format validation; rejection of the format-only nonminimal
+fixture; isolated scale-stream and plan corruptions; oversized-frame rejection;
 metrics reconciliation; deterministic output; overwrite refusal; and
 path-redacted CLI success and failure.
 

@@ -20,7 +20,7 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
 # THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-"""Generate exactly 32 deterministic VA8 nearest-neighbor scale frames."""
+"""Generate exactly 30 deterministic VA8 nearest-neighbor scale frames."""
 
 from __future__ import annotations
 
@@ -36,7 +36,8 @@ import inspect_zundamon_orbit_input as input_inspector
 import validate_zundamon_orbit_manifest as manifest_validator
 
 
-SCALE_COUNT = 32
+SCALE_COUNT = 30
+SCALE_ROUNDING_BIAS = SCALE_COUNT // 2
 ROW_ALIGNMENT = 4
 FRAME_ALIGNMENT = 16
 STREAM_NAME = "scales.va8"
@@ -65,8 +66,11 @@ def scale_dimension(source_size: int, level: int) -> int:
     if source_size < 1:
         fail("M98G_SOURCE_GEOMETRY", "source dimension is invalid")
     if not 1 <= level <= SCALE_COUNT:
-        fail("M98G_LEVEL_RANGE", "scale level is outside 1-32")
-    return max(1, (source_size * level + 16) // SCALE_COUNT)
+        fail("M98G_LEVEL_RANGE", "scale level is outside 1-30")
+    return max(
+        1,
+        (source_size * level + SCALE_ROUNDING_BIAS) // SCALE_COUNT,
+    )
 
 
 def source_sample_coordinate(target_coordinate: int, source_size: int,

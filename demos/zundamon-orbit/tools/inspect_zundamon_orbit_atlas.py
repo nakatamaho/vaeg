@@ -41,12 +41,12 @@ DESCRIPTOR_FORMAT = "<HHHHHHHHIIII"
 HEADER_SIZE = 64
 DESCRIPTOR_SIZE = 32
 POSE_COUNT = 1
-SCALE_COUNT = 32
+SCALE_COUNT = 30
 BANK_SIZE = 0x00020000
 FIRST_BANK_VALUE = 1
 DESCRIPTOR_OFFSET = HEADER_SIZE
 DESCRIPTOR_BYTES = SCALE_COUNT * DESCRIPTOR_SIZE
-PAYLOAD_OFFSET = 1088
+PAYLOAD_OFFSET = 1024
 FILE_CRC_OFFSET = 56
 MAX_DIMENSION = 4096
 MAX_ATLAS_BYTES = PAYLOAD_OFFSET + SCALE_COUNT * (BANK_SIZE + 15)
@@ -135,7 +135,7 @@ def parse_header(contents: bytes) -> Header:
     if pose_count != POSE_COUNT:
         fail("M98H_POSE_COUNT", "pose count must be one")
     if scale_count != SCALE_COUNT:
-        fail("M98H_SCALE_COUNT", "scale count must be 32")
+        fail("M98H_SCALE_COUNT", "scale count must be 30")
     if descriptor_size != DESCRIPTOR_SIZE:
         fail("M98H_DESCRIPTOR_SIZE", "descriptor size differs")
     if reserved0 != 0 or reserved1 != 0:
@@ -143,7 +143,7 @@ def parse_header(contents: bytes) -> Header:
     if bank_size != BANK_SIZE:
         fail("M98H_BANK_SIZE", "BMS bank size differs")
     if not 1 <= required_bank_count <= SCALE_COUNT:
-        fail("M98H_BANK_COUNT", "required bank count is outside 1-32")
+        fail("M98H_BANK_COUNT", "required bank count is outside 1-30")
     if first_bank_value != FIRST_BANK_VALUE:
         fail("M98H_FIRST_BANK", "first BMS selector value differs")
     if first_bank_value + required_bank_count - 1 > 255:
@@ -220,8 +220,14 @@ def validate_canonical_geometry(descriptors: tuple[Descriptor, ...]) -> None:
     source = descriptors[-1]
     for index, descriptor in enumerate(descriptors):
         level = index + 1
-        expected_width = max(1, (source.width * level + 16) // SCALE_COUNT)
-        expected_height = max(1, (source.height * level + 16) // SCALE_COUNT)
+        expected_width = max(
+            1,
+            (source.width * level + SCALE_COUNT // 2) // SCALE_COUNT,
+        )
+        expected_height = max(
+            1,
+            (source.height * level + SCALE_COUNT // 2) // SCALE_COUNT,
+        )
         if (descriptor.width, descriptor.height) != (expected_width, expected_height):
             fail("M98H_SCALE_GEOMETRY", "scale geometry is noncanonical")
         expected_anchor_x = projected_coordinate(

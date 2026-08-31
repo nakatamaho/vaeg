@@ -20,7 +20,7 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
 # THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-"""Test the deterministic M98g 32-level nearest-neighbor scale set."""
+"""Test the deterministic M98g 30-level nearest-neighbor scale set."""
 
 from __future__ import annotations
 
@@ -48,7 +48,7 @@ def digest(input_file: Path) -> str:
 
 
 def oracle_dimension(source_size: int, level: int) -> int:
-    return max(1, (source_size * level + 16) // 32)
+    return max(1, (source_size * level + 15) // 30)
 
 
 def oracle_sample(coordinate: int, source_size: int, target_size: int) -> int:
@@ -92,20 +92,20 @@ class ZundamonOrbitScaleTests(unittest.TestCase):
         )
         return pixels, asset.WIDTH, asset.HEIGHT, asset.WIDTH // 2, asset.HEIGHT // 2
 
-    def test_exact_dimensions_and_level_32_source(self) -> None:
+    def test_exact_dimensions_and_level_30_source(self) -> None:
         source, width, height, anchor_x, anchor_y = self.make_source()
         result = scaler.build_scale_set(
             source, width, height, anchor_x, anchor_y)
-        self.assertEqual(len(result.frames), 32)
+        self.assertEqual(len(result.frames), 30)
         self.assertEqual([frame.level for frame in result.frames],
-                         list(range(1, 33)))
+                         list(range(1, 31)))
         dimensions = [(frame.width, frame.height) for frame in result.frames]
         self.assertEqual(dimensions, [
             (oracle_dimension(width, level), oracle_dimension(height, level))
-            for level in range(1, 33)
+            for level in range(1, 31)
         ])
         self.assertEqual(dimensions, sorted(dimensions))
-        self.assertLess(len(set(dimensions)), 32)
+        self.assertLess(len(set(dimensions)), 30)
         full = result.frames[-1]
         self.assertEqual((full.width, full.height), (width, height))
         for y in range(height):
@@ -162,7 +162,7 @@ class ZundamonOrbitScaleTests(unittest.TestCase):
         self.assertEqual(cursor, len(result.stream))
         self.assertEqual(result.report["schema"], scaler.REPORT_SCHEMA)
         descriptors = cast(list[dict[str, int]], result.report["descriptors"])
-        self.assertEqual(len(descriptors), 32)
+        self.assertEqual(len(descriptors), 30)
         for frame, descriptor in zip(result.frames, descriptors):
             self.assertEqual(descriptor["level"], frame.level)
             self.assertEqual(descriptor["offset"], frame.offset)
@@ -183,8 +183,8 @@ class ZundamonOrbitScaleTests(unittest.TestCase):
                                  (second / filename).read_bytes(), filename)
             report = json.loads((first / scaler.REPORT_NAME).read_text(
                 encoding="utf-8"))
-            self.assertEqual(report["format"]["scale_count"], 32)
-            self.assertEqual(len(report["descriptors"]), 32)
+            self.assertEqual(report["format"]["scale_count"], 30)
+            self.assertEqual(len(report["descriptors"]), 30)
             after = {input_file.name: digest(input_file) for input_file in inputs}
             self.assertEqual(before, after)
 
