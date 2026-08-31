@@ -20,7 +20,7 @@
 # OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
 # ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-"""Build the local M98k disk with a deterministic FAT directory time."""
+"""Build a local Zundamon-orbit disk with a deterministic FAT directory time."""
 
 from __future__ import annotations
 
@@ -35,9 +35,9 @@ FIXED_FAT_TIME = 0
 
 def load_pcengine_disk():
     path = Path(__file__).resolve().parents[3] / "tools" / "pc88va" / "pcengine_disk.py"
-    spec = importlib.util.spec_from_file_location("m98k_pcengine_disk", path)
+    spec = importlib.util.spec_from_file_location("zundamon_pcengine_disk", path)
     if spec is None or spec.loader is None:
-        raise RuntimeError("M98K_DISK_TOOL_IMPORT")
+        raise RuntimeError("ZUNDAMON_DISK_TOOL_IMPORT")
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
@@ -60,7 +60,7 @@ def main() -> int:
         pcengine_disk.install_payload(args.output, args.payload)
     except (pcengine_disk.DiskError, OSError) as error:
         parser.exit(1, f"error: {error}\n")
-    print("M98K_DISK_BUILD_PASS fat_timestamp=2026-01-01T00:00:00")
+    print("ZUNDAMON_DISK_BUILD_PASS fat_timestamp=2026-01-01T00:00:00")
     return 0
 
 

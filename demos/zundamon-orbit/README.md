@@ -354,50 +354,73 @@ transparent BITBLT mode `0105h` to place one embedded 16x16 synthetic marker
 at `(152, 92)`. The marker uses a 16-byte row stride with no padding and three
 nonzero `GGGRRRBB` values. The settled guest does not redraw the marker.
 
-Build the guest into an existing output directory:
+M98k does not load an atlas or any external asset and contains no BMS, EMS,
+XMS, scaling, animation, or multi-instance path. Those concerns remain gated
+to later milestones. Its exact historical commands and artifact identities are
+recorded in `docs/agents/reports/m98k_zundamon_guest_bringup.md`; the current
+guest and runner advance that baseline to M98l.
+
+## One-bank BMS stream and direct G1 transfer
+
+M98l installs the public fixture atlas as `ZUNDORB.BIN`, validates its fixed
+1024-byte metadata region, and streams its 4888-byte payload into BMS selector
+1 through one 4096-byte staging buffer. Selector 0 remains the ordinary RAM
+mapping. The guest checks selectors 1, 2, and 128 independently and verifies
+that invalid selector 129 is an open-bus mapping rather than an alias.
+
+After the file and BMS-resident CRC32 values agree, the guest overwrites the
+staging buffer with `a5h`. It then submits one bounded SGP command list. The
+list clears G1 and performs exactly one transparent `0105h` BITBLT directly
+from the selected BMS window. For the public fixture, level 30 is 23x19 with a
+24-byte source pitch at bank offset `1150h`; its SGP source is therefore
+`081150h`, centered at `(148, 90)` on G1. The completed frame remains static.
+
+Build the current guest and its NASM listing into an existing output
+directory:
 
 ```sh
 NASM=/opt/local/bin/nasm \
-  demos/zundamon-orbit/256/build.sh /tmp/ZUNDORB.COM
+  demos/zundamon-orbit/256/build.sh \
+  /tmp/ZUNDORB.COM /tmp/ZUNDORB.LST
 ```
 
-Build a local bootable disk by explicitly supplying a PC-Engine 2HD template.
-The template is copied, never modified, and the script refuses to overwrite
-the output. The added file receives the fixed FAT timestamp
-`2026-01-01 00:00:00`, so equal template and guest inputs produce an identical
-D88 even when builds run at different host times:
+Build the public atlas, then make a local bootable disk from an explicitly
+supplied PC-Engine 2HD template. The template and atlas are read-only inputs,
+the output must not exist, and generated media remains untracked:
 
 ```sh
+atlas_root=$(mktemp -d /tmp/vaeg-m98l-atlas.XXXXXX)
+python3 demos/zundamon-orbit/tools/build_zundamon_orbit_pipeline.py \
+  --fixture-output "$atlas_root"
 demos/zundamon-orbit/build-local-d88.sh \
   /path/to/local-bootable-2hd.d88 \
-  /tmp/zundamon-orbit-m98k.d88
+  "$atlas_root/zundorb.bin" \
+  /tmp/zundamon-orbit-m98l.d88
 ```
 
-Run a bounded VA2 capture with an explicit VAEG executable and ROM directory.
-The output directory must not exist. The runner preserves a pristine generated
-D88 and boots a disposable copy because the emulated floppy is writable:
+Run the complete bounded proof in VA2 mode. The output directory must not
+exist. The runner regenerates the public atlas, builds the COM and listing,
+builds and lists the D88, boots a disposable copy, enables the generic SGP
+descriptor trace, captures exact GVRAM, and runs the oracle:
 
 ```sh
 VAEG_ZUNDAMON_MODEL=va2 demos/zundamon-orbit/run-vaeg.sh \
   /path/to/local-bootable-2hd.d88 \
   /path/to/vaeg \
   /path/to/rom-directory \
-  build/generated/zundamon-orbit/m98k-run
+  build/generated/zundamon-orbit/m98l-run
 ```
 
-The runner uses dummy SDL only as a transport for the emulator's rendered
-BMP capture. PASS comes from the independent indexed-GVRAM oracle: it checks
-the exact G0 and G1 bytes, one marker occurrence, two settled-frame identities,
-the register completion signature, the event sequence, and a nonblack rendered
-frame. Dummy SDL output alone is never treated as visual proof.
-
-Run the focused oracle tests independently:
+The runner uses dummy SDL only as transport. PASS is based on BMS phase
+signatures, the direct SGP source/destination trace, exact indexed G0/G1
+contents, consecutive stable captures, and a nonblack composed frame. Run its
+focused fail-closed tests separately with:
 
 ```sh
-PYTHONPYCACHEPREFIX=/tmp/vaeg-m98k-pyc \
+PYTHONPYCACHEPREFIX=/tmp/vaeg-m98l-pyc \
   python3 demos/zundamon-orbit/tools/test_zundamon_orbit_guest.py
 ```
 
-M98k does not load an atlas or any external asset and contains no BMS, EMS,
-XMS, scaling, animation, or multi-instance path. Those concerns remain gated
-to later milestones.
+M98l does not traverse scale levels at runtime, animate, exchange pages, draw
+multiple objects, measure performance, load maintainer-supplied artwork, or
+claim physical-machine validation. Those concerns remain separately gated.

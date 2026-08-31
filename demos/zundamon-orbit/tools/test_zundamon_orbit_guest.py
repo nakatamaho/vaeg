@@ -20,12 +20,12 @@
 # OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
 # ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-"""Focused fail-closed tests for the M98k capture oracle."""
+"""Focused fail-closed tests for the M98l capture oracle."""
 
 from __future__ import annotations
 
-import importlib.util
 import json
+import shutil
 import struct
 import subprocess
 import sys
@@ -35,113 +35,118 @@ from pathlib import Path
 from typing import Callable
 
 
-SCRIPT = Path(__file__).with_name("verify_zundamon_orbit_guest.py")
-ASSEMBLY = Path(__file__).resolve().parents[1] / "256" / "zundamon_orbit_256.asm"
-SPEC = importlib.util.spec_from_file_location("m98k_oracle", SCRIPT)
-if SPEC is None or SPEC.loader is None:
-    raise RuntimeError("cannot load M98k oracle")
-ORACLE = importlib.util.module_from_spec(SPEC)
-SPEC.loader.exec_module(ORACLE)
+TOOLS = Path(__file__).resolve().parent
+if str(TOOLS) not in sys.path:
+    sys.path.insert(0, str(TOOLS))
+import build_zundamon_orbit_pipeline as pipeline  # noqa: E402
+import inspect_zundamon_orbit_atlas as atlas_format  # noqa: E402
+import verify_zundamon_orbit_guest as oracle  # noqa: E402
 
 
-def write_registers(path: Path, *, bx: str = "0140") -> None:
+SCRIPT = TOOLS / "verify_zundamon_orbit_guest.py"
+ASSEMBLY = TOOLS.parent / "256" / "zundamon_orbit_256.asm"
+
+
+def write_registers(path: Path, required: dict[str, str]) -> None:
     values = {
-        "schema": "vaeg-registers-v1",
-        "sequence": "1",
-        "ordinal": "1",
-        "clock": "1000",
-        "ax": "984b",
-        "bx": bx,
-        "cx": "00c8",
-        "dx": "0808",
-        "si": "0101",
-        "di": "005c",
-        "bp": "0098",
-        "sp": "f000",
-        "es": "3000",
-        "cs": "3000",
-        "ss": "3000",
-        "ds": "3000",
-        "ip": "0800",
-        "flags": "0200",
-        "es_base": "00030000",
-        "cs_base": "00030000",
-        "ss_base": "00030000",
-        "ds_base": "00030000",
+        "schema": "vaeg-registers-v1", "sequence": "1", "ordinal": "1",
+        "clock": "1000", "ax": "0000", "bx": "0000", "cx": "0000",
+        "dx": "0000", "si": "0000", "di": "0000", "bp": "0000",
+        "sp": "f000", "es": "3000", "cs": "3000", "ss": "3000",
+        "ds": "3000", "ip": "0000", "flags": "0200",
+        "es_base": "00030000", "cs_base": "00030000",
+        "ss_base": "00030000", "ds_base": "00030000",
     }
+    values.update(required)
     path.write_text("".join(f"{key}\t{value}\n" for key, value in values.items()),
                     encoding="utf-8")
 
 
 def bmp24(nonblack: bool) -> bytes:
-    width = 320
-    height = 200
+    width, height = 320, 200
     row_size = ((width * 3 + 3) // 4) * 4
     pixels = bytearray(row_size * height)
     if nonblack:
-        for y in range(height):
-            for x in range(width):
-                offset = y * row_size + x * 3
-                pixels[offset:offset + 3] = bytes((0x40, 0x70, 0x20))
-    file_size = 54 + len(pixels)
+        pixels[:] = bytes((0x40, 0x70, 0x20)) * (width * height)
     header = bytearray(54)
-    struct.pack_into("<2sIHHI", header, 0, b"BM", file_size, 0, 0, 54)
+    struct.pack_into("<2sIHHI", header, 0, b"BM", 54 + len(pixels), 0, 0, 54)
     struct.pack_into("<IiiHHIIiiII", header, 14, 40, width, height, 1, 24,
                      0, len(pixels), 2835, 2835, 0, 0)
     return bytes(header + pixels)
 
 
-def passing_gvram() -> bytes:
-    raw = bytearray(ORACLE.GVRAM_SIZE)
-    raw[:ORACLE.G0_SIZE] = ORACLE.EXPECTED_G0
-    start = ORACLE.G1_OFFSET
-    raw[start:start + len(ORACLE.EXPECTED_G1)] = ORACLE.EXPECTED_G1
-    return bytes(raw)
+def write_fixture(directory: Path) -> tuple[Path, atlas_format.Header,
+                                              atlas_format.Descriptor]:
+    generated = directory / "public"
+    pipeline.write_public_fixture(generated)
+    atlas_path = directory / "ZUNDORB.BIN"
+    shutil.copyfile(generated / pipeline.ATLAS_NAME, atlas_path)
+    atlas = atlas_path.read_bytes()
+    header, descriptors = atlas_format.inspect_bytes(atlas)
+    descriptor = descriptors[-1]
+    expected = oracle.expected_registers(header, descriptor)
+    for prefix in oracle.ALL_PREFIXES:
+        write_registers(directory / f"{prefix}.registers.tsv", expected[prefix])
 
-
-def write_fixture(directory: Path) -> None:
-    raw = passing_gvram()
+    surface, _, _ = oracle.expected_g1(atlas, descriptor)
+    raw = bytearray(oracle.GVRAM_SIZE)
+    raw[:oracle.G0_SIZE] = oracle.expected_g0()
+    raw[oracle.G1_OFFSET:oracle.G1_OFFSET + len(surface)] = surface
     screen = bmp24(True)
-    for prefix in ORACLE.PREFIXES:
-        write_registers(directory / f"{prefix}.registers.tsv")
+    for prefix in oracle.SETTLED_PREFIXES:
         (directory / f"{prefix}.gvram.bin").write_bytes(raw)
         (directory / f"{prefix}.screen.bmp").write_bytes(screen)
-    (directory / "events.tsv").write_text(
-        "event\tframe\tid\tvalue\n"
-        "initialized\t0\t-\t5000\n"
-        "frame\t1200\t-\t1200\n"
-        "input\t1200\t-\t3\n"
-        "wait-pc\t1210\t-\t1\n"
-        "pc\t1220\t-\t1\n"
-        "capture\t1220\tm98k-settled-a\t13\n"
-        "wait-pc\t1220\t-\t1\n"
-        "pc\t1221\t-\t2\n"
-        "capture\t1221\tm98k-settled-b\t13\n"
-        "exit\t1221\t-\t0\n",
+
+    events = ["event\tframe\tid\tvalue", "initialized\t0\t-\t5000",
+              "frame\t1200\t-\t1200", "input\t1200\t-\t3"]
+    phase_frames = (1220, 1221, 1222, 1222, 1223)
+    for ordinal, (prefix, frame) in enumerate(
+            zip(oracle.ALL_PREFIXES, phase_frames), 1):
+        events.extend((f"wait-pc\t{frame - 1}\t-\t1",
+                       f"pc\t{frame}\t-\t{ordinal}",
+                       f"capture\t{frame}\t{prefix}\t1"))
+    events.append("exit\t1223\t-\t0")
+    (directory / "events.tsv").write_text("\n".join(events) + "\n",
+                                           encoding="utf-8")
+
+    source = oracle.BMS_WINDOW_BASE + descriptor.bank_offset
+    destination_x = (oracle.G1_WIDTH - descriptor.width) // 2
+    destination_y = (200 - descriptor.height) // 2
+    destination = oracle.G1_PAGE_BASE + destination_y * oracle.G1_WIDTH + destination_x
+    (directory / "sgp-trace.log").write_text(
+        f"SGP_SCAN: SET_SOURCE addr={source:06x} dot=0 mode=2 "
+        f"width={descriptor.width} height={descriptor.height} fbw={descriptor.pitch}\n"
+        f"SGP_SCAN: SET_DEST addr={destination:06x} dot=0 mode=2 "
+        f"width={descriptor.width} height={descriptor.height} fbw=320\n",
         encoding="utf-8",
     )
+    (directory / "ZUNDORB.LST").write_text(
+        "  100                                  staging_buffer:\n"
+        "  101 000033C0 00<rep 1000h>              times STAGING_BYTES db 0\n",
+        encoding="utf-8",
+    )
+    return atlas_path, header, descriptor
 
 
-class M98kOracleTests(unittest.TestCase):
+class M98lOracleTests(unittest.TestCase):
     def run_case(
         self,
-        mutation: Callable[[Path], Path | None] | None = None,
+        mutation: Callable[[Path, atlas_format.Header,
+                            atlas_format.Descriptor], Path | None] | None = None,
     ) -> tuple[int, dict[str, object]]:
         with tempfile.TemporaryDirectory() as temporary:
             directory = Path(temporary)
-            write_fixture(directory)
-            source = None if mutation is None else mutation(directory)
-            command = [sys.executable, str(SCRIPT), str(directory)]
+            atlas, header, descriptor = write_fixture(directory)
+            source = None if mutation is None else mutation(directory, header, descriptor)
+            command = [sys.executable, str(SCRIPT), str(directory),
+                       "--atlas", str(atlas),
+                       "--trace", str(directory / "sgp-trace.log")]
             if source is not None:
                 command.extend(("--source", str(source)))
             completed = subprocess.run(command, check=False, capture_output=True, text=True)
             return completed.returncode, json.loads(completed.stdout)
 
-    def assert_error(
-        self,
-        expected: str,
-        mutation: Callable[[Path], Path | None],
-    ) -> None:
+    def assert_error(self, expected: str, mutation: Callable[..., Path | None]) -> None:
         returncode, result = self.run_case(mutation)
         self.assertEqual(returncode, 1)
         self.assertEqual(result["status"], "FAIL")
@@ -152,70 +157,89 @@ class M98kOracleTests(unittest.TestCase):
         self.assertEqual(returncode, 0)
         self.assertEqual(result["status"], "PASS")
         self.assertEqual(result["errors"], [])
-        self.assertEqual(result["g1_nonzero_count"], 90)
+        self.assertEqual(result["staging"]["chunk_count"], 2)
+        self.assertEqual(result["sgp"]["trace"]["bms_source_count"], 1)
 
-    def test_mode_signature_mutation(self) -> None:
-        def mutate(directory: Path) -> None:
-            for prefix in ORACLE.PREFIXES:
-                write_registers(directory / f"{prefix}.registers.tsv", bx="0280")
+    def test_probe_signature_mutation(self) -> None:
+        def mutate(directory: Path, header, descriptor) -> None:
+            required = oracle.expected_registers(header, descriptor)["m98l-probe"]
+            required = dict(required, bx="00ec")
+            write_registers(directory / "m98l-probe.registers.tsv", required)
             return None
-        self.assert_error("M98K_MODE_SIGNATURE", mutate)
+        self.assert_error("M98L_PROBE_SIGNATURE", mutate)
 
-    def test_marker_pixel_mutation(self) -> None:
-        def mutate(directory: Path) -> None:
-            for prefix in ORACLE.PREFIXES:
+    def test_g1_pixel_mutation(self) -> None:
+        def mutate(directory: Path, _header, _descriptor) -> None:
+            for prefix in oracle.SETTLED_PREFIXES:
                 path = directory / f"{prefix}.gvram.bin"
                 raw = bytearray(path.read_bytes())
-                raw[ORACLE.G1_OFFSET + ORACLE.MARKER_Y * ORACLE.G1_WIDTH +
-                    ORACLE.MARKER_X + 5] ^= 1
+                raw[oracle.G1_OFFSET + 123] ^= 1
                 path.write_bytes(raw)
             return None
-        self.assert_error("M98K_MARKER_LAYOUT", mutate)
+        self.assert_error("M98L_G1_CONTENT", mutate)
 
-    def test_second_marker_mutation(self) -> None:
-        def mutate(directory: Path) -> None:
-            for prefix in ORACLE.PREFIXES:
-                path = directory / f"{prefix}.gvram.bin"
-                raw = bytearray(path.read_bytes())
-                for row, expected in enumerate(ORACLE.EXPECTED_MARKER):
-                    start = ORACLE.G1_OFFSET + (20 + row) * ORACLE.G1_WIDTH + 20
-                    raw[start:start + ORACLE.MARKER_WIDTH] = expected
-                path.write_bytes(raw)
+    def test_direct_source_mutation(self) -> None:
+        def mutate(directory: Path, _header, descriptor) -> None:
+            wrong = oracle.BMS_WINDOW_BASE + descriptor.bank_offset + 16
+            path = directory / "sgp-trace.log"
+            text = path.read_text(encoding="utf-8")
+            text = text.replace(
+                f"addr={oracle.BMS_WINDOW_BASE + descriptor.bank_offset:06x}",
+                f"addr={wrong:06x}", 1)
+            path.write_text(text, encoding="utf-8")
             return None
-        self.assert_error("M98K_MARKER_MULTIPLE", mutate)
+        self.assert_error("M98L_TRACE_BMS_SOURCE", mutate)
+
+    def test_second_bitblt_source_mutation(self) -> None:
+        def mutate(directory: Path, _header, _descriptor) -> Path:
+            path = directory / "guest.asm"
+            path.write_text(ASSEMBLY.read_text(encoding="utf-8") +
+                            "\nmov ax, SGP_COMMAND_BITBLT\n", encoding="utf-8")
+            return path
+        self.assert_error("M98L_SOURCE_BITBLT_COUNT", mutate)
+
+    def test_staging_size_source_mutation(self) -> None:
+        def mutate(directory: Path, _header, _descriptor) -> Path:
+            path = directory / "guest.asm"
+            source = ASSEMBLY.read_text(encoding="utf-8").replace(
+                "%define STAGING_BYTES           4096",
+                "%define STAGING_BYTES           8192")
+            path.write_text(source, encoding="utf-8")
+            return path
+        self.assert_error("M98L_SOURCE_CONTRACT", mutate)
+
+    def test_va2_near_condition_mutation(self) -> None:
+        def mutate(directory: Path, _header, _descriptor) -> None:
+            path = directory / "ZUNDORB.LST"
+            path.write_text(path.read_text(encoding="utf-8") +
+                            "  999 00000123 0F820000 jc distant\n",
+                            encoding="utf-8")
+            return None
+        self.assert_error("M98L_VA2_INSTRUCTION_SET", mutate)
 
     def test_two_frame_instability_mutation(self) -> None:
-        def mutate(directory: Path) -> None:
-            path = directory / f"{ORACLE.PREFIXES[1]}.gvram.bin"
+        def mutate(directory: Path, _header, _descriptor) -> None:
+            path = directory / "m98l-settled-b.gvram.bin"
             raw = bytearray(path.read_bytes())
             raw[-1] ^= 1
             path.write_bytes(raw)
             return None
-        self.assert_error("M98K_GVRAM_UNSTABLE", mutate)
+        self.assert_error("M98L_GVRAM_UNSTABLE", mutate)
 
     def test_black_screen_mutation(self) -> None:
-        def mutate(directory: Path) -> None:
-            black = bmp24(False)
-            for prefix in ORACLE.PREFIXES:
-                (directory / f"{prefix}.screen.bmp").write_bytes(black)
+        def mutate(directory: Path, _header, _descriptor) -> None:
+            for prefix in oracle.SETTLED_PREFIXES:
+                (directory / f"{prefix}.screen.bmp").write_bytes(bmp24(False))
             return None
-        self.assert_error("M98K_SCREEN_BLACK", mutate)
+        self.assert_error("M98L_SCREEN_BLACK", mutate)
 
     def test_frame_limit_mutation(self) -> None:
-        def mutate(directory: Path) -> None:
+        def mutate(directory: Path, _header, _descriptor) -> None:
             path = directory / "events.tsv"
             path.write_text(path.read_text(encoding="utf-8") +
                             "frame-limit\t5000\t-\t5000\n", encoding="utf-8")
             return None
-        self.assert_error("M98K_EVENTS_TIMEOUT", mutate)
-
-    def test_forbidden_source_mutation(self) -> None:
-        def mutate(directory: Path) -> Path:
-            path = directory / "guest.asm"
-            path.write_text(ASSEMBLY.read_text(encoding="utf-8") +
-                            "\n%include \"external.inc\"\n", encoding="utf-8")
-            return path
-        self.assert_error("M98K_SOURCE_FORBIDDEN", mutate)
+        self.assert_error("M98L_EVENTS_TIMEOUT", mutate)
 
 
 if __name__ == "__main__":

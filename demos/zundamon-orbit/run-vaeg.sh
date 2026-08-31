@@ -33,9 +33,13 @@ rom_directory=$3
 output_directory=$4
 model=${VAEG_ZUNDAMON_MODEL:-va2}
 script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
-pristine_disk_image=$output_directory/zundamon-orbit-m98k-pristine.d88
-disk_image=$output_directory/zundamon-orbit-m98k.d88
+pristine_disk_image=$output_directory/zundamon-orbit-m98l-pristine.d88
+disk_image=$output_directory/zundamon-orbit-m98l.d88
 guest_image=$output_directory/ZUNDORB.COM
+guest_listing=$output_directory/ZUNDORB.LST
+atlas_directory=$output_directory/public-atlas
+atlas_image=$output_directory/ZUNDORB.BIN
+trace_log=$output_directory/sgp-trace.log
 
 [ -f "$source_image" ] || { printf 'error: source D88 does not exist\n' >&2; exit 1; }
 [ -f "$vaeg" ] && [ -x "$vaeg" ] || { printf 'error: VAEG executable is unavailable\n' >&2; exit 1; }
@@ -47,13 +51,16 @@ case "$model" in
 esac
 
 mkdir -p "$output_directory"
-NASM=${NASM:-nasm} "$script_dir/256/build.sh" "$guest_image"
+python3 "$script_dir/tools/build_zundamon_orbit_pipeline.py" \
+    --fixture-output "$atlas_directory"
+cp "$atlas_directory/zundorb.bin" "$atlas_image"
+NASM=${NASM:-nasm} "$script_dir/256/build.sh" "$guest_image" "$guest_listing"
 NASM=${NASM:-nasm} "$script_dir/build-local-d88.sh" \
-    "$source_image" "$pristine_disk_image"
+    "$source_image" "$atlas_image" "$pristine_disk_image"
 cp "$pristine_disk_image" "$disk_image"
 cmp "$pristine_disk_image" "$disk_image"
 
-SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
+SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy VAEG_SGP_SCAN_TRACE=1 \
     "$vaeg" \
         --model "$model" \
         --roms "$rom_directory" \
@@ -62,10 +69,13 @@ SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
         --no-bkupmem \
         --nowait \
         --mute \
-        --debug-script "$script_dir/zundamon_orbit_m98k.debug" \
-        --debug-output-dir "$output_directory"
+        --debug-script "$script_dir/zundamon_orbit_m98l.debug" \
+        --debug-output-dir "$output_directory" \
+        >"$output_directory/vaeg.stdout.log" 2>"$trace_log"
 
 python3 "$script_dir/tools/verify_zundamon_orbit_guest.py" \
-    --report "$output_directory/m98k-oracle.json" \
+    --atlas "$atlas_image" \
+    --trace "$trace_log" \
+    --report "$output_directory/m98l-oracle.json" \
     "$output_directory"
-printf 'M98K_VAEG_CAPTURE_PASS output=%s\n' "$output_directory"
+printf 'M98L_VAEG_CAPTURE_PASS output=%s\n' "$output_directory"

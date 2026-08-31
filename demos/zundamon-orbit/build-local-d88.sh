@@ -22,19 +22,24 @@
 
 set -eu
 
-if [ "$#" -ne 2 ]; then
-    printf 'usage: %s SOURCE_BOOTABLE_2HD.d88 OUTPUT.d88\n' "$0" >&2
+if [ "$#" -ne 3 ]; then
+    printf 'usage: %s SOURCE_BOOTABLE_2HD.d88 ZUNDORB.BIN OUTPUT.d88\n' "$0" >&2
     exit 2
 fi
 
 source_image=$1
-output_image=$2
+atlas_image=$2
+output_image=$3
 script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 repo_root=$(CDPATH= cd -- "$script_dir/../.." && pwd)
 output_parent=$(dirname -- "$output_image")
 
 [ -f "$source_image" ] || {
     printf 'error: source D88 does not exist: %s\n' "$source_image" >&2
+    exit 1
+}
+[ -f "$atlas_image" ] || {
+    printf 'error: atlas does not exist: %s\n' "$atlas_image" >&2
     exit 1
 }
 [ ! -e "$output_image" ] || {
@@ -50,7 +55,7 @@ command -v python3 >/dev/null 2>&1 || {
     exit 127
 }
 
-work_dir=$(mktemp -d "${TMPDIR:-/tmp}/zundamon-orbit-m98k.XXXXXX")
+work_dir=$(mktemp -d "${TMPDIR:-/tmp}/zundamon-orbit-m98l.XXXXXX")
 cleanup() {
     rm -rf "$work_dir"
 }
@@ -58,7 +63,9 @@ trap cleanup EXIT HUP INT TERM
 
 mkdir -p "$work_dir/payload/root"
 NASM=${NASM:-nasm} \
-    "$script_dir/256/build.sh" "$work_dir/payload/root/ZUNDORB.COM"
+    "$script_dir/256/build.sh" "$work_dir/payload/root/ZUNDORB.COM" \
+    "$work_dir/ZUNDORB.LST"
+cp "$atlas_image" "$work_dir/payload/root/ZUNDORB.BIN"
 
 python3 "$script_dir/tools/build_zundamon_orbit_boot_disk.py" \
     --source "$source_image" \
@@ -67,6 +74,6 @@ python3 "$script_dir/tools/build_zundamon_orbit_boot_disk.py" \
 python3 "$repo_root/tools/pc88va/pcengine_disk.py" list \
     --image "$output_image"
 
-printf 'Created local bootable M98k disk: %s\n' "$output_image"
-printf '  ZUNDORB.COM is a repository-owned synthetic-marker guest.\n'
+printf 'Created local bootable M98l disk: %s\n' "$output_image"
+printf '  ZUNDORB.COM streams ZUNDORB.BIN through one 4096-byte buffer.\n'
 printf '  The source template is unchanged; this output remains local-only.\n'
