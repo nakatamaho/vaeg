@@ -2212,8 +2212,8 @@ separate parity correction or move it to Open Defects.
 
 ### ZUNDORB cadence demo treated command Return as exit
 
-- **Status:** fixed in M98r; corrected maintainer visual confirmation remains
-  pending.
+- **Status:** fixed in M98r; corrected VAEG VA2 candidate accepted by the
+  maintainer; real hardware remains pending.
 - **Symptom:** the interactive M98r candidate returned immediately to the
   Human prompt after `ZUNDORB` was entered, without displaying the synthetic
   scale animation and without printing an M98R failure diagnostic.

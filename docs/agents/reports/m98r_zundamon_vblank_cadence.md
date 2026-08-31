@@ -23,13 +23,13 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 # M98r selectable VBLANK cadence result
 
-Status: **automated VA2 gate passed; maintainer human gate pending**
+Status: **G98r human gate passed; M98r closed on 2026-09-01**
 
 ## Result
 
 `M98r AUTOMATED RESULT: PASS`
 
-`G98r: human gate pending`
+`G98r PASS`
 
 M98r adds only VBLANK-divided publication scheduling to the accepted M98q
 renderer. All eight static divisor runs, the opposite-page V1/V4/V8 long
@@ -44,8 +44,8 @@ This is VAEG in VA2 mode. Physical PC-88VA/VA2 evidence remains
 The first interactive candidate did not pass its human gate: the maintainer
 reported an immediate return to the Human prompt, including a retry that
 printed no M98R failure diagnostic. The correction below has passed automated
-VA2 regression, but the replacement candidate still requires the maintainer's
-visual confirmation.
+VA2 regression. The maintainer subsequently accepted the corrected candidate
+and stated `G98r passed` on 2026-09-01.
 
 ## Interactive Return correction
 
@@ -361,7 +361,8 @@ confirm normal display restoration.
 
 Automated runs used SDL dummy output, so they prove indexed buffers, commands,
 state, and stable captures but not interactive visual quality. The maintainer
-must perform the visual/control check above.
+completed the visual/control check against the corrected candidate and passed
+G98r on 2026-09-01.
 
 M98r still has one fixed-position public synthetic object. It adds no ellipse,
 depth coupling, private image, multiple instances, UP/DOWN count control,
@@ -370,4 +371,4 @@ evidence, not physical-hardware timing.
 
 `REAL_HW_PENDING`
 
-`G98r: human gate pending`
+`G98r PASS`

@@ -23,7 +23,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 # M98r - Add selectable VBLANK cadence
 
-Status: **automated VA2 gate passed; maintainer human gate pending**
+Status: **G98r human gate passed; closed on 2026-09-01**
 
 Branch: `topic/m98r-vblank-cadence`
 
@@ -85,8 +85,9 @@ scale jump, unchanged transparency/anchor/page quality, and ESC restoration.
 Automation cannot close G98r.
 
 The first interactive candidate returned immediately after command entry. The
-replacement candidate must ignore a queued command Return, recognize only the
-complete ESC key result, and repeat this human gate before G98r can close.
+replacement candidate ignores a queued command Return and recognizes only the
+complete ESC key result. The maintainer accepted that corrected candidate and
+stated `G98r passed` on 2026-09-01.
 
 ## Non-goals
 
