@@ -23,7 +23,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 # M98j - Run the complete local host-asset pipeline
 
-Status: **implementation candidate; `HOST_FIXTURE_PASS`; `LOCAL_HOST_PIPELINE_BLOCKED_FRAME_TOO_LARGE`; G98j human/local gate pending**
+Status: **implementation candidate; `HOST_FIXTURE_PASS`; `LOCAL_HOST_PIPELINE_READY`; G98j human/local gate pending**
 
 Branch: `topic/m98j-zundamon-host-pipeline`
 
@@ -36,15 +36,21 @@ Gate type: **machine-verifiable public pipeline plus maintainer-only local visua
 Connect the frozen M98c through M98i host stages into one fail-closed command
 that turns an explicitly supplied generic local manifest into the final
 minimally packed version-1 atlas, a deterministic 32-level contact sheet, and
-a private combined report. Run the public synthetic fixture through exactly
+a private combined report. Apply the approved 98x128 downscale-only source
+normalization before M98g. Run the public synthetic fixture through exactly
 the same pipeline before preparing any local human-gate candidate.
 
 ## Required changes
 
 - Add one standard-library pipeline entry point that performs manifest and
-  source validation, exact indexed-pixel recovery, VA8 conversion, 32-level
-  scaling, minimal BMS packing, M98h format inspection, and M98i packing
-  inspection without intermediate private files.
+  source validation, exact indexed-pixel recovery, VA8 conversion,
+  downscale-only source normalization, 32-level scaling, minimal BMS packing,
+  M98h format inspection, and M98i packing inspection without intermediate
+  private files.
+- Fit sources larger than 98x128 within that bounding box while preserving the
+  aspect ratio. Use deterministic center-sampled nearest-neighbor selection,
+  project the anchor with the same pixel-center rule, leave inputs that already
+  fit byte-for-byte unchanged, and never upscale.
 - Accept either an explicit local manifest and a new output directory or a
   public-fixture output directory. The public mode must create a temporary
   M98d fixture and invoke the same production pipeline function.
@@ -76,8 +82,9 @@ If no approved bundle is available, report `LOCAL_HOST_PIPELINE_PENDING` and
 stop without fabricating or acquiring input.
 
 If an approved bundle reaches a frozen fail-closed stage error, record only a
-neutral stable status and retain G98j as pending. Do not resize, split, crop,
-or otherwise change accepted pixels to force a pass within M98j.
+neutral stable status and retain G98j as pending. Do not split, crop, or alter
+the accepted local input. The fixed 98x128 downscale-only normalization above
+is the only M98j transformation added before the frozen scaler and packer.
 
 ## Private boundary
 
@@ -88,7 +95,8 @@ contains only the M98b abstract marker.
 
 ## Out of scope
 
-- Changing the G98e-approved crop, transparency, anchor, or generated pixels.
+- Changing the G98e-approved input crop, transparency, or anchor.
+- Any normalization other than the fixed downscale-only 98x128 rule.
 - Changing the M98h format or M98i packing algorithm.
 - Guest assembly, BMS probing/loading, SGP transfer, VAEG, disk images,
   screenshots, animation, or physical-machine work.

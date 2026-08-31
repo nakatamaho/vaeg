@@ -25,14 +25,17 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 Evaluated predecessor: `3160756daeab2e6a51775a5aee595fc124f7ce02`
 
-Status: **implementation candidate; `HOST_FIXTURE_PASS`; `LOCAL_HOST_PIPELINE_BLOCKED_FRAME_TOO_LARGE`; G98j pending**
+Status: **implementation candidate; `HOST_FIXTURE_PASS`; `LOCAL_HOST_PIPELINE_READY`; G98j pending**
 
 ## Result
 
 M98j adds one source-neutral host pipeline that validates the manifest and
 input, recovers exact indices, converts VA8 pixels, generates all 32 scales,
 packs the final atlas, and applies both the M98h format inspector and M98i
-minimal-packing validator. It writes no intermediate pixel or scale stream.
+minimal-packing validator. Before scale generation, it deterministically fits
+oversized sources within 98x128 while preserving aspect ratio and projecting
+the anchor with the same center-sampled nearest-neighbor rule. It never
+upscales and writes no intermediate pixel or scale stream.
 
 Successful output contains only the final atlas, a deterministic 32-level
 contact sheet, and a combined private report. The contact sheet uses a fixed
@@ -42,7 +45,7 @@ into atlas data.
 
 ## Public machine evidence
 
-The M98j standard-library suite ran seven test methods and passed:
+The M98j standard-library suite ran eight test methods and passed:
 
 ```text
 OK
@@ -50,27 +53,29 @@ M98J_TEST_PASS
 ```
 
 Coverage includes byte reproducibility, input immutability, exact agreement
-with independently composed M98f-M98i output, both final inspectors,
-contact-sheet geometry and marker pixels, report reconciliation, the exact
-three-file output set, overwrite refusal, isolated failures, and path-redacted
+with independently composed M98f-M98i output, deterministic downscale-only
+normalization and anchor projection, both final inspectors, contact-sheet
+geometry and marker pixels, report reconciliation, the exact three-file
+output set, overwrite refusal, isolated failures, and path-redacted
 public/local CLI behavior.
 
-M98b-M98i regressions also passed, for 60 passing test methods across M98b
+M98b-M98i regressions also passed, for 61 passing test methods across M98b
 through M98j. Python compilation, the public pipeline workflow, JSON,
 repository encoding, EOL, case, diff, and M98 privacy checks passed. Generated
 public and local data remains untracked.
 
 ## Local gate evidence
 
-One existing approved local bundle was available and passed the M98d input
-preflight. The unchanged M98j pipeline then stopped at the M98i complete-frame
-limit because at least one generated frame exceeds one 128-KiB BMS bank. No
-output directory was created. No crop, scale, pixel, or packing contract was
-changed to bypass the failure.
+One existing approved local bundle passed the M98d input preflight. The
+maintainer then approved a fixed maximum source size of 98x128 and
+downscale-only normalization. The pipeline generated exactly the final atlas,
+contact sheet, and private report. Both final inspectors passed, and the
+contact sheet contains all 32 ordered levels with projected anchors and
+transparency previews.
 
-This establishes `LOCAL_HOST_PIPELINE_BLOCKED_FRAME_TOO_LARGE`, not local
-pipeline readiness and not G98j acceptance. Resolving it requires an explicit
-maintainer decision outside this implementation candidate.
+This establishes `LOCAL_HOST_PIPELINE_READY`, not G98j acceptance. The
+maintainer must inspect levels 1, 8, 16, 24, 31, and 32 before passing the
+human/local gate.
 
 ## Boundary
 

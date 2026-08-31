@@ -300,9 +300,13 @@ PYTHONPYCACHEPREFIX=/tmp/vaeg-m98i-pyc \
 ## Complete host-asset pipeline
 
 M98j connects manifest validation, exact indexed-pixel recovery, VA8
-conversion, all 32 scale levels, minimal BMS packing, and both final atlas
-inspectors without writing intermediate private pixels or scale streams. A
-bounded contact sheet displays every level in order over a checkerboard,
+conversion, downscale-only source normalization, all 32 scale levels, minimal
+BMS packing, and both final atlas inspectors without writing intermediate
+private pixels or scale streams. The normalized source fits within 98x128,
+preserves its aspect ratio, uses deterministic center-sampled nearest-neighbor
+selection, and projects the anchor with the same coordinate rule. Inputs that
+already fit remain byte-for-byte unchanged, and the pipeline never upscales.
+A bounded contact sheet displays every level in order over a checkerboard,
 marks the projected anchor, and labels the level, dimensions, and anchor.
 
 Run the complete public fixture through the production pipeline:
@@ -326,9 +330,8 @@ A successful output directory contains only `zundorb.bin`,
 `LOCAL_HOST_PIPELINE_READY`, not human approval. Inspect contact-sheet levels
 1, 8, 16, 24, 31, and 32 before passing G98j.
 
-The pipeline deliberately fails when even one complete frame exceeds a
-128-KiB bank. It does not resize, split, reorder, or silently revise the
-approved source contract to make an input fit.
+After normalization, the pipeline deliberately fails when even one complete
+frame exceeds a 128-KiB bank. It never splits or reorders a frame.
 
 Run the public end-to-end, contact-sheet, report, overwrite, and privacy tests:
 

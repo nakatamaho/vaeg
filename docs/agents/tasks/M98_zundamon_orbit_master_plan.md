@@ -23,7 +23,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 # M98 - Zundamon billboard-orbit demo master plan
 
-Status: **G98a and G98e human gates and G98b-G98d and G98f-G98i machine gates passed; M98j candidate has `HOST_FIXTURE_PASS` and `LOCAL_HOST_PIPELINE_BLOCKED_FRAME_TOO_LARGE`; G98j is pending and M98k is unassigned**
+Status: **G98a and G98e human gates and G98b-G98d and G98f-G98i machine gates passed; M98j candidate has `HOST_FIXTURE_PASS` and `LOCAL_HOST_PIPELINE_READY`; G98j is pending and M98k is unassigned**
 
 Branch family: `topic/m98-zundamon-orbit`
 
@@ -65,6 +65,7 @@ multiple viewing angles.
 | Transparent copy | SGP BITBLT mode `0105h` |
 | Atlas storage | I/O Bank Memory, 128 KiB window at `80000h-9ffffh` |
 | BMS default port | `01d0h`, overridable by guest option |
+| Atlas source maximum | 98x128; preserve aspect ratio and downscale only |
 | Scale levels | Exactly 32, smallest through full size |
 | Runtime scaling | None |
 | Orbit phases | 64 deterministic lookup-table entries |
@@ -173,7 +174,11 @@ va8    = (green3 << 5) | (red3 << 2) | blue2
 ```
 
 An opaque result that quantizes to zero must be repaired to the nearest
-nonzero value with deterministic tie breaking. Scaling uses:
+nonzero value with deterministic tie breaking. Before scale generation, a
+source larger than 98x128 is fitted within that bounding box with deterministic
+center-sampled nearest-neighbor selection. The aspect ratio is preserved, the
+anchor uses the same pixel-center projection, an input that already fits is
+unchanged, and upscaling is forbidden. Scale generation then uses:
 
 ```text
 width(i)  = max(1, (source_width  * i + 16) // 32)

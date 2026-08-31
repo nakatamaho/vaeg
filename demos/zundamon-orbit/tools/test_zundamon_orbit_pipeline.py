@@ -102,6 +102,42 @@ class ZundamonOrbitPipelineTests(unittest.TestCase):
                 pipeline.report_bytes(second.report),
             )
 
+    def test_normalization_is_downscale_only_for_replicated_source(self) -> None:
+        width = pipeline.MAX_ATLAS_SOURCE_WIDTH
+        height = pipeline.MAX_ATLAS_SOURCE_HEIGHT
+        replication = 3
+        source = bytes(
+            ((x * 17 + y * 29) % 255) + 1
+            for y in range(height)
+            for x in range(width)
+        )
+        expanded = bytearray()
+        for y in range(height):
+            row = source[y * width:(y + 1) * width]
+            expanded_row = bytes(
+                value for value in row for _ in range(replication))
+            for _ in range(replication):
+                expanded.extend(expanded_row)
+        anchor_x = 43
+        anchor_y = 61
+        normalized = pipeline.normalize_source(
+            bytes(expanded), width * replication, height * replication,
+            anchor_x * replication + 1, anchor_y * replication + 1)
+        self.assertEqual((normalized.width, normalized.height), (width, height))
+        self.assertEqual((normalized.anchor_x, normalized.anchor_y),
+                         (anchor_x, anchor_y))
+        self.assertEqual(normalized.pixels, source)
+        self.assertEqual(normalized.report["downscaled"], True)
+        self.assertEqual(normalized.report["upscaling"], False)
+
+        small = pipeline.normalize_source(bytes(range(12)), 4, 3, 2, 1)
+        self.assertEqual((small.width, small.height), (4, 3))
+        self.assertEqual((small.anchor_x, small.anchor_y), (2, 1))
+        self.assertEqual(small.pixels, bytes(range(12)))
+        self.assertEqual(small.report["downscaled"], False)
+        self.assertEqual(pipeline.normalized_dimensions(196, 128), (98, 64))
+        self.assertEqual(pipeline.normalized_dimensions(98, 256), (49, 128))
+
     def test_contact_sheet_geometry_labels_and_anchors(self) -> None:
         with tempfile.TemporaryDirectory(prefix="vaeg-m98j-") as temporary:
             root = Path(temporary)
@@ -210,6 +246,12 @@ class ZundamonOrbitPipelineTests(unittest.TestCase):
              "M98J_CONTACT_GLYPH"),
             (lambda: pipeline.draw_line([], 0, 0, 0, 0, 1, 1, (0, 0, 0)),
              "M98J_CONTACT_LINE"),
+            (lambda: pipeline.normalized_dimensions(0, 1),
+             "M98J_NORMALIZE_GEOMETRY"),
+            (lambda: pipeline.normalize_source(b"\x00", 2, 1, 0, 0),
+             "M98J_NORMALIZE_SOURCE"),
+            (lambda: pipeline.normalize_source(b"\x00\x00", 2, 1, 2, 0),
+             "M98J_NORMALIZE_ANCHOR"),
         )
         for operation, expected_code in cases:
             with self.subTest(expected_code=expected_code):

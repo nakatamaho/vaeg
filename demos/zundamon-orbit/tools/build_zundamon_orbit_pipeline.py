@@ -47,6 +47,8 @@ CONTACT_SHEET_NAME = "contact-sheet.bmp"
 REPORT_NAME = "pipeline-report.json"
 REPORT_SCHEMA = "vaeg-zundamon-orbit-host-pipeline-report-v1"
 REPORT_VERSION = 1
+MAX_ATLAS_SOURCE_WIDTH = 98
+MAX_ATLAS_SOURCE_HEIGHT = 128
 SHEET_COLUMNS = 4
 SHEET_ROWS = 8
 CELL_WIDTH = 240
@@ -100,6 +102,92 @@ class PipelineResult:
     atlas: bytes
     contact_sheet: bytes
     report: dict[str, object]
+
+
+@dataclass(frozen=True)
+class NormalizedSource:
+    width: int
+    height: int
+    anchor_x: int
+    anchor_y: int
+    pixels: bytes
+    report: dict[str, object]
+
+
+def normalized_dimensions(width: int, height: int) -> tuple[int, int]:
+    if width < 1 or height < 1:
+        fail("M98J_NORMALIZE_GEOMETRY", "normalization geometry is invalid")
+    if width <= MAX_ATLAS_SOURCE_WIDTH and height <= MAX_ATLAS_SOURCE_HEIGHT:
+        return width, height
+    if width * MAX_ATLAS_SOURCE_HEIGHT >= height * MAX_ATLAS_SOURCE_WIDTH:
+        target_width = min(width, MAX_ATLAS_SOURCE_WIDTH)
+        target_height = max(1, height * target_width // width)
+    else:
+        target_height = min(height, MAX_ATLAS_SOURCE_HEIGHT)
+        target_width = max(1, width * target_height // height)
+    if (target_width > width or target_height > height
+            or target_width > MAX_ATLAS_SOURCE_WIDTH
+            or target_height > MAX_ATLAS_SOURCE_HEIGHT):
+        fail("M98J_NORMALIZE_BOUNDS", "normalization target exceeds its bounds")
+    return target_width, target_height
+
+
+def normalize_source(pixels: bytes, width: int, height: int,
+                     anchor_x: int, anchor_y: int) -> NormalizedSource:
+    if width < 1 or height < 1 or len(pixels) != width * height:
+        fail("M98J_NORMALIZE_SOURCE", "normalization source differs")
+    if not 0 <= anchor_x < width or not 0 <= anchor_y < height:
+        fail("M98J_NORMALIZE_ANCHOR", "normalization anchor is out of bounds")
+    target_width, target_height = normalized_dimensions(width, height)
+    if (target_width, target_height) == (width, height):
+        normalized_pixels = pixels
+        target_anchor_x = anchor_x
+        target_anchor_y = anchor_y
+    else:
+        output = bytearray()
+        for target_y in range(target_height):
+            source_y = min(
+                height - 1,
+                ((2 * target_y + 1) * height) // (2 * target_height),
+            )
+            for target_x in range(target_width):
+                source_x = min(
+                    width - 1,
+                    ((2 * target_x + 1) * width) // (2 * target_width),
+                )
+                output.append(pixels[source_y * width + source_x])
+        normalized_pixels = bytes(output)
+        target_anchor_x = min(
+            target_width - 1,
+            ((2 * anchor_x + 1) * target_width) // (2 * width),
+        )
+        target_anchor_y = min(
+            target_height - 1,
+            ((2 * anchor_y + 1) * target_height) // (2 * height),
+        )
+    report: dict[str, object] = {
+        "downscaled": (target_width, target_height) != (width, height),
+        "input_anchor_x": anchor_x,
+        "input_anchor_y": anchor_y,
+        "input_height": height,
+        "input_width": width,
+        "maximum_height": MAX_ATLAS_SOURCE_HEIGHT,
+        "maximum_width": MAX_ATLAS_SOURCE_WIDTH,
+        "method": "center-sampled-nearest-neighbor",
+        "output_anchor_x": target_anchor_x,
+        "output_anchor_y": target_anchor_y,
+        "output_height": target_height,
+        "output_width": target_width,
+        "upscaling": False,
+    }
+    return NormalizedSource(
+        width=target_width,
+        height=target_height,
+        anchor_x=target_anchor_x,
+        anchor_y=target_anchor_y,
+        pixels=normalized_pixels,
+        report=report,
+    )
 
 
 def set_pixel(pixels: list[tuple[int, int, int]], width: int, height: int,
@@ -276,12 +364,19 @@ def build_pipeline(manifest_file: Path) -> PipelineResult:
         inspection.crop_width,
         inspection.crop_height,
     )
-    scale_set = scaler.build_scale_set(
+    normalized = normalize_source(
         conversion.pixels,
         conversion.width,
         conversion.height,
         cast(int, anchor["x"]),
         cast(int, anchor["y"]),
+    )
+    scale_set = scaler.build_scale_set(
+        normalized.pixels,
+        normalized.width,
+        normalized.height,
+        normalized.anchor_x,
+        normalized.anchor_y,
     )
     packed = packer.build_atlas(scale_set)
     format_header, format_descriptors = format_inspector.inspect_bytes(
@@ -302,6 +397,7 @@ def build_pipeline(manifest_file: Path) -> PipelineResult:
             "transparent_pixels": inspection.transparent_pixels,
         },
         "license": manifest_validator.LICENSE,
+        "normalization": normalized.report,
         "packing": packed.report,
         "scale_set": scale_set.report,
         "schema": REPORT_SCHEMA,
