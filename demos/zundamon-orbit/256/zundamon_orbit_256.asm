@@ -1242,7 +1242,12 @@ validate_atlas_metadata:
     long_jne .failed
     mov ax, [atlas_metadata + 44]
     mov dx, [atlas_metadata + 46]
+%if M98Y_PRIVATE_PROFILE
+    mov bx, ax
+    or bx, dx
+%else
     or ax, dx
+%endif
     long_jz .failed
     cmp dx, BMS_BANK_SIZE_HIGH
     long_ja .failed
