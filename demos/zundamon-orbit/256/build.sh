@@ -28,11 +28,11 @@ if [ "$#" -gt 2 ]; then
 fi
 
 nasm_command=${NASM:-nasm}
-bounded_qa=${M98S_BOUNDED_QA:-0}
-qa_cycles=${M98S_QA_CYCLES:-1}
-qa_scenario=${M98S_QA_SCENARIO:-0}
-initial_visible_page=${M98S_INITIAL_VISIBLE_PAGE:-0}
-clear_mode=${M98S_CLEAR_MODE:-1}
+bounded_qa=${M98T_BOUNDED_QA:-${M98S_BOUNDED_QA:-0}}
+qa_cycles=${M98T_QA_CYCLES:-${M98S_QA_CYCLES:-1}}
+qa_scenario=${M98T_QA_SCENARIO:-${M98S_QA_SCENARIO:-0}}
+initial_visible_page=${M98T_INITIAL_VISIBLE_PAGE:-${M98S_INITIAL_VISIBLE_PAGE:-0}}
+clear_mode=${M98T_CLEAR_MODE:-${M98S_CLEAR_MODE:-1}}
 output=${1:-ZUNDORB.COM}
 listing=${2:-${output%.*}.LST}
 script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
@@ -48,39 +48,48 @@ command -v "$nasm_command" >/dev/null 2>&1 || {
 }
 case "$bounded_qa" in
     0|1) ;;
-    *) printf 'error: M98S_BOUNDED_QA must be 0 or 1\n' >&2; exit 2 ;;
+    *) printf 'error: M98T_BOUNDED_QA must be 0 or 1\n' >&2; exit 2 ;;
 esac
 case "$qa_cycles" in
     1|2) ;;
-    *) printf 'error: M98S_QA_CYCLES must be 1 or 2\n' >&2; exit 2 ;;
+    *) printf 'error: M98T_QA_CYCLES must be 1 or 2\n' >&2; exit 2 ;;
 esac
 case "$qa_scenario" in
     0|1|2|3) ;;
-    *) printf 'error: M98S_QA_SCENARIO must be 0, 1, 2, or 3\n' >&2; exit 2 ;;
+    *) printf 'error: M98T_QA_SCENARIO must be 0, 1, 2, or 3\n' >&2; exit 2 ;;
 esac
 case "$initial_visible_page" in
     0|1) ;;
-    *) printf 'error: M98S_INITIAL_VISIBLE_PAGE must be 0 or 1\n' >&2; exit 2 ;;
+    *) printf 'error: M98T_INITIAL_VISIBLE_PAGE must be 0 or 1\n' >&2; exit 2 ;;
 esac
 case "$clear_mode" in
     0|1) ;;
-    *) printf 'error: M98S_CLEAR_MODE must be 0 or 1\n' >&2; exit 2 ;;
+    *) printf 'error: M98T_CLEAR_MODE must be 0 or 1\n' >&2; exit 2 ;;
 esac
 
-table_check_dir=$(mktemp -d "${TMPDIR:-/tmp}/zundamon-orbit-m98s-table.XXXXXX")
+table_check_dir=$(mktemp -d "${TMPDIR:-/tmp}/zundamon-orbit-m98t-table.XXXXXX")
 trap 'rm -rf "$table_check_dir"' EXIT HUP INT TERM
-python3 "$script_dir/../tools/generate_zundamon_orbit_table.py" \
-    --radius-x 96 --radius-y 48 \
-    --output "$table_check_dir/zundamon_orbit_table.inc" >/dev/null
-python3 "$script_dir/../tools/validate_zundamon_orbit_table.py" \
-    --input "$script_dir/zundamon_orbit_table.inc" >/dev/null
-cmp "$table_check_dir/zundamon_orbit_table.inc" \
-    "$script_dir/zundamon_orbit_table.inc"
+python3 "$script_dir/../tools/build_zundamon_orbit_pipeline.py" \
+    --fixture-output "$table_check_dir/public-atlas" >/dev/null
+python3 "$script_dir/../tools/generate_zundamon_orbit_depth_table.py" \
+    --atlas "$table_check_dir/public-atlas/zundorb.bin" \
+    --output "$table_check_dir/zundamon_depth_table.inc" >/dev/null
+python3 "$script_dir/../tools/validate_zundamon_orbit_depth_table.py" \
+    --input "$script_dir/zundamon_depth_table.inc" \
+    --atlas "$table_check_dir/public-atlas/zundorb.bin" >/dev/null
+cmp "$table_check_dir/zundamon_depth_table.inc" \
+    "$script_dir/zundamon_depth_table.inc"
+python3 "$script_dir/../tools/generate_zundamon_orbit_hud.py" \
+    --output "$table_check_dir/zundamon_hud_table.inc" >/dev/null
+python3 "$script_dir/../tools/validate_zundamon_orbit_hud.py" \
+    --input "$script_dir/zundamon_hud_table.inc" >/dev/null
+cmp "$table_check_dir/zundamon_hud_table.inc" \
+    "$script_dir/zundamon_hud_table.inc"
 
 "$nasm_command" -f bin \
-    -dM98S_BOUNDED_QA="$bounded_qa" \
-    -dM98S_QA_CYCLES="$qa_cycles" \
-    -dM98S_QA_SCENARIO="$qa_scenario" \
+    -dM98T_BOUNDED_QA="$bounded_qa" \
+    -dM98T_QA_CYCLES="$qa_cycles" \
+    -dM98T_QA_SCENARIO="$qa_scenario" \
     -dM98Q_INITIAL_VISIBLE_PAGE="$initial_visible_page" \
     -dM98Q_CLEAR_MODE="$clear_mode" \
     -I "$script_dir/" \
@@ -93,5 +102,5 @@ size=$(wc -c < "$output" | tr -d ' ')
     exit 1
 }
 
-printf 'M98S_GUEST_BUILD_PASS size=%s bounded_qa=%s revolutions=%s scenario=%s initial_page=%s clear_mode=%s listing=%s\n' \
+printf 'M98T_GUEST_BUILD_PASS size=%s bounded_qa=%s revolutions=%s scenario=%s initial_page=%s clear_mode=%s listing=%s\n' \
     "$size" "$bounded_qa" "$qa_cycles" "$qa_scenario" "$initial_visible_page" "$clear_mode" "$listing"

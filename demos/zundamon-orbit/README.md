@@ -656,3 +656,48 @@ failed hidden-page transaction does not advance the pending phase.  Each
 physical G1 page clears only its own last published logical rectangle before
 drawing the next scale-15 frame.  M98s adds no depth-to-scale mapping, private
 image, image rotation, multiple instances, or physical-hardware timing claim.
+
+## M98t depth-coupled ellipse and G0 HUD
+
+M98t keeps the 64-phase clockwise M98s ellipse and selects one of all 30
+stored atlas descriptors from each phase.  Phase 16 is the bottom, nearest,
+largest point and phase 48 is the top, farthest, smallest point.  Each
+descriptor's own anchor is aligned to the orbit target; the guest does not
+scale or rotate pixels at runtime.  The selected radii remain `(96,48)` and
+all variable-size rectangles avoid the fixed top-left HUD.
+
+The HUD is written only to G0 with a task-authored public 5x7 font.  It shows
+`FPS: 60` and `ZUNDAMON: 1` at the default `/V1`.  The FPS field is the
+nominal cadence selector, not measured performance.  Applied LEFT/RIGHT
+changes replace the complete fixed-width field on a VBLANK boundary; SPACE,
+missed slots, and clamped controls do not rewrite it.  G1 remains one
+homogeneous transparent pseudo-sprite, so the accepted page-local dirty-row
+clear remains valid.  UP/DOWN remain inactive.
+
+Regenerate the phase/depth/scale table and HUD include into fresh temporary
+paths, validate them independently, and compare them with the tracked inputs:
+
+```sh
+python3 demos/zundamon-orbit/tools/build_zundamon_orbit_pipeline.py \
+  --fixture-output /tmp/m98t-public-atlas
+python3 demos/zundamon-orbit/tools/generate_zundamon_orbit_depth_table.py \
+  --atlas /tmp/m98t-public-atlas/zundorb.bin \
+  --output /tmp/zundamon_depth_table.inc
+python3 demos/zundamon-orbit/tools/validate_zundamon_orbit_depth_table.py \
+  --input /tmp/zundamon_depth_table.inc \
+  --atlas /tmp/m98t-public-atlas/zundorb.bin
+cmp /tmp/zundamon_depth_table.inc \
+  demos/zundamon-orbit/256/zundamon_depth_table.inc
+
+python3 demos/zundamon-orbit/tools/generate_zundamon_orbit_hud.py \
+  --output /tmp/zundamon_hud_table.inc
+python3 demos/zundamon-orbit/tools/validate_zundamon_orbit_hud.py \
+  --input /tmp/zundamon_hud_table.inc
+cmp /tmp/zundamon_hud_table.inc \
+  demos/zundamon-orbit/256/zundamon_hud_table.inc
+```
+
+Run `ZUNDORB` with no option or `/V1` through `/V8`.  LEFT/RIGHT select the
+cadence, SPACE pauses or resumes, and ESC restores the previous display and
+returns.  M98t adds no private image, second instance, UP/DOWN count control,
+depth sorting, measured-FPS HUD, gameplay, or physical-hardware timing claim.

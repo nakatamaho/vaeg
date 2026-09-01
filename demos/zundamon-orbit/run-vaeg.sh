@@ -38,14 +38,14 @@ revolutions=${VAEG_ZUNDAMON_REVOLUTIONS:-1}
 scenario=${VAEG_ZUNDAMON_SCENARIO:-static}
 clear_mode=${VAEG_ZUNDAMON_CLEAR_MODE:-dirty}
 script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
-pristine_disk_image=$output_directory/zundamon-orbit-m98s-pristine.d88
-disk_image=$output_directory/zundamon-orbit-m98s.d88
+pristine_disk_image=$output_directory/zundamon-orbit-m98t-pristine.d88
+disk_image=$output_directory/zundamon-orbit-m98t.d88
 guest_image=$output_directory/ZUNDORB.COM
 guest_listing=$output_directory/ZUNDORB.LST
 atlas_directory=$output_directory/public-atlas
 atlas_image=$output_directory/ZUNDORB.BIN
 trace_log=$output_directory/sgp-trace.log
-debug_script=$output_directory/zundamon-orbit-m98s.debug
+debug_script=$output_directory/zundamon-orbit-m98t.debug
 
 [ -f "$source_image" ] || { printf 'error: source D88 does not exist\n' >&2; exit 1; }
 [ -f "$vaeg" ] && [ -x "$vaeg" ] || { printf 'error: VAEG executable is unavailable\n' >&2; exit 1; }
@@ -53,7 +53,7 @@ debug_script=$output_directory/zundamon-orbit-m98s.debug
 [ ! -e "$output_directory" ] || { printf 'error: refusing to overwrite output directory\n' >&2; exit 1; }
 case "$model" in
     va2) ;;
-    *) printf 'error: M98s automated validation requires VAEG_ZUNDAMON_MODEL=va2\n' >&2; exit 2 ;;
+    *) printf 'error: M98t automated validation requires VAEG_ZUNDAMON_MODEL=va2\n' >&2; exit 2 ;;
 esac
 case "$divisor" in
     1|2|3|4|5|6|7|8) ;;
@@ -89,20 +89,20 @@ mkdir -p "$output_directory"
 python3 "$script_dir/tools/build_zundamon_orbit_pipeline.py" \
     --fixture-output "$atlas_directory"
 cp "$atlas_directory/zundorb.bin" "$atlas_image"
-M98S_BOUNDED_QA=1 M98S_QA_CYCLES=$revolutions \
-    M98S_QA_SCENARIO=$scenario_define \
-    M98S_INITIAL_VISIBLE_PAGE=$initial_page_define \
-    M98S_CLEAR_MODE=$clear_mode_define \
+M98T_BOUNDED_QA=1 M98T_QA_CYCLES=$revolutions \
+    M98T_QA_SCENARIO=$scenario_define \
+    M98T_INITIAL_VISIBLE_PAGE=$initial_page_define \
+    M98T_CLEAR_MODE=$clear_mode_define \
     NASM=${NASM:-nasm} "$script_dir/256/build.sh" "$guest_image" "$guest_listing"
-M98S_BOUNDED_QA=1 M98S_QA_CYCLES=$revolutions \
-    M98S_QA_SCENARIO=$scenario_define \
-    M98S_INITIAL_VISIBLE_PAGE=$initial_page_define \
-    M98S_CLEAR_MODE=$clear_mode_define \
+M98T_BOUNDED_QA=1 M98T_QA_CYCLES=$revolutions \
+    M98T_QA_SCENARIO=$scenario_define \
+    M98T_INITIAL_VISIBLE_PAGE=$initial_page_define \
+    M98T_CLEAR_MODE=$clear_mode_define \
     NASM=${NASM:-nasm} "$script_dir/build-local-d88.sh" \
         "$source_image" "$atlas_image" "$pristine_disk_image"
 cp "$pristine_disk_image" "$disk_image"
 cmp "$pristine_disk_image" "$disk_image"
-python3 "$script_dir/tools/generate_zundamon_orbit_ellipse_debug.py" \
+python3 "$script_dir/tools/generate_zundamon_orbit_depth_debug.py" \
     --initial-page "$initial_page" --divisor "$divisor" \
     --revolutions "$revolutions" \
     --scenario "$scenario" \
@@ -121,14 +121,15 @@ SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy VAEG_SGP_SCAN_TRACE=1 \
         --debug-output-dir "$output_directory" \
         >"$output_directory/vaeg.stdout.log" 2>"$trace_log"
 
-set -- python3 "$script_dir/tools/verify_zundamon_orbit_ellipse_guest.py" \
+set -- python3 "$script_dir/tools/verify_zundamon_orbit_depth_guest.py" \
     --atlas "$atlas_image" \
-    --table "$script_dir/256/zundamon_orbit_table.inc" \
+    --table "$script_dir/256/zundamon_depth_table.inc" \
+    --hud "$script_dir/256/zundamon_hud_table.inc" \
     --trace "$trace_log" \
     --initial-page "$initial_page" --divisor "$divisor" \
     --revolutions "$revolutions" --scenario "$scenario" \
     --clear-mode "$clear_mode" \
-    --report "$output_directory/m98s-oracle.json"
+    --report "$output_directory/m98t-oracle.json"
 "$@" "$output_directory"
-printf 'M98S_VAEG_CAPTURE_PASS initial_page=%s divisor=%s revolutions=%s scenario=%s clear_mode=%s output=%s\n' \
+printf 'M98T_VAEG_CAPTURE_PASS initial_page=%s divisor=%s revolutions=%s scenario=%s clear_mode=%s output=%s\n' \
     "$initial_page" "$divisor" "$revolutions" "$scenario" "$clear_mode" "$output_directory"

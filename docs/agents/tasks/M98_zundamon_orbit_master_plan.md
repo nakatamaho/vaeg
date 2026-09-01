@@ -147,7 +147,7 @@ Execute exactly one assigned stage and stop at its gate.
 | M98q | Add page-local dirty-row clearing - G98q passed | Human/VAEG |
 | M98r | Add VBLANK cadence selection and telemetry - G98r passed | Human/VAEG |
 | M98s | Add a constant-size 64-phase ellipse - G98s passed | Human/VAEG |
-| M98t | Couple orbit depth to the 30-level atlas | Human/VAEG |
+| M98t | Couple orbit depth to the 30-level atlas and add the FPS/ZUNDAMON G0 HUD | Human/VAEG |
 | M98u | Integrate and tune the approved local image | Human/local |
 | M98v | Generate deterministic multi-instance depth order | Machine |
 | M98w | Add the multi-instance full-clear baseline | Human/VAEG |
@@ -186,7 +186,9 @@ selectable VBLANK cadence and is closed at accepted head
 `4c5a7724e31cc0a52c8bfe8e827198c1c30a8c37`. The maintainer explicitly
 passed G98r on 2026-09-01. M98s added only a constant-size, fixed-scale-15
 64-phase screen ellipse. The maintainer explicitly passed G98s on 2026-09-01,
-so M98s is closed. M98t depth coupling remains a separate later milestone.
+so M98s is closed. M98t couples the same 64 phases to all 30 stored scales and
+adds the bounded FPS/ZUNDAMON information panel on G0. Its automated VA2/VAEG
+evidence passed; G98t remains at the maintainer human gate.
 
 ## 6. Deterministic host contracts
 
