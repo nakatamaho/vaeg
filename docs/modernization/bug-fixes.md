@@ -2235,3 +2235,28 @@ separate parity correction or move it to Open Defects.
 - **Evidence:** [M98r cadence report](../agents/reports/m98r_zundamon_vblank_cadence.md).
 - **Milestone/task:** M98r interactive Return/ESC discrimination.
 - **Commit:** [3c3f233](https://github.com/nakatamaho/vaeg/commit/3c3f233305915aa61c594886520764b578ef5025).
+
+### ZUNDORB atlas streaming failed after leaking the saved ES value
+
+- **Status:** fixed in M98t; VAEG VA2 validation passed; real hardware remains
+  pending.
+- **Symptom:** after the M98t guest grew, the accepted atlas could return from
+  the bounded BMS loader with corrupted metadata state and fail before the
+  first depth-coupled publication.
+- **Affected scope:** the ZUNDORB guest's incremental atlas file-CRC setup.
+  The atlas bytes, BMS implementation, SGP implementation, and emulator memory
+  map were unchanged.
+- **Demonstrated root cause:** `load_atlas_to_bms` saved `ES`, temporarily set
+  it equal to `DS` for the header CRC, but did not restore the saved word. The
+  unmatched stack word shifted the loader's return path; the larger M98t image
+  made the latent imbalance reproducible.
+- **Correction:** balance the local `push es` with `pop es` immediately after
+  `crc32_update_es`, before streaming payload chunks or reaching cleanup.
+- **Verification:** the first corrected bounded VA2 run streamed and CRC-
+  checked the 5,912-byte public atlas, completed 64 depth/scale publications,
+  and passed the independent BMS, SGP-trace, indexed G0/G1, HUD, and composite
+  oracle. The final four 128-publication full/dirty parity runs, eight cadence
+  runs, dynamic scheduler cases, 159 host tests, and VAEG selftest pass.
+- **Evidence:** [M98t depth/scale and HUD report](../agents/reports/m98t_zundamon_depth_scale_hud.md).
+- **Milestone/task:** M98t ZUNDORB bounded atlas loader stack restoration.
+- **Commit:** [9440798](https://github.com/nakatamaho/vaeg/commit/9440798d13bd00229b03163f98f9fee7c4caac68).
