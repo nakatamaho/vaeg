@@ -32,7 +32,7 @@ from pathlib import Path
 DB = re.compile(r"^\s*db\s+(.+)$")
 LABEL = re.compile(r"^([a-z0-9_]+):$")
 FIELDS = ("60 ", "30 ", "20 ", "15 ", "12 ", "10 ", "8.6", "7.5")
-COUNT_FIELDS = tuple(f"{count:>2}" for count in range(1, 17))
+DEFAULT_COUNT_MAX = 16
 FG = 0xFF
 BG = 0x01
 
@@ -110,9 +110,12 @@ def parse_sections(path: Path) -> tuple[bytes, dict[str, bytes]]:
     return raw, {key: bytes(value) for key, value in sections.items()}
 
 
-def inspect(path: Path, subject: str = "ZUNDAMON"):
+def inspect(path: Path, subject: str = "ZUNDAMON",
+            count_max: int = DEFAULT_COUNT_MAX):
     if subject not in ("ZUNDAMON", "IDA"):
         raise HudError("M98Y_HUD_SUBJECT")
+    if not 1 <= count_max <= 64:
+        raise HudError("M98X_COUNT_MAX")
     raw, sections = parse_sections(path)
     allowed = {BG, FG}
     full_tiles = []
@@ -135,7 +138,8 @@ def inspect(path: Path, subject: str = "ZUNDAMON"):
         full_tiles.append(full)
         fps_tiles.append(fps)
     count_tiles = []
-    for field in COUNT_FIELDS:
+    count_fields = tuple(f"{count:>2}" for count in range(1, count_max + 1))
+    for field in count_fields:
         count = sections.get(f"hud_count_tile_{field.strip()}", b"")
         if len(count) != 96 or count != render(field):
             raise HudError("M98X_HUD_COUNT_TILE")
@@ -145,11 +149,14 @@ def inspect(path: Path, subject: str = "ZUNDAMON"):
     return raw, tuple(full_tiles), tuple(fps_tiles)
 
 
-def inspect_count_tiles(path: Path) -> tuple[bytes, ...]:
+def inspect_count_tiles(path: Path, count_max: int = DEFAULT_COUNT_MAX) -> tuple[bytes, ...]:
     _, sections = parse_sections(path)
+    if not 1 <= count_max <= 64:
+        raise HudError("M98X_COUNT_MAX")
+    count_fields = tuple(f"{count:>2}" for count in range(1, count_max + 1))
     tiles = tuple(sections.get(f"hud_count_tile_{field.strip()}", b"")
-                  for field in COUNT_FIELDS)
-    if any(tile != render(field) for tile, field in zip(tiles, COUNT_FIELDS)):
+                  for field in count_fields)
+    if any(tile != render(field) for tile, field in zip(tiles, count_fields)):
         raise HudError("M98X_HUD_COUNT_TILE")
     return tiles
 
@@ -159,13 +166,14 @@ def main() -> int:
     parser.add_argument("--input", type=Path, required=True)
     parser.add_argument("--subject", choices=("ZUNDAMON", "IDA"),
                         default="ZUNDAMON")
+    parser.add_argument("--count-max", type=int, default=DEFAULT_COUNT_MAX)
     args = parser.parse_args()
     try:
-        raw, full, fps = inspect(args.input, args.subject)
+        raw, full, fps = inspect(args.input, args.subject, args.count_max)
     except HudError as error:
         print(error)
         return 1
-    count_tiles = inspect_count_tiles(args.input)
+    count_tiles = inspect_count_tiles(args.input, args.count_max)
     print(f"M98X_HUD_VALIDATION_PASS full_tiles={len(full)} fps_tiles={len(fps)} "
           f"count_tiles={len(count_tiles)} "
           f"sha256={hashlib.sha256(raw).hexdigest()}")

@@ -861,5 +861,20 @@ The new letter controls are intentionally not DOS switches. Defaults are
 speed 1.00X, distance 0, look 0, and radius 1.00X. The speed status field has
 one trailing blank cell for separation from `DIST`; its selectable levels are
 0.25X, 0.50X, 0.75X, 1.00X, 1.25X, 1.50X, 2.00X, 3.00X, 4.00X, 5.00X,
-6.00X, 7.00X, and 8.00X. The 128-instance
-extension is reserved for M98aa.
+6.00X, 7.00X, and 8.00X. The public profile remains limited to 16 instances;
+the private M98aa IDA profile extends its bounded count to 64.
+
+## M98aa private IDA64 candidate
+
+The private IDA profile uses the same renderer for runtime counts 1 through
+64. It defaults to four instances; `/N1` through `/N64` select an initial
+count and UP/DOWN change it one step with saturation. Its private
+demonstration speed is 1.00X through 4.00X in 0.25X steps, with a
+deterministic once-per-second speed/distance animation. A/Z and Q/E remain
+manual adjustments, while LEFT/RIGHT, W/S, O/P, SPACE, and ESC retain the
+M98z controls.
+
+Private atlas/profile inputs and IDAORB.COM/D88 outputs are local-only. Use
+`M98Y_PROFILE=private`, an untracked `M98Y_PRIVATE_PROFILE_DIR`, and the
+validated `M98Y_PRIVATE_ATLAS` with `256/build.sh` or `build-local-d88.sh`;
+never place those inputs or generated outputs under tracked paths.

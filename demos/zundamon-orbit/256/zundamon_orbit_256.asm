@@ -183,6 +183,9 @@ org 0x100
 %ifndef M98X_RUNTIME_MODE
 %define M98X_RUNTIME_MODE       0
 %endif
+%ifndef M98AA_AUTO_CAMERA
+%define M98AA_AUTO_CAMERA       0
+%endif
 %include "zundamon_multi_instance_contract.inc"
 
 %define CLEAR_MODE_FULL         0
@@ -228,7 +231,13 @@ org 0x100
 %define CADENCE_MAX             8
 %define SPEED_MIN               0
 %define SPEED_MAX               12
+%if M98Y_PRIVATE_PROFILE
+; The private IDA64 candidate uses the requested 0.25X steps from 1.00X
+; through 4.00X.  The public profile retains the accepted M98z ladder.
+%define SPEED_DEFAULT           0
+%else
 %define SPEED_DEFAULT           3
+%endif
 %define DISTANCE_MIN            -4
 %define DISTANCE_MAX            4
 %define LOOK_MIN                -4
@@ -275,8 +284,26 @@ org 0x100
 %define DIRTY_INTERVAL_BYTES    6
 %define DIRTY_INTERVALS_PER_BATCH DIRTY_ROWS_PER_BATCH
 %define FOOTPRINT_RECT_BYTES    8
+%if M98Y_PRIVATE_PROFILE
+%define FOOTPRINT_CAPACITY      64
+%define FOOTPRINT_PAGE_SHIFT    9
+%define FOOTPRINT_ID_PAGE_SHIFT 6
+%define DRAW_ORDER_SEEN_WORDS   4
+%define COUNT_TRANSITION_SHIFT  7
+%else
 %define FOOTPRINT_CAPACITY      16
+%define FOOTPRINT_PAGE_SHIFT    7
+%define FOOTPRINT_ID_PAGE_SHIFT 4
+%define DRAW_ORDER_SEEN_WORDS   1
+%define COUNT_TRANSITION_SHIFT  5
+%endif
 %define FOOTPRINT_TOTAL_BYTES   (2 * FOOTPRINT_CAPACITY * FOOTPRINT_RECT_BYTES)
+
+; The accepted M98u include remains a 1..16 reference contract.  Runtime
+; private builds widen only the statically allocated storage and parser bound;
+; the record ABI and renderer are shared with the public binary.
+%define INSTANCE_RECORD_CAPACITY_BYTES (M98U_INSTANCE_RECORD_BYTES * FOOTPRINT_CAPACITY)
+%define DRAW_ORDER_CAPACITY_BYTES      FOOTPRINT_CAPACITY
 
 %define PROBE_CHECKPOINT_IP     0x4000
 %define LOAD_CHECKPOINT_IP      0x4010
@@ -1979,9 +2006,46 @@ generate_multi_instance_frame:
     cmp ax, [build_active_count]
     jb .sort_outer
 
+%if M98Y_PRIVATE_PROFILE
+    mov di, draw_order_seen
+    xor ax, ax
+    mov cx, DRAW_ORDER_SEEN_WORDS
+    rep stosw
+    xor bx, bx
+.order_check_private:
+    mov al, [draw_order + bx]
+    xor ah, ah
+    cmp ax, [build_active_count]
+    jae .failed
+    mov si, ax
+    mov cl, al
+    and cl, 0x0f
+    mov dx, 1
+    shl dx, cl
+    mov ax, si
+    mov cl, 4
+    shr ax, cl
+    shl ax, 1
+    mov di, draw_order_seen
+    add di, ax
+    test [di], dx
+    jnz .failed
+    or [di], dx
+    inc bx
+    mov ax, [build_active_count]
+    cmp bx, ax
+    jb .order_check_private
+    mov si, draw_order_seen
+    mov cx, DRAW_ORDER_SEEN_WORDS
+.seen_words:
+    cmp word [si], 0xffff
+    jne .failed
+    add si, 2
+    loop .seen_words
+%else
     mov word [draw_order_seen], 0
     xor bx, bx
-.order_check:
+.order_check_public:
     mov al, [draw_order + bx]
     xor ah, ah
     cmp ax, [build_active_count]
@@ -1995,7 +2059,7 @@ generate_multi_instance_frame:
     inc bx
     mov ax, [build_active_count]
     cmp bx, ax
-    jb .order_check
+    jb .order_check_public
     mov ax, [draw_order_seen]
     mov dx, 1
     mov cl, byte [build_active_count]
@@ -2003,6 +2067,7 @@ generate_multi_instance_frame:
     dec dx
     cmp ax, dx
     jne .failed
+%endif
     mov al, [pending_global_phase]
     mov [pending_phase], al
     clc
@@ -3003,7 +3068,7 @@ build_bitblt_commands:
     stosw
     mov ax, [selected_dst_x]
     and ax, 1
-    shl ax, 4
+    shl ax, FOOTPRINT_ID_PAGE_SHIFT
     or ax, 2
     stosw
     mov ax, [selected_width]
@@ -3156,14 +3221,14 @@ validate_committed_footprint:
     cmp ax, FOOTPRINT_CAPACITY
     ja .failed
     mov cx, ax
-    shl bx, 7
+    shl bx, FOOTPRINT_PAGE_SHIFT
     mov si, page_footprint_rects
     add si, bx
     mov word [dirty_sort_scan], 0
 .rectangle:
     xor ax, ax
     mov al, [hidden_page_index]
-    shl ax, 4
+    shl ax, FOOTPRINT_ID_PAGE_SHIFT
     add ax, [dirty_sort_scan]
     mov bx, ax
     xor ax, ax
@@ -3216,7 +3281,7 @@ build_dirty_row_union:
     mov bx, ax
     mov cl, [page_footprint_count + bx]
     xor ch, ch
-    shl bx, 7
+    shl bx, FOOTPRINT_PAGE_SHIFT
     mov si, page_footprint_rects
     add si, bx
     xor bx, bx
@@ -3737,7 +3802,7 @@ commit_pending_footprint:
     mov byte [page_footprint_valid + bx], 0
     mov al, [build_active_count]
     mov [page_footprint_count + bx], al
-    shl bx, 7
+    shl bx, FOOTPRINT_PAGE_SHIFT
     mov si, page_footprint_rects
     add si, bx
     mov byte [generation_instance], 0
@@ -3754,7 +3819,7 @@ commit_pending_footprint:
     mov [si + 6], ax
     xor ax, ax
     mov al, [hidden_page_index]
-    shl ax, 4
+    shl ax, FOOTPRINT_ID_PAGE_SHIFT
     mov bx, ax
     xor ax, ax
     mov al, [generation_instance]
@@ -4011,6 +4076,10 @@ record_count_publication:
     cmp al, FOOTPRINT_CAPACITY
     ja .failed
     dec ax
+%if M98Y_PRIVATE_PROFILE
+    shl ax, 1
+    shl ax, 1
+%endif
     shl ax, 1
     shl ax, 1
     shl ax, 1
@@ -4021,7 +4090,13 @@ record_count_publication:
     add ax, bx
     shl ax, 1
     mov si, ax
+%if M98Y_PRIVATE_PROFILE
+    ; The 64-instance private candidate keeps bounded aggregate count
+    ; telemetry; the legacy 16x16 transition matrix is intentionally not
+    ; resident in the 64-KiB COM image.
+%else
     inc word [count_transition_publications + si]
+%endif
     mov al, [build_active_count]
     mov [visible_published_count], al
     mov ax, [pending_count_generation]
@@ -4595,7 +4670,9 @@ validate_bounded_success:
     ret
 
 ; Parse the complete PSP tail before graphics mode.  M98x accepts at most
-; one exact /V1..8 and one exact /N1..16 token in either order.  M98w builds
+; one exact /V1..8 and one exact /N token in either order.  Public builds
+; accept /N1..16; the private IDA64 profile widens that same grammar to
+; /N1..64 without changing token-boundary or duplicate rejection rules.
 ; retain the old fixed-count contract and reject /N entirely.
 parse_cadence_option:
     push ax
@@ -4649,6 +4726,7 @@ parse_cadence_option:
 %if M98X_RUNTIME_MODE
     cmp byte [count_option_seen], 0
     jne .failed
+%if !M98Y_PRIVATE_PROFILE
     cmp dx, 3
     je .count_one_digit
     cmp dx, 4
@@ -4663,6 +4741,34 @@ parse_cadence_option:
     sub al, '0'
     add al, 10
     jmp .count_store
+%else
+    cmp dx, 3
+    je .count_one_digit
+    cmp dx, 4
+    jne .failed
+    mov al, [es:si + 2]
+    cmp al, '1'
+    jb .failed
+    cmp al, '6'
+    ja .failed
+    mov ah, [es:si + 3]
+    cmp ah, '0'
+    jb .failed
+    cmp ah, '9'
+    ja .failed
+    cmp al, '6'
+    jne .count_two_digit_ok
+    cmp ah, '4'
+    ja .failed
+.count_two_digit_ok:
+    mov al, [es:si + 2]
+    sub al, '0'
+    mov ah, 10
+    mul ah
+    add al, [es:si + 3]
+    sub al, '0'
+    jmp .count_store
+%endif
 .count_one_digit:
     mov al, [es:si + 2]
     cmp al, '1'
@@ -4936,11 +5042,78 @@ observe_vblank_sample:
     clc
     ret
 
+%if M98AA_AUTO_CAMERA
+; The private IDA64 candidate has a deterministic camera demonstration mode.
+; Every sixty VBLANK edges (approximately one second at the nominal model),
+; speed advances by one 0.25X step in a triangle from 1.00X to 4.00X and the
+; distance bias walks between -4 and +4.  Requests remain separate from the
+; immutable frame snapshot, so a busy SGP transaction is never relabelled.
+advance_auto_camera:
+    cmp byte [paused], 0
+    jne .done
+    inc word [auto_camera_vblank_ticks]
+    cmp word [auto_camera_vblank_ticks], 60
+    jb .done
+    mov word [auto_camera_vblank_ticks], 0
+
+    cmp byte [auto_speed_direction], 0
+    je .speed_down
+    cmp byte [requested_speed_index], SPEED_MAX
+    jae .speed_reverse
+    inc byte [requested_speed_index]
+    inc word [speed_change_requests]
+    jmp .distance
+.speed_reverse:
+    mov byte [auto_speed_direction], 0
+    dec byte [requested_speed_index]
+    inc word [speed_change_requests]
+    jmp .distance
+.speed_down:
+    cmp byte [requested_speed_index], SPEED_MIN
+    jbe .speed_forward
+    dec byte [requested_speed_index]
+    inc word [speed_change_requests]
+    jmp .distance
+.speed_forward:
+    mov byte [auto_speed_direction], 1
+    inc byte [requested_speed_index]
+    inc word [speed_change_requests]
+
+.distance:
+    cmp byte [auto_distance_direction], 0
+    je .distance_down
+    cmp byte [requested_distance_bias], DISTANCE_MAX
+    jae .distance_reverse
+    inc byte [requested_distance_bias]
+    inc word [distance_change_requests]
+    jmp .done
+.distance_reverse:
+    mov byte [auto_distance_direction], 0
+    dec byte [requested_distance_bias]
+    inc word [distance_change_requests]
+    jmp .done
+.distance_down:
+    cmp byte [requested_distance_bias], DISTANCE_MIN
+    jbe .distance_forward
+    dec byte [requested_distance_bias]
+    inc word [distance_change_requests]
+    jmp .done
+.distance_forward:
+    mov byte [auto_distance_direction], 1
+    inc byte [requested_distance_bias]
+    inc word [distance_change_requests]
+.done:
+    ret
+%endif
+
 process_scheduler_edge:
     push ax
     push bx
     inc word [vblank_edges_total]
     mov byte [scheduler_boundary_reset], 0
+%if M98AA_AUTO_CAMERA
+    call advance_auto_camera
+%endif
     call qa_before_scheduler_actions
     cmp byte [exit_requested], 0
     jne .done
@@ -5489,7 +5662,7 @@ expected_scale_histogram: db 1,2,2,2,2,4,2,2,2,2,2,2,2,2,3,3,2,2,2,2,2,2,2,2,4,2
 %if HUD_TILE_COUNT != 8 || HUD_FULL_TILE_BYTES != HUD_FULL_WRITE_BYTES || HUD_FPS_TILE_BYTES != HUD_FPS_WRITE_BYTES
 %error "M98v HUD include has the wrong FPS tile contract"
 %endif
-%if HUD_COUNT_TILE_COUNT != 16 || HUD_COUNT_TILE_BYTES != HUD_COUNT_WRITE_BYTES
+%if HUD_COUNT_TILE_COUNT != FOOTPRINT_CAPACITY || HUD_COUNT_TILE_BYTES != HUD_COUNT_WRITE_BYTES
 %error "M98x HUD include has the wrong runtime count tile contract"
 %endif
 %if M98Y_PRIVATE_PROFILE
@@ -5577,8 +5750,18 @@ paused_geometry_redraws: dw 0
 scale_low_clamps: dw 0
 scale_high_clamps: dw 0
 clipped_instances: dw 0
+%if M98AA_AUTO_CAMERA
+auto_camera_vblank_ticks: dw 0
+auto_speed_direction: db 1
+auto_distance_direction: db 1
+%endif
 align 2, db 0
+%if M98Y_PRIVATE_PROFILE
+; IDA64 speed selection is 1.00X..4.00X in exact 0.25X steps.
+orbit_speed_increments: dw 256,320,384,448,512,576,640,704,768,832,896,960,1024
+%else
 orbit_speed_increments: dw 64,128,192,256,320,384,512,768,1024,1280,1536,1792,2048
+%endif
 orbit_radius_factors: dw 128,160,192,224,256,288,320,352,384
 ; M98x runtime count state.  The frame's build_active_count is latched at
 ; render-loop entry and is immutable through clear, draw, READY, and publish.
@@ -5605,7 +5788,7 @@ draw_position: db 0
 current_draw_instance: db 0
 align 2, db 0
 sort_candidate_ptr: dw 0
-draw_order_seen: dw 0
+draw_order_seen: times DRAW_ORDER_SEEN_WORDS dw 0
 page_old_x: dw 0, 0
 page_old_y: dw 0, 0
 page_old_width: dw 0, 0
@@ -5707,7 +5890,11 @@ same_count_publications: dw 0
 count_increase_applies: dw 0
 count_decrease_applies: dw 0
 count_publications: times FOOTPRINT_CAPACITY dw 0
+%if M98Y_PRIVATE_PROFILE
+count_transition_publications: times 0 dw 0
+%else
 count_transition_publications: times FOOTPRINT_CAPACITY * FOOTPRINT_CAPACITY dw 0
+%endif
 hud_g1_writes: dw 0
 hud_vblank_overruns: dw 0
 hud_mismatches: dw 0
@@ -5771,8 +5958,8 @@ scale_publications: times ATLAS_SCALE_COUNT dw 0
 hud_bytes_written: dw 0, 0
 table_scale_histogram: times ATLAS_SCALE_COUNT db 0
 align 2, db 0
-instance_records: times M98U_INSTANCE_RECORD_CAPACITY_BYTES db 0
-draw_order: times M98U_DRAW_ORDER_CAPACITY_BYTES db 0
+instance_records: times INSTANCE_RECORD_CAPACITY_BYTES db 0
+draw_order: times DRAW_ORDER_CAPACITY_BYTES db 0
 sgp_command_address_low: dw 0
 sgp_command_address_high: dw 0
 saved_video_mode: dw 0

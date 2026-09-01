@@ -154,7 +154,7 @@ Execute exactly one assigned stage and stop at its gate.
 | M98x | Add 1-16 runtime controls, HUD count, and load telemetry | Human/VAEG |
 | M98y | Integrate and tune the approved local image - G98y passed | Human/local |
 | M98z | Add bounded interactive orbit/camera controls and final QA | Machine + human |
-| M98aa | Complete negative, deterministic, and performance QA | Machine + human |
+| M98aa | Extend the private IDA profile to bounded 1-64 runtime instances with deterministic speed/distance animation | Machine + human |
 | M98ab | Finish documentation and the final gate | Human |
 
 M98k produced automated VAEG candidate
@@ -206,8 +206,9 @@ evidence. The normal default remains four. Its automated evidence and VA2
 visual gate are passed. M98y integrates the approved private IDA profile and
 its human gate is passed. M98z adds bounded A/Z speed, Q/E distance, W/S look,
 and O/P radius controls while preserving the public/private renderer contract;
-its automated evidence is complete and the maintainer passed G98z. The
-128-instance extension is reserved for M98aa.
+its automated evidence is complete and the maintainer passed G98z. M98aa
+extends only the private IDA profile to 1..64 instances and a bounded
+1.00X..4.00X animation; the later 128-instance extension remains separate.
 
 ## 6. Deterministic host contracts
 

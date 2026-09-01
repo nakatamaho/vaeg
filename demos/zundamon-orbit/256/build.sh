@@ -34,6 +34,7 @@ qa_cycles=${M98T_QA_CYCLES:-${M98S_QA_CYCLES:-1}}
 qa_scenario=${M98T_QA_SCENARIO:-${M98S_QA_SCENARIO:-0}}
 initial_visible_page=${M98T_INITIAL_VISIBLE_PAGE:-${M98S_INITIAL_VISIBLE_PAGE:-0}}
 clear_mode=${M98W_CLEAR_MODE:-1}
+auto_camera=${M98AA_AUTO_CAMERA:-1}
 if [ "${M98X_RUNTIME_MODE+x}" = x ]; then
     runtime_mode=$M98X_RUNTIME_MODE
 elif [ "${M98V_ACTIVE_COUNT+x}" = x ]; then
@@ -113,6 +114,10 @@ case "$runtime_mode" in
     0|1) ;;
     *) printf 'error: M98X_RUNTIME_MODE must be 0 or 1\n' >&2; exit 2 ;;
 esac
+case "$auto_camera" in
+    0|1) ;;
+    *) printf 'error: M98AA_AUTO_CAMERA must be 0 or 1\n' >&2; exit 2 ;;
+esac
 if [ "$runtime_mode" -eq 0 ]; then
     case "$active_count" in
         1|2|4|8|16) ;;
@@ -181,7 +186,8 @@ else
         --input "$profile_dir/zundamon_depth_table.inc" \
         --atlas "$private_atlas" --radius-x 96 --radius-y 16 >/dev/null
     python3 "$script_dir/../tools/validate_zundamon_orbit_hud.py" \
-        --input "$profile_dir/zundamon_hud_table.inc" --subject IDA >/dev/null
+        --input "$profile_dir/zundamon_hud_table.inc" --subject IDA \
+        --count-max 64 >/dev/null
     "$nasm_command" -f bin \
         -dM98Y_PRIVATE_PROFILE=1 \
         -dM98T_BOUNDED_QA="$bounded_qa" \
@@ -192,6 +198,7 @@ else
         -dM98Q_CLEAR_MODE="$clear_mode" \
         -dM98X_RUNTIME_MODE=1 \
         -dM98V_ACTIVE_COUNT=4 \
+        -dM98AA_AUTO_CAMERA="$auto_camera" \
         -I "$profile_dir/" -I "$script_dir/" \
         -l "$listing" \
         "$script_dir/zundamon_orbit_256.asm" -o "$output"
@@ -204,7 +211,7 @@ size=$(wc -c < "$output" | tr -d ' ')
 }
 
 if [ "$private_profile" -eq 1 ]; then
-    printf 'M98Y_PRIVATE_GUEST_BUILD_PASS size=%s runtime_counts=1..16 dirty_profile=1 listing=%s\n' \
+    printf 'M98AA_PRIVATE_GUEST_BUILD_PASS size=%s runtime_counts=1..64 dirty_profile=1 listing=%s\n' \
         "$size" "$listing"
 elif [ "$runtime_mode" -eq 1 ]; then
     printf 'M98X_GUEST_BUILD_PASS size=%s default_count=4 runtime_counts=1..16 bounded_qa=%s revolutions=%s scenario=%s initial_page=%s clear_mode=%s listing=%s\n' \

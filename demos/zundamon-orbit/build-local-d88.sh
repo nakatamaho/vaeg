@@ -36,7 +36,7 @@ output_parent=$(dirname -- "$output_image")
 private_profile=${M98Y_PROFILE:-public}
 if [ "$private_profile" = private ]; then
     payload_name=IDAORB
-    milestone_label=M98y
+    milestone_label=M98aa
 elif [ "${M98X_RUNTIME_MODE:-0}" = 1 ]; then
     payload_name=ZUNDORB
     milestone_label=M98x
@@ -106,5 +106,8 @@ python3 "$repo_root/tools/pc88va/pcengine_disk.py" list \
 
 printf 'Created local bootable %s disk: %s\n' "$milestone_label" "$output_image"
 printf '  %s.COM uses the validated single-atlas billboard profile with page-local dirty unions and G0 HUD.\n' "$payload_name"
+if [ "$private_profile" = private ]; then
+    printf '  Private IDA64 profile accepts /N1 through /N64; A/Z selects 1.00X through 4.00X in 0.25X steps.\n'
+fi
 printf '  LEFT/RIGHT select cadence, SPACE pauses, and ESC restores and exits.\n'
 printf '  The source template is unchanged; this output remains local-only.\n'

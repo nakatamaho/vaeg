@@ -38,12 +38,14 @@ CELL_HEIGHT = 8
 FPS_WIDTH = 18
 FPS_HEIGHT = 8
 FPS_FIELDS = ("60 ", "30 ", "20 ", "15 ", "12 ", "10 ", "8.6", "7.5")
-COUNT_FIELDS = tuple(f"{count:>2}" for count in range(1, 17))
+DEFAULT_COUNT_MAX = 16
 COUNT_WIDTH = 12
 STATUS_SPEED_FIELDS = tuple(f"SPD:{label} " for label in
                             ("0.25X", "0.50X", "0.75X", "1.00X",
                              "1.25X", "1.50X", "2.00X", "3.00X",
                              "4.00X", "5.00X", "6.00X", "7.00X", "8.00X"))
+IDA64_STATUS_SPEED_FIELDS = tuple(
+    f"SPD:{index / 4:.2f}X " for index in range(4, 17))
 STATUS_DISTANCE_FIELDS = tuple(f"DIST:{bias:+d}" for bias in range(-4, 5))
 STATUS_LOOK_FIELDS = tuple(f"LOOK:{level:+d}" for level in range(-4, 5))
 STATUS_RADIUS_FIELDS = tuple(f"RAD:{label}" for label in
@@ -122,10 +124,13 @@ def emit_bytes(lines: list[str], label: str, data: bytes, width: int) -> None:
         lines.append("    db " + ",".join(f"0x{value:02x}" for value in row))
 
 
-def encode_include(subject: str = "ZUNDAMON") -> tuple[bytes, tuple[bytes, ...], tuple[bytes, ...]]:
+def encode_include(subject: str = "ZUNDAMON", count_max: int = DEFAULT_COUNT_MAX) -> tuple[bytes, tuple[bytes, ...], tuple[bytes, ...]]:
+    if not 1 <= count_max <= 64:
+        raise ValueError("M98X_COUNT_MAX")
+    count_fields = tuple(f"{count:>2}" for count in range(1, count_max + 1))
     full_tiles = tuple(render_full(field, subject) for field in FPS_FIELDS)
     fps_tiles = tuple(render_text(field) for field in FPS_FIELDS)
-    count_tiles = tuple(render_text(field) for field in COUNT_FIELDS)
+    count_tiles = tuple(render_text(field) for field in count_fields)
     lines = [
         "; Copyright (c) 2026 Nakata Maho",
         ";",
@@ -152,7 +157,7 @@ def encode_include(subject: str = "ZUNDAMON") -> tuple[bytes, tuple[bytes, ...],
         "%define HUD_TILE_COUNT 8",
         f"%define HUD_FULL_TILE_BYTES {HUD_WIDTH * HUD_HEIGHT}",
         f"%define HUD_FPS_TILE_BYTES {FPS_WIDTH * FPS_HEIGHT}",
-        f"%define HUD_COUNT_TILE_COUNT {len(COUNT_FIELDS)}",
+        f"%define HUD_COUNT_TILE_COUNT {len(count_fields)}",
         f"%define HUD_COUNT_TILE_BYTES {COUNT_WIDTH * CELL_HEIGHT}",
         f"%define HUD_FOREGROUND 0x{FOREGROUND:02x}",
         f"%define HUD_BACKGROUND 0x{BACKGROUND:02x}",
@@ -167,16 +172,16 @@ def encode_include(subject: str = "ZUNDAMON") -> tuple[bytes, tuple[bytes, ...],
         emit_bytes(lines, f"hud_fps_tile_v{index}", data, FPS_WIDTH)
     lines.append("hud_fps_tile_pointers:")
     lines.append("    dw " + ",".join(f"hud_fps_tile_v{index}" for index in range(1, 9)))
-    for field, data in zip(COUNT_FIELDS, count_tiles):
+    for field, data in zip(count_fields, count_tiles):
         label = field.strip()
         emit_bytes(lines, f"hud_count_tile_{label}", data, COUNT_WIDTH)
     lines.append("hud_count_tile_pointers:")
     lines.append("    dw " + ",".join(
-        f"hud_count_tile_{count}" for count in range(1, 17)))
+        f"hud_count_tile_{count}" for count in range(1, count_max + 1)))
     return ("\n".join(lines) + "\n").encode("ascii"), full_tiles, fps_tiles
 
 
-def encode_status_include() -> bytes:
+def encode_status_include(speed_fields=STATUS_SPEED_FIELDS) -> bytes:
     """Encode the generic M98z status tiles separately from the legacy HUD."""
     lines = [
         "; Copyright (c) 2026 Nakata Maho",
@@ -215,7 +220,7 @@ def encode_status_include() -> bytes:
         "%define HUD_STATUS_RADIUS_HEIGHT 8",
     ]
     status_sets = (
-        (STATUS_SPEED_FIELDS, "hud_status_speed_tile", 60),
+        (speed_fields, "hud_status_speed_tile", 60),
         (STATUS_DISTANCE_FIELDS, "hud_status_distance_tile", 42),
         (STATUS_LOOK_FIELDS, "hud_status_look_tile", 42),
         (STATUS_RADIUS_FIELDS, "hud_status_radius_tile", 54),
@@ -234,17 +239,24 @@ def main() -> int:
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--metadata", type=Path)
     parser.add_argument("--status-output", type=Path)
+    parser.add_argument("--speed-profile", choices=("public", "ida64"),
+                        default="public")
     parser.add_argument("--subject", choices=("ZUNDAMON", "IDA"),
                         default="ZUNDAMON")
+    parser.add_argument("--count-max", type=int, default=DEFAULT_COUNT_MAX,
+                        help="highest runtime count represented in the field")
     args = parser.parse_args()
     if (args.output.exists() or (args.metadata is not None and args.metadata.exists())
             or (args.status_output is not None and args.status_output.exists())):
         parser.error("refusing to overwrite generated output")
-    encoded, full_tiles, fps_tiles = encode_include(args.subject)
-    count_tiles = tuple(render_text(field) for field in COUNT_FIELDS)
+    encoded, full_tiles, fps_tiles = encode_include(args.subject, args.count_max)
+    count_fields = tuple(f"{count:>2}" for count in range(1, args.count_max + 1))
+    count_tiles = tuple(render_text(field) for field in count_fields)
     args.output.write_bytes(encoded)
     if args.status_output is not None:
-        args.status_output.write_bytes(encode_status_include())
+        speed_fields = (IDA64_STATUS_SPEED_FIELDS if args.speed_profile == "ida64"
+                        else STATUS_SPEED_FIELDS)
+        args.status_output.write_bytes(encode_status_include(speed_fields))
     digest = hashlib.sha256(encoded).hexdigest()
     if args.metadata is not None:
         args.metadata.write_text(json.dumps({
@@ -257,7 +269,7 @@ def main() -> int:
             "hud_rect": [4, 4, 70, 20],
             "fps_value_rect": [34, 4, 52, 12],
             "fps_fields": list(FPS_FIELDS),
-            "count_fields": list(COUNT_FIELDS),
+            "count_fields": list(count_fields),
             "count_value_rect": [58, 12, 70, 20],
             "full_tile_sha256": [hashlib.sha256(tile).hexdigest()
                                  for tile in full_tiles],
@@ -268,7 +280,7 @@ def main() -> int:
             "include_sha256": digest,
         }, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     print(f"M98X_HUD_GENERATION_PASS fps_fields={len(FPS_FIELDS)} "
-          f"count_fields={len(COUNT_FIELDS)} "
+          f"count_fields={len(count_fields)} "
           f"full_bytes={len(full_tiles[0])} fps_bytes={len(fps_tiles[0])} "
           f"sha256={digest}")
     return 0
