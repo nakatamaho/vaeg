@@ -58,8 +58,8 @@ def inspect(path: Path, width: int = 11, height: int = 9,
     if entries[32] != (-radius_x, 0) or entries[48] != (0, -radius_y):
         raise OrbitError("M98S_TABLE_CARDINAL")
     for phase, (dx, dy) in enumerate(entries):
-        if entries[(phase + 32) & 63] != (-dx, -dy):
-            raise OrbitError("M98S_TABLE_OPPOSITE")
+        if not -32768 <= dx <= 32767 or not -32768 <= dy <= 32767:
+            raise OrbitError("M98S_TABLE_COMPONENT")
         if abs(dx) > radius_x or abs(dy) > radius_y:
             raise OrbitError("M98S_TABLE_RADIUS")
         destination = (160 + dx - anchor_x, 100 + dy - anchor_y)
@@ -69,9 +69,17 @@ def inspect(path: Path, width: int = 11, height: int = 9,
         if entries[(phase + 1) & 63] == (dx, dy):
             raise OrbitError("M98S_TABLE_DUPLICATE")
     # First quadrant moves from right toward bottom in screen coordinates.
-    if not all(entries[index + 1][1] >= entries[index][1]
+    if not all(entries[index + 1][0] <= entries[index][0]
+               and entries[index + 1][1] >= entries[index][1]
                for index in range(16)):
         raise OrbitError("M98S_TABLE_DIRECTION")
+    for phase, (dx, dy) in enumerate(entries):
+        if entries[(phase + 32) & 63] != (-dx, -dy):
+            raise OrbitError("M98S_TABLE_OPPOSITE")
+        if entries[(-phase) & 63] != (dx, -dy):
+            raise OrbitError("M98S_TABLE_QUARTER_SYMMETRY")
+        if entries[(32 - phase) & 63] != (-dx, dy):
+            raise OrbitError("M98S_TABLE_QUARTER_SYMMETRY")
     return raw, tuple(entries)
 
 

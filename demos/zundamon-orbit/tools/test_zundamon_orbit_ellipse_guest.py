@@ -71,17 +71,37 @@ class M98sOrbitTableTests(unittest.TestCase):
     def test_mutated_tables_fail_closed(self) -> None:
         original = TABLE.read_text(encoding="ascii")
         mutations = (
-            original.replace("    dw   96,    0 ; phase 00\n", "", 1),
-            original.replace("phase 01", "phase 00", 1),
-            original.replace("dw   96,    0 ; phase 00", "dw   95,    0 ; phase 00", 1),
-            original.replace("dw  -96,    0 ; phase 32", "dw  -95,    0 ; phase 32", 1),
-            original.replace("dw   96,    5 ; phase 01", "dw   96,    0 ; phase 01", 1),
+            (original.replace("    dw   96,    0 ; phase 00\n", "", 1),
+             "M98S_TABLE_PHASES"),
+            (original.replace("phase 01", "phase 00", 1),
+             "M98S_TABLE_PHASES"),
+            (original.replace("dw   96,    0 ; phase 00",
+                              "dw   95,    0 ; phase 00", 1),
+             "M98S_TABLE_CARDINAL"),
+            (original.replace("dw  -96,    0 ; phase 32",
+                              "dw  -95,    0 ; phase 32", 1),
+             "M98S_TABLE_CARDINAL"),
+            (original.replace("dw   96,    5 ; phase 01",
+                              "dw   96,    0 ; phase 01", 1),
+             "M98S_TABLE_DUPLICATE"),
+            (original.replace("dw   96,    5 ; phase 01",
+                              "dw 40000,    5 ; phase 01", 1),
+             "M98S_TABLE_COMPONENT"),
+            (original.replace("dw   96,    5 ; phase 01",
+                              "dw   96,   -5 ; phase 01", 1),
+             "M98S_TABLE_DIRECTION"),
+            (original.replace("dw   96,    5 ; phase 01",
+                              "dw   95,    5 ; phase 01", 1).replace(
+                                  "dw  -96,   -5 ; phase 33",
+                                  "dw  -95,   -5 ; phase 33", 1),
+             "M98S_TABLE_QUARTER_SYMMETRY"),
         )
         with tempfile.TemporaryDirectory() as temporary:
-            for index, text in enumerate(mutations):
+            for index, (text, code) in enumerate(mutations):
                 path = Path(temporary) / f"bad-{index}.inc"
                 path.write_text(text, encoding="ascii")
-                with self.subTest(index=index), self.assertRaises(validator.OrbitError):
+                with self.subTest(index=index), self.assertRaisesRegex(
+                        validator.OrbitError, f"^{code}$"):
                     validator.inspect(path)
 
 
