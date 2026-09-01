@@ -65,9 +65,9 @@ The unrelated pre-existing worktree state was preserved exactly:
 The private build selects a capacity of 64 rectangles, draw indices, dirty
 interval candidates, and merged intervals. Page-local rectangle offsets and
 instance-ID storage use capacity-derived shifts. A four-word (64-bit) seen
-mask validates every generated draw permutation; the public path retains its
-original 16-bit code and binary identity. Record storage remains the accepted
-50-byte ABI and uses one shared external atlas.
+mask validates every generated draw permutation (including counts below 64);
+the public path retains its original 16-bit code and binary identity. Record
+storage remains the accepted 50-byte ABI and uses one shared external atlas.
 
 The private parser accepts exactly `/N1` through `/N64`, rejects malformed and
 duplicate tokens, and keeps the existing `/V1` through `/V8` grammar. UP/DOWN

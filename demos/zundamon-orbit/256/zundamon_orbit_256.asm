@@ -2035,13 +2035,9 @@ generate_multi_instance_frame:
     mov ax, [build_active_count]
     cmp bx, ax
     jb .order_check_private
-    mov si, draw_order_seen
-    mov cx, DRAW_ORDER_SEEN_WORDS
-.seen_words:
-    cmp word [si], 0xffff
-    jne .failed
-    add si, 2
-    loop .seen_words
+    ; The bounded loop above has visited exactly build_active_count entries;
+    ; each was range-checked and rejected on a duplicate bit.  Do not require
+    ; unused bits in the four-word private mask to be set for counts below 64.
 %else
     mov word [draw_order_seen], 0
     xor bx, bx
