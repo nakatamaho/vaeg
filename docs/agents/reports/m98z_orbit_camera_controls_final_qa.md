@@ -38,7 +38,8 @@ throughput or replace the maintainer visual gate.
   approval was subsequently recorded by the starting head above.
 - G98y approval: maintainer explicitly stated `G98y human gate passed`.
 - M98z implementation commits: `ada043feee7491ba980c00e43603214294036f82`,
-  `d3c969758362c38d189015579202b18a240c774c`.
+  `d3c969758362c38d189015579202b18a240c774c`,
+  `cbd88fb1c754592d495a7ca16071c25a24250e23` (corrective HUD/input fix).
 - Report commit and pushed head: supplied by the final Git handoff after this
   report commit; remote equality is checked at push time.
 - M98x implementation: `e833b977f671c921d9ad247249d2217c6782cc52`.
@@ -72,7 +73,7 @@ No baseline path was staged, reformatted, removed, or generated over.
 
 | File | Purpose |
 |---|---|
-| `demos/zundamon-orbit/256/zundamon_orbit_256.asm` | Add bounded requested/active speed, distance, look, and radius state; key events; Q8.8 phase/radius projection; clipping/counters; and G0 status publication. |
+| `demos/zundamon-orbit/256/zundamon_orbit_256.asm` | Add bounded requested/active speed, distance, look, and radius state; key events; Q8.8 phase/radius projection; clipping/counters; G0 status publication, and signed status-index/input-code corrections. |
 | `demos/zundamon-orbit/256/zundamon_status_table.inc` | Generated fixed-width G0 status tiles for all speed, distance, look, and radius levels. |
 | `demos/zundamon-orbit/256/build.sh` | Validate the separate status include during deterministic guest builds. |
 | `demos/zundamon-orbit/tools/generate_zundamon_orbit_hud.py` | Add deterministic status-field definitions and optional status-include output while retaining the accepted legacy HUD bytes. |
@@ -82,7 +83,7 @@ No baseline path was staged, reformatted, removed, or generated over.
 | `demos/zundamon-orbit/README.md` | Document the complete control map, defaults, bounds, billboard limitation, and emulator timing caveat. |
 | `docs/agents/ROADMAP.md` | Record M98z implementation complete with G98z human gate pending. |
 | `docs/agents/tasks/M98_zundamon_orbit_master_plan.md` | Reconcile the active M98z scope and reserve the 128-instance extension for M98aa. |
-| `demos/zundamon-orbit/tools/test_m98y_private_profile.py` | Update the deterministic public guest identity assertion after the intentional G0 status extension. |
+| `demos/zundamon-orbit/tools/test_m98y_private_profile.py` | Update the deterministic public guest identity assertion after the intentional G0 status extension and corrective HUD layout. |
 | `demos/zundamon-orbit/tools/test_zundamon_orbit_depth_guest.py` | Keep the accepted legacy HUD include identity assertion byte-exact. |
 
 ## Control and renderer contract
@@ -123,6 +124,12 @@ G1 and the accepted FPS/count rectangles are untouched. A missed slot retains
 the pending frame, visible state, and phase. The Q8.8 accumulator advances only
 after complete publication; paused publication does not consume a phase step.
 
+The corrective pass uses the PC-88 keymap values for A (`1Dh`), S (`1Eh`), and
+Z (`29h`), and sign-extends the bounded DIST/LOOK values before selecting
+their generated tiles. The four status fields now share one row below the
+legacy HUD at fixed x positions 4, 58, 106, and 154, with no overlap; each
+published active snapshot redraws all four fields, including negative values.
+
 ## Host and guest evidence
 
 The independent control model covers all eight speed entries, all divisor
@@ -135,7 +142,7 @@ projection boundary space:
 = 746,496 bounded projection cases
 ```
 
-The repository-wide orbit/atlas/dirty-union/runtime suite completed **238
+The repository-wide orbit/atlas/dirty-union/runtime suite completed **241
 tests PASS**, including inherited public M98t/M98u/M98v/M98w/M98x coverage and
 the M98z control tests. The inherited host transition and private-profile
 tokens remain accepted: `HOST_PUBLIC_PROFILE_PASS`,
@@ -145,7 +152,7 @@ tokens remain accepted: `HOST_PUBLIC_PROFILE_PASS`,
 
 The normal public guest is one deterministic binary, 49,856 bytes, and two
 clean builds produced SHA-256
-`e20e9bec5b4209d62d394cbc31ff440b2fd26ac8ddafc5a3a96a61857d5bbb6b`.
+`247bf4e00834507f017b55efe0d5488fa70887689dc7c2e1f89062b2d759eacf`.
 The legacy FPS/count HUD include remains byte-identical to its accepted
 `fa5552dd236cc078e94d905e35698a9887269ede13aa4db86658988b16775b8e` identity;
 the new status tiles are a separate generated include. Fixed-count QA builds
