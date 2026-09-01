@@ -23,7 +23,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 # M98 - Zundamon billboard-orbit demo master plan
 
-Status: **G98a, G98e, G98j, G98k, G98l, G98o, G98p, G98q, G98r, G98s, G98t, G98v, and G98w human gates and G98b-G98d, G98f-G98i, and G98u machine gates passed; G98x automated evidence complete and human gate pending; M98m/M98n remain absorbed reservations**
+Status: **G98a, G98e, G98j, G98k, G98l, G98o, G98p, G98q, G98r, G98s, G98t, G98v, G98w, and G98x human gates and G98b-G98d, G98f-G98i, and G98u machine gates passed; M98m/M98n remain absorbed reservations**
 
 Branch family: `topic/m98-zundamon-orbit`
 
