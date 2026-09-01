@@ -137,8 +137,11 @@ org 0x100
 %ifndef M98Q_INITIAL_VISIBLE_PAGE
 %define M98Q_INITIAL_VISIBLE_PAGE 0
 %endif
+%ifndef M98W_CLEAR_MODE
+%define M98W_CLEAR_MODE         1
+%endif
 %ifndef M98Q_CLEAR_MODE
-%define M98Q_CLEAR_MODE         1
+%define M98Q_CLEAR_MODE         M98W_CLEAR_MODE
 %endif
 %ifndef M98T_BOUNDED_QA
 %define M98T_BOUNDED_QA         0
@@ -216,6 +219,11 @@ org 0x100
 %define DIRTY_ROW_COMMAND_WORDS 5
 %define DIRTY_BATCH_FIXED_WORDS 6
 %define DIRTY_ROWS_PER_BATCH    ((SGP_COMMAND_LIST_WORDS - DIRTY_BATCH_FIXED_WORDS) / DIRTY_ROW_COMMAND_WORDS)
+%define DIRTY_INTERVAL_BYTES    6
+%define DIRTY_INTERVALS_PER_BATCH DIRTY_ROWS_PER_BATCH
+%define FOOTPRINT_RECT_BYTES    8
+%define FOOTPRINT_CAPACITY      16
+%define FOOTPRINT_TOTAL_BYTES   (2 * FOOTPRINT_CAPACITY * FOOTPRINT_RECT_BYTES)
 
 %define PROBE_CHECKPOINT_IP     0x4000
 %define LOAD_CHECKPOINT_IP      0x4010
@@ -237,6 +245,10 @@ org 0x100
 %define REPORT_M_CHECKPOINT_IP  0x4110
 %define REPORT_N_CHECKPOINT_IP  0x4120
 %define REPORT_O_CHECKPOINT_IP  0x4130
+%define REPORT_P_CHECKPOINT_IP  0x4140
+%define REPORT_Q_CHECKPOINT_IP  0x4150
+%define REPORT_R_CHECKPOINT_IP  0x4160
+%define REPORT_S_CHECKPOINT_IP  0x4170
 %define PROBE_CHECKPOINT_OFFSET (PROBE_CHECKPOINT_IP - 0x0100)
 %define LOAD_CHECKPOINT_OFFSET  (LOAD_CHECKPOINT_IP - 0x0100)
 %define TRANSFER_CHECKPOINT_OFFSET (TRANSFER_CHECKPOINT_IP - 0x0100)
@@ -257,6 +269,10 @@ org 0x100
 %define REPORT_M_CHECKPOINT_OFFSET (REPORT_M_CHECKPOINT_IP - 0x0100)
 %define REPORT_N_CHECKPOINT_OFFSET (REPORT_N_CHECKPOINT_IP - 0x0100)
 %define REPORT_O_CHECKPOINT_OFFSET (REPORT_O_CHECKPOINT_IP - 0x0100)
+%define REPORT_P_CHECKPOINT_OFFSET (REPORT_P_CHECKPOINT_IP - 0x0100)
+%define REPORT_Q_CHECKPOINT_OFFSET (REPORT_Q_CHECKPOINT_IP - 0x0100)
+%define REPORT_R_CHECKPOINT_OFFSET (REPORT_R_CHECKPOINT_IP - 0x0100)
+%define REPORT_S_CHECKPOINT_OFFSET (REPORT_S_CHECKPOINT_IP - 0x0100)
 
 %if G1_PAGE_BYTES != SCREEN_WIDTH * SCREEN_HEIGHT
 %error "M98q G1 page size does not match the logical viewport"
@@ -290,6 +306,9 @@ org 0x100
 %endif
 %if M98Q_CLEAR_MODE != CLEAR_MODE_FULL && M98Q_CLEAR_MODE != CLEAR_MODE_DIRTY
 %error "M98q clear mode must be full or dirty"
+%endif
+%if M98W_CLEAR_MODE != CLEAR_MODE_FULL && M98W_CLEAR_MODE != CLEAR_MODE_DIRTY
+%error "M98w clear mode must be full or dirty"
 %endif
 %if DIRTY_ROWS_PER_BATCH < 1
 %error "M98q command list cannot hold one dirty row"
@@ -711,6 +730,46 @@ report_n_resume:
     jmp report_o_checkpoint
 
 report_o_resume:
+    mov bx, [dirty_candidate_intervals]
+    mov cx, [dirty_candidate_intervals + 2]
+    mov dx, [dirty_merged_intervals]
+    mov si, [dirty_merged_intervals + 2]
+    mov di, [dirty_row_cls_commands]
+    mov bp, [dirty_first_use_skips]
+    mov ax, 0x98f0
+    jmp report_p_checkpoint
+
+report_p_resume:
+    mov bx, [dirty_words_cleared]
+    mov cx, [dirty_words_cleared + 2]
+    mov dx, [dirty_bytes_cleared]
+    mov si, [dirty_bytes_cleared + 2]
+    mov di, [page_footprint_commits]
+    mov bp, [union_recompute_mismatches]
+    mov ax, 0x98f1
+    jmp report_q_checkpoint
+
+report_q_resume:
+    mov bx, [dirty_rows_visited]
+    mov cx, [dirty_rows_nonempty]
+    mov dx, [dirty_rows_cleared]
+    mov si, [dirty_overlap_merges]
+    mov di, [dirty_adjacency_merges]
+    mov bp, [dirty_containment_merges]
+    mov ax, 0x98f2
+    jmp report_r_checkpoint
+
+report_r_resume:
+    mov bx, [union_validation_passes]
+    mov cx, [sgp_clear_batches]
+    mov dx, [sgp_draw_batches]
+    mov si, [page_footprint_commit_failures]
+    mov di, [dirty_frames_with_clear]
+    mov bp, [dirty_rect_clears]
+    mov ax, 0x98f3
+    jmp report_s_checkpoint
+
+report_s_resume:
     mov dx, [exit_message]
     call print_string
     mov al, [exit_errorlevel]
@@ -2101,6 +2160,10 @@ initialize_video_double_buffer:
     mov byte [page_state + PAGE_B], PAGE_HIDDEN_CLEAN
     mov byte [page_old_valid + PAGE_A], 0
     mov byte [page_old_valid + PAGE_B], 0
+    mov byte [page_footprint_valid + PAGE_A], 0
+    mov byte [page_footprint_valid + PAGE_B], 0
+    mov byte [page_footprint_count + PAGE_A], 0
+    mov byte [page_footprint_count + PAGE_B], 0
     mov word [pages_initialized], 2
     call wait_vblank_edge
     jc .failed
@@ -2672,151 +2735,639 @@ prepare_pending_rectangle:
     stc
     ret
 
-; Resolve only the hidden physical page's most recently published rectangle.
-; Saved rectangles stay logical and half-open; rounding is temporary clear
-; state for the one homogeneous G1 object.
-prepare_dirty_clear_state:
-    mov byte [dirty_clear_needed], 0
-    mov word [dirty_builder_failed], 0
+; Validate the complete committed footprint for the hidden physical page.
+; Each entry is a logical half-open x/y/width/height rectangle in instance-ID
+; order.  No SGP command is emitted by this pass.
+validate_committed_footprint:
     mov al, [hidden_page_index]
     cmp al, PAGE_B
     ja .failed
     xor ah, ah
     mov bx, ax
-    cmp byte [page_old_valid + bx], 0
+    cmp byte [page_footprint_valid + bx], 0
     je .none
-    mov byte [dirty_clear_needed], 1
-    mov si, bx
-    shl si, 1
-    mov ax, [page_old_x + si]
+    xor ah, ah
+    mov al, [page_footprint_count + bx]
+    cmp ax, 1
+    jb .failed
+    cmp ax, FOOTPRINT_CAPACITY
+    ja .failed
+    mov cx, ax
+    shl bx, 7
+    mov si, page_footprint_rects
+    add si, bx
+    mov word [dirty_sort_scan], 0
+.rectangle:
+    xor ax, ax
+    mov al, [hidden_page_index]
+    shl ax, 4
+    add ax, [dirty_sort_scan]
+    mov bx, ax
+    xor ax, ax
+    mov al, [page_footprint_instance_ids + bx]
+    cmp ax, [dirty_sort_scan]
+    jne .failed
+    mov ax, [si]
     cmp ax, SCREEN_WIDTH
     jae .failed
-    mov cx, [page_old_width + si]
-    test cx, cx
+    mov dx, [si + 4]
+    test dx, dx
     jz .failed
-    mov dx, ax
-    add dx, cx
+    add dx, ax
     jc .failed
     cmp dx, SCREEN_WIDTH
     ja .failed
     cmp dx, ax
     jbe .failed
-    and ax, 0xfffe
-    mov [dirty_clear_x0], ax
-    inc dx
-    and dx, 0xfffe
-    cmp dx, SCREEN_WIDTH
-    ja .failed
-    cmp dx, ax
-    jbe .failed
-    sub dx, ax
-    test dx, 1
-    jnz .failed
-    shr dx, 1
-    test dx, dx
-    jz .failed
-    mov [dirty_words_per_row], dx
-
-    mov ax, [page_old_y + si]
+    mov ax, [si + 2]
     cmp ax, SCREEN_HEIGHT
     jae .failed
-    mov cx, [page_old_height + si]
-    test cx, cx
+    mov dx, [si + 6]
+    test dx, dx
     jz .failed
-    mov dx, ax
-    add dx, cx
+    add dx, ax
     jc .failed
     cmp dx, SCREEN_HEIGHT
     ja .failed
     cmp dx, ax
     jbe .failed
-    mov [dirty_rows_remaining], cx
-
-    mul word [screen_pitch_word]
-    add ax, [dirty_clear_x0]
-    adc dx, 0
-    add ax, [page_sgp_low + si]
-    adc dx, [page_sgp_high + si]
-    mov [dirty_row_address], ax
-    mov [dirty_row_address + 2], dx
-
-    inc word [dirty_rect_clears]
-    mov ax, [page_old_height + si]
-    add [dirty_row_cls_commands], ax
-    adc word [dirty_row_cls_commands + 2], 0
-    mul word [dirty_words_per_row]
-    add [dirty_words_cleared], ax
-    adc [dirty_words_cleared + 2], dx
-    shl ax, 1
-    rcl dx, 1
-    add [dirty_bytes_cleared], ax
-    adc [dirty_bytes_cleared + 2], dx
+    add si, FOOTPRINT_RECT_BYTES
+    inc word [dirty_sort_scan]
+    loop .rectangle
 .none:
     clc
     ret
 .failed:
+    inc word [bounds_failures]
     stc
     ret
 
-clear_hidden_dirty_rows:
+; Build one canonical row union in bounded scratch.  Rounding occurs before
+; sorting, and the optional accounting flag makes the second pass read-only
+; with respect to the published counters.
+build_dirty_row_union:
+    mov word [dirty_candidate_count], 0
+    mov word [dirty_merged_count], 0
+    mov al, [hidden_page_index]
+    xor ah, ah
+    mov bx, ax
+    mov cl, [page_footprint_count + bx]
+    xor ch, ch
+    shl bx, 7
+    mov si, page_footprint_rects
+    add si, bx
+    xor bx, bx
+    mov di, dirty_interval_candidates
+.candidate:
+    cmp bx, cx
+    jae .sort
+    mov ax, [si + 2]
+    cmp [dirty_row_y], ax
+    jb .next_rectangle
+    mov dx, [si + 6]
+    add dx, ax
+    cmp [dirty_row_y], dx
+    jae .next_rectangle
+    mov ax, [si]
+    and ax, 0xfffe
+    mov [di], ax
+    mov ax, [si]
+    add ax, [si + 4]
+    inc ax
+    and ax, 0xfffe
+    mov [di + 2], ax
+    mov ax, bx
+    mov [di + 4], ax
+    add di, DIRTY_INTERVAL_BYTES
+    inc word [dirty_candidate_count]
+.next_rectangle:
+    add si, FOOTPRINT_RECT_BYTES
+    inc bx
+    jmp .candidate
+
+.sort:
+    mov ax, [dirty_candidate_count]
+    cmp ax, 1
+    jbe .merge_start
+    mov word [dirty_sort_position], 1
+.sort_outer:
+    mov ax, [dirty_sort_position]
+    mov dx, DIRTY_INTERVAL_BYTES
+    mul dx
+    mov si, dirty_interval_candidates
+    add si, ax
+    mov ax, [si]
+    mov [dirty_next_x0], ax
+    mov ax, [si + 2]
+    mov [dirty_next_x1], ax
+    mov ax, [si + 4]
+    mov [dirty_next_id], ax
+    mov ax, [dirty_sort_position]
+    mov [dirty_sort_scan], ax
+.sort_inner:
+    cmp word [dirty_sort_scan], 0
+    je .insert
+    mov ax, [dirty_sort_scan]
+    dec ax
+    mov dx, DIRTY_INTERVAL_BYTES
+    mul dx
+    mov si, dirty_interval_candidates
+    add si, ax
+    mov ax, [si]
+    cmp ax, [dirty_next_x0]
+    jb .insert
+    ja .shift
+    mov ax, [si + 2]
+    cmp ax, [dirty_next_x1]
+    jb .insert
+    ja .shift
+    mov ax, [si + 4]
+    cmp ax, [dirty_next_id]
+    jbe .insert
+.shift:
+    mov ax, [dirty_sort_scan]
+    mov dx, DIRTY_INTERVAL_BYTES
+    mul dx
+    mov di, dirty_interval_candidates
+    add di, ax
+    mov ax, [si]
+    mov [di], ax
+    mov ax, [si + 2]
+    mov [di + 2], ax
+    mov ax, [si + 4]
+    mov [di + 4], ax
+    dec word [dirty_sort_scan]
+    jmp .sort_inner
+.insert:
+    mov ax, [dirty_sort_scan]
+    mov dx, DIRTY_INTERVAL_BYTES
+    mul dx
+    mov di, dirty_interval_candidates
+    add di, ax
+    mov ax, [dirty_next_x0]
+    mov [di], ax
+    mov ax, [dirty_next_x1]
+    mov [di + 2], ax
+    mov ax, [dirty_next_id]
+    mov [di + 4], ax
+    inc word [dirty_sort_position]
+    mov ax, [dirty_candidate_count]
+    cmp [dirty_sort_position], ax
+    jb .sort_outer
+
+.merge_start:
+    mov ax, [dirty_candidate_count]
+    test ax, ax
+    jz .done
+    mov si, dirty_interval_candidates
+    mov ax, [si]
+    mov [dirty_current_x0], ax
+    mov ax, [si + 2]
+    mov [dirty_current_x1], ax
+    mov ax, [si + 4]
+    mov [dirty_current_id], ax
+    mov word [dirty_sort_scan], 1
+.merge_next:
+    mov ax, [dirty_sort_scan]
+    cmp ax, [dirty_candidate_count]
+    jae .emit_final
+    mov dx, DIRTY_INTERVAL_BYTES
+    mul dx
+    mov si, dirty_interval_candidates
+    add si, ax
+    mov ax, [si]
+    mov [dirty_next_x0], ax
+    mov ax, [si + 2]
+    mov [dirty_next_x1], ax
+    mov ax, [si + 4]
+    mov [dirty_next_id], ax
+    mov ax, [dirty_next_x0]
+    cmp ax, [dirty_current_x1]
+    ja .emit_and_start
+    jb .overlap
+    cmp byte [dirty_union_accounting], 0
+    je .adjacent_done
+    inc word [dirty_adjacency_merges]
+.adjacent_done:
+    jmp .extend
+.overlap:
+    cmp byte [dirty_union_accounting], 0
+    je .overlap_done
+    mov ax, [dirty_next_x1]
+    cmp ax, [dirty_current_x1]
+    jae .count_overlap
+    inc word [dirty_containment_merges]
+    jmp .overlap_done
+.count_overlap:
+    inc word [dirty_overlap_merges]
+.overlap_done:
+.extend:
+    mov ax, [dirty_next_x1]
+    cmp ax, [dirty_current_x1]
+    jbe .merged_increment
+    mov [dirty_current_x1], ax
+.merged_increment:
+    inc word [dirty_sort_scan]
+    jmp .merge_next
+.emit_and_start:
+    call emit_dirty_merged_interval
+    mov ax, [dirty_next_x0]
+    mov [dirty_current_x0], ax
+    mov ax, [dirty_next_x1]
+    mov [dirty_current_x1], ax
+    mov ax, [dirty_next_id]
+    mov [dirty_current_id], ax
+    inc word [dirty_sort_scan]
+    jmp .merge_next
+.emit_final:
+    call emit_dirty_merged_interval
+.done:
+    ret
+
+emit_dirty_merged_interval:
+    mov ax, [dirty_merged_count]
+    mov dx, DIRTY_INTERVAL_BYTES
+    mul dx
+    mov di, dirty_interval_merged
+    add di, ax
+    mov ax, [dirty_current_x0]
+    mov [di], ax
+    mov ax, [dirty_current_x1]
+    mov [di + 2], ax
+    mov ax, [dirty_current_id]
+    mov [di + 4], ax
+    inc word [dirty_merged_count]
+    ret
+
+; Validate every merged interval's physical row range during pass 1.  This
+; deliberately performs no command-list submission or G1 write, so a malformed
+; late row cannot be discovered after an earlier clear has already run.
+validate_dirty_row_ranges:
+    mov ax, [dirty_merged_count]
+    cmp ax, FOOTPRINT_CAPACITY
+    ja .failed
+    mov bx, [hidden_page_index]
+    cmp bx, PAGE_B
+    ja .failed
+    shl bx, 1
+    mov ax, [dirty_row_y]
+    cmp ax, SCREEN_HEIGHT
+    jae .failed
+    mul word [screen_pitch_word]
+    add ax, [page_sgp_low + bx]
+    adc dx, [page_sgp_high + bx]
+    mov [dirty_row_address], ax
+    mov [dirty_row_address + 2], dx
+    mov ax, [page_sgp_low + bx]
+    mov dx, [page_sgp_high + bx]
+    add ax, G1_PAGE_BYTES & 0xffff
+    adc dx, G1_PAGE_BYTES >> 16
+    mov [dirty_interval_end_address], ax
+    mov [dirty_interval_end_address + 2], dx
+    mov si, dirty_interval_merged
+    mov cx, [dirty_merged_count]
+.interval:
+    test cx, cx
+    jz .done
+    mov ax, [si]
+    mov dx, [si + 2]
+    cmp ax, SCREEN_WIDTH
+    jae .failed
+    cmp dx, SCREEN_WIDTH
+    ja .failed
+    test ax, 1
+    jnz .failed
+    test dx, 1
+    jnz .failed
+    cmp dx, ax
+    jbe .failed
+    mov ax, [dirty_row_address]
+    mov dx, [dirty_row_address + 2]
+    add ax, [si + 2]
+    adc dx, 0
+    cmp dx, [dirty_interval_end_address + 2]
+    ja .failed
+    jb .end_in_range
+    cmp ax, [dirty_interval_end_address]
+    ja .failed
+.end_in_range:
+    mov ax, [si + 2]
+    sub ax, [si]
+    test ax, 1
+    jnz .failed
+    shr ax, 1
+    test ax, ax
+    jz .failed
+    add si, DIRTY_INTERVAL_BYTES
+    dec cx
+    jmp .interval
+.done:
+    clc
+    ret
+.failed:
+    inc word [bounds_failures]
+    stc
+    ret
+
+; Account and validate all rows without writing G1.  The resulting totals are
+; recomputed by clear_hidden_footprint_rows before any CLS is submitted.
+prepare_dirty_clear_state:
+    mov byte [dirty_clear_needed], 0
+    mov word [dirty_builder_failed], 0
+    call validate_committed_footprint
+    jc .failed
+    mov al, [hidden_page_index]
+    xor ah, ah
+    mov bx, ax
+    cmp byte [page_footprint_valid + bx], 0
+    je .first_use
+    mov byte [dirty_clear_needed], 1
+    inc word [dirty_frames_with_clear]
+    inc word [dirty_rect_clears]
+    mov word [dirty_pass1_candidates], 0
+    mov word [dirty_pass1_candidates + 2], 0
+    mov word [dirty_pass1_merged], 0
+    mov word [dirty_pass1_merged + 2], 0
+    mov byte [dirty_union_accounting], 1
+    xor ax, ax
+.row:
+    mov [dirty_row_y], ax
+    inc word [dirty_rows_visited]
+    call build_dirty_row_union
+    call validate_dirty_row_ranges
+    jc .failed
+    mov ax, [dirty_candidate_count]
+    add [dirty_pass1_candidates], ax
+    adc word [dirty_pass1_candidates + 2], 0
+    add [dirty_candidate_intervals], ax
+    adc word [dirty_candidate_intervals + 2], 0
+    mov ax, [dirty_merged_count]
+    add [dirty_pass1_merged], ax
+    adc word [dirty_pass1_merged + 2], 0
+    add [dirty_merged_intervals], ax
+    adc word [dirty_merged_intervals + 2], 0
+    test ax, ax
+    jz .next_row
+    inc word [dirty_rows_nonempty]
+.next_row:
+    inc word [dirty_row_y]
+    mov ax, [dirty_row_y]
+    cmp word [dirty_row_y], SCREEN_HEIGHT
+    jb .row
+    mov byte [dirty_union_accounting], 0
+    inc word [union_validation_passes]
+    clc
+    ret
+.first_use:
+    inc word [dirty_first_use_skips]
+    clc
+    ret
+.failed:
+    mov byte [dirty_union_accounting], 0
+    stc
+    ret
+
+build_dirty_union_commands:
+    push ax
+    push dx
+    push si
+    push di
+    push es
+    push ds
+    pop es
+    mov di, sgp_command_list
+    mov ax, SGP_COMMAND_SET_WORK
+    stosw
+    mov si, sgp_work_area
+    call physical_address_from_ds_si
+    stosw
+    mov ax, dx
+    stosw
+    mov ax, SGP_COMMAND_SET_COLOR
+    stosw
+    xor ax, ax
+    stosw
+    mov cx, [dirty_batch_intervals]
+    test cx, cx
+    jz .invalid
+    cmp cx, DIRTY_INTERVALS_PER_BATCH
+    ja .invalid
+    mov bx, [hidden_page_index]
+    xor bh, bh
+    shl bx, 1
+    mov ax, [dirty_row_y]
+    mul word [screen_pitch_word]
+    add ax, [page_sgp_low + bx]
+    adc dx, [page_sgp_high + bx]
+    mov [dirty_row_address], ax
+    mov [dirty_row_address + 2], dx
+.interval:
+    mov ax, [dirty_interval_cursor]
+    mov dx, DIRTY_INTERVAL_BYTES
+    mul dx
+    mov si, dirty_interval_merged
+    add si, ax
+    mov ax, [si]
+    add ax, [dirty_row_address]
+    mov [dirty_next_x0], ax
+    mov dx, [dirty_row_address + 2]
+    adc dx, 0
+    mov [dirty_next_x1], dx
+    ; Validate the exclusive end against this hidden page before emitting the
+    ; command.  Pass 1 has already checked the logical bounds; this catches
+    ; address arithmetic and page-boundary regressions at the final builder.
+    mov ax, [dirty_row_address]
+    mov dx, [dirty_row_address + 2]
+    add ax, [si + 2]
+    adc dx, 0
+    mov [dirty_interval_end_address], ax
+    mov [dirty_interval_end_address + 2], dx
+    mov ax, [page_sgp_low + bx]
+    mov dx, [page_sgp_high + bx]
+    add ax, G1_PAGE_BYTES & 0xffff
+    adc dx, G1_PAGE_BYTES >> 16
+    cmp word [dirty_interval_end_address + 2], dx
+    ja .invalid
+    jb .end_in_range
+    cmp word [dirty_interval_end_address], ax
+    ja .invalid
+.end_in_range:
+    mov ax, [si + 2]
+    sub ax, [si]
+    test ax, 1
+    jnz .invalid
+    shr ax, 1
+    test ax, ax
+    jz .invalid
+    mov [dirty_words_per_row], ax
+    ; The checked row/interval geometry is established by pass 1.  Emit the
+    ; exact physical row address and exclusive word count once.
+    mov ax, SGP_COMMAND_CLS
+    stosw
+    mov ax, [dirty_next_x0]
+    stosw
+    mov ax, [dirty_next_x1]
+    stosw
+    mov ax, [dirty_words_per_row]
+    stosw
+    xor ax, ax
+    stosw
+    inc word [dirty_interval_cursor]
+    loop .interval
+    mov ax, SGP_COMMAND_END
+    stosw
+    jmp finalize_sgp_command_list
+.invalid:
+    mov word [dirty_builder_failed], 1
+    mov di, sgp_command_list
+    mov ax, SGP_COMMAND_END
+    stosw
+    jmp finalize_sgp_command_list
+
+; Optional bounded QA probe.  With no matching debug action this is a normal
+; near-zero-cost call/return; a debug script may capture the row-union state.
+dirty_union_checkpoint:
+    ret
+
+clear_hidden_footprint_rows:
+    call dirty_union_checkpoint
     call prepare_dirty_clear_state
     jc .failed
     cmp byte [dirty_clear_needed], 0
     je .done
-.batch:
-    mov ax, [dirty_rows_remaining]
+    mov word [dirty_pass2_candidates], 0
+    mov word [dirty_pass2_candidates + 2], 0
+    mov word [dirty_pass2_merged], 0
+    mov word [dirty_pass2_merged + 2], 0
+    xor ax, ax
+.row:
+    mov [dirty_row_y], ax
+    call build_dirty_row_union
+    mov ax, [dirty_candidate_count]
+    add [dirty_pass2_candidates], ax
+    adc word [dirty_pass2_candidates + 2], 0
+    mov ax, [dirty_merged_count]
+    add [dirty_pass2_merged], ax
+    adc word [dirty_pass2_merged + 2], 0
     test ax, ax
-    jz .done
-    cmp ax, DIRTY_ROWS_PER_BATCH
-    jbe .batch_size_ready
-    mov ax, DIRTY_ROWS_PER_BATCH
-.batch_size_ready:
-    mov [dirty_batch_rows], ax
-    call build_dirty_row_commands
+    jz .next_row
+    inc word [dirty_rows_cleared]
+    mov word [dirty_interval_cursor], 0
+.batch:
+    mov ax, [dirty_merged_count]
+    sub ax, [dirty_interval_cursor]
+    jz .next_row
+    cmp ax, DIRTY_INTERVALS_PER_BATCH
+    jbe .batch_size
+    mov ax, DIRTY_INTERVALS_PER_BATCH
+.batch_size:
+    mov [dirty_batch_intervals], ax
+    mov ax, [dirty_interval_cursor]
+    mov [dirty_batch_start], ax
+    call build_dirty_union_commands
     cmp word [dirty_builder_failed], 0
     jne .failed
     call run_sgp_command_list
     jc .failed
     inc word [sgp_command_lists]
-    mov ax, [dirty_batch_rows]
+    inc word [sgp_batches]
+    inc word [sgp_clear_batches]
+    mov ax, [dirty_batch_intervals]
     add ax, 3
     add [sgp_commands], ax
-    mov ax, [dirty_batch_rows]
-    sub [dirty_rows_remaining], ax
+    mov ax, [dirty_batch_intervals]
+    add [dirty_row_cls_commands], ax
+    adc word [dirty_row_cls_commands + 2], 0
+    mov ax, [dirty_batch_start]
+    mov dx, DIRTY_INTERVAL_BYTES
+    mul dx
+    mov si, dirty_interval_merged
+    add si, ax
+    mov cx, [dirty_batch_intervals]
+.bytes:
+    mov ax, [si + 2]
+    sub ax, [si]
+    shr ax, 1
+    add [dirty_words_cleared], ax
+    adc word [dirty_words_cleared + 2], 0
+    shl ax, 1
+    add [dirty_bytes_cleared], ax
+    adc word [dirty_bytes_cleared + 2], 0
+    add si, DIRTY_INTERVAL_BYTES
+    loop .bytes
     jmp .batch
+.next_row:
+    mov ax, [dirty_row_y]
+    inc ax
+    mov [dirty_row_y], ax
+    cmp ax, SCREEN_HEIGHT
+    jb .row
+    mov byte [dirty_union_accounting], 0
+    mov ax, [dirty_pass1_candidates]
+    cmp ax, [dirty_pass2_candidates]
+    jne .mismatch
+    mov ax, [dirty_pass1_candidates + 2]
+    cmp ax, [dirty_pass2_candidates + 2]
+    jne .mismatch
+    mov ax, [dirty_pass1_merged]
+    cmp ax, [dirty_pass2_merged]
+    jne .mismatch
+    mov ax, [dirty_pass1_merged + 2]
+    cmp ax, [dirty_pass2_merged + 2]
+    jne .mismatch
 .done:
     clc
     ret
+
+.mismatch:
+    inc word [union_recompute_mismatches]
 .failed:
     stc
     ret
 
-commit_pending_rectangle:
+; Commit all newly published logical rectangles to the physical page that was
+; hidden during rendering.  The bounded copy is infallible after publication.
+commit_pending_footprint:
     mov al, [hidden_page_index]
-    cmp al, PAGE_B
-    ja .failed
     xor ah, ah
     mov bx, ax
-    mov byte [page_old_valid + bx], 1
-    mov al, [pending_scale_id]
-    mov [page_old_scale_id + bx], al
-    mov al, [pending_phase]
-    mov [page_old_phase + bx], al
-    mov al, [pending_depth_rank]
-    mov [page_old_depth_rank + bx], al
-    shl bx, 1
-    mov ax, [pending_x]
-    mov [page_old_x + bx], ax
-    mov ax, [pending_y]
-    mov [page_old_y + bx], ax
-    mov ax, [pending_width]
-    mov [page_old_width + bx], ax
-    mov ax, [pending_height]
-    mov [page_old_height + bx], ax
-    clc
-    ret
-.failed:
-    stc
+    mov byte [page_footprint_valid + bx], 0
+    mov byte [page_footprint_count + bx], M98V_ACTIVE_COUNT
+    shl bx, 7
+    mov si, page_footprint_rects
+    add si, bx
+    mov byte [generation_instance], 0
+.copy:
+    mov al, [generation_instance]
+    call record_pointer_from_index
+    mov ax, [di + M98U_RECORD_DST_X]
+    mov [si], ax
+    mov ax, [di + M98U_RECORD_DST_Y]
+    mov [si + 2], ax
+    mov ax, [di + M98U_RECORD_WIDTH]
+    mov [si + 4], ax
+    mov ax, [di + M98U_RECORD_HEIGHT]
+    mov [si + 6], ax
+    xor ax, ax
+    mov al, [hidden_page_index]
+    shl ax, 4
+    mov bx, ax
+    xor ax, ax
+    mov al, [generation_instance]
+    add bx, ax
+    mov al, [generation_instance]
+    mov [page_footprint_instance_ids + bx], al
+    add si, FOOTPRINT_RECT_BYTES
+    inc byte [generation_instance]
+    cmp byte [generation_instance], M98V_ACTIVE_COUNT
+    jb .copy
+    xor ax, ax
+    mov al, [hidden_page_index]
+    mov bx, ax
+    mov al, [pending_global_phase]
+    mov [page_footprint_phase + bx], al
+    mov byte [page_footprint_valid + bx], 1
+    inc word [page_footprint_commits]
     ret
 
 render_hidden_page_to_ready:
@@ -2853,6 +3404,12 @@ render_hidden_page_to_ready:
     adc word [baseline_full_clear_words + 2], 0
     add word [baseline_full_clear_bytes], G1_PAGE_BYTES & 0xffff
     adc word [baseline_full_clear_bytes + 2], G1_PAGE_BYTES >> 16
+%if M98W_CLEAR_MODE = CLEAR_MODE_DIRTY
+    ; M98w validates and clears only the hidden page's committed footprint.
+    ; Bank selection is deliberately deferred until every clear batch is idle.
+    call clear_hidden_footprint_rows
+    jc .failed
+%else
     call select_render_bms
     mov al, [hidden_page_index]
     call build_full_page_clear_commands
@@ -2865,7 +3422,12 @@ render_hidden_page_to_ready:
     add word [full_page_clear_words], G1_PAGE_WORD_COUNT
     adc word [full_page_clear_words + 2], 0
     add word [full_page_clear_bytes], G1_PAGE_BYTES & 0xffff
-    adc word [full_page_clear_bytes + 2], G1_PAGE_BYTES >> 16
+    adc word [full_page_clear_bytes + 2], 0
+%endif
+
+%if M98W_CLEAR_MODE = CLEAR_MODE_DIRTY
+    call select_render_bms
+%endif
 
     mov byte [draw_position], 0
 .draw_loop:
@@ -2881,6 +3443,7 @@ render_hidden_page_to_ready:
     jc .failed
     inc word [sgp_command_lists]
     inc word [sgp_batches]
+    inc word [sgp_draw_batches]
     add word [sgp_commands], 4
     inc word [instances_submitted]
     inc word [instances_completed]
@@ -2931,6 +3494,10 @@ publish_ready_hidden_page:
     mov al, [hidden_page_index]
     call publish_page
     jc .failed
+    ; The DSA1 write succeeded, so commit the complete pending footprint for
+    ; this physical page before changing page roles.  The copy is bounded and
+    ; cannot fail after publication.
+    call commit_pending_footprint
     mov al, [hidden_page_index]
     xor ah, ah
     mov si, ax
@@ -3094,6 +3661,7 @@ advance_orbit_phase:
     ret
 
 validate_m98v_bounded_success:
+    mov word [validation_failure_code], 0xffff
     cmp word [build_active_count], M98V_ACTIVE_COUNT
     jne .failed
     cmp word [render_batches_started], QA_PUBLICATIONS
@@ -3110,6 +3678,22 @@ validate_m98v_bounded_success:
     jne .failed
     cmp word [initial_full_page_clears], 2
     jne .failed
+    mov word [validation_failure_code], 1
+%if M98W_CLEAR_MODE = CLEAR_MODE_DIRTY
+    cmp word [steady_full_page_clears], 0
+    jne .failed
+    cmp word [dirty_rect_clears], QA_PUBLICATIONS - 2
+    jne .failed
+    cmp word [dirty_first_use_skips], 2
+    jne .failed
+    cmp word [dirty_frames_with_clear], QA_PUBLICATIONS - 2
+    jne .failed
+    cmp word [dirty_row_cls_commands], 0
+    je .failed
+    mov word [validation_failure_code], 2
+    ; Exact union totals and row/byte identities are checked by the independent
+    ; host oracle; the guest retains the nonzero/safe lower-bound proof here.
+%else
     cmp word [steady_full_page_clears], QA_PUBLICATIONS
     jne .failed
     cmp word [dirty_rect_clears], 0
@@ -3118,6 +3702,7 @@ validate_m98v_bounded_success:
     jne .failed
     cmp word [dirty_row_cls_commands + 2], 0
     jne .failed
+%endif
     cmp word [transparent_bitblts], QA_PUBLICATIONS * M98V_ACTIVE_COUNT
     jne .failed
     cmp word [instances_planned], QA_PUBLICATIONS * M98V_ACTIVE_COUNT
@@ -3128,6 +3713,7 @@ validate_m98v_bounded_success:
     jne .failed
     cmp word [instances_published], QA_PUBLICATIONS * M98V_ACTIVE_COUNT
     jne .failed
+    mov word [validation_failure_code], 3
     cmp word [page_flips], QA_PUBLICATIONS
     jne .failed
     cmp word [published_updates], QA_PUBLICATIONS
@@ -3162,6 +3748,7 @@ validate_m98v_bounded_success:
     jne .failed
     cmp word [runtime_count_changes], 0
     jne .failed
+    mov word [validation_failure_code], 4
     cmp word [revolution_wraps], QA_CYCLES
     jne .failed
     cmp word [phase_publication_total], QA_PUBLICATIONS
@@ -3172,12 +3759,20 @@ validate_m98v_bounded_success:
     jne .failed
     cmp word [far_publications], (QA_PUBLICATIONS * M98V_ACTIVE_COUNT) / 2
     jne .failed
+    mov word [validation_failure_code], 5
+%if M98W_CLEAR_MODE = CLEAR_MODE_FULL
     cmp word [sgp_command_lists], 1 + QA_PUBLICATIONS * (1 + M98V_ACTIVE_COUNT)
     jne .failed
     cmp word [sgp_batches], QA_PUBLICATIONS * (1 + M98V_ACTIVE_COUNT)
     jne .failed
     cmp word [sgp_commands], 5 + QA_PUBLICATIONS * (3 + 4 * M98V_ACTIVE_COUNT)
     jne .failed
+%else
+    cmp word [union_recompute_mismatches], 0
+    jne .failed
+    cmp word [sgp_clear_batches], 0
+    je .failed
+%endif
     cmp word [hud_full_initializations], 1
     jne .failed
     mov ax, [divider_changes_applied]
@@ -3196,6 +3791,7 @@ validate_m98v_bounded_success:
     jne .failed
     cmp word [hud_runtime_failure], 0
     jne .failed
+    mov word [validation_failure_code], 6
     mov ax, [divider_changes_applied]
     mov bx, HUD_FPS_WRITE_BYTES
     mul bx
@@ -3205,14 +3801,29 @@ validate_m98v_bounded_success:
     jne .failed
     cmp dx, [hud_bytes_written + 2]
     jne .failed
+%if M98W_CLEAR_MODE = CLEAR_MODE_FULL
     cmp word [full_page_clear_words], (QA_PUBLICATIONS * G1_PAGE_WORD_COUNT) & 0xffff
     jne .failed
     cmp word [full_page_clear_words + 2], (QA_PUBLICATIONS * G1_PAGE_WORD_COUNT) >> 16
     jne .failed
+%else
+    cmp word [full_page_clear_words], 0
+    jne .failed
+    cmp word [full_page_clear_words + 2], 0
+    jne .failed
+%endif
+%if M98W_CLEAR_MODE = CLEAR_MODE_FULL
     cmp word [full_page_clear_bytes], (QA_PUBLICATIONS * G1_PAGE_BYTES) & 0xffff
     jne .failed
     cmp word [full_page_clear_bytes + 2], (QA_PUBLICATIONS * G1_PAGE_BYTES) >> 16
     jne .failed
+%else
+    cmp word [full_page_clear_bytes], 0
+    jne .failed
+    cmp word [full_page_clear_bytes + 2], 0
+    jne .failed
+%endif
+    mov word [validation_failure_code], 7
     xor si, si
     mov cx, ORBIT_PUBLICATIONS_PER_REVOLUTION
 .phase_loop:
@@ -3233,6 +3844,7 @@ validate_m98v_bounded_success:
     jne .failed
     inc si
     loop .scale_loop
+    mov word [validation_failure_code], 8
     mov word [bounded_validation_pass], 1
     clc
     ret
@@ -4034,6 +4646,18 @@ report_n_checkpoint:
 times REPORT_O_CHECKPOINT_OFFSET - ($ - $$) db 0x90
 report_o_checkpoint:
     jmp report_o_resume
+times REPORT_P_CHECKPOINT_OFFSET - ($ - $$) db 0x90
+report_p_checkpoint:
+    jmp report_p_resume
+times REPORT_Q_CHECKPOINT_OFFSET - ($ - $$) db 0x90
+report_q_checkpoint:
+    jmp report_q_resume
+times REPORT_R_CHECKPOINT_OFFSET - ($ - $$) db 0x90
+report_r_checkpoint:
+    jmp report_r_resume
+times REPORT_S_CHECKPOINT_OFFSET - ($ - $$) db 0x90
+report_s_checkpoint:
+    jmp report_s_resume
 
 align 2, db 0
 sgp_command_list:
@@ -4138,6 +4762,14 @@ page_old_x: dw 0, 0
 page_old_y: dw 0, 0
 page_old_width: dw 0, 0
 page_old_height: dw 0, 0
+page_footprint_valid: db 0, 0
+page_footprint_phase: db 0, 0
+page_footprint_count: db 0, 0
+align 2, db 0
+page_footprint_rects: times FOOTPRINT_TOTAL_BYTES db 0
+page_footprint_instance_ids: times 2 * FOOTPRINT_CAPACITY db 0
+dirty_interval_candidates: times FOOTPRINT_CAPACITY * DIRTY_INTERVAL_BYTES db 0
+dirty_interval_merged: times FOOTPRINT_CAPACITY * DIRTY_INTERVAL_BYTES db 0
 pending_x: dw 0
 pending_y: dw 0
 pending_width: dw 0
@@ -4150,8 +4782,14 @@ dirty_clear_x0: dw 0
 dirty_words_per_row: dw 0
 dirty_rows_remaining: dw 0
 dirty_batch_rows: dw 0
+dirty_batch_intervals: dw 0
 dirty_row_address: dw 0, 0
+dirty_interval_end_address: dw 0, 0
 dirty_builder_failed: dw 0
+dirty_union_accounting: db 0
+align 2, db 0
+dirty_sort_position: dw 0
+dirty_sort_scan: dw 0
 last_published_dsa: dw G1_PAGE_A_DSA & 0xffff
 psp_segment: dw 0
 exit_message: dw message_transfer_failed
@@ -4224,12 +4862,45 @@ bounds_failures: dw 0
 source_failures: dw 0
 framebuffer_mismatches: dw 0
 bounded_validation_pass: dw 0
+validation_failure_code: dw 0
 source_bytes: dw 0, 0
 full_page_clear_words: dw 0, 0
 full_page_clear_bytes: dw 0, 0
 dirty_row_cls_commands: dw 0, 0
 dirty_words_cleared: dw 0, 0
 dirty_bytes_cleared: dw 0, 0
+page_footprint_commits: dw 0
+page_footprint_commit_failures: dw 0
+dirty_frames_with_clear: dw 0
+dirty_first_use_skips: dw 0
+dirty_candidate_intervals: dw 0, 0
+dirty_merged_intervals: dw 0, 0
+dirty_overlap_merges: dw 0
+dirty_adjacency_merges: dw 0
+dirty_containment_merges: dw 0
+dirty_rows_visited: dw 0
+dirty_rows_nonempty: dw 0
+dirty_rows_cleared: dw 0
+union_validation_passes: dw 0
+union_recompute_mismatches: dw 0
+sgp_clear_batches: dw 0
+sgp_draw_batches: dw 0
+dirty_pass1_candidates: dw 0, 0
+dirty_pass1_merged: dw 0, 0
+dirty_pass2_merged: dw 0, 0
+dirty_pass2_candidates: dw 0, 0
+dirty_row_y: dw 0
+dirty_candidate_count: dw 0
+dirty_sorted_count: dw 0
+dirty_merged_count: dw 0
+dirty_interval_cursor: dw 0
+dirty_batch_start: dw 0
+dirty_current_x0: dw 0
+dirty_current_x1: dw 0
+dirty_current_id: dw 0
+dirty_next_x0: dw 0
+dirty_next_x1: dw 0
+dirty_next_id: dw 0
 baseline_full_clear_words: dw 0, 0
 baseline_full_clear_bytes: dw 0, 0
 publication_digest: dw 0, 0

@@ -139,12 +139,29 @@ class M98vCompositorTests(unittest.TestCase):
         self.assertIn("M98U_RECORD_DEPTH_RANK", source)
         self.assertIn("M98U_RECORD_INSTANCE_ID", source)
 
+    def test_guest_has_page_local_union_path_and_no_steady_fallback(self) -> None:
+        source = GUEST.read_text(encoding="utf-8")
+        render = source[source.index("render_hidden_page_to_ready:"):
+                        source.index("publish_ready_hidden_page:")]
+        self.assertIn("call clear_hidden_footprint_rows", render)
+        self.assertIn("call build_dirty_union_commands", source)
+        self.assertIn("call validate_committed_footprint", source)
+        self.assertIn("cmp byte [dirty_clear_needed], 0", source)
+        self.assertIn("page_footprint_instance_ids", source)
+        self.assertNotIn("call build_dirty_row_commands", render)
+        self.assertIn("M98W_CLEAR_MODE", source)
+
     def test_debug_script_captures_complete_frame_reports(self) -> None:
         script = debug.build_script(16, "b", 8, 2, "static")
         self.assertEqual(script.count("capture m98v-n16-static-v8-b-r2-flip-"),
                          128)
         self.assertIn("capture m98v-n16-static-v8-b-r2-report-o registers", script)
         self.assertTrue(script.endswith("exit\n"))
+
+    def test_m98w_debug_script_extends_dirty_reports(self) -> None:
+        script = debug.build_script(4, "a", 1, 2, "static", "m98w")
+        self.assertIn("capture m98w-n4-static-v1-a-r2-report-p registers", script)
+        self.assertIn("capture m98w-n4-static-v1-a-r2-report-s registers", script)
 
     def test_build_selection_rejects_every_unapproved_count_and_missing_qa(self) -> None:
         for value in ("0", "3", "5", "15", "17", "-1", "bad"):

@@ -20,7 +20,7 @@
 # OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
 # ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-"""Generate one bounded M98v VAEG capture script."""
+"""Generate one bounded M98v/M98w VAEG capture script."""
 
 from __future__ import annotations
 
@@ -29,8 +29,9 @@ from pathlib import Path
 
 
 def build_script(active_count: int, initial_page: str, divisor: int,
-                 revolutions: int, scenario: str = "static") -> str:
-    prefix = (f"m98v-n{active_count}-{scenario}-v{divisor}-"
+                 revolutions: int, scenario: str = "static",
+                 milestone: str = "m98v") -> str:
+    prefix = (f"{milestone}-n{active_count}-{scenario}-v{divisor}-"
               f"{initial_page}-r{revolutions}")
     publications = 64 * revolutions
     lines = [
@@ -49,7 +50,10 @@ def build_script(active_count: int, initial_page: str, divisor: int,
         "wait-pc 3000:4040 1",
         f"capture {prefix}-settled-b registers gvram screen",
     ))
-    for letter, address in zip("abcdefghijklmno", range(0x4050, 0x4140, 0x10)):
+    report_letters = ("abcdefghijklmnopqrs" if milestone == "m98w"
+                      else "abcdefghijklmno")
+    report_end = 0x4180 if milestone == "m98w" else 0x4140
+    for letter, address in zip(report_letters, range(0x4050, report_end, 0x10)):
         lines.extend((f"wait-pc 3000:{address:04x} 1",
                       f"capture {prefix}-report-{letter} registers"))
     lines.append("exit")
@@ -65,14 +69,15 @@ def main() -> int:
     parser.add_argument("--revolutions", choices=(1, 2), type=int, default=1)
     parser.add_argument("--scenario", choices=("static", "ladder", "pause", "missed"),
                         default="static")
+    parser.add_argument("--milestone", choices=("m98v", "m98w"), default="m98v")
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     if args.output.exists():
         parser.error("refusing to overwrite the output debug script")
     args.output.write_text(build_script(args.active_count, args.initial_page,
                                         args.divisor, args.revolutions,
-                                        args.scenario), encoding="utf-8")
-    print(f"M98V_DEBUG_SCRIPT_PASS active_count={args.active_count} "
+                                        args.scenario, args.milestone), encoding="utf-8")
+    print(f"{args.milestone.upper()}_DEBUG_SCRIPT_PASS active_count={args.active_count} "
           f"divisor={args.divisor} initial_page={args.initial_page} "
           f"revolutions={args.revolutions} scenario={args.scenario} "
           f"output={args.output}")

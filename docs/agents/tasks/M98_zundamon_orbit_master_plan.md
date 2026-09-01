@@ -23,7 +23,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 # M98 - Zundamon billboard-orbit demo master plan
 
-Status: **G98a, G98e, G98j, G98k, G98l, G98o, G98p, G98q, G98r, G98s, and G98t human gates and G98b-G98d, G98f-G98i, and G98u machine gates passed; M98u closed on 2026-09-01**
+Status: **G98a, G98e, G98j, G98k, G98l, G98o, G98p, G98q, G98r, G98s, G98t, and G98v human gates and G98b-G98d, G98f-G98i, and G98u machine gates passed; M98w automated evidence passed and its human gate is pending**
 
 Branch family: `topic/m98-zundamon-orbit`
 
@@ -196,9 +196,10 @@ matrix, independent validator, count-one compatibility, deterministic rebuild,
 and unchanged M98t guest checks passed on 2026-09-01. G98u passed and M98u is
 closed. M98v consumes that exact state for the five build-time counts
 1/2/4/8/16 and uses one complete hidden-page clear before every ordered draw
-list. Its automated evidence passed on 2026-09-01; the count-four visual human
-gate remains pending. M98w dirty-row unions and M98x runtime count controls
-remain separate and have not begun.
+list. Its automated evidence passed on 2026-09-01, and the maintainer passed
+G98v after the count-four visual and ESC-restoration check. M98w replaces only
+the steady-state clear with page-local dirty-row interval unions; M98x runtime
+count controls remain separate and have not begun.
 
 ## 6. Deterministic host contracts
 

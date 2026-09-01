@@ -55,7 +55,7 @@ command -v python3 >/dev/null 2>&1 || {
     exit 127
 }
 
-work_dir=$(mktemp -d "${TMPDIR:-/tmp}/zundamon-orbit-m98v.XXXXXX")
+work_dir=$(mktemp -d "${TMPDIR:-/tmp}/zundamon-orbit-m98w.XXXXXX")
 cleanup() {
     rm -rf "$work_dir"
 }
@@ -74,7 +74,7 @@ python3 "$script_dir/tools/build_zundamon_orbit_boot_disk.py" \
 python3 "$repo_root/tools/pc88va/pcengine_disk.py" list \
     --image "$output_image"
 
-printf 'Created local bootable M98v disk: %s\n' "$output_image"
-printf '  ZUNDORB.COM runs the full-page multi-ZUNDAMON ellipse with G0 HUD.\n'
+printf 'Created local bootable M98w disk: %s\n' "$output_image"
+printf '  ZUNDORB.COM runs the multi-ZUNDAMON ellipse with page-local dirty unions and G0 HUD.\n'
 printf '  LEFT/RIGHT select cadence, SPACE pauses, and ESC restores and exits.\n'
 printf '  The source template is unchanged; this output remains local-only.\n'

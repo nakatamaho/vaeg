@@ -37,15 +37,16 @@ divisor=${VAEG_ZUNDAMON_DIVISOR:-1}
 revolutions=${VAEG_ZUNDAMON_REVOLUTIONS:-1}
 scenario=${VAEG_ZUNDAMON_SCENARIO:-static}
 active_count=${VAEG_ZUNDAMON_ACTIVE_COUNT:-4}
+clear_mode=${VAEG_ZUNDAMON_CLEAR_MODE:-dirty}
 script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
-pristine_disk_image=$output_directory/zundamon-orbit-m98v-pristine.d88
-disk_image=$output_directory/zundamon-orbit-m98v.d88
+pristine_disk_image=$output_directory/zundamon-orbit-m98w-pristine.d88
+disk_image=$output_directory/zundamon-orbit-m98w.d88
 guest_image=$output_directory/ZUNDORB.COM
 guest_listing=$output_directory/ZUNDORB.LST
 atlas_directory=$output_directory/public-atlas
 atlas_image=$output_directory/ZUNDORB.BIN
 trace_log=$output_directory/sgp-trace.log
-debug_script=$output_directory/zundamon-orbit-m98v.debug
+debug_script=$output_directory/zundamon-orbit-m98w.debug
 
 [ -f "$source_image" ] || { printf 'error: source D88 does not exist\n' >&2; exit 1; }
 [ -f "$vaeg" ] && [ -x "$vaeg" ] || { printf 'error: VAEG executable is unavailable\n' >&2; exit 1; }
@@ -74,6 +75,11 @@ case "$scenario" in
     missed) scenario_define=3 ;;
     *) printf 'error: VAEG_ZUNDAMON_SCENARIO must be static, ladder, pause, or missed\n' >&2; exit 2 ;;
 esac
+case "$clear_mode" in
+    full) clear_mode_define=0 ;;
+    dirty) clear_mode_define=1 ;;
+    *) printf 'error: VAEG_ZUNDAMON_CLEAR_MODE must be full or dirty\n' >&2; exit 2 ;;
+esac
 if [ "$scenario" != static ] && { [ "$divisor" -ne 1 ] || [ "$revolutions" -ne 2 ]; }; then
     printf 'error: dynamic scenarios require divisor 1 and two revolutions\n' >&2
     exit 2
@@ -89,14 +95,16 @@ python3 "$script_dir/tools/build_zundamon_orbit_pipeline.py" \
     --fixture-output "$atlas_directory"
 cp "$atlas_directory/zundorb.bin" "$atlas_image"
 M98T_BOUNDED_QA=1 M98T_QA_CYCLES=$revolutions \
-    M98T_QA_SCENARIO=$scenario_define \
+M98T_QA_SCENARIO=$scenario_define \
     M98T_INITIAL_VISIBLE_PAGE=$initial_page_define \
     M98V_ACTIVE_COUNT=$active_count \
+    M98W_CLEAR_MODE=$clear_mode_define \
     NASM=${NASM:-nasm} "$script_dir/256/build.sh" "$guest_image" "$guest_listing"
 M98T_BOUNDED_QA=1 M98T_QA_CYCLES=$revolutions \
-    M98T_QA_SCENARIO=$scenario_define \
+M98T_QA_SCENARIO=$scenario_define \
     M98T_INITIAL_VISIBLE_PAGE=$initial_page_define \
     M98V_ACTIVE_COUNT=$active_count \
+    M98W_CLEAR_MODE=$clear_mode_define \
     NASM=${NASM:-nasm} "$script_dir/build-local-d88.sh" \
         "$source_image" "$atlas_image" "$pristine_disk_image"
 cp "$pristine_disk_image" "$disk_image"
@@ -106,6 +114,7 @@ python3 "$script_dir/tools/generate_zundamon_orbit_multi_debug.py" \
     --initial-page "$initial_page" --divisor "$divisor" \
     --revolutions "$revolutions" \
     --scenario "$scenario" \
+    --milestone m98w \
     --output "$debug_script"
 
 SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy VAEG_SGP_SCAN_TRACE=1 \
@@ -129,7 +138,9 @@ set -- python3 "$script_dir/tools/verify_zundamon_orbit_multi_guest.py" \
     --active-count "$active_count" \
     --initial-page "$initial_page" --divisor "$divisor" \
     --revolutions "$revolutions" --scenario "$scenario" \
-    --report "$output_directory/m98v-oracle.json"
+    --clear-mode "$clear_mode" \
+    --milestone m98w \
+    --report "$output_directory/m98w-oracle.json"
 "$@" "$output_directory"
-printf 'M98V_VAEG_CAPTURE_PASS active_count=%s initial_page=%s divisor=%s revolutions=%s scenario=%s clear_mode=full output=%s\n' \
-    "$active_count" "$initial_page" "$divisor" "$revolutions" "$scenario" "$output_directory"
+printf 'M98W_VAEG_CAPTURE_PASS active_count=%s initial_page=%s divisor=%s revolutions=%s scenario=%s clear_mode=%s output=%s\n' \
+    "$active_count" "$initial_page" "$divisor" "$revolutions" "$scenario" "$clear_mode" "$output_directory"

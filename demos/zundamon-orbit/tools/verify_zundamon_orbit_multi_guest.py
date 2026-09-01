@@ -20,7 +20,7 @@
 # OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
 # ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-"""Independent M98v full-page multi-instance guest oracle."""
+"""Independent M98w full/dirty multi-instance guest oracle."""
 
 from __future__ import annotations
 
@@ -42,6 +42,7 @@ import validate_zundamon_orbit_hud as hud_format  # noqa: E402
 import verify_zundamon_orbit_depth_guest as depth_oracle  # noqa: E402
 import verify_zundamon_orbit_ellipse_guest as ellipse  # noqa: E402
 import verify_zundamon_orbit_scale_guest as baseline  # noqa: E402
+import zundamon_dirty_union as dirty_union  # noqa: E402
 
 PHASE_COUNT = 64
 COUNTS = (1, 2, 4, 8, 16)
@@ -64,14 +65,16 @@ def sha256(data: bytes) -> str:
 
 
 def prefixes(active_count: int, divisor: int, initial_page: str,
-             revolutions: int, scenario: str):
-    root = (f"m98v-n{active_count}-{scenario}-v{divisor}-"
+             revolutions: int, scenario: str, milestone: str = "m98v"):
+    root = (f"{milestone}-n{active_count}-{scenario}-v{divisor}-"
             f"{initial_page}-r{revolutions}")
     publications = PHASE_COUNT * revolutions
     flips = tuple(f"{root}-flip-{index:03d}"
                   for index in range(1, publications + 1))
     settled = (f"{root}-settled-a", f"{root}-settled-b")
-    reports = tuple(f"{root}-report-{letter}" for letter in "abcdefghijklmno")
+    report_letters = ("abcdefghijklmnopqrs" if milestone == "m98w"
+                      else "abcdefghijklmno")
+    reports = tuple(f"{root}-report-{letter}" for letter in report_letters)
     return root, flips, settled, reports
 
 
@@ -127,7 +130,8 @@ def compose_g1(atlas: bytes, descriptors, state: multi.InstanceState):
 
 
 def expected_trace(header, entries, descriptors, active_count: int,
-                   initial_page: int, revolutions: int):
+                   initial_page: int, revolutions: int,
+                   clear_mode: str = "full"):
     commands: list[tuple[object, ...]] = [
         ("CLS", baseline.PAGE_SGP[0], baseline.PAGE_BYTES // 2),
         ("CLS", baseline.PAGE_SGP[1], baseline.PAGE_BYTES // 2),
@@ -135,7 +139,18 @@ def expected_trace(header, entries, descriptors, active_count: int,
     for publication, global_phase in enumerate(
             tuple(range(PHASE_COUNT)) * revolutions, 1):
         page = page_for(initial_page, publication)
-        commands.append(("CLS", baseline.PAGE_SGP[page], baseline.PAGE_BYTES // 2))
+        if clear_mode == "full":
+            commands.append(("CLS", baseline.PAGE_SGP[page], baseline.PAGE_BYTES // 2))
+        elif clear_mode == "dirty" and publication > 2:
+            old_state = multi.build_state(active_count,
+                                          (publication - 3) % PHASE_COUNT,
+                                          header, entries, descriptors)
+            old_rectangles = [(record.dst_x, record.dst_y,
+                               record.width, record.height)
+                              for record in old_state.records]
+            commands.extend(("CLS", address, words)
+                            for address, words in dirty_union.all_rows(
+                                old_rectangles, baseline.PAGE_SGP[page]))
         state = multi.build_state(active_count, global_phase, header,
                                   entries, descriptors)
         for index in state.draw_order:
@@ -150,7 +165,8 @@ def expected_trace(header, entries, descriptors, active_count: int,
 
 
 def check_trace(path: Path, header, entries, descriptors, active_count: int,
-                initial_page: int, revolutions: int, errors: list[str]):
+                initial_page: int, revolutions: int, errors: list[str],
+                clear_mode: str = "full"):
     try:
         lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
     except OSError:
@@ -169,7 +185,7 @@ def check_trace(path: Path, header, entries, descriptors, active_count: int,
                 int(match.group(index), 16 if index == 1 else 10)
                 for index in range(1, 7)))
     expected = expected_trace(header, entries, descriptors, active_count,
-                              initial_page, revolutions)
+                              initial_page, revolutions, clear_mode)
     if actual != expected:
         add_error(errors, "M98V_TRACE_COMMAND_SEQUENCE")
     return {
@@ -220,10 +236,13 @@ def publication_digest(initial_page: int, active_count: int,
 
 def verify(directory: Path, atlas_path: Path, table_path: Path, hud_path: Path,
            trace_path: Path, active_count: int, divisor: int,
-           initial_page_name: str, revolutions: int, scenario: str):
+           initial_page_name: str, revolutions: int, scenario: str,
+           clear_mode: str = "full", milestone: str = "m98v"):
     errors: list[str] = []
+    schema_name = ("zundamon-orbit-m98w-oracle-v1" if milestone == "m98w"
+                   else "zundamon-orbit-m98v-oracle-v1")
     if active_count not in COUNTS:
-        return {"schema": "zundamon-orbit-m98v-oracle-v1", "status": "FAIL",
+        return {"schema": schema_name, "status": "FAIL",
                 "errors": ["M98V_ACTIVE_COUNT"]}
     try:
         atlas = atlas_path.read_bytes()
@@ -235,13 +254,13 @@ def verify(directory: Path, atlas_path: Path, table_path: Path, hud_path: Path,
         count_tiles = hud_format.inspect_count_tiles(hud_path)
     except (OSError, atlas_format.AtlasError, baseline.OracleError,
             depth_format.DepthTableError, hud_format.HudError):
-        return {"schema": "zundamon-orbit-m98v-oracle-v1", "status": "FAIL",
+        return {"schema": schema_name, "status": "FAIL",
                 "errors": ["M98V_INPUT_CONTRACT"]}
     initial_page = 0 if initial_page_name == "a" else 1
     count_index = COUNTS.index(active_count)
     root, flips, settled, reports = prefixes(active_count, divisor,
                                              initial_page_name, revolutions,
-                                             scenario)
+                                             scenario, milestone)
     count = PHASE_COUNT * revolutions
     edge_rows, scheduler = ellipse.scheduler_schedule(divisor, revolutions, scenario)
     ready_wait_edges = (sum(row["active"] - 1 for row in edge_rows)
@@ -353,6 +372,39 @@ def verify(directory: Path, atlas_path: Path, table_path: Path, hud_path: Path,
     digest = publication_digest(initial_page, active_count, revolutions)
     instances = count * active_count
     hud_bytes = 1056 + 96 + 144 * scheduler["changes"]
+    dirty_candidates = dirty_rows = dirty_batches = dirty_commands = 0
+    dirty_words = dirty_bytes = 0
+    dirty_nonempty = dirty_overlap = dirty_adjacency = dirty_containment = 0
+    if clear_mode == "dirty":
+        for publication in range(3, count + 1):
+            old_state = multi.build_state(active_count, (publication - 3) % PHASE_COUNT,
+                                          header, entries, descriptors)
+            rectangles = [(record.dst_x, record.dst_y,
+                           record.width, record.height)
+                          for record in old_state.records]
+            row_results = [dirty_union.row_union(rectangles, row)
+                           for row in range(dirty_union.HEIGHT)]
+            dirty_candidates += sum(len(result["candidates"])
+                                    for result in row_results)
+            row_counts = [len(result["merged"]) for result in row_results]
+            dirty_rows += sum(row_counts)
+            dirty_nonempty += sum(value != 0 for value in row_counts)
+            dirty_overlap += sum(result["overlap_merges"] for result in row_results)
+            dirty_adjacency += sum(result["adjacency_merges"] for result in row_results)
+            dirty_containment += sum(result["containment_merges"] for result in row_results)
+            dirty_batches += sum((value + 10) // 11 for value in row_counts
+                                 if value)
+            for result in row_results:
+                for interval in result["merged"]:
+                    dirty_bytes += interval.x1 - interval.x0
+                    dirty_words += (interval.x1 - interval.x0) // 2
+        dirty_commands = dirty_rows + 3 * dirty_batches
+    expected_lists = (1 + count * (1 + active_count)
+                      if clear_mode == "full" else
+                      1 + dirty_batches + instances)
+    expected_commands = (5 + count * (3 + 4 * active_count)
+                         if clear_mode == "full" else
+                         5 + dirty_commands + 4 * instances)
     try:
         report_h_actual = read_registers(directory / f"{reports[7]}.registers.tsv")
         report_j_actual = read_registers(directory / f"{reports[9]}.registers.tsv")
@@ -376,24 +428,28 @@ def verify(directory: Path, atlas_path: Path, table_path: Path, hud_path: Path,
         paused_edges_actual = scheduler["paused_edges"]
     report_expected = (
         {"ax": 0x98E1, "bx": active_count, "cx": count, "dx": count,
-         "si": 2, "di": count, "bp": instances, "ip": 0x4050},
+         "si": 2, "di": count if clear_mode == "full" else 0,
+         "bp": instances, "ip": 0x4050},
         {"ax": 0x98E2, "bx": 3, "cx": page_counts[0], "dx": page_counts[1],
          "si": 0, "di": 0, "bp": 0, "ip": 0x4060},
         {"ax": 0x98E3, "bx": count * 2, "cx": 1, "dx": initial_page,
          "si": revolutions, "di": count, "bp": 0, "ip": 0x4070},
         {"ax": 0x98E4, "bx": source_bytes & 0xffff,
-         "cx": source_bytes >> 16, "dx": (count * 64000) & 0xffff,
-         "si": (count * 64000) >> 16, "di": count,
+         "cx": source_bytes >> 16,
+         "dx": ((count * 64000) if clear_mode == "full" else 0) & 0xffff,
+         "si": ((count * 64000) if clear_mode == "full" else 0) >> 16,
+         "di": count,
          "bp": final_dsa & 0xffff, "ip": 0x4080},
         {"ax": 0x98E5, "bx": instances, "cx": instances, "dx": instances,
          "si": instances, "di": 0, "bp": 1, "ip": 0x4090},
         {"ax": 0x98E6, "bx": 0, "cx": 0, "dx": 0, "si": 0, "di": 0,
          "bp": 0, "ip": 0x40A0},
-        {"ax": 0x98E7, "bx": (count * 32000) & 0xffff,
-         "cx": (count * 32000) >> 16,
-         "dx": 1 + count * (1 + active_count),
-         "si": 5 + count * (3 + 4 * active_count),
-         "di": count * (1 + active_count), "bp": count, "ip": 0x40B0},
+        {"ax": 0x98E7, "bx": ((count * 32000) if clear_mode == "full" else 0) & 0xffff,
+         "cx": ((count * 32000) if clear_mode == "full" else 0) >> 16,
+         "dx": expected_lists,
+         "si": expected_commands,
+         "di": (count * (1 + active_count) if clear_mode == "full"
+                else dirty_batches + instances), "bp": count, "ip": 0x40B0},
         {"ax": 0x98E8, "bx": count, "cx": requested_actual,
          "dx": count, "si": missed_actual,
          "di": ready_wait_actual, "bp": 0, "ip": 0x40C0},
@@ -416,6 +472,32 @@ def verify(directory: Path, atlas_path: Path, table_path: Path, hud_path: Path,
          "dx": 0, "si": 0, "di": 0, "bp": 1, "ip": 0x4120},
         {"ax": 0x98EF, "bx": 63, "cx": 63, "dx": count, "si": count,
          "di": count, "bp": 1, "ip": 0x4130},
+        {"ax": 0x98F0, "bx": (dirty_rows if clear_mode == "dirty" else 0) & 0xffff,
+         "cx": (dirty_rows if clear_mode == "dirty" else 0) >> 16,
+         "dx": (dirty_rows if clear_mode == "dirty" else 0) & 0xffff,
+         "si": (dirty_rows if clear_mode == "dirty" else 0) >> 16,
+         "di": (dirty_rows if clear_mode == "dirty" else 0) & 0xffff,
+         "bp": 2 if clear_mode == "dirty" else 0, "ip": 0x4140},
+        {"ax": 0x98F1, "bx": (dirty_words if clear_mode == "dirty" else 0) & 0xffff,
+         "cx": (dirty_words if clear_mode == "dirty" else 0) >> 16,
+         "dx": (dirty_bytes if clear_mode == "dirty" else 0) & 0xffff,
+         "si": (dirty_bytes if clear_mode == "dirty" else 0) >> 16,
+         "di": count, "bp": 0, "ip": 0x4150},
+        {"ax": 0x98F2,
+         "bx": (200 * (count - 2) if clear_mode == "dirty" else 0),
+         "cx": dirty_nonempty if clear_mode == "dirty" else 0,
+         "dx": dirty_nonempty if clear_mode == "dirty" else 0,
+         "si": dirty_overlap if clear_mode == "dirty" else 0,
+         "di": dirty_adjacency if clear_mode == "dirty" else 0,
+         "bp": dirty_containment if clear_mode == "dirty" else 0,
+         "ip": 0x4160},
+        {"ax": 0x98F3,
+         "bx": (count - 2 if clear_mode == "dirty" else 0),
+         "cx": dirty_batches if clear_mode == "dirty" else 0,
+         "dx": instances,
+         "si": 0, "di": (count - 2 if clear_mode == "dirty" else 0),
+         "bp": (count - 2 if clear_mode == "dirty" else 0),
+         "ip": 0x4170},
     )
     for prefix, expected in zip(reports, report_expected):
         required[prefix] = expected
@@ -426,8 +508,11 @@ def verify(directory: Path, atlas_path: Path, table_path: Path, hud_path: Path,
     ellipse.check_events(directory, ordered, errors)
     errors[:] = [code.replace("M98S_", "M98V_", 1)
                  if code.startswith("M98S_") else code for code in errors]
+    if milestone == "m98w":
+        errors[:] = [code.replace("M98V_", "M98W_", 1)
+                     if code.startswith("M98V_") else code for code in errors]
     trace = check_trace(trace_path, header, entries, descriptors, active_count,
-                        initial_page, revolutions, errors)
+                        initial_page, revolutions, errors, clear_mode)
     if len(frame_records) != count:
         add_error(errors, "M98V_FRAME_COUNT")
     histogram = Counter(scale for record in frame_records
@@ -437,8 +522,14 @@ def verify(directory: Path, atlas_path: Path, table_path: Path, hud_path: Path,
                                   for key, value in expected_histogram.items()})
     if histogram != expected_histogram:
         add_error(errors, "M98V_SCALE_HISTOGRAM")
+    if clear_mode == "dirty":
+        measured_lists = 1 + dirty_batches + instances
+        measured_commands = 5 + dirty_commands + 4 * instances
+    else:
+        measured_lists = 1 + count * (1 + active_count)
+        measured_commands = 5 + count * (3 + 4 * active_count)
     return {
-        "schema": "zundamon-orbit-m98v-oracle-v1",
+        "schema": schema_name,
         "status": "PASS" if not errors else "FAIL",
         "errors": errors,
         "active_count": active_count,
@@ -464,9 +555,19 @@ def verify(directory: Path, atlas_path: Path, table_path: Path, hud_path: Path,
         "instances_published": len(frame_records) * active_count,
         "missed_slots": missed_actual,
         "source_bytes": source_bytes,
-        "full_page_clear_bytes": count * 64000,
-        "sgp_command_lists": 1 + count * (1 + active_count),
-        "sgp_commands": 5 + count * (3 + 4 * active_count),
+        "baseline_full_clear_bytes": count * 64000,
+        "full_page_clear_bytes": count * 64000 if clear_mode == "full" else 0,
+        "steady_full_page_clears": count if clear_mode == "full" else 0,
+        "dirty_rect_clears": count - 2 if clear_mode == "dirty" else 0,
+        "dirty_first_use_skips": 2 if clear_mode == "dirty" else 0,
+        "dirty_candidate_intervals": dirty_candidates,
+        "dirty_merged_intervals": dirty_rows,
+        "dirty_row_cls_commands": dirty_rows,
+        "dirty_words_cleared": dirty_words,
+        "dirty_bytes_cleared": dirty_bytes,
+        "dirty_clear_batches": dirty_batches,
+        "sgp_command_lists": measured_lists,
+        "sgp_commands": measured_commands,
         "overlap_pixels": overlap_total,
         "transparent_over_far_samples": transparent_total,
         "frame_identity": sha256(json.dumps(frame_records,
@@ -489,11 +590,14 @@ def main() -> int:
     parser.add_argument("--revolutions", choices=(1, 2), type=int, required=True)
     parser.add_argument("--scenario", choices=("static", "ladder", "pause", "missed"),
                         default="static")
+    parser.add_argument("--clear-mode", choices=("full", "dirty"), default="full")
+    parser.add_argument("--milestone", choices=("m98v", "m98w"), default="m98v")
     parser.add_argument("--report", type=Path)
     args = parser.parse_args()
     result = verify(args.directory, args.atlas, args.table, args.hud, args.trace,
                     args.active_count, args.divisor, args.initial_page,
-                    args.revolutions, args.scenario)
+                    args.revolutions, args.scenario, args.clear_mode,
+                    args.milestone)
     encoded = json.dumps(result, indent=2, sort_keys=True) + "\n"
     print(json.dumps({key: value for key, value in result.items()
                       if key != "frames"}, sort_keys=True))

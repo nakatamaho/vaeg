@@ -770,3 +770,21 @@ The generated trace/oracle workflow uses `run-vaeg.sh`; set
 fresh output directory.  M98v intentionally performs a full-page clear for
 every frame.  It adds no dirty interval unions, runtime count controls,
 private image, or physical-hardware timing claim.
+
+## M98w multi-instance dirty-row interval unions
+
+M98w retains the M98v frame, ordering, HUD, cadence, and build-time count
+contract while replacing only the steady-state hidden-page clear. Each
+physical page stores its last published logical rectangles independently. On
+reuse, the old rectangles are rounded to complete 16-bit words, collected per
+scanline, sorted, and merged across overlap or adjacency. Canonical row-major
+CLS intervals are submitted in bounded batches, all clear batches finish, and
+only then are the unchanged far-to-near transparent BITBLTs submitted.
+
+Both pages are fully cleared once at initialization; the first hidden use of
+each page skips dirty work. Release dirty mode performs no steady-state
+full-page CLS. The full-page path remains available only for byte-for-byte QA
+comparison. Build-time counts remain `1`, `2`, `4`, `8`, or `16`, with the
+interactive build using four instances and `ZUNDAMON: 4`; `/N` and UP/DOWN are
+not enabled. Generated capture directories must be fresh and remain outside
+tracked source paths.

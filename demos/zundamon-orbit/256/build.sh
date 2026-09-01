@@ -32,7 +32,7 @@ bounded_qa=${M98T_BOUNDED_QA:-${M98S_BOUNDED_QA:-0}}
 qa_cycles=${M98T_QA_CYCLES:-${M98S_QA_CYCLES:-1}}
 qa_scenario=${M98T_QA_SCENARIO:-${M98S_QA_SCENARIO:-0}}
 initial_visible_page=${M98T_INITIAL_VISIBLE_PAGE:-${M98S_INITIAL_VISIBLE_PAGE:-0}}
-clear_mode=0
+clear_mode=${M98W_CLEAR_MODE:-1}
 active_count=${M98V_ACTIVE_COUNT:-4}
 output=${1:-ZUNDORB.COM}
 listing=${2:-${output%.*}.LST}
@@ -67,6 +67,10 @@ case "$active_count" in
     1|2|4|8|16) ;;
     *) printf 'error: M98V_ACTIVE_COUNT must be 1, 2, 4, 8, or 16\n' >&2; exit 2 ;;
 esac
+case "$clear_mode" in
+    0|1) ;;
+    *) printf 'error: M98W_CLEAR_MODE must be 0 (full) or 1 (dirty)\n' >&2; exit 2 ;;
+esac
 if [ "$bounded_qa" -eq 1 ] && [ "${M98V_ACTIVE_COUNT+x}" != x ]; then
     printf 'error: bounded M98v QA requires an explicit M98V_ACTIVE_COUNT\n' >&2
     exit 2
@@ -96,6 +100,7 @@ cmp "$table_check_dir/zundamon_hud_table.inc" \
     -dM98T_QA_CYCLES="$qa_cycles" \
     -dM98T_QA_SCENARIO="$qa_scenario" \
     -dM98Q_INITIAL_VISIBLE_PAGE="$initial_visible_page" \
+    -dM98W_CLEAR_MODE="$clear_mode" \
     -dM98Q_CLEAR_MODE="$clear_mode" \
     -dM98V_ACTIVE_COUNT="$active_count" \
     -I "$script_dir/" \
@@ -108,5 +113,5 @@ size=$(wc -c < "$output" | tr -d ' ')
     exit 1
 }
 
-printf 'M98V_GUEST_BUILD_PASS size=%s active_count=%s bounded_qa=%s revolutions=%s scenario=%s initial_page=%s clear_mode=full listing=%s\n' \
-    "$size" "$active_count" "$bounded_qa" "$qa_cycles" "$qa_scenario" "$initial_visible_page" "$listing"
+printf 'M98W_GUEST_BUILD_PASS size=%s active_count=%s bounded_qa=%s revolutions=%s scenario=%s initial_page=%s clear_mode=%s listing=%s\n' \
+    "$size" "$active_count" "$bounded_qa" "$qa_cycles" "$qa_scenario" "$initial_visible_page" "$clear_mode" "$listing"
