@@ -203,8 +203,11 @@ automated evidence and count-four visual/ESC-restoration gate are passed.
 M98x adds one runtime count binary with `/N1` through `/N16`, bounded UP/DOWN
 requests, publication-synchronous HUD count updates, and host transition/load
 evidence. The normal default remains four. Its automated evidence and VA2
-visual gate are passed. Private IDA integration remains M98y and is not part
-of M98x.
+visual gate are passed. M98y integrates the approved private IDA profile and
+its human gate is passed. M98z adds bounded A/Z speed, Q/E distance, W/S look,
+and O/P radius controls while preserving the public/private renderer contract;
+its automated evidence is complete and G98z remains at the human gate. The
+128-instance extension is reserved for M98aa.
 
 ## 6. Deterministic host contracts
 

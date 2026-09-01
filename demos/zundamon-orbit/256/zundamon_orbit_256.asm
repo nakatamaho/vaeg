@@ -136,6 +136,20 @@ org 0x100
 %define HUD_FULL_WRITE_BYTES    1056
 %define HUD_FPS_WRITE_BYTES     144
 %define HUD_COUNT_WRITE_BYTES   96
+; The status panel is G0-only and deliberately outside the accepted
+; FPS/count rectangles.  The generated tiles are fixed-width, so every
+; update also erases stale sign/decimal characters.
+%define HUD_STATUS_SPEED_X      180
+%define HUD_STATUS_DISTANCE_X   236
+%define HUD_STATUS_LOOK_X       180
+%define HUD_STATUS_RADIUS_X     236
+%define HUD_STATUS_Y            4
+%define HUD_STATUS_SECOND_Y     12
+%define STATUS_SPEED_WIDTH      48
+%define STATUS_DISTANCE_WIDTH   42
+%define STATUS_LOOK_WIDTH       42
+%define STATUS_RADIUS_WIDTH     54
+%define STATUS_FIELD_HEIGHT     8
 %if M98Y_PRIVATE_PROFILE
 %define ORBIT_RADIUS_ADJUSTMENTS 1
 %else
@@ -201,9 +215,27 @@ org 0x100
 %define KEY_SCAN_DOWN           0x3d
 %define KEY_SCAN_UP_EXTENDED    0x48
 %define KEY_SCAN_DOWN_EXTENDED  0x50
+%define KEY_SCAN_Q              0x10
+%define KEY_SCAN_W              0x11
+%define KEY_SCAN_E              0x12
+%define KEY_SCAN_O              0x18
+%define KEY_SCAN_P              0x19
+%define KEY_SCAN_A              0x1e
+%define KEY_SCAN_S              0x1f
+%define KEY_SCAN_Z              0x2c
 
 %define CADENCE_MIN             1
 %define CADENCE_MAX             8
+%define SPEED_MIN               0
+%define SPEED_MAX               7
+%define SPEED_DEFAULT           3
+%define DISTANCE_MIN            -4
+%define DISTANCE_MAX            4
+%define LOOK_MIN                -4
+%define LOOK_MAX                4
+%define RADIUS_MIN              0
+%define RADIUS_MAX              8
+%define RADIUS_DEFAULT          4
 
 %define BMS_WINDOW_SEGMENT      0x8000
 %define BMS_WINDOW_SGP_BASE     0x080000
@@ -475,6 +507,8 @@ render_loop:
     mov ax, [count_request_generation]
     mov [pending_count_generation], ax
     mov byte [count_change_pending], 0
+    call apply_requested_projection_state
+    jc descriptor_failed
     mov al, [orbit_phase_next]
     call generate_multi_instance_frame
     jc descriptor_failed
@@ -1511,8 +1545,40 @@ select_scale_descriptor:
     stc
     ret
 
-; Bind one generated phase to its exact depth/scale descriptor.  The selected
-; descriptor supplies its own anchor, geometry, payload, and BMS source.
+; Scale a signed displacement by a Q8.8 factor with symmetric rounding.
+; The helper is integer-only and always derives from the immutable orbit table.
+scale_signed_q8:
+    push bx
+    push cx
+    push dx
+    push si
+    xor si, si
+    test ax, ax
+    jns .magnitude
+    neg ax
+    mov si, 1
+.magnitude:
+    mul bx
+    add ax, 128
+    adc dx, 0
+    mov cx, 8
+.shift:
+    shr dx, 1
+    rcr ax, 1
+    loop .shift
+    cmp si, 0
+    je .done
+    neg ax
+.done:
+    pop si
+    pop dx
+    pop cx
+    pop bx
+    ret
+
+; Bind one generated phase to its exact depth descriptor while applying the
+; active camera snapshot.  Distance changes only the selected scale, radius
+; changes scale both base displacements, and look changes screen Y uniformly.
 select_orbit_destination:
     cmp al, ORBIT_PUBLICATIONS_PER_REVOLUTION
     jae .failed
@@ -1525,8 +1591,12 @@ select_orbit_destination:
     cmp al, [depth_orbit_entries + si + 4]
     jne .failed
     mov ax, [depth_orbit_entries + si]
+    mov bx, [active_radius_factor]
+    call scale_signed_q8
     mov [pending_orbit_dx], ax
     mov ax, [depth_orbit_entries + si + 2]
+    mov bx, [active_radius_factor]
+    call scale_signed_q8
     mov [pending_orbit_dy], ax
     mov al, [depth_orbit_entries + si + 6]
     mov [pending_depth_rank], al
@@ -1535,39 +1605,86 @@ select_orbit_destination:
     jb .failed
     cmp al, ATLAS_SCALE_COUNT
     ja .failed
-    call select_scale_descriptor
-    jc .failed
-    mov al, [pending_depth_rank]
-    cbw
-    mov bx, ax
+    mov [base_scale_id], al
+    ; The depth rank is tied to the base table scale.  Camera distance is a
+    ; size cue only and therefore cannot reverse far-to-near ordering.
     xor ax, ax
-    mov al, [selected_scale_id]
+    mov al, [base_scale_id]
     shl ax, 1
     sub ax, 31
+    xor bx, bx
+    mov bl, [pending_depth_rank]
+    test byte [pending_depth_rank], 0x80
+    jz .depth_positive
+    dec bh
     cmp ax, bx
     jne .failed
+    jmp .depth_checked
+.depth_positive:
+    cmp ax, bx
+    jne .failed
+    jmp .depth_checked
+.depth_checked:
+    ; Apply signed distance bias and clamp the effective descriptor to 1..30.
+    xor ax, ax
+    mov al, [base_scale_id]
+    xor bx, bx
+    mov bl, [active_distance_bias]
+    cmp byte [active_distance_bias], 0
+    jge .bias_ready
+    dec bh
+.bias_ready:
+    add ax, bx
+    cmp ax, 1
+    jge .scale_low_ready
+    mov ax, 1
+    inc word [scale_low_clamps]
+.scale_low_ready:
+    cmp ax, ATLAS_SCALE_COUNT
+    jbe .scale_high_ready
+    mov ax, ATLAS_SCALE_COUNT
+    inc word [scale_high_clamps]
+.scale_high_ready:
+    mov [selected_scale_id], al
+    mov al, [selected_scale_id]
+    call select_scale_descriptor
+    jc .failed
+    ; Compute the adjusted destination and clip at the visible page edge.
     mov ax, [pending_orbit_dx]
     add ax, TARGET_ANCHOR_X
-    js .failed
     sub ax, [selected_anchor_x]
-    jc .failed
-    mov [selected_dst_x], ax
+    jns .x_nonnegative
+    xor ax, ax
+    inc word [clipped_instances]
+.x_nonnegative:
     mov dx, ax
     add dx, [selected_width]
-    jc .failed
     cmp dx, SCREEN_WIDTH
-    ja .failed
+    jbe .x_ready
+    mov ax, SCREEN_WIDTH
+    sub ax, [selected_width]
+    mov dx, ax
+    inc word [clipped_instances]
+.x_ready:
+    mov [selected_dst_x], ax
     mov ax, [pending_orbit_dy]
     add ax, TARGET_ANCHOR_Y
-    js .failed
+    add ax, [screen_y_bias]
     sub ax, [selected_anchor_y]
-    jc .failed
-    mov [selected_dst_y], ax
+    jns .y_nonnegative
+    xor ax, ax
+    inc word [clipped_instances]
+.y_nonnegative:
     mov dx, ax
     add dx, [selected_height]
-    jc .failed
     cmp dx, SCREEN_HEIGHT
-    ja .failed
+    jbe .y_ready
+    mov ax, SCREEN_HEIGHT
+    sub ax, [selected_height]
+    mov dx, ax
+    inc word [clipped_instances]
+.y_ready:
+    mov [selected_dst_y], ax
     ; Half-open pseudo-sprite rectangle must not intersect [4,4,70,20).
     mov ax, [selected_dst_x]
     cmp ax, HUD_X1
@@ -1755,6 +1872,7 @@ generate_multi_instance_frame:
     mov [di + M98U_RECORD_DY], ax
     mov bx, ax
     add bx, TARGET_ANCHOR_Y
+    add bx, [screen_y_bias]
     mov [di + M98U_RECORD_TARGET_ANCHOR_Y], bx
     mov ax, [selected_width]
     mov [di + M98U_RECORD_WIDTH], ax
@@ -2422,6 +2540,7 @@ draw_hud_full:
     adc word [hud_bytes_written + 2], 0
     call draw_hud_count_field
     jc .failed
+    call draw_hud_status
     clc
     jmp .done
 .failed:
@@ -2434,6 +2553,107 @@ draw_hud_full:
     pop si
     pop dx
     pop cx
+    pop bx
+    pop ax
+    ret
+
+; Draw one fixed-width generated status tile into G0.  SI/DI/CX/BP are the
+; source, destination, width, and row count respectively.  Status writes are
+; intentionally separate from the legacy HUD byte counter: the original HUD
+; identity and its exact full/FPS/count accounting remain unchanged.
+draw_hud_status_tile:
+    push ax
+    push bx
+    push dx
+    push si
+    push di
+    push cx
+    push bp
+    push es
+    mov bx, cx
+    mov ax, G0_SEGMENT
+    mov es, ax
+.row:
+    mov cx, bx
+    rep movsb
+    mov dx, SCREEN_PITCH
+    sub dx, bx
+    add di, dx
+    dec bp
+    jnz .row
+    inc word [hud_status_updates]
+    pop es
+    pop bp
+    pop cx
+    pop di
+    pop si
+    pop dx
+    pop bx
+    pop ax
+    ret
+
+; Publish the active projection controls as a G0-only status panel.  The
+; renderer's visible count/FPS fields retain their accepted locations; this
+; panel merely makes the four new controls observable without touching G1.
+draw_hud_status:
+    push ax
+    push bx
+    push si
+    push di
+    push cx
+    push bp
+    xor bx, bx
+    mov bl, [active_speed_index]
+    cmp bl, SPEED_MAX
+    ja .failed
+    shl bx, 1
+    mov si, [hud_status_speed_tile_pointers + bx]
+    mov di, HUD_STATUS_Y * SCREEN_PITCH + HUD_STATUS_SPEED_X
+    mov cx, STATUS_SPEED_WIDTH
+    mov bp, STATUS_FIELD_HEIGHT
+    call draw_hud_status_tile
+    xor bx, bx
+    mov bl, [active_distance_bias]
+    add bx, 4
+    cmp bx, 8
+    ja .failed
+    shl bx, 1
+    mov si, [hud_status_distance_tile_pointers + bx]
+    mov di, HUD_STATUS_Y * SCREEN_PITCH + HUD_STATUS_DISTANCE_X
+    mov cx, STATUS_DISTANCE_WIDTH
+    mov bp, STATUS_FIELD_HEIGHT
+    call draw_hud_status_tile
+    xor bx, bx
+    mov bl, [active_look_level]
+    add bx, 4
+    cmp bx, 8
+    ja .failed
+    shl bx, 1
+    mov si, [hud_status_look_tile_pointers + bx]
+    mov di, HUD_STATUS_SECOND_Y * SCREEN_PITCH + HUD_STATUS_LOOK_X
+    mov cx, STATUS_LOOK_WIDTH
+    mov bp, STATUS_FIELD_HEIGHT
+    call draw_hud_status_tile
+    xor bx, bx
+    mov bl, [active_radius_index]
+    cmp bl, RADIUS_MAX
+    ja .failed
+    shl bx, 1
+    mov si, [hud_status_radius_tile_pointers + bx]
+    mov di, HUD_STATUS_SECOND_Y * SCREEN_PITCH + HUD_STATUS_RADIUS_X
+    mov cx, STATUS_RADIUS_WIDTH
+    mov bp, STATUS_FIELD_HEIGHT
+    call draw_hud_status_tile
+    clc
+    jmp .done
+.failed:
+    inc word [hud_mismatches]
+    stc
+.done:
+    pop bp
+    pop cx
+    pop di
+    pop si
     pop bx
     pop ax
     ret
@@ -3716,6 +3936,7 @@ publish_ready_hidden_page:
     mov [last_published_phase], al
     mov al, [build_active_count]
     mov [published_active_count], al
+    call draw_hud_status
     call record_multi_frame_publication
     mov byte [hidden_render_state], RENDER_IDLE
     call qa_after_publication
@@ -3917,12 +4138,107 @@ record_orbit_publication:
     ret
 
 advance_orbit_phase:
+    ; The Q8.8 accumulator advances only after a complete publication.  The
+    ; lookup phase is its integer high byte, preserving the accepted modulo
+    ; 64 orbit at the default 1.00X increment.
+    cmp byte [paused], 0
+    jne .done
     inc word [phase_advances]
-    inc byte [orbit_phase_next]
-    and byte [orbit_phase_next], ORBIT_PUBLICATIONS_PER_REVOLUTION - 1
-    jnz .done
+    mov bl, [orbit_phase_next]
+    xor bh, bh
+    mov ax, [phase_accumulator]
+    add ax, [active_speed_increment]
+    and ax, 0x3fff
+    mov [phase_accumulator], ax
+    mov [orbit_phase_next], ah
+    cmp ah, bl
+    jae .done
     inc word [revolution_wraps]
 .done:
+    ret
+
+; Copy requested speed/distance/look/radius controls into the immutable
+; snapshot used by the next frame.  The range checks are deliberately kept in
+; one place so malformed state cannot reach descriptor or geometry math.
+apply_requested_projection_state:
+    push ax
+    push bx
+    push cx
+    push dx
+    push si
+    cmp byte [requested_speed_index], SPEED_MAX
+    ja .failed
+    cmp byte [requested_distance_bias], DISTANCE_MIN
+    jl .failed
+    cmp byte [requested_distance_bias], DISTANCE_MAX
+    jg .failed
+    cmp byte [requested_look_level], LOOK_MIN
+    jl .failed
+    cmp byte [requested_look_level], LOOK_MAX
+    jg .failed
+    cmp byte [requested_radius_index], RADIUS_MAX
+    ja .failed
+    xor si, si
+    mov al, [requested_speed_index]
+    cmp al, [active_speed_index]
+    je .speed_ready
+    mov [active_speed_index], al
+    inc word [speed_changes_applied]
+.speed_ready:
+    xor bx, bx
+    mov bl, [active_speed_index]
+    shl bx, 1
+    mov ax, [orbit_speed_increments + bx]
+    mov [active_speed_increment], ax
+    mov al, [requested_distance_bias]
+    cmp al, [active_distance_bias]
+    je .distance_ready
+    mov [active_distance_bias], al
+    inc word [distance_changes_applied]
+    mov si, 1
+.distance_ready:
+    mov al, [requested_look_level]
+    cmp al, [active_look_level]
+    je .look_ready
+    mov [active_look_level], al
+    inc word [look_changes_applied]
+    mov si, 1
+.look_ready:
+    mov al, [requested_radius_index]
+    cmp al, [active_radius_index]
+    je .radius_ready
+    mov [active_radius_index], al
+    inc word [radius_changes_applied]
+    mov si, 1
+.radius_ready:
+    xor bx, bx
+    mov bl, [active_radius_index]
+    shl bx, 1
+    mov ax, [orbit_radius_factors + bx]
+    mov [active_radius_factor], ax
+    xor ax, ax
+    mov al, [active_look_level]
+    cbw
+    mov bx, 4
+    imul bx
+    mov [screen_y_bias], ax
+    cmp byte [paused], 0
+    je .ok
+    cmp si, 0
+    je .ok
+    inc word [paused_geometry_redraws]
+.ok:
+    clc
+    jmp .done
+.failed:
+    inc word [bounds_failures]
+    stc
+.done:
+    pop si
+    pop dx
+    pop cx
+    pop bx
+    pop ax
     ret
 
 validate_m98v_bounded_success:
@@ -4443,6 +4759,22 @@ poll_control_requests:
     je .faster
     cmp ah, KEY_SCAN_RIGHT
     je .slower
+    cmp ah, KEY_SCAN_A
+    je .speed_up
+    cmp ah, KEY_SCAN_Z
+    je .speed_down
+    cmp ah, KEY_SCAN_Q
+    je .distance_near
+    cmp ah, KEY_SCAN_E
+    je .distance_far
+    cmp ah, KEY_SCAN_W
+    je .look_up
+    cmp ah, KEY_SCAN_S
+    je .look_down
+    cmp ah, KEY_SCAN_O
+    je .radius_up
+    cmp ah, KEY_SCAN_P
+    je .radius_down
 %if M98X_RUNTIME_MODE
     cmp ah, KEY_SCAN_UP
     je .count_up
@@ -4470,6 +4802,57 @@ poll_control_requests:
     jae .clamped
     inc byte [requested_divisor]
     inc word [divider_change_requests]
+    jmp .done
+.speed_up:
+    cmp byte [requested_speed_index], SPEED_MAX
+    jae .projection_saturated
+    inc byte [requested_speed_index]
+    inc word [speed_change_requests]
+    jmp .done
+.speed_down:
+    cmp byte [requested_speed_index], SPEED_MIN
+    jbe .projection_saturated
+    dec byte [requested_speed_index]
+    inc word [speed_change_requests]
+    jmp .done
+.distance_near:
+    cmp byte [requested_distance_bias], DISTANCE_MAX
+    jae .projection_saturated
+    inc byte [requested_distance_bias]
+    inc word [distance_change_requests]
+    jmp .done
+.distance_far:
+    cmp byte [requested_distance_bias], DISTANCE_MIN
+    jle .projection_saturated
+    dec byte [requested_distance_bias]
+    inc word [distance_change_requests]
+    jmp .done
+.look_up:
+    cmp byte [requested_look_level], LOOK_MAX
+    jae .projection_saturated
+    inc byte [requested_look_level]
+    inc word [look_change_requests]
+    jmp .done
+.look_down:
+    cmp byte [requested_look_level], LOOK_MIN
+    jle .projection_saturated
+    dec byte [requested_look_level]
+    inc word [look_change_requests]
+    jmp .done
+.radius_up:
+    cmp byte [requested_radius_index], RADIUS_MAX
+    jae .projection_saturated
+    inc byte [requested_radius_index]
+    inc word [radius_change_requests]
+    jmp .done
+.radius_down:
+    cmp byte [requested_radius_index], RADIUS_MIN
+    jbe .projection_saturated
+    dec byte [requested_radius_index]
+    inc word [radius_change_requests]
+    jmp .done
+.projection_saturated:
+    inc word [saturated_key_requests]
     jmp .done
 .pause:
     xor byte [pause_toggle_pending], 1
@@ -5088,6 +5471,7 @@ expected_scale_histogram: db 1,2,2,2,2,4,2,2,2,2,2,2,2,2,3,3,2,2,2,2,2,2,2,2,4,2
 %error "M98t depth include has the wrong radius-adjustment count"
 %endif
 %include "zundamon_hud_table.inc"
+%include "zundamon_status_table.inc"
 %if HUD_TILE_COUNT != 8 || HUD_FULL_TILE_BYTES != HUD_FULL_WRITE_BYTES || HUD_FPS_TILE_BYTES != HUD_FPS_WRITE_BYTES
 %error "M98v HUD include has the wrong FPS tile contract"
 %endif
@@ -5151,6 +5535,37 @@ qa_pause_edges_remaining: db 0
 pending_global_phase: db 0
 last_published_global_phase: db 0
 published_active_count: db M98V_ACTIVE_COUNT
+; M98z requested and active projection controls.  Requested values may change
+; while SGP is busy; active values are copied only at a transaction boundary.
+requested_speed_index: db SPEED_DEFAULT
+active_speed_index: db SPEED_DEFAULT
+requested_distance_bias: db 0
+active_distance_bias: db 0
+requested_look_level: db 0
+active_look_level: db 0
+requested_radius_index: db RADIUS_DEFAULT
+active_radius_index: db RADIUS_DEFAULT
+active_speed_increment: dw 256
+active_radius_factor: dw 256
+phase_accumulator: dw 0
+base_scale_id: db 0
+screen_y_bias: dw 0
+speed_change_requests: dw 0
+speed_changes_applied: dw 0
+distance_change_requests: dw 0
+distance_changes_applied: dw 0
+look_change_requests: dw 0
+look_changes_applied: dw 0
+radius_change_requests: dw 0
+radius_changes_applied: dw 0
+saturated_key_requests: dw 0
+paused_geometry_redraws: dw 0
+scale_low_clamps: dw 0
+scale_high_clamps: dw 0
+clipped_instances: dw 0
+align 2, db 0
+orbit_speed_increments: dw 64,128,192,256,320,384,512,768
+orbit_radius_factors: dw 128,160,192,224,256,288,320,352,384
 ; M98x runtime count state.  The frame's build_active_count is latched at
 ; render-loop entry and is immutable through clear, draw, READY, and publish.
 parsed_count: db 4
@@ -5264,6 +5679,7 @@ hud_full_initializations: dw 0
 hud_fps_field_updates: dw 0
 hud_zundamon_field_updates: dw 0
 hud_count_field_updates: dw 0
+hud_status_updates: dw 0
 hud_count_rollbacks: dw 0
 runtime_count_changes: dw 0
 count_key_requests: dw 0

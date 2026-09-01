@@ -154,11 +154,14 @@ if [ "$private_profile" -eq 0 ]; then
     cmp "$table_check_dir/zundamon_depth_table.inc" \
         "$script_dir/zundamon_depth_table.inc"
     python3 "$script_dir/../tools/generate_zundamon_orbit_hud.py" \
-        --output "$table_check_dir/zundamon_hud_table.inc" >/dev/null
+        --output "$table_check_dir/zundamon_hud_table.inc" \
+        --status-output "$table_check_dir/zundamon_status_table.inc" >/dev/null
     python3 "$script_dir/../tools/validate_zundamon_orbit_hud.py" \
         --input "$script_dir/zundamon_hud_table.inc" >/dev/null
     cmp "$table_check_dir/zundamon_hud_table.inc" \
         "$script_dir/zundamon_hud_table.inc"
+    cmp "$table_check_dir/zundamon_status_table.inc" \
+        "$script_dir/zundamon_status_table.inc"
     "$nasm_command" -f bin \
         -dM98T_BOUNDED_QA="$bounded_qa" \
         -dM98T_QA_CYCLES="$qa_cycles" \

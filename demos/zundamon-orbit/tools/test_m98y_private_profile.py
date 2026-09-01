@@ -67,7 +67,7 @@ class M98yProfileTests(unittest.TestCase):
             self.assertEqual(summary["private_transition_cases"], 32768)
             self.assertEqual(summary["private_mismatches"], 0)
 
-    def test_public_profile_guest_identity_is_unchanged(self) -> None:
+    def test_public_profile_guest_identity_is_deterministic(self) -> None:
         build = ROOT / "demos/zundamon-orbit/256/build.sh"
         with tempfile.TemporaryDirectory() as temporary:
             first = Path(temporary) / "one.com"
@@ -80,7 +80,8 @@ class M98yProfileTests(unittest.TestCase):
                                         capture_output=True, text=True)
                 self.assertEqual(result.returncode, 0, result.stderr)
             self.assertEqual(hashlib.sha256(first.read_bytes()).hexdigest(),
-                             "c8edcca160f6b1a8d96e6d119a54bcaa5af987224a5da252f690bb17d6d47d18")
+                             "e20e9bec5b4209d62d394cbc31ff440b2fd26ac8ddafc5a3a96a61857d5bbb6b")
+            self.assertEqual(first.read_bytes(), second.read_bytes())
 
 
 if __name__ == "__main__":

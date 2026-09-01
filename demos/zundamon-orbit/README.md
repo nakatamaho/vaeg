@@ -823,3 +823,36 @@ bounded VAEG trace. Do not add the candidate, guest binary, traces, or atlas
 to Git. M98x is public ZUNDAMON state and runtime controls; private IDA data,
 multi-instance image replacement, and game content remain outside this
 milestone.
+
+## M98z orbit and camera controls
+
+The final public renderer keeps the M98x complete-frame and page-local dirty
+union transaction while adding four bounded projection controls. The normal
+runtime binary still starts at four instances (`FPS: 60`, `ZUNDAMON: 4`) and
+uses the same `/N1`..`/N16`, `/V1`..`/V8`, LEFT/RIGHT, UP/DOWN, SPACE, and ESC
+controls. A/Z changes only orbit phase speed (0.25X through 3.00X); it never
+changes the nominal FPS divisor. Q/E changes the signed camera distance bias
+(-4..+4) and clamps scale IDs to 1..30. W/S changes the camera look level
+(-4..+4); W is upward-looking and moves the projected orbit down by four
+pixels per level. O/P selects the symmetric orbit-radius factor (0.50X
+through 1.50X) and always derives from the base radii, so round trips do not
+accumulate rounding drift.
+
+One debounced make event changes one requested value. Requested controls are
+latched into an immutable frame snapshot only at a complete transaction
+boundary; the visible HUD status is updated with the corresponding published
+frame. The G0-only status panel reports `SPD`, `DIST`, `LOOK`, and `RAD` while
+the accepted FPS/count fields remain unchanged. SPACE freezes phase
+advancement (geometry requests are applied as a complete redraw at the frozen
+phase), and ESC follows the existing bounded cleanup path.
+
+The effect remains a camera-facing billboard orbit: these controls adjust a
+deterministic 2D projection and do not add true yaw/pitch rotation, side/rear
+poses, gameplay, or projectiles. The public and private profiles share one
+renderer and one 30-scale, one-bank atlas contract; private IDA assets remain
+local and untracked. VAEG/VA2 timing is diagnostic only and is not a physical
+PC-88VA throughput claim.
+
+The new letter controls are intentionally not DOS switches. Defaults are
+speed 1.00X, distance 0, look 0, and radius 1.00X. The 128-instance
+extension is reserved for M98aa.
