@@ -202,9 +202,9 @@ the steady-state clear with page-local dirty-row interval unions; its
 automated evidence and count-four visual/ESC-restoration gate are passed.
 M98x adds one runtime count binary with `/N1` through `/N16`, bounded UP/DOWN
 requests, publication-synchronous HUD count updates, and host transition/load
-evidence. The normal default remains four. Its automated evidence is complete;
-the VA2 visual gate is pending. Private IDA integration remains M98y and is
-not part of M98x.
+evidence. The normal default remains four. Its automated evidence and VA2
+visual gate are passed. Private IDA integration remains M98y and is not part
+of M98x.
 
 ## 6. Deterministic host contracts
 

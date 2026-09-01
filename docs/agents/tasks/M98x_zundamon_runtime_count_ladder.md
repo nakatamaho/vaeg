@@ -23,7 +23,7 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 # M98x - Runtime ZUNDAMON count controls and load ladder
 
-Status: **G98x automated evidence complete; human gate pending**
+Status: **G98x passed; automated and human-gate evidence complete**
 
 M98x starts from the accepted M98w head `b65d6c50af1f9bd7f574a17683c637e65212be78`.
 It keeps the public ZUNDAMON renderer, M98u phase/order generator, M98w
@@ -46,8 +46,10 @@ The independent host model validates all 1,024 count/phase states, the 32,768
 ordered page/count transition cases, count-one equality with M98t, deterministic
 HUD tiles, parser negatives, and runtime build reproducibility. The report at
 `docs/agents/reports/m98x_zundamon_runtime_count_ladder.md` records the exact
-commands, identities, evidence limits, and the remaining VA2 human gate.
+commands, identities, evidence limits, and the completed VA2 human gate.
 
 M98y remains the later private IDA milestone. M98x does not integrate IDA,
 change atlas pixels, alter orbit geometry, add `/N`-specific code copies, or
 add gameplay. `REAL_HW_PENDING` remains in force.
+
+`G98x passed`

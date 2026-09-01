@@ -23,11 +23,12 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 # M98x runtime ZUNDAMON count ladder
 
-Status: **G98x: human gate pending**
+Status: **G98x PASS**
 
 `REAL_HW_PENDING` remains in force. This report records the public runtime
 count implementation and its machine/host evidence. It does not claim a
-physical PC-88VA measurement or a maintainer VA2 approval.
+physical PC-88VA measurement. On 2026-09-01 the maintainer explicitly
+confirmed `Human gate passed`, closing G98x for the generated public candidate.
 
 ## Authority and commits
 
@@ -47,6 +48,8 @@ physical PC-88VA measurement or a maintainer VA2 approval.
 - Accepted M98w implementation: `2e402fa5bb69277aa7e4b60575e4ac2e8ccf9ae7`
 - Accepted M98w report/approval head: `b65d6c50af1f9bd7f574a17683c637e65212be78`
 - G98w approval: maintainer explicitly stated `G98w passed`.
+- G98x approval: on 2026-09-01 the maintainer explicitly stated
+  `Human gate passed` after the count-control candidate verification.
 - Accepted M98w evidence: 212 host tests, 1,280 full/dirty frame pairs,
   40 static count/divisor cases, and the count-four human candidate passed;
   the accepted M98w guest was 34,656 bytes and hardware remained
@@ -302,15 +305,13 @@ serialization output are all under ignored `build/generated/` or temporary
 directories. `git check-ignore` confirms the candidate and guest artifacts are
 ignored. No private IDA/ROM-derived bytes were added to tracked files.
 
-## Remaining gate and limitations
+## Closure and limitations
 
 The candidate is the public synthetic ZUNDAMON fixture only. M98x has one
 runtime binary, no private IDA, no gameplay/projectiles, no multi-instance
 sorting change, and no hardware timing claim. VAEG rates are diagnostic; the
-nominal FPS HUD is a selector label. The final VA2 check must exercise default
-count 4, `/N1`, `/N16`, every UP/DOWN value and saturation, count changes while
-rendering/READY/paused, all cadence choices, misses, transparent overlap, and
-ESC restoration. Until the maintainer explicitly confirms that visual gate,
-the recorded status is:
+nominal FPS HUD is a selector label. The maintainer's explicit human-gate
+approval closes the M98x scope. Private IDA integration remains the separate
+M98y milestone.
 
-**G98x: human gate pending**
+**G98x PASS**
