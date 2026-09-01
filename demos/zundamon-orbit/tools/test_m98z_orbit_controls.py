@@ -151,6 +151,44 @@ class OrbitControlTests(unittest.TestCase):
                 "hud_status_radius_tile_pointers:"):
             self.assertIn(token, status)
 
+    def test_exhaustive_projection_boundary_space(self) -> None:
+        cases = 0
+        for phase in range(64):
+            state = controls.OrbitControlState()
+            state.phase_accumulator = phase << 8
+            for count in range(1, 17):
+                del count  # Count does not alter the camera projection contract.
+                for distance in range(-4, 5):
+                    for look in range(-4, 5):
+                        for radius in range(9):
+                            state.active_distance_bias = distance
+                            state.active_look_level = look
+                            state.active_radius_index = radius
+                            x, y, scale = state.projection(-96, 48, 16)
+                            self.assertIn(scale, range(1, 31))
+                            self.assertEqual(y - controls.symmetric_round_q8(
+                                48, controls.RADIUS_FACTORS_Q8[radius]), look * 4)
+                            self.assertIn(state.lookup_phase(), range(64))
+                            cases += 1
+        self.assertEqual(cases, 64 * 16 * 9 * 9 * 9)
+
+    def test_speed_and_divisor_sequences_are_orthogonal(self) -> None:
+        for speed_index, increment in enumerate(controls.SPEED_INCREMENTS_Q8):
+            for divisor in range(1, 9):
+                state = controls.OrbitControlState(
+                    requested_speed_index=speed_index,
+                    active_speed_index=speed_index)
+                publications = 0
+                for edge in range(divisor * 4):
+                    if (edge + 1) % divisor:
+                        continue
+                    state.begin_snapshot()
+                    state.publish()
+                    publications += 1
+                self.assertEqual(
+                    state.phase_accumulator,
+                    (publications * increment) % (64 * 256))
+
 
 if __name__ == "__main__":
     unittest.main()
