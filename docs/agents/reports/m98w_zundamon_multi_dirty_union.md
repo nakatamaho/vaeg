@@ -23,9 +23,13 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 # M98w multi-ZUNDAMON dirty-row interval unions
 
-Status: **automated evidence passed; G98w human gate pending**
+Status: **G98w passed**
 
 `REAL_HW_PENDING`
+
+The maintainer explicitly confirmed `G98w passed` after running the unbounded
+count-four VA2 candidate: four instances, no trails/flicker/horizontal streaks,
+normal controls and ESC restoration. Physical hardware status remains pending.
 
 ## Authority and repository state
 
@@ -330,4 +334,4 @@ UP/DOWN behavior, interval masks, private IDA, multi-instance dirty-union
 generalization beyond the bounded 16-record footprint, or physical timing
 claim. Full clear remains a QA oracle; dirty mode is the release path.
 
-`G98w: human gate pending`
+`G98w passed`

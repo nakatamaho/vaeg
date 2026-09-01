@@ -23,7 +23,7 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 # M98w - Multi-ZUNDAMON dirty-row interval unions
 
-Status: **automated evidence passed; G98w human gate pending**
+Status: **G98w passed; automated and human-gate evidence complete**
 
 Branch: `topic/m98w-multi-dirty-union`
 
@@ -66,4 +66,4 @@ reduced bytes are not a performance claim.
 
 `REAL_HW_PENDING`
 
-`G98w: human gate pending`
+`G98w passed`
