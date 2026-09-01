@@ -196,8 +196,9 @@ matrix, independent validator, count-one compatibility, deterministic rebuild,
 and unchanged M98t guest checks passed on 2026-09-01. G98u passed and M98u is
 closed. M98v consumes that exact state for the five build-time counts
 1/2/4/8/16 and uses one complete hidden-page clear before every ordered draw
-list. Its automated and count-four visual gates remain pending. M98w dirty-row
-unions and M98x runtime count controls remain separate and have not begun.
+list. Its automated evidence passed on 2026-09-01; the count-four visual human
+gate remains pending. M98w dirty-row unions and M98x runtime count controls
+remain separate and have not begun.
 
 ## 6. Deterministic host contracts
 

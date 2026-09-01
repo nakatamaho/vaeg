@@ -23,7 +23,7 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 # M98v - Multi-ZUNDAMON full-page-clear baseline
 
-Status: **implementation candidate; validation record pending**
+Status: **automated evidence passed; G98v human gate pending**
 
 Branch: `topic/m98v-multi-full-clear`
 
@@ -87,10 +87,10 @@ runtime count selection and HUD updates.
 
 ## Gate status
 
-The implementation and generated evidence require a separate validation
-record. The interactive count-four VA2 visual and ESC-restoration approval is
-also outstanding.
+The automated result is recorded in
+`../reports/m98v_zundamon_multi_full_clear.md`. The required interactive
+count-four VA2 visual and ESC-restoration approval remains outstanding.
 
 `REAL_HW_PENDING`
 
-`G98v: validation pending`
+`G98v: human gate pending`
