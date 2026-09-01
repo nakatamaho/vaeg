@@ -40,6 +40,7 @@ TOOLS = Path(__file__).resolve().parent
 ROOT = TOOLS.parents[2]
 GUEST = TOOLS.parent / "256" / "zundamon_orbit_256.asm"
 BUILD = TOOLS.parent / "256" / "build.sh"
+LOCAL_D88_BUILD = TOOLS.parent / "build-local-d88.sh"
 HUD_TABLE = TOOLS.parent / "256" / "zundamon_hud_table.inc"
 DEPTH_TABLE = TOOLS.parent / "256" / "zundamon_depth_table.inc"
 
@@ -179,6 +180,11 @@ class RuntimeCountBuildTests(unittest.TestCase):
                 self.assertLess(output.stat().st_size, 65280)
                 hashes.append(hashlib.sha256(output.read_bytes()).hexdigest())
             self.assertEqual(hashes[0], hashes[1])
+
+    def test_local_d88_build_forwards_runtime_mode(self) -> None:
+        source = LOCAL_D88_BUILD.read_text(encoding="utf-8")
+        self.assertIn("M98X_RUNTIME_MODE=${M98X_RUNTIME_MODE:-0} NASM=", source)
+        self.assertIn("zero default preserves the fixed-count", source)
 
 
 if __name__ == "__main__":

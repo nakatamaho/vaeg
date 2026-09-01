@@ -67,7 +67,12 @@ cleanup() {
 trap cleanup EXIT HUP INT TERM
 
 mkdir -p "$work_dir/payload/root"
-NASM=${NASM:-nasm} \
+# Keep the disk payload on the same milestone path as the caller.  In
+# particular, M98x supplies the runtime-count guest; rebuilding this private
+# staging payload with the default fixed-count mode would silently produce a
+# disk that accepts LEFT/RIGHT but cannot handle UP/DOWN or /N.  The explicit
+# zero default preserves the fixed-count M98v/M98w candidates.
+M98X_RUNTIME_MODE=${M98X_RUNTIME_MODE:-0} NASM=${NASM:-nasm} \
     "$script_dir/256/build.sh" "$work_dir/payload/root/ZUNDORB.COM" \
     "$work_dir/ZUNDORB.LST"
 cp "$atlas_image" "$work_dir/payload/root/ZUNDORB.BIN"
