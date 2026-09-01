@@ -23,7 +23,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 # M98 - Zundamon billboard-orbit demo master plan
 
-Status: **G98a, G98e, G98j, G98k, G98l, G98o, G98p, G98q, G98r, and G98s human gates and G98b-G98d and G98f-G98i machine gates passed; M98s closed on 2026-09-01**
+Status: **G98a, G98e, G98j, G98k, G98l, G98o, G98p, G98q, G98r, G98s, and G98t human gates and G98b-G98d and G98f-G98i machine gates passed; M98t closed on 2026-09-01**
 
 Branch family: `topic/m98-zundamon-orbit`
 
@@ -147,7 +147,7 @@ Execute exactly one assigned stage and stop at its gate.
 | M98q | Add page-local dirty-row clearing - G98q passed | Human/VAEG |
 | M98r | Add VBLANK cadence selection and telemetry - G98r passed | Human/VAEG |
 | M98s | Add a constant-size 64-phase ellipse - G98s passed | Human/VAEG |
-| M98t | Couple orbit depth to the 30-level atlas and add the FPS/ZUNDAMON G0 HUD | Human/VAEG |
+| M98t | Couple orbit depth to the 30-level atlas and add the FPS/ZUNDAMON G0 HUD - G98t passed | Human/VAEG |
 | M98u | Integrate and tune the approved local image | Human/local |
 | M98v | Generate deterministic multi-instance depth order | Machine |
 | M98w | Add the multi-instance full-clear baseline | Human/VAEG |
@@ -188,7 +188,8 @@ passed G98r on 2026-09-01. M98s added only a constant-size, fixed-scale-15
 64-phase screen ellipse. The maintainer explicitly passed G98s on 2026-09-01,
 so M98s is closed. M98t couples the same 64 phases to all 30 stored scales and
 adds the bounded FPS/ZUNDAMON information panel on G0. Its automated VA2/VAEG
-evidence passed; G98t remains at the maintainer human gate.
+evidence passed, and the maintainer explicitly passed G98t on 2026-09-01.
+M98t is closed.
 
 ## 6. Deterministic host contracts
 

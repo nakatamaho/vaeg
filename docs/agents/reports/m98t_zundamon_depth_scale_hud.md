@@ -23,13 +23,13 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 # M98t depth/scale coupling and G0 HUD result
 
-Status: **G98t human gate pending; automated VA2/VAEG evidence passed**
+Status: **G98t human gate passed; M98t closed on 2026-09-01**
 
 ## Result
 
 `M98t AUTOMATED RESULT: PASS`
 
-`G98t: human gate pending`
+`G98t PASS`
 
 M98t keeps the accepted 64-phase clockwise ellipse and couples each phase to
 the required signed depth rank and one of all 30 stored public atlas scales.
@@ -398,6 +398,10 @@ no stale silhouette/trail/clipping/flicker/tear, correct G0 transparency, HUD
 SPACE pause/resume, inactive UP/DOWN, and ESC restoration. Exact measured FPS
 and physical-hardware performance are not part of the human gate.
 
+The maintainer explicitly stated `G98t passed` on 2026-09-01 after the
+interactive VA2 check. M98t is therefore closed. Physical hardware remains
+`REAL_HW_PENDING`.
+
 `REAL_HW_PENDING`
 
-`G98t: human gate pending`
+`G98t PASS`

@@ -23,7 +23,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 # M98t - Couple orbit depth to 30 scales and add the G0 HUD
 
-Status: **G98t human gate pending; automated VA2/VAEG evidence passed**
+Status: **G98t human gate passed; M98t closed on 2026-09-01**
 
 Branch: `topic/m98t-depth-scale-hud`
 
@@ -79,6 +79,9 @@ camera-facing marker moving clockwise, largest at the bottom and smallest at
 the top, stable descriptor anchors, all cadence fields without stale decimal
 pixels, fixed `ZUNDAMON: 1`, inactive UP/DOWN, pause/resume, two revolutions,
 and normal ESC restoration.  Automation cannot close G98t.
+
+The maintainer explicitly stated `G98t passed` on 2026-09-01 after the
+interactive VA2 check. M98t is closed at this gate.
 
 ## Non-goals
 
