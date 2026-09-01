@@ -40,8 +40,10 @@ throughput or replace the maintainer visual gate.
 - M98z implementation commits: `ada043feee7491ba980c00e43603214294036f82`,
   `d3c969758362c38d189015579202b18a240c774c`,
   `cbd88fb1c754592d495a7ca16071c25a24250e23` (corrective HUD/input fix),
-  and `4d94eb6f334add0c2e694b08bdc61c8400d0edc1` (cadence-boundary and
-  fixed-width SPD correction).
+  `4d94eb6f334add0c2e694b08bdc61c8400d0edc1` (cadence-boundary and
+  fixed-width SPD correction), and
+  `64f3ea74e750028aca4c41b0f8ee515e75959e84` (extended speed ladder and
+  trailing SPD cell).
 - Report commit and pushed head: supplied by the final Git handoff after this
   report commit; remote equality is checked at push time.
 - M98x implementation: `e833b977f671c921d9ad247249d2217c6782cc52`.
@@ -101,7 +103,7 @@ effect is a camera-facing 2D billboard orbit, not true yaw/pitch rotation or a
 Requested and active projection fields are separate:
 
 ```text
-requested/active speed index: 0..7, default 3, Q8.8 increments
+requested/active speed index: 0..12, default 3, Q8.8 increments
 requested/active distance bias: -4..+4, default 0
 requested/active look level: -4..+4, default 0, four pixels per level
 requested/active radius index: 0..8, default 4, Q8.8 factors
@@ -109,7 +111,8 @@ phase accumulator: 16-bit modulo 64*256
 ```
 
 `A`/`Z` changes only the speed ladder (0.25X, 0.50X, 0.75X, 1.00X, 1.25X,
-1.50X, 2.00X, 3.00X). `Q`/`E` changes distance and clamps effective scale IDs
+1.50X, 2.00X, 3.00X, 4.00X, 5.00X, 6.00X, 7.00X, 8.00X). The SPD tile has
+one trailing blank cell before the next status field. `Q`/`E` changes distance and clamps effective scale IDs
 to 1..30. `W`/`S` changes look level; W is upward-looking and adds positive
 screen-Y bias. `O`/`P` selects radius factors 0.50X through 1.50X from the
 immutable base radii with symmetric integer rounding. LEFT/RIGHT retain the
@@ -129,7 +132,7 @@ after complete publication; paused publication does not consume a phase step.
 The corrective pass uses the PC-88 keymap values for A (`1Dh`), S (`1Eh`), and
 Z (`29h`), and sign-extends the bounded DIST/LOOK values before selecting
 their generated tiles. The four status fields now share one row below the
-legacy HUD at fixed x positions 4, 58, 106, and 154, with no overlap; each
+legacy HUD at fixed x positions 4, 64, 106, and 154, with no overlap; each
 published active snapshot redraws all four fields, including negative values.
 The SPD field is nine six-pixel cells (`54` bytes) rather than the former
 eight-cell allocation; this keeps the complete `SPD:<level>` field aligned
@@ -140,7 +143,7 @@ at the 15-FPS entry cannot exit the guest after the field is already complete.
 
 ## Host and guest evidence
 
-The independent control model covers all eight speed entries, all divisor
+The independent control model covers all thirteen speed entries, all divisor
 values, saturation/no-wrap, immutable snapshots, signed Q8.8 rounding, scale
 clamps, W/S sign, O/P identity at 1.00X, status formatting, and the complete
 projection boundary space:
@@ -150,7 +153,7 @@ projection boundary space:
 = 746,496 bounded projection cases
 ```
 
-The repository-wide orbit/atlas/dirty-union/runtime suite completed **242
+The repository-wide orbit/atlas/dirty-union/runtime suite completed **243
 tests PASS**, including inherited public M98t/M98u/M98v/M98w/M98x coverage and
 the M98z control tests. The inherited host transition and private-profile
 tokens remain accepted: `HOST_PUBLIC_PROFILE_PASS`,
@@ -158,10 +161,11 @@ tokens remain accepted: `HOST_PUBLIC_PROFILE_PASS`,
 `PRIVATE_IDA_ONE_BANK_PASS`, `PRIVATE_IDA_30_SCALE_PASS`,
 `PRIVATE_IDA_32768_TRANSITIONS_PASS`, and `VAEG_PRIVATE_IDA_MULTI_PASS`.
 
-The normal public guest is one deterministic binary, 49,856 bytes, and two
+The normal public guest is one deterministic binary, 52,656 bytes, and two
 clean builds produced SHA-256
-`a5bfc68522d5dd023da88d01da09b434a4c298b871acf443a205ad0bc6af50ba` after
-the fixed-width SPD and nonfatal completed-write correction.
+`e0f2111e4da5d0723633f6ac11658fad49f825c2bc6e6346578ac72ff67aa93f` after
+the fixed-width SPD, extended speed ladder, and nonfatal completed-write
+correction.
 The legacy FPS/count HUD include remains byte-identical to its accepted
 `fa5552dd236cc078e94d905e35698a9887269ede13aa4db86658988b16775b8e` identity;
 the new status tiles are a separate generated include. Fixed-count QA builds
