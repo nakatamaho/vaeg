@@ -70,6 +70,33 @@ separate parity correction or move it to Open Defects.
 
 ## Fixed Defects
 
+### Private IDA64 candidate exited during draw-order validation
+
+- **Status:** fixed in M98aa; real VA/VA2 hardware confirmation remains
+  pending.
+- **Symptom:** the private 64-instance IDA candidate returned to the DOS
+  prompt before entering graphics mode, while the same renderer's public
+  candidate remained byte-identical and functional.
+- **Affected scope:** private M98aa startup validation and SGP destination
+  command construction; the public ZUNDAMON profile is unchanged.
+- **Demonstrated root cause:** the private four-word draw-order seen mask was
+  cleared with `ES` still selecting the BMS aperture. The first validation
+  phase passed only because the image's initial bytes were zero; the next
+  phase observed stale bits and rejected a valid permutation. The private
+  capacity expansion also reused the footprint-index shift for the SGP
+  destination selector, even though that wire field remains four bits.
+- **Correction:** bind `ES` to the guest data segment for the bounded mask
+  clear, restore the prior segment, and use an explicit fixed SGP destination
+  shift independent of private footprint capacity.
+- **Verification:** public rebuilds remain byte-identical to the accepted
+  M98z guest. Private deterministic rebuilds remain 60,848 bytes; VAEG startup
+  reaches a complete-frame flip checkpoint for private counts 1, 4, 16, and
+  64, with the private HUD and instances rendered. Focused M98aa, M98z, and
+  M98y tests pass.
+- **Evidence:** [M98aa IDA64 report](../agents/reports/m98aa_ida_64_animation.md).
+- **Milestone/task:** M98aa IDA 64-instance animation launch correction.
+- **Commit:** [ee65ac70](https://github.com/nakatamaho/vaeg/commit/ee65ac701dec5d9d759b3efed245b76cf4686052).
+
 ### NEON3 text overlay repainted the whole TVRAM surface every frame
 
 - **Status:** fixed in M97; real PC-88VA/VA2 hardware confirmation remains

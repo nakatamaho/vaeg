@@ -35,7 +35,8 @@ paths, binaries, or disk images distributable.
 - Branch: `topic/m98aa-ida-64-animation`.
 - Implementation commits: `aa910563b56cadd647c2058758e37a3d1f50cf71`,
   `12365710b5d63dc8e53683828851ce35f130cc71`, and
-  `ce99d8243267807d59b3fabefb8d70e9014cab52`.
+  `ce99d8243267807d59b3fabefb8d70e9014cab52`, followed by corrective
+  launch fix `ee65ac701dec5d9d759b3efed245b76cf4686052`.
 - Report commit: this report commit; the exact pushed head is supplied at
   handoff and is remotely equal.
 - Predecessor: G98z was explicitly passed by the maintainer and its accepted
@@ -110,6 +111,23 @@ M98AA_PRIVATE_GUEST_BUILD_PASS runtime_counts=1..64
 
 The bootable private candidate contains the external atlas and the 60,848-byte
 guest; it is available only through the local private build workflow.
+
+## Corrective launch fix
+
+The first 64-instance candidate exited before graphics mode. The demonstrated
+root cause was private draw-order validation clearing its four-word seen mask
+through the stale BMS `ES` mapping; subsequent phase validation therefore
+reported a duplicate even though the generated permutation was valid. The
+correction temporarily binds `ES` to the guest data segment for that bounded
+clear and restores the prior segment before continuing. The SGP destination
+descriptor's fixed four-bit x-word field is also kept independent from the
+capacity-derived footprint index, preserving the accepted wire format.
+
+The corrected private guest remains 60,848 bytes and deterministic. VAEG
+startup now reaches the complete-frame flip checkpoint for counts 1, 4, 16,
+and 64 using the validated private atlas, with the private profile HUD and
+rendered instances present. The public guest remains byte-identical to its
+accepted M98z identity. The private candidate and its media remain local-only.
 
 Focused host and shell checks passed:
 
