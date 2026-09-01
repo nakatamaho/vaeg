@@ -22,11 +22,12 @@ EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 # M98z orbit and camera controls
 
-Status: **G98z: human gate pending**
+Status: **G98z PASS**
 
 `REAL_HW_PENDING` remains in force. This report records the bounded public
 implementation and automatic evidence; it does not claim physical PC-88VA
-throughput or replace the maintainer visual gate.
+throughput. The maintainer explicitly stated `good human gate passed` on
+2026-09-02 after verifying the interactive candidate, closing G98z.
 
 ## Authority and preserved state
 
@@ -37,6 +38,8 @@ throughput or replace the maintainer visual gate.
 - Accepted M98y report commit: `e7266d33dfb6fd86f060162a82c44e6f71b73139`;
   approval was subsequently recorded by the starting head above.
 - G98y approval: maintainer explicitly stated `G98y human gate passed`.
+- G98z approval: maintainer explicitly stated `good human gate passed` on
+  2026-09-02 for the public/private interactive candidate.
 - M98z implementation commits: `ada043feee7491ba980c00e43603214294036f82`,
   `d3c969758362c38d189015579202b18a240c774c`,
   `cbd88fb1c754592d495a7ca16071c25a24250e23` (corrective HUD/input fix),
@@ -85,7 +88,7 @@ No baseline path was staged, reformatted, removed, or generated over.
 | `demos/zundamon-orbit/tools/zundamon_orbit_controls.py` | Independent integer host model for state bounds, snapshots, accumulation, projection, and status formatting. |
 | `demos/zundamon-orbit/tools/test_m98z_orbit_controls.py` | M98z key, saturation, snapshot, accumulator, projection, status, contract, and bounded exhaustive tests. |
 | `demos/zundamon-orbit/README.md` | Document the complete control map, defaults, bounds, billboard limitation, and emulator timing caveat. |
-| `docs/agents/ROADMAP.md` | Record M98z implementation complete with G98z human gate pending. |
+| `docs/agents/ROADMAP.md` | Record M98z implementation and G98z human approval. |
 | `docs/agents/tasks/M98_zundamon_orbit_master_plan.md` | Reconcile the active M98z scope and reserve the 128-instance extension for M98aa. |
 | `demos/zundamon-orbit/tools/test_m98y_private_profile.py` | Update the deterministic public guest identity assertion after the intentional G0 status extension and corrective HUD layout. |
 | `demos/zundamon-orbit/tools/test_zundamon_orbit_depth_guest.py` | Keep the accepted legacy HUD include identity assertion byte-exact. |
@@ -200,10 +203,9 @@ hash. Generated guests, D88s, traces, and temporary host matrices remain
 outside Git under ignored/generated or temporary paths. The final dirty state
 matches the preflight baseline above.
 
-The maintainer visual gate must still verify the public and private labels,
+The maintainer completed the visual gate, including public/private labels,
 each new key direction and saturation bound, FPS/speed independence,
 distance/look/radius behavior, pause/resume, count transitions, overlap,
-phase wrap, both page parities, and ESC restoration. Until that explicit
-approval is supplied, the milestone remains:
+phase wrap, both page parities, and ESC restoration. The milestone is closed:
 
-**G98z: human gate pending**
+**G98z PASS**
