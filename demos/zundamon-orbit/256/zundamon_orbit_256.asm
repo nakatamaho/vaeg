@@ -122,8 +122,13 @@ org 0x100
 %define HUD_FPS_Y               4
 %define HUD_FPS_WIDTH           18
 %define HUD_FPS_HEIGHT          8
+%define HUD_COUNT_X            58
+%define HUD_COUNT_Y            12
+%define HUD_COUNT_WIDTH        12
+%define HUD_COUNT_HEIGHT       8
 %define HUD_FULL_WRITE_BYTES    1056
 %define HUD_FPS_WRITE_BYTES     144
+%define HUD_COUNT_WRITE_BYTES   96
 %define ORBIT_RADIUS_ADJUSTMENTS 0
 
 %ifndef M98Q_BOUNDED_QA
@@ -144,6 +149,10 @@ org 0x100
 %ifndef M98T_QA_SCENARIO
 %define M98T_QA_SCENARIO        0
 %endif
+%ifndef M98V_ACTIVE_COUNT
+%define M98V_ACTIVE_COUNT       4
+%endif
+%include "zundamon_multi_instance_contract.inc"
 
 %define CLEAR_MODE_FULL         0
 %define CLEAR_MODE_DIRTY        1
@@ -291,6 +300,20 @@ org 0x100
 %if TARGET_ANCHOR_X >= SCREEN_WIDTH || TARGET_ANCHOR_Y >= SCREEN_HEIGHT
 %error "M98q target anchor is outside the logical viewport"
 %endif
+%if M98V_ACTIVE_COUNT != 1 && M98V_ACTIVE_COUNT != 2 && M98V_ACTIVE_COUNT != 4 && M98V_ACTIVE_COUNT != 8 && M98V_ACTIVE_COUNT != 16
+%error "M98v active count must be 1, 2, 4, 8, or 16"
+%endif
+%if M98V_ACTIVE_COUNT = 1
+%define M98V_COUNT_TILE_INDEX 0
+%elif M98V_ACTIVE_COUNT = 2
+%define M98V_COUNT_TILE_INDEX 1
+%elif M98V_ACTIVE_COUNT = 4
+%define M98V_COUNT_TILE_INDEX 2
+%elif M98V_ACTIVE_COUNT = 8
+%define M98V_COUNT_TILE_INDEX 3
+%else
+%define M98V_COUNT_TILE_INDEX 4
+%endif
 
 start:
     ; PC-Engine may choose a different COM load segment.  Relocate the guest
@@ -366,6 +389,8 @@ load_resume:
     jc descriptor_failed
     call validate_orbit_table
     jc descriptor_failed
+    call validate_all_multi_instance_states
+    jc descriptor_failed
     call initialize_video_double_buffer
     jc transfer_failed
     mov bx, G1_PAGE_BYTES
@@ -387,7 +412,7 @@ transfer_resume:
     call initialize_cadence_scheduler
 render_loop:
     mov al, [orbit_phase_next]
-    call select_orbit_destination
+    call generate_multi_instance_frame
     jc descriptor_failed
     mov byte [hidden_render_state], RENDER_RENDERING
     call render_hidden_page_to_ready
@@ -407,14 +432,12 @@ render_loop:
     jc runtime_failed
     mov bx, [page_flips]
     xor cx, cx
-    mov cl, [last_published_phase]
+    mov cl, [last_published_global_phase]
     xor dx, dx
-    mov dl, [last_published_scale_id]
+    mov dl, M98V_ACTIVE_COUNT
     mov al, [active_divisor]
     mov dh, al
-    mov al, [last_published_depth_rank]
-    cbw
-    mov si, ax
+    mov si, [instances_completed]
     mov di, [vblank_edges_total]
     mov bp, [requested_slots]
     mov ax, 0x98d1
@@ -461,7 +484,7 @@ settled_resume:
     jb settled_loop
 
 %if M98T_BOUNDED_QA
-    call validate_bounded_success
+    call validate_m98v_bounded_success
     jc descriptor_failed
     jmp normal_exit
 %endif
@@ -527,9 +550,9 @@ common_exit:
 .repeat_restored:
     inc word [cleanup_runs]
 
-    mov bx, [pages_initialized]
-    mov cx, [render_batches_started]
-    mov dx, [render_batches_completed]
+    mov bx, [build_active_count]
+    mov cx, [complete_frames_started]
+    mov dx, [complete_frames_ready]
     mov si, [initial_full_page_clears]
     mov di, [steady_full_page_clears]
     mov bp, [transparent_bitblts]
@@ -560,85 +583,82 @@ report_b_resume:
 report_c_resume:
     mov bx, [source_bytes]
     mov cx, [source_bytes + 2]
-    mov dx, [dirty_row_cls_commands]
-    mov si, [dirty_row_cls_commands + 2]
+    mov dx, [full_page_clear_bytes]
+    mov si, [full_page_clear_bytes + 2]
     mov di, [bms_bank_selections]
     mov bp, [last_published_dsa]
     mov ax, 0x98e4
     jmp report_d_checkpoint
 
 report_d_resume:
-    mov bx, [publication_digest]
-    mov cx, [publication_digest + 2]
-    mov dx, [phase_publication_total]
-    xor ax, ax
-    mov al, [last_published_scale_id]
-    mov si, ax
-    mov di, [scale_changes]
+    mov bx, [instances_planned]
+    mov cx, [instances_submitted]
+    mov dx, [instances_completed]
+    mov si, [instances_published]
+    mov di, [draw_order_failures]
     mov bp, [bounded_validation_pass]
     mov ax, 0x98e5
     jmp report_e_checkpoint
 
 report_e_resume:
-    mov bx, [dirty_rect_clears]
-    mov cx, [dirty_words_cleared]
-    mov dx, [dirty_words_cleared + 2]
-    mov si, [dirty_bytes_cleared]
-    mov di, [dirty_bytes_cleared + 2]
+    mov bx, [partial_publication_attempts]
+    mov cx, [tie_break_failures]
+    mov dx, [source_failures]
+    mov si, [framebuffer_mismatches]
+    mov di, [runtime_count_changes]
     mov bp, [guard_failures]
     mov ax, 0x98e6
     jmp report_f_checkpoint
 
 report_f_resume:
-    mov bx, [baseline_full_clear_words]
-    mov cx, [baseline_full_clear_words + 2]
-    mov dx, [baseline_full_clear_bytes]
-    mov si, [baseline_full_clear_bytes + 2]
-    mov di, [sgp_command_lists]
-    mov bp, [sgp_commands]
+    mov bx, [full_page_clear_words]
+    mov cx, [full_page_clear_words + 2]
+    mov dx, [sgp_command_lists]
+    mov si, [sgp_commands]
+    mov di, [sgp_batches]
+    mov bp, [complete_frames_published]
     mov ax, 0x98e7
     jmp report_g_checkpoint
 
 report_g_resume:
-    mov bx, [dirty_full_mismatches]
-    mov cx, [page_flips]
-    xor dx, dx
-    mov dl, [page_old_valid + PAGE_A]
+    mov bx, [page_flips]
+    mov cx, [requested_slots]
+    mov dx, [published_frames]
+    mov si, [missed_slots]
+    mov di, [ready_wait_edges]
     xor ax, ax
-    mov al, [page_old_valid + PAGE_B]
-    mov si, ax
-    mov di, [page_old_phase]
-    mov bp, [cleanup_runs]
+    mov al, [hidden_render_state]
+    mov bp, ax
     mov ax, 0x98e8
     jmp report_h_checkpoint
 
 report_h_resume:
-    mov bx, [vblank_edges_total]
-    mov cx, [vblank_edges_unpaused]
-    mov dx, [vblank_edges_paused]
-    mov si, [requested_slots]
-    mov di, [published_updates]
-    mov bp, [missed_slots]
-    mov ax, 0x98e9
-    jmp report_i_checkpoint
-
-report_i_resume:
     xor bx, bx
     mov bl, [active_divisor]
     mov bh, [requested_divisor]
     mov cx, [divider_change_requests]
     mov dx, [divider_changes_applied]
     mov si, [divider_boundary_resets]
-    mov di, [ready_wait_edges]
-    mov bp, [scale_changes]
+    mov di, [pause_requests]
+    mov bp, [pause_transitions_applied]
+    mov ax, 0x98e9
+    jmp report_i_checkpoint
+
+report_i_resume:
+    mov bx, [vblank_edges_total]
+    mov cx, [vblank_edges_unpaused]
+    mov dx, [vblank_edges_paused]
+    mov si, [control_endpoint_hits]
+    mov di, [phase_publication_total]
+    mov bp, [scale_publication_total]
     mov ax, 0x98ea
     jmp report_j_checkpoint
 
 report_j_resume:
-    mov bx, [pause_requests]
-    mov cx, [pause_transitions_applied]
-    mov dx, [control_endpoint_hits]
-    mov si, [partial_publication_attempts]
+    mov bx, [publication_digest]
+    mov cx, [publication_digest + 2]
+    mov dx, [revolution_wraps]
+    mov si, [phase_advances]
     xor ax, ax
     mov al, [hidden_render_state]
     mov di, ax
@@ -661,7 +681,7 @@ report_k_resume:
 report_l_resume:
     mov bx, [hud_full_initializations]
     mov cx, [hud_fps_field_updates]
-    mov dx, [hud_zundamon_field_updates]
+    mov dx, [hud_count_field_updates]
     mov si, [hud_g1_writes]
     mov di, [hud_vblank_overruns]
     mov bp, [hud_mismatches]
@@ -671,28 +691,21 @@ report_l_resume:
 report_m_resume:
     mov bx, [hud_bytes_written]
     mov cx, [hud_bytes_written + 2]
-    mov al, [last_published_depth_rank]
-    cbw
-    mov dx, ax
-    xor si, si
-    mov al, [last_published_scale_id]
-    xor ah, ah
-    mov si, ax
-    mov al, [pending_depth_rank]
-    cbw
-    mov di, ax
-    xor ax, ax
-    mov al, [pending_scale_id]
-    mov bp, ax
+    mov dx, [hud_runtime_failure]
+    mov si, [descriptor_errors]
+    mov di, [source_failures]
+    mov bp, [cleanup_runs]
     mov ax, 0x98ee
     jmp report_n_checkpoint
 
 report_n_resume:
-    mov bx, [scale_changes]
-    mov cx, [scale_publication_total]
-    mov dx, [hud_runtime_failure]
-    mov si, [descriptor_errors]
-    mov di, [bounds_failures]
+    xor bx, bx
+    mov bl, [last_published_global_phase]
+    xor cx, cx
+    mov cl, [pending_global_phase]
+    mov dx, [complete_frames_started]
+    mov si, [complete_frames_ready]
+    mov di, [complete_frames_published]
     mov bp, [bounded_validation_pass]
     mov ax, 0x98ef
     jmp report_o_checkpoint
@@ -1575,6 +1588,249 @@ validate_orbit_table:
     stc
     ret
 
+; Build the exact bounded M98u active prefix for one global phase.  Records
+; stay in instance-ID order; draw_order contains the far-to-near permutation.
+record_pointer_from_index:
+    xor ah, ah
+    mov bx, M98U_INSTANCE_RECORD_BYTES
+    mul bx
+    add ax, instance_records
+    mov di, ax
+    ret
+
+generate_multi_instance_frame:
+    cmp al, ORBIT_PUBLICATIONS_PER_REVOLUTION
+    jae .failed
+    mov [pending_global_phase], al
+    mov byte [generation_instance], 0
+.record_loop:
+    xor ax, ax
+    mov al, [generation_instance]
+    mov cl, 6
+    shl ax, cl
+    xor dx, dx
+    mov bx, M98V_ACTIVE_COUNT
+    div bx
+    cmp ax, ORBIT_PUBLICATIONS_PER_REVOLUTION
+    jae .failed
+    mov [generated_phase_offset], al
+    add al, [pending_global_phase]
+    and al, ORBIT_PUBLICATIONS_PER_REVOLUTION - 1
+    mov [generated_phase], al
+    call select_orbit_destination
+    jc .failed
+
+    mov al, [generation_instance]
+    call record_pointer_from_index
+    mov al, [generation_instance]
+    mov [di + M98U_RECORD_INSTANCE_ID], al
+    mov al, [generated_phase_offset]
+    mov [di + M98U_RECORD_PHASE_OFFSET], al
+    mov al, [generated_phase]
+    mov [di + M98U_RECORD_PHASE_ID], al
+    mov al, [selected_scale_id]
+    mov [di + M98U_RECORD_SCALE_ID], al
+    mov al, [pending_depth_rank]
+    mov [di + M98U_RECORD_DEPTH_RANK], al
+    mov byte [di + M98U_RECORD_BMS_BANK], BMS_FIRST_SELECTOR
+    mov al, [selected_scale_id]
+    dec al
+    mov [di + M98U_RECORD_DESCRIPTOR_INDEX], al
+    mov byte [di + M98U_RECORD_RESERVED], 0
+    mov ax, [pending_orbit_dx]
+    mov [di + M98U_RECORD_DX], ax
+    mov bx, ax
+    add bx, TARGET_ANCHOR_X
+    mov [di + M98U_RECORD_TARGET_ANCHOR_X], bx
+    mov ax, [pending_orbit_dy]
+    mov [di + M98U_RECORD_DY], ax
+    mov bx, ax
+    add bx, TARGET_ANCHOR_Y
+    mov [di + M98U_RECORD_TARGET_ANCHOR_Y], bx
+    mov ax, [selected_width]
+    mov [di + M98U_RECORD_WIDTH], ax
+    mov ax, [selected_height]
+    mov [di + M98U_RECORD_HEIGHT], ax
+    mov ax, [selected_pitch]
+    mov [di + M98U_RECORD_PITCH], ax
+    mov ax, [selected_anchor_x]
+    mov [di + M98U_RECORD_ANCHOR_X], ax
+    mov ax, [selected_anchor_y]
+    mov [di + M98U_RECORD_ANCHOR_Y], ax
+    mov ax, [selected_dst_x]
+    mov [di + M98U_RECORD_DST_X], ax
+    add ax, [selected_width]
+    mov [di + M98U_RECORD_DST_X1], ax
+    mov ax, [selected_dst_y]
+    mov [di + M98U_RECORD_DST_Y], ax
+    add ax, [selected_height]
+    mov [di + M98U_RECORD_DST_Y1], ax
+    mov ax, [selected_bank_offset]
+    mov [di + M98U_RECORD_BANK_OFFSET], ax
+    mov ax, [selected_bank_offset + 2]
+    mov [di + M98U_RECORD_BANK_OFFSET + 2], ax
+    mov ax, [selected_source_low]
+    mov [di + M98U_RECORD_SGP_SOURCE], ax
+    mov ax, [selected_source_high]
+    mov [di + M98U_RECORD_SGP_SOURCE + 2], ax
+    mov ax, [selected_payload_bytes]
+    mov [di + M98U_RECORD_PAYLOAD_BYTES], ax
+    mov ax, [selected_payload_bytes + 2]
+    mov [di + M98U_RECORD_PAYLOAD_BYTES + 2], ax
+    mov ax, [expected_frame_crc]
+    mov [di + M98U_RECORD_SOURCE_IDENTITY], ax
+    mov ax, [expected_frame_crc + 2]
+    mov [di + M98U_RECORD_SOURCE_IDENTITY + 2], ax
+
+    ; Direct-formula phase assignments must be unique in the active prefix.
+    xor cx, cx
+    mov cl, [generation_instance]
+    jcxz .unique
+    mov si, instance_records
+.unique_loop:
+    mov al, [generated_phase]
+    cmp al, [si + M98U_RECORD_PHASE_ID]
+    je .failed
+    add si, M98U_INSTANCE_RECORD_BYTES
+    loop .unique_loop
+.unique:
+    xor bx, bx
+    mov bl, [generation_instance]
+    mov [draw_order + bx], bl
+    inc byte [generation_instance]
+    cmp byte [generation_instance], M98V_ACTIVE_COUNT
+    jb .record_loop
+
+    ; Deterministic bounded insertion sort by signed depth, then instance ID.
+    mov byte [sort_position], 1
+.sort_outer:
+    xor bx, bx
+    mov bl, [sort_position]
+    mov al, [draw_order + bx]
+    mov [sort_candidate], al
+    call record_pointer_from_index
+    mov [sort_candidate_ptr], di
+    mov al, [sort_position]
+    mov [sort_scan], al
+.sort_inner:
+    cmp byte [sort_scan], 0
+    je .insert_candidate
+    xor bx, bx
+    mov bl, [sort_scan]
+    dec bx
+    mov al, [draw_order + bx]
+    mov [sort_prior], al
+    call record_pointer_from_index
+    mov si, di
+    mov di, [sort_candidate_ptr]
+    mov al, [si + M98U_RECORD_DEPTH_RANK]
+    mov ah, [di + M98U_RECORD_DEPTH_RANK]
+    cmp al, ah
+    jl .insert_candidate
+    jg .shift_prior
+    mov al, [si + M98U_RECORD_INSTANCE_ID]
+    cmp al, [di + M98U_RECORD_INSTANCE_ID]
+    jbe .insert_candidate
+.shift_prior:
+    xor bx, bx
+    mov bl, [sort_scan]
+    mov al, [sort_prior]
+    mov [draw_order + bx], al
+    dec byte [sort_scan]
+    jmp .sort_inner
+.insert_candidate:
+    xor bx, bx
+    mov bl, [sort_scan]
+    mov al, [sort_candidate]
+    mov [draw_order + bx], al
+.keep_order:
+    inc byte [sort_position]
+    cmp byte [sort_position], M98V_ACTIVE_COUNT
+    jb .sort_outer
+
+    mov word [draw_order_seen], 0
+    xor bx, bx
+.order_check:
+    mov al, [draw_order + bx]
+    cmp al, M98V_ACTIVE_COUNT
+    jae .failed
+    mov cl, al
+    mov ax, 1
+    shl ax, cl
+    test [draw_order_seen], ax
+    jnz .failed
+    or [draw_order_seen], ax
+    inc bx
+    cmp bx, M98V_ACTIVE_COUNT
+    jb .order_check
+    mov ax, [draw_order_seen]
+    mov dx, 1
+    mov cl, M98V_ACTIVE_COUNT
+    shl dx, cl
+    dec dx
+    cmp ax, dx
+    jne .failed
+    mov al, [pending_global_phase]
+    mov [pending_phase], al
+    clc
+    ret
+.failed:
+    inc word [draw_order_failures]
+    stc
+    ret
+
+validate_all_multi_instance_states:
+    mov byte [validation_global_phase], 0
+.phase:
+    mov al, [validation_global_phase]
+    call generate_multi_instance_frame
+    jc .failed
+    inc byte [validation_global_phase]
+    cmp byte [validation_global_phase], ORBIT_PUBLICATIONS_PER_REVOLUTION
+    jb .phase
+    clc
+    ret
+.failed:
+    stc
+    ret
+
+load_instance_for_draw:
+    cmp al, M98V_ACTIVE_COUNT
+    jae .failed
+    call record_pointer_from_index
+    mov al, [di + M98U_RECORD_SCALE_ID]
+    push di
+    call select_scale_descriptor
+    pop di
+    jc .failed
+    mov ax, [di + M98U_RECORD_WIDTH]
+    cmp ax, [selected_width]
+    jne .failed
+    mov ax, [di + M98U_RECORD_HEIGHT]
+    cmp ax, [selected_height]
+    jne .failed
+    mov ax, [di + M98U_RECORD_PITCH]
+    cmp ax, [selected_pitch]
+    jne .failed
+    mov ax, [di + M98U_RECORD_DST_X]
+    mov [selected_dst_x], ax
+    mov ax, [di + M98U_RECORD_DST_Y]
+    mov [selected_dst_y], ax
+    mov ax, [di + M98U_RECORD_SGP_SOURCE]
+    mov [selected_source_low], ax
+    mov ax, [di + M98U_RECORD_SGP_SOURCE + 2]
+    mov [selected_source_high], ax
+    mov al, [di + M98U_RECORD_PHASE_ID]
+    mov [pending_phase], al
+    mov al, [di + M98U_RECORD_DEPTH_RANK]
+    mov [pending_depth_rank], al
+    clc
+    ret
+.failed:
+    inc word [source_failures]
+    stc
+    ret
+
 compare_final_crcs:
     mov ax, [file_crc_state]
     not ax
@@ -2042,9 +2298,10 @@ draw_hud_full:
     jnz .row
     inc word [hud_full_initializations]
     inc word [hud_fps_field_updates]
-    inc word [hud_zundamon_field_updates]
     add word [hud_bytes_written], HUD_FULL_WRITE_BYTES
     adc word [hud_bytes_written + 2], 0
+    call draw_hud_count_field
+    jc .failed
     clc
     jmp .done
 .failed:
@@ -2058,6 +2315,39 @@ draw_hud_full:
     pop dx
     pop cx
     pop bx
+    pop ax
+    ret
+
+; Replace the final two line-2 cells once during initialization.  The build
+; count is immutable, so there is no runtime count update path.
+draw_hud_count_field:
+    push ax
+    push cx
+    push si
+    push di
+    push bp
+    push es
+    mov si, [hud_count_tile_pointers + M98V_COUNT_TILE_INDEX * 2]
+    mov ax, G0_SEGMENT
+    mov es, ax
+    mov di, HUD_COUNT_Y * SCREEN_PITCH + HUD_COUNT_X
+    mov bp, HUD_COUNT_HEIGHT
+.row:
+    mov cx, HUD_COUNT_WIDTH
+    rep movsb
+    add di, SCREEN_PITCH - HUD_COUNT_WIDTH
+    dec bp
+    jnz .row
+    inc word [hud_zundamon_field_updates]
+    inc word [hud_count_field_updates]
+    add word [hud_bytes_written], HUD_COUNT_WRITE_BYTES
+    adc word [hud_bytes_written + 2], 0
+    clc
+    pop es
+    pop bp
+    pop di
+    pop si
+    pop cx
     pop ax
     ret
 
@@ -2165,9 +2455,7 @@ build_initialization_commands:
     stosw
     jmp finalize_sgp_command_list
 
-build_render_commands:
-    ; The explicit hidden-page index chooses only the destination page.  The
-    ; phase-selected descriptor supplies its own anchor, dimensions, and BMS source.
+build_full_page_clear_commands:
     push ax
     push dx
     push si
@@ -2188,7 +2476,6 @@ build_render_commands:
     mov ax, dx
     stosw
     pop si
-%if M98Q_CLEAR_MODE = CLEAR_MODE_FULL
     mov ax, SGP_COMMAND_SET_COLOR
     stosw
     xor ax, ax
@@ -2203,7 +2490,33 @@ build_render_commands:
     stosw
     xor ax, ax
     stosw
-%endif
+    mov ax, SGP_COMMAND_END
+    stosw
+    jmp finalize_sgp_command_list
+
+build_bitblt_commands:
+    ; The explicit hidden page chooses only the destination.  The selected
+    ; M98u record supplies its descriptor, position, and shared-bank source.
+    push ax
+    push dx
+    push si
+    push di
+    push es
+    push ds
+    pop es
+    xor ah, ah
+    mov si, ax
+    shl si, 1
+    mov di, sgp_command_list
+    mov ax, SGP_COMMAND_SET_WORK
+    stosw
+    push si
+    mov si, sgp_work_area
+    call physical_address_from_ds_si
+    stosw
+    mov ax, dx
+    stosw
+    pop si
 
     mov ax, SGP_COMMAND_SET_SOURCE
     stosw
@@ -2530,41 +2843,64 @@ render_hidden_page_to_ready:
     cmp bl, PAGE_HIDDEN_STALE
     jne .state_failed
 .state_ready:
-    call prepare_pending_rectangle
-    jc .state_failed
     call wait_sgp_idle
     jc .failed
     mov byte [page_state + si], PAGE_HIDDEN_RENDERING
     inc word [render_batches_started]
+    inc word [complete_frames_started]
+    add word [instances_planned], M98V_ACTIVE_COUNT
     add word [baseline_full_clear_words], G1_PAGE_WORD_COUNT
     adc word [baseline_full_clear_words + 2], 0
     add word [baseline_full_clear_bytes], G1_PAGE_BYTES & 0xffff
     adc word [baseline_full_clear_bytes + 2], G1_PAGE_BYTES >> 16
-%if M98Q_CLEAR_MODE = CLEAR_MODE_DIRTY
-    call clear_hidden_dirty_rows
-    jc .failed
-%endif
     call select_render_bms
     mov al, [hidden_page_index]
-    call build_render_commands
+    call build_full_page_clear_commands
     call run_sgp_command_list
     jc .failed
     inc word [sgp_command_lists]
-%if M98Q_CLEAR_MODE = CLEAR_MODE_FULL
-    add word [sgp_commands], 7
+    inc word [sgp_batches]
+    add word [sgp_commands], 3
     inc word [steady_full_page_clears]
-%else
-    add word [sgp_commands], 5
-%endif
-    inc word [render_batches_completed]
+    add word [full_page_clear_words], G1_PAGE_WORD_COUNT
+    adc word [full_page_clear_words + 2], 0
+    add word [full_page_clear_bytes], G1_PAGE_BYTES & 0xffff
+    adc word [full_page_clear_bytes + 2], G1_PAGE_BYTES >> 16
+
+    mov byte [draw_position], 0
+.draw_loop:
+    xor bx, bx
+    mov bl, [draw_position]
+    mov al, [draw_order + bx]
+    mov [current_draw_instance], al
+    call load_instance_for_draw
+    jc .state_failed
+    mov al, [hidden_page_index]
+    call build_bitblt_commands
+    call run_sgp_command_list
+    jc .failed
+    inc word [sgp_command_lists]
+    inc word [sgp_batches]
+    add word [sgp_commands], 4
+    inc word [instances_submitted]
+    inc word [instances_completed]
     inc word [transparent_bitblts]
+    mov ax, [selected_payload_bytes]
+    add [source_bytes], ax
+    adc word [source_bytes + 2], 0
+    inc byte [draw_position]
+    cmp byte [draw_position], M98V_ACTIVE_COUNT
+    jb .draw_loop
+
+    inc word [render_batches_completed]
+    inc word [complete_frames_ready]
+    mov al, [pending_global_phase]
+    mov [pending_phase], al
     mov al, [hidden_page_index]
     xor ah, ah
     mov si, ax
     mov byte [page_state + si], PAGE_HIDDEN_COMPLETE
     call verify_staging_poison
-    jc .sgp_error
-    call verify_bms_frame_crc
     jc .sgp_error
     call select_render_ordinary
     call verify_normal_guards
@@ -2595,8 +2931,6 @@ publish_ready_hidden_page:
     mov al, [hidden_page_index]
     call publish_page
     jc .failed
-    call commit_pending_rectangle
-    jc .failed
     mov al, [hidden_page_index]
     xor ah, ah
     mov si, ax
@@ -2618,21 +2952,14 @@ publish_ready_hidden_page:
     mov [hidden_page_index], al
     inc word [page_flips]
     inc word [published_updates]
-    mov al, [pending_phase]
+    inc word [published_frames]
+    inc word [complete_frames_published]
+    add word [instances_published], M98V_ACTIVE_COUNT
+    mov al, [pending_global_phase]
+    mov [last_published_global_phase], al
     mov [last_published_phase], al
-    mov al, [pending_scale_id]
-    cmp word [published_updates], 1
-    je .scale_ready
-    cmp al, [last_published_scale_id]
-    je .scale_ready
-    inc word [scale_changes]
-.scale_ready:
-    mov [last_published_scale_id], al
-    mov [visible_scale_id], al
-    mov al, [pending_depth_rank]
-    mov [last_published_depth_rank], al
-    mov [visible_depth_rank], al
-    call record_orbit_publication
+    mov byte [published_active_count], M98V_ACTIVE_COUNT
+    call record_multi_frame_publication
     mov byte [hidden_render_state], RENDER_IDLE
     call qa_after_publication
     clc
@@ -2641,6 +2968,59 @@ publish_ready_hidden_page:
     stc
 .done:
     pop si
+    pop bx
+    pop ax
+    ret
+
+record_multi_frame_publication:
+    push ax
+    push bx
+    push cx
+    push dx
+    push si
+    push di
+    xor ax, ax
+    mov al, [pending_global_phase]
+    mov si, ax
+    shl si, 1
+    inc word [phase_publications + si]
+    inc word [phase_publication_total]
+    xor bx, bx
+.record:
+    mov al, bl
+    push bx
+    call record_pointer_from_index
+    pop bx
+    xor ax, ax
+    mov al, [di + M98U_RECORD_SCALE_ID]
+    dec ax
+    mov si, ax
+    shl si, 1
+    inc word [scale_publications + si]
+    inc word [scale_publication_total]
+    cmp byte [di + M98U_RECORD_PHASE_ID], 32
+    jae .far
+    inc word [near_publications]
+    jmp .next
+.far:
+    inc word [far_publications]
+.next:
+    inc bx
+    cmp bx, M98V_ACTIVE_COUNT
+    jb .record
+    xor ax, ax
+    mov al, [pending_global_phase]
+    mov ah, M98V_ACTIVE_COUNT
+    add [publication_digest], ax
+    adc word [publication_digest + 2], 0
+    xor ax, ax
+    mov al, [visible_page_index]
+    inc ax
+    add [publication_digest + 2], ax
+    pop di
+    pop si
+    pop dx
+    pop cx
     pop bx
     pop ax
     ret
@@ -2711,6 +3091,153 @@ advance_orbit_phase:
     jnz .done
     inc word [revolution_wraps]
 .done:
+    ret
+
+validate_m98v_bounded_success:
+    cmp word [build_active_count], M98V_ACTIVE_COUNT
+    jne .failed
+    cmp word [render_batches_started], QA_PUBLICATIONS
+    jne .failed
+    cmp word [render_batches_completed], QA_PUBLICATIONS
+    jne .failed
+    cmp word [complete_frames_started], QA_PUBLICATIONS
+    jne .failed
+    cmp word [complete_frames_ready], QA_PUBLICATIONS
+    jne .failed
+    cmp word [complete_frames_published], QA_PUBLICATIONS
+    jne .failed
+    cmp word [published_frames], QA_PUBLICATIONS
+    jne .failed
+    cmp word [initial_full_page_clears], 2
+    jne .failed
+    cmp word [steady_full_page_clears], QA_PUBLICATIONS
+    jne .failed
+    cmp word [dirty_rect_clears], 0
+    jne .failed
+    cmp word [dirty_row_cls_commands], 0
+    jne .failed
+    cmp word [dirty_row_cls_commands + 2], 0
+    jne .failed
+    cmp word [transparent_bitblts], QA_PUBLICATIONS * M98V_ACTIVE_COUNT
+    jne .failed
+    cmp word [instances_planned], QA_PUBLICATIONS * M98V_ACTIVE_COUNT
+    jne .failed
+    cmp word [instances_submitted], QA_PUBLICATIONS * M98V_ACTIVE_COUNT
+    jne .failed
+    cmp word [instances_completed], QA_PUBLICATIONS * M98V_ACTIVE_COUNT
+    jne .failed
+    cmp word [instances_published], QA_PUBLICATIONS * M98V_ACTIVE_COUNT
+    jne .failed
+    cmp word [page_flips], QA_PUBLICATIONS
+    jne .failed
+    cmp word [published_updates], QA_PUBLICATIONS
+    jne .failed
+    cmp word [phase_advances], QA_PUBLICATIONS
+    jne .failed
+    mov ax, [published_updates]
+    add ax, [missed_slots]
+    cmp ax, [requested_slots]
+    jne .failed
+    cmp word [partial_publication_attempts], 0
+    jne .failed
+    cmp word [draw_order_failures], 0
+    jne .failed
+    cmp word [tie_break_failures], 0
+    jne .failed
+    cmp word [sgp_timeouts], 0
+    jne .failed
+    cmp word [sgp_errors], 0
+    jne .failed
+    cmp word [vblank_timeouts], 0
+    jne .failed
+    cmp word [descriptor_errors], 0
+    jne .failed
+    cmp word [bounds_failures], 0
+    jne .failed
+    cmp word [source_failures], 0
+    jne .failed
+    cmp word [guard_failures], 0
+    jne .failed
+    cmp word [framebuffer_mismatches], 0
+    jne .failed
+    cmp word [runtime_count_changes], 0
+    jne .failed
+    cmp word [revolution_wraps], QA_CYCLES
+    jne .failed
+    cmp word [phase_publication_total], QA_PUBLICATIONS
+    jne .failed
+    cmp word [scale_publication_total], QA_PUBLICATIONS * M98V_ACTIVE_COUNT
+    jne .failed
+    cmp word [near_publications], (QA_PUBLICATIONS * M98V_ACTIVE_COUNT) / 2
+    jne .failed
+    cmp word [far_publications], (QA_PUBLICATIONS * M98V_ACTIVE_COUNT) / 2
+    jne .failed
+    cmp word [sgp_command_lists], 1 + QA_PUBLICATIONS * (1 + M98V_ACTIVE_COUNT)
+    jne .failed
+    cmp word [sgp_batches], QA_PUBLICATIONS * (1 + M98V_ACTIVE_COUNT)
+    jne .failed
+    cmp word [sgp_commands], 5 + QA_PUBLICATIONS * (3 + 4 * M98V_ACTIVE_COUNT)
+    jne .failed
+    cmp word [hud_full_initializations], 1
+    jne .failed
+    mov ax, [divider_changes_applied]
+    inc ax
+    cmp ax, [hud_fps_field_updates]
+    jne .failed
+    cmp word [hud_zundamon_field_updates], 1
+    jne .failed
+    cmp word [hud_count_field_updates], 1
+    jne .failed
+    cmp word [hud_g1_writes], 0
+    jne .failed
+    cmp word [hud_vblank_overruns], 0
+    jne .failed
+    cmp word [hud_mismatches], 0
+    jne .failed
+    cmp word [hud_runtime_failure], 0
+    jne .failed
+    mov ax, [divider_changes_applied]
+    mov bx, HUD_FPS_WRITE_BYTES
+    mul bx
+    add ax, HUD_FULL_WRITE_BYTES + HUD_COUNT_WRITE_BYTES
+    adc dx, 0
+    cmp ax, [hud_bytes_written]
+    jne .failed
+    cmp dx, [hud_bytes_written + 2]
+    jne .failed
+    cmp word [full_page_clear_words], (QA_PUBLICATIONS * G1_PAGE_WORD_COUNT) & 0xffff
+    jne .failed
+    cmp word [full_page_clear_words + 2], (QA_PUBLICATIONS * G1_PAGE_WORD_COUNT) >> 16
+    jne .failed
+    cmp word [full_page_clear_bytes], (QA_PUBLICATIONS * G1_PAGE_BYTES) & 0xffff
+    jne .failed
+    cmp word [full_page_clear_bytes + 2], (QA_PUBLICATIONS * G1_PAGE_BYTES) >> 16
+    jne .failed
+    xor si, si
+    mov cx, ORBIT_PUBLICATIONS_PER_REVOLUTION
+.phase_loop:
+    cmp word [phase_publications + si], QA_CYCLES
+    jne .failed
+    add si, 2
+    loop .phase_loop
+    xor si, si
+    mov cx, ATLAS_SCALE_COUNT
+.scale_loop:
+    xor ax, ax
+    mov al, [expected_scale_histogram + si]
+    mov bx, QA_CYCLES * M98V_ACTIVE_COUNT
+    mul bx
+    mov di, si
+    shl di, 1
+    cmp ax, [scale_publications + di]
+    jne .failed
+    inc si
+    loop .scale_loop
+    mov word [bounded_validation_pass], 1
+    clc
+    ret
+.failed:
+    stc
     ret
 
 validate_bounded_success:
@@ -3427,22 +3954,22 @@ print_string:
     ret
 
 message_start:
-    db "M98T_INIT: 64-phase depth/scale ellipse with G0 HUD", 13, 10
+    db "M98V_INIT: full-page multi-ZUNDAMON frame baseline", 13, 10
     db "Selector 0 is ordinary RAM; selector 1 is the atlas bank.", 13, 10, "$"
 message_done:
-    db "M98T_EXIT: ordinary mapping, keyboard, and video state restored.", 13, 10, "$"
+    db "M98V_EXIT: ordinary mapping, keyboard, and video state restored.", 13, 10, "$"
 message_option_failed:
-    db "M98T_OPTION: use zero or one exact /V1 through /V8 option.", 13, 10, "$"
+    db "M98V_OPTION: use zero or one exact /V1 through /V8 option.", 13, 10, "$"
 message_bms_failed:
-    db "M98T_FAIL: predecessor BMS mapping probe failed.", 13, 10, "$"
+    db "M98V_FAIL: predecessor BMS mapping probe failed.", 13, 10, "$"
 message_atlas_failed:
-    db "M98T_FAIL: atlas validation or streaming failed.", 13, 10, "$"
+    db "M98V_FAIL: atlas validation or streaming failed.", 13, 10, "$"
 message_descriptor_failed:
-    db "M98T_FAIL: depth, descriptor, HUD, or bounded invariant failed.", 13, 10, "$"
+    db "M98V_FAIL: instance list, descriptor, HUD, or bounded invariant failed.", 13, 10, "$"
 message_transfer_failed:
-    db "M98T_FAIL: hidden-page SGP batch or HUD update failed.", 13, 10, "$"
+    db "M98V_FAIL: complete hidden-page SGP frame or HUD update failed.", 13, 10, "$"
 message_runtime_failed:
-    db "M98T_FAIL: bounded VBLANK edge wait timed out.", 13, 10, "$"
+    db "M98V_FAIL: bounded VBLANK edge wait timed out.", 13, 10, "$"
 atlas_filename:
     db "ZUNDORB.BIN", 0
 
@@ -3537,7 +4064,10 @@ expected_scale_histogram: db 1,2,2,2,2,4,2,2,2,2,2,2,2,2,3,3,2,2,2,2,2,2,2,2,4,2
 %endif
 %include "zundamon_hud_table.inc"
 %if HUD_TILE_COUNT != 8 || HUD_FULL_TILE_BYTES != HUD_FULL_WRITE_BYTES || HUD_FPS_TILE_BYTES != HUD_FPS_WRITE_BYTES
-%error "M98t HUD include has the wrong tile contract"
+%error "M98v HUD include has the wrong FPS tile contract"
+%endif
+%if HUD_COUNT_TILE_COUNT != 5 || HUD_COUNT_TILE_BYTES != HUD_COUNT_WRITE_BYTES
+%error "M98v HUD include has the wrong count tile contract"
 %endif
 guard_normal_outside: db 0x5a,0xa5,0x3c,0xc3,0x69,0x96,0x0f,0xf0
 guard_normal_under:   db 0xa5,0x5a,0xc3,0x3c,0x96,0x69,0xf0,0x0f
@@ -3588,7 +4118,22 @@ cadence_option_seen: db 0
 keyboard_repeat_disabled: db 0
 qa_stage: db 0
 qa_pause_edges_remaining: db 0
+pending_global_phase: db 0
+last_published_global_phase: db 0
+published_active_count: db M98V_ACTIVE_COUNT
+generation_instance: db 0
+generated_phase_offset: db 0
+generated_phase: db 0
+validation_global_phase: db 0
+sort_position: db 0
+sort_candidate: db 0
+sort_prior: db 0
+sort_scan: db 0
+draw_position: db 0
+current_draw_instance: db 0
 align 2, db 0
+sort_candidate_ptr: dw 0
+draw_order_seen: dw 0
 page_old_x: dw 0, 0
 page_old_y: dw 0, 0
 page_old_width: dw 0, 0
@@ -3611,8 +4156,19 @@ last_published_dsa: dw G1_PAGE_A_DSA & 0xffff
 psp_segment: dw 0
 exit_message: dw message_transfer_failed
 pages_initialized: dw 0
+build_active_count: dw M98V_ACTIVE_COUNT
 render_batches_started: dw 0
 render_batches_completed: dw 0
+complete_frames_started: dw 0
+complete_frames_ready: dw 0
+complete_frames_published: dw 0
+published_frames: dw 0
+instances_planned: dw 0
+instances_submitted: dw 0
+instances_completed: dw 0
+instances_published: dw 0
+draw_order_failures: dw 0
+tie_break_failures: dw 0
 initial_full_page_clears: dw 0
 steady_full_page_clears: dw 0
 dirty_rect_clears: dw 0
@@ -3650,6 +4206,8 @@ scale_publication_total: dw 0
 hud_full_initializations: dw 0
 hud_fps_field_updates: dw 0
 hud_zundamon_field_updates: dw 0
+hud_count_field_updates: dw 0
+runtime_count_changes: dw 0
 hud_g1_writes: dw 0
 hud_vblank_overruns: dw 0
 hud_mismatches: dw 0
@@ -3659,11 +4217,16 @@ dirty_full_mismatches: dw 0
 guard_failures: dw 0
 sgp_command_lists: dw 0
 sgp_commands: dw 0
+sgp_batches: dw 0
 revolution_wraps: dw 0
 phase_publication_total: dw 0
 bounds_failures: dw 0
+source_failures: dw 0
+framebuffer_mismatches: dw 0
 bounded_validation_pass: dw 0
 source_bytes: dw 0, 0
+full_page_clear_words: dw 0, 0
+full_page_clear_bytes: dw 0, 0
 dirty_row_cls_commands: dw 0, 0
 dirty_words_cleared: dw 0, 0
 dirty_bytes_cleared: dw 0, 0
@@ -3674,6 +4237,9 @@ phase_publications: times ORBIT_PUBLICATIONS_PER_REVOLUTION dw 0
 scale_publications: times ATLAS_SCALE_COUNT dw 0
 hud_bytes_written: dw 0, 0
 table_scale_histogram: times ATLAS_SCALE_COUNT db 0
+align 2, db 0
+instance_records: times M98U_INSTANCE_RECORD_CAPACITY_BYTES db 0
+draw_order: times M98U_DRAW_ORDER_CAPACITY_BYTES db 0
 sgp_command_address_low: dw 0
 sgp_command_address_high: dw 0
 saved_video_mode: dw 0

@@ -194,7 +194,10 @@ far-to-near ordering contract. Multi-instance drawing, clearing, and controls
 remain assigned to M98v, M98w, and M98x respectively. The exhaustive host
 matrix, independent validator, count-one compatibility, deterministic rebuild,
 and unchanged M98t guest checks passed on 2026-09-01. G98u passed and M98u is
-closed; no M98v work began.
+closed. M98v consumes that exact state for the five build-time counts
+1/2/4/8/16 and uses one complete hidden-page clear before every ordered draw
+list. Its automated and count-four visual gates remain pending. M98w dirty-row
+unions and M98x runtime count controls remain separate and have not begun.
 
 ## 6. Deterministic host contracts
 

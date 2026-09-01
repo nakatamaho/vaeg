@@ -38,6 +38,8 @@ CELL_HEIGHT = 8
 FPS_WIDTH = 18
 FPS_HEIGHT = 8
 FPS_FIELDS = ("60 ", "30 ", "20 ", "15 ", "12 ", "10 ", "8.6", "7.5")
+COUNT_FIELDS = (" 1", " 2", " 4", " 8", "16")
+COUNT_WIDTH = 12
 
 # Public, task-authored 5x7 glyphs.  No ROM or firmware font is consulted.
 GLYPHS = {
@@ -99,6 +101,7 @@ def emit_bytes(lines: list[str], label: str, data: bytes, width: int) -> None:
 def encode_include() -> tuple[bytes, tuple[bytes, ...], tuple[bytes, ...]]:
     full_tiles = tuple(render_full(field) for field in FPS_FIELDS)
     fps_tiles = tuple(render_text(field) for field in FPS_FIELDS)
+    count_tiles = tuple(render_text(field) for field in COUNT_FIELDS)
     lines = [
         "; Copyright (c) 2026 Nakata Maho",
         ";",
@@ -125,6 +128,8 @@ def encode_include() -> tuple[bytes, tuple[bytes, ...], tuple[bytes, ...]]:
         "%define HUD_TILE_COUNT 8",
         f"%define HUD_FULL_TILE_BYTES {HUD_WIDTH * HUD_HEIGHT}",
         f"%define HUD_FPS_TILE_BYTES {FPS_WIDTH * FPS_HEIGHT}",
+        f"%define HUD_COUNT_TILE_COUNT {len(COUNT_FIELDS)}",
+        f"%define HUD_COUNT_TILE_BYTES {COUNT_WIDTH * CELL_HEIGHT}",
         f"%define HUD_FOREGROUND 0x{FOREGROUND:02x}",
         f"%define HUD_BACKGROUND 0x{BACKGROUND:02x}",
     ]
@@ -136,6 +141,12 @@ def encode_include() -> tuple[bytes, tuple[bytes, ...], tuple[bytes, ...]]:
         emit_bytes(lines, f"hud_fps_tile_v{index}", data, FPS_WIDTH)
     lines.append("hud_fps_tile_pointers:")
     lines.append("    dw " + ",".join(f"hud_fps_tile_v{index}" for index in range(1, 9)))
+    for field, data in zip(COUNT_FIELDS, count_tiles):
+        label = field.strip()
+        emit_bytes(lines, f"hud_count_tile_{label}", data, COUNT_WIDTH)
+    lines.append("hud_count_tile_pointers:")
+    lines.append("    dw hud_count_tile_1,hud_count_tile_2,hud_count_tile_4,"
+                 "hud_count_tile_8,hud_count_tile_16")
     return ("\n".join(lines) + "\n").encode("ascii"), full_tiles, fps_tiles
 
 
@@ -147,6 +158,7 @@ def main() -> int:
     if args.output.exists() or (args.metadata is not None and args.metadata.exists()):
         parser.error("refusing to overwrite generated output")
     encoded, full_tiles, fps_tiles = encode_include()
+    count_tiles = tuple(render_text(field) for field in COUNT_FIELDS)
     args.output.write_bytes(encoded)
     digest = hashlib.sha256(encoded).hexdigest()
     if args.metadata is not None:
@@ -159,13 +171,18 @@ def main() -> int:
             "hud_rect": [4, 4, 70, 20],
             "fps_value_rect": [34, 4, 52, 12],
             "fps_fields": list(FPS_FIELDS),
+            "count_fields": list(COUNT_FIELDS),
+            "count_value_rect": [58, 12, 70, 20],
             "full_tile_sha256": [hashlib.sha256(tile).hexdigest()
                                  for tile in full_tiles],
             "fps_tile_sha256": [hashlib.sha256(tile).hexdigest()
                                 for tile in fps_tiles],
+            "count_tile_sha256": [hashlib.sha256(tile).hexdigest()
+                                  for tile in count_tiles],
             "include_sha256": digest,
         }, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-    print(f"M98T_HUD_GENERATION_PASS fields={len(FPS_FIELDS)} "
+    print(f"M98V_HUD_GENERATION_PASS fps_fields={len(FPS_FIELDS)} "
+          f"count_fields={len(COUNT_FIELDS)} "
           f"full_bytes={len(full_tiles[0])} fps_bytes={len(fps_tiles[0])} "
           f"sha256={digest}")
     return 0

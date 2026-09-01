@@ -32,6 +32,7 @@ from pathlib import Path
 DB = re.compile(r"^\s*db\s+(.+)$")
 LABEL = re.compile(r"^([a-z0-9_]+):$")
 FIELDS = ("60 ", "30 ", "20 ", "15 ", "12 ", "10 ", "8.6", "7.5")
+COUNT_FIELDS = (" 1", " 2", " 4", " 8", "16")
 FG = 0xFF
 BG = 0x01
 
@@ -121,7 +122,24 @@ def inspect(path: Path):
             raise HudError("M98T_HUD_VALUE_RECT")
         full_tiles.append(full)
         fps_tiles.append(fps)
+    count_tiles = []
+    for field in COUNT_FIELDS:
+        count = sections.get(f"hud_count_tile_{field.strip()}", b"")
+        if len(count) != 96 or count != render(field):
+            raise HudError("M98V_HUD_COUNT_TILE")
+        if set(count) - allowed:
+            raise HudError("M98V_HUD_COUNT_COLOR")
+        count_tiles.append(count)
     return raw, tuple(full_tiles), tuple(fps_tiles)
+
+
+def inspect_count_tiles(path: Path) -> tuple[bytes, ...]:
+    _, sections = parse_sections(path)
+    tiles = tuple(sections.get(f"hud_count_tile_{field.strip()}", b"")
+                  for field in COUNT_FIELDS)
+    if any(tile != render(field) for tile, field in zip(tiles, COUNT_FIELDS)):
+        raise HudError("M98V_HUD_COUNT_TILE")
+    return tiles
 
 
 def main() -> int:
@@ -133,7 +151,9 @@ def main() -> int:
     except HudError as error:
         print(error)
         return 1
-    print(f"M98T_HUD_VALIDATION_PASS full_tiles={len(full)} fps_tiles={len(fps)} "
+    count_tiles = inspect_count_tiles(args.input)
+    print(f"M98V_HUD_VALIDATION_PASS full_tiles={len(full)} fps_tiles={len(fps)} "
+          f"count_tiles={len(count_tiles)} "
           f"sha256={hashlib.sha256(raw).hexdigest()}")
     return 0
 

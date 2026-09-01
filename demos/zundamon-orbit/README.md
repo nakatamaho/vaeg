@@ -737,3 +737,36 @@ The exhaustive matrix contains 1,024 draw orders and 8,704 derived records.
 M98u does not change `ZUNDORB.COM`: it still renders one object, displays
 `ZUNDAMON: 1`, ignores UP/DOWN, accepts no `/N` option, and uses the unchanged
 one-rectangle dirty clear and one transparent BITBLT per publication.
+
+## M98v multi-instance full-clear baseline
+
+M98v consumes the exact M98u records and far-to-near index order in the 16-bit
+guest.  Each hidden-frame transaction clears the complete 64,000-byte G1 page,
+then submits exactly one transparent BITBLT for every selected instance.  The
+page remains hidden through every SGP list; only the complete READY frame can
+be published at a divisor-qualified VBLANK edge.  Global phase advances only
+after that publication.
+
+`M98V_ACTIVE_COUNT` is a build-time constant restricted to `1`, `2`, `4`,
+`8`, or `16`.  Normal interactive builds default to four instances.  Bounded
+QA must name the count explicitly and writes each variant to a separate
+generated directory.  There is no `/N` parser and UP/DOWN remain inactive.
+The count field is static for the complete run; the interactive HUD therefore
+shows `ZUNDAMON: 4`.
+
+Build the normal count-four guest and a bounded count-sixteen guest with:
+
+```sh
+M98V_ACTIVE_COUNT=4 demos/zundamon-orbit/256/build.sh \
+  /tmp/ZUNDORB.COM /tmp/ZUNDORB.LST
+
+M98T_BOUNDED_QA=1 M98V_ACTIVE_COUNT=16 \
+  demos/zundamon-orbit/256/build.sh \
+  /tmp/ZUNDORB16.COM /tmp/ZUNDORB16.LST
+```
+
+The generated trace/oracle workflow uses `run-vaeg.sh`; set
+`VAEG_ZUNDAMON_ACTIVE_COUNT` to one of the five accepted counts and use a
+fresh output directory.  M98v intentionally performs a full-page clear for
+every frame.  It adds no dirty interval unions, runtime count controls,
+private image, or physical-hardware timing claim.
