@@ -152,8 +152,8 @@ Execute exactly one assigned stage and stop at its gate.
 | M98v | Add the multi-instance full-clear baseline | Human/VAEG |
 | M98w | Add multi-instance dirty-row interval unions | Machine + human |
 | M98x | Add 1-16 runtime controls, HUD count, and load telemetry | Human/VAEG |
-| M98y | Integrate and tune the approved local image | Human/local |
-| M98z | Validate the approved local image at multiple counts | Human/local |
+| M98y | Integrate and tune the approved local image - G98y passed | Human/local |
+| M98z | Add bounded interactive orbit/camera controls and final QA | Machine + human |
 | M98aa | Complete negative, deterministic, and performance QA | Machine + human |
 | M98ab | Finish documentation and the final gate | Human |
 

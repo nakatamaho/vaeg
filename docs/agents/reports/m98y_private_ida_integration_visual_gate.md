@@ -23,7 +23,7 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 # M98y private IDA profile integration
 
-Status: **G98y: private human gate pending**
+Status: **G98y PASS**
 
 This milestone adds a private, local-only IDA asset profile to the accepted
 M98x renderer.  It remains a camera-facing billboard orbit; it is not a true
@@ -171,13 +171,10 @@ inputs. The private atlas is external to the COM and is loaded through the
 existing bounded BMS loader. Staged/tracked scans contain no private names,
 paths, hashes, images, palette words, ROM bytes, D88, traces, or save data.
 
-The private visual gate is still required. The maintainer must launch the
-untracked count-4 candidate in a complete VA2 environment and inspect the
-IDA identity, palette appearance, transparency, anchor stability, all five
-checkpoint counts, both page parities, `/V1`/`/V4`/`/V8`, phase wrap, overlap,
-pause/resume, count transitions, and ESC. The effect must be judged as a
-coherent billboard orbit, not true 3-D rotation. No physical timing claim is
-made; VAEG/VA2 timing is diagnostic only.
+The maintainer explicitly completed the private visual gate and stated
+`G98y passed`. The effect is accepted as a coherent billboard orbit, not true
+3-D rotation. No physical timing claim is made; VAEG/VA2 timing is diagnostic
+only.
 
 Private extraction from ROM/viewer was not needed because the supplied atlas
 passed the fast-path inspector. Generic palette/VA8 conversion and profile
@@ -193,7 +190,7 @@ HOST_PRIVATE_IDA_PASS
 PRIVATE_IDA_ONE_BANK_PASS
 PRIVATE_IDA_30_SCALE_PASS
 PRIVATE_IDA_32768_TRANSITIONS_PASS
-VAEG_PRIVATE_IDA_MULTI_PASS: PENDING_PRIVATE_VA2_RUN
-G98y: private human gate pending
+VAEG_PRIVATE_IDA_MULTI_PASS
+G98y passed
 REAL_HW_PENDING
 ```
