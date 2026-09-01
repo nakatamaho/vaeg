@@ -37,7 +37,8 @@ physical PC-88VA measurement or a maintainer VA2 approval.
   `b65d6c50af1f9bd7f574a17683c637e65212be78`
 - Implementation commits: `7548f3c4f8824d0e9d5794ec805223594bd34dde`,
   followed by the input compatibility fix
-  `4537a9214a58dcf23fbc196beefcb1a963551bd9`
+  `4537a9214a58dcf23fbc196beefcb1a963551bd9`, and the local-disk packaging
+  correction `e833b977f671c921d9ad247249d2217c6782cc52`
 - Report commit: this report commit; the exact self-referential hash is
   supplied by the final Git handoff after commit and push
 - Pushed remote head: this report commit on the M98x topic branch
@@ -57,6 +58,19 @@ PC-88 cursor-code compatibility fix, M98x generated the fresh local candidate
 with SHA-256
 `23254520793fe5c53ad4366d5a264de78a7d97222c659204c420611b54a4fdd0`.
 It is not tracked.
+
+The packaging correction keeps `M98X_RUNTIME_MODE=1` when
+`build-local-d88.sh` is called directly by the runtime candidate workflow.
+This prevents a locally rebuilt disk from silently replacing the runtime
+guest with the fixed-count M98w guest. The current pristine candidate was
+rebuilt through that corrected path at
+`build/generated/zundamon-orbit/m98x-updown-current/zundamon-orbit-m98x-pristine.d88`
+with SHA-256
+`23254520793fe5c53ad4366d5a264de78a7d97222c659204c420611b54a4fdd0`.
+Its embedded `ZUNDORB.COM` is 36,320 bytes with SHA-256
+`c8edcca160f6b1a8d96e6d119a54bcaa5af987224a5da252f690bb17d6d47d18` and
+contains the PC-88 cursor make-code handlers (`3Ah`/`3Dh`) used by UP/DOWN.
+The candidate remains generated and ignored.
 
 ## Worktree and changed files
 
