@@ -80,7 +80,7 @@ class M98yProfileTests(unittest.TestCase):
                                         capture_output=True, text=True)
                 self.assertEqual(result.returncode, 0, result.stderr)
             self.assertEqual(hashlib.sha256(first.read_bytes()).hexdigest(),
-                             "247bf4e00834507f017b55efe0d5488fa70887689dc7c2e1f89062b2d759eacf")
+                             "a5bfc68522d5dd023da88d01da09b434a4c298b871acf443a205ad0bc6af50ba")
             self.assertEqual(first.read_bytes(), second.read_bytes())
 
 

@@ -143,6 +143,7 @@ class OrbitControlTests(unittest.TestCase):
         status = STATUS.read_text(encoding="ascii")
         for token in (
                 "%define HUD_STATUS_SPEED_COUNT 8",
+                "%define HUD_STATUS_SPEED_WIDTH 54",
                 "%define HUD_STATUS_DISTANCE_COUNT 9",
                 "%define HUD_STATUS_LOOK_COUNT 9",
                 "%define HUD_STATUS_RADIUS_COUNT 9",
@@ -189,6 +190,15 @@ class OrbitControlTests(unittest.TestCase):
         for name, value in expected.items():
             self.assertRegex(source, rf"(?m)^%define {name}\s+{value}$")
         self.assertLess(154 + 54, 320)
+
+    def test_fps_update_does_not_fail_after_complete_vblank_write(self) -> None:
+        source = ASM.read_text(encoding="utf-8")
+        self.assertIn(
+            "test al, TSP_STATUS_VBLANK\n"
+            "    jnz .field_updated\n"
+            "    ; The complete CPU tile write may legitimately finish at the falling",
+            source)
+        self.assertIn(".field_updated:\n    inc word [hud_fps_field_updates]", source)
 
     def test_exhaustive_projection_boundary_space(self) -> None:
         cases = 0

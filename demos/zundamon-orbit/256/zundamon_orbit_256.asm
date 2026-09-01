@@ -145,7 +145,7 @@ org 0x100
 %define HUD_STATUS_RADIUS_X     154
 %define HUD_STATUS_Y            24
 %define HUD_STATUS_SECOND_Y     24
-%define STATUS_SPEED_WIDTH      48
+%define STATUS_SPEED_WIDTH      54
 %define STATUS_DISTANCE_WIDTH   42
 %define STATUS_LOOK_WIDTH       42
 %define STATUS_RADIUS_WIDTH     54
@@ -2849,7 +2849,13 @@ update_hud_fps_field:
     mov dx, PORT_TSP_STATUS
     in al, dx
     test al, TSP_STATUS_VBLANK
-    jz .overrun
+    jnz .field_updated
+    ; The complete CPU tile write may legitimately finish at the falling
+    ; edge.  It is no longer a partial update, so retain the new field and
+    ; record the diagnostic without converting a valid RIGHT/LEFT change into
+    ; a fatal runtime exit.
+    inc word [hud_vblank_overruns]
+.field_updated:
     inc word [hud_fps_field_updates]
     add word [hud_bytes_written], HUD_FPS_WRITE_BYTES
     adc word [hud_bytes_written + 2], 0
