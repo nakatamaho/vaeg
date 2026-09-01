@@ -158,6 +158,12 @@ the supplied arcade directory reached the emulator startup harness but could
 not execute the guest because that directory lacks the complete VA2 platform
 ROM set; this is not claimed as private renderer or visual PASS.
 
+A follow-up loader correction (commit `cc324bee`) preserves the 32-bit payload
+size while testing its nonzero high word. The earlier private candidate could
+therefore reject a valid payload before entering video mode; the corrected
+local candidate reaches the normal publication checkpoints in VAEG. The full
+private transition/load and maintainer visual gates remain pending.
+
 ## Public/private boundary and limitations
 
 The public profile is byte-identical to M98x and does not require private
