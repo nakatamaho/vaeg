@@ -23,7 +23,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 # M98u - Freeze bounded multi-instance state and depth order
 
-Status: **assigned; G98u machine gate pending**
+Status: **G98u machine gate passed; M98u closed on 2026-09-01**
 
 Branch: `topic/m98u-multi-instance-state`
 
@@ -96,3 +96,22 @@ payloads, integrate private imagery, measure multi-instance performance, or
 change any guest-visible behavior. M98v owns the full-clear multi-instance
 renderer; M98w owns dirty-row interval unions; M98x owns count controls and
 HUD/load telemetry.
+
+## Gate result
+
+The exhaustive machine gate generated all 1,024 count/global-phase states and
+8,704 instance records with zero uniqueness, gap, descriptor, bounds, HUD,
+source, permutation, ordering, tie, count-one, determinism, or privacy
+failures. The independent validator accepted the canonical golden, and two
+generations had SHA-256
+`6ed8e4e4b70ed62547d0feca9847999f730e25b6e4d19e0a16c670021c5a3e52`.
+
+All 187 demo host tests and VAEG selftest passed. Two release guest rebuilds
+remained exactly 32,656 bytes and byte-identical to M98t with SHA-256
+`b6e1bbc2a600f22ca583e256c82cccab3c1523530a0a2a7836439d4cb74d87ec`.
+The accepted M98t A/B full/dirty, cadence/HUD, pause, and missed-slot oracle
+records were revalidated without changing guest or emulator inputs.
+
+`REAL_HW_PENDING`
+
+`G98u PASS`

@@ -23,7 +23,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 # M98 - Zundamon billboard-orbit demo master plan
 
-Status: **G98a, G98e, G98j, G98k, G98l, G98o, G98p, G98q, G98r, G98s, and G98t human gates and G98b-G98d and G98f-G98i machine gates passed; M98t closed on 2026-09-01**
+Status: **G98a, G98e, G98j, G98k, G98l, G98o, G98p, G98q, G98r, G98s, and G98t human gates and G98b-G98d, G98f-G98i, and G98u machine gates passed; M98u closed on 2026-09-01**
 
 Branch family: `topic/m98-zundamon-orbit`
 
@@ -148,7 +148,7 @@ Execute exactly one assigned stage and stop at its gate.
 | M98r | Add VBLANK cadence selection and telemetry - G98r passed | Human/VAEG |
 | M98s | Add a constant-size 64-phase ellipse - G98s passed | Human/VAEG |
 | M98t | Couple orbit depth to the 30-level atlas and add the FPS/ZUNDAMON G0 HUD - G98t passed | Human/VAEG |
-| M98u | Generate deterministic 1-16 instance state and far-to-near order | Machine |
+| M98u | Generate deterministic 1-16 instance state and far-to-near order - G98u passed | Machine |
 | M98v | Add the multi-instance full-clear baseline | Human/VAEG |
 | M98w | Add multi-instance dirty-row interval unions | Machine + human |
 | M98x | Add 1-16 runtime controls, HUD count, and load telemetry | Human/VAEG |
@@ -191,7 +191,10 @@ adds the bounded FPS/ZUNDAMON information panel on G0. Its automated VA2/VAEG
 evidence passed, and the maintainer explicitly passed G98t on 2026-09-01.
 M98t is closed. M98u freezes only the deterministic 1-16 instance state and
 far-to-near ordering contract. Multi-instance drawing, clearing, and controls
-remain assigned to M98v, M98w, and M98x respectively.
+remain assigned to M98v, M98w, and M98x respectively. The exhaustive host
+matrix, independent validator, count-one compatibility, deterministic rebuild,
+and unchanged M98t guest checks passed on 2026-09-01. G98u passed and M98u is
+closed; no M98v work began.
 
 ## 6. Deterministic host contracts
 
