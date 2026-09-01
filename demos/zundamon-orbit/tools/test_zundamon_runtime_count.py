@@ -156,6 +156,10 @@ class RuntimeCountBuildTests(unittest.TestCase):
         self.assertIn("parse_cadence_option", source)
         self.assertIn("KEY_SCAN_UP", source)
         self.assertIn("KEY_SCAN_DOWN", source)
+        self.assertIn("KEY_SCAN_UP_EXTENDED", source)
+        self.assertIn("KEY_SCAN_DOWN_EXTENDED", source)
+        self.assertIn("%define KEY_SCAN_UP             0x3a", source)
+        self.assertIn("%define KEY_SCAN_DOWN           0x3d", source)
         self.assertIn("update_hud_count_field", source)
         self.assertNotIn("M98V_ACTIVE_COUNT]", source)
 

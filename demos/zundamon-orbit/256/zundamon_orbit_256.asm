@@ -183,8 +183,13 @@ org 0x100
 %define KEY_SCAN_SPACE          0x34
 %define KEY_SCAN_LEFT           0x3b
 %define KEY_SCAN_RIGHT          0x3c
-%define KEY_SCAN_UP             0x48
-%define KEY_SCAN_DOWN           0x50
+; PC-88 cursor make codes are 3Ah/3Dh.  VA2's compatibility path can also
+; expose the AT-style 48h/50h values, so accept both without changing the
+; one-press BIOS event policy.
+%define KEY_SCAN_UP             0x3a
+%define KEY_SCAN_DOWN           0x3d
+%define KEY_SCAN_UP_EXTENDED    0x48
+%define KEY_SCAN_DOWN_EXTENDED  0x50
 
 %define CADENCE_MIN             1
 %define CADENCE_MAX             8
@@ -4425,7 +4430,11 @@ poll_control_requests:
 %if M98X_RUNTIME_MODE
     cmp ah, KEY_SCAN_UP
     je .count_up
+    cmp ah, KEY_SCAN_UP_EXTENDED
+    je .count_up
     cmp ah, KEY_SCAN_DOWN
+    je .count_down
+    cmp ah, KEY_SCAN_DOWN_EXTENDED
     je .count_down
 %endif
     cmp ah, KEY_SCAN_SPACE
