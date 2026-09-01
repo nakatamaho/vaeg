@@ -297,6 +297,10 @@ org 0x100
 %define DRAW_ORDER_SEEN_WORDS   1
 %define COUNT_TRANSITION_SHIFT  5
 %endif
+; The SGP destination descriptor encodes the destination x-word selector in
+; four bits.  This is unrelated to the capacity-dependent page-footprint
+; indexing above and must remain stable for both public and private profiles.
+%define SGP_DEST_PAGE_SHIFT     4
 %define FOOTPRINT_TOTAL_BYTES   (2 * FOOTPRINT_CAPACITY * FOOTPRINT_RECT_BYTES)
 
 ; The accepted M98u include remains a 1..16 reference contract.  Runtime
@@ -2007,10 +2011,14 @@ generate_multi_instance_frame:
     jb .sort_outer
 
 %if M98Y_PRIVATE_PROFILE
+    push es
+    push ds
+    pop es
     mov di, draw_order_seen
     xor ax, ax
     mov cx, DRAW_ORDER_SEEN_WORDS
     rep stosw
+    pop es
     xor bx, bx
 .order_check_private:
     mov al, [draw_order + bx]
@@ -3064,7 +3072,7 @@ build_bitblt_commands:
     stosw
     mov ax, [selected_dst_x]
     and ax, 1
-    shl ax, FOOTPRINT_ID_PAGE_SHIFT
+    shl ax, SGP_DEST_PAGE_SHIFT
     or ax, 2
     stosw
     mov ax, [selected_width]
