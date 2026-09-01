@@ -23,7 +23,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 # M98s - Add a constant-size 64-phase ellipse
 
-Status: **automated evidence passed; G98s human gate pending**
+Status: **G98s human gate passed; M98s closed on 2026-09-01**
 
 Branch: `topic/m98s-64-phase-ellipse`
 
@@ -80,6 +80,9 @@ constant-size clockwise ellipse for at least two revolutions; no trail,
 clipping, flicker, tear, or partial page; unchanged transparency; inherited
 cadence and pause controls; inactive UP/DOWN; and normal ESC restoration.
 Automation cannot close G98s.
+
+The maintainer explicitly stated `G98s passed` on 2026-09-01 after the
+interactive VA2 check. M98s is closed at this gate.
 
 ## Non-goals
 

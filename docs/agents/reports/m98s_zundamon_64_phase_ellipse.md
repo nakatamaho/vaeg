@@ -23,13 +23,13 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 # M98s constant-scale 64-phase ellipse result
 
-Status: **G98s: human gate pending**
+Status: **G98s human gate passed; M98s closed on 2026-09-01**
 
 ## Result
 
 `M98s AUTOMATED RESULT: PASS`
 
-`G98s: human gate pending`
+`G98s PASS`
 
 M98s replaces the accepted M98r release zoom sequence with one deterministic
 64-phase clockwise screen ellipse. Every render selects public atlas scale ID
@@ -372,8 +372,9 @@ nothing, and ESC must restore the prior display and prompt.
 
 The human gate checks direction, constant size, visual clearing, controls, and
 restoration. It does not establish exact fps or physical-hardware performance.
-Until the maintainer explicitly states `G98s passed`, the result remains
-`G98s: human gate pending`.
+The maintainer explicitly stated `G98s passed` on 2026-09-01 after the
+interactive VA2 check. M98s is therefore closed. Physical hardware remains
+`REAL_HW_PENDING`.
 
 M98s intentionally retains a public marker, fixed scale 15, and one billboard.
 It adds no depth, phase-to-scale coupling, private IDA, image rotation,
