@@ -28,6 +28,7 @@ if [ "$#" -gt 2 ]; then
 fi
 
 nasm_command=${NASM:-nasm}
+profile=${M98Y_PROFILE:-public}
 bounded_qa=${M98T_BOUNDED_QA:-${M98S_BOUNDED_QA:-0}}
 qa_cycles=${M98T_QA_CYCLES:-${M98S_QA_CYCLES:-1}}
 qa_scenario=${M98T_QA_SCENARIO:-${M98S_QA_SCENARIO:-0}}
@@ -46,6 +47,43 @@ output=${1:-ZUNDORB.COM}
 listing=${2:-${output%.*}.LST}
 script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 output_parent=$(dirname -- "$output")
+
+case "$profile" in
+    public) private_profile=0; profile_dir= ;;
+    private)
+        private_profile=1
+        profile_dir=${M98Y_PRIVATE_PROFILE_DIR:-}
+        private_atlas=${M98Y_PRIVATE_ATLAS:-}
+        [ -n "$profile_dir" ] || {
+            printf 'error: M98Y_PRIVATE_PROFILE_DIR is required for the private profile\n' >&2
+            exit 2
+        }
+        [ -n "$private_atlas" ] || {
+            printf 'error: M98Y_PRIVATE_ATLAS is required for the private profile\n' >&2
+            exit 2
+        }
+        [ -d "$profile_dir" ] || {
+            printf 'error: private profile directory does not exist\n' >&2
+            exit 1
+        }
+        [ -f "$private_atlas" ] || {
+            printf 'error: private atlas is unavailable\n' >&2
+            exit 1
+        }
+        [ -f "$profile_dir/zundamon_depth_table.inc" ] || {
+            printf 'error: private depth table is unavailable\n' >&2
+            exit 1
+        }
+        [ -f "$profile_dir/zundamon_hud_table.inc" ] || {
+            printf 'error: private HUD table is unavailable\n' >&2
+            exit 1
+        }
+        ;;
+    *)
+        printf 'error: M98Y_PROFILE must be public or private\n' >&2
+        exit 2
+        ;;
+esac
 
 [ -d "$output_parent" ] || {
     printf 'error: output directory does not exist: %s\n' "$output_parent" >&2
@@ -87,42 +125,74 @@ case "$clear_mode" in
     0|1) ;;
     *) printf 'error: M98W_CLEAR_MODE must be 0 (full) or 1 (dirty)\n' >&2; exit 2 ;;
 esac
+if [ "$private_profile" -eq 1 ]; then
+    [ "$runtime_mode" -eq 1 ] || {
+        printf 'error: private profile requires runtime count mode\n' >&2
+        exit 2
+    }
+    [ "$clear_mode" -eq 1 ] || {
+        printf 'error: private profile requires dirty clear mode\n' >&2
+        exit 2
+    }
+fi
 if [ "$bounded_qa" -eq 1 ] && [ "$runtime_mode" -eq 0 ] && [ "${M98V_ACTIVE_COUNT+x}" != x ]; then
     printf 'error: bounded M98v QA requires an explicit M98V_ACTIVE_COUNT\n' >&2
     exit 2
 fi
 
-table_check_dir=$(mktemp -d "${TMPDIR:-/tmp}/zundamon-orbit-m98t-table.XXXXXX")
-trap 'rm -rf "$table_check_dir"' EXIT HUP INT TERM
-python3 "$script_dir/../tools/build_zundamon_orbit_pipeline.py" \
-    --fixture-output "$table_check_dir/public-atlas" >/dev/null
-python3 "$script_dir/../tools/generate_zundamon_orbit_depth_table.py" \
-    --atlas "$table_check_dir/public-atlas/zundorb.bin" \
-    --output "$table_check_dir/zundamon_depth_table.inc" >/dev/null
-python3 "$script_dir/../tools/validate_zundamon_orbit_depth_table.py" \
-    --input "$script_dir/zundamon_depth_table.inc" \
-    --atlas "$table_check_dir/public-atlas/zundorb.bin" >/dev/null
-cmp "$table_check_dir/zundamon_depth_table.inc" \
-    "$script_dir/zundamon_depth_table.inc"
-python3 "$script_dir/../tools/generate_zundamon_orbit_hud.py" \
-    --output "$table_check_dir/zundamon_hud_table.inc" >/dev/null
-python3 "$script_dir/../tools/validate_zundamon_orbit_hud.py" \
-    --input "$script_dir/zundamon_hud_table.inc" >/dev/null
-cmp "$table_check_dir/zundamon_hud_table.inc" \
-    "$script_dir/zundamon_hud_table.inc"
-
-"$nasm_command" -f bin \
-    -dM98T_BOUNDED_QA="$bounded_qa" \
-    -dM98T_QA_CYCLES="$qa_cycles" \
-    -dM98T_QA_SCENARIO="$qa_scenario" \
-    -dM98Q_INITIAL_VISIBLE_PAGE="$initial_visible_page" \
-    -dM98W_CLEAR_MODE="$clear_mode" \
-    -dM98Q_CLEAR_MODE="$clear_mode" \
-    -dM98X_RUNTIME_MODE="$runtime_mode" \
-    -dM98V_ACTIVE_COUNT="${M98V_ACTIVE_COUNT:-4}" \
-    -I "$script_dir/" \
-    -l "$listing" \
-    "$script_dir/zundamon_orbit_256.asm" -o "$output"
+if [ "$private_profile" -eq 0 ]; then
+    table_check_dir=$(mktemp -d "${TMPDIR:-/tmp}/zundamon-orbit-m98t-table.XXXXXX")
+    trap 'rm -rf "$table_check_dir"' EXIT HUP INT TERM
+    python3 "$script_dir/../tools/build_zundamon_orbit_pipeline.py" \
+        --fixture-output "$table_check_dir/public-atlas" >/dev/null
+    python3 "$script_dir/../tools/generate_zundamon_orbit_depth_table.py" \
+        --atlas "$table_check_dir/public-atlas/zundorb.bin" \
+        --output "$table_check_dir/zundamon_depth_table.inc" >/dev/null
+    python3 "$script_dir/../tools/validate_zundamon_orbit_depth_table.py" \
+        --input "$script_dir/zundamon_depth_table.inc" \
+        --atlas "$table_check_dir/public-atlas/zundorb.bin" >/dev/null
+    cmp "$table_check_dir/zundamon_depth_table.inc" \
+        "$script_dir/zundamon_depth_table.inc"
+    python3 "$script_dir/../tools/generate_zundamon_orbit_hud.py" \
+        --output "$table_check_dir/zundamon_hud_table.inc" >/dev/null
+    python3 "$script_dir/../tools/validate_zundamon_orbit_hud.py" \
+        --input "$script_dir/zundamon_hud_table.inc" >/dev/null
+    cmp "$table_check_dir/zundamon_hud_table.inc" \
+        "$script_dir/zundamon_hud_table.inc"
+    "$nasm_command" -f bin \
+        -dM98T_BOUNDED_QA="$bounded_qa" \
+        -dM98T_QA_CYCLES="$qa_cycles" \
+        -dM98T_QA_SCENARIO="$qa_scenario" \
+        -dM98Q_INITIAL_VISIBLE_PAGE="$initial_visible_page" \
+        -dM98W_CLEAR_MODE="$clear_mode" \
+        -dM98Q_CLEAR_MODE="$clear_mode" \
+        -dM98X_RUNTIME_MODE="$runtime_mode" \
+        -dM98V_ACTIVE_COUNT="${M98V_ACTIVE_COUNT:-4}" \
+        -I "$script_dir/" \
+        -l "$listing" \
+        "$script_dir/zundamon_orbit_256.asm" -o "$output"
+else
+    python3 "$script_dir/../tools/inspect_zundamon_orbit_atlas.py" \
+        --input "$private_atlas" >/dev/null
+    python3 "$script_dir/../tools/validate_zundamon_orbit_depth_table.py" \
+        --input "$profile_dir/zundamon_depth_table.inc" \
+        --atlas "$private_atlas" --radius-x 96 --radius-y 16 >/dev/null
+    python3 "$script_dir/../tools/validate_zundamon_orbit_hud.py" \
+        --input "$profile_dir/zundamon_hud_table.inc" --subject IDA >/dev/null
+    "$nasm_command" -f bin \
+        -dM98Y_PRIVATE_PROFILE=1 \
+        -dM98T_BOUNDED_QA="$bounded_qa" \
+        -dM98T_QA_CYCLES="$qa_cycles" \
+        -dM98T_QA_SCENARIO="$qa_scenario" \
+        -dM98Q_INITIAL_VISIBLE_PAGE="$initial_visible_page" \
+        -dM98W_CLEAR_MODE="$clear_mode" \
+        -dM98Q_CLEAR_MODE="$clear_mode" \
+        -dM98X_RUNTIME_MODE=1 \
+        -dM98V_ACTIVE_COUNT=4 \
+        -I "$profile_dir/" -I "$script_dir/" \
+        -l "$listing" \
+        "$script_dir/zundamon_orbit_256.asm" -o "$output"
+fi
 
 size=$(wc -c < "$output" | tr -d ' ')
 [ "$size" -lt 65280 ] || {
@@ -130,7 +200,10 @@ size=$(wc -c < "$output" | tr -d ' ')
     exit 1
 }
 
-if [ "$runtime_mode" -eq 1 ]; then
+if [ "$private_profile" -eq 1 ]; then
+    printf 'M98Y_PRIVATE_GUEST_BUILD_PASS size=%s runtime_counts=1..16 dirty_profile=1 listing=%s\n' \
+        "$size" "$listing"
+elif [ "$runtime_mode" -eq 1 ]; then
     printf 'M98X_GUEST_BUILD_PASS size=%s default_count=4 runtime_counts=1..16 bounded_qa=%s revolutions=%s scenario=%s initial_page=%s clear_mode=%s listing=%s\n' \
         "$size" "$bounded_qa" "$qa_cycles" "$qa_scenario" "$initial_visible_page" "$clear_mode" "$listing"
 else

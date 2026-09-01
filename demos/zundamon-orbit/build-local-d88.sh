@@ -23,7 +23,7 @@
 set -eu
 
 if [ "$#" -ne 3 ]; then
-    printf 'usage: %s SOURCE_BOOTABLE_2HD.d88 ZUNDORB.BIN OUTPUT.d88\n' "$0" >&2
+    printf 'usage: %s SOURCE_BOOTABLE_2HD.d88 ATLAS.BIN OUTPUT.d88\n' "$0" >&2
     exit 2
 fi
 
@@ -33,11 +33,22 @@ output_image=$3
 script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 repo_root=$(CDPATH= cd -- "$script_dir/../.." && pwd)
 output_parent=$(dirname -- "$output_image")
-if [ "${M98X_RUNTIME_MODE:-0}" = 1 ]; then
+private_profile=${M98Y_PROFILE:-public}
+if [ "$private_profile" = private ]; then
+    payload_name=IDAORB
+    milestone_label=M98y
+elif [ "${M98X_RUNTIME_MODE:-0}" = 1 ]; then
+    payload_name=ZUNDORB
     milestone_label=M98x
 else
+    payload_name=ZUNDORB
     milestone_label=M98w
 fi
+
+case "$private_profile" in
+    public|private) ;;
+    *) printf 'error: M98Y_PROFILE must be public or private\n' >&2; exit 2 ;;
+esac
 
 [ -f "$source_image" ] || {
     printf 'error: source D88 does not exist: %s\n' "$source_image" >&2
@@ -72,10 +83,19 @@ mkdir -p "$work_dir/payload/root"
 # staging payload with the default fixed-count mode would silently produce a
 # disk that accepts LEFT/RIGHT but cannot handle UP/DOWN or /N.  The explicit
 # zero default preserves the fixed-count M98v/M98w candidates.
-M98X_RUNTIME_MODE=${M98X_RUNTIME_MODE:-0} NASM=${NASM:-nasm} \
-    "$script_dir/256/build.sh" "$work_dir/payload/root/ZUNDORB.COM" \
-    "$work_dir/ZUNDORB.LST"
-cp "$atlas_image" "$work_dir/payload/root/ZUNDORB.BIN"
+if [ "$private_profile" = private ]; then
+    M98Y_PROFILE=private \
+    M98Y_PRIVATE_PROFILE_DIR=${M98Y_PRIVATE_PROFILE_DIR:-} \
+    M98Y_PRIVATE_ATLAS="$atlas_image" \
+    M98X_RUNTIME_MODE=1 NASM=${NASM:-nasm} \
+        "$script_dir/256/build.sh" "$work_dir/payload/root/${payload_name}.COM" \
+        "$work_dir/${payload_name}.LST"
+else
+    M98X_RUNTIME_MODE=${M98X_RUNTIME_MODE:-0} NASM=${NASM:-nasm} \
+        "$script_dir/256/build.sh" "$work_dir/payload/root/${payload_name}.COM" \
+        "$work_dir/${payload_name}.LST"
+fi
+cp "$atlas_image" "$work_dir/payload/root/${payload_name}.BIN"
 
 python3 "$script_dir/tools/build_zundamon_orbit_boot_disk.py" \
     --source "$source_image" \
@@ -85,6 +105,6 @@ python3 "$repo_root/tools/pc88va/pcengine_disk.py" list \
     --image "$output_image"
 
 printf 'Created local bootable %s disk: %s\n' "$milestone_label" "$output_image"
-printf '  ZUNDORB.COM runs the multi-ZUNDAMON ellipse with page-local dirty unions and G0 HUD.\n'
+printf '  %s.COM uses the validated single-atlas billboard profile with page-local dirty unions and G0 HUD.\n' "$payload_name"
 printf '  LEFT/RIGHT select cadence, SPACE pauses, and ESC restores and exits.\n'
 printf '  The source template is unchanged; this output remains local-only.\n'

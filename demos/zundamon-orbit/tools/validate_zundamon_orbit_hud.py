@@ -51,13 +51,16 @@ GLYPHS = {
     "8": (0b01110, 0b10001, 0b10001, 0b01110, 0b10001, 0b10001, 0b01110),
     "9": (0b01110, 0b10001, 0b10001, 0b01111, 0b00001, 0b00001, 0b01110),
     "A": (0b01110, 0b10001, 0b10001, 0b11111, 0b10001, 0b10001, 0b10001),
+    "C": (0b01110, 0b10001, 0b10000, 0b10000, 0b10000, 0b10001, 0b01110),
     "D": (0b11110, 0b10001, 0b10001, 0b10001, 0b10001, 0b10001, 0b11110),
     "F": (0b11111, 0b10000, 0b10000, 0b11110, 0b10000, 0b10000, 0b10000),
+    "I": (0b01110, 0b00100, 0b00100, 0b00100, 0b00100, 0b00100, 0b01110),
     "M": (0b10001, 0b11011, 0b10101, 0b10101, 0b10001, 0b10001, 0b10001),
     "N": (0b10001, 0b11001, 0b11001, 0b10101, 0b10011, 0b10011, 0b10001),
     "O": (0b01110, 0b10001, 0b10001, 0b10001, 0b10001, 0b10001, 0b01110),
     "P": (0b11110, 0b10001, 0b10001, 0b11110, 0b10000, 0b10000, 0b10000),
     "S": (0b01111, 0b10000, 0b10000, 0b01110, 0b00001, 0b00001, 0b11110),
+    "T": (0b11111, 0b00100, 0b00100, 0b00100, 0b00100, 0b00100, 0b00100),
     "U": (0b10001, 0b10001, 0b10001, 0b10001, 0b10001, 0b10001, 0b01110),
     "Z": (0b11111, 0b00001, 0b00010, 0b00100, 0b01000, 0b10000, 0b11111),
 }
@@ -101,7 +104,9 @@ def parse_sections(path: Path) -> tuple[bytes, dict[str, bytes]]:
     return raw, {key: bytes(value) for key, value in sections.items()}
 
 
-def inspect(path: Path):
+def inspect(path: Path, subject: str = "ZUNDAMON"):
+    if subject not in ("ZUNDAMON", "IDA"):
+        raise HudError("M98Y_HUD_SUBJECT")
     raw, sections = parse_sections(path)
     allowed = {BG, FG}
     full_tiles = []
@@ -110,7 +115,8 @@ def inspect(path: Path):
         full = sections.get(f"hud_full_tile_v{divisor}", b"")
         fps = sections.get(f"hud_fps_tile_v{divisor}", b"")
         expected_fps = render(field)
-        expected_full = render(f"FPS: {field}   ") + render("ZUNDAMON: 1")
+        label = "ZUNDAMON: 1" if subject == "ZUNDAMON" else "IDA CNT:  1"
+        expected_full = render(f"FPS: {field}   ") + render(label)
         if len(full) != 1056 or full != expected_full:
             raise HudError("M98T_HUD_FULL_TILE")
         if len(fps) != 144 or fps != expected_fps:
@@ -145,9 +151,11 @@ def inspect_count_tiles(path: Path) -> tuple[bytes, ...]:
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--input", type=Path, required=True)
+    parser.add_argument("--subject", choices=("ZUNDAMON", "IDA"),
+                        default="ZUNDAMON")
     args = parser.parse_args()
     try:
-        raw, full, fps = inspect(args.input)
+        raw, full, fps = inspect(args.input, args.subject)
     except HudError as error:
         print(error)
         return 1

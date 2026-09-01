@@ -109,8 +109,15 @@ org 0x100
 %define TARGET_ANCHOR_X         160
 %define TARGET_ANCHOR_Y         100
 %define FIXED_SCALE_ID          15
+%ifndef M98Y_PRIVATE_PROFILE
+%define M98Y_PRIVATE_PROFILE     0
+%endif
 %define ORBIT_RADIUS_X          96
+%if M98Y_PRIVATE_PROFILE
+%define ORBIT_RADIUS_Y          16
+%else
 %define ORBIT_RADIUS_Y          48
+%endif
 %define ORBIT_ENTRY_BYTES       8
 %define HUD_X                   4
 %define HUD_Y                   4
@@ -129,7 +136,11 @@ org 0x100
 %define HUD_FULL_WRITE_BYTES    1056
 %define HUD_FPS_WRITE_BYTES     144
 %define HUD_COUNT_WRITE_BYTES   96
+%if M98Y_PRIVATE_PROFILE
+%define ORBIT_RADIUS_ADJUSTMENTS 1
+%else
 %define ORBIT_RADIUS_ADJUSTMENTS 0
+%endif
 
 %ifndef M98Q_BOUNDED_QA
 %define M98Q_BOUNDED_QA         0
@@ -4938,10 +4949,19 @@ print_string:
     ret
 
 message_start:
+%if M98Y_PRIVATE_PROFILE
+    db "M98Y_INIT: private IDA billboard profile", 13, 10
+    db "Selector 0 is ordinary RAM; selector 1 is the validated atlas bank.", 13, 10, "$"
+%else
     db "M98V_INIT: full-page multi-ZUNDAMON frame baseline", 13, 10
     db "Selector 0 is ordinary RAM; selector 1 is the atlas bank.", 13, 10, "$"
+%endif
 message_done:
+%if M98Y_PRIVATE_PROFILE
+    db "M98Y_EXIT: ordinary mapping, keyboard, and video state restored.", 13, 10, "$"
+%else
     db "M98V_EXIT: ordinary mapping, keyboard, and video state restored.", 13, 10, "$"
+%endif
 message_option_failed:
     db "M98V_OPTION: use zero or one exact /V1 through /V8 option.", 13, 10, "$"
 message_bms_failed:
@@ -4955,7 +4975,11 @@ message_transfer_failed:
 message_runtime_failed:
     db "M98V_FAIL: bounded VBLANK edge wait timed out.", 13, 10, "$"
 atlas_filename:
+%if M98Y_PRIVATE_PROFILE
+    db "IDAORB.BIN", 0
+%else
     db "ZUNDORB.BIN", 0
+%endif
 
 ; Keep every capture PC stable even as the surrounding helpers evolve.
 times PROBE_CHECKPOINT_OFFSET - ($ - $$) db 0x90
@@ -5064,6 +5088,11 @@ expected_scale_histogram: db 1,2,2,2,2,4,2,2,2,2,2,2,2,2,3,3,2,2,2,2,2,2,2,2,4,2
 %endif
 %if HUD_COUNT_TILE_COUNT != 16 || HUD_COUNT_TILE_BYTES != HUD_COUNT_WRITE_BYTES
 %error "M98x HUD include has the wrong runtime count tile contract"
+%endif
+%if M98Y_PRIVATE_PROFILE
+%ifndef HUD_PROFILE_IDA
+%error "M98y private build requires the IDA HUD profile"
+%endif
 %endif
 guard_normal_outside: db 0x5a,0xa5,0x3c,0xc3,0x69,0x96,0x0f,0xf0
 guard_normal_under:   db 0xa5,0x5a,0xc3,0x3c,0x96,0x69,0xf0,0x0f

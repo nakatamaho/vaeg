@@ -78,7 +78,10 @@ def intersects(left, right) -> bool:
             and left[1] < right[3] and right[1] < left[3])
 
 
-def inspect(table_path: Path, atlas_path: Path):
+def inspect(table_path: Path, atlas_path: Path, radius_x: int = 96,
+            radius_y: int = 48):
+    if not (1 <= radius_x <= 32767 and 1 <= radius_y <= 32767):
+        raise DepthTableError("M98Y_RADIUS_RANGE")
     try:
         raw = table_path.read_bytes()
         text = raw.decode("ascii")
@@ -119,10 +122,10 @@ def inspect(table_path: Path, atlas_path: Path):
     if sum(scales[index] != scales[(index + 1) & 63]
            for index in range(64)) != 58:
         raise DepthTableError("M98T_TABLE_CHANGE_EDGES")
-    if ((entries[0].dx, entries[0].dy) != (96, 0)
-            or (entries[16].dx, entries[16].dy) != (0, 48)
-            or (entries[32].dx, entries[32].dy) != (-96, 0)
-            or (entries[48].dx, entries[48].dy) != (0, -48)):
+    if ((entries[0].dx, entries[0].dy) != (radius_x, 0)
+            or (entries[16].dx, entries[16].dy) != (0, radius_y)
+            or (entries[32].dx, entries[32].dy) != (-radius_x, 0)
+            or (entries[48].dx, entries[48].dy) != (0, -radius_y)):
         raise DepthTableError("M98T_TABLE_CARDINAL")
     for entry in entries:
         opposite = entries[(entry.phase + 32) & 63]
@@ -161,9 +164,12 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--input", type=Path, required=True)
     parser.add_argument("--atlas", type=Path, required=True)
+    parser.add_argument("--radius-x", type=int, default=96)
+    parser.add_argument("--radius-y", type=int, default=48)
     args = parser.parse_args()
     try:
-        raw, entries, _, _ = inspect(args.input, args.atlas)
+        raw, entries, _, _ = inspect(args.input, args.atlas,
+                                     args.radius_x, args.radius_y)
     except DepthTableError as error:
         print(error)
         return 1

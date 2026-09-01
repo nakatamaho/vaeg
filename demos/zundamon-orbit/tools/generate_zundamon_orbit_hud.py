@@ -57,13 +57,16 @@ GLYPHS = {
     "8": (".###.", "#...#", "#...#", ".###.", "#...#", "#...#", ".###."),
     "9": (".###.", "#...#", "#...#", ".####", "....#", "....#", ".###."),
     "A": (".###.", "#...#", "#...#", "#####", "#...#", "#...#", "#...#"),
+    "C": (".###.", "#...#", "#....", "#....", "#....", "#...#", ".###."),
     "D": ("####.", "#...#", "#...#", "#...#", "#...#", "#...#", "####."),
     "F": ("#####", "#....", "#....", "####.", "#....", "#....", "#...."),
+    "I": (".###.", "..#..", "..#..", "..#..", "..#..", "..#..", ".###."),
     "M": ("#...#", "##.##", "#.#.#", "#.#.#", "#...#", "#...#", "#...#"),
     "N": ("#...#", "##..#", "##..#", "#.#.#", "#..##", "#..##", "#...#"),
     "O": (".###.", "#...#", "#...#", "#...#", "#...#", "#...#", ".###."),
     "P": ("####.", "#...#", "#...#", "####.", "#....", "#....", "#...."),
     "S": (".####", "#....", "#....", ".###.", "....#", "....#", "####."),
+    "T": ("#####", "..#..", "..#..", "..#..", "..#..", "..#..", "..#.."),
     "U": ("#...#", "#...#", "#...#", "#...#", "#...#", "#...#", ".###."),
     "Z": ("#####", "....#", "...#.", "..#..", ".#...", "#....", "#####"),
 }
@@ -83,9 +86,15 @@ def render_text(text: str) -> bytes:
     return bytes(result)
 
 
-def render_full(field: str) -> bytes:
+def render_full(field: str, subject: str = "ZUNDAMON") -> bytes:
     line1 = render_text(f"FPS: {field}   ")
-    line2 = render_text("ZUNDAMON: 1")
+    if subject == "ZUNDAMON":
+        line2_text = "ZUNDAMON: 1"
+    elif subject == "IDA":
+        line2_text = "IDA CNT:  1"
+    else:
+        raise ValueError("M98Y_HUD_SUBJECT")
+    line2 = render_text(line2_text)
     if len(line1) != HUD_WIDTH * CELL_HEIGHT or len(line2) != len(line1):
         raise ValueError("M98T_HUD_LAYOUT")
     return line1 + line2
@@ -98,8 +107,8 @@ def emit_bytes(lines: list[str], label: str, data: bytes, width: int) -> None:
         lines.append("    db " + ",".join(f"0x{value:02x}" for value in row))
 
 
-def encode_include() -> tuple[bytes, tuple[bytes, ...], tuple[bytes, ...]]:
-    full_tiles = tuple(render_full(field) for field in FPS_FIELDS)
+def encode_include(subject: str = "ZUNDAMON") -> tuple[bytes, tuple[bytes, ...], tuple[bytes, ...]]:
+    full_tiles = tuple(render_full(field, subject) for field in FPS_FIELDS)
     fps_tiles = tuple(render_text(field) for field in FPS_FIELDS)
     count_tiles = tuple(render_text(field) for field in COUNT_FIELDS)
     lines = [
@@ -133,6 +142,8 @@ def encode_include() -> tuple[bytes, tuple[bytes, ...], tuple[bytes, ...]]:
         f"%define HUD_FOREGROUND 0x{FOREGROUND:02x}",
         f"%define HUD_BACKGROUND 0x{BACKGROUND:02x}",
     ]
+    if subject == "IDA":
+        lines.append("%define HUD_PROFILE_IDA 1")
     for index, data in enumerate(full_tiles, 1):
         emit_bytes(lines, f"hud_full_tile_v{index}", data, HUD_WIDTH)
     lines.append("hud_full_tile_pointers:")
@@ -154,16 +165,19 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--metadata", type=Path)
+    parser.add_argument("--subject", choices=("ZUNDAMON", "IDA"),
+                        default="ZUNDAMON")
     args = parser.parse_args()
     if args.output.exists() or (args.metadata is not None and args.metadata.exists()):
         parser.error("refusing to overwrite generated output")
-    encoded, full_tiles, fps_tiles = encode_include()
+    encoded, full_tiles, fps_tiles = encode_include(args.subject)
     count_tiles = tuple(render_text(field) for field in COUNT_FIELDS)
     args.output.write_bytes(encoded)
     digest = hashlib.sha256(encoded).hexdigest()
     if args.metadata is not None:
         args.metadata.write_text(json.dumps({
             "schema": "zundamon-orbit-m98x-hud-v1",
+            "subject": args.subject,
             "font_provenance": "task-authored-public-5x7",
             "glyphs": sorted(GLYPHS),
             "foreground": FOREGROUND,
