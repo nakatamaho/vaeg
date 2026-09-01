@@ -35,7 +35,9 @@ physical PC-88VA measurement or a maintainer VA2 approval.
 - Starting/accepted M98w head: `b65d6c50af1f9bd7f574a17683c637e65212be78`
 - Accepted remote: `origin/topic/m98w-multi-dirty-union` resolved to the same
   `b65d6c50af1f9bd7f574a17683c637e65212be78`
-- Implementation commit: `7548f3c4f8824d0e9d5794ec805223594bd34dde`
+- Implementation commits: `7548f3c4f8824d0e9d5794ec805223594bd34dde`,
+  followed by the input compatibility fix
+  `4537a9214a58dcf23fbc196beefcb1a963551bd9`
 - Report commit: this report commit; the exact self-referential hash is
   supplied by the final Git handoff after commit and push
 - Pushed remote head: this report commit on the M98x topic branch
@@ -49,11 +51,11 @@ physical PC-88VA measurement or a maintainer VA2 approval.
   the accepted M98w guest was 34,656 bytes and hardware remained
   `REAL_HW_PENDING`.
 
-The accepted M98w candidate remains generated and ignored. M98x generated the
-fresh local candidate
-`build/generated/zundamon-orbit/m98x-va2-final/zundamon-orbit-m98x-pristine.d88`
+The accepted M98w candidate remains generated and ignored. After the
+PC-88 cursor-code compatibility fix, M98x generated the fresh local candidate
+`build/generated/zundamon-orbit/m98x-va2-updown-fix/zundamon-orbit-m98x-pristine.d88`
 with SHA-256
-`fb0f5925ede5cd8513aaec9cb3a7891e751b7817a8c4625ce74ad789830ff54d`.
+`23254520793fe5c53ad4366d5a264de78a7d97222c659204c420611b54a4fdd0`.
 It is not tracked.
 
 ## Worktree and changed files
@@ -130,7 +132,10 @@ equals-sign, unknown, and duplicate forms fail closed; host diagnostics are
 `M98X_DUPLICATE_V`, and `M98X_UNKNOWN_OPTION`. No numeric prefix is accepted.
 
 UP and DOWN consume the same make/press path as the accepted cadence controls.
-Each accepted press changes the requested count by one, increments the request
+The VA2/PC-88 BIOS returns cursor make codes `3Ah` (UP) and `3Dh` (DOWN);
+the compatibility path also accepts `48h`/`50h` without changing debounce or
+one-press handling. Each accepted press changes the requested count by one,
+increments the request
 generation, and coalesces while a frame is rendering or READY. At 16/1 the
 corresponding key saturates, increments the no-op counter, and never wraps.
 UP/DOWN are compiled out of the fixed M98v/M98w QA mode.
@@ -268,7 +273,7 @@ byte-for-byte. Two clean runtime guest builds were byte-identical:
 
 ```text
 size: 36,320 bytes
-SHA-256: 5e1802a1325d9ddf09389156cbb25ded1e8d5f1bdb2e1cbf635d9ede53531884
+SHA-256: c8edcca160f6b1a8d96e6d119a54bcaa5af987224a5da252f690bb17d6d47d18
 ```
 
 The generated atlas still validates as one bank with exactly 30 descriptors.
