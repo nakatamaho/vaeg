@@ -33,7 +33,11 @@ paths, binaries, or disk images distributable.
 
 - Starting accepted G98z head: `8d0ce6c5696661e7aba66ca5e36bf75760660d71`.
 - Branch: `topic/m98aa-ida-64-animation`.
-- Implementation commit: `aa910563b56cadd647c2058758e37a3d1f50cf71`.
+- Implementation commits: `aa910563b56cadd647c2058758e37a3d1f50cf71`,
+  `12365710b5d63dc8e53683828851ce35f130cc71`, and
+  `ce99d8243267807d59b3fabefb8d70e9014cab52`.
+- Report commit: this report commit; the exact pushed head is supplied at
+  handoff and is remotely equal.
 - Predecessor: G98z was explicitly passed by the maintainer and its accepted
   head is the starting point.
 - Scope: private IDA profile only; public ZUNDAMON behavior is unchanged.
