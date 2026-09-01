@@ -134,11 +134,12 @@ Z (`29h`), and sign-extends the bounded DIST/LOOK values before selecting
 their generated tiles. The four status fields now share one row below the
 legacy HUD at fixed x positions 4, 64, 106, and 154, with no overlap; each
 published active snapshot redraws all four fields, including negative values.
-The SPD field is nine six-pixel cells (`54` bytes) rather than the former
-eight-cell allocation; this keeps the complete `SPD:<level>` field aligned
-and prevents tile rows from straddling adjacent status fields. The FPS field
-update also treats a falling VBLANK edge after the complete CPU tile write as
-a diagnostic overrun, not a runtime failure, so a valid RIGHT/LEFT transition
+The SPD field is ten six-pixel cells (`60` bytes), including one trailing
+blank cell after every `SPD:<level>` label; this keeps the complete field
+separated from `DIST` and prevents tile rows from straddling adjacent status
+fields. The ladder has thirteen entries through `8.00X`. The FPS field update
+also treats a falling VBLANK edge after the complete CPU tile write as a
+diagnostic overrun, not a runtime failure, so a valid RIGHT/LEFT transition
 at the 15-FPS entry cannot exit the guest after the field is already complete.
 
 ## Host and guest evidence
