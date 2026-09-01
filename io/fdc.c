@@ -17,6 +17,7 @@
 #include "memoryva.h"
 #include "subsystem.h"
 #include "upd9002_trace.h"
+#include "diagnostics/causal_trace.h"
 
 enum {
 	FDC_DMACH2HD = 2,
@@ -221,6 +222,8 @@ static void fdc_trace_begin(REG8 cmd) {
 	fdctrace.dma_start = 0xffffffffUL;
 	fdctrace.dma_end = 0xffffffffUL;
 	fdc_trace_update_fields();
+	vaeg_causal_trace_named("fdc_command", "main-cpu", "fdc", "issued", 0,
+	                       cmd, 1);
 }
 
 static void fdc_trace_dma_snapshot(UINT8 channel) {
@@ -254,6 +257,7 @@ static void fdc_trace_dma_snapshot(UINT8 channel) {
 	if (!fdctrace.req_len) {
 		fdctrace.req_len = length;
 	}
+	vaeg_causal_trace_named("dma", "fdc", "dmac", "request", channel, length, 1);
 }
 
 static void fdc_trace_transfer_byte(void) {
@@ -273,6 +277,15 @@ void fdc_trace_log(REG8 cmd, const char *name, UINT8 drive, UINT8 C, UINT8 H, UI
 	}
 	fdctrace_event++;
 #endif
+	vaeg_causal_trace_named("fdc_position", "fdc", "fdd", name, C,
+	                       ((UINT32)H << 24) | ((UINT32)R << 16) | N, 1);
+	if (xfer_len) {
+		vaeg_causal_trace_sector_transfer("complete", dma_start, dma_end, xfer_len,
+		                                 ((UINT32)st0 << 16) | ((UINT32)st1 << 8) | st2);
+	}
+	vaeg_causal_trace_named("fdc_command", "fdc", "fdc",
+	                       (st0 | st1 | st2) ? "failed" : "completed", 0,
+	                       xfer_len, 1);
 	TRACEOUT((FDCTRACE_FORMAT, cmd, name, drive, C, H, R, N, fdc_trace_mode_value(),
 	          fdc_trace_mode_name(), (unsigned long)req_len, st0, st1, st2, (unsigned long)xfer_len,
 	          dma_ch, dma_access, dma_sysm_bank, sysm_bank, (unsigned long)dma_len,
@@ -366,6 +379,8 @@ void fdc_intwait(NEVENTITEM item) {
 }
 
 void fdc_interrupt(void) {
+	vaeg_causal_trace_named("irq_assert", "fdc", "main-cpu", "scheduled",
+	                       NEVENT_FDCINT, 1, 1);
 	nevent_set(NEVENT_FDCINT, 512, fdc_intwait, NEVENT_ABSOLUTE);
 }
 
@@ -380,6 +395,8 @@ static BOOL fdc_isfdcinterrupt(void) {
 static void fdc_resetirq(void) {
 	if (!fdc.fddifmode) {
 		// Intelligent mode
+		vaeg_causal_trace_named("irq_clear", "main-cpu", "fdc", "acknowledge",
+		                       0, 0, 1);
 		subsystem_irq(FALSE);
 	}
 }
@@ -405,10 +422,15 @@ REG8 DMACCALL fdc_dmafunc(REG8 func) {
 }
 
 static void fdc_dmaready(REG8 enable) {
+	UINT8 channel;
+
 	if (!fdc.fddifmode) {
 		// Intelligent
 		return;
 	}
+	channel = (fdc.chgreg & 1) ? FDC_DMACH2HD : FDC_DMACH2DD;
+	vaeg_causal_trace_named("dma", "fdc", "dmac", enable ? "ready" : "not-ready",
+	                       channel, enable, 1);
 	if (fdc.chgreg & 1) {
 		dmac.dmach[FDC_DMACH2HD].ready = enable;
 		if (enable) {
@@ -748,7 +770,12 @@ static void FDC_WriteData(void) { // cmd: 05
 
 static void readsector(void) {
 	fdc.stat[fdc.us] = (fdc.hd << 2) | fdc.us;
+	vaeg_causal_trace_named("fdc_position", "fdc", "fdd", "read-sector",
+	                       fdc.C, ((UINT32)fdc.H << 24) | ((UINT32)fdc.R << 16) | fdc.N,
+	                       1);
 	if (!FDC_DriveCheck(FALSE)) {
+		vaeg_causal_trace_named("drive_state", "fdc", "drive", "read-rejected",
+		                       fdc.us, 0, 1);
 		return;
 	}
 	fdc_play_head_load_sound(FALSE);
@@ -1355,6 +1382,8 @@ void fdc_timer(NEVENTITEM item) {
 
 void fdc_fddmotor(NEVENTITEM item) {
 	if (fdc.motor[0] == FDD_MOTOR_STARTING) {
+		vaeg_causal_trace_named("drive_state", "fdd", "drive", "motor-stable",
+		                       0, FDD_MOTOR_STABLE, 1);
 		fdc.motor[0] = fdc.motor[1] = fdc.motor[2] = fdc.motor[3] = FDD_MOTOR_STABLE;
 	}
 }
@@ -1407,6 +1436,8 @@ static REG8 IOINPCALL fdcva_i_dskmisc(UINT port) {
 	REG8 ret;
 
 	ret = 0xa6 | 0x10; // Force the modeled drive-ready indication.
+	vaeg_causal_trace_named("drive_state", "main-cpu", "drive", "ready-sense",
+	                       port, ret, 1);
 	                   // A VA2 monitor read returned A6H before the forced ready bit.
 	                   // TODO: verify the remaining status-bit readback on hardware.
 
@@ -1427,6 +1458,8 @@ static void IOOUTCALL fdcva_o_dskctl(UINT port, REG8 dat) {
 			CTRL_FDMEDIA[i] = DISKTYPE_2DD;
 		}
 	}
+	vaeg_causal_trace_named("drive_state", "main-cpu", "drive", "media-select",
+	                       port, dat, 1);
 	for (i = 0; i < 2; i++) {
 		if (dat & (4 << i)) {
 			fdc.trackdensity[i] = FDD_96TPI;
@@ -1450,12 +1483,16 @@ static void IOOUTCALL fdcva_o_mtrctl(UINT port, REG8 dat) {
 	// TODO: model each drive motor independently.
 	// The current latch starts and stops both modeled drives together.
 	if (dat & 0x03) {
+		vaeg_causal_trace_named("drive_state", "main-cpu", "drive", "motor-start",
+		                       port, dat, 1);
 		if (fdc.motor[0] == FDD_MOTOR_STOPPED) {
 			fdc.motor[0] = fdc.motor[1] = FDD_MOTOR_STARTING;
 			nevent_setbyms(NEVENT_FDDMOTOR, FDD_MOTORDELAY, fdc_fddmotor, NEVENT_ABSOLUTE);
 			start_statewatch();
 		}
 	} else {
+		vaeg_causal_trace_named("drive_state", "main-cpu", "drive", "motor-stop",
+		                       port, dat, 1);
 		if (fdc.motor[0] != FDD_MOTOR_STOPPED) {
 			fdc.motor[0] = fdc.motor[1] = FDD_MOTOR_STOPPED;
 			stop_statewatch();

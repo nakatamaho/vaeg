@@ -14,6 +14,7 @@
 #include "i8255.h"
 #include "subsystemif.h"
 #include "fdc.h"
+#include "diagnostics/causal_trace.h"
 
 #include "subsystem.h"
 
@@ -185,6 +186,8 @@ Subsystem::~Subsystem() {
 //}
 
 void Subsystem::Initialize() {
+	vaeg_causal_trace_named("device_schedule", "machine", "fd-subsystem",
+	                       "initialize", 0, 0, 0);
 	upd780->Init(this, this, clock, clockcounter, piac2);
 	//rom[0] = 0xf3;
 	//rom[1] = 0x76;
@@ -194,6 +197,8 @@ void Subsystem::Initialize() {
 }
 
 void Subsystem::Reset() {
+	vaeg_causal_trace_named("device_schedule", "machine", "fd-subsystem",
+	                       "reset", 0, 0, 0);
 	clockcounter->SetMultiple(pccore.multiple);
 	upd780->Reset();
 	SetWait(false, "reset");
@@ -202,12 +207,16 @@ void Subsystem::Reset() {
 }
 
 void Subsystem::IRQ(BOOL irq) {
+	vaeg_causal_trace_named(irq ? "irq_assert" : "irq_clear", "main-cpu",
+	                       "fd-subsystem", "level", 0, irq ? 1U : 0U, 1);
 	UPD780TRACE(("upd780trace core=%s event=irq level=%u live=%04x public=%04x", UPD780CORENAME,
 	             (unsigned)!!irq, (unsigned)upd780->GetPC(), (unsigned)upd780->GetReg()->pc));
 	upd780->IRQ(0, irq);
 }
 
 void Subsystem::Exec() {
+	vaeg_causal_trace_named("device_schedule", "scheduler", "fd-subsystem",
+	                       "execute", 0, 0, 0);
 	UPD780TRACE(
 	    ("upd780trace core=%s event=exec-enter live=%04x public=%04x wait=%u remain=%d now=%u",
 	     UPD780CORENAME, (unsigned)upd780->GetPC(), (unsigned)upd780->GetReg()->pc,
@@ -220,6 +229,8 @@ void Subsystem::Exec() {
 }
 
 void Subsystem::SetWait(bool wait, const char *source) {
+	vaeg_causal_trace_named("device_schedule", "fd-subsystem", "fd-subsystem",
+	                       wait ? "wait" : "run", 0, wait ? 1U : 0U, 1);
 	upd780->Wait(wait);
 	waitactive = wait;
 	UPD780TRACE(
@@ -333,19 +344,28 @@ std::uint32_t Subsystem::nonmem_rd(std::uint32_t addr) {
 }
 
 std::uint32_t IFCALL Subsystem::Read8(std::uint32_t addr) {
+	std::uint32_t ret;
+
 	switch (addr >> 13) {
 	case 0:
-		return rom_rd(addr);
+		ret = rom_rd(addr);
+		break;
 	case 2:
-		return ram_rd(addr);
+		ret = ram_rd(addr);
+		break;
 	case 3:
-		return ram_rd(addr);
+		ret = ram_rd(addr);
+		break;
 	default:
-		return nonmem_rd(addr);
+		ret = nonmem_rd(addr);
+		break;
 	}
+	vaeg_causal_trace_memory("read", "fd-subsystem", addr, ret, 1);
+	return ret;
 }
 
 void IFCALL Subsystem::Write8(std::uint32_t addr, std::uint32_t data) {
+	vaeg_causal_trace_memory("write", "fd-subsystem", addr, data, 1);
 	switch (addr >> 13) {
 	case 2:
 		ram_wt(addr, data);
@@ -442,6 +462,7 @@ std::uint32_t IFCALL Subsystem::In(std::uint32_t port) {
 	UPD780TRACE(("upd780trace core=%s event=in port=%03x value=%02x live=%04x public=%04x",
 	             UPD780CORENAME, (unsigned)port, (unsigned)(ret & 0xff), (unsigned)upd780->GetPC(),
 	             (unsigned)upd780->GetReg()->pc));
+	vaeg_causal_trace_io("read", "fd-subsystem", port, ret, 1);
 	if (port != 0xfe) {
 		TRACEOUT(("subsys: in : %02x -> %02x  [%04x]", port, ret, upd780->GetReg()->pc));
 	}
@@ -449,6 +470,7 @@ std::uint32_t IFCALL Subsystem::In(std::uint32_t port) {
 }
 
 void IFCALL Subsystem::Out(std::uint32_t port, std::uint32_t dat) {
+	vaeg_causal_trace_io("write", "fd-subsystem", port, dat, 1);
 	TRACEOUT(("subsys: out: %02x <- %02x  [%04x]", port, dat, upd780->GetReg()->pc));
 	UPD780TRACE(("upd780trace core=%s event=out port=%02x value=%02x live=%04x public=%04x",
 	             UPD780CORENAME, (unsigned)(port & 0xff), (unsigned)(dat & 0xff),

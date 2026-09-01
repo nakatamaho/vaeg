@@ -135,6 +135,10 @@ typedef struct {
 	BOOL trace_cpu_stop;
 #endif
 	UINT trace_cpu;
+#if defined(VAEG_Z80_COMPAT_INTEGRATION_TRACE)
+	UINT causal_trace_limit;
+	UINT causal_trace_ring;
+#endif
 	UINT scsitrace_limit;
 	UINT scsitrace_jitter_seed;
 	UINT scsitrace_jitter_span;
@@ -165,6 +169,13 @@ typedef struct {
 	const char *bkupmem_path;
 #if defined(VAEG_Z80_COMPAT_INTEGRATION_TRACE)
 	const char *trace_cpu_output;
+	const char *causal_trace_output;
+	const char *causal_trace_manifest;
+	const char *causal_trace_cpu;
+	const char *causal_trace_device;
+	const char *causal_trace_io;
+	const char *causal_trace_memory;
+	const char *causal_trace_stop_event;
 #endif
 	const char *headless_input_script;
 	const char *debug_script;

@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/nakatamaho/vaeg/schemas/causal-trace-v1.json",
+  "title": "VAEG causal trace JSONL record",
+  "description": "Stable records emitted by the optional production-memory causal trace.",
+  "oneOf": [
+    {
+      "type": "object",
+      "properties": {
+        "schema": { "const": "vaeg-causal-trace-v1" },
+        "encoding": { "const": "jsonl" }
+      },
+      "required": ["schema", "encoding"],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "seq": { "type": "integer", "minimum": 0 },
+        "class": {
+          "enum": [
+            "cpu_step", "io_read", "io_write", "mem_read", "mem_write",
+            "irq_assert", "irq_clear", "irq_accept", "device_schedule", "mailbox",
+            "drive_state", "fdc_command", "fdc_position", "sector_transfer", "dma",
+            "instruction_fetch_correlation", "stop"
+          ]
+        },
+        "step": { "type": "integer", "minimum": 0 },
+        "actor": { "type": "string", "pattern": "^[A-Za-z0-9._-]+$" },
+        "device": { "type": "string", "pattern": "^[A-Za-z0-9._-]+$" },
+        "phase": { "type": "string", "pattern": "^[A-Za-z0-9._-]+$" },
+        "address": { "type": "integer", "minimum": 0 },
+        "value": { "type": "integer", "minimum": 0 },
+        "width": { "type": "integer", "minimum": 0 },
+        "reason": { "type": "string", "pattern": "^[A-Za-z0-9._-]+$" },
+        "events": { "type": "integer", "minimum": 0 },
+        "cs": { "type": "integer", "minimum": 0, "maximum": 65535 },
+        "ip": { "type": "integer", "minimum": 0, "maximum": 65535 },
+        "physical": { "type": "integer", "minimum": 0 },
+        "opcode": { "type": "integer", "minimum": 0, "maximum": 255 },
+        "ax": { "type": "integer", "minimum": 0 },
+        "bx": { "type": "integer", "minimum": 0 },
+        "cx": { "type": "integer", "minimum": 0 },
+        "dx": { "type": "integer", "minimum": 0 },
+        "si": { "type": "integer", "minimum": 0 },
+        "di": { "type": "integer", "minimum": 0 },
+        "bp": { "type": "integer", "minimum": 0 },
+        "sp": { "type": "integer", "minimum": 0 },
+        "es": { "type": "integer", "minimum": 0 },
+        "ss": { "type": "integer", "minimum": 0 },
+        "ds": { "type": "integer", "minimum": 0 },
+        "flags": { "type": "integer", "minimum": 0 },
+        "if": { "type": "integer", "enum": [0, 1] },
+        "memory": { "type": "integer", "minimum": 0 }
+      },
+      "required": ["seq", "class"],
+      "additionalProperties": false
+    }
+  ]
+}

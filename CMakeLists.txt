@@ -493,7 +493,9 @@ if(VAEG_WERROR)
 endif()
 
 if(VAEG_Z80_COMPAT_INTEGRATION_TRACE)
-    list(APPEND VAEG_CORE_SOURCES cpu/upd9002/upd9002_trace.c)
+    list(APPEND VAEG_CORE_SOURCES
+        cpu/upd9002/upd9002_trace.c
+        diagnostics/causal_trace.c)
 endif()
 if(VAEG_UPD9002_PERF_DIAGNOSTIC)
     list(APPEND VAEG_CORE_SOURCES cpu/upd9002/upd9002_perf.c)
@@ -1529,4 +1531,27 @@ if(VAEG_Z80_COMPAT_INTEGRATION_TRACE AND NOT VAEG_ENABLE_TESTS)
     set_tests_properties(vaeg_production_trace_runtime PROPERTIES
         LABELS "romless;upd9002;trace;production"
         TIMEOUT 420)
+endif()
+
+if(VAEG_Z80_COMPAT_INTEGRATION_TRACE)
+    add_test(NAME vaeg_causal_trace_analyzer
+        COMMAND "${Python3_EXECUTABLE}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/causal_trace.py"
+            selftest)
+    set_tests_properties(vaeg_causal_trace_analyzer PROPERTIES
+        LABELS "romless;trace;causal")
+endif()
+
+if(VAEG_Z80_COMPAT_INTEGRATION_TRACE AND VAEG_ENABLE_TESTS)
+    add_executable(vaeg_causal_trace_selftest
+        tests/causal_trace/causal_trace.c)
+    target_include_directories(vaeg_causal_trace_selftest PRIVATE
+        "${CMAKE_CURRENT_SOURCE_DIR}")
+    target_compile_definitions(vaeg_causal_trace_selftest PRIVATE
+        VAEG_Z80_COMPAT_INTEGRATION_TRACE=1)
+    target_link_libraries(vaeg_causal_trace_selftest PRIVATE vaeg_core)
+    add_test(NAME vaeg_causal_trace_selftest
+        COMMAND vaeg_causal_trace_selftest)
+    set_tests_properties(vaeg_causal_trace_selftest PROPERTIES
+        LABELS "romless;trace;causal")
 endif()

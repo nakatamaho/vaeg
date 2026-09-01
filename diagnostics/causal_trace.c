@@ -1,0 +1,547 @@
+/*
+ * Copyright (c) 2026 Nakata Maho
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE AUTHOR "AS IS" AND ANY EXPRESS OR
+ * IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+ * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+ * DISCLAIMED. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT,
+ * INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+ * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+ * STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING
+ * IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ * POSSIBILITY OF SUCH DAMAGE.
+ */
+#include "causal_trace.h"
+
+#include <ctype.h>
+#include <stdarg.h>
+#include <stdlib.h>
+#include <string.h>
+
+enum {
+    CAUSAL_LINE_SIZE = 1024,
+    CAUSAL_MAX_RANGES = 32
+};
+
+typedef struct {
+    uint32_t first;
+    uint32_t last;
+} CAUSAL_RANGE;
+
+typedef struct {
+    FILE *stream;
+    VAEG_CAUSAL_TRACE_CONFIG config;
+    CAUSAL_RANGE io_ranges[CAUSAL_MAX_RANGES];
+    CAUSAL_RANGE memory_ranges[CAUSAL_MAX_RANGES];
+    uint32_t io_count;
+    uint32_t memory_count;
+    uint32_t event_count;
+    uint32_t sequence;
+    uint32_t step;
+    uint32_t ring_next;
+    uint32_t ring_count;
+    char *ring;
+    uint32_t transfer_first;
+    uint32_t transfer_last;
+    int transfer_valid;
+    int io_all;
+    int memory_all;
+    int stop_requested;
+    int stop_written;
+    char current_class[48];
+    char stop_reason[32];
+} CAUSAL_STATE;
+
+static CAUSAL_STATE causal_state;
+
+static int is_all(const char *text) {
+    return (text != NULL) &&
+           ((strcmp(text, "all") == 0) || (strcmp(text, "*") == 0));
+}
+
+static int parse_number(const char **cursor, uint32_t *value) {
+    const char *start = *cursor;
+    char *end;
+    unsigned long parsed;
+    int base = 10;
+
+    if ((start[0] == '0') && ((start[1] == 'x') || (start[1] == 'X'))) {
+        base = 16;
+        start += 2;
+    }
+    if (!isxdigit((unsigned char)*start)) {
+        return 0;
+    }
+    parsed = strtoul(start, &end, base);
+    if ((end == start) || (parsed > UINT32_MAX)) {
+        return 0;
+    }
+    *value = (uint32_t)parsed;
+    *cursor = end;
+    return 1;
+}
+
+static int parse_ranges(const char *text, CAUSAL_RANGE *ranges, uint32_t *count,
+                        int *all) {
+    const char *cursor;
+    uint32_t first;
+    uint32_t last;
+
+    *count = 0;
+    *all = 0;
+    if ((text == NULL) || (text[0] == '\0')) {
+        return 1;
+    }
+    if (is_all(text)) {
+        *all = 1;
+        return 1;
+    }
+    cursor = text;
+    while (*cursor != '\0') {
+        if ((*count >= CAUSAL_MAX_RANGES) || !parse_number(&cursor, &first)) {
+            return 0;
+        }
+        last = first;
+        if (*cursor == '-') {
+            cursor++;
+            if (!parse_number(&cursor, &last) || (last < first)) {
+                return 0;
+            }
+        }
+        ranges[*count].first = first;
+        ranges[*count].last = last;
+        (*count)++;
+        if (*cursor == ',') {
+            cursor++;
+            if (*cursor == '\0') {
+                return 0;
+            }
+        } else if (*cursor != '\0') {
+            return 0;
+        }
+    }
+    return 1;
+}
+
+static int in_ranges(uint32_t value, const CAUSAL_RANGE *ranges, uint32_t count,
+                     int all) {
+    uint32_t index;
+
+    if (all) {
+        return 1;
+    }
+    for (index = 0; index < count; index++) {
+        if ((value >= ranges[index].first) && (value <= ranges[index].last)) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+static int filter_matches(const char *filter, const char *value) {
+    return (filter == NULL) || is_all(filter) ||
+           ((value != NULL) && (strcmp(filter, value) == 0));
+}
+
+static int event_class_known(const char *event_class) {
+    static const char *const classes[] = {
+        "cpu_step", "io_read", "io_write", "mem_read", "mem_write",
+        "irq_assert", "irq_clear", "irq_accept", "device_schedule", "mailbox",
+        "drive_state", "fdc_command", "fdc_position", "sector_transfer", "dma",
+        "instruction_fetch_correlation", "stop"
+    };
+    size_t index;
+
+    if (event_class == NULL) {
+        return 0;
+    }
+    for (index = 0; index < sizeof(classes) / sizeof(classes[0]); index++) {
+        if (strcmp(event_class, classes[index]) == 0) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+static void json_text(FILE *stream, const char *text) {
+    const unsigned char *cursor =
+        (const unsigned char *)((text != NULL) ? text : "");
+
+    fputc('"', stream);
+    while (*cursor != '\0') {
+        if ((*cursor == '\\') || (*cursor == '"')) {
+            fputc('\\', stream);
+            fputc(*cursor, stream);
+        } else if (*cursor == '\n') {
+            fputs("\\n", stream);
+        } else if (*cursor == '\r') {
+            fputs("\\r", stream);
+        } else if (*cursor == '\t') {
+            fputs("\\t", stream);
+        } else if (*cursor < 0x20) {
+            fprintf(stream, "\\u%04x", *cursor);
+        } else {
+            fputc(*cursor, stream);
+        }
+        cursor++;
+    }
+    fputc('"', stream);
+}
+
+static int append_text(char *line, size_t capacity, size_t *used,
+                       const char *format, ...) {
+    va_list arguments;
+    int written;
+
+    va_start(arguments, format);
+    written = vsnprintf(line + *used, capacity - *used, format, arguments);
+    va_end(arguments);
+    if ((written < 0) || ((size_t)written >= (capacity - *used))) {
+        return 0;
+    }
+    *used += (size_t)written;
+    return 1;
+}
+
+static int append_json(char *line, size_t capacity, size_t *used,
+                       const char *text) {
+    size_t position;
+    unsigned char character;
+
+    if (*used + 2 >= capacity) {
+        return 0;
+    }
+    line[(*used)++] = '"';
+    for (position = 0; text != NULL && text[position] != '\0'; position++) {
+        character = (unsigned char)text[position];
+        if ((character == '\\') || (character == '"')) {
+            if (*used + 2 >= capacity) {
+                return 0;
+            }
+            line[(*used)++] = '\\';
+            line[(*used)++] = (char)character;
+        } else if (character == '\n') {
+            if (*used + 2 >= capacity) {
+                return 0;
+            }
+            line[(*used)++] = '\\';
+            line[(*used)++] = 'n';
+        } else if (character == '\r') {
+            if (*used + 2 >= capacity) {
+                return 0;
+            }
+            line[(*used)++] = '\\';
+            line[(*used)++] = 'r';
+        } else if (character == '\t') {
+            if (*used + 2 >= capacity) {
+                return 0;
+            }
+            line[(*used)++] = '\\';
+            line[(*used)++] = 't';
+        } else {
+            if (*used + 1 >= capacity) {
+                return 0;
+            }
+            line[(*used)++] = (char)character;
+        }
+    }
+    if (*used + 1 >= capacity) {
+        return 0;
+    }
+    line[(*used)++] = '"';
+    line[*used] = '\0';
+    return 1;
+}
+
+static void retain_line(const char *line) {
+    char *slot;
+
+    if (causal_state.config.ring_events != 0) {
+        slot = causal_state.ring +
+               causal_state.ring_next * CAUSAL_LINE_SIZE;
+        strncpy(slot, line, CAUSAL_LINE_SIZE - 1);
+        slot[CAUSAL_LINE_SIZE - 1] = '\0';
+        causal_state.ring_next =
+            (causal_state.ring_next + 1) % causal_state.config.ring_events;
+        if (causal_state.ring_count < causal_state.config.ring_events) {
+            causal_state.ring_count++;
+        }
+    } else {
+        fputs(line, causal_state.stream);
+        fputc('\n', causal_state.stream);
+    }
+}
+
+static void flush_ring(void) {
+    uint32_t index;
+    uint32_t first;
+
+    if ((causal_state.stream == NULL) || (causal_state.config.ring_events == 0)) {
+        return;
+    }
+    first = (causal_state.ring_count == causal_state.config.ring_events) ?
+                causal_state.ring_next : 0;
+    for (index = 0; index < causal_state.ring_count; index++) {
+        uint32_t slot = (first + index) % causal_state.config.ring_events;
+        fputs(causal_state.ring + slot * CAUSAL_LINE_SIZE, causal_state.stream);
+        fputc('\n', causal_state.stream);
+    }
+}
+
+static void emit_stop(const char *reason) {
+    if (causal_state.stop_written || (causal_state.stream == NULL)) {
+        return;
+    }
+    causal_state.stop_written = 1;
+    flush_ring();
+    fprintf(causal_state.stream,
+            "{\"seq\":%u,\"class\":\"stop\",\"step\":%u,"
+            "\"reason\":",
+            causal_state.sequence++, causal_state.step);
+    json_text(causal_state.stream, (reason != NULL) ? reason : "normal");
+    fprintf(causal_state.stream, ",\"events\":%u}\n", causal_state.event_count);
+    fflush(causal_state.stream);
+}
+
+static void request_stop(const char *reason) {
+    causal_state.stop_requested = 1;
+    strncpy(causal_state.stop_reason, (reason != NULL) ? reason : "normal",
+            sizeof(causal_state.stop_reason) - 1);
+    causal_state.stop_reason[sizeof(causal_state.stop_reason) - 1] = '\0';
+}
+
+static int event_allowed(const char *event_class, const char *actor,
+                         const char *device, uint32_t address) {
+    if ((causal_state.stream == NULL) || causal_state.stop_requested ||
+        !filter_matches(causal_state.config.device_filter, device)) {
+        return 0;
+    }
+    if ((strcmp(event_class, "cpu_step") == 0) &&
+        !filter_matches(causal_state.config.cpu_filter, actor)) {
+        return 0;
+    }
+    if ((strcmp(event_class, "io_read") == 0) ||
+        (strcmp(event_class, "io_write") == 0)) {
+        return in_ranges(address, causal_state.io_ranges, causal_state.io_count,
+                         causal_state.io_all);
+    }
+    if ((strcmp(event_class, "mem_read") == 0) ||
+        (strcmp(event_class, "mem_write") == 0)) {
+        return in_ranges(address, causal_state.memory_ranges,
+                         causal_state.memory_count, causal_state.memory_all);
+    }
+    return 1;
+}
+
+static int event_begin(char *line, size_t capacity, size_t *used,
+                       const char *event_class) {
+    if ((causal_state.event_count >= causal_state.config.max_events) ||
+        !append_text(line, capacity, used, "{\"seq\":%u,\"class\":",
+                     causal_state.sequence++)) {
+        request_stop("event-limit");
+        emit_stop("event-limit");
+        return 0;
+    }
+    if (!append_json(line, capacity, used, event_class)) {
+        request_stop("line-overflow");
+        emit_stop("line-overflow");
+        return 0;
+    }
+    strncpy(causal_state.current_class, event_class,
+            sizeof(causal_state.current_class) - 1);
+    causal_state.current_class[sizeof(causal_state.current_class) - 1] = '\0';
+    return 1;
+}
+
+static void event_finish(char *line) {
+    retain_line(line);
+    causal_state.event_count++;
+    if ((causal_state.config.stop_event != NULL) &&
+        (strcmp(causal_state.config.stop_event, "none") != 0) &&
+        (strcmp(causal_state.current_class, causal_state.config.stop_event) == 0)) {
+        request_stop("stop-event");
+    }
+    if (causal_state.event_count >= causal_state.config.max_events) {
+        request_stop("event-limit");
+    }
+}
+
+int vaeg_causal_trace_start(FILE *stream,
+                            const VAEG_CAUSAL_TRACE_CONFIG *config) {
+    if ((stream == NULL) || (config == NULL) || (config->max_events == 0) ||
+        (config->max_events > 10000000U) || (config->ring_events > 1000000U)) {
+        return 0;
+    }
+    if ((config->stop_event != NULL) &&
+        (strcmp(config->stop_event, "none") != 0) &&
+        !event_class_known(config->stop_event)) {
+        return 0;
+    }
+    memset(&causal_state, 0, sizeof(causal_state));
+    causal_state.stream = stream;
+    causal_state.config = *config;
+    if (!parse_ranges(config->io_filter, causal_state.io_ranges,
+                      &causal_state.io_count, &causal_state.io_all) ||
+        !parse_ranges(config->memory_filter, causal_state.memory_ranges,
+                      &causal_state.memory_count, &causal_state.memory_all)) {
+        memset(&causal_state, 0, sizeof(causal_state));
+        return 0;
+    }
+    if (config->ring_events != 0) {
+        causal_state.ring = (char *)calloc(config->ring_events, CAUSAL_LINE_SIZE);
+        if (causal_state.ring == NULL) {
+            memset(&causal_state, 0, sizeof(causal_state));
+            return 0;
+        }
+    }
+    fputs("{\"schema\":\"vaeg-causal-trace-v1\",\"encoding\":\"jsonl\"}\n",
+          stream);
+    return 1;
+}
+
+int vaeg_causal_trace_write_manifest(FILE *stream,
+                                     const VAEG_CAUSAL_TRACE_CONFIG *config) {
+    if ((stream == NULL) || (config == NULL) || (config->max_events == 0) ||
+        (config->max_events > 10000000U) || (config->ring_events > 1000000U)) {
+        return 0;
+    }
+    fprintf(stream,
+            "{\"schema\":\"vaeg-causal-trace-manifest-v1\","
+            "\"max_events\":%u,\"ring_events\":%u,\"cpu_filter\":",
+            config->max_events, config->ring_events);
+    json_text(stream, config->cpu_filter);
+    fputs(",\"device_filter\":", stream);
+    json_text(stream, config->device_filter);
+    fputs(",\"io_filter\":", stream);
+    json_text(stream, config->io_filter);
+    fputs(",\"memory_filter\":", stream);
+    json_text(stream, config->memory_filter);
+    fputs(",\"stop_event\":", stream);
+    json_text(stream, config->stop_event);
+    fputs("}\n", stream);
+    return ferror(stream) ? 0 : 1;
+}
+
+void vaeg_causal_trace_stop(const char *reason) {
+    if (causal_state.stream != NULL) {
+        emit_stop(causal_state.stop_requested ? causal_state.stop_reason : reason);
+        free(causal_state.ring);
+    }
+    memset(&causal_state, 0, sizeof(causal_state));
+}
+
+int vaeg_causal_trace_active(void) {
+    return (causal_state.stream != NULL) && !causal_state.stop_written &&
+           !causal_state.stop_requested;
+}
+
+int vaeg_causal_trace_stop_requested(void) {
+    return causal_state.stop_requested;
+}
+
+uint32_t vaeg_causal_trace_event_count(void) {
+    return causal_state.event_count;
+}
+
+void vaeg_causal_trace_cpu_step(uint32_t step, uint16_t cs, uint16_t ip,
+                                uint32_t physical, uint8_t opcode, uint32_t ax,
+                                uint32_t bx, uint32_t cx, uint32_t dx, uint32_t si,
+                                uint32_t di, uint32_t bp, uint32_t sp, uint32_t es,
+                                uint32_t ss, uint32_t ds, uint32_t flags,
+                                uint32_t memory_backend) {
+    char line[CAUSAL_LINE_SIZE];
+    size_t used = 0;
+
+    causal_state.step = step;
+    if (causal_state.transfer_valid && (physical >= causal_state.transfer_first) &&
+        (physical <= causal_state.transfer_last)) {
+        vaeg_causal_trace_named("instruction_fetch_correlation", "main-cpu",
+                                "memory", "sector-transfer-destination", physical,
+                                opcode, 1);
+    }
+    if (!event_allowed("cpu_step", "main-cpu", "cpu", physical) ||
+        !event_begin(line, sizeof(line), &used, "cpu_step")) {
+        return;
+    }
+    if (!append_text(line, sizeof(line), &used,
+                     ",\"step\":%u,\"actor\":\"main-cpu\","
+                     "\"device\":\"cpu\",\"phase\":\"execute\","
+                     "\"cs\":%u,\"ip\":%u,\"physical\":%u,\"opcode\":%u,"
+                     "\"ax\":%u,\"bx\":%u,\"cx\":%u,\"dx\":%u,\"si\":%u,"
+                     "\"di\":%u,\"bp\":%u,\"sp\":%u,\"es\":%u,"
+                     "\"ss\":%u,\"ds\":%u,\"flags\":%u,\"if\":%u,"
+                     "\"memory\":%u}",
+                     step, cs, ip, physical, opcode, ax, bx, cx, dx, si, di, bp,
+                     sp, es, ss, ds, flags, (flags & 0x0200U) ? 1U : 0U,
+                     memory_backend)) {
+        causal_state.stop_requested = 1;
+        emit_stop("line-overflow");
+        return;
+    }
+    event_finish(line);
+}
+
+void vaeg_causal_trace_named(const char *event_class, const char *actor,
+                             const char *device, const char *phase, uint32_t address,
+                             uint32_t value, uint32_t width) {
+    char line[CAUSAL_LINE_SIZE];
+    size_t used = 0;
+
+    if ((event_class == NULL) || (actor == NULL) || (device == NULL) ||
+        (phase == NULL) || !event_allowed(event_class, actor, device, address) ||
+        !event_begin(line, sizeof(line), &used, event_class)) {
+        return;
+    }
+    if (!append_text(line, sizeof(line), &used, ",\"step\":%u,\"actor\":",
+                     causal_state.step) ||
+        !append_json(line, sizeof(line), &used, actor) ||
+        !append_text(line, sizeof(line), &used, ",\"device\":") ||
+        !append_json(line, sizeof(line), &used, device) ||
+        !append_text(line, sizeof(line), &used, ",\"phase\":") ||
+        !append_json(line, sizeof(line), &used, phase) ||
+        !append_text(line, sizeof(line), &used,
+                     ",\"address\":%u,\"value\":%u,\"width\":%u}",
+                     address, value, width)) {
+        causal_state.stop_requested = 1;
+        emit_stop("line-overflow");
+        return;
+    }
+    event_finish(line);
+}
+
+void vaeg_causal_trace_io(const char *phase, const char *actor, uint32_t port,
+                          uint32_t value, uint32_t width) {
+    vaeg_causal_trace_named(
+        (phase != NULL && strcmp(phase, "read") == 0) ? "io_read" : "io_write",
+        actor, "io", phase, port, value, width);
+}
+
+void vaeg_causal_trace_memory(const char *phase, const char *actor, uint32_t address,
+                              uint32_t value, uint32_t width) {
+    vaeg_causal_trace_named(
+        (phase != NULL && strcmp(phase, "read") == 0) ? "mem_read" : "mem_write",
+        actor, "memory", phase, address, value, width);
+}
+
+void vaeg_causal_trace_sector_transfer(const char *phase, uint32_t destination,
+                                       uint32_t end, uint32_t byte_count,
+                                       uint32_t status) {
+    if ((destination != UINT32_MAX) && (end != UINT32_MAX)) {
+        causal_state.transfer_first = (destination < end) ? destination : end;
+        causal_state.transfer_last = (destination < end) ? end : destination;
+        causal_state.transfer_valid = 1;
+    }
+    vaeg_causal_trace_named("sector_transfer", "fdc", "fdd", phase, destination,
+                            byte_count, status);
+}

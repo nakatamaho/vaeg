@@ -11,12 +11,15 @@
 #include "fdsubsys.h"
 #include "subsystemmx.h"
 #include "subsystem.h"
+#include "diagnostics/causal_trace.h"
 
 _SUBSYSTEMMXCFG subsystemmxcfg = {0};
 
 // ---- I/F
 
 void subsystemmx_initialize(void) {
+	vaeg_causal_trace_named("device_schedule", "machine", "fd-subsystem",
+	                       "initialize", 0, 0, 0);
 	if (subsystemmxcfg.mockup) {
 	} else {
 		subsystem_initialize();
@@ -25,6 +28,8 @@ void subsystemmx_initialize(void) {
 }
 
 void subsystemmx_reset(void) {
+	vaeg_causal_trace_named("device_schedule", "machine", "fd-subsystem",
+	                       "reset", 0, 0, 0);
 	if (subsystemmxcfg.mockup) {
 		fdsubsys_reset();
 	} else {
@@ -44,6 +49,8 @@ void subsystemmx_bind(void) {
 void subsystemmx_exec(void) {
 	if (subsystemmxcfg.mockup) {
 	} else {
+		vaeg_causal_trace_named("device_schedule", "machine", "fd-subsystem",
+		                       "execute", 0, 0, 0);
 		subsystem_exec();
 	}
 }

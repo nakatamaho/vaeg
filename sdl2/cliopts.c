@@ -319,6 +319,71 @@ BOOL vaeg_cli_parse(int argc, char **argv, VAEG_CLI_OPTIONS *options, char *erro
 			options->trace_cpu_stop = TRUE;
 		} else if (!strcmp(argument, "--production-trace-capability")) {
 			options->trace_capability = TRUE;
+		} else if (!strcmp(argument, "--causal-trace-output")) {
+			value = option_value(argc, argv, &position, argument, error, error_size);
+			if ((value == NULL) || (value[0] == '\0')) {
+				return (set_error(error, error_size,
+				                  "--causal-trace-output requires a path", value));
+			}
+			options->causal_trace_output = value;
+		} else if (!strcmp(argument, "--causal-trace-limit")) {
+			value = option_value(argc, argv, &position, argument, error, error_size);
+			if ((value == NULL) || (parse_uint(value, &number) != SUCCESS) || (number == 0) ||
+			    (number > 10000000U)) {
+				return (set_error(error, error_size,
+				                  "--causal-trace-limit accepts 1 through 10000000 events", value));
+			}
+			options->causal_trace_limit = number;
+		} else if (!strcmp(argument, "--causal-trace-ring")) {
+			value = option_value(argc, argv, &position, argument, error, error_size);
+			if ((value == NULL) || (parse_uint(value, &number) != SUCCESS) ||
+			    (number > 1000000U)) {
+				return (set_error(error, error_size,
+				                  "--causal-trace-ring accepts 0 through 1000000 events", value));
+			}
+			options->causal_trace_ring = number;
+		} else if (!strcmp(argument, "--causal-trace-cpu")) {
+			value = option_value(argc, argv, &position, argument, error, error_size);
+			if ((value == NULL) || (value[0] == '\0')) {
+				return (set_error(error, error_size,
+				                  "--causal-trace-cpu requires a filter", value));
+			}
+			options->causal_trace_cpu = value;
+		} else if (!strcmp(argument, "--causal-trace-device")) {
+			value = option_value(argc, argv, &position, argument, error, error_size);
+			if ((value == NULL) || (value[0] == '\0')) {
+				return (set_error(error, error_size,
+				                  "--causal-trace-device requires a filter", value));
+			}
+			options->causal_trace_device = value;
+		} else if (!strcmp(argument, "--causal-trace-io")) {
+			value = option_value(argc, argv, &position, argument, error, error_size);
+			if ((value == NULL) || (value[0] == '\0')) {
+				return (set_error(error, error_size,
+				                  "--causal-trace-io requires a range", value));
+			}
+			options->causal_trace_io = value;
+		} else if (!strcmp(argument, "--causal-trace-memory")) {
+			value = option_value(argc, argv, &position, argument, error, error_size);
+			if ((value == NULL) || (value[0] == '\0')) {
+				return (set_error(error, error_size,
+				                  "--causal-trace-memory requires a range", value));
+			}
+			options->causal_trace_memory = value;
+		} else if (!strcmp(argument, "--causal-trace-stop")) {
+			value = option_value(argc, argv, &position, argument, error, error_size);
+			if ((value == NULL) || (value[0] == '\0')) {
+				return (set_error(error, error_size,
+				                  "--causal-trace-stop requires an event class", value));
+			}
+			options->causal_trace_stop_event = value;
+		} else if (!strcmp(argument, "--causal-trace-manifest")) {
+			value = option_value(argc, argv, &position, argument, error, error_size);
+			if ((value == NULL) || (value[0] == '\0')) {
+				return (set_error(error, error_size,
+				                  "--causal-trace-manifest requires a path", value));
+			}
+			options->causal_trace_manifest = value;
 #endif
 		} else if (!strcmp(argument, "--fullscreen")) {
 			options->display_mode = VAEG_CLI_DISPLAY_FULLSCREEN;

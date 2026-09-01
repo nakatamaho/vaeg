@@ -16,6 +16,7 @@
 #include "va91.h"
 #include "upd9002_regs.h"
 #include "upd9002_trace.h"
+#include "diagnostics/causal_trace.h"
 #if defined(VAEG_UPD9002_SSTS_TESTING)
 #include "tests/upd9002/direct_harness.h"
 #endif
@@ -217,6 +218,7 @@ void IOOUTCALL iocore_out8(UINT port, REG8 dat) {
 #endif
 
 	upd9002_trace_event(UPD9002_TRACE_ORIGIN_CPU, "io-write", (uint32_t)port, (uint32_t)dat, 1);
+	vaeg_causal_trace_io("write", "main-cpu", (uint32_t)port, (uint32_t)dat, 1);
 	CPU_REMCLOCK -= iocore.busclock;
 	iof = iocore.map.base[(port >> 8) & 0xff];
 	iof->ioout[port & 0xff](port, dat);
@@ -236,6 +238,7 @@ REG8 IOINPCALL iocore_inp8(UINT port) {
 	iof = iocore.map.base[(port >> 8) & 0xff];
 	ret = iof->ioinp[port & 0xff](port);
 	upd9002_trace_event(UPD9002_TRACE_ORIGIN_CPU, "io-read", (uint32_t)port, (uint32_t)ret, 1);
+	vaeg_causal_trace_io("read", "main-cpu", (uint32_t)port, (uint32_t)ret, 1);
 	return (ret);
 }
 
@@ -256,6 +259,7 @@ void IOOUTCALL iocore_out16(UINT port, REG16 dat) {
 #endif
 
 	CPU_REMCLOCK -= iocore.busclock;
+	vaeg_causal_trace_io("write", "main-cpu", (uint32_t)port, (uint32_t)dat, 2);
 	iof = iocore.map.base[(port >> 8) & 0xff];
 	iof->ioout[port & 0xff](port, (UINT8)dat);
 	port++;
@@ -266,6 +270,7 @@ void IOOUTCALL iocore_out16(UINT port, REG16 dat) {
 REG16 IOINPCALL iocore_inp16(UINT port) {
 	IOFUNC iof;
 	REG8 ret;
+	REG8 high;
 
 #if defined(VAEG_UPD9002_SSTS_TESTING)
 	if (upd9002_ssts_io_active()) {
@@ -281,7 +286,10 @@ REG16 IOINPCALL iocore_inp16(UINT port) {
 	ret = iof->ioinp[port & 0xff](port);
 	port++;
 	iof = iocore.map.base[(port >> 8) & 0xff];
-	return ((UINT16)((iof->ioinp[port & 0xff](port) << 8) + ret));
+	high = iof->ioinp[port & 0xff](port);
+	vaeg_causal_trace_io("read", "main-cpu", (uint32_t)(port - 1),
+	                     (uint32_t)ret | ((uint32_t)high << 8), 2);
+	return ((UINT16)((high << 8) + ret));
 }
 
 void IOOUTCALL iocore_out32(UINT port, UINT32 dat) {

@@ -183,6 +183,24 @@ def verify_p1_link(binary: pathlib.Path) -> None:
         raise TraceQaError("P1 links the flat test-memory seam")
 
 
+def verify_no_extra_fetch_read(source_root: pathlib.Path) -> None:
+    core_path = source_root / "cpu" / "upd9002" / "upd9002_core.c"
+    trace_path = source_root / "cpu" / "upd9002" / "upd9002_trace.c"
+    try:
+        core = core_path.read_text(encoding="utf-8")
+        trace = trace_path.read_text(encoding="utf-8")
+    except OSError as exc:
+        raise TraceQaError("cannot inspect the CPU fetch boundary") from exc
+    fetch = core.find("opcode = upd9002_memoryread(")
+    trace_call = core.find("upd9002_trace_step_begin", fetch)
+    fetch_end = fetch + len("opcode = upd9002_memoryread(") if fetch >= 0 else -1
+    if fetch < 0 or trace_call < 0 or "upd9002_memoryread(" in core[fetch_end:trace_call]:
+        raise TraceQaError("causal trace is not attached to the existing fetch boundary")
+    causal_call = trace.find("vaeg_causal_trace_cpu_step")
+    if causal_call < 0 or "memoryread" in trace[causal_call : causal_call + 320]:
+        raise TraceQaError("CPU causal tracing performs an extra memory read")
+
+
 def run_process(arguments: list[str], environment: dict[str, str]) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
         arguments,
@@ -205,6 +223,89 @@ def prepare_output(path: pathlib.Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     if path.exists():
         path.unlink()
+
+
+def causal_records(path: pathlib.Path) -> list[dict[str, object]]:
+    try:
+        lines = path.read_text(encoding="utf-8").splitlines()
+        records = [json.loads(line) for line in lines]
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise TraceQaError(f"causal trace is not canonical JSONL: {path}") from exc
+    if not records or records[0] != {
+        "schema": "vaeg-causal-trace-v1",
+        "encoding": "jsonl",
+    }:
+        raise TraceQaError("causal trace header is not canonical")
+    if len(records) < 2 or not all(isinstance(record, dict) for record in records):
+        raise TraceQaError("causal trace records are not objects")
+    sequences = [record.get("seq") for record in records[1:]]
+    if sequences != list(range(len(sequences))):
+        raise TraceQaError("causal trace sequence is not canonical")
+    if records[-1].get("class") != "stop":
+        raise TraceQaError("causal trace has no final stop record")
+    if not isinstance(records[-1].get("reason"), str):
+        raise TraceQaError("causal trace stop has no reason")
+    return records
+
+
+def causal_selftest(
+    binary: pathlib.Path,
+    first_path: pathlib.Path,
+    second_path: pathlib.Path,
+    first_manifest: pathlib.Path,
+    second_manifest: pathlib.Path,
+    environment: dict[str, str],
+) -> None:
+    for output, manifest in ((first_path, first_manifest), (second_path, second_manifest)):
+        prepare_output(output)
+        prepare_output(manifest)
+        process = run_process(
+            [
+                str(binary),
+                "--selftest",
+                "--causal-trace-output",
+                str(output),
+                "--causal-trace-limit",
+                "200",
+                "--causal-trace-ring",
+                "0",
+                "--causal-trace-manifest",
+                str(manifest),
+            ],
+            environment,
+        )
+        if process.returncode != 0:
+            raise TraceQaError(
+                "causal production-trace selftest failed: "
+                + process.stderr.strip().replace("\n", " ")
+            )
+        if not output.is_file() or not manifest.is_file():
+            raise TraceQaError("causal selftest did not produce its outputs")
+        records = causal_records(output)
+        if not any(record.get("class") == "device_schedule" for record in records):
+            raise TraceQaError("causal selftest lacks a production device event")
+        if b"/Users/" in output.read_bytes() or b"/home/" in output.read_bytes():
+            raise TraceQaError("causal trace contains a host path")
+    if first_path.read_bytes() != second_path.read_bytes():
+        raise TraceQaError("two causal selftests produced different trace output")
+    if first_manifest.read_bytes() != second_manifest.read_bytes():
+        raise TraceQaError("two causal selftests produced different manifests")
+
+    invalid = run_process(
+        [
+            str(binary),
+            "--selftest",
+            "--causal-trace-output",
+            str(first_path.with_name("causal-invalid.jsonl")),
+            "--causal-trace-limit",
+            "10",
+            "--causal-trace-io",
+            "malformed-range",
+        ],
+        environment,
+    )
+    if invalid.returncode == 0 or "invalid causal trace configuration" not in invalid.stderr:
+        raise TraceQaError("malformed causal range did not fail closed")
 
 
 def traced_selftest(
@@ -289,6 +390,15 @@ def verify_runtime(binary: pathlib.Path, work: pathlib.Path) -> None:
         raise TraceQaError("trace enabled and disabled changed the architectural checkpoint")
     verify_trace_text(first_bytes.decode("utf-8"))
 
+    causal_selftest(
+        binary,
+        work / "causal-trace-1.jsonl",
+        work / "causal-trace-2.jsonl",
+        work / "causal-manifest-1.json",
+        work / "causal-manifest-2.json",
+        environment,
+    )
+
     missing_parent = work / "missing-parent" / "trace.txt"
     failed_output = run_process(
         [
@@ -336,6 +446,7 @@ def matrix(arguments: argparse.Namespace) -> None:
     }
     for mode, path in paths.items():
         verify_mode(path, mode)
+    verify_no_extra_fetch_read(pathlib.Path(__file__).resolve().parents[2])
     verify_p1_link(pathlib.Path(arguments.p1_binary))
     print("P0/P1/T0/T1 compile definitions and P1 production-memory linkage passed")
 

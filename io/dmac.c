@@ -6,6 +6,7 @@
 #include "sasiio.h"
 
 #include "iocoreva.h"
+#include "diagnostics/causal_trace.h"
 
 // Change this condition to zero to enable DMA trace output.
 #if 1
@@ -48,6 +49,8 @@ void dmac_check(void) {
 		if ((!(dmac.mask & bit)) && (ch->ready)) {
 			if (!(dmac.work & bit)) {
 				dmac.work |= bit;
+				vaeg_causal_trace_named("dma", "dmac", "dmac", "request",
+				                       (uint32_t)(ch - dmac.dmach), ch->leng.w, 1);
 				if (ch->proc.extproc(DMAEXT_START)) {
 					dmac.stat &= ~bit;
 					dmac.working |= bit;
@@ -59,6 +62,8 @@ void dmac_check(void) {
 				dmac.work &= ~bit;
 				dmac.working &= ~bit;
 				ch->proc.extproc(DMAEXT_BREAK);
+				vaeg_causal_trace_named("dma", "dmac", "dmac", "break",
+				                       (uint32_t)(ch - dmac.dmach), ch->leng.w, 1);
 				workchg = TRUE;
 			}
 		}
@@ -78,6 +83,8 @@ UINT dmac_getdatas(DMACH dmach, BYTE *buf, UINT size) {
 	leng = min(dmach->leng.w, size);
 	if (leng) {
 		addr = dmach->adrs.d;        // + mask
+		vaeg_causal_trace_named("dma", "dmac", "memory", "transfer", addr,
+		                       leng, (dmach->mode & 0x20) ? 1U : 0U);
 		if (!(dmach->mode & 0x20)) { // dir +
 			for (i = 0; i < leng; i++) {
 				buf[i] = MEMP_READ8(addr + i);

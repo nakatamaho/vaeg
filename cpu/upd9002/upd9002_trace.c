@@ -25,6 +25,7 @@
 #include "compiler.h"
 #include "cpucore.h"
 #include "machine/pccore.h"
+#include "diagnostics/causal_trace.h"
 #include "upd9002_trace.h"
 
 typedef struct {
@@ -430,11 +431,13 @@ static const char *trace_model_name(void) {
 
 void upd9002_trace_step_begin(uint8_t opcode, uint32_t memory_backend) {
 	uint32_t address;
+	BOOL trace_active;
 #if defined(VAEG_UPD9002_SSTS_TESTING)
 	uint32_t index;
 #endif
 
-	if (!upd9002_trace_active()) {
+	trace_active = upd9002_trace_active();
+	if (!trace_active && !vaeg_causal_trace_active()) {
 		return;
 	}
 	trace_state.before_clock = CPU_REMCLOCK;
@@ -444,6 +447,14 @@ void upd9002_trace_step_begin(uint8_t opcode, uint32_t memory_backend) {
 	trace_state.step_active = TRUE;
 	trace_state.memory_backend = (UINT)memory_backend;
 	address = (CS_BASE + CPU_IP) & CPU_ADRSMASK;
+	vaeg_causal_trace_cpu_step(trace_state.step, CPU_CS, CPU_IP, address, opcode,
+	                           CPU_AX, CPU_BX, CPU_CX, CPU_DX, CPU_SI, CPU_DI,
+	                           CPU_BP, CPU_SP, CPU_ES, CPU_SS, CPU_DS, CPU_FLAG,
+	                           memory_backend);
+	if (!trace_active) {
+		trace_state.step_active = TRUE;
+		return;
+	}
 #if defined(VAEG_UPD9002_SSTS_TESTING)
 	/* Preserve the established CPU-only fixture format for traced test builds. */
 	fprintf(trace_state.stream, "begin step=%08x cs=%04x ip=%04x bytes=", trace_state.step, CPU_CS,
@@ -470,8 +481,15 @@ void upd9002_trace_step_begin(uint8_t opcode, uint32_t memory_backend) {
 
 void upd9002_trace_step_end(void) {
 	int32_t consumed;
+	BOOL trace_active;
 
-	if (!upd9002_trace_active()) {
+	trace_active = upd9002_trace_active();
+	if (!trace_active && !vaeg_causal_trace_active()) {
+		return;
+	}
+	if (!trace_active) {
+		trace_state.step++;
+		trace_state.step_active = FALSE;
 		return;
 	}
 	consumed = trace_state.before_clock - CPU_REMCLOCK;

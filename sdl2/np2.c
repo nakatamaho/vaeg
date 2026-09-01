@@ -66,6 +66,7 @@
 #include "g75_screen.h"
 #include "headless_input.h"
 #include "debug_harness.h"
+#include "diagnostics/causal_trace.h"
 #include <stdlib.h>
 #include "opngen.h"
 #include "ymfmbridge.h"
@@ -310,6 +311,11 @@ static void usage(const char *progname) {
 	printf("\t--trace-cpu 1..1000000\n");
 #if defined(VAEG_Z80_COMPAT_INTEGRATION_TRACE)
 	printf("\t--trace-cpu-output path --trace-cpu-stop\n");
+	printf("\t--causal-trace-output path --causal-trace-limit 1..10000000\n");
+	printf("\t--causal-trace-ring 0..1000000 --causal-trace-manifest path\n");
+	printf("\t--causal-trace-cpu name --causal-trace-device name\n");
+	printf("\t--causal-trace-io range --causal-trace-memory range\n");
+	printf("\t--causal-trace-stop event-class\n");
 	printf("\t--production-trace-capability\n");
 #endif
 	printf("\t--headless-input-script path\n");
@@ -349,12 +355,73 @@ static BOOL production_trace_start(const VAEG_CLI_OPTIONS *options, FILE **strea
 	return SUCCESS;
 }
 
+static BOOL causal_trace_start(const VAEG_CLI_OPTIONS *options, FILE **stream) {
+	VAEG_CAUSAL_TRACE_CONFIG config;
+	FILE *manifest;
+
+	if ((options == NULL) || (stream == NULL)) {
+		return FAILURE;
+	}
+	*stream = NULL;
+	if (options->causal_trace_output == NULL) {
+		return SUCCESS;
+	}
+	if (options->causal_trace_limit == 0) {
+		fprintf(stderr, "Error: --causal-trace-output requires --causal-trace-limit\n");
+		return FAILURE;
+	}
+	*stream = fopen(options->causal_trace_output, "wb");
+	if (*stream == NULL) {
+		fprintf(stderr, "Error: cannot open --causal-trace-output file\n");
+		return FAILURE;
+	}
+	config.max_events = options->causal_trace_limit;
+	config.ring_events = options->causal_trace_ring;
+	config.cpu_filter = options->causal_trace_cpu;
+	config.device_filter = options->causal_trace_device;
+	config.io_filter = options->causal_trace_io;
+	config.memory_filter = options->causal_trace_memory;
+	config.stop_event = options->causal_trace_stop_event;
+	if (!vaeg_causal_trace_start(*stream, &config)) {
+		fprintf(stderr, "Error: invalid causal trace configuration\n");
+		fclose(*stream);
+		*stream = NULL;
+		return FAILURE;
+	}
+	if (options->causal_trace_manifest != NULL) {
+		manifest = fopen(options->causal_trace_manifest, "wb");
+		if ((manifest == NULL) || !vaeg_causal_trace_write_manifest(manifest, &config)) {
+			if (manifest != NULL) {
+				fclose(manifest);
+			}
+			vaeg_causal_trace_stop("manifest-failure");
+			fclose(*stream);
+			*stream = NULL;
+			fprintf(stderr, "Error: cannot write --causal-trace-manifest file\n");
+			return FAILURE;
+		}
+		fclose(manifest);
+	}
+	return SUCCESS;
+}
+
 static void production_trace_stop(FILE **stream) {
 	if (stream == NULL) {
 		return;
 	}
 	upd9002_trace_stop();
 	if ((*stream != NULL) && (*stream != stderr)) {
+		fclose(*stream);
+	}
+	*stream = NULL;
+}
+
+static void causal_trace_stop(FILE **stream) {
+	if (stream == NULL) {
+		return;
+	}
+	if (*stream != NULL) {
+		vaeg_causal_trace_stop("normal");
 		fclose(*stream);
 	}
 	*stream = NULL;
@@ -1455,7 +1522,7 @@ static BOOL run_guest_frame(BOOL draw, UINT32 frames) {
 	}
 	for (;;) {
 		pccore_exec(draw);
-		if (upd9002_trace_stop_requested()) {
+		if (upd9002_trace_stop_requested() || vaeg_causal_trace_stop_requested()) {
 			taskmng_exit();
 			return SUCCESS;
 		}
@@ -1729,6 +1796,7 @@ int main(int argc, char **argv) {
 	const char *cli_model;
 #if defined(VAEG_Z80_COMPAT_INTEGRATION_TRACE)
 	FILE *cpu_trace_stream;
+	FILE *causal_trace_stream;
 #endif
 
 #if defined(VAEG_UPD9002_M46_TESTING)
@@ -1833,6 +1901,7 @@ int main(int argc, char **argv) {
 	cli_model = NULL;
 #if defined(VAEG_Z80_COMPAT_INTEGRATION_TRACE)
 	cpu_trace_stream = NULL;
+	causal_trace_stream = NULL;
 #endif
 	ZeroMemory(&input_script, sizeof(input_script));
 	if (vaeg_cli_parse(argc, argv, &options, cli_error, sizeof(cli_error)) != SUCCESS) {
@@ -1862,6 +1931,19 @@ int main(int argc, char **argv) {
 		fprintf(stderr, "Error: trace output and bounded stop require --trace-cpu\n");
 		return FAILURE;
 	}
+	if ((options.causal_trace_output == NULL) &&
+	    ((options.causal_trace_limit != 0) || (options.causal_trace_ring != 0) ||
+	     (options.causal_trace_manifest != NULL) || (options.causal_trace_cpu != NULL) ||
+	     (options.causal_trace_device != NULL) || (options.causal_trace_io != NULL) ||
+	     (options.causal_trace_memory != NULL) ||
+	     (options.causal_trace_stop_event != NULL))) {
+		fprintf(stderr, "Error: causal trace options require --causal-trace-output\n");
+		return FAILURE;
+	}
+	if ((options.causal_trace_output != NULL) && (options.causal_trace_limit == 0)) {
+		fprintf(stderr, "Error: --causal-trace-output requires --causal-trace-limit\n");
+		return FAILURE;
+	}
 #endif
 	if (options.screenshot_count != 0) {
 		vaeg_screenshot_scheduler_init(&screenshots, options.screenshot_requests,
@@ -1873,14 +1955,19 @@ int main(int argc, char **argv) {
 	}
 	if (((options.debug_script == NULL) != (options.debug_output_dir == NULL)) ||
 	    ((options.debug_script != NULL) &&
-	     ((options.trace_cpu != 0) || (options.headless_input_script != NULL)))) {
+	     ((options.trace_cpu != 0)
+#if defined(VAEG_Z80_COMPAT_INTEGRATION_TRACE)
+	      || (options.causal_trace_output != NULL)
+#endif
+	      ||
+	      (options.headless_input_script != NULL)))) {
 		fprintf(stderr, "Error: --debug-script requires --debug-output-dir and cannot be "
-		                "combined with --trace-cpu or --headless-input-script\n");
+		                "combined with tracing or --headless-input-script\n");
 		return (FAILURE);
 	}
 	if ((options.headless_input_script != NULL) || (options.debug_script != NULL)
 #if defined(VAEG_Z80_COMPAT_INTEGRATION_TRACE)
-	    || options.trace_cpu_stop
+	    || options.trace_cpu_stop || (options.causal_trace_output != NULL)
 #endif
 	) {
 		options.mute = TRUE;
@@ -1925,6 +2012,14 @@ int main(int argc, char **argv) {
 			dosio_term();
 			return FAILURE;
 		}
+		if (causal_trace_start(&options, &causal_trace_stream) != SUCCESS) {
+			production_trace_stop(&cpu_trace_stream);
+			upd9002_perf_stop();
+			upd9002_guest_trace_stop();
+			SDL_Quit();
+			dosio_term();
+			return FAILURE;
+		}
 #else
 		if (options.trace_cpu != 0) {
 			upd9002_trace_start(stderr, options.trace_cpu);
@@ -1934,6 +2029,7 @@ int main(int argc, char **argv) {
 		upd9002_perf_stop();
 		upd9002_guest_trace_stop();
 #if defined(VAEG_Z80_COMPAT_INTEGRATION_TRACE)
+		causal_trace_stop(&causal_trace_stream);
 		production_trace_stop(&cpu_trace_stream);
 #else
 		upd9002_trace_stop();
@@ -2078,6 +2174,17 @@ int main(int argc, char **argv) {
 		dosio_term();
 		return FAILURE;
 	}
+	if (causal_trace_start(&options, &causal_trace_stream) != SUCCESS) {
+		production_trace_stop(&cpu_trace_stream);
+		debug_harness_clear();
+		headless_input_script_clear(&input_script);
+		hostfat_manager_shutdown();
+		upd9002_perf_stop();
+		upd9002_guest_trace_stop();
+		SDL_Quit();
+		dosio_term();
+		return FAILURE;
+	}
 #else
 	if (options.trace_cpu != 0) {
 		upd9002_trace_start(stderr, options.trace_cpu);
@@ -2173,6 +2280,7 @@ int main(int argc, char **argv) {
 	TRACETERM();
 	upd9002_perf_stop();
 #if defined(VAEG_Z80_COMPAT_INTEGRATION_TRACE)
+	causal_trace_stop(&causal_trace_stream);
 	production_trace_stop(&cpu_trace_stream);
 #else
 	upd9002_trace_stop();
@@ -2193,6 +2301,7 @@ np2main_err2:
 	TRACETERM();
 	upd9002_perf_stop();
 #if defined(VAEG_Z80_COMPAT_INTEGRATION_TRACE)
+	causal_trace_stop(&causal_trace_stream);
 	production_trace_stop(&cpu_trace_stream);
 #else
 	upd9002_trace_stop();

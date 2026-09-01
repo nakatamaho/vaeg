@@ -3,6 +3,7 @@
 #include "machine/pccore.h"
 #include "memoryva.h"
 #include "upd9002_trace.h"
+#include "diagnostics/causal_trace.h"
 #if defined(VAEG_UPD9002_SSTS_TESTING)
 #include "tests/upd9002/direct_harness.h"
 #endif
@@ -79,18 +80,23 @@ void MEMCALL upd9002_mainram_write_w(UINT32 address, REG16 value) {
  * therefore retains its explicit flat 1 MiB test-memory seam.
  */
 REG8 MEMCALL upd9002_memoryread(UINT32 address) {
+	REG8 value;
 #if defined(VAEG_UPD9002_SSTS_TESTING)
 	if (upd9002_test_flat_memory_active()) {
 #if defined(VAEG_Z80_COMPAT_INTEGRATION_TRACE)
 		upd9002_last_read_backend = UPD9002_MEMORY_BACKEND_TEST_FLAT;
 #endif
-		return mem[address & 0xfffff];
+		value = mem[address & 0xfffff];
+		vaeg_causal_trace_memory("read", "main-cpu-test", address, value, 1);
+		return value;
 	}
 #endif
 #if defined(VAEG_Z80_COMPAT_INTEGRATION_TRACE)
 	upd9002_last_read_backend = UPD9002_MEMORY_BACKEND_PRODUCTION;
 #endif
-	return upd9002_memoryread_va(address);
+	value = upd9002_memoryread_va(address);
+	vaeg_causal_trace_memory("read", "main-cpu", address, value, 1);
+	return value;
 }
 
 #if defined(VAEG_Z80_COMPAT_INTEGRATION_TRACE)
@@ -111,24 +117,32 @@ const char *upd9002_memory_backend_name(UINT backend) {
 #endif
 
 REG16 MEMCALL upd9002_memoryread_w(UINT32 address) {
+	REG16 value;
 #if defined(VAEG_UPD9002_SSTS_TESTING)
 	if (upd9002_test_flat_memory_active()) {
-		return (REG16)(mem[address & 0xfffff] | (mem[(address + 1) & 0xfffff] << 8));
+		value = (REG16)(mem[address & 0xfffff] |
+		                (mem[(address + 1) & 0xfffff] << 8));
+		vaeg_causal_trace_memory("read", "main-cpu-test", address, value, 2);
+		return value;
 	}
 #endif
-	return upd9002_memoryread_va_w(address);
+	value = upd9002_memoryread_va_w(address);
+	vaeg_causal_trace_memory("read", "main-cpu", address, value, 2);
+	return value;
 }
 
 void MEMCALL upd9002_memorywrite(UINT32 address, REG8 value) {
 #if defined(VAEG_UPD9002_SSTS_TESTING)
 	if (upd9002_test_flat_memory_active()) {
 		mem[address & 0xfffff] = (BYTE)value;
+		vaeg_causal_trace_memory("write", "main-cpu-test", address, value, 1);
 		return;
 	}
 #endif
 	upd9002_trace_event(UPD9002_TRACE_ORIGIN_CPU, "memory-write", (uint32_t)address,
 	                    (uint32_t)value, 1);
 	upd9002_memorywrite_va(address, value);
+	vaeg_causal_trace_memory("write", "main-cpu", address, value, 1);
 }
 
 void MEMCALL upd9002_memorywrite_w(UINT32 address, REG16 value) {
@@ -136,12 +150,14 @@ void MEMCALL upd9002_memorywrite_w(UINT32 address, REG16 value) {
 	if (upd9002_test_flat_memory_active()) {
 		mem[address & 0xfffff] = (BYTE)value;
 		mem[(address + 1) & 0xfffff] = (BYTE)(value >> 8);
+		vaeg_causal_trace_memory("write", "main-cpu-test", address, value, 2);
 		return;
 	}
 #endif
 	upd9002_trace_event(UPD9002_TRACE_ORIGIN_CPU, "memory-write", (uint32_t)address,
 	                    (uint32_t)value, 2);
 	upd9002_memorywrite_va_w(address, value);
+	vaeg_causal_trace_memory("write", "main-cpu", address, value, 2);
 }
 
 REG16 MEMCALL upd9002_memoryread_seg_w(UINT32 segment_base, UINT off) {

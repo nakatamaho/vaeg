@@ -10,6 +10,7 @@
 #include "i8255.h"
 #include "subsystem.h"
 #include "subsystemif.h"
+#include "diagnostics/causal_trace.h"
 
 _SUBSYSTEMIF subsystemif;
 static _I8255CFG i8255cfg;
@@ -78,12 +79,16 @@ static void subif_trace_set_portc(REG8 dat) {
 }
 
 static void IOOUTCALL subsystemif_o0fd(UINT port, REG8 dat) {
+	vaeg_causal_trace_named("mailbox", "main-cpu", "fd-subsystem", "write",
+	                       port, dat, 1);
 	subif_trace_portb = dat;
 	subif_trace_append_main(dat);
 	i8255_outportb(&i8255cfg, dat);
 }
 
 static void IOOUTCALL subsystemif_o0fe(UINT port, REG8 dat) {
+	vaeg_causal_trace_named("mailbox", "main-cpu", "fd-subsystem", "handshake",
+	                       port, dat, 1);
 	subif_trace_set_portc(dat);
 	i8255_outportc(&i8255cfg, dat);
 }
@@ -111,22 +116,31 @@ static REG8 IOINPCALL subsystemif_i0fc(UINT port) {
 	REG8 ret;
 
 	ret = i8255_inporta(&i8255cfg);
+	vaeg_causal_trace_named("mailbox", "fd-subsystem", "main-cpu", "read",
+	                       port, ret, 1);
 	subif_trace_flush_main();
 	subif_trace_append_resp(ret);
 	return ret;
 }
 
 static REG8 IOINPCALL subsystemif_i0fe(UINT port) {
-	return i8255_inportc(&i8255cfg);
+	REG8 ret = i8255_inportc(&i8255cfg);
+	vaeg_causal_trace_named("mailbox", "fd-subsystem", "main-cpu", "status",
+	                       port, ret, 1);
+	return ret;
 }
 
 // ---- I/F (sub system)
 
 void subsystemif_businporta(BYTE dat) {
+	vaeg_causal_trace_named("mailbox", "fd-subsystem", "main-cpu", "write",
+	                       0x0fc, dat, 1);
 	i8255_businporta(&i8255cfg, dat);
 }
 
 void subsystemif_businportc(BYTE dat) {
+	vaeg_causal_trace_named("mailbox", "fd-subsystem", "main-cpu", "handshake",
+	                       0x0fe, (BYTE)(dat >> 4), 1);
 	i8255_businportc(&i8255cfg, (BYTE)(dat >> 4));
 }
 
