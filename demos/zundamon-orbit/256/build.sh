@@ -33,6 +33,14 @@ qa_cycles=${M98T_QA_CYCLES:-${M98S_QA_CYCLES:-1}}
 qa_scenario=${M98T_QA_SCENARIO:-${M98S_QA_SCENARIO:-0}}
 initial_visible_page=${M98T_INITIAL_VISIBLE_PAGE:-${M98S_INITIAL_VISIBLE_PAGE:-0}}
 clear_mode=${M98W_CLEAR_MODE:-1}
+if [ "${M98X_RUNTIME_MODE+x}" = x ]; then
+    runtime_mode=$M98X_RUNTIME_MODE
+elif [ "${M98V_ACTIVE_COUNT+x}" = x ]; then
+    # The legacy variable is retained only for M98v/M98w golden builds.
+    runtime_mode=0
+else
+    runtime_mode=1
+fi
 active_count=${M98V_ACTIVE_COUNT:-4}
 output=${1:-ZUNDORB.COM}
 listing=${2:-${output%.*}.LST}
@@ -63,15 +71,23 @@ case "$initial_visible_page" in
     0|1) ;;
     *) printf 'error: M98T_INITIAL_VISIBLE_PAGE must be 0 or 1\n' >&2; exit 2 ;;
 esac
-case "$active_count" in
-    1|2|4|8|16) ;;
-    *) printf 'error: M98V_ACTIVE_COUNT must be 1, 2, 4, 8, or 16\n' >&2; exit 2 ;;
+case "$runtime_mode" in
+    0|1) ;;
+    *) printf 'error: M98X_RUNTIME_MODE must be 0 or 1\n' >&2; exit 2 ;;
 esac
+if [ "$runtime_mode" -eq 0 ]; then
+    case "$active_count" in
+        1|2|4|8|16) ;;
+        *) printf 'error: M98V_ACTIVE_COUNT must be 1, 2, 4, 8, or 16\n' >&2; exit 2 ;;
+    esac
+else
+    active_count=runtime
+fi
 case "$clear_mode" in
     0|1) ;;
     *) printf 'error: M98W_CLEAR_MODE must be 0 (full) or 1 (dirty)\n' >&2; exit 2 ;;
 esac
-if [ "$bounded_qa" -eq 1 ] && [ "${M98V_ACTIVE_COUNT+x}" != x ]; then
+if [ "$bounded_qa" -eq 1 ] && [ "$runtime_mode" -eq 0 ] && [ "${M98V_ACTIVE_COUNT+x}" != x ]; then
     printf 'error: bounded M98v QA requires an explicit M98V_ACTIVE_COUNT\n' >&2
     exit 2
 fi
@@ -102,7 +118,8 @@ cmp "$table_check_dir/zundamon_hud_table.inc" \
     -dM98Q_INITIAL_VISIBLE_PAGE="$initial_visible_page" \
     -dM98W_CLEAR_MODE="$clear_mode" \
     -dM98Q_CLEAR_MODE="$clear_mode" \
-    -dM98V_ACTIVE_COUNT="$active_count" \
+    -dM98X_RUNTIME_MODE="$runtime_mode" \
+    -dM98V_ACTIVE_COUNT="${M98V_ACTIVE_COUNT:-4}" \
     -I "$script_dir/" \
     -l "$listing" \
     "$script_dir/zundamon_orbit_256.asm" -o "$output"
@@ -113,5 +130,10 @@ size=$(wc -c < "$output" | tr -d ' ')
     exit 1
 }
 
-printf 'M98W_GUEST_BUILD_PASS size=%s active_count=%s bounded_qa=%s revolutions=%s scenario=%s initial_page=%s clear_mode=%s listing=%s\n' \
-    "$size" "$active_count" "$bounded_qa" "$qa_cycles" "$qa_scenario" "$initial_visible_page" "$clear_mode" "$listing"
+if [ "$runtime_mode" -eq 1 ]; then
+    printf 'M98X_GUEST_BUILD_PASS size=%s default_count=4 runtime_counts=1..16 bounded_qa=%s revolutions=%s scenario=%s initial_page=%s clear_mode=%s listing=%s\n' \
+        "$size" "$bounded_qa" "$qa_cycles" "$qa_scenario" "$initial_visible_page" "$clear_mode" "$listing"
+else
+    printf 'M98W_GUEST_BUILD_PASS size=%s active_count=%s bounded_qa=%s revolutions=%s scenario=%s initial_page=%s clear_mode=%s listing=%s\n' \
+        "$size" "$active_count" "$bounded_qa" "$qa_cycles" "$qa_scenario" "$initial_visible_page" "$clear_mode" "$listing"
+fi

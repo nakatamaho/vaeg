@@ -30,13 +30,18 @@ from pathlib import Path
 
 def build_script(active_count: int, initial_page: str, divisor: int,
                  revolutions: int, scenario: str = "static",
-                 milestone: str = "m98v") -> str:
+                 milestone: str = "m98v", runtime_count: int | None = None) -> str:
+    if runtime_count is not None and not 1 <= runtime_count <= 16:
+        raise ValueError("M98X_RUNTIME_COUNT_RANGE")
     prefix = (f"{milestone}-n{active_count}-{scenario}-v{divisor}-"
               f"{initial_page}-r{revolutions}")
     publications = 64 * revolutions
+    launch_options = f"/V{divisor}"
+    if runtime_count is not None:
+        launch_options = f"/N{runtime_count} {launch_options}"
     lines = [
         "debug-script 1", "limit-frame 60000", "wait-frame 1200",
-        f"input-line ZUNDORB /V{divisor}",
+        f"input-line ZUNDORB {launch_options}",
         "wait-pc 3000:4000 1", f"capture {prefix}-probe registers",
         "wait-pc 3000:4010 1", f"capture {prefix}-load registers",
         "wait-pc 3000:4020 1", f"capture {prefix}-initialize registers gvram",
@@ -69,14 +74,17 @@ def main() -> int:
     parser.add_argument("--revolutions", choices=(1, 2), type=int, default=1)
     parser.add_argument("--scenario", choices=("static", "ladder", "pause", "missed"),
                         default="static")
-    parser.add_argument("--milestone", choices=("m98v", "m98w"), default="m98v")
+    parser.add_argument("--milestone", choices=("m98v", "m98w", "m98x"), default="m98v")
+    parser.add_argument("--runtime-count", type=int,
+                        help="M98x initial /N count (1 through 16)")
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     if args.output.exists():
         parser.error("refusing to overwrite the output debug script")
     args.output.write_text(build_script(args.active_count, args.initial_page,
                                         args.divisor, args.revolutions,
-                                        args.scenario, args.milestone), encoding="utf-8")
+                                        args.scenario, args.milestone,
+                                        args.runtime_count), encoding="utf-8")
     print(f"{args.milestone.upper()}_DEBUG_SCRIPT_PASS active_count={args.active_count} "
           f"divisor={args.divisor} initial_page={args.initial_page} "
           f"revolutions={args.revolutions} scenario={args.scenario} "

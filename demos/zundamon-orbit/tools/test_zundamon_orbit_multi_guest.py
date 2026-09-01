@@ -117,10 +117,11 @@ class M98vCompositorTests(unittest.TestCase):
 
     def test_hud_count_fields_are_complete_fixed_width_tiles(self) -> None:
         count_tiles = hud.inspect_count_tiles(HUD_TABLE)
-        self.assertEqual(len(count_tiles), 5)
-        self.assertEqual(tuple(len(tile) for tile in count_tiles), (96,) * 5)
+        self.assertEqual(len(count_tiles), 16)
+        self.assertEqual(tuple(len(tile) for tile in count_tiles), (96,) * 16)
         _, full_tiles, _ = hud.inspect(HUD_TABLE)
-        for index, active_count in enumerate(oracle.COUNTS):
+        for active_count in range(1, 17):
+            index = active_count - 1
             g0 = oracle.build_g0(full_tiles[0], count_tiles[index])
             expected = hud.render(f"{active_count:>2}")
             actual = b"".join(g0[(12 + row) * 320 + 58:
@@ -133,9 +134,9 @@ class M98vCompositorTests(unittest.TestCase):
                         source.index("publish_ready_hidden_page:")]
         self.assertIn("call build_full_page_clear_commands", render)
         self.assertIn("call build_bitblt_commands", render)
-        self.assertIn("cmp byte [draw_position], M98V_ACTIVE_COUNT", render)
+        self.assertIn("cmp ax, [build_active_count]", render)
         self.assertNotIn("call clear_hidden_dirty_rows", render)
-        self.assertNotIn("/N", source)
+        self.assertIn("M98X_RUNTIME_MODE", source)
         self.assertIn("M98U_RECORD_DEPTH_RANK", source)
         self.assertIn("M98U_RECORD_INSTANCE_ID", source)
 
@@ -163,6 +164,12 @@ class M98vCompositorTests(unittest.TestCase):
         self.assertIn("capture m98w-n4-static-v1-a-r2-report-p registers", script)
         self.assertIn("capture m98w-n4-static-v1-a-r2-report-s registers", script)
 
+    def test_m98x_debug_script_accepts_runtime_count(self) -> None:
+        script = debug.build_script(4, "a", 1, 1, "static", "m98x", 16)
+        self.assertIn("input-line ZUNDORB /N16 /V1", script)
+        with self.assertRaisesRegex(ValueError, "^M98X_RUNTIME_COUNT_RANGE$"):
+            debug.build_script(4, "a", 1, 1, "static", "m98x", 17)
+
     def test_build_selection_rejects_every_unapproved_count_and_missing_qa(self) -> None:
         for value in ("0", "3", "5", "15", "17", "-1", "bad"):
             with self.subTest(value=value):
@@ -175,6 +182,7 @@ class M98vCompositorTests(unittest.TestCase):
                 self.assertIn("M98V_ACTIVE_COUNT must be", result.stderr)
         environment = os.environ.copy()
         environment.pop("M98V_ACTIVE_COUNT", None)
+        environment["M98X_RUNTIME_MODE"] = "0"
         environment["M98T_BOUNDED_QA"] = "1"
         result = subprocess.run((str(BUILD), str(self.root / "missing.com")),
                                 cwd=ROOT, env=environment,

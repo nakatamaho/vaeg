@@ -257,7 +257,6 @@ def verify(directory: Path, atlas_path: Path, table_path: Path, hud_path: Path,
         return {"schema": schema_name, "status": "FAIL",
                 "errors": ["M98V_INPUT_CONTRACT"]}
     initial_page = 0 if initial_page_name == "a" else 1
-    count_index = COUNTS.index(active_count)
     root, flips, settled, reports = prefixes(active_count, divisor,
                                              initial_page_name, revolutions,
                                              scenario, milestone)
@@ -280,7 +279,10 @@ def verify(directory: Path, atlas_path: Path, table_path: Path, hud_path: Path,
         transparent_total += overlap["transparent_over_far_samples"]
         page = page_for(initial_page, publication)
         pages[page] = expected_page
-        g0 = build_g0(full_tiles[edge_row["active"] - 1], count_tiles[count_index])
+        # M98x retains the five-count M98v/M98w fixtures but the generated
+        # HUD now has a tile for every runtime count 1 through 16.
+        g0 = build_g0(full_tiles[edge_row["active"] - 1],
+                      count_tiles[active_count - 1])
         try:
             raw = (directory / f"{prefix}.gvram.bin").read_bytes()
         except OSError:

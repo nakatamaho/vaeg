@@ -48,7 +48,7 @@ import verify_zundamon_orbit_scale_guest as baseline  # noqa: E402
 TABLE = TOOLS.parent / "256" / "zundamon_depth_table.inc"
 HUD = TOOLS.parent / "256" / "zundamon_hud_table.inc"
 TABLE_SHA256 = "645414752dd68898fb382d70d49dcfc4975b722f2927670d45fd8496a036b09c"
-HUD_SHA256 = "95887389e3da7bc0fd70e69ff92909389c2e979c9598d093c7390f8947e8acb1"
+HUD_SHA256 = "fa5552dd236cc078e94d905e35698a9887269ede13aa4db86658988b16775b8e"
 
 
 class M98tGeneratedContractTests(unittest.TestCase):

@@ -788,3 +788,38 @@ comparison. Build-time counts remain `1`, `2`, `4`, `8`, or `16`, with the
 interactive build using four instances and `ZUNDAMON: 4`; `/N` and UP/DOWN are
 not enabled. Generated capture directories must be fresh and remain outside
 tracked source paths.
+
+## M98x runtime count controls and load ladder
+
+M98x uses one runtime guest binary for every count from 1 through 16. With no
+count option it starts at four instances; `/N1` through `/N16` select the
+initial count before graphics mode. `/V1` through `/V8` retain the cadence
+selector. UP and DOWN change the requested count by one with saturation at 16
+and 1, respectively; LEFT/RIGHT select cadence, SPACE pauses/resumes, and ESC
+restores the previous display. A count request never relabels an in-flight or
+READY frame: the complete new M98u list, dirty-union clear, and far-to-near
+draw publish together, and only then does the G0 field become the visible
+`ZUNDAMON: <count>` value. The global phase remains continuous modulo 64.
+
+The count parser accepts one `/N1`..`/N16` token and one `/V1`..`/V8` token in
+either order, with the same ASCII case convention as `/V`; malformed or
+duplicate options fail before graphics mode. The atlas remains one shared
+128-KiB BMS bank and G1 remains the public ZUNDAMON layer only.
+
+Build the normal runtime guest and an optional local candidate as follows:
+
+```sh
+M98X_RUNTIME_MODE=1 demos/zundamon-orbit/256/build.sh \
+  /tmp/ZUNDORB.COM /tmp/ZUNDORB.LST
+
+VAEG_ZUNDAMON_COUNT=16 VAEG_ZUNDAMON_DIVISOR=1 \
+  demos/zundamon-orbit/run-m98x-vaeg.sh \
+  docs/disks/pc88va-development.d88 build/macos-macports/sdl2/vaeg \
+  docs/roms build/generated/zundamon-orbit/m98x-local-candidate
+```
+
+The second command creates a fresh, ignored local D88 candidate and runs a
+bounded VAEG trace. Do not add the candidate, guest binary, traces, or atlas
+to Git. M98x is public ZUNDAMON state and runtime controls; private IDA data,
+multi-instance image replacement, and game content remain outside this
+milestone.

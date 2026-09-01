@@ -33,6 +33,11 @@ output_image=$3
 script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 repo_root=$(CDPATH= cd -- "$script_dir/../.." && pwd)
 output_parent=$(dirname -- "$output_image")
+if [ "${M98X_RUNTIME_MODE:-0}" = 1 ]; then
+    milestone_label=M98x
+else
+    milestone_label=M98w
+fi
 
 [ -f "$source_image" ] || {
     printf 'error: source D88 does not exist: %s\n' "$source_image" >&2
@@ -74,7 +79,7 @@ python3 "$script_dir/tools/build_zundamon_orbit_boot_disk.py" \
 python3 "$repo_root/tools/pc88va/pcengine_disk.py" list \
     --image "$output_image"
 
-printf 'Created local bootable M98w disk: %s\n' "$output_image"
+printf 'Created local bootable %s disk: %s\n' "$milestone_label" "$output_image"
 printf '  ZUNDORB.COM runs the multi-ZUNDAMON ellipse with page-local dirty unions and G0 HUD.\n'
 printf '  LEFT/RIGHT select cadence, SPACE pauses, and ESC restores and exits.\n'
 printf '  The source template is unchanged; this output remains local-only.\n'

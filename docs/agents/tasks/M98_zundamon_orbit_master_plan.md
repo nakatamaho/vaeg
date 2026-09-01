@@ -23,7 +23,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 # M98 - Zundamon billboard-orbit demo master plan
 
-Status: **G98a, G98e, G98j, G98k, G98l, G98o, G98p, G98q, G98r, G98s, G98t, G98v, and G98w human gates and G98b-G98d, G98f-G98i, and G98u machine gates passed; M98m/M98n remain absorbed reservations**
+Status: **G98a, G98e, G98j, G98k, G98l, G98o, G98p, G98q, G98r, G98s, G98t, G98v, and G98w human gates and G98b-G98d, G98f-G98i, and G98u machine gates passed; G98x automated evidence complete and human gate pending; M98m/M98n remain absorbed reservations**
 
 Branch family: `topic/m98-zundamon-orbit`
 
@@ -200,7 +200,11 @@ list. Its automated evidence passed on 2026-09-01, and the maintainer passed
 G98v after the count-four visual and ESC-restoration check. M98w replaces only
 the steady-state clear with page-local dirty-row interval unions; its
 automated evidence and count-four visual/ESC-restoration gate are passed.
-M98x runtime count controls remain separate and have not begun.
+M98x adds one runtime count binary with `/N1` through `/N16`, bounded UP/DOWN
+requests, publication-synchronous HUD count updates, and host transition/load
+evidence. The normal default remains four. Its automated evidence is complete;
+the VA2 visual gate is pending. Private IDA integration remains M98y and is
+not part of M98x.
 
 ## 6. Deterministic host contracts
 

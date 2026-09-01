@@ -20,7 +20,7 @@
 # OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
 # ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-"""Generate the public minimal-font M98t FPS/ZUNDAMON G0 HUD tiles."""
+"""Generate the public minimal-font FPS/ZUNDAMON G0 HUD tiles."""
 
 from __future__ import annotations
 
@@ -38,7 +38,7 @@ CELL_HEIGHT = 8
 FPS_WIDTH = 18
 FPS_HEIGHT = 8
 FPS_FIELDS = ("60 ", "30 ", "20 ", "15 ", "12 ", "10 ", "8.6", "7.5")
-COUNT_FIELDS = (" 1", " 2", " 4", " 8", "16")
+COUNT_FIELDS = tuple(f"{count:>2}" for count in range(1, 17))
 COUNT_WIDTH = 12
 
 # Public, task-authored 5x7 glyphs.  No ROM or firmware font is consulted.
@@ -145,8 +145,8 @@ def encode_include() -> tuple[bytes, tuple[bytes, ...], tuple[bytes, ...]]:
         label = field.strip()
         emit_bytes(lines, f"hud_count_tile_{label}", data, COUNT_WIDTH)
     lines.append("hud_count_tile_pointers:")
-    lines.append("    dw hud_count_tile_1,hud_count_tile_2,hud_count_tile_4,"
-                 "hud_count_tile_8,hud_count_tile_16")
+    lines.append("    dw " + ",".join(
+        f"hud_count_tile_{count}" for count in range(1, 17)))
     return ("\n".join(lines) + "\n").encode("ascii"), full_tiles, fps_tiles
 
 
@@ -163,7 +163,7 @@ def main() -> int:
     digest = hashlib.sha256(encoded).hexdigest()
     if args.metadata is not None:
         args.metadata.write_text(json.dumps({
-            "schema": "zundamon-orbit-m98t-hud-v1",
+            "schema": "zundamon-orbit-m98x-hud-v1",
             "font_provenance": "task-authored-public-5x7",
             "glyphs": sorted(GLYPHS),
             "foreground": FOREGROUND,
@@ -181,7 +181,7 @@ def main() -> int:
                                   for tile in count_tiles],
             "include_sha256": digest,
         }, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-    print(f"M98V_HUD_GENERATION_PASS fps_fields={len(FPS_FIELDS)} "
+    print(f"M98X_HUD_GENERATION_PASS fps_fields={len(FPS_FIELDS)} "
           f"count_fields={len(COUNT_FIELDS)} "
           f"full_bytes={len(full_tiles[0])} fps_bytes={len(fps_tiles[0])} "
           f"sha256={digest}")

@@ -20,7 +20,7 @@
 # OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
 # ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-"""Independently validate generated M98t HUD tiles and public glyphs."""
+"""Independently validate generated M98x FPS/count HUD tiles and glyphs."""
 
 from __future__ import annotations
 
@@ -32,7 +32,7 @@ from pathlib import Path
 DB = re.compile(r"^\s*db\s+(.+)$")
 LABEL = re.compile(r"^([a-z0-9_]+):$")
 FIELDS = ("60 ", "30 ", "20 ", "15 ", "12 ", "10 ", "8.6", "7.5")
-COUNT_FIELDS = (" 1", " 2", " 4", " 8", "16")
+COUNT_FIELDS = tuple(f"{count:>2}" for count in range(1, 17))
 FG = 0xFF
 BG = 0x01
 
@@ -126,9 +126,9 @@ def inspect(path: Path):
     for field in COUNT_FIELDS:
         count = sections.get(f"hud_count_tile_{field.strip()}", b"")
         if len(count) != 96 or count != render(field):
-            raise HudError("M98V_HUD_COUNT_TILE")
+            raise HudError("M98X_HUD_COUNT_TILE")
         if set(count) - allowed:
-            raise HudError("M98V_HUD_COUNT_COLOR")
+            raise HudError("M98X_HUD_COUNT_COLOR")
         count_tiles.append(count)
     return raw, tuple(full_tiles), tuple(fps_tiles)
 
@@ -138,7 +138,7 @@ def inspect_count_tiles(path: Path) -> tuple[bytes, ...]:
     tiles = tuple(sections.get(f"hud_count_tile_{field.strip()}", b"")
                   for field in COUNT_FIELDS)
     if any(tile != render(field) for tile, field in zip(tiles, COUNT_FIELDS)):
-        raise HudError("M98V_HUD_COUNT_TILE")
+        raise HudError("M98X_HUD_COUNT_TILE")
     return tiles
 
 
@@ -152,7 +152,7 @@ def main() -> int:
         print(error)
         return 1
     count_tiles = inspect_count_tiles(args.input)
-    print(f"M98V_HUD_VALIDATION_PASS full_tiles={len(full)} fps_tiles={len(fps)} "
+    print(f"M98X_HUD_VALIDATION_PASS full_tiles={len(full)} fps_tiles={len(fps)} "
           f"count_tiles={len(count_tiles)} "
           f"sha256={hashlib.sha256(raw).hexdigest()}")
     return 0

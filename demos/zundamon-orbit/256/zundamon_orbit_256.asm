@@ -155,6 +155,9 @@ org 0x100
 %ifndef M98V_ACTIVE_COUNT
 %define M98V_ACTIVE_COUNT       4
 %endif
+%ifndef M98X_RUNTIME_MODE
+%define M98X_RUNTIME_MODE       0
+%endif
 %include "zundamon_multi_instance_contract.inc"
 
 %define CLEAR_MODE_FULL         0
@@ -180,6 +183,8 @@ org 0x100
 %define KEY_SCAN_SPACE          0x34
 %define KEY_SCAN_LEFT           0x3b
 %define KEY_SCAN_RIGHT          0x3c
+%define KEY_SCAN_UP             0x48
+%define KEY_SCAN_DOWN           0x50
 
 %define CADENCE_MIN             1
 %define CADENCE_MAX             8
@@ -319,9 +324,15 @@ org 0x100
 %if TARGET_ANCHOR_X >= SCREEN_WIDTH || TARGET_ANCHOR_Y >= SCREEN_HEIGHT
 %error "M98q target anchor is outside the logical viewport"
 %endif
-%if M98V_ACTIVE_COUNT != 1 && M98V_ACTIVE_COUNT != 2 && M98V_ACTIVE_COUNT != 4 && M98V_ACTIVE_COUNT != 8 && M98V_ACTIVE_COUNT != 16
+%if !M98X_RUNTIME_MODE && M98V_ACTIVE_COUNT != 1 && M98V_ACTIVE_COUNT != 2 && M98V_ACTIVE_COUNT != 4 && M98V_ACTIVE_COUNT != 8 && M98V_ACTIVE_COUNT != 16
 %error "M98v active count must be 1, 2, 4, 8, or 16"
 %endif
+%if M98X_RUNTIME_MODE != 0 && M98X_RUNTIME_MODE != 1
+%error "M98x runtime mode must be zero or one"
+%endif
+%if M98X_RUNTIME_MODE
+%define M98V_COUNT_TILE_INDEX 0
+%else
 %if M98V_ACTIVE_COUNT = 1
 %define M98V_COUNT_TILE_INDEX 0
 %elif M98V_ACTIVE_COUNT = 2
@@ -332,6 +343,7 @@ org 0x100
 %define M98V_COUNT_TILE_INDEX 3
 %else
 %define M98V_COUNT_TILE_INDEX 4
+%endif
 %endif
 
 start:
@@ -364,6 +376,8 @@ relocated_start:
     pop ds
     cld
     call parse_cadence_option
+    jc cadence_option_failed
+    call initialize_count_state
     jc cadence_option_failed
     mov ah, 0x0f
     mov al, 1
@@ -430,6 +444,21 @@ transfer_resume:
     mov byte [orbit_phase_next], 0
     call initialize_cadence_scheduler
 render_loop:
+    ; Latch the latest control request only at the start of a new hidden
+    ; transaction.  Once generation/clear begins, build_active_count remains
+    ; immutable until publication.
+    xor ax, ax
+    mov al, [requested_count]
+    cmp ax, 1
+    jb descriptor_failed
+    cmp ax, FOOTPRINT_CAPACITY
+    ja descriptor_failed
+    mov [next_render_count], al
+    mov [pending_render_count], al
+    mov [build_active_count], ax
+    mov ax, [count_request_generation]
+    mov [pending_count_generation], ax
+    mov byte [count_change_pending], 0
     mov al, [orbit_phase_next]
     call generate_multi_instance_frame
     jc descriptor_failed
@@ -453,7 +482,7 @@ render_loop:
     xor cx, cx
     mov cl, [last_published_global_phase]
     xor dx, dx
-    mov dl, M98V_ACTIVE_COUNT
+    mov dl, [published_active_count]
     mov al, [active_divisor]
     mov dh, al
     mov si, [instances_completed]
@@ -1668,7 +1697,7 @@ generate_multi_instance_frame:
     mov cl, 6
     shl ax, cl
     xor dx, dx
-    mov bx, M98V_ACTIVE_COUNT
+    mov bx, [build_active_count]
     div bx
     cmp ax, ORBIT_PUBLICATIONS_PER_REVOLUTION
     jae .failed
@@ -1757,7 +1786,9 @@ generate_multi_instance_frame:
     mov bl, [generation_instance]
     mov [draw_order + bx], bl
     inc byte [generation_instance]
-    cmp byte [generation_instance], M98V_ACTIVE_COUNT
+    xor ax, ax
+    mov al, [generation_instance]
+    cmp ax, [build_active_count]
     jb .record_loop
 
     ; Deterministic bounded insertion sort by signed depth, then instance ID.
@@ -1804,14 +1835,17 @@ generate_multi_instance_frame:
     mov [draw_order + bx], al
 .keep_order:
     inc byte [sort_position]
-    cmp byte [sort_position], M98V_ACTIVE_COUNT
+    xor ax, ax
+    mov al, [sort_position]
+    cmp ax, [build_active_count]
     jb .sort_outer
 
     mov word [draw_order_seen], 0
     xor bx, bx
 .order_check:
     mov al, [draw_order + bx]
-    cmp al, M98V_ACTIVE_COUNT
+    xor ah, ah
+    cmp ax, [build_active_count]
     jae .failed
     mov cl, al
     mov ax, 1
@@ -1820,11 +1854,12 @@ generate_multi_instance_frame:
     jnz .failed
     or [draw_order_seen], ax
     inc bx
-    cmp bx, M98V_ACTIVE_COUNT
+    mov ax, [build_active_count]
+    cmp bx, ax
     jb .order_check
     mov ax, [draw_order_seen]
     mov dx, 1
-    mov cl, M98V_ACTIVE_COUNT
+    mov cl, byte [build_active_count]
     shl dx, cl
     dec dx
     cmp ax, dx
@@ -1854,7 +1889,8 @@ validate_all_multi_instance_states:
     ret
 
 load_instance_for_draw:
-    cmp al, M98V_ACTIVE_COUNT
+    xor ah, ah
+    cmp ax, [build_active_count]
     jae .failed
     call record_pointer_from_index
     mov al, [di + M98U_RECORD_SCALE_ID]
@@ -2381,8 +2417,9 @@ draw_hud_full:
     pop ax
     ret
 
-; Replace the final two line-2 cells once during initialization.  The build
-; count is immutable, so there is no runtime count update path.
+; Replace the final two line-2 cells during initialization.  M98x keeps all
+; sixteen fixed-width count tiles in the generated include and selects the
+; startup count without copying any sprite data.
 draw_hud_count_field:
     push ax
     push cx
@@ -2390,7 +2427,15 @@ draw_hud_count_field:
     push di
     push bp
     push es
-    mov si, [hud_count_tile_pointers + M98V_COUNT_TILE_INDEX * 2]
+    xor bx, bx
+    mov bl, [build_active_count]
+    cmp bl, 1
+    jb .failed
+    cmp bl, FOOTPRINT_CAPACITY
+    ja .failed
+    dec bx
+    shl bx, 1
+    mov si, [hud_count_tile_pointers + bx]
     mov ax, G0_SEGMENT
     mov es, ax
     mov di, HUD_COUNT_Y * SCREEN_PITCH + HUD_COUNT_X
@@ -2406,11 +2451,114 @@ draw_hud_count_field:
     add word [hud_bytes_written], HUD_COUNT_WRITE_BYTES
     adc word [hud_bytes_written + 2], 0
     clc
+.ok:
+    jmp .done
+.failed:
+    inc word [hud_mismatches]
+    stc
+.done:
     pop es
     pop bp
     pop di
     pop si
     pop cx
+    pop ax
+    ret
+
+; Apply the staged count tile for the frame being published.  The caller has
+; already validated the complete hidden frame and is at the publication
+; boundary, so this bounded direct-G0 write is committed with DSA1.  The
+; fixed-width tile erases both digits when a two-digit value changes to one.
+update_hud_count_field:
+    push ax
+    push bx
+    push cx
+    push dx
+    push si
+    push di
+    push bp
+    push es
+    xor bx, bx
+    mov bl, [build_active_count]
+    cmp bl, 1
+    jb .failed
+    cmp bl, FOOTPRINT_CAPACITY
+    ja .failed
+    dec bx
+    shl bx, 1
+    mov si, [hud_count_tile_pointers + bx]
+    mov ax, G0_SEGMENT
+    mov es, ax
+    mov di, HUD_COUNT_Y * SCREEN_PITCH + HUD_COUNT_X
+    mov bp, HUD_COUNT_HEIGHT
+.row:
+    mov cx, HUD_COUNT_WIDTH
+    rep movsb
+    add di, SCREEN_PITCH - HUD_COUNT_WIDTH
+    dec bp
+    jnz .row
+    inc word [hud_count_field_updates]
+    add word [hud_bytes_written], HUD_COUNT_WRITE_BYTES
+    adc word [hud_bytes_written + 2], 0
+    mov byte [hud_count_staged], 1
+    clc
+    jmp .done
+.failed:
+    inc word [hud_mismatches]
+    stc
+.done:
+    pop es
+    pop bp
+    pop di
+    pop si
+    pop dx
+    pop cx
+    pop bx
+    pop ax
+    ret
+
+; Restore the count field that describes the last committed visible page after
+; a staged G0 update could not be paired with the DSA1 publication.  This is
+; deliberately counter-free: it is a rollback, not a new visible update.
+restore_hud_count_field:
+    push ax
+    push bx
+    push cx
+    push si
+    push di
+    push bp
+    push es
+    xor bx, bx
+    mov bl, [published_active_count]
+    cmp bl, 1
+    jb .failed
+    cmp bl, FOOTPRINT_CAPACITY
+    ja .failed
+    dec bx
+    shl bx, 1
+    mov si, [hud_count_tile_pointers + bx]
+    mov ax, G0_SEGMENT
+    mov es, ax
+    mov di, HUD_COUNT_Y * SCREEN_PITCH + HUD_COUNT_X
+    mov bp, HUD_COUNT_HEIGHT
+.row:
+    mov cx, HUD_COUNT_WIDTH
+    rep movsb
+    add di, SCREEN_PITCH - HUD_COUNT_WIDTH
+    dec bp
+    jnz .row
+    clc
+    jmp .done
+.failed:
+    inc word [hud_mismatches]
+    stc
+.done:
+    pop es
+    pop bp
+    pop di
+    pop si
+    pop cx
+    pop bx
     pop ax
     ret
 
@@ -3332,7 +3480,8 @@ commit_pending_footprint:
     xor ah, ah
     mov bx, ax
     mov byte [page_footprint_valid + bx], 0
-    mov byte [page_footprint_count + bx], M98V_ACTIVE_COUNT
+    mov al, [build_active_count]
+    mov [page_footprint_count + bx], al
     shl bx, 7
     mov si, page_footprint_rects
     add si, bx
@@ -3359,7 +3508,9 @@ commit_pending_footprint:
     mov [page_footprint_instance_ids + bx], al
     add si, FOOTPRINT_RECT_BYTES
     inc byte [generation_instance]
-    cmp byte [generation_instance], M98V_ACTIVE_COUNT
+    xor ax, ax
+    mov al, [generation_instance]
+    cmp ax, [build_active_count]
     jb .copy
     xor ax, ax
     mov al, [hidden_page_index]
@@ -3399,7 +3550,8 @@ render_hidden_page_to_ready:
     mov byte [page_state + si], PAGE_HIDDEN_RENDERING
     inc word [render_batches_started]
     inc word [complete_frames_started]
-    add word [instances_planned], M98V_ACTIVE_COUNT
+    mov ax, [build_active_count]
+    add [instances_planned], ax
     add word [baseline_full_clear_words], G1_PAGE_WORD_COUNT
     adc word [baseline_full_clear_words + 2], 0
     add word [baseline_full_clear_bytes], G1_PAGE_BYTES & 0xffff
@@ -3452,7 +3604,9 @@ render_hidden_page_to_ready:
     add [source_bytes], ax
     adc word [source_bytes + 2], 0
     inc byte [draw_position]
-    cmp byte [draw_position], M98V_ACTIVE_COUNT
+    xor ax, ax
+    mov al, [draw_position]
+    cmp ax, [build_active_count]
     jb .draw_loop
 
     inc word [render_batches_completed]
@@ -3491,6 +3645,14 @@ publish_ready_hidden_page:
     push si
     cmp byte [hidden_render_state], RENDER_READY
     jne .failed
+    ; Count requests never relabel an in-flight frame.  The count tile is
+    ; changed only when this complete frame is about to become visible.
+    mov al, [build_active_count]
+    cmp al, [published_active_count]
+    je .count_ready
+    call update_hud_count_field
+    jc .failed
+.count_ready:
     mov al, [hidden_page_index]
     call publish_page
     jc .failed
@@ -3509,6 +3671,10 @@ publish_ready_hidden_page:
 .published_b:
     inc word [page_b_publications]
 .published:
+    ; The old field is no longer needed once DSA1 accepted the page.  Until
+    ; this point a failed publication can restore it from the committed
+    ; visible count below.
+    mov byte [hud_count_staged], 0
     mov al, [visible_page_index]
     xor ah, ah
     mov si, ax
@@ -3521,20 +3687,97 @@ publish_ready_hidden_page:
     inc word [published_updates]
     inc word [published_frames]
     inc word [complete_frames_published]
-    add word [instances_published], M98V_ACTIVE_COUNT
+    mov ax, [build_active_count]
+    add [instances_published], ax
+    call record_count_publication
     mov al, [pending_global_phase]
     mov [last_published_global_phase], al
     mov [last_published_phase], al
-    mov byte [published_active_count], M98V_ACTIVE_COUNT
+    mov al, [build_active_count]
+    mov [published_active_count], al
     call record_multi_frame_publication
     mov byte [hidden_render_state], RENDER_IDLE
     call qa_after_publication
     clc
     jmp .done
 .failed:
+    cmp byte [hud_count_staged], 0
+    je .failed_no_hud
+    call restore_hud_count_field
+    inc word [hud_count_rollbacks]
+    mov byte [hud_count_staged], 0
+.failed_no_hud:
     stc
 .done:
     pop si
+    pop bx
+    pop ax
+    ret
+
+; Commit count state only after DSA1 publication has succeeded.  The old
+; visible count is retained for the transition matrix and the HUD is therefore
+; never allowed to describe an in-flight frame.
+record_count_publication:
+    push ax
+    push bx
+    push dx
+    push si
+    mov al, [published_active_count]
+    cmp al, [build_active_count]
+    je .same
+    inc word [count_change_publications]
+    inc word [runtime_count_changes]
+    mov al, [build_active_count]
+    cmp al, [published_active_count]
+    jbe .decrease
+    inc word [count_increase_applies]
+    jmp .record
+.decrease:
+    inc word [count_decrease_applies]
+    jmp .record
+.same:
+    inc word [same_count_publications]
+.record:
+    xor ax, ax
+    mov al, [build_active_count]
+    cmp al, 1
+    jb .failed
+    cmp al, FOOTPRINT_CAPACITY
+    ja .failed
+    dec ax
+    mov si, ax
+    shl si, 1
+    inc word [count_publications + si]
+    xor ax, ax
+    mov al, [published_active_count]
+    cmp al, 1
+    jb .failed
+    cmp al, FOOTPRINT_CAPACITY
+    ja .failed
+    dec ax
+    shl ax, 1
+    shl ax, 1
+    shl ax, 1
+    shl ax, 1
+    xor bx, bx
+    mov bl, [build_active_count]
+    dec bx
+    add ax, bx
+    shl ax, 1
+    mov si, ax
+    inc word [count_transition_publications + si]
+    mov al, [build_active_count]
+    mov [visible_published_count], al
+    mov ax, [pending_count_generation]
+    mov [published_count_generation], ax
+    clc
+    jmp .done
+.failed:
+    inc word [hud_mismatches]
+    stc
+.done:
+    pop si
+    pop dx
     pop bx
     pop ax
     ret
@@ -3573,11 +3816,12 @@ record_multi_frame_publication:
     inc word [far_publications]
 .next:
     inc bx
-    cmp bx, M98V_ACTIVE_COUNT
+    mov ax, [build_active_count]
+    cmp bx, ax
     jb .record
     xor ax, ax
     mov al, [pending_global_phase]
-    mov ah, M98V_ACTIVE_COUNT
+    mov ah, [published_active_count]
     add [publication_digest], ax
     adc word [publication_digest + 2], 0
     xor ax, ax
@@ -3999,14 +4243,21 @@ validate_bounded_success:
     stc
     ret
 
+; Parse the complete PSP tail before graphics mode.  M98x accepts at most
+; one exact /V1..8 and one exact /N1..16 token in either order.  M98w builds
+; retain the old fixed-count contract and reject /N entirely.
 parse_cadence_option:
     push ax
     push bx
     push cx
+    push dx
     push si
+    push di
     push es
     mov byte [parsed_divisor], CADENCE_MIN
+    mov byte [parsed_count], 4
     mov byte [cadence_option_seen], 0
+    mov byte [count_option_seen], 0
     mov ax, [psp_segment]
     mov es, ax
     xor cx, cx
@@ -4019,21 +4270,66 @@ parse_cadence_option:
     cmp al, ' '
     je .space
     cmp al, 9
-    jne .token
-.space:
-    inc si
-    dec cx
-    jmp .skip_space
-.token:
-    cmp byte [cadence_option_seen], 0
-    jne .failed
-    cmp cx, 3
+    je .space
+    xor dx, dx
+    mov di, si
+.scan_token:
+    cmp dx, cx
+    jae .token_end
+    mov al, [es:di]
+    cmp al, ' '
+    je .token_end
+    cmp al, 9
+    je .token_end
+    inc dx
+    inc di
+    jmp .scan_token
+.token_end:
+    cmp dx, 2
     jb .failed
-    cmp al, '/'
+    cmp byte [es:si], '/'
     jne .failed
     mov al, [es:si + 1]
     and al, 0xdf
     cmp al, 'V'
+    je .token_v
+    cmp al, 'N'
+    jne .failed
+%if M98X_RUNTIME_MODE
+    cmp byte [count_option_seen], 0
+    jne .failed
+    cmp dx, 3
+    je .count_one_digit
+    cmp dx, 4
+    jne .failed
+    cmp byte [es:si + 2], '1'
+    jne .failed
+    mov al, [es:si + 3]
+    cmp al, '0'
+    jb .failed
+    cmp al, '6'
+    ja .failed
+    sub al, '0'
+    add al, 10
+    jmp .count_store
+.count_one_digit:
+    mov al, [es:si + 2]
+    cmp al, '1'
+    jb .failed
+    cmp al, '9'
+    ja .failed
+    sub al, '0'
+.count_store:
+    mov [parsed_count], al
+    mov byte [count_option_seen], 1
+    jmp .token_done
+%else
+    jmp .failed
+%endif
+.token_v:
+    cmp byte [cadence_option_seen], 0
+    jne .failed
+    cmp dx, 3
     jne .failed
     mov al, [es:si + 2]
     cmp al, '1'
@@ -4043,15 +4339,14 @@ parse_cadence_option:
     sub al, '0'
     mov [parsed_divisor], al
     mov byte [cadence_option_seen], 1
-    add si, 3
-    sub cx, 3
-    test cx, cx
-    jz .success
-    mov al, [es:si]
-    cmp al, ' '
-    je .skip_space
-    cmp al, 9
-    je .skip_space
+.token_done:
+    sub cx, dx
+    add si, dx
+    jmp .skip_space
+.space:
+    inc si
+    dec cx
+    jmp .skip_space
 .failed:
     stc
     jmp .done
@@ -4059,10 +4354,39 @@ parse_cadence_option:
     clc
 .done:
     pop es
+    pop di
     pop si
+    pop dx
     pop cx
     pop bx
     pop ax
+    ret
+
+initialize_count_state:
+%if M98X_RUNTIME_MODE
+    xor ax, ax
+    mov al, [parsed_count]
+%else
+    mov ax, M98V_ACTIVE_COUNT
+%endif
+    cmp ax, 1
+    jb .failed
+    cmp ax, FOOTPRINT_CAPACITY
+    ja .failed
+    mov [build_active_count], ax
+    mov [requested_count], al
+    mov [next_render_count], al
+    mov [pending_render_count], al
+    mov [visible_published_count], al
+    mov [published_active_count], al
+    mov word [count_request_generation], 0
+    mov word [pending_count_generation], 0
+    mov word [published_count_generation], 0
+    mov byte [count_change_pending], 0
+    clc
+    ret
+.failed:
+    stc
     ret
 
 initialize_cadence_scheduler:
@@ -4098,6 +4422,12 @@ poll_control_requests:
     je .faster
     cmp ah, KEY_SCAN_RIGHT
     je .slower
+%if M98X_RUNTIME_MODE
+    cmp ah, KEY_SCAN_UP
+    je .count_up
+    cmp ah, KEY_SCAN_DOWN
+    je .count_down
+%endif
     cmp ah, KEY_SCAN_SPACE
     je .pause
     jmp .done
@@ -4120,6 +4450,39 @@ poll_control_requests:
     xor byte [pause_toggle_pending], 1
     inc word [pause_requests]
     jmp .done
+%if M98X_RUNTIME_MODE
+.count_up:
+    inc word [count_key_requests]
+    inc word [count_up_requests]
+    cmp byte [requested_count], FOOTPRINT_CAPACITY
+    jae .count_saturated
+    inc byte [requested_count]
+    inc word [count_request_generation]
+    inc word [count_request_events]
+    cmp byte [hidden_render_state], RENDER_IDLE
+    je .count_up_latched
+    inc word [count_requests_coalesced]
+.count_up_latched:
+    mov byte [count_change_pending], 1
+    jmp .done
+.count_down:
+    inc word [count_key_requests]
+    inc word [count_down_requests]
+    cmp byte [requested_count], 1
+    jbe .count_saturated
+    dec byte [requested_count]
+    inc word [count_request_generation]
+    inc word [count_request_events]
+    cmp byte [hidden_render_state], RENDER_IDLE
+    je .count_down_latched
+    inc word [count_requests_coalesced]
+.count_down_latched:
+    mov byte [count_change_pending], 1
+    jmp .done
+.count_saturated:
+    inc word [count_noop_saturations]
+    jmp .done
+%endif
 .clamped:
     inc word [control_endpoint_hits]
 .done:
@@ -4690,8 +5053,8 @@ expected_scale_histogram: db 1,2,2,2,2,4,2,2,2,2,2,2,2,2,3,3,2,2,2,2,2,2,2,2,4,2
 %if HUD_TILE_COUNT != 8 || HUD_FULL_TILE_BYTES != HUD_FULL_WRITE_BYTES || HUD_FPS_TILE_BYTES != HUD_FPS_WRITE_BYTES
 %error "M98v HUD include has the wrong FPS tile contract"
 %endif
-%if HUD_COUNT_TILE_COUNT != 5 || HUD_COUNT_TILE_BYTES != HUD_COUNT_WRITE_BYTES
-%error "M98v HUD include has the wrong count tile contract"
+%if HUD_COUNT_TILE_COUNT != 16 || HUD_COUNT_TILE_BYTES != HUD_COUNT_WRITE_BYTES
+%error "M98x HUD include has the wrong runtime count tile contract"
 %endif
 guard_normal_outside: db 0x5a,0xa5,0x3c,0xc3,0x69,0x96,0x0f,0xf0
 guard_normal_under:   db 0xa5,0x5a,0xc3,0x3c,0x96,0x69,0xf0,0x0f
@@ -4745,6 +5108,19 @@ qa_pause_edges_remaining: db 0
 pending_global_phase: db 0
 last_published_global_phase: db 0
 published_active_count: db M98V_ACTIVE_COUNT
+; M98x runtime count state.  The frame's build_active_count is latched at
+; render-loop entry and is immutable through clear, draw, READY, and publish.
+parsed_count: db 4
+requested_count: db 4
+next_render_count: db 4
+pending_render_count: db 4
+visible_published_count: db 4
+count_change_pending: db 0
+hud_count_staged: db 0
+count_option_seen: db 0
+pending_count_generation: dw 0
+count_request_generation: dw 0
+published_count_generation: dw 0
 generation_instance: db 0
 generated_phase_offset: db 0
 generated_phase: db 0
@@ -4845,7 +5221,20 @@ hud_full_initializations: dw 0
 hud_fps_field_updates: dw 0
 hud_zundamon_field_updates: dw 0
 hud_count_field_updates: dw 0
+hud_count_rollbacks: dw 0
 runtime_count_changes: dw 0
+count_key_requests: dw 0
+count_up_requests: dw 0
+count_down_requests: dw 0
+count_noop_saturations: dw 0
+count_request_events: dw 0
+count_requests_coalesced: dw 0
+count_change_publications: dw 0
+same_count_publications: dw 0
+count_increase_applies: dw 0
+count_decrease_applies: dw 0
+count_publications: times FOOTPRINT_CAPACITY dw 0
+count_transition_publications: times FOOTPRINT_CAPACITY * FOOTPRINT_CAPACITY dw 0
 hud_g1_writes: dw 0
 hud_vblank_overruns: dw 0
 hud_mismatches: dw 0
