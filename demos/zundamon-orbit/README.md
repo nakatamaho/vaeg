@@ -628,3 +628,31 @@ successful publications, and missed slots separate. A missed slot retains the
 complete visible page and does not skip a scale. M98r adds no ellipse, depth
 coupling, private image, multiple instances, UP/DOWN behavior, or physical-
 hardware timing claim.
+
+## M98s constant-scale screen ellipse
+
+M98s replaces the release zoom sequence with one 64-phase clockwise ellipse.
+Every render uses stored scale ID 15 (11x9 pixels, 12-byte source pitch, anchor
+`(5,4)`) from the unchanged public 30-descriptor, one-bank atlas.  The
+anchor-space center is `(160,100)` and the checked radii are `(96,48)`.
+Phases 0, 16, 32, and 48 are the right, bottom, left, and top landmarks.
+
+The tracked NASM table is generated without host floating-point or runtime
+trigonometry.  Regenerate it into a new temporary path and compare it with the
+compiled table:
+
+```sh
+python3 demos/zundamon-orbit/tools/generate_zundamon_orbit_table.py \
+  --radius-x 96 --radius-y 48 --output /tmp/zundamon_orbit_table.inc
+python3 demos/zundamon-orbit/tools/validate_zundamon_orbit_table.py \
+  --input /tmp/zundamon_orbit_table.inc
+cmp /tmp/zundamon_orbit_table.inc \
+  demos/zundamon-orbit/256/zundamon_orbit_table.inc
+```
+
+The `/V1` through `/V8`, LEFT/RIGHT, SPACE, and ESC behavior is unchanged.
+UP/DOWN do nothing.  A pause, missed eligible slot, queued cadence change, or
+failed hidden-page transaction does not advance the pending phase.  Each
+physical G1 page clears only its own last published logical rectangle before
+drawing the next scale-15 frame.  M98s adds no depth-to-scale mapping, private
+image, image rotation, multiple instances, or physical-hardware timing claim.

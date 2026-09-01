@@ -23,7 +23,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 # M98 - Zundamon billboard-orbit demo master plan
 
-Status: **G98a, G98e, G98j, G98k, G98l, G98o, G98p, G98q, and G98r human gates and G98b-G98d and G98f-G98i machine gates passed; M98r closed on 2026-09-01**
+Status: **G98a, G98e, G98j, G98k, G98l, G98o, G98p, G98q, and G98r human gates and G98b-G98d and G98f-G98i machine gates passed; M98s automated evidence passed and G98s human gate is pending**
 
 Branch family: `topic/m98-zundamon-orbit`
 
@@ -182,8 +182,11 @@ remains the byte-correct golden. Its implementation candidate is
 framebuffer mismatches. The maintainer explicitly passed G98q on 2026-09-01
 after confirming no stale image, horizontal one-pixel streak, anchor wobble,
 or flicker and successful ESC restoration. M98q is closed. M98r adds only
-selectable VBLANK cadence; M98s ellipse motion and M98t depth coupling remain
-separate later milestones.
+selectable VBLANK cadence and is closed at accepted head
+`4c5a7724e31cc0a52c8bfe8e827198c1c30a8c37`. The maintainer explicitly
+passed G98r on 2026-09-01. M98s now adds only a constant-size, fixed-scale-15
+64-phase screen ellipse; M98t depth coupling remains a separate later
+milestone.
 
 ## 6. Deterministic host contracts
 

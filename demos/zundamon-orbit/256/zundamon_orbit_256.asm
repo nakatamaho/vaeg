@@ -103,11 +103,14 @@ org 0x100
 %define G1_PAGE_BYTES           0xfa00
 %define G1_PAGE_WORD_COUNT      0x7d00
 %define G1_BACKING_BYTES        0x1f400
-%define SCALE_PUBLICATIONS_PER_CYCLE 58
-%define QA_CYCLES               M98R_QA_CYCLES
-%define QA_PUBLICATIONS         (SCALE_PUBLICATIONS_PER_CYCLE * QA_CYCLES)
+%define ORBIT_PUBLICATIONS_PER_REVOLUTION 64
+%define QA_CYCLES               M98S_QA_CYCLES
+%define QA_PUBLICATIONS         (ORBIT_PUBLICATIONS_PER_REVOLUTION * QA_CYCLES)
 %define TARGET_ANCHOR_X         160
 %define TARGET_ANCHOR_Y         100
+%define FIXED_SCALE_ID          15
+%define ORBIT_RADIUS_X          96
+%define ORBIT_RADIUS_Y          48
 
 %ifndef M98Q_BOUNDED_QA
 %define M98Q_BOUNDED_QA         0
@@ -118,14 +121,14 @@ org 0x100
 %ifndef M98Q_CLEAR_MODE
 %define M98Q_CLEAR_MODE         1
 %endif
-%ifndef M98R_BOUNDED_QA
-%define M98R_BOUNDED_QA         0
+%ifndef M98S_BOUNDED_QA
+%define M98S_BOUNDED_QA         0
 %endif
-%ifndef M98R_QA_CYCLES
-%define M98R_QA_CYCLES          1
+%ifndef M98S_QA_CYCLES
+%define M98S_QA_CYCLES          1
 %endif
-%ifndef M98R_QA_SCENARIO
-%define M98R_QA_SCENARIO        0
+%ifndef M98S_QA_SCENARIO
+%define M98S_QA_SCENARIO        0
 %endif
 
 %define CLEAR_MODE_FULL         0
@@ -245,14 +248,14 @@ org 0x100
 %if M98Q_BOUNDED_QA != 0 && M98Q_BOUNDED_QA != 1
 %error "M98q bounded QA flag must be zero or one"
 %endif
-%if M98R_BOUNDED_QA != 0 && M98R_BOUNDED_QA != 1
-%error "M98r bounded QA flag must be zero or one"
+%if M98S_BOUNDED_QA != 0 && M98S_BOUNDED_QA != 1
+%error "M98s bounded QA flag must be zero or one"
 %endif
-%if M98R_QA_CYCLES < 1 || M98R_QA_CYCLES > 2
-%error "M98r bounded QA cycles must be one or two"
+%if M98S_QA_CYCLES < 1 || M98S_QA_CYCLES > 2
+%error "M98s bounded QA revolutions must be one or two"
 %endif
-%if M98R_QA_SCENARIO < 0 || M98R_QA_SCENARIO > 3
-%error "M98r QA scenario must be static, ladder, pause, or missed-slot"
+%if M98S_QA_SCENARIO < 0 || M98S_QA_SCENARIO > 3
+%error "M98s QA scenario must be static, ladder, pause, or missed-slot"
 %endif
 %if M98Q_CLEAR_MODE != CLEAR_MODE_FULL && M98Q_CLEAR_MODE != CLEAR_MODE_DIRTY
 %error "M98q clear mode must be full or dirty"
@@ -336,6 +339,11 @@ probe_resume:
     jmp load_checkpoint
 
 load_resume:
+    mov al, FIXED_SCALE_ID
+    call select_scale_descriptor
+    jc descriptor_failed
+    call validate_orbit_table
+    jc descriptor_failed
     call initialize_video_double_buffer
     jc transfer_failed
     mov bx, G1_PAGE_BYTES
@@ -348,12 +356,19 @@ load_resume:
     jmp transfer_checkpoint
 
 transfer_resume:
-    mov byte [current_scale_id], ATLAS_SCALE_COUNT
-    mov byte [scale_direction], 0
+    mov al, FIXED_SCALE_ID
+    call select_scale_descriptor
+    jc descriptor_failed
+    call validate_orbit_table
+    jc descriptor_failed
+    mov byte [orbit_phase_next], 0
     call initialize_cadence_scheduler
 render_loop:
-    mov al, [current_scale_id]
+    mov al, FIXED_SCALE_ID
     call select_scale_descriptor
+    jc descriptor_failed
+    mov al, [orbit_phase_next]
+    call select_orbit_destination
     jc descriptor_failed
     mov byte [hidden_render_state], RENDER_RENDERING
     call render_hidden_page_to_ready
@@ -373,9 +388,9 @@ render_loop:
     jc runtime_failed
     mov bx, [page_flips]
     xor cx, cx
-    mov cl, [last_published_scale_id]
+    mov cl, [last_published_phase]
     xor dx, dx
-    mov dl, [last_published_direction]
+    mov dl, FIXED_SCALE_ID
     mov al, [active_divisor]
     mov dh, al
     xor ax, ax
@@ -387,9 +402,9 @@ render_loop:
     jmp flip_checkpoint
 
 flip_resume:
-    call advance_scale_sequence
-%if M98R_BOUNDED_QA
-    cmp word [cycles_completed], QA_CYCLES
+    call advance_orbit_phase
+%if M98S_BOUNDED_QA
+    cmp word [revolution_wraps], QA_CYCLES
     je settled_start
 %endif
     jmp render_loop
@@ -404,8 +419,8 @@ settled_loop:
     push cs
     pop es
     mov bx, [page_flips]
-    mov cx, [cycles_completed]
-    mov dx, [direction_reversals]
+    mov cx, [revolution_wraps]
+    mov dx, [phase_advances]
     mov si, [page_flips]
     xor ax, ax
     mov al, [visible_page_index]
@@ -415,7 +430,7 @@ settled_loop:
     jmp settled_checkpoint
 
 settled_resume:
-%if M98R_BOUNDED_QA
+%if M98S_BOUNDED_QA
     call poll_escape
     ; Bounded QA does not depend on keyboard input; an injected key is ignored.
 %else
@@ -426,7 +441,7 @@ settled_resume:
     cmp byte [settled_capture_count], 2
     jb settled_loop
 
-%if M98R_BOUNDED_QA
+%if M98S_BOUNDED_QA
     call validate_bounded_success
     jc descriptor_failed
     jmp normal_exit
@@ -517,9 +532,9 @@ report_b_resume:
     mov cx, [cleanup_runs]
     xor dx, dx
     mov dl, [visible_page_index]
-    mov si, [cycles_completed]
-    mov di, [direction_reversals]
-    mov bp, [descriptor_errors]
+    mov si, [revolution_wraps]
+    mov di, [phase_advances]
+    mov bp, [bounds_failures]
     mov ax, 0x98e3
     jmp report_c_checkpoint
 
@@ -536,9 +551,9 @@ report_c_resume:
 report_d_resume:
     mov bx, [publication_digest]
     mov cx, [publication_digest + 2]
-    mov dx, [scale_publication_total]
-    mov si, [scale_shrink_total]
-    mov di, [scale_grow_total]
+    mov dx, [phase_publication_total]
+    mov si, FIXED_SCALE_ID
+    mov di, [scale_changes]
     mov bp, [bounded_validation_pass]
     mov ax, 0x98e5
     jmp report_e_checkpoint
@@ -571,7 +586,7 @@ report_g_resume:
     xor ax, ax
     mov al, [page_old_valid + PAGE_B]
     mov si, ax
-    mov di, [page_old_scale_id]
+    mov di, [page_old_phase]
     mov bp, [cleanup_runs]
     mov ax, 0x98e8
     jmp report_h_checkpoint
@@ -594,7 +609,7 @@ report_i_resume:
     mov dx, [divider_changes_applied]
     mov si, [divider_boundary_resets]
     mov di, [ready_wait_edges]
-    mov bp, [scale_advances]
+    mov bp, [scale_changes]
     mov ax, 0x98ea
     jmp report_j_checkpoint
 
@@ -1302,6 +1317,133 @@ select_scale_descriptor:
     stc
     ret
 
+; Bind one generated phase to the fixed scale-15 anchor.  The table stores
+; signed word offsets; every result remains a checked half-open screen rect.
+select_orbit_destination:
+    cmp al, ORBIT_PUBLICATIONS_PER_REVOLUTION
+    jae .failed
+    mov [pending_phase], al
+    xor ah, ah
+    mov si, ax
+    shl si, 1
+    shl si, 1
+    mov ax, [orbit_offsets + si]
+    add ax, TARGET_ANCHOR_X
+    js .failed
+    sub ax, [selected_anchor_x]
+    jc .failed
+    mov [selected_dst_x], ax
+    mov dx, ax
+    add dx, [selected_width]
+    jc .failed
+    cmp dx, SCREEN_WIDTH
+    ja .failed
+    mov ax, [orbit_offsets + si + 2]
+    add ax, TARGET_ANCHOR_Y
+    js .failed
+    sub ax, [selected_anchor_y]
+    jc .failed
+    mov [selected_dst_y], ax
+    mov dx, ax
+    add dx, [selected_height]
+    jc .failed
+    cmp dx, SCREEN_HEIGHT
+    ja .failed
+    clc
+    ret
+.failed:
+    inc word [bounds_failures]
+    stc
+    ret
+
+; Validate the compiled table and derive the contract radii from the live
+; scale-15 geometry before graphics mode.  Opposite phases must be exact
+; negatives, cardinal landmarks exact, and every destination in bounds.
+validate_orbit_table:
+    cmp byte [selected_scale_id], FIXED_SCALE_ID
+    jne .failed
+    mov ax, TARGET_ANCHOR_X
+    sub ax, [selected_anchor_x]
+    jc .failed
+    mov bx, [selected_width]
+    sub bx, [selected_anchor_x]
+    jc .failed
+    mov dx, SCREEN_WIDTH - TARGET_ANCHOR_X
+    sub dx, bx
+    jc .failed
+    cmp ax, dx
+    jbe .radius_x_ready
+    mov ax, dx
+.radius_x_ready:
+    cmp ax, ORBIT_RADIUS_X
+    jbe .radius_x_capped
+    mov ax, ORBIT_RADIUS_X
+.radius_x_capped:
+    cmp ax, ORBIT_RADIUS_X
+    jne .failed
+    mov ax, TARGET_ANCHOR_Y
+    sub ax, [selected_anchor_y]
+    jc .failed
+    mov bx, [selected_height]
+    sub bx, [selected_anchor_y]
+    jc .failed
+    mov dx, SCREEN_HEIGHT - TARGET_ANCHOR_Y
+    sub dx, bx
+    jc .failed
+    cmp ax, dx
+    jbe .radius_y_ready
+    mov ax, dx
+.radius_y_ready:
+    cmp ax, ORBIT_RADIUS_Y
+    jbe .radius_y_capped
+    mov ax, ORBIT_RADIUS_Y
+.radius_y_capped:
+    cmp ax, ORBIT_RADIUS_Y
+    jne .failed
+    cmp word [orbit_offsets + 0 * 4], ORBIT_RADIUS_X
+    jne .failed
+    cmp word [orbit_offsets + 0 * 4 + 2], 0
+    jne .failed
+    cmp word [orbit_offsets + 16 * 4], 0
+    jne .failed
+    cmp word [orbit_offsets + 16 * 4 + 2], ORBIT_RADIUS_Y
+    jne .failed
+    cmp word [orbit_offsets + 32 * 4], -ORBIT_RADIUS_X
+    jne .failed
+    cmp word [orbit_offsets + 32 * 4 + 2], 0
+    jne .failed
+    cmp word [orbit_offsets + 48 * 4], 0
+    jne .failed
+    cmp word [orbit_offsets + 48 * 4 + 2], -ORBIT_RADIUS_Y
+    jne .failed
+    xor si, si
+.opposite_loop:
+    mov ax, [orbit_offsets + si]
+    add ax, [orbit_offsets + si + 32 * 4]
+    jne .failed
+    mov ax, [orbit_offsets + si + 2]
+    add ax, [orbit_offsets + si + 32 * 4 + 2]
+    jne .failed
+    add si, 4
+    cmp si, 32 * 4
+    jne .opposite_loop
+    xor bx, bx
+.bounds_loop:
+    mov ax, bx
+    call select_orbit_destination
+    jc .failed_counted
+    inc bx
+    cmp bx, ORBIT_PUBLICATIONS_PER_REVOLUTION
+    jne .bounds_loop
+    mov al, 0
+    call select_orbit_destination
+    ret
+.failed:
+    inc word [bounds_failures]
+.failed_counted:
+    stc
+    ret
+
 compare_final_crcs:
     mov ax, [file_crc_state]
     not ax
@@ -1504,6 +1646,11 @@ initialize_video_double_buffer:
     call verify_bms_payload_crc
     jc .failed
     call verify_all_bms_frame_crcs
+    jc .failed
+    mov al, FIXED_SCALE_ID
+    call select_scale_descriptor
+    jc .failed
+    call validate_orbit_table
     jc .failed
     call select_ordinary_mapping
     call verify_normal_guards
@@ -1776,7 +1923,7 @@ build_initialization_commands:
 
 build_render_commands:
     ; The explicit hidden-page index chooses only the destination page.  The
-    ; stored scaled anchor keeps every descriptor on the fixed scene anchor.
+    ; fixed scale-15 anchor places the descriptor at the selected orbit phase.
     push ax
     push dx
     push si
@@ -1930,6 +2077,8 @@ finalize_sgp_command_list:
     ret
 
 prepare_pending_rectangle:
+    cmp byte [selected_scale_id], FIXED_SCALE_ID
+    jne .failed
     mov ax, [selected_dst_x]
     cmp ax, SCREEN_WIDTH
     jae .failed
@@ -2092,6 +2241,8 @@ commit_pending_rectangle:
     mov byte [page_old_valid + bx], 1
     mov al, [pending_scale_id]
     mov [page_old_scale_id + bx], al
+    mov al, [pending_phase]
+    mov [page_old_phase + bx], al
     shl bx, 1
     mov ax, [pending_x]
     mov [page_old_x + bx], ax
@@ -2219,11 +2370,9 @@ publish_ready_hidden_page:
     mov [hidden_page_index], al
     inc word [page_flips]
     inc word [published_updates]
-    mov al, [selected_scale_id]
-    mov [last_published_scale_id], al
-    mov al, [scale_direction]
-    mov [last_published_direction], al
-    call record_scale_publication
+    mov al, [pending_phase]
+    mov [last_published_phase], al
+    call record_orbit_publication
     mov byte [hidden_render_state], RENDER_IDLE
     call qa_after_publication
     clc
@@ -2248,45 +2397,26 @@ select_render_bms:
 .done:
     ret
 
-record_scale_publication:
+record_orbit_publication:
     push ax
     push bx
     push cx
     push dx
     push si
     xor ax, ax
-    mov al, [selected_scale_id]
-    dec ax
+    mov al, [pending_phase]
     mov si, ax
     shl si, 1
-    inc word [scale_publications + si]
-    inc word [scale_publication_total]
-    cmp byte [scale_direction], 0
-    jne .grow
-    inc word [scale_shrink_publications + si]
-    inc word [scale_shrink_total]
-    jmp .direction_recorded
-.grow:
-    inc word [scale_grow_publications + si]
-    inc word [scale_grow_total]
-.direction_recorded:
-    shl si, 1
-    xor ax, ax
-    mov al, [visible_page_index]
-    shl ax, 1
-    add si, ax
-    inc word [scale_page_publications + si]
+    inc word [phase_publications + si]
+    inc word [phase_publication_total]
 
     mov ax, [selected_payload_bytes]
     add [source_bytes], ax
     adc word [source_bytes + 2], 0
 
     xor ax, ax
-    mov al, [selected_scale_id]
-    xor bx, bx
-    mov bl, [scale_direction]
-    shl bx, 8
-    add ax, bx
+    mov al, [pending_phase]
+    mov ah, FIXED_SCALE_ID
     add [publication_digest], ax
     adc word [publication_digest + 2], 0
     xor ax, ax
@@ -2300,29 +2430,13 @@ record_scale_publication:
     pop ax
     ret
 
-advance_scale_sequence:
-    inc word [scale_advances]
-    cmp byte [scale_direction], 0
-    jne .grow
-    cmp byte [current_scale_id], 1
-    jne .shrink_step
-    mov byte [scale_direction], 1
-    mov byte [current_scale_id], 2
-    inc word [direction_reversals]
-    ret
-.shrink_step:
-    dec byte [current_scale_id]
-    ret
-.grow:
-    cmp byte [current_scale_id], 29
-    jne .grow_step
-    mov byte [scale_direction], 0
-    mov byte [current_scale_id], 30
-    inc word [direction_reversals]
-    inc word [cycles_completed]
-    ret
-.grow_step:
-    inc byte [current_scale_id]
+advance_orbit_phase:
+    inc word [phase_advances]
+    inc byte [orbit_phase_next]
+    and byte [orbit_phase_next], ORBIT_PUBLICATIONS_PER_REVOLUTION - 1
+    jnz .done
+    inc word [revolution_wraps]
+.done:
     ret
 
 validate_bounded_success:
@@ -2361,7 +2475,7 @@ validate_bounded_success:
     jne .failed
     cmp word [published_updates], QA_PUBLICATIONS
     jne .failed
-    cmp word [scale_advances], QA_PUBLICATIONS
+    cmp word [phase_advances], QA_PUBLICATIONS
     jne .failed
     mov ax, [published_updates]
     add ax, [missed_slots]
@@ -2377,9 +2491,9 @@ validate_bounded_success:
     ja .failed
     cmp word [partial_publication_attempts], 0
     jne .failed
-    cmp word [cycles_completed], QA_CYCLES
+    cmp word [revolution_wraps], QA_CYCLES
     jne .failed
-    cmp word [direction_reversals], QA_CYCLES * 2
+    cmp word [scale_changes], 0
     jne .failed
     cmp word [sgp_timeouts], 0
     jne .failed
@@ -2388,6 +2502,8 @@ validate_bounded_success:
     cmp word [vblank_timeouts], 0
     jne .failed
     cmp word [descriptor_errors], 0
+    jne .failed
+    cmp word [bounds_failures], 0
     jne .failed
     cmp word [dirty_full_mismatches], 0
     jne .failed
@@ -2401,37 +2517,20 @@ validate_bounded_success:
     jne .failed
     cmp word [baseline_full_clear_bytes + 2], (QA_PUBLICATIONS * G1_PAGE_BYTES) >> 16
     jne .failed
-    cmp word [scale_publication_total], QA_PUBLICATIONS
+    cmp word [phase_publication_total], QA_PUBLICATIONS
     jne .failed
-    cmp word [scale_shrink_total], 30 * QA_CYCLES
+    cmp byte [selected_scale_id], FIXED_SCALE_ID
     jne .failed
-    cmp word [scale_grow_total], 28 * QA_CYCLES
+    cmp byte [pending_scale_id], FIXED_SCALE_ID
     jne .failed
     xor si, si
-    mov cx, ATLAS_SCALE_COUNT
-.scale_loop:
-    mov ax, [scale_publications + si]
-    cmp cx, ATLAS_SCALE_COUNT
-    je .endpoint
-    cmp cx, 1
-    je .endpoint
-    cmp ax, 2 * QA_CYCLES
-    jne .failed
-    cmp word [scale_shrink_publications + si], QA_CYCLES
-    jne .failed
-    cmp word [scale_grow_publications + si], QA_CYCLES
-    jne .failed
-    jmp .next
-.endpoint:
-    cmp ax, QA_CYCLES
-    jne .failed
-    cmp word [scale_shrink_publications + si], QA_CYCLES
-    jne .failed
-    cmp word [scale_grow_publications + si], 0
+    mov cx, ORBIT_PUBLICATIONS_PER_REVOLUTION
+.phase_loop:
+    cmp word [phase_publications + si], QA_CYCLES
     jne .failed
 .next:
     add si, 2
-    loop .scale_loop
+    loop .phase_loop
     mov word [bounded_validation_pass], 1
     clc
     ret
@@ -2690,7 +2789,7 @@ qa_queue_divisor:
     ret
 
 qa_force_missed_slots_before_ready:
-%if M98R_BOUNDED_QA && M98R_QA_SCENARIO = 3
+%if M98S_BOUNDED_QA && M98S_QA_SCENARIO = 3
     cmp byte [qa_stage], 0
     jne .done
     call wait_scheduler_edge
@@ -2712,7 +2811,7 @@ qa_queue_pause:
     ret
 
 qa_after_sgp_submission:
-%if M98R_BOUNDED_QA && M98R_QA_SCENARIO = 1
+%if M98S_BOUNDED_QA && M98S_QA_SCENARIO = 1
     cmp byte [hidden_render_state], RENDER_RENDERING
     jne .done
     cmp byte [qa_stage], 0
@@ -2723,7 +2822,7 @@ qa_after_sgp_submission:
     call qa_queue_divisor
     jc .done
     mov byte [qa_stage], 1
-%elif M98R_BOUNDED_QA && M98R_QA_SCENARIO = 2
+%elif M98S_BOUNDED_QA && M98S_QA_SCENARIO = 2
     cmp byte [hidden_render_state], RENDER_RENDERING
     jne .done
     cmp byte [qa_stage], 0
@@ -2738,7 +2837,7 @@ qa_after_sgp_submission:
     ret
 
 qa_after_publication:
-%if M98R_BOUNDED_QA && M98R_QA_SCENARIO = 1
+%if M98S_BOUNDED_QA && M98S_QA_SCENARIO = 1
     cmp byte [qa_stage], 1
     jb .done
     cmp byte [qa_stage], 14
@@ -2755,7 +2854,7 @@ qa_after_publication:
     call qa_queue_divisor
     jc .done
     inc byte [qa_stage]
-%elif M98R_BOUNDED_QA && M98R_QA_SCENARIO = 2
+%elif M98S_BOUNDED_QA && M98S_QA_SCENARIO = 2
     cmp byte [qa_stage], 2
     jne .pause_at_40
     cmp word [published_updates], 20
@@ -2777,7 +2876,7 @@ qa_after_publication:
     ret
 
 qa_before_scheduler_actions:
-%if M98R_BOUNDED_QA && M98R_QA_SCENARIO = 2
+%if M98S_BOUNDED_QA && M98S_QA_SCENARIO = 2
     cmp byte [paused], 0
     je .done
     cmp byte [pause_toggle_pending], 0
@@ -2991,22 +3090,22 @@ print_string:
     ret
 
 message_start:
-    db "M98R_INIT: selectable VBLANK cadence zoom", 13, 10
+    db "M98S_INIT: constant-scale 64-phase ellipse", 13, 10
     db "Selector 0 is ordinary RAM; selector 1 is the atlas bank.", 13, 10, "$"
 message_done:
-    db "M98R_EXIT: ordinary mapping, keyboard, and video state restored.", 13, 10, "$"
+    db "M98S_EXIT: ordinary mapping, keyboard, and video state restored.", 13, 10, "$"
 message_option_failed:
-    db "M98R_OPTION: use zero or one exact /V1 through /V8 option.", 13, 10, "$"
+    db "M98S_OPTION: use zero or one exact /V1 through /V8 option.", 13, 10, "$"
 message_bms_failed:
-    db "M98R_FAIL: predecessor BMS mapping probe failed.", 13, 10, "$"
+    db "M98S_FAIL: predecessor BMS mapping probe failed.", 13, 10, "$"
 message_atlas_failed:
-    db "M98R_FAIL: atlas validation or streaming failed.", 13, 10, "$"
+    db "M98S_FAIL: atlas validation or streaming failed.", 13, 10, "$"
 message_descriptor_failed:
-    db "M98R_FAIL: scale descriptor or bounded invariant failed.", 13, 10, "$"
+    db "M98S_FAIL: orbit, descriptor, or bounded invariant failed.", 13, 10, "$"
 message_transfer_failed:
-    db "M98R_FAIL: hidden-page SGP batch failed.", 13, 10, "$"
+    db "M98S_FAIL: hidden-page SGP batch failed.", 13, 10, "$"
 message_runtime_failed:
-    db "M98R_FAIL: bounded VBLANK edge wait timed out.", 13, 10, "$"
+    db "M98S_FAIL: bounded VBLANK edge wait timed out.", 13, 10, "$"
 atlas_filename:
     db "ZUNDORB.BIN", 0
 
@@ -3073,6 +3172,13 @@ checker_row_b:
     times 8 db 0x24
 qa_ladder_publications: dw 8, 12, 16, 20, 24, 28, 32, 36, 40, 44, 48, 52, 56
 qa_ladder_divisors: db 3, 4, 5, 6, 7, 8, 7, 6, 5, 4, 3, 2, 1
+%include "zundamon_orbit_table.inc"
+%if ORBIT_TABLE_PHASE_COUNT != ORBIT_PUBLICATIONS_PER_REVOLUTION
+%error "M98s orbit include has the wrong phase count"
+%endif
+%if ORBIT_TABLE_RADIUS_X != ORBIT_RADIUS_X || ORBIT_TABLE_RADIUS_Y != ORBIT_RADIUS_Y
+%error "M98s orbit include has the wrong radii"
+%endif
 guard_normal_outside: db 0x5a,0xa5,0x3c,0xc3,0x69,0x96,0x0f,0xf0
 guard_normal_under:   db 0xa5,0x5a,0xc3,0x3c,0x96,0x69,0xf0,0x0f
 signature_bank_1:    db 0x11,0x21,0x31,0x41,0x51,0x61,0x71,0x81
@@ -3088,14 +3194,14 @@ page_dsa_high: dw G1_PAGE_A_DSA >> 16, G1_PAGE_B_DSA >> 16
 page_state: db PAGE_UNINITIALIZED, PAGE_UNINITIALIZED
 page_old_valid: db 0, 0
 page_old_scale_id: db 0, 0
+page_old_phase: db 0, 0
 visible_page_index: db M98Q_INITIAL_VISIBLE_PAGE
 hidden_page_index: db 1 - M98Q_INITIAL_VISIBLE_PAGE
 settled_capture_count: db 0
-current_scale_id: db ATLAS_SCALE_COUNT
-scale_direction: db 0
 selected_scale_id: db 0
-last_published_scale_id: db 0
-last_published_direction: db 0
+orbit_phase_next: db 0
+pending_phase: db 0
+last_published_phase: db 0
 descriptor_validation_id: db 0
 runtime_failure_kind: db 0
 exit_errorlevel: db 1
@@ -3167,17 +3273,16 @@ requested_slots: dw 0
 published_updates: dw 0
 missed_slots: dw 0
 ready_wait_edges: dw 0
-scale_advances: dw 0
+phase_advances: dw 0
+scale_changes: dw 0
 partial_publication_attempts: dw 0
 dirty_full_mismatches: dw 0
 guard_failures: dw 0
 sgp_command_lists: dw 0
 sgp_commands: dw 0
-cycles_completed: dw 0
-direction_reversals: dw 0
-scale_publication_total: dw 0
-scale_shrink_total: dw 0
-scale_grow_total: dw 0
+revolution_wraps: dw 0
+phase_publication_total: dw 0
+bounds_failures: dw 0
 bounded_validation_pass: dw 0
 source_bytes: dw 0, 0
 dirty_row_cls_commands: dw 0, 0
@@ -3186,10 +3291,7 @@ dirty_bytes_cleared: dw 0, 0
 baseline_full_clear_words: dw 0, 0
 baseline_full_clear_bytes: dw 0, 0
 publication_digest: dw 0, 0
-scale_publications: times ATLAS_SCALE_COUNT dw 0
-scale_shrink_publications: times ATLAS_SCALE_COUNT dw 0
-scale_grow_publications: times ATLAS_SCALE_COUNT dw 0
-scale_page_publications: times ATLAS_SCALE_COUNT * 2 dw 0
+phase_publications: times ORBIT_PUBLICATIONS_PER_REVOLUTION dw 0
 sgp_command_address_low: dw 0
 sgp_command_address_high: dw 0
 saved_video_mode: dw 0
@@ -3249,5 +3351,5 @@ staging_buffer:
 program_end:
 
 %if program_end - $$ >= 65280
-%error "M98r guest exceeds the 64-KiB DOS payload limit"
+%error "M98s guest exceeds the 64-KiB DOS payload limit"
 %endif
