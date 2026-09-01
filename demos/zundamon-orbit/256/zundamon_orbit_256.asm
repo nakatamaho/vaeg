@@ -139,12 +139,12 @@ org 0x100
 ; The status panel is G0-only and deliberately outside the accepted
 ; FPS/count rectangles.  The generated tiles are fixed-width, so every
 ; update also erases stale sign/decimal characters.
-%define HUD_STATUS_SPEED_X      180
-%define HUD_STATUS_DISTANCE_X   236
-%define HUD_STATUS_LOOK_X       180
-%define HUD_STATUS_RADIUS_X     236
-%define HUD_STATUS_Y            4
-%define HUD_STATUS_SECOND_Y     12
+%define HUD_STATUS_SPEED_X      4
+%define HUD_STATUS_DISTANCE_X   58
+%define HUD_STATUS_LOOK_X       106
+%define HUD_STATUS_RADIUS_X     154
+%define HUD_STATUS_Y            24
+%define HUD_STATUS_SECOND_Y     24
 %define STATUS_SPEED_WIDTH      48
 %define STATUS_DISTANCE_WIDTH   42
 %define STATUS_LOOK_WIDTH       42
@@ -220,9 +220,9 @@ org 0x100
 %define KEY_SCAN_E              0x12
 %define KEY_SCAN_O              0x18
 %define KEY_SCAN_P              0x19
-%define KEY_SCAN_A              0x1e
-%define KEY_SCAN_S              0x1f
-%define KEY_SCAN_Z              0x2c
+%define KEY_SCAN_A              0x1d
+%define KEY_SCAN_S              0x1e
+%define KEY_SCAN_Z              0x29
 
 %define CADENCE_MIN             1
 %define CADENCE_MAX             8
@@ -2612,22 +2612,30 @@ draw_hud_status:
     mov cx, STATUS_SPEED_WIDTH
     mov bp, STATUS_FIELD_HEIGHT
     call draw_hud_status_tile
-    xor bx, bx
-    mov bl, [active_distance_bias]
-    add bx, 4
-    cmp bx, 8
+    xor ax, ax
+    mov al, [active_distance_bias]
+    cbw
+    add ax, 4
+    cmp ax, 0
+    jl .failed
+    cmp ax, 8
     ja .failed
+    mov bx, ax
     shl bx, 1
     mov si, [hud_status_distance_tile_pointers + bx]
     mov di, HUD_STATUS_Y * SCREEN_PITCH + HUD_STATUS_DISTANCE_X
     mov cx, STATUS_DISTANCE_WIDTH
     mov bp, STATUS_FIELD_HEIGHT
     call draw_hud_status_tile
-    xor bx, bx
-    mov bl, [active_look_level]
-    add bx, 4
-    cmp bx, 8
+    xor ax, ax
+    mov al, [active_look_level]
+    cbw
+    add ax, 4
+    cmp ax, 0
+    jl .failed
+    cmp ax, 8
     ja .failed
+    mov bx, ax
     shl bx, 1
     mov si, [hud_status_look_tile_pointers + bx]
     mov di, HUD_STATUS_SECOND_Y * SCREEN_PITCH + HUD_STATUS_LOOK_X

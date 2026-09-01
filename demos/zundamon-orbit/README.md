@@ -842,7 +842,11 @@ One debounced make event changes one requested value. Requested controls are
 latched into an immutable frame snapshot only at a complete transaction
 boundary; the visible HUD status is updated with the corresponding published
 frame. The G0-only status panel reports `SPD`, `DIST`, `LOOK`, and `RAD` while
-the accepted FPS/count fields remain unchanged. SPACE freezes phase
+the accepted FPS/count fields remain unchanged. The four fixed-width fields
+are laid out left-to-right on the row immediately below the legacy HUD, so
+`DIST`, `LOOK`, and `RAD` remain separated and readable. Their signed values
+are redrawn from the active published snapshot (including negative values) at
+the same publication boundary as the frame. SPACE freezes phase
 advancement (geometry requests are applied as a complete redraw at the frozen
 phase), and ESC follows the existing bounded cleanup path.
 

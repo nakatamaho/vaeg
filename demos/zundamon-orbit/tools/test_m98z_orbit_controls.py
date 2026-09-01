@@ -25,6 +25,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import re
 import sys
 import unittest
 
@@ -150,6 +151,44 @@ class OrbitControlTests(unittest.TestCase):
                 "hud_status_look_tile_pointers:",
                 "hud_status_radius_tile_pointers:"):
             self.assertIn(token, status)
+
+    def test_guest_keyboard_codes_match_pc88_keymap(self) -> None:
+        source = ASM.read_text(encoding="utf-8")
+        expected = {
+            "KEY_SCAN_A": "0x1d",
+            "KEY_SCAN_S": "0x1e",
+            "KEY_SCAN_Z": "0x29",
+            "KEY_SCAN_Q": "0x10",
+            "KEY_SCAN_W": "0x11",
+            "KEY_SCAN_E": "0x12",
+            "KEY_SCAN_O": "0x18",
+            "KEY_SCAN_P": "0x19",
+        }
+        for name, value in expected.items():
+            self.assertRegex(source, rf"(?m)^%define {name}\s+{re.escape(value)}$")
+
+    def test_signed_status_indices_are_guarded(self) -> None:
+        source = ASM.read_text(encoding="utf-8")
+        self.assertIn(
+            "mov al, [active_distance_bias]\n    cbw\n    add ax, 4\n"
+            "    cmp ax, 0\n    jl .failed\n    cmp ax, 8", source)
+        self.assertIn(
+            "mov al, [active_look_level]\n    cbw\n    add ax, 4\n"
+            "    cmp ax, 0\n    jl .failed\n    cmp ax, 8", source)
+
+    def test_status_panel_is_one_readable_row(self) -> None:
+        source = ASM.read_text(encoding="utf-8")
+        expected = {
+            "HUD_STATUS_SPEED_X": 4,
+            "HUD_STATUS_DISTANCE_X": 58,
+            "HUD_STATUS_LOOK_X": 106,
+            "HUD_STATUS_RADIUS_X": 154,
+            "HUD_STATUS_Y": 24,
+            "HUD_STATUS_SECOND_Y": 24,
+        }
+        for name, value in expected.items():
+            self.assertRegex(source, rf"(?m)^%define {name}\s+{value}$")
+        self.assertLess(154 + 54, 320)
 
     def test_exhaustive_projection_boundary_space(self) -> None:
         cases = 0
