@@ -288,18 +288,21 @@ git diff --check
 # PASS
 ```
 
-The generated candidate was rebuilt after the final implementation check:
+The bounded capture used for automated evidence was intentionally limited to
+64 publications.  It therefore exits after one revolution and is not the
+interactive human-gate image.  A separate unbounded candidate was rebuilt
+through the same local-template workflow:
 
 ```text
-build/generated/zundamon-orbit/m98w-va2-candidate/
-  zundamon-orbit-m98w-pristine.d88
-SHA-256: 76a1f442dee290977999b5b513b078e8af98555e573a46f3470b9c7d050d79b0
+build/generated/zundamon-orbit/m98w-va2-interactive-candidate/
+  zundamon-orbit-m98w-interactive-pristine.d88
+SHA-256: 0a7fbdaa1c96e2679d6c1bcb9ad539bb149c1c4f72fbe4b1b4678f802c99c57b
 ```
 
-It is local-only and ignored; its exact launch is to place it in VA2 FDD1,
-boot the public system disk, run `ZUNDORB`, verify at least three revolutions,
-the dirty-row visual checks and controls, then press ESC. The candidate is not
-tracked.
+This image is unbounded and remains in `ZUNDORB` until ESC. It is local-only
+and ignored. Place it in VA2 FDD1, boot the public system disk, run `ZUNDORB`,
+verify at least three revolutions, the dirty-row visual checks and controls,
+then press ESC. The candidate is not tracked.
 
 ## Reproducible guest builds and exclusions
 
