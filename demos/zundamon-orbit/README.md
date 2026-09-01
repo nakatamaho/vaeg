@@ -701,3 +701,39 @@ Run `ZUNDORB` with no option or `/V1` through `/V8`.  LEFT/RIGHT select the
 cadence, SPACE pauses or resumes, and ESC restores the previous display and
 returns.  M98t adds no private image, second instance, UP/DOWN count control,
 depth sorting, measured-FPS HUD, gameplay, or physical-hardware timing claim.
+
+## M98u bounded multi-instance state reference
+
+M98u adds a host-only reference for future counts 1 through 16. For global
+phase `g`, active count `n`, and instance ID `i`, it assigns phase
+`(g + floor(64*i/n)) & 63`, derives the accepted M98t depth, scale,
+descriptor, anchor, rectangle, BMS source, and frame identity, then sorts a
+16-byte index array by signed depth ascending and instance ID ascending.
+Records remain in instance-ID order and reference the one shared atlas; no
+pixel payload is copied into instance state.
+
+The compact checked-in include freezes a 50-byte guest-compatible record, an
+800-byte 16-record capacity, and a 16-byte draw-order capacity. It contains no
+pre-expanded count/phase table and is not included by the accepted release
+guest. Generate the complete 1,024-combination reference into ignored output:
+
+```sh
+python3 demos/zundamon-orbit/tools/build_zundamon_orbit_pipeline.py \
+  --fixture-output /tmp/m98u-public-atlas
+python3 demos/zundamon-orbit/tools/generate_zundamon_multi_instance_state.py \
+  --atlas /tmp/m98u-public-atlas/zundorb.bin \
+  --depth-table demos/zundamon-orbit/256/zundamon_depth_table.inc \
+  --golden-output /tmp/m98u-golden.json \
+  --summary-output /tmp/m98u-summary.json \
+  --contract-output /tmp/zundamon_multi_instance_contract.inc
+python3 demos/zundamon-orbit/tools/validate_zundamon_multi_instance_state.py \
+  --golden /tmp/m98u-golden.json \
+  --atlas /tmp/m98u-public-atlas/zundorb.bin \
+  --depth-table demos/zundamon-orbit/256/zundamon_depth_table.inc \
+  --contract /tmp/zundamon_multi_instance_contract.inc
+```
+
+The exhaustive matrix contains 1,024 draw orders and 8,704 derived records.
+M98u does not change `ZUNDORB.COM`: it still renders one object, displays
+`ZUNDAMON: 1`, ignores UP/DOWN, accepts no `/N` option, and uses the unchanged
+one-rectangle dirty clear and one transparent BITBLT per publication.
