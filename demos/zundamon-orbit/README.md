@@ -830,7 +830,7 @@ The final public renderer keeps the M98x complete-frame and page-local dirty
 union transaction while adding four bounded projection controls. The normal
 runtime binary still starts at four instances (`FPS: 60`, `ZUNDAMON: 4`) and
 uses the same `/N1`..`/N16`, `/V1`..`/V8`, LEFT/RIGHT, UP/DOWN, SPACE, and ESC
-controls. A/Z changes only orbit phase speed (0.25X through 3.00X); it never
+controls. A/Z changes only orbit phase speed (0.25X through 8.00X); it never
 changes the nominal FPS divisor. Q/E changes the signed camera distance bias
 (-4..+4) and clamps scale IDs to 1..30. W/S changes the camera look level
 (-4..+4); W is upward-looking and moves the projected orbit down by four
@@ -858,5 +858,8 @@ local and untracked. VAEG/VA2 timing is diagnostic only and is not a physical
 PC-88VA throughput claim.
 
 The new letter controls are intentionally not DOS switches. Defaults are
-speed 1.00X, distance 0, look 0, and radius 1.00X. The 128-instance
+speed 1.00X, distance 0, look 0, and radius 1.00X. The speed status field has
+one trailing blank cell for separation from `DIST`; its selectable levels are
+0.25X, 0.50X, 0.75X, 1.00X, 1.25X, 1.50X, 2.00X, 3.00X, 4.00X, 5.00X,
+6.00X, 7.00X, and 8.00X. The 128-instance
 extension is reserved for M98aa.

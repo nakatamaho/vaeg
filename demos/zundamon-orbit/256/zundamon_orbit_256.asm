@@ -140,12 +140,12 @@ org 0x100
 ; FPS/count rectangles.  The generated tiles are fixed-width, so every
 ; update also erases stale sign/decimal characters.
 %define HUD_STATUS_SPEED_X      4
-%define HUD_STATUS_DISTANCE_X   58
+%define HUD_STATUS_DISTANCE_X   64
 %define HUD_STATUS_LOOK_X       106
 %define HUD_STATUS_RADIUS_X     154
 %define HUD_STATUS_Y            24
 %define HUD_STATUS_SECOND_Y     24
-%define STATUS_SPEED_WIDTH      54
+%define STATUS_SPEED_WIDTH      60
 %define STATUS_DISTANCE_WIDTH   42
 %define STATUS_LOOK_WIDTH       42
 %define STATUS_RADIUS_WIDTH     54
@@ -227,7 +227,7 @@ org 0x100
 %define CADENCE_MIN             1
 %define CADENCE_MAX             8
 %define SPEED_MIN               0
-%define SPEED_MAX               7
+%define SPEED_MAX               12
 %define SPEED_DEFAULT           3
 %define DISTANCE_MIN            -4
 %define DISTANCE_MAX            4
@@ -5578,7 +5578,7 @@ scale_low_clamps: dw 0
 scale_high_clamps: dw 0
 clipped_instances: dw 0
 align 2, db 0
-orbit_speed_increments: dw 64,128,192,256,320,384,512,768
+orbit_speed_increments: dw 64,128,192,256,320,384,512,768,1024,1280,1536,1792,2048
 orbit_radius_factors: dw 128,160,192,224,256,288,320,352,384
 ; M98x runtime count state.  The frame's build_active_count is latched at
 ; render-loop entry and is immutable through clear, draw, READY, and publish.

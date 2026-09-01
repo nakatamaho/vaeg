@@ -61,7 +61,7 @@ class OrbitControlTests(unittest.TestCase):
         self.assertEqual((state.requested_speed_index,
                           state.requested_distance_bias,
                           state.requested_look_level,
-                          state.requested_radius_index), (7, 4, 4, 8))
+                          state.requested_radius_index), (12, 4, 4, 8))
         for _ in range(20):
             state.press("Z")
             state.press("E")
@@ -128,7 +128,7 @@ class OrbitControlTests(unittest.TestCase):
         state.publish()
         lines = controls.format_status("IDA", 1, 4, state)
         self.assertEqual(lines[1], "IDA CNT:  4")
-        self.assertIn("SPD:1.00X", lines[0])
+        self.assertIn("SPD:1.00X ", lines[0])
         self.assertIn("DIST:+0 LOOK:+0 RAD:1.00X", lines[2])
 
     def test_guest_contract_contains_all_bounded_controls(self) -> None:
@@ -142,8 +142,8 @@ class OrbitControlTests(unittest.TestCase):
             self.assertIn(token, source)
         status = STATUS.read_text(encoding="ascii")
         for token in (
-                "%define HUD_STATUS_SPEED_COUNT 8",
-                "%define HUD_STATUS_SPEED_WIDTH 54",
+                "%define HUD_STATUS_SPEED_COUNT 13",
+                "%define HUD_STATUS_SPEED_WIDTH 60",
                 "%define HUD_STATUS_DISTANCE_COUNT 9",
                 "%define HUD_STATUS_LOOK_COUNT 9",
                 "%define HUD_STATUS_RADIUS_COUNT 9",
@@ -181,7 +181,7 @@ class OrbitControlTests(unittest.TestCase):
         source = ASM.read_text(encoding="utf-8")
         expected = {
             "HUD_STATUS_SPEED_X": 4,
-            "HUD_STATUS_DISTANCE_X": 58,
+            "HUD_STATUS_DISTANCE_X": 64,
             "HUD_STATUS_LOOK_X": 106,
             "HUD_STATUS_RADIUS_X": 154,
             "HUD_STATUS_Y": 24,
@@ -190,6 +190,17 @@ class OrbitControlTests(unittest.TestCase):
         for name, value in expected.items():
             self.assertRegex(source, rf"(?m)^%define {name}\s+{value}$")
         self.assertLess(154 + 54, 320)
+
+    def test_speed_ladder_reaches_eight_x_with_trailing_cell(self) -> None:
+        self.assertEqual(controls.SPEED_LABELS[-1], "8.00X")
+        self.assertEqual(controls.SPEED_INCREMENTS_Q8[-1], 2048)
+        state = controls.OrbitControlState()
+        for _ in range(controls.MAX_SPEED_INDEX - controls.DEFAULT_SPEED_INDEX):
+            self.assertTrue(state.press("A"))
+        state.begin_snapshot()
+        lines = controls.format_status("ZUNDAMON", 1, 4, state)
+        self.assertEqual(lines[0], "FPS: 60  SPD:8.00X ")
+        self.assertEqual(len(lines[0]), 19)
 
     def test_fps_update_does_not_fail_after_complete_vblank_write(self) -> None:
         source = ASM.read_text(encoding="utf-8")

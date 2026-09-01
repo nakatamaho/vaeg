@@ -31,11 +31,13 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-MAX_SPEED_INDEX = 7
+MAX_SPEED_INDEX = 12
 DEFAULT_SPEED_INDEX = 3
-SPEED_INCREMENTS_Q8 = (64, 128, 192, 256, 320, 384, 512, 768)
+SPEED_INCREMENTS_Q8 = (64, 128, 192, 256, 320, 384, 512, 768,
+                       1024, 1280, 1536, 1792, 2048)
 SPEED_LABELS = ("0.25X", "0.50X", "0.75X", "1.00X", "1.25X",
-                "1.50X", "2.00X", "3.00X")
+                "1.50X", "2.00X", "3.00X", "4.00X", "5.00X", "6.00X",
+                "7.00X", "8.00X")
 MIN_DISTANCE = -4
 MAX_DISTANCE = 4
 MIN_LOOK = -4
@@ -225,6 +227,6 @@ def format_status(subject: str, divisor: int, count: int,
     fps = ("60 ", "30 ", "20 ", "15 ", "12 ", "10 ", "8.6", "7.5")[divisor - 1]
     name = "ZUNDAMON" if subject == "ZUNDAMON" else "IDA CNT"
     count_line = f"{name}: {count:>2}" if subject == "ZUNDAMON" else f"{name}: {count:>2}"
-    return (f"FPS: {fps} SPD:{SPEED_LABELS[state.active_speed_index]}",
+    return (f"FPS: {fps} SPD:{SPEED_LABELS[state.active_speed_index]} ",
             count_line,
             f"DIST:{state.active_distance_bias:+d} LOOK:{state.active_look_level:+d} RAD:{RADIUS_LABELS[state.active_radius_index]}")
