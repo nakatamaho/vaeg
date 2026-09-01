@@ -39,7 +39,9 @@ throughput or replace the maintainer visual gate.
 - G98y approval: maintainer explicitly stated `G98y human gate passed`.
 - M98z implementation commits: `ada043feee7491ba980c00e43603214294036f82`,
   `d3c969758362c38d189015579202b18a240c774c`,
-  `cbd88fb1c754592d495a7ca16071c25a24250e23` (corrective HUD/input fix).
+  `cbd88fb1c754592d495a7ca16071c25a24250e23` (corrective HUD/input fix),
+  and `4d94eb6f334add0c2e694b08bdc61c8400d0edc1` (cadence-boundary and
+  fixed-width SPD correction).
 - Report commit and pushed head: supplied by the final Git handoff after this
   report commit; remote equality is checked at push time.
 - M98x implementation: `e833b977f671c921d9ad247249d2217c6782cc52`.
@@ -129,6 +131,12 @@ Z (`29h`), and sign-extends the bounded DIST/LOOK values before selecting
 their generated tiles. The four status fields now share one row below the
 legacy HUD at fixed x positions 4, 58, 106, and 154, with no overlap; each
 published active snapshot redraws all four fields, including negative values.
+The SPD field is nine six-pixel cells (`54` bytes) rather than the former
+eight-cell allocation; this keeps the complete `SPD:<level>` field aligned
+and prevents tile rows from straddling adjacent status fields. The FPS field
+update also treats a falling VBLANK edge after the complete CPU tile write as
+a diagnostic overrun, not a runtime failure, so a valid RIGHT/LEFT transition
+at the 15-FPS entry cannot exit the guest after the field is already complete.
 
 ## Host and guest evidence
 
@@ -142,7 +150,7 @@ projection boundary space:
 = 746,496 bounded projection cases
 ```
 
-The repository-wide orbit/atlas/dirty-union/runtime suite completed **241
+The repository-wide orbit/atlas/dirty-union/runtime suite completed **242
 tests PASS**, including inherited public M98t/M98u/M98v/M98w/M98x coverage and
 the M98z control tests. The inherited host transition and private-profile
 tokens remain accepted: `HOST_PUBLIC_PROFILE_PASS`,
@@ -152,7 +160,8 @@ tokens remain accepted: `HOST_PUBLIC_PROFILE_PASS`,
 
 The normal public guest is one deterministic binary, 49,856 bytes, and two
 clean builds produced SHA-256
-`247bf4e00834507f017b55efe0d5488fa70887689dc7c2e1f89062b2d759eacf`.
+`a5bfc68522d5dd023da88d01da09b434a4c298b871acf443a205ad0bc6af50ba` after
+the fixed-width SPD and nonfatal completed-write correction.
 The legacy FPS/count HUD include remains byte-identical to its accepted
 `fa5552dd236cc078e94d905e35698a9887269ede13aa4db86658988b16775b8e` identity;
 the new status tiles are a separate generated include. Fixed-count QA builds
