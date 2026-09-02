@@ -258,6 +258,20 @@ tools/pc88va/build-sasi-development-disks.sh \
   --output-dir /path/to/pc88va-sasi
 ```
 
+### How to Read and Write Files on FDD and SASI HDD Images
+
+The Python image tools read the supplied disk images and write new images;
+they never modify the source media in place. For a PC-Engine FDD/D88, inspect
+the directory with `python3 tools/pc88va/pcengine_disk.py list --image disk.d88`,
+then create a blank data image with the `data` command and install a host
+directory with the `install` command. For a SASI HDD/HDI, put the files to be
+written in a staged directory and pass it to
+`tools/pc88va/build-sasi-development-disk.py` with `--supplemental-tree`; the
+builder reads the source D88 and writes a new HDI. To read files back, mount
+the resulting D88 or HDI in VAEG and use the guest DOS commands such as
+`DIR`, `TYPE`, and `COPY`; compare the copied file with the original on the
+host. Keep source images and generated media outside Git.
+
 See [Auto-generated PC-88VA Utility Media](docs/modernization/pc88va-utility-media.md)
 for supported inputs and the complete media layout. The scripts do not
 redistribute ROMs or the source boot disk; review the terms of each package
