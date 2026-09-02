@@ -21,18 +21,55 @@ WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
 OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
 ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 -->
-# VA ROM Read Uncertainty and Reference Checks
+# VA ROM Dump Notes and Reference Checks
 
-## Status
+This document records the current author-confirmed ROM identities and the
+VA1-specific read uncertainty observed while dumping `varom00.rom`. It does
+not distribute ROM data.
 
-Open investigation note. This records a private VA ROM read comparison, not
-a demonstrated emulator or hardware result.
+## Current dumps confirmed by the author
 
-## Sample identity
+These are the current author-confirmed ROM dumps. VA1 uses the unsuffixed
+filenames; VA2/VA3 uses the `_va2` filenames. `vasubsys_va2.rom` is listed
+separately because it is the VA2/VA3-named copy of the extra subsystem ROM.
 
-The dated private dump names are intentionally normalized to neutral sample
-labels. The comparison glob excludes the repository's
-`docs/roms/varom00.rom`.
+| Model | ROM filename | SHA-1 |
+|---|---|---|
+| VA1 | `vadic.rom` | `5ba1f3578d0aaacdaf7194a80e6d520c81ae55fb` |
+| VA2/VA3 | `vadic_va2.rom` | `3665db538598abb45d9dfe636423e6728a812b12` |
+| VA1 | `vafont.rom` | `a0227d1fbc2da5db4b46d8d2c7e7a9ac2d91379f` |
+| VA2/VA3 | `vafont_va2.rom` | `a0227d1fbc2da5db4b46d8d2c7e7a9ac2d91379f` |
+| VA1 | `varom00.rom` | `e7fc344b12ab0573a5229c7b43feb64bd329e57b` |
+| VA2/VA3 | `varom00_va2.rom` | `bcaea28c58816602ca1e8290f534360f1ca03fe8` |
+| VA1 | `varom08.rom` | `7e6591cd465cbb35d6d3446c5a83b46d30fafe95` |
+| VA2/VA3 | `varom08_va2.rom` | `47e5f89f8b0ce18ff8d5d7b7aef8ca0a2a8e3345` |
+| VA1 | `varom1.rom` | `54536dc03238b4668c8bb76337efade001ec7826` |
+| VA2/VA3 | `varom1_va2.rom` | `dd4f4521bfbb068f15ab3bcdb8d47c7d82b9d1d4` |
+| VA1 | `vasubsys.rom` | `a9375aa480f85e1422a0e1385acb0ea170c5c2e0` |
+| VA2/VA3 | `vasubsys_va2.rom` | `a9375aa480f85e1422a0e1385acb0ea170c5c2e0` |
+
+The VA and VA2/VA3 ROM sets are not interchangeable. Do not create a
+`*_va2.rom` dump by renaming an unsuffixed file.
+
+## Dumping source and handling
+
+ROMs must be dumped from hardware owned by the operator. Tools such as
+`getromva` are available in `VAEGTOOL070422.LZH` from the
+[project-vaeg r080406 release](https://github.com/project-vaeg/vaeg/releases/tag/r080406).
+The dump should be kept as a separate source artifact, hashed before any
+normalization, and compared with the identities above. Keep ROM bytes and
+private dump files outside the public source tree.
+
+## Uncertainty of `varom00.rom` (VA1 only; not applicable to VA2/VA3)
+
+This section applies only to the unsuffixed VA1 `varom00.rom`. It does not
+apply to `varom00_va2.rom` or to the VA2/VA3 ROM set.
+
+### Sample identity
+
+The original dated private dump names are intentionally normalized to neutral
+sample labels. The comparison glob excluded `docs/roms/varom00.rom`, which is
+the selected working copy of `sample3`.
 
 | Sample | SHA-1 |
 |---|---|
@@ -41,33 +78,27 @@ labels. The comparison glob excludes the repository's
 | `sample3` | `e7fc344b12ab0573a5229c7b43feb64bd329e57b` |
 | MAME-derived reference | `1266ba969959ff25433ecc900a2caced26ef1a9e` |
 
-The MAME-derived reference is recorded by SHA-1 only. No byte-level comparison
-result or difference locations for that reference are recorded here.
+The MAME-derived reference is recorded by SHA-1 only. No CRC, byte values,
+byte-level comparison, or difference locations for that reference are
+recorded here.
 
-The selected working reference (`sample3`) is a 512 KiB `varom00.rom` image
-with CRC-32 `df7f8a74` and SHA-1
-`e7fc344b12ab0573a5229c7b43feb64bd329e57b`. These are the size and checksum
-values used by the VA1 ROM-set check. The working reference does not match the
-MAME-derived reference by SHA-1; the MAME comparison is intentionally recorded
-by SHA-1 only.
+### Majority result and working reference (VA1 only; not applicable to VA2/VA3)
 
-## Majority result and working reference
+For the three author read samples, `sample3`
+(`e7fc344b12ab0573a5229c7b43feb64bd329e57b`) is the selected majority-result
+SHA-1 and current working reference. At every observed read-to-read
+difference, the `sample3` byte agrees with one of the other two samples. This
+is a reproducibility choice, not proof of a perfect electrical capture.
 
-For the three read samples, `sample3`
-(`e7fc344b12ab0573a5229c7b43feb64bd329e57b`) is the majority-result SHA-1
-and the current working reference. At every observed read-to-read difference,
-the `sample3` byte agrees with one of the other two samples. This is a
-selection for reproducible analysis, not proof that it is a perfect electrical
-capture.
+The selected `sample3` image is 512 KiB with CRC-32 `df7f8a74` and the SHA-1
+shown above. These are the full-image values used by the current VA1 ROM-set
+check. The selected working reference does not match the MAME-derived
+reference by SHA-1.
 
-The populated ROM area 0 content is the authority for banks 0 through 5.
-Banks 6 and 7 are documented as reserved, so their bytes are not required to
-match the working reference for the current VA acceptance comparison. A later
-dump may therefore be accepted with different bank 6/7 bytes if its populated
-bank 0 through 5 content matches and the remaining evidence is consistent.
+### Populated-bank reference (VA1 only)
 
-The selected `sample3` per-bank SHA-1 values used by the VAEG VA1 read check
-are:
+`varom00.rom` is a 512 KiB ROM0 image divided into eight 64 KiB banks. The
+selected per-bank SHA-1 values for populated banks 0 through 5 are:
 
 | ROM0 bank | SHA-1 |
 |---:|---|
@@ -82,11 +113,11 @@ For reference, the combined SHA-1 of banks 0 through 5 (`0x00000` through
 `0x5FFFF`) is
 `24a7a5091846ec1f177c97711e4837573bc40b42`.
 
-## Read-to-read differences
+### Observed read-to-read differences (VA1 only)
 
-`sample1` and `sample2` differ at eight byte positions. From the two reported
-four-position comparisons with `sample3`, the eight positions are inferred to
-be the union below; the original byte values are not recorded here.
+`sample1` and `sample2` differ at eight byte positions. The eight positions
+below are the union of the two reported four-position comparisons with
+`sample3`; the original byte values are not recorded here.
 
 | Pair | Difference count | File offsets and ROM0 bank-local offsets |
 |---|---:|---|
@@ -94,24 +125,22 @@ be the union below; the original byte values are not recorded here.
 | `sample1` vs `sample3` | 4 bytes | file `0x66BF2` (bank 6 + `0x6BF2`), `0x6852F` (bank 6 + `0x852F`), `0x6A9F5` (bank 6 + `0xA9F5`), `0x77AF6` (bank 7 + `0x7AF6`) |
 | `sample2` vs `sample3` | 4 bytes | file `0x66448` (bank 6 + `0x6448`), `0x6D976` (bank 6 + `0xD976`), `0x77344` (bank 7 + `0x7344`), `0x7B18E` (bank 7 + `0xB18E`) |
 
-All read-to-read differences reported here are in file banks 6 and 7 of the
-512 KiB `VAROM00` image. Each bank is 64 KiB, so the bank number is the file
-offset divided by `0x10000`.
+All reported read-to-read differences are in banks 6 and 7. The bank number
+is the file offset divided by `0x10000`.
 
-## Technical-manual interpretation
+### Interpretation and VAEG check behavior
 
-The PC-88VA technical manual's ROM area 0 selector table assigns selectors
-0 through 5 to `ROM00` through `ROM05`, and marks selectors 6 and 7 as
-reserved: [PC-88VA technical manual ROM area 0 table](../tekumani/PC88VA_テクニカルマニュアル_BNN.md:10869).
+The PC-88VA technical manual's ROM area 0 selector table assigns selectors 0
+through 5 to `ROM00` through `ROM05`, and marks selectors 6 and 7 as reserved:
+[PC-88VA technical manual ROM area 0 table](../tekumani/PC88VA_テクニカルマニュアル_BNN.md:10869).
 
-Therefore, the current four-byte read-to-read variation is consistent with
-differences in the ROM area 0 positions documented as reserved. For the
-usable VA ROM comparison, it is reasonable to exclude banks 6 and 7 from the
-acceptance comparison for this capture set. This does not prove that every
-timing-dependent read variation is harmless, nor does it establish the exact
-electrical or sampling mechanism.
+The observed read-to-read variation is therefore consistent with changes in
+the positions documented as reserved. For this VA1 capture set, banks 6 and 7
+are not required to match when the populated banks 0 through 5 match. This
+does not prove that every timing-dependent variation is harmless or establish
+the electrical or sampling mechanism.
 
-The current observation does not appear to belong to the VA2 path. Future
-comparisons should record the model or path, ROM bank and address, read timing,
-and relevant machine state, while keeping reserved-area variation separate
-from populated `ROM00` through `ROM05` content.
+When VA1 is selected, VAEG first checks the full `varom00.rom` SHA-1. If it
+differs from the selected working reference, VAEG calculates the SHA-1 of
+banks 0 through 5, reports the differing populated banks, and points back to
+this document. VA2/VA3 does not use this VA1-specific uncertainty rule.
