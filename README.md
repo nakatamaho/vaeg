@@ -228,20 +228,24 @@ ordinary ROMs and MAME's disabled `vasubsys.rom` declaration. VA1
 differs, VAEG also reports which populated banks 0 through 5 differ and points
 to the dump notes. Differences produce warnings but do not prevent startup.
 
-The portable frontend stores writable state in the platform user state
-directory:
+The portable frontend stores writable runtime files in two locations. The
+configuration and VA backup-memory files use the current working directory by
+default:
+
+- Current working directory: `vaeg.cfg`, `vabkupmem.dat`, and
+  `va2bkupmem.dat`
+
+GUI save-state slots and keyboard sidecars normally use the platform user
+state directory:
 
 - Linux: `$XDG_CONFIG_HOME/vaeg` or `$HOME/.config/vaeg`
 - Windows: `%APPDATA%\vaeg`
 - macOS: `~/Library/Application Support/vaeg`
 
-`vaeg.cfg`, `vabkupmem.dat`, and fixed GUI save-state slots normally live
-there.
-
-For a portable setup, `vaeg.cfg` and/or an existing `vabkupmem.dat` may be
-placed beside the executable. Each executable-local file takes priority
-over its user-state counterpart and is saved back to the same location.
-Save states and keyboard sidecars remain in the user directory.
+For a portable setup, place `vaeg.cfg` and the applicable backup-memory file
+beside the executable, or start vaeg from the directory containing them. The
+`--cfg` and `--bkupmem` options can select explicit paths. GUI save-state
+slots and keyboard sidecars remain in the platform user state directory.
 
 Save-state files are local runtime artifacts. They are not portable
 across architectures, compilers, or build families; do not move a state
