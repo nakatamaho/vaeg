@@ -5088,15 +5088,16 @@ observe_vblank_sample:
 
 %if M98AA_AUTO_CAMERA
 ; The private IDA64 candidate has a deterministic camera demonstration mode.
-; Every sixty VBLANK edges (approximately one second at the nominal model),
-; speed advances by one 0.25X step in a triangle from 1.00X to 4.00X and the
-; distance bias walks between -4 and +4.  Requests remain separate from the
-; immutable frame snapshot, so a busy SGP transaction is never relabelled.
+; Every fifteen VBLANK edges (a bounded quarter-second cadence at the nominal
+; model), speed advances by one 0.25X step in a triangle from 1.00X to 4.00X,
+; distance walks between -4 and +4, and radius walks across every 0.125X
+; factor from 0.50X to 1.50X.  Requests remain separate from the immutable
+; frame snapshot, so a busy SGP transaction is never relabelled.
 advance_auto_camera:
     cmp byte [paused], 0
     jne .done
     inc word [auto_camera_vblank_ticks]
-    cmp word [auto_camera_vblank_ticks], 60
+    cmp word [auto_camera_vblank_ticks], 15
     jb .done
     mov word [auto_camera_vblank_ticks], 0
 
@@ -5130,22 +5131,46 @@ advance_auto_camera:
     jae .distance_reverse
     inc byte [requested_distance_bias]
     inc word [distance_change_requests]
-    jmp .done
+    jmp .radius
 .distance_reverse:
     mov byte [auto_distance_direction], 0
     dec byte [requested_distance_bias]
     inc word [distance_change_requests]
-    jmp .done
+    jmp .radius
 .distance_down:
     cmp byte [requested_distance_bias], DISTANCE_MIN
     jbe .distance_forward
     dec byte [requested_distance_bias]
     inc word [distance_change_requests]
-    jmp .done
+    jmp .radius
 .distance_forward:
     mov byte [auto_distance_direction], 1
     inc byte [requested_distance_bias]
     inc word [distance_change_requests]
+    jmp .radius
+.radius:
+    cmp byte [auto_radius_direction], 0
+    je .radius_down
+    cmp byte [requested_radius_index], RADIUS_MAX
+    jae .radius_reverse
+    inc byte [requested_radius_index]
+    inc word [radius_change_requests]
+    jmp .done
+.radius_reverse:
+    mov byte [auto_radius_direction], 0
+    dec byte [requested_radius_index]
+    inc word [radius_change_requests]
+    jmp .done
+.radius_down:
+    cmp byte [requested_radius_index], RADIUS_MIN
+    jbe .radius_forward
+    dec byte [requested_radius_index]
+    inc word [radius_change_requests]
+    jmp .done
+.radius_forward:
+    mov byte [auto_radius_direction], 1
+    inc byte [requested_radius_index]
+    inc word [radius_change_requests]
 .done:
     ret
 %endif
@@ -5812,6 +5837,7 @@ clipped_instances: dw 0
 auto_camera_vblank_ticks: dw 0
 auto_speed_direction: db 1
 auto_distance_direction: db 1
+auto_radius_direction: db 1
 %endif
 align 2, db 0
 %if M98Y_PRIVATE_PROFILE

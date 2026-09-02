@@ -115,6 +115,8 @@ class Ida64ContractTests(unittest.TestCase):
         self.assertIn("%define FOOTPRINT_CAPACITY      64", text)
         self.assertIn("M98AA_AUTO_CAMERA", text)
         self.assertIn("/N1..64", text)
+        self.assertIn("cmp word [auto_camera_vblank_ticks], 15", text)
+        self.assertIn("auto_radius_direction", text)
 
 
 if __name__ == "__main__":
