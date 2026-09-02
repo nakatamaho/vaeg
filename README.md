@@ -182,7 +182,7 @@ cmake --preset mingw-cross
 cmake --build --preset mingw-cross
 ```
 
-## Runtime Files
+## How to dump PC-88VA ROMs and other runtime files
 
 Machine ROM images, guest font ROMs, optional mechanical sound WAV files,
 and operating system disks are not provided by this repository. ROMs must
