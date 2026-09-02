@@ -7,10 +7,26 @@
 II. This fork is the living tree: the old upstream should be treated as
 historical source material, not as the active project.
 
-The active product is a portable PC-88VA emulator that builds and runs
-on modern Windows, Linux, and macOS systems. The former Visual Studio
-reference tier is archived at tag `archive/frozen-win9x-i286x-g56`;
-normal development targets the CMake/SDL2 tree.
+The active product is a portable PC-88VA emulator that builds and runs on
+modern Windows, Linux, and macOS systems. Compared with the old VAEG, this
+fork adds or improves:
+
+- partial PC-9801-55-compatible SCSI support;
+- EMS support;
+- main-memory and BMS compatibility;
+- host text copy and paste;
+- more hardware-like sound through ymfm;
+- Kana input on US keyboards;
+- more faithful uPD9002 instruction support;
+- a uPD70008-compatible Z80 emulation path;
+- optional on-screen graphics and text-sprite diagnostics;
+- simple CRT screen effects;
+- substantially reorganized and simplified code;
+- a greatly reduced PC-98-only codebase.
+
+The former Visual Studio reference tier is archived at tag
+`archive/frozen-win9x-i286x-g56`; normal development targets the CMake/SDL2
+tree.
 
 ## News
 
@@ -24,6 +40,7 @@ normal development targets the CMake/SDL2 tree.
 | [ROM Dump](#rom-dump) | ROM names, checksums, and dump notes |
 | [How to Make a Utility Disk or SASI HDD](#how-to-make-a-utility-disk-or-sasi-hdd) | Utility FDD and SASI image creation |
 | [How to Read and Write Files on FDD and SASI HDD Images](#how-to-read-and-write-files-on-fdd-and-sasi-hdd-images) | Image file operations |
+| [Demos](#demos) | Ready-to-use demo disk images |
 | [Runtime Files and Saved State](#runtime-files-and-saved-state) | Configuration and saved-state paths |
 | [PC-88VA Hardware Notes](#pc-88va-hardware-notes) | Emulated hardware summary |
 | [Text Encoding Policy](#text-encoding-policy) | Source encoding rules |
@@ -195,36 +212,6 @@ merely checking that it exists.
 emulation pacing counters for timing diagnosis. See
 [sdl2/README.md](sdl2/README.md#command-line-options) for details.
 
-## Quick Build
-
-Detailed build instructions live in [BUILD.md](BUILD.md). The short
-versions are:
-
-```sh
-# Linux
-cmake --preset linux-release
-cmake --build --preset linux-release
-```
-
-```sh
-# Windows, from an MSYS2 MINGW64 shell
-cmake --preset mingw-release
-cmake --build --preset mingw-release
-```
-
-```sh
-# macOS release (pinned static SDL2)
-cmake --preset macos-release
-cmake --build --preset macos-release
-```
-
-Linux-to-Windows cross-link checks are also available:
-
-```sh
-cmake --preset mingw-cross
-cmake --build --preset mingw-cross
-```
-
 ## ROM Dump
 
 Machine ROM images, guest font ROMs, optional mechanical sound WAV files,
@@ -359,6 +346,20 @@ for supported inputs and the complete media layout. The scripts do not
 redistribute ROMs or the source boot disk; review the terms of each package
 before using or sharing the generated media.
 
+## Demos
+
+Several PC-88VA demo disks are available as non-bootable data images. The
+[demo disk index](demos/disks/README.md) documents the collection and the
+local bootable-disk workflow.
+
+- [All demos](demos/disks/all-demos.d88.xz)
+- [Glass Orbit](demos/disks/glass-orbit.d88.xz)
+- [NEON3](demos/disks/neon3-distribution.d88.xz)
+- [NEON4](demos/disks/neon4-distribution.d88.xz)
+- [SGP pseudo-sprite](demos/disks/sgp-pseudo-sprite.d88.xz)
+- [SGP wireframe](demos/disks/sgp-wireframe.d88.xz)
+- [Zundamon Orbit](demos/disks/zundamon-orbit.d88.xz)
+
 ## Runtime Files and Saved State
 
 The portable frontend stores writable runtime files in two locations. The
@@ -409,6 +410,36 @@ Custom. The GUI exposes
 default sound hardware (VA OPN, VA2/VA3 OPNA), selects the matching ROM
 filename set, and resets the guest while retaining configured FDD and
 SASI media. `Sound -> FM sound OPN/OPNA` can add Sound Board II to a VA.
+
+## Quick Build
+
+Detailed build instructions live in [BUILD.md](BUILD.md). The short
+versions are:
+
+```sh
+# Linux
+cmake --preset linux-release
+cmake --build --preset linux-release
+```
+
+```sh
+# Windows, from an MSYS2 MINGW64 shell
+cmake --preset mingw-release
+cmake --build --preset mingw-release
+```
+
+```sh
+# macOS release (pinned static SDL2)
+cmake --preset macos-release
+cmake --build --preset macos-release
+```
+
+Linux-to-Windows cross-link checks are also available:
+
+```sh
+cmake --preset mingw-cross
+cmake --build --preset mingw-cross
+```
 
 ## PC-88VA Hardware Notes
 
