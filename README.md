@@ -186,8 +186,15 @@ cmake --build --preset mingw-cross
 
 Machine ROM images, guest font ROMs, optional mechanical sound WAV files,
 and operating system disks are not provided by this repository. ROMs must
-be extracted from hardware you own. The host GUI font source is under
-`assets/` and is embedded into every active executable at build time.
+be extracted from hardware you own. Tools such as `getromva` are included in
+`VAEGTOOL070422.LZH`, available from the
+[project-vaeg r080406 release](https://github.com/project-vaeg/vaeg/releases/tag/r080406).
+Use that tool or an equivalent hardware dump tool to read the ROMs; do not
+create a ROM set by renaming files or by copying ROM bytes from this source
+tree. The dump timing/read caveats and the recorded size, CRC32, SHA-1, and
+bank-reference checks are documented in [VA ROM dump notes](docs/modernization/va-rom-dump-notes.md).
+The host GUI font source is under `assets/` and is embedded into every active
+executable at build time.
 
 Place ROMs beside `vaeg` or `vaeg.exe`:
 
@@ -214,9 +221,12 @@ subsystem that MAME currently leaves unconnected.
 The frontend checks the executable directory first, then the current working
 directory as a development fallback.
 ROM files are intentionally absent from source and
-binary artifacts. At startup, size, CRC32, and SHA-1 are compared with the
-MAME declarations, including MAME's disabled `vasubsys.rom` declaration;
-differences produce warnings but do not prevent startup.
+binary artifacts. At startup, size, CRC32, and SHA-1 are checked against the
+recorded VAEG ROM identities, including MAME-derived identities for the
+ordinary ROMs and MAME's disabled `vasubsys.rom` declaration. VA1
+`varom00.rom` uses the selected local readback reference; if its full SHA-1
+differs, VAEG also reports which populated banks 0 through 5 differ and points
+to the dump notes. Differences produce warnings but do not prevent startup.
 
 The portable frontend stores writable state in the platform user state
 directory:

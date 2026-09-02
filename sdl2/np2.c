@@ -205,7 +205,7 @@ static const char va1_varom00_bank_sha1[][41] = {
     "e3e3ed4a7e0241dcd669b07c2d7b29a4c94744c2", "67fc27525e2ced658925289b3736002320f3dcdd",
     "463e586b9911bc6fc35f79f0a0bd3a43414460a0", "1d225f958bdc4719e83873d2a66515622d6b2dc0"};
 
-static const char va1_varom00_uncertainty_doc[] = "docs/modernization/va-rom-read-uncertainty.md";
+static const char va1_varom00_uncertainty_doc[] = "docs/modernization/va-rom-dump-notes.md";
 
 /* MAME src/mame/nec/pc88va.cpp ROM_START(pc88va2), without fallback. */
 static const ROMEXPECTED va2_required_roms[] = {
