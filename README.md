@@ -153,12 +153,37 @@ The executable is named `vaeg`.
 vaeg [options]
 ```
 
-Run `vaeg --help` for the complete option list. Startup overrides include
-`--model va|va2`, `--fmbackend np2|ymfm`, `--fmsound opn|opna`, named
-`--fdd1`/`--fdd2` and `--sasi1`/`--sasi2` media, CPU/SGP and frame pacing,
-display effects/scaling, controller choice, and keyboard layout. Use `none`
-as a media value to make that slot empty for the session. Positional FDD image
-arguments are no longer accepted.
+Common user-facing command-line options are:
+
+| Area | Option | Purpose |
+| --- | --- | --- |
+| Machine | `--model va` or `--model va2` | Select the VA or VA2/VA3 machine model |
+| ROMs | `--roms PATH` | Use ROM files from an explicit directory |
+| Sound | `--fmbackend np2` or `--fmbackend ymfm` | Select the FM sound backend |
+| Sound | `--fmsound opn` or `--fmsound opna` | Select the VA sound hardware |
+| Sound | `--samplerate RATE` | Select 11025, 22050, or 44100 Hz output |
+| Sound | `--soundbuffer MS` | Set the sound buffer from 40 to 1000 ms |
+| Sound | `--mute` | Start with sound muted |
+| FDD | `--fdd1 PATH`, `--fdd2 PATH` | Mount a D88 or raw floppy image |
+| SASI | `--sasi1 PATH`, `--sasi2 PATH` | Mount a SASI HDI image |
+| HOSTFAT | `--hostfat-dir PATH` | Attach a read-only host folder to PC-Engine |
+| Persistence | `--cfg PATH` or `--no-cfg` | Select or disable the configuration file |
+| Persistence | `--bkupmem PATH` or `--no-bkupmem` | Select or disable backup memory |
+| Execution | `--cpumult N` | Set CPU execution capacity from 1 to 32 |
+| Execution | `--sgp VALUE` | Select SGP pacing: `model`, `follow-cpu`, or 1 to 16 |
+| Execution | `--nowait` | Disable host wait/pacing |
+| Execution | `--frameskip VALUE` | Select `auto`, `full`, 2, 3, or 4 frame skip |
+| Display | `--fullscreen` or `--windowed` | Select the window mode |
+| Display | `--effect VALUE` | Select the display effect |
+| Display | `--scaling VALUE` | Select the display scaling mode |
+| Input | `--controller joystick` or `--controller mouse` | Select the controller type |
+| Input | `--keyboard-layout VALUE` | Select `jis`, `us`, or `custom` keyboard mapping |
+| Information | `--help` or `--version` | Show usage or version information |
+
+Use `none` as a media value to make that slot empty for the session. Positional
+FDD image arguments are no longer accepted. Run `vaeg --help` or see the
+[SDL2 frontend command-line reference](sdl2/README.md#command-line-options) for
+diagnostic and advanced options.
 
 These overrides are session-only: they are applied after loading `vaeg.cfg`
 and do not replace saved settings unless the setting is changed through the
