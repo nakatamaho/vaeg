@@ -16,7 +16,7 @@ fork adds or improves:
 - main-memory and BMS compatibility;
 - host text copy and paste;
 - more hardware-like sound through ymfm;
-- Kana input support;
+- Kana/Romaji input support;
 - US keyboard layout support;
 - more faithful uPD9002 instruction support;
 - a uPD70008-compatible Z80 emulation path;
