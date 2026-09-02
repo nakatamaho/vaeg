@@ -45,7 +45,8 @@ The package listing pages are the provenance references:
 - [STEST115.LZH (OSL driver archive)](https://www2u.biglobe.ne.jp/~pumpkin/hlabo/osl/driver/STEST115.LZH)
 - [ST115SRC.LZH (OSL source archive)](https://www2u.biglobe.ne.jp/~pumpkin/hlabo/osl/driver/ST115SRC.LZH)
 
-With the three archives in the verified development cache, the existing
+With the three archives in the shared Auto-generated PC-88VA utility media
+cache at `~/.cache/vaeg/auto-generated-pc88va-utility-media/`, the existing
 wrapper installs them in both variants alongside the other development
 software:
 
@@ -54,10 +55,10 @@ tools/pc88va/build-sasi-development-disks.sh \
   --output-dir /private/tmp/pc88va-sasi-mo
 ```
 
-Use `--mo-schd-archive`, `--mo-va128mo-archive`, or `--mo-stest-archive` (or
-the corresponding `VAEG_MO_*_ARCHIVE` variables) when the archives are stored
-elsewhere.  The wrapper extracts each archive to a temporary host directory;
-those extracted files and the generated HDIs are not tracked in Git.
+Use `--mo-schd-archive`, `--mo-va128mo-archive`, or `--mo-stest-archive` when
+the archives are stored elsewhere. The wrapper extracts each archive to a
+temporary host directory; those extracted files and the generated HDIs are
+not tracked in Git.
 
 The verified archive identities are:
 

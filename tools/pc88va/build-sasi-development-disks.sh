@@ -32,47 +32,47 @@ source_va=$repo_root/docs/disks/'PC-Engine 1.05.d88'
 source_va2=$repo_root/docs/disks/'PC-Engine 1.1.d88'
 payload_d88=$repo_root/docs/disks/pc88va-development.d88
 output_dir=/private/tmp
-softlib_cache=${VAEG_PC88VA_SOFTLIB_CACHE:-${XDG_CACHE_HOME:-${HOME}/.cache}/vaeg/pc88va-softlib-archive-disk}
-lsic_archive=${VAEG_LSIC_ARCHIVE:-$softlib_cache/LSIC330C.LZH}
-ish_archive=${VAEG_ISH_ARCHIVE:-$softlib_cache/ISHARC.COM}
-ish_doc=${VAEG_ISH_DOC:-$softlib_cache/ISHARC.DOC}
-infozip_unzip_archive=${VAEG_INFOZIP_UNZIP_ARCHIVE:-$softlib_cache/UNZ532X3.EXE}
-infozip_zip_archive=${VAEG_INFOZIP_ZIP_ARCHIVE:-$softlib_cache/ZIP22X.ZIP}
-emacs_archive=${VAEG_EMACSVA_ARCHIVE:-$softlib_cache/EMACSVA.LZH}
-cpmva_archive=${VAEG_CPMVA_ARCHIVE:-$softlib_cache/CPMVA.LZH}
-tdc_archive=${VAEG_TDC_ARCHIVE:-$softlib_cache/TDC10.LZH}
-bench_archive=${VAEG_BENCH_ARCHIVE:-$softlib_cache/BENCH003.LZH}
-unix_tools_archive=${VAEG_UNIX_TOOLS_ARCHIVE:-$softlib_cache/UXTL412H.TGZ}
-two_hc_source_archive=${VAEG_2HCDR_SOURCE_ARCHIVE:-$softlib_cache/2HCDRSRC.LZH}
-two_hc_driver_archive=${VAEG_2HCDR_DRIVER_ARCHIVE:-$softlib_cache/2HCDRV.ZIP}
-pcepat_source_archive=${VAEG_PCEPAT_SOURCE_ARCHIVE:-$softlib_cache/PCPATSRC.ZIP}
-tsclv_source_archive=${VAEG_TSCLV_SOURCE_ARCHIVE:-$softlib_cache/TSCLVSRC.LZH}
-s88valsi_archive=${VAEG_S88VALSI_ARCHIVE:-$softlib_cache/S88VALSI.LZH}
-s88valsi_doc=${VAEG_S88VALSI_DOC:-$softlib_cache/S88VALSI.DOC}
-s88va250_archive=${VAEG_S88VA250_ARCHIVE:-$softlib_cache/S88VA250.LZH}
-s88va250_doc=${VAEG_S88VA250_DOC:-$softlib_cache/S88VA250.DOC}
-stest_source_archive=${VAEG_STEST_SOURCE_ARCHIVE:-$softlib_cache/ST115SRC.LZH}
-zim_img_archive=${VAEG_ZIM_IMG_ARCHIVE:-$softlib_cache/ZIM_IMG.LZH}
-rdems15_archive=${VAEG_RDEMS15_ARCHIVE:-$softlib_cache/RDEMS15.LZH}
-rdems152_archive=${VAEG_RDEMS152_ARCHIVE:-$softlib_cache/RDEMS152.LZH}
-vachk_bas=${VAEG_VACHK_BAS:-$softlib_cache/VACHK.BAS}
-vachk_txt=${VAEG_VACHK_TXT:-$softlib_cache/VACHK.TXT}
-vachk_doc=${VAEG_VACHK_DOC:-$softlib_cache/VACHK.DOC}
-gm1_archive=${VAEG_GM1_ARCHIVE:-$softlib_cache/G&M1.LZH}
-clk_source=${VAEG_CLK_SOURCE:-$softlib_cache/CLK21.SRC}
-clk_archive=${VAEG_CLK_ARCHIVE:-$softlib_cache/CLK21.LZH}
-clk_doc=${VAEG_CLK_DOC:-$softlib_cache/CLK21.DOC}
-va3ddemo_asm=${VAEG_VA3DDEMO_ASM:-$softlib_cache/VA3DDEMO.ASM}
-va3ddemo_doc=${VAEG_VA3DDEMO_DOC:-$softlib_cache/VA3DDEMO.DOC}
-cpm_archive=${VAEG_CPM_EXECUTOR_ARCHIVE:-${VAEG_PC88VA_SOFTLIB_CACHE:-${XDG_CACHE_HOME:-${HOME}/.cache}/vaeg/cpm08}/cpm08.zip}
-mo_cache=${VAEG_PC88VA_MO_CACHE:-${XDG_CACHE_HOME:-${HOME}/.cache}/vaeg/pc88va-development-disk}
-mo_schd_archive=${VAEG_MO_SCHD_ARCHIVE:-$mo_cache/schd155t.lzh}
-mo_va128mo_archive=${VAEG_MO_VA128MO_ARCHIVE:-$mo_cache/va128mo.lzh}
-mo_stest_archive=${VAEG_MO_STEST_ARCHIVE:-$mo_cache/stest115.lzh}
-jwasm_archive=${VAEG_JWASM_ARCHIVE:-${XDG_CACHE_HOME:-${HOME}/.cache}/vaeg/jwasm/JWasm_v220_dos.zip}
-cpm_tools_d88=${VAEG_CPM_TOOLS_D88:-${HOME}/88VA/images/cpm/cpmva-tools.d88}
-cpm_source_d88=${VAEG_CPM_SOURCE_D88:-${HOME}/88VA/images/cpm/cpmva-source.d88}
-cpm_dev_d88=${VAEG_CPM_DEV_D88:-${HOME}/88VA/images/cpm/cpmva-dev.d88}
+softlib_cache=${HOME}/.cache/vaeg/auto-generated-pc88va-utility-media
+lsic_archive=$softlib_cache/LSIC330C.LZH
+ish_archive=$softlib_cache/ISHARC.COM
+ish_doc=$softlib_cache/ISHARC.DOC
+infozip_unzip_archive=$softlib_cache/UNZ532X3.EXE
+infozip_zip_archive=$softlib_cache/ZIP22X.ZIP
+emacs_archive=$softlib_cache/EMACSVA.LZH
+cpmva_archive=$softlib_cache/CPMVA.LZH
+tdc_archive=$softlib_cache/TDC10.LZH
+bench_archive=$softlib_cache/BENCH003.LZH
+unix_tools_archive=$softlib_cache/UXTL412H.TGZ
+two_hc_source_archive=$softlib_cache/2HCDRSRC.LZH
+two_hc_driver_archive=$softlib_cache/2HCDRV.ZIP
+pcepat_source_archive=$softlib_cache/PCPATSRC.ZIP
+tsclv_source_archive=$softlib_cache/TSCLVSRC.LZH
+s88valsi_archive=$softlib_cache/S88VALSI.LZH
+s88valsi_doc=$softlib_cache/S88VALSI.DOC
+s88va250_archive=$softlib_cache/S88VA250.LZH
+s88va250_doc=$softlib_cache/S88VA250.DOC
+stest_source_archive=$softlib_cache/ST115SRC.LZH
+zim_img_archive=$softlib_cache/ZIM_IMG.LZH
+rdems15_archive=$softlib_cache/RDEMS15.LZH
+rdems152_archive=$softlib_cache/RDEMS152.LZH
+vachk_bas=$softlib_cache/VACHK.BAS
+vachk_txt=$softlib_cache/VACHK.TXT
+vachk_doc=$softlib_cache/VACHK.DOC
+gm1_archive="$softlib_cache/G&M1.LZH"
+clk_source=$softlib_cache/CLK21.SRC
+clk_archive=$softlib_cache/CLK21.LZH
+clk_doc=$softlib_cache/CLK21.DOC
+va3ddemo_asm=$softlib_cache/VA3DDEMO.ASM
+va3ddemo_doc=$softlib_cache/VA3DDEMO.DOC
+cpm_archive=$softlib_cache/cpm08.zip
+mo_cache=$softlib_cache
+mo_schd_archive=$mo_cache/schd155t.lzh
+mo_va128mo_archive=$mo_cache/va128mo.lzh
+mo_stest_archive=$mo_cache/stest115.lzh
+jwasm_archive=$softlib_cache/JWasm_v220_dos.zip
+cpm_tools_d88=${HOME}/88VA/images/cpm/cpmva-tools.d88
+cpm_source_d88=${HOME}/88VA/images/cpm/cpmva-source.d88
+cpm_dev_d88=${HOME}/88VA/images/cpm/cpmva-dev.d88
 scsi_id=0
 scsi_profile=fixed-160mb
 docs_lang=both
@@ -135,13 +135,15 @@ each matching PC-Engine source D88 are also installed in that image's BIN;
 the boot PCENGINE.COM remains at the root.  CONFIG.SYS and AUTOEXEC.BAT are
 regenerated from the documented VA load order.  LSIC330C.LZH is verified,
 retained in A:\\ARCHIVE, and extracted below A:\\LSIC86 for use through MSE.
-The archive defaults to the verified softlib cache; use --lsic-archive to
-select another copy.  The CP/M emulator defaults to the verified cpm08.zip
-cache, and the three preserved CP/M data disks default to ~/88VA/images/cpm;
-use the CP/M options to select other copies.
-The SCHD155T, VA128MO, and STEST115 archives default to the verified
-pc88va-development-disk cache; use the --mo-* options or VAEG_MO_*_ARCHIVE
-variables to select explicit copies.  The archives are retained under
+The shared Auto-generated PC-88VA utility media cache is
+~/.cache/vaeg/auto-generated-pc88va-utility-media.  LSIC330C.LZH and the
+other public archives are read from that directory; use the corresponding
+command-line archive option to select an explicit copy.  The CP/M emulator
+defaults to cpm08.zip in the same cache, and the three preserved CP/M data
+disks default to ~/88VA/images/cpm; use the CP/M options to select other
+copies.
+The SCHD155T, VA128MO, and STEST115 archives default to that shared cache; use
+the --mo-* options to select explicit copies.  The archives are retained under
 A:\\ARCHIVE and their documented files are installed under BIN, DOC, and SYS.
 The default SCSI profile is fixed-160mb, because the 160 MB fixed SCSI disk
 is assumed to be attached.  Use --scsi-profile fixed for the legacy generic
@@ -151,14 +153,14 @@ profiles do not add emulator support. VBUFF and SFORM are never run
 automatically.
 Setup notes are installed in English and Japanese by default; use
 --docs-lang en or --docs-lang ja to install only one language.
-JWasm_v220_dos.zip defaults to the pinned free JWasm release cache (or
-VAEG_JWASM_ARCHIVE); JWASMR.EXE, its readme/license, and the original archive
-are installed under BIN, DOC, and ARCHIVE.
+JWasm_v220_dos.zip defaults to the pinned free JWasm release cache;
+--jwasm-archive selects an explicit copy.  JWASMR.EXE, its readme/license,
+and the original archive are installed under BIN, DOC, and ARCHIVE.
 The verified ISHARC package installs ISHVA, PKPAK, and PKUNPAK.  The 16-bit
 Info-ZIP packages install ZIP and UNZIP with their manuals.  EMACSVA, CPMVA,
 	TDC, and BENCH are also expanded into BIN/DOC; their source archives are kept
-	under ARCHIVE.  These packages default to the verified softlib cache and may
-	be overridden with the corresponding options or VAEG_*_ARCHIVE variables.
+	under ARCHIVE.  These packages default to the shared utility-media cache;
+	the corresponding command-line options select explicit copies.
 The SASI-only 2HCDRSRC/2HCDRV, PCPATSRC, TSCLVSRC, S88VALSI, and S88VA250
 source/library packages are retained verbatim under A:\\ARCHIVE without
 expansion.  The runnable 2HCDRV.COM and FDFORM.COM tools are installed in

@@ -30,14 +30,14 @@ script_dir=$(CDPATH= cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 repo_root=$(CDPATH= cd -- "$script_dir/../.." && pwd)
 source_d88=
 output_d88=
-cache_dir=${VAEG_PC88VA_DEVDISK_CACHE:-${XDG_CACHE_HOME:-${HOME}/.cache}/vaeg/pc88va-development-disk}
+cache_dir=${HOME}/.cache/vaeg/auto-generated-pc88va-utility-media
 work_dir=
 output_tmp=
 download_tmp=
 
 usage() {
 	printf '%s\n' \
-		"Usage: $program_name --source SOURCE.d88 --output OUTPUT.d88 [--cache DIR]" \
+		"Usage: $program_name --source SOURCE.d88 --output OUTPUT.d88" \
 		'' \
 		'First create a vanilla PC-Engine 1.1 system disk, then add PCPLUS,' \
 		'SCHD, HOSTFAT, PCEPAT, RESET, TSCLVA, MSE 3.52b, RDBMS, RDPCM,' \
@@ -77,11 +77,6 @@ while (($#)); do
 	--output)
 		(($# >= 2)) || die '--output requires a path'
 		output_d88=$2
-		shift 2
-		;;
-	--cache)
-		(($# >= 2)) || die '--cache requires a directory'
-		cache_dir=$2
 		shift 2
 		;;
 	-h | --help)
@@ -476,7 +471,7 @@ copy_payload "$work_dir/rdems/RDEMS.SYS" sys/RDEMS.SYS
 "$repo_root/tools/openwatcom/build-sqemm98.sh" \
 	--output "$payload_dir/sys/SQEMM98.SYS" \
 	--license-output "$payload_dir/doc/SQEMM.LIC" \
-	--cache "$cache_dir/sqemm98"
+	--cache "$cache_dir"
 
 copy_payload "$stage_dir/LHA.EXE" bin/LHA.EXE
 copy_payload "$work_dir/diet/DIET.EXE" bin/DIET.EXE

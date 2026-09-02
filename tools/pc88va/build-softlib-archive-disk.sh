@@ -30,7 +30,7 @@ script_dir=$(CDPATH= cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 repo_root=$(CDPATH= cd -- "$script_dir/../.." && pwd)
 source_d88=
 output_d88=
-cache_dir=${VAEG_PC88VA_SOFTLIB_CACHE:-${XDG_CACHE_HOME:-${HOME}/.cache}/vaeg/pc88va-softlib-archive-disk}
+cache_dir=${HOME}/.cache/vaeg/auto-generated-pc88va-utility-media
 sqemm_driver=
 sqemm_license=
 work_dir=
@@ -40,7 +40,7 @@ download_tmp=
 
 usage() {
 	printf '%s\n' \
-		"Usage: $program_name --source SOURCE.d88 --output OUTPUT.d88 [options]" \
+		"Usage: $program_name --source SOURCE.d88 --output OUTPUT.d88" \
 		'' \
 		'Create a bootable PC-Engine 1.1 disk containing pinned PC-88VA' \
 		'Softlib downloads in A:\ARCHIVE, plus extracted 16-bit tools.' \
@@ -86,11 +86,6 @@ while (($#)); do
 	--output)
 		(($# >= 2)) || die '--output requires a path'
 		output_d88=$2
-		shift 2
-		;;
-	--cache)
-		(($# >= 2)) || die '--cache requires a directory'
-		cache_dir=$2
 		shift 2
 		;;
 	--sqemm-driver)
