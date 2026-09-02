@@ -97,6 +97,33 @@ separate parity correction or move it to Open Defects.
 - **Milestone/task:** M98aa IDA 64-instance animation launch correction.
 - **Commit:** [ee65ac70](https://github.com/nakatamaho/vaeg/commit/ee65ac701dec5d9d759b3efed245b76cf4686052).
 
+### Private IDA64 RIGHT cadence request returned to DOS
+
+- **Status:** fixed in M98aa; real VA/VA2 hardware confirmation remains
+  pending.
+- **Symptom:** pressing RIGHT to lower the FPS on the private IDA64
+  candidate could leave the graphics program and return to the DOS prompt,
+  most visibly at the 15 FPS ladder entry.
+- **Affected scope:** private keyboard polling during SGP/VBLANK waits and
+  publication-synchronous FPS HUD updates. The public ZUNDAMON binary is
+  unchanged.
+- **Demonstrated root cause:** the keyboard BIOS polling call was allowed to
+  clobber caller registers used for SGP ports and bounded loop counters.
+  Separately, a VBLANK edge falling during the private FPS field write was
+  treated as a fatal HUD failure instead of a retryable boundary miss.
+- **Correction:** the private poll path now preserves all caller registers,
+  segment registers, and flags, and restores the guest data segment after the
+  BIOS calls. Private cadence changes keep the previous active divisor until
+  the FPS field write succeeds; a narrow VBLANK miss rolls back the request
+  and retries at the next edge.
+- **Verification:** the accepted public guest rebuild remains byte-identical;
+  private deterministic rebuilds remain 60,848 bytes. Private VAEG startup
+  reaches complete-frame checkpoints for counts 1, 4, 16, and 64, and the
+  bounded divisor-change scenario completes without a runtime failure.
+- **Evidence:** [M98aa IDA64 report](../agents/reports/m98aa_ida_64_animation.md).
+- **Milestone/task:** M98aa private cadence-key failure correction.
+- **Commit:** [36593140](https://github.com/nakatamaho/vaeg/commit/36593140e2fca01fdc62ae1aa18c195f08d593e1).
+
 ### NEON3 text overlay repainted the whole TVRAM surface every frame
 
 - **Status:** fixed in M97; real PC-88VA/VA2 hardware confirmation remains
