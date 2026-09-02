@@ -6,13 +6,17 @@ disk, or private experiment evidence.
 
 ## Source census
 
-The PC-88VA floppy path has the following public implementation boundaries:
+The PC-88VA floppy path has the following public implementation boundaries.
+The production subsystem path is implemented by `io/subsystem.cpp` and
+`io/subsystemif.c`, with FDC and drive state in `io/fdc.c`. The older
+`io/fdsubsys.c` mock-up remains separately instrumented for its explicit mock
+configuration; it is not used as evidence for the production uPD780 path.
 
 | Boundary | Producer site ID | Observed mutation |
 | --- | --- | --- |
 | Main request handshake | `main_request_emitter` | Request token is allocated when the main-side attention handshake is asserted. |
-| Subsystem request accept | `subsystem_request_acceptor` | The subsystem handshake advances from attention wait to command wait. |
-| Subsystem request consume | `subsystem_request_consumer` | The subsystem consumes the command byte and acknowledges the handshake. |
+| Subsystem request accept | `subsystem_request_acceptor` | The production uPD780 input callback observes the attention handshake and releases the subsystem wait state. |
+| Subsystem request consume | `subsystem_request_consumer` | The production uPD780 mailbox input operation consumes the command/data byte; the mock path records the equivalent explicit state transition. |
 | Subsystem command phase | `subsystem_command_phase` | Command receive, execute, send, and end-cycle phases transition. |
 | Motor settle | `motor_settle` | The FDD motor changes from starting to stable at the existing event boundary. |
 | Drive ready | `drive_ready` | The existing ready result is recorded at the drive-ready operation. |

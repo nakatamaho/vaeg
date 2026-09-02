@@ -415,6 +415,13 @@ std::uint32_t IFCALL Subsystem::In(std::uint32_t port) {
 		break;
 	case 0xfd:
 		ret = i8255_inportb(&i8255cfg);
+		vaeg_causal_trace_state_transition(
+		    VAEG_CAUSAL_COMPONENT_FD_SUBSYSTEM,
+		    VAEG_CAUSAL_FIELD_HANDSHAKE_PHASE, 1, 2,
+		    VAEG_CAUSAL_CAUSE_HANDSHAKE,
+		    VAEG_CAUSAL_SITE_SUBSYSTEM_REQUEST_CONSUMER,
+		    VAEG_CAUSAL_TRANSITION_REQUEST_CONSUMED,
+		    VAEG_CAUSAL_PREDICATE_TRUE);
 		break;
 	case 0xfe: {
 		ret = i8255_inportc(&i8255cfg);
@@ -525,6 +532,15 @@ void subsystem_businporta(BYTE dat) {
 
 void subsystem_businportc(BYTE dat) {
 	i8255_businportc(&i8255cfg, (BYTE)(dat >> 4));
+	if (dat & 0x80) {
+		vaeg_causal_trace_state_transition(
+		    VAEG_CAUSAL_COMPONENT_FD_SUBSYSTEM,
+		    VAEG_CAUSAL_FIELD_HANDSHAKE_PHASE, 0, 1,
+		    VAEG_CAUSAL_CAUSE_HANDSHAKE,
+		    VAEG_CAUSAL_SITE_SUBSYSTEM_REQUEST_ACCEPTOR,
+		    VAEG_CAUSAL_TRANSITION_REQUEST_ACCEPTED,
+		    VAEG_CAUSAL_PREDICATE_TRUE);
+	}
 #if defined(SLEEP_HACK)
 	if (dat & 0x80) {
 		// ATN = 1
