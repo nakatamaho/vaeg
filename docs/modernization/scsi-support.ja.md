@@ -355,9 +355,9 @@ tools/pc88va/scsi-support.sh \
   --scsi-id 3
 ```
 
-出力先は既存であってはいけません。`--cache DIR` は別のダウンロードキャッシュ
-を選びます。既定値は `vaeg/pc88va-scsi-support` 以下の通常ユーザーキャッシュ
-です。キャッシュファイルのチェックサムが違う場合は拒否し、黙って置き換えません。
+出力先は既存であってはいけません。公開入力アーカイブは共通の
+`~/.cache/vaeg/auto-generated-pc88va-utility-media/` キャッシュを使います。
+キャッシュファイルのチェックサムが違う場合は拒否し、黙って置き換えません。
 
 ビルダーはまず
 [`create-vanilla-system-disk.sh`](../../tools/pc88va/create-vanilla-system-disk.sh)

@@ -48,7 +48,7 @@ X8MAP.COM SHA-256:
 The generated distribution disk compresses this COM with DIET; the
 uncompressed and compressed files must not be confused when comparing
 hashes. The documented size change is 10,373 to 7,203 bytes
-([software-environment note](/Users/maho/vaeg/docs/modernization/pc88va-hdd-software-environment.md:761)).
+([utility-media note](/Users/maho/vaeg/docs/modernization/pc88va-utility-media.md:789)).
 
 The disassembly offsets below are COM file offsets. A COM is loaded at
 `PSP+0100h`; therefore an absolute operand such as `CS:17E1h` refers to
@@ -284,7 +284,7 @@ should not be replaced by a guessed SMM ABI.
 
 ## References
 
-- [`X8MAP` provenance and installation note](/Users/maho/vaeg/docs/modernization/pc88va-hdd-software-environment.md:71)
-- [`X8MAP` distribution build and DIET size note](/Users/maho/vaeg/docs/modernization/pc88va-hdd-software-environment.md:761)
+- [`X8MAP` provenance and installation note](/Users/maho/vaeg/docs/modernization/pc88va-utility-media.md:80)
+- [`X8MAP` distribution build and DIET size note](/Users/maho/vaeg/docs/modernization/pc88va-utility-media.md:789)
 - [`PC-88VA MemMode register description`](/Users/maho/vaeg/docs/tekumani/PC88VA_テクニカルマニュアル_BNN.md:8027)
 - [`X8MAP130.TXT` in the archived package](https://www.vector.co.jp/soft/dos/hardware/se128128.html)

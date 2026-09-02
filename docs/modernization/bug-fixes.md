@@ -1324,7 +1324,7 @@ separate parity correction or move it to Open Defects.
   both VA and VA2 booted with 640KB to `Ready`, and `DIR C:` returned the BMS
   RAM disk without the invalid-drive-name failure.
 - **Evidence:** [M52 I/O Bank Memory task](../agents/tasks/M52_io_bank_memory.md)
-  and [PC-88VA BMS/EMS environment notes](pc88va-hdd-software-environment.md#bank-memory-manager).
+  and [PC-88VA BMS/EMS environment notes](pc88va-utility-media.md#bank-memory-manager).
 - **Commit:** [c52bd8d](https://github.com/nakatamaho/vaeg/commit/c52bd8dbc62dfabc5d7bbbc50b4fbfe7bd6deef4).
 
 ### Original VA ignored the RDBMS native-port override
@@ -1349,7 +1349,7 @@ separate parity correction or move it to Open Defects.
   The disk-extracted driver had the expected patched hash and `D0 01` word.
   Original-VA and VA2 640KB boots both reached `Ready`, and `DIR C:` accessed
   the RDBMS RAM disk without the BANKRAM warning.
-- **Evidence:** [PC-88VA BMS/RDBMS environment notes](pc88va-hdd-software-environment.md#bank-memory-manager).
+- **Evidence:** [PC-88VA BMS/RDBMS environment notes](pc88va-utility-media.md#bank-memory-manager).
 - **Commit:** [e08fd93](https://github.com/nakatamaho/vaeg/commit/e08fd938e6157ad9d05bb26dab6acc2842b3d192).
 
 ### Fixed BMS driver could not probe the VAEG native-first bank device
@@ -1375,7 +1375,7 @@ separate parity correction or move it to Open Defects.
   reset, and disable lifecycle checks. Linux debug build, selftest, repository
   encoding/EOL/case checks, and diff validation pass.
 - **Evidence:** [M97e BMS dual-port report](../agents/reports/m97e_bms_dual_port.md),
-  [PC-88VA BMS/EMS environment notes](pc88va-hdd-software-environment.md#bank-memory-manager).
+  [PC-88VA BMS/EMS environment notes](pc88va-utility-media.md#bank-memory-manager).
 - **Commit:** [8386b4b](https://github.com/nakatamaho/vaeg/commit/8386b4b2986edaeac6660f9622c343d96ec1e50c).
 
 ### Z80 state-codec rejection was ignored by the state coordinator

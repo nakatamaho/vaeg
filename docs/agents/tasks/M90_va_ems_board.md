@@ -83,7 +83,7 @@ RDEMS load stack and `CONFIG.SYS` on a bootable PC-Engine 1.1 disk.
   media.
 - Document the hardware model, EMMVA/SQEMM98 installation order, RDEMS
   dependency, source links, Open Watcom build, and generated contents in
-  `docs/modernization/pc88va-hdd-software-environment.md`.
+  `docs/modernization/pc88va-utility-media.md`.
 - Generate a redistributable HOSTFAT/SQEMM98 guest-driver bundle in CI and
   include the same drivers, licenses, instructions, and checksums in every
   normal binary artifact and tagged release package.

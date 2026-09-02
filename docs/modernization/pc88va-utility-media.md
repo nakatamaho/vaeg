@@ -22,13 +22,22 @@ STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING
 IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE.
 -->
-# PC-88VA HDD Software Environment
+# Auto-generated PC-88VA Utility Media
 
 This note summarizes the external PC-88VA HDD environment recipe centered
 on PCEPAT, MSE, and PCPLUS. It is a source-reference note for future vaeg
 SASI/HDD workflow work. Public third-party inputs are fetched and verified by
-the builders, but their binaries are generated into untracked D88 images and
-are not stored in this repository.
+the builders, but their binaries are generated into untracked D88/HDI images
+and are not stored in this repository.
+
+All PC-88VA media builders in this note share one host-side input cache:
+`~/.cache/vaeg/auto-generated-pc88va-utility-media/`. Verified public
+archives used to create utility media are stored directly in that directory,
+whether the result is a floppy D88 disk or a SASI HDD HDI. There are no
+separate development-disk or Softlib cache directories, and the builders no
+longer read the former `VAEG_*` cache/archive environment variables. Generated
+media remains a local artifact at the path supplied by the relevant output
+option and is never added to Git.
 
 ## Source Notes
 
@@ -551,10 +560,10 @@ tools/pc88va/build-development-disk.sh \
   --output /path/to/pc88va-development.d88
 ```
 
-The destination must not already exist. Downloads are cached under the normal
-user cache directory by default; `--cache DIR` selects another cache. Every
-public input archive is pinned by SHA-256 in the script. An existing cache file
-with different contents is rejected rather than replaced.
+The destination must not already exist. Public input archives are fetched and
+verified in the shared `~/.cache/vaeg/auto-generated-pc88va-utility-media/`
+directory. Every public input archive is pinned by SHA-256 in the script. An
+existing cache file with different contents is rejected rather than replaced.
 
 For maintainer-local preservation, verified copies of the public inputs used
 for this image are stored under the Git-ignored
@@ -960,14 +969,14 @@ complete compiler tree below `A:\LSIC86`. This preserves the original `BIN`,
 `INCLUDE`, `LIB`, `MAN`, and `SRC` layout so the compiler tools can be run
 under MSE. The original `_LCC` configuration expects this `A:\LSIC86` root.
 `AUTOEXEC.BAT` adds `A:\LSIC86\BIN` to `PATH` and sets `LSIC86`,
-`INCLUDE`, and `LIB`. The default archive is read from the verified softlib
+`INCLUDE`, and `LIB`. The default archive is read from the shared utility-media
 cache; `--lsic-archive` selects an explicit copy. Extracted files are staged
 in a temporary host directory and are not tracked.
 
 `JWasm_v220_dos.zip` is fetched automatically into the local verified cache
-when `--jwasm-archive` (or `VAEG_JWASM_ARCHIVE`) is not supplied. The wrapper
-passes the verified archive to both VA and VA2 builders, so each resulting HDI
-contains the same `JWASMR.EXE` tool under `A:\BIN`. The wrapper likewise
+unless `--jwasm-archive` selects an explicit copy. The wrapper passes the
+verified archive to both VA and VA2 builders, so each resulting HDI contains
+the same `JWASMR.EXE` tool under `A:\BIN`. The wrapper likewise
 verifies and stages `ISHARC.COM`, `UNZ532X3.EXE`, `ZIP22X.ZIP`,
 `EMACSVA.LZH`, `CPMVA.LZH`, `TDC10.LZH`, and `BENCH003.LZH`; runnable files
 are placed in `A:\BIN`, manuals in `A:\DOC`, and original archives in
@@ -1011,9 +1020,8 @@ The verified archive is 29,761 bytes with SHA-256
 `691e51dda202ab97b7c8c947ca7c9bf2d93d822f3e315362fcc7840199b8d6f7`; it is a
 local input and is not committed. The wrapper accepts the archive and the
 CP/M D88 inputs (`cpmva-tools.d88` and `cpmva-source.d88`, plus optional
-`cpmva-dev.d88`) through `VAEG_CPM_EXECUTOR_ARCHIVE`,
-`VAEG_CPM_TOOLS_D88`, `VAEG_CPM_SOURCE_D88`, and `VAEG_CPM_DEV_D88` (or the
-corresponding command options). Their files are expanded below
+`cpmva-dev.d88`) through `--cpm-archive`, `--cpm-tools-d88`,
+`--cpm-source-d88`, and `--cpm-dev-d88`. Their files are expanded below
 `A:\CPM\TOOLS`, `A:\CPM\SOURCE`, and, when supplied, `A:\CPM\DEV`; the
 emulator and its `XCCP.CPM` support file are under
 `A:\CPM\BIN`, with sources and documentation under `A:\CPM\SRC` and
@@ -1057,13 +1065,11 @@ Run it with:
 ```sh
 tools/pc88va/build-softlib-archive-disk.sh \
   --source /path/to/user-supplied-pcengine-1.1.d88 \
-  --output /path/to/pc88va-softlib-archives.d88 \
-  --cache /path/to/download-cache
+  --output /path/to/pc88va-softlib-archives.d88
 ```
 
-The output must not already exist. The cache option is optional and follows
-the same verified-download behavior as the development-disk builder. The
-script pins every public file by SHA-256, rejects mismatched cache entries,
+The output must not already exist. The script uses the shared utility-media
+cache, pins every public file by SHA-256, rejects mismatched cache entries,
 and validates the manifest byte counts before installation. Drivers and the
 larger extracted tool collections are installed by the SASI development
 builder, not duplicated on this FDD.

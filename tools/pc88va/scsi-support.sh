@@ -30,7 +30,7 @@ script_dir=$(CDPATH= cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 source_d88=
 output_d88=
 scsi_id=0
-cache_dir=${VAEG_PC88VA_SCSI_CACHE:-${XDG_CACHE_HOME:-${HOME}/.cache}/vaeg/pc88va-scsi-support}
+cache_dir=${HOME}/.cache/vaeg/auto-generated-pc88va-utility-media
 work_dir=
 output_tmp=
 download_tmp=
@@ -38,7 +38,7 @@ download_tmp=
 usage() {
 	printf '%s\n' \
 		"Usage: $program_name --source SOURCE.d88 --output OUTPUT.d88" \
-		'       [--scsi-id 0..7] [--cache DIR]' \
+		'       [--scsi-id 0..7]' \
 		'' \
 		'Create a bootable PC-Engine 1.1 SCSI support disk containing' \
 		'PCPLUS, SCHD, VBUFF, SCFORM, and their original documentation.' \
@@ -80,11 +80,6 @@ while (($#)); do
 	--scsi-id)
 		(($# >= 2)) || die '--scsi-id requires a number'
 		scsi_id=$2
-		shift 2
-		;;
-	--cache)
-		(($# >= 2)) || die '--cache requires a directory'
-		cache_dir=$2
 		shift 2
 		;;
 	-h | --help)

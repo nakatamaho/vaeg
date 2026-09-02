@@ -372,10 +372,9 @@ tools/pc88va/scsi-support.sh \
   --scsi-id 3
 ```
 
-The destination must not already exist. `--cache DIR` selects an alternate
-download cache. The default is the normal user cache under
-`vaeg/pc88va-scsi-support`. A cached file with the wrong checksum is rejected
-and is not silently replaced.
+The destination must not already exist. Public input archives use the shared
+`~/.cache/vaeg/auto-generated-pc88va-utility-media/` cache. A cached file with
+the wrong checksum is rejected and is not silently replaced.
 
 The builder first uses
 [`create-vanilla-system-disk.sh`](../../tools/pc88va/create-vanilla-system-disk.sh)
