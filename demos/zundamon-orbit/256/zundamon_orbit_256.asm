@@ -2932,6 +2932,10 @@ update_hud_fps_field:
     jmp .done
 .overrun:
     inc word [hud_vblank_overruns]
+%if M98Y_PRIVATE_PROFILE
+    stc
+    jmp .done
+%endif
 .failed:
     inc word [hud_mismatches]
     stc
@@ -4868,12 +4872,35 @@ initialize_cadence_scheduler:
     ret
 
 poll_control_requests:
+%if M98Y_PRIVATE_PROFILE
+    ; Preserve caller state across the keyboard BIOS boundary.  Private
+    ; rendering loops keep SGP ports and batch counters live across polling.
+    pushf
     push ax
+    push bx
+    push cx
+    push dx
+    push si
+    push di
+    push bp
+    push ds
+    push es
+%else
+    push ax
+%endif
     mov ah, 0x0a
     int KEYBOARD_BIOS_INT
+%if M98Y_PRIVATE_PROFILE
+    push cs
+    pop ds
+%endif
     jc .done
     mov ah, 0x09
     int KEYBOARD_BIOS_INT
+%if M98Y_PRIVATE_PROFILE
+    push cs
+    pop ds
+%endif
     cmp ah, KEY_SCAN_ESCAPE
     jne .check_left
     cmp al, KEY_INTERNAL_ESCAPE
@@ -5018,7 +5045,20 @@ poll_control_requests:
 .clamped:
     inc word [control_endpoint_hits]
 .done:
+%if M98Y_PRIVATE_PROFILE
+    pop es
+    pop ds
+    pop bp
+    pop di
+    pop si
+    pop dx
+    pop cx
+    pop bx
+%endif
     pop ax
+%if M98Y_PRIVATE_PROFILE
+    popf
+%endif
     ret
 
 observe_vblank_sample:
@@ -5131,12 +5171,26 @@ process_scheduler_edge:
     mov al, [requested_divisor]
     cmp al, [active_divisor]
     je .classify
+%if M98Y_PRIVATE_PROFILE
+    ; Keep the old active divisor until its complete FPS field has been
+    ; written.  A narrowly missed VBLANK is retried on the next edge rather
+    ; than routing a valid RIGHT/LEFT request through cleanup.
+    mov bl, [active_divisor]
+    mov [active_divisor], al
+    inc word [divider_changes_applied]
+    call update_hud_fps_field
+    jnc .hud_applied
+    mov [active_divisor], bl
+    dec word [divider_changes_applied]
+    jmp .classify
+%else
     mov [active_divisor], al
     inc word [divider_changes_applied]
     call update_hud_fps_field
     jnc .hud_applied
     mov word [hud_runtime_failure], 1
     mov byte [runtime_failure_kind], 1
+%endif
 .hud_applied:
     mov byte [scheduler_boundary_reset], 1
 .classify:
