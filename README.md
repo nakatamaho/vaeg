@@ -260,10 +260,14 @@ to the dump notes. Differences produce warnings but do not prevent startup.
 
 ## How to Make a Utility Disk or SASI HDD
 
-PC-88VA software and utilities such as MSE, PCEPAT, BMS, and EMS are now
-difficult to find, and the licensing status of older packages is often
-unclear. To make setup practical, vaeg provides scripts that assemble a
-local PC-88VA utility environment from verified public inputs.
+PC-88VA software and utilities such as MSE, PCEPAT, BMS, and EMS are difficult
+to obtain, inconvenient to update, and often have unclear licensing. Many
+useful tools are also not self-contained: they require entries in
+`CONFIG.SYS` to install drivers or memory managers, and some components must
+be compiled locally, including EMS and read-only HOSTFAT support. To make
+setup practical, vaeg provides scripts that assemble a local PC-88VA utility
+environment from verified public inputs and build the components required for
+local use.
 
 Provide a commercial, bootable PC-Engine disk that you own (or its D88 image)
 and an internet connection. The builders download the required utility
