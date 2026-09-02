@@ -5634,7 +5634,7 @@ message_runtime_failed:
     db "M98V_FAIL: bounded VBLANK edge wait timed out.", 13, 10, "$"
 atlas_filename:
 %if M98Y_PRIVATE_PROFILE
-    db "IDAORB.BIN", 0
+    db "ZUNDAMON.BIN", 0
 %else
     db "ZUNDORB.BIN", 0
 %endif
