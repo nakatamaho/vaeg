@@ -182,7 +182,7 @@ cmake --preset mingw-cross
 cmake --build --preset mingw-cross
 ```
 
-## How to dump PC-88VA ROMs and other runtime files
+## ROM Dump
 
 Machine ROM images, guest font ROMs, optional mechanical sound WAV files,
 and operating system disks are not provided by this repository. ROMs must
@@ -227,6 +227,43 @@ ordinary ROMs and MAME's disabled `vasubsys.rom` declaration. VA1
 `varom00.rom` uses the selected local readback reference; if its full SHA-1
 differs, VAEG also reports which populated banks 0 through 5 differ and points
 to the dump notes. Differences produce warnings but do not prevent startup.
+
+## How to Make a Utility Disk or SASI HDD
+
+PC-88VA software and utilities such as MSE, PCEPAT, BMS, and EMS are now
+difficult to find, and the licensing status of older packages is often
+unclear. To make setup practical, vaeg provides scripts that assemble a
+local PC-88VA utility environment from verified public inputs.
+
+Provide a commercial, bootable PC-Engine disk that you own (or its D88 image)
+and an internet connection. The builders download the required utility
+packages, verify their pinned checksums, and create an untracked utility
+disk or SASI HDD image. Inputs are shared through
+`~/.cache/vaeg/auto-generated-pc88va-utility-media/`.
+
+To make a bootable utility D88:
+
+```sh
+tools/pc88va/build-development-disk.sh \
+  --source /path/to/your-pc-engine-boot-disk.d88 \
+  --output /path/to/pc88va-development.d88
+```
+
+To make VA and VA2 SASI HDD images:
+
+```sh
+tools/pc88va/build-sasi-development-disks.sh \
+  --source-va /path/to/your-va-pc-engine-boot-disk.d88 \
+  --source-va2 /path/to/your-va2-pc-engine-boot-disk.d88 \
+  --output-dir /path/to/pc88va-sasi
+```
+
+See [Auto-generated PC-88VA Utility Media](docs/modernization/pc88va-utility-media.md)
+for supported inputs and the complete media layout. The scripts do not
+redistribute ROMs or the source boot disk; review the terms of each package
+before using or sharing the generated media.
+
+## Runtime Files and Saved State
 
 The portable frontend stores writable runtime files in two locations. The
 configuration and VA backup-memory files use the current working directory by
