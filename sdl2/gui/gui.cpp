@@ -3465,16 +3465,6 @@ static void draw_state_error_dialog(void) {
 	}
 }
 
-static void draw_system_menu(void) {
-	if (ImGui::BeginMenu("System")) {
-		menu_item_not_implemented("Tool window (not implemented)");
-		menu_item_not_implemented("Key display (not implemented)");
-		menu_item_not_implemented("Soft keyboard (not implemented)");
-		menu_item_not_implemented("Debugger utility (not implemented)");
-		ImGui::EndMenu();
-	}
-}
-
 } // namespace
 extern "C" BOOL gui_copy_screen_text(void) {
 	return copy_screen_text();
@@ -3683,7 +3673,6 @@ void gui_draw(void) {
 		draw_screen_menu();
 		draw_device_menu();
 		draw_state_menu();
-		draw_system_menu();
 		draw_info_menu();
 		ImGui::EndMainMenuBar();
 	}
