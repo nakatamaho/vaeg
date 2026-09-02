@@ -34,12 +34,12 @@ tree.
 | --- | --- |
 | [News](#news) | Release notes and project updates |
 | [Current Frontend](#current-frontend) | Portable SDL2 frontend overview |
-| [Quick Build](#quick-build) | Short build commands |
 | [ROM Dump](#rom-dump) | ROM names, checksums, and dump notes |
 | [How to Make a Utility Disk or SASI HDD](#how-to-make-a-utility-disk-or-sasi-hdd) | Utility FDD and SASI image creation |
 | [How to Read and Write Files on FDD and SASI HDD Images](#how-to-read-and-write-files-on-fdd-and-sasi-hdd-images) | Image file operations |
 | [Demos](#demos) | Ready-to-use demo disk images |
 | [Runtime Files and Saved State](#runtime-files-and-saved-state) | Configuration and saved-state paths |
+| [Quick Build](#quick-build) | Short build commands |
 | [PC-88VA Hardware Notes](#pc-88va-hardware-notes) | Emulated hardware summary |
 | [Text Encoding Policy](#text-encoding-policy) | Source encoding rules |
 | [Archived Reference Tier](#archived-reference-tier) | Historical source information |
