@@ -152,36 +152,6 @@ merely checking that it exists.
 emulation pacing counters for timing diagnosis. See
 [sdl2/README.md](sdl2/README.md#command-line-options) for details.
 
-## Quick Build
-
-Detailed build instructions live in [BUILD.md](BUILD.md). The short
-versions are:
-
-```sh
-# Linux
-cmake --preset linux-release
-cmake --build --preset linux-release
-```
-
-```sh
-# Windows, from an MSYS2 MINGW64 shell
-cmake --preset mingw-release
-cmake --build --preset mingw-release
-```
-
-```sh
-# macOS release (pinned static SDL2)
-cmake --preset macos-release
-cmake --build --preset macos-release
-```
-
-Linux-to-Windows cross-link checks are also available:
-
-```sh
-cmake --preset mingw-cross
-cmake --build --preset mingw-cross
-```
-
 ## Runtime Files
 
 Machine ROM images, guest font ROMs, optional mechanical sound WAV files,
@@ -262,6 +232,36 @@ Custom. The GUI exposes
 default sound hardware (VA OPN, VA2/VA3 OPNA), selects the matching ROM
 filename set, and resets the guest while retaining configured FDD and
 SASI media. `Sound -> FM sound OPN/OPNA` can add Sound Board II to a VA.
+
+## Quick Build
+
+Detailed build instructions live in [BUILD.md](BUILD.md). The short
+versions are:
+
+```sh
+# Linux
+cmake --preset linux-release
+cmake --build --preset linux-release
+```
+
+```sh
+# Windows, from an MSYS2 MINGW64 shell
+cmake --preset mingw-release
+cmake --build --preset mingw-release
+```
+
+```sh
+# macOS release (pinned static SDL2)
+cmake --preset macos-release
+cmake --build --preset macos-release
+```
+
+Linux-to-Windows cross-link checks are also available:
+
+```sh
+cmake --preset mingw-cross
+cmake --build --preset mingw-cross
+```
 
 ## PC-88VA Hardware Notes
 
