@@ -30,23 +30,27 @@ not distribute ROM data.
 ## Current dumps confirmed by the author
 
 These are the current author-confirmed ROM dumps. VA1 uses the unsuffixed
-filenames; VA2/VA3 uses the `_va2` filenames. `vasubsys_va2.rom` is listed
-separately because it is the VA2/VA3-named copy of the extra subsystem ROM.
+filenames; VA2/VA3 uses the `_va2` filenames for its model ROMs. The extra
+subsystem ROM uses the common runtime filename `vasubsys.rom` for both models.
 
-| Model | ROM filename | SHA-1 |
-|---|---|---|
-| VA1 | `vadic.rom` | `5ba1f3578d0aaacdaf7194a80e6d520c81ae55fb` |
-| VA2/VA3 | `vadic_va2.rom` | `3665db538598abb45d9dfe636423e6728a812b12` |
-| VA1 | `vafont.rom` | `a0227d1fbc2da5db4b46d8d2c7e7a9ac2d91379f` |
-| VA2/VA3 | `vafont_va2.rom` | `a0227d1fbc2da5db4b46d8d2c7e7a9ac2d91379f` |
-| VA1 | `varom00.rom` | `e7fc344b12ab0573a5229c7b43feb64bd329e57b` |
-| VA2/VA3 | `varom00_va2.rom` | `bcaea28c58816602ca1e8290f534360f1ca03fe8` |
-| VA1 | `varom08.rom` | `7e6591cd465cbb35d6d3446c5a83b46d30fafe95` |
-| VA2/VA3 | `varom08_va2.rom` | `47e5f89f8b0ce18ff8d5d7b7aef8ca0a2a8e3345` |
-| VA1 | `varom1.rom` | `54536dc03238b4668c8bb76337efade001ec7826` |
-| VA2/VA3 | `varom1_va2.rom` | `dd4f4521bfbb068f15ab3bcdb8d47c7d82b9d1d4` |
-| VA1 | `vasubsys.rom` | `a9375aa480f85e1422a0e1385acb0ea170c5c2e0` |
-| VA2/VA3 | `vasubsys_va2.rom` | `a9375aa480f85e1422a0e1385acb0ea170c5c2e0` |
+| Model | ROM filename | SHA-1 | MAME SHA-1 match? |
+|---|---|---|---|
+| VA1 | `vadic.rom` | `5ba1f3578d0aaacdaf7194a80e6d520c81ae55fb` | Yes |
+| VA2/VA3 | `vadic_va2.rom` | `3665db538598abb45d9dfe636423e6728a812b12` | Yes |
+| VA1 | `vafont.rom` | `a0227d1fbc2da5db4b46d8d2c7e7a9ac2d91379f` | No |
+| VA2/VA3 | `vafont_va2.rom` | `a0227d1fbc2da5db4b46d8d2c7e7a9ac2d91379f` | Yes |
+| VA1 | `varom00.rom` | `e7fc344b12ab0573a5229c7b43feb64bd329e57b` | No |
+| VA2/VA3 | `varom00_va2.rom` | `bcaea28c58816602ca1e8290f534360f1ca03fe8` | Yes |
+| VA1 | `varom08.rom` | `7e6591cd465cbb35d6d3446c5a83b46d30fafe95` | Yes |
+| VA2/VA3 | `varom08_va2.rom` | `47e5f89f8b0ce18ff8d5d7b7aef8ca0a2a8e3345` | Yes |
+| VA1 | `varom1.rom` | `54536dc03238b4668c8bb76337efade001ec7826` | Yes |
+| VA2/VA3 | `varom1_va2.rom` | `dd4f4521bfbb068f15ab3bcdb8d47c7d82b9d1d4` | Yes |
+| VA1 | `vasubsys.rom` | `a9375aa480f85e1422a0e1385acb0ea170c5c2e0` | Yes |
+| VA2/VA3 | `vasubsys.rom` | `a9375aa480f85e1422a0e1385acb0ea170c5c2e0` | Yes |
+
+The `No` entries are the known VA1 author-readback identities that differ
+from MAME's declared SHA-1 values. VAEG uses those author-confirmed VA1
+values for its ROM-set check. The MAME comparison in this table is SHA-1 only.
 
 The VA and VA2/VA3 ROM sets are not interchangeable. Do not create a
 `*_va2.rom` dump by renaming an unsuffixed file.
