@@ -35,13 +35,16 @@ repo_root=$(CDPATH= cd -- "$script_dir/../.." && pwd)
 output_parent=$(dirname -- "$output_image")
 private_profile=${M98Y_PROFILE:-public}
 if [ "$private_profile" = private ]; then
-    payload_name=IDAORB
+    payload_name=ZUNDAORB
+    atlas_name=ZUNDAMON
     milestone_label=M98aa
 elif [ "${M98X_RUNTIME_MODE:-0}" = 1 ]; then
     payload_name=ZUNDORB
+    atlas_name=ZUNDORB
     milestone_label=M98x
 else
     payload_name=ZUNDORB
+    atlas_name=ZUNDORB
     milestone_label=M98w
 fi
 
@@ -95,7 +98,7 @@ else
         "$script_dir/256/build.sh" "$work_dir/payload/root/${payload_name}.COM" \
         "$work_dir/${payload_name}.LST"
 fi
-cp "$atlas_image" "$work_dir/payload/root/${payload_name}.BIN"
+cp "$atlas_image" "$work_dir/payload/root/${atlas_name}.BIN"
 
 python3 "$script_dir/tools/build_zundamon_orbit_boot_disk.py" \
     --source "$source_image" \
@@ -105,7 +108,7 @@ python3 "$repo_root/tools/pc88va/pcengine_disk.py" list \
     --image "$output_image"
 
 printf 'Created local bootable %s disk: %s\n' "$milestone_label" "$output_image"
-printf '  %s.COM uses the validated single-atlas billboard profile with page-local dirty unions and G0 HUD.\n' "$payload_name"
+printf '  %s.COM uses %s.BIN with the single-atlas billboard profile, page-local dirty unions, and G0 HUD.\n' "$payload_name" "$atlas_name"
 if [ "$private_profile" = private ]; then
     printf '  Private IDA64 profile accepts /N1 through /N64; A/Z selects 1.00X through 4.00X in 0.25X steps.\n'
 fi

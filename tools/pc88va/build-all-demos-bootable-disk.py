@@ -49,6 +49,7 @@ DEFAULT_DISTRIBUTIONS = (
     ("neon4-distribution.d88.xz", ("NEON4/16", "NEON4/65536")),
     ("sgp-pseudo-sprite.d88.xz", ("SPRITE/16", "SPRITE/256", "SPRITE/65536")),
     ("sgp-wireframe.d88.xz", ("WIRE/16", "WIRE/256", "WIRE/65536")),
+    ("zundamon-orbit.d88.xz", ("ZUNDAMON",)),
 )
 
 
@@ -213,7 +214,8 @@ def main(argv=None):
     print(f"size: {size} bytes")
     print(f"SHA-256: {digest}")
     print("directories: GLASS NEON3 NEON4/16 NEON4/65536 SPRITE/16 "
-          "SPRITE/256 SPRITE/65536 WIRE/16 WIRE/256 WIRE/65536")
+          "SPRITE/256 SPRITE/65536 WIRE/16 WIRE/256 WIRE/65536 "
+          "ZUNDAMON")
     return 0
 
 

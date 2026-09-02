@@ -44,7 +44,12 @@ else
     runtime_mode=1
 fi
 active_count=${M98V_ACTIVE_COUNT:-4}
-output=${1:-ZUNDORB.COM}
+if [ "$profile" = private ]; then
+    default_output=ZUNDAORB.COM
+else
+    default_output=ZUNDORB.COM
+fi
+output=${1:-$default_output}
 listing=${2:-${output%.*}.LST}
 script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 output_parent=$(dirname -- "$output")
