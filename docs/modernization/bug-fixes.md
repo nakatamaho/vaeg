@@ -70,6 +70,60 @@ separate parity correction or move it to Open Defects.
 
 ## Fixed Defects
 
+### Private IDA64 candidate exited during draw-order validation
+
+- **Status:** fixed in M98aa; real VA/VA2 hardware confirmation remains
+  pending.
+- **Symptom:** the private 64-instance IDA candidate returned to the DOS
+  prompt before entering graphics mode, while the same renderer's public
+  candidate remained byte-identical and functional.
+- **Affected scope:** private M98aa startup validation and SGP destination
+  command construction; the public ZUNDAMON profile is unchanged.
+- **Demonstrated root cause:** the private four-word draw-order seen mask was
+  cleared with `ES` still selecting the BMS aperture. The first validation
+  phase passed only because the image's initial bytes were zero; the next
+  phase observed stale bits and rejected a valid permutation. The private
+  capacity expansion also reused the footprint-index shift for the SGP
+  destination selector, even though that wire field remains four bits.
+- **Correction:** bind `ES` to the guest data segment for the bounded mask
+  clear, restore the prior segment, and use an explicit fixed SGP destination
+  shift independent of private footprint capacity.
+- **Verification:** public rebuilds remain byte-identical to the accepted
+  M98z guest. Private deterministic rebuilds remain 60,848 bytes; VAEG startup
+  reaches a complete-frame flip checkpoint for private counts 1, 4, 16, and
+  64, with the private HUD and instances rendered. Focused M98aa, M98z, and
+  M98y tests pass.
+- **Evidence:** [M98aa IDA64 report](../agents/reports/m98aa_ida_64_animation.md).
+- **Milestone/task:** M98aa IDA 64-instance animation launch correction.
+- **Commit:** [ee65ac70](https://github.com/nakatamaho/vaeg/commit/ee65ac701dec5d9d759b3efed245b76cf4686052).
+
+### Private IDA64 RIGHT cadence request returned to DOS
+
+- **Status:** fixed in M98aa; real VA/VA2 hardware confirmation remains
+  pending.
+- **Symptom:** pressing RIGHT to lower the FPS on the private IDA64
+  candidate could leave the graphics program and return to the DOS prompt,
+  most visibly at the 15 FPS ladder entry.
+- **Affected scope:** private keyboard polling during SGP/VBLANK waits and
+  publication-synchronous FPS HUD updates. The public ZUNDAMON binary is
+  unchanged.
+- **Demonstrated root cause:** the keyboard BIOS polling call was allowed to
+  clobber caller registers used for SGP ports and bounded loop counters.
+  Separately, a VBLANK edge falling during the private FPS field write was
+  treated as a fatal HUD failure instead of a retryable boundary miss.
+- **Correction:** the private poll path now preserves all caller registers,
+  segment registers, and flags, and restores the guest data segment after the
+  BIOS calls. Private cadence changes keep the previous active divisor until
+  the FPS field write succeeds; a narrow VBLANK miss rolls back the request
+  and retries at the next edge.
+- **Verification:** the accepted public guest rebuild remains byte-identical;
+  private deterministic rebuilds remain 60,848 bytes. Private VAEG startup
+  reaches complete-frame checkpoints for counts 1, 4, 16, and 64, and the
+  bounded divisor-change scenario completes without a runtime failure.
+- **Evidence:** [M98aa IDA64 report](../agents/reports/m98aa_ida_64_animation.md).
+- **Milestone/task:** M98aa private cadence-key failure correction.
+- **Commit:** [36593140](https://github.com/nakatamaho/vaeg/commit/36593140e2fca01fdc62ae1aa18c195f08d593e1).
+
 ### NEON3 text overlay repainted the whole TVRAM surface every frame
 
 - **Status:** fixed in M97; real PC-88VA/VA2 hardware confirmation remains
@@ -2208,3 +2262,55 @@ separate parity correction or move it to Open Defects.
   [NEON4 P5 status](../port/neon4_p5.md).
 - **Milestone/task:** M97 NEON4 direct-colour CAT span cursor preservation.
 - **Commit:** [7c3fb85](https://github.com/nakatamaho/vaeg/commit/7c3fb857b49b90c4f384411125c94d37ce75bf0)
+
+
+### ZUNDORB cadence demo treated command Return as exit
+
+- **Status:** fixed in M98r; corrected VAEG VA2 candidate accepted by the
+  maintainer; real hardware remains pending.
+- **Symptom:** the interactive M98r candidate returned immediately to the
+  Human prompt after `ZUNDORB` was entered, without displaying the synthetic
+  scale animation and without printing an M98R failure diagnostic.
+- **Affected scope:** the ZUNDORB guest's interactive keyboard polling; the
+  atlas, BMS, SGP, G1, and cadence rendering paths were unchanged.
+- **Demonstrated root cause:** the guest accepted Return as a second exit key,
+  and its remaining ESC test recognized scan code zero without checking the
+  BIOS internal code. A command-confirming Return left in the guest keyboard
+  path could therefore request normal cleanup before a visible publication.
+- **Correction:** Return is no longer an exit key. Both interactive polling
+  paths require the complete INT 82h/AH=09h ESC result: scan code `00h` and
+  internal code `1Bh`.
+- **Verification:** a release-mode regression injects an additional Return at
+  the relocated guest entry and then captures 58 publications. All 58 G1
+  buffers match the accepted M98r golden byte-for-byte, with exactly 58 SGP
+  sources and destinations. The 131 demo tests, VAEG selftest, all eight
+  static VA2 divisor cases, opposite-page V1/V4/V8 runs, selector ladder,
+  pause/resume, and missed-slot cases pass.
+- **Evidence:** [M98r cadence report](../agents/reports/m98r_zundamon_vblank_cadence.md).
+- **Milestone/task:** M98r interactive Return/ESC discrimination.
+- **Commit:** [3c3f233](https://github.com/nakatamaho/vaeg/commit/3c3f233305915aa61c594886520764b578ef5025).
+
+### ZUNDORB atlas streaming failed after leaking the saved ES value
+
+- **Status:** fixed in M98t; VAEG VA2 validation passed; real hardware remains
+  pending.
+- **Symptom:** after the M98t guest grew, the accepted atlas could return from
+  the bounded BMS loader with corrupted metadata state and fail before the
+  first depth-coupled publication.
+- **Affected scope:** the ZUNDORB guest's incremental atlas file-CRC setup.
+  The atlas bytes, BMS implementation, SGP implementation, and emulator memory
+  map were unchanged.
+- **Demonstrated root cause:** `load_atlas_to_bms` saved `ES`, temporarily set
+  it equal to `DS` for the header CRC, but did not restore the saved word. The
+  unmatched stack word shifted the loader's return path; the larger M98t image
+  made the latent imbalance reproducible.
+- **Correction:** balance the local `push es` with `pop es` immediately after
+  `crc32_update_es`, before streaming payload chunks or reaching cleanup.
+- **Verification:** the first corrected bounded VA2 run streamed and CRC-
+  checked the 5,912-byte public atlas, completed 64 depth/scale publications,
+  and passed the independent BMS, SGP-trace, indexed G0/G1, HUD, and composite
+  oracle. The final four 128-publication full/dirty parity runs, eight cadence
+  runs, dynamic scheduler cases, 159 host tests, and VAEG selftest pass.
+- **Evidence:** [M98t depth/scale and HUD report](../agents/reports/m98t_zundamon_depth_scale_hud.md).
+- **Milestone/task:** M98t ZUNDORB bounded atlas loader stack restoration.
+- **Commit:** [9440798](https://github.com/nakatamaho/vaeg/commit/9440798d13bd00229b03163f98f9fee7c4caac68).
