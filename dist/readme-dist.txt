@@ -43,7 +43,7 @@ available in the tagged source tree:
 
 - SCSI support: https://github.com/nakatamaho/vaeg/blob/rel-20260814/docs/modernization/scsi-support.md
 - HOSTFAT: https://github.com/nakatamaho/vaeg/blob/rel-20260814/docs/modernization/hostfat.md
-- PC-88VA EMS and development disk: https://github.com/nakatamaho/vaeg/blob/rel-20260814/docs/modernization/pc88va-hdd-software-environment.md
+- PC-88VA EMS and utility media: https://github.com/nakatamaho/vaeg/blob/main/docs/modernization/pc88va-utility-media.md
 - CP/MVA: https://github.com/nakatamaho/vaeg/blob/rel-20260814/docs/cpmva-setup.md
 
 The SCSI guide covers support-D88 preparation, target IDs, image attachment,

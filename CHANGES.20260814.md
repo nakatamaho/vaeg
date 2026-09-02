@@ -80,7 +80,7 @@ guest-driver bundle:
   Drivers from an older VAEG release should not be mixed with a newer
   executable.
 
-## [PC-88VA development disk](docs/modernization/pc88va-hdd-software-environment.md)
+## [PC-88VA utility media](docs/modernization/pc88va-utility-media.md)
 
 The reproducible PC-Engine 1.1 development-disk workflow now includes the
 complete EMS stack and additional VA utilities:
