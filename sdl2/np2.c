@@ -175,6 +175,15 @@ typedef struct {
 	const char *sha1;
 } ROMEXPECTED;
 
+enum {
+	VA1_VAROM00_SIZE = 0x80000,
+	VA1_VAROM00_BANK_SIZE = 0x10000,
+	VA1_VAROM00_CHECK_BANK_COUNT = 6
+};
+
+static const char va1_varom00_reference_sha1[] =
+	"e7fc344b12ab0573a5229c7b43feb64bd329e57b";
+
 /*
  * MAME src/mame/nec/pc88va.cpp ROM_START(pc88va). Per local VA1 hardware
  * readback, MAME's vafont.rom and varom00.rom identities are incorrect;
@@ -183,10 +192,20 @@ typedef struct {
 static const ROMEXPECTED va_required_roms[] = {
     {"vafont.rom", 0x50000, 0xb40d34e4, "a0227d1fbc2da5db4b46d8d2c7e7a9ac2d91379f"},
     {"vadic.rom", 0x80000, 0xf913c605, "5ba1f3578d0aaacdaf7194a80e6d520c81ae55fb"},
-    {"varom00.rom", 0x80000, 0xdf7f8a74, "e7fc344b12ab0573a5229c7b43feb64bd329e57b"},
+    {"varom00.rom", 0x80000, 0xdf7f8a74, va1_varom00_reference_sha1},
     {"varom08.rom", 0x20000, 0x154803cc, "7e6591cd465cbb35d6d3446c5a83b46d30fafe95"},
     {"varom1.rom", 0x20000, 0x0783b16a, "54536dc03238b4668c8bb76337efade001ec7826"},
     {NULL, 0, 0, NULL}};
+
+/* The selected VA1 readback is authoritative for populated banks 0-5.
+ * Banks 6 and 7 are reserved in the technical manual and are not required
+ * to match this per-bank check. */
+static const char va1_varom00_bank_sha1[][41] = {
+    "35d37a6a1ecf70025a9d1f9a892f3a4d1f6e1d62", "da5eaedcf34259a406946984e23e80c3fbf9d1a1",
+    "e3e3ed4a7e0241dcd669b07c2d7b29a4c94744c2", "67fc27525e2ced658925289b3736002320f3dcdd",
+    "463e586b9911bc6fc35f79f0a0bd3a43414460a0", "1d225f958bdc4719e83873d2a66515622d6b2dc0"};
+
+static const char va1_varom00_uncertainty_doc[] = "docs/modernization/va-rom-read-uncertainty.md";
 
 /* MAME src/mame/nec/pc88va.cpp ROM_START(pc88va2), without fallback. */
 static const ROMEXPECTED va2_required_roms[] = {
@@ -500,6 +519,99 @@ static void make_rom_path(char *path, int size, const char *dir, const char *nam
 	file_catname(path, name, size);
 }
 
+static void verify_va1_varom00_read(const char *dir) {
+	char path[MAX_PATH];
+	char full_sha1[41];
+	ROMCHECKSUM full;
+	BYTE *data;
+	FILEH fh;
+	UINT bank;
+	UINT size;
+	BOOL bank_mismatch;
+
+	make_rom_path(path, sizeof(path), dir, "varom00.rom");
+	if (romcheck_file(path, &full) != SUCCESS) {
+		return;
+	}
+	romcheck_sha1_string(full.sha1, full_sha1);
+	if (strcmp(full_sha1, va1_varom00_reference_sha1) == 0) {
+		return;
+	}
+
+	fprintf(stderr,
+	        "WARNING: VA varom00.rom full SHA-1 differs: path=%s "
+	        "expected=%s actual=%s; checking populated banks 0-5.\n",
+	        path, va1_varom00_reference_sha1, full_sha1);
+
+	fh = file_open_rb(path);
+	if (fh == FILEH_INVALID) {
+		fprintf(stderr,
+		        "WARNING: VA varom00.rom bank SHA-1 check could not open %s; "
+		        "see %s\n",
+		        path, va1_varom00_uncertainty_doc);
+		return;
+	}
+	size = file_getsize(fh);
+	if (size < VA1_VAROM00_SIZE) {
+		file_close(fh);
+		fprintf(stderr,
+		        "WARNING: VA varom00.rom bank SHA-1 check skipped: %s is "
+		        "%u bytes, expected at least %u; see %s\n",
+		        path, size, VA1_VAROM00_SIZE, va1_varom00_uncertainty_doc);
+		return;
+	}
+
+	data = (BYTE *)malloc(VA1_VAROM00_SIZE);
+	if (data == NULL) {
+		file_close(fh);
+		fprintf(stderr,
+		        "WARNING: VA varom00.rom bank SHA-1 check skipped: "
+		        "out of memory; see %s\n",
+		        va1_varom00_uncertainty_doc);
+		return;
+	}
+	if (file_read(fh, data, VA1_VAROM00_SIZE) != VA1_VAROM00_SIZE) {
+		file_close(fh);
+		free(data);
+		fprintf(stderr,
+		        "WARNING: VA varom00.rom bank SHA-1 check failed to read %s; "
+		        "see %s\n",
+		        path, va1_varom00_uncertainty_doc);
+		return;
+	}
+	file_close(fh);
+
+	bank_mismatch = FALSE;
+	for (bank = 0; bank < VA1_VAROM00_CHECK_BANK_COUNT; bank++) {
+		ROMCHECKSUM bank_sum;
+		char bank_sha1[41];
+
+		romcheck_buffer(data + (bank * VA1_VAROM00_BANK_SIZE), VA1_VAROM00_BANK_SIZE, &bank_sum);
+		romcheck_sha1_string(bank_sum.sha1, bank_sha1);
+		if (strcmp(bank_sha1, va1_varom00_bank_sha1[bank]) != 0) {
+			bank_mismatch = TRUE;
+			fprintf(stderr,
+			        "WARNING: VA varom00.rom bank %u SHA-1 differs: "
+			        "expected=%s actual=%s\n",
+			        bank, va1_varom00_bank_sha1[bank], bank_sha1);
+		}
+	}
+	free(data);
+
+	if (!bank_mismatch) {
+		fprintf(stderr,
+		        "WARNING: VA varom00.rom populated banks 0-5 match; "
+		        "the full-image difference is outside those banks or is a "
+		        "size/format difference. See %s\n",
+		        va1_varom00_uncertainty_doc);
+	} else {
+		fprintf(stderr,
+		        "WARNING: VA varom00.rom has one or more differing populated "
+		        "banks; see %s\n",
+		        va1_varom00_uncertainty_doc);
+	}
+}
+
 static const char *rom_model_label(const char *model) {
 	return ((milstr_cmp(model, str_VA1) == 0) ? "VA" : "VA2/VA3");
 }
@@ -626,6 +738,9 @@ static void verify_romset(const char *dir, const char *model) {
 	}
 	for (i = 0; extra_roms[i].name != NULL; i++) {
 		verify_rom(dir, "pc88va extra", &extra_roms[i]);
+	}
+	if (milstr_cmp(model, str_VA1) == 0) {
+		verify_va1_varom00_read(dir);
 	}
 }
 
