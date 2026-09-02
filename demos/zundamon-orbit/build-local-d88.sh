@@ -35,7 +35,7 @@ repo_root=$(CDPATH= cd -- "$script_dir/../.." && pwd)
 output_parent=$(dirname -- "$output_image")
 private_profile=${M98Y_PROFILE:-public}
 if [ "$private_profile" = private ]; then
-    payload_name=IDAORB
+    payload_name=ZUNDAORB
     atlas_name=ZUNDAMON
     milestone_label=M98aa
 elif [ "${M98X_RUNTIME_MODE:-0}" = 1 ]; then
