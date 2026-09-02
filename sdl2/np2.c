@@ -175,11 +175,15 @@ typedef struct {
 	const char *sha1;
 } ROMEXPECTED;
 
-/* MAME src/mame/nec/pc88va.cpp ROM_START(pc88va). */
+/*
+ * MAME src/mame/nec/pc88va.cpp ROM_START(pc88va). Per local VA1 hardware
+ * readback, MAME's vafont.rom and varom00.rom identities are incorrect;
+ * keep the verified readback identities below.
+ */
 static const ROMEXPECTED va_required_roms[] = {
-    {"vafont.rom", 0x50000, 0xfaf7c466, "196b3d5b7407cb4f286ffe5c1e34ebb1f6905a8c"},
+    {"vafont.rom", 0x50000, 0xb40d34e4, "a0227d1fbc2da5db4b46d8d2c7e7a9ac2d91379f"},
     {"vadic.rom", 0x80000, 0xf913c605, "5ba1f3578d0aaacdaf7194a80e6d520c81ae55fb"},
-    {"varom00.rom", 0x80000, 0x8a853b00, "1266ba969959ff25433ecc900a2caced26ef1a9e"},
+    {"varom00.rom", 0x80000, 0xdf7f8a74, "e7fc344b12ab0573a5229c7b43feb64bd329e57b"},
     {"varom08.rom", 0x20000, 0x154803cc, "7e6591cd465cbb35d6d3446c5a83b46d30fafe95"},
     {"varom1.rom", 0x20000, 0x0783b16a, "54536dc03238b4668c8bb76337efade001ec7826"},
     {NULL, 0, 0, NULL}};
