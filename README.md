@@ -28,9 +28,7 @@ The former Visual Studio reference tier is archived at tag
 `archive/frozen-win9x-i286x-g56`; normal development targets the CMake/SDL2
 tree.
 
-## News
-
-### Sections
+## Sections
 
 | Section | Description |
 | --- | --- |
@@ -48,6 +46,8 @@ tree.
 | [Documentation Map](#documentation-map) | Guides and modernization notes |
 | [Status](#status) | Current project status |
 | [License Status](#license-status) | License and redistribution notes |
+
+## News
 
 ### 2026-08-30 - Rel.20260830
 
