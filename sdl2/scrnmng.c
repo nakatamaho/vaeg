@@ -573,6 +573,26 @@ static void scrnmng_format_graphics_line(char *line, size_t line_size, const cha
 	(void)snprintf(line, line_size, "%s ON %dx%d %dbpp", label, logical_width, logical_height, bpp);
 }
 
+static int scrnmng_format_video_info_lines(char lines[][96]) {
+	const int graphics_height = (videova.grmode & 0x0002) ? 200 : 400;
+	const int text_height = (tsp.screenlines != 0) ? tsp.screenlines : graphics_height;
+	const int g0_width = (videova.grres & 0x0010) ? 320 : 640;
+	const int g1_width = (videova.grres & 0x1000) ? 320 : 640;
+	const int g0_bpp = scrnmng_video_bpp(videova.grres);
+	const int g1_bpp = scrnmng_video_bpp(videova.grres >> 8);
+	const BOOL g0_active = (videova.grmode & 0x8000) != 0;
+	/* G1 is a separate screen only in single-plane, two-screen mode. */
+	const BOOL g1_active = g0_active && ((videova.grmode & 0x0c00) == 0x0c00);
+
+	scrnmng_format_video_line(lines[0], sizeof(lines[0]), "TEXT", 640, text_height, 4);
+	scrnmng_format_video_line(lines[1], sizeof(lines[1]), "SPRITE", 640, text_height, 4);
+	scrnmng_format_graphics_line(lines[2], sizeof(lines[2]), "G0", g0_active, g0_width,
+	                             graphics_height, g0_bpp, 0, &videova.framebuffer[0]);
+	scrnmng_format_graphics_line(lines[3], sizeof(lines[3]), "G1", g1_active, g1_width,
+	                             graphics_height, g1_bpp, 1, &videova.framebuffer[1]);
+	return 4;
+}
+
 static int scrnmng_format_framebuffer_lines(char lines[][48], int framebuffer_no, int bpp,
                                             FRAMEBUFFER framebuffer) {
 	int width;
@@ -623,6 +643,118 @@ static void scrnmng_draw_text_glyphs(int x, int y, int scale, const char *text, 
 		x += 8 * scale;
 	}
 }
+
+static void scrnmng_draw_text_glyphs_surface(SDL_Surface *surface, int x, int y, int scale,
+                                             const char *text, SDL_Color color) {
+	const unsigned char *glyph;
+	UINT32 pixel_value;
+	int character;
+	int row;
+	int bit;
+
+	if ((surface == NULL) || (text == NULL) || (scale <= 0)) {
+		return;
+	}
+	pixel_value = SDL_MapRGBA(surface->format, color.r, color.g, color.b, color.a);
+	while (*text != '\0') {
+		character = (unsigned char)*text++;
+		glyph = fontdata_8 + (character * 8);
+		for (row = 0; row < 8; row++) {
+			for (bit = 0; bit < 8; bit++) {
+				if ((glyph[row] & (0x80 >> bit)) != 0) {
+					SDL_Rect pixel = {x + bit * scale, y + row * scale, scale, scale};
+					(void)SDL_FillRect(surface, &pixel, pixel_value);
+				}
+			}
+		}
+		x += 8 * scale;
+	}
+}
+
+static BOOL scrnmng_draw_graphics_analysis(SDL_Surface *surface) {
+	char video_lines[4][96];
+	char framebuffer_lines[VIDEOVA_FRAMEBUFFERS * 3][48];
+	const int video_count = scrnmng_format_video_info_lines(video_lines);
+	const int line_height = 8;
+	const int padding = 4;
+	const SDL_Color text_color = {255, 255, 192, 255};
+	int framebuffer_count = 0;
+	int line_count;
+	int width = 0;
+	int panel_width;
+	int panel_height;
+	int panel_y;
+	int i;
+	SDL_Surface *panel;
+	SDL_Rect destination;
+
+	if ((surface == NULL) || (surface->w <= 0) || (surface->h <= 0)) {
+		return FAILURE;
+	}
+	for (i = 0; i < VIDEOVA_FRAMEBUFFERS; i++) {
+		const int bpp = (i & 1) ? scrnmng_video_bpp(videova.grres >> 8)
+		                       : scrnmng_video_bpp(videova.grres);
+		framebuffer_count += scrnmng_format_framebuffer_lines(&framebuffer_lines[framebuffer_count], i,
+	                                                     bpp, &videova.framebuffer[i]);
+	}
+	line_count = video_count + framebuffer_count;
+	for (i = 0; i < video_count; i++) {
+		const int length = (int)strlen(video_lines[i]);
+		if (length > width) {
+			width = length;
+		}
+	}
+	for (i = 0; i < framebuffer_count; i++) {
+		const int length = (int)strlen(framebuffer_lines[i]);
+		if (length > width) {
+			width = length;
+		}
+	}
+	panel_width = width * 8 + padding * 2;
+	panel_height = line_count * line_height + padding * 2;
+	if (panel_width > surface->w) {
+		panel_width = surface->w;
+	}
+	if (panel_height > surface->h) {
+		panel_height = surface->h;
+	}
+	panel_y = (surface->h > panel_height) ? 2 : 0;
+	if (panel_y + panel_height > surface->h) {
+		panel_y = surface->h - panel_height;
+	}
+	panel = SDL_CreateRGBSurfaceWithFormat(0, panel_width, panel_height, 32,
+	                                       SDL_PIXELFORMAT_ARGB8888);
+	if (panel == NULL) {
+		return FAILURE;
+	}
+	if (SDL_FillRect(panel, NULL, SDL_MapRGBA(panel->format, 0, 0, 0, 190)) != 0) {
+		SDL_FreeSurface(panel);
+		return FAILURE;
+	}
+	SDL_SetSurfaceBlendMode(panel, SDL_BLENDMODE_BLEND);
+	destination.x = surface->w - panel_width;
+	destination.y = panel_y;
+	destination.w = panel_width;
+	destination.h = panel_height;
+	if (SDL_BlitSurface(panel, NULL, surface, &destination) != 0) {
+		SDL_FreeSurface(panel);
+		return FAILURE;
+	}
+	SDL_FreeSurface(panel);
+
+	for (i = 0; i < video_count; i++) {
+		scrnmng_draw_text_glyphs_surface(surface, destination.x + padding,
+		                                  destination.y + padding + i * line_height, 1,
+		                                  video_lines[i], text_color);
+	}
+	for (i = 0; i < framebuffer_count; i++) {
+		scrnmng_draw_text_glyphs_surface(surface, destination.x + padding,
+		                                  destination.y + padding + (video_count + i) * line_height,
+		                                  1, framebuffer_lines[i], text_color);
+	}
+	return SUCCESS;
+}
+
 static int scrnmng_menu_offset(void) {
 	int window_width;
 	int window_height;
@@ -643,14 +775,7 @@ static int scrnmng_menu_offset(void) {
 
 static void scrnmng_draw_video_info_overlay(const VAEG_VIEWPORT *viewport) {
 	char lines[4][96];
-	int graphics_height;
-	int text_height;
-	int g0_width;
-	int g1_width;
-	int g0_bpp;
-	int g1_bpp;
-	BOOL g0_active;
-	BOOL g1_active;
+	int line_count;
 	int scale;
 	int line_height;
 	int width;
@@ -669,21 +794,7 @@ static void scrnmng_draw_video_info_overlay(const VAEG_VIEWPORT *viewport) {
 	    (output_width <= 0) || (output_height <= 0)) {
 		return;
 	}
-	graphics_height = (videova.grmode & 0x0002) ? 200 : 400;
-	text_height = (tsp.screenlines != 0) ? tsp.screenlines : graphics_height;
-	g0_width = (videova.grres & 0x0010) ? 320 : 640;
-	g1_width = (videova.grres & 0x1000) ? 320 : 640;
-	g0_bpp = scrnmng_video_bpp(videova.grres);
-	g1_bpp = scrnmng_video_bpp(videova.grres >> 8);
-	/* G1 is a separate screen only in single-plane, two-screen mode. */
-	g0_active = (videova.grmode & 0x8000) != 0;
-	g1_active = g0_active && ((videova.grmode & 0x0c00) == 0x0c00);
-	scrnmng_format_video_line(lines[0], sizeof(lines[0]), "TEXT", 640, text_height, 4);
-	scrnmng_format_video_line(lines[1], sizeof(lines[1]), "SPRITE", 640, text_height, 4);
-	scrnmng_format_graphics_line(lines[2], sizeof(lines[2]), "G0", g0_active, g0_width,
-	                             graphics_height, g0_bpp, 0, &videova.framebuffer[0]);
-	scrnmng_format_graphics_line(lines[3], sizeof(lines[3]), "G1", g1_active, g1_width,
-	                             graphics_height, g1_bpp, 1, &videova.framebuffer[1]);
+	line_count = scrnmng_format_video_info_lines(lines);
 
 	scale = (int)viewport->scale_x;
 	if (scale < 1) {
@@ -694,14 +805,14 @@ static void scrnmng_draw_video_info_overlay(const VAEG_VIEWPORT *viewport) {
 	}
 	line_height = 8 * scale;
 	width = 0;
-	for (i = 0; i < 4; i++) {
+	for (i = 0; i < line_count; i++) {
 		const int length = (int)strlen(lines[i]);
 		if (length > width) {
 			width = length;
 		}
 	}
 	width = width * 8 * scale + 8 * scale;
-	height = line_height * 4 + 8 * scale;
+	height = line_height * line_count + 8 * scale;
 	if ((width >= output_width) || (height >= output_height)) {
 		return;
 	}
@@ -716,7 +827,7 @@ static void scrnmng_draw_video_info_overlay(const VAEG_VIEWPORT *viewport) {
 	text_color.g = 255;
 	text_color.b = 192;
 	text_color.a = 255;
-	for (i = 0; i < 4; i++) {
+	for (i = 0; i < line_count; i++) {
 		scrnmng_draw_text_glyphs(background.x + 4 * scale,
 		                         background.y + 4 * scale + i * line_height, scale, lines[i],
 		                         text_color);
@@ -1501,6 +1612,52 @@ BOOL scrnmng_save_guest_frame(const char *path) {
 		fprintf(stderr, "guest-screen-save-failed path=%s error=%s\n", path, SDL_GetError());
 	}
 	SDL_FreeSurface(surface);
+	return (result);
+}
+
+BOOL scrnmng_save_guest_frame_with_analysis(const char *path) {
+	SDL_Surface *source;
+	SDL_Surface *surface;
+	BOOL result;
+
+	if ((path == NULL) || (path[0] == '\0') || (scrnmng.shadow == NULL)) {
+		return (FAILURE);
+	}
+	source = SDL_CreateRGBSurfaceWithFormatFrom(scrnmng.shadow + (SCRNMNG_SURFACE_GUARD_LEFT * 2),
+	                                            scrnmng.width, scrnmng.height, 16,
+	                                            scrnmng.shadow_pitch, SDL_PIXELFORMAT_RGB565);
+	if (source == NULL) {
+		fprintf(stderr, "guest-screen-analysis-source-failed path=%s error=%s\n", path,
+		        SDL_GetError());
+		return (FAILURE);
+	}
+	surface = SDL_CreateRGBSurfaceWithFormat(0, scrnmng.width, scrnmng.height, 32,
+	                                         SDL_PIXELFORMAT_ARGB8888);
+	if (surface == NULL) {
+		fprintf(stderr, "guest-screen-analysis-surface-failed path=%s error=%s\n", path,
+		        SDL_GetError());
+		SDL_FreeSurface(source);
+		return (FAILURE);
+	}
+	if ((SDL_BlitSurface(source, NULL, surface, NULL) != 0) ||
+	    (scrnmng_draw_graphics_analysis(surface) != SUCCESS)) {
+		fprintf(stderr, "guest-screen-analysis-render-failed path=%s error=%s\n", path,
+		        SDL_GetError());
+		SDL_FreeSurface(surface);
+		SDL_FreeSurface(source);
+		return (FAILURE);
+	}
+	if (scrnmng_path_is_png(path)) {
+		result = scrnmng_png_save_surface(surface, path);
+	} else {
+		result = (SDL_SaveBMP(surface, path) == 0) ? SUCCESS : FAILURE;
+	}
+	if (result != SUCCESS) {
+		fprintf(stderr, "guest-screen-analysis-save-failed path=%s error=%s\n", path,
+		        SDL_GetError());
+	}
+	SDL_FreeSurface(surface);
+	SDL_FreeSurface(source);
 	return (result);
 }
 

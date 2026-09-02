@@ -94,6 +94,7 @@ void scrnmng_present_begin(void);
 void scrnmng_present_end(void);
 BOOL scrnmng_save_rendered_frame(const char *path);
 BOOL scrnmng_save_guest_frame(const char *path);
+BOOL scrnmng_save_guest_frame_with_analysis(const char *path);
 void scrnmng_set_framedisp(BOOL enabled);
 void scrnmng_reset_metrics(void);
 void scrnmng_refresh_title(void);
