@@ -23,7 +23,7 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 # M98aa IDA 64-instance animation
 
-Status: **G98aa: human gate pending**
+Status: **G98aa human gate passed on 2026-09-02; M98aa closed**
 
 `REAL_HW_PENDING` remains in force. This milestone is a private local
 candidate extension and does not make private pixels, manifests, hashes,
@@ -146,8 +146,6 @@ stays outside Git; VAEG/VA2 timing is diagnostic only.
 
 ## Human gate
 
-The maintainer must inspect the local private IDA64 candidate at counts 1, 4,
-16, and 64; verify continuous motion, deterministic speed/distance animation,
-no stale or partial page, correct HUD and controls, both page parities, pause,
-and ESC restoration. Until an explicit `G98aa passed` statement is recorded,
-the milestone remains **G98aa: human gate pending**.
+The maintainer inspected the local private IDA64 candidate and explicitly
+stated `G98aa passed` on 2026-09-02. M98aa is closed. This remains VAEG/VA2
+evidence; physical PC-88VA/VA2 evidence remains `REAL_HW_PENDING`.

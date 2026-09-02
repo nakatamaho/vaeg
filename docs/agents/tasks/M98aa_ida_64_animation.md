@@ -23,6 +23,8 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 # M98aa IDA 64-instance animation
 
+Status: **G98aa human gate passed on 2026-09-02; M98aa closed**
+
 M98aa extends the accepted private IDA profile to a bounded runtime count of
 1 through 64 using the existing renderer, one 30-scale atlas bank, complete
 dirty-union transactions, and publication-safe page state. The public

@@ -23,7 +23,7 @@ OF THE POSSIBILITY OF SUCH DAMAGE.
 
 # M98 - Zundamon billboard-orbit demo master plan
 
-Status: **G98a, G98e, G98j, G98k, G98l, G98o, G98p, G98q, G98r, G98s, G98t, G98v, G98w, and G98x human gates and G98b-G98d, G98f-G98i, and G98u machine gates passed; M98m/M98n remain absorbed reservations**
+Status: **G98a, G98e, G98j, G98k, G98l, G98o, G98p, G98q, G98r, G98s, G98t, G98v, G98w, G98x, G98y, G98z, and G98aa human gates and G98b-G98d, G98f-G98i, and G98u machine gates passed; M98aa closed; M98m/M98n remain absorbed reservations**
 
 Branch family: `topic/m98-zundamon-orbit`
 
@@ -208,7 +208,8 @@ its human gate is passed. M98z adds bounded A/Z speed, Q/E distance, W/S look,
 and O/P radius controls while preserving the public/private renderer contract;
 its automated evidence is complete and the maintainer passed G98z. M98aa
 extends only the private IDA profile to 1..64 instances and a bounded
-1.00X..4.00X animation; the later 128-instance extension remains separate.
+1.00X..4.00X animation. The maintainer explicitly passed G98aa on 2026-09-02,
+so M98aa is closed. The later 128-instance extension remains separate.
 
 ## 6. Deterministic host contracts
 
