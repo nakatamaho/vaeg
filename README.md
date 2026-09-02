@@ -14,6 +14,24 @@ normal development targets the CMake/SDL2 tree.
 
 ## News
 
+### Sections
+
+| Section | Description |
+| --- | --- |
+| [News](#news) | Release notes and project updates |
+| [Current Frontend](#current-frontend) | Portable SDL2 frontend overview |
+| [Quick Build](#quick-build) | Short build commands |
+| [ROM Dump](#rom-dump) | ROM names, checksums, and dump notes |
+| [How to Make a Utility Disk or SASI HDD](#how-to-make-a-utility-disk-or-sasi-hdd) | Utility FDD and SASI image creation |
+| [How to Read and Write Files on FDD and SASI HDD Images](#how-to-read-and-write-files-on-fdd-and-sasi-hdd-images) | Image file operations |
+| [Runtime Files and Saved State](#runtime-files-and-saved-state) | Configuration and saved-state paths |
+| [PC-88VA Hardware Notes](#pc-88va-hardware-notes) | Emulated hardware summary |
+| [Text Encoding Policy](#text-encoding-policy) | Source encoding rules |
+| [Archived Reference Tier](#archived-reference-tier) | Historical source information |
+| [Documentation Map](#documentation-map) | Guides and modernization notes |
+| [Status](#status) | Current project status |
+| [License Status](#license-status) | License and redistribution notes |
+
 ### 2026-08-30 - Rel.20260830
 
 [Rel.20260830](https://github.com/nakatamaho/vaeg/releases/tag/rel-20260830)
@@ -258,19 +276,58 @@ tools/pc88va/build-sasi-development-disks.sh \
   --output-dir /path/to/pc88va-sasi
 ```
 
-### How to Read and Write Files on FDD and SASI HDD Images
+## How to Read and Write Files on FDD and SASI HDD Images
 
 The Python image tools read the supplied disk images and write new images;
-they never modify the source media in place. For a PC-Engine FDD/D88, inspect
-the directory with `python3 tools/pc88va/pcengine_disk.py list --image disk.d88`,
-then create a blank data image with the `data` command and install a host
-directory with the `install` command. For a SASI HDD/HDI, put the files to be
-written in a staged directory and pass it to
-`tools/pc88va/build-sasi-development-disk.py` with `--supplemental-tree`; the
-builder reads the source D88 and writes a new HDI. To read files back, mount
-the resulting D88 or HDI in VAEG and use the guest DOS commands such as
-`DIR`, `TYPE`, and `COPY`; compare the copied file with the original on the
-host. Keep source images and generated media outside Git.
+they never modify the source media in place.
+
+To inspect and write files to a PC-Engine FDD/D88, prepare a payload directory
+and install it into a new data image:
+
+```sh
+mkdir -p /private/tmp/vaeg-fdd-payload/root
+cp /path/to/README.TXT /private/tmp/vaeg-fdd-payload/root/README.TXT
+
+python3 tools/pc88va/pcengine_disk.py list \
+  --image /path/to/your-pc-engine-boot-disk.d88
+python3 tools/pc88va/pcengine_disk.py data \
+  --source /path/to/your-pc-engine-boot-disk.d88 \
+  --output /private/tmp/vaeg-fdd-write-test.d88
+python3 tools/pc88va/pcengine_disk.py install \
+  --image /private/tmp/vaeg-fdd-write-test.d88 \
+  --payload /private/tmp/vaeg-fdd-payload
+python3 tools/pc88va/pcengine_disk.py list \
+  --image /private/tmp/vaeg-fdd-write-test.d88
+```
+
+To write files to a SASI HDD/HDI, stage them under their guest DOS
+directories and build a new HDI from the matching PC-Engine source disk:
+
+```sh
+mkdir -p /private/tmp/vaeg-sasi-payload/BIN
+cp /path/to/README.TXT /private/tmp/vaeg-sasi-payload/BIN/README.TXT
+
+python3 tools/pc88va/build-sasi-development-disk.py \
+  --variant va2 \
+  --source /path/to/your-pc-engine-1.1-boot-disk.d88 \
+  --supplemental-tree /private/tmp/vaeg-sasi-payload \
+  --output /private/tmp/vaeg-sasi-write-test.hdi
+```
+
+Read the files back by mounting the resulting image in VAEG, then use guest
+DOS commands. FDD1/FDD2 appear as `A:`/`B:` and SASI1/SASI2 normally appear as
+`C:`/`D:`:
+
+```dos
+A>DIR B:
+A>TYPE B:\README.TXT
+A>DIR C:\BIN
+A>TYPE C:\BIN\README.TXT
+A>COPY C:\BIN\README.TXT B:\COPY.TXT
+```
+
+Compare a copied file with the original on the host. Keep source images and
+generated media outside Git.
 
 See [Auto-generated PC-88VA Utility Media](docs/modernization/pc88va-utility-media.md)
 for supported inputs and the complete media layout. The scripts do not
