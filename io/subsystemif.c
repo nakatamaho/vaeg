@@ -87,6 +87,10 @@ static void IOOUTCALL subsystemif_o0fd(UINT port, REG8 dat) {
 }
 
 static void IOOUTCALL subsystemif_o0fe(UINT port, REG8 dat) {
+	if (!(subif_trace_portc & SUBIF_MAIN_ATN) && (dat & SUBIF_MAIN_ATN)) {
+		(void)vaeg_causal_trace_request_begin(
+		    VAEG_CAUSAL_SITE_MAIN_REQUEST_EMITTER);
+	}
 	vaeg_causal_trace_named("mailbox", "main-cpu", "fd-subsystem", "handshake",
 	                       port, dat, 1);
 	subif_trace_set_portc(dat);
@@ -118,6 +122,12 @@ static REG8 IOINPCALL subsystemif_i0fc(UINT port) {
 	ret = i8255_inporta(&i8255cfg);
 	vaeg_causal_trace_named("mailbox", "fd-subsystem", "main-cpu", "read",
 	                       port, ret, 1);
+	vaeg_causal_trace_state_transition(
+	    VAEG_CAUSAL_COMPONENT_MAILBOX, VAEG_CAUSAL_FIELD_RESPONSE_MAILBOX,
+	    1, 0, VAEG_CAUSAL_CAUSE_HANDSHAKE,
+	    VAEG_CAUSAL_SITE_RESPONSE_CONSUMER,
+	    VAEG_CAUSAL_TRANSITION_MAILBOX_RESPONSE_CONSUMED,
+	    VAEG_CAUSAL_PREDICATE_TRUE);
 	subif_trace_flush_main();
 	subif_trace_append_resp(ret);
 	return ret;
@@ -135,6 +145,12 @@ static REG8 IOINPCALL subsystemif_i0fe(UINT port) {
 void subsystemif_businporta(BYTE dat) {
 	vaeg_causal_trace_named("mailbox", "fd-subsystem", "main-cpu", "write",
 	                       0x0fc, dat, 1);
+	vaeg_causal_trace_state_transition(
+	    VAEG_CAUSAL_COMPONENT_MAILBOX, VAEG_CAUSAL_FIELD_RESPONSE_MAILBOX,
+	    0, 1, VAEG_CAUSAL_CAUSE_HANDSHAKE,
+	    VAEG_CAUSAL_SITE_RESPONSE_MAILBOX,
+	    VAEG_CAUSAL_TRANSITION_MAILBOX_RESPONSE_WRITTEN,
+	    VAEG_CAUSAL_PREDICATE_TRUE);
 	i8255_businporta(&i8255cfg, dat);
 }
 

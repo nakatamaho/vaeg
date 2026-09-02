@@ -102,7 +102,7 @@ jobs:
           build/m07i-t0/sdl2/vaeg --selftest
           build/m07i-t1/sdl2/vaeg --selftest
           ctest --test-dir build/m07i-t1 --output-on-failure \
-            -R '^(vaeg_upd9002_trace_equivalence|vaeg_causal_trace_analyzer|vaeg_causal_trace_selftest)$'
+            -R '^(vaeg_upd9002_trace_equivalence|vaeg_causal_trace_analyzer|vaeg_causal_trace_public_privacy|vaeg_causal_trace_selftest)$'
 
   guest-drivers:
     name: PC-88VA guest-driver distribution

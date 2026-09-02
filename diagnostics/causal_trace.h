@@ -42,6 +42,87 @@ typedef struct {
     const char *stop_event;
 } VAEG_CAUSAL_TRACE_CONFIG;
 
+/* Stable public identifiers for producer/consumer provenance.  These values
+ * are independent of source locations, pointers, and guest addresses. */
+typedef enum {
+    VAEG_CAUSAL_COMPONENT_MAIN_CPU = 1,
+    VAEG_CAUSAL_COMPONENT_FD_SUBSYSTEM = 2,
+    VAEG_CAUSAL_COMPONENT_DRIVE = 3,
+    VAEG_CAUSAL_COMPONENT_FDC = 4,
+    VAEG_CAUSAL_COMPONENT_MAILBOX = 5
+} VAEG_CAUSAL_COMPONENT_ID;
+
+typedef enum {
+    VAEG_CAUSAL_FIELD_REQUEST_PHASE = 1,
+    VAEG_CAUSAL_FIELD_HANDSHAKE_PHASE = 2,
+    VAEG_CAUSAL_FIELD_COMMAND_PHASE = 3,
+    VAEG_CAUSAL_FIELD_MOTOR_STATE = 4,
+    VAEG_CAUSAL_FIELD_DRIVE_READY = 5,
+    VAEG_CAUSAL_FIELD_MEDIA_SENSE = 6,
+    VAEG_CAUSAL_FIELD_RESPONSE_STATUS = 7,
+    VAEG_CAUSAL_FIELD_RESPONSE_MAILBOX = 8,
+    VAEG_CAUSAL_FIELD_RESPONSE_IRQ = 9,
+    VAEG_CAUSAL_FIELD_COMMAND_QUEUE = 10,
+    VAEG_CAUSAL_FIELD_FDC_LIFECYCLE = 11,
+    VAEG_CAUSAL_FIELD_SECTOR_TRANSFER = 12
+} VAEG_CAUSAL_FIELD_ID;
+
+typedef enum {
+    VAEG_CAUSAL_SITE_MAIN_REQUEST_EMITTER = 1,
+    VAEG_CAUSAL_SITE_SUBSYSTEM_REQUEST_ACCEPTOR = 2,
+    VAEG_CAUSAL_SITE_SUBSYSTEM_REQUEST_CONSUMER = 3,
+    VAEG_CAUSAL_SITE_SUBSYSTEM_COMMAND_PHASE = 4,
+    VAEG_CAUSAL_SITE_MOTOR_SETTLE = 5,
+    VAEG_CAUSAL_SITE_DRIVE_READY = 6,
+    VAEG_CAUSAL_SITE_MEDIA_SENSE = 7,
+    VAEG_CAUSAL_SITE_RESPONSE_STATUS = 8,
+    VAEG_CAUSAL_SITE_RESPONSE_MAILBOX = 9,
+    VAEG_CAUSAL_SITE_RESPONSE_CONSUMER = 10,
+    VAEG_CAUSAL_SITE_RESPONSE_IRQ = 11,
+    VAEG_CAUSAL_SITE_COMMAND_QUEUE = 12,
+    VAEG_CAUSAL_SITE_FDC_ATTEMPT = 13,
+    VAEG_CAUSAL_SITE_FDC_ISSUE = 14,
+    VAEG_CAUSAL_SITE_FDC_REJECT = 15,
+    VAEG_CAUSAL_SITE_SECTOR_TRANSFER = 16
+} VAEG_CAUSAL_PRODUCER_SITE_ID;
+
+typedef enum {
+    VAEG_CAUSAL_TRANSITION_REQUEST_EMITTED = 1,
+    VAEG_CAUSAL_TRANSITION_REQUEST_ACCEPTED = 2,
+    VAEG_CAUSAL_TRANSITION_REQUEST_CONSUMED = 3,
+    VAEG_CAUSAL_TRANSITION_MOTOR_SETTLE_STARTED = 4,
+    VAEG_CAUSAL_TRANSITION_MOTOR_SETTLE_COMPLETED = 5,
+    VAEG_CAUSAL_TRANSITION_DRIVE_READY_CHANGED = 6,
+    VAEG_CAUSAL_TRANSITION_MEDIA_SENSE_COMPLETED = 7,
+    VAEG_CAUSAL_TRANSITION_RESPONSE_STATUS_WRITTEN = 8,
+    VAEG_CAUSAL_TRANSITION_MAILBOX_RESPONSE_WRITTEN = 9,
+    VAEG_CAUSAL_TRANSITION_MAILBOX_RESPONSE_CONSUMED = 10,
+    VAEG_CAUSAL_TRANSITION_IRQ_RESPONSE_ASSERTED = 11,
+    VAEG_CAUSAL_TRANSITION_COMMAND_QUEUE_INSERTED = 12,
+    VAEG_CAUSAL_TRANSITION_FDC_COMMAND_ATTEMPTED = 13,
+    VAEG_CAUSAL_TRANSITION_FDC_COMMAND_ISSUED = 14,
+    VAEG_CAUSAL_TRANSITION_FDC_COMMAND_REJECTED = 15
+} VAEG_CAUSAL_TRANSITION_ID;
+
+typedef enum {
+    VAEG_CAUSAL_CAUSE_REQUEST = 1,
+    VAEG_CAUSAL_CAUSE_HANDSHAKE = 2,
+    VAEG_CAUSAL_CAUSE_SCHEDULER = 3,
+    VAEG_CAUSAL_CAUSE_TIMER = 4,
+    VAEG_CAUSAL_CAUSE_DRIVE = 5,
+    VAEG_CAUSAL_CAUSE_MEDIA = 6,
+    VAEG_CAUSAL_CAUSE_COMMAND = 7,
+    VAEG_CAUSAL_CAUSE_DMA = 8,
+    VAEG_CAUSAL_CAUSE_FDC_RESULT = 9
+} VAEG_CAUSAL_CAUSE_ID;
+
+typedef enum {
+    VAEG_CAUSAL_PREDICATE_NOT_OBSERVABLE = -1,
+    VAEG_CAUSAL_PREDICATE_FALSE = 0,
+    VAEG_CAUSAL_PREDICATE_TRUE = 1,
+    VAEG_CAUSAL_PREDICATE_NOT_PRODUCED = 2
+} VAEG_CAUSAL_PREDICATE;
+
 #ifdef VAEG_Z80_COMPAT_INTEGRATION_TRACE
 
 int vaeg_causal_trace_start(FILE *stream, const VAEG_CAUSAL_TRACE_CONFIG *config);
@@ -68,6 +149,13 @@ void vaeg_causal_trace_named(const char *event_class, const char *actor,
 void vaeg_causal_trace_sector_transfer(const char *phase, uint32_t destination,
                                        uint32_t end, uint32_t byte_count,
                                        uint32_t status);
+uint32_t vaeg_causal_trace_request_begin(uint32_t producer_site_id);
+void vaeg_causal_trace_request_bind(uint32_t request_id);
+uint32_t vaeg_causal_trace_request_current(void);
+void vaeg_causal_trace_state_transition(uint32_t component_id, uint32_t field_id,
+                                         uint32_t old_state, uint32_t new_state,
+                                         uint32_t cause_id, uint32_t producer_site_id,
+                                         uint32_t transition_id, int predicate);
 
 #else
 
@@ -91,6 +179,14 @@ void vaeg_causal_trace_sector_transfer(const char *phase, uint32_t destination,
      (void)(value), (void)(width))
 #define vaeg_causal_trace_sector_transfer(phase, destination, end, byte_count, status) \
     ((void)(phase), (void)(destination), (void)(end), (void)(byte_count), (void)(status))
+#define vaeg_causal_trace_request_begin(producer_site_id) \
+    ((void)(producer_site_id), 0U)
+#define vaeg_causal_trace_request_bind(request_id) ((void)(request_id))
+#define vaeg_causal_trace_request_current() 0U
+#define vaeg_causal_trace_state_transition(component_id, field_id, old_state, new_state, \
+                                            cause_id, producer_site_id, transition_id, predicate) \
+    ((void)(component_id), (void)(field_id), (void)(old_state), (void)(new_state), \
+     (void)(cause_id), (void)(producer_site_id), (void)(transition_id), (void)(predicate))
 
 #endif
 

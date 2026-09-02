@@ -9,6 +9,7 @@
 #include "iocoreva.h"
 #include "memoryva.h"
 #include "fddfile.h"
+#include "diagnostics/causal_trace.h"
 
 enum {
 	// Port-C handshake bits, viewed from the subsystem side.
@@ -199,8 +200,16 @@ static void subsys_resetportc(int bitnum) {
 
 static int subsys_wait_atn(void) {
 	if (subsys_inportc() & ATN_MAIN) {
+		const int old_hsstate = hsstate;
 		subsys_setportc(RFDBIT);
 		hsstate = HSST_WAIT_CMD;
+		vaeg_causal_trace_state_transition(
+		    VAEG_CAUSAL_COMPONENT_FD_SUBSYSTEM,
+		    VAEG_CAUSAL_FIELD_HANDSHAKE_PHASE, old_hsstate, hsstate,
+		    VAEG_CAUSAL_CAUSE_HANDSHAKE,
+		    VAEG_CAUSAL_SITE_SUBSYSTEM_REQUEST_ACCEPTOR,
+		    VAEG_CAUSAL_TRANSITION_REQUEST_ACCEPTED,
+		    VAEG_CAUSAL_PREDICATE_TRUE);
 		return GOAHEAD;
 	}
 	return WAITING;
@@ -208,11 +217,22 @@ static int subsys_wait_atn(void) {
 
 static int subsys_wait_cmd(void) {
 	if (subsys_inportc() & DAV_MAIN) {
+		vaeg_causal_trace_request_bind(vaeg_causal_trace_request_current());
 		subsys_resetportc(RFDBIT);
 		cmd = subsys_inporta();
 		cmdrecvd = TRUE;
 		subsys_setportc(DACBIT);
-		hsstate = HSST_WAIT_DAV_RESET;
+			{
+				const int old_hsstate = hsstate;
+				hsstate = HSST_WAIT_DAV_RESET;
+				vaeg_causal_trace_state_transition(
+				    VAEG_CAUSAL_COMPONENT_FD_SUBSYSTEM,
+				    VAEG_CAUSAL_FIELD_HANDSHAKE_PHASE, old_hsstate, hsstate,
+				    VAEG_CAUSAL_CAUSE_HANDSHAKE,
+				    VAEG_CAUSAL_SITE_SUBSYSTEM_REQUEST_CONSUMER,
+				    VAEG_CAUSAL_TRANSITION_REQUEST_CONSUMED,
+				    VAEG_CAUSAL_PREDICATE_TRUE);
+			}
 		return GOAHEAD;
 	}
 	return WAITING;
@@ -248,6 +268,12 @@ static int subsys_wait_rfd(void) {
 		data = *sendbuf++;
 		senddatacnt--;
 		subsys_outportb(data);
+		vaeg_causal_trace_state_transition(
+		    VAEG_CAUSAL_COMPONENT_MAILBOX, VAEG_CAUSAL_FIELD_RESPONSE_MAILBOX,
+		    0, 1, VAEG_CAUSAL_CAUSE_HANDSHAKE,
+		    VAEG_CAUSAL_SITE_RESPONSE_MAILBOX,
+		    VAEG_CAUSAL_TRANSITION_MAILBOX_RESPONSE_WRITTEN,
+		    VAEG_CAUSAL_PREDICATE_TRUE);
 		//		TRACEOUT(("fdsubsys: send data 0x%02x", data));
 		subsys_setportc(DAVBIT);
 		hsstate = HSST_WAIT_DAC;
@@ -439,12 +465,25 @@ static void config_fdc_by_disk_mode(int drv, int track) {
 	}
 
 	fdc.N = mode & 0x03; // Set the FDC sector-size code from the subsystem disk mode.
+	vaeg_causal_trace_state_transition(
+	    VAEG_CAUSAL_COMPONENT_FD_SUBSYSTEM, VAEG_CAUSAL_FIELD_MEDIA_SENSE,
+	    0, mode & 0x03, VAEG_CAUSAL_CAUSE_MEDIA,
+	    VAEG_CAUSAL_SITE_MEDIA_SENSE,
+	    VAEG_CAUSAL_TRANSITION_MEDIA_SENSE_COMPLETED,
+	    VAEG_CAUSAL_PREDICATE_TRUE);
 	subsysmem[WORK_DM_N] = fdc.N;
 	subsysmem[WORK_LAST_DISK_MODE] = mode;
 }
 
 static void set_command_status(BYTE status) {
+	BYTE old = subsysmem[WORK_COMMAND_STATUS];
 	subsysmem[WORK_COMMAND_STATUS] = status;
+	vaeg_causal_trace_state_transition(
+	    VAEG_CAUSAL_COMPONENT_FD_SUBSYSTEM, VAEG_CAUSAL_FIELD_RESPONSE_STATUS,
+	    old, status, VAEG_CAUSAL_CAUSE_FDC_RESULT,
+	    VAEG_CAUSAL_SITE_RESPONSE_STATUS,
+	    VAEG_CAUSAL_TRANSITION_RESPONSE_STATUS_WRITTEN,
+	    status == 0x40 ? VAEG_CAUSAL_PREDICATE_TRUE : VAEG_CAUSAL_PREDICATE_FALSE);
 	fdsubtrace.st0 = status;
 	TRACEOUT(("fdsubsys: command_status=0x%02x", status));
 }
@@ -786,15 +825,23 @@ static void subsys_exec_set_boundary_mode(void) {
 */
 static void subsys_exec_drive_ready_check(void) {
 	REG8 drv;
+	REG8 ready;
 
 	drv = parambuf[0];
 	fdsubtrace.drive = drv;
 
-	if (fdd_diskready(drv)) {
+	ready = fdd_diskready(drv) ? 1 : 0;
+	if (ready) {
 		parambuf[0] = 0x00;
 	} else {
 		parambuf[0] = 0xff; // No disk is inserted.
 	}
+	vaeg_causal_trace_state_transition(
+	    VAEG_CAUSAL_COMPONENT_DRIVE, VAEG_CAUSAL_FIELD_DRIVE_READY,
+	    0, ready, VAEG_CAUSAL_CAUSE_DRIVE,
+	    VAEG_CAUSAL_SITE_DRIVE_READY,
+	    VAEG_CAUSAL_TRANSITION_DRIVE_READY_CHANGED,
+	    ready ? VAEG_CAUSAL_PREDICATE_TRUE : VAEG_CAUSAL_PREDICATE_FALSE);
 
 	TRACEOUT(("fdsubsys: drive_ready_check: drive=%d, return=%d", drv, parambuf[0]));
 
@@ -897,6 +944,12 @@ static void subsys_exec(void) {
 				TRACEOUT(("fdsubsys: recv cmd 0x%02x", cmd));
 				subsys_cmd_received();
 				state = ST_RECV_DATA;
+				vaeg_causal_trace_state_transition(
+				    VAEG_CAUSAL_COMPONENT_FD_SUBSYSTEM,
+				    VAEG_CAUSAL_FIELD_COMMAND_PHASE, ST_RECV_CMD, ST_RECV_DATA,
+				    VAEG_CAUSAL_CAUSE_HANDSHAKE,
+				    VAEG_CAUSAL_SITE_SUBSYSTEM_COMMAND_PHASE, 0,
+				    VAEG_CAUSAL_PREDICATE_TRUE);
 			}
 			break;
 		case ST_RECV_DATA:
@@ -904,6 +957,12 @@ static void subsys_exec(void) {
 			if (result == GOAHEAD) {
 				fdsubsys_trace_main_sequence();
 				state = ST_EXEC_CMD;
+				vaeg_causal_trace_state_transition(
+				    VAEG_CAUSAL_COMPONENT_FD_SUBSYSTEM,
+				    VAEG_CAUSAL_FIELD_COMMAND_PHASE, ST_RECV_DATA, ST_EXEC_CMD,
+				    VAEG_CAUSAL_CAUSE_COMMAND,
+				    VAEG_CAUSAL_SITE_SUBSYSTEM_COMMAND_PHASE, 0,
+				    VAEG_CAUSAL_PREDICATE_TRUE);
 			}
 			break;
 		case ST_EXEC_CMD:
@@ -913,11 +972,23 @@ static void subsys_exec(void) {
 			result = subsys_send_data();
 			if (result == GOAHEAD) {
 				state = ST_END_CYCLE;
+				vaeg_causal_trace_state_transition(
+				    VAEG_CAUSAL_COMPONENT_FD_SUBSYSTEM,
+				    VAEG_CAUSAL_FIELD_COMMAND_PHASE, ST_SEND_DATA, ST_END_CYCLE,
+				    VAEG_CAUSAL_CAUSE_HANDSHAKE,
+				    VAEG_CAUSAL_SITE_SUBSYSTEM_COMMAND_PHASE, 0,
+				    VAEG_CAUSAL_PREDICATE_TRUE);
 			}
 			break;
 		case ST_END_CYCLE:
 			state = ST_RECV_CMD;
 			cmdrecvd = FALSE;
+			vaeg_causal_trace_state_transition(
+			    VAEG_CAUSAL_COMPONENT_FD_SUBSYSTEM,
+			    VAEG_CAUSAL_FIELD_COMMAND_PHASE, ST_END_CYCLE, ST_RECV_CMD,
+			    VAEG_CAUSAL_CAUSE_HANDSHAKE,
+			    VAEG_CAUSAL_SITE_SUBSYSTEM_COMMAND_PHASE, 0,
+			    VAEG_CAUSAL_PREDICATE_TRUE);
 			break;
 		}
 	}

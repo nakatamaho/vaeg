@@ -22,7 +22,7 @@
             "cpu_step", "io_read", "io_write", "mem_read", "mem_write",
             "irq_assert", "irq_clear", "irq_accept", "device_schedule", "mailbox",
             "drive_state", "fdc_command", "fdc_position", "sector_transfer", "dma",
-            "instruction_fetch_correlation", "stop"
+            "instruction_fetch_correlation", "state_transition", "stop"
           ]
         },
         "step": { "type": "integer", "minimum": 0 },
@@ -51,10 +51,30 @@
         "ds": { "type": "integer", "minimum": 0 },
         "flags": { "type": "integer", "minimum": 0 },
         "if": { "type": "integer", "enum": [0, 1] },
-        "memory": { "type": "integer", "minimum": 0 }
+        "memory": { "type": "integer", "minimum": 0 },
+        "correlation": { "type": "integer", "minimum": 0 },
+        "component": { "type": "string", "pattern": "^[A-Za-z0-9._-]+$" },
+        "field": { "type": "string", "pattern": "^[A-Za-z0-9._-]+$" },
+        "old": { "type": "integer", "minimum": 0 },
+        "new": { "type": "integer", "minimum": 0 },
+        "cause": { "type": "string", "pattern": "^[A-Za-z0-9._-]+$" },
+        "producer": { "type": "string", "pattern": "^[A-Za-z0-9._-]+$" },
+        "transition": { "type": "string", "pattern": "^[A-Za-z0-9._-]+$" },
+        "predicate": { "type": "integer", "minimum": -1, "maximum": 2 }
       },
       "required": ["seq", "class"],
-      "additionalProperties": false
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": { "properties": { "class": { "const": "state_transition" } } },
+          "then": {
+            "required": [
+              "component", "field", "old", "new", "cause", "producer",
+              "transition", "correlation", "predicate"
+            ]
+          }
+        }
+      ]
     }
   ]
 }

@@ -222,6 +222,18 @@ static void fdc_trace_begin(REG8 cmd) {
 	fdctrace.dma_start = 0xffffffffUL;
 	fdctrace.dma_end = 0xffffffffUL;
 	fdc_trace_update_fields();
+	vaeg_causal_trace_state_transition(
+	    VAEG_CAUSAL_COMPONENT_FDC, VAEG_CAUSAL_FIELD_COMMAND_QUEUE,
+	    0, 1, VAEG_CAUSAL_CAUSE_COMMAND,
+	    VAEG_CAUSAL_SITE_COMMAND_QUEUE,
+	    VAEG_CAUSAL_TRANSITION_COMMAND_QUEUE_INSERTED,
+	    VAEG_CAUSAL_PREDICATE_TRUE);
+	vaeg_causal_trace_state_transition(
+	    VAEG_CAUSAL_COMPONENT_FDC, VAEG_CAUSAL_FIELD_FDC_LIFECYCLE,
+	    0, 1, VAEG_CAUSAL_CAUSE_COMMAND,
+	    VAEG_CAUSAL_SITE_FDC_ATTEMPT,
+	    VAEG_CAUSAL_TRANSITION_FDC_COMMAND_ATTEMPTED,
+	    VAEG_CAUSAL_PREDICATE_TRUE);
 	vaeg_causal_trace_named("fdc_command", "main-cpu", "fdc", "issued", 0,
 	                       cmd, 1);
 }
@@ -286,6 +298,14 @@ void fdc_trace_log(REG8 cmd, const char *name, UINT8 drive, UINT8 C, UINT8 H, UI
 	vaeg_causal_trace_named("fdc_command", "fdc", "fdc",
 	                       (st0 | st1 | st2) ? "failed" : "completed", 0,
 	                       xfer_len, 1);
+	vaeg_causal_trace_state_transition(
+	    VAEG_CAUSAL_COMPONENT_FDC, VAEG_CAUSAL_FIELD_FDC_LIFECYCLE,
+	    1, 0, VAEG_CAUSAL_CAUSE_FDC_RESULT,
+	    (st0 | st1 | st2) ? VAEG_CAUSAL_SITE_FDC_REJECT : VAEG_CAUSAL_SITE_FDC_ISSUE,
+	    (st0 | st1 | st2) ? VAEG_CAUSAL_TRANSITION_FDC_COMMAND_REJECTED
+                       : VAEG_CAUSAL_TRANSITION_FDC_COMMAND_ISSUED,
+	    (st0 | st1 | st2) ? VAEG_CAUSAL_PREDICATE_FALSE
+                       : VAEG_CAUSAL_PREDICATE_TRUE);
 	TRACEOUT((FDCTRACE_FORMAT, cmd, name, drive, C, H, R, N, fdc_trace_mode_value(),
 	          fdc_trace_mode_name(), (unsigned long)req_len, st0, st1, st2, (unsigned long)xfer_len,
 	          dma_ch, dma_access, dma_sysm_bank, sysm_bank, (unsigned long)dma_len,
@@ -1382,9 +1402,15 @@ void fdc_timer(NEVENTITEM item) {
 
 void fdc_fddmotor(NEVENTITEM item) {
 	if (fdc.motor[0] == FDD_MOTOR_STARTING) {
+		fdc.motor[0] = fdc.motor[1] = fdc.motor[2] = fdc.motor[3] = FDD_MOTOR_STABLE;
+		vaeg_causal_trace_state_transition(
+		    VAEG_CAUSAL_COMPONENT_DRIVE, VAEG_CAUSAL_FIELD_MOTOR_STATE,
+		    FDD_MOTOR_STARTING, FDD_MOTOR_STABLE, VAEG_CAUSAL_CAUSE_TIMER,
+		    VAEG_CAUSAL_SITE_MOTOR_SETTLE,
+		    VAEG_CAUSAL_TRANSITION_MOTOR_SETTLE_COMPLETED,
+		    VAEG_CAUSAL_PREDICATE_TRUE);
 		vaeg_causal_trace_named("drive_state", "fdd", "drive", "motor-stable",
 		                       0, FDD_MOTOR_STABLE, 1);
-		fdc.motor[0] = fdc.motor[1] = fdc.motor[2] = fdc.motor[3] = FDD_MOTOR_STABLE;
 	}
 }
 
@@ -1436,6 +1462,13 @@ static REG8 IOINPCALL fdcva_i_dskmisc(UINT port) {
 	REG8 ret;
 
 	ret = 0xa6 | 0x10; // Force the modeled drive-ready indication.
+	vaeg_causal_trace_state_transition(
+	    VAEG_CAUSAL_COMPONENT_DRIVE, VAEG_CAUSAL_FIELD_DRIVE_READY,
+	    0, (ret & 0x10) ? 1U : 0U, VAEG_CAUSAL_CAUSE_DRIVE,
+	    VAEG_CAUSAL_SITE_DRIVE_READY,
+	    VAEG_CAUSAL_TRANSITION_DRIVE_READY_CHANGED,
+	    (ret & 0x10) ? VAEG_CAUSAL_PREDICATE_TRUE
+                 : VAEG_CAUSAL_PREDICATE_FALSE);
 	vaeg_causal_trace_named("drive_state", "main-cpu", "drive", "ready-sense",
 	                       port, ret, 1);
 	                   // A VA2 monitor read returned A6H before the forced ready bit.
@@ -1460,6 +1493,12 @@ static void IOOUTCALL fdcva_o_dskctl(UINT port, REG8 dat) {
 	}
 	vaeg_causal_trace_named("drive_state", "main-cpu", "drive", "media-select",
 	                       port, dat, 1);
+	vaeg_causal_trace_state_transition(
+	    VAEG_CAUSAL_COMPONENT_DRIVE, VAEG_CAUSAL_FIELD_MEDIA_SENSE,
+	    0, dat & 0x3f, VAEG_CAUSAL_CAUSE_MEDIA,
+	    VAEG_CAUSAL_SITE_MEDIA_SENSE,
+	    VAEG_CAUSAL_TRANSITION_MEDIA_SENSE_COMPLETED,
+	    VAEG_CAUSAL_PREDICATE_TRUE);
 	for (i = 0; i < 2; i++) {
 		if (dat & (4 << i)) {
 			fdc.trackdensity[i] = FDD_96TPI;
@@ -1483,10 +1522,17 @@ static void IOOUTCALL fdcva_o_mtrctl(UINT port, REG8 dat) {
 	// TODO: model each drive motor independently.
 	// The current latch starts and stops both modeled drives together.
 	if (dat & 0x03) {
+		const UINT8 old_motor = fdc.motor[0];
 		vaeg_causal_trace_named("drive_state", "main-cpu", "drive", "motor-start",
 		                       port, dat, 1);
 		if (fdc.motor[0] == FDD_MOTOR_STOPPED) {
 			fdc.motor[0] = fdc.motor[1] = FDD_MOTOR_STARTING;
+			vaeg_causal_trace_state_transition(
+			    VAEG_CAUSAL_COMPONENT_DRIVE, VAEG_CAUSAL_FIELD_MOTOR_STATE,
+			    old_motor, FDD_MOTOR_STARTING, VAEG_CAUSAL_CAUSE_DRIVE,
+			    VAEG_CAUSAL_SITE_MOTOR_SETTLE,
+			    VAEG_CAUSAL_TRANSITION_MOTOR_SETTLE_STARTED,
+			    VAEG_CAUSAL_PREDICATE_TRUE);
 			nevent_setbyms(NEVENT_FDDMOTOR, FDD_MOTORDELAY, fdc_fddmotor, NEVENT_ABSOLUTE);
 			start_statewatch();
 		}

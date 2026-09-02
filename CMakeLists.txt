@@ -1540,6 +1540,17 @@ if(VAEG_Z80_COMPAT_INTEGRATION_TRACE)
             selftest)
     set_tests_properties(vaeg_causal_trace_analyzer PROPERTIES
         LABELS "romless;trace;causal")
+    add_test(NAME vaeg_causal_trace_public_privacy
+        COMMAND "${Python3_EXECUTABLE}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/tools/qa/causal_trace.py"
+            privacy-check
+            "${CMAKE_CURRENT_SOURCE_DIR}/diagnostics/causal_trace.h"
+            "${CMAKE_CURRENT_SOURCE_DIR}/diagnostics/causal_trace.c"
+            "${CMAKE_CURRENT_SOURCE_DIR}/diagnostics/causal-trace.schema.json"
+            "${CMAKE_CURRENT_SOURCE_DIR}/docs/modernization/subsystem-response-provenance.md"
+            "${CMAKE_CURRENT_SOURCE_DIR}/docs/modernization/m07ir3-status.md")
+    set_tests_properties(vaeg_causal_trace_public_privacy PROPERTIES
+        LABELS "romless;trace;causal;privacy")
 endif()
 
 if(VAEG_Z80_COMPAT_INTEGRATION_TRACE AND VAEG_ENABLE_TESTS)

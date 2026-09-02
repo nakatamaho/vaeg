@@ -60,12 +60,41 @@ static int run_chain(const VAEG_CAUSAL_TRACE_CONFIG *config, char **result) {
 		}
 		return 0;
 	}
+	if (vaeg_causal_trace_request_begin(VAEG_CAUSAL_SITE_MAIN_REQUEST_EMITTER) == 0) {
+		vaeg_causal_trace_stop("request-allocation-failed");
+		fclose(stream);
+		return 0;
+	}
 	vaeg_causal_trace_io("write", "main-cpu", 0x1b4, 1, 1);
 	vaeg_causal_trace_named("mailbox", "main-cpu", "fd-subsystem", "write",
 	                       0xfd, 0x81, 1);
 	vaeg_causal_trace_named("device_schedule", "scheduler", "fd-subsystem",
 	                       "execute", 0, 0, 0);
+	vaeg_causal_trace_state_transition(
+	    VAEG_CAUSAL_COMPONENT_FD_SUBSYSTEM,
+	    VAEG_CAUSAL_FIELD_HANDSHAKE_PHASE, 1, 2,
+	    VAEG_CAUSAL_CAUSE_HANDSHAKE,
+	    VAEG_CAUSAL_SITE_SUBSYSTEM_REQUEST_CONSUMER,
+	    VAEG_CAUSAL_TRANSITION_REQUEST_CONSUMED,
+	    VAEG_CAUSAL_PREDICATE_TRUE);
 	vaeg_causal_trace_named("drive_state", "fdd", "drive", "ready", 0, 1, 1);
+	vaeg_causal_trace_state_transition(
+	    VAEG_CAUSAL_COMPONENT_DRIVE, VAEG_CAUSAL_FIELD_MOTOR_STATE, 1, 2,
+	    VAEG_CAUSAL_CAUSE_TIMER, VAEG_CAUSAL_SITE_MOTOR_SETTLE,
+	    VAEG_CAUSAL_TRANSITION_MOTOR_SETTLE_COMPLETED,
+	    VAEG_CAUSAL_PREDICATE_TRUE);
+	vaeg_causal_trace_state_transition(
+	    VAEG_CAUSAL_COMPONENT_FD_SUBSYSTEM,
+	    VAEG_CAUSAL_FIELD_RESPONSE_STATUS, 0, 1,
+	    VAEG_CAUSAL_CAUSE_FDC_RESULT,
+	    VAEG_CAUSAL_SITE_RESPONSE_STATUS,
+	    VAEG_CAUSAL_TRANSITION_RESPONSE_STATUS_WRITTEN,
+	    VAEG_CAUSAL_PREDICATE_TRUE);
+	vaeg_causal_trace_state_transition(
+	    VAEG_CAUSAL_COMPONENT_FDC, VAEG_CAUSAL_FIELD_COMMAND_QUEUE, 0, 1,
+	    VAEG_CAUSAL_CAUSE_COMMAND, VAEG_CAUSAL_SITE_COMMAND_QUEUE,
+	    VAEG_CAUSAL_TRANSITION_COMMAND_QUEUE_INSERTED,
+	    VAEG_CAUSAL_PREDICATE_TRUE);
 	vaeg_causal_trace_named("fdc_command", "fdc", "fdc", "issued", 0, 0x46, 1);
 	vaeg_causal_trace_named("dma", "fdc", "dmac", "transfer", 0x200, 16, 0);
 	vaeg_causal_trace_sector_transfer("complete", 0x200, 0x20f, 16, 0);
@@ -93,6 +122,10 @@ int main(void) {
 
 	if (!run_chain(&config, &first) || !run_chain(&config, &second) ||
 	    strcmp(first, second) != 0 || !require_text(first, "\"class\":\"mailbox\"") ||
+	    !require_text(first, "\"class\":\"state_transition\"") ||
+	    !require_text(first, "\"transition\":\"REQUEST_EMITTED\"") ||
+	    !require_text(first, "\"transition\":\"COMMAND_QUEUE_INSERTED\"") ||
+	    !require_text(first, "\"correlation\":1") ||
 	    !require_text(first, "\"class\":\"sector_transfer\"") ||
 	    !require_text(first, "\"class\":\"instruction_fetch_correlation\"") ||
 	    !require_text(first, "\"class\":\"stop\"") ||

@@ -52,9 +52,26 @@ EVENT_CLASSES = {
     "sector_transfer",
     "dma",
     "instruction_fetch_correlation",
+    "state_transition",
     "stop",
 }
 PRIVATE_TOKENS = ("/Users/", "/home/", "\\Users\\", "private", "rom", "d88")
+PUBLIC_LEAKAGE_TOKENS = (
+    "/users/", "/home/", "\\users\\", "pc88va-private-docs",
+    "private-results", ".rom", ".d88", "varom", "vasubsys",
+)
+
+EXPECTED_PROVENANCE = (
+    ("REQUEST_CONSUMED", "subsystem_request_consumer", "MAILBOX_RESPONSE_NOT_DELIVERED"),
+    ("MOTOR_SETTLE_COMPLETED", "motor_settle", "MOTOR_COMPLETION_NOT_PRODUCED"),
+    ("DRIVE_READY_CHANGED", "drive_ready", "READY_STATE_NOT_PROPAGATED"),
+    ("MEDIA_SENSE_COMPLETED", "media_sense", "MEDIA_SENSE_NOT_PRODUCED"),
+    ("RESPONSE_STATUS_WRITTEN", "response_status", "RESPONSE_STATUS_NOT_WRITTEN"),
+    ("MAILBOX_RESPONSE_WRITTEN", "response_mailbox", "MAILBOX_RESPONSE_NOT_DELIVERED"),
+    ("IRQ_RESPONSE_ASSERTED", "response_irq", "IRQ_RESPONSE_NOT_ASSERTED"),
+    ("COMMAND_QUEUE_INSERTED", "command_queue", "COMMAND_QUEUE_NOT_POPULATED"),
+    ("FDC_COMMAND_ATTEMPTED", "fdc_attempt", "FDC_ISSUE_PATH_ABSENT"),
+)
 
 
 def load_trace(path: pathlib.Path) -> list[dict[str, Any]]:
@@ -85,6 +102,17 @@ def load_trace(path: pathlib.Path) -> list[dict[str, Any]]:
         event_class = record.get("class")
         if event_class not in EVENT_CLASSES:
             raise CausalTraceError(f"unknown causal event class: {event_class!r}")
+        if event_class == "state_transition":
+            required = {
+                "component", "field", "old", "new", "cause", "producer",
+                "transition", "correlation", "predicate",
+            }
+            if not required.issubset(record):
+                raise CausalTraceError("state transition lacks provenance fields")
+            if not isinstance(record["correlation"], int) or record["correlation"] < 0:
+                raise CausalTraceError("state transition correlation is invalid")
+            if not isinstance(record["predicate"], int) or not -1 <= record["predicate"] <= 2:
+                raise CausalTraceError("state transition predicate is invalid")
         if event_class == "stop":
             stop_count += 1
     if stop_count != 1 or records[-1].get("class") != "stop":
@@ -156,6 +184,111 @@ def causal_correlations(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return correlations
 
 
+def provenance_diagnostic(records: list[dict[str, Any]]) -> dict[str, Any]:
+    """Attribute the first missing producer in the generic response path."""
+    transitions = [
+        record for record in records if record.get("class") == "state_transition"
+    ]
+    last = transitions[-1] if transitions else None
+    names = {record.get("transition") for record in transitions}
+    first_absent = None
+    first_absent_site = None
+    first_unmet = None
+    predicate_state = "not_observable"
+    classification = "TELEMETRY_DEFECT"
+    for transition, producer, candidate in EXPECTED_PROVENANCE:
+        observed = [
+            record for record in transitions
+            if record.get("transition") == transition
+        ]
+        if observed:
+            state = observed[-1].get("predicate")
+            if state != 1:
+                first_unmet = transition
+                first_absent_site = None
+                predicate_state = {
+                    0: "false", 2: "not_produced", -1: "not_observable",
+                }.get(state, "not_observable")
+                classification = candidate
+                break
+            continue
+        if transition not in names:
+            first_absent = transition
+            first_absent_site = producer
+            first_unmet = transition
+            predicate_state = "not_produced"
+            classification = candidate
+            break
+    if first_unmet is None:
+        if any(record.get("transition") == "FDC_COMMAND_REJECTED" for record in transitions):
+            classification = "TELEMETRY_DEFECT"
+        else:
+            classification = "FDC_ISSUE_PATH_ABSENT"
+    last_writer: dict[str, str] = {}
+    for record in transitions:
+        field = record.get("field")
+        producer = record.get("producer")
+        if isinstance(field, str) and isinstance(producer, str):
+            last_writer[field] = producer
+    return {
+        "correlation_ids": sorted(
+            {record.get("correlation") for record in transitions
+             if isinstance(record.get("correlation"), int)}
+        ),
+        "last_reached_transition": last.get("transition") if last else None,
+        "current_abstract_phase": last.get("field") if last else None,
+        "last_writer_by_field": dict(sorted(last_writer.items())),
+        "first_absent_producer": first_absent_site,
+        "first_absent_transition": first_absent,
+        "first_absent_producer_site": first_absent_site,
+        "first_unmet_predicate": first_unmet if first_unmet else "none",
+        "predicate_state": predicate_state,
+        "expected_producer_path": [
+            {"transition": item[0], "producer": item[1]}
+            for item in EXPECTED_PROVENANCE
+        ],
+        "pending_prerequisites": [
+            item[0] for item in EXPECTED_PROVENANCE[
+                next((index for index, item in enumerate(EXPECTED_PROVENANCE)
+                      if item[0] == first_unmet), len(EXPECTED_PROVENANCE)):
+            ]
+        ],
+        "classification": classification,
+        "observed_producer_sites": sorted(
+            {record.get("producer") for record in transitions
+             if isinstance(record.get("producer"), str)}
+        ),
+    }
+
+
+def verify_public_content(label: str, text: str) -> None:
+    """Reject private input identities and paths in public text."""
+    lowered = text.casefold()
+    for token in PUBLIC_LEAKAGE_TOKENS:
+        if token in lowered:
+            raise CausalTraceError(
+                f"public file {label} contains a forbidden private token: {token}"
+            )
+
+
+def verify_public_text(path: pathlib.Path) -> None:
+    """Reject private input identities and paths in a public source file."""
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError as exc:
+        raise CausalTraceError(f"cannot read public file: {path}") from exc
+    verify_public_content(str(path), text)
+
+
+def verify_public_paths(paths: list[pathlib.Path]) -> None:
+    if not paths:
+        raise CausalTraceError("public leakage check requires at least one file")
+    for path in paths:
+        if not path.is_file():
+            raise CausalTraceError(f"public leakage check requires a regular file: {path}")
+        verify_public_text(path)
+
+
 def redact(record: Any, fields: set[str]) -> Any:
     if isinstance(record, dict):
         return {key: (None if key in fields else redact(value, fields))
@@ -166,7 +299,7 @@ def redact(record: Any, fields: set[str]) -> Any:
 
 
 def public_projection(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    projection = redact(records, {"address", "value", "physical", "opcode", "cs", "ip", "ax", "bx", "cx", "dx", "si", "di", "bp", "sp", "es", "ss", "ds", "flags", "if", "reason", "step"})
+    projection = redact(records, {"address", "value", "physical", "opcode", "cs", "ip", "ax", "bx", "cx", "dx", "si", "di", "bp", "sp", "es", "ss", "ds", "flags", "if", "reason", "step", "old", "new"})
     encoded = json.dumps(projection, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
     if any(token.lower() in encoded.lower() for token in PRIVATE_TOKENS):
         raise CausalTraceError("public causal projection contains a private token")
@@ -179,6 +312,7 @@ def summarize(first_path: pathlib.Path, second_path: pathlib.Path | None) -> dic
         "event_counts": event_counts(first),
         "wait_loops": wait_loops(first),
         "correlations": causal_correlations(first),
+        "provenance": provenance_diagnostic(first),
         "public_projection": public_projection(first),
     }
     if second_path is not None:
@@ -203,6 +337,132 @@ def selftest() -> None:
         raise AssertionError("causal redaction selftest failed")
     if event_counts(synthetic) != {"io_write": 1, "mailbox": 1, "stop": 1}:
         raise AssertionError("causal count selftest failed")
+    provenance = synthetic[:1] + [
+        {
+            "seq": 0,
+            "class": "state_transition",
+            "component": "fd-subsystem",
+            "field": "handshake_phase",
+            "old": 1,
+            "new": 2,
+            "cause": "handshake",
+            "producer": "subsystem_request_consumer",
+            "transition": "REQUEST_CONSUMED",
+            "correlation": 1,
+            "predicate": 1,
+        },
+        {
+            "seq": 1,
+            "class": "state_transition",
+            "component": "drive",
+            "field": "motor_state",
+            "old": 1,
+            "new": 2,
+            "cause": "timer",
+            "producer": "motor_settle",
+            "transition": "MOTOR_SETTLE_COMPLETED",
+            "correlation": 1,
+            "predicate": 1,
+        },
+        {
+            "seq": 2,
+            "class": "state_transition",
+            "component": "drive",
+            "field": "drive_ready",
+            "old": 0,
+            "new": 1,
+            "cause": "drive",
+            "producer": "drive_ready",
+            "transition": "DRIVE_READY_CHANGED",
+            "correlation": 1,
+            "predicate": 1,
+        },
+        {
+            "seq": 3,
+            "class": "state_transition",
+            "component": "drive",
+            "field": "media_sense",
+            "old": 0,
+            "new": 1,
+            "cause": "media",
+            "producer": "media_sense",
+            "transition": "MEDIA_SENSE_COMPLETED",
+            "correlation": 1,
+            "predicate": 1,
+        },
+        {
+            "seq": 4,
+            "class": "state_transition",
+            "component": "fd-subsystem",
+            "field": "response_status",
+            "old": 0,
+            "new": 1,
+            "cause": "fdc-result",
+            "producer": "response_status",
+            "transition": "RESPONSE_STATUS_WRITTEN",
+            "correlation": 1,
+            "predicate": 1,
+        },
+        {
+            "seq": 5,
+            "class": "state_transition",
+            "component": "mailbox",
+            "field": "response_mailbox",
+            "old": 0,
+            "new": 1,
+            "cause": "handshake",
+            "producer": "response_mailbox",
+            "transition": "MAILBOX_RESPONSE_WRITTEN",
+            "correlation": 1,
+            "predicate": 1,
+        },
+        {
+            "seq": 6,
+            "class": "state_transition",
+            "component": "mailbox",
+            "field": "response_irq",
+            "old": 0,
+            "new": 1,
+            "cause": "handshake",
+            "producer": "response_irq",
+            "transition": "IRQ_RESPONSE_ASSERTED",
+            "correlation": 1,
+            "predicate": 1,
+        },
+        {"seq": 7, "class": "stop", "reason": "bound", "events": 7},
+    ]
+    diagnostic = provenance_diagnostic(provenance)
+    if diagnostic["classification"] != "COMMAND_QUEUE_NOT_POPULATED":
+        raise AssertionError("provenance first-absent selftest failed")
+    if diagnostic["correlation_ids"] != [1]:
+        raise AssertionError("provenance correlation selftest failed")
+    false_ready = provenance[:4] + [{
+        "seq": 4,
+        "class": "state_transition",
+        "component": "drive",
+        "field": "drive_ready",
+        "old": 1,
+        "new": 0,
+        "cause": "drive",
+        "producer": "drive_ready",
+        "transition": "DRIVE_READY_CHANGED",
+        "correlation": 1,
+        "predicate": 0,
+    }, {"seq": 5, "class": "stop", "reason": "bound", "events": 5}]
+    false_diagnostic = provenance_diagnostic(false_ready)
+    if false_diagnostic["classification"] != "READY_STATE_NOT_PROPAGATED":
+        raise AssertionError("false predicate classification selftest failed")
+    if false_diagnostic["first_absent_producer"] is not None:
+        raise AssertionError("observed false predicate was called absent")
+    if false_diagnostic["predicate_state"] != "false":
+        raise AssertionError("false predicate state selftest failed")
+    multi_request = provenance[:3] + [
+        dict(provenance[1], seq=3, correlation=2),
+        dict(provenance[2], seq=4, correlation=2),
+        {"seq": 5, "class": "stop", "reason": "bound", "events": 5},
+    ]
+    if provenance_diagnostic(multi_request)["correlation_ids"] != [1, 2]:
+        raise AssertionError("multiple request correlation selftest failed")
     repeated = synthetic[:1] + [
         {
             "seq": 0,
@@ -257,6 +517,16 @@ def selftest() -> None:
         raise AssertionError("transfer correlation selftest failed")
     if public_projection(synthetic)[1]["address"] is not None:
         raise AssertionError("private address was not redacted")
+    try:
+        verify_public_content("safe", "stable enum producer contract")
+    except CausalTraceError:
+        raise AssertionError("safe public text selftest failed")
+    try:
+        verify_public_content("unsafe", "source=.d88")
+    except CausalTraceError:
+        pass
+    else:
+        raise AssertionError("private leakage selftest failed")
     print("causal trace analyzer selftest passed")
 
 
@@ -271,6 +541,10 @@ def parse_arguments() -> argparse.Namespace:
     summary = subparsers.add_parser("summary")
     summary.add_argument("trace")
     summary.add_argument("--compare")
+    provenance = subparsers.add_parser("provenance")
+    provenance.add_argument("trace")
+    privacy = subparsers.add_parser("privacy-check")
+    privacy.add_argument("paths", nargs="+")
     subparsers.add_parser("selftest")
     return parser.parse_args()
 
@@ -289,6 +563,13 @@ def main() -> int:
             print(json.dumps(boundary_report(first, second), sort_keys=True, separators=(",", ":")))
             if pathlib.Path(arguments.first).read_bytes() != pathlib.Path(arguments.second).read_bytes():
                 return 1
+        elif arguments.command == "provenance":
+            records = load_trace(pathlib.Path(arguments.trace))
+            print(json.dumps(provenance_diagnostic(records), sort_keys=True,
+                             separators=(",", ":"), ensure_ascii=True))
+        elif arguments.command == "privacy-check":
+            verify_public_paths([pathlib.Path(path) for path in arguments.paths])
+            print("causal trace public leakage check passed")
         else:
             result = summarize(pathlib.Path(arguments.trace), pathlib.Path(arguments.compare) if arguments.compare else None)
             print(json.dumps(result, sort_keys=True, separators=(",", ":"), ensure_ascii=True))

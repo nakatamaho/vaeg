@@ -55,6 +55,8 @@ typedef struct {
     uint32_t transfer_first;
     uint32_t transfer_last;
     int transfer_valid;
+    uint32_t next_request_id;
+    uint32_t current_request_id;
     int io_all;
     int memory_all;
     int stop_requested;
@@ -64,6 +66,155 @@ typedef struct {
 } CAUSAL_STATE;
 
 static CAUSAL_STATE causal_state;
+
+static const char *component_name(uint32_t id) {
+    switch (id) {
+    case VAEG_CAUSAL_COMPONENT_MAIN_CPU:
+        return "main-cpu";
+    case VAEG_CAUSAL_COMPONENT_FD_SUBSYSTEM:
+        return "fd-subsystem";
+    case VAEG_CAUSAL_COMPONENT_DRIVE:
+        return "drive";
+    case VAEG_CAUSAL_COMPONENT_FDC:
+        return "fdc";
+    case VAEG_CAUSAL_COMPONENT_MAILBOX:
+        return "mailbox";
+    default:
+        return "unknown";
+    }
+}
+
+static const char *field_name(uint32_t id) {
+    switch (id) {
+    case VAEG_CAUSAL_FIELD_REQUEST_PHASE:
+        return "request_phase";
+    case VAEG_CAUSAL_FIELD_HANDSHAKE_PHASE:
+        return "handshake_phase";
+    case VAEG_CAUSAL_FIELD_COMMAND_PHASE:
+        return "command_phase";
+    case VAEG_CAUSAL_FIELD_MOTOR_STATE:
+        return "motor_state";
+    case VAEG_CAUSAL_FIELD_DRIVE_READY:
+        return "drive_ready";
+    case VAEG_CAUSAL_FIELD_MEDIA_SENSE:
+        return "media_sense";
+    case VAEG_CAUSAL_FIELD_RESPONSE_STATUS:
+        return "response_status";
+    case VAEG_CAUSAL_FIELD_RESPONSE_MAILBOX:
+        return "response_mailbox";
+    case VAEG_CAUSAL_FIELD_RESPONSE_IRQ:
+        return "response_irq";
+    case VAEG_CAUSAL_FIELD_COMMAND_QUEUE:
+        return "command_queue";
+    case VAEG_CAUSAL_FIELD_FDC_LIFECYCLE:
+        return "fdc_lifecycle";
+    case VAEG_CAUSAL_FIELD_SECTOR_TRANSFER:
+        return "sector_transfer";
+    default:
+        return "unknown";
+    }
+}
+
+static const char *producer_site_name(uint32_t id) {
+    switch (id) {
+    case VAEG_CAUSAL_SITE_MAIN_REQUEST_EMITTER:
+        return "main_request_emitter";
+    case VAEG_CAUSAL_SITE_SUBSYSTEM_REQUEST_ACCEPTOR:
+        return "subsystem_request_acceptor";
+    case VAEG_CAUSAL_SITE_SUBSYSTEM_REQUEST_CONSUMER:
+        return "subsystem_request_consumer";
+    case VAEG_CAUSAL_SITE_SUBSYSTEM_COMMAND_PHASE:
+        return "subsystem_command_phase";
+    case VAEG_CAUSAL_SITE_MOTOR_SETTLE:
+        return "motor_settle";
+    case VAEG_CAUSAL_SITE_DRIVE_READY:
+        return "drive_ready";
+    case VAEG_CAUSAL_SITE_MEDIA_SENSE:
+        return "media_sense";
+    case VAEG_CAUSAL_SITE_RESPONSE_STATUS:
+        return "response_status";
+    case VAEG_CAUSAL_SITE_RESPONSE_MAILBOX:
+        return "response_mailbox";
+    case VAEG_CAUSAL_SITE_RESPONSE_CONSUMER:
+        return "response_consumer";
+    case VAEG_CAUSAL_SITE_RESPONSE_IRQ:
+        return "response_irq";
+    case VAEG_CAUSAL_SITE_COMMAND_QUEUE:
+        return "command_queue";
+    case VAEG_CAUSAL_SITE_FDC_ATTEMPT:
+        return "fdc_attempt";
+    case VAEG_CAUSAL_SITE_FDC_ISSUE:
+        return "fdc_issue";
+    case VAEG_CAUSAL_SITE_FDC_REJECT:
+        return "fdc_reject";
+    case VAEG_CAUSAL_SITE_SECTOR_TRANSFER:
+        return "sector_transfer";
+    default:
+        return "unknown";
+    }
+}
+
+static const char *transition_name(uint32_t id) {
+    switch (id) {
+    case VAEG_CAUSAL_TRANSITION_REQUEST_EMITTED:
+        return "REQUEST_EMITTED";
+    case VAEG_CAUSAL_TRANSITION_REQUEST_ACCEPTED:
+        return "REQUEST_ACCEPTED";
+    case VAEG_CAUSAL_TRANSITION_REQUEST_CONSUMED:
+        return "REQUEST_CONSUMED";
+    case VAEG_CAUSAL_TRANSITION_MOTOR_SETTLE_STARTED:
+        return "MOTOR_SETTLE_STARTED";
+    case VAEG_CAUSAL_TRANSITION_MOTOR_SETTLE_COMPLETED:
+        return "MOTOR_SETTLE_COMPLETED";
+    case VAEG_CAUSAL_TRANSITION_DRIVE_READY_CHANGED:
+        return "DRIVE_READY_CHANGED";
+    case VAEG_CAUSAL_TRANSITION_MEDIA_SENSE_COMPLETED:
+        return "MEDIA_SENSE_COMPLETED";
+    case VAEG_CAUSAL_TRANSITION_RESPONSE_STATUS_WRITTEN:
+        return "RESPONSE_STATUS_WRITTEN";
+    case VAEG_CAUSAL_TRANSITION_MAILBOX_RESPONSE_WRITTEN:
+        return "MAILBOX_RESPONSE_WRITTEN";
+    case VAEG_CAUSAL_TRANSITION_MAILBOX_RESPONSE_CONSUMED:
+        return "MAILBOX_RESPONSE_CONSUMED";
+    case VAEG_CAUSAL_TRANSITION_IRQ_RESPONSE_ASSERTED:
+        return "IRQ_RESPONSE_ASSERTED";
+    case VAEG_CAUSAL_TRANSITION_COMMAND_QUEUE_INSERTED:
+        return "COMMAND_QUEUE_INSERTED";
+    case VAEG_CAUSAL_TRANSITION_FDC_COMMAND_ATTEMPTED:
+        return "FDC_COMMAND_ATTEMPTED";
+    case VAEG_CAUSAL_TRANSITION_FDC_COMMAND_ISSUED:
+        return "FDC_COMMAND_ISSUED";
+    case VAEG_CAUSAL_TRANSITION_FDC_COMMAND_REJECTED:
+        return "FDC_COMMAND_REJECTED";
+    default:
+        return "UNKNOWN";
+    }
+}
+
+static const char *cause_name(uint32_t id) {
+    switch (id) {
+    case VAEG_CAUSAL_CAUSE_REQUEST:
+        return "request";
+    case VAEG_CAUSAL_CAUSE_HANDSHAKE:
+        return "handshake";
+    case VAEG_CAUSAL_CAUSE_SCHEDULER:
+        return "scheduler";
+    case VAEG_CAUSAL_CAUSE_TIMER:
+        return "timer";
+    case VAEG_CAUSAL_CAUSE_DRIVE:
+        return "drive";
+    case VAEG_CAUSAL_CAUSE_MEDIA:
+        return "media";
+    case VAEG_CAUSAL_CAUSE_COMMAND:
+        return "command";
+    case VAEG_CAUSAL_CAUSE_DMA:
+        return "dma";
+    case VAEG_CAUSAL_CAUSE_FDC_RESULT:
+        return "fdc-result";
+    default:
+        return "unknown";
+    }
+}
 
 static int is_all(const char *text) {
     return (text != NULL) &&
@@ -159,7 +310,7 @@ static int event_class_known(const char *event_class) {
         "cpu_step", "io_read", "io_write", "mem_read", "mem_write",
         "irq_assert", "irq_clear", "irq_accept", "device_schedule", "mailbox",
         "drive_state", "fdc_command", "fdc_position", "sector_transfer", "dma",
-        "instruction_fetch_correlation", "stop"
+        "instruction_fetch_correlation", "state_transition", "stop"
     };
     size_t index;
 
@@ -481,10 +632,12 @@ void vaeg_causal_trace_cpu_step(uint32_t step, uint16_t cs, uint16_t ip,
                      "\"ax\":%u,\"bx\":%u,\"cx\":%u,\"dx\":%u,\"si\":%u,"
                      "\"di\":%u,\"bp\":%u,\"sp\":%u,\"es\":%u,"
                      "\"ss\":%u,\"ds\":%u,\"flags\":%u,\"if\":%u,"
-                     "\"memory\":%u}",
+                     "\"memory\":%u",
                      step, cs, ip, physical, opcode, ax, bx, cx, dx, si, di, bp,
                      sp, es, ss, ds, flags, (flags & 0x0200U) ? 1U : 0U,
-                     memory_backend)) {
+                     memory_backend) ||
+        !append_text(line, sizeof(line), &used, ",\"correlation\":%u}",
+                     causal_state.current_request_id)) {
         causal_state.stop_requested = 1;
         emit_stop("line-overflow");
         return;
@@ -511,8 +664,11 @@ void vaeg_causal_trace_named(const char *event_class, const char *actor,
         !append_text(line, sizeof(line), &used, ",\"phase\":") ||
         !append_json(line, sizeof(line), &used, phase) ||
         !append_text(line, sizeof(line), &used,
-                     ",\"address\":%u,\"value\":%u,\"width\":%u}",
-                     address, value, width)) {
+                     ",\"address\":%u,\"value\":%u,\"width\":%u",
+                     address, value, width) ||
+        !append_text(line, sizeof(line), &used, ",\"correlation\":%u",
+                     causal_state.current_request_id) ||
+        !append_text(line, sizeof(line), &used, "}")) {
         causal_state.stop_requested = 1;
         emit_stop("line-overflow");
         return;
@@ -544,4 +700,72 @@ void vaeg_causal_trace_sector_transfer(const char *phase, uint32_t destination,
     }
     vaeg_causal_trace_named("sector_transfer", "fdc", "fdd", phase, destination,
                             byte_count, status);
+}
+
+uint32_t vaeg_causal_trace_request_begin(uint32_t producer_site_id) {
+    uint32_t request_id;
+
+    if (!vaeg_causal_trace_active()) {
+        return 0;
+    }
+    request_id = ++causal_state.next_request_id;
+    if (request_id == 0) {
+        request_stop("request-id-limit");
+        emit_stop("request-id-limit");
+        return 0;
+    }
+    causal_state.current_request_id = request_id;
+    vaeg_causal_trace_state_transition(
+        VAEG_CAUSAL_COMPONENT_MAIN_CPU, VAEG_CAUSAL_FIELD_REQUEST_PHASE, 0, 1,
+        VAEG_CAUSAL_CAUSE_REQUEST, producer_site_id,
+        VAEG_CAUSAL_TRANSITION_REQUEST_EMITTED,
+        VAEG_CAUSAL_PREDICATE_TRUE);
+    return request_id;
+}
+
+void vaeg_causal_trace_request_bind(uint32_t request_id) {
+    if (vaeg_causal_trace_active()) {
+        causal_state.current_request_id = request_id;
+    }
+}
+
+uint32_t vaeg_causal_trace_request_current(void) {
+    return causal_state.current_request_id;
+}
+
+void vaeg_causal_trace_state_transition(uint32_t component_id, uint32_t field_id,
+                                         uint32_t old_state, uint32_t new_state,
+                                         uint32_t cause_id, uint32_t producer_site_id,
+                                         uint32_t transition_id, int predicate) {
+    char line[CAUSAL_LINE_SIZE];
+    size_t used = 0;
+    const char *component = component_name(component_id);
+
+    if (!event_allowed("state_transition", component, component, 0) ||
+        !event_begin(line, sizeof(line), &used, "state_transition")) {
+        return;
+    }
+    if (!append_text(line, sizeof(line), &used,
+                     ",\"step\":%u,\"component\":",
+                     causal_state.step) ||
+        !append_json(line, sizeof(line), &used, component) ||
+        !append_text(line, sizeof(line), &used, ",\"field\":") ||
+        !append_json(line, sizeof(line), &used, field_name(field_id)) ||
+        !append_text(line, sizeof(line), &used,
+                     ",\"old\":%u,\"new\":%u,\"cause\":",
+                     old_state, new_state) ||
+        !append_json(line, sizeof(line), &used, cause_name(cause_id)) ||
+        !append_text(line, sizeof(line), &used, ",\"producer\":") ||
+        !append_json(line, sizeof(line), &used, producer_site_name(producer_site_id)) ||
+        !append_text(line, sizeof(line), &used,
+                     ",\"transition\":") ||
+        !append_json(line, sizeof(line), &used, transition_name(transition_id)) ||
+        !append_text(line, sizeof(line), &used,
+                     ",\"correlation\":%u,\"predicate\":%d}",
+                     causal_state.current_request_id, predicate)) {
+        causal_state.stop_requested = 1;
+        emit_stop("line-overflow");
+        return;
+    }
+    event_finish(line);
 }
