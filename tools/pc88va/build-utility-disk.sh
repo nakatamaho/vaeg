@@ -646,7 +646,7 @@ while IFS=$'\t' read -r executable_name before_size; do
 	((after_size <= before_size)) ||
 		die "DIET increased the size of $executable_name"
 	((diet_processed += 1))
-	((diet_saved += before_size - after_size))
+	diet_saved=$((diet_saved + before_size - after_size))
 done < "$diet_manifest"
 ((diet_processed > 0)) || die 'no BIN executables were available for DIET'
 
