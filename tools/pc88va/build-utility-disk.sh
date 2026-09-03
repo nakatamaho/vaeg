@@ -673,11 +673,11 @@ printf '%s\r\n' \
 	'DEVICE = A:\SYS\RDEMS.SYS -P128 -A' \
 	'DEVICE = A:\SYS\RDPCM.SYS' >"$payload_dir/root/CONFIG.SYS"
 
-grep -Fqx 'DEVICE = A:\SYS\MSE352B.COM /A /B' "$payload_dir/root/CONFIG.SYS" ||
+grep -Fqx $'DEVICE = A:\\SYS\\MSE352B.COM /A /B\r' "$payload_dir/root/CONFIG.SYS" ||
 	die 'generated CONFIG.SYS is missing the MSE BMS /A /B switches'
-grep -Fqx 'DEVICE = A:\SYS\RDBMS.SYS -P1D0 -S2' "$payload_dir/root/CONFIG.SYS" ||
+grep -Fqx $'DEVICE = A:\\SYS\\RDBMS.SYS -P1D0 -S2\r' "$payload_dir/root/CONFIG.SYS" ||
 	die 'generated CONFIG.SYS is missing the RDBMS bank-start switch'
-grep -Fqx 'DEVICE = A:\SYS\RDEMS.SYS -P128 -A' "$payload_dir/root/CONFIG.SYS" ||
+grep -Fqx $'DEVICE = A:\\SYS\\RDEMS.SYS -P128 -A\r' "$payload_dir/root/CONFIG.SYS" ||
 	die 'generated CONFIG.SYS is missing the 2MB RDEMS setting'
 
 printf '%s\r\n' \
