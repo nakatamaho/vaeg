@@ -4,9 +4,10 @@
 
 88VA Eternal Grafx, or `vaeg`, is a maintained fork developed by Shinra from
 the abandoned `project-vaeg` PC-88VA emulator lineage, itself derived from
-Neko Project II. This fork is the living tree: the
+Neko Project II. This fork is an actively maintained continuation of that
+lineage, while the
 [original project-vaeg repository](https://github.com/project-vaeg/vaeg)
-should be treated as historical source material, not as the active project.
+remains a useful historical reference.
 
 ![VAEG](docs/images/vaeg-20260903-122323-0000052767-000.png)
 
@@ -39,11 +40,15 @@ should be treated as historical source material, not as the active project.
 - EMS support;
 - main-memory and BMS compatibility;
 - host text copy and paste;
-- more hardware-like sound through ymfm;
+- more hardware-like sound through [ymfm](https://github.com/aaronsgiles/ymfm);
 - Kana/Romaji input support;
 - US keyboard layout support;
-- more faithful uPD9002 instruction support (BRKEM only);
-- a uPD70008-compatible Z80 emulation path;
+- more faithful uPD9002 instruction support, tested against the
+  [SingleStepTests V20](https://github.com/SingleStepTests/v20) corpus;
+- a uPD70008-compatible Z80 emulation path for `BRKEM`, using the
+  pinned [MIT-licensed SuzukiPlan Z80 emulator](https://github.com/suzukiplan/z80);
+  the former Z80 core with unclear licensing is no longer part of the active
+  tree, and `BRKEM2` is not yet supported;
 - optional on-screen graphics and text-sprite diagnostics;
 - simple CRT screen effects;
 - substantially reorganized and simplified code;
@@ -560,9 +565,11 @@ a replacement for the original notices, source headers, and license files.
   `external/ymfm/` and is licensed under the 3-clause BSD license. See
   `external/ymfm/LICENSE` and
   `docs/agents/DECISIONS/ADR-0009-opn-backend.md`.
-- suzukiplan/z80 is vendored under `external/suzukiplan-z80/` and is
-  licensed under the MIT license. Its vaeg-required IRQ extension is
-  reproduced from the approved downstream patch. See
+- [suzukiplan/z80](https://github.com/suzukiplan/z80) is vendored under
+  `external/suzukiplan-z80/` and is licensed under the MIT license. Its
+  vaeg-required IRQ extension is reproduced from the approved downstream
+  patch. The formerly used Z80 files with unclear licensing are absent from
+  the active tree. See
   `external/suzukiplan-z80/LICENSE.txt`,
   `external/suzukiplan-z80/provenance.txt`, and
   `docs/agents/DECISIONS/ADR-0011-z80-migration.md`.
