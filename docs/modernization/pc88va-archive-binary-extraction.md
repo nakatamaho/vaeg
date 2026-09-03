@@ -28,7 +28,7 @@ supplemental Softlib disk; extraction only adds a directly runnable copy.
 
 ## Development FDD and SASI HDD
 
-`tools/pc88va/build-development-disk.sh` now unpacks these packages into the
+`tools/pc88va/build-utility-disk.sh` now unpacks these packages into the
 development payload:
 
 | source archive | installed files |

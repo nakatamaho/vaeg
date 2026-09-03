@@ -526,7 +526,7 @@ The repository provides two shell-script entry points. First,
 creates a `FORMAT /S`-like PC-Engine 1.1 disk containing only the original IPL
 and required `ENGINEIO.SYS`, `PCENGINE.SYS`, `ADVGBIOS.SYS`, and
 `PCENGINE.COM`. Second,
-[`tools/pc88va/build-development-disk.sh`](../../tools/pc88va/build-development-disk.sh)
+[`tools/pc88va/build-utility-disk.sh`](../../tools/pc88va/build-utility-disk.sh)
 creates that vanilla disk in a temporary directory and installs the development
 environment on top of it.
 
@@ -555,7 +555,7 @@ tools/pc88va/create-vanilla-system-disk.sh \
 To create the complete development disk, run:
 
 ```sh
-tools/pc88va/build-development-disk.sh \
+tools/pc88va/build-utility-disk.sh \
   --source /path/to/user-supplied-pcengine-1.1.d88 \
   --output /path/to/pc88va-development.d88
 ```

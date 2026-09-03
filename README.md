@@ -285,7 +285,7 @@ disk or SASI HDD image. Inputs are shared through
 To make a bootable utility D88:
 
 ```sh
-tools/pc88va/build-development-disk.sh \
+tools/pc88va/build-utility-disk.sh \
   --source /path/to/your-pc-engine-boot-disk.d88 \
   --output /path/to/pc88va-development.d88
 ```
