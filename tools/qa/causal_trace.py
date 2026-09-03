@@ -53,6 +53,7 @@ EVENT_CLASSES = {
     "dma",
     "instruction_fetch_correlation",
     "state_transition",
+    "mailbox_boundary",
     "stop",
 }
 PRIVATE_TOKENS = ("/Users/", "/home/", "\\Users\\", "private", "rom", "d88")
@@ -71,6 +72,19 @@ EXPECTED_PROVENANCE = (
     ("IRQ_RESPONSE_ASSERTED", "response_irq", "IRQ_RESPONSE_NOT_ASSERTED"),
     ("COMMAND_QUEUE_INSERTED", "command_queue", "COMMAND_QUEUE_NOT_POPULATED"),
     ("FDC_COMMAND_ATTEMPTED", "fdc_attempt", "FDC_ISSUE_PATH_ABSENT"),
+)
+
+MAILBOX_BOUNDARIES = (
+    ("REQUEST_ACCEPTED", "ROUTE_NOT_SELECTED"),
+    ("ROUTE_SELECTED", "ROUTE_NOT_SELECTED"),
+    ("MAILBOX_ENQUEUE_ATTEMPTED", "ENQUEUE_NOT_ATTEMPTED"),
+    ("MAILBOX_ENQUEUE_COMMITTED", "MAILBOX_WRITE_NOT_COMMITTED"),
+    ("MAILBOX_REQUEST_VISIBLE", "MAILBOX_REQUEST_NOT_VISIBLE"),
+    ("SUBSYSTEM_DISPATCHED", "SUBSYSTEM_NOT_SCHEDULED"),
+    ("MAILBOX_DEQUEUE_ATTEMPTED", "DEQUEUE_NOT_ATTEMPTED"),
+    ("CONSUMER_CALLBACK_ENTERED", "CONSUMER_CALLBACK_NOT_INVOKED"),
+    ("REQUEST_CONSUMED", "REQUEST_CONSUMED_STATE_NOT_WRITTEN"),
+    ("RESPONSE_ELIGIBLE", "REQUEST_CONSUMED_STATE_NOT_WRITTEN"),
 )
 
 
@@ -113,6 +127,22 @@ def load_trace(path: pathlib.Path) -> list[dict[str, Any]]:
                 raise CausalTraceError("state transition correlation is invalid")
             if not isinstance(record["predicate"], int) or not -1 <= record["predicate"] <= 2:
                 raise CausalTraceError("state transition predicate is invalid")
+        if event_class == "mailbox_boundary":
+            required = {
+                "step", "boundary", "producer", "consumer", "channel",
+                "predecessor", "correlation", "predicate", "reason",
+            }
+            if not required.issubset(record):
+                raise CausalTraceError("mailbox boundary lacks provenance fields")
+            for field in ("boundary", "producer", "consumer", "channel",
+                          "predecessor", "reason"):
+                if not isinstance(record[field], str) or not record[field]:
+                    raise CausalTraceError(
+                        f"mailbox boundary {field} is invalid")
+            if not isinstance(record["correlation"], int) or record["correlation"] < 0:
+                raise CausalTraceError("mailbox boundary correlation is invalid")
+            if not isinstance(record["predicate"], int) or not -1 <= record["predicate"] <= 2:
+                raise CausalTraceError("mailbox boundary predicate is invalid")
         if event_class == "stop":
             stop_count += 1
     if stop_count != 1 or records[-1].get("class") != "stop":
@@ -258,6 +288,83 @@ def provenance_diagnostic(records: list[dict[str, Any]]) -> dict[str, Any]:
             {record.get("producer") for record in transitions
              if isinstance(record.get("producer"), str)}
         ),
+    }
+
+
+def mailbox_consumer_diagnostic(records: list[dict[str, Any]]) -> dict[str, Any]:
+    """Analyze the source boundaries of one correlated mailbox request."""
+    boundaries = [
+        record for record in records if record.get("class") == "mailbox_boundary"
+    ]
+    request_records: dict[int, list[dict[str, Any]]] = {}
+    for record in boundaries:
+        correlation = record.get("correlation")
+        if isinstance(correlation, int) and correlation != 0:
+            request_records.setdefault(correlation, []).append(record)
+    correlations = sorted(request_records)
+    zero_correlation_records = [
+        record for record in boundaries if record.get("correlation") == 0
+    ]
+    selected_correlation = None
+    if request_records:
+        selected_correlation = min(
+            request_records,
+            key=lambda correlation: (-len(request_records[correlation]), correlation),
+        )
+    selected = request_records.get(selected_correlation, [])
+    by_name: dict[str, list[dict[str, Any]]] = {}
+    for record in selected:
+        by_name.setdefault(record["boundary"], []).append(record)
+    mandatory = MAILBOX_BOUNDARIES[:9]
+    mandatory_names = {name for name, _ in mandatory}
+    mandatory_records = [record for record in selected
+                         if record["boundary"] in mandatory_names]
+    continuity = bool(selected) and all(
+        isinstance(record.get("correlation"), int) and
+        record.get("correlation") == selected_correlation
+        for record in mandatory_records
+    )
+    reached: dict[str, bool] = {}
+    first_absent: str | None = None
+    first_unmet: str | None = None
+    classification = "TELEMETRY_SEMANTICS_MISMATCH"
+    for name, candidate in MAILBOX_BOUNDARIES:
+        observed = by_name.get(name, [])
+        good = any(record.get("predicate") == 1 for record in observed)
+        reached[name] = good
+        if not good and first_absent is None:
+            first_absent = name
+            first_unmet = name
+            classification = candidate
+    if first_absent is None and not selected:
+        first_absent = MAILBOX_BOUNDARIES[0][0]
+        first_unmet = first_absent
+        classification = MAILBOX_BOUNDARIES[0][1]
+    if zero_correlation_records or (not continuity and mandatory_records):
+        classification = "CORRELATION_PROPAGATION_DEFECT"
+    if all(reached.get(name, False) for name, _ in mandatory):
+        classification = "REQUEST_CONSUMER_ESTABLISHED"
+    last_reached = None
+    for name, _ in MAILBOX_BOUNDARIES:
+        if reached.get(name, False):
+            last_reached = name
+        else:
+            break
+    return {
+        "reached": reached,
+        "last_reached_boundary": last_reached,
+        "first_absent_boundary": first_absent,
+        "first_unmet_predicate": first_unmet,
+        "correlation_ids": correlations,
+        "selected_correlation": selected_correlation,
+        "correlation_continuity": continuity,
+        "classification": classification,
+        "boundary_count": len(selected),
+        "request_count": len(correlations),
+        "per_request_boundary_counts": {
+            str(correlation): len(request_records[correlation])
+            for correlation in correlations
+        },
     }
 
 
@@ -527,6 +634,48 @@ def selftest() -> None:
         pass
     else:
         raise AssertionError("private leakage selftest failed")
+    mailbox = [synthetic[0]] + [
+        {
+            "seq": index,
+            "class": "mailbox_boundary",
+            "step": index,
+            "boundary": name,
+            "producer": "stable_producer",
+            "consumer": "stable_consumer",
+            "channel": "stable-channel",
+            "predecessor": "none" if index == 0 else MAILBOX_BOUNDARIES[index - 1][0],
+            "correlation": 1,
+            "predicate": 1,
+            "reason": "synthetic",
+        }
+        for index, (name, _) in enumerate(MAILBOX_BOUNDARIES)
+    ] + [{"seq": 10, "class": "stop", "reason": "bound", "events": 10}]
+    mailbox_diagnostic = mailbox_consumer_diagnostic(mailbox)
+    if (mailbox_diagnostic["classification"] != "REQUEST_CONSUMER_ESTABLISHED" or
+            not mailbox_diagnostic["correlation_continuity"]):
+        raise AssertionError("mailbox boundary selftest failed")
+    incomplete = mailbox[:1] + mailbox[1:5] + [
+        {"seq": 5, "class": "stop", "reason": "bound", "events": 4}
+    ]
+    incomplete_diagnostic = mailbox_consumer_diagnostic(incomplete)
+    if incomplete_diagnostic["classification"] != "MAILBOX_REQUEST_NOT_VISIBLE":
+        raise AssertionError("mailbox first-absent selftest failed")
+    multi_mailbox = [mailbox[0]] + mailbox[1:-1] + [
+        dict(mailbox[index], seq=index + 10, correlation=2)
+        for index in range(1, 11)
+    ] + [{"seq": 20, "class": "stop", "reason": "bound", "events": 20}]
+    multi_mailbox_diagnostic = mailbox_consumer_diagnostic(multi_mailbox)
+    if (multi_mailbox_diagnostic["classification"] != "REQUEST_CONSUMER_ESTABLISHED" or
+            multi_mailbox_diagnostic["request_count"] != 2 or
+            not multi_mailbox_diagnostic["correlation_continuity"]):
+        raise AssertionError("multiple mailbox correlation selftest failed")
+    zero_mailbox = mailbox[:1] + [
+        dict(mailbox[1], correlation=0),
+        mailbox[2],
+        {"seq": 2, "class": "stop", "reason": "bound", "events": 2},
+    ]
+    if mailbox_consumer_diagnostic(zero_mailbox)["classification"] != "CORRELATION_PROPAGATION_DEFECT":
+        raise AssertionError("zero mailbox correlation selftest failed")
     print("causal trace analyzer selftest passed")
 
 
@@ -543,6 +692,8 @@ def parse_arguments() -> argparse.Namespace:
     summary.add_argument("--compare")
     provenance = subparsers.add_parser("provenance")
     provenance.add_argument("trace")
+    mailbox = subparsers.add_parser("mailbox")
+    mailbox.add_argument("trace")
     privacy = subparsers.add_parser("privacy-check")
     privacy.add_argument("paths", nargs="+")
     subparsers.add_parser("selftest")
@@ -566,6 +717,10 @@ def main() -> int:
         elif arguments.command == "provenance":
             records = load_trace(pathlib.Path(arguments.trace))
             print(json.dumps(provenance_diagnostic(records), sort_keys=True,
+                             separators=(",", ":"), ensure_ascii=True))
+        elif arguments.command == "mailbox":
+            records = load_trace(pathlib.Path(arguments.trace))
+            print(json.dumps(mailbox_consumer_diagnostic(records), sort_keys=True,
                              separators=(",", ":"), ensure_ascii=True))
         elif arguments.command == "privacy-check":
             verify_public_paths([pathlib.Path(path) for path in arguments.paths])

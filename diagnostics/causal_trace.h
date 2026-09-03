@@ -83,8 +83,63 @@ typedef enum {
     VAEG_CAUSAL_SITE_FDC_ATTEMPT = 13,
     VAEG_CAUSAL_SITE_FDC_ISSUE = 14,
     VAEG_CAUSAL_SITE_FDC_REJECT = 15,
-    VAEG_CAUSAL_SITE_SECTOR_TRANSFER = 16
+    VAEG_CAUSAL_SITE_SECTOR_TRANSFER = 16,
+    VAEG_CAUSAL_SITE_MAILBOX_ROUTE = 17,
+    VAEG_CAUSAL_SITE_MAILBOX_ENQUEUE = 18,
+    VAEG_CAUSAL_SITE_MAILBOX_VISIBILITY = 19,
+    VAEG_CAUSAL_SITE_SUBSYSTEM_DISPATCH = 20,
+    VAEG_CAUSAL_SITE_MAILBOX_DEQUEUE = 21,
+    VAEG_CAUSAL_SITE_SUBSYSTEM_CALLBACK = 22
 } VAEG_CAUSAL_PRODUCER_SITE_ID;
+
+typedef enum {
+    VAEG_CAUSAL_CONSUMER_NONE = 0,
+    VAEG_CAUSAL_CONSUMER_REQUEST_ACCEPTOR = 1,
+    VAEG_CAUSAL_CONSUMER_MAILBOX_ROUTE = 2,
+    VAEG_CAUSAL_CONSUMER_MAILBOX_ENQUEUE = 3,
+    VAEG_CAUSAL_CONSUMER_MAILBOX_STORAGE = 4,
+    VAEG_CAUSAL_CONSUMER_SUBSYSTEM_SCHEDULER = 5,
+    VAEG_CAUSAL_CONSUMER_MAILBOX_DEQUEUE = 6,
+    VAEG_CAUSAL_CONSUMER_SUBSYSTEM_CALLBACK = 7,
+    VAEG_CAUSAL_CONSUMER_REQUEST_STATE = 8,
+    VAEG_CAUSAL_CONSUMER_RESPONSE_ELIGIBILITY = 9
+} VAEG_CAUSAL_CONSUMER_ID;
+
+typedef enum {
+    VAEG_CAUSAL_CHANNEL_NONE = 0,
+    VAEG_CAUSAL_CHANNEL_MAIN_TO_SUBSYSTEM = 1,
+    VAEG_CAUSAL_CHANNEL_MAIN_MAILBOX = 2,
+    VAEG_CAUSAL_CHANNEL_SUBSYSTEM_MAILBOX = 3
+} VAEG_CAUSAL_CHANNEL_ID;
+
+typedef enum {
+    VAEG_CAUSAL_MAILBOX_BOUNDARY_REQUEST_ACCEPTED = 1,
+    VAEG_CAUSAL_MAILBOX_BOUNDARY_ROUTE_SELECTED = 2,
+    VAEG_CAUSAL_MAILBOX_BOUNDARY_ENQUEUE_ATTEMPTED = 3,
+    VAEG_CAUSAL_MAILBOX_BOUNDARY_ENQUEUE_COMMITTED = 4,
+    VAEG_CAUSAL_MAILBOX_BOUNDARY_REQUEST_VISIBLE = 5,
+    VAEG_CAUSAL_MAILBOX_BOUNDARY_SUBSYSTEM_DISPATCHED = 6,
+    VAEG_CAUSAL_MAILBOX_BOUNDARY_DEQUEUE_ATTEMPTED = 7,
+    VAEG_CAUSAL_MAILBOX_BOUNDARY_CALLBACK_ENTERED = 8,
+    VAEG_CAUSAL_MAILBOX_BOUNDARY_REQUEST_CONSUMED = 9,
+    VAEG_CAUSAL_MAILBOX_BOUNDARY_RESPONSE_ELIGIBLE = 10
+} VAEG_CAUSAL_MAILBOX_BOUNDARY_ID;
+
+typedef enum {
+    VAEG_CAUSAL_MAILBOX_REASON_NONE = 0,
+    VAEG_CAUSAL_MAILBOX_REASON_ACCEPTED = 1,
+    VAEG_CAUSAL_MAILBOX_REASON_ROUTED = 2,
+    VAEG_CAUSAL_MAILBOX_REASON_ATTEMPTED = 3,
+    VAEG_CAUSAL_MAILBOX_REASON_COMMITTED = 4,
+    VAEG_CAUSAL_MAILBOX_REASON_VISIBLE = 5,
+    VAEG_CAUSAL_MAILBOX_REASON_DISPATCHED = 6,
+    VAEG_CAUSAL_MAILBOX_REASON_DEQUEUE = 7,
+    VAEG_CAUSAL_MAILBOX_REASON_CALLBACK = 8,
+    VAEG_CAUSAL_MAILBOX_REASON_CONSUMED = 9,
+    VAEG_CAUSAL_MAILBOX_REASON_ELIGIBLE = 10,
+    VAEG_CAUSAL_MAILBOX_REASON_REJECTED = 11,
+    VAEG_CAUSAL_MAILBOX_REASON_SKIPPED = 12
+} VAEG_CAUSAL_MAILBOX_REASON_ID;
 
 typedef enum {
     VAEG_CAUSAL_TRANSITION_REQUEST_EMITTED = 1,
@@ -156,6 +211,13 @@ void vaeg_causal_trace_state_transition(uint32_t component_id, uint32_t field_id
                                          uint32_t old_state, uint32_t new_state,
                                          uint32_t cause_id, uint32_t producer_site_id,
                                          uint32_t transition_id, int predicate);
+void vaeg_causal_trace_mailbox_boundary(uint32_t boundary_id,
+                                        uint32_t producer_site_id,
+                                        uint32_t consumer_id,
+                                        uint32_t channel_id,
+                                        uint32_t predecessor_id,
+                                        int predicate,
+                                        uint32_t reason_id);
 
 #else
 
@@ -187,6 +249,10 @@ void vaeg_causal_trace_state_transition(uint32_t component_id, uint32_t field_id
                                             cause_id, producer_site_id, transition_id, predicate) \
     ((void)(component_id), (void)(field_id), (void)(old_state), (void)(new_state), \
      (void)(cause_id), (void)(producer_site_id), (void)(transition_id), (void)(predicate))
+#define vaeg_causal_trace_mailbox_boundary(boundary_id, producer_site_id, consumer_id, \
+                                           channel_id, predecessor_id, predicate, reason_id) \
+    ((void)(boundary_id), (void)(producer_site_id), (void)(consumer_id), \
+     (void)(channel_id), (void)(predecessor_id), (void)(predicate), (void)(reason_id))
 
 #endif
 

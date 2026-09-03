@@ -1547,6 +1547,7 @@ if(VAEG_Z80_COMPAT_INTEGRATION_TRACE)
             "${CMAKE_CURRENT_SOURCE_DIR}/diagnostics/causal_trace.h"
             "${CMAKE_CURRENT_SOURCE_DIR}/diagnostics/causal_trace.c"
             "${CMAKE_CURRENT_SOURCE_DIR}/diagnostics/causal-trace.schema.json"
+            "${CMAKE_CURRENT_SOURCE_DIR}/docs/modernization/subsystem-request-consumer-gate.md"
             "${CMAKE_CURRENT_SOURCE_DIR}/docs/modernization/subsystem-response-provenance.md"
             "${CMAKE_CURRENT_SOURCE_DIR}/docs/modernization/m07ir3-status.md")
     set_tests_properties(vaeg_causal_trace_public_privacy PROPERTIES

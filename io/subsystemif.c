@@ -79,6 +79,14 @@ static void subif_trace_set_portc(REG8 dat) {
 }
 
 static void IOOUTCALL subsystemif_o0fd(UINT port, REG8 dat) {
+	vaeg_causal_trace_mailbox_boundary(
+	    VAEG_CAUSAL_MAILBOX_BOUNDARY_ENQUEUE_ATTEMPTED,
+	    VAEG_CAUSAL_SITE_MAIN_REQUEST_EMITTER,
+	    VAEG_CAUSAL_CONSUMER_MAILBOX_ENQUEUE,
+	    VAEG_CAUSAL_CHANNEL_MAIN_MAILBOX,
+	    VAEG_CAUSAL_MAILBOX_BOUNDARY_ROUTE_SELECTED,
+	    VAEG_CAUSAL_PREDICATE_TRUE,
+	    VAEG_CAUSAL_MAILBOX_REASON_ATTEMPTED);
 	vaeg_causal_trace_named("mailbox", "main-cpu", "fd-subsystem", "write",
 	                       port, dat, 1);
 	subif_trace_portb = dat;
@@ -87,10 +95,6 @@ static void IOOUTCALL subsystemif_o0fd(UINT port, REG8 dat) {
 }
 
 static void IOOUTCALL subsystemif_o0fe(UINT port, REG8 dat) {
-	if (!(subif_trace_portc & SUBIF_MAIN_ATN) && (dat & SUBIF_MAIN_ATN)) {
-		(void)vaeg_causal_trace_request_begin(
-		    VAEG_CAUSAL_SITE_MAIN_REQUEST_EMITTER);
-	}
 	vaeg_causal_trace_named("mailbox", "main-cpu", "fd-subsystem", "handshake",
 	                       port, dat, 1);
 	subif_trace_set_portc(dat);

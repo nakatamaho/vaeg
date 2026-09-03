@@ -149,6 +149,124 @@ static const char *producer_site_name(uint32_t id) {
         return "fdc_reject";
     case VAEG_CAUSAL_SITE_SECTOR_TRANSFER:
         return "sector_transfer";
+    case VAEG_CAUSAL_SITE_MAILBOX_ROUTE:
+        return "mailbox_route";
+    case VAEG_CAUSAL_SITE_MAILBOX_ENQUEUE:
+        return "mailbox_enqueue";
+    case VAEG_CAUSAL_SITE_MAILBOX_VISIBILITY:
+        return "mailbox_visibility";
+    case VAEG_CAUSAL_SITE_SUBSYSTEM_DISPATCH:
+        return "subsystem_dispatch";
+    case VAEG_CAUSAL_SITE_MAILBOX_DEQUEUE:
+        return "mailbox_dequeue";
+    case VAEG_CAUSAL_SITE_SUBSYSTEM_CALLBACK:
+        return "subsystem_callback";
+    default:
+        return "unknown";
+    }
+}
+
+static const char *consumer_name(uint32_t id) {
+    switch (id) {
+    case VAEG_CAUSAL_CONSUMER_NONE:
+        return "none";
+    case VAEG_CAUSAL_CONSUMER_REQUEST_ACCEPTOR:
+        return "request_acceptor";
+    case VAEG_CAUSAL_CONSUMER_MAILBOX_ROUTE:
+        return "mailbox_route";
+    case VAEG_CAUSAL_CONSUMER_MAILBOX_ENQUEUE:
+        return "mailbox_enqueue";
+    case VAEG_CAUSAL_CONSUMER_MAILBOX_STORAGE:
+        return "mailbox_storage";
+    case VAEG_CAUSAL_CONSUMER_SUBSYSTEM_SCHEDULER:
+        return "subsystem_scheduler";
+    case VAEG_CAUSAL_CONSUMER_MAILBOX_DEQUEUE:
+        return "mailbox_dequeue";
+    case VAEG_CAUSAL_CONSUMER_SUBSYSTEM_CALLBACK:
+        return "subsystem_callback";
+    case VAEG_CAUSAL_CONSUMER_REQUEST_STATE:
+        return "request_state";
+    case VAEG_CAUSAL_CONSUMER_RESPONSE_ELIGIBILITY:
+        return "response_eligibility";
+    default:
+        return "unknown";
+    }
+}
+
+static const char *channel_name(uint32_t id) {
+    switch (id) {
+    case VAEG_CAUSAL_CHANNEL_NONE:
+        return "none";
+    case VAEG_CAUSAL_CHANNEL_MAIN_TO_SUBSYSTEM:
+        return "main-to-subsystem";
+    case VAEG_CAUSAL_CHANNEL_MAIN_MAILBOX:
+        return "main-mailbox";
+    case VAEG_CAUSAL_CHANNEL_SUBSYSTEM_MAILBOX:
+        return "subsystem-mailbox";
+    default:
+        return "unknown";
+    }
+}
+
+static const char *mailbox_boundary_name(uint32_t id) {
+    switch (id) {
+    case VAEG_CAUSAL_MAILBOX_BOUNDARY_REQUEST_ACCEPTED:
+        return "REQUEST_ACCEPTED";
+    case VAEG_CAUSAL_MAILBOX_BOUNDARY_ROUTE_SELECTED:
+        return "ROUTE_SELECTED";
+    case VAEG_CAUSAL_MAILBOX_BOUNDARY_ENQUEUE_ATTEMPTED:
+        return "MAILBOX_ENQUEUE_ATTEMPTED";
+    case VAEG_CAUSAL_MAILBOX_BOUNDARY_ENQUEUE_COMMITTED:
+        return "MAILBOX_ENQUEUE_COMMITTED";
+    case VAEG_CAUSAL_MAILBOX_BOUNDARY_REQUEST_VISIBLE:
+        return "MAILBOX_REQUEST_VISIBLE";
+    case VAEG_CAUSAL_MAILBOX_BOUNDARY_SUBSYSTEM_DISPATCHED:
+        return "SUBSYSTEM_DISPATCHED";
+    case VAEG_CAUSAL_MAILBOX_BOUNDARY_DEQUEUE_ATTEMPTED:
+        return "MAILBOX_DEQUEUE_ATTEMPTED";
+    case VAEG_CAUSAL_MAILBOX_BOUNDARY_CALLBACK_ENTERED:
+        return "CONSUMER_CALLBACK_ENTERED";
+    case VAEG_CAUSAL_MAILBOX_BOUNDARY_REQUEST_CONSUMED:
+        return "REQUEST_CONSUMED";
+    case VAEG_CAUSAL_MAILBOX_BOUNDARY_RESPONSE_ELIGIBLE:
+        return "RESPONSE_ELIGIBLE";
+    default:
+        return "UNKNOWN";
+    }
+}
+
+static const char *mailbox_predecessor_name(uint32_t id) {
+	return id == 0 ? "none" : mailbox_boundary_name(id);
+}
+
+static const char *mailbox_reason_name(uint32_t id) {
+    switch (id) {
+    case VAEG_CAUSAL_MAILBOX_REASON_NONE:
+        return "none";
+    case VAEG_CAUSAL_MAILBOX_REASON_ACCEPTED:
+        return "accepted";
+    case VAEG_CAUSAL_MAILBOX_REASON_ROUTED:
+        return "routed";
+    case VAEG_CAUSAL_MAILBOX_REASON_ATTEMPTED:
+        return "attempted";
+    case VAEG_CAUSAL_MAILBOX_REASON_COMMITTED:
+        return "committed";
+    case VAEG_CAUSAL_MAILBOX_REASON_VISIBLE:
+        return "visible";
+    case VAEG_CAUSAL_MAILBOX_REASON_DISPATCHED:
+        return "dispatched";
+    case VAEG_CAUSAL_MAILBOX_REASON_DEQUEUE:
+        return "dequeue";
+    case VAEG_CAUSAL_MAILBOX_REASON_CALLBACK:
+        return "callback";
+    case VAEG_CAUSAL_MAILBOX_REASON_CONSUMED:
+        return "consumed";
+    case VAEG_CAUSAL_MAILBOX_REASON_ELIGIBLE:
+        return "eligible";
+    case VAEG_CAUSAL_MAILBOX_REASON_REJECTED:
+        return "rejected";
+    case VAEG_CAUSAL_MAILBOX_REASON_SKIPPED:
+        return "skipped";
     default:
         return "unknown";
     }
@@ -310,7 +428,7 @@ static int event_class_known(const char *event_class) {
         "cpu_step", "io_read", "io_write", "mem_read", "mem_write",
         "irq_assert", "irq_clear", "irq_accept", "device_schedule", "mailbox",
         "drive_state", "fdc_command", "fdc_position", "sector_transfer", "dma",
-        "instruction_fetch_correlation", "state_transition", "stop"
+        "instruction_fetch_correlation", "state_transition", "mailbox_boundary", "stop"
     };
     size_t index;
 
@@ -763,6 +881,44 @@ void vaeg_causal_trace_state_transition(uint32_t component_id, uint32_t field_id
         !append_text(line, sizeof(line), &used,
                      ",\"correlation\":%u,\"predicate\":%d}",
                      causal_state.current_request_id, predicate)) {
+        causal_state.stop_requested = 1;
+        emit_stop("line-overflow");
+        return;
+    }
+    event_finish(line);
+}
+
+void vaeg_causal_trace_mailbox_boundary(uint32_t boundary_id,
+                                        uint32_t producer_site_id,
+                                        uint32_t consumer_id,
+                                        uint32_t channel_id,
+                                        uint32_t predecessor_id,
+                                        int predicate,
+                                        uint32_t reason_id) {
+    char line[CAUSAL_LINE_SIZE];
+    size_t used = 0;
+
+    if (!event_allowed("mailbox_boundary", "mailbox", "fd-subsystem", 0) ||
+        !event_begin(line, sizeof(line), &used, "mailbox_boundary")) {
+        return;
+    }
+    if (!append_text(line, sizeof(line), &used,
+                     ",\"step\":%u,\"boundary\":",
+                     causal_state.step) ||
+        !append_json(line, sizeof(line), &used, mailbox_boundary_name(boundary_id)) ||
+        !append_text(line, sizeof(line), &used, ",\"producer\":") ||
+        !append_json(line, sizeof(line), &used, producer_site_name(producer_site_id)) ||
+        !append_text(line, sizeof(line), &used, ",\"consumer\":") ||
+        !append_json(line, sizeof(line), &used, consumer_name(consumer_id)) ||
+        !append_text(line, sizeof(line), &used, ",\"channel\":") ||
+        !append_json(line, sizeof(line), &used, channel_name(channel_id)) ||
+        !append_text(line, sizeof(line), &used, ",\"predecessor\":") ||
+        !append_json(line, sizeof(line), &used, mailbox_predecessor_name(predecessor_id)) ||
+        !append_text(line, sizeof(line), &used,
+                     ",\"correlation\":%u,\"predicate\":%d,\"reason\":",
+                     causal_state.current_request_id, predicate) ||
+        !append_json(line, sizeof(line), &used, mailbox_reason_name(reason_id)) ||
+        !append_text(line, sizeof(line), &used, "}")) {
         causal_state.stop_requested = 1;
         emit_stop("line-overflow");
         return;
