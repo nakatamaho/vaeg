@@ -293,7 +293,7 @@ tools/pc88va/build-utility-disk.sh \
 To make VA and VA2 SASI HDD images:
 
 ```sh
-tools/pc88va/build-sasi-development-disks.sh \
+tools/pc88va/build-sasi-utility-disks.sh \
   --source-va /path/to/your-va-pc-engine-boot-disk.d88 \
   --source-va2 /path/to/your-va2-pc-engine-boot-disk.d88 \
   --output-dir /path/to/pc88va-sasi
@@ -330,7 +330,7 @@ directories and build a new HDI from the matching PC-Engine source disk:
 mkdir -p /private/tmp/vaeg-sasi-payload/BIN
 cp /path/to/README.TXT /private/tmp/vaeg-sasi-payload/BIN/README.TXT
 
-python3 tools/pc88va/build-sasi-development-disk.py \
+python3 tools/pc88va/build-sasi-utility-disk.py \
   --variant va2 \
   --source /path/to/your-pc-engine-1.1-boot-disk.d88 \
   --supplemental-tree /private/tmp/vaeg-sasi-payload \

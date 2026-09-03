@@ -428,7 +428,7 @@ line).  For an external removable medium, build an explicit profile rather
 than changing the normal boot disk in place:
 
 ```sh
-tools/pc88va/build-sasi-development-disks.sh --scsi-profile mo-128mb
+tools/pc88va/build-sasi-utility-disks.sh --scsi-profile mo-128mb
 ```
 
 `--scsi-profile mo-128mb` or `mo-160mb` adds `-X -D1` to the generated SCHD

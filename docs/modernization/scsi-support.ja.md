@@ -410,7 +410,7 @@ SASI開発ディスクビルダーは、既定で接続済みの160MB固定SCSI�
 使う場合は、通常の起動ディスクを直接変更せず、明示的なプロファイルを作成します。
 
 ```sh
-tools/pc88va/build-sasi-development-disks.sh --scsi-profile mo-128mb
+tools/pc88va/build-sasi-utility-disks.sh --scsi-profile mo-128mb
 ```
 
 `--scsi-profile mo-128mb` または `mo-160mb` は生成されるSCHD行に `-X -D1` を

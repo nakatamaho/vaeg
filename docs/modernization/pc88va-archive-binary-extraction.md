@@ -39,7 +39,7 @@ development payload:
 | `BENCH003.LZH` | `A:\BIN\BENCH.EXE` |
 
 The executable files are passed through the existing DIET step.  The payload
-D88 is the source for `build-sasi-development-disks.sh`, so both the VA and
+D88 is the source for `build-sasi-utility-disks.sh`, so both the VA and
 VA2 40 MB SASI images receive the same extracted files.  The SASI builder's
 LSI-C and CP/M integrations remain unchanged.
 

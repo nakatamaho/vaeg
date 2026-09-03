@@ -888,7 +888,7 @@ PC-88VA/vaeg human checks.
 ## 40 MB SASI Development HDI Builder
 
 For a hard-disk development environment, use
-[`tools/pc88va/build-sasi-development-disks.sh`](../../tools/pc88va/build-sasi-development-disks.sh).
+[`tools/pc88va/build-sasi-utility-disks.sh`](../../tools/pc88va/build-sasi-utility-disks.sh).
 It creates two separate 40 MB SASI HDIs with the same development payload:
 the VA image keeps the PC-Engine 1.05 boot files, and the VA2 image keeps the
 PC-Engine 1.1 boot files. The source D88 images are read-only inputs and are
@@ -940,7 +940,7 @@ The command-line wrapper accepts explicit paths, which is useful because the
 system and development D88 images are normally kept outside Git:
 
 ```sh
-tools/pc88va/build-sasi-development-disks.sh \
+tools/pc88va/build-sasi-utility-disks.sh \
   --source-va "/path/to/PC-Engine 1.05.d88" \
   --source-va2 "/path/to/PC-Engine 1.1.d88" \
   --payload-d88 "/path/to/pc88va-development.d88" \
@@ -958,7 +958,7 @@ The result is:
 
 The output directory is created if necessary, but an existing output file is
 never overwritten. To build one variant directly, use
-`build-sasi-development-disk.py` with `--variant va` or `--variant va2` and
+`build-sasi-utility-disk.py` with `--variant va` or `--variant va2` and
 the same `--source`, `--payload-d88`, and `--output` options. Without
 `--payload-d88`, the direct builder intentionally creates only the small
 system-plus-`BIN` layout used for layout tests; it is not the complete

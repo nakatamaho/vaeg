@@ -28,7 +28,7 @@ Language: [English](pc88va-mo-support.md) | [日本語 SCSI procedure](scsi-supp
 
 The PC-88.gr.jp packages for SCHD 1.55T and VA128MO, together with the OSL
 STEST 1.15 package, were audited and are retained as optional reference inputs
-to [`build-sasi-development-disks.sh`](../../tools/pc88va/build-sasi-development-disks.sh).
+to [`build-sasi-utility-disks.sh`](../../tools/pc88va/build-sasi-utility-disks.sh).
 The builder verifies the original archive bytes, keeps each archive under
 `A:\ARCHIVE`, and installs the runnable files and manuals in `A:\SYS`,
 `A:\BIN`, and `A:\DOC` on both the VA and VA2 40 MB development HDIs.  The
@@ -51,7 +51,7 @@ wrapper installs them in both variants alongside the other development
 software:
 
 ```sh
-tools/pc88va/build-sasi-development-disks.sh \
+tools/pc88va/build-sasi-utility-disks.sh \
   --output-dir /private/tmp/pc88va-sasi-mo
 ```
 
@@ -179,7 +179,7 @@ default assumes the attached 160 MB fixed SCSI disk; no removable-media
 policy is added unless requested:
 
 ```sh
-tools/pc88va/build-sasi-development-disks.sh --scsi-profile mo-128mb
+tools/pc88va/build-sasi-utility-disks.sh --scsi-profile mo-128mb
 ```
 
 The builder profiles are `fixed`, `fixed-160mb`, `mo-128mb`, and `mo-160mb`.

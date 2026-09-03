@@ -27,7 +27,7 @@ set -euo pipefail
 program_name=${0##*/}
 script_dir=$(CDPATH= cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 repo_root=$(CDPATH= cd -- "$script_dir/../.." && pwd)
-builder=$script_dir/build-sasi-development-disk.py
+builder=$script_dir/build-sasi-utility-disk.py
 source_va=$repo_root/docs/disks/'PC-Engine 1.05.d88'
 source_va2=$repo_root/docs/disks/'PC-Engine 1.1.d88'
 payload_d88=$repo_root/docs/disks/pc88va-development.d88
