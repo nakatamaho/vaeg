@@ -44,7 +44,9 @@ usage() {
 		'BMSDRVA, EMMVA/SQEMM98/RDEMS,' \
 		'development tools, ISHVA/PKPAK, TENIM3, TFD, SCFORM, VIEW480,' \
 		'JFPPAT, 2HCDRV, FDFORM, X8MAP,' \
-		'K-Launcher, EMACS, CPMVA, TDC, and BENCH binaries.' \
+		'and K-Launcher.' \
+		'The FDD uses the documented compact profile;' \
+		'EMACS/CPMVA/TDC/BENCH and other large collections are SASI-only.' \
 		'The source and generated D88 images are never added to the repository.'
 }
 
@@ -95,7 +97,7 @@ done
 [[ ! -e ${output_d88} ]] || die 'output already exists; refusing to overwrite it'
 [[ -d ${output_d88%/*} || ${output_d88} != */* ]] || die 'output directory does not exist'
 
-for required_command in curl dd dosbox lha nasm od python3 sha256sum tar unzip; do
+for required_command in awk curl dd dosbox lha nasm od python3 sha256sum tar unzip; do
 	command -v "$required_command" >/dev/null 2>&1 ||
 		die "required host command is missing: $required_command"
 done
@@ -271,21 +273,6 @@ fetch_package tfd12.lzh \
 fetch_package tfd12.doc \
 	65380f66c08120fed9e94c508ec491faff8bedc86cd2b48af3d7126c81ec499f \
 	'http://www.pc88.gr.jp/softlib/index.php?action=download&anum=2&gnum=348&fname=TFD12.DOC'
-# These packages contain runnable DOS programs which were previously left
-# inside the supplemental archive disk only.  Extracting their 16-bit
-# executables here keeps the FDD payload and the HDD transplant consistent.
-fetch_package emacsva.lzh \
-	64d496d67668f7d5bd071ff304ed33a689b0795fa793afac9e631346070c8a8a \
-	'http://www.pc88.gr.jp/softlib/index.php?action=download&anum=2&gnum=435&fname=EMACSVA.LZH'
-fetch_package cpmva.lzh \
-	c5188efa73c80609e2184890d5a1ee5f0b274f8d29a3d73ae370fe7526d9dccd \
-	'http://www.pc88.gr.jp/softlib/index.php?action=download&anum=2&gnum=424&fname=CPMVA.LZH'
-fetch_package tdc10.lzh \
-	c6c31cf6a604b07220c88a010bcd2e40cdb009dd4601e7d8a0ad903a4f2df23e \
-	'http://www.pc88.gr.jp/softlib/index.php?action=download&anum=2&gnum=201&fname=TDC10.LZH'
-fetch_package bench003.lzh \
-	40f5fbf391d416a79d843c13e11797abfd8ff49ea45a7d6f8a627cb389d9c79c \
-	'http://www.pc88.gr.jp/softlib/index.php?action=download&anum=2&gnum=389&fname=BENCH003.LZH'
 
 work_dir=$(mktemp -d "${TMPDIR:-/tmp}/vaeg-pc88va-devdisk.XXXXXX")
 
@@ -355,13 +342,28 @@ unzip -q "$cache_dir/jfppat.zip" -d "$work_dir/jfppat"
 mkdir -p -- "$work_dir/2hcdrv"
 unzip -q "$cache_dir/2hcdrv.zip" -d "$work_dir/2hcdrv"
 extract_archive "$cache_dir/fdfrmsrc.lzh" "$work_dir/fdfrmsrc"
-extract_archive "$cache_dir/isharc.com" "$work_dir/isharc"
 extract_archive "$cache_dir/tenim3.com" "$work_dir/tenim3"
 extract_archive "$cache_dir/tfd12.lzh" "$work_dir/tfd12"
-extract_archive "$cache_dir/emacsva.lzh" "$work_dir/emacsva"
-extract_archive "$cache_dir/cpmva.lzh" "$work_dir/cpmva"
-extract_archive "$cache_dir/tdc10.lzh" "$work_dir/tdc10"
-extract_archive "$cache_dir/bench003.lzh" "$work_dir/bench003"
+common_stage_dir=$work_dir/common-tools
+common_stage_manifest=$work_dir/common-tools.manifest.tsv
+"$script_dir/stage-development-tools.sh" --profile fdd \
+	--output "$common_stage_dir" \
+	--manifest "$common_stage_manifest" \
+	--ish-archive "$cache_dir/isharc.com" --ish-doc "$cache_dir/isharc.doc"
+
+manifest_contains() {
+	local relative=$1
+	awk -F '\t' -v wanted="$relative" \
+		'$1 == "fdd" && $2 == wanted {found = 1} END {exit !found}' \
+		"$common_stage_manifest"
+}
+
+for staged_path in \
+	BIN/ISHVA.COM BIN/PKPAK.EXE BIN/PKUNPAK.EXE \
+	DOC/ISHARC.DOC DOC/ISHVA.DOC ARCHIVE/ISHARC.COM; do
+	manifest_contains "$staged_path" ||
+		die "common staging manifest is missing $staged_path"
+done
 add_uppercase_aliases "$work_dir"
 
 stage_dir=$work_dir/stage
@@ -504,19 +506,10 @@ copy_payload "$work_dir/forg/FORG.DAT" bin/FORG.DAT
 copy_payload "$work_dir/scform/SCFORM.COM" bin/SCFORM.COM
 copy_payload "$work_dir/2hcdrv/2HCDRV.COM" bin/2HCDRV.COM
 copy_payload "$work_dir/2hcdrv/FDFORM.COM" bin/FDFORM.COM
-copy_payload "$work_dir/isharc/ISHVA.COM" bin/ISHVA.COM
-copy_payload "$work_dir/isharc/PKPAK.EXE" bin/PKPAK.EXE
-copy_payload "$work_dir/isharc/PKUNPAK.EXE" bin/PKUNPAK.EXE
+copy_payload "$common_stage_dir/BIN/ISHVA.COM" bin/ISHVA.COM
+copy_payload "$common_stage_dir/BIN/PKPAK.EXE" bin/PKPAK.EXE
+copy_payload "$common_stage_dir/BIN/PKUNPAK.EXE" bin/PKUNPAK.EXE
 copy_payload "$work_dir/tfd12/TFD.SYS" sys/TFD.SYS
-copy_payload "$work_dir/emacsva/EMACS.EXE" bin/EMACS.EXE
-copy_payload "$work_dir/cpmva/CPMBIOS.COM" bin/CPMBIOS.COM
-copy_payload "$work_dir/cpmva/CPMVA.EXE" bin/CPMVA.EXE
-copy_payload "$work_dir/cpmva/DO.COM" bin/DO.COM
-copy_payload "$work_dir/cpmva/EXIT.COM" bin/EXIT.COM
-copy_payload "$work_dir/cpmva/FCONV.COM" bin/FCONV.COM
-copy_payload "$work_dir/cpmva/RDCPM.EXE" bin/RDCPM.EXE
-copy_payload "$work_dir/tdc10/TDC.COM" bin/TDC.COM
-copy_payload "$work_dir/bench003/BENCH.EXE" bin/BENCH.EXE
 "$repo_root/tools/openwatcom/build-view480.sh" \
 	--source "$work_dir/v480/VIEW480.ASM" \
 	--output "$payload_dir/bin/VIEW480.COM"
@@ -572,23 +565,12 @@ copy_payload "$work_dir/emmva/EMMVA150.DOC" doc/EMMVA150.DOC
 copy_payload "$work_dir/rdems/RDEMS152.MAN" doc/RDEMS152.MAN
 copy_payload "$work_dir/scform/SCFORM.DOC" doc/SCFORM.DOC
 copy_payload "$work_dir/scform/SCFORM.LOG" doc/SCFORM.LOG
-copy_payload "$cache_dir/isharc.doc" doc/ISHARC.DOC
-copy_payload "$work_dir/isharc/README.DOC" doc/ISHVA.DOC
+copy_payload "$common_stage_dir/DOC/ISHARC.DOC" doc/ISHARC.DOC
+copy_payload "$common_stage_dir/DOC/ISHVA.DOC" doc/ISHVA.DOC
 copy_payload "$cache_dir/tenim3.doc" doc/TENIM3.DOC
 copy_payload "$work_dir/tenim3/NEC_MAIL.DOC" doc/TENMAIL.DOC
 copy_payload "$cache_dir/tfd12.doc" doc/TFD12.DOC
 copy_payload "$work_dir/tfd12/TFD12.MAN" doc/TFD12.MAN
-copy_payload "$work_dir/emacsva/EMACS.HLP" doc/EMACS.HLP
-copy_payload "$work_dir/emacsva/EMACS.RC" doc/EMACS.RC
-copy_payload "$work_dir/emacsva/EMACSJ.HLP" doc/EMACSJ.HLP
-copy_payload "$work_dir/emacsva/EMACSVA.DOC" doc/EMACSVA.DOC
-copy_payload "$work_dir/emacsva/README.1ST" doc/EMACS1ST.1ST
-copy_payload "$work_dir/emacsva/REFMAN.TXT" doc/EMACSREF.TXT
-copy_payload "$work_dir/cpmva/CPMVA.DOC" doc/CPMVA.DOC
-copy_payload "$work_dir/cpmva/README.DOC" doc/CPMREAD.DOC
-copy_payload "$work_dir/tdc10/TDC.DOC" doc/TDC.DOC
-copy_payload "$work_dir/bench003/BENCH.DOC" doc/BENCH.DOC
-copy_payload "$work_dir/bench003/README.1ST" doc/BENCHRD.1ST
 copy_payload "$work_dir/jfppat/JFPPAT.DOC" doc/JFPPAT.DOC
 copy_payload "$work_dir/2hcdrv/2HCDRV.DOC" doc/2HCDRV.DOC
 copy_payload "$work_dir/2hcdrv/FDFORM.DOC" doc/FDFORM.DOC
@@ -596,7 +578,7 @@ copy_payload "$cache_dir/v480src.lzh" archive/V480SRC.LZH
 copy_payload "$cache_dir/jfppat.zip" archive/JFPPAT.ZIP
 copy_payload "$cache_dir/2hcdrv.zip" archive/2HCDRV.ZIP
 copy_payload "$cache_dir/fdfrmsrc.lzh" archive/FDFRMSRC.LZH
-copy_payload "$cache_dir/isharc.com" archive/ISHARC.COM
+copy_payload "$common_stage_dir/ARCHIVE/ISHARC.COM" archive/ISHARC.COM
 copy_payload "$cache_dir/tenim3.com" archive/TENIM3.COM
 copy_payload "$cache_dir/tfd12.lzh" archive/TFD12.LZH
 
@@ -622,6 +604,11 @@ SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy dosbox -conf "$dosbox_conf" -exit \
 	-c "mount c $payload_dir/bin" \
 	-c 'c:' \
 	-c 'diet -b *.exe > dietexe.log' \
+	-c 'exit' >/dev/null 2>&1
+
+SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy dosbox -conf "$dosbox_conf" -exit \
+	-c "mount c $payload_dir/bin" \
+	-c 'c:' \
 	-c 'diet -b -xc *.com > dietcom.log' \
 	-c 'exit' >/dev/null 2>&1
 
