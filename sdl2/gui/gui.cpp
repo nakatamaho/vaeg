@@ -85,6 +85,7 @@
 #include "taskmng.h"
 #include "timemng.h"
 #include "ymfmbridge.h"
+#include "librashader/shader_preset.h"
 
 extern "C" {
 extern _RHYTHM rhythm;
@@ -178,6 +179,9 @@ struct GuiState {
 	std::string fdd_status;
 	std::string font_status;
 	std::string screenshot_status;
+	vaeg::librashader::ShaderPreset native_crt_preset;
+	std::string native_crt_loaded_path;
+	std::string native_crt_status;
 	bool new_fdd_open = false;
 	bool new_fdd_refresh = false;
 	int new_fdd_format = NEWDISK_FDD_MSDOS_2HD;
@@ -2497,6 +2501,94 @@ static void set_display_effect(int effect) {
 	sysmng_update(SYS_UPDATEOSCFG);
 }
 
+static constexpr const char kNativeCrtParameterState[] = "vaeg-crt-parameters.cfg";
+
+static void load_native_crt_preset(void) {
+	std::string error;
+
+	if (np2oscfg.gui_shader_preset[0] == '\0') {
+		milstr_ncpy(np2oscfg.gui_shader_preset, VAEG_DEFAULT_SHADER_PRESET,
+		            sizeof(np2oscfg.gui_shader_preset));
+	}
+	if (!g_gui.native_crt_preset.load(np2oscfg.gui_shader_preset, &error)) {
+		g_gui.native_crt_loaded_path.clear();
+		g_gui.native_crt_status = "Preset load failed: ";
+		g_gui.native_crt_status += error;
+		return;
+	}
+	g_gui.native_crt_loaded_path = np2oscfg.gui_shader_preset;
+	if (!g_gui.native_crt_preset.parameters().load_values(kNativeCrtParameterState)) {
+		g_gui.native_crt_status = "Preset loaded; parameter state is invalid";
+	} else {
+		g_gui.native_crt_status = "Preset loaded";
+	}
+}
+
+static void draw_native_crt_menu(void) {
+	if (!ImGui::BeginMenu("Native CRT (librashader)")) {
+		return;
+	}
+	bool enabled = np2oscfg.gui_native_crt != 0;
+	if (ImGui::MenuItem("Enable", nullptr, enabled)) {
+		enabled = !enabled;
+		np2oscfg.gui_native_crt = enabled ? 1 : 0;
+		sysmng_update(SYS_UPDATEOSCFG);
+		g_gui.native_crt_status = enabled ? "Native CRT enabled" : "Native CRT disabled";
+	}
+	ImGui::Separator();
+	if (ImGui::InputText("Preset path", np2oscfg.gui_shader_preset,
+	                     sizeof(np2oscfg.gui_shader_preset))) {
+		g_gui.native_crt_status = "Preset path changed; press Reload";
+		sysmng_update(SYS_UPDATEOSCFG);
+	}
+	if (ImGui::Button("Reload preset")) {
+		load_native_crt_preset();
+	}
+	ImGui::SameLine();
+	if (ImGui::Button("Clear status")) {
+		g_gui.native_crt_status.clear();
+	}
+	if (g_gui.native_crt_loaded_path != np2oscfg.gui_shader_preset) {
+		ImGui::TextDisabled("Preset is not loaded");
+	} else {
+		vaeg::librashader::ShaderParameterSet &parameters =
+		    g_gui.native_crt_preset.parameters();
+		for (std::size_t i = 0; i < parameters.size(); ++i) {
+			vaeg::librashader::ShaderParameterInfo *parameter = parameters.at(i);
+			if (parameter == nullptr) {
+				continue;
+			}
+			float value = parameter->value;
+			ImGui::PushID(static_cast<int>(i));
+			if (ImGui::SliderFloat(parameter->name.c_str(), &value, parameter->minimum,
+			                       parameter->maximum, "%.3f")) {
+				(void)parameters.set_value_at(i, value, nullptr);
+				if (!parameters.save_values(kNativeCrtParameterState)) {
+					g_gui.native_crt_status = "Parameter save failed";
+				} else {
+					g_gui.native_crt_status = "Parameter updated";
+				}
+			}
+			if (!parameter->description.empty()) {
+				ImGui::TextDisabled("%s", parameter->description.c_str());
+			}
+			ImGui::PopID();
+		}
+		if (ImGui::Button("Reset parameters")) {
+			parameters.reset();
+			if (!parameters.save_values(kNativeCrtParameterState)) {
+				g_gui.native_crt_status = "Parameter reset save failed";
+			} else {
+				g_gui.native_crt_status = "Parameters reset";
+			}
+		}
+	}
+	if (!g_gui.native_crt_status.empty()) {
+		ImGui::TextDisabled("%s", g_gui.native_crt_status.c_str());
+	}
+	ImGui::EndMenu();
+}
+
 static void set_display_mode(int mode) {
 	UINT width = np2oscfg.fscrn_cx;
 	UINT height = np2oscfg.fscrn_cy;
@@ -2848,6 +2940,7 @@ static void draw_screen_menu(void) {
 			ImGui::TextDisabled("%s", g_gui.screenshot_status.c_str());
 		}
 		ImGui::Separator();
+		draw_native_crt_menu();
 		if (ImGui::BeginMenu("Effect")) {
 			static const char *labels[] = {"Unfiltered", "Linear", "Scanline", "CRT Lite"};
 			for (int value = 0; value < VAEG_EFFECT_COUNT; value++) {

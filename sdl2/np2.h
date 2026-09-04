@@ -30,8 +30,11 @@ enum {
 	NP2OSCFG_KEYBOARD_CUSTOM_MAP_SIZE = 8192,
 	NP2OSCFG_OPN_BACKEND_NAME_SIZE = 8,
 	NP2OSCFG_YMFM_FIDELITY_NAME_SIZE = 8,
+	NP2OSCFG_SHADER_PRESET_PATH_SIZE = MAX_PATH,
 	VAEG_PACING_MS_MAX = 1000
 };
+
+#define VAEG_DEFAULT_SHADER_PRESET "assets/shaders/crt/vaeg_crt_default.slangp"
 
 enum {
 	VAEG_DISPLAY_WINDOWED = 0,
@@ -85,6 +88,8 @@ typedef struct {
 	UINT16 pacing_ms;
 	BYTE hostfat_enabled;
 	char hostfat_dir[MAX_PATH];
+	BYTE gui_native_crt;
+	char gui_shader_preset[NP2OSCFG_SHADER_PRESET_PATH_SIZE];
 } NP2OSCFG;
 
 #if defined(SIZE_QVGA)

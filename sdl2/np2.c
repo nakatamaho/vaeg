@@ -157,7 +157,9 @@ NP2OSCFG np2oscfg = {0,
                      0,
                      0,
                      0,
-                     ""};
+                     "",
+                     0,
+                     VAEG_DEFAULT_SHADER_PRESET};
 BOOL np2_debug = FALSE;
 
 static const UINT smoke_timeout_frames = 600;

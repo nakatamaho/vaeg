@@ -422,6 +422,9 @@ static const INITBL iniitem[] = {
     {"fscrn_cx", INITYPE_UINT16, &np2oscfg.fscrn_cx, 0},
     {"fscrn_cy", INITYPE_UINT16, &np2oscfg.fscrn_cy, 0},
     {"fscrnmod", INITYPE_HEX8, &np2oscfg.fscrnmod, 0},
+    {"NativeCRT", INITYPE_BOOL, &np2oscfg.gui_native_crt, 0},
+    {"NativeCRTPreset", INITYPE_STR, np2oscfg.gui_shader_preset,
+     sizeof(np2oscfg.gui_shader_preset)},
 };
 
 #define INIITEMS (sizeof(iniitem) / sizeof(INITBL))
@@ -484,6 +487,11 @@ void initload(void) {
 		np2oscfg.gui_scale = 1;
 	}
 	np2oscfg.gui_aspect = np2oscfg.gui_aspect ? 1 : 0;
+	np2oscfg.gui_native_crt = np2oscfg.gui_native_crt ? 1 : 0;
+	if (np2oscfg.gui_shader_preset[0] == '\0') {
+		milstr_ncpy(np2oscfg.gui_shader_preset, VAEG_DEFAULT_SHADER_PRESET,
+		            sizeof(np2oscfg.gui_shader_preset));
+	}
 	if (np2oscfg.gui_effect >= VAEG_EFFECT_COUNT) {
 		np2oscfg.gui_effect = VAEG_EFFECT_UNFILTERED;
 	}
