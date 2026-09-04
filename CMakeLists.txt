@@ -313,6 +313,9 @@ set(VAEG_SDL2_SOURCES
     sdl2/timemng.c
     sdl2/trace.c
     sdl2/scrnmng.c
+    sdl2/librashader/frame_input.cpp
+    sdl2/librashader/native_presenter.cpp
+    sdl2/librashader/presenter_factory.cpp
     sdl2/sdlkbd.c
     sdl2/kbdinject.c
     sdl2/kbdmap.c
@@ -1363,6 +1366,31 @@ if(VAEG_ENABLE_TESTS)
         target_compile_options(vaeg_upd780_disasm PRIVATE -Werror)
     endif()
 
+    add_executable(vaeg_librashader_frame_input_test
+        sdl2/librashader/frame_input.cpp
+        tests/frontend/librashader/test_frame_input.cpp)
+    target_include_directories(vaeg_librashader_frame_input_test PRIVATE
+        "${CMAKE_CURRENT_SOURCE_DIR}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/sdl2")
+    target_compile_features(vaeg_librashader_frame_input_test PRIVATE cxx_std_17)
+    target_compile_options(vaeg_librashader_frame_input_test PRIVATE -Wall -fsigned-char)
+    if(VAEG_WERROR)
+        target_compile_options(vaeg_librashader_frame_input_test PRIVATE -Werror)
+    endif()
+
+    add_executable(vaeg_librashader_presenter_state_test
+        sdl2/librashader/native_presenter.cpp
+        sdl2/librashader/presenter_factory.cpp
+        tests/frontend/librashader/test_presenter_state.cpp)
+    target_include_directories(vaeg_librashader_presenter_state_test PRIVATE
+        "${CMAKE_CURRENT_SOURCE_DIR}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/sdl2")
+    target_compile_features(vaeg_librashader_presenter_state_test PRIVATE cxx_std_17)
+    target_compile_options(vaeg_librashader_presenter_state_test PRIVATE -Wall -fsigned-char)
+    if(VAEG_WERROR)
+        target_compile_options(vaeg_librashader_presenter_state_test PRIVATE -Werror)
+    endif()
+
     add_executable(vaeg_z80_compat_zex_runner tests/z80_compat/zex_runner.cpp)
     vaeg_configure_z80_compat_standalone_target(vaeg_z80_compat_zex_runner)
     target_compile_definitions(vaeg_z80_compat_zex_runner PRIVATE
@@ -1442,6 +1470,14 @@ if(VAEG_ENABLE_TESTS)
     add_test(NAME vaeg_upd780_disasm COMMAND vaeg_upd780_disasm)
     set_tests_properties(vaeg_upd780_disasm PROPERTIES
         LABELS "romless;upd780;disasm" TIMEOUT 120)
+    add_test(NAME vaeg_librashader_frame_input
+        COMMAND vaeg_librashader_frame_input_test)
+    set_tests_properties(vaeg_librashader_frame_input PROPERTIES
+        LABELS "romless;frontend;librashader" TIMEOUT 30)
+    add_test(NAME vaeg_librashader_presenter_state
+        COMMAND vaeg_librashader_presenter_state_test)
+    set_tests_properties(vaeg_librashader_presenter_state PROPERTIES
+        LABELS "romless;frontend;librashader" TIMEOUT 30)
     foreach(regression_suite directed state generated convergence)
         add_test(NAME vaeg_z80_compat_regression_${regression_suite}
             COMMAND "${CMAKE_COMMAND}"
