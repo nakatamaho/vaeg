@@ -46,6 +46,18 @@ the audited release assets. The Linux OpenGL runtime must therefore be built
 from this exact source pin in the Linux packaging/CI stage, with its resulting
 artifact hash recorded before G99-6.
 
+The runtime files used in the M99x optional-runtime package-shape checks are:
+
+| Platform | File | SHA-256 |
+| --- | --- | --- |
+| Linux | source-built `librashader.so` | `8433577cf2e6872f4e4152e42832d52b48c632fd55b0897da9aae17b0eba3574` |
+| macOS x86_64 | `librashader.dylib` from the pinned optimized release | `f1699370b8a01be5df108a7dbb29a8f2c10ef6d701b14d0a830d55084e879f10` |
+| Windows x86_64 | `librashader.dll` from the pinned optimized release | `1890f647c7fbe52d4cc591526db24367caca284996855c4565c6003c7e46f8cc` |
+
+These are staged-file hashes, not source-tree payloads. The full release-asset
+hashes above remain the provenance identity for the official macOS and Windows
+archives.
+
 ## Shader closure
 
 The requested `crt-lottes-fast.slang` candidate was audited at the pinned
@@ -57,9 +69,25 @@ CRT-Geom, CRT-Royale, Mega Bezel, complete `slang-shaders` tree, GPL shader,
 or unknown-license shader is copied or distributed.
 
 The current asset names are `assets/shaders/crt/vaeg_crt_default.slangp`,
-`assets/shaders/crt/crt-lottes-fast.slang`, and the adjacent license and
-provenance notices. Their content is byte-preserved from the audited upstream
-sources except for the local preset filename.
+`assets/shaders/crt/shaders/crt-lottes-fast.slang`, and the adjacent license
+and provenance notices. The nested `shaders/` directory is intentional: it
+preserves the relative path used by the audited preset, so librashader resolves
+the shader from `PRESET_DIR` in both a checkout and a release package. The
+preset and shader contents are byte-preserved from the audited upstream
+sources; only the preset filename is local.
+
+## Release staging
+
+`tools/release/stage-librashader-assets.sh` copies the exact preset, shader,
+license, provenance, and third-party notice closure into a platform package.
+It accepts an optional exact-basename runtime (`librashader.so`,
+`librashader.dylib`, or `librashader.dll`) and records that supplied file's
+SHA-256 beside the package licenses. The runtime is deliberately not a source
+tree payload. `tools/release/check-librashader-package.py` validates staged
+directories and tar/zip archives, including required hashes and prohibited
+shader-family names. Release CI invokes both checks for Linux, Windows, and
+macOS packages. A package without the optional runtime remains valid and uses
+the existing fail-closed renderer path.
 
 ## Consequences
 

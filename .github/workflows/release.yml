@@ -90,8 +90,18 @@ jobs:
             "dist-package/${package}/licenses/suzukiplan-z80.txt"
           install -m 644 "${release_notes}" "dist-package/${package}/"
           install -m 644 dist/readme-dist.txt "dist-package/${package}/README-dist.txt"
+          runtime_args=()
+          if [[ -n "${VAEG_LIBRASHADER_RUNTIME:-}" ]]; then
+            runtime_args+=(--runtime "${VAEG_LIBRASHADER_RUNTIME}")
+          fi
+          tools/release/stage-librashader-assets.sh \
+            --output "dist-package/${package}" --platform linux "${runtime_args[@]}"
+          python3 tools/release/check-librashader-package.py \
+            --input "dist-package/${package}" --platform linux
           tar -C dist-package -czf "${asset}" "${package}"
           tar -tzf "${asset}"
+          python3 tools/release/check-librashader-package.py \
+            --input "${asset}" --platform linux
           python3 tests/z80_compat/check_zex_archive.py "${asset}"
       - name: Create GitHub Release
         env:
@@ -227,6 +237,14 @@ jobs:
             "dist-package/${package}/licenses/suzukiplan-z80.txt"
           cp "${release_notes}" "dist-package/${package}/"
           cp dist/readme-dist.txt "dist-package/${package}/README-dist.txt"
+          runtime_args=()
+          if [[ -n "${VAEG_LIBRASHADER_RUNTIME:-}" ]]; then
+            runtime_args+=(--runtime "${VAEG_LIBRASHADER_RUNTIME}")
+          fi
+          tools/release/stage-librashader-assets.sh \
+            --output "dist-package/${package}" --platform windows "${runtime_args[@]}"
+          python3 tools/release/check-librashader-package.py \
+            --input "dist-package/${package}" --platform windows
           find "dist-package/${package}" -type f | sort
       - name: Zip package
         shell: pwsh
@@ -238,6 +256,7 @@ jobs:
             Remove-Item $asset
           }
           Compress-Archive -Path "dist-package/$package" -DestinationPath $asset -Force
+          python tools/release/check-librashader-package.py --input $asset --platform windows
           python tests/z80_compat/check_zex_archive.py $asset
       - name: Upload release asset
         shell: pwsh
@@ -296,6 +315,14 @@ jobs:
             "dist-package/${package}/licenses/suzukiplan-z80.txt"
           install -m 644 "${release_notes}" "dist-package/${package}/"
           install -m 644 dist/readme-dist.txt "dist-package/${package}/README-dist.txt"
+          runtime_args=()
+          if [[ -n "${VAEG_LIBRASHADER_RUNTIME:-}" ]]; then
+            runtime_args+=(--runtime "${VAEG_LIBRASHADER_RUNTIME}")
+          fi
+          tools/release/stage-librashader-assets.sh \
+            --output "dist-package/${package}" --platform macos "${runtime_args[@]}"
+          python3 tools/release/check-librashader-package.py \
+            --input "dist-package/${package}" --platform macos
 
           if otool -L "dist-package/${package}/vaeg" | grep -E 'libSDL2.*dylib'; then
             echo "unexpected dynamic SDL2 dependency" >&2
@@ -306,6 +333,8 @@ jobs:
           find "dist-package/${package}" -type f | sort
           tar -C dist-package -czf "${asset}" "${package}"
           tar -tzf "${asset}"
+          python3 tools/release/check-librashader-package.py \
+            --input "${asset}" --platform macos
           python3 tests/z80_compat/check_zex_archive.py "${asset}"
       - name: Upload release asset
         env:
