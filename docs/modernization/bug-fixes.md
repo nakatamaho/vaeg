@@ -70,6 +70,26 @@ separate parity correction or move it to Open Defects.
 
 ## Fixed Defects
 
+### SDL resource creation success was treated as failure
+
+- **Status:** fixed in M99z; real GPU presentation remains separately gated.
+- **Symptom:** ROM-less smoke runs exited with status 1 after reporting the
+  SDL renderer backend, and the same inverted condition could misreport SDL
+  renderer recreation after a native-presentation fallback.
+- **Affected scope:** SDL2 screen startup and native CRT fallback on all
+  platforms using the portable frontend.
+- **Demonstrated root cause:** `scrnmng_create_sdl_resources()` follows the
+  repository convention `SUCCESS == 0`, but both callers used logical
+  negation, so a successful resource creation entered the failure path.
+- **Correction:** both callers now compare the helper result explicitly with
+  `SUCCESS` and fail only when resource creation returns `FAILURE`.
+- **Verification:** macOS feature-on build, seven focused librashader/ROM-less
+  CTests, and dummy-driver ROM-less `--smoke` all pass after the correction.
+- **Evidence:** [M99 final report](../agents/reports/m99-final-report.md).
+- **Milestone/task:** M99 librashader CRT pipeline;
+  [M99 specification](../tasks/M99_librashader_crt_pipeline.md).
+- **Commit:** [1bd5330f](https://github.com/nakatamaho/vaeg/commit/1bd5330f9b0458f19d8043bdefc28d2fc87f48d8).
+
 ### Private IDA64 candidate exited during draw-order validation
 
 - **Status:** fixed in M98aa; real VA/VA2 hardware confirmation remains
