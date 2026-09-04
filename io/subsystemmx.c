@@ -49,8 +49,6 @@ void subsystemmx_bind(void) {
 void subsystemmx_exec(void) {
 	if (subsystemmxcfg.mockup) {
 	} else {
-		vaeg_causal_trace_named("device_schedule", "machine", "fd-subsystem",
-		                       "execute", 0, 0, 0);
 		subsystem_exec();
 	}
 }

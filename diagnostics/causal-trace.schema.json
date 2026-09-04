@@ -21,8 +21,10 @@
           "enum": [
             "cpu_step", "io_read", "io_write", "mem_read", "mem_write",
             "irq_assert", "irq_clear", "irq_accept", "device_schedule", "mailbox",
-            "drive_state", "fdc_command", "fdc_position", "sector_transfer", "dma",
-            "instruction_fetch_correlation", "state_transition", "mailbox_boundary", "stop"
+            "drive_state", "fdc_command", "fdc_position", "sector_buffer_ready",
+            "sector_transfer", "dma",
+            "instruction_fetch_correlation", "instruction_fetch_watch", "state_transition",
+            "mailbox_boundary", "stop"
           ]
         },
         "step": { "type": "integer", "minimum": 0 },
@@ -30,7 +32,9 @@
         "device": { "type": "string", "pattern": "^[A-Za-z0-9._-]+$" },
         "phase": { "type": "string", "pattern": "^[A-Za-z0-9._-]+$" },
         "address": { "type": "integer", "minimum": 0 },
+        "end": { "type": "integer", "minimum": 0 },
         "value": { "type": "integer", "minimum": 0 },
+        "status": { "type": "integer", "minimum": 0 },
         "width": { "type": "integer", "minimum": 0 },
         "reason": { "type": "string", "pattern": "^[A-Za-z0-9._-]+$" },
         "events": { "type": "integer", "minimum": 0 },

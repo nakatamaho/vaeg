@@ -67,6 +67,7 @@ typedef struct {
 	UINT32 dma_len;
 	UINT32 dma_start;
 	UINT32 dma_end;
+	UINT32 request_id;
 } FDCTRACE;
 
 static FDCTRACE fdctrace;
@@ -145,6 +146,10 @@ static const char *fdc_trace_mode_name(void) {
 	return fdc.fddifmode ? "direct" : "intelligent";
 }
 
+static const char *fdc_trace_command_actor(void) {
+	return fdc.fddifmode ? "main-cpu" : "fd-subsystem-cpu";
+}
+
 static const char *fdc_trace_cmdname(REG8 cmd) {
 	switch (cmd & 0x1f) {
 	case 0x02:
@@ -208,6 +213,20 @@ static void fdc_trace_update_fields(void) {
 	fdctrace.N = fdc.N;
 }
 
+static UINT32 fdc_trace_request_scope_enter(void) {
+	UINT32 saved;
+
+	saved = vaeg_causal_trace_request_current();
+	if (fdctrace.request_id) {
+		vaeg_causal_trace_request_bind(fdctrace.request_id);
+	}
+	return saved;
+}
+
+static void fdc_trace_request_scope_leave(UINT32 saved) {
+	vaeg_causal_trace_request_bind(saved);
+}
+
 static void fdc_trace_set_request(UINT32 len) {
 	if (fdctrace.active) {
 		fdctrace.req_len = len;
@@ -215,13 +234,22 @@ static void fdc_trace_set_request(UINT32 len) {
 }
 
 static void fdc_trace_begin(REG8 cmd) {
+	UINT32 saved;
+	UINT32 request_id;
+
+	request_id = vaeg_causal_trace_request_active();
+	if (!request_id) {
+		request_id = vaeg_causal_trace_request_current();
+	}
 	ZeroMemory(&fdctrace, sizeof(fdctrace));
 	fdctrace.active = TRUE;
 	fdctrace.cmd = cmd;
+	fdctrace.request_id = request_id;
 	fdctrace.dma_ch = 0xff;
 	fdctrace.dma_start = 0xffffffffUL;
 	fdctrace.dma_end = 0xffffffffUL;
 	fdc_trace_update_fields();
+	saved = fdc_trace_request_scope_enter();
 	vaeg_causal_trace_state_transition(
 	    VAEG_CAUSAL_COMPONENT_FDC, VAEG_CAUSAL_FIELD_COMMAND_QUEUE,
 	    0, 1, VAEG_CAUSAL_CAUSE_COMMAND,
@@ -234,12 +262,20 @@ static void fdc_trace_begin(REG8 cmd) {
 	    VAEG_CAUSAL_SITE_FDC_ATTEMPT,
 	    VAEG_CAUSAL_TRANSITION_FDC_COMMAND_ATTEMPTED,
 	    VAEG_CAUSAL_PREDICATE_TRUE);
-	vaeg_causal_trace_named("fdc_command", "main-cpu", "fdc", "issued", 0,
+	vaeg_causal_trace_named("fdc_command", fdc_trace_command_actor(), "fdc", "issued", 0,
 	                       cmd, 1);
+	vaeg_causal_trace_state_transition(
+	    VAEG_CAUSAL_COMPONENT_FDC, VAEG_CAUSAL_FIELD_FDC_LIFECYCLE,
+	    1, 2, VAEG_CAUSAL_CAUSE_COMMAND,
+	    VAEG_CAUSAL_SITE_FDC_ISSUE,
+	    VAEG_CAUSAL_TRANSITION_FDC_COMMAND_ISSUED,
+	    VAEG_CAUSAL_PREDICATE_TRUE);
+	fdc_trace_request_scope_leave(saved);
 }
 
 static void fdc_trace_dma_snapshot(UINT8 channel) {
 	DMACH ch;
+	UINT32 saved;
 	UINT32 length;
 	UINT32 start;
 	UINT32 end;
@@ -269,7 +305,9 @@ static void fdc_trace_dma_snapshot(UINT8 channel) {
 	if (!fdctrace.req_len) {
 		fdctrace.req_len = length;
 	}
+	saved = fdc_trace_request_scope_enter();
 	vaeg_causal_trace_named("dma", "fdc", "dmac", "request", channel, length, 1);
+	fdc_trace_request_scope_leave(saved);
 }
 
 static void fdc_trace_transfer_byte(void) {
@@ -282,6 +320,9 @@ void fdc_trace_log(REG8 cmd, const char *name, UINT8 drive, UINT8 C, UINT8 H, UI
                    UINT32 req_len, UINT8 st0, UINT8 st1, UINT8 st2, UINT32 xfer_len, UINT8 dma_ch,
                    UINT8 dma_access, UINT8 dma_sysm_bank, UINT8 sysm_bank, UINT32 dma_len,
                    UINT32 dma_start, UINT32 dma_end) {
+	UINT32 saved;
+
+	saved = fdc_trace_request_scope_enter();
 #if defined(VAEG_Z80_COMPAT_INTEGRATION_TRACE)
 	if (fdctrace_stderr && upd9002_trace_active()) {
 		fprintf(stderr, "trace-correlation fdc=%08x cpu-step=%08x\n", fdctrace_event,
@@ -299,13 +340,19 @@ void fdc_trace_log(REG8 cmd, const char *name, UINT8 drive, UINT8 C, UINT8 H, UI
 	                       (st0 | st1 | st2) ? "failed" : "completed", 0,
 	                       xfer_len, 1);
 	vaeg_causal_trace_state_transition(
+	    VAEG_CAUSAL_COMPONENT_FDC, VAEG_CAUSAL_FIELD_RESPONSE_STATUS,
+	    0, 1, VAEG_CAUSAL_CAUSE_FDC_RESULT,
+	    VAEG_CAUSAL_SITE_RESPONSE_STATUS,
+	    VAEG_CAUSAL_TRANSITION_RESPONSE_STATUS_WRITTEN,
+	    VAEG_CAUSAL_PREDICATE_TRUE);
+	vaeg_causal_trace_state_transition(
 	    VAEG_CAUSAL_COMPONENT_FDC, VAEG_CAUSAL_FIELD_FDC_LIFECYCLE,
-	    1, 0, VAEG_CAUSAL_CAUSE_FDC_RESULT,
-	    (st0 | st1 | st2) ? VAEG_CAUSAL_SITE_FDC_REJECT : VAEG_CAUSAL_SITE_FDC_ISSUE,
+	    2, 0, VAEG_CAUSAL_CAUSE_FDC_RESULT,
+	    (st0 | st1 | st2) ? VAEG_CAUSAL_SITE_FDC_REJECT : VAEG_CAUSAL_SITE_FDC_COMPLETE,
 	    (st0 | st1 | st2) ? VAEG_CAUSAL_TRANSITION_FDC_COMMAND_REJECTED
-                       : VAEG_CAUSAL_TRANSITION_FDC_COMMAND_ISSUED,
+	                       : VAEG_CAUSAL_TRANSITION_FDC_COMMAND_COMPLETED,
 	    (st0 | st1 | st2) ? VAEG_CAUSAL_PREDICATE_FALSE
-                       : VAEG_CAUSAL_PREDICATE_TRUE);
+	                       : VAEG_CAUSAL_PREDICATE_TRUE);
 	TRACEOUT((FDCTRACE_FORMAT, cmd, name, drive, C, H, R, N, fdc_trace_mode_value(),
 	          fdc_trace_mode_name(), (unsigned long)req_len, st0, st1, st2, (unsigned long)xfer_len,
 	          dma_ch, dma_access, dma_sysm_bank, sysm_bank, (unsigned long)dma_len,
@@ -317,6 +364,7 @@ void fdc_trace_log(REG8 cmd, const char *name, UINT8 drive, UINT8 C, UINT8 H, UI
 		        (unsigned long)dma_len, (unsigned long)(dma_start & 0xfffff),
 		        (unsigned long)(dma_end & 0xfffff));
 	}
+	fdc_trace_request_scope_leave(saved);
 }
 
 static void fdc_trace_output(UINT8 st0, UINT8 st1, UINT8 st2) {
@@ -377,6 +425,11 @@ static void fdc_play_seek_sound(int us, int ncn) {
 // interrupt
 
 static void fdc_dointerrupt(void) {
+	UINT32 saved;
+	BOOL was_pending;
+
+	saved = fdc_trace_request_scope_enter();
+	was_pending = fdc.intreq;
 	fdc.intreq = TRUE;
 	TRACEOUT(("fdc: send interrupt request"));
 	if (fdc.fddifmode) {
@@ -390,6 +443,18 @@ static void fdc_dointerrupt(void) {
 		// Intelligent mode
 		subsystem_irq(TRUE);
 	}
+	if (!was_pending) {
+		vaeg_causal_trace_state_transition(
+		    VAEG_CAUSAL_COMPONENT_FDC, VAEG_CAUSAL_FIELD_RESPONSE_IRQ,
+		    0, 1, VAEG_CAUSAL_CAUSE_FDC_RESULT,
+		    VAEG_CAUSAL_SITE_RESPONSE_IRQ,
+		    VAEG_CAUSAL_TRANSITION_IRQ_RESPONSE_ASSERTED,
+		    VAEG_CAUSAL_PREDICATE_TRUE);
+		vaeg_causal_trace_named("irq_assert", "fdc",
+		                       fdc.fddifmode ? "main-cpu" : "fd-subsystem-cpu",
+		                       "asserted", NEVENT_FDCINT, 1, 1);
+	}
+	fdc_trace_request_scope_leave(saved);
 }
 
 void fdc_intwait(NEVENTITEM item) {
@@ -399,8 +464,13 @@ void fdc_intwait(NEVENTITEM item) {
 }
 
 void fdc_interrupt(void) {
-	vaeg_causal_trace_named("irq_assert", "fdc", "main-cpu", "scheduled",
+	UINT32 saved;
+
+	saved = fdc_trace_request_scope_enter();
+	vaeg_causal_trace_named("irq_assert", "fdc",
+	                       fdc.fddifmode ? "main-cpu" : "fd-subsystem-cpu", "scheduled",
 	                       NEVENT_FDCINT, 1, 1);
+	fdc_trace_request_scope_leave(saved);
 	nevent_set(NEVENT_FDCINT, 512, fdc_intwait, NEVENT_ABSOLUTE);
 }
 
@@ -414,9 +484,13 @@ static BOOL fdc_isfdcinterrupt(void) {
 
 static void fdc_resetirq(void) {
 	if (!fdc.fddifmode) {
+		UINT32 saved;
+
+		saved = fdc_trace_request_scope_enter();
 		// Intelligent mode
 		vaeg_causal_trace_named("irq_clear", "main-cpu", "fdc", "acknowledge",
 		                       0, 0, 1);
+		fdc_trace_request_scope_leave(saved);
 		subsystem_irq(FALSE);
 	}
 }
@@ -789,6 +863,9 @@ static void FDC_WriteData(void) { // cmd: 05
 }
 
 static void readsector(void) {
+	UINT32 saved;
+
+	saved = fdc_trace_request_scope_enter();
 	fdc.stat[fdc.us] = (fdc.hd << 2) | fdc.us;
 	vaeg_causal_trace_named("fdc_position", "fdc", "fdd", "read-sector",
 	                       fdc.C, ((UINT32)fdc.H << 24) | ((UINT32)fdc.R << 16) | fdc.N,
@@ -796,14 +873,18 @@ static void readsector(void) {
 	if (!FDC_DriveCheck(FALSE)) {
 		vaeg_causal_trace_named("drive_state", "fdc", "drive", "read-rejected",
 		                       fdc.us, 0, 1);
+		fdc_trace_request_scope_leave(saved);
 		return;
 	}
 	fdc_play_head_load_sound(FALSE);
 	if (fdd_read()) {
 		fdc.stat[fdc.us] = fdc.us | (fdc.hd << 2) | FDCRLT_IC0 | FDCRLT_ND;
+		fdc_trace_request_scope_leave(saved);
 		fdcsend_error7();
 		return;
 	}
+	vaeg_causal_trace_sector_buffer_ready(fdc.us, fdc.bufcnt, fddlasterror);
+	fdc_trace_request_scope_leave(saved);
 
 	fdc.event = FDCEVENT_BUFSEND2;
 	fdc.bufp = 0;

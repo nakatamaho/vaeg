@@ -43,6 +43,17 @@ static _I8255CFG i8255cfg;
 _SUBSYSTEM subsystem;
 static BYTE subsystem_main_portc;
 
+#if defined(VAEG_Z80_COMPAT_INTEGRATION_TRACE)
+static void TraceSubsystemInstruction(void *, std::uint16_t pc, std::uint16_t next_pc,
+                                      std::uint8_t opcode,
+                                      const Z80CompatReg &registers) {
+	vaeg_causal_trace_subsystem_cpu_step(
+	    pc, next_pc, opcode, registers.af, registers.bc, registers.de, registers.hl,
+	    registers.sp, registers.ix, registers.iy, registers.iff1 ? 1U : 0U,
+	    registers.iff2 ? 1U : 0U, registers.intmode);
+}
+#endif
+
 #if defined(VAEG_UPD780_INTEGRATION_TESTING)
 static VAEG_UPD780_INTEGRATION_TRACE_STATE upd780testtrace;
 #endif
@@ -190,6 +201,9 @@ void Subsystem::Initialize() {
 	vaeg_causal_trace_named("device_schedule", "machine", "fd-subsystem",
 	                       "initialize", 0, 0, 0);
 	upd780->Init(this, this, clock, clockcounter, piac2);
+#if defined(VAEG_Z80_COMPAT_INTEGRATION_TRACE)
+	upd780->SetInstructionObserver(TraceSubsystemInstruction, nullptr);
+#endif
 	//rom[0] = 0xf3;
 	//rom[1] = 0x76;
 	i8255_init(&i8255cfg, &subsystem.i8255);
@@ -216,8 +230,6 @@ void Subsystem::IRQ(BOOL irq) {
 }
 
 void Subsystem::Exec() {
-	vaeg_causal_trace_named("device_schedule", "scheduler", "fd-subsystem",
-	                       "execute", 0, 0, 0);
 	UPD780TRACE(
 	    ("upd780trace core=%s event=exec-enter live=%04x public=%04x wait=%u remain=%d now=%u",
 	     UPD780CORENAME, (unsigned)upd780->GetPC(), (unsigned)upd780->GetReg()->pc,
@@ -412,9 +424,6 @@ std::uint32_t IFCALL Subsystem::In(std::uint32_t port) {
 		ret = fdcsubsys_i_fdc1();
 		break;
 	case 0xfc:
-		ret = i8255_inporta(&i8255cfg);
-		break;
-	case 0xfd:
 		vaeg_causal_trace_mailbox_boundary(
 		    VAEG_CAUSAL_MAILBOX_BOUNDARY_DEQUEUE_ATTEMPTED,
 		    VAEG_CAUSAL_SITE_MAILBOX_DEQUEUE,
@@ -431,7 +440,7 @@ std::uint32_t IFCALL Subsystem::In(std::uint32_t port) {
 		    VAEG_CAUSAL_MAILBOX_BOUNDARY_DEQUEUE_ATTEMPTED,
 		    VAEG_CAUSAL_PREDICATE_TRUE,
 		    VAEG_CAUSAL_MAILBOX_REASON_CALLBACK);
-		ret = i8255_inportb(&i8255cfg);
+		ret = i8255_inporta(&i8255cfg);
 		vaeg_causal_trace_mailbox_boundary(
 		    VAEG_CAUSAL_MAILBOX_BOUNDARY_REQUEST_CONSUMED,
 		    VAEG_CAUSAL_SITE_SUBSYSTEM_REQUEST_CONSUMER,
@@ -455,6 +464,9 @@ std::uint32_t IFCALL Subsystem::In(std::uint32_t port) {
 		    VAEG_CAUSAL_MAILBOX_BOUNDARY_REQUEST_CONSUMED,
 		    VAEG_CAUSAL_PREDICATE_TRUE,
 		    VAEG_CAUSAL_MAILBOX_REASON_ELIGIBLE);
+		break;
+	case 0xfd:
+		ret = i8255_inportb(&i8255cfg);
 		break;
 	case 0xfe: {
 		ret = i8255_inportc(&i8255cfg);
@@ -485,6 +497,8 @@ std::uint32_t IFCALL Subsystem::In(std::uint32_t port) {
 	case piac2:
 		// 割り込み受理
 		ret = subsystem.intopcode;
+		vaeg_causal_trace_named("irq_accept", "fd-subsystem-cpu", "fdc",
+		                       "acknowledge", piac2, ret, 1);
 #if defined(VAEG_UPD780_INTEGRATION_TESTING)
 		upd780testtrace.acknowledge_count++;
 #endif

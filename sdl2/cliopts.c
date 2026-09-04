@@ -303,8 +303,8 @@ BOOL vaeg_cli_parse(int argc, char **argv, VAEG_CLI_OPTIONS *options, char *erro
 		} else if (!strcmp(argument, "--trace-cpu")) {
 			value = option_value(argc, argv, &position, argument, error, error_size);
 			if ((value == NULL) || (parse_uint(value, &number) != SUCCESS) || (number == 0) ||
-			    (number > 1000000)) {
-				return (set_error(error, error_size, "--trace-cpu accepts 1 through 1000000 steps",
+			    (number > 100000000)) {
+				return (set_error(error, error_size, "--trace-cpu accepts 1 through 100000000 steps",
 				                  value));
 			}
 			options->trace_cpu = number;
@@ -370,6 +370,27 @@ BOOL vaeg_cli_parse(int argc, char **argv, VAEG_CLI_OPTIONS *options, char *erro
 				                  "--causal-trace-memory requires a range", value));
 			}
 			options->causal_trace_memory = value;
+		} else if (!strcmp(argument, "--causal-trace-fetch")) {
+			value = option_value(argc, argv, &position, argument, error, error_size);
+			if ((value == NULL) || (value[0] == '\0')) {
+				return (set_error(error, error_size,
+				                  "--causal-trace-fetch requires a range", value));
+			}
+			options->causal_trace_fetch = value;
+		} else if (!strcmp(argument, "--causal-trace-event")) {
+			value = option_value(argc, argv, &position, argument, error, error_size);
+			if ((value == NULL) || (value[0] == '\0')) {
+				return (set_error(error, error_size,
+				                  "--causal-trace-event requires a filter", value));
+			}
+			options->causal_trace_event = value;
+		} else if (!strcmp(argument, "--causal-trace-start")) {
+			value = option_value(argc, argv, &position, argument, error, error_size);
+			if ((value == NULL) || (value[0] == '\0')) {
+				return (set_error(error, error_size,
+				                  "--causal-trace-start requires an event class", value));
+			}
+			options->causal_trace_start_event = value;
 		} else if (!strcmp(argument, "--causal-trace-stop")) {
 			value = option_value(argc, argv, &position, argument, error, error_size);
 			if ((value == NULL) || (value[0] == '\0')) {
@@ -377,6 +398,15 @@ BOOL vaeg_cli_parse(int argc, char **argv, VAEG_CLI_OPTIONS *options, char *erro
 				                  "--causal-trace-stop requires an event class", value));
 			}
 			options->causal_trace_stop_event = value;
+		} else if (!strcmp(argument, "--causal-trace-stop-after")) {
+			value = option_value(argc, argv, &position, argument, error, error_size);
+			if ((value == NULL) || (parse_uint(value, &number) != SUCCESS) ||
+			    (number == 0) || (number > 1000000U)) {
+				return (set_error(error, error_size,
+				                  "--causal-trace-stop-after accepts 1 through 1000000 events",
+				                  value));
+			}
+			options->causal_trace_post_stop_events = number;
 		} else if (!strcmp(argument, "--causal-trace-manifest")) {
 			value = option_value(argc, argv, &position, argument, error, error_size);
 			if ((value == NULL) || (value[0] == '\0')) {

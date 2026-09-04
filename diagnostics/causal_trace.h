@@ -39,7 +39,11 @@ typedef struct {
     const char *device_filter;
     const char *io_filter;
     const char *memory_filter;
+    const char *start_event;
     const char *stop_event;
+    uint32_t post_stop_events;
+    const char *fetch_filter;
+    const char *event_filter;
 } VAEG_CAUSAL_TRACE_CONFIG;
 
 /* Stable public identifiers for producer/consumer provenance.  These values
@@ -89,7 +93,8 @@ typedef enum {
     VAEG_CAUSAL_SITE_MAILBOX_VISIBILITY = 19,
     VAEG_CAUSAL_SITE_SUBSYSTEM_DISPATCH = 20,
     VAEG_CAUSAL_SITE_MAILBOX_DEQUEUE = 21,
-    VAEG_CAUSAL_SITE_SUBSYSTEM_CALLBACK = 22
+    VAEG_CAUSAL_SITE_SUBSYSTEM_CALLBACK = 22,
+    VAEG_CAUSAL_SITE_FDC_COMPLETE = 23
 } VAEG_CAUSAL_PRODUCER_SITE_ID;
 
 typedef enum {
@@ -156,7 +161,8 @@ typedef enum {
     VAEG_CAUSAL_TRANSITION_COMMAND_QUEUE_INSERTED = 12,
     VAEG_CAUSAL_TRANSITION_FDC_COMMAND_ATTEMPTED = 13,
     VAEG_CAUSAL_TRANSITION_FDC_COMMAND_ISSUED = 14,
-    VAEG_CAUSAL_TRANSITION_FDC_COMMAND_REJECTED = 15
+    VAEG_CAUSAL_TRANSITION_FDC_COMMAND_REJECTED = 15,
+    VAEG_CAUSAL_TRANSITION_FDC_COMMAND_COMPLETED = 16
 } VAEG_CAUSAL_TRANSITION_ID;
 
 typedef enum {
@@ -194,6 +200,12 @@ void vaeg_causal_trace_cpu_step(uint32_t step, uint16_t cs, uint16_t ip,
                                 uint32_t di, uint32_t bp, uint32_t sp, uint32_t es,
                                 uint32_t ss, uint32_t ds, uint32_t flags,
                                 uint32_t memory_backend);
+void vaeg_causal_trace_subsystem_cpu_step(uint16_t pc, uint16_t next_pc,
+                                          uint8_t opcode, uint32_t af,
+                                          uint32_t bc, uint32_t de, uint32_t hl,
+                                          uint32_t sp, uint32_t ix, uint32_t iy,
+                                          uint32_t iff1, uint32_t iff2,
+                                          uint32_t interrupt_mode);
 void vaeg_causal_trace_io(const char *phase, const char *actor, uint32_t port,
                           uint32_t value, uint32_t width);
 void vaeg_causal_trace_memory(const char *phase, const char *actor, uint32_t address,
@@ -201,12 +213,15 @@ void vaeg_causal_trace_memory(const char *phase, const char *actor, uint32_t add
 void vaeg_causal_trace_named(const char *event_class, const char *actor,
                              const char *device, const char *phase, uint32_t address,
                              uint32_t value, uint32_t width);
+void vaeg_causal_trace_sector_buffer_ready(uint32_t drive, uint32_t byte_count,
+                                           uint32_t status);
 void vaeg_causal_trace_sector_transfer(const char *phase, uint32_t destination,
                                        uint32_t end, uint32_t byte_count,
                                        uint32_t status);
 uint32_t vaeg_causal_trace_request_begin(uint32_t producer_site_id);
 void vaeg_causal_trace_request_bind(uint32_t request_id);
 uint32_t vaeg_causal_trace_request_current(void);
+uint32_t vaeg_causal_trace_request_active(void);
 void vaeg_causal_trace_state_transition(uint32_t component_id, uint32_t field_id,
                                          uint32_t old_state, uint32_t new_state,
                                          uint32_t cause_id, uint32_t producer_site_id,
@@ -232,6 +247,10 @@ void vaeg_causal_trace_mailbox_boundary(uint32_t boundary_id,
     ((void)(step), (void)(cs), (void)(ip), (void)(physical), (void)(opcode), (void)(ax), \
      (void)(bx), (void)(cx), (void)(dx), (void)(si), (void)(di), (void)(bp), (void)(sp), \
      (void)(es), (void)(ss), (void)(ds), (void)(flags), (void)(memory_backend))
+#define vaeg_causal_trace_subsystem_cpu_step(pc, next_pc, opcode, af, bc, de, hl, sp, ix, iy, iff1, iff2, interrupt_mode) \
+    ((void)(pc), (void)(next_pc), (void)(opcode), (void)(af), (void)(bc), (void)(de), \
+     (void)(hl), (void)(sp), (void)(ix), (void)(iy), (void)(iff1), (void)(iff2), \
+     (void)(interrupt_mode))
 #define vaeg_causal_trace_io(phase, actor, port, value, width) \
     ((void)(phase), (void)(actor), (void)(port), (void)(value), (void)(width))
 #define vaeg_causal_trace_memory(phase, actor, address, value, width) \
@@ -239,12 +258,15 @@ void vaeg_causal_trace_mailbox_boundary(uint32_t boundary_id,
 #define vaeg_causal_trace_named(event_class, actor, device, phase, address, value, width) \
     ((void)(event_class), (void)(actor), (void)(device), (void)(phase), (void)(address), \
      (void)(value), (void)(width))
+#define vaeg_causal_trace_sector_buffer_ready(drive, byte_count, status) \
+    ((void)(drive), (void)(byte_count), (void)(status))
 #define vaeg_causal_trace_sector_transfer(phase, destination, end, byte_count, status) \
     ((void)(phase), (void)(destination), (void)(end), (void)(byte_count), (void)(status))
 #define vaeg_causal_trace_request_begin(producer_site_id) \
     ((void)(producer_site_id), 0U)
 #define vaeg_causal_trace_request_bind(request_id) ((void)(request_id))
 #define vaeg_causal_trace_request_current() 0U
+#define vaeg_causal_trace_request_active() 0U
 #define vaeg_causal_trace_state_transition(component_id, field_id, old_state, new_state, \
                                             cause_id, producer_site_id, transition_id, predicate) \
     ((void)(component_id), (void)(field_id), (void)(old_state), (void)(new_state), \

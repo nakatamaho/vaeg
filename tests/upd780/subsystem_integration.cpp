@@ -29,8 +29,10 @@
 #include <cstdlib>
 #include <cstring>
 #include <initializer_list>
+#include <string>
 
 #include "compiler.h"
+#include "diagnostics/causal_trace.h"
 #include "io/subsystem.h"
 
 namespace {
@@ -336,6 +338,98 @@ void TestFddBoundary() {
 	        "FDD-boundary resume duplicated or changed port 0xf4 output");
 }
 
+#if defined(VAEG_Z80_COMPAT_INTEGRATION_TRACE)
+std::string ReadTrace(FILE *stream) {
+	std::string result;
+	char buffer[512];
+
+	std::rewind(stream);
+	while (std::fgets(buffer, sizeof(buffer), stream) != nullptr) {
+		result += buffer;
+	}
+	return result;
+}
+
+void TestIrqAcceptTrace() {
+	Status enabled{};
+	Put16(&enabled, 24, 0xf000);
+	enabled[51] = 1;
+	enabled[kIff1Offset] = 1;
+	enabled[kIff2Offset] = 1;
+	enabled[kRevisionOffset] = 1;
+
+	FILE *stream = std::tmpfile();
+	Require(stream != nullptr, "IRQ trace temporary file was unavailable");
+	VAEG_CAUSAL_TRACE_CONFIG config{};
+	config.max_events = 32;
+	Require(vaeg_causal_trace_start(stream, &config) != 0, "IRQ trace did not start");
+	Reset();
+	Install(0x0000, {0x00});
+	Require(subsystem_loadcpustatus(enabled.data()) != FALSE,
+	        "IRQ trace production state did not load");
+	subsystem_irq(TRUE);
+	ExecAt(4);
+	vaeg_causal_trace_stop("irq-accept-test");
+
+	const std::string trace = ReadTrace(stream);
+	std::fclose(stream);
+	Require(trace.find("\"class\":\"irq_accept\"") != std::string::npos &&
+	            trace.find("\"actor\":\"fd-subsystem-cpu\"") != std::string::npos &&
+	            trace.find("\"device\":\"fdc\"") != std::string::npos,
+	        "accepted subsystem IRQ did not emit its causal boundary");
+}
+
+void TestMailboxConsumerBoundary() {
+	FILE *stream = std::tmpfile();
+	Require(stream != nullptr, "mailbox trace temporary file was unavailable");
+	VAEG_CAUSAL_TRACE_CONFIG config{};
+	config.max_events = 128;
+	Require(vaeg_causal_trace_start(stream, &config) != 0,
+	        "mailbox trace did not start");
+
+	Reset();
+	Install(0x0000, {0x3e, 0x90, 0xd3, 0xff, 0xdb, 0xfc, 0x76});
+	subsystem_upd780_test_set_pc(0x0000);
+	ExecAt(18);
+	Require(State().live_pc == 0x0004,
+	        "mailbox fixture did not stop before its subsystem port-A read");
+	subsystem_businportc(0x00);
+	subsystem_businportc(0x80);
+	subsystem_businporta(0x5a);
+	ExecAt(29);
+	vaeg_causal_trace_stop("mailbox-consumer-test");
+
+	const std::string trace = ReadTrace(stream);
+	std::fclose(stream);
+	Require(trace.find("\"boundary\":\"MAILBOX_DEQUEUE_ATTEMPTED\"") !=
+	            std::string::npos &&
+	            trace.find("\"boundary\":\"CONSUMER_CALLBACK_ENTERED\"") !=
+	                std::string::npos &&
+	            trace.find("\"boundary\":\"REQUEST_CONSUMED\"") !=
+	                std::string::npos &&
+	            trace.find("\"boundary\":\"RESPONSE_ELIGIBLE\"") !=
+	                std::string::npos,
+	        "subsystem port-A read did not emit the consumer boundary chain");
+	Require(trace.find("\"actor\":\"fd-subsystem-cpu\"") != std::string::npos,
+	        "subsystem execution did not emit an instruction-boundary event");
+
+	stream = std::tmpfile();
+	Require(stream != nullptr, "negative mailbox trace file was unavailable");
+	Require(vaeg_causal_trace_start(stream, &config) != 0,
+	        "negative mailbox trace did not start");
+	Reset();
+	Install(0x0000, {0xdb, 0xfd, 0x76});
+	subsystem_upd780_test_set_pc(0x0000);
+	ExecAt(11);
+	vaeg_causal_trace_stop("mailbox-nonconsumer-test");
+	const std::string negative_trace = ReadTrace(stream);
+	std::fclose(stream);
+	Require(negative_trace.find("\"boundary\":\"MAILBOX_DEQUEUE_ATTEMPTED\"") ==
+	            std::string::npos,
+	        "subsystem port-B read was incorrectly reported as request consumption");
+}
+#endif
+
 void TestEiStateBoundary() {
 	Reset();
 	Status enabled{};
@@ -375,6 +469,10 @@ extern "C" int vaeg_upd780_subsystem_integration_test(void) {
 	TestSleepPath(0x700e, 2, false);
 	TestEiBeforeSleepHypothesis();
 	TestFddBoundary();
+#if defined(VAEG_Z80_COMPAT_INTEGRATION_TRACE)
+	TestIrqAcceptTrace();
+	TestMailboxConsumerBoundary();
+#endif
 	TestEiStateBoundary();
 	std::fprintf(stderr, "subsystem-integration[%s]: all tests passed\n", kCoreName);
 	return SUCCESS;

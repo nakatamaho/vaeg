@@ -32,8 +32,9 @@ explicit event limit are supplied.
 
 The stable event classes are `cpu_step`, `io_read`, `io_write`, `mem_read`,
 `mem_write`, `irq_assert`, `irq_clear`, `irq_accept`, `device_schedule`,
-`mailbox`, `drive_state`, `fdc_command`, `fdc_position`, `sector_transfer`,
-`dma`, `instruction_fetch_correlation`, and `stop`. Records use monotonically
+`mailbox`, `drive_state`, `fdc_command`, `fdc_position`,
+`sector_buffer_ready`, `sector_transfer`, `dma`,
+`instruction_fetch_correlation`, and `stop`. Records use monotonically
 increasing logical sequence numbers and contain no wall-clock or host-path
 fields. The JSON Schema for individual JSONL records is
 `diagnostics/causal-trace.schema.json`.
@@ -46,7 +47,31 @@ Example controls are:
 --causal-trace-cpu NAME --causal-trace-device NAME
 --causal-trace-io RANGE --causal-trace-memory RANGE
 --causal-trace-stop EVENT_CLASS
+--causal-trace-stop-after EVENTS
+--causal-trace-fetch PHYSICAL_RANGE
+--causal-trace-event CLASS[,CLASS...]
+--causal-trace-start EVENT_CLASS
 ```
+
+`--causal-trace-stop-after` retains a bounded number of accepted events after
+the first event selected by `--causal-trace-stop`. It is useful for capturing
+the CPU and device path immediately following a transfer without enabling an
+unbounded instruction trace. Supplying it without `--causal-trace-stop` fails
+closed.
+
+`--causal-trace-fetch` emits an `instruction_fetch_watch` record with the
+already-fetched opcode and pre-instruction CPU state whenever execution enters
+the selected physical range. It performs no additional memory read. Combine it
+with `--causal-trace-stop instruction_fetch_watch` for a bounded handoff probe.
+
+`--causal-trace-start` suppresses event retention until the first accepted
+event of the selected class. This bounds a transfer-to-handoff capture without
+performing extra guest reads or changing emulated state. The triggering event
+is retained and counts as the first captured event.
+
+`--causal-trace-event` retains only the listed stable event classes. Unknown
+or empty class names fail closed. This permits a compact causal-boundary trace
+without changing which emulated operations execute.
 
 Ranges are decimal or `0x`-prefixed hexadecimal single values, inclusive
 hyphen ranges, comma-separated ranges, or `all`. An invalid range or an
@@ -59,6 +84,15 @@ The causal layer does not fetch them again. Memory-watch records are emitted
 only for ranges explicitly selected by the caller. FDD transfer correlation
 uses the destination range recorded by the existing transfer operation and
 does not read that range again.
+
+An FDC command snapshots the most recently consumed subsystem request rather
+than the most recently emitted main-side request. That trace-only scope is
+retained through command issue, sector-buffer readiness, DMA/transfer,
+completion status, interrupt delivery, and the first correlated instruction
+fetch. This prevents an overlapping attention edge from re-labeling an
+in-flight command. `FDC_COMMAND_ISSUED` is emitted at command acceptance;
+`FDC_COMMAND_COMPLETED` and `RESPONSE_STATUS_WRITTEN` are emitted at the
+existing completion boundary. No event performs an additional guest access.
 
 The public ROM-free selftests exercise the causal event chain, filtering,
 ring-buffer retention, explicit event-limit stops, and deterministic output.

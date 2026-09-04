@@ -44,11 +44,14 @@ typedef struct {
     VAEG_CAUSAL_TRACE_CONFIG config;
     CAUSAL_RANGE io_ranges[CAUSAL_MAX_RANGES];
     CAUSAL_RANGE memory_ranges[CAUSAL_MAX_RANGES];
+    CAUSAL_RANGE fetch_ranges[CAUSAL_MAX_RANGES];
     uint32_t io_count;
     uint32_t memory_count;
+    uint32_t fetch_count;
     uint32_t event_count;
     uint32_t sequence;
     uint32_t step;
+    uint32_t subsystem_step;
     uint32_t ring_next;
     uint32_t ring_count;
     char *ring;
@@ -57,10 +60,17 @@ typedef struct {
     int transfer_valid;
     uint32_t next_request_id;
     uint32_t current_request_id;
+    uint32_t active_request_id;
+    uint32_t active_transfer_request_id;
+    uint32_t last_transfer_request_id;
     int io_all;
     int memory_all;
+    int fetch_all;
+    int capture_started;
     int stop_requested;
     int stop_written;
+    int stop_event_seen;
+    uint32_t post_stop_remaining;
     char current_class[48];
     char stop_reason[32];
 } CAUSAL_STATE;
@@ -161,6 +171,8 @@ static const char *producer_site_name(uint32_t id) {
         return "mailbox_dequeue";
     case VAEG_CAUSAL_SITE_SUBSYSTEM_CALLBACK:
         return "subsystem_callback";
+    case VAEG_CAUSAL_SITE_FDC_COMPLETE:
+        return "fdc_complete";
     default:
         return "unknown";
     }
@@ -304,6 +316,8 @@ static const char *transition_name(uint32_t id) {
         return "FDC_COMMAND_ISSUED";
     case VAEG_CAUSAL_TRANSITION_FDC_COMMAND_REJECTED:
         return "FDC_COMMAND_REJECTED";
+    case VAEG_CAUSAL_TRANSITION_FDC_COMMAND_COMPLETED:
+        return "FDC_COMMAND_COMPLETED";
     default:
         return "UNKNOWN";
     }
@@ -419,16 +433,40 @@ static int in_ranges(uint32_t value, const CAUSAL_RANGE *ranges, uint32_t count,
 }
 
 static int filter_matches(const char *filter, const char *value) {
-    return (filter == NULL) || is_all(filter) ||
-           ((value != NULL) && (strcmp(filter, value) == 0));
+    const char *cursor;
+    const char *end;
+    size_t value_length;
+
+    if ((filter == NULL) || is_all(filter)) {
+        return 1;
+    }
+    if (value == NULL) {
+        return 0;
+    }
+    value_length = strlen(value);
+    cursor = filter;
+    while (*cursor != '\0') {
+        end = strchr(cursor, ',');
+        if (end == NULL) {
+            end = cursor + strlen(cursor);
+        }
+        if (((size_t)(end - cursor) == value_length) &&
+            (strncmp(cursor, value, value_length) == 0)) {
+            return 1;
+        }
+        cursor = (*end == ',') ? end + 1 : end;
+    }
+    return 0;
 }
 
 static int event_class_known(const char *event_class) {
     static const char *const classes[] = {
         "cpu_step", "io_read", "io_write", "mem_read", "mem_write",
         "irq_assert", "irq_clear", "irq_accept", "device_schedule", "mailbox",
-        "drive_state", "fdc_command", "fdc_position", "sector_transfer", "dma",
-        "instruction_fetch_correlation", "state_transition", "mailbox_boundary", "stop"
+        "drive_state", "fdc_command", "fdc_position", "sector_buffer_ready",
+        "sector_transfer", "dma",
+        "instruction_fetch_correlation", "instruction_fetch_watch", "state_transition",
+        "mailbox_boundary", "stop"
     };
     size_t index;
 
@@ -441,6 +479,35 @@ static int event_class_known(const char *event_class) {
         }
     }
     return 0;
+}
+
+static int event_filter_known(const char *filter) {
+    const char *cursor;
+    const char *end;
+    char event_class[48];
+    size_t length;
+
+    if ((filter == NULL) || is_all(filter)) {
+        return 1;
+    }
+    cursor = filter;
+    while (*cursor != '\0') {
+        end = strchr(cursor, ',');
+        if (end == NULL) {
+            end = cursor + strlen(cursor);
+        }
+        length = (size_t)(end - cursor);
+        if ((length == 0) || (length >= sizeof(event_class))) {
+            return 0;
+        }
+        memcpy(event_class, cursor, length);
+        event_class[length] = '\0';
+        if (!event_class_known(event_class)) {
+            return 0;
+        }
+        cursor = (*end == ',') ? end + 1 : end;
+    }
+    return 1;
 }
 
 static void json_text(FILE *stream, const char *text) {
@@ -593,6 +660,7 @@ static void request_stop(const char *reason) {
 static int event_allowed(const char *event_class, const char *actor,
                          const char *device, uint32_t address) {
     if ((causal_state.stream == NULL) || causal_state.stop_requested ||
+        !filter_matches(causal_state.config.event_filter, event_class) ||
         !filter_matches(causal_state.config.device_filter, device)) {
         return 0;
     }
@@ -607,8 +675,18 @@ static int event_allowed(const char *event_class, const char *actor,
     }
     if ((strcmp(event_class, "mem_read") == 0) ||
         (strcmp(event_class, "mem_write") == 0)) {
-        return in_ranges(address, causal_state.memory_ranges,
-                         causal_state.memory_count, causal_state.memory_all);
+        if (!in_ranges(address, causal_state.memory_ranges,
+                       causal_state.memory_count, causal_state.memory_all)) {
+            return 0;
+        }
+    }
+    if (!causal_state.capture_started) {
+        if ((causal_state.config.start_event == NULL) ||
+            (strcmp(causal_state.config.start_event, "none") == 0) ||
+            (strcmp(event_class, causal_state.config.start_event) != 0)) {
+            return 0;
+        }
+        causal_state.capture_started = 1;
     }
     return 1;
 }
@@ -638,8 +716,19 @@ static void event_finish(char *line) {
     causal_state.event_count++;
     if ((causal_state.config.stop_event != NULL) &&
         (strcmp(causal_state.config.stop_event, "none") != 0) &&
-        (strcmp(causal_state.current_class, causal_state.config.stop_event) == 0)) {
-        request_stop("stop-event");
+        (strcmp(causal_state.current_class, causal_state.config.stop_event) == 0) &&
+        !causal_state.stop_event_seen) {
+        causal_state.stop_event_seen = 1;
+        causal_state.post_stop_remaining = causal_state.config.post_stop_events;
+        if (causal_state.post_stop_remaining == 0) {
+            request_stop("stop-event");
+        }
+    } else if (causal_state.stop_event_seen &&
+               (causal_state.post_stop_remaining != 0)) {
+        causal_state.post_stop_remaining--;
+        if (causal_state.post_stop_remaining == 0) {
+            request_stop("post-stop-event-limit");
+        }
     }
     if (causal_state.event_count >= causal_state.config.max_events) {
         request_stop("event-limit");
@@ -657,13 +746,41 @@ int vaeg_causal_trace_start(FILE *stream,
         !event_class_known(config->stop_event)) {
         return 0;
     }
+    if ((config->start_event != NULL) &&
+        (strcmp(config->start_event, "none") != 0) &&
+        !event_class_known(config->start_event)) {
+        return 0;
+    }
+    if ((config->post_stop_events != 0) &&
+        ((config->stop_event == NULL) ||
+         (strcmp(config->stop_event, "none") == 0))) {
+        return 0;
+    }
+    if (!event_filter_known(config->event_filter)) {
+        return 0;
+    }
+    if ((config->start_event != NULL) &&
+        (strcmp(config->start_event, "none") != 0) &&
+        !filter_matches(config->event_filter, config->start_event)) {
+        return 0;
+    }
+    if ((config->stop_event != NULL) &&
+        (strcmp(config->stop_event, "none") != 0) &&
+        !filter_matches(config->event_filter, config->stop_event)) {
+        return 0;
+    }
     memset(&causal_state, 0, sizeof(causal_state));
     causal_state.stream = stream;
     causal_state.config = *config;
+    causal_state.capture_started =
+        (config->start_event == NULL) ||
+        (strcmp(config->start_event, "none") == 0);
     if (!parse_ranges(config->io_filter, causal_state.io_ranges,
                       &causal_state.io_count, &causal_state.io_all) ||
         !parse_ranges(config->memory_filter, causal_state.memory_ranges,
-                      &causal_state.memory_count, &causal_state.memory_all)) {
+                      &causal_state.memory_count, &causal_state.memory_all) ||
+        !parse_ranges(config->fetch_filter, causal_state.fetch_ranges,
+                      &causal_state.fetch_count, &causal_state.fetch_all)) {
         memset(&causal_state, 0, sizeof(causal_state));
         return 0;
     }
@@ -696,8 +813,15 @@ int vaeg_causal_trace_write_manifest(FILE *stream,
     json_text(stream, config->io_filter);
     fputs(",\"memory_filter\":", stream);
     json_text(stream, config->memory_filter);
+    fputs(",\"start_event\":", stream);
+    json_text(stream, config->start_event);
     fputs(",\"stop_event\":", stream);
     json_text(stream, config->stop_event);
+    fprintf(stream, ",\"post_stop_events\":%u,\"fetch_filter\":",
+            config->post_stop_events);
+    json_text(stream, config->fetch_filter);
+    fputs(",\"event_filter\":", stream);
+    json_text(stream, config->event_filter);
     fputs("}\n", stream);
     return ferror(stream) ? 0 : 1;
 }
@@ -733,11 +857,62 @@ void vaeg_causal_trace_cpu_step(uint32_t step, uint16_t cs, uint16_t ip,
     size_t used = 0;
 
     causal_state.step = step;
+    if ((causal_state.fetch_all ||
+         in_ranges(physical, causal_state.fetch_ranges, causal_state.fetch_count, 0)) &&
+        event_allowed("instruction_fetch_watch", "main-cpu", "memory", physical)) {
+        char watch_line[CAUSAL_LINE_SIZE];
+        size_t watch_used = 0;
+
+        if (event_begin(watch_line, sizeof(watch_line), &watch_used,
+                        "instruction_fetch_watch") &&
+            append_text(watch_line, sizeof(watch_line), &watch_used,
+                        ",\"step\":%u,\"actor\":\"main-cpu\","
+                        "\"device\":\"memory\",\"phase\":\"fetch-watch\","
+                        "\"address\":%u,\"value\":%u,\"width\":1,"
+                        "\"cs\":%u,\"ip\":%u,\"physical\":%u,"
+                        "\"opcode\":%u,\"ax\":%u,\"bx\":%u,"
+                        "\"cx\":%u,\"dx\":%u,\"si\":%u,\"di\":%u,"
+                        "\"bp\":%u,\"sp\":%u,\"es\":%u,\"ss\":%u,"
+                        "\"ds\":%u,\"flags\":%u,\"if\":%u,"
+                        "\"memory\":%u,\"correlation\":%u}",
+                        step, physical, opcode, cs, ip, physical, opcode, ax, bx,
+                        cx, dx, si, di, bp, sp, es, ss, ds, flags,
+                        (flags & 0x0200U) ? 1U : 0U, memory_backend,
+                        causal_state.last_transfer_request_id != 0
+                            ? causal_state.last_transfer_request_id
+                            : causal_state.current_request_id)) {
+            event_finish(watch_line);
+        }
+    }
     if (causal_state.transfer_valid && (physical >= causal_state.transfer_first) &&
         (physical <= causal_state.transfer_last)) {
-        vaeg_causal_trace_named("instruction_fetch_correlation", "main-cpu",
-                                "memory", "sector-transfer-destination", physical,
-                                opcode, 1);
+        char correlation_line[CAUSAL_LINE_SIZE];
+        size_t correlation_used = 0;
+
+        if (event_allowed("instruction_fetch_correlation", "main-cpu", "memory",
+                          physical) &&
+            event_begin(correlation_line, sizeof(correlation_line),
+                        &correlation_used, "instruction_fetch_correlation") &&
+            append_text(correlation_line, sizeof(correlation_line),
+                        &correlation_used,
+                        ",\"step\":%u,\"actor\":\"main-cpu\","
+                        "\"device\":\"memory\","
+                        "\"phase\":\"sector-transfer-destination\","
+                        "\"address\":%u,\"value\":%u,\"width\":1,"
+                        "\"cs\":%u,\"ip\":%u,\"physical\":%u,"
+                        "\"opcode\":%u,\"ax\":%u,\"bx\":%u,"
+                        "\"cx\":%u,\"dx\":%u,\"si\":%u,\"di\":%u,"
+                        "\"bp\":%u,\"sp\":%u,\"es\":%u,\"ss\":%u,"
+                        "\"ds\":%u,\"flags\":%u,\"if\":%u,"
+                        "\"memory\":%u,\"correlation\":%u}",
+                        step, physical, opcode, cs, ip, physical, opcode, ax, bx,
+                        cx, dx, si, di, bp, sp, es, ss, ds, flags,
+                        (flags & 0x0200U) ? 1U : 0U, memory_backend,
+                        causal_state.last_transfer_request_id != 0
+                            ? causal_state.last_transfer_request_id
+                            : causal_state.current_request_id)) {
+            event_finish(correlation_line);
+        }
     }
     if (!event_allowed("cpu_step", "main-cpu", "cpu", physical) ||
         !event_begin(line, sizeof(line), &used, "cpu_step")) {
@@ -755,6 +930,41 @@ void vaeg_causal_trace_cpu_step(uint32_t step, uint16_t cs, uint16_t ip,
                      sp, es, ss, ds, flags, (flags & 0x0200U) ? 1U : 0U,
                      memory_backend) ||
         !append_text(line, sizeof(line), &used, ",\"correlation\":%u}",
+                     causal_state.current_request_id)) {
+        causal_state.stop_requested = 1;
+        emit_stop("line-overflow");
+        return;
+    }
+    event_finish(line);
+}
+
+void vaeg_causal_trace_subsystem_cpu_step(uint16_t pc, uint16_t next_pc,
+                                          uint8_t opcode, uint32_t af,
+                                          uint32_t bc, uint32_t de, uint32_t hl,
+                                          uint32_t sp, uint32_t ix, uint32_t iy,
+                                          uint32_t iff1, uint32_t iff2,
+                                          uint32_t interrupt_mode) {
+    char line[CAUSAL_LINE_SIZE];
+    size_t used = 0;
+    const uint32_t step = causal_state.subsystem_step++;
+
+    if (causal_state.current_request_id == 0) {
+        return;
+    }
+    if (!event_allowed("cpu_step", "fd-subsystem-cpu", "fd-subsystem", pc) ||
+        !event_begin(line, sizeof(line), &used, "cpu_step")) {
+        return;
+    }
+    if (!append_text(line, sizeof(line), &used,
+                     ",\"step\":%u,\"actor\":\"fd-subsystem-cpu\","
+                     "\"device\":\"fd-subsystem\",\"phase\":\"execute\","
+                     "\"ip\":%u,\"next_ip\":%u,\"physical\":%u,"
+                     "\"opcode\":%u,\"af\":%u,\"bc\":%u,\"de\":%u,"
+                     "\"hl\":%u,\"sp\":%u,\"ix\":%u,\"iy\":%u,"
+                     "\"iff1\":%u,\"iff2\":%u,\"interrupt_mode\":%u,"
+                     "\"memory\":1,\"correlation\":%u}",
+                     step, pc, next_pc, pc, opcode, af, bc, de, hl, sp, ix, iy,
+                     iff1, iff2, interrupt_mode,
                      causal_state.current_request_id)) {
         causal_state.stop_requested = 1;
         emit_stop("line-overflow");
@@ -803,21 +1013,61 @@ void vaeg_causal_trace_io(const char *phase, const char *actor, uint32_t port,
 
 void vaeg_causal_trace_memory(const char *phase, const char *actor, uint32_t address,
                               uint32_t value, uint32_t width) {
+    uint32_t saved_request_id = causal_state.current_request_id;
+
+    if ((phase != NULL) && (strcmp(phase, "write") == 0)) {
+        if (causal_state.active_transfer_request_id != 0) {
+            causal_state.current_request_id = causal_state.active_transfer_request_id;
+        } else if (causal_state.last_transfer_request_id != 0) {
+            causal_state.current_request_id = causal_state.last_transfer_request_id;
+        }
+    }
     vaeg_causal_trace_named(
         (phase != NULL && strcmp(phase, "read") == 0) ? "mem_read" : "mem_write",
         actor, "memory", phase, address, value, width);
+    causal_state.current_request_id = saved_request_id;
+}
+
+void vaeg_causal_trace_sector_buffer_ready(uint32_t drive, uint32_t byte_count,
+                                           uint32_t status) {
+    causal_state.active_transfer_request_id = causal_state.current_request_id;
+    vaeg_causal_trace_named("sector_buffer_ready", "fdc", "fdd", "ready",
+                            drive, byte_count, status);
 }
 
 void vaeg_causal_trace_sector_transfer(const char *phase, uint32_t destination,
                                        uint32_t end, uint32_t byte_count,
                                        uint32_t status) {
+    char line[CAUSAL_LINE_SIZE];
+    size_t used = 0;
+    const uint32_t transfer_request_id =
+        causal_state.active_transfer_request_id != 0
+            ? causal_state.active_transfer_request_id
+            : causal_state.current_request_id;
+
     if ((destination != UINT32_MAX) && (end != UINT32_MAX)) {
         causal_state.transfer_first = (destination < end) ? destination : end;
         causal_state.transfer_last = (destination < end) ? end : destination;
         causal_state.transfer_valid = 1;
     }
-    vaeg_causal_trace_named("sector_transfer", "fdc", "fdd", phase, destination,
-                            byte_count, status);
+    if ((phase == NULL) ||
+        !event_allowed("sector_transfer", "fdc", "fdd", destination) ||
+        !event_begin(line, sizeof(line), &used, "sector_transfer") ||
+        !append_text(line, sizeof(line), &used,
+                     ",\"step\":%u,\"actor\":\"fdc\",\"device\":\"fdd\","
+                     "\"phase\":",
+                     causal_state.step) ||
+        !append_json(line, sizeof(line), &used, phase) ||
+        !append_text(line, sizeof(line), &used,
+                     ",\"address\":%u,\"end\":%u,\"value\":%u,"
+                     "\"width\":%u,\"status\":%u,\"correlation\":%u}",
+                     destination, end, byte_count, status, status,
+                     transfer_request_id)) {
+        return;
+    }
+    event_finish(line);
+    causal_state.last_transfer_request_id = transfer_request_id;
+    causal_state.active_transfer_request_id = 0;
 }
 
 uint32_t vaeg_causal_trace_request_begin(uint32_t producer_site_id) {
@@ -849,6 +1099,10 @@ void vaeg_causal_trace_request_bind(uint32_t request_id) {
 
 uint32_t vaeg_causal_trace_request_current(void) {
     return causal_state.current_request_id;
+}
+
+uint32_t vaeg_causal_trace_request_active(void) {
+    return causal_state.active_request_id;
 }
 
 void vaeg_causal_trace_state_transition(uint32_t component_id, uint32_t field_id,
@@ -897,6 +1151,12 @@ void vaeg_causal_trace_mailbox_boundary(uint32_t boundary_id,
                                         uint32_t reason_id) {
     char line[CAUSAL_LINE_SIZE];
     size_t used = 0;
+
+    if (vaeg_causal_trace_active() &&
+        (boundary_id == VAEG_CAUSAL_MAILBOX_BOUNDARY_REQUEST_CONSUMED) &&
+        (predicate == VAEG_CAUSAL_PREDICATE_TRUE)) {
+        causal_state.active_request_id = causal_state.current_request_id;
+    }
 
     if (!event_allowed("mailbox_boundary", "mailbox", "fd-subsystem", 0) ||
         !event_begin(line, sizeof(line), &used, "mailbox_boundary")) {

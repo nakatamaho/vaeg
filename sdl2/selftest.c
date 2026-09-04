@@ -68,6 +68,12 @@
 #include "scrndraw.h"
 #include "scrndrawva.h"
 #include "sdrawva.h"
+
+#include <sys/stat.h>
+
+#if defined(WIN32)
+#include <io.h>
+#endif
 #include "soundmng.h"
 #include "soundopts.h"
 #include "strres.h"
@@ -1032,6 +1038,15 @@ static const SELFTESTFDDGEOMETRY selftest_fdd_geometry[] = {
     {NEWDISK_FDD_MSDOS_2HD, 0x20, 77, 2, 8, 3, 1024, 1, 0xfe, 192, 2},
     {NEWDISK_FDD_MSDOS_2DD, 0x10, 80, 2, 8, 2, 512, 2, 0xfb, 112, 2}};
 
+static int selftest_set_read_only(const char *path, BOOL read_only) {
+#if defined(WIN32)
+	return (_chmod(path, read_only ? _S_IREAD : (_S_IREAD | _S_IWRITE)));
+#else
+	return (chmod(path, read_only ? (S_IRUSR | S_IRGRP | S_IROTH)
+	                                : (S_IRUSR | S_IWUSR)));
+#endif
+}
+
 static int test_new_fdd_image(void) {
 	const SELFTESTFDDGEOMETRY *geometry;
 	_D88HEAD header;
@@ -1124,6 +1139,38 @@ static int test_new_fdd_image(void) {
 			break;
 		}
 		file_close(fh);
+		if ((selftest_set_read_only(path, TRUE) != 0) ||
+		    ((file_attr(path) & FILEATTR_READONLY) == 0)) {
+			result = fail("new-fdd", "could not prepare a read-only D88 fixture");
+			selftest_set_read_only(path, FALSE);
+			file_delete(path);
+			break;
+		}
+		ZeroMemory(&parsed, sizeof(parsed));
+		if ((fddd88_set(&parsed, path, 0) != SUCCESS) || !parsed.protect ||
+		    (parsed.inf.d88.fdtype_major != (geometry->d88_type >> 4))) {
+			result = fail("new-fdd", "active D88 loader rejected read-only media");
+			selftest_set_read_only(path, FALSE);
+			file_delete(path);
+			break;
+		}
+		fh = file_open_rb(path);
+		if ((fh == FILEH_INVALID) ||
+		    (file_read(fh, &header, sizeof(header)) != sizeof(header))) {
+			result = fail("new-fdd", "read-only D88 data path could not read media");
+			if (fh != FILEH_INVALID) {
+				file_close(fh);
+			}
+			selftest_set_read_only(path, FALSE);
+			file_delete(path);
+			break;
+		}
+		file_close(fh);
+		if (selftest_set_read_only(path, FALSE) != 0) {
+			result = fail("new-fdd", "could not restore the D88 fixture permissions");
+			file_delete(path);
+			break;
+		}
 		file_delete(path);
 
 		SPRINTF(path, "vaeg-selftest-%lu-fdd-%u.img", (unsigned long)getpid(), geometry->format);

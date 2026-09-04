@@ -251,7 +251,7 @@ BOOL fddd88_set(FDDFILE fdd, const char *fname, int ro) {
 	if (attr & 0x18) {
 		goto fdst_err;
 	}
-	fh = file_open(fname);
+	fh = file_open_rb(fname);
 	if (fh == FILEH_INVALID) {
 		goto fdst_err;
 	}

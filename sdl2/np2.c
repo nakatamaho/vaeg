@@ -308,14 +308,17 @@ static void usage(const char *progname) {
 	printf("\t--scsitrace-cmdreq-windows\n");
 	printf("\t--scsitrace-limit 1..1000000\n");
 	printf("\t--scsitrace-jitter-seed N [--scsitrace-jitter-span N]\n");
-	printf("\t--trace-cpu 1..1000000\n");
+	printf("\t--trace-cpu 1..100000000\n");
 #if defined(VAEG_Z80_COMPAT_INTEGRATION_TRACE)
 	printf("\t--trace-cpu-output path --trace-cpu-stop\n");
 	printf("\t--causal-trace-output path --causal-trace-limit 1..10000000\n");
 	printf("\t--causal-trace-ring 0..1000000 --causal-trace-manifest path\n");
 	printf("\t--causal-trace-cpu name --causal-trace-device name\n");
 	printf("\t--causal-trace-io range --causal-trace-memory range\n");
-	printf("\t--causal-trace-stop event-class\n");
+	printf("\t--causal-trace-fetch physical-range\n");
+	printf("\t--causal-trace-event class[,class...]\n");
+	printf("\t--causal-trace-start event-class\n");
+	printf("\t--causal-trace-stop event-class [--causal-trace-stop-after events]\n");
 	printf("\t--production-trace-capability\n");
 #endif
 	printf("\t--headless-input-script path\n");
@@ -381,7 +384,11 @@ static BOOL causal_trace_start(const VAEG_CLI_OPTIONS *options, FILE **stream) {
 	config.device_filter = options->causal_trace_device;
 	config.io_filter = options->causal_trace_io;
 	config.memory_filter = options->causal_trace_memory;
+	config.start_event = options->causal_trace_start_event;
 	config.stop_event = options->causal_trace_stop_event;
+	config.post_stop_events = options->causal_trace_post_stop_events;
+	config.fetch_filter = options->causal_trace_fetch;
+	config.event_filter = options->causal_trace_event;
 	if (!vaeg_causal_trace_start(*stream, &config)) {
 		fprintf(stderr, "Error: invalid causal trace configuration\n");
 		fclose(*stream);
@@ -1936,12 +1943,21 @@ int main(int argc, char **argv) {
 	     (options.causal_trace_manifest != NULL) || (options.causal_trace_cpu != NULL) ||
 	     (options.causal_trace_device != NULL) || (options.causal_trace_io != NULL) ||
 	     (options.causal_trace_memory != NULL) ||
-	     (options.causal_trace_stop_event != NULL))) {
+	     (options.causal_trace_fetch != NULL) ||
+	     (options.causal_trace_event != NULL) ||
+	     (options.causal_trace_start_event != NULL) ||
+	     (options.causal_trace_stop_event != NULL) ||
+	     (options.causal_trace_post_stop_events != 0))) {
 		fprintf(stderr, "Error: causal trace options require --causal-trace-output\n");
 		return FAILURE;
 	}
 	if ((options.causal_trace_output != NULL) && (options.causal_trace_limit == 0)) {
 		fprintf(stderr, "Error: --causal-trace-output requires --causal-trace-limit\n");
+		return FAILURE;
+	}
+	if ((options.causal_trace_post_stop_events != 0) &&
+	    (options.causal_trace_stop_event == NULL)) {
+		fprintf(stderr, "Error: --causal-trace-stop-after requires --causal-trace-stop\n");
 		return FAILURE;
 	}
 #endif

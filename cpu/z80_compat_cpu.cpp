@@ -128,7 +128,11 @@ Z80CompatCpu::Z80CompatCpu()
       instruction_fetch_started_(false), prefix_fetch_pending_(false), first_opcode_(0),
       prefixed_opcode_(0), restore_iff1_after_instruction_(false),
       materialize_i_flags_after_instruction_(false), materialize_r_flags_after_instruction_(false),
-      code_base_(0), data_base_(0), public_registers_{} {
+      code_base_(0), data_base_(0), public_registers_{}
+#if defined(VAEG_Z80_COMPAT_INTEGRATION_TRACE)
+      , instruction_observer_(nullptr), instruction_observer_opaque_(nullptr)
+#endif
+{
 }
 
 Z80CompatCpu::~Z80CompatCpu() {
@@ -341,6 +345,13 @@ const Z80CompatReg *Z80CompatCpu::GetReg() {
 	return &public_registers_;
 }
 
+#if defined(VAEG_Z80_COMPAT_INTEGRATION_TRACE)
+void Z80CompatCpu::SetInstructionObserver(InstructionObserver observer, void *opaque) {
+	instruction_observer_ = observer;
+	instruction_observer_opaque_ = opaque;
+}
+#endif
+
 std::uint8_t Z80CompatCpu::ReadMemory(void *opaque, std::uint16_t address) {
 	Z80CompatCpu *cpu = static_cast<Z80CompatCpu *>(opaque);
 	const std::uint32_t translated = cpu->instruction_fetch_started_
@@ -408,6 +419,9 @@ std::uint8_t Z80CompatCpu::Acknowledge(void *opaque) {
 }
 
 void Z80CompatCpu::ExecuteOne() {
+#if defined(VAEG_Z80_COMPAT_INTEGRATION_TRACE)
+	const std::uint16_t pc = impl_->cpu.reg.PC;
+#endif
 	instruction_fetch_started_ = false;
 	prefix_fetch_pending_ = false;
 	first_opcode_ = 0;
@@ -421,6 +435,13 @@ void Z80CompatCpu::ExecuteOne() {
 	}
 	impl_->cpu.execute(1);
 	ApplyInstructionCorrections();
+#if defined(VAEG_Z80_COMPAT_INTEGRATION_TRACE)
+	if (instruction_observer_ != nullptr) {
+		const Z80CompatReg registers = ExportRegisters(impl_->cpu.reg);
+		instruction_observer_(instruction_observer_opaque_, pc, registers.pc,
+		                      first_opcode_, registers);
+	}
+#endif
 }
 
 std::uint32_t Z80CompatCpu::TranslateCodeAddress(std::uint16_t address) const {

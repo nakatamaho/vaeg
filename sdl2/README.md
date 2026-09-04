@@ -69,7 +69,8 @@ case-insensitive, and the last occurrence wins when an option is repeated.
 Positional FDD arguments have been removed; use `--fdd1` and `--fdd2`.
 
 The production-memory CPU trace options are available only in a build with
-`VAEG_Z80_COMPAT_INTEGRATION_TRACE=ON`. `--trace-cpu N` sets the maximum CPU
+`VAEG_Z80_COMPAT_INTEGRATION_TRACE=ON`. `--trace-cpu N` (up to 100,000,000)
+sets the maximum CPU
 instruction records. `--trace-cpu-output path` writes them to a separate file,
 and `--trace-cpu-stop` exits with an explicit trace-limit record after the
 bound. The trace uses the instruction byte already fetched through the normal

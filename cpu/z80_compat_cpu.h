@@ -33,6 +33,12 @@
 
 class Z80CompatCpu {
   public:
+#if defined(VAEG_Z80_COMPAT_INTEGRATION_TRACE)
+	using InstructionObserver = void (*)(void *opaque, std::uint16_t pc,
+	                                     std::uint16_t next_pc, std::uint8_t opcode,
+	                                     const Z80CompatReg &registers);
+#endif
+
 	Z80CompatCpu();
 	~Z80CompatCpu();
 
@@ -56,6 +62,9 @@ class Z80CompatCpu {
 	void SetMainReg(const Z80CompatReg &reg);
 	void SetMemoryBases(std::uint32_t code_base, std::uint32_t data_base);
 	const Z80CompatReg *GetReg();
+#if defined(VAEG_Z80_COMPAT_INTEGRATION_TRACE)
+	void SetInstructionObserver(InstructionObserver observer, void *opaque);
+#endif
 
   private:
 	struct Impl;
@@ -95,6 +104,10 @@ class Z80CompatCpu {
 	std::uint32_t code_base_;
 	std::uint32_t data_base_;
 	Z80CompatReg public_registers_;
+#if defined(VAEG_Z80_COMPAT_INTEGRATION_TRACE)
+	InstructionObserver instruction_observer_;
+	void *instruction_observer_opaque_;
+#endif
 };
 
 using UPD70008C = Z80CompatCpu;

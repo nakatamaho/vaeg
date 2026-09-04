@@ -138,6 +138,7 @@ typedef struct {
 #if defined(VAEG_Z80_COMPAT_INTEGRATION_TRACE)
 	UINT causal_trace_limit;
 	UINT causal_trace_ring;
+	UINT causal_trace_post_stop_events;
 #endif
 	UINT scsitrace_limit;
 	UINT scsitrace_jitter_seed;
@@ -175,6 +176,9 @@ typedef struct {
 	const char *causal_trace_device;
 	const char *causal_trace_io;
 	const char *causal_trace_memory;
+	const char *causal_trace_fetch;
+	const char *causal_trace_event;
+	const char *causal_trace_start_event;
 	const char *causal_trace_stop_event;
 #endif
 	const char *headless_input_script;

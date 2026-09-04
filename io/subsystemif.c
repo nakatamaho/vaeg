@@ -28,6 +28,22 @@ static UINT subif_trace_resp_len;
 static REG8 subif_trace_portb;
 static REG8 subif_trace_portc;
 
+static UINT32 subif_trace_active_scope_enter(void) {
+	UINT32 saved;
+	UINT32 active;
+
+	saved = vaeg_causal_trace_request_current();
+	active = vaeg_causal_trace_request_active();
+	if (active) {
+		vaeg_causal_trace_request_bind(active);
+	}
+	return saved;
+}
+
+static void subif_trace_active_scope_leave(UINT32 saved) {
+	vaeg_causal_trace_request_bind(saved);
+}
+
 // ----
 
 static void subif_trace_emit(const char *dir, const UINT8 *data, UINT length) {
@@ -122,8 +138,10 @@ static void IOOUTCALL subsystemif_o0ff(UINT port, REG8 dat) {
 
 static REG8 IOINPCALL subsystemif_i0fc(UINT port) {
 	REG8 ret;
+	UINT32 saved;
 
 	ret = i8255_inporta(&i8255cfg);
+	saved = subif_trace_active_scope_enter();
 	vaeg_causal_trace_named("mailbox", "fd-subsystem", "main-cpu", "read",
 	                       port, ret, 1);
 	vaeg_causal_trace_state_transition(
@@ -132,6 +150,7 @@ static REG8 IOINPCALL subsystemif_i0fc(UINT port) {
 	    VAEG_CAUSAL_SITE_RESPONSE_CONSUMER,
 	    VAEG_CAUSAL_TRANSITION_MAILBOX_RESPONSE_CONSUMED,
 	    VAEG_CAUSAL_PREDICATE_TRUE);
+	subif_trace_active_scope_leave(saved);
 	subif_trace_flush_main();
 	subif_trace_append_resp(ret);
 	return ret;
@@ -147,6 +166,9 @@ static REG8 IOINPCALL subsystemif_i0fe(UINT port) {
 // ---- I/F (sub system)
 
 void subsystemif_businporta(BYTE dat) {
+	UINT32 saved;
+
+	saved = subif_trace_active_scope_enter();
 	vaeg_causal_trace_named("mailbox", "fd-subsystem", "main-cpu", "write",
 	                       0x0fc, dat, 1);
 	vaeg_causal_trace_state_transition(
@@ -155,6 +177,7 @@ void subsystemif_businporta(BYTE dat) {
 	    VAEG_CAUSAL_SITE_RESPONSE_MAILBOX,
 	    VAEG_CAUSAL_TRANSITION_MAILBOX_RESPONSE_WRITTEN,
 	    VAEG_CAUSAL_PREDICATE_TRUE);
+	subif_trace_active_scope_leave(saved);
 	i8255_businporta(&i8255cfg, dat);
 }
 

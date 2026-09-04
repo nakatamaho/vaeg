@@ -237,7 +237,7 @@ FILEH file_open(const char *path) {
 }
 
 FILEH file_open_rb(const char *path) {
-	return (file_fopen_asset(path, "rb+"));
+	return (file_fopen_asset(path, "rb"));
 }
 
 FILEH file_create(const char *path) {
