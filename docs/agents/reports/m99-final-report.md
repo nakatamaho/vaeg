@@ -87,7 +87,7 @@ from this macOS/Colima environment, so this report does not claim `DONE`.
 | G99-4 | BLOCKED | Colima's virtual arm64 Linux container had no real OpenGL display/GPU; its software/virtual result is smoke evidence only. |
 | G99-5 | BLOCKED | macOS feature-on build passed, but no usable Cocoa/Metal display was available. |
 | G99-6 | PASS | Runtime-free and optional-runtime staged archives for all three platforms passed inspection. |
-| G99-7 | BLOCKED | No representative real-hardware 60 Hz benchmark; hosted CI also contains pre-existing ROM-less smoke and macOS FetchContent failures. |
+| G99-7 | BLOCKED | No representative real-hardware 60 Hz benchmark; hosted CI still has the independent macOS FetchContent failure. |
 
 ## Implementation and ownership
 
@@ -181,9 +181,12 @@ The hosted run for the earlier M99y tip is
 [Actions run 33864023294](https://github.com/nakatamaho/vaeg/actions/runs/33864023294)
 and completed with failure. The failure set was separately diagnosed:
 
-- Linux gcc/clang/ASAN and Windows smoke jobs exit 1 after explicitly reporting
-  ROM-less mode; the return value comes from the pre-existing model-ROM smoke
-  path in `sdl2/np2.c`, present in the clean baseline, not from native CRT.
+- Linux gcc/clang/ASAN and Windows smoke jobs exited 1 after explicitly
+  reporting ROM-less mode. The ROM-less return value in `sdl2/np2.c` is
+  intentional: it keeps screen-uniform detection disabled. The actual
+  startup failure was an inverted `SUCCESS == 0` test in
+  `sdl2/scrnmng.c`, which treated successful SDL resource creation as a
+  failure; M99z corrects both affected startup/fallback checks.
 - The standalone archive check rejected `external/librashader` until the
   allow-list fix in `265f1582`.
 - macOS FetchContent configuration failed inside hosted CMake with missing
@@ -216,9 +219,11 @@ BLOCKED to PASS.
 The implementation and all safe environment-independent M99 work are
 complete. Overall status is **BLOCKED**, not DONE, because required physical
 GPU lifecycle/performance evidence is unavailable and the hosted compatibility
-workflow retains the documented pre-existing ROM-less smoke/toolchain failures.
+workflow still has the independent macOS FetchContent/toolchain failure. The
+SDL smoke startup condition has been corrected locally and will be rechecked
+by the next hosted run.
 
-Final status captured before the report commit:
+Status captured at the preceding report commit:
 
 ```text
 ?? va2bkupmem.dat

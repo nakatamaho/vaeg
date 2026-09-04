@@ -61,7 +61,10 @@ git diff --check
 
 The feature-on Linux build, focused librashader/ROM-less CTest (7/7), and
 dummy-driver selftest were completed in M99y. The macOS feature-on build and
-focused tests were also completed. No physical GPU result is claimed here.
+focused tests were also completed. Hosted smoke failures exposed an inverted
+`SUCCESS == 0` test in the SDL resource startup/fallback path; M99z corrects
+both comparisons, and the macOS dummy-driver `--smoke` run now exits 0. No
+physical GPU result is claimed here.
 
 ## Gate disposition
 

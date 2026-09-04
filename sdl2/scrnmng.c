@@ -1153,7 +1153,7 @@ static BOOL scrnmng_native_fallback(void) {
 	scrnmng.native_presenter = NULL;
 	scrnmng.native_active = FALSE;
 	scrnmng.native_fallback_pending = TRUE;
-	if (!scrnmng_create_sdl_resources()) {
+	if (scrnmng_create_sdl_resources() != SUCCESS) {
 		fprintf(stderr, "Error: SDL fallback renderer creation failed: %s\n", SDL_GetError());
 		return FAILURE;
 	}
@@ -1218,7 +1218,7 @@ BOOL scrnmng_create(int width, int height) {
 			fprintf(stderr, "Native CRT selected but unavailable; using SDL fallback\n");
 		}
 	}
-	if (!scrnmng.native_active && !scrnmng_create_sdl_resources()) {
+	if (!scrnmng.native_active && (scrnmng_create_sdl_resources() != SUCCESS)) {
 		scrnmng_destroy();
 		return (FAILURE);
 	}
