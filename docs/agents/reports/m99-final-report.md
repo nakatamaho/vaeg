@@ -39,10 +39,10 @@ from this macOS/Colima environment, so this report does not claim `DONE`.
 - During M99, `origin/main` advanced to `b25d151236ddfe093e4c161bbf00ce0b7d8d5e74`
   with one unrelated retained change. It was merged into the topic by
   `5d2e63b5bfa52f5e84609b36a02d4fd2a161db5e` without altering that change.
-- Last implementation code commit:
+- Last runtime implementation commit:
   `aa84d543649056236e939c6cb66376e0f0df5ccc`.
-- Topic remote before this final report closure:
-  `origin/topic/m99-native-crt-rebuild` = `af1edaa866d2f8d27f316be15c52b74be0a6e029`.
+- Last machine-validated non-report commit before this report closure:
+  `origin/topic/m99-native-crt-rebuild` = `3578d97a9ce54c1f77f89bc1fc6cbd4e21445310`.
 - The final report commit is the containing commit for this file; its exact
   full ID is the final `HEAD` shown by `git log -1` after this commit.
 - No merge into `main`, release, binary publication, or remote-history rewrite
@@ -82,6 +82,7 @@ from this macOS/Colima environment, so this report does not claim `DONE`.
 | M99z2 | PASS — macOS FetchContent language initialization corrected | `2aeaf519` |
 | M99z3 | PASS — Windows save-state selftest boundary stabilized | `aa84d543` |
 | M99z4 | PASS — governing M99 specification published at its required path | `af1edaa8` |
+| M99z5 | PASS — BSD header and packaged-provenance integrity audit completed | `891ceef6`, `a1e994b2`, `3578d97a` |
 
 ## Gate status
 
@@ -223,6 +224,12 @@ at `aa84d543649056236e939c6cb66376e0f0df5ccc` passed all ten jobs,
 including both Windows selftest registrations and the macOS FetchContent job.
 This hosted result is automated compatibility evidence, not real-GPU evidence.
 
+The subsequent M99z5 integrity update passed all ten jobs in
+[Actions run 33882272840](https://github.com/nakatamaho/vaeg/actions/runs/33882272840)
+at `3578d97a9ce54c1f77f89bc1fc6cbd4e21445310`, including repository
+invariants, guest-driver distribution, gcc/clang/ASAN, architectural SST,
+standalone conformance, both Windows jobs, and macOS FetchContent.
+
 ## Performance and manual evidence
 
 No acceptable benchmark numbers were obtained. Average, p95, maximum
@@ -245,9 +252,10 @@ The implementation and all safe environment-independent M99 work are
 complete. Overall status is **BLOCKED**, not DONE, because required physical
 GPU lifecycle/performance evidence is unavailable. The SDL smoke startup and
 macOS FetchContent conditions have been corrected and passed in subsequent
-hosted jobs, and all ten jobs in the final hosted run passed.
+hosted jobs, and all ten jobs in the latest hosted run passed.
 
-Working-tree status at the last code commit before this report update:
+Working-tree status at the last machine-validated non-report commit before
+this report update:
 
 ```text
 [clean]
@@ -347,3 +355,27 @@ publishes the maintainer-provided specification as
 BSD-2-Clause header. A byte comparison from the title through end of file
 confirmed that the specification body is otherwise unchanged. The bug-fix
 ledger now resolves to that tracked task file.
+
+## M99z5 license-header and package-integrity follow-up
+
+An audit against the repository's new-file policy found 23 VAeg-owned M99
+reports/decision records without the required BSD-2-Clause header. Commit
+[`891ceef6`](https://github.com/nakatamaho/vaeg/commit/891ceef66e225dc4929240ca41dfd217d37608d3)
+prepends headers without changing their bodies, and commit
+[`a1e994b2`](https://github.com/nakatamaho/vaeg/commit/a1e994b24b0a748e649411e1039f3d1c05628bef)
+registers that mechanical update in `.git-blame-ignore-revs`.
+
+The VAeg-authored CRT provenance record also received its required header.
+Because release staging pins that document, commit
+[`3578d97a`](https://github.com/nakatamaho/vaeg/commit/3578d97a9ce54c1f77f89bc1fc6cbd4e21445310)
+updates both independent checks to its new SHA-256
+`2750c3e592acaa38ada456fc30c7993cca3a35e8ab9b24793c4b2747a36ef063`.
+The audited upstream preset, shader, and Unlicense notice remain byte-identical
+at their recorded hashes.
+
+Fresh runtime-free staging and package validation passed for Linux, macOS, and
+Windows. Shell syntax, Python compilation, encoding, EOL, path-case, and
+whitespace checks passed. Finally,
+[Actions run 33882272840](https://github.com/nakatamaho/vaeg/actions/runs/33882272840)
+passed all ten jobs. This closes the environment-independent policy defect but
+does not change the deferred physical GPU gates.
