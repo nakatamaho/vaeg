@@ -31,6 +31,7 @@
 #include <cstring>
 
 #include "librashader/frame_conversion.h"
+#include "librashader/librashader_loader.h"
 
 typedef void (*VAEG_GL_ACTIVE_TEXTURE)(GLenum texture);
 typedef void (*VAEG_GL_ATTACH_SHADER)(GLuint program, GLuint shader);
@@ -120,6 +121,7 @@ struct VAEG_GL_STATE {
 	SDL_GLContext context;
 	VAEG_GL_FUNCTIONS gl;
 	GLuint source_texture;
+	GLuint output_texture;
 	GLuint program;
 	GLuint vertex_array;
 	GLint sampler_location;
@@ -128,8 +130,14 @@ struct VAEG_GL_STATE {
 	uint32_t source_width;
 	uint32_t source_height;
 	uint32_t upload_pitch;
+	uint32_t output_width;
+	uint32_t output_height;
 	uint32_t drawable_width;
 	uint32_t drawable_height;
+	libra_instance_t librashader;
+	libra_gl_filter_chain_t filter_chain;
+	bool filter_enabled;
+	bool filter_first_frame;
 };
 
 struct VAEG_GL_SAVED_STATE {
@@ -209,6 +217,60 @@ static int vaeg_gl_load_functions(VAEG_GL_STATE *state) {
 	       (state->gl.tex_image_2d != nullptr) && (state->gl.tex_parameteri != nullptr) &&
 	       (state->gl.tex_sub_image_2d != nullptr) && (state->gl.uniform_1i != nullptr) &&
 	       (state->gl.use_program != nullptr) && (state->gl.viewport != nullptr);
+}
+
+static const void *vaeg_gl_librashader_loader(const char *name) {
+	return SDL_GL_GetProcAddress(name);
+}
+
+static void vaeg_gl_report_librashader_error(VAEG_GL_STATE *state, libra_error_t error,
+                                             const char *operation) {
+	if (error == nullptr) {
+		return;
+	}
+	fprintf(stderr, "librashader OpenGL %s failed\n", operation);
+	if (state->librashader.error_print != nullptr) {
+		(void)state->librashader.error_print(error);
+	}
+	if (state->librashader.error_free != nullptr) {
+		(void)state->librashader.error_free(&error);
+	}
+}
+
+static int vaeg_gl_create_filter_chain(VAEG_GL_STATE *state, const char *preset_path) {
+	libra_shader_preset_t preset;
+	filter_chain_gl_opt_t options{};
+	libra_error_t error;
+
+	if ((state == nullptr) || (preset_path == nullptr) || (preset_path[0] == '\0')) {
+		return 0;
+	}
+	state->librashader = librashader_load_instance();
+	if (!state->librashader.instance_loaded ||
+	    (state->librashader.gl_filter_chain_create == nullptr)) {
+		fprintf(stderr, "librashader OpenGL runtime unavailable\n");
+		return 0;
+	}
+	preset = nullptr;
+	error = state->librashader.preset_create(preset_path, &preset);
+	if ((error != nullptr) || (preset == nullptr)) {
+		vaeg_gl_report_librashader_error(state, error, "preset creation");
+		return 0;
+	}
+	options.version = LIBRASHADER_CURRENT_VERSION;
+	options.glsl_version = 330;
+	options.use_dsa = false;
+	options.force_no_mipmaps = true;
+	options.disable_cache = true;
+	error = state->librashader.gl_filter_chain_create(
+		&preset, vaeg_gl_librashader_loader, &options, &state->filter_chain);
+	if ((error != nullptr) || (state->filter_chain == nullptr)) {
+		vaeg_gl_report_librashader_error(state, error, "filter-chain creation");
+		return 0;
+	}
+	state->filter_enabled = true;
+	state->filter_first_frame = true;
+	return 1;
 }
 
 static const char vaeg_gl_shader_source[] =
@@ -337,6 +399,34 @@ static int vaeg_gl_ensure_source(VAEG_GL_STATE *state, uint32_t width, uint32_t 
 	return 1;
 }
 
+static int vaeg_gl_ensure_output(VAEG_GL_STATE *state, uint32_t width, uint32_t height) {
+	if ((width == 0) || (height == 0)) {
+		return 0;
+	}
+	if ((state->output_texture != 0) && (state->output_width == width) &&
+	    (state->output_height == height)) {
+		return 1;
+	}
+	if (state->output_texture == 0) {
+		state->gl.gen_textures(1, &state->output_texture);
+	}
+	if (state->output_texture == 0) {
+		return 0;
+	}
+	state->gl.active_texture(GL_TEXTURE0);
+	state->gl.bind_texture(GL_TEXTURE_2D, state->output_texture);
+	state->gl.tex_parameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	state->gl.tex_parameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	state->gl.tex_parameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	state->gl.tex_parameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	state->gl.pixel_storei(GL_UNPACK_ALIGNMENT, 1);
+	state->gl.tex_image_2d(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_RGBA,
+	                       GL_UNSIGNED_BYTE, nullptr);
+	state->output_width = width;
+	state->output_height = height;
+	return 1;
+}
+
 static void vaeg_gl_save_state(VAEG_GL_STATE *state, VAEG_GL_SAVED_STATE *saved) {
 	state->gl.get_integerv(GL_ACTIVE_TEXTURE, &saved->active_texture);
 	state->gl.active_texture(GL_TEXTURE0);
@@ -378,13 +468,20 @@ static void vaeg_gl_release_state(VAEG_GL_STATE *state) {
 	}
 	if (state->context != nullptr) {
 		(void)SDL_GL_MakeCurrent(state->window, state->context);
-		if (state->source_texture != 0) {
+		if ((state->filter_chain != nullptr) &&
+		    (state->librashader.gl_filter_chain_free != nullptr)) {
+			(void)state->librashader.gl_filter_chain_free(&state->filter_chain);
+		}
+		if ((state->source_texture != 0) && (state->gl.delete_textures != nullptr)) {
 			state->gl.delete_textures(1, &state->source_texture);
 		}
-		if (state->vertex_array != 0) {
+		if ((state->output_texture != 0) && (state->gl.delete_textures != nullptr)) {
+			state->gl.delete_textures(1, &state->output_texture);
+		}
+		if ((state->vertex_array != 0) && (state->gl.delete_vertex_arrays != nullptr)) {
 			state->gl.delete_vertex_arrays(1, &state->vertex_array);
 		}
-		if (state->program != 0) {
+		if ((state->program != 0) && (state->gl.delete_program != nullptr)) {
 			state->gl.delete_program(state->program);
 		}
 		SDL_GL_DeleteContext(state->context);
@@ -393,7 +490,8 @@ static void vaeg_gl_release_state(VAEG_GL_STATE *state) {
 	free(state);
 }
 
-extern "C" int vaeg_gl_bridge_initialize(void *host_window, VAEG_GL_BRIDGE *bridge) {
+extern "C" int vaeg_gl_bridge_initialize(void *host_window, const char *preset_path,
+                                           int enable_filter, VAEG_GL_BRIDGE *bridge) {
 	VAEG_GL_STATE *state;
 
 	if ((host_window == nullptr) || (bridge == nullptr)) {
@@ -421,6 +519,10 @@ extern "C" int vaeg_gl_bridge_initialize(void *host_window, VAEG_GL_BRIDGE *brid
 		return 0;
 	}
 	state->gl.bind_vertex_array(state->vertex_array);
+	if ((enable_filter != 0) && !vaeg_gl_create_filter_chain(state, preset_path)) {
+		vaeg_gl_release_state(state);
+		return 0;
+	}
 	bridge->state = state;
 	return 1;
 }
@@ -438,6 +540,24 @@ extern "C" VAEG_GL_BRIDGE_RESULT vaeg_gl_bridge_set_drawable_size(
 	state = static_cast<VAEG_GL_STATE *>(bridge->state);
 	state->drawable_width = width;
 	state->drawable_height = height;
+	return VAEG_GL_BRIDGE_OK;
+}
+
+extern "C" VAEG_GL_BRIDGE_RESULT vaeg_gl_bridge_set_filter_enabled(
+	VAEG_GL_BRIDGE *bridge, int enabled) {
+	VAEG_GL_STATE *state;
+
+	if ((bridge == nullptr) || (bridge->state == nullptr)) {
+		return VAEG_GL_BRIDGE_INVALID_ARGUMENT;
+	}
+	state = static_cast<VAEG_GL_STATE *>(bridge->state);
+	if ((enabled != 0) && (state->filter_chain == nullptr)) {
+		return VAEG_GL_BRIDGE_RESOURCE_FAILURE;
+	}
+	if ((enabled != 0) && !state->filter_enabled) {
+		state->filter_first_frame = true;
+	}
+	state->filter_enabled = (enabled != 0);
 	return VAEG_GL_BRIDGE_OK;
 }
 
@@ -501,10 +621,65 @@ extern "C" VAEG_GL_BRIDGE_RESULT vaeg_gl_bridge_present(VAEG_GL_BRIDGE *bridge,
 	state->gl.disable(GL_CULL_FACE);
 	state->gl.disable(GL_DEPTH_TEST);
 	state->gl.disable(GL_SCISSOR_TEST);
-	state->gl.use_program(state->program);
-	state->gl.bind_vertex_array(state->vertex_array);
-	state->gl.uniform_1i(state->sampler_location, 0);
-	state->gl.draw_arrays(GL_TRIANGLE_STRIP, 0, 4);
+	if (state->filter_enabled) {
+		libra_image_gl_t source_image;
+		libra_image_gl_t output_image;
+		libra_viewport_t libra_viewport;
+		frame_gl_opt_t filter_options{};
+		libra_error_t error;
+
+		if (!vaeg_gl_ensure_output(state, state->drawable_width, state->drawable_height)) {
+			vaeg_gl_restore_state(state, &saved);
+			return VAEG_GL_BRIDGE_RESOURCE_FAILURE;
+		}
+		source_image.handle = state->source_texture;
+		source_image.format = GL_RGBA8;
+		source_image.width = state->source_width;
+		source_image.height = state->source_height;
+		output_image.handle = state->output_texture;
+		output_image.format = GL_RGBA8;
+		output_image.width = state->drawable_width;
+		output_image.height = state->drawable_height;
+		libra_viewport.x = static_cast<float>(viewport_x);
+		libra_viewport.y = static_cast<float>(viewport_y);
+		libra_viewport.width = static_cast<uint32_t>(viewport_width);
+		libra_viewport.height = static_cast<uint32_t>(viewport_height);
+		filter_options.version = LIBRASHADER_CURRENT_VERSION;
+		filter_options.clear_history = state->filter_first_frame;
+		filter_options.frame_direction = 1;
+		filter_options.rotation = 0;
+		filter_options.total_subframes = 1;
+		filter_options.current_subframe = 1;
+		filter_options.aspect_ratio = static_cast<float>(frame->source_aspect_width) /
+		                              static_cast<float>(frame->source_aspect_height);
+		filter_options.frames_per_second =
+			static_cast<float>(frame->source_frame_rate_numerator) /
+			static_cast<float>(frame->source_frame_rate_denominator);
+		filter_options.frametime_delta =
+			static_cast<uint32_t>(frame->frame_time_delta_ns / 1000000U);
+		error = state->librashader.gl_filter_chain_frame(
+			&state->filter_chain, 1, source_image, output_image, &libra_viewport, nullptr,
+			&filter_options);
+		if (error != nullptr) {
+			vaeg_gl_report_librashader_error(state, error, "frame rendering");
+			vaeg_gl_restore_state(state, &saved);
+			return VAEG_GL_BRIDGE_RESOURCE_FAILURE;
+		}
+		state->filter_first_frame = false;
+		state->gl.bind_framebuffer(GL_FRAMEBUFFER, 0);
+		state->gl.viewport(viewport_x, viewport_y, viewport_width, viewport_height);
+		state->gl.use_program(state->program);
+		state->gl.bind_vertex_array(state->vertex_array);
+		state->gl.active_texture(GL_TEXTURE0);
+		state->gl.bind_texture(GL_TEXTURE_2D, state->output_texture);
+		state->gl.uniform_1i(state->sampler_location, 0);
+		state->gl.draw_arrays(GL_TRIANGLE_STRIP, 0, 4);
+	} else {
+		state->gl.use_program(state->program);
+		state->gl.bind_vertex_array(state->vertex_array);
+		state->gl.uniform_1i(state->sampler_location, 0);
+		state->gl.draw_arrays(GL_TRIANGLE_STRIP, 0, 4);
+	}
 	vaeg_gl_restore_state(state, &saved);
 	SDL_GL_SwapWindow(state->window);
 	return VAEG_GL_BRIDGE_OK;

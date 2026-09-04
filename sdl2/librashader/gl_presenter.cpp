@@ -43,10 +43,9 @@ class GLPresenter final : public NativePresenter {
 	PresenterResult initialize(const NativePresenterCreateInfo &info) noexcept override {
 		if ((info.host_window == nullptr) ||
 		    ((info.backend != PresenterBackend::Automatic) &&
-		     (info.backend != PresenterBackend::OpenGL)) || info.enable_filter) {
+		     (info.backend != PresenterBackend::OpenGL))) {
 			state_ = PresenterState::Unavailable;
-			error_ = info.enable_filter ? PresenterError::FilterFailure
-			                           : PresenterError::PlatformUnavailable;
+			error_ = PresenterError::PlatformUnavailable;
 			return PresenterResult::Fallback;
 		}
 		shutdown();
@@ -55,9 +54,11 @@ class GLPresenter final : public NativePresenter {
 		drawable_height_ = info.drawable_height;
 		backend_ = info.backend;
 		state_ = PresenterState::Initializing;
-		if (!vaeg_gl_bridge_initialize(info.host_window, &bridge_)) {
+		if (!vaeg_gl_bridge_initialize(info.host_window, info.preset_path,
+		                               info.enable_filter ? 1 : 0, &bridge_)) {
 			state_ = PresenterState::Unavailable;
-			error_ = PresenterError::DeviceFailure;
+			error_ = info.enable_filter ? PresenterError::FilterFailure
+			                           : PresenterError::DeviceFailure;
 			return PresenterResult::Fallback;
 		}
 		if ((drawable_width_ != 0) && (drawable_height_ != 0) &&
@@ -68,7 +69,7 @@ class GLPresenter final : public NativePresenter {
 			error_ = PresenterError::ResourceFailure;
 			return PresenterResult::Fallback;
 		}
-		state_ = PresenterState::PassThrough;
+		state_ = info.enable_filter ? PresenterState::Filtered : PresenterState::PassThrough;
 		error_ = PresenterError::None;
 		return PresenterResult::Recovered;
 	}
@@ -76,7 +77,7 @@ class GLPresenter final : public NativePresenter {
 	PresenterResult present(const VAEG_FRAME_INPUT &frame) noexcept override {
 		VAEG_GL_BRIDGE_RESULT result;
 
-		if (state_ != PresenterState::PassThrough) {
+		if ((state_ != PresenterState::PassThrough) && (state_ != PresenterState::Filtered)) {
 			return PresenterResult::Fallback;
 		}
 		result = vaeg_gl_bridge_present(&bridge_, &frame);
@@ -97,16 +98,23 @@ class GLPresenter final : public NativePresenter {
 	}
 
 	PresenterResult set_filter_enabled(bool enabled) noexcept override {
-		if (enabled) {
-			error_ = PresenterError::FilterFailure;
+		VAEG_GL_BRIDGE_RESULT result;
+
+		if ((state_ != PresenterState::PassThrough) && (state_ != PresenterState::Filtered)) {
 			return PresenterResult::Fallback;
 		}
-		return (state_ == PresenterState::PassThrough) ? PresenterResult::Disabled
-		                                              : PresenterResult::Fallback;
+		result = vaeg_gl_bridge_set_filter_enabled(&bridge_, enabled ? 1 : 0);
+		if (result == VAEG_GL_BRIDGE_OK) {
+			state_ = enabled ? PresenterState::Filtered : PresenterState::PassThrough;
+			error_ = PresenterError::None;
+			return enabled ? PresenterResult::Recovered : PresenterResult::Disabled;
+		}
+		error_ = PresenterError::FilterFailure;
+		return PresenterResult::Fallback;
 	}
 
 	PresenterResult resize(uint32_t drawable_width, uint32_t drawable_height) noexcept override {
-		if (state_ != PresenterState::PassThrough) {
+		if ((state_ != PresenterState::PassThrough) && (state_ != PresenterState::Filtered)) {
 			return PresenterResult::Fallback;
 		}
 		if ((drawable_width == 0) || (drawable_height == 0)) {
@@ -133,7 +141,7 @@ class GLPresenter final : public NativePresenter {
 		info.drawable_width = drawable_width_;
 		info.drawable_height = drawable_height_;
 		info.backend = backend_;
-		info.enable_filter = false;
+		info.enable_filter = (state_ == PresenterState::Filtered);
 		info.preset_path = nullptr;
 		return initialize(info);
 	}
