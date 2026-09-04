@@ -26,6 +26,7 @@
 #import <QuartzCore/CAMetalLayer.h>
 
 #include <cstdlib>
+#include <cstdio>
 #include <cstring>
 
 #include <SDL_metal.h>
@@ -46,6 +47,10 @@ struct VAEG_METAL_STATE {
 	uint32_t source_width;
 	uint32_t source_height;
 	uint32_t upload_pitch;
+	libra_instance_t librashader;
+	libra_mtl_filter_chain_t filter_chain;
+	bool filter_enabled;
+	bool filter_first_frame;
 };
 
 static const char vaeg_metal_passthrough_shader[] = R"metal(
@@ -87,6 +92,10 @@ static void vaeg_metal_release_state(VAEG_METAL_STATE *state) {
 	if (state->source_texture != nil) {
 		[state->source_texture release];
 	}
+	if ((state->filter_chain != nullptr) &&
+	    (state->librashader.mtl_filter_chain_free != nullptr)) {
+		(void)state->librashader.mtl_filter_chain_free(&state->filter_chain);
+	}
 	if (state->pipeline != nil) {
 		[state->pipeline release];
 	}
@@ -101,6 +110,51 @@ static void vaeg_metal_release_state(VAEG_METAL_STATE *state) {
 	}
 	free(state->upload_buffer);
 	free(state);
+}
+
+static void vaeg_metal_report_librashader_error(VAEG_METAL_STATE *state, libra_error_t error,
+                                                 const char *operation) {
+	if (error == nullptr) {
+		return;
+	}
+	fprintf(stderr, "librashader Metal %s failed\n", operation);
+	if (state->librashader.error_print != nullptr) {
+		(void)state->librashader.error_print(error);
+	}
+	if (state->librashader.error_free != nullptr) {
+		(void)state->librashader.error_free(&error);
+	}
+}
+
+static int vaeg_metal_create_filter_chain(VAEG_METAL_STATE *state, const char *preset_path) {
+	libra_shader_preset_t preset;
+	filter_chain_mtl_opt_t options;
+	libra_error_t error;
+
+	if ((preset_path == nullptr) || (preset_path[0] == '\0')) {
+		return 0;
+	}
+	state->librashader = librashader_load_instance();
+	if (!state->librashader.instance_loaded) {
+		return 0;
+	}
+	preset = nullptr;
+	error = state->librashader.preset_create(preset_path, &preset);
+	if ((error != nullptr) || (preset == nullptr)) {
+		vaeg_metal_report_librashader_error(state, error, "preset creation");
+		return 0;
+	}
+	memset(&options, 0, sizeof(options));
+	options.version = LIBRASHADER_CURRENT_VERSION;
+	error = state->librashader.mtl_filter_chain_create(
+		&preset, state->queue, &options, &state->filter_chain);
+	if ((error != nullptr) || (state->filter_chain == nullptr)) {
+		vaeg_metal_report_librashader_error(state, error, "filter-chain creation");
+		return 0;
+	}
+	state->filter_enabled = true;
+	state->filter_first_frame = true;
+	return 1;
 }
 
 static MTLViewport vaeg_metal_viewport(const VAEG_METAL_STATE *state,
@@ -176,7 +230,8 @@ static int vaeg_metal_ensure_source_texture(VAEG_METAL_STATE *state, uint32_t wi
 	return 1;
 }
 
-extern "C" int vaeg_metal_bridge_initialize(void *host_window, VAEG_METAL_BRIDGE *bridge) {
+extern "C" int vaeg_metal_bridge_initialize(void *host_window, const char *preset_path,
+                                               int enable_filter, VAEG_METAL_BRIDGE *bridge) {
 	VAEG_METAL_STATE *state;
 	MTLRenderPipelineDescriptor *descriptor;
 	id<MTLLibrary> library;
@@ -233,8 +288,30 @@ extern "C" int vaeg_metal_bridge_initialize(void *host_window, VAEG_METAL_BRIDGE
 		vaeg_metal_release_state(state);
 		return 0;
 	}
+	if ((enable_filter != 0) && !vaeg_metal_create_filter_chain(state, preset_path)) {
+		vaeg_metal_release_state(state);
+		return 0;
+	}
 	bridge->state = state;
 	return 1;
+}
+
+extern "C" VAEG_METAL_BRIDGE_RESULT vaeg_metal_bridge_set_filter_enabled(
+	VAEG_METAL_BRIDGE *bridge, int enabled) {
+	VAEG_METAL_STATE *state;
+
+	if ((bridge == nullptr) || (bridge->state == nullptr)) {
+		return VAEG_METAL_BRIDGE_INVALID_ARGUMENT;
+	}
+	state = static_cast<VAEG_METAL_STATE *>(bridge->state);
+	if ((enabled != 0) && (state->filter_chain == nullptr)) {
+		return VAEG_METAL_BRIDGE_RESOURCE_FAILURE;
+	}
+	if ((enabled != 0) && !state->filter_enabled) {
+		state->filter_first_frame = true;
+	}
+	state->filter_enabled = (enabled != 0);
+	return VAEG_METAL_BRIDGE_OK;
 }
 
 extern "C" void vaeg_metal_bridge_set_drawable_size(const VAEG_METAL_BRIDGE *bridge,
@@ -258,6 +335,9 @@ extern "C" VAEG_METAL_BRIDGE_RESULT vaeg_metal_bridge_present(
 	id<MTLCommandBuffer> command_buffer;
 	id<MTLRenderCommandEncoder> encoder;
 	MTLViewport viewport;
+	libra_viewport_t libra_viewport;
+	frame_mtl_opt_t filter_options;
+	libra_error_t error;
 
 	if ((bridge == nullptr) || (bridge->state == nullptr) || (frame == nullptr)) {
 		return VAEG_METAL_BRIDGE_INVALID_ARGUMENT;
@@ -281,23 +361,52 @@ extern "C" VAEG_METAL_BRIDGE_RESULT vaeg_metal_bridge_present(
 	if (drawable == nil) {
 		return VAEG_METAL_BRIDGE_NO_DRAWABLE;
 	}
+	command_buffer = [state->queue commandBuffer];
+	if (command_buffer == nil) {
+		return VAEG_METAL_BRIDGE_RESOURCE_FAILURE;
+	}
+	viewport = vaeg_metal_viewport(state, frame);
+	if ((viewport.width <= 0.0) || (viewport.height <= 0.0)) {
+		return VAEG_METAL_BRIDGE_NO_DRAWABLE;
+	}
+	if (state->filter_enabled) {
+		libra_viewport.x = static_cast<float>(viewport.originX);
+		libra_viewport.y = static_cast<float>(viewport.originY);
+		libra_viewport.width = static_cast<uint32_t>(viewport.width);
+		libra_viewport.height = static_cast<uint32_t>(viewport.height);
+		memset(&filter_options, 0, sizeof(filter_options));
+		filter_options.version = LIBRASHADER_CURRENT_VERSION;
+		filter_options.clear_history = state->filter_first_frame;
+		filter_options.frame_direction = 1;
+		filter_options.rotation = 0;
+		filter_options.total_subframes = 1;
+		filter_options.current_subframe = 1;
+		filter_options.aspect_ratio = static_cast<float>(frame->source_aspect_width) /
+		                              static_cast<float>(frame->source_aspect_height);
+		filter_options.frames_per_second =
+			static_cast<float>(frame->source_frame_rate_numerator) /
+			static_cast<float>(frame->source_frame_rate_denominator);
+		filter_options.frametime_delta = static_cast<uint32_t>(frame->frame_time_delta_ns / 1000000U);
+		error = state->librashader.mtl_filter_chain_frame(
+			&state->filter_chain, command_buffer, 1, state->source_texture, drawable.texture,
+			&libra_viewport, nullptr, &filter_options);
+		if (error != nullptr) {
+			vaeg_metal_report_librashader_error(state, error, "frame rendering");
+			return VAEG_METAL_BRIDGE_RESOURCE_FAILURE;
+		}
+		state->filter_first_frame = false;
+		[command_buffer presentDrawable:drawable];
+		[command_buffer commit];
+		return VAEG_METAL_BRIDGE_OK;
+	}
 	pass_descriptor = [MTLRenderPassDescriptor renderPassDescriptor];
 	pass_descriptor.colorAttachments[0].texture = drawable.texture;
 	pass_descriptor.colorAttachments[0].loadAction = MTLLoadActionClear;
 	pass_descriptor.colorAttachments[0].storeAction = MTLStoreActionStore;
 	pass_descriptor.colorAttachments[0].clearColor = MTLClearColorMake(0.0, 0.0, 0.0, 1.0);
-	command_buffer = [state->queue commandBuffer];
-	if (command_buffer == nil) {
-		return VAEG_METAL_BRIDGE_RESOURCE_FAILURE;
-	}
 	encoder = [command_buffer renderCommandEncoderWithDescriptor:pass_descriptor];
 	if (encoder == nil) {
 		return VAEG_METAL_BRIDGE_RESOURCE_FAILURE;
-	}
-	viewport = vaeg_metal_viewport(state, frame);
-	if ((viewport.width <= 0.0) || (viewport.height <= 0.0)) {
-		[encoder endEncoding];
-		return VAEG_METAL_BRIDGE_NO_DRAWABLE;
 	}
 	[encoder setViewport:viewport];
 	[encoder setRenderPipelineState:state->pipeline];

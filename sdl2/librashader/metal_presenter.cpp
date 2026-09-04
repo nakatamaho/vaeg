@@ -50,7 +50,8 @@ class MetalPresenter final : public NativePresenter {
 		}
 		shutdown();
 		state_ = PresenterState::Initializing;
-		if (!vaeg_metal_bridge_initialize(info.host_window, &bridge_)) {
+		if (!vaeg_metal_bridge_initialize(info.host_window, info.preset_path,
+		                                  info.enable_filter ? 1 : 0, &bridge_)) {
 			state_ = PresenterState::Unavailable;
 			error_ = PresenterError::DeviceFailure;
 			return PresenterResult::Fallback;
@@ -59,7 +60,7 @@ class MetalPresenter final : public NativePresenter {
 			vaeg_metal_bridge_set_drawable_size(&bridge_, info.drawable_width,
 			                                   info.drawable_height);
 		}
-		state_ = PresenterState::PassThrough;
+		state_ = info.enable_filter ? PresenterState::Filtered : PresenterState::PassThrough;
 		error_ = PresenterError::None;
 		return PresenterResult::Recovered;
 	}
@@ -67,7 +68,7 @@ class MetalPresenter final : public NativePresenter {
 	PresenterResult present(const VAEG_FRAME_INPUT &frame) noexcept override {
 		VAEG_METAL_BRIDGE_RESULT result;
 
-		if (state_ != PresenterState::PassThrough) {
+		if ((state_ != PresenterState::PassThrough) && (state_ != PresenterState::Filtered)) {
 			return PresenterResult::Fallback;
 		}
 		result = vaeg_metal_bridge_present(&bridge_, &frame);
@@ -88,11 +89,19 @@ class MetalPresenter final : public NativePresenter {
 	}
 
 	PresenterResult set_filter_enabled(bool enabled) noexcept override {
-		if (enabled) {
-			error_ = PresenterError::FilterFailure;
+		VAEG_METAL_BRIDGE_RESULT result;
+
+		if ((state_ != PresenterState::PassThrough) && (state_ != PresenterState::Filtered)) {
 			return PresenterResult::Fallback;
 		}
-		return PresenterResult::Disabled;
+		result = vaeg_metal_bridge_set_filter_enabled(&bridge_, enabled ? 1 : 0);
+		if (result == VAEG_METAL_BRIDGE_OK) {
+			state_ = enabled ? PresenterState::Filtered : PresenterState::PassThrough;
+			error_ = PresenterError::None;
+			return enabled ? PresenterResult::Recovered : PresenterResult::Disabled;
+		}
+		error_ = PresenterError::FilterFailure;
+		return PresenterResult::Fallback;
 	}
 
 	PresenterResult recover() noexcept override { return PresenterResult::Fallback; }
