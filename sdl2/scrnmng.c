@@ -787,8 +787,8 @@ static int scrnmng_menu_offset(void) {
 		return 0;
 	}
 	SDL_GetWindowSize(scrnmng.window, &window_width, &window_height);
-	if (!scrnmng_get_drawable_size(&output_width, &output_height) || (window_height <= 0) ||
-	    (output_height <= 0)) {
+	if ((scrnmng_get_drawable_size(&output_width, &output_height) != SUCCESS) ||
+	    (window_height <= 0) || (output_height <= 0)) {
 		return scrnmng.menu_height;
 	}
 	return (int)(((SINT64)scrnmng.menu_height * output_height + (window_height / 2)) /
@@ -979,8 +979,8 @@ static BOOL scrnmng_calculate_viewport(VAEG_VIEWPORT *viewport) {
 		return (FAILURE);
 	}
 	SDL_GetWindowSize(scrnmng.window, &window_width, &window_height);
-	if (!scrnmng_get_drawable_size(&output_width, &output_height) || (window_width <= 0) ||
-	    (window_height <= 0)) {
+	if ((scrnmng_get_drawable_size(&output_width, &output_height) != SUCCESS) ||
+	    (window_width <= 0) || (window_height <= 0)) {
 		return (FAILURE);
 	}
 	input.guest_width = scrnmng.width;
@@ -1391,7 +1391,7 @@ BOOL scrnmng_map_window_point(int window_x, int window_y, int *guest_x, int *gue
 		return (FAILURE);
 	}
 	SDL_GetWindowSize(scrnmng.window, &window_width, &window_height);
-	if (!scrnmng_get_drawable_size(&output_width, &output_height)) {
+	if (scrnmng_get_drawable_size(&output_width, &output_height) != SUCCESS) {
 		return (FAILURE);
 	}
 	if ((window_width <= 0) || (window_height <= 0)) {
@@ -1684,7 +1684,7 @@ void scrnmng_present_end(void) {
 			        "use guest-frame capture instead\n");
 			scrnmng.native_capture_warning = TRUE;
 		}
-		if (!scrnmng_get_drawable_size(&drawable_width, &drawable_height)) {
+		if (scrnmng_get_drawable_size(&drawable_width, &drawable_height) != SUCCESS) {
 			return;
 		}
 		native_result = vaeg_native_presenter_resize(

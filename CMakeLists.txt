@@ -1667,6 +1667,13 @@ if(VAEG_ENABLE_TESTS)
         WORKING_DIRECTORY "$<TARGET_FILE_DIR:vaeg_sdl2>"
         ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
         RESOURCE_LOCK vaeg_sxsi_image_selftest)
+    add_test(NAME vaeg_sdl_startup_viewport
+        COMMAND vaeg_sdl2 --smoke --no-cfg --no-bkupmem)
+    set_tests_properties(vaeg_sdl_startup_viewport PROPERTIES
+        WORKING_DIRECTORY "$<TARGET_FILE_DIR:vaeg_sdl2>"
+        ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
+        LABELS "romless;frontend;viewport"
+        TIMEOUT 30)
     add_test(NAME vaeg_m75_transfer_info_compiled COMMAND vaeg_sdl2 --selftest)
     set_tests_properties(vaeg_m75_transfer_info_compiled PROPERTIES
         WORKING_DIRECTORY "$<TARGET_FILE_DIR:vaeg_sdl2>"

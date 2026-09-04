@@ -1804,6 +1804,7 @@ int main(int argc, char **argv) {
 	BOOL splash_visible;
 	BOOL run_ok;
 	UINT32 splash_started;
+	VAEG_VIEWPORT startup_viewport;
 	HEADLESS_INPUT_SCRIPT input_script;
 	VAEG_CLI_OPTIONS options;
 	CLI_SAVED_CONFIG saved_cli;
@@ -2147,6 +2148,10 @@ int main(int argc, char **argv) {
 	                              np2oscfg.gui_fullscreen_refresh, np2oscfg.fscrnmod) != SUCCESS)) {
 		SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "Saved fullscreen mode failed; using Windowed");
 		np2oscfg.gui_display_mode = VAEG_DISPLAY_WINDOWED;
+	}
+	if (scrnmng_get_viewport(&startup_viewport) != SUCCESS) {
+		fprintf(stderr, "Error: cannot calculate a valid startup display viewport\n");
+		goto np2main_err3;
 	}
 	update_applied_display(&saved_cli);
 	scrnmng_show();
