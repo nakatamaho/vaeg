@@ -66,7 +66,7 @@ PRIVATE_ASSET_SUFFIXES = {
     ".d88", ".d77", ".fdi", ".xdf", ".hdm", ".hdi", ".thd",
     ".nhd", ".rom", ".sav",
 }
-APPROVED_EXTERNAL_ROOTS = {"imgui", "suzukiplan-z80", "ymfm"}
+APPROVED_EXTERNAL_ROOTS = {"imgui", "librashader", "suzukiplan-z80", "ymfm"}
 APPROVED_PATCHES = {
     "docs/agents/reports/m35_suzukiplan_irq_extension.patch",
     "tools/cpmva/patches/cpm22-64k.patch",
