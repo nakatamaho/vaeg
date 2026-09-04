@@ -80,7 +80,7 @@ class D3D11Presenter final : public NativePresenter {
 			error_ = PresenterError::ResourceFailure;
 			return PresenterResult::Fallback;
 		}
-		state_ = PresenterState::PassThrough;
+		state_ = info.enable_filter ? PresenterState::Filtered : PresenterState::PassThrough;
 		error_ = PresenterError::None;
 		return PresenterResult::Recovered;
 	}
@@ -88,7 +88,7 @@ class D3D11Presenter final : public NativePresenter {
 	PresenterResult present(const VAEG_FRAME_INPUT &frame) noexcept override {
 		VAEG_D3D11_BRIDGE_RESULT result;
 
-		if (state_ != PresenterState::PassThrough) {
+		if ((state_ != PresenterState::PassThrough) && (state_ != PresenterState::Filtered)) {
 			return PresenterResult::Fallback;
 		}
 		result = vaeg_d3d11_bridge_present(&bridge_, &frame);
@@ -103,7 +103,8 @@ class D3D11Presenter final : public NativePresenter {
 		if (result == VAEG_D3D11_BRIDGE_NO_OUTPUT) {
 			return PresenterResult::Disabled;
 		}
-		error_ = PresenterError::ResourceFailure;
+		error_ = (result == VAEG_D3D11_BRIDGE_DEVICE_LOST) ? PresenterError::DeviceFailure
+		                                                   : PresenterError::ResourceFailure;
 		state_ = PresenterState::Unavailable;
 		return PresenterResult::Fallback;
 	}
@@ -128,7 +129,7 @@ class D3D11Presenter final : public NativePresenter {
 	PresenterResult resize(uint32_t drawable_width, uint32_t drawable_height) noexcept override {
 		VAEG_D3D11_BRIDGE_RESULT result;
 
-		if (state_ != PresenterState::PassThrough) {
+		if ((state_ != PresenterState::PassThrough) && (state_ != PresenterState::Filtered)) {
 			return PresenterResult::Fallback;
 		}
 		if ((drawable_width == 0) || (drawable_height == 0)) {

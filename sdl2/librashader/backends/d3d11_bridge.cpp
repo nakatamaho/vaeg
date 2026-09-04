@@ -122,6 +122,11 @@ static void vaeg_d3d11_report_librashader_error(VAEG_D3D11_STATE *state,
 	}
 }
 
+static int vaeg_d3d11_device_lost(HRESULT result) {
+	return (result == DXGI_ERROR_DEVICE_REMOVED) || (result == DXGI_ERROR_DEVICE_RESET) ||
+	       (result == DXGI_ERROR_DRIVER_INTERNAL_ERROR);
+}
+
 static int vaeg_d3d11_create_filter_chain(VAEG_D3D11_STATE *state, const char *preset_path) {
 	libra_shader_preset_t preset;
 	filter_chain_d3d11_opt_t options{};
@@ -386,7 +391,11 @@ extern "C" VAEG_D3D11_BRIDGE_RESULT vaeg_d3d11_bridge_set_drawable_size(
 	}
 	vaeg_d3d11_release(&state->render_target);
 	result = state->swap_chain->ResizeBuffers(0, width, height, DXGI_FORMAT_UNKNOWN, 0);
-	if (FAILED(result) || !vaeg_d3d11_create_output(state)) {
+	if (FAILED(result)) {
+		return vaeg_d3d11_device_lost(result) ? VAEG_D3D11_BRIDGE_DEVICE_LOST
+		                                      : VAEG_D3D11_BRIDGE_RESOURCE_FAILURE;
+	}
+	if (!vaeg_d3d11_create_output(state)) {
 		return VAEG_D3D11_BRIDGE_RESOURCE_FAILURE;
 	}
 	state->drawable_width = width;
@@ -437,10 +446,10 @@ extern "C" VAEG_D3D11_BRIDGE_RESULT vaeg_d3d11_bridge_present(
 	}
 	if ((static_cast<uint32_t>(client_rect.right) != state->drawable_width) ||
 	    (static_cast<uint32_t>(client_rect.bottom) != state->drawable_height)) {
-		if (vaeg_d3d11_bridge_set_drawable_size(bridge, static_cast<uint32_t>(client_rect.right),
-		                                         static_cast<uint32_t>(client_rect.bottom)) !=
-		    VAEG_D3D11_BRIDGE_OK) {
-			return VAEG_D3D11_BRIDGE_RESOURCE_FAILURE;
+		const VAEG_D3D11_BRIDGE_RESULT resize_result = vaeg_d3d11_bridge_set_drawable_size(
+			bridge, static_cast<uint32_t>(client_rect.right), static_cast<uint32_t>(client_rect.bottom));
+		if (resize_result != VAEG_D3D11_BRIDGE_OK) {
+			return resize_result;
 		}
 	}
 	if (!vaeg_d3d11_ensure_source(state, frame->width, frame->height)) {
@@ -452,7 +461,8 @@ extern "C" VAEG_D3D11_BRIDGE_RESULT vaeg_d3d11_bridge_present(
 	}
 	result = state->context->Map(state->source_texture, 0, D3D11_MAP_WRITE_DISCARD, 0, &mapped);
 	if (FAILED(result)) {
-		return VAEG_D3D11_BRIDGE_RESOURCE_FAILURE;
+		return vaeg_d3d11_device_lost(result) ? VAEG_D3D11_BRIDGE_DEVICE_LOST
+		                                      : VAEG_D3D11_BRIDGE_RESOURCE_FAILURE;
 	}
 	for (uint32_t row = 0; row < frame->height; row++) {
 		memcpy(static_cast<uint8_t *>(mapped.pData) + row * mapped.RowPitch,
@@ -503,6 +513,9 @@ extern "C" VAEG_D3D11_BRIDGE_RESULT vaeg_d3d11_bridge_present(
 	result = state->swap_chain->Present(1, 0);
 	if (result == DXGI_STATUS_OCCLUDED) {
 		return VAEG_D3D11_BRIDGE_NO_OUTPUT;
+	}
+	if (vaeg_d3d11_device_lost(result)) {
+		return VAEG_D3D11_BRIDGE_DEVICE_LOST;
 	}
 	return SUCCEEDED(result) ? VAEG_D3D11_BRIDGE_OK : VAEG_D3D11_BRIDGE_RESOURCE_FAILURE;
 }
