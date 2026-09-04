@@ -41,6 +41,11 @@ option(VAEG_UPD9002_PERF_DIAGNOSTIC
 set(VAEG_ZEX_ARTIFACT_DIR "" CACHE PATH
     "Offline directory containing the five hash-verified ZEX artifacts")
 
+if(APPLE AND VAEG_ENABLE_LIBRASHADER)
+    enable_language(OBJC)
+    enable_language(OBJCXX)
+endif()
+
 set(VAEG_BUILD_DATE "unknown")
 set(VAEG_BUILD_COMMIT "unknown")
 file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/generated")
@@ -139,9 +144,6 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-if(APPLE AND VAEG_ENABLE_LIBRASHADER)
-    enable_language(OBJCXX)
-endif()
 if(WIN32 AND VAEG_ENABLE_LIBRASHADER)
     list(APPEND VAEG_SDL2_SOURCES
         sdl2/librashader/backends/d3d11_bridge.cpp
