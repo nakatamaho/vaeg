@@ -90,6 +90,33 @@ separate parity correction or move it to Open Defects.
   [M99 specification](../tasks/M99_librashader_crt_pipeline.md).
 - **Commit:** [1bd5330f](https://github.com/nakatamaho/vaeg/commit/1bd5330f9b0458f19d8043bdefc28d2fc87f48d8).
 
+### Drawable-size success was treated as failure
+
+- **Status:** fixed in M99z1; physical Windows confirmation remains pending.
+- **Symptom:** the Windows MinGW frontend showed its menu and continued to
+  produce emulated audio and floppy-drive sounds, but the guest display stayed
+  black. Startup and scale-change diagnostics reported a zero-sized guest
+  viewport even though the window and drawable had valid dimensions.
+- **Affected scope:** SDL2 viewport calculation, high-DPI menu placement,
+  window-to-guest pointer mapping, and native-presenter resize/presentation on
+  every portable frontend platform.
+- **Demonstrated root cause:** `scrnmng_get_drawable_size()` follows the
+  repository convention `SUCCESS == 0`, but four callers used logical
+  negation. A successful drawable query was therefore treated as failure;
+  most visibly, `scrnmng_calculate_viewport()` returned before assigning a
+  guest rectangle and left the diagnostic at `0x0`.
+- **Correction:** all four callers now compare explicitly with `SUCCESS`.
+  Startup also rejects an invalid viewport, and a dummy-driver ROM-less CTest
+  exercises that guard.
+- **Verification:** the macOS dummy-driver smoke diagnostic changed from an
+  invalid guest rectangle to `guest=0,22 640x400`; 90 executed CTests passed
+  and the external SSTS case was separately skipped. MinGW
+  SDL-only and librashader-enabled console builds both linked successfully.
+  Real Windows display and native D3D11/CRT confirmation are not claimed yet.
+- **Evidence:** [M99 final report](../agents/reports/m99-final-report.md).
+- **Milestone/task:** M99z1 follow-up to the M99 librashader CRT pipeline.
+- **Commit:** [fa2a3d78](https://github.com/nakatamaho/vaeg/commit/fa2a3d78749d84fc08d90ee749bc32f10b2f08fa).
+
 ### Private IDA64 candidate exited during draw-order validation
 
 - **Status:** fixed in M98aa; real VA/VA2 hardware confirmation remains

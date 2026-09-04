@@ -236,3 +236,40 @@ Working-tree status captured during report assembly:
 
 The untracked backup file is pre-existing topic-worktree state and was not
 modified, staged, or deleted.
+
+## M99z1 Windows black-screen follow-up
+
+A real Windows MinGW run after M99z displayed the menu and continued to
+produce emulated audio and floppy-drive sounds, but no guest video. Its
+startup and scale-change diagnostics showed valid window and drawable sizes
+while the guest viewport remained `0,0 0x0`. The same result with the SDL-only
+build excluded librashader loading and shader compilation as the immediate
+cause.
+
+The demonstrated defect was a second set of inverted status checks in
+`sdl2/scrnmng.c`. `scrnmng_get_drawable_size()` returns the repository status
+value `SUCCESS == 0`; four callers incorrectly used logical negation. This
+made every successful drawable query fail viewport calculation and also
+affected menu high-DPI placement, pointer mapping, and native-presenter
+resize/presentation. Commit
+[`fa2a3d78`](https://github.com/nakatamaho/vaeg/commit/fa2a3d78749d84fc08d90ee749bc32f10b2f08fa)
+uses explicit `!= SUCCESS` checks, rejects an invalid startup viewport, and
+adds the `vaeg_sdl_startup_viewport` ROM-less CTest.
+
+Local verification at that commit:
+
+```text
+macOS MacPorts build (librashader off): PASS
+macOS CTest: 90 executed PASS; 1 external SSTS case SKIP
+dummy SDL smoke: guest=0,22 640x400
+MinGW SDL-only console build: PASS
+MinGW librashader-enabled D3D11 console build: PASS
+encoding, EOL, and path-case checks: PASS
+```
+
+The repository-wide clang-format checker still reports formatting debt in
+unchanged pre-existing lines; only the modified line ranges were formatted
+with `clang-format-mp-22`. A physical Windows rerun with the corrected binary
+is still required before claiming that the observed black screen is cleared,
+and native D3D11/CRT lifecycle and performance evidence remains part of the
+existing G99-3/G99-7 blocker.
