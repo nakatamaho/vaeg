@@ -32,6 +32,10 @@
 #include "librashader/d3d11_presenter.h"
 #endif
 
+#if defined(__linux__) && defined(VAEG_ENABLE_LIBRASHADER)
+#include "librashader/gl_presenter.h"
+#endif
+
 namespace vaeg::librashader {
 
 namespace {
@@ -62,6 +66,10 @@ std::unique_ptr<NativePresenter> create_native_presenter(PresenterBackend backen
 #elif defined(_WIN32) && defined(VAEG_ENABLE_LIBRASHADER)
 	if ((backend == PresenterBackend::Automatic) || (backend == PresenterBackend::D3D11)) {
 		return create_d3d11_presenter();
+	}
+#elif defined(__linux__) && defined(VAEG_ENABLE_LIBRASHADER)
+	if ((backend == PresenterBackend::Automatic) || (backend == PresenterBackend::OpenGL)) {
+		return create_gl_presenter();
 	}
 #else
 	(void)backend;

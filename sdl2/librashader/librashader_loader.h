@@ -29,6 +29,9 @@
 #if defined(_WIN32)
 #define LIBRA_RUNTIME_D3D11 1
 #endif
+#if defined(__linux__)
+#define LIBRA_RUNTIME_OPENGL 1
+#endif
 
 /* The upstream loader exposes Metal declarations only to Objective-C++. */
 #if defined(__APPLE__) && defined(__OBJC__)

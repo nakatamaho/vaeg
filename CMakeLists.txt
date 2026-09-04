@@ -357,6 +357,11 @@ if(WIN32 AND VAEG_ENABLE_LIBRASHADER)
         sdl2/librashader/backends/d3d11_bridge.cpp
         sdl2/librashader/d3d11_presenter.cpp)
 endif()
+if(UNIX AND NOT APPLE AND NOT WIN32 AND VAEG_ENABLE_LIBRASHADER)
+    list(APPEND VAEG_SDL2_SOURCES
+        sdl2/librashader/backends/gl_bridge.cpp
+        sdl2/librashader/gl_presenter.cpp)
+endif()
 if(VAEG_ENABLE_TESTS)
     list(APPEND VAEG_SDL2_SOURCES
         tests/idp/m69_status_composition.c
