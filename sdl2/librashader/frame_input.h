@@ -68,6 +68,14 @@ typedef struct {
 	uint64_t frame_time_delta_ns;
 } VAEG_FRAME_INPUT;
 
+void vaeg_frame_input_initialize(VAEG_FRAME_INPUT *input, const void *pixels, uint32_t width,
+                                 uint32_t height, uint32_t pitch_bytes,
+                                 VAEG_FRAME_PIXEL_FORMAT pixel_format,
+                                 VAEG_FRAME_ROW_ORIGIN row_origin,
+                                 uint32_t source_aspect_width, uint32_t source_aspect_height,
+                                 uint32_t source_frame_rate_numerator,
+                                 uint32_t source_frame_rate_denominator, uint64_t frame_number,
+                                 uint64_t frame_time_delta_ns);
 VAEG_FRAME_INPUT_ERROR vaeg_frame_input_validate(const VAEG_FRAME_INPUT *input);
 const char *vaeg_frame_input_error_name(VAEG_FRAME_INPUT_ERROR error);
 

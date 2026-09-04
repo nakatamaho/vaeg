@@ -39,6 +39,29 @@ uint32_t bytes_per_pixel(VAEG_FRAME_PIXEL_FORMAT format) {
 
 } // namespace
 
+extern "C" void vaeg_frame_input_initialize(
+	VAEG_FRAME_INPUT *input, const void *pixels, uint32_t width, uint32_t height,
+	uint32_t pitch_bytes, VAEG_FRAME_PIXEL_FORMAT pixel_format, VAEG_FRAME_ROW_ORIGIN row_origin,
+	uint32_t source_aspect_width, uint32_t source_aspect_height,
+	uint32_t source_frame_rate_numerator, uint32_t source_frame_rate_denominator,
+	uint64_t frame_number, uint64_t frame_time_delta_ns) {
+	if (input == nullptr) {
+		return;
+	}
+	input->pixels = pixels;
+	input->width = width;
+	input->height = height;
+	input->pitch_bytes = pitch_bytes;
+	input->pixel_format = pixel_format;
+	input->row_origin = row_origin;
+	input->source_aspect_width = source_aspect_width;
+	input->source_aspect_height = source_aspect_height;
+	input->source_frame_rate_numerator = source_frame_rate_numerator;
+	input->source_frame_rate_denominator = source_frame_rate_denominator;
+	input->frame_number = frame_number;
+	input->frame_time_delta_ns = frame_time_delta_ns;
+}
+
 extern "C" VAEG_FRAME_INPUT_ERROR vaeg_frame_input_validate(const VAEG_FRAME_INPUT *input) {
 	uint32_t pixel_bytes;
 	uint64_t minimum_pitch;
