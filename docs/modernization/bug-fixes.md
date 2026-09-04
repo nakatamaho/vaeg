@@ -87,7 +87,7 @@ separate parity correction or move it to Open Defects.
   CTests, and dummy-driver ROM-less `--smoke` all pass after the correction.
 - **Evidence:** [M99 final report](../agents/reports/m99-final-report.md).
 - **Milestone/task:** M99 librashader CRT pipeline;
-  [M99 specification](../tasks/M99_librashader_crt_pipeline.md).
+  [M99 specification](../agents/tasks/M99_librashader_crt_pipeline.md).
 - **Commit:** [1bd5330f](https://github.com/nakatamaho/vaeg/commit/1bd5330f9b0458f19d8043bdefc28d2fc87f48d8).
 
 ### Drawable-size success was treated as failure
