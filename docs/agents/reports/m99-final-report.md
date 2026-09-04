@@ -39,8 +39,8 @@ from this macOS/Colima environment, so this report does not claim `DONE`.
 - During M99, `origin/main` advanced to `b25d151236ddfe093e4c161bbf00ce0b7d8d5e74`
   with one unrelated retained change. It was merged into the topic by
   `5d2e63b5bfa52f5e84609b36a02d4fd2a161db5e` without altering that change.
-- Topic remote at the last push before this report commit:
-  `origin/topic/m99-native-crt-rebuild` = `01d31199e1ee86a24b6395f1a687f189c0bafcc0`.
+- Last code commit before the M99z2 report update:
+  `origin/topic/m99-native-crt-rebuild` = `2aeaf519e60695ce2f9f9bd4c32e3a115421f51a`.
 - The final report commit is the containing commit for this file; its exact
   full ID is the final `HEAD` shown by `git log -1` after this commit.
 - No merge into `main`, release, binary publication, or remote-history rewrite
@@ -76,6 +76,8 @@ from this macOS/Colima environment, so this report does not claim `DONE`.
 | M99x | PASS — shader and release packaging | `cfdd41d7`, `2b2da357` |
 | M99y | PARTIAL — automated QA passed; physical GPU evidence deferred | `12e33893`, `7fda0663`, `ed339397` |
 | M99z | PASS — documentation, evidence, and SDL smoke correction assembled | `b07b9c50`, `265f1582`, `5d2e63b5`, `1bd5330f`, `01d31199` |
+| M99z1 | PASS — zero-sized drawable viewport regression corrected; physical Windows confirmation pending | `fa2a3d78`, `8abf339f` |
+| M99z2 | PASS — macOS FetchContent language initialization corrected | `2aeaf519` |
 
 ## Gate status
 
@@ -87,7 +89,7 @@ from this macOS/Colima environment, so this report does not claim `DONE`.
 | G99-4 | BLOCKED | Colima's virtual arm64 Linux container had no real OpenGL display/GPU; its software/virtual result is smoke evidence only. |
 | G99-5 | BLOCKED | macOS feature-on build passed, but no usable Cocoa/Metal display was available. |
 | G99-6 | PASS | Runtime-free and optional-runtime staged archives for all three platforms passed inspection. |
-| G99-7 | BLOCKED | No representative real-hardware 60 Hz benchmark; hosted CI still has the independent macOS FetchContent failure. |
+| G99-7 | BLOCKED | No representative real-hardware 60 Hz benchmark; the macOS FetchContent CI failure is corrected. |
 
 ## Implementation and ownership
 
@@ -203,6 +205,14 @@ macOS FetchContent configure, with CMake reporting missing
 internal variables before compilation. Hosted CI is not used as real-GPU
 evidence.
 
+M99z2 moved Apple Objective-C and Objective-C++ language initialization ahead
+of the FetchContent dependency graph. In
+[Actions run 33877195164](https://github.com/nakatamaho/vaeg/actions/runs/33877195164),
+the previously failing macOS FetchContent configure, build, smoke, unit tests,
+and artifact staging all passed. The run's only failure was an independent
+Windows-only save/load/save selftest race; the Windows release build, smoke,
+viewport regression, runtime import check, and release artifact passed.
+
 ## Performance and manual evidence
 
 No acceptable benchmark numbers were obtained. Average, p95, maximum
@@ -223,10 +233,9 @@ BLOCKED to PASS.
 
 The implementation and all safe environment-independent M99 work are
 complete. Overall status is **BLOCKED**, not DONE, because required physical
-GPU lifecycle/performance evidence is unavailable and the hosted compatibility
-workflow still has the independent macOS FetchContent/toolchain failure. The
-SDL smoke startup condition has been corrected locally and passed in the
-subsequent hosted Linux and Windows smoke jobs.
+GPU lifecycle/performance evidence is unavailable. The SDL smoke startup and
+macOS FetchContent conditions have been corrected and passed in subsequent
+hosted jobs.
 
 Working-tree status captured during report assembly:
 
@@ -273,3 +282,21 @@ with `clang-format-mp-22`. A physical Windows rerun with the corrected binary
 is still required before claiming that the observed black screen is cleared,
 and native D3D11/CRT lifecycle and performance evidence remains part of the
 existing G99-3/G99-7 blocker.
+
+## M99z2 macOS FetchContent follow-up
+
+The hosted `macos-ci` preset originally failed during CMake generation before
+compilation because FetchContent dependencies were processed before CMake had
+initialized its Objective-C++ rules. Moving Objective-C++ alone was
+insufficient: SDL's Objective-C sources then inherited C++ language options.
+Commit
+[`2aeaf519`](https://github.com/nakatamaho/vaeg/commit/2aeaf519e60695ce2f9f9bd4c32e3a115421f51a)
+enables both Objective-C and Objective-C++ before the dependency graph when
+the Apple librashader path is selected.
+
+A clean local `cmake --preset macos-ci` configure and complete build passed.
+The dummy-driver smoke reported `guest=0,22 640x400`; all 103 executed CTests
+passed and six environment/dependency cases were skipped. The macOS job in
+[Actions run 33877195164](https://github.com/nakatamaho/vaeg/actions/runs/33877195164)
+then passed configure, build, smoke, unit tests, package validation, and
+artifact upload.

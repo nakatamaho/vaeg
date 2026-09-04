@@ -117,6 +117,32 @@ separate parity correction or move it to Open Defects.
 - **Milestone/task:** M99z1 follow-up to the M99 librashader CRT pipeline.
 - **Commit:** [fa2a3d78](https://github.com/nakatamaho/vaeg/commit/fa2a3d78749d84fc08d90ee749bc32f10b2f08fa).
 
+### macOS FetchContent ran before Objective-C languages were initialized
+
+- **Status:** fixed in M99z2.
+- **Symptom:** the `macos-ci` FetchContent preset failed during CMake
+  generation with missing `CMAKE_OBJCXX_COMPILE_OBJECT`, archive-create, and
+  archive-finish rules, before any VAEG source was compiled.
+- **Affected scope:** Apple builds that enable librashader while fetching SDL2
+  and the other pinned dependencies; the MacPorts discovery build was not
+  affected.
+- **Demonstrated root cause:** the top-level project enabled Objective-C++ only
+  after creating the FetchContent dependency graph. CMake therefore generated
+  Apple subprojects before the required language rules existed. Enabling only
+  Objective-C++ early also made SDL Objective-C sources inherit incompatible
+  C++ language options.
+- **Correction:** Apple librashader builds initialize both Objective-C and
+  Objective-C++ before declaring or populating FetchContent dependencies. The
+  later Objective-C++-only initialization was removed.
+- **Verification:** a clean local `macos-ci` configure and complete build
+  passed; 103 executed CTests passed with six skips. The hosted macOS job in
+  [Actions run 33877195164](https://github.com/nakatamaho/vaeg/actions/runs/33877195164)
+  passed configure, build, smoke, unit tests, package validation, and artifact
+  upload.
+- **Evidence:** [M99 final report](../agents/reports/m99-final-report.md).
+- **Milestone/task:** M99z2 follow-up to the M99 librashader CRT pipeline.
+- **Commit:** [2aeaf519](https://github.com/nakatamaho/vaeg/commit/2aeaf519e60695ce2f9f9bd4c32e3a115421f51a).
+
 ### Private IDA64 candidate exited during draw-order validation
 
 - **Status:** fixed in M98aa; real VA/VA2 hardware confirmation remains
