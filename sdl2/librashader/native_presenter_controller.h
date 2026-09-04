@@ -2,8 +2,8 @@
  * Copyright (c) 2026 Nakata Maho
  *
  * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are
- * met:
+ * modification, are permitted provided that the following conditions
+ * are met:
  * 1. Redistributions of source code must retain the above copyright
  *    notice, this list of conditions and the following disclaimer.
  * 2. Redistributions in binary form must reproduce the above copyright
@@ -21,41 +21,37 @@
  * NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-#ifndef VAEG_SDL2_LIBRASHADER_METAL_BRIDGE_H
-#define VAEG_SDL2_LIBRASHADER_METAL_BRIDGE_H
+#ifndef VAEG_SDL2_LIBRASHADER_NATIVE_PRESENTER_CONTROLLER_H
+#define VAEG_SDL2_LIBRASHADER_NATIVE_PRESENTER_CONTROLLER_H
 
 #include <stdint.h>
 
 #include "librashader/frame_input.h"
 
-typedef struct {
-	void *state;
-} VAEG_METAL_BRIDGE;
+typedef struct VAEG_NATIVE_PRESENTER VAEG_NATIVE_PRESENTER;
 
 typedef enum {
-	VAEG_METAL_BRIDGE_OK = 0,
-	VAEG_METAL_BRIDGE_INVALID_ARGUMENT,
-	VAEG_METAL_BRIDGE_INVALID_FRAME,
-	VAEG_METAL_BRIDGE_NO_DRAWABLE,
-	VAEG_METAL_BRIDGE_FILTER_FAILURE,
-	VAEG_METAL_BRIDGE_RESOURCE_FAILURE
-} VAEG_METAL_BRIDGE_RESULT;
+	VAEG_NATIVE_PRESENTER_PRESENTED = 0,
+	VAEG_NATIVE_PRESENTER_NO_OUTPUT,
+	VAEG_NATIVE_PRESENTER_FALLBACK
+} VAEG_NATIVE_PRESENTER_RESULT;
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-int vaeg_metal_bridge_initialize(void *host_window, const char *preset_path, int enable_filter,
-                                 VAEG_METAL_BRIDGE *bridge);
-void vaeg_metal_bridge_set_drawable_size(const VAEG_METAL_BRIDGE *bridge, uint32_t width,
-                                         uint32_t height);
-VAEG_METAL_BRIDGE_RESULT vaeg_metal_bridge_set_filter_enabled(VAEG_METAL_BRIDGE *bridge,
-                                                               int enabled);
-VAEG_METAL_BRIDGE_RESULT vaeg_metal_bridge_set_filter_parameter(VAEG_METAL_BRIDGE *bridge,
-                                                                 const char *name, float value);
-VAEG_METAL_BRIDGE_RESULT vaeg_metal_bridge_present(VAEG_METAL_BRIDGE *bridge,
-                                                    const VAEG_FRAME_INPUT *frame);
-void vaeg_metal_bridge_shutdown(VAEG_METAL_BRIDGE *bridge);
+int vaeg_native_presenter_is_headless_video_driver(const char *video_driver);
+VAEG_NATIVE_PRESENTER *vaeg_native_presenter_create(
+	void *host_window, uint32_t drawable_width, uint32_t drawable_height,
+	const char *preset_path, const char *parameter_state_path);
+VAEG_NATIVE_PRESENTER_RESULT vaeg_native_presenter_resize(
+	VAEG_NATIVE_PRESENTER *presenter, uint32_t drawable_width, uint32_t drawable_height);
+VAEG_NATIVE_PRESENTER_RESULT vaeg_native_presenter_present(
+	VAEG_NATIVE_PRESENTER *presenter, const VAEG_FRAME_INPUT *frame);
+void vaeg_native_presenter_destroy(VAEG_NATIVE_PRESENTER *presenter);
+const char *vaeg_native_presenter_backend(const VAEG_NATIVE_PRESENTER *presenter);
+const char *vaeg_native_presenter_state(const VAEG_NATIVE_PRESENTER *presenter);
+const char *vaeg_native_presenter_error(const VAEG_NATIVE_PRESENTER *presenter);
 
 #ifdef __cplusplus
 }

@@ -115,6 +115,15 @@ class D3D11Presenter final : public NativePresenter {
 		if (result == VAEG_D3D11_BRIDGE_NO_OUTPUT) {
 			return PresenterResult::Disabled;
 		}
+		if (result == VAEG_D3D11_BRIDGE_FILTER_FAILURE) {
+			if (vaeg_d3d11_bridge_set_filter_enabled(&bridge_, 0) == VAEG_D3D11_BRIDGE_OK) {
+				filter_enabled_ = false;
+				state_ = PresenterState::PassThrough;
+				error_ = PresenterError::FilterFailure;
+				return PresenterResult::Recovered;
+			}
+			error_ = PresenterError::FilterFailure;
+		}
 		error_ = (result == VAEG_D3D11_BRIDGE_DEVICE_LOST) ? PresenterError::DeviceFailure
 		                                                   : PresenterError::ResourceFailure;
 		state_ = PresenterState::Unavailable;

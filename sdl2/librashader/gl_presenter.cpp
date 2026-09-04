@@ -115,6 +115,15 @@ class GLPresenter final : public NativePresenter {
 		if (result == VAEG_GL_BRIDGE_NO_OUTPUT) {
 			return PresenterResult::Disabled;
 		}
+		if (result == VAEG_GL_BRIDGE_FILTER_FAILURE) {
+			if (vaeg_gl_bridge_set_filter_enabled(&bridge_, 0) == VAEG_GL_BRIDGE_OK) {
+				filter_enabled_ = false;
+				state_ = PresenterState::PassThrough;
+				error_ = PresenterError::FilterFailure;
+				return PresenterResult::Recovered;
+			}
+			error_ = PresenterError::FilterFailure;
+		}
 		error_ = PresenterError::ResourceFailure;
 		state_ = PresenterState::Unavailable;
 		return PresenterResult::Fallback;

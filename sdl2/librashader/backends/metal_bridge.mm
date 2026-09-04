@@ -414,7 +414,7 @@ extern "C" VAEG_METAL_BRIDGE_RESULT vaeg_metal_bridge_present(
 			&libra_viewport, nullptr, &filter_options);
 		if (error != nullptr) {
 			vaeg_metal_report_librashader_error(state, error, "frame rendering");
-			return VAEG_METAL_BRIDGE_RESOURCE_FAILURE;
+			return VAEG_METAL_BRIDGE_FILTER_FAILURE;
 		}
 		state->filter_first_frame = false;
 		[command_buffer presentDrawable:drawable];

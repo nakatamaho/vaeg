@@ -1516,6 +1516,17 @@ static void processwait(UINT cnt, PACELOG *pacelog, BOOL pacelog_enabled) {
 	soundmng_sync();
 }
 
+static BOOL initialize_gui_after_native_fallback(void) {
+	if (!scrnmng_take_native_fallback()) {
+		return SUCCESS;
+	}
+	if (gui_initialize(scrnmng_get_window(), scrnmng_get_renderer(), NULL) != SUCCESS) {
+		fprintf(stderr, "Error: failed to initialize SDL GUI after Native CRT fallback\n");
+		return FAILURE;
+	}
+	return SUCCESS;
+}
+
 static BOOL run_guest_frame(BOOL draw, UINT32 frames) {
 	UPD9002_DIAGNOSTIC diagnostic;
 
@@ -1550,6 +1561,10 @@ static BOOL run_guest_frame(BOOL draw, UINT32 frames) {
 		scrnmng_present_begin();
 		gui_render();
 		scrnmng_present_end();
+		if (initialize_gui_after_native_fallback() != SUCCESS) {
+			taskmng_exit();
+			return FAILURE;
+		}
 	}
 	scrnmng_framedisp_tick(SDL_GetTicks(), drawcount, frames);
 	return SUCCESS;
@@ -1577,6 +1592,9 @@ static void render_host_ui_only(void) {
 	scrnmng_present_begin();
 	gui_render();
 	scrnmng_present_end();
+	if (initialize_gui_after_native_fallback() != SUCCESS) {
+		taskmng_exit();
+	}
 }
 
 static BOOL smoke_after_frame(BOOL smoke, UINT frames, BOOL detect_screen, BOOL headless_input,
@@ -2116,8 +2134,12 @@ int main(int argc, char **argv) {
 		goto np2main_err2;
 	}
 	scrnmng_set_framedisp((np2oscfg.DISPCLK & VAEG_DISPINFO_FRAME) ? TRUE : FALSE);
-	if (gui_initialize(scrnmng_get_window(), scrnmng_get_renderer(), argv[0]) != SUCCESS) {
-		goto np2main_err3;
+	if (!scrnmng_native_active()) {
+		if (gui_initialize(scrnmng_get_window(), scrnmng_get_renderer(), argv[0]) != SUCCESS) {
+			goto np2main_err3;
+		}
+	} else {
+		SDL_Log("Native CRT owns presentation; SDL GUI renderer is deferred until fallback");
 	}
 	if ((np2oscfg.gui_display_mode != VAEG_DISPLAY_WINDOWED) &&
 	    (scrnmng_set_display_mode(np2oscfg.gui_display_mode, np2oscfg.gui_monitor,

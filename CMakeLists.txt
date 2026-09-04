@@ -326,6 +326,7 @@ set(VAEG_SDL2_SOURCES
     sdl2/librashader/frame_input.cpp
     sdl2/librashader/frame_conversion.cpp
     sdl2/librashader/native_presenter.cpp
+    sdl2/librashader/native_presenter_controller.cpp
     sdl2/librashader/presenter_factory.cpp
     sdl2/librashader/shader_parameters.cpp
     sdl2/librashader/shader_preset.cpp
@@ -599,10 +600,9 @@ target_include_directories(vaeg_sdl2 PRIVATE
     ${VAEG_INCLUDE_DIRS}
     "${CMAKE_CURRENT_SOURCE_DIR}/external/imgui"
     "${CMAKE_CURRENT_SOURCE_DIR}/external/imgui/backends"
-    "${CMAKE_CURRENT_SOURCE_DIR}/external/ymfm/src")
+    "${CMAKE_CURRENT_SOURCE_DIR}/external/ymfm/src"
+    "${CMAKE_CURRENT_SOURCE_DIR}/external/librashader/include")
 if(VAEG_ENABLE_LIBRASHADER)
-    target_include_directories(vaeg_sdl2 PRIVATE
-        "${CMAKE_CURRENT_SOURCE_DIR}/external/librashader/include")
     target_compile_definitions(vaeg_sdl2 PRIVATE VAEG_ENABLE_LIBRASHADER=1)
 endif()
 target_link_libraries(vaeg_sdl2 PRIVATE vaeg_core vaeg_va vaeg_common
@@ -1481,6 +1481,24 @@ if(VAEG_ENABLE_TESTS)
         target_compile_options(vaeg_librashader_shader_parameters_test PRIVATE -Werror)
     endif()
 
+    add_executable(vaeg_librashader_fallback_test
+        sdl2/librashader/frame_input.cpp
+        sdl2/librashader/native_presenter.cpp
+        sdl2/librashader/native_presenter_controller.cpp
+        sdl2/librashader/presenter_factory.cpp
+        sdl2/librashader/shader_parameters.cpp
+        sdl2/librashader/shader_preset.cpp
+        tests/frontend/librashader/test_fallback.cpp)
+    target_include_directories(vaeg_librashader_fallback_test PRIVATE
+        "${CMAKE_CURRENT_SOURCE_DIR}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/sdl2"
+        "${CMAKE_CURRENT_SOURCE_DIR}/external/librashader/include")
+    target_compile_features(vaeg_librashader_fallback_test PRIVATE cxx_std_17)
+    target_compile_options(vaeg_librashader_fallback_test PRIVATE -Wall -fsigned-char)
+    if(VAEG_WERROR)
+        target_compile_options(vaeg_librashader_fallback_test PRIVATE -Werror)
+    endif()
+
     add_executable(vaeg_z80_compat_zex_runner tests/z80_compat/zex_runner.cpp)
     vaeg_configure_z80_compat_standalone_target(vaeg_z80_compat_zex_runner)
     target_compile_definitions(vaeg_z80_compat_zex_runner PRIVATE
@@ -1579,6 +1597,10 @@ if(VAEG_ENABLE_TESTS)
     add_test(NAME vaeg_librashader_shader_parameters
         COMMAND vaeg_librashader_shader_parameters_test)
     set_tests_properties(vaeg_librashader_shader_parameters PROPERTIES
+        LABELS "romless;frontend;librashader" TIMEOUT 30)
+    add_test(NAME vaeg_librashader_fallback
+        COMMAND vaeg_librashader_fallback_test)
+    set_tests_properties(vaeg_librashader_fallback PROPERTIES
         LABELS "romless;frontend;librashader" TIMEOUT 30)
     foreach(regression_suite directed state generated convergence)
         add_test(NAME vaeg_z80_compat_regression_${regression_suite}

@@ -2533,8 +2533,10 @@ static void draw_native_crt_menu(void) {
 		enabled = !enabled;
 		np2oscfg.gui_native_crt = enabled ? 1 : 0;
 		sysmng_update(SYS_UPDATEOSCFG);
-		g_gui.native_crt_status = enabled ? "Native CRT enabled" : "Native CRT disabled";
+		g_gui.native_crt_status = enabled ? "Native CRT saved; restart to apply"
+		                                 : "Native CRT disabled on next restart";
 	}
+	ImGui::TextDisabled("Native presentation owns the window after restart");
 	ImGui::Separator();
 	if (ImGui::InputText("Preset path", np2oscfg.gui_shader_preset,
 	                     sizeof(np2oscfg.gui_shader_preset))) {

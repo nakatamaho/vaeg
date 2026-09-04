@@ -684,7 +684,7 @@ extern "C" VAEG_GL_BRIDGE_RESULT vaeg_gl_bridge_present(VAEG_GL_BRIDGE *bridge,
 		if (error != nullptr) {
 			vaeg_gl_report_librashader_error(state, error, "frame rendering");
 			vaeg_gl_restore_state(state, &saved);
-			return VAEG_GL_BRIDGE_RESOURCE_FAILURE;
+			return VAEG_GL_BRIDGE_FILTER_FAILURE;
 		}
 		state->filter_first_frame = false;
 		state->gl.bind_framebuffer(GL_FRAMEBUFFER, 0);

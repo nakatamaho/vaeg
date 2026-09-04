@@ -111,6 +111,15 @@ class MetalPresenter final : public NativePresenter {
 		if (result == VAEG_METAL_BRIDGE_NO_DRAWABLE) {
 			return PresenterResult::Disabled;
 		}
+		if (result == VAEG_METAL_BRIDGE_FILTER_FAILURE) {
+			if (vaeg_metal_bridge_set_filter_enabled(&bridge_, 0) == VAEG_METAL_BRIDGE_OK) {
+				filter_enabled_ = false;
+				state_ = PresenterState::PassThrough;
+				error_ = PresenterError::FilterFailure;
+				return PresenterResult::Recovered;
+			}
+			error_ = PresenterError::FilterFailure;
+		}
 		error_ = PresenterError::ResourceFailure;
 		state_ = PresenterState::Unavailable;
 		return PresenterResult::Fallback;

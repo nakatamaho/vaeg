@@ -90,6 +90,8 @@ BOOL scrnmng_isfullscreen(void);
 BOOL scrnmng_capture_window_size(int *width, int *height);
 void scrnmng_log_geometry(const char *reason);
 BOOL scrnmng_texture_uniform(BOOL *uniform);
+BOOL scrnmng_native_active(void);
+BOOL scrnmng_take_native_fallback(void);
 void scrnmng_present_begin(void);
 void scrnmng_present_end(void);
 BOOL scrnmng_save_rendered_frame(const char *path);
