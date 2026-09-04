@@ -319,6 +319,7 @@ set(VAEG_SDL2_SOURCES
     sdl2/trace.c
     sdl2/scrnmng.c
     sdl2/librashader/frame_input.cpp
+    sdl2/librashader/frame_conversion.cpp
     sdl2/librashader/native_presenter.cpp
     sdl2/librashader/presenter_factory.cpp
     sdl2/sdlkbd.c
@@ -342,7 +343,9 @@ set(VAEG_SDL2_SOURCES
     sdl2/fontmng.c
     sdl2/gui/gui.cpp)
 if(APPLE AND VAEG_ENABLE_LIBRASHADER)
-    list(APPEND VAEG_SDL2_SOURCES sdl2/librashader/backends/metal_bridge.mm)
+    list(APPEND VAEG_SDL2_SOURCES
+        sdl2/librashader/backends/metal_bridge.mm
+        sdl2/librashader/metal_presenter.cpp)
 endif()
 if(VAEG_ENABLE_TESTS)
     list(APPEND VAEG_SDL2_SOURCES
@@ -588,7 +591,10 @@ endif()
 target_link_libraries(vaeg_sdl2 PRIVATE vaeg_core vaeg_va vaeg_common
     vaeg_core vaeg_va ${VAEG_SDL2_LIBS})
 if(APPLE AND VAEG_ENABLE_LIBRASHADER)
-    target_link_libraries(vaeg_sdl2 PRIVATE "-framework Metal" "-framework QuartzCore")
+    target_link_libraries(vaeg_sdl2 PRIVATE
+        "-framework Foundation"
+        "-framework Metal"
+        "-framework QuartzCore")
 endif()
 if(VAEG_ENABLE_TESTS)
     target_compile_definitions(vaeg_sdl2 PRIVATE

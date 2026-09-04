@@ -21,38 +21,17 @@
  * NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-#ifndef VAEG_SDL2_LIBRASHADER_METAL_BRIDGE_H
-#define VAEG_SDL2_LIBRASHADER_METAL_BRIDGE_H
+#ifndef VAEG_SDL2_LIBRASHADER_METAL_PRESENTER_H
+#define VAEG_SDL2_LIBRASHADER_METAL_PRESENTER_H
 
-#include <stdint.h>
+#include <memory>
 
-#include "librashader/frame_input.h"
+#include "librashader/native_presenter.h"
 
-typedef struct {
-	void *state;
-} VAEG_METAL_BRIDGE;
+namespace vaeg::librashader {
 
-typedef enum {
-	VAEG_METAL_BRIDGE_OK = 0,
-	VAEG_METAL_BRIDGE_INVALID_ARGUMENT,
-	VAEG_METAL_BRIDGE_INVALID_FRAME,
-	VAEG_METAL_BRIDGE_NO_DRAWABLE,
-	VAEG_METAL_BRIDGE_RESOURCE_FAILURE
-} VAEG_METAL_BRIDGE_RESULT;
+std::unique_ptr<NativePresenter> create_metal_presenter();
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-int vaeg_metal_bridge_initialize(void *host_window, VAEG_METAL_BRIDGE *bridge);
-void vaeg_metal_bridge_set_drawable_size(const VAEG_METAL_BRIDGE *bridge, uint32_t width,
-                                         uint32_t height);
-VAEG_METAL_BRIDGE_RESULT vaeg_metal_bridge_present(VAEG_METAL_BRIDGE *bridge,
-                                                    const VAEG_FRAME_INPUT *frame);
-void vaeg_metal_bridge_shutdown(VAEG_METAL_BRIDGE *bridge);
-
-#ifdef __cplusplus
-}
-#endif
+} // namespace vaeg::librashader
 
 #endif

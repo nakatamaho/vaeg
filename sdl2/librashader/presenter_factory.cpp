@@ -24,6 +24,10 @@
  */
 #include "librashader/presenter_factory.h"
 
+#if defined(__APPLE__) && defined(VAEG_ENABLE_LIBRASHADER)
+#include "librashader/metal_presenter.h"
+#endif
+
 namespace vaeg::librashader {
 
 namespace {
@@ -45,7 +49,14 @@ class UnavailablePresenter final : public NativePresenter {
 
 } // namespace
 
-std::unique_ptr<NativePresenter> create_native_presenter(PresenterBackend) {
+std::unique_ptr<NativePresenter> create_native_presenter(PresenterBackend backend) {
+#if defined(__APPLE__) && defined(VAEG_ENABLE_LIBRASHADER)
+	if ((backend == PresenterBackend::Automatic) || (backend == PresenterBackend::Metal)) {
+		return create_metal_presenter();
+	}
+#else
+	(void)backend;
+#endif
 	return std::make_unique<UnavailablePresenter>();
 }
 
