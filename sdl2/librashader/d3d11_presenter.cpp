@@ -23,6 +23,8 @@
  */
 #include "librashader/d3d11_presenter.h"
 
+#include <cstdio>
+
 #include "librashader/d3d11_bridge.h"
 
 namespace vaeg::librashader {
@@ -33,7 +35,10 @@ class D3D11Presenter final : public NativePresenter {
   public:
 	D3D11Presenter() noexcept
 	    : state_(PresenterState::Unavailable), error_(PresenterError::None), host_window_(nullptr),
-	      drawable_width_(0), drawable_height_(0), filter_enabled_(false) {}
+	      drawable_width_(0), drawable_height_(0), backend_(PresenterBackend::D3D11),
+	      filter_enabled_(false) {
+		preset_path_[0] = '\0';
+	}
 
 	~D3D11Presenter() override { shutdown(); }
 
@@ -43,21 +48,28 @@ class D3D11Presenter final : public NativePresenter {
 	PresenterResult initialize(const NativePresenterCreateInfo &info) noexcept override {
 		if ((info.host_window == nullptr) ||
 		    ((info.backend != PresenterBackend::Automatic) &&
-		     (info.backend != PresenterBackend::D3D11)) || info.enable_filter) {
+		     (info.backend != PresenterBackend::D3D11))) {
 			state_ = PresenterState::Unavailable;
-			error_ = info.enable_filter ? PresenterError::FilterFailure
-			                           : PresenterError::PlatformUnavailable;
+			error_ = PresenterError::PlatformUnavailable;
 			return PresenterResult::Fallback;
 		}
 		shutdown();
 		host_window_ = info.host_window;
 		drawable_width_ = info.drawable_width;
 		drawable_height_ = info.drawable_height;
-		filter_enabled_ = false;
+		backend_ = info.backend;
+		filter_enabled_ = info.enable_filter;
+		if (info.preset_path == nullptr) {
+			preset_path_[0] = '\0';
+		} else {
+			std::snprintf(preset_path_, sizeof(preset_path_), "%s", info.preset_path);
+		}
 		state_ = PresenterState::Initializing;
-		if (!vaeg_d3d11_bridge_initialize(info.host_window, &bridge_)) {
+		if (!vaeg_d3d11_bridge_initialize(info.host_window, info.preset_path,
+		                                  info.enable_filter ? 1 : 0, &bridge_)) {
 			state_ = PresenterState::Unavailable;
-			error_ = PresenterError::DeviceFailure;
+			error_ = info.enable_filter ? PresenterError::FilterFailure
+			                           : PresenterError::DeviceFailure;
 			return PresenterResult::Fallback;
 		}
 		if ((drawable_width_ != 0) && (drawable_height_ != 0) &&
@@ -97,12 +109,20 @@ class D3D11Presenter final : public NativePresenter {
 	}
 
 	PresenterResult set_filter_enabled(bool enabled) noexcept override {
-		if (enabled || (state_ != PresenterState::PassThrough)) {
-			error_ = enabled ? PresenterError::FilterFailure : error_;
+		VAEG_D3D11_BRIDGE_RESULT result;
+
+		if ((state_ != PresenterState::PassThrough) && (state_ != PresenterState::Filtered)) {
 			return PresenterResult::Fallback;
 		}
-		filter_enabled_ = false;
-		return PresenterResult::Disabled;
+		result = vaeg_d3d11_bridge_set_filter_enabled(&bridge_, enabled ? 1 : 0);
+		if (result == VAEG_D3D11_BRIDGE_OK) {
+			filter_enabled_ = enabled;
+			state_ = enabled ? PresenterState::Filtered : PresenterState::PassThrough;
+			error_ = PresenterError::None;
+			return enabled ? PresenterResult::Recovered : PresenterResult::Disabled;
+		}
+		error_ = PresenterError::FilterFailure;
+		return PresenterResult::Fallback;
 	}
 
 	PresenterResult resize(uint32_t drawable_width, uint32_t drawable_height) noexcept override {
@@ -134,9 +154,9 @@ class D3D11Presenter final : public NativePresenter {
 		info.host_window = host_window_;
 		info.drawable_width = drawable_width_;
 		info.drawable_height = drawable_height_;
-		info.backend = PresenterBackend::D3D11;
-		info.enable_filter = false;
-		info.preset_path = nullptr;
+		info.backend = backend_;
+		info.enable_filter = filter_enabled_;
+		info.preset_path = (preset_path_[0] == '\0') ? nullptr : preset_path_;
 		return initialize(info);
 	}
 
@@ -153,7 +173,9 @@ class D3D11Presenter final : public NativePresenter {
 	void *host_window_;
 	uint32_t drawable_width_;
 	uint32_t drawable_height_;
+	PresenterBackend backend_;
 	bool filter_enabled_;
+	char preset_path_[1024];
 };
 
 } // namespace

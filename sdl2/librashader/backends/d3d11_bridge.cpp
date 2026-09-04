@@ -37,10 +37,12 @@
 #include <SDL_syswm.h>
 
 #include <cstdlib>
+#include <cstdio>
 #include <cstring>
 
 #include "librashader/d3d11_bridge.h"
 #include "librashader/frame_conversion.h"
+#include "librashader/librashader_loader.h"
 
 struct VAEG_D3D11_STATE {
 	HWND hwnd;
@@ -60,6 +62,10 @@ struct VAEG_D3D11_STATE {
 	uint32_t upload_pitch;
 	uint32_t drawable_width;
 	uint32_t drawable_height;
+	libra_instance_t librashader;
+	libra_d3d11_filter_chain_t filter_chain;
+	bool filter_enabled;
+	bool filter_first_frame;
 };
 
 template <typename T>
@@ -85,6 +91,10 @@ static void vaeg_d3d11_release_state(VAEG_D3D11_STATE *state) {
 	if (state == nullptr) {
 		return;
 	}
+	if ((state->filter_chain != nullptr) &&
+	    (state->librashader.d3d11_filter_chain_free != nullptr)) {
+		(void)state->librashader.d3d11_filter_chain_free(&state->filter_chain);
+	}
 	vaeg_d3d11_release(&state->render_target);
 	vaeg_d3d11_release(&state->source_view);
 	vaeg_d3d11_release(&state->source_texture);
@@ -96,6 +106,52 @@ static void vaeg_d3d11_release_state(VAEG_D3D11_STATE *state) {
 	vaeg_d3d11_release(&state->device);
 	free(state->upload_buffer);
 	free(state);
+}
+
+static void vaeg_d3d11_report_librashader_error(VAEG_D3D11_STATE *state,
+                                                 libra_error_t error, const char *operation) {
+	if (error == nullptr) {
+		return;
+	}
+	fprintf(stderr, "librashader D3D11 %s failed\n", operation);
+	if (state->librashader.error_print != nullptr) {
+		(void)state->librashader.error_print(error);
+	}
+	if (state->librashader.error_free != nullptr) {
+		(void)state->librashader.error_free(&error);
+	}
+}
+
+static int vaeg_d3d11_create_filter_chain(VAEG_D3D11_STATE *state, const char *preset_path) {
+	libra_shader_preset_t preset;
+	filter_chain_d3d11_opt_t options{};
+	libra_error_t error;
+
+	if ((state == nullptr) || (preset_path == nullptr) || (preset_path[0] == '\0')) {
+		return 0;
+	}
+	state->librashader = librashader_load_instance();
+	if (!state->librashader.instance_loaded ||
+	    (state->librashader.d3d11_filter_chain_create == nullptr)) {
+		fprintf(stderr, "librashader D3D11 runtime unavailable\n");
+		return 0;
+	}
+	preset = nullptr;
+	error = state->librashader.preset_create(preset_path, &preset);
+	if ((error != nullptr) || (preset == nullptr)) {
+		vaeg_d3d11_report_librashader_error(state, error, "preset creation");
+		return 0;
+	}
+	options.version = LIBRASHADER_CURRENT_VERSION;
+	error = state->librashader.d3d11_filter_chain_create(
+		&preset, state->device, &options, &state->filter_chain);
+	if ((error != nullptr) || (state->filter_chain == nullptr)) {
+		vaeg_d3d11_report_librashader_error(state, error, "filter-chain creation");
+		return 0;
+	}
+	state->filter_enabled = true;
+	state->filter_first_frame = true;
+	return 1;
 }
 
 static int vaeg_d3d11_create_output(VAEG_D3D11_STATE *state) {
@@ -230,7 +286,8 @@ static void vaeg_d3d11_viewport(const VAEG_D3D11_STATE *state, const VAEG_FRAME_
 	}
 }
 
-extern "C" int vaeg_d3d11_bridge_initialize(void *host_window, VAEG_D3D11_BRIDGE *bridge) {
+extern "C" int vaeg_d3d11_bridge_initialize(void *host_window, const char *preset_path,
+                                               int enable_filter, VAEG_D3D11_BRIDGE *bridge) {
 	SDL_SysWMinfo window_info;
 	VAEG_D3D11_STATE *state;
 	DXGI_SWAP_CHAIN_DESC1 swap_chain_descriptor{};
@@ -302,7 +359,8 @@ extern "C" int vaeg_d3d11_bridge_initialize(void *host_window, VAEG_D3D11_BRIDGE
 	factory->MakeWindowAssociation(state->hwnd, DXGI_MWA_NO_ALT_ENTER);
 	factory->Release();
 	if (FAILED(result) || !vaeg_d3d11_create_shaders(state) ||
-	    !vaeg_d3d11_create_output(state)) {
+	    !vaeg_d3d11_create_output(state) ||
+	    ((enable_filter != 0) && !vaeg_d3d11_create_filter_chain(state, preset_path))) {
 		vaeg_d3d11_release_state(state);
 		return 0;
 	}
@@ -336,11 +394,31 @@ extern "C" VAEG_D3D11_BRIDGE_RESULT vaeg_d3d11_bridge_set_drawable_size(
 	return VAEG_D3D11_BRIDGE_OK;
 }
 
+extern "C" VAEG_D3D11_BRIDGE_RESULT vaeg_d3d11_bridge_set_filter_enabled(
+	VAEG_D3D11_BRIDGE *bridge, int enabled) {
+	VAEG_D3D11_STATE *state;
+
+	if ((bridge == nullptr) || (bridge->state == nullptr)) {
+		return VAEG_D3D11_BRIDGE_INVALID_ARGUMENT;
+	}
+	state = static_cast<VAEG_D3D11_STATE *>(bridge->state);
+	if ((enabled != 0) && (state->filter_chain == nullptr)) {
+		return VAEG_D3D11_BRIDGE_RESOURCE_FAILURE;
+	}
+	if ((enabled != 0) && !state->filter_enabled) {
+		state->filter_first_frame = true;
+	}
+	state->filter_enabled = (enabled != 0);
+	return VAEG_D3D11_BRIDGE_OK;
+}
+
 extern "C" VAEG_D3D11_BRIDGE_RESULT vaeg_d3d11_bridge_present(
 	VAEG_D3D11_BRIDGE *bridge, const VAEG_FRAME_INPUT *frame) {
 	VAEG_D3D11_STATE *state;
 	D3D11_MAPPED_SUBRESOURCE mapped{};
 	D3D11_VIEWPORT viewport;
+	libra_viewport_t libra_viewport;
+	frame_d3d11_opt_t filter_options{};
 	RECT client_rect;
 	ID3D11RenderTargetView *render_target;
 	const float clear_color[4] = {0.0f, 0.0f, 0.0f, 1.0f};
@@ -386,12 +464,41 @@ extern "C" VAEG_D3D11_BRIDGE_RESULT vaeg_d3d11_bridge_present(
 	state->context->OMSetRenderTargets(1, &render_target, nullptr);
 	state->context->ClearRenderTargetView(render_target, clear_color);
 	state->context->RSSetViewports(1, &viewport);
-	state->context->VSSetShader(state->vertex_shader, nullptr, 0);
-	state->context->PSSetShader(state->pixel_shader, nullptr, 0);
-	state->context->PSSetShaderResources(0, 1, &state->source_view);
-	state->context->PSSetSamplers(0, 1, &state->sampler);
-	state->context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
-	state->context->Draw(4, 0);
+	if (state->filter_enabled) {
+		libra_viewport.x = viewport.TopLeftX;
+		libra_viewport.y = viewport.TopLeftY;
+		libra_viewport.width = static_cast<uint32_t>(viewport.Width);
+		libra_viewport.height = static_cast<uint32_t>(viewport.Height);
+		memset(&filter_options, 0, sizeof(filter_options));
+		filter_options.version = LIBRASHADER_CURRENT_VERSION;
+		filter_options.clear_history = state->filter_first_frame;
+		filter_options.frame_direction = 1;
+		filter_options.rotation = 0;
+		filter_options.total_subframes = 1;
+		filter_options.current_subframe = 1;
+		filter_options.aspect_ratio = static_cast<float>(frame->source_aspect_width) /
+		                              static_cast<float>(frame->source_aspect_height);
+		filter_options.frames_per_second =
+			static_cast<float>(frame->source_frame_rate_numerator) /
+			static_cast<float>(frame->source_frame_rate_denominator);
+		filter_options.frametime_delta =
+			static_cast<uint32_t>(frame->frame_time_delta_ns / 1000000U);
+		libra_error_t error = state->librashader.d3d11_filter_chain_frame(
+			&state->filter_chain, state->context, 1, state->source_view, render_target,
+			&libra_viewport, nullptr, &filter_options);
+		if (error != nullptr) {
+			vaeg_d3d11_report_librashader_error(state, error, "frame rendering");
+			return VAEG_D3D11_BRIDGE_RESOURCE_FAILURE;
+		}
+		state->filter_first_frame = false;
+	} else {
+		state->context->VSSetShader(state->vertex_shader, nullptr, 0);
+		state->context->PSSetShader(state->pixel_shader, nullptr, 0);
+		state->context->PSSetShaderResources(0, 1, &state->source_view);
+		state->context->PSSetSamplers(0, 1, &state->sampler);
+		state->context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
+		state->context->Draw(4, 0);
+	}
 	state->context->PSSetShaderResources(0, 0, nullptr);
 	result = state->swap_chain->Present(1, 0);
 	if (result == DXGI_STATUS_OCCLUDED) {

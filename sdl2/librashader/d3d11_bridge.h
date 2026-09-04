@@ -44,9 +44,12 @@ typedef enum {
 extern "C" {
 #endif
 
-int vaeg_d3d11_bridge_initialize(void *host_window, VAEG_D3D11_BRIDGE *bridge);
+int vaeg_d3d11_bridge_initialize(void *host_window, const char *preset_path, int enable_filter,
+                                 VAEG_D3D11_BRIDGE *bridge);
 VAEG_D3D11_BRIDGE_RESULT vaeg_d3d11_bridge_set_drawable_size(VAEG_D3D11_BRIDGE *bridge,
                                                                uint32_t width, uint32_t height);
+VAEG_D3D11_BRIDGE_RESULT vaeg_d3d11_bridge_set_filter_enabled(VAEG_D3D11_BRIDGE *bridge,
+                                                               int enabled);
 VAEG_D3D11_BRIDGE_RESULT vaeg_d3d11_bridge_present(VAEG_D3D11_BRIDGE *bridge,
                                                     const VAEG_FRAME_INPUT *frame);
 void vaeg_d3d11_bridge_shutdown(VAEG_D3D11_BRIDGE *bridge);

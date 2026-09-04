@@ -25,6 +25,11 @@
 #ifndef VAEG_SDL2_LIBRASHADER_LOADER_H
 #define VAEG_SDL2_LIBRASHADER_LOADER_H
 
+/* Select only the native runtime declarations used by each platform bridge. */
+#if defined(_WIN32)
+#define LIBRA_RUNTIME_D3D11 1
+#endif
+
 /* The upstream loader exposes Metal declarations only to Objective-C++. */
 #if defined(__APPLE__) && defined(__OBJC__)
 #define LIBRA_RUNTIME_METAL 1
