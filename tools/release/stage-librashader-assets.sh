@@ -128,7 +128,7 @@ copy_checked "$crt_root/licenses/crt-default-license.txt" \
 	6b36a9fe4618402e929fb3403d4724d1b707934f2d1db8483fbf0ebfbccb26bc
 copy_checked "$crt_root/licenses/crt-default-provenance.md" \
 	"$output/assets/shaders/crt/licenses/crt-default-provenance.md" \
-	4b5d93bf3f08d225f710a7c2ed94f00df2d3b2927460db3e7d17669168c315a1
+	2750c3e592acaa38ada456fc30c7993cca3a35e8ab9b24793c4b2747a36ef063
 copy_checked "$repo_root/external/librashader/LICENSE.md" \
 	"$output/licenses/librashader-MPL-2.0.txt" \
 	69c15395f33bc9ce8e1d8b6cef42b7e49cdec4c6f5233d4b9cfc4bfa335f97f9
