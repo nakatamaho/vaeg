@@ -44,6 +44,7 @@ MILESTONE_RE = re.compile(rf"^[Mm]({CORE_PATTERN})$")
 GATE_RE = re.compile(rf"^G({CORE_PATTERN})$")
 TASK_RE = re.compile(rf"^M({CORE_PATTERN})_([a-z0-9]+(?:_[a-z0-9]+)*)\.md$")
 REPORT_RE = re.compile(rf"^m({CORE_PATTERN})_([a-z0-9]+(?:_[a-z0-9]+)*)\.md$")
+FINAL_REPORT_NAME = "m99-final-report.md"
 BRANCH_RE = re.compile(rf"^topic/m({CORE_PATTERN})-([a-z0-9]+(?:-[a-z0-9]+)*)$")
 COMMIT_PREFIX_RE = re.compile(rf"^M({CORE_PATTERN}):(?: |$)")
 
@@ -82,6 +83,9 @@ def parse_task_name(value: str) -> tuple[str, str]:
 
 def parse_report_name(value: str) -> tuple[str, str]:
     """Parse a canonical report basename."""
+    if value == FINAL_REPORT_NAME:
+        # M99's task specification fixes this final-goal report name.
+        return "99", "final_report"
     match = REPORT_RE.fullmatch(value)
     if match is None:
         raise MilestoneIdError(f"invalid report basename: {value!r}")
@@ -266,7 +270,8 @@ def selftest() -> None:
         pass
     else:
         raise AssertionError("fingerprint CI artifact was accepted")
-    print("milestone-id-selftest: 48 strict acceptance/rejection checks passed")
+    assert parse_report_name(FINAL_REPORT_NAME) == ("99", "final_report")
+    print("milestone-id-selftest: 49 strict acceptance/rejection checks passed")
 
 
 def parse_args(argv: Iterable[str]) -> argparse.Namespace:
