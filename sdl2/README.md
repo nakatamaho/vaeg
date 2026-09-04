@@ -42,6 +42,15 @@ The executable is written to:
 build/linux-debug/sdl2/vaeg
 ```
 
+## Native CRT
+
+The optional librashader path uses Metal on macOS, D3D11 on Windows, and
+OpenGL on Linux. Setup, package layout, capture boundaries, and recovery steps
+are in the [Native CRT user guide](../docs/modernization/native-crt-user-guide.md)
+and [troubleshooting guide](../docs/modernization/native-crt-troubleshooting.md).
+The backend ownership and raw-capture boundary are documented in the
+[presentation architecture](../docs/architecture/native-crt-presentation.md).
+
 SDL2 is discovered through `find_package(SDL2)` first, then pkg-config.
 `VAEG_FETCH_SDL2=ON` is reserved for the MinGW cross preset and fetches
 the pinned SDL2 release recorded in ADR-0006.
