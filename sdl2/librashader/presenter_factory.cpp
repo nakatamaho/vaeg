@@ -28,6 +28,10 @@
 #include "librashader/metal_presenter.h"
 #endif
 
+#if defined(_WIN32) && defined(VAEG_ENABLE_LIBRASHADER)
+#include "librashader/d3d11_presenter.h"
+#endif
+
 namespace vaeg::librashader {
 
 namespace {
@@ -54,6 +58,10 @@ std::unique_ptr<NativePresenter> create_native_presenter(PresenterBackend backen
 #if defined(__APPLE__) && defined(VAEG_ENABLE_LIBRASHADER)
 	if ((backend == PresenterBackend::Automatic) || (backend == PresenterBackend::Metal)) {
 		return create_metal_presenter();
+	}
+#elif defined(_WIN32) && defined(VAEG_ENABLE_LIBRASHADER)
+	if ((backend == PresenterBackend::Automatic) || (backend == PresenterBackend::D3D11)) {
+		return create_d3d11_presenter();
 	}
 #else
 	(void)backend;

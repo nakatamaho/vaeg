@@ -142,6 +142,11 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 if(APPLE AND VAEG_ENABLE_LIBRASHADER)
     enable_language(OBJCXX)
 endif()
+if(WIN32 AND VAEG_ENABLE_LIBRASHADER)
+    list(APPEND VAEG_SDL2_SOURCES
+        sdl2/librashader/backends/d3d11_bridge.cpp
+        sdl2/librashader/d3d11_presenter.cpp)
+endif()
 
 set(VAEG_INCLUDE_DIRS
     "${CMAKE_CURRENT_BINARY_DIR}/generated"
@@ -346,6 +351,11 @@ if(APPLE AND VAEG_ENABLE_LIBRASHADER)
     list(APPEND VAEG_SDL2_SOURCES
         sdl2/librashader/backends/metal_bridge.mm
         sdl2/librashader/metal_presenter.cpp)
+endif()
+if(WIN32 AND VAEG_ENABLE_LIBRASHADER)
+    list(APPEND VAEG_SDL2_SOURCES
+        sdl2/librashader/backends/d3d11_bridge.cpp
+        sdl2/librashader/d3d11_presenter.cpp)
 endif()
 if(VAEG_ENABLE_TESTS)
     list(APPEND VAEG_SDL2_SOURCES
@@ -595,6 +605,10 @@ if(APPLE AND VAEG_ENABLE_LIBRASHADER)
         "-framework Foundation"
         "-framework Metal"
         "-framework QuartzCore")
+endif()
+if(WIN32 AND VAEG_ENABLE_LIBRASHADER)
+    target_compile_definitions(vaeg_sdl2 PRIVATE SDL_VIDEO_DRIVER_WINDOWS=1)
+    target_link_libraries(vaeg_sdl2 PRIVATE d3d11 dxgi d3dcompiler)
 endif()
 if(VAEG_ENABLE_TESTS)
     target_compile_definitions(vaeg_sdl2 PRIVATE

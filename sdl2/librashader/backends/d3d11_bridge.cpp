@@ -1,0 +1,412 @@
+/*
+ * Copyright (c) 2026 Nakata Maho
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are
+ * met:
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE AUTHOR "AS IS" AND ANY EXPRESS OR
+ * IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
+ * OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+ * IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED
+ * TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+ * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
+ * LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
+ * NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+ * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>
+
+#include <d3d11.h>
+#include <d3dcompiler.h>
+#include <dxgi1_2.h>
+
+#include <SDL.h>
+#include <SDL_syswm.h>
+
+#include <cstdlib>
+#include <cstring>
+
+#include "librashader/d3d11_bridge.h"
+#include "librashader/frame_conversion.h"
+
+struct VAEG_D3D11_STATE {
+	HWND hwnd;
+	ID3D11Device *device;
+	ID3D11DeviceContext *context;
+	IDXGISwapChain1 *swap_chain;
+	ID3D11RenderTargetView *render_target;
+	ID3D11Texture2D *source_texture;
+	ID3D11ShaderResourceView *source_view;
+	ID3D11VertexShader *vertex_shader;
+	ID3D11PixelShader *pixel_shader;
+	ID3D11SamplerState *sampler;
+	uint8_t *upload_buffer;
+	size_t upload_capacity;
+	uint32_t source_width;
+	uint32_t source_height;
+	uint32_t upload_pitch;
+	uint32_t drawable_width;
+	uint32_t drawable_height;
+};
+
+template <typename T>
+static void vaeg_d3d11_release(T **object) {
+	if ((object != nullptr) && (*object != nullptr)) {
+		(*object)->Release();
+		*object = nullptr;
+	}
+}
+
+static const char vaeg_d3d11_shader_source[] =
+	"struct VSOut { float4 position : SV_Position; float2 texcoord : TEXCOORD0; };\n"
+	"VSOut vs_main(uint id : SV_VertexID) {\n"
+	"  float2 p[4] = { float2(-1,-1), float2(1,-1), float2(-1,1), float2(1,1) };\n"
+	"  float2 t[4] = { float2(0,1), float2(1,1), float2(0,0), float2(1,0) };\n"
+	"  VSOut o; o.position = float4(p[id], 0, 1); o.texcoord = t[id]; return o;\n"
+	"}\n"
+	"Texture2D source_texture : register(t0);\n"
+	"SamplerState source_sampler : register(s0);\n"
+	"float4 ps_main(VSOut input) : SV_Target { return source_texture.Sample(source_sampler, input.texcoord); }\n";
+
+static void vaeg_d3d11_release_state(VAEG_D3D11_STATE *state) {
+	if (state == nullptr) {
+		return;
+	}
+	vaeg_d3d11_release(&state->render_target);
+	vaeg_d3d11_release(&state->source_view);
+	vaeg_d3d11_release(&state->source_texture);
+	vaeg_d3d11_release(&state->sampler);
+	vaeg_d3d11_release(&state->pixel_shader);
+	vaeg_d3d11_release(&state->vertex_shader);
+	vaeg_d3d11_release(&state->swap_chain);
+	vaeg_d3d11_release(&state->context);
+	vaeg_d3d11_release(&state->device);
+	free(state->upload_buffer);
+	free(state);
+}
+
+static int vaeg_d3d11_create_output(VAEG_D3D11_STATE *state) {
+	ID3D11Texture2D *back_buffer = nullptr;
+	HRESULT result;
+
+	vaeg_d3d11_release(&state->render_target);
+	result = state->swap_chain->GetBuffer(0, IID_PPV_ARGS(&back_buffer));
+	if (FAILED(result)) {
+		return 0;
+	}
+	result = state->device->CreateRenderTargetView(back_buffer, nullptr, &state->render_target);
+	back_buffer->Release();
+	return SUCCEEDED(result) ? 1 : 0;
+}
+
+static int vaeg_d3d11_create_shaders(VAEG_D3D11_STATE *state) {
+	ID3DBlob *vertex_blob = nullptr;
+	ID3DBlob *pixel_blob = nullptr;
+	ID3DBlob *errors = nullptr;
+	HRESULT result;
+
+	result = D3DCompile(vaeg_d3d11_shader_source, sizeof(vaeg_d3d11_shader_source) - 1,
+	                    "vaeg_d3d11_pass_through.hlsl", nullptr, nullptr, "vs_main", "vs_4_0",
+	                    0, 0, &vertex_blob, &errors);
+	vaeg_d3d11_release(&errors);
+	if (FAILED(result)) {
+		return 0;
+	}
+	result = state->device->CreateVertexShader(vertex_blob->GetBufferPointer(),
+	                                            vertex_blob->GetBufferSize(), nullptr,
+	                                            &state->vertex_shader);
+	vaeg_d3d11_release(&vertex_blob);
+	if (FAILED(result)) {
+		return 0;
+	}
+	result = D3DCompile(vaeg_d3d11_shader_source, sizeof(vaeg_d3d11_shader_source) - 1,
+	                    "vaeg_d3d11_pass_through.hlsl", nullptr, nullptr, "ps_main", "ps_4_0",
+	                    0, 0, &pixel_blob, &errors);
+	vaeg_d3d11_release(&errors);
+	if (FAILED(result)) {
+		return 0;
+	}
+	result = state->device->CreatePixelShader(pixel_blob->GetBufferPointer(),
+	                                           pixel_blob->GetBufferSize(), nullptr,
+	                                           &state->pixel_shader);
+	vaeg_d3d11_release(&pixel_blob);
+	if (FAILED(result)) {
+		return 0;
+	}
+	D3D11_SAMPLER_DESC sampler_desc{};
+	sampler_desc.Filter = D3D11_FILTER_MIN_MAG_MIP_POINT;
+	sampler_desc.AddressU = D3D11_TEXTURE_ADDRESS_CLAMP;
+	sampler_desc.AddressV = D3D11_TEXTURE_ADDRESS_CLAMP;
+	sampler_desc.AddressW = D3D11_TEXTURE_ADDRESS_CLAMP;
+	sampler_desc.ComparisonFunc = D3D11_COMPARISON_NEVER;
+	sampler_desc.MinLOD = 0.0f;
+	sampler_desc.MaxLOD = D3D11_FLOAT32_MAX;
+	return SUCCEEDED(state->device->CreateSamplerState(&sampler_desc, &state->sampler)) ? 1 : 0;
+}
+
+static int vaeg_d3d11_ensure_source(VAEG_D3D11_STATE *state, uint32_t width, uint32_t height) {
+	D3D11_TEXTURE2D_DESC descriptor{};
+	D3D11_SHADER_RESOURCE_VIEW_DESC view_descriptor{};
+	const size_t required_capacity = static_cast<size_t>(width) * height * 4U;
+	HRESULT result;
+
+	if ((width == 0) || (height == 0) ||
+	    (required_capacity / 4U != static_cast<size_t>(width) * height)) {
+		return 0;
+	}
+	if ((state->source_texture != nullptr) && (state->source_width == width) &&
+	    (state->source_height == height) && (state->upload_capacity >= required_capacity)) {
+		return 1;
+	}
+	vaeg_d3d11_release(&state->source_view);
+	vaeg_d3d11_release(&state->source_texture);
+	if (required_capacity > state->upload_capacity) {
+		uint8_t *new_buffer = static_cast<uint8_t *>(realloc(state->upload_buffer, required_capacity));
+		if (new_buffer == nullptr) {
+			return 0;
+		}
+		state->upload_buffer = new_buffer;
+		state->upload_capacity = required_capacity;
+	}
+	descriptor.Width = width;
+	descriptor.Height = height;
+	descriptor.MipLevels = 1;
+	descriptor.ArraySize = 1;
+	descriptor.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+	descriptor.SampleDesc.Count = 1;
+	descriptor.Usage = D3D11_USAGE_DYNAMIC;
+	descriptor.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+	descriptor.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+	result = state->device->CreateTexture2D(&descriptor, nullptr, &state->source_texture);
+	if (FAILED(result)) {
+		return 0;
+	}
+	view_descriptor.Format = descriptor.Format;
+	view_descriptor.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
+	view_descriptor.Texture2D.MipLevels = 1;
+	result = state->device->CreateShaderResourceView(state->source_texture, &view_descriptor,
+	                                                   &state->source_view);
+	if (FAILED(result)) {
+		vaeg_d3d11_release(&state->source_texture);
+		return 0;
+	}
+	state->source_width = width;
+	state->source_height = height;
+	state->upload_pitch = width * 4U;
+	return 1;
+}
+
+static void vaeg_d3d11_viewport(const VAEG_D3D11_STATE *state, const VAEG_FRAME_INPUT *frame,
+                                D3D11_VIEWPORT *viewport) {
+	double output_aspect = static_cast<double>(state->drawable_width) /
+	                       static_cast<double>(state->drawable_height);
+	double source_aspect = static_cast<double>(frame->source_aspect_width) /
+	                       static_cast<double>(frame->source_aspect_height);
+	viewport->TopLeftX = 0.0f;
+	viewport->TopLeftY = 0.0f;
+	viewport->Width = static_cast<float>(state->drawable_width);
+	viewport->Height = static_cast<float>(state->drawable_height);
+	viewport->MinDepth = 0.0f;
+	viewport->MaxDepth = 1.0f;
+	if (source_aspect > output_aspect) {
+		viewport->Height = static_cast<float>(viewport->Width / source_aspect);
+		viewport->TopLeftY = (static_cast<float>(state->drawable_height) - viewport->Height) * 0.5f;
+	} else {
+		viewport->Width = static_cast<float>(viewport->Height * source_aspect);
+		viewport->TopLeftX = (static_cast<float>(state->drawable_width) - viewport->Width) * 0.5f;
+	}
+}
+
+extern "C" int vaeg_d3d11_bridge_initialize(void *host_window, VAEG_D3D11_BRIDGE *bridge) {
+	SDL_SysWMinfo window_info;
+	VAEG_D3D11_STATE *state;
+	DXGI_SWAP_CHAIN_DESC1 swap_chain_descriptor{};
+	IDXGIDevice *dxgi_device = nullptr;
+	IDXGIAdapter *adapter = nullptr;
+	IDXGIFactory2 *factory = nullptr;
+	D3D_FEATURE_LEVEL feature_level;
+	const D3D_FEATURE_LEVEL feature_levels[] = {D3D_FEATURE_LEVEL_11_1, D3D_FEATURE_LEVEL_11_0};
+	HRESULT result;
+
+	if ((host_window == nullptr) || (bridge == nullptr)) {
+		return 0;
+	}
+	bridge->state = nullptr;
+	window_info = {};
+	SDL_VERSION(&window_info.version);
+	if (!SDL_GetWindowWMInfo(static_cast<SDL_Window *>(host_window), &window_info) ||
+	    (window_info.subsystem != SDL_SYSWM_WINDOWS)) {
+		return 0;
+	}
+	state = static_cast<VAEG_D3D11_STATE *>(calloc(1, sizeof(*state)));
+	if (state == nullptr) {
+		return 0;
+	}
+	state->hwnd = window_info.info.win.window;
+	result = D3D11CreateDevice(nullptr, D3D_DRIVER_TYPE_HARDWARE, nullptr,
+	                           D3D11_CREATE_DEVICE_BGRA_SUPPORT, feature_levels,
+	                           ARRAYSIZE(feature_levels), D3D11_SDK_VERSION, &state->device,
+	                           &feature_level, &state->context);
+	if (result == E_INVALIDARG) {
+		const D3D_FEATURE_LEVEL fallback_level = D3D_FEATURE_LEVEL_11_0;
+		result = D3D11CreateDevice(nullptr, D3D_DRIVER_TYPE_HARDWARE, nullptr,
+		                           D3D11_CREATE_DEVICE_BGRA_SUPPORT, &fallback_level, 1,
+		                           D3D11_SDK_VERSION, &state->device, &feature_level,
+		                           &state->context);
+	}
+	if (FAILED(result)) {
+		vaeg_d3d11_release_state(state);
+		return 0;
+	}
+	result = state->device->QueryInterface(IID_PPV_ARGS(&dxgi_device));
+	if (FAILED(result)) {
+		vaeg_d3d11_release_state(state);
+		return 0;
+	}
+	result = dxgi_device->GetAdapter(&adapter);
+	dxgi_device->Release();
+	if (FAILED(result)) {
+		vaeg_d3d11_release_state(state);
+		return 0;
+	}
+	result = adapter->GetParent(IID_PPV_ARGS(&factory));
+	adapter->Release();
+	if (FAILED(result)) {
+		vaeg_d3d11_release_state(state);
+		return 0;
+	}
+	swap_chain_descriptor.Width = 0;
+	swap_chain_descriptor.Height = 0;
+	swap_chain_descriptor.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
+	swap_chain_descriptor.SampleDesc.Count = 1;
+	swap_chain_descriptor.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
+	swap_chain_descriptor.BufferCount = 2;
+	swap_chain_descriptor.Scaling = DXGI_SCALING_STRETCH;
+	swap_chain_descriptor.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
+	swap_chain_descriptor.AlphaMode = DXGI_ALPHA_MODE_IGNORE;
+	result = factory->CreateSwapChainForHwnd(state->device, state->hwnd, &swap_chain_descriptor,
+	                                          nullptr, nullptr, &state->swap_chain);
+	factory->MakeWindowAssociation(state->hwnd, DXGI_MWA_NO_ALT_ENTER);
+	factory->Release();
+	if (FAILED(result) || !vaeg_d3d11_create_shaders(state) ||
+	    !vaeg_d3d11_create_output(state)) {
+		vaeg_d3d11_release_state(state);
+		return 0;
+	}
+	bridge->state = state;
+	return 1;
+}
+
+extern "C" VAEG_D3D11_BRIDGE_RESULT vaeg_d3d11_bridge_set_drawable_size(
+	VAEG_D3D11_BRIDGE *bridge, uint32_t width, uint32_t height) {
+	VAEG_D3D11_STATE *state;
+	HRESULT result;
+
+	if ((bridge == nullptr) || (bridge->state == nullptr)) {
+		return VAEG_D3D11_BRIDGE_INVALID_ARGUMENT;
+	}
+	if ((width == 0) || (height == 0)) {
+		return VAEG_D3D11_BRIDGE_NO_OUTPUT;
+	}
+	state = static_cast<VAEG_D3D11_STATE *>(bridge->state);
+	if ((state->drawable_width == width) && (state->drawable_height == height) &&
+	    (state->render_target != nullptr)) {
+		return VAEG_D3D11_BRIDGE_OK;
+	}
+	vaeg_d3d11_release(&state->render_target);
+	result = state->swap_chain->ResizeBuffers(0, width, height, DXGI_FORMAT_UNKNOWN, 0);
+	if (FAILED(result) || !vaeg_d3d11_create_output(state)) {
+		return VAEG_D3D11_BRIDGE_RESOURCE_FAILURE;
+	}
+	state->drawable_width = width;
+	state->drawable_height = height;
+	return VAEG_D3D11_BRIDGE_OK;
+}
+
+extern "C" VAEG_D3D11_BRIDGE_RESULT vaeg_d3d11_bridge_present(
+	VAEG_D3D11_BRIDGE *bridge, const VAEG_FRAME_INPUT *frame) {
+	VAEG_D3D11_STATE *state;
+	D3D11_MAPPED_SUBRESOURCE mapped{};
+	D3D11_VIEWPORT viewport;
+	RECT client_rect;
+	ID3D11RenderTargetView *render_target;
+	const float clear_color[4] = {0.0f, 0.0f, 0.0f, 1.0f};
+	HRESULT result;
+
+	if ((bridge == nullptr) || (bridge->state == nullptr) || (frame == nullptr)) {
+		return VAEG_D3D11_BRIDGE_INVALID_ARGUMENT;
+	}
+	if (vaeg_frame_input_validate(frame) != VAEG_FRAME_INPUT_OK) {
+		return VAEG_D3D11_BRIDGE_INVALID_FRAME;
+	}
+	state = static_cast<VAEG_D3D11_STATE *>(bridge->state);
+	if (!GetClientRect(state->hwnd, &client_rect) || (client_rect.right <= 0) ||
+	    (client_rect.bottom <= 0)) {
+		return VAEG_D3D11_BRIDGE_NO_OUTPUT;
+	}
+	if ((static_cast<uint32_t>(client_rect.right) != state->drawable_width) ||
+	    (static_cast<uint32_t>(client_rect.bottom) != state->drawable_height)) {
+		if (vaeg_d3d11_bridge_set_drawable_size(bridge, static_cast<uint32_t>(client_rect.right),
+		                                         static_cast<uint32_t>(client_rect.bottom)) !=
+		    VAEG_D3D11_BRIDGE_OK) {
+			return VAEG_D3D11_BRIDGE_RESOURCE_FAILURE;
+		}
+	}
+	if (!vaeg_d3d11_ensure_source(state, frame->width, frame->height)) {
+		return VAEG_D3D11_BRIDGE_RESOURCE_FAILURE;
+	}
+	if (vaeg_frame_convert_rgba8888(frame, state->upload_buffer, state->upload_pitch,
+	                                state->upload_capacity) != VAEG_FRAME_CONVERSION_OK) {
+		return VAEG_D3D11_BRIDGE_INVALID_FRAME;
+	}
+	result = state->context->Map(state->source_texture, 0, D3D11_MAP_WRITE_DISCARD, 0, &mapped);
+	if (FAILED(result)) {
+		return VAEG_D3D11_BRIDGE_RESOURCE_FAILURE;
+	}
+	for (uint32_t row = 0; row < frame->height; row++) {
+		memcpy(static_cast<uint8_t *>(mapped.pData) + row * mapped.RowPitch,
+		       state->upload_buffer + row * state->upload_pitch, state->upload_pitch);
+	}
+	state->context->Unmap(state->source_texture, 0);
+	vaeg_d3d11_viewport(state, frame, &viewport);
+	render_target = state->render_target;
+	state->context->OMSetRenderTargets(1, &render_target, nullptr);
+	state->context->ClearRenderTargetView(render_target, clear_color);
+	state->context->RSSetViewports(1, &viewport);
+	state->context->VSSetShader(state->vertex_shader, nullptr, 0);
+	state->context->PSSetShader(state->pixel_shader, nullptr, 0);
+	state->context->PSSetShaderResources(0, 1, &state->source_view);
+	state->context->PSSetSamplers(0, 1, &state->sampler);
+	state->context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
+	state->context->Draw(4, 0);
+	state->context->PSSetShaderResources(0, 0, nullptr);
+	result = state->swap_chain->Present(1, 0);
+	if (result == DXGI_STATUS_OCCLUDED) {
+		return VAEG_D3D11_BRIDGE_NO_OUTPUT;
+	}
+	return SUCCEEDED(result) ? VAEG_D3D11_BRIDGE_OK : VAEG_D3D11_BRIDGE_RESOURCE_FAILURE;
+}
+
+extern "C" void vaeg_d3d11_bridge_shutdown(VAEG_D3D11_BRIDGE *bridge) {
+	VAEG_D3D11_STATE *state;
+
+	if ((bridge == nullptr) || (bridge->state == nullptr)) {
+		return;
+	}
+	state = static_cast<VAEG_D3D11_STATE *>(bridge->state);
+	bridge->state = nullptr;
+	vaeg_d3d11_release_state(state);
+}
