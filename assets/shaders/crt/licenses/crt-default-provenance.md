@@ -1,0 +1,19 @@
+# Default CRT shader provenance
+
+The bundled default is the single-pass `crt-lottes-fast.slangp` preset and
+its `crt-lottes-fast.slang` shader from the official `libretro/slang-shaders`
+repository.
+
+- Repository: https://github.com/libretro/slang-shaders
+- Audited commit: `4812a82f6c9a11cc8b5a7447040a98c9fc80c00e`
+- Preset source path: `crt/crt-lottes-fast.slangp`
+- Shader source path: `crt/shaders/crt-lottes-fast.slang`
+- Preset SHA-256: `0992238001c519503d9e8e750b37b32d30ff380e74a40287863605ae69f9fff0`
+- Shader SHA-256: `576eddc662ac4f77909c0c14dbd5a16ac4164e50c67527fff634316f4441c482`
+- Dependency closure: one preset and one shader; no `#include`, LUT, texture,
+  or secondary shader dependency.
+- License evidence: the shader contains an explicit Unlicense/public-domain
+  statement. The corresponding notice is stored beside the preset.
+
+The complete `slang-shaders` repository is not bundled. GPL-licensed or
+unidentified shader families are not part of this feature.
