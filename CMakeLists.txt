@@ -29,6 +29,7 @@ option(VAEG_WERROR "Treat warnings as errors" OFF)
 option(VAEG_WINDOWS_CONSOLE "Keep a console window for Windows SDL2 builds" OFF)
 option(VAEG_FETCH_SDL2 "Fetch pinned SDL2 instead of using system SDL2" OFF)
 option(VAEG_STATIC_SDL2 "Link SDL2 statically" OFF)
+option(VAEG_ENABLE_LIBRASHADER "Enable optional native CRT presentation" ON)
 option(VAEG_ENABLE_ARCHIVE_DROP
     "Enable archive disk-image drag and drop when LibArchive is available" ON)
 option(VAEG_FETCH_LIBARCHIVE
@@ -137,6 +138,10 @@ set(CMAKE_C_EXTENSIONS OFF)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
+
+if(APPLE AND VAEG_ENABLE_LIBRASHADER)
+    enable_language(OBJCXX)
+endif()
 
 set(VAEG_INCLUDE_DIRS
     "${CMAKE_CURRENT_BINARY_DIR}/generated"
@@ -336,6 +341,9 @@ set(VAEG_SDL2_SOURCES
     sdl2/commng.c
     sdl2/fontmng.c
     sdl2/gui/gui.cpp)
+if(APPLE AND VAEG_ENABLE_LIBRASHADER)
+    list(APPEND VAEG_SDL2_SOURCES sdl2/librashader/backends/metal_bridge.mm)
+endif()
 if(VAEG_ENABLE_TESTS)
     list(APPEND VAEG_SDL2_SOURCES
         tests/idp/m69_status_composition.c
@@ -572,8 +580,16 @@ target_include_directories(vaeg_sdl2 PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}/external/imgui"
     "${CMAKE_CURRENT_SOURCE_DIR}/external/imgui/backends"
     "${CMAKE_CURRENT_SOURCE_DIR}/external/ymfm/src")
+if(VAEG_ENABLE_LIBRASHADER)
+    target_include_directories(vaeg_sdl2 PRIVATE
+        "${CMAKE_CURRENT_SOURCE_DIR}/external/librashader/include")
+    target_compile_definitions(vaeg_sdl2 PRIVATE VAEG_ENABLE_LIBRASHADER=1)
+endif()
 target_link_libraries(vaeg_sdl2 PRIVATE vaeg_core vaeg_va vaeg_common
     vaeg_core vaeg_va ${VAEG_SDL2_LIBS})
+if(APPLE AND VAEG_ENABLE_LIBRASHADER)
+    target_link_libraries(vaeg_sdl2 PRIVATE "-framework Metal" "-framework QuartzCore")
+endif()
 if(VAEG_ENABLE_TESTS)
     target_compile_definitions(vaeg_sdl2 PRIVATE
         VAEG_UPD9002_M42_TESTING=1
