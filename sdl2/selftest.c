@@ -2169,6 +2169,8 @@ static int test_statsave(void) {
 		}
 	}
 	if (ret == STATFLAG_SUCCESS) {
+		/* Match the GUI save boundary so host audio cannot advance YMFM state mid-save. */
+		soundmng_stop();
 		ret = statsave_save(path1);
 	}
 #if defined(VAEG_UPD9002_M44_TESTING)
@@ -2258,6 +2260,8 @@ static int test_statsave(void) {
 	}
 #endif
 	if (ret == STATFLAG_SUCCESS) {
+		/* statsave_load() resumes audio after restoring the captured state. */
+		soundmng_stop();
 		ret = statsave_save(path2);
 	}
 	pccore_term();
