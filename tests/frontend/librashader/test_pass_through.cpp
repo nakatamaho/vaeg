@@ -27,6 +27,8 @@
 #include <vector>
 
 #include "compiler.h"
+#undef max
+#undef min
 #include "librashader/frame_conversion.h"
 #include "librashader/presenter_factory.h"
 #include "viewport.h"
