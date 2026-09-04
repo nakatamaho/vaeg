@@ -39,8 +39,8 @@ from this macOS/Colima environment, so this report does not claim `DONE`.
 - During M99, `origin/main` advanced to `b25d151236ddfe093e4c161bbf00ce0b7d8d5e74`
   with one unrelated retained change. It was merged into the topic by
   `5d2e63b5bfa52f5e84609b36a02d4fd2a161db5e` without altering that change.
-- Last code commit before the M99z2 report update:
-  `origin/topic/m99-native-crt-rebuild` = `2aeaf519e60695ce2f9f9bd4c32e3a115421f51a`.
+- Last code commit before the M99z3 report update:
+  `origin/topic/m99-native-crt-rebuild` = `aa84d543649056236e939c6cb66376e0f0df5ccc`.
 - The final report commit is the containing commit for this file; its exact
   full ID is the final `HEAD` shown by `git log -1` after this commit.
 - No merge into `main`, release, binary publication, or remote-history rewrite
@@ -78,6 +78,7 @@ from this macOS/Colima environment, so this report does not claim `DONE`.
 | M99z | PASS — documentation, evidence, and SDL smoke correction assembled | `b07b9c50`, `265f1582`, `5d2e63b5`, `1bd5330f`, `01d31199` |
 | M99z1 | PASS — zero-sized drawable viewport regression corrected; physical Windows confirmation pending | `fa2a3d78`, `8abf339f` |
 | M99z2 | PASS — macOS FetchContent language initialization corrected | `2aeaf519` |
+| M99z3 | PASS — Windows save-state selftest boundary stabilized | `aa84d543` |
 
 ## Gate status
 
@@ -213,6 +214,12 @@ and artifact staging all passed. The run's only failure was an independent
 Windows-only save/load/save selftest race; the Windows release build, smoke,
 viewport regression, runtime import check, and release artifact passed.
 
+M99z3 stabilized that selftest boundary. The final
+[Actions run 33879771189](https://github.com/nakatamaho/vaeg/actions/runs/33879771189)
+at `aa84d543649056236e939c6cb66376e0f0df5ccc` passed all ten jobs,
+including both Windows selftest registrations and the macOS FetchContent job.
+This hosted result is automated compatibility evidence, not real-GPU evidence.
+
 ## Performance and manual evidence
 
 No acceptable benchmark numbers were obtained. Average, p95, maximum
@@ -235,16 +242,16 @@ The implementation and all safe environment-independent M99 work are
 complete. Overall status is **BLOCKED**, not DONE, because required physical
 GPU lifecycle/performance evidence is unavailable. The SDL smoke startup and
 macOS FetchContent conditions have been corrected and passed in subsequent
-hosted jobs.
+hosted jobs, and all ten jobs in the final hosted run passed.
 
-Working-tree status captured during report assembly:
+Working-tree status at the last code commit before this report update:
 
 ```text
-?? va2bkupmem.dat
+[clean]
 ```
 
-The untracked backup file is pre-existing topic-worktree state and was not
-modified, staged, or deleted.
+The earlier untracked backup file belonged to a previous task worktree and was
+not copied into, modified by, or published from this clean M99 follow-up clone.
 
 ## M99z1 Windows black-screen follow-up
 
@@ -300,3 +307,28 @@ passed and six environment/dependency cases were skipped. The macOS job in
 [Actions run 33877195164](https://github.com/nakatamaho/vaeg/actions/runs/33877195164)
 then passed configure, build, smoke, unit tests, package validation, and
 artifact upload.
+
+## M99z3 Windows save-state selftest follow-up
+
+Two hosted Windows runs intermittently failed one of the two identical
+`vaeg --selftest` registrations while the other passed. Both failures reported
+that the `FMBOARD` save-state section differed at section offset `0x404ab`.
+An ABI-layout probe mapped this byte to offset 28 of the ymfm backend state,
+the low byte of the first slot's 64-bit `phase` field.
+
+`test_statsave()` opened and started SDL dummy audio through `pccore_init()`
+and `pccore_reset()`, but unlike the production GUI it did not stop host audio
+before saving. `statsave_load()` also resumed audio, allowing the Windows dummy
+callback to advance ymfm state between the restore and second save. Commit
+[`aa84d543`](https://github.com/nakatamaho/vaeg/commit/aa84d543649056236e939c6cb66376e0f0df5ccc)
+calls `soundmng_stop()` immediately before both selftest saves. Production
+save-state behavior and serialized data are unchanged.
+
+Focused macOS CTest ran both registrations successfully. The MinGW cross-build
+passed, and two complete MinGW Release selftests passed under Linux/amd64 Wine.
+Most importantly, the Windows compatibility job in
+[Actions run 33879771189](https://github.com/nakatamaho/vaeg/actions/runs/33879771189)
+passed its smoke and complete unit-test steps, including both selftest
+registrations. All ten jobs in that run passed; the run also reconfirmed the
+macOS FetchContent correction. Hosted CI does not substitute for the deferred
+physical GPU lifecycle and performance gates.
