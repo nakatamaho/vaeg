@@ -39,8 +39,10 @@ from this macOS/Colima environment, so this report does not claim `DONE`.
 - During M99, `origin/main` advanced to `b25d151236ddfe093e4c161bbf00ce0b7d8d5e74`
   with one unrelated retained change. It was merged into the topic by
   `5d2e63b5bfa52f5e84609b36a02d4fd2a161db5e` without altering that change.
-- Last code commit before the M99z3 report update:
-  `origin/topic/m99-native-crt-rebuild` = `aa84d543649056236e939c6cb66376e0f0df5ccc`.
+- Last implementation code commit:
+  `aa84d543649056236e939c6cb66376e0f0df5ccc`.
+- Topic remote before this final report closure:
+  `origin/topic/m99-native-crt-rebuild` = `af1edaa866d2f8d27f316be15c52b74be0a6e029`.
 - The final report commit is the containing commit for this file; its exact
   full ID is the final `HEAD` shown by `git log -1` after this commit.
 - No merge into `main`, release, binary publication, or remote-history rewrite
@@ -79,6 +81,7 @@ from this macOS/Colima environment, so this report does not claim `DONE`.
 | M99z1 | PASS — zero-sized drawable viewport regression corrected; physical Windows confirmation pending | `fa2a3d78`, `8abf339f` |
 | M99z2 | PASS — macOS FetchContent language initialization corrected | `2aeaf519` |
 | M99z3 | PASS — Windows save-state selftest boundary stabilized | `aa84d543` |
+| M99z4 | PASS — governing M99 specification published at its required path | `af1edaa8` |
 
 ## Gate status
 
@@ -332,3 +335,15 @@ passed its smoke and complete unit-test steps, including both selftest
 registrations. All ten jobs in that run passed; the run also reconfirmed the
 macOS FetchContent correction. Hosted CI does not substitute for the deferred
 physical GPU lifecycle and performance gates.
+
+## M99z4 governing specification follow-up
+
+The clean reconstruction clone did not contain the governing task at the path
+required by M99, leaving the final report's specification reference broken.
+Commit
+[`af1edaa8`](https://github.com/nakatamaho/vaeg/commit/af1edaa866d2f8d27f316be15c52b74be0a6e029)
+publishes the maintainer-provided specification as
+`docs/agents/tasks/M99_librashader_crt_pipeline.md`, with the required
+BSD-2-Clause header. A byte comparison from the title through end of file
+confirmed that the specification body is otherwise unchanged. The bug-fix
+ledger now resolves to that tracked task file.
