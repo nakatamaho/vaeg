@@ -87,6 +87,7 @@ class NativePresenter {
 	virtual PresenterResult initialize(const NativePresenterCreateInfo &info) noexcept = 0;
 	virtual PresenterResult present(const VAEG_FRAME_INPUT &frame) noexcept = 0;
 	virtual PresenterResult set_filter_enabled(bool enabled) noexcept = 0;
+	virtual PresenterResult resize(uint32_t drawable_width, uint32_t drawable_height) noexcept = 0;
 	virtual PresenterResult recover() noexcept = 0;
 	virtual void shutdown() noexcept = 0;
 };

@@ -46,5 +46,6 @@ int main() {
 	assert(presenter->initialize({nullptr, 640, 400, PresenterBackend::Automatic, false, nullptr}) ==
 	       PresenterResult::Fallback);
 	assert(presenter->last_error() == PresenterError::PlatformUnavailable);
+	assert(presenter->resize(1280, 800) == PresenterResult::Fallback);
 	return 0;
 }

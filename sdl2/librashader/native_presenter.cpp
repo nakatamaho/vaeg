@@ -34,7 +34,8 @@ bool presenter_state_transition_allowed(PresenterState from, PresenterState to) 
 	case PresenterState::Unavailable:
 		return to == PresenterState::Initializing;
 	case PresenterState::Initializing:
-		return (to == PresenterState::Unavailable) || (to == PresenterState::PassThrough);
+		return (to == PresenterState::Unavailable) || (to == PresenterState::PassThrough) ||
+		       (to == PresenterState::Filtered);
 	case PresenterState::PassThrough:
 		return (to == PresenterState::Filtered) || (to == PresenterState::Initializing) ||
 		       (to == PresenterState::Unavailable);

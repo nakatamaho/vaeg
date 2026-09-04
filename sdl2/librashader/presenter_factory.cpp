@@ -43,6 +43,7 @@ class UnavailablePresenter final : public NativePresenter {
 		return PresenterResult::Fallback;
 	}
 	PresenterResult set_filter_enabled(bool) noexcept override { return PresenterResult::Fallback; }
+	PresenterResult resize(uint32_t, uint32_t) noexcept override { return PresenterResult::Fallback; }
 	PresenterResult recover() noexcept override { return PresenterResult::Fallback; }
 	void shutdown() noexcept override {}
 };

@@ -23,6 +23,8 @@
  */
 #include "librashader/metal_presenter.h"
 
+#include <cstdio>
+
 #include "librashader/metal_bridge.h"
 
 namespace vaeg::librashader {
@@ -31,8 +33,12 @@ namespace {
 
 class MetalPresenter final : public NativePresenter {
   public:
-	MetalPresenter() noexcept : state_(PresenterState::Unavailable), error_(PresenterError::None) {
+	MetalPresenter() noexcept
+	    : state_(PresenterState::Unavailable), error_(PresenterError::None), host_window_(nullptr),
+	      drawable_width_(0), drawable_height_(0), backend_(PresenterBackend::Metal),
+	      filter_enabled_(false) {
 		bridge_.state = nullptr;
+		preset_path_[0] = '\0';
 	}
 
 	~MetalPresenter() override { shutdown(); }
@@ -49,6 +55,16 @@ class MetalPresenter final : public NativePresenter {
 			return PresenterResult::Fallback;
 		}
 		shutdown();
+		host_window_ = info.host_window;
+		drawable_width_ = info.drawable_width;
+		drawable_height_ = info.drawable_height;
+		backend_ = info.backend;
+		filter_enabled_ = info.enable_filter;
+		if (info.preset_path == nullptr) {
+			preset_path_[0] = '\0';
+		} else {
+			std::snprintf(preset_path_, sizeof(preset_path_), "%s", info.preset_path);
+		}
 		state_ = PresenterState::Initializing;
 		if (!vaeg_metal_bridge_initialize(info.host_window, info.preset_path,
 		                                  info.enable_filter ? 1 : 0, &bridge_)) {
@@ -98,13 +114,39 @@ class MetalPresenter final : public NativePresenter {
 		if (result == VAEG_METAL_BRIDGE_OK) {
 			state_ = enabled ? PresenterState::Filtered : PresenterState::PassThrough;
 			error_ = PresenterError::None;
-			return enabled ? PresenterResult::Recovered : PresenterResult::Disabled;
+		return enabled ? PresenterResult::Recovered : PresenterResult::Disabled;
 		}
 		error_ = PresenterError::FilterFailure;
 		return PresenterResult::Fallback;
 	}
 
-	PresenterResult recover() noexcept override { return PresenterResult::Fallback; }
+	PresenterResult resize(uint32_t drawable_width, uint32_t drawable_height) noexcept override {
+		if ((state_ != PresenterState::PassThrough) && (state_ != PresenterState::Filtered)) {
+			return PresenterResult::Fallback;
+		}
+		if ((drawable_width == 0) || (drawable_height == 0)) {
+			return PresenterResult::Disabled;
+		}
+		vaeg_metal_bridge_set_drawable_size(&bridge_, drawable_width, drawable_height);
+		drawable_width_ = drawable_width;
+		drawable_height_ = drawable_height;
+		return PresenterResult::Recovered;
+	}
+
+	PresenterResult recover() noexcept override {
+		NativePresenterCreateInfo info;
+
+		if (host_window_ == nullptr) {
+			return PresenterResult::Fallback;
+		}
+		info.host_window = host_window_;
+		info.drawable_width = drawable_width_;
+		info.drawable_height = drawable_height_;
+		info.backend = backend_;
+		info.enable_filter = filter_enabled_;
+		info.preset_path = (preset_path_[0] == '\0') ? nullptr : preset_path_;
+		return initialize(info);
+	}
 
 	void shutdown() noexcept override {
 		vaeg_metal_bridge_shutdown(&bridge_);
@@ -116,6 +158,12 @@ class MetalPresenter final : public NativePresenter {
 	VAEG_METAL_BRIDGE bridge_;
 	PresenterState state_;
 	PresenterError error_;
+	void *host_window_;
+	uint32_t drawable_width_;
+	uint32_t drawable_height_;
+	PresenterBackend backend_;
+	bool filter_enabled_;
+	char preset_path_[1024];
 };
 
 } // namespace
