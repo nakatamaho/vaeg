@@ -1403,6 +1403,23 @@ if(VAEG_ENABLE_TESTS)
         target_compile_options(vaeg_librashader_presenter_state_test PRIVATE -Werror)
     endif()
 
+    add_executable(vaeg_librashader_pass_through_test
+        sdl2/librashader/frame_input.cpp
+        sdl2/librashader/frame_conversion.cpp
+        sdl2/librashader/native_presenter.cpp
+        sdl2/librashader/presenter_factory.cpp
+        sdl2/viewport.c
+        tests/frontend/librashader/test_pass_through.cpp)
+    target_include_directories(vaeg_librashader_pass_through_test PRIVATE
+        "${CMAKE_CURRENT_SOURCE_DIR}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/sdl2"
+        "${CMAKE_CURRENT_SOURCE_DIR}/common")
+    target_compile_features(vaeg_librashader_pass_through_test PRIVATE cxx_std_17)
+    target_compile_options(vaeg_librashader_pass_through_test PRIVATE -Wall -fsigned-char)
+    if(VAEG_WERROR)
+        target_compile_options(vaeg_librashader_pass_through_test PRIVATE -Werror)
+    endif()
+
     add_executable(vaeg_z80_compat_zex_runner tests/z80_compat/zex_runner.cpp)
     vaeg_configure_z80_compat_standalone_target(vaeg_z80_compat_zex_runner)
     target_compile_definitions(vaeg_z80_compat_zex_runner PRIVATE
@@ -1493,6 +1510,10 @@ if(VAEG_ENABLE_TESTS)
     add_test(NAME vaeg_librashader_presenter_state
         COMMAND vaeg_librashader_presenter_state_test)
     set_tests_properties(vaeg_librashader_presenter_state PROPERTIES
+        LABELS "romless;frontend;librashader" TIMEOUT 30)
+    add_test(NAME vaeg_librashader_pass_through
+        COMMAND vaeg_librashader_pass_through_test)
+    set_tests_properties(vaeg_librashader_pass_through PROPERTIES
         LABELS "romless;frontend;librashader" TIMEOUT 30)
     foreach(regression_suite directed state generated convergence)
         add_test(NAME vaeg_z80_compat_regression_${regression_suite}
