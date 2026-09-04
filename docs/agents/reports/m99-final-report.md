@@ -40,7 +40,7 @@ from this macOS/Colima environment, so this report does not claim `DONE`.
   with one unrelated retained change. It was merged into the topic by
   `5d2e63b5bfa52f5e84609b36a02d4fd2a161db5e` without altering that change.
 - Topic remote at the last push before this report commit:
-  `origin/topic/m99-native-crt-rebuild` = `5d2e63b5bfa52f5e84609b36a02d4fd2a161db5e`.
+  `origin/topic/m99-native-crt-rebuild` = `01d31199e1ee86a24b6395f1a687f189c0bafcc0`.
 - The final report commit is the containing commit for this file; its exact
   full ID is the final `HEAD` shown by `git log -1` after this commit.
 - No merge into `main`, release, binary publication, or remote-history rewrite
@@ -75,7 +75,7 @@ from this macOS/Colima environment, so this report does not claim `DONE`.
 | M99w | PASS — fallback and headless behavior | `1f141693` |
 | M99x | PASS — shader and release packaging | `cfdd41d7`, `2b2da357` |
 | M99y | PARTIAL — automated QA passed; physical GPU evidence deferred | `12e33893`, `7fda0663`, `ed339397` |
-| M99z | PASS — documentation and evidence assembled | `b07b9c50`, `265f1582`, `5d2e63b5` |
+| M99z | PASS — documentation, evidence, and SDL smoke correction assembled | `b07b9c50`, `265f1582`, `5d2e63b5`, `1bd5330f`, `01d31199` |
 
 ## Gate status
 
@@ -193,10 +193,15 @@ and completed with failure. The failure set was separately diagnosed:
   internal CMake variables; this is a host/toolchain configuration failure
   after checkout and before compilation.
 
-The subsequent topic run for the corrected/synced tip was started as
-[Actions run 33864990797](https://github.com/nakatamaho/vaeg/actions/runs/33864990797).
-Its final status is recorded in the handoff accompanying this report if it
-finishes after the report commit. Hosted CI is not used as real-GPU evidence.
+The subsequent topic run for the corrected tip was
+[Actions run 33867116878](https://github.com/nakatamaho/vaeg/actions/runs/33867116878).
+It completed with the following result: repo invariants, guest-driver,
+Ubuntu gcc/clang/ASAN, SST, standalone compatibility, and Windows MinGW
+build/smoke/unit-test/release-artifact jobs passed. The only failure was
+macOS FetchContent configure, with CMake reporting missing
+`CMAKE_OBJCXX_COMPILE_OBJECT`, `CMAKE_OBJCXX_ARCHIVE_CREATE`, and related
+internal variables before compilation. Hosted CI is not used as real-GPU
+evidence.
 
 ## Performance and manual evidence
 
@@ -220,10 +225,10 @@ The implementation and all safe environment-independent M99 work are
 complete. Overall status is **BLOCKED**, not DONE, because required physical
 GPU lifecycle/performance evidence is unavailable and the hosted compatibility
 workflow still has the independent macOS FetchContent/toolchain failure. The
-SDL smoke startup condition has been corrected locally and will be rechecked
-by the next hosted run.
+SDL smoke startup condition has been corrected locally and passed in the
+subsequent hosted Linux and Windows smoke jobs.
 
-Status captured at the preceding report commit:
+Working-tree status captured during report assembly:
 
 ```text
 ?? va2bkupmem.dat
