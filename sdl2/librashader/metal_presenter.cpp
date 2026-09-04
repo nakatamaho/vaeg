@@ -65,11 +65,23 @@ class MetalPresenter final : public NativePresenter {
 		} else {
 			std::snprintf(preset_path_, sizeof(preset_path_), "%s", info.preset_path);
 		}
+		if (!prepare_filter_parameters(info.preset_path, info.enable_filter,
+		                              info.parameter_state_path)) {
+			state_ = PresenterState::Unavailable;
+			error_ = PresenterError::PresetFailure;
+			return PresenterResult::Fallback;
+		}
 		state_ = PresenterState::Initializing;
 		if (!vaeg_metal_bridge_initialize(info.host_window, info.preset_path,
 		                                  info.enable_filter ? 1 : 0, &bridge_)) {
 			state_ = PresenterState::Unavailable;
 			error_ = PresenterError::DeviceFailure;
+			return PresenterResult::Fallback;
+		}
+		if (info.enable_filter && !apply_filter_parameters()) {
+			shutdown();
+			state_ = PresenterState::Unavailable;
+			error_ = PresenterError::FilterFailure;
 			return PresenterResult::Fallback;
 		}
 		if ((info.drawable_width != 0) && (info.drawable_height != 0)) {
@@ -145,6 +157,7 @@ class MetalPresenter final : public NativePresenter {
 		info.backend = backend_;
 		info.enable_filter = filter_enabled_;
 		info.preset_path = (preset_path_[0] == '\0') ? nullptr : preset_path_;
+		info.parameter_state_path = parameter_state_path();
 		return initialize(info);
 	}
 
@@ -155,6 +168,11 @@ class MetalPresenter final : public NativePresenter {
 	}
 
   private:
+	bool apply_backend_filter_parameter(const char *name, float value) noexcept override {
+		return vaeg_metal_bridge_set_filter_parameter(&bridge_, name, value) ==
+		       VAEG_METAL_BRIDGE_OK;
+	}
+
 	VAEG_METAL_BRIDGE bridge_;
 	PresenterState state_;
 	PresenterError error_;

@@ -23,6 +23,8 @@
  */
 #include "librashader/gl_presenter.h"
 
+#include <cstdio>
+
 #include "librashader/gl_bridge.h"
 
 namespace vaeg::librashader {
@@ -33,7 +35,10 @@ class GLPresenter final : public NativePresenter {
   public:
 	GLPresenter() noexcept
 	    : state_(PresenterState::Unavailable), error_(PresenterError::None), host_window_(nullptr),
-	      drawable_width_(0), drawable_height_(0), backend_(PresenterBackend::OpenGL) {}
+	      drawable_width_(0), drawable_height_(0), backend_(PresenterBackend::OpenGL),
+	      filter_enabled_(false) {
+		preset_path_[0] = '\0';
+	}
 
 	~GLPresenter() override { shutdown(); }
 
@@ -53,12 +58,30 @@ class GLPresenter final : public NativePresenter {
 		drawable_width_ = info.drawable_width;
 		drawable_height_ = info.drawable_height;
 		backend_ = info.backend;
+		filter_enabled_ = info.enable_filter;
+		if (info.preset_path == nullptr) {
+			preset_path_[0] = '\0';
+		} else {
+			std::snprintf(preset_path_, sizeof(preset_path_), "%s", info.preset_path);
+		}
+		if (!prepare_filter_parameters(info.preset_path, info.enable_filter,
+		                              info.parameter_state_path)) {
+			state_ = PresenterState::Unavailable;
+			error_ = PresenterError::PresetFailure;
+			return PresenterResult::Fallback;
+		}
 		state_ = PresenterState::Initializing;
 		if (!vaeg_gl_bridge_initialize(info.host_window, info.preset_path,
 		                               info.enable_filter ? 1 : 0, &bridge_)) {
 			state_ = PresenterState::Unavailable;
 			error_ = info.enable_filter ? PresenterError::FilterFailure
 			                           : PresenterError::DeviceFailure;
+			return PresenterResult::Fallback;
+		}
+		if (info.enable_filter && !apply_filter_parameters()) {
+			shutdown();
+			state_ = PresenterState::Unavailable;
+			error_ = PresenterError::FilterFailure;
 			return PresenterResult::Fallback;
 		}
 		if ((drawable_width_ != 0) && (drawable_height_ != 0) &&
@@ -105,6 +128,7 @@ class GLPresenter final : public NativePresenter {
 		}
 		result = vaeg_gl_bridge_set_filter_enabled(&bridge_, enabled ? 1 : 0);
 		if (result == VAEG_GL_BRIDGE_OK) {
+			filter_enabled_ = enabled;
 			state_ = enabled ? PresenterState::Filtered : PresenterState::PassThrough;
 			error_ = PresenterError::None;
 			return enabled ? PresenterResult::Recovered : PresenterResult::Disabled;
@@ -141,8 +165,9 @@ class GLPresenter final : public NativePresenter {
 		info.drawable_width = drawable_width_;
 		info.drawable_height = drawable_height_;
 		info.backend = backend_;
-		info.enable_filter = (state_ == PresenterState::Filtered);
-		info.preset_path = nullptr;
+		info.enable_filter = filter_enabled_;
+		info.preset_path = (preset_path_[0] == '\0') ? nullptr : preset_path_;
+		info.parameter_state_path = parameter_state_path();
 		return initialize(info);
 	}
 
@@ -153,6 +178,10 @@ class GLPresenter final : public NativePresenter {
 	}
 
   private:
+	bool apply_backend_filter_parameter(const char *name, float value) noexcept override {
+		return vaeg_gl_bridge_set_filter_parameter(&bridge_, name, value) == VAEG_GL_BRIDGE_OK;
+	}
+
 	VAEG_GL_BRIDGE bridge_{};
 	PresenterState state_;
 	PresenterError error_;
@@ -160,6 +189,8 @@ class GLPresenter final : public NativePresenter {
 	uint32_t drawable_width_;
 	uint32_t drawable_height_;
 	PresenterBackend backend_;
+	bool filter_enabled_;
+	char preset_path_[1024];
 };
 
 } // namespace

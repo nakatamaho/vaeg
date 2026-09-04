@@ -26,8 +26,10 @@
 #define VAEG_SDL2_LIBRASHADER_NATIVE_PRESENTER_H
 
 #include <cstdint>
+#include <string>
 
 #include "librashader/frame_input.h"
+#include "librashader/shader_preset.h"
 
 namespace vaeg::librashader {
 
@@ -72,6 +74,7 @@ struct NativePresenterCreateInfo {
 	PresenterBackend backend;
 	bool enable_filter;
 	const char *preset_path;
+	const char *parameter_state_path;
 };
 
 bool presenter_state_transition_allowed(PresenterState from, PresenterState to) noexcept;
@@ -90,6 +93,22 @@ class NativePresenter {
 	virtual PresenterResult resize(uint32_t drawable_width, uint32_t drawable_height) noexcept = 0;
 	virtual PresenterResult recover() noexcept = 0;
 	virtual void shutdown() noexcept = 0;
+
+	std::size_t filter_parameter_count() const noexcept;
+	const ShaderParameterInfo *filter_parameter(std::size_t index) const noexcept;
+	PresenterResult set_filter_parameter(const char *name, float value) noexcept;
+	PresenterResult reset_filter_parameters() noexcept;
+
+  protected:
+	bool prepare_filter_parameters(const char *preset_path, bool enable_filter,
+	                               const char *parameter_state_path) noexcept;
+	bool apply_filter_parameters() noexcept;
+	const char *parameter_state_path() const noexcept { return parameter_state_path_.c_str(); }
+
+  private:
+	virtual bool apply_backend_filter_parameter(const char *name, float value) noexcept = 0;
+	ShaderPreset preset_;
+	std::string parameter_state_path_;
 };
 
 } // namespace vaeg::librashader

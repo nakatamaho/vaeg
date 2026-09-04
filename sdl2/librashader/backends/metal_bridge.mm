@@ -314,6 +314,28 @@ extern "C" VAEG_METAL_BRIDGE_RESULT vaeg_metal_bridge_set_filter_enabled(
 	return VAEG_METAL_BRIDGE_OK;
 }
 
+extern "C" VAEG_METAL_BRIDGE_RESULT vaeg_metal_bridge_set_filter_parameter(
+	VAEG_METAL_BRIDGE *bridge, const char *name, float value) {
+	VAEG_METAL_STATE *state;
+	libra_error_t error;
+
+	if ((bridge == nullptr) || (bridge->state == nullptr) || (name == nullptr)) {
+		return VAEG_METAL_BRIDGE_RESOURCE_FAILURE;
+	}
+	state = static_cast<VAEG_METAL_STATE *>(bridge->state);
+	if ((state->filter_chain == nullptr) ||
+	    (state->librashader.mtl_filter_chain_set_param == nullptr)) {
+		return VAEG_METAL_BRIDGE_RESOURCE_FAILURE;
+	}
+	error = state->librashader.mtl_filter_chain_set_param(&state->filter_chain, name, value);
+	if (error != nullptr) {
+		vaeg_metal_report_librashader_error(state, error, "parameter update");
+		return VAEG_METAL_BRIDGE_RESOURCE_FAILURE;
+	}
+	state->filter_first_frame = true;
+	return VAEG_METAL_BRIDGE_OK;
+}
+
 extern "C" void vaeg_metal_bridge_set_drawable_size(const VAEG_METAL_BRIDGE *bridge,
                                                       uint32_t width, uint32_t height) {
 	VAEG_METAL_STATE *state;

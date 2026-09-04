@@ -561,6 +561,27 @@ extern "C" VAEG_GL_BRIDGE_RESULT vaeg_gl_bridge_set_filter_enabled(
 	return VAEG_GL_BRIDGE_OK;
 }
 
+extern "C" VAEG_GL_BRIDGE_RESULT vaeg_gl_bridge_set_filter_parameter(
+	VAEG_GL_BRIDGE *bridge, const char *name, float value) {
+	VAEG_GL_STATE *state;
+	libra_error_t error;
+
+	if ((bridge == nullptr) || (bridge->state == nullptr) || (name == nullptr)) {
+		return VAEG_GL_BRIDGE_INVALID_ARGUMENT;
+	}
+	state = static_cast<VAEG_GL_STATE *>(bridge->state);
+	if ((state->filter_chain == nullptr) || (state->librashader.gl_filter_chain_set_param == nullptr)) {
+		return VAEG_GL_BRIDGE_RESOURCE_FAILURE;
+	}
+	error = state->librashader.gl_filter_chain_set_param(&state->filter_chain, name, value);
+	if (error != nullptr) {
+		vaeg_gl_report_librashader_error(state, error, "parameter update");
+		return VAEG_GL_BRIDGE_RESOURCE_FAILURE;
+	}
+	state->filter_first_frame = true;
+	return VAEG_GL_BRIDGE_OK;
+}
+
 extern "C" VAEG_GL_BRIDGE_RESULT vaeg_gl_bridge_present(VAEG_GL_BRIDGE *bridge,
                                                            const VAEG_FRAME_INPUT *frame) {
 	VAEG_GL_STATE *state;

@@ -54,6 +54,9 @@ class UnavailablePresenter final : public NativePresenter {
 	PresenterResult resize(uint32_t, uint32_t) noexcept override { return PresenterResult::Fallback; }
 	PresenterResult recover() noexcept override { return PresenterResult::Fallback; }
 	void shutdown() noexcept override {}
+
+  private:
+	bool apply_backend_filter_parameter(const char *, float) noexcept override { return false; }
 };
 
 } // namespace

@@ -327,6 +327,8 @@ set(VAEG_SDL2_SOURCES
     sdl2/librashader/frame_conversion.cpp
     sdl2/librashader/native_presenter.cpp
     sdl2/librashader/presenter_factory.cpp
+    sdl2/librashader/shader_parameters.cpp
+    sdl2/librashader/shader_preset.cpp
     sdl2/sdlkbd.c
     sdl2/kbdinject.c
     sdl2/kbdmap.c
@@ -1434,10 +1436,13 @@ if(VAEG_ENABLE_TESTS)
     add_executable(vaeg_librashader_presenter_state_test
         sdl2/librashader/native_presenter.cpp
         sdl2/librashader/presenter_factory.cpp
+        sdl2/librashader/shader_parameters.cpp
+        sdl2/librashader/shader_preset.cpp
         tests/frontend/librashader/test_presenter_state.cpp)
     target_include_directories(vaeg_librashader_presenter_state_test PRIVATE
         "${CMAKE_CURRENT_SOURCE_DIR}"
-        "${CMAKE_CURRENT_SOURCE_DIR}/sdl2")
+        "${CMAKE_CURRENT_SOURCE_DIR}/sdl2"
+        "${CMAKE_CURRENT_SOURCE_DIR}/external/librashader/include")
     target_compile_features(vaeg_librashader_presenter_state_test PRIVATE cxx_std_17)
     target_compile_options(vaeg_librashader_presenter_state_test PRIVATE -Wall -fsigned-char)
     if(VAEG_WERROR)
@@ -1449,16 +1454,31 @@ if(VAEG_ENABLE_TESTS)
         sdl2/librashader/frame_conversion.cpp
         sdl2/librashader/native_presenter.cpp
         sdl2/librashader/presenter_factory.cpp
+        sdl2/librashader/shader_parameters.cpp
+        sdl2/librashader/shader_preset.cpp
         sdl2/viewport.c
         tests/frontend/librashader/test_pass_through.cpp)
     target_include_directories(vaeg_librashader_pass_through_test PRIVATE
         "${CMAKE_CURRENT_SOURCE_DIR}"
         "${CMAKE_CURRENT_SOURCE_DIR}/sdl2"
-        "${CMAKE_CURRENT_SOURCE_DIR}/common")
+        "${CMAKE_CURRENT_SOURCE_DIR}/common"
+        "${CMAKE_CURRENT_SOURCE_DIR}/external/librashader/include")
     target_compile_features(vaeg_librashader_pass_through_test PRIVATE cxx_std_17)
     target_compile_options(vaeg_librashader_pass_through_test PRIVATE -Wall -fsigned-char)
     if(VAEG_WERROR)
         target_compile_options(vaeg_librashader_pass_through_test PRIVATE -Werror)
+    endif()
+
+    add_executable(vaeg_librashader_shader_parameters_test
+        sdl2/librashader/shader_parameters.cpp
+        tests/frontend/librashader/test_shader_parameters.cpp)
+    target_include_directories(vaeg_librashader_shader_parameters_test PRIVATE
+        "${CMAKE_CURRENT_SOURCE_DIR}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/sdl2")
+    target_compile_features(vaeg_librashader_shader_parameters_test PRIVATE cxx_std_17)
+    target_compile_options(vaeg_librashader_shader_parameters_test PRIVATE -Wall -fsigned-char)
+    if(VAEG_WERROR)
+        target_compile_options(vaeg_librashader_shader_parameters_test PRIVATE -Werror)
     endif()
 
     add_executable(vaeg_z80_compat_zex_runner tests/z80_compat/zex_runner.cpp)
@@ -1555,6 +1575,10 @@ if(VAEG_ENABLE_TESTS)
     add_test(NAME vaeg_librashader_pass_through
         COMMAND vaeg_librashader_pass_through_test)
     set_tests_properties(vaeg_librashader_pass_through PROPERTIES
+        LABELS "romless;frontend;librashader" TIMEOUT 30)
+    add_test(NAME vaeg_librashader_shader_parameters
+        COMMAND vaeg_librashader_shader_parameters_test)
+    set_tests_properties(vaeg_librashader_shader_parameters PROPERTIES
         LABELS "romless;frontend;librashader" TIMEOUT 30)
     foreach(regression_suite directed state generated convergence)
         add_test(NAME vaeg_z80_compat_regression_${regression_suite}

@@ -421,6 +421,28 @@ extern "C" VAEG_D3D11_BRIDGE_RESULT vaeg_d3d11_bridge_set_filter_enabled(
 	return VAEG_D3D11_BRIDGE_OK;
 }
 
+extern "C" VAEG_D3D11_BRIDGE_RESULT vaeg_d3d11_bridge_set_filter_parameter(
+	VAEG_D3D11_BRIDGE *bridge, const char *name, float value) {
+	VAEG_D3D11_STATE *state;
+	libra_error_t error;
+
+	if ((bridge == nullptr) || (bridge->state == nullptr) || (name == nullptr)) {
+		return VAEG_D3D11_BRIDGE_INVALID_ARGUMENT;
+	}
+	state = static_cast<VAEG_D3D11_STATE *>(bridge->state);
+	if ((state->filter_chain == nullptr) ||
+	    (state->librashader.d3d11_filter_chain_set_param == nullptr)) {
+		return VAEG_D3D11_BRIDGE_RESOURCE_FAILURE;
+	}
+	error = state->librashader.d3d11_filter_chain_set_param(&state->filter_chain, name, value);
+	if (error != nullptr) {
+		vaeg_d3d11_report_librashader_error(state, error, "parameter update");
+		return VAEG_D3D11_BRIDGE_RESOURCE_FAILURE;
+	}
+	state->filter_first_frame = true;
+	return VAEG_D3D11_BRIDGE_OK;
+}
+
 extern "C" VAEG_D3D11_BRIDGE_RESULT vaeg_d3d11_bridge_present(
 	VAEG_D3D11_BRIDGE *bridge, const VAEG_FRAME_INPUT *frame) {
 	VAEG_D3D11_STATE *state;

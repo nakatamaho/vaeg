@@ -50,6 +50,8 @@ void vaeg_metal_bridge_set_drawable_size(const VAEG_METAL_BRIDGE *bridge, uint32
                                          uint32_t height);
 VAEG_METAL_BRIDGE_RESULT vaeg_metal_bridge_set_filter_enabled(VAEG_METAL_BRIDGE *bridge,
                                                                int enabled);
+VAEG_METAL_BRIDGE_RESULT vaeg_metal_bridge_set_filter_parameter(VAEG_METAL_BRIDGE *bridge,
+                                                                 const char *name, float value);
 VAEG_METAL_BRIDGE_RESULT vaeg_metal_bridge_present(VAEG_METAL_BRIDGE *bridge,
                                                     const VAEG_FRAME_INPUT *frame);
 void vaeg_metal_bridge_shutdown(VAEG_METAL_BRIDGE *bridge);
