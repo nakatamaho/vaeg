@@ -55,9 +55,6 @@ stest_source_archive=$softlib_cache/ST115SRC.LZH
 zim_img_archive=$softlib_cache/ZIM_IMG.LZH
 rdems15_archive=$softlib_cache/RDEMS15.LZH
 rdems152_archive=$softlib_cache/RDEMS152.LZH
-vachk_bas=$softlib_cache/VACHK.BAS
-vachk_txt=$softlib_cache/VACHK.TXT
-vachk_doc=$softlib_cache/VACHK.DOC
 gm1_archive="$softlib_cache/G&M1.LZH"
 clk_source=$softlib_cache/CLK21.SRC
 clk_archive=$softlib_cache/CLK21.LZH
@@ -110,7 +107,6 @@ Usage: $program_name [--source-va PATH] [--source-va2 PATH]
 	       [--stest-source-archive PATH]
 	       [--zim-img-archive PATH] [--rdems15-archive PATH]
 	       [--rdems152-archive PATH]
-	       [--vachk-bas PATH] [--vachk-txt PATH] [--vachk-doc PATH]
 	       [--gm1-archive PATH]
 	       [--clk-source PATH] [--clk-archive PATH] [--clk-doc PATH]
 	       [--va3ddemo-asm PATH] [--va3ddemo-doc PATH]
@@ -305,21 +301,6 @@ while (($#)); do
 	--rdems152-archive)
 		(($# >= 2)) || die '--rdems152-archive requires a path'
 		rdems152_archive=$2
-		shift 2
-		;;
-	--vachk-bas)
-		(($# >= 2)) || die '--vachk-bas requires a path'
-		vachk_bas=$2
-		shift 2
-		;;
-	--vachk-txt)
-		(($# >= 2)) || die '--vachk-txt requires a path'
-		vachk_txt=$2
-		shift 2
-		;;
-	--vachk-doc)
-		(($# >= 2)) || die '--vachk-doc requires a path'
-		vachk_doc=$2
 		shift 2
 		;;
 	--gm1-archive)
@@ -572,15 +553,6 @@ ensure_cached_package "$rdems15_archive" \
 ensure_cached_package "$rdems152_archive" \
 	0ba023a9f82defca085dc13d7103fe5b2a788ef9217d660686f2a20d8b0e70f9 \
 	'http://www.pc88.gr.jp/softlib/index.php?action=download&anum=2&gnum=270&fname=RDEMS152.LZH'
-ensure_cached_package "$vachk_bas" \
-	e94d74516bc0c17d82d7f60a6ad1f8a8d9cd2fc963764d7e501c98d9d764946c \
-	'http://www.pc88.gr.jp/softlib/index.php?action=download&anum=2&gnum=274&fname=VACHK.BAS'
-ensure_cached_package "$vachk_txt" \
-	7e3028c47200f6bb3f1b614ec6f3db51ae04ee2601ced9864de0d585b453ac4c \
-	'http://www.pc88.gr.jp/softlib/index.php?action=download&anum=2&gnum=274&fname=VACHK.TXT'
-ensure_cached_package "$vachk_doc" \
-	ead94fc9704d2c19d524e963854ba809315cc973d4a16d825dd93e441c54ba9f \
-	'http://www.pc88.gr.jp/softlib/index.php?action=download&anum=2&gnum=274&fname=VACHK.DOC'
 ensure_cached_package "$gm1_archive" \
 	ebded3b3b2b8ac8fc24588c2e11e9524894fcbd6b0bb425232ddfdc0ee7890c0 \
 	'http://www.pc88.gr.jp/softlib/index.php?action=download&anum=2&gnum=278&fname=G%26M1.LZH'
@@ -644,7 +616,6 @@ supplemental_manifest=$work_dir/supplemental.manifest.tsv
 		--stest-source-archive "$stest_source_archive" \
 	--zim-img-archive "$zim_img_archive" --rdems15-archive "$rdems15_archive" \
 	--rdems152-archive "$rdems152_archive" \
-	--vachk-bas "$vachk_bas" --vachk-txt "$vachk_txt" --vachk-doc "$vachk_doc" \
 	--gm1-archive "$gm1_archive" \
 	--clk-source "$clk_source" --clk-archive "$clk_archive" --clk-doc "$clk_doc" \
 	--va3ddemo-asm "$va3ddemo_asm" --va3ddemo-doc "$va3ddemo_doc"
