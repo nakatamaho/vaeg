@@ -142,6 +142,26 @@ uninitialized-local warnings. An initial DPI build failed due to the legacy
 `min`/`max` macros; parenthesized standard-library calls corrected that error.
 All three builds and both 10-test suites subsequently passed again.
 
+## Windows package evidence
+
+Implementation: [271cb211](https://github.com/nakatamaho/vaeg/commit/271cb2117cc369694437668a16a2d9500409acdd).
+After committing, reconfigured and rebuilt `mingw-cross` to embed the committed
+identity. Package: `build/mingw-cross/vaeg-m99z6-windows-x86_64.zip` (local,
+not tracked). It includes `vaeg.exe`, `librashader.dll`, CRT assets, licenses,
+the native CRT guide and `start-native-crt.cmd`.
+
+SHA-256:
+
+- ZIP: `7906d779cc21d8e53ba71839c76341bede6a22e3c3fdbc27697974ed2c484c10`
+- EXE: `5aae4867b8297d0315fcc453d668a8be765f43f39dbcc10e324dec6e7e6a6919`
+- DLL: `1890f647c7fbe52d4cc591526db24367caca284996855c4565c6003c7e46f8cc`
+
+`check-librashader-package.py --input <directory-or-zip> --platform windows`
+passed for both forms. Packaged EXE matched the build with `cmp`; the existing
+guest-driver `SHA256SUMS` verified all five entries. PE imports include D3D11
+and the Windows `D3DCOMPILER_47.dll`; SDL2 and the MinGW C++ runtime are static.
+No private ROM or boot media is included. Windows execution remains untested.
+
 ## Evidence still required
 
 Physical D3D11 shader output, GUI mouse hit testing, monitor DPI changes,

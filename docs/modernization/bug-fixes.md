@@ -91,7 +91,7 @@ separate parity correction or move it to Open Defects.
   tests each; Debug assertion-enabled suite 8/8. Controller/presenter doubles
   cover repeated toggles and recovery, not physical GPU output.
 - **Task/evidence:** [M99z6 report](../agents/reports/m99z6_windows_crt_gui.md).
-- **Commit:** recorded in the linked report after the implementation commit.
+- **Commit:** [271cb211](https://github.com/nakatamaho/vaeg/commit/271cb2117cc369694437668a16a2d9500409acdd).
 
 ### SDL resource creation success was treated as failure
 
