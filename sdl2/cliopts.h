@@ -168,6 +168,7 @@ typedef struct {
 	const char *roms_path;
 	const char *config_path;
 	const char *bkupmem_path;
+	const char *calendar_start;
 #if defined(VAEG_Z80_COMPAT_INTEGRATION_TRACE)
 	const char *trace_cpu_output;
 	const char *causal_trace_output;

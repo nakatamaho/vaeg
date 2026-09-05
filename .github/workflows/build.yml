@@ -92,6 +92,7 @@ jobs:
             --second build/m07i-p1-b/sdl2/vaeg
           python3 tools/qa/production_trace.py verify-runtime \
             --binary build/m07i-p1-a/sdl2/vaeg \
+            --p0-binary build/m07i-p0/sdl2/vaeg \
             --work build/m07i-production-runtime
       - name: Verify P0 T0 T1 behavior
         env:

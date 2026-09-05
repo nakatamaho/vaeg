@@ -41,6 +41,9 @@ extern "C" {
 #endif
 
 BOOL timemng_gettime(_SYSTIME *systime);
+BOOL timemng_parse_seed(const char *text, _SYSTIME *systime);
+BOOL timemng_set_seed(const char *text);
+BOOL timemng_seed_active(void);
 
 #ifdef __cplusplus
 }

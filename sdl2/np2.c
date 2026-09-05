@@ -36,6 +36,7 @@
 #include "soundmng.h"
 #include "sysmng.h"
 #include "taskmng.h"
+#include "timemng.h"
 #include "sdlkbd.h"
 #include "ini.h"
 #include "machine/pccore.h"
@@ -272,6 +273,7 @@ static void usage(const char *progname) {
 	printf("Usage: %s [options]\n", progname);
 	printf("Machine and sound (session only):\n");
 	printf("\t--model va|va2\n");
+	printf("\t--calendar-start YYYY-MM-DDTHH:MM:SS  deterministic virtual clock, 1980-2079\n");
 	printf("\t--fmbackend np2|ymfm\n");
 	printf("\t--fmsound opn|opna\n");
 	printf("\t--ymfm-fidelity minimum|medium|maximum\n");
@@ -2253,6 +2255,10 @@ int main(int argc, char **argv) {
 	commng_initialize();
 	sysmng_initialize();
 	taskmng_initialize();
+	if (timemng_set_seed(options.calendar_start) != SUCCESS) {
+		fprintf(stderr, "Error: invalid calendar initialization contract\n");
+		goto np2main_err3;
+	}
 	pccore_init();
 	bkupmemva_load();
 	if (splash_visible) {

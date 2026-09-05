@@ -24,11 +24,88 @@
  */
 #include "compiler.h"
 #include "timemng.h"
+#include <string.h>
+
+static BOOL seed_active;
+static _SYSTIME calendar_seed;
+
+BOOL timemng_parse_seed(const char *text, _SYSTIME *systime) {
+	static const UINT offsets[6] = {0, 5, 8, 11, 14, 17};
+	static const UINT lengths[6] = {4, 2, 2, 2, 2, 2};
+	static const UINT month_days[12] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
+	static const UINT weekday_offsets[12] = {0, 3, 2, 5, 0, 3, 5, 1, 4, 6, 2, 4};
+	UINT fields[6] = {0, 0, 0, 0, 0, 0};
+	UINT i, j, year, limit;
+	_SYSTIME candidate;
+
+	if ((text == NULL) || (systime == NULL) || (strlen(text) != 19) || (text[4] != '-') ||
+	    (text[7] != '-') || (text[10] != 'T') || (text[13] != ':') || (text[16] != ':')) {
+		return (FAILURE);
+	}
+	for (i = 0; i < 6; i++) {
+		for (j = 0; j < lengths[i]; j++) {
+			char digit = text[offsets[i] + j];
+			if ((digit < '0') || (digit > '9')) {
+				return (FAILURE);
+			}
+			fields[i] = fields[i] * 10 + (UINT)(digit - '0');
+		}
+	}
+	if ((fields[0] < 1980) || (fields[0] > 2079) || (fields[1] < 1) || (fields[1] > 12) ||
+	    (fields[2] < 1) || (fields[3] > 23) || (fields[4] > 59) || (fields[5] > 59)) {
+		return (FAILURE);
+	}
+	year = fields[0];
+	limit = month_days[fields[1] - 1];
+	if ((fields[1] == 2) && ((year % 4) == 0) && (((year % 100) != 0) || ((year % 400) == 0))) {
+		limit++;
+	}
+	if (fields[2] > limit) {
+		return (FAILURE);
+	}
+	memset(&candidate, 0, sizeof(candidate));
+	candidate.year = (UINT16)fields[0];
+	candidate.month = (UINT16)fields[1];
+	candidate.day = (UINT16)fields[2];
+	candidate.hour = (UINT16)fields[3];
+	candidate.minute = (UINT16)fields[4];
+	candidate.second = (UINT16)fields[5];
+	if (fields[1] < 3) {
+		year--;
+	}
+	candidate.week = (UINT16)((year + year / 4 - year / 100 + year / 400 +
+	                           weekday_offsets[fields[1] - 1] + fields[2]) %
+	                          7);
+	*systime = candidate;
+	return (SUCCESS);
+}
+
+BOOL timemng_set_seed(const char *text) {
+	_SYSTIME candidate;
+	if (text == NULL) {
+		seed_active = FALSE;
+		return (SUCCESS);
+	}
+	if (timemng_parse_seed(text, &candidate) != SUCCESS) {
+		return (FAILURE);
+	}
+	calendar_seed = candidate;
+	seed_active = TRUE;
+	return (SUCCESS);
+}
+
+BOOL timemng_seed_active(void) {
+	return (seed_active);
+}
 
 BOOL timemng_gettime(_SYSTIME *systime) {
 	time_t long_time;
 	struct tm *now_time;
 
+	if (seed_active) {
+		*systime = calendar_seed;
+		return (SUCCESS);
+	}
 	time(&long_time);
 	now_time = localtime(&long_time);
 	if (now_time != NULL) {

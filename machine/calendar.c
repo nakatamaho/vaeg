@@ -108,12 +108,16 @@ void calendar_getvir(UINT8 *bcd) {
 }
 
 void calendar_getreal(UINT8 *bcd) {
+	if (timemng_seed_active()) {
+		date2bcd(bcd, &cal.dt);
+		return;
+	}
 	timemng_gettime(&cal.realc);
 	date2bcd(bcd, &cal.realc);
 }
 
 void calendar_get(UINT8 *bcd) {
-	if (!np2cfg.calendar) {
+	if (!np2cfg.calendar || timemng_seed_active()) {
 		date2bcd(bcd, &cal.dt);
 	} else {
 		if (cal.realchg) {

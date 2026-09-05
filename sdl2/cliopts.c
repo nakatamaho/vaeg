@@ -31,6 +31,7 @@
 #include "machine/pccore.h"
 #include "sgp.h"
 #include "soundopts.h"
+#include "timemng.h"
 
 static BOOL name_equal(const char *left, const char *right) {
 	unsigned char l;
@@ -193,6 +194,16 @@ BOOL vaeg_cli_parse(int argc, char **argv, VAEG_CLI_OPTIONS *options, char *erro
 			options->selftest = TRUE;
 		} else if (!strcmp(argument, "--debug")) {
 			options->debug = TRUE;
+		} else if (!strcmp(argument, "--calendar-start")) {
+			_SYSTIME seed;
+			value = option_value(argc, argv, &position, argument, error, error_size);
+			if ((options->calendar_start != NULL) ||
+			    (timemng_parse_seed(value, &seed) != SUCCESS)) {
+				return (set_error(
+				    error, error_size,
+				    "--calendar-start requires one valid YYYY-MM-DDTHH:MM:SS in 1980-2079", NULL));
+			}
+			options->calendar_start = value;
 		} else if (!strcmp(argument, "--fdctrace")) {
 			options->fdctrace = TRUE;
 		} else if (!strcmp(argument, "--scsitrace")) {

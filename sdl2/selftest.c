@@ -43,6 +43,8 @@
 #include "hostfat_manager.h"
 #include "ini.h"
 #include "machine/pccore.h"
+#include "timemng.h"
+#include "machine/calendar.h"
 #include "cpu/upd9002/memory.h"
 #include "cpucore.h"
 #include "diagnostics/upd9002_debug.h"
@@ -135,6 +137,87 @@ static int test_romcheck(void) {
 		return (fail("romcheck", "CRC32/SHA-1 test vector failed"));
 	}
 	fprintf(stderr, "selftest: romcheck ok\n");
+	return (SUCCESS);
+}
+
+static int test_calendar_seed(void) {
+	static const char *invalid[] = {"",
+	                                "2000-01-01",
+	                                "2000-01-01T00:00:00Z",
+	                                "2000-1-01T00:00:00",
+	                                "2000/01-01T00:00:00",
+	                                "2000-01-01 00:00:00",
+	                                "2000-01-01T00:00:0x",
+	                                "1979-01-01T00:00:00",
+	                                "2080-01-01T00:00:00",
+	                                "2000-00-01T00:00:00",
+	                                "2000-13-01T00:00:00",
+	                                "2000-01-00T00:00:00",
+	                                "2001-02-29T00:00:00",
+	                                "2000-04-31T00:00:00",
+	                                "2000-01-01T24:00:00",
+	                                "2000-01-01T00:60:00",
+	                                "2000-01-01T00:00:60"};
+	char *valid_cli[] = {"vaeg", "--calendar-start", "2000-01-01T00:00:00"};
+	char *duplicate_cli[] = {"vaeg", "--calendar-start", "2000-01-01T00:00:00", "--calendar-start",
+	                         "2000-01-01T00:00:00"};
+	VAEG_CLI_OPTIONS options;
+	char error[256];
+	_SYSTIME parsed, expected, unchanged;
+	_CALENDAR saved_calendar = cal;
+	UINT8 saved_mode = np2cfg.calendar;
+	UINT8 before[6], after[6], direct[6];
+	UINT i;
+	BOOL ok = TRUE;
+
+	if (timemng_seed_active() ||
+	    (timemng_parse_seed("2000-01-01T00:00:00", &expected) != SUCCESS) || (expected.week != 6) ||
+	    (expected.milli != 0) || (timemng_parse_seed("2000-02-29T12:34:56", &parsed) != SUCCESS) ||
+	    (parsed.week != 2) || (parsed.day != 29) ||
+	    (vaeg_cli_parse((int)NELEMENTS(valid_cli), valid_cli, &options, error, sizeof(error)) !=
+	     SUCCESS) ||
+	    (options.calendar_start == NULL) ||
+	    (vaeg_cli_parse((int)NELEMENTS(duplicate_cli), duplicate_cli, &options, error,
+	                    sizeof(error)) == SUCCESS)) {
+		return (fail("calendar seed", "valid date, weekday, CLI or default policy failed"));
+	}
+	for (i = 0; i < NELEMENTS(invalid); i++) {
+		char *bad_cli[] = {"vaeg", "--calendar-start", (char *)invalid[i]};
+		unchanged = expected;
+		if ((timemng_parse_seed(invalid[i], &unchanged) == SUCCESS) ||
+		    (memcmp(&unchanged, &expected, sizeof(expected)) != 0) ||
+		    (vaeg_cli_parse((int)NELEMENTS(bad_cli), bad_cli, &options, error, sizeof(error)) ==
+		     SUCCESS)) {
+			return (fail("calendar seed", "invalid date accepted or output mutated"));
+		}
+	}
+	if ((timemng_set_seed("2000-01-01T00:00:00") != SUCCESS) || !timemng_seed_active() ||
+	    (timemng_set_seed("invalid") == SUCCESS) || (timemng_gettime(&parsed) != SUCCESS) ||
+	    (memcmp(&parsed, &expected, sizeof(expected)) != 0)) {
+		ok = FALSE;
+	}
+	calendar_initialize();
+	np2cfg.calendar = 1;
+	calendar_get(before);
+	for (i = 0; i < 57; i++) {
+		calendar_inc();
+	}
+	calendar_get(after);
+	calendar_getreal(direct);
+	if ((before[5] != 0) || (after[5] != 1) || (memcmp(after, direct, sizeof(after)) != 0)) {
+		ok = FALSE;
+	}
+	calendar_initialize();
+	calendar_get(direct);
+	if (memcmp(before, direct, sizeof(before)) != 0) {
+		ok = FALSE;
+	}
+	timemng_set_seed(NULL);
+	cal = saved_calendar;
+	np2cfg.calendar = saved_mode;
+	if (!ok || timemng_seed_active()) {
+		return (fail("calendar seed", "deterministic initialization, progression or reset failed"));
+	}
 	return (SUCCESS);
 }
 
@@ -2162,6 +2245,9 @@ static int test_statsave(void) {
 	hostfat_image = NULL;
 
 	soundmng_initialize();
+	/* Save/load/save compares a stopped guest. Loading resumes the SDL audio
+	 * device, so keep its asynchronous synthesis callback paused throughout. */
+	soundmng_setenabled(FALSE);
 	commng_initialize();
 	pccore_init();
 	pccore_reset();
@@ -2315,6 +2401,9 @@ static int test_statsave(void) {
 #endif
 	if (ret == STATFLAG_SUCCESS) {
 		ret = statsave_save(path2);
+	}
+	if (soundmng_isenabled()) {
+		ret = STATFLAG_FAILURE;
 	}
 	pccore_term();
 	soundmng_deinitialize();
@@ -2724,7 +2813,6 @@ static int test_opn_backends(void) {
 	return (SUCCESS);
 }
 
-#if defined(VAEG_Z80_COMPAT_INTEGRATION_TRACE)
 static int test_production_trace_path(void) {
 	Upd9002CoreContext saved_context;
 	_MEMORYVA saved_memoryva;
@@ -2776,8 +2864,11 @@ static int test_production_trace_path(void) {
 
 	upd9002_core_step();
 	if ((CPU_IP != 0x2001) || (CPU_AX != 0x1111) || (CPU_BX != 0x2222) || (CPU_SP != 0x8888) ||
-	    (CPU_FLAG != 0x0202) ||
-	    (upd9002_memory_last_read_backend() != UPD9002_MEMORY_BACKEND_PRODUCTION)) {
+	    (CPU_FLAG != 0x0202)
+#if defined(VAEG_Z80_COMPAT_INTEGRATION_TRACE)
+	    || (upd9002_memory_last_read_backend() != UPD9002_MEMORY_BACKEND_PRODUCTION)
+#endif
+	) {
 		result = fail("production trace", "synthetic instruction left the production path");
 	} else {
 		fprintf(stderr,
@@ -2792,7 +2883,6 @@ static int test_production_trace_path(void) {
 	upd9002_core_context = saved_context;
 	return result;
 }
-#endif
 
 int vaeg_selftest_run(void) {
 #if defined(VAEG_UPD9002_M44_TESTING)
@@ -2820,6 +2910,9 @@ int vaeg_selftest_run(void) {
 		return (FAILURE);
 	}
 	if (test_cli_options() != SUCCESS) {
+		return (FAILURE);
+	}
+	if (test_calendar_seed() != SUCCESS) {
 		return (FAILURE);
 	}
 	if (test_screenshot_scheduler() != SUCCESS) {
@@ -2907,11 +3000,9 @@ int vaeg_selftest_run(void) {
 	if (test_hostfat_transport() != SUCCESS) {
 		return (FAILURE);
 	}
-#if defined(VAEG_Z80_COMPAT_INTEGRATION_TRACE)
 	if (test_production_trace_path() != SUCCESS) {
 		return FAILURE;
 	}
-#endif
 #if defined(VAEG_UPD780_INTEGRATION_TESTING)
 	if (vaeg_upd780_subsystem_integration_test() != SUCCESS) {
 		return (fail("uPD780 subsystem integration", "production seam test failed"));

@@ -361,7 +361,9 @@ def verify_trace_text(text: str) -> None:
         raise TraceQaError("canonical trace contains a wall-clock timestamp")
 
 
-def verify_runtime(binary: pathlib.Path, work: pathlib.Path) -> None:
+def verify_runtime(
+    binary: pathlib.Path, work: pathlib.Path, p0_binary: pathlib.Path | None = None
+) -> None:
     if not binary.is_file():
         raise TraceQaError(f"P1 executable is absent: {binary}")
     work.mkdir(parents=True, exist_ok=True)
@@ -388,6 +390,12 @@ def verify_runtime(binary: pathlib.Path, work: pathlib.Path) -> None:
         raise TraceQaError("two traced runs reached different architectural checkpoints")
     if checkpoint(untraced.stderr) != checkpoint(first.stderr):
         raise TraceQaError("trace enabled and disabled changed the architectural checkpoint")
+    if p0_binary is not None:
+        p0 = run_process([str(p0_binary), "--selftest"], environment)
+        if p0.returncode != 0:
+            raise TraceQaError("P0 production-memory selftest failed")
+        if checkpoint(p0.stderr) != checkpoint(first.stderr):
+            raise TraceQaError("P0 and P1 architectural checkpoints differ")
     verify_trace_text(first_bytes.decode("utf-8"))
 
     causal_selftest(
@@ -476,6 +484,7 @@ def parse_arguments() -> argparse.Namespace:
     runtime = subparsers.add_parser("verify-runtime")
     runtime.add_argument("--binary", required=True)
     runtime.add_argument("--work", required=True)
+    runtime.add_argument("--p0-binary")
 
     binary_compare = subparsers.add_parser("compare-binaries")
     binary_compare.add_argument("--first", required=True)
@@ -494,7 +503,10 @@ def main() -> int:
     arguments = parse_arguments()
     try:
         if arguments.command == "verify-runtime":
-            verify_runtime(pathlib.Path(arguments.binary), pathlib.Path(arguments.work))
+            verify_runtime(
+                pathlib.Path(arguments.binary), pathlib.Path(arguments.work),
+                pathlib.Path(arguments.p0_binary) if arguments.p0_binary else None,
+            )
         elif arguments.command == "compare-binaries":
             compare_binaries(pathlib.Path(arguments.first), pathlib.Path(arguments.second))
         elif arguments.command == "verify-matrix":
