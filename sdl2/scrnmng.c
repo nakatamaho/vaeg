@@ -1171,6 +1171,47 @@ static BOOL scrnmng_create_sdl_resources(void) {
 	return SUCCESS;
 }
 
+/* A native DXGI swap chain and SDL's selected presentation API must not
+ * inherit each other's HWND state. Keep guest pixels/state, replace only
+ * the host window when returning from native presentation on Windows. */
+static BOOL scrnmng_detach_native_window(void) {
+	SDL_Window *old_window = scrnmng.window;
+	SDL_Window *new_window;
+	SDL_DisplayMode mode = {0};
+	Uint32 flags = SDL_GetWindowFlags(old_window);
+	int x, y, width, height;
+	SDL_GetWindowPosition(old_window, &x, &y);
+	SDL_GetWindowSize(old_window, &width, &height);
+	SDL_GetWindowDisplayMode(old_window, &mode);
+	new_window = SDL_CreateWindow(app_name, x, y, width, height,
+	    SDL_WINDOW_HIDDEN | SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI |
+	    (flags & (SDL_WINDOW_BORDERLESS | SDL_WINDOW_ALWAYS_ON_TOP)));
+	if (!new_window) {
+		SDL_LogError(SDL_LOG_CATEGORY_VIDEO, "Renderer switch: new window failed: %s", SDL_GetError());
+		return FAILURE;
+	}
+	SDL_CaptureMouse(SDL_FALSE);
+	SDL_DestroyWindow(old_window);
+	scrnmng.window = new_window;
+	appicon_set_window(new_window);
+	SDL_SetWindowMinimumSize(new_window, 320, 240);
+	if (flags & SDL_WINDOW_FULLSCREEN) {
+		if (SDL_SetWindowDisplayMode(new_window, &mode) != 0 ||
+		    SDL_SetWindowFullscreen(new_window, flags & SDL_WINDOW_FULLSCREEN_DESKTOP) != 0) {
+			SDL_LogError(SDL_LOG_CATEGORY_VIDEO, "Renderer switch: fullscreen restore failed: %s", SDL_GetError());
+			return FAILURE;
+		}
+	} else if (flags & SDL_WINDOW_MAXIMIZED) {
+		SDL_MaximizeWindow(new_window);
+	}
+	if (!(flags & SDL_WINDOW_HIDDEN)) {
+		SDL_ShowWindow(new_window);
+		SDL_RaiseWindow(new_window);
+	}
+	SDL_Log("Renderer switch: native window detached; new SDL window=%u", SDL_GetWindowID(new_window));
+	return SUCCESS;
+}
+
 static BOOL scrnmng_native_fallback(void) {
 	if (!scrnmng.native_active || (scrnmng.native_presenter == NULL)) {
 		return FAILURE;
@@ -1182,6 +1223,9 @@ static BOOL scrnmng_native_fallback(void) {
 	scrnmng.native_presenter = NULL;
 	scrnmng.native_active = FALSE;
 	scrnmng.native_fallback_pending = TRUE;
+#if defined(_WIN32)
+	if (scrnmng_detach_native_window() != SUCCESS) return FAILURE;
+#endif
 	if (scrnmng_create_sdl_resources() != SUCCESS) {
 		fprintf(stderr, "Error: SDL fallback renderer creation failed: %s\n", SDL_GetError());
 		return FAILURE;
@@ -1190,6 +1234,42 @@ static BOOL scrnmng_native_fallback(void) {
 	scrnmng_update_title();
 	fprintf(stderr, "Native CRT disabled after failure; SDL presentation restored\n");
 	return SUCCESS;
+}
+
+BOOL scrnmng_window_rebind_selftest(void) {
+	SDL_Window *saved_window = scrnmng.window;
+	const BOOL video_was_active = SDL_WasInit(SDL_INIT_VIDEO) != 0;
+	BOOL result = SUCCESS;
+	int i;
+	if (!video_was_active && SDL_InitSubSystem(SDL_INIT_VIDEO) != 0) return FAILURE;
+	scrnmng.window = SDL_CreateWindow("renderer rebind test", 0, 0, 640, 400, SDL_WINDOW_HIDDEN);
+	if (!scrnmng.window) result = FAILURE;
+	for (i = 0; i < 10 && result == SUCCESS; ++i) {
+		const Uint32 old_id = SDL_GetWindowID(scrnmng.window);
+		int width, height;
+		result = scrnmng_detach_native_window();
+		if (result != SUCCESS) break;
+		SDL_GetWindowSize(scrnmng.window, &width, &height);
+		if (SDL_GetWindowID(scrnmng.window) == old_id || width != 640 || height != 400 ||
+		    !(SDL_GetWindowFlags(scrnmng.window) & SDL_WINDOW_HIDDEN)) result = FAILURE;
+		if (result == SUCCESS) {
+			SDL_Renderer *renderer = SDL_CreateRenderer(scrnmng.window, -1, SDL_RENDERER_SOFTWARE);
+			SDL_Rect pixel = {0, 0, 1, 1};
+			BYTE rgba[4] = {0};
+			if (!renderer) { result = FAILURE; break; }
+			SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
+			if (SDL_RenderClear(renderer) != 0 ||
+			    SDL_RenderReadPixels(renderer, &pixel, SDL_PIXELFORMAT_RGBA32, rgba, 4) != 0 ||
+			    rgba[0] != 255 || rgba[1] != 0 || rgba[2] != 0) result = FAILURE;
+			SDL_RenderPresent(renderer);
+			SDL_DestroyRenderer(renderer);
+		}
+	}
+	if (scrnmng.window) SDL_DestroyWindow(scrnmng.window);
+	scrnmng.window = saved_window;
+	if (!video_was_active) SDL_QuitSubSystem(SDL_INIT_VIDEO);
+	if (result != SUCCESS) fprintf(stderr, "selftest: WINDOW_REBIND_FAILED: %s\n", SDL_GetError());
+	return result;
 }
 
 BOOL scrnmng_create(int width, int height) {
@@ -1346,6 +1426,7 @@ void scrnmng_request_native_crt(BOOL enabled, BOOL reload) {
 BOOL scrnmng_apply_native_crt_request(void) {
 #if defined(_WIN32) && defined(VAEG_ENABLE_LIBRASHADER)
 	const char *preset;
+	BOOL was_native;
 	if (!scrnmng.native_change_pending)
 		return SUCCESS;
 	scrnmng.native_change_pending = FALSE;
@@ -1359,7 +1440,10 @@ BOOL scrnmng_apply_native_crt_request(void) {
 	if (!scrnmng.native_active && !np2oscfg.gui_native_crt)
 		return SUCCESS;
 	// Called between ImGui frames on the presentation thread.
+	was_native = scrnmng.native_active;
+	SDL_Log("Renderer switch: releasing GUI");
 	gui_shutdown();
+	SDL_Log("Renderer switch: releasing native presenter");
 	vaeg_native_presenter_destroy(scrnmng.native_presenter);
 	scrnmng.native_presenter = NULL;
 	scrnmng.native_active = FALSE;
@@ -1376,6 +1460,8 @@ BOOL scrnmng_apply_native_crt_request(void) {
 	}
 	scrnmng.native_active = scrnmng.native_presenter != NULL;
 	if (!scrnmng.native_active) {
+		if (was_native && scrnmng_detach_native_window() != SUCCESS) return FAILURE;
+		SDL_Log("Renderer switch: creating SDL renderer");
 		snprintf(scrnmng.native_status, sizeof(scrnmng.native_status),
 		         "%s", np2oscfg.gui_native_crt ? "SDL fallback: CRT runtime, preset or GPU unavailable" : "SDL");
 		if (scrnmng_create_sdl_resources() != SUCCESS)
@@ -1383,7 +1469,11 @@ BOOL scrnmng_apply_native_crt_request(void) {
 		(void)scrnmng_upload_shadow();
 	}
 	scrnmng_update_title();
-	if (gui_initialize(scrnmng.window, scrnmng.renderer, NULL) == SUCCESS) return SUCCESS;
+	SDL_Log("Renderer switch: initializing GUI");
+	if (gui_initialize(scrnmng.window, scrnmng.renderer, NULL) == SUCCESS) {
+		SDL_Log("Renderer switch complete: %s", scrnmng_get_renderer_backend());
+		return SUCCESS;
+	}
 	if (!scrnmng.native_active || scrnmng_native_fallback() != SUCCESS) return FAILURE;
 	(void)scrnmng_take_native_fallback();
 	return gui_initialize(scrnmng.window, scrnmng.renderer, NULL);

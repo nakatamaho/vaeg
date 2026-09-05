@@ -1774,6 +1774,7 @@ static int expect_viewport(int drawable_width, int drawable_height, int menu_ins
 }
 
 static int test_viewport(void) {
+	if (scrnmng_window_rebind_selftest() != SUCCESS) return FAILURE;
 	VAEG_VIEWPORT_INPUT input;
 	VAEG_VIEWPORT viewport;
 	BOOL masked;

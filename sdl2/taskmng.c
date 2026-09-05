@@ -236,6 +236,12 @@ void taskmng_rol(void) {
 	while (task_avail && SDL_PollEvent(&e)) {
 		BOOL captured;
 		BOOL shortcut;
+		/* Rebinding a renderer may replace the host window. Old focus/size
+		 * notifications must not overwrite the replacement window's state. */
+		if (e.type == SDL_WINDOWEVENT) {
+			SDL_Window *window = (SDL_Window *)scrnmng_get_window();
+			if (window && e.window.windowID != SDL_GetWindowID(window)) continue;
+		}
 
 		if (dropmedia_process_event(&e)) {
 			continue;

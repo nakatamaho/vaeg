@@ -3688,6 +3688,9 @@ void gui_shutdown(void) {
 		return;
 	}
 	mousemng_setguiblocked(TRUE);
+	/* Renderer changes can tear down a GUI while its popup owns capture. */
+	ImGui_ImplSDL2_SetMouseCaptureMode(ImGui_ImplSDL2_MouseCaptureMode_Disabled);
+	SDL_CaptureMouse(SDL_FALSE);
 	if (g_gui.text_input_active) {
 		SDL_StopTextInput();
 		g_gui.text_input_active = false;

@@ -1750,6 +1750,21 @@ separate parity correction or move it to Open Defects.
 
 ## Open Defects
 
+### Windows native-to-SDL switch stalls the frontend
+
+- **Status:** M99z8 candidate; affected-machine verification pending.
+- **Symptom:** audio continues but menus stop responding after librashader
+  then SDL selection. Only exiting/relaunching VAEG restores operation.
+- **Scope/findings:** native DXGI and the new SDL renderer inherited the same
+  HWND; GUI teardown did not explicitly release SDL mouse capture. These
+  lifecycle findings do not yet identify the blocked Windows call.
+- **Candidate correction:** recreate the host window on return to SDL,
+  release GUI mouse capture and ignore retired-window focus/size events.
+  Preserve guest state and framebuffer; do not reset CPU or host pacing.
+- **Evidence:** [M99z8 report](../agents/reports/m99z8_windows_renderer_switch.md)
+  records the ten-cycle SDL window/render/readback test and platform limits.
+- **Commit:** recorded in the linked report after committing the candidate.
+
 ### Windows librashader unavailable and black fallback after M99z6
 
 - **Status:** open for maintainer-machine confirmation; M99z7 candidate prepared.
