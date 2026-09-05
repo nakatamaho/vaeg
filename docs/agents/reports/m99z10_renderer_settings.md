@@ -596,3 +596,13 @@ Pre-existing hosted failure inspected before push:
 macOS FetchContent `vaeg_upd9002_trace_equivalence`, checkpoint counts 17 vs 18
 at `tests/upd9002/run_trace_equivalence.cmake:74`. M99z26 changes no CPU/trace
 code; this unrelated failure is not repaired or represented as passed here.
+
+Implementation: [058e238c](https://github.com/nakatamaho/vaeg/commit/058e238cb113ed8da9ae57895e09eba13944ad65).
+MinGW was configured/rebuilt with this committed identity. Full local handoff:
+`build/mingw-cross/vaeg-m99z26-windows-x86_64.zip` and the same-named directory.
+EXE SHA-256: `c0925bcfb088a7f71f50e6d8c85a9ff9fc55b8ef6c5de970e5185e473b8dab21`;
+`cmp` against the build artifact passed. The asset stager and package validator
+pass with the new closed dependency hashes. No generated binaries or private
+inputs are committed. The test container is retained, stopped, for reuse;
+base image digest is
+`debian@sha256:88200866dfff7ea7f5cbcb6ec7c8a701889efe6fe859fe64d6990e4b07ea4171`.

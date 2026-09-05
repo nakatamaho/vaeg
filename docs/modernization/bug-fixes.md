@@ -50,7 +50,7 @@ land.
   raster comparisons, actual runtime metadata, shader compilation, macOS
   ON/OFF and MinGW builds. No physical Windows GPU success claimed.
 - **Task/evidence:** [M99z26 report](../agents/reports/m99z10_renderer_settings.md#m99z26--scanline-brightness-antialiasing).
-  Fix commit is recorded with the final handoff in that report.
+  Fix: [058e238c](https://github.com/nakatamaho/vaeg/commit/058e238cb113ed8da9ae57895e09eba13944ad65).
 
 ### M99z24 — Pre-CRT size adjustment blurred source dots
 
