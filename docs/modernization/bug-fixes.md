@@ -87,6 +87,7 @@ separate parity correction or move it to Open Defects.
   both analysis sections unconditionally. It now follows the independent
   Video/Framebuffer visibility flags. The linked report records four-state
   surface tests, including byte-identical output when both flags are off.
+  Fix: [e25b14c9](https://github.com/nakatamaho/vaeg/commit/e25b14c907d18e8bbdb73c1f364a3edc40a28bf5).
 
 ### Information overlays omitted by native CRT presentation
 

@@ -108,3 +108,9 @@ verification remains deferred; this follow-up changes no native GPU code.
 
 Results: MinGW and macOS feature-on/off builds PASS. Both focused suites
 10/10 PASS (6.06 s / 5.90 s); encoding/EOL/case checks zero, diff check clean.
+
+Implementation: [e25b14c9](https://github.com/nakatamaho/vaeg/commit/e25b14c907d18e8bbdb73c1f364a3edc40a28bf5).
+Rebuilt MinGW after committing; staged EXE matches via `cmp`.
+Updated handoff: `build/mingw-cross/vaeg-m99z12-windows-x86_64.zip`.
+ZIP package validator PASS; DLL/assets/notices included.
+ZIP SHA-256: `7f2c77bb83c675d2a9ce0c39bd0b8b5f53b729d567c900e5eb2a830d9e677cc8`.
