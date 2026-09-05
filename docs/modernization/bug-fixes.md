@@ -1767,7 +1767,7 @@ separate parity correction or move it to Open Defects.
 - **Verification:** see [M99z7 report](../agents/reports/m99z7_windows_crt_fallback.md)
   for local tests and the real-rasterizer WARP regression test. WARP is not
   physical GPU or CRT filter-chain acceptance. No guest/core changes.
-- **Commit:** recorded in the report after committing the candidate.
+- **Commit:** [ee58bda0](https://github.com/nakatamaho/vaeg/commit/ee58bda0f3652cc9936f791806d6f2f65e94b2a1).
 
 ### Legacy Z80 reset leaves saved undocumented flag bits uninitialized
 

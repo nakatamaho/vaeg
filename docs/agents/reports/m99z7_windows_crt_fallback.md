@@ -92,6 +92,26 @@ compilation is not a PASS claim for the readback assertions. Hosted results
 must be recorded separately. WARP is software rasterization, not GPU performance
 or librashader filter-chain acceptance.
 
+## Candidate package
+
+Rendering/diagnostic implementation:
+[ee58bda0](https://github.com/nakatamaho/vaeg/commit/ee58bda0f3652cc9936f791806d6f2f65e94b2a1).
+Local ZIP: `build/mingw-cross/vaeg-m99z7-windows-x86_64.zip`.
+The executable was rebuilt after configuring the committed identity. The DLL,
+shader assets, updated guide, CRT launcher, licenses and a standalone WARP
+diagnostic executable are included. No private input is packaged.
+
+SHA-256:
+
+- ZIP: `2213c3d4daf2c5c89038490b0b2d5433f89ddc59b2f84cc3e0b32ae9c0b96bd2`
+- EXE: `709c7282a56f7d0ebcb003a223c74f396271a033de41b260fa6b8b48aabbae6f`
+- WARP diagnostic: `e70ca766aab5b9587405ff0141459c5d2f74a2a0ee0137c3b6c15dc1062717bb`
+
+`check-librashader-package.py --input <directory-or-zip> --platform windows`
+passed on directory and ZIP. Packaged EXE matched the build with `cmp`; all
+five pre-existing guest-driver `SHA256SUMS` entries passed. This is payload
+validation, not proof of DLL dependencies being installed on the target.
+
 ## Dependency and evidence boundaries
 
 librashader remains v0.12.0 / commit
