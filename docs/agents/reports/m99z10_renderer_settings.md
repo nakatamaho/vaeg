@@ -459,3 +459,13 @@ Preset: `a705decc9008b81a033e4864d3be7c16a2f06d8ec241e741a6cf56cf246a1fc9`.
 Audited upstream CRT shader and runtime DLL remain unchanged. Package validators
 pin the new owned assets and revised provenance. Windows GPU/manual acceptance
 remains deferred to the maintainer's updated EXE + assets test.
+
+Implementation: [6bcda1e0](https://github.com/nakatamaho/vaeg/commit/6bcda1e02de3aae94b1605a01cd1c93e69f1b70d).
+MinGW rebuilt with that committed identity; full local handoff directory:
+`build/mingw-cross/vaeg-m99z24-windows-x86_64` (also ZIP of the same basename).
+EXE SHA-256: `139f19693448c43b554cc3d1787abd15dfb495775675e61bb163cf9e53aa3299`.
+Verified executable against build artifact with `cmp`. The package is based
+on the existing freely distributable M99z21 bundle, restaged with
+`tools/release/stage-librashader-assets.sh` and checked with
+`tools/release/check-librashader-package.py --input <directory> --platform windows`.
+No private media or binaries are committed.

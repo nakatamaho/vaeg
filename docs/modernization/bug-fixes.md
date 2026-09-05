@@ -48,7 +48,7 @@ land.
   runtime metadata + fake-presenter retry integration, shader compilation,
   macOS ON/OFF and MinGW builds. Physical Windows visual confirmation pending.
 - **Task/evidence:** [M99z24 report](../agents/reports/m99z10_renderer_settings.md#m99z24--pixel-preserving-padding-before-crt).
-  Implementation commit is recorded with the handoff below that report.
+  Fix: [6bcda1e0](https://github.com/nakatamaho/vaeg/commit/6bcda1e02de3aae94b1605a01cd1c93e69f1b70d).
 
 ### M99z22 — CRT settings bypassed main configuration controls
 
