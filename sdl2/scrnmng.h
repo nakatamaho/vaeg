@@ -93,6 +93,7 @@ BOOL scrnmng_texture_uniform(BOOL *uniform);
 BOOL scrnmng_native_active(void);
 BOOL scrnmng_take_native_fallback(void);
 BOOL scrnmng_window_rebind_selftest(void);
+void scrnmng_draw_native_overlays(void);
 BOOL scrnmng_native_gui_prepare(void);
 BOOL scrnmng_fallback_to_sdl(void);
 void scrnmng_native_gui_shutdown(void);

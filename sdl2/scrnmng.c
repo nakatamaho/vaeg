@@ -676,7 +676,8 @@ static void scrnmng_draw_text_glyphs(int x, int y, int scale, const char *text, 
 	if ((text == NULL) || (scale <= 0)) {
 		return;
 	}
-	SDL_SetRenderDrawColor(scrnmng.renderer, color.r, color.g, color.b, color.a);
+	if (!scrnmng.native_active)
+		SDL_SetRenderDrawColor(scrnmng.renderer, color.r, color.g, color.b, color.a);
 	while (*text != '\0') {
 		character = (unsigned char)*text++;
 		glyph = fontdata_8 + (character * 8);
@@ -684,7 +685,10 @@ static void scrnmng_draw_text_glyphs(int x, int y, int scale, const char *text, 
 			for (bit = 0; bit < 8; bit++) {
 				if ((glyph[row] & (0x80 >> bit)) != 0) {
 					SDL_Rect pixel = {x + bit * scale, y + row * scale, scale, scale};
-					SDL_RenderFillRect(scrnmng.renderer, &pixel);
+					if (scrnmng.native_active)
+						gui_overlay_rect(pixel.x, pixel.y, pixel.w, pixel.h, color.r, color.g, color.b, color.a);
+					else
+						SDL_RenderFillRect(scrnmng.renderer, &pixel);
 				}
 			}
 		}
@@ -838,7 +842,7 @@ static void scrnmng_draw_video_info_overlay(const VAEG_VIEWPORT *viewport) {
 	    ((np2oscfg.DISPCLK & VAEG_DISPINFO_VIDEO) == 0)) {
 		return;
 	}
-	if ((SDL_GetRendererOutputSize(scrnmng.renderer, &output_width, &output_height) != 0) ||
+	if ((scrnmng_get_drawable_size(&output_width, &output_height) != SUCCESS) ||
 	    (output_width <= 0) || (output_height <= 0)) {
 		return;
 	}
@@ -868,9 +872,13 @@ static void scrnmng_draw_video_info_overlay(const VAEG_VIEWPORT *viewport) {
 	background.y = scrnmng_menu_offset() + 2;
 	background.w = width;
 	background.h = height;
-	SDL_SetRenderDrawBlendMode(scrnmng.renderer, SDL_BLENDMODE_BLEND);
-	SDL_SetRenderDrawColor(scrnmng.renderer, 0, 0, 0, 190);
-	SDL_RenderFillRect(scrnmng.renderer, &background);
+	if (scrnmng.native_active) {
+		gui_overlay_rect(background.x, background.y, background.w, background.h, 0, 0, 0, 190);
+	} else {
+		SDL_SetRenderDrawBlendMode(scrnmng.renderer, SDL_BLENDMODE_BLEND);
+		SDL_SetRenderDrawColor(scrnmng.renderer, 0, 0, 0, 190);
+		SDL_RenderFillRect(scrnmng.renderer, &background);
+	}
 	text_color.r = 255;
 	text_color.g = 255;
 	text_color.b = 192;
@@ -880,7 +888,8 @@ static void scrnmng_draw_video_info_overlay(const VAEG_VIEWPORT *viewport) {
 		                         background.y + 4 * scale + i * line_height, scale, lines[i],
 		                         text_color);
 	}
-	SDL_SetRenderDrawBlendMode(scrnmng.renderer, SDL_BLENDMODE_NONE);
+	if (!scrnmng.native_active)
+		SDL_SetRenderDrawBlendMode(scrnmng.renderer, SDL_BLENDMODE_NONE);
 }
 
 static void scrnmng_draw_framebuffer_info_overlay(const VAEG_VIEWPORT *viewport) {
@@ -903,7 +912,7 @@ static void scrnmng_draw_framebuffer_info_overlay(const VAEG_VIEWPORT *viewport)
 	    ((np2oscfg.DISPCLK & VAEG_DISPINFO_FRAMEBUFFER) == 0)) {
 		return;
 	}
-	if ((SDL_GetRendererOutputSize(scrnmng.renderer, &output_width, &output_height) != 0) ||
+	if ((scrnmng_get_drawable_size(&output_width, &output_height) != SUCCESS) ||
 	    (output_width <= 0) || (output_height <= 0)) {
 		return;
 	}
@@ -943,9 +952,13 @@ static void scrnmng_draw_framebuffer_info_overlay(const VAEG_VIEWPORT *viewport)
 	background.y = y_offset;
 	background.w = width;
 	background.h = height;
-	SDL_SetRenderDrawBlendMode(scrnmng.renderer, SDL_BLENDMODE_BLEND);
-	SDL_SetRenderDrawColor(scrnmng.renderer, 0, 0, 0, 190);
-	SDL_RenderFillRect(scrnmng.renderer, &background);
+	if (scrnmng.native_active) {
+		gui_overlay_rect(background.x, background.y, background.w, background.h, 0, 0, 0, 190);
+	} else {
+		SDL_SetRenderDrawBlendMode(scrnmng.renderer, SDL_BLENDMODE_BLEND);
+		SDL_SetRenderDrawColor(scrnmng.renderer, 0, 0, 0, 190);
+		SDL_RenderFillRect(scrnmng.renderer, &background);
+	}
 	text_color.r = 255;
 	text_color.g = 255;
 	text_color.b = 192;
@@ -955,7 +968,16 @@ static void scrnmng_draw_framebuffer_info_overlay(const VAEG_VIEWPORT *viewport)
 		                         background.y + 4 * scale + i * line_height, scale, lines[i],
 		                         text_color);
 	}
-	SDL_SetRenderDrawBlendMode(scrnmng.renderer, SDL_BLENDMODE_NONE);
+	if (!scrnmng.native_active)
+		SDL_SetRenderDrawBlendMode(scrnmng.renderer, SDL_BLENDMODE_NONE);
+}
+
+void scrnmng_draw_native_overlays(void) {
+	VAEG_VIEWPORT viewport;
+	if (scrnmng.native_active && scrnmng_calculate_viewport(&viewport) == SUCCESS) {
+		scrnmng_draw_video_info_overlay(&viewport);
+		scrnmng_draw_framebuffer_info_overlay(&viewport);
+	}
 }
 
 static void scrnmng_log_renderer(void) {

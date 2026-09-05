@@ -70,6 +70,21 @@ separate parity correction or move it to Open Defects.
 
 ## Fixed Defects
 
+### Information overlays omitted by native CRT presentation
+
+- **Status:** corrected in M99z9; Windows visual retest pending.
+- **Symptom/scope:** Video info and Framebuffer info appeared in SDL but
+  disappeared with native CRT, as reported by the maintainer after M99z8.
+- **Demonstrated cause:** both overlay calls were below the native early
+  return in `scrnmng_present_end()` and used SDL-renderer-only primitives.
+- **Correction:** reuse the overlay data, layout and glyphs through the
+  native ImGui background draw list, after guest filtering and behind menus.
+  Convert drawable coordinates to logical GUI coordinates for high DPI.
+- **Verification:** [M99z9 report](../agents/reports/m99z9_crt_info_overlays.md),
+  including actual ImGui geometry/color checks at 1x and 2x scale and existing
+  raw-capture boundary tests. No guest/core changes.
+- **Commit:** recorded in the report after committing the fix.
+
 ### Windows native CRT excluded the GUI and hid activation state
 
 - **Status:** corrected in M99z6; physical CRT retest pending.

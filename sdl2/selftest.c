@@ -65,6 +65,7 @@
 #include "scsiio.h"
 #include "scsicmd.h"
 #include "scrnmng.h"
+#include "gui/gui.h"
 #include "scrndraw.h"
 #include "scrndrawva.h"
 #include "sdrawva.h"
@@ -1774,6 +1775,7 @@ static int expect_viewport(int drawable_width, int drawable_height, int menu_ins
 }
 
 static int test_viewport(void) {
+	if (gui_overlay_selftest() != SUCCESS) return FAILURE;
 	if (scrnmng_window_rebind_selftest() != SUCCESS) return FAILURE;
 	VAEG_VIEWPORT_INPUT input;
 	VAEG_VIEWPORT viewport;

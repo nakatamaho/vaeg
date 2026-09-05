@@ -51,10 +51,13 @@ DLL presence alone does not enable CRT. The Windows package includes
 `start-native-crt.cmd` to request CRT for that run even if `vaeg.cfg` has it
 disabled. The launcher starts in the package directory and writes diagnostics
 to `native-crt.log`. It sets the session-only `VAEG_NATIVE_CRT=1` environment
-override; `VAEG_NATIVE_CRT=0` requests SDL at startup instead. The title and CRT
-menu show `Native CRT ON`, pass-through, or the fallback status. A missing
+override; `VAEG_NATIVE_CRT=0` requests SDL at startup instead. The window title
+shows `Native CRT ON`, pass-through, or the fallback status. A missing
 runtime/preset or failed shader preserves the Windows native pass-through
 image; failure of the native device returns to SDL.
+
+On Windows, Video info and Framebuffer info overlays also work in CRT mode.
+They are drawn after filtering, behind GUI menus, without changing raw captures.
 
 ### Windows DLL prerequisites
 

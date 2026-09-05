@@ -2559,7 +2559,6 @@ static void draw_native_crt_menu(void) {
 	if (!ImGui::BeginMenu("CRT shader")) {
 		return;
 	}
-	ImGui::TextWrapped("%s", scrnmng_native_status());
 	bool enabled = scrnmng_native_active() != FALSE;
 	if (ImGui::MenuItem("SDL", nullptr, !enabled)) {
 		scrnmng_request_native_crt(FALSE, TRUE);
@@ -3914,8 +3913,54 @@ void gui_render(void) {
 	if (!g_gui.initialized) {
 		return;
 	}
+	if (g_gui.native_renderer) scrnmng_draw_native_overlays();
 	ImGui::Render();
 	update_text_input_state();
 	if (!g_gui.native_renderer)
 		ImGui_ImplSDLRenderer2_RenderDrawData(ImGui::GetDrawData(), g_gui.renderer);
+}
+
+static void draw_overlay_rect(ImDrawList *list, ImVec2 scale, ImVec2 origin,
+                              int x, int y, int width, int height, ImU32 color) {
+	if (scale.x <= 0 || scale.y <= 0) return;
+	list->AddRectFilled(
+	    ImVec2(origin.x + x / scale.x, origin.y + y / scale.y),
+	    ImVec2(origin.x + (x + width) / scale.x, origin.y + (y + height) / scale.y),
+	    color);
+}
+
+void gui_overlay_rect(int x, int y, int width, int height,
+                      unsigned char r, unsigned char g, unsigned char b, unsigned char a) {
+	if (!g_gui.initialized || !g_gui.native_renderer) return;
+	draw_overlay_rect(ImGui::GetBackgroundDrawList(), ImGui::GetIO().DisplayFramebufferScale,
+	                  ImGui::GetMainViewport()->Pos, x, y, width, height, IM_COL32(r, g, b, a));
+}
+
+BOOL gui_overlay_selftest(void) {
+	ImGuiContext *saved = ImGui::GetCurrentContext();
+	ImGuiContext *context = ImGui::CreateContext();
+	ImGui::SetCurrentContext(context);
+	ImGuiIO &io = ImGui::GetIO();
+	io.IniFilename = nullptr;
+	io.DisplaySize = ImVec2(640, 400);
+	io.Fonts->Build();
+	ImGui::NewFrame();
+	ImDrawList *list = ImGui::GetBackgroundDrawList();
+	const ImU32 color = IM_COL32(255, 255, 192, 255);
+	BOOL result = SUCCESS;
+	for (int scale = 1; scale <= 2; ++scale) {
+		const int first = list->VtxBuffer.Size;
+		draw_overlay_rect(list, ImVec2(scale, scale), ImVec2(3, 5), 20, 40, 8, 8, color);
+		if (list->VtxBuffer.Size != first + 4 ||
+		    list->VtxBuffer[first].pos.x != 3 + 20.0f / scale ||
+		    list->VtxBuffer[first].pos.y != 5 + 40.0f / scale ||
+		    list->VtxBuffer[first + 2].pos.x != 3 + 28.0f / scale ||
+		    list->VtxBuffer[first + 2].pos.y != 5 + 48.0f / scale ||
+		    list->VtxBuffer[first].col != color) result = FAILURE;
+	}
+	ImGui::EndFrame();
+	ImGui::DestroyContext(context);
+	ImGui::SetCurrentContext(saved);
+	if (result != SUCCESS) std::fprintf(stderr, "selftest: OVERLAY_GEOMETRY_MISMATCH\n");
+	return result;
 }
