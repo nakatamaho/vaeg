@@ -191,3 +191,60 @@ the geometry and controller tests are not physical GPU evidence.
 Implementation: [74e32878](https://github.com/nakatamaho/vaeg/commit/74e32878f70cb8809ab6306dd676927ad6225a8a).
 MinGW rebuilt with committed identity; EXE-only handoff at
 `build/mingw-cross/vaeg-m99z17-windows-x86_64/vaeg.exe` matches the build via `cmp`.
+
+## M99z18 — CRT screen size, 80–120 percent
+
+Starting commit: `908b0a7076992767b84773f197d59f830517d6e9` on
+`topic/m99-native-crt-rebuild`. Scope: bundled default preset only.
+The new independently authored BSD-2-Clause shader adds `VAEG_SCREEN_SIZE`
+(80–120, default 100, step 1) through the existing runtime parameter UI and
+persistence. Older parameter files leave the new value at its default.
+No frontend, emulator, vendor shader, or capture implementation is changed.
+
+Data flow: unchanged guest texture -> centered size pass at source resolution
+-> unchanged audited Lottes CRT pass -> existing overlays/display capture.
+At 80%, the pre-CRT image occupies the central 80% of each dimension, leaving
+10% black on each edge. At 120%, it is enlarged and clipped. Curvature may
+reshape this border. Normal displayed screenshots include the result;
+unprocessed screenshots and canonical QA captures do not acquire this effect.
+Custom presets remain untouched. The additional pass requires updating assets,
+not just the EXE. Package staging and validation pin the new shader and preset.
+The complete new BSD notice is embedded in the shader; upstream provenance and
+the original permissive CRT shader bytes remain intact.
+
+Local commands and results:
+
+```sh
+CCACHE_DISABLE=1 cmake --build --preset mingw-cross -j4
+CCACHE_DISABLE=1 cmake --build build/macos-ci -j4
+CCACHE_DISABLE=1 cmake --build build/macos-macports -j4
+ctest --test-dir build/macos-ci --output-on-failure -R '^(vaeg_librashader_|vaeg_romless_tests$|vaeg_sdl_startup_viewport$)'
+ctest --test-dir build/macos-macports --output-on-failure -R '^(vaeg_librashader_|vaeg_romless_tests$|vaeg_sdl_startup_viewport$)'
+python3 tests/frontend/librashader/test_screen_size.py
+python3 tools/repo/check_encoding.py --expect utf8
+python3 tools/repo/check_eol.py --enforce
+python3 tools/repo/check_case.py
+git diff --check
+```
+
+Builds PASS. macOS feature-on focused suite: 11/11 PASS (6.39 s).
+macOS feature-off focused suite: 11/11 PASS (6.05 s).
+Coordinate/preset tests: 3 PASS, including exact rational pixel-center checks
+at 640, 400, 1920 and 1080 pixels for 80/100/120%. These are explicitly static
+and reference-math evidence, not GPU readback. Repository checks: zero findings.
+Existing macOS duplicate-library/alignment and `maketextva.c` warnings, SDL
+CMake deprecation and MinGW libarchive cross-check warnings remain unrelated.
+
+Both shader stages additionally compiled successfully to SPIR-V using Debian
+glslang-tools 12.0.0-2 in an ephemeral Colima container:
+
+```sh
+docker run --rm --mount type=bind,source="$PWD",target=/src,readonly debian:bookworm-slim sh -c 'apt-get update -qq && apt-get install -y -qq python3 glslang-tools && python3 /src/tests/frontend/librashader/test_screen_size.py --glslang /usr/bin/glslangValidator'
+```
+
+Container image digest:
+`sha256:88200866dfff7ea7f5cbcb6ec7c8a701889efe6fe859fe64d6990e4b07ea4171`.
+This does not prove librashader reflection, D3D11 compilation, or physical GPU
+appearance. Windows visual/screenshot checks at 80/100/120%, parameter reload,
+and GPU performance remain deferred. The added source-sized intermediate pass
+has not been GPU-benchmarked; no performance gate is claimed.

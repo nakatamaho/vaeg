@@ -51,6 +51,15 @@ shared. Switching renderers retains the SDL effect and saved shader settings.
 The selection marks actual renderer ownership. Normal menu status text is
 hidden; failures and native pass-through remain visible. The CRT settings
 window also reports the current filter status.
+The bundled default preset provides `VAEG_SCREEN_SIZE` (Screen size (%)) in
+`CRT設定…`: 80–120%, initially 100%. At 80%, the image is centered with black
+borders; above 100%, the image is enlarged and cropped. This display-only pass
+runs before the existing CRT shader, so curvature may reshape the borders.
+Normal displayed screenshots include this result and enabled information
+overlays. Unprocessed screenshots and canonical raw QA captures are unaffected
+by this control. Custom presets are unchanged. Update the package's `assets/`
+directory as well as the executable; the control is defined in the new shader.
+
 Preset reload and parameter sliders
 also apply to the active filter. On macOS/Linux, enablement still requires a
 restart and native GUI integration remains pending.
@@ -178,7 +187,8 @@ starting. To use another preset, set `NativeCRTPreset` in the configuration or
 enter its path in `CRT設定…`, then reload the preset. The Windows renderer applies
 the reload between frames; macOS/Linux still require a restart.
 
-The default preset is a single audited Unlicense/public-domain shader. Other
+The default preset combines a VAeg-owned BSD-2-Clause size pass with the
+audited Unlicense/public-domain CRT shader. Other
 shader files remain user-provided and are outside the VAEG release payload.
 See the [troubleshooting guide](native-crt-troubleshooting.md) when the native
 path falls back.

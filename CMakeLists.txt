@@ -1639,6 +1639,11 @@ if(VAEG_ENABLE_TESTS)
         COMMAND vaeg_librashader_pass_through_test)
     set_tests_properties(vaeg_librashader_pass_through PROPERTIES
         LABELS "romless;frontend;librashader" TIMEOUT 30)
+    add_test(NAME vaeg_librashader_screen_size
+        COMMAND "${Python3_EXECUTABLE}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/tests/frontend/librashader/test_screen_size.py")
+    set_tests_properties(vaeg_librashader_screen_size PROPERTIES
+        LABELS "romless;frontend;librashader" TIMEOUT 30)
     add_test(NAME vaeg_librashader_shader_parameters
         COMMAND vaeg_librashader_shader_parameters_test)
     set_tests_properties(vaeg_librashader_shader_parameters PROPERTIES

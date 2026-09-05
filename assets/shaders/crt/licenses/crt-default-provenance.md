@@ -22,9 +22,15 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 -->
 # Default CRT shader provenance
 
-The bundled default is the single-pass `crt-lottes-fast.slangp` preset and
-its `crt-lottes-fast.slang` shader from the official `libretro/slang-shaders`
-repository.
+The bundled default is a two-pass preset: the independently authored VAeg
+BSD-2-Clause `vaeg-screen-size.slang` followed by the unchanged audited
+`crt-lottes-fast.slang` from the official `libretro/slang-shaders` repository.
+The new pass has no includes or external textures. Its complete BSD notice is
+embedded in the shader. It maps centered texture coordinates at 80-120 percent,
+with explicit black outside the image. No upstream shader code was copied into
+this pass. The preset is VAeg-authored configuration; the upstream identities
+below describe the original CRT pass and its original preset, not the new
+two-pass configuration.
 
 - Repository: https://github.com/libretro/slang-shaders
 - Audited commit: `4812a82f6c9a11cc8b5a7447040a98c9fc80c00e`
