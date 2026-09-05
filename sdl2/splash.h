@@ -30,6 +30,7 @@ extern "C" {
 #endif
 
 BOOL splash_show(void);
+BOOL splash_selftest(void);
 
 #ifdef __cplusplus
 }

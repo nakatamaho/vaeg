@@ -154,3 +154,19 @@ MinGW rebuilt with committed identity; staged EXE matches via `cmp`.
 Package: `build/mingw-cross/vaeg-m99z15-windows-x86_64.zip` (DLL/assets/notices
 included); package validator PASS.
 ZIP SHA-256: `5ea7f01ea36a1f6ae6c0e3a43c21edb4f788f6e2ac8656661ee91da77b549251`.
+
+## M99z16 — Fit startup splash to drawable size
+
+Starting commit: `5bcd66b9b91ca64d7e87341be556bcc29bb87c75`.
+The SDL startup splash now fits the actual renderer output dimensions instead
+of using the configured integer guest scale. Aspect ratio is preserved,
+remaining margins are centered, and small outputs can downscale safely.
+The embedded bitmap and nearest-neighbor sampling remain unchanged. This
+does not add a splash to native-only startup paths that lack an SDL renderer.
+
+Verification: `CCACHE_DISABLE=1 cmake --build --preset mingw-cross -j4` and
+`CCACHE_DISABLE=1 cmake --build build/macos-ci -j4` PASS.
+`ctest --test-dir build/macos-ci --output-on-failure -R '^(vaeg_romless_tests$|vaeg_sdl_startup_viewport$)'`
+passes 2/2 (5.08 s), including new fit geometry checks for 640x422, 1280x844,
+1920x1080, downscaling and zero output rejection. Encoding/EOL/case checks
+zero; diff check clean. Physical Windows splash appearance remains untested.

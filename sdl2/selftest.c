@@ -65,6 +65,7 @@
 #include "scsiio.h"
 #include "scsicmd.h"
 #include "scrnmng.h"
+#include "splash.h"
 #include "gui/gui.h"
 #include "scrndraw.h"
 #include "scrndrawva.h"
@@ -1775,6 +1776,7 @@ static int expect_viewport(int drawable_width, int drawable_height, int menu_ins
 }
 
 static int test_viewport(void) {
+	if (splash_selftest() != SUCCESS) return fail("splash", "fit geometry failed");
 	if (scrnmng_display_capture_selftest() != SUCCESS) return FAILURE;
 	if (gui_overlay_selftest() != SUCCESS) return FAILURE;
 	if (scrnmng_window_rebind_selftest() != SUCCESS) return FAILURE;
