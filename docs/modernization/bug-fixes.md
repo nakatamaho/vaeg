@@ -83,7 +83,7 @@ separate parity correction or move it to Open Defects.
 - **Verification:** [M99z9 report](../agents/reports/m99z9_crt_info_overlays.md),
   including actual ImGui geometry/color checks at 1x and 2x scale and existing
   raw-capture boundary tests. No guest/core changes.
-- **Commit:** recorded in the report after committing the fix.
+- **Commit:** [d8979d1d](https://github.com/nakatamaho/vaeg/commit/d8979d1d9f3ebcca6d035eeb0d5090d0379c66ed).
 
 ### Windows native CRT excluded the GUI and hid activation state
 

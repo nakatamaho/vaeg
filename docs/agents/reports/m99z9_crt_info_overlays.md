@@ -69,3 +69,20 @@ Results: MinGW and macOS feature-on/off builds PASS; both focused suites
 
 Physical Windows overlay visibility and GPU performance remain untested locally.
 Metal/OpenGL native GUI remains outside this Windows follow-up's scope.
+
+## Handoff
+
+Implementation: [d8979d1d](https://github.com/nakatamaho/vaeg/commit/d8979d1d9f3ebcca6d035eeb0d5090d0379c66ed).
+Reconfigured and rebuilt MinGW after committing to embed that build identity.
+Local package: `build/mingw-cross/vaeg-m99z9-windows-x86_64.zip`.
+Includes the runtime DLL, assets, licenses and native-start launcher.
+
+- EXE SHA-256: `cddb414dd85174054f1f7a91c7c03f1947f0b85393d6a23b2cd29ed0bbbbe5a9`.
+- ZIP SHA-256: `23fb0802d58266cbea1604086f872362f0280127e52082d33a03d9ef0ae2a520`.
+- Staged executable matches the build artifact using `cmp`.
+- Directory and ZIP both pass `tools/release/check-librashader-package.py`
+  with `--platform windows`.
+
+The runtime is unchanged: librashader 0.12.0, pinned revision
+`87e8a97b50516d997defeaa168173dcd185d4022`, API 5 / ABI 2.
+DLL SHA-256: `1890f647c7fbe52d4cc591526db24367caca284996855c4565c6003c7e46f8cc`.
