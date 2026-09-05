@@ -92,3 +92,9 @@ the macOS feature-on focused ctest command passes 10/10 (6.07 s). Encoding,
 EOL and case checks report zero; diff check clean. Formatting was limited to
 the changed renderer-selection block. Windows manual menu verification is
 deferred; no new physical GPU evidence is claimed.
+
+Implementation: [e595f00e](https://github.com/nakatamaho/vaeg/commit/e595f00e7f2db7a12d34bb69f13bd0e886f1d7c3).
+MinGW rebuilt with committed identity; staged EXE matches via `cmp`.
+Package: `build/mingw-cross/vaeg-m99z13-windows-x86_64.zip` (DLL/assets/notices
+included); package validator PASS.
+ZIP SHA-256: `027f74e5e0cb75932530967c511f3516433c9d979ca04af13b4db894658daccd`.
