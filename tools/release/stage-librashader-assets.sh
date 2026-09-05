@@ -119,10 +119,10 @@ install -d "$output/assets/shaders/crt/shaders" \
 	"$output/assets/shaders/crt/licenses" "$output/licenses"
 copy_checked "$crt_root/vaeg_crt_default.slangp" \
 	"$output/assets/shaders/crt/vaeg_crt_default.slangp" \
-	2043c1fbd17993d9398515160867bfc2567acd54a35c9ebbab9215648002ffd4
+	5f32199109d6dd0fb9d9b3b7aaee69f67bc1cc8a0d8d06ff6db16b62e46e9f71
 copy_checked "$crt_root/shaders/vaeg-screen-size.slang" \
 	"$output/assets/shaders/crt/shaders/vaeg-screen-size.slang" \
-	50cef048d8455fd40f5482b2b10243bd3cfadf795aef994d78120031f7218c0c
+	53f1371a7b46c079fd9f181739417437a02fa68a0fdd911463e976e86b5eed05
 copy_checked "$crt_root/shaders/crt-lottes-fast.slang" \
 	"$output/assets/shaders/crt/shaders/crt-lottes-fast.slang" \
 	576eddc662ac4f77909c0c14dbd5a16ac4164e50c67527fff634316f4441c482

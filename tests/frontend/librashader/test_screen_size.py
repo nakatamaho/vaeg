@@ -49,9 +49,10 @@ class ScreenSizeTests(unittest.TestCase):
         self.assertEqual(preset["scale_type0"], "source")
         self.assertEqual(preset["scale0"], "1.0")
         self.assertEqual(preset["scale_type1"], "viewport")
+        self.assertEqual(preset["CURVATURE"], '"0.030"')
 
     def test_shader_contract(self):
-        self.assertIn('"Screen size (%)" 100.0 80.0 120.0 1.0', SOURCE)
+        self.assertIn('SCREEN_SIZE "Screen size (%)" 96.50 80.0 120.0 0.01', SOURCE)
         self.assertIn("(vTexCoord - vec2(0.5)) / scale + vec2(0.5)", SOURCE)
         self.assertIn("lessThan(uv, vec2(0.0))", SOURCE)
         self.assertIn("greaterThanEqual(uv, vec2(1.0))", SOURCE)
@@ -103,6 +104,7 @@ def check_runtime(path, preset_file=CRT / "vaeg_crt_default.slangp"):
     signatures = {
         "libra_preset_create": ([ct.c_char_p, ct.POINTER(pointer)], pointer),
         "libra_preset_get_runtime_params": ([ct.POINTER(pointer), ct.POINTER(Parameters)], pointer),
+        "libra_preset_get_param": ([ct.POINTER(pointer), ct.c_char_p, ct.POINTER(ct.c_float)], pointer),
         "libra_preset_free_runtime_params": ([Parameters], pointer),
         "libra_preset_free": ([ct.POINTER(pointer)], pointer),
         "libra_error_write": ([pointer, ct.POINTER(ct.c_char_p)], ct.c_int32),
@@ -133,8 +135,16 @@ def check_runtime(path, preset_file=CRT / "vaeg_crt_default.slangp"):
                       (params.parameters[i].initial, params.parameters[i].minimum,
                        params.parameters[i].maximum, params.parameters[i].step)
                       for i in range(params.length)}
-            if values.get("VAEG_SCREEN_SIZE") != (100.0, 80.0, 120.0, 1.0):
+            if values.get("SCREEN_SIZE") != (96.5, 80.0, 120.0, ct.c_float(0.01).value):
                 raise RuntimeError("M99_SCREEN_SIZE_METADATA_MISMATCH")
+            if values["CURVATURE"][0] != ct.c_float(0.030).value:
+                raise RuntimeError("M99_CURVATURE_DEFAULT_MISMATCH")
+            for name, metadata in values.items():
+                initial = ct.c_float(metadata[0])
+                checked(runtime.libra_preset_get_param(ct.byref(preset), name.encode(), ct.byref(initial)))
+                expected = ct.c_float(0.030).value if name == "CURVATURE" else metadata[0]
+                if initial.value != expected:
+                    raise RuntimeError("M99_PRESET_DEFAULT_MISMATCH")
             print("Runtime parameter enumeration PASS:", values)
         finally:
             checked(runtime.libra_preset_free_runtime_params(params))

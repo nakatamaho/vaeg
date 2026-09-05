@@ -320,3 +320,21 @@ the package validator; copied EXE matches the build artifact using `cmp`.
 EXE SHA-256: `15fdbc2e1c0a1578ad3eef8fcd8c789b658d06b331e56adbac161502e380c82a`.
 Replace the package assets as well as the EXE: the shader file fixes CRT,
 while the executable contains the FDD layout and improved error diagnostic.
+
+## M99z21 — Requested CRT defaults and parameter name
+
+Starting commit: `6e89523278bf67c23972047b742ff87b9bd4478f`.
+Rename the owned shader parameter to `SCREEN_SIZE`, default 96.50%, range
+80–120%, step 0.01%, displayed with two decimal places. Set `CURVATURE=0.030`
+in the VAeg-authored preset without modifying the audited upstream shader.
+The actual pinned runtime enumerates the preset override as the parameter's
+initial value, so the existing reset path uses 0.030 without special-case code.
+Saved settings retain precedence; use "Reset parameters" for the new defaults.
+The retired parameter name is ignored by the existing unknown-key policy.
+
+Validation uses the same M99z20 build, ctest and runtime commands above.
+MinGW and macOS feature-on builds PASS. The actual 0.12.0 runtime returns
+SCREEN_SIZE 96.5/80/120/0.01 and CURVATURE initial 0.030 (float32 precision).
+The runtime negative test for MissingVersionHeader also PASS. Package hashes
+are updated. No guest/capture changes or physical Windows GPU claims.
+Focused ctest: 11/11 PASS (7.95 s). Encoding/EOL/case: zero; diff check clean.

@@ -25,9 +25,9 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#pragma parameter VAEG_SCREEN_SIZE "Screen size (%)" 100.0 80.0 120.0 1.0
+#pragma parameter SCREEN_SIZE "Screen size (%)" 96.50 80.0 120.0 0.01
 layout(push_constant) uniform Push {
-    float VAEG_SCREEN_SIZE;
+    float SCREEN_SIZE;
 } params;
 layout(std140, set = 0, binding = 0) uniform UBO {
     mat4 MVP;
@@ -47,7 +47,7 @@ layout(location = 0) in vec2 vTexCoord;
 layout(location = 0) out vec4 FragColor;
 layout(set = 0, binding = 2) uniform sampler2D Source;
 void main() {
-    float scale = clamp(params.VAEG_SCREEN_SIZE, 80.0, 120.0) / 100.0;
+    float scale = clamp(params.SCREEN_SIZE, 80.0, 120.0) / 100.0;
     vec2 uv = (vTexCoord - vec2(0.5)) / scale + vec2(0.5);
     if (any(lessThan(uv, vec2(0.0))) || any(greaterThanEqual(uv, vec2(1.0))))
         FragColor = vec4(0.0, 0.0, 0.0, 1.0);

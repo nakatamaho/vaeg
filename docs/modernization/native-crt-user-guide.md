@@ -51,8 +51,10 @@ shared. Switching renderers retains the SDL effect and saved shader settings.
 The selection marks actual renderer ownership. Normal menu status text is
 hidden; failures and native pass-through remain visible. The CRT settings
 window also reports the current filter status.
-The bundled default preset provides `VAEG_SCREEN_SIZE` (Screen size (%)) in
-`CRT設定…`: 80–120%, initially 100%. At 80%, the image is centered with black
+The bundled default preset provides `SCREEN_SIZE` (Screen size (%)) in
+`CRT設定…`: 80–120%, initially 96.50%, with 0.01% steps. Its default `CURVATURE`
+is 0.030. Saved settings still take precedence; use Reset to apply these defaults.
+At 80%, the image is centered with black
 borders; above 100%, the image is enlarged and cropped. This display-only pass
 runs before the existing CRT shader, so curvature may reshape the borders.
 Normal displayed screenshots include this result and enabled information

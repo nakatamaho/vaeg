@@ -2677,8 +2677,9 @@ static void draw_native_crt_settings(void) {
 			}
 			float value = parameter->value;
 			ImGui::PushID(static_cast<int>(i));
+			const char *format = parameter->name == "SCREEN_SIZE" ? "%.2f" : "%.3f";
 			if (ImGui::SliderFloat(parameter->name.c_str(), &value, parameter->minimum,
-			                       parameter->maximum, "%.3f")) {
+			                       parameter->maximum, format)) {
 				(void)parameters.set_value_at(i, value, nullptr);
 				if (scrnmng_native_active() &&
 				    scrnmng_native_set_parameter(parameter->name.c_str(), parameter->value) !=
