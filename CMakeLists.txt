@@ -1484,6 +1484,18 @@ if(VAEG_ENABLE_TESTS)
         target_compile_options(vaeg_librashader_shader_parameters_test PRIVATE -Werror)
     endif()
 
+    if(WIN32)
+        add_executable(vaeg_librashader_d3d11_raster_test
+            tests/frontend/librashader/test_d3d11_raster.cpp)
+        target_include_directories(vaeg_librashader_d3d11_raster_test PRIVATE
+            "${CMAKE_CURRENT_SOURCE_DIR}/sdl2")
+        target_compile_features(vaeg_librashader_d3d11_raster_test PRIVATE cxx_std_17)
+        target_link_libraries(vaeg_librashader_d3d11_raster_test PRIVATE d3d11 d3dcompiler)
+        add_test(NAME vaeg_librashader_d3d11_raster COMMAND vaeg_librashader_d3d11_raster_test)
+        set_tests_properties(vaeg_librashader_d3d11_raster PROPERTIES
+            LABELS "romless;frontend;librashader" TIMEOUT 30)
+    endif()
+
     add_executable(vaeg_librashader_controller_test
         sdl2/librashader/native_presenter_controller.cpp
         sdl2/librashader/native_presenter.cpp

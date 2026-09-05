@@ -254,6 +254,13 @@ BLOCKED to PASS.
 
 ## Final status
 
+M99z7 follow-up: the maintainer still reports unavailable CRT and black native
+output. [The candidate report](m99z7_windows_crt_fallback.md) records no-cull
+pass-through rendering, explicit SDL/librashader selection, and dependency/error
+diagnostics. This does not close physical Windows acceptance. The M99z6 hosted
+[run](https://github.com/nakatamaho/vaeg/actions/runs/33935164203) passed, but its
+mock-based tests did not exercise D3D11 rasterization or target DLL loading.
+
 The implementation and all safe environment-independent M99 work are
 complete. Overall status is **BLOCKED**, not DONE, because required physical
 GPU lifecycle/performance evidence is unavailable. The SDL smoke startup and

@@ -117,6 +117,7 @@ const ShaderParameterInfo *NativePresenter::filter_parameter(std::size_t index) 
 bool NativePresenter::prepare_filter_parameters(const char *preset_path, bool enable_filter,
                                                 const char *parameter_state_path) noexcept {
 	try {
+		preset_error_.clear();
 		parameter_state_path_.clear();
 		if (parameter_state_path != nullptr) {
 			parameter_state_path_ = parameter_state_path;
@@ -127,6 +128,7 @@ bool NativePresenter::prepare_filter_parameters(const char *preset_path, bool en
 		}
 		std::string error;
 		if (!preset_.load(preset_path, &error)) {
+			preset_error_ = error;
 			if (!error.empty()) {
 				std::fprintf(stderr, "VAEG shader preset unavailable: %s\n", error.c_str());
 			}

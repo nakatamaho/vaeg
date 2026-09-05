@@ -87,6 +87,7 @@ class NativePresenter {
 	virtual ~NativePresenter() = default;
 	virtual PresenterState state() const noexcept = 0;
 	virtual PresenterError last_error() const noexcept = 0;
+	virtual const char *error_detail() const noexcept { return preset_error_.c_str(); }
 	virtual PresenterResult initialize(const NativePresenterCreateInfo &info) noexcept = 0;
 	virtual PresenterResult present(const VAEG_FRAME_INPUT &frame) noexcept = 0;
 	virtual PresenterResult set_filter_enabled(bool enabled) noexcept = 0;
@@ -113,6 +114,7 @@ class NativePresenter {
 	virtual bool apply_backend_filter_parameter(const char *name, float value) noexcept = 0;
 	ShaderPreset preset_;
 	std::string parameter_state_path_;
+	std::string preset_error_;
 };
 
 } // namespace vaeg::librashader

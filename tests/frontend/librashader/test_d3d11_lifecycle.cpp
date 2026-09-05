@@ -50,8 +50,11 @@ extern "C" VAEG_D3D11_BRIDGE_RESULT vaeg_d3d11_bridge_set_filter_enabled(
 extern "C" VAEG_D3D11_BRIDGE_RESULT vaeg_d3d11_bridge_set_filter_parameter(
     VAEG_D3D11_BRIDGE *, const char *, float) { return VAEG_D3D11_BRIDGE_OK; }
 extern "C" VAEG_D3D11_BRIDGE_RESULT vaeg_d3d11_bridge_present(
-    VAEG_D3D11_BRIDGE *, const VAEG_FRAME_INPUT *) {
-    ++draws; auto result = next_draw; next_draw = VAEG_D3D11_BRIDGE_OK; return result;
+    VAEG_D3D11_BRIDGE *b, const VAEG_FRAME_INPUT *) {
+    ++draws; auto result = next_draw; next_draw = VAEG_D3D11_BRIDGE_OK;
+    if (result == VAEG_D3D11_BRIDGE_FILTER_FAILURE)
+        std::snprintf(b->error, sizeof(b->error), "fixture filter compilation failed");
+    return result;
 }
 extern "C" int vaeg_d3d11_bridge_gui_prepare(VAEG_D3D11_BRIDGE *) {
     ++gui_attaches; return 1;
@@ -80,10 +83,13 @@ int main() {
           p->state() == PresenterState::PassThrough, "filter failure preserves native output");
     check(p->present(frame) == PresenterResult::Presented &&
           p->last_error() == PresenterError::FilterFailure, "fallback reason remains visible");
+    check(std::strcmp(p->error_detail(), "fixture filter compilation failed") == 0,
+          "bridge error survives successful pass-through presentation");
     check(p->resize(0, 0) == PresenterResult::Disabled, "minimize");
     next_draw = VAEG_D3D11_BRIDGE_DEVICE_LOST;
     check(p->present(frame) == PresenterResult::Fallback, "device loss");
     check(p->recover() == PresenterResult::Recovered && creates == 2, "device reconstruction");
+    check(p->error_detail()[0] == '\0', "successful recovery clears old diagnostic");
     check(std::strcmp(preset_seen, "fixture.slangp") == 0,
           "recovery does not alias and overwrite remembered preset");
     check(output[0] == 0 && output[1] == 44 && output[2] == 1280 && output[3] == 800,

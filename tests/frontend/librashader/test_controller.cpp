@@ -33,11 +33,13 @@ int initialize_count, recover_count, draw_count, gui_count, shutdown_count;
 bool fail_filter, fail_device, fail_recovery;
 int viewport_values[4];
 const void *observed_pixels;
+const char *diagnostic = "";
 class FakePresenter final : public NativePresenter {
     PresenterState state_ = PresenterState::Unavailable;
 public:
     PresenterState state() const noexcept override { return state_; }
     PresenterError last_error() const noexcept override { return PresenterError::None; }
+    const char *error_detail() const noexcept override { return diagnostic; }
     PresenterResult initialize(const NativePresenterCreateInfo &) noexcept override {
         ++initialize_count; state_ = PresenterState::Filtered; return PresenterResult::Recovered;
     }
@@ -88,6 +90,11 @@ int main() {
     frame.pixels = pixels;
     auto *p = vaeg_native_presenter_create(&window, 640, 422, "test", nullptr);
     check(p && initialize_count == 1, "initialization");
+    diagnostic = "Missing/unloadable D3DX9_43.dll";
+    check(std::strcmp(vaeg_native_presenter_error(p), diagnostic) == 0,
+          "runtime dependency detail reaches frontend");
+    diagnostic = "";
+    check(std::strcmp(vaeg_native_presenter_error(p), "none") == 0, "cleared diagnostic");
     check(vaeg_native_presenter_gui_prepare(p) == 1 && gui_count == 1, "GUI attach");
     vaeg_native_presenter_set_output_viewport(p, 0, 44, 1280, 800);
     check(viewport_values[1] == 44 && viewport_values[2] == 1280 &&

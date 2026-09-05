@@ -215,7 +215,8 @@ extern "C" const char *vaeg_native_presenter_error(
 	if ((presenter == nullptr) || (presenter->implementation == nullptr)) {
 		return "platform_unavailable";
 	}
-	return vaeg::librashader::presenter_error_name(presenter->implementation->last_error());
+	const char *detail = presenter->implementation->error_detail();
+	return detail[0] ? detail : vaeg::librashader::presenter_error_name(presenter->implementation->last_error());
 }
 
 extern "C" int vaeg_native_presenter_gui_prepare(VAEG_NATIVE_PRESENTER *presenter) {

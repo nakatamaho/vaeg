@@ -144,7 +144,10 @@ the native presenter's device. SDL2 still handles GUI input; ImGui draw data
 is composed after filtering and before DXGI Present. The common presenter
 contract only exposes GUI lifecycle calls and a pixel viewport. SDL and native
 Windows output use the same viewport calculator and logical menu inset.
-Toggle calls retain the D3D11 device and filter chain. Preset reload is queued
+Filter toggle calls retain the D3D11 device and filter chain. M99z7's explicit
+`CRT shader > SDL / librashader` renderer selector instead changes ownership
+between GUI frames, as requested by the maintainer; it is not a filter toggle.
+Preset reload is queued
 until the current GUI frame finishes, then tears down GUI GPU objects before
 replacing presentation resources. Device recovery recreates GUI resources on
 the next frame; a total native failure detaches the native GUI before creating

@@ -30,6 +30,7 @@
 
 typedef struct {
 	void *state;
+	char error[512];
 } VAEG_D3D11_BRIDGE;
 
 typedef enum {

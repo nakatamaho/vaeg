@@ -69,17 +69,21 @@ bool ShaderPreset::load(const char *path, std::string *error_message) {
 		return false;
 	}
 	try {
-		instance = librashader_load_instance();
+		char load_error[512];
+		instance = vaeg_librashader_load_instance(load_error, sizeof(load_error));
 		if (!instance.instance_loaded || (instance.preset_create == nullptr) ||
 		    (instance.preset_get_runtime_params == nullptr) ||
 		    (instance.preset_free_runtime_params == nullptr) || (instance.preset_free == nullptr)) {
-			set_error(error_message, "librashader runtime is unavailable");
+			set_error(error_message, load_error[0] ? load_error : "librashader runtime is unavailable");
 			return false;
 		}
 		error = instance.preset_create(path, &preset);
 		if ((error != nullptr) || (preset == nullptr)) {
+			char *detail = nullptr;
+			(void)instance.error_write(error, &detail);
+			set_error(error_message, detail ? detail : "shader preset creation failed");
+			if (detail) (void)instance.error_free_string(&detail);
 			release_error(instance, error);
-			set_error(error_message, "shader preset creation failed");
 			return false;
 		}
 		error = instance.preset_get_runtime_params(&preset, &list);

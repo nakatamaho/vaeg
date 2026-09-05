@@ -69,6 +69,8 @@ struct VAEG_D3D11_STATE {
 	bool filter_enabled;
 	bool filter_first_frame;
 	bool gui_ready;
+	ID3D11RasterizerState *pass_through_rasterizer;
+	char *error;
 	D3D11_VIEWPORT output_viewport;
 };
 
@@ -80,16 +82,7 @@ static void vaeg_d3d11_release(T **object) {
 	}
 }
 
-static const char vaeg_d3d11_shader_source[] =
-	"struct VSOut { float4 position : SV_Position; float2 texcoord : TEXCOORD0; };\n"
-	"VSOut vs_main(uint id : SV_VertexID) {\n"
-	"  float2 p[4] = { float2(-1,-1), float2(1,-1), float2(-1,1), float2(1,1) };\n"
-	"  float2 t[4] = { float2(0,1), float2(1,1), float2(0,0), float2(1,0) };\n"
-	"  VSOut o; o.position = float4(p[id], 0, 1); o.texcoord = t[id]; return o;\n"
-	"}\n"
-	"Texture2D source_texture : register(t0);\n"
-	"SamplerState source_sampler : register(s0);\n"
-	"float4 ps_main(VSOut input) : SV_Target { return source_texture.Sample(source_sampler, input.texcoord); }\n";
+#include "librashader/d3d11_pass_through.h"
 
 static void vaeg_d3d11_release_state(VAEG_D3D11_STATE *state) {
 	if (state == nullptr) {
@@ -108,6 +101,7 @@ static void vaeg_d3d11_release_state(VAEG_D3D11_STATE *state) {
 	vaeg_d3d11_release(&state->source_texture);
 	vaeg_d3d11_release(&state->sampler);
 	vaeg_d3d11_release(&state->pixel_shader);
+	vaeg_d3d11_release(&state->pass_through_rasterizer);
 	vaeg_d3d11_release(&state->vertex_shader);
 	vaeg_d3d11_release(&state->swap_chain);
 	if (state->context) state->context->Flush();
@@ -123,6 +117,10 @@ static void vaeg_d3d11_report_librashader_error(VAEG_D3D11_STATE *state,
 		return;
 	}
 	fprintf(stderr, "librashader D3D11 %s failed\n", operation);
+	char *detail = nullptr;
+	(void)state->librashader.error_write(error, &detail);
+	snprintf(state->error, 512, "%s: %s", operation, detail ? detail : "librashader error");
+	if (detail) (void)state->librashader.error_free_string(&detail);
 	if (state->librashader.error_print != nullptr) {
 		(void)state->librashader.error_print(error);
 	}
@@ -144,7 +142,7 @@ static int vaeg_d3d11_create_filter_chain(VAEG_D3D11_STATE *state, const char *p
 	if ((state == nullptr) || (preset_path == nullptr) || (preset_path[0] == '\0')) {
 		return 0;
 	}
-	state->librashader = librashader_load_instance();
+	state->librashader = vaeg_librashader_load_instance(state->error, 512);
 	if (!state->librashader.instance_loaded ||
 	    (state->librashader.d3d11_filter_chain_create == nullptr)) {
 		fprintf(stderr, "librashader D3D11 runtime unavailable\n");
@@ -183,6 +181,10 @@ static int vaeg_d3d11_create_output(VAEG_D3D11_STATE *state) {
 }
 
 static int vaeg_d3d11_create_shaders(VAEG_D3D11_STATE *state) {
+	const D3D11_RASTERIZER_DESC rasterizer = vaeg_d3d11_pass_through_rasterizer_desc();
+	if (FAILED(state->device->CreateRasterizerState(&rasterizer, &state->pass_through_rasterizer))) {
+		return 0;
+	}
 	ID3DBlob *vertex_blob = nullptr;
 	ID3DBlob *pixel_blob = nullptr;
 	ID3DBlob *errors = nullptr;
@@ -331,6 +333,7 @@ extern "C" int vaeg_d3d11_bridge_initialize(void *host_window, const char *prese
 		return 0;
 	}
 	state->hwnd = window_info.info.win.window;
+	state->error = bridge->error;
 	result = D3D11CreateDevice(nullptr, D3D_DRIVER_TYPE_HARDWARE, nullptr,
 	                           D3D11_CREATE_DEVICE_BGRA_SUPPORT, feature_levels,
 	                           ARRAYSIZE(feature_levels), D3D11_SDK_VERSION, &state->device,
@@ -541,7 +544,7 @@ extern "C" VAEG_D3D11_BRIDGE_RESULT vaeg_d3d11_bridge_present(
 	} else {
 		state->context->OMSetBlendState(nullptr, nullptr, 0xffffffff);
 		state->context->OMSetDepthStencilState(nullptr, 0);
-		state->context->RSSetState(nullptr);
+		state->context->RSSetState(state->pass_through_rasterizer);
 		state->context->IASetInputLayout(nullptr);
 		state->context->GSSetShader(nullptr, nullptr, 0);
 		state->context->VSSetShader(state->vertex_shader, nullptr, 0);

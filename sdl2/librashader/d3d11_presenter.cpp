@@ -44,6 +44,11 @@ class D3D11Presenter final : public NativePresenter {
 
 	PresenterState state() const noexcept override { return state_; }
 	PresenterError last_error() const noexcept override { return error_; }
+	const char *error_detail() const noexcept override {
+		if (error_ == PresenterError::None) return "";
+		const char *preset_error = NativePresenter::error_detail();
+		return preset_error[0] ? preset_error : bridge_.error;
+	}
 
 	PresenterResult initialize(const NativePresenterCreateInfo &info) noexcept override {
 		if ((info.host_window == nullptr) ||
@@ -54,6 +59,7 @@ class D3D11Presenter final : public NativePresenter {
 			return PresenterResult::Fallback;
 		}
 		shutdown();
+		bridge_.error[0] = '\0';
 		host_window_ = info.host_window;
 		drawable_width_ = info.drawable_width;
 		drawable_height_ = info.drawable_height;

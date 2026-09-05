@@ -28,9 +28,8 @@ emulated machine or the deterministic guest-frame capture path.
 
 ## Build and enable
 
-Windows menus follow the monitor DPI automatically. To override the size,
-choose Screen (画面) > UI size > 200% (or another percentage). If menus are
-too small to operate, set `GUI_ui_scale=200` in `vaeg.cfg` before startup;
+Windows menus follow the monitor DPI automatically; there is no UI-size menu.
+If necessary, set `GUI_ui_scale=200` in `vaeg.cfg` before startup;
 `GUI_ui_scale=0` restores automatic sizing. This scales the GUI, not the raw
 guest framebuffer, and works with both SDL and native CRT rendering.
 
@@ -41,9 +40,9 @@ cmake --preset linux-debug -DVAEG_ENABLE_LIBRASHADER=ON
 cmake --build build/linux-debug --target vaeg_sdl2
 ```
 
-On Windows, open `Screen > Native CRT (librashader) > Enable`. It takes
-effect immediately; disabling it selects native pass-through without replacing
-the device. The menu remains visible and is drawn after the CRT effect at the
+On Windows, choose `Screen > CRT shader > SDL` or `librashader`. This switches
+the renderer immediately, including a real return to SDL. Selecting librashader
+again retries initialization. The menu remains visible and is drawn after the CRT effect at the
 same logical font size as the SDL version. Preset reload and parameter sliders
 also apply to the active filter. On macOS/Linux, enablement still requires a
 restart and native GUI integration remains pending.
@@ -56,6 +55,25 @@ override; `VAEG_NATIVE_CRT=0` requests SDL at startup instead. The title and CRT
 menu show `Native CRT ON`, pass-through, or the fallback status. A missing
 runtime/preset or failed shader preserves the Windows native pass-through
 image; failure of the native device returns to SDL.
+
+### Windows DLL prerequisites
+
+The pinned official x64 `librashader.dll` imports `D3DX9_43.dll`, `MSVCP140.dll`,
+`VCRUNTIME140.dll`, and `VCRUNTIME140_1.dll`. These are not bundled in this ZIP
+and DLL presence alone does not prove its dependencies can load. If the menu
+reports a missing/unloadable dependency, install the appropriate official
+Microsoft runtime, then select librashader again:
+
+- [DirectX End-User Runtimes (June 2010)](https://www.microsoft.com/en-us/download/details.aspx?id=8109)
+  for `D3DX9_43.dll` (run the extracted `DXSETUP.exe`). Modern DirectX alone
+  does not supply these legacy helper libraries.
+- [Visual C++ Redistributable, x64](https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist)
+  for the `*140*.dll` imports.
+
+Do not download individual DLLs from unofficial DLL sites. VAEG does not
+automatically download or install these prerequisites. `native-crt.log` records
+the Windows loader error and unavailable dependency names; the menu also shows
+preset and filter-chain errors instead of only a generic unavailable label.
 
 The setting is stored as `NativeCRT` in `vaeg.cfg`. The default
 preset is:

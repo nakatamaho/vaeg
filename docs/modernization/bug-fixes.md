@@ -1750,6 +1750,25 @@ separate parity correction or move it to Open Defects.
 
 ## Open Defects
 
+### Windows librashader unavailable and black fallback after M99z6
+
+- **Status:** open for maintainer-machine confirmation; M99z7 candidate prepared.
+- **Symptom/scope:** the maintainer still reports `CRT unavailable` and black
+  guest output with the Windows native renderer, while SDL displays normally.
+- **Demonstrated findings:** the packaged official DLL imports the external
+  D3DX9 and MSVC runtimes; the previous package audit did not check dependency
+  availability on the target. Their absence on the maintainer's machine has
+  not yet been established. The pass-through strip is counterclockwise in
+  render-target coordinates, but default D3D11 state culls that winding.
+- **Correction candidate:** explicitly disable pass-through culling; preserve
+  loader, preset and filter errors in UI/logs; check required runtime symbols
+  and API/ABI; provide real SDL/librashader selection instead of an enable toggle.
+  Remove the unwanted UI-size menu while retaining automatic DPI scaling.
+- **Verification:** see [M99z7 report](../agents/reports/m99z7_windows_crt_fallback.md)
+  for local tests and the real-rasterizer WARP regression test. WARP is not
+  physical GPU or CRT filter-chain acceptance. No guest/core changes.
+- **Commit:** recorded in the report after committing the candidate.
+
 ### Legacy Z80 reset leaves saved undocumented flag bits uninitialized
 
 - **Status:** open; demonstrated during M34 contract capture, with no behavior
